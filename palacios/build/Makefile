@@ -1,6 +1,6 @@
 # Makefile for GeekOS kernel, userspace, and tools
 # Copyright (c) 2004,2005 David H. Hovemeyer <daveho@cs.umd.edu>
-# $Revision: 1.1 $
+# $Revision: 1.2 $
 
 # This is free software.  You are permitted to use,
 # redistribute, and modify it as specified in the file "COPYING".
@@ -138,7 +138,8 @@ COMMON_C_OBJS := $(COMMON_C_SRCS:%.c=common/%.o)
 #TARGET_CC_PREFIX := i386-elf-
 
 # Target C compiler.  gcc 2.95.2 or later should work.
-TARGET_CC := $(TARGET_CC_PREFIX)gcc
+#TARGET_CC := $(TARGET_CC_PREFIX)gcc
+TARGET_CC := $(TARGET_CC_PREFIX)gcc34 -m32
 
 # Host C compiler.  This is used to compile programs to execute on
 # the host platform, not the target (x86) platform.  On x86/ELF
@@ -147,7 +148,7 @@ TARGET_CC := $(TARGET_CC_PREFIX)gcc
 HOST_CC := gcc
 
 # Target linker.  GNU ld is probably to only one that will work.
-TARGET_LD := $(TARGET_CC_PREFIX)ld
+TARGET_LD := $(TARGET_CC_PREFIX)ld -melf_i386
 
 # Target archiver
 TARGET_AR := $(TARGET_CC_PREFIX)ar
@@ -162,9 +163,9 @@ TARGET_NM := $(TARGET_CC_PREFIX)nm
 TARGET_OBJCOPY := $(TARGET_CC_PREFIX)objcopy
 
 # Nasm (http://nasm.sourceforge.net)
-NASM := /usr/local/nasm-vmx/bin/nasm
+NASM := /opt/vmm-tools/bin/nasm
 
-AS = as
+AS = as --32
 
 # Tool to build PFAT filesystem images.
 BUILDFAT := tools/builtFat.exe

@@ -19,7 +19,7 @@
 #
 
 # External CFLAGS can do more harm than good.
-CFLAGS :=
+CFLAGS := -m32
 
 
 # The emulator code lives in ROM space
