@@ -1,7 +1,7 @@
 #! /usr/bin/perl
 
 # Scan a file for a 32-bit word with a particular value.
-# $Revision: 1.1 $
+# $Revision: 1.1.1.1 $
 
 use strict qw(refs vars);
 use FileHandle;

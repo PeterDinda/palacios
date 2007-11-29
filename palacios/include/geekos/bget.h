@@ -8,7 +8,7 @@
 
 // Adapted for geekos: http://www.cs.umd.edu/~daveho/geekos/
 // Original version of BGET downloaded from: http://www.fourmilab.ch/bget/
-// $Revision: 1.1 $
+// $Revision: 1.1.1.1 $
 
 // GeekOS changes are (mostly) confined to #if defined (GEEKOS)
 // sections.

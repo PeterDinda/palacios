@@ -3,7 +3,7 @@
 # From a binary image containing a user program, generate
 # C code initializing a User_Program struct.
 
-# $Revision: 1.1 $
+# $Revision: 1.1.1.1 $
 
 use strict qw(refs vars);
 use FileHandle;

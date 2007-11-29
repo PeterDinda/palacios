@@ -2,7 +2,7 @@
 
 # Build a binary image containing a pseudo fat filesystem with the listed files
 
-# $Revision: 1.1 $
+# $Revision: 1.1.1.1 $
 use FileHandle; 
 
 if ( scalar(@ARGV) < 2 ) {

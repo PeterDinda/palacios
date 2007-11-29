@@ -1,7 +1,7 @@
 #! /usr/bin/perl
 
 # Inspect a 32 word at a specified offset in a file.
-# $Revision: 1.1 $
+# $Revision: 1.1.1.1 $
 
 use strict qw(refs vars);
 use FileHandle;

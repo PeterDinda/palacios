@@ -3,7 +3,7 @@
 # Pad a file with zero bytes to make its length
 # an even multiple of some value.
 
-# $Revision: 1.1 $
+# $Revision: 1.1.1.1 $
 
 use strict qw(refs vars);
 use FileHandle;

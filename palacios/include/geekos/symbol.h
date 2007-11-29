@@ -1,7 +1,7 @@
 /*
  * Symbol mangling macros
  * Copyright (c) 2001, David H. Hovemeyer <daveho@cs.umd.edu>
- * $Revision: 1.1 $
+ * $Revision: 1.1.1.1 $
  * 
  * The _S macro mangles a symbol name into whatever format is
  * needed for external linkage.  E.g., prepend an underscore

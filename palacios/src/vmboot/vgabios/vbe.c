@@ -71,7 +71,7 @@ _vbebios_product_name:
 .byte        0x00
 
 _vbebios_product_revision:
-.ascii       "$Id: vbe.c,v 1.1 2007/11/29 20:26:38 pdinda Exp $"
+.ascii       "$Id: vbe.c,v 1.1.1.1 2007/11/29 20:26:38 pdinda Exp $"
 .byte        0x00
 
 _vbebios_info_string:
@@ -88,7 +88,7 @@ _no_vbebios_info_string:
 
 #if defined(USE_BX_INFO) || defined(DEBUG)
 msg_vbe_init:
-.ascii      "VBE Bios $Id: vbe.c,v 1.1 2007/11/29 20:26:38 pdinda Exp $"
+.ascii      "VBE Bios $Id: vbe.c,v 1.1.1.1 2007/11/29 20:26:38 pdinda Exp $"
 .byte	0x0a,0x0d, 0x00
 #endif
 
