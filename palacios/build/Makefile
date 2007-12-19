@@ -1,6 +1,6 @@
 # Makefile for GeekOS kernel, userspace, and tools
 # Copyright (c) 2004,2005 David H. Hovemeyer <daveho@cs.umd.edu>
-# $Revision: 1.2 $
+# $Revision: 1.3 $
 
 # This is free software.  You are permitted to use,
 # redistribute, and modify it as specified in the file "COPYING".
@@ -260,8 +260,8 @@ fd.img : geekos/fd_boot.bin geekos/setup.bin geekos/kernel.bin rombios vgabios v
 
 # make ready to boot over PXE
 pxe:	fd.img
-	cp fd.img /tftpboot/geekos.img
-	$(PAD) /tftpboot/geekos.img 1474560
+	cp fd.img /tftpboot/vmm.img
+	$(PAD) /tftpboot/vmm.img 1474560
 
 
 pxe-discovery-pdinda:	fd.img
