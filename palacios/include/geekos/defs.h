@@ -1,7 +1,7 @@
 /*
  * Misc. kernel definitions
  * Copyright (c) 2001,2004 David H. Hovemeyer <daveho@cs.umd.edu>
- * $Revision: 1.1 $
+ * $Revision: 1.2 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -91,6 +91,8 @@ TOP_OF_MEM:
 #define VM_SIZE    (0x20000000)
 // Where the VM starts in physical memory
 #define START_OF_VM (0x0)
+// Where we load the vm's kernel image (1MB)
+#define VM_KERNEL_TARGET (0x100000) 
 
 
 
@@ -114,16 +116,10 @@ TOP_OF_MEM:
 
 #define FINAL_KERNEL_START    (IDT_LOCATION-MAX_VMM)
 #define FINAL_KERNEL_END      (FINAL_KERNEL_START+KERNEL_CORE_LENGTH-1)
-#define FINAL_BIOS_START      (FINAL_KERNEL_START+KERNEL_CORE_LENGTH)
-#define FINAL_BIOS_END        (FINAL_BIOS_START+BIOS_LENGTH-1)
-#define FINAL_VGA_BIOS_START  (FINAL_BIOS_START+BIOS_LENGTH)
-#define FINAL_VGA_BIOS_END    (FINAL_VGA_BIOS_START+VGA_BIOS_LENGTH-1)
-#define FINAL_VMXASSIST_START (FINAL_VGA_BIOS_START+VGA_BIOS_LENGTH)
-#define FINAL_VMXASSIST_END   (FINAL_VMXASSIST_START+VMXASSIST_LENGTH-1)
-#define FINAL_BIOS2_START     (FINAL_VMXASSIST_START+VMXASSIST_LENGTH)
-#define FINAL_BIOS2_END       (FINAL_BIOS2_START+BIOS_LENGTH-1)
-#define FINAL_VMBOOTSTART     (FINAL_BIOS_START)
-#define FINAL_VMBOOTEND       (FINAL_BIOS2_END)
+#define FINAL_VM_KERNEL_START      (FINAL_KERNEL_START+KERNEL_CORE_LENGTH)
+#define FINAL_VM_KERNEL_END        (FINAL_VM_KERNEL_START+VM_KERNEL_LENGTH-1)
+#define FINAL_VMBOOTSTART     (FINAL_VM_KERNEL_START)
+#define FINAL_VMBOOTEND       (VM_BOOT_PACKAGE_END)
 
 #if (FINAL_VMBOOTEND>IDT_LOCATION)
 #error VMM_MAX is too small!

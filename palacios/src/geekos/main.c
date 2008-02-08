@@ -3,7 +3,7 @@
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
  * Copyright (c) 2004, Iulian Neamtiu <neamtiu@cs.umd.edu>
- * $Revision: 1.2 $
+ * $Revision: 1.3 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -307,15 +307,12 @@ void Main(struct Boot_Info* bootInfo)
 
   
 #if 1
-  SerialPrint("Dumping VMXASSIST Code (first 512 bytes @ 0x%x)\n",VMXASSIST_START);
-  SerialMemDump((unsigned char *)VMXASSIST_START, 512);
-  SerialPrint("Dumping ROMBIOS Code (first 512 bytes @ 0x%x)\n",BIOS_START);
-  SerialMemDump((unsigned char *)BIOS_START, 512);
-  SerialPrint("Dumping ROMBIOS Code (Second copy) (first 512 bytes @ 0x%x)\n",BIOS2_START);
-  SerialMemDump((unsigned char *)BIOS2_START, 512);
-  SerialPrint("Dumping VGABIOS Code (first 512 bytes @ 0x%x)\n",VGA_BIOS_START);
-  SerialMemDump((unsigned char *)VGA_BIOS_START, 512);
-  
+  SerialPrint("Dumping VM kernel Code (first 512 bytes @ 0x%x)\n",VM_KERNEL_START);
+  SerialMemDump((unsigned char *)VM_KERNEL_START, 512);
+  /*
+    SerialPrint("Dumping kernel Code (first 512 bytes @ 0x%x)\n",KERNEL_START);
+    SerialMemDump((unsigned char *)VM_KERNEL_START, 512);
+  */
 #endif
   
 
@@ -395,25 +392,21 @@ void Main(struct Boot_Info* bootInfo)
   template_pte.globalPage=0;
   template_pte.kernelInfo=0;
   
-  SerialPrintLevel(1000,"Allocating Pages for VMXASSIST, BIOS, and VGA BIOS\n");
+  SerialPrintLevel(1000,"Allocating Pages for VM kernel\n");
   
 #define SEGLEN (1024*64)
 
-  AllocateAndMapPagesForRange(START_OF_VM+0xd0000, SEGLEN, template_pte);
-  AllocateAndMapPagesForRange(START_OF_VM+0xf0000, SEGLEN, template_pte);
-  AllocateAndMapPagesForRange(START_OF_VM+0xc0000, SEGLEN, template_pte);
+  AllocateAndMapPagesForRange(START_OF_VM+0x100000, VM_KERNEL_LENGTH / 512, template_pte);
 
   // Now we should be copying into actual memory
 
-  SerialPrintLevel(1000,"Copying VMXASSIST code from %x to %x (%d bytes)\n", VMXASSIST_START, START_OF_VM+0xd0000,VMXASSIST_LENGTH);
-  memcpy((char*)(START_OF_VM+0xd0000),(char*)VMXASSIST_START,VMXASSIST_LENGTH);
-  SerialPrintLevel(1000,"Copying BIOS (2nd copy) code from %x to %x (%d bytes)\n", BIOS2_START, START_OF_VM+0xf0000,BIOS_LENGTH);
-  memcpy((char*)(START_OF_VM+0xf0000),(char*)BIOS2_START,BIOS_LENGTH);
-  SerialPrintLevel(1000,"Copying VGA BIOS code from %x to %x (%d bytes)\n", VGA_BIOS_START, START_OF_VM+0xc0000,VGA_BIOS_LENGTH);
-  memcpy((char *)(START_OF_VM+0xc0000),(char*)VGA_BIOS_START,VGA_BIOS_LENGTH);
+  SerialPrintLevel(1000,"Copying VM code from %x to %x (%d bytes)\n", VM_KERNEL_START, START_OF_VM+0x100000,VM_KERNEL_LENGTH);
+  memcpy((char*)(START_OF_VM+0x100000),(char*)VM_KERNEL_START,VM_KERNEL_LENGTH);
+
+  //SerialPrintLevel(1000, "VM copied\n");
 
   // jump into vmxassist
-  vm.entry_ip=(uint_t)0xd0000;
+  vm.entry_ip=(uint_t)0x100000;
   vm.exit_eip=0;
   // Put the stack at 512K
   vm.guest_esp=(uint_t)START_OF_VM+1024*512;
@@ -435,5 +428,3 @@ void Main(struct Boot_Info* bootInfo)
   /* Now this thread is done. */
   Exit(0);
 }
-
-

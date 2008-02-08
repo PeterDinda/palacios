@@ -1,7 +1,7 @@
 ; Boot sector for GeekOS
 ; Copyright (c) 2001,2004 David H. Hovemeyer <daveho@cs.umd.edu>
 ; Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
-; $Revision: 1.1 $
+; $Revision: 1.2 $
 
 ; This is free software.  You are permitted to use,
 ; redistribute, and modify it as specified in the file "COPYING".
@@ -286,7 +286,7 @@ kernelStart:
 
 ;; part of pfat boot record
 kernelSize:
-	dw	NUM_KERN_SECTORS+2*NUM_BIOS_SECTORS+NUM_VGA_BIOS_SECTORS+NUM_VMXASSIST_SECTORS
+	dw	NUM_KERN_SECTORS+NUM_VM_KERNEL_SECTORS
 
 
 ; Finish by writing the BIOS signature to mark this as

@@ -2,7 +2,7 @@
  * Physical memory allocation
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
- * $Revision: 1.1 $
+ * $Revision: 1.2 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -63,7 +63,7 @@ static void Add_Page_Range(ulong_t start, ulong_t end, int flags)
 {
     ulong_t addr;
 
-    //Print("Start: %u, End: %u\n", (unsigned int)start, (unsigned int)end);
+    PrintBoth("Start: %u, End: %u\n", (unsigned int)start, (unsigned int)end);
 
     KASSERT(Is_Page_Multiple(start));
     KASSERT(Is_Page_Multiple(end));
@@ -115,6 +115,7 @@ void Init_Mem(struct Boot_Info* bootInfo)
     ulong_t pageListAddr;
     ulong_t pageListEnd;
     ulong_t kernEnd;
+
 
     KASSERT(bootInfo->memSizeKB > 0);
 
@@ -187,9 +188,10 @@ void Init_Mem(struct Boot_Info* bootInfo)
     PrintBoth("Pagelist addr: %p\n", g_pageList);
     PrintBoth("index: %p\n", &g_pageList[3]);
     PrintBoth("direct offset: %p\n", g_pageList + (sizeof(struct Page) * 2));
-    PrintBoth("Kernel Size=%lx\n", (kernEnd - KERNEL_START_ADDR));
-    PrintBoth("Kernel Start=%x\n", KERNEL_START_ADDR);
+    //  PrintBoth("Kernel Size=%lx\n", (kernEnd - KERNEL_START_ADDR));
+    // PrintBoth("Kernel Start=%x\n", KERNEL_START_ADDR);
     PrintBoth("Kernel End=%lx\n", kernEnd);
+    //PrintBoth("end=%x\n", end);
     PrintBoth("VM Boot Package Start=%x\n", VM_BOOT_PACKAGE_START);
     PrintBoth("VM Boot Package End=%x\n", VM_BOOT_PACKAGE_END);
 
@@ -217,7 +219,9 @@ void Init_Mem(struct Boot_Info* bootInfo)
 
     // The VM region... 0 .. VM size is out of bounds
     KASSERT(START_OF_VM==0);
+
     Add_Page_Range(START_OF_VM, START_OF_VM+VM_SIZE, PAGE_VM);
+    //PrintBoth("hello1\n");
     // The kernel is still in low memory at this point, in the VM region
     // Thus we will mark it as kernel use
     // Add_Page_Range(KERNEL_START_ADDR, kernEnd, PAGE_KERN);
@@ -268,13 +272,11 @@ void Init_Mem(struct Boot_Info* bootInfo)
     PrintBoth("%lx to %lx - PAGE LIST\n",pageListAddr,pageListEnd-1);
     PrintBoth("%lx to %x - FREE\n",pageListEnd,FINAL_KERNEL_START-1);
     PrintBoth("%x to %x - KERNEL CODE\n",FINAL_KERNEL_START,FINAL_KERNEL_END);
-    PrintBoth("%x to %x - BIOS\n",FINAL_BIOS_START,FINAL_BIOS_END);
-    PrintBoth("%x to %x - VGABIOS\n",FINAL_VGA_BIOS_START,FINAL_VGA_BIOS_END);
-    PrintBoth("%x to %x - VMXASSIST\n",FINAL_VMXASSIST_START,FINAL_VMXASSIST_END);
-    PrintBoth("%x to %x - BIOS (2nd copy)\n",FINAL_BIOS2_START,FINAL_BIOS2_END);
+    PrintBoth("%x to %x - VM_KERNEL\n", FINAL_VM_KERNEL_START, FINAL_VM_KERNEL_END);
     PrintBoth("%x to %x - IDT\n",IDT_LOCATION,TSS_LOCATION-1);
     PrintBoth("%x to %x - TSS\n",TSS_LOCATION,GDT_LOCATION-1);
     PrintBoth("%x to %x - GDT\n",GDT_LOCATION,TOP_OF_MEM-1);
+
 
 }
 

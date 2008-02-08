@@ -1,6 +1,6 @@
 ; Definitions for use in GeekOS boot code
 ; Copyright (c) 2001, David H. Hovemeyer <daveho@cs.umd.edu>
-; $Revision: 1.1 $
+; $Revision: 1.2 $
 
 ; This is free software.  You are permitted to use,
 ; redistribute, and modify it as specified in the file "COPYING".
@@ -19,6 +19,7 @@
 TOP_OF_MEM   equ 0x40000000
 VM_SIZE      equ 0x20000000
 START_OF_VM  equ 0x0
+VM_KERNEL_TARGET	equ 0x100000
 	
 ; BIOS loads the boot sector at offset 0 in this segment
 BOOTSEG equ 0x07C0
