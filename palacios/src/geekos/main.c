@@ -3,7 +3,7 @@
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
  * Copyright (c) 2004, Iulian Neamtiu <neamtiu@cs.umd.edu>
- * $Revision: 1.1 $
+ * $Revision: 1.2 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -25,6 +25,8 @@
 #include <geekos/reboot.h>
 #include <geekos/mem.h>
 #include <geekos/paging.h>
+#include <geekos/ide.h>
+
 #include <geekos/vmx.h>
 #include <geekos/vmcs.h>
 
@@ -295,9 +297,12 @@ void Main(struct Boot_Info* bootInfo)
   Init_Keyboard();
   Init_VM(bootInfo);
   Init_Paging();
-  
 
+  Init_IDE();
 
+  Print("Done; stalling\n");
+
+  while(1);
 
 
   
