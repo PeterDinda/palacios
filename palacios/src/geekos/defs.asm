@@ -1,6 +1,6 @@
 ; Definitions for use in GeekOS boot code
 ; Copyright (c) 2001, David H. Hovemeyer <daveho@cs.umd.edu>
-; $Revision: 1.3 $
+; $Revision: 1.4 $
 
 ; This is free software.  You are permitted to use,
 ; redistribute, and modify it as specified in the file "COPYING".
@@ -23,7 +23,7 @@ VM_KERNEL_TARGET	equ 0x100000
 	
 ; BIOS loads the boot sector at offset 0 in this segment
 BOOTSEG equ 0x07C0
-
+ 
 ; We'll move the boot sector up to higher memory.
 ; Note that the "ISA hole" begins at segment 0xA000 == 640K.
 INITSEG equ 0x9000
@@ -40,7 +40,7 @@ KERNSEG equ 0x1000
 ;; Note that this segment must not colide with where the VMM kernel
 ;; is initially loaded.  At this point, we just place it in the last
 ;; 64K of RAM available before the ISA hole and hope for the best
-VMSEG equ 0x9000		;
+VMSEG equ 0x8000		;
 
 ; Size of PFAT boot record.
 ; Keep up to date with <geekos/pfat.h>.

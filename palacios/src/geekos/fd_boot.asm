@@ -1,7 +1,7 @@
 ; Boot sector for GeekOS
 ; Copyright (c) 2001,2004 David H. Hovemeyer <daveho@cs.umd.edu>
 ; Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
-; $Revision: 1.3 $
+; $Revision: 1.4 $
 
 ; This is free software.  You are permitted to use,
 ; redistribute, and modify it as specified in the file "COPYING".
@@ -162,9 +162,9 @@ load_vm:
 	mov	ax, VMSEG		;  ...to get base relative to VMSEG
 	push	ax			; 2nd param to ReadSector (seg base)
 	
-	mov     dx, ax
-	call    PrintHex
-	call    PrintNL
+;	mov     dx, ax		; 
+;	call    PrintHex
+;	call    PrintNL
 
 	mov	ax, 2000h		; Always write at the start of the segment
 	push    ax              ; 3rd parameter
@@ -177,7 +177,14 @@ load_vm:
 	call	ReadSector
 	add	sp, 6			; clear 3 word params
 
+	push    9000h
+	pop     es
 
+	mov	dx, word [es:2000] ;
+	call    PrintHex
+	call    PrintNL
+	
+	
 
 ; execute bios call
 
@@ -191,6 +198,7 @@ load_vm:
 	mov     si, bootsect_gdt
 	mov     ax, 0x8700	;
 	int     0x15
+	adc     ax, 0
 
 	mov     dx, ax
 	call    PrintHex
@@ -222,8 +230,11 @@ load_vm:
 
 	mov	bx, word [max_sector]
 	cmp	word [sec_count], bx
+
+	jmp	.out 
 	jl	.again2
 
+.out:	
 	; Now we've loaded the setup code and the kernel image.
 	; Jump to setup code.
 	jmp	SETUPSEG:0
