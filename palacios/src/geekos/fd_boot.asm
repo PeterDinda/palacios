@@ -1,7 +1,7 @@
 ; Boot sector for GeekOS
 ; Copyright (c) 2001,2004 David H. Hovemeyer <daveho@cs.umd.edu>
 ; Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
-; $Revision: 1.2 $
+; $Revision: 1.3 $
 
 ; This is free software.  You are permitted to use,
 ; redistribute, and modify it as specified in the file "COPYING".
@@ -51,6 +51,7 @@ BeginText:	; needed to calculate padding bytes to fill the sector
 after_move:
 	; Now we're executing in INITSEG
 
+
 	; We want the data segment to refer to INITSEG
 	; (since we've defined variables in the same place as the code)
 	mov	ds, ax			; ax still contains INITSEG
@@ -60,6 +61,7 @@ after_move:
 	mov	ax, 0
 	mov	ss, ax
 	mov	sp, (BOOTSEG << 4) + 512 - 2
+
 
 load_setup:
 	; Load the setup code.
@@ -95,26 +97,38 @@ load_kernel:
 	; equivalent to dividing by 128).
 
 	; Figure out start sector and max sector
+
 	mov	ax, word [kernelStart]
 	mov	word [sec_count], ax
 	add	ax, word [kernelSize]
 	mov	word [max_sector], ax
 .again:
 	mov	ax, [sec_count]		; logical sector on the floppy
+;	mov     dx, ax
+;	call    PrintHex
+;	call    PrintNL
 	push	ax			; 1st param to ReadSector (log sec num)
 	sub	ax, [kernelStart]	; convert to 0-indexed
 	mov	cx, ax			; save in cx
 	shr	ax, 7			; divide by 128
 	shl	ax, 12			;  ...and multiply by 0x1000
 	add	ax, KERNSEG		;  ...to get base relative to KERNSEG
+;	mov     dx, ax
+;	call    PrintHex
+;	call    PrintNL
 	push	ax			; 2nd param to ReadSector (seg base)
 	and	cx, 0x7f		; mod sector by 128
 	shl	cx, 9			;  ...and multiply by 512
 	push	cx			; to get offset in segment (3rd parm)
+;	mov     dx, cx
+;	call    PrintHex
+;	call    PrintNL
+
 
 	; read the sector from the floppy
 	call	ReadSector
 	add	sp, 6			; clear 3 word params
+
 
 	; on to next sector
 	inc	word [sec_count]
@@ -123,6 +137,92 @@ load_kernel:
 	mov	bx, word [max_sector]
 	cmp	word [sec_count], bx
 	jl	.again
+
+load_vm:
+	; Load the guest image starting at 1MB
+	; floppy into memory at KERNSEG.  Note that there are 128 sectors
+	; per 64K segment.  So, when figuring out which segment to
+	; load the sector  into, we shift right by 7 bits (which is
+	; equivalent to dividing by 128).
+
+	; Figure out start sector and max sector
+	mov	ax, word [vmStart]
+	mov	word [sec_count], ax
+	add	ax, word [vmSize]
+	mov	word [max_sector], ax
+.again2:
+
+	mov	ax, [sec_count]		; logical sector on the floppy
+	push	ax			; 1st param to ReadSector (log sec num)
+
+	mov     dx, ax
+	call    PrintHex
+	call    PrintNL
+
+	mov	ax, VMSEG		;  ...to get base relative to VMSEG
+	push	ax			; 2nd param to ReadSector (seg base)
+	
+	mov     dx, ax
+	call    PrintHex
+	call    PrintNL
+
+	mov	ax, 2000h		; Always write at the start of the segment
+	push    ax              ; 3rd parameter
+
+	mov     dx, ax
+	call    PrintHex
+	call    PrintNL
+
+	; read the sector from the floppy
+	call	ReadSector
+	add	sp, 6			; clear 3 word params
+
+
+
+; execute bios call
+
+	push    cx
+	push    si
+	push    bx
+	push    es		; 
+
+	push    cs
+	pop     es
+	mov     si, bootsect_gdt
+	mov     ax, 0x8700	;
+	int     0x15
+
+	mov     dx, ax
+	call    PrintHex
+	call    PrintNL
+
+	pop     es		;
+	pop     bx
+	pop     si
+	pop     cx
+	
+	; on to next sector
+	inc	word [sec_count]
+
+
+	; update the low->high copy table for the bios
+;	mov     ax, word [bootsect_src_base] ;
+;	add	ax, 512
+;	mov	dx,ax;
+;	call    PrintHex
+;	adc	byte [bootsect_src_base+2], 0
+;	mov     word [bootsect_src_base],ax
+
+	mov     ax, word [bootsect_dst_base] ;
+	add	ax, 512
+	adc	byte [bootsect_dst_base+2], 0
+	mov     word [bootsect_dst_base],ax
+	
+	; have we loaded all of the sectors?
+
+	mov	bx, word [max_sector]
+	cmp	word [sec_count], bx
+	jl	.again2
 
 	; Now we've loaded the setup code and the kernel image.
 	; Jump to setup code.
@@ -206,6 +306,7 @@ ReadSector:
 	mov	bx, [bp+4]		; offset goes in bx
 					;   (es:bx points to buffer)
 
+
 	; Call the BIOS Read Diskette Sectors service
 	int	0x13
 
@@ -230,8 +331,36 @@ ReadSector:
 	pop	bp			; leave stack frame
 	ret
 
-; Include utility routines
-%include "util.asm"
+; Include utility routines:
+;%include "util.asm"
+; REPLACED WITH FOLLOWING WHICH MUST BE COMPILED 16 FOR USE IN THIS CODE
+PrintHex:
+	pusha
+	mov   cx, 4      	; 4 hex digits
+.PrintDigit:
+	rol   dx, 4      	; rotate so that lowest 4 bits are used
+   	mov   ax, 0E0Fh		; ah = request, al = mask for nybble
+   	and   al, dl
+   	add   al, 90h		; convert al to ascii hex (four instructions)
+   	daa			; I've spent 1 hour to understand how it works..
+   	adc   al, 40h
+   	daa
+   	int   10h
+   	loop  .PrintDigit
+	popa
+   	ret
+
+; Print a newline.
+PrintNL:			; print CR and NL
+	push	ax
+	mov	ax, 0E0Dh	; CR
+       	int	10h
+       	mov	al, 0Ah		; LF
+       	int	10h
+	pop	ax
+       	ret
+
+
 
 ; ----------------------------------------------------------------------
 ; Variables
@@ -247,8 +376,30 @@ num_retries: db 0
 sec_count: dw 0
 max_sector: dw 0
 
+
+
+
+bootsect_gdt:
+	dw	0,0,0,0
+	dw	0,0,0,0
+bootsect_src:
+	dw	0x200-1                
+bootsect_src_base:
+	db	0,02,9		;	! base = 0x092000 
+	db	0x93		;	! typbyte
+	dw	0		;	! limit16,base24 =0
+bootsect_dst:
+	dw	0x200-1
+bootsect_dst_base:
+	db	0,0,0x10	;	! base = 0x100000
+	db	0x93		;	! typbyte
+	dw	0		;	! limit16,base24 =0
+	dw	0,0,0,0		;	! BIOS CS
+	dw	0,0,0,0		;	! BIOS DS
+
+
 ; Padding to make the PFAT Boot Record sit just before the BIOS signature.
-Pad_From_Symbol PFAT_BOOT_RECORD_OFFSET, BeginText
+;Pad_From_Symbol PFAT_BOOT_RECORD_OFFSET, BeginText
 
 ; PFAT boot record
 ; Describes how to load the setup program and kernel.
@@ -286,10 +437,18 @@ kernelStart:
 
 ;; part of pfat boot record
 kernelSize:
-	dw	NUM_KERN_SECTORS+NUM_VM_KERNEL_SECTORS
+	dw	NUM_KERN_SECTORS
+
+	;; part of pfat boot record
+vmStart:
+	dw	1+NUM_SETUP_SECTORS+NUM_KERN_SECTORS
+	;; part of pfat boot record
+
+vmSize:
+	dw	NUM_VM_KERNEL_SECTORS
 
 
-; Finish by writing the BIOS signature to mark this as
+	; Finish by writing the BIOS signature to mark this as
 ; a valid boot sector.
 Pad_From_Symbol BIOS_SIGNATURE_OFFSET, BeginText
 Signature   dw 0xAA55   ; BIOS controls this to ensure this is a boot sector

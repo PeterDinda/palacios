@@ -3,7 +3,7 @@
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
  * Copyright (c) 2004, Iulian Neamtiu <neamtiu@cs.umd.edu>
- * $Revision: 1.3 $
+ * $Revision: 1.4 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -283,9 +283,13 @@ void Main(struct Boot_Info* bootInfo)
   ulong_t doIBuzz = 0;
 
 
+   while(1);
+  
 
   Init_BSS();
   Init_Screen();
+
+
   InitSerial();
   Init_Mem(bootInfo);
   Init_CRC32();
@@ -298,15 +302,15 @@ void Main(struct Boot_Info* bootInfo)
   Init_VM(bootInfo);
   Init_Paging();
 
-  Init_IDE();
+  //  Init_IDE();
 
   Print("Done; stalling\n");
 
-  while(1);
+  //  while(1);
 
 
   
-#if 1
+#if 0
   SerialPrint("Dumping VM kernel Code (first 512 bytes @ 0x%x)\n",VM_KERNEL_START);
   SerialMemDump((unsigned char *)VM_KERNEL_START, 512);
   /*
@@ -314,6 +318,13 @@ void Main(struct Boot_Info* bootInfo)
     SerialMemDump((unsigned char *)VM_KERNEL_START, 512);
   */
 #endif
+
+#if 1
+  SerialPrint("Dumping GUEST KERNEL CODE (first 512 bytes @ 0x100000)\n");
+  SerialMemDump((unsigned char *)0x100000, 512);
+#endif
+
+  while(1);
   
 
 
