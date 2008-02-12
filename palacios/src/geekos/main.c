@@ -3,7 +3,7 @@
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
  * Copyright (c) 2004, Iulian Neamtiu <neamtiu@cs.umd.edu>
- * $Revision: 1.6 $
+ * $Revision: 1.7 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -324,8 +324,7 @@ void Main(struct Boot_Info* bootInfo)
   SerialMemDump((unsigned char *)0x100000, 512*2);
 #endif
 
-  while(1);
-  
+
 
 
   SerialPrint("\n\nHello, Welcome to this horrid output-only serial interface\n");
@@ -411,8 +410,8 @@ void Main(struct Boot_Info* bootInfo)
 
   // Now we should be copying into actual memory
 
-  SerialPrintLevel(1000,"Copying VM code from %x to %x (%d bytes)\n", VM_KERNEL_START, START_OF_VM+0x100000,VM_KERNEL_LENGTH);
-  memcpy((char*)(START_OF_VM+0x100000),(char*)VM_KERNEL_START,VM_KERNEL_LENGTH);
+  //SerialPrintLevel(1000,"Copying VM code from %x to %x (%d bytes)\n", VM_KERNEL_START, START_OF_VM+0x100000,VM_KERNEL_LENGTH);
+  //memcpy((char*)(START_OF_VM+0x100000),(char*)VM_KERNEL_START,VM_KERNEL_LENGTH);
 
   //SerialPrintLevel(1000, "VM copied\n");
 
@@ -422,7 +421,6 @@ void Main(struct Boot_Info* bootInfo)
   // Put the stack at 512K
   vm.guest_esp=(uint_t)START_OF_VM+1024*512;
 
-  SerialPrintLevel(1000,"VM-Launching to vmxassist for boot\n");
 
   vm_thread = Start_Kernel_Thread(VM_Thread, (ulong_t)&vm,PRIORITY_NORMAL,false);
 
