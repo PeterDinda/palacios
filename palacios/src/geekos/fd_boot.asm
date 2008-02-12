@@ -1,7 +1,7 @@
 ; Boot sector for GeekOS
 ; Copyright (c) 2001,2004 David H. Hovemeyer <daveho@cs.umd.edu>
 ; Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
-; $Revision: 1.4 $
+; $Revision: 1.5 $
 
 ; This is free software.  You are permitted to use,
 ; redistribute, and modify it as specified in the file "COPYING".
@@ -155,9 +155,9 @@ load_vm:
 	mov	ax, [sec_count]		; logical sector on the floppy
 	push	ax			; 1st param to ReadSector (log sec num)
 
-	mov     dx, ax
-	call    PrintHex
-	call    PrintNL
+;	mov     dx, ax
+;	call    PrintHex
+;	call    PrintNL
 
 	mov	ax, VMSEG		;  ...to get base relative to VMSEG
 	push	ax			; 2nd param to ReadSector (seg base)
@@ -169,20 +169,20 @@ load_vm:
 	mov	ax, 2000h		; Always write at the start of the segment
 	push    ax              ; 3rd parameter
 
-	mov     dx, ax
-	call    PrintHex
-	call    PrintNL
+;	mov     dx, ax
+;	call    PrintHex
+;	call    PrintNL
 
 	; read the sector from the floppy
 	call	ReadSector
 	add	sp, 6			; clear 3 word params
 
-	push    9000h
+	push    VMSEG
 	pop     es
 
-	mov	dx, word [es:2000] ;
-	call    PrintHex
-	call    PrintNL
+;	mov	dx, word [es:2000h] ;
+;	call    PrintHex
+;	call    PrintNL
 	
 	
 
@@ -196,13 +196,19 @@ load_vm:
 	push    cs
 	pop     es
 	mov     si, bootsect_gdt
-	mov     ax, 0x8700	;
+	mov     ah, 87h
+
+	mov	cx, 100h
+
 	int     0x15
+	
 	adc     ax, 0
 
-	mov     dx, ax
-	call    PrintHex
-	call    PrintNL
+;	mov     dx, ax	
+;	call    PrintHex
+;	call    PrintNL
+
+
 
 	pop     es		;
 	pop     bx
@@ -231,10 +237,12 @@ load_vm:
 	mov	bx, word [max_sector]
 	cmp	word [sec_count], bx
 
-	jmp	.out 
+
+.stall
+;	jmp	.skip
 	jl	.again2
 
-.out:	
+.skip
 	; Now we've loaded the setup code and the kernel image.
 	; Jump to setup code.
 	jmp	SETUPSEG:0
@@ -316,11 +324,9 @@ ReadSector:
 	xor	dl, dl			; hard code drive=0
 	mov	bx, [bp+4]		; offset goes in bx
 					;   (es:bx points to buffer)
-
-
 	; Call the BIOS Read Diskette Sectors service
 	int	0x13
-
+	
 	; If the carry flag is NOT set, then there was no error
 	; and we're done.
 	jnc	.done
@@ -394,13 +400,13 @@ bootsect_gdt:
 	dw	0,0,0,0
 	dw	0,0,0,0
 bootsect_src:
-	dw	0x200-1                
+	dw	0xffff                
 bootsect_src_base:
-	db	0,02,9		;	! base = 0x092000 
+	db	0,0x20,0x08		;	! base = 0x082000 
 	db	0x93		;	! typbyte
 	dw	0		;	! limit16,base24 =0
 bootsect_dst:
-	dw	0x200-1
+	dw	0xffff
 bootsect_dst_base:
 	db	0,0,0x10	;	! base = 0x100000
 	db	0x93		;	! typbyte
