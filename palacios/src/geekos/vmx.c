@@ -540,6 +540,8 @@ int Do_VMM(struct VMXRegs regs)
   vmcs_ptr_low +=  vmcs_ptr;
 
 
+
+
   SerialPrintLevel(100,"ret=%d\n", ret);
   SerialPrintLevel(100,"Revision: %x\n", *(uint_t *)(vmcs_ptr_low));
   vmx_abort = *(uint_t*)(((char *)vmcs_ptr_low)+4);
@@ -557,6 +559,9 @@ int Do_VMM(struct VMXRegs regs)
     SerialPrintLevel(1000,"Could not copy out VMCS\n");
     return -1;
   }
+
+
+  SerialPrint("Guest esp: 0x%x (%u)\n", vm->vmcs.guestStateArea.rsp, vm->vmcs.guestStateArea.rsp);
 
   SerialPrintLevel(100,"VM Exit for reason: %d (%x)\n", 
 	      vm->vmcs.exitInfoFields.reason & 0x00000fff,
@@ -758,6 +763,8 @@ int MyLaunch(struct VM *vm)
   int ret;
   int vmm_ret = 0;
 
+  SerialPrint("Guest ESP: 0x%x (%u)\n", guest_esp, guest_esp);
+
   exit_eip=(uint_t)RunVMM;
 
   SerialPrintLevel(100,"Clear\n");
@@ -890,5 +897,3 @@ VMCS * CreateVMCS() {
 
   return vmcs;
 }
-
-

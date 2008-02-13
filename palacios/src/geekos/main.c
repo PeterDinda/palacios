@@ -3,7 +3,7 @@
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
  * Copyright (c) 2004, Iulian Neamtiu <neamtiu@cs.umd.edu>
- * $Revision: 1.7 $
+ * $Revision: 1.8 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -350,48 +350,16 @@ void Main(struct Boot_Info* bootInfo)
   spkr_thread = Start_Kernel_Thread(Buzzer, (ulong_t)&doIBuzz, PRIORITY_NORMAL, false);
 
 
-// Enable this to run the simple buzzer VM
-#if 0
 
-  // Put the entry around 0x10000, where the geekos kernel used to live
-  vm.entry_ip=(uint_t)0x10000;
-  vm.exit_eip=0;
-  // Put the stack as the last thing in the VM partition
-  vm.guest_esp=(uint_t)START_OF_VM+VM_SIZE-1;
 
-  
-  memcpy(vm.entry_ip,MYBUZZVM_START,MYBUZZVM_LEN);
- 
-  SerialPrintLevel(1000,"VM-Launching MyBuzzVM after copy to 0x10000\n");
 
-  vm_thread = Start_Kernel_Thread(VM_Thread, (ulong_t)&vm,PRIORITY_NORMAL,false);
 
-#else 
-
-#if 0
-
-  // write the hello VM down to where we would usually put
-  // vmxassist, and see if it can talk to us
-  vm.entry_ip=(uint_t)START_OF_VM+0xd000000;
-  vm.exit_eip=0;
-  // Put the stack as the last thing in the VM partition
-  vm.guest_esp=(uint_t)START_OF_VM+VM_SIZE-1;
-
-  
-  memcpy((void*)(vm.entry_ip),Hello,200);  // 200 should be plenty
- 
-  SerialPrintLevel(1000,"VM-Launching HelloVM after copy to 0xd000000\n");
-
-  vm_thread = Start_Kernel_Thread(VM_Thread, (ulong_t)&vm,PRIORITY_NORMAL,false);
-
-#else
   // Try to launch a real VM
 
-  // First we will copy down VMXAssist, then we'll launch that
-  // and see if it can handle the system bios
 
   // We now map pages of physical memory into where we are going
   // to slap the vmxassist, bios, and vgabios code
+  /*
   pte_t template_pte;
 
   template_pte.present=1;
@@ -407,7 +375,7 @@ void Main(struct Boot_Info* bootInfo)
 #define SEGLEN (1024*64)
 
   AllocateAndMapPagesForRange(START_OF_VM+0x100000, VM_KERNEL_LENGTH / 512, template_pte);
-
+*/
   // Now we should be copying into actual memory
 
   //SerialPrintLevel(1000,"Copying VM code from %x to %x (%d bytes)\n", VM_KERNEL_START, START_OF_VM+0x100000,VM_KERNEL_LENGTH);
@@ -416,19 +384,29 @@ void Main(struct Boot_Info* bootInfo)
   //SerialPrintLevel(1000, "VM copied\n");
 
   // jump into vmxassist
-  vm.entry_ip=(uint_t)0x100000;
+  vm.entry_ip=(uint_t)0x00107fd0;
   vm.exit_eip=0;
   // Put the stack at 512K
-  vm.guest_esp=(uint_t)START_OF_VM+1024*512;
+  vm.guest_esp=(uint_t)4096 + 8192 - 4;
+  *(unsigned int *)(vm.guest_esp) = 1024 * 1024;
+  vm.guest_esp -= 4;
+  *(unsigned int *)(vm.guest_esp) = 8;
+  vm.guest_esp -= 4;
+  *(unsigned int *)(vm.guest_esp) = vm.guest_esp + 4;;
+  vm.guest_esp -= 4;
+  *(unsigned int *)(vm.guest_esp) = vm.entry_ip;
+  //  vm.guest_esp -= 4;
+  
+ 
+  SerialMemDump((unsigned char *)vm.entry_ip, 512);
 
-
+ 
   vm_thread = Start_Kernel_Thread(VM_Thread, (ulong_t)&vm,PRIORITY_NORMAL,false);
 
   
   SerialPrintLevel(1000,"Next: setup GDT\n");
 
-#endif
-#endif
+
 
 
   TODO("Write a Virtual Machine Monitor");

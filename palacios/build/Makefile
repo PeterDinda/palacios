@@ -1,6 +1,6 @@
 # Makefile for GeekOS kernel, userspace, and tools
 # Copyright (c) 2004,2005 David H. Hovemeyer <daveho@cs.umd.edu>
-# $Revision: 1.6 $
+# $Revision: 1.7 $
 
 # This is free software.  You are permitted to use,
 # redistribute, and modify it as specified in the file "COPYING".
@@ -54,7 +54,7 @@ VPATH := $(PROJECT_ROOT)/src
 
 #when -DNDEBUG is set the kassert functions are disabled
 #JRLDEBUG=-DNDEBUG
-JRLDEBUG= -DSERIAL_PRINT_DEBUG=1 -DSERIAL_PRINT_DEBUG_LEVEL=1000 -DSERIAL_PRINT=1
+JRLDEBUG= -DSERIAL_PRINT_DEBUG=1 -DSERIAL_PRINT_DEBUG_LEVEL=10 -DSERIAL_PRINT=1
 
 #
 #
@@ -85,7 +85,7 @@ VMM_SIZES = ../include/geekos/vmm_sizes.h
 # List of targets to build by default.
 # These targets encompass everything needed to boot
 # and run GeekOS.
-ALL_TARGETS := fd.img VM_linux_kernel
+ALL_TARGETS := fd.img vm_kernel
 
 
 # Kernel source files
@@ -139,8 +139,8 @@ COMMON_C_OBJS := $(COMMON_C_SRCS:%.c=common/%.o)
 #TARGET_CC_PREFIX := i386-elf-
 
 # Target C compiler.  gcc 2.95.2 or later should work.
-#TARGET_CC := $(TARGET_CC_PREFIX)gcc
-TARGET_CC := $(TARGET_CC_PREFIX)gcc34 -m32
+TARGET_CC := $(TARGET_CC_PREFIX)gcc
+#TARGET_CC := $(TARGET_CC_PREFIX)gcc34 -m32
 
 # Host C compiler.  This is used to compile programs to execute on
 # the host platform, not the target (x86) platform.  On x86/ELF
@@ -164,8 +164,8 @@ TARGET_NM := $(TARGET_CC_PREFIX)nm
 TARGET_OBJCOPY := $(TARGET_CC_PREFIX)objcopy
 
 # Nasm (http://nasm.sourceforge.net)
-#NASM := $(PROJECT_ROOT)/../devtools/bin/nasm
-NASM := /opt/vmm-tools/bin/nasm
+NASM := $(PROJECT_ROOT)/../devtools/bin/nasm
+#NASM := /opt/vmm-tools/bin/nasm
 
 AS = as --32
 
@@ -254,10 +254,10 @@ geekos/test: geekos/test.o geekos/vmcs.o geekos/vmx_lowlevel.o
 	$(CC) geekos/test.o geekos/vmcs.o geekos/vmx_lowlevel.o  -o geekos/test
 
 # Standard floppy image - just boots the kernel
-fd.img : geekos/fd_boot.bin geekos/setup.bin geekos/kernel.bin VM_linux_kernel
+fd.img : geekos/fd_boot.bin geekos/setup.bin geekos/kernel.bin vm_kernel
 	cat geekos/fd_boot.bin geekos/setup.bin geekos/kernel.bin > _temp
 	$(PAD) _temp 512
-	cat _temp VM_linux_kernel > $@
+	cat _temp vm_kernel > $@
 
 # make ready to boot over PXE
 pxe:	fd.img
@@ -282,12 +282,12 @@ pxe-discovery-bjp600:	fd.img
 
 
 # Floppy boot sector (first stage boot loader).
-geekos/fd_boot.bin : geekos/setup.bin geekos/kernel.bin $(PROJECT_ROOT)/src/geekos/fd_boot.asm VM_linux_kernel
+geekos/fd_boot.bin : geekos/setup.bin geekos/kernel.bin $(PROJECT_ROOT)/src/geekos/fd_boot.asm vm_kernel
 	$(NASM) -f bin \
 		-I$(PROJECT_ROOT)/src/geekos/ \
 		-DNUM_SETUP_SECTORS=`$(NUMSECS) geekos/setup.bin` \
 		-DNUM_KERN_SECTORS=`$(NUMSECS) geekos/kernel.bin` \
-		-DNUM_VM_KERNEL_SECTORS=`$(NUMSECS) VM_linux_kernel` \
+		-DNUM_VM_KERNEL_SECTORS=`$(NUMSECS) vm_kernel` \
 		$(PROJECT_ROOT)/src/geekos/fd_boot.asm \
 		-o $@
 
@@ -323,7 +323,7 @@ generate_sizes: force
 	echo "#define KERNEL_CORE_LENGTH (" `$(NUMSECS) geekos/kernel.bin` "*512)" >> $(VMM_SIZES) 
 	echo "#define KERNEL_END (KERNEL_LOAD_ADDRESS+KERNEL_CORE_LENGTH-1)" >> $(VMM_SIZES)
 
-	echo "#define VM_KERNEL_LENGTH (" `$(NUMSECS) VM_linux_kernel` "*512)" >> $(VMM_SIZES)
+	echo "#define VM_KERNEL_LENGTH (" `$(NUMSECS) vm_kernel` "*512)" >> $(VMM_SIZES)
 	echo "#define VM_KERNEL_START (KERNEL_LOAD_ADDRESS + KERNEL_CORE_LENGTH)" >> $(VMM_SIZES)
 	echo "#define VM_BOOT_PACKAGE_START (VM_KERNEL_START) " >> $(VMM_SIZES)
 	echo "#define VM_BOOT_PACKAGE_END  (VM_KERNEL_START+VM_KERNEL_LENGTH-1) " >> $(VMM_SIZES)
@@ -342,9 +342,9 @@ get_kernel_size: make_show_sizes
 force:
 
 
-VM_linux_kernel: force
-	$(PAD) VM_linux_kernel 512
-	@echo "VM kernel lives at 0x100000 and is" `$(NUMSECS) VM_linux_kernel` "sectors long"
+vm_kernel: force
+	$(PAD) vm_kernel 512
+	@echo "VM kernel lives at 0x100000 and is" `$(NUMSECS) vm_kernel` "sectors long"
 
 
 # Clean build directories of generated files
