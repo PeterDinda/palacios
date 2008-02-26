@@ -97,7 +97,7 @@ struct Instruction {
 void DecodeCurrentInstruction(struct VM *vm, struct Instruction *out);
 
 
-VmxOnRegion * InitVMX();
+VmxOnRegion * Init_VMX();
 VmxOnRegion * CreateVmxOnRegion();
 
 int VMLaunch(struct VMDescriptor *vm);

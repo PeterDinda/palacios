@@ -126,7 +126,7 @@ static int ExecFaultingInstructionInVMM(struct VM *vm)
 }
 
 
-VmxOnRegion * InitVMX() {
+VmxOnRegion * Init_VMX() {
   VmxOnRegion * region = NULL;
 
   unsigned int ret;
