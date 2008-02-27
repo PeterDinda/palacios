@@ -2,9 +2,9 @@
 
 
 
-$location = `pwd`;
-chomp $location;
-$location .= "/devtools";
+$dev_root = `pwd`;
+chomp $dev_root;
+$location = $dev_root . "/devtools";
 
 
 print "\n";
@@ -14,8 +14,10 @@ print "Location: " . $location . "\n\n";
 mkdir $location;
 
 
-#install_nasm();
-install_gcc_3_4_6();
+
+#install_binutils_2_16_91_i386();
+install_gcc_3_4_6_i386();
+install_nasm();
 
 
 sub install_nasm {
@@ -37,7 +39,7 @@ sub install_nasm {
   print "Installing...";
   `make install`;
   print "Done!!\n\n";
-  chdir $location;
+  chdir $dev_root;
 }
 
 
@@ -50,20 +52,22 @@ sub install_binutils_2_16_91_i386 {
   print "done\n";
   chdir "binutils-2.16.91.0.7";
   print "Configuring...";
-  `./configure --prefix=$location --target=i386-elf`;
+  `./configure --prefix=$location/i386 --target=i386-elf --disable-nls`;
   print "done\n";
   print "Compiling...";
-  `make`;
+  `make -j 4 all`;
   print "done\n";
   print "Installing...";
   `make install`;
   print "done!!\n";
-  chdir $location;
-
+  chdir $dev_root;
 }
 
 
 sub install_gcc_3_4_6_i386 {
+  install_binutils_2_16_91_i386();
+  $ENV{'PATH'} = "$location/i386/bin:" . $ENV{'PATH'};
+
   print "Installing gcc v3.4.6\n";
   chdir "./utils";
   print "Unpacking...";
@@ -71,15 +75,15 @@ sub install_gcc_3_4_6_i386 {
   print "done\n";
   chdir "gcc-3.4.6";
   print "Configuring...";
-  `./configure --prefix=$location`;
+  `./configure --prefix=$location/i386 --target=i386-elf --disable-nls --enable-languages=c,c++ --without-headers`;
   print "done\n";
   print "Compiling...";
-  `make`;
+  `make -j 4 all-gcc`;
   print "done\n";
   print "Installing...";
-  `make install`;
+  `make install-gcc`;
   print "done!!\n";
-  chdir $location;
+  chdir $dev_root;
 }
 
 
@@ -105,5 +109,5 @@ sub install_gcc_3_4_6_x86_64 {
   print "Installing...\n";
   `make install-gcc`;
   print "done!!\n";
-  chdir $location;
+  chdir $dev_root;
 }
