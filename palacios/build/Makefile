@@ -1,6 +1,6 @@
 # Makefile for GeekOS kernel, userspace, and tools
 # Copyright (c) 2004,2005 David H. Hovemeyer <daveho@cs.umd.edu>
-# $Revision: 1.8 $
+# $Revision: 1.9 $
 
 # This is free software.  You are permitted to use,
 # redistribute, and modify it as specified in the file "COPYING".
@@ -23,7 +23,7 @@
 
 # THESE MUST MATCH WHAT IS DEFINED IN defs.h and defs.asm exactly
 # MUST BE INTEGRAL NUMBER OF PAGES
-TOP_OF_MEM := 0x40000000
+TOP_OF_MEM := 0x30000000
 VM_SIZE    := 0x20000000
 VM_START   := 0x0
 
@@ -98,7 +98,7 @@ KERNEL_C_SRCS := idt.c int.c trap.c irq.c io.c \
 	synch.c kthread.c \
 	serial.c  reboot.c \
         paging.c vmx.c vmcs_gen.c vmcs.c\
-	 svm.c \
+	 svm.c vmm.c\
 	main.c
 
 # Kernel object files built from C source files
@@ -137,11 +137,12 @@ COMMON_C_OBJS := $(COMMON_C_SRCS:%.c=common/%.o)
 # ----------------------------------------------------------------------
 
 # Uncomment if cross compiling
-#TARGET_CC_PREFIX := i386-elf-
+#TARGET_CC_PREFIX :=  $(PROJECT_ROOT)/../devtools/i386/bin/i386-elf-
+#TARGET_CC_PREFIX :=  i386-elf-
 
 # Target C compiler.  gcc 2.95.2 or later should work.
-TARGET_CC := $(TARGET_CC_PREFIX)gcc
-#TARGET_CC := $(TARGET_CC_PREFIX)gcc34 -m32
+#TARGET_CC := $(TARGET_CC_PREFIX)gcc
+TARGET_CC := $(TARGET_CC_PREFIX)gcc34 -m32
 
 # Host C compiler.  This is used to compile programs to execute on
 # the host platform, not the target (x86) platform.  On x86/ELF

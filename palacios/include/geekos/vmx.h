@@ -97,6 +97,8 @@ struct Instruction {
 void DecodeCurrentInstruction(struct VM *vm, struct Instruction *out);
 
 
+int is_vmx_capable();
+
 VmxOnRegion * Init_VMX();
 VmxOnRegion * CreateVmxOnRegion();
 

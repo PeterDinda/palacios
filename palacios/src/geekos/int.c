@@ -1,7 +1,7 @@
 /*
  * GeekOS interrupt handling data structures and functions
  * Copyright (c) 2001,2003 David H. Hovemeyer <daveho@cs.umd.edu>
- * $Revision: 1.1 $
+ * $Revision: 1.2 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -37,11 +37,11 @@ static void Dummy_Interrupt_Handler(struct Interrupt_State* state)
   Print("Unexpected Interrupt!  Ignoring!\n");
   SerialPrint("*** Unexpected interrupt! *** Ignoring!\n");
   Dump_Interrupt_State(state);
-  SerialPrint_VMCS_ALL();
+  //  SerialPrint_VMCS_ALL();
 
   End_IRQ(state);
-  
-  //  STOP();
+
+  //STOP();
 }
 
 #if 0
@@ -82,6 +82,10 @@ void Init_Interrupts(void)
 	Install_Interrupt_Handler(i, Dummy_Interrupt_Handler);
     }
 
+    /* JRL */
+    // Disable_IRQ(7);
+    /* ** */
+
     /* Re-enable interrupts */
     Enable_Interrupts();
 }
@@ -102,7 +106,7 @@ void Dump_Interrupt_State(struct Interrupt_State* state)
 {
     uint_t errorCode = state->errorCode;
 
-   SerialPrint("eax=%08x ebx=%08x ecx=%08x edx=%08x\n"
+   Print("eax=%08x ebx=%08x ecx=%08x edx=%08x\n"
 	   "esi=%08x edi=%08x ebp=%08x\n"
 	   "eip=%08x cs=%08x eflags=%08x\n"
 	   "Interrupt number=%d (%s), error code=%d\n"
@@ -113,6 +117,8 @@ void Dump_Interrupt_State(struct Interrupt_State* state)
 	state->intNum, exception_names[state->intNum], errorCode,
 	errorCode >> 3, (errorCode >> 2) & 1, (errorCode >> 1) & 1, errorCode & 1
     );
+
+
     if (Is_User_Interrupt(state)) {
 	struct User_Interrupt_State *ustate = (struct User_Interrupt_State*) state;
 	SerialPrint("user esp=%08x, user ss=%08x\n", ustate->espUser, ustate->ssUser);
@@ -122,4 +128,7 @@ void Dump_Interrupt_State(struct Interrupt_State* state)
     SerialPrint_Selector("es", state->es);
     SerialPrint_Selector("fs", state->fs);
     SerialPrint_Selector("gs", state->gs);
+
+
+
 }

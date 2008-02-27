@@ -2,7 +2,7 @@
 ; Low level interrupt/thread handling code for GeekOS.
 ; Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
 ; Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
-; $Revision: 1.1 $
+; $Revision: 1.2 $
 
 ; This is free software.  You are permitted to use,
 ; redistribute, and modify it as specified in the file "COPYING".
@@ -165,6 +165,7 @@ EXPORT Flush_TLB
 ; CPUID functions
 EXPORT cpuid_ecx
 EXPORT cpuid_eax
+EXPORT cpuid_edx
 
 ; Utility Functions
 EXPORT Set_MSR
@@ -266,6 +267,23 @@ align 8
 Flush_TLB:
 	mov	eax, cr3
 	mov	cr3, eax
+	ret
+
+
+
+;
+; cpuid_edx - return the edx register from cpuid
+;
+align 8
+cpuid_edx:
+	push	ebp
+	mov	ebp, esp
+	push	edx
+	mov 	eax, [ebp + 8]
+	cpuid
+	mov 	eax, edx
+	pop	edx
+	pop 	ebp
 	ret
 
 

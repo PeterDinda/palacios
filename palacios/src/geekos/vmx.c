@@ -126,10 +126,8 @@ static int ExecFaultingInstructionInVMM(struct VM *vm)
 }
 
 
-VmxOnRegion * Init_VMX() {
-  VmxOnRegion * region = NULL;
-
-  unsigned int ret;
+int is_vmx_capable() {
+  uint_t ret;
   union VMX_MSR featureMSR;
   
   ret = cpuid_ecx(1);
@@ -137,14 +135,25 @@ VmxOnRegion * Init_VMX() {
     Get_MSR(IA32_FEATURE_CONTROL_MSR, &featureMSR.regs.high, &featureMSR.regs.low);
 
     SerialPrintLevel(100,"MSRREGlow: 0x%.8x\n", featureMSR.regs.low);
+
     if ((featureMSR.regs.low & FEATURE_CONTROL_VALID) != FEATURE_CONTROL_VALID) {
       PrintBoth("VMX is locked -- enable in the BIOS\n");
-      return NULL;
+      return 0;
     }
   } else {
     PrintBoth("VMX not supported on this cpu\n");
-    return NULL;
+    return 0;
   }
+
+  return 1;
+
+}
+
+
+VmxOnRegion * Init_VMX() {
+  uint_t ret;
+  VmxOnRegion * region = NULL;
+
 
   region = CreateVmxOnRegion();
 

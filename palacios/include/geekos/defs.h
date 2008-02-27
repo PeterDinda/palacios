@@ -1,7 +1,7 @@
 /*
  * Misc. kernel definitions
  * Copyright (c) 2001,2004 David H. Hovemeyer <daveho@cs.umd.edu>
- * $Revision: 1.2 $
+ * $Revision: 1.3 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -86,7 +86,7 @@ TOP_OF_MEM:
 
 // This is for a 1 GB Machine
 // The last address (+1) at which physical memory ends
-#define TOP_OF_MEM (0x40000000)
+#define TOP_OF_MEM (0x30000000)
 // How much space to reserve for the VM
 #define VM_SIZE    (0x20000000)
 // Where the VM starts in physical memory

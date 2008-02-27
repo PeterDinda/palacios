@@ -3,7 +3,7 @@
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
  * Copyright (c) 2004, Iulian Neamtiu <neamtiu@cs.umd.edu>
- * $Revision: 1.9 $
+ * $Revision: 1.10 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -27,8 +27,7 @@
 #include <geekos/paging.h>
 #include <geekos/ide.h>
 
-#include <geekos/vmx.h>
-#include <geekos/vmcs.h>
+#include <geekos/vmm.h>
 
 #include <geekos/gdt.h>
 
@@ -206,7 +205,7 @@ extern char BSS_START, BSS_END;
 
 extern char end;
 
-
+/*
 void VM_Thread(ulong_t arg) 
 {
   int ret;
@@ -245,7 +244,7 @@ void VM_Thread(ulong_t arg)
   while (1) {}
     
 }
-
+*/
 
 int AllocateAndMapPagesForRange(uint_t start, uint_t length, pte_t template_pte)
 {
@@ -277,14 +276,10 @@ void Main(struct Boot_Info* bootInfo)
 {
   struct Kernel_Thread * key_thread;
   struct Kernel_Thread * spkr_thread;
-  struct Kernel_Thread * vm_thread;
-  struct VMDescriptor    vm;
+  // struct Kernel_Thread * vm_thread;
+  // struct VMDescriptor    vm;
 
   ulong_t doIBuzz = 0;
-
-
-
-  
 
   Init_BSS();
   Init_Screen();
@@ -305,8 +300,6 @@ void Main(struct Boot_Info* bootInfo)
   //  Init_IDE();
 
   Print("Done; stalling\n");
-
-  //  while(1);
 
 
   
@@ -333,15 +326,8 @@ void Main(struct Boot_Info* bootInfo)
   SerialPrint("\n\n===>");
   
   
-  SerialPrintLevel(100,"Initializing VMX\n");
-  PrintBoth("Initializing VMX\n");
-  VmxOnRegion * vmxRegion = Init_VMX();
 
-  if (vmxRegion==NULL) { 
-    PrintBoth("VMX Cannot be turned on.  Halted.\n");
-    while (1) {} 
-  }
-  
+  Init_VMM();
 
   
   SerialPrintLevel(1000,"Launching Noisemaker and keyboard listener threads\n");
@@ -383,6 +369,7 @@ void Main(struct Boot_Info* bootInfo)
 
   //SerialPrintLevel(1000, "VM copied\n");
 
+  /*
   // jump into vmxassist
   vm.entry_ip=(uint_t)0x00107fd0;
   vm.exit_eip=0;
@@ -396,16 +383,15 @@ void Main(struct Boot_Info* bootInfo)
   vm.guest_esp -= 4;
   *(unsigned int *)(vm.guest_esp) = vm.entry_ip;
   //  vm.guest_esp -= 4;
-  
- 
-  SerialMemDump((unsigned char *)vm.entry_ip, 512);
 
  
-  vm_thread = Start_Kernel_Thread(VM_Thread, (ulong_t)&vm,PRIORITY_NORMAL,false);
+  SerialMemDump((unsigned char *)vm.entry_ip, 512);
+  */
+ 
+  // vm_thread = Start_Kernel_Thread(VM_Thread, (ulong_t)&vm,PRIORITY_NORMAL,false);
 
   
   SerialPrintLevel(1000,"Next: setup GDT\n");
-
 
 
 
