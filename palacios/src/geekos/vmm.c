@@ -16,7 +16,7 @@ void Init_VMM(struct vmm_os_hooks * hooks) {
 
   os_hooks = hooks;
 
-  PrintDebug("sizeof ullong_t: %d\n", sizeof(ullong_t));
+
 
   if (is_svm_capable()) {
     vmm_cpu_type = VMM_SVM_CPU;
