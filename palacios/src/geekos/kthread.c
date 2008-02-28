@@ -1,7 +1,7 @@
 /*
  * Kernel threads
  * Copyright (c) 2001,2003 David H. Hovemeyer <daveho@cs.umd.edu>
- * $Revision: 1.1 $
+ * $Revision: 1.2 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -17,6 +17,7 @@
 #include <geekos/kthread.h>
 #include <geekos/malloc.h>
 #include <geekos/serial.h>
+#include <geekos/debug.h>
 
 /* ----------------------------------------------------------------------
  * Private data

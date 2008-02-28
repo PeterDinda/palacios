@@ -1,7 +1,7 @@
 /*
  * GeekOS text screen output
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
- * $Revision: 1.1 $
+ * $Revision: 1.2 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -12,8 +12,8 @@
 #include <geekos/ktypes.h>
 #include <geekos/io.h>
 #include <geekos/int.h>
-#include <geekos/fmtout.h>
 #include <geekos/screen.h>
+#include <geekos/debug.h>
 
 /*
  * Information sources for VT100 and ANSI escape sequences:
@@ -518,16 +518,26 @@ static struct Output_Sink s_outputSink = { &Print_Emit, &Print_Finish };
  * Print to console using printf()-style formatting.
  * Calls into Format_Output in common library.
  */
+
+static __inline__ void PrintInternal(const char * format, va_list ap) {
+    Format_Output(&s_outputSink, format, ap);
+}
+
 void Print(const char *fmt, ...)
 {
     va_list args;
-
     bool iflag = Begin_Int_Atomic();
 
     va_start(args, fmt);
-    Format_Output(&s_outputSink, fmt, args);
+    PrintInternal(fmt, args);
     va_end(args);
 
     End_Int_Atomic(iflag);
 }
 
+
+void PrintList(const char * fmt, va_list ap) {
+    bool iflag = Begin_Int_Atomic();
+    PrintInternal(fmt, ap);
+    End_Int_Atomic(iflag);
+}

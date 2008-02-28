@@ -1,15 +1,18 @@
-#include <geekos/vmx.h>
-#include <geekos/vmcs.h>
+/* Eventually  we want to get rid of these */
 #include <geekos/mem.h>
-#include <geekos/serial.h>
 #include <geekos/segment.h>
 #include <geekos/gdt.h>
 #include <geekos/idt.h>
-
-
 #include <geekos/cpu.h>
 #include <geekos/io_devs.h>
+/* ** */
 
+#include <geekos/vmx.h>
+#include <geekos/vmcs.h>
+#include <geekos/vmm.h>
+#include <geekos/vmm_util.h>
+#include <geekos/string.h>
+#include <geekos/io.h>
 
 extern void Get_MSR(unsigned int msr, uint_t * high, uint_t * low);
 extern void Set_MSR(unsigned int msr, uint_t high, uint_t low);
@@ -62,13 +65,13 @@ static int ExecFaultingInstructionInVMM(struct VM *vm)
   myregs = (uint_t)&(vm->registers);
   
 
-  SerialPrintLevel(1000,"About the execute faulting instruction!\n");
-  SerialPrintLevel(1000,"Instruction is:\n");
-  SerialMemDump((void*)(address),vm->vmcs.exitInfoFields.instrLength);
+  PrintTrace("About the execute faulting instruction!\n");
+  PrintTrace("Instruction is:\n");
+  PrintTraceMemDump((void*)(address),vm->vmcs.exitInfoFields.instrLength);
   
 
-  SerialPrintLevel(1000,"The template code is:\n");
-  SerialMemDump(&&template_code,TEMPLATE_CODE_LEN);
+  PrintTrace("The template code is:\n");
+  PrintTraceMemDump(&&template_code,TEMPLATE_CODE_LEN);
 
   // clone the template code
   //memcpy(&&template_code,code,MAX_CODE);
@@ -78,10 +81,10 @@ static int ExecFaultingInstructionInVMM(struct VM *vm)
   // overwrite the nops with the faulting instruction
   memcpy(&&template_code+INSTR_OFFSET_START, (void*)(address),vm->vmcs.exitInfoFields.instrLength);
   
-  SerialPrintLevel(1000,"Finished modifying the template code, which now is:\n");
-  SerialMemDump(&&template_code,TEMPLATE_CODE_LEN);
+  PrintTrace("Finished modifying the template code, which now is:\n");
+  PrintTraceMemDump(&&template_code,TEMPLATE_CODE_LEN);
 
-  SerialPrintLevel(1000,"Now entering modified template code\n");
+  PrintTrace("Now entering modified template code\n");
 
 
  template_code:
@@ -117,7 +120,7 @@ static int ExecFaultingInstructionInVMM(struct VM *vm)
 			: "m"(myregs)
 			);
   
-  SerialPrintLevel(1000,"Survived executing the faulting instruction and returning.\n");
+  PrintTrace("Survived executing the faulting instruction and returning.\n");
 
   vm->vmcs.guestStateArea.rip += vm->vmcs.exitInfoFields.instrLength;
 
@@ -134,14 +137,14 @@ int is_vmx_capable() {
   if (ret & CPUID_1_ECX_VTXFLAG) {
     Get_MSR(IA32_FEATURE_CONTROL_MSR, &featureMSR.regs.high, &featureMSR.regs.low);
 
-    SerialPrintLevel(100,"MSRREGlow: 0x%.8x\n", featureMSR.regs.low);
+    PrintTrace("MSRREGlow: 0x%.8x\n", featureMSR.regs.low);
 
     if ((featureMSR.regs.low & FEATURE_CONTROL_VALID) != FEATURE_CONTROL_VALID) {
-      PrintBoth("VMX is locked -- enable in the BIOS\n");
+      PrintDebug("VMX is locked -- enable in the BIOS\n");
       return 0;
     }
   } else {
-    PrintBoth("VMX not supported on this cpu\n");
+    PrintDebug("VMX not supported on this cpu\n");
     return 0;
   }
 
@@ -160,9 +163,9 @@ VmxOnRegion * Init_VMX() {
 
   ret = Enable_VMX((ullong_t)((uint_t)region));
   if (ret == 0) {
-    PrintBoth("VMX Enabled\n");
+    PrintDebug("VMX Enabled\n");
   } else {
-    PrintBoth("VMX failure (ret = %d)\n", ret);
+    PrintDebug("VMX failure (ret = %d)\n", ret);
   }
 
   theVM.vmxonregion = region;
@@ -183,9 +186,9 @@ void SetCtrlBitsCorrectly(int msrno, int vmcsno)
   uint_t reserved =0;
   union VMX_MSR msr;
 
-  SerialPrintLevel(100,"SetCtrlBitsCorrectly(%x,%x)\n",msrno,vmcsno);
+  PrintTrace("SetCtrlBitsCorrectly(%x,%x)\n",msrno,vmcsno);
   Get_MSR(msrno, &msr.regs.high, &msr.regs.low);
-  SerialPrintLevel(100,"MSR %x = %x : %x \n", msrno, msr.regs.high, msr.regs.low);
+  PrintTrace("MSR %x = %x : %x \n", msrno, msr.regs.high, msr.regs.low);
   reserved = msr.regs.low;
   reserved &= msr.regs.high;
   VMCS_WRITE(vmcsno, &reserved);
@@ -197,10 +200,10 @@ void SetCRBitsCorrectly(int msr0no, int msr1no, int vmcsno)
   uint_t reserved =0;
   union VMX_MSR msr0, msr1;
 
-  SerialPrintLevel(100,"SetCRBitsCorrectly(%x,%x,%x)\n",msr0no,msr1no,vmcsno);
+  PrintTrace("SetCRBitsCorrectly(%x,%x,%x)\n",msr0no,msr1no,vmcsno);
   Get_MSR(msr0no, &msr0.regs.high, &msr0.regs.low);
   Get_MSR(msr1no, &msr1.regs.high, &msr1.regs.low);
-  SerialPrintLevel(100,"MSR %x = %x, %x =  %x \n", msr0no, msr0.regs.low, msr1no, msr1.regs.low);
+  PrintTrace("MSR %x = %x, %x =  %x \n", msr0no, msr0.regs.low, msr1no, msr1.regs.low);
   reserved = msr0.regs.low;
   reserved &= msr1.regs.low;
   VMCS_WRITE(vmcsno, &reserved);
@@ -214,9 +217,9 @@ extern int vmRunning;
 static int PanicUnhandledVMExit(struct VM *vm)
 {
   Print("Panicking due to VMExit with reason %u\n",vm->vmcs.exitInfoFields.reason);
-  SerialPrint("Panicking due to VMExit with reason %u\n",vm->vmcs.exitInfoFields.reason);
-  SerialPrint_VMCS_ALL();
-  SerialPrint_VMX_Regs(&(vm->registers));
+  PrintTrace("Panicking due to VMExit with reason %u\n",vm->vmcs.exitInfoFields.reason);
+  PrintTrace_VMCS_ALL();
+  PrintTrace_VMX_Regs(&(vm->registers));
   VMXPanic();
   return 0;
 }
@@ -229,8 +232,8 @@ static int HandleVMPrintsAndPanics(struct VM *vm, uint_t port, uint_t data)
        vm->state == VM_VMXASSIST_V8086_BIOS ||
        vm->state == VM_VMXASSIST_V8086)) { 
     // Communication channel from VMXAssist
-    SerialPrintLevel(1000,"VMXASSIST Output Port\n");
-    PrintBoth("%c",data&0xff);
+    PrintTrace("VMXASSIST Output Port\n");
+    PrintDebug("%c",data&0xff);
     return 1;
   } 
 
@@ -240,14 +243,14 @@ static int HandleVMPrintsAndPanics(struct VM *vm, uint_t port, uint_t data)
        port==ROMBIOS_INFO_PORT) &&
       (vm->state==VM_VMXASSIST_V8086_BIOS)) {
     // rombios is communicating
-    SerialPrintLevel(1000,"ROMBIOS Output Port\n");
-    //    PrintBoth("%c",data&0xff);
+    PrintTrace("ROMBIOS Output Port\n");
+    //    PrintDebug("%c",data&0xff);
     return 1;
   }
 
   if (port==BOOT_STATE_CARD_PORT && vm->state==VM_VMXASSIST_V8086_BIOS) { 
     // rombios is sending something to the display card
-    SerialPrintLevel(1000,"Hex Display: 0x%x\n",data&0xff);
+    PrintTrace("Hex Display: 0x%x\n",data&0xff);
     return 1;
   }
   return 0;
@@ -263,15 +266,15 @@ static int HandleInOutExit(struct VM *vm)
 
   address=GetLinearIP(vm);
 
-  SerialPrintLevel(1000,"Handling Input/Output Instruction Exit\n");
+  PrintTrace("Handling Input/Output Instruction Exit\n");
   if (SERIAL_PRINT_DEBUG && 1000>=SERIAL_PRINT_DEBUG_LEVEL) {
-      SerialPrint_VMX_Regs(regs);
+      PrintTrace_VMX_Regs(regs);
   }
-  SerialPrintLevel(1000,"Qualifications=0x%x\n",exitinfo->qualification);
-  SerialPrintLevel(1000,"Reason=0x%x\n",exitinfo->reason);
-  SerialPrintLevel(1000,"IO Port: 0x%x (%d)\n", qual->port, qual->port);
-  SerialPrintLevel(1000,"Instruction Info=%x\n",exitinfo->instrInfo);
-  SerialPrintLevel(1000,"%x : %s %s %s instruction of length %d for %d bytes from/to port 0x%x\n",
+  PrintTrace("Qualifications=0x%x\n",exitinfo->qualification);
+  PrintTrace("Reason=0x%x\n",exitinfo->reason);
+  PrintTrace("IO Port: 0x%x (%d)\n", qual->port, qual->port);
+  PrintTrace("Instruction Info=%x\n",exitinfo->instrInfo);
+  PrintTrace("%x : %s %s %s instruction of length %d for %d bytes from/to port 0x%x\n",
 		   address,
 		   qual->dir == 0 ? "output" : "input",
 		   qual->string ==0 ? "nonstring" : "STRING",
@@ -284,7 +287,7 @@ static int HandleInOutExit(struct VM *vm)
       qual->port==PIC_MASTER_IMR_PORT ||
       qual->port==PIC_SLAVE_CMD_ISR_PORT ||
       qual->port==PIC_SLAVE_IMR_PORT) {
-    SerialPrintLevel(1000, "PIC Access\n");
+    PrintTrace( "PIC Access\n");
   }
                   
 
@@ -293,7 +296,7 @@ static int HandleInOutExit(struct VM *vm)
 
     vm->vmcs.guestStateArea.rip += exitinfo->instrLength;
     regs->eax = (regs->eax & 0xffffff00) | byte;
-    SerialPrintLevel(1000,"Returning 0x%x in eax\n",(regs->eax));
+    PrintTrace("Returning 0x%x in eax\n",(regs->eax));
   }
 
   if (qual->dir==0 && qual->REP==0 && qual->string==0) { 
@@ -303,7 +306,7 @@ static int HandleInOutExit(struct VM *vm)
     } else {
       // If not, just go ahead and do the outb
       Out_Byte(qual->port,regs->eax);
-      SerialPrintLevel(1000,"Wrote 0x%x to port\n",(regs->eax));
+      PrintTrace("Wrote 0x%x to port\n",(regs->eax));
     }
     vm->vmcs.guestStateArea.rip += exitinfo->instrLength;
   }
@@ -317,15 +320,15 @@ static int HandleExternalIRQExit(struct VM *vm)
   struct VMCSExitInfoFields * exitinfo = &(vm->vmcs.exitInfoFields);
   struct VMExitIntInfo * intInfo  = (struct VMExitIntInfo *)&(vm->vmcs.exitInfoFields.intInfo);
 
-  SerialPrintLevel(1000,"External Interrupt captured\n");
-  SerialPrintLevel(100,"IntInfo: %x\n", exitinfo->intInfo);
+  PrintTrace("External Interrupt captured\n");
+  PrintTrace("IntInfo: %x\n", exitinfo->intInfo);
 
 
   if (!intInfo->valid) {
      // interrupts are off, but this interrupt is not acknoledged (still pending)
      // so we turn on interrupts to deliver appropriately in the
      // host
-    SerialPrintLevel(100,"External Interrupt is invald.  Turning Interrupts back on\n");
+    PrintTrace("External Interrupt is invald.  Turning Interrupts back on\n");
     asm("sti");
     return 0;
   } 
@@ -334,10 +337,10 @@ static int HandleExternalIRQExit(struct VM *vm)
   // acknowledged.  We will now handle the interrupt ourselves 
   // and turn interrupts  back on in the host
 
-  SerialPrintLevel(100,"type: %d\n", intInfo->type);
-  SerialPrintLevel(100,"number: %d\n", intInfo->nr);
+  PrintTrace("type: %d\n", intInfo->type);
+  PrintTrace("number: %d\n", intInfo->nr);
 
-  SerialPrint("Interrupt %d occuring now and handled by HandleExternalIRQExit\n",intInfo->nr);
+  PrintTrace("Interrupt %d occuring now and handled by HandleExternalIRQExit\n",intInfo->nr);
 
   switch (intInfo->type) {
   case 0:  {  // ext. IRQ
@@ -349,7 +352,7 @@ static int HandleExternalIRQExit(struct VM *vm)
      
      ((char*)(&&ext_int_seq_start))[1] = intInfo->nr;
  
-     SerialPrintLevel(100,"Interrupt instruction setup done %x\n", *((ushort_t *)(&&ext_int_seq_start)));
+     PrintTrace("Interrupt instruction setup done %x\n", *((ushort_t *)(&&ext_int_seq_start)));
      
 ext_int_seq_start:
      asm("int $0");
@@ -357,21 +360,21 @@ ext_int_seq_start:
 
     break;
   case 2: // NMI
-    SerialPrintLevel(100,"Type: NMI\n");
+    PrintTrace("Type: NMI\n");
     break;
   case 3: // hw exception
-    SerialPrintLevel(100,"Type: HW Exception\n");
+    PrintTrace("Type: HW Exception\n");
     break;
   case 4: // sw exception
-    SerialPrintLevel(100,"Type: SW Exception\n");
+    PrintTrace("Type: SW Exception\n");
     break;
   default:
-    SerialPrintLevel(100,"Invalid Interrupt Type\n");
+    PrintTrace("Invalid Interrupt Type\n");
     return -1;
   }
   
   if (intInfo->valid && intInfo->errorCode) {
-    SerialPrintLevel(100,"IntError: %x\n", exitinfo->intErrorCode);
+    PrintTrace("IntError: %x\n", exitinfo->intErrorCode);
   }
 
 
@@ -390,8 +393,8 @@ void DecodeCurrentInstruction(struct VM *vm, struct Instruction *inst)
 
 
   
-  SerialPrintLevel(100,"DecodeCurrentInstruction: instruction is\n");
-  SerialMemDump(t,length);
+  PrintTrace("DecodeCurrentInstruction: instruction is\n");
+  PrintTraceMemDump(t,length);
   
   if (length==3 && t[0]==0x0f && t[1]==0x22 && t[2]==0xc0) { 
     // mov from eax to cr0
@@ -402,7 +405,7 @@ void DecodeCurrentInstruction(struct VM *vm, struct Instruction *inst)
     inst->input1=vm->registers.eax;
     inst->input2=vm->vmcs.guestStateArea.cr0;
     inst->output=vm->registers.eax;
-    SerialPrintLevel(100,"MOV FROM EAX TO CR0\n");
+    PrintTrace("MOV FROM EAX TO CR0\n");
   } else {
     inst->type=VM_UNKNOWN_INST;
   }
@@ -457,7 +460,7 @@ static void SetupV8086ModeForBoot(struct VM *vm)
   
   V8086ModeSegmentRegisterFixup(vm);
 
-  SerialPrint_VMCSData(&(vm->vmcs));
+  PrintTrace_VMCSData(&(vm->vmcs));
 
 }
   
@@ -475,7 +478,7 @@ static int HandleExceptionOrNMI(struct VM *vm)
   uint_t ti=0;
   uint_t selectorindex=0;
 
-  SerialPrintLevel(1000,"Exception or NMI occurred\n");
+  PrintTrace("Exception or NMI occurred\n");
   
   num=vm->vmcs.exitInfoFields.intInfo & 0xff;
   type=(vm->vmcs.exitInfoFields.intInfo & 0x700)>>8;
@@ -488,35 +491,35 @@ static int HandleExceptionOrNMI(struct VM *vm)
     selectorindex=(error>>3)&0xffff;
   }
   
-  SerialPrint("Exception %d now - handled by HandleExceptionOrNMI\n",num);
+  PrintTrace("Exception %d now - handled by HandleExceptionOrNMI\n",num);
 
-  SerialPrintLevel(1000,"Exception Number %u : %s\n", num, exception_names[num]);
-  SerialPrintLevel(1000,"Exception Type %u : %s\n", type, exception_type_names[type]);
+  PrintTrace("Exception Number %u : %s\n", num, exception_names[num]);
+  PrintTrace("Exception Type %u : %s\n", type, exception_type_names[type]);
   if (errorvalid) { 
     if (ext) { 
-      SerialPrintLevel(1000,"External\n");
+      PrintTrace("External\n");
     } else {
-      SerialPrintLevel(1000,"%s - Selector Index is %u\n", idt ? "IDT" : ti ? "LDT" : "GDT", selectorindex);
+      PrintTrace("%s - Selector Index is %u\n", idt ? "IDT" : ti ? "LDT" : "GDT", selectorindex);
     }
   }
 
   DecodeCurrentInstruction(vm,&inst);
 
   if (inst.type==VM_MOV_TO_CR0) {
-    SerialPrintLevel(1000,"MOV TO CR0, oldvalue=0x%x, newvalue=0x%x\n",inst.input2, inst.input1);
+    PrintTrace("MOV TO CR0, oldvalue=0x%x, newvalue=0x%x\n",inst.input2, inst.input1);
     if ((inst.input2 & CR0_PE) && !(inst.input1 & CR0_PE) && vm->state==VM_VMXASSIST_STARTUP) {
       // This is VMXAssist signalling for us to turn on V8086 mode and
       // jump into the bios
-      SerialPrintLevel(1000,"VMXAssist is signaling us for switch to V8086 mode and jump to 0xf000:fff0\n");
+      PrintTrace("VMXAssist is signaling us for switch to V8086 mode and jump to 0xf000:fff0\n");
       SetupV8086ModeForBoot(vm);
       goto leave;
     } else {
-      SerialPrintLevel(1000,"Instruction is a write to CR0, but we don't understand it so we'll just exec it\n");
+      PrintTrace("Instruction is a write to CR0, but we don't understand it so we'll just exec it\n");
     } 
   } 
 
 
-  SerialPrintLevel(1000,"Trying to execute the faulting instruction in VMM context now\n");
+  PrintTrace("Trying to execute the faulting instruction in VMM context now\n");
   ExecFaultingInstructionInVMM(vm);
 
     leave:
@@ -543,7 +546,7 @@ int Do_VMM(struct VMXRegs regs)
 
 
   
-  SerialPrintLevel(100,"Vm Exit\n");
+  PrintTrace("Vm Exit\n");
   ret = VMCS_STORE(&vmcs_ptr);
   vmcs_ptr &= 0xffffffff;
   vmcs_ptr_low +=  vmcs_ptr;
@@ -551,39 +554,39 @@ int Do_VMM(struct VMXRegs regs)
 
 
 
-  SerialPrintLevel(100,"ret=%d\n", ret);
-  SerialPrintLevel(100,"Revision: %x\n", *(uint_t *)(vmcs_ptr_low));
+  PrintTrace("ret=%d\n", ret);
+  PrintTrace("Revision: %x\n", *(uint_t *)(vmcs_ptr_low));
   vmx_abort = *(uint_t*)(((char *)vmcs_ptr_low)+4);
     
   struct VM *vm = FindVM();
 
   if (vmx_abort != 0) {
-    SerialPrintLevel(1000,"VM ABORTED w/ code: %x\n", vmx_abort);
+    PrintTrace("VM ABORTED w/ code: %x\n", vmx_abort);
     return -1;
   }
 
   vm->registers = regs;
 
   if (CopyOutVMCSData(&(vm->vmcs)) != 0) {
-    SerialPrintLevel(1000,"Could not copy out VMCS\n");
+    PrintTrace("Could not copy out VMCS\n");
     return -1;
   }
 
 
-  SerialPrint("Guest esp: 0x%x (%u)\n", vm->vmcs.guestStateArea.rsp, vm->vmcs.guestStateArea.rsp);
+  PrintTrace("Guest esp: 0x%x (%u)\n", vm->vmcs.guestStateArea.rsp, vm->vmcs.guestStateArea.rsp);
 
-  SerialPrintLevel(100,"VM Exit for reason: %d (%x)\n", 
+  PrintTrace("VM Exit for reason: %d (%x)\n", 
 	      vm->vmcs.exitInfoFields.reason & 0x00000fff,
 	      vm->vmcs.exitInfoFields.reason);  
 
   if (vm->vmcs.exitInfoFields.reason & (0x1<<29) ) { 
-    SerialPrintLevel(1000,"VM Exit is from VMX root operation.  Panicking\n");
+    PrintTrace("VM Exit is from VMX root operation.  Panicking\n");
     VMXPanic();
   }
 
   if (vm->vmcs.exitInfoFields.reason & (0x1<<31) ) { 
-    SerialPrintLevel(1000,"VM Exit is due to a VM entry failure.  Shouldn't happen here. Panicking\n");
-    SerialPrint_VMCSData(&(vm->vmcs));
+    PrintTrace("VM Exit is due to a VM entry failure.  Shouldn't happen here. Panicking\n");
+    PrintTrace_VMCSData(&(vm->vmcs));
     VMXPanic();
   }
 
@@ -717,7 +720,7 @@ int Do_VMM(struct VMXRegs regs)
     }
   */
 
-  SerialPrintLevel(100,"Returning from Do_VMM: %d\n", ret);
+  PrintTrace("Returning from Do_VMM: %d\n", ret);
  
   return ret;
 }
@@ -772,19 +775,19 @@ int MyLaunch(struct VM *vm)
   int ret;
   int vmm_ret = 0;
 
-  SerialPrint("Guest ESP: 0x%x (%u)\n", guest_esp, guest_esp);
+  PrintTrace("Guest ESP: 0x%x (%u)\n", guest_esp, guest_esp);
 
   exit_eip=(uint_t)RunVMM;
 
-  SerialPrintLevel(100,"Clear\n");
+  PrintTrace("Clear\n");
   VMCS_CLEAR(vmcs);
-  SerialPrintLevel(100,"Load\n");
+  PrintTrace("Load\n");
   VMCS_LOAD(vmcs);
 
 
-  SerialPrintLevel(100,"VMCS_LINK_PTR\n");
+  PrintTrace("VMCS_LINK_PTR\n");
   VMCS_WRITE(VMCS_LINK_PTR, &f);
-  SerialPrintLevel(100,"VMCS_LINK_PTR_HIGH\n");
+  PrintTrace("VMCS_LINK_PTR_HIGH\n");
   VMCS_WRITE(VMCS_LINK_PTR_HIGH, &f);
 
  
@@ -800,42 +803,42 @@ int MyLaunch(struct VM *vm)
 
 
   /* Host state */
-  SerialPrintLevel(100,"Setting up host state\n");
+  PrintTrace("Setting up host state\n");
   SetCRBitsCorrectly(IA32_VMX_CR0_FIXED0_MSR, IA32_VMX_CR0_FIXED1_MSR, HOST_CR0);
   SetCRBitsCorrectly(IA32_VMX_CR4_FIXED0_MSR, IA32_VMX_CR4_FIXED1_MSR, HOST_CR4);
   ret = Init_VMCS_HostState();
 
   if (ret != VMX_SUCCESS) {
     if (ret == VMX_FAIL_VALID) {
-      SerialPrintLevel(100,"Init Host state: VMCS FAILED WITH ERROR\n");
+      PrintTrace("Init Host state: VMCS FAILED WITH ERROR\n");
     } else {
-      SerialPrintLevel(100,"Init Host state: Invalid VMCS\n");
+      PrintTrace("Init Host state: Invalid VMCS\n");
     }
     return ret;
   }
 
-  //  SerialPrintLevel(100,"HOST_RIP: %x (%u)\n", exit_eip, exit_eip);
+  //  PrintTrace("HOST_RIP: %x (%u)\n", exit_eip, exit_eip);
   VMCS_WRITE(HOST_RIP, &exit_eip);
 
   /* Guest state */
-  SerialPrintLevel(100,"Setting up guest state\n");
-  SerialPrintLevel(100,"GUEST_RIP: %x (%u)\n", entry_eip, entry_eip);
+  PrintTrace("Setting up guest state\n");
+  PrintTrace("GUEST_RIP: %x (%u)\n", entry_eip, entry_eip);
   VMCS_WRITE(GUEST_RIP,&entry_eip);
 
   SetCRBitsCorrectly(IA32_VMX_CR0_FIXED0_MSR, IA32_VMX_CR0_FIXED1_MSR, GUEST_CR0);
   SetCRBitsCorrectly(IA32_VMX_CR4_FIXED0_MSR, IA32_VMX_CR4_FIXED1_MSR, GUEST_CR4);
   ret = Init_VMCS_GuestState();
 
-  SerialPrintLevel(100,"InitGuestState returned\n");
+  PrintTrace("InitGuestState returned\n");
   if (ret != VMX_SUCCESS) {
     if (ret == VMX_FAIL_VALID) {
-      SerialPrintLevel(100,"Init Guest state: VMCS FAILED WITH ERROR\n");
+      PrintTrace("Init Guest state: VMCS FAILED WITH ERROR\n");
     } else {
-      SerialPrintLevel(100,"Init Guest state: Invalid VMCS\n");
+      PrintTrace("Init Guest state: Invalid VMCS\n");
     }
     return ret;
   }
-  SerialPrintLevel(100,"GUEST_RSP: %x (%u)\n", guest_esp, (uint_t)guest_esp);
+  PrintTrace("GUEST_RSP: %x (%u)\n", guest_esp, (uint_t)guest_esp);
   VMCS_WRITE(GUEST_RSP,&guest_esp);
 
   //  tmpReg = 0x4100;
@@ -846,13 +849,13 @@ int MyLaunch(struct VM *vm)
 
   ConfigureExits(vm);
 
-  SerialPrintLevel(100,"VMCS_LAUNCH\n");
+  PrintTrace("VMCS_LAUNCH\n");
 
   vm->state=VM_VMXASSIST_STARTUP;
 
   vmm_ret = SAFE_VM_LAUNCH();
 
-  SerialPrintLevel(100,"VMM error %d\n", vmm_ret);
+  PrintTrace("VMM error %d\n", vmm_ret);
 
   return vmm_ret;
 }
@@ -872,9 +875,9 @@ int VMLaunch(struct VMDescriptor *vm)
   theVM.vmcsregion = vmcs;
   theVM.descriptor = *vm;
 
-  SerialPrintLevel(100,"vmcs_ptr_top=%x vmcs_ptr_bottom=%x, eip=%x\n", top, bottom, vm->entry_ip);
+  PrintTrace("vmcs_ptr_top=%x vmcs_ptr_bottom=%x, eip=%x\n", top, bottom, vm->entry_ip);
   rc=MyLaunch(&theVM); // vmcs_ptr, vm->entry_ip, vm->exit_eip, vm->guest_esp);
-  SerialPrintLevel(100,"Returned from MyLaunch();\n");
+  PrintTrace("Returned from MyLaunch();\n");
   return rc;
 }
 
@@ -901,8 +904,8 @@ VMCS * CreateVMCS() {
   *(ulong_t *)vmcs = basicMSR.vmxBasic.revision;
   *(ulong_t *)((char*)vmcs + 4) = 0;
 
-  SerialPrintLevel(100,"VMCS Region size: %u\n", basicMSR.vmxBasic.regionSize);
-  SerialPrintLevel(100,"VMCS Abort: %x\n",*(uint_t *)(((char*)vmcs)+4));
+  PrintTrace("VMCS Region size: %u\n", basicMSR.vmxBasic.regionSize);
+  PrintTrace("VMCS Abort: %x\n",*(uint_t *)(((char*)vmcs)+4));
 
   return vmcs;
 }

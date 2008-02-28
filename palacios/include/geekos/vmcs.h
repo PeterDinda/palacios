@@ -560,15 +560,15 @@ struct VMXRegs {
   uint_t eax;
 };
   
-void SerialPrint_VMX_Regs(struct VMXRegs *regs);
-void SerialPrint_VMCSData(struct VMCSData * vmcs);
-void SerialPrint_VMCSGuestStateArea(struct VMCSGuestStateArea * guestState);
-void SerialPrint_VMCSHostStateArea(struct VMCSHostStateArea * hostState);
-void SerialPrint_VMCSExecCtrlFields(struct VMCSExecCtrlFields * execCtrls);
-void SerialPrint_VMCSExitCtrlFields(struct VMCSExitCtrlFields * exitCtrls);
-void SerialPrint_VMCSEntryCtrlFields(struct VMCSEntryCtrlFields * entryCtrls);
-void SerialPrint_VMCSExitInfoFields(struct VMCSExitInfoFields * exitInfo);
-void SerialPrint_VMCSSegment(char * segname, struct VMCSSegment * seg, int abbr);
+void PrintTrace_VMX_Regs(struct VMXRegs *regs);
+void PrintTrace_VMCSData(struct VMCSData * vmcs);
+void PrintTrace_VMCSGuestStateArea(struct VMCSGuestStateArea * guestState);
+void PrintTrace_VMCSHostStateArea(struct VMCSHostStateArea * hostState);
+void PrintTrace_VMCSExecCtrlFields(struct VMCSExecCtrlFields * execCtrls);
+void PrintTrace_VMCSExitCtrlFields(struct VMCSExitCtrlFields * exitCtrls);
+void PrintTrace_VMCSEntryCtrlFields(struct VMCSEntryCtrlFields * entryCtrls);
+void PrintTrace_VMCSExitInfoFields(struct VMCSExitInfoFields * exitInfo);
+void PrintTrace_VMCSSegment(char * segname, struct VMCSSegment * seg, int abbr);
 
 VMCS * CreateVMCS();
 extern uint_t VMCS_WRITE();
@@ -577,10 +577,6 @@ extern uint_t VMCS_READ();
 //uint_t VMCSRead(uint_t tag, void * val);
 
 
-
-
-
-#include <geekos/serial.h>
 #include <geekos/vmcs_gen.h>
 
 #endif 

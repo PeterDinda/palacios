@@ -3,7 +3,7 @@
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
  * Copyright (c) 2004, Iulian Neamtiu <neamtiu@cs.umd.edu>
- * $Revision: 1.10 $
+ * $Revision: 1.11 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -27,6 +27,7 @@
 #include <geekos/paging.h>
 #include <geekos/ide.h>
 
+#include <geekos/debug.h>
 #include <geekos/vmm.h>
 
 #include <geekos/gdt.h>
@@ -285,7 +286,7 @@ void Main(struct Boot_Info* bootInfo)
   Init_Screen();
 
 
-  InitSerial();
+  Init_Serial();
   Init_Mem(bootInfo);
   Init_CRC32();
   Init_TSS();
@@ -319,15 +320,13 @@ void Main(struct Boot_Info* bootInfo)
 
 
 
-
-  SerialPrint("\n\nHello, Welcome to this horrid output-only serial interface\n");
-  SerialPrint("Eventually, this will let us control the VMM\n\n");
- 
-  SerialPrint("\n\n===>");
   
-  
+  struct vmm_os_hooks os_hooks;
+  os_hooks.print_debug = &PrintBoth;
+  os_hooks.print_info = &Print;
+  os_hooks.print_trace = &SerialPrint;
 
-  Init_VMM();
+  Init_VMM(&os_hooks);
 
   
   SerialPrintLevel(1000,"Launching Noisemaker and keyboard listener threads\n");

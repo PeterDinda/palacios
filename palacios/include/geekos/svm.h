@@ -1,9 +1,7 @@
 #ifndef __SVM_H
 #define __SVM_H
 
-#include <geekos/screen.h>
-#include <geekos/serial.h>
-
+#include <geekos/vmm.h>
 
 #define CPUID_FEATURE_IDS 0x80000001
 #define CPUID_FEATURE_IDS_ecx_svm_avail 0x00000004

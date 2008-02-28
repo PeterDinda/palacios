@@ -4,276 +4,8 @@
 
 
 
-char *exception_names[] = {
-  "#DE (Divide Error)",
-  "#DB (Reserved)",
-  "NMI",
-  "#BP (Breakpoint)",
-  "#OF (Overflow)",
-  "#BR (BOUND Range Exceeded)",
-  "#UD (Invalid Opcode)",
-  "#NM (No Math Coprocessor)",
-  "#DF (Double Fault)",
-  "Coprocessor Segment Overrun",
-  "#TS (Invalid TSS)",
-  "#NP (Segment Not Present)",
-  "#SS (Stack Segment Fault)",
-  "#GP (General Protection Fault)",
-  "#PF (Page Fault)",
-  "(Reserved - 15)",
-  "#MF (Math Fault x87)",
-  "#AC (Alignment Check)",
-  "#MC (Machine Check)",
-  "#XF (SIMD FP Exception)",
-  "(Reserved - 20)",
-  "(Reserved - 21)",
-  "(Reserved - 22)",
-  "(Reserved - 23)",
-  "(Reserved - 24)",
-  "(Reserved - 25)",
-  "(Reserved - 26)",
-  "(Reserved - 27)",
-  "(Reserved - 28)",
-  "(Reserved - 29)",
-  "(Reserved - 30)",
-  "(Reserved - 31)",
-  "USER 32",
-  "USER 33",
-  "USER 34",
-  "USER 35",
-  "USER 36",
-  "USER 37",
-  "USER 38",
-  "USER 39",
-  "USER 40",
-  "USER 41",
-  "USER 42",
-  "USER 43",
-  "USER 44",
-  "USER 45",
-  "USER 46",
-  "USER 47",
-  "USER 48",
-  "USER 49",
-  "USER 50",
-  "USER 51",
-  "USER 52",
-  "USER 53",
-  "USER 54",
-  "USER 55",
-  "USER 56",
-  "USER 57",
-  "USER 58",
-  "USER 59",
-  "USER 60",
-  "USER 61",
-  "USER 62",
-  "USER 63",
-  "USER 64",
-  "USER 65",
-  "USER 66",
-  "USER 67",
-  "USER 68",
-  "USER 69",
-  "USER 70",
-  "USER 71",
-  "USER 72",
-  "USER 73",
-  "USER 74",
-  "USER 75",
-  "USER 76",
-  "USER 77",
-  "USER 78",
-  "USER 79",
-  "USER 80",
-  "USER 81",
-  "USER 82",
-  "USER 83",
-  "USER 84",
-  "USER 85",
-  "USER 86",
-  "USER 87",
-  "USER 88",
-  "USER 89",
-  "USER 90",
-  "USER 91",
-  "USER 92",
-  "USER 93",
-  "USER 94",
-  "USER 95",
-  "USER 96",
-  "USER 97",
-  "USER 98",
-  "USER 99",
-  "USER 100",
-  "USER 101",
-  "USER 102",
-  "USER 103",
-  "USER 104",
-  "USER 105",
-  "USER 106",
-  "USER 107",
-  "USER 108",
-  "USER 109",
-  "USER 110",
-  "USER 111",
-  "USER 112",
-  "USER 113",
-  "USER 114",
-  "USER 115",
-  "USER 116",
-  "USER 117",
-  "USER 118",
-  "USER 119",
-  "USER 120",
-  "USER 121",
-  "USER 122",
-  "USER 123",
-  "USER 124",
-  "USER 125",
-  "USER 126",
-  "USER 127",
-  "USER 128",
-  "USER 129",
-  "USER 130",
-  "USER 131",
-  "USER 132",
-  "USER 133",
-  "USER 134",
-  "USER 135",
-  "USER 136",
-  "USER 137",
-  "USER 138",
-  "USER 139",
-  "USER 140",
-  "USER 141",
-  "USER 142",
-  "USER 143",
-  "USER 144",
-  "USER 145",
-  "USER 146",
-  "USER 147",
-  "USER 148",
-  "USER 149",
-  "USER 150",
-  "USER 151",
-  "USER 152",
-  "USER 153",
-  "USER 154",
-  "USER 155",
-  "USER 156",
-  "USER 157",
-  "USER 158",
-  "USER 159",
-  "USER 160",
-  "USER 161",
-  "USER 162",
-  "USER 163",
-  "USER 164",
-  "USER 165",
-  "USER 166",
-  "USER 167",
-  "USER 168",
-  "USER 169",
-  "USER 170",
-  "USER 171",
-  "USER 172",
-  "USER 173",
-  "USER 174",
-  "USER 175",
-  "USER 176",
-  "USER 177",
-  "USER 178",
-  "USER 179",
-  "USER 180",
-  "USER 181",
-  "USER 182",
-  "USER 183",
-  "USER 184",
-  "USER 185",
-  "USER 186",
-  "USER 187",
-  "USER 188",
-  "USER 189",
-  "USER 190",
-  "USER 191",
-  "USER 192",
-  "USER 193",
-  "USER 194",
-  "USER 195",
-  "USER 196",
-  "USER 197",
-  "USER 198",
-  "USER 199",
-  "USER 200",
-  "USER 201",
-  "USER 202",
-  "USER 203",
-  "USER 204",
-  "USER 205",
-  "USER 206",
-  "USER 207",
-  "USER 208",
-  "USER 209",
-  "USER 210",
-  "USER 211",
-  "USER 212",
-  "USER 213",
-  "USER 214",
-  "USER 215",
-  "USER 216",
-  "USER 217",
-  "USER 218",
-  "USER 219",
-  "USER 220",
-  "USER 221",
-  "USER 222",
-  "USER 223",
-  "USER 224",
-  "USER 225",
-  "USER 226",
-  "USER 227",
-  "USER 228",
-  "USER 229",
-  "USER 230",
-  "USER 231",
-  "USER 232",
-  "USER 233",
-  "USER 234",
-  "USER 235",
-  "USER 236",
-  "USER 237",
-  "USER 238",
-  "USER 239",
-  "USER 240",
-  "USER 241",
-  "USER 242",
-  "USER 243",
-  "USER 244",
-  "USER 245",
-  "USER 246",
-  "USER 247",
-  "USER 248",
-  "USER 249",
-  "USER 250",
-  "USER 251",
-  "USER 252",
-  "USER 253",
-  "USER 254",
-  "USER 255",
-};  
 
-char *exception_type_names[] = {
-  "External Interrupt",
-  "NOT USED",
-  "NMI",
-  "Hardware Exception",
-  "NOT USED",
-  "NOT USED",
-  "Software Exception",
-  "NOT USED"
-};
-
+//extern char * exception_names;
 //
 // Ignores "HIGH" addresses - 32 bit only for now
 //
@@ -615,175 +347,175 @@ int CopyInVMCSData(struct VMCSData *p) {
 }
 
 
-void SerialPrint_VMX_Regs(struct VMXRegs * regs) {
-  SerialPrint("==>VMX Register values:\n");
-  SerialPrint("EAX: %x\n", regs->eax);
-  SerialPrint("ECX: %x\n", regs->ecx);
-  SerialPrint("EDX: %x\n", regs->edx);
-  SerialPrint("EBX: %x\n", regs->ebx);
-  SerialPrint("ESP: %x\n", regs->esp);
-  SerialPrint("EBP: %x\n", regs->ebp);
-  SerialPrint("ESI: %x\n", regs->esi);
-  SerialPrint("EDI: %x\n", regs->edi);
-  SerialPrint("\n");
+void PrintTrace_VMX_Regs(struct VMXRegs * regs) {
+  PrintTrace("==>VMX Register values:\n");
+  PrintTrace("EAX: %x\n", regs->eax);
+  PrintTrace("ECX: %x\n", regs->ecx);
+  PrintTrace("EDX: %x\n", regs->edx);
+  PrintTrace("EBX: %x\n", regs->ebx);
+  PrintTrace("ESP: %x\n", regs->esp);
+  PrintTrace("EBP: %x\n", regs->ebp);
+  PrintTrace("ESI: %x\n", regs->esi);
+  PrintTrace("EDI: %x\n", regs->edi);
+  PrintTrace("\n");
 }
 
 
-void SerialPrint_VMCSSegment(char * segname, struct VMCSSegment * seg, int abbr) {
-  SerialPrint("Segment: %s\n", segname);
+void PrintTrace_VMCSSegment(char * segname, struct VMCSSegment * seg, int abbr) {
+  PrintTrace("Segment: %s\n", segname);
   if (abbr == 0) {
-    SerialPrint("\tSelector: %x\n", (uint_t)seg->selector);
-    SerialPrint("\tAccess: %x\n", *(uint_t*)&(seg->access));
+    PrintTrace("\tSelector: %x\n", (uint_t)seg->selector);
+    PrintTrace("\tAccess: %x\n", *(uint_t*)&(seg->access));
   }
-  SerialPrint("\tBase Addr: %x\n", (uint_t)seg->baseAddr);
-  SerialPrint("\tLimit: %x\n", (uint_t)seg->limit);
+  PrintTrace("\tBase Addr: %x\n", (uint_t)seg->baseAddr);
+  PrintTrace("\tLimit: %x\n", (uint_t)seg->limit);
 
 }
 
 
-void SerialPrint_VMCSGuestStateArea(struct VMCSGuestStateArea * guestState) {
-  SerialPrint("==>Guest State Area\n");
-  SerialPrint("==>==> Guest Register State\n");
-  SerialPrint("GUEST_CR0: %x\n",(uint_t) guestState->cr0);
-  SerialPrint("GUEST_CR3: %x\n",(uint_t)guestState->cr3);
-  SerialPrint("GUEST_CR4: %x\n",(uint_t)guestState->cr4);
-  SerialPrint("GUEST_DR7: %x\n",(uint_t)guestState->dr7);
-  SerialPrint("GUEST_RSP: %x\n",(uint_t)guestState->rsp);
-  SerialPrint("GUEST_RIP: %x\n",(uint_t)guestState->rip);
-  SerialPrint("GUEST_RFLAGS: %x\n",(uint_t)guestState->rflags);
+void PrintTrace_VMCSGuestStateArea(struct VMCSGuestStateArea * guestState) {
+  PrintTrace("==>Guest State Area\n");
+  PrintTrace("==>==> Guest Register State\n");
+  PrintTrace("GUEST_CR0: %x\n",(uint_t) guestState->cr0);
+  PrintTrace("GUEST_CR3: %x\n",(uint_t)guestState->cr3);
+  PrintTrace("GUEST_CR4: %x\n",(uint_t)guestState->cr4);
+  PrintTrace("GUEST_DR7: %x\n",(uint_t)guestState->dr7);
+  PrintTrace("GUEST_RSP: %x\n",(uint_t)guestState->rsp);
+  PrintTrace("GUEST_RIP: %x\n",(uint_t)guestState->rip);
+  PrintTrace("GUEST_RFLAGS: %x\n",(uint_t)guestState->rflags);
 
-  SerialPrint_VMCSSegment("Guest CS", &(guestState->cs), 0);
-  SerialPrint_VMCSSegment("Guest SS", &(guestState->ss), 0);
-  SerialPrint_VMCSSegment("Guest DS",&(guestState->ds), 0);
-  SerialPrint_VMCSSegment("Guest ES", &(guestState->es), 0);
-  SerialPrint_VMCSSegment("Guest FS", &(guestState->fs), 0);
-  SerialPrint_VMCSSegment("Guest GS", &(guestState->gs), 0);
-  SerialPrint_VMCSSegment("Guest LDTR", &(guestState->ldtr), 0);
-  SerialPrint_VMCSSegment("Guest TR", &(guestState->tr), 0);
-  SerialPrint_VMCSSegment("Guest GDTR", &(guestState->gdtr), 1);  
-  SerialPrint_VMCSSegment("Guest IDTR", &(guestState->idtr), 1);  
+  PrintTrace_VMCSSegment("Guest CS", &(guestState->cs), 0);
+  PrintTrace_VMCSSegment("Guest SS", &(guestState->ss), 0);
+  PrintTrace_VMCSSegment("Guest DS",&(guestState->ds), 0);
+  PrintTrace_VMCSSegment("Guest ES", &(guestState->es), 0);
+  PrintTrace_VMCSSegment("Guest FS", &(guestState->fs), 0);
+  PrintTrace_VMCSSegment("Guest GS", &(guestState->gs), 0);
+  PrintTrace_VMCSSegment("Guest LDTR", &(guestState->ldtr), 0);
+  PrintTrace_VMCSSegment("Guest TR", &(guestState->tr), 0);
+  PrintTrace_VMCSSegment("Guest GDTR", &(guestState->gdtr), 1);  
+  PrintTrace_VMCSSegment("Guest IDTR", &(guestState->idtr), 1);  
 
 
-  SerialPrint("GUEST_IA32_DEBUGCTL: %x\n",(uint_t)(guestState->dbg_ctrl & 0xffffffff));
-  SerialPrint("GUEST_IA32_DEBUGCTL_HIGH: %x\n",(uint_t)(guestState->dbg_ctrl >> 32) & 0xffffffff);
-  SerialPrint("GUEST_IA32_SYSENTER_CS: %x\n",guestState->sysenter_cs);
-  SerialPrint("GUEST_IA32_SYSENTER_ESP: %x\n",(uint_t)guestState->sysenter_esp);
-  SerialPrint("GUEST_IA32_SYSENTER_EIP: %x\n",(uint_t)guestState->sysenter_eip);
-  SerialPrint("GUEST_SMBASE: %x\n", (uint_t)guestState->smbase);
+  PrintTrace("GUEST_IA32_DEBUGCTL: %x\n",(uint_t)(guestState->dbg_ctrl & 0xffffffff));
+  PrintTrace("GUEST_IA32_DEBUGCTL_HIGH: %x\n",(uint_t)(guestState->dbg_ctrl >> 32) & 0xffffffff);
+  PrintTrace("GUEST_IA32_SYSENTER_CS: %x\n",guestState->sysenter_cs);
+  PrintTrace("GUEST_IA32_SYSENTER_ESP: %x\n",(uint_t)guestState->sysenter_esp);
+  PrintTrace("GUEST_IA32_SYSENTER_EIP: %x\n",(uint_t)guestState->sysenter_eip);
+  PrintTrace("GUEST_SMBASE: %x\n", (uint_t)guestState->smbase);
 
-  SerialPrint("==>==> Guest Non-Register State\n");
-  SerialPrint("GUEST_ACTIVITY_STATE: %x\n", (uint_t)guestState->activity);
-  SerialPrint("GUEST_INT_STATE: %x\n", (uint_t)guestState->interrupt_state);
-  SerialPrint("GUEST_PENDING_DEBUG_EXCS: %x\n", (uint_t)guestState->pending_dbg_exceptions);
-  SerialPrint("VMCS_LINK_PTR: %x\n", (uint_t)guestState->vmcs_link & 0xffffffff);
-  SerialPrint("VMCS_LINK_PTR_HIGH: %x\n", (uint_t)(guestState->vmcs_link >> 32) & 0xffffffff);
+  PrintTrace("==>==> Guest Non-Register State\n");
+  PrintTrace("GUEST_ACTIVITY_STATE: %x\n", (uint_t)guestState->activity);
+  PrintTrace("GUEST_INT_STATE: %x\n", (uint_t)guestState->interrupt_state);
+  PrintTrace("GUEST_PENDING_DEBUG_EXCS: %x\n", (uint_t)guestState->pending_dbg_exceptions);
+  PrintTrace("VMCS_LINK_PTR: %x\n", (uint_t)guestState->vmcs_link & 0xffffffff);
+  PrintTrace("VMCS_LINK_PTR_HIGH: %x\n", (uint_t)(guestState->vmcs_link >> 32) & 0xffffffff);
 }
 
 
-void SerialPrint_VMCSHostStateArea(struct VMCSHostStateArea * hostState) {
-  SerialPrint("\n==> Host State Area\n");
-  SerialPrint("HOST_CR0: %x\n", (uint_t)hostState->cr0);
-  SerialPrint("HOST_CR3: %x\n", (uint_t)hostState->cr3);
-  SerialPrint("HOST_CR4: %x\n", (uint_t)hostState->cr4);
-  SerialPrint("HOST_RSP: %x\n", (uint_t)hostState->rsp);
-  SerialPrint("HOST_RIP: %x\n", (uint_t)hostState->rip);
-  SerialPrint("VMCS_HOST_CS_SELECTOR: %x\n", (uint_t)hostState->csSelector);
-  SerialPrint("VMCS_HOST_SS_SELECTOR: %x\n", (uint_t)hostState->ssSelector);
-  SerialPrint("VMCS_HOST_DS_SELECTOR: %x\n", (uint_t)hostState->dsSelector);
-  SerialPrint("VMCS_HOST_ES_SELECTOR: %x\n", (uint_t)hostState->esSelector);
-  SerialPrint("VMCS_HOST_FS_SELECTOR: %x\n", (uint_t)hostState->fsSelector);
-  SerialPrint("VMCS_HOST_GS_SELECTOR: %x\n", (uint_t)hostState->gsSelector);
-  SerialPrint("VMCS_HOST_TR_SELECTOR: %x\n", (uint_t)hostState->trSelector);
-  SerialPrint("HOST_FS_BASE: %x\n", (uint_t)hostState->fsBaseAddr);
-  SerialPrint("HOST_GS_BASE: %x\n", (uint_t)hostState->gsBaseAddr);
-  SerialPrint("HOST_TR_BASE: %x\n", (uint_t)hostState->trBaseAddr);
-  SerialPrint("HOST_GDTR_BASE: %x\n", (uint_t)hostState->gdtrBaseAddr);
-  SerialPrint("HOST_IDTR_BASE: %x\n", (uint_t)hostState->idtrBaseAddr);
-  SerialPrint("HOST_IA32_SYSENTER_CS: %x\n", (uint_t)hostState->sysenter_cs);
-  SerialPrint("HOST_IA32_SYSENTER_ESP: %x\n", (uint_t)hostState->sysenter_esp);
-  SerialPrint("HOST_IA32_SYSENTER_EIP: %x\n", (uint_t)hostState->sysenter_eip);
+void PrintTrace_VMCSHostStateArea(struct VMCSHostStateArea * hostState) {
+  PrintTrace("\n==> Host State Area\n");
+  PrintTrace("HOST_CR0: %x\n", (uint_t)hostState->cr0);
+  PrintTrace("HOST_CR3: %x\n", (uint_t)hostState->cr3);
+  PrintTrace("HOST_CR4: %x\n", (uint_t)hostState->cr4);
+  PrintTrace("HOST_RSP: %x\n", (uint_t)hostState->rsp);
+  PrintTrace("HOST_RIP: %x\n", (uint_t)hostState->rip);
+  PrintTrace("VMCS_HOST_CS_SELECTOR: %x\n", (uint_t)hostState->csSelector);
+  PrintTrace("VMCS_HOST_SS_SELECTOR: %x\n", (uint_t)hostState->ssSelector);
+  PrintTrace("VMCS_HOST_DS_SELECTOR: %x\n", (uint_t)hostState->dsSelector);
+  PrintTrace("VMCS_HOST_ES_SELECTOR: %x\n", (uint_t)hostState->esSelector);
+  PrintTrace("VMCS_HOST_FS_SELECTOR: %x\n", (uint_t)hostState->fsSelector);
+  PrintTrace("VMCS_HOST_GS_SELECTOR: %x\n", (uint_t)hostState->gsSelector);
+  PrintTrace("VMCS_HOST_TR_SELECTOR: %x\n", (uint_t)hostState->trSelector);
+  PrintTrace("HOST_FS_BASE: %x\n", (uint_t)hostState->fsBaseAddr);
+  PrintTrace("HOST_GS_BASE: %x\n", (uint_t)hostState->gsBaseAddr);
+  PrintTrace("HOST_TR_BASE: %x\n", (uint_t)hostState->trBaseAddr);
+  PrintTrace("HOST_GDTR_BASE: %x\n", (uint_t)hostState->gdtrBaseAddr);
+  PrintTrace("HOST_IDTR_BASE: %x\n", (uint_t)hostState->idtrBaseAddr);
+  PrintTrace("HOST_IA32_SYSENTER_CS: %x\n", (uint_t)hostState->sysenter_cs);
+  PrintTrace("HOST_IA32_SYSENTER_ESP: %x\n", (uint_t)hostState->sysenter_esp);
+  PrintTrace("HOST_IA32_SYSENTER_EIP: %x\n", (uint_t)hostState->sysenter_eip);
 }
 
-void SerialPrint_VMCSExecCtrlFields(struct VMCSExecCtrlFields * execCtrls) {
-  SerialPrint("\n==> VM-Execution Controls:\n");
-  SerialPrint("PIN_VM_EXEC_CTRLS: %x\n", (uint_t) execCtrls->pinCtrls);
-  SerialPrint("PROC_VM_EXEC_CTRLS: %x\n", (uint_t) execCtrls->procCtrls);
-  SerialPrint("EXCEPTION_BITMAP: %x\n", (uint_t) execCtrls->execBitmap);
-  SerialPrint("PAGE_FAULT_ERROR_MASK: %x\n", (uint_t) execCtrls->pageFaultErrorMask);
-  SerialPrint("PAGE_FAULT_ERROR_MATCH: %x\n", (uint_t) execCtrls->pageFaultErrorMatch);
-  SerialPrint("IO_BITMAP_A_ADDR: %x\n", (uint_t) execCtrls->ioBitmapA);
-  //  SerialPrint("IO_BITMAP_A_ADDR_HIGH: %x\n", (uint_t) execCtrls->);
-  SerialPrint("IO_BITMAP_B_ADDR: %x\n", (uint_t) execCtrls->ioBitmapB);
-  // SerialPrint("IO_BITMAP_B_ADDR_HIGH: %x\n", (uint_t) execCtrls->);
-  SerialPrint("TSC_OFFSET: %x\n", (uint_t) execCtrls->tscOffset & 0xffffffff);
-  SerialPrint("TSC_OFFSET_HIGH: %x\n", (uint_t) (execCtrls->tscOffset >> 32) & 0xffffffff);
-  SerialPrint("CR0_GUEST_HOST_MASK: %x\n", (uint_t) execCtrls->cr0GuestHostMask);
-  SerialPrint("CR0_READ_SHADOW: %x\n", (uint_t) execCtrls->cr0ReadShadow);
-  SerialPrint("CR4_GUEST_HOST_MASK: %x\n", (uint_t) execCtrls->cr4GuestHostMask);
-  SerialPrint("CR4_READ_SHADOW: %x\n", (uint_t) execCtrls->cr4ReadShadow);
-  SerialPrint("CR3_TARGET_COUNT: %x\n", (uint_t) execCtrls->cr3TargetCount);
-  SerialPrint("CR3_TARGET_VALUE_0: %x\n", (uint_t) execCtrls->cr3TargetValue0);
-  SerialPrint("CR3_TARGET_VALUE_1: %x\n", (uint_t) execCtrls->cr3TargetValue1);
-  SerialPrint("CR3_TARGET_VALUE_2: %x\n", (uint_t) execCtrls->cr3TargetValue2);
-  SerialPrint("CR3_TARGET_VALUE_3: %x\n", (uint_t) execCtrls->cr3TargetValue3);
-  SerialPrint("VIRT_APIC_PAGE_ADDR: %x\n", (uint_t) execCtrls->virtApicPageAddr & 0xffffffff);
-  SerialPrint("VIRT_APIC_PAGE_ADDR_HIGH: %x\n", (uint_t) (execCtrls->virtApicPageAddr >> 32) & 0xffffffff);
-  SerialPrint("TPR_THRESHOLD: %x\n", (uint_t) execCtrls->tprThreshold);
-  SerialPrint("MSR_BITMAPS: %x\n", (uint_t) execCtrls->MSRBitmapsBaseAddr & 0xffffffff);
-  SerialPrint("MSR_BITMAPS_HIGH: %x\n", (uint_t) (execCtrls->MSRBitmapsBaseAddr >> 32) & 0xffffffff);
-  SerialPrint("VMCS_EXEC_PTR: %x\n", (uint_t) execCtrls->vmcsExecPtr & 0xffffffff);
-  SerialPrint("VMCS_EXEC_PTR_HIGH: %x\n", (uint_t) (execCtrls->vmcsExecPtr >> 32) & 0xffffffff);
+void PrintTrace_VMCSExecCtrlFields(struct VMCSExecCtrlFields * execCtrls) {
+  PrintTrace("\n==> VM-Execution Controls:\n");
+  PrintTrace("PIN_VM_EXEC_CTRLS: %x\n", (uint_t) execCtrls->pinCtrls);
+  PrintTrace("PROC_VM_EXEC_CTRLS: %x\n", (uint_t) execCtrls->procCtrls);
+  PrintTrace("EXCEPTION_BITMAP: %x\n", (uint_t) execCtrls->execBitmap);
+  PrintTrace("PAGE_FAULT_ERROR_MASK: %x\n", (uint_t) execCtrls->pageFaultErrorMask);
+  PrintTrace("PAGE_FAULT_ERROR_MATCH: %x\n", (uint_t) execCtrls->pageFaultErrorMatch);
+  PrintTrace("IO_BITMAP_A_ADDR: %x\n", (uint_t) execCtrls->ioBitmapA);
+  //  PrintTrace("IO_BITMAP_A_ADDR_HIGH: %x\n", (uint_t) execCtrls->);
+  PrintTrace("IO_BITMAP_B_ADDR: %x\n", (uint_t) execCtrls->ioBitmapB);
+  // PrintTrace("IO_BITMAP_B_ADDR_HIGH: %x\n", (uint_t) execCtrls->);
+  PrintTrace("TSC_OFFSET: %x\n", (uint_t) execCtrls->tscOffset & 0xffffffff);
+  PrintTrace("TSC_OFFSET_HIGH: %x\n", (uint_t) (execCtrls->tscOffset >> 32) & 0xffffffff);
+  PrintTrace("CR0_GUEST_HOST_MASK: %x\n", (uint_t) execCtrls->cr0GuestHostMask);
+  PrintTrace("CR0_READ_SHADOW: %x\n", (uint_t) execCtrls->cr0ReadShadow);
+  PrintTrace("CR4_GUEST_HOST_MASK: %x\n", (uint_t) execCtrls->cr4GuestHostMask);
+  PrintTrace("CR4_READ_SHADOW: %x\n", (uint_t) execCtrls->cr4ReadShadow);
+  PrintTrace("CR3_TARGET_COUNT: %x\n", (uint_t) execCtrls->cr3TargetCount);
+  PrintTrace("CR3_TARGET_VALUE_0: %x\n", (uint_t) execCtrls->cr3TargetValue0);
+  PrintTrace("CR3_TARGET_VALUE_1: %x\n", (uint_t) execCtrls->cr3TargetValue1);
+  PrintTrace("CR3_TARGET_VALUE_2: %x\n", (uint_t) execCtrls->cr3TargetValue2);
+  PrintTrace("CR3_TARGET_VALUE_3: %x\n", (uint_t) execCtrls->cr3TargetValue3);
+  PrintTrace("VIRT_APIC_PAGE_ADDR: %x\n", (uint_t) execCtrls->virtApicPageAddr & 0xffffffff);
+  PrintTrace("VIRT_APIC_PAGE_ADDR_HIGH: %x\n", (uint_t) (execCtrls->virtApicPageAddr >> 32) & 0xffffffff);
+  PrintTrace("TPR_THRESHOLD: %x\n", (uint_t) execCtrls->tprThreshold);
+  PrintTrace("MSR_BITMAPS: %x\n", (uint_t) execCtrls->MSRBitmapsBaseAddr & 0xffffffff);
+  PrintTrace("MSR_BITMAPS_HIGH: %x\n", (uint_t) (execCtrls->MSRBitmapsBaseAddr >> 32) & 0xffffffff);
+  PrintTrace("VMCS_EXEC_PTR: %x\n", (uint_t) execCtrls->vmcsExecPtr & 0xffffffff);
+  PrintTrace("VMCS_EXEC_PTR_HIGH: %x\n", (uint_t) (execCtrls->vmcsExecPtr >> 32) & 0xffffffff);
 }
 
-void SerialPrint_VMCSExitCtrlFields(struct VMCSExitCtrlFields * exitCtrls) {
-  SerialPrint("\n==> VM Exit Controls\n");
-  SerialPrint("VM_EXIT_CTRLS: %x\n", (uint_t) exitCtrls->exitCtrls);
-  SerialPrint("VM_EXIT_MSR_STORE_COUNT: %x\n", (uint_t) exitCtrls->msrStoreCount);
-  SerialPrint("VM_EXIT_MSR_STORE_ADDR: %x\n", (uint_t) exitCtrls->msrStoreAddr & 0xffffffff);
-  SerialPrint("VM_EXIT_MSR_STORE_ADDR_HIGH: %x\n", (uint_t) (exitCtrls->msrStoreAddr >> 32) & 0xffffffff);
-  SerialPrint("VM_EXIT_MSR_LOAD_COUNT: %x\n", (uint_t) exitCtrls->msrLoadCount);
-  SerialPrint("VM_EXIT_MSR_LOAD_ADDR: %x\n", (uint_t) exitCtrls->msrLoadAddr & 0xffffffff);
-  SerialPrint("VM_EXIT_MSR_LOAD_ADDR_HIGH: %x\n", (uint_t) (exitCtrls->msrLoadAddr >> 32) & 0xffffffff);
+void PrintTrace_VMCSExitCtrlFields(struct VMCSExitCtrlFields * exitCtrls) {
+  PrintTrace("\n==> VM Exit Controls\n");
+  PrintTrace("VM_EXIT_CTRLS: %x\n", (uint_t) exitCtrls->exitCtrls);
+  PrintTrace("VM_EXIT_MSR_STORE_COUNT: %x\n", (uint_t) exitCtrls->msrStoreCount);
+  PrintTrace("VM_EXIT_MSR_STORE_ADDR: %x\n", (uint_t) exitCtrls->msrStoreAddr & 0xffffffff);
+  PrintTrace("VM_EXIT_MSR_STORE_ADDR_HIGH: %x\n", (uint_t) (exitCtrls->msrStoreAddr >> 32) & 0xffffffff);
+  PrintTrace("VM_EXIT_MSR_LOAD_COUNT: %x\n", (uint_t) exitCtrls->msrLoadCount);
+  PrintTrace("VM_EXIT_MSR_LOAD_ADDR: %x\n", (uint_t) exitCtrls->msrLoadAddr & 0xffffffff);
+  PrintTrace("VM_EXIT_MSR_LOAD_ADDR_HIGH: %x\n", (uint_t) (exitCtrls->msrLoadAddr >> 32) & 0xffffffff);
 }
 
-void SerialPrint_VMCSEntryCtrlFields(struct VMCSEntryCtrlFields * entryCtrls) {
-  SerialPrint("\n==> VM Entry Controls\n");
-  SerialPrint("VM_ENTRY_CTRLS: %x\n", (uint_t) entryCtrls->entryCtrls);
-  SerialPrint("VM_ENTRY_MSR_LOAD_COUNT: %x\n", (uint_t) entryCtrls->msrLoadCount);
-  SerialPrint("VM_ENTRY_MSR_LOAD_ADDR: %x\n", (uint_t) entryCtrls->msrLoadAddr & 0xffffffff);
-  SerialPrint("VM_ENTRY_MSR_LOAD_ADDR_HIGH: %x\n", (uint_t) (entryCtrls->msrLoadAddr >> 32) & 0xffffffff);
-  SerialPrint("VM_ENTRY_INT_INFO_FIELD: %x\n", (uint_t) entryCtrls->intInfo);
-  SerialPrint("VM_ENTRY_EXCEPTION_ERROR: %x\n", (uint_t) entryCtrls->exceptionErrorCode);
-  SerialPrint("VM_ENTRY_INSTR_LENGTH: %x\n", (uint_t) entryCtrls->instrLength);
+void PrintTrace_VMCSEntryCtrlFields(struct VMCSEntryCtrlFields * entryCtrls) {
+  PrintTrace("\n==> VM Entry Controls\n");
+  PrintTrace("VM_ENTRY_CTRLS: %x\n", (uint_t) entryCtrls->entryCtrls);
+  PrintTrace("VM_ENTRY_MSR_LOAD_COUNT: %x\n", (uint_t) entryCtrls->msrLoadCount);
+  PrintTrace("VM_ENTRY_MSR_LOAD_ADDR: %x\n", (uint_t) entryCtrls->msrLoadAddr & 0xffffffff);
+  PrintTrace("VM_ENTRY_MSR_LOAD_ADDR_HIGH: %x\n", (uint_t) (entryCtrls->msrLoadAddr >> 32) & 0xffffffff);
+  PrintTrace("VM_ENTRY_INT_INFO_FIELD: %x\n", (uint_t) entryCtrls->intInfo);
+  PrintTrace("VM_ENTRY_EXCEPTION_ERROR: %x\n", (uint_t) entryCtrls->exceptionErrorCode);
+  PrintTrace("VM_ENTRY_INSTR_LENGTH: %x\n", (uint_t) entryCtrls->instrLength);
 }
 
-void SerialPrint_VMCSExitInfoFields(struct VMCSExitInfoFields * exitInfo) {
-  SerialPrint("\n==> VM Exit Info\n");
-  SerialPrint("EXIT_REASON: %x\n", (uint_t) exitInfo->reason);
-  SerialPrint("EXIT_QUALIFICATION: %x\n", (uint_t) exitInfo->qualification);
-  SerialPrint("VM_EXIT_INT_INFO: %x\n", (uint_t) exitInfo->intInfo);
-  SerialPrint("VM_EXIT_INT_ERROR: %x\n", (uint_t) exitInfo->intErrorCode);
-  SerialPrint("IDT_VECTOR_INFO: %x\n", (uint_t) exitInfo->idtVectorInfo);
-  SerialPrint("IDT_VECTOR_ERROR: %x\n", (uint_t) exitInfo->idtVectorErrorCode);
-  SerialPrint("VM_EXIT_INSTR_LENGTH: %x\n", (uint_t) exitInfo->instrLength);
-  SerialPrint("GUEST_LINEAR_ADDR: %x\n", (uint_t) exitInfo->guestLinearAddr);
-  SerialPrint("VMX_INSTR_INFO: %x\n", (uint_t) exitInfo->instrInfo);
-  SerialPrint("IO_RCX: %x\n", (uint_t) exitInfo->ioRCX);
-  SerialPrint("IO_RSI: %x\n", (uint_t) exitInfo->ioRSI);
-  SerialPrint("IO_RDI: %x\n", (uint_t) exitInfo->ioRDI);
-  SerialPrint("IO_RIP: %x\n", (uint_t) exitInfo->ioRIP);
-  SerialPrint("VM_INSTR_ERROR: %x\n", (uint_t) exitInfo->instrErrorField);
+void PrintTrace_VMCSExitInfoFields(struct VMCSExitInfoFields * exitInfo) {
+  PrintTrace("\n==> VM Exit Info\n");
+  PrintTrace("EXIT_REASON: %x\n", (uint_t) exitInfo->reason);
+  PrintTrace("EXIT_QUALIFICATION: %x\n", (uint_t) exitInfo->qualification);
+  PrintTrace("VM_EXIT_INT_INFO: %x\n", (uint_t) exitInfo->intInfo);
+  PrintTrace("VM_EXIT_INT_ERROR: %x\n", (uint_t) exitInfo->intErrorCode);
+  PrintTrace("IDT_VECTOR_INFO: %x\n", (uint_t) exitInfo->idtVectorInfo);
+  PrintTrace("IDT_VECTOR_ERROR: %x\n", (uint_t) exitInfo->idtVectorErrorCode);
+  PrintTrace("VM_EXIT_INSTR_LENGTH: %x\n", (uint_t) exitInfo->instrLength);
+  PrintTrace("GUEST_LINEAR_ADDR: %x\n", (uint_t) exitInfo->guestLinearAddr);
+  PrintTrace("VMX_INSTR_INFO: %x\n", (uint_t) exitInfo->instrInfo);
+  PrintTrace("IO_RCX: %x\n", (uint_t) exitInfo->ioRCX);
+  PrintTrace("IO_RSI: %x\n", (uint_t) exitInfo->ioRSI);
+  PrintTrace("IO_RDI: %x\n", (uint_t) exitInfo->ioRDI);
+  PrintTrace("IO_RIP: %x\n", (uint_t) exitInfo->ioRIP);
+  PrintTrace("VM_INSTR_ERROR: %x\n", (uint_t) exitInfo->instrErrorField);
 }
 
 
-void SerialPrint_VMCSData(struct VMCSData * vmcs) {
-  SerialPrint("VMCSData Structure\n");
+void PrintTrace_VMCSData(struct VMCSData * vmcs) {
+  PrintTrace("VMCSData Structure\n");
 
-  SerialPrint_VMCSGuestStateArea(&(vmcs->guestStateArea));
-  SerialPrint_VMCSHostStateArea(&(vmcs->hostStateArea));
-  SerialPrint_VMCSExecCtrlFields(&(vmcs->execCtrlFields));
-  SerialPrint_VMCSExitCtrlFields(&(vmcs->exitCtrlFields));
-  SerialPrint_VMCSEntryCtrlFields(&(vmcs->entryCtrlFields));
-  SerialPrint_VMCSExitInfoFields(&(vmcs->exitInfoFields));
-  SerialPrint("\n");
+  PrintTrace_VMCSGuestStateArea(&(vmcs->guestStateArea));
+  PrintTrace_VMCSHostStateArea(&(vmcs->hostStateArea));
+  PrintTrace_VMCSExecCtrlFields(&(vmcs->execCtrlFields));
+  PrintTrace_VMCSExitCtrlFields(&(vmcs->exitCtrlFields));
+  PrintTrace_VMCSEntryCtrlFields(&(vmcs->entryCtrlFields));
+  PrintTrace_VMCSExitInfoFields(&(vmcs->exitInfoFields));
+  PrintTrace("\n");
 }

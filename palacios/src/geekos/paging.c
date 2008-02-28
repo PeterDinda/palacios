@@ -2,7 +2,7 @@
  * Paging (virtual memory) support
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
  * Copyright (c) 2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
- * $Revision: 1.1 $
+ * $Revision: 1.2 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -23,7 +23,7 @@
 #include <geekos/crc32.h>
 #include <geekos/paging.h>
 #include <geekos/serial.h>
-#include <geekos/vmcs.h>
+#include <geekos/debug.h>
 
 /* ----------------------------------------------------------------------
  * Public data
@@ -166,7 +166,7 @@ static void Print_Fault_Info(uint_t address, faultcode_t faultCode)
     SerialPrintLevel(100,"Unexpected Page Fault received\n");
     Print_Fault_Info(address, faultCode);
     Dump_Interrupt_State(state);
-    SerialPrint_VMCS_ALL();
+    //SerialPrint_VMCS_ALL();
     /* user faults just kill the process */
     if (!faultCode.userModeFault) KASSERT(0);
 

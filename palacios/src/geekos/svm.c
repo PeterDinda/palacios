@@ -14,7 +14,7 @@ int is_svm_capable() {
 
 
   if ((ret & CPUID_FEATURE_IDS_ecx_svm_avail) == 0) {
-    Print("SVM Not Available\n");
+    PrintDebug("SVM Not Available\n");
     return 0;
   } 
 
@@ -27,9 +27,9 @@ int is_svm_capable() {
   ret = cpuid_edx(CPUID_SVM_REV_AND_FEATURE_IDS);
   
   if ((ret & CPUID_SVM_REV_AND_FEATURE_IDS_edx_svml) == 0) {
-    Print("SVM BIOS Disabled, not unlockable\n");
+    PrintDebug("SVM BIOS Disabled, not unlockable\n");
   } else {
-    Print("SVM is locked with a key\n");
+    PrintDebug("SVM is locked with a key\n");
   }
 
   return 0;
@@ -42,7 +42,7 @@ void Init_SVM() {
   msr_val_low |= EFER_MSR_svm_enable;
   Set_MSR(EFER_MSR, 0, msr_val_low);
   
-  Print("SVM Inited\n");
+  PrintDebug("SVM Inited\n");
 
   return;
 }

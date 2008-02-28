@@ -9,7 +9,10 @@ $file=shift;
 open(HEADER,">$file.h");
 open(SOURCE,">$file.c");
 
-print HEADER "#ifndef $file\n#define $file\n#include <geekos/vmcs.h>\n";
+print HEADER "#ifndef $file\n";
+print HEADER "#define $file\n";
+print HEADER "#include <geekos/vmcs.h>\n";
+
 print SOURCE "#include <geekos/$file.h>\n";
 
 while (<STDIN>) {
@@ -28,10 +31,10 @@ sub GenSerUnserCode {
 
   print SOURCE <<END
 
-void    Set_$name(uint_t val) { VMCS_WRITE($name,val); } 
+void    Set_$name(uint_t val) { VMCS_WRITE($name,val); }
 uint_t  Get_$name() { uint_t rc; VMCS_READ($name,&rc); return rc; }
 
-void    SerialPrint_$name() { SerialPrint("$name = %x\\n", Get_$name()); }
+void    Print_$name() { PrintTrace("$name = %x\\n", Get_$name()); }
 
 END
 
@@ -41,7 +44,7 @@ END
 void    Set_$name(uint_t val);
 uint_t  Get_$name();
 
-void    SerialPrint_$name();
+void    Print_$name();
 
 END2
 
@@ -51,10 +54,10 @@ END2
 
 
 sub GenPrintAllCode  {
-  print SOURCE "void SerialPrint_VMCS_ALL() {\n";
+  print SOURCE "void PrintTrace_VMCS_ALL() {\n";
   while (my $name=shift) { 
-    print SOURCE "  SerialPrint_$name();\n";
+    print SOURCE "  PrintTrace_$name();\n";
   }
   print SOURCE "}\n";
-  print HEADER "void SerialPrint_VMCS_ALL();\n";
+  print HEADER "void PrintTrace_VMCS_ALL();\n";
 }

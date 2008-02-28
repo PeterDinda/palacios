@@ -1,7 +1,7 @@
 /*
  * x86 TSS data structure and routines
  * Copyright (c) 2001,2004 David H. Hovemeyer <daveho@cs.umd.edu>
- * $Revision: 1.1 $
+ * $Revision: 1.2 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -20,6 +20,8 @@
 #include <geekos/tss.h>
 
 #include <geekos/serial.h>
+#include <geekos/debug.h>
+
 
 /*
  * We use one TSS in GeekOS.
@@ -31,6 +33,7 @@ static ushort_t s_tssSelector;
 
 static void __inline__ Load_Task_Register(void)
 {
+
     /* Critical: TSS must be marked as not busy */
     s_tssDesc->type = 0x09;
 

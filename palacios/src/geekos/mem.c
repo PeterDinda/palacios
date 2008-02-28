@@ -2,7 +2,7 @@
  * Physical memory allocation
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
- * $Revision: 1.2 $
+ * $Revision: 1.3 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -21,6 +21,7 @@
 
 #include <geekos/vmm_sizes.h>
 #include <geekos/serial.h>
+#include <geekos/debug.h>
 
 /* ----------------------------------------------------------------------
  * Global data
@@ -163,7 +164,7 @@ void Init_Mem(struct Boot_Info* bootInfo)
     PrintBoth("VM End: %x\n",START_OF_VM+VM_SIZE-1);
     
 
-    PrintBoth("Page struct size: %u bytes\n", sizeof(struct Page));
+    PrintBoth("Page struct size: %lu bytes\n", sizeof(struct Page));
     PrintBoth("Page List Size: %u bytes\n", numPageListBytes);
 
   

@@ -2,22 +2,31 @@
 #include <geekos/svm.h>
 #include <geekos/vmx.h>
 
+
 uint_t vmm_cpu_type;
 
 
 
-void Init_VMM() {
+
+struct vmm_os_hooks * os_hooks = NULL;
+
+
+void Init_VMM(struct vmm_os_hooks * hooks) {
   vmm_cpu_type = VMM_INVALID_CPU;
+
+  os_hooks = hooks;
+
+  PrintDebug("sizeof ullong_t: %d\n", sizeof(ullong_t));
 
   if (is_svm_capable()) {
     vmm_cpu_type = VMM_SVM_CPU;
-    Print("Machine is SVM Capable\n");
+    PrintDebug("Machine is SVM Capable\n");
     Init_SVM();
   } else if (is_vmx_capable()) {
     vmm_cpu_type = VMM_VMX_CPU;
-    Print("Machine is VMX Capable\n");
+    PrintDebug("Machine is VMX Capable\n");
     Init_VMX();
   } else {
-    PrintBoth("CPU has no virtualization Extensions\n");
+    PrintDebug("CPU has no virtualization Extensions\n");
   }
 }

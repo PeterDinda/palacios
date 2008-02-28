@@ -2,11 +2,13 @@
 #include <geekos/reboot.h>
 #include <geekos/gdt.h>
 #include <geekos/idt.h>
+#include <geekos/fmtout.h>
 
 
 
 
 unsigned short serial_io_addr = 0;
+uint_t serial_print_level;
 
 
 static void Serial_Interrupt_Handler(struct Interrupt_State * state) {
@@ -38,12 +40,7 @@ static void Serial_Interrupt_Handler(struct Interrupt_State * state) {
   End_IRQ(state);
 }
 
-void InitSerial() {
-  Print("Initialzing Serial\n");
-  Install_IRQ(COM1_IRQ, Serial_Interrupt_Handler);
-  Enable_IRQ(COM1_IRQ);
-  InitSerialAddr(DEFAULT_SERIAL_ADDR);
-}
+
 
 void InitSerialAddr(unsigned short io_addr) {
   serial_io_addr = io_addr;
@@ -66,6 +63,8 @@ void InitSerialAddr(unsigned short io_addr) {
   // enable interrupts (bit 3)
   Out_Byte(io_addr + 4, 0x08);
 }
+
+
 
 
 inline static void SerialPutChar(unsigned char c) {
@@ -137,4 +136,68 @@ void SerialMemDump(unsigned char *start, int n)
     }
     SerialPrint("\n");
   }
+}
+
+
+static struct Output_Sink serial_output_sink;
+static void Serial_Emit(struct Output_Sink * o, int ch) { 
+  SerialPutChar((unsigned char)ch); 
+}
+static void Serial_Finish(struct Output_Sink * o) { return; }
+
+
+static void __inline__ SerialPrintInternal(const char * format, va_list ap) {
+  Format_Output(&serial_output_sink, format, ap);
+}
+
+
+void SerialPrint(const char * format, ...) {
+  va_list args;
+  bool iflag = Begin_Int_Atomic();
+
+  va_start(args, format);
+  SerialPrintInternal(format, args);
+  va_end(args);
+
+  End_Int_Atomic(iflag);
+}
+
+void SerialPrintList(const char * format, va_list ap) {
+  bool iflag = Begin_Int_Atomic();
+  SerialPrintInternal(format, ap);
+  End_Int_Atomic(iflag);
+
+}
+
+
+
+
+void SerialPrintLevel(int level, const char * format, ...) {
+  if (level > serial_print_level) {
+    va_list args;
+    bool iflag = Begin_Int_Atomic();
+    
+    va_start(args, format);
+    SerialPrintInternal(format, args);
+    va_end(args);
+    
+    End_Int_Atomic(iflag);   
+  }
+}
+
+
+
+
+void Init_Serial() {
+
+  serial_print_level = SERIAL_PRINT_DEBUG_LEVEL;
+
+  Print("Initialzing Serial\n");
+
+  serial_output_sink.Emit = &Serial_Emit;
+  serial_output_sink.Finish = &Serial_Finish;
+
+  Install_IRQ(COM1_IRQ, Serial_Interrupt_Handler);
+  Enable_IRQ(COM1_IRQ);
+  InitSerialAddr(DEFAULT_SERIAL_ADDR);
 }

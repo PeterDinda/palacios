@@ -1,7 +1,7 @@
 /*
  * GeekOS text screen output
  * Copyright (c) 2001,2003 David H. Hovemeyer <daveho@cs.umd.edu>
- * $Revision: 1.1 $
+ * $Revision: 1.2 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -11,6 +11,7 @@
 #define GEEKOS_SCREEN_H
 
 #include <geekos/ktypes.h>
+#include <geekos/fmtout.h>
 
 #define BLACK   0
 #define BLUE    1
@@ -51,6 +52,8 @@ void Put_Char(int c);
 void Put_String(const char* s);
 void Put_Buf(const char* buf, ulong_t length);
 void Print(const char* fmt, ...) __attribute__ ((format (printf, 1, 2)));
+void PrintList(const char * fmt, va_list ap);
+
 
 #endif  /* GEEKOS */
 
