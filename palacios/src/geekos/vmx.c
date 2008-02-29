@@ -186,7 +186,7 @@ void SetCtrlBitsCorrectly(int msrno, int vmcsno)
   uint_t reserved =0;
   union VMX_MSR msr;
 
-  PrintTrace("SetCtrlBitsCorrectly(%x,%x)\n",msrno,vmcsno);
+  PrintTrace("SetCtrlBitsCorrectly(%x,%x)\n", msrno, vmcsno);
   Get_MSR(msrno, &msr.regs.high, &msr.regs.low);
   PrintTrace("MSR %x = %x : %x \n", msrno, msr.regs.high, msr.regs.low);
   reserved = msr.regs.low;
@@ -216,8 +216,8 @@ extern int vmRunning;
 
 static int PanicUnhandledVMExit(struct VM *vm)
 {
-  Print("Panicking due to VMExit with reason %u\n",vm->vmcs.exitInfoFields.reason);
-  PrintTrace("Panicking due to VMExit with reason %u\n",vm->vmcs.exitInfoFields.reason);
+  PrintInfo("Panicking due to VMExit with reason %u\n", vm->vmcs.exitInfoFields.reason);
+  PrintTrace("Panicking due to VMExit with reason %u\n", vm->vmcs.exitInfoFields.reason);
   PrintTrace_VMCS_ALL();
   PrintTrace_VMX_Regs(&(vm->registers));
   VMXPanic();
@@ -267,13 +267,13 @@ static int HandleInOutExit(struct VM *vm)
   address=GetLinearIP(vm);
 
   PrintTrace("Handling Input/Output Instruction Exit\n");
-  if (SERIAL_PRINT_DEBUG && 1000>=SERIAL_PRINT_DEBUG_LEVEL) {
-      PrintTrace_VMX_Regs(regs);
-  }
-  PrintTrace("Qualifications=0x%x\n",exitinfo->qualification);
-  PrintTrace("Reason=0x%x\n",exitinfo->reason);
+
+  PrintTrace_VMX_Regs(regs);
+
+  PrintTrace("Qualifications=0x%x\n", exitinfo->qualification);
+  PrintTrace("Reason=0x%x\n", exitinfo->reason);
   PrintTrace("IO Port: 0x%x (%d)\n", qual->port, qual->port);
-  PrintTrace("Instruction Info=%x\n",exitinfo->instrInfo);
+  PrintTrace("Instruction Info=%x\n", exitinfo->instrInfo);
   PrintTrace("%x : %s %s %s instruction of length %d for %d bytes from/to port 0x%x\n",
 		   address,
 		   qual->dir == 0 ? "output" : "input",
@@ -283,20 +283,20 @@ static int HandleInOutExit(struct VM *vm)
 		   qual->accessSize==0 ? 1 : qual->accessSize==1 ? 2 : 4,
 		   qual->port);
 
-  if (qual->port==PIC_MASTER_CMD_ISR_PORT ||
-      qual->port==PIC_MASTER_IMR_PORT ||
-      qual->port==PIC_SLAVE_CMD_ISR_PORT ||
-      qual->port==PIC_SLAVE_IMR_PORT) {
+  if ((qual->port == PIC_MASTER_CMD_ISR_PORT) ||
+      (qual->port == PIC_MASTER_IMR_PORT)     ||
+      (qual->port == PIC_SLAVE_CMD_ISR_PORT)  ||
+      (qual->port == PIC_SLAVE_IMR_PORT)) {
     PrintTrace( "PIC Access\n");
   }
                   
 
-  if (qual->dir==1 && qual->REP==0 && qual->string==0) { 
+  if ((qual->dir == 1) && (qual->REP == 0) && (qual->string == 0)) { 
     char byte = In_Byte(qual->port);
 
     vm->vmcs.guestStateArea.rip += exitinfo->instrLength;
     regs->eax = (regs->eax & 0xffffff00) | byte;
-    PrintTrace("Returning 0x%x in eax\n",(regs->eax));
+    PrintTrace("Returning 0x%x in eax\n", (regs->eax));
   }
 
   if (qual->dir==0 && qual->REP==0 && qual->string==0) { 
@@ -844,7 +844,7 @@ int MyLaunch(struct VM *vm)
   //  tmpReg = 0x4100;
   tmpReg = 0xffffffff;
   if (VMCS_WRITE(EXCEPTION_BITMAP,&tmpReg ) != VMX_SUCCESS) {
-    Print("Bitmap error\n");
+    PrintInfo("Bitmap error\n");
   }
 
   ConfigureExits(vm);
@@ -891,7 +891,7 @@ VmxOnRegion * CreateVmxOnRegion() {
 
   *(ulong_t*)region = basicMSR.vmxBasic.revision;
 
-  Print("VMX revision: 0x%lu\n", *(ulong_t *)region);
+  PrintInfo("VMX revision: 0x%lu\n", *(ulong_t *)region);
 
   return region;
 }

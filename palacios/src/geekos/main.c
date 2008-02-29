@@ -3,7 +3,7 @@
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
  * Copyright (c) 2004, Iulian Neamtiu <neamtiu@cs.umd.edu>
- * $Revision: 1.11 $
+ * $Revision: 1.12 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -33,6 +33,7 @@
 #include <geekos/gdt.h>
 
 #include <geekos/vmm_sizes.h>
+#include <geekos/vmm_stubs.h>
 
 /*
   static inline unsigned int cpuid_ecx(unsigned int op)
@@ -147,9 +148,6 @@ void RunVM() {
 
 
 
-extern uint_t VMCS_STORE();
-extern uint_t VMCS_READ();
-
 
 
 void Buzzer(ulong_t arg) {
@@ -163,6 +161,8 @@ void Buzzer(ulong_t arg) {
   }
 
 }
+
+
 
 
 
@@ -247,6 +247,8 @@ void VM_Thread(ulong_t arg)
 }
 */
 
+
+
 int AllocateAndMapPagesForRange(uint_t start, uint_t length, pte_t template_pte)
 {
   uint_t address;
@@ -325,6 +327,8 @@ void Main(struct Boot_Info* bootInfo)
   os_hooks.print_debug = &PrintBoth;
   os_hooks.print_info = &Print;
   os_hooks.print_trace = &SerialPrint;
+  os_hooks.Allocate_Pages = &Allocate_VMM_Pages;
+  os_hooks.Free_Page = &Free_VMM_Page;
 
   Init_VMM(&os_hooks);
 

@@ -3,6 +3,13 @@
 
 
 
+#define VMCB_CTRL_AREA_OFFSET                   0x0
+#define VMCB_STATE_SAVE_AREA_OFFSET             0x400
+
+
+#define GET_VMCB_CTRL_AREA(page)         (page + VMCB_CONTROL_AREA_OFFSET)
+#define GET_VMCB_SAVE_STATE_AREA(page)   (page + VMCB_STATE_SAVE_AREA_OFFSET)
+
 
 #if __TINYC__
 #define PACKED
@@ -57,7 +64,7 @@ union Debug_Registers {
 
 
 union Exception_Vectors {
-  ulong_t bitmap                  PACKED;
+  uint_t bitmap                  PACKED;
   struct {
     uint_t ex0         : 1        PACKED;
     uint_t ex1         : 1        PACKED;
@@ -96,7 +103,7 @@ union Exception_Vectors {
 
 
 union Instr_Intercepts {
-  ulong_t bitmap                  PACKED;
+  uint_t bitmap                  PACKED;
   struct {
     uint_t INTR        : 1        PACKED;
     uint_t NMI         : 1        PACKED;
@@ -134,7 +141,7 @@ union Instr_Intercepts {
 };
 
 union SVM_Instr_Intercepts { 
-  ulong_t bitmap                  PACKED;
+  uint_t bitmap                  PACKED;
   struct {
     uint_t VMRUN      : 1         PACKED;
     uint_t VMMCALL    : 1         PACKED;
@@ -149,24 +156,24 @@ union SVM_Instr_Intercepts {
     uint_t MONITOR    : 1         PACKED;
     uint_t MWAIT_always : 1       PACKED;
     uint_t MWAIT_if_armed : 1     PACKED;
-    ulong_t reserved  : 19        PACKED;
+    uint_t reserved  : 19         PACKED;  // Should be 0
   } instrs;
 };
 
 
 union Guest_Control {
-  ulong_t bitmap                  PACKED;
+  uint_t bitmap                  PACKED;
   struct {
     uchar_t V_TPR                 PACKED;
     uint_t V_IRQ      : 1         PACKED;
-    uint_t rsvd1      : 7         PACKED;
+    uint_t rsvd1      : 7         PACKED;  // Should be 0
     uint_t V_INTR_PRIO : 4        PACKED;
     uint_t V_IGN_TPR  : 1         PACKED;
-    uint_t rsvd2      : 3         PACKED;
+    uint_t rsvd2      : 3         PACKED;  // Should be 0
     uint_t V_INTR_MASKING : 1     PACKED;
-    uint_t rsvd3      : 7         PACKED;
+    uint_t rsvd3      : 7         PACKED;  // Should be 0
     uchar_t V_INTR_VECTOR         PACKED;
-    uint_t rsvd4      : 24        PACKED;
+    uint_t rsvd4      : 24        PACKED;  // Should be 0
   } ctrls;
 };
 
@@ -174,52 +181,52 @@ union Guest_Control {
 
 typedef struct VMCB_Control_Area {
   // offset 0x0
-  union Ctrl_Registers cr_reads        PACKED;
-  union Ctrl_Registers cr_writes       PACKED;
-  union Debug_Registers dr_reads       PACKED;
-  union Debug_Registers dr_writes      PACKED;
-  union Exception_Vectors exceptions   PACKED;
-  union Instr_Intercepts instrs        PACKED;
+  union Ctrl_Registers cr_reads         PACKED;
+  union Ctrl_Registers cr_writes        PACKED;
+  union Debug_Registers dr_reads        PACKED;
+  union Debug_Registers dr_writes       PACKED;
+  union Exception_Vectors exceptions    PACKED;
+  union Instr_Intercepts instrs         PACKED;
   union SVM_Instr_Intercepts svm_instrs PACKED;
 
-  uchar_t rsvd1[43]                    PACKED;
+  uchar_t rsvd1[43]                     PACKED;  // Should be 0
 
   // offset 0x040
-  ullong_t IOPM_BASE_PA                PACKED;
-  ullong_t MSRPM_BASE_PA               PACKED;
-  ullong_t TSC_OFFSET                  PACKED;
+  ullong_t IOPM_BASE_PA                 PACKED;
+  ullong_t MSRPM_BASE_PA                PACKED;
+  ullong_t TSC_OFFSET                   PACKED;
 
-  ulong_t guest_ASID                   PACKED;
-  uchar_t TLB_CONTROL                  PACKED;
+  uint_t guest_ASID                     PACKED;
+  uchar_t TLB_CONTROL                   PACKED;
 
-  uchar_t rsvd2[3]                     PACKED;
+  uchar_t rsvd2[3]                      PACKED;  // Should be 0
 
-  union Guest_Control guest_ctrl       PACKED;
+  union Guest_Control guest_ctrl        PACKED;
   
-  ulong_t interrupt_shadow  : 1        PACKED;
-  ulong_t rsvd3             : 31       PACKED;
-  ulong_t rsvd4                        PACKED;
+  uint_t interrupt_shadow  : 1          PACKED;
+  uint_t rsvd3             : 31         PACKED;  // Should be 0
+  uint_t rsvd4                          PACKED;  // Should be 0
 
-  ullong_t exit_code                   PACKED;
-  ullong_t exit_info1                  PACKED;
-  ullong_t exit_info2                  PACKED;
+  ullong_t exit_code                    PACKED;
+  ullong_t exit_info1                   PACKED;
+  ullong_t exit_info2                   PACKED;
 
   /* This could be a typo in the manual....
    * It doesn't actually say that there is a reserved bit
    * But it does say that the EXITINTINFO field is in bits 63-1
    * ALL other occurances mention a 1 bit reserved field
    */
-  ulong_t rsvd5             : 1        PACKED;
-  ullong_t exit_int_info    : 63       PACKED;
+  uint_t rsvd5             : 1          PACKED;
+  ullong_t exit_int_info   : 63         PACKED;
   /* ** */
 
-  ulong_t NP_ENABLE         : 1        PACKED;
-  ullong_t rsvd6            : 63       PACKED;
+  uint_t NP_ENABLE         : 1          PACKED;
+  ullong_t rsvd6           : 63         PACKED;  // Should be 0 
 
-  uchar_t rsvd7[15]                    PACKED;
+  uchar_t rsvd7[15]                     PACKED;  // Should be 0
 
   // Offset 0xA8
-  ullong_t EVENTINJ                    PACKED;
+  ullong_t EVENTINJ                     PACKED;
 
 
   /* This could be a typo in the manual....
@@ -227,12 +234,12 @@ typedef struct VMCB_Control_Area {
    * But it does say that the EXITINTINFO field is in bits 63-1
    * ALL other occurances mention a 1 bit reserved field
    */
-  ulong_t rsvd8             : 1        PACKED;
-  ullong_t N_CR3            : 63       PACKED;
+  uint_t rsvd8              : 1         PACKED;
+  ullong_t N_CR3            : 63        PACKED;
   /* ** */
 
-  ulong_t LBR_VIRTUALIZATION_ENABLE  : 1  PACKED;
-  ullong_t rsvd9            : 63       PACKED;
+  uint_t LBR_VIRTUALIZATION_ENABLE : 1  PACKED;
+  ullong_t rsvd9            : 63        PACKED;   // Should be 0
 
 } vmcb_ctrl_t;
 
@@ -244,14 +251,9 @@ typedef struct VMCB_Control_Area {
 struct vmcb_selector {
   ushort_t selector                   PACKED;
   ushort_t attrib                     PACKED;
-  ulong_t  limit                      PACKED;
+  uint_t  limit                       PACKED;
   ullong_t base                       PACKED;
 }
-
-
-
-
-
 
 
 typedef struct VMCB_State_Save_Area {
@@ -273,7 +275,7 @@ typedef struct VMCB_State_Save_Area {
   uchar_t cpl                        PACKED; // if the guest is real-mode then the CPL is forced to 0
                                              // if the guest is virtual-mode then the CPL is forced to 3
 
-  ulong_t rsvd2                      PACKED;
+  uint_t rsvd2                       PACKED;
 
   // offset 0x0d0
   ullong_t efer                      PACKED;
@@ -312,12 +314,18 @@ typedef struct VMCB_State_Save_Area {
   uchar_t rsvd6[31]                  PACKED;
 
   //offset 0x268
-  ullong_t g_pat                     PACKED; // Guest PAT                          -- only used if nested paging is enabled
-  ullong_t dbgctl                    PACKED; // Guest DBGCTL MSR                   -- only used if the LBR registers are virtualized
-  ullong_t br_from                   PACKED; // Guest LastBranchFromIP MSR         -- only used if the LBR registers are virtualized
-  ullong_t br_to                     PACKED; // Guest LastBranchToIP MSR           -- only used if the LBR registers are virtualized
-  ullong_t lastexcpfrom              PACKED; // Guest LastExceptionFromIP MSR      -- only used if the LBR registers are virtualized
-  ullong_t lastexcpto                PACKED; // Guest LastExceptionToIP MSR        -- only used if the LBR registers are virtualized
+  ullong_t g_pat                     PACKED; // Guest PAT                     
+                                             //   -- only used if nested paging is enabled
+  ullong_t dbgctl                    PACKED; // Guest DBGCTL MSR               
+                                             //   -- only used if the LBR registers are virtualized
+  ullong_t br_from                   PACKED; // Guest LastBranchFromIP MSR
+                                             //   -- only used if the LBR registers are virtualized
+  ullong_t br_to                     PACKED; // Guest LastBranchToIP MSR   
+                                             //   -- only used if the LBR registers are virtualized
+  ullong_t lastexcpfrom              PACKED; // Guest LastExceptionFromIP MSR
+                                             //   -- only used if the LBR registers are virtualized
+  ullong_t lastexcpto                PACKED; // Guest LastExceptionToIP MSR 
+                                             //   -- only used if the LBR registers are virtualized
 
 } vmcb_saved_state_t;
 

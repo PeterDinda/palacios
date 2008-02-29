@@ -1,6 +1,7 @@
 #ifndef __SVM_H
 #define __SVM_H
 
+#include <geekos/vmm_util.h>
 #include <geekos/vmm.h>
 
 #define CPUID_FEATURE_IDS 0x80000001
@@ -38,6 +39,7 @@
 #define SVM_SMM_CTL_MSR_rsm_cycle 0x00000010
 
 #define SVM_VM_HSAVE_PA_MSR      0xc0010117
+
 #define SVM_KEY_MSR              0xc0010118
 
 /******/

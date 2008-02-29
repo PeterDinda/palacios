@@ -40,7 +40,6 @@
 
 
 
-
 #define VMM_INVALID_CPU 0
 #define VMM_VMX_CPU 1
 #define VMM_SVM_CPU 2
@@ -51,6 +50,9 @@ struct vmm_os_hooks {
   void (*print_info)(const char * format, ...);
   void (*print_debug)(const char * format, ...);
   void (*print_trace)(const char * format, ...);
+  
+  void *(*Allocate_Pages)(int numPages);
+  void (*Free_Page)(void * page); 
 };
 
 
