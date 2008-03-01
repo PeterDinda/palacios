@@ -1,13 +1,14 @@
 #ifndef __VMCB_H
 #define __VMCB_H
 
+#include <geekos/ktypes.h>
 
 
 #define VMCB_CTRL_AREA_OFFSET                   0x0
 #define VMCB_STATE_SAVE_AREA_OFFSET             0x400
 
 
-#define GET_VMCB_CTRL_AREA(page)         (page + VMCB_CONTROL_AREA_OFFSET)
+#define GET_VMCB_CTRL_AREA(page)         (page + VMCB_CTRL_AREA_OFFSET)
 #define GET_VMCB_SAVE_STATE_AREA(page)   (page + VMCB_STATE_SAVE_AREA_OFFSET)
 
 
@@ -16,6 +17,10 @@
 #else
 #define PACKED __attribute__((packed))
 #endif
+
+
+typedef void vmcb_t;
+
 
 union Ctrl_Registers {
   ushort_t bitmap                PACKED;
@@ -189,7 +194,7 @@ typedef struct VMCB_Control_Area {
   union Instr_Intercepts instrs         PACKED;
   union SVM_Instr_Intercepts svm_instrs PACKED;
 
-  uchar_t rsvd1[43]                     PACKED;  // Should be 0
+  uchar_t rsvd1[44]                     PACKED;  // Should be 0
 
   // offset 0x040
   ullong_t IOPM_BASE_PA                 PACKED;
@@ -223,7 +228,7 @@ typedef struct VMCB_Control_Area {
   uint_t NP_ENABLE         : 1          PACKED;
   ullong_t rsvd6           : 63         PACKED;  // Should be 0 
 
-  uchar_t rsvd7[15]                     PACKED;  // Should be 0
+  uchar_t rsvd7[16]                     PACKED;  // Should be 0
 
   // Offset 0xA8
   ullong_t EVENTINJ                     PACKED;
@@ -250,10 +255,27 @@ typedef struct VMCB_Control_Area {
 
 struct vmcb_selector {
   ushort_t selector                   PACKED;
-  ushort_t attrib                     PACKED;
+
+  /* These attributes are basically a direct map of the attribute fields of a segment desc.
+   * The segment limit in the middle is removed and the fields are pused together
+   * There IS empty space at the end... See AMD Arch vol3, sect. 4.7.1,  pg 78
+   */
+  union {
+    ushort_t raw                      PACKED;
+    struct {
+      uint_t type              : 4    PACKED; // segment type, [see Intel vol. 3b, sect. 3.4.5.1 (because I have the books)]
+      uint_t S                 : 1    PACKED; // System=0, code/data=1
+      uint_t dpl               : 2    PACKED; // priviledge level, corresonds to protection ring
+      uint_t P                 : 1    PACKED; // present flag
+      uint_t avl               : 1    PACKED; // available for use by system software
+      uint_t L                 : 1    PACKED; // long mode (64 bit?)
+      uint_t db                : 1    PACKED; // default op size (0=16 bit seg, 1=32 bit seg)
+      uint_t G                 : 1    PACKED; // Granularity, (0=bytes, 1=4k)      
+    } fields;
+  } attrib;
   uint_t  limit                       PACKED;
   ullong_t base                       PACKED;
-}
+};
 
 
 typedef struct VMCB_State_Save_Area {
@@ -269,7 +291,7 @@ typedef struct VMCB_State_Save_Area {
   struct vmcb_selector idtr          PACKED; // selector+attrib are reserved, only lower 16 bits of limit are implemented
   struct vmcb_selector tr            PACKED; 
 
-  uchar_t rsvd1[42]                  PACKED;
+  uchar_t rsvd1[43]                  PACKED;
 
   //offset 0x0cb
   uchar_t cpl                        PACKED; // if the guest is real-mode then the CPL is forced to 0
@@ -280,7 +302,7 @@ typedef struct VMCB_State_Save_Area {
   // offset 0x0d0
   ullong_t efer                      PACKED;
 
-  uchar_t rsvd3[111]                 PACKED;
+  uchar_t rsvd3[112]                 PACKED;
   
   //offset 0x148
   ullong_t cr4                       PACKED;
@@ -291,12 +313,12 @@ typedef struct VMCB_State_Save_Area {
   ullong_t rflags                    PACKED;
   ullong_t rip                       PACKED;
 
-  uchar_t rsvd4[87]                  PACKED;
+  uchar_t rsvd4[88]                  PACKED;
   
   //offset 0x1d8
   ullong_t rsp                       PACKED;
 
-  uchar_t rsvd5[23]                  PACKED;
+  uchar_t rsvd5[24]                  PACKED;
 
   //offset 0x1f8
   ullong_t rax                       PACKED;
@@ -311,7 +333,7 @@ typedef struct VMCB_State_Save_Area {
   ullong_t cr2                       PACKED;
 
 
-  uchar_t rsvd6[31]                  PACKED;
+  uchar_t rsvd6[32]                  PACKED;
 
   //offset 0x268
   ullong_t g_pat                     PACKED; // Guest PAT                     
@@ -328,6 +350,8 @@ typedef struct VMCB_State_Save_Area {
                                              //   -- only used if the LBR registers are virtualized
 
 } vmcb_saved_state_t;
+
+
 
 
 #endif

@@ -3,7 +3,7 @@
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
  * Copyright (c) 2004, Iulian Neamtiu <neamtiu@cs.umd.edu>
- * $Revision: 1.12 $
+ * $Revision: 1.13 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -120,7 +120,9 @@ void BuzzVM()
   int j;
   unsigned char init;
   
-  
+    
+  SerialPrint("Starting To Buzz\n");
+
   init=MyIn_Byte(SPEAKER_PORT);
 
   while (1) {
@@ -315,24 +317,42 @@ void Main(struct Boot_Info* bootInfo)
   */
 #endif
 
-#if 1
+#if 0
   SerialPrint("Dumping GUEST KERNEL CODE (first 512*2 bytes @ 0x100000)\n");
   SerialMemDump((unsigned char *)0x100000, 512*2);
 #endif
 
 
 
-  
+  {
   struct vmm_os_hooks os_hooks;
+  struct vmm_ctrl_ops vmm_ops;
+  guest_info_t vm_info;
+  memset(&os_hooks, 0, sizeof(struct vmm_os_hooks));
+  memset(&vmm_ops, 0, sizeof(struct vmm_ctrl_ops));
+  memset(&vm_info, 0, sizeof(guest_info_t));
+
   os_hooks.print_debug = &PrintBoth;
   os_hooks.print_info = &Print;
   os_hooks.print_trace = &SerialPrint;
   os_hooks.Allocate_Pages = &Allocate_VMM_Pages;
   os_hooks.Free_Page = &Free_VMM_Page;
 
-  Init_VMM(&os_hooks);
+  Init_VMM(&os_hooks, &vmm_ops);
 
-  
+
+
+  vm_info.rip = (ullong_t)(void*)&BuzzVM;
+  vm_info.rsp = (ulong_t)Alloc_Page();
+
+  SerialPrint("Initializing Guest\n");
+  (vmm_ops).init_guest(&vm_info);
+  SerialPrint("Starting Guest\n");
+  (vmm_ops).start_guest(&vm_info);
+
+  }
+
+
   SerialPrintLevel(1000,"Launching Noisemaker and keyboard listener threads\n");
   
   key_thread = Start_Kernel_Thread(Keyboard_Listener, (ulong_t)&doIBuzz, PRIORITY_NORMAL, false);

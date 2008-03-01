@@ -3,6 +3,7 @@
 
 #include <geekos/vmm_util.h>
 #include <geekos/vmm.h>
+#include <geekos/vmcb.h>
 
 #define CPUID_FEATURE_IDS 0x80000001
 #define CPUID_FEATURE_IDS_ecx_svm_avail 0x00000004
@@ -214,6 +215,10 @@ void Init_SVM();
 int is_svm_capable();
 
 
+vmcb_t * Allocate_VMCB();
+void Init_VMCB(vmcb_t * vmcb, guest_info_t vm_info);
 
+int init_svm_guest(struct guest_info *info);
+int start_svm_guest(struct guest_info * info);
 
 #endif

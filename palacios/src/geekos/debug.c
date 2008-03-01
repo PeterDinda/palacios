@@ -6,6 +6,6 @@ void PrintBoth(const char * format, ...) {
 
   va_start(args, format);
   PrintList(format, args);
-  //SerialPrintList(format, args);
+  SerialPrintList(format, args);
   va_end(args);
 }

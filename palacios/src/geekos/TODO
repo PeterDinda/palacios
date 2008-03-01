@@ -1,0 +1,15 @@
+Get Relocation working
+	code audit to ensure no compile time addresses are generated (globals)
+	figure out how to get the .asm files to work
+		thoughts: add a GOT table somewhere, 
+			  setup a special 'ASM' gdt entry for code/data
+
+64 bit porting work...
+	change register ops to work with 64 bit values
+		e.g. Get/Set_MSR
+	get a 64/32 bit register abstraction that is GOOD
+		see reg_ex_t in vmm_util.h
+
+Support allocating multiple contiguous pages in geekos
+	either rewrite allocator or just step through until you find one
+

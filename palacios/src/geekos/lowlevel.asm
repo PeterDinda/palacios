@@ -2,7 +2,7 @@
 ; Low level interrupt/thread handling code for GeekOS.
 ; Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
 ; Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
-; $Revision: 1.2 $
+; $Revision: 1.3 $
 
 ; This is free software.  You are permitted to use,
 ; redistribute, and modify it as specified in the file "COPYING".
@@ -279,9 +279,15 @@ cpuid_edx:
 	push	ebp
 	mov	ebp, esp
 	push	edx
+	push	ecx
+	push 	ebx
+
 	mov 	eax, [ebp + 8]
 	cpuid
 	mov 	eax, edx
+
+	pop	ebx
+	pop	ecx
 	pop	edx
 	pop 	ebp
 	ret
@@ -294,11 +300,17 @@ align 8
 cpuid_ecx:
 	push	ebp
 	mov	ebp, esp
+	push	edx
 	push	ecx
+	push 	ebx
+
 	mov 	eax, [ebp + 8]
 	cpuid
 	mov 	eax, ecx
+
+	pop	ebx
 	pop	ecx
+	pop	edx
 	pop 	ebp
 	ret
 
@@ -307,8 +319,19 @@ cpuid_ecx:
 ;
 align 8
 cpuid_eax:
+	push	ebp
+	mov	ebp, esp
+	push	edx
+	push	ecx
+	push	ebx
+
 	mov 	eax, [esp+4]
 	cpuid
+
+	pop	ebx
+	pop	ecx
+	pop	edx
+	pop	ebp
 	ret
 
 ;
