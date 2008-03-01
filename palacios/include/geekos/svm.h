@@ -211,7 +211,7 @@
 
 
 
-void Init_SVM();
+void Init_SVM(struct vmm_ctrl_ops * vmm_ops);
 int is_svm_capable();
 
 

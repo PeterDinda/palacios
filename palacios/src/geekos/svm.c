@@ -19,7 +19,6 @@ int is_svm_capable() {
   uint_t vm_cr_low = 0, vm_cr_high = 0;
 
 
-  return 1;
   if ((ret & CPUID_FEATURE_IDS_ecx_svm_avail) == 0) {
     PrintDebug("SVM Not Available\n");
     return 0;
@@ -44,7 +43,7 @@ int is_svm_capable() {
 
 
 
-void Init_SVM() {
+void Init_SVM(struct vmm_ctrl_ops * vmm_ops) {
   reg_ex_t msr;
   void * host_state;
 
@@ -66,6 +65,12 @@ void Init_SVM() {
 
   PrintDebug("Host State being saved at %x\n", (uint_t)host_state);
   Set_MSR(SVM_VM_HSAVE_PA_MSR, msr.e_reg.high, msr.e_reg.low);
+
+
+
+  // Setup the SVM specific vmm operations
+  vmm_ops->init_guest = &init_svm_guest;
+  vmm_ops->start_guest = &start_svm_guest;
 
 
   return;

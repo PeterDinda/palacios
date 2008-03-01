@@ -25,10 +25,7 @@ void Init_VMM(struct vmm_os_hooks * hooks, struct vmm_ctrl_ops * vmm_ops) {
     vmm_cpu_type = VMM_SVM_CPU;
     PrintDebug("Machine is SVM Capable\n");
 
-    Init_SVM();
-
-    vmm_ops->init_guest = &init_svm_guest;
-    vmm_ops->start_guest = &start_svm_guest;
+    Init_SVM(vmm_ops);
 
   } else if (is_vmx_capable()) {
     vmm_cpu_type = VMM_VMX_CPU;
