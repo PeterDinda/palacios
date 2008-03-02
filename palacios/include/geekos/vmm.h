@@ -37,6 +37,18 @@
   } while (0)						\
 
 
+
+
+// We need to check the hook structure at runtime to ensure its SAFE
+#define VMMMalloc(size)                                 \
+  do {							\
+    extern struct vmm_os_hooks * os_hooks;		\
+    if ((os_hooks) && (os_hooks)->malloc) {		\
+      (os_hooks)->malloc(size);				\
+    }							\
+  } while (0)						\
+
+
 /* ** */
 
 

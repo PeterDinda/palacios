@@ -3,7 +3,7 @@
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
  * Copyright (c) 2004, Iulian Neamtiu <neamtiu@cs.umd.edu>
- * $Revision: 1.13 $
+ * $Revision: 1.14 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -325,31 +325,31 @@ void Main(struct Boot_Info* bootInfo)
 
 
   {
-  struct vmm_os_hooks os_hooks;
-  struct vmm_ctrl_ops vmm_ops;
-  guest_info_t vm_info;
-  memset(&os_hooks, 0, sizeof(struct vmm_os_hooks));
-  memset(&vmm_ops, 0, sizeof(struct vmm_ctrl_ops));
-  memset(&vm_info, 0, sizeof(guest_info_t));
+    struct vmm_os_hooks os_hooks;
+    struct vmm_ctrl_ops vmm_ops;
+    guest_info_t vm_info;
+    memset(&os_hooks, 0, sizeof(struct vmm_os_hooks));
+    memset(&vmm_ops, 0, sizeof(struct vmm_ctrl_ops));
+    memset(&vm_info, 0, sizeof(guest_info_t));
 
-  os_hooks.print_debug = &PrintBoth;
-  os_hooks.print_info = &Print;
-  os_hooks.print_trace = &SerialPrint;
-  os_hooks.Allocate_Pages = &Allocate_VMM_Pages;
-  os_hooks.Free_Page = &Free_VMM_Page;
+    os_hooks.print_debug = &PrintBoth;
+    os_hooks.print_info = &Print;
+    os_hooks.print_trace = &SerialPrint;
+    os_hooks.Allocate_Pages = &Allocate_VMM_Pages;
+    os_hooks.Free_Page = &Free_VMM_Page;
+    
+    Init_VMM(&os_hooks, &vmm_ops);
+  
 
-  Init_VMM(&os_hooks, &vmm_ops);
 
+    vm_info.rip = (ullong_t)(void*)&BuzzVM;
+    vm_info.rsp = (ulong_t)Alloc_Page();
 
-
-  vm_info.rip = (ullong_t)(void*)&BuzzVM;
-  vm_info.rsp = (ulong_t)Alloc_Page();
-
-  SerialPrint("Initializing Guest\n");
-  (vmm_ops).init_guest(&vm_info);
-  SerialPrint("Starting Guest\n");
-  (vmm_ops).start_guest(&vm_info);
-
+    SerialPrint("Initializing Guest\n");
+    (vmm_ops).init_guest(&vm_info);
+    SerialPrint("Starting Guest\n");
+    (vmm_ops).start_guest(&vm_info);
+    
   }
 
 

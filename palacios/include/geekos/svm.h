@@ -221,4 +221,7 @@ void Init_VMCB(vmcb_t * vmcb, guest_info_t vm_info);
 int init_svm_guest(struct guest_info *info);
 int start_svm_guest(struct guest_info * info);
 
+int handle_svm_exit();
+
+
 #endif

@@ -26,8 +26,8 @@ typedef struct vmm_mem_map {
 
 void init_mem_map(vmm_mem_map_t * map);
 
-void add_pages(vmm_mem_map_t * map, ullong_t addr, uint_t numPages);
-int remove_pages(vmm_mem_map_t * map, ullong_t addr, uint_t numPages);
+void add_mem_map_pages(vmm_mem_map_t * map, ullong_t addr, uint_t numPages);
+int remove_mem_map_pages(vmm_mem_map_t * map, ullong_t addr, uint_t numPages);
 
 
 
