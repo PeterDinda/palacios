@@ -39,12 +39,22 @@
 
 
 
-// We need to check the hook structure at runtime to ensure its SAFE
+/* This clearly won't work, we need some way to get a return value out of it */
 #define VMMMalloc(size)                                 \
   do {							\
     extern struct vmm_os_hooks * os_hooks;		\
     if ((os_hooks) && (os_hooks)->malloc) {		\
       (os_hooks)->malloc(size);				\
+    }							\
+  } while (0)						\
+
+
+// We need to check the hook structure at runtime to ensure its SAFE
+#define VMMFree(addr)					\
+  do {							\
+    extern struct vmm_os_hooks * os_hooks;		\
+    if ((os_hooks) && (os_hooks)->free) {		\
+      (os_hooks)->free(addr);				\
     }							\
   } while (0)						\
 
@@ -62,8 +72,8 @@ typedef struct guest_info {
   ullong_t rip;
   ullong_t rsp;
 
-  vmm_mem_map_t mem_map;
-  // preallocation map
+  vmm_mem_list_t mem_list;
+  vmm_mem_layout_t mem_layout;
   // device_map
 
   void * vmm_data;

@@ -5,7 +5,8 @@
 
 
 
-//#define PAGE_SIZE 4096
+
+#define PAGE_SIZE 4096
 
 typedef union reg_ex {
   ullong_t r_reg;
@@ -15,6 +16,20 @@ typedef union reg_ex {
   } e_reg;
 
 } reg_ex_t;
+
+
+
+// These are the GPRs layed out according to 'pusha'
+struct VMM_GPRs {
+  uint_t edi;
+  uint_t esi;
+  uint_t ebp;
+  uint_t esp;
+  uint_t ebx;
+  uint_t edx;
+  uint_t ecx;
+  uint_t eax;
+};
 
 
 

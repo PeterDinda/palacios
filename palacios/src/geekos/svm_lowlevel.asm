@@ -9,6 +9,8 @@
 
 
 
+EXTERN handle_svm_exit
+
 EXPORT launch_svm
 
 
@@ -61,3 +63,29 @@ launch_svm:
 ;
 ;
 ;
+
+
+
+;; Need to check this..
+;; Since RAX/EAX is saved in the VMCB, we should probably just 
+;;      do our own replacement for pusha/popa that excludes [e|r]ax
+safe_svm_launch:
+	push	ebp
+	mov	ebp, esp
+	pushf
+	pusha
+
+.vmm_loop:
+	mov	eax, [ebp + 8]
+	vmrun
+	pusha
+	call 	handle_svm_exit
+	and 	eax, eax
+	popa			;; restore the guest GPRs, (DOES THIS AFFECT E/RFLAGS?)
+	jz	.vmm_loop
+
+	;; HOW DO WE GET THE RETURN VALUE OF HANDLE_SVM_EXIT BACK TO THE CALLER
+	popf
+	popa
+	pop	ebp
+	ret

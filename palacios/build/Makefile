@@ -1,6 +1,6 @@
 # Makefile for GeekOS kernel, userspace, and tools
 # Copyright (c) 2004,2005 David H. Hovemeyer <daveho@cs.umd.edu>
-# $Revision: 1.13 $
+# $Revision: 1.14 $
 
 # This is free software.  You are permitted to use,
 # redistribute, and modify it as specified in the file "COPYING".
@@ -269,21 +269,6 @@ pxe:	fd.img
 	$(PAD) /tftpboot/vmm.img 1474560
 
 
-pxe-discovery-pdinda:	fd.img
-	cp fd.img geekos.img
-	$(PAD) geekos.img 1474560
-	/usr/local/vmm-util/pxe_cp geekos.img
-	/usr/local/vmm-util/tty_perm pdinda
-	echo "Copied file to PXE boot area and set serial permissions for pdinda"
-
-
-pxe-discovery-bjp600:	fd.img
-	cp fd.img geekos.img
-	$(PAD) geekos.img 1474560
-	/usr/local/vmm-util/pxe_cp geekos.img
-	/usr/local/vmm-util/tty_perm bjp600
-	echo "Copied file to PXE boot area and set serial permissions for pdinda"
-
 
 # Floppy boot sector (first stage boot loader).
 geekos/fd_boot.bin : geekos/setup.bin geekos/kernel.bin $(PROJECT_ROOT)/src/geekos/fd_boot.asm vm_kernel
@@ -349,6 +334,11 @@ force:
 vm_kernel: force
 	$(PAD) vm_kernel 512
 	@echo "VM kernel lives at 0x100000 and is" `$(NUMSECS) vm_kernel` "sectors long"
+
+
+
+vmm_mem_test: geekos/vmm_mem.c
+	$(HOST_CC) -o mem_test -DVMM_MEM_TEST -I../include ../src/geekos/vmm_mem.c 
 
 
 # Clean build directories of generated files

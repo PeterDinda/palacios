@@ -48,7 +48,7 @@ void Init_SVM(struct vmm_ctrl_ops * vmm_ops) {
   void * host_state;
 
 
-  // setup 
+  // Enable SVM on the CPU
   Get_MSR(EFER_MSR, &(msr.e_reg.high), &(msr.e_reg.low));
   msr.e_reg.low |= EFER_MSR_svm_enable;
   Set_MSR(EFER_MSR, 0, msr.e_reg.low);
@@ -111,6 +111,16 @@ int start_svm_guest(struct guest_info *info) {
   return 0;
 }
 
+
+
+/** 
+ *  We handle the svm exits here
+ *  This function should probably be moved to another file to keep things managable....
+ */
+int handle_svm_exit(struct VMM_GPRs guest_gprs) {
+
+  return 0;
+}
 
 
 vmcb_t * Allocate_VMCB() {
