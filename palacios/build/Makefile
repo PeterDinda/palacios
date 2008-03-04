@@ -1,6 +1,6 @@
 # Makefile for GeekOS kernel, userspace, and tools
 # Copyright (c) 2004,2005 David H. Hovemeyer <daveho@cs.umd.edu>
-# $Revision: 1.14 $
+# $Revision: 1.15 $
 
 # This is free software.  You are permitted to use,
 # redistribute, and modify it as specified in the file "COPYING".
@@ -20,19 +20,6 @@
 #   to speed the build process on 2 processor systems.
 
 
-
-# THESE MUST MATCH WHAT IS DEFINED IN defs.h and defs.asm exactly
-# MUST BE INTEGRAL NUMBER OF PAGES
-TOP_OF_MEM := 0x30000000
-VM_SIZE    := 0x20000000
-VM_START   := 0x0
-
-#
-# THE KERNEL, SETUP, BOOTPACKAGE MUST BE SMALLER THAN THIS
-# MUST BE INTEGRAL NUMBER OF PAGES
-# define 
-MAX_VMM := 0x160000
-
 # Base address of kernel
 #
 # Note: at top of memory minus three pages (GDT/TSS/IDT) 
@@ -43,7 +30,7 @@ MAX_VMM := 0x160000
 #
 # The setup code needs to copy it up to this address and jump there
 #
-KERNEL_BASE_ADDR := $(shell perl -e 'print sprintf("0x%x",$(TOP_OF_MEM)-4096*3-$(MAX_VMM));')
+KERNEL_BASE_ADDR := 0x00010000
 
 # Kernel entry point function
 KERNEL_ENTRY = $(SYM_PFX)Main
@@ -59,7 +46,7 @@ JRLDEBUG= -DSERIAL_PRINT_DEBUG=1 -DSERIAL_PRINT_DEBUG_LEVEL=10 -DSERIAL_PRINT=1
 #
 #
 #Peter's compile flags
-PADFLAGS = -DMAX_VMM=$(MAX_VMM)
+PADFLAGS =
 
 # Figure out if we're compiling with cygwin, http://cygwin.com
 SYSTEM_NAME := $(shell uname -s)
@@ -71,7 +58,7 @@ NON_ELF_SYSTEM     := yes
 EXTRA_CC_USER_OPTS := -Dmain=geekos_main
 endif
 
-VMM_SIZES = ../include/geekos/vmm_sizes.h
+
 
 
 # ----------------------------------------------------------------------
@@ -99,7 +86,7 @@ KERNEL_C_SRCS := idt.c int.c trap.c irq.c io.c \
 	serial.c  reboot.c \
         paging.c vmx.c vmcs_gen.c vmcs.c \
 	 svm.c vmm.c vmm_util.c vmm_stubs.c \
-	vmcb.c vmm_mem.c vm_guest.c \
+	vmcb.c vmm_mem.c vm_guest.c vmm_paging.c \
 	debug.c\
 	main.c
 
@@ -281,12 +268,12 @@ geekos/fd_boot.bin : geekos/setup.bin geekos/kernel.bin $(PROJECT_ROOT)/src/geek
 		-o $@
 
 # Setup program (second stage boot loader).
-geekos/setup.bin : geekos/kernel.exe $(PROJECT_ROOT)/src/geekos/setup.asm
+geekos/setup.bin : geekos/kernel.bin $(PROJECT_ROOT)/src/geekos/setup.asm
 	$(NASM) -f bin \
 		-I$(PROJECT_ROOT)/src/geekos/ \
 		-DENTRY_POINT=0x`egrep 'Main$$' geekos/kernel.syms |awk '{print $$1}'` \
-	        -DVMM_FINAL_ADDR=$(KERNEL_BASE_ADDR) \
-	        -DVMM_SIZE=$(MAX_VMM) \
+	        -DVMM_SIZE=`$(NUMSECS) geekos/kernel.bin` \
+		-DGUEST_SIZE=`$(NUMSECS) vm_kernel` \
 		$(PROJECT_ROOT)/src/geekos/setup.asm \
 		-o $@
 	$(PAD) $@ 512
@@ -303,31 +290,6 @@ geekos/kernel.exe : $(KERNEL_OBJS) $(COMMON_C_OBJS)
 	$(TARGET_NM) geekos/kernel.exe > geekos/kernel.syms
 
 
-generate_sizes: force
-	echo "#ifndef __vmm_sizes" > $(VMM_SIZES)
-	echo "#define __vmm_sizes" >> $(VMM_SIZES)
-	echo "#define KERNEL_LOAD_ADDRESS " $(KERNEL_BASE_ADDR)  >> $(VMM_SIZES) 
-
-	echo "#define KERNEL_START (KERNEL_LOAD_ADDRESS)" >> $(VMM_SIZES)
-	echo "#define KERNEL_CORE_LENGTH (" `$(NUMSECS) geekos/kernel.bin` "*512)" >> $(VMM_SIZES) 
-	echo "#define KERNEL_END (KERNEL_LOAD_ADDRESS+KERNEL_CORE_LENGTH-1)" >> $(VMM_SIZES)
-
-	echo "#define VM_KERNEL_LENGTH (" `$(NUMSECS) vm_kernel` "*512)" >> $(VMM_SIZES)
-	echo "#define VM_KERNEL_START (KERNEL_LOAD_ADDRESS + KERNEL_CORE_LENGTH)" >> $(VMM_SIZES)
-	echo "#define VM_BOOT_PACKAGE_START (VM_KERNEL_START) " >> $(VMM_SIZES)
-	echo "#define VM_BOOT_PACKAGE_END  (VM_KERNEL_START+VM_KERNEL_LENGTH-1) " >> $(VMM_SIZES)
-	echo "#endif" >> $(VMM_SIZES)
-
-make_show_sizes: generate_sizes ../src/geekos/show_sizes.c
-	$(HOST_CC) -I../include/geekos ../src/geekos/show_sizes.c -o show_sizes
-
-show_sizes: make_show_sizes
-	./show_sizes
-
-
-get_kernel_size: make_show_sizes
-	./show_sizes | grep 
-
 force:
 
 
@@ -338,7 +300,7 @@ vm_kernel: force
 
 
 vmm_mem_test: geekos/vmm_mem.c
-	$(HOST_CC) -o mem_test -DVMM_MEM_TEST -I../include ../src/geekos/vmm_mem.c 
+	$(HOST_CC) -m32 -o mem_test -DVMM_MEM_TEST -I../include ../src/geekos/vmm_mem.c ../src/geekos/vmm_paging.c 
 
 
 # Clean build directories of generated files

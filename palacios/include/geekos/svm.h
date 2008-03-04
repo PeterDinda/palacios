@@ -48,7 +48,7 @@
 
 
 /******************************************/
-/* SVM Intercep Exit Codes                */
+/* SVM Intercept Exit Codes               */
 /* AMD Arch Vol 3, Appendix C, pg 477-478 */
 /******************************************/
 #define VMEXIT_CR_READ_MASK 0xfffffff0

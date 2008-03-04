@@ -1,6 +1,6 @@
 ; Definitions for use in GeekOS boot code
 ; Copyright (c) 2001, David H. Hovemeyer <daveho@cs.umd.edu>
-; $Revision: 1.5 $
+; $Revision: 1.6 $
 
 ; This is free software.  You are permitted to use,
 ; redistribute, and modify it as specified in the file "COPYING".
@@ -16,9 +16,6 @@
 %ifndef DEFS_ASM
 %define DEFS_ASM
 
-TOP_OF_MEM   equ 0x30000000
-VM_SIZE      equ 0x20000000
-START_OF_VM  equ 0x0
 VM_KERNEL_TARGET	equ 0x100000
 	
 ; BIOS loads the boot sector at offset 0 in this segment
@@ -89,7 +86,7 @@ KERNEL_DS equ 2<<3	; kernel data segment is GDT entry 2
 ; the one we construct for Main().  Keep these up to date with defs.h.
 ; We put them at 1MB, for no particular reason.
 	;;  Moved to just after where the VM will go
-KERN_THREAD_OBJ equ (START_OF_VM+VM_SIZE)
+KERN_THREAD_OBJ equ 4096
 KERN_STACK equ KERN_THREAD_OBJ + 4096
 
 %endif

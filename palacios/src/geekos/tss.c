@@ -1,7 +1,7 @@
 /*
  * x86 TSS data structure and routines
  * Copyright (c) 2001,2004 David H. Hovemeyer <daveho@cs.umd.edu>
- * $Revision: 1.2 $
+ * $Revision: 1.3 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -26,8 +26,7 @@
 /*
  * We use one TSS in GeekOS.
  */
-//static struct TSS s_theTSS;
-static struct TSS *s_theTSS = (struct TSS *) TSS_LOCATION;
+static struct TSS s_theTSS;
 static struct Segment_Descriptor *s_tssDesc;
 static ushort_t s_tssSelector;
 
@@ -56,8 +55,8 @@ void Init_TSS(void)
     s_tssDesc = Allocate_Segment_Descriptor();
     KASSERT(s_tssDesc != 0);
 
-    memset(s_theTSS, '\0', sizeof(struct TSS));
-    Init_TSS_Descriptor(s_tssDesc, s_theTSS);
+    memset(&s_theTSS, '\0', sizeof(struct TSS));
+    Init_TSS_Descriptor(s_tssDesc, &s_theTSS);
 
     s_tssSelector = Selector(0, true, Get_Descriptor_Index(s_tssDesc));
 
@@ -72,8 +71,8 @@ void Init_TSS(void)
  */
 void Set_Kernel_Stack_Pointer(ulong_t esp0)
 {
-    s_theTSS->ss0 = KERNEL_DS;
-    s_theTSS->esp0 = esp0;
+    s_theTSS.ss0 = KERNEL_DS;
+    s_theTSS.esp0 = esp0;
 
     /*
      * NOTE: I read on alt.os.development that it is necessary to

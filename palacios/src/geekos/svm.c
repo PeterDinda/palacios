@@ -2,6 +2,9 @@
 #include <geekos/vmm.h>
 
 #include <geekos/vmcb.h>
+#include <geekos/vmm_mem.h>
+#include <geekos/vmm_paging.h>
+
 
 extern struct vmm_os_hooks * os_hooks;
 
@@ -57,7 +60,7 @@ void Init_SVM(struct vmm_ctrl_ops * vmm_ops) {
 
 
   // Setup the host state save area
-  host_state = os_hooks->Allocate_Pages(1);
+  host_state = os_hooks->allocate_pages(1);
   
   msr.e_reg.high = 0;
   msr.e_reg.low = (uint_t)host_state;
@@ -78,11 +81,24 @@ void Init_SVM(struct vmm_ctrl_ops * vmm_ops) {
 
 
 int init_svm_guest(struct guest_info *info) {
+  pde_t * pde;
+
   PrintDebug("Allocating VMCB\n");
   info->vmm_data = (void*)Allocate_VMCB();
 
+
+  PrintDebug("Generating Guest nested page tables\n");
+  print_mem_list(&(info->mem_list));
+  print_mem_layout(&(info->mem_layout));
+  pde = generate_guest_page_tables(&(info->mem_layout), &(info->mem_list));
+  PrintDebugPageTables(pde);
+
+
   PrintDebug("Initializing VMCB (addr=%x)\n", info->vmm_data);
   Init_VMCB((vmcb_t*)(info->vmm_data), *info);
+
+
+  
 
   return 0;
 }
@@ -124,7 +140,7 @@ int handle_svm_exit(struct VMM_GPRs guest_gprs) {
 
 
 vmcb_t * Allocate_VMCB() {
-  vmcb_t * vmcb_page = (vmcb_t*)os_hooks->Allocate_Pages(1);
+  vmcb_t * vmcb_page = (vmcb_t*)os_hooks->allocate_pages(1);
 
 
   memset(vmcb_page, 0, 4096);
@@ -181,3 +197,5 @@ void Init_VMCB(vmcb_t *vmcb, guest_info_t vm_info) {
   /* ** */
 
 }
+
+

@@ -1,7 +1,7 @@
 /*
  * Initialize kernel GDT.
  * Copyright (c) 2001,2004 David H. Hovemeyer <daveho@cs.umd.edu>
- * $Revision: 1.1 $
+ * $Revision: 1.2 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -32,8 +32,7 @@ extern void Load_GDTR(ushort_t* limitAndBase);
 /*
  * This is the kernel's global descriptor table.
  */
-struct Segment_Descriptor *s_GDT=(struct Segment_Descriptor *)GDT_LOCATION;
-
+struct Segment_Descriptor s_GDT[NUM_GDT_ENTRIES];
 /*
  * Number of allocated GDT entries.
  */
@@ -139,7 +138,6 @@ void Init_GDT(void)
     struct Segment_Descriptor* desc;
     int i;
 
-    Print("GDT Placed at %x, %d entries\n",GDT_LOCATION,NUM_GDT_ENTRIES);
 
     KASSERT(sizeof(struct Segment_Descriptor) == 8);
 

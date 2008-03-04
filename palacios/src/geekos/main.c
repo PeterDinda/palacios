@@ -3,7 +3,7 @@
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
  * Copyright (c) 2004, Iulian Neamtiu <neamtiu@cs.umd.edu>
- * $Revision: 1.15 $
+ * $Revision: 1.16 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -33,7 +33,7 @@
 
 #include <geekos/gdt.h>
 
-#include <geekos/vmm_sizes.h>
+
 #include <geekos/vmm_stubs.h>
 
 /*
@@ -336,14 +336,20 @@ void Main(struct Boot_Info* bootInfo)
     os_hooks.print_debug = &PrintBoth;
     os_hooks.print_info = &Print;
     os_hooks.print_trace = &SerialPrint;
-    os_hooks.Allocate_Pages = &Allocate_VMM_Pages;
-    os_hooks.Free_Page = &Free_VMM_Page;
+    os_hooks.allocate_pages = &Allocate_VMM_Pages;
+    os_hooks.free_page = &Free_VMM_Page;
     os_hooks.malloc = &VMM_Malloc;
     os_hooks.free = &VMM_Free;
 
 
     Init_VMM(&os_hooks, &vmm_ops);
   
+
+    init_mem_layout(&(vm_info.mem_layout));
+    init_mem_list(&(vm_info.mem_list));
+
+    //  add_mem_list_pages(&(vm_info.mem_list), START_OF_VM, 20);
+    //add_guest_mem_range(&(vm_info.mem_layout), 0, 20);
 
 
     vm_info.rip = (ullong_t)(void*)&BuzzVM;

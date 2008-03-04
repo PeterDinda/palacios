@@ -2,7 +2,7 @@
  * Physical memory allocation
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
- * $Revision: 1.1 $
+ * $Revision: 1.2 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -30,6 +30,20 @@ struct Boot_Info;
 #define PAGE_PAGEABLE  0x0020	 /* page can be paged out */
 #define PAGE_LOCKED    0x0040    /* page is taken should not be freed */
 #define PAGE_VM        0x0080    /* page is used by the VM */
+
+
+
+#define KERNEL_HEAP_SIZE (512*PAGE_SIZE)
+
+#define VMM_AVAIL_MEM_SIZE  (4096 * PAGE_SIZE)
+
+/*
+ * PC memory map
+ */
+#define ISA_HOLE_START 0x0A0000
+#define ISA_HOLE_END   0x100000
+
+
 
 
 struct Page;

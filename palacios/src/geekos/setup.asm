@@ -1,7 +1,7 @@
 ; -*- fundamental -*-
 ; GeekOS setup code
 ; Copyright (c) 2001,2004 David H. Hovemeyer <daveho@cs.umd.edu>
-; $Revision: 1.1 $
+; $Revision: 1.2 $
 
 ; This is free software.  You are permitted to use,
 ; redistribute, and modify it as specified in the file "COPYING".
@@ -87,6 +87,16 @@ setup_32:
 	shl	ebx, 6
 	add	eax, ebx
 	push	eax		; memSizeKB
+	
+	mov	eax, GUEST_SIZE 
+	push	eax 	        ; Size of the guest kernel
+
+	mov	eax, 0x100000
+	push 	eax             ; Load address of the guest
+	
+	mov	eax, VMM_SIZE
+	push	eax             ; size of the VMM
+
 	push	dword 8		; bootInfoSize
 
 	; Pass pointer to Boot_Info struct as argument to kernel
@@ -98,9 +108,6 @@ setup_32:
 	push	dword (SETUPSEG<<4)+.returnAddr
 
 
-	; Copy VMM kernel and VMM Boot Package to final location
-	call    copy_vmm
-
 	; Far jump into kernel
 	jmp	KERNEL_CS:ENTRY_POINT
 
@@ -108,24 +115,6 @@ setup_32:
 	; We shouldn't return here.
 .here:	jmp .here
 
-
-copy_vmm:
-	pusha
-
-	mov	ebx, KERNSEG<<4
-	mov 	ecx, VMM_FINAL_ADDR
-	mov	edx, VMM_SIZE
-repeat:
-	mov	eax, [ebx]
-	mov	[ecx], eax
-	add	ebx, $4
-	add	ecx, $4
-	sub	edx, $4
-	jnz	repeat
-
-	popa
-
-	ret
 
 
 

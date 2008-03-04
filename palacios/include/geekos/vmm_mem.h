@@ -5,10 +5,11 @@
 #include <geekos/ktypes.h>
 
 
+typedef unsigned long addr_t;
 
 
 typedef struct mem_region {
-  ullong_t addr;
+ addr_t addr;
   uint_t num_pages;
 
   struct mem_region * next;
@@ -35,27 +36,25 @@ typedef enum region_type {GUEST, UNMAPPED, SHARED} region_type_t;
 
 
 typedef struct layout_region {
-  ullong_t addr;
+  addr_t addr;
   uint_t num_pages;
 
   region_type_t type;
 
-  ullong_t host_addr;
+  addr_t host_addr;
 
   struct layout_region * next;
   struct layout_region * prev;
-  
-
 } layout_region_t;
 
 
 typedef struct vmm_mem_layout {
   uint_t num_pages;
   uint_t num_regions;
+ 
+  uint_t num_guest_pages;
 
   layout_region_t * head;
-  //layout_region_t * tail;
-
 } vmm_mem_layout_t;
 
 
@@ -64,21 +63,33 @@ typedef struct vmm_mem_layout {
 void init_mem_list(vmm_mem_list_t * list);
 void free_mem_list(vmm_mem_list_t * list);
 
-int add_mem_list_pages(vmm_mem_list_t * list, ullong_t addr, uint_t num_pages);
-int remove_mem_list_pages(vmm_mem_list_t * list, ullong_t addr, uint_t num_pages);
+int add_mem_list_pages(vmm_mem_list_t * list, addr_t addr, uint_t num_pages);
+int remove_mem_list_pages(vmm_mem_list_t * list, addr_t addr, uint_t num_pages);
 
-mem_region_t * get_mem_list_cursor(vmm_mem_list_t * list, ullong_t addr);
+mem_region_t * get_mem_list_cursor(vmm_mem_list_t * list, addr_t addr);
+
+addr_t get_mem_list_addr(vmm_mem_list_t * list, uint_t index);
+
+void print_mem_list(vmm_mem_list_t * list);
 
 
-
-void init_mem_laout(vmm_mem_layout_t * layout);
+void init_mem_layout(vmm_mem_layout_t * layout);
 void free_mem_layout(vmm_mem_layout_t * layout);
 
-layout_region_t * get_layout_cursor(vmm_mem_layout_t * layout, ullong_t addr);
+layout_region_t * get_layout_cursor(vmm_mem_layout_t * layout, addr_t addr);
 
 int add_mem_range(vmm_mem_layout_t * layout, layout_region_t * region);
-int add_shared_mem_range(vmm_mem_layout_t * layout, ullong_t addr, uint_t num_pages, ullong_t host_addr);
-int add_unmapped_mem_range(vmm_mem_layout_t * layout, ullong_t addr, uint_t num_pages);
-int add_guest_mem_range(vmm_mem_layout_t * layout, ullong_t addr, uint_t num_pages);
+int add_shared_mem_range(vmm_mem_layout_t * layout, addr_t addr, uint_t num_pages, addr_t host_addr);
+int add_unmapped_mem_range(vmm_mem_layout_t * layout, addr_t addr, uint_t num_pages);
+int add_guest_mem_range(vmm_mem_layout_t * layout, addr_t addr, uint_t num_pages);
+
+
+addr_t get_mem_layout_addr(vmm_mem_layout_t * list, uint_t index);
+
+void print_mem_layout(vmm_mem_layout_t * layout);
+
+
+
+
 
 #endif

@@ -89,8 +89,8 @@ struct vmm_os_hooks {
   void (*print_debug)(const char * format, ...);
   void (*print_trace)(const char * format, ...);
   
-  void *(*Allocate_Pages)(int numPages);
-  void (*Free_Page)(void * page);
+  void *(*allocate_pages)(int numPages);
+  void (*free_page)(void * page);
 
   void *(*malloc)(uint_t size);
   void (*free)(void * addr);

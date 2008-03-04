@@ -2,12 +2,12 @@
 #define __VMM_UTIL_H
 
 #include <geekos/vmm.h>
+#include <geekos/vmm_mem.h>
 
 
-
-
+#ifndef PAGE_SIZE
 #define PAGE_SIZE 4096
-
+#endif
 typedef union reg_ex {
   ullong_t r_reg;
   struct {
@@ -36,7 +36,6 @@ struct VMM_GPRs {
 void PrintTraceHex(unsigned char x);
 
 void PrintTraceMemDump(unsigned char * start, int n);
-
 
 
 #endif
