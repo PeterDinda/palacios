@@ -1,8 +1,5 @@
 /* Eventually  we want to get rid of these */
-#include <geekos/mem.h>
-#include <geekos/segment.h>
-#include <geekos/gdt.h>
-#include <geekos/idt.h>
+
 #include <geekos/cpu.h>
 #include <geekos/io_devs.h>
 /* ** */
@@ -29,6 +26,8 @@ extern int Launch_VM(ullong_t vmcsPtr, uint_t eip);
 #define ROMBIOS_INFO_PORT     0x402
 #define ROMBIOS_DEBUG_PORT    0x403
 
+
+extern struct vmm_os_hooks * os_hooks;
 
 
 static struct VM theVM;
@@ -884,7 +883,7 @@ int VMLaunch(struct VMDescriptor *vm)
 
 VmxOnRegion * CreateVmxOnRegion() {
   union VMX_MSR basicMSR;
-  VmxOnRegion * region = (VmxOnRegion *)Alloc_Page();
+  VmxOnRegion * region = (VmxOnRegion *)(os_hooks)->allocate_pages(1);
 
   Get_MSR(IA32_VMX_BASIC_MSR, &basicMSR.regs.high, &basicMSR.regs.low);
   //  memcpy(region, &basicMSR.vmxBasic.revision, sizeof(uint_t));
@@ -898,7 +897,7 @@ VmxOnRegion * CreateVmxOnRegion() {
 
 VMCS * CreateVMCS() {
   union VMX_MSR basicMSR;
-  VMCS * vmcs = (VMCS *)Alloc_Page();
+  VMCS * vmcs = (VMCS *)(os_hooks)->allocate_pages(1);
 
   Get_MSR(IA32_VMX_BASIC_MSR, &basicMSR.regs.high, &basicMSR.regs.low);
   *(ulong_t *)vmcs = basicMSR.vmxBasic.revision;

@@ -71,8 +71,8 @@ union Debug_Registers {
 union Exception_Vectors {
   uint_t bitmap                  PACKED;
   struct {
-    uint_t ex0         : 1        PACKED;
-    uint_t ex1         : 1        PACKED;
+    uint_t ex0          : 1        PACKED;
+    uint_t ex1          : 1        PACKED;
     uint_t ex2         : 1        PACKED;
     uint_t ex3         : 1        PACKED;
     uint_t ex4         : 1        PACKED;
@@ -103,7 +103,41 @@ union Exception_Vectors {
     uint_t ex29        : 1        PACKED;
     uint_t ex30        : 1        PACKED;
     uint_t ex31        : 1        PACKED;
-  } exceptions;
+  } ex_numbers;
+  struct {
+    uint_t de          : 1        PACKED; // divide by zero
+    uint_t db          : 1        PACKED; // Debug
+    uint_t nmi         : 1        PACKED; // Non-maskable interrupt
+    uint_t bp          : 1        PACKED; // Breakpoint
+    uint_t of          : 1        PACKED; // Overflow
+    uint_t br          : 1        PACKED; // Bound-Range
+    uint_t ud          : 1        PACKED; // Invalid-Opcode
+    uint_t nm          : 1        PACKED; // Device-not-available
+    uint_t df          : 1        PACKED; // Double Fault
+    uint_t ex9         : 1        PACKED; 
+    uint_t ts          : 1        PACKED; // Invalid TSS
+    uint_t np          : 1        PACKED; // Segment-not-present
+    uint_t ss          : 1        PACKED; // Stack
+    uint_t gp          : 1        PACKED; // General Protection Fault
+    uint_t pf          : 1        PACKED; // Page fault
+    uint_t ex15        : 1        PACKED;
+    uint_t mf          : 1        PACKED; // Floating point exception
+    uint_t ac          : 1        PACKED; // Alignment-check
+    uint_t mc          : 1        PACKED; // Machine Check
+    uint_t xf          : 1        PACKED; // SIMD floating-point
+    uint_t ex20        : 1        PACKED;
+    uint_t ex21        : 1        PACKED;
+    uint_t ex22        : 1        PACKED;
+    uint_t ex23        : 1        PACKED;
+    uint_t ex24        : 1        PACKED;
+    uint_t ex25        : 1        PACKED;
+    uint_t ex26        : 1        PACKED;
+    uint_t ex27        : 1        PACKED;
+    uint_t ex28        : 1        PACKED;
+    uint_t ex29        : 1        PACKED;
+    uint_t sx          : 1        PACKED; // Security Exception
+    uint_t ex31        : 1        PACKED;
+  } ex_names;
 };
 
 
@@ -239,9 +273,11 @@ typedef struct VMCB_Control_Area {
    * But it does say that the EXITINTINFO field is in bits 63-1
    * ALL other occurances mention a 1 bit reserved field
    */
-  uint_t rsvd8              : 1         PACKED;
-  ullong_t N_CR3            : 63        PACKED;
+  //  uint_t rsvd8              : 1         PACKED;
+  //ullong_t N_CR3            : 63        PACKED;
+  ullong_t N_CR3                        PACKED;
   /* ** */
+
 
   uint_t LBR_VIRTUALIZATION_ENABLE : 1  PACKED;
   ullong_t rsvd9            : 63        PACKED;   // Should be 0

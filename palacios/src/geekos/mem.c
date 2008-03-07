@@ -2,7 +2,7 @@
  * Physical memory allocation
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
- * $Revision: 1.4 $
+ * $Revision: 1.5 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -22,6 +22,7 @@
 #include <geekos/serial.h>
 #include <geekos/debug.h>
 
+
 /* ----------------------------------------------------------------------
  * Global data
  * ---------------------------------------------------------------------- */
@@ -35,6 +36,18 @@ struct Page* g_pageList;
  * Number of pages currently available on the freelist.
  */
 uint_t g_freePageCount = 0;
+
+
+
+/* 
+ *  the disgusting way to get at the memory assigned to a VM
+ */
+extern ulong_t vm_range_start;
+extern ulong_t vm_range_end;
+extern ulong_t guest_kernel_start;
+extern ulong_t guest_kernel_end;
+
+
 
 /* ----------------------------------------------------------------------
  * Private data and functions
@@ -55,6 +68,9 @@ static struct Page_List s_freeList;
  * Total number of physical pages.
  */
 int unsigned s_numPages;
+
+
+
 
 /*
  * Add a range of pages to the inventory of physical memory.
@@ -172,7 +188,13 @@ void Init_Mem(struct Boot_Info* bootInfo)
     vmmMemEnd = Round_Up_To_Page(pageListEnd + VMM_AVAIL_MEM_SIZE);
 
 
-
+    /* 
+     *  the disgusting way to get at the memory assigned to a VM
+     */
+    vm_range_start = vmmMemEnd;
+    vm_range_end = endOfMem;
+    guest_kernel_start = ISA_HOLE_END;
+    guest_kernel_end = guestEnd;
 
     Add_Page_Range(0, PAGE_SIZE, PAGE_UNUSED);                        // BIOS area
     Add_Page_Range(PAGE_SIZE, PAGE_SIZE * 3, PAGE_ALLOCATED);         // Intial kernel thread obj + stack

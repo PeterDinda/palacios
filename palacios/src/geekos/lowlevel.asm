@@ -2,7 +2,7 @@
 ; Low level interrupt/thread handling code for GeekOS.
 ; Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
 ; Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
-; $Revision: 1.3 $
+; $Revision: 1.4 $
 
 ; This is free software.  You are permitted to use,
 ; redistribute, and modify it as specified in the file "COPYING".
@@ -172,7 +172,7 @@ EXPORT Set_MSR
 EXPORT Get_MSR
 
 EXPORT Get_CR2
-
+EXPORT Get_CR3
 
 EXPORT Proc_test
 
@@ -378,6 +378,11 @@ Get_CR2:
 	mov	eax, cr2
 	ret
 
+
+align 8
+Get_CR3:
+	mov	eax, cr3
+	ret
 
 align 8
 Proc_test:

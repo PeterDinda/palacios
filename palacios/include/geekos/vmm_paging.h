@@ -2,7 +2,7 @@
 #define __VMM_PAGING_H
 
 #include <geekos/ktypes.h>
-#include <geekos/vmm.h>
+
 
 
 #include <geekos/vmm_mem.h>
@@ -28,6 +28,9 @@
 #define VM_EXEC      0
 
 
+#define GUEST_PAGE   0x0
+#define SHARED_PAGE  0x1
+
 typedef struct pde {
   uint_t present         : 1;
   uint_t flags           : 4;
@@ -37,7 +40,7 @@ typedef struct pde {
   uint_t global_page     : 1;
   uint_t vmm_info        : 3;
   uint_t pt_base_addr    : 20;
-} pde_t;
+} vmm_pde_t;
 
 typedef struct pte {
   uint_t present         : 1;
@@ -48,13 +51,14 @@ typedef struct pte {
   uint_t global_page     : 1;
   uint_t vmm_info        : 3;
   uint_t page_base_addr  : 20;
-} pte_t;
+} vmm_pte_t;
 
 
-pde_t * generate_guest_page_tables(vmm_mem_layout_t * layout, vmm_mem_list_t * list);
+vmm_pde_t * generate_guest_page_tables(vmm_mem_layout_t * layout, vmm_mem_list_t * list);
 
+void free_guest_page_tables(vmm_pde_t * pde);
 
-void PrintDebugPageTables(pde_t * pde);
+void PrintDebugPageTables(vmm_pde_t * pde);
 
 
 

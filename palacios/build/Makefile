@@ -1,6 +1,6 @@
 # Makefile for GeekOS kernel, userspace, and tools
 # Copyright (c) 2004,2005 David H. Hovemeyer <daveho@cs.umd.edu>
-# $Revision: 1.15 $
+# $Revision: 1.16 $
 
 # This is free software.  You are permitted to use,
 # redistribute, and modify it as specified in the file "COPYING".
@@ -300,7 +300,7 @@ vm_kernel: force
 
 
 vmm_mem_test: geekos/vmm_mem.c
-	$(HOST_CC) -m32 -o mem_test -DVMM_MEM_TEST -I../include ../src/geekos/vmm_mem.c ../src/geekos/vmm_paging.c 
+	$(HOST_CC) -m32 -o mem_test -DVMM_MEM_TEST -I../include ../src/geekos/vmm_mem.c 
 
 
 # Clean build directories of generated files

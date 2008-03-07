@@ -5,11 +5,17 @@
 #include <geekos/ktypes.h>
 
 
+/*
+ * The mem list is TEMPORARY, simply to lock down which pages are assigned to the VM
+ * We will remove it and use the host page allocation mechanism in the future
+ */
+
+
 typedef unsigned long addr_t;
 
 
 typedef struct mem_region {
- addr_t addr;
+  addr_t addr;
   uint_t num_pages;
 
   struct mem_region * next;
@@ -36,8 +42,8 @@ typedef enum region_type {GUEST, UNMAPPED, SHARED} region_type_t;
 
 
 typedef struct layout_region {
-  addr_t addr;
-  uint_t num_pages;
+  addr_t start;
+  addr_t end;
 
   region_type_t type;
 
@@ -51,8 +57,6 @@ typedef struct layout_region {
 typedef struct vmm_mem_layout {
   uint_t num_pages;
   uint_t num_regions;
- 
-  uint_t num_guest_pages;
 
   layout_region_t * head;
 } vmm_mem_layout_t;
@@ -76,15 +80,15 @@ void print_mem_list(vmm_mem_list_t * list);
 void init_mem_layout(vmm_mem_layout_t * layout);
 void free_mem_layout(vmm_mem_layout_t * layout);
 
-layout_region_t * get_layout_cursor(vmm_mem_layout_t * layout, addr_t addr);
 
 int add_mem_range(vmm_mem_layout_t * layout, layout_region_t * region);
-int add_shared_mem_range(vmm_mem_layout_t * layout, addr_t addr, uint_t num_pages, addr_t host_addr);
-int add_unmapped_mem_range(vmm_mem_layout_t * layout, addr_t addr, uint_t num_pages);
-int add_guest_mem_range(vmm_mem_layout_t * layout, addr_t addr, uint_t num_pages);
+int add_shared_mem_range(vmm_mem_layout_t * layout, addr_t start, addr_t end, addr_t host_addr);
+int add_unmapped_mem_range(vmm_mem_layout_t * layout, addr_t start, addr_t end);
+int add_guest_mem_range(vmm_mem_layout_t * layout, addr_t start, addr_t end);
 
 
-addr_t get_mem_layout_addr(vmm_mem_layout_t * list, uint_t index);
+addr_t get_mem_layout_addr(vmm_mem_layout_t * layout, uint_t index);
+layout_region_t * get_mem_layout_region(vmm_mem_layout_t * layout, addr_t addr);
 
 void print_mem_layout(vmm_mem_layout_t * layout);
 

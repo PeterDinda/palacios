@@ -1,6 +1,6 @@
 #include <geekos/vmm_paging.h>
 
-
+#include <geekos/vmm.h>
 
 
 
@@ -13,7 +13,7 @@ extern struct vmm_os_hooks * os_hooks;
  * pulling pages from the mem_list when necessary
  * If there are any gaps in the layout, we add them as unmapped pages
  */
-pde_t * generate_guest_page_tables(vmm_mem_layout_t * layout, vmm_mem_list_t * list) {
+vmm_pde_t * generate_guest_page_tables(vmm_mem_layout_t * layout, vmm_mem_list_t * list) {
   ullong_t current_page_addr = 0;
   uint_t layout_index = 0;
   uint_t list_index = 0;
@@ -24,7 +24,7 @@ pde_t * generate_guest_page_tables(vmm_mem_layout_t * layout, vmm_mem_list_t * l
 
   
 
-  pde_t * pde = os_hooks->allocate_pages(1);
+  vmm_pde_t * pde = os_hooks->allocate_pages(1);
 
   for (i = 0; i < MAX_PAGE_DIR_ENTRIES; i++) {
     if (num_entries == 0) { 
@@ -37,7 +37,7 @@ pde_t * generate_guest_page_tables(vmm_mem_layout_t * layout, vmm_mem_list_t * l
       pde[i].vmm_info = 0;
       pde[i].pt_base_addr = 0;
     } else {
-      pte_t * pte = os_hooks->allocate_pages(1);
+      vmm_pte_t * pte = os_hooks->allocate_pages(1);
 
       pde[i].present = 1;
       pde[i].flags = VM_READ | VM_WRITE | VM_EXEC | VM_USER;
@@ -67,7 +67,7 @@ pde_t * generate_guest_page_tables(vmm_mem_layout_t * layout, vmm_mem_list_t * l
 	  current_page_addr += PAGE_SIZE;
 	} else if (current_page_addr == layout_addr) {
 	  // Set up the Table entry to map correctly to the layout region
-	  layout_region_t * page_region = get_layout_cursor(layout, layout_addr);
+	  layout_region_t * page_region = get_mem_layout_region(layout, layout_addr);
 
 	  if (page_region->type == UNMAPPED) {
 	    pte[j].present = 0;
@@ -86,17 +86,25 @@ pde_t * generate_guest_page_tables(vmm_mem_layout_t * layout, vmm_mem_list_t * l
 	  if (page_region->type == UNMAPPED) {
 	    pte[j].page_base_addr = 0;
 	  } else if (page_region->type == SHARED) {
-	    pte[j].page_base_addr = page_region->host_addr >> 12;
+	    addr_t host_addr = page_region->host_addr + (layout_addr - page_region->start);
+
+	    pte[j].page_base_addr = host_addr >> 12;
+	    pte[j].vmm_info = SHARED_PAGE;
 	  } else if (page_region->type == GUEST) {
 	    addr_t list_addr =  get_mem_list_addr(list, list_index++);
 	    
 	    if (list_addr == -1) {
 	      // error
-	      // cleanup....
+	      // cleanup...
+	      free_guest_page_tables(pde);
 	      return NULL;
 	    }
 	    PrintDebug("Adding guest page (%x)\n", list_addr);
 	    pte[j].page_base_addr = list_addr >> 12;
+	    
+	    // Reset this when we move over to dynamic page allocation
+	    //	    pte[j].vmm_info = GUEST_PAGE;	    
+	    pte[j].vmm_info = SHARED_PAGE;
 	  }
 
 	  num_entries--;
@@ -106,6 +114,7 @@ pde_t * generate_guest_page_tables(vmm_mem_layout_t * layout, vmm_mem_list_t * l
 	  // error
 	  PrintDebug("Error creating page table...\n");
 	  // cleanup
+	  free_guest_page_tables(pde);
 	  return NULL;
 	}
       }
@@ -116,9 +125,31 @@ pde_t * generate_guest_page_tables(vmm_mem_layout_t * layout, vmm_mem_list_t * l
 }
 
 
+void free_guest_page_tables(vmm_pde_t * pde) {
+  int i, j;
 
 
-void PrintPDE(void * virtual_address, pde_t * pde)
+  for (i = 0; (i < MAX_PAGE_DIR_ENTRIES); i++) {
+    if (pde[i].present) {
+      vmm_pte_t * pte = (vmm_pte_t *)(pde[i].pt_base_addr << PAGE_POWER);
+      
+      for (j = 0; (j < MAX_PAGE_TABLE_ENTRIES); j++) {
+	if ((pte[j].present) && (pte[j].vmm_info & GUEST_PAGE)){
+	  os_hooks->free_page((void *)(pte[j].page_base_addr  << PAGE_POWER));
+	}
+      }
+      
+      os_hooks->free_page(pte);
+    }
+  }
+
+  os_hooks->free_page(pde);
+}
+
+
+
+
+void PrintPDE(void * virtual_address, vmm_pde_t * pde)
 {
   PrintDebug("PDE %p -> %p : present=%x, flags=%x, accessed=%x, reserved=%x, largePages=%x, globalPage=%x, kernelInfo=%x\n",
 	      virtual_address,
@@ -132,7 +163,7 @@ void PrintPDE(void * virtual_address, pde_t * pde)
 	      pde->vmm_info);
 }
   
-void PrintPTE(void * virtual_address, pte_t * pte)
+void PrintPTE(void * virtual_address, vmm_pte_t * pte)
 {
   PrintDebug("PTE %p -> %p : present=%x, flags=%x, accessed=%x, dirty=%x, pteAttribute=%x, globalPage=%x, vmm_info=%x\n",
 	      virtual_address,
@@ -148,7 +179,7 @@ void PrintPTE(void * virtual_address, pte_t * pte)
 
 
 
-void PrintPD(pde_t * pde)
+void PrintPD(vmm_pde_t * pde)
 {
   int i;
 
@@ -158,11 +189,11 @@ void PrintPD(pde_t * pde)
   }
 }
 
-void PrintPT(void * starting_address, pte_t * pte) 
+void PrintPT(void * starting_address, vmm_pte_t * pte) 
 {
   int i;
 
-  //  PrintDebug("Page Table at %p:\n", pte);
+  PrintDebug("Page Table at %p:\n", pte);
   for (i = 0; (i < MAX_PAGE_TABLE_ENTRIES) && pte[i].present; i++) { 
     PrintPTE(starting_address + (PAGE_SIZE * i), &(pte[i]));
   }
@@ -172,7 +203,7 @@ void PrintPT(void * starting_address, pte_t * pte)
 
 
 
-void PrintDebugPageTables(pde_t * pde)
+void PrintDebugPageTables(vmm_pde_t * pde)
 {
   int i;
   

@@ -6,6 +6,7 @@
 #include <geekos/string.h>
 
 #include <geekos/vmm_mem.h>
+#include <geekos/vmm_paging.h>
 
 
 /* utility definitions */
@@ -76,6 +77,7 @@ typedef struct guest_info {
   vmm_mem_layout_t mem_layout;
   // device_map
 
+  vmm_pde_t * page_tables;
   void * vmm_data;
 } guest_info_t;
 

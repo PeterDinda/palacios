@@ -1,5 +1,6 @@
 #include <geekos/vmm_util.h>
 
+#include <geekos/vmm.h>
 
 extern struct vmm_os_hooks * os_hooks;
 

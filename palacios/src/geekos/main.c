@@ -3,7 +3,7 @@
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
  * Copyright (c) 2004, Iulian Neamtiu <neamtiu@cs.umd.edu>
- * $Revision: 1.16 $
+ * $Revision: 1.17 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -36,19 +36,6 @@
 
 #include <geekos/vmm_stubs.h>
 
-/*
-  static inline unsigned int cpuid_ecx(unsigned int op)
-  {
-  unsigned int eax, ecx;
-  
-  __asm__("cpuid"
-  : "=a" (eax), "=c" (ecx)
-  : "0" (op)
-  : "bx", "dx" );
-  
-  return ecx;
-  }
-*/
 
 
 
@@ -169,20 +156,6 @@ void Buzzer(ulong_t arg) {
 
 
 
-void Hello(ulong_t arg)
-{
-  char *b="hello ";
-  char byte;
-  short port=0xe9;
-  int i;
-  while(1){
-    for (i=0;i<6;i++) { 
-      byte=b[i];
-      __asm__ __volatile__ ("outb %b0, %w1" : : "a"(byte), "Nd"(port) );
-    }
-  }
-}
-
 void Keyboard_Listener(ulong_t arg) {
   ulong_t * doIBuzz = (ulong_t*)arg;
   Keycode key_press;
@@ -209,47 +182,13 @@ extern char BSS_START, BSS_END;
 
 extern char end;
 
-/*
-void VM_Thread(ulong_t arg) 
-{
-  int ret;
-  struct VMDescriptor *vm = (struct VMDescriptor *) arg;
 
-  SerialPrintLevel(100,"VM_Thread: Launching VM with (entry_ip=%x, exit_eip=%x, guest_esp=%x)\n",
-	      vm->entry_ip, vm->exit_eip, vm->guest_esp);
-
-  SerialPrintLevel(100,"VM_Thread: You should see nothing further from me\n");
-
-
-  ret = VMLaunch(vm);
-
-
-  SerialPrintLevel(100,"VM_Thread: uh oh...");
-
-  switch (ret) { 
-  case VMX_SUCCESS:
-    SerialPrintLevel(100,"Normal VMExit Occurred\n");
-    break;
-  case VMX_FAIL_INVALID:
-    SerialPrintLevel(100,"Possibile invalid VMCS (%.8x)\n", ret);
-    break;
-  case VMX_FAIL_VALID:
-    SerialPrintLevel(100,"Valid VMCS, errorcode recorded in VMCS\n");
-    break;
-  case VMM_ERROR:
-    SerialPrintLevel(100,"VMM Error\n");
-    break;
-  default:
-    SerialPrintLevel(100,"VMLaunch returned unknown error (%.8x)\n", ret);
-    break;
-  }
-  
-  SerialPrintLevel(100,"VM_Thread: Spinning\n");
-  while (1) {}
-    
-}
-*/
-
+/* This is an ugly hack to get at the VM  memory */
+ulong_t vm_range_start;
+ulong_t vm_range_end;
+ulong_t guest_kernel_start;
+ulong_t guest_kernel_end;
+/* ** */
 
 
 int AllocateAndMapPagesForRange(uint_t start, uint_t length, pte_t template_pte)
@@ -329,6 +268,9 @@ void Main(struct Boot_Info* bootInfo)
     struct vmm_os_hooks os_hooks;
     struct vmm_ctrl_ops vmm_ops;
     guest_info_t vm_info;
+    addr_t rsp;
+    addr_t rip;
+
     memset(&os_hooks, 0, sizeof(struct vmm_os_hooks));
     memset(&vmm_ops, 0, sizeof(struct vmm_ctrl_ops));
     memset(&vm_info, 0, sizeof(guest_info_t));
@@ -348,14 +290,21 @@ void Main(struct Boot_Info* bootInfo)
     init_mem_layout(&(vm_info.mem_layout));
     init_mem_list(&(vm_info.mem_list));
 
-    //  add_mem_list_pages(&(vm_info.mem_list), START_OF_VM, 20);
-    //add_guest_mem_range(&(vm_info.mem_layout), 0, 20);
+
+    add_mem_list_pages(&(vm_info.mem_list), vm_range_start, (vm_range_end - vm_range_start) / PAGE_SIZE);
+    //    add_unmapped_mem_range(&(vm_info.mem_layout), 0, 256);
+    //add_shared_mem_range(&(vm_info.mem_layout), guest_kernel_start, (guest_kernel_end - guest_kernel_start) / PAGE_SIZE, guest_kernel_start);
+    //add_guest_mem_range(&(vm_info.mem_layout), guest_kernel_end, 20);
+
+    add_shared_mem_range(&(vm_info.mem_layout), 0, 0x1000000, 0);
+
+    rip = (ulong_t)(void*)&BuzzVM;
+    vm_info.rip = rip;
+    rsp = (ulong_t)Alloc_Page();
+    vm_info.rsp = rsp;
 
 
-    vm_info.rip = (ullong_t)(void*)&BuzzVM;
-    vm_info.rsp = (ulong_t)Alloc_Page();
-
-    SerialPrint("Initializing Guest\n");
+    SerialPrint("Initializing Guest (eip=0x%.8x) (esp=0x%.8x)\n", rip, rsp);
     (vmm_ops).init_guest(&vm_info);
     SerialPrint("Starting Guest\n");
     (vmm_ops).start_guest(&vm_info);
@@ -370,37 +319,6 @@ void Main(struct Boot_Info* bootInfo)
 
 
 
-
-
-
-  // Try to launch a real VM
-
-
-  // We now map pages of physical memory into where we are going
-  // to slap the vmxassist, bios, and vgabios code
-  /*
-  pte_t template_pte;
-
-  template_pte.present=1;
-  template_pte.flags=VM_WRITE|VM_READ|VM_USER|VM_EXEC;
-  template_pte.accessed=0;
-  template_pte.dirty=0;
-  template_pte.pteAttribute=0;
-  template_pte.globalPage=0;
-  template_pte.kernelInfo=0;
-  
-  SerialPrintLevel(1000,"Allocating Pages for VM kernel\n");
-  
-#define SEGLEN (1024*64)
-
-  AllocateAndMapPagesForRange(START_OF_VM+0x100000, VM_KERNEL_LENGTH / 512, template_pte);
-*/
-  // Now we should be copying into actual memory
-
-  //SerialPrintLevel(1000,"Copying VM code from %x to %x (%d bytes)\n", VM_KERNEL_START, START_OF_VM+0x100000,VM_KERNEL_LENGTH);
-  //memcpy((char*)(START_OF_VM+0x100000),(char*)VM_KERNEL_START,VM_KERNEL_LENGTH);
-
-  //SerialPrintLevel(1000, "VM copied\n");
 
   /*
   // jump into vmxassist

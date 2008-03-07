@@ -1,7 +1,7 @@
 /*
  * GeekOS interrupt handling data structures and functions
  * Copyright (c) 2001,2003 David H. Hovemeyer <daveho@cs.umd.edu>
- * $Revision: 1.3 $
+ * $Revision: 1.4 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -318,11 +318,18 @@ static void Dummy_Interrupt_Handler(struct Interrupt_State* state)
 {
   Begin_IRQ(state);
 
-  Print("Unexpected Interrupt!  Ignoring!\n");
-  SerialPrint("*** Unexpected interrupt! *** Ignoring!\n");
-  Dump_Interrupt_State(state);
-  //  SerialPrint_VMCS_ALL();
-
+  
+  /* A "feature" of some chipsets is that if an interrupt is raised by mistake
+   * then its automatically assigned to IRQ 7(Int 39). 
+   * Makes perfect sense...
+   * See:
+   * http://forums12.itrc.hp.com/service/forums/questionanswer.do?admit=109447627+1204759699215+28353475&threadId=1118488
+   */
+  if (state->intNum != 39) {
+    Print("Unexpected Interrupt!  Ignoring!\n");
+    SerialPrint("*** Unexpected interrupt! *** Ignoring!\n");
+    Dump_Interrupt_State(state);
+  } 
   End_IRQ(state);
 
   //STOP();

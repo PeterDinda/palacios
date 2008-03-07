@@ -216,96 +216,71 @@ void free_mem_layout(vmm_mem_layout_t * layout) {
 }
 
 
-/* this function returns a pointer to the location in the layout list that 
- * corresponds to addr.
- * Rules: 
- *     IF addr is in a region, a ptr to that region is returned
- *     IF addr is not in a region, a ptr to the previous region is returned
- *     IF addr is before all regions, returns NULL
- *     IF list is empty, returns NULL
- */
-layout_region_t * get_layout_cursor(vmm_mem_layout_t * layout, addr_t addr) {
-  layout_region_t * prev_region = layout->head;
-
-
-  while (prev_region != NULL) {
-    if ( (addr >= prev_region->addr) && 
-	 (addr < (prev_region->addr + (prev_region->num_pages * PAGE_SIZE))) ) {
-      return prev_region;
-    } else if (addr < prev_region->addr) {
-      // If this region is the current head, then this should return NULL
-      return prev_region->prev;
-    } else if (addr >= (prev_region->addr + (prev_region->num_pages * PAGE_SIZE))) {
-      if (prev_region->next) {
-	prev_region = prev_region->next;
-      } else {
-	return prev_region;
-      }
-    }
-  }
-
-  return prev_region;
-}
-
 
 /* This is slightly different semantically from the mem list, in that we don't allow overlaps
  * we could probably allow overlappig regions of the same type... but I'll let someone else deal with that
  */
 int add_mem_range(vmm_mem_layout_t * layout, layout_region_t * region) {
- 
-  layout_region_t * cursor = get_layout_cursor(layout, region->addr);
+  layout_region_t * cursor = layout->head;
 
-  if (cursor == NULL) {
-    if (layout->head) {
-      if (layout->head->addr < region->addr + (region->num_pages * PAGE_SIZE) - 1) {
-	// overlaps not allowed
-	return -1;
-      }
-      layout->head->prev = region;
-    }
-
+  if ((!cursor) || (cursor->start >= region->end)) {
     region->prev = NULL;
-    region->next = layout->head;
+    region->next = cursor;
+    layout->num_pages += (region->end - region->start) / PAGE_SIZE;
+    layout->num_regions++;
     layout->head = region;
-    
-    layout->num_regions++;
-    layout->num_pages += region->num_pages;
-  } else if ((region->addr >= cursor->addr) && 
-	     (region->addr <= cursor->addr + (cursor->num_pages * PAGE_SIZE) - 1)) {
-    // overlaps not allowed
-    return -1;
-  } else if (region->addr > cursor->addr + (cursor->num_pages * PAGE_SIZE) - 1) {
-    // add region to layout
-    region->next = cursor->next;
-    region->prev = cursor;
-    
-    if (region->next) {
-      region->next->prev = region;
-    }
-    cursor->next = region;
 
-    layout->num_regions++;
-    layout->num_pages += region->num_pages;
-  } else {
-    return -1;
+    return 0;
   }
 
+  while (cursor) {
+    // Check if it overlaps with the current cursor
+    if ((cursor->end > region->start) && (cursor->start < region->start)) {
+      // overlaps not allowed
+      return -1;
+    }
+    
+    // add to the end of the list
+    if (!(cursor->next)) {
+      cursor->next = region;
+      region->prev = cursor;
+      layout->num_regions++;
+      layout->num_pages += (region->end - region->start) / PAGE_SIZE;
+      return 0;
+    } else if (cursor->next->start >= region->end) {
+      // add here
+      region->next = cursor->next;
+      region->prev = cursor;
 
-  return 0;
+      cursor->next->prev = region;
+      cursor->next = region;
+
+      layout->num_regions++;
+      layout->num_pages += (region->end - region->start) / PAGE_SIZE;
+      
+      return 0;
+    } else if (cursor->next->end < region->start) {
+      cursor = cursor->next;
+    } else {
+      return -1;
+    }
+  }
+
+  return -1;
 }
 
 
 
 
 
-int add_shared_mem_range(vmm_mem_layout_t * layout, addr_t addr, uint_t num_pages, addr_t host_addr) {
+int add_shared_mem_range(vmm_mem_layout_t * layout, addr_t start, addr_t end, addr_t host_addr) {
   layout_region_t * shared_region = os_hooks->malloc(sizeof(layout_region_t));
   int ret;
 
   shared_region->next = NULL;
   shared_region->prev = NULL;
-  shared_region->addr = addr;
-  shared_region->num_pages = num_pages;
+  shared_region->start = start;
+  shared_region->end = end;
   shared_region->type = SHARED;
   shared_region->host_addr = host_addr;
 
@@ -318,14 +293,14 @@ int add_shared_mem_range(vmm_mem_layout_t * layout, addr_t addr, uint_t num_page
   return ret;
 }
 
-int add_unmapped_mem_range(vmm_mem_layout_t * layout, addr_t addr, uint_t num_pages) {
+int add_unmapped_mem_range(vmm_mem_layout_t * layout, addr_t start, addr_t end) {
   layout_region_t * unmapped_region = os_hooks->malloc(sizeof(layout_region_t));
   int ret;  
 
   unmapped_region->next = NULL;
   unmapped_region->prev = NULL;
-  unmapped_region->addr = addr;
-  unmapped_region->num_pages = num_pages;
+  unmapped_region->start = start;
+  unmapped_region->end = end;
   unmapped_region->type = UNMAPPED;
   unmapped_region->host_addr = 0;
 
@@ -338,22 +313,20 @@ int add_unmapped_mem_range(vmm_mem_layout_t * layout, addr_t addr, uint_t num_pa
   return ret;
 }
 
-int add_guest_mem_range(vmm_mem_layout_t * layout, addr_t addr, uint_t num_pages) {
+int add_guest_mem_range(vmm_mem_layout_t * layout, addr_t start, addr_t end) {
   layout_region_t * guest_region = os_hooks->malloc(sizeof(layout_region_t));
   int ret;
 
   guest_region->next = NULL;
   guest_region->prev = NULL;
-  guest_region->addr = addr;
-  guest_region->num_pages = num_pages;
+  guest_region->start = start;
+  guest_region->end = end;
   guest_region->type = GUEST;
   guest_region->host_addr = 0;
 
   ret = add_mem_range(layout, guest_region);
   
-  if (ret == 0) {
-    layout->num_guest_pages += num_pages;
-  } else {
+  if (ret != 0) {
     VMMFree(guest_region);
   }
 
@@ -379,15 +352,34 @@ addr_t get_mem_layout_addr(vmm_mem_layout_t * layout, uint_t index) {
       return -1;
     }
 
-    if (reg->num_pages <= index) {
-      i -= reg->num_pages;
+    int num_reg_pages = reg->end - reg->start;
+
+    if (num_reg_pages <= index) {
+      i -= num_reg_pages;
       reg = reg->next;
     } else {
-      return reg->addr + (i * PAGE_SIZE);
+      return reg->start + (i * PAGE_SIZE);
     }
   }
 
   return -1;
+}
+
+layout_region_t * get_mem_layout_region(vmm_mem_layout_t * layout, addr_t addr) {
+  layout_region_t * tmp_reg = layout->head;
+
+
+  while (tmp_reg) {
+    if ((tmp_reg->start <= addr) && (tmp_reg->end > addr)) {
+      return tmp_reg;
+    } else if (tmp_reg->start > addr) {
+      return NULL;
+    } else {
+      tmp_reg = tmp_reg->next;
+    }
+  }
+
+  return NULL;
 }
 
 
@@ -416,13 +408,12 @@ void print_mem_layout(vmm_mem_layout_t * layout) {
   PrintDebug("Memory Layout (regions: %d) (pages: %d)\n", layout->num_regions, layout->num_pages);
 
   while (cur) {
-    PrintDebug("%d: 0x%x - 0x%x\n", i, cur->addr, cur->addr + (cur->num_pages * PAGE_SIZE) - 1);
+    PrintDebug("%d: 0x%x - 0x%x\n", i, cur->start, cur->end -1);
     cur = cur->next;
     i++;
   }
   PrintDebug("\n");
 }
-
 
 
 
@@ -441,7 +432,7 @@ void print_mem_layout(vmm_mem_layout_t * layout) {
 #include <stdio.h>
 #include <stdarg.h>
 
-#include <geekos/vmm_paging.h>
+
 
 
 
@@ -513,39 +504,44 @@ int mem_list_add_test_1(  vmm_mem_list_t * list) {
 
 int mem_layout_add_test_1(vmm_mem_layout_t *layout) {
 
-  uint_t offset = 0;
+  
+  uint_t start = 0;
+  uint_t end = 0;
 
   PrintDebug("\n\nTesting Memory Layout\n");
 
   init_mem_layout(layout);
 
-  offset = PAGE_SIZE * 6;
-  PrintDebug("Adding 0x%x - 0x%x\n", offset, offset + (PAGE_SIZE * 10));
-  add_guest_mem_range(layout, offset, 10);
+  start = 0x6000;
+  end = 0x10000;;
+  PrintDebug("Adding 0x%x - 0x%x\n", start, end);
+  add_guest_mem_range(layout, start, end);
   print_mem_layout(layout);
 
 
-  offset = PAGE_SIZE * 20;
-  PrintDebug("Adding 0x%x - 0x%x\n", offset, offset + (PAGE_SIZE * 1));
-  add_guest_mem_range(layout, offset, 1);
+  start = 0x1000;
+  end = 0x3000;
+  PrintDebug("Adding 0x%x - 0x%x\n", start, end);
+  add_guest_mem_range(layout, start, end);
+  print_mem_layout(layout);
+
+  start = 0x2000;
+  end = 0x6000;
+  PrintDebug("Adding 0x%x - 0x%x\n", start, end);
+  add_guest_mem_range(layout, start, end);
+  print_mem_layout(layout);
+
+  start = 0x4000;
+  end = 0x5000;
+  PrintDebug("Adding 0x%x - 0x%x\n", start, end);
+  add_guest_mem_range(layout, start, end);
   print_mem_layout(layout);
 
 
-  offset = PAGE_SIZE * 16;
-  PrintDebug("Adding 0x%x - 0x%x\n", offset, offset + PAGE_SIZE * 4);
-  add_guest_mem_range(layout, offset, 4);
-  print_mem_layout(layout);
-
-
-  offset = PAGE_SIZE * 10;
-  PrintDebug("Adding 0x%x - 0x%x\n", offset, offset + (PAGE_SIZE * 30));
-  add_guest_mem_range(layout, offset, 30);
-  print_mem_layout(layout);
-
-
-  offset = 0;
-  PrintDebug("Adding 0x%x - 0x%x\n", offset, offset + (PAGE_SIZE * 1));
-  add_guest_mem_range(layout, offset, 1);
+  start = 0x5000;
+  end = 0x7000;
+  PrintDebug("Adding 0x%x - 0x%x\n", start, end);
+  add_guest_mem_range(layout, start, end);
   print_mem_layout(layout);
 
 
@@ -572,10 +568,6 @@ int main(int argc, char ** argv) {
 
   printf("mem_list_add_test_1: %d\n", mem_list_add_test_1(&list));
   printf("layout_add_test_1: %d\n", mem_layout_add_test_1(&layout));
-
-
-  pde_t * pde = generate_guest_page_tables(&layout, &list);
-  PrintDebugPageTables(pde);
 
   return 0;
 }
