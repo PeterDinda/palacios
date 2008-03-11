@@ -8,6 +8,10 @@
 %include "symbol.asm"
 
 
+EXPORT GetGDTR
+EXPORT GetIDTR
+
+
 
 EXTERN handle_svm_exit
 
@@ -30,6 +34,32 @@ EXPORT launch_svm
 
 
 
+GetGDTR:
+	push	ebp
+	mov	ebp, esp
+	pusha	
+	mov	ebx, [ebp + 8]
+	sgdt	[ebx]
+	
+	popa
+	pop	ebp
+	ret
+
+
+
+GetIDTR:
+	push	ebp
+	mov	ebp, esp
+	pusha	
+	mov	ebx, [ebp + 8]
+	sgdt	[ebx]
+	
+	popa
+	pop	ebp
+	ret
+
+
+
 ; I think its safe to say that there are some pretty serious register issues...
 launch_svm:
 	push 	ebp
@@ -42,9 +72,6 @@ launch_svm:
 	popa
 	pop	ebp
 	ret
-
-%endif
-
 
 
 
@@ -89,3 +116,8 @@ safe_svm_launch:
 	popa
 	pop	ebp
 	ret
+
+
+%endif
+
+

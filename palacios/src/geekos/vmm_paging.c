@@ -216,3 +216,196 @@ void PrintDebugPageTables(vmm_pde_t * pde)
 }
     
     
+
+
+
+pml4e64_t * generate_guest_page_tables_64(vmm_mem_layout_t * layout, vmm_mem_list_t * list) {
+  pml4e64_t * pml = os_hooks->allocate_pages(1);
+  int i, j, k, m;
+  ullong_t current_page_addr = 0;
+  uint_t layout_index = 0;
+  uint_t list_index = 0;
+  ullong_t layout_addr = 0;
+  uint_t num_entries = layout->num_pages;  // The number of pages left in the layout
+
+  for (m = 0; m < MAX_PAGE_MAP_ENTRIES_64; m++ ) {
+    if (num_entries == 0) {
+      pml[m].present = 0;
+      pml[m].writable = 0;
+      pml[m].user = 0;
+      pml[m].pwt = 0;
+      pml[m].pcd = 0;
+      pml[m].accessed = 0;
+      pml[m].reserved = 0;
+      pml[m].zero = 0;
+      pml[m].vmm_info = 0;
+      pml[m].pdp_base_addr_lo = 0;
+      pml[m].pdp_base_addr_hi = 0;
+      pml[m].available = 0;
+      pml[m].no_execute = 0;
+    } else {
+      pdpe64_t * pdpe = os_hooks->allocate_pages(1);
+      
+      pml[m].present = 1;
+      pml[m].writable = 1;
+      pml[m].user = 1;
+      pml[m].pwt = 0;
+      pml[m].pcd = 0;
+      pml[m].accessed = 0;
+      pml[m].reserved = 0;
+      pml[m].zero = 0;
+      pml[m].vmm_info = 0;
+      pml[m].pdp_base_addr_lo = PAGE_ALLIGNED_ADDR(pdpe) & 0xfffff;
+      pml[m].pdp_base_addr_hi = 0;
+      pml[m].available = 0;
+      pml[m].no_execute = 0;
+
+      for (k = 0; k < MAX_PAGE_DIR_PTR_ENTRIES_64; k++) {
+	if (num_entries == 0) {
+	  pdpe[k].present = 0;
+	  pdpe[k].writable = 0;
+	  pdpe[k].user = 0;
+	  pdpe[k].pwt = 0;
+	  pdpe[k].pcd = 0;
+	  pdpe[k].accessed = 0;
+	  pdpe[k].reserved = 0;
+	  pdpe[k].large_pages = 0;
+	  pdpe[k].zero = 0;
+	  pdpe[k].vmm_info = 0;
+	  pdpe[k].pd_base_addr_lo = 0;
+	  pdpe[k].pd_base_addr_hi = 0;
+	  pdpe[k].available = 0;
+	  pdpe[k].no_execute = 0;
+	} else {
+	  pde64_t * pde = os_hooks->allocate_pages(1);
+
+	  pdpe[k].present = 1;
+	  pdpe[k].writable = 1;
+	  pdpe[k].user = 1;
+	  pdpe[k].pwt = 0;
+	  pdpe[k].pcd = 0;
+	  pdpe[k].accessed = 0;
+	  pdpe[k].reserved = 0;
+	  pdpe[k].large_pages = 0;
+	  pdpe[k].zero = 0;
+	  pdpe[k].vmm_info = 0;
+	  pdpe[k].pd_base_addr_lo = PAGE_ALLIGNED_ADDR(pde) & 0xfffff;
+	  pdpe[k].pd_base_addr_hi = 0;
+	  pdpe[k].available = 0;
+	  pdpe[k].no_execute = 0;
+
+
+
+	  for (i = 0; i < MAX_PAGE_DIR_ENTRIES_64; i++) {
+	    if (num_entries == 0) { 
+	      pde[i].present = 0;
+	      pde[i].flags = 0;
+	      pde[i].accessed = 0;
+	      pde[i].reserved = 0;
+	      pde[i].large_pages = 0;
+	      pde[i].reserved2 = 0;
+	      pde[i].vmm_info = 0;
+	      pde[i].pt_base_addr_lo = 0;
+	      pde[i].pt_base_addr_hi = 0;
+	      pde[i].available = 0;
+	      pde[i].no_execute = 0;
+	    } else {
+	      pte64_t * pte = os_hooks->allocate_pages(1);
+	      
+	      pde[i].present = 1;
+	      pde[i].flags = VM_READ | VM_WRITE | VM_EXEC | VM_USER;
+	      pde[i].accessed = 0;
+	      pde[i].reserved = 0;
+	      pde[i].large_pages = 0;
+	      pde[i].reserved2 = 0;
+	      pde[i].vmm_info = 0;
+	      pde[i].pt_base_addr_lo = PAGE_ALLIGNED_ADDR(pte) & 0xfffff;
+	      pde[i].pt_base_addr_hi = 0;
+	      pde[i].available = 0;
+	      pde[i].no_execute = 0;
+
+	      
+	      for (j = 0; j < MAX_PAGE_TABLE_ENTRIES_64; j++) {
+		layout_addr = get_mem_layout_addr(layout, layout_index);
+		
+		if ((current_page_addr < layout_addr) || (num_entries == 0)) {
+		  // We have a gap in the layout, fill with unmapped page
+		  pte[j].present = 0;
+		  pte[j].flags = 0;
+		  pte[j].accessed = 0;
+		  pte[j].dirty = 0;
+		  pte[j].pte_attr = 0;
+		  pte[j].global_page = 0;
+		  pte[j].vmm_info = 0;
+		  pte[j].page_base_addr_lo = 0;
+		  pte[j].page_base_addr_hi = 0;
+		  pte[j].available = 0;
+		  pte[j].no_execute = 0;
+
+		  current_page_addr += PAGE_SIZE;
+		} else if (current_page_addr == layout_addr) {
+		  // Set up the Table entry to map correctly to the layout region
+		  layout_region_t * page_region = get_mem_layout_region(layout, layout_addr);
+		  
+		  if (page_region->type == UNMAPPED) {
+		    pte[j].present = 0;
+		    pte[j].flags = 0;
+		  } else {
+		    pte[j].present = 1;
+		    pte[j].flags = VM_READ | VM_WRITE | VM_EXEC | VM_USER;
+		  }	    
+		  
+		  pte[j].accessed = 0;
+		  pte[j].dirty = 0;
+		  pte[j].pte_attr = 0;
+		  pte[j].global_page = 0;
+		  pte[j].vmm_info = 0;
+		  pte[j].available = 0;
+		  pte[j].no_execute = 0;
+
+		  if (page_region->type == UNMAPPED) {
+		    pte[j].page_base_addr_lo = 0;
+		    pte[j].page_base_addr_hi = 0;
+		  } else if (page_region->type == SHARED) {
+		    addr_t host_addr = page_region->host_addr + (layout_addr - page_region->start);
+		    
+		    pte[j].page_base_addr_lo = PAGE_ALLIGNED_ADDR(host_addr) & 0xfffff;
+		    pte[j].page_base_addr_hi = 0;
+		    pte[j].vmm_info = SHARED_PAGE;
+		  } else if (page_region->type == GUEST) {
+		    addr_t list_addr =  get_mem_list_addr(list, list_index++);
+		    
+		    if (list_addr == -1) {
+		      // error
+		      // cleanup...
+		      //free_guest_page_tables(pde);
+		      return NULL;
+		    }
+		    PrintDebug("Adding guest page (%x)\n", list_addr);
+		    pte[j].page_base_addr_lo = PAGE_ALLIGNED_ADDR(list_addr) & 0xfffff;
+		    pte[j].page_base_addr_hi = 0;
+
+		    // Reset this when we move over to dynamic page allocation
+		    //	    pte[j].vmm_info = GUEST_PAGE;	    
+		    pte[j].vmm_info = SHARED_PAGE;
+		  }
+		  
+		  num_entries--;
+		  current_page_addr += PAGE_SIZE;
+		  layout_index++;
+		} else {
+		  // error
+		  PrintDebug("Error creating page table...\n");
+		  // cleanup
+		  //		  free_guest_page_tables64(pde);
+		  return NULL;
+		}
+	      }
+	    }
+	  }
+	}
+      }
+    }
+  }
+  return pml;
+}

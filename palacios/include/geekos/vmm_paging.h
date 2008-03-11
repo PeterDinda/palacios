@@ -11,6 +11,10 @@
 #define MAX_PAGE_TABLE_ENTRIES      1024
 #define MAX_PAGE_DIR_ENTRIES        1024
 
+#define MAX_PAGE_TABLE_ENTRIES_64      512
+#define MAX_PAGE_DIR_ENTRIES_64        512
+#define MAX_PAGE_DIR_PTR_ENTRIES_64    512
+#define MAX_PAGE_MAP_ENTRIES_64        512
 
 #define PAGE_DIRECTORY_INDEX(x)  ((((uint_t)x) >> 22) & 0x3ff)
 #define PAGE_TABLE_INDEX(x)      ((((uint_t)x) >> 12) & 0x3ff)
@@ -54,7 +58,72 @@ typedef struct pte {
 } vmm_pte_t;
 
 
+
+typedef struct pte64 {
+  uint_t present         : 1;
+  uint_t flags           : 4;
+  uint_t accessed        : 1;
+  uint_t dirty           : 1;
+  uint_t pte_attr        : 1;
+  uint_t global_page     : 1;
+  uint_t vmm_info        : 3;
+  uint_t page_base_addr_lo  : 20;
+  uint_t page_base_addr_hi : 20;
+  uint_t available       : 11;
+  uint_t no_execute      : 1;
+} pte64_t;
+
+typedef struct pde64 {
+  uint_t present         : 1;
+  uint_t flags           : 4;
+  uint_t accessed        : 1;
+  uint_t reserved        : 1;
+  uint_t large_pages     : 1;
+  uint_t reserved2       : 1;
+  uint_t vmm_info        : 3;
+  uint_t pt_base_addr_lo    : 20;
+  uint_t pt_base_addr_hi : 20;
+  uint_t available       : 11;
+  uint_t no_execute      : 1;
+} pde64_t;
+
+typedef struct pdpe64 {
+  uint_t present        : 1;
+  uint_t writable       : 1;
+  uint_t user           : 1;
+  uint_t pwt            : 1;
+  uint_t pcd            : 1;
+  uint_t accessed       : 1;
+  uint_t reserved       : 1;
+  uint_t large_pages    : 1;
+  uint_t zero           : 1;
+  uint_t vmm_info       : 3;
+  uint_t pd_base_addr_lo : 20;
+  uint_t pd_base_addr_hi : 20;
+  uint_t available      : 11;
+  uint_t no_execute     : 1;
+} pdpe64_t;
+
+
+typedef struct pml4e {
+  uint_t present        : 1;
+  uint_t writable       : 1;
+  uint_t user           : 1;
+  uint_t pwt            : 1;
+  uint_t pcd            : 1;
+  uint_t accessed       : 1;
+  uint_t reserved       : 1;
+  uint_t zero           : 2;
+  uint_t vmm_info       : 3;
+  uint_t pdp_base_addr_lo : 20;
+  uint_t pdp_base_addr_hi : 20;
+  uint_t available      : 11;
+  uint_t no_execute     : 1;
+} pml4e64_t;
+
+
 vmm_pde_t * generate_guest_page_tables(vmm_mem_layout_t * layout, vmm_mem_list_t * list);
+pml4e64_t * generate_guest_page_tables_64(vmm_mem_layout_t * layout, vmm_mem_list_t * list);
 
 void free_guest_page_tables(vmm_pde_t * pde);
 

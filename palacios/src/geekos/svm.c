@@ -15,6 +15,10 @@ extern void Set_MSR(uint_t MSR, uint_t high_byte, uint_t low_byte);
 extern uint_t launch_svm(vmcb_t * vmcb_addr);
 extern uint_t Get_CR3();
 
+extern void GetGDTR(void * gdt);
+extern void GetIDTR(void * idt);
+
+
 /* Checks machine SVM capability */
 /* Implemented from: AMD Arch Manual 3, sect 15.4 */ 
 int is_svm_capable() {
@@ -94,7 +98,7 @@ int init_svm_guest(struct guest_info *info) {
   PrintDebug("Generating Guest nested page tables\n");
   print_mem_list(&(info->mem_list));
   print_mem_layout(&(info->mem_layout));
-  info->page_tables = generate_guest_page_tables(&(info->mem_layout), &(info->mem_list));
+  info->page_tables = generate_guest_page_tables_64(&(info->mem_layout), &(info->mem_list));
   //PrintDebugPageTables(info->page_tables);
 
   
@@ -116,6 +120,8 @@ int start_svm_guest(struct guest_info *info) {
   ulong_t exit_code = 0;
 
   PrintDebug("Launching SVM VM (vmcb=%x)\n", info->vmm_data);
+  // PrintDebugVMCB((vmcb_t*)(info->vmm_data));
+
 
   launch_svm((vmcb_t*)(info->vmm_data));
 
@@ -200,6 +206,12 @@ void Init_VMCB(vmcb_t *vmcb, guest_info_t vm_info) {
   ctrl_area->guest_ASID = 1;
 
 
+  //  guest_state->cpl = 3;
+
+
+
+
+
   // Setup exits
 
   
@@ -214,24 +226,58 @@ void Init_VMCB(vmcb_t *vmcb, guest_info_t vm_info) {
   ctrl_area->exceptions.ex_names.ud = 1;
   ctrl_area->exceptions.ex_names.np = 1;
   ctrl_area->exceptions.ex_names.of = 1;
+  ctrl_area->exceptions.ex_names.nmi = 1;
+
   
+
+  // ctrl_area->instrs.instrs.IOIO_PROT = 1;
+  ctrl_area->IOPM_BASE_PA = (uint_t)os_hooks->allocate_pages(3);
+  
+  {
+    reg_ex_t tmp_reg;
+    tmp_reg.r_reg = ctrl_area->IOPM_BASE_PA;
+    memset((void*)(tmp_reg.e_reg.low), 0xffffffff, PAGE_SIZE * 2);
+  }
+
+  ctrl_area->instrs.instrs.INTR = 1;
+
+  /*
+  {
+    reg_ex_t gdt;
+    reg_ex_t idt;
+    
+    GetGDTR(&(gdt.r_reg));
+    PrintDebug("GDT: hi: %x, lo: %x\n", gdt.e_reg.high, gdt.e_reg.low);
+
+    GetIDTR(&(idt.r_reg));
+
+  }
+  */
+
   // also determine if CPU supports nested paging
-  if (vm_info.page_tables) {
+    if (vm_info.page_tables) {
+  //  if (0) {
     // Flush the TLB on entries/exits
     ctrl_area->TLB_CONTROL = 1;
 
     // Enable Nested Paging
     ctrl_area->NP_ENABLE = 1;
 
+    PrintDebug("NP_Enable at 0x%x\n", &(ctrl_area->NP_ENABLE));
+
         // Set the Nested Page Table pointer
     ctrl_area->N_CR3 |= ((addr_t)vm_info.page_tables & 0xfffff000);
-    
-    guest_state->cr3 = Get_CR3();
 
-    PrintDebug("Set Nested CR3: lo: 0x%x  hi: 0x%x\n", (uint_t)*(&(ctrl_area->N_CR3)), (uint_t)*(&(ctrl_area->N_CR3) + 4));
-    PrintDebug("Set Guest CR3: lo: 0x%x  hi: 0x%x\n", (uint_t)*(&(guest_state->cr3)), (uint_t)*(&(guest_state->cr3) + 4));
+
+    //   ctrl_area->N_CR3 = Get_CR3();
+    // guest_state->cr3 |= (Get_CR3() & 0xfffff000);
+
+    guest_state->g_pat = 0x7040600070406ULL;
+
+    PrintDebug("Set Nested CR3: lo: 0x%x  hi: 0x%x\n", (uint_t)*(&(ctrl_area->N_CR3)), (uint_t)*((unsigned char *)&(ctrl_area->N_CR3) + 4));
+    PrintDebug("Set Guest CR3: lo: 0x%x  hi: 0x%x\n", (uint_t)*(&(guest_state->cr3)), (uint_t)*((unsigned char *)&(guest_state->cr3) + 4));
     // Enable Paging
-    guest_state->cr0 |= 0x80000000;
+    //    guest_state->cr0 |= 0x80000000;
   }
 
 

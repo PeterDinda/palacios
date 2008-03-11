@@ -1,7 +1,7 @@
 /*
  * Initialize kernel GDT.
  * Copyright (c) 2001,2004 David H. Hovemeyer <daveho@cs.umd.edu>
- * $Revision: 1.2 $
+ * $Revision: 1.3 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -167,6 +167,8 @@ void Init_GDT(void)
 	0		 /* privilege level (0 == kernel) */
     );
     KASSERT(Get_Descriptor_Index(desc) == (KERNEL_DS >> 3));
+
+    Print("GDT: Base=0x%.8x, limit=%d\n", (uint_t)gdtBaseAddr,  (uint_t)(sizeof(struct Segment_Descriptor) * NUM_GDT_ENTRIES));
 
     /* Activate the kernel GDT. */
     limitAndBase[0] = sizeof(struct Segment_Descriptor) * NUM_GDT_ENTRIES;

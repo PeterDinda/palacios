@@ -77,7 +77,7 @@ typedef struct guest_info {
   vmm_mem_layout_t mem_layout;
   // device_map
 
-  vmm_pde_t * page_tables;
+  pml4e64_t * page_tables;
   void * vmm_data;
 } guest_info_t;
 

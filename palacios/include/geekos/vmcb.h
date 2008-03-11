@@ -259,8 +259,9 @@ typedef struct VMCB_Control_Area {
   ullong_t exit_int_info   : 63         PACKED;
   /* ** */
 
-  uint_t NP_ENABLE         : 1          PACKED;
-  ullong_t rsvd6           : 63         PACKED;  // Should be 0 
+  //  uint_t NP_ENABLE         : 1          PACKED;
+  //ullong_t rsvd6           : 63         PACKED;  // Should be 0 
+  ullong_t NP_ENABLE                    PACKED;
 
   uchar_t rsvd7[16]                     PACKED;  // Should be 0
 
@@ -387,7 +388,7 @@ typedef struct VMCB_State_Save_Area {
 
 } vmcb_saved_state_t;
 
-
+void PrintDebugVMCB(vmcb_t * vmcb);
 
 
 #endif
