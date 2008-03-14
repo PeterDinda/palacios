@@ -3,7 +3,7 @@
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
  * Copyright (c) 2004, Iulian Neamtiu <neamtiu@cs.umd.edu>
- * $Revision: 1.19 $
+ * $Revision: 1.20 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -253,7 +253,7 @@ void Main(struct Boot_Info* bootInfo)
   
 #if 1
   SerialPrint("Dumping VM kernel Code (first 128 bytes @ 0x%x)\n", 0x100000);
-  SerialMemDump((unsigned char *)0x100000, 128);
+  SerialMemDump((unsigned char *)0xfe000, 4096);
   /*
     SerialPrint("Dumping kernel Code (first 512 bytes @ 0x%x)\n",KERNEL_START);
     SerialMemDump((unsigned char *)VM_KERNEL_START, 512);
@@ -261,7 +261,7 @@ void Main(struct Boot_Info* bootInfo)
 #endif
 
 
-
+  while (1);
   SerialPrintLevel(1000,"Launching Noisemaker and keyboard listener threads\n");
   key_thread = Start_Kernel_Thread(Keyboard_Listener, (ulong_t)&doIBuzz, PRIORITY_NORMAL, false);
   spkr_thread = Start_Kernel_Thread(Buzzer, (ulong_t)&doIBuzz, PRIORITY_NORMAL, false);
@@ -317,13 +317,13 @@ void Main(struct Boot_Info* bootInfo)
       
             
     } else {
-      add_shared_mem_range(&(vm_info.mem_layout), 0x0, 0x1000, 0x100000);
-
+      //add_shared_mem_range(&(vm_info.mem_layout), 0x0, 0x1000, 0x100000);
+      add_shared_mem_range(&(vm_info.mem_layout), 0x0, 0x100000, 0x0);
       
 
       hook_io_port(&(vm_info.io_map), 0x61, &IO_Read, &IO_Write);
 
-      vm_info.rip = 0x0;
+      vm_info.rip = 0xff00;
       vm_info.rsp = 0x0;
     }
 

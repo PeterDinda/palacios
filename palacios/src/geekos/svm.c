@@ -111,7 +111,7 @@ int init_svm_guest(struct guest_info *info) {
   info->page_tables = NULL;
   //info->page_tables = generate_guest_page_tables_64(&(info->mem_layout), &(info->mem_list));
   info->page_tables = generate_guest_page_tables(&(info->mem_layout), &(info->mem_list));
-  PrintDebugPageTables(info->page_tables);
+  //PrintDebugPageTables(info->page_tables);
 
   
 
@@ -162,6 +162,135 @@ vmcb_t * Allocate_VMCB() {
   return vmcb_page;
 }
 
+
+void Init_VMCB_Real(vmcb_t * vmcb, guest_info_t vm_info) {
+  vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA(vmcb);
+  vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA(vmcb);
+  uint_t i;
+
+
+  guest_state->rsp = vm_info.rsp;
+  guest_state->rip = vm_info.rip;
+
+
+
+
+
+  guest_state->efer |= EFER_MSR_svm_enable;
+  guest_state->rflags = 0x00000002; // The reserved bit is always 1
+  ctrl_area->svm_instrs.instrs.VMRUN = 1;
+  // guest_state->cr0 = 0x00000001;    // PE 
+  ctrl_area->guest_ASID = 1;
+  guest_state->cr0 = 0x60000010;
+
+
+  ctrl_area->exceptions.ex_names.de = 1;
+  ctrl_area->exceptions.ex_names.df = 1;
+  ctrl_area->exceptions.ex_names.pf = 1;
+  ctrl_area->exceptions.ex_names.ts = 1;
+  ctrl_area->exceptions.ex_names.ss = 1;
+  ctrl_area->exceptions.ex_names.ac = 1;
+  ctrl_area->exceptions.ex_names.mc = 1;
+  ctrl_area->exceptions.ex_names.gp = 1;
+  ctrl_area->exceptions.ex_names.ud = 1;
+  ctrl_area->exceptions.ex_names.np = 1;
+  ctrl_area->exceptions.ex_names.of = 1;
+  ctrl_area->exceptions.ex_names.nmi = 1;
+
+  guest_state->cs.selector = 0xf000;
+  guest_state->cs.limit=0xffff;
+  guest_state->cs.base =  0xffff0000;
+  guest_state->cs.attrib.raw = 0x9a;
+
+  
+  struct vmcb_selector *segregs [] = {&(guest_state->ss), &(guest_state->ds), &(guest_state->es), &(guest_state->fs), &(guest_state->gs), NULL};
+  for ( i = 0; segregs[i] != NULL; i++) {
+    struct vmcb_selector * seg = segregs[i];
+    
+    seg->selector = 0x0000;
+    seg->base = 0xffff0000;
+    seg->attrib.raw = 0x9b;
+    seg->limit = 0xffff;
+  }
+  
+  /* Set GPRs */
+  /*
+    EDX == 0xfxx
+    EAX, EBX, ECX, ESI, EDI, EBP, ESP == 0x0
+  */
+
+  guest_state->gdtr.base = 0;
+  guest_state->gdtr.limit = 0xffff;
+  guest_state->gdtr.attrib.raw = 0x0;
+
+  guest_state->idtr.base = 0;
+  guest_state->idtr.limit = 0xffff;
+  guest_state->idtr.attrib.raw = 0x0;
+
+  guest_state->ldtr.base = 0;
+  guest_state->ldtr.limit = 0xffff;
+  guest_state->ldtr.attrib.raw = 0x82;
+
+  guest_state->tr.base = 0;
+  guest_state->tr.limit = 0xffff;
+  guest_state->tr.attrib.raw = 0x83;
+
+
+
+
+  if (vm_info.io_map.num_ports > 0) {
+    vmm_io_hook_t * iter;
+    addr_t io_port_bitmap;
+    
+    io_port_bitmap = (addr_t)os_hooks->allocate_pages(3);
+    memset((uchar_t*)io_port_bitmap, 0, PAGE_SIZE * 3);
+    
+    ctrl_area->IOPM_BASE_PA = io_port_bitmap;
+
+    //PrintDebug("Setting up IO Map at 0x%x\n", io_port_bitmap);
+
+    FOREACH_IO_HOOK(vm_info.io_map, iter) {
+      ushort_t port = iter->port;
+      uchar_t * bitmap = (uchar_t *)io_port_bitmap;
+
+      bitmap += (port / 8);
+      PrintDebug("Setting Bit in block %x\n", bitmap);
+      *bitmap |= 1 << (port % 8);
+    }
+
+    memset((uchar_t*)io_port_bitmap, 0xff, PAGE_SIZE * 2);
+    //PrintDebugMemDump((uchar_t*)io_port_bitmap, PAGE_SIZE *2);
+
+    ctrl_area->instrs.instrs.IOIO_PROT = 1;
+  }
+
+  ctrl_area->instrs.instrs.INTR = 1;
+
+  // also determine if CPU supports nested paging
+  if (vm_info.page_tables) {
+    //   if (0) {
+    // Flush the TLB on entries/exits
+    //ctrl_area->TLB_CONTROL = 1;
+
+    // Enable Nested Paging
+    //ctrl_area->NP_ENABLE = 1;
+
+    //PrintDebug("NP_Enable at 0x%x\n", &(ctrl_area->NP_ENABLE));
+
+        // Set the Nested Page Table pointer
+    //    ctrl_area->N_CR3 = ((addr_t)vm_info.page_tables);
+    ctrl_area->N_CR3 = 0;
+    guest_state->cr3 = (addr_t)(vm_info.page_tables);
+
+    //   ctrl_area->N_CR3 = Get_CR3();
+    // guest_state->cr3 |= (Get_CR3() & 0xfffff000);
+
+    guest_state->g_pat = 0x7040600070406ULL;
+
+    //PrintDebug("Set Nested CR3: lo: 0x%x  hi: 0x%x\n", (uint_t)*(&(ctrl_area->N_CR3)), (uint_t)*((unsigned char *)&(ctrl_area->N_CR3) + 4));
+  guest_state->cr0 |= 0x80000000;
+  }
+}
 
 
 void Init_VMCB(vmcb_t * vmcb, guest_info_t vm_info) {
@@ -233,7 +362,7 @@ void Init_VMCB(vmcb_t * vmcb, guest_info_t vm_info) {
       *bitmap |= 1 << (port % 8);
     }
 
-    memset((uchar_t*)io_port_bitmap, 0xff, PAGE_SIZE * 2);
+
     //PrintDebugMemDump((uchar_t*)io_port_bitmap, PAGE_SIZE *2);
 
     ctrl_area->instrs.instrs.IOIO_PROT = 1;
