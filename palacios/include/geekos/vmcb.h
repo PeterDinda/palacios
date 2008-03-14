@@ -294,7 +294,7 @@ struct vmcb_selector {
   ushort_t selector                   PACKED;
 
   /* These attributes are basically a direct map of the attribute fields of a segment desc.
-   * The segment limit in the middle is removed and the fields are pused together
+   * The segment limit in the middle is removed and the fields are fused together
    * There IS empty space at the end... See AMD Arch vol3, sect. 4.7.1,  pg 78
    */
   union {

@@ -1,7 +1,7 @@
 /*
  * x86 TSS data structure and routines
  * Copyright (c) 2001,2004 David H. Hovemeyer <daveho@cs.umd.edu>
- * $Revision: 1.3 $
+ * $Revision: 1.4 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -82,3 +82,21 @@ void Set_Kernel_Stack_Pointer(ulong_t esp0)
      */
     Load_Task_Register();
 }
+
+
+/* JRL THIS FUCKING SUCKS */
+
+uint_t GetTR_Base() {
+  return (uint_t)(&s_theTSS);
+}
+uint_t GetTR_Limit() {
+  return  sizeof(struct TSS);
+}
+
+ushort_t GetTR_Selector() {
+  return s_tssSelector;
+}
+
+
+
+/* ** */

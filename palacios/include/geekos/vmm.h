@@ -8,6 +8,7 @@
 #include <geekos/vmm_mem.h>
 #include <geekos/vmm_paging.h>
 
+#include <geekos/vm_guest.h>
 
 /* utility definitions */
 #define PrintDebug(fmt, args...)			\
@@ -69,17 +70,6 @@
 
 
 
-typedef struct guest_info {
-  ullong_t rip;
-  ullong_t rsp;
-
-  vmm_mem_list_t mem_list;
-  vmm_mem_layout_t mem_layout;
-  // device_map
-
-  pml4e64_t * page_tables;
-  void * vmm_data;
-} guest_info_t;
 
 
 

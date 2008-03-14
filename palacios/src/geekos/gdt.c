@@ -1,7 +1,7 @@
 /*
  * Initialize kernel GDT.
  * Copyright (c) 2001,2004 David H. Hovemeyer <daveho@cs.umd.edu>
- * $Revision: 1.3 $
+ * $Revision: 1.4 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -14,6 +14,7 @@
 #include <geekos/gdt.h>
 #include <libc/string.h>
 
+#include <geekos/debug.h>
 
 /*
  * This is defined in lowlevel.asm.
@@ -45,11 +46,11 @@ static int s_numAllocated = 0;
 void DumpGDT()
 {
   int i;
-  Print("GDT Contents:\n");
+  PrintBoth("GDT Contents:\n");
 
   for (i=0;i<NUM_GDT_ENTRIES;i++) { 
     if (s_GDT[i].present) { 
-      Print("%d: base=%u, limit=%u, sizeLow=%u,  baseLow=%u, type=%u, system=%u, dpl=%u, preent=%u, sizeHigh=%u, avail=%u, reserved=%u, dbBit=%u, granularity=%u, baseHigh=%u\n", 
+      PrintBoth("%d: base=%u, limit=%u, sizeLow=%u,  baseLow=%u, type=%u, system=%u, dpl=%u, preent=%u, sizeHigh=%u, avail=%u, reserved=%u, dbBit=%u, granularity=%u, baseHigh=%u\n", 
 	    i,
 	    (s_GDT[i].baseHigh<<24) + s_GDT[i].baseLow,
 	    (s_GDT[i].sizeHigh<<16) + s_GDT[i].sizeLow,
@@ -66,7 +67,7 @@ void DumpGDT()
 	    s_GDT[i].granularity,
 	    s_GDT[i].baseHigh  );
     } else {
-      Print("%d: Not Present\n",i);
+      PrintBoth("%d: Not Present\n",i);
     }
   }
 }

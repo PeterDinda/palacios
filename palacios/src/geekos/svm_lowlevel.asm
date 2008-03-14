@@ -8,22 +8,59 @@
 %include "symbol.asm"
 
 
+EXPORT DisableInts
+
 EXPORT GetGDTR
 EXPORT GetIDTR
+EXPORT GetTR
 
-
+EXPORT exit_test
 
 EXTERN handle_svm_exit
 
 EXPORT launch_svm
+EXPORT safe_svm_launch
 
+
+;; These need to be kept similar with the svm return values in svm.h
+SVM_HANDLER_SUCCESS  equ 0x00
+SVM_HANDLER_ERROR equ  0x1
+SVM_HANDLER_HALT equ 0x2
 
 [BITS 32]
+
+
+; Save and restore registers needed by SVM
+%macro Save_SVM_Registers 1
+	mov	[%1], ebx
+	mov	[%1 + 8], ecx
+	mov	[%1 + 16], edx
+	mov	[%1 + 24], esi
+	mov	[%1 + 32], edi
+	mov	[%1 + 40], ebp
+%endmacro
+
+
+%macro Restore_SVM_Registers 1
+	mov	ebx, [%1]
+	mov	ecx, [%1 + 8]
+	mov	edx, [%1 + 16]
+	mov	esi, [%1 + 24]
+	mov	edi, [%1 + 32]
+	mov	ebp, [%1 + 40]
+%endmacro
 
 %macro vmrun 0
 	db	00fh, 001h, 0d8h
 %endmacro
 
+%macro vmsave 0
+	db	00fh, 001h, 0dbh
+%endmacro
+
+%macro vmload 0
+	db	00fh, 001h, 0dah
+%endmacro
 
 ;VMRUN  equ db 0Fh, 01h, D8h
 ;VMLOAD equ db 0x0F,0x01,0xDA
@@ -32,8 +69,13 @@ EXPORT launch_svm
 ;CLGI   equ db 0x0F,0x01,0xDD
 
 
+align 8
+DisableInts:
+	cli
+	ret
 
 
+align 8
 GetGDTR:
 	push	ebp
 	mov	ebp, esp
@@ -46,13 +88,28 @@ GetGDTR:
 	ret
 
 
-
+align 8
 GetIDTR:
 	push	ebp
 	mov	ebp, esp
 	pusha	
+
 	mov	ebx, [ebp + 8]
-	sgdt	[ebx]
+	sidt	[ebx]
+	
+	popa
+	pop	ebp
+	ret
+
+
+
+align 8
+GetTR:
+	push	ebp
+	mov	ebp, esp
+	pusha	
+	mov	ebx, [ebp + 8]
+	str	[ebx]
 	
 	popa
 	pop	ebp
@@ -61,6 +118,7 @@ GetIDTR:
 
 
 ; I think its safe to say that there are some pretty serious register issues...
+align 8
 launch_svm:
 	push 	ebp
 	mov	ebp, esp
@@ -75,47 +133,70 @@ launch_svm:
 
 
 
-; eventual svm_launch
-;   pusha
-;   pushf
-;
-; .vmm_loop
-;	vmrun
-;	push guest GPRs
-;	call handle_svm_exit
-;	jz .vmm_loop
-;  popf
-;  popa
-;  ret
-;
-;
-;
 
+exit_test: 
+	mov	cr4, eax
+	ret
 
 
 ;; Need to check this..
-;; Since RAX/EAX is saved in the VMCB, we should probably just 
-;;      do our own replacement for pusha/popa that excludes [e|r]ax
+;; save_svm_launch(rax, struct guest_gprs * regs)
+align 8
 safe_svm_launch:
 	push	ebp
 	mov	ebp, esp
 	pushf
-	pusha
+	pusha   		;; Save Host state
 
-.vmm_loop:
-	mov	eax, [ebp + 8]
+
+	push 	dword [ebp + 12]  ;; pointer to the guest GPR save area
+	push	dword [ebp + 8]   ;; pointer to the VMCB pointer
+
+	mov	eax, [esp + 4]    ;; mov guest GPR pointer to eax
+
+	Restore_SVM_Registers eax ;; Restore Guest GPR state
+	pop	eax               ;; pop VMCB pointer into eax
+
+	vmload
 	vmrun
-	pusha
-	call 	handle_svm_exit
-	and 	eax, eax
-	popa			;; restore the guest GPRs, (DOES THIS AFFECT E/RFLAGS?)
-	jz	.vmm_loop
+	vmsave
 
-	;; HOW DO WE GET THE RETURN VALUE OF HANDLE_SVM_EXIT BACK TO THE CALLER
+	pop	eax		  ;; pop Guest GPR pointer into eax
+	Save_SVM_Registers eax    ;; save guest GPRs
+
+	popa			  ;; Restore Host state
 	popf
-	popa
-	pop	ebp
+	pop 	ebp
 	ret
+
+
+
+;;align 8
+;;safe_svm_launch:
+;;	push	ebp
+;;	mov	ebp, esp
+;;	pushf
+;;	pusha
+;;
+;.vmm_loop:
+;	mov	eax, [ebp + 8]
+;	vmrun
+;	Save_SVM_Registers
+;
+;	call 	handle_svm_exit
+;
+;	mov	[ebp + 12], eax
+;
+;	and 	eax, eax
+;
+;	Restore_SVM_Registers
+;
+;	jz	.vmm_loop
+;
+;	popa
+;	popf
+;	pop	ebp
+;	ret
 
 
 %endif

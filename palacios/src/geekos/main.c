@@ -3,7 +3,7 @@
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
  * Copyright (c) 2004, Iulian Neamtiu <neamtiu@cs.umd.edu>
- * $Revision: 1.18 $
+ * $Revision: 1.19 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -36,17 +36,6 @@
 
 #include <geekos/vmm_stubs.h>
 
-
-
-
-extern void Get_MSR(ulong_t msr, unsigned int *val1, unsigned int *val2);
-extern void Set_MSR(ulong_t msr, ulong_t val1, ulong_t val2);
-extern uint_t Get_EIP();
-extern uint_t Get_ESP();
-extern uint_t Get_EBP();
-
-
-int foo=42;
 
 #define SPEAKER_PORT 0x61
 
@@ -97,10 +86,34 @@ inline uchar_t MyIn_Byte(ushort_t port)
 }
 
 
-extern void MyBuzzVM();
 
-#define MYBUZZVM_START MyBuzzVM
-#define MYBUZZVM_LEN   0x3d
+int IO_Read(ushort_t port, void * dst, uint_t length) {
+  uchar_t * iter = dst;
+  uint_t i;
+
+  for (i = 0; i < length; i++) {
+    *iter = MyIn_Byte(port);    
+    iter++;
+  }
+  
+  return 0;
+}
+
+
+
+int IO_Write(ushort_t port, void * src, uint_t length) {
+  uchar_t * iter = src;
+  uint_t i;
+
+
+  for (i = 0; i < length; i++) {
+    MyOut_Byte(port, *iter);    
+    iter++;
+  }
+
+  return 0;
+}
+
 
 void BuzzVM()
 {
@@ -109,7 +122,7 @@ void BuzzVM()
   unsigned char init;
   
     
-  SerialPrint("Starting To Buzz\n");
+  PrintBoth("Starting To Buzz\n");
 
   init=MyIn_Byte(SPEAKER_PORT);
 
@@ -125,15 +138,7 @@ void BuzzVM()
   }
 }
 
-extern void RunVM();
 
-int vmRunning = 0;
-
-void RunVM() {
-  vmRunning = 1;
-
-  while(1);
-}
 
 
 
@@ -221,8 +226,6 @@ void Main(struct Boot_Info* bootInfo)
 {
   struct Kernel_Thread * key_thread;
   struct Kernel_Thread * spkr_thread;
-  // struct Kernel_Thread * vm_thread;
-  // struct VMDescriptor    vm;
 
   ulong_t doIBuzz = 0;
 
@@ -248,20 +251,18 @@ void Main(struct Boot_Info* bootInfo)
 
 
   
-#if 0
-  SerialPrint("Dumping VM kernel Code (first 512 bytes @ 0x%x)\n",VM_KERNEL_START);
-  SerialMemDump((unsigned char *)VM_KERNEL_START, 512);
+#if 1
+  SerialPrint("Dumping VM kernel Code (first 128 bytes @ 0x%x)\n", 0x100000);
+  SerialMemDump((unsigned char *)0x100000, 128);
   /*
     SerialPrint("Dumping kernel Code (first 512 bytes @ 0x%x)\n",KERNEL_START);
     SerialMemDump((unsigned char *)VM_KERNEL_START, 512);
   */
 #endif
 
-#if 0
-  SerialPrint("Dumping GUEST KERNEL CODE (first 512*2 bytes @ 0x100000)\n");
-  SerialMemDump((unsigned char *)0x100000, 512*2);
-#endif
 
+
+  SerialPrintLevel(1000,"Launching Noisemaker and keyboard listener threads\n");
   key_thread = Start_Kernel_Thread(Keyboard_Listener, (ulong_t)&doIBuzz, PRIORITY_NORMAL, false);
   spkr_thread = Start_Kernel_Thread(Buzzer, (ulong_t)&doIBuzz, PRIORITY_NORMAL, false);
 
@@ -286,71 +287,58 @@ void Main(struct Boot_Info* bootInfo)
     os_hooks.free = &VMM_Free;
 
 
+    //   DumpGDT();
     Init_VMM(&os_hooks, &vmm_ops);
   
 
     init_mem_layout(&(vm_info.mem_layout));
     init_mem_list(&(vm_info.mem_list));
+    init_vmm_io_map(&(vm_info.io_map));
 
-
+    
     add_mem_list_pages(&(vm_info.mem_list), vm_range_start, (vm_range_end - vm_range_start) / PAGE_SIZE);
     //    add_unmapped_mem_range(&(vm_info.mem_layout), 0, 256);
     //add_shared_mem_range(&(vm_info.mem_layout), guest_kernel_start, (guest_kernel_end - guest_kernel_start) / PAGE_SIZE, guest_kernel_start);
     //add_guest_mem_range(&(vm_info.mem_layout), guest_kernel_end, 20);
-
-    add_shared_mem_range(&(vm_info.mem_layout), 0, 0x1000000, 0);
-
-    rip = (ulong_t)(void*)&BuzzVM;
-    vm_info.rip = rip;
-    rsp = (ulong_t)Alloc_Page();
-    vm_info.rsp = rsp;
-
-
-    SerialPrint("Initializing Guest (eip=0x%.8x) (esp=0x%.8x)\n", rip, rsp);
-    (vmm_ops).init_guest(&vm_info);
-    SerialPrint("Starting Guest\n");
-    (vmm_ops).start_guest(&vm_info);
     
+    if (0) {
+      
+      //    add_shared_mem_range(&(vm_info.mem_layout), 0, 0x800000, 0x10000);    
+      add_shared_mem_range(&(vm_info.mem_layout), 0, 0x1000000, 0);
+      
+      rip = (ulong_t)(void*)&BuzzVM;
+      //  rip -= 0x10000;
+      //    rip = (addr_t)(void*)&exit_test;
+      //  rip -= 0x2000;
+      vm_info.rip = rip;
+      rsp = (addr_t)Alloc_Page();
+      
+      vm_info.rsp = (rsp +4092 );// - 0x2000;
+      
+            
+    } else {
+      add_shared_mem_range(&(vm_info.mem_layout), 0x0, 0x1000, 0x100000);
+
+      
+
+      hook_io_port(&(vm_info.io_map), 0x61, &IO_Read, &IO_Write);
+
+      vm_info.rip = 0x0;
+      vm_info.rsp = 0x0;
+    }
+
+    PrintBoth("Initializing Guest (eip=0x%.8x) (esp=0x%.8x)\n", (uint_t)vm_info.rip,(uint_t)vm_info.rsp);
+    (vmm_ops).init_guest(&vm_info);
+    PrintBoth("Starting Guest\n");
+    (vmm_ops).start_guest(&vm_info);
   }
 
 
-  SerialPrintLevel(1000,"Launching Noisemaker and keyboard listener threads\n");
   
-
-
-
-
-
-
-  /*
-  // jump into vmxassist
-  vm.entry_ip=(uint_t)0x00107fd0;
-  vm.exit_eip=0;
-  // Put the stack at 512K
-  vm.guest_esp=(uint_t)4096 + 8192 - 4;
-  *(unsigned int *)(vm.guest_esp) = 1024 * 1024;
-  vm.guest_esp -= 4;
-  *(unsigned int *)(vm.guest_esp) = 8;
-  vm.guest_esp -= 4;
-  *(unsigned int *)(vm.guest_esp) = vm.guest_esp + 4;;
-  vm.guest_esp -= 4;
-  *(unsigned int *)(vm.guest_esp) = vm.entry_ip;
-  //  vm.guest_esp -= 4;
-
- 
-  SerialMemDump((unsigned char *)vm.entry_ip, 512);
-  */
- 
-  // vm_thread = Start_Kernel_Thread(VM_Thread, (ulong_t)&vm,PRIORITY_NORMAL,false);
-
-  
-  SerialPrintLevel(1000,"Next: setup GDT\n");
-
 
 
   TODO("Write a Virtual Machine Monitor");
   
-  
-  /* Now this thread is done. */
+
   Exit(0);
 }

@@ -1,6 +1,6 @@
 # Makefile for GeekOS kernel, userspace, and tools
 # Copyright (c) 2004,2005 David H. Hovemeyer <daveho@cs.umd.edu>
-# $Revision: 1.16 $
+# $Revision: 1.17 $
 
 # This is free software.  You are permitted to use,
 # redistribute, and modify it as specified in the file "COPYING".
@@ -85,8 +85,8 @@ KERNEL_C_SRCS := idt.c int.c trap.c irq.c io.c \
 	synch.c kthread.c \
 	serial.c  reboot.c \
         paging.c vmx.c vmcs_gen.c vmcs.c \
-	 svm.c vmm.c vmm_util.c vmm_stubs.c \
-	vmcb.c vmm_mem.c vm_guest.c vmm_paging.c \
+	 svm.c svm_handler.c vmm.c vmm_util.c vmm_stubs.c \
+	vmcb.c vmm_mem.c vm_guest.c vmm_paging.c vmm_io.c vmm_debug.c \
 	debug.c\
 	main.c
 
@@ -182,7 +182,7 @@ NUMSECS := $(PERL) $(PROJECT_ROOT)/scripts/numsecs
 # ----------------------------------------------------------------------
 
 # Flags used for all C source files
-GENERAL_OPTS := -O -Wall $(EXTRA_C_OPTS) $(JRLDEBUG) $(PADFLAGS)
+GENERAL_OPTS := -O -Wall $(EXTRA_C_OPTS) $(JRLDEBUG) $(PADFLAGS) -fPIC
 CC_GENERAL_OPTS := $(GENERAL_OPTS) -Werror 
 
 # Flags used for kernel C source files
