@@ -64,8 +64,8 @@ void PrintDebugVMCB(vmcb_t * vmcb) {
   PrintDebug("\tINVD: %d\n", ctrl_area->instrs.instrs.INVD);
   PrintDebug("\tPAUSE: %d\n", ctrl_area->instrs.instrs.PAUSE);
   PrintDebug("\tHLT: %d\n", ctrl_area->instrs.instrs.HLT);
-  PrintDebug("\tINVPLG: %d\n", ctrl_area->instrs.instrs.INVPLG);
-  PrintDebug("\tINVPLGA: %d\n", ctrl_area->instrs.instrs.INVPLGA);
+  PrintDebug("\tINVLPG: %d\n", ctrl_area->instrs.instrs.INVLPG);
+  PrintDebug("\tINVLPGA: %d\n", ctrl_area->instrs.instrs.INVLPGA);
   PrintDebug("\tIOIO_PROT: %d\n", ctrl_area->instrs.instrs.IOIO_PROT);
   PrintDebug("\tMSR_PROT: %d\n", ctrl_area->instrs.instrs.MSR_PROT);
   PrintDebug("\ttask_switch: %d\n", ctrl_area->instrs.instrs.task_switch);

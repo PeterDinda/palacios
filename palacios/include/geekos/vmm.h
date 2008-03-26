@@ -87,8 +87,8 @@ struct vmm_os_hooks {
   void *(*malloc)(uint_t size);
   void (*free)(void * addr);
 
-  void *(*physical_to_virtual)(void *addr);
-  void *(*virtual_to_physical)(void *addr);
+  void *(*paddr_to_vaddr)(void *addr);
+  void *(*vaddr_to_paddr)(void *addr);
 
 
   void (*start_kernel_thread)(); // include pointer to function

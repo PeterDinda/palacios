@@ -2,6 +2,9 @@
 #include <geekos/serial.h>
 
 
+
+void * Identity(void *addr) { return addr; };
+
 void * Allocate_VMM_Pages(int num_pages) {
   void * start_page = Alloc_Page();
   SerialPrint("Allocating Page: %x (%d of %d)\n",start_page, 1, num_pages); 

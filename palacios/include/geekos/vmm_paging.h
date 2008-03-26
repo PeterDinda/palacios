@@ -89,11 +89,16 @@ the host state in the vmcs before entering the guest.
 #define PAGE_OFFSET(x)           ((((uint_t)x) & 0xfff))
 
 #define PAGE_ALIGNED_ADDR(x)   (((uint_t) (x)) >> 12)
+
 #ifndef PAGE_ADDR
 #define PAGE_ADDR(x)   (PAGE_ALIGNED_ADDR(x) << 12)
 #endif
 
 #define PAGE_POWER 12
+
+#define CR3_TO_PDE(cr3) (((ulong_t)cr3) & 0xfffff000)
+#define CR3_TO_PDPTRE(cr3) (((ulong_t)cr3) & 0xffffffe0)
+#define CR3_TO_PML4E(cr3)  (((ullong_t)cr3) & 0x000ffffffffff000)
 
 #define VM_WRITE     1
 #define VM_USER      2
@@ -101,9 +106,6 @@ the host state in the vmcs before entering the guest.
 #define VM_READ      0
 #define VM_EXEC      0
 
-
-#define GUEST_PAGE   0x0
-#define SHARED_PAGE  0x1
 
 typedef struct pde {
   uint_t present         : 1;
@@ -193,44 +195,40 @@ typedef struct pml4e {
 
 
 
-typedef enum { PDE32 } page_directory_type_t;
+typedef enum { PDE32 } paging_mode_t;
 
 
-typedef struct shadow_paging_state {
+typedef struct shadow_page_state {
+
   // these two reflect the top-level page directory
   // of the guest page table
-  page_directory_type_t  guest_page_directory_type;
-  void                  *guest_page_directory;         // points to guest's current page table
+  paging_mode_t           guest_mode;
+  reg_ex_t                guest_cr3;         // points to guest's current page table
 
-  // This reflects the guest physical to host physical mapping
-  shadow_map_t          shadow_map;
+  // Should thi sbe here
+  reg_ex_t                guest_cr0;
 
   // these two reflect the top-level page directory 
   // the shadow page table
-  page_directory_type_t  shadow_page_directory_type;
-  void                  *shadow_page_directory;
- 
-} shadow_paging_state_t;
+  paging_mode_t           shadow_mode;
+  reg_ex_t                shadow_cr3;
+
+
+} shadow_page_state_t;
 
 
 
-int init_shadow_paging_state(shadow_paging_state_t *state);
+int init_shadow_page_state(shadow_page_state_t * state);
 
 // This function will cause the shadow page table to be deleted
 // and rewritten to reflect the guest page table and the shadow map
-int wholesale_update_shadow_paging_state(shadow_paging_state_t *state);
+int wholesale_update_shadow_page_state(shadow_page_state_t * state, shadow_map_t * mem_map);
+
+vmm_pde_t * create_passthrough_pde32_pts(shadow_map_t * map);
 
 //void free_guest_page_tables(vmm_pde_t * pde);
 
-//generate_shadow_
-
-//vmm_pde_t * generate_guest_page_tables(shadow_map_t * map, vmm_mem_list_t * list);
-//pml4e64_t * generate_guest_page_tables_64(shadow_map_t * map, vmm_mem_list_t * list);
-
-
 void PrintDebugPageTables(vmm_pde_t * pde);
-
-
 
 
 #endif

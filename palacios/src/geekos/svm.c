@@ -105,10 +105,8 @@ int init_svm_guest(struct guest_info *info) {
   info->vmm_data = (void*)Allocate_VMCB();
 
 
-  PrintDebug("Generating Guest nested page tables\n");
-  //  print_mem_list(&(info->mem_list));
-  //print_mem_layout(&(info->mem_layout));
-  info->page_tables = NULL;
+  //PrintDebug("Generating Guest nested page tables\n");
+  //  info->page_tables = NULL;
   //info->page_tables = generate_guest_page_tables_64(&(info->mem_layout), &(info->mem_list));
   //info->page_tables = generate_guest_page_tables(&(info->mem_layout), &(info->mem_list));
   //PrintDebugPageTables(info->page_tables);
@@ -258,7 +256,7 @@ void Init_VMCB_Real(vmcb_t * vmcb, guest_info_t vm_info) {
       *bitmap |= 1 << (port % 8);
     }
 
-    memset((uchar_t*)io_port_bitmap, 0xff, PAGE_SIZE * 2);
+    //    memset((uchar_t*)io_port_bitmap, 0xff, PAGE_SIZE * 2);
     //PrintDebugMemDump((uchar_t*)io_port_bitmap, PAGE_SIZE *2);
 
     ctrl_area->instrs.instrs.IOIO_PROT = 1;
@@ -267,8 +265,27 @@ void Init_VMCB_Real(vmcb_t * vmcb, guest_info_t vm_info) {
   ctrl_area->instrs.instrs.INTR = 1;
 
   // also determine if CPU supports nested paging
-  if (vm_info.page_tables) {
-    //   if (0) {
+
+  if (vm_info.page_mode == SHADOW_PAGING) {
+    PrintDebug("Creating initial shadow page table\n");
+    vm_info.shadow_page_state.shadow_cr3.e_reg.low |= ((addr_t)create_passthrough_pde32_pts(&(vm_info.mem_map)) & ~0xfff);
+    PrintDebug("Created\n");
+
+    guest_state->cr3 = vm_info.shadow_page_state.shadow_cr3.r_reg;
+
+    ctrl_area->cr_reads.crs.cr3 = 1;
+    ctrl_area->cr_writes.crs.cr3 = 1;
+    ctrl_area->cr_reads.crs.cr0 = 1;
+    ctrl_area->cr_writes.crs.cr0 = 1;
+
+    ctrl_area->instrs.instrs.INVLPG = 1;
+    ctrl_area->instrs.instrs.INVLPGA = 1;
+
+	
+    guest_state->g_pat = 0x7040600070406ULL;
+
+    guest_state->cr0 |= 0x80000000;
+  } else if (vm_info.page_mode == NESTED_PAGING) {
     // Flush the TLB on entries/exits
     //ctrl_area->TLB_CONTROL = 1;
 
@@ -279,17 +296,14 @@ void Init_VMCB_Real(vmcb_t * vmcb, guest_info_t vm_info) {
 
         // Set the Nested Page Table pointer
     //    ctrl_area->N_CR3 = ((addr_t)vm_info.page_tables);
-    ctrl_area->N_CR3 = 0;
-    guest_state->cr3 = (addr_t)(vm_info.page_tables);
+    // ctrl_area->N_CR3 = (addr_t)(vm_info.page_tables);
 
     //   ctrl_area->N_CR3 = Get_CR3();
     // guest_state->cr3 |= (Get_CR3() & 0xfffff000);
 
-    guest_state->g_pat = 0x7040600070406ULL;
-
-    //PrintDebug("Set Nested CR3: lo: 0x%x  hi: 0x%x\n", (uint_t)*(&(ctrl_area->N_CR3)), (uint_t)*((unsigned char *)&(ctrl_area->N_CR3) + 4));
-  guest_state->cr0 |= 0x80000000;
+    //    guest_state->g_pat = 0x7040600070406ULL;
   }
+
 }
 
 
@@ -370,9 +384,30 @@ void Init_VMCB(vmcb_t * vmcb, guest_info_t vm_info) {
 
   ctrl_area->instrs.instrs.INTR = 1;
 
-  // also determine if CPU supports nested paging
-  if (vm_info.page_tables) {
-    //   if (0) {
+
+
+  if (vm_info.page_mode == SHADOW_PAGING) {
+    PrintDebug("Creating initial shadow page table\n");
+    vm_info.shadow_page_state.shadow_cr3.e_reg.low |= ((addr_t)create_passthrough_pde32_pts(&(vm_info.mem_map)) & ~0xfff);
+    PrintDebug("Created\n");
+
+    guest_state->cr3 = vm_info.shadow_page_state.shadow_cr3.r_reg;
+
+    ctrl_area->cr_reads.crs.cr3 = 1;
+    ctrl_area->cr_writes.crs.cr3 = 1;
+    ctrl_area->cr_reads.crs.cr0 = 1;
+    ctrl_area->cr_writes.crs.cr0 = 1;
+
+    ctrl_area->instrs.instrs.INVLPG = 1;
+    ctrl_area->instrs.instrs.INVLPGA = 1;
+    ctrl_area->instrs.instrs.CR0 = 1;
+	
+
+
+    guest_state->g_pat = 0x7040600070406ULL;
+
+    guest_state->cr0 |= 0x80000000;
+  } else if (vm_info.page_mode == NESTED_PAGING) {
     // Flush the TLB on entries/exits
     //ctrl_area->TLB_CONTROL = 1;
 
@@ -383,16 +418,12 @@ void Init_VMCB(vmcb_t * vmcb, guest_info_t vm_info) {
 
         // Set the Nested Page Table pointer
     //    ctrl_area->N_CR3 = ((addr_t)vm_info.page_tables);
-    ctrl_area->N_CR3 = 0;
-    guest_state->cr3 = (addr_t)(vm_info.page_tables);
+    // ctrl_area->N_CR3 = (addr_t)(vm_info.page_tables);
 
     //   ctrl_area->N_CR3 = Get_CR3();
     // guest_state->cr3 |= (Get_CR3() & 0xfffff000);
 
-    guest_state->g_pat = 0x7040600070406ULL;
-
-    //PrintDebug("Set Nested CR3: lo: 0x%x  hi: 0x%x\n", (uint_t)*(&(ctrl_area->N_CR3)), (uint_t)*((unsigned char *)&(ctrl_area->N_CR3) + 4));
-  guest_state->cr0 |= 0x80000000;
+    //    guest_state->g_pat = 0x7040600070406ULL;
   }
 
 
@@ -527,8 +558,9 @@ void Init_VMCB_pe(vmcb_t *vmcb, guest_info_t vm_info) {
 
   }
   
-
+  
   // also determine if CPU supports nested paging
+  /*
   if (vm_info.page_tables) {
     //   if (0) {
     // Flush the TLB on entries/exits
@@ -553,7 +585,7 @@ void Init_VMCB_pe(vmcb_t *vmcb, guest_info_t vm_info) {
     // Enable Paging
     //    guest_state->cr0 |= 0x80000000;
   }
-
+  */
 
 }
 

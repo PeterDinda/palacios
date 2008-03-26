@@ -18,15 +18,20 @@ struct guest_gprs {
 };
 
 
+typedef enum {SHADOW_PAGING, NESTED_PAGING} vm_page_mode_t;
+
 
 typedef struct guest_info {
   ullong_t rip;
   ullong_t rsp;
 
-  shadow_paging_state_t  shadow_paging_state;
+  shadow_map_t mem_map;
 
-  //  vmm_mem_list_t mem_list;
-  // vmm_mem_layout_t mem_layout;
+  
+  vm_page_mode_t page_mode;
+  shadow_page_state_t  shadow_page_state;
+  // nested_paging_t nested_page_state;
+
 
   vmm_io_map_t io_map;
   // device_map
@@ -34,7 +39,6 @@ typedef struct guest_info {
 
   struct guest_gprs vm_regs;
 
-  void * page_tables;
   void * vmm_data;
 } guest_info_t;
 

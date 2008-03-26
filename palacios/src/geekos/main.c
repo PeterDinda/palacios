@@ -3,7 +3,7 @@
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
  * Copyright (c) 2004, Iulian Neamtiu <neamtiu@cs.umd.edu>
- * $Revision: 1.21 $
+ * $Revision: 1.22 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -300,17 +300,16 @@ void Main(struct Boot_Info* bootInfo)
     os_hooks.free_page = &Free_VMM_Page;
     os_hooks.malloc = &VMM_Malloc;
     os_hooks.free = &VMM_Free;
-    os_hooks.virtual_to_physical=&Identity;
-    os_hooks.physical_to_virtual=&Identity;
-
+    os_hooks.vaddr_to_paddr = &Identity;
+    os_hooks.paddr_to_vaddr = &Identity;
 
 
     //   DumpGDT();
     Init_VMM(&os_hooks, &vmm_ops);
   
-
-    init_shadow_paging_state(&(vm_info.shadow_paging_state));
-
+    init_shadow_map(&(vm_info.mem_map));
+    init_shadow_page_state(&(vm_info.shadow_page_state));
+    vm_info.page_mode = SHADOW_PAGING;
 
     init_vmm_io_map(&(vm_info.io_map));
 
@@ -318,7 +317,7 @@ void Main(struct Boot_Info* bootInfo)
     if (0) {
       
       //    add_shared_mem_range(&(vm_info.mem_layout), 0, 0x800000, 0x10000);    
-      //add_shared_mem_range(&(vm_info.mem_layout), 0, 0x1000000, 0);
+      //    add_shared_mem_range(&(vm_info.mem_layout), 0, 0x1000000, 0);
       
       rip = (ulong_t)(void*)&BuzzVM;
       //  rip -= 0x10000;
@@ -334,10 +333,10 @@ void Main(struct Boot_Info* bootInfo)
       //add_shared_mem_range(&(vm_info.mem_layout), 0x0, 0x1000, 0x100000);
       //      add_shared_mem_range(&(vm_info.mem_layout), 0x0, 0x100000, 0x0);
       
-      shadow_map_entry_t *ent = Malloc(sizeof(shadow_map_entry_t));;
-      init_shadow_map_entry_physical(ent,0,0x100000,GUEST_REGION_PHYSICAL_MEMORY,
-				     0,0x100000,HOST_REGION_PHYSICAL_MEMORY);
-      add_shadow_map_region(&(vm_info.shadow_paging_state.shadow_map),ent);
+      shadow_region_t *ent = Malloc(sizeof(shadow_region_t));;
+      init_shadow_region_physical(ent,0,0x100000,GUEST_REGION_PHYSICAL_MEMORY,
+				  0x100000, HOST_REGION_PHYSICAL_MEMORY);
+      add_shadow_region(&(vm_info.mem_map),ent);
 
       hook_io_port(&(vm_info.io_map), 0x61, &IO_Read, &IO_Write);
       /*

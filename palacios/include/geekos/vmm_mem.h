@@ -37,7 +37,7 @@ typedef enum host_region_type {
 
 
 
-typedef struct shadow_map_entry {
+typedef struct shadow_region {
   guest_region_type_t     guest_type;
   addr_t                  guest_start; 
   addr_t                  guest_end; 
@@ -46,56 +46,54 @@ typedef struct shadow_map_entry {
   union host_addr_t {
     struct physical_addr { 
        addr_t                  host_start; 
-       addr_t                  host_end; 
     }                     phys_addr;
     // Other addresses, like on disk, etc, would go here
   }                       host_addr;
-  struct shadow_map_entry *next, *prev;
-} shadow_map_entry_t;
+  struct shadow_region *next, *prev;
+} shadow_region_t;
 
 
 
 typedef struct shadow_map {
   uint_t num_regions;
 
-  shadow_map_entry_t * head;
+  shadow_region_t * head;
 } shadow_map_t;
 
 
-void init_shadow_map_entry(shadow_map_entry_t *entry,
-			   addr_t              guest_addr_start,
-			   addr_t              guest_addr_end,
-			   guest_region_type_t guest_region_type,
-			   host_region_type_t  host_region_type);
+void init_shadow_region(shadow_region_t * entry,
+			   addr_t               guest_addr_start,
+			   addr_t               guest_addr_end,
+			   guest_region_type_t  guest_region_type,
+			   host_region_type_t   host_region_type);
 
-void init_shadow_map_entry_physical(shadow_map_entry_t *entry,
-				    addr_t              guest_addr_start,
-				    addr_t              guest_addr_end,
-				    guest_region_type_t guest_region_type,
-				    addr_t              host_addr_start,
-				    addr_t              host_addr_end,
-				    host_region_type_t  host_region_type);
+void init_shadow_region_physical(shadow_region_t * entry,
+				    addr_t               guest_addr_start,
+				    addr_t               guest_addr_end,
+				    guest_region_type_t  guest_region_type,
+				    addr_t               host_addr_start,
+				    host_region_type_t   host_region_type);
   
-void init_shadow_map(shadow_map_t *map);
-void free_shadow_map(shadow_map_t *map);
+void init_shadow_map(shadow_map_t * map);
+void free_shadow_map(shadow_map_t * map);
 
-shadow_map_entry_t * get_shadow_map_region_by_addr(shadow_map_t *map, addr_t guest_addr);
+shadow_region_t * get_shadow_region_by_addr(shadow_map_t * map, addr_t guest_addr);
 
-shadow_map_entry_t * get_shadow_map_region_by_index(shadow_map_t * map, uint_t index);
+shadow_region_t * get_shadow_region_by_index(shadow_map_t * map, uint_t index);
 
-int map_guest_physical_to_host_physical(shadow_map_entry_t *entry, 
-					addr_t guest_addr,
-					addr_t *host_addr);
+int guest_paddr_to_host_paddr(shadow_region_t * entry, 
+			      addr_t guest_addr,
+			      addr_t * host_addr);
 
 
 // Semantics:
 // Adding a region that overlaps with an existing region results is undefined
 // and will probably fail
-int add_shadow_map_region(shadow_map_t * map, shadow_map_entry_t *entry);
+int add_shadow_region(shadow_map_t * map, shadow_region_t * entry);
 
 // Semantics:
 // Deletions result in splitting
-int delete_shadow_map_region(shadow_map_t *map,
+int delete_shadow_region(shadow_map_t * map,
 			     addr_t guest_start, 
 			     addr_t guest_end);
 

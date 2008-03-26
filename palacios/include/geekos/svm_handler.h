@@ -187,6 +187,7 @@ struct svm_io_info {
 
 
 int handle_svm_io(guest_info_t * info);
+int handle_shadow_paging(guest_info_t * info);
 
 int handle_svm_exit(guest_info_t * info);
 

@@ -27,6 +27,13 @@ int handle_svm_exit(guest_info_t * info) {
   PrintDebug("io_info2 high = 0x%.8x\n", *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info2)) + 4));
   if (exit_code == VMEXIT_IOIO) {
     handle_svm_io(info);
+  } else if (( (exit_code == VMEXIT_CR3_READ)  ||
+	       (exit_code == VMEXIT_CR3_WRITE) ||
+	       (exit_code == VMEXIT_INVLPG)    ||
+	       (exit_code == VMEXIT_INVLPGA)   || 
+	       (exit_code == VMEXIT_EXCP14)) && 
+	     (info->page_mode == SHADOW_PAGING)) {
+    handle_shadow_paging(info);
   }
 
 
@@ -54,6 +61,18 @@ int handle_svm_io(guest_info_t * info) {
   
 
   //  PrintDebug("Exit On Port %d\n", io_info->port);
+
+  return 0;
+}
+
+
+int handle_shadow_paging(guest_info_t * info) {
+  vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
+  //  vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
+
+  if (guest_ctrl->exit_code == VMEXIT_CR3_READ) {
+
+  }
 
   return 0;
 }

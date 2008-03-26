@@ -169,8 +169,8 @@ union Instr_Intercepts {
     uint_t INVD        : 1        PACKED;
     uint_t PAUSE       : 1        PACKED;
     uint_t HLT         : 1        PACKED;
-    uint_t INVPLG      : 1        PACKED;
-    uint_t INVPLGA     : 1        PACKED;
+    uint_t INVLPG      : 1        PACKED;
+    uint_t INVLPGA     : 1        PACKED;
     uint_t IOIO_PROT   : 1        PACKED;
     uint_t MSR_PROT    : 1        PACKED;
     uint_t task_switch : 1        PACKED;

@@ -5,35 +5,33 @@
 extern struct vmm_os_hooks * os_hooks;
 
 
-void init_shadow_map_entry(shadow_map_entry_t *entry,
-			   addr_t              guest_addr_start,
-			   addr_t              guest_addr_end,
-			   guest_region_type_t guest_region_type,
-			   host_region_type_t  host_region_type)
+void init_shadow_region(shadow_region_t * entry,
+			addr_t               guest_addr_start,
+			addr_t               guest_addr_end,
+			guest_region_type_t  guest_region_type,
+			host_region_type_t   host_region_type)
 {
-  entry->guest_type=guest_region_type;
-  entry->guest_start=guest_addr_start;
-  entry->guest_end=guest_addr_end;
-  entry->host_type=host_region_type;
-  entry->next=entry->prev=NULL;
+  entry->guest_type = guest_region_type;
+  entry->guest_start = guest_addr_start;
+  entry->guest_end = guest_addr_end;
+  entry->host_type = host_region_type;
+  entry->next=entry->prev = NULL;
 }
 
-void init_shadow_map_entry_physical(shadow_map_entry_t *entry,
-				    addr_t              guest_addr_start,
-				    addr_t              guest_addr_end,
-				    guest_region_type_t guest_region_type,
-				    addr_t              host_addr_start,
-				    addr_t              host_addr_end,
-				    host_region_type_t  host_region_type)
+void init_shadow_region_physical(shadow_region_t * entry,
+				 addr_t               guest_addr_start,
+				 addr_t               guest_addr_end,
+				 guest_region_type_t  guest_region_type,
+				 addr_t               host_addr_start,
+				 host_region_type_t   host_region_type)
 {
-  init_shadow_map_entry(entry,guest_addr_start,guest_addr_end,guest_region_type,host_region_type);
-  entry->host_addr.phys_addr.host_start=host_addr_start;
-  entry->host_addr.phys_addr.host_end=host_addr_end;
+  init_shadow_region(entry, guest_addr_start, guest_addr_end, guest_region_type, host_region_type);
+  entry->host_addr.phys_addr.host_start = host_addr_start;
+
 }
 		    
 
-void init_shadow_map(shadow_map_t * map) 
-{
+void init_shadow_map(shadow_map_t * map) {
   map->num_regions = 0;
 
   map->head = NULL;
@@ -41,8 +39,8 @@ void init_shadow_map(shadow_map_t * map)
 
 
 void free_shadow_map(shadow_map_t * map) {
-  shadow_map_entry_t * cursor = map->head;
-  shadow_map_entry_t * tmp = NULL;
+  shadow_region_t * cursor = map->head;
+  shadow_region_t * tmp = NULL;
 
   while(cursor) {
     tmp = cursor;
@@ -51,7 +49,6 @@ void free_shadow_map(shadow_map_t * map) {
   }
 
   VMMFree(map);
-
 }
 
 
@@ -60,10 +57,10 @@ void free_shadow_map(shadow_map_t * map) {
  * we don't allow overlaps we could probably allow overlappig regions
  * of the same type... but I'll let someone else deal with that
  */
-int add_shadow_map_region(shadow_map_t * map,
-			  shadow_map_entry_t * region) 
+int add_shadow_region(shadow_map_t * map,
+		      shadow_region_t * region) 
 {
-  shadow_map_entry_t * cursor = map->head;
+  shadow_region_t * cursor = map->head;
 
   if ((!cursor) || (cursor->guest_start >= region->guest_end)) {
     region->prev = NULL;
@@ -113,37 +110,33 @@ int add_shadow_map_region(shadow_map_t * map,
 }
 
 
-int delete_shadow_map_region(shadow_map_t *map,
-			     addr_t guest_start,
-			     addr_t guest_end)
-{
+int delete_shadow_region(shadow_map_t * map,
+			 addr_t guest_start,
+			 addr_t guest_end) {
   return -1;
 }
 
 
 
-shadow_map_entry_t *get_shadow_map_region_by_index(shadow_map_t * map,
-						   uint_t index) 
-{
-  shadow_map_entry_t * reg = map->head;
+shadow_region_t *get_shadow_region_by_index(shadow_map_t *  map,
+					       uint_t index) {
+  shadow_region_t * reg = map->head;
   uint_t i = 0;
 
   while (reg) { 
-    if (i==index) { 
+    if (i == index) { 
       return reg;
     }
-    reg=reg->next;
+    reg = reg->next;
     i++;
   }
   return NULL;
 }
 
 
-shadow_map_entry_t * get_shadow_map_region_by_addr(shadow_map_t *map,
-						   addr_t addr) 
-{
-  shadow_map_entry_t * reg = map->head;
-
+shadow_region_t * get_shadow_region_by_addr(shadow_map_t * map,
+					       addr_t addr) {
+  shadow_region_t * reg = map->head;
 
   while (reg) {
     if ((reg->guest_start <= addr) && (reg->guest_end > addr)) {
@@ -159,11 +152,12 @@ shadow_map_entry_t * get_shadow_map_region_by_addr(shadow_map_t *map,
 
 
 
-int map_guest_physical_to_host_physical(shadow_map_entry_t *entry, 
-					addr_t guest_addr,
-					addr_t *host_addr)
-{
-  if (!(guest_addr>=entry->guest_start && guest_addr<entry->guest_end)) { 
+int guest_paddr_to_host_paddr(shadow_region_t * entry, 
+			addr_t guest_addr,
+			addr_t * host_addr) {
+
+  if (!((guest_addr >= entry->guest_start) && 
+	(guest_addr < entry->guest_end))) { 
     return -1;
   }
 
@@ -171,7 +165,7 @@ int map_guest_physical_to_host_physical(shadow_map_entry_t *entry,
   case HOST_REGION_PHYSICAL_MEMORY:
   case HOST_REGION_MEMORY_MAPPED_DEVICE:
   case HOST_REGION_UNALLOCATED:
-    *host_addr=(guest_addr-entry->guest_start) + entry->host_addr.phys_addr.host_start;
+    *host_addr = (guest_addr-entry->guest_start) + entry->host_addr.phys_addr.host_start;
     return 0;
     break;
   default:
@@ -181,22 +175,22 @@ int map_guest_physical_to_host_physical(shadow_map_entry_t *entry,
 }
 
 
-void print_shadow_map(shadow_map_t *map) {
-  shadow_map_entry_t * cur = map->head;
+void print_shadow_map(shadow_map_t * map) {
+  shadow_region_t * cur = map->head;
   int i = 0;
 
   PrintDebug("Memory Layout (regions: %d) \n", map->num_regions);
 
   while (cur) {
-    PrintDebug("%d:  0x%x - 0x%x (%s) -> ", i, cur->guest_start, cur->guest_end -1,
+    PrintDebug("%d:  0x%x - 0x%x (%s) -> ", i, cur->guest_start, cur->guest_end - 1,
 	       cur->guest_type == GUEST_REGION_PHYSICAL_MEMORY ? "GUEST_REGION_PHYSICAL_MEMORY" :
 	       cur->guest_type == GUEST_REGION_NOTHING ? "GUEST_REGION_NOTHING" :
 	       cur->guest_type == GUEST_REGION_MEMORY_MAPPED_DEVICE ? "GUEST_REGION_MEMORY_MAPPED_DEVICE" :
-	       "UNKNOWN");	      
-    if (cur->host_type==HOST_REGION_PHYSICAL_MEMORY || 
-	cur->host_type==HOST_REGION_UNALLOCATED ||
-	cur->host_type==HOST_REGION_MEMORY_MAPPED_DEVICE) { 
-      PrintDebug("0x%x - 0x%x ", cur->host_addr.phys_addr.host_start, cur->host_addr.phys_addr.host_end);
+	       "UNKNOWN");
+    if (cur->host_type == HOST_REGION_PHYSICAL_MEMORY || 
+	cur->host_type == HOST_REGION_UNALLOCATED ||
+	cur->host_type == HOST_REGION_MEMORY_MAPPED_DEVICE) { 
+      PrintDebug("0x%x", cur->host_addr.phys_addr.host_start);
     }
     PrintDebug("(%s)\n",
 	       cur->host_type == HOST_REGION_PHYSICAL_MEMORY ? "HOST_REGION_PHYSICAL_MEMORY" :
@@ -297,7 +291,7 @@ int mem_list_add_test_1(  vmm_mem_list_t * list) {
 }
 
 
-int mem_layout_add_test_1(vmm_mem_layout_t *layout) {
+int mem_layout_add_test_1(vmm_mem_layout_t * layout) {
 
   
   uint_t start = 0;
