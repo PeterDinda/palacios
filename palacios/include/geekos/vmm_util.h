@@ -4,7 +4,6 @@
 #include <geekos/ktypes.h>
 
 
-
 #ifndef PAGE_SIZE
 #define PAGE_SIZE 4096
 #endif
@@ -33,6 +32,9 @@ struct VMM_GPRs {
   uint_t eax;
 };
 
+
+#define GET_LOW_32(x) (*((uint_t*)(&(x))))
+#define GET_HIGH_32(x) (*((uint_t*)(((char*)(&(x)))+4)))
 
 
 void PrintTraceHex(unsigned char x);

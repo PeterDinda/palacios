@@ -12,6 +12,6 @@ void Free_VMM_Page(void * page);
 void * VMM_Malloc(uint_t size);
 void VMM_Free(void * addr);
 
-
+void * Identity(void *addr) { return addr; };
 
 #endif

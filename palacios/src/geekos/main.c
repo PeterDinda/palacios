@@ -3,7 +3,7 @@
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
  * Copyright (c) 2004, Iulian Neamtiu <neamtiu@cs.umd.edu>
- * $Revision: 1.20 $
+ * $Revision: 1.21 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -120,7 +120,13 @@ void BuzzVM()
   int x;
   int j;
   unsigned char init;
-  
+
+#if 0  
+  __asm__ __volatile__ (
+    "popf"
+    );
+    
+#endif
     
   PrintBoth("Starting To Buzz\n");
 
@@ -247,11 +253,11 @@ void Main(struct Boot_Info* bootInfo)
 
   //  Init_IDE();
 
-  Print("Done; stalling\n");
+  // Print("Done; stalling\n");
 
 
   
-#if 1
+#if 0
   SerialPrint("Dumping VM kernel Code (first 128 bytes @ 0x%x)\n", 0x100000);
   SerialMemDump((unsigned char *)0xfe000, 4096);
   /*
@@ -260,12 +266,21 @@ void Main(struct Boot_Info* bootInfo)
   */
 #endif
 
+#if 0
+  SerialPrint("Dumping BIOS code f0000-fffff\n\n");
+  SerialMemDump((unsigned char *)0xf0000, 65536);
+  /*
+    SerialPrint("Dumping kernel Code (first 512 bytes @ 0x%x)\n",KERNEL_START);
+    SerialMemDump((unsigned char *)VM_KERNEL_START, 512);
+  */
+#endif
 
-  while (1);
+#if 1
   SerialPrintLevel(1000,"Launching Noisemaker and keyboard listener threads\n");
   key_thread = Start_Kernel_Thread(Keyboard_Listener, (ulong_t)&doIBuzz, PRIORITY_NORMAL, false);
   spkr_thread = Start_Kernel_Thread(Buzzer, (ulong_t)&doIBuzz, PRIORITY_NORMAL, false);
 
+#endif
 
   {
     struct vmm_os_hooks os_hooks;
@@ -285,26 +300,25 @@ void Main(struct Boot_Info* bootInfo)
     os_hooks.free_page = &Free_VMM_Page;
     os_hooks.malloc = &VMM_Malloc;
     os_hooks.free = &VMM_Free;
+    os_hooks.virtual_to_physical=&Identity;
+    os_hooks.physical_to_virtual=&Identity;
+
 
 
     //   DumpGDT();
     Init_VMM(&os_hooks, &vmm_ops);
   
 
-    init_mem_layout(&(vm_info.mem_layout));
-    init_mem_list(&(vm_info.mem_list));
+    init_shadow_paging_state(&(vm_info.shadow_paging_state));
+
+
     init_vmm_io_map(&(vm_info.io_map));
 
-    
-    add_mem_list_pages(&(vm_info.mem_list), vm_range_start, (vm_range_end - vm_range_start) / PAGE_SIZE);
-    //    add_unmapped_mem_range(&(vm_info.mem_layout), 0, 256);
-    //add_shared_mem_range(&(vm_info.mem_layout), guest_kernel_start, (guest_kernel_end - guest_kernel_start) / PAGE_SIZE, guest_kernel_start);
-    //add_guest_mem_range(&(vm_info.mem_layout), guest_kernel_end, 20);
     
     if (0) {
       
       //    add_shared_mem_range(&(vm_info.mem_layout), 0, 0x800000, 0x10000);    
-      add_shared_mem_range(&(vm_info.mem_layout), 0, 0x1000000, 0);
+      //add_shared_mem_range(&(vm_info.mem_layout), 0, 0x1000000, 0);
       
       rip = (ulong_t)(void*)&BuzzVM;
       //  rip -= 0x10000;
@@ -318,12 +332,20 @@ void Main(struct Boot_Info* bootInfo)
             
     } else {
       //add_shared_mem_range(&(vm_info.mem_layout), 0x0, 0x1000, 0x100000);
-      add_shared_mem_range(&(vm_info.mem_layout), 0x0, 0x100000, 0x0);
+      //      add_shared_mem_range(&(vm_info.mem_layout), 0x0, 0x100000, 0x0);
       
+      shadow_map_entry_t *ent = Malloc(sizeof(shadow_map_entry_t));;
+      init_shadow_map_entry_physical(ent,0,0x100000,GUEST_REGION_PHYSICAL_MEMORY,
+				     0,0x100000,HOST_REGION_PHYSICAL_MEMORY);
+      add_shadow_map_region(&(vm_info.shadow_paging_state.shadow_map),ent);
 
       hook_io_port(&(vm_info.io_map), 0x61, &IO_Read, &IO_Write);
-
-      vm_info.rip = 0xff00;
+      /*
+      vm_info.cr0 = 0;
+      vm_info.cs.base=0xf000;
+      vm_info.cs.limit=0xffff;
+      */
+      vm_info.rip = 0xfff0;
       vm_info.rsp = 0x0;
     }
 

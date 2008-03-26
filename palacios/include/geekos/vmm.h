@@ -6,7 +6,7 @@
 #include <geekos/string.h>
 
 #include <geekos/vmm_mem.h>
-#include <geekos/vmm_paging.h>
+//#include <geekos/vmm_paging.h>
 
 #include <geekos/vm_guest.h>
 
@@ -86,6 +86,9 @@ struct vmm_os_hooks {
 
   void *(*malloc)(uint_t size);
   void (*free)(void * addr);
+
+  void *(*physical_to_virtual)(void *addr);
+  void *(*virtual_to_physical)(void *addr);
 
 
   void (*start_kernel_thread)(); // include pointer to function

@@ -1,7 +1,7 @@
 /*
  * GeekOS text screen output
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
- * $Revision: 1.2 $
+ * $Revision: 1.3 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -397,6 +397,34 @@ void Init_Screen(void)
     s_cons.row = s_cons.col = 0;
     s_cons.currentAttr = DEFAULT_ATTRIBUTE;
     Clear_Screen();
+
+#if 0
+    {
+    unsigned int z = (unsigned int)&Print_Emit;
+    int i;
+    Put_Char(' ');
+    Put_Char('0');
+    Put_Char('x');
+    
+    for (i = 0; i < 8; i++) {
+      int j = z & 0xf0000000;
+      
+      j = j >> 28;
+      j &= 0x0000000f;
+
+      if (j > 9) {
+	j += 55;
+      } else {
+	j += 48;
+      }
+
+      Put_Char(j);    
+      
+      z = z << 4;
+    }
+  }
+
+#endif
 
     End_Int_Atomic(iflag);
     Print("Screen Inited\n");

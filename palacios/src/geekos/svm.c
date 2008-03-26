@@ -106,11 +106,11 @@ int init_svm_guest(struct guest_info *info) {
 
 
   PrintDebug("Generating Guest nested page tables\n");
-  print_mem_list(&(info->mem_list));
-  print_mem_layout(&(info->mem_layout));
+  //  print_mem_list(&(info->mem_list));
+  //print_mem_layout(&(info->mem_layout));
   info->page_tables = NULL;
   //info->page_tables = generate_guest_page_tables_64(&(info->mem_layout), &(info->mem_list));
-  info->page_tables = generate_guest_page_tables(&(info->mem_layout), &(info->mem_list));
+  //info->page_tables = generate_guest_page_tables(&(info->mem_layout), &(info->mem_list));
   //PrintDebugPageTables(info->page_tables);
 
   

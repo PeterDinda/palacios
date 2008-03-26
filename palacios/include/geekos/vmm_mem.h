@@ -4,93 +4,103 @@
 
 #include <geekos/ktypes.h>
 
+typedef ulong_t addr_t;
 
 /*
- * The mem list is TEMPORARY, simply to lock down which pages are assigned to the VM
- * We will remove it and use the host page allocation mechanism in the future
- */
+
+        Guest                  Shadow                 Host
+  Virtual   Physical    Virtual     Physical   Virtual     Physical
+               OK                      OK
+               OK                      NOK
+               NOK                     OK
+               NOK                     NOK
+
+*/
+
+// These are the types of physical memory address regions
+// from the perspective of the guest
+typedef enum guest_region_type { 
+  GUEST_REGION_PHYSICAL_MEMORY, 
+  GUEST_REGION_NOTHING, 
+  GUEST_REGION_MEMORY_MAPPED_DEVICE} guest_region_type_t;
+
+// These are the types of physical memory address regions
+// from the perspective of the HOST
+typedef enum host_region_type { 
+  HOST_REGION_PHYSICAL_MEMORY, 
+  HOST_REGION_UNALLOCATED, 
+  HOST_REGION_NOTHING, 
+  HOST_REGION_MEMORY_MAPPED_DEVICE,
+  HOST_REGION_REMOTE,
+  HOST_REGION_SWAPPED,
+} host_region_type_t;
 
 
-typedef unsigned long addr_t;
+
+typedef struct shadow_map_entry {
+  guest_region_type_t     guest_type;
+  addr_t                  guest_start; 
+  addr_t                  guest_end; 
+
+  host_region_type_t      host_type;
+  union host_addr_t {
+    struct physical_addr { 
+       addr_t                  host_start; 
+       addr_t                  host_end; 
+    }                     phys_addr;
+    // Other addresses, like on disk, etc, would go here
+  }                       host_addr;
+  struct shadow_map_entry *next, *prev;
+} shadow_map_entry_t;
 
 
-typedef struct mem_region {
-  addr_t addr;
-  uint_t num_pages;
 
-  struct mem_region * next;
-  struct mem_region * prev;
-} mem_region_t;
-
-
-typedef struct vmm_mem_list {
-  uint_t num_pages;
-  bool long_mode;
-
+typedef struct shadow_map {
   uint_t num_regions;
-  mem_region_t * head;
-  //  mem_region_t * tail;
-} vmm_mem_list_t;
+
+  shadow_map_entry_t * head;
+} shadow_map_t;
 
 
+void init_shadow_map_entry(shadow_map_entry_t *entry,
+			   addr_t              guest_addr_start,
+			   addr_t              guest_addr_end,
+			   guest_region_type_t guest_region_type,
+			   host_region_type_t  host_region_type);
 
-/** Memory layout **/
-/* Describes the layout of memory for the guest */
-/* We use this to build the guest page tables */
+void init_shadow_map_entry_physical(shadow_map_entry_t *entry,
+				    addr_t              guest_addr_start,
+				    addr_t              guest_addr_end,
+				    guest_region_type_t guest_region_type,
+				    addr_t              host_addr_start,
+				    addr_t              host_addr_end,
+				    host_region_type_t  host_region_type);
+  
+void init_shadow_map(shadow_map_t *map);
+void free_shadow_map(shadow_map_t *map);
 
-typedef enum region_type {GUEST, UNMAPPED, SHARED} region_type_t;
+shadow_map_entry_t * get_shadow_map_region_by_addr(shadow_map_t *map, addr_t guest_addr);
 
+shadow_map_entry_t * get_shadow_map_region_by_index(shadow_map_t * map, uint_t index);
 
-typedef struct layout_region {
-  addr_t start;
-  addr_t end;
-
-  region_type_t type;
-
-  addr_t host_addr;
-
-  struct layout_region * next;
-  struct layout_region * prev;
-} layout_region_t;
-
-
-typedef struct vmm_mem_layout {
-  uint_t num_pages;
-  uint_t num_regions;
-
-  layout_region_t * head;
-} vmm_mem_layout_t;
+int map_guest_physical_to_host_physical(shadow_map_entry_t *entry, 
+					addr_t guest_addr,
+					addr_t *host_addr);
 
 
-/*** FOR THE LOVE OF GOD WRITE SOME UNIT TESTS FOR THIS THING ***/
+// Semantics:
+// Adding a region that overlaps with an existing region results is undefined
+// and will probably fail
+int add_shadow_map_region(shadow_map_t * map, shadow_map_entry_t *entry);
 
-void init_mem_list(vmm_mem_list_t * list);
-void free_mem_list(vmm_mem_list_t * list);
-
-int add_mem_list_pages(vmm_mem_list_t * list, addr_t addr, uint_t num_pages);
-int remove_mem_list_pages(vmm_mem_list_t * list, addr_t addr, uint_t num_pages);
-
-mem_region_t * get_mem_list_cursor(vmm_mem_list_t * list, addr_t addr);
-
-addr_t get_mem_list_addr(vmm_mem_list_t * list, uint_t index);
-
-void print_mem_list(vmm_mem_list_t * list);
+// Semantics:
+// Deletions result in splitting
+int delete_shadow_map_region(shadow_map_t *map,
+			     addr_t guest_start, 
+			     addr_t guest_end);
 
 
-void init_mem_layout(vmm_mem_layout_t * layout);
-void free_mem_layout(vmm_mem_layout_t * layout);
-
-
-int add_mem_range(vmm_mem_layout_t * layout, layout_region_t * region);
-int add_shared_mem_range(vmm_mem_layout_t * layout, addr_t start, addr_t end, addr_t host_addr);
-int add_unmapped_mem_range(vmm_mem_layout_t * layout, addr_t start, addr_t end);
-int add_guest_mem_range(vmm_mem_layout_t * layout, addr_t start, addr_t end);
-
-
-addr_t get_mem_layout_addr(vmm_mem_layout_t * layout, uint_t index);
-layout_region_t * get_mem_layout_region(vmm_mem_layout_t * layout, addr_t addr);
-
-void print_mem_layout(vmm_mem_layout_t * layout);
+void print_shadow_map(shadow_map_t * map);
 
 
 

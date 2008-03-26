@@ -4,6 +4,8 @@
 #include <geekos/vmm_mem.h>
 #include <geekos/ktypes.h>
 #include <geekos/vmm_io.h>
+#include <geekos/vmm_paging.h>
+
 
 struct guest_gprs {
   ullong_t rbx;
@@ -17,13 +19,14 @@ struct guest_gprs {
 
 
 
-
 typedef struct guest_info {
   ullong_t rip;
   ullong_t rsp;
 
-  vmm_mem_list_t mem_list;
-  vmm_mem_layout_t mem_layout;
+  shadow_paging_state_t  shadow_paging_state;
+
+  //  vmm_mem_list_t mem_list;
+  // vmm_mem_layout_t mem_layout;
 
   vmm_io_map_t io_map;
   // device_map
