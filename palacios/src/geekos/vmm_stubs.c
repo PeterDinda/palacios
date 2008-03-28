@@ -7,12 +7,12 @@ void * Identity(void *addr) { return addr; };
 
 void * Allocate_VMM_Pages(int num_pages) {
   void * start_page = Alloc_Page();
-  SerialPrint("Allocating Page: %x (%d of %d)\n",start_page, 1, num_pages); 
+  //SerialPrint("Allocating Page: %x (%d of %d)\n",start_page, 1, num_pages); 
   int i = 1;
 
   while (i < num_pages) {
     void * tmp_page = Alloc_Page();
-    SerialPrint("Allocating Page: %x (%d of %d)\n",tmp_page, i+1, num_pages); 
+    //SerialPrint("Allocating Page: %x (%d of %d)\n",tmp_page, i+1, num_pages); 
     
     if (tmp_page != start_page + (PAGE_SIZE * i)) {
       //we have to start over...;
@@ -21,7 +21,7 @@ void * Allocate_VMM_Pages(int num_pages) {
 	i--;
       }
       start_page = Alloc_Page();
-      SerialPrint("Allocating Page: %x (%d of %d)\n",start_page, 1, num_pages);
+      //SerialPrint("Allocating Page: %x (%d of %d)\n",start_page, 1, num_pages);
       i = 1;
       continue;
     }

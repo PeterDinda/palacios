@@ -43,16 +43,15 @@ int is_svm_capable() {
 
   Get_MSR(SVM_VM_CR_MSR, &vm_cr_high, &vm_cr_low);
 
+  if ((ret & CPUID_SVM_REV_AND_FEATURE_IDS_edx_np) == 1) {
+    PrintDebug("Nested Paging not supported\n");
+  }
+
   if ((vm_cr_low & SVM_VM_CR_MSR_svmdis) == 0) {
     return 1;
   }
 
   ret = cpuid_edx(CPUID_SVM_REV_AND_FEATURE_IDS);
-  
-
-  if ((ret & CPUID_SVM_REV_AND_FEATURE_IDS_edx_np) == 0) {
-    PrintDebug("Nested Paging not supported\n");
-  }
 
   if ((ret & CPUID_SVM_REV_AND_FEATURE_IDS_edx_svml) == 0) {
     PrintDebug("SVM BIOS Disabled, not unlockable\n");
@@ -317,7 +316,8 @@ void Init_VMCB(vmcb_t * vmcb, guest_info_t vm_info) {
   guest_state->rip = vm_info.rip;
 
 
-
+  //ctrl_area->instrs.instrs.CR0 = 1;
+  ctrl_area->cr_reads.crs.cr0 = 1;
   ctrl_area->cr_writes.crs.cr0 = 1;
 
   guest_state->efer |= EFER_MSR_svm_enable;
@@ -395,14 +395,10 @@ void Init_VMCB(vmcb_t * vmcb, guest_info_t vm_info) {
 
     ctrl_area->cr_reads.crs.cr3 = 1;
     ctrl_area->cr_writes.crs.cr3 = 1;
-    ctrl_area->cr_reads.crs.cr0 = 1;
-    ctrl_area->cr_writes.crs.cr0 = 1;
+
 
     ctrl_area->instrs.instrs.INVLPG = 1;
     ctrl_area->instrs.instrs.INVLPGA = 1;
-    ctrl_area->instrs.instrs.CR0 = 1;
-	
-
 
     guest_state->g_pat = 0x7040600070406ULL;
 

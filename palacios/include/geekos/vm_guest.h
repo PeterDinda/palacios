@@ -19,7 +19,7 @@ struct guest_gprs {
 
 
 typedef enum {SHADOW_PAGING, NESTED_PAGING} vm_page_mode_t;
-
+typedef enum {REAL, PROTECTED, PROTECTED_PG, PROTECTED_PAE, PROTECTED_PAE_PG, LONG, LONG_PG} vm_cpu_mode_t;
 
 typedef struct guest_info {
   ullong_t rip;
@@ -35,6 +35,8 @@ typedef struct guest_info {
 
   vmm_io_map_t io_map;
   // device_map
+
+  vm_cpu_mode_t cpu_mode;
 
 
   struct guest_gprs vm_regs;

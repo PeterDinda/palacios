@@ -3,7 +3,7 @@
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
  * Copyright (c) 2004, Iulian Neamtiu <neamtiu@cs.umd.edu>
- * $Revision: 1.22 $
+ * $Revision: 1.23 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -310,6 +310,8 @@ void Main(struct Boot_Info* bootInfo)
     init_shadow_map(&(vm_info.mem_map));
     init_shadow_page_state(&(vm_info.shadow_page_state));
     vm_info.page_mode = SHADOW_PAGING;
+
+    vm_info.cpu_mode = REAL;
 
     init_vmm_io_map(&(vm_info.io_map));
 

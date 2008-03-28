@@ -292,7 +292,7 @@ vmm_pde_t * create_passthrough_pde32_pts(shadow_map_t * map) {
     }
 
     if (pte_present == 0) { 
-      VMMFree(pte);
+      os_hooks->free_page(pte);
 
       pde[i].present = 0;
       pde[i].flags = 0;
