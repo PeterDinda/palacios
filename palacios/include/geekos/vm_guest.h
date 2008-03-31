@@ -4,7 +4,8 @@
 #include <geekos/vmm_mem.h>
 #include <geekos/ktypes.h>
 #include <geekos/vmm_io.h>
-#include <geekos/vmm_paging.h>
+//#include <geekos/vmm_paging.h>
+#include <geekos/vmm_shadow_paging.h>
 
 
 struct guest_gprs {
@@ -43,8 +44,6 @@ typedef struct guest_info {
 
   void * vmm_data;
 } guest_info_t;
-
-
 
 
 

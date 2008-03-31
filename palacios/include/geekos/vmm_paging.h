@@ -4,7 +4,7 @@
 
 #include <geekos/ktypes.h>
 
-
+#include <geekos/vm_guest.h>
 
 #include <geekos/vmm_mem.h>
 #include <geekos/vmm_util.h>
@@ -76,29 +76,30 @@ the host state in the vmcs before entering the guest.
 
 
 
-#define MAX_PAGE_TABLE_ENTRIES      1024
-#define MAX_PAGE_DIR_ENTRIES        1024
+#define MAX_PTE32_ENTRIES          1024
+#define MAX_PDE32_ENTRIES          1024
 
-#define MAX_PAGE_TABLE_ENTRIES_64      512
-#define MAX_PAGE_DIR_ENTRIES_64        512
-#define MAX_PAGE_DIR_PTR_ENTRIES_64    512
-#define MAX_PAGE_MAP_ENTRIES_64        512
+#define MAX_PTE64_ENTRIES          512
+#define MAX_PDE64_ENTRIES          512
+#define MAX_PDPE64_ENTRIES         512
+#define MAX_PML4E64_ENTRIES        512
 
-#define PAGE_DIRECTORY_INDEX(x)  ((((uint_t)x) >> 22) & 0x3ff)
-#define PAGE_TABLE_INDEX(x)      ((((uint_t)x) >> 12) & 0x3ff)
-#define PAGE_OFFSET(x)           ((((uint_t)x) & 0xfff))
+#define PDE32_INDEX(x)  ((((uint_t)x) >> 22) & 0x3ff)
+#define PTE32_INDEX(x)  ((((uint_t)x) >> 12) & 0x3ff)
+
 
 #define PAGE_ALIGNED_ADDR(x)   (((uint_t) (x)) >> 12)
 
 #ifndef PAGE_ADDR
 #define PAGE_ADDR(x)   (PAGE_ALIGNED_ADDR(x) << 12)
 #endif
+#define PAGE_OFFSET(x)  ((((uint_t)x) & 0xfff))
 
 #define PAGE_POWER 12
 
-#define CR3_TO_PDE(cr3) (((ulong_t)cr3) & 0xfffff000)
+#define CR3_TO_PDE32(cr3) (((ulong_t)cr3) & 0xfffff000)
 #define CR3_TO_PDPTRE(cr3) (((ulong_t)cr3) & 0xffffffe0)
-#define CR3_TO_PML4E(cr3)  (((ullong_t)cr3) & 0x000ffffffffff000)
+#define CR3_TO_PML4E64(cr3)  (((ullong_t)cr3) & 0x000ffffffffff000)
 
 #define VM_WRITE     1
 #define VM_USER      2
@@ -107,7 +108,10 @@ the host state in the vmcs before entering the guest.
 #define VM_EXEC      0
 
 
-typedef struct pde {
+/* PDE 32 bit PAGE STRUCTURES */
+typedef enum {NOT_PRESENT, PTE32, LARGE_PAGE} pde32_entry_type_t;
+
+typedef struct pde32 {
   uint_t present         : 1;
   uint_t flags           : 4;
   uint_t accessed        : 1;
@@ -116,9 +120,9 @@ typedef struct pde {
   uint_t global_page     : 1;
   uint_t vmm_info        : 3;
   uint_t pt_base_addr    : 20;
-} vmm_pde_t;
+} pde32_t;
 
-typedef struct pte {
+typedef struct pte32 {
   uint_t present         : 1;
   uint_t flags           : 4;
   uint_t accessed        : 1;
@@ -127,37 +131,35 @@ typedef struct pte {
   uint_t global_page     : 1;
   uint_t vmm_info        : 3;
   uint_t page_base_addr  : 20;
-} vmm_pte_t;
+} pte32_t;
+/* ***** */
+
+/* 32 bit PAE PAGE STRUCTURES */
+
+//
+// Fill in
+//
+
+/* ********** */
 
 
+/* LONG MODE 64 bit PAGE STRUCTURES */
+typedef struct pml4e64 {
+  uint_t present        : 1;
+  uint_t writable       : 1;
+  uint_t user           : 1;
+  uint_t pwt            : 1;
+  uint_t pcd            : 1;
+  uint_t accessed       : 1;
+  uint_t reserved       : 1;
+  uint_t zero           : 2;
+  uint_t vmm_info       : 3;
+  uint_t pdp_base_addr_lo : 20;
+  uint_t pdp_base_addr_hi : 20;
+  uint_t available      : 11;
+  uint_t no_execute     : 1;
+} pml4e64_t;
 
-typedef struct pte64 {
-  uint_t present         : 1;
-  uint_t flags           : 4;
-  uint_t accessed        : 1;
-  uint_t dirty           : 1;
-  uint_t pte_attr        : 1;
-  uint_t global_page     : 1;
-  uint_t vmm_info        : 3;
-  uint_t page_base_addr_lo  : 20;
-  uint_t page_base_addr_hi : 20;
-  uint_t available       : 11;
-  uint_t no_execute      : 1;
-} pte64_t;
-
-typedef struct pde64 {
-  uint_t present         : 1;
-  uint_t flags           : 4;
-  uint_t accessed        : 1;
-  uint_t reserved        : 1;
-  uint_t large_pages     : 1;
-  uint_t reserved2       : 1;
-  uint_t vmm_info        : 3;
-  uint_t pt_base_addr_lo    : 20;
-  uint_t pt_base_addr_hi : 20;
-  uint_t available       : 11;
-  uint_t no_execute      : 1;
-} pde64_t;
 
 typedef struct pdpe64 {
   uint_t present        : 1;
@@ -177,58 +179,63 @@ typedef struct pdpe64 {
 } pdpe64_t;
 
 
-typedef struct pml4e {
-  uint_t present        : 1;
-  uint_t writable       : 1;
-  uint_t user           : 1;
-  uint_t pwt            : 1;
-  uint_t pcd            : 1;
-  uint_t accessed       : 1;
-  uint_t reserved       : 1;
-  uint_t zero           : 2;
-  uint_t vmm_info       : 3;
-  uint_t pdp_base_addr_lo : 20;
-  uint_t pdp_base_addr_hi : 20;
-  uint_t available      : 11;
-  uint_t no_execute     : 1;
-} pml4e64_t;
 
+
+typedef struct pde64 {
+  uint_t present         : 1;
+  uint_t flags           : 4;
+  uint_t accessed        : 1;
+  uint_t reserved        : 1;
+  uint_t large_pages     : 1;
+  uint_t reserved2       : 1;
+  uint_t vmm_info        : 3;
+  uint_t pt_base_addr_lo    : 20;
+  uint_t pt_base_addr_hi : 20;
+  uint_t available       : 11;
+  uint_t no_execute      : 1;
+} pde64_t;
+
+typedef struct pte64 {
+  uint_t present         : 1;
+  uint_t flags           : 4;
+  uint_t accessed        : 1;
+  uint_t dirty           : 1;
+  uint_t pte_attr        : 1;
+  uint_t global_page     : 1;
+  uint_t vmm_info        : 3;
+  uint_t page_base_addr_lo  : 20;
+  uint_t page_base_addr_hi : 20;
+  uint_t available       : 11;
+  uint_t no_execute      : 1;
+} pte64_t;
+
+/* *************** */
 
 
 typedef enum { PDE32 } paging_mode_t;
 
 
-typedef struct shadow_page_state {
 
-  // these two reflect the top-level page directory
-  // of the guest page table
-  paging_mode_t           guest_mode;
-  reg_ex_t                guest_cr3;         // points to guest's current page table
-
-  // Should thi sbe here
-  reg_ex_t                guest_cr0;
-
-  // these two reflect the top-level page directory 
-  // the shadow page table
-  paging_mode_t           shadow_mode;
-  reg_ex_t                shadow_cr3;
+pde32_t * create_passthrough_pde32_pts(guest_info_t * guest_info);
 
 
-} shadow_page_state_t;
+void delete_page_tables_pde32(pde32_t * pde);
+
+
+pde32_entry_type_t pde32_lookup(pde32_t * pde, addr_t addr, addr_t * entry);
+int pte32_lookup(pte32_t * pte, addr_t addr, addr_t * entry);
 
 
 
-int init_shadow_page_state(shadow_page_state_t * state);
 
-// This function will cause the shadow page table to be deleted
-// and rewritten to reflect the guest page table and the shadow map
-int wholesale_update_shadow_page_state(shadow_page_state_t * state, shadow_map_t * mem_map);
 
-vmm_pde_t * create_passthrough_pde32_pts(shadow_map_t * map);
 
-//void free_guest_page_tables(vmm_pde_t * pde);
 
-void PrintDebugPageTables(vmm_pde_t * pde);
+
+
+void PrintDebugPageTables(pde32_t * pde);
+
+
 
 
 #endif

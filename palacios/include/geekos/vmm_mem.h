@@ -20,19 +20,20 @@ typedef ulong_t addr_t;
 // These are the types of physical memory address regions
 // from the perspective of the guest
 typedef enum guest_region_type { 
-  GUEST_REGION_PHYSICAL_MEMORY, 
   GUEST_REGION_NOTHING, 
+  GUEST_REGION_PHYSICAL_MEMORY, 
   GUEST_REGION_MEMORY_MAPPED_DEVICE} guest_region_type_t;
 
 // These are the types of physical memory address regions
 // from the perspective of the HOST
 typedef enum host_region_type { 
-  HOST_REGION_PHYSICAL_MEMORY, 
-  HOST_REGION_UNALLOCATED, 
-  HOST_REGION_NOTHING, 
-  HOST_REGION_MEMORY_MAPPED_DEVICE,
-  HOST_REGION_REMOTE,
-  HOST_REGION_SWAPPED,
+  HOST_REGION_INVALID,                    // This region is INVALID (this is a return type, to denote errors)
+  HOST_REGION_NOTHING,                    // This region is mapped as not present (always generate page faults)
+  HOST_REGION_PHYSICAL_MEMORY,            // Region is a section of host memory
+  HOST_REGION_MEMORY_MAPPED_DEVICE,       // Region is allocated for DMA
+  HOST_REGION_UNALLOCATED,                // Region is mapped on demand
+  HOST_REGION_REMOTE,                     // Region is located on a remote machine
+  HOST_REGION_SWAPPED,                    // Region is swapped
 } host_region_type_t;
 
 
@@ -81,9 +82,13 @@ shadow_region_t * get_shadow_region_by_addr(shadow_map_t * map, addr_t guest_add
 
 shadow_region_t * get_shadow_region_by_index(shadow_map_t * map, uint_t index);
 
+/*
 int guest_paddr_to_host_paddr(shadow_region_t * entry, 
 			      addr_t guest_addr,
 			      addr_t * host_addr);
+*/
+
+host_region_type_t lookup_shadow_map_addr(shadow_map_t * map, addr_t guest_addr, addr_t * host_addr);
 
 
 // Semantics:
@@ -99,7 +104,6 @@ int delete_shadow_region(shadow_map_t * map,
 
 
 void print_shadow_map(shadow_map_t * map);
-
 
 
 

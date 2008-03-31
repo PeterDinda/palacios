@@ -152,6 +152,28 @@ shadow_region_t * get_shadow_region_by_addr(shadow_map_t * map,
 
 
 
+host_region_type_t lookup_shadow_map_addr(shadow_map_t * map, addr_t guest_addr, addr_t * host_addr) {
+  shadow_region_t * reg = get_shadow_region_by_addr(map, guest_addr);
+
+  if (!reg) {
+    // No mapping exists
+    return HOST_REGION_INVALID;
+  } else {
+    switch (reg->host_type) {
+    case HOST_REGION_PHYSICAL_MEMORY:
+     *host_addr = (guest_addr - reg->guest_start) + reg->host_addr.phys_addr.host_start;
+     return reg->host_type;
+    case HOST_REGION_MEMORY_MAPPED_DEVICE:
+    case HOST_REGION_UNALLOCATED:
+      // ... 
+    default:
+      *host_addr = 0;
+      return reg->host_type;
+    }
+  }
+}
+
+/*
 int guest_paddr_to_host_paddr(shadow_region_t * entry, 
 			addr_t guest_addr,
 			addr_t * host_addr) {
@@ -173,6 +195,8 @@ int guest_paddr_to_host_paddr(shadow_region_t * entry,
     break;
   }
 }
+
+*/
 
 
 void print_shadow_map(shadow_map_t * map) {

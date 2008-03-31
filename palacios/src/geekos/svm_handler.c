@@ -3,7 +3,6 @@
 #include <geekos/svm_ctrl_regs.h>
 
 
-
 int handle_svm_exit(guest_info_t * info) {
   vmcb_ctrl_t * guest_ctrl = 0;
   vmcb_saved_state_t * guest_state = 0;
