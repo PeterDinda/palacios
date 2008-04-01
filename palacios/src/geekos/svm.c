@@ -7,6 +7,7 @@
 #include <geekos/svm_handler.h>
 
 #include <geekos/vmm_debug.h>
+#include <geekos/vm_guest_mem.h>
 
 
 /* TEMPORARY BECAUSE SVM IS WEIRD */
@@ -160,7 +161,7 @@ vmcb_t * Allocate_VMCB() {
 }
 
 
-void Init_VMCB_Real(vmcb_t * vmcb, guest_info_t vm_info) {
+void Init_VMCB_Real(vmcb_t * vmcb, struct guest_info vm_info) {
   vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA(vmcb);
   vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA(vmcb);
   uint_t i;
@@ -267,10 +268,10 @@ void Init_VMCB_Real(vmcb_t * vmcb, guest_info_t vm_info) {
 
   if (vm_info.page_mode == SHADOW_PAGING) {
     PrintDebug("Creating initial shadow page table\n");
-    vm_info.shadow_page_state.shadow_cr3.e_reg.low |= ((addr_t)create_passthrough_pde32_pts(&(vm_info.mem_map)) & ~0xfff);
+    vm_info.shdw_pg_state.shadow_cr3.e_reg.low |= ((addr_t)create_passthrough_pde32_pts(&vm_info) & ~0xfff);
     PrintDebug("Created\n");
 
-    guest_state->cr3 = vm_info.shadow_page_state.shadow_cr3.r_reg;
+    guest_state->cr3 = vm_info.shdw_pg_state.shadow_cr3.r_reg;
 
     ctrl_area->cr_reads.crs.cr3 = 1;
     ctrl_area->cr_writes.crs.cr3 = 1;
@@ -306,7 +307,7 @@ void Init_VMCB_Real(vmcb_t * vmcb, guest_info_t vm_info) {
 }
 
 
-void Init_VMCB(vmcb_t * vmcb, guest_info_t vm_info) {
+void Init_VMCB(vmcb_t * vmcb, struct guest_info vm_info) {
   vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA(vmcb);
   vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA(vmcb);
   uint_t i;
@@ -388,10 +389,10 @@ void Init_VMCB(vmcb_t * vmcb, guest_info_t vm_info) {
 
   if (vm_info.page_mode == SHADOW_PAGING) {
     PrintDebug("Creating initial shadow page table\n");
-    vm_info.shadow_page_state.shadow_cr3.e_reg.low |= ((addr_t)create_passthrough_pde32_pts(&(vm_info.mem_map)) & ~0xfff);
+    vm_info.shdw_pg_state.shadow_cr3.e_reg.low |= ((addr_t)create_passthrough_pde32_pts(&vm_info) & ~0xfff);
     PrintDebug("Created\n");
 
-    guest_state->cr3 = vm_info.shadow_page_state.shadow_cr3.r_reg;
+    guest_state->cr3 = vm_info.shdw_pg_state.shadow_cr3.r_reg;
 
     ctrl_area->cr_reads.crs.cr3 = 1;
     ctrl_area->cr_writes.crs.cr3 = 1;
@@ -426,7 +427,7 @@ void Init_VMCB(vmcb_t * vmcb, guest_info_t vm_info) {
 
 }
 
-void Init_VMCB_pe(vmcb_t *vmcb, guest_info_t vm_info) {
+void Init_VMCB_pe(vmcb_t *vmcb, struct guest_info vm_info) {
   vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA(vmcb);
   vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA(vmcb);
   uint_t i = 0;

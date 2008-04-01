@@ -61,8 +61,8 @@ int is_svm_capable();
 
 
 vmcb_t * Allocate_VMCB();
-void Init_VMCB(vmcb_t * vmcb, guest_info_t vm_info);
-void Init_VMCB_pe(vmcb_t * vmcb, guest_info_t vm_info);
+void Init_VMCB(vmcb_t * vmcb, struct guest_info vm_info);
+void Init_VMCB_pe(vmcb_t * vmcb, struct guest_info vm_info);
 
 int init_svm_guest(struct guest_info *info);
 int start_svm_guest(struct guest_info * info);

@@ -82,12 +82,6 @@ shadow_region_t * get_shadow_region_by_addr(shadow_map_t * map, addr_t guest_add
 
 shadow_region_t * get_shadow_region_by_index(shadow_map_t * map, uint_t index);
 
-/*
-int guest_paddr_to_host_paddr(shadow_region_t * entry, 
-			      addr_t guest_addr,
-			      addr_t * host_addr);
-*/
-
 host_region_type_t lookup_shadow_map_addr(shadow_map_t * map, addr_t guest_addr, addr_t * host_addr);
 
 

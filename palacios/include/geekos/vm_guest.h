@@ -5,8 +5,13 @@
 #include <geekos/ktypes.h>
 #include <geekos/vmm_io.h>
 //#include <geekos/vmm_paging.h>
-#include <geekos/vmm_shadow_paging.h>
 
+
+
+struct guest_info;
+
+
+#include <geekos/vmm_shadow_paging.h>
 
 struct guest_gprs {
   ullong_t rbx;
@@ -22,7 +27,7 @@ struct guest_gprs {
 typedef enum {SHADOW_PAGING, NESTED_PAGING} vm_page_mode_t;
 typedef enum {REAL, PROTECTED, PROTECTED_PG, PROTECTED_PAE, PROTECTED_PAE_PG, LONG, LONG_PG} vm_cpu_mode_t;
 
-typedef struct guest_info {
+struct guest_info {
   ullong_t rip;
   ullong_t rsp;
 
@@ -30,7 +35,7 @@ typedef struct guest_info {
 
   
   vm_page_mode_t page_mode;
-  shadow_page_state_t  shadow_page_state;
+  struct shadow_page_state  shdw_pg_state;
   // nested_paging_t nested_page_state;
 
 
@@ -43,7 +48,7 @@ typedef struct guest_info {
   struct guest_gprs vm_regs;
 
   void * vmm_data;
-} guest_info_t;
+};
 
 
 

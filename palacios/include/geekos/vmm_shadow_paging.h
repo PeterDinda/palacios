@@ -6,7 +6,8 @@
 
 #include <geekos/vmm_util.h>
 
-typedef struct shadow_page_state {
+
+struct shadow_page_state {
 
   // these two reflect the top-level page directory
   // of the guest page table
@@ -22,15 +23,23 @@ typedef struct shadow_page_state {
   reg_ex_t                shadow_cr3;
 
 
-} shadow_page_state_t;
+};
 
 
 
-int init_shadow_page_state(shadow_page_state_t * state);
+
+
+
+
+
+#include <geekos/vm_guest.h>
+struct guest_info;
+
+int init_shadow_page_state(struct shadow_page_state * state);
 
 // This function will cause the shadow page table to be deleted
 // and rewritten to reflect the guest page table and the shadow map
-int wholesale_update_shadow_page_state(shadow_page_state_t * state, shadow_map_t * mem_map);
+int wholesale_update_shadow_page_state(struct guest_info * guest_info);
 
 
 

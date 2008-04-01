@@ -3,7 +3,7 @@
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
  * Copyright (c) 2004, Iulian Neamtiu <neamtiu@cs.umd.edu>
- * $Revision: 1.24 $
+ * $Revision: 1.25 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -286,13 +286,13 @@ void Main(struct Boot_Info* bootInfo)
   {
     struct vmm_os_hooks os_hooks;
     struct vmm_ctrl_ops vmm_ops;
-    guest_info_t vm_info;
+    struct guest_info vm_info;
     addr_t rsp;
     addr_t rip;
 
     memset(&os_hooks, 0, sizeof(struct vmm_os_hooks));
     memset(&vmm_ops, 0, sizeof(struct vmm_ctrl_ops));
-    memset(&vm_info, 0, sizeof(guest_info_t));
+    memset(&vm_info, 0, sizeof(struct guest_info));
 
     os_hooks.print_debug = &PrintBoth;
     os_hooks.print_info = &Print;
@@ -309,7 +309,7 @@ void Main(struct Boot_Info* bootInfo)
     Init_VMM(&os_hooks, &vmm_ops);
   
     init_shadow_map(&(vm_info.mem_map));
-    init_shadow_page_state(&(vm_info.shadow_page_state));
+    init_shadow_page_state(&(vm_info.shdw_pg_state));
     vm_info.page_mode = SHADOW_PAGING;
 
     vm_info.cpu_mode = REAL;

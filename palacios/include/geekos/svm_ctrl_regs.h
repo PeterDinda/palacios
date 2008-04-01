@@ -17,7 +17,7 @@ static const uchar_t mov_from_cr_byte = 0x20;
 
 
 
-int handle_cr0_write(guest_info_t * info, ullong_t * new_cr0);
+int handle_cr0_write(struct guest_info * info, ullong_t * new_cr0);
 
 
 

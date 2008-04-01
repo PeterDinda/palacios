@@ -3,7 +3,7 @@
 #include <geekos/svm_ctrl_regs.h>
 
 
-int handle_svm_exit(guest_info_t * info) {
+int handle_svm_exit(struct guest_info * info) {
   vmcb_ctrl_t * guest_ctrl = 0;
   vmcb_saved_state_t * guest_state = 0;
   ulong_t exit_code = 0;
@@ -62,7 +62,7 @@ int handle_svm_exit(guest_info_t * info) {
 
 
 // This should package up an IO request and call vmm_handle_io
-int handle_svm_io(guest_info_t * info) {
+int handle_svm_io(struct guest_info * info) {
   vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA((vmcb_t *)(info->vmm_data));
   vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
 
@@ -85,7 +85,7 @@ int handle_svm_io(guest_info_t * info) {
 }
 
 
-int handle_shadow_paging(guest_info_t * info) {
+int handle_shadow_paging(struct guest_info * info) {
   vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
   //  vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
 

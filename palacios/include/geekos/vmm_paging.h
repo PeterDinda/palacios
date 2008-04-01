@@ -4,7 +4,7 @@
 
 #include <geekos/ktypes.h>
 
-#include <geekos/vm_guest.h>
+
 
 #include <geekos/vmm_mem.h>
 #include <geekos/vmm_util.h>
@@ -216,8 +216,6 @@ typedef enum { PDE32 } paging_mode_t;
 
 
 
-pde32_t * create_passthrough_pde32_pts(guest_info_t * guest_info);
-
 
 void delete_page_tables_pde32(pde32_t * pde);
 
@@ -227,6 +225,10 @@ int pte32_lookup(pte32_t * pte, addr_t addr, addr_t * entry);
 
 
 
+
+#include <geekos/vm_guest.h>
+
+pde32_t * create_passthrough_pde32_pts(struct guest_info * guest_info);
 
 
 

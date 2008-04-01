@@ -33,14 +33,64 @@ void delete_page_tables_pde32(pde32_t * pde) {
 
 
 
+
+
+
+
+/* We can't do a full lookup because we don't know what context the page tables are in...
+ * The entry addresses could be pointing to either guest physical memory or host physical memory
+ * Instead we just return the entry address, and a flag to show if it points to a pte or a large page...
+ */
+pde32_entry_type_t pde32_lookup(pde32_t * pde, addr_t addr, addr_t * entry) {
+  pde32_t * pde_entry = &(pde[PDE32_INDEX(addr)]);
+
+  if (!pde_entry->present) {
+    *entry = 0;
+    return NOT_PRESENT;
+  } else  {
+    *entry = PAGE_ADDR(pde_entry->pt_base_addr);
+    
+    if (pde_entry->large_pages) {
+      *entry += PAGE_OFFSET(addr);
+      return LARGE_PAGE;
+    } else {
+      return PTE32;
+    }
+  }  
+  return NOT_PRESENT;
+}
+
+
+int pte32_lookup(pte32_t * pte, addr_t addr, addr_t * entry) {
+  pte32_t * pte_entry = &(pte[PTE32_INDEX(addr)]);
+
+  if (!pte_entry->present) {
+    *entry = 0;
+    return -1;
+  } else {
+    *entry = PAGE_ADDR(pte_entry->page_base_addr);
+    *entry += PAGE_OFFSET(addr);
+    return 0;
+  }
+
+  return -1;
+}
+
+
+
+
+
+
+
+
 /* We generate a page table to correspond to a given memory layout
  * pulling pages from the mem_list when necessary
  * If there are any gaps in the layout, we add them as unmapped pages
  */
-pde32_t * create_passthrough_pde32_pts(guest_info_t * guest_info) {
+pde32_t * create_passthrough_pde32_pts(struct guest_info * guest_info) {
   ullong_t current_page_addr = 0;
   int i, j;
-  shadow_map_t * map = guest_info->mem_map;
+  shadow_map_t * map = &(guest_info->mem_map);
 
 
   pde32_t * pde = os_hooks->allocate_pages(1);
@@ -118,53 +168,6 @@ pde32_t * create_passthrough_pde32_pts(guest_info_t * guest_info) {
 
   return pde;
 }
-
-
-
-
-
-
-/* We can't do a full lookup because we don't know what context the page tables are in...
- * The entry addresses could be pointing to either guest physical memory or host physical memory
- * Instead we just return the entry address, and a flag to show if it points to a pte or a large page...
- */
-pde32_entry_type_t pde32_lookup(pde32_t * pde, addr_t addr, addr_t * entry) {
-  pde32_t * pde_entry = pde[PDE32_INDEX(addr)];
-
-  if (!pde_entry->present) {
-    *entry = 0;
-    return NOT_PRESENT;
-  } else  {
-    *entry = PAGE_ADDR(pde_entry->pt_base_addr);
-    
-    if (pde_entry->large_pages) {
-      *entry += PAGE_OFFSET(addr);
-      return LARGE_PAGE;
-    } else {
-      return PTE32;
-    }
-  }  
-  return NOT_PRESENT;
-}
-
-
-int pte32_lookup(pte32_t * pte, addr_t addr, addr_t * entry) {
-  pte32_t * pte_entry = pte[PTE32_INDEX(addr)];
-
-  if (!pte_entry->present) {
-    *entry = 0;
-    return -1;
-  } else {
-    *entry = PAGE_ADDR(pte_entry->page_base_addr);
-    *entry += PAGE_OFFSET(addr);
-    return 0;
-  }
-
-  return -1;
-}
-
-
-
 
 
 

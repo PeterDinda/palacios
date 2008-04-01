@@ -173,31 +173,6 @@ host_region_type_t lookup_shadow_map_addr(shadow_map_t * map, addr_t guest_addr,
   }
 }
 
-/*
-int guest_paddr_to_host_paddr(shadow_region_t * entry, 
-			addr_t guest_addr,
-			addr_t * host_addr) {
-
-  if (!((guest_addr >= entry->guest_start) && 
-	(guest_addr < entry->guest_end))) { 
-    return -1;
-  }
-
-  switch (entry->host_type) { 
-  case HOST_REGION_PHYSICAL_MEMORY:
-  case HOST_REGION_MEMORY_MAPPED_DEVICE:
-  case HOST_REGION_UNALLOCATED:
-    *host_addr = (guest_addr-entry->guest_start) + entry->host_addr.phys_addr.host_start;
-    return 0;
-    break;
-  default:
-    return -1;
-    break;
-  }
-}
-
-*/
-
 
 void print_shadow_map(shadow_map_t * map) {
   shadow_region_t * cur = map->head;

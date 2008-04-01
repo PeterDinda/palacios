@@ -1,11 +1,12 @@
 #include <geekos/vmm_shadow_paging.h>
 
 #include <geekos/vmm.h>
+#include <geekos/vm_guest_mem.h>
 
 extern struct vmm_os_hooks * os_hooks;
 
 
-int init_shadow_page_state(shadow_page_state_t * state) {
+int init_shadow_page_state(struct shadow_page_state * state) {
   state->guest_mode = PDE32;
   state->shadow_mode = PDE32;
   
@@ -16,10 +17,12 @@ int init_shadow_page_state(shadow_page_state_t * state) {
 }
   
 
-int wholesale_update_shadow_page_state(shadow_page_state_t * state, shadow_map_t * mem_map) {
+int wholesale_update_shadow_page_state(struct guest_info * guest_info) {
   unsigned i, j;
-  vmm_pde_t * guest_pde;
-  vmm_pde_t * shadow_pde;
+  pde32_t * guest_pde;
+  pde32_t * shadow_pde;
+
+  struct shadow_page_state * state = &(guest_info->shdw_pg_state);
 
 
   // For now, we'll only work with PDE32
@@ -27,22 +30,18 @@ int wholesale_update_shadow_page_state(shadow_page_state_t * state, shadow_map_t
     return -1;
   }
 
-
-  
-  shadow_pde = (vmm_pde_t *)(CR3_TO_PDE(state->shadow_cr3.e_reg.low));  
-  guest_pde = (vmm_pde_t *)(os_hooks->paddr_to_vaddr((void*)CR3_TO_PDE(state->guest_cr3.e_reg.low)));
+  shadow_pde = (pde32_t *)(CR3_TO_PDE32(state->shadow_cr3.e_reg.low));  
+  guest_pde = (pde32_t *)(host_pa_to_host_va((void*)CR3_TO_PDE32(state->guest_cr3.e_reg.low)));
 
   // Delete the current page table
   delete_page_tables_pde32(shadow_pde);
 
   shadow_pde = os_hooks->allocate_pages(1);
 
-
   state->shadow_cr3.e_reg.low = (addr_t)shadow_pde;
 
   state->shadow_mode = PDE32;
 
-  
   for (i = 0; i < MAX_PDE32_ENTRIES; i++) { 
     shadow_pde[i] = guest_pde[i];
 
@@ -57,7 +56,7 @@ int wholesale_update_shadow_page_state(shadow_page_state_t * state, shadow_map_t
       addr_t host_addr;
       shadow_region_t * ent;
 
-      ent = get_shadow_region_by_addr(mem_map, guest_addr);
+      ent = get_shadow_region_by_addr(&(guest_info->mem_map), guest_addr);
       
       if (!ent) { 
 	// FIXME Panic here - guest is trying to map to physical memory
@@ -71,7 +70,7 @@ int wholesale_update_shadow_page_state(shadow_page_state_t * state, shadow_map_t
       case HOST_REGION_PHYSICAL_MEMORY:
 	// points into currently allocated physical memory, so we just
 	// set up the shadow to point to the mapped location
-	if (guest_paddr_to_host_paddr(ent, guest_addr, &host_addr)) { 
+	if (guest_pa_to_host_pa(guest_info, guest_addr, &host_addr)) { 
 	  // Panic here
 	  return -1;
 	}
@@ -102,8 +101,8 @@ int wholesale_update_shadow_page_state(shadow_page_state_t * state, shadow_map_t
 	break;
       }
     } else {
-      vmm_pte_t * guest_pte;
-      vmm_pte_t * shadow_pte;
+      pte32_t * guest_pte;
+      pte32_t * shadow_pte;
       addr_t guest_addr;
       addr_t guest_pte_host_addr;
       shadow_region_t * ent;
@@ -119,7 +118,7 @@ int wholesale_update_shadow_page_state(shadow_page_state_t * state, shadow_map_t
       // make our first level page table in the shadow point to it
       shadow_pde[i].pt_base_addr = PAGE_ALIGNED_ADDR(shadow_pte);
       
-      ent = get_shadow_region_by_addr(mem_map, guest_addr);
+      ent = get_shadow_region_by_addr(&(guest_info->mem_map), guest_addr);
       
 
       /* JRL: This is bad.... */
@@ -133,7 +132,7 @@ int wholesale_update_shadow_page_state(shadow_page_state_t * state, shadow_map_t
       }
 
       // Address of the relevant second level page table in the guest
-      if (guest_paddr_to_host_paddr(ent, guest_addr, &guest_pte_host_addr)) { 
+      if (guest_pa_to_host_pa(guest_info, guest_addr, &guest_pte_host_addr)) { 
 	// Panic here
 	return -1;
       }
@@ -152,7 +151,7 @@ int wholesale_update_shadow_page_state(shadow_page_state_t * state, shadow_map_t
 	
 	shadow_region_t * ent;
 
-	ent = get_shadow_region_by_addr(mem_map, guest_addr);
+	ent = get_shadow_region_by_addr(&(guest_info->mem_map), guest_addr);
       
 	if (!ent) { 
 	  // FIXME Panic here - guest is trying to map to physical memory
@@ -167,7 +166,7 @@ int wholesale_update_shadow_page_state(shadow_page_state_t * state, shadow_map_t
 	    
 	    // points into currently allocated physical memory, so we just
 	    // set up the shadow to point to the mapped location
-	    if (guest_paddr_to_host_paddr(ent, guest_addr, &host_addr)) { 
+	    if (guest_pa_to_host_pa(guest_info, guest_addr, &host_addr)) { 
 	      // Panic here
 	      return -1;
 	    }
