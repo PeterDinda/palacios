@@ -1,10 +1,66 @@
 #ifndef __VMM_EMULATE_H
 #define __VMM_EMULATE_H
+#include <geekos/vm_guest.h>
 
 
-/* JRL: Most of this was taken from the Xen sources... 
+/*
+ * This is where we do the hideous X86 instruction parsing among other things
+ * We can parse out the instruction prefixes, as well as decode the operands 
+ *
+ * Before we begin I'd just like to say a few words to those that made this possible...
+ *
+ *
+ *				     _____
+ *				    ||	 ||
+ *				    |\___/|
+ *				    |	  |
+ *				    |	  |
+ *				    |	  |
+ *				    |	  |
+ *				    |	  |
+ *				    |	  |
+ *			       _____|<--->|_____
+ *			   ___/     |	  |	 \
+ *			 /    |     |	  |	| \
+ *			 |    |     |	  |	|  |
+ *			 |    |     |	  |	|  |
+ *			 |			|  |
+ *			 |			|  |
+ *			 |    Fuck You Intel!	  /
+ *			 |			 /
+ *			  \		       /
+ *			   \		      /
+ *			    |		      |
+ *			    |		      |
+ *
+ * That is all.
  *
  */
+
+
+/* JRL: Some of this was taken from the Xen sources... 
+ *
+ */
+
+#define PACKED __attribute__((packed))
+
+#define MODRM_MOD(x) ((x >> 6) & 0x3)
+#define MODRM_REG(x) ((x >> 3) & 0x7)
+#define MODRM_RM(x)  (x & 0x07)
+
+struct modrm_byte {
+  uint_t rm   :   3 PACKED;
+  uint_t reg  :   3 PACKED;
+  uint_t mod  :   2 PACKED;
+};
+
+
+struct sib_byte {
+  uint_t base     :   3 PACKED;
+  uint_t index    :   3 PACKED;
+  uint_t scale    :   2 PACKED;
+};
+
 
 
 #define MAKE_INSTR(nm, ...) static const uchar_t OPCODE_##nm[] = { __VA_ARGS__ }
@@ -71,6 +127,165 @@ static inline int is_prefix_byte(char byte) {
   }
 }
 
+typedef enum {INVALID_ADDR_TYPE, REG, DISP0, DISP8, DISP16, DISP32} modrm_addr_type_t;
+typedef enum {INVALID_REG_SIZE, REG64, REG32, REG16, REG8} reg_size_t;
+typedef enum {INVALID_OPERAND_TYPE, REG_TO_REG, REG_TO_MEM, MEM_TO_REG} operand_type_t;
+
+struct guest_gprs;
+
+
+static inline int decode_operands16(struct guest_gprs * gprs, 
+				    char * modrm_instr, 
+				    addr_t * first_operand,
+				    addr_t * second_operand, 
+				    reg_size_t reg_size) {
+  
+  struct modrm_byte * modrm = (struct modrm_byte*)modrm_instr;
+  addr_t base_addr = 0;
+  modrm_addr_type_t mod_type = 0;
+
+  PrintDebug("ModRM mod=%d\n", modrm->mod);
+
+  if (modrm->mod == 3) {
+    mod_type = REG;
+
+    PrintDebug("first operand = Register (RM=%d)\n",modrm->rm);
+
+    switch (modrm->rm) {
+    case 0:
+      PrintDebug("EAX Operand\n");
+      *first_operand = (addr_t)&(gprs->rax);
+      break;
+    case 1:
+      *first_operand = (addr_t)&(gprs->rcx);
+      break;
+    case 2:
+      *first_operand = (addr_t)&(gprs->rdx);
+      break;
+    case 3:
+      *first_operand = (addr_t)&(gprs->rbx);
+      break;
+    case 4:
+      if (reg_size == REG8) {
+	*first_operand = (addr_t)(&(gprs->rax) + 1);
+      } else {
+	*first_operand = (addr_t)&(gprs->rsp);
+      }
+      break;
+    case 5:
+      if (reg_size == REG8) {
+	*first_operand = (addr_t)(&(gprs->rcx) + 1);
+      } else {
+	*first_operand = (addr_t)&(gprs->rbp);
+      }
+      break;
+    case 6:
+      if (reg_size == REG8) {
+	*first_operand = (addr_t)(&(gprs->rdx) + 1);
+      } else {
+	*first_operand = (addr_t)&(gprs->rsi);
+      }
+      break;
+    case 7:
+      if (reg_size == REG8) {
+	*first_operand = (addr_t)(&(gprs->rbx) + 1);
+      } else {
+	*first_operand = (addr_t)&(gprs->rdi);
+      }
+      break;
+    }
+
+  } else {
+    if (modrm->mod == 0) {
+      mod_type = DISP0;
+    } else if (modrm->mod == 1) {
+      mod_type = DISP8;
+    } else if (modrm->mod == 2) {
+      mod_type = DISP16;
+    }
+
+    switch (modrm->rm) {
+    case 0:
+      base_addr = gprs->rbx + gprs->rsi;
+    case 1:
+      base_addr = gprs->rbx + gprs->rdi;
+    case 2:
+      base_addr = gprs->rbp + gprs->rsi;
+    case 3:
+      base_addr = gprs->rbp + gprs->rdi;
+    case 4:
+      base_addr = gprs->rsi;
+    case 5:
+      base_addr = gprs->rdi;
+    case 6:
+      if (modrm->mod == 0) {
+	base_addr = 0;
+	mod_type = DISP16;
+      } else {
+	base_addr = gprs->rbp;
+      }
+    case 7:
+      base_addr = gprs->rbx;
+    }
+
+    if (mod_type == DISP8) {
+      base_addr += (uchar_t)*(modrm_instr + 1);
+    } else if (mod_type == DISP16) {
+      base_addr += (ushort_t)*(modrm_instr + 1);
+    }
+    
+    
+    *first_operand = base_addr;
+  }
+
+
+
+  switch (modrm->reg) {
+    case 0:
+      *second_operand = (addr_t)&(gprs->rax);
+      break;
+    case 1:
+      *second_operand = (addr_t)&(gprs->rcx);
+      break;
+    case 2:
+      *second_operand = (addr_t)&(gprs->rdx);
+      break;
+    case 3:
+      *second_operand = (addr_t)&(gprs->rbx);
+      break;
+    case 4:
+      if (reg_size == REG8) {
+	*second_operand = (addr_t)&(gprs->rax) + 1;
+      } else {
+	*second_operand = (addr_t)&(gprs->rsp);
+      }
+      break;
+    case 5:
+      if (reg_size == REG8) {
+	*second_operand = (addr_t)&(gprs->rcx) + 1;
+      } else {
+	*second_operand = (addr_t)&(gprs->rbp);
+      }
+      break;
+    case 6:
+      if (reg_size == REG8) {
+	*second_operand = (addr_t)&(gprs->rdx) + 1;
+      } else {
+	*second_operand = (addr_t)&(gprs->rsi);
+      }
+      break;
+    case 7:
+      if (reg_size == REG8) {
+	*second_operand = (addr_t)&(gprs->rbx) + 1;
+      } else {
+	*second_operand = (addr_t)&(gprs->rdi);
+      }
+      break;
+  }
+
+  return 0;
+
+}
 
 
 

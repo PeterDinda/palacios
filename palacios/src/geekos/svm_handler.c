@@ -2,6 +2,8 @@
 #include <geekos/vmm.h>
 #include <geekos/svm_ctrl_regs.h>
 
+extern struct vmm_os_hooks * os_hooks;
+
 
 int handle_svm_exit(struct guest_info * info) {
   vmcb_ctrl_t * guest_ctrl = 0;
@@ -14,17 +16,19 @@ int handle_svm_exit(struct guest_info * info) {
 
   // Update the high level state 
   info->rip = guest_state->rip;
-  info->rsp = guest_state->rsp;
+  info->vm_regs.rsp = guest_state->rsp;
+  info->vm_regs.rax = guest_state->rax;
+  info->vm_regs.rsp = guest_state->rsp;
 
 
-  PrintDebug("SVM Returned: (Exit Code=%x) (VMCB=%x)\n",&(guest_ctrl->exit_code), info->vmm_data); 
+  PrintDebug("SVM Returned: (Exit Code=%x) (VMCB=%x)\n", &(guest_ctrl->exit_code), info->vmm_data); 
   PrintDebug("RIP: %x\n", guest_state->rip);
   
 
 
   exit_code = guest_ctrl->exit_code;
   
-  //  PrintDebugVMCB((vmcb_t*)(info->vmm_data));
+  // PrintDebugVMCB((vmcb_t*)(info->vmm_data));
   PrintDebug("SVM Returned: Exit Code: %x\n",exit_code); 
   PrintDebug("io_info1 low = 0x%.8x\n", *(uint_t*)&(guest_ctrl->exit_info1));
   PrintDebug("io_info1 high = 0x%.8x\n", *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info1)) + 4));
@@ -53,8 +57,9 @@ int handle_svm_exit(struct guest_info * info) {
 
 
   // Update the low level state
+  guest_state->rax = info->vm_regs.rax;
   guest_state->rip = info->rip;
-  guest_state->rsp = info->rsp;
+  guest_state->rsp = info->vm_regs.rsp;
 
   return 0;
 }

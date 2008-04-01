@@ -2,10 +2,12 @@
 #define __VMM_SHADOW_PAGING_H
 
 
-#include <geekos/vmm_paging.h>
 
 #include <geekos/vmm_util.h>
 
+
+
+#include <geekos/vmm_paging.h>
 
 struct shadow_page_state {
 
@@ -30,10 +32,8 @@ struct shadow_page_state {
 
 
 
-
-
-#include <geekos/vm_guest.h>
 struct guest_info;
+
 
 int init_shadow_page_state(struct shadow_page_state * state);
 

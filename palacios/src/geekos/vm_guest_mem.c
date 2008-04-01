@@ -280,6 +280,7 @@ int host_va_to_guest_va(struct guest_info * guest_info, addr_t host_va, addr_t *
  */
 int read_guest_va_memory(struct guest_info * guest_info, addr_t guest_va, int count, char * dest) {
   addr_t cursor = guest_va;
+  int bytes_read = 0;
 
   while (count > 0) {
     int dist_to_pg_edge = (PAGE_OFFSET(cursor) + PAGE_SIZE) - cursor;
@@ -290,8 +291,9 @@ int read_guest_va_memory(struct guest_info * guest_info, addr_t guest_va, int co
       return -1;
     }
 
-    memcpy(dest, (void*)cursor, bytes_to_copy);
-
+    memcpy(dest + bytes_read, (void*)host_addr, bytes_to_copy);
+    
+    bytes_read += bytes_to_copy;
     count -= bytes_to_copy;
     cursor += bytes_to_copy;    
   }
@@ -309,6 +311,7 @@ int read_guest_va_memory(struct guest_info * guest_info, addr_t guest_va, int co
  */
 int read_guest_pa_memory(struct guest_info * guest_info, addr_t guest_pa, int count, char * dest) {
   addr_t cursor = guest_pa;
+  int bytes_read = 0;
 
   while (count > 0) {
     int dist_to_pg_edge = (PAGE_OFFSET(cursor) + PAGE_SIZE) - cursor;
@@ -319,8 +322,38 @@ int read_guest_pa_memory(struct guest_info * guest_info, addr_t guest_pa, int co
       return -1;
     }
 
-    memcpy(dest, (void*)cursor, bytes_to_copy);
+    memcpy(dest + bytes_read, (void*)host_addr, bytes_to_copy);
 
+    bytes_read += bytes_to_copy;
+    count -= bytes_to_copy;
+    cursor += bytes_to_copy;    
+  }
+
+  return 0;
+}
+
+
+
+
+/* This is a straight address conversion + copy, 
+ *   except for the tiny little issue of crossing page boundries.....
+ */
+int write_guest_pa_memory(struct guest_info * guest_info, addr_t guest_pa, int count, char * src) {
+  addr_t cursor = guest_pa;
+  int bytes_written = 0;
+
+  while (count > 0) {
+    int dist_to_pg_edge = (PAGE_OFFSET(cursor) + PAGE_SIZE) - cursor;
+    int bytes_to_copy = (dist_to_pg_edge > count) ? count : dist_to_pg_edge;
+    addr_t host_addr;
+
+    if (guest_pa_to_host_va(guest_info, cursor, &host_addr) != 0) {
+      return -1;
+    }
+
+    memcpy((void*)host_addr, src + bytes_written, bytes_to_copy);
+    
+    bytes_written += bytes_to_copy;
     count -= bytes_to_copy;
     cursor += bytes_to_copy;    
   }

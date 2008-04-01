@@ -225,8 +225,7 @@ int pte32_lookup(pte32_t * pte, addr_t addr, addr_t * entry);
 
 
 
-
-#include <geekos/vm_guest.h>
+struct guest_info;
 
 pde32_t * create_passthrough_pde32_pts(struct guest_info * guest_info);
 

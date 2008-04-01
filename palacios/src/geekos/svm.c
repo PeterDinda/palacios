@@ -116,14 +116,17 @@ int init_svm_guest(struct guest_info *info) {
   PrintDebug("Initializing VMCB (addr=%x)\n", info->vmm_data);
   Init_VMCB((vmcb_t*)(info->vmm_data), *info);
   
-  
-  info->vm_regs.rbx = 0;
-  info->vm_regs.rcx = 0;
-  info->vm_regs.rdx = 0;
-  info->vm_regs.rsi = 0;
-  info->vm_regs.rdi = 0;
-  info->vm_regs.rbp = 0;
+  info->rip = 0;
 
+  info->vm_regs.rdi = 0;
+  info->vm_regs.rsi = 0;
+  info->vm_regs.rbp = 0;
+  info->vm_regs.rsp = 0;
+  info->vm_regs.rbx = 0;
+  info->vm_regs.rdx = 0;
+  info->vm_regs.rcx = 0;
+  info->vm_regs.rax = 0;
+  
   return 0;
 }
 
@@ -137,12 +140,13 @@ int start_svm_guest(struct guest_info *info) {
   //PrintDebugVMCB((vmcb_t*)(info->vmm_data));
 
   while (1) {
-
+    PrintDebug("SVM Launch Args (vmcb=%x), (info=%x), (vm_regs=%x)\n", info->vmm_data,  &(info->vm_regs));
     safe_svm_launch((vmcb_t*)(info->vmm_data), &(info->vm_regs));
     //launch_svm((vmcb_t*)(info->vmm_data));
     PrintDebug("SVM Returned\n");
 
     if (handle_svm_exit(info) != 0) {
+      // handle exit code....
       break;
     }
   }
@@ -167,7 +171,7 @@ void Init_VMCB_Real(vmcb_t * vmcb, struct guest_info vm_info) {
   uint_t i;
 
 
-  guest_state->rsp = vm_info.rsp;
+  guest_state->rsp = vm_info.vm_regs.rsp;
   guest_state->rip = vm_info.rip;
 
 
@@ -313,7 +317,7 @@ void Init_VMCB(vmcb_t * vmcb, struct guest_info vm_info) {
   uint_t i;
 
 
-  guest_state->rsp = vm_info.rsp;
+  guest_state->rsp = vm_info.vm_regs.rsp;
   guest_state->rip = vm_info.rip;
 
 
@@ -433,7 +437,7 @@ void Init_VMCB_pe(vmcb_t *vmcb, struct guest_info vm_info) {
   uint_t i = 0;
 
 
-  guest_state->rsp = vm_info.rsp;
+  guest_state->rsp = vm_info.vm_regs.rsp;
   guest_state->rip = vm_info.rip;
 
 

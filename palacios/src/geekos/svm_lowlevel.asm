@@ -7,6 +7,8 @@
 %include "defs.asm"
 %include "symbol.asm"
 
+SVM_ERROR equ 0xFFFFFFFF
+SVM_SUCCESS equ 0x00000000
 
 EXPORT DisableInts
 
@@ -22,6 +24,8 @@ EXPORT launch_svm
 EXPORT safe_svm_launch
 
 
+
+
 ;; These need to be kept similar with the svm return values in svm.h
 SVM_HANDLER_SUCCESS  equ 0x00
 SVM_HANDLER_ERROR equ  0x1
@@ -32,22 +36,37 @@ SVM_HANDLER_HALT equ 0x2
 
 ; Save and restore registers needed by SVM
 %macro Save_SVM_Registers 1
-	mov	[%1], ebx
-	mov	[%1 + 8], ecx
-	mov	[%1 + 16], edx
-	mov	[%1 + 24], esi
-	mov	[%1 + 32], edi
-	mov	[%1 + 40], ebp
+	push	eax
+	mov	eax, dword %1
+	mov	[eax], edi
+	mov	[eax + 8], esi
+	mov	[eax + 16], ebp
+	mov	[eax + 24], dword 0         	;; esp
+	mov	[eax + 32], ebx
+	mov	[eax + 40], edx
+	mov	[eax + 48], ecx
+
+	push	ebx
+	mov	ebx, [esp + 4]
+	mov	[eax + 56], ebx		;; eax
+	pop	ebx
+
+	pop	eax
 %endmacro
 
 
 %macro Restore_SVM_Registers 1
-	mov	ebx, [%1]
-	mov	ecx, [%1 + 8]
-	mov	edx, [%1 + 16]
-	mov	esi, [%1 + 24]
-	mov	edi, [%1 + 32]
-	mov	ebp, [%1 + 40]
+	push	eax
+	mov	eax, dword %1
+	mov	edi, [eax]
+	mov	esi, [eax + 8]
+	mov	ebp, [eax + 16]
+;;	mov	esp, [eax + 24]
+	mov	ebx, [eax + 32]
+	mov	edx, [eax + 40]
+	mov	ecx, [eax + 48]
+;;	mov	eax, [eax + 56]
+	pop	eax
 %endmacro
 
 %macro vmrun 0
@@ -146,57 +165,31 @@ safe_svm_launch:
 	push	ebp
 	mov	ebp, esp
 	pushf
-	pusha   		;; Save Host state
+	pusha   				;; Save Host state
 
 
-	push 	dword [ebp + 12]  ;; pointer to the guest GPR save area
-	push	dword [ebp + 8]   ;; pointer to the VMCB pointer
+	push 	dword [ebp + 12]  		;; pointer to the guest GPR save area
+	push	dword [ebp + 8]   		;; pointer to the VMCB pointer
 
-	mov	eax, [esp + 4]    ;; mov guest GPR pointer to eax
+;;	mov	eax, [esp + 4]    		;; mov guest GPR pointer to eax
 
-	Restore_SVM_Registers eax ;; Restore Guest GPR state
-	pop	eax               ;; pop VMCB pointer into eax
+	Restore_SVM_Registers [esp + 4] 	;; Restore Guest GPR state
+	pop	eax    		           	;; pop VMCB pointer into eax
 
 	vmload
 	vmrun
 	vmsave
 
-	pop	eax		  ;; pop Guest GPR pointer into eax
-	Save_SVM_Registers eax    ;; save guest GPRs
-
-	popa			  ;; Restore Host state
+;;	pop	eax		  		;; pop Guest GPR pointer into eax
+	Save_SVM_Registers  [esp]    		;; save guest GPRs
+	
+	add	esp, 4				;; skip past the gpr ptr
+	
+	popa			  		;; Restore Host state
 	popf
 	pop 	ebp
 	ret
 
-
-
-;;align 8
-;;safe_svm_launch:
-;;	push	ebp
-;;	mov	ebp, esp
-;;	pushf
-;;	pusha
-;;
-;.vmm_loop:
-;	mov	eax, [ebp + 8]
-;	vmrun
-;	Save_SVM_Registers
-;
-;	call 	handle_svm_exit
-;
-;	mov	[ebp + 12], eax
-;
-;	and 	eax, eax
-;
-;	Restore_SVM_Registers
-;
-;	jz	.vmm_loop
-;
-;	popa
-;	popf
-;	pop	ebp
-;	ret
 
 
 %endif

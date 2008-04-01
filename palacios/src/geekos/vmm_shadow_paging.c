@@ -31,7 +31,10 @@ int wholesale_update_shadow_page_state(struct guest_info * guest_info) {
   }
 
   shadow_pde = (pde32_t *)(CR3_TO_PDE32(state->shadow_cr3.e_reg.low));  
-  guest_pde = (pde32_t *)(host_pa_to_host_va((void*)CR3_TO_PDE32(state->guest_cr3.e_reg.low)));
+
+  if (host_pa_to_host_va(CR3_TO_PDE32(state->guest_cr3.e_reg.low), (addr_t*)&guest_pde) != 0) {
+    return -1;
+  }
 
   // Delete the current page table
   delete_page_tables_pde32(shadow_pde);

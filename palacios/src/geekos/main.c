@@ -3,7 +3,7 @@
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
  * Copyright (c) 2004, Iulian Neamtiu <neamtiu@cs.umd.edu>
- * $Revision: 1.25 $
+ * $Revision: 1.26 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -329,7 +329,7 @@ void Main(struct Boot_Info* bootInfo)
       vm_info.rip = rip;
       rsp = (addr_t)Alloc_Page();
       
-      vm_info.rsp = (rsp +4092 );// - 0x2000;
+      vm_info.vm_regs.rsp = (rsp +4092 );// - 0x2000;
       
             
     } else {
@@ -348,10 +348,10 @@ void Main(struct Boot_Info* bootInfo)
       vm_info.cs.limit=0xffff;
       */
       vm_info.rip = 0xfff0;
-      vm_info.rsp = 0x0;
+      vm_info.vm_regs.rsp = 0x0;
     }
 
-    PrintBoth("Initializing Guest (eip=0x%.8x) (esp=0x%.8x)\n", (uint_t)vm_info.rip,(uint_t)vm_info.rsp);
+    PrintBoth("Initializing Guest (eip=0x%.8x) (esp=0x%.8x)\n", (uint_t)vm_info.rip,(uint_t)vm_info.vm_regs.rsp);
     (vmm_ops).init_guest(&vm_info);
     PrintBoth("Starting Guest\n");
     (vmm_ops).start_guest(&vm_info);

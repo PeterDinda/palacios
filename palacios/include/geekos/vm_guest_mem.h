@@ -85,7 +85,8 @@ int host_va_to_guest_va(struct guest_info * guest_info, addr_t host_va, addr_t  
 
 int read_guest_va_memory(struct guest_info * guest_info, addr_t guest_va, int count, char * dest);
 int read_guest_pa_memory(struct guest_info * guest_info, addr_t guest_pa, int count, char * dest);
-
+int write_guest_pa_memory(struct guest_info * guest_info, addr_t guest_pa, int count, char * src);
+// TODO int write_guest_va_memory(struct guest_info * guest_info, addr_t guest_va, int count, char * src);
 
 
 
