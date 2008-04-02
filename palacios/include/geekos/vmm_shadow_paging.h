@@ -16,7 +16,7 @@ struct shadow_page_state {
   paging_mode_t           guest_mode;
   reg_ex_t                guest_cr3;         // points to guest's current page table
 
-  // Should thi sbe here
+  // Should this be here??
   reg_ex_t                guest_cr0;
 
   // these two reflect the top-level page directory 

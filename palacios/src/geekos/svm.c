@@ -116,7 +116,7 @@ int init_svm_guest(struct guest_info *info) {
   PrintDebug("Initializing VMCB (addr=%x)\n", info->vmm_data);
   Init_VMCB((vmcb_t*)(info->vmm_data), *info);
   
-  info->rip = 0;
+  //  info->rip = 0;
 
   info->vm_regs.rdi = 0;
   info->vm_regs.rsi = 0;
@@ -140,7 +140,9 @@ int start_svm_guest(struct guest_info *info) {
   //PrintDebugVMCB((vmcb_t*)(info->vmm_data));
 
   while (1) {
+
     PrintDebug("SVM Launch Args (vmcb=%x), (info=%x), (vm_regs=%x)\n", info->vmm_data,  &(info->vm_regs));
+    PrintDebug("Launching to RIP: %x\n", info->rip);
     safe_svm_launch((vmcb_t*)(info->vmm_data), &(info->vm_regs));
     //launch_svm((vmcb_t*)(info->vmm_data));
     PrintDebug("SVM Returned\n");

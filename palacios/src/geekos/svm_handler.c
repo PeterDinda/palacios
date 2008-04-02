@@ -21,7 +21,7 @@ int handle_svm_exit(struct guest_info * info) {
   info->vm_regs.rsp = guest_state->rsp;
 
 
-  PrintDebug("SVM Returned: (Exit Code=%x) (VMCB=%x)\n", &(guest_ctrl->exit_code), info->vmm_data); 
+  PrintDebug("SVM Returned:(VMCB=%x)\n", info->vmm_data); 
   PrintDebug("RIP: %x\n", guest_state->rip);
   
 
@@ -30,21 +30,22 @@ int handle_svm_exit(struct guest_info * info) {
   
   // PrintDebugVMCB((vmcb_t*)(info->vmm_data));
   PrintDebug("SVM Returned: Exit Code: %x\n",exit_code); 
+
   PrintDebug("io_info1 low = 0x%.8x\n", *(uint_t*)&(guest_ctrl->exit_info1));
   PrintDebug("io_info1 high = 0x%.8x\n", *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info1)) + 4));
 
   PrintDebug("io_info2 low = 0x%.8x\n", *(uint_t*)&(guest_ctrl->exit_info2));
   PrintDebug("io_info2 high = 0x%.8x\n", *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info2)) + 4));
+  
   if (exit_code == VMEXIT_IOIO) {
     handle_svm_io(info);
 
   } else if (exit_code == VMEXIT_CR0_WRITE) {
     PrintDebug("CR0 Write\n");
-    ullong_t new_cr0 = 0;
 
-    handle_cr0_write(info, &new_cr0);
-
-    guest_state->cr0 = new_cr0;
+    if (handle_cr0_write(info) == -1) {
+      return -1;
+    }
 
   } else if (( (exit_code == VMEXIT_CR3_READ)  ||
 	       (exit_code == VMEXIT_CR3_WRITE) ||
