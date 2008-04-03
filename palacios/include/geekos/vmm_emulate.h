@@ -191,18 +191,22 @@ static inline addr_t decode_register(struct guest_gprs * gprs, char reg_code, re
 
 
 
-static inline operand_type_t decode_operands16(struct guest_gprs * gprs, 
-					       char * modrm_instr, 
-					       addr_t * first_operand,
-					       addr_t * second_operand, 
-					       reg_size_t reg_size) {
+static inline operand_type_t decode_operands16(struct guest_gprs * gprs, // input/output
+					       char * modrm_instr,       // input
+					       int * offset,             // output
+					       addr_t * first_operand,   // output
+					       addr_t * second_operand,  // output
+					       reg_size_t reg_size) {    // input
   
   struct modrm_byte * modrm = (struct modrm_byte *)modrm_instr;
   addr_t base_addr = 0;
   modrm_mode_t mod_mode = 0;
   operand_type_t addr_type = INVALID_OPERAND;
+  char * instr_cursor = modrm_instr;
 
   PrintDebug("ModRM mod=%d\n", modrm->mod);
+
+  instr_cursor += 1;
 
   if (modrm->mod == 3) {
     mod_mode = REG;
@@ -255,15 +259,20 @@ static inline operand_type_t decode_operands16(struct guest_gprs * gprs,
       break;
     }
 
+
+
     if (mod_mode == DISP8) {
-      base_addr += (uchar_t)*(modrm_instr + 1);
+      base_addr += (uchar_t)*(instr_cursor);
+      instr_cursor += 1;
     } else if (mod_mode == DISP16) {
-      base_addr += (ushort_t)*(modrm_instr + 1);
+      base_addr += (ushort_t)*(instr_cursor);
+      instr_cursor += 2;
     }
     
     *first_operand = base_addr;
   }
 
+  *offset +=  (instr_cursor - modrm_instr);
   *second_operand = decode_register(gprs, modrm->reg, reg_size);
 
   return addr_type;
@@ -271,18 +280,23 @@ static inline operand_type_t decode_operands16(struct guest_gprs * gprs,
 
 
 
-static inline operand_type_t decode_operands32(struct guest_gprs * gprs, 
-				    char * modrm_instr,
-				    addr_t * first_operand,
-				    addr_t * second_operand, 
-				    reg_size_t reg_size) {
-
+static inline operand_type_t decode_operands32(struct guest_gprs * gprs, // input/output
+					       char * modrm_instr,       // input
+					       int * offset,             // output
+					       addr_t * first_operand,   // output
+					       addr_t * second_operand,  // output
+					       reg_size_t reg_size) {    // input
+  
   char * instr_cursor = modrm_instr;
   struct modrm_byte * modrm = (struct modrm_byte *)modrm_instr;
   addr_t base_addr = 0;
   modrm_mode_t mod_mode = 0;
   uint_t has_sib_byte = 0;
   operand_type_t addr_type = INVALID_OPERAND;
+
+
+
+  instr_cursor += 1;
 
   if (modrm->mod == 3) {
     mod_mode = REG;
@@ -340,6 +354,8 @@ static inline operand_type_t decode_operands32(struct guest_gprs * gprs,
       instr_cursor += 1;
       struct sib_byte * sib = (struct sib_byte *)(instr_cursor);
       int scale = 1;
+
+      instr_cursor += 1;
 
 
       if (sib->scale == 1) {
@@ -412,17 +428,20 @@ static inline operand_type_t decode_operands32(struct guest_gprs * gprs,
 
     } 
 
-    instr_cursor += 1;
 
     if (mod_mode == DISP8) {
       base_addr += (uchar_t)*(instr_cursor);
+      instr_cursor += 1;
     } else if (mod_mode == DISP32) {
       base_addr += (uint_t)*(instr_cursor);
+      instr_cursor += 4;
     }
     
 
     *first_operand = base_addr;
   }
+
+  *offset += (instr_cursor - modrm_instr);
 
   *second_operand = decode_register(gprs, modrm->reg, reg_size);
 
