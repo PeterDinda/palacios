@@ -288,7 +288,7 @@ int read_guest_va_memory(struct guest_info * guest_info, addr_t guest_va, int co
     addr_t host_addr;
 
     if (guest_va_to_host_va(guest_info, cursor, &host_addr) != 0) {
-      return -1;
+      return bytes_read;
     }
 
     memcpy(dest + bytes_read, (void*)host_addr, bytes_to_copy);
@@ -298,7 +298,7 @@ int read_guest_va_memory(struct guest_info * guest_info, addr_t guest_va, int co
     cursor += bytes_to_copy;    
   }
 
-  return 0;
+  return bytes_read;
 }
 
 
@@ -319,7 +319,7 @@ int read_guest_pa_memory(struct guest_info * guest_info, addr_t guest_pa, int co
     addr_t host_addr;
 
     if (guest_pa_to_host_va(guest_info, cursor, &host_addr) != 0) {
-      return -1;
+      return bytes_read;
     }
 
     memcpy(dest + bytes_read, (void*)host_addr, bytes_to_copy);
@@ -329,7 +329,7 @@ int read_guest_pa_memory(struct guest_info * guest_info, addr_t guest_pa, int co
     cursor += bytes_to_copy;    
   }
 
-  return 0;
+  return bytes_read;
 }
 
 
@@ -348,7 +348,7 @@ int write_guest_pa_memory(struct guest_info * guest_info, addr_t guest_pa, int c
     addr_t host_addr;
 
     if (guest_pa_to_host_va(guest_info, cursor, &host_addr) != 0) {
-      return -1;
+      return bytes_written;
     }
 
     memcpy((void*)host_addr, src + bytes_written, bytes_to_copy);
@@ -358,6 +358,6 @@ int write_guest_pa_memory(struct guest_info * guest_info, addr_t guest_pa, int c
     cursor += bytes_to_copy;    
   }
 
-  return 0;
+  return bytes_written;
 }
 

@@ -111,7 +111,6 @@ int init_svm_guest(struct guest_info *info) {
   //info->page_tables = generate_guest_page_tables(&(info->mem_layout), &(info->mem_list));
   //PrintDebugPageTables(info->page_tables);
 
-  
 
   PrintDebug("Initializing VMCB (addr=%x)\n", info->vmm_data);
   Init_VMCB((vmcb_t*)(info->vmm_data), *info);
@@ -261,9 +260,6 @@ void Init_VMCB_Real(vmcb_t * vmcb, struct guest_info vm_info) {
       PrintDebug("Setting Bit in block %x\n", bitmap);
       *bitmap |= 1 << (port % 8);
     }
-
-    //    memset((uchar_t*)io_port_bitmap, 0xff, PAGE_SIZE * 2);
-    //PrintDebugMemDump((uchar_t*)io_port_bitmap, PAGE_SIZE *2);
 
     ctrl_area->instrs.instrs.IOIO_PROT = 1;
   }

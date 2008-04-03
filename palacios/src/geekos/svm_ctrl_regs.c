@@ -13,8 +13,6 @@ int handle_cr0_write(struct guest_info * info) {
   char instr[15];
   
   
-
-
   if (info->cpu_mode == REAL) {
     int index = 0;
     int ret;
@@ -28,11 +26,8 @@ int handle_cr0_write(struct guest_info * info) {
     }
 
     while (is_prefix_byte(instr[index])) {
-      PrintDebug("instr(%d): 0x%x\n", index, instr[index]);
       index++; 
     }
-    PrintDebug("instr(%d): 0x%x\n", index, instr[index]);
-    PrintDebug("instr(%d): 0x%x\n", index+1, instr[index + 1]);
 
     if ((instr[index] == cr_access_byte) && 
 	(instr[index + 1] == lmsw_byte) && 

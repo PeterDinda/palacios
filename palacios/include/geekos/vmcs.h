@@ -350,10 +350,9 @@ union SegAccess {
 
 struct VMCSSegment {
   ushort_t selector   ; 
-  uint_t baseAddr     ; // should be 64 bits?
+  union SegAccess access;
   uint_t limit        ; 
-  union SegAccess access       ;
-
+  uint_t baseAddr     ; // should be 64 bits?
 };
 
 
