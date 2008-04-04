@@ -12,9 +12,9 @@ struct svm_io_info {
   uint_t sz8         : 1       PACKED;  // 8 bit op size
   uint_t sz16        : 1       PACKED;  // 16 bit op size
   uint_t sz32        : 1       PACKED;  // 32 bit op size
-  uint_t A16         : 1       PACKED;  // 16 bit addr
-  uint_t A32         : 1       PACKED;  // 32 bit addr
-  uint_t A64         : 1       PACKED;  // 64 bit addr
+  uint_t addr16      : 1       PACKED;  // 16 bit addr
+  uint_t addr32      : 1       PACKED;  // 32 bit addr
+  uint_t addr64      : 1       PACKED;  // 64 bit addr
   uint_t rsvd2       : 6       PACKED;  // Should be Zero
   ushort_t port                PACKED;  // port number
 };

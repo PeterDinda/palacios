@@ -115,4 +115,33 @@ struct cr4_64 {
   uint_t rsvd2             : 32;
 };
 
+
+
+struct rflags {
+  uint_t cf                : 1;  // carry flag
+  uint_t rsvd1             : 1;  // Must be 1
+  uint_t pf                : 1;  // parity flag
+  uint_t rsvd2             : 1;  // Read as 0
+  uint_t af                : 1;  // Auxillary flag
+  uint_t rsvd3             : 1;  // Read as 0
+  uint_t zf                : 1;  // zero flag
+  uint_t sf                : 1;  // sign flag
+  uint_t tf                : 1;  // trap flag
+  uint_t intr              : 1;  // interrupt flag
+  uint_t df                : 1;  // direction flag
+  uint_t of                : 1;  // overflow flag
+  uint_t iopl              : 2;  // IO privilege level
+  uint_t nt                : 1;  // nested task
+  uint_t rsvd4             : 1;  // read as 0
+  uint_t rf                : 1;  // resume flag
+  uint_t vm                : 1;  // Virtual-8086 mode
+  uint_t ac                : 1;  // alignment check
+  uint_t vif               : 1;  // virtual interrupt flag
+  uint_t vip               : 1;  // virtual interrupt pending
+  uint_t id                : 1;  // ID flag
+  uint_t rsvd5             : 10; // Read as 0
+  uint_t rsvd6             : 32; // Read as 0
+};
+
+
 #endif

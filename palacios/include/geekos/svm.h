@@ -68,6 +68,8 @@ int init_svm_guest(struct guest_info *info);
 int start_svm_guest(struct guest_info * info);
 
 
+inline addr_t get_rip_linear(struct guest_info * info, addr_t rip, addr_t cs_base);
+
 
 
 #endif

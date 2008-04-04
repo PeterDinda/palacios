@@ -3,7 +3,7 @@
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
  * Copyright (c) 2004, Iulian Neamtiu <neamtiu@cs.umd.edu>
- * $Revision: 1.29 $
+ * $Revision: 1.30 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -88,7 +88,7 @@ inline uchar_t MyIn_Byte(ushort_t port)
 
 
 
-int IO_Read(ushort_t port, void * dst, uint_t length, uint_t io_width) {
+int IO_Read(ushort_t port, void * dst, uint_t length) {
   uchar_t * iter = dst;
   uint_t i;
 
@@ -102,7 +102,7 @@ int IO_Read(ushort_t port, void * dst, uint_t length, uint_t io_width) {
 
 
 
-int IO_Write(ushort_t port, void * src, uint_t length, uint_t io_width) {
+int IO_Write(ushort_t port, void * src, uint_t length) {
   uchar_t * iter = src;
   uint_t i;
 
@@ -117,9 +117,24 @@ int IO_Write(ushort_t port, void * src, uint_t length, uint_t io_width) {
 
 
 
-int IO_Write_to_Serial(ushort_t port, void * src, uint_t length, uint_t io_width) {
-  SerialPrint("Output from Guest on port %d (0x%x) Length=%d\n", port, port, length);
-  SerialMemDump(src, length);
+int IO_Write_to_Serial(ushort_t port, void * src, uint_t length) {
+  PrintBoth("Output from Guest on port %d (0x%x) Length=%d\n", port, port, length);
+  switch (length) {
+
+  case 1:
+    PrintBoth(">0x%.2x\n", *(char*)src);
+    break;
+  case 2:
+    PrintBoth(">0x%.4x\n", *(ushort_t*)src);
+    break;
+  case 4:
+    PrintBoth(">0x%.8x\n", *(uint_t*)src);
+    break;
+  default:
+    break;
+  }
+
+  //  SerialMemDump(src, length);
   return length;
 }
 

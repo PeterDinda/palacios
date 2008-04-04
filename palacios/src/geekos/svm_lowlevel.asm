@@ -173,7 +173,8 @@ safe_svm_launch:
 
 ;;	mov	eax, [esp + 4]    		;; mov guest GPR pointer to eax
 
-	Restore_SVM_Registers [esp + 4] 	;; Restore Guest GPR state
+	;; this is plus 8 because we push eax in the macro
+	Restore_SVM_Registers [esp + 8] 	;; Restore Guest GPR state
 	pop	eax    		           	;; pop VMCB pointer into eax
 
 	vmload
@@ -181,7 +182,8 @@ safe_svm_launch:
 	vmsave
 
 ;;	pop	eax		  		;; pop Guest GPR pointer into eax
-	Save_SVM_Registers  [esp]    		;; save guest GPRs
+	;; this is plus 4 because we push eax in the macro NEED TO CHANGE
+	Save_SVM_Registers  [esp+4]    		;; save guest GPRs
 	
 	add	esp, 4				;; skip past the gpr ptr
 	

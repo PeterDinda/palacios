@@ -150,6 +150,21 @@ static inline int is_prefix_byte(char byte) {
 
 
 
+static inline addr_t get_rip_linear(struct guest_info * info, addr_t rip, addr_t cs_base) {
+  switch (info->cpu_mode) {
+  case REAL:
+    return rip + (cs_base << 4);
+    break;
+  case PROTECTED:
+  case PROTECTED_PG:
+    return rip + cs_base;
+    break;
+  default:
+    return 0;
+  }
+}
+
+
 typedef enum {INVALID_ADDR_TYPE, REG, DISP0, DISP8, DISP16, DISP32} modrm_mode_t;
 typedef enum {INVALID_REG_SIZE, REG64, REG32, REG16, REG8} reg_size_t;
 typedef enum {INVALID_OPERAND, REG_OPERAND, MEM_OPERAND} operand_type_t;
