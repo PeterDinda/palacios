@@ -6,35 +6,7 @@
 /*
  * This is where we do the hideous X86 instruction parsing among other things
  * We can parse out the instruction prefixes, as well as decode the operands 
- *
- * Before we begin I'd just like to say a few words to those that made this possible...
- *
- *
- *				     _____
- *				    ||	 ||
- *				    |\___/|
- *				    |	  |
- *				    |	  |
- *				    |	  |
- *				    |	  |
- *				    |	  |
- *				    |	  |
- *			       _____|<--->|_____
- *			   ___/     |	  |	 \
- *			 /    |     |	  |	| \
- *			 |    |     |	  |	|  |
- *			 |    |     |	  |	|  |
- *			 |			|  |
- *			 |			|  |
- *			 |    Fuck You Intel!	  /
- *			 |			 /
- *			  \		       /
- *			   \		      /
- *			    |		      |
- *			    |		      |
- *
- * That is all.
- *
+
  */
 
 
