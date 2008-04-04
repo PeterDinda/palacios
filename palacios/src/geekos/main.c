@@ -3,7 +3,7 @@
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
  * Copyright (c) 2004, Iulian Neamtiu <neamtiu@cs.umd.edu>
- * $Revision: 1.28 $
+ * $Revision: 1.29 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -88,7 +88,7 @@ inline uchar_t MyIn_Byte(ushort_t port)
 
 
 
-int IO_Read(ushort_t port, void * dst, uint_t length) {
+int IO_Read(ushort_t port, void * dst, uint_t length, uint_t io_width) {
   uchar_t * iter = dst;
   uint_t i;
 
@@ -102,7 +102,7 @@ int IO_Read(ushort_t port, void * dst, uint_t length) {
 
 
 
-int IO_Write(ushort_t port, void * src, uint_t length) {
+int IO_Write(ushort_t port, void * src, uint_t length, uint_t io_width) {
   uchar_t * iter = src;
   uint_t i;
 
@@ -113,6 +113,14 @@ int IO_Write(ushort_t port, void * src, uint_t length) {
   }
 
   return 0;
+}
+
+
+
+int IO_Write_to_Serial(ushort_t port, void * src, uint_t length, uint_t io_width) {
+  SerialPrint("Output from Guest on port %d (0x%x) Length=%d\n", port, port, length);
+  SerialMemDump(src, length);
+  return length;
 }
 
 
@@ -342,7 +350,7 @@ void Main(struct Boot_Info* bootInfo)
       add_shadow_region(&(vm_info.mem_map),ent);
 
       hook_io_port(&(vm_info.io_map), 0x61, &IO_Read, &IO_Write);
-      hook_io_port(&(vm_info.io_map), 0x05, &IO_Read, &IO_Write);
+      hook_io_port(&(vm_info.io_map), 0x05, &IO_Read, &IO_Write_to_Serial);
       
       /*
       vm_info.cr0 = 0;

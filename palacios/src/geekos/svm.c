@@ -176,13 +176,9 @@ void Init_VMCB_Real(vmcb_t * vmcb, struct guest_info vm_info) {
   guest_state->rip = vm_info.rip;
 
 
-
-
-
   guest_state->efer |= EFER_MSR_svm_enable;
   guest_state->rflags = 0x00000002; // The reserved bit is always 1
   ctrl_area->svm_instrs.instrs.VMRUN = 1;
-  // guest_state->cr0 = 0x00000001;    // PE 
   ctrl_area->guest_ASID = 1;
   guest_state->cr0 = 0x60000010;
 
@@ -286,6 +282,7 @@ void Init_VMCB_Real(vmcb_t * vmcb, struct guest_info vm_info) {
 	
     guest_state->g_pat = 0x7040600070406ULL;
 
+    vm_info.shdw_pg_state.guest_cr0.e_reg.low = guest_state->cr0;
     guest_state->cr0 |= 0x80000000;
   } else if (vm_info.page_mode == NESTED_PAGING) {
     // Flush the TLB on entries/exits

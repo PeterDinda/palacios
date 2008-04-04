@@ -7,6 +7,13 @@
 #include <geekos/vmm_ctrl_regs.h>
 
 
+/* Segmentation is a problem here...
+ *
+ * When we get a memory operand, presumably we use the default segment (which is?) 
+ * unless an alternate segment was specfied in the prefix...
+ */
+
+
 int handle_cr0_write(struct guest_info * info) {
   //vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA((vmcb_t *)(info->vmm_data));
   vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
@@ -18,7 +25,7 @@ int handle_cr0_write(struct guest_info * info) {
     int ret;
 
     // The real rip address is actually a combination of the rip + CS base 
-    ret = read_guest_pa_memory(info, (addr_t)guest_state->rip, 15, instr);
+    ret = read_guest_pa_memory(info, (addr_t)guest_state->rip + (guest_state->cs.base << 4), 15, instr);
     if (ret != 15) {
       // I think we should inject a GPF into the guest
       PrintDebug("Could not read instruction (ret=%d)\n", ret);
@@ -54,7 +61,7 @@ int handle_cr0_write(struct guest_info * info) {
       } else if (addr_type == MEM_OPERAND) {
 	addr_t host_addr;
 
-	if (guest_pa_to_host_va(info, first_operand, &host_addr) == -1) {
+	if (guest_pa_to_host_va(info, first_operand + (guest_state->ds.base << 4), &host_addr) == -1) {
 	  // gpf the guest
 	  return -1;
 	}
@@ -110,7 +117,7 @@ int handle_cr0_write(struct guest_info * info) {
     PrintDebug("Protected Mode write to CR0\n");
 
     // The real rip address is actually a combination of the rip + CS base 
-    ret = read_guest_pa_memory(info, (addr_t)guest_state->rip, 15, instr);
+    ret = read_guest_pa_memory(info, (addr_t)guest_state->rip + guest_state->cs.base, 15, instr);
     if (ret != 0) {
       // I think we should inject a GPF into the guest
       PrintDebug("Could not read instruction (ret=%d)\n", ret);
@@ -142,7 +149,7 @@ int handle_cr0_write(struct guest_info * info) {
       } else if (addr_type == MEM_OPERAND) {
 	addr_t host_addr;
 
-	if (guest_pa_to_host_va(info, first_operand, &host_addr) == -1) {
+	if (guest_pa_to_host_va(info, first_operand + guest_state->ds.base, &host_addr) == -1) {
 	  // gpf the guest
 	  return -1;
 	}
@@ -191,7 +198,7 @@ int handle_cr0_read(struct guest_info * info) {
     int ret;
 
     // The real rip address is actually a combination of the rip + CS base 
-    ret = read_guest_pa_memory(info, (addr_t)guest_state->rip, 15, instr);
+    ret = read_guest_pa_memory(info, (addr_t)guest_state->rip + (guest_state->cs.base << 4), 15, instr);
     if (ret != 15) {
       // I think we should inject a GPF into the guest
       PrintDebug("Could not read instruction (ret=%d)\n", ret);
@@ -222,7 +229,7 @@ int handle_cr0_read(struct guest_info * info) {
       if (addr_type == MEM_OPERAND) {
 	addr_t host_addr;
 	
-	if (guest_pa_to_host_va(info, first_operand, &host_addr) == -1) {
+	if (guest_pa_to_host_va(info, first_operand + (guest_state->ds.base << 4), &host_addr) == -1) {
 	  // gpf the guest
 	  return -1;
 	}
@@ -242,6 +249,23 @@ int handle_cr0_read(struct guest_info * info) {
       info->rip += index;
 
     }
+
+  } else if (info->cpu_mode == PROTECTED) {
+    int index = 0;
+    int ret;
+
+    // The real rip address is actually a combination of the rip + CS base 
+    ret = read_guest_pa_memory(info, (addr_t)guest_state->rip + guest_state->cs.base, 15, instr);
+    if (ret != 15) {
+      // I think we should inject a GPF into the guest
+      PrintDebug("Could not read instruction (ret=%d)\n", ret);
+      return -1;
+    }
+
+    while (is_prefix_byte(instr[index])) {
+      index++; 
+    }
+
 
   }
 
