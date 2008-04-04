@@ -25,7 +25,7 @@ int handle_cr0_write(struct guest_info * info) {
     int ret;
 
     // The real rip address is actually a combination of the rip + CS base 
-    ret = read_guest_pa_memory(info, get_rip_linear(info, guest_state->rip, guest_state->cs.base), 15, instr);
+    ret = read_guest_pa_memory(info, get_addr_linear(info, guest_state->rip, guest_state->cs.base), 15, instr);
     if (ret != 15) {
       // I think we should inject a GPF into the guest
       PrintDebug("Could not read instruction (ret=%d)\n", ret);
@@ -117,7 +117,7 @@ int handle_cr0_write(struct guest_info * info) {
     PrintDebug("Protected Mode write to CR0\n");
 
     // The real rip address is actually a combination of the rip + CS base 
-    ret = read_guest_pa_memory(info, get_rip_linear(info, guest_state->rip, guest_state->cs.base), 15, instr);
+    ret = read_guest_pa_memory(info, get_addr_linear(info, guest_state->rip, guest_state->cs.base), 15, instr);
     if (ret != 0) {
       // I think we should inject a GPF into the guest
       PrintDebug("Could not read instruction (ret=%d)\n", ret);
@@ -200,7 +200,7 @@ int handle_cr0_read(struct guest_info * info) {
     int ret;
 
     // The real rip address is actually a combination of the rip + CS base 
-    ret = read_guest_pa_memory(info, get_rip_linear(info, guest_state->rip, guest_state->cs.base), 15, instr);
+    ret = read_guest_pa_memory(info, get_addr_linear(info, guest_state->rip, guest_state->cs.base), 15, instr);
     if (ret != 15) {
       // I think we should inject a GPF into the guest
       PrintDebug("Could not read instruction (ret=%d)\n", ret);
@@ -257,7 +257,7 @@ int handle_cr0_read(struct guest_info * info) {
     int ret;
 
     // The real rip address is actually a combination of the rip + CS base 
-    ret = read_guest_pa_memory(info, get_rip_linear(info, guest_state->rip, guest_state->cs.base), 15, instr);
+    ret = read_guest_pa_memory(info, get_addr_linear(info, guest_state->rip, guest_state->cs.base), 15, instr);
     if (ret != 15) {
       // I think we should inject a GPF into the guest
       PrintDebug("Could not read instruction (ret=%d)\n", ret);

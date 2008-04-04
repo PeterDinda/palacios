@@ -150,14 +150,14 @@ static inline int is_prefix_byte(char byte) {
 
 
 
-static inline addr_t get_rip_linear(struct guest_info * info, addr_t rip, addr_t cs_base) {
+static inline addr_t get_addr_linear(struct guest_info * info, addr_t addr, addr_t seg_base) {
   switch (info->cpu_mode) {
   case REAL:
-    return rip + (cs_base << 4);
+    return addr + (seg_base << 4);
     break;
   case PROTECTED:
   case PROTECTED_PG:
-    return rip + cs_base;
+    return addr + seg_base;
     break;
   default:
     return 0;
