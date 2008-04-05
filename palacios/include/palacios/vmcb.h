@@ -1,7 +1,7 @@
 #ifndef __VMCB_H
 #define __VMCB_H
 
-#include <geekos/ktypes.h>
+#include <palacios/vmm_types.h>
 
 
 #define VMCB_CTRL_AREA_OFFSET                   0x0

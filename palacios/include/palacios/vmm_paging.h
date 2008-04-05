@@ -2,12 +2,12 @@
 #define __VMM_PAGING_H
 
 
-#include <geekos/ktypes.h>
+#include <palacios/vmm_types.h>
 
 
 
-#include <geekos/vmm_mem.h>
-#include <geekos/vmm_util.h>
+#include <palacios/vmm_mem.h>
+#include <palacios/vmm_util.h>
 
 /*
 

@@ -1,8 +1,8 @@
 #ifndef __VMX_H
 #define __VMX_H
 
-#include <geekos/ktypes.h>
-#include <geekos/vmcs.h>
+#include <palacios/vmm_types.h>
+#include <palacios/vmcs.h>
 
 #define IA32_FEATURE_CONTROL_MSR ((unsigned int)0x3a)
 #define IA32_VMX_BASIC_MSR ((unsigned int)0x480)

@@ -1,8 +1,8 @@
 #ifndef __SVM_HANDLER_H
 #define __SVM_HANDLER_H
-#include <geekos/svm.h>
-#include <geekos/vmcb.h>
-#include <geekos/vmm.h>
+#include <palacios/svm.h>
+#include <palacios/vmcb.h>
+#include <palacios/vmm.h>
 
 
 

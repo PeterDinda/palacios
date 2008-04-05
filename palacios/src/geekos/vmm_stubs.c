@@ -36,8 +36,8 @@ void Free_VMM_Page(void * page) {
 }
 
 
-void * VMM_Malloc(uint_t size) {
-  return Malloc((ulong_t) size);
+void * VMM_Malloc(unsigned int size) {
+  return Malloc((unsigned long) size);
 }
 
 

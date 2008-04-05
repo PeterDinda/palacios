@@ -1,7 +1,7 @@
 #ifndef __VMM_UTIL_H
 #define __VMM_UTIL_H
 
-#include <geekos/ktypes.h>
+#include <palacios/vmm_types.h>
 
 
 #ifndef PAGE_SIZE

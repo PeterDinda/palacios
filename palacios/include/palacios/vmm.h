@@ -2,13 +2,13 @@
 #define __VMM_H
 
 
-#include <geekos/ktypes.h>
-#include <geekos/string.h>
+//#include <palacios/vmm_types.h>
+#include <palacios/vmm_string.h>
 
-#include <geekos/vmm_mem.h>
-//#include <geekos/vmm_paging.h>
+#include <palacios/vmm_mem.h>
+//#include <palacios/vmm_paging.h>
 
-#include <geekos/vm_guest.h>
+#include <palacios/vm_guest.h>
 
 /* utility definitions */
 #define PrintDebug(fmt, args...)			\
@@ -84,7 +84,7 @@ struct vmm_os_hooks {
   void *(*allocate_pages)(int numPages);
   void (*free_page)(void * page);
 
-  void *(*malloc)(uint_t size);
+  void *(*malloc)(unsigned int size);
   void (*free)(void * addr);
 
   void *(*paddr_to_vaddr)(void *addr);

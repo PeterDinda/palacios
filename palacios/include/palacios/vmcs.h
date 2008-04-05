@@ -1,7 +1,7 @@
 #ifndef __VMCS_H
 #define __VMCS_H
 
-#include <geekos/ktypes.h>
+#include <palacios/vmm_types.h>
 
 
 /* 16 bit guest state */
@@ -576,6 +576,6 @@ extern uint_t VMCS_READ();
 //uint_t VMCSRead(uint_t tag, void * val);
 
 
-#include <geekos/vmcs_gen.h>
+#include <palacios/vmcs_gen.h>
 
 #endif 

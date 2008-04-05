@@ -1,6 +1,6 @@
 # Makefile for GeekOS kernel, userspace, and tools
 # Copyright (c) 2004,2005 David H. Hovemeyer <daveho@cs.umd.edu>
-# $Revision: 1.21 $
+# $Revision: 1.22 $
 
 # This is free software.  You are permitted to use,
 # redistribute, and modify it as specified in the file "COPYING".
@@ -84,18 +84,15 @@ KERNEL_C_SRCS := idt.c int.c trap.c irq.c io.c \
 	bget.c malloc.c \
 	synch.c kthread.c \
 	serial.c  reboot.c \
-        paging.c  vm_guest.c \
-	 svm.c svm_handler.c vmm.c vmm_util.c vmm_stubs.c svm_ctrl_regs.c \
-	vmcb.c vmm_mem.c vmm_paging.c vmm_io.c vmm_debug.c svm_io.c \
-	vmm_shadow_paging.c vm_guest_mem.c \
-	debug.c  vmx.c vmcs_gen.c vmcs.c\
+        paging.c \
+	debug.c vmm_stubs.c  vm.c\
 	main.c
 
 # Kernel object files built from C source files
 KERNEL_C_OBJS := $(KERNEL_C_SRCS:%.c=geekos/%.o)
 
 # Kernel assembly files
-KERNEL_ASM_SRCS := lowlevel.asm vmx_lowlevel.asm svm_lowlevel.asm
+KERNEL_ASM_SRCS := lowlevel.asm
 
 KERNEL_GAS_SRCS := testvm.s
 
@@ -118,6 +115,21 @@ COMMON_C_SRCS := fmtout.c string.c memmove.c
 # Common library object files.
 COMMON_C_OBJS := $(COMMON_C_SRCS:%.c=common/%.o)
 
+VMM_ASM_SRCS :=  svm_lowlevel.asm \
+#			vmx_lowlevel.asm
+
+VMM_ASM_OBJS := $(VMM_ASM_SRCS:%.asm=palacios/%.o)
+
+
+VMM_C_SRCS :=   vm_guest.c \
+	 	svm.c svm_handler.c vmm.c vmm_util.c svm_ctrl_regs.c \
+		vmcb.c vmm_mem.c vmm_paging.c vmm_io.c vmm_debug.c svm_io.c \
+		vmm_shadow_paging.c vm_guest_mem.c #\
+#		vmx.c vmcs_gen.c vmcs.c
+
+VMM_C_OBJS := $(VMM_C_SRCS:%.c=palacios/%.o)
+
+VMM_OBJS := $(VMM_C_OBJS) $(VMM_ASM_OBJS)
 
 
 
@@ -189,6 +201,12 @@ CC_GENERAL_OPTS := $(GENERAL_OPTS) -Werror
 # Flags used for kernel C source files
 CC_KERNEL_OPTS := -g -DGEEKOS -I$(PROJECT_ROOT)/include
 
+# Flags used for VMM C source files
+CC_VMM_OPTS := -g -I$(PROJECT_ROOT)/include
+
+# Flags used for VMM C ASM files
+NASM_VMM_OPTS := -I$(PROJECT_ROOT)/src/palacios/ -f elf $(EXTRA_NASM_OPTS)
+
 # Flags user for kernel assembly files
 NASM_KERNEL_OPTS := -I$(PROJECT_ROOT)/src/geekos/ -f elf $(EXTRA_NASM_OPTS)
 
@@ -225,6 +243,12 @@ geekos/%.o : geekos/%.S
 common/%.o : common/%.c
 	$(TARGET_CC) -c $(CC_GENERAL_OPTS) $(CC_USER_OPTS) $< -o common/$*.o
 
+palacios/%.o : palacios/%.c
+	$(TARGET_CC) -c $(CC_GENERAL_OPTS) $(CC_VMM_OPTS) $< -o palacios/$*.o
+
+palacios/%.o : palacios/%.asm
+	$(NASM) $(NASM_VMM_OPTS) $< -o palacios/$*.o
+
 # ----------------------------------------------------------------------
 # Targets -
 #   Specifies files to be built
@@ -234,16 +258,16 @@ common/%.o : common/%.c
 all : $(ALL_TARGETS)
 
 
-geekos/vmx_lowlevel.o: $(PROJECT_ROOT)/src/geekos/vmx_lowlevel.asm
-	$(NASM) -O99 \
-	-f elf \
-		-I$(PROJECT_ROOT)/src/geekos/ \
-		$(PROJECT_ROOT)/src/geekos/vmx_lowlevel.asm \
-	-o $@
+#geekos/vmx_lowlevel.o: $(PROJECT_ROOT)/src/geekos/vmx_lowlevel.asm
+#	$(NASM) -O99 \
+#	-f elf \
+#		-I$(PROJECT_ROOT)/src/geekos/ \
+#		$(PROJECT_ROOT)/src/geekos/vmx_lowlevel.asm \
+#	-o $@
 
 
-geekos/test: geekos/test.o geekos/vmcs.o geekos/vmx_lowlevel.o 
-	$(CC) geekos/test.o geekos/vmcs.o geekos/vmx_lowlevel.o  -o geekos/test
+#geekos/test: geekos/test.o geekos/vmcs.o geekos/vmx_lowlevel.o 
+#	$(CC) geekos/test.o geekos/vmcs.o geekos/vmx_lowlevel.o  -o geekos/test
 
 # Standard floppy image - just boots the kernel
 fd.img : geekos/fd_boot.bin geekos/setup.bin geekos/kernel.bin vm_kernel
@@ -285,9 +309,9 @@ geekos/kernel.bin : geekos/kernel.exe
 	$(PAD) $@ 512
 
 # The kernel executable and symbol map.
-geekos/kernel.exe : $(KERNEL_OBJS) $(COMMON_C_OBJS)
+geekos/kernel.exe : $(KERNEL_OBJS) $(COMMON_C_OBJS) $(VMM_OBJS)
 	$(TARGET_LD) -o geekos/kernel.exe -Ttext $(KERNEL_BASE_ADDR) -e $(KERNEL_ENTRY) \
-		$(KERNEL_OBJS) $(COMMON_C_OBJS)
+		$(KERNEL_OBJS) $(COMMON_C_OBJS) $(VMM_OBJS)
 	$(TARGET_NM) geekos/kernel.exe > geekos/kernel.syms
 
 
@@ -300,13 +324,10 @@ vm_kernel: force
 
 
 
-vmm_mem_test: geekos/vmm_mem.c
-	$(HOST_CC) -m32 -o mem_test -DVMM_MEM_TEST -I../include ../src/geekos/vmm_mem.c 
-
 
 # Clean build directories of generated files
 clean :
-	for d in geekos common libc user tools; do \
+	for d in geekos common libc user tools palacios; do \
 		(cd $$d && rm -f *); \
 	done
 
@@ -321,6 +342,10 @@ depend : $(GENERATED_LIBC_SRCS)
 	$(TARGET_CC) -M $(CC_GENERAL_OPTS) $(CC_USER_OPTS) \
 		$(COMMON_C_SRCS:%.c=$(PROJECT_ROOT)/src/common/%.c) \
 		| $(PERL) -n -e 's,^(\S),common/$$1,;print' \
+		>> depend.mak
+	$(TARGET_CC) -M $(CC_GENERAL_OPTS) $(CC_KERNEL_OPTS) \
+		$(VMM_C_SRCS:%.c=$(PROJECT_ROOT)/src/palacios/%.c) \
+		| $(PERL) -n -e 's,^(\S),palacios/$$1,;print' \
 		>> depend.mak
 
 # By default, there are no header file dependencies.

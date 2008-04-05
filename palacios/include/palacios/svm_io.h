@@ -1,8 +1,8 @@
 #ifndef __SVM_IO_H
 #define __SVM_IO_H
-#include <geekos/vm_guest.h>
-#include <geekos/vmcb.h>
-#include <geekos/vmm.h>
+#include <palacios/vm_guest.h>
+#include <palacios/vmcb.h>
+#include <palacios/vmm.h>
 
 struct svm_io_info {
   uint_t type        : 1       PACKED;  // (0=out, 1=in)

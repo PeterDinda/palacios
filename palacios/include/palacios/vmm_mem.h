@@ -2,7 +2,7 @@
 #define __VMM_MEM_H
 
 
-#include <geekos/ktypes.h>
+#include <palacios/vmm_types.h>
 
 typedef ulong_t addr_t;
 

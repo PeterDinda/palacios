@@ -1,8 +1,8 @@
 #ifndef __VM_GUEST_MEM_H
 #define __VM_GUEST_MEM_H
 
-#include <geekos/vm_guest.h>
-#include <geekos/vmm_mem.h>
+#include <palacios/vm_guest.h>
+#include <palacios/vmm_mem.h>
 
 
 /* These functions are ordered such that they can only call the functions defined in a lower order group */

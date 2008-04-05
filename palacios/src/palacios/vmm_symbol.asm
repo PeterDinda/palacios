@@ -1,6 +1,6 @@
 ; Symbol mangling macros
 ; Copyright (c) 2001, David H. Hovemeyer <daveho@cs.umd.edu>
-; $Revision: 1.2 $
+; $Revision: 1.1 $
 
 ; This file defines macros for dealing with externally-visible
 ; symbols that must be mangled for some object file formats.

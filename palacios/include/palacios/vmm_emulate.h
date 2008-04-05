@@ -1,6 +1,6 @@
 #ifndef __VMM_EMULATE_H
 #define __VMM_EMULATE_H
-#include <geekos/vm_guest.h>
+#include <palacios/vm_guest.h>
 
 
 /*

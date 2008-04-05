@@ -1,10 +1,10 @@
 #ifndef __VM_GUEST_H
 #define __VM_GUEST_H
 
-#include <geekos/vmm_mem.h>
-#include <geekos/ktypes.h>
-#include <geekos/vmm_io.h>
-#include <geekos/vmm_shadow_paging.h>
+#include <palacios/vmm_mem.h>
+#include <palacios/vmm_types.h>
+#include <palacios/vmm_io.h>
+#include <palacios/vmm_shadow_paging.h>
 
 
 typedef ullong_t gpr_t;

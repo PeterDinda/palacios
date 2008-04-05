@@ -1,9 +1,9 @@
 #ifndef __VMM_IO_H
 #define __VMM_IO_H
 
-#include <geekos/ktypes.h>
+#include <palacios/vmm_types.h>
 
-#include <geekos/vmm_util.h>
+#include <palacios/vmm_util.h>
 
 // FOREACH_IO_HOOK(vmm_io_map_t * io_map, vmm_io_hook_t * io_hook)
 #define FOREACH_IO_HOOK(io_map, io_hook) for (io_hook = (io_map).head; io_hook != NULL; io_hook = (io_hook)->next)

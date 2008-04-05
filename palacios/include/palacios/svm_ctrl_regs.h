@@ -1,8 +1,8 @@
 #ifndef __SVM_CTRL_REGS_H
 #define __SVM_CTRL_REGS_H
 
-#include <geekos/vm_guest.h>
-#include <geekos/vmm_util.h>
+#include <palacios/vm_guest.h>
+#include <palacios/vmm_util.h>
 
 
 // First opcode byte

@@ -3,11 +3,11 @@
 
 
 
-#include <geekos/vmm_util.h>
+#include <palacios/vmm_util.h>
 
 
 
-#include <geekos/vmm_paging.h>
+#include <palacios/vmm_paging.h>
 
 struct shadow_page_state {
 

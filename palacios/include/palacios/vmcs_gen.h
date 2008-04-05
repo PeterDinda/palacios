@@ -1,7 +1,7 @@
 #ifndef vmcs_gen
 #define vmcs_gen
-#include <geekos/vmcs.h>
-#include <geekos/vmm.h>
+#include <palacios/vmcs.h>
+#include <palacios/vmm.h>
 
 void    Set_VMCS_GUEST_ES_SELECTOR(uint_t val);
 uint_t  Get_VMCS_GUEST_ES_SELECTOR();
