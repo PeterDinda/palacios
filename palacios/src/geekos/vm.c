@@ -83,7 +83,7 @@ int IO_BOCHS_debug(ushort_t port, void * src, uint_t length) {
 
   bochs_debug_buf[bochs_debug_offset++] = *(char*)src;
 
-  if ((*(char*)src == '\n') ||  (bochs_debug_offset == 1023)) {
+  if ((*(char*)src == 0xa) ||  (bochs_debug_offset == 1023)) {
     SerialPrint("BOCHS>%s", bochs_debug_buf);
     memset(bochs_debug_buf, 0, 1024);
     bochs_debug_offset = 0;

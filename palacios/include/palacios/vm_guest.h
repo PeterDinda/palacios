@@ -5,7 +5,7 @@
 #include <palacios/vmm_types.h>
 #include <palacios/vmm_io.h>
 #include <palacios/vmm_shadow_paging.h>
-
+#include <palacios/vmm_intr.h>
 
 typedef ullong_t gpr_t;
 
@@ -50,6 +50,9 @@ struct guest_info {
   struct shadow_page_state shdw_pg_state;
   // nested_paging_t nested_page_state;
 
+
+  // This structure is how we get interrupts for the guest
+  struct vm_intr intr_state;
 
   vmm_io_map_t io_map;
   // device_map

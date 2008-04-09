@@ -12,80 +12,80 @@ void PrintDebugVMCB(vmcb_t * vmcb) {
   PrintDebug("VMCB (0x%.8x)\n", vmcb);
 
   PrintDebug("--Control Area--\n");
-  PrintDebug("CR Reads: %x\n", ctrl_area->cr_reads.bitmap);
-  PrintDebug("CR Writes: %x\n", ctrl_area->cr_writes.bitmap);
-  PrintDebug("DR Reads: %x\n", ctrl_area->dr_reads.bitmap);
-  PrintDebug("DR Writes: %x\n", ctrl_area->dr_writes.bitmap);
+  PrintDebug("CR Reads: %x\n", *(ushort_t*)&(ctrl_area->cr_reads));
+  PrintDebug("CR Writes: %x\n", *(ushort_t*)&(ctrl_area->cr_writes));
+  PrintDebug("DR Reads: %x\n", *(ushort_t*)&(ctrl_area->dr_reads));
+  PrintDebug("DR Writes: %x\n", *(ushort_t*)&(ctrl_area->dr_writes));
+  
+  PrintDebug("Exception Bitmap: %x (at 0x%.8x)\n", *(uint_t*)&(ctrl_area->exceptions), &(ctrl_area->exceptions));
+  PrintDebug("\tDivide-by-Zero: %d\n", ctrl_area->exceptions.de);
+  PrintDebug("\tDebug: %d\n", ctrl_area->exceptions.db);
+  PrintDebug("\tNon-maskable interrupts: %d\n", ctrl_area->exceptions.nmi);
+  PrintDebug("\tBreakpoint: %d\n", ctrl_area->exceptions.bp);
+  PrintDebug("\tOverflow: %d\n", ctrl_area->exceptions.of);
+  PrintDebug("\tBound-Range: %d\n", ctrl_area->exceptions.br);
+  PrintDebug("\tInvalid Opcode: %d\n", ctrl_area->exceptions.ud);
+  PrintDebug("\tDevice not available: %d\n", ctrl_area->exceptions.nm);
+  PrintDebug("\tDouble Fault: %d\n", ctrl_area->exceptions.df);
+  PrintDebug("\tInvalid TSS: %d\n", ctrl_area->exceptions.ts);
+  PrintDebug("\tSegment not present: %d\n", ctrl_area->exceptions.np);
+  PrintDebug("\tStack: %d\n", ctrl_area->exceptions.ss);
+  PrintDebug("\tGPF: %d\n", ctrl_area->exceptions.gp);
+  PrintDebug("\tPage Fault: %d\n", ctrl_area->exceptions.pf);
+  PrintDebug("\tFloating Point: %d\n", ctrl_area->exceptions.mf);
+  PrintDebug("\tAlignment Check: %d\n", ctrl_area->exceptions.ac);
+  PrintDebug("\tMachine Check: %d\n", ctrl_area->exceptions.mc);
+  PrintDebug("\tSIMD floating point: %d\n", ctrl_area->exceptions.xf);
+  PrintDebug("\tSecurity: %d\n", ctrl_area->exceptions.sx);
 
-  PrintDebug("Exception Bitmap: %x (at 0x%.8x)\n", ctrl_area->exceptions.bitmap, &(ctrl_area->exceptions));
-  PrintDebug("\tDivide-by-Zero: %d\n", ctrl_area->exceptions.ex_names.de);
-  PrintDebug("\tDebug: %d\n", ctrl_area->exceptions.ex_names.db);
-  PrintDebug("\tNon-maskable interrupts: %d\n", ctrl_area->exceptions.ex_names.nmi);
-  PrintDebug("\tBreakpoint: %d\n", ctrl_area->exceptions.ex_names.bp);
-  PrintDebug("\tOverflow: %d\n", ctrl_area->exceptions.ex_names.of);
-  PrintDebug("\tBound-Range: %d\n", ctrl_area->exceptions.ex_names.br);
-  PrintDebug("\tInvalid Opcode: %d\n", ctrl_area->exceptions.ex_names.ud);
-  PrintDebug("\tDevice not available: %d\n", ctrl_area->exceptions.ex_names.nm);
-  PrintDebug("\tDouble Fault: %d\n", ctrl_area->exceptions.ex_names.df);
-  PrintDebug("\tInvalid TSS: %d\n", ctrl_area->exceptions.ex_names.ts);
-  PrintDebug("\tSegment not present: %d\n", ctrl_area->exceptions.ex_names.np);
-  PrintDebug("\tStack: %d\n", ctrl_area->exceptions.ex_names.ss);
-  PrintDebug("\tGPF: %d\n", ctrl_area->exceptions.ex_names.gp);
-  PrintDebug("\tPage Fault: %d\n", ctrl_area->exceptions.ex_names.pf);
-  PrintDebug("\tFloating Point: %d\n", ctrl_area->exceptions.ex_names.mf);
-  PrintDebug("\tAlignment Check: %d\n", ctrl_area->exceptions.ex_names.ac);
-  PrintDebug("\tMachine Check: %d\n", ctrl_area->exceptions.ex_names.mc);
-  PrintDebug("\tSIMD floating point: %d\n", ctrl_area->exceptions.ex_names.xf);
-  PrintDebug("\tSecurity: %d\n", ctrl_area->exceptions.ex_names.sx);
+  PrintDebug("Instructions bitmap: %.8x (at 0x%.8x)\n", *(uint_t*)&(ctrl_area->instrs), &(ctrl_area->instrs));
+  PrintDebug("\tINTR: %d\n", ctrl_area->instrs.INTR);
+  PrintDebug("\tNMI: %d\n", ctrl_area->instrs.NMI);
+  PrintDebug("\tSMI: %d\n", ctrl_area->instrs.SMI);
+  PrintDebug("\tINIT: %d\n", ctrl_area->instrs.INIT);
+  PrintDebug("\tVINTR: %d\n", ctrl_area->instrs.VINTR);
+  PrintDebug("\tCR0: %d\n", ctrl_area->instrs.CR0);
+  PrintDebug("\tRD_IDTR: %d\n", ctrl_area->instrs.RD_IDTR);
+  PrintDebug("\tRD_GDTR: %d\n", ctrl_area->instrs.RD_GDTR);
+  PrintDebug("\tRD_LDTR: %d\n", ctrl_area->instrs.RD_LDTR);
+  PrintDebug("\tRD_TR: %d\n", ctrl_area->instrs.RD_TR);
+  PrintDebug("\tWR_IDTR: %d\n", ctrl_area->instrs.WR_IDTR);
+  PrintDebug("\tWR_GDTR: %d\n", ctrl_area->instrs.WR_GDTR);
+  PrintDebug("\tWR_LDTR: %d\n", ctrl_area->instrs.WR_LDTR);
+  PrintDebug("\tWR_TR: %d\n", ctrl_area->instrs.WR_TR);
+  PrintDebug("\tRDTSC: %d\n", ctrl_area->instrs.RDTSC);
+  PrintDebug("\tRDPMC: %d\n", ctrl_area->instrs.RDPMC);
+  PrintDebug("\tPUSHF: %d\n", ctrl_area->instrs.PUSHF);
+  PrintDebug("\tPOPF: %d\n", ctrl_area->instrs.POPF);
+  PrintDebug("\tCPUID: %d\n", ctrl_area->instrs.CPUID);
+  PrintDebug("\tRSM: %d\n", ctrl_area->instrs.RSM);
+  PrintDebug("\tIRET: %d\n", ctrl_area->instrs.IRET);
+  PrintDebug("\tINTn: %d\n", ctrl_area->instrs.INTn);
+  PrintDebug("\tINVD: %d\n", ctrl_area->instrs.INVD);
+  PrintDebug("\tPAUSE: %d\n", ctrl_area->instrs.PAUSE);
+  PrintDebug("\tHLT: %d\n", ctrl_area->instrs.HLT);
+  PrintDebug("\tINVLPG: %d\n", ctrl_area->instrs.INVLPG);
+  PrintDebug("\tINVLPGA: %d\n", ctrl_area->instrs.INVLPGA);
+  PrintDebug("\tIOIO_PROT: %d\n", ctrl_area->instrs.IOIO_PROT);
+  PrintDebug("\tMSR_PROT: %d\n", ctrl_area->instrs.MSR_PROT);
+  PrintDebug("\ttask_switch: %d\n", ctrl_area->instrs.task_switch);
+  PrintDebug("\tFERR_FREEZE: %d\n", ctrl_area->instrs.FERR_FREEZE);
+  PrintDebug("\tshutdown_evts: %d\n", ctrl_area->instrs.shutdown_evts);
 
-  PrintDebug("Instructions bitmap: %.8x (at 0x%.8x)\n", ctrl_area->instrs.bitmap, &(ctrl_area->instrs));
-  PrintDebug("\tINTR: %d\n", ctrl_area->instrs.instrs.INTR);
-  PrintDebug("\tNMI: %d\n", ctrl_area->instrs.instrs.NMI);
-  PrintDebug("\tSMI: %d\n", ctrl_area->instrs.instrs.SMI);
-  PrintDebug("\tINIT: %d\n", ctrl_area->instrs.instrs.INIT);
-  PrintDebug("\tVINTR: %d\n", ctrl_area->instrs.instrs.VINTR);
-  PrintDebug("\tCR0: %d\n", ctrl_area->instrs.instrs.CR0);
-  PrintDebug("\tRD_IDTR: %d\n", ctrl_area->instrs.instrs.RD_IDTR);
-  PrintDebug("\tRD_GDTR: %d\n", ctrl_area->instrs.instrs.RD_GDTR);
-  PrintDebug("\tRD_LDTR: %d\n", ctrl_area->instrs.instrs.RD_LDTR);
-  PrintDebug("\tRD_TR: %d\n", ctrl_area->instrs.instrs.RD_TR);
-  PrintDebug("\tWR_IDTR: %d\n", ctrl_area->instrs.instrs.WR_IDTR);
-  PrintDebug("\tWR_GDTR: %d\n", ctrl_area->instrs.instrs.WR_GDTR);
-  PrintDebug("\tWR_LDTR: %d\n", ctrl_area->instrs.instrs.WR_LDTR);
-  PrintDebug("\tWR_TR: %d\n", ctrl_area->instrs.instrs.WR_TR);
-  PrintDebug("\tRDTSC: %d\n", ctrl_area->instrs.instrs.RDTSC);
-  PrintDebug("\tRDPMC: %d\n", ctrl_area->instrs.instrs.RDPMC);
-  PrintDebug("\tPUSHF: %d\n", ctrl_area->instrs.instrs.PUSHF);
-  PrintDebug("\tPOPF: %d\n", ctrl_area->instrs.instrs.POPF);
-  PrintDebug("\tCPUID: %d\n", ctrl_area->instrs.instrs.CPUID);
-  PrintDebug("\tRSM: %d\n", ctrl_area->instrs.instrs.RSM);
-  PrintDebug("\tIRET: %d\n", ctrl_area->instrs.instrs.IRET);
-  PrintDebug("\tINTn: %d\n", ctrl_area->instrs.instrs.INTn);
-  PrintDebug("\tINVD: %d\n", ctrl_area->instrs.instrs.INVD);
-  PrintDebug("\tPAUSE: %d\n", ctrl_area->instrs.instrs.PAUSE);
-  PrintDebug("\tHLT: %d\n", ctrl_area->instrs.instrs.HLT);
-  PrintDebug("\tINVLPG: %d\n", ctrl_area->instrs.instrs.INVLPG);
-  PrintDebug("\tINVLPGA: %d\n", ctrl_area->instrs.instrs.INVLPGA);
-  PrintDebug("\tIOIO_PROT: %d\n", ctrl_area->instrs.instrs.IOIO_PROT);
-  PrintDebug("\tMSR_PROT: %d\n", ctrl_area->instrs.instrs.MSR_PROT);
-  PrintDebug("\ttask_switch: %d\n", ctrl_area->instrs.instrs.task_switch);
-  PrintDebug("\tFERR_FREEZE: %d\n", ctrl_area->instrs.instrs.FERR_FREEZE);
-  PrintDebug("\tshutdown_evts: %d\n", ctrl_area->instrs.instrs.shutdown_evts);
-
-  PrintDebug("SVM Instruction Bitmap: %.8x (at 0x%.8x)\n", ctrl_area->svm_instrs.bitmap, &(ctrl_area->svm_instrs));
-  PrintDebug("\tVMRUN: %d\n", ctrl_area->svm_instrs.instrs.VMRUN);
-  PrintDebug("\tVMMCALL: %d\n", ctrl_area->svm_instrs.instrs.VMMCALL);
-  PrintDebug("\tVMLOAD: %d\n", ctrl_area->svm_instrs.instrs.VMLOAD);
-  PrintDebug("\tVMSAVE: %d\n", ctrl_area->svm_instrs.instrs.VMSAVE);
-  PrintDebug("\tSTGI: %d\n", ctrl_area->svm_instrs.instrs.STGI);
-  PrintDebug("\tCLGI: %d\n", ctrl_area->svm_instrs.instrs.CLGI);
-  PrintDebug("\tSKINIT: %d\n", ctrl_area->svm_instrs.instrs.SKINIT);
-  PrintDebug("\tRDTSCP: %d\n", ctrl_area->svm_instrs.instrs.RDTSCP);
-  PrintDebug("\tICEBP: %d\n", ctrl_area->svm_instrs.instrs.ICEBP);
-  PrintDebug("\tWBINVD: %d\n", ctrl_area->svm_instrs.instrs.WBINVD);
-  PrintDebug("\tMONITOR: %d\n", ctrl_area->svm_instrs.instrs.MONITOR);
-  PrintDebug("\tMWAIT_always: %d\n", ctrl_area->svm_instrs.instrs.MWAIT_always);
-  PrintDebug("\tMWAIT_if_armed: %d\n", ctrl_area->svm_instrs.instrs.MWAIT_if_armed);
+  PrintDebug("SVM Instruction Bitmap: %.8x (at 0x%.8x)\n", *(uint_t*)&(ctrl_area->svm_instrs), &(ctrl_area->svm_instrs));
+  PrintDebug("\tVMRUN: %d\n", ctrl_area->svm_instrs.VMRUN);
+  PrintDebug("\tVMMCALL: %d\n", ctrl_area->svm_instrs.VMMCALL);
+  PrintDebug("\tVMLOAD: %d\n", ctrl_area->svm_instrs.VMLOAD);
+  PrintDebug("\tVMSAVE: %d\n", ctrl_area->svm_instrs.VMSAVE);
+  PrintDebug("\tSTGI: %d\n", ctrl_area->svm_instrs.STGI);
+  PrintDebug("\tCLGI: %d\n", ctrl_area->svm_instrs.CLGI);
+  PrintDebug("\tSKINIT: %d\n", ctrl_area->svm_instrs.SKINIT);
+  PrintDebug("\tRDTSCP: %d\n", ctrl_area->svm_instrs.RDTSCP);
+  PrintDebug("\tICEBP: %d\n", ctrl_area->svm_instrs.ICEBP);
+  PrintDebug("\tWBINVD: %d\n", ctrl_area->svm_instrs.WBINVD);
+  PrintDebug("\tMONITOR: %d\n", ctrl_area->svm_instrs.MONITOR);
+  PrintDebug("\tMWAIT_always: %d\n", ctrl_area->svm_instrs.MWAIT_always);
+  PrintDebug("\tMWAIT_if_armed: %d\n", ctrl_area->svm_instrs.MWAIT_if_armed);
 
 
 
@@ -100,13 +100,13 @@ void PrintDebugVMCB(vmcb_t * vmcb) {
   PrintDebug("TLB_CONTROL: %d\n", ctrl_area->TLB_CONTROL);
 
 
-  PrintDebug("Guest Control Bitmap: %x (at 0x%.8x)\n", ctrl_area->guest_ctrl.bitmap, &(ctrl_area->guest_ctrl));
-  PrintDebug("\tV_TPR: %d\n", ctrl_area->guest_ctrl.ctrls.V_TPR);
-  PrintDebug("\tV_IRQ: %d\n", ctrl_area->guest_ctrl.ctrls.V_IRQ);
-  PrintDebug("\tV_INTR_PRIO: %d\n", ctrl_area->guest_ctrl.ctrls.V_INTR_PRIO);
-  PrintDebug("\tV_IGN_TPR: %d\n", ctrl_area->guest_ctrl.ctrls.V_IGN_TPR);
-  PrintDebug("\tV_INTR_MASKING: %d\n", ctrl_area->guest_ctrl.ctrls.V_INTR_MASKING);
-  PrintDebug("\tV_INTR_VECTOR: %d\n", ctrl_area->guest_ctrl.ctrls.V_INTR_VECTOR);
+  PrintDebug("Guest Control Bitmap: %x (at 0x%.8x)\n", *(uint_t*)&(ctrl_area->guest_ctrl), &(ctrl_area->guest_ctrl));
+  PrintDebug("\tV_TPR: %d\n", ctrl_area->guest_ctrl.V_TPR);
+  PrintDebug("\tV_IRQ: %d\n", ctrl_area->guest_ctrl.V_IRQ);
+  PrintDebug("\tV_INTR_PRIO: %d\n", ctrl_area->guest_ctrl.V_INTR_PRIO);
+  PrintDebug("\tV_IGN_TPR: %d\n", ctrl_area->guest_ctrl.V_IGN_TPR);
+  PrintDebug("\tV_INTR_MASKING: %d\n", ctrl_area->guest_ctrl.V_INTR_MASKING);
+  PrintDebug("\tV_INTR_VECTOR: %d\n", ctrl_area->guest_ctrl.V_INTR_VECTOR);
 
   PrintDebug("Interrupt_shadow: %d\n", ctrl_area->interrupt_shadow);
 
@@ -125,8 +125,11 @@ void PrintDebugVMCB(vmcb_t * vmcb) {
   tmp_reg.r_reg = ctrl_area->NP_ENABLE;
   PrintDebug("NP_ENABLE: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
 
-  tmp_reg.r_reg = ctrl_area->EVENTINJ;
-  PrintDebug("EVENTINJ: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
+  PrintDebug("Event Injection: (at 0x%.8x)\n", &(ctrl_area->EVENTINJ));
+  PrintDebug("Vector: %d\n", ctrl_area->EVENTINJ.vector);
+  PrintDebug("(type=%d) (ev=%d) (valid=%d)\n", ctrl_area->EVENTINJ.type, 
+	     ctrl_area->EVENTINJ.ev, ctrl_area->EVENTINJ.valid);
+  PrintDebug("Error Code: %d\n", ctrl_area->EVENTINJ.error_code);
 
 
   tmp_reg.r_reg = ctrl_area->N_CR3;

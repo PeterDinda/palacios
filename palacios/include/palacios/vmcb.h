@@ -22,9 +22,7 @@
 typedef void vmcb_t;
 
 
-union Ctrl_Registers {
-  ushort_t bitmap                PACKED;
-  struct {
+struct Ctrl_Registers {
     uint_t cr0        : 1        PACKED;
     uint_t cr1        : 1        PACKED;
     uint_t cr2        : 1        PACKED;
@@ -41,13 +39,10 @@ union Ctrl_Registers {
     uint_t cr13       : 1        PACKED;
     uint_t cr14       : 1        PACKED;
     uint_t cr15       : 1        PACKED;
-  } crs;
 };
 
 
-union Debug_Registers {
-  ushort_t bitmap                PACKED;
-  struct {
+struct Debug_Registers {
     uint_t dr0        : 1        PACKED;
     uint_t dr1        : 1        PACKED;
     uint_t dr2        : 1        PACKED;
@@ -64,47 +59,10 @@ union Debug_Registers {
     uint_t dr13       : 1        PACKED;
     uint_t dr14       : 1        PACKED;
     uint_t dr15       : 1        PACKED;
-  } drs;
 };
 
 
-union Exception_Vectors {
-  uint_t bitmap                  PACKED;
-  struct {
-    uint_t ex0          : 1        PACKED;
-    uint_t ex1          : 1        PACKED;
-    uint_t ex2         : 1        PACKED;
-    uint_t ex3         : 1        PACKED;
-    uint_t ex4         : 1        PACKED;
-    uint_t ex5         : 1        PACKED;
-    uint_t ex6         : 1        PACKED;
-    uint_t ex7         : 1        PACKED;
-    uint_t ex8         : 1        PACKED;
-    uint_t ex9         : 1        PACKED;
-    uint_t ex10        : 1        PACKED;
-    uint_t ex11        : 1        PACKED;
-    uint_t ex12        : 1        PACKED;
-    uint_t ex13        : 1        PACKED;
-    uint_t ex14        : 1        PACKED;
-    uint_t ex15        : 1        PACKED;
-    uint_t ex16        : 1        PACKED;
-    uint_t ex17        : 1        PACKED;
-    uint_t ex18        : 1        PACKED;
-    uint_t ex19        : 1        PACKED;
-    uint_t ex20        : 1        PACKED;
-    uint_t ex21        : 1        PACKED;
-    uint_t ex22        : 1        PACKED;
-    uint_t ex23        : 1        PACKED;
-    uint_t ex24        : 1        PACKED;
-    uint_t ex25        : 1        PACKED;
-    uint_t ex26        : 1        PACKED;
-    uint_t ex27        : 1        PACKED;
-    uint_t ex28        : 1        PACKED;
-    uint_t ex29        : 1        PACKED;
-    uint_t ex30        : 1        PACKED;
-    uint_t ex31        : 1        PACKED;
-  } ex_numbers;
-  struct {
+struct Exception_Vectors {
     uint_t de          : 1        PACKED; // divide by zero
     uint_t db          : 1        PACKED; // Debug
     uint_t nmi         : 1        PACKED; // Non-maskable interrupt
@@ -137,13 +95,10 @@ union Exception_Vectors {
     uint_t ex29        : 1        PACKED;
     uint_t sx          : 1        PACKED; // Security Exception
     uint_t ex31        : 1        PACKED;
-  } ex_names;
 };
 
 
-union Instr_Intercepts {
-  uint_t bitmap                  PACKED;
-  struct {
+struct Instr_Intercepts {
     uint_t INTR        : 1        PACKED;
     uint_t NMI         : 1        PACKED;
     uint_t SMI         : 1        PACKED;
@@ -176,57 +131,64 @@ union Instr_Intercepts {
     uint_t task_switch : 1        PACKED;
     uint_t FERR_FREEZE : 1        PACKED;
     uint_t shutdown_evts: 1       PACKED;
-  } instrs;
 };
 
-union SVM_Instr_Intercepts { 
-  uint_t bitmap                  PACKED;
-  struct {
-    uint_t VMRUN      : 1         PACKED;
-    uint_t VMMCALL    : 1         PACKED;
-    uint_t VMLOAD     : 1         PACKED;
-    uint_t VMSAVE     : 1         PACKED;
-    uint_t STGI       : 1         PACKED;
-    uint_t CLGI       : 1         PACKED;
-    uint_t SKINIT     : 1         PACKED;
-    uint_t RDTSCP     : 1         PACKED;
-    uint_t ICEBP      : 1         PACKED;
-    uint_t WBINVD     : 1         PACKED;
-    uint_t MONITOR    : 1         PACKED;
-    uint_t MWAIT_always : 1       PACKED;
-    uint_t MWAIT_if_armed : 1     PACKED;
-    uint_t reserved  : 19         PACKED;  // Should be 0
-  } instrs;
+struct SVM_Instr_Intercepts { 
+  uint_t VMRUN      : 1         PACKED;
+  uint_t VMMCALL    : 1         PACKED;
+  uint_t VMLOAD     : 1         PACKED;
+  uint_t VMSAVE     : 1         PACKED;
+  uint_t STGI       : 1         PACKED;
+  uint_t CLGI       : 1         PACKED;
+  uint_t SKINIT     : 1         PACKED;
+  uint_t RDTSCP     : 1         PACKED;
+  uint_t ICEBP      : 1         PACKED;
+  uint_t WBINVD     : 1         PACKED;
+  uint_t MONITOR    : 1         PACKED;
+  uint_t MWAIT_always : 1       PACKED;
+  uint_t MWAIT_if_armed : 1     PACKED;
+  uint_t reserved  : 19         PACKED;  // Should be 0
 };
 
 
-union Guest_Control {
-  uint_t bitmap                  PACKED;
-  struct {
-    uchar_t V_TPR                 PACKED;
-    uint_t V_IRQ      : 1         PACKED;
-    uint_t rsvd1      : 7         PACKED;  // Should be 0
-    uint_t V_INTR_PRIO : 4        PACKED;
-    uint_t V_IGN_TPR  : 1         PACKED;
-    uint_t rsvd2      : 3         PACKED;  // Should be 0
-    uint_t V_INTR_MASKING : 1     PACKED;
-    uint_t rsvd3      : 7         PACKED;  // Should be 0
-    uchar_t V_INTR_VECTOR         PACKED;
-    uint_t rsvd4      : 24        PACKED;  // Should be 0
-  } ctrls;
+struct Guest_Control {
+  uchar_t V_TPR                 PACKED;
+  uint_t V_IRQ      : 1         PACKED;
+  uint_t rsvd1      : 7         PACKED;  // Should be 0
+  uint_t V_INTR_PRIO : 4        PACKED;
+  uint_t V_IGN_TPR  : 1         PACKED;
+  uint_t rsvd2      : 3         PACKED;  // Should be 0
+  uint_t V_INTR_MASKING : 1     PACKED;
+  uint_t rsvd3      : 7         PACKED;  // Should be 0
+  uchar_t V_INTR_VECTOR         PACKED;
+  uint_t rsvd4      : 24        PACKED;  // Should be 0
 };
 
+#define SVM_INJECTION_EXTERNAL_INTR 0
+#define SVM_INJECTION_VIRTUAL_INTR  0
+#define SVM_INJECTION_NMI           2
+#define SVM_INJECTION_EXCEPTION     3
+#define SVM_INJECTION_SOFT_INTR     4
+
+struct Interrupt_Info {
+  uint_t vector       : 8         PACKED;
+  uint_t type         : 3         PACKED;
+  uint_t ev           : 1         PACKED;
+  uint_t rsvd         : 19        PACKED;
+  uint_t valid        : 1         PACKED;
+  uint_t error_code   : 32        PACKED;
+};
 
 
 typedef struct VMCB_Control_Area {
   // offset 0x0
-  union Ctrl_Registers cr_reads         PACKED;
-  union Ctrl_Registers cr_writes        PACKED;
-  union Debug_Registers dr_reads        PACKED;
-  union Debug_Registers dr_writes       PACKED;
-  union Exception_Vectors exceptions    PACKED;
-  union Instr_Intercepts instrs         PACKED;
-  union SVM_Instr_Intercepts svm_instrs PACKED;
+  struct Ctrl_Registers cr_reads         PACKED;
+  struct Ctrl_Registers cr_writes        PACKED;
+  struct Debug_Registers dr_reads        PACKED;
+  struct Debug_Registers dr_writes       PACKED;
+  struct Exception_Vectors exceptions    PACKED;
+  struct Instr_Intercepts instrs         PACKED;
+  struct SVM_Instr_Intercepts svm_instrs PACKED;
 
   uchar_t rsvd1[44]                     PACKED;  // Should be 0
 
@@ -240,7 +202,7 @@ typedef struct VMCB_Control_Area {
 
   uchar_t rsvd2[3]                      PACKED;  // Should be 0
 
-  union Guest_Control guest_ctrl        PACKED;
+  struct Guest_Control guest_ctrl        PACKED;
   
   uint_t interrupt_shadow  : 1          PACKED;
   uint_t rsvd3             : 31         PACKED;  // Should be 0
@@ -266,7 +228,7 @@ typedef struct VMCB_Control_Area {
   uchar_t rsvd7[16]                     PACKED;  // Should be 0
 
   // Offset 0xA8
-  ullong_t EVENTINJ                     PACKED;
+  struct Interrupt_Info EVENTINJ                     PACKED;
 
 
   /* This could be a typo in the manual....
@@ -307,7 +269,8 @@ struct vmcb_selector {
       uint_t avl               : 1    PACKED; // available for use by system software
       uint_t L                 : 1    PACKED; // long mode (64 bit?)
       uint_t db                : 1    PACKED; // default op size (0=16 bit seg, 1=32 bit seg)
-      uint_t G                 : 1    PACKED; // Granularity, (0=bytes, 1=4k)      
+      uint_t G                 : 1    PACKED; // Granularity, (0=bytes, 1=4k)
+      uint_t rsvd              : 4    PACKED;
     } fields;
   } attrib;
   uint_t  limit                       PACKED;

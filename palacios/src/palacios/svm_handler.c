@@ -4,6 +4,7 @@
 #include <palacios/vmm_emulate.h>
 #include <palacios/svm_ctrl_regs.h>
 #include <palacios/svm_io.h>
+#include <palacios/vmm_intr.h>
 
 extern struct vmm_os_hooks * os_hooks;
 
@@ -105,6 +106,40 @@ int handle_svm_exit(struct guest_info * info) {
 
 
   // Update the low level state
+
+  if (intr_pending(&(info->intr_state))) {
+    guest_ctrl->EVENTINJ.vector = get_intr_number(&(info->intr_state));
+    guest_ctrl->EVENTINJ.valid = 1;
+ 
+    switch (get_intr_type(&(info->intr_state))) {
+    case EXTERNAL_IRQ:
+      guest_ctrl->EVENTINJ.type = SVM_INJECTION_EXTERNAL_INTR;
+      break;
+    case NMI:
+      guest_ctrl->EVENTINJ.type = SVM_INJECTION_NMI;
+      break;
+    case EXCEPTION:
+      guest_ctrl->EVENTINJ.type = SVM_INJECTION_EXCEPTION;
+      break;
+    case SOFTWARE:
+      guest_ctrl->EVENTINJ.type = SVM_INJECTION_SOFT_INTR;
+      break;
+    case VIRTUAL:
+      guest_ctrl->EVENTINJ.type = SVM_INJECTION_VIRTUAL_INTR;
+      break;
+
+    case INVALID_INTR: 
+    default:
+      PrintDebug("Attempted to issue and invalid interrupt\n");
+      return -1;
+    }
+
+    // IMPORTANT TODO
+    // We need to figure out stack parameters....
+    // EVENTINJ.error_code
+
+  }
+
   guest_state->rax = info->vm_regs.rax;
   guest_state->rip = info->rip;
   guest_state->rsp = info->vm_regs.rsp;

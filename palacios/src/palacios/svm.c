@@ -180,28 +180,28 @@ void Init_VMCB(vmcb_t * vmcb, struct guest_info vm_info) {
 
 
   //ctrl_area->instrs.instrs.CR0 = 1;
-  ctrl_area->cr_reads.crs.cr0 = 1;
-  ctrl_area->cr_writes.crs.cr0 = 1;
+  ctrl_area->cr_reads.cr0 = 1;
+  ctrl_area->cr_writes.cr0 = 1;
 
   guest_state->efer |= EFER_MSR_svm_enable;
   guest_state->rflags = 0x00000002; // The reserved bit is always 1
-  ctrl_area->svm_instrs.instrs.VMRUN = 1;
+  ctrl_area->svm_instrs.VMRUN = 1;
   // guest_state->cr0 = 0x00000001;    // PE 
   ctrl_area->guest_ASID = 1;
 
 
-  ctrl_area->exceptions.ex_names.de = 1;
-  ctrl_area->exceptions.ex_names.df = 1;
-  ctrl_area->exceptions.ex_names.pf = 1;
-  ctrl_area->exceptions.ex_names.ts = 1;
-  ctrl_area->exceptions.ex_names.ss = 1;
-  ctrl_area->exceptions.ex_names.ac = 1;
-  ctrl_area->exceptions.ex_names.mc = 1;
-  ctrl_area->exceptions.ex_names.gp = 1;
-  ctrl_area->exceptions.ex_names.ud = 1;
-  ctrl_area->exceptions.ex_names.np = 1;
-  ctrl_area->exceptions.ex_names.of = 1;
-  ctrl_area->exceptions.ex_names.nmi = 1;
+  ctrl_area->exceptions.de = 1;
+  ctrl_area->exceptions.df = 1;
+  ctrl_area->exceptions.pf = 1;
+  ctrl_area->exceptions.ts = 1;
+  ctrl_area->exceptions.ss = 1;
+  ctrl_area->exceptions.ac = 1;
+  ctrl_area->exceptions.mc = 1;
+  ctrl_area->exceptions.gp = 1;
+  ctrl_area->exceptions.ud = 1;
+  ctrl_area->exceptions.np = 1;
+  ctrl_area->exceptions.of = 1;
+  ctrl_area->exceptions.nmi = 1;
 
   guest_state->cs.selector = 0x0000;
   guest_state->cs.limit=~0u;
@@ -242,10 +242,10 @@ void Init_VMCB(vmcb_t * vmcb, struct guest_info vm_info) {
 
     //PrintDebugMemDump((uchar_t*)io_port_bitmap, PAGE_SIZE *2);
 
-    ctrl_area->instrs.instrs.IOIO_PROT = 1;
+    ctrl_area->instrs.IOIO_PROT = 1;
   }
 
-  ctrl_area->instrs.instrs.INTR = 1;
+  ctrl_area->instrs.INTR = 1;
 
 
 
@@ -256,12 +256,12 @@ void Init_VMCB(vmcb_t * vmcb, struct guest_info vm_info) {
 
     guest_state->cr3 = vm_info.shdw_pg_state.shadow_cr3.r_reg;
 
-    ctrl_area->cr_reads.crs.cr3 = 1;
-    ctrl_area->cr_writes.crs.cr3 = 1;
+    ctrl_area->cr_reads.cr3 = 1;
+    ctrl_area->cr_writes.cr3 = 1;
 
 
-    ctrl_area->instrs.instrs.INVLPG = 1;
-    ctrl_area->instrs.instrs.INVLPGA = 1;
+    ctrl_area->instrs.INVLPG = 1;
+    ctrl_area->instrs.INVLPGA = 1;
 
     guest_state->g_pat = 0x7040600070406ULL;
 
@@ -302,27 +302,27 @@ void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info vm_info) {
   guest_state->rip = 0xfff0;
 
   //ctrl_area->instrs.instrs.CR0 = 1;
-  ctrl_area->cr_reads.crs.cr0 = 1;
-  ctrl_area->cr_writes.crs.cr0 = 1;
+  ctrl_area->cr_reads.cr0 = 1;
+  ctrl_area->cr_writes.cr0 = 1;
 
   guest_state->efer |= EFER_MSR_svm_enable;
   guest_state->rflags = 0x00000002; // The reserved bit is always 1
-  ctrl_area->svm_instrs.instrs.VMRUN = 1;
+  ctrl_area->svm_instrs.VMRUN = 1;
   // guest_state->cr0 = 0x00000001;    // PE 
   ctrl_area->guest_ASID = 1;
 
-  ctrl_area->exceptions.ex_names.de = 1;
-  ctrl_area->exceptions.ex_names.df = 1;
-  ctrl_area->exceptions.ex_names.pf = 1;
-  ctrl_area->exceptions.ex_names.ts = 1;
-  ctrl_area->exceptions.ex_names.ss = 1;
-  ctrl_area->exceptions.ex_names.ac = 1;
-  ctrl_area->exceptions.ex_names.mc = 1;
-  ctrl_area->exceptions.ex_names.gp = 1;
-  ctrl_area->exceptions.ex_names.ud = 1;
-  ctrl_area->exceptions.ex_names.np = 1;
-  ctrl_area->exceptions.ex_names.of = 1;
-  ctrl_area->exceptions.ex_names.nmi = 1;
+  ctrl_area->exceptions.de = 1;
+  ctrl_area->exceptions.df = 1;
+  ctrl_area->exceptions.pf = 1;
+  ctrl_area->exceptions.ts = 1;
+  ctrl_area->exceptions.ss = 1;
+  ctrl_area->exceptions.ac = 1;
+  ctrl_area->exceptions.mc = 1;
+  ctrl_area->exceptions.gp = 1;
+  ctrl_area->exceptions.ud = 1;
+  ctrl_area->exceptions.np = 1;
+  ctrl_area->exceptions.of = 1;
+  ctrl_area->exceptions.nmi = 1;
 
   vm_info.vm_regs.rdx = 0x00000f00;
 
@@ -384,7 +384,7 @@ void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info vm_info) {
 
     //PrintDebugMemDump((uchar_t*)io_port_bitmap, PAGE_SIZE *2);
 
-    ctrl_area->instrs.instrs.IOIO_PROT = 1;
+    ctrl_area->instrs.IOIO_PROT = 1;
   }
 
   //ctrl_area->instrs.instrs.INTR = 1;
@@ -398,14 +398,14 @@ void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info vm_info) {
 
     guest_state->cr3 = vm_info.shdw_pg_state.shadow_cr3.r_reg;
 
-    PrintDebugPageTables((pde32_t*)(vm_info.shdw_pg_state.shadow_cr3.e_reg.low));
+    //PrintDebugPageTables((pde32_t*)(vm_info.shdw_pg_state.shadow_cr3.e_reg.low));
 
-    ctrl_area->cr_reads.crs.cr3 = 1;
-    ctrl_area->cr_writes.crs.cr3 = 1;
+    ctrl_area->cr_reads.cr3 = 1;
+    ctrl_area->cr_writes.cr3 = 1;
 
 
-    ctrl_area->instrs.instrs.INVLPG = 1;
-    ctrl_area->instrs.instrs.INVLPGA = 1;
+    ctrl_area->instrs.INVLPG = 1;
+    ctrl_area->instrs.INVLPGA = 1;
 
     guest_state->g_pat = 0x7040600070406ULL;
 
@@ -489,7 +489,7 @@ void Init_VMCB_pe(vmcb_t *vmcb, struct guest_info vm_info) {
 
   guest_state->efer |= EFER_MSR_svm_enable;
   guest_state->rflags = 0x00000002; // The reserved bit is always 1
-  ctrl_area->svm_instrs.instrs.VMRUN = 1;
+  ctrl_area->svm_instrs.VMRUN = 1;
   guest_state->cr0 = 0x00000001;    // PE 
   ctrl_area->guest_ASID = 1;
 
@@ -500,24 +500,24 @@ void Init_VMCB_pe(vmcb_t *vmcb, struct guest_info vm_info) {
 
   // Setup exits
 
-  ctrl_area->cr_writes.crs.cr4 = 1;
+  ctrl_area->cr_writes.cr4 = 1;
   
-  ctrl_area->exceptions.ex_names.de = 1;
-  ctrl_area->exceptions.ex_names.df = 1;
-  ctrl_area->exceptions.ex_names.pf = 1;
-  ctrl_area->exceptions.ex_names.ts = 1;
-  ctrl_area->exceptions.ex_names.ss = 1;
-  ctrl_area->exceptions.ex_names.ac = 1;
-  ctrl_area->exceptions.ex_names.mc = 1;
-  ctrl_area->exceptions.ex_names.gp = 1;
-  ctrl_area->exceptions.ex_names.ud = 1;
-  ctrl_area->exceptions.ex_names.np = 1;
-  ctrl_area->exceptions.ex_names.of = 1;
-  ctrl_area->exceptions.ex_names.nmi = 1;
+  ctrl_area->exceptions.de = 1;
+  ctrl_area->exceptions.df = 1;
+  ctrl_area->exceptions.pf = 1;
+  ctrl_area->exceptions.ts = 1;
+  ctrl_area->exceptions.ss = 1;
+  ctrl_area->exceptions.ac = 1;
+  ctrl_area->exceptions.mc = 1;
+  ctrl_area->exceptions.gp = 1;
+  ctrl_area->exceptions.ud = 1;
+  ctrl_area->exceptions.np = 1;
+  ctrl_area->exceptions.of = 1;
+  ctrl_area->exceptions.nmi = 1;
 
   
 
-  ctrl_area->instrs.instrs.IOIO_PROT = 1;
+  ctrl_area->instrs.IOIO_PROT = 1;
   ctrl_area->IOPM_BASE_PA = (uint_t)os_hooks->allocate_pages(3);
   
   {
@@ -526,7 +526,7 @@ void Init_VMCB_pe(vmcb_t *vmcb, struct guest_info vm_info) {
     memset((void*)(tmp_reg.e_reg.low), 0xffffffff, PAGE_SIZE * 2);
   }
 
-  ctrl_area->instrs.instrs.INTR = 1;
+  ctrl_area->instrs.INTR = 1;
 
   
   {
@@ -632,18 +632,18 @@ void Init_VMCB_Real(vmcb_t * vmcb, struct guest_info vm_info) {
   guest_state->cr0 = 0x60000010;
 
 
-  ctrl_area->exceptions.ex_names.de = 1;
-  ctrl_area->exceptions.ex_names.df = 1;
-  ctrl_area->exceptions.ex_names.pf = 1;
-  ctrl_area->exceptions.ex_names.ts = 1;
-  ctrl_area->exceptions.ex_names.ss = 1;
-  ctrl_area->exceptions.ex_names.ac = 1;
-  ctrl_area->exceptions.ex_names.mc = 1;
-  ctrl_area->exceptions.ex_names.gp = 1;
-  ctrl_area->exceptions.ex_names.ud = 1;
-  ctrl_area->exceptions.ex_names.np = 1;
-  ctrl_area->exceptions.ex_names.of = 1;
-  ctrl_area->exceptions.ex_names.nmi = 1;
+  ctrl_area->exceptions.de = 1;
+  ctrl_area->exceptions.df = 1;
+  ctrl_area->exceptions.pf = 1;
+  ctrl_area->exceptions.ts = 1;
+  ctrl_area->exceptions.ss = 1;
+  ctrl_area->exceptions.ac = 1;
+  ctrl_area->exceptions.mc = 1;
+  ctrl_area->exceptions.gp = 1;
+  ctrl_area->exceptions.ud = 1;
+  ctrl_area->exceptions.np = 1;
+  ctrl_area->exceptions.of = 1;
+  ctrl_area->exceptions.nmi = 1;
 
   guest_state->cs.selector = 0xf000;
   guest_state->cs.limit=0xffff;
