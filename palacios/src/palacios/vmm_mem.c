@@ -53,10 +53,7 @@ void free_shadow_map(shadow_map_t * map) {
 
 
 
-/* This is slightly different semantically from the mem list, in that
- * we don't allow overlaps we could probably allow overlappig regions
- * of the same type... but I'll let someone else deal with that
- */
+
 int add_shadow_region(shadow_map_t * map,
 		      shadow_region_t * region) 
 {

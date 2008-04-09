@@ -3,7 +3,7 @@
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
  * Copyright (c) 2004, Iulian Neamtiu <neamtiu@cs.umd.edu>
- * $Revision: 1.31 $
+ * $Revision: 1.32 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -198,7 +198,7 @@ void Main(struct Boot_Info* bootInfo)
 
 
   
-#if 1
+#if 0
   SerialPrint("Dumping VM kernel Code (first 128 bytes @ 0x%x)\n", 0x100000);
   SerialMemDump((unsigned char *)0x100000, 256);
   /*
@@ -207,9 +207,9 @@ void Main(struct Boot_Info* bootInfo)
   */
 #endif
 
-#if 0
-  SerialPrint("Dumping BIOS code f0000-fffff\n\n");
-  SerialMemDump((unsigned char *)0xf0000, 65536);
+#if 1
+  SerialPrint("Dumping BIOS code ffff0-fffff\n\n");
+  SerialMemDump((unsigned char *)0x10fff0, 16);
   /*
     SerialPrint("Dumping kernel Code (first 512 bytes @ 0x%x)\n",KERNEL_START);
     SerialMemDump((unsigned char *)VM_KERNEL_START, 512);
@@ -224,7 +224,7 @@ void Main(struct Boot_Info* bootInfo)
 #endif
 
   {
-    RunVMM();
+    RunVMM(bootInfo);
   }
 
 

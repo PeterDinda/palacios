@@ -283,7 +283,7 @@ int read_guest_va_memory(struct guest_info * guest_info, addr_t guest_va, int co
   int bytes_read = 0;
 
   while (count > 0) {
-    int dist_to_pg_edge = (PAGE_OFFSET(cursor) + PAGE_SIZE) - cursor;
+    int dist_to_pg_edge = (PAGE_ADDR(cursor) + PAGE_SIZE) - cursor;
     int bytes_to_copy = (dist_to_pg_edge > count) ? count : dist_to_pg_edge;
     addr_t host_addr;
 
@@ -314,7 +314,7 @@ int read_guest_pa_memory(struct guest_info * guest_info, addr_t guest_pa, int co
   int bytes_read = 0;
 
   while (count > 0) {
-    int dist_to_pg_edge = (PAGE_OFFSET(cursor) + PAGE_SIZE) - cursor;
+    int dist_to_pg_edge = (PAGE_ADDR(cursor) + PAGE_SIZE) - cursor;
     int bytes_to_copy = (dist_to_pg_edge > count) ? count : dist_to_pg_edge;
     addr_t host_addr;
 
@@ -322,11 +322,18 @@ int read_guest_pa_memory(struct guest_info * guest_info, addr_t guest_pa, int co
       return bytes_read;
     }
 
+    /*
+      PrintDebug("Trying to read %d bytes\n", bytes_to_copy);
+      PrintDebug("Dist to page edge=%d\n", dist_to_pg_edge);
+      PrintDebug("PAGE_ADDR=0x%x\n", PAGE_ADDR(cursor));
+      PrintDebug("guest_pa=0x%x\n", guest_pa);
+    */
+    
     memcpy(dest + bytes_read, (void*)host_addr, bytes_to_copy);
 
     bytes_read += bytes_to_copy;
     count -= bytes_to_copy;
-    cursor += bytes_to_copy;    
+    cursor += bytes_to_copy;
   }
 
   return bytes_read;
@@ -343,7 +350,7 @@ int write_guest_pa_memory(struct guest_info * guest_info, addr_t guest_pa, int c
   int bytes_written = 0;
 
   while (count > 0) {
-    int dist_to_pg_edge = (PAGE_OFFSET(cursor) + PAGE_SIZE) - cursor;
+    int dist_to_pg_edge = (PAGE_ADDR(cursor) + PAGE_SIZE) - cursor;
     int bytes_to_copy = (dist_to_pg_edge > count) ? count : dist_to_pg_edge;
     addr_t host_addr;
 
@@ -351,8 +358,9 @@ int write_guest_pa_memory(struct guest_info * guest_info, addr_t guest_pa, int c
       return bytes_written;
     }
 
+
     memcpy((void*)host_addr, src + bytes_written, bytes_to_copy);
-    
+
     bytes_written += bytes_to_copy;
     count -= bytes_to_copy;
     cursor += bytes_to_copy;    

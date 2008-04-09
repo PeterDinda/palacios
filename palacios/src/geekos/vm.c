@@ -64,6 +64,13 @@ int IO_Write(ushort_t port, void * src, uint_t length) {
 }
 
 
+int IO_Read_to_Serial(ushort_t port, void * dst, uint_t length) {
+  PrintBoth("Input from Guest on port %d (0x%x) Length=%d\n", port, port, length);
+  
+  return 0;
+}
+
+
 
 int IO_Write_to_Serial(ushort_t port, void * src, uint_t length) {
   PrintBoth("Output from Guest on port %d (0x%x) Length=%d\n", port, port, length);
@@ -122,7 +129,7 @@ void BuzzVM()
 
 
 
-int RunVMM() {
+int RunVMM(struct Boot_Info * bootInfo) {
 
     struct vmm_os_hooks os_hooks;
     struct vmm_ctrl_ops vmm_ops;
@@ -172,7 +179,7 @@ int RunVMM() {
       vm_info.vm_regs.rsp = (rsp +4092 );// - 0x2000;
       
             
-    } else {
+    } else if (0) {
       //add_shared_mem_range(&(vm_info.mem_layout), 0x0, 0x1000, 0x100000);
       //      add_shared_mem_range(&(vm_info.mem_layout), 0x0, 0x100000, 0x0);
       
@@ -192,6 +199,37 @@ int RunVMM() {
       //vm_info.rip = 0xfff0;
 
       vm_info.rip = 0;
+      vm_info.vm_regs.rsp = 0x0;
+    } else {
+      shadow_region_t *ent = Malloc(sizeof(shadow_region_t));
+      /*
+	init_shadow_region_physical(ent,0xf0000,0x100000,GUEST_REGION_PHYSICAL_MEMORY,
+	0x100000, HOST_REGION_PHYSICAL_MEMORY);
+	add_shadow_region(&(vm_info.mem_map),ent);
+	ent = Malloc(sizeof(shadow_region_t));
+      */
+      void * guest_mem = Allocate_VMM_Pages(256);
+
+      PrintDebug("Guest Size: %lu\n", bootInfo->guest_size);
+
+      memcpy((void *)(guest_mem + 0xf0000), (void *)0x100000, bootInfo->guest_size);
+
+
+      SerialMemDump((unsigned char *)(guest_mem + 0xffff0), 16);
+
+      init_shadow_region_physical(ent, 0x0, 0x100000, GUEST_REGION_PHYSICAL_MEMORY, 
+				  (addr_t)guest_mem, HOST_REGION_PHYSICAL_MEMORY);
+      add_shadow_region(&(vm_info.mem_map),ent);
+
+      hook_io_port(&(vm_info.io_map), 0x61, &IO_Read, &IO_Write);
+      hook_io_port(&(vm_info.io_map), 0x05, &IO_Read, &IO_Write_to_Serial);
+
+      hook_io_port(&(vm_info.io_map), 0x20, &IO_Read, &IO_Write_to_Serial);
+      hook_io_port(&(vm_info.io_map), 0x21, &IO_Read, &IO_Write_to_Serial);
+      hook_io_port(&(vm_info.io_map), 0xa0, &IO_Read, &IO_Write_to_Serial);
+      hook_io_port(&(vm_info.io_map), 0xa1, &IO_Read, &IO_Write_to_Serial);
+
+      vm_info.rip = 0xfff0;
       vm_info.vm_regs.rsp = 0x0;
     }
 

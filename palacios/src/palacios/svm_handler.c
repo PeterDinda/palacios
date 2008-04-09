@@ -1,5 +1,7 @@
 #include <palacios/svm_handler.h>
 #include <palacios/vmm.h>
+#include <palacios/vm_guest_mem.h>
+#include <palacios/vmm_emulate.h>
 #include <palacios/svm_ctrl_regs.h>
 #include <palacios/svm_io.h>
 
@@ -61,7 +63,7 @@ int handle_svm_exit(struct guest_info * info) {
     if (handle_cr0_write(info) == -1) {
       return -1;
     }
-
+    /*
   } else if (( (exit_code == VMEXIT_CR3_READ)  ||
 	       (exit_code == VMEXIT_CR3_WRITE) ||
 	       (exit_code == VMEXIT_INVLPG)    ||
@@ -69,6 +71,27 @@ int handle_svm_exit(struct guest_info * info) {
 	       (exit_code == VMEXIT_EXCP14)) && 
 	     (info->page_mode == SHADOW_PAGING)) {
     handle_shadow_paging(info);
+    */
+  } else {
+    addr_t rip_addr = get_addr_linear(info, guest_state->rip, guest_state->cs.selector);
+    char buf[15];
+    addr_t host_addr;
+
+    if (guest_pa_to_host_pa(info, guest_state->rip, &host_addr) == -1) {
+      PrintDebug("Could not translate guest_state->rip to host address\n");
+      return -1;
+    }
+
+    PrintDebug("Host Address of rip = 0x%x\n", host_addr);
+
+    memset(buf, 0, 15);
+    
+    PrintDebug("Reading from 0x%x in guest\n", rip_addr);
+    
+    read_guest_pa_memory(info, rip_addr, 15, buf);
+
+    PrintTraceMemDump(buf, 15);
+
   }
 
 

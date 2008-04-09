@@ -95,6 +95,7 @@ the host state in the vmcs before entering the guest.
 #endif
 #define PAGE_OFFSET(x)  ((((uint_t)x) & 0xfff))
 
+
 #define PAGE_POWER 12
 
 #define CR3_TO_PDE32(cr3) (((ulong_t)cr3) & 0xfffff000)

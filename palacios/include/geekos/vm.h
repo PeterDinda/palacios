@@ -1,7 +1,7 @@
 #ifndef __VM_H
 #define __VM_H
 
-int RunVMM();
+int RunVMM(struct Boot_Info * bootInfo);
 
 
 #endif
