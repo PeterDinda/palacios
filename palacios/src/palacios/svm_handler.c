@@ -24,21 +24,13 @@ int handle_svm_exit(struct guest_info * info) {
   info->vm_regs.rsp = guest_state->rsp;
 
 
-  PrintDebug("SVM Returned:(VMCB=%x)\n", info->vmm_data); 
-  PrintDebug("RIP: %x\n", guest_state->rip);
+
   
 
 
   exit_code = guest_ctrl->exit_code;
   
   // PrintDebugVMCB((vmcb_t*)(info->vmm_data));
-  PrintDebug("SVM Returned: Exit Code: %x\n",exit_code); 
-
-  PrintDebug("io_info1 low = 0x%.8x\n", *(uint_t*)&(guest_ctrl->exit_info1));
-  PrintDebug("io_info1 high = 0x%.8x\n", *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info1)) + 4));
-
-  PrintDebug("io_info2 low = 0x%.8x\n", *(uint_t*)&(guest_ctrl->exit_info2));
-  PrintDebug("io_info2 high = 0x%.8x\n", *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info2)) + 4));
 
   
   if (exit_code == VMEXIT_IOIO) {
@@ -77,6 +69,21 @@ int handle_svm_exit(struct guest_info * info) {
     char buf[15];
     addr_t host_addr;
 
+
+    PrintDebug("SVM Returned:(VMCB=%x)\n", info->vmm_data); 
+    PrintDebug("RIP: %x\n", guest_state->rip);
+    PrintDebug("RIP Linear: %x\n", rip_addr);
+    
+    PrintDebug("SVM Returned: Exit Code: %x\n",exit_code); 
+    
+    PrintDebug("io_info1 low = 0x%.8x\n", *(uint_t*)&(guest_ctrl->exit_info1));
+    PrintDebug("io_info1 high = 0x%.8x\n", *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info1)) + 4));
+    
+    PrintDebug("io_info2 low = 0x%.8x\n", *(uint_t*)&(guest_ctrl->exit_info2));
+    PrintDebug("io_info2 high = 0x%.8x\n", *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info2)) + 4));
+
+    
+
     if (guest_pa_to_host_pa(info, guest_state->rip, &host_addr) == -1) {
       PrintDebug("Could not translate guest_state->rip to host address\n");
       return -1;
@@ -91,6 +98,8 @@ int handle_svm_exit(struct guest_info * info) {
     read_guest_pa_memory(info, rip_addr, 15, buf);
 
     PrintTraceMemDump(buf, 15);
+
+    while(1);
 
   }
 

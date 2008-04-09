@@ -90,7 +90,7 @@ int pte32_lookup(pte32_t * pte, addr_t addr, addr_t * entry) {
 pde32_t * create_passthrough_pde32_pts(struct guest_info * guest_info) {
   ullong_t current_page_addr = 0;
   int i, j;
-  shadow_map_t * map = &(guest_info->mem_map);
+  struct shadow_map * map = &(guest_info->mem_map);
 
 
   pde32_t * pde = os_hooks->allocate_pages(1);
@@ -209,8 +209,10 @@ void PrintPD32(pde32_t * pde)
   int i;
 
   PrintDebug("Page Directory at %p:\n", pde);
-  for (i = 0; (i < MAX_PDE32_ENTRIES) && pde[i].present; i++) { 
-    PrintPDE32((void*)(PAGE_SIZE * MAX_PTE32_ENTRIES * i), &(pde[i]));
+  for (i = 0; (i < MAX_PDE32_ENTRIES); i++) { 
+    if ( pde[i].present) {
+      PrintPDE32((void*)(PAGE_SIZE * MAX_PTE32_ENTRIES * i), &(pde[i]));
+    }
   }
 }
 
@@ -219,8 +221,10 @@ void PrintPT32(void * starting_address, pte32_t * pte)
   int i;
 
   PrintDebug("Page Table at %p:\n", pte);
-  for (i = 0; (i < MAX_PTE32_ENTRIES) && pte[i].present; i++) { 
-    PrintPTE32(starting_address + (PAGE_SIZE * i), &(pte[i]));
+  for (i = 0; (i < MAX_PTE32_ENTRIES) ; i++) { 
+    if (pte[i].present) {
+      PrintPTE32(starting_address + (PAGE_SIZE * i), &(pte[i]));
+    }
   }
 }
 
@@ -234,9 +238,11 @@ void PrintDebugPageTables(pde32_t * pde)
   
   PrintDebug("Dumping the pages starting with the pde page at %p\n", pde);
 
-  for (i = 0; (i < MAX_PDE32_ENTRIES) && pde[i].present; i++) { 
-    PrintPDE32((void *)(PAGE_SIZE * MAX_PTE32_ENTRIES * i), &(pde[i]));
-    PrintPT32((void *)(PAGE_SIZE * MAX_PTE32_ENTRIES * i), (void *)(pde[i].pt_base_addr << PAGE_POWER));
+  for (i = 0; (i < MAX_PDE32_ENTRIES); i++) { 
+    if (pde[i].present) {
+      PrintPDE32((void *)(PAGE_SIZE * MAX_PTE32_ENTRIES * i), &(pde[i]));
+      PrintPT32((void *)(PAGE_SIZE * MAX_PTE32_ENTRIES * i), (void *)(pde[i].pt_base_addr << PAGE_POWER));
+    }
   }
 }
     

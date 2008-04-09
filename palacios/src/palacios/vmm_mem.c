@@ -18,27 +18,31 @@ void init_shadow_region(shadow_region_t * entry,
   entry->next=entry->prev = NULL;
 }
 
-void init_shadow_region_physical(shadow_region_t * entry,
-				 addr_t               guest_addr_start,
-				 addr_t               guest_addr_end,
-				 guest_region_type_t  guest_region_type,
-				 addr_t               host_addr_start,
-				 host_region_type_t   host_region_type)
+int add_shadow_region_passthrough( struct guest_info *  guest_info,
+				   addr_t               guest_addr_start,
+				   addr_t               guest_addr_end,
+				   addr_t               host_addr_start)
 {
-  init_shadow_region(entry, guest_addr_start, guest_addr_end, guest_region_type, host_region_type);
+  shadow_region_t * entry = os_hooks->malloc(sizeof(shadow_region_t));
+
+  init_shadow_region(entry, guest_addr_start, guest_addr_end, 
+		     GUEST_REGION_PHYSICAL_MEMORY, HOST_REGION_PHYSICAL_MEMORY);
   entry->host_addr.phys_addr.host_start = host_addr_start;
 
+  return add_shadow_region(&(guest_info->mem_map), entry);
 }
-		    
 
-void init_shadow_map(shadow_map_t * map) {
+
+
+
+void init_shadow_map(struct shadow_map * map) {
   map->num_regions = 0;
 
   map->head = NULL;
 }
 
 
-void free_shadow_map(shadow_map_t * map) {
+void free_shadow_map(struct shadow_map * map) {
   shadow_region_t * cursor = map->head;
   shadow_region_t * tmp = NULL;
 
@@ -54,10 +58,12 @@ void free_shadow_map(shadow_map_t * map) {
 
 
 
-int add_shadow_region(shadow_map_t * map,
+int add_shadow_region(struct shadow_map * map,
 		      shadow_region_t * region) 
 {
   shadow_region_t * cursor = map->head;
+
+  PrintDebug("Adding Shadow Region: (0x%x-0x%x)\n", region->guest_start, region->guest_end);
 
   if ((!cursor) || (cursor->guest_start >= region->guest_end)) {
     region->prev = NULL;
@@ -92,9 +98,10 @@ int add_shadow_region(shadow_map_t * map,
       map->num_regions++;
       
       return 0;
-    } else if (cursor->next->guest_end < region->guest_start) {
+    } else if (cursor->next->guest_end <= region->guest_start) {
       cursor = cursor->next;
     } else {
+      PrintDebug("WTF?\n");
       // This cannot happen!
       // we should panic here
       return -1;
@@ -107,7 +114,7 @@ int add_shadow_region(shadow_map_t * map,
 }
 
 
-int delete_shadow_region(shadow_map_t * map,
+int delete_shadow_region(struct shadow_map * map,
 			 addr_t guest_start,
 			 addr_t guest_end) {
   return -1;
@@ -115,7 +122,7 @@ int delete_shadow_region(shadow_map_t * map,
 
 
 
-shadow_region_t *get_shadow_region_by_index(shadow_map_t *  map,
+shadow_region_t *get_shadow_region_by_index(struct shadow_map *  map,
 					       uint_t index) {
   shadow_region_t * reg = map->head;
   uint_t i = 0;
@@ -131,7 +138,7 @@ shadow_region_t *get_shadow_region_by_index(shadow_map_t *  map,
 }
 
 
-shadow_region_t * get_shadow_region_by_addr(shadow_map_t * map,
+shadow_region_t * get_shadow_region_by_addr(struct shadow_map * map,
 					       addr_t addr) {
   shadow_region_t * reg = map->head;
 
@@ -149,7 +156,7 @@ shadow_region_t * get_shadow_region_by_addr(shadow_map_t * map,
 
 
 
-host_region_type_t lookup_shadow_map_addr(shadow_map_t * map, addr_t guest_addr, addr_t * host_addr) {
+host_region_type_t lookup_shadow_map_addr(struct shadow_map * map, addr_t guest_addr, addr_t * host_addr) {
   shadow_region_t * reg = get_shadow_region_by_addr(map, guest_addr);
 
   if (!reg) {
@@ -171,7 +178,7 @@ host_region_type_t lookup_shadow_map_addr(shadow_map_t * map, addr_t guest_addr,
 }
 
 
-void print_shadow_map(shadow_map_t * map) {
+void print_shadow_map(struct shadow_map * map) {
   shadow_region_t * cur = map->head;
   int i = 0;
 

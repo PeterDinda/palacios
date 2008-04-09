@@ -2,7 +2,8 @@
 #include <palacios/vmm.h>
 #include <geekos/debug.h>
 #include <geekos/serial.h>
-
+#include <geekos/vm.h>
+#include <geekos/screen.h>
 
 #define SPEAKER_PORT 0x61
 
@@ -71,19 +72,39 @@ int IO_Read_to_Serial(ushort_t port, void * dst, uint_t length) {
 }
 
 
+char * bochs_debug_buf = NULL;
+int bochs_debug_offset = 0;
+
+
+int IO_BOCHS_debug(ushort_t port, void * src, uint_t length) {
+  if (!bochs_debug_buf) {
+    bochs_debug_buf = (char*)Malloc(1024);
+  }
+
+  bochs_debug_buf[bochs_debug_offset++] = *(char*)src;
+
+  if ((*(char*)src == '\n') ||  (bochs_debug_offset == 1023)) {
+    SerialPrint("BOCHS>%s", bochs_debug_buf);
+    memset(bochs_debug_buf, 0, 1024);
+    bochs_debug_offset = 0;
+  }
+
+  return length;
+}
+
 
 int IO_Write_to_Serial(ushort_t port, void * src, uint_t length) {
-  PrintBoth("Output from Guest on port %d (0x%x) Length=%d\n", port, port, length);
+ SerialPrint("Output from Guest on port %d (0x%x) Length=%d\n", port, port, length);
   switch (length) {
 
   case 1:
-    PrintBoth(">0x%.2x\n", *(char*)src);
+    SerialPrint(">0x%.2x\n", *(char*)src);
     break;
   case 2:
-    PrintBoth(">0x%.4x\n", *(ushort_t*)src);
+    SerialPrint(">0x%.4x\n", *(ushort_t*)src);
     break;
   case 4:
-    PrintBoth(">0x%.8x\n", *(uint_t*)src);
+    SerialPrint(">0x%.8x\n", *(uint_t*)src);
     break;
   default:
     break;
@@ -141,7 +162,7 @@ int RunVMM(struct Boot_Info * bootInfo) {
     memset(&vmm_ops, 0, sizeof(struct vmm_ctrl_ops));
     memset(&vm_info, 0, sizeof(struct guest_info));
 
-    os_hooks.print_debug = &PrintBoth;
+    os_hooks.print_debug = &SerialPrint;
     os_hooks.print_info = &Print;
     os_hooks.print_trace = &SerialPrint;
     os_hooks.allocate_pages = &Allocate_VMM_Pages;
@@ -183,43 +204,70 @@ int RunVMM(struct Boot_Info * bootInfo) {
       //add_shared_mem_range(&(vm_info.mem_layout), 0x0, 0x1000, 0x100000);
       //      add_shared_mem_range(&(vm_info.mem_layout), 0x0, 0x100000, 0x0);
       
-      shadow_region_t *ent = Malloc(sizeof(shadow_region_t));;
-      init_shadow_region_physical(ent,0,0x100000,GUEST_REGION_PHYSICAL_MEMORY,
-				  0x100000, HOST_REGION_PHYSICAL_MEMORY);
-      add_shadow_region(&(vm_info.mem_map),ent);
+      /*
+	shadow_region_t *ent = Malloc(sizeof(shadow_region_t));;
+	init_shadow_region_physical(ent,0,0x100000,GUEST_REGION_PHYSICAL_MEMORY,
+	0x100000, HOST_REGION_PHYSICAL_MEMORY);
+	add_shadow_region(&(vm_info.mem_map),ent);
+      */
+
+      add_shadow_region_passthrough(&vm_info, 0x0, 0x100000, 0x100000);
 
       hook_io_port(&(vm_info.io_map), 0x61, &IO_Read, &IO_Write);
       hook_io_port(&(vm_info.io_map), 0x05, &IO_Read, &IO_Write_to_Serial);
       
       /*
-      vm_info.cr0 = 0;
-      vm_info.cs.base=0xf000;
-      vm_info.cs.limit=0xffff;
+	vm_info.cr0 = 0;
+	vm_info.cs.base=0xf000;
+	vm_info.cs.limit=0xffff;
       */
       //vm_info.rip = 0xfff0;
 
       vm_info.rip = 0;
       vm_info.vm_regs.rsp = 0x0;
     } else {
-      shadow_region_t *ent = Malloc(sizeof(shadow_region_t));
-      /*
-	init_shadow_region_physical(ent,0xf0000,0x100000,GUEST_REGION_PHYSICAL_MEMORY,
-	0x100000, HOST_REGION_PHYSICAL_MEMORY);
-	add_shadow_region(&(vm_info.mem_map),ent);
-	ent = Malloc(sizeof(shadow_region_t));
-      */
-      void * guest_mem = Allocate_VMM_Pages(256);
+      int i;
+      void * region_start;
 
+ 
       PrintDebug("Guest Size: %lu\n", bootInfo->guest_size);
 
-      memcpy((void *)(guest_mem + 0xf0000), (void *)0x100000, bootInfo->guest_size);
+      struct guest_mem_layout * layout = (struct guest_mem_layout *)0x100000;
 
+      if (layout->magic != MAGIC_CODE) {
+	PrintDebug("Layout Magic Mismatch (0x%x)\n", layout->magic);
+      }
 
-      SerialMemDump((unsigned char *)(guest_mem + 0xffff0), 16);
+      PrintDebug("%d layout regions\n", layout->num_regions);
 
-      init_shadow_region_physical(ent, 0x0, 0x100000, GUEST_REGION_PHYSICAL_MEMORY, 
-				  (addr_t)guest_mem, HOST_REGION_PHYSICAL_MEMORY);
-      add_shadow_region(&(vm_info.mem_map),ent);
+      region_start = (void *)&(layout->regions[layout->num_regions]);
+
+      PrintDebug("region start = 0x%x\n", region_start);
+
+      for (i = 0; i < layout->num_regions; i++) {
+	struct layout_region * reg = &(layout->regions[i]);
+	uint_t num_pages = (reg->length / PAGE_SIZE) + ((reg->length % PAGE_SIZE) ? 1 : 0);
+	void * guest_mem = Allocate_VMM_Pages(num_pages);
+
+	PrintDebug("Layout Region %d bytes\n", reg->length);
+	memcpy(guest_mem, region_start, reg->length);
+	
+	SerialMemDump((unsigned char *)(guest_mem), 16);
+
+	add_shadow_region_passthrough(&vm_info, reg->final_addr, reg->final_addr + (num_pages * PAGE_SIZE), (addr_t)guest_mem);
+
+	PrintDebug("Adding Shadow Region (0x%x-0x%x) -> 0x%x\n", reg->final_addr, reg->final_addr + (num_pages * PAGE_SIZE), guest_mem);
+
+	region_start += reg->length;
+      }
+      
+      add_shadow_region_passthrough(&vm_info, 0x0, 0xa0000, (addr_t)Allocate_VMM_Pages(160));
+      add_shadow_region_passthrough(&vm_info, 0xa0000, 0xc0000, 0xa0000); 
+      if (add_shadow_region_passthrough(&vm_info, 0xc7000, 0xf0000, (addr_t)Allocate_VMM_Pages(41)) == -1) {
+	PrintDebug("Error adding shadow region\n");
+      }
+
+      print_shadow_map(&(vm_info.mem_map));
 
       hook_io_port(&(vm_info.io_map), 0x61, &IO_Read, &IO_Write);
       hook_io_port(&(vm_info.io_map), 0x05, &IO_Read, &IO_Write_to_Serial);
@@ -229,6 +277,11 @@ int RunVMM(struct Boot_Info * bootInfo) {
       hook_io_port(&(vm_info.io_map), 0xa0, &IO_Read, &IO_Write_to_Serial);
       hook_io_port(&(vm_info.io_map), 0xa1, &IO_Read, &IO_Write_to_Serial);
 
+      hook_io_port(&(vm_info.io_map), 0x400, &IO_Read, &IO_Write_to_Serial);
+      hook_io_port(&(vm_info.io_map), 0x401, &IO_Read, &IO_Write_to_Serial);
+      hook_io_port(&(vm_info.io_map), 0x402, &IO_Read, &IO_BOCHS_debug);
+      hook_io_port(&(vm_info.io_map), 0x403, &IO_Read, &IO_Write_to_Serial);
+
       vm_info.rip = 0xfff0;
       vm_info.vm_regs.rsp = 0x0;
     }
@@ -236,6 +289,7 @@ int RunVMM(struct Boot_Info * bootInfo) {
     PrintBoth("Initializing Guest (eip=0x%.8x) (esp=0x%.8x)\n", (uint_t)vm_info.rip,(uint_t)vm_info.vm_regs.rsp);
     (vmm_ops).init_guest(&vm_info);
     PrintBoth("Starting Guest\n");
+    Clear_Screen();
     (vmm_ops).start_guest(&vm_info);
 
     return 0;

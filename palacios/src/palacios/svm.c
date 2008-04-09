@@ -142,11 +142,11 @@ int start_svm_guest(struct guest_info *info) {
 
   while (1) {
 
-    PrintDebug("SVM Launch Args (vmcb=%x), (info=%x), (vm_regs=%x)\n", info->vmm_data,  &(info->vm_regs));
-    PrintDebug("Launching to RIP: %x\n", info->rip);
+    //PrintDebug("SVM Launch Args (vmcb=%x), (info=%x), (vm_regs=%x)\n", info->vmm_data,  &(info->vm_regs));
+    //PrintDebug("Launching to RIP: %x\n", info->rip);
     safe_svm_launch((vmcb_t*)(info->vmm_data), &(info->vm_regs));
     //launch_svm((vmcb_t*)(info->vmm_data));
-    PrintDebug("SVM Returned\n");
+    //PrintDebug("SVM Returned\n");
 
     if (handle_svm_exit(info) != 0) {
       // handle exit code....
@@ -311,7 +311,6 @@ void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info vm_info) {
   // guest_state->cr0 = 0x00000001;    // PE 
   ctrl_area->guest_ASID = 1;
 
-
   ctrl_area->exceptions.ex_names.de = 1;
   ctrl_area->exceptions.ex_names.df = 1;
   ctrl_area->exceptions.ex_names.pf = 1;
@@ -325,9 +324,13 @@ void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info vm_info) {
   ctrl_area->exceptions.ex_names.of = 1;
   ctrl_area->exceptions.ex_names.nmi = 1;
 
+  vm_info.vm_regs.rdx = 0x00000f00;
+
+  guest_state->cr0 = 0x60000010;
+
   guest_state->cs.selector = 0xf000;
-  guest_state->cs.limit=~0u;
-  guest_state->cs.base = guest_state->cs.selector<<4;
+  guest_state->cs.limit=0xffff;
+  guest_state->cs.base = 0x0000000f0000LL;
   guest_state->cs.attrib.raw = 0xf3;
 
   
@@ -336,11 +339,28 @@ void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info vm_info) {
     struct vmcb_selector * seg = segregs[i];
     
     seg->selector = 0x0000;
-    seg->base = seg->selector << 4;
+    //    seg->base = seg->selector << 4;
+    seg->base = 0x00000000;
     seg->attrib.raw = 0xf3;
     seg->limit = ~0u;
   }
   
+  guest_state->gdtr.limit = 0x0000ffff;
+  guest_state->gdtr.base = 0x0000000000000000LL;
+  guest_state->idtr.limit = 0x0000ffff;
+  guest_state->idtr.base = 0x0000000000000000LL;
+
+  guest_state->ldtr.selector = 0x0000;
+  guest_state->ldtr.limit = 0x0000ffff;
+  guest_state->ldtr.base = 0x0000000000000000LL;
+  guest_state->tr.selector = 0x0000;
+  guest_state->tr.limit = 0x0000ffff;
+  guest_state->tr.base = 0x0000000000000000LL;
+
+
+  guest_state->dr6 = 0x00000000ffff0ff0LL;
+  guest_state->dr7 = 0x0000000000000400LL;
+
   if (vm_info.io_map.num_ports > 0) {
     vmm_io_hook_t * iter;
     addr_t io_port_bitmap;
@@ -367,7 +387,7 @@ void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info vm_info) {
     ctrl_area->instrs.instrs.IOIO_PROT = 1;
   }
 
-  ctrl_area->instrs.instrs.INTR = 1;
+  //ctrl_area->instrs.instrs.INTR = 1;
 
 
 
@@ -378,7 +398,7 @@ void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info vm_info) {
 
     guest_state->cr3 = vm_info.shdw_pg_state.shadow_cr3.r_reg;
 
-    //PrintDebugPageTables((pde32_t*)(vm_info.shdw_pg_state.shadow_cr3.e_reg.low));
+    PrintDebugPageTables((pde32_t*)(vm_info.shdw_pg_state.shadow_cr3.e_reg.low));
 
     ctrl_area->cr_reads.crs.cr3 = 1;
     ctrl_area->cr_writes.crs.cr3 = 1;

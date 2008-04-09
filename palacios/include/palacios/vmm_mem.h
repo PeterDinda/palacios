@@ -4,7 +4,11 @@
 
 #include <palacios/vmm_types.h>
 
+
 typedef ulong_t addr_t;
+
+struct guest_info;
+
 
 /*
 
@@ -55,11 +59,11 @@ typedef struct shadow_region {
 
 
 
-typedef struct shadow_map {
+struct shadow_map {
   uint_t num_regions;
 
   shadow_region_t * head;
-} shadow_map_t;
+};
 
 
 void init_shadow_region(shadow_region_t * entry,
@@ -68,36 +72,43 @@ void init_shadow_region(shadow_region_t * entry,
 			   guest_region_type_t  guest_region_type,
 			   host_region_type_t   host_region_type);
 
+/*
 void init_shadow_region_physical(shadow_region_t * entry,
 				    addr_t               guest_addr_start,
 				    addr_t               guest_addr_end,
 				    guest_region_type_t  guest_region_type,
 				    addr_t               host_addr_start,
 				    host_region_type_t   host_region_type);
-  
-void init_shadow_map(shadow_map_t * map);
-void free_shadow_map(shadow_map_t * map);
+*/
 
-shadow_region_t * get_shadow_region_by_addr(shadow_map_t * map, addr_t guest_addr);
+int add_shadow_region_passthrough(struct guest_info * guest_info, 
+				  addr_t guest_addr_start,
+				  addr_t guest_addr_end,
+				  addr_t host_addr_start);
 
-shadow_region_t * get_shadow_region_by_index(shadow_map_t * map, uint_t index);
+void init_shadow_map(struct shadow_map * map);
+void free_shadow_map(struct shadow_map * map);
 
-host_region_type_t lookup_shadow_map_addr(shadow_map_t * map, addr_t guest_addr, addr_t * host_addr);
+shadow_region_t * get_shadow_region_by_addr(struct shadow_map * map, addr_t guest_addr);
+
+shadow_region_t * get_shadow_region_by_index(struct shadow_map * map, uint_t index);
+
+host_region_type_t lookup_shadow_map_addr(struct shadow_map * map, addr_t guest_addr, addr_t * host_addr);
 
 
 // Semantics:
 // Adding a region that overlaps with an existing region results is undefined
 // and will probably fail
-int add_shadow_region(shadow_map_t * map, shadow_region_t * entry);
+int add_shadow_region(struct shadow_map * map, shadow_region_t * entry);
 
 // Semantics:
 // Deletions result in splitting
-int delete_shadow_region(shadow_map_t * map,
+int delete_shadow_region(struct shadow_map * map,
 			     addr_t guest_start, 
 			     addr_t guest_end);
 
 
-void print_shadow_map(shadow_map_t * map);
+void print_shadow_map(struct shadow_map * map);
 
 
 

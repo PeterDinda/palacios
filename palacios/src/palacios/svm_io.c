@@ -19,7 +19,7 @@ int handle_svm_io_in(struct guest_info * info) {
     return -1;
   }
 
-  PrintDebug("IN on  port %d (0x%x)\n", io_info->port, io_info->port);
+  //PrintDebug("IN on  port %d (0x%x)\n", io_info->port, io_info->port);
 
   if (io_info->sz8) { 
     read_size = 1;
@@ -77,7 +77,7 @@ int handle_svm_io_ins(struct guest_info * info) {
     return -1;
   }
 
-  PrintDebug("INS on  port %d (0x%x)\n", io_info->port, io_info->port);
+  //PrintDebug("INS on  port %d (0x%x)\n", io_info->port, io_info->port);
 
   if (io_info->sz8) { 
     read_size = 1;
@@ -145,7 +145,7 @@ int handle_svm_io_out(struct guest_info * info) {
     return -1;
   }
 
-  PrintDebug("OUT on  port %d (0x%x)\n", io_info->port, io_info->port);
+  //PrintDebug("OUT on  port %d (0x%x)\n", io_info->port, io_info->port);
 
   if (io_info->sz8) { 
     write_size = 1;
@@ -201,7 +201,7 @@ int handle_svm_io_outs(struct guest_info * info) {
     return -1;
   }
 
-  PrintDebug("OUTS on  port %d (0x%x)\n", io_info->port, io_info->port);
+  //PrintDebug("OUTS on  port %d (0x%x)\n", io_info->port, io_info->port);
 
   if (io_info->sz8) { 
     write_size = 1;
