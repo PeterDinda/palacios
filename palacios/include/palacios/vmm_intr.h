@@ -31,11 +31,14 @@ struct guest_info;
 struct vm_intr {
   uint_t excp_pending;
   uint_t excp_num;
+  uint_t excp_error_code;
   
   /* some way to get the [A]PIC intr */
 
 };
 
+
+void init_interrupt_state(struct vm_intr * state);
 
 int raise_exception(struct guest_info * info, uint_t excp);
 

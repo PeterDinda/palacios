@@ -1,6 +1,13 @@
 #include <palacios/vmm_intr.h>
 #include <palacios/vm_guest.h>
 
+
+void init_interrupt_state(struct vm_intr * state) {
+  state->excp_pending = 0;
+  state->excp_num = 0;
+  state->excp_error_code = 0;
+}
+
 int raise_exception(struct guest_info * info, uint_t excp) {
 
   /* We can't stack exceptions, 

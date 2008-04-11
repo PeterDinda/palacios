@@ -183,6 +183,7 @@ int RunVMM(struct Boot_Info * bootInfo) {
     vm_info.cpu_mode = REAL;
 
     init_vmm_io_map(&(vm_info.io_map));
+    init_interrupt_state(&(vm_info.intr_state));
 
     
     if (0) {

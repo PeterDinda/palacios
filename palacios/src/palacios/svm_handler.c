@@ -120,6 +120,7 @@ int handle_svm_exit(struct guest_info * info) {
       break;
     case EXCEPTION:
       guest_ctrl->EVENTINJ.type = SVM_INJECTION_EXCEPTION;
+      guest_ctrl->EVENTINJ.excp_error_code = info->intr_state.excp_error_code;
       break;
     case SOFTWARE:
       guest_ctrl->EVENTINJ.type = SVM_INJECTION_SOFT_INTR;
@@ -130,13 +131,14 @@ int handle_svm_exit(struct guest_info * info) {
 
     case INVALID_INTR: 
     default:
-      PrintDebug("Attempted to issue and invalid interrupt\n");
+      PrintDebug("Attempted to issue an invalid interrupt\n");
       return -1;
     }
 
     // IMPORTANT TODO
     // We need to figure out stack parameters....
-    // EVENTINJ.error_code
+
+    //EVENTINJ.error_code
 
   }
 
