@@ -51,6 +51,25 @@ void add_io_hook(vmm_io_map_t * io_map, vmm_io_hook_t * io_hook) {
   }
 }
 
+void remove_io_hook(vmm_io_map_t * io_map, vmm_io_hook_t * io_hook) {
+  if (io_map->head == io_hook) {
+    io_map->head = io_hook->next;
+  } else if (io_hook->prev) {
+    io_hook->prev->next = io_hook->next;
+  } else {
+    // data corruption failure
+  }
+  
+  if (io_hook->next) {
+    io_hook->next->prev = io_hook->prev;
+  }
+
+  io_map->num_ports--;
+
+  return;
+}
+
+
 void hook_io_port(vmm_io_map_t * io_map, uint_t port, 
 		  int (*read)(ushort_t port, void * dst, uint_t length, void * priv_data),
 		  int (*write)(ushort_t port, void * src, uint_t length, void * priv_data), 
@@ -68,6 +87,17 @@ void hook_io_port(vmm_io_map_t * io_map, uint_t port,
   add_io_hook(io_map, io_hook);
 
   return;
+}
+
+int unhook_io_port(vmm_io_map_t * io_map, uint_t port) {
+  vmm_io_hook_t * hook = get_io_hook(io_map, port);
+
+  if (hook == NULL) {
+    return -1;
+  }
+
+  remove_io_hook(io_map, hook);
+  return 0;
 }
 
 
