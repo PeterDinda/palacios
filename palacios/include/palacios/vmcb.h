@@ -217,9 +217,12 @@ typedef struct VMCB_Control_Area {
    * But it does say that the EXITINTINFO field is in bits 63-1
    * ALL other occurances mention a 1 bit reserved field
    */
-  uint_t rsvd5             : 1          PACKED;
-  ullong_t exit_int_info   : 63         PACKED;
+  //  uint_t rsvd5             : 1          PACKED;
+  //ullong_t exit_int_info   : 63         PACKED;
   /* ** */
+
+  // AMD Manual 2, pg 391, sect: 15.19
+  struct Interrupt_Info exit_int_info  PACKED;
 
   //  uint_t NP_ENABLE         : 1          PACKED;
   //ullong_t rsvd6           : 63         PACKED;  // Should be 0 

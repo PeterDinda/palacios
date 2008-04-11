@@ -1,5 +1,6 @@
+//  -*- fundamental -*-
 /////////////////////////////////////////////////////////////////////////
-// $Id: rombios.c,v 1.1 2007/11/29 20:26:38 pdinda Exp $
+// $Id: rombios.c,v 1.2 2008/04/11 19:12:59 jarusl Exp $
 /////////////////////////////////////////////////////////////////////////
 //
 //  Copyright (C) 2002  MandrakeSoft S.A.
@@ -944,10 +945,10 @@ Bit16u cdrom_boot();
 
 #endif // BX_ELTORITO_BOOT
 
-static char bios_cvs_version_string[] = "$Revision: 1.1 $";
-static char bios_date_string[] = "$Date: 2007/11/29 20:26:38 $";
+static char bios_cvs_version_string[] = "$Revision: 1.2 $";
+static char bios_date_string[] = "$Date: 2008/04/11 19:12:59 $";
 
-static char CVSID[] = "$Id: rombios.c,v 1.1 2007/11/29 20:26:38 pdinda Exp $";
+static char CVSID[] = "$Id: rombios.c,v 1.2 2008/04/11 19:12:59 jarusl Exp $";
 
 /* Offset to skip the CVS $Id: prefix */ 
 #define bios_version_string  (CVSID + 4)
@@ -9753,6 +9754,8 @@ post_default_ints:
   ;; Video setup
   SET_INT_VECTOR(0x10, #0xF000, #int10_handler)
 
+
+
   ;; PIC
   mov al, #0x11 ; send initialisation commands
   out 0x20, al
@@ -9783,6 +9786,19 @@ post_default_ints:
 #endif
 
   call rom_scan
+
+
+  ;; JRL CHANGE
+  ;;push ax
+  ;;push bx
+  ;;mov  ah, #0x0e
+  ;;mov  al, #0x41
+  ;;xor  bx,bx
+  ;;int  #0x10
+  ;;pop  bx
+  ;;pop ax
+
+
 
   call _print_bios_banner 
 

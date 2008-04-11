@@ -118,8 +118,12 @@ void PrintDebugVMCB(vmcb_t * vmcb) {
   tmp_reg.r_reg = ctrl_area->exit_info2;
   PrintDebug("exit_info2: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
 
-  tmp_reg.r_reg = ctrl_area->exit_int_info;
-  PrintDebug("exit_int_info: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
+
+  PrintDebug("Exit Int Info: (at 0x%.8x)\n", &(ctrl_area->exit_int_info));
+  PrintDebug("Vector: %d\n", ctrl_area->exit_int_info.vector);
+  PrintDebug("(type=%d) (ev=%d) (valid=%d)\n", ctrl_area->exit_int_info.type, 
+	     ctrl_area->exit_int_info.ev, ctrl_area->exit_int_info.valid);
+  PrintDebug("Error Code: %d\n", ctrl_area->exit_int_info.error_code);
 
 
   tmp_reg.r_reg = ctrl_area->NP_ENABLE;

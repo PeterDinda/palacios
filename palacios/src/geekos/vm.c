@@ -261,9 +261,10 @@ int RunVMM(struct Boot_Info * bootInfo) {
 	region_start += reg->length;
       }
       
+      add_shadow_region_passthrough(&vm_info, 0xc0000, 0xc8000, 0xc0000);
       add_shadow_region_passthrough(&vm_info, 0x0, 0xa0000, (addr_t)Allocate_VMM_Pages(160));
       add_shadow_region_passthrough(&vm_info, 0xa0000, 0xc0000, 0xa0000); 
-      if (add_shadow_region_passthrough(&vm_info, 0xc7000, 0xf0000, (addr_t)Allocate_VMM_Pages(41)) == -1) {
+      if (add_shadow_region_passthrough(&vm_info, 0xc8000, 0xf0000, (addr_t)Allocate_VMM_Pages(40)) == -1) {
 	PrintDebug("Error adding shadow region\n");
       }
 
@@ -289,7 +290,7 @@ int RunVMM(struct Boot_Info * bootInfo) {
     PrintBoth("Initializing Guest (eip=0x%.8x) (esp=0x%.8x)\n", (uint_t)vm_info.rip,(uint_t)vm_info.vm_regs.rsp);
     (vmm_ops).init_guest(&vm_info);
     PrintBoth("Starting Guest\n");
-    Clear_Screen();
+    //Clear_Screen();
     (vmm_ops).start_guest(&vm_info);
 
     return 0;
