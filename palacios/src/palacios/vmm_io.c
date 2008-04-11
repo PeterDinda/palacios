@@ -52,8 +52,9 @@ void add_io_hook(vmm_io_map_t * io_map, vmm_io_hook_t * io_hook) {
 }
 
 void hook_io_port(vmm_io_map_t * io_map, uint_t port, 
-		  int (*read)(ushort_t port, void * dst, uint_t length),
-		  int (*write)(ushort_t port, void * src, uint_t length)) {
+		  int (*read)(ushort_t port, void * dst, uint_t length, void * priv_data),
+		  int (*write)(ushort_t port, void * src, uint_t length, void * priv_data), 
+		  void * priv_data) {
   vmm_io_hook_t * io_hook = os_hooks->malloc(sizeof(vmm_io_hook_t));
 
   io_hook->port = port;
@@ -61,6 +62,8 @@ void hook_io_port(vmm_io_map_t * io_map, uint_t port,
   io_hook->write = write;
   io_hook->next = NULL;
   io_hook->prev = NULL;
+
+  io_hook->priv_data = priv_data;
 
   add_io_hook(io_map, io_hook);
 

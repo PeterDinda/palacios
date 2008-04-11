@@ -30,7 +30,7 @@ int handle_svm_io_in(struct guest_info * info) {
   }
 
 
-  if (hook->read(io_info->port, &(info->vm_regs.rax), read_size) != read_size) {
+  if (hook->read(io_info->port, &(info->vm_regs.rax), read_size, hook->priv_data) != read_size) {
     // not sure how we handle errors.....
     return -1;
   }
@@ -113,7 +113,7 @@ int handle_svm_io_ins(struct guest_info * info) {
       // either page fault or gpf...
     }
 
-    if (hook->read(io_info->port, (char*)host_addr, read_size) != read_size) {
+    if (hook->read(io_info->port, (char*)host_addr, read_size, hook->priv_data) != read_size) {
       // not sure how we handle errors.....
       return -1;
     }
@@ -156,7 +156,7 @@ int handle_svm_io_out(struct guest_info * info) {
   }
 
 
-  if (hook->write(io_info->port, &(info->vm_regs.rax), write_size) != write_size) {
+  if (hook->write(io_info->port, &(info->vm_regs.rax), write_size, hook->priv_data) != write_size) {
     // not sure how we handle errors.....
     return -1;
   }
@@ -236,7 +236,7 @@ int handle_svm_io_outs(struct guest_info * info) {
       // either page fault or gpf...
     }
 
-    if (hook->write(io_info->port, (char*)host_addr, write_size) != write_size) {
+    if (hook->write(io_info->port, (char*)host_addr, write_size, hook->priv_data) != write_size) {
       // not sure how we handle errors.....
       return -1;
     }

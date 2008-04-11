@@ -13,10 +13,12 @@ typedef struct vmm_io_hook {
   ushort_t port;
 
   // Reads data into the IO port (IN, INS)
-  int (*read)(ushort_t port, void * dst, uint_t length);
+  int (*read)(ushort_t port, void * dst, uint_t length, void * priv_data);
 
   // Writes data from the IO port (OUT, OUTS)
-  int (*write)(ushort_t port, void * src, uint_t length);
+  int (*write)(ushort_t port, void * src, uint_t length, void * priv_data);
+
+  void * priv_data;
 
   struct vmm_io_hook * next;
   struct vmm_io_hook * prev;
@@ -42,8 +44,9 @@ vmm_io_hook_t * get_io_hook(vmm_io_map_t * io_map, uint_t port);
 
 /* External API */
 void hook_io_port(vmm_io_map_t * io_map, uint_t port, 
-		  int (*read)(ushort_t port, void * dst, uint_t length),
-		  int (*write)(ushort_t port, void * src, uint_t length));
+		  int (*read)(ushort_t port, void * dst, uint_t length, void * priv_data),
+		  int (*write)(ushort_t port, void * src, uint_t length, void * priv_data), 
+		  void * priv_data );
 
 void init_vmm_io_map(vmm_io_map_t * io_map);
 

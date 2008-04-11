@@ -37,7 +37,7 @@ inline uchar_t VM_In_Byte(ushort_t port)
 
 
 
-int IO_Read(ushort_t port, void * dst, uint_t length) {
+int IO_Read(ushort_t port, void * dst, uint_t length, void * priv_data) {
   uchar_t * iter = dst;
   uint_t i;
 
@@ -51,7 +51,7 @@ int IO_Read(ushort_t port, void * dst, uint_t length) {
 
 
 
-int IO_Write(ushort_t port, void * src, uint_t length) {
+int IO_Write(ushort_t port, void * src, uint_t length, void * priv_data) {
   uchar_t * iter = src;
   uint_t i;
 
@@ -65,7 +65,7 @@ int IO_Write(ushort_t port, void * src, uint_t length) {
 }
 
 
-int IO_Read_to_Serial(ushort_t port, void * dst, uint_t length) {
+int IO_Read_to_Serial(ushort_t port, void * dst, uint_t length, void * priv_data) {
   PrintBoth("Input from Guest on port %d (0x%x) Length=%d\n", port, port, length);
   
   return 0;
@@ -76,7 +76,7 @@ char * bochs_debug_buf = NULL;
 int bochs_debug_offset = 0;
 
 
-int IO_BOCHS_debug(ushort_t port, void * src, uint_t length) {
+int IO_BOCHS_debug(ushort_t port, void * src, uint_t length, void * priv_data) {
   if (!bochs_debug_buf) {
     bochs_debug_buf = (char*)Malloc(1024);
   }
@@ -93,7 +93,7 @@ int IO_BOCHS_debug(ushort_t port, void * src, uint_t length) {
 }
 
 
-int IO_Write_to_Serial(ushort_t port, void * src, uint_t length) {
+int IO_Write_to_Serial(ushort_t port, void * src, uint_t length, void * priv_data) {
  SerialPrint("Output from Guest on port %d (0x%x) Length=%d\n", port, port, length);
   switch (length) {
 
@@ -214,8 +214,8 @@ int RunVMM(struct Boot_Info * bootInfo) {
 
       add_shadow_region_passthrough(&vm_info, 0x0, 0x100000, 0x100000);
 
-      hook_io_port(&(vm_info.io_map), 0x61, &IO_Read, &IO_Write);
-      hook_io_port(&(vm_info.io_map), 0x05, &IO_Read, &IO_Write_to_Serial);
+      hook_io_port(&(vm_info.io_map), 0x61, &IO_Read, &IO_Write, NULL);
+      hook_io_port(&(vm_info.io_map), 0x05, &IO_Read, &IO_Write_to_Serial, NULL);
       
       /*
 	vm_info.cr0 = 0;
@@ -271,18 +271,18 @@ int RunVMM(struct Boot_Info * bootInfo) {
 
       print_shadow_map(&(vm_info.mem_map));
 
-      hook_io_port(&(vm_info.io_map), 0x61, &IO_Read, &IO_Write);
-      hook_io_port(&(vm_info.io_map), 0x05, &IO_Read, &IO_Write_to_Serial);
+      hook_io_port(&(vm_info.io_map), 0x61, &IO_Read, &IO_Write, NULL);
+      hook_io_port(&(vm_info.io_map), 0x05, &IO_Read, &IO_Write_to_Serial, NULL);
 
-      hook_io_port(&(vm_info.io_map), 0x20, &IO_Read, &IO_Write_to_Serial);
-      hook_io_port(&(vm_info.io_map), 0x21, &IO_Read, &IO_Write_to_Serial);
-      hook_io_port(&(vm_info.io_map), 0xa0, &IO_Read, &IO_Write_to_Serial);
-      hook_io_port(&(vm_info.io_map), 0xa1, &IO_Read, &IO_Write_to_Serial);
+      hook_io_port(&(vm_info.io_map), 0x20, &IO_Read, &IO_Write_to_Serial, NULL);
+      hook_io_port(&(vm_info.io_map), 0x21, &IO_Read, &IO_Write_to_Serial, NULL);
+      hook_io_port(&(vm_info.io_map), 0xa0, &IO_Read, &IO_Write_to_Serial, NULL);
+      hook_io_port(&(vm_info.io_map), 0xa1, &IO_Read, &IO_Write_to_Serial, NULL);
 
-      hook_io_port(&(vm_info.io_map), 0x400, &IO_Read, &IO_Write_to_Serial);
-      hook_io_port(&(vm_info.io_map), 0x401, &IO_Read, &IO_Write_to_Serial);
-      hook_io_port(&(vm_info.io_map), 0x402, &IO_Read, &IO_BOCHS_debug);
-      hook_io_port(&(vm_info.io_map), 0x403, &IO_Read, &IO_Write_to_Serial);
+      hook_io_port(&(vm_info.io_map), 0x400, &IO_Read, &IO_Write_to_Serial, NULL);
+      hook_io_port(&(vm_info.io_map), 0x401, &IO_Read, &IO_Write_to_Serial, NULL);
+      hook_io_port(&(vm_info.io_map), 0x402, &IO_Read, &IO_BOCHS_debug, NULL);
+      hook_io_port(&(vm_info.io_map), 0x403, &IO_Read, &IO_Write_to_Serial, NULL);
 
       vm_info.rip = 0xfff0;
       vm_info.vm_regs.rsp = 0x0;

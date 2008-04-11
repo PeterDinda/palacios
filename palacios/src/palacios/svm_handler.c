@@ -120,7 +120,7 @@ int handle_svm_exit(struct guest_info * info) {
       break;
     case EXCEPTION:
       guest_ctrl->EVENTINJ.type = SVM_INJECTION_EXCEPTION;
-      guest_ctrl->EVENTINJ.excp_error_code = info->intr_state.excp_error_code;
+      guest_ctrl->EVENTINJ.error_code = info->intr_state.excp_error_code;
       break;
     case SOFTWARE:
       guest_ctrl->EVENTINJ.type = SVM_INJECTION_SOFT_INTR;
