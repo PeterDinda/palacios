@@ -1,6 +1,6 @@
 # Makefile for GeekOS kernel, userspace, and tools
 # Copyright (c) 2004,2005 David H. Hovemeyer <daveho@cs.umd.edu>
-# $Revision: 1.23 $
+# $Revision: 1.24 $
 
 # This is free software.  You are permitted to use,
 # redistribute, and modify it as specified in the file "COPYING".
@@ -125,12 +125,20 @@ VMM_C_SRCS :=   vm_guest.c \
 	 	svm.c svm_handler.c vmm.c vmm_util.c svm_ctrl_regs.c \
 		vmcb.c vmm_mem.c vmm_paging.c vmm_io.c vmm_debug.c svm_io.c \
 		vmm_intr.c \
-		vmm_shadow_paging.c vm_guest_mem.c #\
+		vmm_shadow_paging.c vm_guest_mem.c  \
+                vmm_dev.c vmm_dev_mgr.c \
+#\
 #		vmx.c vmcs_gen.c vmcs.c
 
 VMM_C_OBJS := $(VMM_C_SRCS:%.c=palacios/%.o)
 
 VMM_OBJS := $(VMM_C_OBJS) $(VMM_ASM_OBJS)
+
+DEVICE_C_SRCS :=  nvram.c
+
+DEVICE_C_OBJS := $(DEVICE_C_SRCS:%.c=devices/%.o)
+
+DEVICE_OBJS := $(DEVICE_C_OBJS) $(VMM_ASM_OBJS)
 
 
 
@@ -250,6 +258,12 @@ palacios/%.o : palacios/%.c
 palacios/%.o : palacios/%.asm
 	$(NASM) $(NASM_VMM_OPTS) $< -o palacios/$*.o
 
+devices/%.o : devices/%.c
+	$(TARGET_CC) -c $(CC_GENERAL_OPTS) $(CC_VMM_OPTS) $< -o palacios/$*.o
+
+devices/%.o : devices/%.asm
+	$(NASM) $(NASM_VMM_OPTS) $< -o palacios/$*.o
+
 # ----------------------------------------------------------------------
 # Targets -
 #   Specifies files to be built
@@ -310,7 +324,7 @@ geekos/kernel.bin : geekos/kernel.exe
 	$(PAD) $@ 512
 
 # The kernel executable and symbol map.
-geekos/kernel.exe : $(KERNEL_OBJS) $(COMMON_C_OBJS) $(VMM_OBJS)
+geekos/kernel.exe : $(KERNEL_OBJS) $(COMMON_C_OBJS) $(VMM_OBJS) $(DEVICE_OBJS)
 	$(TARGET_LD) -o geekos/kernel.exe -Ttext $(KERNEL_BASE_ADDR) -e $(KERNEL_ENTRY) \
 		$(KERNEL_OBJS) $(COMMON_C_OBJS) $(VMM_OBJS)
 	$(TARGET_NM) geekos/kernel.exe > geekos/kernel.syms
@@ -328,7 +342,7 @@ vm_kernel: force
 
 # Clean build directories of generated files
 clean :
-	for d in geekos common libc user tools palacios; do \
+	for d in geekos common libc user tools palacios devices; do \
 		(cd $$d && rm -f *); \
 	done
 
@@ -347,6 +361,10 @@ depend : $(GENERATED_LIBC_SRCS)
 	$(TARGET_CC) -M $(CC_GENERAL_OPTS) $(CC_KERNEL_OPTS) \
 		$(VMM_C_SRCS:%.c=$(PROJECT_ROOT)/src/palacios/%.c) \
 		| $(PERL) -n -e 's,^(\S),palacios/$$1,;print' \
+		>> depend.mak
+	$(TARGET_CC) -M $(CC_GENERAL_OPTS) $(CC_KERNEL_OPTS) \
+		$(DEVICE_C_SRCS:%.c=$(PROJECT_ROOT)/src/devices/%.c) \
+		| $(PERL) -n -e 's,^(\S),devices/$$1,;print' \
 		>> depend.mak
 
 # By default, there are no header file dependencies.

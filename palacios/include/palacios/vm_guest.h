@@ -6,6 +6,7 @@
 #include <palacios/vmm_io.h>
 #include <palacios/vmm_shadow_paging.h>
 #include <palacios/vmm_intr.h>
+#include <palacios/vmm_dev_mgr.h>
 
 typedef ullong_t gpr_t;
 
@@ -56,6 +57,8 @@ struct guest_info {
 
   vmm_io_map_t io_map;
   // device_map
+
+  struct vmm_dev_mgr  dev_mgr;
 
   vm_cpu_mode_t cpu_mode;
 
