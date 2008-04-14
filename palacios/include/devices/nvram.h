@@ -1,10 +1,10 @@
-#ifndef _nvram
-#define _nvram
+#ifndef __NVRAM_H
+#define __NVRAM_H
 
-#include <palacios/vmm_dev.h>
+#include <palacios/vm_dev.h>
 
 
 
-struct vm_device *nvram_create();
+struct vm_device * nvram_create();
 
 #endif

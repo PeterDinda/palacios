@@ -4,6 +4,8 @@
 #include <geekos/serial.h>
 #include <geekos/vm.h>
 #include <geekos/screen.h>
+#include <palacios/vmm_dev_mgr.h>
+#include <devices/nvram.h>
 
 #define SPEAKER_PORT 0x61
 
@@ -172,7 +174,7 @@ int RunVMM(struct Boot_Info * bootInfo) {
     os_hooks.vaddr_to_paddr = &Identity;
     os_hooks.paddr_to_vaddr = &Identity;
 
-
+ 
     //   DumpGDT();
     Init_VMM(&os_hooks, &vmm_ops);
   
@@ -283,6 +285,14 @@ int RunVMM(struct Boot_Info * bootInfo) {
       hook_io_port(&(vm_info.io_map), 0x401, &IO_Read, &IO_Write_to_Serial, NULL);
       hook_io_port(&(vm_info.io_map), 0x402, &IO_Read, &IO_BOCHS_debug, NULL);
       hook_io_port(&(vm_info.io_map), 0x403, &IO_Read, &IO_Write_to_Serial, NULL);
+
+      {
+	struct vm_device * nvram = nvram_create();
+	attach_device(&(vm_info), nvram);
+	
+	PrintDebugDevMgr(&(vm_info.dev_mgr));
+	
+      }
 
       vm_info.rip = 0xfff0;
       vm_info.vm_regs.rsp = 0x0;

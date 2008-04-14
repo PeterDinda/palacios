@@ -1,6 +1,6 @@
 # Makefile for GeekOS kernel, userspace, and tools
 # Copyright (c) 2004,2005 David H. Hovemeyer <daveho@cs.umd.edu>
-# $Revision: 1.24 $
+# $Revision: 1.25 $
 
 # This is free software.  You are permitted to use,
 # redistribute, and modify it as specified in the file "COPYING".
@@ -126,7 +126,7 @@ VMM_C_SRCS :=   vm_guest.c \
 		vmcb.c vmm_mem.c vmm_paging.c vmm_io.c vmm_debug.c svm_io.c \
 		vmm_intr.c \
 		vmm_shadow_paging.c vm_guest_mem.c  \
-                vmm_dev.c vmm_dev_mgr.c \
+                vm_dev.c vmm_dev_mgr.c \
 #\
 #		vmx.c vmcs_gen.c vmcs.c
 
@@ -138,7 +138,7 @@ DEVICE_C_SRCS :=  nvram.c
 
 DEVICE_C_OBJS := $(DEVICE_C_SRCS:%.c=devices/%.o)
 
-DEVICE_OBJS := $(DEVICE_C_OBJS) $(VMM_ASM_OBJS)
+DEVICE_OBJS := $(DEVICE_C_OBJS)
 
 
 
@@ -259,10 +259,10 @@ palacios/%.o : palacios/%.asm
 	$(NASM) $(NASM_VMM_OPTS) $< -o palacios/$*.o
 
 devices/%.o : devices/%.c
-	$(TARGET_CC) -c $(CC_GENERAL_OPTS) $(CC_VMM_OPTS) $< -o palacios/$*.o
+	$(TARGET_CC) -c $(CC_GENERAL_OPTS) $(CC_VMM_OPTS) $< -o devices/$*.o
 
 devices/%.o : devices/%.asm
-	$(NASM) $(NASM_VMM_OPTS) $< -o palacios/$*.o
+	$(NASM) $(NASM_VMM_OPTS) $< -o devices/$*.o
 
 # ----------------------------------------------------------------------
 # Targets -
@@ -326,7 +326,7 @@ geekos/kernel.bin : geekos/kernel.exe
 # The kernel executable and symbol map.
 geekos/kernel.exe : $(KERNEL_OBJS) $(COMMON_C_OBJS) $(VMM_OBJS) $(DEVICE_OBJS)
 	$(TARGET_LD) -o geekos/kernel.exe -Ttext $(KERNEL_BASE_ADDR) -e $(KERNEL_ENTRY) \
-		$(KERNEL_OBJS) $(COMMON_C_OBJS) $(VMM_OBJS)
+		$(KERNEL_OBJS) $(COMMON_C_OBJS) $(VMM_OBJS) $(DEVICE_OBJS)
 	$(TARGET_NM) geekos/kernel.exe > geekos/kernel.syms
 
 

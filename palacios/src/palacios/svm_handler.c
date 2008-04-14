@@ -22,18 +22,13 @@ int handle_svm_exit(struct guest_info * info) {
   info->rip = guest_state->rip;
   info->vm_regs.rsp = guest_state->rsp;
   info->vm_regs.rax = guest_state->rax;
-  info->vm_regs.rsp = guest_state->rsp;
-
-
-
-  
+  info->vm_regs.rsp = guest_state->rsp;  
 
 
   exit_code = guest_ctrl->exit_code;
-  
+ 
   // PrintDebugVMCB((vmcb_t*)(info->vmm_data));
 
-  
   if (exit_code == VMEXIT_IOIO) {
     struct svm_io_info * io_info = (struct svm_io_info *)&(guest_ctrl->exit_info1);
     

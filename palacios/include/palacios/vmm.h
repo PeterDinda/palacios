@@ -42,11 +42,11 @@
 
 
 /* This clearly won't work, we need some way to get a return value out of it */
-#define VMMMalloc(size)                                 \
+#define VMMMalloc(type, var, size)			\
   do {							\
     extern struct vmm_os_hooks * os_hooks;		\
     if ((os_hooks) && (os_hooks)->malloc) {		\
-      (os_hooks)->malloc(size);				\
+      var = (type)(os_hooks)->malloc(size);		\
     }							\
   } while (0)						\
 
@@ -70,11 +70,6 @@
 
 
 
-
-
-
-/* We need a memory map and an IO device map */
-
 /* This will contain function pointers that provide OS services */
 struct vmm_os_hooks {
   void (*print_info)(const char * format, ...);
@@ -90,10 +85,11 @@ struct vmm_os_hooks {
   void *(*paddr_to_vaddr)(void *addr);
   void *(*vaddr_to_paddr)(void *addr);
 
+  // Do we need this here?
+  void (*snprintf)(char * dst, char * format, int len, ...);
 
   void (*start_kernel_thread)(); // include pointer to function
 };
-
 
 
 
@@ -103,8 +99,6 @@ struct vmm_ctrl_ops {
   int (*start_guest)(struct guest_info * info);
   //  int (*stop_vm)(uint_t vm_id);
 };
-
-
 
 
 

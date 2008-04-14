@@ -10,10 +10,6 @@
 #include <palacios/vm_guest_mem.h>
 
 
-/* TEMPORARY BECAUSE SVM IS WEIRD */
-//#include <palacios/tss.h>
-/* ** */
-
 
 extern struct vmm_os_hooks * os_hooks;
 
@@ -377,7 +373,7 @@ void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info vm_info) {
       uchar_t * bitmap = (uchar_t *)io_port_bitmap;
 
       bitmap += (port / 8);
-      PrintDebug("Setting Bit in block %x\n", bitmap);
+      PrintDebug("Setting Bit for port 0x%x\n", port);
       *bitmap |= 1 << (port % 8);
     }
 

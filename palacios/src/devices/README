@@ -1,0 +1,41 @@
+This is how devices are hooked into the system:
+This is very similar to Linux Modules and device drivers.
+
+
+Devices are kept in their own directory structure: 
+SOURCE => src/devices
+HEADERS => include/devices
+
+
+Each device implements the following:
+ * a create_[device] function that returns a (struct vm_device *).
+ * a set of operations found in (struct vm_device_ops).
+	(currently only init and deinit are called, the rest are not fully thought out...)
+
+The control flow goes like this:
+
+1. The VMM calls create_[device]() which returns a (struct vm_device *). 
+
+2. This function calls create_device(char *name, struct vm_device_ops * ops, void * private_data);
+ * The arguments are device specific, and the pointer is returned to the VMM. No instance 
+	specific initialization should be done here
+
+3. The VMM then calls attach_device(struct guest_info * vm, struct vm_device * dev) to associate the 
+	device with a virtual machine
+
+4. attach_device then calls the ops->init() function found in the (struct vm_device *)
+ * This init function is where all the instance specific initialization is done. A pointer to the virtual machine
+	the device is associated with is stored in vm_device->vm.
+ * Any event hooks should be done here.
+
+
+
+Disconnection goes like this: 
+
+1. The VMM calls unattach_device(struct vm_device * dev)
+
+2. unattach_device calls the ops->deinit() function found in the (struct vm_device *)
+ * All the instance specific deinitialization should be done here
+ * Any event hooks that were taken should be released
+
+3. The VMM then calls free_device(struct vm_device * dev);

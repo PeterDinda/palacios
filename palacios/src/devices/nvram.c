@@ -10,7 +10,7 @@ extern struct vmm_os_hooks *os_hooks;
 
 
 
-typedef enum {NVRAM_READY,NVRAM_REG_POSTED} nvram_state_t;
+typedef enum {NVRAM_READY, NVRAM_REG_POSTED} nvram_state_t;
 
 
 #define NVRAM_REG_MAX   256
@@ -52,7 +52,7 @@ struct nvram_internal {
 
 
 
-int nvram_reset_device(struct vm_device *dev)
+int nvram_reset_device(struct vm_device * dev)
 {
   struct nvram_internal *data = (struct nvram_internal *) dev->private_data;
   
@@ -62,41 +62,6 @@ int nvram_reset_device(struct vm_device *dev)
   return 0;
 
 }
-
-int nvram_init_device(struct vm_device *dev, struct vm_guest *vm)
-{
-  struct nvram_internal *data = (struct nvram_internal *) dev->private_data;
- 
-  memset(data->mem_state,0,NVRAM_REG_MAX);
-
-  nvram_reset_device(dev);
-
-  // hook ports
-  dev_mgr_hook_io(dev->vm, 
-		  dev,
-		  NVRAM_REG_PORT,
-		  DEVICE_EMULATED,
-		  DEVICE_WRITE);
-
-  dev_mgr_hook_io(dev->vm, 
-		  dev,
-		  NVRAM_DATA_PORT,
-		  DEVICE_EMULATED,
-		  DEVICE_READWRITE);
-
-  return 0;
-}
-
-int nvram_deinit_device(struct vm_device *dev)
-{
-
-  nvram_reset_device(dev);
-  
-  dev_mgr_unhook_device(dev->vm,dev);
-
-  return 0;
-}
-
 
 
 
@@ -115,88 +80,89 @@ int nvram_stop_device(struct vm_device *dev)
 
 
 
-int nvram_read_io_port(ushort_t port_read,
-		       void   *address, 
-		       uint_t length,
-		       struct vm_device *dev)
-{
-  struct nvram_internal *data = (struct nvram_internal *) dev->private_data;
 
-  switch (port_read) { 
-  case NVRAM_REG_PORT:
-    // nonsense
-    memset(address,0,length);
-    break;
-  case NVRAM_DATA_PORT:
-    memcpy(address,&(data->mem_state[data->thereg]),1);
-    break;
-  default:
-    //bad
-    return -1;
-  }
-  return 0;
-}
-
-int nvram_write_io_port(ushort_t port_written,
-			void   *address, 
+int nvram_write_reg_port(ushort_t port,
+			void * src, 
 			uint_t length,
-			struct vm_device *dev)
+			struct vm_device * dev)
 {
   struct nvram_internal *data = (struct nvram_internal *) dev->private_data;
 
-  switch (port_written) { 
-  case NVRAM_REG_PORT:
-    memcpy(&(data->thereg),address,1);
-    break;
-  case NVRAM_DATA_PORT:
-    memcpy(&(data->mem_state[data->thereg]),address,1);
-    break;
-  default:
-    //bad
-    return -1;
-  }
+  memcpy(&(data->thereg), src, 1);
+
   return 0;
 }
 
-int nvram_read_mapped_memory(void   *address_read,
-			     void   *address, 
-			     uint_t length,
-			     struct vm_device *dev)
-{
-  return -1;
 
+int nvram_read_data_port(ushort_t port,
+		       void   * dst, 
+		       uint_t length,
+		       struct vm_device * dev)
+{
+  struct nvram_internal *data = (struct nvram_internal *) dev->private_data;
+
+  memcpy(dst, &(data->mem_state[data->thereg]), 1);
+
+  return 0;
 }
 
-int nvram_write_mapped_memory(void   *address_written,
-			      void   *address, 
-			      uint_t length,
-			      struct vm_device *dev)
+int nvram_write_data_port(ushort_t port,
+			void * src, 
+			uint_t length,
+			struct vm_device * dev)
 {
-  return -1;
+  struct nvram_internal *data = (struct nvram_internal *) dev->private_data;
+
+  memcpy(&(data->mem_state[data->thereg]), src, 1);
+
+  return 0;
 }
 
 
-static struct vm_device nvram_template = 
-  { .init_device = nvram_init_device, 
-    .deinit_device = nvram_deinit_device,
-    .reset_device = nvram_reset_device,
-    .start_device = nvram_start_device,
-    .stop_device = nvram_stop_device,
-    .read_io_port = nvram_read_io_port,
-    .write_io_port = nvram_write_io_port,
-    .read_mapped_memory = nvram_read_mapped_memory,
-    .write_mapped_memory= nvram_write_mapped_memory,
-  };
 
+int nvram_init_device(struct vm_device * dev) {
+  struct nvram_internal *data = (struct nvram_internal *) dev->private_data;
+ 
+  memset(data->mem_state, 0, NVRAM_REG_MAX);
 
+  nvram_reset_device(dev);
 
-struct vm_device *nvram_create()
+  // hook ports
+  dev_hook_io(dev, NVRAM_REG_PORT, NULL, &nvram_write_reg_port);
+  dev_hook_io(dev, NVRAM_DATA_PORT, &nvram_read_data_port, &nvram_write_data_port);
+  
+  return 0;
+}
+
+int nvram_deinit_device(struct vm_device *dev)
 {
-  struct vm_device *device = os_hooks->malloc(sizeof(struct vm_device));
 
-  *device = nvram_template;
 
-  device->private_data = os_hooks->malloc(sizeof(struct nvram_internal));
+  dev_unhook_io(dev, NVRAM_REG_PORT);
+  dev_unhook_io(dev, NVRAM_DATA_PORT);
+
+  nvram_reset_device(dev);
+  return 0;
+}
+
+
+
+
+
+static struct vm_device_ops dev_ops = { 
+  .init = nvram_init_device, 
+  .deinit = nvram_deinit_device,
+  .reset = nvram_reset_device,
+  .start = nvram_start_device,
+  .stop = nvram_stop_device,
+};
+
+
+
+struct vm_device *nvram_create() {
+  struct nvram_internal * nvram_state = os_hooks->malloc(sizeof(struct nvram_internal));
+
+  struct vm_device *device = create_device("NVRAM", &dev_ops, nvram_state);
 
   return device;
 }
