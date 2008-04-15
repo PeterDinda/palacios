@@ -37,11 +37,16 @@ struct vm_device {
 
   struct guest_info * vm;
 
-  struct vm_device   *next, *prev;
+  struct list_head dev_link;
 
 
-  struct dev_io_hook_list io_hooks;
-  struct dev_mem_hook_list mem_hooks;
+  uint_t num_io_hooks;
+  struct list_head io_hooks;
+  uint_t num_mem_hooks;
+  struct list_head mem_hooks;
+  uint_t num_irq_hooks;
+  struct list_head irq_hooks;
+
 };
 
 
@@ -69,7 +74,10 @@ int dev_unhook_mem(struct vm_device   * dev,
 		   void               * end);
 
 
-
+int dev_hook_irq(struct vm_device * dev,
+		 uint_t irq, 
+		 int (*handler)(uint_t irq, struct vm_device * dev));
+int dev_unhook_irq(struct vm_device * dev, uint_t irq);
 
 
 #endif

@@ -159,7 +159,7 @@ static struct vm_device_ops dev_ops = {
 
 
 
-struct vm_device *nvram_create() {
+struct vm_device *create_nvram() {
   struct nvram_internal * nvram_state = os_hooks->malloc(sizeof(struct nvram_internal));
 
   struct vm_device *device = create_device("NVRAM", &dev_ops, nvram_state);

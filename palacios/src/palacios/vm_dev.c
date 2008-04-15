@@ -13,12 +13,16 @@ struct vm_device * allocate_device() {
   dev->vm = NULL;
   dev->private_data = NULL;
 
-  dev->next = NULL;
-  dev->prev = NULL;
-  dev->io_hooks.head = NULL;
-  dev->mem_hooks.head = NULL;
-  dev->io_hooks.num_hooks = 0;
-  dev->mem_hooks.num_hooks = 0;
+
+  INIT_LIST_HEAD(&(dev->io_hooks));
+  dev->num_io_hooks = 0;
+
+  INIT_LIST_HEAD(&(dev->mem_hooks));
+  dev->num_mem_hooks = 0;
+  
+  INIT_LIST_HEAD(&(dev->irq_hooks));
+  dev->num_irq_hooks = 0;
+
   return dev;
 }
 
@@ -35,3 +39,4 @@ struct vm_device * create_device(char * name, struct vm_device_ops * ops, void *
 void free_device(struct vm_device * dev) {
   VMMFree(dev);
 }
+

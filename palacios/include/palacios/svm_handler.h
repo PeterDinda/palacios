@@ -174,6 +174,8 @@
 
 int handle_shadow_paging(struct guest_info * info);
 
+int handle_svm_intr(struct guest_info * info);
+
 int handle_svm_exit(struct guest_info * info);
 
 #endif

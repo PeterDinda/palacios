@@ -6,6 +6,7 @@
 #include <geekos/screen.h>
 #include <palacios/vmm_dev_mgr.h>
 #include <devices/nvram.h>
+#include <devices/timer.h>
 
 #define SPEAKER_PORT 0x61
 
@@ -184,9 +185,11 @@ int RunVMM(struct Boot_Info * bootInfo) {
 
     vm_info.cpu_mode = REAL;
 
+    init_irq_map(&(vm_info.irq_map));
     init_vmm_io_map(&(vm_info.io_map));
     init_interrupt_state(&(vm_info.intr_state));
 
+    dev_mgr_init(&(vm_info.dev_mgr));
     
     if (0) {
       
@@ -287,12 +290,19 @@ int RunVMM(struct Boot_Info * bootInfo) {
       hook_io_port(&(vm_info.io_map), 0x403, &IO_Read, &IO_Write_to_Serial, NULL);
 
       {
-	struct vm_device * nvram = nvram_create();
+	struct vm_device * nvram = create_nvram();
+	struct vm_device * timer = create_timer();
+
 	attach_device(&(vm_info), nvram);
+	//attach_device(&(vm_info), timer);
 	
 	PrintDebugDevMgr(&(vm_info.dev_mgr));
 	
+
+
       }
+      PrintDebug("foo\n");
+
 
       vm_info.rip = 0xfff0;
       vm_info.vm_regs.rsp = 0x0;
@@ -305,5 +315,4 @@ int RunVMM(struct Boot_Info * bootInfo) {
     (vmm_ops).start_guest(&vm_info);
 
     return 0;
-
 }

@@ -60,6 +60,9 @@ int handle_svm_exit(struct guest_info * info) {
 	     (info->page_mode == SHADOW_PAGING)) {
     handle_shadow_paging(info);
     */
+
+  } else if (exit_code == VMEXIT_INTR) {
+    handle_svm_intr(info);
   } else {
     addr_t rip_addr = get_addr_linear(info, guest_state->rip, guest_state->cs.selector);
     char buf[15];
@@ -160,3 +163,29 @@ int handle_shadow_paging(struct guest_info * info) {
 
 
 
+int handle_svm_intr(struct guest_info * info) {
+  vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
+  // vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
+
+  //struct Interrupt_Info * int_info = &(guest_ctrl->exit_int_info);
+
+  //struct vmm_irq_hook * get_irq_hook(&(info->irq_map), int_info->vector);
+
+  PrintDebug("SVM Returned: Exit Code: %x\n",guest_ctrl->exit_code); 
+  PrintDebug("V_INTR_VECTOR: 0x%x\n", guest_ctrl->guest_ctrl.V_INTR_VECTOR);
+  
+
+
+
+  while(1);
+
+				     
+
+
+
+  
+ 
+ 
+    
+  return 0;
+}

@@ -272,12 +272,13 @@ geekos/vm.o: ../src/geekos/vm.c ../include/geekos/vmm_stubs.h \
   ../include/palacios/vm_guest.h ../include/palacios/vmm_io.h \
   ../include/palacios/vmm_util.h ../include/palacios/vmm_shadow_paging.h \
   ../include/palacios/vmm_paging.h ../include/palacios/vmm_intr.h \
-  ../include/palacios/vmm_dev_mgr.h \
-  ../include/palacios/vmm_device_types.h ../include/palacios/vmm_list.h \
-  ../include/geekos/debug.h ../include/geekos/serial.h \
-  ../include/geekos/irq.h ../include/geekos/int.h \
-  ../include/geekos/string.h ../include/geekos/../libc/string.h \
-  ../include/geekos/io.h ../include/geekos/vm.h
+  ../include/palacios/vmm_dev_mgr.h ../include/palacios/vmm_list.h \
+  ../include/palacios/vmm_irq.h ../include/geekos/debug.h \
+  ../include/geekos/serial.h ../include/geekos/irq.h \
+  ../include/geekos/int.h ../include/geekos/string.h \
+  ../include/geekos/../libc/string.h ../include/geekos/io.h \
+  ../include/geekos/vm.h ../include/devices/nvram.h \
+  ../include/palacios/vm_dev.h
 geekos/main.o: ../src/geekos/main.c ../include/geekos/bootinfo.h \
   ../include/geekos/string.h ../include/geekos/../libc/string.h \
   /home/jarusl/vmm-dev/devtools/i386/lib/gcc/i386-elf/3.4.6/include/stddef.h \
@@ -315,10 +316,10 @@ palacios/vm_guest.o: ../src/palacios/vm_guest.c ../include/palacios/vm_guest.h \
   ../include/palacios/vmm_io.h ../include/palacios/vmm_util.h \
   ../include/palacios/vmm_shadow_paging.h \
   ../include/palacios/vmm_paging.h ../include/palacios/vmm_intr.h \
-  ../include/palacios/vmm_dev_mgr.h \
-  ../include/palacios/vmm_device_types.h ../include/palacios/vmm_list.h \
+  ../include/palacios/vmm_dev_mgr.h ../include/palacios/vmm_list.h \
   ../include/palacios/vmm_string.h \
-  /home/jarusl/vmm-dev/devtools/i386/lib/gcc/i386-elf/3.4.6/include/stddef.h
+  /home/jarusl/vmm-dev/devtools/i386/lib/gcc/i386-elf/3.4.6/include/stddef.h \
+  ../include/palacios/vmm_irq.h
 palacios/svm.o: ../src/palacios/svm.c ../include/palacios/svm.h \
   ../include/palacios/vmm_util.h ../include/palacios/vmm_types.h \
   ../include/geekos/ktypes.h \
@@ -328,10 +329,10 @@ palacios/svm.o: ../src/palacios/svm.c ../include/palacios/svm.h \
   ../include/palacios/vmm_mem.h ../include/palacios/vm_guest.h \
   ../include/palacios/vmm_io.h ../include/palacios/vmm_shadow_paging.h \
   ../include/palacios/vmm_paging.h ../include/palacios/vmm_intr.h \
-  ../include/palacios/vmm_dev_mgr.h \
-  ../include/palacios/vmm_device_types.h ../include/palacios/vmm_list.h \
-  ../include/palacios/vmcb.h ../include/palacios/svm_handler.h \
-  ../include/palacios/vmm_debug.h ../include/palacios/vm_guest_mem.h
+  ../include/palacios/vmm_dev_mgr.h ../include/palacios/vmm_list.h \
+  ../include/palacios/vmm_irq.h ../include/palacios/vmcb.h \
+  ../include/palacios/svm_handler.h ../include/palacios/vmm_debug.h \
+  ../include/palacios/vm_guest_mem.h
 palacios/svm_handler.o: ../src/palacios/svm_handler.c \
   ../include/palacios/svm_handler.h ../include/palacios/svm.h \
   ../include/palacios/vmm_util.h ../include/palacios/vmm_types.h \
@@ -342,11 +343,10 @@ palacios/svm_handler.o: ../src/palacios/svm_handler.c \
   ../include/palacios/vmm_mem.h ../include/palacios/vm_guest.h \
   ../include/palacios/vmm_io.h ../include/palacios/vmm_shadow_paging.h \
   ../include/palacios/vmm_paging.h ../include/palacios/vmm_intr.h \
-  ../include/palacios/vmm_dev_mgr.h \
-  ../include/palacios/vmm_device_types.h ../include/palacios/vmm_list.h \
-  ../include/palacios/vmcb.h ../include/palacios/vm_guest_mem.h \
-  ../include/palacios/vmm_emulate.h ../include/palacios/svm_ctrl_regs.h \
-  ../include/palacios/svm_io.h
+  ../include/palacios/vmm_dev_mgr.h ../include/palacios/vmm_list.h \
+  ../include/palacios/vmm_irq.h ../include/palacios/vmcb.h \
+  ../include/palacios/vm_guest_mem.h ../include/palacios/vmm_emulate.h \
+  ../include/palacios/svm_ctrl_regs.h ../include/palacios/svm_io.h
 palacios/vmm.o: ../src/palacios/vmm.c ../include/palacios/vmm.h \
   ../include/palacios/vmm_string.h \
   /home/jarusl/vmm-dev/devtools/i386/lib/gcc/i386-elf/3.4.6/include/stddef.h \
@@ -356,11 +356,10 @@ palacios/vmm.o: ../src/palacios/vmm.c ../include/palacios/vmm.h \
   ../include/palacios/vm_guest.h ../include/palacios/vmm_io.h \
   ../include/palacios/vmm_util.h ../include/palacios/vmm_shadow_paging.h \
   ../include/palacios/vmm_paging.h ../include/palacios/vmm_intr.h \
-  ../include/palacios/vmm_dev_mgr.h \
-  ../include/palacios/vmm_device_types.h ../include/palacios/vmm_list.h \
-  ../include/palacios/svm.h ../include/palacios/vmcb.h \
-  ../include/palacios/vmx.h ../include/palacios/vmcs.h \
-  ../include/palacios/vmcs_gen.h
+  ../include/palacios/vmm_dev_mgr.h ../include/palacios/vmm_list.h \
+  ../include/palacios/vmm_irq.h ../include/palacios/svm.h \
+  ../include/palacios/vmcb.h ../include/palacios/vmx.h \
+  ../include/palacios/vmcs.h ../include/palacios/vmcs_gen.h
 palacios/vmm_util.o: ../src/palacios/vmm_util.c ../include/palacios/vmm_util.h \
   ../include/palacios/vmm_types.h ../include/geekos/ktypes.h \
   /home/jarusl/vmm-dev/devtools/i386/lib/gcc/i386-elf/3.4.6/include/stdbool.h \
@@ -369,8 +368,8 @@ palacios/vmm_util.o: ../src/palacios/vmm_util.c ../include/palacios/vmm_util.h \
   ../include/palacios/vmm_mem.h ../include/palacios/vm_guest.h \
   ../include/palacios/vmm_io.h ../include/palacios/vmm_shadow_paging.h \
   ../include/palacios/vmm_paging.h ../include/palacios/vmm_intr.h \
-  ../include/palacios/vmm_dev_mgr.h \
-  ../include/palacios/vmm_device_types.h ../include/palacios/vmm_list.h
+  ../include/palacios/vmm_dev_mgr.h ../include/palacios/vmm_list.h \
+  ../include/palacios/vmm_irq.h
 palacios/svm_ctrl_regs.o: ../src/palacios/svm_ctrl_regs.c \
   ../include/palacios/svm_ctrl_regs.h ../include/palacios/vm_guest.h \
   ../include/palacios/vmm_mem.h ../include/palacios/vmm_types.h \
@@ -379,13 +378,12 @@ palacios/svm_ctrl_regs.o: ../src/palacios/svm_ctrl_regs.c \
   ../include/palacios/vmm_io.h ../include/palacios/vmm_util.h \
   ../include/palacios/vmm_shadow_paging.h \
   ../include/palacios/vmm_paging.h ../include/palacios/vmm_intr.h \
-  ../include/palacios/vmm_dev_mgr.h \
-  ../include/palacios/vmm_device_types.h ../include/palacios/vmm_list.h \
+  ../include/palacios/vmm_dev_mgr.h ../include/palacios/vmm_list.h \
   ../include/palacios/vmm_string.h \
   /home/jarusl/vmm-dev/devtools/i386/lib/gcc/i386-elf/3.4.6/include/stddef.h \
-  ../include/palacios/vmm.h ../include/palacios/vmcb.h \
-  ../include/palacios/vmm_emulate.h ../include/palacios/vm_guest_mem.h \
-  ../include/palacios/vmm_ctrl_regs.h
+  ../include/palacios/vmm_irq.h ../include/palacios/vmm.h \
+  ../include/palacios/vmcb.h ../include/palacios/vmm_emulate.h \
+  ../include/palacios/vm_guest_mem.h ../include/palacios/vmm_ctrl_regs.h
 palacios/vmcb.o: ../src/palacios/vmcb.c ../include/palacios/vmcb.h \
   ../include/palacios/vmm_types.h ../include/geekos/ktypes.h \
   /home/jarusl/vmm-dev/devtools/i386/lib/gcc/i386-elf/3.4.6/include/stdbool.h \
@@ -395,8 +393,8 @@ palacios/vmcb.o: ../src/palacios/vmcb.c ../include/palacios/vmcb.h \
   ../include/palacios/vmm_io.h ../include/palacios/vmm_util.h \
   ../include/palacios/vmm_shadow_paging.h \
   ../include/palacios/vmm_paging.h ../include/palacios/vmm_intr.h \
-  ../include/palacios/vmm_dev_mgr.h \
-  ../include/palacios/vmm_device_types.h ../include/palacios/vmm_list.h
+  ../include/palacios/vmm_dev_mgr.h ../include/palacios/vmm_list.h \
+  ../include/palacios/vmm_irq.h
 palacios/vmm_mem.o: ../src/palacios/vmm_mem.c ../include/palacios/vmm_mem.h \
   ../include/palacios/vmm_types.h ../include/geekos/ktypes.h \
   /home/jarusl/vmm-dev/devtools/i386/lib/gcc/i386-elf/3.4.6/include/stdbool.h \
@@ -405,8 +403,8 @@ palacios/vmm_mem.o: ../src/palacios/vmm_mem.c ../include/palacios/vmm_mem.h \
   ../include/palacios/vm_guest.h ../include/palacios/vmm_io.h \
   ../include/palacios/vmm_util.h ../include/palacios/vmm_shadow_paging.h \
   ../include/palacios/vmm_paging.h ../include/palacios/vmm_intr.h \
-  ../include/palacios/vmm_dev_mgr.h \
-  ../include/palacios/vmm_device_types.h ../include/palacios/vmm_list.h
+  ../include/palacios/vmm_dev_mgr.h ../include/palacios/vmm_list.h \
+  ../include/palacios/vmm_irq.h
 palacios/vmm_paging.o: ../src/palacios/vmm_paging.c \
   ../include/palacios/vmm_paging.h ../include/palacios/vmm_types.h \
   ../include/geekos/ktypes.h \
@@ -416,9 +414,8 @@ palacios/vmm_paging.o: ../src/palacios/vmm_paging.c \
   /home/jarusl/vmm-dev/devtools/i386/lib/gcc/i386-elf/3.4.6/include/stddef.h \
   ../include/palacios/vm_guest.h ../include/palacios/vmm_io.h \
   ../include/palacios/vmm_shadow_paging.h ../include/palacios/vmm_intr.h \
-  ../include/palacios/vmm_dev_mgr.h \
-  ../include/palacios/vmm_device_types.h ../include/palacios/vmm_list.h \
-  ../include/palacios/vm_guest_mem.h
+  ../include/palacios/vmm_dev_mgr.h ../include/palacios/vmm_list.h \
+  ../include/palacios/vmm_irq.h ../include/palacios/vm_guest_mem.h
 palacios/vmm_io.o: ../src/palacios/vmm_io.c ../include/palacios/vmm_io.h \
   ../include/palacios/vmm_types.h ../include/geekos/ktypes.h \
   /home/jarusl/vmm-dev/devtools/i386/lib/gcc/i386-elf/3.4.6/include/stdbool.h \
@@ -427,8 +424,8 @@ palacios/vmm_io.o: ../src/palacios/vmm_io.c ../include/palacios/vmm_io.h \
   ../include/palacios/vmm.h ../include/palacios/vmm_mem.h \
   ../include/palacios/vm_guest.h ../include/palacios/vmm_shadow_paging.h \
   ../include/palacios/vmm_paging.h ../include/palacios/vmm_intr.h \
-  ../include/palacios/vmm_dev_mgr.h \
-  ../include/palacios/vmm_device_types.h ../include/palacios/vmm_list.h
+  ../include/palacios/vmm_dev_mgr.h ../include/palacios/vmm_list.h \
+  ../include/palacios/vmm_irq.h
 palacios/vmm_debug.o: ../src/palacios/vmm_debug.c ../include/palacios/vmm_debug.h \
   ../include/palacios/vmm.h ../include/palacios/vmm_string.h \
   /home/jarusl/vmm-dev/devtools/i386/lib/gcc/i386-elf/3.4.6/include/stddef.h \
@@ -438,8 +435,8 @@ palacios/vmm_debug.o: ../src/palacios/vmm_debug.c ../include/palacios/vmm_debug.
   ../include/palacios/vm_guest.h ../include/palacios/vmm_io.h \
   ../include/palacios/vmm_util.h ../include/palacios/vmm_shadow_paging.h \
   ../include/palacios/vmm_paging.h ../include/palacios/vmm_intr.h \
-  ../include/palacios/vmm_dev_mgr.h \
-  ../include/palacios/vmm_device_types.h ../include/palacios/vmm_list.h
+  ../include/palacios/vmm_dev_mgr.h ../include/palacios/vmm_list.h \
+  ../include/palacios/vmm_irq.h
 palacios/svm_io.o: ../src/palacios/svm_io.c ../include/palacios/svm_io.h \
   ../include/palacios/vm_guest.h ../include/palacios/vmm_mem.h \
   ../include/palacios/vmm_types.h ../include/geekos/ktypes.h \
@@ -447,13 +444,12 @@ palacios/svm_io.o: ../src/palacios/svm_io.c ../include/palacios/svm_io.h \
   ../include/palacios/vmm_io.h ../include/palacios/vmm_util.h \
   ../include/palacios/vmm_shadow_paging.h \
   ../include/palacios/vmm_paging.h ../include/palacios/vmm_intr.h \
-  ../include/palacios/vmm_dev_mgr.h \
-  ../include/palacios/vmm_device_types.h ../include/palacios/vmm_list.h \
+  ../include/palacios/vmm_dev_mgr.h ../include/palacios/vmm_list.h \
   ../include/palacios/vmm_string.h \
   /home/jarusl/vmm-dev/devtools/i386/lib/gcc/i386-elf/3.4.6/include/stddef.h \
-  ../include/palacios/vmcb.h ../include/palacios/vmm.h \
-  ../include/palacios/vmm_ctrl_regs.h ../include/palacios/vmm_emulate.h \
-  ../include/palacios/vm_guest_mem.h
+  ../include/palacios/vmm_irq.h ../include/palacios/vmcb.h \
+  ../include/palacios/vmm.h ../include/palacios/vmm_ctrl_regs.h \
+  ../include/palacios/vmm_emulate.h ../include/palacios/vm_guest_mem.h
 palacios/vmm_intr.o: ../src/palacios/vmm_intr.c ../include/palacios/vmm_intr.h \
   ../include/palacios/vmm_types.h ../include/geekos/ktypes.h \
   /home/jarusl/vmm-dev/devtools/i386/lib/gcc/i386-elf/3.4.6/include/stdbool.h \
@@ -461,9 +457,19 @@ palacios/vmm_intr.o: ../src/palacios/vmm_intr.c ../include/palacios/vmm_intr.h \
   ../include/palacios/vmm_io.h ../include/palacios/vmm_util.h \
   ../include/palacios/vmm_shadow_paging.h \
   ../include/palacios/vmm_paging.h ../include/palacios/vmm_dev_mgr.h \
-  ../include/palacios/vmm_device_types.h ../include/palacios/vmm_list.h \
-  ../include/palacios/vmm_string.h \
-  /home/jarusl/vmm-dev/devtools/i386/lib/gcc/i386-elf/3.4.6/include/stddef.h
+  ../include/palacios/vmm_list.h ../include/palacios/vmm_string.h \
+  /home/jarusl/vmm-dev/devtools/i386/lib/gcc/i386-elf/3.4.6/include/stddef.h \
+  ../include/palacios/vmm_irq.h
+palacios/vmm_irq.o: ../src/palacios/vmm_irq.c ../include/palacios/vmm_irq.h \
+  ../include/palacios/vmm_types.h ../include/geekos/ktypes.h \
+  /home/jarusl/vmm-dev/devtools/i386/lib/gcc/i386-elf/3.4.6/include/stdbool.h \
+  ../include/palacios/vmm.h ../include/palacios/vmm_string.h \
+  /home/jarusl/vmm-dev/devtools/i386/lib/gcc/i386-elf/3.4.6/include/stddef.h \
+  ../include/palacios/vmm_mem.h ../include/palacios/vm_guest.h \
+  ../include/palacios/vmm_io.h ../include/palacios/vmm_util.h \
+  ../include/palacios/vmm_shadow_paging.h \
+  ../include/palacios/vmm_paging.h ../include/palacios/vmm_intr.h \
+  ../include/palacios/vmm_dev_mgr.h ../include/palacios/vmm_list.h
 palacios/vmm_shadow_paging.o: ../src/palacios/vmm_shadow_paging.c \
   ../include/palacios/vmm_shadow_paging.h ../include/palacios/vmm_util.h \
   ../include/palacios/vmm_types.h ../include/geekos/ktypes.h \
@@ -473,7 +479,7 @@ palacios/vmm_shadow_paging.o: ../src/palacios/vmm_shadow_paging.c \
   /home/jarusl/vmm-dev/devtools/i386/lib/gcc/i386-elf/3.4.6/include/stddef.h \
   ../include/palacios/vm_guest.h ../include/palacios/vmm_io.h \
   ../include/palacios/vmm_intr.h ../include/palacios/vmm_dev_mgr.h \
-  ../include/palacios/vmm_device_types.h ../include/palacios/vmm_list.h \
+  ../include/palacios/vmm_list.h ../include/palacios/vmm_irq.h \
   ../include/palacios/vm_guest_mem.h
 palacios/vm_guest_mem.o: ../src/palacios/vm_guest_mem.c \
   ../include/palacios/vm_guest_mem.h ../include/palacios/vm_guest.h \
@@ -483,8 +489,40 @@ palacios/vm_guest_mem.o: ../src/palacios/vm_guest_mem.c \
   ../include/palacios/vmm_io.h ../include/palacios/vmm_util.h \
   ../include/palacios/vmm_shadow_paging.h \
   ../include/palacios/vmm_paging.h ../include/palacios/vmm_intr.h \
-  ../include/palacios/vmm_dev_mgr.h \
-  ../include/palacios/vmm_device_types.h ../include/palacios/vmm_list.h \
+  ../include/palacios/vmm_dev_mgr.h ../include/palacios/vmm_list.h \
   ../include/palacios/vmm_string.h \
   /home/jarusl/vmm-dev/devtools/i386/lib/gcc/i386-elf/3.4.6/include/stddef.h \
-  ../include/palacios/vmm.h
+  ../include/palacios/vmm_irq.h ../include/palacios/vmm.h
+palacios/vm_dev.o: ../src/palacios/vm_dev.c ../include/palacios/vm_dev.h \
+  ../include/palacios/vmm_types.h ../include/geekos/ktypes.h \
+  /home/jarusl/vmm-dev/devtools/i386/lib/gcc/i386-elf/3.4.6/include/stdbool.h \
+  ../include/palacios/vmm_list.h ../include/palacios/vmm_string.h \
+  /home/jarusl/vmm-dev/devtools/i386/lib/gcc/i386-elf/3.4.6/include/stddef.h \
+  ../include/palacios/vmm_dev_mgr.h ../include/palacios/vmm.h \
+  ../include/palacios/vmm_mem.h ../include/palacios/vm_guest.h \
+  ../include/palacios/vmm_io.h ../include/palacios/vmm_util.h \
+  ../include/palacios/vmm_shadow_paging.h \
+  ../include/palacios/vmm_paging.h ../include/palacios/vmm_intr.h \
+  ../include/palacios/vmm_irq.h
+palacios/vmm_dev_mgr.o: ../src/palacios/vmm_dev_mgr.c ../include/palacios/vm_dev.h \
+  ../include/palacios/vmm_types.h ../include/geekos/ktypes.h \
+  /home/jarusl/vmm-dev/devtools/i386/lib/gcc/i386-elf/3.4.6/include/stdbool.h \
+  ../include/palacios/vmm_list.h ../include/palacios/vmm_string.h \
+  /home/jarusl/vmm-dev/devtools/i386/lib/gcc/i386-elf/3.4.6/include/stddef.h \
+  ../include/palacios/vmm_dev_mgr.h ../include/palacios/vm_guest.h \
+  ../include/palacios/vmm_mem.h ../include/palacios/vmm_io.h \
+  ../include/palacios/vmm_util.h ../include/palacios/vmm_shadow_paging.h \
+  ../include/palacios/vmm_paging.h ../include/palacios/vmm_intr.h \
+  ../include/palacios/vmm_irq.h ../include/palacios/vmm.h
+devices/nvram.o: ../src/devices/nvram.c ../include/devices/nvram.h \
+  ../include/palacios/vm_dev.h ../include/palacios/vmm_types.h \
+  ../include/geekos/ktypes.h \
+  /home/jarusl/vmm-dev/devtools/i386/lib/gcc/i386-elf/3.4.6/include/stdbool.h \
+  ../include/palacios/vmm_list.h ../include/palacios/vmm_string.h \
+  /home/jarusl/vmm-dev/devtools/i386/lib/gcc/i386-elf/3.4.6/include/stddef.h \
+  ../include/palacios/vmm_dev_mgr.h ../include/palacios/vmm.h \
+  ../include/palacios/vmm_mem.h ../include/palacios/vm_guest.h \
+  ../include/palacios/vmm_io.h ../include/palacios/vmm_util.h \
+  ../include/palacios/vmm_shadow_paging.h \
+  ../include/palacios/vmm_paging.h ../include/palacios/vmm_intr.h \
+  ../include/palacios/vmm_irq.h

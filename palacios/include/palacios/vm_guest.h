@@ -7,6 +7,7 @@
 #include <palacios/vmm_shadow_paging.h>
 #include <palacios/vmm_intr.h>
 #include <palacios/vmm_dev_mgr.h>
+#include <palacios/vmm_irq.h>
 
 typedef ullong_t gpr_t;
 
@@ -55,6 +56,8 @@ struct guest_info {
   // This structure is how we get interrupts for the guest
   struct vm_intr intr_state;
 
+
+  struct vmm_irq_map irq_map;
   vmm_io_map_t io_map;
   // device_map
 

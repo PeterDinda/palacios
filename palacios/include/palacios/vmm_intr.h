@@ -1,6 +1,7 @@
-#ifndef __VMM_INTR_H
-#define __VMM_INTR_H
+#ifndef __VMM_INTR_H_
+#define __VMM_INTR_H_
 
+#include <palacios/vmm_intr.h>
 #include <palacios/vmm_types.h>
 
 #define DE_EXCEPTION          0x00  
@@ -45,6 +46,5 @@ int raise_exception(struct guest_info * info, uint_t excp);
 int intr_pending(struct vm_intr * intr);
 uint_t get_intr_number(struct vm_intr * intr);
 intr_types_t get_intr_type(struct vm_intr * intr);
-
 
 #endif

@@ -383,8 +383,12 @@ void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info vm_info) {
     ctrl_area->instrs.IOIO_PROT = 1;
   }
 
-  //ctrl_area->instrs.instrs.INTR = 1;
 
+  if (vm_info.irq_map.num_hooks > 0) {
+    PrintDebug("Exiting on interrupts\n");
+    ctrl_area->guest_ctrl.V_INTR_MASKING = 1;
+    ctrl_area->instrs.INTR = 1;
+  }
 
 
   if (vm_info.page_mode == SHADOW_PAGING) {

@@ -5,6 +5,6 @@
 
 
 
-struct vm_device * nvram_create();
+struct vm_device *create_nvram();
 
 #endif
