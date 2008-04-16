@@ -29,20 +29,35 @@ int handle_svm_exit(struct guest_info * info) {
  
   // PrintDebugVMCB((vmcb_t*)(info->vmm_data));
 
+
+  // PrintDebug("SVM Returned:(VMCB=%x)\n", info->vmm_data); 
+  //PrintDebug("RIP: %x\n", guest_state->rip);
+
+  
+  //PrintDebug("SVM Returned: Exit Code: %x\n",exit_code); 
+  
   if (exit_code == VMEXIT_IOIO) {
     struct svm_io_info * io_info = (struct svm_io_info *)&(guest_ctrl->exit_info1);
     
     if (io_info->type == 0) {
       if (io_info->str) {
-	handle_svm_io_outs(info);
+	if (handle_svm_io_outs(info) == -1 ) {
+	  return -1;
+	}
       } else {
-	handle_svm_io_out(info);
+	if (handle_svm_io_out(info) == -1) {
+	  return -1;
+	}
       }
     } else {
       if (io_info->str) {
-	handle_svm_io_ins(info);
+	if (handle_svm_io_ins(info) == -1) {
+	  return -1;
+	}
       } else {
-	handle_svm_io_in(info);
+	if (handle_svm_io_in(info) == -1) {
+	  return -1;
+	}
       }
     }
   } else if (exit_code == VMEXIT_CR0_WRITE) {
@@ -62,7 +77,8 @@ int handle_svm_exit(struct guest_info * info) {
     */
 
   } else if (exit_code == VMEXIT_INTR) {
-    handle_svm_intr(info);
+
+    //    handle_svm_intr(info);
   } else {
     addr_t rip_addr = get_addr_linear(info, guest_state->rip, guest_state->cs.selector);
     char buf[15];

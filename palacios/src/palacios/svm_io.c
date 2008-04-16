@@ -15,11 +15,12 @@ int handle_svm_io_in(struct guest_info * info) {
   uint_t read_size = 0;
 
   if (hook == NULL) {
+    PrintDebug("Hook Not present for in on port %x\n", io_info->port);
     // error, we should not have exited on this port
     return -1;
   }
 
-  //PrintDebug("IN on  port %d (0x%x)\n", io_info->port, io_info->port);
+  PrintDebug("IN on  port %d (0x%x)\n", io_info->port, io_info->port);
 
   if (io_info->sz8) { 
     read_size = 1;
@@ -32,6 +33,7 @@ int handle_svm_io_in(struct guest_info * info) {
 
   if (hook->read(io_info->port, &(info->vm_regs.rax), read_size, hook->priv_data) != read_size) {
     // not sure how we handle errors.....
+    PrintDebug("Read Failure for in on port %x\n", io_info->port);
     return -1;
   }
 
@@ -73,11 +75,12 @@ int handle_svm_io_ins(struct guest_info * info) {
 
 
   if (hook == NULL) {
+   PrintDebug("Hook Not present for ins on port %x\n", io_info->port);
     // error, we should not have exited on this port
     return -1;
   }
 
-  //PrintDebug("INS on  port %d (0x%x)\n", io_info->port, io_info->port);
+  PrintDebug("INS on  port %d (0x%x)\n", io_info->port, io_info->port);
 
   if (io_info->sz8) { 
     read_size = 1;
@@ -115,6 +118,7 @@ int handle_svm_io_ins(struct guest_info * info) {
 
     if (hook->read(io_info->port, (char*)host_addr, read_size, hook->priv_data) != read_size) {
       // not sure how we handle errors.....
+      PrintDebug("Read Failure for ins on port %x\n", io_info->port);
       return -1;
     }
 
@@ -141,11 +145,12 @@ int handle_svm_io_out(struct guest_info * info) {
   uint_t write_size = 0;
 
   if (hook == NULL) {
+    PrintDebug("Hook Not present for out on port %x\n", io_info->port);
     // error, we should not have exited on this port
     return -1;
   }
 
-  //PrintDebug("OUT on  port %d (0x%x)\n", io_info->port, io_info->port);
+  PrintDebug("OUT on  port %d (0x%x)\n", io_info->port, io_info->port);
 
   if (io_info->sz8) { 
     write_size = 1;
@@ -158,6 +163,7 @@ int handle_svm_io_out(struct guest_info * info) {
 
   if (hook->write(io_info->port, &(info->vm_regs.rax), write_size, hook->priv_data) != write_size) {
     // not sure how we handle errors.....
+    PrintDebug("Write Failure for out on port %x\n", io_info->port);
     return -1;
   }
 
@@ -197,11 +203,12 @@ int handle_svm_io_outs(struct guest_info * info) {
 
 
   if (hook == NULL) {
+    PrintDebug("Hook Not present for outs on port %x\n", io_info->port);
     // error, we should not have exited on this port
     return -1;
   }
 
-  //PrintDebug("OUTS on  port %d (0x%x)\n", io_info->port, io_info->port);
+  PrintDebug("OUTS on  port %d (0x%x)\n", io_info->port, io_info->port);
 
   if (io_info->sz8) { 
     write_size = 1;
@@ -238,6 +245,7 @@ int handle_svm_io_outs(struct guest_info * info) {
 
     if (hook->write(io_info->port, (char*)host_addr, write_size, hook->priv_data) != write_size) {
       // not sure how we handle errors.....
+      PrintDebug("Write Failure for outs on port %x\n", io_info->port);
       return -1;
     }
 

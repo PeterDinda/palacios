@@ -14,4 +14,6 @@ void VMM_Free(void * addr);
 
 void * Identity(void *addr);
 
+void Hook_IRQ(int irq, void (*handler)());
+
 #endif

@@ -20,10 +20,11 @@ extern void Set_MSR(uint_t MSR, uint_t high_byte, uint_t low_byte);
 extern uint_t launch_svm(vmcb_t * vmcb_addr);
 extern void safe_svm_launch(vmcb_t * vmcb_addr, struct guest_gprs * gprs);
 
+extern void STGI();
+extern void CLGI();
+
 extern uint_t Get_CR3();
 
-extern void GetGDTR(void * gdt);
-extern void GetIDTR(void * idt);
 
 extern void DisableInts();
 
@@ -138,14 +139,18 @@ int start_svm_guest(struct guest_info *info) {
 
   while (1) {
 
+    CLGI();
+
     //PrintDebug("SVM Launch Args (vmcb=%x), (info=%x), (vm_regs=%x)\n", info->vmm_data,  &(info->vm_regs));
     //PrintDebug("Launching to RIP: %x\n", info->rip);
     safe_svm_launch((vmcb_t*)(info->vmm_data), &(info->vm_regs));
     //launch_svm((vmcb_t*)(info->vmm_data));
-    //PrintDebug("SVM Returned\n");
+    // PrintDebug("SVM Returned\n");
 
+    STGI();
+    
     if (handle_svm_exit(info) != 0) {
-      // handle exit code....
+      PrintDebug("SVM ERROR!!\n");
       break;
     }
   }
@@ -384,11 +389,10 @@ void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info vm_info) {
   }
 
 
-  if (vm_info.irq_map.num_hooks > 0) {
-    PrintDebug("Exiting on interrupts\n");
-    ctrl_area->guest_ctrl.V_INTR_MASKING = 1;
-    ctrl_area->instrs.INTR = 1;
-  }
+
+  PrintDebug("Exiting on interrupts\n");
+  ctrl_area->guest_ctrl.V_INTR_MASKING = 1;
+  ctrl_area->instrs.INTR = 1;
 
 
   if (vm_info.page_mode == SHADOW_PAGING) {
@@ -434,6 +438,7 @@ void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info vm_info) {
 }
 
 
+#if 0
 void Init_VMCB_pe(vmcb_t *vmcb, struct guest_info vm_info) {
   vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA(vmcb);
   vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA(vmcb);
@@ -597,7 +602,7 @@ void Init_VMCB_pe(vmcb_t *vmcb, struct guest_info vm_info) {
 
 
 
-
+#endif
 
 
 

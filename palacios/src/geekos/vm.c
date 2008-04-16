@@ -41,30 +41,26 @@ inline uchar_t VM_In_Byte(ushort_t port)
 
 
 int IO_Read(ushort_t port, void * dst, uint_t length, void * priv_data) {
-  uchar_t * iter = dst;
-  uint_t i;
 
-  for (i = 0; i < length; i++) {
-    *iter = VM_In_Byte(port);    
-    iter++;
+  if (length != 1) {
+    return 0;
   }
-  
-  return 0;
+
+  *(uchar_t*)dst = VM_In_Byte(port);    
+  return 1;
 }
 
 
 
 int IO_Write(ushort_t port, void * src, uint_t length, void * priv_data) {
-  uchar_t * iter = src;
-  uint_t i;
 
-
-  for (i = 0; i < length; i++) {
-    VM_Out_Byte(port, *iter);    
-    iter++;
+  if (length != 1) {
+    return 0;
   }
 
-  return 0;
+  VM_Out_Byte(port, *(uchar_t *)src);    
+
+  return 1;
 }
 
 
@@ -291,7 +287,7 @@ int RunVMM(struct Boot_Info * bootInfo) {
 
       {
 	struct vm_device * nvram = create_nvram();
-	struct vm_device * timer = create_timer();
+	//struct vm_device * timer = create_timer();
 
 	attach_device(&(vm_info), nvram);
 	//attach_device(&(vm_info), timer);
@@ -301,7 +297,6 @@ int RunVMM(struct Boot_Info * bootInfo) {
 
 
       }
-      PrintDebug("foo\n");
 
 
       vm_info.rip = 0xfff0;

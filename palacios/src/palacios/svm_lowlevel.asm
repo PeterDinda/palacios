@@ -12,9 +12,6 @@ SVM_SUCCESS equ 0x00000000
 
 EXPORT DisableInts
 
-EXPORT GetGDTR
-EXPORT GetIDTR
-EXPORT GetTR
 
 EXPORT exit_test
 
@@ -23,6 +20,8 @@ EXTERN handle_svm_exit
 EXPORT launch_svm
 EXPORT safe_svm_launch
 
+EXPORT STGI
+EXPORT CLGI
 
 
 
@@ -81,6 +80,14 @@ SVM_HANDLER_HALT equ 0x2
 	db	00fh, 001h, 0dah
 %endmacro
 
+%macro stgi 0
+	db	00fh, 001h, 0dch
+%endmacro
+
+%macro clgi 0
+	db	00fh, 001h, 0ddh
+%endmacro
+
 ;VMRUN  equ db 0Fh, 01h, D8h
 ;VMLOAD equ db 0x0F,0x01,0xDA
 ;VMSAVE equ db 0x0F,0x01,0xDB
@@ -94,44 +101,15 @@ DisableInts:
 	ret
 
 
+
 align 8
-GetGDTR:
-	push	ebp
-	mov	ebp, esp
-	pusha	
-	mov	ebx, [ebp + 8]
-	sgdt	[ebx]
-	
-	popa
-	pop	ebp
+CLGI:
+	clgi
 	ret
 
-
 align 8
-GetIDTR:
-	push	ebp
-	mov	ebp, esp
-	pusha	
-
-	mov	ebx, [ebp + 8]
-	sidt	[ebx]
-	
-	popa
-	pop	ebp
-	ret
-
-
-
-align 8
-GetTR:
-	push	ebp
-	mov	ebp, esp
-	pusha	
-	mov	ebx, [ebp + 8]
-	str	[ebx]
-	
-	popa
-	pop	ebp
+STGI:
+	stgi
 	ret
 
 

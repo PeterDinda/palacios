@@ -90,7 +90,7 @@ int nvram_write_reg_port(ushort_t port,
 
   memcpy(&(data->thereg), src, 1);
 
-  return 0;
+  return 1;
 }
 
 
@@ -103,7 +103,7 @@ int nvram_read_data_port(ushort_t port,
 
   memcpy(dst, &(data->mem_state[data->thereg]), 1);
 
-  return 0;
+  return 1;
 }
 
 int nvram_write_data_port(ushort_t port,
@@ -115,7 +115,7 @@ int nvram_write_data_port(ushort_t port,
 
   memcpy(&(data->mem_state[data->thereg]), src, 1);
 
-  return 0;
+  return 1;
 }
 
 
