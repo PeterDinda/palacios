@@ -1,7 +1,7 @@
 /*
  * This is the device-driver interface to the interrupt system.
  * Copyright (c) 2001,2003 David H. Hovemeyer <daveho@cs.umd.edu>
- * $Revision: 1.1 $
+ * $Revision: 1.2 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -23,6 +23,7 @@ void Disable_IRQ(int irq);
  * interrupt.
  */
 void Begin_IRQ(struct Interrupt_State* state);
+void End_IRQ_num(int irq);
 void End_IRQ(struct Interrupt_State* state);
 
 #endif  /* GEEKOS_IRQ_H */

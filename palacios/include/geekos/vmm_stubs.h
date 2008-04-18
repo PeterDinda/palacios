@@ -6,6 +6,8 @@
 #include <geekos/malloc.h>
 
 
+struct guest_info;
+
 void * Allocate_VMM_Pages(int num_pages);
 void Free_VMM_Page(void * page);
 
@@ -14,6 +16,9 @@ void VMM_Free(void * addr);
 
 void * Identity(void *addr);
 
-void Hook_IRQ(int irq, void (*handler)());
 
+int hook_irq_stub(struct guest_info * info, int irq);
+int ack_irq(int irq);
+
+void Init_Stubs();
 #endif

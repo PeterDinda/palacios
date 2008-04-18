@@ -34,12 +34,27 @@ struct vm_intr {
   uint_t excp_num;
   uint_t excp_error_code;
   
+  struct intr_ctrl_ops * controller;
+  void * controller_state;
+
   /* some way to get the [A]PIC intr */
 
 };
 
 
-void init_interrupt_state(struct vm_intr * state);
+int raise_irq(struct guest_info * info, int irq, int error_code);
+int hook_irq(struct guest_info * info, int irq);
+
+struct intr_ctrl_ops {
+  int (*intr_pending)(void * private_data);
+  int (*get_intr_number)(void * private_data);
+  int (*raise_intr)(void * private_data, int irq, int error_code);
+};
+
+
+
+void init_interrupt_state(struct guest_info * info);
+void set_intr_controller(struct guest_info * info, struct intr_ctrl_ops * ops, void * state);
 
 int raise_exception(struct guest_info * info, uint_t excp);
 

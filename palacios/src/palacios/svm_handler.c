@@ -79,6 +79,10 @@ int handle_svm_exit(struct guest_info * info) {
   } else if (exit_code == VMEXIT_INTR) {
 
     //    handle_svm_intr(info);
+
+  } else if (exit_code == VMEXIT_HLT) {
+    PrintDebug("Guest halted\n");
+    return -1;
   } else {
     addr_t rip_addr = get_addr_linear(info, guest_state->rip, guest_state->cs.selector);
     char buf[15];

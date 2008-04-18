@@ -1,6 +1,6 @@
 #include <geekos/vmm_stubs.h>
 #include <geekos/serial.h>
-
+#include <palacios/vm_guest.h>
 
 
 void * Identity(void *addr) { return addr; };
@@ -43,4 +43,42 @@ void * VMM_Malloc(unsigned int size) {
 
 void VMM_Free(void * addr) {
   Free(addr);
+}
+
+
+
+
+struct guest_info * irq_map[256];
+
+
+static void pic_intr_handler(struct Interrupt_State * state) {
+  Begin_IRQ(state);
+
+  irq_map[state->intNum]->vm_ops.raise_irq(irq_map[state->intNum], state->intNum, state->errorCode);
+
+  // End_IRQ(state);
+}
+
+
+int hook_irq_stub(struct guest_info * info, int irq) {
+  if (irq_map[irq]) {
+    return -1;
+  }
+
+  irq_map[irq] = info;
+  Install_IRQ(irq, pic_intr_handler);
+  Enable_IRQ(irq);
+  return 0;
+}
+
+
+int ack_irq(int irq) {
+  End_IRQ_num(irq);
+  return 0;
+}
+
+  
+void Init_Stubs() {
+  memset(irq_map, 0, sizeof(struct guest_info *) * 256);
+
 }

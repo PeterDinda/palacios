@@ -38,6 +38,12 @@ struct guest_gprs {
 struct shadow_page_state;
 struct shadow_map;
 
+
+struct vm_ctrl_ops {
+  int (*raise_irq)(struct guest_info * info, int irq, int error_code);
+};
+
+
 typedef enum {SHADOW_PAGING, NESTED_PAGING} vm_page_mode_t;
 typedef enum {REAL, PROTECTED, PROTECTED_PG, PROTECTED_PAE, PROTECTED_PAE_PG, LONG, LONG_PG} vm_cpu_mode_t;
 
@@ -57,7 +63,7 @@ struct guest_info {
   struct vm_intr intr_state;
 
 
-  struct vmm_irq_map irq_map;
+  // struct vmm_irq_map irq_map;
   vmm_io_map_t io_map;
   // device_map
 
@@ -68,8 +74,11 @@ struct guest_info {
 
   struct guest_gprs vm_regs;
 
+  struct vm_ctrl_ops vm_ops;
+
   void * vmm_data;
 };
+
 
 
 

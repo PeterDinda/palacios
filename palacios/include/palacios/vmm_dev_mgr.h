@@ -18,9 +18,10 @@ struct vmm_dev_mgr {
   
   uint_t num_mem_hooks;
   struct list_head mem_hooks;
-
+  /*
   uint_t num_irq_hooks;
   struct list_head irq_hooks;
+  */
 };
 
 
@@ -53,6 +54,7 @@ struct dev_mem_hook {
   struct list_head mgr_list;
 };
 
+/*
 struct dev_irq_hook {
   uint_t irq;
 
@@ -64,6 +66,7 @@ struct dev_irq_hook {
   struct list_head mgr_list;
 };
 
+*/
 // Registration of devices
 
 //

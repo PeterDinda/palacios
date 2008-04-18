@@ -85,6 +85,9 @@ struct vmm_os_hooks {
   void *(*paddr_to_vaddr)(void *addr);
   void *(*vaddr_to_paddr)(void *addr);
 
+  int (*hook_interrupt)(struct guest_info * info, int irq);
+  int (*ack_irq)(int irq);
+
   // Do we need this here?
   void (*snprintf)(char * dst, char * format, int len, ...);
 
@@ -98,8 +101,10 @@ struct vmm_ctrl_ops {
   int (*init_guest)(struct guest_info* info);
   int (*start_guest)(struct guest_info * info);
   //  int (*stop_vm)(uint_t vm_id);
-};
 
+
+
+};
 
 
 

@@ -7,6 +7,9 @@
 #include <palacios/vmm_dev_mgr.h>
 #include <devices/nvram.h>
 #include <devices/timer.h>
+#include <devices/simple_pic.h>
+#include <palacios/vmm_intr.h>
+
 
 #define SPEAKER_PORT 0x61
 
@@ -157,6 +160,8 @@ int RunVMM(struct Boot_Info * bootInfo) {
     addr_t rsp;
     addr_t rip;
 
+
+
     memset(&os_hooks, 0, sizeof(struct vmm_os_hooks));
     memset(&vmm_ops, 0, sizeof(struct vmm_ctrl_ops));
     memset(&vm_info, 0, sizeof(struct guest_info));
@@ -181,9 +186,9 @@ int RunVMM(struct Boot_Info * bootInfo) {
 
     vm_info.cpu_mode = REAL;
 
-    init_irq_map(&(vm_info.irq_map));
+    //init_irq_map(&(vm_info.irq_map));
     init_vmm_io_map(&(vm_info.io_map));
-    init_interrupt_state(&(vm_info.intr_state));
+    init_interrupt_state(&vm_info);
 
     dev_mgr_init(&(vm_info.dev_mgr));
     
@@ -270,6 +275,7 @@ int RunVMM(struct Boot_Info * bootInfo) {
 	PrintDebug("Error adding shadow region\n");
       }
 
+
       print_shadow_map(&(vm_info.mem_map));
 
       hook_io_port(&(vm_info.io_map), 0x61, &IO_Read, &IO_Write, NULL);
@@ -286,18 +292,22 @@ int RunVMM(struct Boot_Info * bootInfo) {
       hook_io_port(&(vm_info.io_map), 0x403, &IO_Read, &IO_Write_to_Serial, NULL);
 
       {
-	struct vm_device * nvram = create_nvram();
+	//struct vm_device * nvram = create_nvram();
 	//struct vm_device * timer = create_timer();
+	struct vm_device * pic = create_pic();
 
-	attach_device(&(vm_info), nvram);
+	//attach_device(&(vm_info), nvram);
 	//attach_device(&(vm_info), timer);
-	
+	attach_device(&(vm_info), pic);
+
 	PrintDebugDevMgr(&(vm_info.dev_mgr));
 	
 
 
       }
 
+
+      hook_irq(&vm_info, 6);
 
       vm_info.rip = 0xfff0;
       vm_info.vm_regs.rsp = 0x0;

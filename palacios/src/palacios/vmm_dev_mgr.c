@@ -162,7 +162,7 @@ int dev_unhook_io(struct vm_device   *dev,
 
 
 /* IRQ HOOKS */
-
+/*
 int dev_mgr_add_irq_hook(struct vmm_dev_mgr * mgr, struct dev_irq_hook * hook) {
   list_add(&(hook->mgr_list), &(mgr->irq_hooks));
   mgr->num_irq_hooks++;
@@ -267,7 +267,7 @@ int dev_unhook_irq(struct vm_device * dev,
 }
 
 
-
+*/
 
 
 
