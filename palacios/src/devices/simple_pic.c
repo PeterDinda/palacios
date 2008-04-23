@@ -9,13 +9,13 @@ struct pic_internal {
 };
 
 
-int pic_intr_pending(void * private_data) {
+static int pic_intr_pending(void * private_data) {
   struct pic_internal * data = (struct pic_internal *)private_data;
   
   return (data->pending_irq > 0);
 }
 
-int pic_raise_intr(void * private_data, int irq, int error_code) {
+static int pic_raise_intr(void * private_data, int irq, int error_code) {
   struct pic_internal * data = (struct pic_internal *)private_data;
 
   data->pending_irq = irq;
@@ -25,7 +25,7 @@ int pic_raise_intr(void * private_data, int irq, int error_code) {
 }
 
 
-int pic_get_intr_number(void * private_data) {
+static int pic_get_intr_number(void * private_data) {
   struct pic_internal * data = (struct pic_internal *)private_data;
 
   return data->pending_irq;
@@ -67,7 +67,7 @@ static struct vm_device_ops dev_ops = {
 };
 
 
-struct vm_device * create_pic() {
+struct vm_device * create_simple_pic() {
   struct pic_internal * state = NULL;
   VMMMalloc(struct pic_internal *, state, sizeof(struct pic_internal));
 

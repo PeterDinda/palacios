@@ -2,6 +2,6 @@
 #define __SIMPLE_PIC_H
 #include <palacios/vm_dev.h>
 
-struct vm_device * create_pic();
+struct vm_device * create_simple_pic();
 
 #endif

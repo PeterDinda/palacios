@@ -8,6 +8,7 @@
 #include <devices/nvram.h>
 #include <devices/timer.h>
 #include <devices/simple_pic.h>
+#include <devices/8259a.h>
 #include <palacios/vmm_intr.h>
 
 
@@ -281,11 +282,12 @@ int RunVMM(struct Boot_Info * bootInfo) {
       hook_io_port(&(vm_info.io_map), 0x61, &IO_Read, &IO_Write, NULL);
       hook_io_port(&(vm_info.io_map), 0x05, &IO_Read, &IO_Write_to_Serial, NULL);
 
-      hook_io_port(&(vm_info.io_map), 0x20, &IO_Read, &IO_Write_to_Serial, NULL);
-      hook_io_port(&(vm_info.io_map), 0x21, &IO_Read, &IO_Write_to_Serial, NULL);
-      hook_io_port(&(vm_info.io_map), 0xa0, &IO_Read, &IO_Write_to_Serial, NULL);
-      hook_io_port(&(vm_info.io_map), 0xa1, &IO_Read, &IO_Write_to_Serial, NULL);
-
+      /*
+	hook_io_port(&(vm_info.io_map), 0x20, &IO_Read, &IO_Write_to_Serial, NULL);
+	hook_io_port(&(vm_info.io_map), 0x21, &IO_Read, &IO_Write_to_Serial, NULL);
+	hook_io_port(&(vm_info.io_map), 0xa0, &IO_Read, &IO_Write_to_Serial, NULL);
+	hook_io_port(&(vm_info.io_map), 0xa1, &IO_Read, &IO_Write_to_Serial, NULL);
+      */
       hook_io_port(&(vm_info.io_map), 0x400, &IO_Read, &IO_Write_to_Serial, NULL);
       hook_io_port(&(vm_info.io_map), 0x401, &IO_Read, &IO_Write_to_Serial, NULL);
       hook_io_port(&(vm_info.io_map), 0x402, &IO_Read, &IO_BOCHS_debug, NULL);
