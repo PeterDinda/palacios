@@ -303,9 +303,6 @@ int RunVMM(struct Boot_Info * bootInfo) {
 	attach_device(&(vm_info), pic);
 
 	PrintDebugDevMgr(&(vm_info.dev_mgr));
-	
-
-
       }
 
 

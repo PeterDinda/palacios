@@ -49,6 +49,7 @@ struct intr_ctrl_ops {
   int (*intr_pending)(void * private_data);
   int (*get_intr_number)(void * private_data);
   int (*raise_intr)(void * private_data, int irq, int error_code);
+  int (*begin_irq)(void * private_data, int irq);
 };
 
 
@@ -62,4 +63,6 @@ int intr_pending(struct vm_intr * intr);
 uint_t get_intr_number(struct vm_intr * intr);
 intr_types_t get_intr_type(struct vm_intr * intr);
 
+int start_irq(struct vm_intr * intr);
+int end_irq(struct vm_intr * intr, int irq);
 #endif

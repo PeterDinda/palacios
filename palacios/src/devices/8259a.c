@@ -130,9 +130,9 @@ static int pic_raise_intr(void * private_data, int irq, int error_code) {
   }
 
   if (irq <= 7) {
-    state->master_irr |= 0x1 << irq;
+    state->master_irr |= 0x01 << irq;
   } else if ((irq > 7) && (irq < 16)) {
-    state->slave_irr |= 0x1 << (irq - 7);
+    state->slave_irr |= 0x01 << (irq - 7);
   } else {
     return -1;
   }
@@ -157,11 +157,11 @@ static int pic_get_intr_number(void * private_data) {
 
   for (i = 0; i < 16; i++) {
     if (i <= 7) {
-      if (((state->master_irr & ~(state->master_imr)) >> i) == 0x1) {
+      if (((state->master_irr & ~(state->master_imr)) >> i) == 0x01) {
 	return i;
       }
     } else {
-      if (((state->slave_irr & ~(state->slave_imr)) >> i) == 0x1) {
+      if (((state->slave_irr & ~(state->slave_imr)) >> i) == 0x01) {
 	return i;
       }
     }
@@ -171,10 +171,22 @@ static int pic_get_intr_number(void * private_data) {
 }
 
 
+static int begin_irq(void * private_data, int irq) {
+
+  return 0;
+}
+
+static int end_irq(void * private_data, int irq) {
+
+  return 0;
+}
+
+
 static struct intr_ctrl_ops intr_ops = {
   .intr_pending = pic_intr_pending,
   .get_intr_number = pic_get_intr_number,
-  .raise_intr = pic_raise_intr
+  .raise_intr = pic_raise_intr,
+  .begin_irq = begin_irq,
 };
 
 
@@ -189,9 +201,9 @@ int read_master_port1(ushort_t port, void * dst, uint_t length, struct vm_device
     //error
   }
   
-  if ((state->master_ocw3 & 0x3) == 0x2) {
+  if ((state->master_ocw3 & 0x03) == 0x02) {
     *(char *)dst = state->master_irr;
-  } else if ((state->master_ocw3 & 0x3) == 0x3) {
+  } else if ((state->master_ocw3 & 0x03) == 0x03) {
     *(char *)dst = state->master_isr;
   } else {
     *(char *)dst = 0;
@@ -218,9 +230,9 @@ int read_slave_port1(ushort_t port, void * dst, uint_t length, struct vm_device 
     // error
   }
   
-  if ((state->slave_ocw3 & 0x3) == 0x2) {
+  if ((state->slave_ocw3 & 0x03) == 0x02) {
     *(char*)dst = state->slave_irr;
-  } else if ((state->slave_ocw3 & 0x3) == 0x3) {
+  } else if ((state->slave_ocw3 & 0x03) == 0x03) {
     *(char *)dst = state->slave_isr;
   } else {
     *(char *)dst = 0;
@@ -254,6 +266,16 @@ int write_master_port1(ushort_t port, void * src, uint_t length, struct vm_devic
     state->master_state = ICW2;
   } else if (state->master_state == READY) {
     if (IS_OCW2(cw)) {
+      // handle the EOI here
+      struct ocw2 * cw2 =  (struct ocw2 *)cw;
+      
+      if ((cw2->EOI) && (!cw2->R) && (cw2->SL)) {
+	// specific EOI;
+	state->master_isr &= ~(0x01 << cw2->level);
+      } else {
+	// error;
+      }
+
       state->master_ocw2 = cw;
     } else if (IS_OCW3(cw)) {
       state->master_ocw3 = cw;
@@ -324,8 +346,19 @@ int write_slave_port1(ushort_t port, void * src, uint_t length, struct vm_device
     state->slave_state = ICW2;
   } else if (state->slave_state == READY) {
     if (IS_OCW2(cw)) {
+      // handle the EOI here
+      struct ocw2 * cw2 =  (struct ocw2 *)cw;
+      
+      if ((cw2->EOI) && (!cw2->R) && (cw2->SL)) {
+	// specific EOI;
+	state->slave_isr &= ~(0x01 << cw2->level);
+      } else {
+	// error;
+      }
+
       state->slave_ocw2 = cw;
     } else if (IS_OCW3(cw)) {
+      // Basically sets the IRR/ISR read flag
       state->slave_ocw3 = cw;
     } else {
       // error
@@ -401,7 +434,7 @@ int pic_init(struct vm_device * dev) {
   state->master_icw4 = 0;
   state->master_imr = 0;
   state->master_ocw2 = 0;
-  state->master_ocw3 = 0x2;
+  state->master_ocw3 = 0x02;
   state->master_state = ICW1;
 
 
@@ -413,7 +446,7 @@ int pic_init(struct vm_device * dev) {
   state->slave_icw4 = 0;
   state->slave_imr = 0;
   state->slave_ocw2 = 0;
-  state->slave_ocw3 = 0x2;
+  state->slave_ocw3 = 0x02;
   state->slave_state = ICW1;
 
 
