@@ -158,11 +158,13 @@ static int pic_get_intr_number(void * private_data) {
   for (i = 0; i < 16; i++) {
     if (i <= 7) {
       if (((state->master_irr & ~(state->master_imr)) >> i) == 0x01) {
-	return i;
+	state->master_isr |= (0x1 << i);
+	return i + state->master_icw2;
       }
     } else {
       if (((state->slave_irr & ~(state->slave_imr)) >> i) == 0x01) {
-	return i;
+	state->slave_isr |= (0x1 << i);
+	return i + state->slave_icw2;
       }
     }
   }
@@ -171,22 +173,23 @@ static int pic_get_intr_number(void * private_data) {
 }
 
 
-static int begin_irq(void * private_data, int irq) {
+static int pic_begin_irq(void * private_data, int irq) {
 
   return 0;
 }
 
-static int end_irq(void * private_data, int irq) {
+/*
+static int pic_end_irq(void * private_data, int irq) {
 
   return 0;
 }
-
+*/
 
 static struct intr_ctrl_ops intr_ops = {
   .intr_pending = pic_intr_pending,
   .get_intr_number = pic_get_intr_number,
   .raise_intr = pic_raise_intr,
-  .begin_irq = begin_irq,
+  .begin_irq = pic_begin_irq,
 };
 
 
@@ -267,11 +270,14 @@ int write_master_port1(ushort_t port, void * src, uint_t length, struct vm_devic
   } else if (state->master_state == READY) {
     if (IS_OCW2(cw)) {
       // handle the EOI here
-      struct ocw2 * cw2 =  (struct ocw2 *)cw;
+      struct ocw2 * cw2 =  (struct ocw2*)&cw;
       
       if ((cw2->EOI) && (!cw2->R) && (cw2->SL)) {
 	// specific EOI;
 	state->master_isr &= ~(0x01 << cw2->level);
+      } else if ((cw2->EOI) & (!cw2->R) && (!cw2->SL)) {
+	// Non-specific EOI
+	
       } else {
 	// error;
       }
@@ -347,11 +353,13 @@ int write_slave_port1(ushort_t port, void * src, uint_t length, struct vm_device
   } else if (state->slave_state == READY) {
     if (IS_OCW2(cw)) {
       // handle the EOI here
-      struct ocw2 * cw2 =  (struct ocw2 *)cw;
+      struct ocw2 * cw2 =  (struct ocw2 *)&cw;
       
       if ((cw2->EOI) && (!cw2->R) && (cw2->SL)) {
 	// specific EOI;
 	state->slave_isr &= ~(0x01 << cw2->level);
+      } else if ((cw2->EOI) & (!cw2->R) && (!cw2->SL)) {
+	// non specific EOI
       } else {
 	// error;
       }

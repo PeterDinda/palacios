@@ -176,7 +176,8 @@ int RunVMM(struct Boot_Info * bootInfo) {
     os_hooks.free = &VMM_Free;
     os_hooks.vaddr_to_paddr = &Identity;
     os_hooks.paddr_to_vaddr = &Identity;
-
+    os_hooks.hook_interrupt = &hook_irq_stub;
+    os_hooks.ack_irq = &ack_irq;
  
     //   DumpGDT();
     Init_VMM(&os_hooks, &vmm_ops);

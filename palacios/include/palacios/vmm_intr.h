@@ -63,6 +63,8 @@ int intr_pending(struct vm_intr * intr);
 uint_t get_intr_number(struct vm_intr * intr);
 intr_types_t get_intr_type(struct vm_intr * intr);
 
+/*
 int start_irq(struct vm_intr * intr);
 int end_irq(struct vm_intr * intr, int irq);
+*/
 #endif
