@@ -1,0 +1,21 @@
+
+
+/usr/local/qemu/bin/qemu  -m 512 -fda ./vmm.img c.img
+
+-m 512 = 512 MB RAM
+
+-M = machine type
+
+-cpu = CPU type
+
+-monitor `tty` gives access to a qemu console that lets you dump
+memory, registers, disassemble, etc.  It's not a complete debugger,
+thoough
+
+-s waits for a gdb connection.  This seems to only work for kgdb and linux kernels
+
+
+-serial stdio redirects COM1 to stdio
+
+
+

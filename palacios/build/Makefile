@@ -1,6 +1,6 @@
 # Makefile for GeekOS kernel, userspace, and tools
 # Copyright (c) 2004,2005 David H. Hovemeyer <daveho@cs.umd.edu>
-# $Revision: 1.28 $
+# $Revision: 1.29 $
 
 # This is free software.  You are permitted to use,
 # redistribute, and modify it as specified in the file "COPYING".
@@ -72,7 +72,7 @@ endif
 # List of targets to build by default.
 # These targets encompass everything needed to boot
 # and run GeekOS.
-ALL_TARGETS := fd.img vm_kernel
+ALL_TARGETS := vmm.img vm_kernel
 
 
 # Kernel source files
@@ -290,10 +290,13 @@ fd.img : geekos/fd_boot.bin geekos/setup.bin geekos/kernel.bin vm_kernel
 	$(PAD) _temp 512
 	cat _temp vm_kernel > $@
 
+vmm.img : fd.img
+	cp fd.img vmm.img
+	$(PAD) vmm.img 1474560
+
 # make ready to boot over PXE
-pxe:	fd.img
-	cp fd.img /tftpboot/vmm.img
-	$(PAD) /tftpboot/vmm.img 1474560
+pxe:	vmm.img
+	cp vmm.img /tftpboot/vmm.img
 
 
 
