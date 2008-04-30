@@ -314,7 +314,6 @@ int RunVMM(struct Boot_Info * bootInfo) {
 	PrintDebugDevMgr(&(vm_info.dev_mgr));
       }
 
-
       hook_irq(&vm_info, 6);
 
       vm_info.rip = 0xfff0;

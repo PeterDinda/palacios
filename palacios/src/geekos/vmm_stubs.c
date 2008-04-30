@@ -47,16 +47,16 @@ void VMM_Free(void * addr) {
 
 
 
-
 struct guest_info * irq_map[256];
-
 
 static void pic_intr_handler(struct Interrupt_State * state) {
   Begin_IRQ(state);
   struct guest_info * info =   irq_map[state->intNum - 32];
+  SerialPrint("Interrupt %d\n", state->intNum);
 
   if (info) {
-    info->vm_ops.raise_irq(irq_map[state->intNum], state->intNum, state->errorCode);
+    SerialPrint("Calling handler(info=%x)->%x\n", info, info->vm_ops.raise_irq);
+    info->vm_ops.raise_irq(info, state->intNum - 32, state->errorCode);
   } else {
     SerialPrint("Interrupt handler error: NULL pointer found, no action taken\n");
     End_IRQ(state);
@@ -88,5 +88,4 @@ int ack_irq(int irq) {
   
 void Init_Stubs() {
   memset(irq_map, 0, sizeof(struct guest_info *) * 256);
-
 }

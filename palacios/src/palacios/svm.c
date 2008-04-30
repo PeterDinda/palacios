@@ -145,7 +145,7 @@ int start_svm_guest(struct guest_info *info) {
     //PrintDebug("Launching to RIP: %x\n", info->rip);
     safe_svm_launch((vmcb_t*)(info->vmm_data), &(info->vm_regs));
     //launch_svm((vmcb_t*)(info->vmm_data));
-    // PrintDebug("SVM Returned\n");
+    //PrintDebug("SVM Returned\n");
 
     STGI();
     

@@ -63,6 +63,16 @@
 
 /* ** */
 
+#define V3_ASSERT(x)							\
+  do {									\
+    if (!(x)) {							 	\
+      PrintDebug("Failed assertion in %s: %s at %s, line %d, RA=%lx\n",	\
+		 __func__, #x, __FILE__, __LINE__,			\
+		 (ulong_t) __builtin_return_address(0));                \
+      while(1);								\
+    }									\
+  } while(0)								\
+    
 
 #define VMM_INVALID_CPU 0
 #define VMM_VMX_CPU 1

@@ -129,11 +129,14 @@ static int pic_raise_intr(void * private_data, int irq, int error_code) {
     irq = 9;
   }
 
+  PrintDebug("Raising irq %d in the PIC\n", irq);
+
   if (irq <= 7) {
     state->master_irr |= 0x01 << irq;
   } else if ((irq > 7) && (irq < 16)) {
     state->slave_irr |= 0x01 << (irq - 7);
   } else {
+    PrintDebug("Invalid IRQ raised (%d)\n", irq);
     return -1;
   }
 
