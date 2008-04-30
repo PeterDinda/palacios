@@ -63,26 +63,26 @@ struct Debug_Registers {
 
 
 struct Exception_Vectors {
-    uint_t de          : 1        PACKED; // divide by zero
-    uint_t db          : 1        PACKED; // Debug
-    uint_t nmi         : 1        PACKED; // Non-maskable interrupt
-    uint_t bp          : 1        PACKED; // Breakpoint
-    uint_t of          : 1        PACKED; // Overflow
-    uint_t br          : 1        PACKED; // Bound-Range
-    uint_t ud          : 1        PACKED; // Invalid-Opcode
-    uint_t nm          : 1        PACKED; // Device-not-available
-    uint_t df          : 1        PACKED; // Double Fault
+    uint_t de          : 1        PACKED; // (0) divide by zero
+    uint_t db          : 1        PACKED; // (1) Debug
+    uint_t nmi         : 1        PACKED; // (2) Non-maskable interrupt
+    uint_t bp          : 1        PACKED; // (3) Breakpoint
+    uint_t of          : 1        PACKED; // (4) Overflow
+    uint_t br          : 1        PACKED; // (5) Bound-Range
+    uint_t ud          : 1        PACKED; // (6) Invalid-Opcode
+    uint_t nm          : 1        PACKED; // (7) Device-not-available
+    uint_t df          : 1        PACKED; // (8) Double Fault
     uint_t ex9         : 1        PACKED; 
-    uint_t ts          : 1        PACKED; // Invalid TSS
-    uint_t np          : 1        PACKED; // Segment-not-present
-    uint_t ss          : 1        PACKED; // Stack
-    uint_t gp          : 1        PACKED; // General Protection Fault
-    uint_t pf          : 1        PACKED; // Page fault
+    uint_t ts          : 1        PACKED; // (10) Invalid TSS
+    uint_t np          : 1        PACKED; // (11) Segment-not-present
+    uint_t ss          : 1        PACKED; // (12) Stack
+    uint_t gp          : 1        PACKED; // (13) General Protection Fault
+    uint_t pf          : 1        PACKED; // (14) Page fault
     uint_t ex15        : 1        PACKED;
-    uint_t mf          : 1        PACKED; // Floating point exception
-    uint_t ac          : 1        PACKED; // Alignment-check
-    uint_t mc          : 1        PACKED; // Machine Check
-    uint_t xf          : 1        PACKED; // SIMD floating-point
+    uint_t mf          : 1        PACKED; // (15) Floating point exception
+    uint_t ac          : 1        PACKED; // (16) Alignment-check
+    uint_t mc          : 1        PACKED; // (17) Machine Check
+    uint_t xf          : 1        PACKED; // (18) SIMD floating-point
     uint_t ex20        : 1        PACKED;
     uint_t ex21        : 1        PACKED;
     uint_t ex22        : 1        PACKED;
@@ -93,7 +93,7 @@ struct Exception_Vectors {
     uint_t ex27        : 1        PACKED;
     uint_t ex28        : 1        PACKED;
     uint_t ex29        : 1        PACKED;
-    uint_t sx          : 1        PACKED; // Security Exception
+    uint_t sx          : 1        PACKED; // (30) Security Exception
     uint_t ex31        : 1        PACKED;
 };
 

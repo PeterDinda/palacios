@@ -2,7 +2,7 @@
  * Physical memory allocation
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
- * $Revision: 1.5 $
+ * $Revision: 1.6 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -240,7 +240,7 @@ void Init_BSS(void)
 
     /* Fill .bss with zeroes */
     memset(&BSS_START, '\0', &BSS_END - &BSS_START);
-    PrintBoth("BSS Inited, BSS_START=%x, BSS_END=%x\n",BSS_START,BSS_END);
+    //    PrintBoth("BSS Inited, BSS_START=%x, BSS_END=%x\n",BSS_START,BSS_END);
 }
 
 /*

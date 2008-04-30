@@ -27,6 +27,7 @@ int handle_svm_exit(struct guest_info * info) {
 
   exit_code = guest_ctrl->exit_code;
  
+  PrintDebug("SVM Returned: Exit Code: %x\n",exit_code); 
   // PrintDebugVMCB((vmcb_t*)(info->vmm_data));
 
 
@@ -66,6 +67,14 @@ int handle_svm_exit(struct guest_info * info) {
     if (handle_cr0_write(info) == -1) {
       return -1;
     }
+  } else if (exit_code == VMEXIT_CR0_READ) {
+    PrintDebug("CR0 Read\n");
+
+    if (handle_cr0_read(info) == -1) {
+      return -1;
+    }
+
+
     /*
   } else if (( (exit_code == VMEXIT_CR3_READ)  ||
 	       (exit_code == VMEXIT_CR3_WRITE) ||
@@ -126,8 +135,11 @@ int handle_svm_exit(struct guest_info * info) {
   // Update the low level state
 
   if (intr_pending(&(info->intr_state))) {
+
     guest_ctrl->EVENTINJ.vector = get_intr_number(&(info->intr_state));
     guest_ctrl->EVENTINJ.valid = 1;
+
+    PrintDebug("Injecting Interrupt %d\n", guest_ctrl->EVENTINJ.vector);
  
     switch (get_intr_type(&(info->intr_state))) {
     case EXTERNAL_IRQ:

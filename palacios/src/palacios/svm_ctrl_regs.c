@@ -25,7 +25,7 @@ int handle_cr0_write(struct guest_info * info) {
     int ret;
 
     // The real rip address is actually a combination of the rip + CS base 
-    ret = read_guest_pa_memory(info, get_addr_linear(info, guest_state->rip, guest_state->cs.base), 15, instr);
+    ret = read_guest_pa_memory(info, get_addr_linear(info, guest_state->rip, guest_state->cs.selector), 15, instr);
     if (ret != 15) {
       // I think we should inject a GPF into the guest
       PrintDebug("Could not read instruction (ret=%d)\n", ret);
@@ -179,7 +179,6 @@ int handle_cr0_write(struct guest_info * info) {
       }
 
       info->rip += index;
-
     }
     
   } else {
@@ -200,12 +199,13 @@ int handle_cr0_read(struct guest_info * info) {
     int ret;
 
     // The real rip address is actually a combination of the rip + CS base 
-    ret = read_guest_pa_memory(info, get_addr_linear(info, guest_state->rip, guest_state->cs.base), 15, instr);
+    ret = read_guest_pa_memory(info, get_addr_linear(info, guest_state->rip, guest_state->cs.selector), 15, instr);
     if (ret != 15) {
       // I think we should inject a GPF into the guest
-      PrintDebug("Could not read instruction (ret=%d)\n", ret);
+      PrintDebug("Could not read Real Mode instruction (ret=%d)\n", ret);
       return -1;
     }
+
 
     while (is_prefix_byte(instr[index])) {
       index++; 
@@ -244,12 +244,22 @@ int handle_cr0_read(struct guest_info * info) {
 
       cr0_val = *(char*)cr0 & 0x0f;
 
-
       *(char *)first_operand &= 0xf0;
       *(char *)first_operand |= cr0_val;
 
+      PrintDebug("index = %d, rip = %x\n", index, (ulong_t)(info->rip));
       info->rip += index;
+      PrintDebug("new_rip = %x\n", (ulong_t)(info->rip));
+    } else {
+      addr_t host_addr;
 
+      PrintDebug("Unknown read instr to CR0\n");
+      guest_pa_to_host_pa(info, get_addr_linear(info, guest_state->rip, guest_state->cs.selector), &host_addr);
+      
+      PrintDebug("Instr (15 bytes) at %x:\n", host_addr);
+      PrintTraceMemDump((char*)host_addr, 15);
+
+      return -1;
     }
 
   } else if (info->cpu_mode == PROTECTED) {
@@ -260,7 +270,7 @@ int handle_cr0_read(struct guest_info * info) {
     ret = read_guest_pa_memory(info, get_addr_linear(info, guest_state->rip, guest_state->cs.base), 15, instr);
     if (ret != 15) {
       // I think we should inject a GPF into the guest
-      PrintDebug("Could not read instruction (ret=%d)\n", ret);
+      PrintDebug("Could not read Proteced mode instruction (ret=%d)\n", ret);
       return -1;
     }
 

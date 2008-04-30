@@ -270,11 +270,19 @@ int RunVMM(struct Boot_Info * bootInfo) {
 	region_start += reg->length;
       }
       
-      add_shadow_region_passthrough(&vm_info, 0xc0000, 0xc8000, 0xc0000);
+      //     
       add_shadow_region_passthrough(&vm_info, 0x0, 0xa0000, (addr_t)Allocate_VMM_Pages(160));
       add_shadow_region_passthrough(&vm_info, 0xa0000, 0xc0000, 0xa0000); 
-      if (add_shadow_region_passthrough(&vm_info, 0xc8000, 0xf0000, (addr_t)Allocate_VMM_Pages(40)) == -1) {
-	PrintDebug("Error adding shadow region\n");
+      
+
+      if (1) {
+	add_shadow_region_passthrough(&vm_info, 0xc7000, 0xc8000, (addr_t)Allocate_VMM_Pages(1));
+	if (add_shadow_region_passthrough(&vm_info, 0xc8000, 0xf0000, (addr_t)Allocate_VMM_Pages(40)) == -1) {
+	  PrintDebug("Error adding shadow region\n");
+	}
+      } else {
+	add_shadow_region_passthrough(&vm_info, 0xc0000, 0xc8000, 0xc0000);
+	add_shadow_region_passthrough(&vm_info, 0xc8000, 0xf0000, 0xc8000);
       }
 
 

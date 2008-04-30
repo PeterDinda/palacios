@@ -43,6 +43,7 @@ int host_pa_to_host_va(addr_t host_pa, addr_t * host_va) {
 int guest_pa_to_host_pa(struct guest_info * guest_info, addr_t guest_pa, addr_t * host_pa) {
   // we use the shadow map here...
   if (lookup_shadow_map_addr(&(guest_info->mem_map), guest_pa, host_pa) != HOST_REGION_PHYSICAL_MEMORY) {
+    PrintDebug("Could not find address in shadow map (addr=%x)\n", guest_pa);
     return -1;
   }
 
@@ -322,12 +323,12 @@ int read_guest_pa_memory(struct guest_info * guest_info, addr_t guest_pa, int co
       return bytes_read;
     }
 
-    /*
-      PrintDebug("Trying to read %d bytes\n", bytes_to_copy);
-      PrintDebug("Dist to page edge=%d\n", dist_to_pg_edge);
-      PrintDebug("PAGE_ADDR=0x%x\n", PAGE_ADDR(cursor));
-      PrintDebug("guest_pa=0x%x\n", guest_pa);
-    */
+    
+    PrintDebug("Trying to read %d bytes\n", bytes_to_copy);
+    PrintDebug("Dist to page edge=%d\n", dist_to_pg_edge);
+    PrintDebug("PAGE_ADDR=0x%x\n", PAGE_ADDR(cursor));
+    PrintDebug("guest_pa=0x%x\n", guest_pa);
+    
     
     memcpy(dest + bytes_read, (void*)host_addr, bytes_to_copy);
 

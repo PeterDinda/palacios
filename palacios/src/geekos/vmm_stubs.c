@@ -65,6 +65,7 @@ int hook_irq_stub(struct guest_info * info, int irq) {
     return -1;
   }
 
+  SerialPrint("Hooking IRQ: %d (vm=0x%x)\n", irq, info);
   irq_map[irq] = info;
   Install_IRQ(irq, pic_intr_handler);
   Enable_IRQ(irq);
