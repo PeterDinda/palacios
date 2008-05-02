@@ -4,6 +4,7 @@
 
 extern struct vmm_os_hooks *os_hooks;
 
+extern void SerialPrint(const char *format, ...);
 
 #define NVRAM_REG_PORT  0x70
 #define NVRAM_DATA_PORT 0x71
@@ -17,7 +18,7 @@ typedef enum {NVRAM_READY, NVRAM_REG_POSTED} nvram_state_t;
 
 
 // These are borrowed from Bochs, which borrowed from
-// Ralf Brown's interupt list
+// Ralf Brown's interupt list, and extended
 #define NVRAM_REG_SEC                     0x00
 #define NVRAM_REG_SEC_ALARM               0x01
 #define NVRAM_REG_MIN                     0x02
@@ -34,12 +35,32 @@ typedef enum {NVRAM_READY, NVRAM_REG_POSTED} nvram_state_t;
 #define NVRAM_REG_STAT_D                  0x0d
 #define NVRAM_REG_DIAGNOSTIC_STATUS       0x0e  
 #define NVRAM_REG_SHUTDOWN_STATUS         0x0f
+
+#define NVRAM_REG_FLOPPY_TYPE             0x10
 #define NVRAM_REG_EQUIPMENT_BYTE          0x14
+
+#define NVRAM_REG_BASE_MEMORY_HIGH        0x16
+#define NVRAM_REG_BASE_MEMORY_LOW         0x15
+
+#define NVRAM_REG_EXT_MEMORY_HIGH         0x18
+#define NVRAM_REG_EXT_MEMORY_LOW          0x17
+
+#define NVRAM_REG_EXT_MEMORY_2ND_HIGH     0x31
+#define NVRAM_REG_EXT_MEMORY_2ND_LOW      0x30
+
+#define NVRAM_REG_BOOTSEQ_OLD             0x2d
+
+#define NVRAM_REG_AMI_BIG_MEMORY_HIGH     0x35
+#define NVRAM_REG_AMI_BIG_MEMORY_LOW      0x34
+
+
 #define NVRAM_REG_CSUM_HIGH               0x2e
 #define NVRAM_REG_CSUM_LOW                0x2f
 #define NVRAM_REG_IBM_CENTURY_BYTE        0x32  
 #define NVRAM_REG_IBM_PS2_CENTURY_BYTE    0x37  
 
+#define NVRAM_REG_BOOTSEQ_NEW_FIRST       0x3D
+#define NVRAM_REG_BOOTSEQ_NEW_SECOND      0x38
 
 
 struct nvram_internal {
@@ -50,14 +71,66 @@ struct nvram_internal {
 
 
 
+static int set_nvram_defaults(struct vm_device *dev)
+{
+  struct nvram_internal * nvram_state = (struct nvram_internal*) dev->private_data;
+
+  //
+  // 2 1.44 MB floppy drives
+  //
+  nvram_state->mem_state[NVRAM_REG_FLOPPY_TYPE]= 0x44;
+
+  //
+  // For old boot sequence style, do floppy first
+  //
+  nvram_state->mem_state[NVRAM_REG_BOOTSEQ_OLD]= 0x10;
+
+#if 0
+  // For new boot sequence style, do floppy, cd, then hd
+  nvram_state->mem_state[NVRAM_REG_BOOTSEQ_NEW_FIRST]= 0x31;
+  nvram_state->mem_state[NVRAM_REG_BOOTSEQ_NEW_SECOND]= 0x20;
+#endif
+
+  // For new boot sequence style, do cd, hd, floppy
+  nvram_state->mem_state[NVRAM_REG_BOOTSEQ_NEW_FIRST]= 0x23;
+  nvram_state->mem_state[NVRAM_REG_BOOTSEQ_NEW_SECOND]= 0x10;
+ 
+
+  // Set equipment byte to note 2 floppies, vga display, keyboard,math,floppy
+  nvram_state->mem_state[NVRAM_REG_EQUIPMENT_BYTE]= 0x4f;
+
+  // Set conventional memory to 640K
+  nvram_state->mem_state[NVRAM_REG_BASE_MEMORY_HIGH]= 0x02;
+  nvram_state->mem_state[NVRAM_REG_BASE_MEMORY_LOW]= 0x80;
+
+  // Set extended memory to 15 MB
+  nvram_state->mem_state[NVRAM_REG_EXT_MEMORY_HIGH]= 0x3C;
+  nvram_state->mem_state[NVRAM_REG_EXT_MEMORY_LOW]= 0x00;
+  nvram_state->mem_state[NVRAM_REG_EXT_MEMORY_2ND_HIGH]= 0x3C;
+  nvram_state->mem_state[NVRAM_REG_EXT_MEMORY_2ND_LOW]= 0x00;
+
+  // Set the extended memory beyond 16 MB to 128-16 MB
+  nvram_state->mem_state[NVRAM_REG_AMI_BIG_MEMORY_HIGH]= 0x7;
+  nvram_state->mem_state[NVRAM_REG_AMI_BIG_MEMORY_LOW]= 0x00;
+
+  
+
+  return 0;
+
+}
 
 
 int nvram_reset_device(struct vm_device * dev)
 {
   struct nvram_internal *data = (struct nvram_internal *) dev->private_data;
   
+  SerialPrint("nvram: reset device\n");
+
+ 
+
   data->dev_state = NVRAM_READY;
   data->thereg=0;
+
   
   return 0;
 
@@ -69,12 +142,14 @@ int nvram_reset_device(struct vm_device * dev)
 
 int nvram_start_device(struct vm_device *dev)
 {
+  SerialPrint("nvram: start device\n");
   return 0;
 }
 
 
 int nvram_stop_device(struct vm_device *dev)
 {
+  SerialPrint("nvram: stop device\n");
   return 0;
 }
 
@@ -90,9 +165,9 @@ int nvram_write_reg_port(ushort_t port,
 
   memcpy(&(data->thereg), src, 1);
 
+
   return 1;
 }
-
 
 int nvram_read_data_port(ushort_t port,
 		       void   * dst, 
@@ -101,7 +176,11 @@ int nvram_read_data_port(ushort_t port,
 {
   struct nvram_internal *data = (struct nvram_internal *) dev->private_data;
 
+
+
   memcpy(dst, &(data->mem_state[data->thereg]), 1);
+
+  SerialPrint("nvram_read_data_port(%x)=%x\n",data->thereg,data->mem_state[data->thereg]);
 
   return 1;
 }
@@ -115,15 +194,23 @@ int nvram_write_data_port(ushort_t port,
 
   memcpy(&(data->mem_state[data->thereg]), src, 1);
 
+  SerialPrint("nvram_write_data_port(%x)=%x\n",data->thereg,data->mem_state[data->thereg]);
+
   return 1;
 }
 
 
 
 int nvram_init_device(struct vm_device * dev) {
-  struct nvram_internal *data = (struct nvram_internal *) dev->private_data;
  
+  struct nvram_internal *data = (struct nvram_internal *) dev->private_data;
+
+  SerialPrint("nvram: init_device\n");
+
   memset(data->mem_state, 0, NVRAM_REG_MAX);
+
+  // Would read state here
+  set_nvram_defaults(dev);
 
   nvram_reset_device(dev);
 
@@ -159,10 +246,14 @@ static struct vm_device_ops dev_ops = {
 
 
 
+
 struct vm_device *create_nvram() {
-  struct nvram_internal * nvram_state = os_hooks->malloc(sizeof(struct nvram_internal));
+  struct nvram_internal * nvram_state = os_hooks->malloc(sizeof(struct nvram_internal)+1000);
+
+  SerialPrint("internal at %x\n",nvram_state);
 
   struct vm_device *device = create_device("NVRAM", &dev_ops, nvram_state);
+
 
   return device;
 }
