@@ -1,6 +1,6 @@
 //  -*- fundamental -*-
 /////////////////////////////////////////////////////////////////////////
-// $Id: rombios.c,v 1.2 2008/04/11 19:12:59 jarusl Exp $
+// $Id: rombios.c,v 1.3 2008/05/02 23:58:51 pdinda Exp $
 /////////////////////////////////////////////////////////////////////////
 //
 //  Copyright (C) 2002  MandrakeSoft S.A.
@@ -130,13 +130,13 @@
 //
 //   BCC Bug: find a generic way to handle the bug of #asm after an "if"  (fixed in 0.16.7)
 
-#define DEBUG_ROMBIOS      0
+#define DEBUG_ROMBIOS      1
 
-#define DEBUG_ATA          0
+#define DEBUG_ATA          1
 #define DEBUG_INT13_HD     0
 #define DEBUG_INT13_CD     0
 #define DEBUG_INT13_ET     0
-#define DEBUG_INT13_FL     0
+#define DEBUG_INT13_FL     1
 #define DEBUG_INT15        0
 #define DEBUG_INT16        0
 #define DEBUG_INT1A        0
@@ -945,10 +945,10 @@ Bit16u cdrom_boot();
 
 #endif // BX_ELTORITO_BOOT
 
-static char bios_cvs_version_string[] = "$Revision: 1.2 $";
-static char bios_date_string[] = "$Date: 2008/04/11 19:12:59 $";
+static char bios_cvs_version_string[] = "$Revision: 1.3 $";
+static char bios_date_string[] = "$Date: 2008/05/02 23:58:51 $";
 
-static char CVSID[] = "$Id: rombios.c,v 1.2 2008/04/11 19:12:59 jarusl Exp $";
+static char CVSID[] = "$Id: rombios.c,v 1.3 2008/05/02 23:58:51 pdinda Exp $";
 
 /* Offset to skip the CVS $Id: prefix */ 
 #define bios_version_string  (CVSID + 4)
@@ -958,7 +958,7 @@ static char CVSID[] = "$Id: rombios.c,v 1.2 2008/04/11 19:12:59 jarusl Exp $";
 #define BIOS_PRINTF_INFO     4
 #define BIOS_PRINTF_DEBUG    8
 #define BIOS_PRINTF_ALL      (BIOS_PRINTF_SCREEN | BIOS_PRINTF_INFO)
-#define BIOS_PRINTF_DEBHALT  (BIOS_PRINTF_SCREEN | BIOS_PRINTF_INFO | BIOS_PRINTF_HALT)
+#define BIOS_PRINTF_DEBHALT  (BIOS_PRINTF_SCREEN | BIOS_PRINTF_INFO | BIOS_PRINTF_HALT) 
 
 #define printf(format, p...)  bios_printf(BIOS_PRINTF_SCREEN, format, ##p)
 
@@ -966,7 +966,7 @@ static char CVSID[] = "$Id: rombios.c,v 1.2 2008/04/11 19:12:59 jarusl Exp $";
 // BX_DEBUG goes to INFO port until we can easily choose debug info on a 
 // per-device basis. Debug info are sent only in debug mode
 #if DEBUG_ROMBIOS
-#  define BX_DEBUG(format, p...)  bios_printf(BIOS_PRINTF_INFO, format, ##p)    
+#  define BX_DEBUG(format, p...)  bios_printf(BIOS_PRINTF_ALL, format, ##p)    
 #else
 #  define BX_DEBUG(format, p...) 
 #endif
@@ -1669,7 +1669,7 @@ keyboard_init()
     Bit16u max;
     int rc;
 
-    printf("rombios: keyboard_init\n");
+    BX_DEBUG("rombios: keyboard_init\n");
 
     /* printf("Assuming keyboard already inited and returning\n");
        return; */
@@ -2128,7 +2128,7 @@ void ata_init( )
   Bit16u ebda_seg=read_word(0x0040,0x000E);
   Bit8u  channel, device;
 
-  printf("rom_bios: ata_init\n");
+  //BX_DEBUG("rombios: ata_init\n");
 
   // Channels info init. 
   for (channel=0; channel<BX_MAX_ATA_INTERFACES; channel++) {
@@ -2176,6 +2176,8 @@ void ata_detect( )
   Bit16u ebda_seg=read_word(0x0040,0x000E);
   Bit8u  hdcount, cdcount, device, type;
   Bit8u  buffer[0x0200];
+
+  //BX_DEBUG("rombios: ata_detect\n");
 
 #if BX_MAX_ATA_INTERFACES > 0
   write_byte(ebda_seg,&EbdaData->ata.channels[0].iface,ATA_IFACE_ISA);
@@ -3189,7 +3191,7 @@ cdemu_init()
 {
   Bit16u ebda_seg=read_word(0x0040,0x000E);
 
-  printf("rombios: cdemu_init\n");
+  //BX_DEBUG("rombios: cdemu_init\n");
 
   // the only important data is this one for now
   write_byte(ebda_seg,&EbdaData->cdemu.active,0x00);
@@ -3225,6 +3227,7 @@ cdrom_boot()
   Bit16u boot_segment, nbsectors, i, error;
   Bit8u  device;
 
+
   // Find out the first cdrom
   for (device=0; device<BX_MAX_ATA_DEVICES;device++) {
     if (atapi_is_cdrom(device)) break;
@@ -3244,6 +3247,7 @@ cdrom_boot()
   atacmd[5]=(0x11 & 0x000000ff);
   if((error = ata_cmd_packet(device, 12, get_SS(), atacmd, 0, 2048L, ATA_DATA_IN, get_SS(), buffer)) != 0)
     return 3;
+
 
   // Validity checks
   if(buffer[0]!=0)return 4;
@@ -3267,6 +3271,8 @@ cdrom_boot()
   atacmd[5]=(lba & 0x000000ff);
   if((error = ata_cmd_packet(device, 12, get_SS(), atacmd, 0, 2048L, ATA_DATA_IN, get_SS(), buffer)) != 0)
     return 7;
+
+
  
   // Validation entry
   if(buffer[0x00]!=0x01)return 8;   // Header
@@ -3314,6 +3320,7 @@ cdrom_boot()
   atacmd[5]=(lba & 0x000000ff);
   if((error = ata_cmd_packet(device, 12, get_SS(), atacmd, 0, nbsectors*512L, ATA_DATA_IN, boot_segment,0)) != 0)
     return 12;
+
 
   // Remember the media type
   switch(read_byte(ebda_seg,&EbdaData->cdemu.media)) {
@@ -6682,6 +6689,9 @@ floppy_drive_exists(drive)
 {
   Bit8u  drive_type;
 
+  // just tell it both drives exist - PAD
+  return 1;
+
   // check CMOS to see if drive exists
   drive_type = inb_cmos(0x10);
   if (drive == 0)
@@ -6705,6 +6715,8 @@ int13_diskette_function(DS, ES, DI, SI, BP, ELDX, BX, DX, CX, AX, IP, CS, FLAGS)
   Bit8u  return_status[7];
   Bit8u  drive_type, num_floppies, ah;
   Bit16u es, last_addr;
+
+  printf("In int13_diskette\n");
 
   BX_DEBUG_INT13_FL("int13_diskette: AX=%04x BX=%04x CX=%04x DX=%04x ES=%04x\n", AX, BX, CX, DX, ES);
   // BX_DEBUG_INT13_FL("int13_diskette: SS=%04x DS=%04x ES=%04x DI=%04x SI=%04x\n",get_SS(), get_DS(), ES, DI, SI);
@@ -7575,6 +7587,8 @@ Bit8u bseqnr;
   Bit16u bootseg;
   Bit16u status;
   Bit8u  lastdrive=0;
+ 
+  //  BX_DEBUG("rombios: int19 (%d)\n",bseqnr);
 
   // if BX_ELTORITO_BOOT is not defined, old behavior
   //   check bit 5 in CMOS reg 0x2d.  load either 0x00 or 0x80 into DL
@@ -7624,6 +7638,8 @@ Bit8u bseqnr;
   if (bootcd != 0) {
     status = cdrom_boot();
 
+	
+
     // If failure
     if ( (status & 0x00ff) !=0 ) {
       print_cdromboot_failure(status);
@@ -7640,6 +7656,8 @@ Bit8u bseqnr;
   // We have to boot from harddisk or floppy
   if (bootcd == 0) {
     bootseg=0x07c0;
+
+    
 
 ASM_START
     push bp
@@ -7665,6 +7683,7 @@ int19_load_done:
     pop  bp
 ASM_END
     
+
     if (status != 0) {
       print_boot_failure(bootcd, bootdrv, 1, lastdrive);
       return 0x00000000;
@@ -7692,6 +7711,7 @@ ASM_END
   
 #if BX_ELTORITO_BOOT
   // Print out the boot string
+  BX_DEBUG("cdrom_boot: %x\n",status);
   print_boot_device(bootcd, bootdrv);
 #else // BX_ELTORITO_BOOT
   print_boot_device(0, bootdrv);

@@ -303,18 +303,18 @@ int RunVMM(struct Boot_Info * bootInfo) {
       hook_io_port(&(vm_info.io_map), 0x403, &IO_Read, &IO_Write_to_Serial, NULL);
 
       {
-	//struct vm_device * nvram = create_nvram();
+	struct vm_device * nvram = create_nvram();
 	//struct vm_device * timer = create_timer();
 	struct vm_device * pic = create_pic();
 
-	//attach_device(&(vm_info), nvram);
+	attach_device(&(vm_info), nvram);
 	//attach_device(&(vm_info), timer);
 	attach_device(&(vm_info), pic);
 
 	PrintDebugDevMgr(&(vm_info.dev_mgr));
       }
 
-      //      hook_irq(&vm_info, 6);
+      hook_irq(&vm_info, 6);
       hook_irq(&vm_info, 14);
       hook_irq(&vm_info, 15);
 

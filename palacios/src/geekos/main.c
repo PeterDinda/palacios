@@ -3,7 +3,7 @@
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
  * Copyright (c) 2004, Iulian Neamtiu <neamtiu@cs.umd.edu>
- * $Revision: 1.34 $
+ * $Revision: 1.35 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -178,6 +178,9 @@ void Main(struct Boot_Info* bootInfo)
 
   ulong_t doIBuzz = 0;
 
+  Out_Byte(0x1234,5);
+  Out_Byte(0x1234,5);
+
   Init_BSS();
   Init_Screen();
 
@@ -216,10 +219,8 @@ void Main(struct Boot_Info* bootInfo)
     SerialPrint("Dumping kernel Code (first 512 bytes @ 0x%x)\n",KERNEL_START);
     SerialMemDump((unsigned char *)VM_KERNEL_START, 512);
   */
-#endif
 
-#if 1
-  SerialPrintLevel(1000,"Launching Noisemaker and keyboard listener threads\n");
+  SerialPrint("Noisemaker and keyboard listener threads\n");
   key_thread = Start_Kernel_Thread(Keyboard_Listener, (ulong_t)&doIBuzz, PRIORITY_NORMAL, false);
   spkr_thread = Start_Kernel_Thread(Buzzer, (ulong_t)&doIBuzz, PRIORITY_NORMAL, false);
 

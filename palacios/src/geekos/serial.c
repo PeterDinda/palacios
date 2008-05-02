@@ -10,7 +10,6 @@
 unsigned short serial_io_addr = 0;
 uint_t serial_print_level;
 
-
 static void Serial_Interrupt_Handler(struct Interrupt_State * state) {
   char rcv_byte;
   char irq_id;

@@ -147,8 +147,11 @@ int start_svm_guest(struct guest_info *info) {
     //launch_svm((vmcb_t*)(info->vmm_data));
     //PrintDebug("SVM Returned\n");
 
-    STGI();
     
+
+    STGI();
+
+     
     if (handle_svm_exit(info) != 0) {
       PrintDebug("SVM ERROR!!\n");
       break;

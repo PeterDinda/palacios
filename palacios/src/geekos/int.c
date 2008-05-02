@@ -1,7 +1,7 @@
 /*
  * GeekOS interrupt handling data structures and functions
  * Copyright (c) 2001,2003 David H. Hovemeyer <daveho@cs.umd.edu>
- * $Revision: 1.5 $
+ * $Revision: 1.6 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -317,7 +317,6 @@ char *exception_type_names[] = {
 static void Dummy_Interrupt_Handler(struct Interrupt_State* state)
 {
   Begin_IRQ(state);
-
   
   /* A "feature" of some chipsets is that if an interrupt is raised by mistake
    * then its automatically assigned to IRQ 7(Int 39). 
