@@ -136,13 +136,10 @@ int handle_svm_exit(struct guest_info * info) {
 
   if (intr_pending(&(info->intr_state))) {
 
-    guest_ctrl->EVENTINJ.vector = get_intr_number(&(info->intr_state));
-    guest_ctrl->EVENTINJ.valid = 1;
-
-    PrintDebug("Injecting Interrupt %d\n", guest_ctrl->EVENTINJ.vector);
- 
     switch (get_intr_type(&(info->intr_state))) {
     case EXTERNAL_IRQ:
+      guest_ctrl->EVENTINJ.vector = get_intr_number(&(info->intr_state));
+      guest_ctrl->EVENTINJ.valid = 1;
       guest_ctrl->EVENTINJ.type = SVM_INJECTION_EXTERNAL_INTR;
       break;
     case NMI:
@@ -164,6 +161,10 @@ int handle_svm_exit(struct guest_info * info) {
       PrintDebug("Attempted to issue an invalid interrupt\n");
       return -1;
     }
+
+
+    PrintDebug("Injecting Interrupt %d\n", guest_ctrl->EVENTINJ.vector);
+ 
 
     // IMPORTANT TODO
     // We need to figure out stack parameters....

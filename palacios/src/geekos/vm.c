@@ -315,6 +315,8 @@ int RunVMM(struct Boot_Info * bootInfo) {
       }
 
       hook_irq(&vm_info, 6);
+      hook_irq(&vm_info, 14);
+      hook_irq(&vm_info, 15);
 
       vm_info.rip = 0xfff0;
       vm_info.vm_regs.rsp = 0x0;

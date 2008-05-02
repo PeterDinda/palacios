@@ -162,12 +162,16 @@ static int pic_get_intr_number(void * private_data) {
     if (i <= 7) {
       if (((state->master_irr & ~(state->master_imr)) >> i) == 0x01) {
 	state->master_isr |= (0x1 << i);
+	// reset the irr
+	state->master_irr &= ~(0x1 << i);
+	PrintDebug("IRQ: %d, icw2: %x\n", i, state->master_icw2);
 	return i + state->master_icw2;
       }
     } else {
-      if (((state->slave_irr & ~(state->slave_imr)) >> i) == 0x01) {
-	state->slave_isr |= (0x1 << i);
-	return i + state->slave_icw2;
+      if (((state->slave_irr & ~(state->slave_imr)) >> (i - 8)) == 0x01) {
+	state->slave_isr |= (0x1 << (i - 8));
+	state->slave_irr &= ~(0x1 << (i - 8));
+	return (i - 8) + state->slave_icw2;
       }
     }
   }
@@ -194,9 +198,6 @@ static struct intr_ctrl_ops intr_ops = {
   .raise_intr = pic_raise_intr,
   .begin_irq = pic_begin_irq,
 };
-
-
-
 
 
 
@@ -270,17 +271,27 @@ int write_master_port1(ushort_t port, void * src, uint_t length, struct vm_devic
   if (state->master_state == ICW1) {
     state->master_icw1 = cw;
     state->master_state = ICW2;
+
   } else if (state->master_state == READY) {
     if (IS_OCW2(cw)) {
       // handle the EOI here
       struct ocw2 * cw2 =  (struct ocw2*)&cw;
+
       
       if ((cw2->EOI) && (!cw2->R) && (cw2->SL)) {
 	// specific EOI;
 	state->master_isr &= ~(0x01 << cw2->level);
       } else if ((cw2->EOI) & (!cw2->R) && (!cw2->SL)) {
+	int i;
 	// Non-specific EOI
-	
+	PrintDebug("Pre ISR = %x\n", state->master_isr);
+	for (i = 0; i < 8; i++) {
+	  if (state->master_isr & (0x01 << i)) {
+	    state->master_isr &= ~(0x01 << i);
+	    break;
+	  }
+	}	
+       	PrintDebug("Post ISR = %x\n", state->master_isr);
       } else {
 	// error;
       }
@@ -309,6 +320,7 @@ int write_master_port2(ushort_t port, void * src, uint_t length, struct vm_devic
     if (state->master_state == ICW2) {
       struct icw1 * cw1 = (struct icw1 *)&(state->master_icw1);
 
+      PrintDebug("Setting ICW2 = %x\n", cw);
       state->master_icw2 = cw;
 
       if (cw1->sngl == 0) {
@@ -362,7 +374,16 @@ int write_slave_port1(ushort_t port, void * src, uint_t length, struct vm_device
 	// specific EOI;
 	state->slave_isr &= ~(0x01 << cw2->level);
       } else if ((cw2->EOI) & (!cw2->R) && (!cw2->SL)) {
-	// non specific EOI
+	int i;
+	// Non-specific EOI
+	PrintDebug("Pre ISR = %x\n", state->slave_isr);
+	for (i = 0; i < 8; i++) {
+	  if (state->slave_isr & (0x01 << i)) {
+	    state->slave_isr &= ~(0x01 << i);
+	    break;
+	  }
+	}	
+       	PrintDebug("Post ISR = %x\n", state->slave_isr);
       } else {
 	// error;
       }

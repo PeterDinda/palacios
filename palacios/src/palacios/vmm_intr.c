@@ -68,7 +68,7 @@ uint_t get_intr_number(struct vm_intr * intr) {
   if (intr->excp_pending) {
     return intr->excp_num;
   } else if (intr->controller->intr_pending(intr->controller_state)) {
-    return intr->controller->get_intr_number(intr->controller_state) + 32;
+    return intr->controller->get_intr_number(intr->controller_state);
   }
 
   /* someway to get the [A]PIC intr */

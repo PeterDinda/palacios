@@ -52,10 +52,9 @@ struct guest_info * irq_map[256];
 static void pic_intr_handler(struct Interrupt_State * state) {
   Begin_IRQ(state);
   struct guest_info * info =   irq_map[state->intNum - 32];
-  SerialPrint("Interrupt %d\n", state->intNum);
+  SerialPrint("Interrupt %d (IRQ=%d)\n", state->intNum, state->intNum - 32);
 
   if (info) {
-    SerialPrint("Calling handler(info=%x)->%x\n", info, info->vm_ops.raise_irq);
     info->vm_ops.raise_irq(info, state->intNum - 32, state->errorCode);
   } else {
     SerialPrint("Interrupt handler error: NULL pointer found, no action taken\n");
