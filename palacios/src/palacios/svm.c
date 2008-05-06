@@ -9,6 +9,7 @@
 #include <palacios/vmm_debug.h>
 #include <palacios/vm_guest_mem.h>
 
+#include <palacios/vmm_emulate.h>
 
 
 extern struct vmm_os_hooks * os_hooks;
@@ -142,7 +143,7 @@ int start_svm_guest(struct guest_info *info) {
     CLGI();
 
     //PrintDebug("SVM Launch Args (vmcb=%x), (info=%x), (vm_regs=%x)\n", info->vmm_data,  &(info->vm_regs));
-    //PrintDebug("Launching to RIP: %x\n", info->rip);
+    PrintDebug("Launching to RIP: %x\n", info->rip);
     safe_svm_launch((vmcb_t*)(info->vmm_data), &(info->vm_regs));
     //launch_svm((vmcb_t*)(info->vmm_data));
     //PrintDebug("SVM Returned\n");
@@ -153,7 +154,30 @@ int start_svm_guest(struct guest_info *info) {
 
      
     if (handle_svm_exit(info) != 0) {
-      PrintDebug("SVM ERROR!!\n");
+      vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
+      addr_t host_addr;
+      addr_t linear_addr = 0;
+
+      PrintDebug("SVM ERROR!!\n"); 
+      
+
+      PrintDebug("RIP: %x\n", guest_state->rip);
+
+      if (info->cpu_mode == REAL) {
+	linear_addr = get_addr_linear(info, guest_state->rip, guest_state->cs.selector);
+      } else {
+	linear_addr = get_addr_linear(info, guest_state->rip, guest_state->cs.base);
+      }
+
+      PrintDebug("RIP Linear: %x\n", linear_addr);
+
+      guest_pa_to_host_pa(info, linear_addr, &host_addr);
+
+      PrintDebug("Host Address of rip = 0x%x\n", host_addr);
+
+      PrintDebug("Instr (15 bytes) at %x:\n", host_addr);
+      PrintTraceMemDump((char*)host_addr, 15);
+
       break;
     }
   }

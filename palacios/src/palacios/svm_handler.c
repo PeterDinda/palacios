@@ -93,9 +93,15 @@ int handle_svm_exit(struct guest_info * info) {
     PrintDebug("Guest halted\n");
     return -1;
   } else {
-    addr_t rip_addr = get_addr_linear(info, guest_state->rip, guest_state->cs.selector);
+    addr_t rip_addr;
     char buf[15];
     addr_t host_addr;
+
+    if (info->cpu_mode == REAL) {
+      rip_addr = get_addr_linear(info, guest_state->rip, guest_state->cs.selector);
+    } else {
+      rip_addr = get_addr_linear(info, guest_state->rip, guest_state->cs.base);
+    }
 
 
     PrintDebug("SVM Returned:(VMCB=%x)\n", info->vmm_data); 
@@ -141,6 +147,7 @@ int handle_svm_exit(struct guest_info * info) {
       guest_ctrl->EVENTINJ.vector = get_intr_number(&(info->intr_state));
       guest_ctrl->EVENTINJ.valid = 1;
       guest_ctrl->EVENTINJ.type = SVM_INJECTION_EXTERNAL_INTR;
+      
       break;
     case NMI:
       guest_ctrl->EVENTINJ.type = SVM_INJECTION_NMI;
@@ -163,7 +170,7 @@ int handle_svm_exit(struct guest_info * info) {
     }
 
 
-    PrintDebug("Injecting Interrupt %d\n", guest_ctrl->EVENTINJ.vector);
+    PrintDebug("Injecting Interrupt %d (EIP=%x)\n", guest_ctrl->EVENTINJ.vector, info->rip);
  
 
     // IMPORTANT TODO
@@ -173,9 +180,15 @@ int handle_svm_exit(struct guest_info * info) {
 
   }
 
+
+
   guest_state->rax = info->vm_regs.rax;
   guest_state->rip = info->rip;
   guest_state->rsp = info->vm_regs.rsp;
+
+  if (exit_code == VMEXIT_INTR) {
+    PrintDebug("INTR ret IP = %x\n", guest_state->rip);
+  }
 
   return 0;
 }
@@ -206,19 +219,8 @@ int handle_svm_intr(struct guest_info * info) {
 
   PrintDebug("SVM Returned: Exit Code: %x\n",guest_ctrl->exit_code); 
   PrintDebug("V_INTR_VECTOR: 0x%x\n", guest_ctrl->guest_ctrl.V_INTR_VECTOR);
-  
-
-
 
   while(1);
-
-				     
-
-
-
-  
- 
- 
     
   return 0;
 }

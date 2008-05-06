@@ -275,6 +275,10 @@ int RunVMM(struct Boot_Info * bootInfo) {
       add_shadow_region_passthrough(&vm_info, 0xa0000, 0xc0000, 0xa0000); 
       
 
+
+      // TEMP
+	add_shadow_region_passthrough(&vm_info, 0xc0000, 0xc8000, 0xc0000);
+
       if (1) {
 	add_shadow_region_passthrough(&vm_info, 0xc7000, 0xc8000, (addr_t)Allocate_VMM_Pages(1));
 	if (add_shadow_region_passthrough(&vm_info, 0xc8000, 0xf0000, (addr_t)Allocate_VMM_Pages(40)) == -1) {
@@ -284,6 +288,9 @@ int RunVMM(struct Boot_Info * bootInfo) {
 	add_shadow_region_passthrough(&vm_info, 0xc0000, 0xc8000, 0xc0000);
 	add_shadow_region_passthrough(&vm_info, 0xc8000, 0xf0000, 0xc8000);
       }
+
+
+      add_shadow_region_passthrough(&vm_info, 0x100000, 0x2000000, (addr_t)Allocate_VMM_Pages(8192));
 
 
       print_shadow_map(&(vm_info.mem_map));

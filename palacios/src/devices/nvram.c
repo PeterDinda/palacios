@@ -36,6 +36,8 @@ typedef enum {NVRAM_READY, NVRAM_REG_POSTED} nvram_state_t;
 #define NVRAM_REG_DIAGNOSTIC_STATUS       0x0e  
 #define NVRAM_REG_SHUTDOWN_STATUS         0x0f
 
+#define NVRAM_IBM_HD_DATA                 0x12
+
 #define NVRAM_REG_FLOPPY_TYPE             0x10
 #define NVRAM_REG_EQUIPMENT_BYTE          0x14
 
@@ -114,6 +116,8 @@ static int set_nvram_defaults(struct vm_device *dev)
   nvram_state->mem_state[NVRAM_REG_AMI_BIG_MEMORY_LOW]= 0x00;
 
   
+  // This is the harddisk type.... Set accordingly...
+  nvram_state->mem_state[NVRAM_IBM_HD_DATA] = 0x20;
 
   return 0;
 
@@ -164,6 +168,7 @@ int nvram_write_reg_port(ushort_t port,
   struct nvram_internal *data = (struct nvram_internal *) dev->private_data;
 
   memcpy(&(data->thereg), src, 1);
+  PrintDebug("Writing To NVRAM reg: 0x%x\n", data->thereg);
 
 
   return 1;
@@ -180,7 +185,7 @@ int nvram_read_data_port(ushort_t port,
 
   memcpy(dst, &(data->mem_state[data->thereg]), 1);
 
-  SerialPrint("nvram_read_data_port(%x)=%x\n",data->thereg,data->mem_state[data->thereg]);
+  PrintDebug("nvram_read_data_port(0x%x)=0x%x\n", data->thereg, data->mem_state[data->thereg]);
 
   return 1;
 }
@@ -194,7 +199,7 @@ int nvram_write_data_port(ushort_t port,
 
   memcpy(&(data->mem_state[data->thereg]), src, 1);
 
-  SerialPrint("nvram_write_data_port(%x)=%x\n",data->thereg,data->mem_state[data->thereg]);
+  PrintDebug("nvram_write_data_port(0x%x)=0x%x\n", data->thereg, data->mem_state[data->thereg]);
 
   return 1;
 }

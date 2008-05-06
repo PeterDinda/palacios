@@ -2,7 +2,7 @@
  * Physical memory allocation
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
- * $Revision: 1.7 $
+ * $Revision: 1.8 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -206,8 +206,9 @@ void Init_Mem(struct Boot_Info* bootInfo)
     Add_Page_Range(heapAddr, heapEnd, PAGE_HEAP);                     // Heap
     Add_Page_Range(pageListAddr, pageListEnd, PAGE_KERN);              // Page List 
     Add_Page_Range(pageListEnd, vmmMemEnd, PAGE_AVAIL);                // Available VMM memory
-    Add_Page_Range(vmmMemEnd, endOfMem, PAGE_VM);                      // Memory allocated to the VM
-
+    //    Add_Page_Range(vmmMemEnd, endOfMem, PAGE_VM);                      // Memory allocated to the VM
+    // Until we get a more intelligent memory allocator
+    Add_Page_Range(vmmMemEnd, endOfMem, PAGE_AVAIL);                      // Memory allocated to the VM
 
 
     /* Initialize the kernel heap */
@@ -228,7 +229,7 @@ void Init_Mem(struct Boot_Info* bootInfo)
     PrintBoth("%x to %x - KERNEL HEAP\n", heapAddr, heapEnd - 1);
     PrintBoth("%lx to %lx - PAGE LIST\n", pageListAddr, pageListEnd - 1);
     PrintBoth("%lx to %x - FREE\n", pageListEnd, vmmMemEnd - 1);
-    PrintBoth("%lx to %x - GUEST_MEMORY\n", vmmMemEnd, endOfMem - 1);
+    PrintBoth("%lx to %x - GUEST_MEMORY (also free)\n", vmmMemEnd, endOfMem - 1);
 }
 
 /*

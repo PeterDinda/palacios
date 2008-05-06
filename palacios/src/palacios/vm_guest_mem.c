@@ -324,11 +324,12 @@ int read_guest_pa_memory(struct guest_info * guest_info, addr_t guest_pa, int co
     }
 
     
-    PrintDebug("Trying to read %d bytes\n", bytes_to_copy);
-    PrintDebug("Dist to page edge=%d\n", dist_to_pg_edge);
-    PrintDebug("PAGE_ADDR=0x%x\n", PAGE_ADDR(cursor));
-    PrintDebug("guest_pa=0x%x\n", guest_pa);
-    
+    /*
+      PrintDebug("Trying to read %d bytes\n", bytes_to_copy);
+      PrintDebug("Dist to page edge=%d\n", dist_to_pg_edge);
+      PrintDebug("PAGE_ADDR=0x%x\n", PAGE_ADDR(cursor));
+      PrintDebug("guest_pa=0x%x\n", guest_pa);
+    */
     
     memcpy(dest + bytes_read, (void*)host_addr, bytes_to_copy);
 

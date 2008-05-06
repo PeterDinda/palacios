@@ -7,7 +7,7 @@ void * Identity(void *addr) { return addr; };
 
 void * Allocate_VMM_Pages(int num_pages) {
   void * start_page = Alloc_Page();
-  //SerialPrint("Allocating Page: %x (%d of %d)\n",start_page, 1, num_pages); 
+  //SerialPrint("Starting by Allocating Page: %x (%d of %d)\n",start_page, 1, num_pages); 
   int i = 1;
 
   while (i < num_pages) {
@@ -21,7 +21,7 @@ void * Allocate_VMM_Pages(int num_pages) {
 	i--;
       }
       start_page = Alloc_Page();
-      //SerialPrint("Allocating Page: %x (%d of %d)\n",start_page, 1, num_pages);
+      //SerialPrint("Starting over by Allocating Page: %x (%d of %d)\n",start_page, 1, num_pages);
       i = 1;
       continue;
     }
