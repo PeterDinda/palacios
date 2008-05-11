@@ -1,6 +1,6 @@
 //  -*- fundamental -*-
 /////////////////////////////////////////////////////////////////////////
-// $Id: rombios.c,v 1.3 2008/05/02 23:58:51 pdinda Exp $
+// $Id: rombios.c,v 1.4 2008/05/11 23:26:05 pdinda Exp $
 /////////////////////////////////////////////////////////////////////////
 //
 //  Copyright (C) 2002  MandrakeSoft S.A.
@@ -59,7 +59,7 @@
 // $f859 ; INT 15h System Services Entry Point
 // $fa6e ; Character Font for 320x200 & 640x200 Graphics (lower 128 characters)
 // $fe6e ; INT 1Ah Time-of-day Service Entry Point
-// $fea5 ; INT 08h System Timer ISR Entry Point
+/// $fea5 ; INT 08h System Timer ISR Entry Point
 // $fef3 ; Initial Interrupt Vector Offsets Loaded by POST
 // $ff53 ; IRET Instruction for Dummy Interrupt Handler
 // $ff54 ; INT 05h Print Screen Service Entry Point
@@ -136,7 +136,7 @@
 #define DEBUG_INT13_HD     0
 #define DEBUG_INT13_CD     0
 #define DEBUG_INT13_ET     0
-#define DEBUG_INT13_FL     1
+#define DEBUG_INT13_FL     0
 #define DEBUG_INT15        0
 #define DEBUG_INT16        0
 #define DEBUG_INT1A        0
@@ -945,10 +945,10 @@ Bit16u cdrom_boot();
 
 #endif // BX_ELTORITO_BOOT
 
-static char bios_cvs_version_string[] = "$Revision: 1.3 $";
-static char bios_date_string[] = "$Date: 2008/05/02 23:58:51 $";
+static char bios_cvs_version_string[] = "$Revision: 1.4 $";
+static char bios_date_string[] = "$Date: 2008/05/11 23:26:05 $";
 
-static char CVSID[] = "$Id: rombios.c,v 1.3 2008/05/02 23:58:51 pdinda Exp $";
+static char CVSID[] = "$Id: rombios.c,v 1.4 2008/05/11 23:26:05 pdinda Exp $";
 
 /* Offset to skip the CVS $Id: prefix */ 
 #define bios_version_string  (CVSID + 4)
@@ -2877,31 +2877,70 @@ Bit32u length;
   write_word(ebda_seg, &EbdaData->ata.trsfsectors,0);
   write_dword(ebda_seg, &EbdaData->ata.trsfbytes,0L);
 
+  // Device should not be busy yet 
+
+#define PDINDA 1
+
+#if PDINDA
+  // wait for device to be ready 
+  do {
+    status = inb(iobase1 + ATA_CB_STAT);
+    //    BX_DEBUG_ATA("ata_cmd_packet: wait (%2x)\n",status);
+  } while (status & ATA_CB_STAT_BSY);
+#else
   status = inb(iobase1 + ATA_CB_STAT);
   if (status & ATA_CB_STAT_BSY) return 2;
+#endif
 
+  // select master or slave
+  outb(iobase1 + ATA_CB_DH, slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0);
+
+  // set "noninterruptable"
   outb(iobase2 + ATA_CB_DC, ATA_CB_DC_HD15 | ATA_CB_DC_NIEN);
-  // outb(iobase1 + ATA_CB_FR, 0x00);
-  // outb(iobase1 + ATA_CB_SC, 0x00);
-  // outb(iobase1 + ATA_CB_SN, 0x00);
+
+  outb(iobase1 + ATA_CB_FR, 0x00);
+  outb(iobase1 + ATA_CB_SC, 0x00);
+  outb(iobase1 + ATA_CB_SN, 0x00);
+
+  // Set cylinders ?? - Why?  And why not sector
+  // This is all embedded in cmd_packet, anyway...
   outb(iobase1 + ATA_CB_CL, 0xfff0 & 0x00ff);
   outb(iobase1 + ATA_CB_CH, 0xfff0 >> 8);
-  outb(iobase1 + ATA_CB_DH, slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0);
+
+  // Tell it we are sending a command packet
   outb(iobase1 + ATA_CB_CMD, ATA_CMD_PACKET);
 
+#if 0
+  // Now wait for 400 ns
+  { 
+    int i;
+    for (i=0;i<0xffff; i++)
+      ;
+  }
+#endif
+
   // Device should ok to receive command
+  // what until we get
   while (1) {
+
     status = inb(iobase1 + ATA_CB_STAT);
+
+#if PDINDA
+    if (!(status & ATA_CB_STAT_BSY) && (status & ATA_CB_STAT_DRQ))  break;
+#else       
+    // Shouldn't this be ATA_CB_STAT_RDY?  -PAD - NO, it's OK
     if ( !(status & ATA_CB_STAT_BSY) ) break;
-    }
+#endif
+
+  }
 
   if (status & ATA_CB_STAT_ERR) {
     BX_DEBUG_ATA("ata_cmd_packet : error, status is %02x\n",status);
     return 3;
-    } else if ( !(status & ATA_CB_STAT_DRQ) ) {
+  } else if ( !(status & ATA_CB_STAT_DRQ) ) {
     BX_DEBUG_ATA("ata_cmd_packet : DRQ not set (status %02x)\n", (unsigned) status);
     return 4;
-    }
+  }
 
   // Normalize address
   cmdseg += (cmdoff / 16);
@@ -2928,61 +2967,74 @@ ASM_START
       pop  bp
 ASM_END
 
+  // issue read of alternative status - claimed to be in spec
+  inb(iobase2+ATA_CB_ASTAT);
+
+
   if (inout == ATA_DATA_NO) {
     status = inb(iobase1 + ATA_CB_STAT);
     }
   else {
-  while (1) {
-
+    // Wait for completion
+    // PDINDA
+    do {
+      status=inb(iobase1+ATA_CB_STAT);
+      BX_DEBUG_ATA("ata_cmd_packet: wait (%2x)\n",status);
+    } while ((status & ATA_CB_STAT_BSY) && !(status & ATA_CB_STAT_RDY));
+    
+    while (1) {
+      
       status = inb(iobase1 + ATA_CB_STAT);
-
+      
       // Check if command completed
       if ( (status & (ATA_CB_STAT_BSY | ATA_CB_STAT_DRQ) ) ==0 ) break;
-
+      
       if (status & ATA_CB_STAT_ERR) {
         BX_DEBUG_ATA("ata_cmd_packet : error (status %02x)\n",status);
         return 3;
       }
-
+      
+      // If we get here, we are ready and should have DRQ
+      // and so data is available
       // Device must be ready to send data
       if ( (status & (ATA_CB_STAT_BSY | ATA_CB_STAT_RDY | ATA_CB_STAT_DRQ | ATA_CB_STAT_ERR) ) 
-            != (ATA_CB_STAT_RDY | ATA_CB_STAT_DRQ) ) {
-        BX_DEBUG_ATA("ata_cmd_packet : not ready (status %02x)\n", status);
+	   != (ATA_CB_STAT_RDY | ATA_CB_STAT_DRQ) ) {
+        BX_DEBUG_ATA("ata_cmd_packet 1: not ready (status %02x)\n", status);
         return 4;
-        }
-
+      }
+      
       // Normalize address
       bufseg += (bufoff / 16);
       bufoff %= 16;
-    
+      
       // Get the byte count
       lcount =  ((Bit16u)(inb(iobase1 + ATA_CB_CH))<<8)+inb(iobase1 + ATA_CB_CL);
-
+      
       // adjust to read what we want
       if(header>lcount) {
-         lbefore=lcount;
-         header-=lcount;
-         lcount=0;
-         }
+	lbefore=lcount;
+	header-=lcount;
+	lcount=0;
+      }
       else {
         lbefore=header;
         header=0;
         lcount-=lbefore;
-        }
-
+      }
+      
       if(lcount>length) {
         lafter=lcount-length;
         lcount=length;
         length=0;
-        }
+      }
       else {
         lafter=0;
         length-=lcount;
-        }
-
+      }
+      
       // Save byte count
       count = lcount;
-
+      
       BX_DEBUG_ATA("Trying to read %04x bytes (%04x %04x %04x) ",lbefore+lcount+lafter,lbefore,lcount,lafter);
       BX_DEBUG_ATA("to 0x%04x:0x%04x\n",bufseg,bufoff);
 
@@ -3091,7 +3143,7 @@ ASM_END
   // Final check, device must be ready
   if ( (status & (ATA_CB_STAT_BSY | ATA_CB_STAT_RDY | ATA_CB_STAT_DF | ATA_CB_STAT_DRQ | ATA_CB_STAT_ERR) ) 
          != ATA_CB_STAT_RDY ) {
-    BX_DEBUG_ATA("ata_cmd_packet : not ready (status %02x)\n", (unsigned) status);
+    BX_DEBUG_ATA("ata_cmd_packet 2 : not ready (status %02x)\n", (unsigned) status);
     return 4;
     }
 
@@ -3103,6 +3155,7 @@ ASM_END
 // ---------------------------------------------------------------------------
 // End of ATA/ATAPI Driver
 // ---------------------------------------------------------------------------
+
 
 // ---------------------------------------------------------------------------
 // Start of ATA/ATAPI generic functions
@@ -7638,6 +7691,7 @@ Bit8u bseqnr;
   if (bootcd != 0) {
     status = cdrom_boot();
 
+    BX_DEBUG("CDBoot:%x\n",status);
 	
 
     // If failure
@@ -7645,11 +7699,11 @@ Bit8u bseqnr;
       print_cdromboot_failure(status);
       print_boot_failure(bootcd, bootdrv, 1, lastdrive);
       return 0x00000000;
-      }
-
+    }
+    
     bootseg = read_word(ebda_seg,&EbdaData->cdemu.load_segment);
     bootdrv = (Bit8u)(status>>8);
-    }
+  }
 
 #endif // BX_ELTORITO_BOOT
 
