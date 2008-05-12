@@ -1,6 +1,6 @@
 //  -*- fundamental -*-
 /////////////////////////////////////////////////////////////////////////
-// $Id: rombios.c,v 1.4 2008/05/11 23:26:05 pdinda Exp $
+// $Id: rombios.c,v 1.5 2008/05/12 00:21:17 pdinda Exp $
 /////////////////////////////////////////////////////////////////////////
 //
 //  Copyright (C) 2002  MandrakeSoft S.A.
@@ -945,10 +945,10 @@ Bit16u cdrom_boot();
 
 #endif // BX_ELTORITO_BOOT
 
-static char bios_cvs_version_string[] = "$Revision: 1.4 $";
-static char bios_date_string[] = "$Date: 2008/05/11 23:26:05 $";
+static char bios_cvs_version_string[] = "$Revision: 1.5 $";
+static char bios_date_string[] = "$Date: 2008/05/12 00:21:17 $";
 
-static char CVSID[] = "$Id: rombios.c,v 1.4 2008/05/11 23:26:05 pdinda Exp $";
+static char CVSID[] = "$Id: rombios.c,v 1.5 2008/05/12 00:21:17 pdinda Exp $";
 
 /* Offset to skip the CVS $Id: prefix */ 
 #define bios_version_string  (CVSID + 4)
@@ -2892,20 +2892,21 @@ Bit32u length;
   if (status & ATA_CB_STAT_BSY) return 2;
 #endif
 
-  // select master or slave
-  outb(iobase1 + ATA_CB_DH, slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0);
 
   // set "noninterruptable"
   outb(iobase2 + ATA_CB_DC, ATA_CB_DC_HD15 | ATA_CB_DC_NIEN);
 
-  outb(iobase1 + ATA_CB_FR, 0x00);
-  outb(iobase1 + ATA_CB_SC, 0x00);
-  outb(iobase1 + ATA_CB_SN, 0x00);
+  //outb(iobase1 + ATA_CB_FR, 0x00);
+  //outb(iobase1 + ATA_CB_SC, 0x00);
+  //outb(iobase1 + ATA_CB_SN, 0x00);
 
   // Set cylinders ?? - Why?  And why not sector
   // This is all embedded in cmd_packet, anyway...
   outb(iobase1 + ATA_CB_CL, 0xfff0 & 0x00ff);
   outb(iobase1 + ATA_CB_CH, 0xfff0 >> 8);
+
+  // select master or slave
+  outb(iobase1 + ATA_CB_DH, slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0);
 
   // Tell it we are sending a command packet
   outb(iobase1 + ATA_CB_CMD, ATA_CMD_PACKET);
@@ -2920,13 +2921,13 @@ Bit32u length;
 #endif
 
   // Device should ok to receive command
-  // what until we get
+  // wait until we get
   while (1) {
 
     status = inb(iobase1 + ATA_CB_STAT);
 
 #if PDINDA
-    if (!(status & ATA_CB_STAT_BSY) && (status & ATA_CB_STAT_DRQ))  break;
+    if (!(status & ATA_CB_STAT_BSY))  break;
 #else       
     // Shouldn't this be ATA_CB_STAT_RDY?  -PAD - NO, it's OK
     if ( !(status & ATA_CB_STAT_BSY) ) break;
@@ -2968,7 +2969,7 @@ ASM_START
 ASM_END
 
   // issue read of alternative status - claimed to be in spec
-  inb(iobase2+ATA_CB_ASTAT);
+  //inb(iobase2+ATA_CB_ASTAT);
 
 
   if (inout == ATA_DATA_NO) {
@@ -2980,7 +2981,7 @@ ASM_END
     do {
       status=inb(iobase1+ATA_CB_STAT);
       BX_DEBUG_ATA("ata_cmd_packet: wait (%2x)\n",status);
-    } while ((status & ATA_CB_STAT_BSY) && !(status & ATA_CB_STAT_RDY));
+    } while ((status & ATA_CB_STAT_BSY));
     
     while (1) {
       
