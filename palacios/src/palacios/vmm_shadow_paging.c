@@ -120,7 +120,10 @@ int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_er
       return -1;
     }
 
- }
+ } else {
+    PrintDebug("Unknown Error\n");
+    return -1;
+  }
 
   PrintDebugPageTables(shadow_pde);
 
@@ -140,8 +143,8 @@ int handle_shadow_pte32_fault(struct guest_info* info,
 
   pt_access_status_t guest_pte_access;
   pt_access_status_t shadow_pte_access;
-  //  pte32_t * guest_pte_entry = (pte32_t *)&(guest_pte[PTE32_INDEX(fault_addr)]);;
-  //  pte32_t * shadow_pte_entry = (pte32_t *)&(shadow_pte[PTE32_INDEX(fault_addr)]);
+  pte32_t * guest_pte_entry = (pte32_t *)&(guest_pte[PTE32_INDEX(fault_addr)]);;
+  pte32_t * shadow_pte_entry = (pte32_t *)&(shadow_pte[PTE32_INDEX(fault_addr)]);
 
 
   // Check the guest page permissions
@@ -161,10 +164,44 @@ int handle_shadow_pte32_fault(struct guest_info* info,
   shadow_pte_access = can_access_pte32(shadow_pte, fault_addr, error_code);
 
   if (shadow_pte_access == PT_ENTRY_NOT_PRESENT) {
+    addr_t shadow_pa;
+    addr_t guest_pa = PTE32_T_ADDR((*guest_pte_entry));
 
-    //
     // Page Table Entry Not Present
+
+    if (get_shadow_addr_type(info, guest_pa) == HOST_REGION_INVALID) {
+
+      //
+      // Inject a machine check in the guest
+      //
+
+      PrintDebug("Invalid Guest Address in page table (0x%x)\n", guest_pa);
+      return -1;
+    }
+
+    shadow_pa = get_shadow_addr(info, guest_pa);
+
+    shadow_pte_entry->page_base_addr = PT32_BASE_ADDR(shadow_pa);
+
+    shadow_pte_entry->present = guest_pte_entry->present;
+    shadow_pte_entry->user_page = guest_pte_entry->user_page;
+    
+    //set according to VMM policy
+    shadow_pte_entry->write_through = 0;
+    shadow_pte_entry->cache_disable = 0;
+    shadow_pte_entry->global_page = 0;
     //
+
+    guest_pte_entry->accessed = 1;
+
+    if (guest_pte_entry->dirty == 1) {
+      shadow_pte_entry->writable = guest_pte_entry->writable;
+    } else if ((guest_pte_entry->dirty == 0) && (error_code.write == 1)) {
+      shadow_pte_entry->writable = guest_pte_entry->writable;
+      guest_pte_entry->dirty = 1;
+    } else if ((guest_pte_entry->dirty = 0) && (error_code.write == 0)) {
+      shadow_pte_entry->writable = 0;
+    }
 
   } else if (shadow_pte_access == PT_WRITE_ERROR) {
 
@@ -185,6 +222,9 @@ int handle_shadow_pte32_fault(struct guest_info* info,
   } else if (shadow_pte_access == PT_ACCESS_OK) {
 
     PrintDebug("Page Fault occurred for No Reason\n");
+    return -1;
+  } else {
+    PrintDebug("Unknown Error\n");
     return -1;
   }
 
