@@ -119,7 +119,7 @@ int guest_va_to_guest_pa(struct guest_info * guest_info, addr_t guest_va, addr_t
       {
 	addr_t tmp_pa;
 	pde32_t * pde;
-	addr_t guest_pde = CR3_TO_PDE32(guest_info->shdw_pg_state.guest_cr3.r_reg);
+	addr_t guest_pde = CR3_TO_PDE32(guest_info->shdw_pg_state.guest_cr3);
 
 	if (guest_pa_to_host_va(guest_info, guest_pde, (addr_t *)&pde) == -1) {
 	  return -1;
