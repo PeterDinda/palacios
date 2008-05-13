@@ -75,8 +75,9 @@ int hook_irq_stub(struct guest_info * info, int irq) {
   irq_map[irq] = info;
   volatile void *foo = pic_intr_handler;
   foo=0;
-  //  Install_IRQ(irq, pic_intr_handler);
-  // Enable_IRQ(irq);
+  Disable_IRQ(irq);
+  Install_IRQ(irq, pic_intr_handler);
+  Enable_IRQ(irq);
   return 0;
 }
 

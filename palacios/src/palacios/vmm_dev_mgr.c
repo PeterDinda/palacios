@@ -304,7 +304,7 @@ int dev_mgr_hook_mem(struct guest_info    *vm,
 {
 
   struct dev_mem_hook *hook;
-  VMMMalloc(struct dev_mem_hook *, hook,sizeof(struct dev_mem_hook));
+  V3_Malloc(struct dev_mem_hook *, hook,sizeof(struct dev_mem_hook));
   
   if (!hook) { 
     return -1;

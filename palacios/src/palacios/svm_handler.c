@@ -73,18 +73,41 @@ int handle_svm_exit(struct guest_info * info) {
     if (handle_cr0_read(info) == -1) {
       return -1;
     }
+  } else if (exit_code == VMEXIT_CR3_WRITE) {
+    PrintDebug("CR3 Write\n");
 
+    if (handle_cr3_write(info) == -1) {
+      return -1;
+    }    
+  } else if (exit_code == VMEXIT_CR3_READ) {
+    PrintDebug("CR3 Read\n");
+
+    if (handle_cr3_read(info) == -1) {
+      return -1;
+    }
+
+  } else if (exit_code == VMEXIT_EXCP14) {
+    addr_t fault_addr = guest_ctrl->exit_info2;
+    pf_error_t * error_code = (pf_error_t *)&(guest_ctrl->exit_info1);
+    
+    PrintDebug("PageFault at %x (error=%d)\n", fault_addr, *error_code);
+
+  
+
+    if (handle_shadow_pagefault(info, fault_addr, *error_code) == -1) {
+      return -1;
+    }
 
     /*
-  } else if (( (exit_code == VMEXIT_CR3_READ)  ||
-	       (exit_code == VMEXIT_CR3_WRITE) ||
-	       (exit_code == VMEXIT_INVLPG)    ||
-	       (exit_code == VMEXIT_INVLPGA)   || 
-	       (exit_code == VMEXIT_EXCP14)) && 
-	     (info->page_mode == SHADOW_PAGING)) {
-    handle_shadow_paging(info);
+      } else if (( (exit_code == VMEXIT_CR3_READ)  ||
+      (exit_code == VMEXIT_CR3_WRITE) ||
+      (exit_code == VMEXIT_INVLPG)    ||
+      (exit_code == VMEXIT_INVLPGA)   || 
+      (exit_code == VMEXIT_EXCP14)) && 
+      (info->page_mode == SHADOW_PAGING)) {
+      handle_shadow_paging(info);
     */
-
+    
   } else if (exit_code == VMEXIT_INTR) {
 
     //    handle_svm_intr(info);

@@ -69,12 +69,10 @@ to the physical addresses epxected by the VMM/host.  On AMD SVM, this
 switch is done by the hardware.  On Intel VT, the switch is done
 by the hardware as well, but we are responsible for manually updating
 the host state in the vmcs before entering the guest.
-
-
 */
 
 
-
+#ifdef __V3VEE__
 
 #define MAX_PTE32_ENTRIES          1024
 #define MAX_PDE32_ENTRIES          1024
@@ -84,23 +82,38 @@ the host state in the vmcs before entering the guest.
 #define MAX_PDPE64_ENTRIES         512
 #define MAX_PML4E64_ENTRIES        512
 
+
+/* Converts an address into a page table index */
 #define PDE32_INDEX(x)  ((((uint_t)x) >> 22) & 0x3ff)
 #define PTE32_INDEX(x)  ((((uint_t)x) >> 12) & 0x3ff)
 
+/* Gets the base address needed for a Page Table entry */
+#define PD32_BASE_ADDR(x) (((uint_t)x) >> 12)
+#define PT32_BASE_ADDR(x) (((uint_t)x) >> 12)
 
-#define PAGE_ALIGNED_ADDR(x)   (((uint_t) (x)) >> 12)
+#define PT32_PAGE_ADDR(x)   (((uint_t)x) & 0xfffff000)
+#define PT32_PAGE_OFFSET(x) (((uint_t)x) & 0xfff)
+#define PT32_PAGE_POWER 12
 
-#ifndef PAGE_ADDR
-#define PAGE_ADDR(x)   (PAGE_ALIGNED_ADDR(x) << 12)
-#endif
+
+/* The following should be phased out */
 #define PAGE_OFFSET(x)  ((((uint_t)x) & 0xfff))
-
-
+#define PAGE_ALIGNED_ADDR(x)   (((uint_t) (x)) >> 12)
+#define PAGE_ADDR(x)   (PAGE_ALIGNED_ADDR(x) << 12)
 #define PAGE_POWER 12
+#define PAGE_SIZE 4096
+/* ** */
+
+
 
 #define CR3_TO_PDE32(cr3) (((ulong_t)cr3) & 0xfffff000)
 #define CR3_TO_PDPTRE(cr3) (((ulong_t)cr3) & 0xffffffe0)
-#define CR3_TO_PML4E64(cr3)  (((ullong_t)cr3) & 0x000ffffffffff000)
+#define CR3_TO_PML4E64(cr3)  (((ullong_t)cr3) & 0x000ffffffffff000LL)
+
+
+/* Accessor functions for the page table structures */
+#define PDE32_T_ADDR(x) ((x.pt_base_addr) << 12)
+#define PTE32_T_ADDR(x) ((x.page_base_addr) << 12)
 
 #define VM_WRITE     1
 #define VM_USER      2
@@ -108,6 +121,8 @@ the host state in the vmcs before entering the guest.
 #define VM_READ      0
 #define VM_EXEC      0
 
+
+#endif
 
 /* PDE 32 bit PAGE STRUCTURES */
 typedef enum {NOT_PRESENT, PTE32, LARGE_PAGE} pde32_entry_type_t;
@@ -212,6 +227,14 @@ typedef struct pte64 {
 
 /* *************** */
 
+typedef struct pf_error_code {
+  uint_t present           : 1; // if 0, fault due to page not present
+  uint_t write             : 1; // if 1, faulting access was a write
+  uint_t user              : 1; // if 1, faulting access was in user mode
+  uint_t rsvd_access       : 1; // if 1, fault from reading a 1 from a reserved field (?)
+  uint_t ifetch            : 1; // if 1, faulting access was an instr fetch (only with NX)
+  uint_t rsvd              : 27;
+} pf_error_t;
 
 typedef enum { PDE32 } paging_mode_t;
 
@@ -237,6 +260,16 @@ pde32_t * create_passthrough_pde32_pts(struct guest_info * guest_info);
 
 void PrintDebugPageTables(pde32_t * pde);
 
+
+#ifdef __V3VEE__
+
+
+void PrintPT32(addr_t starting_address, pte32_t * pte);
+void PrintPD32(pde32_t * pde);
+void PrintPTE32(addr_t virtual_address, pte32_t * pte);
+void PrintPDE32(addr_t virtual_address, pde32_t * pde);
+
+#endif // !__V3VEE__
 
 
 

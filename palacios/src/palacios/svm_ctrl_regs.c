@@ -187,8 +187,6 @@ int handle_cr0_write(struct guest_info * info) {
       index++; 
     }
 
-
-    /* CHECK IF MOV_TO_CR CAN TAKE MEMORY OPERANDS... */
     if ((instr[index] == cr_access_byte) && 
 	(instr[index + 1] == mov_to_cr_byte)) {
     
@@ -215,6 +213,8 @@ int handle_cr0_write(struct guest_info * info) {
 	struct cr0_32 * shadow_cr0 = (struct cr0_32 *)&(info->shdw_pg_state.guest_cr0);
 
 	if (new_cr0->pg == 1){
+	  struct cr3_32 * shadow_cr3 = (struct cr3_32 *)&(info->shdw_pg_state.shadow_cr3);
+
 	  info->cpu_mode = PROTECTED_PG;
 	  
 	  *shadow_cr0 = *new_cr0;
@@ -223,6 +223,10 @@ int handle_cr0_write(struct guest_info * info) {
 	  //
 	  // Activate Shadow Paging
 	  //
+	  PrintDebug("Turning on paging in the guest\n");
+
+	  guest_state->cr3 = *(addr_t*)shadow_cr3;
+	  
 
 	} else if (new_cr0->pe == 0) {
 	  info->cpu_mode = REAL;
@@ -399,6 +403,144 @@ int handle_cr0_read(struct guest_info * info) {
     return -1;
   }
 
+
+  return 0;
+}
+
+
+
+
+int handle_cr3_write(struct guest_info * info) {
+  vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
+
+
+  if ((info->cpu_mode == PROTECTED) || (info->cpu_mode == PROTECTED_PG)) {
+    int index = 0;
+    int ret;
+    char instr[15];
+
+    ret = read_guest_pa_memory(info, get_addr_linear(info, guest_state->rip, guest_state->cs.base), 15, instr);
+    if (ret != 15) {
+      PrintDebug("Could not read instruction (ret=%d)\n", ret);
+      return -1;
+    }
+    
+    while (is_prefix_byte(instr[index])) {
+      index++;
+    }
+
+    if ((instr[index] == cr_access_byte) && 
+	(instr[index + 1] == mov_to_cr_byte)) {
+
+      addr_t first_operand;
+      addr_t second_operand;
+      struct cr3_32 * new_cr3;
+      //      struct cr3_32 * real_cr3;
+      operand_type_t addr_type;
+
+      index += 2;
+
+      addr_type = decode_operands32(&(info->vm_regs), instr + index, &index, &first_operand, &second_operand, REG32);
+
+      if (addr_type != REG_OPERAND) {
+	/* Mov to CR3 can only be a 32 bit register */
+	return -1;
+      }
+
+      new_cr3 = (struct cr3_32 *)first_operand;
+
+      if (info->page_mode == SHADOW_PAGING) {
+	addr_t shadow_pt;
+	struct cr3_32 * shadow_cr3 = (struct cr3_32 *)&(info->shdw_pg_state.shadow_cr3);
+	struct cr3_32 * guest_cr3 = (struct cr3_32 *)&(info->shdw_pg_state.guest_cr3);
+
+
+	*guest_cr3 = *new_cr3;
+
+	// Something like this
+	shadow_pt =  create_new_shadow_pt32(info);
+	//shadow_pt = setup_shadow_pt32(info, CR3_TO_PDE32(*(addr_t *)new_cr3));
+
+	/* Copy Various flags */
+	*shadow_cr3 = *new_cr3;
+	
+	shadow_cr3->pdt_base_addr = PD32_BASE_ADDR(shadow_pt);
+
+	if (info->cpu_mode == PROTECTED_PG) {
+	  // If we aren't in paged mode then we have to preserve the identity mapped CR3
+	  guest_state->cr3 = *(addr_t*)shadow_cr3;
+	}
+      }
+
+      info->rip += index;
+
+    } else {
+      PrintDebug("Unknown Instruction\n");
+      return -1;
+    }
+  } else {
+    PrintDebug("Invalid operating Mode\n");
+    return -1;
+  }
+
+  return 0;
+}
+
+
+
+
+int handle_cr3_read(struct guest_info * info) {
+  vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
+
+  if ((info->cpu_mode == PROTECTED) || (info->cpu_mode == PROTECTED_PG)) {
+    int index = 0;
+    int ret;
+    char instr[15];
+
+    ret = read_guest_pa_memory(info, get_addr_linear(info, guest_state->rip, guest_state->cs.base), 15, instr);
+    if (ret != 15) {
+      PrintDebug("Could not read instruction (ret=%d)\n", ret);
+      return -1;
+    }
+    
+    while (is_prefix_byte(instr[index])) {
+      index++;
+    }
+
+    if ((instr[index] == cr_access_byte) && 
+	(instr[index + 1] == mov_from_cr_byte)) {
+      addr_t first_operand;
+      addr_t second_operand;
+      struct cr3_32 * virt_cr3;
+      struct cr3_32 * real_cr3 = (struct cr3_32 *)&(guest_state->cr3);
+      operand_type_t addr_type;
+
+      index += 2;
+
+      addr_type = decode_operands32(&(info->vm_regs), instr + index, &index, &first_operand, &second_operand, REG32);
+
+      if (addr_type != REG_OPERAND) {
+	/* Mov to CR3 can only be a 32 bit register */
+	return -1;
+      }
+
+      virt_cr3 = (struct cr3_32 *)first_operand;
+
+      if (info->page_mode == SHADOW_PAGING) {
+	*virt_cr3 = *(struct cr3_32 *)&(info->shdw_pg_state.guest_cr3);
+      } else {
+	*virt_cr3 = *real_cr3;
+      }
+      
+      info->rip += index;
+    } else {
+      PrintDebug("Unknown Instruction\n");
+      return -1;
+    }
+  } else {
+    PrintDebug("Invalid operating Mode\n");
+    return -1;
+  }
 
   return 0;
 }

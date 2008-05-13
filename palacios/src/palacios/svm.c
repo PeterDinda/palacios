@@ -279,10 +279,10 @@ void Init_VMCB(vmcb_t * vmcb, struct guest_info vm_info) {
 
   if (vm_info.page_mode == SHADOW_PAGING) {
     PrintDebug("Creating initial shadow page table\n");
-    vm_info.shdw_pg_state.shadow_cr3.e_reg.low |= ((addr_t)create_passthrough_pde32_pts(&vm_info) & ~0xfff);
+    vm_info.shdw_pg_state.shadow_cr3 |= ((addr_t)create_passthrough_pde32_pts(&vm_info) & ~0xfff);
     PrintDebug("Created\n");
 
-    guest_state->cr3 = vm_info.shdw_pg_state.shadow_cr3.r_reg;
+    guest_state->cr3 = vm_info.shdw_pg_state.shadow_cr3;
 
     ctrl_area->cr_reads.cr3 = 1;
     ctrl_area->cr_writes.cr3 = 1;
@@ -425,10 +425,10 @@ void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info vm_info) {
 
   if (vm_info.page_mode == SHADOW_PAGING) {
     PrintDebug("Creating initial shadow page table\n");
-    vm_info.shdw_pg_state.shadow_cr3.e_reg.low |= ((addr_t)create_passthrough_pde32_pts(&vm_info) & ~0xfff);
+    vm_info.shdw_pg_state.shadow_cr3 |= ((addr_t)create_passthrough_pde32_pts(&vm_info) & ~0xfff);
     PrintDebug("Created\n");
 
-    guest_state->cr3 = vm_info.shdw_pg_state.shadow_cr3.r_reg;
+    guest_state->cr3 = vm_info.shdw_pg_state.shadow_cr3;
 
     //PrintDebugPageTables((pde32_t*)(vm_info.shdw_pg_state.shadow_cr3.e_reg.low));
 

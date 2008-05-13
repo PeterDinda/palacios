@@ -1,5 +1,6 @@
 #include <palacios/vmm_shadow_paging.h>
 
+
 #include <palacios/vmm.h>
 #include <palacios/vm_guest_mem.h>
 
@@ -10,200 +11,137 @@ int init_shadow_page_state(struct shadow_page_state * state) {
   state->guest_mode = PDE32;
   state->shadow_mode = PDE32;
   
-  state->guest_cr3.r_reg = 0;
-  state->shadow_cr3.r_reg = 0;
+  state->guest_cr3 = 0;
+  state->shadow_cr3 = 0;
 
   return 0;
 }
-  
 
-int wholesale_update_shadow_page_state(struct guest_info * guest_info) {
-  unsigned i, j;
-  pde32_t * guest_pde;
-  pde32_t * shadow_pde;
+int handle_shadow_pagefault(struct guest_info * info, addr_t fault_addr, pf_error_t error_code) {
+  if (info->cpu_mode == PROTECTED_PG) {
+    return handle_shadow_pagefault32(info, fault_addr, error_code);
+  } else {
+    return -1;
+  }
+}
 
-  struct shadow_page_state * state = &(guest_info->shdw_pg_state);
 
+int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_error_t error_code) {
+  pde32_t * guest_pde = NULL;
+  pde32_t * shadow_pde = (pde32_t *)CR3_TO_PDE32(info->shdw_pg_state.shadow_cr3);
+  addr_t guest_cr3 = CR3_TO_PDE32(info->shdw_pg_state.guest_cr3);
 
-  // For now, we'll only work with PDE32
-  if (state->guest_mode != PDE32) { 
+  if (guest_pa_to_host_va(info, guest_cr3, (addr_t*)&guest_pde) == -1) {
     return -1;
   }
 
-  shadow_pde = (pde32_t *)(CR3_TO_PDE32(state->shadow_cr3.e_reg.low));  
-
-  if (host_pa_to_host_va(CR3_TO_PDE32(state->guest_cr3.e_reg.low), (addr_t*)&guest_pde) != 0) {
-    return -1;
-  }
-
-  // Delete the current page table
-  delete_page_tables_pde32(shadow_pde);
-
-  shadow_pde = os_hooks->allocate_pages(1);
-
-  state->shadow_cr3.e_reg.low = (addr_t)shadow_pde;
-
-  state->shadow_mode = PDE32;
-
-  for (i = 0; i < MAX_PDE32_ENTRIES; i++) { 
-    shadow_pde[i] = guest_pde[i];
-
-    // The shadow can be identical to the guest if it's not present
-    if (!shadow_pde[i].present) { 
-      continue;
-    }
-
-    if (shadow_pde[i].large_pages) { 
-      // large page - just map it through shadow map to generate its physical location
-      addr_t guest_addr = PAGE_ADDR(shadow_pde[i].pt_base_addr);
-      addr_t host_addr;
-      shadow_region_t * ent;
-
-      ent = get_shadow_region_by_addr(&(guest_info->mem_map), guest_addr);
+  if (error_code.present == 0) {
+    // Faulted because page was not present...
+    if (shadow_pde[PDE32_INDEX(fault_addr)].present) {
       
-      if (!ent) { 
-	// FIXME Panic here - guest is trying to map to physical memory
-	// it does not own in any way!
-	return -1;
-      }
-
-      // FIXME Bounds check here to see if it's trying to trick us
       
-      switch (ent->host_type) { 
-      case HOST_REGION_PHYSICAL_MEMORY:
-	// points into currently allocated physical memory, so we just
-	// set up the shadow to point to the mapped location
-	if (guest_pa_to_host_pa(guest_info, guest_addr, &host_addr)) { 
-	  // Panic here
-	  return -1;
-	}
-
-	shadow_pde[i].pt_base_addr = PAGE_ALIGNED_ADDR(host_addr);
-	// FIXME set vmm_info bits here
-	break;
-      case HOST_REGION_UNALLOCATED:
-	// points to physical memory that is *allowed* but that we
-	// have not yet allocated.  We mark as not present and set a
-	// bit to remind us to allocate it later
-	shadow_pde[i].present = 0;
-	// FIXME Set vminfo bits here so that we know that we will be
-	// allocating it later
-	break;
-      case HOST_REGION_NOTHING:
-	// points to physical memory that is NOT ALLOWED.   
-	// We will mark it as not present and set a bit to remind
-	// us that it's bad later and insert a GPF then
-	shadow_pde[i].present = 0;
-	break;
-      case HOST_REGION_MEMORY_MAPPED_DEVICE:
-      case HOST_REGION_REMOTE:
-      case HOST_REGION_SWAPPED:
-      default:
-	// Panic.  Currently unhandled
-	return -1;
-	break;
-      }
     } else {
-      pte32_t * guest_pte;
-      pte32_t * shadow_pte;
-      addr_t guest_addr;
-      addr_t guest_pte_host_addr;
-      shadow_region_t * ent;
+      return -1;
+    }    
+  }
 
-      // small page - set PDE and follow down to the child table
-      shadow_pde[i] = guest_pde[i];
+  // Checks:
+  // Shadow PDE
+  // Guest PDE
+  // Shadow PTE
+  // Guest PTE
+  // Mem Map
+  
+  return -1;
+}
 
-      guest_addr = PAGE_ADDR(guest_pde[i].pt_base_addr);
 
-      // Allocate a new second level page table for the shadow
-      shadow_pte = os_hooks->allocate_pages(1);
+addr_t create_new_shadow_pt32(struct guest_info * info) {
+  void * host_pde = 0;
 
-      // make our first level page table in the shadow point to it
-      shadow_pde[i].pt_base_addr = PAGE_ALIGNED_ADDR(shadow_pte);
-      
-      ent = get_shadow_region_by_addr(&(guest_info->mem_map), guest_addr);
-      
+  V3_AllocPages(host_pde, 1);
+  memset(host_pde, 0, PAGE_SIZE);
 
-      /* JRL: This is bad.... */
-      // For now the guest Page Table must always be mapped to host physical memory
-      /* If we swap out a page table or if it isn't present for some reason, this turns real ugly */
+  return (addr_t)host_pde;
+}
 
-      if ((!ent) || (ent->host_type != HOST_REGION_PHYSICAL_MEMORY)) { 
-	// FIXME Panic here - guest is trying to map to physical memory
-	// it does not own in any way!
-	return -1;
+
+
+
+addr_t setup_shadow_pt32(struct guest_info * info, addr_t virt_cr3) {
+  addr_t cr3_guest_addr = CR3_TO_PDE32(virt_cr3);
+  pde32_t * guest_pde;
+  pde32_t * host_pde = NULL;
+  int i;
+  
+  // Setup up guest_pde to point to the PageDir in host addr
+  if (guest_pa_to_host_va(info, cr3_guest_addr, (addr_t*)&guest_pde) == -1) {
+    return 0;
+  }
+  
+  V3_AllocPages(host_pde, 1);
+  memset(host_pde, 0, PAGE_SIZE);
+
+  for (i = 0; i < MAX_PDE32_ENTRIES; i++) {
+    if (guest_pde[i].present == 1) {
+      addr_t pt_host_addr;
+      addr_t host_pte;
+
+      if (guest_pa_to_host_va(info, PDE32_T_ADDR(guest_pde[i]), &pt_host_addr) == -1) {
+	return 0;
       }
 
-      // Address of the relevant second level page table in the guest
-      if (guest_pa_to_host_pa(guest_info, guest_addr, &guest_pte_host_addr)) { 
-	// Panic here
-	return -1;
+      if ((host_pte = setup_shadow_pte32(info, pt_host_addr)) == 0) {
+	return 0;
       }
 
+      host_pde[i].present = 1;
+      host_pde[i].pt_base_addr = PD32_BASE_ADDR(host_pte);
 
-      // host_addr now contains the host physical address for the guest's 2nd level page table
-      // Now we transform it to relevant virtual address
-      guest_pte = os_hooks->paddr_to_vaddr((void *)guest_pte_host_addr);
-
-      // Now we walk through the second level guest page table
-      // and clone it into the shadow
-      for (j = 0; j < MAX_PTE32_ENTRIES; j++) { 
-	shadow_pte[j] = guest_pte[j];
-
-	addr_t guest_addr = PAGE_ADDR(shadow_pte[j].page_base_addr);
-	
-	shadow_region_t * ent;
-
-	ent = get_shadow_region_by_addr(&(guest_info->mem_map), guest_addr);
-      
-	if (!ent) { 
-	  // FIXME Panic here - guest is trying to map to physical memory
-	  // it does not own in any way!
-	  return -1;
-	}
-
-	switch (ent->host_type) { 
-	case HOST_REGION_PHYSICAL_MEMORY:
-	  {
-	    addr_t host_addr;
-	    
-	    // points into currently allocated physical memory, so we just
-	    // set up the shadow to point to the mapped location
-	    if (guest_pa_to_host_pa(guest_info, guest_addr, &host_addr)) { 
-	      // Panic here
-	      return -1;
-	    }
-	    
-	    shadow_pte[j].page_base_addr = PAGE_ALIGNED_ADDR(host_addr);
-	    // FIXME set vmm_info bits here
-	    break;
-	  }
-	case HOST_REGION_UNALLOCATED:
-	  // points to physical memory that is *allowed* but that we
-	  // have not yet allocated.  We mark as not present and set a
-	  // bit to remind us to allocate it later
-	  shadow_pte[j].present = 0;
-	  // FIXME Set vminfo bits here so that we know that we will be
-	  // allocating it later
-	  break;
-	case HOST_REGION_NOTHING:
-	  // points to physical memory that is NOT ALLOWED.   
-	  // We will mark it as not present and set a bit to remind
-	  // us that it's bad later and insert a GPF then
-	  shadow_pte[j].present = 0;
-	  break;
-	case HOST_REGION_MEMORY_MAPPED_DEVICE:
-	case HOST_REGION_REMOTE:
-	case HOST_REGION_SWAPPED:
-	default:
-	  // Panic.  Currently unhandled
-	  return -1;
-	break;
-	}
-      }
+      //
+      // Set Page DIR flags
+      //
     }
   }
-  return 0;
+
+  PrintDebugPageTables(host_pde);
+
+  return (addr_t)host_pde;
 }
-      
+
+
+
+addr_t setup_shadow_pte32(struct guest_info * info, addr_t pt_host_addr) {
+  pte32_t * guest_pte = (pte32_t *)pt_host_addr;
+  pte32_t * host_pte = NULL;
+  int i;
+
+  V3_AllocPages(host_pte, 1);
+  memset(host_pte, 0, PAGE_SIZE);
+
+  for (i = 0; i < MAX_PTE32_ENTRIES; i++) {
+    if (guest_pte[i].present == 1) {
+      addr_t guest_pa = PTE32_T_ADDR(guest_pte[i]);
+      shadow_mem_type_t page_type;
+      addr_t host_pa = 0;
+
+      page_type = get_shadow_addr_type(info, guest_pa);
+
+      if (page_type == HOST_REGION_PHYSICAL_MEMORY) {
+	host_pa = get_shadow_addr(info, guest_pa);
+      } else {
+	
+	//
+	// Setup various memory types
+	//
+      }
+
+      host_pte[i].page_base_addr = PT32_BASE_ADDR(host_pa);
+      host_pte[i].present = 1;
+    }
+  }
+
+  return (addr_t)host_pte;
+}
+
 

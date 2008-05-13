@@ -49,10 +49,10 @@ void free_shadow_map(struct shadow_map * map) {
   while(cursor) {
     tmp = cursor;
     cursor = cursor->next;
-    VMMFree(tmp);
+    V3_Free(tmp);
   }
 
-  VMMFree(map);
+  V3_Free(map);
 }
 
 
@@ -154,6 +154,26 @@ shadow_region_t * get_shadow_region_by_addr(struct shadow_map * map,
   return NULL;
 }
 
+
+host_region_type_t get_shadow_addr_type(struct guest_info * info, addr_t guest_addr) {
+  shadow_region_t * reg = get_shadow_region_by_addr(&(info->mem_map), guest_addr);
+
+  if (!reg) {
+    return HOST_REGION_INVALID;
+  } else {
+    return reg->host_type;
+  }
+}
+
+addr_t get_shadow_addr(struct guest_info * info, addr_t guest_addr) {
+  shadow_region_t * reg = get_shadow_region_by_addr(&(info->mem_map), guest_addr);
+
+  if (!reg) {
+    return 0;
+  } else {
+    return (guest_addr - reg->guest_start) + reg->host_addr.phys_addr.host_start;
+  }
+}
 
 
 host_region_type_t lookup_shadow_map_addr(struct shadow_map * map, addr_t guest_addr, addr_t * host_addr) {

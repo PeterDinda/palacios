@@ -2,13 +2,16 @@
 #define __VMM_H
 
 
+#include <palacios/vm_guest.h>
+#include <palacios/vmm_mem.h>
+
+#ifdef __V3VEE__
+
 //#include <palacios/vmm_types.h>
 #include <palacios/vmm_string.h>
 
-#include <palacios/vmm_mem.h>
-//#include <palacios/vmm_paging.h>
 
-#include <palacios/vm_guest.h>
+//#include <palacios/vmm_paging.h>
 
 /* utility definitions */
 #define PrintDebug(fmt, args...)			\
@@ -40,9 +43,17 @@
 
 
 
+#define V3_AllocPages(ptr, num_pages)		        \
+  do {							\
+    extern struct vmm_os_hooks * os_hooks;		\
+    if ((os_hooks) && (os_hooks)->allocate_pages) {	\
+      ptr = (os_hooks)->allocate_pages(num_pages);	\
+    }							\
+  } while (0)						\
 
-/* This clearly won't work, we need some way to get a return value out of it */
-#define VMMMalloc(type, var, size)			\
+
+
+#define V3_Malloc(type, var, size)			\
   do {							\
     extern struct vmm_os_hooks * os_hooks;		\
     if ((os_hooks) && (os_hooks)->malloc) {		\
@@ -52,7 +63,7 @@
 
 
 // We need to check the hook structure at runtime to ensure its SAFE
-#define VMMFree(addr)					\
+#define V3_Free(addr)					\
   do {							\
     extern struct vmm_os_hooks * os_hooks;		\
     if ((os_hooks) && (os_hooks)->free) {		\
@@ -78,6 +89,7 @@
 #define VMM_VMX_CPU 1
 #define VMM_SVM_CPU 2
 
+#endif //!__V3VEE__
 
 
 /* This will contain function pointers that provide OS services */

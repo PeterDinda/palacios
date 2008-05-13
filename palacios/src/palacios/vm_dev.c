@@ -6,7 +6,7 @@
 struct vm_device * allocate_device() {
 
   struct vm_device * dev = NULL;
-  VMMMalloc(struct vm_device *, dev, sizeof(struct vm_device));
+  V3_Malloc(struct vm_device *, dev, sizeof(struct vm_device));
 
   dev->ops = NULL;
   memset(dev->name, 0, 32);
@@ -37,6 +37,6 @@ struct vm_device * create_device(char * name, struct vm_device_ops * ops, void *
 }
 
 void free_device(struct vm_device * dev) {
-  VMMFree(dev);
+  V3_Free(dev);
 }
 

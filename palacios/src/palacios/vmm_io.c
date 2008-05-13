@@ -41,7 +41,7 @@ int add_io_hook(vmm_io_map_t * io_map, vmm_io_hook_t * io_hook) {
       //tmp_hook->read = io_hook->read;
       //tmp_hook->write = io_hook->write;
       
-      //VMMFree(io_hook);
+      //V3_Free(io_hook);
       return -1;
     } else {
       io_hook->prev = tmp_hook;
@@ -152,7 +152,7 @@ int hook_io_port(vmm_io_map_t * io_map, uint_t port,
   io_hook->priv_data = priv_data;
 
   if (add_io_hook(io_map, io_hook) != 0) {
-    VMMFree(io_hook);
+    V3_Free(io_hook);
     return -1;
   }
 

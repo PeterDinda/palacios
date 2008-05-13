@@ -72,7 +72,7 @@ int hook_irq(struct vmm_irq_map * map, uint_t irq,
 	     void * private_data) {
 
   struct vmm_irq_hook * hook = NULL;
-  VMMMalloc(struct vmm_irq_hook *, hook, sizeof(struct vmm_irq_hook));
+  V3_Malloc(struct vmm_irq_hook *, hook, sizeof(struct vmm_irq_hook));
 
   if (!hook) {
     // big problems
@@ -86,7 +86,7 @@ int hook_irq(struct vmm_irq_map * map, uint_t irq,
   hook->prev = NULL;
   
   if (add_irq_hook(map, hook) != 0) {
-    VMMFree(hook);
+    V3_Free(hook);
     return -1;
   }
 

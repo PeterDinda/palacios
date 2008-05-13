@@ -4,13 +4,14 @@
 #include <geekos/serial.h>
 #include <geekos/vm.h>
 #include <geekos/screen.h>
-#include <palacios/vmm_dev_mgr.h>
+
 #include <devices/nvram.h>
 #include <devices/timer.h>
 #include <devices/simple_pic.h>
 #include <devices/8259a.h>
-#include <palacios/vmm_intr.h>
 
+#include <palacios/vmm_intr.h>
+#include <palacios/vmm_dev_mgr.h>
 
 #define SPEAKER_PORT 0x61
 
@@ -151,7 +152,9 @@ void BuzzVM()
 
 
 
-
+/* We need a configuration mechanism, so we can wrap this completely inside the VMM code, 
+ * with no pollution into the HOST OS
+ */
 
 int RunVMM(struct Boot_Info * bootInfo) {
 
@@ -179,9 +182,11 @@ int RunVMM(struct Boot_Info * bootInfo) {
     os_hooks.hook_interrupt = &hook_irq_stub;
     os_hooks.ack_irq = &ack_irq;
  
-    //   DumpGDT();
+
     Init_VMM(&os_hooks, &vmm_ops);
   
+
+    /* MOVE THIS TO AN INIT GUEST ROUTINE */
     init_shadow_map(&(vm_info.mem_map));
     init_shadow_page_state(&(vm_info.shdw_pg_state));
     vm_info.page_mode = SHADOW_PAGING;
@@ -193,6 +198,7 @@ int RunVMM(struct Boot_Info * bootInfo) {
     init_interrupt_state(&vm_info);
 
     dev_mgr_init(&(vm_info.dev_mgr));
+    /* ** */
     
     if (0) {
       
@@ -239,33 +245,33 @@ int RunVMM(struct Boot_Info * bootInfo) {
       void * region_start;
 
  
-      PrintDebug("Guest Size: %lu\n", bootInfo->guest_size);
+      PrintBoth("Guest Size: %lu\n", bootInfo->guest_size);
 
       struct guest_mem_layout * layout = (struct guest_mem_layout *)0x100000;
 
       if (layout->magic != MAGIC_CODE) {
-	PrintDebug("Layout Magic Mismatch (0x%x)\n", layout->magic);
+	PrintBoth("Layout Magic Mismatch (0x%x)\n", layout->magic);
       }
 
-      PrintDebug("%d layout regions\n", layout->num_regions);
+      PrintBoth("%d layout regions\n", layout->num_regions);
 
       region_start = (void *)&(layout->regions[layout->num_regions]);
 
-      PrintDebug("region start = 0x%x\n", region_start);
+      PrintBoth("region start = 0x%x\n", region_start);
 
       for (i = 0; i < layout->num_regions; i++) {
 	struct layout_region * reg = &(layout->regions[i]);
 	uint_t num_pages = (reg->length / PAGE_SIZE) + ((reg->length % PAGE_SIZE) ? 1 : 0);
 	void * guest_mem = Allocate_VMM_Pages(num_pages);
 
-	PrintDebug("Layout Region %d bytes\n", reg->length);
+	PrintBoth("Layout Region %d bytes\n", reg->length);
 	memcpy(guest_mem, region_start, reg->length);
 	
 	SerialMemDump((unsigned char *)(guest_mem), 16);
 
 	add_shadow_region_passthrough(&vm_info, reg->final_addr, reg->final_addr + (num_pages * PAGE_SIZE), (addr_t)guest_mem);
 
-	PrintDebug("Adding Shadow Region (0x%x-0x%x) -> 0x%x\n", reg->final_addr, reg->final_addr + (num_pages * PAGE_SIZE), guest_mem);
+	PrintBoth("Adding Shadow Region (0x%x-0x%x) -> 0x%x\n", reg->final_addr, reg->final_addr + (num_pages * PAGE_SIZE), guest_mem);
 
 	region_start += reg->length;
       }
@@ -277,12 +283,12 @@ int RunVMM(struct Boot_Info * bootInfo) {
 
 
       // TEMP
-	add_shadow_region_passthrough(&vm_info, 0xc0000, 0xc8000, 0xc0000);
+      //add_shadow_region_passthrough(&vm_info, 0xc0000, 0xc8000, 0xc0000);
 
       if (1) {
 	add_shadow_region_passthrough(&vm_info, 0xc7000, 0xc8000, (addr_t)Allocate_VMM_Pages(1));
 	if (add_shadow_region_passthrough(&vm_info, 0xc8000, 0xf0000, (addr_t)Allocate_VMM_Pages(40)) == -1) {
-	  PrintDebug("Error adding shadow region\n");
+	  PrintBoth("Error adding shadow region\n");
 	}
       } else {
 	add_shadow_region_passthrough(&vm_info, 0xc0000, 0xc8000, 0xc0000);
@@ -290,7 +296,8 @@ int RunVMM(struct Boot_Info * bootInfo) {
       }
 
 
-      add_shadow_region_passthrough(&vm_info, 0x100000, 0x2000000, (addr_t)Allocate_VMM_Pages(8192));
+      //add_shadow_region_passthrough(&vm_info, 0x100000, 0x2000000, (addr_t)Allocate_VMM_Pages(8192));
+      add_shadow_region_passthrough(&vm_info, 0x100000, 0x1000000, (addr_t)Allocate_VMM_Pages(4096));
 
 
       print_shadow_map(&(vm_info.mem_map));
@@ -298,12 +305,7 @@ int RunVMM(struct Boot_Info * bootInfo) {
       hook_io_port(&(vm_info.io_map), 0x61, &IO_Read, &IO_Write, NULL);
       hook_io_port(&(vm_info.io_map), 0x05, &IO_Read, &IO_Write_to_Serial, NULL);
 
-      /*
-	hook_io_port(&(vm_info.io_map), 0x20, &IO_Read, &IO_Write_to_Serial, NULL);
-	hook_io_port(&(vm_info.io_map), 0x21, &IO_Read, &IO_Write_to_Serial, NULL);
-	hook_io_port(&(vm_info.io_map), 0xa0, &IO_Read, &IO_Write_to_Serial, NULL);
-	hook_io_port(&(vm_info.io_map), 0xa1, &IO_Read, &IO_Write_to_Serial, NULL);
-      */
+
       hook_io_port(&(vm_info.io_map), 0x400, &IO_Read, &IO_Write_to_Serial, NULL);
       hook_io_port(&(vm_info.io_map), 0x401, &IO_Read, &IO_Write_to_Serial, NULL);
       hook_io_port(&(vm_info.io_map), 0x402, &IO_Read, &IO_BOCHS_debug, NULL);
@@ -324,6 +326,7 @@ int RunVMM(struct Boot_Info * bootInfo) {
       hook_irq(&vm_info, 6);
       hook_irq(&vm_info, 14);
       hook_irq(&vm_info, 15);
+
 
       vm_info.rip = 0xfff0;
       vm_info.vm_regs.rsp = 0x0;

@@ -69,7 +69,7 @@ static struct vm_device_ops dev_ops = {
 
 struct vm_device * create_simple_pic() {
   struct pic_internal * state = NULL;
-  VMMMalloc(struct pic_internal *, state, sizeof(struct pic_internal));
+  V3_Malloc(struct pic_internal *, state, sizeof(struct pic_internal));
 
   struct vm_device * pic_dev = create_device("Simple Pic", &dev_ops, state);
 

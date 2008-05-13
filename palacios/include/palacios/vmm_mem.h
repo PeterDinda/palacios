@@ -2,6 +2,7 @@
 #define __VMM_MEM_H
 
 
+
 #include <palacios/vmm_types.h>
 
 
@@ -41,6 +42,8 @@ typedef enum host_region_type {
 } host_region_type_t;
 
 
+
+#define shadow_mem_type_t host_region_type_t
 
 typedef struct shadow_region {
   guest_region_type_t     guest_type;
@@ -95,6 +98,8 @@ shadow_region_t * get_shadow_region_by_index(struct shadow_map * map, uint_t ind
 
 host_region_type_t lookup_shadow_map_addr(struct shadow_map * map, addr_t guest_addr, addr_t * host_addr);
 
+host_region_type_t get_shadow_addr_type(struct guest_info * info, addr_t guest_addr);
+addr_t get_shadow_addr(struct guest_info * info, addr_t guest_addr);
 
 // Semantics:
 // Adding a region that overlaps with an existing region results is undefined

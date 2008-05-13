@@ -1,6 +1,6 @@
 # Makefile for GeekOS kernel, userspace, and tools
 # Copyright (c) 2004,2005 David H. Hovemeyer <daveho@cs.umd.edu>
-# $Revision: 1.30 $
+# $Revision: 1.31 $
 
 # This is free software.  You are permitted to use,
 # redistribute, and modify it as specified in the file "COPYING".
@@ -211,7 +211,7 @@ CC_GENERAL_OPTS := $(GENERAL_OPTS) -Werror
 CC_KERNEL_OPTS := -g -DGEEKOS -I$(PROJECT_ROOT)/include
 
 # Flags used for VMM C source files
-CC_VMM_OPTS := -g -I$(PROJECT_ROOT)/include
+CC_VMM_OPTS := -g -I$(PROJECT_ROOT)/include -D__V3VEE__
 
 # Flags used for VMM C ASM files
 NASM_VMM_OPTS := -I$(PROJECT_ROOT)/src/palacios/ -f elf $(EXTRA_NASM_OPTS)

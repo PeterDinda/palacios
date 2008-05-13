@@ -174,7 +174,7 @@ pde32_t * create_passthrough_pde32_pts(struct guest_info * guest_info) {
 
 
 
-void PrintPDE32(void * virtual_address, pde32_t * pde)
+void PrintPDE32(addr_t virtual_address, pde32_t * pde)
 {
   PrintDebug("PDE %p -> %p : present=%x, flags=%x, accessed=%x, reserved=%x, largePages=%x, globalPage=%x, kernelInfo=%x\n",
 	      virtual_address,
@@ -188,7 +188,7 @@ void PrintPDE32(void * virtual_address, pde32_t * pde)
 	      pde->vmm_info);
 }
   
-void PrintPTE32(void * virtual_address, pte32_t * pte)
+void PrintPTE32(addr_t virtual_address, pte32_t * pte)
 {
   PrintDebug("PTE %p -> %p : present=%x, flags=%x, accessed=%x, dirty=%x, pteAttribute=%x, globalPage=%x, vmm_info=%x\n",
 	      virtual_address,
@@ -211,12 +211,12 @@ void PrintPD32(pde32_t * pde)
   PrintDebug("Page Directory at %p:\n", pde);
   for (i = 0; (i < MAX_PDE32_ENTRIES); i++) { 
     if ( pde[i].present) {
-      PrintPDE32((void*)(PAGE_SIZE * MAX_PTE32_ENTRIES * i), &(pde[i]));
+      PrintPDE32((addr_t)(PAGE_SIZE * MAX_PTE32_ENTRIES * i), &(pde[i]));
     }
   }
 }
 
-void PrintPT32(void * starting_address, pte32_t * pte) 
+void PrintPT32(addr_t starting_address, pte32_t * pte) 
 {
   int i;
 
@@ -240,8 +240,8 @@ void PrintDebugPageTables(pde32_t * pde)
 
   for (i = 0; (i < MAX_PDE32_ENTRIES); i++) { 
     if (pde[i].present) {
-      PrintPDE32((void *)(PAGE_SIZE * MAX_PTE32_ENTRIES * i), &(pde[i]));
-      PrintPT32((void *)(PAGE_SIZE * MAX_PTE32_ENTRIES * i), (void *)(pde[i].pt_base_addr << PAGE_POWER));
+      PrintPDE32((addr_t)(PAGE_SIZE * MAX_PTE32_ENTRIES * i), &(pde[i]));
+      PrintPT32((addr_t)(PAGE_SIZE * MAX_PTE32_ENTRIES * i), (pte32_t *)(pde[i].pt_base_addr << PAGE_POWER));
     }
   }
 }

@@ -1,6 +1,9 @@
 #ifndef __VM_GUEST_H
 #define __VM_GUEST_H
 
+
+
+
 #include <palacios/vmm_mem.h>
 #include <palacios/vmm_types.h>
 #include <palacios/vmm_io.h>
@@ -8,6 +11,7 @@
 #include <palacios/vmm_intr.h>
 #include <palacios/vmm_dev_mgr.h>
 #include <palacios/vmm_irq.h>
+
 
 typedef ullong_t gpr_t;
 
@@ -42,6 +46,9 @@ struct shadow_map;
 struct vm_ctrl_ops {
   int (*raise_irq)(struct guest_info * info, int irq, int error_code);
 };
+
+
+
 
 
 typedef enum {SHADOW_PAGING, NESTED_PAGING} vm_page_mode_t;
