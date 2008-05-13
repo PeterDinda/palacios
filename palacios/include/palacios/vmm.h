@@ -46,6 +46,7 @@
 #define V3_AllocPages(ptr, num_pages)		        \
   do {							\
     extern struct vmm_os_hooks * os_hooks;		\
+    ptr = 0;						\
     if ((os_hooks) && (os_hooks)->allocate_pages) {	\
       ptr = (os_hooks)->allocate_pages(num_pages);	\
     }							\
@@ -56,6 +57,7 @@
 #define V3_Malloc(type, var, size)			\
   do {							\
     extern struct vmm_os_hooks * os_hooks;		\
+    var = 0;						\
     if ((os_hooks) && (os_hooks)->malloc) {		\
       var = (type)(os_hooks)->malloc(size);		\
     }							\

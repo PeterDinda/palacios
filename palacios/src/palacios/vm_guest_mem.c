@@ -126,13 +126,13 @@ int guest_va_to_guest_pa(struct guest_info * guest_info, addr_t guest_va, addr_t
 	}
 
 	switch (pde32_lookup(pde, guest_va, &tmp_pa)) {
-	case NOT_PRESENT: 
+	case PDE32_ENTRY_NOT_PRESENT: 
 	  *guest_pa = 0;
 	  return -1;
-	case LARGE_PAGE:
+	case PDE32_ENTRY_LARGE_PAGE:
 	  *guest_pa = tmp_pa;
 	  return 0;
-	case PTE32:
+	case PDE32_ENTRY_PTE32:
 	  {
 	    pte32_t * pte;
 

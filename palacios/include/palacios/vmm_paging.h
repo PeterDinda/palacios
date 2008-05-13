@@ -115,32 +115,51 @@ the host state in the vmcs before entering the guest.
 #define PDE32_T_ADDR(x) ((x.pt_base_addr) << 12)
 #define PTE32_T_ADDR(x) ((x.page_base_addr) << 12)
 
-#define VM_WRITE     1
-#define VM_USER      2
-#define VM_NOCACHE   8
-#define VM_READ      0
-#define VM_EXEC      0
-
 
 #endif
 
 /* PDE 32 bit PAGE STRUCTURES */
-typedef enum {NOT_PRESENT, PTE32, LARGE_PAGE} pde32_entry_type_t;
+typedef enum {PDE32_ENTRY_NOT_PRESENT, PDE32_ENTRY_PTE32, PDE32_ENTRY_LARGE_PAGE} pde32_entry_type_t;
+typedef enum {PT_ACCESS_OK, PT_ENTRY_NOT_PRESENT, PT_WRITE_ERROR, PT_USER_ERROR} pt_access_status_t;
 
 typedef struct pde32 {
   uint_t present         : 1;
-  uint_t flags           : 4;
+  uint_t writable        : 1;
+  uint_t user_page       : 1;
+  uint_t write_through   : 1;
+  uint_t cache_disable   : 1;
   uint_t accessed        : 1;
   uint_t reserved        : 1;
-  uint_t large_pages     : 1;
+  uint_t large_page     : 1;
   uint_t global_page     : 1;
   uint_t vmm_info        : 3;
   uint_t pt_base_addr    : 20;
 } pde32_t;
 
+typedef struct pde32_4MB {
+  uint_t present         : 1;
+  uint_t writable        : 1;
+  uint_t user_page       : 1;
+  uint_t write_through   : 1;
+  uint_t cache_disable   : 1;
+  uint_t accessed        : 1;
+  uint_t dirty           : 1;
+  uint_t one             : 1;
+  uint_t global_page     : 1;
+  uint_t vmm_info        : 3;
+  uint_t pat             : 1;
+  uint_t page_base_addr_lo: 8;
+  uint_t zero            : 1;
+  uint_t page_base_addr_hi: 10;
+
+} pde32_4MB_t;
+
 typedef struct pte32 {
   uint_t present         : 1;
-  uint_t flags           : 4;
+  uint_t writable        : 1;
+  uint_t user_page       : 1;
+  uint_t write_through   : 1;
+  uint_t cache_disable   : 1;
   uint_t accessed        : 1;
   uint_t dirty           : 1;
   uint_t pte_attr        : 1;
@@ -247,6 +266,9 @@ void delete_page_tables_pde32(pde32_t * pde);
 pde32_entry_type_t pde32_lookup(pde32_t * pde, addr_t addr, addr_t * entry);
 int pte32_lookup(pte32_t * pte, addr_t addr, addr_t * entry);
 
+
+pt_access_status_t can_access_pde32(pde32_t * pde, addr_t addr, pf_error_t access_type);
+pt_access_status_t can_access_pte32(pte32_t * pte, addr_t addr, pf_error_t access_type);
 
 
 struct guest_info;

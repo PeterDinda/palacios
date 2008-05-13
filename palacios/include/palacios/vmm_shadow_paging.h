@@ -43,4 +43,18 @@ addr_t setup_shadow_pte32(struct guest_info * info, addr_t pt_host_addr);
 int handle_shadow_pagefault(struct guest_info * info, addr_t fault_addr, pf_error_t error_code);
 int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_error_t error_code);
 
+int handle_shadow_pde32_fault(struct guest_info * info, 
+			      addr_t fault_addr, 
+			      pf_error_t error_code, 
+			      pde32_t * shadow_pde, 
+			      pde32_t * guest_pde);
+
+
+int handle_shadow_pte32_fault(struct guest_info* info, 
+			      addr_t fault_addr, 
+			      pf_error_t error_code,
+			      pte32_t * shadow_pte, 
+			      pte32_t * guest_pte);
+
+
 #endif

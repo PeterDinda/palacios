@@ -46,21 +46,24 @@ pde32_entry_type_t pde32_lookup(pde32_t * pde, addr_t addr, addr_t * entry) {
 
   if (!pde_entry->present) {
     *entry = 0;
-    return NOT_PRESENT;
+    return PDE32_ENTRY_NOT_PRESENT;
   } else  {
     *entry = PAGE_ADDR(pde_entry->pt_base_addr);
     
-    if (pde_entry->large_pages) {
+    if (pde_entry->large_page) {
       *entry += PAGE_OFFSET(addr);
-      return LARGE_PAGE;
+      return PDE32_ENTRY_LARGE_PAGE;
     } else {
-      return PTE32;
+      return PDE32_ENTRY_PTE32;
     }
   }  
-  return NOT_PRESENT;
+  return PDE32_ENTRY_NOT_PRESENT;
 }
 
 
+
+/* Takes a virtual addr (addr) and returns the physical addr (entry) as defined in the page table
+ */
 int pte32_lookup(pte32_t * pte, addr_t addr, addr_t * entry) {
   pte32_t * pte_entry = &(pte[PTE32_INDEX(addr)]);
 
@@ -78,7 +81,36 @@ int pte32_lookup(pte32_t * pte, addr_t addr, addr_t * entry) {
 
 
 
+pt_access_status_t can_access_pde32(pde32_t * pde, addr_t addr, pf_error_t access_type) {
+  pde32_t * entry = &pde[PDE32_INDEX(addr)];
 
+  if (entry->present == 0) {
+    return PT_ENTRY_NOT_PRESENT;
+  } else if ((entry->writable == 0) && (access_type.write == 1)) {
+    return PT_WRITE_ERROR;
+  } else if ((entry->user_page == 0) && (access_type.user == 1)) {
+    // Check CR0.WP
+    return PT_USER_ERROR;
+  }
+
+  return PT_ACCESS_OK;
+}
+
+
+pt_access_status_t can_access_pte32(pte32_t * pte, addr_t addr, pf_error_t access_type) {
+  pte32_t * entry = &pte[PTE32_INDEX(addr)];
+
+  if (entry->present == 0) {
+    return PT_ENTRY_NOT_PRESENT;
+  } else if ((entry->writable == 0) && (access_type.write == 1)) {
+    return PT_WRITE_ERROR;
+  } else if ((entry->user_page == 0) && (access_type.user == 1)) {
+    // Check CR0.WP
+    return PT_USER_ERROR;
+  }
+
+  return PT_ACCESS_OK;
+}
 
 
 
@@ -110,7 +142,10 @@ pde32_t * create_passthrough_pde32_pts(struct guest_info * guest_info) {
 	  (region->host_type == HOST_REGION_REMOTE) ||
 	  (region->host_type == HOST_REGION_SWAPPED)) {
 	pte[j].present = 0;
-	pte[j].flags = 0;
+	pte[j].writable = 0;
+	pte[j].user_page = 0;
+	pte[j].write_through = 0;
+	pte[j].cache_disable = 0;
 	pte[j].accessed = 0;
 	pte[j].dirty = 0;
 	pte[j].pte_attr = 0;
@@ -120,8 +155,10 @@ pde32_t * create_passthrough_pde32_pts(struct guest_info * guest_info) {
       } else {
 	addr_t host_addr;
 	pte[j].present = 1;
-	pte[j].flags = VM_READ | VM_WRITE | VM_EXEC | VM_USER;   
-	
+	pte[j].writable = 1;
+	pte[j].user_page = 1;
+	pte[j].write_through = 0;
+	pte[j].cache_disable = 0;
 	pte[j].accessed = 0;
 	pte[j].dirty = 0;
 	pte[j].pte_attr = 0;
@@ -146,19 +183,25 @@ pde32_t * create_passthrough_pde32_pts(struct guest_info * guest_info) {
       os_hooks->free_page(pte);
 
       pde[i].present = 0;
-      pde[i].flags = 0;
+      pde[i].writable = 0;
+      pde[i].user_page = 0;
+      pde[i].write_through = 0;
+      pde[i].cache_disable = 0;
       pde[i].accessed = 0;
       pde[i].reserved = 0;
-      pde[i].large_pages = 0;
+      pde[i].large_page = 0;
       pde[i].global_page = 0;
       pde[i].vmm_info = 0;
       pde[i].pt_base_addr = 0;
     } else {
       pde[i].present = 1;
-      pde[i].flags = VM_READ | VM_WRITE | VM_EXEC | VM_USER;
+      pde[i].writable = 1;
+      pde[i].user_page = 1;
+      pde[i].write_through = 0;
+      pde[i].cache_disable = 0;
       pde[i].accessed = 0;
       pde[i].reserved = 0;
-      pde[i].large_pages = 0;
+      pde[i].large_page = 0;
       pde[i].global_page = 0;
       pde[i].vmm_info = 0;
       pde[i].pt_base_addr = PAGE_ALIGNED_ADDR(pte);
@@ -176,30 +219,36 @@ pde32_t * create_passthrough_pde32_pts(struct guest_info * guest_info) {
 
 void PrintPDE32(addr_t virtual_address, pde32_t * pde)
 {
-  PrintDebug("PDE %p -> %p : present=%x, flags=%x, accessed=%x, reserved=%x, largePages=%x, globalPage=%x, kernelInfo=%x\n",
-	      virtual_address,
-	      (void *) (pde->pt_base_addr << PAGE_POWER),
-	      pde->present,
-	      pde->flags,
-	      pde->accessed,
-	      pde->reserved,
-	      pde->large_pages,
-	      pde->global_page,
-	      pde->vmm_info);
+  PrintDebug("PDE %p -> %p : present=%x, writable=%x, user=%x, wt=%x, cd=%x, accessed=%x, reserved=%x, largePages=%x, globalPage=%x, kernelInfo=%x\n",
+	     virtual_address,
+	     (void *) (pde->pt_base_addr << PAGE_POWER),
+	     pde->present,
+	     pde->writable,
+	     pde->user_page, 
+	     pde->write_through,
+	     pde->cache_disable,
+	     pde->accessed,
+	     pde->reserved,
+	     pde->large_page,
+	     pde->global_page,
+	     pde->vmm_info);
 }
   
 void PrintPTE32(addr_t virtual_address, pte32_t * pte)
 {
-  PrintDebug("PTE %p -> %p : present=%x, flags=%x, accessed=%x, dirty=%x, pteAttribute=%x, globalPage=%x, vmm_info=%x\n",
-	      virtual_address,
-	      (void*)(pte->page_base_addr << PAGE_POWER),
-	      pte->present,
-	      pte->flags,
-	      pte->accessed,
-	      pte->dirty,
-	      pte->pte_attr,
-	      pte->global_page,
-	      pte->vmm_info);
+  PrintDebug("PTE %p -> %p : present=%x, writable=%x, user=%x, wt=%x, cd=%x, accessed=%x, dirty=%x, pteAttribute=%x, globalPage=%x, vmm_info=%x\n",
+	     virtual_address,
+	     (void*)(pte->page_base_addr << PAGE_POWER),
+	     pte->present,
+	     pte->writable,
+	     pte->user_page,
+	     pte->write_through,
+	     pte->cache_disable,
+	     pte->accessed,
+	     pte->dirty,
+	     pte->pte_attr,
+	     pte->global_page,
+	     pte->vmm_info);
 }
 
 
