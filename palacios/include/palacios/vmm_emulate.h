@@ -122,14 +122,14 @@ static inline int is_prefix_byte(char byte) {
 
 
 
-static inline addr_t get_addr_linear(struct guest_info * info, addr_t addr, addr_t seg_base) {
+static inline addr_t get_addr_linear(struct guest_info * info, addr_t addr, struct v3_segment * seg) {
   switch (info->cpu_mode) {
   case REAL:
-    return addr + (seg_base << 4);
+    return addr + (seg->selector << 4);
     break;
   case PROTECTED:
   case PROTECTED_PG:
-    return addr + seg_base;
+    return addr + seg->base;
     break;
   default:
     return 0;
@@ -141,9 +141,9 @@ typedef enum {INVALID_ADDR_TYPE, REG, DISP0, DISP8, DISP16, DISP32} modrm_mode_t
 typedef enum {INVALID_REG_SIZE, REG64, REG32, REG16, REG8} reg_size_t;
 typedef enum {INVALID_OPERAND, REG_OPERAND, MEM_OPERAND} operand_type_t;
 
-struct guest_gprs;
+struct v3_gprs;
 
-static inline addr_t decode_register(struct guest_gprs * gprs, char reg_code, reg_size_t reg_size) {
+static inline addr_t decode_register(struct v3_gprs * gprs, char reg_code, reg_size_t reg_size) {
   addr_t reg_addr;
 
   switch (reg_code) {
@@ -197,7 +197,7 @@ static inline addr_t decode_register(struct guest_gprs * gprs, char reg_code, re
 
 
 
-static inline operand_type_t decode_operands16(struct guest_gprs * gprs, // input/output
+static inline operand_type_t decode_operands16(struct v3_gprs * gprs, // input/output
 					       char * modrm_instr,       // input
 					       int * offset,             // output
 					       addr_t * first_operand,   // output
@@ -286,7 +286,7 @@ static inline operand_type_t decode_operands16(struct guest_gprs * gprs, // inpu
 
 
 
-static inline operand_type_t decode_operands32(struct guest_gprs * gprs, // input/output
+static inline operand_type_t decode_operands32(struct v3_gprs * gprs, // input/output
 					       char * modrm_instr,       // input
 					       int * offset,             // output
 					       addr_t * first_operand,   // output

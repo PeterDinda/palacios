@@ -160,7 +160,6 @@ int handle_shadow_pte32_fault(struct guest_info* info,
     return -1;
   }
 
-
   shadow_pte_access = can_access_pte32(shadow_pte, fault_addr, error_code);
 
   if (shadow_pte_access == PT_ENTRY_NOT_PRESENT) {
@@ -185,7 +184,7 @@ int handle_shadow_pte32_fault(struct guest_info* info,
 
     shadow_pte_entry->present = guest_pte_entry->present;
     shadow_pte_entry->user_page = guest_pte_entry->user_page;
-    
+
     //set according to VMM policy
     shadow_pte_entry->write_through = 0;
     shadow_pte_entry->cache_disable = 0;
@@ -216,7 +215,7 @@ int handle_shadow_pte32_fault(struct guest_info* info,
     //
     // Page Table Entry marked non-user
     //
-    
+
     PrintDebug("Shadow Paging User access error\n");
     return -1;
   } else if (shadow_pte_access == PT_ACCESS_OK) {
@@ -227,7 +226,6 @@ int handle_shadow_pte32_fault(struct guest_info* info,
     PrintDebug("Unknown Error\n");
     return -1;
   }
-
 
   return 0;
 }

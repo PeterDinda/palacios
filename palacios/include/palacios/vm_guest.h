@@ -13,31 +13,59 @@
 #include <palacios/vmm_irq.h>
 
 
-typedef ullong_t gpr_t;
+typedef ullong_t v3_reg_t;
 
-/*
-  struct guest_gprs {
-  addr_t rax;
-  addr_t rbx;
-  addr_t rcx;
-  addr_t rdx;
-  addr_t rsi;
-  addr_t rdi;
-  addr_t rbp;
-  };
-*/
 
-struct guest_gprs {
-  gpr_t rdi;
-  gpr_t rsi;
-  gpr_t rbp;
-  gpr_t rsp;
-  gpr_t rbx;
-  gpr_t rdx;
-  gpr_t rcx;
-  gpr_t rax;
+
+struct v3_gprs {
+  v3_reg_t rdi;
+  v3_reg_t rsi;
+  v3_reg_t rbp;
+  v3_reg_t rsp;
+  v3_reg_t rbx;
+  v3_reg_t rdx;
+  v3_reg_t rcx;
+  v3_reg_t rax;
 };
 
+
+struct v3_ctrl_regs {
+  v3_reg_t cr0;
+  v3_reg_t cr2;
+  v3_reg_t cr3;
+  v3_reg_t cr4;
+  v3_reg_t cr8;
+  v3_reg_t rflags;
+};
+
+
+struct v3_segment {
+  ushort_t selector;
+  uint_t limit;
+  ullong_t base;
+  uint_t type           : 4;
+  uint_t system         : 1;
+  uint_t dpl            : 2;
+  uint_t present        : 1;
+  uint_t avail          : 1;
+  uint_t long_mode      : 1;
+  uint_t db             : 1;
+  uint_t granularity    : 1;
+};
+
+
+struct v3_segments {
+  struct v3_segment cs;
+  struct v3_segment ds;
+  struct v3_segment es;
+  struct v3_segment fs;
+  struct v3_segment gs;
+  struct v3_segment ss;
+  struct v3_segment ldtr;
+  struct v3_segment gdtr;
+  struct v3_segment idtr;
+  struct v3_segment tr;
+};
 
 struct shadow_page_state;
 struct shadow_map;
@@ -79,7 +107,9 @@ struct guest_info {
   vm_cpu_mode_t cpu_mode;
 
 
-  struct guest_gprs vm_regs;
+  struct v3_gprs vm_regs;
+  struct v3_ctrl_regs ctrl_regs;
+  struct v3_segments segments;
 
   struct vm_ctrl_ops vm_ops;
 

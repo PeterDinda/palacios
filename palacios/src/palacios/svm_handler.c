@@ -2,9 +2,10 @@
 #include <palacios/vmm.h>
 #include <palacios/vm_guest_mem.h>
 #include <palacios/vmm_emulate.h>
-#include <palacios/svm_ctrl_regs.h>
+#include <palacios/vmm_ctrl_regs.h>
 #include <palacios/svm_io.h>
 #include <palacios/vmm_intr.h>
+
 
 extern struct vmm_os_hooks * os_hooks;
 
@@ -23,6 +24,16 @@ int handle_svm_exit(struct guest_info * info) {
   info->vm_regs.rsp = guest_state->rsp;
   info->vm_regs.rax = guest_state->rax;
   info->vm_regs.rsp = guest_state->rsp;  
+
+
+  info->ctrl_regs.cr0 = guest_state->cr0;
+  info->ctrl_regs.cr2 = guest_state->cr2;
+  info->ctrl_regs.cr3 = guest_state->cr3;
+  info->ctrl_regs.cr4 = guest_state->cr4;
+  info->ctrl_regs.cr8 = guest_ctrl->guest_ctrl.V_TPR;
+  info->ctrl_regs.rflags = guest_state->rflags;
+
+  get_vmcb_segments((vmcb_t*)(info->vmm_data), &(info->segments));
 
 
   exit_code = guest_ctrl->exit_code;
@@ -120,11 +131,9 @@ int handle_svm_exit(struct guest_info * info) {
     char buf[15];
     addr_t host_addr;
 
-    if (info->cpu_mode == REAL) {
-      rip_addr = get_addr_linear(info, guest_state->rip, guest_state->cs.selector);
-    } else {
-      rip_addr = get_addr_linear(info, guest_state->rip, guest_state->cs.base);
-    }
+
+    rip_addr = get_addr_linear(info, guest_state->rip, &(info->segments.cs));
+
 
 
     PrintDebug("SVM Returned:(VMCB=%x)\n", info->vmm_data); 
@@ -204,10 +213,20 @@ int handle_svm_exit(struct guest_info * info) {
   }
 
 
+  guest_state->cr0 = info->ctrl_regs.cr0;
+  guest_state->cr2 = info->ctrl_regs.cr2;
+  guest_state->cr3 = info->ctrl_regs.cr3;
+  guest_state->cr4 = info->ctrl_regs.cr4;
+  guest_ctrl->guest_ctrl.V_TPR = info->ctrl_regs.cr8 & 0xff;
+  guest_state->rflags = info->ctrl_regs.rflags;
+
 
   guest_state->rax = info->vm_regs.rax;
   guest_state->rip = info->rip;
   guest_state->rsp = info->vm_regs.rsp;
+
+
+  set_vmcb_segments((vmcb_t*)(info->vmm_data), &(info->segments));
 
   if (exit_code == VMEXIT_INTR) {
     PrintDebug("INTR ret IP = %x\n", guest_state->rip);

@@ -2,7 +2,7 @@
 #define __VMCB_H
 
 #include <palacios/vmm_types.h>
-
+#include <palacios/vm_guest.h>
 
 #define VMCB_CTRL_AREA_OFFSET                   0x0
 #define VMCB_STATE_SAVE_AREA_OFFSET             0x400
@@ -356,5 +356,8 @@ typedef struct VMCB_State_Save_Area {
 
 void PrintDebugVMCB(vmcb_t * vmcb);
 
+
+void set_vmcb_segments(vmcb_t * vmcb, struct v3_segments * segs);
+void get_vmcb_segments(vmcb_t * vmcb, struct v3_segments * segs);
 
 #endif

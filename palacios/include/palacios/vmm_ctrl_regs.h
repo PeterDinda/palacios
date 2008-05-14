@@ -2,6 +2,8 @@
 #define __VMM_CTRL_REGS_H
 
 
+#include <palacios/vm_guest.h>
+
 struct cr0_real {
   uint_t pe    : 1;
   uint_t mp    : 1;
@@ -142,6 +144,30 @@ struct rflags {
   uint_t rsvd5             : 10; // Read as 0
   uint_t rsvd6             : 32; // Read as 0
 };
+
+
+
+
+
+// First opcode byte
+static const uchar_t cr_access_byte = 0x0f;
+
+// Second opcode byte
+static const uchar_t lmsw_byte = 0x01;
+static const uchar_t lmsw_reg_byte = 0x6;
+static const uchar_t smsw_byte = 0x01;
+static const uchar_t smsw_reg_byte = 0x4;
+static const uchar_t clts_byte = 0x06;
+static const uchar_t mov_to_cr_byte = 0x22;
+static const uchar_t mov_from_cr_byte = 0x20;
+
+
+
+int handle_cr0_write(struct guest_info * info);
+int handle_cr0_read(struct guest_info * info);
+
+int handle_cr3_write(struct guest_info * info);
+int handle_cr3_read(struct guest_info * info);
 
 
 #endif

@@ -57,7 +57,7 @@ int handle_svm_io_ins(struct guest_info * info) {
   
   vmm_io_hook_t * hook = get_io_hook(&(info->io_map), io_info->port);
   uint_t read_size = 0;
-  addr_t base_addr = guest_state->es.base ;
+
   addr_t dst_addr = 0;
   uint_t rep_num = 1;
   ullong_t mask = 0;
@@ -110,7 +110,7 @@ int handle_svm_io_ins(struct guest_info * info) {
 
   while (rep_num > 0) {
     addr_t host_addr;
-    dst_addr = get_addr_linear(info, info->vm_regs.rdi & mask, base_addr);
+    dst_addr = get_addr_linear(info, info->vm_regs.rdi & mask, &(info->segments.es));
     
     if (guest_va_to_host_va(info, dst_addr, &host_addr) == -1) {
       // either page fault or gpf...
@@ -185,7 +185,7 @@ int handle_svm_io_outs(struct guest_info * info) {
   
   vmm_io_hook_t * hook = get_io_hook(&(info->io_map), io_info->port);
   uint_t write_size = 0;
-  addr_t base_addr = guest_state->ds.base;
+
   addr_t dst_addr = 0;
   uint_t rep_num = 1;
   ullong_t mask = 0;
@@ -237,7 +237,7 @@ int handle_svm_io_outs(struct guest_info * info) {
 
   while (rep_num > 0) {
     addr_t host_addr;
-    dst_addr = get_addr_linear(info, (info->vm_regs.rsi & mask), base_addr);
+    dst_addr = get_addr_linear(info, (info->vm_regs.rsi & mask), &(info->segments.ds));
     
     if (guest_va_to_host_va(info, dst_addr, &host_addr) == -1) {
       // either page fault or gpf...

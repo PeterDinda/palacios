@@ -19,7 +19,7 @@ extern uint_t cpuid_edx(uint_t op);
 extern void Get_MSR(uint_t MSR, uint_t * high_byte, uint_t * low_byte); 
 extern void Set_MSR(uint_t MSR, uint_t high_byte, uint_t low_byte);
 extern uint_t launch_svm(vmcb_t * vmcb_addr);
-extern void safe_svm_launch(vmcb_t * vmcb_addr, struct guest_gprs * gprs);
+extern void safe_svm_launch(vmcb_t * vmcb_addr, struct v3_gprs * gprs);
 
 extern void STGI();
 extern void CLGI();
@@ -163,11 +163,9 @@ int start_svm_guest(struct guest_info *info) {
 
       PrintDebug("RIP: %x\n", guest_state->rip);
 
-      if (info->cpu_mode == REAL) {
-	linear_addr = get_addr_linear(info, guest_state->rip, guest_state->cs.selector);
-      } else {
-	linear_addr = get_addr_linear(info, guest_state->rip, guest_state->cs.base);
-      }
+
+      linear_addr = get_addr_linear(info, guest_state->rip, &(info->segments.cs));
+
 
       PrintDebug("RIP Linear: %x\n", linear_addr);
 

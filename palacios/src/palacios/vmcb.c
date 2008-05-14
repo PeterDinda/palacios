@@ -3,6 +3,69 @@
 #include <palacios/vmm_util.h>
 
 
+
+void set_vmcb_segment(struct vmcb_selector * vmcb_seg, struct v3_segment * seg) {
+  vmcb_seg->selector = seg->selector;
+  vmcb_seg->limit = seg->limit;
+  vmcb_seg->base = seg->base;
+  vmcb_seg->attrib.fields.type = seg->type;
+  vmcb_seg->attrib.fields.S = seg->system;
+  vmcb_seg->attrib.fields.dpl = seg->dpl;
+  vmcb_seg->attrib.fields.P = seg->present;
+  vmcb_seg->attrib.fields.avl = seg->avail;
+  vmcb_seg->attrib.fields.L = seg->long_mode;
+  vmcb_seg->attrib.fields.db = seg->db;
+  vmcb_seg->attrib.fields.G = seg->granularity;
+}
+
+
+void get_vmcb_segment(struct vmcb_selector * vmcb_seg, struct v3_segment * seg) {
+  seg->selector = vmcb_seg->selector;
+  seg->limit = vmcb_seg->limit;
+  seg->base = vmcb_seg->base;
+  seg->type = vmcb_seg->attrib.fields.type;
+  seg->system = vmcb_seg->attrib.fields.S;
+  seg->dpl = vmcb_seg->attrib.fields.dpl;
+  seg->present = vmcb_seg->attrib.fields.P;
+  seg->avail = vmcb_seg->attrib.fields.avl;
+  seg->long_mode = vmcb_seg->attrib.fields.L;
+  seg->db = vmcb_seg->attrib.fields.db;
+  seg->granularity = vmcb_seg->attrib.fields.G;
+}
+
+
+void set_vmcb_segments(vmcb_t * vmcb, struct v3_segments * segs) {
+  vmcb_saved_state_t * guest_area = GET_VMCB_SAVE_STATE_AREA(vmcb);
+
+  set_vmcb_segment(&(guest_area->cs), &(segs->cs));
+  set_vmcb_segment(&(guest_area->ds), &(segs->ds));
+  set_vmcb_segment(&(guest_area->es), &(segs->es));
+  set_vmcb_segment(&(guest_area->fs), &(segs->fs));
+  set_vmcb_segment(&(guest_area->gs), &(segs->gs));
+  set_vmcb_segment(&(guest_area->ss), &(segs->ss));
+  set_vmcb_segment(&(guest_area->ldtr), &(segs->ldtr));
+  set_vmcb_segment(&(guest_area->gdtr), &(segs->gdtr));
+  set_vmcb_segment(&(guest_area->idtr), &(segs->idtr));
+  set_vmcb_segment(&(guest_area->tr), &(segs->tr));
+}
+
+
+void get_vmcb_segments(vmcb_t * vmcb, struct v3_segments * segs) {
+  vmcb_saved_state_t * guest_area = GET_VMCB_SAVE_STATE_AREA(vmcb);
+
+  get_vmcb_segment(&(guest_area->cs), &(segs->cs));
+  get_vmcb_segment(&(guest_area->ds), &(segs->ds));
+  get_vmcb_segment(&(guest_area->es), &(segs->es));
+  get_vmcb_segment(&(guest_area->fs), &(segs->fs));
+  get_vmcb_segment(&(guest_area->gs), &(segs->gs));
+  get_vmcb_segment(&(guest_area->ss), &(segs->ss));
+  get_vmcb_segment(&(guest_area->ldtr), &(segs->ldtr));
+  get_vmcb_segment(&(guest_area->gdtr), &(segs->gdtr));
+  get_vmcb_segment(&(guest_area->idtr), &(segs->idtr));
+  get_vmcb_segment(&(guest_area->tr), &(segs->tr));
+}
+
+
 void PrintDebugVMCB(vmcb_t * vmcb) {
   reg_ex_t tmp_reg;
 
