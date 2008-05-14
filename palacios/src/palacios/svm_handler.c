@@ -172,22 +172,39 @@ int handle_svm_exit(struct guest_info * info) {
 
   // Update the low level state
 
-  if (intr_pending(&(info->intr_state))) {
+  if (intr_pending(info)) {
 
-    switch (get_intr_type(&(info->intr_state))) {
-    case EXTERNAL_IRQ:
-      guest_ctrl->EVENTINJ.vector = get_intr_number(&(info->intr_state));
-      guest_ctrl->EVENTINJ.valid = 1;
-      guest_ctrl->EVENTINJ.type = SVM_INJECTION_EXTERNAL_INTR;
-      
-      break;
+    switch (get_intr_type(info)) {
+    case EXTERNAL_IRQ: 
+      {
+	uint_t irq = get_intr_number(info);
+	guest_ctrl->EVENTINJ.vector = irq;
+	guest_ctrl->EVENTINJ.valid = 1;
+	guest_ctrl->EVENTINJ.type = SVM_INJECTION_EXTERNAL_INTR;
+	
+	injecting_intr(info, irq, EXTERNAL_IRQ);
+	
+	break;
+      }
     case NMI:
       guest_ctrl->EVENTINJ.type = SVM_INJECTION_NMI;
       break;
     case EXCEPTION:
-      guest_ctrl->EVENTINJ.type = SVM_INJECTION_EXCEPTION;
-      guest_ctrl->EVENTINJ.error_code = info->intr_state.excp_error_code;
-      break;
+      {
+	uint_t excp = get_intr_number(info);
+
+	guest_ctrl->EVENTINJ.type = SVM_INJECTION_EXCEPTION;
+	
+	if (info->intr_state.excp_error_code) {
+	  guest_ctrl->EVENTINJ.error_code = info->intr_state.excp_error_code;
+	  guest_ctrl->EVENTINJ.ev = 1;
+	}
+	
+	guest_ctrl->EVENTINJ.vector = excp;
+	
+	injecting_intr(info, excp, EXCEPTION);
+	break;
+      }
     case SOFTWARE:
       guest_ctrl->EVENTINJ.type = SVM_INJECTION_SOFT_INTR;
       break;
@@ -203,7 +220,7 @@ int handle_svm_exit(struct guest_info * info) {
 
 
     PrintDebug("Injecting Interrupt %d (EIP=%x)\n", guest_ctrl->EVENTINJ.vector, info->rip);
- 
+
 
     // IMPORTANT TODO
     // We need to figure out stack parameters....

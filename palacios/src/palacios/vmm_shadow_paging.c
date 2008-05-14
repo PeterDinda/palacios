@@ -47,13 +47,12 @@ int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_er
   guest_pde_access = can_access_pde32(guest_pde, fault_addr, error_code);
 
   if (guest_pde_access != PT_ACCESS_OK) {
-
-    //
     // inject page fault to the guest (Guest PDE fault)
-    //
 
-    PrintDebug("Guest Page fault (currently not handled)\n");
-    return -1;
+    info->ctrl_regs.cr2 = fault_addr;
+    raise_exception_with_error(info, PF_EXCEPTION, *(uint_t *)&error_code);
+
+    return 0;
   }
 
   shadow_pde_access = can_access_pde32(shadow_pde, fault_addr, error_code);
@@ -111,7 +110,11 @@ int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_er
     
     if (guest_pa_to_host_va(info, PDE32_T_ADDR((*guest_pde_entry)), (addr_t*)&guest_pte) == -1) {
       PrintDebug("Invalid Guest PTE Address: 0x%x\n", PDE32_T_ADDR((*guest_pde_entry)));
-      return -1;
+      // Machine check the guest
+
+      raise_exception(info, MC_EXCEPTION);
+      
+      return 0;
     }
 
 
@@ -121,7 +124,14 @@ int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_er
     }
 
  } else {
-    PrintDebug("Unknown Error\n");
+    // Unknown error raise page fault in guest
+    info->ctrl_regs.cr2 = fault_addr;
+    raise_exception_with_error(info, PF_EXCEPTION, *(uint_t *)&error_code);
+
+    // For debugging we will return an error here for the time being, 
+    // this probably shouldn't ever happen
+    PrintDebug("Unknown Error occurred\n");
+    PrintDebug("Manual Says to inject page fault into guest\n");
     return -1;
   }
 
@@ -135,7 +145,7 @@ int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_er
 /* 
  * We assume the the guest pte pointer has already been translated to a host virtual address
  */
-int handle_shadow_pte32_fault(struct guest_info* info, 
+int handle_shadow_pte32_fault(struct guest_info * info, 
 			      addr_t fault_addr, 
 			      pf_error_t error_code,
 			      pte32_t * shadow_pte, 
@@ -150,32 +160,36 @@ int handle_shadow_pte32_fault(struct guest_info* info,
   // Check the guest page permissions
   guest_pte_access = can_access_pte32(guest_pte, fault_addr, error_code);
 
+  
   if (guest_pte_access != PT_ACCESS_OK) {
-
-    //
-    // Inject page fault into the guest		
-    //
-
-    PrintDebug("Guest Page fault (currently not handled)\n");
-    return -1;
+    // Inject page fault into the guest	
+    
+    info->ctrl_regs.cr2 = fault_addr;
+    raise_exception_with_error(info, PF_EXCEPTION, *(uint_t *)&error_code);
+    
+    return 0;
   }
-
+  
+  
   shadow_pte_access = can_access_pte32(shadow_pte, fault_addr, error_code);
 
-  if (shadow_pte_access == PT_ENTRY_NOT_PRESENT) {
+  if (shadow_pte_access == PT_ACCESS_OK) {
+    // Inconsistent state...
+    // Guest Re-Entry will flush page tables and everything should now work
+    return 0;
+  } else if (shadow_pte_access == PT_ENTRY_NOT_PRESENT) {
     addr_t shadow_pa;
     addr_t guest_pa = PTE32_T_ADDR((*guest_pte_entry));
 
     // Page Table Entry Not Present
 
     if (get_shadow_addr_type(info, guest_pa) == HOST_REGION_INVALID) {
-
-      //
       // Inject a machine check in the guest
-      //
+
+      raise_exception(info, MC_EXCEPTION);
 
       PrintDebug("Invalid Guest Address in page table (0x%x)\n", guest_pa);
-      return -1;
+      return 0;
     }
 
     shadow_pa = get_shadow_addr(info, guest_pa);
@@ -202,28 +216,20 @@ int handle_shadow_pte32_fault(struct guest_info* info,
       shadow_pte_entry->writable = 0;
     }
 
-  } else if (shadow_pte_access == PT_WRITE_ERROR) {
+  } else if ((shadow_pte_access == PT_WRITE_ERROR) &&
+	     (guest_pte_entry->dirty == 0)) {
+    guest_pte_entry->dirty = 1;
+    shadow_pte_entry->writable = guest_pte_entry->writable;
 
-    //
-    // Page Table Entry marked read-only
-    //
-
-    PrintDebug("Shadow Paging Write Error\n");
-    return -1;
-  } else if (shadow_pte_access == PT_USER_ERROR) {
-
-    //
-    // Page Table Entry marked non-user
-    //
-
-    PrintDebug("Shadow Paging User access error\n");
-    return -1;
-  } else if (shadow_pte_access == PT_ACCESS_OK) {
-
-    PrintDebug("Page Fault occurred for No Reason\n");
-    return -1;
+    return 0;
   } else {
-    PrintDebug("Unknown Error\n");
+    // Inject page fault into the guest	
+	
+    info->ctrl_regs.cr2 = fault_addr;
+    raise_exception_with_error(info, PF_EXCEPTION, *(uint_t *)&error_code);
+
+    PrintDebug("PTE Page fault fell through... Not sure if this should ever happen\n");
+    PrintDebug("Manual Says to inject page fault into guest\n");
     return -1;
   }
 
