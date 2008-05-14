@@ -161,16 +161,16 @@ static int pic_get_intr_number(void * private_data) {
   for (i = 0; i < 16; i++) {
     if (i <= 7) {
       if (((state->master_irr & ~(state->master_imr)) >> i) == 0x01) {
-	state->master_isr |= (0x1 << i);
+	//state->master_isr |= (0x1 << i);
 	// reset the irr
-	state->master_irr &= ~(0x1 << i);
+	//state->master_irr &= ~(0x1 << i);
 	PrintDebug("IRQ: %d, icw2: %x\n", i, state->master_icw2);
 	return i + state->master_icw2;
       }
     } else {
       if (((state->slave_irr & ~(state->slave_imr)) >> (i - 8)) == 0x01) {
-	state->slave_isr |= (0x1 << (i - 8));
-	state->slave_irr &= ~(0x1 << (i - 8));
+	//state->slave_isr |= (0x1 << (i - 8));
+	//state->slave_irr &= ~(0x1 << (i - 8));
 	return (i - 8) + state->slave_icw2;
       }
     }
@@ -180,7 +180,21 @@ static int pic_get_intr_number(void * private_data) {
 }
 
 
+
+
+
 static int pic_begin_irq(void * private_data, int irq) {
+  struct pic_internal * state = (struct pic_internal*)private_data;
+
+  if (irq <= 7) {
+    if (((state->master_irr & ~(state->master_imr)) >> irq) == 0x01) {
+      state->master_isr |= (0x1 << irq);
+      state->master_irr &= ~(0x1 << irq);
+    }
+  } else {
+    state->slave_isr |= (0x1 << (irq - 8));
+    state->slave_irr &= ~(0x1 << (irq - 8));
+  }
 
   return 0;
 }

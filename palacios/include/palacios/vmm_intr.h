@@ -25,13 +25,16 @@
 #define SX_EXCEPTION          0x1e
 
 
-typedef enum {INVALID_INTR, EXTERNAL_IRQ, NMI, EXCEPTION, SOFTWARE, VIRTUAL} intr_types_t;
+typedef enum {INVALID_INTR, EXTERNAL_IRQ, NMI, EXCEPTION, SOFTWARE, VIRTUAL} intr_type_t;
 
 struct guest_info;
 
 struct vm_intr {
+
+  /* We need to rework the exception state, to handle stacking */
   uint_t excp_pending;
   uint_t excp_num;
+  uint_t excp_error_code_valid : 1;
   uint_t excp_error_code;
   
   struct intr_ctrl_ops * controller;
@@ -58,10 +61,13 @@ void init_interrupt_state(struct guest_info * info);
 void set_intr_controller(struct guest_info * info, struct intr_ctrl_ops * ops, void * state);
 
 int raise_exception(struct guest_info * info, uint_t excp);
+int raise_exception_with_error(struct guest_info * info, uint_t excp, uint_t error_code);
 
-int intr_pending(struct vm_intr * intr);
-uint_t get_intr_number(struct vm_intr * intr);
-intr_types_t get_intr_type(struct vm_intr * intr);
+int intr_pending(struct guest_info * info);
+uint_t get_intr_number(struct guest_info * info);
+intr_type_t get_intr_type(struct guest_info * info);
+
+int injecting_intr(struct guest_info * info, uint_t intr_num, intr_type_t type);
 
 /*
 int start_irq(struct vm_intr * intr);
