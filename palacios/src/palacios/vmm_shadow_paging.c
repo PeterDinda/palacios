@@ -106,7 +106,7 @@ int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_er
     pte32_t * shadow_pte = (pte32_t *)PDE32_T_ADDR((*shadow_pde_entry));
     pte32_t * guest_pte = NULL;
 
-    // Page Table entry fault
+    // Page Table Entry fault
     
     if (guest_pa_to_host_va(info, PDE32_T_ADDR((*guest_pde_entry)), (addr_t*)&guest_pte) == -1) {
       PrintDebug("Invalid Guest PTE Address: 0x%x\n", PDE32_T_ADDR((*guest_pde_entry)));
@@ -250,6 +250,8 @@ addr_t create_new_shadow_pt32(struct guest_info * info) {
 
 
 
+/* Deprecated */
+/*
 addr_t setup_shadow_pt32(struct guest_info * info, addr_t virt_cr3) {
   addr_t cr3_guest_addr = CR3_TO_PDE32(virt_cr3);
   pde32_t * guest_pde;
@@ -326,4 +328,4 @@ addr_t setup_shadow_pte32(struct guest_info * info, addr_t pt_host_addr) {
   return (addr_t)host_pte;
 }
 
-
+*/

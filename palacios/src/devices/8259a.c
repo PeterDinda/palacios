@@ -180,11 +180,18 @@ static int pic_get_intr_number(void * private_data) {
 }
 
 
-
-
-
+/* The IRQ number is the number returned by pic_get_intr_number(), not the pin number */
 static int pic_begin_irq(void * private_data, int irq) {
   struct pic_internal * state = (struct pic_internal*)private_data;
+
+  if ((irq >= state->master_icw2) && (irq <= state->master_icw2 + 7)) {
+    irq &= 0x7;
+  } else if ((irq >= state->slave_icw2) && (irq <= state->slave_icw2 + 7)) {
+    irq &= 0x7;
+    irq += 8;
+  } else {
+    return -1;
+  }
 
   if (irq <= 7) {
     if (((state->master_irr & ~(state->master_imr)) >> irq) == 0x01) {

@@ -7,8 +7,6 @@
 #include <palacios/vmm_intr.h>
 
 
-extern struct vmm_os_hooks * os_hooks;
-
 
 int handle_svm_exit(struct guest_info * info) {
   vmcb_ctrl_t * guest_ctrl = 0;
@@ -23,7 +21,7 @@ int handle_svm_exit(struct guest_info * info) {
   info->rip = guest_state->rip;
   info->vm_regs.rsp = guest_state->rsp;
   info->vm_regs.rax = guest_state->rax;
-  info->vm_regs.rsp = guest_state->rsp;  
+
 
 
   info->ctrl_regs.cr0 = guest_state->cr0;
@@ -103,20 +101,18 @@ int handle_svm_exit(struct guest_info * info) {
     
     PrintDebug("PageFault at %x (error=%d)\n", fault_addr, *error_code);
 
-  
-
-    if (handle_shadow_pagefault(info, fault_addr, *error_code) == -1) {
+    if (info->page_mode == SHADOW_PAGING) {
+      if (handle_shadow_pagefault(info, fault_addr, *error_code) == -1) {
+	return -1;
+      }
+    } else {
+      PrintDebug("Page fault in un implemented paging mode\n");
       return -1;
     }
 
     /*
-      } else if (( (exit_code == VMEXIT_CR3_READ)  ||
-      (exit_code == VMEXIT_CR3_WRITE) ||
       (exit_code == VMEXIT_INVLPG)    ||
       (exit_code == VMEXIT_INVLPGA)   || 
-      (exit_code == VMEXIT_EXCP14)) && 
-      (info->page_mode == SHADOW_PAGING)) {
-      handle_shadow_paging(info);
     */
     
   } else if (exit_code == VMEXIT_INTR) {
@@ -218,15 +214,7 @@ int handle_svm_exit(struct guest_info * info) {
       return -1;
     }
 
-
     PrintDebug("Injecting Interrupt %d (EIP=%x)\n", guest_ctrl->EVENTINJ.vector, info->rip);
-
-
-    // IMPORTANT TODO
-    // We need to figure out stack parameters....
-
-    //EVENTINJ.error_code
-
   }
 
 
@@ -252,34 +240,3 @@ int handle_svm_exit(struct guest_info * info) {
   return 0;
 }
 
-
-
-
-int handle_shadow_paging(struct guest_info * info) {
-  vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
-  //  vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
-
-  if (guest_ctrl->exit_code == VMEXIT_CR3_READ) {
-
-  }
-
-  return 0;
-}
-
-
-
-int handle_svm_intr(struct guest_info * info) {
-  vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
-  // vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
-
-  //struct Interrupt_Info * int_info = &(guest_ctrl->exit_int_info);
-
-  //struct vmm_irq_hook * get_irq_hook(&(info->irq_map), int_info->vector);
-
-  PrintDebug("SVM Returned: Exit Code: %x\n",guest_ctrl->exit_code); 
-  PrintDebug("V_INTR_VECTOR: 0x%x\n", guest_ctrl->guest_ctrl.V_INTR_VECTOR);
-
-  while(1);
-    
-  return 0;
-}
