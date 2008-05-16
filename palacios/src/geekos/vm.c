@@ -9,6 +9,7 @@
 #include <devices/timer.h>
 #include <devices/simple_pic.h>
 #include <devices/8259a.h>
+#include <devices/keyboard.h>
 
 #include <palacios/vmm_intr.h>
 #include <palacios/vmm_dev_mgr.h>
@@ -315,16 +316,26 @@ int RunVMM(struct Boot_Info * bootInfo) {
 	struct vm_device * nvram = create_nvram();
 	//struct vm_device * timer = create_timer();
 	struct vm_device * pic = create_pic();
+	struct vm_device * keyboard = create_keyboard();
 
 	attach_device(&(vm_info), nvram);
 	//attach_device(&(vm_info), timer);
 	attach_device(&(vm_info), pic);
+	attach_device(&(vm_info), keyboard);
 
 	PrintDebugDevMgr(&(vm_info.dev_mgr));
       }
 
+      // give keyboard interrupts to vm
+      //hook_irq(&vm_info, 1);
+      
+      // give floppy controller to vm
       hook_irq(&vm_info, 6);
+
+      // primary ide
       hook_irq(&vm_info, 14);
+
+      // secondary ide
       hook_irq(&vm_info, 15);
 
 

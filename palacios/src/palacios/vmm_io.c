@@ -40,7 +40,6 @@ int add_io_hook(vmm_io_map_t * io_map, vmm_io_hook_t * io_hook) {
     if (tmp_hook->port == io_hook->port) {
       //tmp_hook->read = io_hook->read;
       //tmp_hook->write = io_hook->write;
-      
       //V3_Free(io_hook);
       return -1;
     } else {

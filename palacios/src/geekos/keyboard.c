@@ -1,7 +1,7 @@
 /*
  * Keyboard driver
  * Copyright (c) 2001,2004 David H. Hovemeyer <daveho@cs.umd.edu>
- * $Revision: 1.1 $
+ * $Revision: 1.2 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -165,6 +165,8 @@ static void Keyboard_Interrupt_Handler(struct Interrupt_State* state)
     Keycode keycode;
 
     Begin_IRQ(state);
+
+    Print("Keybaord\n");
 
     status = In_Byte(KB_CMD);
     IO_Delay();

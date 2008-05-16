@@ -135,6 +135,7 @@ int dev_hook_io(struct vm_device   *dev,
     dev_mgr_add_io_hook(&(dev->vm->dev_mgr), hook);
     dev_add_io_hook(dev, hook);
   } else {
+
     return -1;
   }
 
