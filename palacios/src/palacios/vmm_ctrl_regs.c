@@ -411,6 +411,8 @@ int handle_cr3_write(struct guest_info * info) {
     int ret;
     char instr[15];
 
+
+    /* Isn't the RIP a Guest Virtual Address???????? */
     ret = read_guest_pa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
     if (ret != 15) {
       PrintDebug("Could not read instruction (ret=%d)\n", ret);

@@ -3,7 +3,7 @@
 
 #include <palacios/vmm.h>
 #include <palacios/vm_guest_mem.h>
-
+#include <palacios/vmm_emulate.h>
 
 
 
@@ -247,6 +247,72 @@ addr_t create_new_shadow_pt32(struct guest_info * info) {
   return (addr_t)host_pde;
 }
 
+
+
+/* Currently Does not work with Segmentation!!! */
+int handle_shadow_invlpg(struct guest_info * info) {
+  if (info->cpu_mode == PROTECTED_PG) {
+    char instr[15];
+    int ret;
+    int index = 0;
+
+    ret = read_guest_va_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
+    if (ret != 15) {
+      PrintDebug("Could not read instruction 0x%x (ret=%d)\n", info->rip, ret);
+      return -1;
+    }
+
+   
+    /* Can INVLPG work with Segments?? */
+    while (is_prefix_byte(instr[index])) {
+      index++;
+    }
+    
+    
+    if ((instr[index] == (uchar_t)0x0f) &&
+	(instr[index + 1] == (uchar_t)0x01)) {
+
+      addr_t first_operand;
+      addr_t second_operand;
+      operand_type_t addr_type;
+
+      index += 2;
+
+      addr_type = decode_operands32(&(info->vm_regs), instr + index, &index, &first_operand, &second_operand, REG32);
+
+      if (addr_type == MEM_OPERAND) {
+	pde32_t * shadow_pd = (pde32_t *)CR3_TO_PDE32(info->shdw_pg_state.shadow_cr3);
+	pde32_t * shadow_pde_entry = (pde32_t *)&shadow_pd[PDE32_INDEX(first_operand)];
+
+	//PrintDebug("PDE Index=%d\n", PDE32_INDEX(first_operand));
+	//PrintDebug("FirstOperand = %x\n", first_operand);
+
+	if (shadow_pde_entry->large_page == 1) {
+	  shadow_pde_entry->present = 0;
+	} else {
+	  if (shadow_pde_entry->present == 1) {
+	    pte32_t * shadow_pt = (pte32_t *)PDE32_T_ADDR((*shadow_pde_entry));
+	    pte32_t * shadow_pte_entry = (pte32_t *)&shadow_pt[PTE32_INDEX(first_operand)];
+
+	    shadow_pte_entry->present = 0;
+	  }
+	}
+
+	info->rip += index;
+
+      } else {
+	PrintDebug("Invalid Operand type\n");
+	return -1;
+      }
+    } else {
+      PrintDebug("invalid Instruction Opcode\n");
+      PrintTraceMemDump(instr, 15);
+      return -1;
+    }	     
+  }
+
+  return 0;
+}
 
 
 

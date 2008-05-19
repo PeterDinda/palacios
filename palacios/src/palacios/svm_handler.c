@@ -7,7 +7,6 @@
 #include <palacios/vmm_intr.h>
 
 
-
 int handle_svm_exit(struct guest_info * info) {
   vmcb_ctrl_t * guest_ctrl = 0;
   vmcb_saved_state_t * guest_state = 0;
@@ -22,6 +21,7 @@ int handle_svm_exit(struct guest_info * info) {
   info->vm_regs.rsp = guest_state->rsp;
   info->vm_regs.rax = guest_state->rax;
 
+  info->cpl = guest_state->cpl;
 
 
   info->ctrl_regs.cr0 = guest_state->cr0;
@@ -36,7 +36,7 @@ int handle_svm_exit(struct guest_info * info) {
 
   exit_code = guest_ctrl->exit_code;
  
-  PrintDebug("SVM Returned: Exit Code: %x\n",exit_code); 
+  //PrintDebug("SVM Returned: Exit Code: %x\n",exit_code); 
   // PrintDebugVMCB((vmcb_t*)(info->vmm_data));
 
 
@@ -110,8 +110,15 @@ int handle_svm_exit(struct guest_info * info) {
       return -1;
     }
 
+  } else if (exit_code == VMEXIT_INVLPG) {
+    if (info->page_mode == SHADOW_PAGING) {
+      PrintDebug("Invlpg\n");
+      if (handle_shadow_invlpg(info) == -1) {
+	return -1;
+      }
+    }
+   
     /*
-      (exit_code == VMEXIT_INVLPG)    ||
       (exit_code == VMEXIT_INVLPGA)   || 
     */
     
@@ -225,6 +232,8 @@ int handle_svm_exit(struct guest_info * info) {
   guest_ctrl->guest_ctrl.V_TPR = info->ctrl_regs.cr8 & 0xff;
   guest_state->rflags = info->ctrl_regs.rflags;
 
+
+  guest_state->cpl = info->cpl;
 
   guest_state->rax = info->vm_regs.rax;
   guest_state->rip = info->rip;

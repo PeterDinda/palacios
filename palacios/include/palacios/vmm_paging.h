@@ -112,8 +112,8 @@ the host state in the vmcs before entering the guest.
 
 
 /* Accessor functions for the page table structures */
-#define PDE32_T_ADDR(x) ((x.pt_base_addr) << 12)
-#define PTE32_T_ADDR(x) ((x.page_base_addr) << 12)
+#define PDE32_T_ADDR(x) (((x).pt_base_addr) << 12)
+#define PTE32_T_ADDR(x) (((x).page_base_addr) << 12)
 
 
 #endif

@@ -143,7 +143,7 @@ int start_svm_guest(struct guest_info *info) {
     CLGI();
 
     //PrintDebug("SVM Launch Args (vmcb=%x), (info=%x), (vm_regs=%x)\n", info->vmm_data,  &(info->vm_regs));
-    PrintDebug("Launching to RIP: %x\n", info->rip);
+    //PrintDebug("Launching to RIP: %x\n", info->rip);
     safe_svm_launch((vmcb_t*)(info->vmm_data), &(info->vm_regs));
     //launch_svm((vmcb_t*)(info->vmm_data));
     //PrintDebug("SVM Returned\n");
@@ -326,6 +326,8 @@ void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info vm_info) {
   guest_state->rsp = vm_info.vm_regs.rsp;
   // guest_state->rip = vm_info.rip;
   guest_state->rip = 0xfff0;
+
+  guest_state->cpl = 0;
 
   //ctrl_area->instrs.instrs.CR0 = 1;
   ctrl_area->cr_reads.cr0 = 1;

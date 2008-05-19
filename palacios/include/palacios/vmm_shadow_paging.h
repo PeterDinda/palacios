@@ -57,4 +57,7 @@ int handle_shadow_pte32_fault(struct guest_info* info,
 			      pte32_t * guest_pte);
 
 
+
+int handle_shadow_invlpg(struct guest_info * info);
+
 #endif

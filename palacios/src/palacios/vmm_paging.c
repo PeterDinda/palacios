@@ -41,8 +41,8 @@ void delete_page_tables_pde32(pde32_t * pde) {
  * The entry addresses could be pointing to either guest physical memory or host physical memory
  * Instead we just return the entry address, and a flag to show if it points to a pte or a large page...
  */
-pde32_entry_type_t pde32_lookup(pde32_t * pde, addr_t addr, addr_t * entry) {
-  pde32_t * pde_entry = &(pde[PDE32_INDEX(addr)]);
+pde32_entry_type_t pde32_lookup(pde32_t * pd, addr_t addr, addr_t * entry) {
+  pde32_t * pde_entry = &(pd[PDE32_INDEX(addr)]);
 
   if (!pde_entry->present) {
     *entry = 0;
@@ -54,6 +54,7 @@ pde32_entry_type_t pde32_lookup(pde32_t * pde, addr_t addr, addr_t * entry) {
       *entry += PAGE_OFFSET(addr);
       return PDE32_ENTRY_LARGE_PAGE;
     } else {
+      *entry = PDE32_T_ADDR(*pde_entry);
       return PDE32_ENTRY_PTE32;
     }
   }  
@@ -64,15 +65,15 @@ pde32_entry_type_t pde32_lookup(pde32_t * pde, addr_t addr, addr_t * entry) {
 
 /* Takes a virtual addr (addr) and returns the physical addr (entry) as defined in the page table
  */
-int pte32_lookup(pte32_t * pte, addr_t addr, addr_t * entry) {
-  pte32_t * pte_entry = &(pte[PTE32_INDEX(addr)]);
+int pte32_lookup(pte32_t * pt, addr_t addr, addr_t * entry) {
+  pte32_t * pte_entry = &(pt[PTE32_INDEX(addr)]);
 
   if (!pte_entry->present) {
     *entry = 0;
+    PrintDebug("Lookup at non present page (index=%d)\n", PTE32_INDEX(addr));
     return -1;
   } else {
-    *entry = PAGE_ADDR(pte_entry->page_base_addr);
-    *entry += PAGE_OFFSET(addr);
+    *entry = PTE32_T_ADDR(*pte_entry) + PT32_PAGE_OFFSET(addr);
     return 0;
   }
 
@@ -123,7 +124,6 @@ pde32_t * create_passthrough_pde32_pts(struct guest_info * guest_info) {
   ullong_t current_page_addr = 0;
   int i, j;
   struct shadow_map * map = &(guest_info->mem_map);
-
 
   pde32_t * pde = os_hooks->allocate_pages(1);
 

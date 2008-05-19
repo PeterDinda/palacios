@@ -304,7 +304,7 @@ int RunVMM(struct Boot_Info * bootInfo) {
       print_shadow_map(&(vm_info.mem_map));
 
       hook_io_port(&(vm_info.io_map), 0x61, &IO_Read, &IO_Write, NULL);
-      hook_io_port(&(vm_info.io_map), 0x05, &IO_Read, &IO_Write_to_Serial, NULL);
+      //hook_io_port(&(vm_info.io_map), 0x05, &IO_Read, &IO_Write_to_Serial, NULL);
 
 
       hook_io_port(&(vm_info.io_map), 0x400, &IO_Read, &IO_Write_to_Serial, NULL);

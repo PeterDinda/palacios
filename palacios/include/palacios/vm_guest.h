@@ -86,6 +86,8 @@ struct guest_info {
   ullong_t rip;
 
 
+  uint_t cpl;
+
   struct shadow_map mem_map;
 
   
