@@ -2,7 +2,7 @@
 #include <palacios/vmm_dev_mgr.h>
 #include <palacios/vm_guest.h>
 #include <palacios/vmm.h>
-#include <palacios/vmm_irq.h>
+
 
 extern struct vmm_os_hooks *os_hooks;
 
@@ -160,120 +160,6 @@ int dev_unhook_io(struct vm_device   *dev,
 }
 
 
-
-
-/* IRQ HOOKS */
-/*
-int dev_mgr_add_irq_hook(struct vmm_dev_mgr * mgr, struct dev_irq_hook * hook) {
-  list_add(&(hook->mgr_list), &(mgr->irq_hooks));
-  mgr->num_irq_hooks++;
-  return 0;
-}
-
-
-int dev_mgr_remove_irq_hook(struct vmm_dev_mgr * mgr, struct dev_irq_hook * hook) {
-  list_del(&(hook->mgr_list));
-  mgr->num_irq_hooks--;
-
-  return 0;
-}
-
-
-int dev_add_irq_hook(struct vm_device * dev, struct dev_irq_hook * hook) {
-  list_add(&(hook->dev_list), &(dev->irq_hooks));
-  dev->num_irq_hooks++;
-  return 0;
-}
-
-
-int dev_remove_irq_hook(struct vm_device * dev, struct dev_irq_hook * hook) {
-  list_del(&(hook->dev_list));
-  dev->num_irq_hooks--;
-
-  return 0;
-}
-
-
-
-
-
-struct dev_irq_hook * dev_mgr_find_irq_hook(struct vmm_dev_mgr * mgr, uint_t irq) {
-  struct dev_irq_hook * tmp;
-
-  list_for_each_entry(tmp, &(mgr->irq_hooks), mgr_list) {
-    if (tmp->irq == irq) {
-      return tmp;
-    }
-  }
-  return NULL;
-}
-
-struct dev_irq_hook * dev_find_irq_hook(struct vm_device * dev, uint_t irq) {
-  struct dev_irq_hook * tmp;
-
-  list_for_each_entry(tmp, &(dev->irq_hooks), dev_list) {
-    if (tmp->irq == irq) {
-      return tmp;
-    }
-  }
-  return NULL;
-}
-
-
-
-
-int dev_hook_irq(struct vm_device   *dev,
-		 uint_t irq,
-		 int (*handler)(uint_t irq, struct vm_device * dev)) {
-
-  struct dev_irq_hook *hook = os_hooks->malloc(sizeof(struct dev_irq_hook));
-  
-  if (!hook) { 
-    return -1;
-  }
-
-
-  if (hook_irq(&(dev->vm->irq_map), irq, 
-	       (int (*)(uint_t, void *))handler, 
-	       (void *)dev) == 0) {
-
-    hook->dev = dev;
-    hook->irq = irq;
-    hook->handler = handler;
-    
-    dev_mgr_add_irq_hook(&(dev->vm->dev_mgr), hook);
-    dev_add_irq_hook(dev, hook);
-  } else {
-    return -1;
-  }
-
-  return 0;
-}
-
-
-int dev_unhook_irq(struct vm_device * dev,
-		   uint_t irq) {
-
-  struct vmm_dev_mgr * mgr = &(dev->vm->dev_mgr);
-  struct dev_irq_hook * hook = dev_mgr_find_irq_hook(mgr, irq);
-
-  if (!hook) { 
-    return -1;
-  }
-
-  dev_mgr_remove_irq_hook(mgr, hook);
-  dev_remove_irq_hook(dev, hook);
-
-  return unhook_irq(&(dev->vm->irq_map), irq);
-}
-
-
-*/
-
-
-
-
-
 int attach_device(struct guest_info * vm, struct vm_device * dev) {
   struct vmm_dev_mgr *mgr= &(vm->dev_mgr);
   
@@ -304,15 +190,12 @@ int dev_mgr_hook_mem(struct guest_info    *vm,
 		     void               *end)
 {
 
-  struct dev_mem_hook *hook;
-  V3_Malloc(struct dev_mem_hook *, hook,sizeof(struct dev_mem_hook));
-  
+  struct dev_mem_hook * hook = (struct dev_mem_hook*)V3_Malloc(sizeof(struct dev_mem_hook));
+  //  V3_Malloc(struct dev_mem_hook *, hook,sizeof(struct dev_mem_hook));
+
   if (!hook) { 
     return -1;
   }
-
-
-    
 
   /* not implemented yet
   hook_memory(vm->mem_map, 

@@ -40,7 +40,9 @@ static struct vm_device_ops dev_ops = {
 
 struct vm_device * create_timer() {
   struct timer_state * timer = NULL;
-  V3_Malloc(struct timer_state *, timer, sizeof(struct timer_state));
+  timer = (struct timer_state *)V3_Malloc( sizeof(struct timer_state));
+  V3_ASSERT(timer != NULL);
+
   struct vm_device * dev = create_device("Timer", &dev_ops, timer);
   
   return dev;

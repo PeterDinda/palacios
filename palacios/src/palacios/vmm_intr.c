@@ -62,7 +62,7 @@ int raise_exception(struct guest_info * info, uint_t excp) {
 }
 
 
-int raise_irq(struct guest_info * info, int irq, int error_code) {
+int raise_irq(struct guest_info * info, int irq) {
   // Look up PIC and resend
   V3_ASSERT(info);
   V3_ASSERT(info->intr_state.controller);
@@ -70,7 +70,7 @@ int raise_irq(struct guest_info * info, int irq, int error_code) {
 
   //  if ((info->intr_state.controller) && 
   //  (info->intr_state.controller->raise_intr)) {
-    info->intr_state.controller->raise_intr(info->intr_state.controller_state, irq, error_code);
+    info->intr_state.controller->raise_intr(info->intr_state.controller_state, irq);
     //} else {
     // PrintDebug("There is no registered Interrupt Controller... (NULL POINTER)\n");
     // return -1;

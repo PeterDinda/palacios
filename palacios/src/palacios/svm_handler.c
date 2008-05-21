@@ -36,7 +36,12 @@ int handle_svm_exit(struct guest_info * info) {
 
   exit_code = guest_ctrl->exit_code;
  
-  //PrintDebug("SVM Returned: Exit Code: %x\n",exit_code); 
+
+  // Disable printing io exits due to bochs debug messages
+  if (!((exit_code == VMEXIT_IOIO) && ((ushort_t)(guest_ctrl->exit_info1 >> 16) == 0x402))) {
+
+    PrintDebug("SVM Returned: Exit Code: %x \t\t(tsc=%ul)\n",exit_code, (uint_t)info->time_state.guest_tsc); 
+  }
   // PrintDebugVMCB((vmcb_t*)(info->vmm_data));
 
 

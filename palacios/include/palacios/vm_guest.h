@@ -10,7 +10,7 @@
 #include <palacios/vmm_shadow_paging.h>
 #include <palacios/vmm_intr.h>
 #include <palacios/vmm_dev_mgr.h>
-#include <palacios/vmm_irq.h>
+#include <palacios/vmm_time.h>
 
 
 typedef ullong_t v3_reg_t;
@@ -72,7 +72,7 @@ struct shadow_map;
 
 
 struct vm_ctrl_ops {
-  int (*raise_irq)(struct guest_info * info, int irq, int error_code);
+  int (*raise_irq)(struct guest_info * info, int irq);
 };
 
 
@@ -88,8 +88,10 @@ struct guest_info {
 
   uint_t cpl;
 
+
   struct shadow_map mem_map;
 
+  struct vm_time time_state;
   
   vm_page_mode_t page_mode;
   struct shadow_page_state shdw_pg_state;
@@ -99,8 +101,6 @@ struct guest_info {
   // This structure is how we get interrupts for the guest
   struct vm_intr intr_state;
 
-
-  // struct vmm_irq_map irq_map;
   vmm_io_map_t io_map;
   // device_map
 
@@ -114,6 +114,8 @@ struct guest_info {
   struct v3_segments segments;
 
   struct vm_ctrl_ops vm_ops;
+
+
 
   void * vmm_data;
 };

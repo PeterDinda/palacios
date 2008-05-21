@@ -1,6 +1,6 @@
 # Makefile for GeekOS kernel, userspace, and tools
 # Copyright (c) 2004,2005 David H. Hovemeyer <daveho@cs.umd.edu>
-# $Revision: 1.33 $
+# $Revision: 1.34 $
 
 # This is free software.  You are permitted to use,
 # redistribute, and modify it as specified in the file "COPYING".
@@ -124,7 +124,7 @@ VMM_ASM_OBJS := $(VMM_ASM_SRCS:%.asm=palacios/%.o)
 VMM_C_SRCS :=   vm_guest.c \
 	 	svm.c svm_handler.c vmm.c vmm_util.c vmm_ctrl_regs.c \
 		vmcb.c vmm_mem.c vmm_paging.c vmm_io.c vmm_debug.c svm_io.c \
-		vmm_intr.c vmm_irq.c\
+		vmm_intr.c vmm_time.c\
 		vmm_shadow_paging.c vm_guest_mem.c  \
                 vm_dev.c vmm_dev_mgr.c \
 #\
@@ -134,7 +134,7 @@ VMM_C_OBJS := $(VMM_C_SRCS:%.c=palacios/%.o)
 
 VMM_OBJS := $(VMM_C_OBJS) $(VMM_ASM_OBJS)
 
-DEVICE_C_SRCS :=  keyboard.c nvram.c timer.c simple_pic.c 8259a.c
+DEVICE_C_SRCS :=  keyboard.c nvram.c timer.c simple_pic.c 8259a.c 8254.c
 
 DEVICE_C_OBJS := $(DEVICE_C_SRCS:%.c=devices/%.o)
 
@@ -211,7 +211,7 @@ CC_GENERAL_OPTS := $(GENERAL_OPTS) -Werror
 CC_KERNEL_OPTS := -g -DGEEKOS -I$(PROJECT_ROOT)/include
 
 # Flags used for VMM C source files
-CC_VMM_OPTS := -g -I$(PROJECT_ROOT)/include -D__V3VEE__
+CC_VMM_OPTS := -g -I$(PROJECT_ROOT)/include -D__V3VEE__ -D__V3_32BIT__
 
 # Flags used for VMM C ASM files
 NASM_VMM_OPTS := -I$(PROJECT_ROOT)/src/palacios/ -f elf $(EXTRA_NASM_OPTS)

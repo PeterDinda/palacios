@@ -132,29 +132,33 @@ int init_svm_guest(struct guest_info *info) {
 
 // can we start a kernel thread here...
 int start_svm_guest(struct guest_info *info) {
-
-
+  vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
+  vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
 
   PrintDebug("Launching SVM VM (vmcb=%x)\n", info->vmm_data);
   //PrintDebugVMCB((vmcb_t*)(info->vmm_data));
 
   while (1) {
+    ullong_t tmp_tsc;
 
     CLGI();
 
+    rdtscll(info->time_state.cached_host_tsc);
+    guest_ctrl->TSC_OFFSET = info->time_state.guest_tsc - info->time_state.cached_host_tsc;
     //PrintDebug("SVM Launch Args (vmcb=%x), (info=%x), (vm_regs=%x)\n", info->vmm_data,  &(info->vm_regs));
     //PrintDebug("Launching to RIP: %x\n", info->rip);
     safe_svm_launch((vmcb_t*)(info->vmm_data), &(info->vm_regs));
     //launch_svm((vmcb_t*)(info->vmm_data));
     //PrintDebug("SVM Returned\n");
-
+    rdtscll(tmp_tsc);
+    info->time_state.guest_tsc += tmp_tsc - info->time_state.cached_host_tsc;
     
 
     STGI();
 
      
     if (handle_svm_exit(info) != 0) {
-      vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
+
       addr_t host_addr;
       addr_t linear_addr = 0;
 

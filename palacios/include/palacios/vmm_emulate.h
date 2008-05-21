@@ -6,12 +6,11 @@
 /*
  * This is where we do the hideous X86 instruction parsing among other things
  * We can parse out the instruction prefixes, as well as decode the operands 
-
  */
 
 
-/* JRL: Some of this was taken from the Xen sources... 
- *
+/* 
+ * JRL: Some of this was taken from the Xen sources... 
  */
 
 #define PACKED __attribute__((packed))

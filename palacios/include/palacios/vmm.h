@@ -53,7 +53,7 @@
   } while (0)						\
 
 
-
+/*
 #define V3_Malloc(type, var, size)			\
   do {							\
     extern struct vmm_os_hooks * os_hooks;		\
@@ -62,7 +62,16 @@
       var = (type)(os_hooks)->malloc(size);		\
     }							\
   } while (0)						\
+*/
 
+#define V3_Malloc(size) ({			\
+      extern struct vmm_os_hooks * os_hooks;	\
+      void * var = 0;				\
+      if ((os_hooks) && (os_hooks)->malloc) {	\
+	var = (os_hooks)->malloc(size);		\
+      }						\
+      var;					\
+    })
 
 // We need to check the hook structure at runtime to ensure its SAFE
 #define V3_Free(addr)					\
@@ -70,6 +79,14 @@
     extern struct vmm_os_hooks * os_hooks;		\
     if ((os_hooks) && (os_hooks)->free) {		\
       (os_hooks)->free(addr);				\
+    }							\
+  } while (0)						\
+
+#define V3_CPU_KHZ(khz)					\
+  do {							\
+    extern struct vmm_os_hooks * os_hooks;		\
+    if ((os_hooks) && (os_hooks)->get_cpu_khz) {	\
+      khz = (os_hooks)->get_cpu_khz();			\
     }							\
   } while (0)						\
 
@@ -112,8 +129,13 @@ struct vmm_os_hooks {
   int (*hook_interrupt)(struct guest_info * info, int irq);
   int (*ack_irq)(int irq);
 
+
+  unsigned int (*get_cpu_khz)();
+
   // Do we need this here?
-  void (*snprintf)(char * dst, char * format, int len, ...);
+  //  void (*snprintf)(char * dst, char * format, int len, ...);
+
+
 
   void (*start_kernel_thread)(); // include pointer to function
 };

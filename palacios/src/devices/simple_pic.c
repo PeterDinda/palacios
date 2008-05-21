@@ -5,7 +5,7 @@
 
 struct pic_internal {
   int pending_irq;
-  int error_code;
+
 };
 
 
@@ -15,11 +15,11 @@ static int pic_intr_pending(void * private_data) {
   return (data->pending_irq > 0);
 }
 
-static int pic_raise_intr(void * private_data, int irq, int error_code) {
+static int pic_raise_intr(void * private_data, int irq) {
   struct pic_internal * data = (struct pic_internal *)private_data;
 
   data->pending_irq = irq;
-  data->error_code = error_code;
+
 
   return 0;
 }
@@ -69,7 +69,8 @@ static struct vm_device_ops dev_ops = {
 
 struct vm_device * create_simple_pic() {
   struct pic_internal * state = NULL;
-  V3_Malloc(struct pic_internal *, state, sizeof(struct pic_internal));
+  state = (struct pic_internal *)V3_Malloc(sizeof(struct pic_internal));
+  V3_ASSERT(state != NULL);
 
   struct vm_device * pic_dev = create_device("Simple Pic", &dev_ops, state);
 

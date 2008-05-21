@@ -3,7 +3,7 @@
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
  * Copyright (c) 2004, Iulian Neamtiu <neamtiu@cs.umd.edu>
- * $Revision: 1.35 $
+ * $Revision: 1.36 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -173,10 +173,7 @@ int AllocateAndMapPagesForRange(uint_t start, uint_t length, pte_t template_pte)
  */
 void Main(struct Boot_Info* bootInfo)
 {
-  struct Kernel_Thread * key_thread;
-  struct Kernel_Thread * spkr_thread;
 
-  ulong_t doIBuzz = 0;
 
   Out_Byte(0x1234,5);
   Out_Byte(0x1234,5);
@@ -212,7 +209,14 @@ void Main(struct Boot_Info* bootInfo)
   */
 #endif
 
-#if 1
+#if 0
+  {
+
+  struct Kernel_Thread * key_thread;
+  struct Kernel_Thread * spkr_thread;
+
+  ulong_t doIBuzz = 0;
+
   SerialPrint("Dumping BIOS code ffff0-fffff\n\n");
   SerialMemDump((unsigned char *)0x10fff0, 16);
   /*
@@ -223,7 +227,7 @@ void Main(struct Boot_Info* bootInfo)
   SerialPrint("Noisemaker and keyboard listener threads\n");
   key_thread = Start_Kernel_Thread(Keyboard_Listener, (ulong_t)&doIBuzz, PRIORITY_NORMAL, false);
   spkr_thread = Start_Kernel_Thread(Buzzer, (ulong_t)&doIBuzz, PRIORITY_NORMAL, false);
-
+  }
 #endif
 
   {

@@ -29,6 +29,14 @@ typedef enum {INVALID_INTR, EXTERNAL_IRQ, NMI, EXCEPTION, SOFTWARE, VIRTUAL} int
 
 struct guest_info;
 
+
+
+/* We need a way to allow the APIC/PIC to decide when they are supposed to receive interrupts...
+ * Maybe a notification call when they have been turned on, to deliver irqs to them...
+ * We can rehook the guest raise_irq op, to the appropriate controller
+ */
+
+
 struct vm_intr {
 
   /* We need to rework the exception state, to handle stacking */
@@ -45,13 +53,13 @@ struct vm_intr {
 };
 
 
-int raise_irq(struct guest_info * info, int irq, int error_code);
+int raise_irq(struct guest_info * info, int irq);
 int hook_irq(struct guest_info * info, int irq);
 
 struct intr_ctrl_ops {
   int (*intr_pending)(void * private_data);
   int (*get_intr_number)(void * private_data);
-  int (*raise_intr)(void * private_data, int irq, int error_code);
+  int (*raise_intr)(void * private_data, int irq);
   int (*begin_irq)(void * private_data, int irq);
 };
 

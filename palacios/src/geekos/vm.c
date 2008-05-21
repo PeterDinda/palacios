@@ -9,17 +9,16 @@
 #include <devices/timer.h>
 #include <devices/simple_pic.h>
 #include <devices/8259a.h>
+#include <devices/8254.h>
 #include <devices/keyboard.h>
 
 #include <palacios/vmm_intr.h>
 #include <palacios/vmm_dev_mgr.h>
+#include <palacios/vmm_time.h>
 
 #define SPEAKER_PORT 0x61
 
-
-
-
-inline void VM_Out_Byte(ushort_t port, uchar_t value)
+static inline void VM_Out_Byte(ushort_t port, uchar_t value)
 {
     __asm__ __volatile__ (
 	"outb %b0, %w1"
@@ -31,7 +30,7 @@ inline void VM_Out_Byte(ushort_t port, uchar_t value)
 /*
  * Read a byte from an I/O port.
  */
-inline uchar_t VM_In_Byte(ushort_t port)
+static inline uchar_t VM_In_Byte(ushort_t port)
 {
     uchar_t value;
 
@@ -43,6 +42,7 @@ inline uchar_t VM_In_Byte(ushort_t port)
 
     return value;
 }
+
 
 
 
@@ -182,7 +182,7 @@ int RunVMM(struct Boot_Info * bootInfo) {
     os_hooks.paddr_to_vaddr = &Identity;
     os_hooks.hook_interrupt = &hook_irq_stub;
     os_hooks.ack_irq = &ack_irq;
- 
+    os_hooks.get_cpu_khz = &get_cpu_khz;
 
     Init_VMM(&os_hooks, &vmm_ops);
   
@@ -190,6 +190,7 @@ int RunVMM(struct Boot_Info * bootInfo) {
     /* MOVE THIS TO AN INIT GUEST ROUTINE */
     init_shadow_map(&(vm_info.mem_map));
     init_shadow_page_state(&(vm_info.shdw_pg_state));
+    v3_init_time(&(vm_info.time_state));
     vm_info.page_mode = SHADOW_PAGING;
 
     vm_info.cpu_mode = REAL;
@@ -316,12 +317,14 @@ int RunVMM(struct Boot_Info * bootInfo) {
 	struct vm_device * nvram = create_nvram();
 	//struct vm_device * timer = create_timer();
 	struct vm_device * pic = create_pic();
-	struct vm_device * keyboard = create_keyboard();
+	//struct vm_device * keyboard = create_keyboard();
+	struct vm_device * pit= create_pit();
 
 	attach_device(&(vm_info), nvram);
 	//attach_device(&(vm_info), timer);
 	attach_device(&(vm_info), pic);
-	attach_device(&(vm_info), keyboard);
+	attach_device(&(vm_info), pit);
+	//attach_device(&(vm_info), keyboard);
 
 	PrintDebugDevMgr(&(vm_info.dev_mgr));
       }

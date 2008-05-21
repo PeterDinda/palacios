@@ -1,7 +1,7 @@
 /*
  * Keyboard driver
  * Copyright (c) 2001,2004 David H. Hovemeyer <daveho@cs.umd.edu>
- * $Revision: 1.2 $
+ * $Revision: 1.3 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -166,7 +166,7 @@ static void Keyboard_Interrupt_Handler(struct Interrupt_State* state)
 
     Begin_IRQ(state);
 
-    Print("Keybaord\n");
+    //    Print("Keybaord\n");
 
     status = In_Byte(KB_CMD);
     IO_Delay();
@@ -264,7 +264,7 @@ void Init_Keyboard(void)
 {
     ushort_t irqMask;
 
-    Print("Initializing keyboard...\n");
+        Print("Initializing keyboard...\n");
 
     /* Start out with no shift keys enabled. */
     s_shiftState = 0;

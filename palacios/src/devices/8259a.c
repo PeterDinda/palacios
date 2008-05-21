@@ -11,8 +11,10 @@ static const uint_t MASTER_PORT2 = 0x21;
 static const uint_t SLAVE_PORT1 = 0xA0;
 static const uint_t SLAVE_PORT2 = 0xA1;
 
+#define IS_ICW1(x) (((x & 0x10) >> 4) == 0x1)
 #define IS_OCW2(x) (((x & 0x18) >> 3) == 0x0)
 #define IS_OCW3(x) (((x & 0x18) >> 3) == 0x1)
+
 
 struct icw1 {
   uint_t ic4    : 1;  // ICW4 has to be read
@@ -122,21 +124,21 @@ struct pic_internal {
 
 
 
-static int pic_raise_intr(void * private_data, int irq, int error_code) {
+static int pic_raise_intr(void * private_data, int irq) {
   struct pic_internal * state = (struct pic_internal*)private_data;
 
   if (irq == 2) {
     irq = 9;
   }
 
-  PrintDebug("Raising irq %d in the PIC\n", irq);
+  PrintDebug("8259 PIC: Raising irq %d in the PIC\n", irq);
 
   if (irq <= 7) {
     state->master_irr |= 0x01 << irq;
   } else if ((irq > 7) && (irq < 16)) {
     state->slave_irr |= 0x01 << (irq - 7);
   } else {
-    PrintDebug("Invalid IRQ raised (%d)\n", irq);
+    PrintDebug("8259 PIC: Invalid IRQ raised (%d)\n", irq);
     return -1;
   }
 
@@ -164,7 +166,7 @@ static int pic_get_intr_number(void * private_data) {
 	//state->master_isr |= (0x1 << i);
 	// reset the irr
 	//state->master_irr &= ~(0x1 << i);
-	PrintDebug("IRQ: %d, icw2: %x\n", i, state->master_icw2);
+	PrintDebug("8259 PIC: IRQ: %d, icw2: %x\n", i, state->master_icw2);
 	return i + state->master_icw2;
       }
     } else {
@@ -180,6 +182,7 @@ static int pic_get_intr_number(void * private_data) {
 }
 
 
+
 /* The IRQ number is the number returned by pic_get_intr_number(), not the pin number */
 static int pic_begin_irq(void * private_data, int irq) {
   struct pic_internal * state = (struct pic_internal*)private_data;
@@ -190,6 +193,7 @@ static int pic_begin_irq(void * private_data, int irq) {
     irq &= 0x7;
     irq += 8;
   } else {
+    PrintDebug("8259 PIC: Could not find IRQ to Begin\n");
     return -1;
   }
 
@@ -206,9 +210,9 @@ static int pic_begin_irq(void * private_data, int irq) {
   return 0;
 }
 
+
 /*
 static int pic_end_irq(void * private_data, int irq) {
-
   return 0;
 }
 */
@@ -225,8 +229,10 @@ static struct intr_ctrl_ops intr_ops = {
 
 int read_master_port1(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
   struct pic_internal * state = (struct pic_internal*)dev->private_data;
+
   if (length != 1) {
-    //error
+    PrintDebug("8259 PIC: Invalid Read length (rd_Master1)\n");
+    return -1;
   }
   
   if ((state->master_ocw3 & 0x03) == 0x02) {
@@ -242,8 +248,10 @@ int read_master_port1(ushort_t port, void * dst, uint_t length, struct vm_device
 
 int read_master_port2(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
   struct pic_internal * state = (struct pic_internal*)dev->private_data;
+
   if (length != 1) {
-    // error
+    PrintDebug("8259 PIC: Invalid Read length (rd_Master2)\n");
+    return -1;
   }
 
   *(char *)dst = state->master_imr;
@@ -254,8 +262,10 @@ int read_master_port2(ushort_t port, void * dst, uint_t length, struct vm_device
 
 int read_slave_port1(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
   struct pic_internal * state = (struct pic_internal*)dev->private_data;
+
   if (length != 1) {
-    // error
+    PrintDebug("8259 PIC: Invalid Read length (rd_Slave1)\n");
+    return -1;
   }
   
   if ((state->slave_ocw3 & 0x03) == 0x02) {
@@ -271,8 +281,10 @@ int read_slave_port1(ushort_t port, void * dst, uint_t length, struct vm_device 
 
 int read_slave_port2(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
   struct pic_internal * state = (struct pic_internal*)dev->private_data;
+
   if (length != 1) {
-    // error
+    PrintDebug("8259 PIC: Invalid Read length  (rd_Slave2)\n");
+    return -1;
   }
 
   *(char *)dst = state->slave_imr;
@@ -286,10 +298,11 @@ int write_master_port1(ushort_t port, void * src, uint_t length, struct vm_devic
   char cw = *(char *)src;
 
   if (length != 1) {
-    // error
+    PrintDebug("8259 PIC: Invalid Write length (wr_Master1)\n");
+    return -1;
   }
   
-  if (state->master_state == ICW1) {
+  if (IS_ICW1(cw)) {
     state->master_icw1 = cw;
     state->master_state = ICW2;
 
@@ -305,26 +318,31 @@ int write_master_port1(ushort_t port, void * src, uint_t length, struct vm_devic
       } else if ((cw2->EOI) & (!cw2->R) && (!cw2->SL)) {
 	int i;
 	// Non-specific EOI
-	PrintDebug("Pre ISR = %x\n", state->master_isr);
+	PrintDebug("8259 PIC: Pre ISR = %x (wr_Master1)\n", state->master_isr);
 	for (i = 0; i < 8; i++) {
 	  if (state->master_isr & (0x01 << i)) {
 	    state->master_isr &= ~(0x01 << i);
 	    break;
 	  }
 	}	
-       	PrintDebug("Post ISR = %x\n", state->master_isr);
+       	PrintDebug("8259 PIC: Post ISR = %x (wr_Master1)\n", state->master_isr);
       } else {
-	// error;
+	PrintDebug("8259 PIC: Command not handled, or in error (wr_Master1)\n");
+	return -1;
       }
 
       state->master_ocw2 = cw;
     } else if (IS_OCW3(cw)) {
       state->master_ocw3 = cw;
     } else {
-      // error
+      PrintDebug("8259 PIC: Invalid OCW to PIC (wr_Master1)\n");
+      PrintDebug("8259 PIC: CW=%x\n", cw);
+      return -1;
     }
   } else {
-    // error
+    PrintDebug("8259 PIC: Invalid PIC State (wr_Master1)\n");
+    PrintDebug("8259 PIC: CW=%x\n", cw);
+    return -1;
   }
 
   return 1;
@@ -335,13 +353,14 @@ int write_master_port2(ushort_t port, void * src, uint_t length, struct vm_devic
     char cw = *(char *)src;    
 
     if (length != 1) {
-      //error
+      PrintDebug("8259 PIC: Invalid Write length (wr_Master2)\n");
+      return -1;
     }
     
     if (state->master_state == ICW2) {
       struct icw1 * cw1 = (struct icw1 *)&(state->master_icw1);
 
-      PrintDebug("Setting ICW2 = %x\n", cw);
+      PrintDebug("8259 PIC: Setting ICW2 = %x (wr_Master2)\n", cw);
       state->master_icw2 = cw;
 
       if (cw1->sngl == 0) {
@@ -370,6 +389,8 @@ int write_master_port2(ushort_t port, void * src, uint_t length, struct vm_devic
       state->master_imr = cw;
     } else {
       // error
+      PrintDebug("8259 PIC: Invalid master PIC State (wr_Master2)\n");
+      return -1;
     }
 
     return 1;
@@ -381,9 +402,11 @@ int write_slave_port1(ushort_t port, void * src, uint_t length, struct vm_device
 
   if (length != 1) {
     // error
+    PrintDebug("8259 PIC: Invalid Write length (wr_Slave1)\n");
+    return -1;
   }
 
-  if (state->slave_state == ICW1) {
+  if (IS_ICW1(cw)) {
     state->slave_icw1 = cw;
     state->slave_state = ICW2;
   } else if (state->slave_state == READY) {
@@ -397,16 +420,17 @@ int write_slave_port1(ushort_t port, void * src, uint_t length, struct vm_device
       } else if ((cw2->EOI) & (!cw2->R) && (!cw2->SL)) {
 	int i;
 	// Non-specific EOI
-	PrintDebug("Pre ISR = %x\n", state->slave_isr);
+	PrintDebug("8259 PIC: Pre ISR = %x (wr_Slave1)\n", state->slave_isr);
 	for (i = 0; i < 8; i++) {
 	  if (state->slave_isr & (0x01 << i)) {
 	    state->slave_isr &= ~(0x01 << i);
 	    break;
 	  }
 	}	
-       	PrintDebug("Post ISR = %x\n", state->slave_isr);
+       	PrintDebug("8259 PIC: Post ISR = %x (wr_Slave1)\n", state->slave_isr);
       } else {
-	// error;
+	PrintDebug("8259 PIC: Command not handled or invalid  (wr_Slave1)\n");
+	return -1;
       }
 
       state->slave_ocw2 = cw;
@@ -414,10 +438,12 @@ int write_slave_port1(ushort_t port, void * src, uint_t length, struct vm_device
       // Basically sets the IRR/ISR read flag
       state->slave_ocw3 = cw;
     } else {
-      // error
+      PrintDebug("8259 PIC: Invalid command work (wr_Slave1)\n");
+      return -1;
     }
   } else {
-    // error
+    PrintDebug("8259 PIC: Invalid State writing (wr_Slave1)\n");
+    return -1;
   }
 
   return 1;
@@ -428,7 +454,8 @@ int write_slave_port2(ushort_t port, void * src, uint_t length, struct vm_device
     char cw = *(char *)src;    
 
     if (length != 1) {
-      //error
+      PrintDebug("8259 PIC: Invalid write length (wr_Slave2)\n");
+      return -1;
     }
 
     if (state->slave_state == ICW2) {
@@ -461,7 +488,8 @@ int write_slave_port2(ushort_t port, void * src, uint_t length, struct vm_device
     } else if (state->slave_state == READY) {
       state->slave_imr = cw;
     } else {
-      // error
+      PrintDebug("8259 PIC: Invalid State at write (wr_Slave2)\n");
+      return -1;
     }
 
     return 1;
@@ -538,7 +566,8 @@ static struct vm_device_ops dev_ops = {
 
 struct vm_device * create_pic() {
   struct pic_internal * state = NULL;
-  V3_Malloc(struct pic_internal *, state, sizeof(struct pic_internal));
+  state = (struct pic_internal *)V3_Malloc(sizeof(struct pic_internal));
+  V3_ASSERT(state != NULL);
 
   struct vm_device *device = create_device("8259A", &dev_ops, state);
 

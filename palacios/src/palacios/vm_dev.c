@@ -6,7 +6,9 @@
 struct vm_device * allocate_device() {
 
   struct vm_device * dev = NULL;
-  V3_Malloc(struct vm_device *, dev, sizeof(struct vm_device));
+  dev = (struct vm_device*)V3_Malloc(sizeof(struct vm_device));
+
+  V3_ASSERT(dev != NULL);
 
   dev->ops = NULL;
   memset(dev->name, 0, 32);
