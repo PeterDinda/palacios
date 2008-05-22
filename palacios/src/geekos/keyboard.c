@@ -1,7 +1,7 @@
 /*
  * Keyboard driver
  * Copyright (c) 2001,2004 David H. Hovemeyer <daveho@cs.umd.edu>
- * $Revision: 1.3 $
+ * $Revision: 1.4 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -34,6 +34,11 @@
 #include <geekos/irq.h>
 #include <geekos/io.h>
 #include <geekos/keyboard.h>
+
+
+static enum {TARGET_GEEKOS,TARGET_VMM} target=TARGET_GEEKOS;
+
+extern void deliver_key_to_vmm(uchar_t status, uchar_t scancode);
 
 /* ----------------------------------------------------------------------
  * Private data and functions
@@ -159,101 +164,134 @@ static __inline__ Keycode Dequeue_Keycode(void)
  */
 static void Keyboard_Interrupt_Handler(struct Interrupt_State* state)
 {
+  uchar_t raw_status, raw_scancode;
+
     uchar_t status, scanCode;
     unsigned flag = 0;
     bool release = false, shift;
     Keycode keycode;
+    bool flagchange;
 
     Begin_IRQ(state);
 
-    //    Print("Keybaord\n");
+    Print("Keyboard\n");
 
     status = In_Byte(KB_CMD);
+    
+    raw_status=status;
+
     IO_Delay();
 
     if ((status & KB_OUTPUT_FULL) != 0) {
-	/* There is a byte available */
-	scanCode = In_Byte(KB_DATA);
-	IO_Delay();
-/*
- *	Print("code=%x%s\n", scanCode, (scanCode&0x80) ? " [release]" : "");
- */
-
-	if (scanCode & KB_KEY_RELEASE) {
-	    release = true;
-	    scanCode &= ~(KB_KEY_RELEASE);
-	}
-
-	if (scanCode >= SCAN_TABLE_SIZE) {
-	    Print("Unknown scan code: %x\n", scanCode);
-	    goto done;
-	}
-
-	/* Process the key */
-	shift = ((s_shiftState & SHIFT_MASK) != 0);
-	keycode = shift ? s_scanTableWithShift[scanCode] : s_scanTableNoShift[scanCode];
-
-	/* Update shift, control and alt state */
-	switch (keycode) {
-	case KEY_LSHIFT:
-	    flag = LEFT_SHIFT;
-	    break;
-	case KEY_RSHIFT:
-	    flag = RIGHT_SHIFT;
-	    break;
-	case KEY_LCTRL:
-	    flag = LEFT_CTRL;
-	    break;
-	case KEY_RCTRL:
-	    flag = RIGHT_CTRL;
-	    break;
-	case KEY_LALT:
-	    flag = LEFT_ALT;
-	    break;
-	case KEY_RALT:
-	    flag = RIGHT_ALT;
-	    break;
-	default:
-	    goto noflagchange;
-	}
-
-	if (release)
-	    s_shiftState &= ~(flag);
-	else
-	    s_shiftState |= flag;
-			
-	/*
-	 * Shift, control and alt keys don't have to be
-	 * queued, flags will be set!
-	 */
+      /* There is a byte available */
+      scanCode = In_Byte(KB_DATA);
+      raw_scancode=scanCode;
+      Print("Keyboard: status=0x%x, scancode=0x%x\n", raw_status, raw_scancode);
+      IO_Delay();
+      /*
+       *	Print("code=%x%s\n", scanCode, (scanCode&0x80) ? " [release]" : "");
+       */
+	
+      if (scanCode & KB_KEY_RELEASE) {
+	release = true;
+	scanCode &= ~(KB_KEY_RELEASE);
+      }
+      
+      if (scanCode >= SCAN_TABLE_SIZE) {
+	Print("Unknown scan code: %x\n", scanCode);
 	goto done;
+      }
+      
+      /* Process the key */
+      shift = ((s_shiftState & SHIFT_MASK) != 0);
+      keycode = shift ? s_scanTableWithShift[scanCode] : s_scanTableNoShift[scanCode];
 
+      flagchange=false;
+      
+      /* Update shift, control and alt state */
+      switch (keycode) {
+      case KEY_LSHIFT:
+	flag = LEFT_SHIFT;
+	break;
+      case KEY_RSHIFT:
+	flag = RIGHT_SHIFT;
+	break;
+      case KEY_LCTRL:
+	flag = LEFT_CTRL;
+	break;
+      case KEY_RCTRL:
+	flag = RIGHT_CTRL;
+	break;
+      case KEY_LALT:
+	flag = LEFT_ALT;
+	break;
+      case KEY_RALT:
+	flag = RIGHT_ALT;
+	break;
+      default:
+	goto noflagchange;
+      }
+      
+      if (release)
+	s_shiftState &= ~(flag);
+      else
+	s_shiftState |= flag;
+      
+      /*
+       * Shift, control and alt keys don't have to be
+       * queued, flags will be set!
+       */
+      // huh?
+      flagchange=true;
+      goto skip_flagchange;
+      
 noflagchange:
-	/* Format the new keycode */
-	if (shift)
-	    keycode |= KEY_SHIFT_FLAG;
-	if ((s_shiftState & CTRL_MASK) != 0)
-	    keycode |= KEY_CTRL_FLAG;
-	if ((s_shiftState & ALT_MASK) != 0)
-	    keycode |= KEY_ALT_FLAG;
-	if (release)
-	    keycode |= KEY_RELEASE_FLAG;
-		
-	/* Put the keycode in the buffer */
-	Enqueue_Keycode(keycode);
+      /* Format the new keycode */
+      if (shift)
+	keycode |= KEY_SHIFT_FLAG;
+      if ((s_shiftState & CTRL_MASK) != 0)
+	keycode |= KEY_CTRL_FLAG;
+      if ((s_shiftState & ALT_MASK) != 0)
+	keycode |= KEY_ALT_FLAG;
+      if (release)
+	keycode |= KEY_RELEASE_FLAG;
+      
+      
+skip_flagchange:
 
-	/* Wake up event consumers */
-	Wake_Up(&s_waitQueue);
-
-	/*
-	 * Pick a new thread upon return from interrupt
-	 * (hopefully the one waiting for the keyboard event)
-	 */
-	g_needReschedule = true;
+      if (target==TARGET_GEEKOS) { 
+	if (raw_scancode==0xc4) {  // F10 release
+	  Print("Switching keyboard to VMM\n");
+	  target=TARGET_VMM;
+	} else {
+	  if (flagchange) {
+	    goto done;
+	  }
+	  /* Put the keycode in the buffer */
+	  Enqueue_Keycode(keycode);
+	  
+	  /* Wake up event consumers */
+	  Wake_Up(&s_waitQueue);
+	  
+	  /*
+	   * Pick a new thread upon return from interrupt
+	   * (hopefully the one waiting for the keyboard event)
+	   */
+	  g_needReschedule = true;
+	}
+      } else if (target==TARGET_VMM) { 
+	if (raw_scancode==0xc4) {   // F10 release
+	  Print("Switching keyboard to GeekOS\n");
+	  target=TARGET_GEEKOS;
+	} else {
+	  deliver_key_to_vmm(raw_status,raw_scancode);
+	}
+      }
     }
 
-done:
+ done:
     End_IRQ(state);
+      
 }
 
 /* ----------------------------------------------------------------------

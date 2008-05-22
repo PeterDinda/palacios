@@ -5,6 +5,7 @@
 #include <geekos/vm.h>
 #include <geekos/screen.h>
 
+#include <devices/generic.h>
 #include <devices/nvram.h>
 #include <devices/timer.h>
 #include <devices/simple_pic.h>
@@ -314,17 +315,26 @@ int RunVMM(struct Boot_Info * bootInfo) {
       hook_io_port(&(vm_info.io_map), 0x403, &IO_Read, &IO_Write_to_Serial, NULL);
 
       {
+	
 	struct vm_device * nvram = create_nvram();
 	//struct vm_device * timer = create_timer();
 	struct vm_device * pic = create_pic();
 	//struct vm_device * keyboard = create_keyboard();
 	struct vm_device * pit = create_pit();
 
+	//generic_port_range_type range = {0,1024} ; // hook first 1024 ports if not already hooked
+
+	//struct vm_device * generic = create_generic(&range,1,NULL,0,NULL,0);
+	
+
 	attach_device(&(vm_info), nvram);
 	//attach_device(&(vm_info), timer);
 	attach_device(&(vm_info), pic);
 	attach_device(&(vm_info), pit);
 	//attach_device(&(vm_info), keyboard);
+
+	// Important that this be attached last!
+	//attach_device(&(vm_info), generic);
 
 	PrintDebugDevMgr(&(vm_info.dev_mgr));
       }
