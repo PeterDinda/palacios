@@ -5,6 +5,8 @@
 #include <palacios/vmm.h>
 #include <palacios/vmcb.h>
 
+#ifdef __V3VEE__
+
 #define CPUID_FEATURE_IDS 0x80000001
 #define CPUID_FEATURE_IDS_ecx_svm_avail 0x00000004
 
@@ -53,23 +55,12 @@
 #define SVM_HANDLER_ERROR     0x1
 #define SVM_HANDLER_HALT      0x2
 
-
+#endif
 
 
 void Init_SVM(struct vmm_ctrl_ops * vmm_ops);
 int is_svm_capable();
 
-
-vmcb_t * Allocate_VMCB();
-void Init_VMCB(vmcb_t * vmcb, struct guest_info vm_info);
-void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info vm_info);
-void Init_VMCB_pe(vmcb_t * vmcb, struct guest_info vm_info);
-
-int init_svm_guest(struct guest_info *info);
-int start_svm_guest(struct guest_info * info);
-
-
-inline addr_t get_rip_linear(struct guest_info * info, addr_t rip, addr_t cs_base);
 
 
 

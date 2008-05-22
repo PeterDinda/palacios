@@ -318,7 +318,7 @@ int RunVMM(struct Boot_Info * bootInfo) {
 	//struct vm_device * timer = create_timer();
 	struct vm_device * pic = create_pic();
 	//struct vm_device * keyboard = create_keyboard();
-	struct vm_device * pit= create_pit();
+	struct vm_device * pit = create_pit();
 
 	attach_device(&(vm_info), nvram);
 	//attach_device(&(vm_info), timer);
