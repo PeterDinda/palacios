@@ -185,7 +185,7 @@ int keyboard_interrupt(uint_t irq,
 {
   KEYBOARD_DEBUG_PRINT("keyboard: interrupt\n");
 
-  dev->vm->vm_ops.raise_irq(dev->vm,irq,0);
+  dev->vm->vm_ops.raise_irq(dev->vm,irq);
 
   return 0;
 

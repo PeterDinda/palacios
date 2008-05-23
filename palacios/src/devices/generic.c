@@ -115,7 +115,7 @@ int generic_interrupt(uint_t irq,
 {
   PrintDebug("generic: interrupt 0x%x - injecting into VM\n",irq);
 
-  dev->vm->vm_ops.raise_irq(dev->vm,irq,0);
+  dev->vm->vm_ops.raise_irq(dev->vm,irq);
 
   return 0;
 
