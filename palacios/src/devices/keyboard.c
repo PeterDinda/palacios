@@ -6,16 +6,10 @@
 #define KEYBOARD_DEBUG 1
 
 #if KEYBOARD_DEBUG
-#define KEYBOARD_DEBUG_PRINT(first, rest...) do { SerialPrint(first, ## rest ); } while (0) 
+#define KEYBOARD_DEBUG_PRINT(first, rest...) PrintDebug(first, ##rest)
 #else
 #define KEYBOARD_DEBUG_PRINT(first, rest...)
 #endif
-
-
-extern struct vmm_os_hooks *os_hooks;
-
-extern void SerialPrint(const char *format, ...);
-
 
 
 #define KEYBOARD_DATA_REG          0x60
@@ -246,7 +240,7 @@ struct vm_device *create_keyboard() {
     KEYBOARD_DEBUG_PRINT("keyboard: creating >1 keyboard device.  This will probably fail!\n");
   }
   
-  struct keyboard_internal * keyboard_state = os_hooks->malloc(sizeof(struct keyboard_internal));
+  struct keyboard_internal * keyboard_state = (struct keyboard_internal *)V3_Malloc(sizeof(struct keyboard_internal));
 
   struct vm_device *device = create_device("KEYBOARD", &dev_ops, keyboard_state);
 

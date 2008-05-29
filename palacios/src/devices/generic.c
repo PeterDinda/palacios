@@ -1,14 +1,13 @@
 #include <devices/generic.h>
-#include <geekos/io.h>
 #include <palacios/vmm.h>
 #include <palacios/vmm_types.h>
-
+#include <geekos/io.h>
 
 
 #define GENERIC_DEBUG 1
 
 #if GENERIC_DEBUG
-#define GENERIC_DEBUG_PRINT(first, rest...) do { SerialPrint(first, ## rest ); } while (0) 
+#define GENERIC_DEBUG_PRINT(first, rest...) PrintDebug(first, ##rest) 
 #else
 #define GENERIC_DEBUG_PRINT(first, rest...)
 #endif
@@ -17,12 +16,6 @@
 #define PORT_HOOKS 1
 #define MEM_HOOKS  0   // not yet implmented in device model
 #define IRQ_HOOKS  0   // not yet implemented in device model
-
-extern struct vmm_os_hooks *os_hooks;
-
-extern void SerialPrint(const char *format, ...);
-
-
 
 struct generic_internal {
   generic_port_range_type    *port_ranges;
@@ -249,12 +242,12 @@ struct vm_device *create_generic(generic_port_range_type    port_ranges[],
 				 generic_irq_range_type     irq_ranges[],
 				 uint_t                     num_irq_ranges)
 {
-  struct generic_internal * generic_state = os_hooks->malloc(sizeof(struct generic_internal));
+  struct generic_internal * generic_state = (struct generic_internal *)V3_Malloc(sizeof(struct generic_internal));
 
 
   generic_state->num_port_ranges=num_port_ranges;
   if (num_port_ranges>0) { 
-    generic_state->port_ranges = os_hooks->malloc(sizeof(generic_address_range_type)*num_port_ranges);
+    generic_state->port_ranges = V3_Malloc(sizeof(generic_address_range_type)*num_port_ranges);
     memcpy(generic_state->port_ranges,port_ranges,sizeof(generic_port_range_type)*num_port_ranges);
   } else {
     generic_state->port_ranges=NULL;
@@ -262,14 +255,14 @@ struct vm_device *create_generic(generic_port_range_type    port_ranges[],
 
   generic_state->num_address_ranges=num_address_ranges;
   if (num_address_ranges>0) { 
-    generic_state->address_ranges = os_hooks->malloc(sizeof(generic_address_range_type)*num_address_ranges);
+    generic_state->address_ranges = V3_Malloc(sizeof(generic_address_range_type)*num_address_ranges);
     memcpy(generic_state->address_ranges,address_ranges,sizeof(generic_address_range_type)*num_address_ranges);
   } else {
     generic_state->address_ranges=NULL;
   }
   generic_state->num_irq_ranges=num_irq_ranges;
   if (num_irq_ranges>0) { 
-    generic_state->irq_ranges = os_hooks->malloc(sizeof(generic_address_range_type)*num_irq_ranges);
+    generic_state->irq_ranges = V3_Malloc(sizeof(generic_address_range_type)*num_irq_ranges);
     memcpy(generic_state->irq_ranges,irq_ranges,sizeof(generic_irq_range_type)*num_port_ranges);
   } else {
     generic_state->irq_ranges=NULL;
