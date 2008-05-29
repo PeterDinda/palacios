@@ -82,14 +82,16 @@
     }							\
   } while (0)						\
 
-#define V3_CPU_KHZ(khz)					\
-  do {							\
+#define V3_CPU_KHZ()					\
+  ({ 							\
+    unsigned int khz = 0;				\
     extern struct vmm_os_hooks * os_hooks;		\
     if ((os_hooks) && (os_hooks)->get_cpu_khz) {	\
       khz = (os_hooks)->get_cpu_khz();			\
     }							\
-  } while (0)						\
-
+    khz;						\
+  })							\
+    
 
 /* ** */
 
