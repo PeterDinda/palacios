@@ -3,12 +3,8 @@
 
 
 void v3_init_time(struct vm_time * time_state) {
-  ullong_t cpu_khz = 0;
 
-  V3_CPU_KHZ(cpu_khz);
-  time_state->cpu_freq = cpu_khz;
-
-  PrintDebug("CPU KHZ = HI=%x LO=%x\n", (uint_t)(cpu_khz >> 32), (uint_t)cpu_khz);
+  time_state->cpu_freq = V3_CPU_KHZ();
  
   time_state->guest_tsc = 0;
   time_state->cached_host_tsc = 0;

@@ -8,10 +8,19 @@ extern struct vmm_os_hooks * os_hooks;
 void PrintTraceHex(unsigned char x) {
   unsigned char z;
   
-  z = (x >> 4) & 0xf ;
+  z = (x >> 4) & 0xf;
   PrintTrace("%x", z);
   z = x & 0xf;
   PrintTrace("%x", z);
+}
+
+void PrintTraceLL(ullong_t num) {
+  unsigned char * z = (unsigned char *)&num;
+  int i;
+  
+  for (i = 7; i >= 0; i--) {
+    PrintTraceHex(*(z + i));
+  }
 }
 
 
