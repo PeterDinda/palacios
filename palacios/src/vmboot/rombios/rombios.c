@@ -1,6 +1,6 @@
 //  -*- fundamental -*-
 /////////////////////////////////////////////////////////////////////////
-// $Id: rombios.c,v 1.5 2008/05/12 00:21:17 pdinda Exp $
+// $Id: rombios.c,v 1.6 2008/05/30 00:46:55 pdinda Exp $
 /////////////////////////////////////////////////////////////////////////
 //
 //  Copyright (C) 2002  MandrakeSoft S.A.
@@ -945,10 +945,10 @@ Bit16u cdrom_boot();
 
 #endif // BX_ELTORITO_BOOT
 
-static char bios_cvs_version_string[] = "$Revision: 1.5 $";
-static char bios_date_string[] = "$Date: 2008/05/12 00:21:17 $";
+static char bios_cvs_version_string[] = "$Revision: 1.6 $";
+static char bios_date_string[] = "$Date: 2008/05/30 00:46:55 $";
 
-static char CVSID[] = "$Id: rombios.c,v 1.5 2008/05/12 00:21:17 pdinda Exp $";
+static char CVSID[] = "$Id: rombios.c,v 1.6 2008/05/30 00:46:55 pdinda Exp $";
 
 /* Offset to skip the CVS $Id: prefix */ 
 #define bios_version_string  (CVSID + 4)
@@ -1680,9 +1680,11 @@ keyboard_init()
     while ( (inb(0x64) & 0x02) && (--max>0)) outb(0x80, 0x00); 
 
     /* flush incoming keys */
-    max=0x2000;
+    // temporarily chaged for debug -PAD
+    //    max=0x2000;  
+    max=10;
     while (--max > 0) {
-        outb(0x80, 0x00);
+        outb(0x80, 0x01);
         if (inb(0x64) & 0x01) {
             inb(0x60);
             max = 0x2000;
@@ -1700,12 +1702,12 @@ keyboard_init()
 
     /* Wait until buffer is empty */
     max=0xffff;
-    while ( (inb(0x64) & 0x02) && (--max>0)) outb(0x80, 0x00);
+    while ( (inb(0x64) & 0x02) && (--max>0)) outb(0x80, 0x02);
     if (max==0x0) keyboard_panic(00);
 
     /* Wait for data */
     max=0xffff;
-    while ( ((inb(0x64) & 0x01) == 0) && (--max>0) ) outb(0x80, 0x01);
+    while ( ((inb(0x64) & 0x01) == 0) && (--max>0) ) outb(0x80, 0x03);
     if (max==0x0) keyboard_panic(01);
 
     /* read self-test result, 0x55 should be returned from 0x60 */

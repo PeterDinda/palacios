@@ -5,6 +5,8 @@
 
 #define KEYBOARD_DEBUG 1
 
+#define KEYBOARD_DEBUG_80H   1
+
 #if KEYBOARD_DEBUG
 #define KEYBOARD_DEBUG_PRINT(first, rest...) PrintDebug(first, ##rest)
 #else
@@ -21,12 +23,14 @@ extern void SerialPrint(const char *format, ...);
 #define KEYBOARD_60H          0x60  // keyboard microcontroller
 #define KEYBOARD_64H          0x64  // onboard microcontroller
 
+#define KEYBOARD_DELAY_80H    0x80  // written for timing
+
 #define KEYBOARD_IRQ    0x1
 
 
 // extract bits for status byte
-#define STATUS_OUTPUT_BUFFER_FULL   0x01  // 1=full
-#define STATUS_INPUT_BUFFER_FULL    0x02  // 1=full
+#define STATUS_OUTPUT_BUFFER_FULL   0x01  // 1=full (data for system)
+#define STATUS_INPUT_BUFFER_FULL    0x02  // 1=full (data for 8042)
 #define STATUS_SYSTEM               0x04  // 1=self-test-passed
 #define STATUS_COMMAND_DATA_AVAIL   0x08  // internal: 0=data on 60h, 0=cmd on 64h
 #define STATUS_ENABLED              0x10  // 1=keyboard is enabled
@@ -65,15 +69,19 @@ struct keyboard_internal {
   // state of the onboard microcontroller
   // this is needed because sometimes 0x60 reads come
   // from the onboard microcontroller
-  enum {NORMAL,
-	// after receiving cmd 0x20 
-	// keyboard uC cmd byte pushed onto output queue
-	WRITING_CMD_BYTE,  
+  enum {// Normal mode measn we deliver keys
+        // to the vm and accept commands from it
+        NORMAL,
 	// after receiving cmd 0x60
-	// keybaord uC cmd will subsequently arive on data port
-	TRANSMIT_PASSWD,
+	// keybaord uC cmd will subsequently arrive
+	WRITING_CMD_BYTE,  
 	// after recieving 0xa5
 	// password arrives on data port, null terminated
+	TRANSMIT_PASSWD,
+	// after having reset sent to 0x60
+	// we immediately ack, and then
+	// push BAT success (0xaa) after the ack
+	RESET,
   } state;
 	
 
@@ -82,10 +90,12 @@ struct keyboard_internal {
                             //     via read/write cmd byte command
   uchar_t status_byte;      //  for on-board uC - read via 64h
 
-  uchar_t input_queue;      //  Read via 60h
-  uint_t  input_queue_len;  //  num items queued
-  uchar_t output_queue;     //  Written by 60h
-  uint_t  output_queue_len; //  num items queued 
+  // Data for 8042
+  uchar_t input_queue;      //  
+  uint_t  input_queue_len;  //  
+  // Data for system
+  uchar_t output_queue;     //  
+  uint_t  output_queue_len; //  
 };
 
 
@@ -108,7 +118,7 @@ static int PushToOutputQueue(struct vm_device *dev, uchar_t value, uchar_t overw
   }
 }
 
-#if 0
+#if 1
 // 
 // pull item from outputqueue 
 // returns 0 if successful
@@ -117,7 +127,7 @@ static int PullFromOutputQueue(struct vm_device *dev,uchar_t *value)
 {
   struct keyboard_internal *state = (struct keyboard_internal *)dev->private_data;
   if (state->output_queue_len==1) { 
-    *value=state->input_queue;
+    *value=state->output_queue;
     state->output_queue_len=0;
     state->status_byte &= ~STATUS_OUTPUT_BUFFER_FULL;
     return 0;
@@ -128,6 +138,7 @@ static int PullFromOutputQueue(struct vm_device *dev,uchar_t *value)
 }
 #endif
 
+#if 0
 // 
 // push item onto inputqueue, optionally overwriting if there is no room
 // returns 0 if successful
@@ -164,6 +175,8 @@ static int PullFromInputQueue(struct vm_device *dev, uchar_t *value)
   }
 }
 
+#endif
+
 static struct vm_device *demultiplex_injected_key(uchar_t status, uchar_t scancode)
 {
   // this currently does nothing
@@ -183,7 +196,7 @@ void deliver_key_to_vmm(uchar_t status, uchar_t scancode)
   if (    (state->status_byte & STATUS_ENABLED)      // onboard is enabled
 	  && (!(state->cmd_byte & CMD_DISABLE)))  {   // keyboard is enabled
 
-    PushToInputQueue(dev,scancode,1);
+    PushToOutputQueue(dev,scancode,1);
 
     if (state->cmd_byte & CMD_INTR) { 
       keyboard_interrupt(KEYBOARD_IRQ,dev);
@@ -231,6 +244,39 @@ int keyboard_stop_device(struct vm_device *dev)
 }
 
 
+#if KEYBOARD_DEBUG_80H
+int keyboard_write_delay(ushort_t port,
+			 void * src, 
+			 uint_t length,
+			 struct vm_device * dev)
+{
+  if (length==1) { 
+    KEYBOARD_DEBUG_PRINT("keyboard: write of 0x%x to 80h\n", *((uchar_t*)src));
+    return 1;
+  } else {
+    KEYBOARD_DEBUG_PRINT("keyboard: write of >1 byte to 80h\n", *((uchar_t*)src));
+    return length;
+  }
+}
+
+int keyboard_read_delay(ushort_t port,
+			void * dest, 
+			uint_t length,
+			struct vm_device * dev)
+{
+  if (length==1) { 
+    *((uchar_t*)dest) = In_Byte(port);
+    KEYBOARD_DEBUG_PRINT("keyboard: read of 0x%x from 80h\n", *((uchar_t*)dest));
+    return 1;
+  } else {
+    KEYBOARD_DEBUG_PRINT("keyboard: read of >1 byte from 80h\n");
+    return length;
+  }
+}
+#endif
+    
+  
+
 
 
 int keyboard_write_command(ushort_t port,
@@ -244,7 +290,7 @@ int keyboard_write_command(ushort_t port,
   // Should always be single byte write
 
   if (length!=1) { 
-    KEYBOARD_DEBUG_PRINT("keyboard: write of >1 bytes to 64h");
+    KEYBOARD_DEBUG_PRINT("keyboard: write of >1 bytes (%d) to 64h\n",length);
     return -1;
   }
 
@@ -259,7 +305,7 @@ int keyboard_write_command(ushort_t port,
   switch (cmd) { 
 
   case 0x20:  // READ COMMAND BYTE (returned in 60h)
-    PushToInputQueue(dev,state->cmd_byte,1);
+    PushToOutputQueue(dev,state->cmd_byte,1);
     state->state=NORMAL;  // the next read on 0x60 will get the right data
     break;
 
@@ -270,7 +316,7 @@ int keyboard_write_command(ushort_t port,
   // case 0x90-9f - write to output port  (?)
 
   case 0xa1: // Get version number
-    PushToInputQueue(dev,0,1);
+    PushToOutputQueue(dev,0,1);
     state->state=NORMAL;
     break;
 
@@ -302,17 +348,17 @@ int keyboard_write_command(ushort_t port,
     break;
 
   case 0xa9:  // mouse interface test  (always succeeds)
-    PushToInputQueue(dev,0,1);
+    PushToOutputQueue(dev,0,1);
     state->state=NORMAL;
     break;
 
   case 0xaa:  // controller self test (always succeeds)
-    PushToInputQueue(dev,0x55,1);
+    PushToOutputQueue(dev,0x55,1);
     state->state=NORMAL;
     break;
 
   case 0xab:  // keyboard interface test (always succeeds)
-    PushToInputQueue(dev,0,1);
+    PushToOutputQueue(dev,0,1);
     state->state=NORMAL;
     break;
 
@@ -327,7 +373,7 @@ int keyboard_write_command(ushort_t port,
     break;
 
   case 0xaf:  // get version
-    PushToInputQueue(dev,0x00,1);
+    PushToOutputQueue(dev,0x00,1);
     state->state=NORMAL;
     break;
 
@@ -405,7 +451,14 @@ int keyboard_write_output(ushort_t port,
     // command is being sent to keyboard controller
     switch (data) { 
     case 0xff: // reset
-      PushToInputQueue(dev,0xfa,1); // ack
+      PushToOutputQueue(dev,0xfa,1); // ack
+      state->state=RESET;
+      break;
+    case 0xf5: // disable scanning
+    case 0xf4: // enable scanning
+      // ack
+      PushToOutputQueue(dev,0xfa,1);
+      // should do something here... PAD
       state->state=NORMAL;
       break;
     case 0xfe: // resend
@@ -417,13 +470,12 @@ int keyboard_write_output(ushort_t port,
     case 0xf8: // set all make/break
     case 0xf7: // set all typemaktic
     case 0xf6: // set defaults
-    case 0xf5: // disable scanning
-    case 0xf4: // enable scanning
     case 0xf3: // set typematic delay/rate
     default:
-      KEYBOARD_DEBUG_PRINT("keyboard: unhandled command 0x%x on output buffer (60h)\n");
+      KEYBOARD_DEBUG_PRINT("keyboard: unhandled command 0x%x on output buffer (60h)\n",data);
       break;
     }
+    break;
   default:
     KEYBOARD_DEBUG_PRINT("keyboard: unknown state %x on command 0x%x on output buffer (60h)\n",state->state, data);
   }
@@ -436,10 +488,19 @@ int keyboard_read_input(ushort_t port,
 			uint_t length,
 			struct vm_device * dev)
 {
+  struct keyboard_internal *state = (struct keyboard_internal *) dev->private_data;
+
   if (length==1) { 
     uchar_t data;
     KEYBOARD_DEBUG_PRINT("keyboard: read from input (60h): ");
-    PullFromInputQueue(dev,&data);
+    PullFromOutputQueue(dev,&data);
+    if (state->state==RESET) { 
+      // We just delivered the ack for the reset
+      // now we will ready ourselves to deliver the BAT code (success)
+      PushToOutputQueue(dev,0xaa,1);
+      state->state=NORMAL;
+    }
+      
     KEYBOARD_DEBUG_PRINT("0x%x\n",data);
     *((uchar_t*)dest)=data;
     return 1;
@@ -476,6 +537,11 @@ int keyboard_init_device(struct vm_device * dev)
   // hook ports
   dev_hook_io(dev, KEYBOARD_64H, &keyboard_read_status, &keyboard_write_command);
   dev_hook_io(dev, KEYBOARD_60H, &keyboard_read_input, &keyboard_write_output);
+
+#if KEYBOARD_DEBUG_80H
+  dev_hook_io(dev, KEYBOARD_DELAY_80H, &keyboard_read_delay, &keyboard_write_delay);
+#endif
+
   
   //
   // We do not hook the IRQ here.  Instead, the underlying device driver
@@ -490,6 +556,9 @@ int keyboard_deinit_device(struct vm_device *dev)
 
   dev_unhook_io(dev, KEYBOARD_60H);
   dev_unhook_io(dev, KEYBOARD_64H);
+#if KEYBOARD_DEBUG_80H
+  dev_unhook_io(dev, KEYBOARD_DELAY_80H);
+#endif
   keyboard_reset_device(dev);
   return 0;
 }
