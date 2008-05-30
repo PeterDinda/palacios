@@ -317,10 +317,10 @@ int RunVMM(struct Boot_Info * bootInfo) {
       {
 	
 	struct vm_device * nvram = create_nvram();
-	struct vm_device * timer = create_timer();
+	//struct vm_device * timer = create_timer();
 	struct vm_device * pic = create_pic();
 	struct vm_device * keyboard = create_keyboard();
-	//struct vm_device * pit = create_pit();
+	struct vm_device * pit = create_pit();
 
 	//generic_port_range_type range = {0,1024} ; // hook first 1024 ports if not already hooked
 
@@ -328,9 +328,9 @@ int RunVMM(struct Boot_Info * bootInfo) {
 	
 
 	attach_device(&(vm_info), nvram);
-	attach_device(&(vm_info), timer);
+	//attach_device(&(vm_info), timer);
 	attach_device(&(vm_info), pic);
-	//attach_device(&(vm_info), pit);
+	attach_device(&(vm_info), pit);
 	attach_device(&(vm_info), keyboard);
 
 	// Important that this be attached last!
