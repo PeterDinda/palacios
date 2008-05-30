@@ -1,6 +1,6 @@
 # Makefile for GeekOS kernel, userspace, and tools
 # Copyright (c) 2004,2005 David H. Hovemeyer <daveho@cs.umd.edu>
-# $Revision: 1.36 $
+# $Revision: 1.37 $
 
 # This is free software.  You are permitted to use,
 # redistribute, and modify it as specified in the file "COPYING".
@@ -295,13 +295,15 @@ vmm.img : fd.img
 	$(PAD) vmm.img 1474560
 
 force_rombios: 
-	(cd ../src/vmboot/rombios; make)
-	cp ../src/vmboot/rombios/BIOS-bochs-latest rombios
+	(cd ../src/vmboot/rombios; make clean; make)
+#	cp ../src/vmboot/rombios/BIOS-bochs-latest rombios
 
+force_vgabios:
+	(cd ../src/vmboot/vgabios; make clean; make)
 
-world: force_rombios
+world: force_rombios force_vgabios
 	../scripts/make_payload.pl payload_layout.txt vm_kernel
-	make clean
+	- make clean
 	make vmm.img
 
 # make ready to boot over PXE

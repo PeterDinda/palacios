@@ -2,7 +2,7 @@
 #include <palacios/vmm.h>
 #include <palacios/vmm_util.h>
 
-extern struct vmm_os_hooks * os_hooks;
+
 
 
 void init_shadow_region(shadow_region_t * entry,
@@ -23,7 +23,7 @@ int add_shadow_region_passthrough( struct guest_info *  guest_info,
 				   addr_t               guest_addr_end,
 				   addr_t               host_addr_start)
 {
-  shadow_region_t * entry = os_hooks->malloc(sizeof(shadow_region_t));
+  shadow_region_t * entry = (shadow_region_t *)V3_Malloc(sizeof(shadow_region_t));
 
   init_shadow_region(entry, guest_addr_start, guest_addr_end, 
 		     GUEST_REGION_PHYSICAL_MEMORY, HOST_REGION_PHYSICAL_MEMORY);
