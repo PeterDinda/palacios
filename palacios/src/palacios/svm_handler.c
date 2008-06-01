@@ -186,10 +186,17 @@ int handle_svm_exit(struct guest_info * info) {
     case EXTERNAL_IRQ: 
       {
 	uint_t irq = get_intr_number(info);
-	guest_ctrl->EVENTINJ.vector = irq;
-	guest_ctrl->EVENTINJ.valid = 1;
-	guest_ctrl->EVENTINJ.type = SVM_INJECTION_EXTERNAL_INTR;
+	/*	
+	  guest_ctrl->EVENTINJ.vector = irq;
+	  guest_ctrl->EVENTINJ.valid = 1;
+	  guest_ctrl->EVENTINJ.type = SVM_INJECTION_EXTERNAL_INTR;
+	*/
 	
+	guest_ctrl->guest_ctrl.V_IRQ = 1;
+	guest_ctrl->guest_ctrl.V_INTR_VECTOR = irq;
+	guest_ctrl->guest_ctrl.V_IGN_TPR = 1;
+	guest_ctrl->guest_ctrl.V_INTR_PRIO = 0xf;
+
 	injecting_intr(info, irq, EXTERNAL_IRQ);
 	
 	break;
