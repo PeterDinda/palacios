@@ -2,7 +2,7 @@
 ; Low level interrupt/thread handling code for GeekOS.
 ; Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
 ; Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
-; $Revision: 1.5 $
+; $Revision: 1.6 $
 
 ; This is free software.  You are permitted to use,
 ; redistribute, and modify it as specified in the file "COPYING".
@@ -125,6 +125,9 @@ IMPORT Make_Runnable
 
 ; Function to activate a new user context (if needed).
 IMPORT Switch_To_User_Context
+
+IMPORT SerialPrintHex
+IMPORT SerialPutChar
 
 ; Sizes of interrupt handler entry points for interrupts with
 ; and without error codes.  The code in idt.c uses this
@@ -457,6 +460,43 @@ Handle_Interrupt:
 	mov	[g_needReschedule], dword 0
 
 .restore:
+
+;	push	ebp
+;	mov	ebp, esp
+;	pusha	
+;
+;	mov	eax, 0xa
+;	push 	eax
+;	call 	SerialPutChar
+;	pop	eax
+;	mov	eax, 0xa
+;	push 	eax
+;	call 	SerialPutChar
+;	pop	eax
+;
+;        mov     ecx, 4
+;        mov     edx, 24 
+;
+;.loop:
+;	mov     eax, [ebp + ecx]
+;	      
+;        push    eax
+;	call	SerialPrintHex
+;	pop	eax
+;
+;	mov	eax, 0xa
+;	push 	eax
+;	call 	SerialPutChar
+;	pop	eax
+;        
+;        add     ecx, 4
+;     	dec     edx
+;	jnz     .loop
+;
+;
+;	popa
+;	pop 	ebp
+	
 	; Activate the user context, if necessary.
 	Activate_User_Context
 

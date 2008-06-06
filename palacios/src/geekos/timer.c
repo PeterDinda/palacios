@@ -2,7 +2,7 @@
  * GeekOS timer interrupt support
  * Copyright (c) 2001,2003 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
- * $Revision: 1.4 $
+ * $Revision: 1.5 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -202,7 +202,7 @@ int g_Quantum = DEFAULT_MAX_TICKS;
 
 static void Timer_Interrupt_Handler(struct Interrupt_State* state)
 {
-    struct Kernel_Thread* current = g_currentThread;
+   struct Kernel_Thread* current = g_currentThread;
 
     Begin_IRQ(state);
 
@@ -219,7 +219,7 @@ static void Timer_Interrupt_Handler(struct Interrupt_State* state)
      * to choose a new thread.
      */
     if (current->numTicks >= g_Quantum) {
-	g_needReschedule = true;
+    	g_needReschedule = true;
     }
 
 

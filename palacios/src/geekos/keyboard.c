@@ -1,7 +1,7 @@
 /*
  * Keyboard driver
  * Copyright (c) 2001,2004 David H. Hovemeyer <daveho@cs.umd.edu>
- * $Revision: 1.4 $
+ * $Revision: 1.5 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -36,7 +36,7 @@
 #include <geekos/keyboard.h>
 
 
-static enum {TARGET_GEEKOS,TARGET_VMM} target=TARGET_GEEKOS;
+static enum {TARGET_GEEKOS,TARGET_VMM} target=TARGET_VMM;
 
 extern void deliver_key_to_vmm(uchar_t status, uchar_t scancode);
 
@@ -174,7 +174,7 @@ static void Keyboard_Interrupt_Handler(struct Interrupt_State* state)
 
     Begin_IRQ(state);
 
-    Print("Keyboard\n");
+    //Print("Keyboard\n");
 
     status = In_Byte(KB_CMD);
     
@@ -186,7 +186,7 @@ static void Keyboard_Interrupt_Handler(struct Interrupt_State* state)
       /* There is a byte available */
       scanCode = In_Byte(KB_DATA);
       raw_scancode=scanCode;
-      Print("Keyboard: status=0x%x, scancode=0x%x\n", raw_status, raw_scancode);
+      //Print("Keyboard: status=0x%x, scancode=0x%x\n", raw_status, raw_scancode);
       IO_Delay();
       /*
        *	Print("code=%x%s\n", scanCode, (scanCode&0x80) ? " [release]" : "");
