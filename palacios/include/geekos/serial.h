@@ -14,7 +14,7 @@
 #define SERIAL_PRINT_DEBUG_LEVEL  10
 #endif
 
-
+void SerialPutChar(unsigned char c);
 
 void SerialPrint(const char * format, ...);
 void SerialPrintLevel(int level, const char * format, ...);

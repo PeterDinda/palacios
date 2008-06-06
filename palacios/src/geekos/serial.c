@@ -66,7 +66,7 @@ void InitSerialAddr(unsigned short io_addr) {
 
 
 
-inline static void SerialPutChar(unsigned char c) {
+void SerialPutChar(unsigned char c) {
  
  //  static unsigned short io_adr;
   if (serial_io_addr==0) { 
