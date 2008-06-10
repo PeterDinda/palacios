@@ -1,6 +1,6 @@
 //  -*- fundamental -*-
 /////////////////////////////////////////////////////////////////////////
-// $Id: rombios.c,v 1.6 2008/05/30 00:46:55 pdinda Exp $
+// $Id: rombios.c,v 1.7 2008/06/10 19:13:49 jarusl Exp $
 /////////////////////////////////////////////////////////////////////////
 //
 //  Copyright (C) 2002  MandrakeSoft S.A.
@@ -132,11 +132,11 @@
 
 #define DEBUG_ROMBIOS      1
 
-#define DEBUG_ATA          1
+#define DEBUG_ATA          0
 #define DEBUG_INT13_HD     0
-#define DEBUG_INT13_CD     0
+#define DEBUG_INT13_CD     1
 #define DEBUG_INT13_ET     0
-#define DEBUG_INT13_FL     0
+#define DEBUG_INT13_FL     1
 #define DEBUG_INT15        0
 #define DEBUG_INT16        0
 #define DEBUG_INT1A        0
@@ -945,10 +945,10 @@ Bit16u cdrom_boot();
 
 #endif // BX_ELTORITO_BOOT
 
-static char bios_cvs_version_string[] = "$Revision: 1.6 $";
-static char bios_date_string[] = "$Date: 2008/05/30 00:46:55 $";
+static char bios_cvs_version_string[] = "$Revision: 1.7 $";
+static char bios_date_string[] = "$Date: 2008/06/10 19:13:49 $";
 
-static char CVSID[] = "$Id: rombios.c,v 1.6 2008/05/30 00:46:55 pdinda Exp $";
+static char CVSID[] = "$Id: rombios.c,v 1.7 2008/06/10 19:13:49 jarusl Exp $";
 
 /* Offset to skip the CVS $Id: prefix */ 
 #define bios_version_string  (CVSID + 4)
@@ -8302,6 +8302,8 @@ boot_setup:
   mov ax,    #0xaa55 ;; set ok flag
 
   pop bp
+  mov al, 0xf3
+  outb #0x80, al
   iret               ;; Beam me up Scotty
 
 ;----------
