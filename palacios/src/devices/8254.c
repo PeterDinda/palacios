@@ -96,37 +96,50 @@ static int handle_crystal_tics(struct vm_device * dev, struct channel * ch, uint
   uint_t channel_cycles = 0;
   uint_t output_changed = 0;
   
-  PrintDebug("8254 PIT: %d crystal tics\n", oscillations);
+  // PrintDebug("8254 PIT: %d crystal tics\n", oscillations);
   if (ch->run_state == PENDING) {
     oscillations--;
     ch->counter = ch->reload_value;
+
+    if (ch->op_mode == SQR_WAVE) {
+      ch->counter -= ch->counter % 2;
+    }
+
     ch->run_state = RUNNING;
   } else if (ch->run_state != RUNNING) {
     return output_changed;
   }
 
-
+  /*
   PrintDebug("8254 PIT: Channel Run State = %d, counter=", ch->run_state);
   PrintTraceLL(ch->counter);
   PrintDebug("\n");
-
+  */
+  if (ch->op_mode == SQR_WAVE) {
+    oscillations *= 2;
+  }
 
   if (ch->counter > oscillations) {
     ch->counter -= oscillations;
     return output_changed;
   } else {
+    ushort_t reload_val = ch->reload_value; 
     oscillations -= ch->counter;
     ch->counter = 0;
     channel_cycles = 1;
 
     
-    channel_cycles += oscillations / ch->reload_value;
-    oscillations = oscillations % ch->reload_value;
+    if (ch->op_mode == SQR_WAVE) {
+      reload_val -= reload_val % 2;
+    }
+    
+    channel_cycles += oscillations / reload_val;
+    oscillations = oscillations % reload_val;
 
-    ch->counter = ch->reload_value - oscillations;
+    ch->counter = reload_val - oscillations;
   }
 
-  PrintDebug("8254 PIT: Channel Cycles: %d\n", channel_cycles);
+  //  PrintDebug("8254 PIT: Channel Cycles: %d\n", channel_cycles);
   
 
 
@@ -150,10 +163,18 @@ static int handle_crystal_tics(struct vm_device * dev, struct channel * ch, uint
     }
     break;
   case SQR_WAVE:
+    ch->output_pin = (ch->output_pin + 1) % 2;
+
+    if (ch->output_pin == 1) {
+      output_changed = 1;
+    }
+
     break;
   case SW_STROBE:
+    return -1;
     break;
   case HW_STROBE:
+    return -1;
     break;
   default:
     break;
@@ -254,20 +275,20 @@ static int handle_channel_write(struct channel * ch, char val) {
     case WAITING_LOBYTE:
       ch->reload_value &= 0xff00;
       ch->reload_value |= val;
-
+      
       if (ch->access_mode == LOBYTE_HIBYTE) {
 	ch->access_state = WAITING_HIBYTE;
       } else if ((ch->op_mode != RATE_GEN) || (ch->run_state != RUNNING)) {
 	ch->run_state = PENDING;
       }
-
+      
       PrintDebug("8254 PIT: updated channel counter: %d\n", ch->reload_value);
       PrintDebug("8254 PIT: Channel Run State=%d\n", ch->run_state);
       break;
     default:
       return -1;
-  }
-
+    }
+    
 
     switch (ch->op_mode) {
     case IRQ_ON_TERM_CNT:
@@ -279,8 +300,9 @@ static int handle_channel_write(struct channel * ch, char val) {
     case RATE_GEN:
       ch->output_pin = 1;
       break;
-
-
+    case SQR_WAVE:
+      ch->output_pin = 1;
+      break;
     default:
       return -1;
       break;

@@ -20,7 +20,7 @@ int handle_svm_io_in(struct guest_info * info) {
     return -1;
   }
 
-  //PrintDebug("IN on  port %d (0x%x)\n", io_info->port, io_info->port);
+  PrintDebug("IN on  port %d (0x%x)\n", io_info->port, io_info->port);
 
   if (io_info->sz8) { 
     read_size = 1;
@@ -80,17 +80,20 @@ int handle_svm_io_ins(struct guest_info * info) {
     return -1;
   }
 
-  //PrintDebug("INS on  port %d (0x%x)\n", io_info->port, io_info->port);
+  PrintDebug("INS on  port %d (0x%x)\n", io_info->port, io_info->port);
 
-  if (io_info->sz8) { 
+  if (io_info->sz8) {
     read_size = 1;
   } else if (io_info->sz16) {
     read_size = 2;
   } else if (io_info->sz32) {
     read_size = 4;
+  } else {
+    PrintDebug("io_info Invalid Size\n");
+    return -1;
   }
 
-
+  
   if (io_info->addr16) {
     mask = 0xffff;
   } else if (io_info->addr32) {
@@ -98,15 +101,17 @@ int handle_svm_io_ins(struct guest_info * info) {
   } else if (io_info->addr64) {
     mask = 0xffffffffffffffffLL;
   } else {
-    // should never happen
-    return -1;
+    // This value should be set depending on the host register size...
+    mask = get_gpr_mask(info);
   }
 
   if (io_info->rep) {
-    rep_num = info->vm_regs.rcx & mask;
+    //    rep_num = info->vm_regs.rcx & mask;
+    rep_num = info->vm_regs.rcx;
   }
 
 
+  PrintDebug("INS size=%d for %d steps\n", read_size, rep_num);
 
   while (rep_num > 0) {
     addr_t host_addr;
@@ -114,6 +119,8 @@ int handle_svm_io_ins(struct guest_info * info) {
     
     if (guest_va_to_host_va(info, dst_addr, &host_addr) == -1) {
       // either page fault or gpf...
+      PrintDebug("Could not convert Guest VA to host VA\n");
+      return -1;
     }
 
     if (hook->read(io_info->port, (char*)host_addr, read_size, hook->priv_data) != read_size) {
@@ -150,7 +157,7 @@ int handle_svm_io_out(struct guest_info * info) {
     return -1;
   }
 
-  //PrintDebug("OUT on  port %d (0x%x)\n", io_info->port, io_info->port);
+  PrintDebug("OUT on  port %d (0x%x)\n", io_info->port, io_info->port);
 
   if (io_info->sz8) { 
     write_size = 1;
@@ -208,7 +215,7 @@ int handle_svm_io_outs(struct guest_info * info) {
     return -1;
   }
 
-  //PrintDebug("OUTS on  port %d (0x%x)\n", io_info->port, io_info->port);
+  PrintDebug("OUTS on  port %d (0x%x)\n", io_info->port, io_info->port);
 
   if (io_info->sz8) { 
     write_size = 1;
@@ -227,6 +234,7 @@ int handle_svm_io_outs(struct guest_info * info) {
     mask = 0xffffffffffffffffLL;
   } else {
     // should never happen
+    PrintDebug("Invalid Address length\n");
     return -1;
   }
 

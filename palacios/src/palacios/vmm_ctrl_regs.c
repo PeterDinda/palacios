@@ -291,13 +291,14 @@ int handle_cr0_read(struct guest_info * info) {
 	
 	if (guest_pa_to_host_va(info, first_operand + (info->segments.ds.base << 4), &host_addr) == -1) {
 	  // gpf the guest
+	  PrintDebug("Could not convert guest physical address to host virtual address\n");
 	  return -1;
 	}
 	
 	first_operand = host_addr;
       } else {
-	// error... don't know what to do
-	return -1;
+	// Register operand
+	// Should be ok??
       }
 
       cr0_val = *(char*)cr0 & 0x0f;

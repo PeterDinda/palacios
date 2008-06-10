@@ -324,7 +324,7 @@ int RunVMM(struct Boot_Info * bootInfo) {
 
 	//generic_port_range_type range = {0,1024} ; // hook first 1024 ports if not already hooked
 
-	//struct vm_device * generic = create_generic(&range,1,NULL,0,NULL,0);
+	//struct vm_device * generic = create_generic(&range, 1, NULL, 0, NULL, 0);
 	
 
 	attach_device(&(vm_info), nvram);
@@ -343,13 +343,13 @@ int RunVMM(struct Boot_Info * bootInfo) {
       //hook_irq(&vm_info, 1);
       
       // give floppy controller to vm
-      hook_irq(&vm_info, 6);
+      //hook_irq(&vm_info, 6);
 
       // primary ide
-      hook_irq(&vm_info, 14);
+      //hook_irq(&vm_info, 14);
 
       // secondary ide
-      hook_irq(&vm_info, 15);
+      //hook_irq(&vm_info, 15);
 
 
       vm_info.rip = 0xfff0;

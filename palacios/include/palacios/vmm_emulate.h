@@ -120,6 +120,20 @@ static inline int is_prefix_byte(char byte) {
 }
 
 
+static inline v3_reg_t get_gpr_mask(struct guest_info * info) {
+  switch (info->cpu_mode) {
+  case REAL: 
+    return 0xffff;
+    break;
+  case PROTECTED:
+  case PROTECTED_PG:
+    return 0xffffffff;
+  default:
+    V3_ASSERT(0);
+    return 0;
+  }
+}
+
 
 static inline addr_t get_addr_linear(struct guest_info * info, addr_t addr, struct v3_segment * seg) {
   switch (info->cpu_mode) {
@@ -131,6 +145,7 @@ static inline addr_t get_addr_linear(struct guest_info * info, addr_t addr, stru
     return addr + seg->base;
     break;
   default:
+    V3_ASSERT(0);
     return 0;
   }
 }

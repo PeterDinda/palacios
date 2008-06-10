@@ -38,10 +38,10 @@ int handle_svm_exit(struct guest_info * info) {
  
 
   // Disable printing io exits due to bochs debug messages
-  if (!((exit_code == VMEXIT_IOIO) && ((ushort_t)(guest_ctrl->exit_info1 >> 16) == 0x402))) {
+  //if (!((exit_code == VMEXIT_IOIO) && ((ushort_t)(guest_ctrl->exit_info1 >> 16) == 0x402))) {
 
-    PrintDebug("SVM Returned: Exit Code: %x \t\t(tsc=%ul)\n",exit_code, (uint_t)info->time_state.guest_tsc); 
-  }
+  PrintDebug("SVM Returned: Exit Code: %x \t\t(tsc=%ul)\n",exit_code, (uint_t)info->time_state.guest_tsc); 
+    //  }
   // PrintDebugVMCB((vmcb_t*)(info->vmm_data));
 
 
@@ -197,6 +197,8 @@ int handle_svm_exit(struct guest_info * info) {
 	guest_ctrl->guest_ctrl.V_IGN_TPR = 1;
 	guest_ctrl->guest_ctrl.V_INTR_PRIO = 0xf;
 
+	PrintDebug("Injecting Interrupt %d (EIP=%x)\n", guest_ctrl->guest_ctrl.V_INTR_VECTOR, info->rip);
+
 	injecting_intr(info, irq, EXTERNAL_IRQ);
 	
 	break;
@@ -217,6 +219,7 @@ int handle_svm_exit(struct guest_info * info) {
 	
 	guest_ctrl->EVENTINJ.vector = excp;
 	
+	PrintDebug("Injecting Interrupt %d (EIP=%x)\n", guest_ctrl->EVENTINJ.vector, info->rip);
 	injecting_intr(info, excp, EXCEPTION);
 	break;
       }
@@ -233,7 +236,6 @@ int handle_svm_exit(struct guest_info * info) {
       return -1;
     }
 
-    PrintDebug("Injecting Interrupt %d (EIP=%x)\n", guest_ctrl->EVENTINJ.vector, info->rip);
   }
 
 
