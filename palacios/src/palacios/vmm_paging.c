@@ -133,10 +133,10 @@ pde32_t * create_passthrough_pde32_pts(struct guest_info * guest_info) {
     
 
     for (j = 0; j < MAX_PTE32_ENTRIES; j++) {
-      shadow_region_t * region = get_shadow_region_by_addr(map, current_page_addr);
+      struct shadow_region * region = get_shadow_region_by_addr(map, current_page_addr);
 
       if (!region || 
-	  (region->host_type == HOST_REGION_NOTHING) || 
+	  (region->host_type == HOST_REGION_HOOK) || 
 	  (region->host_type == HOST_REGION_UNALLOCATED) || 
 	  (region->host_type == HOST_REGION_MEMORY_MAPPED_DEVICE) || 
 	  (region->host_type == HOST_REGION_REMOTE) ||

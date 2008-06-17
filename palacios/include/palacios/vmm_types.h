@@ -25,10 +25,13 @@ typedef unsigned long size_t;
 
 
 
+
 typedef unsigned long long uint64_t;
 typedef long long sint64_t;
 
 typedef unsigned int uint32_t;
 typedef int sint32_t;
+
+typedef ulong_t addr_t;
 
 #endif

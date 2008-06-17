@@ -1,11 +1,11 @@
 #include <palacios/vmm_mem.h>
 #include <palacios/vmm.h>
 #include <palacios/vmm_util.h>
+#include <palacios/vmm_emulate.h>
 
 
 
-
-void init_shadow_region(shadow_region_t * entry,
+void init_shadow_region(struct shadow_region * entry,
 			addr_t               guest_addr_start,
 			addr_t               guest_addr_end,
 			guest_region_type_t  guest_region_type,
@@ -15,23 +15,94 @@ void init_shadow_region(shadow_region_t * entry,
   entry->guest_start = guest_addr_start;
   entry->guest_end = guest_addr_end;
   entry->host_type = host_region_type;
+  entry->host_addr = 0;
   entry->next=entry->prev = NULL;
 }
 
 int add_shadow_region_passthrough( struct guest_info *  guest_info,
 				   addr_t               guest_addr_start,
 				   addr_t               guest_addr_end,
-				   addr_t               host_addr_start)
+				   addr_t               host_addr)
 {
-  shadow_region_t * entry = (shadow_region_t *)V3_Malloc(sizeof(shadow_region_t));
+  struct shadow_region * entry = (struct shadow_region *)V3_Malloc(sizeof(struct shadow_region));
 
   init_shadow_region(entry, guest_addr_start, guest_addr_end, 
 		     GUEST_REGION_PHYSICAL_MEMORY, HOST_REGION_PHYSICAL_MEMORY);
-  entry->host_addr.phys_addr.host_start = host_addr_start;
+  entry->host_addr = host_addr;
 
   return add_shadow_region(&(guest_info->mem_map), entry);
 }
 
+int hook_guest_mem(struct guest_info * info, addr_t guest_addr_start, addr_t guest_addr_end,
+		   int (*read)(addr_t guest_addr, void * dst, uint_t length, void * priv_data),
+		   int (*write)(addr_t guest_addr, void * src, uint_t length, void * priv_data),
+		   void * priv_data) {
+  
+  struct shadow_region * entry = (struct shadow_region *)V3_Malloc(sizeof(struct shadow_region));
+  struct vmm_mem_hook * hook = (struct vmm_mem_hook *)V3_Malloc(sizeof(struct vmm_mem_hook));
+
+  memset(hook, 0, sizeof(struct vmm_mem_hook));
+
+  hook->read = read;
+  hook->write = write;
+  hook->region = entry;
+  hook->priv_data = priv_data;
+
+
+  init_shadow_region(entry, guest_addr_start, guest_addr_end, 
+		     GUEST_REGION_PHYSICAL_MEMORY, HOST_REGION_HOOK);
+
+  entry->host_addr = (addr_t)hook;
+
+  return add_shadow_region(&(info->mem_map), entry);
+}
+
+
+struct vmm_mem_hook * get_mem_hook(struct guest_info * info, addr_t guest_addr) {
+  struct shadow_region * region = get_shadow_region_by_addr(&(info->mem_map), guest_addr);
+
+  if (region == NULL) {
+    PrintDebug("Could not find shadow region for addr: %x\n", guest_addr);
+    return NULL;
+  }
+
+  return (struct vmm_mem_hook *)(region->host_addr);
+}
+
+
+int mem_hook_dispatch(struct guest_info * info, addr_t mem_addr, pf_error_t access_info, struct vmm_mem_hook * hook) {
+
+  if (access_info.write == 1) {
+    void * src = NULL;
+    uint_t length = 0;
+    PrintDebug("Memory hook write\n");
+    return -1;
+
+    if (hook->write(mem_addr, src, length, hook->priv_data) != length) {
+      return -1;
+    }
+  } else {
+    PrintDebug("Memory hook read\n");
+    return -1;
+  }    
+
+  return -1;
+}
+
+
+int handle_special_page_fault(struct guest_info * info, addr_t mem_addr, pf_error_t access_info) {
+  struct shadow_region * reg = get_shadow_region_by_addr(&(info->mem_map), mem_addr);
+
+  switch (reg->host_type) {
+  case HOST_REGION_HOOK:
+    return mem_hook_dispatch(info, mem_addr, access_info, (struct vmm_mem_hook *)(reg->host_addr));
+  default:
+    return -1;
+  }
+
+  return 0;
+
+}
 
 
 
@@ -43,8 +114,8 @@ void init_shadow_map(struct shadow_map * map) {
 
 
 void free_shadow_map(struct shadow_map * map) {
-  shadow_region_t * cursor = map->head;
-  shadow_region_t * tmp = NULL;
+  struct shadow_region * cursor = map->head;
+  struct shadow_region * tmp = NULL;
 
   while(cursor) {
     tmp = cursor;
@@ -59,9 +130,9 @@ void free_shadow_map(struct shadow_map * map) {
 
 
 int add_shadow_region(struct shadow_map * map,
-		      shadow_region_t * region) 
+		      struct shadow_region * region) 
 {
-  shadow_region_t * cursor = map->head;
+  struct shadow_region * cursor = map->head;
 
   PrintDebug("Adding Shadow Region: (0x%x-0x%x)\n", region->guest_start, region->guest_end);
 
@@ -122,9 +193,9 @@ int delete_shadow_region(struct shadow_map * map,
 
 
 
-shadow_region_t *get_shadow_region_by_index(struct shadow_map *  map,
+struct shadow_region *get_shadow_region_by_index(struct shadow_map *  map,
 					       uint_t index) {
-  shadow_region_t * reg = map->head;
+  struct shadow_region * reg = map->head;
   uint_t i = 0;
 
   while (reg) { 
@@ -138,9 +209,9 @@ shadow_region_t *get_shadow_region_by_index(struct shadow_map *  map,
 }
 
 
-shadow_region_t * get_shadow_region_by_addr(struct shadow_map * map,
+struct shadow_region * get_shadow_region_by_addr(struct shadow_map * map,
 					       addr_t addr) {
-  shadow_region_t * reg = map->head;
+  struct shadow_region * reg = map->head;
 
   while (reg) {
     if ((reg->guest_start <= addr) && (reg->guest_end > addr)) {
@@ -156,7 +227,7 @@ shadow_region_t * get_shadow_region_by_addr(struct shadow_map * map,
 
 
 host_region_type_t get_shadow_addr_type(struct guest_info * info, addr_t guest_addr) {
-  shadow_region_t * reg = get_shadow_region_by_addr(&(info->mem_map), guest_addr);
+  struct shadow_region * reg = get_shadow_region_by_addr(&(info->mem_map), guest_addr);
 
   if (!reg) {
     return HOST_REGION_INVALID;
@@ -166,18 +237,18 @@ host_region_type_t get_shadow_addr_type(struct guest_info * info, addr_t guest_a
 }
 
 addr_t get_shadow_addr(struct guest_info * info, addr_t guest_addr) {
-  shadow_region_t * reg = get_shadow_region_by_addr(&(info->mem_map), guest_addr);
+  struct shadow_region * reg = get_shadow_region_by_addr(&(info->mem_map), guest_addr);
 
   if (!reg) {
     return 0;
   } else {
-    return (guest_addr - reg->guest_start) + reg->host_addr.phys_addr.host_start;
+    return (guest_addr - reg->guest_start) + reg->host_addr;
   }
 }
 
 
 host_region_type_t lookup_shadow_map_addr(struct shadow_map * map, addr_t guest_addr, addr_t * host_addr) {
-  shadow_region_t * reg = get_shadow_region_by_addr(map, guest_addr);
+  struct shadow_region * reg = get_shadow_region_by_addr(map, guest_addr);
 
   if (!reg) {
     // No mapping exists
@@ -185,7 +256,7 @@ host_region_type_t lookup_shadow_map_addr(struct shadow_map * map, addr_t guest_
   } else {
     switch (reg->host_type) {
     case HOST_REGION_PHYSICAL_MEMORY:
-     *host_addr = (guest_addr - reg->guest_start) + reg->host_addr.phys_addr.host_start;
+     *host_addr = (guest_addr - reg->guest_start) + reg->host_addr;
      return reg->host_type;
     case HOST_REGION_MEMORY_MAPPED_DEVICE:
     case HOST_REGION_UNALLOCATED:
@@ -199,7 +270,7 @@ host_region_type_t lookup_shadow_map_addr(struct shadow_map * map, addr_t guest_
 
 
 void print_shadow_map(struct shadow_map * map) {
-  shadow_region_t * cur = map->head;
+  struct shadow_region * cur = map->head;
   int i = 0;
 
   PrintDebug("Memory Layout (regions: %d) \n", map->num_regions);
@@ -213,12 +284,12 @@ void print_shadow_map(struct shadow_map * map) {
     if (cur->host_type == HOST_REGION_PHYSICAL_MEMORY || 
 	cur->host_type == HOST_REGION_UNALLOCATED ||
 	cur->host_type == HOST_REGION_MEMORY_MAPPED_DEVICE) { 
-      PrintDebug("0x%x", cur->host_addr.phys_addr.host_start);
+      PrintDebug("0x%x", cur->host_addr);
     }
     PrintDebug("(%s)\n",
 	       cur->host_type == HOST_REGION_PHYSICAL_MEMORY ? "HOST_REGION_PHYSICAL_MEMORY" :
 	       cur->host_type == HOST_REGION_UNALLOCATED ? "HOST_REGION_UNALLOACTED" :
-	       cur->host_type == HOST_REGION_NOTHING ? "HOST_REGION_NOTHING" :
+	       cur->host_type == HOST_REGION_HOOK ? "HOST_REGION_HOOK" :
 	       cur->host_type == HOST_REGION_MEMORY_MAPPED_DEVICE ? "HOST_REGION_MEMORY_MAPPED_DEVICE" :
 	       cur->host_type == HOST_REGION_REMOTE ? "HOST_REGION_REMOTE" : 
 	       cur->host_type == HOST_REGION_SWAPPED ? "HOST_REGION_SWAPPED" :

@@ -106,7 +106,8 @@ int handle_cr0_write(struct guest_info * info) {
     } else if ((instr[index] == cr_access_byte) && 
 	       (instr[index + 1] == clts_byte)) {
       // CLTS
-
+      PrintDebug("CLTS unhandled\n");
+      return -1;
 
     } else if ((instr[index] == cr_access_byte) && 
 	       (instr[index + 1] = mov_to_cr_byte)) {
@@ -449,12 +450,15 @@ int handle_cr3_write(struct guest_info * info) {
 	struct cr3_32 * shadow_cr3 = (struct cr3_32 *)&(info->shdw_pg_state.shadow_cr3);
 	struct cr3_32 * guest_cr3 = (struct cr3_32 *)&(info->shdw_pg_state.guest_cr3);
 
+	/* Delete the current Page Tables */
+	delete_page_tables_pde32((pde32_t *)CR3_TO_PDE32(shadow_cr3));
 
 	*guest_cr3 = *new_cr3;
 
 	// Something like this
 	shadow_pt =  create_new_shadow_pt32(info);
 	//shadow_pt = setup_shadow_pt32(info, CR3_TO_PDE32(*(addr_t *)new_cr3));
+
 
 	/* Copy Various flags */
 	*shadow_cr3 = *new_cr3;

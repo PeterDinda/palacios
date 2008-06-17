@@ -18,9 +18,24 @@ int init_shadow_page_state(struct shadow_page_state * state) {
 }
 
 int handle_shadow_pagefault(struct guest_info * info, addr_t fault_addr, pf_error_t error_code) {
-  if (info->cpu_mode == PROTECTED_PG) {
+  
+  switch (info->cpu_mode) {
+  case PROTECTED_PG:
     return handle_shadow_pagefault32(info, fault_addr, error_code);
-  } else {
+    break;
+  case PROTECTED_PAE_PG:
+  case LONG_PG:
+    // currently not handled
+    return -1;
+    break;
+  case REAL:
+  case PROTECTED:
+  case PROTECTED_PAE:
+  case LONG:
+    // If paging is not turned on we need to handle the special cases
+    return handle_special_page_fault(info, fault_addr, error_code);
+    break;
+  default:
     return -1;
   }
 }
@@ -83,6 +98,7 @@ int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_er
     } else {
       /*
        * Check the Intel manual because we are ignoring Large Page issues here
+       * Also be wary of hooked pages
        */
     }
 
@@ -183,37 +199,47 @@ int handle_shadow_pte32_fault(struct guest_info * info,
 
     // Page Table Entry Not Present
 
-    if (get_shadow_addr_type(info, guest_pa) == HOST_REGION_INVALID) {
+    host_region_type_t host_page_type = get_shadow_addr_type(info, guest_pa);
+
+    if (host_page_type == HOST_REGION_INVALID) {
       // Inject a machine check in the guest
 
       raise_exception(info, MC_EXCEPTION);
 
       PrintDebug("Invalid Guest Address in page table (0x%x)\n", guest_pa);
       return 0;
-    }
 
-    shadow_pa = get_shadow_addr(info, guest_pa);
-
-    shadow_pte_entry->page_base_addr = PT32_BASE_ADDR(shadow_pa);
-
-    shadow_pte_entry->present = guest_pte_entry->present;
-    shadow_pte_entry->user_page = guest_pte_entry->user_page;
-
-    //set according to VMM policy
-    shadow_pte_entry->write_through = 0;
-    shadow_pte_entry->cache_disable = 0;
-    shadow_pte_entry->global_page = 0;
-    //
-
-    guest_pte_entry->accessed = 1;
-
-    if (guest_pte_entry->dirty == 1) {
-      shadow_pte_entry->writable = guest_pte_entry->writable;
-    } else if ((guest_pte_entry->dirty == 0) && (error_code.write == 1)) {
-      shadow_pte_entry->writable = guest_pte_entry->writable;
-      guest_pte_entry->dirty = 1;
-    } else if ((guest_pte_entry->dirty = 0) && (error_code.write == 0)) {
-      shadow_pte_entry->writable = 0;
+    } else if (host_page_type == HOST_REGION_PHYSICAL_MEMORY) {
+      
+      shadow_pa = get_shadow_addr(info, guest_pa);
+      
+      shadow_pte_entry->page_base_addr = PT32_BASE_ADDR(shadow_pa);
+      
+      shadow_pte_entry->present = guest_pte_entry->present;
+      shadow_pte_entry->user_page = guest_pte_entry->user_page;
+      
+      //set according to VMM policy
+      shadow_pte_entry->write_through = 0;
+      shadow_pte_entry->cache_disable = 0;
+      shadow_pte_entry->global_page = 0;
+      //
+      
+      guest_pte_entry->accessed = 1;
+      
+      if (guest_pte_entry->dirty == 1) {
+	shadow_pte_entry->writable = guest_pte_entry->writable;
+      } else if ((guest_pte_entry->dirty == 0) && (error_code.write == 1)) {
+	shadow_pte_entry->writable = guest_pte_entry->writable;
+	guest_pte_entry->dirty = 1;
+      } else if ((guest_pte_entry->dirty = 0) && (error_code.write == 0)) {
+	shadow_pte_entry->writable = 0;
+      }
+    } else {
+      // Page fault handled by hook functions
+      if (handle_special_page_fault(info, fault_addr, error_code) == -1) {
+	PrintDebug("Special Page fault handler returned error for address: %x\n", fault_addr);
+	return -1;
+      }
     }
 
   } else if ((shadow_pte_access == PT_WRITE_ERROR) &&

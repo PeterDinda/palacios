@@ -153,6 +153,17 @@ void BuzzVM()
 
 
 
+int passthrough_mem_read(addr_t guest_addr, void * dst, uint_t length, void * priv_data) {
+  memcpy(dst, (void*)guest_addr, length);
+  return length;
+}
+
+int passthrough_mem_write(addr_t guest_addr, void * src, uint_t length, void * priv_data) {
+  memcpy((void*)guest_addr, src, length);
+  return length;
+}
+
+
 
 /* We need a configuration mechanism, so we can wrap this completely inside the VMM code, 
  * with no pollution into the HOST OS
@@ -281,8 +292,9 @@ int RunVMM(struct Boot_Info * bootInfo) {
       
       //     
       add_shadow_region_passthrough(&vm_info, 0x0, 0xa0000, (addr_t)Allocate_VMM_Pages(160));
-      add_shadow_region_passthrough(&vm_info, 0xa0000, 0xc0000, 0xa0000); 
       
+      add_shadow_region_passthrough(&vm_info, 0xa0000, 0xc0000, 0xa0000); 
+      //hook_guest_mem(&vm_info, 0xa0000, 0xc0000, passthrough_mem_read, passthrough_mem_write, NULL);
 
 
       // TEMP
