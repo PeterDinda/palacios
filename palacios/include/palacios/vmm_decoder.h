@@ -8,6 +8,29 @@
  * We can parse out the instruction prefixes, as well as decode the operands 
  */
 
+typedef enum {INVALID_OPERAND, REG_OPERAND, MEM_OPERAND} operand_type_t;
+
+
+
+
+struct x86_operand {
+  addr_t operand;
+  uint_t size;
+  operand_type_t type;
+};
+
+
+/* This parses an instruction 
+ * All addresses in arguments are in the host address space
+ */
+int v3_parse_instr(struct guest_info * info,             // input
+		   char * instr_ptr,                        // input 
+		   uint_t * instr_length,                // output
+		   struct x86_operand * src_operand,     // output
+		   struct x86_operand * dst_operand,     // output
+		   struct x86_operand * extra_operand);  // output
+		   
+
 
 /* 
  * JRL: Some of this was taken from the Xen sources... 
@@ -95,7 +118,6 @@ static const uchar_t PREFIX_BR_TAKEN = 0x3E;
 static const uchar_t PREFIX_OP_SIZE = 0x66;
 static const uchar_t PREFIX_ADDR_SIZE = 0x67;
 
-
 static inline int is_prefix_byte(char byte) {
   switch (byte) {
   case 0xF0:      // lock
@@ -153,7 +175,11 @@ static inline addr_t get_addr_linear(struct guest_info * info, addr_t addr, stru
 
 typedef enum {INVALID_ADDR_TYPE, REG, DISP0, DISP8, DISP16, DISP32} modrm_mode_t;
 typedef enum {INVALID_REG_SIZE, REG64, REG32, REG16, REG8} reg_size_t;
-typedef enum {INVALID_OPERAND, REG_OPERAND, MEM_OPERAND} operand_type_t;
+
+
+
+
+
 
 struct v3_gprs;
 

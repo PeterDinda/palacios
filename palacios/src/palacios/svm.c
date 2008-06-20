@@ -9,7 +9,7 @@
 #include <palacios/vmm_debug.h>
 #include <palacios/vm_guest_mem.h>
 
-#include <palacios/vmm_emulate.h>
+#include <palacios/vmm_decoder.h>
 
 
 extern struct vmm_os_hooks * os_hooks;

@@ -3,7 +3,7 @@
 
 #include <palacios/vmm.h>
 #include <palacios/vm_guest_mem.h>
-#include <palacios/vmm_emulate.h>
+#include <palacios/vmm_decoder.h>
 
 
 

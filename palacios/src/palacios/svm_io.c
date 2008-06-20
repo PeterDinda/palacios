@@ -1,7 +1,7 @@
 #include <palacios/svm_io.h>
 #include <palacios/vmm_io.h>
 #include <palacios/vmm_ctrl_regs.h>
-#include <palacios/vmm_emulate.h>
+#include <palacios/vmm_decoder.h>
 #include <palacios/vm_guest_mem.h>
 
 
@@ -103,6 +103,10 @@ int handle_svm_io_ins(struct guest_info * info) {
   } else {
     // This value should be set depending on the host register size...
     mask = get_gpr_mask(info);
+
+
+    PrintDebug("INS Aborted... Check implementation\n");
+    return -1;
   }
 
   if (io_info->rep) {

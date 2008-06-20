@@ -1,7 +1,7 @@
 #include <palacios/vmm_mem.h>
 #include <palacios/vmm.h>
 #include <palacios/vmcb.h>
-#include <palacios/vmm_emulate.h>
+#include <palacios/vmm_decoder.h>
 #include <palacios/vm_guest_mem.h>
 #include <palacios/vmm_ctrl_regs.h>
 
