@@ -1,7 +1,7 @@
 #ifndef __VMM_EMULATE_H
 #define __VMM_EMULATE_H
 #include <palacios/vm_guest.h>
-
+#include <palacios/vmm.h>
 
 /*
  * This is where we do the hideous X86 instruction parsing among other things
