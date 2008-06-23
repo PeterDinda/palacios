@@ -19,6 +19,9 @@ struct x86_operand {
   operand_type_t type;
 };
 
+struct x86_prefix_list {
+  uint_t lock   : 1;
+};
 
 /* This parses an instruction 
  * All addresses in arguments are in the host address space
@@ -26,6 +29,9 @@ struct x86_operand {
 int v3_parse_instr(struct guest_info * info,             // input
 		   char * instr_ptr,                        // input 
 		   uint_t * instr_length,                // output
+		   addr_t * opcode,                      // output
+		   uint_t * opcode_length,               // output
+		   struct x86_prefix_list * prefixes,    // output
 		   struct x86_operand * src_operand,     // output
 		   struct x86_operand * dst_operand,     // output
 		   struct x86_operand * extra_operand);  // output

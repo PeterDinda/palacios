@@ -6,6 +6,9 @@
 int v3_parse_instr(struct guest_info * info,
 		   char * instr_ptr,
 		   uint_t * instr_length, 
+		   addr_t * opcode,
+		   uint_t * opcode_length,
+		   struct x86_prefix_list * prefixes,
 		   struct x86_operand * src_operand,
 		   struct x86_operand * dst_operand,
 		   struct x86_operand * extra_operand) {
