@@ -250,7 +250,7 @@ static int start_svm_guest(struct guest_info *info) {
 
     CLGI();
 
-    PrintDebug("SVM Entry...\n");
+    //  PrintDebug("SVM Entry...\n");
 
     rdtscll(info->time_state.cached_host_tsc);
     guest_ctrl->TSC_OFFSET = info->time_state.guest_tsc - info->time_state.cached_host_tsc;
@@ -258,7 +258,7 @@ static int start_svm_guest(struct guest_info *info) {
     safe_svm_launch((vmcb_t*)(info->vmm_data), &(info->vm_regs));
 
     rdtscll(tmp_tsc);
-    PrintDebug("SVM Returned\n");
+    //PrintDebug("SVM Returned\n");
 
 
     v3_update_time(info, tmp_tsc - info->time_state.cached_host_tsc);

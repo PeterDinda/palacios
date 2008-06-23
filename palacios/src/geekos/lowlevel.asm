@@ -2,7 +2,7 @@
 ; Low level interrupt/thread handling code for GeekOS.
 ; Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
 ; Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
-; $Revision: 1.7 $
+; $Revision: 1.8 $
 
 ; This is free software.  You are permitted to use,
 ; redistribute, and modify it as specified in the file "COPYING".
@@ -425,16 +425,16 @@ Handle_Interrupt:
 	mov	esi, [esp+REG_SKIP]	; get interrupt number
 	mov	ebx, [eax+esi*4]	; get address of handler function
 
-	push	esi
-	call	SerialPrintHex
-	pop	esi
+;	push	esi
+;	call	SerialPrintHex
+;	pop	esi
 
-	push 	eax
-	mov	eax, 0xa
-	push 	eax
-	call 	SerialPutChar
-	pop	eax
-	pop	eax
+;	push 	eax
+;	mov	eax, 0xa
+;	push 	eax
+;	call 	SerialPutChar
+;	pop	eax
+;	pop	eax
 
 	; Call the handler.
 	; The argument passed is a pointer to an Interrupt_State struct,
@@ -516,19 +516,19 @@ Handle_Interrupt:
 	Restore_Registers
 
 
-	pusha	
+;	pusha	
 
-	mov	eax, 0xaa
-	push 	eax
-	call	SerialPrintHex
-	pop	eax
+;	mov	eax, 0xaa
+;	push 	eax
+;	call	SerialPrintHex
+;	pop	eax
 
-	mov	eax, 0xa
-	push 	eax
-	call 	SerialPutChar
-	pop	eax
+;	mov	eax, 0xa
+;	push 	eax
+;	call 	SerialPutChar
+;	pop	eax
 
-	popa
+;	popa
 
 	; Return from the interrupt.
 	iret
