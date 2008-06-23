@@ -10,16 +10,16 @@ int v3_parse_instr(struct guest_info * info,
 		   struct x86_operand * dst_operand,
 		   struct x86_operand * extra_operand) {
 
-  V3_Assert(src_operand != NULL);
-  V3_Assert(dst_operand != NULL);
-  V3_Assert(extra_operand != NULL);
-  V3_Assert(instr_length != NULL);
-  V3_Assert(info != NULL);
+  V3_ASSERT(src_operand != NULL);
+  V3_ASSERT(dst_operand != NULL);
+  V3_ASSERT(extra_operand != NULL);
+  V3_ASSERT(instr_length != NULL);
+  V3_ASSERT(info != NULL);
 
   
   // Ignore prefixes for now
-  while (is_prefix_byte(*instr)) {
-    instr++;
+  while (is_prefix_byte(*instr_ptr)) {
+    instr_ptr++;
     *instr_length++;
   }
 

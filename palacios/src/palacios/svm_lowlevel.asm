@@ -143,6 +143,8 @@ safe_svm_launch:
 	push	ebp
 	mov	ebp, esp
 	pushf
+	push    fs
+	push    gs
 	pusha   				;; Save Host state
 
 
@@ -166,6 +168,8 @@ safe_svm_launch:
 	add	esp, 4				;; skip past the gpr ptr
 	
 	popa			  		;; Restore Host state
+	pop     gs
+	pop     fs
 	popf
 	pop 	ebp
 	ret

@@ -334,10 +334,34 @@ int RunVMM(struct Boot_Info * bootInfo) {
 	struct vm_device * keyboard = create_keyboard();
 	struct vm_device * pit = create_pit();
 
-	//generic_port_range_type range = {0,1024} ; // hook first 1024 ports if not already hooked
 
-	//struct vm_device * generic = create_generic(&range, 1, NULL, 0, NULL, 0);
+
+#if GENERIC
+	generic_port_range_type range[] = {
+          {0x00, 0x07},   // DMA 1 channels 0,1,2,3 (address, counter)
+          {0xc0, 0xc7},   // DMA 2 channels 4,5,6,7 (address, counter)
+          {0x87, 0x87},   // DMA 1 channel 0 page register
+          {0x83, 0x83},   // DMA 1 channel 1 page register
+          {0x81, 0x81},   // DMA 1 channel 2 page register
+          {0x82, 0x82},   // DMA 1 channel 3 page register
+          {0x8f, 0x8f},   // DMA 2 channel 4 page register
+          {0x8b, 0x8b},   // DMA 2 channel 5 page register
+          {0x89, 0x89},   // DMA 2 channel 6 page register
+          {0x8a, 0x8a},   // DMA 2 channel 7 page register
+	  {0x08, 0x0f},   // DMA 1 misc registers (csr, req, smask,mode,clearff,reset,enable,mmask)
+          {0xd0, 0xde},   // DMA 2 misc registers
+          {0x3f0, 0x3f2}, // Primary floppy controller (base,statusa/statusb,DOR)
+          {0x3f4, 0x3f5}, // Primary floppy controller (mainstat/datarate,data)
+          {0x3f7, 0x3f7}, // Primary floppy controller (DIR)
+          {0x370, 0x372}, // Secondary floppy controller (base,statusa/statusb,DOR)
+          {0x374, 0x375}, // Secondary floppy controller (mainstat/datarate,data)
+          {0x377, 0x377}, // Secondary floppy controller (DIR)
+          {0x378, 0x400}
+        };
+
+	struct vm_device * generic = create_generic(range,19,NULL,0,NULL,0);
 	
+#endif
 
 	attach_device(&(vm_info), nvram);
 	//attach_device(&(vm_info), timer);
@@ -345,8 +369,12 @@ int RunVMM(struct Boot_Info * bootInfo) {
 	attach_device(&(vm_info), pit);
 	attach_device(&(vm_info), keyboard);
 
+
+#if GENERIC
 	// Important that this be attached last!
-	//attach_device(&(vm_info), generic);
+	attach_device(&(vm_info), generic);
+
+#endif
 
 	PrintDebugDevMgr(&(vm_info.dev_mgr));
       }

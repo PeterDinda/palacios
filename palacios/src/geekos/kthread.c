@@ -1,7 +1,7 @@
 /*
  * Kernel threads
  * Copyright (c) 2001,2003 David H. Hovemeyer <daveho@cs.umd.edu>
- * $Revision: 1.2 $
+ * $Revision: 1.3 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -560,6 +560,8 @@ void Schedule(void)
      * will "return", and then Schedule() will return to wherever
      * it was called from.
      */
+
+    SerialPrint("Switch_To_Thread() in Schedule()\n");
     Switch_To_Thread(runnable);
 }
 

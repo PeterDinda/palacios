@@ -1,7 +1,7 @@
 /*
  * GeekOS interrupt handling data structures and functions
  * Copyright (c) 2001,2003 David H. Hovemeyer <daveho@cs.umd.edu>
- * $Revision: 1.6 $
+ * $Revision: 1.7 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -396,7 +396,7 @@ void Dump_Interrupt_State(struct Interrupt_State* state)
 {
     uint_t errorCode = state->errorCode;
 
-   PrintBoth("eax=%08x ebx=%08x ecx=%08x edx=%08x\n"
+   SerialPrint("eax=%08x ebx=%08x ecx=%08x edx=%08x\n"
 	   "esi=%08x edi=%08x ebp=%08x\n"
 	   "eip=%08x cs=%08x eflags=%08x\n"
 	   "Interrupt number=%d (%s), error code=%d\n"

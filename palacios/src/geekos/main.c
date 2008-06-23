@@ -3,7 +3,7 @@
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
  * Copyright (c) 2004, Iulian Neamtiu <neamtiu@cs.umd.edu>
- * $Revision: 1.36 $
+ * $Revision: 1.37 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -36,6 +36,7 @@
 
 #include <geekos/vmm_stubs.h>
 
+#include <geekos/pci.h>
 
 
 
@@ -192,6 +193,9 @@ void Main(struct Boot_Info* bootInfo)
   Init_Keyboard();
   Init_VM(bootInfo);
   Init_Paging();
+  
+  Init_PCI();
+
   Init_Stubs();
 
   //  Init_IDE();
