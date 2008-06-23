@@ -1,6 +1,6 @@
 //  -*- fundamental -*-
 /////////////////////////////////////////////////////////////////////////
-// $Id: rombios.c,v 1.7 2008/06/10 19:13:49 jarusl Exp $
+// $Id: rombios.c,v 1.8 2008/06/23 17:15:19 pdinda Exp $
 /////////////////////////////////////////////////////////////////////////
 //
 //  Copyright (C) 2002  MandrakeSoft S.A.
@@ -134,9 +134,9 @@
 
 #define DEBUG_ATA          0
 #define DEBUG_INT13_HD     0
-#define DEBUG_INT13_CD     1
+#define DEBUG_INT13_CD     0
 #define DEBUG_INT13_ET     0
-#define DEBUG_INT13_FL     1
+#define DEBUG_INT13_FL     0
 #define DEBUG_INT15        0
 #define DEBUG_INT16        0
 #define DEBUG_INT1A        0
@@ -945,10 +945,10 @@ Bit16u cdrom_boot();
 
 #endif // BX_ELTORITO_BOOT
 
-static char bios_cvs_version_string[] = "$Revision: 1.7 $";
-static char bios_date_string[] = "$Date: 2008/06/10 19:13:49 $";
+static char bios_cvs_version_string[] = "$Revision: 1.8 $";
+static char bios_date_string[] = "$Date: 2008/06/23 17:15:19 $";
 
-static char CVSID[] = "$Id: rombios.c,v 1.7 2008/06/10 19:13:49 jarusl Exp $";
+static char CVSID[] = "$Id: rombios.c,v 1.8 2008/06/23 17:15:19 pdinda Exp $";
 
 /* Offset to skip the CVS $Id: prefix */ 
 #define bios_version_string  (CVSID + 4)
@@ -1400,12 +1400,13 @@ ASM_END
 }
 
 //  Bit16u
-//get_DS()
-//{
-//ASM_START
-//  mov  ax, ds
-//ASM_END
-//}
+get_DS()
+{
+ASM_START
+  mov  ax, ds
+ASM_END
+}
+
 //
 //  void
 //set_DS(ds_selector)
@@ -4168,9 +4169,12 @@ ASM_END
          case 0x20: // coded by osmaker aka K.J.
             if(regs.u.r32.edx == 0x534D4150) /* SMAP */
             {
-#ifdef HVMASSIST
+#if defined(HVMASSIST) && 1
 		if ((regs.u.r16.bx / 0x14) * 0x14 == regs.u.r16.bx) {
+
 		    Bit16u e820_table_size = read_word(0xe000, 0x8) * 0x14;
+
+                    BX_DEBUG_INT15("OK bx=%x\n",regs.u.r16.bx);
 
 		    if (regs.u.r16.bx + 0x14 <= e820_table_size) {
 			memcpyb(ES, regs.u.r16.di,
@@ -6772,16 +6776,15 @@ int13_diskette_function(DS, ES, DI, SI, BP, ELDX, BX, DX, CX, AX, IP, CS, FLAGS)
   Bit8u  drive_type, num_floppies, ah;
   Bit16u es, last_addr;
 
-  printf("In int13_diskette\n");
 
-  BX_DEBUG_INT13_FL("int13_diskette: AX=%04x BX=%04x CX=%04x DX=%04x ES=%04x\n", AX, BX, CX, DX, ES);
-  // BX_DEBUG_INT13_FL("int13_diskette: SS=%04x DS=%04x ES=%04x DI=%04x SI=%04x\n",get_SS(), get_DS(), ES, DI, SI);
+  //printf("int13_diskette: AX=%04x BX=%04x CX=%04x DX=%04x ES=%04x\n", AX, BX, CX, DX, ES);
+  BX_DEBUG_INT13_FL("int13_diskette: SS=%04x DS=%04x ES=%04x DI=%04x SI=%04x\n",get_SS(),get_DS(), ES, DI, SI);
 
   ah = GET_AH();
 
   switch ( ah ) {
     case 0x00: // diskette controller reset
-BX_DEBUG_INT13_FL("floppy f00\n");
+      BX_DEBUG_INT13_FL("floppy f00\n");
       drive = GET_ELDL();
       if (drive > 1) {
         SET_AH(1); // invalid param
@@ -7774,6 +7777,8 @@ ASM_END
   print_boot_device(0, bootdrv);
 #endif // BX_ELTORITO_BOOT
 
+  BX_DEBUG("boot to %x\n", (((Bit32u)bootdrv) << 16) + bootseg);
+
   // return the boot segment
   return (((Bit32u)bootdrv) << 16) + bootseg;
 }
@@ -8301,9 +8306,9 @@ boot_setup:
   mov [bp],  ax      ;; set bp to zero
   mov ax,    #0xaa55 ;; set ok flag
 
+
   pop bp
-  mov al, 0xf3
-  outb #0x80, al
+
   iret               ;; Beam me up Scotty
 
 ;----------
@@ -8840,7 +8845,7 @@ int76_handler:
   mov   ds, ax
   mov   0x008E, #0xff
   call  eoi_both_pics
-  pop   ds
+  pop   ds  
   pop   ax
   iret
 
@@ -9506,6 +9511,7 @@ rom_scan_loop:
   jne  rom_scan_increment
   call rom_checksum
   jnz  rom_scan_increment
+
   mov  al, [2]  ;; change increment to ROM length in 512-byte blocks
 
   ;; We want our increment in 512-byte quantities, rounded to
