@@ -450,9 +450,12 @@ int handle_cr3_write(struct guest_info * info) {
 	struct cr3_32 * shadow_cr3 = (struct cr3_32 *)&(info->shdw_pg_state.shadow_cr3);
 	struct cr3_32 * guest_cr3 = (struct cr3_32 *)&(info->shdw_pg_state.guest_cr3);
 
-	/* Delete the current Page Tables */
-	delete_page_tables_pde32((pde32_t *)CR3_TO_PDE32(shadow_cr3));
+	PrintDebug("fooo1\n");
 
+	/* Delete the current Page Tables */
+	delete_page_tables_pde32((pde32_t *)CR3_TO_PDE32(*(uint_t*)shadow_cr3));
+
+	PrintDebug("fooo2\n");
 	*guest_cr3 = *new_cr3;
 
 	// Something like this

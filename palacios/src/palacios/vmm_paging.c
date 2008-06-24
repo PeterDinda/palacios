@@ -8,7 +8,7 @@
 extern struct vmm_os_hooks * os_hooks;
 
 void delete_page_tables_pde32(pde32_t * pde) {
-  int i, j;
+  int i;//, j;
 
   if (pde == NULL) { 
     return;
@@ -17,17 +17,20 @@ void delete_page_tables_pde32(pde32_t * pde) {
   for (i = 0; (i < MAX_PDE32_ENTRIES); i++) {
     if (pde[i].present) {
       pte32_t * pte = (pte32_t *)(pde[i].pt_base_addr << PAGE_POWER);
-      
-      for (j = 0; (j < MAX_PTE32_ENTRIES); j++) {
+
+      /*
+	for (j = 0; (j < MAX_PTE32_ENTRIES); j++) {
 	if ((pte[j].present)) {
-	  os_hooks->free_page((void *)(pte[j].page_base_addr << PAGE_POWER));
+	os_hooks->free_page((void *)(pte[j].page_base_addr << PAGE_POWER));
 	}
-      }
-      
+	}
+      */
+      //PrintDebug("Deleting PTE %d (%x)\n", i, pte);
       os_hooks->free_page(pte);
     }
   }
 
+  //  PrintDebug("Deleting PDE (%x)\n", pde);
   os_hooks->free_page(pde);
 }
 
