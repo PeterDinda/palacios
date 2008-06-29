@@ -2,7 +2,7 @@
  * GeekOS timer interrupt support
  * Copyright (c) 2001,2003 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
- * $Revision: 1.7 $
+ * $Revision: 1.8 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -206,12 +206,12 @@ static void Timer_Interrupt_Handler(struct Interrupt_State* state)
 
     Begin_IRQ(state);
 
-    SerialPrint("Host Timer Interrupt Handler running\n");
 
 
 #if 0
 #define STACK_LEN 256
 
+    SerialPrint("Host Timer Interrupt Handler running\n");
     SerialPrint("Timer====\n");
     Dump_Interrupt_State(state);
     //    SerialMemDump((unsigned char*)(&current),STACK_LEN);
