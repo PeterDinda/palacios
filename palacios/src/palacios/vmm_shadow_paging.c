@@ -19,23 +19,25 @@ int init_shadow_page_state(struct shadow_page_state * state) {
 
 int handle_shadow_pagefault(struct guest_info * info, addr_t fault_addr, pf_error_t error_code) {
   
-  switch (info->cpu_mode) {
-  case PROTECTED_PG:
-    return handle_shadow_pagefault32(info, fault_addr, error_code);
-    break;
-  case PROTECTED_PAE_PG:
-  case LONG_PG:
-    // currently not handled
-    return -1;
-    break;
-  case REAL:
-  case PROTECTED:
-  case PROTECTED_PAE:
-  case LONG:
+  if (info->mem_mode == PHYSICAL_MEM) {
     // If paging is not turned on we need to handle the special cases
     return handle_special_page_fault(info, fault_addr, error_code);
-    break;
-  default:
+  } else if (info->mem_mode == VIRTUAL_MEM) {
+
+    switch (info->cpu_mode) {
+    case PROTECTED:
+      return handle_shadow_pagefault32(info, fault_addr, error_code);
+      break;
+    case PROTECTED_PAE:
+    case LONG:
+      // currently not handled
+      return -1;
+      break;
+    default:
+      return -1;
+    }
+  } else {
+    PrintDebug("Invalid Memory mode\n");
     return -1;
   }
 }
@@ -151,7 +153,7 @@ int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_er
     return -1;
   }
 
-  PrintDebugPageTables(shadow_pde);
+  //PrintDebugPageTables(shadow_pde);
 
   return 0;
 }
@@ -277,7 +279,15 @@ addr_t create_new_shadow_pt32(struct guest_info * info) {
 
 /* Currently Does not work with Segmentation!!! */
 int handle_shadow_invlpg(struct guest_info * info) {
-  if (info->cpu_mode == PROTECTED_PG) {
+  if (info->mem_mode != VIRTUAL_MEM) {
+    // Paging must be turned on...
+    // should handle with some sort of fault I think
+    PrintDebug("ERROR: INVLPG called in non paged mode\n");
+    return -1;
+  }
+
+
+  if (info->cpu_mode == PROTECTED) {
     char instr[15];
     int ret;
     int index = 0;
@@ -334,7 +344,7 @@ int handle_shadow_invlpg(struct guest_info * info) {
       PrintDebug("invalid Instruction Opcode\n");
       PrintTraceMemDump(instr, 15);
       return -1;
-    }	     
+    }
   }
 
   return 0;

@@ -154,7 +154,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info vm_info) {
   ctrl_area->instrs.INTR = 1;
 
 
-  if (vm_info.page_mode == SHADOW_PAGING) {
+  if (vm_info.shdw_pg_mode == SHADOW_PAGING) {
     PrintDebug("Creating initial shadow page table\n");
     vm_info.shdw_pg_state.shadow_cr3 |= ((addr_t)create_passthrough_pde32_pts(&vm_info) & ~0xfff);
     PrintDebug("Created\n");
@@ -173,7 +173,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info vm_info) {
     guest_state->g_pat = 0x7040600070406ULL;
 
     guest_state->cr0 |= 0x80000000;
-  } else if (vm_info.page_mode == NESTED_PAGING) {
+  } else if (vm_info.shdw_pg_mode == NESTED_PAGING) {
     // Flush the TLB on entries/exits
     //ctrl_area->TLB_CONTROL = 1;
 
@@ -273,7 +273,6 @@ static int start_svm_guest(struct guest_info *info) {
 
       PrintDebug("SVM ERROR!!\n"); 
       
-
       PrintDebug("RIP: %x\n", guest_state->rip);
 
 
@@ -282,7 +281,13 @@ static int start_svm_guest(struct guest_info *info) {
 
       PrintDebug("RIP Linear: %x\n", linear_addr);
 
-      guest_pa_to_host_pa(info, linear_addr, &host_addr);
+      
+      if (info->mem_mode == PHYSICAL_MEM) {
+	guest_pa_to_host_pa(info, linear_addr, &host_addr);
+      } else if (info->mem_mode == VIRTUAL_MEM) {
+	guest_va_to_host_pa(info, linear_addr, &host_addr);
+      }
+
 
       PrintDebug("Host Address of rip = 0x%x\n", host_addr);
 

@@ -106,7 +106,7 @@ int handle_svm_exit(struct guest_info * info) {
     
     PrintDebug("PageFault at %x (error=%d)\n", fault_addr, *error_code);
 
-    if (info->page_mode == SHADOW_PAGING) {
+    if (info->shdw_pg_mode == SHADOW_PAGING) {
       if (handle_shadow_pagefault(info, fault_addr, *error_code) == -1) {
 	return -1;
       }
@@ -116,7 +116,7 @@ int handle_svm_exit(struct guest_info * info) {
     }
 
   } else if (exit_code == VMEXIT_INVLPG) {
-    if (info->page_mode == SHADOW_PAGING) {
+    if (info->shdw_pg_mode == SHADOW_PAGING) {
       PrintDebug("Invlpg\n");
       if (handle_shadow_invlpg(info) == -1) {
 	return -1;
@@ -158,8 +158,18 @@ int handle_svm_exit(struct guest_info * info) {
 
     
 
-    if (guest_pa_to_host_pa(info, guest_state->rip, &host_addr) == -1) {
-      PrintDebug("Could not translate guest_state->rip to host address\n");
+    if (info->mem_mode == PHYSICAL_MEM) {
+      if (guest_pa_to_host_pa(info, guest_state->rip, &host_addr) == -1) {
+	PrintDebug("Could not translate guest_state->rip to host address\n");
+	return -1;
+      }
+    } else if (info->mem_mode == VIRTUAL_MEM) {
+      if (guest_va_to_host_pa(info, guest_state->rip, &host_addr) == -1) {
+	PrintDebug("Could not translate guest_state->rip to host address\n");
+	return -1;
+      }
+    } else {
+      PrintDebug("Invalid memory mode\n");
       return -1;
     }
 
@@ -169,7 +179,11 @@ int handle_svm_exit(struct guest_info * info) {
     
     PrintDebug("Reading from 0x%x in guest\n", rip_addr);
     
-    read_guest_pa_memory(info, rip_addr, 15, buf);
+    if (info->mem_mode == PHYSICAL_MEM) {
+      read_guest_pa_memory(info, rip_addr, 15, buf);
+    } else {
+      read_guest_va_memory(info, rip_addr, 15, buf);
+    }
 
     PrintTraceMemDump(buf, 15);
 
@@ -223,10 +237,10 @@ int handle_svm_exit(struct guest_info * info) {
 	injecting_intr(info, excp, EXCEPTION);
 	break;
       }
-    case SOFTWARE:
+    case SOFTWARE_INTR:
       guest_ctrl->EVENTINJ.type = SVM_INJECTION_SOFT_INTR;
       break;
-    case VIRTUAL:
+    case VIRTUAL_INTR:
       guest_ctrl->EVENTINJ.type = SVM_INJECTION_VIRTUAL_INTR;
       break;
 

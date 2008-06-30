@@ -85,7 +85,7 @@ int handle_cr0_write(struct guest_info * info) {
 	new_cr0_val = *(char*)(new_cr0) & 0x0f;
 
 
-	if (info->page_mode == SHADOW_PAGING) {
+	if (info->shdw_pg_mode == SHADOW_PAGING) {
 	  struct cr0_real * shadow_cr0 = (struct cr0_real*)&(info->shdw_pg_state.guest_cr0);
 
 	  PrintDebug("Old CR0=%x, Old Shadow CR0=%x\n", *real_cr0, *shadow_cr0);	
@@ -153,7 +153,7 @@ int handle_cr0_write(struct guest_info * info) {
 	  return -1;
 	}
 
-	if (info->page_mode == SHADOW_PAGING) {
+	if (info->shdw_pg_mode == SHADOW_PAGING) {
 	  struct cr0_32 * shadow_cr0 = (struct cr0_32 *)&(info->shdw_pg_state.guest_cr0);
 	
 	  PrintDebug("Old CR0=%x, Old Shadow CR0=%x\n", *real_cr0, *shadow_cr0);	
@@ -181,24 +181,23 @@ int handle_cr0_write(struct guest_info * info) {
     break;
  
   case PROTECTED: 
-  case PROTECTED_PG:
     {
 
       int index = 0;
       int ret;
 
       PrintDebug("Protected %s Mode write to CR0 at guest %s linear rip 0x%x\n", 
-		 info->cpu_mode==PROTECTED_PG ? "Paged" : "",
-		 info->cpu_mode==PROTECTED_PG ? "virtual" : "",
-		 get_addr_linear(info,info->rip,&(info->segments.cs)));
+		 info->mem_mode == VIRTUAL_MEM ? "Paged" : "",
+		 info->mem_mode == VIRTUAL_MEM ? "virtual" : "",
+		 get_addr_linear(info, info->rip, &(info->segments.cs)));
 
       // OK, now we will read the instruction
       // The only difference between PROTECTED and PROTECTED_PG is whether we read
       // from guest_pa or guest_va
-      if (info->cpu_mode==PROTECTED) { 
+      if (info->mem_mode == PHYSICAL_MEM) { 
 	// The real rip address is actually a combination of the rip + CS base 
 	ret = read_guest_pa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
-      } else { //PROTECTED_PG
+      } else { 
 	ret = read_guest_va_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
       }
 	
@@ -240,7 +239,7 @@ int handle_cr0_write(struct guest_info * info) {
 
 
 
-	if (info->page_mode == SHADOW_PAGING) {
+	if (info->shdw_pg_mode == SHADOW_PAGING) {
 	  struct cr0_32 * shadow_cr0 = (struct cr0_32 *)&(info->shdw_pg_state.guest_cr0);
 
 	  if (new_cr0->pg == 1){
@@ -249,7 +248,7 @@ int handle_cr0_write(struct guest_info * info) {
 
 	    struct cr3_32 * shadow_cr3 = (struct cr3_32 *)&(info->shdw_pg_state.shadow_cr3);
 
-	    info->cpu_mode = PROTECTED_PG;
+	    info->mem_mode = VIRTUAL_MEM;
 	  
 	    *shadow_cr0 = *new_cr0;
 	    *real_cr0 = *new_cr0;
@@ -300,16 +299,8 @@ int handle_cr0_write(struct guest_info * info) {
     PrintDebug("Protected PAE Mode write to CR0 is UNIMPLEMENTED\n");
     return -1;
 
-  case PROTECTED_PAE_PG:
-    PrintDebug("Protected PAE Paged Mode write to CR0 is UNIMPLEMENTED\n");
-    return -1;
-
   case LONG:
     PrintDebug("Protected Long Mode write to CR0 is UNIMPLEMENTED\n");
-    return -1;
-
-  case LONG_PG:
-    PrintDebug("Protected Long Paged Mode write to CR0 is UNIMPLEMENTED\n");
     return -1;
 
   default: 
@@ -418,7 +409,7 @@ int handle_cr0_read(struct guest_info * info) {
 	  return -1;
 	}
 
-	if (info->page_mode == SHADOW_PAGING) {
+	if (info->shdw_pg_mode == SHADOW_PAGING) {
 	  *virt_cr0 = *(struct cr0_32 *)&(info->shdw_pg_state.guest_cr0);
 	} else {
 	  *virt_cr0 = *real_cr0;
@@ -436,23 +427,22 @@ int handle_cr0_read(struct guest_info * info) {
     break;
 
   case PROTECTED:
-  case PROTECTED_PG:
     {
     
       int index = 0;
       int ret;
 
       PrintDebug("Protected %s Mode read from CR0 at guest %s linear rip 0x%x\n", 
-		 info->cpu_mode==PROTECTED_PG ? "Paged" : "",
-		 info->cpu_mode==PROTECTED_PG ? "virtual" : "",
-		 get_addr_linear(info,info->rip,&(info->segments.cs)));
+		 info->mem_mode == VIRTUAL_MEM ? "Paged" : "",
+		 info->mem_mode == VIRTUAL_MEM ? "virtual" : "",
+		 get_addr_linear(info, info->rip, &(info->segments.cs)));
 
       // We need to read the instruction, which is at CS:IP, but that 
       // linear address is guest physical without PG and guest virtual with PG
-      if (info->cpu_mode==PROTECTED) { 
+      if (info->cpu_mode == PHYSICAL_MEM) { 
 	// The real rip address is actually a combination of the rip + CS base 
 	ret = read_guest_pa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
-      } else { // PROTECTED_PG
+      } else { 
 	// The real rip address is actually a combination of the rip + CS base 
 	ret = read_guest_va_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
       }
@@ -460,7 +450,7 @@ int handle_cr0_read(struct guest_info * info) {
       if (ret != 15) {
 	// I think we should inject a GPF into the guest
 	PrintDebug("Could not read Protected %s mode instruction (ret=%d)\n", 
-		   info->cpu_mode==PROTECTED_PG ? "Paged" : "", ret);
+		   info->cpu_mode == VIRTUAL_MEM ? "Paged" : "", ret);
 	return -1;
       }
 
@@ -491,7 +481,7 @@ int handle_cr0_read(struct guest_info * info) {
       
 	virt_cr0 = (struct cr0_32 *)first_operand;
 
-	if (info->page_mode == SHADOW_PAGING) {
+	if (info->shdw_pg_mode == SHADOW_PAGING) {
 	  *virt_cr0 = *(struct cr0_32 *)&(info->shdw_pg_state.guest_cr0);
 	} else {
 	  *virt_cr0 = *real_cr0;
@@ -510,17 +500,11 @@ int handle_cr0_read(struct guest_info * info) {
     PrintDebug("Protected PAE Mode read to CR0 is UNIMPLEMENTED\n");
     return -1;
 
-  case PROTECTED_PAE_PG:
-    PrintDebug("Protected PAE Paged Mode read to CR0 is UNIMPLEMENTED\n");
-    return -1;
-
   case LONG:
     PrintDebug("Protected Long Mode read to CR0 is UNIMPLEMENTED\n");
     return -1;
 
-  case LONG_PG:
-    PrintDebug("Protected Long Paged Mode read to CR0 is UNIMPLEMENTED\n");
-    return -1;
+
   default:
     {
       PrintDebug("Unknown Mode read from CR0 (info->cpu_mode=0x%x)\n",info->cpu_mode);
@@ -537,14 +521,25 @@ int handle_cr0_read(struct guest_info * info) {
 
 
 int handle_cr3_write(struct guest_info * info) {
-  if ((info->cpu_mode == PROTECTED) || (info->cpu_mode == PROTECTED_PG)) {
+  if (info->cpu_mode == PROTECTED) {
     int index = 0;
     int ret;
     char instr[15];
 
 
-    /* Isn't the RIP a Guest Virtual Address???????? */
-    ret = read_guest_pa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
+    // We need to read the instruction, which is at CS:IP, but that 
+    // linear address is guest physical without PG and guest virtual with PG
+    if (info->cpu_mode == PHYSICAL_MEM) { 
+      // The real rip address is actually a combination of the rip + CS base 
+      PrintDebug("Writing Guest CR3 Write (Physical Address)\n");
+      ret = read_guest_pa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
+    } else { 
+      PrintDebug("Writing Guest CR3 Write (Virtual Address)\n");
+      // The real rip address is actually a combination of the rip + CS base 
+      ret = read_guest_va_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
+    }
+
+
     if (ret != 15) {
       PrintDebug("Could not read instruction (ret=%d)\n", ret);
       return -1;
@@ -574,17 +569,16 @@ int handle_cr3_write(struct guest_info * info) {
 
       new_cr3 = (struct cr3_32 *)first_operand;
 
-      if (info->page_mode == SHADOW_PAGING) {
+      if (info->shdw_pg_mode == SHADOW_PAGING) {
 	addr_t shadow_pt;
 	struct cr3_32 * shadow_cr3 = (struct cr3_32 *)&(info->shdw_pg_state.shadow_cr3);
 	struct cr3_32 * guest_cr3 = (struct cr3_32 *)&(info->shdw_pg_state.guest_cr3);
 
-	PrintDebug("fooo1\n");
 
 	/* Delete the current Page Tables */
 	delete_page_tables_pde32((pde32_t *)CR3_TO_PDE32(*(uint_t*)shadow_cr3));
 
-	PrintDebug("fooo2\n");
+
 	*guest_cr3 = *new_cr3;
 
 	// Something like this
@@ -597,7 +591,7 @@ int handle_cr3_write(struct guest_info * info) {
 	
 	shadow_cr3->pdt_base_addr = PD32_BASE_ADDR(shadow_pt);
 
-	if (info->cpu_mode == PROTECTED_PG) {
+	if (info->mem_mode == VIRTUAL_MEM) {
 	  // If we aren't in paged mode then we have to preserve the identity mapped CR3
 	  info->ctrl_regs.cr3 = *(addr_t*)shadow_cr3;
 	}
@@ -621,12 +615,22 @@ int handle_cr3_write(struct guest_info * info) {
 
 
 int handle_cr3_read(struct guest_info * info) {
-  if ((info->cpu_mode == PROTECTED) || (info->cpu_mode == PROTECTED_PG)) {
+  if (info->cpu_mode == PROTECTED) {
     int index = 0;
     int ret;
     char instr[15];
 
-    ret = read_guest_pa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
+   
+    // We need to read the instruction, which is at CS:IP, but that 
+    // linear address is guest physical without PG and guest virtual with PG
+    if (info->cpu_mode == PHYSICAL_MEM) { 
+      // The real rip address is actually a combination of the rip + CS base 
+      ret = read_guest_pa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
+    } else { 
+      // The real rip address is actually a combination of the rip + CS base 
+      ret = read_guest_va_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
+    }
+
     if (ret != 15) {
       PrintDebug("Could not read instruction (ret=%d)\n", ret);
       return -1;
@@ -655,7 +659,7 @@ int handle_cr3_read(struct guest_info * info) {
 
       virt_cr3 = (struct cr3_32 *)first_operand;
 
-      if (info->page_mode == SHADOW_PAGING) {
+      if (info->shdw_pg_mode == SHADOW_PAGING) {
 	*virt_cr3 = *(struct cr3_32 *)&(info->shdw_pg_state.guest_cr3);
       } else {
 	*virt_cr3 = *real_cr3;

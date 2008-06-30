@@ -79,21 +79,20 @@ struct vm_ctrl_ops {
 
 
 
-typedef enum {SHADOW_PAGING, NESTED_PAGING} vm_page_mode_t;
-typedef enum {REAL, PROTECTED, PROTECTED_PG, PROTECTED_PAE, PROTECTED_PAE_PG, LONG, LONG_PG} vm_cpu_mode_t;
+typedef enum {SHADOW_PAGING, NESTED_PAGING} vmm_paging_mode_t;
+typedef enum {REAL, PROTECTED, PROTECTED_PAE, LONG} vm_cpu_mode_t;
+typedef enum {PHYSICAL_MEM, VIRTUAL_MEM} vm_mem_mode_t;
 
 struct guest_info {
   ullong_t rip;
 
-
   uint_t cpl;
-
 
   struct shadow_map mem_map;
 
   struct vm_time time_state;
   
-  vm_page_mode_t page_mode;
+  vmm_paging_mode_t shdw_pg_mode;
   struct shadow_page_state shdw_pg_state;
   // nested_paging_t nested_page_state;
 
@@ -107,6 +106,7 @@ struct guest_info {
   struct vmm_dev_mgr  dev_mgr;
 
   vm_cpu_mode_t cpu_mode;
+  vm_mem_mode_t mem_mode;
 
 
   struct v3_gprs vm_regs;

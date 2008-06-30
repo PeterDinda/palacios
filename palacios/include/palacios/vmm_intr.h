@@ -25,7 +25,7 @@
 #define SX_EXCEPTION          0x1e
 
 
-typedef enum {INVALID_INTR, EXTERNAL_IRQ, NMI, EXCEPTION, SOFTWARE, VIRTUAL} intr_type_t;
+typedef enum {INVALID_INTR, EXTERNAL_IRQ, NMI, EXCEPTION, SOFTWARE_INTR, VIRTUAL_INTR} intr_type_t;
 
 struct guest_info;
 

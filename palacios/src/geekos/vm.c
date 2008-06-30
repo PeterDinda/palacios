@@ -203,9 +203,10 @@ int RunVMM(struct Boot_Info * bootInfo) {
     init_shadow_map(&(vm_info.mem_map));
     init_shadow_page_state(&(vm_info.shdw_pg_state));
     v3_init_time(&(vm_info.time_state));
-    vm_info.page_mode = SHADOW_PAGING;
+    vm_info.shdw_pg_mode = SHADOW_PAGING;
 
     vm_info.cpu_mode = REAL;
+    vm_info.mem_mode = PHYSICAL_MEM;
 
     //init_irq_map(&(vm_info.irq_map));
     init_vmm_io_map(&(vm_info.io_map));
@@ -313,7 +314,7 @@ int RunVMM(struct Boot_Info * bootInfo) {
 
       //add_shadow_region_passthrough(&vm_info, 0x100000, 0x2000000, (addr_t)Allocate_VMM_Pages(8192));
       add_shadow_region_passthrough(&vm_info, 0x100000, 0x1000000, (addr_t)Allocate_VMM_Pages(4096));
-
+      add_shadow_region_passthrough(&vm_info, 0xc0000000, 0xffffffff, 0xc0000000);
 
       print_shadow_map(&(vm_info.mem_map));
 

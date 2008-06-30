@@ -154,7 +154,6 @@ static inline v3_reg_t get_gpr_mask(struct guest_info * info) {
     return 0xffff;
     break;
   case PROTECTED:
-  case PROTECTED_PG:
     return 0xffffffff;
   default:
     V3_ASSERT(0);
@@ -169,7 +168,6 @@ static inline addr_t get_addr_linear(struct guest_info * info, addr_t addr, stru
     return addr + (seg->selector << 4);
     break;
   case PROTECTED:
-  case PROTECTED_PG:
     return addr + seg->base;
     break;
   default:
