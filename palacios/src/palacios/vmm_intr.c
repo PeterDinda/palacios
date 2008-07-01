@@ -34,7 +34,7 @@ int hook_irq(struct guest_info * info, int irq) {
 int raise_exception_with_error(struct guest_info * info, uint_t excp, uint_t error_code) {
   struct vm_intr * intr_state = &(info->intr_state);
 
-  if (intr_state->excp_pending) {
+  if (intr_state->excp_pending == 0) {
     intr_state->excp_pending = 1;
     intr_state->excp_num = excp;
     intr_state->excp_error_code = error_code;
@@ -91,9 +91,9 @@ int raise_irq(struct guest_info * info, int irq) {
 int intr_pending(struct guest_info * info) {
   struct vm_intr * intr_state = &(info->intr_state);
 
-  if (intr_state->excp_pending) {
+  if (intr_state->excp_pending == 1) {
     return 1;
-  } else if (intr_state->controller->intr_pending(intr_state->controller_state)) {
+  } else if (intr_state->controller->intr_pending(intr_state->controller_state) == 1) {
     return 1;
   }
 
@@ -106,7 +106,7 @@ int intr_pending(struct guest_info * info) {
 uint_t get_intr_number(struct guest_info * info) {
   struct vm_intr * intr_state = &(info->intr_state);
 
-  if (intr_state->excp_pending) {
+  if (intr_state->excp_pending == 1) {
     return intr_state->excp_num;
   } else if (intr_state->controller->intr_pending(intr_state->controller_state)) {
     return intr_state->controller->get_intr_number(intr_state->controller_state);

@@ -578,18 +578,28 @@ int handle_cr3_write(struct guest_info * info) {
 	/* Delete the current Page Tables */
 	delete_page_tables_pde32((pde32_t *)CR3_TO_PDE32(*(uint_t*)shadow_cr3));
 
+	PrintDebug("Old Shadow CR3=%x; Old Guest CR3=%x\n", 
+		   info->shdw_pg_state.shadow_cr3, info->shdw_pg_state.guest_cr3);
+
 
 	*guest_cr3 = *new_cr3;
+
+
 
 	// Something like this
 	shadow_pt =  create_new_shadow_pt32(info);
 	//shadow_pt = setup_shadow_pt32(info, CR3_TO_PDE32(*(addr_t *)new_cr3));
 
-
 	/* Copy Various flags */
 	*shadow_cr3 = *new_cr3;
+
+
 	
 	shadow_cr3->pdt_base_addr = PD32_BASE_ADDR(shadow_pt);
+
+	PrintDebug("New Shadow CR3=%x; New Guest CR3=%x\n", 
+		   info->shdw_pg_state.shadow_cr3, info->shdw_pg_state.guest_cr3);
+
 
 	if (info->mem_mode == VIRTUAL_MEM) {
 	  // If we aren't in paged mode then we have to preserve the identity mapped CR3

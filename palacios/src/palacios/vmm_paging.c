@@ -38,6 +38,26 @@ void delete_page_tables_pde32(pde32_t * pde) {
 
 
 
+int pt32_lookup(pde32_t * pd, addr_t vaddr, addr_t * paddr) {
+  addr_t pde_entry;
+  pde32_entry_type_t pde_entry_type;
+
+  if (pd == 0) {
+    return -1;
+  }
+
+  pde_entry_type = pde32_lookup(pd, vaddr, &pde_entry);
+
+  if (pde_entry_type == PDE32_ENTRY_PTE32) {
+    return pte32_lookup((pte32_t *)pde_entry, vaddr, paddr);
+  } else if (pde_entry_type == PDE32_ENTRY_LARGE_PAGE) {
+    *paddr = pde_entry;
+    return 0;
+  }
+
+  return -1;
+}
+
 
 
 /* We can't do a full lookup because we don't know what context the page tables are in...

@@ -122,6 +122,8 @@ int guest_va_to_guest_pa(struct guest_info * guest_info, addr_t guest_va, addr_t
       return 0;
     }
     
+    
+
     // Guest Is in Paged mode
     switch (guest_info->cpu_mode) {
     case PROTECTED:
@@ -129,6 +131,7 @@ int guest_va_to_guest_pa(struct guest_info * guest_info, addr_t guest_va, addr_t
 	addr_t tmp_pa = 0;
 	pde32_t * pde = 0;
 	addr_t guest_pde = CR3_TO_PDE32(guest_info->shdw_pg_state.guest_cr3);
+
 
 	if (guest_pa_to_host_va(guest_info, guest_pde, (addr_t *)&pde) == -1) {
 	  PrintDebug("In GVA->GPA: Invalid GPA(%x)->HVA PDE32 lookup\n", guest_pde);
@@ -318,10 +321,41 @@ int read_guest_va_memory(struct guest_info * guest_info, addr_t guest_va, int co
     int bytes_to_copy = (dist_to_pg_edge > count) ? count : dist_to_pg_edge;
     addr_t host_addr = 0;
 
-    if (guest_va_to_host_va(guest_info, cursor, &host_addr) != 0) {
+
+
+    /* JRL FIXME:
+     * This should be somewhere else....
+     */
+    addr_t tmp_addr;
+      
+    addr_t shadow_pde = CR3_TO_PDE32(guest_info->shdw_pg_state.shadow_cr3);
+    
+    // Check the Shadow Page Tables first (Virtual TLB)
+    if (pt32_lookup((pde32_t *)shadow_pde, cursor, &tmp_addr) == 0) {
+      host_addr = tmp_addr;
+
+      if (host_pa_to_host_va(tmp_addr, &host_addr) != 0) {
+	return bytes_read;
+      }
+    } else {
+    
+      // No entry in the VTLB, do a guest page table walk
+   
+      if (guest_va_to_host_va(guest_info, cursor, &host_addr) != 0) {
+	PrintDebug("Invalid GVA(%x)->HVA lookup\n", cursor);
+	return bytes_read;
+      }
+    }
+    /* JRL: END GRUESOME HACK */
+
+
+    /*
+      if (guest_va_to_host_va(guest_info, cursor, &host_addr) != 0) {
       PrintDebug("Invalid GVA(%x)->HVA lookup\n", cursor);
       return bytes_read;
-    }
+      }
+    */
+    
 
     memcpy(dest + bytes_read, (void*)host_addr, bytes_to_copy);
     
@@ -352,8 +386,7 @@ int read_guest_pa_memory(struct guest_info * guest_info, addr_t guest_pa, int co
 
     if (guest_pa_to_host_va(guest_info, cursor, &host_addr) != 0) {
       return bytes_read;
-    }
-
+    }    
     
     /*
       PrintDebug("Trying to read %d bytes\n", bytes_to_copy);

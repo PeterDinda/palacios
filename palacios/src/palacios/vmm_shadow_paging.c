@@ -69,6 +69,7 @@ int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_er
     info->ctrl_regs.cr2 = fault_addr;
     raise_exception_with_error(info, PF_EXCEPTION, *(uint_t *)&error_code);
 
+    PrintDebug("Injecting PDE pf to guest\n");
     return 0;
   }
 
@@ -102,6 +103,10 @@ int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_er
        * Check the Intel manual because we are ignoring Large Page issues here
        * Also be wary of hooked pages
        */
+
+      PrintDebug("Large PAge!!!\n");
+      return -1;
+
     }
 
   } else if (shadow_pde_access == PT_WRITE_ERROR) {
@@ -154,7 +159,7 @@ int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_er
   }
 
   //PrintDebugPageTables(shadow_pde);
-
+  PrintDebug("Returning end of PDE function\n");
   return 0;
 }
 
@@ -185,6 +190,7 @@ int handle_shadow_pte32_fault(struct guest_info * info,
     info->ctrl_regs.cr2 = fault_addr;
     raise_exception_with_error(info, PF_EXCEPTION, *(uint_t *)&error_code);
     
+    PrintDebug("Access error injecting pf to guest\n");
     return 0;
   }
   
@@ -194,6 +200,7 @@ int handle_shadow_pte32_fault(struct guest_info * info,
   if (shadow_pte_access == PT_ACCESS_OK) {
     // Inconsistent state...
     // Guest Re-Entry will flush page tables and everything should now work
+    PrintDebug("Inconsistent state... Guest re-entry should flush tlb\n");
     return 0;
   } else if (shadow_pte_access == PT_ENTRY_NOT_PRESENT) {
     addr_t shadow_pa;
@@ -249,6 +256,8 @@ int handle_shadow_pte32_fault(struct guest_info * info,
     guest_pte_entry->dirty = 1;
     shadow_pte_entry->writable = guest_pte_entry->writable;
 
+    PrintDebug("Shadow PTE Write Error\n");
+
     return 0;
   } else {
     // Inject page fault into the guest	
@@ -261,6 +270,7 @@ int handle_shadow_pte32_fault(struct guest_info * info,
     return -1;
   }
 
+  PrintDebug("Returning end of function\n");
   return 0;
 }
 
