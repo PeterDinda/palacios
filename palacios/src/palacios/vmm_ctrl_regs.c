@@ -579,7 +579,7 @@ int handle_cr3_write(struct guest_info * info) {
 	delete_page_tables_pde32((pde32_t *)CR3_TO_PDE32(*(uint_t*)shadow_cr3));
 
 	PrintDebug("Old Shadow CR3=%x; Old Guest CR3=%x\n", 
-		   info->shdw_pg_state.shadow_cr3, info->shdw_pg_state.guest_cr3);
+		   *(uint_t*)shadow_cr3, *(uint_t*)guest_cr3);
 
 
 	*guest_cr3 = *new_cr3;
@@ -598,7 +598,8 @@ int handle_cr3_write(struct guest_info * info) {
 	shadow_cr3->pdt_base_addr = PD32_BASE_ADDR(shadow_pt);
 
 	PrintDebug("New Shadow CR3=%x; New Guest CR3=%x\n", 
-		   info->shdw_pg_state.shadow_cr3, info->shdw_pg_state.guest_cr3);
+		   *(uint_t*)shadow_cr3, *(uint_t*)guest_cr3);
+
 
 
 	if (info->mem_mode == VIRTUAL_MEM) {

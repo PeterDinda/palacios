@@ -86,6 +86,7 @@ the host state in the vmcs before entering the guest.
 /* Gets the base address needed for a Page Table entry */
 #define PD32_BASE_ADDR(x) (((uint_t)x) >> 12)
 #define PT32_BASE_ADDR(x) (((uint_t)x) >> 12)
+#define PD32_4MB_BASE_ADDR(x) (((uint_t)x) >> 22)
 
 #define PT32_PAGE_ADDR(x)   (((uint_t)x) & 0xfffff000)
 #define PT32_PAGE_OFFSET(x) (((uint_t)x) & 0xfff)
@@ -93,6 +94,7 @@ the host state in the vmcs before entering the guest.
 
 #define PD32_4MB_PAGE_ADDR(x) (((uint_t)x) & 0xffc00000)
 #define PD32_4MB_PAGE_OFFSET(x) (((uint_t)x) & 0x003fffff)
+#define PAGE_SIZE_4MB (4096 * 1024)
 
 /* The following should be phased out */
 #define PAGE_OFFSET(x)  ((((uint_t)x) & 0xfff))
