@@ -326,7 +326,8 @@ int read_guest_va_memory(struct guest_info * guest_info, addr_t guest_va, int co
     /* JRL FIXME:
      * This should be somewhere else....
      */
-    addr_t tmp_addr;
+    /*  
+  addr_t tmp_addr;
       
     addr_t shadow_pde = CR3_TO_PDE32(guest_info->shdw_pg_state.shadow_cr3);
     
@@ -346,15 +347,16 @@ int read_guest_va_memory(struct guest_info * guest_info, addr_t guest_va, int co
 	return bytes_read;
       }
     }
+*/
     /* JRL: END GRUESOME HACK */
 
 
-    /*
-      if (guest_va_to_host_va(guest_info, cursor, &host_addr) != 0) {
+    
+    if (guest_va_to_host_va(guest_info, cursor, &host_addr) != 0) {
       PrintDebug("Invalid GVA(%x)->HVA lookup\n", cursor);
       return bytes_read;
-      }
-    */
+    }
+    
     
 
     memcpy(dest + bytes_read, (void*)host_addr, bytes_to_copy);

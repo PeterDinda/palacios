@@ -71,10 +71,12 @@ pde32_entry_type_t pde32_lookup(pde32_t * pd, addr_t addr, addr_t * entry) {
     *entry = 0;
     return PDE32_ENTRY_NOT_PRESENT;
   } else  {
-    *entry = PAGE_ADDR(pde_entry->pt_base_addr);
-    
+
     if (pde_entry->large_page) {
-      *entry += PAGE_OFFSET(addr);
+      pde32_4MB_t * large_pde = (pde32_4MB_t *)pde_entry;
+
+      *entry = PDE32_4MB_T_ADDR(*large_pde);
+      *entry += PD32_4MB_PAGE_OFFSET(addr);
       return PDE32_ENTRY_LARGE_PAGE;
     } else {
       *entry = PDE32_T_ADDR(*pde_entry);

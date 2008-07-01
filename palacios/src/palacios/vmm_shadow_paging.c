@@ -73,6 +73,10 @@ int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_er
     return 0;
   }
 
+
+  // Check that the Guest PDE entry points to valid memory
+  // else Machine Check the guest
+
   shadow_pde_access = can_access_pde32(shadow_pde, fault_addr, error_code);
 
 

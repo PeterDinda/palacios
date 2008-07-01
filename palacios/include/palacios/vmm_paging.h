@@ -91,6 +91,8 @@ the host state in the vmcs before entering the guest.
 #define PT32_PAGE_OFFSET(x) (((uint_t)x) & 0xfff)
 #define PT32_PAGE_POWER 12
 
+#define PD32_4MB_PAGE_ADDR(x) (((uint_t)x) & 0xffc00000)
+#define PD32_4MB_PAGE_OFFSET(x) (((uint_t)x) & 0x003fffff)
 
 /* The following should be phased out */
 #define PAGE_OFFSET(x)  ((((uint_t)x) & 0xfff))
@@ -102,6 +104,7 @@ the host state in the vmcs before entering the guest.
 
 
 
+
 #define CR3_TO_PDE32(cr3) (((ulong_t)cr3) & 0xfffff000)
 #define CR3_TO_PDPTRE(cr3) (((ulong_t)cr3) & 0xffffffe0)
 #define CR3_TO_PML4E64(cr3)  (((ullong_t)cr3) & 0x000ffffffffff000LL)
@@ -110,7 +113,7 @@ the host state in the vmcs before entering the guest.
 /* Accessor functions for the page table structures */
 #define PDE32_T_ADDR(x) (((x).pt_base_addr) << 12)
 #define PTE32_T_ADDR(x) (((x).page_base_addr) << 12)
-
+#define PDE32_4MB_T_ADDR(x) (((x).page_base_addr) << 22)
 
 /* Page Table Flag Values */
 #define PT32_HOOK 0x1
@@ -148,9 +151,8 @@ typedef struct pde32_4MB {
   uint_t global_page     : 1;
   uint_t vmm_info        : 3;
   uint_t pat             : 1;
-  uint_t page_base_addr_lo: 8;
-  uint_t zero            : 1;
-  uint_t page_base_addr_hi: 10;
+  uint_t rsvd            : 9;
+  uint_t page_base_addr  : 10;
 
 } pde32_4MB_t;
 
