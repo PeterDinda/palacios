@@ -263,12 +263,20 @@ typedef enum { PDE32 } paging_mode_t;
 void delete_page_tables_pde32(pde32_t * pde);
 
 
-pde32_entry_type_t pde32_lookup(pde32_t * pde, addr_t addr, addr_t * entry);
+pde32_entry_type_t pde32_lookup(pde32_t * pd, addr_t addr, addr_t * entry);
 int pte32_lookup(pte32_t * pte, addr_t addr, addr_t * entry);
+
+// This assumes that the page table resides in the host address space
+// IE. IT DOES NO VM ADDR TRANSLATION
+int pt32_lookup(pde32_t * pd, addr_t vaddr, addr_t * paddr);
+
 
 
 pt_access_status_t can_access_pde32(pde32_t * pde, addr_t addr, pf_error_t access_type);
 pt_access_status_t can_access_pte32(pte32_t * pte, addr_t addr, pf_error_t access_type);
+
+
+
 
 
 struct guest_info;
