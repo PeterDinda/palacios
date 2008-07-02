@@ -20,7 +20,6 @@ int handle_svm_io_in(struct guest_info * info) {
     return -1;
   }
 
-  PrintDebug("IN on  port %d (0x%x)\n", io_info->port, io_info->port);
 
   if (io_info->sz8) { 
     read_size = 1;
@@ -30,6 +29,7 @@ int handle_svm_io_in(struct guest_info * info) {
     read_size = 4;
   }
 
+  PrintDebug("IN of %d bytes on port %d (0x%x)\n", read_size, io_info->port, io_info->port);
 
   if (hook->read(io_info->port, &(info->vm_regs.rax), read_size, hook->priv_data) != read_size) {
     // not sure how we handle errors.....
@@ -161,7 +161,6 @@ int handle_svm_io_out(struct guest_info * info) {
     return -1;
   }
 
-  PrintDebug("OUT on  port %d (0x%x)\n", io_info->port, io_info->port);
 
   if (io_info->sz8) { 
     write_size = 1;
@@ -171,6 +170,7 @@ int handle_svm_io_out(struct guest_info * info) {
     write_size = 4;
   }
 
+  PrintDebug("OUT of %d bytes on  port %d (0x%x)\n", write_size, io_info->port, io_info->port);
 
   if (hook->write(io_info->port, &(info->vm_regs.rax), write_size, hook->priv_data) != write_size) {
     // not sure how we handle errors.....

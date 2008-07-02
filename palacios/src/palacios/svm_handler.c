@@ -4,6 +4,7 @@
 #include <palacios/vmm_decoder.h>
 #include <palacios/vmm_ctrl_regs.h>
 #include <palacios/svm_io.h>
+#include <palacios/svm_halt.h>
 #include <palacios/vmm_intr.h>
 
 
@@ -133,7 +134,9 @@ int handle_svm_exit(struct guest_info * info) {
 
   } else if (exit_code == VMEXIT_HLT) {
     PrintDebug("Guest halted\n");
-    return -1;
+    if (handle_svm_halt(info) == -1) {
+      return -1;
+    }
   } else {
     addr_t rip_addr;
     char buf[15];
