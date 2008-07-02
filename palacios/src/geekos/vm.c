@@ -314,7 +314,10 @@ int RunVMM(struct Boot_Info * bootInfo) {
 
       //add_shadow_region_passthrough(&vm_info, 0x100000, 0x2000000, (addr_t)Allocate_VMM_Pages(8192));
       add_shadow_region_passthrough(&vm_info, 0x100000, 0x1000000, (addr_t)Allocate_VMM_Pages(4096));
-      add_shadow_region_passthrough(&vm_info, 0xc0000000, 0xffffffff, 0xc0000000);
+
+      // test - give linux accesss to PCI space - PAD
+      add_shadow_region_passthrough(&vm_info, 0xc0000000,0xffffffff,0xc0000000);
+
 
       print_shadow_map(&(vm_info.mem_map));
 

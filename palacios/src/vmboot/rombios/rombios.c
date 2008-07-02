@@ -1,6 +1,6 @@
 //  -*- fundamental -*-
 /////////////////////////////////////////////////////////////////////////
-// $Id: rombios.c,v 1.8 2008/06/23 17:15:19 pdinda Exp $
+// $Id: rombios.c,v 1.9 2008/07/02 17:58:44 pdinda Exp $
 /////////////////////////////////////////////////////////////////////////
 //
 //  Copyright (C) 2002  MandrakeSoft S.A.
@@ -945,10 +945,10 @@ Bit16u cdrom_boot();
 
 #endif // BX_ELTORITO_BOOT
 
-static char bios_cvs_version_string[] = "$Revision: 1.8 $";
-static char bios_date_string[] = "$Date: 2008/06/23 17:15:19 $";
+static char bios_cvs_version_string[] = "$Revision: 1.9 $";
+static char bios_date_string[] = "$Date: 2008/07/02 17:58:44 $";
 
-static char CVSID[] = "$Id: rombios.c,v 1.8 2008/06/23 17:15:19 pdinda Exp $";
+static char CVSID[] = "$Id: rombios.c,v 1.9 2008/07/02 17:58:44 pdinda Exp $";
 
 /* Offset to skip the CVS $Id: prefix */ 
 #define bios_version_string  (CVSID + 4)
@@ -4169,7 +4169,7 @@ ASM_END
          case 0x20: // coded by osmaker aka K.J.
             if(regs.u.r32.edx == 0x534D4150) /* SMAP */
             {
-#if defined(HVMASSIST) && 1
+#if defined(HVMASSIST) && 0
 		if ((regs.u.r16.bx / 0x14) * 0x14 == regs.u.r16.bx) {
 
 		    Bit16u e820_table_size = read_word(0xe000, 0x8) * 0x14;

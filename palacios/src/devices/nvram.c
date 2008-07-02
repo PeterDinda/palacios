@@ -103,7 +103,8 @@ static int set_nvram_defaults(struct vm_device *dev)
  
 
   // Set equipment byte to note 2 floppies, vga display, keyboard,math,floppy
-  nvram_state->mem_state[NVRAM_REG_EQUIPMENT_BYTE]= 0x4f;
+  //nvram_state->mem_state[NVRAM_REG_EQUIPMENT_BYTE]= 0x4f;
+  nvram_state->mem_state[NVRAM_REG_EQUIPMENT_BYTE] = 
 
   // Set conventional memory to 640K
   nvram_state->mem_state[NVRAM_REG_BASE_MEMORY_HIGH]= 0x02;
@@ -125,6 +126,23 @@ static int set_nvram_defaults(struct vm_device *dev)
   
   // This is the harddisk type.... Set accordingly...
   nvram_state->mem_state[NVRAM_IBM_HD_DATA] = 0x20;
+
+  // Set the shutdown status gently
+  // soft reset
+  nvram_state->mem_state[NVRAM_REG_SHUTDOWN_STATUS] = 0x0;
+
+
+  // RTC status A
+  // time update in progress, default timebase (32KHz, default interrupt rate 1KHz)
+  // 10100110
+  nvram_state->mem_state[NVRAM_REG_STAT_A] = 0xa6;
+
+  // RTC status B
+  // time updates, default timebase (32KHz, default interrupt rate 1KHz)
+  // 10100110
+  //nvram_state->mem_state[NVRAM_REG_STAT_B] = 0xa6;
+  
+
 
   return 0;
 
@@ -193,6 +211,12 @@ int nvram_read_data_port(ushort_t port,
   memcpy(dst, &(data->mem_state[data->thereg]), 1);
 
   PrintDebug("nvram_read_data_port(0x%x)=0x%x\n", data->thereg, data->mem_state[data->thereg]);
+
+  // hack
+  if (data->thereg==NVRAM_REG_STAT_A) { 
+    data->mem_state[data->thereg] ^= 0x80;  // toggle Update in progess
+  }
+
 
   return 1;
 }

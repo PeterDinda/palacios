@@ -275,6 +275,10 @@ int handle_shadow_pte32_fault(struct guest_info * info,
       raise_exception(info, MC_EXCEPTION);
 
       PrintDebug("Invalid Guest Address in page table (0x%x)\n", guest_pa);
+      PrintDebug("fault_addr=0x%x next are guest and shadow ptes \n",fault_addr);
+      PrintPTE32(fault_addr,guest_pte);
+      PrintPTE32(fault_addr,shadow_pte);
+      PrintDebug("Done.\n");
       return 0;
 
     } else if (host_page_type == HOST_REGION_PHYSICAL_MEMORY) {

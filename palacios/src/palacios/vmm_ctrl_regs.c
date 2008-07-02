@@ -146,6 +146,12 @@ int handle_cr0_write(struct guest_info * info) {
 	  info->cpu_mode = PROTECTED;
 	}
 
+	if (new_cr0->pe == 0) { 
+	  PrintDebug("Entering Real Mode\n");
+	  info->cpu_mode = REAL;
+	}
+	  
+
 	if (new_cr0->pg == 1) {
 	  PrintDebug("Paging is already turned on in switch to protected mode in CR0 write\n");
 
@@ -483,6 +489,9 @@ int handle_cr0_read(struct guest_info * info) {
 
 	if (info->shdw_pg_mode == SHADOW_PAGING) {
 	  *virt_cr0 = *(struct cr0_32 *)&(info->shdw_pg_state.guest_cr0);
+	  if (info->cpu_mode==PROTECTED) {
+	    virt_cr0->pg=0; // clear the pg bit because guest doesn't think it's on
+	  }
 	} else {
 	  *virt_cr0 = *real_cr0;
 	}
@@ -526,10 +535,14 @@ int handle_cr3_write(struct guest_info * info) {
     int ret;
     char instr[15];
 
+    PrintDebug("Protected %s mode write to CR3 at %s 0x%x\n",
+	       info->cpu_mode==PROTECTED ? "" : "Paged", 
+	       info->cpu_mode==PROTECTED ? "guest physical" : "guest virtual",
+	       get_addr_linear(info,info->rip,&(info->segments.cs)));
 
     // We need to read the instruction, which is at CS:IP, but that 
     // linear address is guest physical without PG and guest virtual with PG
-    if (info->cpu_mode == PHYSICAL_MEM) { 
+    if (info->mem_mode == PHYSICAL_MEM) { 
       // The real rip address is actually a combination of the rip + CS base 
       PrintDebug("Writing Guest CR3 Write (Physical Address)\n");
       ret = read_guest_pa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
@@ -538,7 +551,6 @@ int handle_cr3_write(struct guest_info * info) {
       // The real rip address is actually a combination of the rip + CS base 
       ret = read_guest_va_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
     }
-
 
     if (ret != 15) {
       PrintDebug("Could not read instruction (ret=%d)\n", ret);
@@ -612,10 +624,11 @@ int handle_cr3_write(struct guest_info * info) {
 
     } else {
       PrintDebug("Unknown Instruction\n");
+      SerialMemDump(instr,15);
       return -1;
     }
   } else {
-    PrintDebug("Invalid operating Mode\n");
+    PrintDebug("Invalid operating Mode (0x%x)\n", info->cpu_mode);
     return -1;
   }
 
@@ -679,10 +692,11 @@ int handle_cr3_read(struct guest_info * info) {
       info->rip += index;
     } else {
       PrintDebug("Unknown Instruction\n");
+      SerialMemDump(instr,15);
       return -1;
     }
   } else {
-    PrintDebug("Invalid operating Mode\n");
+    PrintDebug("Invalid operating Mode (0x%x)\n", info->cpu_mode);
     return -1;
   }
 
