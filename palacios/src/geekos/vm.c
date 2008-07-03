@@ -339,9 +339,11 @@ int RunVMM(struct Boot_Info * bootInfo) {
 	struct vm_device * pit = create_pit();
 
 
+#define GENERIC 0
 
 #if GENERIC
 	generic_port_range_type range[] = {
+	  /*
           {0x00, 0x07},   // DMA 1 channels 0,1,2,3 (address, counter)
           {0xc0, 0xc7},   // DMA 2 channels 4,5,6,7 (address, counter)
           {0x87, 0x87},   // DMA 1 channel 0 page register
@@ -354,6 +356,12 @@ int RunVMM(struct Boot_Info * bootInfo) {
           {0x8a, 0x8a},   // DMA 2 channel 7 page register
 	  {0x08, 0x0f},   // DMA 1 misc registers (csr, req, smask,mode,clearff,reset,enable,mmask)
           {0xd0, 0xde},   // DMA 2 misc registers
+	  */
+          {0x170, 0x178}, // IDE 1
+	  {0x376, 0x377}, // IDE 1
+          {0x1f0, 0x1f8}, // IDE 0
+	  {0x3f6, 0x3f7}, // IDE 0
+	  /*
           {0x3f0, 0x3f2}, // Primary floppy controller (base,statusa/statusb,DOR)
           {0x3f4, 0x3f5}, // Primary floppy controller (mainstat/datarate,data)
           {0x3f7, 0x3f7}, // Primary floppy controller (DIR)
@@ -361,9 +369,11 @@ int RunVMM(struct Boot_Info * bootInfo) {
           {0x374, 0x375}, // Secondary floppy controller (mainstat/datarate,data)
           {0x377, 0x377}, // Secondary floppy controller (DIR)
           {0x378, 0x400}
+	  */
         };
 
-	struct vm_device * generic = create_generic(range,19,NULL,0,NULL,0);
+	struct vm_device * generic = create_generic(range,4,  // THIS NUMBER IS CRITICAL
+						    NULL,0,NULL,0);
 	
 #endif
 
@@ -384,21 +394,26 @@ int RunVMM(struct Boot_Info * bootInfo) {
       }
 
       // give keyboard interrupts to vm
+      // no longer needed since we have a keyboard device
       //hook_irq(&vm_info, 1);
       
+#if 0
       // give floppy controller to vm
-      //hook_irq(&vm_info, 6);
+      hook_irq(&vm_info, 6);
 
-      // primary ide
-      //hook_irq(&vm_info, 14);
+
+      //primary ide
+      hook_irq(&vm_info, 14);
 
       // secondary ide
-      //hook_irq(&vm_info, 15);
+      hook_irq(&vm_info, 15);
 
+#endif
 
       vm_info.rip = 0xfff0;
       vm_info.vm_regs.rsp = 0x0;
     }
+
 
     PrintBoth("Initializing Guest (eip=0x%.8x) (esp=0x%.8x)\n", (uint_t)vm_info.rip,(uint_t)vm_info.vm_regs.rsp);
     (vmm_ops).init_guest(&vm_info);
