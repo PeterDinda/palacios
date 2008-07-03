@@ -207,6 +207,7 @@ int handle_cr0_write(struct guest_info * info) {
 	ret = read_guest_va_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
       }
 	
+
       if (ret != 15) {
 	// I think we should inject a GPF into the guest
 	PrintDebug("Could not read instruction (ret=%d)\n", ret);

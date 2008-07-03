@@ -104,9 +104,9 @@ int handle_svm_io_ins(struct guest_info * info) {
     // This value should be set depending on the host register size...
     mask = get_gpr_mask(info);
 
-
-    PrintDebug("INS Aborted... Check implementation\n");
-    return -1;
+    PrintDebug("INS io_info invalid address size, assuming 32, io_info=0x%x\n",*((uint_t*)(io_info)));
+    // PrintDebug("INS Aborted... Check implementation\n");
+    //return -1;
   }
 
   if (io_info->rep) {
@@ -237,15 +237,22 @@ int handle_svm_io_outs(struct guest_info * info) {
   } else if (io_info->addr64) {
     mask = 0xffffffffffffffffLL;
   } else {
+    // This value should be set depending on the host register size...
+    mask = get_gpr_mask(info);
+
+    PrintDebug("OUTS io_info invalid address size, assuming 32, io_info=0x%x\n",*((uint_t*)(io_info)));
+    // PrintDebug("INS Aborted... Check implementation\n");
+    //return -1;
     // should never happen
-    PrintDebug("Invalid Address length\n");
-    return -1;
+    //PrintDebug("Invalid Address length\n");
+    //return -1;
   }
 
   if (io_info->rep) {
     rep_num = info->vm_regs.rcx & mask;
   }
 
+  PrintDebug("OUTS size=%d for %d steps\n", write_size, rep_num);
 
   while (rep_num > 0) {
     addr_t host_addr;
