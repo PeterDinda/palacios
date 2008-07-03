@@ -73,11 +73,23 @@ int generic_write_port(ushort_t port,
   for (i = 0; i < length; i++) { 
     GENERIC_DEBUG_PRINT("%x", ((uchar_t*)src)[i]);
   }
-
+  
   GENERIC_DEBUG_PRINT(" to port 0x%x ... ", port);
 
-  for (i = 0; i < length; i++) { 
-    Out_Byte(port, ((uchar_t*)src)[i]);
+  switch (length) {
+  case 1:
+    Out_Byte(port,((uchar_t*)src)[0]);
+    break;
+  case 2:
+    Out_Word(port,((ushort_t*)src)[0]);
+    break;
+  case 4:
+    Out_DWord(port,((uint_t*)src)[0]);
+    break;
+  default:
+    for (i = 0; i < length; i++) { 
+      Out_Byte(port, ((uchar_t*)src)[i]);
+    }
   }
 
   GENERIC_DEBUG_PRINT(" done\n");
@@ -94,8 +106,20 @@ int generic_read_port(ushort_t port,
 
   GENERIC_DEBUG_PRINT("generic: reading 0x%x bytes from port 0x%x ...", length, port);
 
-  for (i = 0; i < length; i++) { 
-    ((uchar_t*)src)[i] = In_Byte(port);
+  switch (length) {
+  case 1:
+    ((uchar_t*)src)[0] = In_Byte(port);
+    break;
+  case 2:
+    ((ushort_t*)src)[0] = In_Word(port);
+    break;
+  case 4:
+    ((uint_t*)src)[0] = In_DWord(port);
+    break;
+  default:
+    for (i = 0; i < length; i++) { 
+      ((uchar_t*)src)[i] = In_Byte(port);
+    }
   }
 
   GENERIC_DEBUG_PRINT(" done ... read 0x");
