@@ -1,6 +1,6 @@
 # Makefile for GeekOS kernel, userspace, and tools
 # Copyright (c) 2004,2005 David H. Hovemeyer <daveho@cs.umd.edu>
-# $Revision: 1.40 $
+# $Revision: 1.41 $
 
 # This is free software.  You are permitted to use,
 # redistribute, and modify it as specified in the file "COPYING".
@@ -48,15 +48,20 @@ JRLDEBUG= -DSERIAL_PRINT_DEBUG=1 -DSERIAL_PRINT_DEBUG_LEVEL=10 -DSERIAL_PRINT=1
 #Peter's compile flags
 PADFLAGS =
 
+#
+# This is wrong for current cygwin - no changes needed
+#
 # Figure out if we're compiling with cygwin, http://cygwin.com
-SYSTEM_NAME := $(shell uname -s)
-ifeq ($(findstring CYGWIN,$(SYSTEM_NAME)),CYGWIN)
-SYM_PFX            := _
-EXTRA_C_OPTS       := -DNEED_UNDERSCORE -DGNU_WIN32
-EXTRA_NASM_OPTS    := -DNEED_UNDERSCORE
-NON_ELF_SYSTEM     := yes
-EXTRA_CC_USER_OPTS := -Dmain=geekos_main
-endif
+#
+# 
+#SYSTEM_NAME := $(shell uname -s)
+#ifeq ($(findstring CYGWIN,$(SYSTEM_NAME)),CYGWIN)
+#SYM_PFX            := _
+#EXTRA_C_OPTS       := -DNEED_UNDERSCORE -DGNU_WIN32
+#EXTRA_NASM_OPTS    := -DNEED_UNDERSCORE
+#NON_ELF_SYSTEM     := yes
+#EXTRA_CC_USER_OPTS := -Dmain=geekos_main
+#endif
 
 
 
