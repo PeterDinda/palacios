@@ -3,6 +3,11 @@
 
 
 $dev_root = `pwd`;
+#
+# On cygwin, do something like the following
+# pwd behaves trangely on cygwin
+#
+#$dev_root='/home/pdinda/Codes/vmm-dev';
 chomp $dev_root;
 $location = $dev_root . "/devtools";
 
@@ -18,6 +23,11 @@ mkdir $location;
 #install_binutils_2_16_91_i386();
 install_gcc_3_4_6_i386();
 install_nasm();
+#
+# This part is not quite working yet
+# on cygwin, do through it by hand      
+#
+#install_dev86_0_16_17();
 
 
 sub install_nasm {
@@ -108,6 +118,24 @@ sub install_gcc_3_4_6_x86_64 {
   print "done\n";
   print "Installing...\n";
   `make install-gcc`;
+  print "done!!\n";
+  chdir $dev_root;
+}
+
+sub install_dev86_0_16_17 {
+
+  print "Installing bcc, ld86, as86, and bcc-cpp from Dev86src-0.16.17.tar.gz\n";
+  chdir "./utils";
+  print "Unpacking...";
+  `tar -xzf Dev86src-0.16.17.tar.gz`;
+  print "done\n";
+  chdir "./dev86-0.16.17";
+  print "Compiling...\n";
+  `make as86 ld86 bcc`;
+  `make -C cpp`;
+  print "done\n";
+  print "Installing...\n";
+  `cp as/as86.exe bcc/bcc.exe bcc/bcc-cc1.exe cpp/bcc-cpp.exe ld/ld86.exe make install-gcc $location/bin`;
   print "done!!\n";
   chdir $dev_root;
 }
