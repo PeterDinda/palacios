@@ -1,0 +1,48 @@
+Once you have built a vmm.img file (see SETUP.WINDOWS for how to set
+up and test the development environment needed to do this), you can do
+the following:
+
+- dd vmm.img to a floppy and boot from it (linux)
+- network boot from vmm.img using PXE (linux)
+- use mkisofs to build a bootable cdrom from vmm.img (linux)
+- boot from vmm.img using qemu or other emulator 
+
+All but the last option (qemu) are very site-dependent.  
+
+To boot from vmm.img using qemu, do the following:
+
+Make sure qemu is installed.  You will need at least version 0.9.1 for
+the necessary support of AMD SVM virtualization extensions.  
+
+If you would like to install qemu, a copy is in the repository.  
+Here is how to install it. 
+
+export DEVROOT=/path/to/your/vmm-dev
+cd $DEVROOT/devtools
+unzip $DEVROOT/utils/Qemu-0.9.1-windows.zip
+export QEMU=$DEVROOT/devtools/Qemu-0.9.1-windows
+
+A subtle thing in using this windows port of qemu from a cygwin
+environment is that it uses the *windows* paths, not the cygwin paths.
+Sort of.  This is a bit fuzzy.
+
+A simple trick is to copy your vmm.img and whatever else *to* $QEMU
+and then run a modified qemu.bat file from there.  Note that it is important
+that the batch file run $QEMU/bin/qemu-system-x86_64.   See below 
+for a more complete example.
+
+You can also run qemu and generate the path in a somewhat convulted
+way.  For example, if I develop in $DEVROOT/vmm-hack1/build, and
+$QEMU is as above, then, I can run as follows:
+
+$QEMU/bin/qemu-system-x86_64.exe -L ../../devtools/Qemu-0.9.1-windows/Bios -m 1024 -serial file:serial.out -fda vmm.img
+
+On running this, you should see the vmm boot in a window, accompanied
+by lots of debugging output being spit into the file serial.out.
+
+You can add other options to, for example, provide a boot cd, network
+cards, etc.
+
+
+
+

@@ -1,0 +1,20 @@
+You can set up the development tools on Linux by running ./SETUP_DEV_ENV.pl. 
+
+If you do not already have bcc and related tools installed, you
+need to uncomment the parts of ./SETUP_DEV_ENV.pl that will build them.
+
+Now test:
+
+export DEVROOT=/path/to/your/vmm-dev
+export LOCATION=$DEVROOT/devtools
+
+cd $DEVROOT/vmm-hack1/build
+
+export PATH=$PATH:$LOCATION/bin
+
+ln -s ../src/vmboot/rombios/BIOS-bochs-latest rombios
+ln -s ../src/vmboot/vgabios/VGABIOS-lgpl-latest.bin vgabios
+
+make world
+
+This should succeed, leaving you with a vmm.img file.

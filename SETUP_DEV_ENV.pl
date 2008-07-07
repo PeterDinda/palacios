@@ -131,11 +131,11 @@ sub install_dev86_0_16_17 {
   print "done\n";
   chdir "./dev86-0.16.17";
   print "Compiling...\n";
-  `make as86 ld86 bcc`;
+  `make as86 ld86 bcc86`;
   `make -C cpp`;
   print "done\n";
   print "Installing...\n";
-  `cp as/as86.exe bcc/bcc.exe bcc/bcc-cc1.exe cpp/bcc-cpp.exe ld/ld86.exe make install-gcc $location/bin`;
+  `cp as/as86.exe bcc/bcc.exe bcc/bcc-cc1.exe cpp/bcc-cpp.exe ld/ld86.exe $location/bin`;
   print "done!!\n";
   chdir $dev_root;
 }
