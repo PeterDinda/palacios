@@ -1,6 +1,6 @@
 //  -*- fundamental -*-
 /////////////////////////////////////////////////////////////////////////
-// $Id: rombios.c,v 1.9 2008/07/02 17:58:44 pdinda Exp $
+// $Id: rombios.c,v 1.10 2008/07/07 23:26:58 pdinda Exp $
 /////////////////////////////////////////////////////////////////////////
 //
 //  Copyright (C) 2002  MandrakeSoft S.A.
@@ -945,10 +945,10 @@ Bit16u cdrom_boot();
 
 #endif // BX_ELTORITO_BOOT
 
-static char bios_cvs_version_string[] = "$Revision: 1.9 $";
-static char bios_date_string[] = "$Date: 2008/07/02 17:58:44 $";
+static char bios_cvs_version_string[] = "$Revision: 1.10 $";
+static char bios_date_string[] = "$Date: 2008/07/07 23:26:58 $";
 
-static char CVSID[] = "$Id: rombios.c,v 1.9 2008/07/02 17:58:44 pdinda Exp $";
+static char CVSID[] = "$Id: rombios.c,v 1.10 2008/07/07 23:26:58 pdinda Exp $";
 
 /* Offset to skip the CVS $Id: prefix */ 
 #define bios_version_string  (CVSID + 4)
@@ -3375,7 +3375,7 @@ cdrom_boot()
   atacmd[3]=(lba & 0x00ff0000) >> 16;
   atacmd[4]=(lba & 0x0000ff00) >> 8;
   atacmd[5]=(lba & 0x000000ff);
-  if((error = ata_cmd_packet(device, 12, get_SS(), atacmd, 0, nbsectors*512L, ATA_DATA_IN, boot_segment,0)) != 0)
+  if((error = ata_cmd_packetdevice, 12, get_SS(), atacmd, 0, nbsectors*512L, ATA_DATA_IN, boot_segment,0)) != 0)
     return 12;
 
 

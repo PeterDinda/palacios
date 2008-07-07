@@ -336,43 +336,48 @@ int RunVMM(struct Boot_Info * bootInfo) {
 	//struct vm_device * timer = create_timer();
 	struct vm_device * pic = create_pic();
 	struct vm_device * keyboard = create_keyboard();
-	struct vm_device * pit = create_pit();
+	struct vm_device * pit = create_pit(); 
 
 
-#define GENERIC 0
+#define GENERIC 1
 
 #if GENERIC
 	generic_port_range_type range[] = {
 	  /*
-          {0x00, 0x07},   // DMA 1 channels 0,1,2,3 (address, counter)
-          {0xc0, 0xc7},   // DMA 2 channels 4,5,6,7 (address, counter)
-          {0x87, 0x87},   // DMA 1 channel 0 page register
-          {0x83, 0x83},   // DMA 1 channel 1 page register
-          {0x81, 0x81},   // DMA 1 channel 2 page register
-          {0x82, 0x82},   // DMA 1 channel 3 page register
-          {0x8f, 0x8f},   // DMA 2 channel 4 page register
-          {0x8b, 0x8b},   // DMA 2 channel 5 page register
-          {0x89, 0x89},   // DMA 2 channel 6 page register
-          {0x8a, 0x8a},   // DMA 2 channel 7 page register
-	  {0x08, 0x0f},   // DMA 1 misc registers (csr, req, smask,mode,clearff,reset,enable,mmask)
-          {0xd0, 0xde},   // DMA 2 misc registers
+          {0x00, 0x07, GENERIC_PRINT_AND_PASSTHROUGH},   // DMA 1 channels 0,1,2,3 (address, counter)
+          {0xc0, 0xc7, GENERIC_PRINT_AND_PASSTHROUGH},   // DMA 2 channels 4,5,6,7 (address, counter)
+          {0x87, 0x87, GENERIC_PRINT_AND_PASSTHROUGH},   // DMA 1 channel 0 page register
+          {0x83, 0x83, GENERIC_PRINT_AND_PASSTHROUGH},   // DMA 1 channel 1 page register
+          {0x81, 0x81, GENERIC_PRINT_AND_PASSTHROUGH},   // DMA 1 channel 2 page register
+          {0x82, 0x82, GENERIC_PRINT_AND_PASSTHROUGH},   // DMA 1 channel 3 page register
+          {0x8f, 0x8f, GENERIC_PRINT_AND_PASSTHROUGH},   // DMA 2 channel 4 page register
+          {0x8b, 0x8b, GENERIC_PRINT_AND_PASSTHROUGH},   // DMA 2 channel 5 page register
+          {0x89, 0x89, GENERIC_PRINT_AND_PASSTHROUGH},   // DMA 2 channel 6 page register
+          {0x8a, 0x8a, GENERIC_PRINT_AND_PASSTHROUGH},   // DMA 2 channel 7 page register
+	  {0x08, 0x0f, GENERIC_PRINT_AND_PASSTHROUGH},   // DMA 1 misc registers (csr, req, smask,mode,clearff,reset,enable,mmask)
+          {0xd0, 0xde, GENERIC_PRINT_AND_PASSTHROUGH},   // DMA 2 misc registers
 	  */
-          {0x170, 0x178}, // IDE 1
-	  {0x376, 0x377}, // IDE 1
-          {0x1f0, 0x1f8}, // IDE 0
-	  {0x3f6, 0x3f7}, // IDE 0
+	  {0x3f8, 0x3f8+7, GENERIC_PRINT_AND_IGNORE},      // COM 1
+	  {0x2f8, 0x2f8+7, GENERIC_PRINT_AND_IGNORE},      // COM 2
+	  {0x3e8, 0x3e8+7, GENERIC_PRINT_AND_IGNORE},      // COM 2
+	  {0x2e8, 0x2e8+7, GENERIC_PRINT_AND_IGNORE},      // COM 2
+
+          {0x170, 0x178, GENERIC_PRINT_AND_PASSTHROUGH}, // IDE 1
+	  {0x376, 0x377, GENERIC_PRINT_AND_PASSTHROUGH}, // IDE 1
+          {0x1f0, 0x1f8, GENERIC_PRINT_AND_PASSTHROUGH}, // IDE 0
+	  {0x3f6, 0x3f7, GENERIC_PRINT_AND_PASSTHROUGH}, // IDE 0
 	  /*
-          {0x3f0, 0x3f2}, // Primary floppy controller (base,statusa/statusb,DOR)
-          {0x3f4, 0x3f5}, // Primary floppy controller (mainstat/datarate,data)
-          {0x3f7, 0x3f7}, // Primary floppy controller (DIR)
-          {0x370, 0x372}, // Secondary floppy controller (base,statusa/statusb,DOR)
-          {0x374, 0x375}, // Secondary floppy controller (mainstat/datarate,data)
-          {0x377, 0x377}, // Secondary floppy controller (DIR)
-          {0x378, 0x400}
+          {0x3f0, 0x3f2, GENERIC_PRINT_AND_PASSTHROUGH}, // Primary floppy controller (base,statusa/statusb,DOR)
+          {0x3f4, 0x3f5, GENERIC_PRINT_AND_PASSTHROUGH}, // Primary floppy controller (mainstat/datarate,data)
+          {0x3f7, 0x3f7, GENERIC_PRINT_AND_PASSTHROUGH}, // Primary floppy controller (DIR)
+          {0x370, 0x372, GENERIC_PRINT_AND_PASSTHROUGH}, // Secondary floppy controller (base,statusa/statusb,DOR)
+          {0x374, 0x375, GENERIC_PRINT_AND_PASSTHROUGH}, // Secondary floppy controller (mainstat/datarate,data)
+          {0x377, 0x377, GENERIC_PRINT_AND_PASSTHROUGH}, // Secondary floppy controller (DIR)
+          {0x378, 0x400, GENERIC_PRINT_AND_PASSTHROUGH}
 	  */
         };
 
-	struct vm_device * generic = create_generic(range,4,  // THIS NUMBER IS CRITICAL
+	struct vm_device * generic = create_generic(range,8,  // THIS NUMBER IS CRITICAL
 						    NULL,0,NULL,0);
 	
 #endif
@@ -397,7 +402,7 @@ int RunVMM(struct Boot_Info * bootInfo) {
       // no longer needed since we have a keyboard device
       //hook_irq(&vm_info, 1);
       
-#if 0
+#if 1
       // give floppy controller to vm
       hook_irq(&vm_info, 6);
 

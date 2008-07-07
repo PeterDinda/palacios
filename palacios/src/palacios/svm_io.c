@@ -80,6 +80,42 @@ int handle_svm_io_ins(struct guest_info * info) {
     return -1;
   }
 
+   struct v3_segment *theseg = &(info->segments.es); // default is ES
+  
+  addr_t inst_ptr;
+
+  if (guest_va_to_host_pa(info,get_addr_linear(info,info->rip,&(info->segments.cs)),&inst_ptr)==-1) {
+    PrintDebug("Can't access instruction\n");
+    return -1;
+  }
+
+  while (is_prefix_byte(*((char*)inst_ptr))) {
+    switch (*((char*)inst_ptr)) { 
+    case PREFIX_CS_OVERRIDE:
+      theseg = &(info->segments.cs);
+      break;
+    case PREFIX_SS_OVERRIDE:
+      theseg = &(info->segments.ss);
+      break;
+    case PREFIX_DS_OVERRIDE:
+      theseg = &(info->segments.ds);
+      break;
+    case PREFIX_ES_OVERRIDE:
+      theseg = &(info->segments.es);
+      break;
+    case PREFIX_FS_OVERRIDE:
+      theseg = &(info->segments.fs);
+      break;
+    case PREFIX_GS_OVERRIDE:
+      theseg = &(info->segments.gs);
+      break;
+    default:
+      break;
+    }
+    inst_ptr++;
+  }
+
+
   PrintDebug("INS on  port %d (0x%x)\n", io_info->port, io_info->port);
 
   if (io_info->sz8) {
@@ -104,7 +140,7 @@ int handle_svm_io_ins(struct guest_info * info) {
     // This value should be set depending on the host register size...
     mask = get_gpr_mask(info);
 
-    PrintDebug("INS io_info invalid address size, assuming 32, io_info=0x%x\n",*((uint_t*)(io_info)));
+    PrintDebug("INS io_info invalid address size, mask=0x%x, io_info=0x%x\n",mask,*((uint_t*)(io_info)));
     // PrintDebug("INS Aborted... Check implementation\n");
     //return -1;
   }
@@ -119,8 +155,10 @@ int handle_svm_io_ins(struct guest_info * info) {
 
   while (rep_num > 0) {
     addr_t host_addr;
-    dst_addr = get_addr_linear(info, info->vm_regs.rdi & mask, &(info->segments.es));
+    dst_addr = get_addr_linear(info, info->vm_regs.rdi & mask, theseg);
     
+    PrintDebug("Writing 0x%x\n", dst_addr);
+
     if (guest_va_to_host_va(info, dst_addr, &host_addr) == -1) {
       // either page fault or gpf...
       PrintDebug("Could not convert Guest VA to host VA\n");
@@ -191,6 +229,7 @@ int handle_svm_io_out(struct guest_info * info) {
 int handle_svm_io_outs(struct guest_info * info) {
   vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA((vmcb_t *)(info->vmm_data));
   vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
+
   
   struct svm_io_info * io_info = (struct svm_io_info *)&(ctrl_area->exit_info1);
   
@@ -240,7 +279,7 @@ int handle_svm_io_outs(struct guest_info * info) {
     // This value should be set depending on the host register size...
     mask = get_gpr_mask(info);
 
-    PrintDebug("OUTS io_info invalid address size, assuming 32, io_info=0x%x\n",*((uint_t*)(io_info)));
+    PrintDebug("OUTS io_info invalid address size, mask=0x%, io_info=0x%x\n",mask,*((uint_t*)(io_info)));
     // PrintDebug("INS Aborted... Check implementation\n");
     //return -1;
     // should never happen
@@ -252,11 +291,49 @@ int handle_svm_io_outs(struct guest_info * info) {
     rep_num = info->vm_regs.rcx & mask;
   }
 
+  struct v3_segment *theseg = &(info->segments.es); // default is ES
+  
+  addr_t inst_ptr;
+
+  if (guest_va_to_host_pa(info,get_addr_linear(info,info->rip,&(info->segments.cs)),&inst_ptr)==-1) {
+    PrintDebug("Can't access instruction\n");
+    return -1;
+  }
+
+  while (is_prefix_byte(*((char*)inst_ptr))) {
+    switch (*((char*)inst_ptr)) { 
+    case PREFIX_CS_OVERRIDE:
+      theseg = &(info->segments.cs);
+      break;
+    case PREFIX_SS_OVERRIDE:
+      theseg = &(info->segments.ss);
+      break;
+    case PREFIX_DS_OVERRIDE:
+      theseg = &(info->segments.ds);
+      break;
+    case PREFIX_ES_OVERRIDE:
+      theseg = &(info->segments.es);
+      break;
+    case PREFIX_FS_OVERRIDE:
+      theseg = &(info->segments.fs);
+      break;
+    case PREFIX_GS_OVERRIDE:
+      theseg = &(info->segments.gs);
+      break;
+    default:
+      break;
+    }
+    inst_ptr++;
+  }
+
   PrintDebug("OUTS size=%d for %d steps\n", write_size, rep_num);
 
   while (rep_num > 0) {
     addr_t host_addr;
-    dst_addr = get_addr_linear(info, (info->vm_regs.rsi & mask), &(info->segments.ds));
+
+
+
+    dst_addr = get_addr_linear(info, (info->vm_regs.rsi & mask), theseg);
     
     if (guest_va_to_host_va(info, dst_addr, &host_addr) == -1) {
       // either page fault or gpf...
