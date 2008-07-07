@@ -46,9 +46,9 @@ struct channel {
 
   ushort_t latched_value;
   
-  enum {NOTLATCHED,LATCHED} latch_state;
+  enum {NOTLATCHED, LATCHED} latch_state;
 
-  enum {LSB,MSB} read_state;
+  enum {LSB, MSB} read_state;
 
   uint_t output_pin : 1;
   uint_t gate_input_pin : 1;
@@ -321,22 +321,22 @@ static int handle_channel_write(struct channel * ch, char val) {
 
 static int handle_channel_read(struct channel * ch, char * val) {
 
-  ushort_t *myval;
+  ushort_t * myval;
 
-  if (ch->latch_state==NOTLATCHED) { 
+  if (ch->latch_state == NOTLATCHED) { 
     myval = &(ch->counter);
   } else {
     myval = &(ch->latched_value);
   }
 
-  if (ch->read_state==LSB) { 
+  if (ch->read_state == LSB) { 
     *val = ((char*)myval)[0];  // little endian
-    ch->read_state=MSB;
+    ch->read_state = MSB;
   } else {
     *val = ((char*)myval)[1];
-    ch->read_state=LSB;
-    if (ch->latch_state==LATCHED) { 
-      ch->latch_state=NOTLATCHED;
+    ch->read_state = LSB;
+    if (ch->latch_state == LATCHED) { 
+      ch->latch_state = NOTLATCHED;
     }
   }
 
@@ -357,9 +357,9 @@ static int handle_channel_cmd(struct channel * ch, struct pit_cmd_word cmd) {
 
   switch (cmd.access_mode) {
   case LATCH_COUNT:
-    if (ch->latch_state==NOTLATCHED) { 
-      ch->latched_value=ch->counter;
-      ch->latch_state=LATCHED;
+    if (ch->latch_state == NOTLATCHED) { 
+      ch->latched_value = ch->counter;
+      ch->latch_state = LATCHED;
     }
     break;
   case HIBYTE_ONLY:
@@ -530,9 +530,9 @@ static void init_channel(struct channel * ch) {
   ch->output_pin = 0;
   ch->gate_input_pin = 0;
 
-  ch->latched_value=0;
-  ch->latch_state=NOTLATCHED;
-  ch->read_state=LSB;
+  ch->latched_value = 0;
+  ch->latch_state = NOTLATCHED;
+  ch->read_state = LSB;
 
   return;
 }

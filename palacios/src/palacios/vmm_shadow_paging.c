@@ -42,6 +42,50 @@ int handle_shadow_pagefault(struct guest_info * info, addr_t fault_addr, pf_erro
   }
 }
 
+addr_t create_new_shadow_pt32(struct guest_info * info) {
+  void * host_pde = 0;
+
+  V3_AllocPages(host_pde, 1);
+  memset(host_pde, 0, PAGE_SIZE);
+
+  return (addr_t)host_pde;
+}
+
+
+static int handle_pd32_nonaligned_4MB_page(struct guest_info * info, pte32_t * pt, addr_t guest_addr, pde32_4MB_t * large_shadow_pde) {
+  uint_t i = 0;
+  pte32_t * pte_cursor;
+  addr_t guest_pa = 0;
+
+  for (i = 0; i < 1024; i++) {
+    guest_pa = guest_addr + (PAGE_SIZE * i);
+    host_region_type_t host_page_type = get_shadow_addr_type(info, guest_pa);
+    
+    pte_cursor = &(pt[i]);
+
+    if (host_page_type == HOST_REGION_INVALID) {
+      // Currently we don't support this, but in theory we could
+      PrintDebug("Invalid Host Memory Type\n");
+      return -1;
+    } else if (host_page_type == HOST_REGION_PHYSICAL_MEMORY) {
+      addr_t shadow_pa = get_shadow_addr(info, guest_pa);
+
+
+      pte_cursor->page_base_addr = PT32_BASE_ADDR(shadow_pa);
+      pte_cursor->present = 1;
+      pte_cursor->writable = large_shadow_pde->writable;
+      pte_cursor->user_page = large_shadow_pde->user_page;
+      pte_cursor->write_through = 0;  
+      pte_cursor->cache_disable = 0;
+      pte_cursor->global_page = 0;
+
+    } else {
+      PrintDebug("Unsupported Host Memory Type\n");
+      return -1;
+    }
+  }
+  return 0;
+}
 
 int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_error_t error_code) {
   pde32_t * guest_pd = NULL;
@@ -63,22 +107,42 @@ int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_er
   // Check the guest page permissions
   guest_pde_access = can_access_pde32(guest_pd, fault_addr, error_code);
 
-  if (guest_pde_access != PT_ACCESS_OK) {
+  // Check the shadow page permissions
+  shadow_pde_access = can_access_pde32(shadow_pd, fault_addr, error_code);
+  
+  /* This should be redone, 
+     but basically the reasoning is that there can be multiple reasons for a page fault:
+     If there is a permissions failure for a page present in the guest _BUT_ 
+     the reason for the fault was that the page is not present in the shadow, 
+     _THEN_ we have to map the shadow page in and reexecute, this will generate 
+     a permissions fault which is _THEN_ valid to send to the guest
+
+     whew...
+  */
+  if ((guest_pde_access != PT_ACCESS_OK) &&
+      ( (shadow_pde_access != PT_ENTRY_NOT_PRESENT) &&
+	(guest_pde_access != PT_ENTRY_NOT_PRESENT))) { // aka (guest permission error)
     // inject page fault to the guest (Guest PDE fault)
 
-    info->ctrl_regs.cr2 = fault_addr;
+	info->ctrl_regs.cr2 = fault_addr;
     raise_exception_with_error(info, PF_EXCEPTION, *(uint_t *)&error_code);
 
-    PrintDebug("Injecting PDE pf to guest: (guest access error=%d) (pf error code=%d)\n", guest_pde_access, error_code);
-    PrintDebug("Guest CR3=%x\n", guest_cr3);
-    PrintPD32(guest_pd);
 
-    V3_ASSERT(0);
+    PrintDebug("Injecting PDE pf to guest: (guest access error=%d) (pf error code=%d)\n", guest_pde_access, error_code);
     return 0;
+
+    PrintDebug("Guest CR3=%x\n", guest_cr3);
+    PrintDebug("Guest PD\n");
+    PrintPD32(guest_pd);
+    PrintDebug("Shadow PD\n");
+    PrintPD32(shadow_pd);
+
+
+    return -1;
   }
 
 
-  shadow_pde_access = can_access_pde32(shadow_pd, fault_addr, error_code);
+  //shadow_pde_access = can_access_pde32(shadow_pd, fault_addr, error_code);
 
 
   if (shadow_pde_access == PT_ENTRY_NOT_PRESENT) {
@@ -87,13 +151,14 @@ int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_er
     shadow_pde->user_page = guest_pde->user_page;
     shadow_pde->large_page = guest_pde->large_page;
 
+
     // VMM Specific options
     shadow_pde->write_through = 0;
     shadow_pde->cache_disable = 0;
     shadow_pde->global_page = 0;
     //
 
-      guest_pde->accessed = 1;
+    guest_pde->accessed = 1;
     
     if (guest_pde->large_page == 0) {
       pte32_t * shadow_pt = NULL;
@@ -113,13 +178,10 @@ int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_er
       //    addr_t guest_end_addr = guest_start_addr + PAGE_SIZE_4MB; // start address + 4MB
 
 
-      /* JRL: THIS COULD BE A PROBLEM....
-       * Currently we only support large pages if the region is mapped contiguosly in shadow memory
-       * Lets hope this is the case...
-       */
-
       // Check that the Guest PDE entry points to valid memory
       // else Machine Check the guest
+      PrintDebug("Large Page: Page Base Addr=%x\n", guest_start_addr);
+
       host_page_type = get_shadow_addr_type(info, guest_start_addr);
 
       if (host_page_type == HOST_REGION_INVALID) {
@@ -133,17 +195,15 @@ int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_er
 
 	// Check for a large enough region in host memory
 	mem_reg = get_shadow_region_by_addr(&(info->mem_map), guest_start_addr);
+	PrintDebug("Host region: host_addr=%x (guest_start=%x, end=%x)\n", 
+		   mem_reg->host_addr, mem_reg->guest_start, mem_reg->guest_end);
 	host_start_addr = mem_reg->host_addr + (guest_start_addr - mem_reg->guest_start);
 	region_end_addr = mem_reg->host_addr + (mem_reg->guest_end - mem_reg->guest_start);
 
-	// Check if the region is at least an additional 4MB
-	if (region_end_addr <= host_start_addr + PAGE_SIZE_4MB) {
-	  PrintDebug("Large page over non contiguous host memory... Not handled\n");
-	  return -1;
-	}
+	PrintDebug("Host Start Addr=%x; Region End Addr=%x\n", host_start_addr, region_end_addr);
 
-	//4b.
-	large_shadow_pde->page_base_addr = PD32_4MB_BASE_ADDR(host_start_addr);
+
+
 
 	//4f
 	if (large_guest_pde->dirty == 1) { // dirty
@@ -155,6 +215,38 @@ int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_er
 	  large_shadow_pde->writable = 0;
 	}
 
+
+	// Check if the region is at least an additional 4MB
+
+
+	//4b.
+	if ((PD32_4MB_PAGE_OFFSET(host_start_addr) == 0) && 
+	    (region_end_addr >= host_start_addr + PAGE_SIZE_4MB)) { 	// if 4MB boundary
+	  large_shadow_pde->page_base_addr = PD32_4MB_BASE_ADDR(host_start_addr);
+	} else { 	  // else generate 4k pages
+	  pte32_t * shadow_pt = NULL;
+	  PrintDebug("Handling non aligned large page\n");
+
+	  shadow_pde->large_page = 0;
+      
+	  V3_AllocPages(shadow_pt, 1);
+	  memset(shadow_pt, 0, PAGE_SIZE);
+
+	  if (handle_pd32_nonaligned_4MB_page(info, shadow_pt, guest_start_addr, large_shadow_pde) == -1) {
+	    PrintDebug("Non Aligned Large Page Error\n");
+	    V3_Free(shadow_pt);
+	    return -1;
+	  }
+
+
+	  /*
+	    PrintDebug("non-aligned Shadow PT\n");
+	    PrintPT32(PT32_PAGE_ADDR(fault_addr), shadow_pt);	  
+	  */
+	  shadow_pde->pt_base_addr = PD32_BASE_ADDR(shadow_pt);
+	}
+
+	
       } else {
 	// Handle hooked pages as well as other special pages
 	if (handle_special_page_fault(info, fault_addr, error_code) == -1) {
@@ -218,7 +310,7 @@ int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_er
   }
 
   //PrintDebugPageTables(shadow_pd);
-  PrintDebug("Returning end of PDE function\n");
+  PrintDebug("Returning end of PDE function (rip=%x)\n", info->rip);
   return 0;
 }
 
@@ -242,19 +334,32 @@ int handle_shadow_pte32_fault(struct guest_info * info,
   // Check the guest page permissions
   guest_pte_access = can_access_pte32(guest_pt, fault_addr, error_code);
 
+  // Check the shadow page permissions
+  shadow_pte_access = can_access_pte32(shadow_pt, fault_addr, error_code);
   
-  if (guest_pte_access != PT_ACCESS_OK) {
+  /* This should be redone, 
+     but basically the reasoning is that there can be multiple reasons for a page fault:
+     If there is a permissions failure for a page present in the guest _BUT_ 
+     the reason for the fault was that the page is not present in the shadow, 
+     _THEN_ we have to map the shadow page in and reexecute, this will generate 
+     a permissions fault which is _THEN_ valid to send to the guest
+
+     whew...
+  */
+  if ((guest_pte_access != PT_ACCESS_OK) && 
+      ((shadow_pte_access != PT_ENTRY_NOT_PRESENT) &&
+       (guest_pte_access != PT_ENTRY_NOT_PRESENT))) { // aka (guest permission error)
     // Inject page fault into the guest	
     
     info->ctrl_regs.cr2 = fault_addr;
     raise_exception_with_error(info, PF_EXCEPTION, *(uint_t *)&error_code);
     
-    PrintDebug("Access error injecting pf to guest\n");
-    return 0;
+    PrintDebug("Access error injecting pf to guest (guest access error=%d) (pf error code=%d)\n", guest_pte_access, error_code);
+    return 0; 
   }
   
   
-  shadow_pte_access = can_access_pte32(shadow_pt, fault_addr, error_code);
+
 
   if (shadow_pte_access == PT_ACCESS_OK) {
     // Inconsistent state...
@@ -339,14 +444,6 @@ int handle_shadow_pte32_fault(struct guest_info * info,
 
 
 
-addr_t create_new_shadow_pt32(struct guest_info * info) {
-  void * host_pde = 0;
-
-  V3_AllocPages(host_pde, 1);
-  memset(host_pde, 0, PAGE_SIZE);
-
-  return (addr_t)host_pde;
-}
 
 
 
@@ -384,6 +481,17 @@ int handle_shadow_invlpg(struct guest_info * info) {
       addr_t first_operand;
       addr_t second_operand;
       operand_type_t addr_type;
+      addr_t guest_cr3 = CR3_TO_PDE32(info->shdw_pg_state.guest_cr3);
+
+      pde32_t * guest_pd = NULL;
+
+      if (guest_pa_to_host_va(info, guest_cr3, (addr_t*)&guest_pd) == -1) {
+	PrintDebug("Invalid Guest PDE Address: 0x%x\n", guest_cr3);
+	return -1;
+      }
+
+      
+
 
       index += 2;
 
@@ -392,17 +500,25 @@ int handle_shadow_invlpg(struct guest_info * info) {
       if (addr_type == MEM_OPERAND) {
 	pde32_t * shadow_pd = (pde32_t *)CR3_TO_PDE32(info->shdw_pg_state.shadow_cr3);
 	pde32_t * shadow_pde = (pde32_t *)&shadow_pd[PDE32_INDEX(first_operand)];
+	pde32_t * guest_pde;
 
 	//PrintDebug("PDE Index=%d\n", PDE32_INDEX(first_operand));
 	//PrintDebug("FirstOperand = %x\n", first_operand);
 
-	if (shadow_pde->large_page == 1) {
+	PrintDebug("Invalidating page for %x\n", first_operand);
+
+	guest_pde = (pde32_t *)&(guest_pd[PDE32_INDEX(first_operand)]);
+
+	if (guest_pde->large_page == 1) {
 	  shadow_pde->present = 0;
+	  PrintDebug("Invalidating Large Page\n");
 	} else {
+	 
 	  if (shadow_pde->present == 1) {
 	    pte32_t * shadow_pt = (pte32_t *)PDE32_T_ADDR((*shadow_pde));
 	    pte32_t * shadow_pte = (pte32_t *)&shadow_pt[PTE32_INDEX(first_operand)];
-
+	    PrintDebug("Setting not present\n");
+	    PrintPTE32(first_operand, shadow_pte);
 	    shadow_pte->present = 0;
 	  }
 	}

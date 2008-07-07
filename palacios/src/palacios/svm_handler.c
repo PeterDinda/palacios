@@ -232,10 +232,12 @@ int handle_svm_exit(struct guest_info * info) {
 	if (info->intr_state.excp_error_code) {
 	  guest_ctrl->EVENTINJ.error_code = info->intr_state.excp_error_code;
 	  guest_ctrl->EVENTINJ.ev = 1;
+	  PrintDebug("Injecting error code %x\n", guest_ctrl->EVENTINJ.error_code);
 	}
 	
 	guest_ctrl->EVENTINJ.vector = excp;
 	
+	guest_ctrl->EVENTINJ.valid = 1;
 	PrintDebug("Injecting Interrupt %d (EIP=%x)\n", guest_ctrl->EVENTINJ.vector, info->rip);
 	injecting_intr(info, excp, EXCEPTION);
 	break;

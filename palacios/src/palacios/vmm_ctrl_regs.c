@@ -287,8 +287,8 @@ int handle_cr0_write(struct guest_info * info) {
 		 (instr[index + 1] == 0x06)) { 
 	// CLTS instruction
 	PrintDebug("CLTS instruction - clearing TS flag of real and shadow CR0\n");
-	shadow_cr0->ts=0;
-	real_cr0->ts=0;
+	shadow_cr0->ts = 0;
+	real_cr0->ts = 0;
 	
 	index+=2;
 	
@@ -490,9 +490,11 @@ int handle_cr0_read(struct guest_info * info) {
 
 	if (info->shdw_pg_mode == SHADOW_PAGING) {
 	  *virt_cr0 = *(struct cr0_32 *)&(info->shdw_pg_state.guest_cr0);
-	  if (info->cpu_mode==PROTECTED) {
-	    virt_cr0->pg=0; // clear the pg bit because guest doesn't think it's on
+	  
+	  if (info->mem_mode == PHYSICAL_MEM) {
+	    virt_cr0->pg = 0; // clear the pg bit because guest doesn't think it's on
 	  }
+	  
 	} else {
 	  *virt_cr0 = *real_cr0;
 	}
@@ -588,6 +590,11 @@ int handle_cr3_write(struct guest_info * info) {
 	struct cr3_32 * guest_cr3 = (struct cr3_32 *)&(info->shdw_pg_state.guest_cr3);
 
 
+	  if (CR3_TO_PDE32(*(uint_t*)shadow_cr3) != 0) {
+	    PrintDebug("Shadow Page Table\n");
+	    PrintDebugPageTables((pde32_t *)CR3_TO_PDE32(*(uint_t*)shadow_cr3));
+	  }
+
 	/* Delete the current Page Tables */
 	delete_page_tables_pde32((pde32_t *)CR3_TO_PDE32(*(uint_t*)shadow_cr3));
 
@@ -606,6 +613,14 @@ int handle_cr3_write(struct guest_info * info) {
 	/* Copy Various flags */
 	*shadow_cr3 = *new_cr3;
 
+	{
+	  addr_t tmp_addr;
+	  guest_pa_to_host_va(info, ((*(uint_t*)guest_cr3) & 0xfffff000), &tmp_addr);
+	  PrintDebug("Guest PD\n");
+	  PrintPD32((pde32_t *)tmp_addr);
+
+	}
+	
 
 	
 	shadow_cr3->pdt_base_addr = PD32_BASE_ADDR(shadow_pt);

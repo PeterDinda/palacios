@@ -170,12 +170,19 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info vm_info) {
     ctrl_area->instrs.INVLPG = 1;
     ctrl_area->instrs.INVLPGA = 1;
 
+    /* JRL: This is a performance killer, and a simplistic solution */
+    /* We need to fix this */
+    ctrl_area->TLB_CONTROL = 1;
+    
+
+
     guest_state->g_pat = 0x7040600070406ULL;
 
     guest_state->cr0 |= 0x80000000;
+
   } else if (vm_info.shdw_pg_mode == NESTED_PAGING) {
     // Flush the TLB on entries/exits
-    //ctrl_area->TLB_CONTROL = 1;
+
 
     // Enable Nested Paging
     //ctrl_area->NP_ENABLE = 1;
@@ -250,7 +257,7 @@ static int start_svm_guest(struct guest_info *info) {
 
     CLGI();
 
-    //  PrintDebug("SVM Entry...\n");
+    PrintDebug("SVM Entry to rip=%x...\n", info->rip);
 
     rdtscll(info->time_state.cached_host_tsc);
     guest_ctrl->TSC_OFFSET = info->time_state.guest_tsc - info->time_state.cached_host_tsc;

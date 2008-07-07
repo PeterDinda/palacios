@@ -39,7 +39,9 @@ int raise_exception_with_error(struct guest_info * info, uint_t excp, uint_t err
     intr_state->excp_num = excp;
     intr_state->excp_error_code = error_code;
     intr_state->excp_error_code_valid = 1;
+    PrintDebug("Raising exception with error code: %x\n", error_code);
   } else {
+    PrintDebug("exception already pending, currently not implemented\n");
     return -1;
   }
 
@@ -55,6 +57,7 @@ int raise_exception(struct guest_info * info, uint_t excp) {
     intr_state->excp_error_code = 0;
     intr_state->excp_error_code_valid = 0;
   } else {
+    PrintDebug("exception already pending, currently not implemented\n");
     return -1;
   }
 

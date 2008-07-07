@@ -115,7 +115,7 @@ pt_access_status_t can_access_pde32(pde32_t * pde, addr_t addr, pf_error_t acces
   } else if ((entry->writable == 0) && (access_type.write == 1)) {
     return PT_WRITE_ERROR;
   } else if ((entry->user_page == 0) && (access_type.user == 1)) {
-    // Check CR0.WP
+    // Check CR0.WP?
     return PT_USER_ERROR;
   }
 
@@ -131,7 +131,7 @@ pt_access_status_t can_access_pte32(pte32_t * pte, addr_t addr, pf_error_t acces
   } else if ((entry->writable == 0) && (access_type.write == 1)) {
     return PT_WRITE_ERROR;
   } else if ((entry->user_page == 0) && (access_type.user == 1)) {
-    // Check CR0.WP
+    // Check CR0.WP?
     return PT_USER_ERROR;
   }
 
