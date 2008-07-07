@@ -22,12 +22,15 @@
 //
 
 
-// A port range is low..high, inclusive
-typedef uint_t generic_port_range_type[2];
+#define GENERIC_PRINT_AND_PASSTHROUGH 0
+#define GENERIC_PRINT_AND_IGNORE      1
+
+// A port range is low..high, inclusive, third value is one of the above
+typedef uint_t generic_port_range_type[3];
 // A memory range is low..high, inclusive
-typedef void *generic_address_range_type[2];
+typedef void *generic_address_range_type[3];
 // An interrupt ory map range is low..high, inclusive
-typedef uint_t generic_irq_range_type[2];
+typedef uint_t generic_irq_range_type[3];
 
 struct vm_device *create_generic(generic_port_range_type    port_ranges[], 
 				 uint_t                     num_port_ranges,

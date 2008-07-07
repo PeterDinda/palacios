@@ -107,22 +107,22 @@ MAKE_INSTR(LMSW,   3, 0x0f, 0x01, 0x00);
 MAKE_INSTR(SMSW,   3, 0x0f, 0x01, 0x00);
 
 
-static const uchar_t PREFIX_LOCK = 0xF0;
-static const uchar_t PREFIX_REPNE = 0xF2;
-static const uchar_t PREFIX_REPNZ = 0xF2;
-static const uchar_t PREFIX_REP = 0xF3;
-static const uchar_t PREFIX_REPE = 0xF3;
-static const uchar_t PREFIX_REPZ = 0xF3;
-static const uchar_t PREFIX_CS_OVERRIDE = 0x2E;
-static const uchar_t PREFIX_SS_OVERRIDE = 0x36;
-static const uchar_t PREFIX_DS_OVERRIDE = 0x3E;
-static const uchar_t PREFIX_ES_OVERRIDE = 0x26;
-static const uchar_t PREFIX_FS_OVERRIDE = 0x64;
-static const uchar_t PREFIX_GS_OVERRIDE = 0x65;
-static const uchar_t PREFIX_BR_NOT_TAKEN = 0x2E;
-static const uchar_t PREFIX_BR_TAKEN = 0x3E;
-static const uchar_t PREFIX_OP_SIZE = 0x66;
-static const uchar_t PREFIX_ADDR_SIZE = 0x67;
+#define PREFIX_LOCK         0xF0
+#define PREFIX_REPNE        0xF2
+#define PREFIX_REPNZ        0xF2
+#define PREFIX_REP          0xF3
+#define PREFIX_REPE         0xF3
+#define PREFIX_REPZ         0xF3
+#define PREFIX_CS_OVERRIDE  0x2E
+#define PREFIX_SS_OVERRIDE  0x36
+#define PREFIX_DS_OVERRIDE  0x3E
+#define PREFIX_ES_OVERRIDE  0x26
+#define PREFIX_FS_OVERRIDE  0x64
+#define PREFIX_GS_OVERRIDE  0x65
+#define PREFIX_BR_NOT_TAKEN 0x2E
+#define PREFIX_BR_TAKEN     0x3E
+#define PREFIX_OP_SIZE      0x66
+#define PREFIX_ADDR_SIZE    0x67
 
 static inline int is_prefix_byte(char byte) {
   switch (byte) {

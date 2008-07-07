@@ -61,10 +61,10 @@ int generic_stop_device(struct vm_device *dev)
 
 
 
-int generic_write_port(ushort_t port,
-		       void * src, 
-		       uint_t length,
-		       struct vm_device * dev)
+int generic_write_port_passthrough(ushort_t port,
+				   void * src, 
+				   uint_t length,
+				   struct vm_device * dev)
 {
   uint_t i;
 
@@ -97,10 +97,10 @@ int generic_write_port(ushort_t port,
   return length;
 }
 
-int generic_read_port(ushort_t port,
-		      void * src, 
-		      uint_t length,
-		      struct vm_device * dev)
+int generic_read_port_passthrough(ushort_t port,
+				  void * src, 
+				  uint_t length,
+				  struct vm_device * dev)
 {
   uint_t i;
 
@@ -133,6 +133,40 @@ int generic_read_port(ushort_t port,
   return length;
 }
 
+int generic_write_port_ignore(ushort_t port,
+			      void * src, 
+			      uint_t length,
+			      struct vm_device * dev)
+{
+  uint_t i;
+
+  GENERIC_DEBUG_PRINT("generic: writing 0x");
+
+  for (i = 0; i < length; i++) { 
+    GENERIC_DEBUG_PRINT("%x", ((uchar_t*)src)[i]);
+  }
+  
+  GENERIC_DEBUG_PRINT(" to port 0x%x ... ", port);
+
+  GENERIC_DEBUG_PRINT(" ignored\n");
+  
+  return length;
+}
+
+int generic_read_port_ignore(ushort_t port,
+			     void * src, 
+			     uint_t length,
+			     struct vm_device * dev)
+{
+
+  GENERIC_DEBUG_PRINT("generic: reading 0x%x bytes from port 0x%x ...", length, port);
+
+  memset((char*)src,0,length);
+  GENERIC_DEBUG_PRINT(" ignored (return zeroed buffer)\n");
+
+  return length;
+}
+
 
 
 int generic_interrupt(uint_t irq,
@@ -159,13 +193,19 @@ int generic_init_device(struct vm_device * dev)
   generic_reset_device(dev);
 
   for (i = 0; i < state->num_port_ranges; i++) { 
-    GENERIC_DEBUG_PRINT("generic: hooking ports 0x%x to 0x%x\n", state->port_ranges[i][0], state->port_ranges[i][1]);
+    GENERIC_DEBUG_PRINT("generic: hooking ports 0x%x to 0x%x as %x\n", state->port_ranges[i][0], state->port_ranges[i][1], state->port_ranges[i][2]==GENERIC_PRINT_AND_PASSTHROUGH ? "print-and-passthrough" : "print-and-ignore");
 
 #if PORT_HOOKS
     for (j = state->port_ranges[i][0]; j <= state->port_ranges[i][1]; j++) { 
-      if (dev_hook_io(dev, j, &generic_read_port, &generic_write_port)) { 
-	GENERIC_DEBUG_PRINT("generic: can't hook port 0x%x (already hooked?)\n", j);
-      }
+      if (state->port_ranges[i][2]==GENERIC_PRINT_AND_PASSTHROUGH) { 
+	if (dev_hook_io(dev, j, &generic_read_port_passthrough, &generic_write_port_passthrough)) { 
+	  GENERIC_DEBUG_PRINT("generic: can't hook port 0x%x (already hooked?)\n", j);
+	}
+      } else if (state->port_ranges[i][2]==GENERIC_PRINT_AND_IGNORE) { 
+	if (dev_hook_io(dev, j, &generic_read_port_ignore, &generic_write_port_ignore)) { 
+	  GENERIC_DEBUG_PRINT("generic: can't hook port 0x%x (already hooked?)\n", j);
+	}
+      } 
     }
 #else
     GENERIC_DEBUG_PRINT("generic: hooking ports not supported\n");
