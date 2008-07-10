@@ -313,6 +313,60 @@ static int start_svm_guest(struct guest_info *info) {
 /* Checks machine SVM capability */
 /* Implemented from: AMD Arch Manual 3, sect 15.4 */ 
 int is_svm_capable() {
+
+#if 1
+  // Dinda
+
+  uint_t ret;
+  uint_t vm_cr_low = 0, vm_cr_high = 0;
+
+
+  ret =  cpuid_ecx(CPUID_FEATURE_IDS);
+  
+  PrintDebug("CPUID_FEATURE_IDS_ecx=0x%x\n",ret);
+
+  if ((ret & CPUID_FEATURE_IDS_ecx_svm_avail) == 0) {
+    PrintDebug("SVM Not Available\n");
+    return 0;
+  }  else {
+    Get_MSR(SVM_VM_CR_MSR, &vm_cr_high, &vm_cr_low);
+    
+    PrintDebug("SVM_VM_CR_MSR = 0x%x 0x%x\n",vm_cr_high,vm_cr_low);
+    
+    if ((vm_cr_low & SVM_VM_CR_MSR_svmdis) == 1) {
+      PrintDebug("SVM is available but is disabled.\n");
+
+      ret = cpuid_edx(CPUID_SVM_REV_AND_FEATURE_IDS);
+      
+      PrintDebug("CPUID_FEATURE_IDS_edx=0x%x\n",ret);
+      
+      if ((ret & CPUID_SVM_REV_AND_FEATURE_IDS_edx_svml) == 0) {
+	PrintDebug("SVM BIOS Disabled, not unlockable\n");
+      } else {
+	PrintDebug("SVM is locked with a key\n");
+      }
+      return 0;
+
+    } else {
+      PrintDebug("SVM is available and  enabled.\n");
+
+      ret = cpuid_edx(CPUID_SVM_REV_AND_FEATURE_IDS);
+      
+      PrintDebug("CPUID_FEATURE_IDS_edx=0x%x\n",ret);
+
+      if ((ret & CPUID_SVM_REV_AND_FEATURE_IDS_edx_np) == 0) {
+	PrintDebug("SVM Nested Paging not supported\n");
+      } else {
+	PrintDebug("SVM Nested Paging supported\n");
+      }
+      
+      return 1;
+      
+    }
+  }
+
+#else
+
   uint_t ret =  cpuid_ecx(CPUID_FEATURE_IDS);
   uint_t vm_cr_low = 0, vm_cr_high = 0;
 
@@ -324,11 +378,19 @@ int is_svm_capable() {
 
   Get_MSR(SVM_VM_CR_MSR, &vm_cr_high, &vm_cr_low);
 
+  PrintDebug("SVM_VM_CR_MSR = 0x%x 0x%x\n",vm_cr_high,vm_cr_low);
+
+
+  // this part is clearly wrong, since the np bit is in 
+  // edx, not ecx
   if ((ret & CPUID_SVM_REV_AND_FEATURE_IDS_edx_np) == 1) {
     PrintDebug("Nested Paging not supported\n");
+  } else {
+    PrintDebug("Nested Paging supported\n");
   }
 
   if ((vm_cr_low & SVM_VM_CR_MSR_svmdis) == 0) {
+    PrintDebug("SVM is disabled.\n");
     return 1;
   }
 
@@ -341,6 +403,9 @@ int is_svm_capable() {
   }
 
   return 0;
+
+#endif
+
 }
 
 
