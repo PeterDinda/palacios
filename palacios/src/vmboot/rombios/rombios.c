@@ -1,6 +1,6 @@
 //  -*- fundamental -*-
 /////////////////////////////////////////////////////////////////////////
-// $Id: rombios.c,v 1.11 2008/07/07 23:56:54 pdinda Exp $
+// $Id: rombios.c,v 1.12 2008/07/11 22:59:38 pdinda Exp $
 /////////////////////////////////////////////////////////////////////////
 //
 //  Copyright (C) 2002  MandrakeSoft S.A.
@@ -945,10 +945,10 @@ Bit16u cdrom_boot();
 
 #endif // BX_ELTORITO_BOOT
 
-static char bios_cvs_version_string[] = "$Revision: 1.11 $";
-static char bios_date_string[] = "$Date: 2008/07/07 23:56:54 $";
+static char bios_cvs_version_string[] = "$Revision: 1.12 $";
+static char bios_date_string[] = "$Date: 2008/07/11 22:59:38 $";
 
-static char CVSID[] = "$Id: rombios.c,v 1.11 2008/07/07 23:56:54 pdinda Exp $";
+static char CVSID[] = "$Id: rombios.c,v 1.12 2008/07/11 22:59:38 pdinda Exp $";
 
 /* Offset to skip the CVS $Id: prefix */ 
 #define bios_version_string  (CVSID + 4)
@@ -2849,7 +2849,7 @@ Bit32u length;
   Bit16u iobase1, iobase2;
   Bit16u lcount, lbefore, lafter, count;
   Bit8u  channel, slave;
-  Bit8u  status, mode, lmode;
+  Bit8u  status, error, mode, lmode;
   Bit32u total, transfer;
 
   channel = device / 2;
@@ -2880,71 +2880,72 @@ Bit32u length;
   write_word(ebda_seg, &EbdaData->ata.trsfsectors,0);
   write_dword(ebda_seg, &EbdaData->ata.trsfbytes,0L);
 
-  // Device should not be busy yet 
-
-#define PDINDA 1
-
-#if PDINDA
-  // wait for device to be ready 
-  do {
-    status = inb(iobase1 + ATA_CB_STAT);
-    //    BX_DEBUG_ATA("ata_cmd_packet: wait (%2x)\n",status);
-  } while (status & ATA_CB_STAT_BSY);
-#else
-  status = inb(iobase1 + ATA_CB_STAT);
-  if (status & ATA_CB_STAT_BSY) return 2;
-#endif
+#define STATUS_WAIT_FOR(x) do { status=inb(iobase1+ATA_CB_STAT); } while (!(x)) 
+#define ALT_STATUS_WAIT_FOR(x) do { status=inb(iobase2+ATA_CB_ASTAT); } while (!(x)) 
+#define ERROR_UPDATE() do { error=inb(iobase1+ATA_CB_ERR); } while (0)
+#define STATUS_UPDATE() do { status=inb(iobase1+ATA_CB_STAT); } while (0)
+#define ALT_STATUS_UPDATE() do { status=inb(iobase1+ATA_CB_STAT); } while (0)
+#define WAIT_FOR_NOT_BUSY() STATUS_WAIT_FOR((status&ATA_CB_STAT_BSY)==0)
+#define WAIT_FOR_DATA_REQUEST() STATUS_WAIT_FOR((status&ATA_CB_STAT_DRQ))
+#define WAIT_FOR_DRIVE_READY() STATUS_WAIT_FOR((status&ATA_CB_STAT_RDY))
+#define WAIT_FOR_NOT_BUSY_AND_DRIVE_READY() STATUS_WAIT_FOR(((status&ATA_CB_STAT_BSY)==0)&&((status&ATA_CB_STAT_RDY)))
+#define WAIT_FOR_NOT_BUSY_AND_DATA_REQUEST() STATUS_WAIT_FOR((status&ATA_CB_STAT_BSY)==0)&&((status&ATA_CB_STAT_DRQ)))
 
 
-  // set "noninterruptable"
-  outb(iobase2 + ATA_CB_DC, ATA_CB_DC_HD15 | ATA_CB_DC_NIEN);
 
-  //outb(iobase1 + ATA_CB_FR, 0x00);
-  //outb(iobase1 + ATA_CB_SC, 0x00);
-  //outb(iobase1 + ATA_CB_SN, 0x00);
+retry_on_media_change:
 
-  // Set cylinders ?? - Why?  And why not sector
-  // This is all embedded in cmd_packet, anyway...
-  outb(iobase1 + ATA_CB_CL, 0xfff0 & 0x00ff);
-  outb(iobase1 + ATA_CB_CH, 0xfff0 >> 8);
+  WAIT_FOR_NOT_BUSY();
 
+  //BX_DEBUG_ATA("ata_cmd_packet: not busy done\n");
+
+  // We have already selected the appropriate controller (iobase1,2)
   // select master or slave
   outb(iobase1 + ATA_CB_DH, slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0);
 
-  // Tell it we are sending a command packet
+  STATUS_UPDATE();
+
+  //BX_DEBUG_ATA("ata_cmd_packet: drive selected (%d) status=0x%x\n", slave,(unsigned)status);
+
+
+  // Technically, we should be calling this here
+  // but QEMU's device model appears to be broken and RDY never is assserted
+  // on a drive change
+  // WAIT_FOR_NOT_BUSY_AND_DRIVE_READY();
+  WAIT_FOR_NOT_BUSY();
+   
+  //BX_DEBUG_ATA("ata_cmd_packet: not busy\n");
+
+  // set "noninterruptable"
+  outb(iobase2 + ATA_CB_DC, ATA_CB_DC_HD15 | ATA_CB_DC_NIEN);
+  // no DMA
+  outb(iobase1 + ATA_CB_FR, 0x00);
+  // This conveys the maximum bytecount.  count&0xff in low, count>>8 in high
+  // it is not actually doing anything with cylinders
+  outb(iobase1 + ATA_CB_CL, 0xfff0 & 0x00ff);
+  outb(iobase1 + ATA_CB_CH, 0xfff0 >> 8);
+  // Not sure about these 
+  outb(iobase1 + ATA_CB_SC, 0x00);
+  outb(iobase1 + ATA_CB_SN, 0x00);
+
+  //BX_DEBUG_ATA("ata_cmd_packet: configuration done\n");
+
+  // Issue command for packet 
   outb(iobase1 + ATA_CB_CMD, ATA_CMD_PACKET);
 
-#if 0
-  // Now wait for 400 ns
-  { 
-    int i;
-    for (i=0;i<0xffff; i++)
-      ;
-  }
-#endif
+  //BX_DEBUG_ATA("ata_cmd_packet: A0 issued to drive\n");
+ 
+  ALT_STATUS_WAIT_FOR((status&ATA_CB_STAT_BSY)==0);
 
-  // Device should ok to receive command
-  // wait until we get
-  while (1) {
+  //BX_DEBUG_ATA("ata_cmd_packet: alt status shows not busy\n");
 
-    status = inb(iobase1 + ATA_CB_STAT);
+  STATUS_UPDATE();
 
-#if PDINDA
-    if (!(status & ATA_CB_STAT_BSY))  break;
-#else       
-    // Shouldn't this be ATA_CB_STAT_RDY?  -PAD - NO, it's OK
-    if ( !(status & ATA_CB_STAT_BSY) ) break;
-#endif
+  //BX_DEBUG_ATA("ata_cmd_packet: main status shows 0x%x\n",(unsigned)status);
 
-  }
+  WAIT_FOR_DATA_REQUEST();
 
-  if (status & ATA_CB_STAT_ERR) {
-    BX_DEBUG_ATA("ata_cmd_packet : error, status is %02x\n",status);
-    return 3;
-  } else if ( !(status & ATA_CB_STAT_DRQ) ) {
-    BX_DEBUG_ATA("ata_cmd_packet : DRQ not set (status %02x)\n", (unsigned) status);
-    return 4;
-  }
+  //BX_DEBUG_ATA("ata_cmd_packet: data request is set\n");
 
   // Normalize address
   cmdseg += (cmdoff / 16);
@@ -2971,28 +2972,63 @@ ASM_START
       pop  bp
 ASM_END
 
-  // issue read of alternative status - claimed to be in spec
-  //inb(iobase2+ATA_CB_ASTAT);
+
+  ALT_STATUS_WAIT_FOR((status&ATA_CB_STAT_BSY)==0);
+
+  STATUS_UPDATE();
+  ERROR_UPDATE();
+
+  BX_DEBUG_ATA("ata_cmd_packet: after packet: 0x%x error 0x%x\n",(unsigned)status,(unsigned)error);
+
+  if (status&ATA_CB_STAT_ERR && error&ATA_CB_ER_MC) {
+     BX_DEBUG_ATA("ata_cmd_packet: caught unexpected media change.  Retrying\n");	
+     goto retry_on_media_change;
+  }
+	
 
 
   if (inout == ATA_DATA_NO) {
-    status = inb(iobase1 + ATA_CB_STAT);
+ 	STATUS_UPDATE();
     }
   else {
-    // Wait for completion
-    // PDINDA
-    do {
-      status=inb(iobase1+ATA_CB_STAT);
-      BX_DEBUG_ATA("ata_cmd_packet: wait (%2x)\n",status);
-    } while ((status & ATA_CB_STAT_BSY));
     
     while (1) {
+    
+      // This while loop is quite bizarre
+      // Under both success and failure, you'll go through it once
+      // and then just a wee bit the second time - PAD
+
       
-      status = inb(iobase1 + ATA_CB_STAT);
+      ALT_STATUS_WAIT_FOR((status&ATA_CB_STAT_BSY)==0);
       
+      STATUS_UPDATE();
+      ERROR_UPDATE();
+ 
+      BX_DEBUG_ATA("ata_cmd_packet/dataxferloop: status=0x%x, error=0x%x\n",(unsigned)status,(unsigned)error);
+
+
+
+#if 0
+//
+// According to specatapi, the following is how you're supposed
+// To tell when there is no more data for you
+// But it doesn't work on at least some hardware - PAD
+      if ((status&ATA_CB_STAT_BSY) && !(status&ATA_CB_STAT_DRQ)) { 
+         // done with data tranfer
+         // we wait for it to flip
+	 ALT_STATUS_WAIT_FOR((status&ATA_CB_STAT_BSY)==0);
+         // then read one more time
+         STATUS_UPDATE();
+         // then we are done
+         break;
+       }
+
+#else
+
       // Check if command completed
       if ( (status & (ATA_CB_STAT_BSY | ATA_CB_STAT_DRQ) ) ==0 ) break;
-      
+
+#endif      
       if (status & ATA_CB_STAT_ERR) {
         BX_DEBUG_ATA("ata_cmd_packet : error (status %02x)\n",status);
         return 3;
@@ -3148,12 +3184,13 @@ ASM_END
   if ( (status & (ATA_CB_STAT_BSY | ATA_CB_STAT_RDY | ATA_CB_STAT_DF | ATA_CB_STAT_DRQ | ATA_CB_STAT_ERR) ) 
          != ATA_CB_STAT_RDY ) {
     BX_DEBUG_ATA("ata_cmd_packet 2 : not ready (status %02x)\n", (unsigned) status);
-    return 4;
+	return 4;
     }
 
   // Enable interrupts
   outb(iobase2+ATA_CB_DC, ATA_CB_DC_HD15);
   return 0;
+
 }
 
 // ---------------------------------------------------------------------------
@@ -3293,15 +3330,20 @@ cdrom_boot()
   // if not found
   if(device >= BX_MAX_ATA_DEVICES) return 2;
 
+
+
   // Read the Boot Record Volume Descriptor
   memsetb(get_SS(),atacmd,0,12);
   atacmd[0]=0x28;                      // READ command
+  atacmd[1]=0x0 ;                      // reserved - not sure why this wasn't zeroed to begin with -PAD
+  atacmd[6]=0x0 ;                      // reserved - ... -PAD
   atacmd[7]=(0x01 & 0xff00) >> 8;      // Sectors
   atacmd[8]=(0x01 & 0x00ff);           // Sectors
   atacmd[2]=(0x11 & 0xff000000) >> 24; // LBA
   atacmd[3]=(0x11 & 0x00ff0000) >> 16;
   atacmd[4]=(0x11 & 0x0000ff00) >> 8;
   atacmd[5]=(0x11 & 0x000000ff);
+  atacmd[9]=atacmd[10]=atacmd[11]=0x0;  // just to be safe -PAD
   if((error = ata_cmd_packet(device, 12, get_SS(), atacmd, 0, 2048L, ATA_DATA_IN, get_SS(), buffer)) != 0)
     return 3;
 
