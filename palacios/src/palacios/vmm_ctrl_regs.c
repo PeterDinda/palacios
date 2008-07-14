@@ -9,6 +9,81 @@
 
 extern void SerialMemDump(unsigned char *start, int n);
 
+
+#if VMM_DEBUG
+void PrintCtrlRegs(struct guest_info *info)
+{
+  struct cr0_32 cr0 = *((struct cr0_32 *) &(info->ctrl_regs.cr0));
+  struct cr2_32 cr2 = *((struct cr2_32 *) &(info->ctrl_regs.cr2));
+  struct cr3_32 cr3 = *((struct cr3_32 *) &(info->ctrl_regs.cr3));
+  struct cr4_32 cr4 = *((struct cr4_32 *) &(info->ctrl_regs.cr4));
+  struct rflags rflags = *((struct rflags *) &(info->ctrl_regs.rflags));
+
+  PrintDebug("CR0:     pe    0x%x\n",cr0.pe);
+  PrintDebug("CR0:     mp    0x%x\n",cr0.mp);
+  PrintDebug("CR0:     em    0x%x\n",cr0.em);
+  PrintDebug("CR0:     ts    0x%x\n",cr0.ts);
+  PrintDebug("CR0:     et    0x%x\n",cr0.et);
+  PrintDebug("CR0:     ne    0x%x\n",cr0.ne);
+  PrintDebug("CR0:     rsvd1 0x%x\n",cr0.rsvd1);
+  PrintDebug("CR0:     wp    0x%x\n",cr0.wp);
+  PrintDebug("CR0:     rsvd2 0x%x\n",cr0.rsvd2);
+  PrintDebug("CR0:     am    0x%x\n",cr0.am);
+  PrintDebug("CR0:     rsvd3 0x%x\n",cr0.rsvd3);
+  PrintDebug("CR0:     nw    0x%x\n",cr0.nw);
+  PrintDebug("CR0:     cd    0x%x\n",cr0.cd);
+  PrintDebug("CR0:     pg    0x%x\n",cr0.pg);
+
+  PrintDebug("CR2:     pfadd 0x%x\n",cr2.pf_vaddr);
+
+  PrintDebug("CR3:     rsvd1 0x%x\n",cr3.rsvd1);
+  PrintDebug("CR3:     pwt   0x%x\n",cr3.pwt);
+  PrintDebug("CR3:     pcd   0x%x\n",cr3.pcd);
+  PrintDebug("CR3:     rsvd2 0x%x\n",cr3.rsvd2);
+  PrintDebug("CR3:     pdt   0x%x\n",cr3.pdt_base_addr);
+
+  PrintDebug("CR4:     vme   0x%x\n",cr4.vme);
+  PrintDebug("CR4:     pvi   0x%x\n",cr4.pvi);
+  PrintDebug("CR4:     tsd   0x%x\n",cr4.tsd);
+  PrintDebug("CR4:     de    0x%x\n",cr4.de);
+  PrintDebug("CR4:     pse   0x%x\n",cr4.pse);
+  PrintDebug("CR4:     pae   0x%x\n",cr4.pae);
+  PrintDebug("CR4:     mce   0x%x\n",cr4.mce);
+  PrintDebug("CR4:     pge   0x%x\n",cr4.pge);
+  PrintDebug("CR4:     pce   0x%x\n",cr4.pce);
+  PrintDebug("CR4:     osfx  0x%x\n",cr4.osf_xsr);
+  PrintDebug("CR4:     osx   0x%x\n",cr4.osx);
+  PrintDebug("CR4:     rsvd1 0x%x\n",cr4.rsvd1);
+
+  PrintDebug("RFLAGS:  cf    0x%x\n",rflags.cf);
+  PrintDebug("RFLAGS:  rsvd1 0x%x\n",rflags.rsvd1);
+  PrintDebug("RFLAGS:  pf    0x%x\n",rflags.pf);
+  PrintDebug("RFLAGS:  rsvd2 0x%x\n",rflags.rsvd2);
+  PrintDebug("RFLAGS:  af    0x%x\n",rflags.af);
+  PrintDebug("RFLAGS:  rsvd3 0x%x\n",rflags.rsvd3);
+  PrintDebug("RFLAGS:  zf    0x%x\n",rflags.zf);
+  PrintDebug("RFLAGS:  sf    0x%x\n",rflags.sf);
+  PrintDebug("RFLAGS:  tf    0x%x\n",rflags.tf);
+  PrintDebug("RFLAGS:  intr  0x%x\n",rflags.intr);
+  PrintDebug("RFLAGS:  df    0x%x\n",rflags.df);
+  PrintDebug("RFLAGS:  of    0x%x\n",rflags.of);
+  PrintDebug("RFLAGS:  iopl  0x%x\n",rflags.iopl);
+  PrintDebug("RFLAGS:  nt    0x%x\n",rflags.nt);
+  PrintDebug("RFLAGS:  rsvd4 0x%x\n",rflags.rsvd4);
+  PrintDebug("RFLAGS:  rf    0x%x\n",rflags.rf);
+  PrintDebug("RFLAGS:  vm    0x%x\n",rflags.vm);
+  PrintDebug("RFLAGS:  ac    0x%x\n",rflags.ac);
+  PrintDebug("RFLAGS:  vif   0x%x\n",rflags.vif);
+  PrintDebug("RFLAGS:  id    0x%x\n",rflags.id);
+  PrintDebug("RFLAGS:  rsvd5 0x%x\n",rflags.rsvd5);
+  PrintDebug("RFLAGS:  rsvd6 0x%x\n",rflags.rsvd6);
+
+}
+#else
+void PrintCtrlRegs(struct guest_info *info)
+{}
+#endif
+
 /* Segmentation is a problem here...
  *
  * When we get a memory operand, presumably we use the default segment (which is?) 
@@ -655,7 +730,7 @@ int handle_cr3_write(struct guest_info * info) {
 
 
 int handle_cr3_read(struct guest_info * info) {
-  if (info->cpu_mode == PROTECTED) {
+  if (info->cpu_mode == PROTECTED ) {
     int index = 0;
     int ret;
     char instr[15];
@@ -712,7 +787,8 @@ int handle_cr3_read(struct guest_info * info) {
       return -1;
     }
   } else {
-    PrintDebug("Invalid operating Mode (0x%x)\n", info->cpu_mode);
+    PrintDebug("Invalid operating Mode (0x%x), control registers follow\n", info->cpu_mode);
+    PrintCtrlRegs(info);
     return -1;
   }
 

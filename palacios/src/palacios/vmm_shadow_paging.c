@@ -274,8 +274,11 @@ int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_er
     // Page Directory Entry marked non-user
     //
     
-    PrintDebug("Shadow Paging User access error\n");
-    return -1;
+    PrintDebug("Shadow Paging User access error (shadow_pde_access=0x%x, guest_pde_access=0x%x - injecting into guest\n", shadow_pde_access, guest_pde_access);
+    info->ctrl_regs.cr2 = fault_addr;
+    raise_exception_with_error(info, PF_EXCEPTION, *(uint_t *)&error_code);
+    return 0;
+
   } else if (shadow_pde_access == PT_ACCESS_OK) {
     pte32_t * shadow_pt = (pte32_t *)PDE32_T_ADDR((*shadow_pde));
     pte32_t * guest_pt = NULL;
@@ -306,7 +309,8 @@ int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_er
     // this probably shouldn't ever happen
     PrintDebug("Unknown Error occurred\n");
     PrintDebug("Manual Says to inject page fault into guest\n");
-    return -1;
+    //return -1; Huh?  It's a successful handling of the fault...
+    return 0;
   }
 
   //PrintDebugPageTables(shadow_pd);
