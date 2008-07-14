@@ -173,6 +173,7 @@ int handle_cr0_write(struct guest_info * info) {
 	  *(char*)shadow_cr0 &= 0xf0;
 	  *(char*)shadow_cr0 |= new_cr0_val;
 
+
 	  PrintDebug("New CR0=%x, New Shadow CR0=%x\n", *real_cr0, *shadow_cr0);	
 	} else {
 	  PrintDebug("Old CR0=%x\n", *real_cr0);	
@@ -240,8 +241,10 @@ int handle_cr0_write(struct guest_info * info) {
 	  PrintDebug("Old CR0=%x, Old Shadow CR0=%x\n", *real_cr0, *shadow_cr0);	
 	  *real_cr0 = *new_cr0;
 	  real_cr0->pg = 1;
+	  real_cr0->et = 1;
 
 	  *shadow_cr0 = *new_cr0;
+	  shadow_cr0->et = 1;
 
 	  PrintDebug("New CR0=%x, New Shadow CR0=%x\n", *real_cr0, *shadow_cr0);	
 	} else {
@@ -309,6 +312,9 @@ int handle_cr0_write(struct guest_info * info) {
 
 	index += 2;
  
+	PrintDebug("MovToCR0 instr:\n");
+	PrintTraceMemDump(instr, 15);
+	PrintDebug("EAX=%x\n", *(uint_t*)&(info->vm_regs.rax));
 
 	addr_type = decode_operands32(&(info->vm_regs), instr + index, &index, &first_operand, &second_operand, REG32);
 
@@ -319,7 +325,7 @@ int handle_cr0_write(struct guest_info * info) {
 
 	new_cr0 = (struct cr0_32 *)first_operand;
 
-
+	PrintDebug("first operand=%x\n", *(uint_t *)first_operand);
 
 	if (info->shdw_pg_mode == SHADOW_PAGING) {
 	  struct cr0_32 * shadow_cr0 = (struct cr0_32 *)&(info->shdw_pg_state.guest_cr0);
@@ -334,6 +340,8 @@ int handle_cr0_write(struct guest_info * info) {
 	  
 	    *shadow_cr0 = *new_cr0;
 	    *real_cr0 = *new_cr0;
+	    shadow_cr0->et = 1;
+	    real_cr0->et = 1;
 
 	    //
 	    // Activate Shadow Paging
@@ -345,10 +353,25 @@ int handle_cr0_write(struct guest_info * info) {
 
 	  } else if (new_cr0->pe == 0) {
 	    info->cpu_mode = REAL;
+	    info->mem_mode = PHYSICAL_MEM;
+	    PrintDebug("Entering Real Mode\n");
+
+	    PrintV3CtrlRegs(&(info->ctrl_regs));
+	    // reinstate the identity mapped paged tables
+	    // But keep the shadow tables around to handle TLB issues.... UGH...
+	    //info->shdw_pg_state.shadow_cr3 &= 0x00000fff;
+	    //info->shdw_pg_state.shadow_cr3 |= ((addr_t)create_passthrough_pde32_pts(info) & ~0xfff);
+
+	    //info->ctrl_regs.cr3 = info->shdw_pg_state.shadow_cr3;
+	    info->ctrl_regs.cr3 = ((addr_t)create_passthrough_pde32_pts(info) & ~0xfff);
+
 
 	    *shadow_cr0 = *new_cr0;
 	    *real_cr0 = *new_cr0;
 	    real_cr0->pg = 1;
+	    shadow_cr0->et = 1;
+	    real_cr0->et = 1;
+
 	  }
 
 
@@ -569,6 +592,10 @@ int handle_cr0_read(struct guest_info * info) {
 	  if (info->mem_mode == PHYSICAL_MEM) {
 	    virt_cr0->pg = 0; // clear the pg bit because guest doesn't think it's on
 	  }
+
+	  PrintDebug("real CR0: %x\n", *(uint_t*)real_cr0);
+	  PrintDebug("returned CR0: %x\n", *(uint_t*)virt_cr0);
+
 	  
 	} else {
 	  *virt_cr0 = *real_cr0;
@@ -730,7 +757,38 @@ int handle_cr3_write(struct guest_info * info) {
 
 
 int handle_cr3_read(struct guest_info * info) {
-  if (info->cpu_mode == PROTECTED ) {
+
+  if (info->cpu_mode == REAL) {
+    // what does this mean???
+
+    /*
+
+    addr_t host_addr;
+    addr_t linear_addr = 0;
+
+
+
+    linear_addr = get_addr_linear(info, info->rip, &(info->segments.cs));
+
+    
+    PrintDebug("RIP Linear: %x\n", linear_addr);
+    PrintV3Segments(&(info->segments));
+    
+      
+    if (info->mem_mode == PHYSICAL_MEM) {
+      guest_pa_to_host_pa(info, linear_addr, &host_addr);
+    } else if (info->mem_mode == VIRTUAL_MEM) {
+      guest_va_to_host_pa(info, linear_addr, &host_addr);
+    }
+
+
+    pt32_lookup((pde32_t *)CR3_TO_PDE32(info->shdw_pg_state.shadow_cr3), , addr_t * paddr);
+    */
+
+
+    return -1;
+  } else if (info->cpu_mode == PROTECTED) {
+
     int index = 0;
     int ret;
     char instr[15];

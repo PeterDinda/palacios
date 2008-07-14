@@ -121,6 +121,8 @@ struct guest_info {
 };
 
 
+void PrintV3Segments(struct v3_segments * segs);
+void PrintV3CtrlRegs(struct v3_ctrl_regs * regs);
 
 
 

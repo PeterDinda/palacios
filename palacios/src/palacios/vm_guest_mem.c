@@ -115,15 +115,14 @@ int guest_pa_to_host_va(struct guest_info * guest_info, addr_t guest_pa, addr_t 
 
 
 int guest_va_to_guest_pa(struct guest_info * guest_info, addr_t guest_va, addr_t * guest_pa) {
-  if (guest_info->shdw_pg_mode == SHADOW_PAGING) {
-    if (guest_info->mem_mode == PHYSICAL_MEM) {
-      // guest virtual address is the same as the physical
-      *guest_pa = guest_va;
-      return 0;
-    }
-    
-    
+  if (guest_info->mem_mode == PHYSICAL_MEM) {
+    // guest virtual address is the same as the physical
+    *guest_pa = guest_va;
+    return 0;
+  }
 
+
+  if (guest_info->shdw_pg_mode == SHADOW_PAGING) {
     // Guest Is in Paged mode
     switch (guest_info->cpu_mode) {
     case PROTECTED:
@@ -184,7 +183,7 @@ int guest_va_to_guest_pa(struct guest_info * guest_info, addr_t guest_va, addr_t
   } else if (guest_info->shdw_pg_mode == NESTED_PAGING) {
 
     // Fill in
-
+    return -1;
   } else {
     return -1;
   }

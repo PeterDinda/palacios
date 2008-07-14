@@ -116,12 +116,17 @@ int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_er
      the reason for the fault was that the page is not present in the shadow, 
      _THEN_ we have to map the shadow page in and reexecute, this will generate 
      a permissions fault which is _THEN_ valid to send to the guest
+     _UNLESS_ both the guest and shadow have marked the page as not present
 
      whew...
   */
   if ((guest_pde_access != PT_ACCESS_OK) &&
-      ( (shadow_pde_access != PT_ENTRY_NOT_PRESENT) &&
-	(guest_pde_access != PT_ENTRY_NOT_PRESENT))) { // aka (guest permission error)
+      (
+       ( (shadow_pde_access != PT_ENTRY_NOT_PRESENT) &&
+	 (guest_pde_access != PT_ENTRY_NOT_PRESENT))  // aka (guest permission error)
+       || 
+       ( (shadow_pde_access == PT_ENTRY_NOT_PRESENT) && 
+	(guest_pde_access == PT_ENTRY_NOT_PRESENT)))) {
     // inject page fault to the guest (Guest PDE fault)
 
 	info->ctrl_regs.cr2 = fault_addr;
@@ -309,8 +314,10 @@ int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_er
     // this probably shouldn't ever happen
     PrintDebug("Unknown Error occurred\n");
     PrintDebug("Manual Says to inject page fault into guest\n");
-    //return -1; Huh?  It's a successful handling of the fault...
+
+
     return 0;
+
   }
 
   //PrintDebugPageTables(shadow_pd);
@@ -341,18 +348,28 @@ int handle_shadow_pte32_fault(struct guest_info * info,
   // Check the shadow page permissions
   shadow_pte_access = can_access_pte32(shadow_pt, fault_addr, error_code);
   
+
+  PrintDebug("Guest PTE: (access=%d)\n\t", guest_pte_access);
+  PrintPTE32(fault_addr, guest_pte);
+  PrintDebug("Shadow PTE: (access=%d)\n\t", shadow_pte_access);
+  PrintPTE32(fault_addr, shadow_pte);
   /* This should be redone, 
      but basically the reasoning is that there can be multiple reasons for a page fault:
      If there is a permissions failure for a page present in the guest _BUT_ 
      the reason for the fault was that the page is not present in the shadow, 
      _THEN_ we have to map the shadow page in and reexecute, this will generate 
      a permissions fault which is _THEN_ valid to send to the guest
+     _UNLESS_ both the guest and shadow have marked the page as not present
 
      whew...
   */
   if ((guest_pte_access != PT_ACCESS_OK) && 
-      ((shadow_pte_access != PT_ENTRY_NOT_PRESENT) &&
-       (guest_pte_access != PT_ENTRY_NOT_PRESENT))) { // aka (guest permission error)
+      ( 
+       ((shadow_pte_access != PT_ENTRY_NOT_PRESENT) &&
+	(guest_pte_access != PT_ENTRY_NOT_PRESENT)) // aka (guest permission error)
+       ||
+       ((shadow_pte_access == PT_ENTRY_NOT_PRESENT) &&
+	(guest_pte_access == PT_ENTRY_NOT_PRESENT)))) {
     // Inject page fault into the guest	
     
     info->ctrl_regs.cr2 = fault_addr;

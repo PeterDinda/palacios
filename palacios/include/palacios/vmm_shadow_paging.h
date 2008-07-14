@@ -14,7 +14,7 @@ struct shadow_page_state {
   ullong_t                guest_cr3;         // points to guest's current page table
 
   // Should this be here??
-  reg_ex_t                guest_cr0;
+  ullong_t guest_cr0;
 
   // these two reflect the top-level page directory 
   // of the shadow page table

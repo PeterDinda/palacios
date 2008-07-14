@@ -28,6 +28,7 @@ extern uint_t Get_CR3();
 
 
 extern void DisableInts();
+extern void EnableInts();
 
 
 
@@ -157,6 +158,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info vm_info) {
   if (vm_info.shdw_pg_mode == SHADOW_PAGING) {
     PrintDebug("Creating initial shadow page table\n");
     vm_info.shdw_pg_state.shadow_cr3 |= ((addr_t)create_passthrough_pde32_pts(&vm_info) & ~0xfff);
+    vm_info.shdw_pg_state.guest_cr0 = 0x0000000000000010LL;
     PrintDebug("Created\n");
 
     guest_state->cr3 = vm_info.shdw_pg_state.shadow_cr3;
@@ -182,21 +184,20 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info vm_info) {
 
   } else if (vm_info.shdw_pg_mode == NESTED_PAGING) {
     // Flush the TLB on entries/exits
-
+    ctrl_area->TLB_CONTROL = 1;
 
     // Enable Nested Paging
-    //ctrl_area->NP_ENABLE = 1;
+    ctrl_area->NP_ENABLE = 1;
 
-    //PrintDebug("NP_Enable at 0x%x\n", &(ctrl_area->NP_ENABLE));
+    PrintDebug("NP_Enable at 0x%x\n", &(ctrl_area->NP_ENABLE));
 
-        // Set the Nested Page Table pointer
-    //    ctrl_area->N_CR3 = ((addr_t)vm_info.page_tables);
-    // ctrl_area->N_CR3 = (addr_t)(vm_info.page_tables);
+    // Set the Nested Page Table pointer
+    ctrl_area->N_CR3 = ((addr_t)create_passthrough_pde32_pts(&vm_info) & ~0xfff);
 
     //   ctrl_area->N_CR3 = Get_CR3();
     // guest_state->cr3 |= (Get_CR3() & 0xfffff000);
 
-    //    guest_state->g_pat = 0x7040600070406ULL;
+    guest_state->g_pat = 0x7040600070406ULL;
   }
 
 
@@ -255,6 +256,7 @@ static int start_svm_guest(struct guest_info *info) {
     ullong_t tmp_tsc;
 
 
+    EnableInts();
     CLGI();
 
     PrintDebug("SVM Entry to rip=%x...\n", info->rip);
@@ -262,6 +264,7 @@ static int start_svm_guest(struct guest_info *info) {
     rdtscll(info->time_state.cached_host_tsc);
     guest_ctrl->TSC_OFFSET = info->time_state.guest_tsc - info->time_state.cached_host_tsc;
 
+    PrintDebug("Launching\n");
     safe_svm_launch((vmcb_t*)(info->vmm_data), &(info->vm_regs));
 
     rdtscll(tmp_tsc);
@@ -287,6 +290,8 @@ static int start_svm_guest(struct guest_info *info) {
 
 
       PrintDebug("RIP Linear: %x\n", linear_addr);
+      PrintV3Segments(&(info->segments));
+      PrintV3CtrlRegs(&(info->ctrl_regs));
 
       
       if (info->mem_mode == PHYSICAL_MEM) {
@@ -408,6 +413,23 @@ int is_svm_capable() {
 
 }
 
+int has_svm_nested_paging() {
+  uint32_t ret;
+
+  ret = cpuid_edx(CPUID_SVM_REV_AND_FEATURE_IDS);
+      
+  //PrintDebug("CPUID_FEATURE_IDS_edx=0x%x\n",ret);
+  
+  if ((ret & CPUID_SVM_REV_AND_FEATURE_IDS_edx_np) == 0) {
+    PrintDebug("SVM Nested Paging not supported\n");
+    return 0;
+  } else {
+    PrintDebug("SVM Nested Paging supported\n");
+    return 1;
+  }
+
+}
+
 
 
 void Init_SVM(struct vmm_ctrl_ops * vmm_ops) {
@@ -438,7 +460,7 @@ void Init_SVM(struct vmm_ctrl_ops * vmm_ops) {
   // Setup the SVM specific vmm operations
   vmm_ops->init_guest = &init_svm_guest;
   vmm_ops->start_guest = &start_svm_guest;
-
+  vmm_ops->has_nested_paging = &has_svm_nested_paging;
 
   return;
 }

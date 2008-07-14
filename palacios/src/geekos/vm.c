@@ -200,10 +200,17 @@ int RunVMM(struct Boot_Info * bootInfo) {
   
 
     /* MOVE THIS TO AN INIT GUEST ROUTINE */
-    init_shadow_map(&(vm_info.mem_map));
-    init_shadow_page_state(&(vm_info.shdw_pg_state));
+   
+    
     v3_init_time(&(vm_info.time_state));
-    vm_info.shdw_pg_mode = SHADOW_PAGING;
+    init_shadow_map(&(vm_info.mem_map));
+
+    if ((vmm_ops).has_nested_paging()) {
+      vm_info.shdw_pg_mode = NESTED_PAGING;
+    } else {
+      init_shadow_page_state(&(vm_info.shdw_pg_state));
+      vm_info.shdw_pg_mode = SHADOW_PAGING;
+    }
 
     vm_info.cpu_mode = REAL;
     vm_info.mem_mode = PHYSICAL_MEM;
@@ -357,27 +364,34 @@ int RunVMM(struct Boot_Info * bootInfo) {
 	  {0x08, 0x0f, GENERIC_PRINT_AND_PASSTHROUGH},   // DMA 1 misc registers (csr, req, smask,mode,clearff,reset,enable,mmask)
           {0xd0, 0xde, GENERIC_PRINT_AND_PASSTHROUGH},   // DMA 2 misc registers
 	  */
+	  {0x08, 0x0f, GENERIC_PRINT_AND_IGNORE},
+	  {0x81, 0x8F, GENERIC_PRINT_AND_IGNORE},
+	  {0xd0, 0xdf, GENERIC_PRINT_AND_IGNORE}, 
+
+
 	  {0x3f8, 0x3f8+7, GENERIC_PRINT_AND_IGNORE},      // COM 1
 	  {0x2f8, 0x2f8+7, GENERIC_PRINT_AND_IGNORE},      // COM 2
 	  {0x3e8, 0x3e8+7, GENERIC_PRINT_AND_IGNORE},      // COM 2
 	  {0x2e8, 0x2e8+7, GENERIC_PRINT_AND_IGNORE},      // COM 2
-
-          {0x170, 0x178, GENERIC_PRINT_AND_PASSTHROUGH}, // IDE 1
-	  {0x376, 0x377, GENERIC_PRINT_AND_PASSTHROUGH}, // IDE 1
-          {0x1f0, 0x1f8, GENERIC_PRINT_AND_PASSTHROUGH}, // IDE 0
-	  {0x3f6, 0x3f7, GENERIC_PRINT_AND_PASSTHROUGH}, // IDE 0
 	  /*
-          {0x3f0, 0x3f2, GENERIC_PRINT_AND_PASSTHROUGH}, // Primary floppy controller (base,statusa/statusb,DOR)
-          {0x3f4, 0x3f5, GENERIC_PRINT_AND_PASSTHROUGH}, // Primary floppy controller (mainstat/datarate,data)
-          {0x3f7, 0x3f7, GENERIC_PRINT_AND_PASSTHROUGH}, // Primary floppy controller (DIR)
-          {0x370, 0x372, GENERIC_PRINT_AND_PASSTHROUGH}, // Secondary floppy controller (base,statusa/statusb,DOR)
-          {0x374, 0x375, GENERIC_PRINT_AND_PASSTHROUGH}, // Secondary floppy controller (mainstat/datarate,data)
-          {0x377, 0x377, GENERIC_PRINT_AND_PASSTHROUGH}, // Secondary floppy controller (DIR)
-          {0x378, 0x400, GENERIC_PRINT_AND_PASSTHROUGH}
+	    {0x170, 0x178, GENERIC_PRINT_AND_PASSTHROUGH}, // IDE 1
+	    {0x376, 0x377, GENERIC_PRINT_AND_PASSTHROUGH}, // IDE 1
+	    {0x1f0, 0x1f8, GENERIC_PRINT_AND_PASSTHROUGH}, // IDE 0
+	    {0x3f6, 0x3f7, GENERIC_PRINT_AND_PASSTHROUGH}, // IDE 0
 	  */
+	  {0x3f0, 0x3f2, GENERIC_PRINT_AND_IGNORE}, // Primary floppy controller (base,statusa/statusb,DOR)
+	  {0x3f4, 0x3f5, GENERIC_PRINT_AND_IGNORE}, // Primary floppy controller (mainstat/datarate,data)
+	  {0x3f7, 0x3f7, GENERIC_PRINT_AND_IGNORE}, // Primary floppy controller (DIR)
+	  {0x370, 0x372, GENERIC_PRINT_AND_IGNORE}, // Secondary floppy controller (base,statusa/statusb,DOR)
+	  {0x374, 0x375, GENERIC_PRINT_AND_IGNORE}, // Secondary floppy controller (mainstat/datarate,data)
+	  {0x377, 0x377, GENERIC_PRINT_AND_IGNORE}, // Secondary floppy controller (DIR)
+
+	  //	  {0x378, 0x400, GENERIC_PRINT_AND_IGNORE}
+
         };
 
-	struct vm_device * generic = create_generic(range,4,  // THIS NUMBER IS CRITICAL
+	struct vm_device * generic = create_generic(range,13,  // THIS NUMBER IS CRITICAL
+
 						    NULL,0,NULL,0);
 	
 #endif

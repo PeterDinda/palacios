@@ -7,6 +7,7 @@
 %include "vmm_symbol.asm"
 
 EXPORT DisableInts
+EXPORT EnableInts
 
 EXPORT GetGDTR
 EXPORT GetIDTR
@@ -22,6 +23,11 @@ DisableInts:
 	cli
 	ret
 
+
+align 8
+EnableInts:
+	sti
+	ret
 
 align 8
 GetGDTR:

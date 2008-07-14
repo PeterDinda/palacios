@@ -161,8 +161,7 @@ struct vmm_ctrl_ops {
   int (*start_guest)(struct guest_info * info);
   //  int (*stop_vm)(uint_t vm_id);
 
-
-
+  int (*has_nested_paging)();
 };
 
 

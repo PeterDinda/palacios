@@ -11,6 +11,7 @@ SVM_ERROR equ 0xFFFFFFFF
 SVM_SUCCESS equ 0x00000000
 
 EXPORT DisableInts
+EXPORT EnableInts
 
 
 EXPORT exit_test
@@ -100,6 +101,10 @@ DisableInts:
 	cli
 	ret
 
+align 8
+EnableInts:
+	sti
+	ret
 
 
 align 8

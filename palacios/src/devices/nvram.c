@@ -80,7 +80,7 @@ static int set_nvram_defaults(struct vm_device *dev)
   //
   // 2 1.44 MB floppy drives
   //
-#if 1
+#if 0
   nvram_state->mem_state[NVRAM_REG_FLOPPY_TYPE]= 0x44;
 #else
   nvram_state->mem_state[NVRAM_REG_FLOPPY_TYPE] = 0x00;
