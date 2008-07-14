@@ -1,7 +1,7 @@
 /*
  * This is the device-driver interface to the interrupt system.
  * Copyright (c) 2001,2003 David H. Hovemeyer <daveho@cs.umd.edu>
- * $Revision: 1.3 $
+ * $Revision: 1.4 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -112,7 +112,7 @@ void Disable_IRQ(int irq)
  */
 void Begin_IRQ(struct Interrupt_State* state)
 {
-  
+  //   SerialPrint("Begin_IRQ for interrupt 0x%x\n",state->intNum);
 }
 
 /*

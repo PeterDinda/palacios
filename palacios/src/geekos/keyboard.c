@@ -1,7 +1,7 @@
 /*
  * Keyboard driver
  * Copyright (c) 2001,2004 David H. Hovemeyer <daveho@cs.umd.edu>
- * $Revision: 1.6 $
+ * $Revision: 1.7 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -191,7 +191,7 @@ static void Keyboard_Interrupt_Handler(struct Interrupt_State* state)
       /* There is a byte available */
       scanCode = In_Byte(KB_DATA);
       raw_scancode=scanCode;
-      //Print("Keyboard: status=0x%x, scancode=0x%x\n", raw_status, raw_scancode);
+      Print("Keyboard: status=0x%x, scancode=0x%x\n", raw_status, raw_scancode);
       IO_Delay();
       /*
        *	Print("code=%x%s\n", scanCode, (scanCode&0x80) ? " [release]" : "");

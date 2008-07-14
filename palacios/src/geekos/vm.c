@@ -377,7 +377,7 @@ int RunVMM(struct Boot_Info * bootInfo) {
 	  */
         };
 
-	struct vm_device * generic = create_generic(range,8,  // THIS NUMBER IS CRITICAL
+	struct vm_device * generic = create_generic(range,4,  // THIS NUMBER IS CRITICAL
 						    NULL,0,NULL,0);
 	
 #endif
@@ -402,7 +402,7 @@ int RunVMM(struct Boot_Info * bootInfo) {
       // no longer needed since we have a keyboard device
       //hook_irq(&vm_info, 1);
       
-#if 1
+#if 0
       // give floppy controller to vm
       hook_irq(&vm_info, 6);
 
