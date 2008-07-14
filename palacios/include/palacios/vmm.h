@@ -14,33 +14,44 @@
 //#include <palacios/vmm_paging.h>
 
 /* utility definitions */
+
+#if VMM_DEBUG
 #define PrintDebug(fmt, args...)			\
   do {							\
     extern struct vmm_os_hooks * os_hooks;		\
     if ((os_hooks) && (os_hooks)->print_debug) {	\
       (os_hooks)->print_debug((fmt), ##args);		\
     }							\
-  } while (0)						\
+  } while (0)						
+#else
+#define PrintDebug(fmt,args ...)
+#endif
 
 
-
+#if VMM_INFO
 #define PrintInfo(fmt, args...) 		        \
   do {							\
     extern struct vmm_os_hooks * os_hooks;		\
     if ((os_hooks) && (os_hooks)->print_info) {		\
       (os_hooks)->print_info((fmt), ##args);		\
     }							\
-  } while (0)						\
+  } while (0)						
+#else
+#define PrintInfo(fmt, args...)
+#endif
 
 
+#if VMM_TRACE
 #define PrintTrace(fmt, args...)			\
   do {							\
     extern struct vmm_os_hooks * os_hooks;		\
     if ((os_hooks) && (os_hooks)->print_trace) {	\
       (os_hooks)->print_trace((fmt), ##args);		\
     }							\
-  } while (0)						\
-
+  } while (0)						
+#else
+#define PrintTrace(fmt, args...)
+#endif
 
 
 #define V3_AllocPages(ptr, num_pages)		        \

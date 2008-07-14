@@ -1,6 +1,6 @@
 # Makefile for GeekOS kernel, userspace, and tools
 # Copyright (c) 2004,2005 David H. Hovemeyer <daveho@cs.umd.edu>
-# $Revision: 1.41 $
+# $Revision: 1.42 $
 
 # This is free software.  You are permitted to use,
 # redistribute, and modify it as specified in the file "COPYING".
@@ -41,7 +41,14 @@ VPATH := $(PROJECT_ROOT)/src
 
 #when -DNDEBUG is set the kassert functions are disabled
 #JRLDEBUG=-DNDEBUG
-JRLDEBUG= -DSERIAL_PRINT_DEBUG=1 -DSERIAL_PRINT_DEBUG_LEVEL=10 -DSERIAL_PRINT=1
+
+DEBUG=1
+
+ifeq ($(DEBUG),1)
+  JRLDEBUG= -DSERIAL_PRINT_DEBUG=1 -DSERIAL_PRINT_DEBUG_LEVEL=10 -DSERIAL_PRINT=1 -DVMM_DEBUG=1 -DVMM_INFO=1 -DVMM_TRACE=1
+else
+  JRLDEBUG= -DSERIAL_PRINT_DEBUG=0 -DSERIAL_PRINT_DEBUG_LEVEL=999999 -DSERIAL_PRINT=0 -DVMM_DEBUG=0 -DVMM_INFO=0 -DVMM_TRACE=0
+endif
 
 #
 #
@@ -302,19 +309,25 @@ vmm.img : fd.img
 
 force_rombios: 
 	(cd ../src/vmboot/rombios; make clean; make)
-#	cp ../src/vmboot/rombios/BIOS-bochs-latest rombios
 
 force_vgabios:
 	(cd ../src/vmboot/vgabios; make clean; make)
 
-world: force_rombios force_vgabios
+force_payload: force_rombios force_vgabios
 	../scripts/make_payload.pl payload_layout.txt vm_kernel
-	- make clean
-	make vmm.img
+
+inter1: force_payload
+	-make clean
+
+world: inter1 vmm.img
 
 # make ready to boot over PXE
 pxe:	vmm.img
 	cp vmm.img /tftpboot/vmm.img
+
+run: vmm.img
+	/usr/local/qemu/bin/qemu-system-x86_64 -m 1024 -serial file:serial.out -cdrom puppy.iso -fda vmm.img 
+
 
 
 
