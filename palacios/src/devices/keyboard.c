@@ -3,9 +3,9 @@
 #include <palacios/vmm.h>
 #include <palacios/vmm_types.h>
 
-#define KEYBOARD_DEBUG 0
+#define KEYBOARD_DEBUG 1
 
-#define KEYBOARD_DEBUG_80H   0
+#define KEYBOARD_DEBUG_80H   1
 
 #if KEYBOARD_DEBUG
 #define KEYBOARD_DEBUG_PRINT(first, rest...) PrintDebug(first, ##rest)
