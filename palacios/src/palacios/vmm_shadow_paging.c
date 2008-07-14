@@ -30,10 +30,8 @@ int handle_shadow_pagefault(struct guest_info * info, addr_t fault_addr, pf_erro
       break;
     case PROTECTED_PAE:
     case LONG:
-      // currently not handled
-      return -1;
-      break;
     default:
+      PrintDebug("Unhandled CPU Mode\n");
       return -1;
     }
   } else {
@@ -136,12 +134,14 @@ int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_er
     PrintDebug("Injecting PDE pf to guest: (guest access error=%d) (pf error code=%d)\n", guest_pde_access, error_code);
     return 0;
 
-    PrintDebug("Guest CR3=%x\n", guest_cr3);
-    PrintDebug("Guest PD\n");
-    PrintPD32(guest_pd);
-    PrintDebug("Shadow PD\n");
-    PrintPD32(shadow_pd);
-
+ 
+    /*  
+	PrintDebug("Guest CR3=%x\n", guest_cr3);
+	PrintDebug("Guest PD\n");
+	PrintPD32(guest_pd);
+	PrintDebug("Shadow PD\n");
+	PrintPD32(shadow_pd);
+    */
 
     return -1;
   }

@@ -165,8 +165,11 @@ static inline v3_reg_t get_gpr_mask(struct guest_info * info) {
 static inline addr_t get_addr_linear(struct guest_info * info, addr_t addr, struct v3_segment * seg) {
   switch (info->cpu_mode) {
   case REAL:
-    return addr + (seg->selector << 4);
-    break;
+    // It appears that the segment values are computed and cached in the vmcb structure 
+    // We Need to check this for Intel
+    /*   return addr + (seg->selector << 4);
+	 break;*/
+
   case PROTECTED:
     return addr + seg->base;
     break;

@@ -49,14 +49,14 @@ static vmcb_t * Allocate_VMCB() {
 
 
 
-static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info vm_info) {
+static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
   vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA(vmcb);
   vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA(vmcb);
   uint_t i;
 
 
-  guest_state->rsp = vm_info.vm_regs.rsp;
-  // guest_state->rip = vm_info.rip;
+  guest_state->rsp = vm_info->vm_regs.rsp;
+  // guest_state->rip = vm_info->rip;
   guest_state->rip = 0xfff0;
 
   guest_state->cpl = 0;
@@ -85,7 +85,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info vm_info) {
   ctrl_area->exceptions.of = 1;
   ctrl_area->exceptions.nmi = 1;
 
-  vm_info.vm_regs.rdx = 0x00000f00;
+  vm_info->vm_regs.rdx = 0x00000f00;
 
   guest_state->cr0 = 0x60000010;
 
@@ -122,7 +122,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info vm_info) {
   guest_state->dr6 = 0x00000000ffff0ff0LL;
   guest_state->dr7 = 0x0000000000000400LL;
 
-  if (vm_info.io_map.num_ports > 0) {
+  if (vm_info->io_map.num_ports > 0) {
     vmm_io_hook_t * iter;
     addr_t io_port_bitmap;
     
@@ -133,7 +133,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info vm_info) {
 
     //PrintDebug("Setting up IO Map at 0x%x\n", io_port_bitmap);
 
-    FOREACH_IO_HOOK(vm_info.io_map, iter) {
+    FOREACH_IO_HOOK(vm_info->io_map, iter) {
       ushort_t port = iter->port;
       uchar_t * bitmap = (uchar_t *)io_port_bitmap;
 
@@ -155,15 +155,16 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info vm_info) {
   ctrl_area->instrs.INTR = 1;
 
 
-  if (vm_info.shdw_pg_mode == SHADOW_PAGING) {
+  if (vm_info->shdw_pg_mode == SHADOW_PAGING) {
     PrintDebug("Creating initial shadow page table\n");
-    vm_info.shdw_pg_state.shadow_cr3 |= ((addr_t)create_passthrough_pde32_pts(&vm_info) & ~0xfff);
-    vm_info.shdw_pg_state.guest_cr0 = 0x0000000000000010LL;
+    vm_info->direct_map_pt = (addr_t)create_passthrough_pde32_pts(vm_info);
+    vm_info->shdw_pg_state.shadow_cr3 |= (vm_info->direct_map_pt & ~0xfff);
+    vm_info->shdw_pg_state.guest_cr0 = 0x0000000000000010LL;
     PrintDebug("Created\n");
 
-    guest_state->cr3 = vm_info.shdw_pg_state.shadow_cr3;
+    guest_state->cr3 = vm_info->shdw_pg_state.shadow_cr3;
 
-    //PrintDebugPageTables((pde32_t*)(vm_info.shdw_pg_state.shadow_cr3.e_reg.low));
+    //PrintDebugPageTables((pde32_t*)(vm_info->shdw_pg_state.shadow_cr3.e_reg.low));
 
     ctrl_area->cr_reads.cr3 = 1;
     ctrl_area->cr_writes.cr3 = 1;
@@ -182,7 +183,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info vm_info) {
 
     guest_state->cr0 |= 0x80000000;
 
-  } else if (vm_info.shdw_pg_mode == NESTED_PAGING) {
+  } else if (vm_info->shdw_pg_mode == NESTED_PAGING) {
     // Flush the TLB on entries/exits
     ctrl_area->TLB_CONTROL = 1;
 
@@ -192,7 +193,8 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info vm_info) {
     PrintDebug("NP_Enable at 0x%x\n", &(ctrl_area->NP_ENABLE));
 
     // Set the Nested Page Table pointer
-    ctrl_area->N_CR3 = ((addr_t)create_passthrough_pde32_pts(&vm_info) & ~0xfff);
+    vm_info->direct_map_pt = ((addr_t)create_passthrough_pde32_pts(vm_info) & ~0xfff);
+    ctrl_area->N_CR3 = vm_info->direct_map_pt;
 
     //   ctrl_area->N_CR3 = Get_CR3();
     // guest_state->cr3 |= (Get_CR3() & 0xfffff000);
@@ -226,7 +228,7 @@ static int init_svm_guest(struct guest_info *info) {
 
 
   PrintDebug("Initializing VMCB (addr=%x)\n", info->vmm_data);
-  Init_VMCB_BIOS((vmcb_t*)(info->vmm_data), *info);
+  Init_VMCB_BIOS((vmcb_t*)(info->vmm_data), info);
   
 
   //  info->rip = 0;

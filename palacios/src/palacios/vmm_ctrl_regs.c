@@ -29,6 +29,8 @@ int handle_cr0_write(struct guest_info * info) {
       
       PrintDebug("Real Mode write to CR0 at linear guest pa 0x%x\n",get_addr_linear(info,info->rip,&(info->segments.cs)));
 
+      PrintV3Segments(&(info->segments));
+
       // The real rip address is actually a combination of the rip + CS base 
       ret = read_guest_pa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
       if (ret != 15) {
@@ -38,6 +40,19 @@ int handle_cr0_write(struct guest_info * info) {
       }
 
       while (is_prefix_byte(instr[index])) {
+	switch(instr[index]) {
+	case PREFIX_CS_OVERRIDE:
+	case PREFIX_SS_OVERRIDE:
+	case PREFIX_DS_OVERRIDE:
+	case PREFIX_ES_OVERRIDE:
+	case PREFIX_FS_OVERRIDE:
+	case PREFIX_GS_OVERRIDE:
+	  PrintDebug("Segment Override!!\n");
+	  return -1;
+	  break;
+	default:
+	  break;
+	}
 	index++; 
       }
 
@@ -72,7 +87,7 @@ int handle_cr0_write(struct guest_info * info) {
 
 	  new_cr0 = (struct cr0_real *)host_addr;
 	} else {
-	  PrintDebug("Memory operand in real mode write to CR0 is UNIMPLEMENTED\n");
+
 	  // error... don't know what to do
 	  return -1;
 	}
@@ -83,7 +98,7 @@ int handle_cr0_write(struct guest_info * info) {
 	  info->cpu_mode = REAL;
 	}
       
-	new_cr0_val = *(char*)(new_cr0) & 0x0f;
+	new_cr0_val = (*(char*)(new_cr0)) & 0x0f;
 
 
 	if (info->shdw_pg_mode == SHADOW_PAGING) {
@@ -154,12 +169,22 @@ int handle_cr0_write(struct guest_info * info) {
 	}
 	  
 
-	if (new_cr0->pg == 1) {
+
+	if ((new_cr0->pg == 1) && (new_cr0->pe == 1)) {
 	  PrintDebug("Paging is already turned on in switch to protected mode in CR0 write\n");
 
+	  // Actually This appears to be Ok. 
+	  // Why shouldn't windows be allowed to switch to real mode whenever it wants to modify its page tables?
+
+	  info->mem_mode = VIRTUAL_MEM;
+
 	  // GPF the guest??
+	  //  return -1;
+	} else if ((new_cr0->pg == 1) && (new_cr0->pe == 0)) {
+	  PrintDebug("Will the madness Never End??\n");
 	  return -1;
 	}
+	
 
 	if (info->shdw_pg_mode == SHADOW_PAGING) {
 	  struct cr0_32 * shadow_cr0 = (struct cr0_32 *)&(info->shdw_pg_state.guest_cr0);
@@ -171,6 +196,12 @@ int handle_cr0_write(struct guest_info * info) {
 
 	  *shadow_cr0 = *new_cr0;
 	  shadow_cr0->et = 1;
+
+	  // Setup the page tables...???
+	  if (info->mem_mode == VIRTUAL_MEM) {
+	    // If we aren't in paged mode then we have to preserve the identity mapped CR3
+	    info->ctrl_regs.cr3 = *(addr_t*)&(info->shdw_pg_state.shadow_cr3);
+	  }
 
 	  PrintDebug("New CR0=%x, New Shadow CR0=%x\n", *real_cr0, *shadow_cr0);	
 	} else {
@@ -218,9 +249,29 @@ int handle_cr0_write(struct guest_info * info) {
 	return -1;
       }
 
+
       while (is_prefix_byte(instr[index])) {
+	switch(instr[index]) {
+	case PREFIX_CS_OVERRIDE:
+	case PREFIX_SS_OVERRIDE:
+	case PREFIX_DS_OVERRIDE:
+	case PREFIX_ES_OVERRIDE:
+	case PREFIX_FS_OVERRIDE:
+	case PREFIX_GS_OVERRIDE:
+	  PrintDebug("Segment Override!!\n");
+	  return -1;
+	  break;
+	default:
+	  break;
+	}
 	index++; 
       }
+
+      /*
+	while (is_prefix_byte(instr[index])) {
+	index++; 
+	}
+      */
 
       struct cr0_32 * shadow_cr0 = (struct cr0_32 *)&(info->shdw_pg_state.guest_cr0);
 
@@ -289,14 +340,15 @@ int handle_cr0_write(struct guest_info * info) {
 	    //info->shdw_pg_state.shadow_cr3 |= ((addr_t)create_passthrough_pde32_pts(info) & ~0xfff);
 
 	    //info->ctrl_regs.cr3 = info->shdw_pg_state.shadow_cr3;
-	    info->ctrl_regs.cr3 = ((addr_t)create_passthrough_pde32_pts(info) & ~0xfff);
-
+	    info->ctrl_regs.cr3 = *(addr_t*)&(info->direct_map_pt);
 
 	    *shadow_cr0 = *new_cr0;
 	    *real_cr0 = *new_cr0;
 	    real_cr0->pg = 1;
 	    shadow_cr0->et = 1;
 	    real_cr0->et = 1;
+
+	    PrintV3CtrlRegs(&(info->ctrl_regs));
 
 	  }
 
@@ -306,6 +358,83 @@ int handle_cr0_write(struct guest_info * info) {
 	}
 
 	info->rip += index;
+      } else if ((instr[index] == cr_access_byte) &&
+		 (instr[index + 1] == lmsw_byte) &&
+		 (MODRM_REG(instr[index + 2]) == lmsw_reg_byte)) {
+	addr_t first_operand;
+	addr_t second_operand;
+	struct cr0_real *real_cr0;
+	struct cr0_real *new_cr0;
+	operand_type_t addr_type;
+	char new_cr0_val = 0;
+
+	index += 2;
+
+	real_cr0 = (struct cr0_real*)&(info->ctrl_regs.cr0);
+
+	addr_type = decode_operands16(&(info->vm_regs), instr + index, &index, &first_operand, &second_operand, REG16);
+
+	if (addr_type == REG_OPERAND) {
+	  new_cr0 = (struct cr0_real *)first_operand;
+	} else if (addr_type == MEM_OPERAND) {
+	  addr_t host_addr;
+	  // check segment descriptors....
+
+	  /* TODO, TODO, TODO: Lookup segment overrides */
+	  struct v3_segment *lmsw_segment = &(info->segments.ds);
+
+	  if (info->mem_mode == PHYSICAL_MEM) {
+	    if (guest_pa_to_host_va(info, get_addr_linear(info, first_operand, lmsw_segment), &host_addr) == -1) {
+	      return -1;
+	    }
+	  } else {
+	    if (guest_va_to_host_va(info, get_addr_linear(info, first_operand, lmsw_segment), &host_addr) == -1) {
+	      return -1;
+	    }
+	  }
+
+	  new_cr0 = (struct cr0_real *)host_addr;
+	} else {
+	  return -1;
+	}
+
+	
+	if (new_cr0->pe == 0) {
+	  // According to the intel manual this it is illegal to use 
+	  // lmsw to turn _off_ Protected mode
+	  PrintDebug("Cannot switch to real mode with LMSW, unclear what to do\n");
+	  return -1;
+	}
+
+	new_cr0_val = (*(char *)(new_cr0)) & 0x0f;
+
+
+	if (info->shdw_pg_mode == SHADOW_PAGING) {
+	  struct cr0_real * shadow_cr0 = (struct cr0_real*)&(info->shdw_pg_state.guest_cr0);
+
+	  PrintDebug("Old CR0=%x, Old Shadow CR0=%x\n", *real_cr0, *shadow_cr0);	
+	  /* struct cr0_real is only 4 bits wide, 
+	   * so we can overwrite the real_cr0 without worrying about the shadow fields
+	   */
+	  *(char*)real_cr0 &= 0xf0;
+	  *(char*)real_cr0 |= new_cr0_val;
+	
+	  *(char*)shadow_cr0 &= 0xf0;
+	  *(char*)shadow_cr0 |= new_cr0_val;
+
+
+	  PrintDebug("New CR0=%x, New Shadow CR0=%x\n", *real_cr0, *shadow_cr0);
+	} else {
+	  PrintDebug("Old CR0=%x\n", *real_cr0);	
+	  // for now we just pass through....
+	  *(char*)real_cr0 &= 0xf0;
+	  *(char*)real_cr0 |= new_cr0_val;
+
+	  PrintDebug("New CR0=%x\n", *real_cr0);
+	}
+
+	info->rip += index;
+
 
       } else if ((instr[index] == 0x0f) &&
 		 (instr[index + 1] == 0x06)) { 
@@ -359,6 +488,7 @@ int handle_cr0_read(struct guest_info * info) {
       int ret;
 
       PrintDebug("Real Mode read from CR0 at linear guest pa 0x%x\n",get_addr_linear(info,info->rip,&(info->segments.cs)));
+      PrintV3Segments(&(info->segments));
 
       // The real rip address is actually a combination of the rip + CS base 
       ret = read_guest_pa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
@@ -370,8 +500,27 @@ int handle_cr0_read(struct guest_info * info) {
 
 
       while (is_prefix_byte(instr[index])) {
+	switch(instr[index]) {
+	case PREFIX_CS_OVERRIDE:
+	case PREFIX_SS_OVERRIDE:
+	case PREFIX_DS_OVERRIDE:
+	case PREFIX_ES_OVERRIDE:
+	case PREFIX_FS_OVERRIDE:
+	case PREFIX_GS_OVERRIDE:
+	  PrintDebug("Segment Override!!\n");
+	  return -1;
+	  break;
+	default:
+	  break;
+	}
 	index++; 
       }
+
+      /*
+	while (is_prefix_byte(instr[index])) {
+	index++; 
+	}
+      */
 
       if ((instr[index] == cr_access_byte) && 
 	  (instr[index + 1] == smsw_byte) && 
@@ -478,6 +627,10 @@ int handle_cr0_read(struct guest_info * info) {
 	ret = read_guest_va_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
       }
 
+
+      PrintDebug("Instr (15 bytes) at %x:\n", instr);
+      PrintTraceMemDump((char*)instr, 15);
+
       if (ret != 15) {
 	// I think we should inject a GPF into the guest
 	PrintDebug("Could not read Protected %s mode instruction (ret=%d)\n", 
@@ -485,10 +638,30 @@ int handle_cr0_read(struct guest_info * info) {
 	return -1;
       }
 
+
       while (is_prefix_byte(instr[index])) {
+	switch(instr[index]) {
+	case PREFIX_CS_OVERRIDE:
+	case PREFIX_SS_OVERRIDE:
+	case PREFIX_DS_OVERRIDE:
+	case PREFIX_ES_OVERRIDE:
+	case PREFIX_FS_OVERRIDE:
+	case PREFIX_GS_OVERRIDE:
+	  PrintDebug("Segment Override!!\n");
+	  return -1;
+	  break;
+	default:
+	  break;
+	}
 	index++; 
       }
 
+
+      /*
+	while (is_prefix_byte(instr[index])) {
+	index++; 
+	}
+      */
 
       if ((instr[index] == cr_access_byte) &&
 	  (instr[index+1] == mov_from_cr_byte)) {
@@ -561,7 +734,124 @@ int handle_cr0_read(struct guest_info * info) {
 
 
 int handle_cr3_write(struct guest_info * info) {
-  if (info->cpu_mode == PROTECTED) {
+  if (info->cpu_mode == REAL) {
+    // WHAT THE HELL DOES THIS EVEN MEAN?????
+
+    int index = 0;
+    int ret;
+    char instr[15];
+
+    PrintDebug("Real Mode Write to CR3??? What the fuck???\n");
+    // We need to read the instruction, which is at CS:IP, but that 
+    // linear address is guest physical without PG and guest virtual with PG
+
+    ret = read_guest_pa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
+
+    if (ret != 15) {
+      PrintDebug("Could not read instruction (ret=%d)\n", ret);
+      return -1;
+    }
+
+    while (is_prefix_byte(instr[index])) {
+      switch(instr[index]) {
+      case PREFIX_CS_OVERRIDE:
+      case PREFIX_SS_OVERRIDE:
+      case PREFIX_DS_OVERRIDE:
+      case PREFIX_ES_OVERRIDE:
+      case PREFIX_FS_OVERRIDE:
+      case PREFIX_GS_OVERRIDE:
+	PrintDebug("Segment Override!!\n");
+	return -1;
+	break;
+      default:
+	break;
+      }
+      index++; 
+    }
+    
+
+    if ((instr[index] == cr_access_byte) && 
+	(instr[index + 1] == mov_to_cr_byte)) {
+
+      addr_t first_operand;
+      addr_t second_operand;
+      struct cr3_32 * new_cr3;
+      //      struct cr3_32 * real_cr3;
+      operand_type_t addr_type;
+
+      index += 2;
+
+      addr_type = decode_operands16(&(info->vm_regs), instr + index, &index, &first_operand, &second_operand, REG32);
+
+      if (addr_type != REG_OPERAND) {
+	/* Mov to CR3 can only be a 32 bit register */
+	return -1;
+      }
+
+      new_cr3 = (struct cr3_32 *)first_operand;
+
+      if (info->shdw_pg_mode == SHADOW_PAGING) {
+	addr_t shadow_pt;
+	struct cr3_32 * shadow_cr3 = (struct cr3_32 *)&(info->shdw_pg_state.shadow_cr3);
+	struct cr3_32 * guest_cr3 = (struct cr3_32 *)&(info->shdw_pg_state.guest_cr3);
+
+	/*
+
+	  if (CR3_TO_PDE32(*(uint_t*)shadow_cr3) != 0) {
+	    PrintDebug("Shadow Page Table\n");
+	    PrintDebugPageTables((pde32_t *)CR3_TO_PDE32(*(uint_t*)shadow_cr3));
+	  }
+	*/
+
+	/* Delete the current Page Tables */
+	delete_page_tables_pde32((pde32_t *)CR3_TO_PDE32(*(uint_t*)shadow_cr3));
+
+	PrintDebug("Old Shadow CR3=%x; Old Guest CR3=%x\n", 
+		   *(uint_t*)shadow_cr3, *(uint_t*)guest_cr3);
+
+
+	*guest_cr3 = *new_cr3;
+
+
+
+	// Something like this
+	shadow_pt =  create_new_shadow_pt32(info);
+	//shadow_pt = setup_shadow_pt32(info, CR3_TO_PDE32(*(addr_t *)new_cr3));
+
+	/* Copy Various flags */
+	*shadow_cr3 = *new_cr3;
+
+	/*
+	{
+	  addr_t tmp_addr;
+	  guest_pa_to_host_va(info, ((*(uint_t*)guest_cr3) & 0xfffff000), &tmp_addr);
+	  PrintDebug("Guest PD\n");
+	  PrintPD32((pde32_t *)tmp_addr);
+
+	}
+	*/
+
+	
+	shadow_cr3->pdt_base_addr = PD32_BASE_ADDR(shadow_pt);
+
+	PrintDebug("New Shadow CR3=%x; New Guest CR3=%x\n", 
+		   *(uint_t*)shadow_cr3, *(uint_t*)guest_cr3);
+
+
+
+
+      }
+      info->rip += index;
+
+    } else {
+      PrintDebug("Unknown Instruction\n");
+      SerialMemDump(instr,15);
+      return -1;
+    }
+
+
+
+  } else if (info->cpu_mode == PROTECTED) {
     int index = 0;
     int ret;
     char instr[15];
@@ -587,10 +877,29 @@ int handle_cr3_write(struct guest_info * info) {
       PrintDebug("Could not read instruction (ret=%d)\n", ret);
       return -1;
     }
-    
+
     while (is_prefix_byte(instr[index])) {
-      index++;
+      switch(instr[index]) {
+      case PREFIX_CS_OVERRIDE:
+      case PREFIX_SS_OVERRIDE:
+      case PREFIX_DS_OVERRIDE:
+      case PREFIX_ES_OVERRIDE:
+      case PREFIX_FS_OVERRIDE:
+      case PREFIX_GS_OVERRIDE:
+	PrintDebug("Segment Override!!\n");
+	return -1;
+	break;
+      default:
+	break;
+      }
+      index++; 
     }
+    
+    /*    
+	  while (is_prefix_byte(instr[index])) {
+	  index++;
+	  }
+    */
 
     if ((instr[index] == cr_access_byte) && 
 	(instr[index + 1] == mov_to_cr_byte)) {
@@ -618,10 +927,12 @@ int handle_cr3_write(struct guest_info * info) {
 	struct cr3_32 * guest_cr3 = (struct cr3_32 *)&(info->shdw_pg_state.guest_cr3);
 
 
+	/*
 	  if (CR3_TO_PDE32(*(uint_t*)shadow_cr3) != 0) {
 	    PrintDebug("Shadow Page Table\n");
 	    PrintDebugPageTables((pde32_t *)CR3_TO_PDE32(*(uint_t*)shadow_cr3));
 	  }
+	*/
 
 	/* Delete the current Page Tables */
 	delete_page_tables_pde32((pde32_t *)CR3_TO_PDE32(*(uint_t*)shadow_cr3));
@@ -641,6 +952,7 @@ int handle_cr3_write(struct guest_info * info) {
 	/* Copy Various flags */
 	*shadow_cr3 = *new_cr3;
 
+	/*
 	{
 	  addr_t tmp_addr;
 	  guest_pa_to_host_va(info, ((*(uint_t*)guest_cr3) & 0xfffff000), &tmp_addr);
@@ -648,7 +960,7 @@ int handle_cr3_write(struct guest_info * info) {
 	  PrintPD32((pde32_t *)tmp_addr);
 
 	}
-	
+	*/
 
 	
 	shadow_cr3->pdt_base_addr = PD32_BASE_ADDR(shadow_pt);
@@ -685,14 +997,10 @@ int handle_cr3_write(struct guest_info * info) {
 int handle_cr3_read(struct guest_info * info) {
 
   if (info->cpu_mode == REAL) {
-    // what does this mean???
-
-    /*
-
-    addr_t host_addr;
+    char instr[15];
+    int ret;
+    int index = 0;
     addr_t linear_addr = 0;
-
-
 
     linear_addr = get_addr_linear(info, info->rip, &(info->segments.cs));
 
@@ -700,19 +1008,65 @@ int handle_cr3_read(struct guest_info * info) {
     PrintDebug("RIP Linear: %x\n", linear_addr);
     PrintV3Segments(&(info->segments));
     
-      
-    if (info->mem_mode == PHYSICAL_MEM) {
-      guest_pa_to_host_pa(info, linear_addr, &host_addr);
-    } else if (info->mem_mode == VIRTUAL_MEM) {
-      guest_va_to_host_pa(info, linear_addr, &host_addr);
+    ret = read_guest_pa_memory(info, linear_addr, 15, instr);
+
+    if (ret != 15) {
+      PrintDebug("Could not read instruction (ret=%d)\n", ret);
+      return -1;
+    }
+    
+    while (is_prefix_byte(instr[index])) {
+      switch(instr[index]) {
+      case PREFIX_CS_OVERRIDE:
+      case PREFIX_SS_OVERRIDE:
+      case PREFIX_DS_OVERRIDE:
+      case PREFIX_ES_OVERRIDE:
+      case PREFIX_FS_OVERRIDE:
+      case PREFIX_GS_OVERRIDE:
+	PrintDebug("Segment Override!!\n");
+	return -1;
+	break;
+      default:
+	break;
+      }
+      index++; 
     }
 
 
-    pt32_lookup((pde32_t *)CR3_TO_PDE32(info->shdw_pg_state.shadow_cr3), , addr_t * paddr);
-    */
+    if ((instr[index] == cr_access_byte) && 
+	(instr[index + 1] == mov_from_cr_byte)) {
+      addr_t first_operand;
+      addr_t second_operand;
+      struct cr3_32 * virt_cr3;
+      struct cr3_32 * real_cr3 = (struct cr3_32 *)&(info->ctrl_regs.cr3);
+      operand_type_t addr_type;
+
+      index += 2;
+
+      addr_type = decode_operands16(&(info->vm_regs), instr + index, &index, &first_operand, &second_operand, REG32);
+
+      if (addr_type != REG_OPERAND) {
+	/* Mov to CR3 can only be a 32 bit register */
+	return -1;
+      }
+
+      virt_cr3 = (struct cr3_32 *)first_operand;
+
+      if (info->shdw_pg_mode == SHADOW_PAGING) {
+	*virt_cr3 = *(struct cr3_32 *)&(info->shdw_pg_state.guest_cr3);
+      } else {
+	*virt_cr3 = *real_cr3;
+      }
+      
+      info->rip += index;
+    } else {
+      PrintDebug("Unknown Instruction\n");
+      SerialMemDump(instr,15);
+      return -1;
+    }
 
 
-    return -1;
+    return 0;
   } else if (info->cpu_mode == PROTECTED) {
 
     int index = 0;
@@ -736,8 +1090,27 @@ int handle_cr3_read(struct guest_info * info) {
     }
     
     while (is_prefix_byte(instr[index])) {
-      index++;
+      switch(instr[index]) {
+      case PREFIX_CS_OVERRIDE:
+      case PREFIX_SS_OVERRIDE:
+      case PREFIX_DS_OVERRIDE:
+      case PREFIX_ES_OVERRIDE:
+      case PREFIX_FS_OVERRIDE:
+      case PREFIX_GS_OVERRIDE:
+	PrintDebug("Segment Override!!\n");
+	return -1;
+	break;
+      default:
+	break;
+      }
+      index++; 
     }
+
+    /*
+      while (is_prefix_byte(instr[index])) {
+      index++;
+      }
+    */
 
     if ((instr[index] == cr_access_byte) && 
 	(instr[index + 1] == mov_from_cr_byte)) {
