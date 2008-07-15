@@ -3,7 +3,9 @@
 
 void PrintV3Segments(struct v3_segments * segs) {
   int i = 0;
-  struct v3_segment * seg_ptr = (struct v3_segment *)segs;
+  struct v3_segment * seg_ptr;
+
+  seg_ptr=(struct v3_segment *)segs;
   
   char *seg_names[] = {"CS", "DS" , "ES", "FS", "GS", "SS" , "LDTR", "GDTR", "IDTR", "TR", NULL};
   PrintDebug("Segments\n");
@@ -19,8 +21,10 @@ void PrintV3Segments(struct v3_segments * segs) {
 
 void PrintV3CtrlRegs(struct v3_ctrl_regs * regs) {
   int i = 0;
-  v3_reg_t * reg_ptr = (v3_reg_t *)regs;
+  v3_reg_t * reg_ptr;
   char * reg_names[] = {"CR0", "CR2", "CR3", "CR4", "CR8", "FLAGS", NULL};
+
+  reg_ptr= (v3_reg_t *)regs;
 
   PrintDebug("32 bit Ctrl Regs:\n");
 

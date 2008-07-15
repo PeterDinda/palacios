@@ -85,6 +85,15 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
   ctrl_area->exceptions.of = 1;
   ctrl_area->exceptions.nmi = 1;
 
+  // Debug of boot on physical machines - 7/14/08
+  ctrl_area->instrs.NMI=1;
+  ctrl_area->instrs.SMI=1;
+  ctrl_area->instrs.INIT=1;
+  ctrl_area->instrs.PAUSE=1;
+  ctrl_area->instrs.shutdown_evts=1;
+
+
+
   vm_info->vm_regs.rdx = 0x00000f00;
 
   guest_state->cr0 = 0x60000010;

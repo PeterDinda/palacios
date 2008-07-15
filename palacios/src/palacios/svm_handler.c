@@ -41,7 +41,7 @@ int handle_svm_exit(struct guest_info * info) {
   // Disable printing io exits due to bochs debug messages
   //if (!((exit_code == VMEXIT_IOIO) && ((ushort_t)(guest_ctrl->exit_info1 >> 16) == 0x402))) {
 
-  PrintDebug("SVM Returned: Exit Code: %x \t\t(tsc=%ul)\n",exit_code, (uint_t)info->time_state.guest_tsc); 
+  PrintDebug("SVM Returned: Exit Code: 0x%x \t\t(tsc=%ul)\n",exit_code, (uint_t)info->time_state.guest_tsc); 
     //  }
   // PrintDebugVMCB((vmcb_t*)(info->vmm_data));
 
@@ -131,6 +131,10 @@ int handle_svm_exit(struct guest_info * info) {
   } else if (exit_code == VMEXIT_INTR) {
 
     //    handle_svm_intr(info);
+
+  } else if (exit_code == VMEXIT_SMI) { 
+
+    //   handle_svm_smi(info); // ignored for now
 
   } else if (exit_code == VMEXIT_HLT) {
     PrintDebug("Guest halted\n");
