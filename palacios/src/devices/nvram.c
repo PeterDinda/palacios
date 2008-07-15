@@ -80,7 +80,7 @@ static int set_nvram_defaults(struct vm_device *dev)
   //
   // 2 1.44 MB floppy drives
   //
-#if 0
+#if 1
   nvram_state->mem_state[NVRAM_REG_FLOPPY_TYPE]= 0x44;
 #else
   nvram_state->mem_state[NVRAM_REG_FLOPPY_TYPE] = 0x00;
@@ -103,8 +103,8 @@ static int set_nvram_defaults(struct vm_device *dev)
  
 
   // Set equipment byte to note 2 floppies, vga display, keyboard,math,floppy
-  //nvram_state->mem_state[NVRAM_REG_EQUIPMENT_BYTE]= 0x4f;
-  nvram_state->mem_state[NVRAM_REG_EQUIPMENT_BYTE] = 
+  nvram_state->mem_state[NVRAM_REG_EQUIPMENT_BYTE]= 0x4f;
+  //nvram_state->mem_state[NVRAM_REG_EQUIPMENT_BYTE] = 0xf;
 
   // Set conventional memory to 640K
   nvram_state->mem_state[NVRAM_REG_BASE_MEMORY_HIGH]= 0x02;
