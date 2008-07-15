@@ -350,24 +350,21 @@ int RunVMM(struct Boot_Info * bootInfo) {
 
 #if GENERIC
 	generic_port_range_type range[] = {
-	  /*
-          {0x00, 0x07, GENERIC_PRINT_AND_PASSTHROUGH},   // DMA 1 channels 0,1,2,3 (address, counter)
-          {0xc0, 0xc7, GENERIC_PRINT_AND_PASSTHROUGH},   // DMA 2 channels 4,5,6,7 (address, counter)
-          {0x87, 0x87, GENERIC_PRINT_AND_PASSTHROUGH},   // DMA 1 channel 0 page register
-          {0x83, 0x83, GENERIC_PRINT_AND_PASSTHROUGH},   // DMA 1 channel 1 page register
-          {0x81, 0x81, GENERIC_PRINT_AND_PASSTHROUGH},   // DMA 1 channel 2 page register
-          {0x82, 0x82, GENERIC_PRINT_AND_PASSTHROUGH},   // DMA 1 channel 3 page register
-          {0x8f, 0x8f, GENERIC_PRINT_AND_PASSTHROUGH},   // DMA 2 channel 4 page register
-          {0x8b, 0x8b, GENERIC_PRINT_AND_PASSTHROUGH},   // DMA 2 channel 5 page register
-          {0x89, 0x89, GENERIC_PRINT_AND_PASSTHROUGH},   // DMA 2 channel 6 page register
-          {0x8a, 0x8a, GENERIC_PRINT_AND_PASSTHROUGH},   // DMA 2 channel 7 page register
-	  {0x08, 0x0f, GENERIC_PRINT_AND_PASSTHROUGH},   // DMA 1 misc registers (csr, req, smask,mode,clearff,reset,enable,mmask)
-          {0xd0, 0xde, GENERIC_PRINT_AND_PASSTHROUGH},   // DMA 2 misc registers
-	  */
-	  {0x08, 0x0f, GENERIC_PRINT_AND_IGNORE},
-	  {0x81, 0x8F, GENERIC_PRINT_AND_IGNORE},
-	  {0xd0, 0xdf, GENERIC_PRINT_AND_IGNORE}, 
-
+#if 0
+          {0x00, 0x07, GENERIC_PRINT_AND_IGNORE},   // DMA 1 channels 0,1,2,3 (address, counter)
+          {0xc0, 0xc7, GENERIC_PRINT_AND_
+IGNORE},   // DMA 2 channels 4,5,6,7 (address, counter)
+          {0x87, 0x87, GENERIC_PRINT_AND_IGNORE},   // DMA 1 channel 0 page register
+          {0x83, 0x83, GENERIC_PRINT_AND_IGNORE},   // DMA 1 channel 1 page register
+          {0x81, 0x81, GENERIC_PRINT_AND_IGNORE},   // DMA 1 channel 2 page register
+          {0x82, 0x82, GENERIC_PRINT_AND_IGNORE},   // DMA 1 channel 3 page register
+          {0x8f, 0x8f, GENERIC_PRINT_AND_IGNORE},   // DMA 2 channel 4 page register
+          {0x8b, 0x8b, GENERIC_PRINT_AND_IGNORE},   // DMA 2 channel 5 page register
+          {0x89, 0x89, GENERIC_PRINT_AND_IGNORE},   // DMA 2 channel 6 page register
+          {0x8a, 0x8a, GENERIC_PRINT_AND_IGNORE},   // DMA 2 channel 7 page register
+	  {0x08, 0x0f, GENERIC_PRINT_AND_IGNORE},   // DMA 1 misc registers (csr, req, smask,mode,clearff,reset,enable,mmask)
+          {0xd0, 0xde, GENERIC_PRINT_AND_IGNORE},   // DMA 2 misc registers
+#endif
 
 	  {0x3f8, 0x3f8+7, GENERIC_PRINT_AND_IGNORE},      // COM 1
 	  {0x2f8, 0x2f8+7, GENERIC_PRINT_AND_IGNORE},      // COM 2
@@ -390,10 +387,9 @@ int RunVMM(struct Boot_Info * bootInfo) {
 
         };
 
-	struct vm_device * generic = create_generic(range,13,  // THIS NUMBER IS CRITICAL
+	struct vm_device * generic = create_generic(range,10,  // THIS NUMBER IS CRITICAL
 
 						    NULL,0,NULL,0);
-	
 #endif
 
 	attach_device(&(vm_info), nvram);
