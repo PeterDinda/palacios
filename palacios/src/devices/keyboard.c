@@ -72,6 +72,9 @@ struct keyboard_internal {
 	// after recieving 0xa5
 	// password arrives on data port, null terminated
 	TRANSMIT_PASSWD,
+	// after receiving 0xd1
+	// keyboard uC output will arrive
+	WRITE_OUTPUT,
 	// after having reset sent to 0x60
 	// we immediately ack, and then
 	// push BAT success (0xaa) after the ack
@@ -389,24 +392,50 @@ int keyboard_write_command(ushort_t port,
     state->state = NORMAL;
     break;
 
+
   // case c0  read input port ?
   // case c1  copy input port lsn to status
   // case c2  copy input port msn to status
   
   // case d0 read output port
   // case d1 write output port
+  case 0xd1: // Write next 0x60 byte to uC output port
+    state->state = WRITE_OUTPUT;
+    break;
+
   // case d2 write keyboard buffer (inject key)
   // case d3 write mouse buffer (inject mouse)
   // case d4 write mouse device (command to mouse?)
 
   // case e0 read test port
   
-  // case f0..ff pulse output port ?
 
-   
+  // case f0..ff pulse output port ?
+  case 0xf0:
+  case 0xf1:
+  case 0xf2:
+  case 0xf3:
+  case 0xf4:
+  case 0xf5:
+  case 0xf6:
+  case 0xf7:
+  case 0xf8:
+  case 0xf9:
+  case 0xfa:
+  case 0xfb:
+  case 0xfc:
+  case 0xfd:
+  case 0xfe:
+  case 0xff:
+    PrintDebug("FIXME: keyboard output pulse: %x\n", cmd);
+    // either set/unset the a20 line (bit 1)
+    // or reset the machine (bit 0 == 0)
+    break;
+
   default:
     KEYBOARD_DEBUG_PRINT("keyboard: ignoring command (unimplemented)\n");
     state->state = NORMAL;
+    return -1;     // JRL: We die here to prevent silent errors
     break;
   }
 
@@ -463,6 +492,14 @@ int keyboard_write_output(ushort_t port,
       state->state = NORMAL;
     }
     break;
+  case WRITE_OUTPUT:
+    PrintDebug("FIXME: keyboard write output: %x\n", data);
+    // either set/unset the a20 line (bit 1)
+    // or reset the machine (bit 0)
+    state->state = NORMAL;
+    break;
+
+
   case NORMAL:
     {
       // command is being sent to keyboard controller
@@ -490,6 +527,8 @@ int keyboard_write_output(ushort_t port,
       case 0xf3: // set typematic delay/rate
       default:
 	KEYBOARD_DEBUG_PRINT("keyboard: unhandled command 0x%x on output buffer (60h)\n", data);
+	if (data != 0x5) 
+	  return -1;    // JRL: We die here to prevent silent errors
 	break;
       }
       break;
