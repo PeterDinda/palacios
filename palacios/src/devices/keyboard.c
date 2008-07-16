@@ -43,6 +43,36 @@
 #define CMD_SCANCODE_XLATE      0x40  // 1=translate to set 1 scancodes
 #define CMD_RESERVED            0x80  // should be zero
 
+// bits for the output port 
+
+
+#define OUTPUT_RESET        0x01  // System reset on 0
+#define OUTPUT_A20          0x02  // A20 gate (1= A20 is gated)
+#define OUTPUT_RES1         0x04  // reserved
+#define OUTPUT_RES2         0x08  // reserved
+#define OUTPUT_OUTPUT_FULL  0x10  // output buffer full
+#define OUTPUT_INPUT_EMPTY  0x20  // input buffer empty
+#define OUTPUT_KBD_CLOCK    0x40  // keyboard clock (?)
+#define OUTPUT_KBD_DATA     0x80  // keyboard data
+
+// bits for the input port
+
+#define INPUT_RES0          0x01  // reserved
+#define INPUT_RES1          0x02  // reserved
+#define INPUT_RES2          0x04  // reserved
+#define INPUT_RES3          0x08  // reserved
+#define INPUT_RAM           0x10  // set to 1 if RAM exists?
+#define INPUT_JUMPER        0x20  // manufacturing jumper?
+#define INPUT_DISPLAY       0x40  // 0=color, 1=mono
+#define INPUT_KBD_INHIBIT   0x80  // 1=inhibit keyboard ?
+
+
+#define QUEUE               0
+#define OVERWRITE           1
+#define DATA                0
+#define COMMAND             1
+
+
 // The currently targetted keyboard
 static struct vm_device *thekeyboard = NULL;
 
@@ -72,13 +102,25 @@ struct keyboard_internal {
 	// after recieving 0xa5
 	// password arrives on data port, null terminated
 	TRANSMIT_PASSWD,
-	// after receiving 0xd1
-	// keyboard uC output will arrive
-	WRITE_OUTPUT,
 	// after having reset sent to 0x60
 	// we immediately ack, and then
 	// push BAT success (0xaa) after the ack
 	RESET,
+        // after having a d1 sent to 64
+	// we wait for a new output byte on 60
+	WRITING_OUTPUT_PORT,
+	// after having a d2 sent to 64
+	// we wait for a new output byte on 60
+	// then make it available as a keystroke
+	INJECTING_KEY,
+	// after having a d3 sent to 64
+	// we wait for a new output byte on 60
+	// then make it available as a mouse event
+	INJECTING_MOUSE,
+        // after having a d4 sent to 64
+	// we wait for a new output byte on 60
+	// then send it to the mouse
+	WRITING_MOUSE_CMD,
   } state;
 	
 
@@ -86,6 +128,10 @@ struct keyboard_internal {
   uchar_t cmd_byte;         //  for keyboard uC - read/written 
                             //     via read/write cmd byte command
   uchar_t status_byte;      //  for on-board uC - read via 64h
+
+  uchar_t output_byte;      //  output port of onboard uC (e.g. A20)
+
+  uchar_t input_byte;       //  input port of onboard uC
 
   // Data for 8042
   uchar_t input_queue;      //  
@@ -100,7 +146,7 @@ struct keyboard_internal {
 // push item onto outputqueue, optionally overwriting if there is no room
 // returns 0 if successful
 //
-static int PushToOutputQueue(struct vm_device *dev, uchar_t value, uchar_t overwrite) 
+static int PushToOutputQueue(struct vm_device *dev, uchar_t value, uchar_t overwrite, uchar_t cmd) 
 {
   struct keyboard_internal *state = (struct keyboard_internal *)(dev->private_data);
   
@@ -109,6 +155,12 @@ static int PushToOutputQueue(struct vm_device *dev, uchar_t value, uchar_t overw
     state->output_queue = value;
     state->output_queue_len = 1;
     state->status_byte |= STATUS_OUTPUT_BUFFER_FULL;
+    
+    if (cmd) {
+      state->status_byte |= STATUS_COMMAND_DATA_AVAIL;
+    } else {
+      state->status_byte &= ~STATUS_COMMAND_DATA_AVAIL;
+    }
 
     return 0;
   } else {
@@ -131,6 +183,10 @@ static int PullFromOutputQueue(struct vm_device *dev, uchar_t *value)
     *value = state->output_queue;
     state->output_queue_len = 0;
     state->status_byte &= ~STATUS_OUTPUT_BUFFER_FULL;
+
+    if (state->status_byte & STATUS_COMMAND_DATA_AVAIL) { 
+      state->status_byte &= ~STATUS_COMMAND_DATA_AVAIL;
+    } // reset to data
 
     return 0;
   } else {
@@ -204,7 +260,7 @@ void deliver_key_to_vmm(uchar_t status, uchar_t scancode)
   if ( (state->status_byte & STATUS_ENABLED)      // onboard is enabled
        && (!(state->cmd_byte & CMD_DISABLE)) )  {   // keyboard is enabled
 
-    PushToOutputQueue(dev, scancode, 1);
+    PushToOutputQueue(dev, scancode, OVERWRITE, DATA);
 
     if (state->cmd_byte & CMD_INTR) { 
       keyboard_interrupt(KEYBOARD_IRQ, dev);
@@ -229,6 +285,12 @@ int keyboard_reset_device(struct vm_device * dev)
       STATUS_SYSTEM     // self-tests passed
     | STATUS_ENABLED ;  // keyboard ready
                         // buffers empty, no errors
+
+  data->output_byte = 0;  //  ?
+
+  data->input_byte = 
+    INPUT_RAM ;            // we have some
+                           // also display=color, jumper 0, keyboard enabled 
 
   KEYBOARD_DEBUG_PRINT("keyboard: reset device\n");
  
@@ -320,29 +382,34 @@ int keyboard_write_command(ushort_t port,
   switch (cmd) { 
 
   case 0x20:  // READ COMMAND BYTE (returned in 60h)
-    PushToOutputQueue(dev, state->cmd_byte, 1);
+    PushToOutputQueue(dev, state->cmd_byte, OVERWRITE, COMMAND);
     state->state = NORMAL;  // the next read on 0x60 will get the right data
+    KEYBOARD_DEBUG_PRINT("keyboard: command byte 0x%x returned\n",state->cmd_byte);
     break;
 
   case 0x60:  // WRITE COMMAND BYTE (read from 60h)
     state->state = WRITING_CMD_BYTE; // we need to make sure we send the next 0x60 byte appropriately
+    KEYBOARD_DEBUG_PRINT("keyboard: prepare to write command byte\n");
     break;
 
   // case 0x90-9f - write to output port  (?)
 
   case 0xa1: // Get version number
-    PushToOutputQueue(dev, 0, 1);
+    PushToOutputQueue(dev, 0, OVERWRITE, COMMAND);
     state->state = NORMAL;
+    KEYBOARD_DEBUG_PRINT("keyboard: version number 0x0 returned\n");
     break;
 
   case 0xa4:  // is password installed?  send result to 0x60
     // we don't support passwords
-    PushToOutputQueue(dev, 0xf1, 1);
+    PushToOutputQueue(dev, 0xf1, OVERWRITE, COMMAND);
+    KEYBOARD_DEBUG_PRINT("keyboard: password not installed\n");
     state->state = NORMAL;
     break;
 
   case 0xa5:  // new password will arrive on 0x60
     state->state = TRANSMIT_PASSWD;
+    KEYBOARD_DEBUG_PRINT("keyboard: pepare to transmit password\n");
     break;
 
   case 0xa6:  // check passwd;
@@ -350,74 +417,116 @@ int keyboard_write_command(ushort_t port,
     // the implication is that any password check immediately succeeds 
     // with a blank password
     state->state = NORMAL;
+    KEYBOARD_DEBUG_PRINT("keyboard: password check succeeded\n");
     break;
 
   case 0xa7:  // disable mouse
     state->cmd_byte |= CMD_MOUSE_DISABLE;
     state->state = NORMAL;
+    KEYBOARD_DEBUG_PRINT("keyboard: mouse disabled\n");
     break;
 
   case 0xa8:  // enable mouse
     state->cmd_byte &= ~CMD_MOUSE_DISABLE;
     state->state = NORMAL;
+    KEYBOARD_DEBUG_PRINT("keyboard: mouse enabled\n");
     break;
 
   case 0xa9:  // mouse interface test  (always succeeds)
-    PushToOutputQueue(dev, 0, 1);
+    PushToOutputQueue(dev, 0, OVERWRITE,COMMAND);
+    KEYBOARD_DEBUG_PRINT("keyboard: mouse interface test succeeded\n");
     state->state = NORMAL;
     break;
 
   case 0xaa:  // controller self test (always succeeds)
-    PushToOutputQueue(dev, 0x55, 1);
+    PushToOutputQueue(dev, 0x55, OVERWRITE, COMMAND);
+    KEYBOARD_DEBUG_PRINT("keyboard: controller self test succeeded\n");
     state->state = NORMAL;
     break;
 
   case 0xab:  // keyboard interface test (always succeeds)
-    PushToOutputQueue(dev, 0, 1);
+    PushToOutputQueue(dev, 0, OVERWRITE, COMMAND);
     state->state = NORMAL;
+    KEYBOARD_DEBUG_PRINT("keyboard: keyboard interface test succeeded\n");
     break;
 
   case 0xad:  // disable keyboard
     state->cmd_byte |= CMD_DISABLE;
     state->state = NORMAL;
+    KEYBOARD_DEBUG_PRINT("keyboard: keyboard disabled\n");
     break;
 
   case 0xae:  // enable keyboard
     state->cmd_byte &= ~CMD_DISABLE;
     state->state = NORMAL;
+    KEYBOARD_DEBUG_PRINT("keyboard: keyboard enabled\n");
     break;
 
   case 0xaf:  // get version
-    PushToOutputQueue(dev, 0x00, 1);
+    PushToOutputQueue(dev, 0x00, OVERWRITE, COMMAND);
     state->state = NORMAL;
+    KEYBOARD_DEBUG_PRINT("keyboard: version 0 returned \n");
     break;
 
-
-  // case c0  read input port ?
-  // case c1  copy input port lsn to status
-  // case c2  copy input port msn to status
-  
-  // case d0 read output port
-  // case d1 write output port
-  case 0xd1: // Write next 0x60 byte to uC output port
-    state->state = WRITE_OUTPUT;
+  case 0xd0: // return microcontroller output on 60h
+    PushToOutputQueue(dev,state->output_byte,OVERWRITE,COMMAND);
+    state->state = NORMAL;
+    KEYBOARD_DEBUG_PRINT("keyboard: output byte 0x%x returned\n",state->output_byte);
     break;
 
-  // case d2 write keyboard buffer (inject key)
-  // case d3 write mouse buffer (inject mouse)
-  // case d4 write mouse device (command to mouse?)
+  case 0xd1: // request to write next byte on 60h to the microcontroller output port
+    state->state = WRITING_OUTPUT_PORT;
+    KEYBOARD_DEBUG_PRINT("keyboard: prepare to write output byte\n");
+    break;
 
-  // case e0 read test port
-  
+  case 0xd2:  //  write keyboard buffer (inject key)
+    state->state = INJECTING_KEY;
+    KEYBOARD_DEBUG_PRINT("keyboard: prepare to inject key\n");
+    break;
 
-  // case f0..ff pulse output port ?
-  case 0xf0:
-  case 0xf1:
-  case 0xf2:
-  case 0xf3:
-  case 0xf4:
-  case 0xf5:
-  case 0xf6:
+  case 0xd3: //  write mouse buffer (inject mouse)
+    state->state = INJECTING_MOUSE;
+    KEYBOARD_DEBUG_PRINT("keyboard: prepare to inject mouse\n");
+    break;
+
+  case 0xd4: // write mouse device (command to mouse?)
+    state->state = WRITING_MOUSE_CMD;
+    KEYBOARD_DEBUG_PRINT("keyboard: prepare to inject mouse command\n");
+    break;
+
+  case 0xc0: //  read input port 
+    PushToOutputQueue(dev,state->input_byte,OVERWRITE,COMMAND);
+    state->state=NORMAL;
+    KEYBOARD_DEBUG_PRINT("keyboard: input byte 0x%x returned\n",state->input_byte);
+    break;
+
+  case 0xc1:  //copy input port lsn to status msn
+    state->status_byte &= 0x0f;
+    state->status_byte |= (state->input_byte & 0xf)<<4;
+    state->state=NORMAL;
+    KEYBOARD_DEBUG_PRINT("keyboard: copied input byte lsn to status msn\n");
+    break;
+
+  case 0xc2: // copy input port msn to status msn
+    state->status_byte &= 0x0f;
+    state->status_byte |= (state->input_byte & 0xf0);
+    state->state=NORMAL;
+    KEYBOARD_DEBUG_PRINT("keyboard: copied input byte msn to status msn\n");
+    break;
+    
+  case 0xe0: // read test port
+    PushToOutputQueue(dev,state->output_byte>>6,OVERWRITE,COMMAND);
+    state->state=NORMAL;
+    KEYBOARD_DEBUG_PRINT("keyboard: read 0x%x from test port\n",state->output_byte>>6);
+    break;
+   
+  case 0xf0:   // pulse output port
+  case 0xf1:   // this should pulse 0..3 of cmd_byte on output port 
+  case 0xf2:   // instead of what is currently in output_byte (I think)
+  case 0xf3:   // main effect is taht if bit zero is zero
+  case 0xf4:   // should cause reset
+  case 0xf5:   // I doubt anything more recent than a 286 running 
+  case 0xf6:   // OS2 with the penalty box will care
   case 0xf7:
   case 0xf8:
   case 0xf9:
@@ -427,15 +536,15 @@ int keyboard_write_command(ushort_t port,
   case 0xfd:
   case 0xfe:
   case 0xff:
-    PrintDebug("FIXME: keyboard output pulse: %x\n", cmd);
-    // either set/unset the a20 line (bit 1)
-    // or reset the machine (bit 0 == 0)
+    KEYBOARD_DEBUG_PRINT("keyboard: ignoring pulse of 0x%x (low=pulsed) on output port\n",cmd&0xf);
+    state->state=NORMAL;
     break;
+   
 
+  // case ac  diagonstic - returns 16 bytes from keyboard microcontroler on 60h
   default:
     KEYBOARD_DEBUG_PRINT("keyboard: ignoring command (unimplemented)\n");
     state->state = NORMAL;
-    return -1;     // JRL: We die here to prevent silent errors
     break;
   }
 
@@ -479,41 +588,58 @@ int keyboard_write_output(ushort_t port,
 
   uchar_t data = *((uchar_t*)src);
   
+  KEYBOARD_DEBUG_PRINT("keyboard: output 0x%x on 60h\n", data);
+
   switch (state->state) {
   case WRITING_CMD_BYTE:
     state->cmd_byte = data;
+    state->state = NORMAL;
+    KEYBOARD_DEBUG_PRINT("keyboard: wrote new command byte 0x%x\n",state->cmd_byte);
+    break;
+  case WRITING_OUTPUT_PORT:
+    state->output_byte = data;
+    state->state = NORMAL;
+    KEYBOARD_DEBUG_PRINT("keyboard: wrote new output byte 0x%x\n",state->output_byte);
+    break;
+  case INJECTING_KEY:
+    PushToOutputQueue(dev,data,OVERWRITE,DATA);  // probably should be a call to deliver_key_to_vmm()
+    state->state = NORMAL;
+    KEYBOARD_DEBUG_PRINT("keyboard: injected key 0x%x\n",data);
+    break;
+  case INJECTING_MOUSE:
+    KEYBOARD_DEBUG_PRINT("keyboard: ignoring injected mouse event 0x%x\n",data);
+    state->state = NORMAL;
+    break;
+  case WRITING_MOUSE_CMD:
+    KEYBOARD_DEBUG_PRINT("keyboard: ignoring injected mouse command 0x%x\n",data);
     state->state = NORMAL;
     break;
   case TRANSMIT_PASSWD:
     if (data) {
       //ignore passwd
+      KEYBOARD_DEBUG_PRINT("keyboard: ignoring password character 0x%x\n",data);
     } else {
       // end of password
       state->state = NORMAL;
+      KEYBOARD_DEBUG_PRINT("keyboard: done with password\n");
     }
     break;
-  case WRITE_OUTPUT:
-    PrintDebug("FIXME: keyboard write output: %x\n", data);
-    // either set/unset the a20 line (bit 1)
-    // or reset the machine (bit 0)
-    state->state = NORMAL;
-    break;
-
-
   case NORMAL:
     {
       // command is being sent to keyboard controller
       switch (data) { 
       case 0xff: // reset
-	PushToOutputQueue(dev, 0xfa, 1); // ack
+	PushToOutputQueue(dev, 0xfa, OVERWRITE, COMMAND); // ack
 	state->state = RESET;
+	KEYBOARD_DEBUG_PRINT("keyboard: reset complete and acked\n",data);
 	break;
       case 0xf5: // disable scanning
       case 0xf4: // enable scanning
 	// ack
-	PushToOutputQueue(dev, 0xfa, 1);
+	PushToOutputQueue(dev, 0xfa, OVERWRITE, COMMAND);
 	// should do something here... PAD
 	state->state = NORMAL;
+	KEYBOARD_DEBUG_PRINT("keyboard: %s scanning done and acked\n",data==0xf5 ? "disable" : "enable", data);
 	break;
       case 0xfe: // resend
       case 0xfd: // set key type make
@@ -525,10 +651,10 @@ int keyboard_write_output(ushort_t port,
       case 0xf7: // set all typemaktic
       case 0xf6: // set defaults
       case 0xf3: // set typematic delay/rate
+	KEYBOARD_DEBUG_PRINT("keyboard: unhandled known command 0x%x on output buffer (60h)\n", data);
+	break;
       default:
-	KEYBOARD_DEBUG_PRINT("keyboard: unhandled command 0x%x on output buffer (60h)\n", data);
-	if (data != 0x5) 
-	  return -1;    // JRL: We die here to prevent silent errors
+	KEYBOARD_DEBUG_PRINT("keyboard: unhandled unknown command 0x%x on output buffer (60h)\n", data);
 	break;
       }
       break;
@@ -557,8 +683,9 @@ int keyboard_read_input(ushort_t port,
     if (state->state == RESET) { 
       // We just delivered the ack for the reset
       // now we will ready ourselves to deliver the BAT code (success)
-      PushToOutputQueue(dev, 0xaa, 1);
+      PushToOutputQueue(dev, 0xaa, OVERWRITE,COMMAND);
       state->state = NORMAL;
+      KEYBOARD_DEBUG_PRINT(" (in reset, pushing BAT test code 0xaa) ");
     }
       
     KEYBOARD_DEBUG_PRINT("0x%x\n", data);
