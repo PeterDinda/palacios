@@ -1,5 +1,5 @@
 #include <palacios/svm_halt.h>
-
+#include <palacios/vmm_intr.h>
 // From GeekOS
 void Yield(void);
 
@@ -23,8 +23,9 @@ int handle_svm_halt(struct guest_info * info)
   rdtscll(yield_stop);
 
 
-  v3_update_time(info, yield_stop - yield_start);
+  //v3_update_time(info, yield_stop - yield_start);
   gap = yield_stop - yield_start;
+  raise_irq(info, 0);
 
   PrintDebug("GeekOS Yield Done (%d cycles)\n", gap);
 
