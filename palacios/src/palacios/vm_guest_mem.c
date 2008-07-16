@@ -122,73 +122,72 @@ int guest_va_to_guest_pa(struct guest_info * guest_info, addr_t guest_va, addr_t
   }
 
 
-  if (guest_info->shdw_pg_mode == SHADOW_PAGING) {
-    // Guest Is in Paged mode
-    switch (guest_info->cpu_mode) {
-    case PROTECTED:
-      {
-	addr_t tmp_pa = 0;
-	pde32_t * pde = 0;
-	addr_t guest_pde = CR3_TO_PDE32(guest_info->shdw_pg_state.guest_cr3);
 
-
-	if (guest_pa_to_host_va(guest_info, guest_pde, (addr_t *)&pde) == -1) {
-	  PrintDebug("In GVA->GPA: Invalid GPA(%x)->HVA PDE32 lookup\n", guest_pde);
-	  return -1;
-	}
-
-
-	switch (pde32_lookup(pde, guest_va, &tmp_pa)) {
-	case PDE32_ENTRY_NOT_PRESENT: 
-	  *guest_pa = 0;
-	  return -1;
-	case PDE32_ENTRY_LARGE_PAGE:
-	  *guest_pa = tmp_pa;
-	  return 0;
-	case PDE32_ENTRY_PTE32:
-	  {
-	    pte32_t * pte = 0;
-
-
-	    if (guest_pa_to_host_va(guest_info, tmp_pa, (addr_t*)&pte) == -1) {
-	      PrintDebug("In GVA->GPA: Invalid GPA(%x)->HVA PTE32 lookup\n", guest_pa);
-	      return -1;
-	    }
-	    
-	    PrintDebug("PTE host addr=%x, GVA=%x, GPA=%x(should be 0)\n", pte, guest_va, *guest_pa);
-
-	    if (pte32_lookup(pte, guest_va, guest_pa) != 0) {
-	      PrintDebug("In GVA->GPA: PTE32 Lookup failure GVA=%x; PTE=%x\n", guest_va, pte);
-	      //	      PrintPT32(PDE32_INDEX(guest_va) << 22, pte);
-	      return -1;
-	    }
-
-	    return 0;
-	  }
-	default:
-	  return -1;
-	}
+  // Guest Is in Paged mode
+  switch (guest_info->cpu_mode) {
+  case PROTECTED:
+    {
+      addr_t tmp_pa = 0;
+      pde32_t * pde = 0;
+      addr_t guest_pde = 0;
+      
+      if (guest_info->shdw_pg_mode == SHADOW_PAGING) {
+	guest_pde = CR3_TO_PDE32(guest_info->shdw_pg_state.guest_cr3);
+      } else if (guest_info->shdw_pg_mode == NESTED_PAGING) {
+	guest_pde = CR3_TO_PDE32(guest_info->ctrl_regs.cr3);
       }
-      case PROTECTED_PAE:
+      
+      if (guest_pa_to_host_va(guest_info, guest_pde, (addr_t *)&pde) == -1) {
+	PrintDebug("In GVA->GPA: Invalid GPA(%x)->HVA PDE32 lookup\n", guest_pde);
+	return -1;
+      }
+      
+      
+      switch (pde32_lookup(pde, guest_va, &tmp_pa)) {
+      case PDE32_ENTRY_NOT_PRESENT: 
+	*guest_pa = 0;
+	return -1;
+      case PDE32_ENTRY_LARGE_PAGE:
+	*guest_pa = tmp_pa;
+	return 0;
+      case PDE32_ENTRY_PTE32:
 	{
-	  // Fill in
+	  pte32_t * pte = 0;
+	  
+	  
+	  if (guest_pa_to_host_va(guest_info, tmp_pa, (addr_t*)&pte) == -1) {
+	    PrintDebug("In GVA->GPA: Invalid GPA(%x)->HVA PTE32 lookup\n", guest_pa);
+	    return -1;
+	  }
+	  
+	  PrintDebug("PTE host addr=%x, GVA=%x, GPA=%x(should be 0)\n", pte, guest_va, *guest_pa);
+	  
+	  if (pte32_lookup(pte, guest_va, guest_pa) != 0) {
+	    PrintDebug("In GVA->GPA: PTE32 Lookup failure GVA=%x; PTE=%x\n", guest_va, pte);
+	    //	      PrintPT32(PDE32_INDEX(guest_va) << 22, pte);
+	    return -1;
+	  }
+	  
+	  return 0;
 	}
-      case LONG:
-	{
-	  // Fill in
-	}
-    default:
-      return -1;
+      default:
+	return -1;
+      }
     }
-  } else if (guest_info->shdw_pg_mode == NESTED_PAGING) {
-
-    // Fill in
-    return -1;
-  } else {
+  case PROTECTED_PAE:
+    {
+      // Fill in
+    }
+  case LONG:
+    {
+      // Fill in
+    }
+  default:
     return -1;
   }
-
-
+  
+  
+  
   return 0;
 }
 

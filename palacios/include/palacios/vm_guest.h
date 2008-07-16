@@ -122,9 +122,9 @@ struct guest_info {
 };
 
 
-void PrintV3Segments(struct v3_segments * segs);
-void PrintV3CtrlRegs(struct v3_ctrl_regs * regs);
-
+void PrintV3Segments(struct guest_info * info);
+void PrintV3CtrlRegs(struct guest_info * info);
+void PrintV3GPRs(struct guest_info * info);
 
 
 #endif

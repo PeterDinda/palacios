@@ -165,6 +165,8 @@
 #define VMEXIT_MWAIT                0x0000008b
 #define VMEXIT_MWAIT_CONDITIONAL    0x0000008c
 
+#define VMEXIT_NPF                  0x00000400
+
 #define VMEXIT_INVALID_VMCB         -1
 
 /******************************************/

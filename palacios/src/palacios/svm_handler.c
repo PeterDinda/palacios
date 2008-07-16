@@ -41,7 +41,38 @@ int handle_svm_exit(struct guest_info * info) {
   // Disable printing io exits due to bochs debug messages
   //if (!((exit_code == VMEXIT_IOIO) && ((ushort_t)(guest_ctrl->exit_info1 >> 16) == 0x402))) {
 
+
   PrintDebug("SVM Returned: Exit Code: 0x%x \t\t(tsc=%ul)\n",exit_code, (uint_t)info->time_state.guest_tsc); 
+  
+  if (exit_code < 0x40) {
+    char instr[32];
+    int ret;
+    // Dump out the instr stream
+
+    //PrintDebug("RIP: %x\n", guest_state->rip);
+    PrintDebug("RIP Linear: %x\n", get_addr_linear(info, info->rip, &(info->segments.cs)));
+
+    // OK, now we will read the instruction
+    // The only difference between PROTECTED and PROTECTED_PG is whether we read
+    // from guest_pa or guest_va
+    if (info->mem_mode == PHYSICAL_MEM) { 
+      // The real rip address is actually a combination of the rip + CS base 
+      ret = read_guest_pa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 32, instr);
+    } else { 
+      ret = read_guest_va_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 32, instr);
+    }
+    
+    if (ret != 32) {
+      // I think we should inject a GPF into the guest
+      PrintDebug("Could not read instruction (ret=%d)\n", ret);
+      return -1;
+    }
+
+    PrintDebug("Instr Stream:\n");
+    PrintTraceMemDump(instr, 32);
+  }
+
+
     //  }
   // PrintDebugVMCB((vmcb_t*)(info->vmm_data));
 
@@ -112,9 +143,14 @@ int handle_svm_exit(struct guest_info * info) {
 	return -1;
       }
     } else {
+
       PrintDebug("Page fault in un implemented paging mode\n");
+     
       return -1;
     }
+  } else if (exit_code == VMEXIT_NPF) {
+    PrintDebug("Currently unhandled Nested Page Fault\n");
+    return -1;
 
   } else if (exit_code == VMEXIT_INVLPG) {
     if (info->shdw_pg_mode == SHADOW_PAGING) {
@@ -280,7 +316,7 @@ int handle_svm_exit(struct guest_info * info) {
   set_vmcb_segments((vmcb_t*)(info->vmm_data), &(info->segments));
 
   if (exit_code == VMEXIT_INTR) {
-    PrintDebug("INTR ret IP = %x\n", guest_state->rip);
+    //PrintDebug("INTR ret IP = %x\n", guest_state->rip);
   }
 
   return 0;

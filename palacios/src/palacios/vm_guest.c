@@ -1,7 +1,8 @@
 #include <palacios/vm_guest.h>
 #include <palacios/vmm.h>
 
-void PrintV3Segments(struct v3_segments * segs) {
+void PrintV3Segments(struct guest_info * info) {
+  struct v3_segments * segs = &(info->segments);
   int i = 0;
   struct v3_segment * seg_ptr;
 
@@ -19,7 +20,8 @@ void PrintV3Segments(struct v3_segments * segs) {
 }
 
 
-void PrintV3CtrlRegs(struct v3_ctrl_regs * regs) {
+void PrintV3CtrlRegs(struct guest_info * info) {
+  struct v3_ctrl_regs * regs = &(info->ctrl_regs);
   int i = 0;
   v3_reg_t * reg_ptr;
   char * reg_names[] = {"CR0", "CR2", "CR3", "CR4", "CR8", "FLAGS", NULL};
@@ -27,6 +29,22 @@ void PrintV3CtrlRegs(struct v3_ctrl_regs * regs) {
   reg_ptr= (v3_reg_t *)regs;
 
   PrintDebug("32 bit Ctrl Regs:\n");
+
+  for (i = 0; reg_names[i] != NULL; i++) {
+    PrintDebug("\t%s=0x%x\n", reg_names[i], reg_ptr[i]);  
+  }
+}
+
+
+void PrintV3GPRs(struct guest_info * info) {
+  struct v3_gprs * regs = &(info->vm_regs);
+  int i = 0;
+  v3_reg_t * reg_ptr;
+  char * reg_names[] = { "RDI", "RSI", "RBP", "RSP", "RBX", "RDX", "RCX", "RAX", NULL};
+
+  reg_ptr= (v3_reg_t *)regs;
+
+  PrintDebug("32 bit GPRs:\n");
 
   for (i = 0; reg_names[i] != NULL; i++) {
     PrintDebug("\t%s=0x%x\n", reg_names[i], reg_ptr[i]);  

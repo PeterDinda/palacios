@@ -74,7 +74,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
 
   ctrl_area->exceptions.de = 1;
   ctrl_area->exceptions.df = 1;
-  ctrl_area->exceptions.pf = 1;
+
   ctrl_area->exceptions.ts = 1;
   ctrl_area->exceptions.ss = 1;
   ctrl_area->exceptions.ac = 1;
@@ -182,6 +182,8 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
     ctrl_area->instrs.INVLPG = 1;
     ctrl_area->instrs.INVLPGA = 1;
 
+    ctrl_area->exceptions.pf = 1;
+
     /* JRL: This is a performance killer, and a simplistic solution */
     /* We need to fix this */
     ctrl_area->TLB_CONTROL = 1;
@@ -275,7 +277,6 @@ static int start_svm_guest(struct guest_info *info) {
     rdtscll(info->time_state.cached_host_tsc);
     guest_ctrl->TSC_OFFSET = info->time_state.guest_tsc - info->time_state.cached_host_tsc;
 
-    PrintDebug("Launching\n");
     safe_svm_launch((vmcb_t*)(info->vmm_data), &(info->vm_regs));
 
     rdtscll(tmp_tsc);
@@ -301,9 +302,9 @@ static int start_svm_guest(struct guest_info *info) {
 
 
       PrintDebug("RIP Linear: %x\n", linear_addr);
-      PrintV3Segments(&(info->segments));
-      PrintV3CtrlRegs(&(info->ctrl_regs));
-
+      PrintV3Segments(info);
+      PrintV3CtrlRegs(info);
+      PrintV3GPRs(info);
       
       if (info->mem_mode == PHYSICAL_MEM) {
 	guest_pa_to_host_pa(info, linear_addr, &host_addr);

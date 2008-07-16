@@ -12,11 +12,21 @@ int handle_svm_halt(struct guest_info * info)
   // What we will hackishly do instead is resume on any event
   // Plus is this totally GeekOS specific
 
+  ullong_t yield_start = 0;
+  ullong_t yield_stop = 0;
+  uint32_t gap = 0;
+
   PrintDebug("GeekOS Yield\n");
 
+  rdtscll(yield_start);
   Yield();
+  rdtscll(yield_stop);
 
-  PrintDebug("GeekOS Yield Done\n");
+
+  v3_update_time(info, yield_stop - yield_start);
+  gap = yield_stop - yield_start;
+
+  PrintDebug("GeekOS Yield Done (%d cycles)\n", gap);
 
   info->rip+=1;
 

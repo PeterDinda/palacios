@@ -1,4 +1,4 @@
-#include <palacios/vmm_mem.h>
+ #include <palacios/vmm_mem.h>
 #include <palacios/vmm.h>
 #include <palacios/vmcb.h>
 #include <palacios/vmm_decoder.h>
@@ -29,7 +29,7 @@ int handle_cr0_write(struct guest_info * info) {
       
       PrintDebug("Real Mode write to CR0 at linear guest pa 0x%x\n",get_addr_linear(info,info->rip,&(info->segments.cs)));
 
-      PrintV3Segments(&(info->segments));
+      PrintV3Segments(info);
 
       // The real rip address is actually a combination of the rip + CS base 
       ret = read_guest_pa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
@@ -333,7 +333,7 @@ int handle_cr0_write(struct guest_info * info) {
 	    info->mem_mode = PHYSICAL_MEM;
 	    PrintDebug("Entering Real Mode\n");
 
-	    PrintV3CtrlRegs(&(info->ctrl_regs));
+	    PrintV3CtrlRegs(info);
 	    // reinstate the identity mapped paged tables
 	    // But keep the shadow tables around to handle TLB issues.... UGH...
 	    //info->shdw_pg_state.shadow_cr3 &= 0x00000fff;
@@ -348,12 +348,19 @@ int handle_cr0_write(struct guest_info * info) {
 	    shadow_cr0->et = 1;
 	    real_cr0->et = 1;
 
-	    PrintV3CtrlRegs(&(info->ctrl_regs));
+	    PrintV3CtrlRegs(info);
 
 	  }
 
 
 	} else {
+	  if (new_cr0->pg == 1) {
+	    info->mem_mode = VIRTUAL_MEM;
+	  } else if (new_cr0->pg == 0) {
+	    info->cpu_mode = REAL;
+	    info->mem_mode = PHYSICAL_MEM;
+	  }
+
 	  *real_cr0 = *new_cr0;
 	}
 
@@ -488,7 +495,7 @@ int handle_cr0_read(struct guest_info * info) {
       int ret;
 
       PrintDebug("Real Mode read from CR0 at linear guest pa 0x%x\n",get_addr_linear(info,info->rip,&(info->segments.cs)));
-      PrintV3Segments(&(info->segments));
+      PrintV3Segments(info);
 
       // The real rip address is actually a combination of the rip + CS base 
       ret = read_guest_pa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
@@ -691,14 +698,13 @@ int handle_cr0_read(struct guest_info * info) {
 	  if (info->mem_mode == PHYSICAL_MEM) {
 	    virt_cr0->pg = 0; // clear the pg bit because guest doesn't think it's on
 	  }
-
-	  PrintDebug("real CR0: %x\n", *(uint_t*)real_cr0);
-	  PrintDebug("returned CR0: %x\n", *(uint_t*)virt_cr0);
-
 	  
 	} else {
 	  *virt_cr0 = *real_cr0;
 	}
+
+	  PrintDebug("real CR0: %x\n", *(uint_t*)real_cr0);
+	  PrintDebug("returned CR0: %x\n", *(uint_t*)virt_cr0);
       
 	info->rip += index;
 
@@ -1006,7 +1012,7 @@ int handle_cr3_read(struct guest_info * info) {
 
     
     PrintDebug("RIP Linear: %x\n", linear_addr);
-    PrintV3Segments(&(info->segments));
+    PrintV3Segments(info);
     
     ret = read_guest_pa_memory(info, linear_addr, 15, instr);
 
@@ -1145,7 +1151,7 @@ int handle_cr3_read(struct guest_info * info) {
     }
   } else {
     PrintDebug("Invalid operating Mode (0x%x), control registers follow\n", info->cpu_mode);
-    PrintV3CtrlRegs(&(info->ctrl_regs));
+    PrintV3CtrlRegs(info);
     return -1;
   }
 
