@@ -44,7 +44,7 @@ int handle_svm_exit(struct guest_info * info) {
 
   PrintDebug("SVM Returned: Exit Code: 0x%x \t\t(tsc=%ul)\n",exit_code, (uint_t)info->time_state.guest_tsc); 
   
-  if (exit_code < 0x40) {
+  if (exit_code < 0x4f) {
     char instr[32];
     int ret;
     // Dump out the instr stream
@@ -65,11 +65,11 @@ int handle_svm_exit(struct guest_info * info) {
     if (ret != 32) {
       // I think we should inject a GPF into the guest
       PrintDebug("Could not read instruction (ret=%d)\n", ret);
-      return -1;
-    }
+    } else {
 
-    PrintDebug("Instr Stream:\n");
-    PrintTraceMemDump(instr, 32);
+      PrintDebug("Instr Stream:\n");
+      PrintTraceMemDump(instr, 32);
+    }
   }
 
 

@@ -53,7 +53,7 @@ struct vm_intr {
 };
 
 
-int raise_irq(struct guest_info * info, int irq);
+int v3_raise_irq(struct guest_info * info, int irq);
 int hook_irq(struct guest_info * info, int irq);
 
 struct intr_ctrl_ops {

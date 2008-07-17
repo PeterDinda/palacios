@@ -9,7 +9,7 @@ void init_interrupt_state(struct guest_info * info) {
   info->intr_state.excp_num = 0;
   info->intr_state.excp_error_code = 0;
 
-  info->vm_ops.raise_irq = &raise_irq;
+  info->vm_ops.raise_irq = &v3_raise_irq;
 }
 
 void set_intr_controller(struct guest_info * info, struct intr_ctrl_ops * ops, void * state) {
@@ -65,7 +65,7 @@ int raise_exception(struct guest_info * info, uint_t excp) {
 }
 
 
-int raise_irq(struct guest_info * info, int irq) {
+int v3_raise_irq(struct guest_info * info, int irq) {
   // Look up PIC and resend
   V3_ASSERT(info);
   V3_ASSERT(info->intr_state.controller);

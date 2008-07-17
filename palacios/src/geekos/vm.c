@@ -415,7 +415,7 @@ IGNORE},   // DMA 2 channels 4,5,6,7 (address, counter)
 #if 0
       // give floppy controller to vm
       hook_irq(&vm_info, 6);
-
+#endif
 
       //primary ide
       hook_irq(&vm_info, 14);
@@ -423,7 +423,7 @@ IGNORE},   // DMA 2 channels 4,5,6,7 (address, counter)
       // secondary ide
       hook_irq(&vm_info, 15);
 
-#endif
+
 
       vm_info.rip = 0xfff0;
       vm_info.vm_regs.rsp = 0x0;
