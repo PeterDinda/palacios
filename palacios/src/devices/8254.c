@@ -2,6 +2,7 @@
 #include <palacios/vmm.h>
 #include <palacios/vmm_time.h>
 #include <palacios/vmm_util.h>
+#include <palacios/vmm_intr.h>
 
 
 
@@ -239,7 +240,7 @@ static void pit_update_time(ullong_t cpu_cycles, ullong_t cpu_freq, void * priva
     if (handle_crystal_tics(dev, &(state->ch_0), oscillations) == 1) {
       // raise interrupt
       PrintDebug("8254 PIT: Injecting Timer interrupt to guest\n");
-      dev->vm->vm_ops.raise_irq(dev->vm, 0);
+      v3_raise_irq(dev->vm, 0);
     }
 
     //handle_crystal_tics(dev, &(state->ch_1), oscillations);
