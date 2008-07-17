@@ -27,16 +27,14 @@
 
 // A port range is low..high, inclusive, third value is one of the above
 typedef uint_t generic_port_range_type[3];
-// A memory range is low..high, inclusive
+// A memory range is low..high, inclusive, flags
 typedef void *generic_address_range_type[3];
-// An interrupt ory map range is low..high, inclusive
+// An interrupt ory map range is low..high, inclusive, flags
 typedef uint_t generic_irq_range_type[3];
 
+// The lists given are null terminated
 struct vm_device *create_generic(generic_port_range_type    port_ranges[], 
-				 uint_t                     num_port_ranges,
 				 generic_address_range_type addess_ranges[],
-				 uint_t                     num_address_ranges,
-				 generic_irq_range_type     irq_ranges[],
-				 uint_t                     num_irqranges);
+				 generic_irq_range_type     irq_ranges[]);  
 
 #endif
