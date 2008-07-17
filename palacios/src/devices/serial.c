@@ -139,9 +139,9 @@ struct serial_port {
   struct irq_id_reg         iid;
   struct fifo_ctrl_reg      fcr;
   struct line_ctrl_reg      lcr;
-  struct model_ctrl_reg     mcr;
+  struct modem_ctrl_reg     mcr;
   struct line_status_reg    lsr;
-  struct model_status_reg   msr;
+  struct modem_status_reg   msr;
 
 
   char tx_buffer[256];
@@ -198,119 +198,121 @@ int read_status_port(ushort_t port, void * dst, uint_t length, struct vm_device 
 
 
 
-void serial_init(struct vm_device * dev) {
+int serial_init(struct vm_device * dev) {
   struct serial_state * state = (struct serial_state *)dev->private_data;
 
   state->com1.ier.rsvd = 0;
-  state->com1.iir.rsvd = 0;
+  state->com1.iid.rsvd = 0;
   state->com1.fcr.rsvd = 0;
   state->com1.mcr.rsvd = 0;
-  state->com1.iir.pending = 1;
+  state->com1.iid.pending = 1;
 
   state->com2.ier.rsvd = 0;
-  state->com2.iir.rsvd = 0;
+  state->com2.iid.rsvd = 0;
   state->com2.fcr.rsvd = 0;
   state->com2.mcr.rsvd = 0;
-  state->com2.iir.pending = 1;
+  state->com2.iid.pending = 1;
 
   state->com3.ier.rsvd = 0;
-  state->com3.iir.rsvd = 0;
+  state->com3.iid.rsvd = 0;
   state->com3.fcr.rsvd = 0;
   state->com3.mcr.rsvd = 0;
-  state->com3.iir.pending = 1;
+  state->com3.iid.pending = 1;
 
   state->com4.ier.rsvd = 0;
-  state->com4.iir.rsvd = 0;
+  state->com4.iid.rsvd = 0;
   state->com4.fcr.rsvd = 0;
   state->com4.mcr.rsvd = 0;
-  state->com4.iir.pending = 1;
+  state->com4.iid.pending = 1;
 
 
   dev_hook_io(dev, COM1_DATA_PORT, &read_data_port, &write_data_port);
   dev_hook_io(dev, COM1_IRQ_ENABLE_PORT, &read_ctrl_port, &write_ctrl_port);
   dev_hook_io(dev, COM1_FIFO_CTRL_PORT, &read_ctrl_port, &write_ctrl_port);
   dev_hook_io(dev, COM1_LINE_CTRL_PORT, &read_ctrl_port, &write_ctrl_port);
-  dev_hook_io(dev, COM1_MODEL_CTRL_PORT, &read_ctrl_port, &write_ctrl_port);
+  dev_hook_io(dev, COM1_MODEM_CTRL_PORT, &read_ctrl_port, &write_ctrl_port);
   dev_hook_io(dev, COM1_LINE_STATUS_PORT, &read_status_port, &write_status_port);
-  dev_hook_io(dev, COM1_MODEL_STATUS_PORT, &read_status_port, &write_status_port);
+  dev_hook_io(dev, COM1_MODEM_STATUS_PORT, &read_status_port, &write_status_port);
   dev_hook_io(dev, COM1_SCRATCH_PORT, &read_ctrl_port, &write_ctrl_port);
 
   dev_hook_io(dev, COM2_DATA_PORT, &read_data_port, &write_data_port);
   dev_hook_io(dev, COM2_IRQ_ENABLE_PORT, &read_ctrl_port, &write_ctrl_port);
   dev_hook_io(dev, COM2_FIFO_CTRL_PORT, &read_ctrl_port, &write_ctrl_port);
   dev_hook_io(dev, COM2_LINE_CTRL_PORT, &read_ctrl_port, &write_ctrl_port);
-  dev_hook_io(dev, COM2_MODEL_CTRL_PORT, &read_ctrl_port, &write_ctrl_port);
+  dev_hook_io(dev, COM2_MODEM_CTRL_PORT, &read_ctrl_port, &write_ctrl_port);
   dev_hook_io(dev, COM2_LINE_STATUS_PORT, &read_status_port, &write_status_port);
-  dev_hook_io(dev, COM2_MODEL_STATUS_PORT, &read_status_port, &write_status_port);
+  dev_hook_io(dev, COM2_MODEM_STATUS_PORT, &read_status_port, &write_status_port);
   dev_hook_io(dev, COM2_SCRATCH_PORT, &read_ctrl_port, &write_ctrl_port);
 
   dev_hook_io(dev, COM3_DATA_PORT, &read_data_port, &write_data_port);
   dev_hook_io(dev, COM3_IRQ_ENABLE_PORT, &read_ctrl_port, &write_ctrl_port);
   dev_hook_io(dev, COM3_FIFO_CTRL_PORT, &read_ctrl_port, &write_ctrl_port);
   dev_hook_io(dev, COM3_LINE_CTRL_PORT, &read_ctrl_port, &write_ctrl_port);
-  dev_hook_io(dev, COM3_MODEL_CTRL_PORT, &read_ctrl_port, &write_ctrl_port);
+  dev_hook_io(dev, COM3_MODEM_CTRL_PORT, &read_ctrl_port, &write_ctrl_port);
   dev_hook_io(dev, COM3_LINE_STATUS_PORT, &read_status_port, &write_status_port);
-  dev_hook_io(dev, COM3_MODEL_STATUS_PORT, &read_status_port, &write_status_port);
+  dev_hook_io(dev, COM3_MODEM_STATUS_PORT, &read_status_port, &write_status_port);
   dev_hook_io(dev, COM3_SCRATCH_PORT, &read_ctrl_port, &write_ctrl_port);
 
   dev_hook_io(dev, COM4_DATA_PORT, &read_data_port, &write_data_port);
   dev_hook_io(dev, COM4_IRQ_ENABLE_PORT, &read_ctrl_port, &write_ctrl_port);
   dev_hook_io(dev, COM4_FIFO_CTRL_PORT, &read_ctrl_port, &write_ctrl_port);
   dev_hook_io(dev, COM4_LINE_CTRL_PORT, &read_ctrl_port, &write_ctrl_port);
-  dev_hook_io(dev, COM4_MODEL_CTRL_PORT, &read_ctrl_port, &write_ctrl_port);
+  dev_hook_io(dev, COM4_MODEM_CTRL_PORT, &read_ctrl_port, &write_ctrl_port);
   dev_hook_io(dev, COM4_LINE_STATUS_PORT, &read_status_port, &write_status_port);
-  dev_hook_io(dev, COM4_MODEL_STATUS_PORT, &read_status_port, &write_status_port);
+  dev_hook_io(dev, COM4_MODEM_STATUS_PORT, &read_status_port, &write_status_port);
   dev_hook_io(dev, COM4_SCRATCH_PORT, &read_ctrl_port, &write_ctrl_port);
 
+  return 0;
 }
 
 
-void serial_deinit(struct vm_device * dev) {
+int serial_deinit(struct vm_device * dev) {
 
 
   dev_unhook_io(dev, COM1_DATA_PORT);
   dev_unhook_io(dev, COM1_IRQ_ENABLE_PORT);
   dev_unhook_io(dev, COM1_FIFO_CTRL_PORT);
   dev_unhook_io(dev, COM1_LINE_CTRL_PORT);
-  dev_unhook_io(dev, COM1_MODEL_CTRL_PORT);
+  dev_unhook_io(dev, COM1_MODEM_CTRL_PORT);
   dev_unhook_io(dev, COM1_LINE_STATUS_PORT);
-  dev_unhook_io(dev, COM1_MODEL_STATUS_PORT);
+  dev_unhook_io(dev, COM1_MODEM_STATUS_PORT);
   dev_unhook_io(dev, COM1_SCRATCH_PORT);
 
   dev_unhook_io(dev, COM2_DATA_PORT);
   dev_unhook_io(dev, COM2_IRQ_ENABLE_PORT);
   dev_unhook_io(dev, COM2_FIFO_CTRL_PORT);
   dev_unhook_io(dev, COM2_LINE_CTRL_PORT);
-  dev_unhook_io(dev, COM2_MODEL_CTRL_PORT);
+  dev_unhook_io(dev, COM2_MODEM_CTRL_PORT);
   dev_unhook_io(dev, COM2_LINE_STATUS_PORT);
-  dev_unhook_io(dev, COM2_MODEL_STATUS_PORT);
+  dev_unhook_io(dev, COM2_MODEM_STATUS_PORT);
   dev_unhook_io(dev, COM2_SCRATCH_PORT);
 
   dev_unhook_io(dev, COM3_DATA_PORT);
   dev_unhook_io(dev, COM3_IRQ_ENABLE_PORT);
   dev_unhook_io(dev, COM3_FIFO_CTRL_PORT);
   dev_unhook_io(dev, COM3_LINE_CTRL_PORT);
-  dev_unhook_io(dev, COM3_MODEL_CTRL_PORT);
+  dev_unhook_io(dev, COM3_MODEM_CTRL_PORT);
   dev_unhook_io(dev, COM3_LINE_STATUS_PORT);
-  dev_unhook_io(dev, COM3_MODEL_STATUS_PORT);
+  dev_unhook_io(dev, COM3_MODEM_STATUS_PORT);
   dev_unhook_io(dev, COM3_SCRATCH_PORT);
 
   dev_unhook_io(dev, COM4_DATA_PORT);
   dev_unhook_io(dev, COM4_IRQ_ENABLE_PORT);
   dev_unhook_io(dev, COM4_FIFO_CTRL_PORT);
   dev_unhook_io(dev, COM4_LINE_CTRL_PORT);
-  dev_unhook_io(dev, COM4_MODEL_CTRL_PORT);
+  dev_unhook_io(dev, COM4_MODEM_CTRL_PORT);
   dev_unhook_io(dev, COM4_LINE_STATUS_PORT);
-  dev_unhook_io(dev, COM4_MODEL_STATUS_PORT);
+  dev_unhook_io(dev, COM4_MODEM_STATUS_PORT);
   dev_unhook_io(dev, COM4_SCRATCH_PORT);
 
+  return 0;
 }
 
 
 
 static struct vm_device_ops dev_ops = {
   .init = serial_init,
-  .deinit = serial_deini,
+  .deinit = serial_deinit,
   .reset = NULL,
   .start = NULL,
   .stop = NULL,

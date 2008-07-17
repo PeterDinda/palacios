@@ -1,6 +1,6 @@
 # Makefile for GeekOS kernel, userspace, and tools
 # Copyright (c) 2004,2005 David H. Hovemeyer <daveho@cs.umd.edu>
-# $Revision: 1.42 $
+# $Revision: 1.43 $
 
 # This is free software.  You are permitted to use,
 # redistribute, and modify it as specified in the file "COPYING".
@@ -147,7 +147,7 @@ VMM_C_OBJS := $(VMM_C_SRCS:%.c=palacios/%.o)
 
 VMM_OBJS := $(VMM_C_OBJS) $(VMM_ASM_OBJS)
 
-DEVICE_C_SRCS :=  generic.c keyboard.c nvram.c timer.c simple_pic.c 8259a.c 8254.c
+DEVICE_C_SRCS := generic.c keyboard.c nvram.c timer.c simple_pic.c 8259a.c 8254.c serial.c
 
 DEVICE_C_OBJS := $(DEVICE_C_SRCS:%.c=devices/%.o)
 

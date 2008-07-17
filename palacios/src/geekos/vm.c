@@ -12,6 +12,7 @@
 #include <devices/8259a.h>
 #include <devices/8254.h>
 #include <devices/keyboard.h>
+#include <devices/serial.h>
 
 #include <palacios/vmm_intr.h>
 #include <palacios/vmm_dev_mgr.h>
@@ -344,6 +345,7 @@ int RunVMM(struct Boot_Info * bootInfo) {
 	struct vm_device * pic = create_pic();
 	struct vm_device * keyboard = create_keyboard();
 	struct vm_device * pit = create_pit(); 
+	struct vm_device * serial = create_serial();
 
 
 #define GENERIC 1
@@ -366,10 +368,12 @@ IGNORE},   // DMA 2 channels 4,5,6,7 (address, counter)
           {0xd0, 0xde, GENERIC_PRINT_AND_IGNORE},   // DMA 2 misc registers
 #endif
 
-	  {0x3f8, 0x3f8+7, GENERIC_PRINT_AND_IGNORE},      // COM 1
-	  {0x2f8, 0x2f8+7, GENERIC_PRINT_AND_IGNORE},      // COM 2
-	  {0x3e8, 0x3e8+7, GENERIC_PRINT_AND_IGNORE},      // COM 2
-	  {0x2e8, 0x2e8+7, GENERIC_PRINT_AND_IGNORE},      // COM 2
+	  /*
+	    {0x3f8, 0x3f8+7, GENERIC_PRINT_AND_IGNORE},      // COM 1
+	    {0x2f8, 0x2f8+7, GENERIC_PRINT_AND_IGNORE},      // COM 2
+	    {0x3e8, 0x3e8+7, GENERIC_PRINT_AND_IGNORE},      // COM 2
+	    {0x2e8, 0x2e8+7, GENERIC_PRINT_AND_IGNORE},      // COM 2
+	  */
 	  /*
 	    {0x170, 0x178, GENERIC_PRINT_AND_PASSTHROUGH}, // IDE 1
 	    {0x376, 0x377, GENERIC_PRINT_AND_PASSTHROUGH}, // IDE 1
@@ -387,7 +391,7 @@ IGNORE},   // DMA 2 channels 4,5,6,7 (address, counter)
 
         };
 
-	struct vm_device * generic = create_generic(range,10,  // THIS NUMBER IS CRITICAL
+	struct vm_device * generic = create_generic(range,6,  // THIS NUMBER IS CRITICAL
 
 						    NULL,0,NULL,0);
 #endif
@@ -397,6 +401,7 @@ IGNORE},   // DMA 2 channels 4,5,6,7 (address, counter)
 	attach_device(&(vm_info), pic);
 	attach_device(&(vm_info), pit);
 	attach_device(&(vm_info), keyboard);
+	attach_device(&(vm_info), serial);
 
 
 #if GENERIC
