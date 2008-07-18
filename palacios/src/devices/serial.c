@@ -134,18 +134,52 @@ struct modem_status_reg {
 };
 
 
+#define SERIAL_BUF_LEN 256
+
+struct serial_buffer {
+  uint_t head; // most recent data
+  uint_t tail; // oldest char
+  char buffer[SERIAL_BUF_LEN];
+};
+
+int queue_data(struct serial_buffer * buf, char data) {
+  int next_loc = (buf->head + 1) % SERIAL_BUF_LEN;
+
+  if (next_loc == buf->tail) {
+    return -1;
+  }
+
+  buf->buffer[next_loc] = data;
+  buf->head = next_loc;
+
+  return 0;
+}
+
+int dequeue_data(struct serial_buffer * buf, char * data) {
+  int next_tail = (buf->tail + 1) % SERIAL_BUF_LEN;
+
+  if (buf->head == buf->tail) {
+    return -1;
+  }
+
+  *data = buf->buffer[buf->tail];
+  buf->tail = next_tail;
+
+  return 0;
+}
+
+
 struct serial_port {
-  struct irq_enable_reg     ier;
-  struct irq_id_reg         iid;
-  struct fifo_ctrl_reg      fcr;
-  struct line_ctrl_reg      lcr;
-  struct modem_ctrl_reg     mcr;
-  struct line_status_reg    lsr;
-  struct modem_status_reg   msr;
+  char     ier;
+  char     iir;
+  char     fcr;
+  char     lcr;
+  char     mcr;
+  char     lsr;
+  char     msr;
 
-
-  char tx_buffer[256];
-  char rx_buffer[256];
+  struct serial_buffer tx_buffer;
+  struct serial_buffer rx_buffer;
 };
 
 
@@ -158,73 +192,293 @@ struct serial_state {
 
 
 int write_data_port(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
-  PrintDebug("Write to Data Port\n");
+  struct serial_state * state = (struct serial_state *)dev->private_data;
+  char * val = (char *)src;
+  PrintDebug("Write to Data Port 0x%x (val=%x)\n", port, *(char*)src);
 
-  return -1;
+  if (length != 1) {
+    PrintDebug("Invalid length(%d) in write to 0x%x\n", length, port);
+    return -1;
+  }
+
+  switch (port) {
+  case COM1_DATA_PORT:
+    queue_data(&(state->com1.tx_buffer), *val);
+    break;
+  case COM2_DATA_PORT:
+    queue_data(&(state->com2.tx_buffer), *val);
+    break;
+  case COM3_DATA_PORT:
+    queue_data(&(state->com3.tx_buffer), *val);
+    break;
+  case COM4_DATA_PORT:
+    queue_data(&(state->com4.tx_buffer), *val);
+    break;
+  default:
+    return -1;
+  }
+  
+
+  return length;
 }
 
+
+
 int read_data_port(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
-  PrintDebug("Read from Data Port\n");
+  struct serial_state * state = (struct serial_state *)dev->private_data;
+  char * val = (char *)dst;
+  PrintDebug("Read from Data Port 0x%x\n", port);
+
+  if (length != 1) {
+    PrintDebug("Invalid length(%d) in write to 0x%x\n", length, port);
+    return -1;
+  }
+
+  switch (port) {
+  case COM1_DATA_PORT:
+    dequeue_data(&(state->com1.tx_buffer), val);
+    break;
+  case COM2_DATA_PORT:
+    dequeue_data(&(state->com2.tx_buffer), val);
+    break;
+  case COM3_DATA_PORT:
+    dequeue_data(&(state->com3.tx_buffer), val);
+    break;
+  case COM4_DATA_PORT:
+    dequeue_data(&(state->com4.tx_buffer), val);
+    break;
+  default:
+    return -1;
+  }
+  
+
+  return length;
+}
+
+
+
+int handle_ier_write(struct serial_port * com, struct irq_enable_reg * ier) {
+  
+
   return -1;
 }
 
 
 int write_ctrl_port(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
-  PrintDebug("Write to Control Port\n");
+  struct serial_state * state = (struct serial_state *)dev->private_data;
+  char * val = (char *)src;
+  PrintDebug("Write to Control Port (val=%x)\n", *(char *)src);
+
+  if (length != 1) {
+    PrintDebug("Invalid Write length to control port\n", port, port);
+    return -1;
+  }
+
+  switch (port) {
+  case COM1_IRQ_ENABLE_PORT:
+    if (handle_ier_write(&(state->com1), (struct irq_enable_reg *)val) == -1) {
+      return -1;
+    }
+    break;
+  case COM2_IRQ_ENABLE_PORT:
+    if (handle_ier_write(&(state->com2), (struct irq_enable_reg *)val) == -1) {
+      return -1;
+    }
+    break;
+  case COM3_IRQ_ENABLE_PORT:
+    if (handle_ier_write(&(state->com3), (struct irq_enable_reg *)val) == -1) {
+      return -1;
+    }
+    break;
+  case COM4_IRQ_ENABLE_PORT:
+    if (handle_ier_write(&(state->com4), (struct irq_enable_reg *)val) == -1) {
+      return -1;
+    }
+    break;
+
+  case COM1_FIFO_CTRL_PORT:
+  case COM2_FIFO_CTRL_PORT:
+  case COM3_FIFO_CTRL_PORT:
+  case COM4_FIFO_CTRL_PORT:
+
+  case COM1_LINE_CTRL_PORT:
+  case COM2_LINE_CTRL_PORT:
+  case COM3_LINE_CTRL_PORT:
+  case COM4_LINE_CTRL_PORT:
+
+  case COM1_MODEM_CTRL_PORT:
+  case COM2_MODEM_CTRL_PORT:
+  case COM3_MODEM_CTRL_PORT:
+  case COM4_MODEM_CTRL_PORT:
+    
+
+
+  default:
+    return -1;
+  }
+
 
   return -1;
 }
 
+
+
+
 int read_ctrl_port(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
+  struct serial_state * state = (struct serial_state *)dev->private_data;
+  char * val = (char *)dst;
   PrintDebug("Read from Control Port\n");
-  return -1;
+
+  if (length != 1) {
+    PrintDebug("Invalid Read length to control port\n");
+    return -1;
+  }
+
+  switch (port) {
+  case COM1_IRQ_ENABLE_PORT:
+    *val = state->com1.ier;
+    break;
+  case COM2_IRQ_ENABLE_PORT:
+    *val = state->com2.ier;
+    break;
+  case COM3_IRQ_ENABLE_PORT:
+    *val = state->com3.ier;
+    break;
+  case COM4_IRQ_ENABLE_PORT:
+    *val = state->com4.ier;
+    break;
+
+  case COM1_FIFO_CTRL_PORT:
+    *val = state->com1.fcr;
+    break;
+  case COM2_FIFO_CTRL_PORT:
+    *val = state->com2.fcr;
+    break;
+  case COM3_FIFO_CTRL_PORT:
+    *val = state->com3.fcr;
+    break;
+  case COM4_FIFO_CTRL_PORT:
+    *val = state->com4.fcr;
+    break;
+
+  case COM1_LINE_CTRL_PORT:
+    *val = state->com1.lcr;
+    break;
+  case COM2_LINE_CTRL_PORT:
+    *val = state->com2.lcr;
+    break;
+  case COM3_LINE_CTRL_PORT:
+    *val = state->com3.lcr;
+    break;
+  case COM4_LINE_CTRL_PORT:
+    *val = state->com4.lcr;
+    break;
+
+  case COM1_MODEM_CTRL_PORT:
+    *val = state->com1.mcr;
+    break;
+  case COM2_MODEM_CTRL_PORT:
+    *val = state->com2.mcr;
+    break;
+  case COM3_MODEM_CTRL_PORT:
+    *val = state->com3.mcr;
+    break;
+  case COM4_MODEM_CTRL_PORT:
+    *val = state->com4.mcr;
+    break;
+
+  default:
+    return -1;
+  }
+
+  return length;
 }
 
 
 int write_status_port(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
-  PrintDebug("Write to Status Port\n");
+  PrintDebug("Write to Status Port 0x%x (val=%x)\n", port, *(char *)src);
 
   return -1;
 }
 
 int read_status_port(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
-  PrintDebug("Read from Status Port\n");
-  return -1;
+  struct serial_state * state = (struct serial_state *)dev->private_data;
+  char * val = (char *)dst;
+  PrintDebug("Read from Status Port 0x%x\n", port);
+  
+  if (length != 1) {
+    PrintDebug("Invalid Read length to control port\n");
+    return -1;
+  }
+  
+  switch (port) {
+  case COM1_LINE_STATUS_PORT:
+    *val = state->com1.lsr;
+    break;
+  case COM2_LINE_STATUS_PORT:
+    *val = state->com2.lsr;
+    break;
+  case COM3_LINE_STATUS_PORT:
+    *val = state->com3.lsr;
+    break;
+  case COM4_LINE_STATUS_PORT:
+    *val = state->com4.lsr;
+    break;
+    
+  case COM1_MODEM_STATUS_PORT:
+    *val = state->com1.msr;
+    break;
+  case COM2_MODEM_STATUS_PORT:
+    *val = state->com2.msr;
+    break;
+  case COM3_MODEM_STATUS_PORT:
+    *val = state->com3.msr;
+    break;
+  case COM4_MODEM_STATUS_PORT:
+    *val = state->com4.msr;
+    break;
+
+  default:
+    return -1;
+  }
+
+
+
+  return length;
 }
 
 
 
 
 
+static int init_serial_port(struct serial_port * com) {
+  //struct irq_enable_reg * ier = (struct irq_enable_reg *)&(com->ier);
+  //struct irq_id_reg * iir = (struct irq_id_reg *)&(com->iir);
+  //struct fifo_ctrl_reg * fcr = (struct fifo_ctrl_reg *)&(com->fcr);
+  //struct line_ctrl_reg * lcr = (struct line_ctrl_reg *)&(com->lcr);
+  //struct modem_ctrl_reg * mcr = (struct modem_ctrl_reg *)&(com->mcr);
+  //struct line_status_reg * lsr = (struct line_status_reg *)&(com->lsr);
+  //struct modem_status_reg * msr = (struct modem_status_reg *)&(com->msr);
 
+  com->ier = 0x00;
+  com->iir = 0x01;
+  com->fcr = 0x00;
+  com->lcr = 0x00;
+  com->mcr = 0x00;
+  com->lsr = 0x60;
+  com->msr = 0x00;
+
+  return 0;
+}
 
 int serial_init(struct vm_device * dev) {
   struct serial_state * state = (struct serial_state *)dev->private_data;
 
-  state->com1.ier.rsvd = 0;
-  state->com1.iid.rsvd = 0;
-  state->com1.fcr.rsvd = 0;
-  state->com1.mcr.rsvd = 0;
-  state->com1.iid.pending = 1;
 
-  state->com2.ier.rsvd = 0;
-  state->com2.iid.rsvd = 0;
-  state->com2.fcr.rsvd = 0;
-  state->com2.mcr.rsvd = 0;
-  state->com2.iid.pending = 1;
-
-  state->com3.ier.rsvd = 0;
-  state->com3.iid.rsvd = 0;
-  state->com3.fcr.rsvd = 0;
-  state->com3.mcr.rsvd = 0;
-  state->com3.iid.pending = 1;
-
-  state->com4.ier.rsvd = 0;
-  state->com4.iid.rsvd = 0;
-  state->com4.fcr.rsvd = 0;
-  state->com4.mcr.rsvd = 0;
-  state->com4.iid.pending = 1;
-
+  init_serial_port(&(state->com1));
+  init_serial_port(&(state->com2));
+  init_serial_port(&(state->com3));
+  init_serial_port(&(state->com4));
 
   dev_hook_io(dev, COM1_DATA_PORT, &read_data_port, &write_data_port);
   dev_hook_io(dev, COM1_IRQ_ENABLE_PORT, &read_ctrl_port, &write_ctrl_port);
