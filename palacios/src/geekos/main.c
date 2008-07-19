@@ -3,7 +3,7 @@
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
  * Copyright (c) 2004, Iulian Neamtiu <neamtiu@cs.umd.edu>
- * $Revision: 1.38 $
+ * $Revision: 1.39 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -42,6 +42,13 @@
 
 #define SPEAKER_PORT 0x61
 
+
+void Spin()
+{
+  // hack - competing thread
+  while (1) {};
+
+}
 
 
 void Buzz(unsigned delay, unsigned num)
@@ -211,6 +218,14 @@ void Main(struct Boot_Info* bootInfo)
     SerialPrint("Dumping kernel Code (first 512 bytes @ 0x%x)\n",KERNEL_START);
     SerialMemDump((unsigned char *)VM_KERNEL_START, 512);
   */
+#endif
+
+
+#if 1
+  struct Kernel_Thread *spin_thread;
+
+  spin_thread=Start_Kernel_Thread(Spin,0,PRIORITY_NORMAL,false);
+
 #endif
 
 #if 0

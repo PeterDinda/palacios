@@ -82,6 +82,9 @@ int IO_Read_to_Serial(ushort_t port, void * dst, uint_t length, void * priv_data
 char * bochs_debug_buf = NULL;
 int bochs_debug_offset = 0;
 
+char * bochs_info_buf = NULL;
+int bochs_info_offset = 0;
+
 
 int IO_BOCHS_debug(ushort_t port, void * src, uint_t length, void * priv_data) {
   if (!bochs_debug_buf) {
@@ -91,9 +94,25 @@ int IO_BOCHS_debug(ushort_t port, void * src, uint_t length, void * priv_data) {
   bochs_debug_buf[bochs_debug_offset++] = *(char*)src;
 
   if ((*(char*)src == 0xa) ||  (bochs_debug_offset == 1023)) {
-    SerialPrint("BOCHS>%s", bochs_debug_buf);
+    SerialPrint("BOCHSDEBUG>%s", bochs_debug_buf);
     memset(bochs_debug_buf, 0, 1024);
     bochs_debug_offset = 0;
+  }
+
+  return length;
+}
+
+int IO_BOCHS_info(ushort_t port, void * src, uint_t length, void * priv_data) {
+  if (!bochs_info_buf) {
+    bochs_info_buf = (char*)Malloc(1024);
+  }
+
+  bochs_info_buf[bochs_info_offset++] = *(char*)src;
+
+  if ((*(char*)src == 0xa) ||  (bochs_info_offset == 1023)) {
+    SerialPrint("BOCHSINFO>%s", bochs_info_buf);
+    memset(bochs_info_buf, 0, 1024);
+    bochs_info_offset = 0;
   }
 
   return length;
@@ -335,8 +354,8 @@ int RunVMM(struct Boot_Info * bootInfo) {
 
       hook_io_port(&(vm_info.io_map), 0x400, &IO_Read, &IO_Write_to_Serial, NULL);
       hook_io_port(&(vm_info.io_map), 0x401, &IO_Read, &IO_Write_to_Serial, NULL);
-      hook_io_port(&(vm_info.io_map), 0x402, &IO_Read, &IO_BOCHS_debug, NULL);
-      hook_io_port(&(vm_info.io_map), 0x403, &IO_Read, &IO_Write_to_Serial, NULL);
+      hook_io_port(&(vm_info.io_map), 0x402, &IO_Read, &IO_BOCHS_info, NULL);
+      hook_io_port(&(vm_info.io_map), 0x403, &IO_Read, &IO_BOCHS_debug, NULL);
 
       {
 	
@@ -345,7 +364,7 @@ int RunVMM(struct Boot_Info * bootInfo) {
 	struct vm_device * pic = create_pic();
 	struct vm_device * keyboard = create_keyboard();
 	struct vm_device * pit = create_pit(); 
-	struct vm_device * serial = create_serial();
+	//struct vm_device * serial = create_serial();
 
 
 #define GENERIC 1
@@ -368,18 +387,21 @@ IGNORE},   // DMA 2 channels 4,5,6,7 (address, counter)
           {0xd0, 0xde, GENERIC_PRINT_AND_IGNORE},   // DMA 2 misc registers
 #endif
 
-	  /*
-	    {0x3f8, 0x3f8+7, GENERIC_PRINT_AND_IGNORE},      // COM 1
-	    {0x2f8, 0x2f8+7, GENERIC_PRINT_AND_IGNORE},      // COM 2
-	    {0x3e8, 0x3e8+7, GENERIC_PRINT_AND_IGNORE},      // COM 2
-	    {0x2e8, 0x2e8+7, GENERIC_PRINT_AND_IGNORE},      // COM 2
-	  */
-	  /*
+	  
+	  {0x3f8, 0x3f8+7, GENERIC_PRINT_AND_IGNORE},      // COM 1
+	  {0x2f8, 0x2f8+7, GENERIC_PRINT_AND_IGNORE},      // COM 2
+	  {0x3e8, 0x3e8+7, GENERIC_PRINT_AND_IGNORE},      // COM 3
+	  {0x2e8, 0x2e8+7, GENERIC_PRINT_AND_IGNORE},      // COM 4
+	  
+#if 0
 	    {0x170, 0x178, GENERIC_PRINT_AND_PASSTHROUGH}, // IDE 1
 	    {0x376, 0x377, GENERIC_PRINT_AND_PASSTHROUGH}, // IDE 1
 	    {0x1f0, 0x1f8, GENERIC_PRINT_AND_PASSTHROUGH}, // IDE 0
 	    {0x3f6, 0x3f7, GENERIC_PRINT_AND_PASSTHROUGH}, // IDE 0
-	  */
+#endif
+
+
+#if 0
 	  {0x3f0, 0x3f2, GENERIC_PRINT_AND_IGNORE}, // Primary floppy controller (base,statusa/statusb,DOR)
 	  {0x3f4, 0x3f5, GENERIC_PRINT_AND_IGNORE}, // Primary floppy controller (mainstat/datarate,data)
 	  {0x3f7, 0x3f7, GENERIC_PRINT_AND_IGNORE}, // Primary floppy controller (DIR)
@@ -387,13 +409,16 @@ IGNORE},   // DMA 2 channels 4,5,6,7 (address, counter)
 	  {0x374, 0x375, GENERIC_PRINT_AND_IGNORE}, // Secondary floppy controller (mainstat/datarate,data)
 	  {0x377, 0x377, GENERIC_PRINT_AND_IGNORE}, // Secondary floppy controller (DIR)
 
+#endif
+
 	  //	  {0x378, 0x400, GENERIC_PRINT_AND_IGNORE}
+
+	  {0,0,0},  // sentinal - must be last
 
         };
 
-	struct vm_device * generic = create_generic(range,6,  // THIS NUMBER IS CRITICAL
+	struct vm_device * generic = create_generic(range,NULL,NULL);
 
-						    NULL,0,NULL,0);
 #endif
 
 	attach_device(&(vm_info), nvram);
@@ -401,7 +426,7 @@ IGNORE},   // DMA 2 channels 4,5,6,7 (address, counter)
 	attach_device(&(vm_info), pic);
 	attach_device(&(vm_info), pit);
 	attach_device(&(vm_info), keyboard);
-	attach_device(&(vm_info), serial);
+	// attach_device(&(vm_info), serial);
 
 
 #if GENERIC
@@ -417,7 +442,7 @@ IGNORE},   // DMA 2 channels 4,5,6,7 (address, counter)
       // no longer needed since we have a keyboard device
       //hook_irq(&vm_info, 1);
       
-#if 0
+#if 1
       // give floppy controller to vm
       hook_irq(&vm_info, 6);
 #endif
