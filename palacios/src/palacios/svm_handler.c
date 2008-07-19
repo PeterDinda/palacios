@@ -5,6 +5,7 @@
 #include <palacios/vmm_ctrl_regs.h>
 #include <palacios/svm_io.h>
 #include <palacios/svm_halt.h>
+#include <palacios/svm_pause.h>
 #include <palacios/vmm_intr.h>
 
 
@@ -177,6 +178,11 @@ int handle_svm_exit(struct guest_info * info) {
     if (handle_svm_halt(info) == -1) {
       return -1;
     }
+  } else if (exit_code == VMEXIT_PAUSE) { 
+    PrintDebug("Guest paused\n");
+    if (handle_svm_pause(info) == -1) { 
+      return -1;
+    }
   } else {
     addr_t rip_addr;
     char buf[15];
@@ -230,7 +236,7 @@ int handle_svm_exit(struct guest_info * info) {
 
     PrintTraceMemDump(buf, 15);
 
-    while(1);
+    return -1;
 
   }
 
@@ -269,7 +275,7 @@ int handle_svm_exit(struct guest_info * info) {
 
 	guest_ctrl->EVENTINJ.type = SVM_INJECTION_EXCEPTION;
 	
-	if (info->intr_state.excp_error_code) {
+	if (info->intr_state.excp_error_code_valid) {  //PAD
 	  guest_ctrl->EVENTINJ.error_code = info->intr_state.excp_error_code;
 	  guest_ctrl->EVENTINJ.ev = 1;
 	  PrintDebug("Injecting error code %x\n", guest_ctrl->EVENTINJ.error_code);

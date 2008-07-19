@@ -375,7 +375,7 @@ int handle_shadow_pte32_fault(struct guest_info * info,
     info->ctrl_regs.cr2 = fault_addr;
     raise_exception_with_error(info, PF_EXCEPTION, *(uint_t *)&error_code);
     
-    PrintDebug("Access error injecting pf to guest (guest access error=%d) (pf error code=%d)\n", guest_pte_access, error_code);
+    PrintDebug("Access error injecting pf to guest (guest access error=%d) (pf error code=%d)\n", guest_pte_access, *(uint_t*)&error_code);
     return 0; 
   }
   
