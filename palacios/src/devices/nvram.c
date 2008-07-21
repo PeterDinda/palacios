@@ -2,9 +2,15 @@
 #include <palacios/vmm.h>
 #include <palacios/vmm_types.h>
 
-extern struct vmm_os_hooks *os_hooks;
 
-extern void SerialPrint(const char *format, ...);
+#ifndef DEBUG_NVRAM
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
+#endif
+
+
+
+
 
 #define NVRAM_REG_PORT  0x70
 #define NVRAM_DATA_PORT 0x71
@@ -153,7 +159,7 @@ int nvram_reset_device(struct vm_device * dev)
 {
   struct nvram_internal *data = (struct nvram_internal *) dev->private_data;
   
-  SerialPrint("nvram: reset device\n");
+  PrintDebug("nvram: reset device\n");
 
  
 
@@ -171,14 +177,14 @@ int nvram_reset_device(struct vm_device * dev)
 
 int nvram_start_device(struct vm_device *dev)
 {
-  SerialPrint("nvram: start device\n");
+  PrintDebug("nvram: start device\n");
   return 0;
 }
 
 
 int nvram_stop_device(struct vm_device *dev)
 {
-  SerialPrint("nvram: stop device\n");
+  PrintDebug("nvram: stop device\n");
   return 0;
 }
 
@@ -241,7 +247,7 @@ int nvram_init_device(struct vm_device * dev) {
  
   struct nvram_internal *data = (struct nvram_internal *) dev->private_data;
 
-  SerialPrint("nvram: init_device\n");
+  PrintDebug("nvram: init_device\n");
 
   memset(data->mem_state, 0, NVRAM_REG_MAX);
 
@@ -284,9 +290,9 @@ static struct vm_device_ops dev_ops = {
 
 
 struct vm_device *create_nvram() {
-  struct nvram_internal * nvram_state = os_hooks->malloc(sizeof(struct nvram_internal)+1000);
+  struct nvram_internal * nvram_state = (struct nvram_internal *)V3_Malloc(sizeof(struct nvram_internal)+1000);
 
-  SerialPrint("internal at %x\n",nvram_state);
+  PrintDebug("internal at %x\n",nvram_state);
 
   struct vm_device *device = create_device("NVRAM", &dev_ops, nvram_state);
 

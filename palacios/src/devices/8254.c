@@ -6,7 +6,10 @@
 
 
 
-
+#ifndef DEBUG_PIT
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
+#endif
 
 
 
@@ -402,7 +405,7 @@ static int pit_read_channel(ushort_t port, void * dst, uint_t length, struct vm_
   char * val = (char *)dst;
 
   if (length != 1) {
-    PrintDebug("8254 PIT: Invalid Read Write length \n");
+    PrintError("8254 PIT: Invalid Read Write length \n");
     return -1;
   }
 
@@ -425,7 +428,7 @@ static int pit_read_channel(ushort_t port, void * dst, uint_t length, struct vm_
     }
     break;
   default:
-    PrintDebug("8254 PIT: Read from invalid port (%d)\n", port);
+    PrintError("8254 PIT: Read from invalid port (%d)\n", port);
     return -1;
   }
 
@@ -439,7 +442,7 @@ static int pit_write_channel(ushort_t port, void * src, uint_t length, struct vm
   char val = *(char *)src;
 
   if (length != 1) {
-    PrintDebug("8254 PIT: Invalid Write Length\n");
+    PrintError("8254 PIT: Invalid Write Length\n");
     return -1;
   }
 
@@ -463,7 +466,7 @@ static int pit_write_channel(ushort_t port, void * src, uint_t length, struct vm
     }
     break;
   default:
-    PrintDebug("8254 PIT: Write to invalid port (%d)\n", port);
+    PrintError("8254 PIT: Write to invalid port (%d)\n", port);
     return -1;
   }
 
@@ -480,7 +483,7 @@ static int pit_write_command(ushort_t port, void * src, uint_t length, struct vm
   PrintDebug("8254 PIT: Write to PIT Command port\n");
   PrintDebug("8254 PIT: Writing to channel %d (access_mode = %d, op_mode = %d)\n", cmd->channel, cmd->access_mode, cmd->op_mode);
   if (length != 1) {
-    PrintDebug("8254 PIT: Write of Invalid length to command port\n");
+    PrintError("8254 PIT: Write of Invalid length to command port\n");
     return -1;
   }
 
@@ -549,10 +552,11 @@ static int pit_init(struct vm_device * dev) {
   dev_hook_io(dev, CHANNEL2_PORT, &pit_read_channel, &pit_write_channel);
   dev_hook_io(dev, COMMAND_PORT, NULL, &pit_write_command);
 
+#ifdef DEBUG_PIT
   PrintDebug("8254 PIT: OSC_HZ=%d, reload_val=", OSC_HZ);
   PrintTraceLL(reload_val);
   PrintDebug("\n");
-
+#endif
 
   v3_add_timer(dev->vm, &timer_ops, dev);
 
@@ -568,9 +572,11 @@ static int pit_init(struct vm_device * dev) {
   init_channel(&(state->ch_1));
   init_channel(&(state->ch_2));
 
+#ifdef DEBUG_PIT
   PrintDebug("8254 PIT: CPU MHZ=%d -- pit count=", cpu_khz / 1000);
   PrintTraceLL(state->pit_counter);
   PrintDebug("\n");
+#endif
 
   return 0;
 }

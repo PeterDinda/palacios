@@ -2,7 +2,7 @@
 #include <palacios/vmm_string.h>
 #include <palacios/vmm.h>
 
-extern struct vmm_os_hooks * os_hooks;
+
 
 
 #ifndef DEBUG_IO
@@ -132,7 +132,7 @@ int hook_io_port(vmm_io_map_t * io_map, uint_t port,
 		 int (*read)(ushort_t port, void * dst, uint_t length, void * priv_data),
 		 int (*write)(ushort_t port, void * src, uint_t length, void * priv_data), 
 		 void * priv_data) {
-  vmm_io_hook_t * io_hook = os_hooks->malloc(sizeof(vmm_io_hook_t));
+  vmm_io_hook_t * io_hook = (vmm_io_hook_t *)V3_Malloc(sizeof(vmm_io_hook_t));
 
   io_hook->port = port;
 

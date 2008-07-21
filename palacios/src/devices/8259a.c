@@ -3,6 +3,10 @@
 #include <palacios/vmm_types.h>
 #include <palacios/vmm.h>
 
+#ifndef DEBUG_PIC
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
+#endif
 
 typedef enum {RESET, ICW1, ICW2, ICW3, ICW4,  READY} pic_state_t;
 
@@ -170,7 +174,7 @@ static int pic_raise_intr(void * private_data, int irq) {
   } else if ((irq > 7) && (irq < 16)) {
     state->slave_irr |= 0x01 << (irq - 8);  // PAD if -7 then irq 15=no irq
   } else {
-    PrintDebug("8259 PIC: Invalid IRQ raised (%d)\n", irq);
+    PrintError("8259 PIC: Invalid IRQ raised (%d)\n", irq);
     return -1;
   }
 
@@ -240,7 +244,7 @@ static int pic_begin_irq(void * private_data, int irq) {
     irq &= 0x7;
     irq += 8;
   } else {
-    PrintDebug("8259 PIC: Could not find IRQ (0x%x) to Begin\n",irq);
+    PrintError("8259 PIC: Could not find IRQ (0x%x) to Begin\n",irq);
     return -1;
   }
 
@@ -278,7 +282,7 @@ int read_master_port1(ushort_t port, void * dst, uint_t length, struct vm_device
   struct pic_internal * state = (struct pic_internal*)dev->private_data;
 
   if (length != 1) {
-    PrintDebug("8259 PIC: Invalid Read length (rd_Master1)\n");
+    PrintError("8259 PIC: Invalid Read length (rd_Master1)\n");
     return -1;
   }
   
@@ -297,7 +301,7 @@ int read_master_port2(ushort_t port, void * dst, uint_t length, struct vm_device
   struct pic_internal * state = (struct pic_internal*)dev->private_data;
 
   if (length != 1) {
-    PrintDebug("8259 PIC: Invalid Read length (rd_Master2)\n");
+    PrintError("8259 PIC: Invalid Read length (rd_Master2)\n");
     return -1;
   }
 
@@ -311,7 +315,7 @@ int read_slave_port1(ushort_t port, void * dst, uint_t length, struct vm_device 
   struct pic_internal * state = (struct pic_internal*)dev->private_data;
 
   if (length != 1) {
-    PrintDebug("8259 PIC: Invalid Read length (rd_Slave1)\n");
+    PrintError("8259 PIC: Invalid Read length (rd_Slave1)\n");
     return -1;
   }
   
@@ -330,7 +334,7 @@ int read_slave_port2(ushort_t port, void * dst, uint_t length, struct vm_device 
   struct pic_internal * state = (struct pic_internal*)dev->private_data;
 
   if (length != 1) {
-    PrintDebug("8259 PIC: Invalid Read length  (rd_Slave2)\n");
+    PrintError("8259 PIC: Invalid Read length  (rd_Slave2)\n");
     return -1;
   }
 
@@ -345,7 +349,7 @@ int write_master_port1(ushort_t port, void * src, uint_t length, struct vm_devic
   uchar_t cw = *(uchar_t *)src;
 
   if (length != 1) {
-    PrintDebug("8259 PIC: Invalid Write length (wr_Master1)\n");
+    PrintError("8259 PIC: Invalid Write length (wr_Master1)\n");
     return -1;
   }
   
@@ -374,7 +378,7 @@ int write_master_port1(ushort_t port, void * src, uint_t length, struct vm_devic
 	}	
        	PrintDebug("8259 PIC: Post ISR = %x (wr_Master1)\n", state->master_isr);
       } else {
-	PrintDebug("8259 PIC: Command not handled, or in error (wr_Master1)\n");
+	PrintError("8259 PIC: Command not handled, or in error (wr_Master1)\n");
 	return -1;
       }
 
@@ -382,13 +386,13 @@ int write_master_port1(ushort_t port, void * src, uint_t length, struct vm_devic
     } else if (IS_OCW3(cw)) {
       state->master_ocw3 = cw;
     } else {
-      PrintDebug("8259 PIC: Invalid OCW to PIC (wr_Master1)\n");
-      PrintDebug("8259 PIC: CW=%x\n", cw);
+      PrintError("8259 PIC: Invalid OCW to PIC (wr_Master1)\n");
+      PrintError("8259 PIC: CW=%x\n", cw);
       return -1;
     }
   } else {
-    PrintDebug("8259 PIC: Invalid PIC State (wr_Master1)\n");
-    PrintDebug("8259 PIC: CW=%x\n", cw);
+    PrintError("8259 PIC: Invalid PIC State (wr_Master1)\n");
+    PrintError("8259 PIC: CW=%x\n", cw);
     return -1;
   }
 
@@ -400,7 +404,7 @@ int write_master_port2(ushort_t port, void * src, uint_t length, struct vm_devic
     uchar_t cw = *(uchar_t *)src;    
 
     if (length != 1) {
-      PrintDebug("8259 PIC: Invalid Write length (wr_Master2)\n");
+      PrintError("8259 PIC: Invalid Write length (wr_Master2)\n");
       return -1;
     }
     
@@ -436,7 +440,7 @@ int write_master_port2(ushort_t port, void * src, uint_t length, struct vm_devic
       state->master_imr = cw;
     } else {
       // error
-      PrintDebug("8259 PIC: Invalid master PIC State (wr_Master2)\n");
+      PrintError("8259 PIC: Invalid master PIC State (wr_Master2)\n");
       return -1;
     }
 
@@ -449,7 +453,7 @@ int write_slave_port1(ushort_t port, void * src, uint_t length, struct vm_device
 
   if (length != 1) {
     // error
-    PrintDebug("8259 PIC: Invalid Write length (wr_Slave1)\n");
+    PrintError("8259 PIC: Invalid Write length (wr_Slave1)\n");
     return -1;
   }
 
@@ -476,7 +480,7 @@ int write_slave_port1(ushort_t port, void * src, uint_t length, struct vm_device
 	}	
        	PrintDebug("8259 PIC: Post ISR = %x (wr_Slave1)\n", state->slave_isr);
       } else {
-	PrintDebug("8259 PIC: Command not handled or invalid  (wr_Slave1)\n");
+	PrintError("8259 PIC: Command not handled or invalid  (wr_Slave1)\n");
 	return -1;
       }
 
@@ -485,11 +489,11 @@ int write_slave_port1(ushort_t port, void * src, uint_t length, struct vm_device
       // Basically sets the IRR/ISR read flag
       state->slave_ocw3 = cw;
     } else {
-      PrintDebug("8259 PIC: Invalid command work (wr_Slave1)\n");
+      PrintError("8259 PIC: Invalid command work (wr_Slave1)\n");
       return -1;
     }
   } else {
-    PrintDebug("8259 PIC: Invalid State writing (wr_Slave1)\n");
+    PrintError("8259 PIC: Invalid State writing (wr_Slave1)\n");
     return -1;
   }
 
@@ -501,7 +505,7 @@ int write_slave_port2(ushort_t port, void * src, uint_t length, struct vm_device
     uchar_t cw = *(uchar_t *)src;    
 
     if (length != 1) {
-      PrintDebug("8259 PIC: Invalid write length (wr_Slave2)\n");
+      PrintError("8259 PIC: Invalid write length (wr_Slave2)\n");
       return -1;
     }
 
@@ -535,7 +539,7 @@ int write_slave_port2(ushort_t port, void * src, uint_t length, struct vm_device
     } else if (state->slave_state == READY) {
       state->slave_imr = cw;
     } else {
-      PrintDebug("8259 PIC: Invalid State at write (wr_Slave2)\n");
+      PrintError("8259 PIC: Invalid State at write (wr_Slave2)\n");
       return -1;
     }
 

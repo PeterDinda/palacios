@@ -17,6 +17,11 @@ extern void SerialMemDump(unsigned char *start, int n);
  */
 
 
+#ifndef VMM_CTRL_REGS
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
+#endif
+
 int handle_cr0_write(struct guest_info * info) {
   char instr[15];
   

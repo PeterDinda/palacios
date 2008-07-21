@@ -72,19 +72,22 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
   // guest_state->cr0 = 0x00000001;    // PE 
   ctrl_area->guest_ASID = 1;
 
-  ctrl_area->exceptions.de = 1;
-  ctrl_area->exceptions.df = 1;
-
-  ctrl_area->exceptions.ts = 1;
-  ctrl_area->exceptions.ss = 1;
-  ctrl_area->exceptions.ac = 1;
-  ctrl_area->exceptions.mc = 1;
-  ctrl_area->exceptions.gp = 1;
-  ctrl_area->exceptions.ud = 1;
-  ctrl_area->exceptions.np = 1;
-  ctrl_area->exceptions.of = 1;
-  ctrl_area->exceptions.nmi = 1;
-
+  
+  /*
+    ctrl_area->exceptions.de = 1;
+    ctrl_area->exceptions.df = 1;
+    
+    ctrl_area->exceptions.ts = 1;
+    ctrl_area->exceptions.ss = 1;
+    ctrl_area->exceptions.ac = 1;
+    ctrl_area->exceptions.mc = 1;
+    ctrl_area->exceptions.gp = 1;
+    ctrl_area->exceptions.ud = 1;
+    ctrl_area->exceptions.np = 1;
+    ctrl_area->exceptions.of = 1;
+  
+    ctrl_area->exceptions.nmi = 1;
+  */
   // Debug of boot on physical machines - 7/14/08
   ctrl_area->instrs.NMI=1;
   ctrl_area->instrs.SMI=1;
@@ -272,7 +275,7 @@ static int start_svm_guest(struct guest_info *info) {
     EnableInts();
     CLGI();
 
-    PrintDebug("SVM Entry to rip=%x...\n", info->rip);
+    //    PrintDebug("SVM Entry to rip=%x...\n", info->rip);
 
     rdtscll(info->time_state.cached_host_tsc);
     guest_ctrl->TSC_OFFSET = info->time_state.guest_tsc - info->time_state.cached_host_tsc;

@@ -230,17 +230,22 @@ int handle_svm_exit(struct guest_info * info) {
 
     PrintError("Host Address of rip = 0x%x\n", host_addr);
 
-    memset(buf, 0, 15);
+    memset(buf, 0, 32);
     
-    PrintError("Reading from 0x%x in guest\n", rip_addr);
+    PrintError("Reading instruction stream in guest\n", rip_addr);
     
     if (info->mem_mode == PHYSICAL_MEM) {
-      read_guest_pa_memory(info, rip_addr, 15, buf);
+      read_guest_pa_memory(info, rip_addr-16, 32, buf);
     } else {
-      read_guest_va_memory(info, rip_addr, 15, buf);
+      read_guest_va_memory(info, rip_addr-16, 32, buf);
     }
 
-    PrintTraceMemDump(buf, 15);
+    PrintDebug("16 bytes before Rip\n");
+    PrintTraceMemDump(buf, 16);
+    PrintDebug("Rip onward\n");
+    PrintTraceMemDump(buf+16, 16);
+
+
 
     return -1;
 

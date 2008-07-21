@@ -257,14 +257,14 @@ static inline operand_type_t decode_operands16(struct v3_gprs * gprs, // input/o
   operand_type_t addr_type = INVALID_OPERAND;
   char * instr_cursor = modrm_instr;
 
-  PrintDebug("ModRM mod=%d\n", modrm->mod);
+  //  PrintDebug("ModRM mod=%d\n", modrm->mod);
 
   instr_cursor += 1;
 
   if (modrm->mod == 3) {
     mod_mode = REG;
     addr_type = REG_OPERAND;
-    PrintDebug("first operand = Register (RM=%d)\n",modrm->rm);
+    //PrintDebug("first operand = Register (RM=%d)\n",modrm->rm);
 
     *first_operand = decode_register(gprs, modrm->rm, reg_size);
 
@@ -355,7 +355,7 @@ static inline operand_type_t decode_operands32(struct v3_gprs * gprs, // input/o
     mod_mode = REG;
     addr_type = REG_OPERAND;
     
-    PrintDebug("first operand = Register (RM=%d)\n",modrm->rm);
+    //    PrintDebug("first operand = Register (RM=%d)\n",modrm->rm);
 
     *first_operand = decode_register(gprs, modrm->rm, reg_size);
 
