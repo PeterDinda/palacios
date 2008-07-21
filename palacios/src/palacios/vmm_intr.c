@@ -4,6 +4,7 @@
 #include <palacios/vm_guest.h>
 
 
+
 void init_interrupt_state(struct guest_info * info) {
   info->intr_state.excp_pending = 0;
   info->intr_state.excp_num = 0;
@@ -19,8 +20,82 @@ void set_intr_controller(struct guest_info * info, struct intr_ctrl_ops * ops, v
 
 
 
+// This structure is used to dispatch
+// interrupts delivered to vmm via deliver interrupt to vmm 
+// it is what we put into the opaque field given to 
+// the host os when we install the handler
+struct vmm_intr_decode { 
+  void              (*handler)(struct vmm_intr_state *state);
+  // This opaque is user supplied by the caller
+  // of hook_irq_new
+  void              *opaque;
+};
+
+int hook_irq_new(uint_t irq,
+		 void (*handler)(struct vmm_intr_state *state),
+		 void  *opaque)
+{
+  extern struct vmm_os_hooks * os_hooks;
+
+  struct vmm_intr_decode *d = V3_Malloc(sizeof(struct vmm_intr_decode));
+
+  if (!d) { return -1; }
+
+  d->handler = handler;
+  d->opaque = opaque;
+  
+  if (os_hooks->hook_interrupt_new(irq,d)) { 
+    PrintDebug("hook_irq_new: failed to hook irq 0x%x to decode 0x%x\n", irq,d);
+    return -1;
+  } else {
+    PrintDebug("hook_irq_new: hooked irq 0x%x to decode 0x%x\n", irq,d);
+    return 0;
+  }
+}
 
 
+void deliver_interrupt_to_vmm(struct vmm_intr_state *state)
+{
+
+  PrintDebug("deliver_interrupt_to_vmm: state=0x%x\n",state);
+
+  struct vmm_intr_decode *d = (struct vmm_intr_decode *)(state->opaque);
+  
+  void *temp = state->opaque;
+  state->opaque = d->opaque;
+
+  d->handler(state);
+  
+  state->opaque=temp;
+}
+
+
+void guest_injection_irq_handler(struct vmm_intr_state *state)
+{
+  PrintDebug("guest_irq_injection: state=0x%x\n",state);
+
+  struct guest_info *guest = (struct guest_info *)(state->opaque);
+
+  PrintDebug("guest_irq_injection: injecting irq 0x%x into guest 0x%x\n",state->irq,guest);
+  guest->vm_ops.raise_irq(guest,state->irq);
+}
+
+
+int hook_irq_for_guest_injection(struct guest_info *info, int irq)
+{
+
+  int rc = hook_irq_new(irq,
+			guest_injection_irq_handler,
+			info);
+
+  if (rc) { 
+    PrintDebug("guest_irq_injection: failed to hook irq 0x%x for guest 0x%x\n", irq,info);
+    return -1;
+  } else {
+    PrintDebug("guest_irq_injection: hooked irq 0x%x for guest 0x%x\n", irq,info);
+    return 0;
+  }
+}
 
 
 
@@ -80,14 +155,6 @@ int v3_raise_irq(struct guest_info * info, int irq) {
     //}
   return 0;
 }
-
-
-
-
-
-
-
-
 
 
 

@@ -249,6 +249,9 @@ int handle_svm_exit(struct guest_info * info) {
     case EXTERNAL_IRQ: 
       {
 	uint_t irq = get_intr_number(info);
+
+        // check to see if ==-1 (non exists)
+
 	/*	
 	  guest_ctrl->EVENTINJ.vector = irq;
 	  guest_ctrl->EVENTINJ.valid = 1;
