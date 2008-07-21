@@ -31,6 +31,7 @@ struct guest_info;
 
 
 
+
 /* We need a way to allow the APIC/PIC to decide when they are supposed to receive interrupts...
  * Maybe a notification call when they have been turned on, to deliver irqs to them...
  * We can rehook the guest raise_irq op, to the appropriate controller
@@ -53,8 +54,19 @@ struct vm_intr {
 };
 
 
+
 int v3_raise_irq(struct guest_info * info, int irq);
 int hook_irq(struct guest_info * info, int irq);
+
+
+struct vmm_intr_state;
+
+int hook_irq_new(uint_t irq,
+		 void (*handler)(struct vmm_intr_state *state),
+		 void  *opaque);
+
+int hook_irq_for_guest_injection(struct guest_info *info, int irq);
+
 
 struct intr_ctrl_ops {
   int (*intr_pending)(void * private_data);

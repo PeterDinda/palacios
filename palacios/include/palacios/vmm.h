@@ -124,6 +124,25 @@
 #endif //!__V3VEE__
 
 
+//
+//
+// This is the interrupt state that the VMM's interrupt handlers need to see
+//
+struct vmm_intr_state {
+  uint_t irq;
+  uint_t error;
+
+  uint_t should_ack;  // Should the vmm ack this interrupt, or will
+                      // the host OS do it?
+
+  // This is the value given when the interrupt is hooked.
+  // This will never be NULL
+  void *opaque;
+};
+
+void deliver_interrupt_to_vmm(struct vmm_intr_state *state);
+
+
 /* This will contain function pointers that provide OS services */
 struct vmm_os_hooks {
   void (*print_info)(const char * format, ...);
@@ -139,7 +158,12 @@ struct vmm_os_hooks {
   void *(*paddr_to_vaddr)(void *addr);
   void *(*vaddr_to_paddr)(void *addr);
 
-  int (*hook_interrupt)(struct guest_info * info, int irq);
+  //  int (*hook_interrupt)(int irq, vmm_intr_handler handler, uint_t opaque);
+
+  int (*hook_interrupt)(struct guest_info *s, int irq);
+
+  int (*hook_interrupt_new)(uint_t irq, void *opaque);
+
   int (*ack_irq)(int irq);
 
 
