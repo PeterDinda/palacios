@@ -8,6 +8,9 @@
 
 struct guest_info;
 
+
+
+
 void * Allocate_VMM_Pages(int num_pages);
 void Free_VMM_Page(void * page);
 
@@ -17,13 +20,20 @@ void VMM_Free(void * addr);
 void * Identity(void *addr);
 
 
+
+
 int hook_irq_stub(struct guest_info * info, int irq);
 int ack_irq(int irq);
+
+
+
+int geekos_hook_interrupt_new(uint_t irq, void *opaque);
 
 
 unsigned int get_cpu_khz();
 
 void Init_Stubs();
+
 
 
 
