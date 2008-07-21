@@ -1,6 +1,6 @@
 # Makefile for GeekOS kernel, userspace, and tools
 # Copyright (c) 2004,2005 David H. Hovemeyer <daveho@cs.umd.edu>
-# $Revision: 1.45 $
+# $Revision: 1.46 $
 
 # This is free software.  You are permitted to use,
 # redistribute, and modify it as specified in the file "COPYING".
@@ -42,13 +42,33 @@ VPATH := $(PROJECT_ROOT)/src
 #when -DNDEBUG is set the kassert functions are disabled
 #JRLDEBUG=-DNDEBUG
 
+# DEBUG=1 means VMM_DEBUG, VMM_INFO, and VMM_TRACE are enabled
+# as are SERIAL_PRINT_DEBUG
+# 
 DEBUG=1
+
+#
+# XED=1 means that libxed will be included
+#
+# and VMM_XED is one
+#
+# and make world will build an empty boot package
+#
+XED=0
 
 ifeq ($(DEBUG),1)
   JRLDEBUG= -DSERIAL_PRINT_DEBUG=1 -DSERIAL_PRINT_DEBUG_LEVEL=10 -DSERIAL_PRINT=1 -DVMM_DEBUG=1 -DVMM_INFO=1 -DVMM_TRACE=1
 else
   JRLDEBUG= -DSERIAL_PRINT_DEBUG=0 -DSERIAL_PRINT_DEBUG_LEVEL=999999 -DSERIAL_PRINT=0 -DVMM_DEBUG=0 -DVMM_INFO=0 -DVMM_TRACE=0
 endif
+
+ifeq ($(XED),1)
+  LEIXED = -DVMM_XED=1
+else
+  LEIXED = -DVMM_XED=0
+endif
+
+LEIFLAGS = $(LEIXED)
 
 #
 #
@@ -106,7 +126,7 @@ KERNEL_C_OBJS := $(KERNEL_C_SRCS:%.c=geekos/%.o)
 # Kernel assembly files
 KERNEL_ASM_SRCS := lowlevel.asm
 
-KERNEL_GAS_SRCS := testvm.s
+KERNEL_GAS_SRCS := testvm.s udivdi3.s
 
 # Kernel object files build from assembler source files
 KERNEL_ASM_OBJS := $(KERNEL_ASM_SRCS:%.asm=geekos/%.o) 
@@ -153,6 +173,11 @@ DEVICE_C_OBJS := $(DEVICE_C_SRCS:%.c=devices/%.o)
 
 DEVICE_OBJS := $(DEVICE_C_OBJS)
 
+V3LIBS :=
+
+ifeq ($(XED),1) 
+  V3LIBS := $(V3LIBS) -L../lib/xed -lxed
+endif
 
 
 # ----------------------------------------------------------------------
@@ -220,7 +245,7 @@ ROUND_UP_HEX := $(PERL) $(PROJECT_ROOT)/scripts/round_up_hex.pl
 # ----------------------------------------------------------------------
 
 # Flags used for all C source files
-GENERAL_OPTS := -O -Wall $(EXTRA_C_OPTS) $(JRLDEBUG) $(PADFLAGS) -fPIC
+GENERAL_OPTS := -O -Wall $(EXTRA_C_OPTS) $(JRLDEBUG) $(PADFLAGS) $(LEIFLAGS)  -fPIC
 CC_GENERAL_OPTS := $(GENERAL_OPTS) -Werror 
 
 # Flags used for kernel C source files
@@ -317,7 +342,11 @@ force_vgabios:
 	(cd ../src/vmboot/vgabios; make clean; make)
 
 force_payload: force_rombios force_vgabios
+ifeq ($(XED),1)
+	../scripts/make_payload.pl payload_none.txt vm_kernel
+else
 	../scripts/make_payload.pl payload_layout.txt vm_kernel
+endif
 
 inter1: force_payload
 	-make clean
@@ -361,7 +390,7 @@ geekos/kernel.bin : geekos/kernel.exe
 # The kernel executable and symbol map.
 geekos/kernel.exe : $(KERNEL_OBJS) $(COMMON_C_OBJS) $(VMM_OBJS) $(DEVICE_OBJS) vm_kernel
 	$(TARGET_LD) -o geekos/kernel.exe -Ttext $(KERNEL_BASE_ADDR) -e $(KERNEL_ENTRY) \
-		 $(KERNEL_OBJS) $(COMMON_C_OBJS) $(VMM_OBJS) $(DEVICE_OBJS) -b binary vm_kernel
+		 $(KERNEL_OBJS) $(COMMON_C_OBJS) $(VMM_OBJS) $(DEVICE_OBJS) $(V3LIBS) -b binary vm_kernel
 	$(TARGET_NM) geekos/kernel.exe > geekos/kernel.syms
 
 

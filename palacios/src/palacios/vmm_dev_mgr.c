@@ -2,6 +2,7 @@
 #include <palacios/vmm_dev_mgr.h>
 #include <palacios/vm_guest.h>
 #include <palacios/vmm.h>
+#include <palacios/vmm_decoder.h>
 
 
 extern struct vmm_os_hooks *os_hooks;
@@ -17,6 +18,7 @@ int dev_mgr_init(struct vmm_dev_mgr * mgr) {
 
   INIT_LIST_HEAD(&(mgr->io_hooks));
   mgr->num_io_hooks = 0;
+
   return 0;
 }
 

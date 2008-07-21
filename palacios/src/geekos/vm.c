@@ -18,6 +18,11 @@
 #include <palacios/vmm_dev_mgr.h>
 #include <palacios/vmm_time.h>
 
+//test decoder
+//#include <palacios/vmm_decoder.h>
+
+extern int parse();
+
 #define SPEAKER_PORT 0x61
 
 static inline void VM_Out_Byte(ushort_t port, uchar_t value)
@@ -199,6 +204,8 @@ int RunVMM(struct Boot_Info * bootInfo) {
 
 
 
+
+
     memset(&os_hooks, 0, sizeof(struct vmm_os_hooks));
     memset(&vmm_ops, 0, sizeof(struct vmm_ctrl_ops));
     memset(&vm_info, 0, sizeof(struct guest_info));
@@ -217,7 +224,14 @@ int RunVMM(struct Boot_Info * bootInfo) {
     os_hooks.ack_irq = &ack_irq;
     os_hooks.get_cpu_khz = &get_cpu_khz;
 
+
+
     Init_VMM(&os_hooks, &vmm_ops);
+
+    //test decoder
+    PrintBoth("testing decoder\n");
+    parse();
+    PrintBoth("testing decoder done\n");
   
 
     /* MOVE THIS TO AN INIT GUEST ROUTINE */

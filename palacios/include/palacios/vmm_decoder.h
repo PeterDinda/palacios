@@ -10,7 +10,7 @@
 
 typedef enum {INVALID_OPERAND, REG_OPERAND, MEM_OPERAND} operand_type_t;
 
-
+int parse();
 
 
 struct x86_operand {
