@@ -5,7 +5,10 @@
 extern struct vmm_os_hooks * os_hooks;
 
 
-
+#ifndef DEBUG_IO
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
+#endif
 
 
 void init_vmm_io_map(vmm_io_map_t * io_map) {

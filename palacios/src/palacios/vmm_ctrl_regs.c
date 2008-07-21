@@ -29,7 +29,7 @@ int handle_cr0_write(struct guest_info * info) {
       
       PrintDebug("Real Mode write to CR0 at linear guest pa 0x%x\n",get_addr_linear(info,info->rip,&(info->segments.cs)));
 
-      PrintV3Segments(info);
+      //PrintV3Segments(info);
 
       // The real rip address is actually a combination of the rip + CS base 
       ret = read_guest_pa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
@@ -289,10 +289,11 @@ int handle_cr0_write(struct guest_info * info) {
 
 	index += 2;
  
-	PrintDebug("MovToCR0 instr:\n");
-	PrintTraceMemDump(instr, 15);
-	PrintDebug("EAX=%x\n", *(uint_t*)&(info->vm_regs.rax));
-
+	/*
+	  PrintDebug("MovToCR0 instr:\n");
+	  PrintTraceMemDump(instr, 15);
+	  PrintDebug("EAX=%x\n", *(uint_t*)&(info->vm_regs.rax));
+	*/
 	addr_type = decode_operands32(&(info->vm_regs), instr + index, &index, &first_operand, &second_operand, REG32);
 
 	if (addr_type != REG_OPERAND) {
@@ -302,7 +303,7 @@ int handle_cr0_write(struct guest_info * info) {
 
 	new_cr0 = (struct cr0_32 *)first_operand;
 
-	PrintDebug("first operand=%x\n", *(uint_t *)first_operand);
+	//PrintDebug("first operand=%x\n", *(uint_t *)first_operand);
 
 	if (info->shdw_pg_mode == SHADOW_PAGING) {
 	  struct cr0_32 * shadow_cr0 = (struct cr0_32 *)&(info->shdw_pg_state.guest_cr0);
@@ -333,7 +334,7 @@ int handle_cr0_write(struct guest_info * info) {
 	    info->mem_mode = PHYSICAL_MEM;
 	    PrintDebug("Entering Real Mode\n");
 
-	    PrintV3CtrlRegs(info);
+	    //PrintV3CtrlRegs(info);
 	    // reinstate the identity mapped paged tables
 	    // But keep the shadow tables around to handle TLB issues.... UGH...
 	    //info->shdw_pg_state.shadow_cr3 &= 0x00000fff;
@@ -348,7 +349,7 @@ int handle_cr0_write(struct guest_info * info) {
 	    shadow_cr0->et = 1;
 	    real_cr0->et = 1;
 
-	    PrintV3CtrlRegs(info);
+	    //PrintV3CtrlRegs(info);
 
 	  }
 
@@ -495,7 +496,7 @@ int handle_cr0_read(struct guest_info * info) {
       int ret;
 
       PrintDebug("Real Mode read from CR0 at linear guest pa 0x%x\n",get_addr_linear(info,info->rip,&(info->segments.cs)));
-      PrintV3Segments(info);
+      //PrintV3Segments(info);
 
       // The real rip address is actually a combination of the rip + CS base 
       ret = read_guest_pa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
@@ -635,8 +636,10 @@ int handle_cr0_read(struct guest_info * info) {
       }
 
 
-      PrintDebug("Instr (15 bytes) at %x:\n", instr);
-      PrintTraceMemDump((char*)instr, 15);
+      /*
+	PrintDebug("Instr (15 bytes) at %x:\n", instr);
+	PrintTraceMemDump((char*)instr, 15);
+      */
 
       if (ret != 15) {
 	// I think we should inject a GPF into the guest
@@ -747,7 +750,7 @@ int handle_cr3_write(struct guest_info * info) {
     int ret;
     char instr[15];
 
-    PrintDebug("Real Mode Write to CR3??? What the fuck???\n");
+    PrintDebug("Real Mode Write to CR3.\n");
     // We need to read the instruction, which is at CS:IP, but that 
     // linear address is guest physical without PG and guest virtual with PG
 
@@ -871,10 +874,10 @@ int handle_cr3_write(struct guest_info * info) {
     // linear address is guest physical without PG and guest virtual with PG
     if (info->mem_mode == PHYSICAL_MEM) { 
       // The real rip address is actually a combination of the rip + CS base 
-      PrintDebug("Writing Guest CR3 Write (Physical Address)\n");
+      //PrintDebug("Writing Guest CR3 Write (Physical Address)\n");
       ret = read_guest_pa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
     } else { 
-      PrintDebug("Writing Guest CR3 Write (Virtual Address)\n");
+      //PrintDebug("Writing Guest CR3 Write (Virtual Address)\n");
       // The real rip address is actually a combination of the rip + CS base 
       ret = read_guest_va_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
     }
@@ -1011,8 +1014,8 @@ int handle_cr3_read(struct guest_info * info) {
     linear_addr = get_addr_linear(info, info->rip, &(info->segments.cs));
 
     
-    PrintDebug("RIP Linear: %x\n", linear_addr);
-    PrintV3Segments(info);
+    //PrintDebug("RIP Linear: %x\n", linear_addr);
+    //PrintV3Segments(info);
     
     ret = read_guest_pa_memory(info, linear_addr, 15, instr);
 

@@ -28,6 +28,17 @@
 #endif
 
 
+
+#define PrintError(fmt, args...)			\
+  do {							\
+    extern struct vmm_os_hooks * os_hooks;		\
+    if ((os_hooks) && (os_hooks)->print_debug) {	\
+      (os_hooks)->print_debug((fmt), ##args);		\
+    }							\
+  } while (0)						
+
+
+
 #if VMM_INFO
 #define PrintInfo(fmt, args...) 		        \
   do {							\

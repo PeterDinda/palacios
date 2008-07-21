@@ -43,9 +43,9 @@ int handle_svm_exit(struct guest_info * info) {
   //if (!((exit_code == VMEXIT_IOIO) && ((ushort_t)(guest_ctrl->exit_info1 >> 16) == 0x402))) {
 
 
-  PrintDebug("SVM Returned: Exit Code: 0x%x \t\t(tsc=%ul)\n",exit_code, (uint_t)info->time_state.guest_tsc); 
+  //  PrintDebug("SVM Returned: Exit Code: 0x%x \t\t(tsc=%ul)\n",exit_code, (uint_t)info->time_state.guest_tsc); 
   
-  if (exit_code < 0x4f) {
+  if ((0) && (exit_code < 0x4f)) {
     char instr[32];
     int ret;
     // Dump out the instr stream
@@ -109,26 +109,30 @@ int handle_svm_exit(struct guest_info * info) {
       }
     }
   } else if (exit_code == VMEXIT_CR0_WRITE) {
+#ifdef DEBUG_CTRL_REGS
     PrintDebug("CR0 Write\n");
-
+#endif
     if (handle_cr0_write(info) == -1) {
       return -1;
     }
   } else if (exit_code == VMEXIT_CR0_READ) {
+#ifdef DEBUG_CTRL_REGS
     PrintDebug("CR0 Read\n");
-
+#endif
     if (handle_cr0_read(info) == -1) {
       return -1;
     }
   } else if (exit_code == VMEXIT_CR3_WRITE) {
+#ifdef DEBUG_CTRL_REGS
     PrintDebug("CR3 Write\n");
-
+#endif
     if (handle_cr3_write(info) == -1) {
       return -1;
     }    
   } else if (exit_code == VMEXIT_CR3_READ) {
+#ifdef DEBUG_CTRL_REGS
     PrintDebug("CR3 Read\n");
-
+#endif
     if (handle_cr3_read(info) == -1) {
       return -1;
     }
@@ -136,26 +140,28 @@ int handle_svm_exit(struct guest_info * info) {
   } else if (exit_code == VMEXIT_EXCP14) {
     addr_t fault_addr = guest_ctrl->exit_info2;
     pf_error_t * error_code = (pf_error_t *)&(guest_ctrl->exit_info1);
-    
+#ifdef DEBUG_SHADOW_PAGING
     PrintDebug("PageFault at %x (error=%d)\n", fault_addr, *error_code);
-
+#endif
     if (info->shdw_pg_mode == SHADOW_PAGING) {
       if (handle_shadow_pagefault(info, fault_addr, *error_code) == -1) {
 	return -1;
       }
     } else {
 
-      PrintDebug("Page fault in un implemented paging mode\n");
+      PrintError("Page fault in un implemented paging mode\n");
      
       return -1;
     }
   } else if (exit_code == VMEXIT_NPF) {
-    PrintDebug("Currently unhandled Nested Page Fault\n");
+    PrintError("Currently unhandled Nested Page Fault\n");
     return -1;
 
   } else if (exit_code == VMEXIT_INVLPG) {
     if (info->shdw_pg_mode == SHADOW_PAGING) {
+#ifdef DEBUG_SHADOW_PAGING
       PrintDebug("Invlpg\n");
+#endif
       if (handle_shadow_invlpg(info) == -1) {
 	return -1;
       }
@@ -193,40 +199,40 @@ int handle_svm_exit(struct guest_info * info) {
 
 
 
-    PrintDebug("SVM Returned:(VMCB=%x)\n", info->vmm_data); 
-    PrintDebug("RIP: %x\n", guest_state->rip);
-    PrintDebug("RIP Linear: %x\n", rip_addr);
+    PrintError("SVM Returned:(VMCB=%x)\n", info->vmm_data); 
+    PrintError("RIP: %x\n", guest_state->rip);
+    PrintError("RIP Linear: %x\n", rip_addr);
     
-    PrintDebug("SVM Returned: Exit Code: %x\n",exit_code); 
+    PrintError("SVM Returned: Exit Code: %x\n",exit_code); 
     
-    PrintDebug("io_info1 low = 0x%.8x\n", *(uint_t*)&(guest_ctrl->exit_info1));
-    PrintDebug("io_info1 high = 0x%.8x\n", *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info1)) + 4));
+    PrintError("io_info1 low = 0x%.8x\n", *(uint_t*)&(guest_ctrl->exit_info1));
+    PrintError("io_info1 high = 0x%.8x\n", *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info1)) + 4));
     
-    PrintDebug("io_info2 low = 0x%.8x\n", *(uint_t*)&(guest_ctrl->exit_info2));
-    PrintDebug("io_info2 high = 0x%.8x\n", *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info2)) + 4));
+    PrintError("io_info2 low = 0x%.8x\n", *(uint_t*)&(guest_ctrl->exit_info2));
+    PrintError("io_info2 high = 0x%.8x\n", *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info2)) + 4));
 
     
 
     if (info->mem_mode == PHYSICAL_MEM) {
       if (guest_pa_to_host_pa(info, guest_state->rip, &host_addr) == -1) {
-	PrintDebug("Could not translate guest_state->rip to host address\n");
+	PrintError("Could not translate guest_state->rip to host address\n");
 	return -1;
       }
     } else if (info->mem_mode == VIRTUAL_MEM) {
       if (guest_va_to_host_pa(info, guest_state->rip, &host_addr) == -1) {
-	PrintDebug("Could not translate guest_state->rip to host address\n");
+	PrintError("Could not translate guest_state->rip to host address\n");
 	return -1;
       }
     } else {
-      PrintDebug("Invalid memory mode\n");
+      PrintError("Invalid memory mode\n");
       return -1;
     }
 
-    PrintDebug("Host Address of rip = 0x%x\n", host_addr);
+    PrintError("Host Address of rip = 0x%x\n", host_addr);
 
     memset(buf, 0, 15);
     
-    PrintDebug("Reading from 0x%x in guest\n", rip_addr);
+    PrintError("Reading from 0x%x in guest\n", rip_addr);
     
     if (info->mem_mode == PHYSICAL_MEM) {
       read_guest_pa_memory(info, rip_addr, 15, buf);
@@ -262,9 +268,9 @@ int handle_svm_exit(struct guest_info * info) {
 	guest_ctrl->guest_ctrl.V_INTR_VECTOR = irq;
 	guest_ctrl->guest_ctrl.V_IGN_TPR = 1;
 	guest_ctrl->guest_ctrl.V_INTR_PRIO = 0xf;
-
+#ifdef DEBUG_INTERRUPTS
 	PrintDebug("Injecting Interrupt %d (EIP=%x)\n", guest_ctrl->guest_ctrl.V_INTR_VECTOR, info->rip);
-
+#endif
 	injecting_intr(info, irq, EXTERNAL_IRQ);
 	
 	break;
@@ -281,13 +287,17 @@ int handle_svm_exit(struct guest_info * info) {
 	if (info->intr_state.excp_error_code_valid) {  //PAD
 	  guest_ctrl->EVENTINJ.error_code = info->intr_state.excp_error_code;
 	  guest_ctrl->EVENTINJ.ev = 1;
+#ifdef DEBUG_INTERRUPTS
 	  PrintDebug("Injecting error code %x\n", guest_ctrl->EVENTINJ.error_code);
+#endif
 	}
 	
 	guest_ctrl->EVENTINJ.vector = excp;
 	
 	guest_ctrl->EVENTINJ.valid = 1;
+#ifdef DEBUG_INTERRUPTS
 	PrintDebug("Injecting Interrupt %d (EIP=%x)\n", guest_ctrl->EVENTINJ.vector, info->rip);
+#endif
 	injecting_intr(info, excp, EXCEPTION);
 	break;
       }
@@ -300,7 +310,7 @@ int handle_svm_exit(struct guest_info * info) {
 
     case INVALID_INTR: 
     default:
-      PrintDebug("Attempted to issue an invalid interrupt\n");
+      PrintError("Attempted to issue an invalid interrupt\n");
       return -1;
     }
 

@@ -3,7 +3,10 @@
 
 #include <palacios/vm_guest.h>
 
-
+#ifndef DEBUG_INTERRUPTS
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
+#endif
 
 void init_interrupt_state(struct guest_info * info) {
   info->intr_state.excp_pending = 0;
@@ -45,7 +48,7 @@ int hook_irq_new(uint_t irq,
   d->opaque = opaque;
   
   if (os_hooks->hook_interrupt_new(irq,d)) { 
-    PrintDebug("hook_irq_new: failed to hook irq 0x%x to decode 0x%x\n", irq,d);
+    PrintError("hook_irq_new: failed to hook irq 0x%x to decode 0x%x\n", irq,d);
     return -1;
   } else {
     PrintDebug("hook_irq_new: hooked irq 0x%x to decode 0x%x\n", irq,d);
@@ -89,7 +92,7 @@ int hook_irq_for_guest_injection(struct guest_info *info, int irq)
 			info);
 
   if (rc) { 
-    PrintDebug("guest_irq_injection: failed to hook irq 0x%x for guest 0x%x\n", irq,info);
+    PrintError("guest_irq_injection: failed to hook irq 0x%x for guest 0x%x\n", irq,info);
     return -1;
   } else {
     PrintDebug("guest_irq_injection: hooked irq 0x%x for guest 0x%x\n", irq,info);
@@ -116,7 +119,7 @@ int raise_exception_with_error(struct guest_info * info, uint_t excp, uint_t err
     intr_state->excp_error_code_valid = 1;
     PrintDebug("Raising exception with error code: %x\n", error_code);
   } else {
-    PrintDebug("exception already pending, currently not implemented\n");
+    PrintError("exception already pending, currently not implemented\n");
     return -1;
   }
 
@@ -132,7 +135,7 @@ int raise_exception(struct guest_info * info, uint_t excp) {
     intr_state->excp_error_code = 0;
     intr_state->excp_error_code_valid = 0;
   } else {
-    PrintDebug("exception already pending, currently not implemented\n");
+    PrintError("exception already pending, currently not implemented\n");
     return -1;
   }
 

@@ -1,6 +1,6 @@
 # Makefile for GeekOS kernel, userspace, and tools
 # Copyright (c) 2004,2005 David H. Hovemeyer <daveho@cs.umd.edu>
-# $Revision: 1.46 $
+# $Revision: 1.47 $
 
 # This is free software.  You are permitted to use,
 # redistribute, and modify it as specified in the file "COPYING".
@@ -57,7 +57,8 @@ DEBUG=1
 XED=0
 
 ifeq ($(DEBUG),1)
-  JRLDEBUG= -DSERIAL_PRINT_DEBUG=1 -DSERIAL_PRINT_DEBUG_LEVEL=10 -DSERIAL_PRINT=1 -DVMM_DEBUG=1 -DVMM_INFO=1 -DVMM_TRACE=1
+  JRLDEBUG= -DSERIAL_PRINT_DEBUG=1 -DSERIAL_PRINT_DEBUG_LEVEL=10 -DSERIAL_PRINT=1 -DVMM_DEBUG=1 -DVMM_INFO=1 -DVMM_TRACE=1 
+#-DDEBUG_SHADOW_PAGING -DDEBUG_CTRL_REGS -DDEBUG_INTERRUPTS -DDEBUG_IO
 else
   JRLDEBUG= -DSERIAL_PRINT_DEBUG=0 -DSERIAL_PRINT_DEBUG_LEVEL=999999 -DSERIAL_PRINT=0 -DVMM_DEBUG=0 -DVMM_INFO=0 -DVMM_TRACE=0
 endif

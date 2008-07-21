@@ -117,8 +117,8 @@ static int set_nvram_defaults(struct vm_device *dev)
   nvram_state->mem_state[NVRAM_REG_EXT_MEMORY_2ND_LOW]= 0x00;
 
   // Set the extended memory beyond 16 MB to 128-16 MB
-  nvram_state->mem_state[NVRAM_REG_AMI_BIG_MEMORY_HIGH]= 0x7;
-  nvram_state->mem_state[NVRAM_REG_AMI_BIG_MEMORY_LOW]= 0x00;
+  nvram_state->mem_state[NVRAM_REG_AMI_BIG_MEMORY_HIGH] = 0x7;
+  nvram_state->mem_state[NVRAM_REG_AMI_BIG_MEMORY_LOW] = 0x00;
 
   //nvram_state->mem_state[NVRAM_REG_AMI_BIG_MEMORY_HIGH]= 0x00;
   //nvram_state->mem_state[NVRAM_REG_AMI_BIG_MEMORY_LOW]= 0x00;

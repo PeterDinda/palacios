@@ -4,6 +4,11 @@
 #include <palacios/vmm_decoder.h>
 #include <palacios/vm_guest_mem.h>
 
+#ifndef DEBUG_IO
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
+#endif
+
 
 // This should package up an IO request and call vmm_handle_io
 int handle_svm_io_in(struct guest_info * info) {
@@ -15,7 +20,7 @@ int handle_svm_io_in(struct guest_info * info) {
   uint_t read_size = 0;
 
   if (hook == NULL) {
-    PrintDebug("Hook Not present for in on port %x\n", io_info->port);
+    PrintError("Hook Not present for in on port %x\n", io_info->port);
     // error, we should not have exited on this port
     return -1;
   }
@@ -33,7 +38,7 @@ int handle_svm_io_in(struct guest_info * info) {
 
   if (hook->read(io_info->port, &(info->vm_regs.rax), read_size, hook->priv_data) != read_size) {
     // not sure how we handle errors.....
-    PrintDebug("Read Failure for in on port %x\n", io_info->port);
+    PrintError("Read Failure for in on port %x\n", io_info->port);
     return -1;
   }
 
@@ -75,7 +80,7 @@ int handle_svm_io_ins(struct guest_info * info) {
 
 
   if (hook == NULL) {
-   PrintDebug("Hook Not present for ins on port %x\n", io_info->port);
+   PrintError("Hook Not present for ins on port %x\n", io_info->port);
     // error, we should not have exited on this port
     return -1;
   }
@@ -85,7 +90,7 @@ int handle_svm_io_ins(struct guest_info * info) {
   addr_t inst_ptr;
 
   if (guest_va_to_host_pa(info,get_addr_linear(info,info->rip,&(info->segments.cs)),&inst_ptr)==-1) {
-    PrintDebug("Can't access instruction\n");
+    PrintError("Can't access instruction\n");
     return -1;
   }
 
@@ -125,7 +130,7 @@ int handle_svm_io_ins(struct guest_info * info) {
   } else if (io_info->sz32) {
     read_size = 4;
   } else {
-    PrintDebug("io_info Invalid Size\n");
+    PrintError("io_info Invalid Size\n");
     return -1;
   }
 
@@ -161,13 +166,13 @@ int handle_svm_io_ins(struct guest_info * info) {
 
     if (guest_va_to_host_va(info, dst_addr, &host_addr) == -1) {
       // either page fault or gpf...
-      PrintDebug("Could not convert Guest VA to host VA\n");
+      PrintError("Could not convert Guest VA to host VA\n");
       return -1;
     }
 
     if (hook->read(io_info->port, (char*)host_addr, read_size, hook->priv_data) != read_size) {
       // not sure how we handle errors.....
-      PrintDebug("Read Failure for ins on port %x\n", io_info->port);
+      PrintError("Read Failure for ins on port %x\n", io_info->port);
       return -1;
     }
 
@@ -194,7 +199,7 @@ int handle_svm_io_out(struct guest_info * info) {
   uint_t write_size = 0;
 
   if (hook == NULL) {
-    PrintDebug("Hook Not present for out on port %x\n", io_info->port);
+    PrintError("Hook Not present for out on port %x\n", io_info->port);
     // error, we should not have exited on this port
     return -1;
   }
@@ -212,7 +217,7 @@ int handle_svm_io_out(struct guest_info * info) {
 
   if (hook->write(io_info->port, &(info->vm_regs.rax), write_size, hook->priv_data) != write_size) {
     // not sure how we handle errors.....
-    PrintDebug("Write Failure for out on port %x\n", io_info->port);
+    PrintError("Write Failure for out on port %x\n", io_info->port);
     return -1;
   }
 
@@ -253,7 +258,7 @@ int handle_svm_io_outs(struct guest_info * info) {
 
 
   if (hook == NULL) {
-    PrintDebug("Hook Not present for outs on port %x\n", io_info->port);
+    PrintError("Hook Not present for outs on port %x\n", io_info->port);
     // error, we should not have exited on this port
     return -1;
   }
@@ -296,7 +301,7 @@ int handle_svm_io_outs(struct guest_info * info) {
   addr_t inst_ptr;
 
   if (guest_va_to_host_pa(info,get_addr_linear(info,info->rip,&(info->segments.cs)),&inst_ptr)==-1) {
-    PrintDebug("Can't access instruction\n");
+    PrintError("Can't access instruction\n");
     return -1;
   }
 
@@ -341,7 +346,7 @@ int handle_svm_io_outs(struct guest_info * info) {
 
     if (hook->write(io_info->port, (char*)host_addr, write_size, hook->priv_data) != write_size) {
       // not sure how we handle errors.....
-      PrintDebug("Write Failure for outs on port %x\n", io_info->port);
+      PrintError("Write Failure for outs on port %x\n", io_info->port);
       return -1;
     }
 

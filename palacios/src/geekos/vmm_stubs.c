@@ -112,7 +112,7 @@ static void translate_intr_handler(struct Interrupt_State *state)
   mystate.should_ack=0;
   mystate.opaque=my_opaque[mystate.irq];
 
-  PrintBoth("translate_intr_handler: opaque=0x%x\n",mystate.opaque);
+  //  PrintBoth("translate_intr_handler: opaque=0x%x\n",mystate.opaque);
 
   deliver_interrupt_to_vmm(&mystate);
 

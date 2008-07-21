@@ -5,6 +5,10 @@
 #include <palacios/vm_guest_mem.h>
 #include <palacios/vmm_decoder.h>
 
+#ifndef DEBUG_SHADOW_PAGING
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
+#endif
 
 
 int init_shadow_page_state(struct shadow_page_state * state) {
@@ -31,11 +35,11 @@ int handle_shadow_pagefault(struct guest_info * info, addr_t fault_addr, pf_erro
     case PROTECTED_PAE:
     case LONG:
     default:
-      PrintDebug("Unhandled CPU Mode\n");
+      PrintError("Unhandled CPU Mode\n");
       return -1;
     }
   } else {
-    PrintDebug("Invalid Memory mode\n");
+    PrintError("Invalid Memory mode\n");
     return -1;
   }
 }
@@ -63,7 +67,7 @@ static int handle_pd32_nonaligned_4MB_page(struct guest_info * info, pte32_t * p
 
     if (host_page_type == HOST_REGION_INVALID) {
       // Currently we don't support this, but in theory we could
-      PrintDebug("Invalid Host Memory Type\n");
+      PrintError("Invalid Host Memory Type\n");
       return -1;
     } else if (host_page_type == HOST_REGION_PHYSICAL_MEMORY) {
       addr_t shadow_pa = get_shadow_addr(info, guest_pa);
@@ -78,7 +82,7 @@ static int handle_pd32_nonaligned_4MB_page(struct guest_info * info, pte32_t * p
       pte_cursor->global_page = 0;
 
     } else {
-      PrintDebug("Unsupported Host Memory Type\n");
+      PrintError("Unsupported Host Memory Type\n");
       return -1;
     }
   }
@@ -95,7 +99,7 @@ int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_er
   pde32_t * shadow_pde = (pde32_t *)&(shadow_pd[PDE32_INDEX(fault_addr)]);
 
   if (guest_pa_to_host_va(info, guest_cr3, (addr_t*)&guest_pd) == -1) {
-    PrintDebug("Invalid Guest PDE Address: 0x%x\n", guest_cr3);
+    PrintError("Invalid Guest PDE Address: 0x%x\n", guest_cr3);
     return -1;
   }
 
@@ -135,13 +139,13 @@ int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_er
     return 0;
 
  
-    /*  
+#ifdef DEBUG_SHADOW_PAGING
 	PrintDebug("Guest CR3=%x\n", guest_cr3);
-	PrintDebug("Guest PD\n");
+ 	PrintDebug("Guest PD\n");
 	PrintPD32(guest_pd);
 	PrintDebug("Shadow PD\n");
 	PrintPD32(shadow_pd);
-    */
+#endif
 
     return -1;
   }
@@ -192,7 +196,7 @@ int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_er
       if (host_page_type == HOST_REGION_INVALID) {
 
 	raise_exception(info, MC_EXCEPTION);
-	PrintDebug("Invalid guest address in large page (0x%x)\n", guest_start_addr);
+	PrintError("Invalid guest address in large page (0x%x)\n", guest_start_addr);
 	return -1;
       } else if (host_page_type == HOST_REGION_PHYSICAL_MEMORY) {
 	addr_t host_start_addr = 0;
@@ -238,16 +242,16 @@ int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_er
 	  memset(shadow_pt, 0, PAGE_SIZE);
 
 	  if (handle_pd32_nonaligned_4MB_page(info, shadow_pt, guest_start_addr, large_shadow_pde) == -1) {
-	    PrintDebug("Non Aligned Large Page Error\n");
+	    PrintError("Non Aligned Large Page Error\n");
 	    V3_Free(shadow_pt);
 	    return -1;
 	  }
 
 
-	  /*
+#ifdef DEBUG_SHADOW_PAGING
 	    PrintDebug("non-aligned Shadow PT\n");
 	    PrintPT32(PT32_PAGE_ADDR(fault_addr), shadow_pt);	  
-	  */
+#endif
 	  shadow_pde->pt_base_addr = PD32_BASE_ADDR(shadow_pt);
 	}
 
@@ -255,7 +259,7 @@ int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_er
       } else {
 	// Handle hooked pages as well as other special pages
 	if (handle_special_page_fault(info, fault_addr, error_code) == -1) {
-	  PrintDebug("Special Page Fault handler returned error for address: %x\n", fault_addr);
+	  PrintError("Special Page Fault handler returned error for address: %x\n", fault_addr);
 	  return -1;
 	}
       }
@@ -301,7 +305,7 @@ int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_er
 
 
     if (handle_shadow_pte32_fault(info, fault_addr, error_code, shadow_pt, guest_pt)  == -1) {
-      PrintDebug("Error handling Page fault caused by PTE\n");
+      PrintError("Error handling Page fault caused by PTE\n");
       return -1;
     }
 
@@ -348,11 +352,13 @@ int handle_shadow_pte32_fault(struct guest_info * info,
   // Check the shadow page permissions
   shadow_pte_access = can_access_pte32(shadow_pt, fault_addr, error_code);
   
-
+#ifdef DEBUG_SHADOW_PAGING
   PrintDebug("Guest PTE: (access=%d)\n\t", guest_pte_access);
   PrintPTE32(fault_addr, guest_pte);
   PrintDebug("Shadow PTE: (access=%d)\n\t", shadow_pte_access);
   PrintPTE32(fault_addr, shadow_pte);
+#endif
+  
   /* This should be redone, 
      but basically the reasoning is that there can be multiple reasons for a page fault:
      If there is a permissions failure for a page present in the guest _BUT_ 
@@ -399,12 +405,13 @@ int handle_shadow_pte32_fault(struct guest_info * info,
       // Inject a machine check in the guest
 
       raise_exception(info, MC_EXCEPTION);
-
+#ifdef DEBUG_SHADOW_PAGING
       PrintDebug("Invalid Guest Address in page table (0x%x)\n", guest_pa);
       PrintDebug("fault_addr=0x%x next are guest and shadow ptes \n",fault_addr);
       PrintPTE32(fault_addr,guest_pte);
       PrintPTE32(fault_addr,shadow_pte);
       PrintDebug("Done.\n");
+#endif
       return 0;
 
     } else if (host_page_type == HOST_REGION_PHYSICAL_MEMORY) {
@@ -435,7 +442,7 @@ int handle_shadow_pte32_fault(struct guest_info * info,
     } else {
       // Page fault handled by hook functions
       if (handle_special_page_fault(info, fault_addr, error_code) == -1) {
-	PrintDebug("Special Page fault handler returned error for address: %x\n", fault_addr);
+	PrintError("Special Page fault handler returned error for address: %x\n", fault_addr);
 	return -1;
       }
     }
@@ -454,8 +461,8 @@ int handle_shadow_pte32_fault(struct guest_info * info,
     info->ctrl_regs.cr2 = fault_addr;
     raise_exception_with_error(info, PF_EXCEPTION, *(uint_t *)&error_code);
 
-    PrintDebug("PTE Page fault fell through... Not sure if this should ever happen\n");
-    PrintDebug("Manual Says to inject page fault into guest\n");
+    PrintError("PTE Page fault fell through... Not sure if this should ever happen\n");
+    PrintError("Manual Says to inject page fault into guest\n");
     return -1;
   }
 
@@ -473,7 +480,7 @@ int handle_shadow_invlpg(struct guest_info * info) {
   if (info->mem_mode != VIRTUAL_MEM) {
     // Paging must be turned on...
     // should handle with some sort of fault I think
-    PrintDebug("ERROR: INVLPG called in non paged mode\n");
+    PrintError("ERROR: INVLPG called in non paged mode\n");
     return -1;
   }
 
@@ -485,7 +492,7 @@ int handle_shadow_invlpg(struct guest_info * info) {
 
     ret = read_guest_va_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
     if (ret != 15) {
-      PrintDebug("Could not read instruction 0x%x (ret=%d)\n", info->rip, ret);
+      PrintError("Could not read instruction 0x%x (ret=%d)\n", info->rip, ret);
       return -1;
     }
 
@@ -507,7 +514,7 @@ int handle_shadow_invlpg(struct guest_info * info) {
       pde32_t * guest_pd = NULL;
 
       if (guest_pa_to_host_va(info, guest_cr3, (addr_t*)&guest_pd) == -1) {
-	PrintDebug("Invalid Guest PDE Address: 0x%x\n", guest_cr3);
+	PrintError("Invalid Guest PDE Address: 0x%x\n", guest_cr3);
 	return -1;
       }
 
@@ -538,8 +545,12 @@ int handle_shadow_invlpg(struct guest_info * info) {
 	  if (shadow_pde->present == 1) {
 	    pte32_t * shadow_pt = (pte32_t *)PDE32_T_ADDR((*shadow_pde));
 	    pte32_t * shadow_pte = (pte32_t *)&shadow_pt[PTE32_INDEX(first_operand)];
+
+#ifdef DEBUG_SHADOW_PAGING
 	    PrintDebug("Setting not present\n");
 	    PrintPTE32(first_operand, shadow_pte);
+#endif
+
 	    shadow_pte->present = 0;
 	  }
 	}
@@ -547,11 +558,11 @@ int handle_shadow_invlpg(struct guest_info * info) {
 	info->rip += index;
 
       } else {
-	PrintDebug("Invalid Operand type\n");
+	PrintError("Invalid Operand type\n");
 	return -1;
       }
     } else {
-      PrintDebug("invalid Instruction Opcode\n");
+      PrintError("invalid Instruction Opcode\n");
       PrintTraceMemDump(instr, 15);
       return -1;
     }
