@@ -213,6 +213,7 @@ int RunVMM(struct Boot_Info * bootInfo) {
     os_hooks.vaddr_to_paddr = &Identity;
     os_hooks.paddr_to_vaddr = &Identity;
     os_hooks.hook_interrupt = &hook_irq_stub;
+    os_hooks.hook_interrupt_new = &geekos_hook_interrupt_new;
     os_hooks.ack_irq = &ack_irq;
     os_hooks.get_cpu_khz = &get_cpu_khz;
 
@@ -375,10 +376,9 @@ int RunVMM(struct Boot_Info * bootInfo) {
 
 #if GENERIC
 	generic_port_range_type range[] = {
-#if 0
+#if 1
           {0x00, 0x07, GENERIC_PRINT_AND_IGNORE},   // DMA 1 channels 0,1,2,3 (address, counter)
-          {0xc0, 0xc7, GENERIC_PRINT_AND_
-IGNORE},   // DMA 2 channels 4,5,6,7 (address, counter)
+          {0xc0, 0xc7, GENERIC_PRINT_AND_IGNORE},   // DMA 2 channels 4,5,6,7 (address, counter)
           {0x87, 0x87, GENERIC_PRINT_AND_IGNORE},   // DMA 1 channel 0 page register
           {0x83, 0x83, GENERIC_PRINT_AND_IGNORE},   // DMA 1 channel 1 page register
           {0x81, 0x81, GENERIC_PRINT_AND_IGNORE},   // DMA 1 channel 2 page register
@@ -391,7 +391,7 @@ IGNORE},   // DMA 2 channels 4,5,6,7 (address, counter)
           {0xd0, 0xde, GENERIC_PRINT_AND_IGNORE},   // DMA 2 misc registers
 #endif
 
-	  
+ 	  
 	  {0x3f8, 0x3f8+7, GENERIC_PRINT_AND_IGNORE},      // COM 1
 	  {0x2f8, 0x2f8+7, GENERIC_PRINT_AND_IGNORE},      // COM 2
 	  {0x3e8, 0x3e8+7, GENERIC_PRINT_AND_IGNORE},      // COM 3
@@ -449,15 +449,16 @@ IGNORE},   // DMA 2 channels 4,5,6,7 (address, counter)
       
 #if 1
       // give floppy controller to vm
-      hook_irq(&vm_info, 6);
+      hook_irq_for_guest_injection(&vm_info, 6);
 #endif
 
+#if 1
       //primary ide
-      hook_irq(&vm_info, 14);
+      hook_irq_for_guest_injection(&vm_info, 14);
 
       // secondary ide
-      hook_irq(&vm_info, 15);
-
+      hook_irq_for_guest_injection(&vm_info, 15);
+#endif
 
 
       vm_info.rip = 0xfff0;

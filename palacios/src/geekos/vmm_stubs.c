@@ -75,9 +75,50 @@ void VMM_Free(void * addr) {
   Free(addr);
 }
 
+//
+//
+// This is the interrupt state that the VMM's interrupt handlers need to see
+//
+struct vmm_intr_state {
+  uint_t irq;
+  uint_t error;
+
+  uint_t should_ack;  // Should the vmm ack this interrupt, or will
+                      // the host OS do it?
+
+  // This is the value given when the interrupt is hooked.
+  // This will never be NULL
+  void *opaque;
+};
+
+// This is the function the interface code should call to deliver
+// the interrupt to the vmm for handling
+extern void deliver_interrupt_to_vmm(struct vmm_intr_state *state);
 
 
 struct guest_info * irq_map[256];
+
+void *my_opaque[256];
+
+
+static void translate_intr_handler(struct Interrupt_State *state)
+{
+
+
+  struct vmm_intr_state mystate;
+
+  mystate.irq=state->intNum-32;
+  mystate.error=state->errorCode;
+  mystate.should_ack=0;
+  mystate.opaque=my_opaque[mystate.irq];
+
+  PrintBoth("translate_intr_handler: opaque=0x%x\n",mystate.opaque);
+
+  deliver_interrupt_to_vmm(&mystate);
+
+  End_IRQ(state);
+
+}
 
 static void pic_intr_handler(struct Interrupt_State * state) {
   Begin_IRQ(state);
@@ -95,7 +136,10 @@ static void pic_intr_handler(struct Interrupt_State * state) {
   // End_IRQ(state);
 }
 
-
+//
+//
+// I really don't know what the heck this is doing... PAD
+//
 int hook_irq_stub(struct guest_info * info, int irq) {
   if (irq_map[irq]) {
     return -1;
@@ -111,6 +155,23 @@ int hook_irq_stub(struct guest_info * info, int irq) {
 
   Disable_IRQ(irq);
   Install_IRQ(irq, pic_intr_handler);
+  Enable_IRQ(irq);
+  return 0;
+}
+
+
+int geekos_hook_interrupt_new(uint_t irq, void * opaque)
+{
+  if (my_opaque[irq]) { 
+    PrintBoth("Attempt to hook interrupt that is already hooked\n");
+    return -1;
+  } else {
+    PrintBoth("Hooked interrupt 0x%x with opaque 0x%x\n",irq,opaque);
+    my_opaque[irq]=opaque;
+  }
+
+  Disable_IRQ(irq);
+  Install_IRQ(irq,translate_intr_handler);
   Enable_IRQ(irq);
   return 0;
 }
