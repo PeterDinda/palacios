@@ -1,7 +1,7 @@
 ; -*- fundamental -*-
 ; GeekOS setup code
 ; Copyright (c) 2001,2004 David H. Hovemeyer <daveho@cs.umd.edu>
-; $Revision: 1.3 $
+; $Revision: 1.4 $
 
 ; This is free software.  You are permitted to use,
 ; redistribute, and modify it as specified in the file "COPYING".
@@ -88,16 +88,9 @@ setup_32:
 	add	eax, ebx
 	push	eax		; memSizeKB
 	
-	mov	eax, GUEST_SIZE 
-	shl	eax, 9          ; Multiply the guest size by 512 to get byte size
-	push	eax 	        ; Size of the guest kernel
-
-	mov	eax, 0x100000
-	push 	eax             ; Load address of the guest
-	
 	mov	eax, VMM_SIZE
 	shl	eax, 9          ; Multiply the vmm size by 512 to get byte size
-	push	eax             ; size of the VMM
+	push	ebx             ; size of the VMM
 
 	push	dword 8		; bootInfoSize
 

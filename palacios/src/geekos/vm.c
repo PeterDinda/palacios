@@ -286,13 +286,17 @@ int RunVMM(struct Boot_Info * bootInfo) {
       int i;
       void * region_start;
 
- 
-      PrintBoth("Guest Size: %lu\n", bootInfo->guest_size);
+      extern char _binary_vm_kernel_start;
+      PrintBoth(" Guest Load Addr: 0x%x\n", &_binary_vm_kernel_start);
 
-      struct guest_mem_layout * layout = (struct guest_mem_layout *)0x100000;
+      struct guest_mem_layout * layout = (struct guest_mem_layout *)&_binary_vm_kernel_start;
 
+      //     SerialPrint("Guest Mem Dump at 0x%x\n", 0x100000);
+      //SerialMemDump((unsigned char *)(0x100000), 261 * 1024);
       if (layout->magic != MAGIC_CODE) {
+	
 	PrintBoth("Layout Magic Mismatch (0x%x)\n", layout->magic);
+	return -1;
       }
 
       PrintBoth("%d layout regions\n", layout->num_regions);
@@ -417,7 +421,8 @@ IGNORE},   // DMA 2 channels 4,5,6,7 (address, counter)
 
         };
 
-	struct vm_device * generic = create_generic(range,NULL,NULL);
+
+	struct vm_device * generic = create_generic(range, NULL, NULL);
 
 #endif
 

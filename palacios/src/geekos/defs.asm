@@ -1,6 +1,6 @@
 ; Definitions for use in GeekOS boot code
 ; Copyright (c) 2001, David H. Hovemeyer <daveho@cs.umd.edu>
-; $Revision: 1.6 $
+; $Revision: 1.7 $
 
 ; This is free software.  You are permitted to use,
 ; redistribute, and modify it as specified in the file "COPYING".
@@ -37,7 +37,7 @@ KERNSEG equ 0x1000
 ;; Note that this segment must not colide with where the VMM kernel
 ;; is initially loaded.  At this point, we just place it in the last
 ;; 64K of RAM available before the ISA hole and hope for the best
-VMSEG equ 0x8000		;
+ VMSEG equ 0x8000
 
 ; Size of PFAT boot record.
 ; Keep up to date with <geekos/pfat.h>.

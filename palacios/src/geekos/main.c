@@ -3,7 +3,7 @@
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
  * Copyright (c) 2004, Iulian Neamtiu <neamtiu@cs.umd.edu>
- * $Revision: 1.39 $
+ * $Revision: 1.40 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -183,13 +183,25 @@ void Main(struct Boot_Info* bootInfo)
 {
 
 
-  Out_Byte(0x1234,5);
-  Out_Byte(0x1234,5);
+  //Out_Byte(0x1234,5);
+  //Out_Byte(0x1234,5);
 
   Init_BSS();
   Init_Screen();
 
   Init_Serial();
+
+  /*  {
+    extern char BSS_START, BSS_END;
+
+    SerialPrint("BSS 0x%x->0x%x\n", &BSS_START, &BSS_END);
+
+    }*/
+
+
+  // SerialPrint("Guest Mem Dump at 0x%x\n", 0x100000);
+  //SerialMemDump((unsigned char *)(0x100000), 261 * 1024);
+
   Init_Mem(bootInfo);
   Init_CRC32();
   Init_TSS();
@@ -201,7 +213,7 @@ void Main(struct Boot_Info* bootInfo)
   Init_VM(bootInfo);
   Init_Paging();
   
-  Init_PCI();
+  //Init_PCI();
 
   Init_Stubs();
 

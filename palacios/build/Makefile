@@ -1,6 +1,6 @@
 # Makefile for GeekOS kernel, userspace, and tools
 # Copyright (c) 2004,2005 David H. Hovemeyer <daveho@cs.umd.edu>
-# $Revision: 1.44 $
+# $Revision: 1.45 $
 
 # This is free software.  You are permitted to use,
 # redistribute, and modify it as specified in the file "COPYING".
@@ -30,7 +30,7 @@
 #
 # The setup code needs to copy it up to this address and jump there
 #
-KERNEL_BASE_ADDR := 0x00010000
+KERNEL_BASE_ADDR := 0x00100000
 
 # Kernel entry point function
 KERNEL_ENTRY = $(SYM_PFX)Main
@@ -211,6 +211,9 @@ ZEROFILE := $(PERL) $(PROJECT_ROOT)/scripts/zerofile
 NUMSECS := $(PERL) $(PROJECT_ROOT)/scripts/numsecs
 
 
+#Round a value up to a certain factor (hex values)
+ROUND_UP_HEX := $(PERL) $(PROJECT_ROOT)/scripts/round_up_hex.pl
+
 # ----------------------------------------------------------------------
 # Definitions -
 #   Options passed to the tools.
@@ -298,10 +301,10 @@ all : $(ALL_TARGETS)
 #	$(CC) geekos/test.o geekos/vmcs.o geekos/vmx_lowlevel.o  -o geekos/test
 
 # Standard floppy image - just boots the kernel
-fd.img : geekos/fd_boot.bin geekos/setup.bin geekos/kernel.bin vm_kernel
+fd.img : geekos/fd_boot.bin geekos/setup.bin geekos/kernel.bin
 	cat geekos/fd_boot.bin geekos/setup.bin geekos/kernel.bin > _temp
 	$(PAD) _temp 512
-	cat _temp vm_kernel > $@
+	cp _temp fd.img
 
 vmm.img : fd.img
 	cp fd.img vmm.img
@@ -332,12 +335,11 @@ run: vmm.img
 
 
 # Floppy boot sector (first stage boot loader).
-geekos/fd_boot.bin : geekos/setup.bin geekos/kernel.bin $(PROJECT_ROOT)/src/geekos/fd_boot.asm vm_kernel
+geekos/fd_boot.bin : geekos/setup.bin geekos/kernel.bin $(PROJECT_ROOT)/src/geekos/fd_boot.asm
 	$(NASM) -f bin \
 		-I$(PROJECT_ROOT)/src/geekos/ \
 		-DNUM_SETUP_SECTORS=`$(NUMSECS) geekos/setup.bin` \
 		-DNUM_KERN_SECTORS=`$(NUMSECS) geekos/kernel.bin` \
-		-DNUM_VM_KERNEL_SECTORS=`$(NUMSECS) vm_kernel` \
 		$(PROJECT_ROOT)/src/geekos/fd_boot.asm \
 		-o $@
 
@@ -347,7 +349,6 @@ geekos/setup.bin : geekos/kernel.bin $(PROJECT_ROOT)/src/geekos/setup.asm
 		-I$(PROJECT_ROOT)/src/geekos/ \
 		-DENTRY_POINT=0x`egrep 'Main$$' geekos/kernel.syms |awk '{print $$1}'` \
 	        -DVMM_SIZE=`$(NUMSECS) geekos/kernel.bin` \
-		-DGUEST_SIZE=`$(NUMSECS) vm_kernel` \
 		$(PROJECT_ROOT)/src/geekos/setup.asm \
 		-o $@
 	$(PAD) $@ 512
@@ -358,18 +359,18 @@ geekos/kernel.bin : geekos/kernel.exe
 	$(PAD) $@ 512
 
 # The kernel executable and symbol map.
-geekos/kernel.exe : $(KERNEL_OBJS) $(COMMON_C_OBJS) $(VMM_OBJS) $(DEVICE_OBJS)
+geekos/kernel.exe : $(KERNEL_OBJS) $(COMMON_C_OBJS) $(VMM_OBJS) $(DEVICE_OBJS) vm_kernel
 	$(TARGET_LD) -o geekos/kernel.exe -Ttext $(KERNEL_BASE_ADDR) -e $(KERNEL_ENTRY) \
-		$(KERNEL_OBJS) $(COMMON_C_OBJS) $(VMM_OBJS) $(DEVICE_OBJS)
+		 $(KERNEL_OBJS) $(COMMON_C_OBJS) $(VMM_OBJS) $(DEVICE_OBJS) -b binary vm_kernel
 	$(TARGET_NM) geekos/kernel.exe > geekos/kernel.syms
 
 
 force:
 
 
-vm_kernel: force
-	$(PAD) vm_kernel 512
-	@echo "VM kernel lives at 0x100000 and is" `$(NUMSECS) vm_kernel` "sectors long"
+#vm_kernel: force
+#	$(PAD) vm_kernel 512
+#	@echo "VM kernel lives at 0x100000 and is" `$(NUMSECS) vm_kernel` "sectors long"
 
 
 

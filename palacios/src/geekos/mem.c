@@ -2,7 +2,7 @@
  * Physical memory allocation
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
- * $Revision: 1.8 $
+ * $Revision: 1.9 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -79,7 +79,7 @@ static void Add_Page_Range(ulong_t start, ulong_t end, int flags)
 {
     ulong_t addr;
 
-    PrintBoth("Start: %u, End: %u  (Type=0x%.4x)\n", (unsigned int)start, (unsigned int)end, flags);
+    PrintBoth("Start: %u (0x%x), End: %u(0x%x)  (Type=0x%.4x)\n", (unsigned int)start, start, (unsigned int)end, end, flags);
 
     KASSERT(Is_Page_Multiple(start));
     KASSERT(Is_Page_Multiple(end));
@@ -131,7 +131,6 @@ void Init_Mem(struct Boot_Info* bootInfo)
     ulong_t pageListAddr;
     ulong_t pageListEnd;
     ulong_t kernEnd;
-    ulong_t guestEnd;
     ulong_t heapAddr;
     ulong_t heapEnd;
     ulong_t vmmMemEnd;
@@ -148,7 +147,7 @@ void Init_Mem(struct Boot_Info* bootInfo)
 
 
     PrintBoth("Total Memory Size: %u MBytes\n", bootInfo->memSizeKB/1024);
-    PrintBoth("Page List Size: %u bytes\n", numPageListBytes);
+    PrintBoth("Page List (at 0x%x) Size: %u bytes\n", &s_freeList, numPageListBytes);
 
   
     /* Memory Layout:
@@ -156,10 +155,10 @@ void Init_Mem(struct Boot_Info* bootInfo)
      * kernel_thread_obj (1 page)
      * kernel_stack (1 page)
      * available space
-     * start - end:       kernel
      * available space
      * ISA_HOLE_START - ISA_HOLE_END: hardware
      * EXTENDED_MEMORY:
+     *        start - end:       kernel
      *        VM Guest (variable pages)
      *        Heap (512 Pages)
      *        Page List (variable pages)
@@ -167,7 +166,9 @@ void Init_Mem(struct Boot_Info* bootInfo)
      *        VM Memory (everything else)
      */
 
-    kernEnd = Round_Up_To_Page((ulong_t)&end);
+    //kernEnd = Round_Up_To_Page((ulong_t)&end);
+    kernEnd = (ulong_t)&end;
+
     PrintBoth("Kernel End=%lx\n", kernEnd);
 
 
@@ -175,8 +176,8 @@ void Init_Mem(struct Boot_Info* bootInfo)
     /* If we have dynamic loading of the guest kernel, we should put the relocation code here */
     /* ************************************************************************************** */
 
-    guestEnd = Round_Up_To_Page(ISA_HOLE_END + bootInfo->guest_size);
-    heapAddr = guestEnd;
+    kernEnd = Round_Up_To_Page(kernEnd);
+    heapAddr = kernEnd;
     heapEnd = Round_Up_To_Page(heapAddr + KERNEL_HEAP_SIZE);
     pageListAddr = heapEnd;
     pageListEnd = Round_Up_To_Page(pageListAddr + numPageListBytes);
@@ -193,16 +194,13 @@ void Init_Mem(struct Boot_Info* bootInfo)
      */
     vm_range_start = vmmMemEnd;
     vm_range_end = endOfMem;
-    guest_kernel_start = ISA_HOLE_END;
-    guest_kernel_end = guestEnd;
 
     Add_Page_Range(0, PAGE_SIZE, PAGE_UNUSED);                        // BIOS area
     Add_Page_Range(PAGE_SIZE, PAGE_SIZE * 3, PAGE_ALLOCATED);         // Intial kernel thread obj + stack
-    Add_Page_Range(PAGE_SIZE * 3, KERNEL_START_ADDR, PAGE_AVAIL);     // Available space
-    Add_Page_Range(KERNEL_START_ADDR, kernEnd, PAGE_KERN);            // VMM Kernel
-    Add_Page_Range(kernEnd, ISA_HOLE_START, PAGE_AVAIL);              // Available Space
+    Add_Page_Range(PAGE_SIZE * 3, ISA_HOLE_START, PAGE_AVAIL);     // Available space
     Add_Page_Range(ISA_HOLE_START, ISA_HOLE_END, PAGE_HW);            // Hardware ROMs
-    Add_Page_Range(ISA_HOLE_END, guestEnd, PAGE_VM);                  // Guest kernel location
+    Add_Page_Range(KERNEL_START_ADDR, kernEnd, PAGE_KERN);            // VMM Kernel
+    //    Add_Page_Range(guest_kernel_start, guestEnd, PAGE_VM);                  // Guest kernel location
     Add_Page_Range(heapAddr, heapEnd, PAGE_HEAP);                     // Heap
     Add_Page_Range(pageListAddr, pageListEnd, PAGE_KERN);              // Page List 
     Add_Page_Range(pageListEnd, vmmMemEnd, PAGE_AVAIL);                // Available VMM memory
@@ -221,11 +219,10 @@ void Init_Mem(struct Boot_Info* bootInfo)
     PrintBoth("%x to %x - BIOS AREA\n", 0, PAGE_SIZE - 1);
     PrintBoth("%x to %x - KERNEL_THREAD_OBJ\n", PAGE_SIZE, PAGE_SIZE * 2 - 1);
     PrintBoth("%x to %x - KERNEL_STACK\n", PAGE_SIZE * 2, PAGE_SIZE * 3 - 1);
-    PrintBoth("%lx to %x - FREE\n", PAGE_SIZE * 3, KERNEL_START_ADDR - 1);
-    PrintBoth("%x to %x - KERNEL CODE\n", KERNEL_START_ADDR, kernEnd - 1);
-    PrintBoth("%lx to %x - FREE\n", kernEnd, ISA_HOLE_START - 1);
+    PrintBoth("%lx to %x - FREE\n", PAGE_SIZE * 3, ISA_HOLE_START - 1);
     PrintBoth("%x to %x - ISA_HOLE\n", ISA_HOLE_START, ISA_HOLE_END - 1);
-    PrintBoth("%x to %x - VM_KERNEL\n", ISA_HOLE_END, guestEnd - 1);
+    PrintBoth("%x to %x - KERNEL CODE + VM_KERNEL\n", KERNEL_START_ADDR, kernEnd - 1);
+    //    PrintBoth("%x to %x - VM_KERNEL\n", kernEnd, guestEnd - 1);
     PrintBoth("%x to %x - KERNEL HEAP\n", heapAddr, heapEnd - 1);
     PrintBoth("%lx to %lx - PAGE LIST\n", pageListAddr, pageListEnd - 1);
     PrintBoth("%lx to %x - FREE\n", pageListEnd, vmmMemEnd - 1);

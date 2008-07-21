@@ -1,7 +1,7 @@
 /*
  * Boot information structure, passed to kernel Main() routine
  * Copyright (c) 2001, David H. Hovemeyer <daveho@cs.umd.edu>
- * $Revision: 1.2 $
+ * $Revision: 1.3 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -13,8 +13,6 @@
 struct Boot_Info {
   int bootInfoSize;	 /* size of this struct; for versioning */
   int vmm_size;
-  int guest_load_addr;  
-  int guest_size;
   int memSizeKB;	 /* number of KB, as reported by int 15h */
 };
 

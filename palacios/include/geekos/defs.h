@@ -1,7 +1,7 @@
 /*
  * Misc. kernel definitions
  * Copyright (c) 2001,2004 David H. Hovemeyer <daveho@cs.umd.edu>
- * $Revision: 1.4 $
+ * $Revision: 1.5 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -24,7 +24,7 @@
 /*
  * Address where kernel is loaded
  */
-#define KERNEL_START_ADDR 0x10000
+#define KERNEL_START_ADDR 0x100000
 
 /*
  * Kernel and user privilege levels

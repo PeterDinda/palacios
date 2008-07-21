@@ -1,7 +1,7 @@
 ; Boot sector for GeekOS
 ; Copyright (c) 2001,2004 David H. Hovemeyer <daveho@cs.umd.edu>
 ; Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
-; $Revision: 1.5 $
+; $Revision: 1.6 $
 
 ; This is free software.  You are permitted to use,
 ; redistribute, and modify it as specified in the file "COPYING".
@@ -89,6 +89,8 @@ load_setup:
 	cmp	word [sec_count], bx
 	jl	.again
 
+
+	
 load_kernel:
 	; Load the kernel image from sectors KERN_START_SEC..n of the
 	; floppy into memory at KERNSEG.  Note that there are 128 sectors
@@ -102,54 +104,8 @@ load_kernel:
 	mov	word [sec_count], ax
 	add	ax, word [kernelSize]
 	mov	word [max_sector], ax
-.again:
-	mov	ax, [sec_count]		; logical sector on the floppy
-;	mov     dx, ax
-;	call    PrintHex
-;	call    PrintNL
-	push	ax			; 1st param to ReadSector (log sec num)
-	sub	ax, [kernelStart]	; convert to 0-indexed
-	mov	cx, ax			; save in cx
-	shr	ax, 7			; divide by 128
-	shl	ax, 12			;  ...and multiply by 0x1000
-	add	ax, KERNSEG		;  ...to get base relative to KERNSEG
-;	mov     dx, ax
-;	call    PrintHex
-;	call    PrintNL
-	push	ax			; 2nd param to ReadSector (seg base)
-	and	cx, 0x7f		; mod sector by 128
-	shl	cx, 9			;  ...and multiply by 512
-	push	cx			; to get offset in segment (3rd parm)
-;	mov     dx, cx
-;	call    PrintHex
-;	call    PrintNL
 
-
-	; read the sector from the floppy
-	call	ReadSector
-	add	sp, 6			; clear 3 word params
-
-
-	; on to next sector
-	inc	word [sec_count]
-
-	; have we loaded all of the sectors?
-	mov	bx, word [max_sector]
-	cmp	word [sec_count], bx
-	jl	.again
-
-load_vm:
-	; Load the guest image starting at 1MB
-	; floppy into memory at KERNSEG.  Note that there are 128 sectors
-	; per 64K segment.  So, when figuring out which segment to
-	; load the sector  into, we shift right by 7 bits (which is
-	; equivalent to dividing by 128).
-
-	; Figure out start sector and max sector
-	mov	ax, word [vmStart]
-	mov	word [sec_count], ax
-	add	ax, word [vmSize]
-	mov	word [max_sector], ax
+	
 .again2:
 
 	mov	ax, [sec_count]		; logical sector on the floppy
@@ -456,13 +412,7 @@ kernelStart:
 kernelSize:
 	dw	NUM_KERN_SECTORS
 
-	;; part of pfat boot record
-vmStart:
-	dw	1+NUM_SETUP_SECTORS+NUM_KERN_SECTORS
-	;; part of pfat boot record
 
-vmSize:
-	dw	NUM_VM_KERNEL_SECTORS
 
 
 	; Finish by writing the BIOS signature to mark this as
