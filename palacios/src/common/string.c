@@ -1,7 +1,7 @@
 /*
  * String library
  * Copyright (c) 2001,2004 David H. Hovemeyer <daveho@cs.umd.edu>
- * $Revision: 1.1 $
+ * $Revision: 1.2 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -16,8 +16,19 @@
 
 #include <fmtout.h>
 #include <string.h>
+#include <palacios/vmm.h>
+
+//extern int PrintDebug(char *fmt, ...);
 
 extern void *Malloc(size_t size);
+
+/* Standard I/O predefined streams
+*/
+FILE   _streams = {0, 0, 0, 0, 0, NULL, NULL, 0, 0};
+
+FILE  *stdin = (&_streams);
+FILE  *stdout = (&_streams);
+FILE  *stderr = (&_streams);
 
 void* memset(void* s, int c, size_t n)
 {
@@ -121,6 +132,21 @@ char *strcat(char *s1, const char *s2)
 
     return t1;
 }
+
+char *strncat(char *s1, const char *s2, size_t limit)
+{
+    size_t i = 0;
+    char *t1;
+    t1 = s1;
+    while (*s1) s1++;
+    while (i < limit) {
+		if(*s2 == '\0') break;
+		*s1++ = *s2++;		
+    }
+    *s1 = '\0';
+    return t1;
+}
+	
 
 char *strcpy(char *dest, const char *src)
 {
@@ -259,3 +285,36 @@ int snprintf(char *s, size_t size, const char *fmt, ...)
 
     return rc;
 }
+
+int fprintf(FILE *file, char *fmt, ...)
+{
+   // PrintDebug("In fprintf!!\n");
+
+   return 0;
+
+}
+
+/* int fflush(FILE *stream)
+{
+    PrintDebug("In fflush!!\n");
+
+    return 0;
+}*/
+
+void abort(void)
+{
+   //PrintDebug("Abort!!\n");
+
+   //__asm__ __volatile__("trap"); 
+   //__builtin_unreached();
+
+
+   while(1);
+   
+}
+
+int tolower(int ch)
+{
+     return _tolower(ch);
+}
+
