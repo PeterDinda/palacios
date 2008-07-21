@@ -326,20 +326,26 @@ struct vm_device *create_generic(generic_port_range_type    port_ranges[],
   num_port_ranges=0;
   if (port_ranges!=NULL) { 
     i=0;
-    while (port_ranges[i]!=NULL && port_ranges[i][0]!=0 && port_ranges[i][1]!=0 && port_ranges[i][2]!=0) { num_port_ranges++; i++; }
+    while (port_ranges[i]!=NULL && 
+	   !(port_ranges[i][0]==0 && port_ranges[i][1]==0 && port_ranges[i][2]==0)) 
+      { num_port_ranges++; i++; }
   }
 
   
   num_address_ranges=0;
   if (address_ranges!=NULL) { 
     i=0;
-    while (address_ranges[i]!=NULL  && address_ranges[i][0]!=0 && address_ranges[i][1]!=0 && address_ranges[i][2]!=0) { num_address_ranges++; i++; }
+    while (address_ranges[i]!=NULL  && 
+	   !(address_ranges[i][0]==0 && address_ranges[i][1]==0 && address_ranges[i][2]==0)) 
+      { num_address_ranges++; i++; }
   }
 
   num_irq_ranges=0;
   if (irq_ranges!=NULL) { 
     i=0;
-    while (irq_ranges[i]!=NULL && irq_ranges[i][0]!=0 && irq_ranges[i][1]!=0 && irq_ranges[i][2]!=0) { num_irq_ranges++; i++; }
+    while (irq_ranges[i]!=NULL && 
+	   !(irq_ranges[i][0]==0 && irq_ranges[i][1]==0 && irq_ranges[i][2]==0) ) 
+      { num_irq_ranges++; i++; }
   }
     
 

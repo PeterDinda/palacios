@@ -93,35 +93,66 @@ struct ocw3 {
 struct pic_internal {
 
 
-  char master_irr;
-  char slave_irr;
+  uchar_t master_irr;
+  uchar_t slave_irr;
   
-  char master_isr;
-  char slave_isr;
+  uchar_t master_isr;
+  uchar_t slave_isr;
 
-  char master_icw1;
-  char master_icw2;
-  char master_icw3;
-  char master_icw4;
-
-
-  char slave_icw1;
-  char slave_icw2;
-  char slave_icw3;
-  char slave_icw4;
+  uchar_t master_icw1;
+  uchar_t master_icw2;
+  uchar_t master_icw3;
+  uchar_t master_icw4;
 
 
-  char master_imr;
-  char slave_imr;
-  char master_ocw2;
-  char master_ocw3;
-  char slave_ocw2;
-  char slave_ocw3;
+  uchar_t slave_icw1;
+  uchar_t slave_icw2;
+  uchar_t slave_icw3;
+  uchar_t slave_icw4;
+
+
+  uchar_t master_imr;
+  uchar_t slave_imr;
+  uchar_t master_ocw2;
+  uchar_t master_ocw3;
+  uchar_t slave_ocw2;
+  uchar_t slave_ocw3;
 
   pic_state_t master_state;
   pic_state_t slave_state;
 };
 
+
+static void DumpPICState(struct pic_internal *p)
+{
+
+  PrintDebug("8259 PIC: master_state=0x%x\n",p->master_state);
+  PrintDebug("8259 PIC: master_irr=0x%x\n",p->master_irr);
+  PrintDebug("8259 PIC: master_isr=0x%x\n",p->master_isr);
+  PrintDebug("8259 PIC: master_imr=0x%x\n",p->master_imr);
+
+  PrintDebug("8259 PIC: master_ocw2=0x%x\n",p->master_ocw2);
+  PrintDebug("8259 PIC: master_ocw3=0x%x\n",p->master_ocw3);
+
+  PrintDebug("8259 PIC: master_icw1=0x%x\n",p->master_icw1);
+  PrintDebug("8259 PIC: master_icw2=0x%x\n",p->master_icw2);
+  PrintDebug("8259 PIC: master_icw3=0x%x\n",p->master_icw3);
+  PrintDebug("8259 PIC: master_icw4=0x%x\n",p->master_icw4);
+
+  PrintDebug("8259 PIC: slave_state=0x%x\n",p->slave_state);
+  PrintDebug("8259 PIC: slave_irr=0x%x\n",p->slave_irr);
+  PrintDebug("8259 PIC: slave_isr=0x%x\n",p->slave_isr);
+  PrintDebug("8259 PIC: slave_imr=0x%x\n",p->slave_imr);
+
+  PrintDebug("8259 PIC: slave_ocw2=0x%x\n",p->slave_ocw2);
+  PrintDebug("8259 PIC: slave_ocw3=0x%x\n",p->slave_ocw3);
+
+  PrintDebug("8259 PIC: slave_icw1=0x%x\n",p->slave_icw1);
+  PrintDebug("8259 PIC: slave_icw2=0x%x\n",p->slave_icw2);
+  PrintDebug("8259 PIC: slave_icw3=0x%x\n",p->slave_icw3);
+  PrintDebug("8259 PIC: slave_icw4=0x%x\n",p->slave_icw4);
+
+}
 
 
 static int pic_raise_intr(void * private_data, int irq) {
@@ -129,6 +160,7 @@ static int pic_raise_intr(void * private_data, int irq) {
 
   if (irq == 2) {
     irq = 9;
+    state->master_irr |= 0x04;  // PAD
   }
 
   PrintDebug("8259 PIC: Raising irq %d in the PIC\n", irq);
@@ -136,7 +168,7 @@ static int pic_raise_intr(void * private_data, int irq) {
   if (irq <= 7) {
     state->master_irr |= 0x01 << irq;
   } else if ((irq > 7) && (irq < 16)) {
-    state->slave_irr |= 0x01 << (irq - 7);
+    state->slave_irr |= 0x01 << (irq - 8);  // PAD if -7 then irq 15=no irq
   } else {
     PrintDebug("8259 PIC: Invalid IRQ raised (%d)\n", irq);
     return -1;
@@ -158,7 +190,11 @@ static int pic_intr_pending(void * private_data) {
 
 static int pic_get_intr_number(void * private_data) {
   struct pic_internal * state = (struct pic_internal*)private_data;
-  int i;
+  int i=0;
+  int irq=-1;
+
+  PrintDebug("8259 PIC: getnum: master_irr: 0x%x master_imr: 0x%x\n", i, state->master_irr, state->master_imr);
+  PrintDebug("8259 PIC: getnum: slave_irr: 0x%x slave_imr: 0x%x\n", i, state->slave_irr, state->slave_imr);
 
   for (i = 0; i < 16; i++) {
     if (i <= 7) {
@@ -166,19 +202,30 @@ static int pic_get_intr_number(void * private_data) {
 	//state->master_isr |= (0x1 << i);
 	// reset the irr
 	//state->master_irr &= ~(0x1 << i);
-	PrintDebug("8259 PIC: IRQ: %d, icw2: %x\n", i, state->master_icw2);
-	return i + state->master_icw2;
+	PrintDebug("8259 PIC: IRQ: %d, master_icw2: %x\n", i, state->master_icw2);
+	irq= i + state->master_icw2;
+	break;
       }
     } else {
       if (((state->slave_irr & ~(state->slave_imr)) >> (i - 8)) == 0x01) {
 	//state->slave_isr |= (0x1 << (i - 8));
 	//state->slave_irr &= ~(0x1 << (i - 8));
-	return (i - 8) + state->slave_icw2;
+	PrintDebug("8259 PIC: IRQ: %d, slave_icw2: %x\n", i, state->slave_icw2);
+	irq= (i - 8) + state->slave_icw2;
+	break;
       }
     }
   }
 
-  return 0;
+  if (i==15 || i==6) { 
+    DumpPICState(state);
+  }
+  
+  if (i==16) { 
+    return -1;
+  } else {
+    return irq;
+  }
 }
 
 
@@ -193,7 +240,7 @@ static int pic_begin_irq(void * private_data, int irq) {
     irq &= 0x7;
     irq += 8;
   } else {
-    PrintDebug("8259 PIC: Could not find IRQ to Begin\n");
+    PrintDebug("8259 PIC: Could not find IRQ (0x%x) to Begin\n",irq);
     return -1;
   }
 
@@ -236,11 +283,11 @@ int read_master_port1(ushort_t port, void * dst, uint_t length, struct vm_device
   }
   
   if ((state->master_ocw3 & 0x03) == 0x02) {
-    *(char *)dst = state->master_irr;
+    *(uchar_t *)dst = state->master_irr;
   } else if ((state->master_ocw3 & 0x03) == 0x03) {
-    *(char *)dst = state->master_isr;
+    *(uchar_t *)dst = state->master_isr;
   } else {
-    *(char *)dst = 0;
+    *(uchar_t *)dst = 0;
   }
   
   return 1;
@@ -254,7 +301,7 @@ int read_master_port2(ushort_t port, void * dst, uint_t length, struct vm_device
     return -1;
   }
 
-  *(char *)dst = state->master_imr;
+  *(uchar_t *)dst = state->master_imr;
 
   return 1;
   
@@ -269,11 +316,11 @@ int read_slave_port1(ushort_t port, void * dst, uint_t length, struct vm_device 
   }
   
   if ((state->slave_ocw3 & 0x03) == 0x02) {
-    *(char*)dst = state->slave_irr;
+    *(uchar_t*)dst = state->slave_irr;
   } else if ((state->slave_ocw3 & 0x03) == 0x03) {
-    *(char *)dst = state->slave_isr;
+    *(uchar_t *)dst = state->slave_isr;
   } else {
-    *(char *)dst = 0;
+    *(uchar_t *)dst = 0;
   }
 
   return 1;
@@ -287,7 +334,7 @@ int read_slave_port2(ushort_t port, void * dst, uint_t length, struct vm_device 
     return -1;
   }
 
-  *(char *)dst = state->slave_imr;
+  *(uchar_t *)dst = state->slave_imr;
 
   return 1;
 }
@@ -295,7 +342,7 @@ int read_slave_port2(ushort_t port, void * dst, uint_t length, struct vm_device 
 
 int write_master_port1(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
   struct pic_internal * state = (struct pic_internal*)dev->private_data;
-  char cw = *(char *)src;
+  uchar_t cw = *(uchar_t *)src;
 
   if (length != 1) {
     PrintDebug("8259 PIC: Invalid Write length (wr_Master1)\n");
@@ -350,7 +397,7 @@ int write_master_port1(ushort_t port, void * src, uint_t length, struct vm_devic
 
 int write_master_port2(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
     struct pic_internal * state = (struct pic_internal*)dev->private_data;
-    char cw = *(char *)src;    
+    uchar_t cw = *(uchar_t *)src;    
 
     if (length != 1) {
       PrintDebug("8259 PIC: Invalid Write length (wr_Master2)\n");
@@ -398,7 +445,7 @@ int write_master_port2(ushort_t port, void * src, uint_t length, struct vm_devic
 
 int write_slave_port1(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
   struct pic_internal * state = (struct pic_internal*)dev->private_data;
-  char cw = *(char *)src;
+  uchar_t cw = *(uchar_t *)src;
 
   if (length != 1) {
     // error
@@ -451,7 +498,7 @@ int write_slave_port1(ushort_t port, void * src, uint_t length, struct vm_device
 
 int write_slave_port2(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
     struct pic_internal * state = (struct pic_internal*)dev->private_data;
-    char cw = *(char *)src;    
+    uchar_t cw = *(uchar_t *)src;    
 
     if (length != 1) {
       PrintDebug("8259 PIC: Invalid write length (wr_Slave2)\n");
