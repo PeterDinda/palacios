@@ -1,6 +1,6 @@
 # Makefile for GeekOS kernel, userspace, and tools
 # Copyright (c) 2004,2005 David H. Hovemeyer <daveho@cs.umd.edu>
-# $Revision: 1.51 $
+# $Revision: 1.52 $
 
 # This is free software.  You are permitted to use,
 # redistribute, and modify it as specified in the file "COPYING".
@@ -48,6 +48,9 @@ VPATH := $(PROJECT_ROOT)/src
 DEBUG=1
 DEBUG_SECTIONS= 
 
+ifeq ($(DEBUG_ALL),1)
+  DEBUG_SECTIONS:= $(DEBUG_SECTIONS) -DDEBUG_SHADOW_PAGING -DDEBUG_CTRL_REGS -DDEBUG_INTERRUPTS -DDEBUG_IO -DDEBUG_KEYBOARD -DDEBUG_PIC -DDEBUG_PIT -DDEBUG_NVRAM
+endif
 ifeq ($(DEBUG_SHADOW_PAGING),1)
 DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DDEBUG_SHADOW_PAGING
 endif
@@ -371,11 +374,7 @@ force_vgabios:
 	(cd ../src/vmboot/vgabios; make clean; make)
 
 force_payload: force_rombios force_vgabios
-ifeq ($(XED),1)
-	../scripts/make_payload.pl payload_none.txt vm_kernel
-else
 	../scripts/make_payload.pl payload_layout.txt vm_kernel
-endif
 
 inter1: force_payload
 	-make clean
