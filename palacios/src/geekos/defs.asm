@@ -1,6 +1,6 @@
 ; Definitions for use in GeekOS boot code
 ; Copyright (c) 2001, David H. Hovemeyer <daveho@cs.umd.edu>
-; $Revision: 1.7 $
+; $Revision: 1.8 $
 
 ; This is free software.  You are permitted to use,
 ; redistribute, and modify it as specified in the file "COPYING".
@@ -54,7 +54,7 @@ VIDSEG equ 0xb800
 
 ; The following information is correct for a 1.44M floppy.
 ; Yes, I'm hard coding this.
-SECTORS_PER_TRACK equ 18
+;SECTORS_PER_TRACK equ 18	
 HEADS equ 2
 CYLINDERS equ 80
 

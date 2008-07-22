@@ -1,0 +1,30 @@
+#! /usr/bin/perl
+
+# Find the number of 512-byte sectors needed to store
+# given file.
+
+# $Revision: 1.1 $
+
+use strict qw(refs vars);
+
+my $sectors = 0;
+my $filename = "";
+
+foreach $filename (@ARGV) {
+
+  my $size = (-s $filename );
+  die "Couldn't get size of $filename: $!" if ( !defined $size );
+
+  my $result = int($size / 512);
+  my $remainder = $size % 512;
+  $result++ if ( $remainder > 0 );
+
+  $sectors += $result;
+}
+
+if ($sectors <= 2879) {
+  print "18\n";
+} else {
+  print "36\n";
+}
+

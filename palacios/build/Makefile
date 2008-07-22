@@ -1,6 +1,6 @@
 # Makefile for GeekOS kernel, userspace, and tools
 # Copyright (c) 2004,2005 David H. Hovemeyer <daveho@cs.umd.edu>
-# $Revision: 1.48 $
+# $Revision: 1.49 $
 
 # This is free software.  You are permitted to use,
 # redistribute, and modify it as specified in the file "COPYING".
@@ -82,7 +82,7 @@ endif
 #
 # and make world will build an empty boot package
 #
-XED=0
+XED=1
 
 ifeq ($(DEBUG),1)
   JRLDEBUG= -DSERIAL_PRINT_DEBUG=1 -DSERIAL_PRINT_DEBUG_LEVEL=10 -DSERIAL_PRINT=1 -DVMM_DEBUG=1 -DVMM_INFO=1 -DVMM_TRACE=1 $(DEBUG_SECTIONS)
@@ -265,8 +265,8 @@ ZEROFILE := $(PERL) $(PROJECT_ROOT)/scripts/zerofile
 NUMSECS := $(PERL) $(PROJECT_ROOT)/scripts/numsecs
 
 
-#Round a value up to a certain factor (hex values)
-ROUND_UP_HEX := $(PERL) $(PROJECT_ROOT)/scripts/round_up_hex.pl
+FD_SECTORS_PER_TRACK := $(PERL) $(PROJECT_ROOT)/scripts/numsecs_per_track
+
 
 # ----------------------------------------------------------------------
 # Definitions -
@@ -398,6 +398,7 @@ geekos/fd_boot.bin : geekos/setup.bin geekos/kernel.bin $(PROJECT_ROOT)/src/geek
 		-I$(PROJECT_ROOT)/src/geekos/ \
 		-DNUM_SETUP_SECTORS=`$(NUMSECS) geekos/setup.bin` \
 		-DNUM_KERN_SECTORS=`$(NUMSECS) geekos/kernel.bin` \
+		-DSECTORS_PER_TRACK=`$(FD_SECTORS_PER_TRACK) geekos/kernel.bin geekos/setup.bin` \
 		$(PROJECT_ROOT)/src/geekos/fd_boot.asm \
 		-o $@
 
