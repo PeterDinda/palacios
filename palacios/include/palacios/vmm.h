@@ -65,14 +65,15 @@
 #endif
 
 
-#define V3_AllocPages(ptr, num_pages)		        \
-  do {							\
+#define V3_AllocPages(num_pages)		        \
+  ({							\
     extern struct vmm_os_hooks * os_hooks;		\
-    ptr = 0;						\
+    void * ptr = 0;					\
     if ((os_hooks) && (os_hooks)->allocate_pages) {	\
       ptr = (os_hooks)->allocate_pages(num_pages);	\
     }							\
-  } while (0)						\
+    ptr;						\
+  })							\
 
 
 #define V3_FreePage(page)			\

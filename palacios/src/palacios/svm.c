@@ -12,7 +12,7 @@
 #include <palacios/vmm_decoder.h>
 
 
-extern struct vmm_os_hooks * os_hooks;
+
 
 extern uint_t cpuid_ecx(uint_t op);
 extern uint_t cpuid_edx(uint_t op);
@@ -37,7 +37,7 @@ extern void EnableInts();
 
 
 static vmcb_t * Allocate_VMCB() {
-  vmcb_t * vmcb_page = (vmcb_t*)os_hooks->allocate_pages(1);
+  vmcb_t * vmcb_page = (vmcb_t *)V3_AllocPages(1);
 
 
   memset(vmcb_page, 0, 4096);
@@ -135,10 +135,10 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
   guest_state->dr7 = 0x0000000000000400LL;
 
   if (vm_info->io_map.num_ports > 0) {
-    vmm_io_hook_t * iter;
+    struct vmm_io_hook * iter;
     addr_t io_port_bitmap;
     
-    io_port_bitmap = (addr_t)os_hooks->allocate_pages(3);
+    io_port_bitmap = (addr_t)V3_AllocPages(3);
     memset((uchar_t*)io_port_bitmap, 0, PAGE_SIZE * 3);
     
     ctrl_area->IOPM_BASE_PA = io_port_bitmap;
@@ -467,7 +467,7 @@ void Init_SVM(struct vmm_ctrl_ops * vmm_ops) {
 
 
   // Setup the host state save area
-  host_state = os_hooks->allocate_pages(4);
+  host_state = V3_AllocPages(4);
   
   msr.e_reg.high = 0;
   msr.e_reg.low = (uint_t)host_state;
@@ -588,10 +588,10 @@ void Init_SVM(struct vmm_ctrl_ops * vmm_ops) {
   }
   
   if (vm_info.io_map.num_ports > 0) {
-    vmm_io_hook_t * iter;
+    struct vmm_io_hook * iter;
     addr_t io_port_bitmap;
     
-    io_port_bitmap = (addr_t)os_hooks->allocate_pages(3);
+    io_port_bitmap = (addr_t)V3_AllocPages(3);
     memset((uchar_t*)io_port_bitmap, 0, PAGE_SIZE * 3);
     
     ctrl_area->IOPM_BASE_PA = io_port_bitmap;
@@ -749,7 +749,7 @@ void Init_VMCB_pe(vmcb_t *vmcb, struct guest_info vm_info) {
   
 
   ctrl_area->instrs.IOIO_PROT = 1;
-  ctrl_area->IOPM_BASE_PA = (uint_t)os_hooks->allocate_pages(3);
+  ctrl_area->IOPM_BASE_PA = (uint_t)V3_AllocPages(3);
   
   {
     reg_ex_t tmp_reg;

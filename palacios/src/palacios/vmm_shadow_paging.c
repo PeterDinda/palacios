@@ -11,6 +11,18 @@
 #endif
 
 
+
+
+
+
+static int handle_shadow_pte32_fault(struct guest_info* info, 
+				     addr_t fault_addr, 
+				     pf_error_t error_code,
+				     pte32_t * shadow_pte, 
+				     pte32_t * guest_pte);
+
+static int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_error_t error_code);
+
 int init_shadow_page_state(struct shadow_page_state * state) {
   state->guest_mode = PDE32;
   state->shadow_mode = PDE32;
@@ -47,7 +59,7 @@ int handle_shadow_pagefault(struct guest_info * info, addr_t fault_addr, pf_erro
 addr_t create_new_shadow_pt32(struct guest_info * info) {
   void * host_pde = 0;
 
-  V3_AllocPages(host_pde, 1);
+  host_pde = V3_AllocPages(1);
   memset(host_pde, 0, PAGE_SIZE);
 
   return (addr_t)host_pde;
@@ -89,7 +101,7 @@ static int handle_pd32_nonaligned_4MB_page(struct guest_info * info, pte32_t * p
   return 0;
 }
 
-int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_error_t error_code) {
+static int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_error_t error_code) {
   pde32_t * guest_pd = NULL;
   pde32_t * shadow_pd = (pde32_t *)CR3_TO_PDE32(info->shdw_pg_state.shadow_cr3);
   addr_t guest_cr3 = CR3_TO_PDE32(info->shdw_pg_state.guest_cr3);
@@ -172,7 +184,7 @@ int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_er
     if (guest_pde->large_page == 0) {
       pte32_t * shadow_pt = NULL;
       
-      V3_AllocPages(shadow_pt, 1);
+      shadow_pt = V3_AllocPages(1);
       memset(shadow_pt, 0, PAGE_SIZE);
       
       shadow_pde->pt_base_addr = PD32_BASE_ADDR(shadow_pt);
@@ -238,7 +250,7 @@ int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_er
 
 	  shadow_pde->large_page = 0;
       
-	  V3_AllocPages(shadow_pt, 1);
+	  shadow_pt = V3_AllocPages(1);
 	  memset(shadow_pt, 0, PAGE_SIZE);
 
 	  if (handle_pd32_nonaligned_4MB_page(info, shadow_pt, guest_start_addr, large_shadow_pde) == -1) {
@@ -334,7 +346,7 @@ int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_er
 /* 
  * We assume the the guest pte pointer has already been translated to a host virtual address
  */
-int handle_shadow_pte32_fault(struct guest_info * info, 
+static int handle_shadow_pte32_fault(struct guest_info * info, 
 			      addr_t fault_addr, 
 			      pf_error_t error_code,
 			      pte32_t * shadow_pt, 
@@ -572,83 +584,3 @@ int handle_shadow_invlpg(struct guest_info * info) {
 }
 
 
-
-/* Deprecated */
-/*
-addr_t setup_shadow_pt32(struct guest_info * info, addr_t virt_cr3) {
-  addr_t cr3_guest_addr = CR3_TO_PDE32(virt_cr3);
-  pde32_t * guest_pde;
-  pde32_t * host_pde = NULL;
-  int i;
-  
-  // Setup up guest_pde to point to the PageDir in host addr
-  if (guest_pa_to_host_va(info, cr3_guest_addr, (addr_t*)&guest_pde) == -1) {
-    return 0;
-  }
-  
-  V3_AllocPages(host_pde, 1);
-  memset(host_pde, 0, PAGE_SIZE);
-
-  for (i = 0; i < MAX_PDE32_ENTRIES; i++) {
-    if (guest_pde[i].present == 1) {
-      addr_t pt_host_addr;
-      addr_t host_pte;
-
-      if (guest_pa_to_host_va(info, PDE32_T_ADDR(guest_pde[i]), &pt_host_addr) == -1) {
-	return 0;
-      }
-
-      if ((host_pte = setup_shadow_pte32(info, pt_host_addr)) == 0) {
-	return 0;
-      }
-
-      host_pde[i].present = 1;
-      host_pde[i].pt_base_addr = PD32_BASE_ADDR(host_pte);
-
-      //
-      // Set Page DIR flags
-      //
-    }
-  }
-
-  PrintDebugPageTables(host_pde);
-
-  return (addr_t)host_pde;
-}
-
-
-
-addr_t setup_shadow_pte32(struct guest_info * info, addr_t pt_host_addr) {
-  pte32_t * guest_pte = (pte32_t *)pt_host_addr;
-  pte32_t * host_pte = NULL;
-  int i;
-
-  V3_AllocPages(host_pte, 1);
-  memset(host_pte, 0, PAGE_SIZE);
-
-  for (i = 0; i < MAX_PTE32_ENTRIES; i++) {
-    if (guest_pte[i].present == 1) {
-      addr_t guest_pa = PTE32_T_ADDR(guest_pte[i]);
-      shadow_mem_type_t page_type;
-      addr_t host_pa = 0;
-
-      page_type = get_shadow_addr_type(info, guest_pa);
-
-      if (page_type == HOST_REGION_PHYSICAL_MEMORY) {
-	host_pa = get_shadow_addr(info, guest_pa);
-      } else {
-	
-	//
-	// Setup various memory types
-	//
-      }
-
-      host_pte[i].page_base_addr = PT32_BASE_ADDR(host_pa);
-      host_pte[i].present = 1;
-    }
-  }
-
-  return (addr_t)host_pte;
-}
-
-*/

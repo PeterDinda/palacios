@@ -11,7 +11,7 @@
 #endif
 
 
-void init_vmm_io_map(vmm_io_map_t * io_map) {
+void init_vmm_io_map(struct vmm_io_map * io_map) {
   io_map->num_ports = 0;
   io_map->head = NULL;
 }
@@ -20,7 +20,7 @@ void init_vmm_io_map(vmm_io_map_t * io_map) {
 
 
 
-static int add_io_hook(vmm_io_map_t * io_map, vmm_io_hook_t * io_hook) {
+static int add_io_hook(struct vmm_io_map * io_map, struct vmm_io_hook * io_hook) {
 
   if (!(io_map->head)) {
     io_map->head = io_hook;
@@ -35,7 +35,7 @@ static int add_io_hook(vmm_io_map_t * io_map, vmm_io_hook_t * io_hook) {
 
     return 0;
   } else {
-    vmm_io_hook_t * tmp_hook = io_map->head;
+    struct vmm_io_hook * tmp_hook = io_map->head;
     
     while ((tmp_hook->next)  && 
 	   (tmp_hook->next->port <= io_hook->port)) {
@@ -64,7 +64,7 @@ static int add_io_hook(vmm_io_map_t * io_map, vmm_io_hook_t * io_hook) {
   return -1;
 }
 
-static int remove_io_hook(vmm_io_map_t * io_map, vmm_io_hook_t * io_hook) {
+static int remove_io_hook(struct vmm_io_map * io_map, struct vmm_io_hook * io_hook) {
   if (io_map->head == io_hook) {
     io_map->head = io_hook->next;
   } else if (io_hook->prev) {
@@ -130,11 +130,11 @@ static int default_read(ushort_t port, void * dst, uint_t length, void * priv_da
   return 0;
 }
 
-int v3_hook_io_port(vmm_io_map_t * io_map, uint_t port, 
+int v3_hook_io_port(struct vmm_io_map * io_map, uint_t port, 
 		 int (*read)(ushort_t port, void * dst, uint_t length, void * priv_data),
 		 int (*write)(ushort_t port, void * src, uint_t length, void * priv_data), 
 		 void * priv_data) {
-  vmm_io_hook_t * io_hook = (vmm_io_hook_t *)V3_Malloc(sizeof(vmm_io_hook_t));
+  struct vmm_io_hook * io_hook = (struct vmm_io_hook *)V3_Malloc(sizeof(struct vmm_io_hook));
 
   io_hook->port = port;
 
@@ -163,8 +163,8 @@ int v3_hook_io_port(vmm_io_map_t * io_map, uint_t port,
   return 0;
 }
 
-int v3_unhook_io_port(vmm_io_map_t * io_map, uint_t port) {
-  vmm_io_hook_t * hook = v3_get_io_hook(io_map, port);
+int v3_unhook_io_port(struct vmm_io_map * io_map, uint_t port) {
+  struct vmm_io_hook * hook = v3_get_io_hook(io_map, port);
 
   if (hook == NULL) {
     return -1;
@@ -175,8 +175,8 @@ int v3_unhook_io_port(vmm_io_map_t * io_map, uint_t port) {
 }
 
 
-vmm_io_hook_t * v3_get_io_hook(vmm_io_map_t * io_map, uint_t port) {
-  vmm_io_hook_t * tmp_hook;
+struct vmm_io_hook * v3_get_io_hook(struct vmm_io_map * io_map, uint_t port) {
+  struct vmm_io_hook * tmp_hook;
   FOREACH_IO_HOOK(*io_map, tmp_hook) {
     if (tmp_hook->port == port) {
       return tmp_hook;
@@ -187,8 +187,8 @@ vmm_io_hook_t * v3_get_io_hook(vmm_io_map_t * io_map, uint_t port) {
 
 
 
-void PrintDebugIOMap(vmm_io_map_t * io_map) {
-  vmm_io_hook_t * iter = io_map->head;
+void PrintDebugIOMap(struct vmm_io_map * io_map) {
+  struct vmm_io_hook * iter = io_map->head;
 
   PrintDebug("VMM IO Map (Entries=%d)\n", io_map->num_ports);
 

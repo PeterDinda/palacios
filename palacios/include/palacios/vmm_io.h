@@ -9,29 +9,29 @@
 
 struct vmm_io_hook;
 
-typedef struct vmm_io_map {
+struct vmm_io_map {
   uint_t num_ports;
 
 
   struct vmm_io_hook * head;
 
-} vmm_io_map_t;
+};
 
 
-int v3_unhook_io_port(vmm_io_map_t * io_map, uint_t port);
+int v3_unhook_io_port(struct vmm_io_map * io_map, uint_t port);
 
 
 /* External API */
-int v3_hook_io_port(vmm_io_map_t * io_map, uint_t port, 
+int v3_hook_io_port(struct vmm_io_map * io_map, uint_t port, 
 		    int (*read)(ushort_t port, void * dst, uint_t length, void * priv_data),
 		    int (*write)(ushort_t port, void * src, uint_t length, void * priv_data), 
 		    void * priv_data);
 
-void init_vmm_io_map(vmm_io_map_t * io_map);
+void init_vmm_io_map(struct vmm_io_map * io_map);
 
 
 
-struct vmm_io_hook * v3_get_io_hook(vmm_io_map_t * io_map, uint_t port);
+struct vmm_io_hook * v3_get_io_hook(struct vmm_io_map * io_map, uint_t port);
 
 
 
@@ -59,12 +59,12 @@ struct vmm_io_hook {
 
 };
 
-typedef struct vmm_io_hook vmm_io_hook_t;
 
 
 
 
-void PrintDebugIOMap(vmm_io_map_t * io_map);
+
+void PrintDebugIOMap(struct vmm_io_map * io_map);
 
 
 #endif // !__V3VEE__

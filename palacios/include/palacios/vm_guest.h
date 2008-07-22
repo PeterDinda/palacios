@@ -101,7 +101,7 @@ struct guest_info {
   // This structure is how we get interrupts for the guest
   struct vm_intr intr_state;
 
-  vmm_io_map_t io_map;
+  struct vmm_io_map io_map;
   // device_map
 
   struct vmm_dev_mgr  dev_mgr;
