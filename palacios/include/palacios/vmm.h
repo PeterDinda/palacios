@@ -75,16 +75,16 @@
   } while (0)						\
 
 
-/*
-#define V3_Malloc(type, var, size)			\
-  do {							\
-    extern struct vmm_os_hooks * os_hooks;		\
-    var = 0;						\
-    if ((os_hooks) && (os_hooks)->malloc) {		\
-      var = (type)(os_hooks)->malloc(size);		\
-    }							\
-  } while (0)						\
-*/
+#define V3_FreePage(page)			\
+  do {						\
+    extern struct vmm_os_hooks * os_hooks;	\
+    if ((os_hooks) && (os_hooks)->free_page) {	\
+      (os_hooks)->free_page(page);		\
+    }						\
+  } while(0)					\
+
+
+
 
 #define V3_Malloc(size) ({			\
       extern struct vmm_os_hooks * os_hooks;	\
@@ -104,6 +104,8 @@
     }							\
   } while (0)						\
 
+
+// uint_t V3_CPU_KHZ();
 #define V3_CPU_KHZ()					\
   ({ 							\
     unsigned int khz = 0;				\
@@ -114,6 +116,18 @@
     khz;						\
   })							\
     
+
+
+#define V3_Hook_Interrupt(irq, opaque)				\
+  ({								\
+    int ret = 0;							\
+    extern struct vmm_os_hooks * os_hooks;			\
+    if ((os_hooks) && (os_hooks)->hook_interrupt) {		\
+      ret = (os_hooks)->hook_interrupt(irq, opaque);		\
+    }								\
+    ret;							\
+  })								\
+
 
 /* ** */
 
@@ -127,6 +141,8 @@
     }									\
   } while(0)								\
     
+
+
 
 #define VMM_INVALID_CPU 0
 #define VMM_VMX_CPU 1
@@ -169,20 +185,14 @@ struct vmm_os_hooks {
   void *(*paddr_to_vaddr)(void *addr);
   void *(*vaddr_to_paddr)(void *addr);
 
-  //  int (*hook_interrupt)(int irq, vmm_intr_handler handler, uint_t opaque);
+  //  int (*hook_interrupt)(struct guest_info *s, int irq);
 
-  int (*hook_interrupt)(struct guest_info *s, int irq);
-
-  int (*hook_interrupt_new)(uint_t irq, void *opaque);
+  int (*hook_interrupt)(uint_t irq, void *opaque);
 
   int (*ack_irq)(int irq);
 
 
   unsigned int (*get_cpu_khz)();
-
-  // Do we need this here?
-  //  void (*snprintf)(char * dst, char * format, int len, ...);
-
 
 
   void (*start_kernel_thread)(); // include pointer to function
@@ -202,7 +212,7 @@ struct vmm_ctrl_ops {
 
 
 
-void Init_VMM(struct vmm_os_hooks * hooks, struct vmm_ctrl_ops * vmm_ops);
+void Init_V3(struct vmm_os_hooks * hooks, struct vmm_ctrl_ops * vmm_ops);
 
 
 

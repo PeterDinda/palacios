@@ -14,7 +14,7 @@ struct vmm_os_hooks * os_hooks = NULL;
 
 
 
-void Init_VMM(struct vmm_os_hooks * hooks, struct vmm_ctrl_ops * vmm_ops) {
+void Init_V3(struct vmm_os_hooks * hooks, struct vmm_ctrl_ops * vmm_ops) {
   vmm_cpu_type = VMM_INVALID_CPU;
 
   os_hooks = hooks;

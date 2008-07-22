@@ -219,14 +219,13 @@ int RunVMM(struct Boot_Info * bootInfo) {
     os_hooks.free = &VMM_Free;
     os_hooks.vaddr_to_paddr = &Identity;
     os_hooks.paddr_to_vaddr = &Identity;
-    os_hooks.hook_interrupt = &hook_irq_stub;
-    os_hooks.hook_interrupt_new = &geekos_hook_interrupt_new;
+    os_hooks.hook_interrupt = &geekos_hook_interrupt_new;
     os_hooks.ack_irq = &ack_irq;
     os_hooks.get_cpu_khz = &get_cpu_khz;
 
 
 
-    Init_VMM(&os_hooks, &vmm_ops);
+    Init_V3(&os_hooks, &vmm_ops);
 
     //test decoder
     PrintBoth("testing decoder\n");
@@ -285,8 +284,8 @@ int RunVMM(struct Boot_Info * bootInfo) {
 
       add_shadow_region_passthrough(&vm_info, 0x0, 0x100000, 0x100000);
 
-      hook_io_port(&(vm_info.io_map), 0x61, &IO_Read, &IO_Write, NULL);
-      hook_io_port(&(vm_info.io_map), 0x05, &IO_Read, &IO_Write_to_Serial, NULL);
+      v3_hook_io_port(&(vm_info.io_map), 0x61, &IO_Read, &IO_Write, NULL);
+      v3_hook_io_port(&(vm_info.io_map), 0x05, &IO_Read, &IO_Write_to_Serial, NULL);
       
       /*
 	vm_info.cr0 = 0;
@@ -369,14 +368,14 @@ int RunVMM(struct Boot_Info * bootInfo) {
 
       print_shadow_map(&(vm_info.mem_map));
 
-      hook_io_port(&(vm_info.io_map), 0x61, &IO_Read, &IO_Write, NULL);
-      //hook_io_port(&(vm_info.io_map), 0x05, &IO_Read, &IO_Write_to_Serial, NULL);
+      v3_hook_io_port(&(vm_info.io_map), 0x61, &IO_Read, &IO_Write, NULL);
+      //v3_hook_io_port(&(vm_info.io_map), 0x05, &IO_Read, &IO_Write_to_Serial, NULL);
 
 
-      hook_io_port(&(vm_info.io_map), 0x400, &IO_Read, &IO_Write_to_Serial, NULL);
-      hook_io_port(&(vm_info.io_map), 0x401, &IO_Read, &IO_Write_to_Serial, NULL);
-      hook_io_port(&(vm_info.io_map), 0x402, &IO_Read, &IO_BOCHS_info, NULL);
-      hook_io_port(&(vm_info.io_map), 0x403, &IO_Read, &IO_BOCHS_debug, NULL);
+      v3_hook_io_port(&(vm_info.io_map), 0x400, &IO_Read, &IO_Write_to_Serial, NULL);
+      v3_hook_io_port(&(vm_info.io_map), 0x401, &IO_Read, &IO_Write_to_Serial, NULL);
+      v3_hook_io_port(&(vm_info.io_map), 0x402, &IO_Read, &IO_BOCHS_info, NULL);
+      v3_hook_io_port(&(vm_info.io_map), 0x403, &IO_Read, &IO_BOCHS_debug, NULL);
 
       {
 	
@@ -442,17 +441,17 @@ int RunVMM(struct Boot_Info * bootInfo) {
 
 #endif
 
-	attach_device(&(vm_info), nvram);
-	//attach_device(&(vm_info), timer);
-	attach_device(&(vm_info), pic);
-	attach_device(&(vm_info), pit);
-	attach_device(&(vm_info), keyboard);
-	// attach_device(&(vm_info), serial);
+	v3_attach_device(&(vm_info), nvram);
+	//v3_attach_device(&(vm_info), timer);
+	v3_attach_device(&(vm_info), pic);
+	v3_attach_device(&(vm_info), pit);
+	v3_attach_device(&(vm_info), keyboard);
+	// v3_attach_device(&(vm_info), serial);
 
 
 #if GENERIC
 	// Important that this be attached last!
-	attach_device(&(vm_info), generic);
+	v3_attach_device(&(vm_info), generic);
 
 #endif
 
@@ -465,15 +464,15 @@ int RunVMM(struct Boot_Info * bootInfo) {
       
 #if 1
       // give floppy controller to vm
-      hook_irq_for_guest_injection(&vm_info, 6);
+      v3_hook_irq_for_guest_injection(&vm_info, 6);
 #endif
 
 #if 1
       //primary ide
-      hook_irq_for_guest_injection(&vm_info, 14);
+      v3_hook_irq_for_guest_injection(&vm_info, 14);
 
       // secondary ide
-      hook_irq_for_guest_injection(&vm_info, 15);
+      v3_hook_irq_for_guest_injection(&vm_info, 15);
 #endif
 
 

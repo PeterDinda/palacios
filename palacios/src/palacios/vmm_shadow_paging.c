@@ -132,7 +132,7 @@ int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_er
     // inject page fault to the guest (Guest PDE fault)
 
 	info->ctrl_regs.cr2 = fault_addr;
-    raise_exception_with_error(info, PF_EXCEPTION, *(uint_t *)&error_code);
+    v3_raise_exception_with_error(info, PF_EXCEPTION, *(uint_t *)&error_code);
 
 
     PrintDebug("Injecting PDE pf to guest: (guest access error=%d) (pf error code=%d)\n", guest_pde_access, error_code);
@@ -195,7 +195,7 @@ int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_er
 
       if (host_page_type == HOST_REGION_INVALID) {
 
-	raise_exception(info, MC_EXCEPTION);
+	v3_raise_exception(info, MC_EXCEPTION);
 	PrintError("Invalid guest address in large page (0x%x)\n", guest_start_addr);
 	return -1;
       } else if (host_page_type == HOST_REGION_PHYSICAL_MEMORY) {
@@ -285,7 +285,7 @@ int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_er
     
     PrintDebug("Shadow Paging User access error (shadow_pde_access=0x%x, guest_pde_access=0x%x - injecting into guest\n", shadow_pde_access, guest_pde_access);
     info->ctrl_regs.cr2 = fault_addr;
-    raise_exception_with_error(info, PF_EXCEPTION, *(uint_t *)&error_code);
+    v3_raise_exception_with_error(info, PF_EXCEPTION, *(uint_t *)&error_code);
     return 0;
 
   } else if (shadow_pde_access == PT_ACCESS_OK) {
@@ -298,7 +298,7 @@ int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_er
       PrintDebug("Invalid Guest PTE Address: 0x%x\n", PDE32_T_ADDR((*guest_pde)));
       // Machine check the guest
 
-      raise_exception(info, MC_EXCEPTION);
+      v3_raise_exception(info, MC_EXCEPTION);
       
       return 0;
     }
@@ -312,7 +312,7 @@ int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_er
  } else {
     // Unknown error raise page fault in guest
     info->ctrl_regs.cr2 = fault_addr;
-    raise_exception_with_error(info, PF_EXCEPTION, *(uint_t *)&error_code);
+    v3_raise_exception_with_error(info, PF_EXCEPTION, *(uint_t *)&error_code);
 
     // For debugging we will return an error here for the time being, 
     // this probably shouldn't ever happen
@@ -379,7 +379,7 @@ int handle_shadow_pte32_fault(struct guest_info * info,
     // Inject page fault into the guest	
     
     info->ctrl_regs.cr2 = fault_addr;
-    raise_exception_with_error(info, PF_EXCEPTION, *(uint_t *)&error_code);
+    v3_raise_exception_with_error(info, PF_EXCEPTION, *(uint_t *)&error_code);
     
     PrintDebug("Access error injecting pf to guest (guest access error=%d) (pf error code=%d)\n", guest_pte_access, *(uint_t*)&error_code);
     return 0; 
@@ -404,7 +404,7 @@ int handle_shadow_pte32_fault(struct guest_info * info,
     if (host_page_type == HOST_REGION_INVALID) {
       // Inject a machine check in the guest
 
-      raise_exception(info, MC_EXCEPTION);
+      v3_raise_exception(info, MC_EXCEPTION);
 #ifdef DEBUG_SHADOW_PAGING
       PrintDebug("Invalid Guest Address in page table (0x%x)\n", guest_pa);
       PrintDebug("fault_addr=0x%x next are guest and shadow ptes \n",fault_addr);
@@ -459,7 +459,7 @@ int handle_shadow_pte32_fault(struct guest_info * info,
     // Inject page fault into the guest	
 	
     info->ctrl_regs.cr2 = fault_addr;
-    raise_exception_with_error(info, PF_EXCEPTION, *(uint_t *)&error_code);
+    v3_raise_exception_with_error(info, PF_EXCEPTION, *(uint_t *)&error_code);
 
     PrintError("PTE Page fault fell through... Not sure if this should ever happen\n");
     PrintError("Manual Says to inject page fault into guest\n");

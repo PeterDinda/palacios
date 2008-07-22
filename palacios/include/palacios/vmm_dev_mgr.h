@@ -8,7 +8,6 @@
 struct vm_device;
 struct guest_info;
 
-
 struct vmm_dev_mgr {
   uint_t num_devs;
   struct list_head dev_list;
@@ -22,6 +21,24 @@ struct vmm_dev_mgr {
 };
 
 
+int dev_mgr_init(struct vmm_dev_mgr *mgr);
+int dev_mgr_deinit(struct vmm_dev_mgr * mgr);
+
+
+// Registration of devices
+
+//
+// The following device manager functions should only be called
+// when the guest is stopped
+//
+
+int v3_attach_device(struct guest_info *vm, struct vm_device * dev);
+int v3_unattach_device(struct vm_device *dev);
+
+
+void PrintDebugDevMgr(struct vmm_dev_mgr * mgr);
+
+#ifdef __V3VEE__
 
 struct dev_io_hook {
   ushort_t port;
@@ -49,31 +66,12 @@ struct dev_mem_hook {
 };
 
 
-// Registration of devices
-
-//
-// The following device manager functions should only be called
-// when the guest is stopped
-//
-
-int dev_mgr_init(struct vmm_dev_mgr *mgr);
-int dev_mgr_deinit(struct vmm_dev_mgr * mgr);
 
 
-
-int attach_device(struct guest_info *vm, struct vm_device * dev);
-int unattach_device(struct vm_device *dev);
-
-
-int dev_mgr_add_device(struct vmm_dev_mgr * mgr, struct vm_device * dev);
-int dev_mgr_remove_device(struct vmm_dev_mgr * mgr, struct vm_device * dev);
-
-
-
-
-void PrintDebugDevMgr(struct vmm_dev_mgr * mgr);
 void PrintDebugDev(struct vm_device * dev);
 void PrintDebugDevIO(struct vm_device * dev);
 void PrintDebugDevMgrIO(struct vmm_dev_mgr * mgr);
+
+#endif // ! __V3VEE__
 
 #endif

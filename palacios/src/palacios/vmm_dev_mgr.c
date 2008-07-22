@@ -5,7 +5,6 @@
 #include <palacios/vmm_decoder.h>
 
 
-extern struct vmm_os_hooks *os_hooks;
 
 #ifndef NULL
 #define NULL 0
@@ -27,7 +26,7 @@ int dev_mgr_deinit(struct vmm_dev_mgr * mgr) {
   struct vm_device * dev;
 
   list_for_each_entry(dev, &(mgr->dev_list), dev_link) {
-    unattach_device(dev);
+    v3_unattach_device(dev);
     free_device(dev);
   }
 
@@ -37,14 +36,14 @@ int dev_mgr_deinit(struct vmm_dev_mgr * mgr) {
 
 
 
-int dev_mgr_add_device(struct vmm_dev_mgr * mgr, struct vm_device * dev) {
+static int dev_mgr_add_device(struct vmm_dev_mgr * mgr, struct vm_device * dev) {
   list_add(&(dev->dev_link), &(mgr->dev_list));
   mgr->num_devs++;
 
   return 0;
 }
 
-int dev_mgr_remove_device(struct vmm_dev_mgr * mgr, struct vm_device * dev) {
+static int dev_mgr_remove_device(struct vmm_dev_mgr * mgr, struct vm_device * dev) {
   list_del(&(dev->dev_link));
   mgr->num_devs--;
 
@@ -117,14 +116,14 @@ int dev_hook_io(struct vm_device   *dev,
 		int (*read)(ushort_t port, void * dst, uint_t length, struct vm_device * dev),
 		int (*write)(ushort_t port, void * src, uint_t length, struct vm_device * dev)) {
 
-  struct dev_io_hook *hook = os_hooks->malloc(sizeof(struct dev_io_hook));
+  struct dev_io_hook *hook = (struct dev_io_hook *)V3_Malloc(sizeof(struct dev_io_hook));
   
   if (!hook) { 
     return -1;
   }
 
 
-  if (hook_io_port(&(dev->vm->io_map), port, 
+  if (v3_hook_io_port(&(dev->vm->io_map), port, 
 		   (int (*)(ushort_t, void *, uint_t, void *))read, 
 		   (int (*)(ushort_t, void *, uint_t, void *))write, 
 		   (void *)dev) == 0) {
@@ -158,11 +157,11 @@ int dev_unhook_io(struct vm_device   *dev,
   dev_mgr_remove_io_hook(mgr, hook);
   dev_remove_io_hook(dev, hook);
 
-  return unhook_io_port(&(dev->vm->io_map), port);
+  return v3_unhook_io_port(&(dev->vm->io_map), port);
 }
 
 
-int attach_device(struct guest_info * vm, struct vm_device * dev) {
+int v3_attach_device(struct guest_info * vm, struct vm_device * dev) {
   struct vmm_dev_mgr *mgr= &(vm->dev_mgr);
   
   dev->vm = vm;
@@ -172,7 +171,7 @@ int attach_device(struct guest_info * vm, struct vm_device * dev) {
   return 0;
 }
 
-int unattach_device(struct vm_device * dev) {
+int v3_unattach_device(struct vm_device * dev) {
   struct vmm_dev_mgr * mgr = &(dev->vm->dev_mgr);
 
   dev->ops->deinit(dev);

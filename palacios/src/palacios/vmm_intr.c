@@ -34,24 +34,22 @@ struct vmm_intr_decode {
   void              *opaque;
 };
 
-int hook_irq_new(uint_t irq,
-		 void (*handler)(struct vmm_intr_state *state),
-		 void  *opaque)
+int v3_hook_irq(uint_t irq,
+	     void (*handler)(struct vmm_intr_state *state),
+	     void  *opaque)
 {
-  extern struct vmm_os_hooks * os_hooks;
-
-  struct vmm_intr_decode *d = V3_Malloc(sizeof(struct vmm_intr_decode));
+  struct vmm_intr_decode *d = (struct vmm_intr_decode *)V3_Malloc(sizeof(struct vmm_intr_decode));
 
   if (!d) { return -1; }
 
   d->handler = handler;
   d->opaque = opaque;
   
-  if (os_hooks->hook_interrupt_new(irq,d)) { 
-    PrintError("hook_irq_new: failed to hook irq 0x%x to decode 0x%x\n", irq,d);
+  if (V3_Hook_Interrupt(irq,d)) { 
+    PrintError("hook_irq: failed to hook irq 0x%x to decode 0x%x\n", irq,d);
     return -1;
   } else {
-    PrintDebug("hook_irq_new: hooked irq 0x%x to decode 0x%x\n", irq,d);
+    PrintDebug("hook_irq: hooked irq 0x%x to decode 0x%x\n", irq,d);
     return 0;
   }
 }
@@ -73,7 +71,7 @@ void deliver_interrupt_to_vmm(struct vmm_intr_state *state)
 }
 
 
-void guest_injection_irq_handler(struct vmm_intr_state *state)
+static void guest_injection_irq_handler(struct vmm_intr_state *state)
 {
   PrintDebug("guest_irq_injection: state=0x%x\n",state);
 
@@ -84,12 +82,12 @@ void guest_injection_irq_handler(struct vmm_intr_state *state)
 }
 
 
-int hook_irq_for_guest_injection(struct guest_info *info, int irq)
+int v3_hook_irq_for_guest_injection(struct guest_info *info, int irq)
 {
 
-  int rc = hook_irq_new(irq,
-			guest_injection_irq_handler,
-			info);
+  int rc = v3_hook_irq(irq,
+		       guest_injection_irq_handler,
+		       info);
 
   if (rc) { 
     PrintError("guest_irq_injection: failed to hook irq 0x%x for guest 0x%x\n", irq,info);
@@ -103,13 +101,7 @@ int hook_irq_for_guest_injection(struct guest_info *info, int irq)
 
 
 
-int hook_irq(struct guest_info * info, int irq) {
-  extern struct vmm_os_hooks * os_hooks;
-
-  return os_hooks->hook_interrupt(info, irq);
-}
-
-int raise_exception_with_error(struct guest_info * info, uint_t excp, uint_t error_code) {
+int v3_raise_exception_with_error(struct guest_info * info, uint_t excp, uint_t error_code) {
   struct vm_intr * intr_state = &(info->intr_state);
 
   if (intr_state->excp_pending == 0) {
@@ -126,7 +118,7 @@ int raise_exception_with_error(struct guest_info * info, uint_t excp, uint_t err
   return 0;
 }
 
-int raise_exception(struct guest_info * info, uint_t excp) {
+int v3_raise_exception(struct guest_info * info, uint_t excp) {
   struct vm_intr * intr_state = &(info->intr_state);
 
   if (intr_state->excp_pending == 0) {

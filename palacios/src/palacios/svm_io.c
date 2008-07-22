@@ -16,7 +16,7 @@ int handle_svm_io_in(struct guest_info * info) {
   //  vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
   struct svm_io_info * io_info = (struct svm_io_info *)&(ctrl_area->exit_info1);
 
-  vmm_io_hook_t * hook = get_io_hook(&(info->io_map), io_info->port);
+  vmm_io_hook_t * hook = v3_get_io_hook(&(info->io_map), io_info->port);
   uint_t read_size = 0;
 
   if (hook == NULL) {
@@ -60,7 +60,7 @@ int handle_svm_io_ins(struct guest_info * info) {
   
   struct svm_io_info * io_info = (struct svm_io_info *)&(ctrl_area->exit_info1);
   
-  vmm_io_hook_t * hook = get_io_hook(&(info->io_map), io_info->port);
+  vmm_io_hook_t * hook = v3_get_io_hook(&(info->io_map), io_info->port);
   uint_t read_size = 0;
 
   addr_t dst_addr = 0;
@@ -195,7 +195,7 @@ int handle_svm_io_out(struct guest_info * info) {
   //  vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
   struct svm_io_info * io_info = (struct svm_io_info *)&(ctrl_area->exit_info1);
 
-  vmm_io_hook_t * hook = get_io_hook(&(info->io_map), io_info->port);
+  vmm_io_hook_t * hook = v3_get_io_hook(&(info->io_map), io_info->port);
   uint_t write_size = 0;
 
   if (hook == NULL) {
@@ -238,7 +238,7 @@ int handle_svm_io_outs(struct guest_info * info) {
   
   struct svm_io_info * io_info = (struct svm_io_info *)&(ctrl_area->exit_info1);
   
-  vmm_io_hook_t * hook = get_io_hook(&(info->io_map), io_info->port);
+  vmm_io_hook_t * hook = v3_get_io_hook(&(info->io_map), io_info->port);
   uint_t write_size = 0;
 
   addr_t dst_addr = 0;

@@ -1,6 +1,9 @@
 #ifndef __VMM_INTR_H_
 #define __VMM_INTR_H_
 
+
+#ifdef __V3VEE__
+
 #include <palacios/vmm_intr.h>
 #include <palacios/vmm_types.h>
 
@@ -32,6 +35,45 @@ struct guest_info;
 
 
 
+
+
+
+
+int v3_raise_irq(struct guest_info * info, int irq);
+
+
+struct intr_ctrl_ops {
+  int (*intr_pending)(void * private_data);
+  int (*get_intr_number)(void * private_data);
+  int (*raise_intr)(void * private_data, int irq);
+  int (*begin_irq)(void * private_data, int irq);
+};
+
+
+
+
+void set_intr_controller(struct guest_info * info, struct intr_ctrl_ops * ops, void * state);
+
+int v3_raise_exception(struct guest_info * info, uint_t excp);
+int v3_raise_exception_with_error(struct guest_info * info, uint_t excp, uint_t error_code);
+
+int intr_pending(struct guest_info * info);
+uint_t get_intr_number(struct guest_info * info);
+intr_type_t get_intr_type(struct guest_info * info);
+
+int injecting_intr(struct guest_info * info, uint_t intr_num, intr_type_t type);
+
+/*
+int start_irq(struct vm_intr * intr);
+int end_irq(struct vm_intr * intr, int irq);
+*/
+
+#endif // !__V3VEE__
+
+
+
+void init_interrupt_state(struct guest_info * info);
+
 /* We need a way to allow the APIC/PIC to decide when they are supposed to receive interrupts...
  * Maybe a notification call when they have been turned on, to deliver irqs to them...
  * We can rehook the guest raise_irq op, to the appropriate controller
@@ -54,43 +96,13 @@ struct vm_intr {
 };
 
 
-
-int v3_raise_irq(struct guest_info * info, int irq);
-int hook_irq(struct guest_info * info, int irq);
-
-
 struct vmm_intr_state;
 
-int hook_irq_new(uint_t irq,
+int v3_hook_irq(uint_t irq,
 		 void (*handler)(struct vmm_intr_state *state),
 		 void  *opaque);
 
-int hook_irq_for_guest_injection(struct guest_info *info, int irq);
+int v3_hook_irq_for_guest_injection(struct guest_info *info, int irq);
 
 
-struct intr_ctrl_ops {
-  int (*intr_pending)(void * private_data);
-  int (*get_intr_number)(void * private_data);
-  int (*raise_intr)(void * private_data, int irq);
-  int (*begin_irq)(void * private_data, int irq);
-};
-
-
-
-void init_interrupt_state(struct guest_info * info);
-void set_intr_controller(struct guest_info * info, struct intr_ctrl_ops * ops, void * state);
-
-int raise_exception(struct guest_info * info, uint_t excp);
-int raise_exception_with_error(struct guest_info * info, uint_t excp, uint_t error_code);
-
-int intr_pending(struct guest_info * info);
-uint_t get_intr_number(struct guest_info * info);
-intr_type_t get_intr_type(struct guest_info * info);
-
-int injecting_intr(struct guest_info * info, uint_t intr_num, intr_type_t type);
-
-/*
-int start_irq(struct vm_intr * intr);
-int end_irq(struct vm_intr * intr, int irq);
-*/
 #endif
