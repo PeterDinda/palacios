@@ -8,14 +8,6 @@
 
 
 struct guest_info;
-struct vmm_io_hook;
-
-struct vmm_io_map {
-  uint_t num_ports;
-  struct vmm_io_hook * head;
-
-};
-
 
 int v3_unhook_io_port(struct guest_info * info, uint_t port);
 
@@ -26,12 +18,22 @@ int v3_hook_io_port(struct guest_info * info, uint_t port,
 		    int (*write)(ushort_t port, void * src, uint_t length, void * priv_data), 
 		    void * priv_data);
 
-void init_vmm_io_map(struct guest_info * info);
+
 
 
 #ifdef __V3VEE__
 
 
+struct vmm_io_hook;
+
+struct vmm_io_map {
+  uint_t num_ports;
+  struct vmm_io_hook * head;
+
+};
+
+
+void init_vmm_io_map(struct guest_info * info);
 
 // FOREACH_IO_HOOK(vmm_io_map_t * io_map, vmm_io_hook_t * io_hook)
 #define FOREACH_IO_HOOK(io_map, io_hook) for (io_hook = (io_map).head; io_hook != NULL; io_hook = (io_hook)->next)

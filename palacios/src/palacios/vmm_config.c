@@ -16,11 +16,10 @@ int config_guest(struct guest_info * info, void * config_ptr) {
   struct guest_mem_layout * layout = (struct guest_mem_layout *)config_ptr;
   extern v3_cpu_arch_t v3_cpu_type;
   void * region_start;
+  int i;
 
-  PrintDebug("Time Init\n");
+  
   v3_init_time(info);
-
-  PrintDebug("Shadow map Init\n");
   init_shadow_map(info);
   
   if (v3_cpu_type == V3_SVM_REV3_CPU) {
@@ -39,10 +38,7 @@ int config_guest(struct guest_info * info, void * config_ptr) {
   
   dev_mgr_init(info);
   
-  
-  int i;
-
-  
+ 
   //     SerialPrint("Guest Mem Dump at 0x%x\n", 0x100000);
   //PrintDebugMemDump((unsigned char *)(0x100000), 261 * 1024);
   if (layout->magic != MAGIC_CODE) {

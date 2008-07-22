@@ -32,11 +32,30 @@ typedef enum {INVALID_INTR, EXTERNAL_IRQ, NMI, EXCEPTION, SOFTWARE_INTR, VIRTUAL
 
 struct guest_info;
 
+/* We need a way to allow the APIC/PIC to decide when they are supposed to receive interrupts...
+ * Maybe a notification call when they have been turned on, to deliver irqs to them...
+ * We can rehook the guest raise_irq op, to the appropriate controller
+ */
+
+
+struct vm_intr {
+
+  /* We need to rework the exception state, to handle stacking */
+  uint_t excp_pending;
+  uint_t excp_num;
+  uint_t excp_error_code_valid : 1;
+  uint_t excp_error_code;
+  
+  struct intr_ctrl_ops * controller;
+  void * controller_state;
+
+  /* some way to get the [A]PIC intr */
+
+};
 
 
 
-
-
+void init_interrupt_state(struct guest_info * info);
 
 
 int v3_raise_irq(struct guest_info * info, int irq);
@@ -72,35 +91,16 @@ int end_irq(struct vm_intr * intr, int irq);
 
 
 
-void init_interrupt_state(struct guest_info * info);
-
-/* We need a way to allow the APIC/PIC to decide when they are supposed to receive interrupts...
- * Maybe a notification call when they have been turned on, to deliver irqs to them...
- * We can rehook the guest raise_irq op, to the appropriate controller
- */
 
 
-struct vm_intr {
 
-  /* We need to rework the exception state, to handle stacking */
-  uint_t excp_pending;
-  uint_t excp_num;
-  uint_t excp_error_code_valid : 1;
-  uint_t excp_error_code;
-  
-  struct intr_ctrl_ops * controller;
-  void * controller_state;
-
-  /* some way to get the [A]PIC intr */
-
-};
 
 
 struct vmm_intr_state;
 
 int v3_hook_irq(uint_t irq,
-		 void (*handler)(struct vmm_intr_state *state),
-		 void  *opaque);
+		void (*handler)(struct vmm_intr_state *state),
+		void  *opaque);
 
 int v3_hook_irq_for_guest_injection(struct guest_info *info, int irq);
 

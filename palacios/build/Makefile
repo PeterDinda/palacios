@@ -1,6 +1,6 @@
 # Makefile for GeekOS kernel, userspace, and tools
 # Copyright (c) 2004,2005 David H. Hovemeyer <daveho@cs.umd.edu>
-# $Revision: 1.50 $
+# $Revision: 1.51 $
 
 # This is free software.  You are permitted to use,
 # redistribute, and modify it as specified in the file "COPYING".
@@ -66,7 +66,7 @@ endif
 ifeq ($(DEBUG_PIC),1)
 DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DDEBUG_PIC
 endif
-ifeq ($(DEBUG_DEBUG_PIT),1)
+ifeq ($(DEBUG_PIT),1)
 DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DDEBUG_PIT
 endif
 ifeq ($(DEBUG_NVRAM),1)
