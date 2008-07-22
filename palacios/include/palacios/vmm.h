@@ -156,12 +156,13 @@ typedef enum v3_cpu_arch {V3_INVALID_CPU, V3_SVM_CPU, V3_SVM_REV3_CPU, V3_VMX_CP
 
 #endif //!__V3VEE__
 
-#ifdef __V3VEE__
-typedef struct guest_info v3_guest_t;
-#else
-typedef void v3_guest_t;
-#endif
-
+/*
+  #ifdef __V3VEE__
+  typedef struct guest_info v3_guest_t;
+  #else
+  typedef void v3_guest_t;
+  #endif
+*/
 
 
 //
@@ -219,11 +220,11 @@ struct vmm_os_hooks {
 
 /* This will contain Function pointers that control the VMs */
 struct vmm_ctrl_ops {
-  void *(*allocate_guest)();
+  struct guest_info *(*allocate_guest)();
 
-  int (*config_guest)(v3_guest_t * info, void * config_ptr);
-  int (*init_guest)(v3_guest_t * info);
-  int (*start_guest)(v3_guest_t * info);
+  int (*config_guest)(struct guest_info * info, void * config_ptr);
+  int (*init_guest)(struct guest_info * info);
+  int (*start_guest)(struct guest_info * info);
   //  int (*stop_vm)(uint_t vm_id);
 
   int (*has_nested_paging)();

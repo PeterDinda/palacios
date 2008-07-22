@@ -10,7 +10,7 @@ struct vmm_os_hooks * os_hooks = NULL;
 
 
 
-void * allocate_guest() {
+struct guest_info * allocate_guest() {
   void * info = V3_Malloc(sizeof(struct guest_info));
   memset(info, 0, sizeof(struct guest_info));
   return info;

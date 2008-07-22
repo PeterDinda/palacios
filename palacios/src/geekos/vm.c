@@ -192,7 +192,7 @@ int RunVMM(struct Boot_Info * bootInfo) {
 
   struct vmm_os_hooks os_hooks;
   struct vmm_ctrl_ops vmm_ops;
-  v3_guest_t* vm_info = 0;
+  struct guest_info * vm_info = 0;
   
 
 
