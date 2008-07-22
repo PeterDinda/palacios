@@ -10,8 +10,8 @@
 #define NULL 0
 #endif
 
-int dev_mgr_init(struct vmm_dev_mgr * mgr) {
-
+int dev_mgr_init(struct guest_info * info) {
+  struct vmm_dev_mgr * mgr = &(info->dev_mgr);
   INIT_LIST_HEAD(&(mgr->dev_list));
   mgr->num_devs = 0;
 
@@ -22,8 +22,9 @@ int dev_mgr_init(struct vmm_dev_mgr * mgr) {
 }
 
 
-int dev_mgr_deinit(struct vmm_dev_mgr * mgr) {
+int dev_mgr_deinit(struct guest_info * info) {
   struct vm_device * dev;
+  struct vmm_dev_mgr * mgr = &(info->dev_mgr);
 
   list_for_each_entry(dev, &(mgr->dev_list), dev_link) {
     v3_unattach_device(dev);
@@ -123,10 +124,10 @@ int dev_hook_io(struct vm_device   *dev,
   }
 
 
-  if (v3_hook_io_port(&(dev->vm->io_map), port, 
-		   (int (*)(ushort_t, void *, uint_t, void *))read, 
-		   (int (*)(ushort_t, void *, uint_t, void *))write, 
-		   (void *)dev) == 0) {
+  if (v3_hook_io_port(dev->vm, port, 
+		      (int (*)(ushort_t, void *, uint_t, void *))read, 
+		      (int (*)(ushort_t, void *, uint_t, void *))write, 
+		      (void *)dev) == 0) {
 
     hook->dev = dev;
     hook->port = port;
@@ -157,7 +158,7 @@ int dev_unhook_io(struct vm_device   *dev,
   dev_mgr_remove_io_hook(mgr, hook);
   dev_remove_io_hook(dev, hook);
 
-  return v3_unhook_io_port(&(dev->vm->io_map), port);
+  return v3_unhook_io_port(dev->vm, port);
 }
 
 
@@ -244,7 +245,8 @@ int dev_mgr_unhook_mem(struct vm_device   *dev,
 
 
 
-void PrintDebugDevMgr(struct vmm_dev_mgr * mgr) {
+void PrintDebugDevMgr(struct guest_info * info) {
+  struct vmm_dev_mgr * mgr = &(info->dev_mgr);
   struct vm_device * dev;
   PrintDebug("%d devices registered with manager\n", mgr->num_devs);
 

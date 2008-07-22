@@ -1,6 +1,8 @@
 #ifndef __VMCB_H
 #define __VMCB_H
 
+#ifdef __V3VEE__
+
 #include <palacios/vmm_types.h>
 #include <palacios/vm_guest.h>
 
@@ -359,5 +361,7 @@ void PrintDebugVMCB(vmcb_t * vmcb);
 
 void set_vmcb_segments(vmcb_t * vmcb, struct v3_segments * segs);
 void get_vmcb_segments(vmcb_t * vmcb, struct v3_segments * segs);
+
+#endif // ! __V3VEE__
 
 #endif

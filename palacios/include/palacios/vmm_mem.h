@@ -2,6 +2,8 @@
 #define __VMM_MEM_H
 
 
+#ifdef __V3VEE__ 
+
 
 #include <palacios/vmm_types.h>
 
@@ -85,7 +87,7 @@ int add_shadow_region_passthrough(struct guest_info * guest_info,
 				  addr_t guest_addr_end,
 				  addr_t host_addr);
 
-void init_shadow_map(struct shadow_map * map);
+void init_shadow_map(struct guest_info * info);
 void free_shadow_map(struct shadow_map * map);
 
 struct shadow_region * get_shadow_region_by_addr(struct shadow_map * map, addr_t guest_addr);
@@ -141,5 +143,9 @@ int unhook_guest_mem(struct guest_info * info, addr_t guest_addr);
 
 int mem_hook_dispatch(struct guest_info * info, addr_t mem_addr, pf_error_t access_info, struct vmm_mem_hook * hook);
 int handle_special_page_fault(struct guest_info * info, addr_t mem_addr, pf_error_t access_info);
+
+
+#endif // ! __V3VEE__
+
 
 #endif

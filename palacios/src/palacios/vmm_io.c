@@ -11,7 +11,8 @@
 #endif
 
 
-void init_vmm_io_map(struct vmm_io_map * io_map) {
+void init_vmm_io_map(struct guest_info * info) {
+  struct vmm_io_map * io_map = &(info->io_map);
   io_map->num_ports = 0;
   io_map->head = NULL;
 }
@@ -130,10 +131,11 @@ static int default_read(ushort_t port, void * dst, uint_t length, void * priv_da
   return 0;
 }
 
-int v3_hook_io_port(struct vmm_io_map * io_map, uint_t port, 
-		 int (*read)(ushort_t port, void * dst, uint_t length, void * priv_data),
-		 int (*write)(ushort_t port, void * src, uint_t length, void * priv_data), 
-		 void * priv_data) {
+int v3_hook_io_port(struct guest_info * info, uint_t port, 
+		    int (*read)(ushort_t port, void * dst, uint_t length, void * priv_data),
+		    int (*write)(ushort_t port, void * src, uint_t length, void * priv_data), 
+		    void * priv_data) {
+  struct vmm_io_map * io_map = &(info->io_map);
   struct vmm_io_hook * io_hook = (struct vmm_io_hook *)V3_Malloc(sizeof(struct vmm_io_hook));
 
   io_hook->port = port;
@@ -163,7 +165,8 @@ int v3_hook_io_port(struct vmm_io_map * io_map, uint_t port,
   return 0;
 }
 
-int v3_unhook_io_port(struct vmm_io_map * io_map, uint_t port) {
+int v3_unhook_io_port(struct guest_info * info, uint_t port) {
+  struct vmm_io_map * io_map = &(info->io_map);
   struct vmm_io_hook * hook = v3_get_io_hook(io_map, port);
 
   if (hook == NULL) {

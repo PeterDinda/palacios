@@ -149,7 +149,19 @@
 #define VMM_VMX_CPU 1
 #define VMM_SVM_CPU 2
 
+
+// Maybe make this a define....
+typedef enum v3_cpu_arch {V3_INVALID_CPU, V3_SVM_CPU, V3_SVM_REV3_CPU, V3_VMX_CPU} v3_cpu_arch_t;
+
+
 #endif //!__V3VEE__
+
+#ifdef __V3VEE__
+typedef struct guest_info v3_guest_t;
+#else
+typedef void v3_guest_t;
+#endif
+
 
 
 //
@@ -157,10 +169,10 @@
 // This is the interrupt state that the VMM's interrupt handlers need to see
 //
 struct vmm_intr_state {
-  uint_t irq;
-  uint_t error;
+  unsigned int irq;
+  unsigned int error;
 
-  uint_t should_ack;  // Should the vmm ack this interrupt, or will
+  unsigned int should_ack;  // Should the vmm ack this interrupt, or will
                       // the host OS do it?
 
   // This is the value given when the interrupt is hooked.
@@ -188,7 +200,7 @@ struct vmm_os_hooks {
 
   //  int (*hook_interrupt)(struct guest_info *s, int irq);
 
-  int (*hook_interrupt)(uint_t irq, void *opaque);
+  int (*hook_interrupt)(unsigned int irq, void *opaque);
 
   int (*ack_irq)(int irq);
 
@@ -197,17 +209,26 @@ struct vmm_os_hooks {
 
 
   void (*start_kernel_thread)(); // include pointer to function
-};
 
+
+
+  // Filled in by initialization
+
+};
 
 
 /* This will contain Function pointers that control the VMs */
 struct vmm_ctrl_ops {
-  int (*init_guest)(struct guest_info* info);
-  int (*start_guest)(struct guest_info * info);
+  void *(*allocate_guest)();
+
+  int (*config_guest)(v3_guest_t * info, void * config_ptr);
+  int (*init_guest)(v3_guest_t * info);
+  int (*start_guest)(v3_guest_t * info);
   //  int (*stop_vm)(uint_t vm_id);
 
   int (*has_nested_paging)();
+
+  //  v3_cpu_arch_t (*get_cpu_arch)();
 };
 
 

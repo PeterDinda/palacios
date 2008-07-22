@@ -25,6 +25,8 @@ struct vm_time {
 };
 
 
+#ifdef __V3VEE__
+
 struct vm_timer_ops {
  void (*update_time)(ullong_t cpu_cycles, ullong_t cpu_freq, void * priv_data);
 
@@ -38,9 +40,6 @@ struct vm_timer {
 };
 
 
-void v3_init_time(struct vm_time * time_state);
-
-
 
 
 int v3_add_timer(struct guest_info * info, struct vm_timer_ops * ops, void * private_data);
@@ -48,5 +47,12 @@ int v3_remove_timer(struct guest_info * info, struct vm_timer * timer);
 
 
 void v3_update_time(struct guest_info * info, ullong_t cycles);
+
+#endif // !__V3VEE__
+
+
+void v3_init_time(struct guest_info * info);
+
+
 
 #endif

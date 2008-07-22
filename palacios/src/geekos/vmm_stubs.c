@@ -120,6 +120,8 @@ static void translate_intr_handler(struct Interrupt_State *state)
 
 }
 
+
+/*
 static void pic_intr_handler(struct Interrupt_State * state) {
   Begin_IRQ(state);
   struct guest_info * info =   irq_map[state->intNum - 32];
@@ -135,11 +137,12 @@ static void pic_intr_handler(struct Interrupt_State * state) {
 
   // End_IRQ(state);
 }
-
+*/
 //
 //
 // I really don't know what the heck this is doing... PAD
 //
+/*
 int hook_irq_stub(struct guest_info * info, int irq) {
   if (irq_map[irq]) {
     return -1;
@@ -149,7 +152,7 @@ int hook_irq_stub(struct guest_info * info, int irq) {
   irq_map[irq] = info;
   volatile void *foo = pic_intr_handler;
 
-  /* This is disabled for the time being */
+  // This is disabled for the time being 
   foo = 0;
 
 
@@ -158,7 +161,7 @@ int hook_irq_stub(struct guest_info * info, int irq) {
   Enable_IRQ(irq);
   return 0;
 }
-
+*/
 
 int geekos_hook_interrupt_new(uint_t irq, void * opaque)
 {

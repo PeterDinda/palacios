@@ -1,11 +1,14 @@
 #ifndef __SVM_H
 #define __SVM_H
 
-#include <palacios/vmm_util.h>
+
 #include <palacios/vmm.h>
-#include <palacios/vmcb.h>
+
 
 #ifdef __V3VEE__
+
+#include <palacios/vmcb.h>
+#include <palacios/vmm_util.h>
 
 #define CPUID_FEATURE_IDS 0x80000001
 #define CPUID_FEATURE_IDS_ecx_svm_avail 0x00000004

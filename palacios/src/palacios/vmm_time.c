@@ -2,7 +2,8 @@
 #include "palacios/vmm.h"
 
 
-void v3_init_time(struct vm_time * time_state) {
+void v3_init_time(struct guest_info * info) {
+  struct vm_time * time_state = &(info->time_state);
 
   time_state->cpu_freq = V3_CPU_KHZ();
  

@@ -221,13 +221,6 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
 }
 
 
-
-
-
-
-
-
-
 static int init_svm_guest(struct guest_info *info) {
  
   PrintDebug("Allocating VMCB\n");

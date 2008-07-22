@@ -106,7 +106,9 @@ int handle_special_page_fault(struct guest_info * info, addr_t mem_addr, pf_erro
 
 
 
-void init_shadow_map(struct shadow_map * map) {
+void init_shadow_map(struct guest_info * info) {
+  struct shadow_map * map = &(info->mem_map);
+
   map->num_regions = 0;
 
   map->head = NULL;

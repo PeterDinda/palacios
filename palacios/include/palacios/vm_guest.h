@@ -1,7 +1,7 @@
 #ifndef __VM_GUEST_H
 #define __VM_GUEST_H
 
-
+#ifdef __V3VEE__
 
 
 #include <palacios/vmm_mem.h>
@@ -69,6 +69,7 @@ struct v3_segments {
 
 struct shadow_page_state;
 struct shadow_map;
+struct vmm_io_map;
 
 
 struct vm_ctrl_ops {
@@ -125,6 +126,12 @@ struct guest_info {
 void PrintV3Segments(struct guest_info * info);
 void PrintV3CtrlRegs(struct guest_info * info);
 void PrintV3GPRs(struct guest_info * info);
+
+#else 
+
+
+#endif
+
 
 
 #endif

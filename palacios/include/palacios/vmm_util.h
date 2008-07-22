@@ -1,6 +1,8 @@
 #ifndef __VMM_UTIL_H
 #define __VMM_UTIL_H
 
+#ifdef __V3VEE__
+
 #include <palacios/vmm_types.h>
 
 
@@ -136,6 +138,6 @@ void PrintTraceMemDump(unsigned char * start, int n);
 
 
 
-
+#endif // ! __V3VEE__
 
 #endif

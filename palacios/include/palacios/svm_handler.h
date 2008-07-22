@@ -1,5 +1,8 @@
 #ifndef __SVM_HANDLER_H
 #define __SVM_HANDLER_H
+
+#ifdef __V3VEE__
+
 #include <palacios/svm.h>
 #include <palacios/vmcb.h>
 #include <palacios/vmm.h>
@@ -179,5 +182,7 @@ int handle_shadow_paging(struct guest_info * info);
 int handle_svm_intr(struct guest_info * info);
 
 int handle_svm_exit(struct guest_info * info);
+
+#endif // ! __V3VEE__
 
 #endif

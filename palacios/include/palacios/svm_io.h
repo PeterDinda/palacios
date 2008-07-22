@@ -1,8 +1,12 @@
 #ifndef __SVM_IO_H
 #define __SVM_IO_H
+
+#ifdef __V3VEE__
+
 #include <palacios/vm_guest.h>
 #include <palacios/vmcb.h>
 #include <palacios/vmm.h>
+
 
 struct svm_io_info {
   uint_t type        : 1       PACKED;  // (0=out, 1=in)
@@ -25,7 +29,7 @@ int handle_svm_io_ins(struct guest_info * info);
 int handle_svm_io_out(struct guest_info * info);
 int handle_svm_io_outs(struct guest_info * info);
 
-
+#endif // !__V3VEE__
 
 
 #endif

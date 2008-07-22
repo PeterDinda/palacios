@@ -2,28 +2,32 @@
 #include <palacios/svm.h>
 #include <palacios/vmx.h>
 #include <palacios/vmm_intr.h>
+#include <palacios/vmm_config.h>
+#include <palacios/vm_guest.h>
 
-uint_t vmm_cpu_type;
-
-
-
-
+v3_cpu_arch_t v3_cpu_type;
 struct vmm_os_hooks * os_hooks = NULL;
 
 
 
+void * allocate_guest() {
+  void * info = V3_Malloc(sizeof(struct guest_info));
+  memset(info, 0, sizeof(struct guest_info));
+  return info;
+}
+
 
 
 void Init_V3(struct vmm_os_hooks * hooks, struct vmm_ctrl_ops * vmm_ops) {
-  vmm_cpu_type = VMM_INVALID_CPU;
-
   os_hooks = hooks;
 
+  v3_cpu_type = V3_INVALID_CPU;
 
   if (is_svm_capable()) {
-    vmm_cpu_type = VMM_SVM_CPU;
-    PrintDebug("Machine is SVM Capable\n");
 
+    PrintDebug("Machine is SVM Capable\n");
+    vmm_ops->allocate_guest = &allocate_guest;
+    vmm_ops->config_guest = &config_guest;
     Init_SVM(vmm_ops);
 
     /*
@@ -35,3 +39,7 @@ void Init_V3(struct vmm_os_hooks * hooks, struct vmm_ctrl_ops * vmm_ops) {
     PrintDebug("CPU has no virtualization Extensions\n");
   }
 }
+
+
+// Get CPU Type..
+

@@ -23,7 +23,8 @@ static int handle_shadow_pte32_fault(struct guest_info* info,
 
 static int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_error_t error_code);
 
-int init_shadow_page_state(struct shadow_page_state * state) {
+int init_shadow_page_state(struct guest_info * info) {
+  struct shadow_page_state * state = &(info->shdw_pg_state);
   state->guest_mode = PDE32;
   state->shadow_mode = PDE32;
   

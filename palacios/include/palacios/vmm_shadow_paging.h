@@ -2,6 +2,7 @@
 #define __VMM_SHADOW_PAGING_H
 
 
+#ifdef __V3VEE__
 
 #include <palacios/vmm_util.h>
 #include <palacios/vmm_paging.h>
@@ -29,10 +30,10 @@ struct shadow_page_state {
 struct guest_info;
 
 
-int init_shadow_page_state(struct shadow_page_state * state);
 
-#ifdef __V3VEE__
 
+
+int init_shadow_page_state(struct guest_info * info);
 
 addr_t create_new_shadow_pt32(struct guest_info * info);
 

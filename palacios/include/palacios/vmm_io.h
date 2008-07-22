@@ -7,36 +7,30 @@
 #include <palacios/vmm_util.h>
 
 
+struct guest_info;
 struct vmm_io_hook;
 
 struct vmm_io_map {
   uint_t num_ports;
-
-
   struct vmm_io_hook * head;
 
 };
 
 
-int v3_unhook_io_port(struct vmm_io_map * io_map, uint_t port);
+int v3_unhook_io_port(struct guest_info * info, uint_t port);
 
 
 /* External API */
-int v3_hook_io_port(struct vmm_io_map * io_map, uint_t port, 
+int v3_hook_io_port(struct guest_info * info, uint_t port, 
 		    int (*read)(ushort_t port, void * dst, uint_t length, void * priv_data),
 		    int (*write)(ushort_t port, void * src, uint_t length, void * priv_data), 
 		    void * priv_data);
 
-void init_vmm_io_map(struct vmm_io_map * io_map);
-
-
-
-struct vmm_io_hook * v3_get_io_hook(struct vmm_io_map * io_map, uint_t port);
-
-
+void init_vmm_io_map(struct guest_info * info);
 
 
 #ifdef __V3VEE__
+
 
 
 // FOREACH_IO_HOOK(vmm_io_map_t * io_map, vmm_io_hook_t * io_hook)
@@ -60,8 +54,7 @@ struct vmm_io_hook {
 };
 
 
-
-
+struct vmm_io_hook * v3_get_io_hook(struct vmm_io_map * io_map, uint_t port);
 
 
 void PrintDebugIOMap(struct vmm_io_map * io_map);
