@@ -6,6 +6,10 @@
 static xed_state_t decoder_state;
 
 
+
+static int xed_reg_to_v3_reg(struct guest_info * info, xed_reg_enum_t xed_reg, addr_t * v3_reg, uint_t * reg_len);
+
+
 static int set_decoder_mode(struct guest_info * info, xed_state_t * state) {
   switch (info->cpu_mode) {
   case REAL:
@@ -37,6 +41,9 @@ static int set_decoder_mode(struct guest_info * info, xed_state_t * state) {
 }
 
 
+
+
+
 int init_decoder() {
   xed_tables_init();
   xed_state_zero(&decoder_state);
@@ -48,35 +55,144 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
   xed_decoded_inst_t xed_instr;
   xed_error_enum_t xed_error;
 
+
+
   if (set_decoder_mode(info, &decoder_state) == -1) {
     PrintError("Could not set decoder mode\n");
     return -1;
   }
-  
+
+
+
   xed_decoded_inst_zero_set_mode(&xed_instr, &decoder_state);
+
+
+  
 
   xed_error = xed_decode(&xed_instr, 
 			 REINTERPRET_CAST(const xed_uint8_t *, instr_ptr), 
 			 XED_MAX_INSTRUCTION_BYTES);
   
 
+
+
+
+
   if (xed_error != XED_ERROR_NONE) {
     PrintError("Xed error: %s\n", xed_error_enum_t2str(xed_error));
     return -1;
   }
+
+  const xed_inst_t * xi = xed_decoded_inst_inst(&xed_instr);
   
-  instr->instr_length = xed_decoded_inst_get_length (&xed_instr);
-  
-  
-  PrintDebug("category: %s\n", xed_category_enum_t2str(xed_decoded_inst_get_category(&xed_instr)));;
-  PrintDebug("ISA-extension:%s\n ",xed_extension_enum_t2str(xed_decoded_inst_get_extension(&xed_instr)));
-  PrintDebug(" instruction-length: %d\n ", xed_decoded_inst_get_length(&xed_instr));
-  PrintDebug(" operand-size:%d\n ", xed_operand_values_get_effective_operand_width(xed_decoded_inst_operands_const(&xed_instr)));   
-  PrintDebug("address-size:%d\n ", xed_operand_values_get_effective_address_width(xed_decoded_inst_operands_const(&xed_instr))); 
-  PrintDebug("iform-enum-name:%s\n ",xed_iform_enum_t2str(xed_decoded_inst_get_iform_enum(&xed_instr)));
-  PrintDebug("iform-enum-name-dispatch (zero based):%d\n ", xed_decoded_inst_get_iform_enum_dispatch(&xed_instr));
-  PrintDebug("iclass-max-iform-dispatch: %d\n ", xed_iform_max_per_iclass(xed_decoded_inst_get_iclass(&xed_instr)));
-  
+  instr->instr_length = xed_decoded_inst_get_length(&xed_instr);
+  instr->num_operands = xed_decoded_inst_noperands(&xed_instr);
+
+
+  PrintDebug("Number of operands: %d\n", instr->num_operands);
+
+  // set first operand
+  if (instr->num_operands >= 1) {
+    const xed_operand_t * op = xed_inst_operand(xi, 0);
+    xed_operand_type_enum_t op_type = xed_operand_type(op);
+    
+    switch (op_type) {
+    case XED_OPERAND_TYPE_REG:
+      {
+	xed_operand_enum_t op_enum = xed_operand_name(op);
+	xed_reg_enum_t xed_reg =  xed_decoded_inst_get_reg(&xed_instr, op_enum);
+	if (xed_reg_to_v3_reg(info, 
+			      xed_reg, 
+			      &(instr->dst_operand.operand), 
+			      &(instr->dst_operand.size)) == -1) {
+
+	  PrintError("First operand is an Unhandled Operand: %s\n", xed_reg_enum_t2str(xed_reg));
+	  return -1;
+	}
+      }
+    case XED_OPERAND_TYPE_INVALID:
+    case XED_OPERAND_TYPE_ERROR:
+    case XED_OPERAND_TYPE_IMM:
+    case XED_OPERAND_TYPE_IMM_CONST:
+    case XED_OPERAND_TYPE_NT_LOOKUP_FN:
+    case XED_OPERAND_TYPE_LAST:
+      PrintError("Unhandled first operand type %s\n", xed_operand_type_enum_t2str(op_type));
+      return -1;
+    }
+  }
+
+  // set second operand
+  if (instr->num_operands >= 2) {
+    const xed_operand_t * op = xed_inst_operand(xi, 0);
+    xed_operand_type_enum_t op_type = xed_operand_type(op);
+    
+    switch (op_type) {
+    case XED_OPERAND_TYPE_REG:
+      {
+	xed_operand_enum_t op_enum = xed_operand_name(op);
+	xed_reg_enum_t xed_reg =  xed_decoded_inst_get_reg(&xed_instr, op_enum);
+	if (xed_reg_to_v3_reg(info, 
+			      xed_reg, 
+			      &(instr->src_operand.operand), 
+			      &(instr->src_operand.size)) == -1) {
+
+	  PrintError("Second operand is an Unhandled Operand: %s\n", xed_reg_enum_t2str(xed_reg));
+	  return -1;
+	}
+      }
+    case XED_OPERAND_TYPE_INVALID:
+    case XED_OPERAND_TYPE_ERROR:
+    case XED_OPERAND_TYPE_IMM:
+    case XED_OPERAND_TYPE_IMM_CONST:
+    case XED_OPERAND_TYPE_NT_LOOKUP_FN:
+    case XED_OPERAND_TYPE_LAST:
+      PrintError("Unhandled second operand type %s\n", xed_operand_type_enum_t2str(op_type));
+      return -1;
+    }
+  }
+
+  // set third operand
+  if (instr->num_operands >= 3) {
+    const xed_operand_t * op = xed_inst_operand(xi, 0);
+    xed_operand_type_enum_t op_type = xed_operand_type(op);
+    
+    switch (op_type) {
+    case XED_OPERAND_TYPE_REG:
+      {
+	xed_operand_enum_t op_enum = xed_operand_name(op);
+	xed_reg_enum_t xed_reg =  xed_decoded_inst_get_reg(&xed_instr, op_enum);
+	if (xed_reg_to_v3_reg(info, 
+			      xed_reg, 
+			      &(instr->extra_operand.operand), 
+			      &(instr->extra_operand.size)) == -1) {
+
+	  PrintError("Third operand is an Unhandled Operand: %s\n", xed_reg_enum_t2str(xed_reg));
+	  return -1;
+	}
+      }
+    case XED_OPERAND_TYPE_INVALID:
+    case XED_OPERAND_TYPE_ERROR:
+    case XED_OPERAND_TYPE_IMM:
+    case XED_OPERAND_TYPE_IMM_CONST:
+    case XED_OPERAND_TYPE_NT_LOOKUP_FN:
+    case XED_OPERAND_TYPE_LAST:
+      PrintError("Unhandled third operand type %s\n", xed_operand_type_enum_t2str(op_type));
+      return -1;
+    }
+
+
+  }
+
+  /*
+    PrintDebug("category: %s\n", xed_category_enum_t2str(xed_decoded_inst_get_category(&xed_instr)));;
+    PrintDebug("ISA-extension:%s\n ",xed_extension_enum_t2str(xed_decoded_inst_get_extension(&xed_instr)));
+    PrintDebug(" instruction-length: %d\n ", xed_decoded_inst_get_length(&xed_instr));
+    PrintDebug(" operand-size:%d\n ", xed_operand_values_get_effective_operand_width(xed_decoded_inst_operands_const(&xed_instr)));   
+    PrintDebug("address-size:%d\n ", xed_operand_values_get_effective_address_width(xed_decoded_inst_operands_const(&xed_instr))); 
+    PrintDebug("iform-enum-name:%s\n ",xed_iform_enum_t2str(xed_decoded_inst_get_iform_enum(&xed_instr)));
+    PrintDebug("iform-enum-name-dispatch (zero based):%d\n ", xed_decoded_inst_get_iform_enum_dispatch(&xed_instr));
+    PrintDebug("iclass-max-iform-dispatch: %d\n ", xed_iform_max_per_iclass(xed_decoded_inst_get_iclass(&xed_instr)));
+  */  
   // operands
   // print_operands(&xed_instr);
   
@@ -101,82 +217,418 @@ int v3_encode(struct guest_info * info, struct x86_instr * instr, char * instr_b
 }
 
 
+static int xed_reg_to_v3_reg(struct guest_info * info, xed_reg_enum_t xed_reg, addr_t * v3_reg, uint_t * reg_len) {
+
+  switch (xed_reg) {
+  case XED_REG_INVALID:
+    *v3_reg = 0;
+    *reg_len = 0;
+    return -1;
+
+    /* 
+     * GPRs
+     */
+  case XED_REG_RAX: 
+    *v3_reg = (addr_t)&(info->vm_regs.rax);
+    *reg_len = 8;
+    break;
+  case XED_REG_EAX:
+    *v3_reg = (addr_t)&(info->vm_regs.rax);
+    *reg_len = 4;
+    break;
+  case XED_REG_AX:
+    *v3_reg = (addr_t)&(info->vm_regs.rax);
+    *reg_len = 2;
+    break;
+  case XED_REG_AH:
+    *v3_reg = (addr_t)(&(info->vm_regs.rax)) + 1;
+    *reg_len = 1;
+    break;
+  case XED_REG_AL:
+    *v3_reg = (addr_t)&(info->vm_regs.rax);
+    *reg_len = 1;
+    break;
+
+  case XED_REG_RCX: 
+    *v3_reg = (addr_t)&(info->vm_regs.rcx);
+    *reg_len = 8;
+    break;
+  case XED_REG_ECX:
+    *v3_reg = (addr_t)&(info->vm_regs.rcx);
+    *reg_len = 4;
+    break;
+  case XED_REG_CX:
+    *v3_reg = (addr_t)&(info->vm_regs.rcx);
+    *reg_len = 2;
+    break;
+  case XED_REG_CH:
+    *v3_reg = (addr_t)(&(info->vm_regs.rcx)) + 1;
+    *reg_len = 1;
+    break;
+  case XED_REG_CL:
+    *v3_reg = (addr_t)&(info->vm_regs.rcx);
+    *reg_len = 1;
+    break;
+
+  case XED_REG_RDX: 
+    *v3_reg = (addr_t)&(info->vm_regs.rdx);
+    *reg_len = 8;
+    break;
+  case XED_REG_EDX:
+    *v3_reg = (addr_t)&(info->vm_regs.rdx);
+    *reg_len = 4;
+    break;
+  case XED_REG_DX:
+    *v3_reg = (addr_t)&(info->vm_regs.rdx);
+    *reg_len = 2;
+    break;
+  case XED_REG_DH:
+    *v3_reg = (addr_t)(&(info->vm_regs.rdx)) + 1;
+    *reg_len = 1;
+    break;
+  case XED_REG_DL:
+    *v3_reg = (addr_t)&(info->vm_regs.rdx);
+    *reg_len = 1;
+    break;
+
+  case XED_REG_RBX: 
+    *v3_reg = (addr_t)&(info->vm_regs.rbx);
+    *reg_len = 8;
+    break;
+  case XED_REG_EBX:
+    *v3_reg = (addr_t)&(info->vm_regs.rbx);
+    *reg_len = 4;
+    break;
+  case XED_REG_BX:
+    *v3_reg = (addr_t)&(info->vm_regs.rbx);
+    *reg_len = 2;
+    break;
+  case XED_REG_BH:
+    *v3_reg = (addr_t)(&(info->vm_regs.rbx)) + 1;
+    *reg_len = 1;
+    break;
+  case XED_REG_BL:
+    *v3_reg = (addr_t)&(info->vm_regs.rbx);
+    *reg_len = 1;
+    break;
 
 
-/*
+  case XED_REG_RSP:
+    *v3_reg = (addr_t)&(info->vm_regs.rsp);
+    *reg_len = 8;
+    break;
+  case XED_REG_ESP:
+    *v3_reg = (addr_t)&(info->vm_regs.rsp);
+    *reg_len = 4;
+    break;
+  case XED_REG_SP:
+    *v3_reg = (addr_t)&(info->vm_regs.rsp);
+    *reg_len = 2;
+    break;
+  case XED_REG_SPL:
+    *v3_reg = (addr_t)&(info->vm_regs.rsp);
+    *reg_len = 1;
+    break;
 
-    xed_state_t dstate;
-    xed_decoded_inst_t xedd;
-    xed_uint_t i, length;
-    xed_uint8_t itext[100] = {0x01,0x00,0x00,0x00,0x12,0x00,0x55,0x48,0x89,0xe5,0x48,0x89,0x7d,0xf8,0x89,0x75,0xf4,0x89,0x55,0xf0,0x89,0x4d,0xec,0x48,0x8b,0x55,0xf8,0x8b,0x45,0xf4,0x89,0x02,0x48,0x8b,0x55,0xf8,0x8b,0x45,0xf0,0x89,0x42,0x04,0x48,0x8b,0x55,0xf8,0x8b,0x45,0xec,0x89,0x42,0x08,0xc9,0xc3,0x55,0x48,0x89,0xe5,0x48,0x89,0x7d,0xf8,0x48,0x8b,0x45,0xf8,0x8b,0x40,0x08,0xc9,0xc3,0x90,0x0};
-    xed_bool_t long_mode = true;
-    unsigned int first_argv;
-    int num;
-    	
-
-    for (i=0, num=1; i<100; i += length, num++){
-	    xed_tables_init();
-	    xed_state_zero(&dstate);
-	    //if (argc > 2 && strcmp(argv[1], "-64") == 0) 
-	    long_mode = true;
-
-	    if (long_mode)  {
-	        first_argv = 2;
-	        dstate.mmode=XED_MACHINE_MODE_LONG_64;
-	    }
-	    else {
-	        first_argv=1;
-	        xed_state_init(&dstate,
-	                       XED_MACHINE_MODE_LEGACY_32, 
-	                       XED_ADDRESS_WIDTH_32b, 
-	                       XED_ADDRESS_WIDTH_32b);
-	    }
-
-	    xed_decoded_inst_zero_set_mode(&xedd, &dstate);
-	    xed_error_enum_t xed_error = xed_decode(&xedd, 
-	                                            REINTERPRET_CAST(const xed_uint8_t*,&itext[i]), 
-	                                            XED_MAX_INSTRUCTION_BYTES);
-	    switch(xed_error)    {
-	      case XED_ERROR_NONE:
-	        break;
-	      case XED_ERROR_BUFFER_TOO_SHORT:
-	        PrintDebug("Not enough bytes provided\n");
-	        return 1;
-	      case XED_ERROR_GENERAL_ERROR:
-	        PrintDebug("Could not decode given input.\n");
-	        return 1;
-	      default:
-	        PrintDebug("Unhandled error code \n");
-	        return 1;;
-	    }
-
-	    length = xed_decoded_inst_get_length (&xedd);
-
-	    PrintDebug("\nThe %dth instruction:", num);
-
-	    PrintDebug("\ncategory: ");
-	    PrintDebug(" %s\n", xed_category_enum_t2str(xed_decoded_inst_get_category(&xedd)));;
-	    PrintDebug("ISA-extension:%s\n ",xed_extension_enum_t2str(xed_decoded_inst_get_extension(&xedd)));
-	    PrintDebug(" instruction-length: %d\n ", xed_decoded_inst_get_length(&xedd));
-	    PrintDebug(" operand-size:%d\n ", xed_operand_values_get_effective_operand_width(xed_decoded_inst_operands_const(&xedd)));   
-	    PrintDebug("address-size:%d\n ", xed_operand_values_get_effective_address_width(xed_decoded_inst_operands_const(&xedd))); 
-	    PrintDebug("iform-enum-name:%s\n ",xed_iform_enum_t2str(xed_decoded_inst_get_iform_enum(&xedd)));
-	    PrintDebug("iform-enum-name-dispatch (zero based):%d\n ", xed_decoded_inst_get_iform_enum_dispatch(&xedd));
-	    PrintDebug("iclass-max-iform-dispatch: %d\n ", xed_iform_max_per_iclass(xed_decoded_inst_get_iclass(&xedd)));
-
-	    // operands
-	    // print_operands(&xedd);
-	    
-	    // memops
-	    // print_memops(&xedd);
-	    
-	    // flags
-	    //print_flags(&xedd);
-
-	    // attributes
-	    //print_attributes(&xedd);
-    }
+  case XED_REG_RBP:
+    *v3_reg = (addr_t)&(info->vm_regs.rbp);
+    *reg_len = 8;
+    break;
+  case XED_REG_EBP:
+    *v3_reg = (addr_t)&(info->vm_regs.rbp);
+    *reg_len = 4;
+    break;
+  case XED_REG_BP:
+    *v3_reg = (addr_t)&(info->vm_regs.rbp);
+    *reg_len = 2;
+    break;
+  case XED_REG_BPL:
+    *v3_reg = (addr_t)&(info->vm_regs.rbp);
+    *reg_len = 1;
+    break;
 
 
 
-*/
+  case XED_REG_RSI:
+    *v3_reg = (addr_t)&(info->vm_regs.rsi);
+    *reg_len = 8;
+    break;
+  case XED_REG_ESI:
+    *v3_reg = (addr_t)&(info->vm_regs.rsi);
+    *reg_len = 4;
+    break;
+  case XED_REG_SI:
+    *v3_reg = (addr_t)&(info->vm_regs.rsi);
+    *reg_len = 2;
+    break;
+  case XED_REG_SIL:
+    *v3_reg = (addr_t)&(info->vm_regs.rsi);
+    *reg_len = 1;
+    break;
+
+
+  case XED_REG_RDI:
+    *v3_reg = (addr_t)&(info->vm_regs.rdi);
+    *reg_len = 8;
+    break;
+  case XED_REG_EDI:
+    *v3_reg = (addr_t)&(info->vm_regs.rdi);
+    *reg_len = 4;
+    break;
+  case XED_REG_DI:
+    *v3_reg = (addr_t)&(info->vm_regs.rdi);
+    *reg_len = 2;
+    break;
+  case XED_REG_DIL:
+    *v3_reg = (addr_t)&(info->vm_regs.rdi);
+    *reg_len = 1;
+    break;
+
+
+    /* 
+     *  CTRL REGS
+     */
+  case XED_REG_RIP:
+    *v3_reg = (addr_t)&(info->rip);
+    *reg_len = 8;
+    break;
+  case XED_REG_EIP:
+    *v3_reg = (addr_t)&(info->rip);
+    *reg_len = 4;
+    break;  
+  case XED_REG_IP:
+    *v3_reg = (addr_t)&(info->rip);
+    *reg_len = 2;
+    break;
+
+  case XED_REG_FLAGS:
+    *v3_reg = (addr_t)&(info->ctrl_regs.rflags);
+    *reg_len = 2;
+    break;
+  case XED_REG_EFLAGS:
+    *v3_reg = (addr_t)&(info->ctrl_regs.rflags);
+    *reg_len = 4;
+    break;
+  case XED_REG_RFLAGS:
+    *v3_reg = (addr_t)&(info->ctrl_regs.rflags);
+    *reg_len = 8;
+    break;
+
+  case XED_REG_CR0:
+    *v3_reg = (addr_t)&(info->ctrl_regs.cr0);
+    *reg_len = 4;
+    break;
+  case XED_REG_CR2:
+    *v3_reg = (addr_t)&(info->ctrl_regs.cr2);
+    *reg_len = 4;
+    break;
+  case XED_REG_CR3:
+    *v3_reg = (addr_t)&(info->ctrl_regs.cr3);
+    *reg_len = 4;
+    break;
+  case XED_REG_CR4:
+    *v3_reg = (addr_t)&(info->ctrl_regs.cr4);
+    *reg_len = 4;
+    break;
+  case XED_REG_CR8:
+    *v3_reg = (addr_t)&(info->ctrl_regs.cr8);
+    *reg_len = 4;
+    break;
+
+  case XED_REG_CR1:
+  case XED_REG_CR5:
+  case XED_REG_CR6:
+  case XED_REG_CR7:
+  case XED_REG_CR9:
+  case XED_REG_CR10:
+  case XED_REG_CR11:
+  case XED_REG_CR12:
+  case XED_REG_CR13:
+  case XED_REG_CR14:
+  case XED_REG_CR15:
+    return -1;
+
+
+
+
+    /* 
+     * SEGMENT REGS
+     */
+  case XED_REG_CS:
+    *v3_reg = (addr_t)&(info->segments.cs.selector);
+    *reg_len = 16;
+    break;
+  case XED_REG_DS:
+    *v3_reg = (addr_t)&(info->segments.ds.selector);
+    *reg_len = 16;
+    break;
+  case XED_REG_ES:
+    *v3_reg = (addr_t)&(info->segments.es.selector);
+    *reg_len = 16;
+    break;
+  case XED_REG_SS:
+    *v3_reg = (addr_t)&(info->segments.ss.selector);
+    *reg_len = 16;
+    break;
+  case XED_REG_FS:
+    *v3_reg = (addr_t)&(info->segments.fs.selector);
+    *reg_len = 16;
+    break;
+  case XED_REG_GS:
+    *v3_reg = (addr_t)&(info->segments.fs.selector);
+    *reg_len = 16;
+    break;
+
+
+  case XED_REG_GDTR:
+  case XED_REG_LDTR:
+  case XED_REG_IDTR:
+  case XED_REG_TR:
+    PrintError("Segment selector operand... Don't know how to handle this...\n");
+    return -1;
+
+    /* 
+     *  DEBUG REGS
+     */
+  case XED_REG_DR0:
+  case XED_REG_DR1:
+  case XED_REG_DR2:
+  case XED_REG_DR3:
+  case XED_REG_DR4:
+  case XED_REG_DR5:
+  case XED_REG_DR6:
+  case XED_REG_DR7:
+  case XED_REG_DR8:
+  case XED_REG_DR9:
+  case XED_REG_DR10:
+  case XED_REG_DR11:
+  case XED_REG_DR12:
+  case XED_REG_DR13:
+  case XED_REG_DR14:
+  case XED_REG_DR15:
+    return -1;
+
+
+
+
+  case XED_REG_R8:
+  case XED_REG_R8D:
+  case XED_REG_R8W:
+  case XED_REG_R8B:
+
+  case XED_REG_R9:
+  case XED_REG_R9D:
+  case XED_REG_R9W:
+  case XED_REG_R9B:
+
+  case XED_REG_R10:
+  case XED_REG_R10D:
+  case XED_REG_R10W:
+  case XED_REG_R10B:
+
+  case XED_REG_R11:
+  case XED_REG_R11D:
+  case XED_REG_R11W:
+  case XED_REG_R11B:
+
+  case XED_REG_R12:
+  case XED_REG_R12D:
+  case XED_REG_R12W:
+  case XED_REG_R12B:
+
+  case XED_REG_R13:
+  case XED_REG_R13D:
+  case XED_REG_R13W:
+  case XED_REG_R13B:
+
+  case XED_REG_R14:
+  case XED_REG_R14D:
+  case XED_REG_R14W:
+  case XED_REG_R14B:
+
+  case XED_REG_R15:
+  case XED_REG_R15D:
+  case XED_REG_R15W:
+  case XED_REG_R15B:
+
+  case XED_REG_XMM0:
+  case XED_REG_XMM1:
+  case XED_REG_XMM2:
+  case XED_REG_XMM3:
+  case XED_REG_XMM4:
+  case XED_REG_XMM5:
+  case XED_REG_XMM6:
+  case XED_REG_XMM7:
+  case XED_REG_XMM8:
+  case XED_REG_XMM9:
+  case XED_REG_XMM10:
+  case XED_REG_XMM11:
+  case XED_REG_XMM12:
+  case XED_REG_XMM13:
+  case XED_REG_XMM14:
+  case XED_REG_XMM15:
+
+  case XED_REG_MMX0:
+  case XED_REG_MMX1:
+  case XED_REG_MMX2:
+  case XED_REG_MMX3:
+  case XED_REG_MMX4:
+  case XED_REG_MMX5:
+  case XED_REG_MMX6:
+  case XED_REG_MMX7:
+
+  case XED_REG_ST0:
+  case XED_REG_ST1:
+  case XED_REG_ST2:
+  case XED_REG_ST3:
+  case XED_REG_ST4:
+  case XED_REG_ST5:
+  case XED_REG_ST6:
+  case XED_REG_ST7:
+
+  case XED_REG_ONE:
+  case XED_REG_STACKPUSH:
+  case XED_REG_STACKPOP:
+    
+  case XED_REG_TSC:
+  case XED_REG_TSCAUX:
+  case XED_REG_MSRS:
+
+  case XED_REG_X87CONTROL:
+  case XED_REG_X87STATUS:
+  case XED_REG_X87TOP:
+  case XED_REG_X87TAG:
+  case XED_REG_X87PUSH:
+  case XED_REG_X87POP:
+  case XED_REG_X87POP2:
+
+  case XED_REG_MXCSR:
+
+  case XED_REG_TMP0:
+  case XED_REG_TMP1:
+  case XED_REG_TMP2:
+  case XED_REG_TMP3:
+  case XED_REG_TMP4:
+  case XED_REG_TMP5:
+  case XED_REG_TMP6:
+  case XED_REG_TMP7:
+  case XED_REG_TMP8:
+  case XED_REG_TMP9:
+  case XED_REG_TMP10:
+  case XED_REG_TMP11:
+  case XED_REG_TMP12:
+  case XED_REG_TMP13:
+  case XED_REG_TMP14:
+  case XED_REG_TMP15:
+
+  case XED_REG_LAST:
+
+  case XED_REG_ERROR:
+    // error??
+    return -1;
+
+  }
+
+
+  return 0;
+}
