@@ -121,7 +121,7 @@
 
 #define V3_Hook_Interrupt(irq, opaque)				\
   ({								\
-    int ret = 0;							\
+    int ret = 0;						\
     extern struct vmm_os_hooks * os_hooks;			\
     if ((os_hooks) && (os_hooks)->hook_interrupt) {		\
       ret = (os_hooks)->hook_interrupt(irq, opaque);		\
@@ -156,13 +156,6 @@ typedef enum v3_cpu_arch {V3_INVALID_CPU, V3_SVM_CPU, V3_SVM_REV3_CPU, V3_VMX_CP
 
 #endif //!__V3VEE__
 
-/*
-  #ifdef __V3VEE__
-  typedef struct guest_info v3_guest_t;
-  #else
-  typedef void v3_guest_t;
-  #endif
-*/
 
 
 //
@@ -212,8 +205,6 @@ struct vmm_os_hooks {
   void (*start_kernel_thread)(); // include pointer to function
 
 
-
-  // Filled in by initialization
 
 };
 

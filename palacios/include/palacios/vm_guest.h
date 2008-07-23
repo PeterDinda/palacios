@@ -127,9 +127,6 @@ void PrintV3Segments(struct guest_info * info);
 void PrintV3CtrlRegs(struct guest_info * info);
 void PrintV3GPRs(struct guest_info * info);
 
-#else 
-
-
 #endif
 
 

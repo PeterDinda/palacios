@@ -1,5 +1,8 @@
 #ifndef __VMM_EMULATE_H
 #define __VMM_EMULATE_H
+
+#ifdef __V3VEE__
+
 #include <palacios/vm_guest.h>
 #include <palacios/vmm.h>
 
@@ -8,10 +11,11 @@
  * We can parse out the instruction prefixes, as well as decode the operands 
  */
 
+
+
+
+
 typedef enum {INVALID_OPERAND, REG_OPERAND, MEM_OPERAND} operand_type_t;
-
-int parse();
-
 
 struct x86_operand {
   addr_t operand;
@@ -20,22 +24,68 @@ struct x86_operand {
 };
 
 struct x86_prefix_list {
-  uint_t lock   : 1;
+  uint_t lock   : 1;  // 0xF0
+  uint_t repne  : 1;  // 0xF2
+  uint_t repnz  : 1;  // 0xF2
+  uint_t rep    : 1;  // 0xF3
+  uint_t repe   : 1;  // 0xF3
+  uint_t repz   : 1;  // 0xF3
+  uint_t cs_override : 1;  // 0x2E
+  uint_t ss_override : 1;  // 0x36
+  uint_t ds_override : 1;  // 0x3E
+  uint_t es_override : 1;  // 0x26
+  uint_t fs_override : 1;  // 0x64
+  uint_t gs_override : 1;  // 0x65
+  uint_t br_not_taken : 1;  // 0x2E
+  uint_t br_takend   : 1;  // 0x3E
+  uint_t op_size     : 1;  // 0x66
+  uint_t addr_size   : 1;  // 0x67
 };
 
-/* This parses an instruction 
+
+struct x86_instr {
+  uint_t instr_length;                // output
+  addr_t opcode;                      // output
+  uint_t  opcode_length;               // output
+  struct x86_prefix_list prefixes;    // output
+  struct x86_operand src_operand;     // output
+  struct x86_operand dst_operand;     // output
+  struct x86_operand extra_operand;
+};
+
+
+  /************************/
+ /* EXTERNAL DECODER API */
+/************************/
+/* 
+   This is an External API definition that must be implemented by a decoder
+*/
+
+/* 
+ * Decodes an instruction 
  * All addresses in arguments are in the host address space
+ * instr_ptr is the host address of the instruction 
+ * IMPORTANT: make sure the instr_ptr is in contiguous host memory
+ *   ie. Copy it to a buffer before the call
  */
-int v3_parse_instr(struct guest_info * info,             // input
-		   char * instr_ptr,                        // input 
-		   uint_t * instr_length,                // output
-		   addr_t * opcode,                      // output
-		   uint_t * opcode_length,               // output
-		   struct x86_prefix_list * prefixes,    // output
-		   struct x86_operand * src_operand,     // output
-		   struct x86_operand * dst_operand,     // output
-		   struct x86_operand * extra_operand);  // output
-		   
+int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * instr);
+
+/* 
+ * Encodes an instruction
+ * All addresses in arguments are in the host address space
+ * The instruction is encoded from the struct, and copied into a 15 byte host buffer
+ * referenced by instr_buf
+ * any unused bytes at the end of instr_buf will be filled with nops
+ * IMPORTANT: instr_buf must be allocated and 15 bytes long
+ */
+int v3_encode(struct guest_info * info, struct x86_instr * instr, char * instr_buf);
+
+
+
+
+
+
+
 
 
 /* 
@@ -502,6 +552,8 @@ static inline operand_type_t decode_operands32(struct v3_gprs * gprs, // input/o
 }
 
 
+
+#endif // !__V3VEE__
 
 
 #endif
