@@ -1,6 +1,6 @@
 # Makefile for GeekOS kernel, userspace, and tools
 # Copyright (c) 2004,2005 David H. Hovemeyer <daveho@cs.umd.edu>
-# $Revision: 1.52 $
+# $Revision: 1.53 $
 
 # This is free software.  You are permitted to use,
 # redistribute, and modify it as specified in the file "COPYING".
@@ -77,16 +77,6 @@ DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DDEBUG_NVRAM
 endif
 
 
-
-#
-# XED=1 means that libxed will be included
-#
-# and VMM_XED is one
-#
-# and make world will build an empty boot package
-#
-XED=1
-
 ifeq ($(DEBUG),1)
   JRLDEBUG= -DSERIAL_PRINT_DEBUG=1 -DSERIAL_PRINT_DEBUG_LEVEL=10 -DSERIAL_PRINT=1 -DVMM_DEBUG=1 -DVMM_INFO=1 -DVMM_TRACE=1 $(DEBUG_SECTIONS)
 
@@ -94,18 +84,25 @@ else
   JRLDEBUG= -DSERIAL_PRINT_DEBUG=0 -DSERIAL_PRINT_DEBUG_LEVEL=999999 -DSERIAL_PRINT=0 -DVMM_DEBUG=0 -DVMM_INFO=0 -DVMM_TRACE=0
 endif
 
-ifeq ($(XED),1)
-  LEIXED = -DVMM_XED=1
+
+#
+# DECODER is the decoder that will be used 
+# currently we only support xed
+#
+DECODER=XED
+
+DECODER_FLAGS=
+DECODER_SRCS=
+DECODER_LIBS=
+
+ifeq ($(DECODER),XED)
+DECODER_SRCS := vmm_xed.c
+DECODER_FLAGS :=  -L../lib/xed
+DECODER_LIBS := -lxed
 else
-  LEIXED = -DVMM_XED=0
+# This is an error
 endif
 
-LEIFLAGS = $(LEIXED)
-
-#
-#
-#Peter's compile flags
-PADFLAGS =
 
 #
 # This is wrong for current cygwin - no changes needed
@@ -188,10 +185,11 @@ VMM_ASM_OBJS := $(VMM_ASM_SRCS:%.asm=palacios/%.o)
 VMM_C_SRCS :=   vm_guest.c \
 	 	svm.c svm_handler.c vmm.c vmm_util.c vmm_ctrl_regs.c \
 		vmcb.c vmm_mem.c vmm_paging.c vmm_io.c vmm_debug.c svm_io.c \
-		vmm_intr.c vmm_time.c\
+		vmm_intr.c vmm_time.c \
 		vmm_shadow_paging.c vm_guest_mem.c  \
                 vm_dev.c vmm_dev_mgr.c vmm_decoder.c \
-                svm_halt.c svm_pause.c vmm_config.c
+                svm_halt.c svm_pause.c vmm_config.c \
+		 $(DECODER_SRCS)
 #\
 #		vmx.c vmcs_gen.c vmcs.c
 
@@ -199,17 +197,17 @@ VMM_C_OBJS := $(VMM_C_SRCS:%.c=palacios/%.o)
 
 VMM_OBJS := $(VMM_C_OBJS) $(VMM_ASM_OBJS)
 
+
+
+
 DEVICE_C_SRCS := generic.c keyboard.c nvram.c timer.c simple_pic.c 8259a.c 8254.c serial.c
 
 DEVICE_C_OBJS := $(DEVICE_C_SRCS:%.c=devices/%.o)
 
 DEVICE_OBJS := $(DEVICE_C_OBJS)
 
-V3LIBS :=
+V3LIBS := $(DECODER_LIBS)
 
-ifeq ($(XED),1) 
-  V3LIBS := $(V3LIBS) -L../lib/xed -lxed
-endif
 
 
 # ----------------------------------------------------------------------
@@ -277,14 +275,14 @@ FD_SECTORS_PER_TRACK := $(PERL) $(PROJECT_ROOT)/scripts/numsecs_per_track
 # ----------------------------------------------------------------------
 
 # Flags used for all C source files
-GENERAL_OPTS := -O -Wall $(EXTRA_C_OPTS) $(JRLDEBUG) $(PADFLAGS) $(LEIFLAGS)  -fPIC
+GENERAL_OPTS := -O -Wall $(EXTRA_C_OPTS) $(VMM_FLAGS) -fPIC
 CC_GENERAL_OPTS := $(GENERAL_OPTS) -Werror 
 
 # Flags used for kernel C source files
 CC_KERNEL_OPTS := -g -DGEEKOS -I$(PROJECT_ROOT)/include
 
 # Flags used for VMM C source files
-CC_VMM_OPTS := -g -I$(PROJECT_ROOT)/include -D__V3VEE__ -D__V3_32BIT__
+CC_VMM_OPTS := -g -I$(PROJECT_ROOT)/include -D__V3VEE__ -D__V3_32BIT__ $(DECODER_FLAGS) $(JRLDEBUG)
 
 # Flags used for VMM C ASM files
 NASM_VMM_OPTS := -I$(PROJECT_ROOT)/src/palacios/ -f elf $(EXTRA_NASM_OPTS)
@@ -419,7 +417,8 @@ geekos/kernel.bin : geekos/kernel.exe
 # The kernel executable and symbol map.
 geekos/kernel.exe : $(KERNEL_OBJS) $(COMMON_C_OBJS) $(VMM_OBJS) $(DEVICE_OBJS) vm_kernel
 	$(TARGET_LD) -o geekos/kernel.exe -Ttext $(KERNEL_BASE_ADDR) -e $(KERNEL_ENTRY) \
-		 $(KERNEL_OBJS) $(COMMON_C_OBJS) $(VMM_OBJS) $(DEVICE_OBJS) $(V3LIBS) -b binary vm_kernel
+		$(DECODER_FLAGS) \
+		$(KERNEL_OBJS) $(COMMON_C_OBJS) $(VMM_OBJS) $(DEVICE_OBJS) $(V3LIBS) -b binary vm_kernel
 	$(TARGET_NM) geekos/kernel.exe > geekos/kernel.syms
 
 

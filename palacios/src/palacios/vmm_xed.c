@@ -1,5 +1,7 @@
+#include <palacios/vmm_decoder.h>
 #include <palacios/vmm_xed.h>
 #include <xed/xed-interface.h>
+
 
 
 

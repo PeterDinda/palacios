@@ -10,12 +10,6 @@
 
 
 
-
-//test decoder
-//#include <palacios/vmm_decoder.h>
-
-extern int parse();
-
 #define SPEAKER_PORT 0x61
 
 static inline void VM_Out_Byte(ushort_t port, uchar_t value)
@@ -217,12 +211,6 @@ int RunVMM(struct Boot_Info * bootInfo) {
 
   
   Init_V3(&os_hooks, &vmm_ops);
-  
-  //test decoder
-  PrintBoth("testing decoder\n");
-  parse();
-  PrintBoth("testing decoder done\n");
-  
 
   extern char _binary_vm_kernel_start;
   PrintBoth(" Guest Load Addr: 0x%x\n", &_binary_vm_kernel_start);
