@@ -1,11 +1,109 @@
 #include <palacios/vmm_decoder.h>
 #include <palacios/vmm_xed.h>
 #include <xed/xed-interface.h>
+#include <palacios/vm_guest.h>
+
+static xed_state_t decoder_state;
 
 
+static int set_decoder_mode(struct guest_info * info, xed_state_t * state) {
+  switch (info->cpu_mode) {
+  case REAL:
+    if (state->mmode != XED_MACHINE_MODE_LEGACY_16) {
+      xed_state_init(state,
+		     XED_MACHINE_MODE_LEGACY_16, 
+		     XED_ADDRESS_WIDTH_16b, 
+		     XED_ADDRESS_WIDTH_16b); 
+    }
+   break;
+  case PROTECTED:
+  case PROTECTED_PAE:
+    if (state->mmode != XED_MACHINE_MODE_LEGACY_32) {
+      xed_state_init(state,
+		     XED_MACHINE_MODE_LEGACY_32, 
+		     XED_ADDRESS_WIDTH_32b, 
+		     XED_ADDRESS_WIDTH_32b);
+    }
+    break;
+  case LONG:
+    if (state->mmode != XED_MACHINE_MODE_LONG_64) {    
+      state->mmode = XED_MACHINE_MODE_LONG_64;
+    }
+    break;
+  default:
+    return -1;
+  }
+  return 0;
+}
+
+
+int init_decoder() {
+  xed_tables_init();
+  xed_state_zero(&decoder_state);
+  return 0;
+}
 
 
 int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * instr) {
+  xed_decoded_inst_t xed_instr;
+  xed_error_enum_t xed_error;
+
+  if (set_decoder_mode(info, &decoder_state) == -1) {
+    PrintError("Could not set decoder mode\n");
+    return -1;
+  }
+  
+  xed_decoded_inst_zero_set_mode(&xed_instr, &decoder_state);
+
+  xed_error = xed_decode(&xed_instr, 
+			 REINTERPRET_CAST(const xed_uint8_t *, instr_ptr), 
+			 XED_MAX_INSTRUCTION_BYTES);
+  
+
+  if (xed_error != XED_ERROR_NONE) {
+    PrintError("Xed error: %s\n", xed_error_enum_t2str(xed_error));
+    return -1;
+  }
+  
+  instr->instr_length = xed_decoded_inst_get_length (&xed_instr);
+  
+  
+  PrintDebug("category: %s\n", xed_category_enum_t2str(xed_decoded_inst_get_category(&xed_instr)));;
+  PrintDebug("ISA-extension:%s\n ",xed_extension_enum_t2str(xed_decoded_inst_get_extension(&xed_instr)));
+  PrintDebug(" instruction-length: %d\n ", xed_decoded_inst_get_length(&xed_instr));
+  PrintDebug(" operand-size:%d\n ", xed_operand_values_get_effective_operand_width(xed_decoded_inst_operands_const(&xed_instr)));   
+  PrintDebug("address-size:%d\n ", xed_operand_values_get_effective_address_width(xed_decoded_inst_operands_const(&xed_instr))); 
+  PrintDebug("iform-enum-name:%s\n ",xed_iform_enum_t2str(xed_decoded_inst_get_iform_enum(&xed_instr)));
+  PrintDebug("iform-enum-name-dispatch (zero based):%d\n ", xed_decoded_inst_get_iform_enum_dispatch(&xed_instr));
+  PrintDebug("iclass-max-iform-dispatch: %d\n ", xed_iform_max_per_iclass(xed_decoded_inst_get_iclass(&xed_instr)));
+  
+  // operands
+  // print_operands(&xed_instr);
+  
+  // memops
+  // print_memops(&xed_instr);
+  
+  // flags
+  //print_flags(&xed_instr);
+  
+  // attributes
+  //print_attributes(&xed_instr);*/
+
+
+
+    return -1;
+}
+
+
+int v3_encode(struct guest_info * info, struct x86_instr * instr, char * instr_buf) {
+
+  return -1;
+}
+
+
+
+
+/*
 
     xed_state_t dstate;
     xed_decoded_inst_t xedd;
@@ -76,16 +174,9 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 	    //print_flags(&xedd);
 
 	    // attributes
-	    //print_attributes(&xedd);*/
+	    //print_attributes(&xedd);
     }
 
 
 
-    return -1;
-}
-
-
-int v3_encode(struct guest_info * info, struct x86_instr * instr, char * instr_buf) {
-
-  return -1;
-}
+*/

@@ -43,7 +43,14 @@ int handle_cr0_write(struct guest_info * info) {
 	PrintDebug("Could not read instruction (ret=%d)\n", ret);
 	return -1;
       }
+      /*
+      {
+	struct x86_instr dec_instr;
+	v3_decode(info, (addr_t)instr, &dec_instr);
+	return -1;
+      }
 
+      */
       while (is_prefix_byte(instr[index])) {
 	switch(instr[index]) {
 	case PREFIX_CS_OVERRIDE:

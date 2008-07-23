@@ -61,6 +61,12 @@ struct x86_instr {
    This is an External API definition that must be implemented by a decoder
 */
 
+
+/* 
+ * Initializes a decoder
+ */
+int init_decoder();
+
 /* 
  * Decodes an instruction 
  * All addresses in arguments are in the host address space

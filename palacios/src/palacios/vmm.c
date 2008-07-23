@@ -4,6 +4,7 @@
 #include <palacios/vmm_intr.h>
 #include <palacios/vmm_config.h>
 #include <palacios/vm_guest.h>
+#include <palacios/vmm_decoder.h>
 
 v3_cpu_arch_t v3_cpu_type;
 struct vmm_os_hooks * os_hooks = NULL;
@@ -22,6 +23,8 @@ void Init_V3(struct vmm_os_hooks * hooks, struct vmm_ctrl_ops * vmm_ops) {
   os_hooks = hooks;
 
   v3_cpu_type = V3_INVALID_CPU;
+
+  init_decoder();
 
   if (is_svm_capable()) {
 
