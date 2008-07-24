@@ -6,6 +6,8 @@
 static xed_state_t decoder_state;
 
 
+// This returns a pointer to a V3_OPCODE_[*] array defined in vmm_decoder.h
+static int get_opcode(xed_iform_enum_t iform, addr_t * opcode);
 
 static int xed_reg_to_v3_reg(struct guest_info * info, xed_reg_enum_t xed_reg, addr_t * v3_reg, uint_t * reg_len);
 
@@ -66,16 +68,9 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 
   xed_decoded_inst_zero_set_mode(&xed_instr, &decoder_state);
 
-
-  
-
   xed_error = xed_decode(&xed_instr, 
 			 REINTERPRET_CAST(const xed_uint8_t *, instr_ptr), 
 			 XED_MAX_INSTRUCTION_BYTES);
-  
-
-
-
 
 
   if (xed_error != XED_ERROR_NONE) {
@@ -87,6 +82,14 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
   
   instr->instr_length = xed_decoded_inst_get_length(&xed_instr);
   instr->num_operands = xed_decoded_inst_noperands(&xed_instr);
+
+  xed_iform_enum_t iform = xed_decoded_inst_get_iform_enum(&xed_instr);
+
+  if (get_opcode(iform, &(instr->opcode)) == -1) {
+    PrintError("Could not get opcode. (iform=%s)\n", xed_iform_enum_t2str(iform));
+    return -1;
+  }
+
 
 
   PrintDebug("Number of operands: %d\n", instr->num_operands);
@@ -102,14 +105,16 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
       xed_reg_enum_t xed_reg =  xed_decoded_inst_get_reg(&xed_instr, op_enum);
       if (xed_reg_to_v3_reg(info, 
 			    xed_reg, 
-			    &(instr->dst_operand.operand), 
-			    &(instr->dst_operand.size)) == -1) {
+			    &(instr->first_operand.operand), 
+			    &(instr->first_operand.size)) == -1) {
 	
 	PrintError("First operand is an Unhandled Operand: %s\n", xed_reg_enum_t2str(xed_reg));
+	instr->first_operand.type = INVALID_OPERAND;
 	return -1;
       }
 
-      PrintDebug("xed_reg=0x%x, cr0=0x%x\n", instr->dst_operand.operand, &(info->ctrl_regs.cr0));
+      instr->first_operand.type = REG_OPERAND;
+      PrintDebug("xed_reg=0x%x, cr0=0x%x\n", instr->first_operand.operand, &(info->ctrl_regs.cr0));
 
     } else {
       PrintError("Unhandled first operand type %s\n", xed_operand_type_enum_t2str(op_type));
@@ -127,13 +132,16 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
       xed_reg_enum_t xed_reg =  xed_decoded_inst_get_reg(&xed_instr, op_enum);
       if (xed_reg_to_v3_reg(info, 
 			    xed_reg, 
-			    &(instr->src_operand.operand), 
-			    &(instr->src_operand.size)) == -1) {
+			    &(instr->second_operand.operand), 
+			    &(instr->second_operand.size)) == -1) {
 	
 	PrintError("Second operand is an Unhandled Operand: %s\n", xed_reg_enum_t2str(xed_reg));
+	instr->second_operand.type = INVALID_OPERAND;
 	return -1;
       }
-      PrintDebug("xed_reg=0x%x, eax=0x%x\n", instr->src_operand.operand, &(info->vm_regs.rax));
+
+      instr->second_operand.type = REG_OPERAND;
+      PrintDebug("xed_reg=0x%x, eax=0x%x\n", instr->second_operand.operand, &(info->vm_regs.rax));
       
     } else {
       PrintError("Unhandled second operand type %s\n", xed_operand_type_enum_t2str(op_type));
@@ -151,12 +159,14 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
       xed_reg_enum_t xed_reg =  xed_decoded_inst_get_reg(&xed_instr, op_enum);
       if (xed_reg_to_v3_reg(info, 
 			    xed_reg, 
-			    &(instr->extra_operand.operand), 
-			    &(instr->extra_operand.size)) == -1) {
+			    &(instr->third_operand.operand), 
+			    &(instr->third_operand.size)) == -1) {
 	
 	PrintError("Third operand is an Unhandled Operand: %s\n", xed_reg_enum_t2str(xed_reg));
+	instr->third_operand.type = INVALID_OPERAND;
 	return -1;
       }
+      instr->third_operand.type = REG_OPERAND;
     } else {
       PrintError("Unhandled third operand type %s\n", xed_operand_type_enum_t2str(op_type));
       return -1;
@@ -189,7 +199,7 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 
 
 
-    return -1;
+    return 0;
 }
 
 
@@ -611,6 +621,29 @@ static int xed_reg_to_v3_reg(struct guest_info * info, xed_reg_enum_t xed_reg, a
 
   }
 
+
+  return 0;
+}
+
+
+
+static int get_opcode(xed_iform_enum_t iform, addr_t * opcode) {
+
+  switch (iform) {
+  case XED_IFORM_MOV_CR_GPR64_CR:
+  case XED_IFORM_MOV_CR_GPR32_CR:
+    *opcode = (addr_t)&V3_OPCODE_MOVCR2;
+    break;
+
+  case XED_IFORM_MOV_CR_CR_GPR64:
+  case XED_IFORM_MOV_CR_CR_GPR32:
+    *opcode = (addr_t)&V3_OPCODE_MOV2CR;
+    break;
+
+  default:
+    *opcode = 0;
+    return -1;
+  }
 
   return 0;
 }
