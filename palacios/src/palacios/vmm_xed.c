@@ -95,27 +95,23 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
   if (instr->num_operands >= 1) {
     const xed_operand_t * op = xed_inst_operand(xi, 0);
     xed_operand_type_enum_t op_type = xed_operand_type(op);
-    
-    switch (op_type) {
-    case XED_OPERAND_TYPE_REG:
-      {
-	xed_operand_enum_t op_enum = xed_operand_name(op);
-	xed_reg_enum_t xed_reg =  xed_decoded_inst_get_reg(&xed_instr, op_enum);
-	if (xed_reg_to_v3_reg(info, 
-			      xed_reg, 
-			      &(instr->dst_operand.operand), 
-			      &(instr->dst_operand.size)) == -1) {
+    xed_operand_enum_t op_enum = xed_operand_name(op);
 
-	  PrintError("First operand is an Unhandled Operand: %s\n", xed_reg_enum_t2str(xed_reg));
-	  return -1;
-	}
+
+    if (xed_operand_is_register(op_enum)) {
+      xed_reg_enum_t xed_reg =  xed_decoded_inst_get_reg(&xed_instr, op_enum);
+      if (xed_reg_to_v3_reg(info, 
+			    xed_reg, 
+			    &(instr->dst_operand.operand), 
+			    &(instr->dst_operand.size)) == -1) {
+	
+	PrintError("First operand is an Unhandled Operand: %s\n", xed_reg_enum_t2str(xed_reg));
+	return -1;
       }
-    case XED_OPERAND_TYPE_INVALID:
-    case XED_OPERAND_TYPE_ERROR:
-    case XED_OPERAND_TYPE_IMM:
-    case XED_OPERAND_TYPE_IMM_CONST:
-    case XED_OPERAND_TYPE_NT_LOOKUP_FN:
-    case XED_OPERAND_TYPE_LAST:
+
+      PrintDebug("xed_reg=0x%x, cr0=0x%x\n", instr->dst_operand.operand, &(info->ctrl_regs.cr0));
+
+    } else {
       PrintError("Unhandled first operand type %s\n", xed_operand_type_enum_t2str(op_type));
       return -1;
     }
@@ -123,29 +119,23 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 
   // set second operand
   if (instr->num_operands >= 2) {
-    const xed_operand_t * op = xed_inst_operand(xi, 0);
+    const xed_operand_t * op = xed_inst_operand(xi, 1);
     xed_operand_type_enum_t op_type = xed_operand_type(op);
+    xed_operand_enum_t op_enum = xed_operand_name(op);
     
-    switch (op_type) {
-    case XED_OPERAND_TYPE_REG:
-      {
-	xed_operand_enum_t op_enum = xed_operand_name(op);
-	xed_reg_enum_t xed_reg =  xed_decoded_inst_get_reg(&xed_instr, op_enum);
-	if (xed_reg_to_v3_reg(info, 
-			      xed_reg, 
-			      &(instr->src_operand.operand), 
-			      &(instr->src_operand.size)) == -1) {
-
-	  PrintError("Second operand is an Unhandled Operand: %s\n", xed_reg_enum_t2str(xed_reg));
-	  return -1;
-	}
+    if (xed_operand_is_register(op_enum)) {
+      xed_reg_enum_t xed_reg =  xed_decoded_inst_get_reg(&xed_instr, op_enum);
+      if (xed_reg_to_v3_reg(info, 
+			    xed_reg, 
+			    &(instr->src_operand.operand), 
+			    &(instr->src_operand.size)) == -1) {
+	
+	PrintError("Second operand is an Unhandled Operand: %s\n", xed_reg_enum_t2str(xed_reg));
+	return -1;
       }
-    case XED_OPERAND_TYPE_INVALID:
-    case XED_OPERAND_TYPE_ERROR:
-    case XED_OPERAND_TYPE_IMM:
-    case XED_OPERAND_TYPE_IMM_CONST:
-    case XED_OPERAND_TYPE_NT_LOOKUP_FN:
-    case XED_OPERAND_TYPE_LAST:
+      PrintDebug("xed_reg=0x%x, eax=0x%x\n", instr->src_operand.operand, &(info->vm_regs.rax));
+      
+    } else {
       PrintError("Unhandled second operand type %s\n", xed_operand_type_enum_t2str(op_type));
       return -1;
     }
@@ -153,29 +143,21 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 
   // set third operand
   if (instr->num_operands >= 3) {
-    const xed_operand_t * op = xed_inst_operand(xi, 0);
+    const xed_operand_t * op = xed_inst_operand(xi, 2);
     xed_operand_type_enum_t op_type = xed_operand_type(op);
-    
-    switch (op_type) {
-    case XED_OPERAND_TYPE_REG:
-      {
-	xed_operand_enum_t op_enum = xed_operand_name(op);
-	xed_reg_enum_t xed_reg =  xed_decoded_inst_get_reg(&xed_instr, op_enum);
-	if (xed_reg_to_v3_reg(info, 
-			      xed_reg, 
-			      &(instr->extra_operand.operand), 
-			      &(instr->extra_operand.size)) == -1) {
+    xed_operand_enum_t op_enum = xed_operand_name(op);
 
-	  PrintError("Third operand is an Unhandled Operand: %s\n", xed_reg_enum_t2str(xed_reg));
-	  return -1;
-	}
+    if (xed_operand_is_register(op_enum)) {
+      xed_reg_enum_t xed_reg =  xed_decoded_inst_get_reg(&xed_instr, op_enum);
+      if (xed_reg_to_v3_reg(info, 
+			    xed_reg, 
+			    &(instr->extra_operand.operand), 
+			    &(instr->extra_operand.size)) == -1) {
+	
+	PrintError("Third operand is an Unhandled Operand: %s\n", xed_reg_enum_t2str(xed_reg));
+	return -1;
       }
-    case XED_OPERAND_TYPE_INVALID:
-    case XED_OPERAND_TYPE_ERROR:
-    case XED_OPERAND_TYPE_IMM:
-    case XED_OPERAND_TYPE_IMM_CONST:
-    case XED_OPERAND_TYPE_NT_LOOKUP_FN:
-    case XED_OPERAND_TYPE_LAST:
+    } else {
       PrintError("Unhandled third operand type %s\n", xed_operand_type_enum_t2str(op_type));
       return -1;
     }
