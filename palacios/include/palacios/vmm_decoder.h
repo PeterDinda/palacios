@@ -44,13 +44,14 @@ struct x86_prefix_list {
 
 
 struct x86_instr {
-  uint_t instr_length;                // output
-  addr_t opcode;                      // output
-  uint_t  opcode_length;               // output
-  struct x86_prefix_list prefixes;    // output
-  struct x86_operand src_operand;     // output
-  struct x86_operand dst_operand;     // output
-  struct x86_operand extra_operand;
+  uint_t instr_length;
+  addr_t opcode;    // a pointer to the V3_OPCODE_[*] arrays defined below
+  uint_t num_operands;
+  struct x86_prefix_list prefixes;
+  struct x86_operand first_operand;
+  struct x86_operand second_operand;
+  struct x86_operand third_operand;
+  void * decoder_data;
 };
 
 
@@ -123,7 +124,7 @@ struct sib_byte {
 
 
 
-#define MAKE_INSTR(nm, ...) static const uchar_t OPCODE_##nm[] = { __VA_ARGS__ }
+#define MAKE_INSTR(nm, ...) static  const uchar_t V3_OPCODE_##nm[] = { __VA_ARGS__ }
 
 /* 
  * Here's how it works:
