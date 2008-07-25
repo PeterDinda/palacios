@@ -6,14 +6,6 @@
 #include <palacios/vm_guest.h>
 #include <palacios/vmm.h>
 
-/*
- * This is where we do the hideous X86 instruction parsing among other things
- * We can parse out the instruction prefixes, as well as decode the operands 
- */
-
-
-
-
 
 typedef enum {INVALID_OPERAND, REG_OPERAND, MEM_OPERAND} operand_type_t;
 
@@ -23,7 +15,7 @@ struct x86_operand {
   operand_type_t type;
 };
 
-struct x86_prefix_list {
+struct x86_prefixes {
   uint_t lock   : 1;  // 0xF0
   uint_t repne  : 1;  // 0xF2
   uint_t repnz  : 1;  // 0xF2
@@ -44,10 +36,10 @@ struct x86_prefix_list {
 
 
 struct x86_instr {
+  struct x86_prefixes prefixes;
   uint_t instr_length;
   addr_t opcode;    // a pointer to the V3_OPCODE_[*] arrays defined below
   uint_t num_operands;
-  struct x86_prefix_list prefixes;
   struct x86_operand first_operand;
   struct x86_operand second_operand;
   struct x86_operand third_operand;
@@ -180,6 +172,9 @@ MAKE_INSTR(SMSW,   3, 0x0f, 0x01, 0x00);
 #define PREFIX_BR_TAKEN     0x3E
 #define PREFIX_OP_SIZE      0x66
 #define PREFIX_ADDR_SIZE    0x67
+
+int opcode_cmp(const uchar_t * op1, const uchar_t * op2);
+
 
 static inline int is_prefix_byte(char byte) {
   switch (byte) {

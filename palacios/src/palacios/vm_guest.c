@@ -1,5 +1,59 @@
 #include <palacios/vm_guest.h>
+#include <palacios/vmm_ctrl_regs.h>
 #include <palacios/vmm.h>
+
+
+vm_cpu_mode_t get_cpu_mode(struct guest_info * info) {
+  struct cr0_32 * cr0;
+  struct cr4_32 * cr4 = (struct cr4_32 *)&(info->ctrl_regs.cr4);
+  struct efer_64 * efer = (struct efer_64 *)&(info->ctrl_regs.efer);
+  struct v3_segment * cs = &(info->segments.cs);
+
+  if (info->shdw_pg_mode == SHADOW_PAGING) {
+    cr0 = (struct cr0_32 *)&(info->shdw_pg_state.guest_cr0);
+  } else if (info->shdw_pg_mode == NESTED_PAGING) {
+    cr0 = (struct cr0_32 *)&(info->ctrl_regs.cr0);
+  } else {
+    PrintError("Invalid Paging Mode...\n");
+    V3_ASSERT(0);
+    return -1;
+  }
+
+  if (cr0->pe == 0) {
+    return REAL;
+  } else if ((cr4->pae == 0) && (efer->lma == 0)) {
+    return PROTECTED;
+  } else if (efer->lma == 0) {
+    return PROTECTED_PAE;
+  } else if ((efer->lma == 1) && (cs->long_mode == 1)) {
+    return LONG;
+  } else {
+    return LONG_32_COMPAT;
+  }
+}
+
+vm_mem_mode_t get_mem_mode(struct guest_info * info) {
+  struct cr0_32 * cr0;
+
+  if (info->shdw_pg_mode == SHADOW_PAGING) {
+    cr0 = (struct cr0_32 *)&(info->shdw_pg_state.guest_cr0);
+  } else if (info->shdw_pg_mode == NESTED_PAGING) {
+    cr0 = (struct cr0_32 *)&(info->ctrl_regs.cr0);
+  } else {
+    PrintError("Invalid Paging Mode...\n");
+    V3_ASSERT(0);
+    return -1;
+  }
+
+
+
+  if (cr0->pg == 0) {
+    return PHYSICAL_MEM;
+  } else {
+    return VIRTUAL_MEM;
+  }
+}
+
 
 void PrintV3Segments(struct guest_info * info) {
   struct v3_segments * segs = &(info->segments);

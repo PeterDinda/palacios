@@ -32,8 +32,11 @@ int handle_svm_exit(struct guest_info * info) {
   info->ctrl_regs.cr4 = guest_state->cr4;
   info->ctrl_regs.cr8 = guest_ctrl->guest_ctrl.V_TPR;
   info->ctrl_regs.rflags = guest_state->rflags;
+  info->ctrl_regs.efer = guest_state->efer;
 
   get_vmcb_segments((vmcb_t*)(info->vmm_data), &(info->segments));
+  info->cpu_mode = get_cpu_mode(info);
+  info->mem_mode = get_mem_mode(info);
 
 
   exit_code = guest_ctrl->exit_code;
@@ -328,7 +331,7 @@ int handle_svm_exit(struct guest_info * info) {
   guest_state->cr4 = info->ctrl_regs.cr4;
   guest_ctrl->guest_ctrl.V_TPR = info->ctrl_regs.cr8 & 0xff;
   guest_state->rflags = info->ctrl_regs.rflags;
-
+  guest_state->efer = info->ctrl_regs.efer;
 
   guest_state->cpl = info->cpl;
 

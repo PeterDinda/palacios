@@ -119,6 +119,21 @@ struct cr4_64 {
 
 
 
+struct efer_64 {
+  uint_t sce              : 1;
+  uint_t rsvd1            : 7; // RAZ
+  uint_t lme              : 1;
+  uint_t rsvd2            : 1; // MBZ
+  uint_t lma              : 1;
+  uint_t nxe              : 1;
+  uint_t svme             : 1;
+  uint_t rsvd3            : 1; // MBZ
+  uint_t ffxsr            : 1;
+  uint_t rsvd4            : 12; // MBZ
+  uint_t rsvd5            : 32; // MBZ
+};
+
+
 struct rflags {
   uint_t cf                : 1;  // carry flag
   uint_t rsvd1             : 1;  // Must be 1
@@ -144,6 +159,7 @@ struct rflags {
   uint_t rsvd5             : 10; // Read as 0
   uint_t rsvd6             : 32; // Read as 0
 };
+
 
 
 

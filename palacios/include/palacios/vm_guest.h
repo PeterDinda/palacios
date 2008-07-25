@@ -36,6 +36,7 @@ struct v3_ctrl_regs {
   v3_reg_t cr4;
   v3_reg_t cr8;
   v3_reg_t rflags;
+  v3_reg_t efer;
 };
 
 
@@ -121,6 +122,10 @@ struct guest_info {
 
   void * vmm_data;
 };
+
+
+vm_cpu_mode_t get_cpu_mode(struct guest_info * info);
+vm_mem_mode_t get_mem_mode(struct guest_info * info);
 
 
 void PrintV3Segments(struct guest_info * info);

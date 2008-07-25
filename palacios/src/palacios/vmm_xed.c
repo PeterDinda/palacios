@@ -93,6 +93,7 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 
 
   PrintDebug("Number of operands: %d\n", instr->num_operands);
+  PrintDebug("INSTR length: %d\n", instr->instr_length);
 
   // set first operand
   if (instr->num_operands >= 1) {
@@ -638,6 +639,15 @@ static int get_opcode(xed_iform_enum_t iform, addr_t * opcode) {
   case XED_IFORM_MOV_CR_CR_GPR64:
   case XED_IFORM_MOV_CR_CR_GPR32:
     *opcode = (addr_t)&V3_OPCODE_MOV2CR;
+    break;
+
+
+  case XED_IFORM_LMSW_GPR16:
+    *opcode = (addr_t)&V3_OPCODE_LMSW;
+    break;
+
+  case XED_IFORM_CLTS:
+    *opcode = (addr_t)&V3_OPCODE_CLTS;
     break;
 
   default:
