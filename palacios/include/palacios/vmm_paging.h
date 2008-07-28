@@ -112,6 +112,8 @@ the host state in the vmcs before entering the guest.
 #define CR3_TO_PML4E64(cr3)  (((ullong_t)cr3) & 0x000ffffffffff000LL)
 
 
+
+
 /* Accessor functions for the page table structures */
 #define PDE32_T_ADDR(x) (((x).pt_base_addr) << 12)
 #define PTE32_T_ADDR(x) (((x).page_base_addr) << 12)

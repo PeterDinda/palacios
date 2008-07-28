@@ -348,12 +348,17 @@ int write_master_port1(ushort_t port, void * src, uint_t length, struct vm_devic
   struct pic_internal * state = (struct pic_internal*)dev->private_data;
   uchar_t cw = *(uchar_t *)src;
 
+  PrintDebug("8259 PIC: Write master port 1 with 0x%x\n",cw);
+
   if (length != 1) {
     PrintError("8259 PIC: Invalid Write length (wr_Master1)\n");
     return -1;
   }
   
   if (IS_ICW1(cw)) {
+
+    PrintDebug("8259 PIC: Setting ICW1 = %x (wr_Master1)\n", cw);
+    
     state->master_icw1 = cw;
     state->master_state = ICW2;
 
@@ -362,6 +367,7 @@ int write_master_port1(ushort_t port, void * src, uint_t length, struct vm_devic
       // handle the EOI here
       struct ocw2 * cw2 =  (struct ocw2*)&cw;
 
+      PrintDebug("8259 PIC: Handling OCW2 = %x (wr_Master1)\n", cw);
       
       if ((cw2->EOI) && (!cw2->R) && (cw2->SL)) {
 	// specific EOI;
@@ -384,6 +390,7 @@ int write_master_port1(ushort_t port, void * src, uint_t length, struct vm_devic
 
       state->master_ocw2 = cw;
     } else if (IS_OCW3(cw)) {
+      PrintDebug("8259 PIC: Handling OCW3 = %x (wr_Master1)\n", cw);
       state->master_ocw3 = cw;
     } else {
       PrintError("8259 PIC: Invalid OCW to PIC (wr_Master1)\n");
@@ -403,6 +410,8 @@ int write_master_port2(ushort_t port, void * src, uint_t length, struct vm_devic
     struct pic_internal * state = (struct pic_internal*)dev->private_data;
     uchar_t cw = *(uchar_t *)src;    
 
+    PrintDebug("8259 PIC: Write master port 2 with 0x%x\n",cw);
+  
     if (length != 1) {
       PrintError("8259 PIC: Invalid Write length (wr_Master2)\n");
       return -1;
@@ -425,6 +434,8 @@ int write_master_port2(ushort_t port, void * src, uint_t length, struct vm_devic
     } else if (state->master_state == ICW3) {
       struct icw1 * cw1 = (struct icw1 *)&(state->master_icw1);
 
+      PrintDebug("8259 PIC: Setting ICW3 = %x (wr_Master2)\n", cw);
+
       state->master_icw3 = cw;
 
       if (cw1->ic4 == 1) {
@@ -434,9 +445,11 @@ int write_master_port2(ushort_t port, void * src, uint_t length, struct vm_devic
       }
 
     } else if (state->master_state == ICW4) {
+      PrintDebug("8259 PIC: Setting ICW4 = %x (wr_Master2)\n", cw);
       state->master_icw4 = cw;
       state->master_state = READY;
     } else if (state->master_state == READY) {
+      PrintDebug("8259 PIC: Setting IMR = %x (wr_Master2)\n", cw);
       state->master_imr = cw;
     } else {
       // error
@@ -451,6 +464,8 @@ int write_slave_port1(ushort_t port, void * src, uint_t length, struct vm_device
   struct pic_internal * state = (struct pic_internal*)dev->private_data;
   uchar_t cw = *(uchar_t *)src;
 
+  PrintDebug("8259 PIC: Write slave port 1 with 0x%x\n",cw);
+
   if (length != 1) {
     // error
     PrintError("8259 PIC: Invalid Write length (wr_Slave1)\n");
@@ -458,12 +473,15 @@ int write_slave_port1(ushort_t port, void * src, uint_t length, struct vm_device
   }
 
   if (IS_ICW1(cw)) {
+    PrintDebug("8259 PIC: Setting ICW1 = %x (wr_Slave1)\n", cw);
     state->slave_icw1 = cw;
     state->slave_state = ICW2;
   } else if (state->slave_state == READY) {
     if (IS_OCW2(cw)) {
       // handle the EOI here
       struct ocw2 * cw2 =  (struct ocw2 *)&cw;
+
+      PrintDebug("8259 PIC: Setting OCW2 = %x (wr_Slave1)\n", cw);
       
       if ((cw2->EOI) && (!cw2->R) && (cw2->SL)) {
 	// specific EOI;
@@ -487,6 +505,7 @@ int write_slave_port1(ushort_t port, void * src, uint_t length, struct vm_device
       state->slave_ocw2 = cw;
     } else if (IS_OCW3(cw)) {
       // Basically sets the IRR/ISR read flag
+      PrintDebug("8259 PIC: Setting OCW3 = %x (wr_Slave1)\n", cw);
       state->slave_ocw3 = cw;
     } else {
       PrintError("8259 PIC: Invalid command work (wr_Slave1)\n");
@@ -504,6 +523,8 @@ int write_slave_port2(ushort_t port, void * src, uint_t length, struct vm_device
     struct pic_internal * state = (struct pic_internal*)dev->private_data;
     uchar_t cw = *(uchar_t *)src;    
 
+    PrintDebug("8259 PIC: Write slave port 2 with 0x%x\n",cw);
+
     if (length != 1) {
       PrintError("8259 PIC: Invalid write length (wr_Slave2)\n");
       return -1;
@@ -511,6 +532,8 @@ int write_slave_port2(ushort_t port, void * src, uint_t length, struct vm_device
 
     if (state->slave_state == ICW2) {
       struct icw1 * cw1 =  (struct icw1 *)&(state->master_icw1);
+
+      PrintDebug("8259 PIC: Setting ICW2 = %x (wr_Slave2)\n", cw);
 
       state->slave_icw2 = cw;
 
@@ -525,6 +548,8 @@ int write_slave_port2(ushort_t port, void * src, uint_t length, struct vm_device
     } else if (state->slave_state == ICW3) {
       struct icw1 * cw1 =  (struct icw1 *)&(state->master_icw1);
 
+      PrintDebug("8259 PIC: Setting ICW3 = %x (wr_Slave2)\n", cw);
+
       state->slave_icw3 = cw;
 
       if (cw1->ic4 == 1) {
@@ -534,9 +559,11 @@ int write_slave_port2(ushort_t port, void * src, uint_t length, struct vm_device
       }
 
     } else if (state->slave_state == ICW4) {
+      PrintDebug("8259 PIC: Setting ICW4 = %x (wr_Slave2)\n", cw);
       state->slave_icw4 = cw;
       state->slave_state = READY;
     } else if (state->slave_state == READY) {
+      PrintDebug("8259 PIC: Setting IMR = %x (wr_Slave2)\n", cw);
       state->slave_imr = cw;
     } else {
       PrintError("8259 PIC: Invalid State at write (wr_Slave2)\n");

@@ -322,8 +322,11 @@ int handle_svm_exit(struct guest_info * info) {
       return -1;
     }
 
+  } else {
+#ifdef DEBUG_INTERRUPTS
+    PrintDebug("No interrupts/exceptions pending\n");
+#endif
   }
-
 
   guest_state->cr0 = info->ctrl_regs.cr0;
   guest_state->cr2 = info->ctrl_regs.cr2;

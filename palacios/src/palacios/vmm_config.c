@@ -118,6 +118,8 @@ int config_guest(struct guest_info * info, void * config_ptr) {
 #if GENERIC
     generic_port_range_type range[] = {
 #if 1
+      // Make the DMA controller invisible
+
       {0x00, 0x07, GENERIC_PRINT_AND_IGNORE},   // DMA 1 channels 0,1,2,3 (address, counter)
       {0xc0, 0xc7, GENERIC_PRINT_AND_IGNORE},   // DMA 2 channels 4,5,6,7 (address, counter)
       {0x87, 0x87, GENERIC_PRINT_AND_IGNORE},   // DMA 1 channel 0 page register
@@ -132,13 +134,28 @@ int config_guest(struct guest_info * info, void * config_ptr) {
       {0xd0, 0xde, GENERIC_PRINT_AND_IGNORE},   // DMA 2 misc registers
 #endif
       
-      
+
+#if 1      
+      // Make the Serial ports invisible 
+
       {0x3f8, 0x3f8+7, GENERIC_PRINT_AND_IGNORE},      // COM 1
       {0x2f8, 0x2f8+7, GENERIC_PRINT_AND_IGNORE},      // COM 2
       {0x3e8, 0x3e8+7, GENERIC_PRINT_AND_IGNORE},      // COM 3
       {0x2e8, 0x2e8+7, GENERIC_PRINT_AND_IGNORE},      // COM 4
-      
+#endif
+
+
+#if 1
+      // Make the PCI bus invisible (at least it's configuration)
+
+      {0xcf8, 0xcf8, GENERIC_PRINT_AND_IGNORE}, // PCI Config Address
+      {0xcfc, 0xcfc, GENERIC_PRINT_AND_IGNORE}, // PCI Config Data
+#endif
+ 
 #if 0
+
+      // Monitor the IDE controllers (very slow)
+
       {0x170, 0x178, GENERIC_PRINT_AND_PASSTHROUGH}, // IDE 1
       {0x376, 0x377, GENERIC_PRINT_AND_PASSTHROUGH}, // IDE 1
       {0x1f0, 0x1f8, GENERIC_PRINT_AND_PASSTHROUGH}, // IDE 0
@@ -147,6 +164,9 @@ int config_guest(struct guest_info * info, void * config_ptr) {
       
 
 #if 0
+
+      // Make the floppy controllers invisible
+
       {0x3f0, 0x3f2, GENERIC_PRINT_AND_IGNORE}, // Primary floppy controller (base,statusa/statusb,DOR)
       {0x3f4, 0x3f5, GENERIC_PRINT_AND_IGNORE}, // Primary floppy controller (mainstat/datarate,data)
       {0x3f7, 0x3f7, GENERIC_PRINT_AND_IGNORE}, // Primary floppy controller (DIR)
@@ -155,6 +175,46 @@ int config_guest(struct guest_info * info, void * config_ptr) {
       {0x377, 0x377, GENERIC_PRINT_AND_IGNORE}, // Secondary floppy controller (DIR)
       
 #endif
+
+#if 1
+
+      // Make the parallel port invisible
+      
+      {0x378, 0x37f, GENERIC_PRINT_AND_IGNORE},
+
+#endif
+
+#if 1
+
+      // Monitor graphics card operations
+
+      {0x3b0, 0x3bb, GENERIC_PRINT_AND_PASSTHROUGH},
+      {0x3c0, 0x3df, GENERIC_PRINT_AND_PASSTHROUGH},
+      
+#endif
+
+
+#if 1
+      // Make the ISA PNP features invisible
+
+      {0x274, 0x277, GENERIC_PRINT_AND_IGNORE},
+      {0x279, 0x279, GENERIC_PRINT_AND_IGNORE},
+      {0xa79, 0xa79, GENERIC_PRINT_AND_IGNORE},
+#endif
+
+
+#if 1
+      // Monitor any network card (realtek ne2000) operations 
+      {0xc100, 0xc1ff, GENERIC_PRINT_AND_PASSTHROUGH},
+#endif
+
+
+#if 1
+      // Make any Bus master ide controller invisible
+      
+      {0xc000, 0xc00f, GENERIC_PRINT_AND_IGNORE},
+#endif
+
 
       //	  {0x378, 0x400, GENERIC_PRINT_AND_IGNORE}
       

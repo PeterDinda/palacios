@@ -450,6 +450,7 @@ int handle_cr3_write(struct guest_info * info) {
       new_cr3 = (struct cr3_32 *)first_operand;
 
       if (info->shdw_pg_mode == SHADOW_PAGING) {
+	int flushed=0;
 	addr_t shadow_pt;
 	struct cr3_32 * shadow_cr3 = (struct cr3_32 *)&(info->shdw_pg_state.shadow_cr3);
 	struct cr3_32 * guest_cr3 = (struct cr3_32 *)&(info->shdw_pg_state.guest_cr3);
@@ -463,7 +464,13 @@ int handle_cr3_write(struct guest_info * info) {
 	*/
 
 	/* Delete the current Page Tables */
-	delete_page_tables_pde32((pde32_t *)CR3_TO_PDE32(*(uint_t*)shadow_cr3));
+	if (!CR3_32_SAME_BASE(new_cr3,guest_cr3)) { 
+	  PrintDebug("New CR3 is different - flushing shadow page table\n");
+	  delete_page_tables_pde32((pde32_t *)CR3_TO_PDE32(*(uint_t*)shadow_cr3));
+	  flushed=1;
+	} else {
+	  PrintDebug("New CR3 (0x%x) has same base as previous CR3 (0x%x) - reusing shadow page table\n", *((uint_t*)new_cr3), *((uint_t*)guest_cr3));
+	}
 
 	PrintDebug("Old Shadow CR3=%x; Old Guest CR3=%x\n", 
 		   *(uint_t*)shadow_cr3, *(uint_t*)guest_cr3);
@@ -472,10 +479,13 @@ int handle_cr3_write(struct guest_info * info) {
 	*guest_cr3 = *new_cr3;
 
 
-
-	// Something like this
-	shadow_pt =  create_new_shadow_pt32(info);
-	//shadow_pt = setup_shadow_pt32(info, CR3_TO_PDE32(*(addr_t *)new_cr3));
+	if (flushed) { 
+	  // Something like this
+	  shadow_pt =  create_new_shadow_pt32(info);
+	  //shadow_pt = setup_shadow_pt32(info, CR3_TO_PDE32(*(addr_t *)new_cr3));
+	} else {
+	  shadow_pt = shadow_cr3->pdt_base_addr<<12;
+	}
 
 	/* Copy Various flags */
 	*shadow_cr3 = *new_cr3;
@@ -495,9 +505,6 @@ int handle_cr3_write(struct guest_info * info) {
 
 	PrintDebug("New Shadow CR3=%x; New Guest CR3=%x\n", 
 		   *(uint_t*)shadow_cr3, *(uint_t*)guest_cr3);
-
-
-
 
       }
       info->rip += index;
@@ -581,6 +588,7 @@ int handle_cr3_write(struct guest_info * info) {
       new_cr3 = (struct cr3_32 *)first_operand;
 
       if (info->shdw_pg_mode == SHADOW_PAGING) {
+	int flushed=0;
 	addr_t shadow_pt;
 	struct cr3_32 * shadow_cr3 = (struct cr3_32 *)&(info->shdw_pg_state.shadow_cr3);
 	struct cr3_32 * guest_cr3 = (struct cr3_32 *)&(info->shdw_pg_state.guest_cr3);
@@ -594,7 +602,13 @@ int handle_cr3_write(struct guest_info * info) {
 	*/
 
 	/* Delete the current Page Tables */
-	delete_page_tables_pde32((pde32_t *)CR3_TO_PDE32(*(uint_t*)shadow_cr3));
+	if (!CR3_32_SAME_BASE(guest_cr3,new_cr3)) { 
+	  PrintDebug("New CR3 is different - flushing shadow page table\n");
+	  delete_page_tables_pde32((pde32_t *)CR3_TO_PDE32(*(uint_t*)shadow_cr3));
+	  flushed=1;
+	} else {
+	  PrintDebug("New CR3 (0x%x) has same base as previous CR3 (0x%x) - reusing shadow page table\n",*((uint_t*)new_cr3), *((uint_t*)guest_cr3));
+	}
 
 	PrintDebug("Old Shadow CR3=%x; Old Guest CR3=%x\n", 
 		   *(uint_t*)shadow_cr3, *(uint_t*)guest_cr3);
@@ -602,11 +616,14 @@ int handle_cr3_write(struct guest_info * info) {
 
 	*guest_cr3 = *new_cr3;
 
+	if (flushed) { 
+	  // Something like this
+	  shadow_pt =  create_new_shadow_pt32(info);
+	  //shadow_pt = setup_shadow_pt32(info, CR3_TO_PDE32(*(addr_t *)new_cr3));
+	} else {
+	  shadow_pt =shadow_cr3->pdt_base_addr << 12;
+	}
 
-
-	// Something like this
-	shadow_pt =  create_new_shadow_pt32(info);
-	//shadow_pt = setup_shadow_pt32(info, CR3_TO_PDE32(*(addr_t *)new_cr3));
 
 	/* Copy Various flags */
 	*shadow_cr3 = *new_cr3;

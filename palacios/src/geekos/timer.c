@@ -2,7 +2,7 @@
  * GeekOS timer interrupt support
  * Copyright (c) 2001,2003 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
- * $Revision: 1.8 $
+ * $Revision: 1.9 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -18,6 +18,9 @@
 #include <geekos/serial.h>
 #include <geekos/debug.h>
 
+
+/* PAD this currently is in nvram.c */
+extern void deliver_timer_interrupt_to_vmm(uint_t period_us);
 
 /* JRL Add a cpu frequency measurement */
 uint_t cpu_khz_freq;
@@ -231,6 +234,8 @@ static void Timer_Interrupt_Handler(struct Interrupt_State* state)
     	g_needReschedule = true;
     }
 
+
+    deliver_timer_interrupt_to_vmm(1000000/HZ);
 
     End_IRQ(state);
 }
