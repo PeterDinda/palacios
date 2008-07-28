@@ -174,7 +174,6 @@ int add_shadow_region(struct shadow_map * map,
     } else if (cursor->next->guest_end <= region->guest_start) {
       cursor = cursor->next;
     } else {
-      PrintDebug("WTF?\n");
       // This cannot happen!
       // we should panic here
       return -1;

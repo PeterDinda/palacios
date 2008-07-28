@@ -115,7 +115,7 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
       }
 
       instr->first_operand.type = REG_OPERAND;
-      PrintDebug("xed_reg=0x%x, cr0=0x%x\n", instr->first_operand.operand, &(info->ctrl_regs.cr0));
+      PrintDebug("First Operand: xed_reg=0x%x\n", instr->first_operand.operand);
 
     } else {
       PrintError("Unhandled first operand type %s\n", xed_operand_type_enum_t2str(op_type));
@@ -142,8 +142,8 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
       }
 
       instr->second_operand.type = REG_OPERAND;
-      PrintDebug("xed_reg=0x%x, eax=0x%x\n", instr->second_operand.operand, &(info->vm_regs.rax));
-      
+    
+      PrintDebug("Second Operand: xed_reg=0x%x\n", instr->second_operand.operand); 
     } else {
       PrintError("Unhandled second operand type %s\n", xed_operand_type_enum_t2str(op_type));
       return -1;
@@ -168,6 +168,8 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 	return -1;
       }
       instr->third_operand.type = REG_OPERAND;
+
+      PrintDebug("Third Operand: xed_reg=0x%x\n", instr->third_operand.operand); 
     } else {
       PrintError("Unhandled third operand type %s\n", xed_operand_type_enum_t2str(op_type));
       return -1;
