@@ -4,7 +4,7 @@
 #include <geekos/irq.h>
 #include <geekos/malloc.h>
 
-#define DEBUG 0
+#define DEBUG 1
 #define RX_START_BUFF 0x4c
 
 static uint_t received = 0;
@@ -27,18 +27,19 @@ static void NE2K_Interrupt_Handler(struct Interrupt_State * state)
   Begin_IRQ(state);
   PrintBoth("NIC Interrupt Occured!\n");
   uchar_t isr_content = In_Byte(NE2K_ISR);
-  Out_Byte(NE2K_ISR, 0xff); /* Clear all interrupts */
-/*   if( !isr_content )
-	return;
-*/  
+ // Out_Byte(NE2K_ISR, 0xff); /* Clear all interrupts */
 
   PrintBoth("Contents of ISR: %x\n", isr_content);
   if(isr_content & 0x01)
-    NE2K_Receive();
+    {
+	NE2K_Receive();
+	Out_Byte(NE2K_ISR, 0x01);
+}
 
   End_IRQ(state);
   if(isr_content & 0x02)
-    send_done = 1;
+    send_done = 1;  
+
 }
 
 int Init_Ne2k()
@@ -220,11 +221,13 @@ int NE2K_Receive()
 {
   PrintBoth("Packet Received\n");
 
-  uint_t packet_size = 80;
+//  uint_t packet_size = 80;
 
   Out_Byte(NE2K_CR, 0x22);
-  Out_Byte(NE2K_RBCR0, packet_size);
-  Out_Byte(NE2K_RBCR1, 0x00);
+
+  Out_Byte(NE2K_RBCR1, 0x00); 
+//  Out_Byte(NE2K_RBCR0, 0x60);
+  
 //  Out_Byte(NE2K_RSAR0, 0x42);
   Out_Byte(NE2K_RSAR1, next >> 8);
   Out_Byte(NE2K_RSAR0, next & 0xff);
@@ -240,11 +243,19 @@ int NE2K_Receive()
   /* The first byte is the page number where the next packet in the ring buffer is stored */
   next = data & 0xff00;
 
+  uint_t packet_size =  In_Word(NE2K_CR + 0x10) - 4;
+  Out_Byte(NE2K_RBCR0, packet_size & 0xff);
+  Out_Byte(NE2K_RBCR1, (packet_size>>8) & 0xff);
+
+#if DEBUG
+	PrintBoth("packetsize = %x\n\t", packet_size);
+#endif
+
   for(i = 2; i < packet_size; i+=2) {
     data = In_Word(NE2K_CR + 0x10);
     PrintBoth("%x ", data);
     
-#if DEBUG
+#if 0
     PrintBoth("BNRY = %x\n", In_Byte(NE2K_BNRY));
     Out_Byte(NE2K_CR, 0x4a);
     PrintBoth("CURR = %x\n", In_Byte(NE2K_CURR));  
