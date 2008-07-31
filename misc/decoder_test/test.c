@@ -63,6 +63,7 @@ static void init_guest_info(struct guest_info * info) {
 }
 static const char * mem = "MEMORY";
 static const char * reg = "REGISTER";
+static const char * imm = "IMMEDIATE";
 static const char * invalid = "INVALID";
 
 static const char * get_op_type_str(operand_type_t type) {
@@ -70,6 +71,8 @@ static const char * get_op_type_str(operand_type_t type) {
     return mem;
   } else if (type == REG_OPERAND) {
     return reg;
+  } else if (type == IMM_OPERAND) {
+    return imm;
   } else {
     return invalid;
   }
@@ -86,6 +89,11 @@ static int print_op(struct x86_operand *op) {
   case MEM_OPERAND:
     printf("\tsize=%d\n", op->size);
     printf("\taddr=0x%x\n", op->operand);
+    return 0;
+
+  case IMM_OPERAND:
+    printf("\tsize=%d\n", op->size);
+    printf("\tval=0x%x\n", op->operand);
     return 0;
 
   default:

@@ -10,12 +10,12 @@ TEST_OBJS =  vm_guest.o vmm_xed.o test.o
 
 
 
-CFLAGS =  -I$(INCLUDEDIR) -D__V3VEE__ -g -gstabs
+CFLAGS =  -I$(INCLUDEDIR) -D__V3VEE__ -g -gstabs -D__DECODER_TEST__
 
 
 
 #CC=../../devtools/i386/bin/i386-elf-gcc
-CC=/usr/bin/gcc
+CC=/usr/bin/gcc -m32
 
 
 #CXXFLAGS =  -DDEBUG  -g -gstabs+ -Wall  -I/usr/kerberos/include

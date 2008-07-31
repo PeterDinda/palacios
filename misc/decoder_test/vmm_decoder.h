@@ -7,7 +7,7 @@
 #include "vm_guest.h"
 
 
-typedef enum {INVALID_OPERAND, REG_OPERAND, MEM_OPERAND} operand_type_t;
+typedef enum {INVALID_OPERAND, REG_OPERAND, MEM_OPERAND, IMM_OPERAND} operand_type_t;
 
 struct x86_operand {
   addr_t operand;

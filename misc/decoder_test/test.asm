@@ -15,7 +15,15 @@ popa
 pusha
 push eax
 
-
+mov eax, 100
+mov [ebx + 2*esi], word 0x4
+	
+add ebx, 200
+	
 add eax, ebx
 out 0x64, al
 
+lmsw ax
+smsw ax
+mov cr0, eax
+clts
