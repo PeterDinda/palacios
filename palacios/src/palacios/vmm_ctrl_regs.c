@@ -20,6 +20,13 @@
 #endif
 
 
+// Set to 1 if CR3 reload with same value shall not
+// force a shadow page table flush
+// It makes windows loading MUCH faster. 
+// Note that this optimization appears to fail with a 2.6 linux kernel
+#define CR3_RELOAD_OPTIMIZATION 0
+
+
 
 
 
@@ -238,7 +245,7 @@ int handle_cr3_write(struct guest_info * info) {
       PrintDebug("Old Shadow CR3=%x; Old Guest CR3=%x\n", 
 		 *(uint_t*)shadow_cr3, *(uint_t*)guest_cr3);
       
-      if (1 || !CR3_32_SAME_BASE(new_cr3, guest_cr3)) { 
+      if (!CR3_RELOAD_OPTIMIZATION || !CR3_32_SAME_BASE(new_cr3, guest_cr3)) { 
 	addr_t shadow_pt;
 
 	
