@@ -1,7 +1,7 @@
 /*
  * String library
  * Copyright (c) 2001,2004 David H. Hovemeyer <daveho@cs.umd.edu>
- * $Revision: 1.2 $
+ * $Revision: 1.3 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -45,6 +45,8 @@ char *strpbrk(const char *s, const char *accept);
 char *strncat(char *s1, const char *s2, size_t limit);
 int fprintf(FILE *file, char *fmt, ...);
 //int fflush(FILE *file);
+
+
 
 void abort (void) __attribute__ ((__noreturn__));
 #define _tolower(c)	((c) + 'a' - 'A')

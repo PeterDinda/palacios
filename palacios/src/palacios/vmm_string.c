@@ -1,7 +1,7 @@
 /*
  * String library
  * Copyright (c) 2001,2004 David H. Hovemeyer <daveho@cs.umd.edu>
- * $Revision: 1.1 $
+ * $Revision: 1.2 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -16,9 +16,20 @@
 
 
 #include <palacios/vmm_string.h>
+#include <palacios/vmm.h>
 
-extern void *Malloc(size_t size);
 
+
+static float e = 0.00000001;
+
+double ceil(double x) {
+  if ((double)(x - (int)x) == 0) {
+    return (int)x;
+  }
+  return (int)(x + e) + 1;
+}
+
+#if 0
 void* memset(void* s, int c, size_t n)
 {
     unsigned char* p = (unsigned char*) s;
@@ -30,6 +41,7 @@ void* memset(void* s, int c, size_t n)
 
     return s;
 }
+
 
 void* memcpy(void *dst, const void* src, size_t n)
 {
@@ -43,6 +55,7 @@ void* memcpy(void *dst, const void* src, size_t n)
 
     return dst;
 }
+
 
 int memcmp(const void *s1_, const void *s2_, size_t n)
 {
@@ -152,7 +165,7 @@ char *strdup(const char *s1)
 {
     char *ret;
 
-    ret = Malloc(strlen(s1) + 1);
+    ret = V3_Malloc(strlen(s1) + 1);
     strcpy(ret, s1);
 
     return ret;
@@ -210,3 +223,4 @@ char *strpbrk(const char *s, const char *accept)
     return 0;
 }
 
+#endif

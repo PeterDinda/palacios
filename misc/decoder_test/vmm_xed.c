@@ -115,6 +115,43 @@ int init_decoder() {
 }
 
 
+int v3_basic_mem_decode(struct guest_info * info, addr_t instr_ptr, uint_t * size, uint_t * instr_length) {
+  xed_decoded_inst_t xed_instr;
+  xed_error_enum_t xed_error;
+  
+
+  if (set_decoder_mode(info, &decoder_state) == -1) {
+    PrintError("Could not set decoder mode\n");
+    return -1;
+  }
+
+
+  xed_decoded_inst_zero_set_mode(&xed_instr, &decoder_state);
+
+  xed_error = xed_decode(&xed_instr, 
+			 REINTERPRET_CAST(const xed_uint8_t *, instr_ptr), 
+			 XED_MAX_INSTRUCTION_BYTES);
+
+  if (xed_error != XED_ERROR_NONE) {
+    PrintError("Xed error: %s\n", xed_error_enum_t2str(xed_error));
+    return -1;
+  }
+
+ *instr_length = xed_decoded_inst_get_length(&xed_instr);
+
+
+ if (xed_decoded_inst_number_of_memory_operands(&xed_instr) == 0) {
+   PrintError("Tried to decode memory operation with no memory operands\n");
+   return -1;
+ }
+
+ *size = xed_decoded_inst_get_memory_operand_length(&xed_instr,0);
+
+ return 0;
+}
+
+
+
 int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * instr) {
   xed_decoded_inst_t xed_instr;
   xed_error_enum_t xed_error;

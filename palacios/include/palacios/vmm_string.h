@@ -1,7 +1,7 @@
 /*
  * String library
  * Copyright (c) 2001,2004 David H. Hovemeyer <daveho@cs.umd.edu>
- * $Revision: 1.1 $
+ * $Revision: 1.2 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -9,6 +9,8 @@
 
 #ifndef STRING_H
 #define STRING_H
+
+#ifdef __V3VEE__
 
 #include <stddef.h>
 
@@ -30,5 +32,9 @@ char *strrchr(const char *s, int c);
 char *strpbrk(const char *s, const char *accept);
 
 
+double ceil(double x);
+
+
+#endif // !__V3VEE__
 
 #endif  /* STRING_H */

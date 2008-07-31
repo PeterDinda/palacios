@@ -72,6 +72,10 @@ struct vmm_mem_hook * get_mem_hook(struct guest_info * info, addr_t guest_addr) 
 
 int mem_hook_dispatch(struct guest_info * info, addr_t mem_addr, pf_error_t access_info, struct vmm_mem_hook * hook) {
 
+  // emulate and then dispatch 
+  // or dispatch and emulate
+
+
   if (access_info.write == 1) {
     void * src = NULL;
     uint_t length = 0;

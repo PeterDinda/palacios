@@ -7,7 +7,7 @@
 #include <palacios/vmm.h>
 
 
-typedef enum {INVALID_OPERAND, REG_OPERAND, MEM_OPERAND} operand_type_t;
+typedef enum {INVALID_OPERAND, REG_OPERAND, MEM_OPERAND, IMM_OPERAND} operand_type_t;
 
 struct x86_operand {
   addr_t operand;
@@ -40,8 +40,8 @@ struct x86_instr {
   uint_t instr_length;
   addr_t opcode;    // a pointer to the V3_OPCODE_[*] arrays defined below
   uint_t num_operands;
-  struct x86_operand first_operand;
-  struct x86_operand second_operand;
+  struct x86_operand dst_operand;
+  struct x86_operand src_operand;
   struct x86_operand third_operand;
   void * decoder_data;
 };
@@ -80,6 +80,11 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 int v3_encode(struct guest_info * info, struct x86_instr * instr, char * instr_buf);
 
 
+/*
+ * Gets the operand size for a memory operation
+ *
+ */
+int v3_basic_mem_decode(struct guest_info * info, addr_t instr_ptr, uint_t * size, uint_t * instr_len);
 
 
 

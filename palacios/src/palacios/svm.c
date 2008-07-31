@@ -238,6 +238,8 @@ static int init_svm_guest(struct guest_info *info) {
   Init_VMCB_BIOS((vmcb_t*)(info->vmm_data), info);
   
 
+  info->run_state = VM_STOPPED;
+
   //  info->rip = 0;
 
   info->vm_regs.rdi = 0;
@@ -259,8 +261,12 @@ static int start_svm_guest(struct guest_info *info) {
   vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
   uint_t num_exits = 0;
 
+
+
   PrintDebug("Launching SVM VM (vmcb=%x)\n", info->vmm_data);
   //PrintDebugVMCB((vmcb_t*)(info->vmm_data));
+
+  info->run_state = VM_RUNNING;
 
   while (1) {
     ullong_t tmp_tsc;
@@ -294,6 +300,8 @@ static int start_svm_guest(struct guest_info *info) {
 
       addr_t host_addr;
       addr_t linear_addr = 0;
+
+      info->run_state = VM_ERROR;
 
       PrintDebug("SVM ERROR!!\n"); 
       

@@ -24,6 +24,7 @@
 
 
 
+
 // First Attempt = 494 lines
 // current = 106 lines
 int handle_cr0_write(struct guest_info * info) {
@@ -51,7 +52,7 @@ int handle_cr0_write(struct guest_info * info) {
 
   if (opcode_cmp(V3_OPCODE_LMSW, (const uchar_t *)(dec_instr.opcode)) == 0) {
     struct cr0_real *real_cr0  = (struct cr0_real*)&(info->ctrl_regs.cr0);
-    struct cr0_real *new_cr0 = (struct cr0_real *)(dec_instr.first_operand.operand);	
+    struct cr0_real *new_cr0 = (struct cr0_real *)(dec_instr.src_operand.operand);	
     uchar_t new_cr0_val;
 
     PrintDebug("LMSW\n");
@@ -82,9 +83,9 @@ int handle_cr0_write(struct guest_info * info) {
     } else {
       // 32 bit registers
 	struct cr0_32 *real_cr0 = (struct cr0_32*)&(info->ctrl_regs.cr0);
-	struct cr0_32 *new_cr0= (struct cr0_32 *)(dec_instr.second_operand.operand);
+	struct cr0_32 *new_cr0= (struct cr0_32 *)(dec_instr.src_operand.operand);
 
-	PrintDebug("OperandVal = %x, length=%d\n", *new_cr0, dec_instr.first_operand.size);
+	PrintDebug("OperandVal = %x, length=%d\n", *new_cr0, dec_instr.dst_operand.size);
 
 
 	PrintDebug("Old CR0=%x\n", *real_cr0);
@@ -161,7 +162,7 @@ int handle_cr0_read(struct guest_info * info) {
   }
   
   if (opcode_cmp(V3_OPCODE_MOVCR2, (const uchar_t *)(dec_instr.opcode)) == 0) {
-    struct cr0_32 * virt_cr0 = (struct cr0_32 *)(dec_instr.first_operand.operand);
+    struct cr0_32 * virt_cr0 = (struct cr0_32 *)(dec_instr.dst_operand.operand);
     struct cr0_32 * real_cr0 = (struct cr0_32 *)&(info->ctrl_regs.cr0);
     
     PrintDebug("MOVCR2\n");
@@ -177,7 +178,7 @@ int handle_cr0_read(struct guest_info * info) {
     PrintDebug("returned CR0: %x\n", *(uint_t*)virt_cr0);
   } else if (opcode_cmp(V3_OPCODE_SMSW, (const uchar_t *)(dec_instr.opcode)) == 0) {
     struct cr0_real *real_cr0= (struct cr0_real*)&(info->ctrl_regs.cr0);
-    struct cr0_real *virt_cr0 = (struct cr0_real *)(dec_instr.first_operand.operand);
+    struct cr0_real *virt_cr0 = (struct cr0_real *)(dec_instr.dst_operand.operand);
     char cr0_val = *(char*)real_cr0 & 0x0f;
     
     PrintDebug("SMSW\n");
@@ -230,14 +231,14 @@ int handle_cr3_write(struct guest_info * info) {
     PrintDebug("CR3 at 0x%x\n", &(info->ctrl_regs.cr3));
 
     if (info->shdw_pg_mode == SHADOW_PAGING) {
-      struct cr3_32 * new_cr3 = (struct cr3_32 *)(dec_instr.second_operand.operand);	
+      struct cr3_32 * new_cr3 = (struct cr3_32 *)(dec_instr.src_operand.operand);	
       struct cr3_32 * guest_cr3 = (struct cr3_32 *)&(info->shdw_pg_state.guest_cr3);
       struct cr3_32 * shadow_cr3 = (struct cr3_32 *)&(info->shdw_pg_state.shadow_cr3);
       
       PrintDebug("Old Shadow CR3=%x; Old Guest CR3=%x\n", 
 		 *(uint_t*)shadow_cr3, *(uint_t*)guest_cr3);
       
-      if (!CR3_32_SAME_BASE(new_cr3, guest_cr3)) { 
+      if (1 || !CR3_32_SAME_BASE(new_cr3, guest_cr3)) { 
 	addr_t shadow_pt;
 
 	
@@ -302,7 +303,7 @@ int handle_cr3_read(struct guest_info * info) {
 
   if (opcode_cmp(V3_OPCODE_MOVCR2, (const uchar_t *)(dec_instr.opcode)) == 0) {
     PrintDebug("MOVCR32\n");
-    struct cr3_32 * virt_cr3 = (struct cr3_32 *)(dec_instr.first_operand.operand);
+    struct cr3_32 * virt_cr3 = (struct cr3_32 *)(dec_instr.dst_operand.operand);
 
     PrintDebug("CR3 at 0x%x\n", &(info->ctrl_regs.cr3));
 

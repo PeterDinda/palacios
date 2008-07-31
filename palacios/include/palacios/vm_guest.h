@@ -82,8 +82,13 @@ struct vm_ctrl_ops {
 
 
 typedef enum {SHADOW_PAGING, NESTED_PAGING} vmm_paging_mode_t;
+typedef enum {VM_RUNNING, VM_STOPPED, VM_SUSPENDED, VM_ERROR, VM_EMULATING} vm_operating_mode_t;
+
+
 typedef enum {REAL, /*UNREAL,*/ PROTECTED, PROTECTED_PAE, LONG, LONG_32_COMPAT, LONG_16_COMPAT} vm_cpu_mode_t;
 typedef enum {PHYSICAL_MEM, VIRTUAL_MEM} vm_mem_mode_t;
+
+
 
 struct guest_info {
   ullong_t rip;
@@ -120,6 +125,7 @@ struct guest_info {
 
 
 
+  vm_operating_mode_t run_state;
   void * vmm_data;
 };
 
