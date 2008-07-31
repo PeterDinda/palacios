@@ -1,0 +1,2 @@
+vm_guest.o: vm_guest.c
+vmm_xed.o: vmm_xed.c
