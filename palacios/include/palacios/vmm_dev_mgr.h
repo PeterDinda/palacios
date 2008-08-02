@@ -1,6 +1,8 @@
 #ifndef _VMM_DEV_MGR
 #define _VMM_DEV_MGR
 
+#ifdef __V3VEE__
+
 #include <palacios/vmm_types.h>
 #include <palacios/vmm_list.h>
 #include <palacios/vmm_string.h>
@@ -36,7 +38,7 @@ int v3_unattach_device(struct vm_device *dev);
 
 
 
-#ifdef __V3VEE__
+
 
 struct dev_io_hook {
   ushort_t port;

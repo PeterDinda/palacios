@@ -11,6 +11,7 @@
 #include <palacios/vm_guest.h>
 #include <palacios/vmm.h>
 
+
 #endif
 
 static xed_state_t decoder_state;
@@ -115,7 +116,8 @@ int init_decoder() {
 }
 
 
-int v3_basic_mem_decode(struct guest_info * info, addr_t instr_ptr, uint_t * size, uint_t * instr_length) {
+
+int v3_basic_mem_decode(struct guest_info * info, addr_t instr_ptr, struct basic_instr_info * instr_info) {
   xed_decoded_inst_t xed_instr;
   xed_error_enum_t xed_error;
   
@@ -137,7 +139,7 @@ int v3_basic_mem_decode(struct guest_info * info, addr_t instr_ptr, uint_t * siz
     return -1;
   }
 
- *instr_length = xed_decoded_inst_get_length(&xed_instr);
+  instr_info->instr_length = xed_decoded_inst_get_length(&xed_instr);
 
 
  if (xed_decoded_inst_number_of_memory_operands(&xed_instr) == 0) {
@@ -145,7 +147,22 @@ int v3_basic_mem_decode(struct guest_info * info, addr_t instr_ptr, uint_t * siz
    return -1;
  }
 
- *size = xed_decoded_inst_get_memory_operand_length(&xed_instr,0);
+ instr_info->op_size = xed_decoded_inst_get_memory_operand_length(&xed_instr, 0);
+
+
+ xed_category_enum_t cat = xed_decoded_inst_get_category(&xed_instr);
+ if (cat == XED_CATEGORY_STRINGOP) {
+   instr_info->str_op = 1;
+ } else {
+   instr_info->str_op = 0;
+ }
+
+ xed_operand_values_t * operands = xed_decoded_inst_operands(&xed_instr);
+ if (xed_operand_values_has_real_rep(operands)) {
+   instr_info->has_rep = 1;
+ } else {
+   instr_info->has_rep = 0;
+ }
 
  return 0;
 }

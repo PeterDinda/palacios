@@ -2,6 +2,7 @@
 #include <palacios/vmm.h>
 #include <palacios/vmm_debug.h>
 
+
 #include <devices/serial.h>
 #include <devices/keyboard.h>
 #include <devices/8259a.h>
@@ -37,6 +38,8 @@ int config_guest(struct guest_info * info, void * config_ptr) {
   init_interrupt_state(info);
   
   dev_mgr_init(info);
+
+  init_emulator(info);
   
  
   //     SerialPrint("Guest Mem Dump at 0x%x\n", 0x100000);

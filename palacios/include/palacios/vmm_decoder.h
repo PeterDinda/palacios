@@ -47,6 +47,15 @@ struct x86_instr {
 };
 
 
+struct basic_instr_info {
+  uint_t instr_length;
+  uint_t op_size;
+  uint_t str_op    : 1;
+  uint_t has_rep : 1;
+};
+
+
+
   /************************/
  /* EXTERNAL DECODER API */
 /************************/
@@ -84,11 +93,12 @@ int v3_encode(struct guest_info * info, struct x86_instr * instr, char * instr_b
  * Gets the operand size for a memory operation
  *
  */
-int v3_basic_mem_decode(struct guest_info * info, addr_t instr_ptr, uint_t * size, uint_t * instr_len);
+int v3_basic_mem_decode(struct guest_info * info, addr_t instr_ptr, struct basic_instr_info * instr_info);
 
 
 
-
+/* Removes a rep prefix in place */
+void strip_rep_prefix(uchar_t * instr, int length);
 
 
 

@@ -70,7 +70,8 @@ struct vmm_mem_hook * get_mem_hook(struct guest_info * info, addr_t guest_addr) 
 }
 
 
-int mem_hook_dispatch(struct guest_info * info, addr_t mem_addr, pf_error_t access_info, struct vmm_mem_hook * hook) {
+/* mem_addr is the guest physical memory address */
+static int mem_hook_dispatch(struct guest_info * info, addr_t fault_addr, addr_t guest_phys_page,  pf_error_t access_info, struct vmm_mem_hook * hook) {
 
   // emulate and then dispatch 
   // or dispatch and emulate
@@ -79,10 +80,11 @@ int mem_hook_dispatch(struct guest_info * info, addr_t mem_addr, pf_error_t acce
   if (access_info.write == 1) {
     void * src = NULL;
     uint_t length = 0;
+
     PrintDebug("Memory hook write\n");
     return -1;
 
-    if (hook->write(mem_addr, src, length, hook->priv_data) != length) {
+    if (hook->write(fault_addr, src, length, hook->priv_data) != length) {
       return -1;
     }
   } else {
@@ -94,12 +96,12 @@ int mem_hook_dispatch(struct guest_info * info, addr_t mem_addr, pf_error_t acce
 }
 
 
-int handle_special_page_fault(struct guest_info * info, addr_t mem_addr, pf_error_t access_info) {
-  struct shadow_region * reg = get_shadow_region_by_addr(&(info->mem_map), mem_addr);
+int handle_special_page_fault(struct guest_info * info, addr_t fault_addr, addr_t guest_phys_page, pf_error_t access_info) {
+  struct shadow_region * reg = get_shadow_region_by_addr(&(info->mem_map), guest_phys_page);
 
   switch (reg->host_type) {
   case HOST_REGION_HOOK:
-    return mem_hook_dispatch(info, mem_addr, access_info, (struct vmm_mem_hook *)(reg->host_addr));
+    return mem_hook_dispatch(info, fault_addr, guest_phys_page, access_info, (struct vmm_mem_hook *)(reg->host_addr));
   default:
     return -1;
   }
@@ -199,7 +201,7 @@ int delete_shadow_region(struct shadow_map * map,
 
 
 struct shadow_region *get_shadow_region_by_index(struct shadow_map *  map,
-					       uint_t index) {
+						 uint_t index) {
   struct shadow_region * reg = map->head;
   uint_t i = 0;
 
@@ -215,7 +217,7 @@ struct shadow_region *get_shadow_region_by_index(struct shadow_map *  map,
 
 
 struct shadow_region * get_shadow_region_by_addr(struct shadow_map * map,
-					       addr_t addr) {
+						 addr_t addr) {
   struct shadow_region * reg = map->head;
 
   while (reg) {

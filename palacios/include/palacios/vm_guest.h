@@ -11,7 +11,7 @@
 #include <palacios/vmm_intr.h>
 #include <palacios/vmm_dev_mgr.h>
 #include <palacios/vmm_time.h>
-
+#include <palacios/vmm_emulator.h>
 
 typedef ullong_t v3_reg_t;
 
@@ -71,6 +71,7 @@ struct v3_segments {
 struct shadow_page_state;
 struct shadow_map;
 struct vmm_io_map;
+struct emulation_state;
 
 
 struct vm_ctrl_ops {
@@ -123,7 +124,7 @@ struct guest_info {
 
   struct vm_ctrl_ops vm_ops;
 
-
+  struct emulation_state emulator;
 
   vm_operating_mode_t run_state;
   void * vmm_data;

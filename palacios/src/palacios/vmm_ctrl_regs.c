@@ -92,7 +92,7 @@ int handle_cr0_write(struct guest_info * info) {
 	struct cr0_32 *real_cr0 = (struct cr0_32*)&(info->ctrl_regs.cr0);
 	struct cr0_32 *new_cr0= (struct cr0_32 *)(dec_instr.src_operand.operand);
 
-	PrintDebug("OperandVal = %x, length=%d\n", *new_cr0, dec_instr.dst_operand.size);
+	PrintDebug("OperandVal = %x, length=%d\n", *new_cr0, dec_instr_src_operand.size);
 
 
 	PrintDebug("Old CR0=%x\n", *real_cr0);
@@ -253,7 +253,7 @@ int handle_cr3_write(struct guest_info * info) {
 	
 	delete_page_tables_pde32((pde32_t *)CR3_TO_PDE32(*(uint_t*)shadow_cr3));
 	
-	shadow_pt =  create_new_shadow_pt32(info);
+	shadow_pt =  create_new_shadow_pt32();
 	
 	shadow_cr3->pdt_base_addr = PD32_BASE_ADDR(shadow_pt);	  
       } 

@@ -141,8 +141,7 @@ int unhook_guest_mem(struct guest_info * info, addr_t guest_addr);
 
 
 
-int mem_hook_dispatch(struct guest_info * info, addr_t mem_addr, pf_error_t access_info, struct vmm_mem_hook * hook);
-int handle_special_page_fault(struct guest_info * info, addr_t mem_addr, pf_error_t access_info);
+int handle_special_page_fault(struct guest_info * info, addr_t fault_addr, addr_t gp_addr, pf_error_t access_info);
 
 
 #endif // ! __V3VEE__
