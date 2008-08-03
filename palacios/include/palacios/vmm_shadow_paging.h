@@ -40,6 +40,12 @@ addr_t create_new_shadow_pt32();
 int handle_shadow_pagefault(struct guest_info * info, addr_t fault_addr, pf_error_t error_code);
 int handle_shadow_invlpg(struct guest_info * info);
 
+
+
+
+int v3_replace_shdw_page(struct guest_info * info, addr_t location, void * new_page, void* old_page);
+int v3_replace_shdw_page32(struct guest_info * info, addr_t location, pte32_t * new_page, pte32_t * old_page); 
+
 #endif // ! __V3VEE__
 
 #endif

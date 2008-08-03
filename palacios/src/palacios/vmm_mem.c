@@ -71,37 +71,41 @@ struct vmm_mem_hook * get_mem_hook(struct guest_info * info, addr_t guest_addr) 
 
 
 /* mem_addr is the guest physical memory address */
-static int mem_hook_dispatch(struct guest_info * info, addr_t fault_addr, addr_t guest_phys_page,  pf_error_t access_info, struct vmm_mem_hook * hook) {
+static int mem_hook_dispatch(struct guest_info * info, 
+			     addr_t fault_gva, addr_t fault_gpa,  
+			     pf_error_t access_info, struct vmm_mem_hook * hook) 
+{
 
   // emulate and then dispatch 
   // or dispatch and emulate
 
 
   if (access_info.write == 1) {
-    void * src = NULL;
-    uint_t length = 0;
-
-    PrintDebug("Memory hook write\n");
-    return -1;
-
-    if (hook->write(fault_addr, src, length, hook->priv_data) != length) {
+    if (v3_emulate_memory_write(info, fault_gva, hook->write, fault_gpa, hook->priv_data) == -1) {
+      PrintError("Memory write emulation failed\n");
       return -1;
     }
+    
   } else {
-    PrintDebug("Memory hook read\n");
-    return -1;
+    if (v3_emulate_memory_read(info, fault_gva, hook->read, fault_gpa, hook->priv_data) == -1) {
+      PrintError("Memory read emulation failed\n");
+      return -1;
+    }
   }    
 
-  return -1;
+  return 0;
 }
 
 
-int handle_special_page_fault(struct guest_info * info, addr_t fault_addr, addr_t guest_phys_page, pf_error_t access_info) {
-  struct shadow_region * reg = get_shadow_region_by_addr(&(info->mem_map), guest_phys_page);
+int handle_special_page_fault(struct guest_info * info, 
+			      addr_t fault_gva, addr_t fault_gpa, 
+			      pf_error_t access_info) 
+{
+  struct shadow_region * reg = get_shadow_region_by_addr(&(info->mem_map), fault_gpa);
 
   switch (reg->host_type) {
   case HOST_REGION_HOOK:
-    return mem_hook_dispatch(info, fault_addr, guest_phys_page, access_info, (struct vmm_mem_hook *)(reg->host_addr));
+    return mem_hook_dispatch(info, fault_gva, fault_gpa, access_info, (struct vmm_mem_hook *)(reg->host_addr));
   default:
     return -1;
   }

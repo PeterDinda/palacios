@@ -17,7 +17,6 @@
 
 
 
-
 static int handle_shadow_pte32_fault(struct guest_info* info, 
 				     addr_t fault_addr, 
 				     pf_error_t error_code,
@@ -36,6 +35,38 @@ int init_shadow_page_state(struct guest_info * info) {
 
   return 0;
 }
+
+
+
+
+
+
+int v3_replace_shdw_page32(struct guest_info * info, addr_t location, pte32_t * new_page, pte32_t * old_page) {
+  pde32_t * shadow_pd = (pde32_t *)CR3_TO_PDE32(info->shdw_pg_state.shadow_cr3);
+  pde32_t * shadow_pde =  (pde32_t *)&(shadow_pd[PDE32_INDEX(location)]);
+
+  if (shadow_pde->large_page == 0) {
+    pte32_t * shadow_pt = (pte32_t *)PDE32_T_ADDR((*shadow_pde));
+    pte32_t * shadow_pte = (pte32_t *)&(shadow_pt[PTE32_INDEX(location)]);
+
+    //if (shadow_pte->present == 1) {
+    *(uint_t *)old_page = *(uint_t *)shadow_pte;
+    //}
+
+    *(uint_t *)shadow_pte = *(uint_t *)new_page;
+
+  } else {
+    // currently unhandled
+    return -1;
+  }
+  
+  return 0;
+}
+
+
+
+
+
 
 int handle_shadow_pagefault(struct guest_info * info, addr_t fault_addr, pf_error_t error_code) {
   
@@ -164,7 +195,7 @@ static int handle_large_pagefault32(struct guest_info * info,
       
     } else {
       // Handle hooked pages as well as other special pages
-      if (handle_special_page_fault(info, fault_addr, PT32_PAGE_ADDR(guest_fault_pa), error_code) == -1) {
+      if (handle_special_page_fault(info, fault_addr, guest_fault_pa, error_code) == -1) {
 	PrintError("Special Page Fault handler returned error for address: %x\n", fault_addr);
 	return -1;
       }
@@ -361,7 +392,7 @@ static int handle_shadow_pte32_fault(struct guest_info * info,
 
   if (shadow_pte_access == PT_ENTRY_NOT_PRESENT) {
 
-    addr_t guest_pa = PTE32_T_ADDR((*guest_pte));
+    addr_t guest_pa = PTE32_T_ADDR((*guest_pte)) +  PT32_PAGE_OFFSET(fault_addr);
 
     // Page Table Entry Not Present
 

@@ -1,7 +1,7 @@
 /*
  * Trap handlers
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
- * $Revision: 1.2 $
+ * $Revision: 1.3 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -25,7 +25,7 @@
 static void GPF_Handler(struct Interrupt_State* state)
 {
     /* Send the thread to the reaper... */
-  SerialPrintLevel(1000,"Exception %d received, killing thread %p\n",state->intNum, g_currentThread);
+  SerialPrintLevel(1000,"VMM: Exception %d received, killing thread %p\n",state->intNum, g_currentThread);
   Dump_Interrupt_State(state);
   
   Exit(-1);

@@ -164,7 +164,7 @@ void BuzzVM()
 }
 
 
-
+/*
 int passthrough_mem_read(void * guest_addr, void * dst, uint_t length, void * priv_data) {
   memcpy(dst, (void*)guest_addr, length);
   return length;
@@ -174,7 +174,7 @@ int passthrough_mem_write(void * guest_addr, void * src, uint_t length, void * p
   memcpy((void*)guest_addr, src, length);
   return length;
 }
-
+*/
 
 
 /* We need a configuration mechanism, so we can wrap this completely inside the VMM code, 

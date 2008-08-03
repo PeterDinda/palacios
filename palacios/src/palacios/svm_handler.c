@@ -7,7 +7,7 @@
 #include <palacios/svm_halt.h>
 #include <palacios/svm_pause.h>
 #include <palacios/vmm_intr.h>
-
+#include <palacios/vmm_emulator.h>
 
 int handle_svm_exit(struct guest_info * info) {
   vmcb_ctrl_t * guest_ctrl = 0;
@@ -192,6 +192,17 @@ int handle_svm_exit(struct guest_info * info) {
     if (handle_svm_pause(info) == -1) { 
       return -1;
     }
+  } else if (exit_code == VMEXIT_VMMCALL) {
+    PrintDebug("VMMCALL\n");
+    if (info->run_state == VM_EMULATING) {
+      if (v3_emulation_exit_handler(info) == -1) {
+	return -1;
+      }
+    } else {
+      PrintError("VMMCALL with not emulator...\n");
+      return -1;
+    }
+
   } else {
     addr_t rip_addr;
     char buf[15];

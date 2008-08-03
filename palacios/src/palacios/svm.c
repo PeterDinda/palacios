@@ -68,6 +68,20 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
   guest_state->efer |= EFER_MSR_svm_enable;
   guest_state->rflags = 0x00000002; // The reserved bit is always 1
   ctrl_area->svm_instrs.VMRUN = 1;
+  ctrl_area->svm_instrs.VMMCALL = 1;
+  ctrl_area->svm_instrs.VMLOAD = 1;
+  ctrl_area->svm_instrs.VMSAVE = 1;
+  ctrl_area->svm_instrs.STGI = 1;
+  ctrl_area->svm_instrs.CLGI = 1;
+  ctrl_area->svm_instrs.SKINIT = 1;
+  ctrl_area->svm_instrs.RDTSCP = 1;
+  ctrl_area->svm_instrs.ICEBP = 1;
+  ctrl_area->svm_instrs.WBINVD = 1;
+  ctrl_area->svm_instrs.MONITOR = 1;
+  ctrl_area->svm_instrs.MWAIT_always = 1;
+  ctrl_area->svm_instrs.MWAIT_if_armed = 1;
+
+
   ctrl_area->instrs.HLT = 1;
   // guest_state->cr0 = 0x00000001;    // PE 
   ctrl_area->guest_ASID = 1;
