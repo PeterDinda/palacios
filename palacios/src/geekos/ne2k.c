@@ -5,11 +5,13 @@
 #include <geekos/malloc.h>
 
 #define DEBUG 1
+#define TX_START_BUFF 0x40
 #define RX_START_BUFF 0x4c
 
+
+uint_t next = (RX_START_BUFF << 8);
 static uint_t received = 0;
 static uint_t send_done = 1;
-uint_t next = (RX_START_BUFF<<8);
 
 static void Dump_Registers()
 {
@@ -30,16 +32,27 @@ static void NE2K_Interrupt_Handler(struct Interrupt_State * state)
  // Out_Byte(NE2K_ISR, 0xff); /* Clear all interrupts */
 
   PrintBoth("Contents of ISR: %x\n", isr_content);
-  if(isr_content & 0x01)
-    {
-	NE2K_Receive();
-	Out_Byte(NE2K_ISR, 0x01);
-}
+
+  if(isr_content & 0x01) /* A packet has been received. */
+  { 
+        uchar_t current;
+	do{
+	  Out_Byte(NE2K_CR, 0x4a);	
+	  current = In_Byte(NE2K_CURR);
+	  Out_Byte(NE2K_CR, 0x0a);
+	  NE2K_Receive();
+	  Out_Byte(NE2K_ISR, 0x01);
+        /* If BNRY and CURR aren't equal, more than one packet has been received. */
+	}while (current > In_Byte(NE2K_BNRY));
+   }
 
   End_IRQ(state);
-  if(isr_content & 0x02)
+  if(isr_content & 0x02) /* A packet has been successfully transmitted. */
+  {
     send_done = 1;  
-
+    Out_Byte(NE2K_ISR, 0x02);
+  }
+  Out_Byte(NE2K_ISR, 0xff); /* Clear all interrupts. */
 }
 
 int Init_Ne2k()
@@ -53,10 +66,10 @@ int Init_Ne2k()
   struct _IMR * imr = (struct _IMR *)&(regs->imr);
 
   regs->cr = 0x21;
-  regs->dcr = 0x49;
-  regs->isr = 0xff;
-  regs->rcr = 0x20;
-  regs->tcr = 0x02;
+  regs->dcr = 0x49; /* Word-wide DMA transfer. */
+  regs->isr = 0xff; /* Clear all interrupts. */
+  regs->rcr = 0x20; /* Accept packets shorter than 64 bytes. */
+  regs->tcr = 0x02; /* Internal loopback mode. */
 
   Out_Byte(NE2K_CR, regs->cr);
   Out_Byte(NE2K_DCR, regs->dcr);
@@ -65,26 +78,31 @@ int Init_Ne2k()
   Out_Byte(NE2K_TCR, regs->tcr);
   Out_Byte(NE2K_IMR, regs->imr);
 
+  /* Remote byte count registers. */
   Out_Byte(NE2K_RBCR0, 0x00);
   Out_Byte(NE2K_RBCR1, 0x00);
+  /* Remote start address registers. */
   Out_Byte(NE2K_RSAR0, 0x00);
   Out_Byte(NE2K_RSAR1, 0x00);
 
-  Out_Byte(NE2K_TPSR, 0x40);      // Set TPSR
-  Out_Byte(NE2K_PSTART, RX_START_BUFF);    // Set PSTART
-  Out_Byte(NE2K_BNRY, 0x59);      // Set BNRY
-  Out_Byte(NE2K_PSTOP, 0x80);     // Set PSTOP
+  Out_Byte(NE2K_TPSR, TX_START_BUFF);      /* Transmit page start register */
+  Out_Byte(NE2K_PSTART, RX_START_BUFF);    /* Page start register */
+//  Out_Byte(NE2K_BNRY, 0x59);      /* Boundary register */
+  Out_Byte(NE2K_PSTOP, 0x80);     /* Page stop register */
 
-  cr->ps = 0x01;  //switch to reg page 1
+  cr->ps = 0x01;  /* Switch to reg page 1. */
   Out_Byte(NE2K_CR, regs->cr);
+  /* Current page register: points to first free page that can be used for packet reception. */
   Out_Byte(NE2K_CURR, RX_START_BUFF);
-  cr->ps = 0x00;
+  cr->ps = 0x00; /* Switch to page 0 */
 
   Out_Byte(NE2K_CR, regs->cr);
-  Out_Byte(NE2K_BNRY, RX_START_BUFF);
+  Out_Byte(NE2K_BNRY, RX_START_BUFF); 
 
   Out_Byte(NE2K_ISR, regs->isr);
 
+  /* Interrupt mask register: setting a bit to 1 enables the
+     corresponding interrupt in ISR. */
   imr->prxe = 0x1;
   imr->ptxe = 0x1;
   imr->rxee = 0x1;
@@ -93,7 +111,7 @@ int Init_Ne2k()
   imr->cnte = 0x1;
   Out_Byte(NE2K_IMR, regs->imr);
 
-  cr->ps = 0x01;  //switch to reg page 1
+  cr->ps = 0x01;  /* Switch to reg page 1 */
   Out_Byte(NE2K_CR, regs->cr);
 
   /* Set the physical address of the card to 52:54:00:12:34:58 */
@@ -104,7 +122,7 @@ int Init_Ne2k()
   Out_Byte(NE2K_CR+0x05, 0x34);
   Out_Byte(NE2K_CR+0x06, 0x58);
 
-  /* Accept all multicast packets */
+  /* Set the multicast address registr to all 1s; accepts all multicast packets */
   uint_t i;
   for(i = 0x08; i <= 0x0f; i++) {
     Out_Byte(NE2K_CR+i, 0xff);
@@ -120,7 +138,7 @@ int Init_Ne2k()
   rcr->ar = 0x1;
   rcr->ab = 0x1;
   rcr->am = 0x1;
-  rcr->pro = 0x1; // promiscuous mode, accept all packets
+  rcr->pro = 0x1; /* Promiscuous mode: accept all packets. */
   rcr->mon = 0x0;
   Out_Byte(NE2K_RCR, regs->rcr);
 
@@ -147,12 +165,83 @@ int Init_Ne2k()
   Install_IRQ(NE2K_IRQ, NE2K_Interrupt_Handler);
   Enable_IRQ(NE2K_IRQ);
 /*
-  for(i = 0; i < 1; i++)
+  for(i = 0; i < 2; i++)
   {
     NE2K_Transmit(regs);
     PrintBoth("Transmitting a packet\n");
   }
-*/  
+*/
+
+  uchar_t src_addr[6] = { 0x52, 0x54, 0x00, 0x12, 0x34, 0x58 };
+  uchar_t dest_addr[6] = { 0x52, 0x54, 0x00, 0x12, 0x34, 0x56 };
+
+  uint_t size = 64;
+  uchar_t *data = Malloc(size);
+  data = "This is a 64-byte string that will be used to test transmission.";
+
+  for(i = 0; i < 4; i++) {
+    NE2K_Send(regs, src_addr, dest_addr, 0x01, data, size);
+  }
+
+  Free(data);
+
+  return 0;
+}
+
+/* Assumes src and dest are arrays of 6 characters. */
+int NE2K_Send(struct NE2K_REGS *regs, uchar_t src[], uchar_t dest[], uint_t type, uchar_t *data, uint_t size)
+{
+  struct _CR * cr = (struct _CR*)&(regs->cr);
+  uint_t packet_size = size + 16;
+  regs->cr = 0x21;
+  cr->stp = 0x0;  //toggle start on
+  cr->sta = 0x1;
+  Out_Byte(NE2K_CR, regs->cr);
+  
+  // Read-before-write bug fix?
+  Out_Byte(NE2K_RBCR0, 0x42);
+  Out_Byte(NE2K_RBCR1, 0x00);
+  Out_Byte(NE2K_RSAR0, 0x42);
+  Out_Byte(NE2K_RSAR1, 0x00);
+
+  cr->rd = 0x01;  // set remote DMA to 'remote read'
+  Out_Byte(NE2K_CR, regs->cr);
+
+  regs->isr = 0x40;  // clear and set Remote DMA high
+  Out_Byte(NE2K_ISR, regs->isr);
+  
+  /* Set remote byte count registers */
+  Out_Byte(NE2K_RBCR0, packet_size & 0xff);
+  Out_Byte(NE2K_RBCR1, (packet_size >> 8) & 0xff);
+
+  /* Set transmit byte count registers. */
+  Out_Byte(NE2K_TBCR0, packet_size & 0xff);
+  Out_Byte(NE2K_TBCR1, (packet_size >> 8) & 0xff);
+
+  Out_Byte(NE2K_RSAR0, 0x00);
+  Out_Byte(NE2K_RSAR1, TX_START_BUFF);
+
+  regs->cr = 0x16;
+  Out_Byte(NE2K_CR, regs->cr);
+
+  /* Destination Address */
+  Out_Word(NE2K_CR + 0x10, (dest[1] << 8) | dest[0]);
+  Out_Word(NE2K_CR + 0x10, (dest[3] << 8) | dest[2]);
+  Out_Word(NE2K_CR + 0x10, (dest[5] << 8) | dest[4]);
+
+  /* Source Address */
+  Out_Word(NE2K_CR + 0x10, (src[1] << 8) | src[0]);
+  Out_Word(NE2K_CR + 0x10, (src[3] << 8) | src[2]);
+  Out_Word(NE2K_CR + 0x10, (src[5] << 8) | src[4]);
+
+  /* Type */
+  Out_Word(NE2K_CR + 0x10, packet_size);
+
+  uint_t i;
+  for(i = 0; i < size; i += 2) {
+    Out_Word(NE2K_CR + 0x10, (*(data + i + 1) << 8) | *(data + i));
+  }
+
   return 0;
 }
 
@@ -221,8 +310,6 @@ int NE2K_Receive()
 {
   PrintBoth("Packet Received\n");
 
-//  uint_t packet_size = 80;
-
   Out_Byte(NE2K_CR, 0x22);
 
   Out_Byte(NE2K_RBCR1, 0x00); 
@@ -233,6 +320,13 @@ int NE2K_Receive()
   Out_Byte(NE2K_RSAR0, next & 0xff);
   Out_Byte(NE2K_CR, 0x0a);
 
+  /* 
+   * A four byte header is added to the beginning of each received packet.
+   * The first byte is the location of the next packet in the ring buffer.
+   * The second byte is the receive status code.
+   * The third and fourth bytes are the size of the packet.
+   */
+
   uint_t i;
   uint_t data;
   PrintBoth("\nPacket data:\n\t");
@@ -240,7 +334,7 @@ int NE2K_Receive()
   data = In_Word(NE2K_CR + 0x10);
   PrintBoth("%x ", data);
 
-  /* The first byte is the page number where the next packet in the ring buffer is stored */
+  /* Get the location of the next packet */
   next = data & 0xff00;
 
   uint_t packet_size =  In_Word(NE2K_CR + 0x10) - 4;
@@ -251,7 +345,8 @@ int NE2K_Receive()
 	PrintBoth("packetsize = %x\n\t", packet_size);
 #endif
 
-  for(i = 2; i < packet_size; i+=2) {
+  /* Copy the received packet over from the ring buffer. */
+  for(i = 0; i < packet_size; i+=2) {
     data = In_Word(NE2K_CR + 0x10);
     PrintBoth("%x ", data);
     
@@ -279,4 +374,7 @@ int NE2K_Receive()
 
   return 0;
 }
+
+
+
 
