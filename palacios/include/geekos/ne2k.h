@@ -14,10 +14,10 @@
 
 /* Page 0 register offsets */
 #define NE2K CLDA0	(NE2K_CR + 0x01)
-#define NE2K_PSTART	(NE2K_CR + 0x01)
+#define NE2K_PSTART	(NE2K_CR + 0x01)	/* Page start register */
 #define NE2K_CLDA1	(NE2K_CR + 0x02)
-#define NE2K_PSTOP	(NE2K_CR + 0x02)
-#define NE2K_BNRY	(NE2K_CR + 0x03)
+#define NE2K_PSTOP	(NE2K_CR + 0x02)	/* Page stop register */
+#define NE2K_BNRY	(NE2K_CR + 0x03)	/* Boundary register */
 #define NE2K_TSR	(NE2K_CR + 0x04)
 #define NE2K_TPSR	(NE2K_CR + 0x04)
 #define NE2K_NCR	(NE2K_CR + 0x05)
@@ -149,8 +149,14 @@ struct _RSR {  //RECEIVE STATUS REG
         uint_t dfr: 1;  //DEFERRING
 }__attribute__((__packed__)) __attribute__((__aligned__(1)));
 
+struct NE2K_Packet_Info {
+  uchar_t status;
+  uint_t size;
+  uchar_t src[6];
+  uchar_t dest[6];
+};
+
 int Init_Ne2k();
-int NE2K_Transmit(struct NE2K_REGS *);
 int NE2K_Receive();
 int NE2K_Send(struct NE2K_REGS *regs, uchar_t src[], uchar_t dest[], uint_t type, uchar_t *data, uint_t size);
 
