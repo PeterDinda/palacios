@@ -30,6 +30,8 @@ int handle_svm_exit(struct guest_info * info) {
   info->ctrl_regs.cr2 = guest_state->cr2;
   info->ctrl_regs.cr3 = guest_state->cr3;
   info->ctrl_regs.cr4 = guest_state->cr4;
+  info->dbg_regs.dr6 = guest_state->dr6;
+  info->dbg_regs.dr7 = guest_state->dr7;
   info->ctrl_regs.cr8 = guest_ctrl->guest_ctrl.V_TPR;
   info->ctrl_regs.rflags = guest_state->rflags;
   info->ctrl_regs.efer = guest_state->efer;
@@ -192,8 +194,22 @@ int handle_svm_exit(struct guest_info * info) {
     if (handle_svm_pause(info) == -1) { 
       return -1;
     }
+  } else if (exit_code == VMEXIT_EXCP1) {
+#ifdef DEBUG_EMULATOR
+    PrintDebug("DEBUG EXCEPTION\n");
+#endif
+    if (info->run_state == VM_EMULATING) {
+      if (v3_emulation_exit_handler(info) == -1) {
+	return -1;
+      }
+    } else {
+      PrintError("VMMCALL with not emulator...\n");
+      return -1;
+    }
   } else if (exit_code == VMEXIT_VMMCALL) {
+#ifdef DEBUG_EMULATOR
     PrintDebug("VMMCALL\n");
+#endif
     if (info->run_state == VM_EMULATING) {
       if (v3_emulation_exit_handler(info) == -1) {
 	return -1;
@@ -343,6 +359,8 @@ int handle_svm_exit(struct guest_info * info) {
   guest_state->cr2 = info->ctrl_regs.cr2;
   guest_state->cr3 = info->ctrl_regs.cr3;
   guest_state->cr4 = info->ctrl_regs.cr4;
+  guest_state->dr6 = info->dbg_regs.dr6;
+  guest_state->dr7 = info->dbg_regs.dr7;
   guest_ctrl->guest_ctrl.V_TPR = info->ctrl_regs.cr8 & 0xff;
   guest_state->rflags = info->ctrl_regs.rflags;
   guest_state->efer = info->ctrl_regs.efer;

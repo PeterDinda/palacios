@@ -40,6 +40,16 @@ struct v3_ctrl_regs {
 };
 
 
+
+struct v3_dbg_regs {
+  v3_reg_t dr0;
+  v3_reg_t dr1;
+  v3_reg_t dr2;
+  v3_reg_t dr3;
+  v3_reg_t dr6;
+  v3_reg_t dr7;
+};
+
 struct v3_segment {
   ushort_t selector;
   uint_t limit;
@@ -120,6 +130,7 @@ struct guest_info {
 
   struct v3_gprs vm_regs;
   struct v3_ctrl_regs ctrl_regs;
+  struct v3_dbg_regs dbg_regs;
   struct v3_segments segments;
 
   struct vm_ctrl_ops vm_ops;

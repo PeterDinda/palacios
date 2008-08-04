@@ -1,6 +1,6 @@
 # Makefile for GeekOS kernel, userspace, and tools
 # Copyright (c) 2004,2005 David H. Hovemeyer <daveho@cs.umd.edu>
-# $Revision: 1.55 $
+# $Revision: 1.56 $
 
 # This is free software.  You are permitted to use,
 # redistribute, and modify it as specified in the file "COPYING".
@@ -49,7 +49,7 @@ DEBUG=1
 DEBUG_SECTIONS= 
 
 ifeq ($(DEBUG_ALL),1)
-  DEBUG_SECTIONS:= $(DEBUG_SECTIONS) -DDEBUG_SHADOW_PAGING -DDEBUG_CTRL_REGS -DDEBUG_INTERRUPTS -DDEBUG_IO -DDEBUG_KEYBOARD -DDEBUG_PIC -DDEBUG_PIT -DDEBUG_NVRAM
+  DEBUG_SECTIONS:= $(DEBUG_SECTIONS) -DDEBUG_SHADOW_PAGING -DDEBUG_CTRL_REGS -DDEBUG_INTERRUPTS -DDEBUG_IO -DDEBUG_KEYBOARD -DDEBUG_PIC -DDEBUG_PIT -DDEBUG_NVRAM -DDEBUG_EMULATOR -DDEBUG_GENERIC
 endif
 ifeq ($(DEBUG_SHADOW_PAGING),1)
 DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DDEBUG_SHADOW_PAGING
@@ -74,6 +74,12 @@ DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DDEBUG_PIT
 endif
 ifeq ($(DEBUG_NVRAM),1)
 DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DDEBUG_NVRAM
+endif
+ifeq ($(DEBUG_GENERIC),1)
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DDEBUG_GENERIC
+endif
+ifeq ($(DEBUG_EMULATOR),1)
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DDEBUG_EMULATOR
 endif
 
 
@@ -191,7 +197,6 @@ VMM_C_SRCS :=   vm_guest.c \
                 svm_halt.c svm_pause.c vmm_config.c vmm_hashtable.c \
 		vmm_string.c vmm_emulator.c \
 		 $(DECODER_SRCS)
-#\
 #		vmx.c vmcs_gen.c vmcs.c
 
 VMM_C_OBJS := $(VMM_C_SRCS:%.c=palacios/%.o)

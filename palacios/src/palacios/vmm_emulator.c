@@ -2,8 +2,17 @@
 #include <palacios/vmm_emulator.h>
 #include <palacios/vm_guest_mem.h>
 #include <palacios/vmm_decoder.h>
+#include <palacios/vmm_debug.h>
+#include <palacios/vmcb.h>
+#include <palacios/vmm_ctrl_regs.h>
 
 static const char VMMCALL[3] = {0x0f, 0x01, 0xd9};
+
+#ifndef DEBUG_EMULATOR
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
+#endif
+
 
 int init_emulator(struct guest_info * info) {
   struct emulation_state * emulator = &(info->emulator);
@@ -21,6 +30,8 @@ int init_emulator(struct guest_info * info) {
   emulator->running = 0;
   emulator->instr_length = 0;
 
+  emulator->tf_enabled = 0;
+
   return 0;
 }
 
@@ -31,7 +42,7 @@ static addr_t get_new_page() {
   return (addr_t)page;
 }
 
-
+/*
 static int setup_code_page(struct guest_info * info, char * instr, struct basic_instr_info * instr_info ) {
   addr_t code_page_offset = PT32_PAGE_OFFSET(info->rip);
   addr_t code_page = get_new_page();
@@ -52,10 +63,11 @@ static int setup_code_page(struct guest_info * info, char * instr, struct basic_
   memcpy((void *)(code_page + code_page_offset), instr, instr_info->instr_length);
   memcpy((void *)(code_page + code_page_offset + instr_info->instr_length), VMMCALL, 3);
 
+#ifdef DEBUG_EMULATOR
   PrintDebug("New Instr Stream:\n");
   PrintTraceMemDump((void *)(code_page + code_page_offset), 32);
   PrintDebug("rip =%x\n", info->rip);
-
+#endif
 
 
 
@@ -69,6 +81,34 @@ static int setup_code_page(struct guest_info * info, char * instr, struct basic_
   info->emulator.num_saved_pages++;
 
   return 0;
+}
+*/
+
+
+static int set_stepping(struct guest_info * info) {
+  vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
+  ctrl_area->exceptions.db = 1;
+
+  info->emulator.tf_enabled = ((struct rflags *)&(info->ctrl_regs.rflags))->tf;
+
+  ((struct rflags *)&(info->ctrl_regs.rflags))->tf = 1;
+
+  return 0;
+}
+
+
+static int unset_stepping(struct guest_info * info) {
+  vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
+  ctrl_area->exceptions.db = 0;
+
+  ((struct rflags *)&(info->ctrl_regs.rflags))->tf = info->emulator.tf_enabled;
+
+  if (info->emulator.tf_enabled) {
+    // Inject breakpoint exception into guest
+  }
+
+  return 0;
+
 }
 
 
@@ -95,21 +135,25 @@ int v3_emulate_memory_read(struct guest_info * info, addr_t read_gva,
     ret = read_guest_va_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
   }
 
+#ifdef DEBUG_EMULATOR
   PrintDebug("Instr (15 bytes) at %x:\n", instr);
   PrintTraceMemDump(instr, 15);
-  
+#endif  
+
+
   if (v3_basic_mem_decode(info, (addr_t)instr, &instr_info) == -1) {
     PrintError("Could not do a basic memory instruction decode\n");
     V3_Free(data_page);
     return -1;
   }
 
+  /*
   if (instr_info.has_rep == 1) {
     PrintError("We currently don't handle rep* instructions\n");
     V3_Free(data_page);
     return -1;
   }
-
+  */
 
   data_page->page_addr = get_new_page();
   data_page->va = PT32_PAGE_ADDR(read_gva);
@@ -143,7 +187,8 @@ int v3_emulate_memory_read(struct guest_info * info, addr_t read_gva,
   }
 
 
-  setup_code_page(info, instr, &instr_info);
+  // setup_code_page(info, instr, &instr_info);
+  set_stepping(info);
 
   info->emulator.running = 1;
   info->run_state = VM_EMULATING;
@@ -181,13 +226,14 @@ int v3_emulate_memory_write(struct guest_info * info, addr_t write_gva,
     return -1;
   }
 
+  /*
   if (instr_info.has_rep == 1) {
     PrintError("We currently don't handle rep* instructions\n");
     V3_Free(write_op);
     V3_Free(data_page);
     return -1;
   }
-
+  */
 
   data_page->page_addr = get_new_page();
   data_page->va = PT32_PAGE_ADDR(write_gva);
@@ -225,7 +271,8 @@ int v3_emulate_memory_write(struct guest_info * info, addr_t write_gva,
 
 
   if (info->emulator.running == 0) {
-    setup_code_page(info, instr, &instr_info);
+    //    setup_code_page(info, instr, &instr_info);
+    set_stepping(info);
     info->emulator.running = 1;
     info->run_state = VM_EMULATING;
     info->emulator.instr_length = instr_info.instr_length;
@@ -290,7 +337,14 @@ int v3_emulation_exit_handler(struct guest_info * info) {
   info->emulator.running = 0;
   //info->rip += info->emulator.instr_length;
 
+
+  PrintDebug("Returning to rip: 0x%x\n", info->rip);
+
   info->emulator.instr_length = 0;
+  
+  
+  unset_stepping(info);
+
 
   PrintDebug("returning from emulation\n");
 

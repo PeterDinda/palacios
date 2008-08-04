@@ -49,6 +49,8 @@ struct emulation_state {
 
   uint_t running : 1;
   uint_t instr_length;
+
+  uint_t tf_enabled : 1;
 };
 
 

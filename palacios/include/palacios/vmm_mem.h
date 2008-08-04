@@ -115,8 +115,6 @@ void print_shadow_map(struct shadow_map * map);
 
 
 
-
-
 struct vmm_mem_hook {
   // Called when data is read from a memory page
   int (*read)(addr_t guest_addr, void * dst, uint_t length, void * priv_data);
