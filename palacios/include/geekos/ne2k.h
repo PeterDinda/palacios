@@ -152,5 +152,6 @@ struct _RSR {  //RECEIVE STATUS REG
 int Init_Ne2k();
 int NE2K_Transmit(struct NE2K_REGS *);
 int NE2K_Receive();
+int NE2K_Send(struct NE2K_REGS *regs, uchar_t src[], uchar_t dest[], uint_t type, uchar_t *data, uint_t size);
 
 #endif  /* GEEKOS_NE2K_H */
