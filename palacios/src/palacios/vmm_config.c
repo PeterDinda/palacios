@@ -12,7 +12,7 @@
 
 
 
-static int mem_test_read(addr_t guest_addr, void * dst, uint_t length, void * priv_data) {
+/*static int mem_test_read(addr_t guest_addr, void * dst, uint_t length, void * priv_data) {
  int foo = 20;
 
 
@@ -20,7 +20,7 @@ static int mem_test_read(addr_t guest_addr, void * dst, uint_t length, void * pr
 
   PrintDebug("Passthrough mem read returning: %d (length=%d)\n", foo + (guest_addr & 0xfff), length);
   return length;
- }
+  }*/
 
 static int passthrough_mem_read(addr_t guest_addr, void * dst, uint_t length, void * priv_data) {
     memcpy(dst, (void*)guest_addr, length);
@@ -117,15 +117,17 @@ int config_guest(struct guest_info * info, void * config_ptr) {
   
   
  
-  //  add_shadow_region_passthrough(info, 0x100000, 0x1000000, (addr_t)V3_AllocPages(4096));
-  { 
-    /* MEMORY HOOK TEST */
+  add_shadow_region_passthrough(info, 0x100000, 0x1000000, (addr_t)V3_AllocPages(4096));
+ /* MEMORY HOOK TEST */
+  /*  { 
+   
     add_shadow_region_passthrough(info, 0x100000, 0xa00000, (addr_t)V3_AllocPages(2304));
     hook_guest_mem(info, 0xa00000, 0xa01000, mem_test_read, passthrough_mem_write, NULL);
     
     add_shadow_region_passthrough(info, 0xa01000, 0x1000000, (addr_t)V3_AllocPages(1791));
 
   }
+*/
     add_shadow_region_passthrough(info, 0x1000000, 0x8000000, (addr_t)V3_AllocPages(32768));
  
   // test - give linux accesss to PCI space - PAD
@@ -167,7 +169,7 @@ int config_guest(struct guest_info * info, void * config_ptr) {
 #endif
       
 
-#if 0      
+#if 1      
       // Make the Serial ports invisible 
 
       {0x3f8, 0x3f8+7, GENERIC_PRINT_AND_IGNORE},      // COM 1
