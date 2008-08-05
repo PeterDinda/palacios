@@ -5,7 +5,7 @@
 #include <geekos/malloc.h>
 #include <geekos/string.h>
 
-#define DEBUG 1
+#define DEBUG 0
 #define TX_START_BUFF 	0x40
 #define RX_START_BUFF 	0x4c
 #define RX_END_BUFF	0x80
@@ -18,6 +18,7 @@ struct callback {
   int (*packet_received)(struct NE2K_Packet_Info *info, uchar_t *packet);
 } callbacks;
 
+#if DEBUG
 static void Dump_Registers()
 {
   uint_t data;
@@ -28,6 +29,7 @@ static void Dump_Registers()
     PrintBoth("\t%x: %x\n", NE2K_BASE_ADDR + i, data);
   }
 }
+#endif
 
 static int NE2K_Transmit(struct NE2K_REGS *regs)
 {
@@ -101,21 +103,15 @@ static void NE2K_Interrupt_Handler(struct Interrupt_State * state)
   if(isr_content & 0x01) /* A packet has been received. */
   {
         uchar_t current;
-	/*do{
-	  Out_Byte(NE2K_CR, 0x4a);	
-	  current = In_Byte(NE2K_CURR);
-	  Out_Byte(NE2K_CR, 0x0a);
-	  NE2K_Receive();
-	  Out_Byte(NE2K_ISR, 0x01);*/
-        /* If BNRY and CURR aren't equal, more than one packet has been received. */
-	//}while (current > In_Byte(NE2K_BNRY));
-	Out_Byte(NE2K_CR, 0x4a);	
+	Out_Byte(NE2K_CR, 0x4a);	/* Page 1 */
 	current = In_Byte(NE2K_CURR);
-	Out_Byte(NE2K_CR, 0x0a);
+	Out_Byte(NE2K_CR, 0x0a);	/* Page 0 */
         NE2K_Receive();
+
+        /* When CURR equals BNRY, all packets in the receive ring buffer have been read, and
+           the packet received bit in the interrupt status register can be cleared. */
         if(current == In_Byte(NE2K_BNRY))
-          /* When CURR equals BNRY, all packets in the receive ring buffer have been read. */
-          Out_Byte(NE2K_ISR, 0x01); /* Clear the packet received bit of the Interrupt Register. */
+          Out_Byte(NE2K_ISR, 0x01);
   }
 
   End_IRQ(state);
@@ -218,19 +214,21 @@ int Init_Ne2k(int (*rcvd_fn)(struct NE2K_Packet_Info *info, uchar_t *packet))
   cr->sta = 0x1;  // toggle start bit
   cr->stp = 0x0;
   Out_Byte(NE2K_CR, regs->cr);
-  
+
+#if DEBUG
   Dump_Registers();
 
-  cr->ps = NE2K_PAGE1;
+  cr->ps = 0x01;
   Out_Byte(NE2K_CR, regs->cr);
   Dump_Registers();
 
-  cr->ps = NE2K_PAGE2;  
+  cr->ps = 0x10;  
   Out_Byte(NE2K_CR, regs->cr);
   Dump_Registers();
 
-  cr->ps = NE2K_PAGE0;
+  cr->ps = 0x00;
   Out_Byte(NE2K_CR, regs->cr);
+#endif
 
   Install_IRQ(NE2K_IRQ, NE2K_Interrupt_Handler);
   Enable_IRQ(NE2K_IRQ);
@@ -354,7 +352,6 @@ int NE2K_Receive()
   /* Copy the received packet over from the ring buffer. */
   for(i = 0; i < packet_size; i+=2) {
     data = In_Word(NE2K_CR + 0x10);
-    //PrintBoth("%x ", data);
     *(packet + i) = data & 0x00ff;
     *(packet + i + 1) = (data & 0xff00) >> 8;
 #if 0
@@ -363,9 +360,6 @@ int NE2K_Receive()
     PrintBoth("CURR = %x\n", In_Byte(NE2K_CURR));  
     Out_Byte(NE2K_CR, 0x0a);
 #endif
-
-    //if(!(i%10))
-      //PrintBoth("\n\t");
   }
 
 //Out_Byte(NE2K_RBCR0, (In_Byte(NE2K_RBCR0))-2);
