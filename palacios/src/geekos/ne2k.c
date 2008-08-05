@@ -101,14 +101,21 @@ static void NE2K_Interrupt_Handler(struct Interrupt_State * state)
   if(isr_content & 0x01) /* A packet has been received. */
   {
         uchar_t current;
-	do{
+	/*do{
 	  Out_Byte(NE2K_CR, 0x4a);	
 	  current = In_Byte(NE2K_CURR);
 	  Out_Byte(NE2K_CR, 0x0a);
 	  NE2K_Receive();
-	  Out_Byte(NE2K_ISR, 0x01);
+	  Out_Byte(NE2K_ISR, 0x01);*/
         /* If BNRY and CURR aren't equal, more than one packet has been received. */
-	}while (current > In_Byte(NE2K_BNRY));
+	//}while (current > In_Byte(NE2K_BNRY));
+	Out_Byte(NE2K_CR, 0x4a);	
+	current = In_Byte(NE2K_CURR);
+	Out_Byte(NE2K_CR, 0x0a);
+        NE2K_Receive();
+        if(current == In_Byte(NE2K_BNRY))
+          /* When CURR equals BNRY, all packets in the receive ring buffer have been read. */
+          Out_Byte(NE2K_ISR, 0x01); /* Clear the packet received bit of the Interrupt Register. */
   }
 
   End_IRQ(state);
@@ -117,7 +124,8 @@ static void NE2K_Interrupt_Handler(struct Interrupt_State * state)
     send_done = 1;  
     Out_Byte(NE2K_ISR, 0x02);
   }
-  Out_Byte(NE2K_ISR, 0xff); /* Clear all interrupts. */
+
+  //Out_Byte(NE2K_ISR, 0xff); /* Clear all interrupts. */
 }
 
 int Init_Ne2k(int (*rcvd_fn)(struct NE2K_Packet_Info *info, uchar_t *packet))
