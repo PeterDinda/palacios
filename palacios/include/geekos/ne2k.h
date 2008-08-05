@@ -1,7 +1,6 @@
 #ifndef GEEKOS_NE2K_H
 #define GEEKOS_NE2K_H
 
-//#include <geekos/ktypes.h>
 #include <geekos/malloc.h>
 
 #define NE2K_PAGE0	0x00
@@ -11,6 +10,8 @@
 
 #define NE2K_BASE_ADDR 	0xc100		/* Starting address of the card */
 #define NE2K_CR		NE2K_BASE_ADDR	/* Command register */
+#define NE2K_DATAPORT	(NE2K_CR + 0x10)
+#define NE2K_RESET	(NE2K_CR + 0x1f)
 
 /* Page 0 register offsets */
 #define NE2K CLDA0	(NE2K_CR + 0x01)
