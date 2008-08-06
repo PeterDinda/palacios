@@ -1,6 +1,6 @@
 # Makefile for GeekOS kernel, userspace, and tools
 # Copyright (c) 2004,2005 David H. Hovemeyer <daveho@cs.umd.edu>
-# $Revision: 1.56 $
+# $Revision: 1.57 $
 
 # This is free software.  You are permitted to use,
 # redistribute, and modify it as specified in the file "COPYING".
@@ -109,6 +109,13 @@ else
 # This is an error
 endif
 
+#
+#TCPSTACK, uIP is used currently
+#
+TCPSTACK=UIP
+
+
+
 
 #
 # This is wrong for current cygwin - no changes needed
@@ -213,6 +220,14 @@ DEVICE_C_OBJS := $(DEVICE_C_SRCS:%.c=devices/%.o)
 DEVICE_OBJS := $(DEVICE_C_OBJS)
 
 V3LIBS := $(DECODER_LIBS)
+
+
+TCPSTACK_C_SRCS := psock.c timer.c uip_arp.c uip.c uip-fw.c uiplib.c uip-neighbor.c uip-split.c resolv.c
+
+TCPSTACK_C_OBJS := $(TCPSTACK_C_SRCS:%.c=net/%.o)
+
+TCPSTACK_OBJS := $(TCPSTACK_C_OBJS)
+
 
 
 
@@ -341,6 +356,9 @@ devices/%.o : devices/%.c
 devices/%.o : devices/%.asm
 	$(NASM) $(NASM_VMM_OPTS) $< -o devices/$*.o
 
+net/%.o : net/%.c
+	$(TARGET_CC) -c $(CC_GENERAL_OPTS) $(CC_VMM_OPTS)  $(CC_USER_OPTS) $< -o net/$*.o
+
 # ----------------------------------------------------------------------
 # Targets -
 #   Specifies files to be built
@@ -421,7 +439,7 @@ geekos/kernel.bin : geekos/kernel.exe
 	$(PAD) $@ 512
 
 # The kernel executable and symbol map.
-geekos/kernel.exe : $(KERNEL_OBJS) $(COMMON_C_OBJS) $(VMM_OBJS) $(DEVICE_OBJS) vm_kernel
+geekos/kernel.exe : $(KERNEL_OBJS) $(COMMON_C_OBJS) $(VMM_OBJS) $(DEVICE_OBJS) $(TCPSTACK_OBJS) vm_kernel
 	$(TARGET_LD) -o geekos/kernel.exe -Ttext $(KERNEL_BASE_ADDR) -e $(KERNEL_ENTRY) \
 		$(DECODER_FLAGS) \
 		$(KERNEL_OBJS) $(COMMON_C_OBJS) $(VMM_OBJS) $(DEVICE_OBJS) $(V3LIBS) -b binary vm_kernel
