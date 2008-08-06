@@ -30,7 +30,7 @@
  *
  * Author: Adam Dunkels <adam@sics.se>
  *
- * $Id: lc-addrlabels.h,v 1.1 2008/08/06 23:19:30 andrewlxia Exp $
+ * $Id: lc-addrlabels.h,v 1.2 2008/08/06 23:40:07 andrewlxia Exp $
  */
 
 /**

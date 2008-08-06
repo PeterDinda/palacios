@@ -30,7 +30,7 @@
  *
  * Author: Adam Dunkels <adam@sics.se>
  *
- * $Id: pt.h,v 1.1 2008/08/06 23:19:30 andrewlxia Exp $
+ * $Id: pt.h,v 1.2 2008/08/06 23:40:07 andrewlxia Exp $
  */
 
 /**
@@ -51,9 +51,9 @@
 
 #include <uip/lc.h>
 
-struct pt {
+typedef struct pt {
   lc_t lc;
-};
+}pt;
 
 #define PT_WAITING 0
 #define PT_EXITED  1

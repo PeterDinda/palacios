@@ -30,7 +30,7 @@
  *
  * Author: Adam Dunkels <adam@sics.se>
  *
- * $Id: lc.h,v 1.1 2008/08/06 23:19:30 andrewlxia Exp $
+ * $Id: lc.h,v 1.2 2008/08/06 23:40:07 andrewlxia Exp $
  */
 
 /**
@@ -122,7 +122,7 @@
 #ifdef LC_CONF_INCLUDE
 #include LC_CONF_INCLUDE
 #else
-#include <uip/c-switch.h>
+#include <uip/lc-switch.h>
 #endif /* LC_CONF_INCLUDE */
 
 #endif /* __LC_H__ */

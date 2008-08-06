@@ -46,7 +46,7 @@
  *
  * This file is part of the uIP TCP/IP stack.
  *
- * $Id: uip.h,v 1.1 2008/08/06 23:19:30 andrewlxia Exp $
+ * $Id: uip.h,v 1.2 2008/08/06 23:40:07 andrewlxia Exp $
  *
  */
 
@@ -54,6 +54,7 @@
 #define __UIP_H__
 
 #include <uip/uipopt.h>
+#include <uip/resolv.h>
 
 /**
  * Repressentation of an IP address.
@@ -66,6 +67,7 @@ typedef uip_ip6addr_t uip_ipaddr_t;
 #else /* UIP_CONF_IPV6 */
 typedef uip_ip4addr_t uip_ipaddr_t;
 #endif /* UIP_CONF_IPV6 */
+
 
 /*---------------------------------------------------------------------------*/
 /* First, the functions that should be called from the

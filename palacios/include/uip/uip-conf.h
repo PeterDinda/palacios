@@ -42,7 +42,7 @@
  *
  * This file is part of the uIP TCP/IP stack
  *
- * $Id: uip-conf.h,v 1.1 2008/08/06 23:19:30 andrewlxia Exp $
+ * $Id: uip-conf.h,v 1.2 2008/08/06 23:40:07 andrewlxia Exp $
  */
 
 /**
@@ -55,7 +55,6 @@
 #ifndef __UIP_CONF_H__
 #define __UIP_CONF_H__
 
-#include <uip/resolv.h>
 
 int uip_appcall(void){
 

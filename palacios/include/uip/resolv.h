@@ -38,17 +38,19 @@
  *
  * This file is part of the uIP TCP/IP stack.
  *
- * $Id: resolv.h,v 1.1 2008/08/06 23:19:30 andrewlxia Exp $
+ * $Id: resolv.h,v 1.2 2008/08/06 23:40:07 andrewlxia Exp $
  *
  */
 #ifndef __RESOLV_H__
 #define __RESOLV_H__
 
+#include <uip/uipopt.h>
+
 typedef int uip_udp_appstate_t;
 void resolv_appcall(void);
 #define UIP_UDP_APPCALL resolv_appcall
 
-#include <uip/uipopt.h>
+
 
 /**
  * Callback function which is called when a hostname is found.
@@ -61,7 +63,9 @@ void resolv_appcall(void);
  * ipaddr A pointer to a 4-byte array containing the IP address of the
  * hostname, or NULL if the hostname could not be found.
  */
-void resolv_found(char *name, u16_t *ipaddr);
+void resolv_found(char *name, u16_t *ipaddr)
+{ 
+}
 
 /* Functions. */
 void resolv_conf(u16_t *dnsserver);

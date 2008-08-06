@@ -47,7 +47,7 @@
  *
  * Author: Adam Dunkels <adam@sics.se>
  *
- * $Id: clock.h,v 1.1 2008/08/06 23:19:30 andrewlxia Exp $
+ * $Id: clock.h,v 1.2 2008/08/06 23:40:07 andrewlxia Exp $
  */
 #ifndef __CLOCK_H__
 #define __CLOCK_H__
