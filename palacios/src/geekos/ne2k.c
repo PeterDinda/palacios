@@ -5,7 +5,7 @@
 #include <geekos/malloc.h>
 #include <geekos/string.h>
 
-#define DEBUG 0
+#define DEBUG 1
 #define TX_START_BUFF 	0x40
 #define RX_START_BUFF 	0x4c
 #define RX_END_BUFF	0x80
@@ -13,6 +13,8 @@
 uint_t next = (RX_START_BUFF << 8);
 static uint_t received = 0;
 static uint_t send_done = 1;
+
+struct NE2K_REGS* regs;
 
 struct callback {
   int (*packet_received)(struct NE2K_Packet_Info *info, uchar_t *packet);
@@ -30,7 +32,7 @@ static void Dump_Registers()
   }
 }
 #endif
-
+#if 0
 static int NE2K_Transmit(struct NE2K_REGS *regs)
 {
   while(!send_done);
@@ -91,7 +93,7 @@ static int NE2K_Transmit(struct NE2K_REGS *regs)
 
   return 0;
 }
-
+#endif
 static void NE2K_Interrupt_Handler(struct Interrupt_State * state)
 {
   Begin_IRQ(state);
@@ -131,7 +133,7 @@ int Init_Ne2k(int (*rcvd_fn)(struct NE2K_Packet_Info *info, uchar_t *packet))
   PrintBoth("Initializing network card...\n");
   Out_Byte(NE2K_CR+0x1f, In_Byte(NE2K_CR+0x1f));  /* Reset? */
 
-  struct NE2K_REGS* regs = Malloc(sizeof(struct NE2K_REGS));
+  regs = Malloc(sizeof(struct NE2K_REGS));
   struct _CR * cr = (struct _CR *)&(regs->cr);
   struct _RCR * rcr = (struct _RCR*)&(regs->rcr);
   struct _IMR * imr = (struct _IMR *)&(regs->imr);
@@ -222,7 +224,7 @@ int Init_Ne2k(int (*rcvd_fn)(struct NE2K_Packet_Info *info, uchar_t *packet))
   Out_Byte(NE2K_CR, regs->cr);
   Dump_Registers();
 
-  cr->ps = 0x10;  
+  cr->ps = 0x02;
   Out_Byte(NE2K_CR, regs->cr);
   Dump_Registers();
 
@@ -232,13 +234,14 @@ int Init_Ne2k(int (*rcvd_fn)(struct NE2K_Packet_Info *info, uchar_t *packet))
 
   Install_IRQ(NE2K_IRQ, NE2K_Interrupt_Handler);
   Enable_IRQ(NE2K_IRQ);
-
+#if 0
   for(i = 0; i < 0; i++)
   {
     NE2K_Transmit(regs);
     PrintBoth("Transmitting a packet\n");
   }
-
+#endif
+/*
   uchar_t src_addr[6] = { 0x52, 0x54, 0x00, 0x12, 0x34, 0x58 };
   uchar_t dest_addr[6] = { 0x52, 0x54, 0x00, 0x12, 0x34, 0x56 };
 
@@ -249,14 +252,14 @@ int Init_Ne2k(int (*rcvd_fn)(struct NE2K_Packet_Info *info, uchar_t *packet))
   for(i = 0; i < 0; i++) {
     NE2K_Send(regs, src_addr, dest_addr, 0x01, data, size);
   }
-
+*/
   //Free(data);  // Why does this crash?
 
   return 0;
 }
 
 /* Assumes src and dest are arrays of 6 characters. */
-int NE2K_Send(struct NE2K_REGS *regs, uchar_t src[], uchar_t dest[], uint_t type, uchar_t *data, uint_t size)
+int NE2K_Send(uchar_t src[], uchar_t dest[], uint_t type, uchar_t *data, uint_t size)
 {
   struct _CR * cr = (struct _CR*)&(regs->cr);
   uint_t packet_size = size + 16;
