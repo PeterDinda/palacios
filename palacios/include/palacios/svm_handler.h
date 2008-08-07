@@ -70,7 +70,7 @@
 #define VMEXIT_DR15_READ  0x0000002f
 
 #define VMEXIT_DR_WRITE_MASK     0xffffffc0
-#define VMEXIT_DR0_WRITE   0x0000003f
+#define VMEXIT_DR0_WRITE   0x00000030 // ? this was previously 3f
 #define VMEXIT_DR1_WRITE   0x00000031
 #define VMEXIT_DR2_WRITE   0x00000032
 #define VMEXIT_DR3_WRITE   0x00000033
