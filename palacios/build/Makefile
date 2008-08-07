@@ -1,6 +1,6 @@
 # Makefile for GeekOS kernel, userspace, and tools
 # Copyright (c) 2004,2005 David H. Hovemeyer <daveho@cs.umd.edu>
-# $Revision: 1.57 $
+# $Revision: 1.58 $
 
 # This is free software.  You are permitted to use,
 # redistribute, and modify it as specified in the file "COPYING".
@@ -151,7 +151,7 @@ ALL_TARGETS := vmm.img vm_kernel
 
 # Kernel source files
 KERNEL_C_SRCS := idt.c int.c trap.c irq.c io.c \
-        blockdev.c ide.c \
+        blockdev.c ide.c ne2k-2.c \
 	keyboard.c screen.c timer.c \
 	mem.c crc32.c \
 	gdt.c tss.c segment.c \
@@ -201,7 +201,8 @@ VMM_C_SRCS :=   vm_guest.c \
 		vmm_intr.c vmm_time.c \
 		vmm_shadow_paging.c vm_guest_mem.c  \
                 vm_dev.c vmm_dev_mgr.c vmm_decoder.c \
-                svm_halt.c svm_pause.c vmm_config.c vmm_hashtable.c \
+                svm_halt.c svm_pause.c svm_wbinvd.c \
+	        vmm_config.c vmm_hashtable.c \
 		vmm_string.c vmm_emulator.c \
 		 $(DECODER_SRCS)
 #		vmx.c vmcs_gen.c vmcs.c
