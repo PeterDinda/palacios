@@ -6,6 +6,7 @@
 #include <palacios/svm_io.h>
 #include <palacios/svm_halt.h>
 #include <palacios/svm_pause.h>
+#include <palacios/svm_wbinvd.h>
 #include <palacios/vmm_intr.h>
 #include <palacios/vmm_emulator.h>
 
@@ -88,8 +89,10 @@ int handle_svm_exit(struct guest_info * info) {
 
   
   //PrintDebug("SVM Returned: Exit Code: %x\n",exit_code); 
-  
-  if (exit_code == VMEXIT_IOIO) {
+
+  switch (exit_code) {
+
+  case VMEXIT_IOIO: {
     struct svm_io_info * io_info = (struct svm_io_info *)&(guest_ctrl->exit_info1);
     
     if (io_info->type == 0) {
@@ -113,36 +116,51 @@ int handle_svm_exit(struct guest_info * info) {
 	}
       }
     }
-  } else if (exit_code == VMEXIT_CR0_WRITE) {
+  }
+    break;
+
+
+  case  VMEXIT_CR0_WRITE: {
 #ifdef DEBUG_CTRL_REGS
     PrintDebug("CR0 Write\n");
 #endif
     if (handle_cr0_write(info) == -1) {
       return -1;
     }
-  } else if (exit_code == VMEXIT_CR0_READ) {
+  } 
+    break;
+
+  case VMEXIT_CR0_READ: {
 #ifdef DEBUG_CTRL_REGS
     PrintDebug("CR0 Read\n");
 #endif
     if (handle_cr0_read(info) == -1) {
       return -1;
     }
-  } else if (exit_code == VMEXIT_CR3_WRITE) {
+  } 
+    break;
+
+  case VMEXIT_CR3_WRITE: {
 #ifdef DEBUG_CTRL_REGS
     PrintDebug("CR3 Write\n");
 #endif
     if (handle_cr3_write(info) == -1) {
       return -1;
     }    
-  } else if (exit_code == VMEXIT_CR3_READ) {
+  } 
+    break;
+
+  case  VMEXIT_CR3_READ: {
 #ifdef DEBUG_CTRL_REGS
     PrintDebug("CR3 Read\n");
 #endif
     if (handle_cr3_read(info) == -1) {
       return -1;
     }
+  }
+    break;
 
-  } else if (exit_code == VMEXIT_EXCP14) {
+  case VMEXIT_EXCP14: {
     addr_t fault_addr = guest_ctrl->exit_info2;
     pf_error_t * error_code = (pf_error_t *)&(guest_ctrl->exit_info1);
 #ifdef DEBUG_SHADOW_PAGING
@@ -153,16 +171,20 @@ int handle_svm_exit(struct guest_info * info) {
 	return -1;
       }
     } else {
-
       PrintError("Page fault in un implemented paging mode\n");
-     
       return -1;
     }
-  } else if (exit_code == VMEXIT_NPF) {
+  } 
+    break;
+
+  case VMEXIT_NPF: {
     PrintError("Currently unhandled Nested Page Fault\n");
     return -1;
+    
+  } 
+    break;
 
-  } else if (exit_code == VMEXIT_INVLPG) {
+  case VMEXIT_INVLPG: {
     if (info->shdw_pg_mode == SHADOW_PAGING) {
 #ifdef DEBUG_SHADOW_PAGING
       PrintDebug("Invlpg\n");
@@ -176,25 +198,40 @@ int handle_svm_exit(struct guest_info * info) {
       (exit_code == VMEXIT_INVLPGA)   || 
     */
     
-  } else if (exit_code == VMEXIT_INTR) {
+  } 
+    break;
 
-    //    handle_svm_intr(info);
+  case VMEXIT_INTR: { 
+    
+    //    handle_svm_intr(info); // handled by interrupt dispatch earlier
 
-  } else if (exit_code == VMEXIT_SMI) { 
-
+  } 
+    break;
+    
+  case VMEXIT_SMI: {
+    
     //   handle_svm_smi(info); // ignored for now
 
-  } else if (exit_code == VMEXIT_HLT) {
+  } 
+    break;
+
+  case VMEXIT_HLT: {
     PrintDebug("Guest halted\n");
     if (handle_svm_halt(info) == -1) {
       return -1;
     }
-  } else if (exit_code == VMEXIT_PAUSE) { 
+  } 
+    break;
+
+  case VMEXIT_PAUSE: {
     PrintDebug("Guest paused\n");
     if (handle_svm_pause(info) == -1) { 
       return -1;
     }
-  } else if (exit_code == VMEXIT_EXCP1) {
+  } 
+    break;
+
+  case VMEXIT_EXCP1: {
 #ifdef DEBUG_EMULATOR
     PrintDebug("DEBUG EXCEPTION\n");
 #endif
@@ -206,7 +243,10 @@ int handle_svm_exit(struct guest_info * info) {
       PrintError("VMMCALL with not emulator...\n");
       return -1;
     }
-  } else if (exit_code == VMEXIT_VMMCALL) {
+  } 
+    break;
+
+  case VMEXIT_VMMCALL: {
 #ifdef DEBUG_EMULATOR
     PrintDebug("VMMCALL\n");
 #endif
@@ -218,15 +258,692 @@ int handle_svm_exit(struct guest_info * info) {
       PrintError("VMMCALL with not emulator...\n");
       return -1;
     }
+    
+  } 
+    break;
 
-  } else {
+
+  case VMEXIT_WBINVD: {
+#ifdef DEBUG_EMULATOR
+    PrintDebug("WBINVD\n");
+#endif
+    if (!handle_svm_wbinvd(info)) { 
+      return -1;
+    }
+  }
+    break;
+
+
+
+    /* Exits Following this line are NOT HANDLED */
+    /*=======================================================================*/
+
+  case VMEXIT_CR_READ_MASK:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_CR_READ_MASK\n"); 
+    goto unhandled_exit;
+    break;
+    
+  case VMEXIT_CR_WRITE_MASK:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_CR_WRITE_MASK\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_CR1_READ:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_CR1_READ\n");
+    goto unhandled_exit;
+    break;
+     
+  case VMEXIT_CR1_WRITE:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_CR1_WRITE\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_CR2_READ:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_CR2_READ\n");
+    goto unhandled_exit;
+    break;
+     
+  case VMEXIT_CR2_WRITE:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_CR2_WRITE\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_CR4_READ:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_CR4_READ\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_CR4_WRITE:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_CR4_WRITE\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_CR5_READ:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_CR5_READ\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_CR5_WRITE:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_CR5_WRITE\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_CR6_READ:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_CR6_READ\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_CR6_WRITE:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_CR6_WRITE\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_CR7_READ:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_CR7_READ\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_CR7_WRITE:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_CR7_WRITE\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_CR8_READ:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_CR8_READ\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_CR8_WRITE:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_CR8_WRITE\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_CR9_READ:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_CR9_READ\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_CR9_WRITE:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_CR9_WRITE\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_CR10_READ:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_CR10_READ\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_CR10_WRITE:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_CR10_WRITE\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_CR11_READ:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_CR11_READ\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_CR11_WRITE:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_CR11_WRITE\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_CR12_READ:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_CR12_READ\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_CR12_WRITE:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_CR12_WRITE\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_CR13_READ:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_CR13_READ\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_CR13_WRITE:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_CR13_WRITE\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_CR14_READ:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_CR14_READ\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_CR14_WRITE:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_CR14_WRITE\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_CR15_READ:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_CR15_READ\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_CR15_WRITE:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_CR15_WRITE\n");
+    goto unhandled_exit;
+    break;
+
+
+  case VMEXIT_DR_READ_MASK:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_DR_READ_MASK\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_DR_WRITE_MASK:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_DR_WRITE_MASK\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_DR0_READ:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_DR0_READ\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_DR0_WRITE:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_DR0_WRITE\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_DR1_READ:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_DR1_READ\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_DR1_WRITE:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_DR1_WRITE\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_DR2_READ:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_DR2_READ\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_DR2_WRITE:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_DR2_WRITE\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_DR3_READ:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_DR3_READ\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_DR3_WRITE:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_DR3_WRITE\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_DR4_READ:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_DR4_READ\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_DR4_WRITE:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_DR4_WRITE\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_DR5_READ:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_DR5_READ\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_DR5_WRITE:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_DR5_WRITE\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_DR6_READ:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_DR6_READ\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_DR6_WRITE:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_DR6_WRITE\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_DR7_READ:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_DR7_READ\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_DR7_WRITE:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_DR7_WRITE\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_DR8_READ:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_DR8_READ\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_DR8_WRITE:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_DR8_WRITE\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_DR9_READ:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_DR9_READ\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_DR9_WRITE:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_DR9_WRITE\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_DR10_READ:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_DR10_READ\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_DR10_WRITE:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_DR10_WRITE\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_DR11_READ:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_DR11_READ\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_DR11_WRITE:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_DR11_WRITE\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_DR12_READ:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_DR12_READ\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_DR12_WRITE:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_DR12_WRITE\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_DR13_READ:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_DR13_READ\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_DR13_WRITE:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_DR13_WRITE\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_DR14_READ:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_DR14_READ\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_DR14_WRITE:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_DR14_WRITE\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_DR15_READ:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_DR15_READ\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_DR15_WRITE:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_DR15_WRITE\n");
+    goto unhandled_exit;
+    break;
+
+    
+  case VMEXIT_EXCP_MASK:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_EXCP_MASK\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_EXCP0:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_EXCP0\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_EXCP2:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_EXCP2\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_EXCP3:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_EXCP3\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_EXCP4:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_EXCP4\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_EXCP5:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_EXCP5\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_EXCP6:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_EXCP6\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_EXCP7:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_EXCP7\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_EXCP8:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_EXCP8\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_EXCP9:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_EXCP9\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_EXCP10:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_EXCP10\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_EXCP11:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_EXCP11\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_EXCP12:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_EXCP12\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_EXCP13:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_EXCP13\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_EXCP15:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_EXCP15\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_EXCP16:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_EXCP16\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_EXCP17:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_EXCP17\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_EXCP18:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_EXCP18\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_EXCP19:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_EXCP19\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_EXCP20:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_EXCP20\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_EXCP21:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_EXCP21\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_EXCP22:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_EXCP22\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_EXCP23:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_EXCP23\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_EXCP24:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_EXCP24\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_EXCP25:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_EXCP25\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_EXCP26:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_EXCP26\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_EXCP27:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_EXCP27\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_EXCP28:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_EXCP28\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_EXCP29:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_EXCP29\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_EXCP30:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_EXCP30\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_EXCP31:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_EXCP31\n");
+    goto unhandled_exit;
+    break;
+
+    
+  case VMEXIT_NMI:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_NMI\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_INIT:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_INIT\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_VINITR:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_VINITR\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_CR0_SEL_WRITE:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_CR0_SEL_WRITE\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_IDTR_READ:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_IDTR_READ\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_IDTR_WRITE:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_IDTR_WRITE\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_GDTR_READ:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_GDTR_READ\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_GDTR_WRITE:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_GDTR_WRITE\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_LDTR_READ:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_LDTR_READ\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_LDTR_WRITE:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_LDTR_WRITE\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_TR_READ:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_TR_READ\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_TR_WRITE:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_TR_WRITE\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_RDTSC:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_RDTSC\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_RDPMC:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_RDPMC\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_PUSHF:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_PUSHF\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_POPF:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_POPF\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_CPUID:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_CPUID\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_RSM:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_RSM\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_IRET:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_IRET\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_SWINT:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_SWINT\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_INVD:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_INVD\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_INVLPGA:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_INVLPGA\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_TASK_SWITCH:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_TASK_SWITCH\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_FERR_FREEZE:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_FERR_FREEZE\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_SHUTDOWN:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_SHUTDOWN\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_VMRUN:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_VMRUN\n");
+    goto unhandled_exit;
+    break;
+
+
+  case VMEXIT_STGI:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_STGI\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_CLGI:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_CLGI\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_SKINIT:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_SKINIT\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_RDTSCP:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_RDTSCP\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_ICEBP:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_ICEBP\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_MONITOR:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_MONITOR\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_MWAIT:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_MWAIT\n");
+    goto unhandled_exit;
+    break;
+
+  case VMEXIT_MWAIT_CONDITIONAL:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_MWAIT_CONDITIONAL\n");
+    goto unhandled_exit;
+    break;
+
+    
+  case VMEXIT_INVALID_VMCB:
+    PrintDebug("Unhandled SVM Exit: VMEXIT_INVALID_VMCB\n");
+    goto unhandled_exit;
+    break;
+
+
+  unhandled_exit:
+
+  default: {
+  
     addr_t rip_addr;
     char buf[15];
     addr_t host_addr;
 
 
     rip_addr = get_addr_linear(info, guest_state->rip, &(info->segments.cs));
-
 
 
     PrintError("SVM Returned:(VMCB=%x)\n", info->vmm_data); 
@@ -257,9 +974,9 @@ int handle_svm_exit(struct guest_info * info) {
       PrintError("Invalid memory mode\n");
       return -1;
     }
-
+    
     PrintError("Host Address of rip = 0x%x\n", host_addr);
-
+    
     memset(buf, 0, 32);
     
     PrintError("Reading instruction stream in guest\n", rip_addr);
@@ -269,17 +986,19 @@ int handle_svm_exit(struct guest_info * info) {
     } else {
       read_guest_va_memory(info, rip_addr-16, 32, buf);
     }
-
+    
     PrintDebug("16 bytes before Rip\n");
     PrintTraceMemDump(buf, 16);
     PrintDebug("Rip onward\n");
     PrintTraceMemDump(buf+16, 16);
-
-
-
+    
     return -1;
 
   }
+    break;
+
+  }
+  // END OF SWITCH (EXIT_CODE)
 
 
   // Update the low level state

@@ -210,20 +210,30 @@ int v3_emulate_memory_write(struct guest_info * info, addr_t write_gva,
   struct emulated_page * data_page = V3_Malloc(sizeof(struct emulated_page));
   addr_t data_addr_offset = PT32_PAGE_OFFSET(write_gva);
   pte32_t saved_pte;
+  int i;
 
-  PrintDebug("Emulating Write\n");
+  PrintDebug("Emulating Write for instruction at 0x%x\n",info->rip);
 
   if (info->mem_mode == PHYSICAL_MEM) { 
     ret = read_guest_pa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
   } else { 
     ret = read_guest_va_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
   }
+
+
+  PrintDebug("Instruction is");
+  for (i=0;i<15;i++) { PrintDebug(" 0x%x",instr[i]); } 
+  PrintDebug("\n");
   
   if (v3_basic_mem_decode(info, (addr_t)instr, &instr_info) == -1) {
     PrintError("Could not do a basic memory instruction decode\n");
     V3_Free(write_op);
     V3_Free(data_page);
     return -1;
+  }
+
+  if (instr_info.has_rep==1) { 
+    PrintDebug("Emulated instruction has rep\n");
   }
 
   /*

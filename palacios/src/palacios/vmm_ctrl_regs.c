@@ -24,7 +24,7 @@
 // force a shadow page table flush
 // It makes windows loading MUCH faster. 
 // Note that this optimization appears to fail with a 2.6 linux kernel
-#define CR3_RELOAD_OPTIMIZATION 0
+#define CR3_RELOAD_OPTIMIZATION 1
 
 
 
@@ -94,7 +94,7 @@ int handle_cr0_write(struct guest_info * info) {
 	struct cr0_32 *real_cr0 = (struct cr0_32*)&(info->ctrl_regs.cr0);
 	struct cr0_32 *new_cr0= (struct cr0_32 *)(dec_instr.src_operand.operand);
 
-	PrintDebug("OperandVal = %x, length=%d\n", *new_cr0, dec_instr_src_operand.size);
+	PrintDebug("OperandVal = %x, length=%d\n", *new_cr0, dec_instr.src_operand.size);
 
 
 	PrintDebug("Old CR0=%x\n", *real_cr0);
