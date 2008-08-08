@@ -263,7 +263,7 @@ int NE2K_Send(uchar_t src[], uchar_t dest[], uint_t type, uchar_t *data, uint_t 
 {
   struct _CR * cr = (struct _CR*)&(regs->cr);
   uint_t packet_size = size + 16;
-  regs->cr = 0x21;
+  regs->cr = 0x21; /* Turn off remote DMA, stop command */
   cr->stp = 0x0;  //toggle start on
   cr->sta = 0x1;
   Out_Byte(NE2K_CR, regs->cr);
@@ -291,7 +291,7 @@ int NE2K_Send(uchar_t src[], uchar_t dest[], uint_t type, uchar_t *data, uint_t 
   Out_Byte(NE2K_RSAR0, 0x00);
   Out_Byte(NE2K_RSAR1, TX_START_BUFF);
 
-  regs->cr = 0x16;
+  cr->rd = 0x02; /* Set remote DMA to write */
   Out_Byte(NE2K_CR, regs->cr);
 
   /* Destination Address */
@@ -311,6 +311,9 @@ int NE2K_Send(uchar_t src[], uchar_t dest[], uint_t type, uchar_t *data, uint_t 
   for(i = 0; i < size; i += 2) {
     Out_Word(NE2K_CR + 0x10, (*(data + i + 1) << 8) | *(data + i));
   }
+
+  cr->txp = 0x1; /* Start transmission */
+  Out_Byte(NE2K_CR, regs->cr);
 
   return 0;
 }
