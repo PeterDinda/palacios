@@ -10,7 +10,7 @@
 #define RX_START_BUFF 	0x4c
 #define RX_END_BUFF	0x80
 
-uint_t next = (RX_START_BUFF << 8);
+static uint_t next = (RX_START_BUFF << 8);
 static uint_t received = 0;
 static uint_t send_done = 1;
 
@@ -131,7 +131,7 @@ int Init_Ne2k(int (*rcvd_fn)(struct NE2K_Packet_Info *info, uchar_t *packet))
   callbacks.packet_received = rcvd_fn;
 
   PrintBoth("Initializing network card...\n");
-  Out_Byte(NE2K_CR+0x1f, In_Byte(NE2K_CR+0x1f));  /* Reset? */
+  Out_Byte(NE2K_CR+0x1f, In_Byte(NE2K_CR+0x1f));  /* Reset */
 
   regs = Malloc(sizeof(struct NE2K_REGS));
   struct _CR * cr = (struct _CR *)&(regs->cr);
@@ -264,7 +264,7 @@ int NE2K_Send(uchar_t src[], uchar_t dest[], uint_t type, uchar_t *data, uint_t 
   struct _CR * cr = (struct _CR*)&(regs->cr);
   uint_t packet_size = size + 16;
   regs->cr = 0x21; /* Turn off remote DMA, stop command */
-  cr->stp = 0x0;  //toggle start on
+  cr->stp = 0x0;  /* toggle start on */
   cr->sta = 0x1;
   Out_Byte(NE2K_CR, regs->cr);
   
@@ -274,10 +274,10 @@ int NE2K_Send(uchar_t src[], uchar_t dest[], uint_t type, uchar_t *data, uint_t 
   Out_Byte(NE2K_RSAR0, 0x42);
   Out_Byte(NE2K_RSAR1, 0x00);
 
-  cr->rd = 0x01;  // set remote DMA to 'remote read'
+  cr->rd = 0x01;  /* set remote DMA to 'remote read' */
   Out_Byte(NE2K_CR, regs->cr);
 
-  regs->isr = 0x40;  // clear and set Remote DMA high
+  regs->isr = 0x40;  /* clear 'remote DMA complete' interrupt */
   Out_Byte(NE2K_ISR, regs->isr);
   
   /* Set remote byte count registers */
@@ -288,12 +288,14 @@ int NE2K_Send(uchar_t src[], uchar_t dest[], uint_t type, uchar_t *data, uint_t 
   Out_Byte(NE2K_TBCR0, packet_size & 0xff);
   Out_Byte(NE2K_TBCR1, (packet_size >> 8) & 0xff);
 
+  /* Set remote start address registers to the first page of the transmit ring buffer. */
   Out_Byte(NE2K_RSAR0, 0x00);
   Out_Byte(NE2K_RSAR1, TX_START_BUFF);
 
-  cr->rd = 0x02; /* Set remote DMA to write */
+  cr->rd = 0x02; /* Set remote DMA to 'remote write' */
   Out_Byte(NE2K_CR, regs->cr);
 
+  /* Begin pushing the packet into the dataport (located at 0x10 from the base address). */
   /* Destination Address */
   Out_Word(NE2K_CR + 0x10, (dest[1] << 8) | dest[0]);
   Out_Word(NE2K_CR + 0x10, (dest[3] << 8) | dest[2]);
@@ -307,6 +309,7 @@ int NE2K_Send(uchar_t src[], uchar_t dest[], uint_t type, uchar_t *data, uint_t 
   /* Type */
   Out_Word(NE2K_CR + 0x10, packet_size);
 
+  /* Packet data */
   uint_t i;
   for(i = 0; i < size; i += 2) {
     Out_Word(NE2K_CR + 0x10, (*(data + i + 1) << 8) | *(data + i));
@@ -337,10 +340,12 @@ int NE2K_Receive()
 
   uint_t i;
   uint_t data;
-  PrintBoth("\nPacket data:\n\t");
-
   data = In_Word(NE2K_CR + 0x10);
+
+#if DEBUG
+  PrintBoth("\nPacket data:\n\t");
   PrintBoth("%x ", data);
+#endif
 
   /* Get the location of the next packet */
   next = data & 0xff00;
