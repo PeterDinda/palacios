@@ -3,7 +3,7 @@
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
  * Copyright (c) 2004, Iulian Neamtiu <neamtiu@cs.umd.edu>
- * $Revision: 1.40 $
+ * $Revision: 1.41 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -38,10 +38,23 @@
 
 #include <geekos/pci.h>
 
-
+#include <geekos/ne2k.h>
 
 #define SPEAKER_PORT 0x61
+#define TEST_NE2K 0
 
+#if TEST_NE2K
+int Packet_Received(struct NE2K_Packet_Info* info, uchar_t *pkt) {
+  int i;
+  for(i = 0; i < info->size; i++) {
+    PrintBoth("%x ", *(pkt+i));
+    if(i % 10 == 0)
+      PrintBoth("\n");
+  }
+  Free(pkt);
+  return 0;
+}
+#endif
 
 void Spin()
 {
@@ -217,6 +230,10 @@ void Main(struct Boot_Info* bootInfo)
 
   Init_Stubs();
 
+#if TEST_NE2K
+  Init_Ne2k(&Packet_Received);
+#endif
+
   //  Init_IDE();
 
   // Print("Done; stalling\n");
@@ -260,10 +277,24 @@ void Main(struct Boot_Info* bootInfo)
   spkr_thread = Start_Kernel_Thread(Buzzer, (ulong_t)&doIBuzz, PRIORITY_NORMAL, false);
   }
 #endif
+#if TEST_NE2K
+  uchar_t src_addr[6] = { 0x52, 0x54, 0x00, 0x12, 0x34, 0x58 };
+  uchar_t dest_addr[6] = { 0x52, 0x54, 0x00, 0x12, 0x34, 0x56 };
 
+  uint_t size = 64, i;
+  uchar_t *data = Malloc(size);
+  data = "This is a 64-byte string that will be used to test transmission.";
+
+  for(i = 0; i < 3; i++) {
+    NE2K_Send(src_addr, dest_addr, 0x01, data, size);
+  }
+#endif
+
+#if !TEST_NE2K
   {
     RunVMM(bootInfo);
   }
+#endif
 
 
   SerialPrint("RunVMM returned, spinning\n");
