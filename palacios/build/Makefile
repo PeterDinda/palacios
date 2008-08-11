@@ -1,6 +1,6 @@
 # Makefile for GeekOS kernel, userspace, and tools
 # Copyright (c) 2004,2005 David H. Hovemeyer <daveho@cs.umd.edu>
-# $Revision: 1.58 $
+# $Revision: 1.59 $
 
 # This is free software.  You are permitted to use,
 # redistribute, and modify it as specified in the file "COPYING".
@@ -151,7 +151,7 @@ ALL_TARGETS := vmm.img vm_kernel
 
 # Kernel source files
 KERNEL_C_SRCS := idt.c int.c trap.c irq.c io.c \
-        blockdev.c ide.c ne2k-2.c \
+        blockdev.c ide.c ne2k.c \
 	keyboard.c screen.c timer.c \
 	mem.c crc32.c \
 	gdt.c tss.c segment.c \
