@@ -56,7 +56,7 @@
  *
  * This file is part of the uIP TCP/IP stack.
  *
- * $Id: resolv.c,v 1.1 2008/08/06 23:21:19 andrewlxia Exp $
+ * $Id: resolv.c,v 1.2 2008/08/13 20:12:50 andrewlxia Exp $
  *
  */
 
@@ -132,6 +132,33 @@ static u8_t seqno;
 
 static struct uip_udp_conn *resolv_conn = NULL;
 
+
+int appcall(void){ //for UIP_APPCALL, referred in uip-conf.h
+
+   	return 0;
+}
+
+void uip_log(char *msg)  //you should replace this by your own log function
+{
+    //PrintDebug("\nuIP log:");
+    //PrintDebug(msg);
+}
+
+
+/**
+ * Callback function which is called when a hostname is found.
+ *
+ * This function must be implemented by the module that uses the DNS
+ * resolver. It is called when a hostname is found, or when a hostname
+ * was not found.
+ *
+ * \param name A pointer to the name that was looked up.  \param
+ * ipaddr A pointer to a 4-byte array containing the IP address of the
+ * hostname, or NULL if the hostname could not be found.
+ */
+void resolv_found(char *name, u16_t *ipaddr){
+
+}
 
 /*---------------------------------------------------------------------------*/
 /** \internal
