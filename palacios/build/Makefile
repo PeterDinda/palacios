@@ -1,6 +1,6 @@
 # Makefile for GeekOS kernel, userspace, and tools
 # Copyright (c) 2004,2005 David H. Hovemeyer <daveho@cs.umd.edu>
-# $Revision: 1.59 $
+# $Revision: 1.60 $
 
 # This is free software.  You are permitted to use,
 # redistribute, and modify it as specified in the file "COPYING".
@@ -443,7 +443,7 @@ geekos/kernel.bin : geekos/kernel.exe
 geekos/kernel.exe : $(KERNEL_OBJS) $(COMMON_C_OBJS) $(VMM_OBJS) $(DEVICE_OBJS) $(TCPSTACK_OBJS) vm_kernel
 	$(TARGET_LD) -o geekos/kernel.exe -Ttext $(KERNEL_BASE_ADDR) -e $(KERNEL_ENTRY) \
 		$(DECODER_FLAGS) \
-		$(KERNEL_OBJS) $(COMMON_C_OBJS) $(VMM_OBJS) $(DEVICE_OBJS) $(V3LIBS) -b binary vm_kernel
+		$(KERNEL_OBJS) $(COMMON_C_OBJS) $(VMM_OBJS) $(DEVICE_OBJS) $(V3LIBS) $(TCPSTACK_OBJS) -b binary vm_kernel
 	$(TARGET_NM) geekos/kernel.exe > geekos/kernel.syms
 
 
@@ -459,7 +459,7 @@ force:
 
 # Clean build directories of generated files
 clean :
-	for d in geekos common libc user tools palacios devices; do \
+	for d in geekos common libc user tools palacios devices net; do \
 		(cd $$d && rm -f *); \
 	done
 
