@@ -42,7 +42,7 @@
  *
  * This file is part of the uIP TCP/IP stack
  *
- * $Id: uip-conf.h,v 1.2 2008/08/06 23:40:07 andrewlxia Exp $
+ * $Id: uip-conf.h,v 1.3 2008/08/13 20:12:18 andrewlxia Exp $
  */
 
 /**
@@ -56,12 +56,9 @@
 #define __UIP_CONF_H__
 
 
-int uip_appcall(void){
+extern int appcall(void);
 
-	return 0;
-}
-
-#define UIP_APPCALL  uip_appcall    //application function
+#define UIP_APPCALL  appcall    //application function
 //#define UIP_UDP_APPCALL  uip_appcall 
 
 

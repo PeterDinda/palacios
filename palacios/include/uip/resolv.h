@@ -38,7 +38,7 @@
  *
  * This file is part of the uIP TCP/IP stack.
  *
- * $Id: resolv.h,v 1.2 2008/08/06 23:40:07 andrewlxia Exp $
+ * $Id: resolv.h,v 1.3 2008/08/13 20:12:18 andrewlxia Exp $
  *
  */
 #ifndef __RESOLV_H__
@@ -63,9 +63,7 @@ void resolv_appcall(void);
  * ipaddr A pointer to a 4-byte array containing the IP address of the
  * hostname, or NULL if the hostname could not be found.
  */
-void resolv_found(char *name, u16_t *ipaddr)
-{ 
-}
+void resolv_found(char *name, u16_t *ipaddr);
 
 /* Functions. */
 void resolv_conf(u16_t *dnsserver);

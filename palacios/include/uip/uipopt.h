@@ -53,7 +53,7 @@
  *
  * This file is part of the uIP TCP/IP stack.
  *
- * $Id: uipopt.h,v 1.2 2008/08/06 23:40:07 andrewlxia Exp $
+ * $Id: uipopt.h,v 1.3 2008/08/13 20:12:18 andrewlxia Exp $
  *
  */
 
@@ -431,7 +431,7 @@
  * This function must be implemented by the module that uses uIP, and
  * is called by uIP whenever a log message is generated.
  */
-void uip_log(char *msg);
+extern void uip_log(char *msg);  //you should replace this by your own log function
 
 /**
  * The link level header length.
