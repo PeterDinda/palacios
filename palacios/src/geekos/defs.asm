@@ -1,6 +1,6 @@
 ; Definitions for use in GeekOS boot code
 ; Copyright (c) 2001, David H. Hovemeyer <daveho@cs.umd.edu>
-; $Revision: 1.8 $
+; $Revision: 1.9 $
 
 ; This is free software.  You are permitted to use,
 ; redistribute, and modify it as specified in the file "COPYING".
@@ -16,7 +16,16 @@
 %ifndef DEFS_ASM
 %define DEFS_ASM
 
-VM_KERNEL_TARGET	equ 0x100000
+;Zheng 08/01/2008
+SYSSEG equ 0x1000
+COMMAND_LINE_SIZE equ 1024
+
+SETUPSECTS      equ 4            ; /* default nr of setup-sectors */
+SYSSIZE         equ 0x7f00       ; /* system size: # of 16-byte clicks */
+ROOT_DEV        equ 0            ; /* ROOT_DEV is now written by "build" */
+SWAP_DEV        equ 0            ; /* SWAP_DEV is now written by "build" */
+
+;VM_KERNEL_TARGET	equ 0x100000
 	
 ; BIOS loads the boot sector at offset 0 in this segment
 BOOTSEG equ 0x07C0

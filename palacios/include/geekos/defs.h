@@ -1,7 +1,7 @@
 /*
  * Misc. kernel definitions
  * Copyright (c) 2001,2004 David H. Hovemeyer <daveho@cs.umd.edu>
- * $Revision: 1.5 $
+ * $Revision: 1.6 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -11,7 +11,14 @@
 #define GEEKOS_DEFS_H
 
 
+/*Zheng 08/01/2008*/
+#define SYSSEG             0x1000
+#define COMMAND_LINE_SIZE  1024
 
+#define SETUPSECTS    4            /* default nr of setup-sectors */
+#define SYSSIZE       0x7f00       /* system size: # of 16-byte clicks */
+#define ROOT_DEV      0            /* ROOT_DEV is now written by "build" */
+#define SWAP_DEV      0            /* SWAP_DEV is now written by "build" */
 
 /*
  * Kernel code and data segment selectors.
@@ -63,7 +70,7 @@
 
 
 // Where we load the vm's kernel image (1MB)
-#define VM_KERNEL_TARGET (0x100000) 
+//#define VM_KERNEL_TARGET (0x100000) 
 
 
 

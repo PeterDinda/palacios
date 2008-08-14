@@ -1,6 +1,6 @@
 # Makefile for GeekOS kernel, userspace, and tools
 # Copyright (c) 2004,2005 David H. Hovemeyer <daveho@cs.umd.edu>
-# $Revision: 1.60 $
+# $Revision: 1.61 $
 
 # This is free software.  You are permitted to use,
 # redistribute, and modify it as specified in the file "COPYING".
@@ -49,7 +49,7 @@ DEBUG=1
 DEBUG_SECTIONS= 
 
 ifeq ($(DEBUG_ALL),1)
-  DEBUG_SECTIONS:= $(DEBUG_SECTIONS) -DDEBUG_SHADOW_PAGING -DDEBUG_CTRL_REGS -DDEBUG_INTERRUPTS -DDEBUG_IO -DDEBUG_KEYBOARD -DDEBUG_PIC -DDEBUG_PIT -DDEBUG_NVRAM -DDEBUG_EMULATOR -DDEBUG_GENERIC
+  DEBUG_SECTIONS:= $(DEBUG_SECTIONS) -DDEBUG_SHADOW_PAGING -DDEBUG_CTRL_REGS -DDEBUG_INTERRUPTS -DDEBUG_IO -DDEBUG_KEYBOARD -DDEBUG_PIC -DDEBUG_PIT -DDEBUG_NVRAM -DDEBUG_EMULATOR -DDEBUG_GENERIC 
 endif
 ifeq ($(DEBUG_SHADOW_PAGING),1)
 DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DDEBUG_SHADOW_PAGING
@@ -80,6 +80,9 @@ DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DDEBUG_GENERIC
 endif
 ifeq ($(DEBUG_EMULATOR),1)
 DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DDEBUG_EMULATOR
+endif
+ifeq ($(DEBUG_RAMDISK),1)
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DDEBUG_RAMDISK
 endif
 
 
@@ -114,6 +117,16 @@ endif
 #
 TCPSTACK=UIP
 
+#
+#RAMDISK
+#
+RAMDISK_SRCS=
+BOOT_FLAGS=
+
+ifeq ($(RAMDISK_BOOT),1)
+BOOT_FLAGS := $(BOOT_FLAGS) -DRAMDISK_BOOT
+RAMDISK_SRCS := ramdisk.c cdrom.c
+endif
 
 
 
@@ -214,7 +227,7 @@ VMM_OBJS := $(VMM_C_OBJS) $(VMM_ASM_OBJS)
 
 
 
-DEVICE_C_SRCS := generic.c keyboard.c nvram.c timer.c simple_pic.c 8259a.c 8254.c serial.c
+DEVICE_C_SRCS := generic.c keyboard.c nvram.c timer.c simple_pic.c 8259a.c 8254.c serial.c $(RAMDISK_SRCS)
 
 DEVICE_C_OBJS := $(DEVICE_C_SRCS:%.c=devices/%.o)
 
@@ -297,7 +310,7 @@ FD_SECTORS_PER_TRACK := $(PERL) $(PROJECT_ROOT)/scripts/numsecs_per_track
 # ----------------------------------------------------------------------
 
 # Flags used for all C source files
-GENERAL_OPTS := -O -Wall $(EXTRA_C_OPTS) $(VMM_FLAGS) -fPIC
+GENERAL_OPTS := -O -Wall $(EXTRA_C_OPTS) $(VMM_FLAGS) $(BOOT_FLAGS) -fPIC
 CC_GENERAL_OPTS := $(GENERAL_OPTS) -Werror 
 
 # Flags used for kernel C source files
@@ -432,7 +445,7 @@ geekos/setup.bin : geekos/kernel.bin $(PROJECT_ROOT)/src/geekos/setup.asm
 	        -DVMM_SIZE=`$(NUMSECS) geekos/kernel.bin` \
 		$(PROJECT_ROOT)/src/geekos/setup.asm \
 		-o $@
-	$(PAD) $@ 512
+	$(PAD) $@ 2048
 
 # Loadable (flat) kernel image.
 geekos/kernel.bin : geekos/kernel.exe

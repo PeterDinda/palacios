@@ -2,7 +2,7 @@
  * Physical memory allocation
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
- * $Revision: 1.9 $
+ * $Revision: 1.10 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -31,6 +31,11 @@
  * List of Page structures representing each page of physical memory.
  */
 struct Page* g_pageList;
+
+#ifdef RAMDISK_BOOT
+ulong_t g_ramdiskImage;
+ulong_t s_ramdiskSize;
+#endif
 
 /*
  * Number of pages currently available on the freelist.
@@ -135,6 +140,14 @@ void Init_Mem(struct Boot_Info* bootInfo)
     ulong_t heapEnd;
     ulong_t vmmMemEnd;
 
+    /*Zheng 08/03/2008*/    
+#ifdef RAMDISK_BOOT
+    g_ramdiskImage = bootInfo->ramdisk_image;
+    s_ramdiskSize = bootInfo->ramdisk_size;
+    ulong_t initrdAddr;
+    ulong_t initrdEnd;
+#endif
+    
 
     KASSERT(bootInfo->memSizeKB > 0);
 
@@ -163,6 +176,7 @@ void Init_Mem(struct Boot_Info* bootInfo)
      *        Heap (512 Pages)
      *        Page List (variable pages)
      *        Available Memory for VMM (4096 pages)
+     *        Ramdisk //Zheng 08/03/2008
      *        VM Memory (everything else)
      */
 
@@ -188,12 +202,35 @@ void Init_Mem(struct Boot_Info* bootInfo)
     /* ** */
     vmmMemEnd = Round_Up_To_Page(pageListEnd + VMM_AVAIL_MEM_SIZE);
 
+#ifdef RAMDISK_BOOT
+    /*
+     * Zheng 08/03/2008
+     * copy the ramdisk to this area 
+     */
 
+    initrdAddr = vmmMemEnd;
+    initrdEnd = Round_Up_To_Page(initrdAddr + s_ramdiskSize);
+    PrintBoth("mem.c(%d) Move ramdisk(%dB) from %x to %x", __LINE__, s_ramdiskSize, g_ramdiskImage, initrdAddr);
+    memcpy(initrdAddr, g_ramdiskImage, s_ramdiskSize);
+    PrintBoth(" done\n");
+    PrintBoth("mem.c(%d) Set 0 to unused bytes in the last ramdisk page from %x to %x", __LINE__, initrdAddr+s_ramdiskSize, initrdEnd);
+    memset(initrdAddr+s_ramdiskSize, 0, initrdEnd-(initrdAddr+s_ramdiskSize));
+    PrintBoth(" done\n");
+    /*
+     * Zheng 08/03/2008
+     */
+    vm_range_start = initrdEnd;
+    vm_range_end = endOfMem;
+#else
+    
     /* 
      *  the disgusting way to get at the memory assigned to a VM
      */
+    
     vm_range_start = vmmMemEnd;
     vm_range_end = endOfMem;
+    
+#endif
 
     Add_Page_Range(0, PAGE_SIZE, PAGE_UNUSED);                        // BIOS area
     Add_Page_Range(PAGE_SIZE, PAGE_SIZE * 3, PAGE_ALLOCATED);         // Intial kernel thread obj + stack
@@ -202,12 +239,20 @@ void Init_Mem(struct Boot_Info* bootInfo)
     Add_Page_Range(KERNEL_START_ADDR, kernEnd, PAGE_KERN);            // VMM Kernel
     //    Add_Page_Range(guest_kernel_start, guestEnd, PAGE_VM);                  // Guest kernel location
     Add_Page_Range(heapAddr, heapEnd, PAGE_HEAP);                     // Heap
-    Add_Page_Range(pageListAddr, pageListEnd, PAGE_KERN);              // Page List 
-    Add_Page_Range(pageListEnd, vmmMemEnd, PAGE_AVAIL);                // Available VMM memory
-    //    Add_Page_Range(vmmMemEnd, endOfMem, PAGE_VM);                      // Memory allocated to the VM
-    // Until we get a more intelligent memory allocator
-    Add_Page_Range(vmmMemEnd, endOfMem, PAGE_AVAIL);                      // Memory allocated to the VM
+    Add_Page_Range(pageListAddr, pageListEnd, PAGE_KERN);             // Page List 
+    Add_Page_Range(pageListEnd, vmmMemEnd, PAGE_AVAIL);               // Available VMM memory
 
+#ifdef RAMDISK_BOOT
+    /*
+     * Zheng 08/03/2008
+     */
+    Add_Page_Range(vmmMemEnd, initrdEnd, PAGE_ALLOCATED);              //Ramdisk memory area      
+    //    Add_Page_Range(vmmMemEnd, endOfMem, PAGE_VM);                // Memory allocated to the VM
+    // Until we get a more intelligent memory allocator
+    Add_Page_Range(initrdEnd, endOfMem, PAGE_AVAIL);                   // Memory allocated to the VM
+#else
+    Add_Page_Range(vmmMemEnd, endOfMem, PAGE_AVAIL);                   // Memory allocated to the VM
+#endif
 
     /* Initialize the kernel heap */
     Init_Heap(heapAddr, KERNEL_HEAP_SIZE);
@@ -226,7 +271,17 @@ void Init_Mem(struct Boot_Info* bootInfo)
     PrintBoth("%x to %x - KERNEL HEAP\n", heapAddr, heapEnd - 1);
     PrintBoth("%lx to %lx - PAGE LIST\n", pageListAddr, pageListEnd - 1);
     PrintBoth("%lx to %x - FREE\n", pageListEnd, vmmMemEnd - 1);
+
+#ifdef RAMDISK_BOOT
+    /*
+     * Zheng 08/03/2008
+     */
+    PrintBoth("%lx to %x - RAMDISK\n", vmmMemEnd, initrdEnd - 1);
+
+    PrintBoth("%lx to %x - GUEST_MEMORY (also free)\n", initrdEnd, endOfMem - 1);
+#else
     PrintBoth("%lx to %x - GUEST_MEMORY (also free)\n", vmmMemEnd, endOfMem - 1);
+#endif
 }
 
 /*

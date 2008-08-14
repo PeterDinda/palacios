@@ -1,6 +1,6 @@
 //  -*- fundamental -*-
 /////////////////////////////////////////////////////////////////////////
-// $Id: rombios.c,v 1.12 2008/07/11 22:59:38 pdinda Exp $
+// $Id: rombios.c,v 1.13 2008/08/14 18:22:45 cuizheng Exp $
 /////////////////////////////////////////////////////////////////////////
 //
 //  Copyright (C) 2002  MandrakeSoft S.A.
@@ -132,6 +132,7 @@
 
 #define DEBUG_ROMBIOS      1
 
+#define DEBUG_RAMDISK	   0
 #define DEBUG_ATA          0
 #define DEBUG_INT13_HD     0
 #define DEBUG_INT13_CD     0
@@ -945,10 +946,10 @@ Bit16u cdrom_boot();
 
 #endif // BX_ELTORITO_BOOT
 
-static char bios_cvs_version_string[] = "$Revision: 1.12 $";
-static char bios_date_string[] = "$Date: 2008/07/11 22:59:38 $";
+static char bios_cvs_version_string[] = "$Revision: 1.13 $";
+static char bios_date_string[] = "$Date: 2008/08/14 18:22:45 $";
 
-static char CVSID[] = "$Id: rombios.c,v 1.12 2008/07/11 22:59:38 pdinda Exp $";
+static char CVSID[] = "$Id: rombios.c,v 1.13 2008/08/14 18:22:45 cuizheng Exp $";
 
 /* Offset to skip the CVS $Id: prefix */ 
 #define bios_version_string  (CVSID + 4)
@@ -972,6 +973,15 @@ static char CVSID[] = "$Id: rombios.c,v 1.12 2008/07/11 22:59:38 pdinda Exp $";
 #endif
 #define BX_INFO(format, p...)   bios_printf(BIOS_PRINTF_INFO, format, ##p)
 #define BX_PANIC(format, p...)  bios_printf(BIOS_PRINTF_DEBHALT, format, ##p)
+
+/*Zheng 07/2008*/
+
+#if DEBUG_RAMDISK
+#   define debug_outb(a...) outb(a)
+#else
+#   define debug_outb(a...)
+#endif  
+
 
 #if DEBUG_ATA
 #  define BX_DEBUG_ATA(a...) BX_DEBUG(a)
@@ -2180,6 +2190,8 @@ void ata_detect( )
   Bit8u  hdcount, cdcount, device, type;
   Bit8u  buffer[0x0200];
 
+  debug_outb(0x3e8, 0xf0);
+
   //BX_DEBUG("rombios: ata_detect\n");
 
 #if BX_MAX_ATA_INTERFACES > 0
@@ -2436,6 +2448,8 @@ void ata_detect( )
           break;
         }
 
+	debug_outb(0x2ed, device);
+	debug_outb(0x2ee, type);
       switch (type) {
         case ATA_TYPE_ATA:
           printf("ata%d %s: ",channel,slave?" slave":"master");
@@ -2452,6 +2466,8 @@ void ata_detect( )
           break;
         case ATA_TYPE_UNKNOWN:
           printf("ata%d %s: Unknown device\n",channel,slave?" slave":"master");
+	  if(device == 3) {
+	  }
           break;
         }
       }
@@ -2463,6 +2479,7 @@ void ata_detect( )
   write_byte(0x40,0x75, hdcount);
  
   printf("\n");
+  debug_outb(0x3e8, 0xf0);
 
   // FIXME : should use bios=cmos|auto|disable bits
   // FIXME : should know about translation bits
@@ -2483,6 +2500,8 @@ Bit16u device;
   Bit16u iobase1, iobase2;
   Bit8u  channel, slave, sn, sc; 
   Bit16u max;
+
+  debug_outb(0x3e9, 0xf1);
 
   channel = device / 2;
   slave = device % 2;
@@ -2533,6 +2552,8 @@ Bit16u device;
 
   // Enable interrupts
   outb(iobase2+ATA_CB_DC, ATA_CB_DC_HD15);
+
+  debug_outb(0x3e9, 0xf1);
 }
 
 // ---------------------------------------------------------------------------
@@ -2562,6 +2583,9 @@ Bit32u lba;
   Bit16u iobase1, iobase2, blksize;
   Bit8u  channel, slave;
   Bit8u  status, current, mode;
+
+  debug_outb(0x3ea, 0xf2); 
+
 
   channel = device / 2;
   slave   = device % 2;
@@ -2606,9 +2630,11 @@ Bit32u lba;
 
   if (status & ATA_CB_STAT_ERR) {
     BX_DEBUG_ATA("ata_cmd_data_in : read error\n");
+      debug_outb(0x3ea, 0xf2); 
     return 2;
     } else if ( !(status & ATA_CB_STAT_DRQ) ) {
     BX_DEBUG_ATA("ata_cmd_data_in : DRQ not set (status %02x)\n", (unsigned) status);
+  debug_outb(0x3ea, 0xf2); 
     return 3;
   }
 
@@ -2667,6 +2693,7 @@ ASM_END
       if ( (status & (ATA_CB_STAT_BSY | ATA_CB_STAT_RDY | ATA_CB_STAT_DRQ | ATA_CB_STAT_ERR) ) 
           != ATA_CB_STAT_RDY ) {
         BX_DEBUG_ATA("ata_cmd_data_in : no sectors left (status %02x)\n", (unsigned) status);
+        debug_outb(0x3ea, 0xf2); 
         return 4;
         }
       break;
@@ -2675,6 +2702,7 @@ ASM_END
       if ( (status & (ATA_CB_STAT_BSY | ATA_CB_STAT_RDY | ATA_CB_STAT_DRQ | ATA_CB_STAT_ERR) ) 
           != (ATA_CB_STAT_RDY | ATA_CB_STAT_DRQ) ) {
         BX_DEBUG_ATA("ata_cmd_data_in : more sectors left (status %02x)\n", (unsigned) status);
+        debug_outb(0x3ea, 0xf2); 
         return 5;
       }
       continue;
@@ -2682,6 +2710,7 @@ ASM_END
   }
   // Enable interrupts
   outb(iobase2+ATA_CB_DC, ATA_CB_DC_HD15);
+  debug_outb(0x3ea, 0xf2); 
   return 0;
 }
 
@@ -2705,6 +2734,8 @@ Bit32u lba;
   Bit16u iobase1, iobase2, blksize;
   Bit8u  channel, slave;
   Bit8u  status, current, mode;
+
+  debug_outb(0x3eb, 0xf3);
 
   channel = device / 2;
   slave   = device % 2;
@@ -2749,9 +2780,11 @@ Bit32u lba;
 
   if (status & ATA_CB_STAT_ERR) {
     BX_DEBUG_ATA("ata_cmd_data_out : read error\n");
+    debug_outb(0x3eb, 0xf3);
     return 2;
     } else if ( !(status & ATA_CB_STAT_DRQ) ) {
     BX_DEBUG_ATA("ata_cmd_data_out : DRQ not set (status %02x)\n", (unsigned) status);
+    debug_outb(0x3eb, 0xf3);
     return 3;
     }
 
@@ -2812,6 +2845,7 @@ ASM_END
       if ( (status & (ATA_CB_STAT_BSY | ATA_CB_STAT_RDY | ATA_CB_STAT_DF | ATA_CB_STAT_DRQ | ATA_CB_STAT_ERR) ) 
           != ATA_CB_STAT_RDY ) {
         BX_DEBUG_ATA("ata_cmd_data_out : no sectors left (status %02x)\n", (unsigned) status);
+	debug_outb(0x3eb, 0xf3);
         return 6;
         }
       break;
@@ -2820,6 +2854,7 @@ ASM_END
       if ( (status & (ATA_CB_STAT_BSY | ATA_CB_STAT_RDY | ATA_CB_STAT_DRQ | ATA_CB_STAT_ERR) ) 
           != (ATA_CB_STAT_RDY | ATA_CB_STAT_DRQ) ) {
         BX_DEBUG_ATA("ata_cmd_data_out : more sectors left (status %02x)\n", (unsigned) status);
+	debug_outb(0x3eb, 0xf3);
         return 7;
       }
       continue;
@@ -2827,6 +2862,7 @@ ASM_END
   }
   // Enable interrupts
   outb(iobase2+ATA_CB_DC, ATA_CB_DC_HD15);
+  debug_outb(0x3eb, 0xf3);
   return 0;
 }
 
@@ -2852,18 +2888,22 @@ Bit32u length;
   Bit8u  status, error, mode, lmode;
   Bit32u total, transfer;
 
+  debug_outb(0x3ec, 0xf4);
+
   channel = device / 2;
   slave = device % 2;
 
   // Data out is not supported yet
   if (inout == ATA_DATA_OUT) {
     BX_INFO("ata_cmd_packet: DATA_OUT not supported yet\n");
+  debug_outb(0x3ec, 0xf4);
     return 1;
     }
 
   // The header length must be even
   if (header & 1) {
     BX_DEBUG_ATA("ata_cmd_packet : header must be even (%04x)\n",header);
+  debug_outb(0x3ec, 0xf4);
     return 1;
     }
 
@@ -2914,7 +2954,7 @@ retry_on_media_change:
   // WAIT_FOR_NOT_BUSY_AND_DRIVE_READY();
   WAIT_FOR_NOT_BUSY();
    
-  //BX_DEBUG_ATA("ata_cmd_packet: not busy\n");
+  BX_DEBUG_ATA("ata_cmd_packet: not busy\n");
 
   // set "noninterruptable"
   outb(iobase2 + ATA_CB_DC, ATA_CB_DC_HD15 | ATA_CB_DC_NIEN);
@@ -2928,24 +2968,24 @@ retry_on_media_change:
   outb(iobase1 + ATA_CB_SC, 0x00);
   outb(iobase1 + ATA_CB_SN, 0x00);
 
-  //BX_DEBUG_ATA("ata_cmd_packet: configuration done\n");
+  BX_DEBUG_ATA("ata_cmd_packet: configuration done\n");
 
   // Issue command for packet 
   outb(iobase1 + ATA_CB_CMD, ATA_CMD_PACKET);
 
-  //BX_DEBUG_ATA("ata_cmd_packet: A0 issued to drive\n");
+  BX_DEBUG_ATA("ata_cmd_packet: A0 issued to drive\n");
  
   ALT_STATUS_WAIT_FOR((status&ATA_CB_STAT_BSY)==0);
 
-  //BX_DEBUG_ATA("ata_cmd_packet: alt status shows not busy\n");
+  BX_DEBUG_ATA("ata_cmd_packet: alt status shows not busy\n");
 
   STATUS_UPDATE();
 
-  //BX_DEBUG_ATA("ata_cmd_packet: main status shows 0x%x\n",(unsigned)status);
+  BX_DEBUG_ATA("ata_cmd_packet: main status shows 0x%x\n",(unsigned)status);
 
   WAIT_FOR_DATA_REQUEST();
 
-  //BX_DEBUG_ATA("ata_cmd_packet: data request is set\n");
+  BX_DEBUG_ATA("ata_cmd_packet: data request is set\n");
 
   // Normalize address
   cmdseg += (cmdoff / 16);
@@ -3031,6 +3071,7 @@ ASM_END
 #endif      
       if (status & ATA_CB_STAT_ERR) {
         BX_DEBUG_ATA("ata_cmd_packet : error (status %02x)\n",status);
+  debug_outb(0x3ec, 0xf4);
         return 3;
       }
       
@@ -3040,6 +3081,7 @@ ASM_END
       if ( (status & (ATA_CB_STAT_BSY | ATA_CB_STAT_RDY | ATA_CB_STAT_DRQ | ATA_CB_STAT_ERR) ) 
 	   != (ATA_CB_STAT_RDY | ATA_CB_STAT_DRQ) ) {
         BX_DEBUG_ATA("ata_cmd_packet 1: not ready (status %02x)\n", status);
+  debug_outb(0x3ec, 0xf4);
         return 4;
       }
       
@@ -3177,18 +3219,20 @@ ASM_END
       // Save transferred bytes count
       transfer += count;
       write_dword(ebda_seg, &EbdaData->ata.trsfbytes,transfer);
-      }
-    }
+      } //while(1)
+    }//else
 
   // Final check, device must be ready
   if ( (status & (ATA_CB_STAT_BSY | ATA_CB_STAT_RDY | ATA_CB_STAT_DF | ATA_CB_STAT_DRQ | ATA_CB_STAT_ERR) ) 
          != ATA_CB_STAT_RDY ) {
     BX_DEBUG_ATA("ata_cmd_packet 2 : not ready (status %02x)\n", (unsigned) status);
+  debug_outb(0x3ec, 0xf4);
 	return 4;
     }
 
   // Enable interrupts
   outb(iobase2+ATA_CB_DC, ATA_CB_DC_HD15);
+  debug_outb(0x3ec, 0xf4);
   return 0;
 
 }
@@ -3210,18 +3254,24 @@ atapi_get_sense(device)
   Bit8u  buffer[16];
   Bit8u i;
 
+  debug_outb(0x3ed, 0xf5);
+
   memsetb(get_SS(),atacmd,0,12);
 
   // Request SENSE 
   atacmd[0]=0x03;    
   atacmd[4]=0x20;    
-  if (ata_cmd_packet(device, 12, get_SS(), atacmd, 0, 16L, ATA_DATA_IN, get_SS(), buffer) != 0)
+  if (ata_cmd_packet(device, 12, get_SS(), atacmd, 0, 16L, ATA_DATA_IN, get_SS(), buffer) != 0) {
+  debug_outb(0x3ed, 0xf5);
     return 0x0002;
+  }
 
   if ((buffer[0] & 0x7e) == 0x70) {
+       debug_outb(0x3ed, 0xf5);
     return (((Bit16u)buffer[2]&0x0f)*0x100)+buffer[12];
     }
 
+  debug_outb(0x3ed, 0xf5);
   return 0;
 }
 
@@ -3232,21 +3282,29 @@ atapi_is_ready(device)
   Bit8u  atacmd[12];
   Bit8u  buffer[];
 
+  debug_outb(0x3ee, 0xf6);
+
   memsetb(get_SS(),atacmd,0,12);
  
   // Test Unit Ready
-  if (ata_cmd_packet(device, 12, get_SS(), atacmd, 0, 0L, ATA_DATA_NO, get_SS(), buffer) != 0)
+  if (ata_cmd_packet(device, 12, get_SS(), atacmd, 0, 0L, ATA_DATA_NO, get_SS(), buffer) != 0) {
+     debug_outb(0x3ee, 0xf6);
     return 0x000f;
+    }
 
   if (atapi_get_sense(device) !=0 ) {
     memsetb(get_SS(),atacmd,0,12);
 
     // try to send Test Unit Ready again
-    if (ata_cmd_packet(device, 12, get_SS(), atacmd, 0, 0L, ATA_DATA_NO, get_SS(), buffer) != 0)
+    if (ata_cmd_packet(device, 12, get_SS(), atacmd, 0, 0L, ATA_DATA_NO, get_SS(), buffer) != 0) {
+      debug_outb(0x3ee, 0xf6);
       return 0x000f;
+      }
 
+    debug_outb(0x3ee, 0xf6);
     return atapi_get_sense(device);
     }
+  debug_outb(0x3ee, 0xf6);
   return 0;
 }
 
@@ -3254,17 +3312,28 @@ atapi_is_ready(device)
 atapi_is_cdrom(device)
   Bit8u device;
 {
+
+
   Bit16u ebda_seg=read_word(0x0040,0x000E);
 
-  if (device >= BX_MAX_ATA_DEVICES)
-    return 0;
+  debug_outb(0x3ef, 0xf7);
 
-  if (read_byte(ebda_seg,&EbdaData->ata.devices[device].type) != ATA_TYPE_ATAPI)
+  if (device >= BX_MAX_ATA_DEVICES) {
+    debug_outb(0x3ef, 0xf7);
     return 0;
+    }
 
-  if (read_byte(ebda_seg,&EbdaData->ata.devices[device].device) != ATA_DEVICE_CDROM)
+  if (read_byte(ebda_seg,&EbdaData->ata.devices[device].type) != ATA_TYPE_ATAPI) {
+     debug_outb(0x3ef, 0xf7);
     return 0;
+    }
 
+  if (read_byte(ebda_seg,&EbdaData->ata.devices[device].device) != ATA_DEVICE_CDROM) {
+    debug_outb(0x3ef, 0xf7);
+    return 0;
+    }
+
+    debug_outb(0x3ef, 0xf7);
   return 1;
 }
 
@@ -3283,27 +3352,39 @@ atapi_is_cdrom(device)
   void
 cdemu_init()
 {
+
+
   Bit16u ebda_seg=read_word(0x0040,0x000E);
+
+	debug_outb(0x2e8, 0xf8);
 
   //BX_DEBUG("rombios: cdemu_init\n");
 
   // the only important data is this one for now
   write_byte(ebda_seg,&EbdaData->cdemu.active,0x00);
+	debug_outb(0x2e8, 0xf8);
+
+
 }
 
   Bit8u
 cdemu_isactive()
 {
+
   Bit16u ebda_seg=read_word(0x0040,0x000E);
 
+	outb(0x2e9, 0xf9);
   return(read_byte(ebda_seg,&EbdaData->cdemu.active));
 }
 
   Bit8u
 cdemu_emulated_drive()
 {
+
   Bit16u ebda_seg=read_word(0x0040,0x000E);
 
+	debug_outb(0x2ea, 0xfa);
+	debug_outb(0x2ea, 0xfa);
   return(read_byte(ebda_seg,&EbdaData->cdemu.emulated_drive));
 }
 
@@ -3321,6 +3402,7 @@ cdrom_boot()
   Bit16u boot_segment, nbsectors, i, error;
   Bit8u  device;
 
+  debug_outb(0x2eb, 0xfb);
 
   // Find out the first cdrom
   for (device=0; device<BX_MAX_ATA_DEVICES;device++) {
@@ -3328,7 +3410,10 @@ cdrom_boot()
     }
   
   // if not found
-  if(device >= BX_MAX_ATA_DEVICES) return 2;
+  if(device >= BX_MAX_ATA_DEVICES) {
+    debug_outb(0x2eb, 0xfb);
+      return 2;
+      }
 
 
 
@@ -3344,17 +3429,23 @@ cdrom_boot()
   atacmd[4]=(0x11 & 0x0000ff00) >> 8;
   atacmd[5]=(0x11 & 0x000000ff);
   atacmd[9]=atacmd[10]=atacmd[11]=0x0;  // just to be safe -PAD
-  if((error = ata_cmd_packet(device, 12, get_SS(), atacmd, 0, 2048L, ATA_DATA_IN, get_SS(), buffer)) != 0)
+  if((error = ata_cmd_packet(device, 12, get_SS(), atacmd, 0, 2048L, ATA_DATA_IN, get_SS(), buffer)) != 0) {
+    debug_outb(0x2eb, 0xfb);
     return 3;
+    }
 
 
   // Validity checks
   if(buffer[0]!=0)return 4;
   for(i=0;i<5;i++){
-    if(buffer[1+i]!=read_byte(0xf000,&isotag[i]))return 5;
+    if(buffer[1+i]!=read_byte(0xf000,&isotag[i])) {  
+    debug_outb(0x2eb, 0xfb); return 5;
+    }
    }
   for(i=0;i<23;i++)
-    if(buffer[7+i]!=read_byte(0xf000,&eltorito[i]))return 6;
+    if(buffer[7+i]!=read_byte(0xf000,&eltorito[i])) {  
+    		debug_outb(0x2eb, 0xfb); return 6;
+	}
   
   // ok, now we calculate the Boot catalog address
   lba=buffer[0x4A]*0x1000000+buffer[0x49]*0x10000+buffer[0x48]*0x100+buffer[0x47];
@@ -3368,19 +3459,21 @@ cdrom_boot()
   atacmd[3]=(lba & 0x00ff0000) >> 16;
   atacmd[4]=(lba & 0x0000ff00) >> 8;
   atacmd[5]=(lba & 0x000000ff);
-  if((error = ata_cmd_packet(device, 12, get_SS(), atacmd, 0, 2048L, ATA_DATA_IN, get_SS(), buffer)) != 0)
+  if((error = ata_cmd_packet(device, 12, get_SS(), atacmd, 0, 2048L, ATA_DATA_IN, get_SS(), buffer)) != 0) {
+    debug_outb(0x2eb, 0xfb);
     return 7;
+    }
 
 
  
   // Validation entry
-  if(buffer[0x00]!=0x01)return 8;   // Header
-  if(buffer[0x01]!=0x00)return 9;   // Platform
-  if(buffer[0x1E]!=0x55)return 10;  // key 1
-  if(buffer[0x1F]!=0xAA)return 10;  // key 2
+  if(buffer[0x00]!=0x01) {  debug_outb(0x2eb, 0xfb); return 8;}   // Header
+  if(buffer[0x01]!=0x00){  debug_outb(0x2eb, 0xfb); return 9;}   // Platform
+  if(buffer[0x1E]!=0x55) {  debug_outb(0x2eb, 0xfb); return 10;}  // key 1
+  if(buffer[0x1F]!=0xAA) {  debug_outb(0x2eb, 0xfb); return 10;}  // key 2
 
   // Initial/Default Entry
-  if(buffer[0x20]!=0x88)return 11; // Bootable
+  if(buffer[0x20]!=0x88) {  debug_outb(0x2eb, 0xfb); return 11;} // Bootable
 
   write_byte(ebda_seg,&EbdaData->cdemu.media,buffer[0x21]);
   if(buffer[0x21]==0){
@@ -3417,8 +3510,10 @@ cdrom_boot()
   atacmd[3]=(lba & 0x00ff0000) >> 16;
   atacmd[4]=(lba & 0x0000ff00) >> 8;
   atacmd[5]=(lba & 0x000000ff);
-  if((error = ata_cmd_packet(device, 12, get_SS(), atacmd, 0, nbsectors*512L, ATA_DATA_IN, boot_segment,0)) != 0)
+  if((error = ata_cmd_packet(device, 12, get_SS(), atacmd, 0, nbsectors*512L, ATA_DATA_IN, boot_segment,0)) != 0) {
+    debug_outb(0x2eb, 0xfb);
     return 12;
+    }
 
 
   // Remember the media type
@@ -3460,6 +3555,7 @@ cdrom_boot()
     write_byte(ebda_seg,&EbdaData->cdemu.active,0x01);
 
   // return the boot drive + no error
+  debug_outb(0x2eb, 0xfb);
   return (read_byte(ebda_seg,&EbdaData->cdemu.emulated_drive)*0x100)+0;
 }
 
@@ -4931,6 +5027,7 @@ int13_harddisk(DS, ES, DI, SI, BP, ELDX, BX, DX, CX, AX, IP, CS, FLAGS)
   Bit16u size, count;
   Bit8u  device, status;
 
+  debug_outb(0x2ef, 0xff);
   BX_DEBUG_INT13_HD("int13_harddisk: AX=%04x BX=%04x CX=%04x DX=%04x ES=%04x\n", AX, BX, CX, DX, ES);
 
   write_byte(0x0040, 0x008e, 0);  // clear completion flag
@@ -5300,6 +5397,7 @@ int13_fail_noah:
     SET_DISK_RET_STATUS(GET_AH());
 int13_fail_nostatus:
     SET_CF();     // error occurred
+  debug_outb(0x2ef, 0xff);
     return;
 
 int13_success:
@@ -5307,6 +5405,7 @@ int13_success:
 int13_success_noah:
     SET_DISK_RET_STATUS(0x00);
     CLEAR_CF();   // no error
+  debug_outb(0x2ef, 0xff);
     return;
 }
 
@@ -5323,6 +5422,8 @@ int13_cdrom(EHBX, DS, ES, DI, SI, BP, ELDX, BX, DX, CX, AX, IP, CS, FLAGS)
   Bit8u  atacmd[12];
   Bit32u lba;
   Bit16u count, segment, offset, i, size;
+
+  debug_outb(0x2f8, 0xe0);
 
   BX_DEBUG_INT13_CD("int13_cdrom: AX=%04x BX=%04x CX=%04x DX=%04x ES=%04x\n", AX, BX, CX, DX, ES);
   // BX_DEBUG_INT13_CD("int13_cdrom: SS=%04x DS=%04x ES=%04x DI=%04x SI=%04x\n",get_SS(), DS, ES, DI, SI);
@@ -5650,6 +5751,7 @@ int13_fail_noah:
     SET_DISK_RET_STATUS(GET_AH());
 int13_fail_nostatus:
     SET_CF();     // error occurred
+  debug_outb(0x2f8, 0xe0);
     return;
 
 int13_success:
@@ -5657,6 +5759,7 @@ int13_success:
 int13_success_noah:
     SET_DISK_RET_STATUS(0x00);
     CLEAR_CF();   // no error
+  debug_outb(0x2f8, 0xe0);
     return;
 }
 
@@ -5674,6 +5777,8 @@ int13_eltorito(DS, ES, DI, SI, BP, SP, BX, DX, CX, AX, IP, CS, FLAGS)
   Bit16u DS, ES, DI, SI, BP, SP, BX, DX, CX, AX, IP, CS, FLAGS;
 {
   Bit16u ebda_seg=read_word(0x0040,0x000E);
+
+  debug_outb(0x2fa, 0xe2);
 
   BX_DEBUG_INT13_ET("int13_eltorito: AX=%04x BX=%04x CX=%04x DX=%04x ES=%04x\n", AX, BX, CX, DX, ES);
   // BX_DEBUG_INT13_ET("int13_eltorito: SS=%04x DS=%04x ES=%04x DI=%04x SI=%04x\n",get_SS(), DS, ES, DI, SI);
@@ -5722,12 +5827,14 @@ int13_fail:
     SET_AH(0x01); // defaults to invalid function in AH or invalid parameter
     SET_DISK_RET_STATUS(GET_AH());
     SET_CF();     // error occurred
+  debug_outb(0x2fa, 0xe2);
     return;
 
 int13_success:
     SET_AH(0x00); // no error
     SET_DISK_RET_STATUS(0x00);
     CLEAR_CF();   // no error
+  debug_outb(0x2fa, 0xe2);
     return;
 }
 
@@ -5750,6 +5857,8 @@ int13_cdemu(DS, ES, DI, SI, BP, SP, BX, DX, CX, AX, IP, CS, FLAGS)
   Bit32u vlba, ilba, slba, elba;
   Bit16u before, segment, offset;
   Bit8u  atacmd[12];
+
+  debug_outb(0x2f9, 0xe1);
 
   BX_DEBUG_INT13_ET("int13_cdemu: AX=%04x BX=%04x CX=%04x DX=%04x ES=%04x\n", AX, BX, CX, DX, ES);
   //BX_DEBUG_INT13_ET("int13_cdemu: SS=%04x ES=%04x DI=%04x SI=%04x\n", get_SS(), ES, DI, SI);
@@ -5926,6 +6035,7 @@ int13_fail_noah:
     SET_DISK_RET_STATUS(GET_AH());
 int13_fail_nostatus:
     SET_CF();     // error occurred
+  debug_outb(0x2f9, 0xe1);
     return;
 
 int13_success:
@@ -5933,6 +6043,7 @@ int13_success:
 int13_success_noah:
     SET_DISK_RET_STATUS(0x00);
     CLEAR_CF();   // no error
+  debug_outb(0x2f9, 0xe1);
     return;
 }
 
@@ -6018,6 +6129,8 @@ int13_harddisk(DS, ES, DI, SI, BP, ELDX, BX, DX, CX, AX, IP, CS, FLAGS)
   Bit32u   lba;
   Bit16u   error;
 
+
+  debug_outb(0x2ef, 0xff);
   BX_DEBUG_INT13_HD("int13 harddisk: AX=%04x BX=%04x CX=%04x DX=%04x ES=%04x\n", AX, BX, CX, DX, ES);
 
   write_byte(0x0040, 0x008e, 0);  // clear completion flag
@@ -6036,6 +6149,7 @@ int13_harddisk(DS, ES, DI, SI, BP, ELDX, BX, DX, CX, AX, IP, CS, FLAGS)
     SET_AH(0x01);
     SET_DISK_RET_STATUS(0x01);
     SET_CF(); /* error occurred */
+  debug_outb(0x2ef, 0xff);
     return;
     }
 
@@ -6050,6 +6164,7 @@ BX_DEBUG_INT13_HD("int13_f00\n");
       set_diskette_current_cyl(0, 0); /* current cylinder, diskette 1 */
       set_diskette_current_cyl(1, 0); /* current cylinder, diskette 2 */
       CLEAR_CF(); /* successful */
+  debug_outb(0x2ef, 0xff);
       return;
       break;
 
@@ -6061,6 +6176,7 @@ BX_DEBUG_INT13_HD("int13_f01\n");
       /* set CF if error status read */
       if (status) SET_CF();
       else        CLEAR_CF();
+  debug_outb(0x2ef, 0xff);	
       return;
       break;
 
@@ -6101,24 +6217,31 @@ BX_DEBUG_INT13_HD("int13_f01\n");
         SET_AH(1);
         SET_DISK_RET_STATUS(1);
         SET_CF(); /* error occurred */
+  debug_outb(0x2ef, 0xff);
         return;
         }
 
-      if ( (num_sectors > 128) || (num_sectors == 0) )
+      if ( (num_sectors > 128) || (num_sectors == 0) ){
+  debug_outb(0x2ef, 0xff); 
         BX_PANIC("int13_harddisk(): num_sectors out of range!\n");
+	}
 
-      if (head > 15)
+      if (head > 15) {
+  debug_outb(0x2ef, 0xff);
         BX_PANIC("hard drive BIOS:(read/verify) head > 15\n");
+	}	
 
       if ( GET_AH() == 0x04 ) {
         SET_AH(0);
         SET_DISK_RET_STATUS(0);
         CLEAR_CF();
+  debug_outb(0x2ef, 0xff);
         return;
         }
 
       status = inb(0x1f7);
       if (status & 0x80) {
+  debug_outb(0x2ef, 0xff);
         BX_PANIC("hard drive BIOS:(read/verify) BUSY bit set\n");
         }
       outb(0x01f2, num_sectors);
@@ -6141,8 +6264,10 @@ BX_DEBUG_INT13_HD("CHS: %x %x %x\n", cylinder, head, sector);
         }
 
       if (status & 0x01) {
+        debug_outb(0x2ef, 0xff);
         BX_PANIC("hard drive BIOS:(read/verify) read error\n");
       } else if ( !(status & 0x08) ) {
+        debug_outb(0x2ef, 0xff);  
         BX_DEBUG_INT13_HD("status was %02x\n", (unsigned) status);
         BX_PANIC("hard drive BIOS:(read/verify) expected DRQ=1\n");
       }
@@ -6191,12 +6316,14 @@ ASM_END
         if (num_sectors == 0) {
           status = inb(0x1f7);
           if ( (status & 0xc9) != 0x40 )
+	    debug_outb(0x2ef, 0xff);
             BX_PANIC("no sectors left to read/verify, status is %02x\n", (unsigned) status);
           break;
           }
         else {
           status = inb(0x1f7);
           if ( (status & 0xc9) != 0x48 )
+	    debug_outb(0x2ef, 0xff);
             BX_PANIC("more sectors left to read/verify, status is %02x\n", (unsigned) status);
           continue;
           }
@@ -6206,6 +6333,7 @@ ASM_END
       SET_DISK_RET_STATUS(0);
       SET_AL(sector_count);
       CLEAR_CF(); /* successful */
+        debug_outb(0x2ef, 0xff);
       return;
       break;
 
@@ -6247,17 +6375,23 @@ BX_DEBUG_INT13_HD("int13_f03\n");
         SET_AH( 1);
         SET_DISK_RET_STATUS(1);
         SET_CF(); /* error occurred */
+	  debug_outb(0x2ef, 0xff);  
         return;
         }
 
-      if ( (num_sectors > 128) || (num_sectors == 0) )
+      if ( (num_sectors > 128) || (num_sectors == 0) ) {
+        debug_outb(0x2ef, 0xff);
         BX_PANIC("int13_harddisk(): num_sectors out of range!\n");
+	}
 
-      if (head > 15)
+      if (head > 15) {
+        debug_outb(0x2ef, 0xff);
         BX_PANIC("hard drive BIOS:(read) head > 15\n");
+	}
 
       status = inb(0x1f7);
       if (status & 0x80) {
+        debug_outb(0x2ef, 0xff);
         BX_PANIC("hard drive BIOS:(read) BUSY bit set\n");
         }
 // should check for Drive Ready Bit also in status reg
@@ -6283,6 +6417,7 @@ BX_DEBUG_INT13_HD("CHS (write): %x %x %x\n", cylinder, head, sector);
         }
 
       if ( !(status & 0x08) ) {
+        debug_outb(0x2ef, 0xff);
         BX_DEBUG_INT13_HD("status was %02x\n", (unsigned) status);
         BX_PANIC("hard drive BIOS:(write) data-request bit not set\n");
         }
@@ -6330,14 +6465,18 @@ ASM_END
         num_sectors--;
         if (num_sectors == 0) {
           status = inb(0x1f7);
-          if ( (status & 0xe9) != 0x40 )
+          if ( (status & 0xe9) != 0x40 ) {
+	    debug_outb(0x2ef, 0xff);
             BX_PANIC("no sectors left to write, status is %02x\n", (unsigned) status);
+	    }
           break;
           }
         else {
           status = inb(0x1f7);
-          if ( (status & 0xc9) != 0x48 )
-            BX_PANIC("more sectors left to write, status is %02x\n", (unsigned) status);
+          if ( (status & 0xc9) != 0x48 ) {
+	    debug_outb(0x2ef, 0xff);
+            BX_PANIC("more sectors left to write, status is %02x\n", (unsigned) status); 
+	    }
           continue;
           }
         }
@@ -6346,6 +6485,7 @@ ASM_END
       SET_DISK_RET_STATUS(0);
       SET_AL(sector_count);
       CLEAR_CF(); /* successful */
+        debug_outb(0x2ef, 0xff);
       return;
       break;
 
@@ -6356,6 +6496,7 @@ BX_DEBUG_INT13_HD("int13_f05\n");
       SET_AH(0);
       SET_DISK_RET_STATUS(0);
       CLEAR_CF(); /* successful */
+        debug_outb(0x2ef, 0xff);
       return;
       break;
 
@@ -6397,7 +6538,7 @@ BX_DEBUG_INT13_HD("int13_f08\n");
       SET_AH(0);
       SET_DISK_RET_STATUS(0);
       CLEAR_CF(); /* successful */
-
+        debug_outb(0x2ef, 0xff);
       return;
       break;
 
@@ -6406,6 +6547,7 @@ BX_DEBUG_INT13_HD("int13_f09\n");
       SET_AH(0);
       SET_DISK_RET_STATUS(0);
       CLEAR_CF(); /* successful */
+        debug_outb(0x2ef, 0xff);
       return;
       break;
 
@@ -6413,6 +6555,7 @@ BX_DEBUG_INT13_HD("int13_f09\n");
 BX_DEBUG_INT13_HD("int13_f0a\n");
     case 0x0b: /* write disk sectors with ECC */
 BX_DEBUG_INT13_HD("int13_f0b\n");
+	  debug_outb(0x2ef, 0xff);
       BX_PANIC("int13h Functions 0Ah & 0Bh not implemented!\n");
       return;
       break;
@@ -6423,6 +6566,7 @@ BX_DEBUG_INT13_HD("int13_f0c\n");
       SET_AH(0);
       SET_DISK_RET_STATUS(0);
       CLEAR_CF(); /* successful */
+	  debug_outb(0x2ef, 0xff);
       return;
       break;
 
@@ -6431,6 +6575,7 @@ BX_DEBUG_INT13_HD("int13_f0d\n");
       SET_AH(0);
       SET_DISK_RET_STATUS(0);
       CLEAR_CF(); /* successful */
+	  debug_outb(0x2ef, 0xff);
       return;
       break;
 
@@ -6448,12 +6593,14 @@ BX_DEBUG_INT13_HD("int13_f10\n");
         SET_AH(0);
         SET_DISK_RET_STATUS(0);
         CLEAR_CF(); // drive ready
+	  debug_outb(0x2ef, 0xff);
         return;
         }
       else {
         SET_AH(0xAA);
         SET_DISK_RET_STATUS(0xAA);
         SET_CF(); // not ready
+	  debug_outb(0x2ef, 0xff);
         return;
         }
       break;
@@ -6463,6 +6610,7 @@ BX_DEBUG_INT13_HD("int13_f11\n");
       SET_AH(0);
       SET_DISK_RET_STATUS(0);
       CLEAR_CF(); /* successful */
+	  debug_outb(0x2ef, 0xff);
       return;
       break;
 
@@ -6472,6 +6620,7 @@ BX_DEBUG_INT13_HD("int13_f14\n");
       SET_DISK_RET_STATUS(0);
       CLEAR_CF(); /* successful */
       SET_AL(0);
+	  debug_outb(0x2ef, 0xff);
       return;
       break;
 
@@ -6497,6 +6646,7 @@ ASM_END
       SET_AH(3);  // hard disk accessible
       SET_DISK_RET_STATUS(0); // ??? should this be 0
       CLEAR_CF(); // successful
+	  debug_outb(0x2ef, 0xff);
       return;
       break;
 
@@ -6516,6 +6666,7 @@ ASM_END
       SET_AH(1);  // code=invalid function in AH or invalid parameter
       SET_DISK_RET_STATUS(1);
       SET_CF(); /* unsuccessful */
+	  debug_outb(0x2ef, 0xff);
       return;
       break;
     }
@@ -6818,7 +6969,7 @@ int13_diskette_function(DS, ES, DI, SI, BP, ELDX, BX, DX, CX, AX, IP, CS, FLAGS)
   Bit8u  drive_type, num_floppies, ah;
   Bit16u es, last_addr;
 
-
+  debug_outb(0x2fb, 0xe3);	
   //printf("int13_diskette: AX=%04x BX=%04x CX=%04x DX=%04x ES=%04x\n", AX, BX, CX, DX, ES);
   BX_DEBUG_INT13_FL("int13_diskette: SS=%04x DS=%04x ES=%04x DI=%04x SI=%04x\n",get_SS(),get_DS(), ES, DI, SI);
 
@@ -6832,6 +6983,7 @@ int13_diskette_function(DS, ES, DI, SI, BP, ELDX, BX, DX, CX, AX, IP, CS, FLAGS)
         SET_AH(1); // invalid param
         set_diskette_ret_status(1);
         SET_CF();
+	  debug_outb(0x2fb, 0xe3);	
         return;
         }
       drive_type = inb_cmos(0x10);
@@ -6844,12 +6996,14 @@ int13_diskette_function(DS, ES, DI, SI, BP, ELDX, BX, DX, CX, AX, IP, CS, FLAGS)
         SET_AH(0x80); // drive not responding
         set_diskette_ret_status(0x80);
         SET_CF();
+	  debug_outb(0x2fb, 0xe3);	
         return;
         }
       SET_AH(0);
       set_diskette_ret_status(0);
       CLEAR_CF(); // successful
       set_diskette_current_cyl(drive, 0); // current cylinder
+        debug_outb(0x2fb, 0xe3);	
       return;
 
     case 0x01: // Read Diskette Status
@@ -6859,6 +7013,7 @@ int13_diskette_function(DS, ES, DI, SI, BP, ELDX, BX, DX, CX, AX, IP, CS, FLAGS)
       if (val8) {
         SET_CF();
         }
+	  debug_outb(0x2fb, 0xe3);	
       return;
 
     case 0x02: // Read Diskette Sectors
@@ -6877,6 +7032,7 @@ BX_INFO("floppy: drive>1 || head>1 ...\n");
         set_diskette_ret_status(1);
         SET_AL(0); // no sectors read
         SET_CF(); // error occurred
+	  debug_outb(0x2fb, 0xe3);	
         return;
         }
 
@@ -6886,6 +7042,7 @@ BX_INFO("floppy: drive>1 || head>1 ...\n");
         set_diskette_ret_status(0x80);
         SET_AL(0); // no sectors read
         SET_CF(); // error occurred
+	  debug_outb(0x2fb, 0xe3);	
         return;
         }
 
@@ -6896,6 +7053,7 @@ BX_INFO("floppy: drive>1 || head>1 ...\n");
           set_diskette_ret_status(0x0C);
           SET_AL(0); // no sectors read
           SET_CF(); // error occurred
+	    debug_outb(0x2fb, 0xe3);	
           return;
           }
         }
@@ -6927,6 +7085,7 @@ BX_INFO("floppy: drive>1 || head>1 ...\n");
           set_diskette_ret_status(0x09);
           SET_AL(0); // no sectors read
           SET_CF(); // error occurred
+	    debug_outb(0x2fb, 0xe3);	
           return;
           }
 
@@ -6981,8 +7140,10 @@ BX_INFO("floppy: drive>1 || head>1 ...\n");
 
         // check port 3f4 for drive readiness
         val8 = inb(0x3f4);
-        if ( (val8 & 0xf0) != 0x80 )
+        if ( (val8 & 0xf0) != 0x80 ) {
+	  debug_outb(0x2fb, 0xe3);	
           BX_PANIC("int13_diskette:f02: ctrl not ready\n");
+	  }
 
         // send read-normal-data command (9 bytes) to controller
         outb(0x03f5, 0xe6); // e6: read normal data
@@ -7019,8 +7180,10 @@ BX_INFO("floppy: drive>1 || head>1 ...\n");
 
         // check port 3f4 for accessibility to status bytes
         val8 = inb(0x3f4);
-        if ( (val8 & 0xc0) != 0xc0 )
+        if ( (val8 & 0xc0) != 0xc0 ) {
+	  debug_outb(0x2fb, 0xe3);	
           BX_PANIC("int13_diskette: ctrl not ready\n");
+	  }
 
         // read 7 return status bytes from controller
         // using loop index broken, have to unroll...
@@ -7045,6 +7208,7 @@ BX_INFO("floppy: drive>1 || head>1 ...\n");
           set_diskette_ret_status(0x20);
           SET_AL(0); // no sectors read
           SET_CF(); // error occurred
+	    debug_outb(0x2fb, 0xe3);	
           return;
           }
 
@@ -7053,6 +7217,7 @@ BX_INFO("floppy: drive>1 || head>1 ...\n");
         // AL = number of sectors read (same value as passed)
         SET_AH(0x00); // success
         CLEAR_CF();   // success
+	  debug_outb(0x2fb, 0xe3);	
         return;
         }
       else if (ah == 0x03) {
@@ -7082,6 +7247,7 @@ BX_INFO("floppy: drive>1 || head>1 ...\n");
           set_diskette_ret_status(0x09);
           SET_AL(0); // no sectors read
           SET_CF(); // error occurred
+	    debug_outb(0x2fb, 0xe3);	
           return;
           }
 
@@ -7129,8 +7295,10 @@ BX_INFO("floppy: drive>1 || head>1 ...\n");
 
         // check port 3f4 for drive readiness
         val8 = inb(0x3f4);
-        if ( (val8 & 0xf0) != 0x80 )
+        if ( (val8 & 0xf0) != 0x80 ){
+	  debug_outb(0x2fb, 0xe3);	
           BX_PANIC("int13_diskette:f03: ctrl not ready\n");
+	  }
 
         // send read-normal-data command (9 bytes) to controller
         outb(0x03f5, 0xc5); // c5: write normal data
@@ -7167,8 +7335,10 @@ BX_INFO("floppy: drive>1 || head>1 ...\n");
 
         // check port 3f4 for accessibility to status bytes
         val8 = inb(0x3f4);
-        if ( (val8 & 0xc0) != 0xc0 )
+        if ( (val8 & 0xc0) != 0xc0 ) {
+	  debug_outb(0x2fb, 0xe3);	
           BX_PANIC("int13_diskette: ctrl not ready\n");
+	  }
 
         // read 7 return status bytes from controller
         // using loop index broken, have to unroll...
@@ -7195,8 +7365,10 @@ BX_INFO("floppy: drive>1 || head>1 ...\n");
             // AL=number of sectors written=0
             AX = 0x0300;
             SET_CF();
+	      debug_outb(0x2fb, 0xe3);	
             return;
           } else {
+	    debug_outb(0x2fb, 0xe3);	
             BX_PANIC("int13_diskette_function: read error\n");
           }
         }
@@ -7206,6 +7378,7 @@ BX_INFO("floppy: drive>1 || head>1 ...\n");
         // AL = number of sectors read (same value as passed)
         SET_AH(0x00); // success
         CLEAR_CF();   // success
+	  debug_outb(0x2fb, 0xe3);	
         return;
         }
       else {  // if (ah == 0x04)
@@ -7216,6 +7389,7 @@ BX_INFO("floppy: drive>1 || head>1 ...\n");
         // AL = number of sectors verified (same value as passed)
         CLEAR_CF();   // success
         SET_AH(0x00); // success
+	  debug_outb(0x2fb, 0xe3);	
         return;
         }
 
@@ -7240,6 +7414,7 @@ BX_DEBUG_INT13_FL("floppy f05\n");
         SET_AH(0x80); // drive not responding
         set_diskette_ret_status(0x80);
         SET_CF(); // error occurred
+	  debug_outb(0x2fb, 0xe3);	
         return;
         }
 
@@ -7250,6 +7425,7 @@ BX_DEBUG_INT13_FL("floppy f05\n");
           set_diskette_ret_status(0x0C);
           SET_AL(0); // no sectors read
           SET_CF(); // error occurred
+	    debug_outb(0x2fb, 0xe3);	
           return;
           }
         }
@@ -7272,6 +7448,7 @@ BX_DEBUG_INT13_FL("floppy f05\n");
         set_diskette_ret_status(0x09);
         SET_AL(0); // no sectors read
         SET_CF(); // error occurred
+	  debug_outb(0x2fb, 0xe3);	
         return;
         }
 
@@ -7307,8 +7484,10 @@ BX_DEBUG_INT13_FL("floppy f05\n");
 
       // check port 3f4 for drive readiness
       val8 = inb(0x3f4);
-      if ( (val8 & 0xf0) != 0x80 )
+      if ( (val8 & 0xf0) != 0x80 ) {
+        debug_outb(0x2fb, 0xe3);	
         BX_PANIC("int13_diskette:f05: ctrl not ready\n");
+ 	}
 
       // send read-normal-data command (6 bytes) to controller
       outb(0x03f5, 0x4d); // 4d: format track
@@ -7337,8 +7516,10 @@ BX_DEBUG_INT13_FL("floppy f05\n");
       write_byte(0x0000, 0x043e, val8);
       // check port 3f4 for accessibility to status bytes
       val8 = inb(0x3f4);
-      if ( (val8 & 0xc0) != 0xc0 )
+      if ( (val8 & 0xc0) != 0xc0 ) {
+        debug_outb(0x2fb, 0xe3);	
         BX_PANIC("int13_diskette: ctrl not ready\n");
+	}
 
       // read 7 return status bytes from controller
       // using loop index broken, have to unroll...
@@ -7365,8 +7546,10 @@ BX_DEBUG_INT13_FL("floppy f05\n");
           // AL=number of sectors written=0
           AX = 0x0300;
           SET_CF();
+	    debug_outb(0x2fb, 0xe3);	
           return;
         } else {
+	  debug_outb(0x2fb, 0xe3);	
           BX_PANIC("int13_diskette_function: write error\n");
         }
       }
@@ -7375,6 +7558,7 @@ BX_DEBUG_INT13_FL("floppy f05\n");
       set_diskette_ret_status(0);
       set_diskette_current_cyl(drive, 0);
       CLEAR_CF(); // successful
+        debug_outb(0x2fb, 0xe3);	
       return;
 
 
@@ -7391,6 +7575,7 @@ BX_DEBUG_INT13_FL("floppy f08\n");
         DI = 0;
         SET_DL(num_floppies);
         SET_CF();
+	  debug_outb(0x2fb, 0xe3);	
         return;
         }
 
@@ -7459,6 +7644,7 @@ BX_DEBUG_INT13_FL("floppy f08\n");
           break;
 
         default: // ?
+	  debug_outb(0x2fb, 0xe3);	
           BX_PANIC("floppy: int13: bad floppy type\n");
         }
 
@@ -7473,6 +7659,7 @@ ASM_START
 ASM_END
       CLEAR_CF(); // success
       /* disk status not changed upon success */
+        debug_outb(0x2fb, 0xe3);	
       return;
 
 
@@ -7483,6 +7670,7 @@ BX_DEBUG_INT13_FL("floppy f15\n");
         SET_AH(0); // only 2 drives supported
         // set_diskette_ret_status here ???
         SET_CF();
+	  debug_outb(0x2fb, 0xe3);	
         return;
         }
       drive_type = inb_cmos(0x10);
@@ -7508,12 +7696,14 @@ BX_DEBUG_INT13_FL("floppy f16\n");
         SET_AH(0x01); // invalid drive
         set_diskette_ret_status(0x01);
         SET_CF();
+	  debug_outb(0x2fb, 0xe3);	
         return;
         }
 
       SET_AH(0x06); // change line not supported
       set_diskette_ret_status(0x06);
       SET_CF();
+        debug_outb(0x2fb, 0xe3);	
       return;
 
     case 0x17: // set diskette type for format(old)
@@ -7522,6 +7712,7 @@ BX_DEBUG_INT13_FL("floppy f17\n");
       SET_AH(0x01); // not supported
       set_diskette_ret_status(1); /* not supported */
       SET_CF();
+        debug_outb(0x2fb, 0xe3);	
       return;
 
     case 0x18: // set diskette type for format(new)
@@ -7529,6 +7720,7 @@ BX_DEBUG_INT13_FL("floppy f18\n");
       SET_AH(0x01); // do later
       set_diskette_ret_status(1);
       SET_CF();
+        debug_outb(0x2fb, 0xe3);	
       return;
 
     default:
@@ -7538,6 +7730,7 @@ BX_DEBUG_INT13_FL("floppy f18\n");
         SET_AH(0x01); // ???
         set_diskette_ret_status(1);
         SET_CF();
+	  debug_outb(0x2fb, 0xe3);	
         return;
       //   }
     }
@@ -7558,6 +7751,7 @@ int13_diskette_function(DS, ES, DI, SI, BP, ELDX, BX, DX, CX, AX, IP, CS, FLAGS)
       if (val8) {
         SET_CF();
         }
+	  debug_outb(0x2fb, 0xe3);	
       return;
 
     default:
@@ -7565,6 +7759,7 @@ int13_diskette_function(DS, ES, DI, SI, BP, ELDX, BX, DX, CX, AX, IP, CS, FLAGS)
       write_byte(0x0000, 0x0441, 0x01);
       SET_AH(0x01);
     }
+      debug_outb(0x2fb, 0xe3);	
 }
 #endif  // #if BX_SUPPORT_FLOPPY
 
@@ -8441,6 +8636,16 @@ f1_missing:
 hard_drive_post:
   // IRQ 14 = INT 76h
   // INT 76h calls INT 15h function ax=9100
+
+#if DEBUG_RAMDISK
+
+  mov al, #0xfc
+  mov dx, #0x02ec
+  out dx, al
+  mov ax, #0x0000
+  mov dx, #0x0000
+
+#endif
 
   mov  al, #0x0a   ; 0000 1010 = reserved, disable IRQ 14
   mov  dx, #0x03f6

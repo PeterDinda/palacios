@@ -1,7 +1,7 @@
 ; -*- fundamental -*-
 ; GeekOS setup code
 ; Copyright (c) 2001,2004 David H. Hovemeyer <daveho@cs.umd.edu>
-; $Revision: 1.4 $
+; $Revision: 1.5 $
 
 ; This is free software.  You are permitted to use,
 ; redistribute, and modify it as specified in the file "COPYING".
@@ -14,10 +14,121 @@
 ; modified by Bruce Evans (bde)
 ; adapted for Kernel Toolkit by Luigi Sgro
 
+%define __BIG_KERNEL__
+
 %include "defs.asm"
 
 [BITS 16]
 [ORG 0x0]
+
+start:
+		db	0xEB
+		db      46 ;trampoline
+
+; This is the setup header, and it must start at %cs:2 (old 0x9020:2)
+
+        	db	'H'		; header signature
+		db      'd'
+		db      'r'
+		db      'S'
+		dw	0x0203		; header version number (>= 0x0105)
+					; or else old loadlin-1.5 will fail)
+realmode_swtch:	dw	0, 0		; default_switch, SETUPSEG
+start_sys_seg:	dw	SYSSEG
+		dw	kernel_version	; pointing to kernel version string
+					; above section of header is compatible
+					; with loadlin-1.5 (header v1.5). Don't
+					; change it.
+
+type_of_loader:	db	0		; = 0, old one (LILO, Loadlin,
+					;      Bootlin, SYSLX, bootsect...)
+					; See Documentation/i386/boot.txt for
+					; assigned ids
+	
+; flags, unused bits must be zero (RFU) bit within loadflags
+loadflags:  db 1
+;LOADED_HIGH	equ 1			; If set, the kernel is loaded high
+;CAN_USE_HEAP	equ 0x80 			; If set, the loader also has set
+					; heap_end_ptr to tell how much
+					; space behind setup.S can be used for
+					; heap purposes.
+					; Only the loader knows what is free
+;%ifndef __BIG_KERNEL__
+;		db	1
+;%else
+;		db	1
+;%endif
+
+setup_move_size: dw  0x8000		; size to move, when setup is not
+					; loaded at 0x90000. We will move setup 
+					; to 0x90000 then just before jumping
+					; into the kernel. However, only the
+					; loader knows how much data behind
+					; us also needs to be loaded.
+
+code32_start: dd 0x100000				; here loaders can put a different
+					; start address for 32-bit code.
+;%ifndef __BIG_KERNEL__
+;		dd	0x100000	;   0x1000 = default for zImage
+;%else
+;		dd	0x100000	; 0x100000 = default for big kernel
+;%endif
+
+ramdisk_image:	dd	0		; address of loaded ramdisk image
+					; Here the loader puts the 32-bit
+					; address where it loaded the image.
+					; This only will be read by the kernel.
+
+ramdisk_size:	dd	0		; its size in bytes
+
+bootsect_kludge:
+		dd	0		; obsolete
+
+heap_end_ptr:	dw	modelist+1024	; (Header version 0x0201 or later)
+					; space from here (exclusive) down to
+					; end of setup code can be used by setup
+					; for local heap purposes.
+
+pad1:		dw	0
+cmd_line_ptr:	dd      0		; (Header version 0x0202 or later)
+					; If nonzero, a 32-bit pointer
+					; to the kernel command line.
+					; The command line should be
+					; located between the start of
+					; setup and the end of low
+					; memory (0xa0000), or it may
+					; get overwritten before it
+					; gets read.  If this field is
+					; used, there is no longer
+					; anything magical about the
+					; 0x90000 segment; the setup
+					; can be located anywhere in
+					; low memory 0x10000 or higher.
+
+ramdisk_max:	  dd 0xffffffff
+;kernel_alignment:  dd 0x200000          ; physical addr alignment required for
+		      			; protected mode relocatable kernel
+;%ifdef CONFIG_RELOCATABLE
+;relocatable_kernel:    db 1
+;%else
+;relocatable_kernel:    db 0
+;%endif
+;pad2:                  db 0
+;pad3:                  dw 0
+
+;cmdline_size:   dd   COMMAND_LINE_SIZE-1     ;length of the command line,
+                                              ;added with boot protocol
+                                              ;version 2.06
+
+trampoline:	call	start_setup
+;		ALIGN 16
+space: 
+       %rep  1024
+       	     db 0
+       %endrep				; The offset at this point is 0x240	
+					
+; End of setup header ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 
 start_setup:
 
@@ -60,6 +171,7 @@ start_setup:
 	mov	ax, 0x01
 	lmsw	ax
 
+
 	; Jump to 32 bit code.
 	jmp	dword KERNEL_CS:(SETUPSEG << 4) + setup_32
 
@@ -80,6 +192,16 @@ setup_32:
 	; Build Boot_Info struct on stack.
 	; Note that we push the fields on in reverse order,
 	; since the stack grows downwards.
+
+	;Zheng 08/02/2008
+	xor eax, eax
+	mov eax, [(SETUPSEG<<4)+ramdisk_size]
+	push eax
+
+	xor eax, eax
+	mov eax, [(SETUPSEG<<4)+ramdisk_image]
+	push eax	
+
 	xor	eax, eax
 	mov	ax, [(SETUPSEG<<4)+mem_size_kbytes]
 	xor 	ebx, ebx
@@ -181,6 +303,7 @@ Enable_A20:
 mem_size_kbytes: dw 0
 mem_size_eblocks: dw 0
 
+
 ; ----------------------------------------------------------------------
 ; The GDT.  Creates flat 32-bit address space for the kernel
 ; code, data, and stack.  Note that this GDT is just used
@@ -229,3 +352,15 @@ GDT_Pointer:
 IDT_Pointer:
 	dw 0
 	dd 00
+
+; Here's a bunch of information about your current kernel..
+kernel_version:	db	"1.0.0VMMHack"
+		db	" ("
+		db	"copyright"
+		db	"@"
+		db	"2008"
+		db	") "
+		db	""
+		db	0
+
+modelist:
