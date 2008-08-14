@@ -2,7 +2,7 @@
  * Physical memory allocation
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
- * $Revision: 1.12 $
+ * $Revision: 1.13 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -211,10 +211,10 @@ void Init_Mem(struct Boot_Info* bootInfo)
     initrdAddr = vmmMemEnd;
     initrdEnd = Round_Up_To_Page(initrdAddr + s_ramdiskSize);
     PrintBoth("mem.c(%d) Move ramdisk(%dB) from %x to %x", __LINE__, s_ramdiskSize, g_ramdiskImage, initrdAddr);
-    memcpy(initrdAddr, g_ramdiskImage, s_ramdiskSize);
+    memcpy((ulong_t *)initrdAddr, (ulong_t *)g_ramdiskImage, s_ramdiskSize);
     PrintBoth(" done\n");
     PrintBoth("mem.c(%d) Set 0 to unused bytes in the last ramdisk page from %x to %x", __LINE__, initrdAddr+s_ramdiskSize, initrdEnd);
-    memset(initrdAddr+s_ramdiskSize, 0, initrdEnd-(initrdAddr+s_ramdiskSize));
+    memset((ulong_t *)initrdAddr+s_ramdiskSize, 0, initrdEnd-(initrdAddr+s_ramdiskSize));
     PrintBoth(" done\n");
     /*
      * Zheng 08/03/2008
