@@ -8,12 +8,20 @@
 #define PrintDebug(fmt, args...)
 #endif
 
+#ifdef DEBUG_RAMDISK
+#define Ramdisk_Print_Intr(_f, _a...) PrintTrace("\nvmm_intr.c(%d) "_f, __LINE__, ## _a)
+#else
+#define Ramdisk_Print_Intr(_f, _a...)
+#endif
+
+/*Zheng 07/30/2008*/
 void init_interrupt_state(struct guest_info * info) {
   info->intr_state.excp_pending = 0;
   info->intr_state.excp_num = 0;
   info->intr_state.excp_error_code = 0;
 
   info->vm_ops.raise_irq = &v3_raise_irq;
+  info->vm_ops.lower_irq = &v3_lower_irq; //Zheng added
 }
 
 void set_intr_controller(struct guest_info * info, struct intr_ctrl_ops * ops, void * state) {
@@ -78,6 +86,7 @@ static void guest_injection_irq_handler(struct vmm_intr_state *state)
   struct guest_info *guest = (struct guest_info *)(state->opaque);
 
   PrintDebug("guest_irq_injection: injecting irq 0x%x into guest 0x%x\n",state->irq,guest);
+  Ramdisk_Print_Intr("[guest_injection_irq_handler] raise_irq = %x\n", state->irq);
   guest->vm_ops.raise_irq(guest,state->irq);
 }
 
@@ -110,8 +119,10 @@ int v3_raise_exception_with_error(struct guest_info * info, uint_t excp, uint_t 
     intr_state->excp_error_code = error_code;
     intr_state->excp_error_code_valid = 1;
     PrintDebug("Raising exception with error code: %x\n", error_code);
+    Ramdisk_Print_Intr("[v3_raise_exception_with_error] error code: %x\n", error_code);
   } else {
     PrintError("exception already pending, currently not implemented\n");
+    Ramdisk_Print_Intr("[v3_raise_exception_with_error] not implemented\n");
     return -1;
   }
 
@@ -120,7 +131,7 @@ int v3_raise_exception_with_error(struct guest_info * info, uint_t excp, uint_t 
 
 int v3_raise_exception(struct guest_info * info, uint_t excp) {
   struct vm_intr * intr_state = &(info->intr_state);
-
+  Ramdisk_Print_Intr("[v3_raise_exception]\n");
   if (intr_state->excp_pending == 0) {
     intr_state->excp_pending = 1;
     intr_state->excp_num = excp;
@@ -134,12 +145,33 @@ int v3_raise_exception(struct guest_info * info, uint_t excp) {
   return 0;
 }
 
+/*Zheng 07/30/2008*/
+
+int v3_lower_irq(struct guest_info * info, int irq) {
+  // Look up PIC and resend
+  V3_ASSERT(info);
+  V3_ASSERT(info->intr_state.controller);
+  V3_ASSERT(info->intr_state.controller->raise_intr);
+
+  Ramdisk_Print_Intr("[v3_lower_irq]\n");
+
+  //  if ((info->intr_state.controller) && 
+  //  (info->intr_state.controller->raise_intr)) {
+    info->intr_state.controller->lower_intr(info->intr_state.controller_state, irq);
+    //} else {
+    // PrintDebug("There is no registered Interrupt Controller... (NULL POINTER)\n");
+    // return -1;
+    //}
+  return 0;
+}
 
 int v3_raise_irq(struct guest_info * info, int irq) {
   // Look up PIC and resend
   V3_ASSERT(info);
   V3_ASSERT(info->intr_state.controller);
   V3_ASSERT(info->intr_state.controller->raise_intr);
+
+  Ramdisk_Print_Intr("[v3_raise_irq]\n");
 
   //  if ((info->intr_state.controller) && 
   //  (info->intr_state.controller->raise_intr)) {
@@ -151,11 +183,12 @@ int v3_raise_irq(struct guest_info * info, int irq) {
   return 0;
 }
 
-
+ 
 
 int intr_pending(struct guest_info * info) {
   struct vm_intr * intr_state = &(info->intr_state);
 
+  //  Ramdisk_Print_Intr("[intr_pending]\n");
   if (intr_state->excp_pending == 1) {
     return 1;
   } else if (intr_state->controller->intr_pending(intr_state->controller_state) == 1) {
@@ -174,6 +207,7 @@ uint_t get_intr_number(struct guest_info * info) {
   if (intr_state->excp_pending == 1) {
     return intr_state->excp_num;
   } else if (intr_state->controller->intr_pending(intr_state->controller_state)) {
+    Ramdisk_Print_Intr("[get_intr_number] intr_number = %d\n", intr_state->controller->get_intr_number(intr_state->controller_state));
     return intr_state->controller->get_intr_number(intr_state->controller_state);
   }
 
@@ -187,11 +221,13 @@ intr_type_t get_intr_type(struct guest_info * info) {
  struct vm_intr * intr_state = &(info->intr_state);
 
   if (intr_state->excp_pending) {
+    Ramdisk_Print_Intr("[get_intr_type] Exception\n");
     return EXCEPTION;
   } else if (intr_state->controller->intr_pending(intr_state->controller_state)) {
+    Ramdisk_Print_Intr("[get_intr_type] External_irq\n");
     return EXTERNAL_IRQ;
   }
-
+    Ramdisk_Print_Intr("[get_intr_type] Invalid_Intr\n");
   return INVALID_INTR;
 }
 
@@ -204,13 +240,14 @@ int injecting_intr(struct guest_info * info, uint_t intr_num, intr_type_t type) 
   struct vm_intr * intr_state = &(info->intr_state);
 
   if (type == EXCEPTION) {
-
+    Ramdisk_Print_Intr("[injecting_intr] Exception\n");
     intr_state->excp_pending = 0;
     intr_state->excp_num = 0;
     intr_state->excp_error_code = 0;
     intr_state->excp_error_code_valid = 0;
     
   } else if (type == EXTERNAL_IRQ) {
+    Ramdisk_Print_Intr("[injecting_intr] External_Irq with intr_num = %x\n", intr_num);
     return intr_state->controller->begin_irq(intr_state->controller_state, intr_num);
   }
 

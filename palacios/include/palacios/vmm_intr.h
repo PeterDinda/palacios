@@ -60,11 +60,17 @@ void init_interrupt_state(struct guest_info * info);
 
 int v3_raise_irq(struct guest_info * info, int irq);
 
+/*Zheng 07/30/2008*/
+int v3_lower_irq(struct guest_info * info, int irq);
+
+
+/*Zheng 07/30/2008*/
 
 struct intr_ctrl_ops {
   int (*intr_pending)(void * private_data);
   int (*get_intr_number)(void * private_data);
   int (*raise_intr)(void * private_data, int irq);
+  int (*lower_intr)(void * private_data, int irq);
   int (*begin_irq)(void * private_data, int irq);
 };
 

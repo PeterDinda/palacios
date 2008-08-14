@@ -26,7 +26,11 @@ struct generic_internal {
 
 
   
-    
+#ifdef RAMDISK_BOOT
+#include <devices/ramdisk.h>
+//ramdisk_state
+static struct ramdisk_t *ramdisk_state;
+#endif    
 
 
 
@@ -74,6 +78,19 @@ int generic_write_port_passthrough(ushort_t port,
   
   PrintDebug(" to port 0x%x ... ", port);
 
+#ifdef RAMDISK_BOOT
+
+  uint_t err;
+
+  if (((port >= 0x170 && port <= 0x177) || port == 0x376 || port == 0x377)
+      && (dev->vm->cpu_mode == REAL)) {
+
+    
+    err = ramdisk_state->eops.write_port(port, src, length, dev);
+
+  }else{
+#endif
+
   switch (length) {
   case 1:
     Out_Byte(port,((uchar_t*)src)[0]);
@@ -88,8 +105,10 @@ int generic_write_port_passthrough(ushort_t port,
     for (i = 0; i < length; i++) { 
       Out_Byte(port, ((uchar_t*)src)[i]);
     }
-  }
-
+  } //switch length
+#ifdef RAMDISK_BOOT
+  }//else not ramdisk
+#endif
   PrintDebug(" done\n");
   
   return length;
@@ -104,21 +123,36 @@ int generic_read_port_passthrough(ushort_t port,
 
   PrintDebug("generic: reading 0x%x bytes from port 0x%x ...", length, port);
 
-  switch (length) {
-  case 1:
-    ((uchar_t*)src)[0] = In_Byte(port);
-    break;
-  case 2:
-    ((ushort_t*)src)[0] = In_Word(port);
-    break;
-  case 4:
-    ((uint_t*)src)[0] = In_DWord(port);
-    break;
-  default:
-    for (i = 0; i < length; i++) { 
-      ((uchar_t*)src)[i] = In_Byte(port);
-    }
-  }
+#ifdef RAMDISK_BOOT
+
+  uint_t err;
+
+  if (((port >= 0x170 && port <= 0x177) || port == 0x376 || port == 0x377)
+      && (dev->vm->cpu_mode == REAL)) {
+
+    err = ramdisk_state->eops.read_port(port, src, length, dev);
+
+  }else{
+#endif
+
+    switch (length) {
+    case 1:
+      ((uchar_t*)src)[0] = In_Byte(port);
+      break;
+    case 2:
+      ((ushort_t*)src)[0] = In_Word(port);
+      break;
+    case 4:
+      ((uint_t*)src)[0] = In_DWord(port);
+      break;
+    default:
+      for (i = 0; i < length; i++) { 
+	((uchar_t*)src)[i] = In_Byte(port);
+      }
+    }//switch length
+#ifdef RAMDISK_BOOT
+  }//else not ramdisk
+#endif
 
   PrintDebug(" done ... read 0x");
 
@@ -147,7 +181,19 @@ int generic_write_port_ignore(ushort_t port,
   PrintDebug(" to port 0x%x ... ", port);
 
   PrintDebug(" ignored\n");
-  
+ 
+#ifdef RAMDISK_BOOT
+
+  uint_t err;
+
+  if (((port >= 0x3e8 && port <= 0x3ef) || 
+       (port >= 0x2e8 && port <= 0x2ef))
+      && (dev->vm->cpu_mode == REAL)) {
+
+    err = ramdisk_state->eops.write_port_ignore(port, src, length, dev);
+  }
+#endif
+ 
   return length;
 }
 
@@ -161,6 +207,18 @@ int generic_read_port_ignore(ushort_t port,
 
   memset((char*)src,0,length);
   PrintDebug(" ignored (return zeroed buffer)\n");
+
+#ifdef RAMDISK_BOOT
+
+  uint_t err;
+
+  if (((port >= 0x3e8 && port <= 0x3ef) || 
+       (port >= 0x2e8 && port <= 0x2ef))
+      && (dev->vm->cpu_mode == REAL)) {
+
+    err = ramdisk_state->eops.read_port_ignore(port, src, length, dev);
+  }
+#endif
 
   return length;
 }
@@ -240,6 +298,12 @@ int generic_init_device(struct vm_device * dev)
 
   }
 
+#ifdef RAMDISK_BOOT
+
+  ramdisk_state->cops.init(ramdisk_state, dev);
+
+#endif
+
   return 0;
 }
 
@@ -249,6 +313,12 @@ int generic_deinit_device(struct vm_device *dev)
   uint_t i, j;
 
   PrintDebug("generic: deinit_device\n");
+
+#ifdef RAMDISK_BOOT
+
+  ramdisk_state->cops.close(ramdisk_state);
+  
+#endif
 
   for (i = 0; i < state->num_irq_ranges; i++) { 
     PrintDebug("generic: unhooking irqs 0x%x to 0x%x\n", state->irq_ranges[i][0], state->irq_ranges[i][1]);
@@ -376,6 +446,12 @@ struct vm_device *create_generic(generic_port_range_type    port_ranges[],
     generic_state->irq_ranges = NULL;
   }
 
+#ifdef RAMDISK_BOOT
+
+  ramdisk_state = create_ramdisk();
+  V3_ASSERT(ramdisk_state != NULL);
+
+#endif
 
   struct vm_device *device = create_device("GENERIC", &dev_ops, generic_state);
 

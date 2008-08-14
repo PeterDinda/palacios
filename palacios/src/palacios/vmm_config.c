@@ -186,7 +186,7 @@ int config_guest(struct guest_info * info, void * config_ptr) {
       {0xcfc, 0xcfc, GENERIC_PRINT_AND_IGNORE}, // PCI Config Data
 #endif
  
-#if 0
+#if 1
 
       // Monitor the IDE controllers (very slow)
 

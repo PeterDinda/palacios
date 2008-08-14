@@ -83,11 +83,11 @@ struct shadow_map;
 struct vmm_io_map;
 struct emulation_state;
 
-
+/*Zheng 07/30/2008*/
 struct vm_ctrl_ops {
   int (*raise_irq)(struct guest_info * info, int irq);
+  int (*lower_irq)(struct guest_info * info, int irq);
 };
-
 
 
 
