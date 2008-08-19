@@ -3,7 +3,7 @@
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
  * Copyright (c) 2004, Iulian Neamtiu <neamtiu@cs.umd.edu>
- * $Revision: 1.41 $
+ * $Revision: 1.42 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -39,19 +39,26 @@
 #include <geekos/pci.h>
 
 #include <geekos/ne2k.h>
+#include <uip/uip.h>
 
 #define SPEAKER_PORT 0x61
 #define TEST_NE2K 0
 
 #if TEST_NE2K
+u8_t uip_buf[UIP_BUFSIZE+2];
+u16_t uip_len;
+
 int Packet_Received(struct NE2K_Packet_Info* info, uchar_t *pkt) {
+  uip_len = info->size;  
   int i;
   for(i = 0; i < info->size; i++) {
     PrintBoth("%x ", *(pkt+i));
+    uip_buf[i] = *(pkt+i);
     if(i % 10 == 0)
       PrintBoth("\n");
   }
   Free(pkt);
+  uip_input();
   return 0;
 }
 #endif
@@ -232,7 +239,41 @@ void Main(struct Boot_Info* bootInfo)
 
 #if TEST_NE2K
   Init_Ne2k(&Packet_Received);
-#endif
+  uip_init();
+
+  /* Local IP address */
+  uip_ipaddr_t ipaddr;
+  uip_ipaddr(ipaddr, 10,0,2,21);
+  uip_sethostaddr(ipaddr);
+
+  /* Remote IP address */
+  uip_ipaddr_t ripaddr;
+  uip_ipaddr(ripaddr, 10,0,2,20);
+  struct uip_conn *conn;
+  conn = uip_connect(&ripaddr, HTONS(8080));
+
+  while(uip_len <= 0) {
+    uip_periodic_conn(conn);
+  }
+/* Sending...*/
+  int size;
+  uchar_t *data;
+
+  /* Based on example code from the uIP documentation */
+  if(uip_len <= UIP_LLH_LEN + UIP_TCPIP_HLEN) {
+    size = uip_len + UIP_LLH_LEN;
+    data = Malloc(size);
+    memcpy(data, &uip_buf[0], UIP_LLH_LEN);
+    memcpy(data + UIP_LLH_LEN, &uip_buf[UIP_LLH_LEN], uip_len - UIP_LLH_LEN);
+  } else {
+    size = uip_len + UIP_LLH_LEN + UIP_TCPIP_HLEN;
+    data = Malloc(size);
+    memcpy(data, &uip_buf[0], UIP_LLH_LEN);
+    memcpy(data + UIP_LLH_LEN, &uip_buf[UIP_LLH_LEN], UIP_TCPIP_HLEN);
+    memcpy(data + UIP_LLH_LEN + UIP_TCPIP_HLEN, uip_appdata, uip_len - UIP_TCPIP_HLEN - UIP_LLH_LEN);
+  }
+/* Finished */
+#endif /* TEST_NE2K */
 
   //  Init_IDE();
 
@@ -281,12 +322,15 @@ void Main(struct Boot_Info* bootInfo)
   uchar_t src_addr[6] = { 0x52, 0x54, 0x00, 0x12, 0x34, 0x58 };
   uchar_t dest_addr[6] = { 0x52, 0x54, 0x00, 0x12, 0x34, 0x56 };
 
-  uint_t size = 64, i;
-  uchar_t *data = Malloc(size);
-  data = "This is a 64-byte string that will be used to test transmission.";
+  /* manually copy over the src and dest mac addresses for now */
+  memcpy(data, dest_addr, 6);
+  memcpy(data + 6, src_addr, 6);
+  *(data+12) = size+2;
+  *(data+13) = 0x00;
 
+  uint_t i;
   for(i = 0; i < 3; i++) {
-    NE2K_Send(src_addr, dest_addr, 0x01, data, size);
+    NE2K_Send(data, size);
   }
 #endif
 
