@@ -259,7 +259,56 @@ int Init_Ne2k(int (*rcvd_fn)(struct NE2K_Packet_Info *info, uchar_t *packet))
 }
 
 /* Assumes src and dest are arrays of 6 characters. */
-int NE2K_Send(uchar_t src[], uchar_t dest[], uint_t type, uchar_t *data, uint_t size)
+int NE2K_Send(uchar_t *packet, uint_t size)
+{
+  struct _CR * cr = (struct _CR*)&(regs->cr);
+  regs->cr = 0x21; /* Turn off remote DMA, stop command */
+  cr->stp = 0x0;  /* toggle start on */
+  cr->sta = 0x1;
+  Out_Byte(NE2K_CR, regs->cr);
+  
+  // Read-before-write bug fix?
+  Out_Byte(NE2K_RBCR0, 0x42);
+  Out_Byte(NE2K_RBCR1, 0x00);
+  Out_Byte(NE2K_RSAR0, 0x42);
+  Out_Byte(NE2K_RSAR1, 0x00);
+
+  cr->rd = 0x01;  /* set remote DMA to 'remote read' */
+  Out_Byte(NE2K_CR, regs->cr);
+
+  regs->isr = 0x40;  /* clear 'remote DMA complete' interrupt */
+  Out_Byte(NE2K_ISR, regs->isr);
+  
+  /* Set remote byte count registers */
+  Out_Byte(NE2K_RBCR0, size & 0xff);
+  Out_Byte(NE2K_RBCR1, (size >> 8) & 0xff);
+
+  /* Set transmit byte count registers. */
+  Out_Byte(NE2K_TBCR0, size & 0xff);
+  Out_Byte(NE2K_TBCR1, (size >> 8) & 0xff);
+
+  /* Set remote start address registers to the first page of the transmit ring buffer. */
+  Out_Byte(NE2K_RSAR0, 0x00);
+  Out_Byte(NE2K_RSAR1, TX_START_BUFF);
+
+  cr->rd = 0x02; /* Set remote DMA to 'remote write' */
+  Out_Byte(NE2K_CR, regs->cr);
+
+  /* Push the packet data to into the dataport */
+  uint_t i;
+  for(i = 0; i < size; i += 2) {
+    Out_Word(NE2K_CR + 0x10, (*(packet + i + 1) << 8) | *(packet + i));
+  }
+
+  cr->txp = 0x1; /* Start transmission */
+  Out_Byte(NE2K_CR, regs->cr);
+
+  return 0;
+}
+
+#if 0
+/* Assumes src and dest are arrays of 6 characters. */
+int NE2K_Send2(uchar_t src[], uchar_t dest[], uint_t type, uchar_t *data, uint_t size)
 {
   struct _CR * cr = (struct _CR*)&(regs->cr);
   uint_t packet_size = size + 16;
@@ -320,6 +369,7 @@ int NE2K_Send(uchar_t src[], uchar_t dest[], uint_t type, uchar_t *data, uint_t 
 
   return 0;
 }
+#endif
 
 int NE2K_Receive()
 {
