@@ -4,6 +4,8 @@
 #include <geekos/irq.h>
 #include <geekos/malloc.h>
 #include <geekos/string.h>
+#include <uip/uip.h>
+#include <uip/uip_arp.h>
 
 #define DEBUG 1
 #define TX_START_BUFF 	0x40
@@ -32,68 +34,7 @@ static void Dump_Registers()
   }
 }
 #endif
-#if 0
-static int NE2K_Transmit(struct NE2K_REGS *regs)
-{
-  while(!send_done);
-  send_done = 0;
 
-  struct _CR * cr = (struct _CR*)&(regs->cr);
-  uint_t packet_size = 80;
-  regs->cr = 0x21;
-  cr->stp = 0x0;  //toggle start on
-  cr->sta = 0x1;
-  Out_Byte(NE2K_CR, regs->cr);
-  
-  // Read-before-write bug fix?
-  Out_Byte(NE2K_RBCR0, 0x42);
-  Out_Byte(NE2K_RBCR1, 0x00);
-  Out_Byte(NE2K_RSAR0, 0x42);
-  Out_Byte(NE2K_RSAR1, 0x00);
-
-  cr->rd = 0x01;  // set remote DMA to 'remote read'
-  Out_Byte(NE2K_CR, regs->cr);
-
-  regs->isr = 0x40;  // clear and set Remote DMA high
-  Out_Byte(NE2K_ISR, regs->isr);
-  
-  Out_Byte(NE2K_RBCR0, packet_size);
-  Out_Byte(NE2K_RBCR1, 0x00);
-
-  Out_Byte(NE2K_TBCR0, packet_size);
-  Out_Byte(NE2K_TBCR1, 0x00);
-
-  Out_Byte(NE2K_RSAR0, 0x00);
-  Out_Byte(NE2K_RSAR1, 0x40);
-
-  regs->cr = 0x16;
-  Out_Byte(NE2K_CR, regs->cr);
-
-  /* Begin pushing the packet into the dataport (located at 0x10 from the base address) */
-  /* Destination address = 52:54:00:12:34:56 */
-  Out_Word(NE2K_CR+0x10, 0x5452);
-  Out_Word(NE2K_CR+0x10, 0x1200);
-  Out_Word(NE2K_CR+0x10, 0x5634);
-
-  /* Source address = 52:54:00:12:34:58 */
-  Out_Word(NE2K_CR+0x10, 0x5452);
-  Out_Word(NE2K_CR+0x10, 0x1200);
-  Out_Word(NE2K_CR+0x10, 0x5834);
-
-  /* Type length and data; currently random data */
-  uint_t i;
-  uint_t n = 0;
-  for(i = 1; i <= packet_size/2-12; i++, n+=2) {
-    //Out_Word(NE2K_CR+0x10, 0x0f0b);
-    Out_Word(NE2K_CR+0x10, (n<<8) | (n+1));
-  }
-
-  //regs->isr = 0x40;
-  //Out_Byte(NE2K_ISR, regs->isr); /* Do we need this here? */
-
-  return 0;
-}
-#endif
 static void NE2K_Interrupt_Handler(struct Interrupt_State * state)
 {
   Begin_IRQ(state);
@@ -258,8 +199,43 @@ int Init_Ne2k(int (*rcvd_fn)(struct NE2K_Packet_Info *info, uchar_t *packet))
   return 0;
 }
 
-/* Assumes src and dest are arrays of 6 characters. */
-int NE2K_Send(uchar_t *packet, uint_t size)
+/* 
+ * This function is called when there is data in uip_buf that's ready to be sent.
+ * uip_arp_out() is used to translate the destination IP address to a MAC address.
+ * If the corresponding MAC address isn't in the cache, the packet is replaced with
+ * an ARP packet, which is sent out instead.  The original packet will need to be
+ * retransmitted at some point in the future.
+ */
+int NE2K_Transmit(uint_t size)
+{
+  uip_arp_out();
+  uchar_t *data;
+  data = Malloc(size);
+
+  /* Based on example code from the uIP documentation... */
+  if(size <= UIP_LLH_LEN + UIP_TCPIP_HLEN) {
+    memcpy(data, &uip_buf[0], size);
+  } else {
+    memcpy(data, &uip_buf[0], UIP_LLH_LEN + UIP_TCPIP_HLEN);
+    memcpy(data + UIP_LLH_LEN + UIP_TCPIP_HLEN, uip_appdata, size - UIP_TCPIP_HLEN - UIP_LLH_LEN);
+  }
+
+  /* Manually copy in the source MAC address for now. */
+  uchar_t src_addr[6] = { 0x52, 0x54, 0x00, 0x12, 0x34, 0x58 };
+  memcpy(data + 6, src_addr, 6);
+  if(*(data+12) != 0x08 || *(data+13) != 0x06)
+  {
+    /* This is not an ARP packet. Fill in te size of the packet manually. */
+    *(data+12) = size & 0xff;
+    *(data+13) = (size >> 8) & 0xff;
+  }
+
+  NE2K_Send_Packet(data, size);
+  Free(data);
+  return 0;
+}
+
+int NE2K_Send_Packet(uchar_t *packet, uint_t size)
 {
   struct _CR * cr = (struct _CR*)&(regs->cr);
   regs->cr = 0x21; /* Turn off remote DMA, stop command */
@@ -306,9 +282,9 @@ int NE2K_Send(uchar_t *packet, uint_t size)
   return 0;
 }
 
-#if 0
+#if 1
 /* Assumes src and dest are arrays of 6 characters. */
-int NE2K_Send2(uchar_t src[], uchar_t dest[], uint_t type, uchar_t *data, uint_t size)
+int NE2K_Send(uchar_t src[], uchar_t dest[], uint_t type, uchar_t *data, uint_t size)
 {
   struct _CR * cr = (struct _CR*)&(regs->cr);
   uint_t packet_size = size + 16;
