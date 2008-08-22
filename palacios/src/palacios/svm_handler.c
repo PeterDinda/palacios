@@ -452,7 +452,6 @@ int handle_svm_exit(struct guest_info * info) {
 
 
 const uchar_t * vmexit_code_to_str(uint_t exit_code) {
-
   switch(exit_code) {
   case VMEXIT_CR0_READ:
     return VMEXIT_CR0_READ_STR;

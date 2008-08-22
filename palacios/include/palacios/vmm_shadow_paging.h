@@ -6,6 +6,7 @@
 
 #include <palacios/vmm_util.h>
 #include <palacios/vmm_paging.h>
+#include <palacios/vmm_hashtable.h>
 
 struct shadow_page_state {
 
@@ -23,6 +24,12 @@ struct shadow_page_state {
   ullong_t                shadow_cr3;
 
 
+  // Hash table that ties a CR3 value to a hash table pointer for the PT entries
+  struct hashtable *  cr3_cache;
+  // Hash table that contains a mapping of guest pte addresses to host pte addresses
+  struct hashtable *  cached_ptes;
+  addr_t cached_cr3;
+
 };
 
 
@@ -31,7 +38,7 @@ struct guest_info;
 
 
 
-
+int cache_page_tables32(struct guest_info * info, addr_t  pde);
 
 int init_shadow_page_state(struct guest_info * info);
 

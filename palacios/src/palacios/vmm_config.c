@@ -12,15 +12,15 @@
 
 
 
-/*static int mem_test_read(addr_t guest_addr, void * dst, uint_t length, void * priv_data) {
- int foo = 20;
+static int mem_test_read(addr_t guest_addr, void * dst, uint_t length, void * priv_data) {
+  int foo = 20;
 
 
   memcpy(dst, &foo, length);
 
   PrintDebug("Passthrough mem read returning: %d (length=%d)\n", foo + (guest_addr & 0xfff), length);
   return length;
-  }*/
+}
 
 static int passthrough_mem_read(addr_t guest_addr, void * dst, uint_t length, void * priv_data) {
     memcpy(dst, (void*)guest_addr, length);
@@ -98,9 +98,11 @@ int config_guest(struct guest_info * info, void * config_ptr) {
       //     
   add_shadow_region_passthrough(info, 0x0, 0xa0000, (addr_t)V3_AllocPages(160));
   
-  //add_shadow_region_passthrough(info, 0xa0000, 0xc0000, 0xa0000); 
-  hook_guest_mem(info, 0xa0000, 0xc0000, passthrough_mem_read, passthrough_mem_write, NULL);
-  
+  if (1) {
+    add_shadow_region_passthrough(info, 0xa0000, 0xc0000, 0xa0000); 
+  } else {
+    hook_guest_mem(info, 0xa0000, 0xc0000, passthrough_mem_read, passthrough_mem_write, NULL);
+  }  
   
   // TEMP
   //add_shadow_region_passthrough(info, 0xc0000, 0xc8000, 0xc0000);
@@ -116,18 +118,15 @@ int config_guest(struct guest_info * info, void * config_ptr) {
   }
   
   
- 
+  if (1) {
   add_shadow_region_passthrough(info, 0x100000, 0x1000000, (addr_t)V3_AllocPages(4096));
- /* MEMORY HOOK TEST */
-  /*  { 
-   
+  } else {
+    /* MEMORY HOOK TEST */
     add_shadow_region_passthrough(info, 0x100000, 0xa00000, (addr_t)V3_AllocPages(2304));
-    hook_guest_mem(info, 0xa00000, 0xa01000, mem_test_read, passthrough_mem_write, NULL);
-    
+    hook_guest_mem(info, 0xa00000, 0xa01000, mem_test_read, passthrough_mem_write, NULL); 
     add_shadow_region_passthrough(info, 0xa01000, 0x1000000, (addr_t)V3_AllocPages(1791));
-
   }
-*/
+
     add_shadow_region_passthrough(info, 0x1000000, 0x8000000, (addr_t)V3_AllocPages(32768));
  
   // test - give linux accesss to PCI space - PAD

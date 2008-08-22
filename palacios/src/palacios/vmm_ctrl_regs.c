@@ -20,15 +20,6 @@
 #endif
 
 
-// Set to 1 if CR3 reload with same value shall not
-// force a shadow page table flush
-// It makes windows loading MUCH faster. 
-// Note that this optimization appears to fail with a 2.6 linux kernel
-#define CR3_RELOAD_OPTIMIZATION 1
-
-
-
-
 
 
 
@@ -247,11 +238,20 @@ int handle_cr3_write(struct guest_info * info) {
       struct cr3_32 * new_cr3 = (struct cr3_32 *)(dec_instr.src_operand.operand);	
       struct cr3_32 * guest_cr3 = (struct cr3_32 *)&(info->shdw_pg_state.guest_cr3);
       struct cr3_32 * shadow_cr3 = (struct cr3_32 *)&(info->shdw_pg_state.shadow_cr3);
+      int cached = 0;
       
+
       PrintDebug("Old Shadow CR3=%x; Old Guest CR3=%x\n", 
 		 *(uint_t*)shadow_cr3, *(uint_t*)guest_cr3);
       
-      if (!CR3_RELOAD_OPTIMIZATION || !CR3_32_SAME_BASE(new_cr3, guest_cr3)) { 
+
+      cached = cache_page_tables32(info, CR3_TO_PDE32(*(addr_t *)new_cr3));
+      if (cached == -1) {
+	PrintError("CR3 Cache failed\n");
+	return -1;
+      } else if (cached == 0) {
+
+
 	addr_t shadow_pt;
 
 	
@@ -262,7 +262,9 @@ int handle_cr3_write(struct guest_info * info) {
 	shadow_pt =  create_new_shadow_pt32();
 	
 	shadow_cr3->pdt_base_addr = PD32_BASE_ADDR(shadow_pt);	  
-      } 
+      } else {
+	PrintDebug("Reusing cached shadow Page table\n");
+      }
       
       shadow_cr3->pwt = new_cr3->pwt;
       shadow_cr3->pcd = new_cr3->pcd;
@@ -337,3 +339,7 @@ int handle_cr3_read(struct guest_info * info) {
 
   return 0;
 }
+
+
+
+

@@ -121,6 +121,7 @@ the host state in the vmcs before entering the guest.
 
 /* Page Table Flag Values */
 #define PT32_HOOK 0x1
+#define PT32_GUEST_PT 0x2
 
 
 #endif

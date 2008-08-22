@@ -17,6 +17,37 @@
 
 
 
+
+
+DEFINE_HASHTABLE_INSERT(add_cr3_to_cache, addr_t, struct hashtable *);
+DEFINE_HASHTABLE_SEARCH(find_cr3_in_cache, addr_t, struct hashtable *);
+DEFINE_HASHTABLE_REMOVE(del_cr3_from_cache, addr_t, struct hashtable *, 0);
+
+
+DEFINE_HASHTABLE_INSERT(add_pte_map, addr_t, addr_t);
+DEFINE_HASHTABLE_SEARCH(find_pte_map, addr_t, addr_t);
+DEFINE_HASHTABLE_REMOVE(del_pte_map, addr_t, addr_t, 0);
+
+
+
+
+static uint_t pte_hash_fn(addr_t key) {
+  return hash_long(key, 32);
+}
+
+static int pte_equals(addr_t key1, addr_t key2) {
+  return (key1 == key2);
+}
+
+static uint_t cr3_hash_fn(addr_t key) {
+  return hash_long(key, 32);
+}
+
+static int cr3_equals(addr_t key1, addr_t key2) {
+  return (key1 == key2);
+}
+
+
 static int handle_shadow_pte32_fault(struct guest_info* info, 
 				     addr_t fault_addr, 
 				     pf_error_t error_code,
@@ -33,11 +64,115 @@ int init_shadow_page_state(struct guest_info * info) {
   state->guest_cr3 = 0;
   state->shadow_cr3 = 0;
 
+
+  state->cr3_cache = create_hashtable(0, &cr3_hash_fn, &cr3_equals);
+
+  state->cached_cr3 = 0;
+  state->cached_ptes = NULL;
+
   return 0;
 }
 
 
 
+
+/*
+ For now we'll do something a little more lightweight
+int cache_page_tables32(struct guest_info * info, addr_t pde) {
+  struct shadow_page_state * state = &(info->shdw_pg_state);
+  addr_t pde_host_addr;
+  pde32_t * tmp_pde;
+  struct hashtable * pte_cache = NULL;
+  int i = 0;
+
+
+  pte_cache = (struct hashtable *)find_cr3_in_cache(state->cr3_cache, pde);
+  if (pte_cache != NULL) {
+    PrintError("CR3 already present in cache\n");
+    state->current_ptes = pte_cache;
+    return 1;
+  } else {
+    PrintError("Creating new CR3 cache entry\n");
+    pte_cache = create_hashtable(0, &pte_hash_fn, &pte_equals);
+    state->current_ptes = pte_cache;
+    add_cr3_to_cache(state->cr3_cache, pde, pte_cache);
+  }
+
+  if (guest_pa_to_host_va(info, pde, &pde_host_addr) == -1) {
+    PrintError("Could not lookup host address of guest PDE\n");
+    return -1;
+  }
+
+  tmp_pde = (pde32_t *)pde_host_addr;
+
+  add_pte_map(pte_cache, pde, pde_host_addr);
+
+
+  for (i = 0; i < MAX_PDE32_ENTRIES; i++) {
+    if ((tmp_pde[i].present) && (tmp_pde[i].large_page == 0)) {
+      addr_t pte_host_addr;
+
+      if (guest_pa_to_host_va(info, (addr_t)(PDE32_T_ADDR(tmp_pde[i])), &pte_host_addr) == -1) {
+	PrintError("Could not lookup host address of guest PDE\n");
+	return -1;
+      }
+
+      add_pte_map(pte_cache, (addr_t)(PDE32_T_ADDR(tmp_pde[i])), pte_host_addr); 
+    }
+  }
+
+
+  return 0;
+}
+*/
+
+int cache_page_tables32(struct guest_info * info, addr_t pde) {
+  struct shadow_page_state * state = &(info->shdw_pg_state);
+  addr_t pde_host_addr;
+  pde32_t * tmp_pde;
+  struct hashtable * pte_cache = NULL;
+  int i = 0;
+
+  if (pde == state->cached_cr3) {
+    return 1;
+  }
+
+  if (state->cached_ptes != NULL) {
+    hashtable_destroy(state->cached_ptes, 0, 0);
+    state->cached_ptes = NULL;
+  }
+
+  state->cached_cr3 = pde;
+
+  pte_cache = create_hashtable(0, &pte_hash_fn, &pte_equals);
+  state->cached_ptes = pte_cache;
+
+  if (guest_pa_to_host_pa(info, pde, &pde_host_addr) == -1) {
+    PrintError("Could not lookup host address of guest PDE\n");
+    return -1;
+  }
+
+  tmp_pde = (pde32_t *)pde_host_addr;
+
+  add_pte_map(pte_cache, pde, pde_host_addr);
+
+
+  for (i = 0; i < MAX_PDE32_ENTRIES; i++) {
+    if ((tmp_pde[i].present) && (tmp_pde[i].large_page == 0)) {
+      addr_t pte_host_addr;
+
+      if (guest_pa_to_host_pa(info, (addr_t)(PDE32_T_ADDR(tmp_pde[i])), &pte_host_addr) == -1) {
+	PrintError("Could not lookup host address of guest PDE\n");
+	return -1;
+      }
+
+      add_pte_map(pte_cache, (addr_t)(PDE32_T_ADDR(tmp_pde[i])), pte_host_addr); 
+    }
+  }
+
+  return 0;
+
+}
 
 
 
@@ -173,6 +308,7 @@ static int handle_large_pagefault32(struct guest_info * info,
     }
 
     if (host_page_type == HOST_REGION_PHYSICAL_MEMORY) {
+      struct shadow_page_state * state = &(info->shdw_pg_state);
       addr_t shadow_pa = get_shadow_addr(info, guest_fault_pa);
 
       shadow_pte->page_base_addr = PT32_BASE_ADDR(shadow_pa);
@@ -185,7 +321,16 @@ static int handle_large_pagefault32(struct guest_info * info,
        * Allow everything
        */
       shadow_pte->user_page = 1;
-      shadow_pte->writable = 1;
+
+      if (find_pte_map(state->cached_ptes, PT32_PAGE_ADDR(guest_fault_pa)) != NULL) {
+	// Check if the entry is a page table...
+	PrintDebug("Marking page as Guest Page Table (large page)\n");
+	shadow_pte->vmm_info = PT32_GUEST_PT;
+	shadow_pte->writable = 0;
+      } else {
+	shadow_pte->writable = 1;
+      }
+
 
       //set according to VMM policy
       shadow_pte->write_through = 0;
@@ -200,6 +345,14 @@ static int handle_large_pagefault32(struct guest_info * info,
 	return -1;
       }
     }
+  } else if ((shadow_pte_access == PT_WRITE_ERROR) && 
+	     (shadow_pte->vmm_info == PT32_GUEST_PT)) {
+
+    struct shadow_page_state * state = &(info->shdw_pg_state);
+    PrintDebug("Write operation on Guest PAge Table Page (large page)\n");
+    state->cached_cr3 = 0;
+    shadow_pte->writable = 1;
+
   } else {
     PrintError("Error in large page fault handler...\n");
     PrintError("This case should have been handled at the top level handler\n");
@@ -307,6 +460,7 @@ static int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr
       // Page Directory Entry marked read-only
       // Its a large page and we need to update the dirty bit in the guest
       //
+
       PrintDebug("Large page write error... Setting dirty bit and returning\n");
       ((pde32_4MB_t *)guest_pde)->dirty = 1;
       shadow_pde->writable = guest_pde->writable;
@@ -408,6 +562,7 @@ static int handle_shadow_pte32_fault(struct guest_info * info,
     // else...
 
     if (host_page_type == HOST_REGION_PHYSICAL_MEMORY) {
+      struct shadow_page_state * state = &(info->shdw_pg_state);
       addr_t shadow_pa = get_shadow_addr(info, guest_pa);
       
       shadow_pte->page_base_addr = PT32_BASE_ADDR(shadow_pa);
@@ -423,14 +578,31 @@ static int handle_shadow_pte32_fault(struct guest_info * info,
       
       guest_pte->accessed = 1;
       
+      if (find_pte_map(state->cached_ptes, PT32_PAGE_ADDR(guest_pa)) != NULL) {
+	// Check if the entry is a page table...
+	PrintDebug("Marking page as Guest Page Table\n", shadow_pte->writable);
+	shadow_pte->vmm_info = PT32_GUEST_PT;
+      }
+
       if (guest_pte->dirty == 1) {
 	shadow_pte->writable = guest_pte->writable;
       } else if ((guest_pte->dirty == 0) && (error_code.write == 1)) {
 	shadow_pte->writable = guest_pte->writable;
 	guest_pte->dirty = 1;
+	
+	if (shadow_pte->vmm_info == PT32_GUEST_PT) {
+	  // Well that was quick...
+	  struct shadow_page_state * state = &(info->shdw_pg_state);
+	  PrintDebug("Immediate Write operation on Guest PAge Table Page\n");
+	  state->cached_cr3 = 0;
+	}
+
       } else if ((guest_pte->dirty = 0) && (error_code.write == 0)) {
 	shadow_pte->writable = 0;
       }
+
+
+
     } else {
       // Page fault handled by hook functions
       if (handle_special_page_fault(info, fault_addr, guest_pa, error_code) == -1) {
@@ -445,6 +617,13 @@ static int handle_shadow_pte32_fault(struct guest_info * info,
     PrintDebug("Shadow PTE Write Error\n");
     guest_pte->dirty = 1;
     shadow_pte->writable = guest_pte->writable;
+
+    if (shadow_pte->vmm_info == PT32_GUEST_PT) {
+      struct shadow_page_state * state = &(info->shdw_pg_state);
+      PrintDebug("Write operation on Guest PAge Table Page\n");
+      state->cached_cr3 = 0;
+    }
+    
     return 0;
 
   } else {

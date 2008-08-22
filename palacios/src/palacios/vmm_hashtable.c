@@ -10,8 +10,8 @@
 
 
 struct hash_entry {
-  void * key;
-  void * value;
+  addr_t key;
+  addr_t value;
   uint_t hash;
   struct hash_entry * next;
 };
@@ -22,8 +22,8 @@ struct hashtable {
     uint_t entry_count;
     uint_t load_limit;
     uint_t prime_index;
-    uint_t (*hash_fn) (void * key);
-    int (*eq_fn) (void * key1, void * key2);
+    uint_t (*hash_fn) (addr_t key);
+    int (*eq_fn) (addr_t key1, addr_t key2);
 };
 
 
@@ -32,7 +32,7 @@ struct hashtable {
 
 
 
-uint_t do_hash(struct hashtable * htable, void * key) {
+uint_t do_hash(struct hashtable * htable, addr_t key) {
   /* Aim to protect against poor hash functions by adding logic here
    * - logic taken from java 1.4 hashtable source */
   uint_t i = htable->hash_fn(key);
@@ -159,8 +159,8 @@ const float max_load_factor = 0.65;
 
 /*****************************************************************************/
 struct hashtable * create_hashtable(uint_t min_size,
-				    uint_t (*hash_fn) (void *),
-				    int (*eq_fn) (void *, void *)) {
+				    uint_t (*hash_fn) (addr_t),
+				    int (*eq_fn) (addr_t, addr_t)) {
     struct hashtable * htable;
     uint_t prime_index;
     uint_t size = primes[0];
@@ -294,7 +294,7 @@ uint_t hashtable_count(struct hashtable * htable) {
 }
 
 /*****************************************************************************/
-int hashtable_insert(struct hashtable * htable, void * key, void * value) {
+int hashtable_insert(struct hashtable * htable, addr_t key, addr_t value) {
     /* This method allows duplicate keys - but they shouldn't be used */
     uint_t index;
     struct hash_entry * new_entry;
@@ -331,7 +331,7 @@ int hashtable_insert(struct hashtable * htable, void * key, void * value) {
 
 
 
-int hashtable_change(struct hashtable * htable, void * key, void * value) {
+int hashtable_change(struct hashtable * htable, addr_t key, addr_t value, int free_value) {
     struct hash_entry * tmp_entry;
     uint_t hash_value;
     uint_t index;
@@ -345,10 +345,13 @@ int hashtable_change(struct hashtable * htable, void * key, void * value) {
     while (tmp_entry != NULL) {
         /* Check hash value to short circuit heavier comparison */
         if ((hash_value == tmp_entry->hash) && (htable->eq_fn(key, tmp_entry->key))) {
-            V3_Free(tmp_entry->value);
-            tmp_entry->value = value;
 
-            return -1;
+	  if (free_value) {
+            V3_Free((void *)(tmp_entry->value));
+	  }
+
+	  tmp_entry->value = value;
+	  return -1;
         }
         tmp_entry = tmp_entry->next;
     }
@@ -360,7 +363,7 @@ int hashtable_change(struct hashtable * htable, void * key, void * value) {
 
 /*****************************************************************************/
 /* returns value associated with key */
-void * hashtable_search(struct hashtable * htable, void * key) {
+addr_t hashtable_search(struct hashtable * htable, addr_t key) {
   struct hash_entry * cursor;
   uint_t hash_value;
   uint_t index;
@@ -381,18 +384,18 @@ void * hashtable_search(struct hashtable * htable, void * key) {
     cursor = cursor->next;
   }
   
-  return NULL;
+  return (addr_t)NULL;
 }
 
 /*****************************************************************************/
 /* returns value associated with key */
-void * hashtable_remove(struct hashtable * htable, void * key) {
+addr_t hashtable_remove(struct hashtable * htable, addr_t key, int free_key) {
   /* TODO: consider compacting the table when the load factor drops enough,
    *       or provide a 'compact' method. */
   
   struct hash_entry * cursor;
   struct hash_entry ** entry_ptr;
-  void * value;
+  addr_t value;
   uint_t hash_value;
   uint_t index;
   
@@ -412,7 +415,9 @@ void * hashtable_remove(struct hashtable * htable, void * key) {
       htable->entry_count--;
       value = cursor->value;
       
-      freekey(cursor->key);
+      if (free_key) {
+	freekey((void *)(cursor->key));
+      }
       V3_Free(cursor);
       
       return value;
@@ -421,12 +426,12 @@ void * hashtable_remove(struct hashtable * htable, void * key) {
     entry_ptr = &(cursor->next);
     cursor = cursor->next;
   }
-  return NULL;
+  return (addr_t)NULL;
 }
 
 /*****************************************************************************/
 /* destroy */
-void hashtable_destroy(struct hashtable * htable, int free_values) {
+void hashtable_destroy(struct hashtable * htable, int free_values, int free_keys) {
   uint_t i;
   struct hash_entry * cursor;;
   struct hash_entry **table = htable->table;
@@ -441,8 +446,10 @@ void hashtable_destroy(struct hashtable * htable, int free_values) {
 	tmp = cursor; 
 	cursor = cursor->next; 
 
-	freekey(tmp->key); 
-	V3_Free(tmp->value); 
+	if (free_keys) {
+	  freekey((void *)(tmp->key)); 
+	}
+	V3_Free((void *)(tmp->value)); 
 	V3_Free(tmp); 
       }
     }
@@ -455,8 +462,10 @@ void hashtable_destroy(struct hashtable * htable, int free_values) {
 
 	tmp = cursor; 
 	cursor = cursor->next; 
-
-	freekey(tmp->key); 
+	
+	if (free_keys) {
+	  freekey((void *)(tmp->key)); 
+	}
 	V3_Free(tmp); 
       }
     }
@@ -505,11 +514,11 @@ struct hashtable_iter * create_hashtable_iterator(struct hashtable * htable) {
 }
 
 
-void * hashtable_get_iter_key(struct hashtable_iter * iter) {
+addr_t hashtable_get_iter_key(struct hashtable_iter * iter) {
   return iter->entry->key; 
 }
 
-void * hashtable_get_iter_value(struct hashtable_iter * iter) { 
+addr_t hashtable_get_iter_value(struct hashtable_iter * iter) { 
   return iter->entry->value; 
 }
 
@@ -566,7 +575,7 @@ int hashtable_iterator_advance(struct hashtable_iter * iter) {
  *          If you want the value, read it before you remove:
  *          beware memory leaks if you don't.
  *          Returns zero if end of iteration. */
-int hashtable_iterator_remove(struct hashtable_iter * iter) {
+int hashtable_iterator_remove(struct hashtable_iter * iter, int free_key) {
   struct hash_entry * remember_entry; 
   struct hash_entry * remember_parent;
   int ret;
@@ -584,8 +593,10 @@ int hashtable_iterator_remove(struct hashtable_iter * iter) {
   /* itr->e is now outside the hashtable */
   remember_entry = iter->entry;
   iter->htable->entry_count--;
-  freekey(remember_entry->key);
-  
+  if (free_key) {
+    freekey((void *)(remember_entry->key));
+  }
+
   /* Advance the iterator, correcting the parent */
   remember_parent = iter->parent;
   ret = hashtable_iterator_advance(iter);
@@ -601,7 +612,7 @@ int hashtable_iterator_remove(struct hashtable_iter * iter) {
 
 /* returns zero if not found */
 int hashtable_iterator_search(struct hashtable_iter * iter,
-			      struct hashtable * htable, void * key) {
+			      struct hashtable * htable, addr_t key) {
   struct hash_entry * entry;
   struct hash_entry * parent;
   uint_t hash_value;

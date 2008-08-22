@@ -5,7 +5,7 @@
 #include <palacios/vm_guest_mem.h>
 
 
-extern struct vmm_os_hooks * os_hooks;
+
 
 void delete_page_tables_pde32(pde32_t * pde) {
   int i;//, j;
@@ -26,12 +26,12 @@ void delete_page_tables_pde32(pde32_t * pde) {
 	}
       */
       //PrintDebug("Deleting PTE %d (%x)\n", i, pte);
-      os_hooks->free_page(pte);
+      V3_FreePage(pte);
     }
   }
 
   //  PrintDebug("Deleting PDE (%x)\n", pde);
-  os_hooks->free_page(pde);
+  V3_FreePage(pde);
 }
 
 
@@ -150,11 +150,11 @@ pde32_t * create_passthrough_pde32_pts(struct guest_info * guest_info) {
   int i, j;
   struct shadow_map * map = &(guest_info->mem_map);
 
-  pde32_t * pde = os_hooks->allocate_pages(1);
+  pde32_t * pde = V3_AllocPages(1);
 
   for (i = 0; i < MAX_PDE32_ENTRIES; i++) {
     int pte_present = 0;
-    pte32_t * pte = os_hooks->allocate_pages(1);
+    pte32_t * pte = V3_AllocPages(1);
     
 
     for (j = 0; j < MAX_PTE32_ENTRIES; j++) {
@@ -205,7 +205,7 @@ pde32_t * create_passthrough_pde32_pts(struct guest_info * guest_info) {
     }
 
     if (pte_present == 0) { 
-      os_hooks->free_page(pte);
+      V3_FreePage(pte);
 
       pde[i].present = 0;
       pde[i].writable = 0;
