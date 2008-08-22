@@ -3,7 +3,7 @@
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
  * Copyright (c) 2004, Iulian Neamtiu <neamtiu@cs.umd.edu>
- * $Revision: 1.42 $
+ * $Revision: 1.43 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -40,9 +40,11 @@
 
 #include <geekos/ne2k.h>
 #include <uip/uip.h>
+#include <uip/uip_arp.h>
 
 #define SPEAKER_PORT 0x61
 #define TEST_NE2K 0
+#define BUF ((struct uip_eth_hdr *)&uip_buf[0])
 
 #if TEST_NE2K
 u8_t uip_buf[UIP_BUFSIZE+2];
@@ -58,7 +60,12 @@ int Packet_Received(struct NE2K_Packet_Info* info, uchar_t *pkt) {
       PrintBoth("\n");
   }
   Free(pkt);
-  uip_input();
+  if(BUF->type == htons(UIP_ETHTYPE_ARP)) {
+    uip_arp_arpin();
+  } else {
+    uip_arp_ipin();
+    uip_input();
+  }
   return 0;
 }
 #endif
@@ -240,39 +247,33 @@ void Main(struct Boot_Info* bootInfo)
 #if TEST_NE2K
   Init_Ne2k(&Packet_Received);
   uip_init();
+  uip_arp_init();
 
-  /* Local IP address */
   uip_ipaddr_t ipaddr;
-  uip_ipaddr(ipaddr, 10,0,2,21);
+  uip_ipaddr(ipaddr, 10,0,2,21);  /* Local IP address */
   uip_sethostaddr(ipaddr);
 
-  /* Remote IP address */
   uip_ipaddr_t ripaddr;
-  uip_ipaddr(ripaddr, 10,0,2,20);
+  uip_ipaddr(ripaddr, 10,0,2,20);  /* Remote IP address */
+  
+  /* Attempt a connection to port 8080 at address 10.0.2.20 */
   struct uip_conn *conn;
   conn = uip_connect(&ripaddr, HTONS(8080));
 
   while(uip_len <= 0) {
     uip_periodic_conn(conn);
   }
-/* Sending...*/
-  int size;
-  uchar_t *data;
+  NE2K_Transmit(uip_len+UIP_LLH_LEN);  /* This will transmit an ARP packet */
 
-  /* Based on example code from the uIP documentation */
-  if(uip_len <= UIP_LLH_LEN + UIP_TCPIP_HLEN) {
-    size = uip_len + UIP_LLH_LEN;
-    data = Malloc(size);
-    memcpy(data, &uip_buf[0], UIP_LLH_LEN);
-    memcpy(data + UIP_LLH_LEN, &uip_buf[UIP_LLH_LEN], uip_len - UIP_LLH_LEN);
-  } else {
-    size = uip_len + UIP_LLH_LEN + UIP_TCPIP_HLEN;
-    data = Malloc(size);
-    memcpy(data, &uip_buf[0], UIP_LLH_LEN);
-    memcpy(data + UIP_LLH_LEN, &uip_buf[UIP_LLH_LEN], UIP_TCPIP_HLEN);
-    memcpy(data + UIP_LLH_LEN + UIP_TCPIP_HLEN, uip_appdata, uip_len - UIP_TCPIP_HLEN - UIP_LLH_LEN);
+  int l = 0;
+  while(l++ < 5000); /* When this is done, a response to the ARP should have been received. */
+  conn = uip_connect(&ripaddr, HTONS(8080));
+
+  while(uip_len <= 0) {
+    uip_periodic_conn(conn);
   }
-/* Finished */
+  NE2K_Transmit(uip_len+UIP_LLH_LEN); /* This *should* transmit a SYN packet */
+
 #endif /* TEST_NE2K */
 
   //  Init_IDE();
@@ -316,21 +317,6 @@ void Main(struct Boot_Info* bootInfo)
   SerialPrint("Noisemaker and keyboard listener threads\n");
   key_thread = Start_Kernel_Thread(Keyboard_Listener, (ulong_t)&doIBuzz, PRIORITY_NORMAL, false);
   spkr_thread = Start_Kernel_Thread(Buzzer, (ulong_t)&doIBuzz, PRIORITY_NORMAL, false);
-  }
-#endif
-#if TEST_NE2K
-  uchar_t src_addr[6] = { 0x52, 0x54, 0x00, 0x12, 0x34, 0x58 };
-  uchar_t dest_addr[6] = { 0x52, 0x54, 0x00, 0x12, 0x34, 0x56 };
-
-  /* manually copy over the src and dest mac addresses for now */
-  memcpy(data, dest_addr, 6);
-  memcpy(data + 6, src_addr, 6);
-  *(data+12) = size+2;
-  *(data+13) = 0x00;
-
-  uint_t i;
-  for(i = 0; i < 3; i++) {
-    NE2K_Send(data, size);
   }
 #endif
 
