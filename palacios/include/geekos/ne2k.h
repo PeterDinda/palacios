@@ -159,7 +159,8 @@ struct NE2K_Packet_Info {
 
 int Init_Ne2k();
 int NE2K_Receive();
-int NE2K_Send(uchar_t *packet, uint_t size);
-// int NE2K_Send2(uchar_t src[], uchar_t dest[], uint_t type, uchar_t *data, uint_t size);
+int NE2K_Transmit(uint_t size);
+int NE2K_Send_Packet(uchar_t *packet, uint_t size);
+int NE2K_Send(uchar_t src[], uchar_t dest[], uint_t type, uchar_t *data, uint_t size);
 
 #endif  /* GEEKOS_NE2K_H */
