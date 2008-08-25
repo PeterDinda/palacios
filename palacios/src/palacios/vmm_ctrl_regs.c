@@ -20,9 +20,6 @@
 #endif
 
 
-
-
-
 // First Attempt = 494 lines
 // current = 106 lines
 int handle_cr0_write(struct guest_info * info) {
@@ -202,7 +199,7 @@ int handle_cr0_read(struct guest_info * info) {
 
 
 
-// First Attemp = 256 lines
+// First Attempt = 256 lines
 // current = 65 lines
 int handle_cr3_write(struct guest_info * info) {
   int ret;
@@ -246,14 +243,12 @@ int handle_cr3_write(struct guest_info * info) {
       
 
       cached = cache_page_tables32(info, CR3_TO_PDE32(*(addr_t *)new_cr3));
+
       if (cached == -1) {
 	PrintError("CR3 Cache failed\n");
 	return -1;
       } else if (cached == 0) {
-
-
 	addr_t shadow_pt;
-
 	
 	PrintDebug("New CR3 is different - flushing shadow page table\n");	
 	
@@ -334,12 +329,7 @@ int handle_cr3_read(struct guest_info * info) {
     return -1;
   }
 
-
   info->rip += dec_instr.instr_length;
 
   return 0;
 }
-
-
-
-
