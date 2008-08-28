@@ -1,7 +1,7 @@
 ; Boot sector for GeekOS
 ; Copyright (c) 2001,2004 David H. Hovemeyer <daveho@cs.umd.edu>
 ; Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
-; $Revision: 1.7 $
+; $Revision: 1.8 $
 
 ; This is free software.  You are permitted to use,
 ; redistribute, and modify it as specified in the file "COPYING".
@@ -34,22 +34,6 @@
 [ORG 0x0]
 
 BeginText:	; needed to calculate padding bytes to fill the sector
-	;; temporalily for io performance test
-	mov dx, 0x995
-	mov eax, 0x12345678
-	out dx, eax
-	mov dx, 0x999
-	xor eax, eax
-	cpuid
-	rdtsc
-	;; 	mov [time], eax
-	;; 	mov eax, 0x12345678
-	out dx, eax
-	cpuid
-	rdtsc
-	sub eax, [time]
-	out dx, eax
-
 	; Copy the boot sector into INITSEG.
 	mov	ax, BOOTSEG
 	mov	ds, ax			; source segment for string copy
@@ -116,7 +100,7 @@ load_kernel:
 	; Figure out start sector and max sector
 
 	mov	ax, word [kernelStart]
-	mov	word [sec_count], ax
+	mov	word [sec_count], aX
 	add	ax, word [kernelSize]
 	mov	word [max_sector], ax
 
@@ -384,8 +368,6 @@ bootsect_dst_base:
 	dw	0		;	! limit16,base24 =0
 	dw	0,0,0,0		;	! BIOS CS
 	dw	0,0,0,0		;	! BIOS DS
-time:
-	dw      0,0
 
 
 ; Padding to make the PFAT Boot Record sit just before the BIOS signature.
