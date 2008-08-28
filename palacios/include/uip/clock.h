@@ -47,7 +47,7 @@
  *
  * Author: Adam Dunkels <adam@sics.se>
  *
- * $Id: clock.h,v 1.2 2008/08/06 23:40:07 andrewlxia Exp $
+ * $Id: clock.h,v 1.3 2008/08/28 19:43:32 andrewlxia Exp $
  */
 #ifndef __CLOCK_H__
 #define __CLOCK_H__
@@ -78,9 +78,9 @@ typedef ulong_t clock_time_t;
  * \return The current clock time, measured in system ticks.
  */
  
-clock_time_t clock_time(void){
-	return g_numTicks;
-}
+ 
+//defined in the geekos/timer.c
+extern clock_time_t clock_time(void);
 
 /**
  * A second, measured in system clock time.
