@@ -29,11 +29,11 @@ struct gen_queue {
 };
 
 
-struct gen_queue * create_queue();
-void init_queue(struct gen_queue * queue);
+struct gen_queue * v3_create_queue();
+void v3_init_queue(struct gen_queue * queue);
 
-void enqueue(struct gen_queue * queue, addr_t entry);
-addr_t dequeue(struct gen_queue * queue);
+void v3_enqueue(struct gen_queue * queue, addr_t entry);
+addr_t v3_dequeue(struct gen_queue * queue);
 
 
 
