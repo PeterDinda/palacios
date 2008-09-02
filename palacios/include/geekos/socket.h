@@ -1,6 +1,8 @@
 #ifndef GEEKOS_SOCKET_H
 #define GEEKOS_SOCKET_H
 
+#include <geekos/queue.h>
+
 
 struct socket {
   int in_use;

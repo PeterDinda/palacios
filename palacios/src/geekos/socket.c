@@ -10,8 +10,8 @@ void init_network() {
 
   for (i = 0; i < MAX_SOCKS; i++) {
     sockets[i].in_use = 0;
-    init_queue(&(sockets[i].send_queue))
-    init_queue(&(sockets[i].recv_queue))
+    init_queue(&(sockets[i].send_queue));
+    init_queue(&(sockets[i].recv_queue));
   }
 
   // set up interrupt handler
@@ -51,5 +51,6 @@ int connect(const uint_t ip_addr) {
 
 
 
+  return sockfd;
 
 }
