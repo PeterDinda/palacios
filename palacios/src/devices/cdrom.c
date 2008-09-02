@@ -19,7 +19,7 @@ extern ulong_t g_ramdiskImage;
 extern ulong_t s_ramdiskSize;
 
 static
-void cdrom_init(struct cdrom_interface *cdrom)
+void cdrom_init(struct cdrom_interface * cdrom)
 {
 
   Ramdisk_Print_CD("[cdrom_init]\n");
@@ -36,7 +36,7 @@ void cdrom_init(struct cdrom_interface *cdrom)
  */
  
 static
-rd_bool cdrom_insert(struct cdrom_interface *cdrom, char *dev /*= NULL*/)
+rd_bool cdrom_insert(struct cdrom_interface * cdrom, char *dev /*= NULL*/)
 {
   Ramdisk_Print_CD("[cdrom_insert]\n");
   return 1;

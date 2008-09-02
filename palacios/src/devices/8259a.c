@@ -6,12 +6,7 @@
 #ifndef DEBUG_PIC
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
-#endif
-
-#ifdef DEBUG_RAMDISK
-#define Ramdisk_Print_Pic(_f, _a...) PrintTrace("\n8259a.c(%d) "_f, __LINE__, ## _a)
-#else
-#define Ramdisk_Print_Pic(_f, _a...)
+#define PrintPicTrace(_f, _a...) PrintTrace("\n8259a.c(%d) "_f, __LINE__, ## _a)
 #endif
 
 
@@ -195,18 +190,18 @@ static int pic_lower_intr(void *private_data, int irq_no) {
 
   struct pic_internal *state = (struct pic_internal*)private_data;
 
-  Ramdisk_Print_Pic("[pic_lower_intr] IRQ line %d now low\n", (unsigned) irq_no);
+  PrintPicTrace("[pic_lower_intr] IRQ line %d now low\n", (unsigned) irq_no);
   if (irq_no <= 7) {
 
     state->master_irr &= ~(1 << irq_no);
     if ((state->master_irr & ~(state->master_imr)) == 0) {
-      Ramdisk_Print_Pic("\t\tFIXME: Master maybe should do sth\n");
+      PrintPicTrace("\t\tFIXME: Master maybe should do sth\n");
     }
   } else if ((irq_no > 7) && (irq_no <= 15)) {
 
     state->slave_irr &= ~(1 << (irq_no - 8));
     if ((state->slave_irr & (~(state->slave_imr))) == 0) {
-      Ramdisk_Print_Pic("\t\tFIXME: Slave maybe should do sth\n");
+      PrintPicTrace("\t\tFIXME: Slave maybe should do sth\n");
     }
   }
   return 0;
@@ -226,9 +221,9 @@ static int pic_intr_pending(void * private_data) {
 }
 
 static int pic_get_intr_number(void * private_data) {
-  struct pic_internal * state = (struct pic_internal*)private_data;
-  int i=0;
-  int irq=-1;
+  struct pic_internal * state = (struct pic_internal *)private_data;
+  int i = 0;
+  int irq = -1;
 
   PrintDebug("8259 PIC: getnum: master_irr: 0x%x master_imr: 0x%x\n", i, state->master_irr, state->master_imr);
   PrintDebug("8259 PIC: getnum: slave_irr: 0x%x slave_imr: 0x%x\n", i, state->slave_irr, state->slave_imr);
@@ -254,11 +249,11 @@ static int pic_get_intr_number(void * private_data) {
     }
   }
 
-  if (i==15 || i==6) { 
+  if ((i == 15) || (i == 6)) { 
     DumpPICState(state);
   }
   
-  if (i==16) { 
+  if (i == 16) { 
     return -1;
   } else {
     return irq;
