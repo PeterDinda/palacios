@@ -88,11 +88,9 @@ int rb_read(struct ring_buffer * ring, char * dst, uint_t len) {
     int section_len = get_read_section_size(ring);
 
     memcpy(dst, get_read_ptr(ring), section_len);
-    ring->start = 0;
-
-    memcpy(dst + section_len, get_read_ptr(ring), read_len - section_len);
+    memcpy(dst + section_len, ring->buf, read_len - section_len);
     
-    ring->start += read_len - section_len;
+    ring->start = read_len - section_len;
   } else {
     memcpy(dst, get_read_ptr(ring), read_len);
     
@@ -102,6 +100,45 @@ int rb_read(struct ring_buffer * ring, char * dst, uint_t len) {
   ring->current_len -= read_len;
 
   return read_len;
+}
+
+
+
+
+int rb_peek(struct ring_buffer * ring, char * dst, uint_t len) {
+  int read_len = 0;
+  int ring_data_len = ring->current_len;
+
+  read_len = (len > ring_data_len) ? ring_data_len : len;
+
+  if (is_read_loop(ring, read_len)) {
+    int section_len = get_read_section_size(ring);
+
+    memcpy(dst, get_read_ptr(ring), section_len);
+    memcpy(dst + section_len, ring->buf, read_len - section_len);
+  } else {
+    memcpy(dst, get_read_ptr(ring), read_len);
+  }
+
+  return read_len;
+}
+
+
+int rb_delete(struct ring_buffer * ring, uint_t len) {
+  int del_len = 0;
+  int ring_data_len = ring->current_len;
+
+  del_len = (len > ring_data_len) ? ring_data_len : len;
+
+  if (is_read_loop(ring, del_len)) {
+    int section_len = get_read_section_size(ring);
+    ring->start = del_len - section_len;
+  } else {
+    ring->start += del_len;
+  }
+
+  ring->current_len -= del_len;
+  return del_len;
 }
 
 
