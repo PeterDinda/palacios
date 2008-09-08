@@ -19,7 +19,7 @@ struct socket sockets[MAX_SOCKS];
 extern void* memcpy(void *dst, const void* src, int n);
 
 
-int Packet_Received(struct NE2K_Packet_Info* info, uchar_t *pkt) ;
+int Packet_Received(struct NE2K_Packet_Info* info, uchar_t *pkt);
 
 void init_network() {
    int i = 0;
@@ -30,12 +30,14 @@ void init_network() {
       sockets[i].recv_buf = NULL;
    }
 
+
     //initiate uIP
     uip_init();
     uip_arp_init();
 	
     //setup device driver
     Init_Ne2k(&Packet_Received);
+
 
 
 }
@@ -92,9 +94,10 @@ int connect(const uchar_t ip_addr[4], ushort_t port) {
   
   sockets[sockfd].con = uip_connect((uip_ipaddr_t *)&ip_addr, htons(port));
 
+
   if (sockets[sockfd].con == NULL){
-  	release_socket_fd(sockfd);
-	return -1;
+    release_socket_fd(sockfd);
+    return -1;
   }
 
   return sockfd;
@@ -104,6 +107,7 @@ int recv(int sockfd, void * buf, uint_t len){
   uint_t recvlen;
 
   struct socket *sock = get_socket_from_fd(sockfd);
+
 
   // here we need some lock mechnism, just disable interrupt may not work properly because recv() will be run as a kernel thread 
 buf_read:
@@ -201,76 +205,91 @@ senddata(int sockfd){
 static int  get_socket_from_port(ushort_t lport) {
   int i;
   
-  for (i = 0; i<MAX_SOCKS; i++){
-  	if (sockets[i].con->lport == lport) 
-		return i;
+
+  for (i = 0; i < MAX_SOCKS; i++){
+    if (sockets[i].con->lport == lport) {
+      return i;
+    }
   }
   
   return -1;
 }
 
 
-void
-socket_appcall(void)
-{
-  int sockfd; 
 
+void socket_appcall(void) {
+
+  int sockfd; 
+  
   sockfd = get_socket_from_port(uip_conn->lport);
 
-  if (sockfd == -1) return;
-    
-  if(uip_connected()) {
-  	connected(sockfd);
+  
+  if (sockfd == -1) {
+    return;
+  }
+
+  if (uip_connected()) {
+    connected(sockfd);
+
   }
   
-  if(uip_closed() ||uip_aborted() ||uip_timedout()) {
+  if (uip_closed() ||uip_aborted() ||uip_timedout()) {
      closed(sockfd);
      return;
   }
   
-  if(uip_acked()) {
+  if (uip_acked()) {
      acked(sockfd);
   }
   
-  if(uip_newdata()) {
+  if (uip_newdata()) {
      newdata(sockfd);
   }
   
-  if(uip_rexmit() ||
-     uip_newdata() ||
-     uip_acked() ||
-     uip_connected() ||
-     uip_poll()) {
-     senddata(sockfd);
+  if (uip_rexmit() ||
+      uip_newdata() ||
+      uip_acked() ||
+      uip_connected() ||
+      uip_poll()) {
+    senddata(sockfd);
   }
 }
 
 
 
-int Packet_Received(struct NE2K_Packet_Info* info, uchar_t *pkt) 
-{
-	  uip_len = info->size; 
-	  
-	  //  for (i = 0; i < info->size; i++) {
-	  //  uip_buf[i] = *(pkt + i);
-	  //}
 
-	  memcpy(uip_buf, pkt, uip_len);
-	  Free(pkt);
-	  if(BUF->type == htons(UIP_ETHTYPE_ARP)) {
-		uip_arp_arpin();
-		if (uip_len > 0){
-			//ethernet_devicedriver_send();
-			NE2K_Transmit(uip_len);
-      		}					
-	   } else {
-		uip_arp_ipin();
-		uip_input();
-		if(uip_len > 0) {
-		       uip_arp_out();
-		     //ethernet_devicedriver_send();
-			NE2K_Transmit(uip_len);
-	       }
-	}			  
-	  return 0;
+int Packet_Received(struct NE2K_Packet_Info * info, uchar_t * pkt) {
+  //int i;
+  
+  uip_len = info->size; 
+
+  //  for (i = 0; i < info->size; i++) {
+  //  uip_buf[i] = *(pkt + i);
+  //}
+
+  memcpy(uip_buf, pkt, uip_len);
+
+
+  Free(pkt);
+
+  if (BUF->type == htons(UIP_ETHTYPE_ARP)) {
+    uip_arp_arpin();
+
+    if (uip_len > 0) {
+      NE2K_Transmit(uip_len);
+    }					
+
+  } else {
+
+    uip_arp_ipin();
+    uip_input();
+
+    if (uip_len > 0) {
+      uip_arp_out();
+      NE2K_Transmit(uip_len);
+    }
+  }
+			  
+  return 0;
+
 }
