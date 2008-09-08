@@ -1,7 +1,7 @@
 #include <geekos/ring_buffer.h>
 #include <geekos/malloc.h>
 #include <geekos/ktypes.h>
-
+#include <geekos/debug.h>
 
 
 void init_ring_buffer(struct ring_buffer * ring, uint_t size) {
@@ -32,11 +32,11 @@ void free_ring_buffer(struct ring_buffer * ring) {
 
 
 static inline uchar_t * get_read_ptr(struct ring_buffer * ring) {
-  return (uchar_t *)&(ring->buf + ring->start);
+  return (uchar_t *)(ring->buf + ring->start);
 }
 
 static inline uchar_t * get_write_ptr(struct ring_buffer * ring) {
-  return (uchar_t *)&(ring->buf + ring->end);
+  return (uchar_t *)(ring->buf + ring->end);
 }
 
 
@@ -130,4 +130,15 @@ int rb_write(struct ring_buffer * ring, char * src, uint_t len) {
   ring->current_len += write_len;
 
   return write_len;
+}
+
+
+void print_ring_buffer(struct ring_buffer * ring) {
+  int ctr = 0;
+  
+  for (ctr = 0; ctr < ring->current_len; ctr++) {
+    int index = (ctr + ring->start) % ring->size;
+
+    PrintBoth("Entry %d (index=%d): %c\n", ctr, index, ring->buf[index]);
+  }
 }

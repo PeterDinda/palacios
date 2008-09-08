@@ -28,4 +28,7 @@ int rb_data_len(struct ring_buffer * ring);
 int rb_capacity(struct ring_buffer * ring);
 
 
+void print_ring_buffer(struct ring_buffer * ring);
+
+
 #endif // ! __RING_BUFFER_H__
