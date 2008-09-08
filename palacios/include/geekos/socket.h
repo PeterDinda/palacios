@@ -3,14 +3,15 @@
 
 #include <geekos/ring_buffer.h>
 #include <uip/uip.h>
+#include <geekos/kthread.h>
 
 struct socket {
   int in_use;
-  struct ring_buffer send_queue;
-  struct ring_buffer recv_queue;
+  struct Thread_Queue recv_wait_queue;
+  struct ring_buffer *send_buf;
+  struct ring_buffer *recv_buf;
   struct uip_conn *con;
 };
-
 
 
 void init_network();
