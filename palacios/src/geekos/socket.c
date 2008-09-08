@@ -67,9 +67,9 @@ struct socket * get_socket_from_fd(int fd) {
 
 int connect(const uchar_t ip_addr[4], ushort_t port) {
   int sockfd = -1;
-  sockfd = allocate_socket_fd();
   uip_ipaddr_t ipaddr;
-  
+
+  sockfd = allocate_socket_fd();
   if (sockfd == -1) {
     return -1;
   }
@@ -90,17 +90,20 @@ int connect(const uchar_t ip_addr[4], ushort_t port) {
 void timer_int_Handler(struct Interrupt_State * state){
   int i;
   //handle the periodic calls of uIP
+
   for(i = 0; i < UIP_CONNS; ++i) {
     uip_periodic(i);
+
     if(uip_len > 0) {
-      //devicedriver_send();
       NE2K_Transmit(uip_len);
     }
   }
+
+
   for(i = 0; i < UIP_UDP_CONNS; i++) {
     uip_udp_periodic(i);
+
     if(uip_len > 0) {
-      //devicedriver_send();
       NE2K_Transmit(uip_len);
     }
   }
@@ -152,7 +155,7 @@ senddata(int sockfd){
 static int  get_socket_from_port(ushort_t lport) {
   int i;
   
-  for (i = 0; i<MAX_SOCKS; i++){
+  for (i = 0; i < MAX_SOCKS; i++){
     if (sockets[i].con->lport == lport) 
       return i;
   }
@@ -170,10 +173,12 @@ socket_appcall(void)
 
   sockfd = get_socket_from_port(uip_conn->lport);
 
-  if (sockfd == -1) return;
-    
+  if (sockfd == -1) {
+    return;
+  }
+
   if(uip_connected()) {
-  	connected(sockfd);
+    connected(sockfd);
   }
   
   if(uip_closed() ||uip_aborted() ||uip_timedout()) {
@@ -200,26 +205,31 @@ socket_appcall(void)
 
 
 
-int Packet_Received(struct NE2K_Packet_Info* info, uchar_t *pkt) {
+int Packet_Received(struct NE2K_Packet_Info * info, uchar_t * pkt) {
   int i;
   
   uip_len = info->size; 
-  for(i = 0; i < info->size; i++) {
+
+  for (i = 0; i < info->size; i++) {
     uip_buf[i] = *(pkt+i);
   }
+
   Free(pkt);
-  if(BUF->type == htons(UIP_ETHTYPE_ARP)) {
+
+  if (BUF->type == htons(UIP_ETHTYPE_ARP)) {
     uip_arp_arpin();
-    if (uip_len > 0){
-      //ethernet_devicedriver_send();
+
+    if (uip_len > 0) {
       NE2K_Transmit(uip_len);
     }					
+
   } else {
+
     uip_arp_ipin();
     uip_input();
-    if(uip_len > 0) {
+
+    if (uip_len > 0) {
       uip_arp_out();
-      //ethernet_devicedriver_send();
       NE2K_Transmit(uip_len);
     }
   }			  
