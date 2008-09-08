@@ -1,18 +1,14 @@
 #include <geekos/socket.h>
 #include <geekos/malloc.h>
-#include <palacios/vmm_types.h>
 #include <geekos/ne2k.h>
 #include <uip/uip.h>
 #include <uip/uip_arp.h>
 #include <geekos/int.h>
 #include <geekos/vmm_stubs.h>
-#include <palacios/vmm_queue.h>
+#include <geekos/queue.h>
 
 
 // for some reason, there are compile warnings without these
-extern void v3_init_queue(struct gen_queue * queue);
-extern void v3_enqueue(struct gen_queue * queue, addr_t entry);
-extern addr_t v3_dequeue(struct gen_queue * queue);
 
 #define BUF ((struct uip_eth_hdr *)&uip_buf[0])
 
@@ -32,12 +28,12 @@ int Packet_Received(struct NE2K_Packet_Info* info, uchar_t *pkt) ;
 void init_network() {
    int i = 0;
    
-   v3_init_queue(&in_packets);
+   init_queue(&in_packets);
 
    for (i = 0; i < MAX_SOCKS; i++) {
       sockets[i].in_use = 0;
-      v3_init_queue(&(sockets[i].send_queue));
-      v3_init_queue(&(sockets[i].recv_queue));
+      init_queue(&(sockets[i].send_queue));
+      init_queue(&(sockets[i].recv_queue));
    }
 
   //initiate uIP
@@ -66,8 +62,8 @@ static int allocate_socket_fd() {
 }
 
 static int release_socket_fd(int sockfd){
-	sockets[sockfd].in_use = 0;
-	return 0;
+  sockets[sockfd].in_use = 0;
+  return 0;
 }
 
 
@@ -92,8 +88,8 @@ int connect(const uchar_t ip_addr[4], ushort_t port) {
   sockets[sockfd].con = uip_connect((uip_ipaddr_t *)&ip_addr, htons(port));
 
   if (sockets[sockfd].con == NULL){
-  	release_socket_fd(sockfd);
-	return -1;
+    release_socket_fd(sockfd);
+    return -1;
   }
 
   return sockfd;
@@ -101,22 +97,22 @@ int connect(const uchar_t ip_addr[4], ushort_t port) {
 
 
 void timer_int_Handler(struct Interrupt_State * state){
-	int i;
-	//handle the periodic calls of uIP
-	for(i = 0; i < UIP_CONNS; ++i) {
-	       uip_periodic(i);
-		if(uip_len > 0) {
-		     //devicedriver_send();
-		     NE2K_Transmit(uip_len);
-		}
-  	}
-	for(i = 0; i < UIP_UDP_CONNS; i++) {
-		 uip_udp_periodic(i);
-		 if(uip_len > 0) {
-		     //devicedriver_send();
-		     NE2K_Transmit(uip_len);
-		}
-	}
+  int i;
+  //handle the periodic calls of uIP
+  for(i = 0; i < UIP_CONNS; ++i) {
+    uip_periodic(i);
+    if(uip_len > 0) {
+      //devicedriver_send();
+      NE2K_Transmit(uip_len);
+    }
+  }
+  for(i = 0; i < UIP_UDP_CONNS; i++) {
+    uip_udp_periodic(i);
+    if(uip_len > 0) {
+      //devicedriver_send();
+      NE2K_Transmit(uip_len);
+    }
+  }
 }
 
 // a series of utilities to handle conncetion states
@@ -137,18 +133,17 @@ static void newdata(int sockfd){
 }
 
 // not finished yet
-static void
-senddata(int sockfd){
-    uchar_t *bufptr;
-    int len = 0;
-
-    bufptr = uip_appdata;
+static void senddata(int sockfd){
+  uchar_t *bufptr;
+  int len = 0;
   
-    if(len < uip_mss()) {
-      // memcpy(bufptr, data, len);
-    } else {
-
-    }
+  bufptr = uip_appdata;
+  
+  if(len < uip_mss()) {
+    // memcpy(bufptr, data, len);
+  } else {
+    
+  }
   //uip_send(uip_appdata,len);
 }
 
@@ -159,8 +154,9 @@ static int  get_socket_from_port(ushort_t lport) {
   int i;
   
   for (i = 0; i<MAX_SOCKS; i++){
-  	if (sockets[i].con->lport == lport) 
-		return i;
+    if (sockets[i].con->lport == lport) {
+      return i;
+    }
   }
   
   return -1;
@@ -169,11 +165,9 @@ static int  get_socket_from_port(ushort_t lport) {
 
 
 
-void
-socket_appcall(void)
-{
+void socket_appcall(void) {
   int sockfd; 
-
+  
   sockfd = get_socket_from_port(uip_conn->lport);
 
   if (sockfd == -1) return;
@@ -206,72 +200,75 @@ socket_appcall(void)
 
 
 
-int Packet_Received(struct NE2K_Packet_Info* info, uchar_t *pkt) 
-{
-	  struct sock_packet next;
-	  int i;
-	  
-	  next.size = info->size;
-	  next.data = (uchar_t *)VMM_Malloc(next.size);
+int Packet_Received(struct NE2K_Packet_Info* info, uchar_t *pkt) {
+  struct sock_packet next;
+  int i;
+  
+  next.size = info->size;
+  next.data = (uchar_t *)Malloc(next.size);
+  
+  if (next.data == NULL) {
+    return 1;
+  }
 
-	  if (next.data == NULL) return 1;
-	  
-	  //uip_len = info->size;  
-
-	  for(i = 0; i < info->size; i++) {
-	    *((next.data)+i) = *(pkt+i);
-	  }
-	  Free(pkt);
-
-	  Disable_Interrupts();
-         v3_enqueue(&in_packets, (addr_t)(&next));
-	  Enable_Interrupts();
-
-	  //triger_receiver_interrupt();
-	 
-	  return 0;
+  //uip_len = info->size;  
+  
+  for(i = 0; i < info->size; i++) {
+    *((next.data) + i) = *(pkt + i);
+  }
+  Free(pkt);
+  
+  Disable_Interrupts();
+  enqueue(&in_packets, &next);
+  Enable_Interrupts();
+  
+  //triger_receiver_interrupt();
+  
+  return 0;
 }
 
 
 void int_handler_packet_receive(struct Interrupt_State * state){
-	//device driver got a incoming packet and enqueue that packet to the receive queue
-		struct sock_packet *next_packet; 
-		addr_t pkt;
-		int i; 
-			
-	 	while(1){ 
-                     //currently disable interrupt because no lock for the queue
-		       Disable_Interrupts();
-			pkt = v3_dequeue(&in_packets);
-			Enable_Interrupts();
+  //device driver got a incoming packet and enqueue that packet to the receive queue
+  struct sock_packet * next_packet; 
+  void * pkt;
+  int i; 
+  
+  while(1){ 
+    //currently disable interrupt because no lock for the queue
+    Disable_Interrupts();
+    pkt = dequeue(&in_packets);
+    Enable_Interrupts();
+    
+    if (pkt == NULL) {
+      break;
+    }
 
-			if (pkt == 0) break;
-
-			//there are new packets in the receiver queue
-			next_packet = (struct sock_packet *)pkt;
-			uip_len = next_packet->size;  
-
-			for(i = 0; i < uip_len; i++) {
-			    uip_buf[i] = *((next_packet->data)+i);
-			}
-			  
-			Free(next_packet->data);
-			Free(next_packet);
-
-			if(BUF->type == htons(UIP_ETHTYPE_ARP)) {
-			    uip_arp_arpin();
-			    if (uip_len > 0){
-				//ethernet_devicedriver_send();
-				NE2K_Transmit(uip_len);
-      			    }					
-			} else {
-			    uip_arp_ipin();
-			    uip_input();
-			    if(uip_len > 0) {
-			        uip_arp_out();
-				 //ethernet_devicedriver_send();
-				 NE2K_Transmit(uip_len);
-			    }
-			}			  
-	 	}	
+    //there are new packets in the receiver queue
+    next_packet = (struct sock_packet *)pkt;
+    uip_len = next_packet->size;  
+    
+    for(i = 0; i < uip_len; i++) {
+      uip_buf[i] = *((next_packet->data) + i);
+    }
+    
+    Free(next_packet->data);
+    Free(next_packet);
+    
+    if(BUF->type == htons(UIP_ETHTYPE_ARP)) {
+      uip_arp_arpin();
+      if (uip_len > 0){
+	//ethernet_devicedriver_send();
+	NE2K_Transmit(uip_len);
+      }					
+    } else {
+      uip_arp_ipin();
+      uip_input();
+      if(uip_len > 0) {
+	uip_arp_out();
+	//ethernet_devicedriver_send();
+	NE2K_Transmit(uip_len);
+      }
+    }			  
+  }	
 }
