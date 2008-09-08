@@ -31,26 +31,52 @@ void free_ring_buffer(struct ring_buffer * ring) {
 
 
 
-static inline uchar_t * get_buf_ptr(struct ring_buffer * ring) {
+static inline uchar_t * get_read_ptr(struct ring_buffer * ring) {
   return (uchar_t *)&(ring->buf + ring->start);
 }
 
+static inline uchar_t * get_write_ptr(struct ring_buffer * ring) {
+  return (uchar_t *)&(ring->buf + ring->end);
+}
 
-static inline int get_section_size(struct ring_buffer * ring) {
+
+static inline int get_read_section_size(struct ring_buffer * ring) {
   return ring->size - ring->start;
 }
 
-static inline int is_loop(struct ring_buffer * ring, uint_t len) {
+static inline int get_write_section_size(struct ring_buffer * ring) {
+  return ring->size - ring->end;
+}
+
+static inline int is_read_loop(struct ring_buffer * ring, uint_t len) {
   if ((ring->start >= ring->end) && (ring->current_len > 0)) {
     // end is past the end of the buffer
-    if (get_section_size(ring) < len) {
+    if (get_read_section_size(ring) < len) {
       return 1;
     }
   }
-
   return 0;
 }
 
+
+static inline int is_write_loop(struct ring_buffer * ring, uint_t len) {
+  if ((ring->end >= ring->start) && (ring->current_len < ring->size)) {
+    // end is past the end of the buffer
+    if (get_write_section_size(ring) < len) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
+
+int rb_data_len(struct ring_buffer * ring) {
+  return ring->current_len;
+}
+
+int rb_capacity(struct ring_buffer * ring) {
+  return ring->size;
+}
 
 int rb_read(struct ring_buffer * ring, char * dst, uint_t len) {
   int read_len = 0;
@@ -58,19 +84,50 @@ int rb_read(struct ring_buffer * ring, char * dst, uint_t len) {
 
   read_len = (len > ring_data_len) ? ring_data_len : len;
 
-  if (is_loop(ring, read_len)) {
-    int first_len = get_section_size(ring);
+  if (is_read_loop(ring, read_len)) {
+    int section_len = get_read_section_size(ring);
 
-    memcpy(dst, get_buf_ptr(ring), first_len);
-    read_len -= first_len;
+    memcpy(dst, get_read_ptr(ring), section_len);
     ring->start = 0;
 
-    memcpy(dst + first_len, get_buf_ptr, read_len);
-
+    memcpy(dst + section_len, get_read_ptr(ring), read_len - section_len);
+    
+    ring->start += read_len - section_len;
   } else {
-    memcpy(dst, get_buf_ptr(ring), read_len);
+    memcpy(dst, get_read_ptr(ring), read_len);
+    
+    ring->start += read_len;
   }
 
+  ring->current_len -= read_len;
+
   return read_len;
+}
+
+
+int rb_write(struct ring_buffer * ring, char * src, uint_t len) {
+  int write_len = 0;
+  int ring_avail_space = ring->size - ring->current_len;
   
+  write_len = (len > ring_avail_space) ? ring_avail_space : len;
+
+
+  if (is_write_loop(ring, write_len)) {
+    int section_len = get_write_section_size(ring);
+    
+    memcpy(get_write_ptr(ring), src, section_len);
+    ring->end = 0;
+
+    memcpy(get_write_ptr(ring), src + section_len, write_len - section_len);
+
+    ring->end += write_len - section_len;
+  } else {
+    memcpy(get_write_ptr(ring), src, write_len);
+
+    ring->end += write_len;
+  }
+
+  ring->current_len += write_len;
+
+  return write_len;
 }
