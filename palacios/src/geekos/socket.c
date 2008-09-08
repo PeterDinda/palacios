@@ -110,19 +110,19 @@ void timer_int_Handler(struct Interrupt_State * state){
 }
 
 // a series of utilities to handle conncetion states
-static void connected(int sockfd){
+static void connected(int sockfd) {
 
 }
 
-static void closed(int sockfd){
+static void closed(int sockfd) {
 
 }
 
-static void acked(int sockfd){
+static void acked(int sockfd) {
 
 }
 
-static void newdata(int sockfd){
+static void newdata(int sockfd) {
 
 }
 
@@ -202,13 +202,16 @@ socket_appcall(void)
 
 
 int Packet_Received(struct NE2K_Packet_Info * info, uchar_t * pkt) {
-  int i;
+  //int i;
   
   uip_len = info->size; 
 
-  for (i = 0; i < info->size; i++) {
-    uip_buf[i] = *(pkt+i);
-  }
+  //  for (i = 0; i < info->size; i++) {
+  //  uip_buf[i] = *(pkt + i);
+  //}
+
+  memcpy(uip_buf, pkt, uip_len);
+
 
   Free(pkt);
 
