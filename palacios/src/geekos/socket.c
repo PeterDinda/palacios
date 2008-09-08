@@ -22,8 +22,8 @@ void init_network() {
    
    for (i = 0; i < MAX_SOCKS; i++) {
      sockets[i].in_use = 0;
-     init_queue(&(sockets[i].send_queue));
-     init_queue(&(sockets[i].recv_queue));
+     init_ring_buffer(&(sockets[i].send_queue), 65535);
+     init_ring_buffer(&(sockets[i].recv_queue), 65535);
    }
    
    //initiate uIP
@@ -127,26 +127,22 @@ static void newdata(int sockfd){
 }
 
 // not finished yet
-static void
-senddata(int sockfd){
-  uchar_t *bufptr;
-  int len = 0;
-  addr_t pkt;
+static void senddata(int sockfd) {
+  struct socket * sock = get_socket_from_fd(sockfd);
+  int mss = uip_mss();
+  int pending_bytes = rb_data_len(&(sock->send_queue));
+  int len = (mss < pending_bytes) ? mss: pending_bytes;
+  int bytes_read = 0;
+  uchar_t * send_buf = uip_appdata;
   
-  struct sockets *sock = get_socket_from_fd(sockfd);
-  
-  pkt = dequeue(sock->send_queue);
-  if (pkt == 0)  // no packet for send
+  bytes_read = rb_peek(&(sock->send_queue), send_buf, len);
+
+  if (bytes_read == 0) {
+    // no packet for send
     return;
-  
-  bufptr = uip_appdata;
-  
-  if(len < uip_mss()) {
-    // memcpy(bufptr, data, len);
-  } else {
-    
   }
-  //uip_send(uip_appdata,len);
+
+  uip_send(send_buf, len);
 }
 
 
