@@ -3,7 +3,7 @@
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
  * Copyright (c) 2004, Iulian Neamtiu <neamtiu@cs.umd.edu>
- * $Revision: 1.43 $
+ * $Revision: 1.44 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -41,6 +41,8 @@
 #include <geekos/ne2k.h>
 #include <uip/uip.h>
 #include <uip/uip_arp.h>
+
+#include <geekos/ring_buffer.h>
 
 #define SPEAKER_PORT 0x61
 #define TEST_NE2K 0
@@ -243,6 +245,7 @@ void Main(struct Boot_Info* bootInfo)
   //Init_PCI();
 
   Init_Stubs();
+
 
 #if TEST_NE2K
   Init_Ne2k(&Packet_Received);
