@@ -1,13 +1,13 @@
 #ifndef GEEKOS_SOCKET_H
 #define GEEKOS_SOCKET_H
 
-#include <geekos/queue.h>
+#include <geekos/ring_buffer.h>
 #include <uip/uip.h>
 
 struct socket {
   int in_use;
-  struct gen_queue send_queue;
-  struct gen_queue recv_queue;
+  struct ring_buffer send_queue;
+  struct ring_buffer recv_queue;
   struct uip_conn *con;
 };
 

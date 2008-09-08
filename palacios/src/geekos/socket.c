@@ -129,30 +129,30 @@ static void newdata(int sockfd){
 // not finished yet
 static void
 senddata(int sockfd){
-  /*uchar_t *bufptr;
-    int len = 0;
-    addr_t pkt;
-    
-    struct sockets *sock = get_socket_from_fd(sockfd);
-    
-    pkt = dequeue(sock->send_queue);
-    if (pkt == 0)  // no packet for send
+  uchar_t *bufptr;
+  int len = 0;
+  addr_t pkt;
+  
+  struct sockets *sock = get_socket_from_fd(sockfd);
+  
+  pkt = dequeue(sock->send_queue);
+  if (pkt == 0)  // no packet for send
     return;
-    
-    bufptr = uip_appdata;
-    
-    if(len < uip_mss()) {
+  
+  bufptr = uip_appdata;
+  
+  if(len < uip_mss()) {
     // memcpy(bufptr, data, len);
-    } else {
+  } else {
     
-    }*/
+  }
   //uip_send(uip_appdata,len);
 }
 
 
 
 //get the socket id by the local tcp port
-static int  get_socket_from_port(ushort_t lport) {
+static int get_socket_from_port(ushort_t lport) {
   int i;
   
   for (i = 0; i < MAX_SOCKS; i++){
