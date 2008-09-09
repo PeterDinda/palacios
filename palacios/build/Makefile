@@ -1,6 +1,6 @@
 # Makefile for GeekOS kernel, userspace, and tools
 # Copyright (c) 2004,2005 David H. Hovemeyer <daveho@cs.umd.edu>
-# $Revision: 1.68 $
+# $Revision: 1.69 $
 
 # This is free software.  You are permitted to use,
 # redistribute, and modify it as specified in the file "COPYING".
@@ -140,6 +140,8 @@ DEBUG_SECTIONS := $(DEBUG_SECTIONS) -UDEBUG_RAMDISK
 endif
 endif
 
+
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DTEST_NE2K
 
 ifeq ($(DEBUG),1)
   JRLDEBUG= -DSERIAL_PRINT_DEBUG=1 -DSERIAL_PRINT_DEBUG_LEVEL=10 -DSERIAL_PRINT=1 -DVMM_DEBUG=1 -DVMM_INFO=1 -DVMM_TRACE=1 $(DEBUG_SECTIONS)

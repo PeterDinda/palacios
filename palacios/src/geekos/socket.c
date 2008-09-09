@@ -1,12 +1,11 @@
 #include <geekos/socket.h>
 #include <geekos/malloc.h>
-#include <palacios/vmm_types.h>
 #include <geekos/ne2k.h>
 #include <uip/uip.h>
 #include <uip/uip_arp.h>
 #include <geekos/vmm_stubs.h>
+#include <geekos/debug.h>
 
-#define NULL (void *)0
 
 
 #define BUF ((struct uip_eth_hdr *)&uip_buf[0])
@@ -16,7 +15,6 @@
 
 struct socket sockets[MAX_SOCKS];
 
-extern void* memcpy(void *dst, const void* src, int n);
 
 
 int Packet_Received(struct NE2K_Packet_Info* info, uchar_t *pkt);
@@ -28,6 +26,7 @@ void init_network() {
       sockets[i].in_use = 0;
       sockets[i].send_buf = NULL;
       sockets[i].recv_buf = NULL;
+      sockets[i].state = CLOSED;
    }
 
 
@@ -41,6 +40,16 @@ void init_network() {
 
 
 }
+
+
+
+
+void set_ip_addr(uchar_t addr[4]) {
+  uip_ipaddr_t ipaddr;
+  uip_ipaddr(ipaddr, addr[0], addr[1], addr[2], addr[3]);  /* Local IP address */
+  uip_sethostaddr(ipaddr);
+}
+
 
 static int allocate_socket_fd() {
   int i = 0;
@@ -70,6 +79,7 @@ static int release_socket_fd(int sockfd){
 		free_ring_buffer(sockets[sockfd].recv_buf);
 		sockets[sockfd].send_buf = NULL;
 		sockets[sockfd].recv_buf = NULL;
+		sockets[sockfd].state = CLOSED;
        }
 
 	return 0;
@@ -91,6 +101,8 @@ int connect(const uchar_t ip_addr[4], ushort_t port) {
   }
 
   uip_ipaddr(&ipaddr, ip_addr[0], ip_addr[1], ip_addr[2], ip_addr[3]);  
+
+  sockets[sockfd].state = WAITING;
   
   sockets[sockfd].con = uip_connect((uip_ipaddr_t *)&ip_addr, htons(port));
 
@@ -99,6 +111,22 @@ int connect(const uchar_t ip_addr[4], ushort_t port) {
     release_socket_fd(sockfd);
     return -1;
   }
+
+
+  PrintBoth("Connection start\n");
+
+  while(sockets[sockfd].state == WAITING) {
+    timer_int_handler(NULL);
+  }
+
+    
+  PrintBoth("Connected\n");
+
+  if (sockets[sockfd].state != ESTABLISHED) {
+    release_socket_fd(sockfd);
+    return -1;
+  }
+
 
   return sockfd;
 }
@@ -141,8 +169,14 @@ void timer_int_Handler(struct Interrupt_State * state){
 }
 
 // a series of utilities to handle conncetion states
-static void connected(int sockfd){
+static void connected(int sockfd) {
+  struct socket * sock = get_socket_from_fd(sockfd);
 
+  PrintBoth("Connected Interrupt\n");
+
+  sock->state = ESTABLISHED;
+
+  Wake_Up(&(sock->recv_wait_queue));
 }
 
 static void closed(int sockfd){
@@ -180,12 +214,19 @@ static void newdata(int sockfd){
 }
 
 // not finished yet
-static void
-senddata(int sockfd){
+static void send_to_driver(int sockfd) {
+
+  PrintBoth("Sending data to driver\n");
+
+}
+
+
+
+int send(int sockfd, void * buf, uint_t len) {
   struct socket * sock = get_socket_from_fd(sockfd);
-  int mss = uip_mss();
-  int pending_bytes = rb_data_len(sock->send_buf);
-  int len = (mss < pending_bytes) ? mss: pending_bytes;
+  //int mss = uip_mss();
+  //int pending_bytes = rb_data_len(sock->send_buf);
+  //int len = (mss < pending_bytes) ? mss: pending_bytes;
   int bytes_read = 0;
   uchar_t * send_buf = uip_appdata;
   
@@ -193,16 +234,18 @@ senddata(int sockfd){
 
   if (bytes_read == 0) {
     // no packet for send
-    return;
+    return -1;
   }
 
   uip_send(send_buf, len);
+
+  return len;
 }
 
 
 
 //get the socket id by the local tcp port
-static int  get_socket_from_port(ushort_t lport) {
+static int get_socket_from_port(ushort_t lport) {
   int i;
   
 
@@ -222,6 +265,8 @@ void socket_appcall(void) {
   int sockfd; 
   
   sockfd = get_socket_from_port(uip_conn->lport);
+
+  PrintBoth("Appcall\n");
 
   
   if (sockfd == -1) {
@@ -251,7 +296,7 @@ void socket_appcall(void) {
       uip_acked() ||
       uip_connected() ||
       uip_poll()) {
-    senddata(sockfd);
+    send_to_driver(sockfd);
   }
 }
 

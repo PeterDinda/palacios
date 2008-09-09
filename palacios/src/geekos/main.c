@@ -3,7 +3,7 @@
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
  * Copyright (c) 2004, Iulian Neamtiu <neamtiu@cs.umd.edu>
- * $Revision: 1.44 $
+ * $Revision: 1.45 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -38,11 +38,14 @@
 
 #include <geekos/pci.h>
 
+#if 0
 #include <geekos/ne2k.h>
 #include <uip/uip.h>
 #include <uip/uip_arp.h>
+#endif
 
-#include <geekos/ring_buffer.h>
+#include <geekos/socket.h>
+//#include <geekos/ring_buffer.h>
 
 #define SPEAKER_PORT 0x61
 #define TEST_NE2K 0
@@ -247,7 +250,28 @@ void Main(struct Boot_Info* bootInfo)
   Init_Stubs();
 
 
-#if TEST_NE2K
+#ifdef TEST_NE2K
+  {
+    init_network();
+    uchar_t local_addr[4];
+    uchar_t remote_addr[4];
+
+    local_addr[0] = 10;
+    local_addr[1] = 0;
+    local_addr[2] = 2;
+    local_addr[3] = 20;
+
+    set_ip_addr(local_addr);
+
+    remote_addr[0] = 10;
+    remote_addr[1] = 0;
+    remote_addr[2] = 2;
+    remote_addr[3] = 21;
+
+
+    connect(remote_addr, 4301);
+  }
+#elif 0
   Init_Ne2k(&Packet_Received);
   uip_init();
   uip_arp_init();
