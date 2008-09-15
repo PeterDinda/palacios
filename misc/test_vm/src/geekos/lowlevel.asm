@@ -2,7 +2,7 @@
 ; Low level interrupt/thread handling code for GeekOS.
 ; Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
 ; Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
-; $Revision: 1.1 $
+; $Revision: 1.2 $
 
 ; This is free software.  You are permitted to use,
 ; redistribute, and modify it as specified in the file "COPYING".
@@ -143,6 +143,9 @@ EXPORT Load_LDTR
 EXPORT g_entryPointTableStart
 EXPORT g_entryPointTableEnd
 
+
+EXPORT InByteLL
+
 ; Thread context switch function.
 EXPORT Switch_To_Thread
 
@@ -161,6 +164,7 @@ EXPORT Enable_Paging
 EXPORT Set_PDBR
 EXPORT Get_PDBR
 EXPORT Flush_TLB
+EXPORT Invalidate_PG
 
 ; CPUID functions
 EXPORT cpuid_ecx
@@ -270,6 +274,15 @@ Flush_TLB:
 
 
 ;
+; Invalidate Page - removes a page from the TLB
+;
+align 8
+Invalidate_PG:
+	mov	eax, [esp+4]
+	invlpg	[eax]
+	ret
+
+;
 ; cpuid_ecx - return the ecx register from cpuid
 ;
 align 8
@@ -351,6 +364,28 @@ Proc_test:
 	pop	ebp
 	ret
 
+
+
+align 8
+InByteLL:
+	push	ebp
+	mov	ebp, esp
+	push	ecx
+	push 	ebx
+	push	edx
+
+	rdtsc
+	mov	ebx, eax
+	mov	ecx, edx
+	mov	dx, [ebp + 8]
+
+	in	al, dx
+
+	pop	edx
+	pop	ebx
+	pop 	ecx
+	pop	ebp
+	ret
 
 ; Common interrupt handling code.
 ; Save registers, call C handler function,
@@ -515,6 +550,7 @@ align 16
 Get_EBP:
 	mov	eax, ebp
 	ret
+
 
 
 

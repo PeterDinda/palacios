@@ -2,7 +2,7 @@
  * Paging (virtual memory) support
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
  * Copyright (c) 2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
- * $Revision: 1.1 $
+ * $Revision: 1.2 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -45,11 +45,15 @@ int debugFaults = 0;
 
 void SerialPrintPD(pde_t *pde)
 {
-  int i;
+  uint_t i;
 
   SerialPrint("Page Directory at %p:\n",pde);
-  for (i=0;i<NUM_PAGE_DIR_ENTRIES && pde[i].present;i++) { 
-    SerialPrintPDE((void*)(PAGE_SIZE*NUM_PAGE_TABLE_ENTRIES*i),&(pde[i]));
+  for (i = 0; i < NUM_PAGE_DIR_ENTRIES; i++) { 
+    if (pde[i].present) {
+      if ((i * PAGE_SIZE * 1024) > 0x40000000) {
+	SerialPrintPDE((void*)(PAGE_SIZE*NUM_PAGE_TABLE_ENTRIES*i),&(pde[i]));
+      }
+    }
   }
 }
 
@@ -58,8 +62,10 @@ void SerialPrintPT(void *starting_address, pte_t *pte)
   int i;
 
   SerialPrint("Page Table at %p:\n",pte);
-  for (i=0;i<NUM_PAGE_TABLE_ENTRIES && pte[i].present;i++) { 
-    SerialPrintPTE(starting_address + PAGE_SIZE*i,&(pte[i]));
+  for (i=0;i<NUM_PAGE_TABLE_ENTRIES;i++) { 
+    if (pte[i].present) {
+      SerialPrintPTE(starting_address + PAGE_SIZE*i,&(pte[i]));
+    }
   }
 }
 
@@ -95,13 +101,17 @@ void SerialPrintPTE(void *virtual_address, pte_t *pte)
 
 void SerialDumpPageTables(pde_t *pde)
 {
-  int i;
+  uint_t i;
   
   SerialPrint("Dumping the pages starting with the pde page at %p\n",pde);
 
-  for (i=0;i<NUM_PAGE_DIR_ENTRIES && pde[i].present;i++) { 
-    SerialPrintPDE((void*)(PAGE_SIZE*NUM_PAGE_TABLE_ENTRIES*i),&(pde[i]));
-    SerialPrintPT((void*)(PAGE_SIZE*NUM_PAGE_TABLE_ENTRIES*i),(void*)(pde[i].pageTableBaseAddr<<PAGE_POWER));
+  for (i = 0; i < NUM_PAGE_DIR_ENTRIES; i++) { 
+    if (pde[i].present) {
+      if ((i * PAGE_SIZE * 1024) >= 0x40000000) {
+	SerialPrintPDE((void *)(PAGE_SIZE * NUM_PAGE_TABLE_ENTRIES * i), &(pde[i]));
+	SerialPrintPT((void *)(PAGE_SIZE * NUM_PAGE_TABLE_ENTRIES * i), (void *)(pde[i].pageTableBaseAddr << PAGE_POWER));
+      }
+    }
   }
 }
     
@@ -264,6 +274,8 @@ void Init_VM(struct Boot_Info *bootInfo)
       }
     }
   }
+
+
   SerialPrintLevel(100,"Done creating 1<->1 initial page tables\n");
   SerialPrintLevel(100,"Now installing page fault handler\n");
   //  SerialDumpPageTables(pd);
@@ -272,6 +284,146 @@ void Init_VM(struct Boot_Info *bootInfo)
   Enable_Paging(pd);
   SerialPrintLevel(100,"We are still alive after paging turned on!\n");
   SerialPrintLevel(100,"checkPaging returns %d\n",checkPaging());
+}
+
+
+
+/* How we test...
+ * 1 <-> 1 mapping of physical memory, 
+ * We assume that physical memory << 1G
+ * we setup the test so that 1G+ is mapped in a testable order
+ * then go through and ensure that all the paging operations work...
+ * The static mapping sits at 1G
+ * The tests are run at 2G
+
+ */
+
+void VM_Test(struct Boot_Info *bootInfo, uint_t num_test_pages) {
+  int i,j;
+
+  pde_t * pd;
+  //pde_t *pde;
+  //  pte_t *pte;
+
+  PrintBoth("Running Paging Test\n");
+
+  pd = Get_PDBR();
+
+
+  void * one_gig = (void *)0x40000000;
+  void * two_gig = (void *)0x80000000;
+
+  /* Set up the 1 GIG static map */
+  ulong_t pde_offset = (((ulong_t)one_gig / PAGE_SIZE) / 1024);    
+  for (i = 0; i < num_test_pages; i += 1024) {
+    pde_t * pde = &(pd[pde_offset + (i / 1024)]);
+    pte_t * pte = (pte_t *)Alloc_Page();
+    memset(pte, 0, PAGE_SIZE);
+
+    pde->present = 1;
+    pde->flags= VM_READ | VM_WRITE | VM_EXEC | VM_USER;
+    pde->pageTableBaseAddr = PAGE_ALLIGNED_ADDR(pte);
+
+    for (j = 0; (j + i) < num_test_pages ; j++) {
+      pte[j].present = 1;
+      pte[j].flags = VM_READ | VM_WRITE | VM_EXEC | VM_USER;
+      pte[j].pageBaseAddr = PAGE_ALLIGNED_ADDR(Alloc_Page());
+    }
+  }
+
+  PrintBoth("Setup VM Test static map\n");
+
+
+  /* Setup the Two Gig test area */
+  /* First is just a incrmental mirroring of the 1G area */
+
+  pde_offset = (((ulong_t)two_gig / PAGE_SIZE) / 1024);  
+  
+  for (i = 0; i < num_test_pages; i += 1024) {
+    pde_t * pde = &(pd[pde_offset + (i / 1024)]);
+    pte_t * pte = (pte_t *)Alloc_Page();
+    memset(pte, 0, PAGE_SIZE);
+
+    pde->present = 1;
+    pde->flags= VM_READ | VM_WRITE | VM_EXEC | VM_USER;
+    pde->pageTableBaseAddr = PAGE_ALLIGNED_ADDR(pte);
+
+    for (j = 0; (j + i) < num_test_pages; j++) {
+      pte_t * static_pte = LookupPage(one_gig + (PAGE_SIZE * (j+i)));
+      pte[j].present = 1;
+      pte[j].flags = VM_READ | VM_WRITE | VM_EXEC | VM_USER;
+      pte[j].pageBaseAddr = static_pte->pageBaseAddr;
+    }
+  }
+
+  PrintBoth("Setup initial test area\n");
+
+  PrintBoth("Loading CR3\n");
+  Set_PDBR(pd);
+
+  SerialDumpPageTables(pd);
+
+  PrintBoth("Writing to Test Area\n");
+
+  /* Write data to each page in the 2G test area */
+  uint_t * test_ptr = (uint_t *)two_gig;
+  for (i = 0; i < num_test_pages; i++) {
+
+    SerialPrint("Writing %d to %p\n", i, test_ptr);
+    *test_ptr = (uint_t)i;
+    test_ptr += PAGE_SIZE / 4;
+  }
+
+
+  PrintBoth("Reversing Page Mapping\n");
+  
+  /* Reverse 2G test area mapping */
+  
+  pde_offset = (((ulong_t)two_gig / PAGE_SIZE) / 1024);
+
+  for (i = 0; i < num_test_pages; i += 1024) {
+    pde_t * pde = &(pd[pde_offset + (i / 1024)]);
+    pte_t * pte = (pte_t *)(pde->pageTableBaseAddr << 12);
+
+    for (j = 0; (j + i) < num_test_pages ; j++) {
+      pte_t * static_pte = LookupPage(one_gig + (PAGE_SIZE * (num_test_pages - (j+i) - 1)));
+      pte[j].pageBaseAddr = static_pte->pageBaseAddr;
+    } 
+  }
+
+
+  Set_PDBR(pd);
+  
+  PrintBoth("Page Mapping Reversed\n");
+  SerialDumpPageTables(pd);
+
+
+  PrintBoth("Page Consistency Check\n");
+
+  test_ptr = (uint_t *)two_gig;
+  for (i = 0; i < num_test_pages; i++) {
+    if ((*test_ptr) != num_test_pages - (i+1)) {
+      PrintBoth("Consistency Error: (Test Value=%d; Actual Value=%d)\n", (num_test_pages - i), (*test_ptr));
+      while(1);
+    }
+    test_ptr += PAGE_SIZE / 4;
+  }
+
+  PrintBoth("Test Sucessful\n");
+
+
+  PrintBoth("Invalidation Test\n");
+
+
+  Invalidate_PG(two_gig);
+
+  uint_t foo = 0;
+
+  foo = *(uint_t *)two_gig;
+  *(uint_t *)((char *)two_gig + 4) = foo;
+
+
+  PrintBoth("Invalidation Test Successful\n");
 }
 
 

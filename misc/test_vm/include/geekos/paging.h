@@ -2,7 +2,7 @@
  * Paging (virtual memory) support
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
  * Copyright (c) 2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
- * $Revision: 1.1 $
+ * $Revision: 1.2 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -97,6 +97,7 @@ extern void Flush_TLB(void);
 extern void Set_PDBR(pde_t *pageDir);
 extern pde_t *Get_PDBR(void);
 extern void Enable_Paging(pde_t *pageDir);
+extern void Invalidate_PG(void * addr);
 
 /*
  * Return the address that caused a page fault.
@@ -127,5 +128,7 @@ void Free_Space_On_Paging_File(int pagefileIndex);
 void Write_To_Paging_File(void *paddr, ulong_t vaddr, int pagefileIndex);
 void Read_From_Paging_File(void *paddr, ulong_t vaddr, int pagefileIndex);
 
+
+void VM_Test(struct Boot_Info *bootInfo, uint_t num_test_pages);
 
 #endif

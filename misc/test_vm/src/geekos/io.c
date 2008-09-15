@@ -1,7 +1,7 @@
 /*
  * x86 port IO routines
  * Copyright (c) 2001, David H. Hovemeyer <daveho@cs.umd.edu>
- * $Revision: 1.1 $
+ * $Revision: 1.2 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -21,11 +21,14 @@ void Out_Byte(ushort_t port, uchar_t value)
     );
 }
 
+extern uchar_t InByteLL(ushort_t port);
+
 /*
  * Read a byte from an I/O port.
  */
 uchar_t In_Byte(ushort_t port)
 {
+  /*
     uchar_t value;
 
     __asm__ __volatile__ (
@@ -35,6 +38,9 @@ uchar_t In_Byte(ushort_t port)
     );
 
     return value;
+  */
+
+  return InByteLL(port);
 }
 
 /*

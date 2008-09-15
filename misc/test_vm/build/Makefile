@@ -1,6 +1,6 @@
 # Makefile for GeekOS kernel, userspace, and tools
 # Copyright (c) 2004,2005 David H. Hovemeyer <daveho@cs.umd.edu>
-# $Revision: 1.1 $
+# $Revision: 1.2 $
 
 # This is free software.  You are permitted to use,
 # redistribute, and modify it as specified in the file "COPYING".
@@ -29,7 +29,6 @@
 #
 # The setup code needs to copy it up to this address and jump there
 #
-#KERNEL_BASE_ADDR := $(shell perl -e 'print sprintf("0x%x",$(TOP_OF_MEM)-4096*3-$(MAX_VMM));')
 KERNEL_BASE_ADDR := 0x100000
 
 # Kernel entry point function
@@ -123,10 +122,11 @@ COMMON_C_OBJS := $(COMMON_C_SRCS:%.c=common/%.o)
 
 # Uncomment if cross compiling
 #TARGET_CC_PREFIX := i386-elf-
+TARGET_CC_PREFIX :=  $(PROJECT_ROOT)/../devtools/i386/bin/i386-elf-
 
 # Target C compiler.  gcc 2.95.2 or later should work.
 TARGET_CC := $(TARGET_CC_PREFIX)gcc
-#TARGET_CC := $(TARGET_CC_PREFIX)gcc34 -m32
+
 
 # Host C compiler.  This is used to compile programs to execute on
 # the host platform, not the target (x86) platform.  On x86/ELF
@@ -240,6 +240,10 @@ pxe:	fd.img
 
 vm: 	geekos/kernel.bin
 	cp geekos/kernel.bin ../../vmm-hack1/build/vm_kernel
+
+guest_img: fd.img
+	cp fd.img guest.img
+	$(PAD) guest.img 1474560
 
 geekos/test: geekos/test.o
 	$(CC) geekos/test.o -o geekos/test

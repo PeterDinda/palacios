@@ -3,7 +3,7 @@
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
  * Copyright (c) 2004, Iulian Neamtiu <neamtiu@cs.umd.edu>
- * $Revision: 1.1 $
+ * $Revision: 1.2 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -51,6 +51,10 @@ extern void Set_MSR(ulong_t msr, ulong_t val1, ulong_t val2);
 extern uint_t Get_EIP();
 extern uint_t Get_ESP();
 extern uint_t Get_EBP();
+
+
+
+extern void Invalidate_PG(void * addr);
 
 
 int foo=42;
@@ -247,7 +251,7 @@ void Main(struct Boot_Info* bootInfo)
   Init_Interrupts();
   Init_Scheduler();
   Init_Traps();
-  Init_Timer();
+  //  Init_Timer();
   Init_Keyboard();
   Init_VM(bootInfo);
   Init_Paging();
@@ -282,6 +286,20 @@ void Main(struct Boot_Info* bootInfo)
 
   SerialPrintLevel(1000,"Next: setup GDT\n");
 
+  {
+    int i = 0;
+    for (i = 0; i < 1024; i++) {
+      uint_t * addr = (uint_t *)0xa00000;
+      uint_t foo = *addr;
+
+      SerialPrint("Read From 0x%x=%d\n", (uint_t)addr, foo);
+    }
+
+  }
+  //  Invalidate_PG((void *)0x2000);
+
+  //  VM_Test(bootInfo, 32);  
+  //VM_Test(bootInfo, 1536);
 
   while(1);
   
