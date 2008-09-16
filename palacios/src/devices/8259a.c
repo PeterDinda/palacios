@@ -6,7 +6,6 @@
 #ifndef DEBUG_PIC
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
-//#define PrintPicTrace(_f, _a...) PrintTrace("\n8259a.c(%d) "_f, __LINE__, ## _a)
 #endif
 
 
