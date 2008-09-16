@@ -3,7 +3,7 @@
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
  * Copyright (c) 2004, Iulian Neamtiu <neamtiu@cs.umd.edu>
- * $Revision: 1.46 $
+ * $Revision: 1.47 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -38,42 +38,14 @@
 
 #include <geekos/pci.h>
 
-#if 0
-#include <geekos/ne2k.h>
-#include <uip/uip.h>
-#include <uip/uip_arp.h>
-#endif
 
-#include <geekos/socket.h>
-//#include <geekos/ring_buffer.h>
+#include <geekos/net.h>
+
 
 #define SPEAKER_PORT 0x61
-#define TEST_NE2K 0
-#define BUF ((struct uip_eth_hdr *)&uip_buf[0])
 
-#if TEST_NE2K
-u8_t uip_buf[UIP_BUFSIZE+2];
-u16_t uip_len;
 
-int Packet_Received(struct NE2K_Packet_Info* info, uchar_t *pkt) {
-  uip_len = info->size;  
-  int i;
-  for(i = 0; i < info->size; i++) {
-    PrintBoth("%x ", *(pkt+i));
-    uip_buf[i] = *(pkt+i);
-    if(i % 10 == 0)
-      PrintBoth("\n");
-  }
-  Free(pkt);
-  if(BUF->type == htons(UIP_ETHTYPE_ARP)) {
-    uip_arp_arpin();
-  } else {
-    uip_arp_ipin();
-    uip_input();
-  }
-  return 0;
-}
-#endif
+
 
 void Spin()
 {
@@ -249,58 +221,8 @@ void Main(struct Boot_Info* bootInfo)
 
   Init_Stubs();
 
-#if 0
-  {
-    init_network();
-    uchar_t local_addr[4];
-    uchar_t remote_addr[4];
+  Init_Network();
 
-    local_addr[0] = 10;
-    local_addr[1] = 0;
-    local_addr[2] = 2;
-    local_addr[3] = 21;
-
-    set_ip_addr(local_addr);
-
-    remote_addr[0] = 10;
-    remote_addr[1] = 0;
-    remote_addr[2] = 2;
-    remote_addr[3] = 20;
-
-
-    connect(remote_addr, 4301);
-  }
-#elif 0
-  Init_Ne2k(&Packet_Received);
-  uip_init();
-  uip_arp_init();
-
-  uip_ipaddr_t ipaddr;
-  uip_ipaddr(ipaddr, 10,0,2,21);  /* Local IP address */
-  uip_sethostaddr(ipaddr);
-
-  uip_ipaddr_t ripaddr;
-  uip_ipaddr(ripaddr, 10,0,2,20);  /* Remote IP address */
-  
-  /* Attempt a connection to port 8080 at address 10.0.2.20 */
-  struct uip_conn *conn;
-  conn = uip_connect(&ripaddr, HTONS(8080));
-
-  while(uip_len <= 0) {
-    uip_periodic_conn(conn);
-  }
-  NE2K_Transmit(uip_len+UIP_LLH_LEN);  /* This will transmit an ARP packet */
-
-  int l = 0;
-  while(l++ < 5000); /* When this is done, a response to the ARP should have been received. */
-  conn = uip_connect(&ripaddr, HTONS(8080));
-
-  while(uip_len <= 0) {
-    uip_periodic_conn(conn);
-  }
-  NE2K_Transmit(uip_len+UIP_LLH_LEN); /* This *should* transmit a SYN packet */
-
-#endif /* TEST_NE2K */
 
   //  Init_IDE();
 

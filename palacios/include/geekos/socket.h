@@ -20,7 +20,7 @@ struct socket {
 };
 
 
-void init_network();
+void init_socket_layer();
 
 int connect(const uchar_t ip_addr[4], ushort_t port);
 int close(const int sockfd);

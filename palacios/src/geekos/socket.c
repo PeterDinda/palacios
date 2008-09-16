@@ -26,7 +26,7 @@ void socket_appcall(void);
 static int Packet_Received(struct NE2K_Packet_Info* info, uchar_t *pkt);
 static void periodic_caller(int timer_id);
 
-void init_network() {
+void init_socket_layer() {
    int i = 0;
    bool iflag;
 
@@ -149,7 +149,7 @@ int connect(const uchar_t ip_addr[4], ushort_t port) {
 
 
   PrintBoth("Connection start\n");
-  Wait(&(sock->recv_wait_queue));
+  Wait(&(sockets[sockfd].recv_wait_queue));
   
     
   PrintBoth("Connected\n");

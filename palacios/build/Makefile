@@ -1,6 +1,6 @@
 # Makefile for GeekOS kernel, userspace, and tools
 # Copyright (c) 2004,2005 David H. Hovemeyer <daveho@cs.umd.edu>
-# $Revision: 1.70 $
+# $Revision: 1.71 $
 
 # This is free software.  You are permitted to use,
 # redistribute, and modify it as specified in the file "COPYING".
@@ -230,9 +230,9 @@ KERNEL_C_SRCS := idt.c int.c trap.c irq.c io.c \
 	serial.c  reboot.c \
         paging.c \
 	debug.c vmm_stubs.c  vm.c  pci.c\
-	queue.c  ring_buffer.c \
+	queue.c  socket.c net.c ring_buffer.c \
 	main.c
-	#socket.c
+
 
 # Kernel object files built from C source files
 KERNEL_C_OBJS := $(KERNEL_C_SRCS:%.c=geekos/%.o)
