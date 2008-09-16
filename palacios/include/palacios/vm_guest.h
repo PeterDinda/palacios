@@ -139,6 +139,10 @@ struct guest_info {
 
   vm_operating_mode_t run_state;
   void * vmm_data;
+
+  /* TEMP */
+  //ullong_t exit_tsc;
+
 };
 
 

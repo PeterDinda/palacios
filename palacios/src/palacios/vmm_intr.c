@@ -6,9 +6,6 @@
 #ifndef DEBUG_INTERRUPTS
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
-#else 
-#undef PrintDebug
-#define PrintDebug(fmt, args...) PrintTrace("\nvmm_intr.c(%d) "_f, __LINE__, ## _a)
 #endif
 
 

@@ -3,7 +3,7 @@
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
  * Copyright (c) 2004, Iulian Neamtiu <neamtiu@cs.umd.edu>
- * $Revision: 1.45 $
+ * $Revision: 1.46 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -249,8 +249,7 @@ void Main(struct Boot_Info* bootInfo)
 
   Init_Stubs();
 
-
-#ifdef TEST_NE2K
+#if 0
   {
     init_network();
     uchar_t local_addr[4];
@@ -259,14 +258,14 @@ void Main(struct Boot_Info* bootInfo)
     local_addr[0] = 10;
     local_addr[1] = 0;
     local_addr[2] = 2;
-    local_addr[3] = 20;
+    local_addr[3] = 21;
 
     set_ip_addr(local_addr);
 
     remote_addr[0] = 10;
     remote_addr[1] = 0;
     remote_addr[2] = 2;
-    remote_addr[3] = 21;
+    remote_addr[3] = 20;
 
 
     connect(remote_addr, 4301);
@@ -347,11 +346,10 @@ void Main(struct Boot_Info* bootInfo)
   }
 #endif
 
-#if !TEST_NE2K
+
   {
     RunVMM(bootInfo);
   }
-#endif
 
 
   SerialPrint("RunVMM returned, spinning\n");

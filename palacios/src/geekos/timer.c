@@ -2,7 +2,7 @@
  * GeekOS timer interrupt support
  * Copyright (c) 2001,2003 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
- * $Revision: 1.10 $
+ * $Revision: 1.11 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
@@ -18,6 +18,7 @@
 #include <geekos/serial.h>
 #include <geekos/debug.h>
 
+#include <geekos/io_crap.h>
 
 /* PAD this currently is in nvram.c */
 extern void deliver_timer_interrupt_to_vmm(uint_t period_us);
@@ -26,52 +27,9 @@ extern void deliver_timer_interrupt_to_vmm(uint_t period_us);
 uint_t cpu_khz_freq;
 
 
-#define __SLOW_DOWN_IO "\noutb %%al,$0x80"
-
-#ifdef REALLY_SLOW_IO
-#define __FULL_SLOW_DOWN_IO __SLOW_DOWN_IO __SLOW_DOWN_IO __SLOW_DOWN_IO __SLOW_DOWN_IO
-#else
-#define __FULL_SLOW_DOWN_IO __SLOW_DOWN_IO
-#endif
 
 
 
-#define __OUT1(s,x) \
-static inline void out##s(unsigned x value, unsigned short port) {
-
-#define __OUT2(s,s1,s2) \
-__asm__ __volatile__ ("out" #s " %" s1 "0,%" s2 "1"
-
-#define __OUT(s,s1,x) \
-__OUT1(s,x) __OUT2(s,s1,"w") : : "a" (value), "Nd" (port)); } \
-__OUT1(s##_p,x) __OUT2(s,s1,"w") __FULL_SLOW_DOWN_IO : : "a" (value), "Nd" (port));} \
-
-
-#define __IN1(s) \
-static inline RETURN_TYPE in##s(unsigned short port) { RETURN_TYPE _v;
-
-#define __IN2(s,s1,s2) \
-__asm__ __volatile__ ("in" #s " %" s2 "1,%" s1 "0"
-
-#define __IN(s,s1,i...) \
-__IN1(s) __IN2(s,s1,"w") : "=a" (_v) : "Nd" (port) ,##i ); return _v; } \
-__IN1(s##_p) __IN2(s,s1,"w") __FULL_SLOW_DOWN_IO : "=a" (_v) : "Nd" (port) ,##i ); return _v; } \
-
-
-#define RETURN_TYPE unsigned char
-__IN(b,"")
-#undef RETURN_TYPE
-#define RETURN_TYPE unsigned short
-__IN(w,"")
-#undef RETURN_TYPE
-#define RETURN_TYPE unsigned int
-__IN(l,"")
-#undef RETURN_TYPE
-
-
-
-__OUT(b,"b",char)
-__OUT(w,"w",short)
 
 
 
@@ -157,6 +115,13 @@ pit_calibrate_tsc(void)
 
 
 
+#define MAX_TIMER_EVENTS	100
+
+static int timerDebug = 0;
+static int timeEventCount;
+static int nextEventID;
+timerEvent pendingTimerEvents[MAX_TIMER_EVENTS];
+
 
 
 /*
@@ -210,39 +175,50 @@ int g_Quantum = DEFAULT_MAX_TICKS;
 
 static void Timer_Interrupt_Handler(struct Interrupt_State* state)
 {
-   struct Kernel_Thread* current = g_currentThread;
+  int i;
+  struct Kernel_Thread* current = g_currentThread;
 
-    Begin_IRQ(state);
+  Begin_IRQ(state);
 
+  /* Update global and per-thread number of ticks */
+  ++g_numTicks;
+  ++current->numTicks;
+  
 
-
-#if 0
-#define STACK_LEN 256
-
-    SerialPrint("Host Timer Interrupt Handler running\n");
-    SerialPrint("Timer====\n");
-    Dump_Interrupt_State(state);
-    //    SerialMemDump((unsigned char*)(&current),STACK_LEN);
-    SerialPrint("Timer done===\n");
-
-#endif
-    /* Update global and per-thread number of ticks */
-    ++g_numTicks;
-    ++current->numTicks;
-
-    /*
-     * If thread has been running for an entire quantum,
-     * inform the interrupt return code that we want
-     * to choose a new thread.
-     */
-    if (current->numTicks >= g_Quantum) {
-    	g_needReschedule = true;
+  /* update timer events */
+  for (i=0; i < timeEventCount; i++) {
+    if (pendingTimerEvents[i].ticks == 0) {
+      if (timerDebug) Print("timer: event %d expired (%d ticks)\n", 
+			    pendingTimerEvents[i].id, pendingTimerEvents[i].origTicks);
+      (pendingTimerEvents[i].callBack)(pendingTimerEvents[i].id);
+      pendingTimerEvents[i].ticks = pendingTimerEvents[i].origTicks;
+    } else {
+      pendingTimerEvents[i].ticks--;
     }
+  }
 
-
-    deliver_timer_interrupt_to_vmm(1000000/HZ);
-
-    End_IRQ(state);
+  /*
+   * If thread has been running for an entire quantum,
+   * inform the interrupt return code that we want
+   * to choose a new thread.
+   */
+  if (current->numTicks >= g_Quantum) {
+    g_needReschedule = true;
+    /*
+     * The current process is moved to a lower priority queue,
+     * since it consumed a full quantum.
+     */
+    //if (current->currentReadyQueue < (MAX_QUEUE_LEVEL - 1)) {
+      /*Print("process %d moved to ready queue %d\n", current->pid, current->currentReadyQueue); */
+      //current->currentReadyQueue++;
+    //}
+    
+  }
+  
+  
+  deliver_timer_interrupt_to_vmm(1000000/HZ);
+  
+  End_IRQ(state);
 }
 
 /*
@@ -357,6 +333,57 @@ void Init_Timer(void)
 
   Install_IRQ(TIMER_IRQ, &Timer_Interrupt_Handler);
   Enable_IRQ(TIMER_IRQ);
+}
+
+
+int Start_Timer(int ticks, timerCallback cb)
+{
+    int ret;
+
+    KASSERT(!Interrupts_Enabled());
+
+    if (timeEventCount == MAX_TIMER_EVENTS) {
+	return -1;
+    } else {
+	ret = nextEventID++;
+	pendingTimerEvents[timeEventCount].id = ret;
+	pendingTimerEvents[timeEventCount].callBack = cb;
+	pendingTimerEvents[timeEventCount].ticks = ticks;
+	pendingTimerEvents[timeEventCount].origTicks = ticks;
+	timeEventCount++;
+
+	return ret;
+    }
+}
+
+int Get_Remaing_Timer_Ticks(int id)
+{
+    int i;
+
+    KASSERT(!Interrupts_Enabled());
+    for (i=0; i < timeEventCount; i++) {
+	if (pendingTimerEvents[i].id == id) {
+	    return pendingTimerEvents[i].ticks;
+	}
+    }
+
+    return -1;
+}
+
+int Cancel_Timer(int id)
+{
+    int i;
+    KASSERT(!Interrupts_Enabled());
+    for (i=0; i < timeEventCount; i++) {
+	if (pendingTimerEvents[i].id == id) {
+	    pendingTimerEvents[i] = pendingTimerEvents[timeEventCount-1];
+	    timeEventCount--;
+	    return 0;
+	}
+    }
+
+    Print("timer: unable to find timer id %d to cancel it\n", id);
+    return -1;
 }
 
 

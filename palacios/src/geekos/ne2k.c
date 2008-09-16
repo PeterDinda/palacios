@@ -37,6 +37,7 @@ static void Dump_Registers()
 
 static void NE2K_Interrupt_Handler(struct Interrupt_State * state)
 {
+
   Begin_IRQ(state);
   PrintBoth("NIC Interrupt Occured!\n");
   uchar_t isr_content = In_Byte(NE2K_ISR);

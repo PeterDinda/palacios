@@ -33,6 +33,24 @@ static int passthrough_mem_write(addr_t guest_addr, void * src, uint_t length, v
 }
 
 
+/*static int IO_Read(ushort_t port, void * dst, uint_t length, void * priv_data) {
+
+  struct guest_info * info = priv_data;
+  ulong_t tsc_spread = 0;
+  ullong_t exit_tsc = 0;
+
+  
+  *(ulong_t *)(&exit_tsc) = info->vm_regs.rbx;
+  *(ulong_t *)((&exit_tsc) + 4) = info->vm_regs.rcx; 
+  tsc_spread = info->exit_tsc - exit_tsc;
+  
+  PrintError("IOREAD tsc diff = %lu\n",tsc_spread); 
+  info->rip += 3;
+
+
+  return 1;
+}
+*/
 
 int config_guest(struct guest_info * info, void * config_ptr) {
 
@@ -295,6 +313,8 @@ int config_guest(struct guest_info * info, void * config_ptr) {
 #endif
   
 
+  //v3_hook_io_port(info, 1234, &IO_Read, NULL, info);
+
   info->rip = 0xfff0;
   info->vm_regs.rsp = 0x0;
   
@@ -357,6 +377,8 @@ int config_guest(struct guest_info * info, void * config_ptr) {
       v3_hook_io_port(&vm_info, 0x61, &IO_Read, &IO_Write, NULL);
       v3_hook_io_port(&vm_info, 0x05, &IO_Read, &IO_Write_to_Serial, NULL);
       
+
+
       /*
 	vm_info.cr0 = 0;
 	vm_info.cs.base=0xf000;

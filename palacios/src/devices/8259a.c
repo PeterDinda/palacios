@@ -6,7 +6,7 @@
 #ifndef DEBUG_PIC
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
-#define PrintPicTrace(_f, _a...) PrintTrace("\n8259a.c(%d) "_f, __LINE__, ## _a)
+//#define PrintPicTrace(_f, _a...) PrintTrace("\n8259a.c(%d) "_f, __LINE__, ## _a)
 #endif
 
 
@@ -190,18 +190,18 @@ static int pic_lower_intr(void *private_data, int irq_no) {
 
   struct pic_internal *state = (struct pic_internal*)private_data;
 
-  PrintPicTrace("[pic_lower_intr] IRQ line %d now low\n", (unsigned) irq_no);
+  PrintDebug("[pic_lower_intr] IRQ line %d now low\n", (unsigned) irq_no);
   if (irq_no <= 7) {
 
     state->master_irr &= ~(1 << irq_no);
     if ((state->master_irr & ~(state->master_imr)) == 0) {
-      PrintPicTrace("\t\tFIXME: Master maybe should do sth\n");
+      PrintDebug("\t\tFIXME: Master maybe should do sth\n");
     }
   } else if ((irq_no > 7) && (irq_no <= 15)) {
 
     state->slave_irr &= ~(1 << (irq_no - 8));
     if ((state->slave_irr & (~(state->slave_imr))) == 0) {
-      PrintPicTrace("\t\tFIXME: Slave maybe should do sth\n");
+      PrintDebug("\t\tFIXME: Slave maybe should do sth\n");
     }
   }
   return 0;

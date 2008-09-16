@@ -258,6 +258,21 @@ int handle_svm_exit(struct guest_info * info) {
 	  return -1;
 	}
       } else {
+	/*
+	ulong_t tsc_spread = 0;
+	ullong_t exit_tsc = 0;
+
+	ulong_t rax = (ulong_t)info->vm_regs.rbx;
+	ulong_t rdx = (ulong_t)info->vm_regs.rcx;
+
+	*(ulong_t *)(&exit_tsc) = rax;
+	*(((ulong_t *)(&exit_tsc)) + 1) = rdx; 
+
+	tsc_spread = info->exit_tsc - exit_tsc;
+
+	PrintError("VMMCALL tsc diff = %lu\n",tsc_spread); 
+	info->rip += 3;
+	*/
 	PrintError("VMMCALL with not emulator...\n");
 	return -1;
       }

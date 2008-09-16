@@ -5,7 +5,7 @@
 #include <uip/uip_arp.h>
 #include <geekos/vmm_stubs.h>
 #include <geekos/debug.h>
-
+#include <geekos/timer.h>
 
 
 #define BUF ((struct uip_eth_hdr *)&uip_buf[0])
@@ -15,12 +15,21 @@
 
 struct socket sockets[MAX_SOCKS];
 
+void socket_appcall(void);
+#ifndef UIP_APPCALL
+#define UIP_APPCALL socket_appcall
+#endif /* UIP_APPCALL */
 
 
-int Packet_Received(struct NE2K_Packet_Info* info, uchar_t *pkt);
+
+
+static int Packet_Received(struct NE2K_Packet_Info* info, uchar_t *pkt);
+static void periodic_caller(int timer_id);
 
 void init_network() {
    int i = 0;
+   bool iflag;
+
    
    for (i = 0; i < MAX_SOCKS; i++) {
       sockets[i].in_use = 0;
@@ -30,6 +39,7 @@ void init_network() {
    }
 
 
+
     //initiate uIP
     uip_init();
     uip_arp_init();
@@ -37,7 +47,9 @@ void init_network() {
     //setup device driver
     Init_Ne2k(&Packet_Received);
 
-
+    iflag = Begin_Int_Atomic();
+    Start_Timer(2, periodic_caller);
+    End_Int_Atomic(iflag);
 
 }
 
@@ -91,20 +103,43 @@ struct socket * get_socket_from_fd(int fd) {
 }
 
 
+
+static void periodic_caller(int timer_id) {
+  int i;
+  //handle the periodic calls of uIP
+  
+  //PrintBoth("Timer CALLBACK handler\n");
+
+  for(i = 0; i < UIP_CONNS; ++i) {
+    uip_periodic(i);
+    if(uip_len > 0) {
+      //devicedriver_send();
+      PrintBoth("Sending Packet\n");
+      NE2K_Transmit(uip_len);
+    }
+  }
+  for(i = 0; i < UIP_UDP_CONNS; i++) {
+    uip_udp_periodic(i);
+    if(uip_len > 0) {
+    //devicedriver_send();
+      NE2K_Transmit(uip_len);
+    }
+  }
+}
+
+
 int connect(const uchar_t ip_addr[4], ushort_t port) {
   int sockfd = -1;
   sockfd = allocate_socket_fd();
-  uip_ipaddr_t ipaddr;
+  static uip_ipaddr_t ipaddr;
   
   if (sockfd == -1) {
     return -1;
   }
 
   uip_ipaddr(&ipaddr, ip_addr[0], ip_addr[1], ip_addr[2], ip_addr[3]);  
-
-  sockets[sockfd].state = WAITING;
   
-  sockets[sockfd].con = uip_connect((uip_ipaddr_t *)&ip_addr, htons(port));
+  sockets[sockfd].con = uip_connect(&ipaddr, htons(port));
 
 
   if (sockets[sockfd].con == NULL){
@@ -114,18 +149,12 @@ int connect(const uchar_t ip_addr[4], ushort_t port) {
 
 
   PrintBoth("Connection start\n");
-
-  while(sockets[sockfd].state == WAITING) {
-    timer_int_handler(NULL);
-  }
-
+  Wait(&(sock->recv_wait_queue));
+  
     
   PrintBoth("Connected\n");
 
-  if (sockets[sockfd].state != ESTABLISHED) {
-    release_socket_fd(sockfd);
-    return -1;
-  }
+
 
 
   return sockfd;
@@ -149,24 +178,7 @@ buf_read:
   return recvlen;
 }
 
-void timer_int_Handler(struct Interrupt_State * state){
-	int i;
-	//handle the periodic calls of uIP
-	for(i = 0; i < UIP_CONNS; ++i) {
-	       uip_periodic(i);
-		if(uip_len > 0) {
-		     //devicedriver_send();
-		     NE2K_Transmit(uip_len);
-		}
-  	}
-	for(i = 0; i < UIP_UDP_CONNS; i++) {
-		 uip_udp_periodic(i);
-		 if(uip_len > 0) {
-		     //devicedriver_send();
-		     NE2K_Transmit(uip_len);
-		}
-	}
-}
+
 
 // a series of utilities to handle conncetion states
 static void connected(int sockfd) {
@@ -303,14 +315,15 @@ void socket_appcall(void) {
 
 
 
-int Packet_Received(struct NE2K_Packet_Info * info, uchar_t * pkt) {
+static int Packet_Received(struct NE2K_Packet_Info * info, uchar_t * pkt) {
   //int i;
-  
   uip_len = info->size; 
 
   //  for (i = 0; i < info->size; i++) {
   //  uip_buf[i] = *(pkt + i);
   //}
+
+  PrintBoth("Packet REceived\n");
 
   memcpy(uip_buf, pkt, uip_len);
 
@@ -318,23 +331,30 @@ int Packet_Received(struct NE2K_Packet_Info * info, uchar_t * pkt) {
   Free(pkt);
 
   if (BUF->type == htons(UIP_ETHTYPE_ARP)) {
+    PrintBoth("ARP PACKET\n");
+
     uip_arp_arpin();
 
+
     if (uip_len > 0) {
+      PrintBoth("Transmitting\n");
       NE2K_Transmit(uip_len);
-    }					
+    }	
+			
 
   } else {
-
+    PrintBoth("Data PACKET\n");
     uip_arp_ipin();
     uip_input();
 
+
     if (uip_len > 0) {
+      PrintBoth("Transmitting\n");
       uip_arp_out();
       NE2K_Transmit(uip_len);
     }
+    
   }
-			  
-  return 0;
 
+  return 0;
 }
