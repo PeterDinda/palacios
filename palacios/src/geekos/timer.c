@@ -18,7 +18,7 @@
 #include <geekos/serial.h>
 #include <geekos/debug.h>
 
-#include <geekos/io_crap.h>
+#include <geekos/io_defs.h>
 
 /* PAD this currently is in nvram.c */
 extern void deliver_timer_interrupt_to_vmm(uint_t period_us);
