@@ -24,4 +24,4 @@ MAKING an ISO image from a floppy image
 mkisofs -pad -b <floppy_image> -R -o <iso_output_image> <floppy_image>
 
 
-/usr/local/qemu/bin/qemu-system-x86_64 -serial file:serial.out -m 1024 -fda fd.img  -cdrom guest_no_timer.iso
+/usr/local/qemu/bin/qemu-system-x86_64 -serial file:serial.out -m 1024 -fda vmm.img  -cdrom guest_no_timer.iso
