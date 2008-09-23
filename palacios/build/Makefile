@@ -462,10 +462,16 @@ vmm.img : fd.img
 	cp fd.img vmm.img
 	$(PAD) vmm.img 1474560
 
-force_rombios: 
+rombios_link:
+	ln -s -f ../src/vmboot/rombios/BIOS-bochs-latest rombios
+
+vgabios_link:
+	ln -s -f ../src/vmboot/vgabios/VGABIOS-lgpl-latest.bin vgabios
+
+force_rombios: rombios_link
 	(cd ../src/vmboot/rombios; make clean; make)
 
-force_vgabios:
+force_vgabios: vgabios_link
 	(cd ../src/vmboot/vgabios; make clean; make)
 
 force_payload: force_rombios force_vgabios
