@@ -69,9 +69,6 @@ Now test:
 cd $DEVROOT/vmm-hack1/build
 export PATH=$PATH:$LOCATION/bin
 
-ln -s ../src/vmboot/rombios/BIOS-bochs-latest rombios
-ln -s ../src/vmboot/vgabios/VGABIOS-lgpl-latest.bin vgabios
-
 make world
 
 This should succeed, leaving you with a vmm.img file.

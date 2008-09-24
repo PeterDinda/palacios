@@ -17,7 +17,7 @@ the necessary support of AMD SVM virtualization extensions.
 If you would like to install qemu, a copy is in the repository.  
 Here is how to install it. 
 
-export DEVROOT=/path/to/your/vmm-dev
+export DEVROOT=/path/to/your/vmm-tools
 cd $DEVROOT/devtools
 unzip $DEVROOT/utils/Qemu-0.9.1-windows.zip
 export QEMU=$DEVROOT/devtools/Qemu-0.9.1-windows
