@@ -122,7 +122,7 @@ COMMON_C_OBJS := $(COMMON_C_SRCS:%.c=common/%.o)
 
 # Uncomment if cross compiling
 #TARGET_CC_PREFIX := i386-elf-
-TARGET_CC_PREFIX :=  $(PROJECT_ROOT)/../devtools/i386/bin/i386-elf-
+TARGET_CC_PREFIX :=  $(PROJECT_ROOT)/../../devtools/i386/bin/i386-elf-
 
 # Target C compiler.  gcc 2.95.2 or later should work.
 TARGET_CC := $(TARGET_CC_PREFIX)gcc
@@ -150,7 +150,7 @@ TARGET_NM := $(TARGET_CC_PREFIX)nm
 TARGET_OBJCOPY := $(TARGET_CC_PREFIX)objcopy
 
 # Nasm (http://nasm.sourceforge.net)
-NASM := $(PROJECT_ROOT)/../devtools/bin/nasm
+NASM := $(PROJECT_ROOT)/../../devtools/bin/nasm
 #NASM := /opt/vmm-tools/bin/nasm
 
 AS = as --32
