@@ -2,6 +2,7 @@
  * GeekOS timer interrupt support
  * Copyright (c) 2001,2003 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
+ * Copyright (c) 2008, Jack Lange <jarusl@cs.northwestern.edu>
  * $Revision: 1.11 $
  * 
  * This is free software.  You are permitted to use,

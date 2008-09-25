@@ -1,3 +1,6 @@
+/* Northwestern University */
+/* (c) 2008, Jack Lange <jarusl@cs.northwestern.edu> */
+
 #include <palacios/vmm.h>
 #include <palacios/vmm_emulator.h>
 #include <palacios/vm_guest_mem.h>

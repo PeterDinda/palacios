@@ -1,3 +1,6 @@
+/* Northwestern University */
+/* (c) 2008, Jack Lange <jarusl@cs.northwestern.edu> */
+
 #ifdef __DECODER_TEST__
 #include "vmm_decoder.h"
 #include "vmm_xed.h"

@@ -1,3 +1,6 @@
+/* Northwestern University */
+/* (c) 2008, Peter Dinda <pdinda@northwestern.edu> */
+
 #ifndef __NVRAM_H
 #define __NVRAM_H
 

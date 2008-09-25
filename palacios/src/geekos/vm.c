@@ -1,3 +1,6 @@
+/* Northwestern University */
+/* (c) 2008, Jack Lange <jarusl@cs.northwestern.edu> */
+
 #include <geekos/vmm_stubs.h>
 
 #include <geekos/debug.h>

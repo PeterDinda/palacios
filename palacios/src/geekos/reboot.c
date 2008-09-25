@@ -1,3 +1,6 @@
+/* Northwestern University */
+/* (c) 2008, Jack Lange <jarusl@cs.northwestern.edu> */
+
 #include <geekos/reboot.h>
 #include <libc/string.h>
 // from linux...

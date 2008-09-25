@@ -1,3 +1,6 @@
+/* Northwestern University */
+/* (c) 2008, Jack Lange <jarusl@cs.northwestern.edu> */
+
 /* Eventually  we want to get rid of these */
 
 #include <geekos/cpu.h>

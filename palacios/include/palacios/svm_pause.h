@@ -1,3 +1,6 @@
+/* Northwestern University */
+/* (c) 2008, Jack Lange <jarusl@cs.northwestern.edu> */
+
 #ifndef __SVM_PAUSE_H
 #define __SVM_PAUSE_H
 

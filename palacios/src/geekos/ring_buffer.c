@@ -1,3 +1,6 @@
+/* Northwestern University */
+/* (c) 2008, Jack Lange <jarusl@cs.northwestern.edu> */
+
 #include <geekos/ring_buffer.h>
 #include <geekos/malloc.h>
 #include <geekos/ktypes.h>

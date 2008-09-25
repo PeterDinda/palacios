@@ -1,3 +1,6 @@
+/* Northwestern University */
+/* (c) 2008, Peter Dinda <pdinda@northwestern.edu> */
+
 #include <palacios/svm_halt.h>
 #include <palacios/vmm_intr.h>
 // From GeekOS

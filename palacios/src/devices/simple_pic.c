@@ -1,3 +1,6 @@
+/* Northwestern University */
+/* (c) 2008, Jack Lange <jarusl@cs.northwestern.edu> */
+
 #include <devices/simple_pic.h>
 #include <palacios/vmm_intr.h>
 #include <palacios/vmm_types.h>
