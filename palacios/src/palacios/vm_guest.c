@@ -1,3 +1,6 @@
+/* Northwestern University */
+/* (c) 2008, Jack Lange <jarusl@cs.northwestern.edu> */
+
 #include <palacios/vm_guest.h>
 #include <palacios/vmm_ctrl_regs.h>
 #include <palacios/vmm.h>

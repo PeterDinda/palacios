@@ -1,3 +1,5 @@
+/* Northwestern University */
+/* (c) 2008, Jack Lange <jarusl@cs.northwestern.edu> */
 #include <geekos/net.h>
 #include <geekos/socket.h>
 #include <geekos/ne2k.h>

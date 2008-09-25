@@ -1,5 +1,6 @@
 ; -*- fundamental -*-
-
+;;  Northwestern University 
+;;  (c) 2008, Jack Lange <jarusl@cs.northwestern.edu> 
 
 %ifndef VMM_ASM
 %define VMM_ASM

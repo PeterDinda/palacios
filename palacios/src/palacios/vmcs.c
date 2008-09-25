@@ -1,7 +1,7 @@
+/* Northwestern University */
+/* (c) 2008, Jack Lange <jarusl@cs.northwestern.edu> */
+
 #include <palacios/vmcs.h>
-
-
-
 
 
 

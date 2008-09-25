@@ -1,3 +1,6 @@
+/* Northwestern University */
+/* (c) 2008, Peter Dinda <pdinda@cs.northwestern.edu> */
+
 #include <devices/nvram.h>
 #include <palacios/vmm.h>
 #include <palacios/vmm_types.h>

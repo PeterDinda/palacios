@@ -1,3 +1,6 @@
+/* Northwestern University */
+/* (c) 2008, Jack Lange <jarusl@cs.northwestern.edu> */
+
 #ifndef __VMM_SHADOW_PAGING_H
 #define __VMM_SHADOW_PAGING_H
 

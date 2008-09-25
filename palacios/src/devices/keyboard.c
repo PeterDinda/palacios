@@ -1,3 +1,6 @@
+/* Northwestern University */
+/* (c) 2008, Peter Dinda <pdinda@cs.northwestern.edu> */
+
 #include <devices/keyboard.h>
 #include <geekos/io.h>
 #include <palacios/vmm.h>

@@ -1,3 +1,6 @@
+/* Northwestern University */
+/* (c) 2008, Peter Dinda <pdinda@northwestern.edu> */
+
 #ifndef __KEYBOARD_H
 #define __KEYBOARD_H
 

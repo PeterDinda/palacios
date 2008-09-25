@@ -1,3 +1,6 @@
+/* Northwestern University */
+/* (c) 2008, Jack Lange <jarusl@cs.northwestern.edu> */
+
 #ifndef __VM_GUEST_MEM_H
 #define __VM_GUEST_MEM_H
 
