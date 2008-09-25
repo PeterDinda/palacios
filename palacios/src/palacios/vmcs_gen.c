@@ -1,3 +1,7 @@
+/* Automatically Generated File */
+/* (c) 2008, The V3VEE Project <http://www.v3vee.org> */
+
+
 #include <palacios/vmcs_gen.h>
 
 

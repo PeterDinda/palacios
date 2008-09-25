@@ -1,3 +1,6 @@
+/* (c) 2008, Jack Lange <jarusl@cs.northwestern.edu> */
+/* (c) 2008, The V3VEE Project <http://www.v3vee.org> */
+
 #ifndef _LIST2_H
 #define _LIST2_H
 
