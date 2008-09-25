@@ -1,11 +1,16 @@
 /*
  * String library
  * Copyright (c) 2001,2004 David H. Hovemeyer <daveho@cs.umd.edu>
+ * (c) 2008, Jack Lange <jarusl@cs.northwestern.edu> 
+ * (c) 2008, The V3VEE Project <http://www.v3vee.org> 
  * $Revision: 1.2 $
  * 
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "COPYING".
  */
+
+
+
 
 /*
  * NOTE:

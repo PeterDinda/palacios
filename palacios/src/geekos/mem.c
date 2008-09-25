@@ -3,6 +3,7 @@
  * Copyright (c) 2001,2003,2004 David H. Hovemeyer <daveho@cs.umd.edu>
  * Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
  * Copyright (c) 2008, Jack Lange <jarusl@cs.northwestern.edu>
+ * Copyright (c) 2008, The V3VEE Project <http://www.v3vee.org>
  * $Revision: 1.13 $
  * 
  * This is free software.  You are permitted to use,

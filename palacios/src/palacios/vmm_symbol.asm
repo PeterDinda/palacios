@@ -1,5 +1,7 @@
 ; Symbol mangling macros
 ; Copyright (c) 2001, David H. Hovemeyer <daveho@cs.umd.edu>
+; (c) 2008, Jack Lange <jarusl@cs.northwestern.edu>
+; (c) 2008, The V3VEE Project <http://www.v3vee.org> 
 ; $Revision: 1.1 $
 
 ; This file defines macros for dealing with externally-visible
