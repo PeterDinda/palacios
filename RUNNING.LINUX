@@ -16,7 +16,7 @@ the necessary support of AMD SVM virtualization extensions.
 
 If you would like to install qemu, a copy is in the repository:
 
-export DEVROOT=/path/to/your/vmm-dev
+export DEVROOT=/path/to/your/vmm-tools
 
 untar $DEVROOT/utils/qemu-0.9.1.tar.gz and follow instructions for
 building and installing it.  Notice that you can use the --prefix
