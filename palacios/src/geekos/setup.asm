@@ -1,7 +1,9 @@
 ; -*- fundamental -*-
 ; GeekOS setup code
 ; Copyright (c) 2001,2004 David H. Hovemeyer <daveho@cs.umd.edu>
-; Copyright (c) 2008 Jack Lange <jarusl@cs.northwestern.edu>
+; (c) 2008, Peter Dinda <pdinda@northwestern.edu> 
+; (c) 2008, Jack Lange <jarusl@cs.northwestern.edu> 
+; (c) 2008, The V3VEE Project <http://www.v3vee.org> 
 ; $Revision: 1.8 $
 
 ; This is free software.  You are permitted to use,

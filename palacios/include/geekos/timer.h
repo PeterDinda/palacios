@@ -1,6 +1,8 @@
 /*
  * GeekOS timer interrupt support
  * Copyright (c) 2001, David H. Hovemeyer <daveho@cs.umd.edu>
+ * Copyright (c) 2008, Jack Lange <jarusl@cs.northwestern.edu>
+ * (c) 2008, The V3VEE Project <http://www.v3vee.org> 
  * $Revision: 1.2 $
  * 
  * This is free software.  You are permitted to use,

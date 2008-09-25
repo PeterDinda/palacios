@@ -1,6 +1,8 @@
 /*
  * Boot information structure, passed to kernel Main() routine
  * Copyright (c) 2001, David H. Hovemeyer <daveho@cs.umd.edu>
+ * (c) 2008, Jack Lange <jarusl@cs.northwestern.edu>
+ * (c) 2008, The V3VEE Project <http://www.v3vee.org>
  * $Revision: 1.7 $
  * 
  * This is free software.  You are permitted to use,

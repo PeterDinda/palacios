@@ -1,5 +1,5 @@
-/* Northwestern University */
 /* (c) 2008, Jack Lange <jarusl@cs.northwestern.edu> */
+/* (c) 2008, The V3VEE Project <http://www.v3vee.org> */
 
 #ifndef __VMM_CONFIG_H__
 #define __VMM_CONFIG_H__

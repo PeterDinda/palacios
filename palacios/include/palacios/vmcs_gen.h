@@ -1,3 +1,6 @@
+/* (c) 2008, The V3VEE Project <http://www.v3vee.org> */
+
+
 #ifndef vmcs_gen
 #define vmcs_gen
 #include <palacios/vmcs.h>

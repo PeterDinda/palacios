@@ -1,5 +1,8 @@
 /* Copyright (C) 2002 Christopher Clark <firstname.lastname@cl.cam.ac.uk> */
 /* Modifications made by Jack Lange <jarusl@cs.northwestern.edu> */
+/* (c) 2008, Jack Lange <jarusl@cs.northwestern.edu> */
+/* (c) 2008, The V3VEE Project <http://www.v3vee.org> */
+
 
 #ifndef __VMM_HASHTABLE_H__
 #define __VMM_HASHTABLE_H__
