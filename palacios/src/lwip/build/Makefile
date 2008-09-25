@@ -31,19 +31,18 @@
 
 ## modified by Lei Xia 
 
-CONTRIBDIR=..
+PROJECT_ROOT=../../../
 
 #Set this to where you have the lwip core module
-LWIPDIR=$(CONTRIBDIR)
+LWIPDIR=..
 
-
-CC_PREFIX :=  ../../../../devtools/i386/bin/i386-elf-
+CC_PREFIX :=  $(PROJECT_ROOT)../devtools/i386/bin/i386-elf-
 CC=$(CC_PREFIX)gcc
 CFLAGS=-g -Wall -fpic -DIPv4 -DLWIP_DEBUG
 ARCHIVE=ar
 
 CFLAGS:=$(CFLAGS) \
-	-I$(LWIPDIR)/include  -I$(LWIPDIR)/include/ipv4 -I../../../include/libc
+	-I$(PROJECT_ROOT)include/lwip  -I$(PROJECT_ROOT)include/lwip/ipv4 -I$(PROJECT_ROOT)include/libc 
 
 # COREFILES, CORE4FILES: The minimum set of files needed for lwIP.
 COREFILES=$(LWIPDIR)/core/mem.c $(LWIPDIR)/core/memp.c $(LWIPDIR)/core/netif.c \
@@ -71,12 +70,14 @@ LWIPFILES=$(COREFILES) $(CORE4FILES) $(APIFILES) $(NETIFFILES) $(ARCHFILES)
 LWIPFILESW=$(wildcard $(LWIPFILES))
 LWIPOBJS=$(notdir $(LWIPFILESW:.c=.o))
 
-LWIPLIB=lwip.o
+#LWIPLIB=lwip.o
 
 %.o:
 	$(CC) $(CFLAGS) -c  $(LWIPFILES)
 
-all: $(LWIPLIB) 
+all: $(LWIPOBJS) 
+	cp *.o $(PROJECT_ROOT)build/lwip/
+
 .PHONY: all
 
 clean:
