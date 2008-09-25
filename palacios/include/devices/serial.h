@@ -1,3 +1,6 @@
+/* Northwestern University */
+/* (c) 2008, Jack Lange <jarusl@cs.northwestern.edu> */
+
 #ifndef __SERIAL_H__
 #define __SERIAL_H__
 

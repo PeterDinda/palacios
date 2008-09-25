@@ -1,6 +1,13 @@
 # Makefile for GeekOS kernel, userspace, and tools
+#
+#  Northwestern University 
+# (c) 2008, Jack Lange <jarusl@cs.northwestern.edu> 
+# (c) 2008, Peter Dinda <pdinda@northwestern.edu> 
+# 
+# Based on GeekOS Makefile:
 # Copyright (c) 2004,2005 David H. Hovemeyer <daveho@cs.umd.edu>
 # $Revision: 1.71 $
+
 
 # This is free software.  You are permitted to use,
 # redistribute, and modify it as specified in the file "COPYING".

@@ -1,6 +1,7 @@
 ; -*- fundamental -*-
 ; GeekOS setup code
 ; Copyright (c) 2001,2004 David H. Hovemeyer <daveho@cs.umd.edu>
+; Copyright (c) 2008 Jack Lange <jarusl@cs.northwestern.edu>
 ; $Revision: 1.8 $
 
 ; This is free software.  You are permitted to use,

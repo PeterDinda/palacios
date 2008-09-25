@@ -1,6 +1,8 @@
 ; Boot sector for GeekOS
 ; Copyright (c) 2001,2004 David H. Hovemeyer <daveho@cs.umd.edu>
 ; Copyright (c) 2003, Jeffrey K. Hollingsworth <hollings@cs.umd.edu>
+; Copyright (c) 2008, Jack Lange <jarusl@cs.northwestern.edu
+; Copyright (c) 2008, Peter Dinda <pdinda@northwestern.edu
 ; $Revision: 1.8 $
 
 ; This is free software.  You are permitted to use,

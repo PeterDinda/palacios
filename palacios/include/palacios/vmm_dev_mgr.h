@@ -1,3 +1,6 @@
+/* Northwestern University */
+/* (c) 2008, Jack Lange <jarusl@cs.northwestern.edu> */
+
 #ifndef _VMM_DEV_MGR
 #define _VMM_DEV_MGR
 

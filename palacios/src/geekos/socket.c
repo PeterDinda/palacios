@@ -1,3 +1,7 @@
+/* Northwestern University */
+/* (c) 2008, Jack Lange <jarusl@cs.northwestern.edu> */
+/* (c) 2008, Lei Xia <xiaxlei@gmail.com> */
+
 #include <geekos/socket.h>
 #include <geekos/malloc.h>
 #include <geekos/ne2k.h>

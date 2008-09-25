@@ -1,3 +1,6 @@
+/* Northwestern University */
+/* (c) 2008, Jack Lange <jarusl@cs.northwestern.edu> */
+
 #ifndef __VMM_QUEUE_H__
 #define __VMM_QUEUE_H__
 

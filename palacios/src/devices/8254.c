@@ -1,3 +1,6 @@
+/* Northwestern University */
+/* (c) 2008, Jack Lange <jarusl@cs.northwestern.edu> */
+
 #include <devices/8254.h>
 #include <palacios/vmm.h>
 #include <palacios/vmm_time.h>
