@@ -42,7 +42,7 @@
 
 #include "arch/cc.h"
 
-#include "lwip/opt.h"
+#include "lwipopts.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -65,7 +65,7 @@ extern "C" {
 #define LWIP_UNUSED_ARG(x) (void)x
 #endif /* LWIP_UNUSED_ARG */ 
 
-//weird thing, I already defined it in lwipopts.h, does not work? Lei
+
 #define LWIP_PROVIDE_ERRNO 1
 
 #ifdef LWIP_PROVIDE_ERRNO

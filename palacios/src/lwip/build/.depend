@@ -1,0 +1,310 @@
+mem.o: ../core/mem.c ../include/lwip/opt.h ../include/lwipopts.h \
+  ../include/lwipopts.h ../include/lwip/debug.h ../include/lwip/arch.h \
+  ../include/arch/cc.h ../../../include/libc/string.h \
+  ../include/lwip/opt.h ../include/lwip/debug.h ../include/lwip/def.h \
+  ../include/lwip/mem.h ../include/lwip/sys.h ../include/lwip/err.h \
+  ../include/arch/sys_arch.h ../include/lwip/stats.h \
+  ../include/lwip/mem.h ../include/lwip/memp.h ../include/lwip/memp_std.h
+memp.o: ../core/memp.c ../include/lwip/opt.h ../include/lwipopts.h \
+  ../include/lwipopts.h ../include/lwip/debug.h ../include/lwip/arch.h \
+  ../include/arch/cc.h ../../../include/libc/string.h \
+  ../include/lwip/opt.h ../include/lwip/debug.h ../include/lwip/memp.h \
+  ../include/lwip/memp_std.h ../include/lwip/pbuf.h ../include/lwip/err.h \
+  ../include/lwip/udp.h ../include/lwip/pbuf.h ../include/lwip/netif.h \
+  ../include/ipv4/lwip/ip_addr.h ../include/lwip/opt.h \
+  ../include/ipv4/lwip/inet.h ../include/ipv4/lwip/ip_addr.h \
+  ../include/ipv4/lwip/ip.h ../include/lwip/def.h ../include/lwip/pbuf.h \
+  ../include/lwip/err.h ../include/lwip/raw.h ../include/lwip/tcp.h \
+  ../include/lwip/sys.h ../include/arch/sys_arch.h ../include/lwip/mem.h \
+  ../include/ipv4/lwip/icmp.h ../include/lwip/netif.h \
+  ../include/ipv4/lwip/igmp.h ../include/lwip/api.h \
+  ../include/lwip/netbuf.h ../include/lwip/api_msg.h \
+  ../include/ipv4/lwip/igmp.h ../include/lwip/api.h \
+  ../include/lwip/tcpip.h ../include/lwip/api_msg.h \
+  ../include/lwip/netifapi.h ../include/lwip/sys.h \
+  ../include/lwip/stats.h ../include/lwip/memp.h \
+  ../include/netif/etharp.h ../include/lwip/opt.h ../include/lwip/pbuf.h \
+  ../include/ipv4/lwip/ip_addr.h ../include/lwip/netif.h \
+  ../include/ipv4/lwip/ip.h ../include/ipv4/lwip/ip_frag.h \
+  ../include/ipv4/lwip/ip.h ../include/lwip/memp_std.h
+netif.o: ../core/netif.c ../include/lwip/opt.h ../include/lwipopts.h \
+  ../include/lwipopts.h ../include/lwip/debug.h ../include/lwip/arch.h \
+  ../include/arch/cc.h ../../../include/libc/string.h \
+  ../include/lwip/opt.h ../include/lwip/debug.h ../include/lwip/def.h \
+  ../include/ipv4/lwip/ip_addr.h ../include/lwip/opt.h \
+  ../include/lwip/netif.h ../include/lwip/err.h \
+  ../include/ipv4/lwip/ip_addr.h ../include/ipv4/lwip/inet.h \
+  ../include/ipv4/lwip/ip_addr.h ../include/lwip/pbuf.h \
+  ../include/lwip/tcp.h ../include/lwip/sys.h ../include/arch/sys_arch.h \
+  ../include/lwip/mem.h ../include/ipv4/lwip/ip.h ../include/lwip/def.h \
+  ../include/lwip/pbuf.h ../include/lwip/err.h \
+  ../include/ipv4/lwip/icmp.h ../include/lwip/netif.h \
+  ../include/lwip/snmp.h ../include/lwip/netif.h ../include/lwip/udp.h \
+  ../include/ipv4/lwip/igmp.h ../include/netif/etharp.h \
+  ../include/lwip/opt.h ../include/lwip/pbuf.h \
+  ../include/ipv4/lwip/ip_addr.h ../include/lwip/netif.h \
+  ../include/ipv4/lwip/ip.h
+pbuf.o: ../core/pbuf.c ../include/lwip/opt.h ../include/lwipopts.h \
+  ../include/lwipopts.h ../include/lwip/debug.h ../include/lwip/arch.h \
+  ../include/arch/cc.h ../../../include/libc/string.h \
+  ../include/lwip/opt.h ../include/lwip/debug.h ../include/lwip/stats.h \
+  ../include/lwip/mem.h ../include/lwip/memp.h ../include/lwip/memp_std.h \
+  ../include/lwip/def.h ../include/lwip/mem.h ../include/lwip/memp.h \
+  ../include/lwip/pbuf.h ../include/lwip/err.h ../include/lwip/sys.h \
+  ../include/arch/sys_arch.h ../include/arch/perf.h
+stats.o: ../core/stats.c ../include/lwip/opt.h ../include/lwipopts.h \
+  ../include/lwipopts.h ../include/lwip/debug.h ../include/lwip/arch.h \
+  ../include/arch/cc.h ../../../include/libc/string.h \
+  ../include/lwip/opt.h ../include/lwip/debug.h
+sys.o: ../core/sys.c ../include/lwip/opt.h ../include/lwipopts.h \
+  ../include/lwipopts.h ../include/lwip/debug.h ../include/lwip/arch.h \
+  ../include/arch/cc.h ../../../include/libc/string.h \
+  ../include/lwip/opt.h ../include/lwip/debug.h ../include/lwip/sys.h \
+  ../include/lwip/err.h ../include/arch/sys_arch.h ../include/lwip/def.h \
+  ../include/lwip/memp.h ../include/lwip/memp_std.h \
+  ../include/lwip/tcpip.h ../include/lwip/api_msg.h \
+  ../include/ipv4/lwip/ip_addr.h ../include/lwip/opt.h \
+  ../include/lwip/sys.h ../include/ipv4/lwip/igmp.h \
+  ../include/ipv4/lwip/ip_addr.h ../include/lwip/netif.h \
+  ../include/ipv4/lwip/inet.h ../include/lwip/pbuf.h \
+  ../include/lwip/pbuf.h ../include/lwip/api.h ../include/lwip/netbuf.h \
+  ../include/lwip/netifapi.h
+tcp.o: ../core/tcp.c ../include/lwip/opt.h ../include/lwipopts.h \
+  ../include/lwipopts.h ../include/lwip/debug.h ../include/lwip/arch.h \
+  ../include/arch/cc.h ../../../include/libc/string.h \
+  ../include/lwip/opt.h ../include/lwip/debug.h ../include/lwip/def.h \
+  ../include/lwip/mem.h ../include/lwip/memp.h ../include/lwip/memp_std.h \
+  ../include/lwip/snmp.h ../include/lwip/netif.h ../include/lwip/err.h \
+  ../include/ipv4/lwip/ip_addr.h ../include/lwip/opt.h \
+  ../include/ipv4/lwip/inet.h ../include/ipv4/lwip/ip_addr.h \
+  ../include/lwip/pbuf.h ../include/lwip/udp.h ../include/ipv4/lwip/ip.h \
+  ../include/lwip/def.h ../include/lwip/pbuf.h ../include/lwip/err.h \
+  ../include/lwip/tcp.h ../include/lwip/sys.h ../include/arch/sys_arch.h \
+  ../include/lwip/mem.h ../include/ipv4/lwip/icmp.h \
+  ../include/lwip/netif.h
+tcp_in.o: ../core/tcp_in.c ../include/lwip/opt.h ../include/lwipopts.h \
+  ../include/lwipopts.h ../include/lwip/debug.h ../include/lwip/arch.h \
+  ../include/arch/cc.h ../../../include/libc/string.h \
+  ../include/lwip/opt.h ../include/lwip/debug.h ../include/lwip/tcp.h \
+  ../include/lwip/sys.h ../include/lwip/err.h ../include/arch/sys_arch.h \
+  ../include/lwip/mem.h ../include/lwip/pbuf.h ../include/ipv4/lwip/ip.h \
+  ../include/lwip/opt.h ../include/lwip/def.h ../include/lwip/pbuf.h \
+  ../include/ipv4/lwip/ip_addr.h ../include/lwip/err.h \
+  ../include/ipv4/lwip/icmp.h ../include/lwip/netif.h \
+  ../include/ipv4/lwip/ip_addr.h ../include/ipv4/lwip/inet.h \
+  ../include/lwip/def.h ../include/ipv4/lwip/ip_addr.h \
+  ../include/lwip/netif.h ../include/lwip/mem.h ../include/lwip/memp.h \
+  ../include/lwip/memp_std.h ../include/ipv4/lwip/inet.h \
+  ../include/ipv4/lwip/inet_chksum.h ../include/lwip/stats.h \
+  ../include/lwip/memp.h ../include/lwip/snmp.h ../include/lwip/netif.h \
+  ../include/lwip/udp.h ../include/arch/perf.h
+tcp_out.o: ../core/tcp_out.c ../include/lwip/opt.h ../include/lwipopts.h \
+  ../include/lwipopts.h ../include/lwip/debug.h ../include/lwip/arch.h \
+  ../include/arch/cc.h ../../../include/libc/string.h \
+  ../include/lwip/opt.h ../include/lwip/debug.h ../include/lwip/tcp.h \
+  ../include/lwip/sys.h ../include/lwip/err.h ../include/arch/sys_arch.h \
+  ../include/lwip/mem.h ../include/lwip/pbuf.h ../include/ipv4/lwip/ip.h \
+  ../include/lwip/opt.h ../include/lwip/def.h ../include/lwip/pbuf.h \
+  ../include/ipv4/lwip/ip_addr.h ../include/lwip/err.h \
+  ../include/ipv4/lwip/icmp.h ../include/lwip/netif.h \
+  ../include/ipv4/lwip/ip_addr.h ../include/ipv4/lwip/inet.h \
+  ../include/lwip/def.h ../include/lwip/mem.h ../include/lwip/memp.h \
+  ../include/lwip/memp_std.h ../include/lwip/sys.h \
+  ../include/ipv4/lwip/ip_addr.h ../include/lwip/netif.h \
+  ../include/ipv4/lwip/inet.h ../include/ipv4/lwip/inet_chksum.h \
+  ../include/lwip/stats.h ../include/lwip/memp.h ../include/lwip/snmp.h \
+  ../include/lwip/netif.h ../include/lwip/udp.h
+udp.o: ../core/udp.c ../include/lwip/opt.h ../include/lwipopts.h \
+  ../include/lwipopts.h ../include/lwip/debug.h ../include/lwip/arch.h \
+  ../include/arch/cc.h ../../../include/libc/string.h \
+  ../include/lwip/opt.h ../include/lwip/debug.h ../include/lwip/udp.h \
+  ../include/lwip/pbuf.h ../include/lwip/err.h ../include/lwip/netif.h \
+  ../include/ipv4/lwip/ip_addr.h ../include/lwip/opt.h \
+  ../include/ipv4/lwip/inet.h ../include/ipv4/lwip/ip_addr.h \
+  ../include/ipv4/lwip/ip.h ../include/lwip/def.h ../include/lwip/pbuf.h \
+  ../include/lwip/err.h ../include/lwip/def.h ../include/lwip/memp.h \
+  ../include/lwip/memp_std.h ../include/ipv4/lwip/inet.h \
+  ../include/ipv4/lwip/inet_chksum.h ../include/ipv4/lwip/ip_addr.h \
+  ../include/lwip/netif.h ../include/ipv4/lwip/icmp.h \
+  ../include/lwip/netif.h ../include/lwip/stats.h ../include/lwip/mem.h \
+  ../include/lwip/memp.h ../include/lwip/snmp.h ../include/lwip/udp.h \
+  ../include/arch/perf.h ../include/lwip/dhcp.h
+init.o: ../core/init.c ../include/lwip/opt.h ../include/lwipopts.h \
+  ../include/lwipopts.h ../include/lwip/debug.h ../include/lwip/arch.h \
+  ../include/arch/cc.h ../../../include/libc/string.h \
+  ../include/lwip/opt.h ../include/lwip/debug.h ../include/lwip/init.h \
+  ../include/lwip/stats.h ../include/lwip/mem.h ../include/lwip/memp.h \
+  ../include/lwip/memp_std.h ../include/lwip/sys.h ../include/lwip/err.h \
+  ../include/arch/sys_arch.h ../include/lwip/mem.h ../include/lwip/memp.h \
+  ../include/lwip/pbuf.h ../include/lwip/netif.h \
+  ../include/ipv4/lwip/ip_addr.h ../include/lwip/opt.h \
+  ../include/ipv4/lwip/inet.h ../include/ipv4/lwip/ip_addr.h \
+  ../include/lwip/pbuf.h ../include/lwip/sockets.h \
+  ../include/ipv4/lwip/ip.h ../include/lwip/def.h ../include/lwip/pbuf.h \
+  ../include/lwip/err.h ../include/lwip/raw.h ../include/ipv4/lwip/ip.h \
+  ../include/lwip/udp.h ../include/lwip/netif.h ../include/lwip/tcp.h \
+  ../include/lwip/sys.h ../include/ipv4/lwip/icmp.h \
+  ../include/lwip/netif.h ../include/ipv4/lwip/autoip.h \
+  ../include/ipv4/lwip/igmp.h ../include/lwip/dns.h \
+  ../include/netif/etharp.h ../include/lwip/opt.h ../include/lwip/pbuf.h \
+  ../include/ipv4/lwip/ip_addr.h ../include/lwip/netif.h \
+  ../include/ipv4/lwip/ip.h
+icmp.o: ../core/ipv4/icmp.c ../include/lwip/opt.h ../include/lwipopts.h \
+  ../include/lwipopts.h ../include/lwip/debug.h ../include/lwip/arch.h \
+  ../include/arch/cc.h ../../../include/libc/string.h \
+  ../include/lwip/opt.h ../include/lwip/debug.h \
+  ../include/ipv4/lwip/icmp.h ../include/lwip/opt.h \
+  ../include/lwip/pbuf.h ../include/lwip/err.h \
+  ../include/ipv4/lwip/ip_addr.h ../include/lwip/netif.h \
+  ../include/ipv4/lwip/ip_addr.h ../include/ipv4/lwip/inet.h \
+  ../include/lwip/pbuf.h ../include/ipv4/lwip/inet.h \
+  ../include/ipv4/lwip/inet_chksum.h ../include/ipv4/lwip/ip.h \
+  ../include/lwip/def.h ../include/lwip/err.h ../include/lwip/def.h \
+  ../include/lwip/stats.h ../include/lwip/mem.h ../include/lwip/memp.h \
+  ../include/lwip/memp_std.h ../include/lwip/snmp.h \
+  ../include/lwip/netif.h ../include/lwip/udp.h ../include/ipv4/lwip/ip.h
+ip.o: ../core/ipv4/ip.c ../include/lwip/opt.h ../include/lwipopts.h \
+  ../include/lwipopts.h ../include/lwip/debug.h ../include/lwip/arch.h \
+  ../include/arch/cc.h ../../../include/libc/string.h \
+  ../include/lwip/opt.h ../include/lwip/debug.h ../include/ipv4/lwip/ip.h \
+  ../include/lwip/opt.h ../include/lwip/def.h ../include/lwip/pbuf.h \
+  ../include/lwip/err.h ../include/ipv4/lwip/ip_addr.h \
+  ../include/lwip/err.h ../include/lwip/def.h ../include/lwip/mem.h \
+  ../include/ipv4/lwip/ip_frag.h ../include/lwip/netif.h \
+  ../include/ipv4/lwip/ip_addr.h ../include/ipv4/lwip/inet.h \
+  ../include/lwip/pbuf.h ../include/ipv4/lwip/ip.h \
+  ../include/ipv4/lwip/inet.h ../include/ipv4/lwip/inet_chksum.h \
+  ../include/lwip/netif.h ../include/ipv4/lwip/icmp.h \
+  ../include/ipv4/lwip/igmp.h ../include/lwip/raw.h \
+  ../include/ipv4/lwip/ip.h ../include/lwip/udp.h ../include/lwip/netif.h \
+  ../include/lwip/tcp.h ../include/lwip/sys.h ../include/arch/sys_arch.h \
+  ../include/lwip/mem.h ../include/ipv4/lwip/icmp.h \
+  ../include/lwip/snmp.h ../include/lwip/udp.h ../include/lwip/dhcp.h \
+  ../include/lwip/stats.h ../include/lwip/memp.h \
+  ../include/lwip/memp_std.h ../include/arch/perf.h
+inet.o: ../core/ipv4/inet.c ../include/lwip/opt.h ../include/lwipopts.h \
+  ../include/lwipopts.h ../include/lwip/debug.h ../include/lwip/arch.h \
+  ../include/arch/cc.h ../../../include/libc/string.h \
+  ../include/lwip/opt.h ../include/lwip/debug.h \
+  ../include/ipv4/lwip/inet.h ../include/lwip/opt.h \
+  ../include/ipv4/lwip/ip_addr.h
+ip_addr.o: ../core/ipv4/ip_addr.c ../include/lwip/opt.h \
+  ../include/lwipopts.h ../include/lwipopts.h ../include/lwip/debug.h \
+  ../include/lwip/arch.h ../include/arch/cc.h \
+  ../../../include/libc/string.h ../include/lwip/opt.h \
+  ../include/lwip/debug.h ../include/ipv4/lwip/ip_addr.h \
+  ../include/lwip/opt.h ../include/ipv4/lwip/inet.h \
+  ../include/ipv4/lwip/ip_addr.h ../include/lwip/netif.h \
+  ../include/lwip/err.h ../include/ipv4/lwip/ip_addr.h \
+  ../include/ipv4/lwip/inet.h ../include/lwip/pbuf.h
+inet_chksum.o: ../core/ipv4/inet_chksum.c ../include/lwip/opt.h \
+  ../include/lwipopts.h ../include/lwipopts.h ../include/lwip/debug.h \
+  ../include/lwip/arch.h ../include/arch/cc.h \
+  ../../../include/libc/string.h ../include/lwip/opt.h \
+  ../include/lwip/debug.h ../include/ipv4/lwip/inet_chksum.h \
+  ../include/lwip/opt.h ../include/lwip/pbuf.h ../include/lwip/err.h \
+  ../include/ipv4/lwip/ip_addr.h ../include/ipv4/lwip/inet.h
+api_lib.o: ../api/api_lib.c ../include/lwip/opt.h ../include/lwipopts.h \
+  ../include/lwipopts.h ../include/lwip/debug.h ../include/lwip/arch.h \
+  ../include/arch/cc.h ../../../include/libc/string.h \
+  ../include/lwip/opt.h ../include/lwip/debug.h ../include/lwip/api.h \
+  ../include/lwip/netbuf.h ../include/lwip/pbuf.h ../include/lwip/err.h \
+  ../include/lwip/sys.h ../include/arch/sys_arch.h \
+  ../include/ipv4/lwip/ip_addr.h ../include/lwip/opt.h \
+  ../include/lwip/tcpip.h ../include/lwip/api_msg.h \
+  ../include/ipv4/lwip/igmp.h ../include/ipv4/lwip/ip_addr.h \
+  ../include/lwip/netif.h ../include/ipv4/lwip/inet.h \
+  ../include/lwip/pbuf.h ../include/lwip/api.h ../include/lwip/netifapi.h \
+  ../include/lwip/memp.h ../include/lwip/memp_std.h \
+  ../include/ipv4/lwip/ip.h ../include/lwip/def.h ../include/lwip/err.h \
+  ../include/lwip/raw.h ../include/ipv4/lwip/ip.h ../include/lwip/udp.h \
+  ../include/lwip/netif.h ../include/lwip/tcp.h ../include/lwip/mem.h \
+  ../include/ipv4/lwip/icmp.h
+api_msg.o: ../api/api_msg.c ../include/lwip/opt.h ../include/lwipopts.h \
+  ../include/lwipopts.h ../include/lwip/debug.h ../include/lwip/arch.h \
+  ../include/arch/cc.h ../../../include/libc/string.h \
+  ../include/lwip/opt.h ../include/lwip/debug.h ../include/lwip/api_msg.h \
+  ../include/ipv4/lwip/ip_addr.h ../include/lwip/opt.h \
+  ../include/lwip/err.h ../include/lwip/sys.h ../include/arch/sys_arch.h \
+  ../include/ipv4/lwip/igmp.h ../include/ipv4/lwip/ip_addr.h \
+  ../include/lwip/netif.h ../include/ipv4/lwip/inet.h \
+  ../include/lwip/pbuf.h ../include/lwip/pbuf.h ../include/lwip/api.h \
+  ../include/lwip/netbuf.h ../include/ipv4/lwip/ip.h \
+  ../include/lwip/def.h ../include/lwip/err.h ../include/lwip/udp.h \
+  ../include/lwip/netif.h ../include/ipv4/lwip/ip.h ../include/lwip/tcp.h \
+  ../include/lwip/mem.h ../include/ipv4/lwip/icmp.h ../include/lwip/raw.h \
+  ../include/lwip/memp.h ../include/lwip/memp_std.h \
+  ../include/lwip/tcpip.h ../include/lwip/api_msg.h \
+  ../include/lwip/netifapi.h ../include/ipv4/lwip/igmp.h \
+  ../include/lwip/dns.h
+tcpip.o: ../api/tcpip.c ../include/lwip/opt.h ../include/lwipopts.h \
+  ../include/lwipopts.h ../include/lwip/debug.h ../include/lwip/arch.h \
+  ../include/arch/cc.h ../../../include/libc/string.h \
+  ../include/lwip/opt.h ../include/lwip/debug.h ../include/lwip/sys.h \
+  ../include/lwip/err.h ../include/arch/sys_arch.h ../include/lwip/memp.h \
+  ../include/lwip/memp_std.h ../include/lwip/pbuf.h \
+  ../include/ipv4/lwip/ip_frag.h ../include/lwip/opt.h \
+  ../include/lwip/err.h ../include/lwip/pbuf.h ../include/lwip/netif.h \
+  ../include/ipv4/lwip/ip_addr.h ../include/ipv4/lwip/inet.h \
+  ../include/ipv4/lwip/ip_addr.h ../include/lwip/pbuf.h \
+  ../include/ipv4/lwip/ip.h ../include/lwip/def.h ../include/lwip/tcp.h \
+  ../include/lwip/sys.h ../include/lwip/mem.h ../include/ipv4/lwip/ip.h \
+  ../include/ipv4/lwip/icmp.h ../include/ipv4/lwip/autoip.h \
+  ../include/lwip/dhcp.h ../include/ipv4/lwip/igmp.h \
+  ../include/lwip/dns.h ../include/lwip/tcpip.h ../include/lwip/api_msg.h \
+  ../include/ipv4/lwip/igmp.h ../include/lwip/api.h \
+  ../include/lwip/netbuf.h ../include/lwip/netifapi.h \
+  ../include/lwip/init.h ../include/netif/etharp.h ../include/lwip/opt.h \
+  ../include/lwip/pbuf.h ../include/ipv4/lwip/ip_addr.h \
+  ../include/lwip/netif.h ../include/ipv4/lwip/ip.h \
+  ../include/netif/ppp_oe.h
+err.o: ../api/err.c ../include/lwip/err.h ../include/lwip/opt.h \
+  ../include/lwipopts.h ../include/lwipopts.h ../include/lwip/debug.h \
+  ../include/lwip/arch.h ../include/arch/cc.h \
+  ../../../include/libc/string.h ../include/lwip/debug.h
+sockets.o: ../api/sockets.c ../include/lwip/opt.h ../include/lwipopts.h \
+  ../include/lwipopts.h ../include/lwip/debug.h ../include/lwip/arch.h \
+  ../include/arch/cc.h ../../../include/libc/string.h \
+  ../include/lwip/opt.h ../include/lwip/debug.h ../include/lwip/sockets.h \
+  ../include/ipv4/lwip/ip_addr.h ../include/lwip/opt.h \
+  ../include/ipv4/lwip/inet.h ../include/ipv4/lwip/ip_addr.h \
+  ../include/lwip/api.h ../include/lwip/netbuf.h ../include/lwip/pbuf.h \
+  ../include/lwip/err.h ../include/lwip/sys.h ../include/arch/sys_arch.h \
+  ../include/lwip/sys.h ../include/ipv4/lwip/igmp.h \
+  ../include/lwip/netif.h ../include/lwip/pbuf.h \
+  ../include/ipv4/lwip/inet.h ../include/lwip/tcp.h ../include/lwip/mem.h \
+  ../include/ipv4/lwip/ip.h ../include/lwip/def.h ../include/lwip/err.h \
+  ../include/ipv4/lwip/icmp.h ../include/lwip/raw.h ../include/lwip/udp.h \
+  ../include/lwip/netif.h ../include/lwip/tcpip.h \
+  ../include/lwip/api_msg.h ../include/ipv4/lwip/igmp.h \
+  ../include/lwip/api.h ../include/lwip/netifapi.h ../include/lwip/arch.h
+netbuf.o: ../api/netbuf.c ../include/lwip/opt.h ../include/lwipopts.h \
+  ../include/lwipopts.h ../include/lwip/debug.h ../include/lwip/arch.h \
+  ../include/arch/cc.h ../../../include/libc/string.h \
+  ../include/lwip/opt.h ../include/lwip/debug.h ../include/lwip/netbuf.h \
+  ../include/lwip/pbuf.h ../include/lwip/err.h ../include/lwip/memp.h \
+  ../include/lwip/memp_std.h
+netdb.o: ../api/netdb.c ../include/lwip/netdb.h ../include/lwip/opt.h \
+  ../include/lwipopts.h ../include/lwipopts.h ../include/lwip/debug.h \
+  ../include/lwip/arch.h ../include/arch/cc.h \
+  ../../../include/libc/string.h ../include/lwip/debug.h
+loopif.o: ../netif/loopif.c ../include/lwip/opt.h ../include/lwipopts.h \
+  ../include/lwipopts.h ../include/lwip/debug.h ../include/lwip/arch.h \
+  ../include/arch/cc.h ../../../include/libc/string.h \
+  ../include/lwip/opt.h ../include/lwip/debug.h
+etharp.o: ../netif/etharp.c ../include/lwip/opt.h ../include/lwipopts.h \
+  ../include/lwipopts.h ../include/lwip/debug.h ../include/lwip/arch.h \
+  ../include/arch/cc.h ../../../include/libc/string.h \
+  ../include/lwip/opt.h ../include/lwip/debug.h \
+  ../include/ipv4/lwip/inet.h ../include/lwip/opt.h \
+  ../include/ipv4/lwip/ip_addr.h ../include/ipv4/lwip/ip.h \
+  ../include/lwip/def.h ../include/lwip/pbuf.h ../include/lwip/err.h \
+  ../include/lwip/err.h ../include/lwip/stats.h ../include/lwip/mem.h \
+  ../include/lwip/memp.h ../include/lwip/memp_std.h \
+  ../include/lwip/snmp.h ../include/lwip/netif.h \
+  ../include/ipv4/lwip/ip_addr.h ../include/ipv4/lwip/inet.h \
+  ../include/lwip/pbuf.h ../include/lwip/udp.h ../include/ipv4/lwip/ip.h \
+  ../include/lwip/dhcp.h ../include/ipv4/lwip/autoip.h \
+  ../include/netif/etharp.h ../include/lwip/opt.h ../include/lwip/pbuf.h \
+  ../include/ipv4/lwip/ip_addr.h ../include/lwip/netif.h \
+  ../include/ipv4/lwip/ip.h

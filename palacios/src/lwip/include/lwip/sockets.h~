@@ -314,7 +314,8 @@ int lwip_sendto(int s, const void *dataptr, int size, unsigned int flags,
     struct sockaddr *to, socklen_t tolen);
 int lwip_socket(int domain, int type, int protocol);
 int lwip_write(int s, const void *dataptr, int size);
-int lwip_select(int maxfdp1, fd_set *readset, fd_set *writeset, fd_set *exceptset, struct timeval *timeout);
+int lwip_select(int maxfdp1, fd_set *readset, fd_set *writeset, fd_set *exceptset,
+                struct timeval *timeout);
 int lwip_ioctl(int s, long cmd, void *argp);
 
 #if LWIP_COMPAT_SOCKETS
