@@ -14,6 +14,10 @@
 #endif
 
 
+static int default_write(ushort_t port, void *src, uint_t length, void * priv_data);
+static int default_read(ushort_t port, void * dst, uint_t length, void * priv_data);
+
+
 void init_vmm_io_map(struct guest_info * info) {
   struct vmm_io_map * io_map = &(info->io_map);
   io_map->num_ports = 0;
@@ -89,50 +93,7 @@ static int remove_io_hook(struct vmm_io_map * io_map, struct vmm_io_hook * io_ho
 
 
 
-/* FIX ME */
-static int default_write(ushort_t port, void *src, uint_t length, void * priv_data) {
-  /*
-    
-  if (length == 1) {
-  __asm__ __volatile__ (
-  "outb %b0, %w1"
-  :
-  : "a" (*dst), "Nd" (port)
-  );
-  } else if (length == 2) {
-  __asm__ __volatile__ (
-  "outw %b0, %w1"
-  :
-  : "a" (*dst), "Nd" (port)
-  );
-  } else if (length == 4) {
-  __asm__ __volatile__ (
-  "outw %b0, %w1"
-  :
-  : "a" (*dst), "Nd" (port)
-  );
-  }
-  */
-  return 0;
-}
 
-static int default_read(ushort_t port, void * dst, uint_t length, void * priv_data)
-{
-
-  /*    
-	uchar_t value;
-
-    __asm__ __volatile__ (
-	"inb %w1, %b0"
-	: "=a" (value)
-	: "Nd" (port)
-    );
-
-    return value;
-  */
-
-  return 0;
-}
 
 int v3_hook_io_port(struct guest_info * info, uint_t port, 
 		    int (*read)(ushort_t port, void * dst, uint_t length, void * priv_data),
@@ -201,4 +162,131 @@ void PrintDebugIOMap(struct vmm_io_map * io_map) {
   while (iter) {
     PrintDebug("IO Port: %hu (Read=%x) (Write=%x)\n", iter->port, iter->read, iter->write);
   }
+}
+
+
+
+/*
+ * Write a byte to an I/O port.
+ */
+void v3_outb(ushort_t port, uchar_t value) {
+    __asm__ __volatile__ (
+	"outb %b0, %w1"
+	:
+	: "a" (value), "Nd" (port)
+    );
+}
+
+/*
+ * Read a byte from an I/O port.
+ */
+uchar_t v3_inb(ushort_t port) {
+    uchar_t value;
+
+    __asm__ __volatile__ (
+	"inb %w1, %b0"
+	: "=a" (value)
+	: "Nd" (port)
+    );
+
+    return value;
+}
+
+/*
+ * Write a word to an I/O port.
+ */
+void v3_outw(ushort_t port, ushort_t value) {
+    __asm__ __volatile__ (
+	"outw %w0, %w1"
+	:
+	: "a" (value), "Nd" (port)
+    );
+}
+
+/*
+ * Read a word from an I/O port.
+ */
+ushort_t v3_inw(ushort_t port) {
+    ushort_t value;
+
+    __asm__ __volatile__ (
+	"inw %w1, %w0"
+	: "=a" (value)
+	: "Nd" (port)
+    );
+
+    return value;
+}
+
+/*
+ * Write a double word to an I/O port.
+ */
+void v3_outdw(ushort_t port, uint_t value) {
+    __asm__ __volatile__ (
+	"outl %0, %1"
+	:
+	: "a" (value), "Nd" (port)
+    );
+}
+
+/*
+ * Read a double word from an I/O port.
+ */
+uint_t v3_indw(ushort_t port) {
+    uint_t value;
+
+    __asm__ __volatile__ (
+	"inl %1, %0"
+	: "=a" (value)
+	: "Nd" (port)
+    );
+
+    return value;
+}
+
+
+
+
+/* FIX ME */
+static int default_write(ushort_t port, void *src, uint_t length, void * priv_data) {
+  /*
+    
+  if (length == 1) {
+  __asm__ __volatile__ (
+  "outb %b0, %w1"
+  :
+  : "a" (*dst), "Nd" (port)
+  );
+  } else if (length == 2) {
+  __asm__ __volatile__ (
+  "outw %b0, %w1"
+  :
+  : "a" (*dst), "Nd" (port)
+  );
+  } else if (length == 4) {
+  __asm__ __volatile__ (
+  "outw %b0, %w1"
+  :
+  : "a" (*dst), "Nd" (port)
+  );
+  }
+  */
+  return 0;
+}
+
+static int default_read(ushort_t port, void * dst, uint_t length, void * priv_data) {
+
+  /*    
+	uchar_t value;
+
+    __asm__ __volatile__ (
+	"inb %w1, %b0"
+	: "=a" (value)
+	: "Nd" (port)
+    );
+
+    return value;
+  */
+
+  return 0;
 }

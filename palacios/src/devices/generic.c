@@ -4,7 +4,7 @@
 #include <devices/generic.h>
 #include <palacios/vmm.h>
 #include <palacios/vmm_types.h>
-#include <geekos/io.h>
+
 
 
 
@@ -96,17 +96,17 @@ int generic_write_port_passthrough(ushort_t port,
 
   switch (length) {
   case 1:
-    Out_Byte(port,((uchar_t*)src)[0]);
+    v3_outb(port,((uchar_t*)src)[0]);
     break;
   case 2:
-    Out_Word(port,((ushort_t*)src)[0]);
+    v3_outw(port,((ushort_t*)src)[0]);
     break;
   case 4:
-    Out_DWord(port,((uint_t*)src)[0]);
+    v3_outdw(port,((uint_t*)src)[0]);
     break;
   default:
     for (i = 0; i < length; i++) { 
-      Out_Byte(port, ((uchar_t*)src)[i]);
+      v3_outb(port, ((uchar_t*)src)[i]);
     }
   } //switch length
 #ifdef RAMDISK_BOOT
@@ -140,17 +140,17 @@ int generic_read_port_passthrough(ushort_t port,
 
     switch (length) {
     case 1:
-      ((uchar_t*)src)[0] = In_Byte(port);
+      ((uchar_t*)src)[0] = v3_inb(port);
       break;
     case 2:
-      ((ushort_t*)src)[0] = In_Word(port);
+      ((ushort_t*)src)[0] = v3_inw(port);
       break;
     case 4:
-      ((uint_t*)src)[0] = In_DWord(port);
+      ((uint_t*)src)[0] = v3_indw(port);
       break;
     default:
       for (i = 0; i < length; i++) { 
-	((uchar_t*)src)[i] = In_Byte(port);
+	((uchar_t*)src)[i] = v3_inb(port);
       }
     }//switch length
 #ifdef RAMDISK_BOOT
