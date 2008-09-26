@@ -5,6 +5,8 @@
 #ifndef __VMX_H
 #define __VMX_H
 
+#ifdef __V3VEE__
+
 #include <palacios/vmm_types.h>
 #include <palacios/vmcs.h>
 
@@ -112,6 +114,6 @@ int VMLaunch(struct VMDescriptor *vm);
 int Do_VMM(struct VMXRegs regs);
 
 
-
+#endif // ! __V3VEE__
 
 #endif 

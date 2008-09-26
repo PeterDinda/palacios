@@ -5,6 +5,8 @@
 #define __VMM_PAGING_H
 
 
+#ifdef __V3VEE__
+
 #include <palacios/vmm_types.h>
 #include <palacios/vmm_util.h>
 
@@ -71,7 +73,7 @@ the host state in the vmcs before entering the guest.
 */
 
 
-#ifdef __V3VEE__
+
 
 #define MAX_PTE32_ENTRIES          1024
 #define MAX_PDE32_ENTRIES          1024

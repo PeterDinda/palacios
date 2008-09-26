@@ -38,6 +38,6 @@ typedef int sint32_t;
 
 typedef ulong_t addr_t;
 
-#endif
+#endif // ! __V3VEE__
 
 #endif

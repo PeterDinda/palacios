@@ -6,6 +6,7 @@
 
 
 #ifdef __V3VEE__
+
 #include <palacios/vmm.h>
 
 struct dbg_bp32 {

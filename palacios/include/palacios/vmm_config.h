@@ -7,6 +7,7 @@
 
 
 #ifdef __V3VEE__
+
 #include <palacios/vm_guest.h>
 
 

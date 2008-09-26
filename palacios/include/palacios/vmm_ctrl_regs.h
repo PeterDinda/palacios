@@ -4,6 +4,8 @@
 #ifndef __VMM_CTRL_REGS_H
 #define __VMM_CTRL_REGS_H
 
+#ifdef __V3VEE__
+
 
 #include <palacios/vm_guest.h>
 
@@ -192,6 +194,9 @@ int handle_cr3_read(struct guest_info * info);
 #define CR3_32_SAME_BASE(source1,source2) ((source1)->pdt_base_addr == (source2)->pdt_base_addr)
 #define CR3_32_COPY_FLAGS(source,dest) do { (dest)->rsvd1=(source)->rsvd1; (dest)->pwt=(source)->pwt; (dest)->pcd=(source)->pcd; } while (0)
 #define CR3_32_COPY_BASE(source,dest) do { (dest)->pdt_base_addr = (source)->pdt_base_addr; } while (0)
+
+
+#endif // ! __V3VEE__
 
 
 #endif

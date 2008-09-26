@@ -2,8 +2,10 @@
 /* (c) 2008, Jack Lange <jarusl@cs.northwestern.edu> */
 /* (c) 2008, The V3VEE Project <http://www.v3vee.org> */
 
-#ifndef __VMCS_H
-#define __VMCS_H
+#ifndef __VMCS_H__
+#define __VMCS_H__
+
+#ifdef __V3VEE__
 
 #include <palacios/vmm_types.h>
 
@@ -581,5 +583,8 @@ extern uint_t VMCS_READ();
 
 
 #include <palacios/vmcs_gen.h>
+
+#endif // ! __V3VEE__
+
 
 #endif 

@@ -174,10 +174,10 @@ struct vmm_intr_state {
 
   // This is the value given when the interrupt is hooked.
   // This will never be NULL
-  void *opaque;
+  void * opaque;
 };
 
-void deliver_interrupt_to_vmm(struct vmm_intr_state *state);
+void deliver_interrupt_to_vmm(struct vmm_intr_state * state);
 
 
 /* This will contain function pointers that provide OS services */

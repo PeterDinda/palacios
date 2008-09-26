@@ -4,6 +4,8 @@
 #ifndef __VM_DEV_H
 #define __VM_DEV_H
 
+#ifdef __V3VEE__
+
 #include <palacios/vmm_types.h>
 #include <palacios/vmm_list.h>
 #include <palacios/vmm_dev_mgr.h>
@@ -82,5 +84,8 @@ int dev_hook_irq(struct vm_device * dev,
 		 int (*handler)(uint_t irq, struct vm_device * dev));
 int dev_unhook_irq(struct vm_device * dev, uint_t irq);
 
+
+
+#endif // ! __V3VEE__
 
 #endif

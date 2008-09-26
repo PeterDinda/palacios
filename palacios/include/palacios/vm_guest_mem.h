@@ -4,6 +4,9 @@
 #ifndef __VM_GUEST_MEM_H
 #define __VM_GUEST_MEM_H
 
+
+#ifdef __V3VEE__
+
 #include <palacios/vm_guest.h>
 #include <palacios/vmm_mem.h>
 
@@ -92,7 +95,7 @@ int write_guest_pa_memory(struct guest_info * guest_info, addr_t guest_pa, int c
 // TODO int write_guest_va_memory(struct guest_info * guest_info, addr_t guest_va, int count, char * src);
 
 
-
+#endif // ! __V3VEE__
 
 
 #endif

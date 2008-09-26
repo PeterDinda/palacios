@@ -1,8 +1,11 @@
 /* (c) 2008, The V3VEE Project <http://www.v3vee.org> */
 
 
-#ifndef vmcs_gen
-#define vmcs_gen
+#ifndef __VMCS_GEN__
+#define __VMCS_GEN__
+
+#ifdef __V3VEE__
+
 #include <palacios/vmcs.h>
 #include <palacios/vmm.h>
 
@@ -780,4 +783,11 @@ uint_t  Get_HOST_RIP();
 void    PrintTrace_HOST_RIP();
 
 void PrintTrace_VMCS_ALL();
+
+
+#endif // !__V3VEE
+
 #endif
+
+
+

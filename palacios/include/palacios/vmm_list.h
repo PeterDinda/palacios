@@ -6,8 +6,8 @@
 #ifndef _VMM_LIST_H
 #define _VMM_LIST_H
 
-// JRL FIXME
-// #ifdef __V3VEE__
+
+#ifdef __V3VEE__
 
 #include <palacios/vmm_string.h>
 
@@ -533,7 +533,7 @@ static inline void hlist_add_after(struct hlist_node *n,
 	     pos = n)
 
 
-// JRL FIXME
-//#endif // ! __V3VEE__
+
+#endif // ! __V3VEE__
 
 #endif
