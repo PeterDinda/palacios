@@ -106,27 +106,26 @@ struct sys_thread {
 static struct timeval starttime;
 
 //static pthread_mutex_t lwprot_mutex = PTHREAD_MUTEX_INITIALIZER;
-static Mutex lwprot_mutex; // !!!! need to be initiated, void Mutex_Init(struct Mutex* mutex);
+static struct Mutex lwprot_mutex; // !!!! need to be initiated, void Mutex_Init(struct Mutex* mutex);
 
 //static pthread_t lwprot_thread = (pthread_t) 0xDEAD;
-static struct Kernel_Thread lwprot_thread = (struct Kernel_Thread) 0xDEAD;
+static struct Kernel_Thread lwprot_thread = (struct Kernel_Thread) 0xDEAD;  //!!!!! how to set it to a NULL thread?
 
 static int lwprot_count = 0;
 
 static struct sys_sem *sys_sem_new_(u8_t count);
 static void sys_sem_free_(struct sys_sem *sem);
 
-static u32_t cond_wait(pthread_cond_t * cond, pthread_mutex_t * mutex,
-                       u32_t timeout);
+static u32_t cond_wait(struct Condition *cond, struct Mutex *mutex, u32_t timeout);
 
 
 /*-----------------------------------------------------------------------------------*/
 static struct sys_thread * 
-introduce_thread(Kernel_Thread *id /*pthread_t id*/)
+introduce_thread(struct Kernel_Thread *id /*pthread_t id*/)
 {
   struct sys_thread *thread;
   
-  thread = v3ee_alloc(sizeof(struct sys_thread));  //!!!!!! malloc
+  thread = V3_Malloc(sizeof(struct sys_thread));  //!!!!!! malloc
     
   if (thread != NULL) {
     //pthread_mutex_lock(&threads_mutex);
@@ -161,13 +160,13 @@ current_thread(void)
   
   //pt = pthread_self();
   //!!!!!!!!!!!Do these have the same means? Not sure
-  pt = Get_Current(void);
+  pt = Get_Current();
   
   //pthread_mutex_lock(&threads_mutex);
   Mutex_Lock(&threads_mutex);
 
   for(st = threads; st != NULL; st = st->next) {    
-    if (thread_equal(&(st->pthread), pt)) {
+    if (thread_equal(st->pthread, pt)) {
       //pthread_mutex_unlock(&threads_mutex);
       Mutex_Unlock(&threads_mutex);
 
@@ -226,7 +225,7 @@ sys_mbox_new(int size)
 {
   struct sys_mbox *mbox;
   
-  mbox = malloc(sizeof(struct sys_mbox));
+  mbox = V3_Malloc(sizeof(struct sys_mbox));
   if (mbox != NULL) {
     mbox->first = mbox->last = 0;
     mbox->mail = sys_sem_new_(0);
@@ -257,7 +256,7 @@ sys_mbox_free(struct sys_mbox *mbox)
     mbox->mail = mbox->mutex = NULL;
     /*  LWIP_DEBUGF("sys_mbox_free: mbox 0x%lx\n", mbox); */
 
-    free(mbox);  //!!!! need change
+    V3_Free(mbox); 
   }
 }
 /*-----------------------------------------------------------------------------------*/
@@ -436,7 +435,7 @@ sys_sem_new_(u8_t count)
 
 /*-----------------------------------------------------------------------------------*/
 static u32_t
-cond_wait(struct Condition *cond, struct Mutex *mutex, u32_t timeout /* pthread_cond_t *cond, pthread_mutex_t *mutex, u32_t timeout */)
+cond_wait(struct Condition *cond, struct Mutex *mutex, u32_t timeout /* timeout is in miliseconds *//* pthread_cond_t *cond, pthread_mutex_t *mutex, u32_t timeout */)
 {
   int tdiff;
   unsigned long sec, usec;

@@ -42,7 +42,7 @@ CFLAGS=-g -Wall -fpic -DIPv4 -DLWIP_DEBUG
 ARCHIVE=ar
 
 CFLAGS:=$(CFLAGS) \
-	-I$(PROJECT_ROOT)include/lwip  -I$(PROJECT_ROOT)include/lwip/ipv4 -I$(PROJECT_ROOT)include/libc 
+	-I$(PROJECT_ROOT)include/ -I$(PROJECT_ROOT)include/lwip  -I$(PROJECT_ROOT)include/lwip/ipv4 -I$(PROJECT_ROOT)include/libc 
 
 # COREFILES, CORE4FILES: The minimum set of files needed for lwIP.
 COREFILES=$(LWIPDIR)/core/mem.c $(LWIPDIR)/core/memp.c $(LWIPDIR)/core/netif.c \
