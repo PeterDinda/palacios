@@ -338,6 +338,19 @@ void Init_Timer(void)
 }
 
 
+int Start_Timer_Secs(int seconds, timerCallback cb) {
+  return Start_Timer(seconds * HZ, cb);
+}
+
+
+int Start_Timer_MSecs(int msecs, timerCallback cb) {
+  msecs += 10 - (msecs % 10);
+
+  return Start_Timer(msecs * (HZ / 1000), cb);
+}
+
+
+
 int Start_Timer(int ticks, timerCallback cb)
 {
     int ret;
@@ -358,7 +371,8 @@ int Start_Timer(int ticks, timerCallback cb)
     }
 }
 
-int Get_Remaing_Timer_Ticks(int id)
+
+int Get_Remaining_Timer_Ticks(int id)
 {
     int i;
 
@@ -371,6 +385,19 @@ int Get_Remaing_Timer_Ticks(int id)
 
     return -1;
 }
+
+
+
+double Get_Remaining_Timer_Secs(int id) {
+  return (Get_Remaining_Timer_Ticks(id) / HZ);
+}
+
+
+int Get_Remaining_Timer_MSecs(int id) {
+  return ((Get_Remaining_Timer_Ticks(id) * 1000) / HZ);
+}
+
+
 
 int Cancel_Timer(int id)
 {

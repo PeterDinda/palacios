@@ -30,8 +30,13 @@ typedef struct {
     int origTicks;
 } timerEvent;
 
+int Start_Timer_Secs(int seconds, timerCallback cb);
+int Start_Timer_MSecs(int msecs, timerCallback cb);
 int Start_Timer(int ticks, timerCallback);
-int Get_Remaing_Timer_Ticks(int id);
+
+double Get_Remaining_Timer_Secs(int id);
+int Get_Remaining_Timer_MSecs(int id);
+int Get_Remaining_Timer_Ticks(int id);
 int Cancel_Timer(int id);
 
 
