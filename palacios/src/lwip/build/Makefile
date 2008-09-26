@@ -63,7 +63,7 @@ NETIFFILES=$(LWIPDIR)/netif/loopif.c \
 	$(LWIPDIR)/netif/etharp.c
 
 # ARCHFILES: Architecture specific files.
-ARCHIFILES=
+ARCHFILES=$(LWIPDIR)/arch/sys_arch.c
 
 # LWIPFILES: All the above.
 LWIPFILES=$(COREFILES) $(CORE4FILES) $(APIFILES) $(NETIFFILES) $(ARCHFILES)

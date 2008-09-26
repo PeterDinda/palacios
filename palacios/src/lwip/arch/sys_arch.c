@@ -53,6 +53,11 @@
 #include <unistd.h>
 #include <pthread.h>
 
+#include <geekos/synch.h>
+#include <geekos/kthread.h>
+#include <palacios/vmm.h>
+#include <geekos/debug.h>
+
 #include "lwip/sys.h"
 #include "lwip/opt.h"
 #include "lwip/stats.h"
@@ -60,7 +65,9 @@
 #define UMAX(a, b)      ((a) > (b) ? (a) : (b))
 
 static struct sys_thread *threads = NULL;
-static pthread_mutex_t threads_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+//static pthread_mutex_t threads_mutex = PTHREAD_MUTEX_INITIALIZER;
+static struct Mutex threads_mutex; // !!!! need to be initiated, void Mutex_Init(struct Mutex* mutex);
 
 struct sys_mbox_msg {
   struct sys_mbox_msg *next;
@@ -79,21 +86,31 @@ struct sys_mbox {
 
 struct sys_sem {
   unsigned int c;
-  pthread_cond_t cond;
-  pthread_mutex_t mutex;
+  
+  //pthread_cond_t cond;
+  struct Condition cond;
+  
+  //pthread_mutex_t mutex;
+  struct Mutex mutex;
 };
 
 struct sys_thread {
   struct sys_thread *next;
   struct sys_timeouts timeouts;
-  pthread_t pthread;
+  
+ // pthread_t pthread;
+  struct Kernel_Thread *pthread;
 };
 
 
 static struct timeval starttime;
 
-static pthread_mutex_t lwprot_mutex = PTHREAD_MUTEX_INITIALIZER;
-static pthread_t lwprot_thread = (pthread_t) 0xDEAD;
+//static pthread_mutex_t lwprot_mutex = PTHREAD_MUTEX_INITIALIZER;
+static Mutex lwprot_mutex; // !!!! need to be initiated, void Mutex_Init(struct Mutex* mutex);
+
+//static pthread_t lwprot_thread = (pthread_t) 0xDEAD;
+static struct Kernel_Thread lwprot_thread = (struct Kernel_Thread) 0xDEAD;
+
 static int lwprot_count = 0;
 
 static struct sys_sem *sys_sem_new_(u8_t count);
@@ -102,60 +119,87 @@ static void sys_sem_free_(struct sys_sem *sem);
 static u32_t cond_wait(pthread_cond_t * cond, pthread_mutex_t * mutex,
                        u32_t timeout);
 
+
 /*-----------------------------------------------------------------------------------*/
 static struct sys_thread * 
-introduce_thread(pthread_t id)
+introduce_thread(Kernel_Thread *id /*pthread_t id*/)
 {
   struct sys_thread *thread;
   
-  thread = malloc(sizeof(struct sys_thread));
+  thread = v3ee_alloc(sizeof(struct sys_thread));  //!!!!!! malloc
     
   if (thread != NULL) {
-    pthread_mutex_lock(&threads_mutex);
+    //pthread_mutex_lock(&threads_mutex);
+    Mutex_Lock(&threads_mutex);
+	
     thread->next = threads;
     thread->timeouts.next = NULL;
     thread->pthread = id;
     threads = thread;
-    pthread_mutex_unlock(&threads_mutex);
+
+    //pthread_mutex_unlock(&threads_mutex);
+    Mutex_Unlock(&threads_mutex);
   }
     
   return thread;
 }
+
+static int thread_equal(struct Kernel_Thread *kth1, struct Kernel_Thread *kth2){  //added
+
+	return (kth1->pid == kth2->pid);
+
+}
+
 /*-----------------------------------------------------------------------------------*/
 static struct sys_thread *
 current_thread(void)
 {
   struct sys_thread *st;
-  pthread_t pt;
-  pt = pthread_self();
-  pthread_mutex_lock(&threads_mutex);
+  
+  //pthread_t pt;
+  struct Kernel_Thread *pt;
+  
+  //pt = pthread_self();
+  //!!!!!!!!!!!Do these have the same means? Not sure
+  pt = Get_Current(void);
+  
+  //pthread_mutex_lock(&threads_mutex);
+  Mutex_Lock(&threads_mutex);
 
   for(st = threads; st != NULL; st = st->next) {    
-    if (pthread_equal(st->pthread, pt)) {
-      pthread_mutex_unlock(&threads_mutex);
-      
+    if (thread_equal(&(st->pthread), pt)) {
+      //pthread_mutex_unlock(&threads_mutex);
+      Mutex_Unlock(&threads_mutex);
+
       return st;
     }
   }
 
-  pthread_mutex_unlock(&threads_mutex);
+  //pthread_mutex_unlock(&threads_mutex);
+  Mutex_Unlock(&threads_mutex);
 
   st = introduce_thread(pt);
 
   if (!st) {
-    printf("current_thread???\n");
+    PrintBoth("lwIP error: In current_thread: current_thread???\n");
     abort();
   }
 
   return st;
 }
+
+
+//!!!!!!!!!!!!backto this function later
 /*-----------------------------------------------------------------------------------*/
 sys_thread_t
 sys_thread_new(char *name, void (* function)(void *arg), void *arg, int stacksize, int prio)
 {
   int code;
-  pthread_t tmp;
+  //pthread_t tmp;
+  struct Kernel_Thread tmp;
   struct sys_thread *st = NULL;
+  
+  
   
   code = pthread_create(&tmp,
                         NULL, 
@@ -174,6 +218,8 @@ sys_thread_new(char *name, void (* function)(void *arg), void *arg, int stacksiz
   }
   return st;
 }
+
+
 /*-----------------------------------------------------------------------------------*/
 struct sys_mbox *
 sys_mbox_new(int size)
@@ -210,7 +256,8 @@ sys_mbox_free(struct sys_mbox *mbox)
     sys_sem_free_(mbox->mutex);
     mbox->mail = mbox->mutex = NULL;
     /*  LWIP_DEBUGF("sys_mbox_free: mbox 0x%lx\n", mbox); */
-    free(mbox);
+
+    free(mbox);  //!!!! need change
   }
 }
 /*-----------------------------------------------------------------------------------*/
@@ -373,18 +420,23 @@ sys_sem_new_(u8_t count)
 {
   struct sys_sem *sem;
   
-  sem = malloc(sizeof(struct sys_sem));
+  sem = V3_Malloc(sizeof(struct sys_sem));
   if (sem != NULL) {
     sem->c = count;
-    pthread_cond_init(&(sem->cond), NULL);
-    pthread_mutex_init(&(sem->mutex), NULL);
+
+    //pthread_cond_init(&(sem->cond), NULL);
+    Cond_Init(&(sem->cond));
+    
+    //pthread_mutex_init(&(sem->mutex), NULL);
+    Mutex_Init(&(sem->mutex));
   }
   return sem;
 }
 
+
 /*-----------------------------------------------------------------------------------*/
 static u32_t
-cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex, u32_t timeout)
+cond_wait(struct Condition *cond, struct Mutex *mutex, u32_t timeout /* pthread_cond_t *cond, pthread_mutex_t *mutex, u32_t timeout */)
 {
   int tdiff;
   unsigned long sec, usec;
@@ -392,7 +444,9 @@ cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex, u32_t timeout)
   struct timespec ts;
   struct timezone tz;
   int retval;
-  
+
+
+  //!!!!!!!!!!!!! OK, we need a timerly-condition wait here
   if (timeout > 0) {
     /* Get a timestamp and add the timeout value. */
     gettimeofday(&rtime1, &tz);
@@ -421,7 +475,9 @@ cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex, u32_t timeout)
       return tdiff;
     }
   } else {
-    pthread_cond_wait(cond, mutex);
+    //pthread_cond_wait(cond, mutex);
+    Cond_Wait(cond, mutex);
+	
     return SYS_ARCH_TIMEOUT;
   }
 }
@@ -431,38 +487,50 @@ sys_arch_sem_wait(struct sys_sem *sem, u32_t timeout)
 {
   u32_t time = 0;
   
-  pthread_mutex_lock(&(sem->mutex));
+  //pthread_mutex_lock(&(sem->mutex));
+  Mutex_Lock(&(sem->mutex));
+  
   while (sem->c <= 0) {
     if (timeout > 0) {
       time = cond_wait(&(sem->cond), &(sem->mutex), timeout);
       
       if (time == SYS_ARCH_TIMEOUT) {
-        pthread_mutex_unlock(&(sem->mutex));
+        //pthread_mutex_unlock(&(sem->mutex));
+        Mutex_Unlock(&(sem->mutex));
+	
         return SYS_ARCH_TIMEOUT;
       }
       /*      pthread_mutex_unlock(&(sem->mutex));
               return time; */
-    } else {
+    } else { //!!!!!!! this else should be paired with  if (time == SYS_ARCH_TIMEOUT) ?????
       cond_wait(&(sem->cond), &(sem->mutex), 0);
     }
   }
   sem->c--;
-  pthread_mutex_unlock(&(sem->mutex));
+  //pthread_mutex_unlock(&(sem->mutex));
+  Mutex_Unlock(&(sem->mutex));
+  
   return time;
 }
 /*-----------------------------------------------------------------------------------*/
 void
 sys_sem_signal(struct sys_sem *sem)
 {
-  pthread_mutex_lock(&(sem->mutex));
+  //pthread_mutex_lock(&(sem->mutex));
+  Mutex_Lock(&(sem->mutex));
+  
   sem->c++;
 
   if (sem->c > 1) {
     sem->c = 1;
   }
 
-  pthread_cond_broadcast(&(sem->cond));
-  pthread_mutex_unlock(&(sem->mutex));
+  //pthread_cond_broadcast(&(sem->cond));
+  Cond_Broadcast(&(sem->cond));
+  
+  //pthread_mutex_unlock(&(sem->mutex));
+  Mutex_Unlock(&(sem->mutex));
+  
 }
 /*-----------------------------------------------------------------------------------*/
 void
@@ -480,10 +548,16 @@ sys_sem_free(struct sys_sem *sem)
 static void
 sys_sem_free_(struct sys_sem *sem)
 {
-  pthread_cond_destroy(&(sem->cond));
-  pthread_mutex_destroy(&(sem->mutex));
-  free(sem);
+  //pthread_cond_destroy(&(sem->cond));
+  Cond_Destroy(&(sem->cond));
+  
+  //pthread_mutex_destroy(&(sem->mutex));
+  Mutex_Destroy(&(sem->mutex));
+  
+  V3_Free(sem);
 }
+
+//return time, back to this later
 /*-----------------------------------------------------------------------------------*/
 unsigned long
 sys_unix_now()
@@ -599,7 +673,7 @@ sys_jiffies(void)
 
 #if PPP_DEBUG
 
-#include <stdarg.h>
+#include <geekos/serial.h>
 
 void ppp_trace(int level, const char *format, ...)
 {
@@ -607,7 +681,10 @@ void ppp_trace(int level, const char *format, ...)
 
     (void)level;
     va_start(args, format);
-    vprintf(format, args);
+	
+    //vprintf(format, args);
+    SerialPrintList(format, args);
+	
     va_end(args);
 }
 #endif
