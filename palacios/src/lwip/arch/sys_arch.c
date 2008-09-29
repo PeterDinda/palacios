@@ -55,8 +55,8 @@
 
 #include <geekos/synch.h>
 #include <geekos/kthread.h>
-#include <palacios/vmm.h>
 #include <geekos/debug.h>
+#include <geekos/malloc.h>
 
 #include "lwip/sys.h"
 #include "lwip/opt.h"
@@ -125,7 +125,7 @@ introduce_thread(struct Kernel_Thread *id /*pthread_t id*/)
 {
   struct sys_thread *thread;
   
-  thread = (struct sys_thread *)V3_Malloc(sizeof(struct sys_thread)); 
+  thread = (struct sys_thread *)Malloc(sizeof(struct sys_thread)); 
     
   if (thread != NULL) {
     //pthread_mutex_lock(&threads_mutex);
@@ -198,7 +198,7 @@ sys_thread_new(char *name, void (* function)(void *arg), void *arg, int stacksiz
   struct Kernel_Thread *tmp;
   struct sys_thread *st = NULL;
   
-  //tmp = (struct Kernel_Thread *)V3_Malloc(sizeof(struct Kernel_Thread));
+  //tmp = (struct Kernel_Thread *)Malloc(sizeof(struct Kernel_Thread));
   
   /* code = pthread_create(&tmp,
                         NULL, 
@@ -227,7 +227,7 @@ sys_mbox_new(int size)
 {
   struct sys_mbox *mbox;
   
-  mbox = (struct sys_mbox *)V3_Malloc(sizeof(struct sys_mbox));
+  mbox = (struct sys_mbox *)Malloc(sizeof(struct sys_mbox));
   if (mbox != NULL) {
     mbox->first = mbox->last = 0;
     mbox->mail = sys_sem_new_(0);
@@ -258,7 +258,7 @@ sys_mbox_free(struct sys_mbox *mbox)
     mbox->mail = mbox->mutex = NULL;
     /*  LWIP_DEBUGF("sys_mbox_free: mbox 0x%lx\n", mbox); */
 
-    V3_Free(mbox); 
+    Free(mbox); 
   }
 }
 /*-----------------------------------------------------------------------------------*/
@@ -421,7 +421,7 @@ sys_sem_new_(u8_t count)
 {
   struct sys_sem *sem;
   
-  sem = (struct sys_sem *)V3_Malloc(sizeof(struct sys_sem));
+  sem = (struct sys_sem *)Malloc(sizeof(struct sys_sem));
   if (sem != NULL) {
     sem->c = count;
 
@@ -567,7 +567,7 @@ sys_sem_free_(struct sys_sem *sem)
   //pthread_mutex_destroy(&(sem->mutex));
   Mutex_Destroy(&(sem->mutex));
   
-  V3_Free(sem);
+  Free(sem);
 }
 
 #if 0

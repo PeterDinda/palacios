@@ -307,7 +307,7 @@ int fflush(FILE *stream)
     //PrintDebug("In fflush!!\n");
 
     return 0;
-}*/
+}
 
 void abort(void)
 {
