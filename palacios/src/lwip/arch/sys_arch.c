@@ -125,7 +125,7 @@ introduce_thread(struct Kernel_Thread *id /*pthread_t id*/)
 {
   struct sys_thread *thread;
   
-  thread = V3_Malloc(sizeof(struct sys_thread));  //!!!!!! malloc
+  thread = (struct sys_thread *)V3_Malloc(sizeof(struct sys_thread));  //!!!!!! malloc
     
   if (thread != NULL) {
     //pthread_mutex_lock(&threads_mutex);
@@ -195,10 +195,10 @@ sys_thread_new(char *name, void (* function)(void *arg), void *arg, int stacksiz
 {
   int code;
   //pthread_t tmp;
-  struct Kernel_Thread tmp;
+  struct Kernel_Thread *tmp;
   struct sys_thread *st = NULL;
   
-  
+  tmp = (struct Kernel_Thread *)V3_Malloc(sizeof(struct Kernel_Thread));
   
   code = pthread_create(&tmp,
                         NULL, 
@@ -225,7 +225,7 @@ sys_mbox_new(int size)
 {
   struct sys_mbox *mbox;
   
-  mbox = V3_Malloc(sizeof(struct sys_mbox));
+  mbox = (struct sys_mbox *)V3_Malloc(sizeof(struct sys_mbox));
   if (mbox != NULL) {
     mbox->first = mbox->last = 0;
     mbox->mail = sys_sem_new_(0);
@@ -419,7 +419,7 @@ sys_sem_new_(u8_t count)
 {
   struct sys_sem *sem;
   
-  sem = V3_Malloc(sizeof(struct sys_sem));
+  sem = (struct sys_sem *)V3_Malloc(sizeof(struct sys_sem));
   if (sem != NULL) {
     sem->c = count;
 
