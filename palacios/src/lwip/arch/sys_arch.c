@@ -125,7 +125,7 @@ introduce_thread(struct Kernel_Thread *id /*pthread_t id*/)
 {
   struct sys_thread *thread;
   
-  thread = (struct sys_thread *)V3_Malloc(sizeof(struct sys_thread));  //!!!!!! malloc
+  thread = (struct sys_thread *)V3_Malloc(sizeof(struct sys_thread)); 
     
   if (thread != NULL) {
     //pthread_mutex_lock(&threads_mutex);
@@ -180,7 +180,7 @@ current_thread(void)
   st = introduce_thread(pt);
 
   if (!st) {
-    PrintBoth("lwIP error: In current_thread: current_thread???\n");
+    PrintBoth("lwIP error: In current_thread: Can not get current_thread\n");
     abort();
   }
 
@@ -198,21 +198,23 @@ sys_thread_new(char *name, void (* function)(void *arg), void *arg, int stacksiz
   struct Kernel_Thread *tmp;
   struct sys_thread *st = NULL;
   
-  tmp = (struct Kernel_Thread *)V3_Malloc(sizeof(struct Kernel_Thread));
+  //tmp = (struct Kernel_Thread *)V3_Malloc(sizeof(struct Kernel_Thread));
   
-  code = pthread_create(&tmp,
+  /* code = pthread_create(&tmp,
                         NULL, 
                         (void *(*)(void *)) 
                         function, 
-                        arg);
+                        arg); */
+                       
+  tmp = Start_Kernel_Thread(function, arg, PRIORITY_NORMAL , false);  //did not consider the priority here
   
-  if (0 == code) {
+  if (tmp != NULL) {
     st = introduce_thread(tmp);
   }
   
   if (NULL == st) {
-    LWIP_DEBUGF(SYS_DEBUG, ("sys_thread_new: pthread_create %d, st = 0x%x",
-                       code, (int)st));
+    LWIP_DEBUGF(SYS_DEBUG, ("sys_thread_new: pthread_create: 0x%x, st = 0x%x",
+                       (int)tmp, (int)st));
     abort();
   }
   return st;
@@ -437,18 +439,19 @@ sys_sem_new_(u8_t count)
 static u32_t
 cond_wait(struct Condition *cond, struct Mutex *mutex, u32_t timeout /* timeout is in miliseconds *//* pthread_cond_t *cond, pthread_mutex_t *mutex, u32_t timeout */)
 {
-  int tdiff;
-  unsigned long sec, usec;
+  ulong_t tdiff, msec;
+
+  /*
   struct timeval rtime1, rtime2;
   struct timespec ts;
   struct timezone tz;
+  */
   int retval;
 
-
-  //!!!!!!!!!!!!! OK, we need a timerly-condition wait here
   if (timeout > 0) {
+
     /* Get a timestamp and add the timeout value. */
-    gettimeofday(&rtime1, &tz);
+    /*gettimeofday(&rtime1, &tz);
     sec = rtime1.tv_sec;
     usec = rtime1.tv_usec;
     usec += timeout % 1000 * 1000;
@@ -456,16 +459,27 @@ cond_wait(struct Condition *cond, struct Mutex *mutex, u32_t timeout /* timeout 
     usec = usec % 1000000;
     ts.tv_nsec = usec * 1000;
     ts.tv_sec = sec;
-    
-    retval = pthread_cond_timedwait(cond, mutex, &ts);
+    */
+    msec = clock_time();
+  
+    if (Cond_Wait_Timeout(cond, mutex, timeout) == 1) //return due to timeout
+		retval = ETIMEDOUT;
+	
+    //retval = pthread_cond_timedwait(cond, mutex, &ts);
     
     if (retval == ETIMEDOUT) {
       return SYS_ARCH_TIMEOUT;
     } else {
       /* Calculate for how long we waited for the cond. */
+
+      /*
       gettimeofday(&rtime2, &tz);
       tdiff = (rtime2.tv_sec - rtime1.tv_sec) * 1000 +
         (rtime2.tv_usec - rtime1.tv_usec) / 1000;
+      */
+      tdiff = clock_time();
+
+      tdiff -= msec;
       
       if (tdiff <= 0) {
         return 0;
@@ -501,7 +515,7 @@ sys_arch_sem_wait(struct sys_sem *sem, u32_t timeout)
       }
       /*      pthread_mutex_unlock(&(sem->mutex));
               return time; */
-    } else { //!!!!!!! this else should be paired with  if (time == SYS_ARCH_TIMEOUT) ?????
+    } else {  // if timeout = 0
       cond_wait(&(sem->cond), &(sem->mutex), 0);
     }
   }
@@ -556,7 +570,8 @@ sys_sem_free_(struct sys_sem *sem)
   V3_Free(sem);
 }
 
-//return time, back to this later
+#if 0
+//return time, we do not need this
 /*-----------------------------------------------------------------------------------*/
 unsigned long
 sys_unix_now()
@@ -573,12 +588,18 @@ sys_unix_now()
     
   return msec;
 }
+#endif
+
 /*-----------------------------------------------------------------------------------*/
 void
 sys_init()
 {
-  struct timezone tz;
-  gettimeofday(&starttime, &tz);
+  //struct timezone tz;
+  //gettimeofday(&starttime, &tz);
+
+  Mutex_Init(&threads_mutex);
+  Mutex_Init(&lwprot_mutex);
+  
 }
 /*-----------------------------------------------------------------------------------*/
 struct sys_timeouts *
@@ -610,12 +631,12 @@ sys_arch_protect(void)
     /* Note that for the UNIX port, we are using a lightweight mutex, and our
      * own counter (which is locked by the mutex). The return code is not actually
      * used. */
-    if (lwprot_thread != pthread_self())
+    if (lwprot_thread != current_thread() /*lwprot_thread != pthread_self()*/)
     {
         /* We are locking the mutex where it has not been locked before *
         * or is being locked by another thread */
-        pthread_mutex_lock(&lwprot_mutex);
-        lwprot_thread = pthread_self();
+        Mutex_Lock(&lwprot_mutex);
+        lwprot_thread = current_thread();
         lwprot_count = 1;
     }
     else
@@ -634,12 +655,12 @@ an operating system.
 void
 sys_arch_unprotect(sys_prot_t pval)
 {
-    if (lwprot_thread == pthread_self())
+    if (lwprot_thread == current_thread())
     {
         if (--lwprot_count == 0)
         {
-            lwprot_thread = (pthread_t) 0xDEAD;
-            pthread_mutex_unlock(&lwprot_mutex);
+            lwprot_thread = (Kernel_Thread) 0xDEAD;
+            Mutex_Unlock(&lwprot_mutex);
         }
     }
 }
