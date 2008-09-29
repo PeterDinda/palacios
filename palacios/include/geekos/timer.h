@@ -16,7 +16,7 @@
 
 extern volatile ulong_t g_numTicks;
 
-typedef void (*timerCallback)(int);
+typedef void (*timerCallback)(int, void*);
 
 void Init_Timer(void);
 
@@ -24,15 +24,17 @@ void Micro_Delay(int us);
 
 
 typedef struct {
-    int ticks;                           /* timer code decrements this */
-    int id;                              /* unqiue id for this timer even */
-    timerCallback callBack;              /* Queue to wakeup on timer expire */
-    int origTicks;
+  int ticks;                           /* timer code decrements this */
+  int id;                              /* unqiue id for this timer even */
+  timerCallback callBack;              /* Queue to wakeup on timer expire */
+  void * cb_arg;                       /* Argument to add to callback */
+  int origTicks;
+
 } timerEvent;
 
-int Start_Timer_Secs(int seconds, timerCallback cb);
-int Start_Timer_MSecs(int msecs, timerCallback cb);
-int Start_Timer(int ticks, timerCallback);
+int Start_Timer_Secs(int seconds, timerCallback cb, void * arg);
+int Start_Timer_MSecs(int msecs, timerCallback cb, void * arg);
+int Start_Timer(int ticks, timerCallback, void * arg);
 
 double Get_Remaining_Timer_Secs(int id);
 int Get_Remaining_Timer_MSecs(int id);
