@@ -39,7 +39,6 @@ int Get_Remaining_Timer_MSecs(int id);
 int Get_Remaining_Timer_Ticks(int id);
 int Cancel_Timer(int id);
 
-
 void Micro_Delay(int us);
 
 #endif  /* GEEKOS_TIMER_H */
