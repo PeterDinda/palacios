@@ -28,7 +28,7 @@ void socket_appcall(void);
 
 
 static int Packet_Received(struct NE2K_Packet_Info* info, uchar_t *pkt);
-static void periodic_caller(int timer_id);
+static void periodic_caller(int timer_id, void * arg);
 
 void init_socket_layer() {
    int i = 0;
@@ -52,7 +52,7 @@ void init_socket_layer() {
     Init_Ne2k(&Packet_Received);
 
     iflag = Begin_Int_Atomic();
-    Start_Timer(2, periodic_caller);
+    Start_Timer(2, periodic_caller, NULL);
     End_Int_Atomic(iflag);
 
 }
@@ -108,7 +108,7 @@ struct socket * get_socket_from_fd(int fd) {
 
 
 
-static void periodic_caller(int timer_id) {
+static void periodic_caller(int timer_id, void * arg) {
   int i;
   //handle the periodic calls of uIP
   

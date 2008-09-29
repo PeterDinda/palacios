@@ -748,6 +748,30 @@ void Wake_Up_One(struct Thread_Queue* waitQueue)
     }
 }
 
+
+
+/*
+ * Wake up a single thread waiting on given wait queue
+ * (if there are any threads waiting).  Chooses the highest priority thread.
+ * Interrupts must be disabled!
+ */
+void Wake_Up_Thread(struct Thread_Queue* waitQueue, int pid)
+{
+  struct Kernel_Thread* thread = Lookup_Thread(pid);;
+
+  KASSERT(!Interrupts_Enabled());
+  
+  
+  if (thread != 0) {
+    Remove_Thread(waitQueue, thread);
+    Make_Runnable(thread);
+	/*Print("Wake_Up_One: waking up %x from %x\n", best, g_currentThread); */
+  }
+}
+
+
+
+
 /*
  * Allocate a key for accessing thread-local data.
  */
