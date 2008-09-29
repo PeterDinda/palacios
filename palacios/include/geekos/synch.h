@@ -18,9 +18,9 @@
 enum { MUTEX_UNLOCKED, MUTEX_LOCKED };
 
 struct Mutex {
-    int state;
-    struct Kernel_Thread* owner;
-    struct Thread_Queue waitQueue;
+  int state;
+  struct Kernel_Thread* owner;
+  struct Thread_Queue waitQueue;
 };
 
 #define MUTEX_INITIALIZER { MUTEX_UNLOCKED, 0, THREAD_QUEUE_INITIALIZER }
@@ -35,6 +35,7 @@ void Mutex_Unlock(struct Mutex* mutex);
 
 void Cond_Init(struct Condition* cond);
 void Cond_Wait(struct Condition* cond, struct Mutex* mutex);
+int Cond_Wait_Timeout(struct Condition * cond, struct Mutex * mutex, uint_t ms);
 void Cond_Signal(struct Condition* cond);
 void Cond_Broadcast(struct Condition* cond);
 

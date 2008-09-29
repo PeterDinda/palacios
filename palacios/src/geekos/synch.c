@@ -12,6 +12,7 @@
 #include <geekos/kassert.h>
 #include <geekos/screen.h>
 #include <geekos/synch.h>
+#include <geekos/timer.h>
 
 /*
  * NOTES:
@@ -179,6 +180,82 @@ void Cond_Wait(struct Condition* cond, struct Mutex* mutex)
 
     /* Turn scheduling back on. */
     g_preemptionDisabled = false;
+}
+
+
+
+struct timeout_data {
+  int pid;
+  int timed_out;
+  struct Thread_Queue * waitQueue;
+};
+
+
+static void timeout_cb(int id, void * arg) {
+  struct timeout_data * to_state = (struct timeout_data *)arg;
+  
+  to_state->timed_out = 1;
+  Wake_Up_Thread(to_state->waitQueue, to_state->pid);
+
+}
+
+
+/*
+ * Wait on given condition (protected by given mutex).
+ */
+int Cond_Wait_Timeout(struct Condition* cond, struct Mutex* mutex, uint_t ms)
+{
+  struct timeout_data to_state;
+  struct Kernel_Thread * self = Get_Current();
+
+  to_state.pid = self->pid;
+  to_state.timed_out = 0;
+  to_state.waitQueue = &cond->waitQueue;
+
+    KASSERT(Interrupts_Enabled());
+
+    /* Ensure mutex is held. */
+    KASSERT(IS_HELD(mutex));
+
+    /* Turn off scheduling. */
+    g_preemptionDisabled = true;
+
+
+
+    /*
+     * Release the mutex, but leave preemption disabled.
+     * No other threads will be able to run before this thread
+     * is able to wait.  Therefore, this thread will not
+     * miss the eventual notification on the condition.
+     */
+    Mutex_Unlock_Imp(mutex);
+
+
+    Start_Timer_MSecs(ms, timeout_cb, &to_state);
+
+    /*
+     * Atomically reenable preemption and wait in the condition wait queue.
+     * Other threads can run while this thread is waiting,
+     * and eventually one of them will call Cond_Signal() or Cond_Broadcast()
+     * to wake up this thread.
+     * On wakeup, disable preemption again.
+     */
+    Disable_Interrupts();
+    g_preemptionDisabled = false;
+    Wait(&cond->waitQueue);
+    g_preemptionDisabled = true;
+    Enable_Interrupts();
+
+    if (to_state.timed_out == 0) {  
+      /* Reacquire the mutex. */
+      Mutex_Lock_Imp(mutex);
+    }
+
+    /* Turn scheduling back on. */
+    g_preemptionDisabled = false;
+
+
+    return to_state.timed_out;
 }
 
 /*

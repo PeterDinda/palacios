@@ -123,6 +123,7 @@ void Switch_To_Thread(struct Kernel_Thread*);
 void Wait(struct Thread_Queue* waitQueue);
 void Wake_Up(struct Thread_Queue* waitQueue);
 void Wake_Up_One(struct Thread_Queue* waitQueue);
+void Wake_Up_Thread(struct Thread_Queue* waitQueue, int pid);
 
 /*
  * Pointer to currently executing thread.
