@@ -192,7 +192,7 @@ static void Timer_Interrupt_Handler(struct Interrupt_State* state)
     if (pendingTimerEvents[i].ticks == 0) {
       if (timerDebug) Print("timer: event %d expired (%d ticks)\n", 
 			    pendingTimerEvents[i].id, pendingTimerEvents[i].origTicks);
-      (pendingTimerEvents[i].callBack)(pendingTimerEvents[i].id);
+      (pendingTimerEvents[i].callBack)(pendingTimerEvents[i].id, pendingTimerEvents[i].cb_arg);
       pendingTimerEvents[i].ticks = pendingTimerEvents[i].origTicks;
     } else {
       pendingTimerEvents[i].ticks--;
@@ -338,20 +338,20 @@ void Init_Timer(void)
 }
 
 
-int Start_Timer_Secs(int seconds, timerCallback cb) {
-  return Start_Timer(seconds * HZ, cb);
+int Start_Timer_Secs(int seconds, timerCallback cb, void * arg) {
+  return Start_Timer(seconds * HZ, cb, arg);
 }
 
 
-int Start_Timer_MSecs(int msecs, timerCallback cb) {
+int Start_Timer_MSecs(int msecs, timerCallback cb, void * arg) {
   msecs += 10 - (msecs % 10);
 
-  return Start_Timer(msecs * (HZ / 1000), cb);
+  return Start_Timer(msecs * (HZ / 1000), cb, arg);
 }
 
 
 
-int Start_Timer(int ticks, timerCallback cb)
+int Start_Timer(int ticks, timerCallback cb, void * arg)
 {
     int ret;
 
@@ -363,6 +363,7 @@ int Start_Timer(int ticks, timerCallback cb)
 	ret = nextEventID++;
 	pendingTimerEvents[timeEventCount].id = ret;
 	pendingTimerEvents[timeEventCount].callBack = cb;
+	pendingTimerEvents[timeEventCount].cb_arg = arg;
 	pendingTimerEvents[timeEventCount].ticks = ticks;
 	pendingTimerEvents[timeEventCount].origTicks = ticks;
 	timeEventCount++;
