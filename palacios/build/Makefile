@@ -456,7 +456,7 @@ devices/%.o : devices/%.asm
 	$(NASM) $(NASM_VMM_OPTS) $< -o devices/$*.o
 
 net/%.o : net/%.c
-	$(TARGET_CC) -c $(CC_GENERAL_OPTS) $(CC_VMM_OPTS)  $(CC_USER_OPTS) $< -o net/$*.o
+	$(TARGET_CC) -c $(CC_GENERAL_OPTS)  $(CC_USER_OPTS) $< -o net/$*.o
 
 # ----------------------------------------------------------------------
 # Targets -

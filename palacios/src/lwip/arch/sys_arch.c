@@ -188,7 +188,6 @@ current_thread(void)
 }
 
 
-//!!!!!!!!!!!!backto this function later
 /*-----------------------------------------------------------------------------------*/
 sys_thread_t
 sys_thread_new(char *name, void (* function)(void *arg), void *arg, int stacksize, int prio)
