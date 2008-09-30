@@ -21,11 +21,11 @@
 
 
 struct generic_internal {
-  struct list_head port_range;
+  struct list_head port_list;
   uint_t num_port_ranges;
-  struct list_head mem_range;
+  struct list_head mem_list;
   uint_t num_mem_ranges;
-  struct list_head irq_range;
+  struct list_head irq_list;
   uint_t num_irq_ranges;
 };
 
@@ -34,21 +34,21 @@ struct port_range {
   uint_t start;
   uint_t end;
   uint_t type;
-  struct list_head range_list;
+  struct list_head range_link;
 };
 
 struct mem_range {
   void * start;
   void * end;
   uint_t type;
-  struct list_head range_list;
+  struct list_head range_link;
 };
 
 struct irq_range {
   uint_t start;
   uint_t end;
   uint_t type;
-  struct list_head range_list;
+  struct list_head range_link;
 };
 
 
@@ -209,9 +209,9 @@ int generic_init_device(struct vm_device * dev) {
 
 
   if (PORT_HOOKS) { // This is a runtime conditional on a #define
-    struct port_range * tmp;
+    struct port_range * tmp = NULL;
 
-    list_for_each_entry(tmp, &(state->port_range), range_list) {
+    list_for_each_entry(tmp, &(state->port_list), range_link) {
       uint_t i = 0;
       
       PrintDebug("generic: hooking ports 0x%x to 0x%x as %x\n", 
@@ -243,7 +243,7 @@ int generic_init_device(struct vm_device * dev) {
   if (MEM_HOOKS) { // This is a runtime conditional on a #define
     struct mem_range * tmp;
 
-    list_for_each_entry(tmp, &(state->mem_range), range_list) {
+    list_for_each_entry(tmp, &(state->mem_list), range_link) {
 
       PrintDebug("generic: hooking addresses 0x%x to 0x%x\n", 
 		 tmp->start, tmp->end); 
@@ -264,7 +264,7 @@ int generic_init_device(struct vm_device * dev) {
   if (IRQ_HOOKS) { // This is a runtime conditional on a #define
     struct irq_range * tmp;
     
-    list_for_each_entry(tmp, &(state->irq_range), range_list) {
+    list_for_each_entry(tmp, &(state->irq_list), range_link) {
       uint_t i;
 
       PrintDebug("generic: hooking irqs 0x%x to 0x%x\n",
@@ -297,7 +297,7 @@ int generic_deinit_device(struct vm_device * dev) {
     struct irq_range * tmp;
     struct irq_range * cur;
     
-    list_for_each_entry_safe(cur, tmp, &(state->irq_range), range_list) {
+    list_for_each_entry_safe(cur, tmp, &(state->irq_list), range_link) {
       uint_t i;
 
       PrintDebug("generic: unhooking irqs 0x%x to 0x%x\n", 
@@ -310,6 +310,8 @@ int generic_deinit_device(struct vm_device * dev) {
 	}
       }
 
+      list_del(&(cur->range_link));
+      state->num_irq_ranges--;
       V3_Free(cur);
     }
   } else {
@@ -321,7 +323,7 @@ int generic_deinit_device(struct vm_device * dev) {
     struct mem_range * tmp;
     struct mem_range * cur;
     
-    list_for_each_entry_safe(cur, tmp, &(state->mem_range), range_list) {
+    list_for_each_entry_safe(cur, tmp, &(state->mem_list), range_link) {
 
       PrintDebug("generic: unhooking addresses 0x%x to 0x%x\n",
 		 cur->start, cur->end); 
@@ -331,6 +333,8 @@ int generic_deinit_device(struct vm_device * dev) {
 		   cur->start, cur->end); 
       }
 
+      list_del(&(cur->range_link));
+      state->num_mem_ranges--;
       V3_Free(cur);
     }
   } else {
@@ -342,7 +346,7 @@ int generic_deinit_device(struct vm_device * dev) {
     struct port_range * tmp;
     struct port_range * cur;
     
-    list_for_each_entry_safe(cur, tmp, &(state->mem_range), range_list) {
+    list_for_each_entry_safe(cur, tmp, &(state->port_list), range_link) {
       uint_t i;
 
       PrintDebug("generic: unhooking ports 0x%x to 0x%x\n",
@@ -354,6 +358,8 @@ int generic_deinit_device(struct vm_device * dev) {
 	}
       }
 
+      list_del(&(cur->range_link));
+      state->num_port_ranges--;
       V3_Free(cur);
     }
   } else {
@@ -391,7 +397,12 @@ int v3_generic_add_port_range(struct vm_device * dev, uint_t start, uint_t end, 
     range->end = end;
     range->type = type;
     
-    list_add(&(state->port_range), &(range->range_list));
+      
+    PrintDebug("generic: Adding Port Range: 0x%x to 0x%x as %x\n", 
+	       range->start, range->end, 
+	       (range->type == GENERIC_PRINT_AND_PASSTHROUGH) ? "print-and-passthrough" : "print-and-ignore");
+    
+    list_add(&(range->range_link), &(state->port_list));
     state->num_port_ranges++;
   } else {
     PrintDebug("generic: hooking IO ports not supported\n");
@@ -411,7 +422,7 @@ int v3_generic_add_mem_range(struct vm_device * dev, void * start, void * end, u
     range->end = end;
     range->type = type;
     
-    list_add(&(state->port_range), &(range->range_list));
+    list_add(&(range->range_link), &(state->port_list));
     state->num_mem_ranges++;
   } else {
     PrintDebug("generic: hooking memory not supported\n");
@@ -432,7 +443,7 @@ int v3_generic_add_irq_range(struct vm_device * dev, uint_t start, uint_t end, u
     range->end = end;
     range->type = type;
     
-    list_add(&(state->port_range), &(range->range_list));
+    list_add(&(range->range_link), &(state->port_list));
     state->num_irq_ranges++;
   } else {
     PrintDebug("generic: hooking IRQs not supported\n");
@@ -444,16 +455,16 @@ int v3_generic_add_irq_range(struct vm_device * dev, uint_t start, uint_t end, u
 
 
 
-struct vm_device *create_generic() {
+struct vm_device * create_generic() {
   struct generic_internal * generic_state = (struct generic_internal *)V3_Malloc(sizeof(struct generic_internal));
   
   generic_state->num_port_ranges = 0;
   generic_state->num_mem_ranges = 0;
   generic_state->num_irq_ranges = 0;
 
-  INIT_LIST_HEAD(&(generic_state->port_range));
-  INIT_LIST_HEAD(&(generic_state->mem_range));
-  INIT_LIST_HEAD(&(generic_state->irq_range));
+  INIT_LIST_HEAD(&(generic_state->port_list));
+  INIT_LIST_HEAD(&(generic_state->mem_list));
+  INIT_LIST_HEAD(&(generic_state->irq_list));
     
   struct vm_device * device = create_device("GENERIC", &dev_ops, generic_state);
 
