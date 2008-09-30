@@ -29,8 +29,9 @@ int dev_mgr_init(struct guest_info * info) {
 int dev_mgr_deinit(struct guest_info * info) {
   struct vm_device * dev;
   struct vmm_dev_mgr * mgr = &(info->dev_mgr);
+  struct vm_device * tmp;
 
-  list_for_each_entry(dev, &(mgr->dev_list), dev_link) {
+  list_for_each_entry_safe(dev, tmp, &(mgr->dev_list), dev_link) {
     v3_unattach_device(dev);
     free_device(dev);
   }
