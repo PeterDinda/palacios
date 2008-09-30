@@ -52,7 +52,7 @@
 #ifndef __CLOCK_H__
 #define __CLOCK_H__
 
-#include <palacios/vmm_types.h>
+#include <geekos/ktypes.h>
 #include <geekos/timer.h>
 
 #define CLOCK_CONF_SECOND 1000
