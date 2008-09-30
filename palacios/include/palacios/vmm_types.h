@@ -5,7 +5,6 @@
 #define __VMM_TYPES_H
 
 #ifdef __V3VEE__
-//#include <geekos/ktypes.h>
 
 
 typedef signed char schar_t;
@@ -24,9 +23,11 @@ typedef signed long slong_t;
 typedef unsigned long ulong_t;
 
 typedef unsigned long size_t;
+       
 
-
-
+#define false 0
+#define true 1
+typedef uchar_t bool;
 
 
 
@@ -35,6 +36,13 @@ typedef long long sint64_t;
 
 typedef unsigned int uint32_t;
 typedef int sint32_t;
+
+
+typedef unsigned short uint16_t;
+typedef short sint16_t;
+
+typedef unsigned char uint8_t;
+typedef char sint8_t;
 
 typedef ulong_t addr_t;
 
