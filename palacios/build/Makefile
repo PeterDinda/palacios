@@ -181,7 +181,12 @@ endif
 #
 #TCPSTACK, uIP is used currently
 #
-TCPSTACK=UIP
+UIP=ON
+
+#
+#LWIP, ON -- used, OFF -- not used
+#
+LWIP=ON
 
 #
 #RAMDISK
@@ -304,11 +309,23 @@ DEVICE_OBJS := $(DEVICE_C_OBJS)
 V3LIBS := $(DECODER_LIBS)
 
 
-TCPSTACK_C_SRCS := psock.c timer.c uip_arp.c uip.c uip-fw.c uiplib.c uip-neighbor.c uip-split.c resolv.c
 
-TCPSTACK_C_OBJS := $(TCPSTACK_C_SRCS:%.c=net/%.o)
 
-TCPSTACK_OBJS := $(TCPSTACK_C_OBJS)
+ifeq ($(UIP),ON)
+	UIP_C_SRCS := psock.c timer.c uip_arp.c uip.c uip-fw.c uiplib.c uip-neighbor.c uip-split.c resolv.c
+	UIP_C_OBJS := $(UIP_C_SRCS:%.c=net/%.o)
+else
+	UIP_C_SRCS :=
+	UIP_C_OBJS :=	
+endif
+
+ifeq ($(LWIP),ON)
+	LWIP_OBJS := lwip/*.o
+else
+	LWIP_OBJS := 
+endif
+
+TCPSTACK_OBJS := $(UIP_C_OBJS) $(LWIP_OBJS)
 
 
 
@@ -477,6 +494,9 @@ rombios_link:
 vgabios_link:
 	ln -s -f ../src/vmboot/vgabios/VGABIOS-lgpl-latest.bin vgabios
 
+force_lwip:
+	(cd ../src/lwip/build; make clean; make)
+
 force_rombios: rombios_link
 	(cd ../src/vmboot/rombios; make clean; make)
 
@@ -486,7 +506,7 @@ force_vgabios: vgabios_link
 force_payload: force_rombios force_vgabios
 	../scripts/make_payload.pl payload_layout.txt vm_kernel
 
-inter1: force_payload
+inter1: force_payload force_lwip
 	-make clean
 
 world: inter1 vmm.img

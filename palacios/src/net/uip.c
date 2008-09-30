@@ -1877,12 +1877,16 @@ uip_process(u8_t flag)
   uip_flags = 0;
   return;
 }
+
 /*---------------------------------------------------------------------------*/
+/* replicate defined in lwip.c,
 u16_t
 htons(u16_t val)
 {
   return HTONS(val);
 }
+*/
+
 /*---------------------------------------------------------------------------*/
 void
 uip_send(const void *data, int len)

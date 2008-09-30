@@ -47,11 +47,11 @@ CFLAGS:=$(CFLAGS) \
 # COREFILES, CORE4FILES: The minimum set of files needed for lwIP.
 COREFILES=$(LWIPDIR)/core/mem.c $(LWIPDIR)/core/memp.c $(LWIPDIR)/core/netif.c \
 	$(LWIPDIR)/core/pbuf.c $(LWIPDIR)/core/stats.c $(LWIPDIR)/core/sys.c \
-        $(LWIPDIR)/core/tcp.c $(LWIPDIR)/core/tcp_in.c \
+        $(LWIPDIR)/core/tcp.c $(LWIPDIR)/core/tcp_in.c $(LWIPDIR)/core/raw.c\
         $(LWIPDIR)/core/tcp_out.c $(LWIPDIR)/core/udp.c $(LWIPDIR)/core/init.c 
 CORE4FILES=$(LWIPDIR)/core/ipv4/icmp.c $(LWIPDIR)/core/ipv4/ip.c \
 	$(LWIPDIR)/core/ipv4/inet.c $(LWIPDIR)/core/ipv4/ip_addr.c \
-	$(LWIPDIR)/core/ipv4/inet_chksum.c 
+	$(LWIPDIR)/core/ipv4/inet_chksum.c $(LWIPDIR)/core/ipv4/ip_frag.c
 
 
 # APIFILES: The files which implement the sequential and socket APIs.
@@ -70,25 +70,25 @@ LWIPFILES=$(COREFILES) $(CORE4FILES) $(APIFILES) $(NETIFFILES) $(ARCHFILES)
 LWIPFILESW=$(wildcard $(LWIPFILES))
 LWIPOBJS=$(notdir $(LWIPFILESW:.c=.o))
 
-#LWIPLIB=lwip.o
+# LWIPLIB=lwip.o
 
 %.o:
 	$(CC) $(CFLAGS) -c  $(LWIPFILES)
 
-all: $(LWIPOBJS) 
+all: $(LWIPOBJS)
 	cp *.o $(PROJECT_ROOT)build/lwip/
 
 .PHONY: all
 
 clean:
-	rm -f *.o $(LWIPLIB) *.s .depend* *.core
+	rm -f *.o .depend*
 
 depend dep: .depend
 
 include .depend
 
-##$(LWIPLIB): $(LWIPOBJS)
-##	$(CC) -g -nostartfiles -shared -static $^ -o $@ 
+# $(LWIPLIB): $(LWIPOBJS)
+#	$(CC) -g -nostartfiles -shared -static $^ -o $@ 
 
 .depend: $(LWIPFILES)
 	$(CC) $(CFLAGS) -MM $^ > .depend || rm -f .depend

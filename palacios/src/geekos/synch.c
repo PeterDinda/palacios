@@ -134,6 +134,24 @@ void Mutex_Unlock(struct Mutex* mutex)
 }
 
 /*
+ * Destroy Mutex
+ */
+void Mutex_Destroy(struct Mutex* mutex)
+{
+
+
+}
+
+/*
+ * Condition Destroy
+ */
+void Cond_Destroy(struct Condition* cond)
+{
+
+
+}
+
+/*
  * Initialize given condition.
  */
 void Cond_Init(struct Condition* cond)

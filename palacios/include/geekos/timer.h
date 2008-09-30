@@ -43,4 +43,6 @@ int Cancel_Timer(int id);
 
 void Micro_Delay(int us);
 
+ulong_t clock_time(void);  //return elipsed millisecs
+
 #endif  /* GEEKOS_TIMER_H */
