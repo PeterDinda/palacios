@@ -1,8 +1,9 @@
 /* (c) 2008, Peter Dinda <pdinda@northwestern.edu> */
+/* (c) 2008, Jack Lange <jarusl@northwestern.edu> */
 /* (c) 2008, The V3VEE Project <http://www.v3vee.org> */
 
-#ifndef __GENERIC_H
-#define __GENERIC_H
+#ifndef __GENERIC_H__
+#define __GENERIC_H__
 
 #include <palacios/vm_dev.h>
 
@@ -28,16 +29,12 @@
 #define GENERIC_PRINT_AND_PASSTHROUGH 0
 #define GENERIC_PRINT_AND_IGNORE      1
 
-// A port range is low..high, inclusive, third value is one of the above
-typedef uint_t generic_port_range_type[3];
-// A memory range is low..high, inclusive, flags
-typedef void *generic_address_range_type[3];
-// An interrupt ory map range is low..high, inclusive, flags
-typedef uint_t generic_irq_range_type[3];
+
+int v3_generic_add_port_range(struct vm_device * dev, uint_t start, uint_t end, uint_t type);
+int v3_generic_add_mem_range(struct vm_device * dev, void * start, void * end, uint_t type);
+int v3_generic_add_irq_range(struct vm_device * dev, uint_t start, uint_t end, uint_t type);
 
 // The lists given are null terminated
-struct vm_device *create_generic(generic_port_range_type    port_ranges[], 
-				 generic_address_range_type addess_ranges[],
-				 generic_irq_range_type     irq_ranges[]);  
+struct vm_device * create_generic();  
 
 #endif
