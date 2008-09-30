@@ -9,7 +9,8 @@
 #include <string.h>
 
 #ifdef DEBUG_RAMDISK
-#define Ramdisk_Print(_f, _a...) PrintTrace("\nramdisk.c(%d) " _f, __LINE__, ## _a)
+//#define Ramdisk_Print(_f, _a...) PrintTrace("\nramdisk.c(%d) " _f, __LINE__, ## _a)
+#define Ramdisk_Print(_f, _a...) PrintTrace("\nramdisk.c " _f, ## _a)
 #else 
 #define Ramdisk_Print(_f, _a...)
 #endif
@@ -22,6 +23,251 @@
    while(0)                                                            
     
 #define RD_ERROR(_f, _a...) PrintTrace("\nramdisk.c(%d) " _f, __LINE__, ## _a)
+
+
+
+/*
+ * Data type definitions
+ *
+ */
+#define INDEX_PULSE_CYCLE 10
+
+#define MAX_ATA_CHANNEL 4
+#define RD_LITTLE_ENDIAN
+
+
+#define INTR_REASON_BIT_ERR           0x01
+#define UNABLE_FIND_TAT_CHANNEL_ERR   0x02
+#define DRQ_ERR                       0x03
+#define READ_BUF_GT_512               0x04
+
+
+typedef enum _sense {
+      SENSE_NONE = 0, SENSE_NOT_READY = 2, SENSE_ILLEGAL_REQUEST = 5,
+      SENSE_UNIT_ATTENTION = 6
+} sense_t ;
+
+typedef enum _asc {
+      ASC_INV_FIELD_IN_CMD_PACKET = 0x24,
+      ASC_MEDIUM_NOT_PRESENT = 0x3a,
+      ASC_SAVING_PARAMETERS_NOT_SUPPORTED = 0x39,
+      ASC_LOGICAL_BLOCK_OOR = 0x21
+} asc_t ;
+
+
+// FLAT MODE
+// Open a image. Returns non-negative if successful.
+//int open (const char* pathname);
+
+// Open an image with specific flags. Returns non-negative if successful.
+int rd_open (const char* pathname, int flags);
+
+// Close the image.
+void rd_close ();
+
+// Position ourselves. Return the resulting offset from the
+// beginning of the file.
+off_t rd_lseek (off_t offset, int whence);
+
+// Read count bytes to the buffer buf. Return the number of
+// bytes read (count).
+ssize_t rd_read (void* buf, size_t count);
+
+// Write count bytes from buf. Return the number of bytes
+// written (count).
+ssize_t rd_write (const void* buf, size_t count);
+
+
+typedef struct  {
+
+      unsigned cylinders               ;
+      unsigned heads                   ;
+      unsigned sectors                 ;
+
+  //iso file descriptor
+      int fd                           ;
+} device_image_t;
+
+
+
+struct  controller_t {
+  struct  {
+    rd_bool busy                       ;
+    rd_bool drive_ready                ;
+    rd_bool write_fault                ;
+    rd_bool seek_complete              ;
+    rd_bool drq                        ;
+    rd_bool corrected_data             ;
+    rd_bool index_pulse                ;
+    unsigned int index_pulse_count     ;
+    rd_bool err                        ;
+    } status;
+  Bit8u    error_register              ;
+  Bit8u    head_no                     ;
+  union  {
+    Bit8u    sector_count              ;
+    struct  {
+#ifdef RD_LITTLE_ENDIAN
+      unsigned  c_d : 1; 
+      unsigned  i_o : 1; 
+      unsigned  rel : 1; 
+      unsigned  tag : 5; 
+
+#else  /* RD_BIG_ENDIAN */
+      unsigned tag : 5;
+      unsigned rel : 1;
+      unsigned i_o : 1;
+      unsigned c_d : 1;
+#endif
+      
+    } interrupt_reason;
+  };
+  Bit8u    sector_no                   ;
+  union  {
+    Bit16u   cylinder_no               ;
+    Bit16u   byte_count                ;
+  };
+  Bit8u    buffer[2048];               ; 
+  Bit32u   buffer_index                ;
+  Bit32u   drq_index                   ;
+  Bit8u    current_command             ;
+  Bit8u    sectors_per_block           ;
+  Bit8u    lba_mode                    ;
+  struct  {
+    // 0=normal, 1=reset controller
+    rd_bool reset                      ;       
+    // 0=allow irq, 1=disable irq
+    rd_bool disable_irq                ; 
+    } control;
+  Bit8u    reset_in_progress           ;
+  Bit8u    features                    ;
+  };
+
+struct  sense_info_t{
+  sense_t sense_key                    ;
+  struct  {
+    Bit8u arr[4]                       ;
+  } information;
+  struct  {
+    Bit8u arr[4]                       ;
+  } specific_inf;
+  struct  {
+    Bit8u arr[3]                       ;
+  } key_spec;
+  Bit8u fruc                           ;
+  Bit8u asc                            ;
+  Bit8u ascq                           ;
+};
+
+struct  error_recovery_t {
+  unsigned char data[8]                ;
+
+  //  error_recovery_t ();
+};
+
+uint16 rd_read_16bit(const uint8* buf); //__attribute__(regparm(1))
+uint32 rd_read_32bit(const uint8* buf); //__attribute__(regparm(1))
+
+struct  cdrom_t {
+  rd_bool ready                                      ;
+  rd_bool locked                                     ;
+
+
+  struct cdrom_interface *cd                         ;
+
+  uint32 capacity                                    ;
+  int next_lba                                       ;
+  int remaining_blocks                               ;
+  struct  currentStruct {
+    struct error_recovery_t error_recovery           ;
+  } current;
+};
+
+struct  atapi_t {
+  uint8 command                                      ;
+  int drq_bytes                                      ;
+  int total_bytes_remaining                          ;
+};
+
+
+typedef enum {
+      IDE_NONE, IDE_DISK, IDE_CDROM
+} device_type_t ;
+
+
+  // FIXME:
+  // For each ATA channel we should have one controller struct
+  // and an array of two drive structs
+struct  channel_t {
+    struct  drive_t {
+      device_image_t  hard_drive                     ;
+      device_type_t device_type                      ;
+      // 512 byte buffer for ID drive command
+      // These words are stored in native word endian format, as
+      // they are fetched and returned via a return(), so
+      // there's no need to keep them in x86 endian format.
+      Bit16u id_drive[256]                           ;
+
+      struct controller_t controller                 ;
+      struct cdrom_t cdrom                           ;
+      struct sense_info_t sense                      ;
+      struct atapi_t atapi                           ;
+
+      Bit8u model_no[41]                             ;
+      } drives[2];
+    unsigned drive_select                            ;
+
+    Bit16u ioaddr1                                   ;
+    Bit16u ioaddr2                                   ;
+    Bit8u  irq                                       ;
+};
+
+struct ramdisk_t;
+
+struct ramdisk_ctrl_ops {
+  Bit32u (*init)(struct ramdisk_t *ramdisk,
+		 struct vm_device *dev);
+  void   (*close)(struct ramdisk_t *ramdisk);
+  void   (*reset)(struct ramdisk_t *ramdisk, unsigned type);
+
+};
+
+struct ramdisk_emu_ops {
+
+  int (*read_port)(ushort_t port,
+		   void *dst,
+		   uint_t length,
+		   struct vm_device *dev);
+
+  int (*write_port)(ushort_t port,
+		    void *src,
+		    uint_t length,
+		    struct vm_device *dev);
+
+  int (*read_port_ignore)(ushort_t port,
+			  void *dst,
+			  uint_t length,
+			  struct vm_device *dev);
+
+  int (*write_port_ignore)(ushort_t port,
+			   void *src,
+			   uint_t length,
+			   struct vm_device *dev);
+};
+
+
+struct  ramdisk_t {
+  
+  struct channel_t channels[MAX_ATA_CHANNEL];
+
+  struct ramdisk_ctrl_ops cops;
+
+  struct ramdisk_emu_ops eops;
+
+  void *private_data;
+  //  struct vm_device *dev;
+};
+
 
 /*
  * Debug facilities
@@ -122,25 +368,25 @@ static struct ramdisk_t *ramdisk_state;
  */
 
 static
-uint_t ramdisk_read_port(ushort_t port,
-			 void *src,
+int ramdisk_read_port(ushort_t port,
+			 void *dst,
 			 uint_t length,
 			 struct vm_device *dev);
 
 static
-uint_t ramdisk_write_port(ushort_t port,
+int ramdisk_write_port(ushort_t port,
 			  void *src,
 			  uint_t length,
 			  struct vm_device *dev);
 
 static
-uint_t ramdisk_read_port_ignore(ushort_t port,
-				void *src,
+int ramdisk_read_port_ignore(ushort_t port,
+				void *dst,
 				uint_t length,
 				struct vm_device *dev);
 
 static
-uint_t ramdisk_write_port_ignore(ushort_t port,
+int ramdisk_write_port_ignore(ushort_t port,
 				 void *src,
 				 uint_t length,
 				 struct vm_device *dev);
@@ -498,7 +744,7 @@ Bit32u rd_read_handler(struct channel_t *channels, Bit32u address, unsigned io_l
   Bit8u  channel = MAX_ATA_CHANNEL;
   Bit32u port = 0xff; // undefined
 
-  Ramdisk_Print("[rd_read_handler]\n");
+  //Ramdisk_Print("[rd_read_handler]\n");
 
   for (channel=0; channel<MAX_ATA_CHANNEL; channel++) {
     if ((address & 0xfff8) == channels[channel].ioaddr1) {
@@ -787,7 +1033,7 @@ void rd_write_handler(struct channel_t *channels, Bit32u address,
   Bit8u  channel = MAX_ATA_CHANNEL;
   Bit32u port = 0xff; // undefined
 
-  Ramdisk_Print("[rd_write_handler]\n");
+  //Ramdisk_Print("[rd_write_handler]\n");
   //  Bit8u atapi_command;
   //int alloc_length;
 
@@ -1665,13 +1911,13 @@ void rd_lower_irq(struct vm_device *dev, Bit32u irq)// __attribute__(regparm(1))
  * Public Routines
  */
 static
-uint_t ramdisk_read_port(ushort_t port,
+int ramdisk_read_port(ushort_t port,
 			 void *src,
 			 uint_t length,
 			 struct vm_device *dev)
 {
   uint_t i;
-  Ramdisk_Print("[ramdisk_read_port] port = %x, length = %d\n", port, length);
+  //Ramdisk_Print("[ramdisk_read_port] port = %x, length = %d\n", port, length);
     switch (length) {
     case 1:
       ((uchar_t*)src)[0] = rd_read_handler(ramdisk_state->channels, port, length);
@@ -1693,12 +1939,12 @@ uint_t ramdisk_read_port(ushort_t port,
 
 
 static
-uint_t ramdisk_write_port(ushort_t port,
+int ramdisk_write_port(ushort_t port,
 			 void *src,
 			 uint_t length,
 			 struct vm_device *dev)
 {
-  Ramdisk_Print("[ramdisk_write_port] port = %x, length = %d\n", port, length);
+  //Ramdisk_Print("[ramdisk_write_port] port = %x, length = %d\n", port, length);
   /*
   uint_t i;
 
@@ -1721,7 +1967,7 @@ uint_t ramdisk_write_port(ushort_t port,
     break;
   }
 
-  return 1;
+  return length;
 }
 
 
@@ -1837,16 +2083,16 @@ static void trace_info(ushort_t port, void *src, uint_t length)
 }
 
 
-uint_t ramdisk_read_port_ignore(ushort_t port,
+int ramdisk_read_port_ignore(ushort_t port,
 			 void *src,
 			 uint_t length,
 			 struct vm_device *dev)
 {
   //  Ramdisk_Print("[ramdisk_read_port_ignore] port = %x, length = %d\n", port, length);
-  return 1;
+  return length;
 }
 
-uint_t ramdisk_write_port_ignore(ushort_t port,
+int ramdisk_write_port_ignore(ushort_t port,
 			 void *src,
 			 uint_t length,
 			 struct vm_device *dev)
@@ -1855,7 +2101,7 @@ uint_t ramdisk_write_port_ignore(ushort_t port,
   //  Ramdisk_Print("[ramdisk_write_port_ignore] port = %x, length = %d\n", port, length);
 
   trace_info(port, src, length);
-  return 1;
+  return length;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -2003,12 +2249,150 @@ void rd_command_aborted(struct channel_t *channels,
 }
 
 
+static int ramdisk_init_device(struct vm_device *dev)
+{
+  struct ramdisk_t *ramdisk_state = (struct ramdisk_t *)dev->private_data;
+
+  ramdisk_state->cops.init(ramdisk_state, dev);
+
+  //hook ports IDE 0x170-0x177, 0x376 & 0x377
+  dev_hook_io(dev, 0x170, 
+	      (ramdisk_state->eops.read_port), 
+	      (ramdisk_state->eops.write_port));
+
+  dev_hook_io(dev, 0x171, 
+	      (ramdisk_state->eops.read_port), 
+	      (ramdisk_state->eops.write_port));
+
+  dev_hook_io(dev, 0x172, 
+	      (ramdisk_state->eops.read_port), 
+	      (ramdisk_state->eops.write_port));
+
+  dev_hook_io(dev, 0x173, 
+	      (ramdisk_state->eops.read_port), 
+	      (ramdisk_state->eops.write_port));
+
+  dev_hook_io(dev, 0x174, 
+	      (ramdisk_state->eops.read_port), 
+	      (ramdisk_state->eops.write_port));
+
+  dev_hook_io(dev, 0x175, 
+	      (ramdisk_state->eops.read_port), 
+	      (ramdisk_state->eops.write_port));
+
+  dev_hook_io(dev, 0x176, 
+	      (ramdisk_state->eops.read_port), 
+	      (ramdisk_state->eops.write_port));
+
+  dev_hook_io(dev, 0x177, 
+	      (ramdisk_state->eops.read_port), 
+	      (ramdisk_state->eops.write_port));
+
+  dev_hook_io(dev, 0x376, 
+	      (ramdisk_state->eops.read_port), 
+	      (ramdisk_state->eops.write_port));
+
+  dev_hook_io(dev, 0x377, 
+	      (ramdisk_state->eops.read_port), 
+	      (ramdisk_state->eops.write_port));
+
+  //Debug ports: 0x3e8-0x3ef & 0x2e8-0x2ef
+
+#ifdef DEBUG_RAMDISK
+
+  dev_hook_io(dev, 0x3e8, 
+	      (ramdisk_state->eops.read_port_ignore), 
+	      (ramdisk_state->eops.write_port_ignore));
+
+  dev_hook_io(dev, 0x3e9, 
+	      (ramdisk_state->eops.read_port_ignore), 
+	      (ramdisk_state->eops.write_port_ignore));
+
+  dev_hook_io(dev, 0x3ea, 
+	      (ramdisk_state->eops.read_port_ignore), 
+	      (ramdisk_state->eops.write_port_ignore));
+
+  dev_hook_io(dev, 0x3eb, 
+	      (ramdisk_state->eops.read_port_ignore), 
+	      (ramdisk_state->eops.write_port_ignore));
+
+  dev_hook_io(dev, 0x3ec, 
+	      (ramdisk_state->eops.read_port_ignore), 
+	      (ramdisk_state->eops.write_port_ignore));
+
+  dev_hook_io(dev, 0x3ed, 
+	      (ramdisk_state->eops.read_port_ignore), 
+	      (ramdisk_state->eops.write_port_ignore));
+
+  dev_hook_io(dev, 0x3ee, 
+	      (ramdisk_state->eops.read_port_ignore), 
+	      (ramdisk_state->eops.write_port_ignore));
+
+  dev_hook_io(dev, 0x3ef, 
+	      (ramdisk_state->eops.read_port_ignore), 
+	      (ramdisk_state->eops.write_port_ignore));
+
+  dev_hook_io(dev, 0x2e8, 
+	      (ramdisk_state->eops.read_port_ignore), 
+	      (ramdisk_state->eops.write_port_ignore));
+
+  dev_hook_io(dev, 0x2e9, 
+	      (ramdisk_state->eops.read_port_ignore), 
+	      (ramdisk_state->eops.write_port_ignore));
+
+  dev_hook_io(dev, 0x2ea, 
+	      (ramdisk_state->eops.read_port_ignore), 
+	      (ramdisk_state->eops.write_port_ignore));
+
+  dev_hook_io(dev, 0x2eb, 
+	      (ramdisk_state->eops.read_port_ignore), 
+	      (ramdisk_state->eops.write_port_ignore));
+
+  dev_hook_io(dev, 0x2ec, 
+	      (ramdisk_state->eops.read_port_ignore), 
+	      (ramdisk_state->eops.write_port_ignore));
+
+  dev_hook_io(dev, 0x2ed, 
+	      (ramdisk_state->eops.read_port_ignore), 
+	      (ramdisk_state->eops.write_port_ignore));
+
+  dev_hook_io(dev, 0x2ee, 
+	      (ramdisk_state->eops.read_port_ignore), 
+	      (ramdisk_state->eops.write_port_ignore));
+
+  dev_hook_io(dev, 0x2ef, 
+	      (ramdisk_state->eops.read_port_ignore), 
+	      (ramdisk_state->eops.write_port_ignore));
+
+#endif
+
+}
+
+
+static int ramdisk_deinit_device(struct vm_device *dev)
+{
+  struct ramdisk_t *ramdisk_state = (struct ramdisk_t *)(dev->private_data);
+  ramdisk_state->cops.close(ramdisk_state);
+
+  return 0;
+}
+
+static struct vm_device_ops dev_ops = {
+  .init = ramdisk_init_device,
+  .deinit = ramdisk_deinit_device,
+  .reset = NULL,
+  .start = NULL,
+  .stop = NULL,
+};
+
+
 
 /*
  * Success: return 0; 
  * Failure: return integer greater than 0
  */
 
+/*
 struct ramdisk_t * create_ramdisk()
 {
   struct ramdisk_t *ramdisk;
@@ -2025,4 +2409,29 @@ struct ramdisk_t * create_ramdisk()
   ramdisk->eops.write_port_ignore = &ramdisk_write_port_ignore;
  
   return ramdisk;
+}
+
+*/
+
+
+struct vm_device *create_ramdisk()
+{
+
+  struct ramdisk_t *ramdisk;
+  ramdisk = (struct ramdisk_t *)V3_Malloc(sizeof(struct ramdisk_t));  
+  V3_ASSERT(ramdisk != NULL);  
+
+  Ramdisk_Print("[create_ramdisk]\n");
+  ramdisk->cops.init = &rd_init_harddrive;
+  ramdisk->cops.close = &rd_close_harddrive;
+  ramdisk->cops.reset = &rd_reset_harddrive;
+
+  ramdisk->eops.read_port = &ramdisk_read_port;
+  ramdisk->eops.write_port = &ramdisk_write_port;
+  ramdisk->eops.read_port_ignore = &ramdisk_read_port_ignore;
+  ramdisk->eops.write_port_ignore = &ramdisk_write_port_ignore;
+
+  struct vm_device *device = create_device("RAMDISK", &dev_ops, ramdisk);
+
+  return device;
 }

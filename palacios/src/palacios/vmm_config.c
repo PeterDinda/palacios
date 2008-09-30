@@ -1,6 +1,7 @@
 /* (c) 2008, Jack Lange <jarusl@cs.northwestern.edu> */
 /* (c) 2008, The V3VEE Project <http://www.v3vee.org> */
 
+
 #include <palacios/vmm_config.h>
 #include <palacios/vmm.h>
 #include <palacios/vmm_debug.h>
@@ -13,6 +14,10 @@
 #include <devices/nvram.h>
 #include <devices/generic.h>
 
+//Zheng 09/29/2008
+#ifdef RAMDISK_BOOT
+#include <devices/ramdisk.h>
+#endif
 
 
 static int mem_test_read(addr_t guest_addr, void * dst, uint_t length, void * priv_data) {
@@ -166,6 +171,11 @@ int config_guest(struct guest_info * info, void * config_ptr) {
     struct vm_device * pit = create_pit(); 
     //struct vm_device * serial = create_serial();
     
+    //Zheng 09/29/2008
+
+#ifdef RAMDISK_BOOT
+    struct vm_device * ramdisk = create_ramdisk();
+#endif
     
 #define GENERIC 1
     
@@ -194,6 +204,11 @@ int config_guest(struct guest_info * info, void * config_ptr) {
 
       {0x3f8, 0x3f8+7, GENERIC_PRINT_AND_IGNORE},      // COM 1
       {0x2f8, 0x2f8+7, GENERIC_PRINT_AND_IGNORE},      // COM 2
+
+#endif
+
+#ifndef DEBUG_RAMDISK
+
       {0x3e8, 0x3e8+7, GENERIC_PRINT_AND_IGNORE},      // COM 3
       {0x2e8, 0x2e8+7, GENERIC_PRINT_AND_IGNORE},      // COM 4
 #endif
@@ -206,12 +221,17 @@ int config_guest(struct guest_info * info, void * config_ptr) {
       {0xcfc, 0xcfc, GENERIC_PRINT_AND_IGNORE}, // PCI Config Data
 #endif
  
-#if 1
+
+#ifndef RAMDISK_BOOT
 
       // Monitor the IDE controllers (very slow)
 
       {0x170, 0x178, GENERIC_PRINT_AND_PASSTHROUGH}, // IDE 1
       {0x376, 0x377, GENERIC_PRINT_AND_PASSTHROUGH}, // IDE 1
+
+#endif
+
+#if 1
       {0x1f0, 0x1f8, GENERIC_PRINT_AND_PASSTHROUGH}, // IDE 0
       {0x3f6, 0x3f7, GENERIC_PRINT_AND_PASSTHROUGH}, // IDE 0
 #endif
@@ -288,6 +308,10 @@ int config_guest(struct guest_info * info, void * config_ptr) {
     v3_attach_device(info, keyboard);
     // v3_attach_device(info, serial);
 
+//Zheng 09/29/2008    
+#ifdef RAMDISK_BOOT
+    v3_attach_device(info, ramdisk);
+#endif
 
 #if GENERIC
     // Important that this be attached last!
@@ -311,6 +335,9 @@ int config_guest(struct guest_info * info, void * config_ptr) {
   //primary ide
   v3_hook_irq_for_guest_injection(info, 14);
   
+#endif
+
+#ifndef RAMDISK_BOOT
   // secondary ide
   v3_hook_irq_for_guest_injection(info, 15);
 #endif
