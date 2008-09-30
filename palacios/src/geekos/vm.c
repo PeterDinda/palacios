@@ -228,14 +228,14 @@ int RunVMM(struct Boot_Info * bootInfo) {
 
   PrintBoth("Configured guest\n");
   
-  v3_hook_io_port(vm_info, 0x61, &IO_Read, &IO_Write, NULL);
+
   //v3_hook_io_port(&vm_info, 0x05, &IO_Read, &IO_Write_to_Serial, NULL);
   
-  
-  v3_hook_io_port(vm_info, 0x400, &IO_Read, &IO_Write_to_Serial, NULL);
-  v3_hook_io_port(vm_info, 0x401, &IO_Read, &IO_Write_to_Serial, NULL);
-  v3_hook_io_port(vm_info, 0x402, &IO_Read, &IO_BOCHS_info, NULL);
-  v3_hook_io_port(vm_info, 0x403, &IO_Read, &IO_BOCHS_debug, NULL);
+  //v3_hook_io_port(vm_info, 0x61, &IO_Read, &IO_Write, NULL);
+  //v3_hook_io_port(vm_info, 0x400, &IO_Read, &IO_Write_to_Serial, NULL);
+  //v3_hook_io_port(vm_info, 0x401, &IO_Read, &IO_Write_to_Serial, NULL);
+  //v3_hook_io_port(vm_info, 0x402, &IO_Read, &IO_BOCHS_info, NULL);
+  //v3_hook_io_port(vm_info, 0x403, &IO_Read, &IO_BOCHS_debug, NULL);
   
 
   (vmm_ops).init_guest(vm_info);

@@ -2,7 +2,6 @@
 /* (c) 2008, The V3VEE Project <http://www.v3vee.org> */
 
 #include <devices/keyboard.h>
-#include <geekos/io.h>
 #include <palacios/vmm.h>
 #include <palacios/vmm_types.h>
 
@@ -751,7 +750,7 @@ int keyboard_read_delay(ushort_t port,
 {
 
   if (length == 1) { 
-    *((uchar_t*)dest) = In_Byte(port);
+    *((uchar_t*)dest) = v3_inb(port);
 
     PrintDebug("keyboard: read of 0x%x from 80h\n", *((uchar_t*)dest));
 
