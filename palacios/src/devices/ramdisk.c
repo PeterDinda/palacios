@@ -10,26 +10,11 @@
 #include <devices/ide.h>
 #include <devices/atapi.h>
 
-#ifdef DEBUG_RAMDISK
-//#define Ramdisk_Print(_f, _a...) PrintTrace("\nramdisk.c(%d) " _f, __LINE__, ## _a)
-#define Ramdisk_Print(_f, _a...) PrintTrace("\nramdisk.c " _f, ## _a)
-#else 
-#define Ramdisk_Print(_f, _a...)
+#ifndef DEBUG_RAMDISK
+#undef PrintDebug
+#define PrintDebug(_f, _a...)
 #endif
-
-#define RD_PANIC(_f, _a...)     \
-  do {                       \
-    PrintDebug("ramdisk.c(%d) " _f, __LINE__, ## _a);	\
-      while(1);              \
-    }                        \
-   while(0)                                                            
-    
-#define RD_ERROR(_f, _a...) PrintTrace("\nramdisk.c(%d) " _f, __LINE__, ## _a)
-
-
-
-
-
+                                                 
 
 /*
  * Data type definitions
@@ -37,7 +22,7 @@
  */
 #define INDEX_PULSE_CYCLE 10
 
-#define MAX_ATA_CHANNEL 4
+
 
 
 #define INTR_REASON_BIT_ERR           0x01
@@ -101,9 +86,6 @@ ssize_t rd_write (const void* buf, size_t count);
 
 
 
-struct  ramdisk_t {
-  struct channel_t channels[MAX_ATA_CHANNEL];
-};
 
 
 /*
@@ -204,6 +186,13 @@ static inline void write_lba_mode(struct channel_t * channel, uchar_t value) {
 }
 
 
+static inline uint_t get_channel_no(struct ramdisk_t * ramdisk, struct channel_t * channel) {
+  return (((uchar_t *)channel - (uchar_t *)(ramdisk->channels)) / sizeof(struct channel_t));
+}
+
+static inline uint_t get_drive_no(struct channel_t * channel, struct drive_t * drive) {
+  return (((uchar_t *)drive - (uchar_t*)(channel->drives)) /  sizeof(struct drive_t));
+}
 
 static inline struct drive_t * get_selected_drive(struct channel_t * channel) {
   return &(channel->drives[channel->drive_select]);
@@ -313,6 +302,29 @@ static void rd_init_mode_sense_single(struct vm_device * dev, struct channel_t *
 static void rd_command_aborted(struct vm_device * dev, struct channel_t * channel, unsigned value);
 
 
+
+
+static int handle_atapi_packet_command(struct vm_device * dev, 
+				       struct channel_t * channel, 
+				       ushort_t val);
+
+static int rd_init_send_atapi_command(struct vm_device * dev, 
+				      struct channel_t * channel, 
+				      Bit8u command, int req_length, 
+				      int alloc_length, bool lazy);
+
+static void rd_ready_to_send_atapi(struct vm_device * dev, 
+				   struct channel_t * channel);
+
+static void rd_atapi_cmd_error(struct vm_device * dev, 
+			       struct channel_t * channel, 
+			       sense_t sense_key, asc_t asc);
+
+static void rd_atapi_cmd_nop(struct vm_device * dev, struct channel_t * channel);
+static void rd_identify_ATAPI_drive(struct vm_device * dev, struct channel_t * channel);
+
+
+
 /*
  * Interrupt handling
  */
@@ -328,7 +340,7 @@ static void rd_lower_irq(struct vm_device *dev, Bit32u irq);
 
 
 #ifdef DEBUG_RAMDISK
-static void rd_print_state(struct ramdisk_t *ramdisk,  struct vm_device *dev)
+static void rd_print_state(struct ramdisk_t *ramdisk);
 static int check_bit_fields(struct controller_t * controller);
 #endif
 ////////////////////////////////////////////////////////////////////
@@ -342,7 +354,7 @@ static Bit32u rd_init_hardware(struct ramdisk_t *ramdisk) {
   uint_t device;
   struct channel_t *channels = (struct channel_t *)(&(ramdisk->channels));
 
-  Ramdisk_Print("[rd_init_harddrive]\n");
+  PrintDebug("[rd_init_harddrive]\n");
 
   for (channel_num = 0; channel_num < MAX_ATA_CHANNEL; channel_num++) {
     memset((char *)(channels + channel_num), 0, sizeof(struct channel_t));
@@ -413,7 +425,7 @@ static Bit32u rd_init_hardware(struct ramdisk_t *ramdisk) {
 	    strcat ((char*)(drive->model_no), " ");
 	  }
 	  
-	  Ramdisk_Print("CDROM on target %d/%d\n", channel, device);
+	  PrintDebug("CDROM on target %d/%d\n", channel_num, device);
 	  
 	  drive->device_type = IDE_CDROM;
 	  drive->cdrom.locked = 0;
@@ -421,9 +433,9 @@ static Bit32u rd_init_hardware(struct ramdisk_t *ramdisk) {
 	  drive->sense.asc = 0;
 	  drive->sense.ascq = 0;
 	  
-#ifdef RAMDISK_DEBUG
+#ifdef DEBUG_RAMDISK
 	  if (check_bit_fields(controller) == INTR_REASON_BIT_ERR) {
-	    Ramdisk_Print("interrupt reason: bit field error\n");
+	    PrintDebug("interrupt reason: bit field error\n");
 	    return INTR_REASON_BIT_ERR;
 	  }
 #endif
@@ -431,8 +443,8 @@ static Bit32u rd_init_hardware(struct ramdisk_t *ramdisk) {
 	  controller->sector_count = 0;
 
 	  // allocate low level driver
-	  drive->cdrom.cd = (struct cdrom_interface*)V3_Malloc(sizeof(struct cdrom_interface));
-	  Ramdisk_Print("cd = %x\n", drive->cdrom.cd);
+	  drive->cdrom.cd = (struct cdrom_interface *)V3_Malloc(sizeof(struct cdrom_interface));
+	  PrintDebug("cd = %x\n", drive->cdrom.cd);
 	  V3_ASSERT(drive->cdrom.cd != NULL);
 	  
 	  struct cdrom_interface * cdif = drive->cdrom.cd;
@@ -440,14 +452,16 @@ static Bit32u rd_init_hardware(struct ramdisk_t *ramdisk) {
 	  init_cdrom(cdif);
 	  cdif->ops.init(cdif);
 
-	  Ramdisk_Print("\t\tCD on ata%d-%d: '%s'\n",channel, device, "");
+	  PrintDebug("\t\tCD on ata%d-%d: '%s'\n", 
+		     channel_num, 
+		     device, "");
 	  
 	  if((drive->cdrom.cd->ops).insert_cdrom(cdif, NULL)) {
-	    Ramdisk_Print("\t\tMedia present in CD-ROM drive\n");
+	    PrintDebug("\t\tMedia present in CD-ROM drive\n");
 	    drive->cdrom.ready = 1;
 	    drive->cdrom.capacity = drive->cdrom.cd->ops.capacity(cdif);
 	  } else {		    
-	    Ramdisk_Print("\t\tCould not locate CD-ROM, continuing with media not present\n");
+	    PrintDebug("\t\tCould not locate CD-ROM, continuing with media not present\n");
 	    drive->cdrom.ready = 0;
 	  }
 	  
@@ -456,7 +470,9 @@ static Bit32u rd_init_hardware(struct ramdisk_t *ramdisk) {
     }//for device
   }//for channel
 
-
+#ifdef DEBUG_RAMDISK
+  rd_print_state(ramdisk);
+#endif
   return 0;
 }
 
@@ -481,7 +497,7 @@ static int read_data_port(ushort_t port, void * dst, uint_t length, struct vm_de
   struct channel_t * channel = NULL;
   struct drive_t * drive = NULL;
   struct controller_t * controller = NULL;
-  struct cdrom_interface *cdif = drive->cdrom.cd;
+
 
 
   if (is_primary_port(ramdisk, port)) {
@@ -496,6 +512,12 @@ static int read_data_port(ushort_t port, void * dst, uint_t length, struct vm_de
   drive = get_selected_drive(channel);
   controller = &(drive->controller);
 
+
+  PrintDebug("[read_data_handler] IO Read at 0x%x, on drive %d/%d (current_cmd = 0x%02x)\n", 
+	     port, 
+	     get_channel_no(ramdisk, channel),
+	     get_drive_no(channel, drive),
+	     controller->current_command);
 
   switch (controller->current_command) {
   case 0xec:    // IDENTIFY DEVICE
@@ -542,7 +564,7 @@ static int read_data_port(ushort_t port, void * dst, uint_t length, struct vm_de
       uint_t index = controller->buffer_index;
 
       
-      Ramdisk_Print("\t\tatapi.command(%02x), index(%d), cdrom.remaining_blocks(%d)\n", 
+      PrintDebug("\t\tatapi.command(%02x), index(%d), cdrom.remaining_blocks(%d)\n", 
 		    drive->atapi.command, 
 		    index, 
 		    drive->cdrom.remaining_blocks);
@@ -551,34 +573,38 @@ static int read_data_port(ushort_t port, void * dst, uint_t length, struct vm_de
       if (index >= 2048) {
 	
 	if (index > 2048) {
-	  RD_PANIC("\t\tindex > 2048 : 0x%x\n",index);
+	  PrintError("\t\tindex > 2048 : 0x%x\n", index);
+	  return -1;
 	}
 	
 	switch (drive->atapi.command) {
 	case 0x28: // read (10)
 	case 0xa8: // read (12)
-	  
-	  if (!(drive->cdrom.ready)) {
-	    RD_PANIC("\t\tRead with CDROM not ready\n");
-	  } 
-	  
-	  drive->cdrom.cd->ops.read_block(cdif, controller->buffer,
-					  drive->cdrom.next_lba);
-	  drive->cdrom.next_lba++;
-	  drive->cdrom.remaining_blocks--;
-	  
-	  
-	  if (!(drive->cdrom.remaining_blocks)) {
-	    Ramdisk_Print("\t\tLast READ block loaded {CDROM}\n");
-	  } else {
-	    Ramdisk_Print("\t\tREAD block loaded (%d remaining) {CDROM}\n",
-			  drive->cdrom.remaining_blocks);
+	  {
+	    struct cdrom_interface * cdif = drive->cdrom.cd;
+	    
+	    if (!(drive->cdrom.ready)) {
+	      PrintError("\t\tRead with CDROM not ready\n");
+	      return -1;
+	    } 
+	    
+	    drive->cdrom.cd->ops.read_block(cdif, controller->buffer,
+					    drive->cdrom.next_lba);
+	    drive->cdrom.next_lba++;
+	    drive->cdrom.remaining_blocks--;
+	    
+	    
+	    if (!(drive->cdrom.remaining_blocks)) {
+	      PrintDebug("\t\tLast READ block loaded {CDROM}\n");
+	    } else {
+	      PrintDebug("\t\tREAD block loaded (%d remaining) {CDROM}\n",
+			 drive->cdrom.remaining_blocks);
+	    }
+	    
+	    // one block transfered, start at beginning
+	    index = 0;
+	    break;
 	  }
-	  
-	  // one block transfered, start at beginning
-	  index = 0;
-	  break;
-	  
 	default: // no need to load a new block
 	  break;
 	}
@@ -624,7 +650,7 @@ static int read_data_port(ushort_t port, void * dst, uint_t length, struct vm_de
 	if (drive->atapi.total_bytes_remaining > 0) {
 	  // one or more blocks remaining (works only for single block commands)
 	  
-	  Ramdisk_Print("\t\tPACKET drq bytes read\n");
+	  PrintDebug("\t\tPACKET drq bytes read\n");
 	  controller->interrupt_reason.i_o = 1;
 	  controller->status.busy = 0;
 	  controller->status.drq = 1;
@@ -639,7 +665,7 @@ static int read_data_port(ushort_t port, void * dst, uint_t length, struct vm_de
 	  rd_raise_interrupt(dev, channel);
 	} else {
 	  // all bytes read
-	  Ramdisk_Print("\t\tPACKET all bytes read\n");
+	  PrintDebug("\t\tPACKET all bytes read\n");
 	  
 	  controller->interrupt_reason.i_o = 1;
 	  controller->interrupt_reason.c_d = 1;
@@ -657,7 +683,7 @@ static int read_data_port(ushort_t port, void * dst, uint_t length, struct vm_de
     }
 
   default:
-    Ramdisk_Print("\t\tread need support more command: %02x\n", controller->current_command);
+    PrintDebug("\t\tread need support more command: %02x\n", controller->current_command);
     break;
   }
 
@@ -685,22 +711,25 @@ static int write_data_port(ushort_t port, void * src, uint_t length, struct vm_d
   drive = get_selected_drive(channel);
   controller = &(drive->controller);
 
-  Ramdisk_Print("\t\twrite port 170\n");
+  PrintDebug("[write_data_handler] IO write at 0x%x, current_cmd = 0x%02x\n", 
+	     port, controller->current_command);
   
   switch (controller->current_command) {
   case 0x30: // WRITE SECTORS
-    RD_PANIC("\t\tneed to implement 0x30(write sector) to port 0x170\n");
+    PrintError("\t\tneed to implement 0x30(write sector) to port 0x%x\n", port);
     return -1;
     
   case 0xa0: // PACKET
     
-    handle_atapi_packet_command(dev, channel, *(ushort_t *)src);
+    if (handle_atapi_packet_command(dev, channel, *(ushort_t *)src) == -1) {
+      return -1;
+    }
 
     return length;
     
   default:
-    RD_PANIC("\t\tIO write(0x%x): current command is %02xh\n", 
-	     port, controller->current_command);
+    PrintError("\t\tIO write(0x%x): current command is %02xh\n", 
+	       port, controller->current_command);
 
     return -1;
   }
@@ -735,6 +764,10 @@ static int read_status_port(ushort_t port, void * dst, uint_t length, struct vm_
   
   drive = get_selected_drive(channel);
   controller = &(drive->controller);
+
+  PrintDebug("[read_status_handler] IO read at 0x%x, on drive %d/%d\n", 
+	     port, get_channel_no(ramdisk, channel), 
+	     channel->drive_select);
 
 
   if (num_drives_on_channel(channel) == 0) {
@@ -780,7 +813,7 @@ static int write_cmd_port(ushort_t port, void * src, uint_t length, struct vm_de
   uchar_t value = *(uchar_t *)src;
 
   if (length != 1) {
-    PrintError("Invalid Status port read length: %d (port=%d)\n", length, port);
+    PrintError("Invalid Command port write length: %d (port=%d)\n", length, port);
     return -1;
   }
 
@@ -796,6 +829,11 @@ static int write_cmd_port(ushort_t port, void * src, uint_t length, struct vm_de
   drive = get_selected_drive(channel);
   controller = &(drive->controller);
 
+
+  PrintDebug("[write_command_handler] IO write at 0x%x, on drive %d/%d (val = 0x%x)\n", 
+	     port, get_channel_no(ramdisk, channel), 
+	     channel->drive_select, 
+	     value);
 
   switch (value) {
     // ATAPI commands
@@ -842,12 +880,7 @@ static int write_cmd_port(ushort_t port, void * src, uint_t length, struct vm_de
 	controller->status.busy = 0;
 	controller->status.write_fault = 0;
 
-
-typedef struct  {
-  unsigned cylinders;
-  unsigned heads;
-  unsigned sectors;
-} device_image_t;	// serv bit??
+	// serv bit??
 	controller->status.drq = 1;
 	controller->status.err = 0;
 	
@@ -864,7 +897,7 @@ typedef struct  {
     return -1;
 
   }
-  return 0;
+  return length;
 }
 
 
@@ -897,6 +930,11 @@ static int write_ctrl_port(ushort_t port, void * src, uint_t length, struct vm_d
   controller = &(get_selected_drive(channel)->controller);
 
 
+  PrintDebug("[write_control_handler] IO write at 0x%x, on drive %d/%d (val = 0x%x)\n", 
+	     port, get_channel_no(ramdisk, channel), 
+	     channel->drive_select, 
+	     value);
+
   // (mch) Even if device 1 was selected, a write to this register
   // goes to device 0 (if device 1 is absent)
   
@@ -909,16 +947,16 @@ static int write_ctrl_port(ushort_t port, void * src, uint_t length, struct vm_d
   master_drive->controller.control.disable_irq = value & 0x02;
   slave_drive->controller.control.disable_irq = value & 0x02;
   
-  Ramdisk_Print("\t\tadpater control reg: reset controller = %d\n",
+  PrintDebug("\t\tadpater control reg: reset controller = %d\n",
 		(unsigned) (controller->control.reset) ? 1 : 0);
-  Ramdisk_Print("\t\tadpater control reg: disable_irq(X) = %d\n",
+  PrintDebug("\t\tadpater control reg: disable_irq(X) = %d\n",
 		(unsigned) (controller->control.disable_irq) ? 1 : 0);
   
   if ((!prev_control_reset) && (controller->control.reset)) {
     uint_t id = 0;
 
     // transition from 0 to 1 causes all drives to reset
-    Ramdisk_Print("\t\thard drive: RESET\n");
+    PrintDebug("\t\thard drive: RESET\n");
     
     // (mch) Set BSY, drive not ready
     for (id = 0; id < 2; id++) {
@@ -977,7 +1015,7 @@ static int write_ctrl_port(ushort_t port, void * src, uint_t length, struct vm_d
       
       // Device signature
       if (drv->device_type == IDE_DISK) {
-	PrintDebug("\t\tdrive %d/%d is harddrive\n", channel, id);
+	PrintDebug("\t\tdrive %d/%d is harddrive\n", get_channel_no(ramdisk, channel), id);
 	ctrl->head_no        = 0;
 	ctrl->sector_count   = 1;
 	ctrl->sector_no      = 1;
@@ -1024,10 +1062,10 @@ static int read_general_port(ushort_t port, void * dst, uint_t length, struct vm
   controller = &(drive->controller);
 
 
-  Ramdisk_Print("[R_handler] IO read addr at %x, on drive %d/%d, curcmd = %02x\n", 
-		address, channel, 
-		drive_select, 
-		SELECTED_CONTROLLER(channel).current_command);
+  PrintDebug("[read_general_handler] IO read addr at %x, on drive %d/%d, curcmd = %02x\n", 
+	     port, get_channel_no(ramdisk, channel), 
+	     channel->drive_select, 
+	     controller->current_command);
   
 
   switch (port) {
@@ -1159,8 +1197,8 @@ static int write_general_port(ushort_t port, void * src, uint_t length, struct v
   controller = &(drive->controller);
 
 
-  Ramdisk_Print("[W_handler] IO write to %x = %02x, channel = %d\n", 
-		port, (unsigned) value, channel);
+  PrintDebug("[write_general_handler] IO write to port %x (val=0x%02x), channel = %d\n", 
+	     port,  value, get_channel_no(ramdisk, channel));
 
   switch (port) {
 
@@ -1205,26 +1243,30 @@ static int write_general_port(ushort_t port, void * src, uint_t length, struct v
       // b4: DRV
       // b3..0 HD3..HD0
 
-      // 1x1xxxxx      
+      // 1x1xxxxx
+
+      PrintDebug("\tDrive Select value=%x\n", value);
+
       if ((value & 0xa0) != 0xa0) { 
-	Ramdisk_Print("\t\tIO write 0x%x (%02x): not 1x1xxxxxb\n", address, (unsigned) value);
+	PrintDebug("\t\tIO write 0x%x (%02x): not 1x1xxxxxb\n", port, (unsigned) value);
       }
       
       write_head_no(channel, value & 0xf);
-      if (controller->lba_mode == 0 && ((value >> 6) & 1) == 1){
+      if ((controller->lba_mode == 0) && (((value >> 6) & 1) == 1)) {
 	PrintDebug("\t\tenabling LBA mode\n");
       }
 
-      write_lba_mode(channel,(value >> 6) & 1);
+      write_lba_mode(channel, (value >> 6) & 1);
       drive->cdrom.cd->lba = (value >> 6) & 1;
       
       
+      channel->drive_select = (value >> 4) & 0x01;
+      drive = get_selected_drive(channel);
+
       if (drive->device_type == IDE_NONE) {
-	channel->drive_select = (value >> 4) & 0x01;
-#ifdef DEBUG_RAMDISK
 	PrintDebug("\t\tError: device set to %d which does not exist! channel = 0x%x\n",
-		   channel->drive_select, channel);
-#endif
+		   channel->drive_select, get_channel_no(ramdisk, channel));
+
 	controller->error_register = 0x04; // aborted
 	controller->status.err = 1;
       }
@@ -1232,7 +1274,7 @@ static int write_general_port(ushort_t port, void * src, uint_t length, struct v
       break;
     }
   default:
-    PrintError("\t\thard drive: io write to address %x  (value = %c)\n", port, value);
+    PrintError("\t\thard drive: io write to unhandled port 0x%x  (value = %c)\n", port, value);
     return -1;
   }
 
@@ -1249,16 +1291,16 @@ static void rd_raise_interrupt(struct vm_device * dev, struct channel_t * channe
   struct drive_t * drive = get_selected_drive(channel);
   struct controller_t * controller = &(drive->controller);
 
-  Ramdisk_Print("[raise_interrupt] disable_irq = %02x\n", controller->control.disable_irq);
+  PrintDebug("[raise_interrupt] disable_irq = %02x\n", controller->control.disable_irq);
 
   if (!(controller->control.disable_irq)) {
     irq = channel->irq; 
  
-    Ramdisk_Print("\t\tRaising interrupt %d {%s}\n\n", irq, SELECTED_TYPE_STRING(channel));
+    PrintDebug("\t\tRaising interrupt %d {%s}\n\n", irq, device_type_to_str(drive->device_type));
 
     dev->vm->vm_ops.raise_irq(dev->vm, irq);
   } else {
-    Ramdisk_Print("\t\tirq is disabled\n");
+    PrintDebug("\t\tirq is disabled\n");
   }
   
   return;
@@ -1266,7 +1308,7 @@ static void rd_raise_interrupt(struct vm_device * dev, struct channel_t * channe
 
 static void rd_lower_irq(struct vm_device *dev, Bit32u irq)  // __attribute__(regparm(1))
 {
-  Ramdisk_Print("[lower_irq] irq = %d\n", irq);
+  PrintDebug("[lower_irq] irq = %d\n", irq);
   dev->vm->vm_ops.lower_irq(dev->vm, irq);
 }
 
@@ -1284,18 +1326,14 @@ static void rd_lower_irq(struct vm_device *dev, Bit32u irq)  // __attribute__(re
 
 
 
-
-
-
-
-
 int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * channel, ushort_t value) {
   //struct ramdisk_t * ramdisk  = (struct ramdisk_t *)(dev->private_data);
   struct drive_t * drive = get_selected_drive(channel);
   struct controller_t * controller = &(drive->controller);
 
   if (controller->buffer_index >= PACKET_SIZE) {
-    PrintError("ATAPI packet exceeded maximum length: buffer_index >= PACKET_SIZE\n");
+    PrintError("ATAPI packet exceeded maximum length: buffer_index (%d) >= PACKET_SIZE\n", 
+	       controller->buffer_index);
     return -1;
   }
 
@@ -1327,7 +1365,10 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
     case 0x03:  // request sense
       {
 	int alloc_length = controller->buffer[4];
-	rd_init_send_atapi_command(dev, channel, atapi_command, 18, alloc_length, false);
+
+	if (rd_init_send_atapi_command(dev, channel, atapi_command, 18, alloc_length, false) == -1) {
+	  return -1;
+	}
 	
 	// sense data
 	controller->buffer[0] = 0x70 | (1 << 7);
@@ -1395,10 +1436,13 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 	uint16_t alloc_length = rd_read_16bit(controller->buffer + 8);
 	
 	if (alloc_length == 0) {
-	  RD_PANIC("Zero allocation length to MECHANISM STATUS not impl.\n");
+	  PrintError("Zero allocation length to MECHANISM STATUS not impl.\n");
+	  return -1;
 	}
 	
-	rd_init_send_atapi_command(dev, channel, atapi_command, 8, alloc_length, false);
+	if (rd_init_send_atapi_command(dev, channel, atapi_command, 8, alloc_length, false) == -1) {
+	  return -1;
+	}
 	
 	controller->buffer[0] = 0; // reserved for non changers
 	controller->buffer[1] = 0; // reserved for non changers
@@ -1428,7 +1472,10 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 	    switch (PageCode) {
 	    case 0x01: // error recovery
 	      {
-		rd_init_send_atapi_command(dev, channel, atapi_command, sizeof(struct error_recovery_t) + 8, alloc_length, false);
+		
+		if (rd_init_send_atapi_command(dev, channel, atapi_command, sizeof(struct error_recovery_t) + 8, alloc_length, false) == -1) {
+		  return -1;
+		}
 		
 		rd_init_mode_sense_single(dev, channel, &(drive->cdrom.current.error_recovery),
 					  sizeof(struct error_recovery_t));
@@ -1437,7 +1484,11 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 	      }
 	    case 0x2a: // CD-ROM capabilities & mech. status
 	      {
-		rd_init_send_atapi_command(dev, channel, atapi_command, 28, alloc_length, false);
+
+		if (rd_init_send_atapi_command(dev, channel, atapi_command, 28, alloc_length, false) == -1) {
+		  return -1;
+		}
+
 		rd_init_mode_sense_single(dev, channel, &(controller->buffer[8]), 28);
 		
 		controller->buffer[8] = 0x2a;
@@ -1471,7 +1522,7 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 	    case 0x0e: // CD-ROM audio control
 	    case 0x3f: // all
 	      {
-		RD_ERROR("cdrom: MODE SENSE (curr), code=%x not implemented yet\n",
+		PrintError("Ramdisk: cdrom: MODE SENSE (curr), code=%x not implemented yet\n",
 			 PageCode);
 		rd_atapi_cmd_error(dev, channel, SENSE_ILLEGAL_REQUEST,
 				   ASC_INV_FIELD_IN_CMD_PACKET);
@@ -1481,7 +1532,7 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 	    default:
 	      {
 		// not implemeted by this device
-		Ramdisk_Print("\t\tcdrom: MODE SENSE PC=%x, PageCode=%x, not implemented by device\n",
+		PrintDebug("\t\tcdrom: MODE SENSE PC=%x, PageCode=%x, not implemented by device\n",
 			      PC, PageCode);
 		rd_atapi_cmd_error(dev, channel, SENSE_ILLEGAL_REQUEST,
 				   ASC_INV_FIELD_IN_CMD_PACKET);
@@ -1553,7 +1604,8 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 	  }
 	default:
 	  {
-	    RD_PANIC("Should not get here!\n");
+	    PrintError("Should not get here!\n");
+	    return -1;
 	    break;
 	  }
 	}
@@ -1563,7 +1615,9 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
       { 
 	uint8_t alloc_length = controller->buffer[4];
 	
-	rd_init_send_atapi_command(dev, channel, atapi_command, 36, alloc_length, false);
+	if (rd_init_send_atapi_command(dev, channel, atapi_command, 36, alloc_length, false) == -1) {
+	  return -1;
+	}
 	
 	controller->buffer[0] = 0x05; // CD-ROM
 	controller->buffer[1] = 0x80; // Removable
@@ -1599,7 +1653,9 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
     case 0x25:  // read cd-rom capacity
       {
 	// no allocation length???
-	rd_init_send_atapi_command(dev, channel, atapi_command, 8, 8, false);
+	if (rd_init_send_atapi_command(dev, channel, atapi_command, 8, 8, false) == -1) {
+	  return -1;
+	}
 	
 	if (drive->cdrom.ready) {
 	  uint32_t capacity = drive->cdrom.capacity;
@@ -1656,14 +1712,18 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 				 ASC_INV_FIELD_IN_CMD_PACKET);
 	      rd_raise_interrupt(dev, channel);
 	    } else {
-	      rd_init_send_atapi_command(dev, channel, atapi_command, toc_length, alloc_length, false);
+	      if (rd_init_send_atapi_command(dev, channel, atapi_command, toc_length, alloc_length, false) == -1) {
+		return -1;
+	      }
 	      rd_ready_to_send_atapi(dev, channel);
 	    }
 	    break;
 	    
 	  case 1:
 	    // multi session stuff. we ignore this and emulate a single session only
-	    rd_init_send_atapi_command(dev, channel, atapi_command, 12, alloc_length, false);
+	    if (rd_init_send_atapi_command(dev, channel, atapi_command, 12, alloc_length, false) == -1) {
+	      return -1;
+	    }
 	    
 	    controller->buffer[0] = 0;
 	    controller->buffer[1] = 0x0a;
@@ -1710,7 +1770,7 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 	if (transfer_length == 0) {
 	  rd_atapi_cmd_nop(dev, channel);
 	  rd_raise_interrupt(dev, channel);
-	  Ramdisk_Print("\t\tREAD(%d) with transfer length 0, ok\n", atapi_command==0x28?10:12);
+	  PrintDebug("\t\tREAD(%d) with transfer length 0, ok\n", (atapi_command == 0x28) ? 10 : 12);
 	  break;
 	}
 	
@@ -1720,11 +1780,15 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 	  break;
 	}
 	
-	Ramdisk_Print("\t\tcdrom: READ (%d) LBA=%d LEN=%d\n", atapi_command==0x28?10:12, lba, transfer_length);
+	PrintDebug("\t\tcdrom: READ (%d) LBA=%d LEN=%d\n", 
+		   (atapi_command == 0x28) ? 10 : 12, 
+		   lba, transfer_length);
 	
 	// handle command
-	rd_init_send_atapi_command(dev, channel, atapi_command, transfer_length * 2048,
-				   transfer_length * 2048, true);
+	if (rd_init_send_atapi_command(dev, channel, atapi_command, transfer_length * 2048,
+				       transfer_length * 2048, true) == -1) {
+	  return -1;
+	}
 	drive->cdrom.remaining_blocks = transfer_length;
 	drive->cdrom.next_lba = lba;
 	rd_ready_to_send_atapi(dev, channel);
@@ -1799,7 +1863,9 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 	    rd_raise_interrupt(dev, channel);
 	  }
 	  
-	  rd_init_send_atapi_command(dev, channel, atapi_command, ret_len, alloc_length, false);
+	  if (rd_init_send_atapi_command(dev, channel, atapi_command, ret_len, alloc_length, false) == -1) {
+	    return -1;
+	  }
 	  rd_ready_to_send_atapi(dev, channel);
 	}
 	break;
@@ -1844,7 +1910,7 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 
 
 
-void rd_init_send_atapi_command(struct vm_device * dev, struct channel_t * channel, Bit8u command, int req_length, int alloc_length, bool lazy)
+int rd_init_send_atapi_command(struct vm_device * dev, struct channel_t * channel, Bit8u command, int req_length, int alloc_length, bool lazy)
 {
   struct drive_t * drive = &(channel->drives[channel->drive_select]);
   struct controller_t * controller = &(drive->controller);
@@ -1852,7 +1918,7 @@ void rd_init_send_atapi_command(struct vm_device * dev, struct channel_t * chann
   // controller->byte_count is a union of controller->cylinder_no;
   // lazy is used to force a data read in the buffer at the next read.
   
-  Ramdisk_Print("[rd_init_send_atapi_cmd]\n");
+  PrintDebug("[rd_init_send_atapi_cmd]\n");
 
   if (controller->byte_count == 0xffff) {
     controller->byte_count = 0xfffe;
@@ -1861,7 +1927,7 @@ void rd_init_send_atapi_command(struct vm_device * dev, struct channel_t * chann
   if ((controller->byte_count & 1) && 
       !(alloc_length <= controller->byte_count)) {
       
-    Ramdisk_Print("\t\tOdd byte count (0x%04x) to ATAPI command 0x%02x, using 0x%x\n", 
+    PrintDebug("\t\tOdd byte count (0x%04x) to ATAPI command 0x%02x, using 0x%x\n", 
 		  controller->byte_count, 
 		  command, 
 		  controller->byte_count - 1);
@@ -1870,11 +1936,13 @@ void rd_init_send_atapi_command(struct vm_device * dev, struct channel_t * chann
   }
   
   if (controller->byte_count == 0) {
-    RD_PANIC("\t\tATAPI command with zero byte count\n");
+    PrintError("\t\tATAPI command with zero byte count\n");
+    return -1;
   }
 
   if (alloc_length < 0) {
-    RD_PANIC("\t\tAllocation length < 0\n");
+    PrintError("\t\tAllocation length < 0\n");
+    return -1;
   }
 
   if (alloc_length == 0) {
@@ -1913,12 +1981,14 @@ void rd_init_send_atapi_command(struct vm_device * dev, struct channel_t * chann
   // SELECTED_DRIVE(channel).atapi.drq_bytes += 2048;
   // SELECTED_DRIVE(channel).atapi.total_bytes_remaining += 2048;
   // }
+
+  return 0;
 }
 
 
 
  void rd_ready_to_send_atapi(struct vm_device * dev, struct channel_t * channel) {
-  Ramdisk_Print("[rd_ready_to_send_atapi]\n");
+  PrintDebug("[rd_ready_to_send_atapi]\n");
 
   rd_raise_interrupt(dev, channel);
 }
@@ -1929,11 +1999,13 @@ void rd_init_send_atapi_command(struct vm_device * dev, struct channel_t * chann
 
 void rd_atapi_cmd_error(struct vm_device * dev, struct channel_t * channel, sense_t sense_key, asc_t asc)
 {
+  struct ramdisk_t *ramdisk = (struct ramdisk_t *)(dev->private_data);
   struct drive_t * drive = &(channel->drives[channel->drive_select]);
   struct controller_t * controller = &(drive->controller);
 
-  Ramdisk_Print("[rd_atapi_cmd_error]\n");
-  Ramdisk_Print("Error: atapi_cmd_error channel=%02x key=%02x asc=%02x\n", channel, sense_key, asc);
+  PrintDebug("[rd_atapi_cmd_error]\n");
+  PrintDebug("Error: atapi_cmd_error channel=%02x key=%02x asc=%02x\n", 
+	     get_channel_no(ramdisk, channel), sense_key, asc);
 
   controller->error_register = sense_key << 4;
   controller->interrupt_reason.i_o = 1;
@@ -1957,7 +2029,7 @@ void rd_atapi_cmd_nop(struct vm_device * dev, struct channel_t * channel)
   struct drive_t * drive = &(channel->drives[channel->drive_select]);
   struct controller_t * controller = &(drive->controller);
 
-  Ramdisk_Print("[rd_atapi_cmd_nop]\n");
+  PrintDebug("[rd_atapi_cmd_nop]\n");
   controller->interrupt_reason.i_o = 1;
   controller->interrupt_reason.c_d = 1;
   controller->interrupt_reason.rel = 0;
@@ -2093,7 +2165,7 @@ void rd_init_mode_sense_single(struct vm_device * dev,
   struct drive_t * drive = &(channel->drives[channel->drive_select]);
   struct controller_t * controller = &(drive->controller);
 
-  Ramdisk_Print("[rd_init_mode_sense_single]\n");
+  PrintDebug("[rd_init_mode_sense_single]\n");
 
   // Header
   controller->buffer[0] = (size + 6) >> 8;
@@ -2116,8 +2188,8 @@ static void rd_command_aborted(struct vm_device * dev,
   struct drive_t * drive = &(channel->drives[channel->drive_select]);
   struct controller_t * controller = &(drive->controller);
 
-  Ramdisk_Print("[rd_command_aborted]\n");
-  Ramdisk_Print("\t\taborting on command 0x%02x {%s}\n", value, SELECTED_TYPE_STRING(channel));
+  PrintDebug("[rd_command_aborted]\n");
+  PrintDebug("\t\taborting on command 0x%02x {%s}\n", value, device_type_to_str(drive->device_type));
 
   controller->current_command = 0;
   controller->status.busy = 0;
@@ -2134,9 +2206,12 @@ static void rd_command_aborted(struct vm_device * dev,
 
 
 static int ramdisk_init_device(struct vm_device *dev) {
-  struct ramdisk_t *ramdisk_state = (struct ramdisk_t *)dev->private_data;
+  struct ramdisk_t *ramdisk= (struct ramdisk_t *)dev->private_data;
 
-  rd_init_hardware(ramdisk_state);
+  PrintDebug("Initializing Ramdisk\n");
+
+
+  rd_init_hardware(ramdisk);
 
 
   dev_hook_io(dev, PRI_CTRL_PORT, 
@@ -2196,8 +2271,8 @@ static int ramdisk_init_device(struct vm_device *dev) {
 
 
 static int ramdisk_deinit_device(struct vm_device *dev) {
-  struct ramdisk_t *ramdisk_state = (struct ramdisk_t *)(dev->private_data);
-  rd_close_harddrive(ramdisk_state);
+  struct ramdisk_t *ramdisk = (struct ramdisk_t *)(dev->private_data);
+  rd_close_harddrive(ramdisk);
   return 0;
 }
 
@@ -2219,7 +2294,7 @@ struct vm_device *create_ramdisk()
   ramdisk = (struct ramdisk_t *)V3_Malloc(sizeof(struct ramdisk_t));  
   V3_ASSERT(ramdisk != NULL);  
 
-  Ramdisk_Print("[create_ramdisk]\n");
+  PrintDebug("[create_ramdisk]\n");
 
   struct vm_device *device = create_device("RAMDISK", &dev_ops, ramdisk);
 
@@ -2229,37 +2304,39 @@ struct vm_device *create_ramdisk()
 
 
 
-#ifdef RAMDISK_DEBUG
-static void rd_print_state(struct ramdisk_t * ramdisk,  struct vm_device *dev) {
+#ifdef DEBUG_RAMDISK
+
+static void rd_print_state(struct ramdisk_t * ramdisk) {
   uchar_t channel; 
   uchar_t device;
   struct channel_t * channels = (struct channel_t *)(&(ramdisk->channels));
 
+  /*
   for (channel = 0; channel < MAX_ATA_CHANNEL; channel++) {
     memset((char *)(channels + channel), 0, sizeof(struct channel_t));
   }
+  */
+  PrintDebug("sizeof(*channels) = %d\n", sizeof(*channels));
+  PrintDebug("sizeof(channles->drives[0].controller) = %d\n", sizeof((channels->drives[0].controller)));
+  PrintDebug("sizeof(channles->drives[0].cdrom) = %d\n", sizeof((channels->drives[0].cdrom)));
+  PrintDebug("sizeof(channles->drives[0].sense) = %d\n", sizeof((channels->drives[0].sense)));
+  PrintDebug("sizeof(channles->drives[0].atapi) = %d\n", sizeof((channels->drives[0].atapi)));
 
-  Ramdisk_Print("sizeof(*channels) = %d\n", sizeof(*channels));
-  Ramdisk_Print("sizeof(channles->drives[0].controller) = %d\n", sizeof((channels->drives[0].controller)));
-  Ramdisk_Print("sizeof(channles->drives[0].cdrom) = %d\n", sizeof((channels->drives[0].cdrom)));
-  Ramdisk_Print("sizeof(channles->drives[0].sense) = %d\n", sizeof((channels->drives[0].sense)));
-  Ramdisk_Print("sizeof(channles->drives[0].atapi) = %d\n", sizeof((channels->drives[0].atapi)));
 
-
-  Ramdisk_Print("sizeof(channles->drives[0].controller.status) = %d\n", 
+  PrintDebug("sizeof(channles->drives[0].controller.status) = %d\n", 
 		sizeof((channels->drives[0].controller.status)));
-  Ramdisk_Print("sizeof(channles->drives[0].controller.sector_count) = %d\n", 
+  PrintDebug("sizeof(channles->drives[0].controller.sector_count) = %d\n", 
 		sizeof((channels->drives[0].controller.sector_count)));
-  Ramdisk_Print("sizeof(channles->drives[0].controller.interrupt_reason) = %d\n", 
+  PrintDebug("sizeof(channles->drives[0].controller.interrupt_reason) = %d\n", 
 		sizeof((channels->drives[0].controller.interrupt_reason)));
 
-  Ramdisk_Print("sizeof(channles->drives[0].controller.cylinder_no) = %d\n", 
+  PrintDebug("sizeof(channles->drives[0].controller.cylinder_no) = %d\n", 
 		sizeof((channels->drives[0].controller.cylinder_no)));
-  Ramdisk_Print("sizeof(channles->drives[0].controller.byte_count) = %d\n", 
+  PrintDebug("sizeof(channles->drives[0].controller.byte_count) = %d\n", 
 		sizeof((channels->drives[0].controller.byte_count)));
 
 
-  Ramdisk_Print("sizeof(channles->drives[0].controller.control) = %d\n", 
+  PrintDebug("sizeof(channles->drives[0].controller.control) = %d\n", 
 		sizeof((channels->drives[0].controller.control)));
 
 
@@ -2268,118 +2345,118 @@ static void rd_print_state(struct ramdisk_t * ramdisk,  struct vm_device *dev) {
     for (device = 0; device < 2; device++){
                   
       // Initialize controller state, even if device is not present
-      Ramdisk_Print("channels[%d].drives[%d].controller.status.busy = %d\n",
+      PrintDebug("channels[%d].drives[%d].controller.status.busy = %d\n",
 		    channel, device, 
 		    channels[channel].drives[device].controller.status.busy);
-      Ramdisk_Print("channels[%d].drives[%d].controller.status.drive_ready = %d\n", 
+      PrintDebug("channels[%d].drives[%d].controller.status.drive_ready = %d\n", 
 		    channel, device, 
 		    channels[channel].drives[device].controller.status.drive_ready);
-      Ramdisk_Print("channels[%d].drives[%d].controller.status.write_fault = %d\n", 
+      PrintDebug("channels[%d].drives[%d].controller.status.write_fault = %d\n", 
 		    channel, device, 
 		    channels[channel].drives[device].controller.status.write_fault);
-      Ramdisk_Print("channels[%d].drives[%d].controller.status.seek_complete = %d\n", 
+      PrintDebug("channels[%d].drives[%d].controller.status.seek_complete = %d\n", 
 		    channel, device, 
 		    channels[channel].drives[device].controller.status.seek_complete);
-      Ramdisk_Print("channels[%d].drives[%d].controller.status.drq = %d\n", 
+      PrintDebug("channels[%d].drives[%d].controller.status.drq = %d\n", 
 		    channel, device, 
 		    channels[channel].drives[device].controller.status.drq);
-      Ramdisk_Print("channels[%d].drives[%d].controller.status.corrected_data = %d\n", 
+      PrintDebug("channels[%d].drives[%d].controller.status.corrected_data = %d\n", 
 		    channel, device, 
 		    channels[channel].drives[device].controller.status.corrected_data);
-      Ramdisk_Print("channels[%d].drives[%d].controller.status.index_pulse = %d\n", 
+      PrintDebug("channels[%d].drives[%d].controller.status.index_pulse = %d\n", 
 		    channel, device, 
 		    channels[channel].drives[device].controller.status.index_pulse);
-      Ramdisk_Print("channels[%d].drives[%d].controller.status.index_pulse_count = %d\n", 
+      PrintDebug("channels[%d].drives[%d].controller.status.index_pulse_count = %d\n", 
 		    channel, device, 
 		    channels[channel].drives[device].controller.status.index_pulse_count);
-      Ramdisk_Print("channels[%d].drives[%d].controller.status.err = %d\n", 
+      PrintDebug("channels[%d].drives[%d].controller.status.err = %d\n", 
 		    channel, device, 
 		    channels[channel].drives[device].controller.status.err);
 
 
-      Ramdisk_Print("channels[%d].drives[%d].controller.error_register = %d\n", 
+      PrintDebug("channels[%d].drives[%d].controller.error_register = %d\n", 
 		    channel, device, 
 		    channels[channel].drives[device].controller.error_register);
-      Ramdisk_Print("channels[%d].drives[%d].controller.head_no = %d\n", 
+      PrintDebug("channels[%d].drives[%d].controller.head_no = %d\n", 
 		    channel, device, 
 		    channels[channel].drives[device].controller.head_no);
-      Ramdisk_Print("channels[%d].drives[%d].controller.sector_count = %d\n", 
+      PrintDebug("channels[%d].drives[%d].controller.sector_count = %d\n", 
 		    channel, device, 
 		    channels[channel].drives[device].controller.sector_count);
-      Ramdisk_Print("channels[%d].drives[%d].controller.sector_no = %d\n", 
+      PrintDebug("channels[%d].drives[%d].controller.sector_no = %d\n", 
 		    channel, device, 
 		    channels[channel].drives[device].controller.sector_no);
-      Ramdisk_Print("channels[%d].drives[%d].controller.cylinder_no = %d\n", 
+      PrintDebug("channels[%d].drives[%d].controller.cylinder_no = %d\n", 
 		    channel, device, 
 		    channels[channel].drives[device].controller.cylinder_no);
-      Ramdisk_Print("channels[%d].drives[%d].controller.current_command = %02x\n", 
+      PrintDebug("channels[%d].drives[%d].controller.current_command = %02x\n", 
 		    channel, device, 
 		    channels[channel].drives[device].controller.current_command);
-      Ramdisk_Print("channels[%d].drives[%d].controller.buffer_index = %d\n", 
+      PrintDebug("channels[%d].drives[%d].controller.buffer_index = %d\n", 
 		    channel, device, 
 		    channels[channel].drives[device].controller.buffer_index);
 
 
-      Ramdisk_Print("channels[%d].drives[%d].controller.control.reset = %d\n", 
+      PrintDebug("channels[%d].drives[%d].controller.control.reset = %d\n", 
 		    channel, device, 
 		    channels[channel].drives[device].controller.control.reset);
-      Ramdisk_Print("channels[%d].drives[%d].controller.control.disable_irq = %d\n", 
+      PrintDebug("channels[%d].drives[%d].controller.control.disable_irq = %d\n", 
 		    channel, device, 
 		    channels[channel].drives[device].controller.control.disable_irq);
 
 
-      Ramdisk_Print("channels[%d].drives[%d].controller.reset_in_progress = %d\n", 
+      PrintDebug("channels[%d].drives[%d].controller.reset_in_progress = %d\n", 
 		    channel, device, 
 		    channels[channel].drives[device].controller.reset_in_progress);
-      Ramdisk_Print("channels[%d].drives[%d].controller.sectors_per_block = %02x\n", 
+      PrintDebug("channels[%d].drives[%d].controller.sectors_per_block = %02x\n", 
 		    channel, device, 
 		    channels[channel].drives[device].controller.sectors_per_block); 
-      Ramdisk_Print("channels[%d].drives[%d].controller.lba_mode = %d\n", 
+      PrintDebug("channels[%d].drives[%d].controller.lba_mode = %d\n", 
 		    channel, device, 
 		    channels[channel].drives[device].controller.lba_mode); 
-      Ramdisk_Print("channels[%d].drives[%d].controller.features = %d\n", 
+      PrintDebug("channels[%d].drives[%d].controller.features = %d\n", 
 		    channel, device, 
 		    channels[channel].drives[device].controller.features); 
 
 
-      Ramdisk_Print("channels[%d].drives[%d].model_no = %s\n", 
+      PrintDebug("channels[%d].drives[%d].model_no = %s\n", 
 		    channel, device, 
 		    channels[channel].drives[device].model_no); 
-      Ramdisk_Print("channels[%d].drives[%d].device_type = %d\n", 
+      PrintDebug("channels[%d].drives[%d].device_type = %d\n", 
 		    channel, device, 
 		    channels[channel].drives[device].device_type); 
-      Ramdisk_Print("channels[%d].drives[%d].cdrom.locked = %d\n", 
+      PrintDebug("channels[%d].drives[%d].cdrom.locked = %d\n", 
 		    channel, device, 
 		    channels[channel].drives[device].cdrom.locked); 
-      Ramdisk_Print("channels[%d].drives[%d].sense.sense_key = %d\n", 
+      PrintDebug("channels[%d].drives[%d].sense.sense_key = %d\n", 
 		    channel, device, 
 		    channels[channel].drives[device].sense.sense_key); 
-      Ramdisk_Print("channels[%d].drives[%d].sense.asc = %d\n", 
+      PrintDebug("channels[%d].drives[%d].sense.asc = %d\n", 
 		    channel, device, 
 		    channels[channel].drives[device].sense.asc); 
-      Ramdisk_Print("channels[%d].drives[%d].sense.ascq = %d\n", 
+      PrintDebug("channels[%d].drives[%d].sense.ascq = %d\n", 
 		    channel, device, 
 		    channels[channel].drives[device].sense.ascq); 
 
 
 
-      Ramdisk_Print("channels[%d].drives[%d].controller.interrupt_reason.c_d = %02x\n", 
+      PrintDebug("channels[%d].drives[%d].controller.interrupt_reason.c_d = %02x\n", 
 		    channel, device, 
 		    channels[channel].drives[device].controller.interrupt_reason.c_d);
 
-      Ramdisk_Print("channels[%d].drives[%d].controller.interrupt_reason.i_o = %02x\n", 
+      PrintDebug("channels[%d].drives[%d].controller.interrupt_reason.i_o = %02x\n", 
 		    channel, device, 
 		    channels[channel].drives[device].controller.interrupt_reason.i_o);
 
-      Ramdisk_Print("channels[%d].drives[%d].controller.interrupt_reason.rel = %02x\n", 
+      PrintDebug("channels[%d].drives[%d].controller.interrupt_reason.rel = %02x\n", 
 		    channel, device, 
 		    channels[channel].drives[device].controller.interrupt_reason.rel);
 
-      Ramdisk_Print("channels[%d].drives[%d].controller.interrupt_reason.tag = %02x\n", 
+      PrintDebug("channels[%d].drives[%d].controller.interrupt_reason.tag = %02x\n", 
 		    channel, device, 
 		    channels[channel].drives[device].controller.interrupt_reason.tag);
 
-      Ramdisk_Print("channels[%d].drives[%d].cdrom.ready = %d\n", 
+      PrintDebug("channels[%d].drives[%d].cdrom.ready = %d\n", 
 		    channel, device, 
 		    channels[channel].drives[device].cdrom.ready);
       
@@ -2389,111 +2466,110 @@ static void rd_print_state(struct ramdisk_t * ramdisk,  struct vm_device *dev) {
   return;
 }
 
-
-
+#if 0
 static void trace_info(ushort_t port, void *src, uint_t length) {
 
   switch(port){
 
   case 0x3e8:
     if (length == 1 && *((uchar_t*) src) == ATA_DETECT)
-      Ramdisk_Print("ata_detect()\n");
+      PrintDebug("ata_detect()\n");
     break;
 
   case 0x3e9:
     if (length == 1 && *((uchar_t*) src) == ATA_RESET)
-      Ramdisk_Print("ata_reset()\n");
+      PrintDebug("ata_reset()\n");
     break;
 
   case 0x3ea:
     if (length == 1 && *((uchar_t*) src) == ATA_CMD_DATA_IN)
-      Ramdisk_Print("ata_cmd_data_in()\n");
+      PrintDebug("ata_cmd_data_in()\n");
     break;
 
   case 0x3eb:
     if (length == 1 && *((uchar_t*) src) == ATA_CMD_DATA_OUT)
-      Ramdisk_Print("ata_cmd_data_out()\n");
+      PrintDebug("ata_cmd_data_out()\n");
     break;
 
   case 0x3ec:
     if (length == 1 && *((uchar_t*) src) == ATA_CMD_PACKET)
-      Ramdisk_Print("ata_cmd_packet()\n");
+      PrintDebug("ata_cmd_packet()\n");
     break;
 
   case 0x3ed:
     if (length == 1 && *((uchar_t*) src) == ATAPI_GET_SENSE)
-      Ramdisk_Print("atapi_get_sense()\n");
+      PrintDebug("atapi_get_sense()\n");
     break;
 
   case 0x3ee:
     if (length == 1 && *((uchar_t*) src) == ATAPI_IS_READY)
-      Ramdisk_Print("atapi_is_ready()\n");
+      PrintDebug("atapi_is_ready()\n");
     break;
 
   case 0x3ef:
     if (length == 1 && *((uchar_t*) src) == ATAPI_IS_CDROM)
-      Ramdisk_Print("atapi_is_cdrom()\n");
+      PrintDebug("atapi_is_cdrom()\n");
     break;
 
 
   case 0x2e8:
     if (length == 1 && *((uchar_t*) src) == CDEMU_INIT)
-      Ramdisk_Print("cdemu_init()\n");
+      PrintDebug("cdemu_init()\n");
     break;
 
   case 0x2e9:
     if (length == 1 && *((uchar_t*) src) == CDEMU_ISACTIVE)
-      Ramdisk_Print("cdemu_isactive()\n");
+      PrintDebug("cdemu_isactive()\n");
     break;
 
   case 0x2ea:
     if (length == 1 && *((uchar_t*) src) == CDEMU_EMULATED_DRIVE)
-      Ramdisk_Print("cdemu_emulated_drive()\n");
+      PrintDebug("cdemu_emulated_drive()\n");
     break;
 
   case 0x2eb:
     if (length == 1 && *((uchar_t*) src) == CDROM_BOOT)
-      Ramdisk_Print("cdrom_boot()\n");
+      PrintDebug("cdrom_boot()\n");
     break;
 
   case 0x2ec:
     if (length == 1 && *((uchar_t*) src) == HARD_DRIVE_POST)
-      Ramdisk_Print("ata_hard_drive_post()\n");
+      PrintDebug("ata_hard_drive_post()\n");
     break;
 
   case 0x2ed:
     if (length == 1)
-      Ramdisk_Print("ata_device_no(%d)\n", *((uchar_t*) src));
+      PrintDebug("ata_device_no(%d)\n", *((uchar_t*) src));
     break;
 
   case 0x2ee:
     if (length == 1)
-      Ramdisk_Print("ata_device_type(%d)\n", *((uchar_t*) src));
+      PrintDebug("ata_device_type(%d)\n", *((uchar_t*) src));
     break;
 
   case 0x2ef:
     if (length == 1 && *((uchar_t*) src) == INT13_HARDDISK)
-      Ramdisk_Print("int13_harddrive()\n");
+      PrintDebug("int13_harddrive()\n");
     break;
 
   case 0x2f8:
     if (length == 1 && *((uchar_t*) src) == INT13_CDROM)
-      Ramdisk_Print("int13_cdrom()\n");
+      PrintDebug("int13_cdrom()\n");
     break;
 
   case 0x2f9:
     if (length == 1 && *((uchar_t*) src) == INT13_CDEMU)
-      Ramdisk_Print("int13_cdemu()\n");
+      PrintDebug("int13_cdemu()\n");
     break;
 
   case 0x2fa:
     if (length == 1 && *((uchar_t*) src) == INT13_ELTORITO)
-      Ramdisk_Print("int13_eltorito()\n");
+      PrintDebug("int13_eltorito()\n");
     break;
 
   case 0x2fb:
     if (length == 1 && *((uchar_t*) src) == INT13_DISKETTE_FUNCTION)
-      Ramdisk_Print("int13_diskette_function()\n");
+      PrintDebug("int13_diskette_function()\n");
     break;
 
 
@@ -2502,9 +2578,9 @@ static void trace_info(ushort_t port, void *src, uint_t length) {
   }
 }
 
+#endif
 
-
-static  int check_bit_fields(struct controller_t * controller) {
+static int check_bit_fields(struct controller_t * controller) {
   //Check bit fields
   controller->sector_count = 0;
   controller->interrupt_reason.c_d = 1;

@@ -16,6 +16,8 @@ typedef uint64_t Bit64u;
 #endif
 
 
+#define MAX_ATA_CHANNEL 4
+
 typedef enum _sense {
       SENSE_NONE = 0, 
       SENSE_NOT_READY = 2, 
@@ -184,9 +186,12 @@ struct  channel_t {
 
 
 
+struct  ramdisk_t {
+  struct channel_t channels[MAX_ATA_CHANNEL];
+};
 
 
-struct ramdisk_t;
+
 
 
 

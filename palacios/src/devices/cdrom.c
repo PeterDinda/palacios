@@ -25,6 +25,7 @@ void cdrom_init(struct cdrom_interface * cdrom)
   Ramdisk_Print_CD("[cdrom_init]\n");
   V3_ASSERT(g_ramdiskImage);
   cdrom->fd = g_ramdiskImage;
+  PrintDebug("CDIMAGE located at: %x\n", cdrom->fd);
   cdrom->capacity_B = s_ramdiskSize; 
   //FIXME:lba
   cdrom->lba = 1; 
@@ -91,9 +92,10 @@ void cdrom_read_block(struct cdrom_interface *cdrom, uint8_t* buf, int lba)// __
 {
 
   V3_ASSERT(lba != 0);
-    
-  Ramdisk_Print_CD("[cdrom_read_block] lba = %d\n", lba);
-  memcpy(buf, (uint8_t *)(cdrom->fd + lba*2048), 2048);
+  
+  Ramdisk_Print_CD("[cdrom_read_block] lba = %d (cdrom_image_start=%x)\n", lba, cdrom->fd);
+  memcpy(buf, (uint8_t *)(cdrom->fd + lba * 2048), 2048);
+  PrintDebug("Returning from read block\n");
     return;
 }
 

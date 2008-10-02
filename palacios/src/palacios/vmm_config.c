@@ -17,7 +17,7 @@
 
 
 #define USE_GENERIC 1
-#define USE_RAMDISK 0
+#define USE_RAMDISK 1
 
 
 
@@ -212,11 +212,10 @@ int config_guest(struct guest_info * info, void * config_ptr) {
       
 
       
-#ifndef DEBUG_RAMDISK
-      
+
       v3_generic_add_port_range(generic, 0x3e8, 0x3e8+7, GENERIC_PRINT_AND_IGNORE);      // COM 3
       v3_generic_add_port_range(generic, 0x2e8, 0x2e8+7, GENERIC_PRINT_AND_IGNORE);      // COM 4
-#endif
+
       
       
 
@@ -227,13 +226,14 @@ int config_guest(struct guest_info * info, void * config_ptr) {
 
       
       
+#if 0
       if (!use_ramdisk) {
 	// Monitor the IDE controllers (very slow)
 	v3_generic_add_port_range(generic, 0x170, 0x178, GENERIC_PRINT_AND_PASSTHROUGH); // IDE 1
 	v3_generic_add_port_range(generic, 0x376, 0x377, GENERIC_PRINT_AND_PASSTHROUGH); // IDE 1
       }
       
-#if 1
+
       v3_generic_add_port_range(generic, 0x1f0, 0x1f8, GENERIC_PRINT_AND_PASSTHROUGH); // IDE 0
       v3_generic_add_port_range(generic, 0x3f6, 0x3f7, GENERIC_PRINT_AND_PASSTHROUGH); // IDE 0
 #endif

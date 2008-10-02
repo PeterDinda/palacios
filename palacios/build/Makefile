@@ -488,6 +488,9 @@ pxe:	vmm.img
 run: vmm.img
 	/usr/local/qemu/bin/qemu-system-x86_64 -m 1024 -serial file:serial.out -cdrom puppy.iso -fda vmm.img 
 
+iso: vmm.img
+	cp vmm.img iso/vmm.img
+	mkisofs -R -b boot/grub/stage2_eltorito -no-emul-boot -boot-load-size 4 -boot-info-table -o test.iso iso
 
 
 
