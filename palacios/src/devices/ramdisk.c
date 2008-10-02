@@ -337,7 +337,7 @@ static int check_bit_fields(struct controller_t * controller);
 
 
 
-Bit32u rd_init_hardware(struct ramdisk_t *ramdisk) {
+static Bit32u rd_init_hardware(struct ramdisk_t *ramdisk) {
   uint_t channel_num; 
   uint_t device;
   struct channel_t *channels = (struct channel_t *)(&(ramdisk->channels));
