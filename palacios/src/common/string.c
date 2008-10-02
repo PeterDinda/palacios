@@ -294,12 +294,20 @@ int fprintf(FILE *file, char *fmt, ...)
 
 }
 
-/* int fflush(FILE *stream)
+int printf(char *fmt, ...)
 {
-    PrintDebug("In fflush!!\n");
+   // PrintDebug("In fprintf!!\n");
+
+   return 0;
+
+}
+
+int fflush(FILE *stream)
+{
+    //PrintDebug("In fflush!!\n");
 
     return 0;
-}*/
+}
 
 void abort(void)
 {

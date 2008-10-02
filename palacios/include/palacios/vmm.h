@@ -32,12 +32,12 @@
 
 
 
-#define PrintError(fmt, args...)			\
-  do {							\
-    extern struct vmm_os_hooks * os_hooks;		\
-    if ((os_hooks) && (os_hooks)->print_debug) {	\
-      (os_hooks)->print_debug((fmt), ##args);		\
-    }							\
+#define PrintError(fmt, args...)					\
+  do {									\
+    extern struct vmm_os_hooks * os_hooks;				\
+    if ((os_hooks) && (os_hooks)->print_debug) {			\
+      (os_hooks)->print_debug("%s(%d): " fmt, __FILE__, __LINE__, ##args); \
+    }									\
   } while (0)						
 
 
@@ -56,12 +56,12 @@
 
 
 #if VMM_TRACE
-#define PrintTrace(fmt, args...)			\
-  do {							\
-    extern struct vmm_os_hooks * os_hooks;		\
-    if ((os_hooks) && (os_hooks)->print_trace) {	\
-      (os_hooks)->print_trace((fmt), ##args);		\
-    }							\
+#define PrintTrace(fmt, args...)					\
+  do {									\
+    extern struct vmm_os_hooks * os_hooks;				\
+    if ((os_hooks) && (os_hooks)->print_trace) {			\
+      (os_hooks)->print_trace(fmt, ##args);				\
+    }									\
   } while (0)						
 #else
 #define PrintTrace(fmt, args...)

@@ -32,12 +32,14 @@ struct Condition {
 void Mutex_Init(struct Mutex* mutex);
 void Mutex_Lock(struct Mutex* mutex);
 void Mutex_Unlock(struct Mutex* mutex);
+void Mutex_Destroy(struct Mutex *mutex);  
 
 void Cond_Init(struct Condition* cond);
 void Cond_Wait(struct Condition* cond, struct Mutex* mutex);
 int Cond_Wait_Timeout(struct Condition * cond, struct Mutex * mutex, uint_t ms);
 void Cond_Signal(struct Condition* cond);
 void Cond_Broadcast(struct Condition* cond);
+void Cond_Destroy(struct Condition *cond); 
 
 #define IS_HELD(mutex) \
     ((mutex)->state == MUTEX_LOCKED && (mutex)->owner == g_currentThread)

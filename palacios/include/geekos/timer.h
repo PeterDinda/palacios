@@ -36,11 +36,11 @@ int Start_Timer_Secs(int seconds, timerCallback cb, void * arg);
 int Start_Timer_MSecs(int msecs, timerCallback cb, void * arg);
 int Start_Timer(int ticks, timerCallback, void * arg);
 
+
 double Get_Remaining_Timer_Secs(int id);
 int Get_Remaining_Timer_MSecs(int id);
 int Get_Remaining_Timer_Ticks(int id);
 int Cancel_Timer(int id);
-
 
 void Micro_Delay(int us);
 

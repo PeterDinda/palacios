@@ -1,6 +1,7 @@
 /* (c) 2008, Jack Lange <jarusl@cs.northwestern.edu> */
 /* (c) 2008, The V3VEE Project <http://www.v3vee.org> */
 
+
 #include <palacios/vmm_config.h>
 #include <palacios/vmm.h>
 #include <palacios/vmm_debug.h>
@@ -12,6 +13,11 @@
 #include <devices/8254.h>
 #include <devices/nvram.h>
 #include <devices/generic.h>
+#include <devices/ramdisk.h>
+
+
+#define USE_GENERIC 1
+#define USE_RAMDISK 1
 
 
 
@@ -62,7 +68,10 @@ int config_guest(struct guest_info * info, void * config_ptr) {
   void * region_start;
   int i;
 
-  
+  int use_ramdisk = USE_RAMDISK;
+  int use_generic = USE_GENERIC;
+
+
   v3_init_time(info);
   init_shadow_map(info);
   
@@ -158,75 +167,88 @@ int config_guest(struct guest_info * info, void * config_ptr) {
 
   
   {
-    
+    struct vm_device * ramdisk = NULL;
     struct vm_device * nvram = create_nvram();
     //struct vm_device * timer = create_timer();
     struct vm_device * pic = create_pic();
     struct vm_device * keyboard = create_keyboard();
     struct vm_device * pit = create_pit(); 
     //struct vm_device * serial = create_serial();
+    struct vm_device * generic = NULL;
+    //Zheng 09/29/2008
+
+
+    if (use_ramdisk) {
+      PrintDebug("Creating Ramdisk\n");
+      ramdisk = create_ramdisk();
+    }
     
     
-#define GENERIC 1
-    
-#if GENERIC
-    generic_port_range_type range[] = {
-#if 1
+    if (use_generic) {
+      PrintDebug("Creating Generic Device\n");
+      generic = create_generic();
+      
       // Make the DMA controller invisible
-
-      {0x00, 0x07, GENERIC_PRINT_AND_IGNORE},   // DMA 1 channels 0,1,2,3 (address, counter)
-      {0xc0, 0xc7, GENERIC_PRINT_AND_IGNORE},   // DMA 2 channels 4,5,6,7 (address, counter)
-      {0x87, 0x87, GENERIC_PRINT_AND_IGNORE},   // DMA 1 channel 0 page register
-      {0x83, 0x83, GENERIC_PRINT_AND_IGNORE},   // DMA 1 channel 1 page register
-      {0x81, 0x81, GENERIC_PRINT_AND_IGNORE},   // DMA 1 channel 2 page register
-      {0x82, 0x82, GENERIC_PRINT_AND_IGNORE},   // DMA 1 channel 3 page register
-      {0x8f, 0x8f, GENERIC_PRINT_AND_IGNORE},   // DMA 2 channel 4 page register
-      {0x8b, 0x8b, GENERIC_PRINT_AND_IGNORE},   // DMA 2 channel 5 page register
-      {0x89, 0x89, GENERIC_PRINT_AND_IGNORE},   // DMA 2 channel 6 page register
-      {0x8a, 0x8a, GENERIC_PRINT_AND_IGNORE},   // DMA 2 channel 7 page register
-      {0x08, 0x0f, GENERIC_PRINT_AND_IGNORE},   // DMA 1 misc registers (csr, req, smask,mode,clearff,reset,enable,mmask)
-      {0xd0, 0xde, GENERIC_PRINT_AND_IGNORE},   // DMA 2 misc registers
-#endif
+      v3_generic_add_port_range(generic, 0x00, 0x07, GENERIC_PRINT_AND_IGNORE);   // DMA 1 channels 0,1,2,3 (address, counter)
+      v3_generic_add_port_range(generic, 0xc0, 0xc7, GENERIC_PRINT_AND_IGNORE);   // DMA 2 channels 4,5,6,7 (address, counter)
+      v3_generic_add_port_range(generic, 0x87, 0x87, GENERIC_PRINT_AND_IGNORE);   // DMA 1 channel 0 page register
+      v3_generic_add_port_range(generic, 0x83, 0x83, GENERIC_PRINT_AND_IGNORE);   // DMA 1 channel 1 page register
+      v3_generic_add_port_range(generic, 0x81, 0x81, GENERIC_PRINT_AND_IGNORE);   // DMA 1 channel 2 page register
+      v3_generic_add_port_range(generic, 0x82, 0x82, GENERIC_PRINT_AND_IGNORE);   // DMA 1 channel 3 page register
+      v3_generic_add_port_range(generic, 0x8f, 0x8f, GENERIC_PRINT_AND_IGNORE);   // DMA 2 channel 4 page register
+      v3_generic_add_port_range(generic, 0x8b, 0x8b, GENERIC_PRINT_AND_IGNORE);   // DMA 2 channel 5 page register
+      v3_generic_add_port_range(generic, 0x89, 0x89, GENERIC_PRINT_AND_IGNORE);   // DMA 2 channel 6 page register
+      v3_generic_add_port_range(generic, 0x8a, 0x8a, GENERIC_PRINT_AND_IGNORE);   // DMA 2 channel 7 page register
+      v3_generic_add_port_range(generic, 0x08, 0x0f, GENERIC_PRINT_AND_IGNORE);   // DMA 1 misc registers (csr, req, smask,mode,clearff,reset,enable,mmask)
+      v3_generic_add_port_range(generic, 0xd0, 0xde, GENERIC_PRINT_AND_IGNORE);   // DMA 2 misc registers
       
-
-#if 1      
+      
+      
+      
       // Make the Serial ports invisible 
-
-      {0x3f8, 0x3f8+7, GENERIC_PRINT_AND_IGNORE},      // COM 1
-      {0x2f8, 0x2f8+7, GENERIC_PRINT_AND_IGNORE},      // COM 2
-      {0x3e8, 0x3e8+7, GENERIC_PRINT_AND_IGNORE},      // COM 3
-      {0x2e8, 0x2e8+7, GENERIC_PRINT_AND_IGNORE},      // COM 4
-#endif
-
-
-#if 1
-      // Make the PCI bus invisible (at least it's configuration)
-
-      {0xcf8, 0xcf8, GENERIC_PRINT_AND_IGNORE}, // PCI Config Address
-      {0xcfc, 0xcfc, GENERIC_PRINT_AND_IGNORE}, // PCI Config Data
-#endif
- 
-#if 1
-
-      // Monitor the IDE controllers (very slow)
-
-      {0x170, 0x178, GENERIC_PRINT_AND_PASSTHROUGH}, // IDE 1
-      {0x376, 0x377, GENERIC_PRINT_AND_PASSTHROUGH}, // IDE 1
-      {0x1f0, 0x1f8, GENERIC_PRINT_AND_PASSTHROUGH}, // IDE 0
-      {0x3f6, 0x3f7, GENERIC_PRINT_AND_PASSTHROUGH}, // IDE 0
-#endif
+      
+      v3_generic_add_port_range(generic, 0x3f8, 0x3f8+7, GENERIC_PRINT_AND_IGNORE);      // COM 1
+      v3_generic_add_port_range(generic, 0x2f8, 0x2f8+7, GENERIC_PRINT_AND_IGNORE);      // COM 2
       
 
+      
+
+      v3_generic_add_port_range(generic, 0x3e8, 0x3e8+7, GENERIC_PRINT_AND_IGNORE);      // COM 3
+      v3_generic_add_port_range(generic, 0x2e8, 0x2e8+7, GENERIC_PRINT_AND_IGNORE);      // COM 4
+
+      
+      
+
+      // Make the PCI bus invisible (at least it's configuration)
+      
+      v3_generic_add_port_range(generic, 0xcf8, 0xcf8, GENERIC_PRINT_AND_IGNORE); // PCI Config Address
+      v3_generic_add_port_range(generic, 0xcfc, 0xcfc, GENERIC_PRINT_AND_IGNORE); // PCI Config Data
+
+      
+      
 #if 0
+      if (!use_ramdisk) {
+	// Monitor the IDE controllers (very slow)
+	v3_generic_add_port_range(generic, 0x170, 0x178, GENERIC_PRINT_AND_PASSTHROUGH); // IDE 1
+	v3_generic_add_port_range(generic, 0x376, 0x377, GENERIC_PRINT_AND_PASSTHROUGH); // IDE 1
+      }
+      
 
+      v3_generic_add_port_range(generic, 0x1f0, 0x1f8, GENERIC_PRINT_AND_PASSTHROUGH); // IDE 0
+      v3_generic_add_port_range(generic, 0x3f6, 0x3f7, GENERIC_PRINT_AND_PASSTHROUGH); // IDE 0
+#endif
+      
+      
+#if 0
+      
       // Make the floppy controllers invisible
-
-      {0x3f0, 0x3f2, GENERIC_PRINT_AND_IGNORE}, // Primary floppy controller (base,statusa/statusb,DOR)
-      {0x3f4, 0x3f5, GENERIC_PRINT_AND_IGNORE}, // Primary floppy controller (mainstat/datarate,data)
-      {0x3f7, 0x3f7, GENERIC_PRINT_AND_IGNORE}, // Primary floppy controller (DIR)
-      {0x370, 0x372, GENERIC_PRINT_AND_IGNORE}, // Secondary floppy controller (base,statusa/statusb,DOR)
-      {0x374, 0x375, GENERIC_PRINT_AND_IGNORE}, // Secondary floppy controller (mainstat/datarate,data)
-      {0x377, 0x377, GENERIC_PRINT_AND_IGNORE}, // Secondary floppy controller (DIR)
+      
+      v3_generic_add_port_range(generic, 0x3f0, 0x3f2, GENERIC_PRINT_AND_IGNORE); // Primary floppy controller (base,statusa/statusb,DOR)
+      v3_generic_add_port_range(generic, 0x3f4, 0x3f5, GENERIC_PRINT_AND_IGNORE); // Primary floppy controller (mainstat/datarate,data)
+      v3_generic_add_port_range(generic, 0x3f7, 0x3f7, GENERIC_PRINT_AND_IGNORE); // Primary floppy controller (DIR)
+      v3_generic_add_port_range(generic, 0x370, 0x372, GENERIC_PRINT_AND_IGNORE); // Secondary floppy controller (base,statusa/statusb,DOR)
+      v3_generic_add_port_range(generic, 0x374, 0x375, GENERIC_PRINT_AND_IGNORE); // Secondary floppy controller (mainstat/datarate,data)
+      v3_generic_add_port_range(generic, 0x377, 0x377, GENERIC_PRINT_AND_IGNORE); // Secondary floppy controller (DIR)
       
 #endif
 
@@ -234,7 +256,7 @@ int config_guest(struct guest_info * info, void * config_ptr) {
 
       // Make the parallel port invisible
       
-      {0x378, 0x37f, GENERIC_PRINT_AND_IGNORE},
+      v3_generic_add_port_range(generic, 0x378, 0x37f, GENERIC_PRINT_AND_IGNORE);
 
 #endif
 
@@ -242,8 +264,8 @@ int config_guest(struct guest_info * info, void * config_ptr) {
 
       // Monitor graphics card operations
 
-      {0x3b0, 0x3bb, GENERIC_PRINT_AND_PASSTHROUGH},
-      {0x3c0, 0x3df, GENERIC_PRINT_AND_PASSTHROUGH},
+      v3_generic_add_port_range(generic, 0x3b0, 0x3bb, GENERIC_PRINT_AND_PASSTHROUGH);
+      v3_generic_add_port_range(generic, 0x3c0, 0x3df, GENERIC_PRINT_AND_PASSTHROUGH);
       
 #endif
 
@@ -251,36 +273,31 @@ int config_guest(struct guest_info * info, void * config_ptr) {
 #if 1
       // Make the ISA PNP features invisible
 
-      {0x274, 0x277, GENERIC_PRINT_AND_IGNORE},
-      {0x279, 0x279, GENERIC_PRINT_AND_IGNORE},
-      {0xa79, 0xa79, GENERIC_PRINT_AND_IGNORE},
+      v3_generic_add_port_range(generic, 0x274, 0x277, GENERIC_PRINT_AND_IGNORE);
+      v3_generic_add_port_range(generic, 0x279, 0x279, GENERIC_PRINT_AND_IGNORE);
+      v3_generic_add_port_range(generic, 0xa79, 0xa79, GENERIC_PRINT_AND_IGNORE);
 #endif
 
 
 #if 1
       // Monitor any network card (realtek ne2000) operations 
-      {0xc100, 0xc1ff, GENERIC_PRINT_AND_PASSTHROUGH},
+      v3_generic_add_port_range(generic, 0xc100, 0xc1ff, GENERIC_PRINT_AND_PASSTHROUGH);
 #endif
 
 
 #if 1
       // Make any Bus master ide controller invisible
       
-      {0xc000, 0xc00f, GENERIC_PRINT_AND_IGNORE},
+      v3_generic_add_port_range(generic, 0xc000, 0xc00f, GENERIC_PRINT_AND_IGNORE);
 #endif
-
-
-      //	  {0x378, 0x400, GENERIC_PRINT_AND_IGNORE}
       
-      {0,0,0},  // sentinal - must be last
+    }
+      //  v3_generic_add_port_range(generic, 0x378, 0x400, GENERIC_PRINT_AND_IGNORE);
       
-    };
+
+
     
 
-    struct vm_device * generic = create_generic(range, NULL, NULL);
-    
-#endif
-    
     v3_attach_device(info, nvram);
     //v3_attach_device(info, timer);
     v3_attach_device(info, pic);
@@ -288,12 +305,14 @@ int config_guest(struct guest_info * info, void * config_ptr) {
     v3_attach_device(info, keyboard);
     // v3_attach_device(info, serial);
 
+    if (use_ramdisk) {
+      v3_attach_device(info, ramdisk);
+    }
 
-#if GENERIC
-    // Important that this be attached last!
-    v3_attach_device(info, generic);
-    
-#endif
+    if (use_generic) {
+      // Important that this be attached last!
+      v3_attach_device(info, generic);
+    }
     
     PrintDebugDevMgr(info);
   }
@@ -302,19 +321,19 @@ int config_guest(struct guest_info * info, void * config_ptr) {
   // no longer needed since we have a keyboard device
   //hook_irq(&vm_info, 1);
   
-#if 1
+#if 0
   // give floppy controller to vm
   v3_hook_irq_for_guest_injection(info, 6);
 #endif
   
-#if 1
-  //primary ide
-  v3_hook_irq_for_guest_injection(info, 14);
+
+  if (!use_ramdisk) {
+    //primary ide
+    v3_hook_irq_for_guest_injection(info, 14);
   
-  // secondary ide
-  v3_hook_irq_for_guest_injection(info, 15);
-#endif
-  
+    // secondary ide
+    v3_hook_irq_for_guest_injection(info, 15);    
+  }  
 
   //v3_hook_io_port(info, 1234, &IO_Read, NULL, info);
 

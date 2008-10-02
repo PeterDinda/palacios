@@ -1,0 +1,9 @@
+default=0
+timeout=0
+title V3VEE 
+color light-green/brown blink-red/blue
+foreground bbbbbb
+background 000000
+root (cd)
+kernel /vmm.img
+initrd /puppy.iso

@@ -1,10 +1,13 @@
 /* (c) 2008, Peter Dinda <pdinda@northwestern.edu> */
 /* (c) 2008, The V3VEE Project <http://www.v3vee.org> */
 
+
+
+
 #include <devices/generic.h>
 #include <palacios/vmm.h>
 #include <palacios/vmm_types.h>
-
+#include <palacios/vmm_list.h>
 
 
 
@@ -18,23 +21,37 @@
 #define MEM_HOOKS  0   // not yet implmented in device model
 #define IRQ_HOOKS  0   // not yet implemented in device model
 
+
 struct generic_internal {
-  generic_port_range_type    *port_ranges;
-  uint_t                     num_port_ranges;
-  generic_address_range_type *address_ranges;
-  uint_t                     num_address_ranges;
-  generic_irq_range_type     *irq_ranges;
-  uint_t                     num_irq_ranges;
+  struct list_head port_list;
+  uint_t num_port_ranges;
+  struct list_head mem_list;
+  uint_t num_mem_ranges;
+  struct list_head irq_list;
+  uint_t num_irq_ranges;
 };
 
 
-  
-#ifdef RAMDISK_BOOT
-#include <devices/ramdisk.h>
-//ramdisk_state
-static struct ramdisk_t *ramdisk_state;
-#endif    
+struct port_range {
+  uint_t start;
+  uint_t end;
+  uint_t type;
+  struct list_head range_link;
+};
 
+struct mem_range {
+  void * start;
+  void * end;
+  uint_t type;
+  struct list_head range_link;
+};
+
+struct irq_range {
+  uint_t start;
+  uint_t end;
+  uint_t type;
+  struct list_head range_link;
+};
 
 
 
@@ -50,14 +67,14 @@ int generic_reset_device(struct vm_device * dev)
 
 
 
-int generic_start_device(struct vm_device *dev)
+int generic_start_device(struct vm_device * dev)
 {
   PrintDebug("generic: start device\n");
   return 0;
 }
 
 
-int generic_stop_device(struct vm_device *dev)
+int generic_stop_device(struct vm_device * dev)
 {
   PrintDebug("generic: stop device\n");
   return 0;
@@ -81,21 +98,13 @@ int generic_write_port_passthrough(ushort_t port,
   
   PrintDebug(" to port 0x%x ... ", port);
 
-#ifdef RAMDISK_BOOT
-
-  uint_t err;
-
-  if (((port >= 0x170 && port <= 0x177) || port == 0x376 || port == 0x377)
-      && (dev->vm->cpu_mode == REAL)) {
-
-    
-    err = ramdisk_state->eops.write_port(port, src, length, dev);
-
-  }else{
-#endif
 
   switch (length) {
   case 1:
+<<<<<<< HEAD:palacios/src/devices/generic.c
+=======
+
+>>>>>>> ramdisk:palacios/src/devices/generic.c
     v3_outb(port,((uchar_t*)src)[0]);
     break;
   case 2:
@@ -103,15 +112,18 @@ int generic_write_port_passthrough(ushort_t port,
     break;
   case 4:
     v3_outdw(port,((uint_t*)src)[0]);
+<<<<<<< HEAD:palacios/src/devices/generic.c
+=======
+
+>>>>>>> ramdisk:palacios/src/devices/generic.c
     break;
   default:
     for (i = 0; i < length; i++) { 
       v3_outb(port, ((uchar_t*)src)[i]);
     }
   } //switch length
-#ifdef RAMDISK_BOOT
-  }//else not ramdisk
-#endif
+
+
   PrintDebug(" done\n");
   
   return length;
@@ -126,17 +138,6 @@ int generic_read_port_passthrough(ushort_t port,
 
   PrintDebug("generic: reading 0x%x bytes from port 0x%x ...", length, port);
 
-#ifdef RAMDISK_BOOT
-
-  uint_t err;
-
-  if (((port >= 0x170 && port <= 0x177) || port == 0x376 || port == 0x377)
-      && (dev->vm->cpu_mode == REAL)) {
-
-    err = ramdisk_state->eops.read_port(port, src, length, dev);
-
-  }else{
-#endif
 
     switch (length) {
     case 1:
@@ -153,9 +154,6 @@ int generic_read_port_passthrough(ushort_t port,
 	((uchar_t*)src)[i] = v3_inb(port);
       }
     }//switch length
-#ifdef RAMDISK_BOOT
-  }//else not ramdisk
-#endif
 
   PrintDebug(" done ... read 0x");
 
@@ -181,21 +179,7 @@ int generic_write_port_ignore(ushort_t port,
     PrintDebug("%x", ((uchar_t*)src)[i]);
   }
   
-  PrintDebug(" to port 0x%x ... ", port);
-
-  PrintDebug(" ignored\n");
- 
-#ifdef RAMDISK_BOOT
-
-  uint_t err;
-
-  if (((port >= 0x3e8 && port <= 0x3ef) || 
-       (port >= 0x2e8 && port <= 0x2ef))
-      && (dev->vm->cpu_mode == REAL)) {
-
-    err = ramdisk_state->eops.write_port_ignore(port, src, length, dev);
-  }
-#endif
+  PrintDebug(" to port 0x%x ... ignored\n", port);
  
   return length;
 }
@@ -208,164 +192,189 @@ int generic_read_port_ignore(ushort_t port,
 
   PrintDebug("generic: reading 0x%x bytes from port 0x%x ...", length, port);
 
-  memset((char*)src,0,length);
+  memset((char*)src, 0, length);
   PrintDebug(" ignored (return zeroed buffer)\n");
-
-#ifdef RAMDISK_BOOT
-
-  uint_t err;
-
-  if (((port >= 0x3e8 && port <= 0x3ef) || 
-       (port >= 0x2e8 && port <= 0x2ef))
-      && (dev->vm->cpu_mode == REAL)) {
-
-    err = ramdisk_state->eops.read_port_ignore(port, src, length, dev);
-  }
-#endif
 
   return length;
 }
 
 
 
-int generic_interrupt(uint_t irq,
-		      struct vm_device * dev) 
-{
+int generic_interrupt(uint_t irq, struct vm_device * dev) {
   PrintDebug("generic: interrupt 0x%x - injecting into VM\n", irq);
 
   dev->vm->vm_ops.raise_irq(dev->vm, irq);
 
   return 0;
-
 }
 
 
-int generic_init_device(struct vm_device * dev) 
-{
-  struct generic_internal *state = (struct generic_internal *)(dev->private_data);
-  uint_t i, j;
+int generic_init_device(struct vm_device * dev) {
+  struct generic_internal * state = (struct generic_internal *)(dev->private_data);
 
   PrintDebug("generic: init_device\n");
-
-  // Would read state here
-
   generic_reset_device(dev);
 
-  for (i = 0; i < state->num_port_ranges; i++) { 
-    PrintDebug("generic: hooking ports 0x%x to 0x%x as %x\n", state->port_ranges[i][0], state->port_ranges[i][1], state->port_ranges[i][2]==GENERIC_PRINT_AND_PASSTHROUGH ? "print-and-passthrough" : "print-and-ignore");
 
-#if PORT_HOOKS
-    for (j = state->port_ranges[i][0]; j <= state->port_ranges[i][1]; j++) { 
-      if (state->port_ranges[i][2]==GENERIC_PRINT_AND_PASSTHROUGH) { 
-	if (dev_hook_io(dev, j, &generic_read_port_passthrough, &generic_write_port_passthrough)) { 
-	  PrintDebug("generic: can't hook port 0x%x (already hooked?)\n", j);
-	}
-      } else if (state->port_ranges[i][2]==GENERIC_PRINT_AND_IGNORE) { 
-	if (dev_hook_io(dev, j, &generic_read_port_ignore, &generic_write_port_ignore)) { 
-	  PrintDebug("generic: can't hook port 0x%x (already hooked?)\n", j);
-	}
-      } 
+  if (PORT_HOOKS) { // This is a runtime conditional on a #define
+    struct port_range * tmp = NULL;
+
+    list_for_each_entry(tmp, &(state->port_list), range_link) {
+      uint_t i = 0;
+      
+      PrintDebug("generic: hooking ports 0x%x to 0x%x as %x\n", 
+		 tmp->start, tmp->end, 
+		 (tmp->type == GENERIC_PRINT_AND_PASSTHROUGH) ? "print-and-passthrough" : "print-and-ignore");
+      
+      for (i = tmp->start; i <= tmp->end; i++) { 
+	if (tmp->type == GENERIC_PRINT_AND_PASSTHROUGH) { 
+	  
+	  if (dev_hook_io(dev, i, &generic_read_port_passthrough, &generic_write_port_passthrough)) { 
+	    PrintDebug("generic: can't hook port 0x%x (already hooked?)\n", i);
+	  }
+	  
+	} else if (tmp->type == GENERIC_PRINT_AND_IGNORE) { 
+	  
+	  if (dev_hook_io(dev, i, &generic_read_port_ignore, &generic_write_port_ignore)) { 
+	    PrintDebug("generic: can't hook port 0x%x (already hooked?)\n", i);
+	  }
+	} 
+      }
+
     }
-#else
+  } else {
     PrintDebug("generic: hooking ports not supported\n");
-#endif
-
   }
 
-  for (i = 0; i < state->num_address_ranges; i++) { 
-    PrintDebug("generic: hooking addresses 0x%x to 0x%x\n",state->address_ranges[i][0],state->address_ranges[i][1]); 
 
-#if MEM_HOOKS
-    if (dev_hook_mem(dev, state->address_ranges[i][0], state->address_ranges[i][1])) {
-      PrintDebug("generic: Can't hook addresses 0x%x to 0x%x (already hooked?)\n",
-		  state->address_ranges[i][0], state->address_ranges[i][1]); 
-    }
-#else
-    PrintDebug("generic: hooking addresses not supported\n");
-#endif
 
-  }
+  if (MEM_HOOKS) { // This is a runtime conditional on a #define
+    struct mem_range * tmp;
 
-  for (i = 0; i < state->num_irq_ranges; i++) { 
-    PrintDebug("generic: hooking irqs 0x%x to 0x%x\n",state->irq_ranges[i][0],state->irq_ranges[i][1]);
+    list_for_each_entry(tmp, &(state->mem_list), range_link) {
 
-#if IRQ_HOOKS
-    for (j = state->irq_ranges[i][0]; j <= state->irq_ranges[i][1]; j++) { 
-      if (dev_hook_irq(dev, j, &generic_interrupt)) { 
-	PrintDebug("generic: can't hook irq  0x%x (already hooked?)\n", j);
+      PrintDebug("generic: hooking addresses 0x%x to 0x%x\n", 
+		 tmp->start, tmp->end); 
+      
+      
+      if (dev_hook_mem(dev, tmp->start, tmp->end)) {
+	PrintDebug("generic: Can't hook addresses 0x%x to 0x%x (already hooked?)\n",
+		   tmp->start, tmp->end); 
       }
     }
-#else
-    PrintDebug("generic: hooking irqs not supported\n");
-#endif
-
+  } else {
+    PrintDebug("generic: hooking addresses not supported\n");
   }
 
-#ifdef RAMDISK_BOOT
 
-  ramdisk_state->cops.init(ramdisk_state, dev);
 
-#endif
+
+  if (IRQ_HOOKS) { // This is a runtime conditional on a #define
+    struct irq_range * tmp;
+    
+    list_for_each_entry(tmp, &(state->irq_list), range_link) {
+      uint_t i;
+
+      PrintDebug("generic: hooking irqs 0x%x to 0x%x\n",
+		 tmp->start, tmp->end);
+      
+      for (i = tmp->start; i <= tmp->end; i++) { 
+	if (dev_hook_irq(dev, i, &generic_interrupt)) { 
+	  PrintDebug("generic: can't hook irq  0x%x (already hooked?)\n", i);
+	}
+      }
+
+    }
+  } else {
+    PrintDebug("generic: hooking irqs not supported\n");
+  }
+
+
 
   return 0;
 }
 
-int generic_deinit_device(struct vm_device *dev)
-{
-  struct generic_internal *state = (struct generic_internal *)(dev->private_data);
-  uint_t i, j;
+int generic_deinit_device(struct vm_device * dev) {
+  struct generic_internal * state = (struct generic_internal *)(dev->private_data);
+
 
   PrintDebug("generic: deinit_device\n");
 
-#ifdef RAMDISK_BOOT
 
-  ramdisk_state->cops.close(ramdisk_state);
-  
-#endif
+  if (IRQ_HOOKS) { // This is a runtime conditional on a #define
+    struct irq_range * tmp;
+    struct irq_range * cur;
+    
+    list_for_each_entry_safe(cur, tmp, &(state->irq_list), range_link) {
+      uint_t i;
 
-  for (i = 0; i < state->num_irq_ranges; i++) { 
-    PrintDebug("generic: unhooking irqs 0x%x to 0x%x\n", state->irq_ranges[i][0], state->irq_ranges[i][1]);
+      PrintDebug("generic: unhooking irqs 0x%x to 0x%x\n", 
+		 cur->start, cur->end);
+      
 
-#if IRQ_HOOKS
-    for (j = state->irq_ranges[i][0]; j <= state->irq_ranges[i][1]; j++) { 
-      if (dev_unhook_irq(dev, j)) {
-	PrintDebug("generic: can't unhook irq 0x%x (already unhooked?)\n",j);
+      for (i = cur->start; i <= cur->end; i++) { 
+	if (dev_unhook_irq(dev, i)) {
+	  PrintDebug("generic: can't unhook irq 0x%x (already unhooked?)\n", i);
+	}
       }
+
+      list_del(&(cur->range_link));
+      state->num_irq_ranges--;
+      V3_Free(cur);
     }
-#else
+  } else {
     PrintDebug("generic: unhooking irqs not supported\n");
-#endif
-
   }
 
-  for (i = 0; i < state->num_address_ranges; i++) { 
-    PrintDebug("generic: unhooking addresses 0x%x to 0x%x\n",state->address_ranges[i][0],state->address_ranges[i][1]); 
 
-#if MEM_HOOKS
-    if (dev_unhook_mem(dev, state->address_ranges[i][0], state->address_ranges[i][1])) {
-      PrintDebug("generic: Can't unhook addresses 0x%x to 0x%x (already unhooked?)\n",
-		  state->address_ranges[i][0], state->address_ranges[i][1]); 
-    }
-#else
-    PrintDebug("generic: unhooking addresses not supported\n");
-#endif
+  if (MEM_HOOKS) {
+    struct mem_range * tmp;
+    struct mem_range * cur;
+    
+    list_for_each_entry_safe(cur, tmp, &(state->mem_list), range_link) {
 
-  }
+      PrintDebug("generic: unhooking addresses 0x%x to 0x%x\n",
+		 cur->start, cur->end); 
 
-  for (i = 0; i < state->num_port_ranges; i++) { 
-    PrintDebug("generic: unhooking ports 0x%x to 0x%x\n",state->port_ranges[i][0],state->port_ranges[i][1]);
-
-#if PORT_HOOKS
-    for (j = state->port_ranges[i][0]; j <= state->port_ranges[i][1]; j++) { 
-      if (dev_unhook_io(dev, j)) {
-	PrintDebug("generic: can't unhook port 0x%x (already unhooked?)\n", j);
+      if (dev_unhook_mem(dev, cur->start, cur->end)) {
+	PrintDebug("generic: Can't unhook addresses 0x%x to 0x%x (already unhooked?)\n",
+		   cur->start, cur->end); 
       }
-    }
-#else
-    PrintDebug("generic: unhooking ports not supported\n");
-#endif
 
+      list_del(&(cur->range_link));
+      state->num_mem_ranges--;
+      V3_Free(cur);
+    }
+  } else {
+    PrintDebug("generic: unhooking addresses not supported\n");
   }
+  
+
+  if (PORT_HOOKS) {
+    struct port_range * tmp;
+    struct port_range * cur;
+    
+    list_for_each_entry_safe(cur, tmp, &(state->port_list), range_link) {
+      uint_t i;
+
+      PrintDebug("generic: unhooking ports 0x%x to 0x%x\n",
+		   cur->start, cur->end);
+		
+      for (i = cur->start; i <= cur->end; i++) {
+	if (dev_unhook_io(dev, i)) {
+	  PrintDebug("generic: can't unhook port 0x%x (already unhooked?)\n", i);
+	}
+      }
+
+      list_del(&(cur->range_link));
+      state->num_port_ranges--;
+      V3_Free(cur);
+    }
+  } else {
+    PrintDebug("generic: unhooking ports not supported\n");
+  }
+
+
 
   generic_reset_device(dev);
   return 0;
@@ -386,77 +395,86 @@ static struct vm_device_ops dev_ops = {
 
 
 
-struct vm_device *create_generic(generic_port_range_type    port_ranges[], 
-				 generic_address_range_type address_ranges[],
-				 generic_irq_range_type     irq_ranges[])
-{
-  struct generic_internal * generic_state = (struct generic_internal *)V3_Malloc(sizeof(struct generic_internal));
-  int i;
-  uint_t num_port_ranges, num_address_ranges, num_irq_ranges;
+int v3_generic_add_port_range(struct vm_device * dev, uint_t start, uint_t end, uint_t type) {
 
-  num_port_ranges=0;
-  if (port_ranges!=NULL) { 
-    i=0;
-    while (port_ranges[i]!=NULL && 
-	   !(port_ranges[i][0]==0 && port_ranges[i][1]==0 && port_ranges[i][2]==0)) 
-      { num_port_ranges++; i++; }
-  }
+  if (PORT_HOOKS) {
+    struct generic_internal * state = (struct generic_internal *)(dev->private_data);
 
-  
-  num_address_ranges=0;
-  if (address_ranges!=NULL) { 
-    i=0;
-    while (address_ranges[i]!=NULL  && 
-	   !(address_ranges[i][0]==0 && address_ranges[i][1]==0 && address_ranges[i][2]==0)) 
-      { num_address_ranges++; i++; }
-  }
-
-  num_irq_ranges=0;
-  if (irq_ranges!=NULL) { 
-    i=0;
-    while (irq_ranges[i]!=NULL && 
-	   !(irq_ranges[i][0]==0 && irq_ranges[i][1]==0 && irq_ranges[i][2]==0) ) 
-      { num_irq_ranges++; i++; }
-  }
+    struct port_range * range = (struct port_range *)V3_Malloc(sizeof(struct port_range));
+    range->start = start;
+    range->end = end;
+    range->type = type;
     
-
-  generic_state->num_port_ranges = num_port_ranges;
-
-  if (num_port_ranges > 0) { 
-    generic_state->port_ranges = V3_Malloc(sizeof(generic_address_range_type) * num_port_ranges);
-    memcpy(generic_state->port_ranges, port_ranges, sizeof(generic_port_range_type) * num_port_ranges);
+      
+    PrintDebug("generic: Adding Port Range: 0x%x to 0x%x as %x\n", 
+	       range->start, range->end, 
+	       (range->type == GENERIC_PRINT_AND_PASSTHROUGH) ? "print-and-passthrough" : "print-and-ignore");
+    
+    list_add(&(range->range_link), &(state->port_list));
+    state->num_port_ranges++;
   } else {
-    generic_state->port_ranges = NULL;
+    PrintDebug("generic: hooking IO ports not supported\n");
+    return -1;
   }
 
+  return 0;
+}
 
-  generic_state->num_address_ranges = num_address_ranges;
+int v3_generic_add_mem_range(struct vm_device * dev, void * start, void * end, uint_t type) {
 
-  if (num_address_ranges > 0) { 
-    generic_state->address_ranges = V3_Malloc(sizeof(generic_address_range_type) * num_address_ranges);
-    memcpy(generic_state->address_ranges, address_ranges, sizeof(generic_address_range_type) * num_address_ranges);
+  if (MEM_HOOKS) {
+    struct generic_internal * state = (struct generic_internal *)(dev->private_data);
+    
+    struct mem_range * range = (struct mem_range *)V3_Malloc(sizeof(struct mem_range));
+    range->start = start;
+    range->end = end;
+    range->type = type;
+    
+    list_add(&(range->range_link), &(state->port_list));
+    state->num_mem_ranges++;
   } else {
-    generic_state->address_ranges = NULL;
+    PrintDebug("generic: hooking memory not supported\n");
+    return -1;
   }
 
+  return 0;
+}
 
-  generic_state->num_irq_ranges = num_irq_ranges;
 
-  if (num_irq_ranges > 0) { 
-    generic_state->irq_ranges = V3_Malloc(sizeof(generic_address_range_type) * num_irq_ranges);
-    memcpy(generic_state->irq_ranges, irq_ranges, sizeof(generic_irq_range_type) * num_port_ranges);
+int v3_generic_add_irq_range(struct vm_device * dev, uint_t start, uint_t end, uint_t type) {
+
+  if (IRQ_HOOKS) {
+    struct generic_internal * state = (struct generic_internal *)(dev->private_data);
+    
+    struct irq_range * range = (struct irq_range *)V3_Malloc(sizeof(struct irq_range));
+    range->start = start;
+    range->end = end;
+    range->type = type;
+    
+    list_add(&(range->range_link), &(state->port_list));
+    state->num_irq_ranges++;
   } else {
-    generic_state->irq_ranges = NULL;
+    PrintDebug("generic: hooking IRQs not supported\n");
+    return -1;
   }
 
-#ifdef RAMDISK_BOOT
+  return 0;
+}
 
-  ramdisk_state = create_ramdisk();
-  V3_ASSERT(ramdisk_state != NULL);
 
-#endif
 
-  struct vm_device *device = create_device("GENERIC", &dev_ops, generic_state);
+struct vm_device * create_generic() {
+  struct generic_internal * generic_state = (struct generic_internal *)V3_Malloc(sizeof(struct generic_internal));
+  
+  generic_state->num_port_ranges = 0;
+  generic_state->num_mem_ranges = 0;
+  generic_state->num_irq_ranges = 0;
+
+  INIT_LIST_HEAD(&(generic_state->port_list));
+  INIT_LIST_HEAD(&(generic_state->mem_list));
+  INIT_LIST_HEAD(&(generic_state->irq_list));
+    
+  struct vm_device * device = create_device("GENERIC", &dev_ops, generic_state);
 
   return device;
 }

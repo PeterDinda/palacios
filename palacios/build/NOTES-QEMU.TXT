@@ -25,3 +25,15 @@ mkisofs -pad -b <floppy_image> -R -o <iso_output_image> <floppy_image>
 
 
 /usr/local/qemu/bin/qemu-system-x86_64 -serial file:serial.out -m 1024 -fda vmm.img  -cdrom guest_no_timer.iso
+
+
+
+Creating a grub based bootable cd ISO image:
+
+mkidr iso
+mkdir -p iso/boot/grub
+
+get "menu.lst" and "stage2_eltorito" from the grub files located in vmm-tools/others
+copy menu.lst and stage2_eltorito into iso/boot/grub
+
+mkisofs -R -b boot/grub/stage2_eltorito -no-emul-boot -boot-load-size 4 -boot-info-table -o test.iso iso 

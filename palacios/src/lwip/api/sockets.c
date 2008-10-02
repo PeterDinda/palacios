@@ -52,6 +52,8 @@
 #include "lwip/udp.h"
 #include "lwip/tcpip.h"
 
+#include "lwip/arch.h"
+
 #include <string.h>
 
 #define NUM_SOCKETS MEMP_NUM_NETCONN
@@ -853,9 +855,7 @@ lwip_select(int maxfdp1, fd_set *readset, fd_set *writeset, fd_set *exceptset,
   struct lwip_select_cb select_cb;
   struct lwip_select_cb *p_selcb;
 
-  LWIP_DEBUGF(SOCKETS_DEBUG, ("lwip_select(%d, %p, %p, %p, tvsec=%ld tvusec=%ld)\n",
-                  maxfdp1, (void *)readset, (void *) writeset, (void *) exceptset,
-                  timeout ? timeout->tv_sec : -1L, timeout ? timeout->tv_usec : -1L));
+  LWIP_DEBUGF(SOCKETS_DEBUG, ("lwip_select(%d, %p, %p, %p, tvsec=%ld tvusec=%ld)\n", maxfdp1, (void *)readset, (void *) writeset, (void *) exceptset, timeout?timeout->tv_sec:-1L, timeout?timeout->tv_usec:-1L));
 
   select_cb.next = 0;
   select_cb.readset = readset;

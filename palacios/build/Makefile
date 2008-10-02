@@ -183,16 +183,6 @@ endif
 #
 TCPSTACK=UIP
 
-#
-#RAMDISK
-#
-RAMDISK_SRCS=
-BOOT_FLAGS=
-
-ifeq ($(RAMDISK_BOOT),1)
-BOOT_FLAGS := $(BOOT_FLAGS) -DRAMDISK_BOOT
-RAMDISK_SRCS := ramdisk.c cdrom.c
-endif
 
 
 
@@ -295,7 +285,7 @@ VMM_OBJS := $(VMM_C_OBJS) $(VMM_ASM_OBJS)
 
 
 
-DEVICE_C_SRCS := generic.c keyboard.c nvram.c timer.c simple_pic.c 8259a.c 8254.c serial.c $(RAMDISK_SRCS)
+DEVICE_C_SRCS := generic.c keyboard.c nvram.c timer.c simple_pic.c 8259a.c 8254.c serial.c ramdisk.c cdrom.c
 
 DEVICE_C_OBJS := $(DEVICE_C_SRCS:%.c=devices/%.o)
 
@@ -439,7 +429,7 @@ devices/%.o : devices/%.asm
 	$(NASM) $(NASM_VMM_OPTS) $< -o devices/$*.o
 
 net/%.o : net/%.c
-	$(TARGET_CC) -c $(CC_GENERAL_OPTS) $(CC_VMM_OPTS)  $(CC_USER_OPTS) $< -o net/$*.o
+	$(TARGET_CC) -c $(CC_GENERAL_OPTS)  $(CC_USER_OPTS) $< -o net/$*.o
 
 # ----------------------------------------------------------------------
 # Targets -
@@ -498,6 +488,9 @@ pxe:	vmm.img
 run: vmm.img
 	/usr/local/qemu/bin/qemu-system-x86_64 -m 1024 -serial file:serial.out -cdrom puppy.iso -fda vmm.img 
 
+iso: vmm.img
+	cp vmm.img iso/vmm.img
+	mkisofs -R -b boot/grub/stage2_eltorito -no-emul-boot -boot-load-size 4 -boot-info-table -o test.iso iso
 
 
 

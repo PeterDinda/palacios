@@ -7,17 +7,12 @@
 #ifndef __DEVICES_CDROM_H_
 #define __DEVICES_CDROM_H_
 
-#include <geekos/ktypes.h>
+#include <devices/ramdisk.h>
+#include <devices/ide.h>
+#include <palacios/vmm_types.h>
 
-typedef unsigned int rd_bool;
-typedef uchar_t Bit8u;
-typedef ushort_t Bit16u;
-typedef uint_t Bit32u;
-typedef ullong_t Bit64u;
 
-#define uint8 Bit8u 
-#define uint16 Bit16u 
-#define uint32 Bit32u 
+
 
 struct cdrom_interface;
 
@@ -38,17 +33,17 @@ struct cdrom_ops {
   /* 
    * Read CD TOC. Returns false if start track is out of bounds.
    */
-  rd_bool (*read_toc)(struct cdrom_interface *cdrom, uint8* buf, int* length, rd_bool msf, int start_track);
+  rd_bool (*read_toc)(struct cdrom_interface * cdrom, uint8_t * buf, int* length, rd_bool msf, int start_track);
   
   /* 
    * Return CD-ROM capacity (in 2048 byte frames)
    */
-  uint32 (*capacity)(struct cdrom_interface *cdrom);
+  uint32_t (*capacity)(struct cdrom_interface *cdrom);
   
   /*
    * Read a single block from the CD
    */
-  void (*read_block)(struct cdrom_interface *cdrom, uint8* buf, int lba);
+  void (*read_block)(struct cdrom_interface *cdrom, uint8_t* buf, int lba);
   
   /*
    * Start (spin up) the CD.

@@ -34,10 +34,9 @@
  */
 struct Page* g_pageList;
 
-#ifdef RAMDISK_BOOT
 ulong_t g_ramdiskImage;
 ulong_t s_ramdiskSize;
-#endif
+
 
 /*
  * Number of pages currently available on the freelist.
@@ -142,13 +141,12 @@ void Init_Mem(struct Boot_Info* bootInfo)
     ulong_t heapEnd;
     ulong_t vmmMemEnd;
 
-    /*Zheng 08/03/2008*/    
-#ifdef RAMDISK_BOOT
+
     g_ramdiskImage = bootInfo->ramdisk_image;
     s_ramdiskSize = bootInfo->ramdisk_size;
     ulong_t initrdAddr;
     ulong_t initrdEnd;
-#endif
+
     
 
     KASSERT(bootInfo->memSizeKB > 0);
@@ -204,7 +202,6 @@ void Init_Mem(struct Boot_Info* bootInfo)
     /* ** */
     vmmMemEnd = Round_Up_To_Page(pageListEnd + VMM_AVAIL_MEM_SIZE);
 
-#ifdef RAMDISK_BOOT
     /*
      * Zheng 08/03/2008
      * copy the ramdisk to this area 
@@ -216,23 +213,23 @@ void Init_Mem(struct Boot_Info* bootInfo)
     memcpy((ulong_t *)initrdAddr, (ulong_t *)g_ramdiskImage, s_ramdiskSize);
     PrintBoth(" done\n");
     PrintBoth("mem.c(%d) Set 0 to unused bytes in the last ramdisk page from %x to %x", __LINE__, initrdAddr+s_ramdiskSize, initrdEnd);
-    memset((ulong_t *)initrdAddr+s_ramdiskSize, 0, initrdEnd-(initrdAddr+s_ramdiskSize));
+    memset((ulong_t *)initrdAddr + s_ramdiskSize, 0, initrdEnd - (initrdAddr + s_ramdiskSize));
     PrintBoth(" done\n");
-    /*
-     * Zheng 08/03/2008
-     */
-    vm_range_start = initrdEnd;
-    vm_range_end = endOfMem;
-#else
+
+
     
     /* 
      *  the disgusting way to get at the memory assigned to a VM
      */
     
-    vm_range_start = vmmMemEnd;
-    vm_range_end = endOfMem;
-    
-#endif
+    //vm_range_start = vmmMemEnd;
+    //vm_range_end = endOfMem;
+    /*
+     * Zheng 08/03/2008
+     */
+    vm_range_start = initrdEnd;
+    vm_range_end = endOfMem;    
+
 
     Add_Page_Range(0, PAGE_SIZE, PAGE_UNUSED);                        // BIOS area
     Add_Page_Range(PAGE_SIZE, PAGE_SIZE * 3, PAGE_ALLOCATED);         // Intial kernel thread obj + stack
