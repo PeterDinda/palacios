@@ -177,12 +177,15 @@ int config_guest(struct guest_info * info, void * config_ptr) {
     struct vm_device * generic = NULL;
     //Zheng 09/29/2008
 
+
     if (use_ramdisk) {
+      PrintDebug("Creating Ramdisk\n");
       ramdisk = create_ramdisk();
     }
     
     
     if (use_generic) {
+      PrintDebug("Creating Generic Device\n");
       generic = create_generic();
       
       // Make the DMA controller invisible

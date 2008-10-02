@@ -56,7 +56,7 @@ void cdrom_eject(struct cdrom_interface *cdrom)
  * Read CD TOC. Returns false if start track is out of bounds.
  */
 static
-rd_bool cdrom_read_toc(struct cdrom_interface *cdrom, uint8* buf, int* length, rd_bool msf, int start_track)
+rd_bool cdrom_read_toc(struct cdrom_interface *cdrom, uint8_t* buf, int* length, rd_bool msf, int start_track)
 {
   Ramdisk_Print_CD("[cdrom_read_toc]\n");
   return 1;
@@ -66,7 +66,7 @@ rd_bool cdrom_read_toc(struct cdrom_interface *cdrom, uint8* buf, int* length, r
  * Return CD-ROM capacity (in 2048 byte frames)
  */
 static
-uint32 cdrom_capacity(struct cdrom_interface *cdrom)
+uint32_t cdrom_capacity(struct cdrom_interface *cdrom)
 {
   Ramdisk_Print_CD("[cdrom_capacity] s_ramdiskSize = %d\n", cdrom->capacity_B);
   if (cdrom->lba) {
@@ -87,13 +87,13 @@ uint32 cdrom_capacity(struct cdrom_interface *cdrom)
  * Read a single block from the CD
  */
 static
-void cdrom_read_block(struct cdrom_interface *cdrom, uint8* buf, int lba)// __attribute__(regparm(2));
+void cdrom_read_block(struct cdrom_interface *cdrom, uint8_t* buf, int lba)// __attribute__(regparm(2));
 {
 
   V3_ASSERT(lba != 0);
     
   Ramdisk_Print_CD("[cdrom_read_block] lba = %d\n", lba);
-  memcpy(buf, (uint8 *)(cdrom->fd + lba*2048), 2048);
+  memcpy(buf, (uint8_t *)(cdrom->fd + lba*2048), 2048);
     return;
 }
 

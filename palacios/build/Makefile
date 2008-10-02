@@ -183,16 +183,6 @@ endif
 #
 TCPSTACK=UIP
 
-#
-#RAMDISK
-#
-RAMDISK_SRCS=
-BOOT_FLAGS=
-
-ifeq ($(RAMDISK_BOOT),1)
-BOOT_FLAGS := $(BOOT_FLAGS) -DRAMDISK_BOOT
-RAMDISK_SRCS := ramdisk.c cdrom.c
-endif
 
 
 
@@ -295,7 +285,7 @@ VMM_OBJS := $(VMM_C_OBJS) $(VMM_ASM_OBJS)
 
 
 
-DEVICE_C_SRCS := generic.c keyboard.c nvram.c timer.c simple_pic.c 8259a.c 8254.c serial.c $(RAMDISK_SRCS)
+DEVICE_C_SRCS := generic.c keyboard.c nvram.c timer.c simple_pic.c 8259a.c 8254.c serial.c ramdisk.c cdrom.c
 
 DEVICE_C_OBJS := $(DEVICE_C_SRCS:%.c=devices/%.o)
 
