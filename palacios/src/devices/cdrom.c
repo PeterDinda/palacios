@@ -1,9 +1,6 @@
-/*
- * Zheng Cui
- * cuizheng@cs.unm.edu
- * July 2008
- */
-
+/* (c) 2008, Zheng Cui <cuizheng@cs.unm.edu> */
+/* (c) 2008, Jack Lange <jarusl@cs.northwestern.edu> */
+/* (c) 2008, The V3VEE Project <http://www.v3vee.org> */
 
 #include <devices/cdrom.h>
 #include <palacios/vmm.h>

@@ -1,14 +1,14 @@
-/*
- * Zheng Cui
- * cuizheng@cs.unm.edu
- * July 2008
- */
+/* (c) 2008, Zheng Cui <cuizheng@cs.unm.edu> */
+/* (c) 2008, Jack Lange <jarusl@cs.northwestern.edu> */
+/* (c) 2008, The V3VEE Project <http://www.v3vee.org> */
+
+
 
 #include <devices/ramdisk.h>
 #include <palacios/vmm.h>
 #include <devices/cdrom.h>
 #include <devices/ide.h>
-#include <devices/atapi.h>
+
 
 #ifndef DEBUG_RAMDISK
 #undef PrintDebug
@@ -1275,7 +1275,7 @@ static int write_general_port(ushort_t port, void * src, uint_t length, struct v
     }
   default:
     PrintError("\t\thard drive: io write to unhandled port 0x%x  (value = %c)\n", port, value);
-    return -1;
+    //return -1;
   }
 
   return length;
@@ -1999,13 +1999,17 @@ int rd_init_send_atapi_command(struct vm_device * dev, struct channel_t * channe
 
 void rd_atapi_cmd_error(struct vm_device * dev, struct channel_t * channel, sense_t sense_key, asc_t asc)
 {
-  struct ramdisk_t *ramdisk = (struct ramdisk_t *)(dev->private_data);
   struct drive_t * drive = &(channel->drives[channel->drive_select]);
   struct controller_t * controller = &(drive->controller);
 
-  PrintDebug("[rd_atapi_cmd_error]\n");
-  PrintDebug("Error: atapi_cmd_error channel=%02x key=%02x asc=%02x\n", 
-	     get_channel_no(ramdisk, channel), sense_key, asc);
+#ifdef DEBUG_RAMDISK
+  {
+    struct ramdisk_t *ramdisk = (struct ramdisk_t *)(dev->private_data);
+    PrintDebug("[rd_atapi_cmd_error]\n");
+    PrintDebug("Error: atapi_cmd_error channel=%02x key=%02x asc=%02x\n", 
+	       get_channel_no(ramdisk, channel), sense_key, asc);
+  }
+#endif
 
   controller->error_register = sense_key << 4;
   controller->interrupt_reason.i_o = 1;

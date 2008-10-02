@@ -101,10 +101,6 @@ int generic_write_port_passthrough(ushort_t port,
 
   switch (length) {
   case 1:
-<<<<<<< HEAD:palacios/src/devices/generic.c
-=======
-
->>>>>>> ramdisk:palacios/src/devices/generic.c
     v3_outb(port,((uchar_t*)src)[0]);
     break;
   case 2:
@@ -112,10 +108,6 @@ int generic_write_port_passthrough(ushort_t port,
     break;
   case 4:
     v3_outdw(port,((uint_t*)src)[0]);
-<<<<<<< HEAD:palacios/src/devices/generic.c
-=======
-
->>>>>>> ramdisk:palacios/src/devices/generic.c
     break;
   default:
     for (i = 0; i < length; i++) { 
