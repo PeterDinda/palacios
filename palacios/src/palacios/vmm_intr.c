@@ -149,13 +149,14 @@ int v3_lower_irq(struct guest_info * info, int irq) {
 
   PrintDebug("[v3_lower_irq]\n");
 
-  //  if ((info->intr_state.controller) && 
-  //  (info->intr_state.controller->raise_intr)) {
+  if ((info->intr_state.controller) && 
+      (info->intr_state.controller->raise_intr)) {
     info->intr_state.controller->lower_intr(info->intr_state.controller_state, irq);
-    //} else {
-    // PrintDebug("There is no registered Interrupt Controller... (NULL POINTER)\n");
-    // return -1;
-    //}
+  } else {
+    PrintDebug("There is no registered Interrupt Controller... (NULL POINTER)\n");
+    return -1;
+  }
+
   return 0;
 }
 
@@ -167,13 +168,14 @@ int v3_raise_irq(struct guest_info * info, int irq) {
 
   PrintDebug("[v3_raise_irq]\n");
 
-  //  if ((info->intr_state.controller) && 
-  //  (info->intr_state.controller->raise_intr)) {
+  if ((info->intr_state.controller) && 
+      (info->intr_state.controller->raise_intr)) {
     info->intr_state.controller->raise_intr(info->intr_state.controller_state, irq);
-    //} else {
-    // PrintDebug("There is no registered Interrupt Controller... (NULL POINTER)\n");
-    // return -1;
-    //}
+  } else {
+    PrintDebug("There is no registered Interrupt Controller... (NULL POINTER)\n");
+    return -1;
+  }
+
   return 0;
 }
 

@@ -23,7 +23,9 @@
 #include <geekos/io_defs.h>
 
 /* PAD this currently is in nvram.c */
+/* JRL: This is completely broken
 extern void deliver_timer_interrupt_to_vmm(uint_t period_us);
+*/
 
 /* JRL Add a cpu frequency measurement */
 uint_t cpu_khz_freq;
@@ -217,9 +219,9 @@ static void Timer_Interrupt_Handler(struct Interrupt_State* state)
     
   }
   
-  
+  /* JRL: Broken,  
   deliver_timer_interrupt_to_vmm(1000000/HZ);
-  
+  */
   End_IRQ(state);
 }
 
