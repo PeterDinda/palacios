@@ -802,3 +802,5 @@ void    PrintTrace_HOST_RIP();
 
 void PrintTrace_VMCS_ALL();
 #endif
+
+#endif
