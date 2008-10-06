@@ -51,7 +51,7 @@
 
 #include <string.h>
 
-#include <palacios/vmm.h>
+//#include <palacios/vmm.h>
 #include <geekos/synch.h>
 #include <geekos/kthread.h>
 #include <geekos/debug.h>

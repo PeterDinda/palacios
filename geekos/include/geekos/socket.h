@@ -21,8 +21,10 @@
 #define GEEKOS_SOCKET_H
 
 #include <geekos/ring_buffer.h>
-#include <uip/uip.h>
 #include <geekos/kthread.h>
+
+#ifdef UIP
+#include <uip/uip.h>
 
 
 typedef enum {WAITING, CLOSED, LISTEN, ESTABLISHED} sock_state_t;
@@ -48,5 +50,6 @@ int send(int sockfd, void * buf, uint_t len);
 
 void set_ip_addr(uchar_t addr[4]);
 
+#endif // UIP
 
 #endif
