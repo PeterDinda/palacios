@@ -34,7 +34,8 @@ void Init_Network() {
   //temporay now we are using lwip sockets
   // init_socket_layer();
 
-#ifdef LWIP  
+#ifdef LWIP
+  
   struct ip_addr ipaddr, netmask, gateway;
   sys_sem_t sem;
   err_t err;
