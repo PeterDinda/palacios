@@ -33,6 +33,7 @@
 #include <palacios/vm_guest_mem.h>
 
 #include <palacios/vmm_decoder.h>
+#include <palacios/vmm_string.h>
 
 
 

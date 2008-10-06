@@ -34,7 +34,8 @@
 
 #ifdef __V3VEE__
 
-#include <stddef.h>
+#include <palacios/vmm_stddef.h>
+
 
 void* memset(void* s, int c, size_t n);
 void* memcpy(void *dst, const void* src, size_t n);
@@ -45,6 +46,7 @@ size_t strnlen(const char *s, size_t maxlen);
 int strcmp(const char* s1, const char* s2);
 int strncmp(const char* s1, const char* s2, size_t limit);
 char *strcat(char *s1, const char *s2);
+char *strncat(char *s1, const char *s2, size_t limit);
 char *strcpy(char *dest, const char *src);
 char *strncpy(char *dest, const char *src, size_t limit);
 char *strdup(const char *s1);
@@ -55,6 +57,7 @@ char *strpbrk(const char *s, const char *accept);
 
 
 double ceil(double x);
+
 
 
 #endif // !__V3VEE__

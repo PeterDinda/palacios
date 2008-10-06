@@ -233,11 +233,12 @@ int RunVMM(struct Boot_Info * bootInfo) {
   
   Init_V3(&os_hooks, &vmm_ops);
 
-  extern char _binary_vm_kernel_start;
-  PrintBoth(" Guest Load Addr: 0x%x\n", &_binary_vm_kernel_start);
-  
-  config_data = &_binary_vm_kernel_start;
 
+  extern char _binary___palacios_vm_kernel_start;
+  PrintBoth(" Guest Load Addr: 0x%x\n", &_binary___palacios_vm_kernel_start);
+  
+  config_data = &_binary___palacios_vm_kernel_start;
+ 
   vm_info = (vmm_ops).allocate_guest();
 
   PrintBoth("Allocated Guest\n");
@@ -245,7 +246,7 @@ int RunVMM(struct Boot_Info * bootInfo) {
   (vmm_ops).config_guest(vm_info, config_data);
 
   PrintBoth("Configured guest\n");
-  
+
 
   //v3_hook_io_port(&vm_info, 0x05, &IO_Read, &IO_Write_to_Serial, NULL);
   

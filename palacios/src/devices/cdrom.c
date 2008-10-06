@@ -28,8 +28,9 @@
 #endif
 
 
-extern ulong_t g_ramdiskImage;
-extern ulong_t s_ramdiskSize;
+
+ulong_t g_ramdiskImage;
+ulong_t s_ramdiskSize;
 
 static
 void cdrom_init(struct cdrom_interface * cdrom)
@@ -137,4 +138,5 @@ void init_cdrom(struct cdrom_interface *cdrom)
 
   return;
 }
+
 

@@ -36,6 +36,26 @@
  */
 
 
+
+#define NEED_MEMSET 0
+#define NEED_MEMCPY 0
+#define NEED_MEMCMP 0
+#define NEED_STRLEN 0
+#define NEED_STRNLEN 0
+#define NEED_STRCMP 0
+#define NEED_STRNCMP 0
+#define NEED_STRCAT 0
+#define NEED_STRNCAT 0
+#define NEED_STRCPY 0
+#define NEED_STRNCPY 0
+#define NEED_STRDUP 0
+#define NEED_ATOI 0
+#define NEED_STRCHR 0
+#define NEED_STRRCHR 0
+#define NEED_STRPBRK 0
+
+
+
 #include <palacios/vmm_string.h>
 #include <palacios/vmm.h>
 
@@ -50,7 +70,8 @@ double ceil(double x) {
   return (int)(x + e) + 1;
 }
 
-#if 0
+
+#if NEED_MEMSET
 void* memset(void* s, int c, size_t n)
 {
     unsigned char* p = (unsigned char*) s;
@@ -62,8 +83,9 @@ void* memset(void* s, int c, size_t n)
 
     return s;
 }
+#endif
 
-
+#if NEED_MEMCPY
 void* memcpy(void *dst, const void* src, size_t n)
 {
     unsigned char* d = (unsigned char*) dst;
@@ -76,8 +98,10 @@ void* memcpy(void *dst, const void* src, size_t n)
 
     return dst;
 }
+#endif
 
 
+#if NEED_CMP
 int memcmp(const void *s1_, const void *s2_, size_t n)
 {
     const signed char *s1 = s1_, *s2 = s2_;
@@ -92,7 +116,10 @@ int memcmp(const void *s1_, const void *s2_, size_t n)
 
     return 0;
 }
+#endif
 
+
+#if NEED_STRLEN
 size_t strlen(const char* s)
 {
     size_t len = 0;
@@ -100,7 +127,11 @@ size_t strlen(const char* s)
 	++len;
     return len;
 }
+#endif
 
+
+
+#if NEED_STRNLEN
 /*
  * This it a GNU extension.
  * It is like strlen(), but it will check at most maxlen
@@ -116,7 +147,10 @@ size_t strnlen(const char *s, size_t maxlen)
 	++len;
     return len;
 }
+#endif
 
+
+#if NEED_STRCMP
 int strcmp(const char* s1, const char* s2)
 {
     while (1) {
@@ -127,7 +161,10 @@ int strcmp(const char* s1, const char* s2)
 	++s2;
     }
 }
+#endif
 
+
+#if NEED_STRNCMP
 int strncmp(const char* s1, const char* s2, size_t limit)
 {
     size_t i = 0;
@@ -143,7 +180,10 @@ int strncmp(const char* s1, const char* s2, size_t limit)
     /* limit reached and equal */
     return 0;
 }
+#endif
 
+
+#if NEED_STRCAT
 char *strcat(char *s1, const char *s2)
 {
     char *t1;
@@ -155,7 +195,28 @@ char *strcat(char *s1, const char *s2)
 
     return t1;
 }
+#endif
 
+
+#if NEED_STRNCAT
+char *strncat(char *s1, const char *s2, size_t limit)
+{
+    size_t i = 0;
+    char *t1;
+    t1 = s1;
+    while (*s1) s1++;
+    while (i < limit) {
+      if(*s2 == '\0') break;
+      *s1++ = *s2++;		
+    }
+    *s1 = '\0';
+    return t1;
+}
+#endif
+
+
+
+#if NEED_STRCPY
 char *strcpy(char *dest, const char *src)
 {
     char *ret = dest;
@@ -167,7 +228,10 @@ char *strcpy(char *dest, const char *src)
 
     return ret;
 }
+#endif
 
+
+#if NEED_STRNCPY
 char *strncpy(char *dest, const char *src, size_t limit)
 {
     char *ret = dest;
@@ -181,7 +245,11 @@ char *strncpy(char *dest, const char *src, size_t limit)
 
     return ret;
 }
+#endif
 
+
+
+#if NEED_STRDUP
 char *strdup(const char *s1)
 {
     char *ret;
@@ -191,7 +259,12 @@ char *strdup(const char *s1)
 
     return ret;
 }
+#endif
 
+
+
+
+#if NEED_ATOI
 int atoi(const char *buf) 
 {
     int ret = 0;
@@ -204,7 +277,10 @@ int atoi(const char *buf)
 
     return ret;
 }
+#endif
 
+
+#if NEED_STRCHR
 char *strchr(const char *s, int c)
 {
     while (*s != '\0') {
@@ -214,7 +290,10 @@ char *strchr(const char *s, int c)
     }
     return 0;
 }
+#endif
 
+
+#if NEED_STRRCHR
 char *strrchr(const char *s, int c)
 {
     size_t len = strlen(s);
@@ -227,7 +306,9 @@ char *strrchr(const char *s, int c)
     }
     return 0;
 }
+#endif
 
+#if NEED_STRPBRK
 char *strpbrk(const char *s, const char *accept)
 {
     size_t setLen = strlen(accept);
@@ -243,5 +324,5 @@ char *strpbrk(const char *s, const char *accept)
 
     return 0;
 }
-
 #endif
+

@@ -148,6 +148,17 @@
     ret;							\
   })								\
 
+#define V3_Yield(addr)					\
+  do {							\
+    extern struct vmm_os_hooks * os_hooks;		\
+    if ((os_hooks) && (os_hooks)->yield_cpu) {		\
+      (os_hooks)->yield_cpu();				\
+    }							\
+  } while (0)						\
+
+
+
+
 
 /* ** */
 
@@ -223,7 +234,7 @@ struct vmm_os_hooks {
 
   void (*start_kernel_thread)(); // include pointer to function
 
-
+  void (*yield_cpu)();
 
 };
 

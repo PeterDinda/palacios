@@ -167,13 +167,13 @@ EXPORT Get_PDBR
 EXPORT Flush_TLB
 
 ; CPUID functions
-EXPORT cpuid_ecx
-EXPORT cpuid_eax
-EXPORT cpuid_edx
+;EXPORT cpuid_ecx
+;EXPORT cpuid_eax
+;EXPORT cpuid_edx
 
 ; Utility Functions
-EXPORT Set_MSR
-EXPORT Get_MSR
+;EXPORT Set_MSR
+;EXPORT Get_MSR
 
 
 EXPORT Get_CR2

@@ -21,6 +21,7 @@
 #define __VMM_TYPES_H
 
 #ifdef __V3VEE__
+#include <palacios/vmm_stddef.h>
 
 
 typedef signed char schar_t;
@@ -38,7 +39,7 @@ typedef unsigned long long ullong_t;
 typedef signed long slong_t;
 typedef unsigned long ulong_t;
 
-typedef unsigned long size_t;
+//typedef unsigned long size_t;
        
 
 #define false 0
