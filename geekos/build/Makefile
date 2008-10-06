@@ -56,7 +56,15 @@ VPATH := $(PROJECT_ROOT)/src
 #
 TCPSTACK=UIP
 
+#
+#TCPSTACK, uIP is used currently
+#
+UIP=OFF
 
+#
+#LWIP, ON -- used, OFF -- not used
+#
+LWIP=ON
 
 
 #
@@ -142,13 +150,26 @@ V3_LIBS := ./palacios/libxed.a ./palacios/libv3vee.a ./palacios/libxed.a ./palac
 
 
 
-TCPSTACK_C_SRCS := psock.c timer.c uip_arp.c uip.c uip-fw.c uiplib.c uip-neighbor.c uip-split.c resolv.c
-
-TCPSTACK_C_OBJS := $(TCPSTACK_C_SRCS:%.c=net/%.o)
-
-TCPSTACK_OBJS := $(TCPSTACK_C_OBJS)
 
 
+
+ifeq ($(UIP),ON)
+	UIP_C_SRCS := psock.c timer.c uip_arp.c uip.c uip-fw.c uiplib.c uip-neighbor.c uip-split.c resolv.c
+	UIP_C_OBJS := $(UIP_C_SRCS:%.c=net/%.o)
+else
+	UIP_C_SRCS :=
+	UIP_C_OBJS :=	
+endif
+
+ifeq ($(LWIP),ON)
+	LWIP_OBJS := lwip/*.o
+	CC_LWIP_OPTS := -I$(PROJECT_ROOT)/include/lwip  -I$(PROJECT_ROOT)/include/lwip/ipv4 -I$(PROJECT_ROOT)/include/libc -DLWIP_DEBUG
+else
+	LWIP_OBJS := 
+	CC_LWIP_OPTS :=
+endif
+
+TCPSTACK_OBJS := $(UIP_C_OBJS) $(LWIP_OBJS)
 
 
 # ----------------------------------------------------------------------
@@ -241,7 +262,7 @@ OBJCOPY_FLAGS := -R .dynamic -R .note -R .comment
 # Compilation of kernel C source files
 
 geekos/%.o : geekos/%.c
-	$(TARGET_CC) -c $(CC_GENERAL_OPTS) $(CC_KERNEL_OPTS) $< -o geekos/$*.o
+	$(TARGET_CC) -c $(CC_GENERAL_OPTS) $(CC_KERNEL_OPTS)  $(CC_LWIP_OPTS) $< -o geekos/$*.o
 
 
 # Compilation of kernel assembly source files

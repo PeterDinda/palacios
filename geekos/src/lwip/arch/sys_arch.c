@@ -44,18 +44,18 @@
  *    will block until there is more room instead of just
  *    leaking messages.
  */
+/*
+ * Modified by Lei Xia (lxia@northwestern.edu) to fit to Palacios, 9/29/2008
+ */
 #include "lwip/debug.h"
 
 #include <string.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <pthread.h>
 
+#include <palacios/vmm.h>
 #include <geekos/synch.h>
 #include <geekos/kthread.h>
 #include <geekos/debug.h>
+#include <geekos/timer.h>
 #include <geekos/malloc.h>
 
 #include "lwip/sys.h"
@@ -103,15 +103,15 @@ struct sys_thread {
 };
 
 
-static struct timeval starttime;
+//static struct timeval starttime;
 
 //static pthread_mutex_t lwprot_mutex = PTHREAD_MUTEX_INITIALIZER;
 static struct Mutex lwprot_mutex; // !!!! need to be initiated, void Mutex_Init(struct Mutex* mutex);
 
 //static pthread_t lwprot_thread = (pthread_t) 0xDEAD;
-static struct Kernel_Thread lwprot_thread = (struct Kernel_Thread) 0xDEAD;  //!!!!! how to set it to a NULL thread?
+//static struct Kernel_Thread lwprot_thread = (struct Kernel_Thread) 0xDEAD;  //!!!!! how to set it to a NULL thread?
 
-static int lwprot_count = 0;
+//static int lwprot_count = 0;
 
 static struct sys_sem *sys_sem_new_(u8_t count);
 static void sys_sem_free_(struct sys_sem *sem);
@@ -188,12 +188,11 @@ current_thread(void)
 }
 
 
-//!!!!!!!!!!!!backto this function later
 /*-----------------------------------------------------------------------------------*/
 sys_thread_t
 sys_thread_new(char *name, void (* function)(void *arg), void *arg, int stacksize, int prio)
 {
-  int code;
+  //int code;
   //pthread_t tmp;
   struct Kernel_Thread *tmp;
   struct sys_thread *st = NULL;
@@ -610,6 +609,8 @@ sys_arch_timeouts(void)
   thread = current_thread();
   return &thread->timeouts;
 }
+
+
 /*-----------------------------------------------------------------------------------*/
 /** sys_prot_t sys_arch_protect(void)
 
@@ -625,6 +626,8 @@ that case the return value indicates that it is already protected.
 sys_arch_protect() is only required if your port is supporting an operating
 system.
 */
+
+#if 0
 sys_prot_t
 sys_arch_protect(void)
 {
@@ -659,11 +662,12 @@ sys_arch_unprotect(sys_prot_t pval)
     {
         if (--lwprot_count == 0)
         {
-            lwprot_thread = (Kernel_Thread) 0xDEAD;
+            lwprot_thread = (struc Kernel_Thread) 0xDEAD;
             Mutex_Unlock(&lwprot_mutex);
         }
     }
 }
+#endif
 
 /*-----------------------------------------------------------------------------------*/
 
@@ -675,6 +679,7 @@ sys_arch_unprotect(sys_prot_t pval)
 #define HZ 100
 #endif
 
+#if 0
 unsigned long
 sys_jiffies(void)
 {
@@ -690,6 +695,7 @@ sys_jiffies(void)
     usec /= 1000000L / HZ;
     return HZ * sec + usec;
 }
+#endif
 
 #if PPP_DEBUG
 
@@ -703,7 +709,7 @@ void ppp_trace(int level, const char *format, ...)
     va_start(args, format);
 	
     //vprintf(format, args);
-    SerialPrintList(format, args);
+    PrintDebug(format, args);
 	
     va_end(args);
 }

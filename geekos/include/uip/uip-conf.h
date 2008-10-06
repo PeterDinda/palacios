@@ -69,7 +69,8 @@ extern int appcall(void);
  *
  * \hideinitializer
  */
-typedef unsigned char u8_t;
+//conflict with lwip
+//typedef unsigned char u8_t;
 
 /**
  * 16 bit datatype
@@ -78,7 +79,8 @@ typedef unsigned char u8_t;
  *
  * \hideinitializer
  */
-typedef unsigned short int u16_t;
+//confict with lwip
+//typedef unsigned short int u16_t;
 
 /**
  * Statistics datatype

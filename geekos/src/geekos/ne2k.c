@@ -25,8 +25,11 @@
 #include <geekos/irq.h>
 #include <geekos/malloc.h>
 #include <geekos/string.h>
+
+#ifdef UIP
 #include <uip/uip.h>
 #include <uip/uip_arp.h>
+#endif
 
 #define DEBUG 1
 #define TX_START_BUFF 	0x40
@@ -148,13 +151,13 @@ int Init_Ne2k(int (*rcvd_fn)(struct NE2K_Packet_Info *info, uchar_t *packet))
   cr->ps = 0x01;  /* Switch to reg page 1 */
   Out_Byte(NE2K_CR, regs->cr);
 
-  /* Set the physical address of the card to 52:54:00:12:34:58 */
-  Out_Byte(NE2K_CR+0x01, 0x52);
-  Out_Byte(NE2K_CR+0x02, 0x54);
-  Out_Byte(NE2K_CR+0x03, 0x00);
-  Out_Byte(NE2K_CR+0x04, 0x12);
-  Out_Byte(NE2K_CR+0x05, 0x34);
-  Out_Byte(NE2K_CR+0x06, 0x58);
+  /* Set the physical address of the card */
+  Out_Byte(NE2K_CR+0x01, PHY_ADDR1);
+  Out_Byte(NE2K_CR+0x02, PHY_ADDR2);
+  Out_Byte(NE2K_CR+0x03, PHY_ADDR3);
+  Out_Byte(NE2K_CR+0x04, PHY_ADDR4);
+  Out_Byte(NE2K_CR+0x05, PHY_ADDR5);
+  Out_Byte(NE2K_CR+0x06, PHY_ADDR6);
 
   /* Set the multicast address register to all 1s; accepts all multicast packets */
   uint_t i;
@@ -228,6 +231,8 @@ int Init_Ne2k(int (*rcvd_fn)(struct NE2K_Packet_Info *info, uchar_t *packet))
  * an ARP packet, which is sent out instead.  The original packet will need to be
  * retransmitted at some point in the future.
  */
+#ifdef UIP
+
 int NE2K_Transmit(uint_t size)
 {
   uip_arp_out();
@@ -256,6 +261,8 @@ int NE2K_Transmit(uint_t size)
   Free(data);
   return 0;
 }
+
+#endif
 
 int NE2K_Send_Packet(uchar_t *packet, uint_t size)
 {

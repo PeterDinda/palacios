@@ -81,6 +81,16 @@
 
 #define NE2K_IRQ	11		/* Interrupt channel */
 
+
+/* Physical Address of Network Card */
+#define PHY_ADDR1 0x52
+#define PHY_ADDR2 0x54
+#define PHY_ADDR3 0x00
+#define PHY_ADDR4 0x12
+#define PHY_ADDR5 0x34
+#define PHY_ADDR6 0x58
+
+
 struct NE2K_REGS {
 	uchar_t cr;
 	uchar_t isr;

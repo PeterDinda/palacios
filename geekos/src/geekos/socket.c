@@ -22,12 +22,15 @@
 #include <geekos/socket.h>
 #include <geekos/malloc.h>
 #include <geekos/ne2k.h>
+
+#ifdef UIP
+
 #include <uip/uip.h>
 #include <uip/uip_arp.h>
+
 #include <geekos/vmm_stubs.h>
 #include <geekos/debug.h>
 #include <geekos/timer.h>
-
 
 #define BUF ((struct uip_eth_hdr *)&uip_buf[0])
 
@@ -42,12 +45,11 @@ void socket_appcall(void);
 #endif /* UIP_APPCALL */
 
 
-
-
 static int Packet_Received(struct NE2K_Packet_Info* info, uchar_t *pkt);
 static void periodic_caller(int timer_id, void * arg);
 
 void init_socket_layer() {
+	
    int i = 0;
    bool iflag;
 
@@ -59,30 +61,23 @@ void init_socket_layer() {
       sockets[i].state = CLOSED;
    }
 
-
-
     //initiate uIP
     uip_init();
     uip_arp_init();
 	
-    //setup device driver
-    Init_Ne2k(&Packet_Received);
+    //setup device driver 
+    Init_Ne2k(&Packet_Received); 
 
     iflag = Begin_Int_Atomic();
     Start_Timer(2, periodic_caller, NULL);
     End_Int_Atomic(iflag);
-
 }
-
-
-
 
 void set_ip_addr(uchar_t addr[4]) {
   uip_ipaddr_t ipaddr;
   uip_ipaddr(ipaddr, addr[0], addr[1], addr[2], addr[3]);  /* Local IP address */
   uip_sethostaddr(ipaddr);
 }
-
 
 static int allocate_socket_fd() {
   int i = 0;
@@ -122,7 +117,6 @@ static int release_socket_fd(int sockfd){
 struct socket * get_socket_from_fd(int fd) {
   return &(sockets[fd]);
 }
-
 
 
 static void periodic_caller(int timer_id, void * arg) {
@@ -379,3 +373,6 @@ static int Packet_Received(struct NE2K_Packet_Info * info, uchar_t * pkt) {
 
   return 0;
 }
+
+
+#endif  /* UIP */

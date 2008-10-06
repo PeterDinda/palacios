@@ -14,6 +14,8 @@
 #include <geekos/synch.h>
 #include <geekos/timer.h>
 
+#include <geekos/debug.h>
+
 /*
  * NOTES:
  * - The GeekOS mutex and condition variable APIs are based on those
@@ -131,6 +133,24 @@ void Mutex_Unlock(struct Mutex* mutex)
     g_preemptionDisabled = true;
     Mutex_Unlock_Imp(mutex);
     g_preemptionDisabled = false;
+}
+
+/*
+ * Destroy Mutex
+ */
+void Mutex_Destroy(struct Mutex* mutex)
+{
+
+
+}
+
+/*
+ * Condition Destroy
+ */
+void Cond_Destroy(struct Condition* cond)
+{
+
+
 }
 
 /*

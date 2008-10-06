@@ -20,6 +20,11 @@
 #include <geekos/ktypes.h>
 #include <geekos/defs.h>
 
+
+// to stop the compilation warnings
+extern void Print(const char* fmt, ...); 
+extern void Set_Current_Attr(uchar_t attrib);
+
 /*
  * This struct reflects the contents of the stack when
  * a C interrupt handler function is called.

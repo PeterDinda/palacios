@@ -252,6 +252,7 @@ XED_GAS_OBJS := $(XED_GAS_SRCS:%.s=xed/%.o)
 XED_OBJS := $(XED_C_OBJS) $(XED_GAS_OBJS)
 
 
+
 DEVICE_C_SRCS := generic.c keyboard.c nvram.c timer.c simple_pic.c 8259a.c 8254.c serial.c ramdisk.c cdrom.c
 
 DEVICE_C_OBJS := $(DEVICE_C_SRCS:%.c=devices/%.o)
@@ -259,6 +260,7 @@ DEVICE_C_OBJS := $(DEVICE_C_SRCS:%.c=devices/%.o)
 DEVICE_OBJS := $(DEVICE_C_OBJS)
 
 V3LIBS := $(DECODER_LIBS)
+
 
 
 
@@ -346,7 +348,6 @@ OBJCOPY_FLAGS := -R .dynamic -R .note -R .comment
 
 
 
-
 palacios/%.o : palacios/%.c
 	$(TARGET_CC) -c $(CC_GENERAL_OPTS) $(CC_VMM_OPTS) $< -o palacios/$*.o
 
@@ -395,6 +396,9 @@ rombios_link:
 vgabios_link:
 	ln -s -f ../src/vmboot/vgabios/VGABIOS-lgpl-latest.bin vgabios
 
+force_lwip:
+	(cd ../src/lwip/build; make clean; make)
+
 force_rombios: rombios_link
 	(cd ../src/vmboot/rombios; make clean; make)
 
@@ -404,7 +408,7 @@ force_vgabios: vgabios_link
 force_payload: force_rombios force_vgabios
 	../scripts/make_payload.pl payload_layout.txt vm_kernel
 
-inter1: force_payload
+inter1: force_payload force_lwip
 	-make clean
 
 world: inter1 vmm

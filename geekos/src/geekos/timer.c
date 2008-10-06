@@ -133,11 +133,6 @@ timerEvent pendingTimerEvents[MAX_TIMER_EVENTS];
  */
 volatile ulong_t g_numTicks;
 
-ulong_t clock_time(void){
-	return g_numTicks;
-}
-
-
 /*
  * Number of times the spin loop can execute during one timer tick
  */
@@ -172,6 +167,10 @@ int g_Quantum = DEFAULT_MAX_TICKS;
 #else
 #  define Debug(args...)
 #endif
+
+ulong_t clock_time(void){//in millisec
+      return g_numTicks * (1000/HZ);
+}
 
 /* ----------------------------------------------------------------------
  * Private functions
@@ -358,6 +357,8 @@ int Start_Timer(int ticks, timerCallback cb, void * arg)
     int ret;
 
     KASSERT(!Interrupts_Enabled());
+
+    PrintBoth ("there\n");
 
     if (timeEventCount == MAX_TIMER_EVENTS) {
 	return -1;
