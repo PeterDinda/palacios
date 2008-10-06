@@ -340,7 +340,7 @@ geekos/kernel.bin : geekos/kernel.exe
 	$(PAD) $@ 512
 
 # The kernel executable and symbol map.
-geekos/kernel.exe : $(KERNEL_OBJS) $(COMMON_C_OBJS) force_lwip $(TCPSTACK_OBJS) 
+geekos/kernel.exe : $(KERNEL_OBJS) $(COMMON_C_OBJS) force_lwip
 	$(TARGET_LD) -o geekos/kernel.exe -Ttext $(KERNEL_BASE_ADDR) -e $(KERNEL_ENTRY) \
 		$(V3_LD_FLAGS) \
 		$(KERNEL_OBJS) $(COMMON_C_OBJS) $(TCPSTACK_OBJS) $(V3_LIBS) -b binary ./palacios/vm_kernel
