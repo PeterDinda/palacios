@@ -222,7 +222,7 @@ void Main(struct Boot_Info* bootInfo)
 
   Init_Stubs();
 
-  Init_Network();
+  //  Init_Network();
 
 
   //  Init_IDE();
