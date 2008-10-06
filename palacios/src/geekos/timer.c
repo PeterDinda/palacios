@@ -356,6 +356,8 @@ int Start_Timer(int ticks, timerCallback cb, void * arg)
 
     KASSERT(!Interrupts_Enabled());
 
+    PrintBoth ("there\n");
+
     if (timeEventCount == MAX_TIMER_EVENTS) {
 	return -1;
     } else {

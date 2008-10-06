@@ -14,6 +14,8 @@
 #include <geekos/synch.h>
 #include <geekos/timer.h>
 
+#include <geekos/debug.h>
+
 /*
  * NOTES:
  * - The GeekOS mutex and condition variable APIs are based on those

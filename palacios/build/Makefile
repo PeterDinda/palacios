@@ -181,7 +181,7 @@ endif
 #
 #TCPSTACK, uIP is used currently
 #
-UIP=ON
+UIP=OFF
 
 #
 #LWIP, ON -- used, OFF -- not used
@@ -321,8 +321,10 @@ endif
 
 ifeq ($(LWIP),ON)
 	LWIP_OBJS := lwip/*.o
+	CC_LWIP_OPTS := -I$(PROJECT_ROOT)/include/lwip  -I$(PROJECT_ROOT)/include/lwip/ipv4 -I$(PROJECT_ROOT)/include/libc -DLWIP_DEBUG
 else
 	LWIP_OBJS := 
+	CC_LWIP_OPTS :=
 endif
 
 TCPSTACK_OBJS := $(UIP_C_OBJS) $(LWIP_OBJS)
@@ -425,7 +427,7 @@ OBJCOPY_FLAGS := -R .dynamic -R .note -R .comment
 # Compilation of kernel C source files
 
 geekos/%.o : geekos/%.c
-	$(TARGET_CC) -c $(CC_GENERAL_OPTS) $(CC_KERNEL_OPTS) $< -o geekos/$*.o
+	$(TARGET_CC) -c $(CC_GENERAL_OPTS) $(CC_KERNEL_OPTS) $(CC_LWIP_OPTS) $< -o geekos/$*.o
 
 
 # Compilation of kernel assembly source files

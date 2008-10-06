@@ -44,7 +44,8 @@ char *strrchr(const char *s, int c);
 char *strpbrk(const char *s, const char *accept);
 char *strncat(char *s1, const char *s2, size_t limit);
 int fprintf(FILE *file, char *fmt, ...);
-//int fflush(FILE *file);
+int fflush(FILE *file);
+int printf(char *fmt, ...);
 
 
 

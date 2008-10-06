@@ -42,7 +42,7 @@
  * Include user defined options first. Anything not defined in these files
  * will be set to standard values. Override anything you dont like!
  */
-#include "lwipopts.h"
+#include <lwip/lwipopts.h>
 #include "lwip/debug.h"
 
 /*
@@ -640,7 +640,7 @@
  * TCP_WND: The size of a TCP window.
  */
 #ifndef TCP_WND
-#define TCP_WND                         2048
+#define TCP_WND                         1024 //2048
 #endif 
 
 /**
@@ -785,7 +785,7 @@
  * LWIP_NETIF_API==1: Support netif api (in netifapi.c)
  */
 #ifndef LWIP_NETIF_API
-#define LWIP_NETIF_API                  0
+#define LWIP_NETIF_API                  1
 #endif
 
 /**

@@ -261,7 +261,11 @@ tcpip_thread(void *arg)
 
   LOCK_TCPIP_CORE();
   while (1) {                          /* MAIN Loop */
+
+    PrintBoth("In tcp_thread: main loop\n");    
+
     sys_mbox_fetch(mbox, (void *)&msg);
+
     switch (msg->type) {
 #if LWIP_NETCONN
     case TCPIP_MSG_API:
