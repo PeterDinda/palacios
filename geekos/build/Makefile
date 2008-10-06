@@ -53,14 +53,14 @@ VPATH := $(PROJECT_ROOT)/src
 
 
 #
-#TCPSTACK, uIP is used currently
+#uIP, ON -- used, OFF -- not used
 #
 UIP=OFF
 
 #
 #LWIP, ON -- used, OFF -- not used
 #
-LWIP=ON
+LWIP=OFF
 
 
 #
@@ -138,15 +138,9 @@ COMMON_C_SRCS := fmtout.c string.c memmove.c
 COMMON_C_OBJS := $(COMMON_C_SRCS:%.c=common/%.o)
 
 
-
-
 V3_LD_FLAGS := -L./palacios/
 #V3_LIBS := -lxed -lv3vee
 V3_LIBS := ./palacios/libxed.a ./palacios/libv3vee.a ./palacios/libxed.a ./palacios/libv3vee.a
-
-
-
-
 
 
 ifeq ($(UIP),ON)
@@ -159,7 +153,7 @@ endif
 
 ifeq ($(LWIP),ON)
 	LWIP_OBJS := lwip/*.o
-	CC_LWIP_OPTS := -I$(PROJECT_ROOT)/include/lwip  -I$(PROJECT_ROOT)/include/lwip/ipv4 -I$(PROJECT_ROOT)/include/libc -DLWIP_DEBUG
+	CC_LWIP_OPTS := -I$(PROJECT_ROOT)/include/lwip  -I$(PROJECT_ROOT)/include/lwip/ipv4 -I$(PROJECT_ROOT)/include/libc -DLWIP_DEBUG -DLWIP
 else
 	LWIP_OBJS := 
 	CC_LWIP_OPTS :=
