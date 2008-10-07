@@ -140,7 +140,7 @@ int v3_emulate_memory_read(struct guest_info * info, addr_t read_gva,
 			   int (*read)(addr_t read_addr, void * dst, uint_t length, void * priv_data), 
 			   addr_t read_gpa, void * private_data) {
   struct basic_instr_info instr_info;
-  char instr[15];
+  uchar_t instr[15];
   int ret;
   struct emulated_page * data_page = V3_Malloc(sizeof(struct emulated_page));
   addr_t data_addr_offset = PT32_PAGE_OFFSET(read_gva);
@@ -223,7 +223,7 @@ int v3_emulate_memory_write(struct guest_info * info, addr_t write_gva,
 			    addr_t write_gpa, void * private_data) {
 
   struct basic_instr_info instr_info;
-  char instr[15];
+  uchar_t instr[15];
   int ret;
   struct write_region * write_op = V3_Malloc(sizeof(struct write_region ));
   struct emulated_page * data_page = V3_Malloc(sizeof(struct emulated_page));

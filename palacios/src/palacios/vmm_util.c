@@ -44,17 +44,16 @@ void PrintTraceLL(ullong_t num) {
 }
 
 
-void PrintTraceMemDump(unsigned char *start, int n)
-{
+void PrintTraceMemDump(uchar_t * start, int n) {
   int i, j;
 
   for (i = 0; i < n; i += 16) {
-    PrintTrace("%8x", (unsigned)(start + i));
+    PrintTrace("%8x", (start + i));
     for (j = i; (j < (i + 16)) && (j < n); j += 2) {
       PrintTrace(" ");
-      PrintTraceHex(*((unsigned char *)(start + j)));
+      PrintTraceHex(*(uchar_t *)(start + j));
       if ((j + 1) < n) { 
-	PrintTraceHex(*((unsigned char *)(start + j + 1)));
+	PrintTraceHex(*((uchar_t *)(start + j + 1)));
       }
     }
     PrintTrace(" ");

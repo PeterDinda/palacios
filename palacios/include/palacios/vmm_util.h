@@ -25,11 +25,6 @@
 #include <palacios/vmm_types.h>
 
 
-#ifndef PAGE_SIZE
-#define PAGE_SIZE 4096
-#endif
-
-
 typedef union reg_ex {
   ullong_t r_reg;
   struct {
@@ -55,12 +50,12 @@ struct VMM_GPRs {
 
 
 #define GET_LOW_32(x) (*((uint_t*)(&(x))))
-#define GET_HIGH_32(x) (*((uint_t*)(((char*)(&(x)))+4)))
+#define GET_HIGH_32(x) (*((uint_t*)(((uchar_t*)(&(x)))+4)))
 
 
-void PrintTraceHex(unsigned char x);
+void PrintTraceHex(uchar_t x);
 void PrintTraceLL(ullong_t num);
-void PrintTraceMemDump(unsigned char * start, int n);
+void PrintTraceMemDump(uchar_t * start, int n);
 
 
 
@@ -95,8 +90,10 @@ void PrintTraceMemDump(unsigned char * start, int n);
 
 
 #ifdef __V3_64BIT__
+#define do_divll do_div
 
-# define do_div(n,base) ({					\
+
+#define do_div(n,base) ({					\
 	uint32_t __base = (base);				\
 	uint32_t __rem;						\
 	__rem = ((uint64_t)(n)) % __base;			\

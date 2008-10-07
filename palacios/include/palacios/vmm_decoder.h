@@ -211,7 +211,7 @@ MAKE_INSTR(SMSW,   3, 0x0f, 0x01, 0x00);
 int opcode_cmp(const uchar_t * op1, const uchar_t * op2);
 
 
-static inline int is_prefix_byte(char byte) {
+static inline int is_prefix_byte(uchar_t byte) {
   switch (byte) {
   case 0xF0:      // lock
   case 0xF2:      // REPNE/REPNZ
@@ -421,13 +421,13 @@ static inline operand_type_t decode_operands16(struct v3_gprs * gprs, // input/o
 
 
 static inline operand_type_t decode_operands32(struct v3_gprs * gprs, // input/output
-					       char * modrm_instr,       // input
+					       uchar_t * modrm_instr,       // input
 					       int * offset,             // output
 					       addr_t * first_operand,   // output
 					       addr_t * second_operand,  // output
 					       reg_size_t reg_size) {    // input
   
-  char * instr_cursor = modrm_instr;
+  uchar_t * instr_cursor = modrm_instr;
   struct modrm_byte * modrm = (struct modrm_byte *)modrm_instr;
   addr_t base_addr = 0;
   modrm_mode_t mod_mode = 0;

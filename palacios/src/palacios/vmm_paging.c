@@ -35,7 +35,8 @@ void delete_page_tables_pde32(pde32_t * pde) {
 
   for (i = 0; (i < MAX_PDE32_ENTRIES); i++) {
     if (pde[i].present) {
-      pte32_t * pte = (pte32_t *)(pde[i].pt_base_addr << PAGE_POWER);
+      // We double cast, first to an addr_t to handle 64 bit issues, then to the pointer
+      pte32_t * pte = (pte32_t *)((addr_t)(pde[i].pt_base_addr << PAGE_POWER));
 
       /*
 	for (j = 0; (j < MAX_PTE32_ENTRIES); j++) {
@@ -248,7 +249,7 @@ pde32_t * create_passthrough_pde32_pts(struct guest_info * guest_info) {
       pde[i].large_page = 0;
       pde[i].global_page = 0;
       pde[i].vmm_info = 0;
-      pde[i].pt_base_addr = PAGE_ALIGNED_ADDR(pte);
+      pde[i].pt_base_addr = PAGE_ALIGNED_ADDR((addr_t)pte);
     }
 
   }
@@ -263,9 +264,9 @@ pde32_t * create_passthrough_pde32_pts(struct guest_info * guest_info) {
 
 void PrintPDE32(addr_t virtual_address, pde32_t * pde)
 {
-  PrintDebug("PDE %p -> %p : present=%x, writable=%x, user=%x, wt=%x, cd=%x, accessed=%x, reserved=%x, largePages=%x, globalPage=%x, kernelInfo=%x\n",
+  PrintDebug("PDE %x -> %p : present=%x, writable=%x, user=%x, wt=%x, cd=%x, accessed=%x, reserved=%x, largePages=%x, globalPage=%x, kernelInfo=%x\n",
 	     virtual_address,
-	     (void *) (pde->pt_base_addr << PAGE_POWER),
+	     (void *)(addr_t) (pde->pt_base_addr << PAGE_POWER),
 	     pde->present,
 	     pde->writable,
 	     pde->user_page, 
@@ -282,7 +283,7 @@ void PrintPTE32(addr_t virtual_address, pte32_t * pte)
 {
   PrintDebug("PTE %p -> %p : present=%x, writable=%x, user=%x, wt=%x, cd=%x, accessed=%x, dirty=%x, pteAttribute=%x, globalPage=%x, vmm_info=%x\n",
 	     virtual_address,
-	     (void*)(pte->page_base_addr << PAGE_POWER),
+	     (void*)(addr_t)(pte->page_base_addr << PAGE_POWER),
 	     pte->present,
 	     pte->writable,
 	     pte->user_page,
@@ -334,7 +335,7 @@ void PrintDebugPageTables(pde32_t * pde)
   for (i = 0; (i < MAX_PDE32_ENTRIES); i++) { 
     if (pde[i].present) {
       PrintPDE32((addr_t)(PAGE_SIZE * MAX_PTE32_ENTRIES * i), &(pde[i]));
-      PrintPT32((addr_t)(PAGE_SIZE * MAX_PTE32_ENTRIES * i), (pte32_t *)(pde[i].pt_base_addr << PAGE_POWER));
+      PrintPT32((addr_t)(PAGE_SIZE * MAX_PTE32_ENTRIES * i), (pte32_t *)(addr_t)(pde[i].pt_base_addr << PAGE_POWER));
     }
   }
 }

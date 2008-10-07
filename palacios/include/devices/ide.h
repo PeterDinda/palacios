@@ -41,7 +41,7 @@
 #ifdef __V3VEE__
 #include <palacios/vmm_types.h>
 
-#ifdef __V3_32BIT__
+
 typedef long off_t;
 typedef sint32_t ssize_t;
 typedef unsigned int rd_bool;
@@ -49,7 +49,7 @@ typedef uchar_t Bit8u;
 typedef ushort_t Bit16u;
 typedef uint32_t Bit32u;
 typedef uint64_t Bit64u;
-#endif
+
 
 
 #define MAX_ATA_CHANNEL 4
