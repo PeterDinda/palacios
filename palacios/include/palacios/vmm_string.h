@@ -56,7 +56,7 @@ char *strrchr(const char *s, int c);
 char *strpbrk(const char *s, const char *accept);
 
 
-double ceil(double x);
+double v3_ceil(double x);
 
 
 

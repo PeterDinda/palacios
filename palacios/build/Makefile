@@ -275,11 +275,11 @@ V3_ARCH := __V3_32BIT__
 #V3_ARCH := __V3_64BIT__
 
 # Uncomment if cross compiling
-TARGET_CC_PREFIX :=  $(PROJECT_ROOT)/../devtools/i386/bin/i386-elf-
+#TARGET_CC_PREFIX :=  $(PROJECT_ROOT)/../devtools/i386/bin/i386-elf-
 #TARGET_CC_PREFIX :=  i386-elf-
 
 # Target C compiler.  gcc 2.95.2 or later should work.
-TARGET_CC := $(TARGET_CC_PREFIX)gcc
+TARGET_CC := $(TARGET_CC_PREFIX)gcc -m32
 #TARGET_CC := $(TARGET_CC_PREFIX)gcc34 -m32
 
 

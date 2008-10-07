@@ -63,7 +63,7 @@
 
 static float e = 0.00000001;
 
-double ceil(double x) {
+double v3_ceil(double x) {
   if ((double)(x - (int)x) == 0) {
     return (int)x;
   }
