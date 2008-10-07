@@ -9,6 +9,7 @@
 #include <geekos/debug.h>
 
 #ifdef LWIP
+
 #include <lwip/apps/ping.h>
 #include <lwip/lwip/sockets.h>
 #include <lwip/ipv4/lwip/ip_addr.h>
@@ -28,10 +29,14 @@ tcpip_init_done(void *arg)
   sys_sem_signal(*sem);
 }
 
+#endif
+
 void Init_Network() {
 
   //temporay now we are using lwip sockets
   // init_socket_layer();
+
+#ifdef LWIP
   
   struct ip_addr ipaddr, netmask, gateway;
   sys_sem_t sem;
@@ -69,6 +74,9 @@ void Init_Network() {
 
   //initial a network application
   ping_init();
+
+#endif
+
 }
 
 #endif

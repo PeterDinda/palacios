@@ -42,7 +42,7 @@
 // First Attempt = 494 lines
 // current = 106 lines
 int handle_cr0_write(struct guest_info * info) {
-  char instr[15];
+  uchar_t instr[15];
   int ret;
   struct x86_instr dec_instr;
 
@@ -156,7 +156,7 @@ int handle_cr0_write(struct guest_info * info) {
 // First attempt = 253 lines
 // current = 51 lines
 int handle_cr0_read(struct guest_info * info) {
-  char instr[15];
+  uchar_t instr[15];
   int ret;
   struct x86_instr dec_instr;
 
@@ -222,7 +222,7 @@ int handle_cr0_read(struct guest_info * info) {
 // current = 65 lines
 int handle_cr3_write(struct guest_info * info) {
   int ret;
-  char instr[15];
+  uchar_t instr[15];
   struct x86_instr dec_instr;
 
   if (info->mem_mode == PHYSICAL_MEM) { 
@@ -309,7 +309,7 @@ int handle_cr3_write(struct guest_info * info) {
 // first attempt = 156 lines
 // current = 36 lines
 int handle_cr3_read(struct guest_info * info) {
-  char instr[15];
+  uchar_t instr[15];
   int ret;
   struct x86_instr dec_instr;
 

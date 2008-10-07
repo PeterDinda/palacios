@@ -270,6 +270,10 @@ V3LIBS := $(DECODER_LIBS)
 #   This section defines programs that are used to build GeekOS.
 # ----------------------------------------------------------------------
 
+
+V3_ARCH := __V3_32BIT__
+#V3_ARCH := __V3_64BIT__
+
 # Uncomment if cross compiling
 TARGET_CC_PREFIX :=  $(PROJECT_ROOT)/../devtools/i386/bin/i386-elf-
 #TARGET_CC_PREFIX :=  i386-elf-
@@ -329,7 +333,7 @@ GENERAL_OPTS := -O -Wall $(EXTRA_C_OPTS) $(VMM_FLAGS) -fPIC #-fvisibility=hidden
 CC_GENERAL_OPTS := $(GENERAL_OPTS) -Werror 
 
 # Flags used for VMM C source files
-CC_VMM_OPTS := -g -I$(PROJECT_ROOT)/include -D__V3VEE__ -D__V3_32BIT__ $(DECODER_FLAGS) $(JRLDEBUG)
+CC_VMM_OPTS := -g -I$(PROJECT_ROOT)/include -D__V3VEE__ -D$(V3_ARCH) $(DECODER_FLAGS) $(JRLDEBUG)
 
 # Flags used for VMM C ASM files
 NASM_VMM_OPTS := -I$(PROJECT_ROOT)/src/palacios/ -f elf $(EXTRA_NASM_OPTS)

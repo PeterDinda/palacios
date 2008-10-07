@@ -278,73 +278,67 @@ extern char *exception_type_names[];
 typedef void VMCS;
 
 
-#if __TINYC__
-#define PACKED
-#else
-#define PACKED __attribute__((packed))
-#endif
-
 
 
 /* VMCS Exit QUALIFICATIONs */
 struct VMExitIOQual {
-  uint_t accessSize : 3     PACKED; // (0: 1 Byte ;; 1: 2 Bytes ;; 3: 4 Bytes)
-  uint_t dir        : 1     PACKED; // (0: Out ;; 1: In)
-  uint_t string     : 1     PACKED; // (0: not string ;; 1: string)
-  uint_t REP        : 1     PACKED; // (0: not REP ;; 1: REP)
-  uint_t opEnc      : 1     PACKED; // (0: DX ;; 1: immediate)
-  uint_t rsvd       : 9     PACKED; // Set to 0
-  uint_t port       : 16    PACKED; // IO Port Number
-};
+  uint_t accessSize : 3; // (0: 1 Byte ;; 1: 2 Bytes ;; 3: 4 Bytes)
+  uint_t dir        : 1; // (0: Out ;; 1: In)
+  uint_t string     : 1; // (0: not string ;; 1: string)
+  uint_t REP        : 1; // (0: not REP ;; 1: REP)
+  uint_t opEnc      : 1; // (0: DX ;; 1: immediate)
+  uint_t rsvd       : 9; // Set to 0
+  uint_t port       : 16; // IO Port Number
+} __attribute__((packed));
 
 
 
 struct VMExitDBGQual {
-  uint_t B0         : 1     PACKED; // Breakpoint 0 condition met
-  uint_t B1         : 1     PACKED; // Breakpoint 1 condition met
-  uint_t B2         : 1     PACKED; // Breakpoint 2 condition met
-  uint_t B3         : 1     PACKED; // Breakpoint 3 condition met
-  uint_t rsvd       : 9     PACKED; // reserved to 0
-  uint_t BD         : 1     PACKED; // detected DBG reg access
-  uint_t BS         : 1     PACKED; // cause either single instr or taken branch
-};
+  uint_t B0         : 1; // Breakpoint 0 condition met
+  uint_t B1         : 1; // Breakpoint 1 condition met
+  uint_t B2         : 1; // Breakpoint 2 condition met
+  uint_t B3         : 1; // Breakpoint 3 condition met
+  uint_t rsvd       : 9; // reserved to 0
+  uint_t BD         : 1; // detected DBG reg access
+  uint_t BS         : 1; // cause either single instr or taken branch
+} __attribute__((packed));
 
 
 struct VMExitTSQual {
-  uint_t selector   : 16    PACKED; // selector of destination TSS 
-  uint_t rsvd       : 14    PACKED; // reserved to 0
-  uint_t src        : 2     PACKED; // (0: CALL ; 1: IRET ; 2: JMP ; 3: Task gate in IDT)
-};
+  uint_t selector   : 16; // selector of destination TSS 
+  uint_t rsvd       : 14; // reserved to 0
+  uint_t src        : 2; // (0: CALL ; 1: IRET ; 2: JMP ; 3: Task gate in IDT)
+} __attribute__((packed));
 
 struct VMExitCRQual {
-  uint_t crID       : 4     PACKED; // cr number (0 for CLTS and LMSW) (bit 3 always 0, on 32bit)
-  uint_t accessType : 2     PACKED; // (0: MOV to CR ; 1: MOV from CR ; 2: CLTS ; 3: LMSW)
-  uint_t lmswOpType : 1     PACKED; // (0: register ; 1: memory)
-  uint_t rsvd1      : 1     PACKED; // reserved to 0
-  uint_t gpr        : 4     PACKED; // (0:RAX+[CLTS/LMSW], 1:RCX, 2:RDX, 3:RBX, 4:RSP, 5:RBP, 6:RSI, 6:RDI, 8-15:64bit regs)
-  uint_t rsvd2      : 4     PACKED; // reserved to 0
-  uint_t lmswSrc    : 16    PACKED; // src data for lmsw
-};
+  uint_t crID       : 4; // cr number (0 for CLTS and LMSW) (bit 3 always 0, on 32bit)
+  uint_t accessType : 2; // (0: MOV to CR ; 1: MOV from CR ; 2: CLTS ; 3: LMSW)
+  uint_t lmswOpType : 1; // (0: register ; 1: memory)
+  uint_t rsvd1      : 1; // reserved to 0
+  uint_t gpr        : 4; // (0:RAX+[CLTS/LMSW], 1:RCX, 2:RDX, 3:RBX, 4:RSP, 5:RBP, 6:RSI, 6:RDI, 8-15:64bit regs)
+  uint_t rsvd2      : 4; // reserved to 0
+  uint_t lmswSrc    : 16; // src data for lmsw
+} __attribute__((packed));
 
 struct VMExitMovDRQual {
-  uint_t regID      : 3     PACKED; // debug register number
-  uint_t rsvd1      : 1     PACKED; // reserved to 0
-  uint_t dir        : 1     PACKED; // (0: MOV to DR , 1: MOV from DR)
-  uint_t rsvd2      : 3     PACKED; // reserved to 0
-  uint_t gpr        : 4     PACKED; // (0:RAX, 1:RCX, 2:RDX, 3:RBX, 4:RSP, 5:RBP, 6:RSI, 6:RDI, 8-15:64bit regs)
-};
+  uint_t regID      : 3; // debug register number
+  uint_t rsvd1      : 1; // reserved to 0
+  uint_t dir        : 1; // (0: MOV to DR , 1: MOV from DR)
+  uint_t rsvd2      : 3; // reserved to 0
+  uint_t gpr        : 4; // (0:RAX, 1:RCX, 2:RDX, 3:RBX, 4:RSP, 5:RBP, 6:RSI, 6:RDI, 8-15:64bit regs)
+} __attribute__((packed));
 
 /* End Exit Qualifications */
 
 /* Exit Vector Info */
 struct VMExitIntInfo {
-  uint_t nr         : 8     PACKED; // IRQ number, exception vector, NMI = 2 
-  uint_t type       : 3     PACKED; // (0: ext. IRQ , 2: NMI , 3: hw exception , 6: sw exception
-  uint_t errorCode  : 1     PACKED; // 1: error Code present
-  uint_t iret       : 1     PACKED; // something to do with NMIs and IRETs (Intel 3B, sec. 23.2.2) 
-  uint_t rsvd       : 18    PACKED; // always 0
-  uint_t valid      : 1     PACKED; // always 1 if valid
-};
+  uint_t nr         : 8; // IRQ number, exception vector, NMI = 2 
+  uint_t type       : 3; // (0: ext. IRQ , 2: NMI , 3: hw exception , 6: sw exception
+  uint_t errorCode  : 1; // 1: error Code present
+  uint_t iret       : 1; // something to do with NMIs and IRETs (Intel 3B, sec. 23.2.2) 
+  uint_t rsvd       : 18; // always 0
+  uint_t valid      : 1; // always 1 if valid
+} __attribute__((packed));
 
 
 
@@ -358,20 +352,20 @@ struct VMExitIntInfo {
 /* INTEL Manual: 20-4 vol 3B */
 union SegAccess {
   struct {
-    uchar_t  type                PACKED;
-    uint_t   descType    : 1     PACKED; 
-    uint_t   dpl         : 2     PACKED;
-    uint_t   present     : 1     PACKED;
-    uchar_t  rsvd1               PACKED;
-    uint_t   avail       : 1    PACKED ;
-    uint_t   L           : 1    PACKED ; // CS only (64 bit active), reserved otherwise
-    uint_t   DB          : 1    PACKED ; 
-    uint_t   granularity : 1    PACKED ;
-    uint_t   unusable    : 1   PACKED  ; 
-    uint_t   rsvd2       : 15  PACKED ;
-  } as_fields;
+    uchar_t  type;
+    uint_t   descType    : 1; 
+    uint_t   dpl         : 2;
+    uint_t   present     : 1;
+    uchar_t  rsvd1;
+    uint_t   avail       : 1;
+    uint_t   L           : 1; // CS only (64 bit active), reserved otherwise
+    uint_t   DB          : 1; 
+    uint_t   granularity : 1;
+    uint_t   unusable    : 1; 
+    uint_t   rsvd2       : 15;
+  } __attribute__((packed)) as_fields;
   uint_t as_dword;
-};
+} __attribute__((packed));
 
 
 struct VMCSSegment {
@@ -428,8 +422,8 @@ struct VMCSGuestStateArea {
 };
 
 
-int CopyOutVMCSGuestStateArea(struct VMCSGuestStateArea *p);
-int CopyInVMCSGuestStateArea(struct VMCSGuestStateArea *p);
+int CopyOutVMCSGuestStateArea(struct VMCSGuestStateArea * p);
+int CopyInVMCSGuestStateArea(struct VMCSGuestStateArea * p);
 
 
 

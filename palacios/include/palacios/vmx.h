@@ -60,39 +60,34 @@
 
 typedef void VmxOnRegion;
 
-#if __TINYC__
-#define PACKED
-#else
-#define PACKED __attribute__((packed))
-#endif
 
 
 struct MSR_REGS {
-  uint_t low PACKED;
-  uint_t high  PACKED;
-};
+  uint_t low;
+  uint_t high;
+} __attribute__((packed));
 
 struct VMX_BASIC {
-  uint_t revision          PACKED ;
-  uint_t regionSize   : 13 PACKED ;
-  uint_t rsvd1        : 4  PACKED ; // Always 0
-  uint_t physWidth    : 1  PACKED ;
-  uint_t smm          : 1  PACKED ; // Always 1
-  uint_t memType      : 4  PACKED ;
-  uint_t rsvd2        : 10 PACKED ; // Always 0
-};
+  uint_t revision;
+  uint_t regionSize   : 13;
+  uint_t rsvd1        : 4; // Always 0
+  uint_t physWidth    : 1;
+  uint_t smm          : 1; // Always 1
+  uint_t memType      : 4;
+  uint_t rsvd2        : 10; // Always 0
+}  __attribute__((packed));
 
 union VMX_MSR {
-  struct MSR_REGS regs PACKED;
-  struct VMX_BASIC vmxBasic PACKED;
-};
+  struct MSR_REGS regs;
+  struct VMX_BASIC vmxBasic;
+}  __attribute__((packed));
 
 
 struct VMDescriptor {
   uint_t   entry_ip;
   uint_t   exit_eip;
   uint_t   guest_esp;
-} ;
+}  __attribute__((packed));
 
 
 enum VMState { VM_VMXASSIST_STARTUP, VM_VMXASSIST_V8086_BIOS, VM_VMXASSIST_V8086, VM_NORMAL };

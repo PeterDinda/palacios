@@ -53,7 +53,7 @@ VPATH := $(PROJECT_ROOT)/src
 
 
 #
-#TCPSTACK, uIP is used currently
+#uIP, ON -- used, OFF -- not used
 #
 UIP=OFF
 
@@ -138,16 +138,10 @@ COMMON_C_SRCS := fmtout.c string.c memmove.c
 COMMON_C_OBJS := $(COMMON_C_SRCS:%.c=common/%.o)
 
 
-
-
 V3_LD_FLAGS := -L./palacios/
 #V3_LIBS := -lxed -lv3vee
 V3_LIBS := ./palacios/libxed.a ./palacios/libv3vee.a ./palacios/libxed.a ./palacios/libv3vee.a
 V3_OBJS := ./palacios/libxed.a ./palacios/libv3vee.a ./palacios/vm_kernel
-
-
-
-
 
 ifeq ($(UIP),ON)
 	UIP_C_SRCS := psock.c timer.c uip_arp.c uip.c uip-fw.c uiplib.c uip-neighbor.c uip-split.c resolv.c
@@ -158,8 +152,13 @@ else
 endif
 
 ifeq ($(LWIP),ON)
+<<<<<<< HEAD:geekos/build/Makefile
 	LWIP_OBJS := lwip
 	CC_LWIP_OPTS := -I$(PROJECT_ROOT)/include/lwip  -I$(PROJECT_ROOT)/include/lwip/ipv4 -I$(PROJECT_ROOT)/include/libc -DLWIP_DEBUG
+=======
+	LWIP_OBJS := lwip/*.o
+	CC_LWIP_OPTS := -I$(PROJECT_ROOT)/include/lwip  -I$(PROJECT_ROOT)/include/lwip/ipv4 -I$(PROJECT_ROOT)/include/libc -DLWIP_DEBUG -DLWIP
+>>>>>>> 64bit:geekos/build/Makefile
 else
 	LWIP_OBJS := 
 	CC_LWIP_OPTS :=
