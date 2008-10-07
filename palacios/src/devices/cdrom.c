@@ -31,7 +31,7 @@
 
 struct cdrom_state {
   uchar_t * image_addr; //memory address
-  ulong_t capacity_B;
+  ulong_t capacity_in_bytes;
   ulong_t head; //current position
 
   struct vm_device * ide_dev;
@@ -74,15 +74,15 @@ static rd_bool cdrom_read_toc(void * private_data, uint8_t* buf, int* length, rd
 static uint32_t cdrom_capacity(void * private_data) {
   struct cdrom_state * cdrom = (struct cdrom_state *)private_data;
 
-  PrintDebug("[cdrom_capacity] s_ramdiskSize = %d\n", cdrom->capacity_B);
+  PrintDebug("[cdrom_capacity] s_ramdiskSize = %d\n", cdrom->capacity_in_bytes);
 
   if (cdrom->lba) {
-    if (cdrom->capacity_B % 2048) {
-      PrintDebug("\t\t capacity in LBA is %d\n", (cdrom->capacity_B / 2048) + 1);
-      return (cdrom->capacity_B / 2048) + 1;
+    if (cdrom->capacity_in_bytes % 2048) {
+      PrintDebug("\t\t capacity in LBA is %d\n", (cdrom->capacity_in_bytes / 2048) + 1);
+      return (cdrom->capacity_in_bytes / 2048) + 1;
     } else {
-      PrintDebug("\t\t capacity in LBA is %d\n", cdrom->capacity_B / 2048);
-      return cdrom->capacity_B / 2048;
+      PrintDebug("\t\t capacity in LBA is %d\n", cdrom->capacity_in_bytes / 2048);
+      return cdrom->capacity_in_bytes / 2048;
     }
   } else {
     PrintError("Unsupported CDROM mode in capacity query\n");
@@ -166,7 +166,7 @@ struct vm_device *  v3_create_cdrom(struct vm_device * ramdisk_dev, void * ramdi
   memset(cd, 0, sizeof(struct cdrom_state));
 
   cd->image_addr = (uchar_t *)ramdisk;
-  cd->capacity_B = ramdisk_size;
+  cd->capacity_in_bytes = ramdisk_size;
   cd->ide_dev = ramdisk_dev;
   
   PrintDebug("Creating RamDISK CDROM\n");
