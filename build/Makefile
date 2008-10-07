@@ -164,6 +164,10 @@ all : $(ALL_TARGETS)
 
 
 palacios:
+	(cd $(PALACIOS_BUILD_DIR) && make $(DEBUG_SECTIONS))
+
+
+palacios-full:
 	(cd $(PALACIOS_BUILD_DIR) && make $(DEBUG_SECTIONS) world)
 
 
@@ -171,19 +175,28 @@ geekos:
 	cp $(PALACIOS_BUILD_DIR)/libv3vee.a $(GEEKOS_BUILD_DIR)/palacios/
 	cp $(PALACIOS_BUILD_DIR)/../lib/xed/libxed.a $(GEEKOS_BUILD_DIR)/palacios/
 	cp $(PALACIOS_BUILD_DIR)/vm_kernel $(GEEKOS_BUILD_DIR)/palacios/
+	(cd $(GEEKOS_BUILD_DIR) && make)
+
+
+geekos-full: 
+	cp $(PALACIOS_BUILD_DIR)/libv3vee.a $(GEEKOS_BUILD_DIR)/palacios/
+	cp $(PALACIOS_BUILD_DIR)/../lib/xed/libxed.a $(GEEKOS_BUILD_DIR)/palacios/
+	cp $(PALACIOS_BUILD_DIR)/vm_kernel $(GEEKOS_BUILD_DIR)/palacios/
 	(cd $(GEEKOS_BUILD_DIR) && make clean && make)
 
+
+world: palacios-full geekos-full
 
 
 
 # make ready to boot over PXE
-geekos-pxe: geekos
+geekos-pxe: 
 	cp $(GEEKOS_BUILD_DIR)/vmm.img /tftpboot/vmm.img
 
-geekos-run: geekos
+geekos-run: 
 	$(QEMU) -m 1024 -serial file:serial.out -cdrom $(GUEST_ISO_DIR)/puppy.iso -fda $(GEEKOS_BUILD_DIR)/vmm.img 
 
-geekos-iso: geekos 
+geekos-iso: 
 	cp $(GEEKOS_BUILD_DIR)/vmm.img iso/vmm.img
 	mkisofs -R -b boot/grub/stage2_eltorito -no-emul-boot -boot-load-size 4 -boot-info-table -o test.iso iso
 

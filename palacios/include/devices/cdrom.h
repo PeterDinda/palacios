@@ -21,6 +21,9 @@
 #ifndef __DEVICES_CDROM_H_
 #define __DEVICES_CDROM_H_
 
+
+#ifdef __V3VEE__
+
 #include <devices/ramdisk.h>
 #include <devices/ide.h>
 #include <palacios/vmm_types.h>
@@ -28,58 +31,48 @@
 
 
 
-struct cdrom_interface;
 
 struct cdrom_ops {
-  
-  void (*init)(struct cdrom_interface *cdrom);
-
   /* 
    * Load CD-ROM. Returns false if CD is not ready. 
    */
-  rd_bool (*insert_cdrom)(struct cdrom_interface *cdrom, char *dev /*= NULL*/);
+  rd_bool (*insert_cdrom)(void * private_data);
 
   /* 
    * Logically eject the CD.
    */
-  void (*eject_cdrom)(struct cdrom_interface *cdrom);
+  void (*eject_cdrom)(void * private_data);
   
   /* 
    * Read CD TOC. Returns false if start track is out of bounds.
    */
-  rd_bool (*read_toc)(struct cdrom_interface * cdrom, uint8_t * buf, int* length, rd_bool msf, int start_track);
+  rd_bool (*read_toc)(void * private_data, uchar_t * buf, int * length, rd_bool msf, int start_track);
   
   /* 
    * Return CD-ROM capacity (in 2048 byte frames)
    */
-  uint32_t (*capacity)(struct cdrom_interface *cdrom);
+  uint32_t (*capacity)(void * private_data);
   
   /*
    * Read a single block from the CD
    */
-  void (*read_block)(struct cdrom_interface *cdrom, uint8_t* buf, int lba);
+  void (*read_block)(void * private_data, uchar_t * buf, int lba);
   
   /*
    * Start (spin up) the CD.
    */
-  int (*start_cdrom)(struct cdrom_interface *cdrom);
+  int (*start_cdrom)(void * private_data);
+
+  void (*set_LBA)(void * private_data, uchar_t lba);
 };
 
 
-struct cdrom_interface {
 
-  struct cdrom_ops ops;
 
-  ulong_t fd; //memory address
-  ulong_t capacity_B;
-  ulong_t head; //current position
+struct vm_device * v3_create_cdrom(struct vm_device * ramdisk_dev, void * ramdisk, uint_t ramdisk_size);
 
-  uchar_t lba;
 
-  char *path; //for ramdisk, NULL
-  int using_file; //no
-};
 
-void init_cdrom(struct cdrom_interface *cdrom);
+#endif // !__V3VEE__
 
 #endif

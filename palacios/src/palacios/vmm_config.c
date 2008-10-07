@@ -29,10 +29,26 @@
 #include <devices/nvram.h>
 #include <devices/generic.h>
 #include <devices/ramdisk.h>
+#include <devices/cdrom.h>
 
 
 #define USE_GENERIC 1
-#define USE_RAMDISK 1
+
+#define MAGIC_CODE 0xf1e2d3c4
+
+
+
+struct layout_region {
+  ulong_t length;
+  ulong_t final_addr;
+};
+
+struct guest_mem_layout {
+  ulong_t magic;
+  ulong_t num_regions;
+  struct layout_region regions[0];
+};
+
 
 
 
@@ -76,14 +92,14 @@ static int passthrough_mem_write(addr_t guest_addr, void * src, uint_t length, v
 }
 */
 
-int config_guest(struct guest_info * info, void * config_ptr) {
+int config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) {
 
-  struct guest_mem_layout * layout = (struct guest_mem_layout *)config_ptr;
+  struct guest_mem_layout * layout = (struct guest_mem_layout *)config_ptr->vm_kernel;
   extern v3_cpu_arch_t v3_cpu_type;
   void * region_start;
   int i;
 
-  int use_ramdisk = USE_RAMDISK;
+  int use_ramdisk = config_ptr->use_ramdisk;
   int use_generic = USE_GENERIC;
 
 
@@ -183,19 +199,23 @@ int config_guest(struct guest_info * info, void * config_ptr) {
   
   {
     struct vm_device * ramdisk = NULL;
+    struct vm_device * cdrom = NULL;
     struct vm_device * nvram = create_nvram();
     //struct vm_device * timer = create_timer();
     struct vm_device * pic = create_pic();
     struct vm_device * keyboard = create_keyboard();
     struct vm_device * pit = create_pit(); 
+
     //struct vm_device * serial = create_serial();
     struct vm_device * generic = NULL;
-    //Zheng 09/29/2008
+
+
 
 
     if (use_ramdisk) {
       PrintDebug("Creating Ramdisk\n");
       ramdisk = create_ramdisk();
+      cdrom = v3_create_cdrom(ramdisk, config_ptr->ramdisk, config_ptr->ramdisk_size); 
     }
     
     
@@ -322,6 +342,7 @@ int config_guest(struct guest_info * info, void * config_ptr) {
 
     if (use_ramdisk) {
       v3_attach_device(info, ramdisk);
+      v3_attach_device(info, cdrom);
     }
 
     if (use_generic) {

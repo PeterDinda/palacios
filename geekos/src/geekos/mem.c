@@ -34,7 +34,7 @@
  */
 struct Page* g_pageList;
 
-ulong_t g_ramdiskImage;
+void * g_ramdiskImage;
 ulong_t s_ramdiskSize;
 
 
@@ -144,8 +144,8 @@ void Init_Mem(struct Boot_Info* bootInfo)
 
     g_ramdiskImage = bootInfo->ramdisk_image;
     s_ramdiskSize = bootInfo->ramdisk_size;
-    ulong_t initrdAddr;
-    ulong_t initrdEnd;
+    ulong_t initrdAddr = 0;
+    ulong_t initrdEnd = 0;
 
     
 
@@ -206,16 +206,16 @@ void Init_Mem(struct Boot_Info* bootInfo)
      * Zheng 08/03/2008
      * copy the ramdisk to this area 
      */
-
-    initrdAddr = vmmMemEnd;
-    initrdEnd = Round_Up_To_Page(initrdAddr + s_ramdiskSize);
-    PrintBoth("mem.c(%d) Move ramdisk(%dB) from %x to %x", __LINE__, s_ramdiskSize, g_ramdiskImage, initrdAddr);
-    memcpy((ulong_t *)initrdAddr, (ulong_t *)g_ramdiskImage, s_ramdiskSize);
-    PrintBoth(" done\n");
-    PrintBoth("mem.c(%d) Set 0 to unused bytes in the last ramdisk page from %x to %x", __LINE__, initrdAddr+s_ramdiskSize, initrdEnd);
-    memset((ulong_t *)initrdAddr + s_ramdiskSize, 0, initrdEnd - (initrdAddr + s_ramdiskSize));
-    PrintBoth(" done\n");
-
+    if (s_ramdiskSize > 0) {
+      initrdAddr = vmmMemEnd;
+      initrdEnd = Round_Up_To_Page(initrdAddr + s_ramdiskSize);
+      PrintBoth("mem.c(%d) Move ramdisk(%dB) from %x to %x", __LINE__, s_ramdiskSize, g_ramdiskImage, initrdAddr);
+      memcpy((ulong_t *)initrdAddr, (ulong_t *)g_ramdiskImage, s_ramdiskSize);
+      PrintBoth(" done\n");
+      PrintBoth("mem.c(%d) Set 0 to unused bytes in the last ramdisk page from %x to %x", __LINE__, initrdAddr+s_ramdiskSize, initrdEnd);
+      memset((ulong_t *)initrdAddr + s_ramdiskSize, 0, initrdEnd - (initrdAddr + s_ramdiskSize));
+      PrintBoth(" done\n");
+    }
 
     
     /* 
@@ -227,9 +227,10 @@ void Init_Mem(struct Boot_Info* bootInfo)
     /*
      * Zheng 08/03/2008
      */
-    vm_range_start = initrdEnd;
-    vm_range_end = endOfMem;    
-
+    if (s_ramdiskSize > 0) {
+      vm_range_start = initrdEnd;
+      vm_range_end = endOfMem;    
+    }
 
     Add_Page_Range(0, PAGE_SIZE, PAGE_UNUSED);                        // BIOS area
     Add_Page_Range(PAGE_SIZE, PAGE_SIZE * 3, PAGE_ALLOCATED);         // Intial kernel thread obj + stack
@@ -241,17 +242,18 @@ void Init_Mem(struct Boot_Info* bootInfo)
     Add_Page_Range(pageListAddr, pageListEnd, PAGE_KERN);             // Page List 
     Add_Page_Range(pageListEnd, vmmMemEnd, PAGE_AVAIL);               // Available VMM memory
 
-#ifdef RAMDISK_BOOT
-    /*
-     * Zheng 08/03/2008
-     */
-    Add_Page_Range(vmmMemEnd, initrdEnd, PAGE_ALLOCATED);              //Ramdisk memory area      
-    //    Add_Page_Range(vmmMemEnd, endOfMem, PAGE_VM);                // Memory allocated to the VM
-    // Until we get a more intelligent memory allocator
-    Add_Page_Range(initrdEnd, endOfMem, PAGE_AVAIL);                   // Memory allocated to the VM
-#else
-    Add_Page_Range(vmmMemEnd, endOfMem, PAGE_AVAIL);                   // Memory allocated to the VM
-#endif
+
+    if (s_ramdiskSize > 0) {
+      /*
+       * Zheng 08/03/2008
+       */
+      Add_Page_Range(vmmMemEnd, initrdEnd, PAGE_ALLOCATED);              //Ramdisk memory area      
+      //    Add_Page_Range(vmmMemEnd, endOfMem, PAGE_VM);                // Memory allocated to the VM
+      // Until we get a more intelligent memory allocator
+      Add_Page_Range(initrdEnd, endOfMem, PAGE_AVAIL);                   // Memory allocated to the VM
+    } else {
+      Add_Page_Range(vmmMemEnd, endOfMem, PAGE_AVAIL);                   // Memory allocated to the VM
+    }
 
     /* Initialize the kernel heap */
     Init_Heap(heapAddr, KERNEL_HEAP_SIZE);
@@ -271,16 +273,18 @@ void Init_Mem(struct Boot_Info* bootInfo)
     PrintBoth("%lx to %lx - PAGE LIST\n", pageListAddr, pageListEnd - 1);
     PrintBoth("%lx to %x - FREE\n", pageListEnd, vmmMemEnd - 1);
 
-#ifdef RAMDISK_BOOT
-    /*
-     * Zheng 08/03/2008
-     */
-    PrintBoth("%lx to %x - RAMDISK\n", vmmMemEnd, initrdEnd - 1);
 
-    PrintBoth("%lx to %x - GUEST_MEMORY (also free)\n", initrdEnd, endOfMem - 1);
-#else
-    PrintBoth("%lx to %x - GUEST_MEMORY (also free)\n", vmmMemEnd, endOfMem - 1);
-#endif
+    if (s_ramdiskSize > 0) {
+      /*
+       * Zheng 08/03/2008
+       */
+      PrintBoth("%lx to %x - RAMDISK\n", vmmMemEnd, initrdEnd - 1);
+      
+      PrintBoth("%lx to %x - GUEST_MEMORY (also free)\n", initrdEnd, endOfMem - 1);
+    } else {
+      PrintBoth("%lx to %x - GUEST_MEMORY (also free)\n", vmmMemEnd, endOfMem - 1);
+    }
+    
 }
 
 /*

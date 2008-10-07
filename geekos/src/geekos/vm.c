@@ -31,6 +31,10 @@
 
 
 
+extern void * g_ramdiskImage;
+extern ulong_t s_ramdiskSize;
+
+
 #define SPEAKER_PORT 0x61
 
 static inline void VM_Out_Byte(ushort_t port, uchar_t value)
@@ -203,17 +207,16 @@ int passthrough_mem_write(void * guest_addr, void * src, uint_t length, void * p
  */
 
 int RunVMM(struct Boot_Info * bootInfo) {
-  void * config_data;
-
   struct vmm_os_hooks os_hooks;
   struct vmm_ctrl_ops vmm_ops;
   struct guest_info * vm_info = 0;
-  
+  struct v3_vm_config vm_config;
 
 
   
   memset(&os_hooks, 0, sizeof(struct vmm_os_hooks));
   memset(&vmm_ops, 0, sizeof(struct vmm_ctrl_ops));
+  memset(&vm_config, 0, sizeof(struct v3_vm_config));
 
   
   os_hooks.print_debug = &SerialPrint;
@@ -237,13 +240,23 @@ int RunVMM(struct Boot_Info * bootInfo) {
   extern char _binary___palacios_vm_kernel_start;
   PrintBoth(" Guest Load Addr: 0x%x\n", &_binary___palacios_vm_kernel_start);
   
-  config_data = &_binary___palacios_vm_kernel_start;
- 
+  vm_config.vm_kernel = &_binary___palacios_vm_kernel_start;
+  
+  
+  if (g_ramdiskImage != NULL) {
+    vm_config.use_ramdisk = 1;
+    vm_config.ramdisk = g_ramdiskImage;
+    vm_config.ramdisk_size = s_ramdiskSize;
+  }
+
+
+
+
   vm_info = (vmm_ops).allocate_guest();
 
   PrintBoth("Allocated Guest\n");
 
-  (vmm_ops).config_guest(vm_info, config_data);
+  (vmm_ops).config_guest(vm_info, &vm_config);
 
   PrintBoth("Configured guest\n");
 

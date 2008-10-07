@@ -60,7 +60,7 @@ UIP=OFF
 #
 #LWIP, ON -- used, OFF -- not used
 #
-LWIP=ON
+LWIP=OFF
 
 
 #
@@ -143,7 +143,7 @@ COMMON_C_OBJS := $(COMMON_C_SRCS:%.c=common/%.o)
 V3_LD_FLAGS := -L./palacios/
 #V3_LIBS := -lxed -lv3vee
 V3_LIBS := ./palacios/libxed.a ./palacios/libv3vee.a ./palacios/libxed.a ./palacios/libv3vee.a
-
+V3_OBJS := ./palacios/libxed.a ./palacios/libv3vee.a ./palacios/vm_kernel
 
 
 
@@ -158,7 +158,7 @@ else
 endif
 
 ifeq ($(LWIP),ON)
-	LWIP_OBJS := lwip/*.o
+	LWIP_OBJS := lwip
 	CC_LWIP_OPTS := -I$(PROJECT_ROOT)/include/lwip  -I$(PROJECT_ROOT)/include/lwip/ipv4 -I$(PROJECT_ROOT)/include/libc -DLWIP_DEBUG
 else
 	LWIP_OBJS := 
@@ -283,7 +283,7 @@ net/%.o : net/%.c
 all : $(ALL_TARGETS)
 
 
-force_lwip:
+lwip:
 	(cd ../src/lwip/build; make clean; make)
 
 
@@ -340,7 +340,7 @@ geekos/kernel.bin : geekos/kernel.exe
 	$(PAD) $@ 512
 
 # The kernel executable and symbol map.
-geekos/kernel.exe : $(KERNEL_OBJS) $(COMMON_C_OBJS) force_lwip
+geekos/kernel.exe : $(KERNEL_OBJS) $(COMMON_C_OBJS) $(TCPSTACK_OBJS) $(V3_OBJS)
 	$(TARGET_LD) -o geekos/kernel.exe -Ttext $(KERNEL_BASE_ADDR) -e $(KERNEL_ENTRY) \
 		$(V3_LD_FLAGS) \
 		$(KERNEL_OBJS) $(COMMON_C_OBJS) $(TCPSTACK_OBJS) $(V3_LIBS) -b binary ./palacios/vm_kernel

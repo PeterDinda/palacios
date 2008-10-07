@@ -18,7 +18,7 @@ struct Boot_Info {
   int memSizeKB;	 /* number of KB, as reported by int 15h */
 
   /*Zheng 08/02/2008*/
-  unsigned long ramdisk_image; /*ramdisk load addr*/ 
+  void * ramdisk_image; /*ramdisk load addr*/ 
   unsigned long ramdisk_size;
 };
 

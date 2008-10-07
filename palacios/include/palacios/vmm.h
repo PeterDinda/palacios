@@ -239,11 +239,20 @@ struct vmm_os_hooks {
 };
 
 
+struct v3_vm_config {
+  void * vm_kernel;
+  int use_ramdisk;
+  void * ramdisk;
+  int ramdisk_size;
+};
+
+
+
 /* This will contain Function pointers that control the VMs */
 struct vmm_ctrl_ops {
   struct guest_info *(*allocate_guest)();
 
-  int (*config_guest)(struct guest_info * info, void * config_ptr);
+  int (*config_guest)(struct guest_info * info, struct v3_vm_config * config_ptr);
   int (*init_guest)(struct guest_info * info);
   int (*start_guest)(struct guest_info * info);
   //  int (*stop_vm)(uint_t vm_id);
@@ -252,6 +261,8 @@ struct vmm_ctrl_ops {
 
   //  v3_cpu_arch_t (*get_cpu_arch)();
 };
+
+
 
 
 

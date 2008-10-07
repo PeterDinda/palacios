@@ -5,6 +5,10 @@
 #include <geekos/net.h>
 #include <geekos/socket.h>
 #include <geekos/ne2k.h>
+
+#include <geekos/debug.h>
+
+#ifdef LWIP
 #include <lwip/apps/ping.h>
 #include <lwip/lwip/sockets.h>
 #include <lwip/ipv4/lwip/ip_addr.h>
@@ -12,8 +16,8 @@
 #include <lwip/sys.h>
 #include <lwip/netifapi.h>
 #include <lwip/tcpip.h>
+
 #include <netif/etharp.h>
-#include <geekos/debug.h>
 
 
 static void
@@ -66,6 +70,8 @@ void Init_Network() {
   //initial a network application
   ping_init();
 }
+
+#endif
 
 
 #if 0

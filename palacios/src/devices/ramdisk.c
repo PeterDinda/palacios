@@ -93,33 +93,6 @@
 #define PACKET_SIZE 12
 
 
-
-// FLAT MODE
-// Open a image. Returns non-negative if successful.
-//int open (const char* pathname);
-
-// Open an image with specific flags. Returns non-negative if successful.
-int rd_open (const char* pathname, int flags);
-
-// Close the image.
-void rd_close ();
-
-// Position ourselves. Return the resulting offset from the
-// beginning of the file.
-off_t rd_lseek (off_t offset, int whence);
-
-// Read count bytes to the buffer buf. Return the number of
-// bytes read (count).
-ssize_t rd_read (void* buf, size_t count);
-
-// Write count bytes from buf. Return the number of bytes
-// written (count).
-ssize_t rd_write (const void* buf, size_t count);
-
-
-
-
-
 /*
  * Debug facilities
  */
@@ -381,6 +354,68 @@ static int check_bit_fields(struct controller_t * controller);
 
 
 
+int v3_ramdisk_register_cdrom(struct vm_device * dev, uint_t busID, uint_t driveID, struct cdrom_ops* cd, void * private_data) {
+  struct ramdisk_t * ramdisk  = (struct ramdisk_t *)(dev->private_data);
+  struct channel_t * channel = &(ramdisk->channels[busID]);
+  struct drive_t * drive = &(channel->drives[driveID]);
+  struct controller_t * controller = &(drive->controller);
+
+
+  
+  if (drive->device_type != IDE_NONE) {
+    PrintError("Device already registered at this location\n");
+    return -1;
+  }
+
+
+  channel->irq =  15;
+
+  // Make model string
+  strncpy((char*)(drive->model_no), "V3VEE Ramdisk", 40);
+
+  while (strlen((char *)(drive->model_no)) < 40) {
+    strcat ((char*)(drive->model_no), " ");
+  }
+  
+  PrintDebug("CDROM on target %d/%d\n", busID, driveID);
+  
+  drive->device_type = IDE_CDROM;
+  drive->cdrom.locked = 0;
+  drive->sense.sense_key = SENSE_NONE;
+  drive->sense.asc = 0;
+  drive->sense.ascq = 0;
+  
+  drive->private_data = private_data;
+
+#ifdef DEBUG_RAMDISK
+  if (check_bit_fields(controller) == INTR_REASON_BIT_ERR) {
+    PrintDebug("interrupt reason: bit field error\n");
+    return INTR_REASON_BIT_ERR;
+  }
+#endif
+  
+  controller->sector_count = 0;
+
+  drive->cdrom.cd = cd;
+  
+  PrintDebug("\t\tCD on ata%d-%d: '%s'\n", 
+	     busID, 
+	     driveID, "");
+  
+  if(drive->cdrom.cd->insert_cdrom(drive->private_data)) {
+    PrintDebug("\t\tMedia present in CD-ROM drive\n");
+    drive->cdrom.ready = 1;
+    drive->cdrom.capacity = drive->cdrom.cd->capacity(drive->private_data);
+    PrintDebug("\t\tCDROM capacity is %d\n", drive->cdrom.capacity);
+  } else {		    
+    PrintDebug("\t\tCould not locate CD-ROM, continuing with media not present\n");
+    drive->cdrom.ready = 0;
+  }
+  
+  return 0;
+}
+
+
 static Bit32u rd_init_hardware(struct ramdisk_t *ramdisk) {
   uint_t channel_num; 
   uint_t device;
@@ -440,65 +475,6 @@ static Bit32u rd_init_hardware(struct ramdisk_t *ramdisk) {
         strcat ((char*)(drive->model_no), " ");
       }
 
-
-      
-      
-      if (channel_num == 1) {
-
-	channel->ioaddr1 = 0x170;
-	channel->ioaddr2 = 0x370;
-	channel->irq =  15;
-	channel->drive_select = 0;
-       
-	if (device == 0) {
-	  // Make model string
-	  strncpy((char*)(drive->model_no), "V3VEE Ramdisk", 40);
-	  while (strlen((char *)(drive->model_no)) < 40) {
-	    strcat ((char*)(drive->model_no), " ");
-	  }
-	  
-	  PrintDebug("CDROM on target %d/%d\n", channel_num, device);
-	  
-	  drive->device_type = IDE_CDROM;
-	  drive->cdrom.locked = 0;
-	  drive->sense.sense_key = SENSE_NONE;
-	  drive->sense.asc = 0;
-	  drive->sense.ascq = 0;
-	  
-#ifdef DEBUG_RAMDISK
-	  if (check_bit_fields(controller) == INTR_REASON_BIT_ERR) {
-	    PrintDebug("interrupt reason: bit field error\n");
-	    return INTR_REASON_BIT_ERR;
-	  }
-#endif
-	  
-	  controller->sector_count = 0;
-
-	  // allocate low level driver
-	  drive->cdrom.cd = (struct cdrom_interface *)V3_Malloc(sizeof(struct cdrom_interface));
-	  PrintDebug("cd = %x\n", drive->cdrom.cd);
-	  V3_ASSERT(drive->cdrom.cd != NULL);
-	  
-	  struct cdrom_interface * cdif = drive->cdrom.cd;
-	  memset(cdif, 0, sizeof(struct cdrom_interface));
-	  init_cdrom(cdif);
-	  cdif->ops.init(cdif);
-
-	  PrintDebug("\t\tCD on ata%d-%d: '%s'\n", 
-		     channel_num, 
-		     device, "");
-	  
-	  if((drive->cdrom.cd->ops).insert_cdrom(cdif, NULL)) {
-	    PrintDebug("\t\tMedia present in CD-ROM drive\n");
-	    drive->cdrom.ready = 1;
-	    drive->cdrom.capacity = drive->cdrom.cd->ops.capacity(cdif);
-	  } else {		    
-	    PrintDebug("\t\tCould not locate CD-ROM, continuing with media not present\n");
-	    drive->cdrom.ready = 0;
-	  }
-	  
-	}//if device = 0
-      }//if channel = 0
     }//for device
   }//for channel
 
@@ -613,15 +589,14 @@ static int read_data_port(ushort_t port, void * dst, uint_t length, struct vm_de
 	case 0x28: // read (10)
 	case 0xa8: // read (12)
 	  {
-	    struct cdrom_interface * cdif = drive->cdrom.cd;
-	    
+    
 	    if (!(drive->cdrom.ready)) {
 	      PrintError("\t\tRead with CDROM not ready\n");
 	      return -1;
 	    } 
 	    
-	    drive->cdrom.cd->ops.read_block(cdif, controller->buffer,
-					    drive->cdrom.next_lba);
+	    drive->cdrom.cd->read_block(drive->private_data, controller->buffer,
+					drive->cdrom.next_lba);
 	    drive->cdrom.next_lba++;
 	    drive->cdrom.remaining_blocks--;
 	    
@@ -926,7 +901,9 @@ static int write_cmd_port(ushort_t port, void * src, uint_t length, struct vm_de
     }
   default:
     PrintError("\t\tneed translate command %2x\n", value);
-    return -1;
+    //return -1;
+    /* JRL THIS NEEDS TO CHANGE */
+    return length;
 
   }
   return length;
@@ -1289,9 +1266,15 @@ static int write_general_port(ushort_t port, void * src, uint_t length, struct v
       }
 
       write_lba_mode(channel, (value >> 6) & 1);
-      drive->cdrom.cd->lba = (value >> 6) & 1;
+
+
+
+      if (drive->cdrom.cd) {
+	PrintDebug("\t\tSetting LBA on CDROM: %d\n", (value >> 6) & 1);
+	drive->cdrom.cd->set_LBA(drive->private_data, (value >> 6) & 1);
+      }
       
-      
+
       channel->drive_select = (value >> 4) & 0x01;
       drive = get_selected_drive(channel);
 
@@ -1359,7 +1342,7 @@ static void rd_lower_irq(struct vm_device *dev, Bit32u irq)  // __attribute__(re
 
 
 int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * channel, ushort_t value) {
-  //struct ramdisk_t * ramdisk  = (struct ramdisk_t *)(dev->private_data);
+  struct ramdisk_t * ramdisk  = (struct ramdisk_t *)(dev->private_data);
   struct drive_t * drive = get_selected_drive(channel);
   struct controller_t * controller = &(drive->controller);
 
@@ -1439,7 +1422,7 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 	  rd_raise_interrupt(dev, channel);
 	} else if (!LoEj && Start) { // start (spin up) the disc
 	  
-	  drive->cdrom.cd->ops.start_cdrom(drive->cdrom.cd);
+	  drive->cdrom.cd->start_cdrom(drive->private_data);
 	  
 	  PrintError("FIXME: ATAPI start disc not reading TOC\n");
 	  rd_atapi_cmd_nop(dev, channel);
@@ -1449,7 +1432,7 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 	  
 	  if (drive->cdrom.ready) {
 	    
-	    drive->cdrom.cd->ops.eject_cdrom(drive->cdrom.cd);
+	    drive->cdrom.cd->eject_cdrom(drive->private_data);
 	    
 	    drive->cdrom.ready = 0;
 	    //bx_options.atadevice[channel][SLAVE_SELECTED(channel)].Ostatus->set(EJECTED);
@@ -1738,8 +1721,9 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 	  switch (format) {
 	  case 0:
 	    
-	    if (!(drive->cdrom.cd->ops.read_toc(drive->cdrom.cd, controller->buffer,
-						&toc_length, msf, starting_track))) {
+	    if (!(drive->cdrom.cd->read_toc(drive->private_data, controller->buffer,
+					    &toc_length, msf, starting_track))) {
+	      PrintDebug("CDROM: Reading Table of Contents Failed\n");
 	      rd_atapi_cmd_error(dev, channel, SENSE_ILLEGAL_REQUEST,
 				 ASC_INV_FIELD_IN_CMD_PACKET);
 	      rd_raise_interrupt(dev, channel);
@@ -1794,6 +1778,8 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 	uint32_t lba = rd_read_32bit(controller->buffer + 2);
 	
 	if (!(drive->cdrom.ready)) {
+	  PrintError("CDROM Error: Not Ready (ATA%d/%d)\n", 
+		     get_channel_no(ramdisk, channel), get_drive_no(channel, drive));
 	  rd_atapi_cmd_error(dev, channel, SENSE_NOT_READY, ASC_MEDIUM_NOT_PRESENT);
 	  rd_raise_interrupt(dev, channel);
 	  break;
@@ -1802,11 +1788,15 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 	if (transfer_length == 0) {
 	  rd_atapi_cmd_nop(dev, channel);
 	  rd_raise_interrupt(dev, channel);
-	  PrintDebug("\t\tREAD(%d) with transfer length 0, ok\n", (atapi_command == 0x28) ? 10 : 12);
+	  PrintError("READ(%d) with transfer length 0, ok\n", 
+		     (atapi_command == 0x28) ? 10 : 12);
 	  break;
 	}
 	
 	if (lba + transfer_length > drive->cdrom.capacity) {
+	  PrintError("CDROM Error: Capacity exceeded [capacity=%d] (ATA%d/%d)\n",
+		     drive->cdrom.capacity,
+		     get_channel_no(ramdisk, channel), get_drive_no(channel, drive));
 	  rd_atapi_cmd_error(dev, channel, SENSE_ILLEGAL_REQUEST, ASC_LOGICAL_BLOCK_OOR);
 	  rd_raise_interrupt(dev, channel);
 	  break;
@@ -1819,8 +1809,10 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 	// handle command
 	if (rd_init_send_atapi_command(dev, channel, atapi_command, transfer_length * 2048,
 				       transfer_length * 2048, true) == -1) {
+	  PrintError("CDROM Error: Atapi command send error\n");
 	  return -1;
 	}
+
 	drive->cdrom.remaining_blocks = transfer_length;
 	drive->cdrom.next_lba = lba;
 	rd_ready_to_send_atapi(dev, channel);

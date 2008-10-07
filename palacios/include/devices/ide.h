@@ -132,7 +132,7 @@ struct  cdrom_t {
   rd_bool ready;
   rd_bool locked;
 
-  struct cdrom_interface * cd;
+  struct cdrom_ops * cd;
 
   uint32_t capacity;
   int next_lba;
@@ -204,6 +204,9 @@ struct  drive_t {
   struct sense_info_t sense;
   struct atapi_t atapi;
   
+  /* JRL */
+  void * private_data;
+
   Bit8u model_no[41];
 };
 
@@ -239,3 +242,29 @@ struct  ramdisk_t {
 
 #endif
 
+#if 0
+
+// FLAT MODE
+// Open a image. Returns non-negative if successful.
+//int open (const char* pathname);
+
+// Open an image with specific flags. Returns non-negative if successful.
+int rd_open (const char* pathname, int flags);
+
+// Close the image.
+void rd_close ();
+
+// Position ourselves. Return the resulting offset from the
+// beginning of the file.
+off_t rd_lseek (off_t offset, int whence);
+
+// Read count bytes to the buffer buf. Return the number of
+// bytes read (count).
+ssize_t rd_read (void* buf, size_t count);
+
+// Write count bytes from buf. Return the number of bytes
+// written (count).
+ssize_t rd_write (const void* buf, size_t count);
+
+
+#endif
