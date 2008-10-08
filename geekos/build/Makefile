@@ -152,13 +152,10 @@ else
 endif
 
 ifeq ($(LWIP),ON)
-<<<<<<< HEAD:geekos/build/Makefile
+
 	LWIP_OBJS := lwip
 	CC_LWIP_OPTS := -I$(PROJECT_ROOT)/include/lwip  -I$(PROJECT_ROOT)/include/lwip/ipv4 -I$(PROJECT_ROOT)/include/libc -DLWIP_DEBUG
-=======
-	LWIP_OBJS := lwip/*.o
-	CC_LWIP_OPTS := -I$(PROJECT_ROOT)/include/lwip  -I$(PROJECT_ROOT)/include/lwip/ipv4 -I$(PROJECT_ROOT)/include/libc -DLWIP_DEBUG -DLWIP
->>>>>>> 64bit:geekos/build/Makefile
+
 else
 	LWIP_OBJS := 
 	CC_LWIP_OPTS :=
