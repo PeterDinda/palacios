@@ -265,8 +265,6 @@ struct vmm_ctrl_ops {
 
 
 
-
-
 void Init_V3(struct vmm_os_hooks * hooks, struct vmm_ctrl_ops * vmm_ops);
 
 
