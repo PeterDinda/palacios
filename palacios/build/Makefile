@@ -329,7 +329,8 @@ FD_SECTORS_PER_TRACK := $(PERL) $(PROJECT_ROOT)/scripts/numsecs_per_track
 # ----------------------------------------------------------------------
 
 # Flags used for all C source files
-GENERAL_OPTS := -O -Wall $(EXTRA_C_OPTS) $(VMM_FLAGS) -fPIC #-fvisibility=hidden
+#GENERAL_OPTS := -O -Wall $(EXTRA_C_OPTS) $(VMM_FLAGS) -fPIC #-fvisibility=hidden
+GENERAL_OPTS :=  -Wall $(EXTRA_C_OPTS) $(VMM_FLAGS) -fPIC #-fvisibility=hidden
 CC_GENERAL_OPTS := $(GENERAL_OPTS) -Werror 
 
 # Flags used for VMM C source files

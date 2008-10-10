@@ -359,16 +359,16 @@ int config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) {
   
 #if 0
   // give floppy controller to vm
-  v3_hook_irq_for_guest_injection(info, 6);
+  v3_hook_passthrough_irq(info, 6);
 #endif
   
 
   if (!use_ramdisk) {
     //primary ide
-    v3_hook_irq_for_guest_injection(info, 14);
+    v3_hook_passthrough_irq(info, 14);
   
     // secondary ide
-    v3_hook_irq_for_guest_injection(info, 15);    
+    v3_hook_passthrough_irq(info, 15);    
   }  
 
   //v3_hook_io_port(info, 1234, &IO_Read, NULL, info);

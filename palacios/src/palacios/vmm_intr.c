@@ -30,14 +30,16 @@
 
 
 
-/*Zheng 07/30/2008*/
+
 void init_interrupt_state(struct guest_info * info) {
   info->intr_state.excp_pending = 0;
   info->intr_state.excp_num = 0;
   info->intr_state.excp_error_code = 0;
 
+  memset((uchar_t *)(info->intr_state.hooks), 0, sizeof(struct v3_irq_hook *) * 256);
+
   info->vm_ops.raise_irq = &v3_raise_irq;
-  info->vm_ops.lower_irq = &v3_lower_irq; //Zheng added
+  info->vm_ops.lower_irq = &v3_lower_irq; 
 }
 
 void set_intr_controller(struct guest_info * info, struct intr_ctrl_ops * ops, void * state) {
@@ -47,69 +49,60 @@ void set_intr_controller(struct guest_info * info, struct intr_ctrl_ops * ops, v
 
 
 
-// This structure is used to dispatch
-// interrupts delivered to vmm via deliver interrupt to vmm 
-// it is what we put into the opaque field given to 
-// the host os when we install the handler
-struct vmm_intr_decode { 
-  void              (*handler)(struct vmm_intr_state *state);
-  // This opaque is user supplied by the caller
-  // of hook_irq_new
-  void              *opaque;
-};
 
-int v3_hook_irq(uint_t irq,
-	     void (*handler)(struct vmm_intr_state *state),
-	     void  *opaque)
+static inline struct v3_irq_hook * get_irq_hook(struct guest_info * info, uint_t irq) {
+  V3_ASSERT(irq <= 256);
+  return info->intr_state.hooks[irq];
+}
+
+
+int v3_hook_irq(struct guest_info * info, 
+		uint_t irq,
+		int (*handler)(struct guest_info * info, struct v3_interrupt * intr, void * priv_data),
+		void  * priv_data) 
 {
-  struct vmm_intr_decode *d = (struct vmm_intr_decode *)V3_Malloc(sizeof(struct vmm_intr_decode));
+  struct v3_irq_hook * hook = (struct v3_irq_hook *)V3_Malloc(sizeof(struct v3_irq_hook));
 
-  if (!d) { return -1; }
+  if (hook == NULL) { 
+    return -1; 
+  }
 
-  d->handler = handler;
-  d->opaque = opaque;
+  if (get_irq_hook(info, irq) != NULL) {
+    PrintError("IRQ %d already hooked\n", irq);
+    return -1;
+  }
+
+  hook->handler = handler;
+  hook->priv_data = priv_data;
   
-  if (V3_Hook_Interrupt(irq,d)) { 
-    PrintError("hook_irq: failed to hook irq 0x%x to decode 0x%x\n", irq,d);
+  info->intr_state.hooks[irq] = hook;
+
+  if (V3_Hook_Interrupt(info, irq)) { 
+    PrintError("hook_irq: failed to hook irq %d\n", irq);
     return -1;
   } else {
-    PrintDebug("hook_irq: hooked irq 0x%x to decode 0x%x\n", irq,d);
+    PrintDebug("hook_irq: hooked irq %d\n", irq);
     return 0;
   }
 }
 
 
-void deliver_interrupt_to_vmm(struct vmm_intr_state *state)
+
+static int passthrough_irq_handler(struct guest_info * info, struct v3_interrupt * intr, void * priv_data)
 {
 
-  PrintDebug("deliver_interrupt_to_vmm: state=0x%x\n",state);
+  PrintDebug("[passthrough_irq_handler] raise_irq=%d (guest=0x%x)\n", intr->irq, info);
+  return v3_raise_irq(info, intr->irq);
 
-  struct vmm_intr_decode *d = (struct vmm_intr_decode *)(state->opaque);
-  
-  void *temp = state->opaque;
-  state->opaque = d->opaque;
-
-  d->handler(state);
-  
-  state->opaque=temp;
 }
 
-
-static void guest_injection_irq_handler(struct vmm_intr_state *state)
-{
-  struct guest_info *guest = (struct guest_info *)(state->opaque);
-  PrintDebug("[guest_injection_irq_handler] raise_irq=0x%x (guest=0x%x)\n", state->irq, guest);
-  PrintDebug("guest_irq_injection: state=0x%x\n", state);
-  guest->vm_ops.raise_irq(guest,state->irq);
-}
-
-
-int v3_hook_irq_for_guest_injection(struct guest_info *info, int irq)
+int v3_hook_passthrough_irq(struct guest_info * info, uint_t irq)
 {
 
-  int rc = v3_hook_irq(irq,
-		       guest_injection_irq_handler,
-		       info);
+  int rc = v3_hook_irq(info, 
+		       irq,
+		       passthrough_irq_handler,
+		       NULL);
 
   if (rc) { 
     PrintError("guest_irq_injection: failed to hook irq 0x%x (guest=0x%x)\n", irq, info);
@@ -123,8 +116,29 @@ int v3_hook_irq_for_guest_injection(struct guest_info *info, int irq)
 
 
 
+
+int v3_deliver_irq(struct guest_info * info, struct v3_interrupt * intr) {
+  PrintDebug("v3_deliver_irq: irq=%d state=0x%x, \n", intr->irq, intr);
+  
+  struct v3_irq_hook * hook = get_irq_hook(info, intr->irq);
+
+  if (hook == NULL) {
+    PrintError("Attempting to deliver interrupt to non registered hook(irq=%d)\n", intr->irq);
+    return -1;
+  }
+  
+  return hook->handler(info, intr, hook->priv_data);
+}
+
+
+
+
+
+
+
+
 int v3_raise_exception_with_error(struct guest_info * info, uint_t excp, uint_t error_code) {
-  struct vm_intr * intr_state = &(info->intr_state);
+  struct v3_intr_state * intr_state = &(info->intr_state);
 
   if (intr_state->excp_pending == 0) {
     intr_state->excp_pending = 1;
@@ -141,7 +155,7 @@ int v3_raise_exception_with_error(struct guest_info * info, uint_t excp, uint_t 
 }
 
 int v3_raise_exception(struct guest_info * info, uint_t excp) {
-  struct vm_intr * intr_state = &(info->intr_state);
+  struct v3_intr_state * intr_state = &(info->intr_state);
   PrintDebug("[v3_raise_exception]\n");
   if (intr_state->excp_pending == 0) {
     intr_state->excp_pending = 1;
@@ -156,18 +170,17 @@ int v3_raise_exception(struct guest_info * info, uint_t excp) {
   return 0;
 }
 
-/*Zheng 07/30/2008*/
 
 int v3_lower_irq(struct guest_info * info, int irq) {
   // Look up PIC and resend
   V3_ASSERT(info);
   V3_ASSERT(info->intr_state.controller);
-  V3_ASSERT(info->intr_state.controller->raise_intr);
+  V3_ASSERT(info->intr_state.controller->lower_intr);
 
   PrintDebug("[v3_lower_irq]\n");
 
   if ((info->intr_state.controller) && 
-      (info->intr_state.controller->raise_intr)) {
+      (info->intr_state.controller->lower_intr)) {
     info->intr_state.controller->lower_intr(info->intr_state.controller_state, irq);
   } else {
     PrintDebug("There is no registered Interrupt Controller... (NULL POINTER)\n");
@@ -199,7 +212,7 @@ int v3_raise_irq(struct guest_info * info, int irq) {
  
 
 int intr_pending(struct guest_info * info) {
-  struct vm_intr * intr_state = &(info->intr_state);
+  struct v3_intr_state * intr_state = &(info->intr_state);
 
   //  PrintDebug("[intr_pending]\n");
   if (intr_state->excp_pending == 1) {
@@ -215,7 +228,7 @@ int intr_pending(struct guest_info * info) {
 
 
 uint_t get_intr_number(struct guest_info * info) {
-  struct vm_intr * intr_state = &(info->intr_state);
+  struct v3_intr_state * intr_state = &(info->intr_state);
 
   if (intr_state->excp_pending == 1) {
     return intr_state->excp_num;
@@ -231,7 +244,7 @@ uint_t get_intr_number(struct guest_info * info) {
 
 
 intr_type_t get_intr_type(struct guest_info * info) {
- struct vm_intr * intr_state = &(info->intr_state);
+  struct v3_intr_state * intr_state = &(info->intr_state);
 
   if (intr_state->excp_pending) {
     PrintDebug("[get_intr_type] Exception\n");
@@ -250,7 +263,7 @@ intr_type_t get_intr_type(struct guest_info * info) {
 
 
 int injecting_intr(struct guest_info * info, uint_t intr_num, intr_type_t type) {
-  struct vm_intr * intr_state = &(info->intr_state);
+  struct v3_intr_state * intr_state = &(info->intr_state);
 
   if (type == EXCEPTION) {
     PrintDebug("[injecting_intr] Exception\n");

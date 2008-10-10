@@ -46,7 +46,7 @@ int ack_irq(int irq);
 
 
 
-int geekos_hook_interrupt_new(uint_t irq, void *opaque);
+int geekos_hook_interrupt(struct guest_info * info, uint_t irq);
 
 
 unsigned int get_cpu_khz();

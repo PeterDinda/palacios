@@ -188,24 +188,7 @@ typedef enum v3_cpu_arch {V3_INVALID_CPU, V3_SVM_CPU, V3_SVM_REV3_CPU, V3_VMX_CP
 
 
 
-//
-//
-// This is the interrupt state that the VMM's interrupt handlers need to see
-//
-struct vmm_intr_state {
-  unsigned int irq;
-  unsigned int error;
-
-  unsigned int should_ack;  // Should the vmm ack this interrupt, or will
-                      // the host OS do it?
-
-  // This is the value given when the interrupt is hooked.
-  // This will never be NULL
-  void * opaque;
-};
-
-void deliver_interrupt_to_vmm(struct vmm_intr_state * state);
-
+struct guest_info;
 
 /* This will contain function pointers that provide OS services */
 struct vmm_os_hooks {
@@ -224,7 +207,7 @@ struct vmm_os_hooks {
 
   //  int (*hook_interrupt)(struct guest_info *s, int irq);
 
-  int (*hook_interrupt)(unsigned int irq, void *opaque);
+  int (*hook_interrupt)(struct guest_info * vm, unsigned int irq);
 
   int (*ack_irq)(int irq);
 
@@ -265,9 +248,24 @@ struct vmm_ctrl_ops {
 
 
 
+//
+//
+// This is the interrupt state that the VMM's interrupt handlers need to see
+//
+struct v3_interrupt {
+  unsigned int irq;
+  unsigned int error;
+
+  unsigned int should_ack;  // Should the vmm ack this interrupt, or will
+                      // the host OS do it?
+};
+
+
+
+
 void Init_V3(struct vmm_os_hooks * hooks, struct vmm_ctrl_ops * vmm_ops);
 
-
+int v3_deliver_irq(struct guest_info * vm, struct v3_interrupt * intr);
 
 
 

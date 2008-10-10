@@ -101,8 +101,8 @@ struct shadow_page_state;
 struct shadow_map;
 struct vmm_io_map;
 struct emulation_state;
+struct v3_intr_state;
 
-/*Zheng 07/30/2008*/
 struct vm_ctrl_ops {
   int (*raise_irq)(struct guest_info * info, int irq);
   int (*lower_irq)(struct guest_info * info, int irq);
@@ -136,7 +136,7 @@ struct guest_info {
 
 
   // This structure is how we get interrupts for the guest
-  struct vm_intr intr_state;
+  struct v3_intr_state intr_state;
 
   struct vmm_io_map io_map;
   // device_map
