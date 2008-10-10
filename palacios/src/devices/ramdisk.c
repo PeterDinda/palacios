@@ -843,6 +843,44 @@ static int write_cmd_port(ushort_t port, void * src, uint_t length, struct vm_de
 	     value);
 
   switch (value) {
+  case 0xec: // IDENTIFY DEVICE
+    {
+      if (drive->device_type == IDE_NONE) {
+	PrintError("\t\tError: disk ata%d-%d not present, aborting\n", 
+		   get_channel_no(ramdisk, channel), 
+		   get_drive_no(channel, drive));
+	rd_command_aborted(dev, channel, value);
+	break;
+      } else if (drive->device_type == IDE_CDROM) {
+	controller->head_no        = 0;
+	controller->sector_count   = 1;
+	controller->sector_no      = 1;
+	controller->cylinder_no    = 0xeb14;
+	rd_command_aborted(dev, channel, 0xec);
+      } else {
+	PrintError("\t\tError: Want to identify HDD!!\n");
+	/*
+	  SELECTED_CONTROLLER(channel).current_command = value;
+	  SELECTED_CONTROLLER(channel).error_register = 0;
+	  
+	  // See ATA/ATAPI-4, 8.12
+	  SELECTED_CONTROLLER(channel).status.busy  = 0;
+	  SELECTED_CONTROLLER(channel).status.drive_ready = 1;
+	  SELECTED_CONTROLLER(channel).status.write_fault = 0;
+	  SELECTED_CONTROLLER(channel).status.drq   = 1;
+	  SELECTED_CONTROLLER(channel).status.err   = 0;
+	  
+	  SELECTED_CONTROLLER(channel).status.seek_complete = 1;
+	  SELECTED_CONTROLLER(channel).status.corrected_data = 0;
+	  
+	  SELECTED_CONTROLLER(channel).buffer_index = 0;
+	  raise_interrupt(channel);
+	  identify_drive(channel);
+	*/
+      }
+
+    break;
+    }
     // ATAPI commands
   case 0xa1: // IDENTIFY PACKET DEVICE
     {
