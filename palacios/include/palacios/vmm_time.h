@@ -20,6 +20,7 @@
 #ifndef __VMM_TIME_H
 #define __VMM_TIME_H
 
+#ifdef __V3VEE__
 
 #include <palacios/vmm_types.h>
 #include <palacios/vmm_list.h>
@@ -44,7 +45,7 @@ struct vm_time {
 };
 
 
-#ifdef __V3VEE__
+
 
 struct vm_timer_ops {
  void (*update_time)(ullong_t cpu_cycles, ullong_t cpu_freq, void * priv_data);

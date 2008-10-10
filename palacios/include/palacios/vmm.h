@@ -48,12 +48,12 @@
 
 
 
-#define PrintError(fmt, args...)			\
-  do {							\
-    extern struct vmm_os_hooks * os_hooks;		\
-    if ((os_hooks) && (os_hooks)->print_debug) {	\
-      (os_hooks)->print_debug((fmt), ##args);		\
-    }							\
+#define PrintError(fmt, args...)					\
+  do {									\
+    extern struct vmm_os_hooks * os_hooks;				\
+    if ((os_hooks) && (os_hooks)->print_debug) {			\
+      (os_hooks)->print_debug("%s(%d): " fmt, __FILE__, __LINE__, ##args); \
+    }									\
   } while (0)						
 
 
@@ -72,12 +72,12 @@
 
 
 #if VMM_TRACE
-#define PrintTrace(fmt, args...)			\
-  do {							\
-    extern struct vmm_os_hooks * os_hooks;		\
-    if ((os_hooks) && (os_hooks)->print_trace) {	\
-      (os_hooks)->print_trace((fmt), ##args);		\
-    }							\
+#define PrintTrace(fmt, args...)					\
+  do {									\
+    extern struct vmm_os_hooks * os_hooks;				\
+    if ((os_hooks) && (os_hooks)->print_trace) {			\
+      (os_hooks)->print_trace(fmt, ##args);				\
+    }									\
   } while (0)						
 #else
 #define PrintTrace(fmt, args...)
@@ -148,6 +148,17 @@
     ret;							\
   })								\
 
+#define V3_Yield(addr)					\
+  do {							\
+    extern struct vmm_os_hooks * os_hooks;		\
+    if ((os_hooks) && (os_hooks)->yield_cpu) {		\
+      (os_hooks)->yield_cpu();				\
+    }							\
+  } while (0)						\
+
+
+
+
 
 /* ** */
 
@@ -177,24 +188,7 @@ typedef enum v3_cpu_arch {V3_INVALID_CPU, V3_SVM_CPU, V3_SVM_REV3_CPU, V3_VMX_CP
 
 
 
-//
-//
-// This is the interrupt state that the VMM's interrupt handlers need to see
-//
-struct vmm_intr_state {
-  unsigned int irq;
-  unsigned int error;
-
-  unsigned int should_ack;  // Should the vmm ack this interrupt, or will
-                      // the host OS do it?
-
-  // This is the value given when the interrupt is hooked.
-  // This will never be NULL
-  void *opaque;
-};
-
-void deliver_interrupt_to_vmm(struct vmm_intr_state *state);
-
+struct guest_info;
 
 /* This will contain function pointers that provide OS services */
 struct vmm_os_hooks {
@@ -213,7 +207,7 @@ struct vmm_os_hooks {
 
   //  int (*hook_interrupt)(struct guest_info *s, int irq);
 
-  int (*hook_interrupt)(unsigned int irq, void *opaque);
+  int (*hook_interrupt)(struct guest_info * vm, unsigned int irq);
 
   int (*ack_irq)(int irq);
 
@@ -223,16 +217,25 @@ struct vmm_os_hooks {
 
   void (*start_kernel_thread)(); // include pointer to function
 
-
+  void (*yield_cpu)();
 
 };
+
+
+struct v3_vm_config {
+  void * vm_kernel;
+  int use_ramdisk;
+  void * ramdisk;
+  int ramdisk_size;
+};
+
 
 
 /* This will contain Function pointers that control the VMs */
 struct vmm_ctrl_ops {
   struct guest_info *(*allocate_guest)();
 
-  int (*config_guest)(struct guest_info * info, void * config_ptr);
+  int (*config_guest)(struct guest_info * info, struct v3_vm_config * config_ptr);
   int (*init_guest)(struct guest_info * info);
   int (*start_guest)(struct guest_info * info);
   //  int (*stop_vm)(uint_t vm_id);
@@ -245,9 +248,24 @@ struct vmm_ctrl_ops {
 
 
 
+//
+//
+// This is the interrupt state that the VMM's interrupt handlers need to see
+//
+struct v3_interrupt {
+  unsigned int irq;
+  unsigned int error;
+
+  unsigned int should_ack;  // Should the vmm ack this interrupt, or will
+                      // the host OS do it?
+};
+
+
+
+
 void Init_V3(struct vmm_os_hooks * hooks, struct vmm_ctrl_ops * vmm_ops);
 
-
+int v3_deliver_irq(struct guest_info * vm, struct v3_interrupt * intr);
 
 
 

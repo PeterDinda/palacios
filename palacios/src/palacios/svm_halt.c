@@ -25,8 +25,7 @@
 
 #include <palacios/svm_halt.h>
 #include <palacios/vmm_intr.h>
-// From GeekOS
-void Yield(void);
+
 
 
 //
@@ -52,7 +51,7 @@ int handle_svm_halt(struct guest_info * info)
     PrintDebug("GeekOS Yield\n");
     
     rdtscll(yield_start);
-    Yield();
+    V3_Yield();
     rdtscll(yield_stop);
     
     

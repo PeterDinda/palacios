@@ -20,6 +20,9 @@
 #ifndef __VM_GUEST_MEM_H
 #define __VM_GUEST_MEM_H
 
+
+#ifdef __V3VEE__
+
 #include <palacios/vm_guest.h>
 #include <palacios/vmm_mem.h>
 
@@ -102,13 +105,13 @@ int host_va_to_guest_va(struct guest_info * guest_info, addr_t host_va, addr_t  
 
 
 
-int read_guest_va_memory(struct guest_info * guest_info, addr_t guest_va, int count, char * dest);
-int read_guest_pa_memory(struct guest_info * guest_info, addr_t guest_pa, int count, char * dest);
-int write_guest_pa_memory(struct guest_info * guest_info, addr_t guest_pa, int count, char * src);
+int read_guest_va_memory(struct guest_info * guest_info, addr_t guest_va, int count, uchar_t * dest);
+int read_guest_pa_memory(struct guest_info * guest_info, addr_t guest_pa, int count, uchar_t * dest);
+int write_guest_pa_memory(struct guest_info * guest_info, addr_t guest_pa, int count, uchar_t * src);
 // TODO int write_guest_va_memory(struct guest_info * guest_info, addr_t guest_va, int count, char * src);
 
 
-
+#endif // ! __V3VEE__
 
 
 #endif

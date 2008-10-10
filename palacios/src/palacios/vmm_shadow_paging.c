@@ -201,7 +201,7 @@ int v3_replace_shdw_page32(struct guest_info * info, addr_t location, pte32_t * 
   pde32_t * shadow_pde =  (pde32_t *)&(shadow_pd[PDE32_INDEX(location)]);
 
   if (shadow_pde->large_page == 0) {
-    pte32_t * shadow_pt = (pte32_t *)PDE32_T_ADDR((*shadow_pde));
+    pte32_t * shadow_pt = (pte32_t *)(addr_t)PDE32_T_ADDR((*shadow_pde));
     pte32_t * shadow_pte = (pte32_t *)&(shadow_pt[PTE32_INDEX(location)]);
 
     //if (shadow_pte->present == 1) {
@@ -436,7 +436,7 @@ static int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr
       
       guest_pde->accessed = 1;
       
-      shadow_pde->pt_base_addr = PD32_BASE_ADDR(shadow_pt);
+      shadow_pde->pt_base_addr = PD32_BASE_ADDR((addr_t)shadow_pt);
       
       if (guest_pde->large_page == 0) {
 	shadow_pde->writable = guest_pde->writable;
@@ -450,7 +450,7 @@ static int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr
       //
       // PTE fault
       //
-      pte32_t * shadow_pt = (pte32_t *)PDE32_T_ADDR((*shadow_pde));
+      pte32_t * shadow_pt = (pte32_t *)(addr_t)PDE32_T_ADDR((*shadow_pde));
 
       if (guest_pde->large_page == 0) {
 	pte32_t * guest_pt = NULL;
@@ -674,7 +674,7 @@ int handle_shadow_invlpg(struct guest_info * info) {
 
 
   if (info->cpu_mode == PROTECTED) {
-    char instr[15];
+    uchar_t instr[15];
     int ret;
     int index = 0;
 
@@ -731,7 +731,7 @@ int handle_shadow_invlpg(struct guest_info * info) {
 	} else {
 	 
 	  if (shadow_pde->present == 1) {
-	    pte32_t * shadow_pt = (pte32_t *)PDE32_T_ADDR((*shadow_pde));
+	    pte32_t * shadow_pt = (pte32_t *)(addr_t)PDE32_T_ADDR((*shadow_pde));
 	    pte32_t * shadow_pte = (pte32_t *)&shadow_pt[PTE32_INDEX(first_operand)];
 
 #ifdef DEBUG_SHADOW_PAGING

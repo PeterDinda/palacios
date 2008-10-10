@@ -134,12 +134,14 @@ struct rtc_statd {
 
 struct vm_device * thedev = NULL;
 
+/*JRL: A hack and a fatal bug 
 static struct vm_device * demultiplex_timer_interrupt(uint_t period_us)
 {
   // hack
   return thedev;
 }
-
+*/
+/* JRL: Doesn't work
 struct bcd_num {
   uchar_t bot : 4;
   uchar_t top : 4;
@@ -423,9 +425,9 @@ static void update_time(struct vm_device *dev, uint_t period_us)
   }
 }
 
+*/
 
-
-
+/* JRL: This is completely broken...
 void deliver_timer_interrupt_to_vmm(uint_t period_us)
 {
   struct vm_device * dev = demultiplex_timer_interrupt(period_us);
@@ -435,7 +437,7 @@ void deliver_timer_interrupt_to_vmm(uint_t period_us)
   }
   
 }
-
+*/
 
 static int set_nvram_defaults(struct vm_device * dev)
 {

@@ -26,6 +26,7 @@
 #include <palacios/vmm_intr.h>
 #include <palacios/vmm_types.h>
 
+
 #define DE_EXCEPTION          0x00  
 #define DB_EXCEPTION          0x01
 #define NMI_EXCEPTION         0x02
@@ -50,6 +51,7 @@
 typedef enum {INVALID_INTR, EXTERNAL_IRQ, NMI, EXCEPTION, SOFTWARE_INTR, VIRTUAL_INTR} intr_type_t;
 
 struct guest_info;
+struct v3_interrupt;
 
 /* We need a way to allow the APIC/PIC to decide when they are supposed to receive interrupts...
  * Maybe a notification call when they have been turned on, to deliver irqs to them...
@@ -57,7 +59,13 @@ struct guest_info;
  */
 
 
-struct vm_intr {
+struct v3_irq_hook {
+  int (*handler)(struct guest_info * info, struct v3_interrupt * intr, void * priv_data);
+  void * priv_data;
+};
+
+
+struct v3_intr_state {
 
   /* We need to rework the exception state, to handle stacking */
   uint_t excp_pending;
@@ -70,6 +78,8 @@ struct vm_intr {
 
   /* some way to get the [A]PIC intr */
 
+  struct v3_irq_hook * hooks[256];
+  
 };
 
 
@@ -112,22 +122,19 @@ int start_irq(struct vm_intr * intr);
 int end_irq(struct vm_intr * intr, int irq);
 */
 
+
+
+int v3_hook_irq(struct guest_info * info, 
+		uint_t irq,
+		int (*handler)(struct guest_info * info, struct v3_interrupt * intr, void * priv_data),
+		void  * priv_data);
+
+int v3_hook_passthrough_irq(struct guest_info *info, uint_t irq);
+
+
+
 #endif // !__V3VEE__
 
-
-
-
-
-
-
-
-struct vmm_intr_state;
-
-int v3_hook_irq(uint_t irq,
-		void (*handler)(struct vmm_intr_state *state),
-		void  *opaque);
-
-int v3_hook_irq_for_guest_injection(struct guest_info *info, int irq);
 
 
 #endif

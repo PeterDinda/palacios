@@ -33,6 +33,7 @@
 #include <palacios/vm_guest_mem.h>
 
 #include <palacios/vmm_decoder.h>
+#include <palacios/vmm_string.h>
 
 
 
@@ -364,7 +365,7 @@ static int init_svm_guest(struct guest_info *info) {
       PrintDebug("Host Address of rip = 0x%x\n", host_addr);
 
       PrintDebug("Instr (15 bytes) at %x:\n", host_addr);
-      PrintTraceMemDump((char*)host_addr, 15);
+      PrintTraceMemDump((uchar_t *)host_addr, 15);
 
       break;
     }
@@ -509,11 +510,13 @@ void Init_SVM(struct vmm_ctrl_ops * vmm_ops) {
   // Setup the host state save area
   host_state = V3_AllocPages(4);
   
-  msr.e_reg.high = 0;
-  msr.e_reg.low = (uint_t)host_state;
 
+  /* 64-BIT-ISSUE */
+  //  msr.e_reg.high = 0;
+  //msr.e_reg.low = (uint_t)host_state;
+  msr.r_reg = (addr_t)host_state;
 
-  PrintDebug("Host State being saved at %x\n", (uint_t)host_state);
+  PrintDebug("Host State being saved at %x\n", (addr_t)host_state);
   Set_MSR(SVM_VM_HSAVE_PA_MSR, msr.e_reg.high, msr.e_reg.low);
 
 

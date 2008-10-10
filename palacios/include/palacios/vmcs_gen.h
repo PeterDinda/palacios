@@ -1,4 +1,3 @@
-
 /*
  * This file is part of the Palacios Virtual Machine Monitor developed
  * by the V3VEE Project with funding from the United States National 
@@ -21,7 +20,6 @@
 #define __VMCS_GEN__
 
 #ifdef __V3VEE__
-
 
 
 #include <palacios/vmcs.h>
@@ -801,6 +799,10 @@ uint_t  Get_HOST_RIP();
 void    PrintTrace_HOST_RIP();
 
 void PrintTrace_VMCS_ALL();
-#endif
+
+
+#endif // !__V3VEE
 
 #endif
+
+

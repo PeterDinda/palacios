@@ -29,8 +29,6 @@
 SVM_ERROR equ 0xFFFFFFFF
 SVM_SUCCESS equ 0x00000000
 
-EXPORT DisableInts
-EXPORT EnableInts
 
 
 EXPORT exit_test
@@ -114,16 +112,6 @@ SVM_HANDLER_HALT equ 0x2
 ;STGI   equ db 0x0F,0x01,0xDC
 ;CLGI   equ db 0x0F,0x01,0xDD
 
-
-align 8
-DisableInts:
-	cli
-	ret
-
-align 8
-EnableInts:
-	sti
-	ret
 
 
 align 8

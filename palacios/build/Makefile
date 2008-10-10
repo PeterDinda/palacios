@@ -39,10 +39,8 @@
 #
 # The setup code needs to copy it up to this address and jump there
 #
-KERNEL_BASE_ADDR := 0x00100000
 
-# Kernel entry point function
-KERNEL_ENTRY = $(SYM_PFX)Main
+
 
 
 PROJECT_ROOT := ..
@@ -173,26 +171,13 @@ DECODER_LIBS=
 ifeq ($(DECODER),XED)
 DECODER_SRCS := vmm_xed.c
 DECODER_FLAGS :=  -L../lib/xed
-DECODER_LIBS := -lxed
+DECODER_LIBS := $(PROJECT_ROOT)/lib/xed/libxed.a
 else
 # This is an error
 endif
 
-#
-#TCPSTACK, uIP is used currently
-#
-TCPSTACK=UIP
 
-#
-#RAMDISK
-#
-RAMDISK_SRCS=
-BOOT_FLAGS=
 
-ifeq ($(RAMDISK_BOOT),1)
-BOOT_FLAGS := $(BOOT_FLAGS) -DRAMDISK_BOOT
-RAMDISK_SRCS := ramdisk.c cdrom.c
-endif
 
 
 
@@ -225,52 +210,14 @@ endif
 # List of targets to build by default.
 # These targets encompass everything needed to boot
 # and run GeekOS.
-ALL_TARGETS := vmm.img vm_kernel
+ALL_TARGETS := vmm vm_kernel
 
 
-# Kernel source files
-KERNEL_C_SRCS := idt.c int.c trap.c irq.c io.c \
-        blockdev.c ide.c ne2k.c \
-	keyboard.c screen.c timer.c \
-	mem.c crc32.c \
-	gdt.c tss.c segment.c \
-	bget.c malloc.c \
-	synch.c kthread.c \
-	serial.c  reboot.c \
-        paging.c \
-	debug.c vmm_stubs.c  vm.c  pci.c\
-	queue.c  socket.c net.c ring_buffer.c \
-	main.c
 
 
-# Kernel object files built from C source files
-KERNEL_C_OBJS := $(KERNEL_C_SRCS:%.c=geekos/%.o)
-
-# Kernel assembly files
-KERNEL_ASM_SRCS := lowlevel.asm
-
-KERNEL_GAS_SRCS := testvm.s udivdi3.s
-
-# Kernel object files build from assembler source files
-KERNEL_ASM_OBJS := $(KERNEL_ASM_SRCS:%.asm=geekos/%.o) 
-
-KERNEL_GAS_OBJS := $(KERNEL_GAS_SRCS:%.s=geekos/%.o)
 
 
-# All kernel object files
-KERNEL_OBJS := $(KERNEL_C_OBJS) \
-  $(KERNEL_ASM_OBJS) $(KERNEL_GAS_OBJS)
-
-# Common library source files.
-# This library is linked into both the kernel and user programs.
-# It provides string functions and generic printf()-style
-# formatted output.
-COMMON_C_SRCS := fmtout.c string.c memmove.c
-
-# Common library object files.
-COMMON_C_OBJS := $(COMMON_C_SRCS:%.c=common/%.o)
-
-VMM_ASM_SRCS :=  svm_lowlevel.asm \
+VMM_ASM_SRCS :=  svm_lowlevel.asm vmm_lowlevel.asm\
 #			vmx_lowlevel.asm
 
 VMM_ASM_OBJS := $(VMM_ASM_SRCS:%.asm=palacios/%.o)
@@ -294,8 +241,19 @@ VMM_OBJS := $(VMM_C_OBJS) $(VMM_ASM_OBJS)
 
 
 
+XED_C_SRCS := v3-xed-compat.c
 
-DEVICE_C_SRCS := generic.c keyboard.c nvram.c timer.c simple_pic.c 8259a.c 8254.c serial.c $(RAMDISK_SRCS)
+XED_C_OBJS := $(XED_C_SRCS:%.c=xed/%.o)
+
+XED_GAS_SRCS := v3-udiv-compat.s
+
+XED_GAS_OBJS := $(XED_GAS_SRCS:%.s=xed/%.o)
+
+XED_OBJS := $(XED_C_OBJS) $(XED_GAS_OBJS)
+
+
+
+DEVICE_C_SRCS := generic.c keyboard.c nvram.c timer.c simple_pic.c 8259a.c 8254.c serial.c ramdisk.c cdrom.c
 
 DEVICE_C_OBJS := $(DEVICE_C_SRCS:%.c=devices/%.o)
 
@@ -303,12 +261,6 @@ DEVICE_OBJS := $(DEVICE_C_OBJS)
 
 V3LIBS := $(DECODER_LIBS)
 
-
-TCPSTACK_C_SRCS := psock.c timer.c uip_arp.c uip.c uip-fw.c uiplib.c uip-neighbor.c uip-split.c resolv.c
-
-TCPSTACK_C_OBJS := $(TCPSTACK_C_SRCS:%.c=net/%.o)
-
-TCPSTACK_OBJS := $(TCPSTACK_C_OBJS)
 
 
 
@@ -318,19 +270,18 @@ TCPSTACK_OBJS := $(TCPSTACK_C_OBJS)
 #   This section defines programs that are used to build GeekOS.
 # ----------------------------------------------------------------------
 
+
+V3_ARCH := __V3_32BIT__
+#V3_ARCH := __V3_64BIT__
+
 # Uncomment if cross compiling
-TARGET_CC_PREFIX :=  $(PROJECT_ROOT)/../devtools/i386/bin/i386-elf-
+#TARGET_CC_PREFIX :=  $(PROJECT_ROOT)/../devtools/i386/bin/i386-elf-
 #TARGET_CC_PREFIX :=  i386-elf-
 
 # Target C compiler.  gcc 2.95.2 or later should work.
-TARGET_CC := $(TARGET_CC_PREFIX)gcc
+TARGET_CC := $(TARGET_CC_PREFIX)gcc -m32
 #TARGET_CC := $(TARGET_CC_PREFIX)gcc34 -m32
 
-# Host C compiler.  This is used to compile programs to execute on
-# the host platform, not the target (x86) platform.  On x86/ELF
-# systems, such as Linux and FreeBSD, it can generally be the same
-# as the target C compiler.
-HOST_CC := gcc
 
 # Target linker.  GNU ld is probably to only one that will work.
 TARGET_LD := $(TARGET_CC_PREFIX)ld -melf_i386
@@ -378,24 +329,19 @@ FD_SECTORS_PER_TRACK := $(PERL) $(PROJECT_ROOT)/scripts/numsecs_per_track
 # ----------------------------------------------------------------------
 
 # Flags used for all C source files
-GENERAL_OPTS := -O -Wall $(EXTRA_C_OPTS) $(VMM_FLAGS) $(BOOT_FLAGS) -fPIC
+#GENERAL_OPTS := -O -Wall $(EXTRA_C_OPTS) $(VMM_FLAGS) -fPIC #-fvisibility=hidden
+GENERAL_OPTS :=  -Wall $(EXTRA_C_OPTS) $(VMM_FLAGS) -fPIC #-fvisibility=hidden
 CC_GENERAL_OPTS := $(GENERAL_OPTS) -Werror 
 
-# Flags used for kernel C source files
-CC_KERNEL_OPTS := -g -DGEEKOS -I$(PROJECT_ROOT)/include
-
 # Flags used for VMM C source files
-CC_VMM_OPTS := -g -I$(PROJECT_ROOT)/include -D__V3VEE__ -D__V3_32BIT__ $(DECODER_FLAGS) $(JRLDEBUG)
+CC_VMM_OPTS := -g -I$(PROJECT_ROOT)/include -D__V3VEE__ -D$(V3_ARCH) $(DECODER_FLAGS) $(JRLDEBUG)
 
 # Flags used for VMM C ASM files
 NASM_VMM_OPTS := -I$(PROJECT_ROOT)/src/palacios/ -f elf $(EXTRA_NASM_OPTS)
 
-# Flags user for kernel assembly files
-NASM_KERNEL_OPTS := -I$(PROJECT_ROOT)/src/geekos/ -f elf $(EXTRA_NASM_OPTS)
 
-# Flags used for common library and libc source files
-CC_USER_OPTS := -I$(PROJECT_ROOT)/include -I$(PROJECT_ROOT)/include/libc \
-	$(EXTRA_CC_USER_OPTS)
+
+
 
 # Flags passed to objcopy program (strip unnecessary sections from kernel.exe)
 OBJCOPY_FLAGS := -R .dynamic -R .note -R .comment
@@ -405,26 +351,7 @@ OBJCOPY_FLAGS := -R .dynamic -R .note -R .comment
 #   Describes how to compile the source files.
 # ----------------------------------------------------------------------
 
-# Compilation of kernel C source files
 
-geekos/%.o : geekos/%.c
-	$(TARGET_CC) -c $(CC_GENERAL_OPTS) $(CC_KERNEL_OPTS) $< -o geekos/$*.o
-
-
-# Compilation of kernel assembly source files
-geekos/%.o : geekos/%.asm
-	$(NASM) $(NASM_KERNEL_OPTS) $< -o geekos/$*.o
-
-# Compilation of test VM
-geekos/%.o : geekos/%.s
-	$(AS) $< -o geekos/$*.o
-
-geekos/%.o : geekos/%.S
-	$(TARGET_CC) -c $(CC_GENERAL_OPTS) $(CC_KERNEL_OPTS) $< -o geekos/$*.o
-
-# Compilation of common library C source files
-common/%.o : common/%.c
-	$(TARGET_CC) -c $(CC_GENERAL_OPTS) $(CC_USER_OPTS) $< -o common/$*.o
 
 palacios/%.o : palacios/%.c
 	$(TARGET_CC) -c $(CC_GENERAL_OPTS) $(CC_VMM_OPTS) $< -o palacios/$*.o
@@ -438,8 +365,13 @@ devices/%.o : devices/%.c
 devices/%.o : devices/%.asm
 	$(NASM) $(NASM_VMM_OPTS) $< -o devices/$*.o
 
-net/%.o : net/%.c
-	$(TARGET_CC) -c $(CC_GENERAL_OPTS) $(CC_VMM_OPTS)  $(CC_USER_OPTS) $< -o net/$*.o
+
+xed/%.o : xed/%.c
+	$(TARGET_CC) -c $(CC_GENERAL_OPTS) $(CC_VMM_OPTS) $< -o xed/$*.o
+
+xed/%.o : xed/%.s
+	$(AS) $< -o xed/$*.o
+
 
 # ----------------------------------------------------------------------
 # Targets -
@@ -461,21 +393,16 @@ all : $(ALL_TARGETS)
 #geekos/test: geekos/test.o geekos/vmcs.o geekos/vmx_lowlevel.o 
 #	$(CC) geekos/test.o geekos/vmcs.o geekos/vmx_lowlevel.o  -o geekos/test
 
-# Standard floppy image - just boots the kernel
-fd.img : geekos/fd_boot.bin geekos/setup.bin geekos/kernel.bin
-	cat geekos/fd_boot.bin geekos/setup.bin geekos/kernel.bin > _temp
-	$(PAD) _temp 512
-	cp _temp fd.img
 
-vmm.img : fd.img
-	cp fd.img vmm.img
-	$(PAD) vmm.img 1474560
 
 rombios_link:
 	ln -s -f ../src/vmboot/rombios/BIOS-bochs-latest rombios
 
 vgabios_link:
 	ln -s -f ../src/vmboot/vgabios/VGABIOS-lgpl-latest.bin vgabios
+
+force_lwip:
+	(cd ../src/lwip/build; make clean; make)
 
 force_rombios: rombios_link
 	(cd ../src/vmboot/rombios; make clean; make)
@@ -486,67 +413,41 @@ force_vgabios: vgabios_link
 force_payload: force_rombios force_vgabios
 	../scripts/make_payload.pl payload_layout.txt vm_kernel
 
-inter1: force_payload
+inter1: force_payload force_lwip
 	-make clean
 
-world: inter1 vmm.img
+world: inter1 vmm
 
-# make ready to boot over PXE
-pxe:	vmm.img
-	cp vmm.img /tftpboot/vmm.img
-
-run: vmm.img
-	/usr/local/qemu/bin/qemu-system-x86_64 -m 1024 -serial file:serial.out -cdrom puppy.iso -fda vmm.img 
+vmm: palacios/vmm.lib 
 
 
 
-
-# Floppy boot sector (first stage boot loader).
-geekos/fd_boot.bin : geekos/setup.bin geekos/kernel.bin $(PROJECT_ROOT)/src/geekos/fd_boot.asm
-	$(NASM) -f bin \
-		-I$(PROJECT_ROOT)/src/geekos/ \
-		-DNUM_SETUP_SECTORS=`$(NUMSECS) geekos/setup.bin` \
-		-DNUM_KERN_SECTORS=`$(NUMSECS) geekos/kernel.bin` \
-		-DSECTORS_PER_TRACK=`$(FD_SECTORS_PER_TRACK) geekos/kernel.bin geekos/setup.bin` \
-		$(PROJECT_ROOT)/src/geekos/fd_boot.asm \
-		-o $@
-
-# Setup program (second stage boot loader).
-geekos/setup.bin : geekos/kernel.bin $(PROJECT_ROOT)/src/geekos/setup.asm
-	$(NASM) -f bin \
-		-I$(PROJECT_ROOT)/src/geekos/ \
-		-DENTRY_POINT=0x`egrep 'Main$$' geekos/kernel.syms |awk '{print $$1}'` \
-	        -DVMM_SIZE=`$(NUMSECS) geekos/kernel.bin` \
-		$(PROJECT_ROOT)/src/geekos/setup.asm \
-		-o $@
-	$(PAD) $@ 2048
 
 # Loadable (flat) kernel image.
-geekos/kernel.bin : geekos/kernel.exe
-	$(TARGET_OBJCOPY) $(OBJCOPY_FLAGS) -S -O binary geekos/kernel.exe geekos/kernel.bin
-	$(PAD) $@ 512
+palacios/vmm.bin : palacios/vmm.lib
+	$(TARGET_OBJCOPY) $(OBJCOPY_FLAGS) -S -O binary palacios/vmm.lib palacios/vmm.bin
+
 
 # The kernel executable and symbol map.
-geekos/kernel.exe : $(KERNEL_OBJS) $(COMMON_C_OBJS) $(VMM_OBJS) $(DEVICE_OBJS) $(TCPSTACK_OBJS) vm_kernel
-	$(TARGET_LD) -o geekos/kernel.exe -Ttext $(KERNEL_BASE_ADDR) -e $(KERNEL_ENTRY) \
-		$(DECODER_FLAGS) \
-		$(KERNEL_OBJS) $(COMMON_C_OBJS) $(VMM_OBJS) $(DEVICE_OBJS) $(V3LIBS) $(TCPSTACK_OBJS) -b binary vm_kernel
-	$(TARGET_NM) geekos/kernel.exe > geekos/kernel.syms
+palacios/vmm.lib: $(VMM_OBJS) $(DEVICE_OBJS) $(XED_OBJS) vm_kernel
+#	$(TARGET_LD) -o palacios/vmm.lib  \
+#		$(DECODER_FLAGS) \
+#		 $(VMM_OBJS) $(DEVICE_OBJS) $(XED_OBJS) $(V3LIBS) -b binary vm_kernel
+#	$(TARGET_NM) palacios/vmm.lib > palacios/vmm.syms
+	$(TARGET_AR) rcs libv3vee.a  \
+		 $(VMM_OBJS) $(DEVICE_OBJS) $(XED_OBJS)
+
 
 
 force:
 
-
-#vm_kernel: force
-#	$(PAD) vm_kernel 512
-#	@echo "VM kernel lives at 0x100000 and is" `$(NUMSECS) vm_kernel` "sectors long"
 
 
 
 
 # Clean build directories of generated files
 clean :
-	for d in geekos common libc user tools palacios devices net; do \
+	for d in palacios devices; do \
 		(cd $$d && rm -f *); \
 	done
 
@@ -554,14 +455,7 @@ clean :
 # Build header file dependencies, so source files are recompiled when
 # header files they depend on are modified.
 depend : $(GENERATED_LIBC_SRCS)
-	$(TARGET_CC) -M $(CC_GENERAL_OPTS) $(CC_KERNEL_OPTS) \
-		$(KERNEL_C_SRCS:%.c=$(PROJECT_ROOT)/src/geekos/%.c) \
-		| $(PERL) -n -e 's,^(\S),geekos/$$1,;print' \
-		> depend.mak
-	$(TARGET_CC) -M $(CC_GENERAL_OPTS) $(CC_USER_OPTS) \
-		$(COMMON_C_SRCS:%.c=$(PROJECT_ROOT)/src/common/%.c) \
-		| $(PERL) -n -e 's,^(\S),common/$$1,;print' \
-		>> depend.mak
+
 	$(TARGET_CC) -M $(CC_GENERAL_OPTS) $(CC_KERNEL_OPTS) \
 		$(VMM_C_SRCS:%.c=$(PROJECT_ROOT)/src/palacios/%.c) \
 		| $(PERL) -n -e 's,^(\S),palacios/$$1,;print' \

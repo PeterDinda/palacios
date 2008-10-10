@@ -23,6 +23,7 @@
 
 
 #ifdef __V3VEE__
+
 #include <palacios/vmm.h>
 
 struct dbg_bp32 {
@@ -119,8 +120,8 @@ struct dr7_64 {
 
 
 
-void PrintDebugHex(unsigned char x);
-void PrintDebugMemDump(unsigned char *start, int n);
+void PrintDebugHex(uchar_t x);
+void PrintDebugMemDump(uchar_t * start, int n);
 
 
 

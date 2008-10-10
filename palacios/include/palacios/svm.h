@@ -21,10 +21,12 @@
 #define __SVM_H
 
 
-#include <palacios/vmm.h>
 
 
 #ifdef __V3VEE__
+
+#include <palacios/vmm.h>
+
 
 #include <palacios/vmcb.h>
 #include <palacios/vmm_util.h>
@@ -77,12 +79,12 @@
 #define SVM_HANDLER_ERROR     0x1
 #define SVM_HANDLER_HALT      0x2
 
-#endif
 
 
 void Init_SVM(struct vmm_ctrl_ops * vmm_ops);
 int is_svm_capable();
 
+#endif
 
 
 

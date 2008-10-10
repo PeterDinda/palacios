@@ -327,7 +327,7 @@ int host_va_to_guest_va(struct guest_info * guest_info, addr_t host_va, addr_t *
 /* This is a straight address conversion + copy, 
  *   except for the tiny little issue of crossing page boundries.....
  */
-int read_guest_va_memory(struct guest_info * guest_info, addr_t guest_va, int count, char * dest) {
+int read_guest_va_memory(struct guest_info * guest_info, addr_t guest_va, int count, uchar_t * dest) {
   addr_t cursor = guest_va;
   int bytes_read = 0;
 
@@ -364,7 +364,7 @@ int read_guest_va_memory(struct guest_info * guest_info, addr_t guest_va, int co
 /* This is a straight address conversion + copy, 
  *   except for the tiny little issue of crossing page boundries.....
  */
-int read_guest_pa_memory(struct guest_info * guest_info, addr_t guest_pa, int count, char * dest) {
+int read_guest_pa_memory(struct guest_info * guest_info, addr_t guest_pa, int count, uchar_t * dest) {
   addr_t cursor = guest_pa;
   int bytes_read = 0;
 
@@ -400,7 +400,7 @@ int read_guest_pa_memory(struct guest_info * guest_info, addr_t guest_pa, int co
 /* This is a straight address conversion + copy, 
  *   except for the tiny little issue of crossing page boundries.....
  */
-int write_guest_pa_memory(struct guest_info * guest_info, addr_t guest_pa, int count, char * src) {
+int write_guest_pa_memory(struct guest_info * guest_info, addr_t guest_pa, int count, uchar_t * src) {
   addr_t cursor = guest_pa;
   int bytes_written = 0;
 

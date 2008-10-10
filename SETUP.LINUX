@@ -8,10 +8,14 @@ Now test:
 export DEVROOT=/path/to/your/vmm-dev
 export LOCATION=$DEVROOT/devtools
 
-cd $DEVROOT/vmm-hack1/build
+cd $DEVROOT/build
 
 export PATH=$PATH:$LOCATION/bin
 
 make world
 
-This should succeed, leaving you with a vmm.img file.
+This will build a vmm.img floppy image in geekos/build. You can also build a boot ISO image by running:
+
+> make geekos-iso
+
+Which will generate a test.iso image in $DEVROOT/build

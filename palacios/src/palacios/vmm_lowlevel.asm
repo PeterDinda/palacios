@@ -31,7 +31,14 @@ EXPORT GetIDTR
 EXPORT GetTR
 
 
+; CPUID functions
+EXPORT cpuid_ecx
+EXPORT cpuid_eax
+EXPORT cpuid_edx
 
+; Utility Functions
+EXPORT Set_MSR
+EXPORT Get_MSR
 
 
 
@@ -87,6 +94,105 @@ GetTR:
 	ret
 
 
+;
+; cpuid_edx - return the edx register from cpuid
+;
+align 8
+cpuid_edx:
+	push	ebp
+	mov	ebp, esp
+	push	edx
+	push	ecx
+	push 	ebx
+
+	mov 	eax, [ebp + 8]
+	cpuid
+	mov 	eax, edx
+
+	pop	ebx
+	pop	ecx
+	pop	edx
+	pop 	ebp
+	ret
+
+
+;
+; cpuid_ecx - return the ecx register from cpuid
+;
+align 8
+cpuid_ecx:
+	push	ebp
+	mov	ebp, esp
+	push	edx
+	push	ecx
+	push 	ebx
+
+	mov 	eax, [ebp + 8]
+	cpuid
+	mov 	eax, ecx
+
+	pop	ebx
+	pop	ecx
+	pop	edx
+	pop 	ebp
+	ret
+
+;
+; cpuid_eax - return the eax register from cpuid
+;
+align 8
+cpuid_eax:
+	push	ebp
+	mov	ebp, esp
+	push	edx
+	push	ecx
+	push	ebx
+
+	mov 	eax, [esp+4]
+	cpuid
+
+	pop	ebx
+	pop	ecx
+	pop	edx
+	pop	ebp
+	ret
+
+;
+; Set_MSR  - Set the value of a given MSR
+;
+align 8
+Set_MSR:
+	push	ebp
+	mov 	ebp, esp
+	pusha
+	mov	eax, [ebp+16]
+	mov	edx, [ebp+12]
+	mov	ecx, [ebp+8]
+	wrmsr
+	popa
+	pop	ebp
+	ret
+
+
+
+;
+; Get_MSR  -  Get the value of a given MSR
+; void Get_MSR(int MSR, void * high_byte, void * low_byte);
+;
+align 8
+Get_MSR:
+	push	ebp
+	mov 	ebp, esp
+	pusha
+	mov	ecx, [ebp+8]
+	rdmsr
+	mov 	ebx, [ebp+12]
+	mov	[ebx], edx
+	mov 	ebx, [ebp+16]
+	mov	[ebx], eax
+	popa
+	pop	ebp
+	ret
 
 
 

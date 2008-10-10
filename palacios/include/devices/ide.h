@@ -41,7 +41,7 @@
 #ifdef __V3VEE__
 #include <palacios/vmm_types.h>
 
-#ifdef __V3_32BIT__
+
 typedef long off_t;
 typedef sint32_t ssize_t;
 typedef unsigned int rd_bool;
@@ -49,7 +49,7 @@ typedef uchar_t Bit8u;
 typedef ushort_t Bit16u;
 typedef uint32_t Bit32u;
 typedef uint64_t Bit64u;
-#endif
+
 
 
 #define MAX_ATA_CHANNEL 4
@@ -132,7 +132,7 @@ struct  cdrom_t {
   rd_bool ready;
   rd_bool locked;
 
-  struct cdrom_interface * cd;
+  struct cdrom_ops * cd;
 
   uint32_t capacity;
   int next_lba;
@@ -204,6 +204,10 @@ struct  drive_t {
   struct sense_info_t sense;
   struct atapi_t atapi;
   
+
+  /* JRL */
+  void * private_data;
+
   Bit8u model_no[41];
 };
 
@@ -239,3 +243,30 @@ struct  ramdisk_t {
 
 #endif
 
+
+#if 0
+
+// FLAT MODE
+// Open a image. Returns non-negative if successful.
+//int open (const char* pathname);
+
+// Open an image with specific flags. Returns non-negative if successful.
+int rd_open (const char* pathname, int flags);
+
+// Close the image.
+void rd_close ();
+
+// Position ourselves. Return the resulting offset from the
+// beginning of the file.
+off_t rd_lseek (off_t offset, int whence);
+
+// Read count bytes to the buffer buf. Return the number of
+// bytes read (count).
+ssize_t rd_read (void* buf, size_t count);
+
+// Write count bytes from buf. Return the number of bytes
+// written (count).
+ssize_t rd_write (const void* buf, size_t count);
+
+
+#endif

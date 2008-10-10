@@ -233,7 +233,7 @@ struct hashtable * create_hashtable(uint_t min_size,
     htable->entry_count   = 0;
     htable->hash_fn       = hash_fn;
     htable->eq_fn         = eq_fn;
-    htable->load_limit    = (uint_t) ceil((double)(size * max_load_factor));
+    htable->load_limit    = (uint_t) v3_ceil((double)(size * max_load_factor));
 
     return htable;
 }
@@ -317,7 +317,7 @@ static int hashtable_expand(struct hashtable * htable) {
 
     htable->table_length = new_size;
 
-    htable->load_limit   = (uint_t) ceil(new_size * max_load_factor);
+    htable->load_limit   = (uint_t) v3_ceil(new_size * max_load_factor);
 
     return -1;
 }

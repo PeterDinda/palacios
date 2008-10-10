@@ -21,6 +21,7 @@
 #define __VMM_IO_H
 
 
+#ifdef __V3VEE__
 
 #include <palacios/vmm_types.h>
 #include <palacios/vmm_util.h>
@@ -40,7 +41,6 @@ int v3_hook_io_port(struct guest_info * info, uint_t port,
 
 
 
-#ifdef __V3VEE__
 
 
 struct vmm_io_hook;
@@ -79,6 +79,19 @@ struct vmm_io_hook * v3_get_io_hook(struct vmm_io_map * io_map, uint_t port);
 
 
 void PrintDebugIOMap(struct vmm_io_map * io_map);
+
+
+
+
+void v3_outb(ushort_t port, uchar_t value);
+uchar_t v3_inb(ushort_t port);
+
+void v3_outw(ushort_t port, ushort_t value);
+ushort_t v3_inw(ushort_t port);
+
+void v3_outdw(ushort_t port, uint_t value);
+uint_t v3_indw(ushort_t port);
+
 
 
 #endif // !__V3VEE__
