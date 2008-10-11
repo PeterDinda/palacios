@@ -843,8 +843,10 @@ static int write_cmd_port(ushort_t port, void * src, uint_t length, struct vm_de
 	     value);
 
   switch (value) {
+#if 0
   case 0xec: // IDENTIFY DEVICE
     {
+
       if (drive->device_type == IDE_NONE) {
 	PrintError("\t\tError: disk ata%d-%d not present, aborting\n", 
 		   get_channel_no(ramdisk, channel), 
@@ -852,6 +854,7 @@ static int write_cmd_port(ushort_t port, void * src, uint_t length, struct vm_de
 	rd_command_aborted(dev, channel, value);
 	break;
       } else if (drive->device_type == IDE_CDROM) {
+	PrintDebug("Identifying CDROM...Going to abort????\n");
 	controller->head_no        = 0;
 	controller->sector_count   = 1;
 	controller->sector_no      = 1;
@@ -881,6 +884,7 @@ static int write_cmd_port(ushort_t port, void * src, uint_t length, struct vm_de
 
     break;
     }
+#endif
     // ATAPI commands
   case 0xa1: // IDENTIFY PACKET DEVICE
     {
