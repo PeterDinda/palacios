@@ -52,7 +52,10 @@
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
-                                                 
+
+
+
+
 
 /*
  * Data type definitions
@@ -93,43 +96,7 @@
 #define SEC_ADDR_REG_PORT     0x377
 
 
-
-
-
 #define PACKET_SIZE 12
-
-
-/*
- * Debug facilities
- */
-
-#define ATA_DETECT                     0xf0 //0X3E8
-#define ATA_RESET                      0xf1 //0X3E9
-#define ATA_CMD_DATA_IN                0xf2 //0X3EA
-#define ATA_CMD_DATA_OUT               0xf3 //0X3EB
-#define ATA_CMD_PACKET                 0xf4 //0X3EC
-#define ATAPI_GET_SENSE                0xf5 //0X3ED
-#define ATAPI_IS_READY                 0xf6 //0X3EE
-#define ATAPI_IS_CDROM                 0xf7 //0X3EF
-
-#define CDEMU_INIT                     0xf8 //0X2E8
-#define CDEMU_ISACTIVE                 0xf9 //0X2E9
-#define CDEMU_EMULATED_DRIVE           0xfa //0X2EA
-#define CDROM_BOOT                     0xfb //0X2EB
-
-
-#define HARD_DRIVE_POST                0xfc //0X2EC
-
-
-#define ATA_DEVICE_NO                  0xfd //0X2ED
-#define ATA_DEVICE_TYPE                0xfe //0X2ED
-
-#define INT13_HARDDISK                 0xff //0x2ef
-#define INT13_CDROM                    0xe0 //0x2f8
-#define INT13_CDEMU                    0xe1 //0x2f9
-#define INT13_ELTORITO                 0xe2 //0x2fa
-#define INT13_DISKETTE_FUNCTION        0xe3 //0x2fb
-
 
 
 
@@ -530,10 +497,10 @@ static int read_data_port(ushort_t port, void * dst, uint_t length, struct vm_de
   controller = &(drive->controller);
 
 
-  PrintTrace("[read_data_handler] IO Read at 0x%x, on drive %d/%d (current_cmd = 0x%02x)\n", 
+  PrintTrace("[read_data_handler] IO Read at 0x%x, on drive %d/%d current cmd=0x%x\n", 
 	     port, 
 	     get_channel_no(ramdisk, channel),
-	     get_drive_no(channel, drive),
+	     get_drive_no(channel, drive), 
 	     controller->current_command);
 
   switch (controller->current_command) {
@@ -727,9 +694,13 @@ static int write_data_port(ushort_t port, void * src, uint_t length, struct vm_d
   drive = get_selected_drive(channel);
   controller = &(drive->controller);
 
+
   PrintDebug("[write_data_handler] IO write at 0x%x, current_cmd = 0x%02x\n", 
-	     port, controller->current_command);
-  
+ 	     port, controller->current_command);
+
+ 
+
+  //PrintDebug("[write_data_handler]\n");
   switch (controller->current_command) {
   case 0x30: // WRITE SECTORS
     PrintError("\t\tneed to implement 0x30(write sector) to port 0x%x\n", port);
@@ -750,6 +721,9 @@ static int write_data_port(ushort_t port, void * src, uint_t length, struct vm_d
 
     return -1;
   }
+
+
+  return -1;
 }
 
 
@@ -765,10 +739,7 @@ static int read_status_port(ushort_t port, void * dst, uint_t length, struct vm_
   struct controller_t * controller = NULL;
 
 
-  if (length != 1) {
-    PrintError("Invalid Status port read length: %d (port=%d)\n", length, port);
-    return -1;
-  }
+
 
   if (is_primary_port(ramdisk, port)) {
     channel = &(ramdisk->channels[0]);
@@ -782,6 +753,7 @@ static int read_status_port(ushort_t port, void * dst, uint_t length, struct vm_
   drive = get_selected_drive(channel);
   controller = &(drive->controller);
 
+ 
   PrintDebug("[read_status_handler] IO read at 0x%x, on drive %d/%d\n", 
 	     port, get_channel_no(ramdisk, channel), 
 	     channel->drive_select);
@@ -802,7 +774,8 @@ static int read_status_port(ushort_t port, void * dst, uint_t length, struct vm_
 		   (controller->status.corrected_data << 2)  |
 		   (controller->status.index_pulse << 1)     |
 		   (controller->status.err) );
-   
+
+
     memcpy(dst, &val, length);
 
     controller->status.index_pulse_count++;
@@ -818,6 +791,8 @@ static int read_status_port(ushort_t port, void * dst, uint_t length, struct vm_
     rd_lower_irq(dev, channel);
   }
   
+  PrintDebug("\t\tRead STATUS = 0x%x\n", *(uchar_t *)dst);
+
   return length;
   
 }
@@ -1008,6 +983,11 @@ static int write_ctrl_port(ushort_t port, void * src, uint_t length, struct vm_d
   
   prev_control_reset = controller->control.reset;
 
+
+  if (value & 0x04) {
+    PrintDebug("RESET Signaled\n");
+  }
+
   master_drive->controller.control.reset         = value & 0x04;
   slave_drive->controller.control.reset         = value & 0x04;
 
@@ -1144,6 +1124,8 @@ static int read_general_port(ushort_t port, void * dst, uint_t length, struct vm
       
       controller->status.err = 0;
       
+      PrintDebug("\t\tRead FEATURES = 0x%x\n", val);
+
       *(uchar_t *)dst = val;
       return length;
       
@@ -1154,7 +1136,7 @@ static int read_general_port(ushort_t port, void * dst, uint_t length, struct vm
   case SEC_SECT_CNT_PORT:  // hard disk sector count / interrupt reason 0x1f2
     {
       uchar_t val = (drive->device_type == IDE_NONE) ? 0 : controller->sector_count;
-
+      PrintDebug("\t\tRead SECTOR COUNT = 0x%x\n", val);
       *(uchar_t *)dst = val;
       return length;
 
@@ -1162,8 +1144,10 @@ static int read_general_port(ushort_t port, void * dst, uint_t length, struct vm
     }
   case PRI_SECT_ADDR1_PORT:
   case SEC_SECT_ADDR1_PORT: // sector number 0x1f3
-    {
+    { 
       uchar_t val = (drive->device_type == IDE_NONE) ? 0 : controller->sector_no;
+
+      PrintDebug("\t\tRead SECTOR ADDR1 = 0x%x\n", val);
 
       *(uchar_t *)dst = val;
       return length;
@@ -1179,6 +1163,8 @@ static int read_general_port(ushort_t port, void * dst, uint_t length, struct vm
       // to detect the disks.... minix2 for example
       uchar_t val = (num_drives_on_channel(channel) == 0) ? 0 : (controller->cylinder_no & 0x00ff);
 
+      PrintDebug("\t\tRead SECTOR ADDR2 = 0x%x\n", val);
+
       *(uchar_t *)dst = val;
       return length;
 
@@ -1192,6 +1178,8 @@ static int read_general_port(ushort_t port, void * dst, uint_t length, struct vm
       // So we must respond even if the select device is not present. Some OS uses this fact 
       // to detect the disks.... minix2 for example
       uchar_t val = (num_drives_on_channel(channel) == 0) ? 0 : (controller->cylinder_no >> 8);
+
+      PrintDebug("\t\tRead SECTOR ADDR3 = 0x%x\n", val);
 
       *(uchar_t *)dst = val;
       return length;
@@ -1214,6 +1202,7 @@ static int read_general_port(ushort_t port, void * dst, uint_t length, struct vm
 		     (channel->drive_select << 4)      |
 		     (controller->head_no << 0));
       
+      PrintDebug("\t\tRead DRIVE SELECT = 0x%x\n", val);
       *(uchar_t *)dst = val;
       return length;
 
@@ -1266,7 +1255,7 @@ static int write_general_port(ushort_t port, void * src, uint_t length, struct v
 
 
   PrintDebug("[write_general_handler] IO write to port %x (val=0x%02x), channel = %d\n", 
-	     port,  value, get_channel_no(ramdisk, channel));
+	     port, value, get_channel_no(ramdisk, channel));
 
   switch (port) {
 
@@ -1783,7 +1772,7 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
     case 0x43: // read toc
       { 
 	if (drive->cdrom.ready) {
-	  int toc_length;  
+	  int toc_length = 0;  
 	  bool msf = (controller->buffer[1] >> 1) & 1;
 	  uint8_t starting_track = controller->buffer[6];
 	  
@@ -1791,6 +1780,10 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 	  
 	  uint8_t format = (controller->buffer[9] >> 6);
 	  int i;
+
+	  PrintDebug("Reading CDROM TOC: Format=%d (byte count=%d) (toc length:%d)\n", 
+		     format, controller->byte_count, toc_length);
+
 	  switch (format) {
 	  case 0:
 	    {
@@ -1802,18 +1795,20 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 		rd_raise_interrupt(dev, channel);
 		break;
 	      }
+
 	      
 	      if (rd_init_send_atapi_command(dev, channel, atapi_command, toc_length, alloc_length, false) == -1) {
 		PrintError("Failed to init send atapi command in read toc (fmt=%d)\n", format);
 		return -1;
 	      }
-	      
-	      rd_ready_to_send_atapi(dev, channel);
-	      
+
+	      rd_ready_to_send_atapi(dev, channel);    
+
 	      break;
-	    }  
+	    }
 	  case 1:
 	    // multi session stuff. we ignore this and emulate a single session only
+
 	    if (rd_init_send_atapi_command(dev, channel, atapi_command, 12, alloc_length, false) == -1) {
 	      PrintError("Failed to init send atapi command in read toc (fmt=%d)\n", format);
 	      return -1;
@@ -1842,7 +1837,7 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 	  rd_raise_interrupt(dev, channel);
 	}
 	break;
-      }  
+      }
     case 0x28: // read (10)
     case 0xa8: // read (12)
       { 
@@ -2013,6 +2008,8 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
       break;
     }
   }
+       
+	      
   return 0;
 }
 
@@ -2037,9 +2034,9 @@ int rd_init_send_atapi_command(struct vm_device * dev, struct channel_t * channe
       !(alloc_length <= controller->byte_count)) {
       
     PrintDebug("\t\tOdd byte count (0x%04x) to ATAPI command 0x%02x, using 0x%x\n", 
-		  controller->byte_count, 
-		  command, 
-		  controller->byte_count - 1);
+	       controller->byte_count, 
+	       command, 
+	       controller->byte_count - 1);
     
     controller->byte_count -= 1;
   }
@@ -2096,9 +2093,9 @@ int rd_init_send_atapi_command(struct vm_device * dev, struct channel_t * channe
 
 
 
- void rd_ready_to_send_atapi(struct vm_device * dev, struct channel_t * channel) {
+void rd_ready_to_send_atapi(struct vm_device * dev, struct channel_t * channel) {
   PrintDebug("[rd_ready_to_send_atapi]\n");
-
+  
   rd_raise_interrupt(dev, channel);
 }
 
@@ -2577,119 +2574,7 @@ static void rd_print_state(struct ramdisk_t * ramdisk) {
   return;
 }
 
-#if 0
-static void trace_info(ushort_t port, void *src, uint_t length) {
 
-  switch(port){
-
-  case 0x3e8:
-    if (length == 1 && *((uchar_t*) src) == ATA_DETECT)
-      PrintDebug("ata_detect()\n");
-    break;
-
-  case 0x3e9:
-    if (length == 1 && *((uchar_t*) src) == ATA_RESET)
-      PrintDebug("ata_reset()\n");
-    break;
-
-  case 0x3ea:
-    if (length == 1 && *((uchar_t*) src) == ATA_CMD_DATA_IN)
-      PrintDebug("ata_cmd_data_in()\n");
-    break;
-
-  case 0x3eb:
-    if (length == 1 && *((uchar_t*) src) == ATA_CMD_DATA_OUT)
-      PrintDebug("ata_cmd_data_out()\n");
-    break;
-
-  case 0x3ec:
-    if (length == 1 && *((uchar_t*) src) == ATA_CMD_PACKET)
-      PrintDebug("ata_cmd_packet()\n");
-    break;
-
-  case 0x3ed:
-    if (length == 1 && *((uchar_t*) src) == ATAPI_GET_SENSE)
-      PrintDebug("atapi_get_sense()\n");
-    break;
-
-  case 0x3ee:
-    if (length == 1 && *((uchar_t*) src) == ATAPI_IS_READY)
-      PrintDebug("atapi_is_ready()\n");
-    break;
-
-  case 0x3ef:
-    if (length == 1 && *((uchar_t*) src) == ATAPI_IS_CDROM)
-      PrintDebug("atapi_is_cdrom()\n");
-    break;
-
-
-  case 0x2e8:
-    if (length == 1 && *((uchar_t*) src) == CDEMU_INIT)
-      PrintDebug("cdemu_init()\n");
-    break;
-
-  case 0x2e9:
-    if (length == 1 && *((uchar_t*) src) == CDEMU_ISACTIVE)
-      PrintDebug("cdemu_isactive()\n");
-    break;
-
-  case 0x2ea:
-    if (length == 1 && *((uchar_t*) src) == CDEMU_EMULATED_DRIVE)
-      PrintDebug("cdemu_emulated_drive()\n");
-    break;
-
-  case 0x2eb:
-    if (length == 1 && *((uchar_t*) src) == CDROM_BOOT)
-      PrintDebug("cdrom_boot()\n");
-    break;
-
-  case 0x2ec:
-    if (length == 1 && *((uchar_t*) src) == HARD_DRIVE_POST)
-      PrintDebug("ata_hard_drive_post()\n");
-    break;
-
-  case 0x2ed:
-    if (length == 1)
-      PrintDebug("ata_device_no(%d)\n", *((uchar_t*) src));
-    break;
-
-  case 0x2ee:
-    if (length == 1)
-      PrintDebug("ata_device_type(%d)\n", *((uchar_t*) src));
-    break;
-
-  case 0x2ef:
-    if (length == 1 && *((uchar_t*) src) == INT13_HARDDISK)
-      PrintDebug("int13_harddrive()\n");
-    break;
-
-  case 0x2f8:
-    if (length == 1 && *((uchar_t*) src) == INT13_CDROM)
-      PrintDebug("int13_cdrom()\n");
-    break;
-
-  case 0x2f9:
-    if (length == 1 && *((uchar_t*) src) == INT13_CDEMU)
-      PrintDebug("int13_cdemu()\n");
-    break;
-
-  case 0x2fa:
-    if (length == 1 && *((uchar_t*) src) == INT13_ELTORITO)
-      PrintDebug("int13_eltorito()\n");
-    break;
-
-  case 0x2fb:
-    if (length == 1 && *((uchar_t*) src) == INT13_DISKETTE_FUNCTION)
-      PrintDebug("int13_diskette_function()\n");
-    break;
-
-
-  default:
-    break;
-  }
-}
-
-#endif
 
 
 static int check_bit_fields(struct controller_t * controller) {

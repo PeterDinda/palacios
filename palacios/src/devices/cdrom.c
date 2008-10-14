@@ -18,6 +18,8 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
+
+
 #include <devices/cdrom.h>
 #include <devices/ide.h>
 #include <palacios/vmm.h>
@@ -64,6 +66,7 @@ static void cdrom_eject(void * private_data) {
  */
 static rd_bool cdrom_read_toc(void * private_data, uint8_t* buf, int* length, rd_bool msf, int start_track)
 {
+  *length = 4;
   PrintDebug("[cdrom_read_toc]\n");
   return 1;
 }
@@ -101,7 +104,7 @@ static void cdrom_read_block(void * private_data, uint8_t * buf, int lba)/* __at
   
   PrintDebug("[cdrom_read_block] lba = %d (cdrom_image_start=%x)\n", lba, cdrom->image_addr);
   memcpy(buf, (uchar_t *)(cdrom->image_addr + lba * 2048), 2048);
-  PrintDebug("Returning from read block\n");
+  //PrintDebug("Returning from read block\n");
   return;
 }
 
