@@ -78,7 +78,7 @@ endif
 ifeq ($(DEBUG_INTERRUPTS),1)
 DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DDEBUG_INTERRUPTS
 else 
-ifeq ($(DEBUG_DEBUG_INTERRUPTS),0) 
+ifeq ($(DEBUG_INTERRUPTS),0) 
 DEBUG_SECTIONS := $(DEBUG_SECTIONS) -UDEBUG_INTERRUPTS
 endif
 endif
@@ -146,6 +146,15 @@ ifeq ($(DEBUG_RAMDISK),0)
 DEBUG_SECTIONS := $(DEBUG_SECTIONS) -UDEBUG_RAMDISK
 endif
 endif
+
+ifeq ($(TRACE_RAMDISK),1)
+DEBUG_SECTIONS := $(DEBUG_SECTIONS -DTRACE_RAMDISK
+else
+ifeq ($(TRACE_RAMDSK),0)
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -UTRACE_RAMDISK
+endif
+endif
+
 
 
 #DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DTEST_NE2K
@@ -330,7 +339,7 @@ FD_SECTORS_PER_TRACK := $(PERL) $(PROJECT_ROOT)/scripts/numsecs_per_track
 
 # Flags used for all C source files
 #GENERAL_OPTS := -O -Wall $(EXTRA_C_OPTS) $(VMM_FLAGS) -fPIC #-fvisibility=hidden
-GENERAL_OPTS :=  -Wall $(EXTRA_C_OPTS) $(VMM_FLAGS) -fPIC #-fvisibility=hidden
+GENERAL_OPTS :=  -O -Wall  $(EXTRA_C_OPTS) $(VMM_FLAGS) -fPIC #-fvisibility=hidden
 CC_GENERAL_OPTS := $(GENERAL_OPTS) -Werror 
 
 # Flags used for VMM C source files

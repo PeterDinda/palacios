@@ -203,22 +203,20 @@ static int pic_raise_intr(void * private_data, int irq) {
 }
 
 
-/*Zheng 07/30/2008*/
-
-static int pic_lower_intr(void *private_data, int irq_no) {
+static int pic_lower_intr(void *private_data, int irq) {
 
   struct pic_internal *state = (struct pic_internal*)private_data;
 
-  PrintDebug("[pic_lower_intr] IRQ line %d now low\n", (unsigned) irq_no);
-  if (irq_no <= 7) {
+  PrintDebug("[pic_lower_intr] IRQ line %d now low\n", irq);
+  if (irq <= 7) {
 
-    state->master_irr &= ~(1 << irq_no);
+    state->master_irr &= ~(1 << irq);
     if ((state->master_irr & ~(state->master_imr)) == 0) {
       PrintDebug("\t\tFIXME: Master maybe should do sth\n");
     }
-  } else if ((irq_no > 7) && (irq_no <= 15)) {
+  } else if ((irq > 7) && (irq < 16)) {
 
-    state->slave_irr &= ~(1 << (irq_no - 8));
+    state->slave_irr &= ~(1 << (irq - 8));
     if ((state->slave_irr & (~(state->slave_imr))) == 0) {
       PrintDebug("\t\tFIXME: Slave maybe should do sth\n");
     }
@@ -316,13 +314,13 @@ static int pic_end_irq(void * private_data, int irq) {
 */
 
 
-/*Zheng 07/30/2008*/
+
 static struct intr_ctrl_ops intr_ops = {
   .intr_pending = pic_intr_pending,
   .get_intr_number = pic_get_intr_number,
   .raise_intr = pic_raise_intr,
   .begin_irq = pic_begin_irq,
-  .lower_intr = pic_lower_intr, //Zheng added
+  .lower_intr = pic_lower_intr, 
 
 };
 

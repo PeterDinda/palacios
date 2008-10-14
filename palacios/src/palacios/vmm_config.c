@@ -364,6 +364,8 @@ int config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) {
   
 
   if (!use_ramdisk) {
+    PrintDebug("Hooking IDE IRQs\n");
+
     //primary ide
     v3_hook_passthrough_irq(info, 14);
   
