@@ -232,21 +232,14 @@ fd.img : geekos/fd_boot.bin geekos/setup.bin geekos/kernel.bin
 	cat geekos/fd_boot.bin geekos/setup.bin geekos/kernel.bin > $@
 
 
-# make ready to boot over PXE
-pxe:	fd.img
-	cp fd.img /tftpboot/vmm.img
-	$(PAD) /tftpboot/vmm.img 1474560
 
-
-vm: 	geekos/kernel.bin
-	cp geekos/kernel.bin ../../vmm-hack1/build/vm_kernel
-
-guest_img: fd.img
+guest-img: fd.img
 	cp fd.img guest.img
 	$(PAD) guest.img 1474560
 
-geekos/test: geekos/test.o
-	$(CC) geekos/test.o -o geekos/test
+guest-iso: guest-img
+
+	mkisofs -pad -b guest.img -R -o guest.iso guest.img
 
 
 
