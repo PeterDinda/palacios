@@ -108,7 +108,7 @@ int dev_remove_io_hook(struct vm_device * dev, struct dev_io_hook * hook) {
 
 
 struct dev_io_hook * dev_mgr_find_io_hook(struct vmm_dev_mgr * mgr, ushort_t port) {
-  struct dev_io_hook * tmp;
+  struct dev_io_hook * tmp = NULL;
 
   list_for_each_entry(tmp, &(mgr->io_hooks), mgr_list) {
     if (tmp->port == port) {
@@ -119,7 +119,7 @@ struct dev_io_hook * dev_mgr_find_io_hook(struct vmm_dev_mgr * mgr, ushort_t por
 }
 
 struct dev_io_hook * dev_find_io_hook(struct vm_device * dev, ushort_t port) {
-  struct dev_io_hook * tmp;
+  struct dev_io_hook * tmp = NULL;
 
   list_for_each_entry(tmp, &(dev->io_hooks), dev_list) {
     if (tmp->port == port) {

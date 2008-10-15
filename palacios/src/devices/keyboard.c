@@ -337,7 +337,15 @@ static struct vm_device *demultiplex_injected_mouse(uchar_t mouse_packet[3])
   return thekeyboard;
 }
 
-int keyboard_interrupt(uint_t irq, struct vm_device * dev);
+
+int keyboard_interrupt(uint_t irq, struct vm_device * dev) {
+  PrintDebug("keyboard: interrupt 0x%x\n", irq);
+
+  dev->vm->vm_ops.raise_irq(dev->vm, irq);
+
+  return 0;
+
+}
 
 void deliver_key_to_vmm(uchar_t status, uchar_t scancode)
 {
@@ -1141,15 +1149,7 @@ int keyboard_read_input(ushort_t port,
 }
 
 
-int keyboard_interrupt(uint_t irq, struct vm_device * dev) 
-{
-  PrintDebug("keyboard: interrupt 0x%x\n", irq);
 
-  dev->vm->vm_ops.raise_irq(dev->vm, irq);
-
-  return 0;
-
-}
 
 
 int keyboard_init_device(struct vm_device * dev) 

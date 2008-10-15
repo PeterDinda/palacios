@@ -31,6 +31,7 @@
 #include <palacios/vmm_dev_mgr.h>
 #include <palacios/vmm_time.h>
 #include <palacios/vmm_emulator.h>
+#include <palacios/vmm_host_events.h>
 
 typedef ullong_t v3_reg_t;
 
@@ -142,6 +143,8 @@ struct guest_info {
   // device_map
 
   struct vmm_dev_mgr  dev_mgr;
+
+  struct v3_host_events host_event_hooks;
 
   vm_cpu_mode_t cpu_mode;
   vm_mem_mode_t mem_mode;

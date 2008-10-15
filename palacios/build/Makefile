@@ -241,6 +241,7 @@ VMM_C_SRCS :=   vm_guest.c \
                 svm_halt.c svm_pause.c svm_wbinvd.c \
 	        vmm_config.c vmm_hashtable.c \
 		vmm_string.c vmm_emulator.c vmm_queue.c\
+		vmm_host_events.c \
 		 $(DECODER_SRCS)
 #		vmx.c vmcs_gen.c vmcs.c
 
