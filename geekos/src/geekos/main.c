@@ -220,7 +220,7 @@ void Main(struct Boot_Info* bootInfo)
   
   //Init_PCI();
 
-  Init_Stubs();
+
 
   //  Init_Network();
 

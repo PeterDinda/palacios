@@ -30,9 +30,8 @@ struct v3_mouse_event {
   unsigned char data[3];
 };
 
-
 struct v3_timer_event {
-  
+  unsigned int period_us;
 };
 
 #ifdef __V3VEE__
@@ -70,7 +69,7 @@ struct v3_host_events {
 
 int v3_init_host_events(struct guest_info * info);
 
-#define V3_HOST_EVENT_HANDLER(cb) ((union v3_host_event_callback)cb)
+#define V3_HOST_EVENT_HANDLER(cb) ((union v3_host_event_handler)cb)
 
 int v3_hook_host_event(struct guest_info * info, 
 		       v3_host_evt_type_t event_type, 
@@ -78,6 +77,8 @@ int v3_hook_host_event(struct guest_info * info,
 		       void * private_data);
 
 #endif // ! __V3VEE__
+
+
 
 int v3_deliver_keyboard_event(struct guest_info * info, struct v3_keyboard_event * evt);
 int v3_deliver_mouse_event(struct guest_info * info, struct v3_mouse_event * evt);

@@ -32,6 +32,8 @@
 #include <devices/cdrom.h>
 
 
+#include <palacios/vmm_host_events.h>
+
 #define USE_GENERIC 1
 
 #define MAGIC_CODE 0xf1e2d3c4
@@ -92,6 +94,9 @@ static int passthrough_mem_write(addr_t guest_addr, void * src, uint_t length, v
 }
 */
 
+
+
+
 int config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) {
 
   struct guest_mem_layout * layout = (struct guest_mem_layout *)config_ptr->vm_kernel;
@@ -124,6 +129,8 @@ int config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) {
 
   init_emulator(info);
   
+  v3_init_host_events(info);
+
  
   //     SerialPrint("Guest Mem Dump at 0x%x\n", 0x100000);
   //PrintDebugMemDump((unsigned char *)(0x100000), 261 * 1024);
@@ -195,7 +202,6 @@ int config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) {
   
   
   print_shadow_map(&(info->mem_map));
-
   
   {
     struct vm_device * ramdisk = NULL;

@@ -30,7 +30,6 @@
 #include <palacios/vmm_io.h>
 
 
-
 extern void * g_ramdiskImage;
 extern ulong_t s_ramdiskSize;
 
@@ -213,7 +212,7 @@ int RunVMM(struct Boot_Info * bootInfo) {
   struct v3_vm_config vm_config;
 
 
-  
+
   memset(&os_hooks, 0, sizeof(struct vmm_os_hooks));
   memset(&vmm_ops, 0, sizeof(struct vmm_ctrl_ops));
   memset(&vm_config, 0, sizeof(struct v3_vm_config));
@@ -254,6 +253,8 @@ int RunVMM(struct Boot_Info * bootInfo) {
 
   vm_info = (vmm_ops).allocate_guest();
 
+  Init_Stubs(vm_info);
+
   PrintBoth("Allocated Guest\n");
 
   (vmm_ops).config_guest(vm_info, &vm_config);
@@ -273,6 +274,7 @@ int RunVMM(struct Boot_Info * bootInfo) {
   (vmm_ops).init_guest(vm_info);
   PrintBoth("Starting Guest\n");
   //Clear_Screen();
+
   (vmm_ops).start_guest(vm_info);
   
     return 0;

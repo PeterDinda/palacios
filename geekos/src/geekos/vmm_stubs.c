@@ -21,6 +21,19 @@
 #include <geekos/serial.h>
 #include <geekos/debug.h>
 #include <palacios/vmm.h>
+#include <palacios/vmm_host_events.h>
+
+
+struct guest_info * g_vm_guest = NULL;
+
+
+// This is the function the interface code should call to deliver
+// the interrupt to the vmm for handling
+//extern int v3_deliver_interrupt(struct guest_info * vm, struct v3_interrupt *intr);
+
+
+struct guest_info * irq_to_guest_map[256];
+
 
 
 
@@ -49,6 +62,12 @@ static inline uchar_t VM_In_Byte(ushort_t port)
     return value;
 }
 
+
+
+void Init_Stubs(struct guest_info * info) {
+  memset(irq_to_guest_map, 0, sizeof(struct guest_info *) * 256);
+  g_vm_guest = info;
+}
 
 
 
@@ -95,13 +114,38 @@ void VMM_Free(void * addr) {
 }
 
 
-// This is the function the interface code should call to deliver
-// the interrupt to the vmm for handling
-//extern int v3_deliver_interrupt(struct guest_info * vm, struct v3_interrupt *intr);
+
+void send_key_to_vmm(unsigned char status, unsigned char scancode) {
+  struct v3_keyboard_event evt;
+
+  evt.status = status;
+  evt.scan_code = scancode;
+
+  if (g_vm_guest) {
+    v3_deliver_keyboard_event(g_vm_guest, &evt);
+  }
+}
 
 
-struct guest_info * irq_to_guest_map[256];
+void send_mouse_to_vmm(unsigned char packet[3]) {
+  struct v3_mouse_event evt;
 
+  memcpy(evt.data, packet, 3);
+
+  if (g_vm_guest) {
+    v3_deliver_mouse_event(g_vm_guest, &evt);
+  }
+}
+
+void send_tick_to_vmm(unsigned int period_us) {
+  struct v3_timer_event evt;
+
+  evt.period_us = period_us;
+
+  if (g_vm_guest) {
+    v3_deliver_timer_event(g_vm_guest, &evt);
+  }
+}
 
 
 void translate_intr_handler(struct Interrupt_State *state) {
@@ -144,9 +188,6 @@ int ack_irq(int irq) {
 }
 
   
-void Init_Stubs() {
-  memset(irq_to_guest_map, 0, sizeof(struct guest_info *) * 256);
-}
 
 
 unsigned int get_cpu_khz() {
@@ -158,4 +199,5 @@ unsigned int get_cpu_khz() {
 
   return cpu_khz_freq;
 }
+
 

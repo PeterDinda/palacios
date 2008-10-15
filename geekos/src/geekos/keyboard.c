@@ -36,13 +36,14 @@
 #include <geekos/keyboard.h>
 
 
+#include <geekos/vmm_stubs.h>
 
 
 
-static enum {TARGET_GEEKOS,TARGET_VMM} target = TARGET_VMM;
+static enum {TARGET_GEEKOS, TARGET_VMM} target = TARGET_VMM;
 
 
-extern void deliver_key_to_vmm(uchar_t status, uchar_t scancode);
+
 
 /* ----------------------------------------------------------------------
  * Private data and functions
@@ -264,7 +265,7 @@ noflagchange:
       
 skip_flagchange:
 
-      if (target==TARGET_GEEKOS) { 
+      if (target == TARGET_GEEKOS) { 
 	if (raw_scancode==0xc4) {  // F10 release
 	  Print("Switching keyboard to VMM\n");
 	  target=TARGET_VMM;
@@ -284,13 +285,15 @@ skip_flagchange:
 	   */
 	  g_needReschedule = true;
 	}
-      } else if (target==TARGET_VMM) { 
-	if (raw_scancode==0xc4) {   // F10 release
+      } else if (target == TARGET_VMM) { 
+
+	if (raw_scancode == 0xc4) {   // F10 release
 	  Print("Switching keyboard to GeekOS\n");
-	  target=TARGET_GEEKOS;
+	  target = TARGET_GEEKOS;
 	} else {
-	  deliver_key_to_vmm(raw_status,raw_scancode);
+	  send_key_to_vmm(raw_status, raw_scancode);
 	}
+
       }
     }
 
