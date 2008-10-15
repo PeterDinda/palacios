@@ -17,14 +17,18 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#ifndef __NVRAM_H
-#define __NVRAM_H
+#ifndef __DEVICES_NVRAM_H__
+#define __DEVICES_NVRAM_H__
+
+#ifdef __V3VEE__
+
 
 #include <palacios/vm_dev.h>
 
 struct vm_device *create_nvram();
 
-// The host os needs to call this
-void deliver_timer_interrupt_to_vmm(uint_t period_us);
+
+
+#endif // ! __V3VEE__
 
 #endif

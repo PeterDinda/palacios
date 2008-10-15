@@ -34,11 +34,12 @@
  * 
  */
 
-#ifndef __IDE_H__
-#define __IDE_H__
-
+#ifndef __DEVICES_IDE_H__
+#define __DEVICES_IDE_H__
 
 #ifdef __V3VEE__
+
+
 #include <palacios/vmm_types.h>
 
 

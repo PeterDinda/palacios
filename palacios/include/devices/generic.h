@@ -20,8 +20,11 @@
  */
 
 
-#ifndef __GENERIC_H__
-#define __GENERIC_H__
+#ifndef __DEVICES_GENERIC_H__
+#define __DEVICES_GENERIC_H__
+
+#ifdef __V3VEE__
+
 
 
 #include <palacios/vm_dev.h>
@@ -55,5 +58,8 @@ int v3_generic_add_irq_range(struct vm_device * dev, uint_t start, uint_t end, u
 
 // The lists given are null terminated
 struct vm_device * create_generic();  
+
+
+#endif // ! __V3VEE__
 
 #endif

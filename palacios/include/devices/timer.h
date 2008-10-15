@@ -17,16 +17,18 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#ifndef __TIMER_H
-#define __TIMER_H
+#ifndef __DEVICES_TIMER_H__
+#define __DEVICES_TIMER_H__
+
+#ifdef __V3VEE__
+
 
 #include <palacios/vm_dev.h>
-
-
 
 struct vm_device * create_timer();
 
 
 
+#endif // ! __V3VEE__
 
 #endif

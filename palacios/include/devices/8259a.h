@@ -17,13 +17,19 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#ifndef __8259A_H
-#define __8259A_H
+#ifndef __DEVICES_8259A_H__
+#define __DEVICES_8259A_H__
+
+#ifdef __V3VEE__
+
+
 
 #include <palacios/vm_dev.h>
 
-
 struct vm_device * create_pic();
 
+
+
+#endif // ! __V3VEE__
 
 #endif

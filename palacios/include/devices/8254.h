@@ -17,17 +17,19 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#ifndef __8254_H
-#define __8254_H
+#ifndef __DEVICES_8254_H__
+#define __DEVICES_8254_H__
+
+#ifdef __V3VEE__
+
+
 
 #include <palacios/vm_dev.h>
-
-
 
 struct vm_device * create_pit();
 
 
 
-
+#endif // ! __V3VEE__
 
 #endif
