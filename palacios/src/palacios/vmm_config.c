@@ -102,7 +102,7 @@ int config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) {
   struct guest_mem_layout * layout = (struct guest_mem_layout *)config_ptr->vm_kernel;
   extern v3_cpu_arch_t v3_cpu_type;
   void * region_start;
-  int i;
+  uint_t i;
 
   int use_ramdisk = config_ptr->use_ramdisk;
   int use_generic = USE_GENERIC;

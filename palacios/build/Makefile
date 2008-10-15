@@ -148,13 +148,28 @@ endif
 endif
 
 ifeq ($(TRACE_RAMDISK),1)
-DEBUG_SECTIONS := $(DEBUG_SECTIONS -DTRACE_RAMDISK
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DTRACE_RAMDISK
 else
 ifeq ($(TRACE_RAMDSK),0)
 DEBUG_SECTIONS := $(DEBUG_SECTIONS) -UTRACE_RAMDISK
 endif
 endif
 
+ifeq ($(DEBUG_XED),1)
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DDEBUG_XED
+else 
+ifeq ($(DEBUG_XED),0) 
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -UDEBUG_XED
+endif
+endif
+
+ifeq ($(DEBUG_HALT),1)
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DDEBUG_HALT
+else 
+ifeq ($(DEBUG_HALT),0) 
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -UDEBUG_HALT
+endif
+endif
 
 
 #DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DTEST_NE2K
@@ -340,8 +355,8 @@ FD_SECTORS_PER_TRACK := $(PERL) $(PROJECT_ROOT)/scripts/numsecs_per_track
 
 # Flags used for all C source files
 #GENERAL_OPTS := -O -Wall $(EXTRA_C_OPTS) $(VMM_FLAGS) -fPIC #-fvisibility=hidden
-GENERAL_OPTS :=  -O -Wall  $(EXTRA_C_OPTS) $(VMM_FLAGS) -fPIC #-fvisibility=hidden
-CC_GENERAL_OPTS := $(GENERAL_OPTS) -Werror 
+GENERAL_OPTS :=  -O -Wall  $(EXTRA_C_OPTS) $(VMM_FLAGS) -fPIC -Werror#-fvisibility=hidden
+CC_GENERAL_OPTS := $(GENERAL_OPTS) 
 
 # Flags used for VMM C source files
 CC_VMM_OPTS := -g -I$(PROJECT_ROOT)/include -D__V3VEE__ -D$(V3_ARCH) $(DECODER_FLAGS) $(JRLDEBUG)
@@ -411,8 +426,6 @@ rombios_link:
 vgabios_link:
 	ln -s -f ../src/vmboot/vgabios/VGABIOS-lgpl-latest.bin vgabios
 
-force_lwip:
-	(cd ../src/lwip/build; make clean; make)
 
 force_rombios: rombios_link
 	(cd ../src/vmboot/rombios; make clean; make)
@@ -423,7 +436,7 @@ force_vgabios: vgabios_link
 force_payload: force_rombios force_vgabios
 	../scripts/make_payload.pl payload_layout.txt vm_kernel
 
-inter1: force_payload force_lwip
+inter1: force_payload
 	-make clean
 
 world: inter1 vmm

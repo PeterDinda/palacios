@@ -125,7 +125,7 @@ ulong_t hash_long(ulong_t val, uint_t bits) {
 ulong_t hash_buffer(uchar_t * msg, uint_t length) {
   ulong_t hash = 0;
   ulong_t temp = 0;
-  int i;
+  uint_t i;
 
   for (i = 0; i < length; i++) {
     hash = (hash << 4) + *(msg + i) + i;

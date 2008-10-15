@@ -27,6 +27,12 @@
 #include <palacios/vmm_intr.h>
 
 
+#ifndef DEBUG_HALT
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
+#endif
+
+
 
 //
 // This should trigger a #GP if cpl!=0, otherwise, yield to host

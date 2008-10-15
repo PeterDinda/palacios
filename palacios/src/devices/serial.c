@@ -162,7 +162,7 @@ struct serial_buffer {
 };
 
 int queue_data(struct serial_buffer * buf, char data) {
-  int next_loc = (buf->head + 1) % SERIAL_BUF_LEN;
+  uint_t next_loc = (buf->head + 1) % SERIAL_BUF_LEN;
 
   if (next_loc == buf->tail) {
     return -1;
@@ -175,7 +175,7 @@ int queue_data(struct serial_buffer * buf, char data) {
 }
 
 int dequeue_data(struct serial_buffer * buf, char * data) {
-  int next_tail = (buf->tail + 1) % SERIAL_BUF_LEN;
+  uint_t next_tail = (buf->tail + 1) % SERIAL_BUF_LEN;
 
   if (buf->head == buf->tail) {
     return -1;

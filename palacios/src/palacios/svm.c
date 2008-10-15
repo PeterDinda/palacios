@@ -188,7 +188,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
       uchar_t * bitmap = (uchar_t *)io_port_bitmap;
 
       bitmap += (port / 8);
-      PrintDebug("Setting Bit for port 0x%x\n", port);
+      //      PrintDebug("Setting Bit for port 0x%x\n", port);
       *bitmap |= 1 << (port % 8);
     }
 

@@ -19,7 +19,7 @@
         (type *)( (char *)__mptr - offsetof(type,member) );})
 
 
-static inline void prefetch(const void *x) {;}
+static inline void prefetch(const void *x) {const void * foo; foo = x;}
 
 /*
  * These are non-NULL pointers that will result in page faults

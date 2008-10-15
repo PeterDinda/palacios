@@ -33,6 +33,15 @@
 
 #endif
 
+
+
+#ifndef DEBUG_XED
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
+#endif
+
+
+
 static xed_state_t decoder_state;
 
 #define GPR_REGISTER     0

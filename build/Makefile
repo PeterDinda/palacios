@@ -152,6 +152,22 @@ DEBUG_SECTIONS := $(DEBUG_SECTIONS) DEBUG_RAMDISK=0
 endif
 endif
 
+ifeq ($(DEBUG_XED),1)
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) DEBUG_XED=1
+else 
+ifeq ($(DEBUG_XED),0) 
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) DEBUG_XED=0
+endif
+endif
+
+ifeq ($(DEBUG_HALT),1)
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) DEBUG_HALT=1
+else 
+ifeq ($(DEBUG_HALT),0) 
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) DEBUG_HALT=0
+endif
+endif
+
 
 # ----------------------------------------------------------------------
 # Targets -

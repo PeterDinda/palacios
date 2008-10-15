@@ -39,7 +39,7 @@ int handle_svm_io_in(struct guest_info * info) {
   struct svm_io_info * io_info = (struct svm_io_info *)&(ctrl_area->exit_info1);
 
   struct vmm_io_hook * hook = v3_get_io_hook(&(info->io_map), io_info->port);
-  uint_t read_size = 0;
+  int read_size = 0;
 
   if (hook == NULL) {
     PrintError("Hook Not present for in on port %x\n", io_info->port);
@@ -83,7 +83,7 @@ int handle_svm_io_ins(struct guest_info * info) {
   struct svm_io_info * io_info = (struct svm_io_info *)&(ctrl_area->exit_info1);
   
   struct vmm_io_hook * hook = v3_get_io_hook(&(info->io_map), io_info->port);
-  uint_t read_size = 0;
+  int read_size = 0;
 
   addr_t dst_addr = 0;
   uint_t rep_num = 1;
@@ -218,7 +218,7 @@ int handle_svm_io_out(struct guest_info * info) {
   struct svm_io_info * io_info = (struct svm_io_info *)&(ctrl_area->exit_info1);
 
   struct vmm_io_hook * hook = v3_get_io_hook(&(info->io_map), io_info->port);
-  uint_t write_size = 0;
+  int write_size = 0;
 
   if (hook == NULL) {
     PrintError("Hook Not present for out on port %x\n", io_info->port);
@@ -261,7 +261,7 @@ int handle_svm_io_outs(struct guest_info * info) {
   struct svm_io_info * io_info = (struct svm_io_info *)&(ctrl_area->exit_info1);
   
   struct vmm_io_hook * hook = v3_get_io_hook(&(info->io_map), io_info->port);
-  uint_t write_size = 0;
+  int write_size = 0;
 
   addr_t dst_addr = 0;
   uint_t rep_num = 1;

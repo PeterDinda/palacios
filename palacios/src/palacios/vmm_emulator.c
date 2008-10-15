@@ -154,6 +154,11 @@ int v3_emulate_memory_read(struct guest_info * info, addr_t read_gva,
     ret = read_guest_va_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
   }
 
+  if (ret == -1) {
+    PrintError("Could not read guest memory\n");
+    return -1;
+  }
+
 #ifdef DEBUG_EMULATOR
   PrintDebug("Instr (15 bytes) at %x:\n", instr);
   PrintTraceMemDump(instr, 15);
@@ -183,7 +188,8 @@ int v3_emulate_memory_read(struct guest_info * info, addr_t read_gva,
 
 
   // Read the data directly onto the emulated page
-  if (read(read_gpa, (void *)(data_page->page_addr + data_addr_offset), instr_info.op_size, private_data) != instr_info.op_size) {
+  ret = read(read_gpa, (void *)(data_page->page_addr + data_addr_offset), instr_info.op_size, private_data);
+  if ((ret == -1) || ((uint_t)ret != instr_info.op_size)) {
     PrintError("Read error in emulator\n");
     V3_FreePage((void *)(data_page->page_addr));
     V3_Free(data_page);
