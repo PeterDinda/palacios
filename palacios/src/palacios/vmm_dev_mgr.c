@@ -24,10 +24,12 @@
 #include <palacios/vmm_decoder.h>
 
 
-
-#ifndef NULL
-#define NULL 0
+#ifndef DEBUG_DEV_MGR
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
 #endif
+
+
 
 int dev_mgr_init(struct guest_info * info) {
   struct vmm_dev_mgr * mgr = &(info->dev_mgr);
@@ -264,6 +266,7 @@ int dev_mgr_unhook_mem(struct vm_device   *dev,
 
 
 
+#ifdef DEBUG_DEV_MGR
 
 void PrintDebugDevMgr(struct guest_info * info) {
   struct vmm_dev_mgr * mgr = &(info->dev_mgr);
@@ -300,3 +303,10 @@ void PrintDebugDevIO(struct vm_device * dev) {
 
   return;
 }
+
+#else 
+void PrintDebugDevMgr(struct guest_info * info) {}
+void PrintDebugDev(struct vm_device * dev) {}
+void PrintDebugDevMgrIO(struct vmm_dev_mgr * mgr) {}
+void PrintDebugDevIO(struct vm_device * dev) {}
+#endif

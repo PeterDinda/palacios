@@ -34,7 +34,7 @@
 
 /* utility definitions */
 
-#if VMM_DEBUG
+#ifdef VMM_DEBUG
 #define PrintDebug(fmt, args...)			\
   do {							\
     extern struct vmm_os_hooks * os_hooks;		\
@@ -58,7 +58,7 @@
 
 
 
-#if VMM_INFO
+#ifdef VMM_INFO
 #define PrintInfo(fmt, args...) 		        \
   do {							\
     extern struct vmm_os_hooks * os_hooks;		\
@@ -71,7 +71,7 @@
 #endif
 
 
-#if VMM_TRACE
+#ifdef VMM_TRACE
 #define PrintTrace(fmt, args...)					\
   do {									\
     extern struct vmm_os_hooks * os_hooks;				\

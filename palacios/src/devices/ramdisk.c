@@ -1361,7 +1361,7 @@ static void rd_raise_interrupt(struct vm_device * dev, struct channel_t * channe
 
     v3_raise_irq(dev->vm, channel->irq);
   } else {
-    PrintError("\t\tRaising irq but irq is disabled\n");
+    PrintDebug("\t\tRaising irq but irq is disabled\n");
   }
   
   return;

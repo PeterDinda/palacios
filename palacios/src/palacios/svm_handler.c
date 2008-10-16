@@ -236,7 +236,9 @@ int handle_svm_exit(struct guest_info * info) {
     break;
 
   case VMEXIT_HLT: {
+#ifdef DEBUG_HALT
     PrintDebug("Guest halted\n");
+#endif
     if (handle_svm_halt(info) == -1) {
       return -1;
     }
@@ -244,7 +246,7 @@ int handle_svm_exit(struct guest_info * info) {
     break;
 
   case VMEXIT_PAUSE: {
-    PrintDebug("Guest paused\n");
+    //PrintDebug("Guest paused\n");
     if (handle_svm_pause(info) == -1) { 
       return -1;
     }

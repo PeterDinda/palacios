@@ -168,6 +168,14 @@ DEBUG_SECTIONS := $(DEBUG_SECTIONS) DEBUG_HALT=0
 endif
 endif
 
+ifeq ($(DEBUG_DEV_MGR),1)
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) DEBUG_DEV_MGR=1
+else 
+ifeq ($(DEBUG_DEV_MGR),0) 
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) DEBUG_DEV_MGR=0
+endif
+endif
+
 
 # ----------------------------------------------------------------------
 # Targets -
@@ -187,6 +195,10 @@ palacios-full:
 	(cd $(PALACIOS_BUILD_DIR) && make $(DEBUG_SECTIONS) world)
 
 
+palacios-lean:
+	(cd $(PALACIOS_BUILD_DIR) && make LEAN_AND_MEAN=1 world)
+
+
 geekos: 
 	cp $(PALACIOS_BUILD_DIR)/libv3vee.a $(GEEKOS_BUILD_DIR)/palacios/
 	cp $(PALACIOS_BUILD_DIR)/../lib/xed/libxed.a $(GEEKOS_BUILD_DIR)/palacios/
@@ -202,6 +214,8 @@ geekos-full:
 
 
 world: palacios-full geekos-full
+
+lean-and-mean: palacios-lean geekos-full
 
 
 
