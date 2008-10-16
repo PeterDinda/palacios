@@ -161,7 +161,7 @@ struct serial_buffer {
   char buffer[SERIAL_BUF_LEN];
 };
 
-int queue_data(struct serial_buffer * buf, char data) {
+static int queue_data(struct serial_buffer * buf, char data) {
   uint_t next_loc = (buf->head + 1) % SERIAL_BUF_LEN;
 
   if (next_loc == buf->tail) {
@@ -174,7 +174,7 @@ int queue_data(struct serial_buffer * buf, char data) {
   return 0;
 }
 
-int dequeue_data(struct serial_buffer * buf, char * data) {
+static int dequeue_data(struct serial_buffer * buf, char * data) {
   uint_t next_tail = (buf->tail + 1) % SERIAL_BUF_LEN;
 
   if (buf->head == buf->tail) {
@@ -210,7 +210,7 @@ struct serial_state {
 };
 
 
-int write_data_port(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
+static int write_data_port(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
   struct serial_state * state = (struct serial_state *)dev->private_data;
   char * val = (char *)src;
   PrintDebug("Write to Data Port 0x%x (val=%x)\n", port, *(char*)src);
@@ -243,7 +243,7 @@ int write_data_port(ushort_t port, void * src, uint_t length, struct vm_device *
 
 
 
-int read_data_port(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
+static int read_data_port(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
   struct serial_state * state = (struct serial_state *)dev->private_data;
   char * val = (char *)dst;
   PrintDebug("Read from Data Port 0x%x\n", port);
@@ -276,14 +276,14 @@ int read_data_port(ushort_t port, void * dst, uint_t length, struct vm_device * 
 
 
 
-int handle_ier_write(struct serial_port * com, struct irq_enable_reg * ier) {
+static int handle_ier_write(struct serial_port * com, struct irq_enable_reg * ier) {
   
 
   return -1;
 }
 
 
-int write_ctrl_port(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
+static int write_ctrl_port(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
   struct serial_state * state = (struct serial_state *)dev->private_data;
   char * val = (char *)src;
   PrintDebug("Write to Control Port (val=%x)\n", *(char *)src);
@@ -343,7 +343,7 @@ int write_ctrl_port(ushort_t port, void * src, uint_t length, struct vm_device *
 
 
 
-int read_ctrl_port(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
+static int read_ctrl_port(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
   struct serial_state * state = (struct serial_state *)dev->private_data;
   char * val = (char *)dst;
   PrintDebug("Read from Control Port\n");
@@ -414,13 +414,13 @@ int read_ctrl_port(ushort_t port, void * dst, uint_t length, struct vm_device * 
 }
 
 
-int write_status_port(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
+static int write_status_port(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
   PrintDebug("Write to Status Port 0x%x (val=%x)\n", port, *(char *)src);
 
   return -1;
 }
 
-int read_status_port(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
+static int read_status_port(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
   struct serial_state * state = (struct serial_state *)dev->private_data;
   char * val = (char *)dst;
   PrintDebug("Read from Status Port 0x%x\n", port);
@@ -490,7 +490,7 @@ static int init_serial_port(struct serial_port * com) {
   return 0;
 }
 
-int serial_init(struct vm_device * dev) {
+static int serial_init(struct vm_device * dev) {
   struct serial_state * state = (struct serial_state *)dev->private_data;
 
 
@@ -539,7 +539,7 @@ int serial_init(struct vm_device * dev) {
 }
 
 
-int serial_deinit(struct vm_device * dev) {
+static int serial_deinit(struct vm_device * dev) {
 
 
   dev_unhook_io(dev, COM1_DATA_PORT);

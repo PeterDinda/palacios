@@ -291,7 +291,7 @@ XED_OBJS := $(XED_C_OBJS) $(XED_GAS_OBJS)
 
 
 
-DEVICE_C_SRCS := generic.c keyboard.c nvram.c timer.c simple_pic.c 8259a.c 8254.c serial.c ramdisk.c cdrom.c
+DEVICE_C_SRCS := generic.c keyboard.c nvram.c timer.c simple_pic.c 8259a.c 8254.c serial.c ramdisk.c cdrom.c bochs_debug.c
 
 DEVICE_C_OBJS := $(DEVICE_C_SRCS:%.c=devices/%.o)
 

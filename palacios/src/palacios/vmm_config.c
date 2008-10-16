@@ -30,6 +30,7 @@
 #include <devices/generic.h>
 #include <devices/ramdisk.h>
 #include <devices/cdrom.h>
+#include <devices/bochs_debug.h>
 
 
 #include <palacios/vmm_host_events.h>
@@ -73,27 +74,6 @@ static int passthrough_mem_write(addr_t guest_addr, void * src, uint_t length, v
   memcpy((void*)guest_addr, src, length);
   return length;
 }
-
-
-/*static int IO_Read(ushort_t port, void * dst, uint_t length, void * priv_data) {
-
-  struct guest_info * info = priv_data;
-  ulong_t tsc_spread = 0;
-  ullong_t exit_tsc = 0;
-
-  
-  *(ulong_t *)(&exit_tsc) = info->vm_regs.rbx;
-  *(ulong_t *)((&exit_tsc) + 4) = info->vm_regs.rcx; 
-  tsc_spread = info->exit_tsc - exit_tsc;
-  
-  PrintError("IOREAD tsc diff = %lu\n",tsc_spread); 
-  info->rip += 3;
-
-
-  return 1;
-}
-*/
-
 
 
 
@@ -211,6 +191,7 @@ int config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) {
     struct vm_device * pic = create_pic();
     struct vm_device * keyboard = create_keyboard();
     struct vm_device * pit = create_pit(); 
+    struct vm_device * bochs_debug = create_bochs_debug();
 
     //struct vm_device * serial = create_serial();
     struct vm_device * generic = NULL;
@@ -345,6 +326,7 @@ int config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) {
     v3_attach_device(info, pit);
     v3_attach_device(info, keyboard);
     // v3_attach_device(info, serial);
+    v3_attach_device(info, bochs_debug);
 
     if (use_ramdisk) {
       v3_attach_device(info, ramdisk);
