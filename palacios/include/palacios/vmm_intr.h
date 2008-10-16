@@ -84,16 +84,13 @@ struct v3_intr_state {
 
 
 
-void init_interrupt_state(struct guest_info * info);
+void v3_init_interrupt_state(struct guest_info * info);
 
 
 int v3_raise_irq(struct guest_info * info, int irq);
-
-/*Zheng 07/30/2008*/
 int v3_lower_irq(struct guest_info * info, int irq);
 
 
-/*Zheng 07/30/2008*/
 
 struct intr_ctrl_ops {
   int (*intr_pending)(void * private_data);
@@ -106,16 +103,16 @@ struct intr_ctrl_ops {
 
 
 
-void set_intr_controller(struct guest_info * info, struct intr_ctrl_ops * ops, void * state);
+void v3_set_intr_controller(struct guest_info * info, struct intr_ctrl_ops * ops, void * state);
 
 int v3_raise_exception(struct guest_info * info, uint_t excp);
 int v3_raise_exception_with_error(struct guest_info * info, uint_t excp, uint_t error_code);
 
-int intr_pending(struct guest_info * info);
-uint_t get_intr_number(struct guest_info * info);
-intr_type_t get_intr_type(struct guest_info * info);
+int v3_intr_pending(struct guest_info * info);
+uint_t v3_get_intr_number(struct guest_info * info);
+intr_type_t v3_get_intr_type(struct guest_info * info);
 
-int injecting_intr(struct guest_info * info, uint_t intr_num, intr_type_t type);
+int v3_injecting_intr(struct guest_info * info, uint_t intr_num, intr_type_t type);
 
 /*
 int start_irq(struct vm_intr * intr);

@@ -73,7 +73,7 @@ struct emulation_state {
 };
 
 
-int init_emulator(struct guest_info * info);
+int v3_init_emulator(struct guest_info * info);
 
 
 int v3_emulation_exit_handler(struct guest_info * info);

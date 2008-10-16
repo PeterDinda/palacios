@@ -31,7 +31,7 @@
 
 
 
-void init_interrupt_state(struct guest_info * info) {
+void v3_init_interrupt_state(struct guest_info * info) {
   info->intr_state.excp_pending = 0;
   info->intr_state.excp_num = 0;
   info->intr_state.excp_error_code = 0;
@@ -42,7 +42,7 @@ void init_interrupt_state(struct guest_info * info) {
   info->vm_ops.lower_irq = &v3_lower_irq; 
 }
 
-void set_intr_controller(struct guest_info * info, struct intr_ctrl_ops * ops, void * state) {
+void v3_set_intr_controller(struct guest_info * info, struct intr_ctrl_ops * ops, void * state) {
   info->intr_state.controller = ops;
   info->intr_state.controller_state = state;
 }
@@ -211,7 +211,7 @@ int v3_raise_irq(struct guest_info * info, int irq) {
 
  
 
-int intr_pending(struct guest_info * info) {
+int v3_intr_pending(struct guest_info * info) {
   struct v3_intr_state * intr_state = &(info->intr_state);
 
   //  PrintDebug("[intr_pending]\n");
@@ -227,7 +227,7 @@ int intr_pending(struct guest_info * info) {
 }
 
 
-uint_t get_intr_number(struct guest_info * info) {
+uint_t v3_get_intr_number(struct guest_info * info) {
   struct v3_intr_state * intr_state = &(info->intr_state);
 
   if (intr_state->excp_pending == 1) {
@@ -243,7 +243,7 @@ uint_t get_intr_number(struct guest_info * info) {
 }
 
 
-intr_type_t get_intr_type(struct guest_info * info) {
+intr_type_t v3_get_intr_type(struct guest_info * info) {
   struct v3_intr_state * intr_state = &(info->intr_state);
 
   if (intr_state->excp_pending) {
@@ -262,7 +262,7 @@ intr_type_t get_intr_type(struct guest_info * info) {
 
 
 
-int injecting_intr(struct guest_info * info, uint_t intr_num, intr_type_t type) {
+int v3_injecting_intr(struct guest_info * info, uint_t intr_num, intr_type_t type) {
   struct v3_intr_state * intr_state = &(info->intr_state);
 
   if (type == EXCEPTION) {

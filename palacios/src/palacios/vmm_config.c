@@ -94,7 +94,7 @@ int v3_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) 
   if (v3_cpu_type == V3_SVM_REV3_CPU) {
     info->shdw_pg_mode = NESTED_PAGING;
   } else {
-    init_shadow_page_state(info);
+    v3_init_shadow_page_state(info);
     info->shdw_pg_mode = SHADOW_PAGING;
   }
   
@@ -102,12 +102,12 @@ int v3_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) 
   info->mem_mode = PHYSICAL_MEM;
   
  
-  init_vmm_io_map(info);
-  init_interrupt_state(info);
+  v3_init_vmm_io_map(info);
+  v3_init_interrupt_state(info);
   
   v3_init_dev_mgr(info);
 
-  init_emulator(info);
+  v3_init_emulator(info);
   
   v3_init_host_events(info);
 

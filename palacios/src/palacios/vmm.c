@@ -43,7 +43,7 @@ void Init_V3(struct v3_os_hooks * hooks, struct v3_ctrl_ops * vmm_ops) {
 
   v3_cpu_type = V3_INVALID_CPU;
 
-  init_decoder();
+  v3_init_decoder();
 
   if (v3_is_svm_capable()) {
 

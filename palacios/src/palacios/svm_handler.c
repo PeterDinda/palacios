@@ -150,7 +150,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
 #ifdef DEBUG_CTRL_REGS
     PrintDebug("CR0 Write\n");
 #endif
-    if (handle_cr0_write(info) == -1) {
+    if (v3_handle_cr0_write(info) == -1) {
       return -1;
     }
   } 
@@ -160,7 +160,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
 #ifdef DEBUG_CTRL_REGS
     PrintDebug("CR0 Read\n");
 #endif
-    if (handle_cr0_read(info) == -1) {
+    if (v3_handle_cr0_read(info) == -1) {
       return -1;
     }
   } 
@@ -170,7 +170,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
 #ifdef DEBUG_CTRL_REGS
     PrintDebug("CR3 Write\n");
 #endif
-    if (handle_cr3_write(info) == -1) {
+    if (v3_handle_cr3_write(info) == -1) {
       return -1;
     }    
   } 
@@ -180,7 +180,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
 #ifdef DEBUG_CTRL_REGS
     PrintDebug("CR3 Read\n");
 #endif
-    if (handle_cr3_read(info) == -1) {
+    if (v3_handle_cr3_read(info) == -1) {
       return -1;
     }
   }
@@ -193,7 +193,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
     PrintDebug("PageFault at %x (error=%d)\n", fault_addr, *error_code);
 #endif
     if (info->shdw_pg_mode == SHADOW_PAGING) {
-      if (handle_shadow_pagefault(info, fault_addr, *error_code) == -1) {
+      if (v3_handle_shadow_pagefault(info, fault_addr, *error_code) == -1) {
 	return -1;
       }
     } else {
@@ -215,7 +215,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
 #ifdef DEBUG_SHADOW_PAGING
       PrintDebug("Invlpg\n");
 #endif
-      if (handle_shadow_invlpg(info) == -1) {
+      if (v3_handle_shadow_invlpg(info) == -1) {
 	return -1;
       }
     }
@@ -394,12 +394,12 @@ int v3_handle_svm_exit(struct guest_info * info) {
 
   // Update the low level state
 
-  if (intr_pending(info)) {
+  if (v3_intr_pending(info)) {
 
-    switch (get_intr_type(info)) {
+    switch (v3_get_intr_type(info)) {
     case EXTERNAL_IRQ: 
       {
-	uint_t irq = get_intr_number(info);
+	uint_t irq = v3_get_intr_number(info);
 
         // check to see if ==-1 (non exists)
 
@@ -416,7 +416,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
 #ifdef DEBUG_INTERRUPTS
 	PrintDebug("Injecting Interrupt %d (EIP=%x)\n", guest_ctrl->guest_ctrl.V_INTR_VECTOR, info->rip);
 #endif
-	injecting_intr(info, irq, EXTERNAL_IRQ);
+	v3_injecting_intr(info, irq, EXTERNAL_IRQ);
 	
 	break;
       }
@@ -425,7 +425,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
       break;
     case EXCEPTION:
       {
-	uint_t excp = get_intr_number(info);
+	uint_t excp = v3_get_intr_number(info);
 
 	guest_ctrl->EVENTINJ.type = SVM_INJECTION_EXCEPTION;
 	
@@ -443,7 +443,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
 #ifdef DEBUG_INTERRUPTS
 	PrintDebug("Injecting Interrupt %d (EIP=%x)\n", guest_ctrl->EVENTINJ.vector, info->rip);
 #endif
-	injecting_intr(info, excp, EXCEPTION);
+	v3_injecting_intr(info, excp, EXCEPTION);
 	break;
       }
     case SOFTWARE_INTR:

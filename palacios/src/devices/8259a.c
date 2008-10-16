@@ -632,7 +632,7 @@ static int write_slave_port2(ushort_t port, void * src, uint_t length, struct vm
 static int pic_init(struct vm_device * dev) {
   struct pic_internal * state = (struct pic_internal*)dev->private_data;
 
-  set_intr_controller(dev->vm, &intr_ops, state);
+  v3_set_intr_controller(dev->vm, &intr_ops, state);
 
   state->master_irr = 0;
   state->master_isr = 0;

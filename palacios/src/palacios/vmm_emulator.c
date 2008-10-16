@@ -33,7 +33,7 @@ static const char VMMCALL[3] = {0x0f, 0x01, 0xd9};
 #endif
 
 
-int init_emulator(struct guest_info * info) {
+int v3_init_emulator(struct guest_info * info) {
   struct emulation_state * emulator = &(info->emulator);
 
   emulator->num_emulated_pages = 0;

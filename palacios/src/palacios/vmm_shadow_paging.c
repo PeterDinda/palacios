@@ -76,7 +76,7 @@ static int handle_shadow_pte32_fault(struct guest_info* info,
 
 static int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_error_t error_code);
 
-int init_shadow_page_state(struct guest_info * info) {
+int v3_init_shadow_page_state(struct guest_info * info) {
   struct shadow_page_state * state = &(info->shdw_pg_state);
   state->guest_mode = PDE32;
   state->shadow_mode = PDE32;
@@ -146,7 +146,7 @@ int cache_page_tables32(struct guest_info * info, addr_t pde) {
 }
 */
 
-int cache_page_tables32(struct guest_info * info, addr_t pde) {
+int v3_cache_page_tables32(struct guest_info * info, addr_t pde) {
   struct shadow_page_state * state = &(info->shdw_pg_state);
   addr_t pde_host_addr;
   pde32_t * tmp_pde;
@@ -223,7 +223,7 @@ int v3_replace_shdw_page32(struct guest_info * info, addr_t location, pte32_t * 
 
 
 
-int handle_shadow_pagefault(struct guest_info * info, addr_t fault_addr, pf_error_t error_code) {
+int v3_handle_shadow_pagefault(struct guest_info * info, addr_t fault_addr, pf_error_t error_code) {
   
   if (info->mem_mode == PHYSICAL_MEM) {
     // If paging is not turned on we need to handle the special cases
@@ -246,7 +246,7 @@ int handle_shadow_pagefault(struct guest_info * info, addr_t fault_addr, pf_erro
   }
 }
 
-addr_t create_new_shadow_pt32() {
+addr_t v3_create_new_shadow_pt32() {
   void * host_pde = 0;
 
   host_pde = V3_AllocPages(1);
@@ -420,7 +420,7 @@ static int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr
   
   if (shadow_pde_access == PT_ENTRY_NOT_PRESENT) 
     {
-      pte32_t * shadow_pt =  (pte32_t *)create_new_shadow_pt32();
+      pte32_t * shadow_pt =  (pte32_t *)v3_create_new_shadow_pt32();
 
       shadow_pde->present = 1;
       shadow_pde->user_page = guest_pde->user_page;
@@ -664,7 +664,7 @@ static int handle_shadow_pte32_fault(struct guest_info * info,
 
 
 /* Currently Does not work with Segmentation!!! */
-int handle_shadow_invlpg(struct guest_info * info) {
+int v3_handle_shadow_invlpg(struct guest_info * info) {
   if (info->mem_mode != VIRTUAL_MEM) {
     // Paging must be turned on...
     // should handle with some sort of fault I think
@@ -696,7 +696,7 @@ int handle_shadow_invlpg(struct guest_info * info) {
 
       addr_t first_operand;
       addr_t second_operand;
-      operand_type_t addr_type;
+      v3_operand_type_t addr_type;
       addr_t guest_cr3 = CR3_TO_PDE32(info->shdw_pg_state.guest_cr3);
 
       pde32_t * guest_pd = NULL;
