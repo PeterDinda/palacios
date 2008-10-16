@@ -2322,54 +2322,54 @@ static int ramdisk_init_device(struct vm_device *dev) {
   rd_init_hardware(ramdisk);
 
 
-  dev_hook_io(dev, PRI_CTRL_PORT, 
-	      &read_status_port, &write_ctrl_port);
+  v3_dev_hook_io(dev, PRI_CTRL_PORT, 
+		 &read_status_port, &write_ctrl_port);
 
-  dev_hook_io(dev, PRI_DATA_PORT, 
-	      &read_data_port, &write_data_port);
-  dev_hook_io(dev, PRI_FEATURES_PORT, 
-	      &read_general_port, &write_general_port);
-  dev_hook_io(dev, PRI_SECT_CNT_PORT, 
-	      &read_general_port, &write_general_port);
-  dev_hook_io(dev, PRI_SECT_ADDR1_PORT, 
-	      &read_general_port, &write_general_port);
-  dev_hook_io(dev, PRI_SECT_ADDR2_PORT, 
-	      &read_general_port, &write_general_port);
-  dev_hook_io(dev, PRI_SECT_ADDR3_PORT, 
-	      &read_general_port, &write_general_port);
-  dev_hook_io(dev, PRI_DRV_SEL_PORT, 
-	      &read_general_port, &write_general_port);
-  dev_hook_io(dev, PRI_CMD_PORT, 
-	      &read_status_port, &write_cmd_port);
+  v3_dev_hook_io(dev, PRI_DATA_PORT, 
+		 &read_data_port, &write_data_port);
+  v3_dev_hook_io(dev, PRI_FEATURES_PORT, 
+		 &read_general_port, &write_general_port);
+  v3_dev_hook_io(dev, PRI_SECT_CNT_PORT, 
+		 &read_general_port, &write_general_port);
+  v3_dev_hook_io(dev, PRI_SECT_ADDR1_PORT, 
+		 &read_general_port, &write_general_port);
+  v3_dev_hook_io(dev, PRI_SECT_ADDR2_PORT, 
+		 &read_general_port, &write_general_port);
+  v3_dev_hook_io(dev, PRI_SECT_ADDR3_PORT, 
+		 &read_general_port, &write_general_port);
+  v3_dev_hook_io(dev, PRI_DRV_SEL_PORT, 
+		 &read_general_port, &write_general_port);
+  v3_dev_hook_io(dev, PRI_CMD_PORT, 
+		 &read_status_port, &write_cmd_port);
 
 
-  dev_hook_io(dev, SEC_CTRL_PORT, 
-	      &read_status_port, &write_ctrl_port);
+  v3_dev_hook_io(dev, SEC_CTRL_PORT, 
+		 &read_status_port, &write_ctrl_port);
 
-  dev_hook_io(dev, SEC_DATA_PORT, 
-	      &read_data_port, &write_data_port);
-  dev_hook_io(dev, SEC_FEATURES_PORT, 
-	      &read_general_port, &write_general_port);
-  dev_hook_io(dev, SEC_SECT_CNT_PORT, 
-	      &read_general_port, &write_general_port);
-  dev_hook_io(dev, SEC_SECT_ADDR1_PORT, 
-	      &read_general_port, &write_general_port);
-  dev_hook_io(dev, SEC_SECT_ADDR2_PORT, 
-	      &read_general_port, &write_general_port);
-  dev_hook_io(dev, SEC_SECT_ADDR3_PORT, 
-	      &read_general_port, &write_general_port);
-  dev_hook_io(dev, SEC_DRV_SEL_PORT, 
-	      &read_general_port, &write_general_port);
-  dev_hook_io(dev, SEC_CMD_PORT, 
-	      &read_status_port, &write_cmd_port);
-
+  v3_dev_hook_io(dev, SEC_DATA_PORT, 
+		 &read_data_port, &write_data_port);
+  v3_dev_hook_io(dev, SEC_FEATURES_PORT, 
+		 &read_general_port, &write_general_port);
+  v3_dev_hook_io(dev, SEC_SECT_CNT_PORT, 
+		 &read_general_port, &write_general_port);
+  v3_dev_hook_io(dev, SEC_SECT_ADDR1_PORT, 
+		 &read_general_port, &write_general_port);
+  v3_dev_hook_io(dev, SEC_SECT_ADDR2_PORT, 
+		 &read_general_port, &write_general_port);
+  v3_dev_hook_io(dev, SEC_SECT_ADDR3_PORT, 
+		 &read_general_port, &write_general_port);
+  v3_dev_hook_io(dev, SEC_DRV_SEL_PORT, 
+		 &read_general_port, &write_general_port);
+  v3_dev_hook_io(dev, SEC_CMD_PORT, 
+		 &read_status_port, &write_cmd_port);
+  
   
 
-  dev_hook_io(dev, SEC_ADDR_REG_PORT, 
-	      &read_general_port, &write_general_port);
+  v3_dev_hook_io(dev, SEC_ADDR_REG_PORT, 
+		 &read_general_port, &write_general_port);
 
-  dev_hook_io(dev, PRI_ADDR_REG_PORT, 
-	      &read_general_port, &write_general_port);
+  v3_dev_hook_io(dev, PRI_ADDR_REG_PORT, 
+		 &read_general_port, &write_general_port);
 
 
 
@@ -2395,7 +2395,7 @@ static struct vm_device_ops dev_ops = {
 
 
 
-struct vm_device *create_ramdisk()
+struct vm_device * v3_create_ramdisk()
 {
 
   struct ramdisk_t *ramdisk;
@@ -2404,7 +2404,7 @@ struct vm_device *create_ramdisk()
 
   PrintDebug("[create_ramdisk]\n");
 
-  struct vm_device *device = create_device("RAMDISK", &dev_ops, ramdisk);
+  struct vm_device * device = v3_create_device("RAMDISK", &dev_ops, ramdisk);
 
   return device;
 }

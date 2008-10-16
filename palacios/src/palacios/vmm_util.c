@@ -22,7 +22,7 @@
 
 #include <palacios/vmm.h>
 
-extern struct vmm_os_hooks * os_hooks;
+extern struct v3_os_hooks * os_hooks;
 
 
 void PrintTraceHex(unsigned char x) {

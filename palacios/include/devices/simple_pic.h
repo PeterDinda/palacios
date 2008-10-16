@@ -25,7 +25,7 @@
 
 #include <palacios/vm_dev.h>
 
-struct vm_device * create_simple_pic();
+struct vm_device * v3_create_simple_pic();
 
 
 #endif // ! __V3VEE__

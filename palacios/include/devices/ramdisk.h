@@ -32,7 +32,7 @@ struct cdrom_ops;
 
 int v3_ramdisk_register_cdrom(struct vm_device * ide_dev, uint_t busID, uint_t driveID, struct cdrom_ops * cd, void * private_data);
 
-struct vm_device * create_ramdisk();
+struct vm_device * v3_create_ramdisk();
 
 
 #endif // ! __V3VEE__

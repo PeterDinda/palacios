@@ -30,20 +30,19 @@
 #include <palacios/vmm_io.h>
 
 
+
 extern void * g_ramdiskImage;
 extern ulong_t s_ramdiskSize;
 
 
 int RunVMM(struct Boot_Info * bootInfo) {
-  struct vmm_os_hooks os_hooks;
-  struct vmm_ctrl_ops vmm_ops;
+  struct v3_os_hooks os_hooks;
+  struct v3_ctrl_ops v3_ops;
   struct guest_info * vm_info = 0;
   struct v3_vm_config vm_config;
 
-
-
-  memset(&os_hooks, 0, sizeof(struct vmm_os_hooks));
-  memset(&vmm_ops, 0, sizeof(struct vmm_ctrl_ops));
+  memset(&os_hooks, 0, sizeof(struct v3_os_hooks));
+  memset(&v3_ops, 0, sizeof(struct v3_ctrl_ops));
   memset(&vm_config, 0, sizeof(struct v3_vm_config));
 
   
@@ -62,7 +61,7 @@ int RunVMM(struct Boot_Info * bootInfo) {
 
 
   
-  Init_V3(&os_hooks, &vmm_ops);
+  Init_V3(&os_hooks, &v3_ops);
 
 
   extern char _binary___palacios_vm_kernel_start;
@@ -79,21 +78,21 @@ int RunVMM(struct Boot_Info * bootInfo) {
 
 
 
-  vm_info = (vmm_ops).allocate_guest();
+  vm_info = (v3_ops).allocate_guest();
 
   Init_Stubs(vm_info);
 
   PrintBoth("Allocated Guest\n");
 
-  (vmm_ops).config_guest(vm_info, &vm_config);
+  (v3_ops).config_guest(vm_info, &vm_config);
 
   PrintBoth("Configured guest\n");
 
-  (vmm_ops).init_guest(vm_info);
+  (v3_ops).init_guest(vm_info);
   PrintBoth("Starting Guest\n");
   //Clear_Screen();
 
-  (vmm_ops).start_guest(vm_info);
+  (v3_ops).start_guest(vm_info);
   
     return 0;
 }

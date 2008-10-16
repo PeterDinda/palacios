@@ -81,8 +81,8 @@
 
 
 
-void Init_SVM(struct vmm_ctrl_ops * vmm_ops);
-int is_svm_capable();
+void v3_init_SVM(struct v3_ctrl_ops * vmm_ops);
+int v3_is_svm_capable();
 
 #endif
 

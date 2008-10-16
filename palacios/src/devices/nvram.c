@@ -414,7 +414,7 @@ static void update_time(struct vm_device * dev, uint_t period_us) {
 }
 
 
-int handle_timer_event(struct guest_info * info, 
+static int handle_timer_event(struct guest_info * info, 
 			struct v3_timer_event * evt, 
 			void * priv_data) {
 
@@ -516,7 +516,7 @@ static int set_nvram_defaults(struct vm_device * dev) {
 }
 
 
-int nvram_reset_device(struct vm_device * dev) {
+static int nvram_reset_device(struct vm_device * dev) {
   struct nvram_internal * data = (struct nvram_internal *) dev->private_data;
   
   PrintDebug("nvram: reset device\n");
@@ -531,13 +531,13 @@ int nvram_reset_device(struct vm_device * dev) {
 
 
 
-int nvram_start_device(struct vm_device * dev) {
+static int nvram_start_device(struct vm_device * dev) {
   PrintDebug("nvram: start device\n");
   return 0;
 }
 
 
-int nvram_stop_device(struct vm_device * dev) {
+static int nvram_stop_device(struct vm_device * dev) {
   PrintDebug("nvram: stop device\n");
   return 0;
 }
@@ -545,10 +545,10 @@ int nvram_stop_device(struct vm_device * dev) {
 
 
 
-int nvram_write_reg_port(ushort_t port,
-			 void * src, 
-			 uint_t length,
-			 struct vm_device * dev) {
+static int nvram_write_reg_port(ushort_t port,
+				void * src, 
+				uint_t length,
+				struct vm_device * dev) {
   struct nvram_internal * data = (struct nvram_internal *)dev->private_data;
 
   memcpy(&(data->thereg), src, 1);
@@ -558,10 +558,10 @@ int nvram_write_reg_port(ushort_t port,
   return 1;
 }
 
-int nvram_read_data_port(ushort_t port,
-			 void * dst, 
-			 uint_t length,
-			 struct vm_device * dev) {
+static int nvram_read_data_port(ushort_t port,
+				void * dst, 
+				uint_t length,
+				struct vm_device * dev) {
   struct nvram_internal * data = (struct nvram_internal *)dev->private_data;
 
   memcpy(dst, &(data->mem_state[data->thereg]), 1);
@@ -577,10 +577,10 @@ int nvram_read_data_port(ushort_t port,
   return 1;
 }
 
-int nvram_write_data_port(ushort_t port,
-			  void * src, 
-			  uint_t length,
-			  struct vm_device * dev) {
+static int nvram_write_data_port(ushort_t port,
+				 void * src, 
+				 uint_t length,
+				 struct vm_device * dev) {
   struct nvram_internal * data = (struct nvram_internal *)dev->private_data;
 
   memcpy(&(data->mem_state[data->thereg]), src, 1);
@@ -592,7 +592,7 @@ int nvram_write_data_port(ushort_t port,
 
 
 
-int nvram_init_device(struct vm_device * dev) {
+static int nvram_init_device(struct vm_device * dev) {
  
   struct nvram_internal * data = (struct nvram_internal *)dev->private_data;
 
@@ -606,17 +606,17 @@ int nvram_init_device(struct vm_device * dev) {
   nvram_reset_device(dev);
 
   // hook ports
-  dev_hook_io(dev, NVRAM_REG_PORT, NULL, &nvram_write_reg_port);
-  dev_hook_io(dev, NVRAM_DATA_PORT, &nvram_read_data_port, &nvram_write_data_port);
+  v3_dev_hook_io(dev, NVRAM_REG_PORT, NULL, &nvram_write_reg_port);
+  v3_dev_hook_io(dev, NVRAM_DATA_PORT, &nvram_read_data_port, &nvram_write_data_port);
   
   v3_hook_host_event(dev->vm, HOST_TIMER_EVT, V3_HOST_EVENT_HANDLER(handle_timer_event), dev);
 
   return 0;
 }
 
-int nvram_deinit_device(struct vm_device * dev) {
-  dev_unhook_io(dev, NVRAM_REG_PORT);
-  dev_unhook_io(dev, NVRAM_DATA_PORT);
+static int nvram_deinit_device(struct vm_device * dev) {
+  v3_dev_unhook_io(dev, NVRAM_REG_PORT);
+  v3_dev_unhook_io(dev, NVRAM_DATA_PORT);
 
   nvram_reset_device(dev);
   return 0;
@@ -637,14 +637,14 @@ static struct vm_device_ops dev_ops = {
 
 
 
-struct vm_device * create_nvram() {
+struct vm_device * v3_create_nvram() {
   struct nvram_internal * nvram_state = NULL;
 
   nvram_state = (struct nvram_internal *)V3_Malloc(sizeof(struct nvram_internal) + 1000);
 
   PrintDebug("nvram: internal at %x\n", nvram_state);
 
-  struct vm_device * device = create_device("NVRAM", &dev_ops, nvram_state);
+  struct vm_device * device = v3_create_device("NVRAM", &dev_ops, nvram_state);
 
   return device;
 }

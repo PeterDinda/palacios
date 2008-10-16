@@ -63,7 +63,6 @@ extern void EnableInts();
 static vmcb_t * Allocate_VMCB() {
   vmcb_t * vmcb_page = (vmcb_t *)V3_AllocPages(1);
 
-
   memset(vmcb_page, 0, 4096);
 
   return vmcb_page;
@@ -295,7 +294,7 @@ static int init_svm_guest(struct guest_info *info) {
 
 
 // can we start a kernel thread here...
- int start_svm_guest(struct guest_info *info) {
+static int start_svm_guest(struct guest_info *info) {
   vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
   vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
   uint_t num_exits = 0;
@@ -335,7 +334,7 @@ static int init_svm_guest(struct guest_info *info) {
     }
 
      
-    if (handle_svm_exit(info) != 0) {
+    if (v3_handle_svm_exit(info) != 0) {
 
       addr_t host_addr;
       addr_t linear_addr = 0;
@@ -351,9 +350,9 @@ static int init_svm_guest(struct guest_info *info) {
 
 
       PrintDebug("RIP Linear: %x\n", linear_addr);
-      PrintV3Segments(info);
-      PrintV3CtrlRegs(info);
-      PrintV3GPRs(info);
+      v3_print_segments(info);
+      v3_print_ctrl_regs(info);
+      v3_print_GPRs(info);
       
       if (info->mem_mode == PHYSICAL_MEM) {
 	guest_pa_to_host_pa(info, linear_addr, &host_addr);
@@ -379,7 +378,7 @@ static int init_svm_guest(struct guest_info *info) {
 
 /* Checks machine SVM capability */
 /* Implemented from: AMD Arch Manual 3, sect 15.4 */ 
-int is_svm_capable() {
+int v3_is_svm_capable() {
 
 #if 1
   // Dinda
@@ -475,7 +474,7 @@ int is_svm_capable() {
 
 }
 
-int has_svm_nested_paging() {
+static int has_svm_nested_paging() {
   uint32_t ret;
 
   ret = cpuid_edx(CPUID_SVM_REV_AND_FEATURE_IDS);
@@ -494,7 +493,7 @@ int has_svm_nested_paging() {
 
 
 
-void Init_SVM(struct vmm_ctrl_ops * vmm_ops) {
+void v3_init_SVM(struct v3_ctrl_ops * vmm_ops) {
   reg_ex_t msr;
   void * host_state;
 

@@ -32,8 +32,11 @@
 #endif
 
 
+
+
+
 // This should package up an IO request and call vmm_handle_io
-int handle_svm_io_in(struct guest_info * info) {
+int v3_handle_svm_io_in(struct guest_info * info) {
   vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA((vmcb_t *)(info->vmm_data));
   //  vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
   struct svm_io_info * io_info = (struct svm_io_info *)&(ctrl_area->exit_info1);
@@ -76,7 +79,7 @@ int handle_svm_io_in(struct guest_info * info) {
 /* We might not handle wrap around of the RDI register correctly...
  * In that if we do wrap around the effect will manifest in the higher bits of the register
  */
-int handle_svm_io_ins(struct guest_info * info) {
+int v3_handle_svm_io_ins(struct guest_info * info) {
   vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA((vmcb_t *)(info->vmm_data));
   vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
   
@@ -212,7 +215,7 @@ int handle_svm_io_ins(struct guest_info * info) {
   return 0;
 }
 
-int handle_svm_io_out(struct guest_info * info) {
+int v3_handle_svm_io_out(struct guest_info * info) {
   vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA((vmcb_t *)(info->vmm_data));
   //  vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
   struct svm_io_info * io_info = (struct svm_io_info *)&(ctrl_area->exit_info1);
@@ -253,7 +256,7 @@ int handle_svm_io_out(struct guest_info * info) {
  * In that if we do wrap around the effect will manifest in the higher bits of the register
  */
 
-int handle_svm_io_outs(struct guest_info * info) {
+int v3_handle_svm_io_outs(struct guest_info * info) {
   vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA((vmcb_t *)(info->vmm_data));
   vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
 

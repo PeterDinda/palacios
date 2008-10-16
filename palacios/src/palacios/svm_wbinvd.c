@@ -28,7 +28,7 @@
 // should raise #GP if CPL is not zero
 // Otherwise execute
 
-int handle_svm_wbinvd(struct guest_info * info)
+int v3_handle_svm_wbinvd(struct guest_info * info)
 {
   if (info->cpl!=0) { 
     PrintDebug("WBINVD: cpl!=0, injecting GPF\n");

@@ -27,7 +27,7 @@
 
 #include <palacios/vm_dev.h>
 
-struct vm_device * create_serial();
+struct vm_device * v3_create_serial();
 
 
 

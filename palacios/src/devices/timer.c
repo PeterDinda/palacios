@@ -28,20 +28,21 @@ struct timer_state {
 };
 
 
-
-int irq_handler(uint_t irq, struct vm_device * dev) {
+/*
+static int irq_handler(uint_t irq, struct vm_device * dev) {
   PrintDebug("Timer interrupt\n");
   return 0;
 
 }
+*/
 
-int timer_init(struct vm_device * dev) {
+static int timer_init(struct vm_device * dev) {
   //dev_hook_irq(dev, TIMER_IRQ, &irq_handler);
 
   return 0;
 }
 
-int timer_deinit(struct vm_device * dev) {
+static int timer_deinit(struct vm_device * dev) {
 
   return 0;
 }
@@ -57,12 +58,12 @@ static struct vm_device_ops dev_ops = {
 };
 
 
-struct vm_device * create_timer() {
+struct vm_device * v3_create_timer() {
   struct timer_state * timer = NULL;
   timer = (struct timer_state *)V3_Malloc( sizeof(struct timer_state));
   V3_ASSERT(timer != NULL);
 
-  struct vm_device * dev = create_device("Timer", &dev_ops, timer);
+  struct vm_device * dev = v3_create_device("Timer", &dev_ops, timer);
   
   return dev;
 

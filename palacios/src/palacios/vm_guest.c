@@ -25,7 +25,7 @@
 #include <palacios/vmm.h>
 
 
-vm_cpu_mode_t get_cpu_mode(struct guest_info * info) {
+v3_vm_cpu_mode_t v3_get_cpu_mode(struct guest_info * info) {
   struct cr0_32 * cr0;
   struct cr4_32 * cr4 = (struct cr4_32 *)&(info->ctrl_regs.cr4);
   struct efer_64 * efer = (struct efer_64 *)&(info->ctrl_regs.efer);
@@ -54,7 +54,7 @@ vm_cpu_mode_t get_cpu_mode(struct guest_info * info) {
   }
 }
 
-vm_mem_mode_t get_mem_mode(struct guest_info * info) {
+v3_vm_mem_mode_t v3_get_mem_mode(struct guest_info * info) {
   struct cr0_32 * cr0;
 
   if (info->shdw_pg_mode == SHADOW_PAGING) {
@@ -77,7 +77,7 @@ vm_mem_mode_t get_mem_mode(struct guest_info * info) {
 }
 
 
-void PrintV3Segments(struct guest_info * info) {
+void v3_print_segments(struct guest_info * info) {
   struct v3_segments * segs = &(info->segments);
   int i = 0;
   struct v3_segment * seg_ptr;
@@ -96,7 +96,7 @@ void PrintV3Segments(struct guest_info * info) {
 }
 
 
-void PrintV3CtrlRegs(struct guest_info * info) {
+void v3_print_ctrl_regs(struct guest_info * info) {
   struct v3_ctrl_regs * regs = &(info->ctrl_regs);
   int i = 0;
   v3_reg_t * reg_ptr;
@@ -112,7 +112,7 @@ void PrintV3CtrlRegs(struct guest_info * info) {
 }
 
 
-void PrintV3GPRs(struct guest_info * info) {
+void v3_print_GPRs(struct guest_info * info) {
   struct v3_gprs * regs = &(info->vm_regs);
   int i = 0;
   v3_reg_t * reg_ptr;

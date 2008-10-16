@@ -327,7 +327,7 @@ static struct intr_ctrl_ops intr_ops = {
 
 
 
-int read_master_port1(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
+static int read_master_port1(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
   struct pic_internal * state = (struct pic_internal*)dev->private_data;
 
   if (length != 1) {
@@ -346,7 +346,7 @@ int read_master_port1(ushort_t port, void * dst, uint_t length, struct vm_device
   return 1;
 }
 
-int read_master_port2(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
+static int read_master_port2(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
   struct pic_internal * state = (struct pic_internal*)dev->private_data;
 
   if (length != 1) {
@@ -360,7 +360,7 @@ int read_master_port2(ushort_t port, void * dst, uint_t length, struct vm_device
   
 }
 
-int read_slave_port1(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
+static int read_slave_port1(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
   struct pic_internal * state = (struct pic_internal*)dev->private_data;
 
   if (length != 1) {
@@ -379,7 +379,7 @@ int read_slave_port1(ushort_t port, void * dst, uint_t length, struct vm_device 
   return 1;
 }
 
-int read_slave_port2(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
+static int read_slave_port2(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
   struct pic_internal * state = (struct pic_internal*)dev->private_data;
 
   if (length != 1) {
@@ -393,7 +393,7 @@ int read_slave_port2(ushort_t port, void * dst, uint_t length, struct vm_device 
 }
 
 
-int write_master_port1(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
+static int write_master_port1(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
   struct pic_internal * state = (struct pic_internal*)dev->private_data;
   uchar_t cw = *(uchar_t *)src;
 
@@ -455,7 +455,7 @@ int write_master_port1(ushort_t port, void * src, uint_t length, struct vm_devic
   return 1;
 }
 
-int write_master_port2(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
+static int write_master_port2(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
     struct pic_internal * state = (struct pic_internal*)dev->private_data;
     uchar_t cw = *(uchar_t *)src;    
 
@@ -509,7 +509,7 @@ int write_master_port2(ushort_t port, void * src, uint_t length, struct vm_devic
     return 1;
 }
 
-int write_slave_port1(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
+static int write_slave_port1(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
   struct pic_internal * state = (struct pic_internal*)dev->private_data;
   uchar_t cw = *(uchar_t *)src;
 
@@ -568,7 +568,7 @@ int write_slave_port1(ushort_t port, void * src, uint_t length, struct vm_device
   return 1;
 }
 
-int write_slave_port2(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
+static int write_slave_port2(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
     struct pic_internal * state = (struct pic_internal*)dev->private_data;
     uchar_t cw = *(uchar_t *)src;    
 
@@ -629,7 +629,7 @@ int write_slave_port2(ushort_t port, void * src, uint_t length, struct vm_device
 
 
 
-int pic_init(struct vm_device * dev) {
+static int pic_init(struct vm_device * dev) {
   struct pic_internal * state = (struct pic_internal*)dev->private_data;
 
   set_intr_controller(dev->vm, &intr_ops, state);
@@ -658,20 +658,20 @@ int pic_init(struct vm_device * dev) {
   state->slave_state = ICW1;
 
 
-  dev_hook_io(dev, MASTER_PORT1, &read_master_port1, &write_master_port1);
-  dev_hook_io(dev, MASTER_PORT2, &read_master_port2, &write_master_port2);
-  dev_hook_io(dev, SLAVE_PORT1, &read_slave_port1, &write_slave_port1);
-  dev_hook_io(dev, SLAVE_PORT2, &read_slave_port2, &write_slave_port2);
+  v3_dev_hook_io(dev, MASTER_PORT1, &read_master_port1, &write_master_port1);
+  v3_dev_hook_io(dev, MASTER_PORT2, &read_master_port2, &write_master_port2);
+  v3_dev_hook_io(dev, SLAVE_PORT1, &read_slave_port1, &write_slave_port1);
+  v3_dev_hook_io(dev, SLAVE_PORT2, &read_slave_port2, &write_slave_port2);
 
   return 0;
 }
 
 
-int pic_deinit(struct vm_device * dev) {
-  dev_unhook_io(dev, MASTER_PORT1);
-  dev_unhook_io(dev, MASTER_PORT2);
-  dev_unhook_io(dev, SLAVE_PORT1);
-  dev_unhook_io(dev, SLAVE_PORT2);
+static int pic_deinit(struct vm_device * dev) {
+  v3_dev_unhook_io(dev, MASTER_PORT1);
+  v3_dev_unhook_io(dev, MASTER_PORT2);
+  v3_dev_unhook_io(dev, SLAVE_PORT1);
+  v3_dev_unhook_io(dev, SLAVE_PORT2);
 
   return 0;
 }
@@ -691,12 +691,12 @@ static struct vm_device_ops dev_ops = {
 };
 
 
-struct vm_device * create_pic() {
+struct vm_device * v3_create_pic() {
   struct pic_internal * state = NULL;
   state = (struct pic_internal *)V3_Malloc(sizeof(struct pic_internal));
   V3_ASSERT(state != NULL);
 
-  struct vm_device *device = create_device("8259A", &dev_ops, state);
+  struct vm_device *device = v3_create_device("8259A", &dev_ops, state);
 
   return device;
 }

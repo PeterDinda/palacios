@@ -566,10 +566,10 @@ static int pit_init(struct vm_device * dev) {
   uint_t cpu_khz = V3_CPU_KHZ();
   ullong_t reload_val = (ullong_t)cpu_khz * 1000;
 
-  dev_hook_io(dev, CHANNEL0_PORT, &pit_read_channel, &pit_write_channel);
-  dev_hook_io(dev, CHANNEL1_PORT, &pit_read_channel, &pit_write_channel);
-  dev_hook_io(dev, CHANNEL2_PORT, &pit_read_channel, &pit_write_channel);
-  dev_hook_io(dev, COMMAND_PORT, NULL, &pit_write_command);
+  v3_dev_hook_io(dev, CHANNEL0_PORT, &pit_read_channel, &pit_write_channel);
+  v3_dev_hook_io(dev, CHANNEL1_PORT, &pit_read_channel, &pit_write_channel);
+  v3_dev_hook_io(dev, CHANNEL2_PORT, &pit_read_channel, &pit_write_channel);
+  v3_dev_hook_io(dev, COMMAND_PORT, NULL, &pit_write_command);
 
 #ifdef DEBUG_PIT
   PrintDebug("8254 PIT: OSC_HZ=%d, reload_val=", OSC_HZ);
@@ -616,12 +616,12 @@ static struct vm_device_ops dev_ops = {
 };
 
 
-struct vm_device * create_pit() {
+struct vm_device * v3_create_pit() {
   struct pit * pit_state = NULL;
   pit_state = (struct pit *)V3_Malloc(sizeof(struct pit));
   V3_ASSERT(pit_state != NULL);
 
-  struct vm_device * dev = create_device("PIT", &dev_ops, pit_state);
+  struct vm_device * dev = v3_create_device("PIT", &dev_ops, pit_state);
   
   return dev;
 }

@@ -326,7 +326,7 @@ static int PullFromInputQueue(struct vm_device *dev, uchar_t *value)
 
 
 
-int keyboard_interrupt(struct vm_device * dev, uint_t irq) {
+static int keyboard_interrupt(struct vm_device * dev, uint_t irq) {
   PrintDebug("keyboard: interrupt 0x%x\n", irq);
 
   v3_raise_irq(dev->vm, irq);
@@ -337,9 +337,9 @@ int keyboard_interrupt(struct vm_device * dev, uint_t irq) {
 
 
 
-int key_event_handler(struct guest_info * info, 
-		       struct v3_keyboard_event * evt, 
-		       void * private_data) {
+static int key_event_handler(struct guest_info * info, 
+			     struct v3_keyboard_event * evt, 
+			     void * private_data) {
   struct vm_device * dev = (struct vm_device *)private_data;
   struct keyboard_internal *state = (struct keyboard_internal *)(dev->private_data);
 
@@ -359,9 +359,9 @@ int key_event_handler(struct guest_info * info,
 }
 
 
-int mouse_event_handler(struct guest_info * info, 
-			 struct v3_mouse_event * evt, 
-			 void * private_data) {
+static int mouse_event_handler(struct guest_info * info, 
+			       struct v3_mouse_event * evt, 
+			       void * private_data) {
   struct vm_device * dev = (struct vm_device *)private_data;
   struct keyboard_internal * state = (struct keyboard_internal *)(dev->private_data);
 
@@ -390,7 +390,7 @@ int mouse_event_handler(struct guest_info * info,
 }
 
 
-int keyboard_reset_device(struct vm_device * dev)
+static int keyboard_reset_device(struct vm_device * dev)
 {
   struct keyboard_internal *data = (struct keyboard_internal *)(dev->private_data);
   
@@ -425,21 +425,21 @@ int keyboard_reset_device(struct vm_device * dev)
 
 
 
-int keyboard_start_device(struct vm_device *dev)
+static int keyboard_start_device(struct vm_device *dev)
 {
   PrintDebug("keyboard: start device\n");
   return 0;
 }
 
 
-int keyboard_stop_device(struct vm_device *dev)
+static int keyboard_stop_device(struct vm_device *dev)
 {
   PrintDebug("keyboard: stop device\n");
   return 0;
 }
 
 
-int mouse_read_input(struct vm_device *dev)
+static int mouse_read_input(struct vm_device *dev)
 {
   struct keyboard_internal *state = (struct keyboard_internal *)(dev->private_data);
 
@@ -559,7 +559,7 @@ int mouse_read_input(struct vm_device *dev)
   }
 }
 
-int mouse_write_output(struct vm_device * dev, uchar_t data)
+static int mouse_write_output(struct vm_device * dev, uchar_t data)
 {
   struct keyboard_internal * state = (struct keyboard_internal *)(dev->private_data);
 
@@ -745,7 +745,7 @@ int mouse_write_output(struct vm_device * dev, uchar_t data)
 
 
 #if KEYBOARD_DEBUG_80H
-int keyboard_write_delay(ushort_t port,
+static int keyboard_write_delay(ushort_t port,
 			 void * src, 
 			 uint_t length,
 			 struct vm_device * dev)
@@ -762,7 +762,7 @@ int keyboard_write_delay(ushort_t port,
   }
 }
 
-int keyboard_read_delay(ushort_t port,
+static int keyboard_read_delay(ushort_t port,
 			void * dest, 
 			uint_t length,
 			struct vm_device * dev)
@@ -786,10 +786,10 @@ int keyboard_read_delay(ushort_t port,
 
 
 
-int keyboard_write_command(ushort_t port,
-			   void * src, 
-			   uint_t length,
-			   struct vm_device * dev)
+static int keyboard_write_command(ushort_t port,
+				  void * src, 
+				  uint_t length,
+				  struct vm_device * dev)
 {
   struct keyboard_internal *state = (struct keyboard_internal *)(dev->private_data);
   uchar_t cmd;
@@ -984,10 +984,10 @@ int keyboard_write_command(ushort_t port,
 
 }
 
-int keyboard_read_status(ushort_t port,
-			 void * dest, 
-			 uint_t length,
-			 struct vm_device * dev)
+static int keyboard_read_status(ushort_t port,
+				void * dest, 
+				uint_t length,
+				struct vm_device * dev)
 {
   struct keyboard_internal *state = (struct keyboard_internal *)(dev->private_data);
 
@@ -1006,10 +1006,10 @@ int keyboard_read_status(ushort_t port,
   }
 }
 
-int keyboard_write_output(ushort_t port,
-			  void * src, 
-			  uint_t length,
-			  struct vm_device * dev)
+static int keyboard_write_output(ushort_t port,
+				 void * src, 
+				 uint_t length,
+				 struct vm_device * dev)
 {
   struct keyboard_internal *state = (struct keyboard_internal *)(dev->private_data);
 
@@ -1102,10 +1102,10 @@ int keyboard_write_output(ushort_t port,
   return 1;
 }
 
-int keyboard_read_input(ushort_t port,
-			void * dest, 
-			uint_t length,
-			struct vm_device * dev)
+static int keyboard_read_input(ushort_t port,
+			       void * dest, 
+			       uint_t length,
+			       struct vm_device * dev)
 {
   struct keyboard_internal *state = (struct keyboard_internal *)(dev->private_data);
 
@@ -1147,7 +1147,7 @@ int keyboard_read_input(ushort_t port,
 
 
 
-int keyboard_init_device(struct vm_device * dev) 
+static int keyboard_init_device(struct vm_device * dev) 
 {
  
   //  struct keyboard_internal *data = (struct keyboard_internal *) dev->private_data;
@@ -1159,15 +1159,15 @@ int keyboard_init_device(struct vm_device * dev)
   keyboard_reset_device(dev);
 
   // hook ports
-  dev_hook_io(dev, KEYBOARD_64H, &keyboard_read_status, &keyboard_write_command);
-  dev_hook_io(dev, KEYBOARD_60H, &keyboard_read_input, &keyboard_write_output);
+  v3_dev_hook_io(dev, KEYBOARD_64H, &keyboard_read_status, &keyboard_write_command);
+  v3_dev_hook_io(dev, KEYBOARD_60H, &keyboard_read_input, &keyboard_write_output);
 
   v3_hook_host_event(dev->vm, HOST_KEYBOARD_EVT, V3_HOST_EVENT_HANDLER(key_event_handler), dev);
   v3_hook_host_event(dev->vm, HOST_MOUSE_EVT, V3_HOST_EVENT_HANDLER(mouse_event_handler), dev);
 
 
 #if KEYBOARD_DEBUG_80H
-  dev_hook_io(dev, KEYBOARD_DELAY_80H, &keyboard_read_delay, &keyboard_write_delay);
+  v3_dev_hook_io(dev, KEYBOARD_DELAY_80H, &keyboard_read_delay, &keyboard_write_delay);
 #endif
 
   
@@ -1179,13 +1179,13 @@ int keyboard_init_device(struct vm_device * dev)
   return 0;
 }
 
-int keyboard_deinit_device(struct vm_device *dev)
+static int keyboard_deinit_device(struct vm_device *dev)
 {
 
-  dev_unhook_io(dev, KEYBOARD_60H);
-  dev_unhook_io(dev, KEYBOARD_64H);
+  v3_dev_unhook_io(dev, KEYBOARD_60H);
+  v3_dev_unhook_io(dev, KEYBOARD_64H);
 #if KEYBOARD_DEBUG_80H
-  dev_unhook_io(dev, KEYBOARD_DELAY_80H);
+  v3_dev_unhook_io(dev, KEYBOARD_DELAY_80H);
 #endif
   keyboard_reset_device(dev);
   return 0;
@@ -1206,12 +1206,12 @@ static struct vm_device_ops dev_ops = {
 
 
 
-struct vm_device *create_keyboard() {
+struct vm_device * v3_create_keyboard() {
   struct keyboard_internal * keyboard_state = NULL;
 
   keyboard_state = (struct keyboard_internal *)V3_Malloc(sizeof(struct keyboard_internal));
 
-  struct vm_device *device = create_device("KEYBOARD", &dev_ops, keyboard_state);
+  struct vm_device *device = v3_create_device("KEYBOARD", &dev_ops, keyboard_state);
 
 
   return device;

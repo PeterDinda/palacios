@@ -43,10 +43,10 @@ struct svm_io_info {
 };
 
 
-int handle_svm_io_in(struct guest_info * info);
-int handle_svm_io_ins(struct guest_info * info);
-int handle_svm_io_out(struct guest_info * info);
-int handle_svm_io_outs(struct guest_info * info);
+int v3_handle_svm_io_in(struct guest_info * info);
+int v3_handle_svm_io_ins(struct guest_info * info);
+int v3_handle_svm_io_out(struct guest_info * info);
+int v3_handle_svm_io_outs(struct guest_info * info);
 
 #endif // !__V3VEE__
 

@@ -24,7 +24,7 @@
 #include <palacios/vmm_intr.h>
 
 
-int handle_svm_pause(struct guest_info * info)
+int v3_handle_svm_pause(struct guest_info * info)
 {
   // handled as a nop
 

@@ -25,7 +25,7 @@
 
 #include <palacios/vm_dev.h>
 
-struct vm_device * create_timer();
+struct vm_device * v3_create_timer();
 
 
 

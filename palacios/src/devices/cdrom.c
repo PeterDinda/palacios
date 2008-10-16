@@ -174,7 +174,7 @@ struct vm_device *  v3_create_cdrom(struct vm_device * ramdisk_dev, void * ramdi
   
   PrintDebug("Creating RamDISK CDROM\n");
 
-  struct vm_device * cd_dev = create_device("Ram Based CD", &dev_ops, cd);
+  struct vm_device * cd_dev = v3_create_device("Ram Based CD", &dev_ops, cd);
 
   return cd_dev;
 }

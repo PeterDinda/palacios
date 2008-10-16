@@ -21,7 +21,7 @@
 #include <palacios/vmm.h>
 #include <palacios/vmm_paging.h>
 
-extern struct vmm_os_hooks * os_hooks;
+extern struct v3_os_hooks * os_hooks;
 
 
 /**********************************/

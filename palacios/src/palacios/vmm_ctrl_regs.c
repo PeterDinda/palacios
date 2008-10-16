@@ -118,7 +118,7 @@ int handle_cr0_write(struct guest_info * info) {
  	  *shadow_cr0 = *new_cr0;
  	  shadow_cr0->et = 1;
 	  
-	  if (get_mem_mode(info) == VIRTUAL_MEM) {
+	  if (v3_get_mem_mode(info) == VIRTUAL_MEM) {
 	    struct cr3_32 * shadow_cr3 = (struct cr3_32 *)&(info->shdw_pg_state.shadow_cr3);
 	    
 	    info->ctrl_regs.cr3 = *(addr_t*)shadow_cr3;

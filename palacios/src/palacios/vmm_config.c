@@ -77,7 +77,7 @@ static int passthrough_mem_write(addr_t guest_addr, void * src, uint_t length, v
 
 
 
-int config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) {
+int v3_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) {
 
   struct guest_mem_layout * layout = (struct guest_mem_layout *)config_ptr->vm_kernel;
   extern v3_cpu_arch_t v3_cpu_type;
@@ -105,7 +105,7 @@ int config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) {
   init_vmm_io_map(info);
   init_interrupt_state(info);
   
-  dev_mgr_init(info);
+  v3_init_dev_mgr(info);
 
   init_emulator(info);
   
@@ -186,14 +186,14 @@ int config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) {
   {
     struct vm_device * ramdisk = NULL;
     struct vm_device * cdrom = NULL;
-    struct vm_device * nvram = create_nvram();
-    //struct vm_device * timer = create_timer();
-    struct vm_device * pic = create_pic();
-    struct vm_device * keyboard = create_keyboard();
-    struct vm_device * pit = create_pit(); 
-    struct vm_device * bochs_debug = create_bochs_debug();
+    struct vm_device * nvram = v3_create_nvram();
+    //struct vm_device * timer = v3_create_timer();
+    struct vm_device * pic = v3_create_pic();
+    struct vm_device * keyboard = v3_create_keyboard();
+    struct vm_device * pit = v3_create_pit(); 
+    struct vm_device * bochs_debug = v3_create_bochs_debug();
 
-    //struct vm_device * serial = create_serial();
+    //struct vm_device * serial = v3_create_serial();
     struct vm_device * generic = NULL;
 
 
@@ -201,14 +201,14 @@ int config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) {
 
     if (use_ramdisk) {
       PrintDebug("Creating Ramdisk\n");
-      ramdisk = create_ramdisk();
+      ramdisk = v3_create_ramdisk();
       cdrom = v3_create_cdrom(ramdisk, config_ptr->ramdisk, config_ptr->ramdisk_size); 
     }
     
     
     if (use_generic) {
       PrintDebug("Creating Generic Device\n");
-      generic = create_generic();
+      generic = v3_create_generic();
       
       // Make the DMA controller invisible
       v3_generic_add_port_range(generic, 0x00, 0x07, GENERIC_PRINT_AND_IGNORE);   // DMA 1 channels 0,1,2,3 (address, counter)

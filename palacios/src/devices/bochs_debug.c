@@ -99,19 +99,19 @@ static int debug_init(struct vm_device * dev) {
   memset(state->info_buf, 0, BUF_SIZE);
 
 
-  dev_hook_io(dev, BOCHS_PORT1,  NULL, &handle_gen_write);
-  dev_hook_io(dev, BOCHS_PORT2, NULL, &handle_gen_write);
-  dev_hook_io(dev, BOCHS_INFO_PORT, NULL, &handle_info_write);
-  dev_hook_io(dev, BOCHS_DEBUG_PORT, NULL, &handle_debug_write);
+  v3_dev_hook_io(dev, BOCHS_PORT1,  NULL, &handle_gen_write);
+  v3_dev_hook_io(dev, BOCHS_PORT2, NULL, &handle_gen_write);
+  v3_dev_hook_io(dev, BOCHS_INFO_PORT, NULL, &handle_info_write);
+  v3_dev_hook_io(dev, BOCHS_DEBUG_PORT, NULL, &handle_debug_write);
   
   return 0;
 }
 
 static int debug_deinit(struct vm_device * dev) {
-  dev_unhook_io(dev, BOCHS_PORT1);
-  dev_unhook_io(dev, BOCHS_PORT2);
-  dev_unhook_io(dev, BOCHS_INFO_PORT);
-  dev_unhook_io(dev, BOCHS_DEBUG_PORT);
+  v3_dev_unhook_io(dev, BOCHS_PORT1);
+  v3_dev_unhook_io(dev, BOCHS_PORT2);
+  v3_dev_unhook_io(dev, BOCHS_INFO_PORT);
+  v3_dev_unhook_io(dev, BOCHS_DEBUG_PORT);
 
   return 0;
 };
@@ -128,7 +128,7 @@ static struct vm_device_ops dev_ops = {
 };
 
 
-struct vm_device * create_bochs_debug() {
+struct vm_device * v3_create_bochs_debug() {
   struct debug_state * state = NULL;
 
   state = (struct debug_state *)V3_Malloc(sizeof(struct debug_state));
@@ -136,7 +136,7 @@ struct vm_device * create_bochs_debug() {
   V3_ASSERT(state != NULL);
 
   PrintDebug("Creating Bochs Debug Device\n");
-  struct vm_device * device = create_device("BOCHS Debug", &dev_ops, state);
+  struct vm_device * device = v3_create_device("BOCHS Debug", &dev_ops, state);
 
 
 

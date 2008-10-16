@@ -72,33 +72,33 @@ struct vm_device {
 
 
 
-struct vm_device * allocate_device();
-struct vm_device * create_device(char * name, struct vm_device_ops * ops, void * private_data);
-void free_device(struct vm_device * dev);
+
+struct vm_device * v3_create_device(char * name, struct vm_device_ops * ops, void * private_data);
+void v3_free_device(struct vm_device * dev);
 
 
 
-int dev_hook_io(struct vm_device   *dev,
+int v3_dev_hook_io(struct vm_device   *dev,
 		ushort_t            port,
 		int (*read)(ushort_t port, void * dst, uint_t length, struct vm_device * dev),
 		int (*write)(ushort_t port, void * src, uint_t length, struct vm_device * dev));
 
-int dev_unhook_io(struct vm_device   *dev,
+int v3_dev_unhook_io(struct vm_device   *dev,
 		  ushort_t            port);
 
-int dev_hook_mem(struct vm_device   *dev,
+int v3_dev_hook_mem(struct vm_device   *dev,
 		 void               *start,
 		 void               *end);
 
-int dev_unhook_mem(struct vm_device   * dev,
+int v3_dev_unhook_mem(struct vm_device   * dev,
 		   void               * start,
 		   void               * end);
 
 
-int dev_hook_irq(struct vm_device * dev,
+int v3_dev_hook_irq(struct vm_device * dev,
 		 uint_t irq, 
 		 int (*handler)(uint_t irq, struct vm_device * dev));
-int dev_unhook_irq(struct vm_device * dev, uint_t irq);
+int v3_dev_unhook_irq(struct vm_device * dev, uint_t irq);
 
 
 

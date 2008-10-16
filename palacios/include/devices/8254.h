@@ -26,7 +26,7 @@
 
 #include <palacios/vm_dev.h>
 
-struct vm_device * create_pit();
+struct vm_device * v3_create_pit();
 
 
 

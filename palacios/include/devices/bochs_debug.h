@@ -24,7 +24,7 @@
 
 #include <palacios/vm_dev.h>
 
-struct vm_device * create_bochs_debug();
+struct vm_device * v3_create_bochs_debug();
 
 
 #endif // ! __V3VEE__
