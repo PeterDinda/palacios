@@ -439,6 +439,7 @@ static int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr
       if (guest_pde->large_page == 0) {
 	shadow_pde->writable = guest_pde->writable;
       } else {
+	// ??  What if guest pde is dirty a this point?
 	((pde32_4MB_t *)guest_pde)->dirty = 0;
 	shadow_pde->writable = 0;
       }
@@ -615,7 +616,7 @@ static int handle_shadow_pte32_fault(struct guest_info * info,
 	  state->cached_cr3 = 0;
 	}
 
-      } else if ((guest_pte->dirty = 0) && (error_code.write == 0)) {
+      } else if ((guest_pte->dirty == 0) && (error_code.write == 0)) {  // was =
 	shadow_pte->writable = 0;
       }
 
