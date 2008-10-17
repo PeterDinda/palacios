@@ -18,8 +18,8 @@
  */
 
 
-#ifndef __VMM_PAGING_H
-#define __VMM_PAGING_H
+#ifndef __VMM_PAGING_H__
+#define __VMM_PAGING_H__
 
 
 #ifdef __V3VEE__
@@ -146,7 +146,7 @@ the host state in the vmcs before entering the guest.
 #define PT32_GUEST_PT 0x2
 
 
-#endif
+
 
 /* PDE 32 bit PAGE STRUCTURES */
 typedef enum {PDE32_ENTRY_NOT_PRESENT, PDE32_ENTRY_PTE32, PDE32_ENTRY_LARGE_PAGE} pde32_entry_type_t;
@@ -284,8 +284,6 @@ typedef struct pf_error_code {
   uint_t rsvd              : 27;
 } pf_error_t;
 
-typedef enum { PDE32 } paging_mode_t;
-
 
 
 
@@ -320,7 +318,6 @@ pde32_t * create_passthrough_pde32_pts(struct guest_info * guest_info);
 void PrintDebugPageTables(pde32_t * pde);
 
 
-#ifdef __V3VEE__
 
 
 void PrintPT32(addr_t starting_address, pte32_t * pte);

@@ -78,8 +78,6 @@ static int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr
 
 int v3_init_shadow_page_state(struct guest_info * info) {
   struct shadow_page_state * state = &(info->shdw_pg_state);
-  state->guest_mode = PDE32;
-  state->shadow_mode = PDE32;
   
   state->guest_cr3 = 0;
   state->shadow_cr3 = 0;

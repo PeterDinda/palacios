@@ -37,9 +37,6 @@ void v3_init_interrupt_state(struct guest_info * info) {
   info->intr_state.excp_error_code = 0;
 
   memset((uchar_t *)(info->intr_state.hooks), 0, sizeof(struct v3_irq_hook *) * 256);
-
-  info->vm_ops.raise_irq = &v3_raise_irq;
-  info->vm_ops.lower_irq = &v3_lower_irq; 
 }
 
 void v3_set_intr_controller(struct guest_info * info, struct intr_ctrl_ops * ops, void * state) {
@@ -209,7 +206,7 @@ int v3_raise_irq(struct guest_info * info, int irq) {
   return 0;
 }
 
- 
+
 
 int v3_intr_pending(struct guest_info * info) {
   struct v3_intr_state * intr_state = &(info->intr_state);

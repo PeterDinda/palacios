@@ -17,14 +17,13 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#ifndef __VM_GUEST_H
-#define __VM_GUEST_H
+#ifndef __VM_GUEST_H__
+#define __VM_GUEST_H__
 
 #ifdef __V3VEE__
 
-
-#include <palacios/vmm_mem.h>
 #include <palacios/vmm_types.h>
+#include <palacios/vmm_mem.h>
 #include <palacios/vmm_io.h>
 #include <palacios/vmm_shadow_paging.h>
 #include <palacios/vmm_intr.h>
@@ -33,7 +32,7 @@
 #include <palacios/vmm_emulator.h>
 #include <palacios/vmm_host_events.h>
 
-typedef ullong_t v3_reg_t;
+
 
 
 
@@ -104,12 +103,6 @@ struct vmm_io_map;
 struct emulation_state;
 struct v3_intr_state;
 
-struct vm_ctrl_ops {
-  int (*raise_irq)(struct guest_info * info, int irq);
-  int (*lower_irq)(struct guest_info * info, int irq);
-};
-
-
 
 
 typedef enum {SHADOW_PAGING, NESTED_PAGING} v3_paging_mode_t;
@@ -154,8 +147,6 @@ struct guest_info {
   struct v3_ctrl_regs ctrl_regs;
   struct v3_dbg_regs dbg_regs;
   struct v3_segments segments;
-
-  struct vm_ctrl_ops vm_ops;
 
   struct emulation_state emulator;
 

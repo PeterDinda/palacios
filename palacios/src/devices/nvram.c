@@ -409,7 +409,7 @@ static void update_time(struct vm_device * dev, uint_t period_us) {
   // Interrupt associated VM, if needed
   if (statc->irq) { 
     PrintDebug("nvram: injecting interrupt\n");
-    dev->vm->vm_ops.raise_irq(dev->vm, NVRAM_RTC_IRQ);
+    v3_raise_irq(dev->vm, NVRAM_RTC_IRQ);
   }
 }
 

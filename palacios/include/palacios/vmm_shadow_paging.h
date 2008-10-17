@@ -17,8 +17,8 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#ifndef __VMM_SHADOW_PAGING_H
-#define __VMM_SHADOW_PAGING_H
+#ifndef __VMM_SHADOW_PAGING_H__
+#define __VMM_SHADOW_PAGING_H__
 
 
 #ifdef __V3VEE__
@@ -27,20 +27,19 @@
 #include <palacios/vmm_paging.h>
 #include <palacios/vmm_hashtable.h>
 
+
 struct shadow_page_state {
 
   // these two reflect the top-level page directory
   // of the guest page table
-  paging_mode_t           guest_mode;
-  ullong_t                guest_cr3;         // points to guest's current page table
+  v3_reg_t                guest_cr3;         // points to guest's current page table
 
   // Should this be here??
-  ullong_t guest_cr0;
+  v3_reg_t guest_cr0;
 
   // these two reflect the top-level page directory 
   // of the shadow page table
-  paging_mode_t           shadow_mode;
-  ullong_t                shadow_cr3;
+  v3_reg_t                shadow_cr3;
 
 
   // Hash table that ties a CR3 value to a hash table pointer for the PT entries
@@ -69,7 +68,7 @@ int v3_handle_shadow_invlpg(struct guest_info * info);
 
 
 
-int v3_replace_shdw_page(struct guest_info * info, addr_t location, void * new_page, void* old_page);
+int v3_replace_shdw_page(struct guest_info * info, addr_t location, void * new_page, void * old_page);
 int v3_replace_shdw_page32(struct guest_info * info, addr_t location, pte32_t * new_page, pte32_t * old_page); 
 
 #endif // ! __V3VEE__
