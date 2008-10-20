@@ -31,11 +31,6 @@ SVM_SUCCESS equ 0x00000000
 
 
 
-EXPORT exit_test
-
-EXTERN handle_svm_exit
-
-EXPORT launch_svm
 EXPORT safe_svm_launch
 
 EXPORT STGI
@@ -125,27 +120,6 @@ STGI:
 	ret
 
 
-
-; I think its safe to say that there are some pretty serious register issues...
-align 8
-launch_svm:
-	push 	ebp
-	mov	ebp, esp
-	pusha
-	
-	mov	eax, [ebp + 8]
-	vmrun
-;	db	00fh, 001h, 0d8h
-	popa
-	pop	ebp
-	ret
-
-
-
-
-exit_test: 
-	mov	cr4, eax
-	ret
 
 
 ;; Need to check this..

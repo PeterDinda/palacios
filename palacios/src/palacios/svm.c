@@ -34,14 +34,11 @@
 
 #include <palacios/vmm_decoder.h>
 #include <palacios/vmm_string.h>
+#include <palacios/vmm_lowlevel.h>
 
 
 
 
-extern uint_t cpuid_ecx(uint_t op);
-extern uint_t cpuid_edx(uint_t op);
-extern void Get_MSR(uint_t MSR, uint_t * high_byte, uint_t * low_byte); 
-extern void Set_MSR(uint_t MSR, uint_t high_byte, uint_t low_byte);
 extern uint_t launch_svm(vmcb_t * vmcb_addr);
 extern void safe_svm_launch(vmcb_t * vmcb_addr, struct v3_gprs * gprs);
 
@@ -51,8 +48,6 @@ extern void CLGI();
 extern uint_t Get_CR3();
 
 
-extern void DisableInts();
-extern void EnableInts();
 
 
 
@@ -310,7 +305,7 @@ static int start_svm_guest(struct guest_info *info) {
     ullong_t tmp_tsc;
 
 
-    EnableInts();
+    v3_enable_ints();
     CLGI();
 
     //    PrintDebug("SVM Entry to rip=%x...\n", info->rip);
@@ -382,31 +377,29 @@ int v3_is_svm_capable() {
 
 #if 1
   // Dinda
-
-  uint_t ret;
   uint_t vm_cr_low = 0, vm_cr_high = 0;
+  uint_t eax = 0, ebx = 0, ecx = 0, edx = 0;
 
-
-  ret =  cpuid_ecx(CPUID_FEATURE_IDS);
+  v3_cpuid(CPUID_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
   
-  PrintDebug("CPUID_FEATURE_IDS_ecx=0x%x\n",ret);
+  PrintDebug("CPUID_FEATURE_IDS_ecx=0x%x\n", ecx);
 
-  if ((ret & CPUID_FEATURE_IDS_ecx_svm_avail) == 0) {
+  if ((ecx & CPUID_FEATURE_IDS_ecx_svm_avail) == 0) {
     PrintDebug("SVM Not Available\n");
     return 0;
   }  else {
-    Get_MSR(SVM_VM_CR_MSR, &vm_cr_high, &vm_cr_low);
+    v3_get_msr(SVM_VM_CR_MSR, &vm_cr_high, &vm_cr_low);
     
-    PrintDebug("SVM_VM_CR_MSR = 0x%x 0x%x\n",vm_cr_high,vm_cr_low);
+    PrintDebug("SVM_VM_CR_MSR = 0x%x 0x%x\n", vm_cr_high, vm_cr_low);
     
     if ((vm_cr_low & SVM_VM_CR_MSR_svmdis) == 1) {
       PrintDebug("SVM is available but is disabled.\n");
 
-      ret = cpuid_edx(CPUID_SVM_REV_AND_FEATURE_IDS);
+      v3_cpuid(CPUID_SVM_REV_AND_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
       
-      PrintDebug("CPUID_FEATURE_IDS_edx=0x%x\n",ret);
+      PrintDebug("CPUID_FEATURE_IDS_edx=0x%x\n", edx);
       
-      if ((ret & CPUID_SVM_REV_AND_FEATURE_IDS_edx_svml) == 0) {
+      if ((edx & CPUID_SVM_REV_AND_FEATURE_IDS_edx_svml) == 0) {
 	PrintDebug("SVM BIOS Disabled, not unlockable\n");
       } else {
 	PrintDebug("SVM is locked with a key\n");
@@ -416,11 +409,11 @@ int v3_is_svm_capable() {
     } else {
       PrintDebug("SVM is available and  enabled.\n");
 
-      ret = cpuid_edx(CPUID_SVM_REV_AND_FEATURE_IDS);
+      v3_cpuid(CPUID_SVM_REV_AND_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
       
-      PrintDebug("CPUID_FEATURE_IDS_edx=0x%x\n",ret);
+      PrintDebug("CPUID_FEATURE_IDS_edx=0x%x\n", edx);
 
-      if ((ret & CPUID_SVM_REV_AND_FEATURE_IDS_edx_np) == 0) {
+      if ((edx & CPUID_SVM_REV_AND_FEATURE_IDS_edx_np) == 0) {
 	PrintDebug("SVM Nested Paging not supported\n");
       } else {
 	PrintDebug("SVM Nested Paging supported\n");
@@ -432,24 +425,24 @@ int v3_is_svm_capable() {
   }
 
 #else
-
-  uint_t ret =  cpuid_ecx(CPUID_FEATURE_IDS);
+  uint_t eax = 0, ebx = 0, ecx = 0, edx = 0;
   uint_t vm_cr_low = 0, vm_cr_high = 0;
 
+  v3_cpuid(CPUID_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
 
-  if ((ret & CPUID_FEATURE_IDS_ecx_svm_avail) == 0) {
+  if ((ecx & CPUID_FEATURE_IDS_ecx_svm_avail) == 0) {
     PrintDebug("SVM Not Available\n");
     return 0;
   } 
 
-  Get_MSR(SVM_VM_CR_MSR, &vm_cr_high, &vm_cr_low);
+  v3_get_msr(SVM_VM_CR_MSR, &vm_cr_high, &vm_cr_low);
 
-  PrintDebug("SVM_VM_CR_MSR = 0x%x 0x%x\n",vm_cr_high,vm_cr_low);
+  PrintDebug("SVM_VM_CR_MSR = 0x%x 0x%x\n", vm_cr_high, vm_cr_low);
 
 
   // this part is clearly wrong, since the np bit is in 
   // edx, not ecx
-  if ((ret & CPUID_SVM_REV_AND_FEATURE_IDS_edx_np) == 1) {
+  if ((edx & CPUID_SVM_REV_AND_FEATURE_IDS_edx_np) == 1) {
     PrintDebug("Nested Paging not supported\n");
   } else {
     PrintDebug("Nested Paging supported\n");
@@ -460,9 +453,9 @@ int v3_is_svm_capable() {
     return 1;
   }
 
-  ret = cpuid_edx(CPUID_SVM_REV_AND_FEATURE_IDS);
+  v3_cpuid(CPUID_SVM_REV_AND_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
 
-  if ((ret & CPUID_SVM_REV_AND_FEATURE_IDS_edx_svml) == 0) {
+  if ((edx & CPUID_SVM_REV_AND_FEATURE_IDS_edx_svml) == 0) {
     PrintDebug("SVM BIOS Disabled, not unlockable\n");
   } else {
     PrintDebug("SVM is locked with a key\n");
@@ -475,13 +468,13 @@ int v3_is_svm_capable() {
 }
 
 static int has_svm_nested_paging() {
-  uint32_t ret;
+  uint_t eax = 0, ebx = 0, ecx = 0, edx = 0;
 
-  ret = cpuid_edx(CPUID_SVM_REV_AND_FEATURE_IDS);
+  v3_cpuid(CPUID_SVM_REV_AND_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
       
-  //PrintDebug("CPUID_FEATURE_IDS_edx=0x%x\n",ret);
+  //PrintDebug("CPUID_FEATURE_IDS_edx=0x%x\n", edx);
   
-  if ((ret & CPUID_SVM_REV_AND_FEATURE_IDS_edx_np) == 0) {
+  if ((edx & CPUID_SVM_REV_AND_FEATURE_IDS_edx_np) == 0) {
     PrintDebug("SVM Nested Paging not supported\n");
     return 0;
   } else {
@@ -499,9 +492,9 @@ void v3_init_SVM(struct v3_ctrl_ops * vmm_ops) {
 
 
   // Enable SVM on the CPU
-  Get_MSR(EFER_MSR, &(msr.e_reg.high), &(msr.e_reg.low));
+  v3_get_msr(EFER_MSR, &(msr.e_reg.high), &(msr.e_reg.low));
   msr.e_reg.low |= EFER_MSR_svm_enable;
-  Set_MSR(EFER_MSR, 0, msr.e_reg.low);
+  v3_set_msr(EFER_MSR, 0, msr.e_reg.low);
   
   PrintDebug("SVM Enabled\n");
 
@@ -516,7 +509,7 @@ void v3_init_SVM(struct v3_ctrl_ops * vmm_ops) {
   msr.r_reg = (addr_t)host_state;
 
   PrintDebug("Host State being saved at %x\n", (addr_t)host_state);
-  Set_MSR(SVM_VM_HSAVE_PA_MSR, msr.e_reg.high, msr.e_reg.low);
+  v3_set_msr(SVM_VM_HSAVE_PA_MSR, msr.e_reg.high, msr.e_reg.low);
 
 
 

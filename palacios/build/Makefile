@@ -254,7 +254,7 @@ ALL_TARGETS := vmm vm_kernel
 
 
 
-VMM_ASM_SRCS :=  svm_lowlevel.asm vmm_lowlevel.asm\
+VMM_ASM_SRCS :=  svm_lowlevel.asm\
 #			vmx_lowlevel.asm
 
 VMM_ASM_OBJS := $(VMM_ASM_SRCS:%.asm=palacios/%.o)
