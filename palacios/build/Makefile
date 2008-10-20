@@ -254,11 +254,11 @@ ALL_TARGETS := vmm vm_kernel
 
 
 
-VMM_ASM_SRCS :=  svm_lowlevel.asm\
-#			vmx_lowlevel.asm
-
+VMM_ASM_SRCS :=
 VMM_ASM_OBJS := $(VMM_ASM_SRCS:%.asm=palacios/%.o)
 
+VMM_GAS_SRCS := svm_lowlevel.s
+VMM_GAS_OBJS := $(VMM_GAS_SRCS:%.s=palacios/%.o)
 
 VMM_C_SRCS :=   vm_guest.c \
 	 	svm.c svm_handler.c vmm.c vmm_util.c vmm_ctrl_regs.c \
@@ -275,16 +275,14 @@ VMM_C_SRCS :=   vm_guest.c \
 
 VMM_C_OBJS := $(VMM_C_SRCS:%.c=palacios/%.o)
 
-VMM_OBJS := $(VMM_C_OBJS) $(VMM_ASM_OBJS)
+VMM_OBJS := $(VMM_C_OBJS) $(VMM_ASM_OBJS) $(VMM_GAS_OBJS)
 
 
 
 XED_C_SRCS := v3-xed-compat.c
-
 XED_C_OBJS := $(XED_C_SRCS:%.c=xed/%.o)
 
 XED_GAS_SRCS := v3-udiv-compat.s
-
 XED_GAS_OBJS := $(XED_GAS_SRCS:%.s=xed/%.o)
 
 XED_OBJS := $(XED_C_OBJS) $(XED_GAS_OBJS)
@@ -339,6 +337,9 @@ TARGET_OBJCOPY := $(TARGET_CC_PREFIX)objcopy
 # Nasm (http://nasm.sourceforge.net)
 NASM := $(PROJECT_ROOT)/../devtools/bin/nasm
 #NASM := /opt/vmm-tools/bin/nasm
+
+CPP := cpp
+
 
 AS = as --32
 
@@ -396,6 +397,11 @@ palacios/%.o : palacios/%.c
 
 palacios/%.o : palacios/%.asm
 	$(NASM) $(NASM_VMM_OPTS) $< -o palacios/$*.o
+
+palacios/%.o : palacios/%.S
+	$(CPP) $(CC_VMM_OPTS) $< | $(AS) -o palacios/$*.o
+
+
 
 devices/%.o : devices/%.c
 	$(TARGET_CC) -c $(CC_GENERAL_OPTS) $(CC_VMM_OPTS) $< -o devices/$*.o

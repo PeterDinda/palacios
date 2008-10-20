@@ -38,19 +38,13 @@
 
 
 
-
-extern uint_t launch_svm(vmcb_t * vmcb_addr);
-extern void safe_svm_launch(vmcb_t * vmcb_addr, struct v3_gprs * gprs);
-
-extern void STGI();
-extern void CLGI();
-
 extern uint_t Get_CR3();
 
 
 
-
-
+extern void v3_stgi();
+extern void v3_clgi();
+extern int v3_svm_launch(vmcb_t * vmcb, struct v3_gprs * vm_regs);
 
 
 
@@ -306,14 +300,14 @@ static int start_svm_guest(struct guest_info *info) {
 
 
     v3_enable_ints();
-    CLGI();
+    v3_clgi();
 
     //    PrintDebug("SVM Entry to rip=%x...\n", info->rip);
 
     rdtscll(info->time_state.cached_host_tsc);
     guest_ctrl->TSC_OFFSET = info->time_state.guest_tsc - info->time_state.cached_host_tsc;
 
-    safe_svm_launch((vmcb_t*)(info->vmm_data), &(info->vm_regs));
+    v3_svm_launch((vmcb_t*)(info->vmm_data), &(info->vm_regs));
 
     rdtscll(tmp_tsc);
     //PrintDebug("SVM Returned\n");
@@ -322,7 +316,7 @@ static int start_svm_guest(struct guest_info *info) {
     v3_update_time(info, tmp_tsc - info->time_state.cached_host_tsc);
     num_exits++;
 
-    STGI();
+    v3_stgi();
 
     if ((num_exits % 25) == 0) {
       PrintDebug("SVM Exit number %d\n", num_exits);
