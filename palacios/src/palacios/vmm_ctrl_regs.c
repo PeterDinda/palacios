@@ -261,7 +261,7 @@ int v3_handle_cr3_write(struct guest_info * info) {
 		 *(uint_t*)shadow_cr3, *(uint_t*)guest_cr3);
       
 
-      cached = v3_cache_page_tables32(info, CR3_TO_PDE32(*(addr_t *)new_cr3));
+      cached = v3_cache_page_tables32(info, (addr_t)CR3_TO_PDE32((void *)*(addr_t *)new_cr3));
 
       if (cached == -1) {
 	PrintError("CR3 Cache failed\n");
@@ -275,7 +275,7 @@ int v3_handle_cr3_write(struct guest_info * info) {
 	
 	shadow_pt =  v3_create_new_shadow_pt32();
 	
-	shadow_cr3->pdt_base_addr = PD32_BASE_ADDR(shadow_pt);	  
+	shadow_cr3->pdt_base_addr = (addr_t)V3_PAddr((void *)(addr_t)PD32_BASE_ADDR(shadow_pt));
       } else {
 	PrintDebug("Reusing cached shadow Page table\n");
       }

@@ -51,7 +51,7 @@ void delete_page_tables_pde32(pde32_t * pde) {
   }
 
   //  PrintDebug("Deleting PDE (%x)\n", pde);
-  V3_FreePage(pde);
+  V3_FreePage(V3_PAddr(pde));
 }
 
 
@@ -170,11 +170,11 @@ pde32_t * create_passthrough_pde32_pts(struct guest_info * guest_info) {
   int i, j;
   struct shadow_map * map = &(guest_info->mem_map);
 
-  pde32_t * pde = V3_AllocPages(1);
+  pde32_t * pde = V3_VAddr(V3_AllocPages(1));
 
   for (i = 0; i < MAX_PDE32_ENTRIES; i++) {
     int pte_present = 0;
-    pte32_t * pte = V3_AllocPages(1);
+    pte32_t * pte = V3_VAddr(V3_AllocPages(1));
     
 
     for (j = 0; j < MAX_PTE32_ENTRIES; j++) {
@@ -225,7 +225,7 @@ pde32_t * create_passthrough_pde32_pts(struct guest_info * guest_info) {
     }
 
     if (pte_present == 0) { 
-      V3_FreePage(pte);
+      V3_FreePage(V3_PAddr(pte));
 
       pde[i].present = 0;
       pde[i].writable = 0;
@@ -249,7 +249,7 @@ pde32_t * create_passthrough_pde32_pts(struct guest_info * guest_info) {
       pde[i].large_page = 0;
       pde[i].global_page = 0;
       pde[i].vmm_info = 0;
-      pde[i].pt_base_addr = PAGE_ALIGNED_ADDR((addr_t)pte);
+      pde[i].pt_base_addr = PAGE_ALIGNED_ADDR((addr_t)V3_PAddr(pte));
     }
 
   }
@@ -335,7 +335,7 @@ void PrintDebugPageTables(pde32_t * pde)
   for (i = 0; (i < MAX_PDE32_ENTRIES); i++) { 
     if (pde[i].present) {
       PrintPDE32((addr_t)(PAGE_SIZE * MAX_PTE32_ENTRIES * i), &(pde[i]));
-      PrintPT32((addr_t)(PAGE_SIZE * MAX_PTE32_ENTRIES * i), (pte32_t *)(addr_t)(pde[i].pt_base_addr << PAGE_POWER));
+      PrintPT32((addr_t)(PAGE_SIZE * MAX_PTE32_ENTRIES * i), (pte32_t *)V3_VAddr((void *)(addr_t)(pde[i].pt_base_addr << PAGE_POWER)));
     }
   }
 }

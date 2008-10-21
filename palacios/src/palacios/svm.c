@@ -50,7 +50,7 @@ extern int v3_svm_launch(vmcb_t * vmcb, struct v3_gprs * vm_regs);
 
 
 static vmcb_t * Allocate_VMCB() {
-  vmcb_t * vmcb_page = (vmcb_t *)V3_AllocPages(1);
+  vmcb_t * vmcb_page = (vmcb_t *)V3_VAddr(V3_AllocPages(1));
 
   memset(vmcb_page, 0, 4096);
 
@@ -164,10 +164,10 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
     struct vmm_io_hook * iter;
     addr_t io_port_bitmap;
     
-    io_port_bitmap = (addr_t)V3_AllocPages(3);
+    io_port_bitmap = (addr_t)V3_VAddr(V3_AllocPages(3));
     memset((uchar_t*)io_port_bitmap, 0, PAGE_SIZE * 3);
     
-    ctrl_area->IOPM_BASE_PA = io_port_bitmap;
+    ctrl_area->IOPM_BASE_PA = (addr_t)V3_PAddr((void *)io_port_bitmap);
 
     //PrintDebug("Setting up IO Map at 0x%x\n", io_port_bitmap);
 
@@ -307,7 +307,7 @@ static int start_svm_guest(struct guest_info *info) {
     rdtscll(info->time_state.cached_host_tsc);
     guest_ctrl->TSC_OFFSET = info->time_state.guest_tsc - info->time_state.cached_host_tsc;
 
-    v3_svm_launch((vmcb_t*)(info->vmm_data), &(info->vm_regs));
+    v3_svm_launch((vmcb_t*)V3_PAddr(info->vmm_data), &(info->vm_regs));
 
     rdtscll(tmp_tsc);
     //PrintDebug("SVM Returned\n");
