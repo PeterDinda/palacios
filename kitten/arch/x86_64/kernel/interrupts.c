@@ -10,9 +10,8 @@
 #include <arch/xcall.h>
 #include <arch/i387.h>
 
-typedef void (*idtvec_handler_t)(struct pt_regs *regs, unsigned int vector);
-
 idtvec_handler_t idtvec_table[NUM_IDT_ENTRIES];
+static DEFINE_SPINLOCK(idtvec_table_lock);
 
 extern void asm_idtvec_table(void);
 
@@ -220,11 +219,12 @@ do_apic_spurious(struct pt_regs *regs, unsigned int vector)
 	while (1) {}
 }
 
-void __init
+void
 set_idtvec_handler(unsigned int vector, idtvec_handler_t handler)
 {
 	char namebuf[KSYM_NAME_LEN+1];
 	unsigned long symsize, offset;
+	unsigned long irqstate;
 
 	ASSERT(vector < NUM_IDT_ENTRIES);
 
@@ -235,7 +235,9 @@ set_idtvec_handler(unsigned int vector, idtvec_handler_t handler)
 		);
 	}
 
+	spin_lock_irqsave(&idtvec_table_lock, irqstate);
 	idtvec_table[vector] = handler;
+	spin_unlock_irqrestore(&idtvec_table_lock, irqstate);
 }
 
 void
