@@ -13,6 +13,8 @@
 #include <lwk/sched.h>
 #include <lwk/timer.h>
 
+#include <palacios/vmm.h>
+
 /**
  * Pristine copy of the LWK boot command line.
  */
@@ -115,6 +117,19 @@ start_kernel()
 		if (!cpu_isset(cpu, cpu_online_map))
 			panic("Failed to boot CPU %d.\n", cpu);
 	}
+
+        {
+  struct v3_os_hooks os_hooks;
+  struct v3_ctrl_ops v3_ops;
+  struct guest_info * vm_info = 0;
+  struct v3_vm_config vm_config;
+
+  memset(&os_hooks, 0, sizeof(struct v3_os_hooks));
+  memset(&v3_ops, 0, sizeof(struct v3_ctrl_ops));
+  memset(&vm_config, 0, sizeof(struct v3_vm_config));
+
+  Init_V3(&os_hooks, &v3_ops);
+        }
 
 	/*
 	 * Start up user-space...

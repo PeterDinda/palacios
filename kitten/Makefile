@@ -301,6 +301,7 @@ AFLAGS_KERNEL	=
 # Use LWKINCLUDE when you must reference the include/ directory.
 # Needed to be compatible with the O= option
 LWKINCLUDE      := -Iinclude \
+		   -I../palacios/include \
                    $(if $(KBUILD_SRC),-Iinclude2 -I$(srctree)/include) \
 		   -include include/lwk/autoconf.h
 
@@ -548,9 +549,8 @@ libs-y1		:= $(patsubst %/, %/lib.a, $(libs-y))
 libs-y2		:= $(patsubst %/, %/built-in.o, $(libs-y))
 libs-y		:= $(libs-y1) $(libs-y2)
 
-libs-$(CONFIG_V3VEE) += ../palacios/build/libv3vee.a
-libs-$(CONFIG_V3VEE) += ../palacios/lib/xed/libxed32e.a
-libs-$(CONFIG_V3VEE) += ../palacios/lib/xed/libxed.a
+libs-$(CONFIG_V3VEE) += palacios/libv3vee.a
+libs-$(CONFIG_V3VEE) += palacios/libxed32e.a
 
 # Build vmlwk
 # ---------------------------------------------------------------------------
