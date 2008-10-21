@@ -301,7 +301,6 @@ AFLAGS_KERNEL	=
 # Use LWKINCLUDE when you must reference the include/ directory.
 # Needed to be compatible with the O= option
 LWKINCLUDE      := -Iinclude \
-		   -I../palacios/include \
                    $(if $(KBUILD_SRC),-Iinclude2 -I$(srctree)/include) \
 		   -include include/lwk/autoconf.h
 
@@ -496,6 +495,11 @@ endif
 ifdef CONFIG_DEBUG_INFO
 CFLAGS		+= -g
 endif
+
+ifdef CONFIG_V3VEE
+CFLAGS += -I../palacios/include
+endif
+
 
 include $(srctree)/arch/$(ARCH)/Makefile
 

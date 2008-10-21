@@ -12,8 +12,7 @@
 #include <lwk/task.h>
 #include <lwk/sched.h>
 #include <lwk/timer.h>
-
-#include <palacios/vmm.h>
+#include <lwk/palacios.h>
 
 /**
  * Pristine copy of the LWK boot command line.
@@ -118,6 +117,7 @@ start_kernel()
 			panic("Failed to boot CPU %d.\n", cpu);
 	}
 
+#ifdef CONFIG_V3VEE
         {
   struct v3_os_hooks os_hooks;
   struct v3_ctrl_ops v3_ops;
@@ -128,8 +128,19 @@ start_kernel()
   memset(&v3_ops, 0, sizeof(struct v3_ctrl_ops));
   memset(&vm_config, 0, sizeof(struct v3_vm_config));
 
+	printk( KERN_INFO "Calling Init_V3\n" );
   Init_V3(&os_hooks, &v3_ops);
+	printk( KERN_INFO "Rombios: %p @ %d\n",
+		&rombios_start,
+		&rombios_end - &rombios_start,
+	);
+
+	printk( KERN_INFO "VGA Bios: %p @ %d\n",
+		&vgabios_start,
+		&vgabios_end - &vgabios_start
+	);
         }
+#endif
 
 	/*
 	 * Start up user-space...
