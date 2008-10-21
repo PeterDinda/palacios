@@ -130,12 +130,12 @@ start_kernel()
 
 	printk( KERN_INFO "Calling Init_V3\n" );
   Init_V3(&os_hooks, &v3_ops);
-	printk( KERN_INFO "Rombios: %p @ %d\n",
+	printk( KERN_INFO "Rombios: %p @ %lu\n",
 		&rombios_start,
 		&rombios_end - &rombios_start
 	);
 
-	printk( KERN_INFO "VGA Bios: %p @ %d\n",
+	printk( KERN_INFO "VGA Bios: %p @ %lu\n",
 		&vgabios_start,
 		&vgabios_end - &vgabios_start
 	);
