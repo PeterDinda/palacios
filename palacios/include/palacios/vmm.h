@@ -223,7 +223,12 @@ struct v3_os_hooks {
 
 
 struct v3_vm_config {
-  void * vm_kernel;
+  void * rombios;
+  int rombios_size;
+
+  void * vgabios;
+  int vgabios_size;
+
   int use_ramdisk;
   void * ramdisk;
   int ramdisk_size;
