@@ -496,6 +496,11 @@ ifdef CONFIG_DEBUG_INFO
 CFLAGS		+= -g
 endif
 
+ifdef CONFIG_V3VEE
+CFLAGS += -I../palacios/include
+endif
+
+
 include $(srctree)/arch/$(ARCH)/Makefile
 
 # arch Makefile may override CC so keep this after arch Makefile is included
@@ -548,9 +553,8 @@ libs-y1		:= $(patsubst %/, %/lib.a, $(libs-y))
 libs-y2		:= $(patsubst %/, %/built-in.o, $(libs-y))
 libs-y		:= $(libs-y1) $(libs-y2)
 
-libs-$(CONFIG_V3VEE) += ../palacios/build/libv3vee.a
-libs-$(CONFIG_V3VEE) += ../palacios/lib/xed/libxed32e.a
-libs-$(CONFIG_V3VEE) += ../palacios/lib/xed/libxed.a
+libs-$(CONFIG_V3VEE) += palacios/libv3vee.a
+libs-$(CONFIG_V3VEE) += palacios/libxed32e.a
 
 # Build vmlwk
 # ---------------------------------------------------------------------------

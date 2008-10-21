@@ -372,7 +372,7 @@ int v3_is_svm_capable() {
 #if 1
   // Dinda
   uint_t vm_cr_low = 0, vm_cr_high = 0;
-  uint_t eax = 0, ebx = 0, ecx = 0, edx = 0;
+  addr_t eax = 0, ebx = 0, ecx = 0, edx = 0;
 
   v3_cpuid(CPUID_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
   
@@ -420,7 +420,7 @@ int v3_is_svm_capable() {
 
 #else
   uint_t eax = 0, ebx = 0, ecx = 0, edx = 0;
-  uint_t vm_cr_low = 0, vm_cr_high = 0;
+  addr_t vm_cr_low = 0, vm_cr_high = 0;
 
   v3_cpuid(CPUID_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
 
@@ -462,7 +462,7 @@ int v3_is_svm_capable() {
 }
 
 static int has_svm_nested_paging() {
-  uint_t eax = 0, ebx = 0, ecx = 0, edx = 0;
+  addr_t eax = 0, ebx = 0, ecx = 0, edx = 0;
 
   v3_cpuid(CPUID_SVM_REV_AND_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
       

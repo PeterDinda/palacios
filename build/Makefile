@@ -196,7 +196,7 @@ palacios-full:
 	(cd $(PALACIOS_BUILD_DIR) && make $(DEBUG_SECTIONS) world)
 
 palacios-full64:
-	(cd $(PALACIOS_BUILD_DIR) && make ARCH=64 $(DEBUG_SECTIONS) world)`	
+	(cd $(PALACIOS_BUILD_DIR) && make ARCH=64 $(DEBUG_SECTIONS) world)	
 
 palacios-lean:
 	(cd $(PALACIOS_BUILD_DIR) && make LEAN_AND_MEAN=1 world)
