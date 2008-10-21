@@ -116,19 +116,12 @@ start_kernel()
 			panic("Failed to boot CPU %d.\n", cpu);
 	}
 
-#ifdef CONFIG_V3VEE
-	/*
-	 * Start up the V3Vee subsystem
-	 */
-	Init_V3( 0, 0 );
-#else
 	/*
 	 * Start up user-space...
 	 */
 	printk(KERN_INFO "Loading initial user-level task (init_task)...\n");
 	if ((status = create_init_task()) != 0)
 		panic("Failed to create init_task (status=%d).", status);
-#endif
 
 	schedule();  /* This should not return */
 	BUG();
