@@ -208,7 +208,11 @@ DECODER_LIBS=
 ifeq ($(DECODER),XED)
 DECODER_SRCS := vmm_xed.c
 DECODER_FLAGS :=  -L../lib/xed
+ifeq ($(ARCH),64)
+DECODER_LIBS := $(PROJECT_ROOT)/lib/xed/libxed32e.a
+else 
 DECODER_LIBS := $(PROJECT_ROOT)/lib/xed/libxed.a
+endif
 else
 # This is an error
 endif
@@ -306,16 +310,23 @@ V3LIBS := $(DECODER_LIBS)
 #   This section defines programs that are used to build GeekOS.
 # ----------------------------------------------------------------------
 
-
+ifeq ($(ARCH),64)
+V3_ARCH := __V3_64BIT__
+else 
 V3_ARCH := __V3_32BIT__
-#V3_ARCH := __V3_64BIT__
+endif
+
 
 # Uncomment if cross compiling
 #TARGET_CC_PREFIX :=  $(PROJECT_ROOT)/../devtools/i386/bin/i386-elf-
 #TARGET_CC_PREFIX :=  i386-elf-
 
 # Target C compiler.  gcc 2.95.2 or later should work.
+ifeq ($(ARCH),64)
+TARGET_CC := $(TARGET_CC_PREFIX)gcc
+else 
 TARGET_CC := $(TARGET_CC_PREFIX)gcc -m32
+endif
 #TARGET_CC := $(TARGET_CC_PREFIX)gcc34 -m32
 
 
@@ -341,7 +352,12 @@ NASM := $(PROJECT_ROOT)/../devtools/bin/nasm
 CPP := cpp
 
 
+ifeq ($(ARCH),64)
+AS = as
+else 
 AS = as --32
+endif
+
 
 # Tool to build PFAT filesystem images.
 BUILDFAT := tools/builtFat.exe

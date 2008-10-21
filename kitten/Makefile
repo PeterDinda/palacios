@@ -548,6 +548,10 @@ libs-y1		:= $(patsubst %/, %/lib.a, $(libs-y))
 libs-y2		:= $(patsubst %/, %/built-in.o, $(libs-y))
 libs-y		:= $(libs-y1) $(libs-y2)
 
+libs-$(CONFIG_V3VEE) += ../palacios/build/libv3vee.a
+libs-$(CONFIG_V3VEE) += ../palacios/lib/xed/libxed32e.a
+libs-$(CONFIG_V3VEE) += ../palacios/lib/xed/libxed.a
+
 # Build vmlwk
 # ---------------------------------------------------------------------------
 # vmlwk is build from the objects selected by $(vmlwk-init) and
