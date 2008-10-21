@@ -40,6 +40,7 @@
 # ----------------------------------------------------------------------
 PROJECT_ROOT := ..
 PALACIOS_BUILD_DIR := $(PROJECT_ROOT)/palacios/build
+KITTEN_TOP_DIR := $(PROJECT_ROOT)/kitten
 GEEKOS_BUILD_DIR := $(PROJECT_ROOT)/geekos/build
 GUEST_ISO_DIR := /opt/vmm-tools/isos
 
@@ -197,6 +198,12 @@ palacios-full:
 
 palacios-lean:
 	(cd $(PALACIOS_BUILD_DIR) && make LEAN_AND_MEAN=1 world)
+
+kitten: palacios-full
+	cp $(PALACIOS_BUILD_DIR)/libv3vee.a $(KITTEN_TOP_DIR)/palacios/
+	cp $(PALACIOS_BUILD_DIR)/../lib/xed/libxed32e.a $(KITTEN_TOP_DIR)/palacios/
+	cp $(PALACIOS_BUILD_DIR)/vm_kernel $(KITTEN_TOP_DIR)/palacios/
+	(cd $(KITTEN_TOP_DIR) && make)
 
 
 geekos: 
