@@ -49,21 +49,6 @@
 	popl	%eax;
 
 
-
-#elif __V3_64BIT__
-
-#endif
-
-
-v3_stgi:
-	stgi;
-	ret;
-
-v3_clgi:
-	clgi;
-	ret;
-	
-	
 v3_svm_launch:
 	push	%ebp;
 	movl	%esp, %ebp;
@@ -92,3 +77,55 @@ v3_svm_launch:
 	popf;
 	pop	%ebp;
 	ret
+
+
+
+#elif __V3_64BIT__
+
+#define Save_SVM_Registers(location) 	\
+	pushl	%eax; 			\
+	movl	location, %eax;		\
+	movl	%edi, (%eax);		\
+	movl	%esi, 8(%eax);		\
+	movl	%ebp, 16(%eax);		\
+	movl	$0, 24(%eax);		\
+	movl 	%ebx, 32(%eax);		\
+	movl 	%edx, 40(%eax);		\
+	movl 	%ecx, 48(%eax);		\
+	pushl	%ebx;			\
+	movl	4(%esp), %ebx;		\
+	movl	%ebx, 56(%eax);		\
+	popl	%ebx;			\
+	popl 	%eax;			
+	
+
+#define Restore_SVM_Registers(location) \
+	pushl	%eax;			\
+	movl	location, %eax;		\
+	movl	(%eax), %edi;		\
+	movl	8(%eax), %esi;		\
+	movl	16(%eax), %ebp;		\
+	movl	32(%eax), %ebx;		\
+	movl	40(%eax), %edx;		\
+	movl 	48(%eax), %ecx;		\
+	popl	%eax;
+
+
+
+v3_svm_launch:
+
+	ret
+
+
+#endif
+
+
+v3_stgi:
+	stgi;
+	ret;
+
+v3_clgi:
+	clgi;
+	ret;
+	
+	
