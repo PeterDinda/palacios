@@ -118,7 +118,7 @@ start_kernel()
 	}
 
 #ifdef CONFIG_V3VEE
-	RunVMM();
+	v3vee_run_vmm();
 #else
 	/*
 	 * Start up user-space...

@@ -26,51 +26,34 @@
 #include <palacios/vmm_io.h>
 
 
+int
+v3vee_run_vmm( void )
+{
+	struct v3_ctrl_ops v3_ops = {};
 
+	void * ramdiskImage=initrd_start;
+	uintptr_t ramdiskSize=initrd_end-initrd_start;
 
-int RunVMM() {
-  struct v3_ctrl_ops v3_ops = {};
-  struct guest_info * vm_info = 0;
+	Init_V3( &v3vee_os_hooks, &v3_ops );
 
-  void * ramdiskImage=initrd_start;
-  uintptr_t ramdiskSize=initrd_end-initrd_start;
-
-
-  
-  Init_V3(&v3vee_os_hooks, &v3_ops);
-
-  
 	struct v3_vm_config vm_config = {
-		.rombios = &rombios_start,
-		.rombios_size = (&rombios_end)-(&rombios_start),
-		.vgabios = &vgabios_start,
-		.vgabios_size = (&vgabios_end)-(&vgabios_start),
+		.rombios		= &rombios_start,
+		.rombios_size		= (&rombios_end)-(&rombios_start),
+		.vgabios		= &vgabios_start,
+		.vgabios_size		= (&vgabios_end)-(&vgabios_start),
+		.use_ramdisk		= ramdiskImage != NULL,
+		.ramdisk		= ramdiskImage,
+		.ramdisk_size		= ramdiskSize,
 	};
+
+	struct guest_info * vm_info = (v3_ops).allocate_guest();
+	v3vee_init_stubs(vm_info);
+
+	v3_ops.config_guest(vm_info, &vm_config);
+
+	v3_ops.init_guest(vm_info);
+	printk("Starting Guest\n");
+	v3_ops.start_guest(vm_info);
   
-  
-  if (ramdiskImage != NULL) {
-    vm_config.use_ramdisk = 1;
-    vm_config.ramdisk = ramdiskImage;
-    vm_config.ramdisk_size = ramdiskSize;
-  }
-
-
-
-  vm_info = (v3_ops).allocate_guest();
-
-  Init_Stubs(vm_info);
-
-  //PrintBoth("Allocated Guest\n");
-
-  (v3_ops).config_guest(vm_info, &vm_config);
-
-  //PrintBoth("Configured guest\n");
-
-  (v3_ops).init_guest(vm_info);
-  printk("Starting Guest\n");
-  //Clear_Screen();
-
-  (v3_ops).start_guest(vm_info);
-  
-    return 0;
+	return 0;
 }

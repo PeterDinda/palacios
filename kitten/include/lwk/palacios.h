@@ -10,9 +10,10 @@
 #include <palacios/vmm_host_events.h>
 
 
+extern void v3vee_init_stubs( struct guest_info * info );
 
 extern int
-RunVMM( void );
+v3vee_run_vmm( void );
 
 extern struct v3_os_hooks v3vee_os_hooks;
 
@@ -21,7 +22,6 @@ extern struct v3_os_hooks v3vee_os_hooks;
  * stubs called by geekos....
  * 
  ***/
-extern void Init_Stubs(struct guest_info * info);
 void send_key_to_vmm(unsigned char status, unsigned char scancode);
 void send_mouse_to_vmm(unsigned char packet[3]);
 void send_tick_to_vmm(unsigned int period_us);

@@ -41,151 +41,184 @@ struct guest_info * irq_to_guest_map[256];
 
 
 
-void Init_Stubs(struct guest_info * info) {
-  memset(irq_to_guest_map, 0, sizeof(struct guest_info *) * 256);
-  g_vm_guest = info;
+void
+v3vee_init_stubs(
+	struct guest_info * info
+)
+{
+	memset(irq_to_guest_map, 0, sizeof(struct guest_info *) * 256);
+	g_vm_guest = info;
 }
 
 
-void * kitten_pa_to_va(void *ptr)
+static void *
+kitten_pa_to_va(void *ptr)
 {
-  return (void*) __va(ptr);
+	return (void*) __va(ptr);
 }
 
-void * kitten_va_to_pa(void *ptr)
+
+static void *
+kitten_va_to_pa(
+	void *			ptr
+)
 {
-  return (void*) __pa(ptr);
+	return (void*) __pa(ptr);
 }
 
-void * Allocate_VMM_Pages(int num_pages) 
+
+static void *
+Allocate_VMM_Pages(
+	int			num_pages
+) 
 {
-  int rc;
-  struct pmem_region result;
+	struct pmem_region result;
   
-  rc=pmem_alloc_umem(num_pages*PAGE_SIZE,PAGE_SIZE,&result);
+	int rc = pmem_alloc_umem( num_pages*PAGE_SIZE,PAGE_SIZE, &result );
+	if( rc )
+		return 0;
+
+	return result.start;
+}
+
+static void
+Free_VMM_Page(
+	void *			page
+) 
+{
+	struct pmem_region	query;
+	struct pmem_region	result;
+
+	pmem_region_unset_all(&query);
+
+	query.start	= page;
+	query.end	= page+PAGE_SIZE;
+
+	int rc = pmem_query(&query,&result);
+
+	if (rc)
+		panic( "BAD" );
+
+	result.allocated = 0;
+	pmem_update(&result);
+}
+
+
+
+void
+send_key_to_vmm(
+	unsigned char		status,
+	unsigned char		scancode
+)
+{
+	if( !g_vm_guest )
+		return;
+
+	struct v3_keyboard_event evt = {
+		.status		= status,
+		.scan_code	= scancode,
+	};
+
+	v3_deliver_keyboard_event( g_vm_guest, &evt );
+}
+
+
+void
+send_mouse_to_vmm(
+	unsigned char		packet[3]
+)
+{
+	if( !g_vm_guest )
+		return;
+
+	struct v3_mouse_event evt;
+	memcpy(evt.data, packet, 3);
+
+	v3_deliver_mouse_event(g_vm_guest, &evt);
+}
+
+
+void
+send_tick_to_vmm(
+	unsigned int		period_us
+)
+{
+	if( !g_vm_guest )
+		return;
+
+	struct v3_timer_event evt = {
+		.period_us	= period_us,
+	};
+
+	v3_deliver_timer_event( g_vm_guest, &evt );
+}
+
+
+void
+translate_intr_handler(
+	struct pt_regs *	regs,
+	unsigned int		vector
+) 
+{
+	struct v3_interrupt intr = {
+		.irq		= vector-32,
+		.error		= regs->orig_rax,
+		.should_ack	= 0,
+	};
+
+	//  PrintBoth("translate_intr_handler: opaque=0x%x\n",mystate.opaque);
+	v3_deliver_irq( irq_to_guest_map[intr.irq], &intr );
+}
+
+
+int
+kitten_hook_interrupt(
+	struct guest_info *	vm,
+	unsigned int		irq
+)
+{
+	if( irq_to_guest_map[irq] ) {
+		//PrintBoth("Attempt to hook interrupt that is already hooked\n");
+		return -1;
+	}
+
+	//PrintBoth("Hooked interrupt 0x%x with opaque 0x%x\n", irq, vm);
+	irq_to_guest_map[irq] = vm;
+
+	set_idtvec_handler( irq, translate_intr_handler );
+	return 0;
+}
+
+
+static int
+ack_irq(
+	int			irq
+) 
+{
+	lapic_ack_interrupt();
+	return 0;
+}
+
   
-  if (rc) {
-    return 0;
-  } else {
-    return result.start;
-  }
-}
-
-void Free_VMM_Page(void * page) 
+static unsigned int
+get_cpu_khz( void ) 
 {
-  int rc;
-  struct pmem_region query;
-  struct pmem_region result;
-
-  pmem_region_unset_all(&query);
-
-  query.start=page;
-  query.end=page+PAGE_SIZE;
-
-  rc=pmem_query(&query,&result);
-
-  if (!rc) { 
-    result.allocated=0;
-    pmem_update(&result);
-  } else {
-    // BAD
-  }
-}
-
-
-
-
-void send_key_to_vmm(unsigned char status, unsigned char scancode) {
-  struct v3_keyboard_event evt;
-
-  evt.status = status;
-  evt.scan_code = scancode;
-
-  if (g_vm_guest) {
-    v3_deliver_keyboard_event(g_vm_guest, &evt);
-  }
-}
-
-
-void send_mouse_to_vmm(unsigned char packet[3]) {
-  struct v3_mouse_event evt;
-
-  memcpy(evt.data, packet, 3);
-
-  if (g_vm_guest) {
-    v3_deliver_mouse_event(g_vm_guest, &evt);
-  }
-}
-
-void send_tick_to_vmm(unsigned int period_us) {
-  struct v3_timer_event evt;
-
-  evt.period_us = period_us;
-
-  if (g_vm_guest) {
-    v3_deliver_timer_event(g_vm_guest, &evt);
-  }
-}
-
-
-void translate_intr_handler(struct pt_regs *regs, unsigned int vector) 
-{
-  struct v3_interrupt intr;
-
-  intr.irq = vector-32;
-  intr.error = regs->orig_rax;
-  intr.should_ack = 0;
-
-  //  PrintBoth("translate_intr_handler: opaque=0x%x\n",mystate.opaque);
-
-  v3_deliver_irq(irq_to_guest_map[intr.irq], &intr);
-
-}
-
-
-
-int kitten_hook_interrupt(struct guest_info * vm, unsigned int  irq)
-{
-  if (irq_to_guest_map[irq]) { 
-    //PrintBoth("Attempt to hook interrupt that is already hooked\n");
-    return -1;
-  } else {
-    //PrintBoth("Hooked interrupt 0x%x with opaque 0x%x\n", irq, vm);
-    irq_to_guest_map[irq] = vm;
-  }
-
-  set_idtvec_handler(irq,translate_intr_handler);
-  return 0;
-}
-
-
-int ack_irq(int irq) 
-{
-  lapic_ack_interrupt();
-  return 0;
-}
-
-  
-
-
-unsigned int get_cpu_khz() 
-{
-  return   cpu_info[0].arch.cur_cpu_khz;
+	return cpu_info[0].arch.cur_cpu_khz;
 }
 
 
 struct v3_os_hooks v3vee_os_hooks = {
-	.print_debug = &printk,  // serial print ideally
-	.print_info = &printk,   // serial print ideally
-	.print_trace = &printk,  // serial print ideally
-	.allocate_pages = &Allocate_VMM_Pages, // defined in vmm_stubs
-	.free_page = &Free_VMM_Page, // defined in vmm_stubs
-	.malloc = &kmem_alloc,
-	.free = &kmem_free,
-	.vaddr_to_paddr = &kitten_va_to_pa,
-	.paddr_to_vaddr = &kitten_pa_to_va,
-	.hook_interrupt = &kitten_hook_interrupt,
-	.ack_irq = &ack_irq,
-	.get_cpu_khz = &get_cpu_khz,
+	.print_debug		= printk,  // serial print ideally
+	.print_info		= printk,   // serial print ideally
+	.print_trace		= printk,  // serial print ideally
+	.allocate_pages		= Allocate_VMM_Pages, // defined in vmm_stubs
+	.free_page		= Free_VMM_Page, // defined in vmm_stubs
+	.malloc			= kmem_alloc,
+	.free			= kmem_free,
+	.vaddr_to_paddr		= kitten_va_to_pa,
+	.paddr_to_vaddr		= kitten_pa_to_va,
+	.hook_interrupt		= kitten_hook_interrupt,
+	.ack_irq		= ack_irq,
+	.get_cpu_khz		= get_cpu_khz,
 };
 
