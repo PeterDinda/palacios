@@ -30,6 +30,21 @@
 #include <palacios/vmm_io.h>
 
 
+#define MAGIC_CODE 0xf1e2d3c4
+
+
+struct layout_region {
+  ulong_t length;
+  ulong_t final_addr;
+};
+
+struct guest_mem_layout {
+  ulong_t magic;
+  ulong_t num_regions;
+  struct layout_region regions[0];
+};
+
+
 
 extern void * g_ramdiskImage;
 extern ulong_t s_ramdiskSize;
@@ -40,6 +55,7 @@ int RunVMM(struct Boot_Info * bootInfo) {
   struct v3_ctrl_ops v3_ops;
   struct guest_info * vm_info = 0;
   struct v3_vm_config vm_config;
+  void * region_start;
 
   memset(&os_hooks, 0, sizeof(struct v3_os_hooks));
   memset(&v3_ops, 0, sizeof(struct v3_ctrl_ops));
@@ -66,10 +82,38 @@ int RunVMM(struct Boot_Info * bootInfo) {
 
   extern char _binary___palacios_vm_kernel_start;
   PrintBoth(" Guest Load Addr: 0x%x\n", &_binary___palacios_vm_kernel_start);
+
+  struct guest_mem_layout * layout = (struct guest_mem_layout *)&_binary___palacios_vm_kernel_start;
+
+  if (layout->magic != MAGIC_CODE) {
+    
+    PrintBoth("Layout Magic Mismatch (0x%x)\n", layout->magic);
+    return -1;
+  }
   
-  vm_config.vm_kernel = &_binary___palacios_vm_kernel_start;
+  PrintBoth("%d layout regions\n", layout->num_regions);
   
+  region_start = (void *)&(layout->regions[layout->num_regions]);
   
+  PrintBoth("region start = 0x%x\n", region_start);
+  
+
+  {
+    struct layout_region * rombios = &(layout->regions[0]);
+    struct layout_region * vgabios = &(layout->regions[1]);    
+    
+    vm_config.rombios = region_start;
+    vm_config.rombios_size = rombios->length;
+    
+    region_start += rombios->length;
+    
+    vm_config.vgabios = region_start;
+    vm_config.vgabios_size = vgabios->length;
+  }
+
+
+
+
   if (g_ramdiskImage != NULL) {
     vm_config.use_ramdisk = 1;
     vm_config.ramdisk = g_ramdiskImage;

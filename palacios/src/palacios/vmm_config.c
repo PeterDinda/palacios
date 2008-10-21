@@ -37,20 +37,9 @@
 
 #define USE_GENERIC 1
 
-#define MAGIC_CODE 0xf1e2d3c4
 
-
-
-struct layout_region {
-  ulong_t length;
-  ulong_t final_addr;
-};
-
-struct guest_mem_layout {
-  ulong_t magic;
-  ulong_t num_regions;
-  struct layout_region regions[0];
-};
+#define ROMBIOS_START 0x000f0000
+#define VGABIOS_START 0x000c0000
 
 
 
@@ -78,11 +67,8 @@ static int passthrough_mem_write(addr_t guest_addr, void * src, uint_t length, v
 
 
 int v3_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) {
-
-  struct guest_mem_layout * layout = (struct guest_mem_layout *)config_ptr->vm_kernel;
   extern v3_cpu_arch_t v3_cpu_type;
-  void * region_start;
-  uint_t i;
+
 
   int use_ramdisk = config_ptr->use_ramdisk;
   int use_generic = USE_GENERIC;
@@ -112,37 +98,40 @@ int v3_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) 
   v3_init_host_events(info);
 
  
-  //     SerialPrint("Guest Mem Dump at 0x%x\n", 0x100000);
-  //PrintDebugMemDump((unsigned char *)(0x100000), 261 * 1024);
-  if (layout->magic != MAGIC_CODE) {
+
+  /* layout rombios */
+  {
+    uint_t num_pages = (config_ptr->rombios_size + PAGE_SIZE - 1) / PAGE_SIZE;
+    void * guest_mem =  V3_AllocPages(num_pages);
+
+    PrintDebug("Layout Region %d bytes\n", config_ptr->rombios_size);
+    memcpy(guest_mem, config_ptr->rombios, config_ptr->rombios_size);
+
+    add_shadow_region_passthrough(info, ROMBIOS_START, ROMBIOS_START + (num_pages * PAGE_SIZE), (addr_t)guest_mem);
     
-    PrintDebug("Layout Magic Mismatch (0x%x)\n", layout->magic);
-    return -1;
+    PrintDebug("Adding Shadow Region (0x%x-0x%x) -> 0x%x\n", 
+	       ROMBIOS_START, 
+	       ROMBIOS_START + (num_pages * PAGE_SIZE), 
+	       guest_mem);
   }
-  
-  PrintDebug("%d layout regions\n", layout->num_regions);
-  
-  region_start = (void *)&(layout->regions[layout->num_regions]);
-  
-  PrintDebug("region start = 0x%x\n", region_start);
-  
-  for (i = 0; i < layout->num_regions; i++) {
-    struct layout_region * reg = &(layout->regions[i]);
-    uint_t num_pages = (reg->length / PAGE_SIZE) + ((reg->length % PAGE_SIZE) ? 1 : 0);
-    void * guest_mem = V3_AllocPages(num_pages);
+
+
+  /* layout vgabios */
+  {
+    uint_t num_pages = (config_ptr->vgabios_size + PAGE_SIZE - 1) / PAGE_SIZE;
+    void * guest_mem =  V3_AllocPages(num_pages);
+
+    PrintDebug("Layout Region %d bytes\n", config_ptr->vgabios_size);
+    memcpy(guest_mem, config_ptr->vgabios, config_ptr->vgabios_size);
+
+    add_shadow_region_passthrough(info, VGABIOS_START, VGABIOS_START + (num_pages * PAGE_SIZE), (addr_t)guest_mem);
     
-    PrintDebug("Layout Region %d bytes\n", reg->length);
-    memcpy(guest_mem, region_start, reg->length);
-    
-    PrintDebugMemDump((unsigned char *)(guest_mem), 16);
-    
-    add_shadow_region_passthrough(info, reg->final_addr, reg->final_addr + (num_pages * PAGE_SIZE), (addr_t)guest_mem);
-    
-    PrintDebug("Adding Shadow Region (0x%x-0x%x) -> 0x%x\n", reg->final_addr, reg->final_addr + (num_pages * PAGE_SIZE), guest_mem);
-    
-    region_start += reg->length;
+    PrintDebug("Adding Shadow Region (0x%x-0x%x) -> 0x%x\n", 
+	       VGABIOS_START, 
+	       VGABIOS_START + (num_pages * PAGE_SIZE), 
+	       guest_mem);
   }
-  
+
       //     
   add_shadow_region_passthrough(info, 0x0, 0xa0000, (addr_t)V3_AllocPages(160));
   
