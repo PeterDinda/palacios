@@ -212,12 +212,12 @@ struct v3_os_hooks {
   int (*ack_irq)(int irq);
 
 
-  unsigned int (*get_cpu_khz)();
+  unsigned int (*get_cpu_khz)(void);
 
 
-  void (*start_kernel_thread)(); // include pointer to function
+  void (*start_kernel_thread)(void); // include pointer to function
 
-  void (*yield_cpu)();
+  void (*yield_cpu)(void);
 
 };
 
@@ -233,14 +233,14 @@ struct v3_vm_config {
 
 /* This will contain Function pointers that control the VMs */
 struct v3_ctrl_ops {
-  struct guest_info *(*allocate_guest)();
+  struct guest_info *(*allocate_guest)(void);
 
   int (*config_guest)(struct guest_info * info, struct v3_vm_config * config_ptr);
   int (*init_guest)(struct guest_info * info);
   int (*start_guest)(struct guest_info * info);
   //  int (*stop_vm)(uint_t vm_id);
 
-  int (*has_nested_paging)();
+  int (*has_nested_paging)(void);
 
   //  v3_cpu_arch_t (*get_cpu_arch)();
 };
