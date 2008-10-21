@@ -17,10 +17,15 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#include <palacios/vmm.h>
-#include <palacios/vmm_host_events.h>
-
+#include <lwk/palacios.h>
+#include <lwk/types.h>
 #include <lwk/pmem.h>
+#include <lwk/string.h>
+#include <lwk/cpuinfo.h>
+#include <lwk/kernel.h>
+#include <arch/page.h>
+#include <arch/ptrace.h>
+#include <arch/apic.h>
 
 struct guest_info * g_vm_guest = NULL;
 
@@ -44,12 +49,12 @@ void Init_Stubs(struct guest_info * info) {
 
 void * kitten_pa_to_va(void *ptr)
 {
-  return __va(ptr);
+  return (void*) __va(ptr);
 }
 
 void * kitten_va_to_pa(void *ptr)
 {
-  return __pa(ptr);
+  return (void*) __pa(ptr);
 }
 
 void * Allocate_VMM_Pages(int num_pages) 
@@ -80,22 +85,13 @@ void Free_VMM_Page(void * page)
   rc=pmem_query(&query,&result);
 
   if (!rc) { 
-    result.allocated=FALSE;
+    result.allocated=0;
     pmem_update(&result);
   } else {
     // BAD
   }
 }
 
-
-void * VMM_Malloc(unsigned int size) {
-  return Malloc((unsigned long) size);
-}
-
-
-void VMM_Free(void * addr) {
-  Free(addr);
-}
 
 
 
@@ -177,4 +173,19 @@ unsigned int get_cpu_khz()
   return   cpu_info[0].arch.cur_cpu_khz;
 }
 
+
+struct v3_os_hooks v3vee_os_hooks = {
+	.print_debug = &printk,  // serial print ideally
+	.print_info = &printk,   // serial print ideally
+	.print_trace = &printk,  // serial print ideally
+	.allocate_pages = &Allocate_VMM_Pages, // defined in vmm_stubs
+	.free_page = &Free_VMM_Page, // defined in vmm_stubs
+	.malloc = &kmem_alloc,
+	.free = &kmem_free,
+	.vaddr_to_paddr = &kitten_va_to_pa,
+	.paddr_to_vaddr = &kitten_pa_to_va,
+	.hook_interrupt = &kitten_hook_interrupt,
+	.ack_irq = &ack_irq,
+	.get_cpu_khz = &get_cpu_khz,
+};
 

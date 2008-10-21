@@ -5,10 +5,32 @@
 
 #ifdef CONFIG_V3VEE
 
+#include <lwk/types.h>
 #include <palacios/vmm.h>
+#include <palacios/vmm_host_events.h>
 
+
+
+extern int
+RunVMM( void );
+
+extern struct v3_os_hooks v3vee_os_hooks;
+
+/**** 
+ * 
+ * stubs called by geekos....
+ * 
+ ***/
+extern void Init_Stubs(struct guest_info * info);
+void send_key_to_vmm(unsigned char status, unsigned char scancode);
+void send_mouse_to_vmm(unsigned char packet[3]);
+void send_tick_to_vmm(unsigned int period_us);
+
+
+/* Location of the ROM Bios and VGA Bios used by palacios */
 extern uint8_t rombios_start, rombios_end;
 extern uint8_t vgabios_start, vgabios_end;
+extern paddr_t initrd_start, initrd_end;
 
 
 /*

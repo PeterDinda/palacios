@@ -118,29 +118,8 @@ start_kernel()
 	}
 
 #ifdef CONFIG_V3VEE
-        {
-  struct v3_os_hooks os_hooks;
-  struct v3_ctrl_ops v3_ops;
-  struct guest_info * vm_info = 0;
-  struct v3_vm_config vm_config;
-
-  memset(&os_hooks, 0, sizeof(struct v3_os_hooks));
-  memset(&v3_ops, 0, sizeof(struct v3_ctrl_ops));
-  memset(&vm_config, 0, sizeof(struct v3_vm_config));
-
-	printk( KERN_INFO "Calling Init_V3\n" );
-  Init_V3(&os_hooks, &v3_ops);
-	printk( KERN_INFO "Rombios: %p @ %d\n",
-		&rombios_start,
-		&rombios_end - &rombios_start
-	);
-
-	printk( KERN_INFO "VGA Bios: %p @ %d\n",
-		&vgabios_start,
-		&vgabios_end - &vgabios_start
-	);
-        }
-#endif
+	RunVMM();
+#else
 
 	/*
 	 * Start up user-space...
@@ -148,6 +127,7 @@ start_kernel()
 	printk(KERN_INFO "Loading initial user-level task (init_task)...\n");
 	if ((status = create_init_task()) != 0)
 		panic("Failed to create init_task (status=%d).", status);
+#endif
 
 	schedule();  /* This should not return */
 	BUG();
