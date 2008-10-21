@@ -505,7 +505,7 @@ force:
 
 # Clean build directories of generated files
 clean :
-	for d in palacios devices; do \
+	for d in palacios devices xed; do \
 		(cd $$d && rm -f *); \
 	done
 
