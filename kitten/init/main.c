@@ -118,6 +118,8 @@ start_kernel()
 
 #ifdef CONFIG_V3VEE
 	v3vee_run_vmm();
+	printk( "%s: VMM returned.  We're spinning\n", __func__ );
+	while(1) { asm( "hlt" ); }
 #else
 	/*
 	 * Start up user-space...
@@ -128,6 +130,6 @@ start_kernel()
 		panic("Failed to create init_task (status=%d).", status);
 
 	schedule();  /* This should not return */
-#endif
 	BUG();
+#endif
 }

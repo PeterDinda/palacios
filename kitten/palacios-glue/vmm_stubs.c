@@ -84,8 +84,14 @@ Free_VMM_Page(
 
 	int rc = pmem_query(&query,&result);
 
-	if (rc)
-		panic( "BAD" );
+	if( rc )
+	{
+		panic( "Asked to free non-allocated page %p! rc=%d",
+			page,
+			rc
+		);
+		return;
+	}
 
 	result.allocated = 0;
 	pmem_update(&result);
@@ -228,7 +234,7 @@ v3vee_printk(
 
 
 struct v3_os_hooks v3vee_os_hooks = {
-	.print_debug		= 0, // printk,  // serial print ideally
+	.print_debug		= v3vee_printk,  // serial print ideally
 	.print_info		= v3vee_printk,   // serial print ideally
 	.print_trace		= v3vee_printk,  // serial print ideally
 	.allocate_pages		= Allocate_VMM_Pages, // defined in vmm_stubs

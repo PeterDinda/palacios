@@ -270,13 +270,20 @@ int v3_handle_cr3_write(struct guest_info * info) {
       } else if (cached == 0) {
 	addr_t shadow_pt;
 	
-	PrintDebug("New CR3 is different - flushing shadow page table\n");	
+	if( info->mem_mode == VIRTUAL_MEM )
+	{
+		PrintDebug("New CR3 is different - flushing shadow page table %p\n", shadow_cr3 );	
 	
-	delete_page_tables_pde32((pde32_t *)CR3_TO_PDE32(*(uint_t*)shadow_cr3));
+		delete_page_tables_pde32((pde32_t *)CR3_TO_PDE32(*(uint_t*)shadow_cr3));
+	}
 	
 	shadow_pt =  v3_create_new_shadow_pt32();
 	
 	shadow_cr3->pdt_base_addr = (addr_t)V3_PAddr((void *)(addr_t)PD32_BASE_ADDR(shadow_pt));
+	PrintDebug( "Created new shadow page table %p\n", shadow_cr3->pdt_base_addr );
+	//PrintDebugPageTables( (pde32_t *)CR3_TO_PDE32(*(uint_t*)shadow_cr3) );
+
+
       } else {
 	PrintDebug("Reusing cached shadow Page table\n");
       }
