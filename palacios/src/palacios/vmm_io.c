@@ -176,7 +176,9 @@ void v3_print_io_map(struct vmm_io_map * io_map) {
   PrintDebug("VMM IO Map (Entries=%d)\n", io_map->num_ports);
 
   while (iter) {
-    PrintDebug("IO Port: %hu (Read=%x) (Write=%x)\n", iter->port, iter->read, iter->write);
+    PrintDebug("IO Port: %hu (Read=%p) (Write=%p)\n", 
+	       iter->port, 
+	       (void *)(iter->read), (void *)(iter->write));
   }
 }
 

@@ -320,7 +320,7 @@ static int handle_large_pagefault32(struct guest_info * info,
 
     if (host_page_type == HOST_REGION_INVALID) {
       // Inject a machine check in the guest
-      PrintDebug("Invalid Guest Address in page table (0x%x)\n", guest_fault_pa);
+      PrintDebug("Invalid Guest Address in page table (0x%p)\n", (void *)guest_fault_pa);
       v3_raise_exception(info, MC_EXCEPTION);
       return 0;
     }
@@ -410,7 +410,7 @@ static int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr
   /* Was the page fault caused by the Guest's page tables? */
   if (is_guest_pf(guest_pde_access, shadow_pde_access) == 1) {
     PrintDebug("Injecting PDE pf to guest: (guest access error=%d) (pf error code=%d)\n", 
-	       guest_pde_access, error_code);
+	       *(uint_t *)&guest_pde_access, *(uint_t *)&error_code);
     inject_guest_pf(info, fault_addr, error_code);
     return 0;
   }
@@ -512,7 +512,7 @@ static int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr
       return 0; 
     }
 
-  PrintDebug("Returning end of PDE function (rip=%x)\n", info->rip);
+  PrintDebug("Returning end of PDE function (rip=%p)\n", (void *)(info->rip));
   return 0;
 }
 
@@ -573,7 +573,7 @@ static int handle_shadow_pte32_fault(struct guest_info * info,
 
     if (host_page_type == HOST_REGION_INVALID) {
       // Inject a machine check in the guest
-      PrintDebug("Invalid Guest Address in page table (0x%x)\n", guest_pa);
+      PrintDebug("Invalid Guest Address in page table (0x%p)\n", (void *)guest_pa);
       v3_raise_exception(info, MC_EXCEPTION);
       return 0;
     }
@@ -599,7 +599,7 @@ static int handle_shadow_pte32_fault(struct guest_info * info,
       
       if (find_pte_map(state->cached_ptes, PT32_PAGE_ADDR(guest_pa)) != NULL) {
 	// Check if the entry is a page table...
-	PrintDebug("Marking page as Guest Page Table\n", shadow_pte->writable);
+	PrintDebug("Marking page as Guest Page Table %d\n", shadow_pte->writable);
 	shadow_pte->vmm_info = PT32_GUEST_PT;
       }
 
@@ -720,7 +720,7 @@ int v3_handle_shadow_invlpg(struct guest_info * info) {
 	//PrintDebug("PDE Index=%d\n", PDE32_INDEX(first_operand));
 	//PrintDebug("FirstOperand = %x\n", first_operand);
 
-	PrintDebug("Invalidating page for %x\n", first_operand);
+	PrintDebug("Invalidating page for %p\n", (void *)first_operand);
 
 	guest_pde = (pde32_t *)&(guest_pd[PDE32_INDEX(first_operand)]);
 

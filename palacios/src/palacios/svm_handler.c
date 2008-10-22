@@ -190,7 +190,8 @@ int v3_handle_svm_exit(struct guest_info * info) {
     addr_t fault_addr = guest_ctrl->exit_info2;
     pf_error_t * error_code = (pf_error_t *)&(guest_ctrl->exit_info1);
 #ifdef DEBUG_SHADOW_PAGING
-    PrintDebug("PageFault at %x (error=%d)\n", fault_addr, *error_code);
+    PrintDebug("PageFault at %p (error=%d)\n", 
+	       (void *)fault_addr, *(uint_t *)error_code);
 #endif
     if (info->shdw_pg_mode == SHADOW_PAGING) {
       if (v3_handle_shadow_pagefault(info, fault_addr, *error_code) == -1) {
@@ -352,12 +353,12 @@ int v3_handle_svm_exit(struct guest_info * info) {
     
 
     if (info->mem_mode == PHYSICAL_MEM) {
-      if (guest_pa_to_host_pa(info, guest_state->rip, &host_addr) == -1) {
+      if (guest_pa_to_host_va(info, guest_state->rip, &host_addr) == -1) {
 	PrintError("Could not translate guest_state->rip to host address\n");
 	return -1;
       }
     } else if (info->mem_mode == VIRTUAL_MEM) {
-      if (guest_va_to_host_pa(info, guest_state->rip, &host_addr) == -1) {
+      if (guest_va_to_host_va(info, guest_state->rip, &host_addr) == -1) {
 	PrintError("Could not translate guest_state->rip to host address\n");
 	return -1;
       }
@@ -414,7 +415,9 @@ int v3_handle_svm_exit(struct guest_info * info) {
 	guest_ctrl->guest_ctrl.V_IGN_TPR = 1;
 	guest_ctrl->guest_ctrl.V_INTR_PRIO = 0xf;
 #ifdef DEBUG_INTERRUPTS
-	PrintDebug("Injecting Interrupt %d (EIP=%x)\n", guest_ctrl->guest_ctrl.V_INTR_VECTOR, info->rip);
+	PrintDebug("Injecting Interrupt %d (EIP=%p)\n", 
+		   guest_ctrl->guest_ctrl.V_INTR_VECTOR, 
+		   (void *)info->rip);
 #endif
 	v3_injecting_intr(info, irq, EXTERNAL_IRQ);
 	
@@ -441,7 +444,9 @@ int v3_handle_svm_exit(struct guest_info * info) {
 	
 	guest_ctrl->EVENTINJ.valid = 1;
 #ifdef DEBUG_INTERRUPTS
-	PrintDebug("Injecting Interrupt %d (EIP=%x)\n", guest_ctrl->EVENTINJ.vector, info->rip);
+	PrintDebug("Injecting Interrupt %d (EIP=%p)\n", 
+		   guest_ctrl->EVENTINJ.vector, 
+		   (void *)info->rip);
 #endif
 	v3_injecting_intr(info, excp, EXCEPTION);
 	break;

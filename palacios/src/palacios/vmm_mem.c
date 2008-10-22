@@ -122,6 +122,8 @@ int handle_special_page_fault(struct guest_info * info,
 {
   struct shadow_region * reg = get_shadow_region_by_addr(&(info->mem_map), fault_gpa);
 
+  PrintDebug("Handling Special Page Fault\n");
+
   switch (reg->host_type) {
   case HOST_REGION_HOOK:
     return mem_hook_dispatch(info, fault_gva, fault_gpa, access_info, (struct vmm_mem_hook *)(reg->host_addr));
