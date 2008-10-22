@@ -385,13 +385,13 @@ static int handle_large_pagefault32(struct guest_info * info,
 static int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_error_t error_code) {
   pde32_t * guest_pd = NULL;
   pde32_t * shadow_pd = (pde32_t *)CR3_TO_PDE32(info->shdw_pg_state.shadow_cr3);
-  addr_t guest_cr3 = (addr_t)CR3_TO_PDE32(info->shdw_pg_state.guest_cr3);
+  addr_t guest_cr3 = (addr_t) V3_PAddr( CR3_TO_PDE32(info->shdw_pg_state.guest_cr3) );
   pt_access_status_t guest_pde_access;
   pt_access_status_t shadow_pde_access;
   pde32_t * guest_pde = NULL;
   pde32_t * shadow_pde = (pde32_t *)&(shadow_pd[PDE32_INDEX(fault_addr)]);
 
-  PrintDebug("Shadow page fault handler\n");
+  PrintDebug("Shadow page fault handler: %p\n", (void*) fault_addr );
 
   if (guest_pa_to_host_va(info, guest_cr3, (addr_t*)&guest_pd) == -1) {
     PrintError("Invalid Guest PDE Address: 0x%p\n",  (void *)guest_cr3);
@@ -449,7 +449,7 @@ static int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr
       //
       // PTE fault
       //
-      pte32_t * shadow_pt = (pte32_t *)(addr_t)PDE32_T_ADDR((*shadow_pde));
+      pte32_t * shadow_pt = (pte32_t *)V3_VAddr( (void*)(addr_t) PDE32_T_ADDR(*shadow_pde) );
 
       if (guest_pde->large_page == 0) {
 	pte32_t * guest_pt = NULL;
@@ -663,56 +663,64 @@ static int handle_shadow_pte32_fault(struct guest_info * info,
 
 
 /* Currently Does not work with Segmentation!!! */
-int v3_handle_shadow_invlpg(struct guest_info * info) {
-  if (info->mem_mode != VIRTUAL_MEM) {
-    // Paging must be turned on...
-    // should handle with some sort of fault I think
-    PrintError("ERROR: INVLPG called in non paged mode\n");
-    return -1;
-  }
+int v3_handle_shadow_invlpg(struct guest_info * info)
+{
+	if (info->mem_mode != VIRTUAL_MEM) {
+		// Paging must be turned on...
+		// should handle with some sort of fault I think
+		PrintError("ERROR: INVLPG called in non paged mode\n");
+		return -1;
+	}
 
 
-  if (info->cpu_mode == PROTECTED) {
-    uchar_t instr[15];
-    int ret;
-    int index = 0;
+	if (info->cpu_mode != PROTECTED)
+		return 0;
 
-    ret = read_guest_va_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
-    if (ret != 15) {
-      PrintError("Could not read instruction 0x%p (ret=%d)\n",  (void *)(info->rip), ret);
-      return -1;
-    }
+	uchar_t instr[15];
+	int index = 0;
+
+	int ret = read_guest_va_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
+	if (ret != 15) {
+		PrintError("Could not read instruction 0x%p (ret=%d)\n",  (void *)(info->rip), ret);
+		return -1;
+	}
 
    
-    /* Can INVLPG work with Segments?? */
-    while (is_prefix_byte(instr[index])) {
-      index++;
-    }
+	/* Can INVLPG work with Segments?? */
+	while (is_prefix_byte(instr[index])) {
+		index++;
+	}
     
     
-    if ((instr[index] == (uchar_t)0x0f) &&
-	(instr[index + 1] == (uchar_t)0x01)) {
+	if( instr[index + 0] != (uchar_t) 0x0f
+	||  instr[index + 1] != (uchar_t) 0x01
+	) {
+		PrintError("invalid Instruction Opcode\n");
+		PrintTraceMemDump(instr, 15);
+		return -1;
+	}
 
-      addr_t first_operand;
-      addr_t second_operand;
-      v3_operand_type_t addr_type;
-      addr_t guest_cr3 = (addr_t)CR3_TO_PDE32(info->shdw_pg_state.guest_cr3);
+	addr_t first_operand;
+	addr_t second_operand;
+	addr_t guest_cr3 = (addr_t)V3_PAddr( (void*)(addr_t) CR3_TO_PDE32(info->shdw_pg_state.guest_cr3) );
 
-      pde32_t * guest_pd = NULL;
+	pde32_t * guest_pd = NULL;
 
-      if (guest_pa_to_host_va(info, guest_cr3, (addr_t*)&guest_pd) == -1) {
-	PrintError("Invalid Guest PDE Address: 0x%p\n",  (void *)guest_cr3);
-	return -1;
-      }
+	if (guest_pa_to_host_va(info, guest_cr3, (addr_t*)&guest_pd) == -1)
+	{
+		PrintError("Invalid Guest PDE Address: 0x%p\n",  (void *)guest_cr3);
+		return -1;
+	}
 
-      
+	index += 2;
 
+	v3_operand_type_t addr_type = decode_operands32(&(info->vm_regs), instr + index, &index, &first_operand, &second_operand, REG32);
 
-      index += 2;
+	if (addr_type != MEM_OPERAND) {
+		PrintError("Invalid Operand type\n");
+		return -1;
+	}
 
-      addr_type = decode_operands32(&(info->vm_regs), instr + index, &index, &first_operand, &second_operand, REG32);
-
-      if (addr_type == MEM_OPERAND) {
 	pde32_t * shadow_pd = (pde32_t *)CR3_TO_PDE32(info->shdw_pg_state.shadow_cr3);
 	pde32_t * shadow_pde = (pde32_t *)&shadow_pd[PDE32_INDEX(first_operand)];
 	pde32_t * guest_pde;
@@ -725,37 +733,24 @@ int v3_handle_shadow_invlpg(struct guest_info * info) {
 	guest_pde = (pde32_t *)&(guest_pd[PDE32_INDEX(first_operand)]);
 
 	if (guest_pde->large_page == 1) {
-	  shadow_pde->present = 0;
-	  PrintDebug("Invalidating Large Page\n");
-	} else {
-	 
-	  if (shadow_pde->present == 1) {
-	    pte32_t * shadow_pt = (pte32_t *)(addr_t)PDE32_T_ADDR((*shadow_pde));
-	    pte32_t * shadow_pte = (pte32_t *)&shadow_pt[PTE32_INDEX(first_operand)];
+		shadow_pde->present = 0;
+		PrintDebug("Invalidating Large Page\n");
+	} else
+	if (shadow_pde->present == 1) {
+		pte32_t * shadow_pt = (pte32_t *)(addr_t)PDE32_T_ADDR((*shadow_pde));
+		pte32_t * shadow_pte = (pte32_t *) V3_VAddr( (void*) &shadow_pt[PTE32_INDEX(first_operand)] );
 
 #ifdef DEBUG_SHADOW_PAGING
-	    PrintDebug("Setting not present\n");
-	    PrintPTE32(first_operand, shadow_pte);
+		PrintDebug("Setting not present\n");
+		PrintPTE32(first_operand, shadow_pte );
 #endif
 
-	    shadow_pte->present = 0;
-	  }
+		shadow_pte->present = 0;
 	}
 
 	info->rip += index;
 
-      } else {
-	PrintError("Invalid Operand type\n");
-	return -1;
-      }
-    } else {
-      PrintError("invalid Instruction Opcode\n");
-      PrintTraceMemDump(instr, 15);
-      return -1;
-    }
-  }
-
-  return 0;
+	return 0;
 }
 
 
