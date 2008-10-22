@@ -261,7 +261,7 @@ int v3_handle_cr3_write(struct guest_info * info) {
 		 *(uint_t*)shadow_cr3, *(uint_t*)guest_cr3);
       
 
-      cached = v3_cache_page_tables32(info, V3_PAddr((addr_t)CR3_TO_PDE32((void *)*(addr_t *)new_cr3)));
+      cached = v3_cache_page_tables32(info, (addr_t)V3_PAddr((void *)(addr_t)CR3_TO_PDE32((void *)*(addr_t *)new_cr3)));
 
       if (cached == -1) {
 	PrintError("CR3 Cache failed\n");
