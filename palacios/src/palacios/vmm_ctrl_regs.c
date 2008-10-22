@@ -77,19 +77,19 @@ int v3_handle_cr0_write(struct guest_info * info) {
     
     PrintDebug("OperandVal = %x\n", new_cr0_val);
 
-    PrintDebug("Old CR0=%x\n", *real_cr0);	
+    PrintDebug("Old CR0=%x\n", *(uint_t *)real_cr0);	
     *(uchar_t*)real_cr0 &= 0xf0;
     *(uchar_t*)real_cr0 |= new_cr0_val;
-    PrintDebug("New CR0=%x\n", *real_cr0);	
+    PrintDebug("New CR0=%x\n", *(uint_t *)real_cr0);	
       
 
     if (info->shdw_pg_mode == SHADOW_PAGING) {
       struct cr0_real * shadow_cr0 = (struct cr0_real*)&(info->shdw_pg_state.guest_cr0);
       
-      PrintDebug(" Old Shadow CR0=%x\n", *shadow_cr0);	
+      PrintDebug(" Old Shadow CR0=%x\n", *(uint_t *)shadow_cr0);	
       *(uchar_t*)shadow_cr0 &= 0xf0;
       *(uchar_t*)shadow_cr0 |= new_cr0_val;
-      PrintDebug("New Shadow CR0=%x\n", *shadow_cr0);	
+      PrintDebug("New Shadow CR0=%x\n", *(uint_t *)shadow_cr0);	
     }
   } else if (v3_opcode_cmp(V3_OPCODE_MOV2CR, (const uchar_t *)(dec_instr.opcode)) == 0) {
     PrintDebug("MOV2CR0\n");
@@ -101,17 +101,17 @@ int v3_handle_cr0_write(struct guest_info * info) {
 	struct cr0_32 *real_cr0 = (struct cr0_32*)&(info->ctrl_regs.cr0);
 	struct cr0_32 *new_cr0= (struct cr0_32 *)(dec_instr.src_operand.operand);
 
-	PrintDebug("OperandVal = %x, length=%d\n", *new_cr0, dec_instr.src_operand.size);
+	PrintDebug("OperandVal = %x, length=%d\n", *(uint_t *)new_cr0, dec_instr.src_operand.size);
 
 
-	PrintDebug("Old CR0=%x\n", *real_cr0);
+	PrintDebug("Old CR0=%x\n", *(uint_t *)real_cr0);
 	*real_cr0 = *new_cr0;
 	
 
  	if (info->shdw_pg_mode == SHADOW_PAGING) {
  	  struct cr0_32 * shadow_cr0 = (struct cr0_32 *)&(info->shdw_pg_state.guest_cr0);
 	  
- 	  PrintDebug("Old Shadow CR0=%x\n", *shadow_cr0);	
+ 	  PrintDebug("Old Shadow CR0=%x\n", *(uint_t *)shadow_cr0);	
 	  
  	  real_cr0->et = 1;
 	  
@@ -127,9 +127,9 @@ int v3_handle_cr0_write(struct guest_info * info) {
 	    real_cr0->pg = 1;
 	  }
 	  
-	  PrintDebug("New Shadow CR0=%x\n",*shadow_cr0);
+	  PrintDebug("New Shadow CR0=%x\n",*(uint_t *)shadow_cr0);
  	}
-	PrintDebug("New CR0=%x\n", *real_cr0);
+	PrintDebug("New CR0=%x\n", *(uint_t *)real_cr0);
     }
 
   } else if (v3_opcode_cmp(V3_OPCODE_CLTS, (const uchar_t *)(dec_instr.opcode)) == 0) {
@@ -184,7 +184,7 @@ int v3_handle_cr0_read(struct guest_info * info) {
     struct cr0_32 * real_cr0 = (struct cr0_32 *)&(info->ctrl_regs.cr0);
     
     PrintDebug("MOVCR2\n");
-    PrintDebug("CR0 at 0x%x\n", real_cr0);
+    PrintDebug("CR0 at 0x%p\n", (void *)real_cr0);
 
     if (info->shdw_pg_mode == SHADOW_PAGING) {
       *virt_cr0 = *(struct cr0_32 *)&(info->shdw_pg_state.guest_cr0);
@@ -201,7 +201,7 @@ int v3_handle_cr0_read(struct guest_info * info) {
     
     PrintDebug("SMSW\n");
 
-    PrintDebug("CR0 at 0x%x\n", real_cr0);
+    PrintDebug("CR0 at 0x%p\n", real_cr0);
 
     *(char *)virt_cr0 &= 0xf0;
     *(char *)virt_cr0 |= cr0_val;
@@ -248,7 +248,7 @@ int v3_handle_cr3_write(struct guest_info * info) {
 
     PrintDebug("MOV2CR3\n");
 
-    PrintDebug("CR3 at 0x%x\n", &(info->ctrl_regs.cr3));
+    PrintDebug("CR3 at 0x%p\n", &(info->ctrl_regs.cr3));
 
     if (info->shdw_pg_mode == SHADOW_PAGING) {
       struct cr3_32 * new_cr3 = (struct cr3_32 *)(dec_instr.src_operand.operand);	
@@ -261,7 +261,7 @@ int v3_handle_cr3_write(struct guest_info * info) {
 		 *(uint_t*)shadow_cr3, *(uint_t*)guest_cr3);
       
 
-      cached = v3_cache_page_tables32(info, (addr_t)CR3_TO_PDE32((void *)*(addr_t *)new_cr3));
+      cached = v3_cache_page_tables32(info, V3_PAddr((addr_t)CR3_TO_PDE32((void *)*(addr_t *)new_cr3)));
 
       if (cached == -1) {
 	PrintError("CR3 Cache failed\n");
@@ -336,7 +336,7 @@ int v3_handle_cr3_read(struct guest_info * info) {
     PrintDebug("MOVCR32\n");
     struct cr3_32 * virt_cr3 = (struct cr3_32 *)(dec_instr.dst_operand.operand);
 
-    PrintDebug("CR3 at 0x%x\n", &(info->ctrl_regs.cr3));
+    PrintDebug("CR3 at 0x%p\n", &(info->ctrl_regs.cr3));
 
     if (info->shdw_pg_mode == SHADOW_PAGING) {
       *virt_cr3 = *(struct cr3_32 *)&(info->shdw_pg_state.guest_cr3);
