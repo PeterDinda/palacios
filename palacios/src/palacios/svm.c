@@ -59,7 +59,7 @@ static vmcb_t * Allocate_VMCB() {
 
 
 
-
+#include <palacios/vmm_ctrl_regs.h>
 
 static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
   vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA(vmcb);
@@ -77,7 +77,21 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
   ctrl_area->cr_reads.cr0 = 1;
   ctrl_area->cr_writes.cr0 = 1;
 
+
+  /* Set up the efer to enable 64 bit page tables */
+  {
+    struct efer_64 * efer = (struct efer_64 *)&(guest_state->efer);
+    struct cr4_32 * cr4 = (struct cr4_32 *)&(guest_state->cr4);
+    efer->lma = 1;
+    efer->lme = 1;
+
+    cr4->pae = 1;
+  }
+
   guest_state->efer |= EFER_MSR_svm_enable;
+
+
+
   guest_state->rflags = 0x00000002; // The reserved bit is always 1
   ctrl_area->svm_instrs.VMRUN = 1;
   ctrl_area->svm_instrs.VMMCALL = 1;
