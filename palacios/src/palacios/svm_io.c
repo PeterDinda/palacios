@@ -114,7 +114,7 @@ int v3_handle_svm_io_ins(struct guest_info * info) {
   
   addr_t inst_ptr;
 
-  if (guest_va_to_host_pa(info,get_addr_linear(info,info->rip,&(info->segments.cs)),&inst_ptr)==-1) {
+  if (guest_va_to_host_va(info, get_addr_linear(info, info->rip, &(info->segments.cs)), &inst_ptr) == -1) {
     PrintError("Can't access instruction\n");
     return -1;
   }
@@ -325,7 +325,7 @@ int v3_handle_svm_io_outs(struct guest_info * info) {
   
   addr_t inst_ptr;
 
-  if (guest_va_to_host_pa(info,get_addr_linear(info,info->rip,&(info->segments.cs)),&inst_ptr)==-1) {
+  if (guest_va_to_host_va(info,get_addr_linear(info,info->rip,&(info->segments.cs)),&inst_ptr)==-1) {
     PrintError("Can't access instruction\n");
     return -1;
   }
