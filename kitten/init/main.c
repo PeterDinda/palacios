@@ -32,7 +32,6 @@ start_kernel()
 {
 	unsigned int cpu;
 	unsigned int timeout;
-	int status;
 
 	/*
  	 * Parse the kernel boot command line.
@@ -124,6 +123,7 @@ start_kernel()
 	 * Start up user-space...
 	 */
 	printk(KERN_INFO "Loading initial user-level task (init_task)...\n");
+	int status;
 	if ((status = create_init_task()) != 0)
 		panic("Failed to create init_task (status=%d).", status);
 
