@@ -199,7 +199,8 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
 
   if (vm_info->shdw_pg_mode == SHADOW_PAGING) {
     PrintDebug("Creating initial shadow page table\n");
-    vm_info->direct_map_pt = (addr_t)create_passthrough_pde32_pts(vm_info);
+    vm_info->direct_map_pt = V3_PAddr((addr_t)create_passthrough_pde32_pts(vm_info));
+
     vm_info->shdw_pg_state.shadow_cr3 |= (vm_info->direct_map_pt & ~0xfff);
     vm_info->shdw_pg_state.guest_cr0 = 0x0000000000000010LL;
     PrintDebug("Created\n");
