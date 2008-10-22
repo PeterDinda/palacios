@@ -353,12 +353,12 @@ int v3_handle_svm_exit(struct guest_info * info) {
     
 
     if (info->mem_mode == PHYSICAL_MEM) {
-      if (guest_pa_to_host_pa(info, guest_state->rip, &host_addr) == -1) {
+      if (guest_pa_to_host_va(info, guest_state->rip, &host_addr) == -1) {
 	PrintError("Could not translate guest_state->rip to host address\n");
 	return -1;
       }
     } else if (info->mem_mode == VIRTUAL_MEM) {
-      if (guest_va_to_host_pa(info, guest_state->rip, &host_addr) == -1) {
+      if (guest_va_to_host_va(info, guest_state->rip, &host_addr) == -1) {
 	PrintError("Could not translate guest_state->rip to host address\n");
 	return -1;
       }

@@ -120,7 +120,7 @@ int v3_handle_cr0_write(struct guest_info * info) {
 	  
 	  if (v3_get_mem_mode(info) == VIRTUAL_MEM) {
 	    struct cr3_32 * shadow_cr3 = (struct cr3_32 *)&(info->shdw_pg_state.shadow_cr3);
-	    
+	    PrintDebug("Setting up Shadow Page Table\n");
 	    info->ctrl_regs.cr3 = *(addr_t*)shadow_cr3;
 	  } else  {
 	    info->ctrl_regs.cr3 = *(addr_t*)&(info->direct_map_pt);
@@ -261,8 +261,9 @@ int v3_handle_cr3_write(struct guest_info * info) {
 		 *(uint_t*)shadow_cr3, *(uint_t*)guest_cr3);
       
 
-      cached = v3_cache_page_tables32(info, (addr_t)V3_PAddr((void *)(addr_t)CR3_TO_PDE32((void *)*(addr_t *)new_cr3)));
 
+      cached = v3_cache_page_tables32(info, (addr_t)V3_PAddr((void *)(addr_t)CR3_TO_PDE32((void *)*(addr_t *)new_cr3)));
+	
       if (cached == -1) {
 	PrintError("CR3 Cache failed\n");
 	return -1;
@@ -279,6 +280,7 @@ int v3_handle_cr3_write(struct guest_info * info) {
       } else {
 	PrintDebug("Reusing cached shadow Page table\n");
       }
+      
       
       shadow_cr3->pwt = new_cr3->pwt;
       shadow_cr3->pcd = new_cr3->pcd;
