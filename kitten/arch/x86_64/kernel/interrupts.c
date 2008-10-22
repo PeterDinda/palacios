@@ -136,7 +136,12 @@ do_general_protection(struct pt_regs *regs, unsigned int vector)
 void
 do_page_fault(struct pt_regs *regs, unsigned int vector)
 {
-	printk("Page Fault Exception\n");
+	printk("Page Fault Exception (regs %p)\n", regs );
+
+	static uint8_t recursive_fault;
+	if( recursive_fault++ )
+		panic( "Recursive page fault!  Halt and catch fire!" );
+
 	show_registers(regs);
 	while (1) {}
 }
