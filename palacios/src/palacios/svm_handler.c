@@ -373,9 +373,9 @@ int v3_handle_svm_exit(struct guest_info * info) {
     PrintError("Reading instruction stream in guest\n", rip_addr);
     
     if (info->mem_mode == PHYSICAL_MEM) {
-      read_guest_pa_memory(info, rip_addr-16, 32, buf);
+      read_guest_pa_memory(info, rip_addr - 16, 32, buf);
     } else {
-      read_guest_va_memory(info, rip_addr-16, 32, buf);
+      read_guest_va_memory(info, rip_addr - 16, 32, buf);
     }
     
     PrintDebug("16 bytes before Rip\n");

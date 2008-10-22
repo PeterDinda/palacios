@@ -133,6 +133,10 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
   guest_state->cs.attrib.raw = 0xf3;
 
   
+  /* DEBUG FOR RETURN CODE */
+  ctrl_area->exit_code = 1;
+
+
   struct vmcb_selector *segregs [] = {&(guest_state->ss), &(guest_state->ds), &(guest_state->es), &(guest_state->fs), &(guest_state->gs), NULL};
   for ( i = 0; segregs[i] != NULL; i++) {
     struct vmcb_selector * seg = segregs[i];
@@ -302,7 +306,7 @@ static int start_svm_guest(struct guest_info *info) {
     v3_enable_ints();
     v3_clgi();
 
-    //    PrintDebug("SVM Entry to rip=%x...\n", info->rip);
+    PrintDebug("SVM Entry to rip=%x...\n", info->rip);
 
     rdtscll(info->time_state.cached_host_tsc);
     guest_ctrl->TSC_OFFSET = info->time_state.guest_tsc - info->time_state.cached_host_tsc;
@@ -310,17 +314,23 @@ static int start_svm_guest(struct guest_info *info) {
     v3_svm_launch((vmcb_t*)V3_PAddr(info->vmm_data), &(info->vm_regs));
 
     rdtscll(tmp_tsc);
-    //PrintDebug("SVM Returned\n");
+    PrintDebug("SVM Returned\n");
+    
+    {
+      uint_t x = 0;
+      PrintDebug("RSP=%p\n", &x);
+    }
 
 
     v3_update_time(info, tmp_tsc - info->time_state.cached_host_tsc);
     num_exits++;
 
+    PrintDebug("Turning on global interrupts\n");
     v3_stgi();
 
-    if ((num_exits % 25) == 0) {
-      PrintDebug("SVM Exit number %d\n", num_exits);
-    }
+
+    PrintDebug("SVM Exit number %d\n", num_exits);
+
 
      
     if (v3_handle_svm_exit(info) != 0) {
@@ -338,15 +348,15 @@ static int start_svm_guest(struct guest_info *info) {
       linear_addr = get_addr_linear(info, guest_state->rip, &(info->segments.cs));
 
 
-      PrintDebug("RIP Linear: %x\n", linear_addr);
+      PrintDebug("RIP Linear: %\n", linear_addr);
       v3_print_segments(info);
       v3_print_ctrl_regs(info);
       v3_print_GPRs(info);
       
       if (info->mem_mode == PHYSICAL_MEM) {
-	guest_pa_to_host_pa(info, linear_addr, &host_addr);
+	guest_pa_to_host_va(info, linear_addr, &host_addr);
       } else if (info->mem_mode == VIRTUAL_MEM) {
-	guest_va_to_host_pa(info, linear_addr, &host_addr);
+	guest_va_to_host_va(info, linear_addr, &host_addr);
       }
 
 
