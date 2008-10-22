@@ -228,7 +228,7 @@ v3vee_printk(
 
 
 struct v3_os_hooks v3vee_os_hooks = {
-	.print_debug		= 0, // printk,  // serial print ideally
+	.print_debug		= v3vee_printk,  // serial print ideally
 	.print_info		= v3vee_printk,   // serial print ideally
 	.print_trace		= v3vee_printk,  // serial print ideally
 	.allocate_pages		= Allocate_VMM_Pages, // defined in vmm_stubs
