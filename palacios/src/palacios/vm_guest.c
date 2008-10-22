@@ -89,7 +89,8 @@ void v3_print_segments(struct guest_info * info) {
 
   for (i = 0; seg_names[i] != NULL; i++) {
 
-    PrintDebug("\t%s: Sel=%x, base=%x, limit=%x\n", seg_names[i], seg_ptr[i].selector, seg_ptr[i].base, seg_ptr[i].limit);
+    PrintDebug("\t%s: Sel=%x, base=%p, limit=%x\n", seg_names[i], seg_ptr[i].selector, 
+	       (void *)seg_ptr[i].base, seg_ptr[i].limit);
 
   }
 
@@ -107,7 +108,7 @@ void v3_print_ctrl_regs(struct guest_info * info) {
   PrintDebug("32 bit Ctrl Regs:\n");
 
   for (i = 0; reg_names[i] != NULL; i++) {
-    PrintDebug("\t%s=0x%x\n", reg_names[i], reg_ptr[i]);  
+    PrintDebug("\t%s=0x%p\n", reg_names[i], (void *)reg_ptr[i]);  
   }
 }
 
@@ -123,6 +124,6 @@ void v3_print_GPRs(struct guest_info * info) {
   PrintDebug("32 bit GPRs:\n");
 
   for (i = 0; reg_names[i] != NULL; i++) {
-    PrintDebug("\t%s=0x%x\n", reg_names[i], reg_ptr[i]);  
+    PrintDebug("\t%s=0x%p\n", reg_names[i], (void *)reg_ptr[i]);  
   }
 }

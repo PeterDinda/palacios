@@ -36,7 +36,7 @@ void PrintDebugMemDump(uchar_t *start, int n)
   int i, j;
 
   for (i = 0; i < n; i += 16) {
-    PrintDebug("%8x", (start + i));
+    PrintDebug("%p", (void *)(start + i));
 
     for (j = i; (j < (i + 16)) && (j < n); j += 2) {
       PrintDebug(" ");

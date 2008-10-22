@@ -289,7 +289,7 @@ static int write_ctrl_port(ushort_t port, void * src, uint_t length, struct vm_d
   PrintDebug("Write to Control Port (val=%x)\n", *(char *)src);
 
   if (length != 1) {
-    PrintDebug("Invalid Write length to control port\n", port, port);
+    PrintDebug("Invalid Write length to control port %d\n", port);
     return -1;
   }
 

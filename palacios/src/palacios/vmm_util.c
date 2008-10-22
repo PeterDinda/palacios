@@ -48,7 +48,7 @@ void PrintTraceMemDump(uchar_t * start, int n) {
   int i, j;
 
   for (i = 0; i < n; i += 16) {
-    PrintTrace("%8x", (start + i));
+    PrintTrace("%p", (void *)(start + i));
     for (j = i; (j < (i + 16)) && (j < n); j += 2) {
       PrintTrace(" ");
       PrintTraceHex(*(uchar_t *)(start + j));

@@ -165,7 +165,7 @@ int v3_cache_page_tables32(struct guest_info * info, addr_t pde) {
   pte_cache = create_hashtable(0, &pte_hash_fn, &pte_equals);
   state->cached_ptes = pte_cache;
 
-  if (guest_pa_to_host_pa(info, pde, &pde_host_addr) == -1) {
+  if (guest_pa_to_host_va(info, pde, &pde_host_addr) == -1) {
     PrintError("Could not lookup host address of guest PDE\n");
     return -1;
   }
@@ -179,7 +179,7 @@ int v3_cache_page_tables32(struct guest_info * info, addr_t pde) {
     if ((tmp_pde[i].present) && (tmp_pde[i].large_page == 0)) {
       addr_t pte_host_addr;
 
-      if (guest_pa_to_host_pa(info, (addr_t)(PDE32_T_ADDR(tmp_pde[i])), &pte_host_addr) == -1) {
+      if (guest_pa_to_host_va(info, (addr_t)(PDE32_T_ADDR(tmp_pde[i])), &pte_host_addr) == -1) {
 	PrintError("Could not lookup host address of guest PDE\n");
 	return -1;
       }
@@ -359,7 +359,7 @@ static int handle_large_pagefault32(struct guest_info * info,
     } else {
       // Handle hooked pages as well as other special pages
       if (handle_special_page_fault(info, fault_addr, guest_fault_pa, error_code) == -1) {
-	PrintError("Special Page Fault handler returned error for address: %x\n", fault_addr);
+	PrintError("Special Page Fault handler returned error for address: %p\n", (void *)fault_addr);
 	return -1;
       }
     }
@@ -394,7 +394,7 @@ static int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr
   PrintDebug("Shadow page fault handler\n");
 
   if (guest_pa_to_host_va(info, guest_cr3, (addr_t*)&guest_pd) == -1) {
-    PrintError("Invalid Guest PDE Address: 0x%x\n", guest_cr3);
+    PrintError("Invalid Guest PDE Address: 0x%p\n",  (void *)guest_cr3);
     return -1;
   } 
 
@@ -625,7 +625,7 @@ static int handle_shadow_pte32_fault(struct guest_info * info,
     } else {
       // Page fault handled by hook functions
       if (handle_special_page_fault(info, fault_addr, guest_pa, error_code) == -1) {
-	PrintError("Special Page fault handler returned error for address: %x\n", fault_addr);
+	PrintError("Special Page fault handler returned error for address: %p\n",  (void *)fault_addr);
 	return -1;
       }
     }
@@ -679,7 +679,7 @@ int v3_handle_shadow_invlpg(struct guest_info * info) {
 
     ret = read_guest_va_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
     if (ret != 15) {
-      PrintError("Could not read instruction 0x%x (ret=%d)\n", info->rip, ret);
+      PrintError("Could not read instruction 0x%p (ret=%d)\n",  (void *)(info->rip), ret);
       return -1;
     }
 
@@ -701,7 +701,7 @@ int v3_handle_shadow_invlpg(struct guest_info * info) {
       pde32_t * guest_pd = NULL;
 
       if (guest_pa_to_host_va(info, guest_cr3, (addr_t*)&guest_pd) == -1) {
-	PrintError("Invalid Guest PDE Address: 0x%x\n", guest_cr3);
+	PrintError("Invalid Guest PDE Address: 0x%p\n",  (void *)guest_cr3);
 	return -1;
       }
 

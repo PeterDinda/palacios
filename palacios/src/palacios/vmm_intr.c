@@ -102,10 +102,10 @@ int v3_hook_passthrough_irq(struct guest_info * info, uint_t irq)
 		       NULL);
 
   if (rc) { 
-    PrintError("guest_irq_injection: failed to hook irq 0x%x (guest=0x%x)\n", irq, info);
+    PrintError("guest_irq_injection: failed to hook irq 0x%x (guest=0x%p)\n", irq, (void *)info);
     return -1;
   } else {
-    PrintDebug("guest_irq_injection: hooked irq 0x%x (guest=0x%x)\n", irq, info);
+    PrintDebug("guest_irq_injection: hooked irq 0x%x (guest=0x%p)\n", irq, (void *)info);
     return 0;
   }
 }

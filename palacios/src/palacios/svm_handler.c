@@ -83,7 +83,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
     // Dump out the instr stream
 
     //PrintDebug("RIP: %x\n", guest_state->rip);
-    PrintDebug("RIP Linear: %x\n", get_addr_linear(info, info->rip, &(info->segments.cs)));
+    PrintDebug("RIP Linear: %p\n", (void *)get_addr_linear(info, info->rip, &(info->segments.cs)));
 
     // OK, now we will read the instruction
     // The only difference between PROTECTED and PROTECTED_PG is whether we read
@@ -337,11 +337,11 @@ int v3_handle_svm_exit(struct guest_info * info) {
     rip_addr = get_addr_linear(info, guest_state->rip, &(info->segments.cs));
 
 
-    PrintError("SVM Returned:(VMCB=%x)\n", info->vmm_data); 
-    PrintError("RIP: %x\n", guest_state->rip);
-    PrintError("RIP Linear: %x\n", rip_addr);
+    PrintError("SVM Returned:(VMCB=%p)\n", (void *)(info->vmm_data)); 
+    PrintError("RIP: %p\n", (void *)(guest_state->rip));
+    PrintError("RIP Linear: %p\n", (void *)(rip_addr));
     
-    PrintError("SVM Returned: Exit Code: %x\n", exit_code); 
+    PrintError("SVM Returned: Exit Code: %p\n", (void *)exit_code); 
     
     PrintError("io_info1 low = 0x%.8x\n", *(uint_t*)&(guest_ctrl->exit_info1));
     PrintError("io_info1 high = 0x%.8x\n", *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info1)) + 4));
@@ -366,11 +366,11 @@ int v3_handle_svm_exit(struct guest_info * info) {
       return -1;
     }
     
-    PrintError("Host Address of rip = 0x%x\n", host_addr);
+    PrintError("Host Address of rip = 0x%p\n", (void *)host_addr);
     
     memset(buf, 0, 32);
     
-    PrintError("Reading instruction stream in guest\n", rip_addr);
+    PrintError("Reading instruction stream in guest (addr=%p)\n", (void *)rip_addr);
     
     if (info->mem_mode == PHYSICAL_MEM) {
       read_guest_pa_memory(info, rip_addr - 16, 32, buf);
