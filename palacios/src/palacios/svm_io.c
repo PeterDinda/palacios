@@ -170,7 +170,8 @@ int v3_handle_svm_io_ins(struct guest_info * info) {
     // This value should be set depending on the host register size...
     mask = get_gpr_mask(info);
 
-    PrintDebug("INS io_info invalid address size, mask=0x%x, io_info=0x%x\n",mask,*((uint_t*)(io_info)));
+    PrintDebug("INS io_info invalid address size, mask=0x%p, io_info=0x%p\n",
+	       (void *)mask, (void *)(io_info));
     // PrintDebug("INS Aborted... Check implementation\n");
     //return -1;
   }
@@ -187,7 +188,7 @@ int v3_handle_svm_io_ins(struct guest_info * info) {
     addr_t host_addr;
     dst_addr = get_addr_linear(info, info->vm_regs.rdi & mask, theseg);
     
-    PrintDebug("Writing 0x%x\n", dst_addr);
+    PrintDebug("Writing 0x%p\n", (void *)dst_addr);
 
     if (guest_va_to_host_va(info, dst_addr, &host_addr) == -1) {
       // either page fault or gpf...
@@ -309,7 +310,8 @@ int v3_handle_svm_io_outs(struct guest_info * info) {
     // This value should be set depending on the host register size...
     mask = get_gpr_mask(info);
 
-    PrintDebug("OUTS io_info invalid address size, mask=0x%, io_info=0x%x\n",mask,*((uint_t*)(io_info)));
+    PrintDebug("OUTS io_info invalid address size, mask=0%p, io_info=0x%p\n",
+	       (void *)mask, (void *)io_info);
     // PrintDebug("INS Aborted... Check implementation\n");
     //return -1;
     // should never happen

@@ -88,7 +88,8 @@ int v3_hook_irq(struct guest_info * info,
 static int passthrough_irq_handler(struct guest_info * info, struct v3_interrupt * intr, void * priv_data)
 {
 
-  PrintDebug("[passthrough_irq_handler] raise_irq=%d (guest=0x%x)\n", intr->irq, info);
+  PrintDebug("[passthrough_irq_handler] raise_irq=%d (guest=0x%p)\n", 
+	     intr->irq, (void *)info);
   return v3_raise_irq(info, intr->irq);
 
 }
@@ -115,7 +116,7 @@ int v3_hook_passthrough_irq(struct guest_info * info, uint_t irq)
 
 
 int v3_deliver_irq(struct guest_info * info, struct v3_interrupt * intr) {
-  PrintDebug("v3_deliver_irq: irq=%d state=0x%x, \n", intr->irq, intr);
+  PrintDebug("v3_deliver_irq: irq=%d state=0x%p, \n", intr->irq, (void *)intr);
   
   struct v3_irq_hook * hook = get_irq_hook(info, intr->irq);
 
