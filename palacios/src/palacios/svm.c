@@ -309,7 +309,7 @@ static int start_svm_guest(struct guest_info *info) {
     v3_clgi();
 
 
-    PrintDebug("SVM Entry to rip=%p...\n", (void *)info->rip);
+    //PrintDebug("SVM Entry to rip=%p...\n", (void *)info->rip);
 
     v3_get_msr(0xc0000101, &vm_cr_high, &vm_cr_low);
 
@@ -321,7 +321,7 @@ static int start_svm_guest(struct guest_info *info) {
     rdtscll(tmp_tsc);
 
     v3_set_msr(0xc0000101, vm_cr_high, vm_cr_low);
-    PrintDebug("SVM Returned\n");
+    //PrintDebug("SVM Returned\n");
 
 
 #if PrintDebug
@@ -335,11 +335,11 @@ static int start_svm_guest(struct guest_info *info) {
     v3_update_time(info, tmp_tsc - info->time_state.cached_host_tsc);
     num_exits++;
 
-    PrintDebug("Turning on global interrupts\n");
+    //PrintDebug("Turning on global interrupts\n");
     v3_stgi();
 
 
-    PrintDebug("SVM Exit number %d\n", num_exits);
+    //PrintDebug("SVM Exit number %d\n", num_exits);
 
 
      
