@@ -17,7 +17,6 @@
 # Required software to build GeekOS:
 # - GNU Make (http://www.gnu.org/software/make)
 # - gcc 2.95.2 generating code for target (i386/ELF) and host platforms
-# - nasm (http://nasm.sourceforge.net)
 # - Perl5, AWK (any version), egrep
 #
 # Cygwin (http://cygwin.com) may be used to build GeekOS.
@@ -195,29 +194,6 @@ else
 endif
 
 
-#
-# DECODER is the decoder that will be used 
-# currently we only support xed
-#
-DECODER=XED
-
-DECODER_FLAGS=
-DECODER_SRCS=
-DECODER_LIBS=
-
-ifeq ($(DECODER),XED)
-DECODER_SRCS := vmm_xed.c
-DECODER_FLAGS :=  -L../lib/xed
-ifeq ($(ARCH),64)
-DECODER_LIBS := $(PROJECT_ROOT)/lib/xed/libxed32e.a
-else 
-DECODER_LIBS := $(PROJECT_ROOT)/lib/xed/libxed.a
-endif
-else
-# This is an error
-endif
-
-
 
 
 
@@ -254,54 +230,78 @@ endif
 ALL_TARGETS := vmm vm_kernel
 
 
+VMM_OBJS := \
+	palacios/vm_guest.o \
+	palacios/svm.o \
+	palacios/svm_handler.o \
+	palacios/vmm.o \
+	palacios/vmm_util.o \
+	palacios/vmm_ctrl_regs.o \
+	palacios/vmcb.o \
+	palacios/vmm_mem.o \
+	palacios/vmm_paging.o \
+	palacios/vmm_io.o \
+	palacios/vmm_debug.o \
+	palacios/svm_io.o \
+	palacios/vmm_intr.o \
+	palacios/vmm_time.o \
+	palacios/vmm_shadow_paging.o \
+	palacios/vm_guest_mem.o \
+	palacios/vm_dev.o \
+	palacios/vmm_dev_mgr.o \
+	palacios/vmm_decoder.o \
+	palacios/svm_halt.o \
+	palacios/svm_pause.o \
+	palacios/svm_wbinvd.o \
+	palacios/vmm_config.o \
+	palacios/vmm_hashtable.o \
+	palacios/vmm_string.o \
+	palacios/vmm_emulator.o \
+	palacios/vmm_queue.o \
+	palacios/vmm_host_events.o \
+	palacios/svm_lowlevel.o \
 
-
-
-
-VMM_ASM_SRCS :=
-VMM_ASM_OBJS := $(VMM_ASM_SRCS:%.asm=palacios/%.o)
-
-VMM_GAS_SRCS := svm_lowlevel.s
-VMM_GAS_OBJS := $(VMM_GAS_SRCS:%.s=palacios/%.o)
-
-VMM_C_SRCS :=   vm_guest.c \
-	 	svm.c svm_handler.c vmm.c vmm_util.c vmm_ctrl_regs.c \
-		vmcb.c vmm_mem.c vmm_paging.c vmm_io.c vmm_debug.c svm_io.c \
-		vmm_intr.c vmm_time.c \
-		vmm_shadow_paging.c vm_guest_mem.c  \
-                vm_dev.c vmm_dev_mgr.c vmm_decoder.c \
-                svm_halt.c svm_pause.c svm_wbinvd.c \
-	        vmm_config.c vmm_hashtable.c \
-		vmm_string.c vmm_emulator.c vmm_queue.c\
-		vmm_host_events.c \
-		 $(DECODER_SRCS)
 #		vmx.c vmcs_gen.c vmcs.c
 
-VMM_C_OBJS := $(VMM_C_SRCS:%.c=palacios/%.o)
-
-VMM_OBJS := $(VMM_C_OBJS) $(VMM_ASM_OBJS) $(VMM_GAS_OBJS)
-
-
-
-XED_C_SRCS := v3-xed-compat.c
-XED_C_OBJS := $(XED_C_SRCS:%.c=xed/%.o)
-
-XED_GAS_SRCS := v3-udiv-compat.s
-XED_GAS_OBJS := $(XED_GAS_SRCS:%.s=xed/%.o)
-
-XED_OBJS := $(XED_C_OBJS) $(XED_GAS_OBJS)
+# Extra C flags for the VMM objects
+$(VMM_OBJS) :: EXTRA_CFLAGS = \
+	$(JRLDEBUG) \
 
 
 
-DEVICE_C_SRCS := generic.c keyboard.c nvram.c timer.c simple_pic.c 8259a.c 8254.c serial.c ramdisk.c cdrom.c bochs_debug.c
+XED_OBJS := \
+	xed/v3-xed-compat.o \
+	xed/v3-udiv-compat.o \
 
-DEVICE_C_OBJS := $(DEVICE_C_SRCS:%.c=devices/%.o)
-
-DEVICE_OBJS := $(DEVICE_C_OBJS)
-
-V3LIBS := $(DECODER_LIBS)
+$(XED_OBJS) :: EXTRA_CFLAGS =
 
 
+DEVICES_OBJS := \
+	devices/generic.o \
+	devices/keyboard.o \
+	devices/nvram.o \
+	devices/timer.o \
+	devices/simple_pic.o \
+	devices/8259a.o \
+	devices/8254.o \
+	devices/serial.o \
+	devices/ramdisk.o \
+	devices/cdrom.o \
+	devices/bochs_debug.o \
+
+$(DEVICES_OBJS) :: EXTRA_CFLAGS =
+
+#
+# DECODER is the decoder that will be used 
+# currently we only support xed
+#
+DECODER=XED
+
+ifeq ($(DECODER),XED)
+VMM_OBJS += palacios/vmm_xed.o
+else
+# This is an error
+endif
 
 
 
@@ -323,7 +323,7 @@ endif
 
 # Target C compiler.  gcc 2.95.2 or later should work.
 ifeq ($(ARCH),64)
-TARGET_CC := $(TARGET_CC_PREFIX)gcc
+TARGET_CC := $(TARGET_CC_PREFIX)gcc -m64
 else 
 TARGET_CC := $(TARGET_CC_PREFIX)gcc -m32
 endif
@@ -353,7 +353,7 @@ CPP := cpp
 
 
 ifeq ($(ARCH),64)
-AS = as
+AS = as --64
 else 
 AS = as --32
 endif
@@ -384,17 +384,22 @@ FD_SECTORS_PER_TRACK := $(PERL) $(PROJECT_ROOT)/scripts/numsecs_per_track
 # ----------------------------------------------------------------------
 
 # Flags used for all C source files
-#GENERAL_OPTS := -O -Wall $(EXTRA_C_OPTS) $(VMM_FLAGS) -fPIC #-fvisibility=hidden
-GENERAL_OPTS :=  -O -Wall  $(EXTRA_C_OPTS) $(VMM_FLAGS) -fPIC -Werror#-fvisibility=hidden
-CC_GENERAL_OPTS := $(GENERAL_OPTS) 
 
-# Flags used for VMM C source files
-CC_VMM_OPTS := -g -I$(PROJECT_ROOT)/include -D__V3VEE__ -D$(V3_ARCH) $(DECODER_FLAGS) $(JRLDEBUG)
+CC_GENERAL_OPTS = \
+	-O \
+	-Wall \
+	-g \
+	-D__V3VEE__ \
+	-D$(V3_ARCH) \
+	$(EXTRA_C_OPTS) \
+	$(VMM_FLAGS) \
+	-I$(PROJECT_ROOT)/include \
+	-fPIC \
+	-Werror \
+	-Wp,-MD,$(@D)/.$(@F).d \
+	-Wp,-MT,$@ \
 
-# Flags used for VMM C ASM files
-NASM_VMM_OPTS := -I$(PROJECT_ROOT)/src/palacios/ -f elf $(EXTRA_NASM_OPTS)
-
-
+#-fvisibility=hidden
 
 
 
@@ -406,31 +411,51 @@ OBJCOPY_FLAGS := -R .dynamic -R .note -R .comment
 #   Describes how to compile the source files.
 # ----------------------------------------------------------------------
 
+# Compilation of kernel C source files
+# Usage:
+#	$(call build,TAG,commandline)
+#
+# If V=1 on the command line or the environment, then the actual
+# command executed will be echoed to the terminal.  Otherwise
+# only the tag and the output file will be printed to make
+# any warnings stand out from the compile messages.
+#
+build = \
+	@if [ -z "$V" ]; then \
+		echo '    [$1]	$@'; \
+		$2; \
+	else \
+		echo '$2'; \
+		$2; \
+	fi
 
 
-palacios/%.o : palacios/%.c
-	$(TARGET_CC) -c $(CC_GENERAL_OPTS) $(CC_VMM_OPTS) $< -o palacios/$*.o
 
-palacios/%.o : palacios/%.asm
-	$(NASM) $(NASM_VMM_OPTS) $< -o palacios/$*.o
+CC_COMPILE = \
+	$(call build,CC,$(TARGET_CC) \
+		$(CC_GENERAL_OPTS) \
+		$(EXTRA_CFLAGS) \
+		-c \
+		$< \
+		-o $@ \
+	)
 
-palacios/%.o : palacios/%.S
-	$(CPP) $(CC_VMM_OPTS) $< | $(AS) -o palacios/$*.o
+AS_COMPILE = \
+	$(call build,AS,$(TARGET_CC) \
+		$(CC_GENERAL_OPTS) \
+		$(EXTRA_CFLAGS) \
+		-c \
+		$< \
+		-o $@ \
+	)
 
 
-
-devices/%.o : devices/%.c
-	$(TARGET_CC) -c $(CC_GENERAL_OPTS) $(CC_VMM_OPTS) $< -o devices/$*.o
-
-devices/%.o : devices/%.asm
-	$(NASM) $(NASM_VMM_OPTS) $< -o devices/$*.o
-
-
-xed/%.o : xed/%.c
-	$(TARGET_CC) -c $(CC_GENERAL_OPTS) $(CC_VMM_OPTS) $< -o xed/$*.o
-
-xed/%.o : xed/%.s
-	$(AS) $< -o xed/$*.o
+%.o: %.c
+	$(CC_COMPILE)
+%.o: %.S
+	$(AS_COMPILE)
+%.o: %.s
+	$(AS_COMPILE)
 
 
 # ----------------------------------------------------------------------
@@ -487,15 +512,13 @@ palacios/vmm.bin : palacios/vmm.lib
 
 
 # The kernel executable and symbol map.
-palacios/vmm.lib: $(VMM_OBJS) $(DEVICE_OBJS) $(XED_OBJS) vm_kernel
-#	$(TARGET_LD) -o palacios/vmm.lib  \
-#		$(DECODER_FLAGS) \
-#		 $(VMM_OBJS) $(DEVICE_OBJS) $(XED_OBJS) $(V3LIBS) -b binary vm_kernel
-#	$(TARGET_NM) palacios/vmm.lib > palacios/vmm.syms
-	$(TARGET_AR) rcs libv3vee.a  \
-		 $(VMM_OBJS) $(DEVICE_OBJS) $(XED_OBJS)
+palacios/vmm.lib: libv3vee.a
+libv3vee.a: \
+	$(VMM_OBJS) \
+	$(DEVICES_OBJS) \
+	$(XED_OBJS) \
 
-
+	$(call build,AR,$(TARGET_AR) rcs $@ $^)
 
 force:
 
@@ -506,25 +529,9 @@ force:
 # Clean build directories of generated files
 clean :
 	for d in palacios devices xed; do \
-		(cd $$d && rm -f *); \
+		(cd $$d && rm -f * .*.d); \
 	done
 
 
-# Build header file dependencies, so source files are recompiled when
-# header files they depend on are modified.
-depend : $(GENERATED_LIBC_SRCS)
-
-	$(TARGET_CC) -M $(CC_GENERAL_OPTS) $(CC_KERNEL_OPTS) \
-		$(VMM_C_SRCS:%.c=$(PROJECT_ROOT)/src/palacios/%.c) \
-		| $(PERL) -n -e 's,^(\S),palacios/$$1,;print' \
-		>> depend.mak
-	$(TARGET_CC) -M $(CC_GENERAL_OPTS) $(CC_KERNEL_OPTS) \
-		$(DEVICE_C_SRCS:%.c=$(PROJECT_ROOT)/src/devices/%.c) \
-		| $(PERL) -n -e 's,^(\S),devices/$$1,;print' \
-		>> depend.mak
-
-# By default, there are no header file dependencies.
-depend.mak :
-	touch $@
-
-include depend.mak
+# Include all of the generated dependency files if they exist
+-include */.*.o.d
