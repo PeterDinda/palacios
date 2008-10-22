@@ -55,7 +55,7 @@ int v3_init_emulator(struct guest_info * info) {
 }
 
 static addr_t get_new_page() {
-  void * page = V3_AllocPages(1);
+  void * page = V3_VAddr(V3_AllocPages(1));
   memset(page, 0, PAGE_SIZE);
 
   return (addr_t)page;
@@ -184,14 +184,14 @@ int v3_emulate_memory_read(struct guest_info * info, addr_t read_gva,
   data_page->pte.present = 1;
   data_page->pte.writable = 0;
   data_page->pte.user_page = 1;
-  data_page->pte.page_base_addr = PT32_BASE_ADDR(data_page->page_addr);
+  data_page->pte.page_base_addr = PT32_BASE_ADDR((addr_t)V3_PAddr((void *)(addr_t)(data_page->page_addr)));
 
 
   // Read the data directly onto the emulated page
   ret = read(read_gpa, (void *)(data_page->page_addr + data_addr_offset), instr_info.op_size, private_data);
   if ((ret == -1) || ((uint_t)ret != instr_info.op_size)) {
     PrintError("Read error in emulator\n");
-    V3_FreePage((void *)(data_page->page_addr));
+    V3_FreePage((void *)V3_PAddr((void *)(data_page->page_addr)));
     V3_Free(data_page);
     return -1;
   }
@@ -275,7 +275,7 @@ int v3_emulate_memory_write(struct guest_info * info, addr_t write_gva,
   data_page->pte.present = 1;
   data_page->pte.writable = 1;
   data_page->pte.user_page = 1;
-  data_page->pte.page_base_addr = PT32_BASE_ADDR(data_page->page_addr);
+  data_page->pte.page_base_addr = PT32_BASE_ADDR((addr_t)V3_PAddr((void *)(addr_t)(data_page->page_addr)));
 
 
 
@@ -351,7 +351,7 @@ int v3_emulation_exit_handler(struct guest_info * info) {
     PrintDebug("wiping page %x\n", empg->va); 
 
     v3_replace_shdw_page32(info, empg->va, &dummy_pte, &empte32_t);
-    V3_FreePage((void *)(empg->page_addr));
+    V3_FreePage((void *)(V3_PAddr((void *)(empg->page_addr))));
 
     list_del(&(empg->page_list));
     V3_Free(empg);

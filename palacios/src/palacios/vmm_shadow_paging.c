@@ -247,7 +247,7 @@ int v3_handle_shadow_pagefault(struct guest_info * info, addr_t fault_addr, pf_e
 addr_t v3_create_new_shadow_pt32() {
   void * host_pde = 0;
 
-  host_pde = V3_AllocPages(1);
+  host_pde = V3_VAddr(V3_AllocPages(1));
   memset(host_pde, 0, PAGE_SIZE);
 
   return (addr_t)host_pde;
@@ -385,7 +385,7 @@ static int handle_large_pagefault32(struct guest_info * info,
 static int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_error_t error_code) {
   pde32_t * guest_pd = NULL;
   pde32_t * shadow_pd = (pde32_t *)CR3_TO_PDE32(info->shdw_pg_state.shadow_cr3);
-  addr_t guest_cr3 = CR3_TO_PDE32(info->shdw_pg_state.guest_cr3);
+  addr_t guest_cr3 = (addr_t)CR3_TO_PDE32(info->shdw_pg_state.guest_cr3);
   pt_access_status_t guest_pde_access;
   pt_access_status_t shadow_pde_access;
   pde32_t * guest_pde = NULL;
@@ -434,7 +434,7 @@ static int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr
       
       guest_pde->accessed = 1;
       
-      shadow_pde->pt_base_addr = PD32_BASE_ADDR((addr_t)shadow_pt);
+      shadow_pde->pt_base_addr = PD32_BASE_ADDR((addr_t)V3_PAddr(shadow_pt));
       
       if (guest_pde->large_page == 0) {
 	shadow_pde->writable = guest_pde->writable;
@@ -696,7 +696,7 @@ int v3_handle_shadow_invlpg(struct guest_info * info) {
       addr_t first_operand;
       addr_t second_operand;
       v3_operand_type_t addr_type;
-      addr_t guest_cr3 = CR3_TO_PDE32(info->shdw_pg_state.guest_cr3);
+      addr_t guest_cr3 = (addr_t)CR3_TO_PDE32(info->shdw_pg_state.guest_cr3);
 
       pde32_t * guest_pd = NULL;
 

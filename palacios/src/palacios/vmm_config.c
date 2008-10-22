@@ -105,7 +105,7 @@ int v3_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) 
     void * guest_mem =  V3_AllocPages(num_pages);
 
     PrintDebug("Layout Region %d bytes\n", config_ptr->rombios_size);
-    memcpy(guest_mem, config_ptr->rombios, config_ptr->rombios_size);
+    memcpy(V3_VAddr(guest_mem), config_ptr->rombios, config_ptr->rombios_size);
 
     add_shadow_region_passthrough(info, ROMBIOS_START, ROMBIOS_START + (num_pages * PAGE_SIZE), (addr_t)guest_mem);
     
@@ -122,7 +122,7 @@ int v3_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) 
     void * guest_mem =  V3_AllocPages(num_pages);
 
     PrintDebug("Layout Region %d bytes\n", config_ptr->vgabios_size);
-    memcpy(guest_mem, config_ptr->vgabios, config_ptr->vgabios_size);
+    memcpy(V3_VAddr(guest_mem), config_ptr->vgabios, config_ptr->vgabios_size);
 
     add_shadow_region_passthrough(info, VGABIOS_START, VGABIOS_START + (num_pages * PAGE_SIZE), (addr_t)guest_mem);
     

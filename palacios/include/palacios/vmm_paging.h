@@ -129,9 +129,9 @@ the host state in the vmcs before entering the guest.
 
 
 
-#define CR3_TO_PDE32(cr3) (((ulong_t)cr3) & 0xfffff000)
-#define CR3_TO_PDPTRE(cr3) (((ulong_t)cr3) & 0xffffffe0)
-#define CR3_TO_PML4E64(cr3)  (((ullong_t)cr3) & 0x000ffffffffff000LL)
+#define CR3_TO_PDE32(cr3) (V3_VAddr((void *)(((ulong_t)cr3) & 0xfffff000)))
+#define CR3_TO_PDPTRE(cr3) (V3_VAddr((void *)(((ulong_t)cr3) & 0xffffffe0)))
+#define CR3_TO_PML4E64(cr3)  (V3_VAddr((void *)(((ullong_t)cr3) & 0x000ffffffffff000LL)))
 
 
 

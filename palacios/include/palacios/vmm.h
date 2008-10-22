@@ -104,6 +104,25 @@
   } while(0)					\
 
 
+#define V3_VAddr(addr) ({				\
+      extern struct v3_os_hooks * os_hooks;		\
+      void * var = 0;					\
+      if ((os_hooks) && (os_hooks)->paddr_to_vaddr) {	\
+	var = (os_hooks)->paddr_to_vaddr(addr);		\
+      }							\
+      var;						\
+    })
+
+
+#define V3_PAddr(addr) ({				\
+      extern struct v3_os_hooks * os_hooks;		\
+      void * var = 0;					\
+      if ((os_hooks) && (os_hooks)->vaddr_to_paddr) {	\
+	var = (os_hooks)->vaddr_to_paddr(addr);		\
+      }							\
+      var;						\
+    })
+
 
 
 #define V3_Malloc(size) ({			\
