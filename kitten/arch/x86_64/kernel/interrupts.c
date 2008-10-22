@@ -4,11 +4,13 @@
 #include <lwk/task.h>
 #include <lwk/sched.h>
 #include <lwk/timer.h>
+#include <lwk/palacios.h>
 #include <arch/desc.h>
 #include <arch/idt_vectors.h>
 #include <arch/show.h>
 #include <arch/xcall.h>
 #include <arch/i387.h>
+#include <arch/io.h>
 
 idtvec_handler_t idtvec_table[NUM_IDT_ENTRIES];
 static DEFINE_SPINLOCK(idtvec_table_lock);
@@ -225,6 +227,25 @@ do_apic_spurious(struct pt_regs *regs, unsigned int vector)
 }
 
 void
+do_keyboard_interrupt(struct pt_regs *regs, unsigned int vector)
+{
+	const uint8_t KB_OUTPUT_FULL = 0x01;
+	const uint8_t KB_STATUS_PORT = 0x64;
+	const uint8_t KB_DATA_PORT = 0x60;
+
+	uint8_t status = inb( KB_STATUS_PORT );
+
+	if( (status & KB_OUTPUT_FULL) == 0 )
+		return;
+
+	uint8_t key = inb( KB_DATA_PORT );
+#ifdef CONFIG_V3VEE
+	send_key_to_vmm( status, key );
+#endif
+}
+
+
+void
 set_idtvec_handler(unsigned int vector, idtvec_handler_t handler)
 {
 	char namebuf[KSYM_NAME_LEN+1];
@@ -263,7 +284,7 @@ interrupts_init(void)
 	 */
 	for (vector = 0; vector < NUM_IDT_ENTRIES; vector++) {
 		void *asm_handler = (void *) (
-		  (unsigned long)(&asm_idtvec_table) + (vector * 16)
+		  (uintptr_t)(&asm_idtvec_table) + (vector * 16)
 		);
 		set_intr_gate(vector, asm_handler);
 		set_idtvec_handler(vector, &do_unhandled_idt_vector);
@@ -291,6 +312,7 @@ interrupts_init(void)
 	set_idtvec_handler( ALIGNMENT_CHECK_VECTOR,        &do_alignment_check        );
 	set_idtvec_handler( MACHINE_CHECK_VECTOR,          &do_machine_check          );
 	set_idtvec_handler( SIMD_COPROCESSOR_ERROR_VECTOR, &do_simd_coprocessor_error );
+	set_idtvec_handler( IRQ1_VECTOR, &do_keyboard_interrupt );
 
 	/*
 	 * Register handlers for all of the local APIC vectors.

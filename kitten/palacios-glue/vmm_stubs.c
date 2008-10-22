@@ -28,26 +28,14 @@
 #include <arch/apic.h>
 
 struct guest_info * g_vm_guest = NULL;
-
-
-// This is the function the interface code should call to deliver
-// the interrupt to the vmm for handling
-//extern int v3_deliver_interrupt(struct guest_info * vm, struct v3_interrupt *intr);
-
-
 struct guest_info * irq_to_guest_map[256];
 
 
 
-
-
 void
-v3vee_init_stubs(
-	struct guest_info * info
-)
+v3vee_init_stubs( void )
 {
-	memset(irq_to_guest_map, 0, sizeof(struct guest_info *) * 256);
-	g_vm_guest = info;
+	memset(irq_to_guest_map, 0, sizeof(irq_to_guest_map) );
 }
 
 
@@ -78,7 +66,7 @@ Allocate_VMM_Pages(
 	if( rc )
 		return 0;
 
-	return result.start;
+	return (void*) result.start;
 }
 
 static void
@@ -91,8 +79,8 @@ Free_VMM_Page(
 
 	pmem_region_unset_all(&query);
 
-	query.start	= page;
-	query.end	= page+PAGE_SIZE;
+	query.start	= (uintptr_t)( page );
+	query.end	= (uintptr_t)( page + PAGE_SIZE );
 
 	int rc = pmem_query(&query,&result);
 
@@ -167,6 +155,7 @@ translate_intr_handler(
 	};
 
 	//  PrintBoth("translate_intr_handler: opaque=0x%x\n",mystate.opaque);
+	printk( "%s: irq %d\n", __func__, vector );
 	v3_deliver_irq( irq_to_guest_map[intr.irq], &intr );
 }
 
@@ -183,6 +172,7 @@ kitten_hook_interrupt(
 	}
 
 	//PrintBoth("Hooked interrupt 0x%x with opaque 0x%x\n", irq, vm);
+	printk( "%s: hook irq %d to %p\n", __func__, irq, vm );
 	irq_to_guest_map[irq] = vm;
 
 	set_idtvec_handler( irq, translate_intr_handler );
@@ -206,15 +196,45 @@ get_cpu_khz( void )
 	return cpu_info[0].arch.cur_cpu_khz;
 }
 
+static void *
+v3vee_alloc(
+	unsigned int size
+)
+{
+	return kmem_alloc( size );
+}
+
+
+static void
+v3vee_free(
+	void * addr
+)
+{
+	return kmem_free( addr );
+}
+
+
+static void
+v3vee_printk(
+	const char *		fmt,
+	...
+)
+{
+	va_list ap;
+	va_start( ap, fmt );
+	vprintk( fmt, ap );
+	va_end( ap );
+}
+
 
 struct v3_os_hooks v3vee_os_hooks = {
-	.print_debug		= printk,  // serial print ideally
-	.print_info		= printk,   // serial print ideally
-	.print_trace		= printk,  // serial print ideally
+	.print_debug		= 0, // printk,  // serial print ideally
+	.print_info		= v3vee_printk,   // serial print ideally
+	.print_trace		= v3vee_printk,  // serial print ideally
 	.allocate_pages		= Allocate_VMM_Pages, // defined in vmm_stubs
 	.free_page		= Free_VMM_Page, // defined in vmm_stubs
-	.malloc			= kmem_alloc,
-	.free			= kmem_free,
+	.malloc			= v3vee_alloc,
+	.free			= v3vee_free,
 	.vaddr_to_paddr		= kitten_va_to_pa,
 	.paddr_to_vaddr		= kitten_pa_to_va,
 	.hook_interrupt		= kitten_hook_interrupt,

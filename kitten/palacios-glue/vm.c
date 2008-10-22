@@ -31,9 +31,6 @@ v3vee_run_vmm( void )
 {
 	struct v3_ctrl_ops v3_ops = {};
 
-	void * ramdiskImage=initrd_start;
-	uintptr_t ramdiskSize=initrd_end-initrd_start;
-
 	Init_V3( &v3vee_os_hooks, &v3_ops );
 
 	struct v3_vm_config vm_config = {
@@ -41,17 +38,19 @@ v3vee_run_vmm( void )
 		.rombios_size		= (&rombios_end)-(&rombios_start),
 		.vgabios		= &vgabios_start,
 		.vgabios_size		= (&vgabios_end)-(&vgabios_start),
-		.use_ramdisk		= ramdiskImage != NULL,
-		.ramdisk		= ramdiskImage,
-		.ramdisk_size		= ramdiskSize,
+		.use_ramdisk		= 1,
+		.ramdisk		= (void*) initrd_start,
+		.ramdisk_size		= initrd_end - initrd_start,
 	};
 
-	struct guest_info * vm_info = (v3_ops).allocate_guest();
-	v3vee_init_stubs(vm_info);
+	struct guest_info * vm_info = v3_ops.allocate_guest();
+	v3vee_init_stubs();
 
 	v3_ops.config_guest(vm_info, &vm_config);
 
 	v3_ops.init_guest(vm_info);
+	g_vm_guest = vm_info;
+
 	printk("Starting Guest\n");
 	v3_ops.start_guest(vm_info);
   
