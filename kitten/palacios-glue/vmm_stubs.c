@@ -84,8 +84,14 @@ Free_VMM_Page(
 
 	int rc = pmem_query(&query,&result);
 
-	if (rc)
-		panic( "BAD" );
+	if( rc )
+	{
+		panic( "Asked to free non-allocated page %p! rc=%d",
+			page,
+			rc
+		);
+		return;
+	}
 
 	result.allocated = 0;
 	pmem_update(&result);
