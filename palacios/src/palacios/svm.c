@@ -301,10 +301,24 @@ static int start_svm_guest(struct guest_info *info) {
 
   while (1) {
     ullong_t tmp_tsc;
+    uint_t vm_cr_low = 0, vm_cr_high = 0;
 
 
     v3_enable_ints();
     v3_clgi();
+
+    {
+
+      v3_get_msr(0xc0000101, &vm_cr_high, &vm_cr_low);
+
+      PrintDebug("GS.Base: %x:%x\n", vm_cr_high, vm_cr_low); 
+      /*
+      v3_get_msr(0xc0000102, &vm_cr_high, &vm_cr_low);
+
+      PrintDebug("KernelGSBase: %x:%x\n", vm_cr_high, vm_cr_low); 
+      */
+
+    }
 
     PrintDebug("SVM Entry to rip=%x...\n", info->rip);
 
@@ -315,6 +329,21 @@ static int start_svm_guest(struct guest_info *info) {
 
     rdtscll(tmp_tsc);
     PrintDebug("SVM Returned\n");
+
+
+    {
+
+      v3_set_msr(0xc0000101, vm_cr_high, vm_cr_low);
+
+      PrintDebug("GS.Base: %x:%x\n", vm_cr_high, vm_cr_low); 
+
+      /*
+      v3_get_msr(0xc0000102, &vm_cr_high, &vm_cr_low);
+
+      PrintDebug("KernelGSBase: %x:%x\n", vm_cr_high, vm_cr_low); 
+      */
+
+    }
     
     {
       uint_t x = 0;
