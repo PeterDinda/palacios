@@ -50,7 +50,7 @@ static int mem_test_read(addr_t guest_addr, void * dst, uint_t length, void * pr
 
   memcpy(dst, &foo, length);
 
-  PrintDebug("Passthrough mem read returning: %d (length=%d)\n", foo + (guest_addr & 0xfff), length);
+  PrintDebug("Passthrough mem read returning: %p (length=%d)\n", (void *)(foo + (guest_addr & 0xfff)), length);
   return length;
 }
 
@@ -109,10 +109,10 @@ int v3_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) 
 
     add_shadow_region_passthrough(info, ROMBIOS_START, ROMBIOS_START + (num_pages * PAGE_SIZE), (addr_t)guest_mem);
     
-    PrintDebug("Adding Shadow Region (0x%x-0x%x) -> 0x%x\n", 
-	       ROMBIOS_START, 
-	       ROMBIOS_START + (num_pages * PAGE_SIZE), 
-	       guest_mem);
+    PrintDebug("Adding Shadow Region (0x%p-0x%p) -> 0x%p\n", 
+	       (void *)ROMBIOS_START, 
+	       (void *)ROMBIOS_START + (num_pages * PAGE_SIZE), 
+	       (void *)guest_mem);
   }
 
 
@@ -126,10 +126,10 @@ int v3_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) 
 
     add_shadow_region_passthrough(info, VGABIOS_START, VGABIOS_START + (num_pages * PAGE_SIZE), (addr_t)guest_mem);
     
-    PrintDebug("Adding Shadow Region (0x%x-0x%x) -> 0x%x\n", 
-	       VGABIOS_START, 
-	       VGABIOS_START + (num_pages * PAGE_SIZE), 
-	       guest_mem);
+    PrintDebug("Adding Shadow Region (0x%p-0x%p) -> 0x%p\n", 
+	       (void *)VGABIOS_START, 
+	       (void *)VGABIOS_START + (num_pages * PAGE_SIZE), 
+	       (void *)guest_mem);
   }
 
       //     

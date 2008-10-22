@@ -264,8 +264,8 @@ pde32_t * create_passthrough_pde32_pts(struct guest_info * guest_info) {
 
 void PrintPDE32(addr_t virtual_address, pde32_t * pde)
 {
-  PrintDebug("PDE %x -> %p : present=%x, writable=%x, user=%x, wt=%x, cd=%x, accessed=%x, reserved=%x, largePages=%x, globalPage=%x, kernelInfo=%x\n",
-	     virtual_address,
+  PrintDebug("PDE %p -> %p : present=%x, writable=%x, user=%x, wt=%x, cd=%x, accessed=%x, reserved=%x, largePages=%x, globalPage=%x, kernelInfo=%x\n",
+	     (void *)virtual_address,
 	     (void *)(addr_t) (pde->pt_base_addr << PAGE_POWER),
 	     pde->present,
 	     pde->writable,
@@ -282,7 +282,7 @@ void PrintPDE32(addr_t virtual_address, pde32_t * pde)
 void PrintPTE32(addr_t virtual_address, pte32_t * pte)
 {
   PrintDebug("PTE %p -> %p : present=%x, writable=%x, user=%x, wt=%x, cd=%x, accessed=%x, dirty=%x, pteAttribute=%x, globalPage=%x, vmm_info=%x\n",
-	     virtual_address,
+	     (void *)virtual_address,
 	     (void*)(addr_t)(pte->page_base_addr << PAGE_POWER),
 	     pte->present,
 	     pte->writable,
