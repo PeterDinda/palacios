@@ -23,6 +23,7 @@
 #include <palacios/vm_guest.h>
 #include <palacios/vmm_ctrl_regs.h>
 #include <palacios/vmm.h>
+#include <palacios/vmcb.h>
 
 
 v3_vm_cpu_mode_t v3_get_cpu_mode(struct guest_info * info) {
@@ -102,6 +103,7 @@ void v3_print_ctrl_regs(struct guest_info * info) {
   int i = 0;
   v3_reg_t * reg_ptr;
   char * reg_names[] = {"CR0", "CR2", "CR3", "CR4", "CR8", "FLAGS", NULL};
+  vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA(info->vmm_data);
 
   reg_ptr= (v3_reg_t *)regs;
 
@@ -110,6 +112,9 @@ void v3_print_ctrl_regs(struct guest_info * info) {
   for (i = 0; reg_names[i] != NULL; i++) {
     PrintDebug("\t%s=0x%p\n", reg_names[i], (void *)reg_ptr[i]);  
   }
+
+  PrintDebug("\tEFER=0x%p\n", (void*)(guest_state->efer));
+
 }
 
 
