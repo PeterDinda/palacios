@@ -168,7 +168,7 @@ struct vm_device *  v3_create_cdrom(struct vm_device * ramdisk_dev, void * ramdi
 
   memset(cd, 0, sizeof(struct cdrom_state));
 
-  cd->image_addr = (uchar_t *)ramdisk;
+  cd->image_addr = (uchar_t *)V3_VAddr(ramdisk);
   cd->capacity_in_bytes = ramdisk_size;
   cd->ide_dev = ramdisk_dev;
   
