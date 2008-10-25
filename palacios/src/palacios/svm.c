@@ -75,6 +75,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
 
 
   /* Set up the efer to enable 64 bit page tables */
+  /*
   {
     struct efer_64 * efer = (struct efer_64 *)&(guest_state->efer);
     struct cr4_32 * cr4 = (struct cr4_32 *)&(guest_state->cr4);
@@ -83,6 +84,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
 
     cr4->pae = 1;
   }
+  */
 
   guest_state->efer |= EFER_MSR_svm_enable;
 
@@ -213,8 +215,8 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
 
 
     /* Testing 64 bit page tables for long paged real mode guests */
-    vm_info->direct_map_pt = (addr_t)V3_PAddr(create_passthrough_pts_64(vm_info));
-    //vm_info->direct_map_pt = (addr_t)V3_PAddr(create_passthrough_pts_32(vm_info));
+    //    vm_info->direct_map_pt = (addr_t)V3_PAddr(create_passthrough_pts_64(vm_info));
+    vm_info->direct_map_pt = (addr_t)V3_PAddr(create_passthrough_pts_32(vm_info));
     /* End Test */
 
     //vm_info->shdw_pg_state.shadow_cr3 |= (vm_info->direct_map_pt & ~0xfff);

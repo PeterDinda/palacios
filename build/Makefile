@@ -207,10 +207,11 @@ kitten:
 	(cd $(KITTEN_TOP_DIR) && make)
 
 kitten-full: palacios-full64
+	(cd $(KITTEN_TOP_DIR) && make clean)
 	cp $(PALACIOS_BUILD_DIR)/libv3vee.a $(KITTEN_TOP_DIR)/palacios/
 	cp $(PALACIOS_BUILD_DIR)/../lib/xed/libxed32e.a $(KITTEN_TOP_DIR)/palacios/
 	cp $(PALACIOS_BUILD_DIR)/vm_kernel $(KITTEN_TOP_DIR)/palacios/
-	(cd $(KITTEN_TOP_DIR) && make clean && make)
+	(cd $(KITTEN_TOP_DIR) && make)
 
 
 geekos: 
