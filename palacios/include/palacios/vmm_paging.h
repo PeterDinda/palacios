@@ -18,8 +18,8 @@
  */
 
 
-#ifndef __VMM_PAGING_H
-#define __VMM_PAGING_H
+#ifndef __VMM_PAGING_H__
+#define __VMM_PAGING_H__
 
 
 #ifdef __V3VEE__
@@ -110,6 +110,12 @@ the host state in the vmcs before entering the guest.
 #define PT32_BASE_ADDR(x) (((uint_t)x) >> 12)
 #define PD32_4MB_BASE_ADDR(x) (((uint_t)x) >> 22)
 
+
+#define PML4E64_BASE_ADDR(x) (((ullong_t)x) >> 12)
+#define PDPE64_BASE_ADDR(x) (((ullong_t)x) >> 12)
+#define PDE64_BASE_ADDR(x) (((ullong_t)x) >> 12)
+#define PTE64_BASE_ADDR(x) (((ullong_t)x) >> 12)
+
 #define PT32_PAGE_ADDR(x)   (((uint_t)x) & 0xfffff000)
 #define PT32_PAGE_OFFSET(x) (((uint_t)x) & 0xfff)
 #define PT32_PAGE_POWER 12
@@ -129,9 +135,9 @@ the host state in the vmcs before entering the guest.
 
 
 
-#define CR3_TO_PDE32(cr3) (((ulong_t)cr3) & 0xfffff000)
-#define CR3_TO_PDPTRE(cr3) (((ulong_t)cr3) & 0xffffffe0)
-#define CR3_TO_PML4E64(cr3)  (((ullong_t)cr3) & 0x000ffffffffff000LL)
+#define CR3_TO_PDE32(cr3) (V3_VAddr((void *)(((ulong_t)cr3) & 0xfffff000)))
+#define CR3_TO_PDPTRE(cr3) (V3_VAddr((void *)(((ulong_t)cr3) & 0xffffffe0)))
+#define CR3_TO_PML4E64(cr3)  (V3_VAddr((void *)(((ullong_t)cr3) & 0x000ffffffffff000LL)))
 
 
 
@@ -146,7 +152,7 @@ the host state in the vmcs before entering the guest.
 #define PT32_GUEST_PT 0x2
 
 
-#endif
+
 
 /* PDE 32 bit PAGE STRUCTURES */
 typedef enum {PDE32_ENTRY_NOT_PRESENT, PDE32_ENTRY_PTE32, PDE32_ENTRY_LARGE_PAGE} pde32_entry_type_t;
@@ -211,15 +217,14 @@ typedef struct pte32 {
 typedef struct pml4e64 {
   uint_t present        : 1;
   uint_t writable       : 1;
-  uint_t user           : 1;
-  uint_t pwt            : 1;
-  uint_t pcd            : 1;
+  uint_t user_page           : 1;
+  uint_t write_through  : 1;
+  uint_t cache_disable  : 1;
   uint_t accessed       : 1;
   uint_t reserved       : 1;
   uint_t zero           : 2;
   uint_t vmm_info       : 3;
-  uint_t pdp_base_addr_lo : 20;
-  uint_t pdp_base_addr_hi : 20;
+  ullong_t pdp_base_addr : 40;
   uint_t available      : 11;
   uint_t no_execute     : 1;
 } pml4e64_t;
@@ -228,16 +233,15 @@ typedef struct pml4e64 {
 typedef struct pdpe64 {
   uint_t present        : 1;
   uint_t writable       : 1;
-  uint_t user           : 1;
-  uint_t pwt            : 1;
-  uint_t pcd            : 1;
+  uint_t user_page           : 1;
+  uint_t write_through  : 1;
+  uint_t cache_disable  : 1;
   uint_t accessed       : 1;
   uint_t reserved       : 1;
-  uint_t large_pages    : 1;
+  uint_t large_page    : 1;
   uint_t zero           : 1;
   uint_t vmm_info       : 3;
-  uint_t pd_base_addr_lo : 20;
-  uint_t pd_base_addr_hi : 20;
+  ullong_t pd_base_addr : 40;
   uint_t available      : 11;
   uint_t no_execute     : 1;
 } pdpe64_t;
@@ -247,28 +251,32 @@ typedef struct pdpe64 {
 
 typedef struct pde64 {
   uint_t present         : 1;
-  uint_t flags           : 4;
+  uint_t writable        : 1;
+  uint_t user_page       : 1;
+  uint_t write_through   : 1;
+  uint_t cache_disable   : 1;
   uint_t accessed        : 1;
   uint_t reserved        : 1;
-  uint_t large_pages     : 1;
+  uint_t large_page     : 1;
   uint_t reserved2       : 1;
   uint_t vmm_info        : 3;
-  uint_t pt_base_addr_lo    : 20;
-  uint_t pt_base_addr_hi : 20;
+  ullong_t pt_base_addr  : 40;
   uint_t available       : 11;
   uint_t no_execute      : 1;
 } pde64_t;
 
 typedef struct pte64 {
   uint_t present         : 1;
-  uint_t flags           : 4;
+  uint_t writable        : 1;
+  uint_t user_page       : 1;
+  uint_t write_through   : 1;
+  uint_t cache_disable   : 1;
   uint_t accessed        : 1;
   uint_t dirty           : 1;
   uint_t pte_attr        : 1;
   uint_t global_page     : 1;
   uint_t vmm_info        : 3;
-  uint_t page_base_addr_lo  : 20;
-  uint_t page_base_addr_hi : 20;
+  ullong_t page_base_addr : 40;
   uint_t available       : 11;
   uint_t no_execute      : 1;
 } pte64_t;
@@ -283,8 +291,6 @@ typedef struct pf_error_code {
   uint_t ifetch            : 1; // if 1, faulting access was an instr fetch (only with NX)
   uint_t rsvd              : 27;
 } pf_error_t;
-
-typedef enum { PDE32 } paging_mode_t;
 
 
 
@@ -310,8 +316,8 @@ pt_access_status_t can_access_pte32(pte32_t * pte, addr_t addr, pf_error_t acces
 
 struct guest_info;
 
-pde32_t * create_passthrough_pde32_pts(struct guest_info * guest_info);
-
+pde32_t * create_passthrough_pts_32(struct guest_info * guest_info);
+pml4e64_t * create_passthrough_pts_64(struct guest_info * info);
 
 
 
@@ -320,13 +326,13 @@ pde32_t * create_passthrough_pde32_pts(struct guest_info * guest_info);
 void PrintDebugPageTables(pde32_t * pde);
 
 
-#ifdef __V3VEE__
 
 
 void PrintPT32(addr_t starting_address, pte32_t * pte);
 void PrintPD32(pde32_t * pde);
 void PrintPTE32(addr_t virtual_address, pte32_t * pte);
 void PrintPDE32(addr_t virtual_address, pde32_t * pde);
+void PrintPTE64(addr_t virtual_address, pte64_t * pte);
 
 #endif // !__V3VEE__
 

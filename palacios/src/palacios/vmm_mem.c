@@ -81,7 +81,7 @@ struct vmm_mem_hook * get_mem_hook(struct guest_info * info, addr_t guest_addr) 
   struct shadow_region * region = get_shadow_region_by_addr(&(info->mem_map), guest_addr);
 
   if (region == NULL) {
-    PrintDebug("Could not find shadow region for addr: %x\n", guest_addr);
+    PrintDebug("Could not find shadow region for addr: %p\n", (void *)guest_addr);
     return NULL;
   }
 
@@ -121,6 +121,8 @@ int handle_special_page_fault(struct guest_info * info,
 			      pf_error_t access_info) 
 {
   struct shadow_region * reg = get_shadow_region_by_addr(&(info->mem_map), fault_gpa);
+
+  PrintDebug("Handling Special Page Fault\n");
 
   switch (reg->host_type) {
   case HOST_REGION_HOOK:
@@ -165,7 +167,8 @@ int add_shadow_region(struct shadow_map * map,
 {
   struct shadow_region * cursor = map->head;
 
-  PrintDebug("Adding Shadow Region: (0x%x-0x%x)\n", region->guest_start, region->guest_end);
+  PrintDebug("Adding Shadow Region: (0x%p-0x%p)\n", 
+	     (void *)region->guest_start, (void *)region->guest_end);
 
   if ((!cursor) || (cursor->guest_start >= region->guest_end)) {
     region->prev = NULL;
@@ -306,7 +309,8 @@ void print_shadow_map(struct shadow_map * map) {
   PrintDebug("Memory Layout (regions: %d) \n", map->num_regions);
 
   while (cur) {
-    PrintDebug("%d:  0x%x - 0x%x (%s) -> ", i, cur->guest_start, cur->guest_end - 1,
+    PrintDebug("%d:  0x%p - 0x%p (%s) -> ", i, 
+	       (void *)cur->guest_start, (void *)(cur->guest_end - 1),
 	       cur->guest_type == GUEST_REGION_PHYSICAL_MEMORY ? "GUEST_REGION_PHYSICAL_MEMORY" :
 	       cur->guest_type == GUEST_REGION_NOTHING ? "GUEST_REGION_NOTHING" :
 	       cur->guest_type == GUEST_REGION_MEMORY_MAPPED_DEVICE ? "GUEST_REGION_MEMORY_MAPPED_DEVICE" :
@@ -314,7 +318,7 @@ void print_shadow_map(struct shadow_map * map) {
     if (cur->host_type == HOST_REGION_PHYSICAL_MEMORY || 
 	cur->host_type == HOST_REGION_UNALLOCATED ||
 	cur->host_type == HOST_REGION_MEMORY_MAPPED_DEVICE) { 
-      PrintDebug("0x%x", cur->host_addr);
+      PrintDebug("0x%p", (void *)(cur->host_addr));
     }
     PrintDebug("(%s)\n",
 	       cur->host_type == HOST_REGION_PHYSICAL_MEMORY ? "HOST_REGION_PHYSICAL_MEMORY" :

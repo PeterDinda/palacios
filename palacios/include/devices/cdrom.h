@@ -18,8 +18,8 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#ifndef __DEVICES_CDROM_H_
-#define __DEVICES_CDROM_H_
+#ifndef __DEVICES_CDROM_H__
+#define __DEVICES_CDROM_H__
 
 
 #ifdef __V3VEE__

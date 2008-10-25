@@ -91,7 +91,7 @@ void PrintDebugVMCB(vmcb_t * vmcb) {
   vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA(vmcb);
   vmcb_saved_state_t * guest_area = GET_VMCB_SAVE_STATE_AREA(vmcb);
 
-  PrintDebug("VMCB (0x%.8x)\n", vmcb);
+  PrintDebug("VMCB (0x%p)\n", (void *)vmcb);
 
   PrintDebug("--Control Area--\n");
   PrintDebug("CR Reads: %x\n", *(ushort_t*)&(ctrl_area->cr_reads));
@@ -99,7 +99,7 @@ void PrintDebugVMCB(vmcb_t * vmcb) {
   PrintDebug("DR Reads: %x\n", *(ushort_t*)&(ctrl_area->dr_reads));
   PrintDebug("DR Writes: %x\n", *(ushort_t*)&(ctrl_area->dr_writes));
   
-  PrintDebug("Exception Bitmap: %x (at 0x%.8x)\n", *(uint_t*)&(ctrl_area->exceptions), &(ctrl_area->exceptions));
+  PrintDebug("Exception Bitmap: %x (at 0x%p)\n", *(uint_t*)&(ctrl_area->exceptions), (void *)&(ctrl_area->exceptions));
   PrintDebug("\tDivide-by-Zero: %d\n", ctrl_area->exceptions.de);
   PrintDebug("\tDebug: %d\n", ctrl_area->exceptions.db);
   PrintDebug("\tNon-maskable interrupts: %d\n", ctrl_area->exceptions.nmi);
@@ -120,7 +120,7 @@ void PrintDebugVMCB(vmcb_t * vmcb) {
   PrintDebug("\tSIMD floating point: %d\n", ctrl_area->exceptions.xf);
   PrintDebug("\tSecurity: %d\n", ctrl_area->exceptions.sx);
 
-  PrintDebug("Instructions bitmap: %.8x (at 0x%.8x)\n", *(uint_t*)&(ctrl_area->instrs), &(ctrl_area->instrs));
+  PrintDebug("Instructions bitmap: %.8x (at 0x%p)\n", *(uint_t*)&(ctrl_area->instrs), &(ctrl_area->instrs));
   PrintDebug("\tINTR: %d\n", ctrl_area->instrs.INTR);
   PrintDebug("\tNMI: %d\n", ctrl_area->instrs.NMI);
   PrintDebug("\tSMI: %d\n", ctrl_area->instrs.SMI);
@@ -154,7 +154,7 @@ void PrintDebugVMCB(vmcb_t * vmcb) {
   PrintDebug("\tFERR_FREEZE: %d\n", ctrl_area->instrs.FERR_FREEZE);
   PrintDebug("\tshutdown_evts: %d\n", ctrl_area->instrs.shutdown_evts);
 
-  PrintDebug("SVM Instruction Bitmap: %.8x (at 0x%.8x)\n", *(uint_t*)&(ctrl_area->svm_instrs), &(ctrl_area->svm_instrs));
+  PrintDebug("SVM Instruction Bitmap: %x (at 0x%p)\n", *(uint_t*)&(ctrl_area->svm_instrs), &(ctrl_area->svm_instrs));
   PrintDebug("\tVMRUN: %d\n", ctrl_area->svm_instrs.VMRUN);
   PrintDebug("\tVMMCALL: %d\n", ctrl_area->svm_instrs.VMMCALL);
   PrintDebug("\tVMLOAD: %d\n", ctrl_area->svm_instrs.VMLOAD);
@@ -172,17 +172,17 @@ void PrintDebugVMCB(vmcb_t * vmcb) {
 
 
   tmp_reg.r_reg = ctrl_area->IOPM_BASE_PA;
-  PrintDebug("IOPM_BASE_PA: lo: 0x%.8x, hi: 0x%.8x\n", tmp_reg.e_reg.low, tmp_reg.e_reg.high);
+  PrintDebug("IOPM_BASE_PA: lo: 0x%x, hi: 0x%x\n", tmp_reg.e_reg.low, tmp_reg.e_reg.high);
   tmp_reg.r_reg = ctrl_area->MSRPM_BASE_PA;
-  PrintDebug("MSRPM_BASE_PA: lo: 0x%.8x, hi: 0x%.8x\n", tmp_reg.e_reg.low, tmp_reg.e_reg.high);
+  PrintDebug("MSRPM_BASE_PA: lo: 0x%x, hi: 0x%x\n", tmp_reg.e_reg.low, tmp_reg.e_reg.high);
   tmp_reg.r_reg = ctrl_area->TSC_OFFSET;
-  PrintDebug("TSC_OFFSET: lo: 0x%.8x, hi: 0x%.8x\n", tmp_reg.e_reg.low, tmp_reg.e_reg.high);
+  PrintDebug("TSC_OFFSET: lo: 0x%x, hi: 0x%x\n", tmp_reg.e_reg.low, tmp_reg.e_reg.high);
 
   PrintDebug("guest_ASID: %d\n", ctrl_area->guest_ASID);
   PrintDebug("TLB_CONTROL: %d\n", ctrl_area->TLB_CONTROL);
 
 
-  PrintDebug("Guest Control Bitmap: %x (at 0x%.8x)\n", *(uint_t*)&(ctrl_area->guest_ctrl), &(ctrl_area->guest_ctrl));
+  PrintDebug("Guest Control Bitmap: %x (at 0x%p)\n", *(uint_t*)&(ctrl_area->guest_ctrl), &(ctrl_area->guest_ctrl));
   PrintDebug("\tV_TPR: %d\n", ctrl_area->guest_ctrl.V_TPR);
   PrintDebug("\tV_IRQ: %d\n", ctrl_area->guest_ctrl.V_IRQ);
   PrintDebug("\tV_INTR_PRIO: %d\n", ctrl_area->guest_ctrl.V_INTR_PRIO);
@@ -194,14 +194,14 @@ void PrintDebugVMCB(vmcb_t * vmcb) {
 
 
   tmp_reg.r_reg = ctrl_area->exit_code;
-  PrintDebug("exit_code: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
+  PrintDebug("exit_code: hi: 0x%x, lo: 0x%x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
   tmp_reg.r_reg = ctrl_area->exit_info1;
-  PrintDebug("exit_info1: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
+  PrintDebug("exit_info1: hi: 0x%x, lo: 0x%x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
   tmp_reg.r_reg = ctrl_area->exit_info2;
-  PrintDebug("exit_info2: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
+  PrintDebug("exit_info2: hi: 0x%x, lo: 0x%x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
 
 
-  PrintDebug("Exit Int Info: (at 0x%.8x)\n", &(ctrl_area->exit_int_info));
+  PrintDebug("Exit Int Info: (at 0x%p)\n", &(ctrl_area->exit_int_info));
   PrintDebug("Vector: %d\n", ctrl_area->exit_int_info.vector);
   PrintDebug("(type=%d) (ev=%d) (valid=%d)\n", ctrl_area->exit_int_info.type, 
 	     ctrl_area->exit_int_info.ev, ctrl_area->exit_int_info.valid);
@@ -209,9 +209,9 @@ void PrintDebugVMCB(vmcb_t * vmcb) {
 
 
   tmp_reg.r_reg = ctrl_area->NP_ENABLE;
-  PrintDebug("NP_ENABLE: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
+  PrintDebug("NP_ENABLE: hi: 0x%x, lo: 0x%x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
 
-  PrintDebug("Event Injection: (at 0x%.8x)\n", &(ctrl_area->EVENTINJ));
+  PrintDebug("Event Injection: (at 0x%p)\n", &(ctrl_area->EVENTINJ));
   PrintDebug("Vector: %d\n", ctrl_area->EVENTINJ.vector);
   PrintDebug("(type=%d) (ev=%d) (valid=%d)\n", ctrl_area->EVENTINJ.type, 
 	     ctrl_area->EVENTINJ.ev, ctrl_area->EVENTINJ.valid);
@@ -219,192 +219,192 @@ void PrintDebugVMCB(vmcb_t * vmcb) {
 
 
   tmp_reg.r_reg = ctrl_area->N_CR3;
-  PrintDebug("N_CR3: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
+  PrintDebug("N_CR3: hi: 0x%x, lo: 0x%x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
 
   PrintDebug("LBR_VIRTUALIZATION_ENABLE: %d\n", ctrl_area->LBR_VIRTUALIZATION_ENABLE);
 
 
   PrintDebug("\n--Guest Saved State--\n");
 
-  PrintDebug("es Selector (at 0x%.8x): \n", &(guest_area->es));
+  PrintDebug("es Selector (at 0x%p): \n", &(guest_area->es));
   PrintDebug("\tSelector: %d\n", guest_area->es.selector); 
   PrintDebug("\t(type=%x), (S=%d), (dpl=%d), (P=%d), (avl=%d), (L=%d), (db=%d), (G=%d)\n", 
 	     guest_area->es.attrib.fields.type, guest_area->es.attrib.fields.S, 
 	     guest_area->es.attrib.fields.dpl, guest_area->es.attrib.fields.P,
 	     guest_area->es.attrib.fields.avl, guest_area->es.attrib.fields.L,
 	     guest_area->es.attrib.fields.db, guest_area->es.attrib.fields.G);
-  PrintDebug("\tlimit: %lu\n", guest_area->es.limit);
+  PrintDebug("\tlimit: %u\n", guest_area->es.limit);
   tmp_reg.r_reg = guest_area->es.base;
-  PrintDebug("\tBase: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
+  PrintDebug("\tBase: hi: 0x%x, lo: 0x%x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
 
 
-  PrintDebug("cs Selector (at 0x%.8x): \n", &(guest_area->cs));
+  PrintDebug("cs Selector (at 0x%p): \n", &(guest_area->cs));
   PrintDebug("\tSelector: %d\n", guest_area->cs.selector); 
   PrintDebug("\t(type=%x), (S=%d), (dpl=%d), (P=%d), (avl=%d), (L=%d), (db=%d), (G=%d)\n", 
 	     guest_area->cs.attrib.fields.type, guest_area->cs.attrib.fields.S, 
 	     guest_area->cs.attrib.fields.dpl, guest_area->cs.attrib.fields.P,
 	     guest_area->cs.attrib.fields.avl, guest_area->cs.attrib.fields.L,
 	     guest_area->cs.attrib.fields.db, guest_area->cs.attrib.fields.G);
-  PrintDebug("\tlimit: %lu\n", guest_area->cs.limit);
+  PrintDebug("\tlimit: %u\n", guest_area->cs.limit);
   tmp_reg.r_reg = guest_area->cs.base;
-  PrintDebug("\tBase: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
+  PrintDebug("\tBase: hi: 0x%x, lo: 0x%x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
 
 
-  PrintDebug("ss Selector (at 0x%.8x): \n", &(guest_area->ss));
+  PrintDebug("ss Selector (at 0x%p): \n", &(guest_area->ss));
   PrintDebug("\tSelector: %d\n", guest_area->ss.selector); 
   PrintDebug("\t(type=%x), (S=%d), (dpl=%d), (P=%d), (avl=%d), (L=%d), (db=%d), (G=%d)\n", 
 	     guest_area->ss.attrib.fields.type, guest_area->ss.attrib.fields.S, 
 	     guest_area->ss.attrib.fields.dpl, guest_area->ss.attrib.fields.P,
 	     guest_area->ss.attrib.fields.avl, guest_area->ss.attrib.fields.L,
 	     guest_area->ss.attrib.fields.db, guest_area->ss.attrib.fields.G);
-  PrintDebug("\tlimit: %lu\n", guest_area->ss.limit);
+  PrintDebug("\tlimit: %u\n", guest_area->ss.limit);
   tmp_reg.r_reg = guest_area->ss.base;
-  PrintDebug("\tBase: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
+  PrintDebug("\tBase: hi: 0x%x, lo: 0x%x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
 
 
-  PrintDebug("ds Selector (at 0x%.8x): \n", &(guest_area->ds));
+  PrintDebug("ds Selector (at 0x%p): \n", &(guest_area->ds));
   PrintDebug("\tSelector: %d\n", guest_area->ds.selector); 
   PrintDebug("\t(type=%x), (S=%d), (dpl=%d), (P=%d), (avl=%d), (L=%d), (db=%d), (G=%d)\n", 
 	     guest_area->ds.attrib.fields.type, guest_area->ds.attrib.fields.S, 
 	     guest_area->ds.attrib.fields.dpl, guest_area->ds.attrib.fields.P,
 	     guest_area->ds.attrib.fields.avl, guest_area->ds.attrib.fields.L,
 	     guest_area->ds.attrib.fields.db, guest_area->ds.attrib.fields.G);
-  PrintDebug("\tlimit: %lu\n", guest_area->ds.limit);
+  PrintDebug("\tlimit: %u\n", guest_area->ds.limit);
   tmp_reg.r_reg = guest_area->ds.base;
-  PrintDebug("\tBase: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
+  PrintDebug("\tBase: hi: 0x%x, lo: 0x%x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
 
 
-  PrintDebug("fs Selector (at 0x%.8x): \n", &(guest_area->fs));
+  PrintDebug("fs Selector (at 0x%p): \n", &(guest_area->fs));
   PrintDebug("\tSelector: %d\n", guest_area->fs.selector); 
   PrintDebug("\t(type=%x), (S=%d), (dpl=%d), (P=%d), (avl=%d), (L=%d), (db=%d), (G=%d)\n", 
 	     guest_area->fs.attrib.fields.type, guest_area->fs.attrib.fields.S, 
 	     guest_area->fs.attrib.fields.dpl, guest_area->fs.attrib.fields.P,
 	     guest_area->fs.attrib.fields.avl, guest_area->fs.attrib.fields.L,
 	     guest_area->fs.attrib.fields.db, guest_area->fs.attrib.fields.G);
-  PrintDebug("\tlimit: %lu\n", guest_area->fs.limit);
+  PrintDebug("\tlimit: %u\n", guest_area->fs.limit);
   tmp_reg.r_reg = guest_area->fs.base;
-  PrintDebug("\tBase: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
+  PrintDebug("\tBase: hi: 0x%x, lo: 0x%x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
 
 
-  PrintDebug("gs Selector (at 0x%.8x): \n", &(guest_area->gs));
+  PrintDebug("gs Selector (at 0x%p): \n", &(guest_area->gs));
   PrintDebug("\tSelector: %d\n", guest_area->gs.selector); 
   PrintDebug("\t(type=%x), (S=%d), (dpl=%d), (P=%d), (avl=%d), (L=%d), (db=%d), (G=%d)\n", 
 	     guest_area->gs.attrib.fields.type, guest_area->gs.attrib.fields.S, 
 	     guest_area->gs.attrib.fields.dpl, guest_area->gs.attrib.fields.P,
 	     guest_area->gs.attrib.fields.avl, guest_area->gs.attrib.fields.L,
 	     guest_area->gs.attrib.fields.db, guest_area->gs.attrib.fields.G);
-  PrintDebug("\tlimit: %lu\n", guest_area->gs.limit);
+  PrintDebug("\tlimit: %u\n", guest_area->gs.limit);
   tmp_reg.r_reg = guest_area->gs.base;
-  PrintDebug("\tBase: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
+  PrintDebug("\tBase: hi: 0x%x, lo: 0x%x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
 
 
-  PrintDebug("gdtr Selector (at 0x%.8x): \n", &(guest_area->gdtr));
+  PrintDebug("gdtr Selector (at 0x%p): \n", &(guest_area->gdtr));
   PrintDebug("\tSelector: %d\n", guest_area->gdtr.selector); 
   PrintDebug("\t(type=%x), (S=%d), (dpl=%d), (P=%d), (avl=%d), (L=%d), (db=%d), (G=%d)\n", 
 	     guest_area->gdtr.attrib.fields.type, guest_area->gdtr.attrib.fields.S, 
 	     guest_area->gdtr.attrib.fields.dpl, guest_area->gdtr.attrib.fields.P,
 	     guest_area->gdtr.attrib.fields.avl, guest_area->gdtr.attrib.fields.L,
 	     guest_area->gdtr.attrib.fields.db, guest_area->gdtr.attrib.fields.G);
-  PrintDebug("\tlimit: %lu\n", guest_area->gdtr.limit);
+  PrintDebug("\tlimit: %u\n", guest_area->gdtr.limit);
   tmp_reg.r_reg = guest_area->gdtr.base;
   PrintDebug("\tBase: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
 
 
-  PrintDebug("ldtr Selector (at 0x%.8x): \n", &(guest_area->ldtr));
+  PrintDebug("ldtr Selector (at 0x%p): \n", &(guest_area->ldtr));
   PrintDebug("\tSelector: %d\n", guest_area->ldtr.selector); 
   PrintDebug("\t(type=%x), (S=%d), (dpl=%d), (P=%d), (avl=%d), (L=%d), (db=%d), (G=%d)\n", 
 	     guest_area->ldtr.attrib.fields.type, guest_area->ldtr.attrib.fields.S, 
 	     guest_area->ldtr.attrib.fields.dpl, guest_area->ldtr.attrib.fields.P,
 	     guest_area->ldtr.attrib.fields.avl, guest_area->ldtr.attrib.fields.L,
 	     guest_area->ldtr.attrib.fields.db, guest_area->ldtr.attrib.fields.G);
-  PrintDebug("\tlimit: %lu\n", guest_area->ldtr.limit);
+  PrintDebug("\tlimit: %u\n", guest_area->ldtr.limit);
   tmp_reg.r_reg = guest_area->ldtr.base;
   PrintDebug("\tBase: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
 
 
-  PrintDebug("idtr Selector (at 0x%.8x): \n", &(guest_area->idtr));
+  PrintDebug("idtr Selector (at 0x%p): \n", &(guest_area->idtr));
   PrintDebug("\tSelector: %d\n", guest_area->idtr.selector); 
   PrintDebug("\t(type=%x), (S=%d), (dpl=%d), (P=%d), (avl=%d), (L=%d), (db=%d), (G=%d)\n", 
 	     guest_area->idtr.attrib.fields.type, guest_area->idtr.attrib.fields.S, 
 	     guest_area->idtr.attrib.fields.dpl, guest_area->idtr.attrib.fields.P,
 	     guest_area->idtr.attrib.fields.avl, guest_area->idtr.attrib.fields.L,
 	     guest_area->idtr.attrib.fields.db, guest_area->idtr.attrib.fields.G);
-  PrintDebug("\tlimit: %lu\n", guest_area->idtr.limit);
+  PrintDebug("\tlimit: %u\n", guest_area->idtr.limit);
   tmp_reg.r_reg = guest_area->idtr.base;
-  PrintDebug("\tBase: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
+  PrintDebug("\tBase: hi: 0x%x, lo: 0x%x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
 
 
-  PrintDebug("tr Selector (at 0x%.8x): \n", &(guest_area->tr));
+  PrintDebug("tr Selector (at 0x%p): \n", &(guest_area->tr));
   PrintDebug("\tSelector: %d\n", guest_area->tr.selector); 
   PrintDebug("\t(type=%x), (S=%d), (dpl=%d), (P=%d), (avl=%d), (L=%d), (db=%d), (G=%d)\n", 
 	     guest_area->tr.attrib.fields.type, guest_area->tr.attrib.fields.S, 
 	     guest_area->tr.attrib.fields.dpl, guest_area->tr.attrib.fields.P,
 	     guest_area->tr.attrib.fields.avl, guest_area->tr.attrib.fields.L,
 	     guest_area->tr.attrib.fields.db, guest_area->tr.attrib.fields.G);
-  PrintDebug("\tlimit: %lu\n", guest_area->tr.limit);
+  PrintDebug("\tlimit: %u\n", guest_area->tr.limit);
   tmp_reg.r_reg = guest_area->tr.base;
-  PrintDebug("\tBase: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
+  PrintDebug("\tBase: hi: 0x%x, lo: 0x%x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
 
 
   PrintDebug("cpl: %d\n", guest_area->cpl);
 
   
   tmp_reg.r_reg = guest_area->efer;
-  PrintDebug("EFER: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
+  PrintDebug("EFER: hi: 0x%x, lo: 0x%x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
 
   tmp_reg.r_reg = guest_area->cr4;
-  PrintDebug("CR4: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
+  PrintDebug("CR4: hi: 0x%x, lo: 0x%x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
   tmp_reg.r_reg = guest_area->cr3;
-  PrintDebug("CR3: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
+  PrintDebug("CR3: hi: 0x%x, lo: 0x%x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
   tmp_reg.r_reg = guest_area->cr0;
-  PrintDebug("CR0: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
+  PrintDebug("CR0: hi: 0x%x, lo: 0x%x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
   tmp_reg.r_reg = guest_area->dr7;
-  PrintDebug("DR7: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
+  PrintDebug("DR7: hi: 0x%x, lo: 0x%x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
   tmp_reg.r_reg = guest_area->dr6;
-  PrintDebug("DR6: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
+  PrintDebug("DR6: hi: 0x%x, lo: 0x%x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
   tmp_reg.r_reg = guest_area->rflags;
-  PrintDebug("RFLAGS: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
+  PrintDebug("RFLAGS: hi: 0x%x, lo: 0x%x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
   tmp_reg.r_reg = guest_area->rip;
-  PrintDebug("RIP: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
+  PrintDebug("RIP: hi: 0x%x, lo: 0x%x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
 
 
   tmp_reg.r_reg = guest_area->rsp;
-  PrintDebug("RSP: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
+  PrintDebug("RSP: hi: 0x%x, lo: 0x%x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
 
   
   tmp_reg.r_reg = guest_area->rax;
-  PrintDebug("RAX: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
+  PrintDebug("RAX: hi: 0x%x, lo: 0x%x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
   tmp_reg.r_reg = guest_area->star;
-  PrintDebug("STAR: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
+  PrintDebug("STAR: hi: 0x%x, lo: 0x%x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
   tmp_reg.r_reg = guest_area->lstar;
-  PrintDebug("LSTAR: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
+  PrintDebug("LSTAR: hi: 0x%x, lo: 0x%x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
   tmp_reg.r_reg = guest_area->cstar;
-  PrintDebug("CSTAR: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
+  PrintDebug("CSTAR: hi: 0x%x, lo: 0x%x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
   tmp_reg.r_reg = guest_area->sfmask;
-  PrintDebug("SFMASK: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
+  PrintDebug("SFMASK: hi: 0x%x, lo: 0x%x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
   tmp_reg.r_reg = guest_area->KernelGsBase;
-  PrintDebug("KernelGsBase: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
+  PrintDebug("KernelGsBase: hi: 0x%x, lo: 0x%x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
   tmp_reg.r_reg = guest_area->sysenter_cs;
-  PrintDebug("sysenter_cs: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
+  PrintDebug("sysenter_cs: hi: 0x%x, lo: 0x%x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
   tmp_reg.r_reg = guest_area->sysenter_esp;
-  PrintDebug("sysenter_esp: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
+  PrintDebug("sysenter_esp: hi: 0x%x, lo: 0x%x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
   tmp_reg.r_reg = guest_area->sysenter_eip;
-  PrintDebug("sysenter_eip: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
+  PrintDebug("sysenter_eip: hi: 0x%x, lo: 0x%x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
   tmp_reg.r_reg = guest_area->cr2;
-  PrintDebug("CR2: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
+  PrintDebug("CR2: hi: 0x%x, lo: 0x%x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
 
   tmp_reg.r_reg = guest_area->g_pat;
-  PrintDebug("g_pat: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
+  PrintDebug("g_pat: hi: 0x%x, lo: 0x%x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
   tmp_reg.r_reg = guest_area->dbgctl;
-  PrintDebug("dbgctl: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
+  PrintDebug("dbgctl: hi: 0x%x, lo: 0x%x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
   tmp_reg.r_reg = guest_area->br_from;
-  PrintDebug("br_from: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
+  PrintDebug("br_from: hi: 0x%x, lo: 0x%x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
   tmp_reg.r_reg = guest_area->br_to;
-  PrintDebug("br_to: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
+  PrintDebug("br_to: hi: 0x%x, lo: 0x%x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
   tmp_reg.r_reg = guest_area->lastexcpfrom;
-  PrintDebug("lastexcpfrom: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
+  PrintDebug("lastexcpfrom: hi: 0x%x, lo: 0x%x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
   tmp_reg.r_reg = guest_area->lastexcpto;
-  PrintDebug("lastexcpto: hi: 0x%.8x, lo: 0x%.8x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
+  PrintDebug("lastexcpto: hi: 0x%x, lo: 0x%x\n", tmp_reg.e_reg.high, tmp_reg.e_reg.low);
 
 
 

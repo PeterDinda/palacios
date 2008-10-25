@@ -31,18 +31,15 @@
 
 
 
-void init_interrupt_state(struct guest_info * info) {
+void v3_init_interrupt_state(struct guest_info * info) {
   info->intr_state.excp_pending = 0;
   info->intr_state.excp_num = 0;
   info->intr_state.excp_error_code = 0;
 
   memset((uchar_t *)(info->intr_state.hooks), 0, sizeof(struct v3_irq_hook *) * 256);
-
-  info->vm_ops.raise_irq = &v3_raise_irq;
-  info->vm_ops.lower_irq = &v3_lower_irq; 
 }
 
-void set_intr_controller(struct guest_info * info, struct intr_ctrl_ops * ops, void * state) {
+void v3_set_intr_controller(struct guest_info * info, struct intr_ctrl_ops * ops, void * state) {
   info->intr_state.controller = ops;
   info->intr_state.controller_state = state;
 }
@@ -91,7 +88,8 @@ int v3_hook_irq(struct guest_info * info,
 static int passthrough_irq_handler(struct guest_info * info, struct v3_interrupt * intr, void * priv_data)
 {
 
-  PrintDebug("[passthrough_irq_handler] raise_irq=%d (guest=0x%x)\n", intr->irq, info);
+  PrintDebug("[passthrough_irq_handler] raise_irq=%d (guest=0x%p)\n", 
+	     intr->irq, (void *)info);
   return v3_raise_irq(info, intr->irq);
 
 }
@@ -105,10 +103,10 @@ int v3_hook_passthrough_irq(struct guest_info * info, uint_t irq)
 		       NULL);
 
   if (rc) { 
-    PrintError("guest_irq_injection: failed to hook irq 0x%x (guest=0x%x)\n", irq, info);
+    PrintError("guest_irq_injection: failed to hook irq 0x%x (guest=0x%p)\n", irq, (void *)info);
     return -1;
   } else {
-    PrintDebug("guest_irq_injection: hooked irq 0x%x (guest=0x%x)\n", irq, info);
+    PrintDebug("guest_irq_injection: hooked irq 0x%x (guest=0x%p)\n", irq, (void *)info);
     return 0;
   }
 }
@@ -118,7 +116,7 @@ int v3_hook_passthrough_irq(struct guest_info * info, uint_t irq)
 
 
 int v3_deliver_irq(struct guest_info * info, struct v3_interrupt * intr) {
-  PrintDebug("v3_deliver_irq: irq=%d state=0x%x, \n", intr->irq, intr);
+  PrintDebug("v3_deliver_irq: irq=%d state=0x%p, \n", intr->irq, (void *)intr);
   
   struct v3_irq_hook * hook = get_irq_hook(info, intr->irq);
 
@@ -183,7 +181,7 @@ int v3_lower_irq(struct guest_info * info, int irq) {
       (info->intr_state.controller->lower_intr)) {
     info->intr_state.controller->lower_intr(info->intr_state.controller_state, irq);
   } else {
-    PrintDebug("There is no registered Interrupt Controller... (NULL POINTER)\n");
+    PrintError("There is no registered Interrupt Controller... (NULL POINTER)\n");
     return -1;
   }
 
@@ -202,16 +200,16 @@ int v3_raise_irq(struct guest_info * info, int irq) {
       (info->intr_state.controller->raise_intr)) {
     info->intr_state.controller->raise_intr(info->intr_state.controller_state, irq);
   } else {
-    PrintDebug("There is no registered Interrupt Controller... (NULL POINTER)\n");
+    PrintError("There is no registered Interrupt Controller... (NULL POINTER)\n");
     return -1;
   }
 
   return 0;
 }
 
- 
 
-int intr_pending(struct guest_info * info) {
+
+int v3_intr_pending(struct guest_info * info) {
   struct v3_intr_state * intr_state = &(info->intr_state);
 
   //  PrintDebug("[intr_pending]\n");
@@ -227,7 +225,7 @@ int intr_pending(struct guest_info * info) {
 }
 
 
-uint_t get_intr_number(struct guest_info * info) {
+uint_t v3_get_intr_number(struct guest_info * info) {
   struct v3_intr_state * intr_state = &(info->intr_state);
 
   if (intr_state->excp_pending == 1) {
@@ -243,7 +241,7 @@ uint_t get_intr_number(struct guest_info * info) {
 }
 
 
-intr_type_t get_intr_type(struct guest_info * info) {
+intr_type_t v3_get_intr_type(struct guest_info * info) {
   struct v3_intr_state * intr_state = &(info->intr_state);
 
   if (intr_state->excp_pending) {
@@ -262,7 +260,7 @@ intr_type_t get_intr_type(struct guest_info * info) {
 
 
 
-int injecting_intr(struct guest_info * info, uint_t intr_num, intr_type_t type) {
+int v3_injecting_intr(struct guest_info * info, uint_t intr_num, intr_type_t type) {
   struct v3_intr_state * intr_state = &(info->intr_state);
 
   if (type == EXCEPTION) {

@@ -17,8 +17,12 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#ifndef __DEVICES_RAMDISK_H_
-#define __DEVICES_RAMDISK_H_
+#ifndef __DEVICES_RAMDISK_H__
+#define __DEVICES_RAMDISK_H__
+
+#ifdef __V3VEE__
+
+
 
 #include <palacios/vmm_types.h>
 #include <palacios/vm_dev.h>
@@ -28,6 +32,9 @@ struct cdrom_ops;
 
 int v3_ramdisk_register_cdrom(struct vm_device * ide_dev, uint_t busID, uint_t driveID, struct cdrom_ops * cd, void * private_data);
 
-struct vm_device * create_ramdisk(void);
+struct vm_device * v3_create_ramdisk();
+
+
+#endif // ! __V3VEE__
 
 #endif

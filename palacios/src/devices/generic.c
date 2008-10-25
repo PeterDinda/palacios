@@ -70,27 +70,22 @@ struct irq_range {
 
 
 
-int generic_reset_device(struct vm_device * dev)
-{
+static int generic_reset_device(struct vm_device * dev) {
   PrintDebug("generic: reset device\n");
- 
   return 0;
-
 }
 
 
 
 
 
-int generic_start_device(struct vm_device * dev)
-{
+static int generic_start_device(struct vm_device * dev) {
   PrintDebug("generic: start device\n");
   return 0;
 }
 
 
-int generic_stop_device(struct vm_device * dev)
-{
+static int generic_stop_device(struct vm_device * dev) {
   PrintDebug("generic: stop device\n");
   return 0;
 }
@@ -98,11 +93,10 @@ int generic_stop_device(struct vm_device * dev)
 
 
 
-int generic_write_port_passthrough(ushort_t port,
-				   void * src, 
-				   uint_t length,
-				   struct vm_device * dev)
-{
+static int generic_write_port_passthrough(ushort_t port,
+					  void * src, 
+					  uint_t length,
+					  struct vm_device * dev) {
   uint_t i;
 
   PrintDebug("generic: writing 0x");
@@ -136,11 +130,10 @@ int generic_write_port_passthrough(ushort_t port,
   return length;
 }
 
-int generic_read_port_passthrough(ushort_t port,
-				  void * src, 
-				  uint_t length,
-				  struct vm_device * dev)
-{
+static int generic_read_port_passthrough(ushort_t port,
+					 void * src, 
+					 uint_t length,
+					 struct vm_device * dev) {
   uint_t i;
 
   PrintDebug("generic: reading 0x%x bytes from port 0x%x ...", length, port);
@@ -173,11 +166,10 @@ int generic_read_port_passthrough(ushort_t port,
   return length;
 }
 
-int generic_write_port_ignore(ushort_t port,
-			      void * src, 
-			      uint_t length,
-			      struct vm_device * dev)
-{
+static int generic_write_port_ignore(ushort_t port,
+				     void * src, 
+				     uint_t length,
+				     struct vm_device * dev) {
   uint_t i;
 
   PrintDebug("generic: writing 0x");
@@ -191,11 +183,10 @@ int generic_write_port_ignore(ushort_t port,
   return length;
 }
 
-int generic_read_port_ignore(ushort_t port,
-			     void * src, 
-			     uint_t length,
-			     struct vm_device * dev)
-{
+static int generic_read_port_ignore(ushort_t port,
+				    void * src, 
+				    uint_t length,
+				    struct vm_device * dev) {
 
   PrintDebug("generic: reading 0x%x bytes from port 0x%x ...", length, port);
 
@@ -207,16 +198,16 @@ int generic_read_port_ignore(ushort_t port,
 
 
 
-int generic_interrupt(uint_t irq, struct vm_device * dev) {
+static int generic_interrupt(uint_t irq, struct vm_device * dev) {
   PrintDebug("generic: interrupt 0x%x - injecting into VM\n", irq);
 
-  dev->vm->vm_ops.raise_irq(dev->vm, irq);
+  v3_raise_irq(dev->vm, irq);
 
   return 0;
 }
 
 
-int generic_init_device(struct vm_device * dev) {
+static int generic_init_device(struct vm_device * dev) {
   struct generic_internal * state = (struct generic_internal *)(dev->private_data);
 
   PrintDebug("generic: init_device\n");
@@ -236,13 +227,13 @@ int generic_init_device(struct vm_device * dev) {
       for (i = tmp->start; i <= tmp->end; i++) { 
 	if (tmp->type == GENERIC_PRINT_AND_PASSTHROUGH) { 
 	  
-	  if (dev_hook_io(dev, i, &generic_read_port_passthrough, &generic_write_port_passthrough)) { 
+	  if (v3_dev_hook_io(dev, i, &generic_read_port_passthrough, &generic_write_port_passthrough)) { 
 	    PrintDebug("generic: can't hook port 0x%x (already hooked?)\n", i);
 	  }
 	  
 	} else if (tmp->type == GENERIC_PRINT_AND_IGNORE) { 
 	  
-	  if (dev_hook_io(dev, i, &generic_read_port_ignore, &generic_write_port_ignore)) { 
+	  if (v3_dev_hook_io(dev, i, &generic_read_port_ignore, &generic_write_port_ignore)) { 
 	    PrintDebug("generic: can't hook port 0x%x (already hooked?)\n", i);
 	  }
 	} 
@@ -264,7 +255,7 @@ int generic_init_device(struct vm_device * dev) {
 		 tmp->start, tmp->end); 
       
       
-      if (dev_hook_mem(dev, tmp->start, tmp->end)) {
+      if (v3_dev_hook_mem(dev, tmp->start, tmp->end)) {
 	PrintDebug("generic: Can't hook addresses 0x%x to 0x%x (already hooked?)\n",
 		   tmp->start, tmp->end); 
       }
@@ -286,7 +277,7 @@ int generic_init_device(struct vm_device * dev) {
 		 tmp->start, tmp->end);
       
       for (i = tmp->start; i <= tmp->end; i++) { 
-	if (dev_hook_irq(dev, i, &generic_interrupt)) { 
+	if (v3_dev_hook_irq(dev, i, &generic_interrupt)) { 
 	  PrintDebug("generic: can't hook irq  0x%x (already hooked?)\n", i);
 	}
       }
@@ -301,7 +292,7 @@ int generic_init_device(struct vm_device * dev) {
   return 0;
 }
 
-int generic_deinit_device(struct vm_device * dev) {
+static int generic_deinit_device(struct vm_device * dev) {
   struct generic_internal * state = (struct generic_internal *)(dev->private_data);
 
 
@@ -320,7 +311,7 @@ int generic_deinit_device(struct vm_device * dev) {
       
 
       for (i = cur->start; i <= cur->end; i++) { 
-	if (dev_unhook_irq(dev, i)) {
+	if (v3_dev_unhook_irq(dev, i)) {
 	  PrintDebug("generic: can't unhook irq 0x%x (already unhooked?)\n", i);
 	}
       }
@@ -343,7 +334,7 @@ int generic_deinit_device(struct vm_device * dev) {
       PrintDebug("generic: unhooking addresses 0x%x to 0x%x\n",
 		 cur->start, cur->end); 
 
-      if (dev_unhook_mem(dev, cur->start, cur->end)) {
+      if (v3_dev_unhook_mem(dev, cur->start, cur->end)) {
 	PrintDebug("generic: Can't unhook addresses 0x%x to 0x%x (already unhooked?)\n",
 		   cur->start, cur->end); 
       }
@@ -368,7 +359,7 @@ int generic_deinit_device(struct vm_device * dev) {
 		   cur->start, cur->end);
 		
       for (i = cur->start; i <= cur->end; i++) {
-	if (dev_unhook_io(dev, i)) {
+	if (v3_dev_unhook_io(dev, i)) {
 	  PrintDebug("generic: can't unhook port 0x%x (already unhooked?)\n", i);
 	}
       }
@@ -470,7 +461,7 @@ int v3_generic_add_irq_range(struct vm_device * dev, uint_t start, uint_t end, u
 
 
 
-struct vm_device * create_generic() {
+struct vm_device * v3_create_generic() {
   struct generic_internal * generic_state = (struct generic_internal *)V3_Malloc(sizeof(struct generic_internal));
   
   generic_state->num_port_ranges = 0;
@@ -481,7 +472,7 @@ struct vm_device * create_generic() {
   INIT_LIST_HEAD(&(generic_state->mem_list));
   INIT_LIST_HEAD(&(generic_state->irq_list));
     
-  struct vm_device * device = create_device("GENERIC", &dev_ops, generic_state);
+  struct vm_device * device = v3_create_device("GENERIC", &dev_ops, generic_state);
 
   return device;
 }

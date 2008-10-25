@@ -33,6 +33,15 @@
 
 #endif
 
+
+
+#ifndef DEBUG_XED
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
+#endif
+
+
+
 static xed_state_t decoder_state;
 
 #define GPR_REGISTER     0
@@ -115,7 +124,7 @@ static int set_decoder_mode(struct guest_info * info, xed_state_t * state) {
   return 0;
 }
 
-int is_flags_reg(xed_reg_enum_t xed_reg) {
+static int is_flags_reg(xed_reg_enum_t xed_reg) {
   switch (xed_reg) {
   case XED_REG_FLAGS:
   case XED_REG_EFLAGS:
@@ -128,7 +137,7 @@ int is_flags_reg(xed_reg_enum_t xed_reg) {
 
 
 
-int init_decoder() {
+int v3_init_decoder() {
   xed_tables_init();
   xed_state_zero(&decoder_state);
   return 0;

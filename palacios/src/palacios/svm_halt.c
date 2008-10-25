@@ -27,12 +27,18 @@
 #include <palacios/vmm_intr.h>
 
 
+#ifndef DEBUG_HALT
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
+#endif
+
+
 
 //
 // This should trigger a #GP if cpl!=0, otherwise, yield to host
 //
 
-int handle_svm_halt(struct guest_info * info)
+int v3_handle_svm_halt(struct guest_info * info)
 {
   if (info->cpl!=0) { 
     v3_raise_exception(info, GPF_EXCEPTION);

@@ -85,8 +85,8 @@ struct dev_mem_hook {
 };
 
 
-int dev_mgr_init(struct guest_info * info);
-int dev_mgr_deinit(struct guest_info * info);
+int v3_init_dev_mgr(struct guest_info * info);
+int v3_dev_mgr_deinit(struct guest_info * info);
 
 void PrintDebugDevMgr(struct guest_info * info);
 void PrintDebugDev(struct vm_device * dev);

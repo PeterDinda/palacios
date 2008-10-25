@@ -42,9 +42,15 @@
 #include <devices/ide.h>
 
 
+#ifndef TRACE_RAMDISK
+#undef PrintTrace
+#define PrintTrace(fmt, args...)
+#endif
+
+
 #ifndef DEBUG_RAMDISK
 #undef PrintDebug
-#define PrintDebug(_f, _a...)
+#define PrintDebug(fmt, args...)
 #endif
 
 
@@ -301,7 +307,7 @@ static void rd_identify_ATAPI_drive(struct vm_device * dev, struct channel_t * c
  * Interrupt handling
  */
 static void rd_raise_interrupt(struct vm_device * dev, struct channel_t * channel);
-static void rd_lower_irq(struct vm_device *dev, Bit32u irq);
+static void rd_lower_irq(struct vm_device *dev, struct channel_t * channel);
 
 
 
@@ -315,6 +321,8 @@ static void rd_lower_irq(struct vm_device *dev, Bit32u irq);
 static void rd_print_state(struct ramdisk_t *ramdisk);
 static int check_bit_fields(struct controller_t * controller);
 #endif
+
+
 ////////////////////////////////////////////////////////////////////
 
 
@@ -354,9 +362,10 @@ int v3_ramdisk_register_cdrom(struct vm_device * dev, uint_t busID, uint_t drive
   
   drive->private_data = private_data;
 
+
 #ifdef DEBUG_RAMDISK
   if (check_bit_fields(controller) == INTR_REASON_BIT_ERR) {
-    PrintDebug("interrupt reason: bit field error\n");
+    PrintError("interrupt reason: bit field error\n");
     return INTR_REASON_BIT_ERR;
   }
 #endif
@@ -488,7 +497,7 @@ static int read_data_port(ushort_t port, void * dst, uint_t length, struct vm_de
   controller = &(drive->controller);
 
 
-  PrintDebug("[read_data_handler] IO Read at 0x%x, on drive %d/%d (current_cmd = 0x%02x)\n", 
+  PrintTrace("[read_data_handler] IO Read at 0x%x, on drive %d/%d current cmd=0x%x\n", 
 	     port, 
 	     get_channel_no(ramdisk, channel),
 	     get_drive_no(channel, drive), 
@@ -539,7 +548,7 @@ static int read_data_port(ushort_t port, void * dst, uint_t length, struct vm_de
       uint_t index = controller->buffer_index;
 
       
-      PrintDebug("\t\tatapi.command(%02x), index(%d), cdrom.remaining_blocks(%d)\n", 
+      PrintTrace("\t\tatapi.command(%02x), index(%d), cdrom.remaining_blocks(%d)\n", 
 		    drive->atapi.command, 
 		    index, 
 		    drive->cdrom.remaining_blocks);
@@ -657,7 +666,7 @@ static int read_data_port(ushort_t port, void * dst, uint_t length, struct vm_de
     }
 
   default:
-    PrintDebug("\t\tread need support more command: %02x\n", controller->current_command);
+    PrintError("\t\tunsupported command: %02x\n", controller->current_command);
     break;
   }
 
@@ -700,6 +709,7 @@ static int write_data_port(ushort_t port, void * src, uint_t length, struct vm_d
   case 0xa0: // PACKET
     
     if (handle_atapi_packet_command(dev, channel, *(ushort_t *)src) == -1) {
+      PrintError("Error sending atapi packet command in PACKET write to data port\n");
       return -1;
     }
 
@@ -750,6 +760,7 @@ static int read_status_port(ushort_t port, void * dst, uint_t length, struct vm_
 
 
   if (num_drives_on_channel(channel) == 0) {
+    PrintDebug("Setting value to zero because 0 devices on channel\n");
     // (mch) Just return zero for these registers
     memset(dst, 0, length);
 
@@ -777,7 +788,7 @@ static int read_status_port(ushort_t port, void * dst, uint_t length, struct vm_
   }
   
   if ((port == SEC_CMD_PORT) || (port == PRI_CMD_PORT)) {
-    rd_lower_irq(dev, channel->irq);
+    rd_lower_irq(dev, channel);
   }
   
   PrintDebug("\t\tRead STATUS = 0x%x\n", *(uchar_t *)dst);
@@ -814,10 +825,52 @@ static int write_cmd_port(ushort_t port, void * src, uint_t length, struct vm_de
 
   PrintDebug("[write_command_handler] IO write at 0x%x, on drive %d/%d (val = 0x%x)\n", 
 	     port, get_channel_no(ramdisk, channel), 
-	     channel->drive_select, 
+	     get_drive_no(channel, drive), 
 	     value);
 
   switch (value) {
+#if 0
+  case 0xec: // IDENTIFY DEVICE
+    {
+
+      if (drive->device_type == IDE_NONE) {
+	PrintError("\t\tError: disk ata%d-%d not present, aborting\n", 
+		   get_channel_no(ramdisk, channel), 
+		   get_drive_no(channel, drive));
+	rd_command_aborted(dev, channel, value);
+	break;
+      } else if (drive->device_type == IDE_CDROM) {
+	PrintDebug("Identifying CDROM...Going to abort????\n");
+	controller->head_no        = 0;
+	controller->sector_count   = 1;
+	controller->sector_no      = 1;
+	controller->cylinder_no    = 0xeb14;
+	rd_command_aborted(dev, channel, 0xec);
+      } else {
+	PrintError("\t\tError: Want to identify HDD!!\n");
+	/*
+	  SELECTED_CONTROLLER(channel).current_command = value;
+	  SELECTED_CONTROLLER(channel).error_register = 0;
+	  
+	  // See ATA/ATAPI-4, 8.12
+	  SELECTED_CONTROLLER(channel).status.busy  = 0;
+	  SELECTED_CONTROLLER(channel).status.drive_ready = 1;
+	  SELECTED_CONTROLLER(channel).status.write_fault = 0;
+	  SELECTED_CONTROLLER(channel).status.drq   = 1;
+	  SELECTED_CONTROLLER(channel).status.err   = 0;
+	  
+	  SELECTED_CONTROLLER(channel).status.seek_complete = 1;
+	  SELECTED_CONTROLLER(channel).status.corrected_data = 0;
+	  
+	  SELECTED_CONTROLLER(channel).buffer_index = 0;
+	  raise_interrupt(channel);
+	  identify_drive(channel);
+	*/
+      }
+
+    break;
+    }
+#endif
     // ATAPI commands
   case 0xa1: // IDENTIFY PACKET DEVICE
     {
@@ -838,6 +891,9 @@ static int write_cmd_port(ushort_t port, void * src, uint_t length, struct vm_de
 	rd_raise_interrupt(dev, channel);
 	rd_identify_ATAPI_drive(dev, channel);
       } else {
+	PrintError("Identifying non cdrom device not supported - ata %d/%d\n", 
+		   get_channel_no(ramdisk, channel),
+		   get_drive_no(channel, drive));
 	rd_command_aborted(dev, channel, 0xa1);
       }
       break;
@@ -870,12 +926,15 @@ static int write_cmd_port(ushort_t port, void * src, uint_t length, struct vm_de
 	controller->current_command = value;
 	controller->buffer_index = 0;
       } else {
+	PrintError("Sending packet to non cdrom device not supported\n");
 	rd_command_aborted (dev, channel, 0xa0);
       }
       break;
     }
   default:
-    PrintError("\t\tneed translate command %2x\n", value);
+    PrintError("\t\tneed translate command %2x - ata %d\%d\n", value, 
+	       get_channel_no(ramdisk, channel), 
+	       get_drive_no(channel, drive));
     //return -1;
     /* JRL THIS NEEDS TO CHANGE */
     return length;
@@ -978,7 +1037,7 @@ static int write_ctrl_port(ushort_t port, void * src, uint_t length, struct vm_d
       ctrl->control.disable_irq = 0;
     }
 
-    rd_lower_irq(dev, channel->irq);
+    rd_lower_irq(dev, channel);
 
   } else if ((controller->reset_in_progress) &&
 	     (!controller->control.reset)) {
@@ -1268,7 +1327,7 @@ static int write_general_port(ushort_t port, void * src, uint_t length, struct v
       drive = get_selected_drive(channel);
 
       if (drive->device_type == IDE_NONE) {
-	PrintDebug("\t\tError: device set to %d which does not exist! channel = 0x%x\n",
+	PrintError("\t\tError: device set to %d which does not exist! channel = 0x%x\n",
 		   channel->drive_select, get_channel_no(ramdisk, channel));
 
 	controller->error_register = 0x04; // aborted
@@ -1290,30 +1349,27 @@ static int write_general_port(ushort_t port, void * src, uint_t length, struct v
 
 
 static void rd_raise_interrupt(struct vm_device * dev, struct channel_t * channel) {
-  Bit32u irq;
   //  struct ramdisk_t * ramdisk = (struct ramdisk_t *)(dev->private_data);
   struct drive_t * drive = get_selected_drive(channel);
   struct controller_t * controller = &(drive->controller);
 
-  PrintDebug("[raise_interrupt] disable_irq = %02x\n", controller->control.disable_irq);
+  PrintDebug("[raise_interrupt] disable_irq = 0x%02x\n", controller->control.disable_irq);
 
   if (!(controller->control.disable_irq)) {
-    irq = channel->irq; 
  
-    PrintDebug("\t\tRaising interrupt %d {%s}\n\n", irq, device_type_to_str(drive->device_type));
+    PrintDebug("\t\tRaising interrupt %d {%s}\n\n", channel->irq, device_type_to_str(drive->device_type));
 
-    dev->vm->vm_ops.raise_irq(dev->vm, irq);
+    v3_raise_irq(dev->vm, channel->irq);
   } else {
-    PrintDebug("\t\tirq is disabled\n");
+    PrintDebug("\t\tRaising irq but irq is disabled\n");
   }
   
   return;
 }
 
-static void rd_lower_irq(struct vm_device *dev, Bit32u irq)  // __attribute__(regparm(1))
-{
-  PrintDebug("[lower_irq] irq = %d\n", irq);
-  dev->vm->vm_ops.lower_irq(dev->vm, irq);
+static void rd_lower_irq(struct vm_device *dev, struct channel_t * channel) {
+  PrintDebug("[lower_irq] irq = %d\n", channel->irq);
+  v3_lower_irq(dev->vm, channel->irq);
 }
 
 
@@ -1356,9 +1412,11 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
     switch (atapi_command) {
     case 0x00: // test unit ready
       {
+	PrintDebug("Testing unit ready\n");
 	if (drive->cdrom.ready) {
 	  rd_atapi_cmd_nop(dev, channel);
 	} else {
+	  PrintError("CDROM not ready in test unit ready\n");
 	  rd_atapi_cmd_error(dev, channel, SENSE_NOT_READY, ASC_MEDIUM_NOT_PRESENT);
 	}
 	
@@ -1371,6 +1429,7 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 	int alloc_length = controller->buffer[4];
 
 	if (rd_init_send_atapi_command(dev, channel, atapi_command, 18, alloc_length, false) == -1) {
+	  PrintError("Error sending atapi command in Request Sense\n");
 	  return -1;
 	}
 	
@@ -1409,6 +1468,7 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 
 	  rd_atapi_cmd_nop(dev, channel);
 	  rd_raise_interrupt(dev, channel);
+
 	} else if (!LoEj && Start) { // start (spin up) the disc
 	  
 	  drive->cdrom.cd->start_cdrom(drive->private_data);
@@ -1416,9 +1476,10 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 	  PrintError("FIXME: ATAPI start disc not reading TOC\n");
 	  rd_atapi_cmd_nop(dev, channel);
 	  rd_raise_interrupt(dev, channel);
+
 	} else if (LoEj && !Start) { // Eject the disc
 	  rd_atapi_cmd_nop(dev, channel);
-	  
+	  PrintDebug("Ejecting Disk\n");
 	  if (drive->cdrom.ready) {
 	    
 	    drive->cdrom.cd->eject_cdrom(drive->private_data);
@@ -1428,6 +1489,7 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 	    //bx_gui->update_drive_status_buttons();
 	  }
 	  rd_raise_interrupt(dev, channel);
+
 	} else { // Load the disc
 	  // My guess is that this command only closes the tray, that's a no-op for us
 	  rd_atapi_cmd_nop(dev, channel);
@@ -1445,6 +1507,7 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 	}
 	
 	if (rd_init_send_atapi_command(dev, channel, atapi_command, 8, alloc_length, false) == -1) {
+	  PrintError("Error sending atapi command in mechanism status\n");
 	  return -1;
 	}
 	
@@ -1478,6 +1541,7 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 	      {
 		
 		if (rd_init_send_atapi_command(dev, channel, atapi_command, sizeof(struct error_recovery_t) + 8, alloc_length, false) == -1) {
+		  PrintError("Error sending atapi command in mode sense error recovery\n");
 		  return -1;
 		}
 		
@@ -1490,6 +1554,7 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 	      {
 
 		if (rd_init_send_atapi_command(dev, channel, atapi_command, 28, alloc_length, false) == -1) {
+		  PrintError("Error sending atapi command in CDROM caps/mech mode-sense\n");
 		  return -1;
 		}
 
@@ -1536,7 +1601,7 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 	    default:
 	      {
 		// not implemeted by this device
-		PrintDebug("\t\tcdrom: MODE SENSE PC=%x, PageCode=%x, not implemented by device\n",
+		PrintError("\t\tcdrom: MODE SENSE PC=%x, PageCode=%x, not implemented by device\n",
 			      PC, PageCode);
 		rd_atapi_cmd_error(dev, channel, SENSE_ILLEGAL_REQUEST,
 				   ASC_INV_FIELD_IN_CMD_PACKET);
@@ -1565,6 +1630,7 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 	    default:
 	      {
 		// not implemeted by this device
+		PrintError("Changeable values of mode sense not supported by cdrom\n");
 		PrintDebug("\t\tcdrom: MODE SENSE PC=%x, PageCode=%x, not implemented by device\n",
 			   PC, PageCode);
 		rd_atapi_cmd_error(dev, channel, SENSE_ILLEGAL_REQUEST,
@@ -1583,15 +1649,17 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 	    case 0x0e: // CD-ROM audio control
 	    case 0x2a: // CD-ROM capabilities & mech. status
 	    case 0x3f: // all
-	      PrintError("cdrom: MODE SENSE (dflt), code=%x\n",
+	      PrintError("Default values of mode sense not supported by cdrom\n");
+	      PrintDebug("cdrom: MODE SENSE (dflt), code=%x\n",
 		       PageCode);
 	      return -1;
 	      
 	    default:
 	      {
+		PrintError("Default values of mode sense not implemented in cdrom\n");
 		// not implemeted by this device
-		PrintDebug("\t\tcdrom: MODE SENSE PC=%x, PageCode=%x, not implemented by device\n",
-			      PC, PageCode);
+		PrintDebug("cdrom: MODE SENSE PC=%x, PageCode=%x, not implemented by device\n",
+			   PC, PageCode);
 		rd_atapi_cmd_error(dev, channel, SENSE_ILLEGAL_REQUEST,
 				   ASC_INV_FIELD_IN_CMD_PACKET);
 		rd_raise_interrupt(dev, channel);
@@ -1602,13 +1670,14 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 	  }
 	case 0x3: // saved values not implemented
 	  {
+	    PrintError("\t\tSaved values not implemented in mode sense\n");
 	    rd_atapi_cmd_error(dev, channel, SENSE_ILLEGAL_REQUEST, ASC_SAVING_PARAMETERS_NOT_SUPPORTED);
 	    rd_raise_interrupt(dev, channel);
 	    break;
 	  }
 	default:
 	  {
-	    PrintError("Should not get here!\n");
+	    PrintError("Unsupported Mode sense value\n");
 	    return -1;
 	    break;
 	  }
@@ -1620,6 +1689,7 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 	uint8_t alloc_length = controller->buffer[4];
 	
 	if (rd_init_send_atapi_command(dev, channel, atapi_command, 36, alloc_length, false) == -1) {
+	  PrintError("Error sending atapi command in inquiry\n");
 	  return -1;
 	}
 	
@@ -1658,6 +1728,7 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
       {
 	// no allocation length???
 	if (rd_init_send_atapi_command(dev, channel, atapi_command, 8, 8, false) == -1) {
+	  PrintError("Error sending atapi command in read cdrom capacity\n");
 	  return -1;
 	}
 	
@@ -1677,6 +1748,7 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 
 	  rd_ready_to_send_atapi(dev, channel);
 	} else {
+	  PrintError("CDROM not ready in read cdrom capacity\n");
 	  rd_atapi_cmd_error(dev, channel, SENSE_NOT_READY, ASC_MEDIUM_NOT_PRESENT);
 	  rd_raise_interrupt(dev, channel);
 	}
@@ -1691,6 +1763,7 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 	  rd_atapi_cmd_error(dev, channel, SENSE_ILLEGAL_REQUEST, ASC_INV_FIELD_IN_CMD_PACKET);
 	  rd_raise_interrupt(dev, channel);
 	} else {
+	  PrintError("Drive not ready in read cd with CD present\n");
 	  rd_atapi_cmd_error(dev, channel, SENSE_NOT_READY, ASC_MEDIUM_NOT_PRESENT);
 	  rd_raise_interrupt(dev, channel);
 	}
@@ -1723,7 +1796,9 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 		break;
 	      }
 
+
 	      if (rd_init_send_atapi_command(dev, channel, atapi_command, toc_length, alloc_length, false) == -1) {
+		PrintError("Failed to init send atapi command in read toc (fmt=%d)\n", format);
 		return -1;
 	      }
 
@@ -1735,6 +1810,7 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 	    // multi session stuff. we ignore this and emulate a single session only
 
 	    if (rd_init_send_atapi_command(dev, channel, atapi_command, 12, alloc_length, false) == -1) {
+	      PrintError("Failed to init send atapi command in read toc (fmt=%d)\n", format);
 	      return -1;
 	    }
 	    
@@ -1756,6 +1832,7 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 	    return -1;
 	  }
 	} else {
+	  PrintError("CDROM not ready in read toc\n");
 	  rd_atapi_cmd_error(dev, channel, SENSE_NOT_READY, ASC_MEDIUM_NOT_PRESENT);
 	  rd_raise_interrupt(dev, channel);
 	}
@@ -1783,10 +1860,10 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 	}
 	
 	if (transfer_length == 0) {
-	  rd_atapi_cmd_nop(dev, channel);
-	  rd_raise_interrupt(dev, channel);
 	  PrintError("READ(%d) with transfer length 0, ok\n", 
 		     (atapi_command == 0x28) ? 10 : 12);
+	  rd_atapi_cmd_nop(dev, channel);
+	  rd_raise_interrupt(dev, channel);
 	  break;
 	}
 	
@@ -1820,18 +1897,20 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 	uint32_t lba = rd_read_32bit(controller->buffer + 2);
 
 	if (!(drive->cdrom.ready)) {
+	  PrintError("CDROM not ready in seek\n");
 	  rd_atapi_cmd_error(dev, channel, SENSE_NOT_READY, ASC_MEDIUM_NOT_PRESENT);
 	  rd_raise_interrupt(dev, channel);
 	  break;
 	}
 	
 	if (lba > drive->cdrom.capacity) {
+	  PrintError("LBA is greater than CDROM capacity in seek\n");
 	  rd_atapi_cmd_error(dev, channel, SENSE_ILLEGAL_REQUEST, ASC_LOGICAL_BLOCK_OOR);
 	  rd_raise_interrupt(dev, channel);
 	  break;
 	}
 	
-	PrintDebug("\t\tcdrom: SEEK (ignored)\n");
+	PrintError("\t\tcdrom: SEEK (ignored)\n");
 
 	rd_atapi_cmd_nop(dev, channel);
 	rd_raise_interrupt(dev, channel);
@@ -1845,6 +1924,7 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 	  drive->cdrom.locked = controller->buffer[4] & 1;
 	  rd_atapi_cmd_nop(dev, channel);
 	} else {
+	  PrintError("CD not ready in prevent/allow medium removal\n");
 	  rd_atapi_cmd_error(dev, channel, SENSE_NOT_READY, ASC_MEDIUM_NOT_PRESENT);
 	}
 
@@ -1867,6 +1947,7 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 	  UNUSED(track_number);
 	*/
 	if (!(drive->cdrom.ready)) {
+	  PrintError("CDROM not ready in read sub-channel\n");
 	  rd_atapi_cmd_error(dev, channel, SENSE_NOT_READY, ASC_MEDIUM_NOT_PRESENT);
 	  rd_raise_interrupt(dev, channel);
 	} else {
@@ -1885,6 +1966,7 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 	  }
 	  
 	  if (rd_init_send_atapi_command(dev, channel, atapi_command, ret_len, alloc_length, false) == -1) {
+	    PrintError("Error sending atapi command in read sub-channel\n");
 	    return -1;
 	  }
 	  rd_ready_to_send_atapi(dev, channel);
@@ -1894,6 +1976,7 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
     case 0x51:  // read disc info
       {
 	// no-op to keep the Linux CD-ROM driver happy
+	PrintError("Error: Read disk info no-op to keep the Linux CD-ROM driver happy\n");
 	rd_atapi_cmd_error(dev, channel, SENSE_ILLEGAL_REQUEST, ASC_INV_FIELD_IN_CMD_PACKET);
 	rd_raise_interrupt(dev, channel);
 	break;
@@ -1912,7 +1995,7 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
     case 0x46: // ???
     case 0x4a: // ???
       PrintError("ATAPI command 0x%x not implemented yet\n",
-	       atapi_command);
+		 atapi_command);
       rd_atapi_cmd_error(dev, channel, SENSE_ILLEGAL_REQUEST, ASC_INV_FIELD_IN_CMD_PACKET);
       rd_raise_interrupt(dev, channel);
       break;
@@ -2025,14 +2108,12 @@ void rd_atapi_cmd_error(struct vm_device * dev, struct channel_t * channel, sens
   struct drive_t * drive = &(channel->drives[channel->drive_select]);
   struct controller_t * controller = &(drive->controller);
 
-#ifdef DEBUG_RAMDISK
-  {
-    struct ramdisk_t *ramdisk = (struct ramdisk_t *)(dev->private_data);
-    PrintDebug("[rd_atapi_cmd_error]\n");
-    PrintDebug("Error: atapi_cmd_error channel=%02x key=%02x asc=%02x\n", 
-	       get_channel_no(ramdisk, channel), sense_key, asc);
-  }
-#endif
+
+  struct ramdisk_t *ramdisk = (struct ramdisk_t *)(dev->private_data);
+  PrintError("[rd_atapi_cmd_error]\n");
+  PrintError("Error: atapi_cmd_error channel=%02x key=%02x asc=%02x\n", 
+	     get_channel_no(ramdisk, channel), sense_key, asc);
+  
 
   controller->error_register = sense_key << 4;
   controller->interrupt_reason.i_o = 1;
@@ -2215,8 +2296,8 @@ static void rd_command_aborted(struct vm_device * dev,
   struct drive_t * drive = &(channel->drives[channel->drive_select]);
   struct controller_t * controller = &(drive->controller);
 
-  PrintDebug("[rd_command_aborted]\n");
-  PrintDebug("\t\taborting on command 0x%02x {%s}\n", value, device_type_to_str(drive->device_type));
+  PrintError("[rd_command_aborted]\n");
+  PrintError("\t\taborting on command 0x%02x {%s}\n", value, device_type_to_str(drive->device_type));
 
   controller->current_command = 0;
   controller->status.busy = 0;
@@ -2241,54 +2322,54 @@ static int ramdisk_init_device(struct vm_device *dev) {
   rd_init_hardware(ramdisk);
 
 
-  dev_hook_io(dev, PRI_CTRL_PORT, 
-	      &read_status_port, &write_ctrl_port);
+  v3_dev_hook_io(dev, PRI_CTRL_PORT, 
+		 &read_status_port, &write_ctrl_port);
 
-  dev_hook_io(dev, PRI_DATA_PORT, 
-	      &read_data_port, &write_data_port);
-  dev_hook_io(dev, PRI_FEATURES_PORT, 
-	      &read_general_port, &write_general_port);
-  dev_hook_io(dev, PRI_SECT_CNT_PORT, 
-	      &read_general_port, &write_general_port);
-  dev_hook_io(dev, PRI_SECT_ADDR1_PORT, 
-	      &read_general_port, &write_general_port);
-  dev_hook_io(dev, PRI_SECT_ADDR2_PORT, 
-	      &read_general_port, &write_general_port);
-  dev_hook_io(dev, PRI_SECT_ADDR3_PORT, 
-	      &read_general_port, &write_general_port);
-  dev_hook_io(dev, PRI_DRV_SEL_PORT, 
-	      &read_general_port, &write_general_port);
-  dev_hook_io(dev, PRI_CMD_PORT, 
-	      &read_status_port, &write_cmd_port);
+  v3_dev_hook_io(dev, PRI_DATA_PORT, 
+		 &read_data_port, &write_data_port);
+  v3_dev_hook_io(dev, PRI_FEATURES_PORT, 
+		 &read_general_port, &write_general_port);
+  v3_dev_hook_io(dev, PRI_SECT_CNT_PORT, 
+		 &read_general_port, &write_general_port);
+  v3_dev_hook_io(dev, PRI_SECT_ADDR1_PORT, 
+		 &read_general_port, &write_general_port);
+  v3_dev_hook_io(dev, PRI_SECT_ADDR2_PORT, 
+		 &read_general_port, &write_general_port);
+  v3_dev_hook_io(dev, PRI_SECT_ADDR3_PORT, 
+		 &read_general_port, &write_general_port);
+  v3_dev_hook_io(dev, PRI_DRV_SEL_PORT, 
+		 &read_general_port, &write_general_port);
+  v3_dev_hook_io(dev, PRI_CMD_PORT, 
+		 &read_status_port, &write_cmd_port);
 
 
-  dev_hook_io(dev, SEC_CTRL_PORT, 
-	      &read_status_port, &write_ctrl_port);
+  v3_dev_hook_io(dev, SEC_CTRL_PORT, 
+		 &read_status_port, &write_ctrl_port);
 
-  dev_hook_io(dev, SEC_DATA_PORT, 
-	      &read_data_port, &write_data_port);
-  dev_hook_io(dev, SEC_FEATURES_PORT, 
-	      &read_general_port, &write_general_port);
-  dev_hook_io(dev, SEC_SECT_CNT_PORT, 
-	      &read_general_port, &write_general_port);
-  dev_hook_io(dev, SEC_SECT_ADDR1_PORT, 
-	      &read_general_port, &write_general_port);
-  dev_hook_io(dev, SEC_SECT_ADDR2_PORT, 
-	      &read_general_port, &write_general_port);
-  dev_hook_io(dev, SEC_SECT_ADDR3_PORT, 
-	      &read_general_port, &write_general_port);
-  dev_hook_io(dev, SEC_DRV_SEL_PORT, 
-	      &read_general_port, &write_general_port);
-  dev_hook_io(dev, SEC_CMD_PORT, 
-	      &read_status_port, &write_cmd_port);
-
+  v3_dev_hook_io(dev, SEC_DATA_PORT, 
+		 &read_data_port, &write_data_port);
+  v3_dev_hook_io(dev, SEC_FEATURES_PORT, 
+		 &read_general_port, &write_general_port);
+  v3_dev_hook_io(dev, SEC_SECT_CNT_PORT, 
+		 &read_general_port, &write_general_port);
+  v3_dev_hook_io(dev, SEC_SECT_ADDR1_PORT, 
+		 &read_general_port, &write_general_port);
+  v3_dev_hook_io(dev, SEC_SECT_ADDR2_PORT, 
+		 &read_general_port, &write_general_port);
+  v3_dev_hook_io(dev, SEC_SECT_ADDR3_PORT, 
+		 &read_general_port, &write_general_port);
+  v3_dev_hook_io(dev, SEC_DRV_SEL_PORT, 
+		 &read_general_port, &write_general_port);
+  v3_dev_hook_io(dev, SEC_CMD_PORT, 
+		 &read_status_port, &write_cmd_port);
+  
   
 
-  dev_hook_io(dev, SEC_ADDR_REG_PORT, 
-	      &read_general_port, &write_general_port);
+  v3_dev_hook_io(dev, SEC_ADDR_REG_PORT, 
+		 &read_general_port, &write_general_port);
 
-  dev_hook_io(dev, PRI_ADDR_REG_PORT, 
-	      &read_general_port, &write_general_port);
+  v3_dev_hook_io(dev, PRI_ADDR_REG_PORT, 
+		 &read_general_port, &write_general_port);
 
 
 
@@ -2314,7 +2395,7 @@ static struct vm_device_ops dev_ops = {
 
 
 
-struct vm_device *create_ramdisk()
+struct vm_device * v3_create_ramdisk()
 {
 
   struct ramdisk_t *ramdisk;
@@ -2323,7 +2404,7 @@ struct vm_device *create_ramdisk()
 
   PrintDebug("[create_ramdisk]\n");
 
-  struct vm_device *device = create_device("RAMDISK", &dev_ops, ramdisk);
+  struct vm_device * device = v3_create_device("RAMDISK", &dev_ops, ramdisk);
 
   return device;
 }
@@ -2523,4 +2604,5 @@ static int check_bit_fields(struct controller_t * controller) {
   
   return 0;
 }
+
 #endif

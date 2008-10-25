@@ -30,7 +30,13 @@
 #include <palacios/vmm_intr.h>
 #include <palacios/vmm_emulator.h>
 
-int handle_svm_exit(struct guest_info * info) {
+
+
+
+static const uchar_t * vmexit_code_to_str(uint_t exit_code);
+
+
+int v3_handle_svm_exit(struct guest_info * info) {
   vmcb_ctrl_t * guest_ctrl = 0;
   vmcb_saved_state_t * guest_state = 0;
   ulong_t exit_code = 0;
@@ -58,8 +64,8 @@ int handle_svm_exit(struct guest_info * info) {
   info->ctrl_regs.efer = guest_state->efer;
 
   get_vmcb_segments((vmcb_t*)(info->vmm_data), &(info->segments));
-  info->cpu_mode = get_cpu_mode(info);
-  info->mem_mode = get_mem_mode(info);
+  info->cpu_mode = v3_get_cpu_mode(info);
+  info->mem_mode = v3_get_mem_mode(info);
 
 
   exit_code = guest_ctrl->exit_code;
@@ -77,7 +83,7 @@ int handle_svm_exit(struct guest_info * info) {
     // Dump out the instr stream
 
     //PrintDebug("RIP: %x\n", guest_state->rip);
-    PrintDebug("RIP Linear: %x\n", get_addr_linear(info, info->rip, &(info->segments.cs)));
+    PrintDebug("RIP Linear: %p\n", (void *)get_addr_linear(info, info->rip, &(info->segments.cs)));
 
     // OK, now we will read the instruction
     // The only difference between PROTECTED and PROTECTED_PG is whether we read
@@ -117,21 +123,21 @@ int handle_svm_exit(struct guest_info * info) {
     
     if (io_info->type == 0) {
       if (io_info->str) {
-	if (handle_svm_io_outs(info) == -1 ) {
+	if (v3_handle_svm_io_outs(info) == -1 ) {
 	  return -1;
 	}
       } else {
-	if (handle_svm_io_out(info) == -1) {
+	if (v3_handle_svm_io_out(info) == -1) {
 	  return -1;
 	}
       }
     } else {
       if (io_info->str) {
-	if (handle_svm_io_ins(info) == -1) {
+	if (v3_handle_svm_io_ins(info) == -1) {
 	  return -1;
 	}
       } else {
-	if (handle_svm_io_in(info) == -1) {
+	if (v3_handle_svm_io_in(info) == -1) {
 	  return -1;
 	}
       }
@@ -144,7 +150,7 @@ int handle_svm_exit(struct guest_info * info) {
 #ifdef DEBUG_CTRL_REGS
     PrintDebug("CR0 Write\n");
 #endif
-    if (handle_cr0_write(info) == -1) {
+    if (v3_handle_cr0_write(info) == -1) {
       return -1;
     }
   } 
@@ -154,7 +160,7 @@ int handle_svm_exit(struct guest_info * info) {
 #ifdef DEBUG_CTRL_REGS
     PrintDebug("CR0 Read\n");
 #endif
-    if (handle_cr0_read(info) == -1) {
+    if (v3_handle_cr0_read(info) == -1) {
       return -1;
     }
   } 
@@ -164,7 +170,7 @@ int handle_svm_exit(struct guest_info * info) {
 #ifdef DEBUG_CTRL_REGS
     PrintDebug("CR3 Write\n");
 #endif
-    if (handle_cr3_write(info) == -1) {
+    if (v3_handle_cr3_write(info) == -1) {
       return -1;
     }    
   } 
@@ -174,7 +180,7 @@ int handle_svm_exit(struct guest_info * info) {
 #ifdef DEBUG_CTRL_REGS
     PrintDebug("CR3 Read\n");
 #endif
-    if (handle_cr3_read(info) == -1) {
+    if (v3_handle_cr3_read(info) == -1) {
       return -1;
     }
   }
@@ -184,10 +190,11 @@ int handle_svm_exit(struct guest_info * info) {
     addr_t fault_addr = guest_ctrl->exit_info2;
     pf_error_t * error_code = (pf_error_t *)&(guest_ctrl->exit_info1);
 #ifdef DEBUG_SHADOW_PAGING
-    PrintDebug("PageFault at %x (error=%d)\n", fault_addr, *error_code);
+    PrintDebug("PageFault at %p (error=%d)\n", 
+	       (void *)fault_addr, *(uint_t *)error_code);
 #endif
     if (info->shdw_pg_mode == SHADOW_PAGING) {
-      if (handle_shadow_pagefault(info, fault_addr, *error_code) == -1) {
+      if (v3_handle_shadow_pagefault(info, fault_addr, *error_code) == -1) {
 	return -1;
       }
     } else {
@@ -209,7 +216,7 @@ int handle_svm_exit(struct guest_info * info) {
 #ifdef DEBUG_SHADOW_PAGING
       PrintDebug("Invlpg\n");
 #endif
-      if (handle_shadow_invlpg(info) == -1) {
+      if (v3_handle_shadow_invlpg(info) == -1) {
 	return -1;
       }
     }
@@ -223,7 +230,7 @@ int handle_svm_exit(struct guest_info * info) {
 
   case VMEXIT_INTR: { 
     
-    //    handle_svm_intr(info); // handled by interrupt dispatch earlier
+    // handled by interrupt dispatch earlier
 
   } 
     break;
@@ -236,16 +243,18 @@ int handle_svm_exit(struct guest_info * info) {
     break;
 
   case VMEXIT_HLT: {
+#ifdef DEBUG_HALT
     PrintDebug("Guest halted\n");
-    if (handle_svm_halt(info) == -1) {
+#endif
+    if (v3_handle_svm_halt(info) == -1) {
       return -1;
     }
   } 
     break;
 
   case VMEXIT_PAUSE: {
-    PrintDebug("Guest paused\n");
-    if (handle_svm_pause(info) == -1) { 
+    //PrintDebug("Guest paused\n");
+    if (v3_handle_svm_pause(info) == -1) { 
       return -1;
     }
   } 
@@ -306,7 +315,7 @@ int handle_svm_exit(struct guest_info * info) {
 #ifdef DEBUG_EMULATOR
       PrintDebug("WBINVD\n");
 #endif
-      if (!handle_svm_wbinvd(info)) { 
+      if (!v3_handle_svm_wbinvd(info)) { 
 	return -1;
       }
       break;
@@ -329,11 +338,11 @@ int handle_svm_exit(struct guest_info * info) {
     rip_addr = get_addr_linear(info, guest_state->rip, &(info->segments.cs));
 
 
-    PrintError("SVM Returned:(VMCB=%x)\n", info->vmm_data); 
-    PrintError("RIP: %x\n", guest_state->rip);
-    PrintError("RIP Linear: %x\n", rip_addr);
+    PrintError("SVM Returned:(VMCB=%p)\n", (void *)(info->vmm_data)); 
+    PrintError("RIP: %p\n", (void *)(addr_t)(guest_state->rip));
+    PrintError("RIP Linear: %p\n", (void *)(addr_t)(rip_addr));
     
-    PrintError("SVM Returned: Exit Code: %x\n", exit_code); 
+    PrintError("SVM Returned: Exit Code: %p\n", (void *)(addr_t)exit_code); 
     
     PrintError("io_info1 low = 0x%.8x\n", *(uint_t*)&(guest_ctrl->exit_info1));
     PrintError("io_info1 high = 0x%.8x\n", *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info1)) + 4));
@@ -344,12 +353,12 @@ int handle_svm_exit(struct guest_info * info) {
     
 
     if (info->mem_mode == PHYSICAL_MEM) {
-      if (guest_pa_to_host_pa(info, guest_state->rip, &host_addr) == -1) {
+      if (guest_pa_to_host_va(info, guest_state->rip, &host_addr) == -1) {
 	PrintError("Could not translate guest_state->rip to host address\n");
 	return -1;
       }
     } else if (info->mem_mode == VIRTUAL_MEM) {
-      if (guest_va_to_host_pa(info, guest_state->rip, &host_addr) == -1) {
+      if (guest_va_to_host_va(info, guest_state->rip, &host_addr) == -1) {
 	PrintError("Could not translate guest_state->rip to host address\n");
 	return -1;
       }
@@ -358,16 +367,16 @@ int handle_svm_exit(struct guest_info * info) {
       return -1;
     }
     
-    PrintError("Host Address of rip = 0x%x\n", host_addr);
+    PrintError("Host Address of rip = 0x%p\n", (void *)host_addr);
     
     memset(buf, 0, 32);
     
-    PrintError("Reading instruction stream in guest\n", rip_addr);
+    PrintError("Reading instruction stream in guest (addr=%p)\n", (void *)rip_addr);
     
     if (info->mem_mode == PHYSICAL_MEM) {
-      read_guest_pa_memory(info, rip_addr-16, 32, buf);
+      read_guest_pa_memory(info, rip_addr - 16, 32, buf);
     } else {
-      read_guest_va_memory(info, rip_addr-16, 32, buf);
+      read_guest_va_memory(info, rip_addr - 16, 32, buf);
     }
     
     PrintDebug("16 bytes before Rip\n");
@@ -386,12 +395,12 @@ int handle_svm_exit(struct guest_info * info) {
 
   // Update the low level state
 
-  if (intr_pending(info)) {
+  if (v3_intr_pending(info)) {
 
-    switch (get_intr_type(info)) {
+    switch (v3_get_intr_type(info)) {
     case EXTERNAL_IRQ: 
       {
-	uint_t irq = get_intr_number(info);
+	uint_t irq = v3_get_intr_number(info);
 
         // check to see if ==-1 (non exists)
 
@@ -406,9 +415,11 @@ int handle_svm_exit(struct guest_info * info) {
 	guest_ctrl->guest_ctrl.V_IGN_TPR = 1;
 	guest_ctrl->guest_ctrl.V_INTR_PRIO = 0xf;
 #ifdef DEBUG_INTERRUPTS
-	PrintDebug("Injecting Interrupt %d (EIP=%x)\n", guest_ctrl->guest_ctrl.V_INTR_VECTOR, info->rip);
+	PrintDebug("Injecting Interrupt %d (EIP=%p)\n", 
+		   guest_ctrl->guest_ctrl.V_INTR_VECTOR, 
+		   (void *)info->rip);
 #endif
-	injecting_intr(info, irq, EXTERNAL_IRQ);
+	v3_injecting_intr(info, irq, EXTERNAL_IRQ);
 	
 	break;
       }
@@ -417,7 +428,7 @@ int handle_svm_exit(struct guest_info * info) {
       break;
     case EXCEPTION:
       {
-	uint_t excp = get_intr_number(info);
+	uint_t excp = v3_get_intr_number(info);
 
 	guest_ctrl->EVENTINJ.type = SVM_INJECTION_EXCEPTION;
 	
@@ -433,9 +444,11 @@ int handle_svm_exit(struct guest_info * info) {
 	
 	guest_ctrl->EVENTINJ.valid = 1;
 #ifdef DEBUG_INTERRUPTS
-	PrintDebug("Injecting Interrupt %d (EIP=%x)\n", guest_ctrl->EVENTINJ.vector, info->rip);
+	PrintDebug("Injecting Interrupt %d (EIP=%p)\n", 
+		   guest_ctrl->EVENTINJ.vector, 
+		   (void *)info->rip);
 #endif
-	injecting_intr(info, excp, EXCEPTION);
+	v3_injecting_intr(info, excp, EXCEPTION);
 	break;
       }
     case SOFTWARE_INTR:
@@ -483,6 +496,150 @@ int handle_svm_exit(struct guest_info * info) {
   return 0;
 }
 
+
+static const uchar_t VMEXIT_CR0_READ_STR[] = "VMEXIT_CR0_READ";
+static const uchar_t VMEXIT_CR1_READ_STR[] = "VMEXIT_CR1_READ";
+static const uchar_t VMEXIT_CR2_READ_STR[] = "VMEXIT_CR2_READ";
+static const uchar_t VMEXIT_CR3_READ_STR[] = "VMEXIT_CR3_READ";
+static const uchar_t VMEXIT_CR4_READ_STR[] = "VMEXIT_CR4_READ";
+static const uchar_t VMEXIT_CR5_READ_STR[] = "VMEXIT_CR5_READ";
+static const uchar_t VMEXIT_CR6_READ_STR[] = "VMEXIT_CR6_READ";
+static const uchar_t VMEXIT_CR7_READ_STR[] = "VMEXIT_CR7_READ";
+static const uchar_t VMEXIT_CR8_READ_STR[] = "VMEXIT_CR8_READ";
+static const uchar_t VMEXIT_CR9_READ_STR[] = "VMEXIT_CR9_READ";
+static const uchar_t VMEXIT_CR10_READ_STR[] = "VMEXIT_CR10_READ";
+static const uchar_t VMEXIT_CR11_READ_STR[] = "VMEXIT_CR11_READ";
+static const uchar_t VMEXIT_CR12_READ_STR[] = "VMEXIT_CR12_READ";
+static const uchar_t VMEXIT_CR13_READ_STR[] = "VMEXIT_CR13_READ";
+static const uchar_t VMEXIT_CR14_READ_STR[] = "VMEXIT_CR14_READ";
+static const uchar_t VMEXIT_CR15_READ_STR[] = "VMEXIT_CR15_READ";
+static const uchar_t VMEXIT_CR0_WRITE_STR[] = "VMEXIT_CR0_WRITE";
+static const uchar_t VMEXIT_CR1_WRITE_STR[] = "VMEXIT_CR1_WRITE";
+static const uchar_t VMEXIT_CR2_WRITE_STR[] = "VMEXIT_CR2_WRITE";
+static const uchar_t VMEXIT_CR3_WRITE_STR[] = "VMEXIT_CR3_WRITE";
+static const uchar_t VMEXIT_CR4_WRITE_STR[] = "VMEXIT_CR4_WRITE";
+static const uchar_t VMEXIT_CR5_WRITE_STR[] = "VMEXIT_CR5_WRITE";
+static const uchar_t VMEXIT_CR6_WRITE_STR[] = "VMEXIT_CR6_WRITE";
+static const uchar_t VMEXIT_CR7_WRITE_STR[] = "VMEXIT_CR7_WRITE";
+static const uchar_t VMEXIT_CR8_WRITE_STR[] = "VMEXIT_CR8_WRITE";
+static const uchar_t VMEXIT_CR9_WRITE_STR[] = "VMEXIT_CR9_WRITE";
+static const uchar_t VMEXIT_CR10_WRITE_STR[] = "VMEXIT_CR10_WRITE";
+static const uchar_t VMEXIT_CR11_WRITE_STR[] = "VMEXIT_CR11_WRITE";
+static const uchar_t VMEXIT_CR12_WRITE_STR[] = "VMEXIT_CR12_WRITE";
+static const uchar_t VMEXIT_CR13_WRITE_STR[] = "VMEXIT_CR13_WRITE";
+static const uchar_t VMEXIT_CR14_WRITE_STR[] = "VMEXIT_CR14_WRITE";
+static const uchar_t VMEXIT_CR15_WRITE_STR[] = "VMEXIT_CR15_WRITE";
+static const uchar_t VMEXIT_DR0_READ_STR[] = "VMEXIT_DR0_READ";
+static const uchar_t VMEXIT_DR1_READ_STR[] = "VMEXIT_DR1_READ";
+static const uchar_t VMEXIT_DR2_READ_STR[] = "VMEXIT_DR2_READ";
+static const uchar_t VMEXIT_DR3_READ_STR[] = "VMEXIT_DR3_READ";
+static const uchar_t VMEXIT_DR4_READ_STR[] = "VMEXIT_DR4_READ";
+static const uchar_t VMEXIT_DR5_READ_STR[] = "VMEXIT_DR5_READ";
+static const uchar_t VMEXIT_DR6_READ_STR[] = "VMEXIT_DR6_READ";
+static const uchar_t VMEXIT_DR7_READ_STR[] = "VMEXIT_DR7_READ";
+static const uchar_t VMEXIT_DR8_READ_STR[] = "VMEXIT_DR8_READ";
+static const uchar_t VMEXIT_DR9_READ_STR[] = "VMEXIT_DR9_READ";
+static const uchar_t VMEXIT_DR10_READ_STR[] = "VMEXIT_DR10_READ";
+static const uchar_t VMEXIT_DR11_READ_STR[] = "VMEXIT_DR11_READ";
+static const uchar_t VMEXIT_DR12_READ_STR[] = "VMEXIT_DR12_READ";
+static const uchar_t VMEXIT_DR13_READ_STR[] = "VMEXIT_DR13_READ";
+static const uchar_t VMEXIT_DR14_READ_STR[] = "VMEXIT_DR14_READ";
+static const uchar_t VMEXIT_DR15_READ_STR[] = "VMEXIT_DR15_READ";
+static const uchar_t VMEXIT_DR0_WRITE_STR[] = "VMEXIT_DR0_WRITE";
+static const uchar_t VMEXIT_DR1_WRITE_STR[] = "VMEXIT_DR1_WRITE";
+static const uchar_t VMEXIT_DR2_WRITE_STR[] = "VMEXIT_DR2_WRITE";
+static const uchar_t VMEXIT_DR3_WRITE_STR[] = "VMEXIT_DR3_WRITE";
+static const uchar_t VMEXIT_DR4_WRITE_STR[] = "VMEXIT_DR4_WRITE";
+static const uchar_t VMEXIT_DR5_WRITE_STR[] = "VMEXIT_DR5_WRITE";
+static const uchar_t VMEXIT_DR6_WRITE_STR[] = "VMEXIT_DR6_WRITE";
+static const uchar_t VMEXIT_DR7_WRITE_STR[] = "VMEXIT_DR7_WRITE";
+static const uchar_t VMEXIT_DR8_WRITE_STR[] = "VMEXIT_DR8_WRITE";
+static const uchar_t VMEXIT_DR9_WRITE_STR[] = "VMEXIT_DR9_WRITE";
+static const uchar_t VMEXIT_DR10_WRITE_STR[] = "VMEXIT_DR10_WRITE";
+static const uchar_t VMEXIT_DR11_WRITE_STR[] = "VMEXIT_DR11_WRITE";
+static const uchar_t VMEXIT_DR12_WRITE_STR[] = "VMEXIT_DR12_WRITE";
+static const uchar_t VMEXIT_DR13_WRITE_STR[] = "VMEXIT_DR13_WRITE";
+static const uchar_t VMEXIT_DR14_WRITE_STR[] = "VMEXIT_DR14_WRITE";
+static const uchar_t VMEXIT_DR15_WRITE_STR[] = "VMEXIT_DR15_WRITE";
+static const uchar_t VMEXIT_EXCP0_STR[] = "VMEXIT_EXCP0";
+static const uchar_t VMEXIT_EXCP1_STR[] = "VMEXIT_EXCP1";
+static const uchar_t VMEXIT_EXCP2_STR[] = "VMEXIT_EXCP2";
+static const uchar_t VMEXIT_EXCP3_STR[] = "VMEXIT_EXCP3";
+static const uchar_t VMEXIT_EXCP4_STR[] = "VMEXIT_EXCP4";
+static const uchar_t VMEXIT_EXCP5_STR[] = "VMEXIT_EXCP5";
+static const uchar_t VMEXIT_EXCP6_STR[] = "VMEXIT_EXCP6";
+static const uchar_t VMEXIT_EXCP7_STR[] = "VMEXIT_EXCP7";
+static const uchar_t VMEXIT_EXCP8_STR[] = "VMEXIT_EXCP8";
+static const uchar_t VMEXIT_EXCP9_STR[] = "VMEXIT_EXCP9";
+static const uchar_t VMEXIT_EXCP10_STR[] = "VMEXIT_EXCP10";
+static const uchar_t VMEXIT_EXCP11_STR[] = "VMEXIT_EXCP11";
+static const uchar_t VMEXIT_EXCP12_STR[] = "VMEXIT_EXCP12";
+static const uchar_t VMEXIT_EXCP13_STR[] = "VMEXIT_EXCP13";
+static const uchar_t VMEXIT_EXCP14_STR[] = "VMEXIT_EXCP14";
+static const uchar_t VMEXIT_EXCP15_STR[] = "VMEXIT_EXCP15";
+static const uchar_t VMEXIT_EXCP16_STR[] = "VMEXIT_EXCP16";
+static const uchar_t VMEXIT_EXCP17_STR[] = "VMEXIT_EXCP17";
+static const uchar_t VMEXIT_EXCP18_STR[] = "VMEXIT_EXCP18";
+static const uchar_t VMEXIT_EXCP19_STR[] = "VMEXIT_EXCP19";
+static const uchar_t VMEXIT_EXCP20_STR[] = "VMEXIT_EXCP20";
+static const uchar_t VMEXIT_EXCP21_STR[] = "VMEXIT_EXCP21";
+static const uchar_t VMEXIT_EXCP22_STR[] = "VMEXIT_EXCP22";
+static const uchar_t VMEXIT_EXCP23_STR[] = "VMEXIT_EXCP23";
+static const uchar_t VMEXIT_EXCP24_STR[] = "VMEXIT_EXCP24";
+static const uchar_t VMEXIT_EXCP25_STR[] = "VMEXIT_EXCP25";
+static const uchar_t VMEXIT_EXCP26_STR[] = "VMEXIT_EXCP26";
+static const uchar_t VMEXIT_EXCP27_STR[] = "VMEXIT_EXCP27";
+static const uchar_t VMEXIT_EXCP28_STR[] = "VMEXIT_EXCP28";
+static const uchar_t VMEXIT_EXCP29_STR[] = "VMEXIT_EXCP29";
+static const uchar_t VMEXIT_EXCP30_STR[] = "VMEXIT_EXCP30";
+static const uchar_t VMEXIT_EXCP31_STR[] = "VMEXIT_EXCP31";
+static const uchar_t VMEXIT_INTR_STR[] = "VMEXIT_INTR";
+static const uchar_t VMEXIT_NMI_STR[] = "VMEXIT_NMI";
+static const uchar_t VMEXIT_SMI_STR[] = "VMEXIT_SMI";
+static const uchar_t VMEXIT_INIT_STR[] = "VMEXIT_INIT";
+static const uchar_t VMEXIT_VINITR_STR[] = "VMEXIT_VINITR";
+static const uchar_t VMEXIT_CR0_SEL_WRITE_STR[] = "VMEXIT_CR0_SEL_WRITE";
+static const uchar_t VMEXIT_IDTR_READ_STR[] = "VMEXIT_IDTR_READ";
+static const uchar_t VMEXIT_GDTR_READ_STR[] = "VMEXIT_GDTR_READ";
+static const uchar_t VMEXIT_LDTR_READ_STR[] = "VMEXIT_LDTR_READ";
+static const uchar_t VMEXIT_TR_READ_STR[] = "VMEXIT_TR_READ";
+static const uchar_t VMEXIT_IDTR_WRITE_STR[] = "VMEXIT_IDTR_WRITE";
+static const uchar_t VMEXIT_GDTR_WRITE_STR[] = "VMEXIT_GDTR_WRITE";
+static const uchar_t VMEXIT_LDTR_WRITE_STR[] = "VMEXIT_LDTR_WRITE";
+static const uchar_t VMEXIT_TR_WRITE_STR[] = "VMEXIT_TR_WRITE";
+static const uchar_t VMEXIT_RDTSC_STR[] = "VMEXIT_RDTSC";
+static const uchar_t VMEXIT_RDPMC_STR[] = "VMEXIT_RDPMC";
+static const uchar_t VMEXIT_PUSHF_STR[] = "VMEXIT_PUSHF";
+static const uchar_t VMEXIT_POPF_STR[] = "VMEXIT_POPF";
+static const uchar_t VMEXIT_CPUID_STR[] = "VMEXIT_CPUID";
+static const uchar_t VMEXIT_RSM_STR[] = "VMEXIT_RSM";
+static const uchar_t VMEXIT_IRET_STR[] = "VMEXIT_IRET";
+static const uchar_t VMEXIT_SWINT_STR[] = "VMEXIT_SWINT";
+static const uchar_t VMEXIT_INVD_STR[] = "VMEXIT_INVD";
+static const uchar_t VMEXIT_PAUSE_STR[] = "VMEXIT_PAUSE";
+static const uchar_t VMEXIT_HLT_STR[] = "VMEXIT_HLT";
+static const uchar_t VMEXIT_INVLPG_STR[] = "VMEXIT_INVLPG";
+static const uchar_t VMEXIT_INVLPGA_STR[] = "VMEXIT_INVLPGA";
+static const uchar_t VMEXIT_IOIO_STR[] = "VMEXIT_IOIO";
+static const uchar_t VMEXIT_MSR_STR[] = "VMEXIT_MSR";
+static const uchar_t VMEXIT_TASK_SWITCH_STR[] = "VMEXIT_TASK_SWITCH";
+static const uchar_t VMEXIT_FERR_FREEZE_STR[] = "VMEXIT_FERR_FREEZE";
+static const uchar_t VMEXIT_SHUTDOWN_STR[] = "VMEXIT_SHUTDOWN";
+static const uchar_t VMEXIT_VMRUN_STR[] = "VMEXIT_VMRUN";
+static const uchar_t VMEXIT_VMMCALL_STR[] = "VMEXIT_VMMCALL";
+static const uchar_t VMEXIT_VMLOAD_STR[] = "VMEXIT_VMLOAD";
+static const uchar_t VMEXIT_VMSAVE_STR[] = "VMEXIT_VMSAVE";
+static const uchar_t VMEXIT_STGI_STR[] = "VMEXIT_STGI";
+static const uchar_t VMEXIT_CLGI_STR[] = "VMEXIT_CLGI";
+static const uchar_t VMEXIT_SKINIT_STR[] = "VMEXIT_SKINIT";
+static const uchar_t VMEXIT_RDTSCP_STR[] = "VMEXIT_RDTSCP";
+static const uchar_t VMEXIT_ICEBP_STR[] = "VMEXIT_ICEBP";
+static const uchar_t VMEXIT_WBINVD_STR[] = "VMEXIT_WBINVD";
+static const uchar_t VMEXIT_MONITOR_STR[] = "VMEXIT_MONITOR";
+static const uchar_t VMEXIT_MWAIT_STR[] = "VMEXIT_MWAIT";
+static const uchar_t VMEXIT_MWAIT_CONDITIONAL_STR[] = "VMEXIT_MWAIT_CONDITIONAL";
+static const uchar_t VMEXIT_NPF_STR[] = "VMEXIT_NPF";
+static const uchar_t VMEXIT_INVALID_VMCB_STR[] = "VMEXIT_INVALID_VMCB";
 
 
 

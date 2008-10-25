@@ -23,9 +23,10 @@
 #include <palacios/vm_guest.h>
 #include <palacios/vmm_ctrl_regs.h>
 #include <palacios/vmm.h>
+#include <palacios/vmcb.h>
 
 
-vm_cpu_mode_t get_cpu_mode(struct guest_info * info) {
+v3_vm_cpu_mode_t v3_get_cpu_mode(struct guest_info * info) {
   struct cr0_32 * cr0;
   struct cr4_32 * cr4 = (struct cr4_32 *)&(info->ctrl_regs.cr4);
   struct efer_64 * efer = (struct efer_64 *)&(info->ctrl_regs.efer);
@@ -54,7 +55,7 @@ vm_cpu_mode_t get_cpu_mode(struct guest_info * info) {
   }
 }
 
-vm_mem_mode_t get_mem_mode(struct guest_info * info) {
+v3_vm_mem_mode_t v3_get_mem_mode(struct guest_info * info) {
   struct cr0_32 * cr0;
 
   if (info->shdw_pg_mode == SHADOW_PAGING) {
@@ -77,7 +78,7 @@ vm_mem_mode_t get_mem_mode(struct guest_info * info) {
 }
 
 
-void PrintV3Segments(struct guest_info * info) {
+void v3_print_segments(struct guest_info * info) {
   struct v3_segments * segs = &(info->segments);
   int i = 0;
   struct v3_segment * seg_ptr;
@@ -89,30 +90,35 @@ void PrintV3Segments(struct guest_info * info) {
 
   for (i = 0; seg_names[i] != NULL; i++) {
 
-    PrintDebug("\t%s: Sel=%x, base=%x, limit=%x\n", seg_names[i], seg_ptr[i].selector, seg_ptr[i].base, seg_ptr[i].limit);
+    PrintDebug("\t%s: Sel=%x, base=%p, limit=%x\n", seg_names[i], seg_ptr[i].selector, 
+	       (void *)(addr_t)seg_ptr[i].base, seg_ptr[i].limit);
 
   }
 
 }
 
 
-void PrintV3CtrlRegs(struct guest_info * info) {
+void v3_print_ctrl_regs(struct guest_info * info) {
   struct v3_ctrl_regs * regs = &(info->ctrl_regs);
   int i = 0;
   v3_reg_t * reg_ptr;
   char * reg_names[] = {"CR0", "CR2", "CR3", "CR4", "CR8", "FLAGS", NULL};
+  vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA(info->vmm_data);
 
   reg_ptr= (v3_reg_t *)regs;
 
   PrintDebug("32 bit Ctrl Regs:\n");
 
   for (i = 0; reg_names[i] != NULL; i++) {
-    PrintDebug("\t%s=0x%x\n", reg_names[i], reg_ptr[i]);  
+    PrintDebug("\t%s=0x%p\n", reg_names[i], (void *)(addr_t)reg_ptr[i]);  
   }
+
+  PrintDebug("\tEFER=0x%p\n", (void*)(addr_t)(guest_state->efer));
+
 }
 
 
-void PrintV3GPRs(struct guest_info * info) {
+void v3_print_GPRs(struct guest_info * info) {
   struct v3_gprs * regs = &(info->vm_regs);
   int i = 0;
   v3_reg_t * reg_ptr;
@@ -123,6 +129,6 @@ void PrintV3GPRs(struct guest_info * info) {
   PrintDebug("32 bit GPRs:\n");
 
   for (i = 0; reg_names[i] != NULL; i++) {
-    PrintDebug("\t%s=0x%x\n", reg_names[i], reg_ptr[i]);  
+    PrintDebug("\t%s=0x%p\n", reg_names[i], (void *)(addr_t)reg_ptr[i]);  
   }
 }

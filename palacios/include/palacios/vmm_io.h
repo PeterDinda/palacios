@@ -52,7 +52,7 @@ struct vmm_io_map {
 };
 
 
-void init_vmm_io_map(struct guest_info * info);
+void v3_init_vmm_io_map(struct guest_info * info);
 
 // FOREACH_IO_HOOK(vmm_io_map_t * io_map, vmm_io_hook_t * io_hook)
 #define FOREACH_IO_HOOK(io_map, io_hook) for (io_hook = (io_map).head; io_hook != NULL; io_hook = (io_hook)->next)
@@ -78,7 +78,7 @@ struct vmm_io_hook {
 struct vmm_io_hook * v3_get_io_hook(struct vmm_io_map * io_map, uint_t port);
 
 
-void PrintDebugIOMap(struct vmm_io_map * io_map);
+void v3_print_io_map(struct vmm_io_map * io_map);
 
 
 

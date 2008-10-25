@@ -18,15 +18,19 @@
  */
 
 
-#ifndef __SERIAL_H__
-#define __SERIAL_H__
+#ifndef __DEVICES_SERIAL_H__
+#define __DEVICES_SERIAL_H__
+
+#ifdef __V3VEE__
 
 
 
 #include <palacios/vm_dev.h>
 
+struct vm_device * v3_create_serial();
 
 
-struct vm_device * create_serial();
+
+#endif // ! __V3VEE__
 
 #endif

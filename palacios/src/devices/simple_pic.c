@@ -60,16 +60,16 @@ static struct intr_ctrl_ops intr_ops = {
 
 
 
-int pic_init_device(struct vm_device * dev) {
+static int pic_init_device(struct vm_device * dev) {
   struct pic_internal * data = (struct pic_internal *)dev->private_data;
-  set_intr_controller(dev->vm, &intr_ops, data);
+  v3_set_intr_controller(dev->vm, &intr_ops, data);
   data->pending_irq = 0;
 
   return 0;
 }
 
 
-int pic_deinit_device(struct vm_device * dev) {
+static int pic_deinit_device(struct vm_device * dev) {
   return 0;
 }
 
@@ -86,12 +86,12 @@ static struct vm_device_ops dev_ops = {
 };
 
 
-struct vm_device * create_simple_pic() {
+struct vm_device * v3_create_simple_pic() {
   struct pic_internal * state = NULL;
   state = (struct pic_internal *)V3_Malloc(sizeof(struct pic_internal));
   V3_ASSERT(state != NULL);
 
-  struct vm_device * pic_dev = create_device("Simple Pic", &dev_ops, state);
+  struct vm_device * pic_dev = v3_create_device("Simple Pic", &dev_ops, state);
 
 
   return pic_dev;

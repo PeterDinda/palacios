@@ -68,11 +68,9 @@ int v3_remove_timer(struct guest_info * info, struct vm_timer * timer);
 
 void v3_update_time(struct guest_info * info, ullong_t cycles);
 
-#endif // !__V3VEE__
-
 
 void v3_init_time(struct guest_info * info);
 
-
+#endif // !__V3VEE__
 
 #endif

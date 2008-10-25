@@ -21,7 +21,7 @@
 #include <palacios/vmm.h>
 #include <palacios/vmm_paging.h>
 
-extern struct vmm_os_hooks * os_hooks;
+extern struct v3_os_hooks * os_hooks;
 
 
 /**********************************/
@@ -34,7 +34,8 @@ int host_va_to_host_pa(addr_t host_va, addr_t * host_pa) {
     *host_pa = (addr_t)(os_hooks)->vaddr_to_paddr((void *)host_va);
   
     if (*host_pa == 0) {
-      PrintError("In HVA->HPA: Invalid HVA(%x)->HPA lookup\n", host_va);
+      PrintError("In HVA->HPA: Invalid HVA(%p)->HPA lookup\n",  
+		 (void *)host_va);
       return -1;
     }
   } else {
@@ -51,7 +52,8 @@ int host_pa_to_host_va(addr_t host_pa, addr_t * host_va) {
     *host_va = (addr_t)(os_hooks)->paddr_to_vaddr((void *)host_pa);
     
     if (*host_va == 0) {
-      PrintError("In HPA->HVA: Invalid HPA(%x)->HVA lookup\n", host_pa);
+      PrintError("In HPA->HVA: Invalid HPA(%p)->HVA lookup\n",  
+		 (void *)host_pa);
       return -1;
     }
   } else {
@@ -65,8 +67,11 @@ int host_pa_to_host_va(addr_t host_pa, addr_t * host_va) {
 
 int guest_pa_to_host_pa(struct guest_info * guest_info, addr_t guest_pa, addr_t * host_pa) {
   // we use the shadow map here...
-  if (lookup_shadow_map_addr(&(guest_info->mem_map), guest_pa, host_pa) != HOST_REGION_PHYSICAL_MEMORY) {
-    PrintError("In GPA->HPA: Could not find address in shadow map (addr=%x)\n", guest_pa);
+  host_region_type_t reg_type = lookup_shadow_map_addr(&(guest_info->mem_map), guest_pa, host_pa);
+
+  if (reg_type != HOST_REGION_PHYSICAL_MEMORY) {
+    PrintError("In GPA->HPA: Could not find address in shadow map (addr=%p) (reg_type=%d)\n", 
+	        (void *)guest_pa, reg_type);
     return -1;
   }
 
@@ -99,12 +104,14 @@ int host_va_to_guest_pa(struct guest_info * guest_info, addr_t host_va, addr_t *
   *guest_pa = 0;
 
   if (host_va_to_host_pa(host_va, &host_pa) != 0) {
-    PrintError("In HVA->GPA: Invalid HVA(%x)->HPA lookup\n", host_va);
+    PrintError("In HVA->GPA: Invalid HVA(%p)->HPA lookup\n", 
+	       (void *)host_va);
     return -1;
   }
 
   if (host_pa_to_guest_pa(guest_info, host_pa, guest_pa) != 0) {
-    PrintError("In HVA->GPA: Invalid HPA(%x)->GPA lookup\n", host_pa);
+    PrintError("In HVA->GPA: Invalid HPA(%p)->GPA lookup\n", 
+	       (void *)host_pa);
     return -1;
   }
 
@@ -120,12 +127,14 @@ int guest_pa_to_host_va(struct guest_info * guest_info, addr_t guest_pa, addr_t 
   *host_va = 0;
 
   if (guest_pa_to_host_pa(guest_info, guest_pa, &host_pa) != 0) {
-    PrintError("In GPA->HVA: Invalid GPA(%x)->HPA lookup\n", guest_pa);
+    PrintError("In GPA->HVA: Invalid GPA(%p)->HPA lookup\n", 
+	        (void *)guest_pa);
     return -1;
   }
   
   if (host_pa_to_host_va(host_pa, host_va) != 0) {
-    PrintError("In GPA->HVA: Invalid HPA(%x)->HVA lookup\n", host_pa);
+    PrintError("In GPA->HVA: Invalid HPA(%p)->HVA lookup\n", 
+	       (void *)host_pa);
     return -1;
   }
 
@@ -151,13 +160,14 @@ int guest_va_to_guest_pa(struct guest_info * guest_info, addr_t guest_va, addr_t
       addr_t guest_pde = 0;
       
       if (guest_info->shdw_pg_mode == SHADOW_PAGING) {
-	guest_pde = CR3_TO_PDE32(guest_info->shdw_pg_state.guest_cr3);
+	guest_pde = (addr_t)V3_PAddr((void *)(addr_t)CR3_TO_PDE32((void *)(addr_t)(guest_info->shdw_pg_state.guest_cr3)));
       } else if (guest_info->shdw_pg_mode == NESTED_PAGING) {
-	guest_pde = CR3_TO_PDE32(guest_info->ctrl_regs.cr3);
+	guest_pde = (addr_t)V3_PAddr((void *)(addr_t)CR3_TO_PDE32((void *)(addr_t)(guest_info->ctrl_regs.cr3)));
       }
       
       if (guest_pa_to_host_va(guest_info, guest_pde, (addr_t *)&pde) == -1) {
-	PrintError("In GVA->GPA: Invalid GPA(%x)->HVA PDE32 lookup\n", guest_pde);
+	PrintError("In GVA->GPA: Invalid GPA(%p)->HVA PDE32 lookup\n", 
+		    (void *)guest_pde);
 	return -1;
       }
       
@@ -175,14 +185,16 @@ int guest_va_to_guest_pa(struct guest_info * guest_info, addr_t guest_va, addr_t
 	  
 	  
 	  if (guest_pa_to_host_va(guest_info, tmp_pa, (addr_t*)&pte) == -1) {
-	    PrintError("In GVA->GPA: Invalid GPA(%x)->HVA PTE32 lookup\n", guest_pa);
+	    PrintError("In GVA->GPA: Invalid GPA(%p)->HVA PTE32 lookup\n", 
+		        (void *)guest_pa);
 	    return -1;
 	  }
 	  
 	  //PrintDebug("PTE host addr=%x, GVA=%x, GPA=%x(should be 0)\n", pte, guest_va, *guest_pa);
 	 
 	  if (pte32_lookup(pte, guest_va, guest_pa) != 0) {
-	    PrintError("In GVA->GPA: PTE32 Lookup failure GVA=%x; PTE=%x\n", guest_va, pte);
+	    PrintError("In GVA->GPA: PTE32 Lookup failure GVA=%p; PTE=%p\n", 
+		        (void *)guest_va,  (void *)pte);
 	    //	      PrintPT32(PDE32_INDEX(guest_va) << 22, pte);
 	    return -1;
 	  }
@@ -235,12 +247,14 @@ int guest_va_to_host_pa(struct guest_info * guest_info, addr_t guest_va, addr_t 
   *host_pa = 0;
 
   if (guest_va_to_guest_pa(guest_info, guest_va, &guest_pa) != 0) {
-    PrintError("In GVA->HPA: Invalid GVA(%x)->GPA lookup\n", guest_va);
+    PrintError("In GVA->HPA: Invalid GVA(%p)->GPA lookup\n", 
+	        (void *)guest_va);
     return -1;
   }
   
   if (guest_pa_to_host_pa(guest_info, guest_pa, host_pa) != 0) {
-    PrintError("In GVA->HPA: Invalid GPA(%x)->HPA lookup\n", guest_pa);
+    PrintError("In GVA->HPA: Invalid GPA(%p)->HPA lookup\n", 
+	       (void *)guest_pa);
     return -1;
   }
 
@@ -254,12 +268,14 @@ int host_pa_to_guest_va(struct guest_info * guest_info, addr_t host_pa, addr_t *
   *guest_va = 0;
 
   if (host_pa_to_guest_pa(guest_info, host_pa, &guest_pa) != 0) {
-    PrintError("In HPA->GVA: Invalid HPA(%x)->GPA lookup\n", host_pa);
+    PrintError("In HPA->GVA: Invalid HPA(%p)->GPA lookup\n", 
+	        (void *)host_pa);
     return -1;
   }
 
   if (guest_pa_to_guest_va(guest_info, guest_pa, guest_va) != 0) {
-    PrintError("In HPA->GVA: Invalid GPA(%x)->GVA lookup\n", guest_pa);
+    PrintError("In HPA->GVA: Invalid GPA(%p)->GVA lookup\n", 
+	        (void *)guest_pa);
     return -1;
   }
 
@@ -276,17 +292,20 @@ int guest_va_to_host_va(struct guest_info * guest_info, addr_t guest_va, addr_t 
   *host_va = 0;
 
   if (guest_va_to_guest_pa(guest_info, guest_va, &guest_pa) != 0) {
-    PrintError("In GVA->HVA: Invalid GVA(%x)->GPA lookup\n", guest_va);
+    PrintError("In GVA->HVA: Invalid GVA(%p)->GPA lookup\n", 
+	        (void *)guest_va);
     return -1;
   }
 
   if (guest_pa_to_host_pa(guest_info, guest_pa, &host_pa) != 0) {
-    PrintError("In GVA->HVA: Invalid GPA(%x)->HPA lookup\n", guest_pa);
+    PrintError("In GVA->HVA: Invalid GPA(%p)->HPA lookup\n", 
+	        (void *)guest_pa);
     return -1;
   }
 
   if (host_pa_to_host_va(host_pa, host_va) != 0) {
-    PrintError("In GVA->HVA: Invalid HPA(%x)->HVA lookup\n", host_pa);
+    PrintError("In GVA->HVA: Invalid HPA(%p)->HVA lookup\n", 
+	        (void *)host_pa);
     return -1;
   }
 
@@ -302,17 +321,20 @@ int host_va_to_guest_va(struct guest_info * guest_info, addr_t host_va, addr_t *
   *guest_va = 0;
 
   if (host_va_to_host_pa(host_va, &host_pa) != 0) {
-    PrintError("In HVA->GVA: Invalid HVA(%x)->HPA lookup\n", host_va);
+    PrintError("In HVA->GVA: Invalid HVA(%p)->HPA lookup\n", 
+	        (void *)host_va);
     return -1;
   }
 
   if (host_pa_to_guest_pa(guest_info, host_pa, &guest_pa) != 0) {
-    PrintError("In HVA->GVA: Invalid HPA(%x)->GPA lookup\n", host_va);
+    PrintError("In HVA->GVA: Invalid HPA(%p)->GPA lookup\n", 
+	        (void *)host_va);
     return -1;
   }
 
   if (guest_pa_to_guest_va(guest_info, guest_pa, guest_va) != 0) {
-    PrintError("In HVA->GVA: Invalid GPA(%x)->GVA lookup\n", guest_pa);
+    PrintError("In HVA->GVA: Invalid GPA(%p)->GVA lookup\n", 
+	       (void *)guest_pa);
     return -1;
   }
 
@@ -340,7 +362,7 @@ int read_guest_va_memory(struct guest_info * guest_info, addr_t guest_va, int co
 
     
     if (guest_va_to_host_va(guest_info, cursor, &host_addr) != 0) {
-      PrintDebug("Invalid GVA(%x)->HVA lookup\n", cursor);
+      PrintDebug("Invalid GVA(%p)->HVA lookup\n", (void *)cursor);
       return bytes_read;
     }
     

@@ -17,8 +17,8 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#ifndef __VMM_H
-#define __VMM_H
+#ifndef __VMM_H__
+#define __VMM_H__
 
 
 #include <palacios/vm_guest.h>
@@ -34,10 +34,10 @@
 
 /* utility definitions */
 
-#if VMM_DEBUG
+#ifdef VMM_DEBUG
 #define PrintDebug(fmt, args...)			\
   do {							\
-    extern struct vmm_os_hooks * os_hooks;		\
+    extern struct v3_os_hooks * os_hooks;		\
     if ((os_hooks) && (os_hooks)->print_debug) {	\
       (os_hooks)->print_debug((fmt), ##args);		\
     }							\
@@ -50,7 +50,7 @@
 
 #define PrintError(fmt, args...)					\
   do {									\
-    extern struct vmm_os_hooks * os_hooks;				\
+    extern struct v3_os_hooks * os_hooks;				\
     if ((os_hooks) && (os_hooks)->print_debug) {			\
       (os_hooks)->print_debug("%s(%d): " fmt, __FILE__, __LINE__, ##args); \
     }									\
@@ -58,10 +58,10 @@
 
 
 
-#if VMM_INFO
+#ifdef VMM_INFO
 #define PrintInfo(fmt, args...) 		        \
   do {							\
-    extern struct vmm_os_hooks * os_hooks;		\
+    extern struct v3_os_hooks * os_hooks;		\
     if ((os_hooks) && (os_hooks)->print_info) {		\
       (os_hooks)->print_info((fmt), ##args);		\
     }							\
@@ -71,10 +71,10 @@
 #endif
 
 
-#if VMM_TRACE
+#ifdef VMM_TRACE
 #define PrintTrace(fmt, args...)					\
   do {									\
-    extern struct vmm_os_hooks * os_hooks;				\
+    extern struct v3_os_hooks * os_hooks;				\
     if ((os_hooks) && (os_hooks)->print_trace) {			\
       (os_hooks)->print_trace(fmt, ##args);				\
     }									\
@@ -86,7 +86,7 @@
 
 #define V3_AllocPages(num_pages)		        \
   ({							\
-    extern struct vmm_os_hooks * os_hooks;		\
+    extern struct v3_os_hooks * os_hooks;		\
     void * ptr = 0;					\
     if ((os_hooks) && (os_hooks)->allocate_pages) {	\
       ptr = (os_hooks)->allocate_pages(num_pages);	\
@@ -97,17 +97,36 @@
 
 #define V3_FreePage(page)			\
   do {						\
-    extern struct vmm_os_hooks * os_hooks;	\
+    extern struct v3_os_hooks * os_hooks;	\
     if ((os_hooks) && (os_hooks)->free_page) {	\
       (os_hooks)->free_page(page);		\
     }						\
   } while(0)					\
 
 
+#define V3_VAddr(addr) ({				\
+      extern struct v3_os_hooks * os_hooks;		\
+      void * var = 0;					\
+      if ((os_hooks) && (os_hooks)->paddr_to_vaddr) {	\
+	var = (os_hooks)->paddr_to_vaddr(addr);		\
+      }							\
+      var;						\
+    })
+
+
+#define V3_PAddr(addr) ({				\
+      extern struct v3_os_hooks * os_hooks;		\
+      void * var = 0;					\
+      if ((os_hooks) && (os_hooks)->vaddr_to_paddr) {	\
+	var = (os_hooks)->vaddr_to_paddr(addr);		\
+      }							\
+      var;						\
+    })
+
 
 
 #define V3_Malloc(size) ({			\
-      extern struct vmm_os_hooks * os_hooks;	\
+      extern struct v3_os_hooks * os_hooks;	\
       void * var = 0;				\
       if ((os_hooks) && (os_hooks)->malloc) {	\
 	var = (os_hooks)->malloc(size);		\
@@ -118,7 +137,7 @@
 // We need to check the hook structure at runtime to ensure its SAFE
 #define V3_Free(addr)					\
   do {							\
-    extern struct vmm_os_hooks * os_hooks;		\
+    extern struct v3_os_hooks * os_hooks;		\
     if ((os_hooks) && (os_hooks)->free) {		\
       (os_hooks)->free(addr);				\
     }							\
@@ -129,7 +148,7 @@
 #define V3_CPU_KHZ()					\
   ({ 							\
     unsigned int khz = 0;				\
-    extern struct vmm_os_hooks * os_hooks;		\
+    extern struct v3_os_hooks * os_hooks;		\
     if ((os_hooks) && (os_hooks)->get_cpu_khz) {	\
       khz = (os_hooks)->get_cpu_khz();			\
     }							\
@@ -141,7 +160,7 @@
 #define V3_Hook_Interrupt(irq, opaque)				\
   ({								\
     int ret = 0;						\
-    extern struct vmm_os_hooks * os_hooks;			\
+    extern struct v3_os_hooks * os_hooks;			\
     if ((os_hooks) && (os_hooks)->hook_interrupt) {		\
       ret = (os_hooks)->hook_interrupt(irq, opaque);		\
     }								\
@@ -150,7 +169,7 @@
 
 #define V3_Yield(addr)					\
   do {							\
-    extern struct vmm_os_hooks * os_hooks;		\
+    extern struct v3_os_hooks * os_hooks;		\
     if ((os_hooks) && (os_hooks)->yield_cpu) {		\
       (os_hooks)->yield_cpu();				\
     }							\
@@ -191,10 +210,13 @@ typedef enum v3_cpu_arch {V3_INVALID_CPU, V3_SVM_CPU, V3_SVM_REV3_CPU, V3_VMX_CP
 struct guest_info;
 
 /* This will contain function pointers that provide OS services */
-struct vmm_os_hooks {
+struct v3_os_hooks {
   void (*print_info)(const char * format, ...);
+  //	__attribute__ ((format (printf, 1, 2)));
   void (*print_debug)(const char * format, ...);
+  //	__attribute__ ((format (printf, 1, 2)));
   void (*print_trace)(const char * format, ...);
+  //	__attribute__ ((format (printf, 1, 2)));
   
   void *(*allocate_pages)(int numPages);
   void (*free_page)(void * page);
@@ -212,18 +234,23 @@ struct vmm_os_hooks {
   int (*ack_irq)(int irq);
 
 
-  unsigned int (*get_cpu_khz)();
+  unsigned int (*get_cpu_khz)(void);
 
 
-  void (*start_kernel_thread)(); // include pointer to function
+  void (*start_kernel_thread)(void); // include pointer to function
 
-  void (*yield_cpu)();
+  void (*yield_cpu)(void);
 
 };
 
 
 struct v3_vm_config {
-  void * vm_kernel;
+  void * rombios;
+  int rombios_size;
+
+  void * vgabios;
+  int vgabios_size;
+
   int use_ramdisk;
   void * ramdisk;
   int ramdisk_size;
@@ -232,15 +259,15 @@ struct v3_vm_config {
 
 
 /* This will contain Function pointers that control the VMs */
-struct vmm_ctrl_ops {
-  struct guest_info *(*allocate_guest)();
+struct v3_ctrl_ops {
+  struct guest_info *(*allocate_guest)(void);
 
   int (*config_guest)(struct guest_info * info, struct v3_vm_config * config_ptr);
   int (*init_guest)(struct guest_info * info);
   int (*start_guest)(struct guest_info * info);
   //  int (*stop_vm)(uint_t vm_id);
 
-  int (*has_nested_paging)();
+  int (*has_nested_paging)(void);
 
   //  v3_cpu_arch_t (*get_cpu_arch)();
 };
@@ -263,10 +290,10 @@ struct v3_interrupt {
 
 
 
-void Init_V3(struct vmm_os_hooks * hooks, struct vmm_ctrl_ops * vmm_ops);
+void Init_V3(struct v3_os_hooks * hooks, struct v3_ctrl_ops * vmm_ops);
 
 int v3_deliver_irq(struct guest_info * vm, struct v3_interrupt * intr);
-
+int v3_deliver_keyboard_evt(struct guest_info * vm);
 
 
 #endif

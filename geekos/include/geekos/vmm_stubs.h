@@ -49,17 +49,22 @@ int ack_irq(int irq);
 int geekos_hook_interrupt(struct guest_info * info, uint_t irq);
 
 
+
 unsigned int get_cpu_khz();
 
-void Init_Stubs();
+void Init_Stubs(struct guest_info * info);
 
 
 
 
-
-
-
-
+/**** 
+ * 
+ * stubs called by geekos....
+ * 
+ ***/
+void send_key_to_vmm(unsigned char status, unsigned char scancode);
+void send_mouse_to_vmm(unsigned char packet[3]);
+void send_tick_to_vmm(unsigned int period_us);
 
 
 #if 0

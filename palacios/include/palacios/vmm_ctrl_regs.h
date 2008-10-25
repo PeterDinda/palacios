@@ -200,11 +200,11 @@ static const uchar_t mov_from_cr_byte = 0x20;
 */
 
 
-int handle_cr0_write(struct guest_info * info);
-int handle_cr0_read(struct guest_info * info);
+int v3_handle_cr0_write(struct guest_info * info);
+int v3_handle_cr0_read(struct guest_info * info);
 
-int handle_cr3_write(struct guest_info * info);
-int handle_cr3_read(struct guest_info * info);
+int v3_handle_cr3_write(struct guest_info * info);
+int v3_handle_cr3_read(struct guest_info * info);
 
 
 #endif // ! __V3VEE__

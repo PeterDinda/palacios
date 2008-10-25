@@ -17,22 +17,22 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#ifndef __VM_GUEST_H
-#define __VM_GUEST_H
+#ifndef __VM_GUEST_H__
+#define __VM_GUEST_H__
 
 #ifdef __V3VEE__
 
-
-#include <palacios/vmm_mem.h>
 #include <palacios/vmm_types.h>
+#include <palacios/vmm_mem.h>
 #include <palacios/vmm_io.h>
 #include <palacios/vmm_shadow_paging.h>
 #include <palacios/vmm_intr.h>
 #include <palacios/vmm_dev_mgr.h>
 #include <palacios/vmm_time.h>
 #include <palacios/vmm_emulator.h>
+#include <palacios/vmm_host_events.h>
 
-typedef ullong_t v3_reg_t;
+
 
 
 
@@ -103,20 +103,14 @@ struct vmm_io_map;
 struct emulation_state;
 struct v3_intr_state;
 
-struct vm_ctrl_ops {
-  int (*raise_irq)(struct guest_info * info, int irq);
-  int (*lower_irq)(struct guest_info * info, int irq);
-};
 
 
+typedef enum {SHADOW_PAGING, NESTED_PAGING} v3_paging_mode_t;
+typedef enum {VM_RUNNING, VM_STOPPED, VM_SUSPENDED, VM_ERROR, VM_EMULATING} v3_vm_operating_mode_t;
 
 
-typedef enum {SHADOW_PAGING, NESTED_PAGING} vmm_paging_mode_t;
-typedef enum {VM_RUNNING, VM_STOPPED, VM_SUSPENDED, VM_ERROR, VM_EMULATING} vm_operating_mode_t;
-
-
-typedef enum {REAL, /*UNREAL,*/ PROTECTED, PROTECTED_PAE, LONG, LONG_32_COMPAT, LONG_16_COMPAT} vm_cpu_mode_t;
-typedef enum {PHYSICAL_MEM, VIRTUAL_MEM} vm_mem_mode_t;
+typedef enum {REAL, /*UNREAL,*/ PROTECTED, PROTECTED_PAE, LONG, LONG_32_COMPAT, LONG_16_COMPAT} v3_vm_cpu_mode_t;
+typedef enum {PHYSICAL_MEM, VIRTUAL_MEM} v3_vm_mem_mode_t;
 
 
 
@@ -129,7 +123,7 @@ struct guest_info {
 
   struct vm_time time_state;
   
-  vmm_paging_mode_t shdw_pg_mode;
+  v3_paging_mode_t shdw_pg_mode;
   struct shadow_page_state shdw_pg_state;
   addr_t direct_map_pt;
   // nested_paging_t nested_page_state;
@@ -143,8 +137,10 @@ struct guest_info {
 
   struct vmm_dev_mgr  dev_mgr;
 
-  vm_cpu_mode_t cpu_mode;
-  vm_mem_mode_t mem_mode;
+  struct v3_host_events host_event_hooks;
+
+  v3_vm_cpu_mode_t cpu_mode;
+  v3_vm_mem_mode_t mem_mode;
 
 
   struct v3_gprs vm_regs;
@@ -152,11 +148,9 @@ struct guest_info {
   struct v3_dbg_regs dbg_regs;
   struct v3_segments segments;
 
-  struct vm_ctrl_ops vm_ops;
-
   struct emulation_state emulator;
 
-  vm_operating_mode_t run_state;
+  v3_vm_operating_mode_t run_state;
   void * vmm_data;
 
   /* TEMP */
@@ -165,13 +159,13 @@ struct guest_info {
 };
 
 
-vm_cpu_mode_t get_cpu_mode(struct guest_info * info);
-vm_mem_mode_t get_mem_mode(struct guest_info * info);
+v3_vm_cpu_mode_t v3_get_cpu_mode(struct guest_info * info);
+v3_vm_mem_mode_t v3_get_mem_mode(struct guest_info * info);
 
 
-void PrintV3Segments(struct guest_info * info);
-void PrintV3CtrlRegs(struct guest_info * info);
-void PrintV3GPRs(struct guest_info * info);
+void v3_print_segments(struct guest_info * info);
+void v3_print_ctrl_regs(struct guest_info * info);
+void v3_print_GPRs(struct guest_info * info);
 
 #endif // ! __V3VEE__
 

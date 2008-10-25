@@ -32,14 +32,17 @@
 #endif
 
 
+
+
+
 // This should package up an IO request and call vmm_handle_io
-int handle_svm_io_in(struct guest_info * info) {
+int v3_handle_svm_io_in(struct guest_info * info) {
   vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA((vmcb_t *)(info->vmm_data));
   //  vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
   struct svm_io_info * io_info = (struct svm_io_info *)&(ctrl_area->exit_info1);
 
   struct vmm_io_hook * hook = v3_get_io_hook(&(info->io_map), io_info->port);
-  uint_t read_size = 0;
+  int read_size = 0;
 
   if (hook == NULL) {
     PrintError("Hook Not present for in on port %x\n", io_info->port);
@@ -76,14 +79,14 @@ int handle_svm_io_in(struct guest_info * info) {
 /* We might not handle wrap around of the RDI register correctly...
  * In that if we do wrap around the effect will manifest in the higher bits of the register
  */
-int handle_svm_io_ins(struct guest_info * info) {
+int v3_handle_svm_io_ins(struct guest_info * info) {
   vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA((vmcb_t *)(info->vmm_data));
   vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
   
   struct svm_io_info * io_info = (struct svm_io_info *)&(ctrl_area->exit_info1);
   
   struct vmm_io_hook * hook = v3_get_io_hook(&(info->io_map), io_info->port);
-  uint_t read_size = 0;
+  int read_size = 0;
 
   addr_t dst_addr = 0;
   uint_t rep_num = 1;
@@ -111,7 +114,7 @@ int handle_svm_io_ins(struct guest_info * info) {
   
   addr_t inst_ptr;
 
-  if (guest_va_to_host_pa(info,get_addr_linear(info,info->rip,&(info->segments.cs)),&inst_ptr)==-1) {
+  if (guest_va_to_host_va(info, get_addr_linear(info, info->rip, &(info->segments.cs)), &inst_ptr) == -1) {
     PrintError("Can't access instruction\n");
     return -1;
   }
@@ -167,7 +170,8 @@ int handle_svm_io_ins(struct guest_info * info) {
     // This value should be set depending on the host register size...
     mask = get_gpr_mask(info);
 
-    PrintDebug("INS io_info invalid address size, mask=0x%x, io_info=0x%x\n",mask,*((uint_t*)(io_info)));
+    PrintDebug("INS io_info invalid address size, mask=0x%p, io_info=0x%p\n",
+	       (void *)mask, (void *)(io_info));
     // PrintDebug("INS Aborted... Check implementation\n");
     //return -1;
   }
@@ -184,7 +188,7 @@ int handle_svm_io_ins(struct guest_info * info) {
     addr_t host_addr;
     dst_addr = get_addr_linear(info, info->vm_regs.rdi & mask, theseg);
     
-    PrintDebug("Writing 0x%x\n", dst_addr);
+    PrintDebug("Writing 0x%p\n", (void *)dst_addr);
 
     if (guest_va_to_host_va(info, dst_addr, &host_addr) == -1) {
       // either page fault or gpf...
@@ -212,13 +216,13 @@ int handle_svm_io_ins(struct guest_info * info) {
   return 0;
 }
 
-int handle_svm_io_out(struct guest_info * info) {
+int v3_handle_svm_io_out(struct guest_info * info) {
   vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA((vmcb_t *)(info->vmm_data));
   //  vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
   struct svm_io_info * io_info = (struct svm_io_info *)&(ctrl_area->exit_info1);
 
   struct vmm_io_hook * hook = v3_get_io_hook(&(info->io_map), io_info->port);
-  uint_t write_size = 0;
+  int write_size = 0;
 
   if (hook == NULL) {
     PrintError("Hook Not present for out on port %x\n", io_info->port);
@@ -253,7 +257,7 @@ int handle_svm_io_out(struct guest_info * info) {
  * In that if we do wrap around the effect will manifest in the higher bits of the register
  */
 
-int handle_svm_io_outs(struct guest_info * info) {
+int v3_handle_svm_io_outs(struct guest_info * info) {
   vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA((vmcb_t *)(info->vmm_data));
   vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
 
@@ -261,7 +265,7 @@ int handle_svm_io_outs(struct guest_info * info) {
   struct svm_io_info * io_info = (struct svm_io_info *)&(ctrl_area->exit_info1);
   
   struct vmm_io_hook * hook = v3_get_io_hook(&(info->io_map), io_info->port);
-  uint_t write_size = 0;
+  int write_size = 0;
 
   addr_t dst_addr = 0;
   uint_t rep_num = 1;
@@ -306,7 +310,8 @@ int handle_svm_io_outs(struct guest_info * info) {
     // This value should be set depending on the host register size...
     mask = get_gpr_mask(info);
 
-    PrintDebug("OUTS io_info invalid address size, mask=0x%, io_info=0x%x\n",mask,*((uint_t*)(io_info)));
+    PrintDebug("OUTS io_info invalid address size, mask=0%p, io_info=0x%p\n",
+	       (void *)mask, (void *)io_info);
     // PrintDebug("INS Aborted... Check implementation\n");
     //return -1;
     // should never happen
@@ -322,7 +327,7 @@ int handle_svm_io_outs(struct guest_info * info) {
   
   addr_t inst_ptr;
 
-  if (guest_va_to_host_pa(info,get_addr_linear(info,info->rip,&(info->segments.cs)),&inst_ptr)==-1) {
+  if (guest_va_to_host_va(info,get_addr_linear(info,info->rip,&(info->segments.cs)),&inst_ptr)==-1) {
     PrintError("Can't access instruction\n");
     return -1;
   }

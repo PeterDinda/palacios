@@ -34,7 +34,7 @@ static int default_write(ushort_t port, void *src, uint_t length, void * priv_da
 static int default_read(ushort_t port, void * dst, uint_t length, void * priv_data);
 
 
-void init_vmm_io_map(struct guest_info * info) {
+void v3_init_vmm_io_map(struct guest_info * info) {
   struct vmm_io_map * io_map = &(info->io_map);
   io_map->num_ports = 0;
   io_map->head = NULL;
@@ -170,13 +170,15 @@ struct vmm_io_hook * v3_get_io_hook(struct vmm_io_map * io_map, uint_t port) {
 
 
 
-void PrintDebugIOMap(struct vmm_io_map * io_map) {
+void v3_print_io_map(struct vmm_io_map * io_map) {
   struct vmm_io_hook * iter = io_map->head;
 
   PrintDebug("VMM IO Map (Entries=%d)\n", io_map->num_ports);
 
   while (iter) {
-    PrintDebug("IO Port: %hu (Read=%x) (Write=%x)\n", iter->port, iter->read, iter->write);
+    PrintDebug("IO Port: %hu (Read=%p) (Write=%p)\n", 
+	       iter->port, 
+	       (void *)(iter->read), (void *)(iter->write));
   }
 }
 

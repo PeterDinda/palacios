@@ -23,7 +23,7 @@
 
 
 
-struct vm_device * allocate_device() {
+static struct vm_device * v3_allocate_device() {
 
   struct vm_device * dev = NULL;
   dev = (struct vm_device*)V3_Malloc(sizeof(struct vm_device));
@@ -48,8 +48,8 @@ struct vm_device * allocate_device() {
   return dev;
 }
 
-struct vm_device * create_device(char * name, struct vm_device_ops * ops, void * private_data) {
-  struct vm_device * dev = allocate_device();
+struct vm_device * v3_create_device(char * name, struct vm_device_ops * ops, void * private_data) {
+  struct vm_device * dev = v3_allocate_device();
 
   strncpy(dev->name, name, 32);
   dev->ops = ops;
@@ -58,7 +58,7 @@ struct vm_device * create_device(char * name, struct vm_device_ops * ops, void *
   return dev;
 }
 
-void free_device(struct vm_device * dev) {
+void v3_free_device(struct vm_device * dev) {
   V3_Free(dev);
 }
 

@@ -17,10 +17,17 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#ifndef __SIMPLE_PIC_H
-#define __SIMPLE_PIC_H
+#ifndef __DEVICES_SIMPLE_PIC_H__
+#define __DEVICES_SIMPLE_PIC_H__
+
+#ifdef __V3VEE__
+
+
 #include <palacios/vm_dev.h>
 
-struct vm_device * create_simple_pic();
+struct vm_device * v3_create_simple_pic();
+
+
+#endif // ! __V3VEE__
 
 #endif

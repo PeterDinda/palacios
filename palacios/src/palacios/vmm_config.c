@@ -31,24 +31,16 @@
 #include <devices/generic.h>
 #include <devices/ramdisk.h>
 #include <devices/cdrom.h>
+#include <devices/bochs_debug.h>
 
+
+#include <palacios/vmm_host_events.h>
 
 #define USE_GENERIC 1
 
-#define MAGIC_CODE 0xf1e2d3c4
 
-
-
-struct layout_region {
-  ulong_t length;
-  ulong_t final_addr;
-};
-
-struct guest_mem_layout {
-  ulong_t magic;
-  ulong_t num_regions;
-  struct layout_region regions[0];
-};
+#define ROMBIOS_START 0x000f0000
+#define VGABIOS_START 0x000c0000
 
 
 
@@ -59,7 +51,7 @@ static int mem_test_read(addr_t guest_addr, void * dst, uint_t length, void * pr
 
   memcpy(dst, &foo, length);
 
-  PrintDebug("Passthrough mem read returning: %d (length=%d)\n", foo + (guest_addr & 0xfff), length);
+  PrintDebug("Passthrough mem read returning: %p (length=%d)\n", (void *)(foo + (guest_addr & 0xfff)), length);
   return length;
 }
 
@@ -74,31 +66,10 @@ static int passthrough_mem_write(addr_t guest_addr, void * src, uint_t length, v
 }
 
 
-/*static int IO_Read(ushort_t port, void * dst, uint_t length, void * priv_data) {
 
-  struct guest_info * info = priv_data;
-  ulong_t tsc_spread = 0;
-  ullong_t exit_tsc = 0;
-
-  
-  *(ulong_t *)(&exit_tsc) = info->vm_regs.rbx;
-  *(ulong_t *)((&exit_tsc) + 4) = info->vm_regs.rcx; 
-  tsc_spread = info->exit_tsc - exit_tsc;
-  
-  PrintError("IOREAD tsc diff = %lu\n",tsc_spread); 
-  info->rip += 3;
-
-
-  return 1;
-}
-*/
-
-int config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) {
-
-  struct guest_mem_layout * layout = (struct guest_mem_layout *)config_ptr->vm_kernel;
+int v3_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) {
   extern v3_cpu_arch_t v3_cpu_type;
-  void * region_start;
-  int i;
+
 
   int use_ramdisk = config_ptr->use_ramdisk;
   int use_generic = USE_GENERIC;
@@ -110,7 +81,7 @@ int config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) {
   if (v3_cpu_type == V3_SVM_REV3_CPU) {
     info->shdw_pg_mode = NESTED_PAGING;
   } else {
-    init_shadow_page_state(info);
+    v3_init_shadow_page_state(info);
     info->shdw_pg_mode = SHADOW_PAGING;
   }
   
@@ -118,45 +89,50 @@ int config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) {
   info->mem_mode = PHYSICAL_MEM;
   
  
-  init_vmm_io_map(info);
-  init_interrupt_state(info);
+  v3_init_vmm_io_map(info);
+  v3_init_interrupt_state(info);
   
-  dev_mgr_init(info);
+  v3_init_dev_mgr(info);
 
-  init_emulator(info);
+  v3_init_emulator(info);
   
+  v3_init_host_events(info);
+
  
-  //     SerialPrint("Guest Mem Dump at 0x%x\n", 0x100000);
-  //PrintDebugMemDump((unsigned char *)(0x100000), 261 * 1024);
-  if (layout->magic != MAGIC_CODE) {
+
+  /* layout rombios */
+  {
+    uint_t num_pages = (config_ptr->rombios_size + PAGE_SIZE - 1) / PAGE_SIZE;
+    void * guest_mem =  V3_AllocPages(num_pages);
+
+    PrintDebug("Layout Region %d bytes\n", config_ptr->rombios_size);
+    memcpy(V3_VAddr(guest_mem), config_ptr->rombios, config_ptr->rombios_size);
+
+    add_shadow_region_passthrough(info, ROMBIOS_START, ROMBIOS_START + (num_pages * PAGE_SIZE), (addr_t)guest_mem);
     
-    PrintDebug("Layout Magic Mismatch (0x%x)\n", layout->magic);
-    return -1;
+    PrintDebug("Adding Shadow Region (0x%p-0x%p) -> 0x%p\n", 
+	       (void *)ROMBIOS_START, 
+	       (void *)ROMBIOS_START + (num_pages * PAGE_SIZE), 
+	       (void *)guest_mem);
   }
-  
-  PrintDebug("%d layout regions\n", layout->num_regions);
-  
-  region_start = (void *)&(layout->regions[layout->num_regions]);
-  
-  PrintDebug("region start = 0x%x\n", region_start);
-  
-  for (i = 0; i < layout->num_regions; i++) {
-    struct layout_region * reg = &(layout->regions[i]);
-    uint_t num_pages = (reg->length / PAGE_SIZE) + ((reg->length % PAGE_SIZE) ? 1 : 0);
-    void * guest_mem = V3_AllocPages(num_pages);
+
+
+  /* layout vgabios */
+  {
+    uint_t num_pages = (config_ptr->vgabios_size + PAGE_SIZE - 1) / PAGE_SIZE;
+    void * guest_mem =  V3_AllocPages(num_pages);
+
+    PrintDebug("Layout Region %d bytes\n", config_ptr->vgabios_size);
+    memcpy(V3_VAddr(guest_mem), config_ptr->vgabios, config_ptr->vgabios_size);
+
+    add_shadow_region_passthrough(info, VGABIOS_START, VGABIOS_START + (num_pages * PAGE_SIZE), (addr_t)guest_mem);
     
-    PrintDebug("Layout Region %d bytes\n", reg->length);
-    memcpy(guest_mem, region_start, reg->length);
-    
-    PrintDebugMemDump((unsigned char *)(guest_mem), 16);
-    
-    add_shadow_region_passthrough(info, reg->final_addr, reg->final_addr + (num_pages * PAGE_SIZE), (addr_t)guest_mem);
-    
-    PrintDebug("Adding Shadow Region (0x%x-0x%x) -> 0x%x\n", reg->final_addr, reg->final_addr + (num_pages * PAGE_SIZE), guest_mem);
-    
-    region_start += reg->length;
+    PrintDebug("Adding Shadow Region (0x%p-0x%p) -> 0x%p\n", 
+	       (void *)VGABIOS_START, 
+	       (void *)VGABIOS_START + (num_pages * PAGE_SIZE), 
+	       (void *)guest_mem);
   }
-  
+
       //     
   add_shadow_region_passthrough(info, 0x0, 0xa0000, (addr_t)V3_AllocPages(160));
   
@@ -196,18 +172,18 @@ int config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) {
   
   
   print_shadow_map(&(info->mem_map));
-
   
   {
     struct vm_device * ramdisk = NULL;
     struct vm_device * cdrom = NULL;
-    struct vm_device * nvram = create_nvram();
-    //struct vm_device * timer = create_timer();
-    struct vm_device * pic = create_pic();
-    struct vm_device * keyboard = create_keyboard();
-    struct vm_device * pit = create_pit(); 
+    struct vm_device * nvram = v3_create_nvram();
+    //struct vm_device * timer = v3_create_timer();
+    struct vm_device * pic = v3_create_pic();
+    struct vm_device * keyboard = v3_create_keyboard();
+    struct vm_device * pit = v3_create_pit(); 
+    struct vm_device * bochs_debug = v3_create_bochs_debug();
 
-    //struct vm_device * serial = create_serial();
+    //struct vm_device * serial = v3_create_serial();
     struct vm_device * generic = NULL;
 
 
@@ -215,14 +191,14 @@ int config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) {
 
     if (use_ramdisk) {
       PrintDebug("Creating Ramdisk\n");
-      ramdisk = create_ramdisk();
+      ramdisk = v3_create_ramdisk();
       cdrom = v3_create_cdrom(ramdisk, config_ptr->ramdisk, config_ptr->ramdisk_size); 
     }
     
     
     if (use_generic) {
       PrintDebug("Creating Generic Device\n");
-      generic = create_generic();
+      generic = v3_create_generic();
       
       // Make the DMA controller invisible
       v3_generic_add_port_range(generic, 0x00, 0x07, GENERIC_PRINT_AND_IGNORE);   // DMA 1 channels 0,1,2,3 (address, counter)
@@ -340,6 +316,7 @@ int config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) {
     v3_attach_device(info, pit);
     v3_attach_device(info, keyboard);
     // v3_attach_device(info, serial);
+    v3_attach_device(info, bochs_debug);
 
     if (use_ramdisk) {
       v3_attach_device(info, ramdisk);
@@ -365,6 +342,8 @@ int config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) {
   
 
   if (!use_ramdisk) {
+    PrintDebug("Hooking IDE IRQs\n");
+
     //primary ide
     v3_hook_passthrough_irq(info, 14);
   

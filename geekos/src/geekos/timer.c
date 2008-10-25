@@ -22,6 +22,8 @@
 
 #include <geekos/io_defs.h>
 
+#include <geekos/vmm_stubs.h>
+
 /* PAD this currently is in nvram.c */
 /* JRL: This is completely broken
 extern void deliver_timer_interrupt_to_vmm(uint_t period_us);
@@ -218,9 +220,9 @@ static void Timer_Interrupt_Handler(struct Interrupt_State* state)
     
   }
   
-  /* JRL: Broken,  
-  deliver_timer_interrupt_to_vmm(1000000/HZ);
-  */
+
+  send_tick_to_vmm(1000000/HZ);
+
   End_IRQ(state);
 }
 

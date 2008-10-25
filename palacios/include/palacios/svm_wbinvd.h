@@ -27,7 +27,7 @@
 #include <palacios/vmm.h>
 
 
-int handle_svm_wbinvd(struct guest_info * info);
+int v3_handle_svm_wbinvd(struct guest_info * info);
 
 
 #endif // ! __V3VEE__

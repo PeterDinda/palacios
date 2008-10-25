@@ -26,11 +26,11 @@
 #include <palacios/vmm_decoder.h>
 
 v3_cpu_arch_t v3_cpu_type;
-struct vmm_os_hooks * os_hooks = NULL;
+struct v3_os_hooks * os_hooks = NULL;
 
 
 
-struct guest_info * allocate_guest() {
+static struct guest_info * allocate_guest() {
   void * info = V3_Malloc(sizeof(struct guest_info));
   memset(info, 0, sizeof(struct guest_info));
   return info;
@@ -38,19 +38,19 @@ struct guest_info * allocate_guest() {
 
 
 
-void Init_V3(struct vmm_os_hooks * hooks, struct vmm_ctrl_ops * vmm_ops) {
+void Init_V3(struct v3_os_hooks * hooks, struct v3_ctrl_ops * vmm_ops) {
   os_hooks = hooks;
 
   v3_cpu_type = V3_INVALID_CPU;
 
-  init_decoder();
+  v3_init_decoder();
 
-  if (is_svm_capable()) {
+  if (v3_is_svm_capable()) {
 
     PrintDebug("Machine is SVM Capable\n");
     vmm_ops->allocate_guest = &allocate_guest;
-    vmm_ops->config_guest = &config_guest;
-    Init_SVM(vmm_ops);
+    vmm_ops->config_guest = &v3_config_guest;
+    v3_init_SVM(vmm_ops);
 
     /*
   } else if (is_vmx_capable()) {

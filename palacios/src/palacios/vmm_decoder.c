@@ -21,7 +21,7 @@
 #include <palacios/vmm_decoder.h>
 
 
-int opcode_cmp(const uchar_t * op1, const uchar_t * op2) {
+int v3_opcode_cmp(const uchar_t * op1, const uchar_t * op2) {
   if (op1[0] != op2[0]) {
     return op1[0] - op2[0];;
   } else {
@@ -30,7 +30,7 @@ int opcode_cmp(const uchar_t * op1, const uchar_t * op2) {
 }
 
 
-void strip_rep_prefix(uchar_t * instr, int length) {
+void v3_strip_rep_prefix(uchar_t * instr, int length) {
   int read_ctr = 0;
   int write_ctr = 0;
   int found = 0;
