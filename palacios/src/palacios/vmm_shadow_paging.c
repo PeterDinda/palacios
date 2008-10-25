@@ -681,7 +681,7 @@ int v3_handle_shadow_invlpg(struct guest_info * info)
 
 	int ret = read_guest_va_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
 	if (ret != 15) {
-		PrintError("Could not read instruction 0x%p (ret=%d)\n",  (void *)(info->rip), ret);
+	  PrintError("Could not read instruction 0x%p (ret=%d)\n",  (void *)(addr_t)(info->rip), ret);
 		return -1;
 	}
 

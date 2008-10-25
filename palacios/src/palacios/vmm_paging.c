@@ -169,7 +169,7 @@ pt_access_status_t can_access_pte32(pte32_t * pte, addr_t addr, pf_error_t acces
  * pulling pages from the mem_list when necessary
  * If there are any gaps in the layout, we add them as unmapped pages
  */
-pde32_t * create_passthrough_pde32_pts(struct guest_info * guest_info) {
+pde32_t * create_passthrough_pts_32(struct guest_info * guest_info) {
   addr_t current_page_addr = 0;
   int i, j;
   struct shadow_map * map = &(guest_info->mem_map);

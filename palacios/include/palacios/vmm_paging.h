@@ -316,7 +316,7 @@ pt_access_status_t can_access_pte32(pte32_t * pte, addr_t addr, pf_error_t acces
 
 struct guest_info;
 
-pde32_t * create_passthrough_pde32_pts(struct guest_info * guest_info);
+pde32_t * create_passthrough_pts_32(struct guest_info * guest_info);
 pml4e64_t * create_passthrough_pts_64(struct guest_info * info);
 
 

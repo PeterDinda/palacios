@@ -38,10 +38,6 @@
 
 
 
-extern uint_t Get_CR3();
-
-
-
 extern void v3_stgi();
 extern void v3_clgi();
 extern int v3_svm_launch(vmcb_t * vmcb, struct v3_gprs * vm_regs);
@@ -213,9 +209,13 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
 
   if (vm_info->shdw_pg_mode == SHADOW_PAGING) {
     PrintDebug("Creating initial shadow page table\n");
-    //    vm_info->direct_map_pt = (addr_t)V3_PAddr(create_passthrough_pde32_pts(vm_info));
+
+
+
     /* Testing 64 bit page tables for long paged real mode guests */
     vm_info->direct_map_pt = (addr_t)V3_PAddr(create_passthrough_pts_64(vm_info));
+    //vm_info->direct_map_pt = (addr_t)V3_PAddr(create_passthrough_pts_32(vm_info));
+    /* End Test */
 
     //vm_info->shdw_pg_state.shadow_cr3 |= (vm_info->direct_map_pt & ~0xfff);
     vm_info->shdw_pg_state.shadow_cr3 = 0;
@@ -258,7 +258,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
     PrintDebug("NP_Enable at 0x%p\n", (void *)&(ctrl_area->NP_ENABLE));
 
     // Set the Nested Page Table pointer
-    vm_info->direct_map_pt = ((addr_t)create_passthrough_pde32_pts(vm_info) & ~0xfff);
+    vm_info->direct_map_pt = ((addr_t)create_passthrough_pts_32(vm_info) & ~0xfff);
     ctrl_area->N_CR3 = vm_info->direct_map_pt;
 
     //   ctrl_area->N_CR3 = Get_CR3();
@@ -372,7 +372,7 @@ static int start_svm_guest(struct guest_info *info) {
 
       PrintDebug("SVM ERROR!!\n"); 
       
-      PrintDebug("RIP: %p\n", (void *)guest_state->rip);
+      PrintDebug("RIP: %p\n", (void *)(addr_t)(guest_state->rip));
 
 
       linear_addr = get_addr_linear(info, guest_state->rip, &(info->segments.cs));
@@ -688,7 +688,7 @@ void v3_init_SVM(struct v3_ctrl_ops * vmm_ops) {
 
   if (vm_info.page_mode == SHADOW_PAGING) {
     PrintDebug("Creating initial shadow page table\n");
-    vm_info.shdw_pg_state.shadow_cr3 |= ((addr_t)create_passthrough_pde32_pts(&vm_info) & ~0xfff);
+    vm_info.shdw_pg_state.shadow_cr3 |= ((addr_t)create_passthrough_pts_32(&vm_info) & ~0xfff);
     PrintDebug("Created\n");
 
     guest_state->cr3 = vm_info.shdw_pg_state.shadow_cr3;

@@ -339,10 +339,10 @@ int v3_handle_svm_exit(struct guest_info * info) {
 
 
     PrintError("SVM Returned:(VMCB=%p)\n", (void *)(info->vmm_data)); 
-    PrintError("RIP: %p\n", (void *)(guest_state->rip));
-    PrintError("RIP Linear: %p\n", (void *)(rip_addr));
+    PrintError("RIP: %p\n", (void *)(addr_t)(guest_state->rip));
+    PrintError("RIP Linear: %p\n", (void *)(addr_t)(rip_addr));
     
-    PrintError("SVM Returned: Exit Code: %p\n", (void *)exit_code); 
+    PrintError("SVM Returned: Exit Code: %p\n", (void *)(addr_t)exit_code); 
     
     PrintError("io_info1 low = 0x%.8x\n", *(uint_t*)&(guest_ctrl->exit_info1));
     PrintError("io_info1 high = 0x%.8x\n", *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info1)) + 4));

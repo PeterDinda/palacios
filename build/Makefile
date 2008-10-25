@@ -187,12 +187,14 @@ endif
 all : $(ALL_TARGETS)
 
 
+palacios64:
+	(cd $(PALACIOS_BUILD_DIR) && make ARCH=64 $(DEBUG_SECTIONS))
 
-palacios:
+palacios32:
 	(cd $(PALACIOS_BUILD_DIR) && make $(DEBUG_SECTIONS))
 
 
-palacios-full:
+palacios-full32:
 	(cd $(PALACIOS_BUILD_DIR) && make $(DEBUG_SECTIONS) world)
 
 palacios-full64:
@@ -201,28 +203,28 @@ palacios-full64:
 palacios-lean:
 	(cd $(PALACIOS_BUILD_DIR) && make LEAN_AND_MEAN=1 world)
 
-kitten: palacios-full64
+kitten:
+	(cd $(KITTEN_TOP_DIR) && make)
+
+kitten-full: palacios-full64
 	cp $(PALACIOS_BUILD_DIR)/libv3vee.a $(KITTEN_TOP_DIR)/palacios/
 	cp $(PALACIOS_BUILD_DIR)/../lib/xed/libxed32e.a $(KITTEN_TOP_DIR)/palacios/
 	cp $(PALACIOS_BUILD_DIR)/vm_kernel $(KITTEN_TOP_DIR)/palacios/
-	(cd $(KITTEN_TOP_DIR) && make)
+	(cd $(KITTEN_TOP_DIR) && make clean && make)
 
 
 geekos: 
-	cp $(PALACIOS_BUILD_DIR)/libv3vee.a $(GEEKOS_BUILD_DIR)/palacios/
-	cp $(PALACIOS_BUILD_DIR)/../lib/xed/libxed.a $(GEEKOS_BUILD_DIR)/palacios/
-	cp $(PALACIOS_BUILD_DIR)/vm_kernel $(GEEKOS_BUILD_DIR)/palacios/
 	(cd $(GEEKOS_BUILD_DIR) && make)
 
 
-geekos-full: 
+geekos-full: palacios-full32
 	cp $(PALACIOS_BUILD_DIR)/libv3vee.a $(GEEKOS_BUILD_DIR)/palacios/
 	cp $(PALACIOS_BUILD_DIR)/../lib/xed/libxed.a $(GEEKOS_BUILD_DIR)/palacios/
 	cp $(PALACIOS_BUILD_DIR)/vm_kernel $(GEEKOS_BUILD_DIR)/palacios/
 	(cd $(GEEKOS_BUILD_DIR) && make clean && make)
 
 
-world: palacios-full geekos-full
+world: geekos-full kitten-full
 
 lean-and-mean: palacios-lean geekos-full
 
