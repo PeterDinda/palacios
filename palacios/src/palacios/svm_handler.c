@@ -417,7 +417,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
 #ifdef DEBUG_INTERRUPTS
 	PrintDebug("Injecting Interrupt %d (EIP=%p)\n", 
 		   guest_ctrl->guest_ctrl.V_INTR_VECTOR, 
-		   (void *)info->rip);
+		   (void *)(addr_t)info->rip);
 #endif
 	v3_injecting_intr(info, irq, EXTERNAL_IRQ);
 	
@@ -446,7 +446,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
 #ifdef DEBUG_INTERRUPTS
 	PrintDebug("Injecting Interrupt %d (EIP=%p)\n", 
 		   guest_ctrl->EVENTINJ.vector, 
-		   (void *)info->rip);
+		   (void *)(addr_t)info->rip);
 #endif
 	v3_injecting_intr(info, excp, EXCEPTION);
 	break;

@@ -280,7 +280,7 @@ int v3_handle_cr3_write(struct guest_info * info) {
 	shadow_pt =  v3_create_new_shadow_pt32();
 	
 	shadow_cr3->pdt_base_addr = (addr_t)V3_PAddr((void *)(addr_t)PD32_BASE_ADDR(shadow_pt));
-	PrintDebug( "Created new shadow page table %p\n", shadow_cr3->pdt_base_addr );
+	PrintDebug( "Created new shadow page table %p\n", (void *)(addr_t)shadow_cr3->pdt_base_addr );
 	//PrintDebugPageTables( (pde32_t *)CR3_TO_PDE32(*(uint_t*)shadow_cr3) );
 
 

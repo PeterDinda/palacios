@@ -300,7 +300,9 @@ void PrintDebugDevIO(struct vm_device * dev) {
   PrintDebug("IO Hooks(%d)  for Device: %s\n", dev->num_io_hooks,  dev->name);
 
   list_for_each_entry(hook, &(dev->io_hooks), dev_list) {
-    PrintDebug("\tPort: 0x%x (read=0x%x), (write=0x%x)\n", hook->port, hook->read, hook->write);
+    PrintDebug("\tPort: 0x%x (read=0x%p), (write=0x%p)\n", hook->port, 
+	       (void *)(addr_t)(hook->read), 
+	       (void *)(addr_t)(hook->write));
   }
 
   return;

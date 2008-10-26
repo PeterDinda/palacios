@@ -160,7 +160,7 @@ int v3_emulate_memory_read(struct guest_info * info, addr_t read_gva,
   }
 
 #ifdef DEBUG_EMULATOR
-  PrintDebug("Instr (15 bytes) at %x:\n", instr);
+  PrintDebug("Instr (15 bytes) at %p:\n", (void *)(addr_t)instr);
   PrintTraceMemDump(instr, 15);
 #endif  
 
@@ -237,7 +237,7 @@ int v3_emulate_memory_write(struct guest_info * info, addr_t write_gva,
   pte32_t saved_pte;
   int i;
 
-  PrintDebug("Emulating Write for instruction at 0x%x\n",info->rip);
+  PrintDebug("Emulating Write for instruction at 0x%p\n", (void *)(addr_t)(info->rip));
 
   if (info->mem_mode == PHYSICAL_MEM) { 
     ret = read_guest_pa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
@@ -348,7 +348,7 @@ int v3_emulation_exit_handler(struct guest_info * info) {
   list_for_each_entry_safe(empg, p_empg, &(info->emulator.emulated_pages), page_list) {
     pte32_t empte32_t;
 
-    PrintDebug("wiping page %x\n", empg->va); 
+    PrintDebug("wiping page %p\n", (void *)(addr_t)(empg->va)); 
 
     v3_replace_shdw_page32(info, empg->va, &dummy_pte, &empte32_t);
     V3_FreePage((void *)(V3_PAddr((void *)(empg->page_addr))));
@@ -360,7 +360,7 @@ int v3_emulation_exit_handler(struct guest_info * info) {
 
   list_for_each_entry_safe(svpg, p_svpg, &(info->emulator.saved_pages), page_list) {
 
-    PrintDebug("Setting Saved page %x back\n", svpg->va); 
+    PrintDebug("Setting Saved page %p back\n", (void *)(addr_t)(svpg->va)); 
     v3_replace_shdw_page32(info, empg->va, &(svpg->pte), &dummy_pte);
     
     list_del(&(svpg->page_list));
@@ -373,7 +373,7 @@ int v3_emulation_exit_handler(struct guest_info * info) {
   //info->rip += info->emulator.instr_length;
 
 
-  PrintDebug("Returning to rip: 0x%x\n", info->rip);
+  PrintDebug("Returning to rip: 0x%p\n", (void *)(addr_t)(info->rip));
 
   info->emulator.instr_length = 0;
   

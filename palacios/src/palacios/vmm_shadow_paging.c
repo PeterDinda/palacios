@@ -512,7 +512,7 @@ static int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr
       return 0; 
     }
 
-  PrintDebug("Returning end of PDE function (rip=%p)\n", (void *)(info->rip));
+  PrintDebug("Returning end of PDE function (rip=%p)\n", (void *)(addr_t)(info->rip));
   return 0;
 }
 
