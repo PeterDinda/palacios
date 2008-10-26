@@ -171,7 +171,7 @@ int v3_handle_svm_io_ins(struct guest_info * info) {
     mask = get_gpr_mask(info);
 
     PrintDebug("INS io_info invalid address size, mask=0x%p, io_info=0x%p\n",
-	       (void *)mask, (void *)(io_info));
+	       (void *)(addr_t)mask, (void *)(addr_t)(io_info));
     // PrintDebug("INS Aborted... Check implementation\n");
     //return -1;
   }
@@ -311,7 +311,7 @@ int v3_handle_svm_io_outs(struct guest_info * info) {
     mask = get_gpr_mask(info);
 
     PrintDebug("OUTS io_info invalid address size, mask=0%p, io_info=0x%p\n",
-	       (void *)mask, (void *)io_info);
+	       (void *)(addr_t)mask, (void *)(addr_t)io_info);
     // PrintDebug("INS Aborted... Check implementation\n");
     //return -1;
     // should never happen

@@ -211,12 +211,12 @@ struct guest_info;
 
 /* This will contain function pointers that provide OS services */
 struct v3_os_hooks {
-  void (*print_info)(const char * format, ...);
-  //	__attribute__ ((format (printf, 1, 2)));
-  void (*print_debug)(const char * format, ...);
-  //	__attribute__ ((format (printf, 1, 2)));
-  void (*print_trace)(const char * format, ...);
-  //	__attribute__ ((format (printf, 1, 2)));
+  void (*print_info)(const char * format, ...)
+  	__attribute__ ((format (printf, 1, 2)));
+  void (*print_debug)(const char * format, ...)
+  	__attribute__ ((format (printf, 1, 2)));
+  void (*print_trace)(const char * format, ...)
+  	__attribute__ ((format (printf, 1, 2)));
   
   void *(*allocate_pages)(int numPages);
   void (*free_page)(void * page);

@@ -242,9 +242,12 @@ static inline v3_reg_t get_gpr_mask(struct guest_info * info) {
     break;
   case PROTECTED:
     return 0xffffffff;
+  case LONG:
+  case LONG_32_COMPAT:
+  case LONG_16_COMPAT:
   default:
-    V3_ASSERT(0);
-    return 0;
+    PrintError("Unsupported Address Mode\n");
+    return -1;
   }
 }
 
@@ -260,9 +263,16 @@ static inline addr_t get_addr_linear(struct guest_info * info, addr_t addr, stru
   case PROTECTED:
     return addr + seg->base;
     break;
+
+  case LONG:
+    // In long mode the segment bases are disregarded (forced to 0), unless using 
+    // FS or GS, then the base addresses are added
+    return addr + seg->base;
+  case LONG_32_COMPAT:
+  case LONG_16_COMPAT:
   default:
-    V3_ASSERT(0);
-    return 0;
+    PrintError("Unsupported Address Mode\n");
+    return -1;
   }
 }
 
