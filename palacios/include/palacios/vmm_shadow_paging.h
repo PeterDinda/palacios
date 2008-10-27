@@ -60,7 +60,7 @@ int v3_cache_page_tables32(struct guest_info * info, addr_t  pde);
 
 int v3_init_shadow_page_state(struct guest_info * info);
 
-addr_t v3_create_new_shadow_pt32();
+addr_t v3_create_new_shadow_pt();
 
 int v3_handle_shadow_pagefault(struct guest_info * info, addr_t fault_addr, pf_error_t error_code);
 int v3_handle_shadow_invlpg(struct guest_info * info);

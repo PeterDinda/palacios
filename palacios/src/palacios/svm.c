@@ -92,7 +92,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
   guest_state->efer |= EFER_MSR_svm_enable;
 
   v3_hook_msr(vm_info, EFER_MSR, 
-	      &v3_handle_efer_read, 
+	      NULL, /*&v3_handle_efer_read,*/ 
 	      &v3_handle_efer_write, 
 	      vm_info);
 
@@ -282,6 +282,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
 
 
   if (vm_info->msr_map.num_hooks > 0) {
+    PrintDebug("Hooking %d msrs\n", vm_info->msr_map.num_hooks);
     ctrl_area->MSRPM_BASE_PA = v3_init_svm_msr_map(vm_info);
     ctrl_area->instrs.MSR_PROT = 1;
 

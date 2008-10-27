@@ -225,6 +225,11 @@ int v3_handle_shadow_pagefault(struct guest_info * info, addr_t fault_addr, pf_e
   
   if (info->mem_mode == PHYSICAL_MEM) {
     // If paging is not turned on we need to handle the special cases
+
+#ifdef DEBUG_SHADOW_PAGING
+    PrintPageTree(info->cpu_mode, fault_addr, info->ctrl_regs.cr3);
+#endif
+
     return handle_special_page_fault(info, fault_addr, fault_addr, error_code);
   } else if (info->mem_mode == VIRTUAL_MEM) {
 
@@ -244,7 +249,7 @@ int v3_handle_shadow_pagefault(struct guest_info * info, addr_t fault_addr, pf_e
   }
 }
 
-addr_t v3_create_new_shadow_pt32() {
+addr_t v3_create_new_shadow_pt() {
   void * host_pde = 0;
 
   host_pde = V3_VAddr(V3_AllocPages(1));
@@ -418,7 +423,7 @@ static int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr
   
   if (shadow_pde_access == PT_ENTRY_NOT_PRESENT) 
     {
-      pte32_t * shadow_pt =  (pte32_t *)v3_create_new_shadow_pt32();
+      pte32_t * shadow_pt =  (pte32_t *)v3_create_new_shadow_pt();
 
       shadow_pde->present = 1;
       shadow_pde->user_page = guest_pde->user_page;

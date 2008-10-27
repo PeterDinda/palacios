@@ -96,6 +96,8 @@ int v3_handle_cr0_write(struct guest_info * info) {
 
     if (info->cpu_mode == LONG) {
       // 64 bit registers
+      // Set efer.lma = 1
+
       PrintError("Long mode currently not handled\n");
       return -1;
     } else {
@@ -274,10 +276,10 @@ int v3_handle_cr3_write(struct guest_info * info) {
 	
 	if(info->mem_mode == VIRTUAL_MEM) {
 	  PrintDebug("New CR3 is different - flushing shadow page table %p\n", shadow_cr3 );
-	  delete_page_tables_pde32((pde32_t *)CR3_TO_PDE32(*(uint_t*)shadow_cr3));
+	  delete_page_tables_32((pde32_t *)CR3_TO_PDE32(*(uint_t*)shadow_cr3));
 	}
 	
-	shadow_pt =  v3_create_new_shadow_pt32();
+	shadow_pt =  v3_create_new_shadow_pt();
 	
 	shadow_cr3->pdt_base_addr = (addr_t)V3_PAddr((void *)(addr_t)PD32_BASE_ADDR(shadow_pt));
 	PrintDebug( "Created new shadow page table %p\n", (void *)(addr_t)shadow_cr3->pdt_base_addr );
@@ -402,9 +404,17 @@ int v3_handle_cr4_write(struct guest_info * info) {
 	(v3_get_mem_mode(info) == PHYSICAL_MEM)) {
 
       if ((old_cr4->pae == 0) && (new_cr4->pae == 1)) {
-	// Create Passthrough PAE pagetables
 	PrintDebug("Creating PAE passthrough tables\n");
-	info->ctrl_regs.cr3 = (addr_t)V3_PAddr(create_passthrough_pts_PAE32(info));
+
+	// Delete the old 32 bit direct map page tables
+	delete_page_tables_32((pde32_t *)V3_VAddr((void *)(info->direct_map_pt)));
+
+	// create 32 bit PAE direct map page table
+	info->direct_map_pt = (addr_t)V3_PAddr(create_passthrough_pts_32PAE(info));
+
+	// reset cr3 to new page tables
+	info->ctrl_regs.cr3 = *(addr_t*)&(info->direct_map_pt);
+
       } else if ((old_cr4->pae == 1) && (new_cr4->pae == 0)) {
 	// Create passthrough standard 32bit pagetables
 	return -1;
@@ -430,9 +440,50 @@ int v3_handle_efer_read(uint_t msr, struct v3_msr * dst, void * priv_data) {
 
 
 int v3_handle_efer_write(uint_t msr, struct v3_msr src, void * priv_data) {
-  //  struct guest_info * info = (struct guest_info *)(priv_data);
-  PrintError("EFER Write not handled (rax=%p, rdx=%p)\n", 
-	     (void *)(addr_t)(src.lo), 
-	     (void *)(addr_t)(src.hi));
-  return -1;
+  struct guest_info * info = (struct guest_info *)(priv_data);
+  struct efer_64 * new_efer = (struct efer_64 *)&(src.value);
+  struct efer_64 * old_efer = (struct efer_64 *)&(info->ctrl_regs.efer);
+
+  PrintDebug("Old EFER=%p\n", (void *)*(addr_t*)(old_efer));
+
+  if ((info->shdw_pg_mode == SHADOW_PAGING) && 
+      (v3_get_mem_mode(info) == PHYSICAL_MEM)) {
+    
+    if ((old_efer->lme == 0) && (new_efer->lme == 1)) {
+      PrintDebug("Transition to longmode\n");
+      PrintDebug("Creating Passthrough 64 bit page tables\n");
+      
+      // Delete the old 32 bit direct map page tables
+      /* 
+       * JRL BUG? 
+       * Will these page tables always be in PAE format?? 
+       */
+      PrintDebug("Deleting old PAE Page tables\n");
+      PrintError("JRL BUG?: Will the old page tables always be in PAE format??\n");
+      delete_page_tables_32PAE((pdpe32pae_t *)V3_VAddr((void *)(info->direct_map_pt)));
+      
+      // create 64 bit direct map page table
+      info->direct_map_pt = (addr_t)V3_PAddr(create_passthrough_pts_64(info));
+      
+      // reset cr3 to new page tables
+      info->ctrl_regs.cr3 = *(addr_t*)&(info->direct_map_pt);
+      
+
+      // Does this mean we will have to fully virtualize a shadow  EFER??
+      new_efer->lma = 1;
+      
+    } else if ((old_efer->lme == 1) && (new_efer->lme == 0)) {
+      // transition out of long mode
+      return -1;
+    }
+
+    *old_efer = *new_efer;
+    PrintDebug("New EFER=%p\n", (void *)*(addr_t *)(old_efer));
+  } else {
+    return -1;
+  }
+
+  info->rip += 2; // WRMSR/RDMSR are two byte operands
+
+  return 0;
 }

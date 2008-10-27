@@ -105,13 +105,6 @@ struct v3_intr_state;
 
 
 
-typedef enum {SHADOW_PAGING, NESTED_PAGING} v3_paging_mode_t;
-typedef enum {VM_RUNNING, VM_STOPPED, VM_SUSPENDED, VM_ERROR, VM_EMULATING} v3_vm_operating_mode_t;
-
-
-typedef enum {REAL, /*UNREAL,*/ PROTECTED, PROTECTED_PAE, LONG, LONG_32_COMPAT, LONG_16_COMPAT} v3_vm_cpu_mode_t;
-typedef enum {PHYSICAL_MEM, VIRTUAL_MEM} v3_vm_mem_mode_t;
-
 
 
 struct guest_info {

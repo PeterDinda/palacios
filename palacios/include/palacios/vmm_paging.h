@@ -27,6 +27,7 @@
 #include <palacios/vmm_types.h>
 #include <palacios/vmm_util.h>
 
+
 /*
 
 In the following, when we say "page table", we mean the whole 2 or 4 layer
@@ -110,6 +111,16 @@ the host state in the vmcs before entering the guest.
 #define PTE32_INDEX(x)  ((((uint_t)x) >> 12) & 0x3ff)
 
 
+#define PDPE32PAE_INDEX(x) ((((uint_t)x) >> 30) & 0x3)
+#define PDE32PAE_INDEX(x)  ((((uint_t)x) >> 21) & 0x1ff)
+#define PTE32PAE_INDEX(x)  ((((uint_t)x) >> 12) & 0x1ff)
+
+#define PML4E64_INDEX(x) ((((ullong_t)x) >> 39) & 0x1ff)
+#define PDPE64_INDEX(x) ((((ullong_t)x) >> 30) & 0x1ff)
+#define PDE64_INDEX(x) ((((ullong_t)x) >> 21) & 0x1ff)
+#define PTE64_INDEX(x) ((((ullong_t)x) >> 12) & 0x1ff)
+
+
 /* Gets the base address needed for a Page Table entry */
 /* Deprecate these :*/
 #define PD32_BASE_ADDR(x) (((uint_t)x) >> 12)
@@ -152,9 +163,9 @@ the host state in the vmcs before entering the guest.
 
 
 
-#define CR3_TO_PDE32(cr3) (V3_VAddr((void *)(((ulong_t)cr3) & 0xfffff000)))
+#define CR3_TO_PDE32(cr3) ((pde32_t *)V3_VAddr((void *)(((ulong_t)cr3) & 0xfffff000)))
 #define CR3_TO_PDPTRE(cr3) (V3_VAddr((void *)(((ulong_t)cr3) & 0xffffffe0)))
-#define CR3_TO_PML4E64(cr3)  (V3_VAddr((void *)(((ullong_t)cr3) & 0x000ffffffffff000LL)))
+#define CR3_TO_PML4E64(cr3)  ((pml4e64_t *)V3_VAddr((void *)(((ullong_t)cr3) & 0x000ffffffffff000LL)))
 
 
 
@@ -371,8 +382,9 @@ typedef struct pf_error_code {
 
 
 
-void delete_page_tables_pde32(pde32_t * pde);
-
+void delete_page_tables_32(pde32_t * pde);
+void delete_page_tables_32PAE(pdpe32pae_t * pdpe);
+void delete_page_tables_64(pml4e64_t *  pml4);
 
 pde32_entry_type_t pde32_lookup(pde32_t * pd, addr_t addr, addr_t * entry);
 int pte32_lookup(pte32_t * pte, addr_t addr, addr_t * entry);
@@ -393,16 +405,19 @@ pt_access_status_t can_access_pte32(pte32_t * pte, addr_t addr, pf_error_t acces
 struct guest_info;
 
 pde32_t * create_passthrough_pts_32(struct guest_info * guest_info);
-pdpe32pae_t * create_passthrough_pts_PAE32(struct guest_info * guest_info);
+pdpe32pae_t * create_passthrough_pts_32PAE(struct guest_info * guest_info);
 pml4e64_t * create_passthrough_pts_64(struct guest_info * info);
 
 
 
 
+//#include <palacios/vm_guest.h>
 
 void PrintDebugPageTables(pde32_t * pde);
 
 
+void PrintPageTree(v3_vm_cpu_mode_t cpu_mode, addr_t virtual_addr, addr_t cr3);
+void PrintPageTree_64(addr_t virtual_addr, pml4e64_t * pml);
 
 
 void PrintPT32(addr_t starting_address, pte32_t * pte);

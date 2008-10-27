@@ -30,7 +30,7 @@ struct cr0_real {
   uint_t mp    : 1;
   uint_t em    : 1;
   uint_t ts    : 1;
-};
+} __attribute__((packed));
 
 
 struct cr0_32 {
@@ -48,7 +48,7 @@ struct cr0_32 {
   uint_t nw    : 1;
   uint_t cd    : 1;
   uint_t pg    : 1;
-};
+} __attribute__((packed));
 
 
 struct cr0_64 {
@@ -68,16 +68,16 @@ struct cr0_64 {
   uint_t pg    : 1;
 
   uint_t  rsvd4;  // MBZ
-};
+} __attribute__((packed));
 
 
 struct cr2_32 {
   uint_t pf_vaddr;
-};
+} __attribute__((packed));
 
 struct cr2_64 {
   ullong_t pf_vaddr;
-};
+} __attribute__((packed));
 
 
 struct cr3_32 {
@@ -86,7 +86,7 @@ struct cr3_32 {
   uint_t pcd               : 1;
   uint_t rsvd2             : 7;
   uint_t pdt_base_addr    : 20;
-};
+} __attribute__((packed));
 
 
 struct cr3_32_PAE {
@@ -94,7 +94,7 @@ struct cr3_32_PAE {
   uint_t pwt               : 1;
   uint_t pcd               : 1;
   uint_t pdpt_base_addr    : 27;
-};
+} __attribute__((packed));
 
 
 struct cr3_64 {
@@ -104,7 +104,7 @@ struct cr3_64 {
   uint_t rsvd2             : 7;
   ullong_t pml4t_base_addr : 40;
   uint_t rsvd3             : 12; 
-};
+} __attribute__((packed));
 
 
 struct cr4_32 {
@@ -120,7 +120,7 @@ struct cr4_32 {
   uint_t osf_xsr           : 1;
   uint_t osx               : 1;
   uint_t rsvd1             : 21;
-};
+} __attribute__((packed));
 
 struct cr4_64 {
   uint_t vme               : 1;
@@ -136,7 +136,7 @@ struct cr4_64 {
   uint_t osx               : 1;
   uint_t rsvd1             : 21;
   uint_t rsvd2             : 32;
-};
+} __attribute__((packed));
 
 
 
@@ -152,7 +152,7 @@ struct efer_64 {
   uint_t ffxsr            : 1;
   uint_t rsvd4            : 12; // MBZ
   uint_t rsvd5            : 32; // MBZ
-};
+} __attribute__((packed));
 
 
 struct rflags {
@@ -179,7 +179,7 @@ struct rflags {
   uint_t id                : 1;  // ID flag
   uint_t rsvd5             : 10; // Read as 0
   uint_t rsvd6             : 32; // Read as 0
-};
+} __attribute__((packed));
 
 
 

@@ -44,14 +44,13 @@ v3_vm_cpu_mode_t v3_get_cpu_mode(struct guest_info * info) {
 
   if (cr0->pe == 0) {
     return REAL;
-  } else if ((cr4->pae == 0) && (efer->lma == 0)) {
+  } else if ((cr4->pae == 0) && (efer->lme == 0)) {
     return PROTECTED;
-  } else if (efer->lma == 0) {
+  } else if (efer->lme == 0) {
     return PROTECTED_PAE;
-  } else if ((efer->lma == 1) && (cs->long_mode == 1)) {
+  } else if ((efer->lme == 1) && (cs->long_mode == 1)) {
     return LONG;
   } else {
-    return -1;
     // What about LONG_16_COMPAT???
     return LONG_32_COMPAT;
   }

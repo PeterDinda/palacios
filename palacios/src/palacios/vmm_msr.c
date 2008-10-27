@@ -50,6 +50,8 @@ int v3_hook_msr(struct guest_info * info, uint_t msr,
   hook->msr = msr;
   hook->priv_data = priv_data;
 
+  msr_map->num_hooks++;
+
   list_add(&(hook->link), &(msr_map->hook_list));
 
   return 0;
