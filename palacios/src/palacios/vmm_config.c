@@ -20,6 +20,7 @@
 #include <palacios/vmm_config.h>
 #include <palacios/vmm.h>
 #include <palacios/vmm_debug.h>
+#include <palacios/vmm_msr.h>
 
 
 #include <devices/serial.h>
@@ -89,6 +90,7 @@ int v3_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) 
   
  
   v3_init_vmm_io_map(info);
+  v3_init_msr_map(info);
   v3_init_interrupt_state(info);
   
   v3_init_dev_mgr(info);

@@ -241,6 +241,7 @@ static inline v3_reg_t get_gpr_mask(struct guest_info * info) {
     return 0xffff;
     break;
   case PROTECTED:
+  case PROTECTED_PAE:
     return 0xffffffff;
   case LONG:
   case LONG_32_COMPAT:
@@ -261,6 +262,7 @@ static inline addr_t get_addr_linear(struct guest_info * info, addr_t addr, stru
 	 break;*/
 
   case PROTECTED:
+  case PROTECTED_PAE:
     return addr + seg->base;
     break;
 

@@ -96,6 +96,8 @@ int v3_handle_cr0_write(struct guest_info * info) {
 
     if (info->cpu_mode == LONG) {
       // 64 bit registers
+      PrintError("Long mode currently not handled\n");
+      return -1;
     } else {
       // 32 bit registers
 	struct cr0_32 *real_cr0 = (struct cr0_32*)&(info->ctrl_regs.cr0);
@@ -270,11 +272,9 @@ int v3_handle_cr3_write(struct guest_info * info) {
       } else if (cached == 0) {
 	addr_t shadow_pt;
 	
-	if( info->mem_mode == VIRTUAL_MEM )
-	{
-		PrintDebug("New CR3 is different - flushing shadow page table %p\n", shadow_cr3 );	
-	
-		delete_page_tables_pde32((pde32_t *)CR3_TO_PDE32(*(uint_t*)shadow_cr3));
+	if(info->mem_mode == VIRTUAL_MEM) {
+	  PrintDebug("New CR3 is different - flushing shadow page table %p\n", shadow_cr3 );
+	  delete_page_tables_pde32((pde32_t *)CR3_TO_PDE32(*(uint_t*)shadow_cr3));
 	}
 	
 	shadow_pt =  v3_create_new_shadow_pt32();
@@ -360,4 +360,79 @@ int v3_handle_cr3_read(struct guest_info * info) {
   info->rip += dec_instr.instr_length;
 
   return 0;
+}
+
+int v3_handle_cr4_read(struct guest_info * info) {
+  PrintError("CR4 Read not handled\n");
+  return -1;
+}
+
+int v3_handle_cr4_write(struct guest_info * info) {
+  uchar_t instr[15];
+  int ret;
+  struct x86_instr dec_instr;
+
+  if (info->mem_mode == PHYSICAL_MEM) { 
+    ret = read_guest_pa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
+  } else { 
+    ret = read_guest_va_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
+  }
+
+  if (v3_decode(info, (addr_t)instr, &dec_instr) == -1) {
+    PrintError("Could not decode instruction\n");
+    return -1;
+  }
+
+  if (v3_opcode_cmp(V3_OPCODE_MOV2CR, (const uchar_t *)(dec_instr.opcode)) != 0) {
+    PrintError("Invalid opcode in write to CR4\n");
+    return -1;
+  }
+
+  if ((info->cpu_mode == PROTECTED) || (info->cpu_mode == PROTECTED_PAE)) {
+    struct cr4_32 * new_cr4 = (struct cr4_32 *)(dec_instr.src_operand.operand);
+    struct cr4_32 * old_cr4 = (struct cr4_32 *)&(info->ctrl_regs.cr4);
+    
+    PrintDebug("OperandVal = %x, length = %d\n", *(uint_t *)new_cr4, dec_instr.src_operand.size);
+    PrintDebug("Old CR4=%x\n", *(uint_t *)old_cr4);
+
+
+
+
+    if ((info->shdw_pg_mode == SHADOW_PAGING) && 
+	(v3_get_mem_mode(info) == PHYSICAL_MEM)) {
+
+      if ((old_cr4->pae == 0) && (new_cr4->pae == 1)) {
+	// Create Passthrough PAE pagetables
+	PrintDebug("Creating PAE passthrough tables\n");
+	info->ctrl_regs.cr3 = (addr_t)V3_PAddr(create_passthrough_pts_PAE32(info));
+      } else if ((old_cr4->pae == 1) && (new_cr4->pae == 0)) {
+	// Create passthrough standard 32bit pagetables
+	return -1;
+      }
+    }
+
+    *old_cr4 = *new_cr4;
+    PrintDebug("New CR4=%x\n", *(uint_t *)old_cr4);
+
+  } else {
+    return -1;
+  }
+
+  info->rip += dec_instr.instr_length;
+  return 0;
+}
+
+
+int v3_handle_efer_read(uint_t msr, struct v3_msr * dst, void * priv_data) {
+  PrintError("EFER Read not handled\n");
+  return -1;
+}
+
+
+int v3_handle_efer_write(uint_t msr, struct v3_msr src, void * priv_data) {
+  //  struct guest_info * info = (struct guest_info *)(priv_data);
+  PrintError("EFER Write not handled (rax=%p, rdx=%p)\n", 
+	     (void *)(addr_t)(src.lo), 
+	     (void *)(addr_t)(src.hi));
+  return -1;
 }

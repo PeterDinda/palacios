@@ -203,7 +203,10 @@ palacios-full64:
 palacios-lean:
 	(cd $(PALACIOS_BUILD_DIR) && make LEAN_AND_MEAN=1 world)
 
-kitten:
+kitten: palacios64
+	cp $(PALACIOS_BUILD_DIR)/libv3vee.a $(KITTEN_TOP_DIR)/palacios/
+	cp $(PALACIOS_BUILD_DIR)/../lib/xed/libxed32e.a $(KITTEN_TOP_DIR)/palacios/
+	cp $(PALACIOS_BUILD_DIR)/vm_kernel $(KITTEN_TOP_DIR)/palacios/
 	(cd $(KITTEN_TOP_DIR) && make)
 
 kitten-full: palacios-full64

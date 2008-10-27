@@ -31,7 +31,7 @@
 #include <palacios/vmm_time.h>
 #include <palacios/vmm_emulator.h>
 #include <palacios/vmm_host_events.h>
-
+#include <palacios/vmm_msr.h>
 
 
 
@@ -133,6 +133,8 @@ struct guest_info {
   struct v3_intr_state intr_state;
 
   struct vmm_io_map io_map;
+
+  struct v3_msr_map msr_map;
   // device_map
 
   struct vmm_dev_mgr  dev_mgr;

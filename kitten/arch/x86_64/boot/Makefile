@@ -58,7 +58,7 @@ $(obj)/compressed/vmlwk: FORCE
 FDARGS = console=serial debug_mptable=1 init_argv="one two three" init_envp="one=1 two=2 three=3"
 # Set this if you want an initrd included with the isoimage kernel
 ifdef CONFIG_V3VEE
-FDINITRD = /opt/vmm-tools/isos/puppy.iso
+FDINITRD = /opt/vmm-tools/isos/finnix.iso
 else
 FDINITRD = init_task
 endif

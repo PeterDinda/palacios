@@ -35,6 +35,7 @@
 #include <palacios/vmm_decoder.h>
 #include <palacios/vmm_string.h>
 #include <palacios/vmm_lowlevel.h>
+#include <palacios/svm_msr.h>
 
 
 
@@ -72,6 +73,8 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
   //ctrl_area->instrs.instrs.CR0 = 1;
   ctrl_area->cr_reads.cr0 = 1;
   ctrl_area->cr_writes.cr0 = 1;
+  ctrl_area->cr_reads.cr4 = 1;
+  ctrl_area->cr_writes.cr4 = 1;
 
 
   /* Set up the efer to enable 64 bit page tables */
@@ -87,6 +90,11 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
   */
 
   guest_state->efer |= EFER_MSR_svm_enable;
+
+  v3_hook_msr(vm_info, EFER_MSR, 
+	      &v3_handle_efer_read, 
+	      &v3_handle_efer_write, 
+	      vm_info);
 
 
 
@@ -126,14 +134,14 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
   
     ctrl_area->exceptions.nmi = 1;
   */
+
+
   // Debug of boot on physical machines - 7/14/08
   ctrl_area->instrs.NMI=1;
   ctrl_area->instrs.SMI=1;
   ctrl_area->instrs.INIT=1;
   ctrl_area->instrs.PAUSE=1;
   ctrl_area->instrs.shutdown_evts=1;
-
-
 
   vm_info->vm_regs.rdx = 0x00000f00;
 
@@ -176,6 +184,11 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
   guest_state->dr6 = 0x00000000ffff0ff0LL;
   guest_state->dr7 = 0x0000000000000400LL;
 
+  
+  
+
+
+
   if (vm_info->io_map.num_ports > 0) {
     struct vmm_io_hook * iter;
     addr_t io_port_bitmap;
@@ -201,8 +214,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
 
     ctrl_area->instrs.IOIO_PROT = 1;
   }
-
-
+  
 
   PrintDebug("Exiting on interrupts\n");
   ctrl_area->guest_ctrl.V_INTR_MASKING = 1;
@@ -245,7 +257,6 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
     ctrl_area->TLB_CONTROL = 1;
     
 
-
     guest_state->g_pat = 0x7040600070406ULL;
 
     guest_state->cr0 |= 0x80000000;
@@ -267,6 +278,13 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
     // guest_state->cr3 |= (Get_CR3() & 0xfffff000);
 
     guest_state->g_pat = 0x7040600070406ULL;
+  }
+
+
+  if (vm_info->msr_map.num_hooks > 0) {
+    ctrl_area->MSRPM_BASE_PA = v3_init_svm_msr_map(vm_info);
+    ctrl_area->instrs.MSR_PROT = 1;
+
   }
 
 
@@ -346,13 +364,6 @@ static int start_svm_guest(struct guest_info *info) {
     //PrintDebug("SVM Returned\n");
 
 
-#if PrintDebug
-    {
-      uint_t x = 0;
-      PrintDebug("RSP=%p\n", (void *)&x);
-    }
-#endif
-
 
     v3_update_time(info, tmp_tsc - info->time_state.cached_host_tsc);
     num_exits++;
@@ -361,12 +372,13 @@ static int start_svm_guest(struct guest_info *info) {
     v3_stgi();
 
 
-    //PrintDebug("SVM Exit number %d\n", num_exits);
-
+    if (num_exits % 25 == 0) {
+      PrintDebug("SVM Exit number %d\n", num_exits);
+    }
 
      
     if (v3_handle_svm_exit(info) != 0) {
-
+      vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
       addr_t host_addr;
       addr_t linear_addr = 0;
 
@@ -384,6 +396,16 @@ static int start_svm_guest(struct guest_info *info) {
       v3_print_segments(info);
       v3_print_ctrl_regs(info);
       v3_print_GPRs(info);
+
+
+
+      PrintDebug("SVM Exit Code: %p\n", (void *)(addr_t)guest_ctrl->exit_code); 
+      
+      PrintDebug("exit_info1 low = 0x%.8x\n", *(uint_t*)&(guest_ctrl->exit_info1));
+      PrintDebug("exit_info1 high = 0x%.8x\n", *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info1)) + 4));
+      
+      PrintDebug("exit_info2 low = 0x%.8x\n", *(uint_t*)&(guest_ctrl->exit_info2));
+      PrintDebug("exit_info2 high = 0x%.8x\n", *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info2)) + 4));
       
       if (info->mem_mode == PHYSICAL_MEM) {
 	guest_pa_to_host_va(info, linear_addr, &host_addr);

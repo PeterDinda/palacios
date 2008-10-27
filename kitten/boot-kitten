@@ -1,8 +1,9 @@
 #!/bin/sh
 
 exec /usr/local/qemu/bin/qemu-system-x86_64 \
+	-smp 1 \
 	-m 1024 \
-        -nographic \
+	-serial file:./serial.out \
         -cdrom ./arch/x86_64/boot/image.iso  \
 	< /dev/null
 

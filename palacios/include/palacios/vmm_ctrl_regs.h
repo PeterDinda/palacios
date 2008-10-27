@@ -206,6 +206,13 @@ int v3_handle_cr0_read(struct guest_info * info);
 int v3_handle_cr3_write(struct guest_info * info);
 int v3_handle_cr3_read(struct guest_info * info);
 
+int v3_handle_cr4_write(struct guest_info * info);
+int v3_handle_cr4_read(struct guest_info * info);
+
+
+int v3_handle_efer_write(uint_t msr, struct v3_msr src, void * priv_data);
+int v3_handle_efer_read(uint_t msr, struct v3_msr * dst, void * priv_data);
+
 
 #endif // ! __V3VEE__
 

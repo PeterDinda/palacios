@@ -260,6 +260,8 @@ VMM_OBJS := \
 	palacios/vmm_queue.o \
 	palacios/vmm_host_events.o \
 	palacios/svm_lowlevel.o \
+	palacios/vmm_msr.o \
+	palacios/svm_msr.o \
 
 #		vmx.c vmcs_gen.c vmcs.c
 

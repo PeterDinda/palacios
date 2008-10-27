@@ -29,7 +29,7 @@
 #include <palacios/svm_wbinvd.h>
 #include <palacios/vmm_intr.h>
 #include <palacios/vmm_emulator.h>
-
+#include <palacios/svm_msr.h>
 
 
 
@@ -118,140 +118,173 @@ int v3_handle_svm_exit(struct guest_info * info) {
 
   switch (exit_code) {
 
-  case VMEXIT_IOIO: {
-    struct svm_io_info * io_info = (struct svm_io_info *)&(guest_ctrl->exit_info1);
-    
-    if (io_info->type == 0) {
-      if (io_info->str) {
-	if (v3_handle_svm_io_outs(info) == -1 ) {
+  case VMEXIT_IOIO: 
+    {
+      struct svm_io_info * io_info = (struct svm_io_info *)&(guest_ctrl->exit_info1);
+      
+      if (io_info->type == 0) {
+	if (io_info->str) {
+	  if (v3_handle_svm_io_outs(info) == -1 ) {
+	    return -1;
+	  }
+	} else {
+	  if (v3_handle_svm_io_out(info) == -1) {
+	    return -1;
+	  }
+	}
+      } else {
+	if (io_info->str) {
+	  if (v3_handle_svm_io_ins(info) == -1) {
+	    return -1;
+	  }
+	} else {
+	  if (v3_handle_svm_io_in(info) == -1) {
+	    return -1;
+	  }
+	}
+      }
+      break;
+    }
+  case VMEXIT_MSR:
+    {
+
+      if (guest_ctrl->exit_info1 == 0) {
+	if (v3_handle_msr_read(info) == -1) {
+	  return -1;
+	}
+      } else if (guest_ctrl->exit_info1 == 1) {
+	if (v3_handle_msr_write(info) == -1) {
 	  return -1;
 	}
       } else {
-	if (v3_handle_svm_io_out(info) == -1) {
-	  return -1;
-	}
+	PrintError("Invalid MSR Operation\n");
+	return -1;
       }
-    } else {
-      if (io_info->str) {
-	if (v3_handle_svm_io_ins(info) == -1) {
+
+      break;
+    }
+  case VMEXIT_CR0_WRITE: 
+    {
+#ifdef DEBUG_CTRL_REGS
+      PrintDebug("CR0 Write\n");
+#endif
+      if (v3_handle_cr0_write(info) == -1) {
+	return -1;
+      }
+      break;
+    } 
+  case VMEXIT_CR0_READ: 
+    {
+#ifdef DEBUG_CTRL_REGS
+      PrintDebug("CR0 Read\n");
+#endif
+      if (v3_handle_cr0_read(info) == -1) {
+	return -1;
+      }
+      break;
+    } 
+  case VMEXIT_CR3_WRITE: 
+    {
+#ifdef DEBUG_CTRL_REGS
+      PrintDebug("CR3 Write\n");
+#endif
+      if (v3_handle_cr3_write(info) == -1) {
+	return -1;
+      }    
+      break;
+    }
+  case  VMEXIT_CR3_READ: 
+    {
+#ifdef DEBUG_CTRL_REGS
+      PrintDebug("CR3 Read\n");
+#endif
+      if (v3_handle_cr3_read(info) == -1) {
+	return -1;
+      }
+      break;
+    }
+  case VMEXIT_CR4_WRITE: 
+    {
+#ifdef DEBUG_CTRL_REGS
+      PrintDebug("CR4 Write\n");
+#endif
+      if (v3_handle_cr4_write(info) == -1) {
+	return -1;
+      }    
+      break;
+    }
+  case  VMEXIT_CR4_READ: 
+    {
+#ifdef DEBUG_CTRL_REGS
+      PrintDebug("CR4 Read\n");
+#endif
+      if (v3_handle_cr4_read(info) == -1) {
+	return -1;
+      }
+      break;
+    }
+
+  case VMEXIT_EXCP14: 
+    {
+      addr_t fault_addr = guest_ctrl->exit_info2;
+      pf_error_t * error_code = (pf_error_t *)&(guest_ctrl->exit_info1);
+#ifdef DEBUG_SHADOW_PAGING
+      PrintDebug("PageFault at %p (error=%d)\n", 
+		 (void *)fault_addr, *(uint_t *)error_code);
+#endif
+      if (info->shdw_pg_mode == SHADOW_PAGING) {
+	if (v3_handle_shadow_pagefault(info, fault_addr, *error_code) == -1) {
 	  return -1;
 	}
       } else {
-	if (v3_handle_svm_io_in(info) == -1) {
+	PrintError("Page fault in un implemented paging mode\n");
+	return -1;
+      }
+      break;
+    } 
+  case VMEXIT_NPF: 
+    {
+      PrintError("Currently unhandled Nested Page Fault\n");
+      return -1;
+
+      break;
+    }
+  case VMEXIT_INVLPG: 
+    {
+      if (info->shdw_pg_mode == SHADOW_PAGING) {
+#ifdef DEBUG_SHADOW_PAGING
+	PrintDebug("Invlpg\n");
+#endif
+	if (v3_handle_shadow_invlpg(info) == -1) {
 	  return -1;
 	}
       }
-    }
-  }
-    break;
-
-
-  case  VMEXIT_CR0_WRITE: {
-#ifdef DEBUG_CTRL_REGS
-    PrintDebug("CR0 Write\n");
-#endif
-    if (v3_handle_cr0_write(info) == -1) {
-      return -1;
-    }
-  } 
-    break;
-
-  case VMEXIT_CR0_READ: {
-#ifdef DEBUG_CTRL_REGS
-    PrintDebug("CR0 Read\n");
-#endif
-    if (v3_handle_cr0_read(info) == -1) {
-      return -1;
-    }
-  } 
-    break;
-
-  case VMEXIT_CR3_WRITE: {
-#ifdef DEBUG_CTRL_REGS
-    PrintDebug("CR3 Write\n");
-#endif
-    if (v3_handle_cr3_write(info) == -1) {
-      return -1;
-    }    
-  } 
-    break;
-
-  case  VMEXIT_CR3_READ: {
-#ifdef DEBUG_CTRL_REGS
-    PrintDebug("CR3 Read\n");
-#endif
-    if (v3_handle_cr3_read(info) == -1) {
-      return -1;
-    }
-  }
-    break;
-
-  case VMEXIT_EXCP14: {
-    addr_t fault_addr = guest_ctrl->exit_info2;
-    pf_error_t * error_code = (pf_error_t *)&(guest_ctrl->exit_info1);
-#ifdef DEBUG_SHADOW_PAGING
-    PrintDebug("PageFault at %p (error=%d)\n", 
-	       (void *)fault_addr, *(uint_t *)error_code);
-#endif
-    if (info->shdw_pg_mode == SHADOW_PAGING) {
-      if (v3_handle_shadow_pagefault(info, fault_addr, *error_code) == -1) {
-	return -1;
-      }
-    } else {
-      PrintError("Page fault in un implemented paging mode\n");
-      return -1;
-    }
-  } 
-    break;
-
-  case VMEXIT_NPF: {
-    PrintError("Currently unhandled Nested Page Fault\n");
-    return -1;
-    
-  } 
-    break;
-
-  case VMEXIT_INVLPG: {
-    if (info->shdw_pg_mode == SHADOW_PAGING) {
-#ifdef DEBUG_SHADOW_PAGING
-      PrintDebug("Invlpg\n");
-#endif
-      if (v3_handle_shadow_invlpg(info) == -1) {
-	return -1;
-      }
-    }
    
-    /*
-      (exit_code == VMEXIT_INVLPGA)   || 
-    */
-    
-  } 
-    break;
-
-  case VMEXIT_INTR: { 
-    
-    // handled by interrupt dispatch earlier
-
-  } 
-    break;
-    
-  case VMEXIT_SMI: {
-    
-    //   handle_svm_smi(info); // ignored for now
-
-  } 
-    break;
-
-  case VMEXIT_HLT: {
-#ifdef DEBUG_HALT
-    PrintDebug("Guest halted\n");
-#endif
-    if (v3_handle_svm_halt(info) == -1) {
-      return -1;
+      /*
+	(exit_code == VMEXIT_INVLPGA)   || 
+      */
+      break;
     }
-  } 
-    break;
-
+  case VMEXIT_INTR: 
+    {
+      // handled by interrupt dispatch earlier
+      break;
+    }    
+  case VMEXIT_SMI: 
+    {      
+      //   handle_svm_smi(info); // ignored for now
+      break;
+    }
+  case VMEXIT_HLT: 
+    {
+#ifdef DEBUG_HALT
+      PrintDebug("Guest halted\n");
+#endif
+      if (v3_handle_svm_halt(info) == -1) {
+	return -1;
+      }
+      break;
+    }
   case VMEXIT_PAUSE: {
     //PrintDebug("Guest paused\n");
     if (v3_handle_svm_pause(info) == -1) { 

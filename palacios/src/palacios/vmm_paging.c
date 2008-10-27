@@ -262,6 +262,147 @@ pde32_t * create_passthrough_pts_32(struct guest_info * guest_info) {
 }
 
 
+/* We generate a page table to correspond to a given memory layout
+ * pulling pages from the mem_list when necessary
+ * If there are any gaps in the layout, we add them as unmapped pages
+ */
+pdpe32pae_t * create_passthrough_pts_PAE32(struct guest_info * guest_info) {
+  addr_t current_page_addr = 0;
+  int i, j, k;
+  struct shadow_map * map = &(guest_info->mem_map);
+
+  pdpe32pae_t * pdpe = V3_VAddr(V3_AllocPages(1));
+  memset(pdpe, 0, PAGE_SIZE);
+
+  for (i = 0; i < MAX_PDPE32PAE_ENTRIES; i++) {
+    int pde_present = 0;
+    pde32pae_t * pde = V3_VAddr(V3_AllocPages(1));
+
+    for (j = 0; j < MAX_PDE32PAE_ENTRIES; j++) {
+
+
+      int pte_present = 0;
+      pte32pae_t * pte = V3_VAddr(V3_AllocPages(1));
+      
+      
+      for (k = 0; k < MAX_PTE32PAE_ENTRIES; k++) {
+	struct shadow_region * region = get_shadow_region_by_addr(map, current_page_addr);
+	
+	if (!region || 
+	    (region->host_type == HOST_REGION_HOOK) || 
+	    (region->host_type == HOST_REGION_UNALLOCATED) || 
+	    (region->host_type == HOST_REGION_MEMORY_MAPPED_DEVICE) || 
+	    (region->host_type == HOST_REGION_REMOTE) ||
+	    (region->host_type == HOST_REGION_SWAPPED)) {
+	  pte[k].present = 0;
+	  pte[k].writable = 0;
+	  pte[k].user_page = 0;
+	  pte[k].write_through = 0;
+	  pte[k].cache_disable = 0;
+	  pte[k].accessed = 0;
+	  pte[k].dirty = 0;
+	  pte[k].pte_attr = 0;
+	  pte[k].global_page = 0;
+	  pte[k].vmm_info = 0;
+	  pte[k].page_base_addr = 0;
+	  pte[k].rsvd = 0;
+	} else {
+	  addr_t host_addr;
+	  pte[k].present = 1;
+	  pte[k].writable = 1;
+	  pte[k].user_page = 1;
+	  pte[k].write_through = 0;
+	  pte[k].cache_disable = 0;
+	  pte[k].accessed = 0;
+	  pte[k].dirty = 0;
+	  pte[k].pte_attr = 0;
+	  pte[k].global_page = 0;
+	  pte[k].vmm_info = 0;
+	  
+	  if (guest_pa_to_host_pa(guest_info, current_page_addr, &host_addr) == -1) {
+	    // BIG ERROR
+	    // PANIC
+	    return NULL;
+	  }
+	  
+	  pte[k].page_base_addr = host_addr >> 12;
+	  pte[k].rsvd = 0;
+
+	  pte_present = 1;
+	}
+	
+	current_page_addr += PAGE_SIZE;
+      }
+      
+      if (pte_present == 0) { 
+	V3_FreePage(V3_PAddr(pte));
+	
+	pde[j].present = 0;
+	pde[j].writable = 0;
+	pde[j].user_page = 0;
+	pde[j].write_through = 0;
+	pde[j].cache_disable = 0;
+	pde[j].accessed = 0;
+	pde[j].avail = 0;
+	pde[j].large_page = 0;
+	pde[j].global_page = 0;
+	pde[j].vmm_info = 0;
+	pde[j].pt_base_addr = 0;
+	pde[j].rsvd = 0;
+      } else {
+	pde[j].present = 1;
+	pde[j].writable = 1;
+	pde[j].user_page = 1;
+	pde[j].write_through = 0;
+	pde[j].cache_disable = 0;
+	pde[j].accessed = 0;
+	pde[j].avail = 0;
+	pde[j].large_page = 0;
+	pde[j].global_page = 0;
+	pde[j].vmm_info = 0;
+	pde[j].pt_base_addr = PAGE_ALIGNED_ADDR((addr_t)V3_PAddr(pte));
+	pde[j].rsvd = 0;
+
+	pde_present = 1;
+      }
+      
+    }
+    
+    if (pde_present == 0) { 
+      V3_FreePage(V3_PAddr(pde));
+      
+      pdpe[i].present = 0;
+      pdpe[i].rsvd = 0;
+      pdpe[i].write_through = 0;
+      pdpe[i].cache_disable = 0;
+      pdpe[i].accessed = 0;
+      pdpe[i].avail = 0;
+      pdpe[i].rsvd2 = 0;
+      pdpe[i].vmm_info = 0;
+      pdpe[i].pd_base_addr = 0;
+      pdpe[i].rsvd3 = 0;
+    } else {
+      pdpe[i].present = 1;
+      pdpe[i].rsvd = 0;
+      pdpe[i].write_through = 0;
+      pdpe[i].cache_disable = 0;
+      pdpe[i].accessed = 0;
+      pdpe[i].avail = 0;
+      pdpe[i].rsvd2 = 0;
+      pdpe[i].vmm_info = 0;
+      pdpe[i].pd_base_addr = PAGE_ALIGNED_ADDR((addr_t)V3_PAddr(pde));
+      pdpe[i].rsvd3 = 0;
+    }
+    
+  }
+
+
+  return pdpe;
+}
+
+
+
+
 
 
 pml4e64_t * create_passthrough_pts_64(struct guest_info * info) {
@@ -476,6 +617,10 @@ void PrintPTE32(addr_t virtual_address, pte32_t * pte)
 }
 
 
+
+
+
+
 void PrintPDE64(addr_t virtual_address, pde64_t * pde)
 {
   PrintDebug("PDE64 %p -> %p : present=%x, writable=%x, user=%x, wt=%x, cd=%x, accessed=%x, reserved=%x, largePages=%x, globalPage=%x, kernelInfo=%x\n",
@@ -544,6 +689,8 @@ void PrintPT32(addr_t starting_address, pte32_t * pte)
 
 
 
+
+
 void PrintDebugPageTables(pde32_t * pde)
 {
   int i;
@@ -558,3 +705,102 @@ void PrintDebugPageTables(pde32_t * pde)
   }
 }
     
+
+
+
+
+
+
+
+void PrintPDPE32PAE(addr_t virtual_address, pdpe32pae_t * pdpe)
+{
+  PrintDebug("PDPE %p -> %p : present=%x, wt=%x, cd=%x, accessed=%x, kernelInfo=%x\n",
+	     (void *)virtual_address,
+	     (void *)(addr_t) (pdpe->pd_base_addr << PAGE_POWER),
+	     pdpe->present,
+	     pdpe->write_through,
+	     pdpe->cache_disable,
+	     pdpe->accessed,
+	     pdpe->vmm_info);
+}
+
+void PrintPDE32PAE(addr_t virtual_address, pde32pae_t * pde)
+{
+  PrintDebug("PDE %p -> %p : present=%x, writable=%x, user=%x, wt=%x, cd=%x, accessed=%x, largePages=%x, globalPage=%x, kernelInfo=%x\n",
+	     (void *)virtual_address,
+	     (void *)(addr_t) (pde->pt_base_addr << PAGE_POWER),
+	     pde->present,
+	     pde->writable,
+	     pde->user_page, 
+	     pde->write_through,
+	     pde->cache_disable,
+	     pde->accessed,
+	     pde->large_page,
+	     pde->global_page,
+	     pde->vmm_info);
+}
+
+  
+void PrintPTE32PAE(addr_t virtual_address, pte32pae_t * pte)
+{
+  PrintDebug("PTE %p -> %p : present=%x, writable=%x, user=%x, wt=%x, cd=%x, accessed=%x, dirty=%x, pteAttribute=%x, globalPage=%x, vmm_info=%x\n",
+	     (void *)virtual_address,
+	     (void*)(addr_t)(pte->page_base_addr << PAGE_POWER),
+	     pte->present,
+	     pte->writable,
+	     pte->user_page,
+	     pte->write_through,
+	     pte->cache_disable,
+	     pte->accessed,
+	     pte->dirty,
+	     pte->pte_attr,
+	     pte->global_page,
+	     pte->vmm_info);
+}
+
+
+
+
+
+
+void PrintDebugPageTables32PAE(pdpe32pae_t * pdpe)
+{
+  int i, j, k;
+  pde32pae_t * pde;
+  pte32pae_t * pte;
+  addr_t virtual_addr = 0;
+
+  PrintDebug("Dumping the pages starting with the pde page at %p\n", pdpe);
+
+  for (i = 0; (i < MAX_PDPE32PAE_ENTRIES); i++) { 
+
+    if (pdpe[i].present) {
+      pde = (pde32pae_t *)V3_VAddr((void *)(addr_t)BASE_TO_PAGE_ADDR(pdpe[i].pd_base_addr));
+
+      PrintPDPE32PAE(virtual_addr, &(pdpe[i]));
+
+      for (j = 0; j < MAX_PDE32PAE_ENTRIES; j++) {
+
+	if (pde[j].present) {
+	  pte = (pte32pae_t *)V3_VAddr((void *)(addr_t)BASE_TO_PAGE_ADDR(pde[j].pt_base_addr));
+
+	  PrintPDE32PAE(virtual_addr, &(pde[j]));
+
+	  for (k = 0; k < MAX_PTE32PAE_ENTRIES; k++) {
+	    if (pte[k].present) {
+	      PrintPTE32PAE(virtual_addr, &(pte[k]));
+	    }
+
+	    virtual_addr += PAGE_SIZE;
+	  }
+	} else {
+	  virtual_addr += PAGE_SIZE * MAX_PTE32PAE_ENTRIES;
+	}
+      }
+    } else {
+      virtual_addr += PAGE_SIZE * MAX_PDE32PAE_ENTRIES * MAX_PTE32PAE_ENTRIES;
+    }
+  }
+}
+    
+
