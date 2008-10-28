@@ -263,6 +263,7 @@ static inline addr_t get_addr_linear(struct guest_info * info, addr_t addr, stru
 
   case PROTECTED:
   case PROTECTED_PAE:
+  case LONG_32_COMPAT:
     return addr + seg->base;
     break;
 
@@ -270,10 +271,10 @@ static inline addr_t get_addr_linear(struct guest_info * info, addr_t addr, stru
     // In long mode the segment bases are disregarded (forced to 0), unless using 
     // FS or GS, then the base addresses are added
     return addr + seg->base;
-  case LONG_32_COMPAT:
+
   case LONG_16_COMPAT:
   default:
-    PrintError("Unsupported Address Mode\n");
+    PrintError("Unsupported CPU Mode: %d\n", info->cpu_mode);
     return -1;
   }
 }

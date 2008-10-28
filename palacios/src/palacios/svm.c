@@ -90,6 +90,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
   */
 
   guest_state->efer |= EFER_MSR_svm_enable;
+  vm_info->guest_efer.value = 0x0LL;
 
   v3_hook_msr(vm_info, EFER_MSR, 
 	      NULL, /*&v3_handle_efer_read,*/ 
@@ -146,6 +147,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
   vm_info->vm_regs.rdx = 0x00000f00;
 
   guest_state->cr0 = 0x60000010;
+
 
   guest_state->cs.selector = 0xf000;
   guest_state->cs.limit=0xffff;

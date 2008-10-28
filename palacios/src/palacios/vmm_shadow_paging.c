@@ -82,6 +82,9 @@ int v3_init_shadow_page_state(struct guest_info * info) {
   state->guest_cr3 = 0;
   state->shadow_cr3 = 0;
 
+  state->guest_cr0 = 0;
+
+
 
   state->cr3_cache = create_hashtable(0, &cr3_hash_fn, &cr3_equals);
 
@@ -143,6 +146,16 @@ int cache_page_tables32(struct guest_info * info, addr_t pde) {
   return 0;
 }
 */
+
+
+int v3_cache_page_tables(struct guest_info * info, addr_t cr3) {
+  switch(v3_get_cpu_mode(info)) {
+  case PROTECTED:
+    return v3_cache_page_tables32(info, (addr_t)V3_PAddr((void *)CR3_TO_PDE32(cr3)));
+  default:
+    return -1;
+  }
+}
 
 int v3_cache_page_tables32(struct guest_info * info, addr_t pde) {
   struct shadow_page_state * state = &(info->shdw_pg_state);

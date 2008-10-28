@@ -106,6 +106,7 @@ static int set_decoder_mode(struct guest_info * info, xed_state_t * state) {
    break;
   case PROTECTED:
   case PROTECTED_PAE:
+  case LONG_32_COMPAT:
     if (state->mmode != XED_MACHINE_MODE_LEGACY_32) {
       xed_state_init(state,
 		     XED_MACHINE_MODE_LEGACY_32, 
@@ -119,6 +120,7 @@ static int set_decoder_mode(struct guest_info * info, xed_state_t * state) {
     }
     break;
   default:
+    PrintError("Unsupported CPU mode: %d\n", info->cpu_mode);
     return -1;
   }
   return 0;

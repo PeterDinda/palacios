@@ -35,7 +35,6 @@
 
 
 
-
 struct v3_gprs {
   v3_reg_t rdi;
   v3_reg_t rsi;
@@ -147,6 +146,9 @@ struct guest_info {
 
   v3_vm_operating_mode_t run_state;
   void * vmm_data;
+
+
+  struct v3_msr guest_efer;
 
   /* TEMP */
   //ullong_t exit_tsc;
