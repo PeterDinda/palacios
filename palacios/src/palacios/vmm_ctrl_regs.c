@@ -573,8 +573,13 @@ int v3_handle_cr4_write(struct guest_info * info) {
 
 
 int v3_handle_efer_read(uint_t msr, struct v3_msr * dst, void * priv_data) {
-  PrintError("EFER Read not handled\n");
-  return -1;
+  struct guest_info * info = (struct guest_info *)(priv_data);
+  PrintDebug("EFER Read\n");
+
+  dst->value = info->guest_efer.value;
+
+  info->rip += 2; // WRMSR/RDMSR are two byte operands
+  return 0;
 }
 
 
@@ -583,7 +588,11 @@ int v3_handle_efer_write(uint_t msr, struct v3_msr src, void * priv_data) {
   struct efer_64 * new_efer = (struct efer_64 *)&(src.value);
   struct efer_64 * old_efer = (struct efer_64 *)&(info->ctrl_regs.efer);
 
+  PrintDebug("EFER Write\n");
   PrintDebug("Old EFER=%p\n", (void *)*(addr_t*)(old_efer));
+
+  // We virtualize the guests efer to hide the SVME and LMA bits
+  info->guest_efer.value = src.value;
 
   if ((info->shdw_pg_mode == SHADOW_PAGING) && 
       (v3_get_mem_mode(info) == PHYSICAL_MEM)) {
@@ -609,8 +618,6 @@ int v3_handle_efer_write(uint_t msr, struct v3_msr src, void * priv_data) {
       
 
       // Does this mean we will have to fully virtualize a shadow  EFER?? (yes it does)
-      ((struct efer_64 *)&(info->guest_efer.value))->lme = 1;
-
       new_efer->lma = 1;
       
     } else if ((old_efer->lme == 1) && (new_efer->lme == 0)) {
