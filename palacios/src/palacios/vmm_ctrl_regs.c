@@ -69,13 +69,7 @@ int v3_handle_cr0_write(struct guest_info * info) {
     ret = read_guest_va_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
   }
 
-  /* The IFetch will already have faulted in the necessary bytes for the full instruction
-    if (ret != 15) {
-    // I think we should inject a GPF into the guest
-    PrintError("Could not read instruction (ret=%d)\n", ret);
-    return -1;
-    }
-  */
+
 
   if (v3_decode(info, (addr_t)instr, &dec_instr) == -1) {
     PrintError("Could not decode instruction\n");
@@ -171,11 +165,21 @@ static int handle_mov_to_cr0_32(struct guest_info * info, struct x86_instr * dec
   
 
   if (v3_get_mem_mode(info) == VIRTUAL_MEM) {
-    struct cr3_32 * guest_cr3 = (struct cr3_32 *)&(info->shdw_pg_state.guest_cr3);
-    PrintDebug("Setting up Guest Page Table\n");
-    info->ctrl_regs.cr3 = *(addr_t*)guest_cr3;
+    /*    struct cr3_32 * guest_cr3 = (struct cr3_32 *)&(info->shdw_pg_state.guest_cr3);
+	  info->ctrl_regs.cr3 = *(addr_t*)guest_cr3;
+    */
+    PrintDebug("Activating Shadow Page Tables\n");
+
+    if (v3_activate_shadow_pt(info) == -1) {
+      PrintError("Failed to activate shadow page tables\n");
+      return -1;
+    }
   } else  {
-    info->ctrl_regs.cr3 = *(addr_t*)&(info->direct_map_pt);
+
+    if (v3_activate_passthrough_pt(info) == -1) {
+      PrintError("Failed to activate passthrough page tables\n");
+      return -1;
+    }
     shadow_cr0->pg = 1;
   }
   
@@ -251,13 +255,6 @@ int v3_handle_cr0_read(struct guest_info * info) {
     ret = read_guest_va_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
   }
 
-  /* The IFetch will already have faulted in the necessary bytes for the full instruction
-     if (ret != 15) {
-     // I think we should inject a GPF into the guest
-     PrintError("Could not read instruction (ret=%d)\n", ret);
-     return -1;
-     }
-  */
 
   if (v3_decode(info, (addr_t)instr, &dec_instr) == -1) {
     PrintError("Could not decode instruction\n");
@@ -345,18 +342,22 @@ int v3_handle_cr3_write(struct guest_info * info) {
 	if (handle_mov_to_cr3_32(info, &dec_instr) == -1) {
 	  return -1;
 	}
+	break;
       case PROTECTED_PAE:
 	if (handle_mov_to_cr3_32pae(info, &dec_instr) == -1) {
 	  return -1;
 	}
+	break;
       case LONG:
 	if (handle_mov_to_cr3_64(info, &dec_instr) == -1) {
 	  return -1;
 	}
+	break;
       case LONG_32_COMPAT:
 	if (handle_mov_to_cr3_64compat(info, &dec_instr) == -1) {
 	  return -1;
 	}
+	break;
       default:
 	PrintError("Unhandled CPU mode: %d\n", info->cpu_mode);
 	return -1;
@@ -384,9 +385,10 @@ static int handle_mov_to_cr3_32(struct guest_info * info, struct x86_instr * dec
   if (info->shdw_pg_mode == SHADOW_PAGING) {
     struct cr3_32 * new_cr3 = (struct cr3_32 *)(dec_instr->src_operand.operand);	
     struct cr3_32 * guest_cr3 = (struct cr3_32 *)&(info->shdw_pg_state.guest_cr3);
-    //    struct cr3_32 * shadow_cr3 = (struct cr3_32 *)&(info->ctrl_regs.cr3);
+#ifdef DEBUG_CTRL_REGS
+    struct cr3_32 * shadow_cr3 = (struct cr3_32 *)&(info->ctrl_regs.cr3);    
+#endif
 
-    
     PrintDebug("Old Shadow CR3=%x; Old Guest CR3=%x\n", 
 	       *(uint_t*)shadow_cr3, *(uint_t*)guest_cr3);
     
@@ -436,13 +438,7 @@ int v3_handle_cr3_read(struct guest_info * info) {
     ret = read_guest_va_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
   }
 
-  /* The IFetch will already have faulted in the necessary bytes for the full instruction
-     if (ret != 15) {
-     // I think we should inject a GPF into the guest
-     PrintError("Could not read instruction (ret=%d)\n", ret);
-     return -1;
-     }
-  */
+
 
   if (v3_decode(info, (addr_t)instr, &dec_instr) == -1) {
     PrintError("Could not decode instruction\n");
@@ -470,9 +466,12 @@ int v3_handle_cr3_read(struct guest_info * info) {
   return 0;
 }
 
+
+// We don't need to virtualize CR4, all we need is to detect the activation of PAE
 int v3_handle_cr4_read(struct guest_info * info) {
-  PrintError("CR4 Read not handled\n");
-  return -1;
+  //  PrintError("CR4 Read not handled\n");
+  // Do nothing...
+  return 0;
 }
 
 int v3_handle_cr4_write(struct guest_info * info) {

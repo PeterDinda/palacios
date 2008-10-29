@@ -64,7 +64,7 @@ int v3_handle_shadow_invlpg(struct guest_info * info);
 
 
 int v3_activate_shadow_pt(struct guest_info * info);
-
+int v3_activate_passthrough_pt(struct guest_info * info);
 
 /* TODO: Change to static functions
  * External visibility not needed

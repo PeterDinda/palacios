@@ -73,7 +73,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
   //ctrl_area->instrs.instrs.CR0 = 1;
   ctrl_area->cr_reads.cr0 = 1;
   ctrl_area->cr_writes.cr0 = 1;
-  ctrl_area->cr_reads.cr4 = 1;
+  //ctrl_area->cr_reads.cr4 = 1;
   ctrl_area->cr_writes.cr4 = 1;
 
 
