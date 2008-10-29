@@ -880,7 +880,7 @@ void PrintPageTree(v3_vm_cpu_mode_t cpu_mode, addr_t virtual_addr, addr_t cr3) {
   case LONG:
   case LONG_32_COMPAT:
   case LONG_16_COMPAT:
-    PrintPageTree_64(virtual_addr, CR3_TO_PML4E64(cr3));
+    PrintPageTree_64(virtual_addr, CR3_TO_PML4E64_VA(cr3));
     break;
   default:
     PrintError("Unsupported CPU MODE %d\n", cpu_mode);

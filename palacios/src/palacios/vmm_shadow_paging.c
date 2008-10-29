@@ -153,7 +153,7 @@ int cache_page_tables32(struct guest_info * info, addr_t pde) {
 int v3_cache_page_tables(struct guest_info * info, addr_t cr3) {
   switch(v3_get_cpu_mode(info)) {
   case PROTECTED:
-    return v3_cache_page_tables32(info, (addr_t)V3_PAddr((void *)CR3_TO_PDE32(cr3)));
+    return v3_cache_page_tables32(info, CR3_TO_PDE32_PA(cr3));
   default:
     return -1;
   }
@@ -210,7 +210,7 @@ int v3_cache_page_tables32(struct guest_info * info, addr_t pde) {
 
 
 int v3_replace_shdw_page32(struct guest_info * info, addr_t location, pte32_t * new_page, pte32_t * old_page) {
-  pde32_t * shadow_pd = (pde32_t *)CR3_TO_PDE32(info->ctrl_regs.cr3);
+  pde32_t * shadow_pd = (pde32_t *)CR3_TO_PDE32_VA(info->ctrl_regs.cr3);
   pde32_t * shadow_pde =  (pde32_t *)&(shadow_pd[PDE32_INDEX(location)]);
 
   if (shadow_pde->large_page == 0) {
@@ -241,7 +241,7 @@ static int activate_shadow_pt_32(struct guest_info * info) {
     int cached = 0;
 
     // Check if shadow page tables are in the cache
-    cached = v3_cache_page_tables32(info, (addr_t)V3_PAddr((void *)(addr_t)CR3_TO_PDE32((void *)*(addr_t *)guest_cr3)));
+    cached = v3_cache_page_tables32(info, CR3_TO_PDE32_PA(*(addr_t *)guest_cr3));
     
     if (cached == -1) {
       PrintError("CR3 Cache failed\n");
@@ -250,13 +250,12 @@ static int activate_shadow_pt_32(struct guest_info * info) {
       addr_t shadow_pt;
       
       PrintDebug("New CR3 is different - flushing shadow page table %p\n", shadow_cr3 );
-      delete_page_tables_32((pde32_t *)CR3_TO_PDE32(*(uint_t*)shadow_cr3));
+      delete_page_tables_32(CR3_TO_PDE32_VA(*(uint_t*)shadow_cr3));
       
       shadow_pt = v3_create_new_shadow_pt();
       
       shadow_cr3->pdt_base_addr = (addr_t)V3_PAddr((void *)(addr_t)PD32_BASE_ADDR(shadow_pt));
       PrintDebug( "Created new shadow page table %p\n", (void *)(addr_t)shadow_cr3->pdt_base_addr );
-      //PrintDebugPageTables( (pde32_t *)CR3_TO_PDE32(*(uint_t*)shadow_cr3) );
     } else {
       PrintDebug("Reusing cached shadow Page table\n");
     }
@@ -469,8 +468,8 @@ static int handle_large_pagefault32(struct guest_info * info,
 
 static int handle_shadow_pagefault32(struct guest_info * info, addr_t fault_addr, pf_error_t error_code) {
   pde32_t * guest_pd = NULL;
-  pde32_t * shadow_pd = (pde32_t *)CR3_TO_PDE32(info->ctrl_regs.cr3);
-  addr_t guest_cr3 = (addr_t) V3_PAddr(CR3_TO_PDE32(info->shdw_pg_state.guest_cr3) );
+  pde32_t * shadow_pd = CR3_TO_PDE32_VA(info->ctrl_regs.cr3);
+  addr_t guest_cr3 = CR3_TO_PDE32_PA(info->shdw_pg_state.guest_cr3);
   pt_access_status_t guest_pde_access;
   pt_access_status_t shadow_pde_access;
   pde32_t * guest_pde = NULL;
@@ -787,7 +786,7 @@ int v3_handle_shadow_invlpg(struct guest_info * info)
   
   addr_t first_operand;
   addr_t second_operand;
-  addr_t guest_cr3 = (addr_t)V3_PAddr( (void*)(addr_t) CR3_TO_PDE32(info->shdw_pg_state.guest_cr3) );
+  addr_t guest_cr3 =  CR3_TO_PDE32_PA(info->shdw_pg_state.guest_cr3);
   
   pde32_t * guest_pd = NULL;
   
@@ -805,7 +804,7 @@ int v3_handle_shadow_invlpg(struct guest_info * info)
     return -1;
   }
   
-  pde32_t * shadow_pd = (pde32_t *)CR3_TO_PDE32(info->ctrl_regs.cr3);
+  pde32_t * shadow_pd = (pde32_t *)CR3_TO_PDE32_VA(info->ctrl_regs.cr3);
   pde32_t * shadow_pde = (pde32_t *)&shadow_pd[PDE32_INDEX(first_operand)];
   pde32_t * guest_pde;
   

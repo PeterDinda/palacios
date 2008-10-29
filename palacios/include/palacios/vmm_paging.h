@@ -162,10 +162,13 @@ the host state in the vmcs before entering the guest.
 
 
 
+#define CR3_TO_PDE32_PA(cr3) ((addr_t)(((ulong_t)cr3) & 0xfffff000))
+#define CR3_TO_PDPTRE_PA(cr3) ((addr_t)(((ulong_t)cr3) & 0xffffffe0))
+#define CR3_TO_PML4E64_PA(cr3)  ((addr_t)(((ullong_t)cr3) & 0x000ffffffffff000LL))
 
-#define CR3_TO_PDE32(cr3) ((pde32_t *)V3_VAddr((void *)(addr_t)(((ulong_t)cr3) & 0xfffff000)))
-#define CR3_TO_PDPTRE(cr3) (V3_VAddr((void *)(((ulong_t)cr3) & 0xffffffe0)))
-#define CR3_TO_PML4E64(cr3)  ((pml4e64_t *)V3_VAddr((void *)(addr_t)(((ullong_t)cr3) & 0x000ffffffffff000LL)))
+#define CR3_TO_PDE32_VA(cr3) ((pde32_t *)V3_VAddr((void *)(addr_t)(((ulong_t)cr3) & 0xfffff000)))
+#define CR3_TO_PDPTRE_VA(cr3) (V3_VAddr((void *)(((ulong_t)cr3) & 0xffffffe0)))
+#define CR3_TO_PML4E64_VA(cr3)  ((pml4e64_t *)V3_VAddr((void *)(addr_t)(((ullong_t)cr3) & 0x000ffffffffff000LL)))
 
 
 
