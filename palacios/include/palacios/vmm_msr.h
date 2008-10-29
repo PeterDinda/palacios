@@ -36,10 +36,9 @@ struct v3_msr {
     struct {
       uint_t lo;
       uint_t hi;
-    } ;
-
-  };
-};
+    } __attribute__((packed));
+  } __attribute__((packed));
+} __attribute__((packed));
 
 
 struct v3_msr_hook {

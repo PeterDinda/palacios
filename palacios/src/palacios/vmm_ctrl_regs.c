@@ -55,6 +55,7 @@ static int handle_mov_to_cr3_64compat(struct guest_info * info, struct x86_instr
 
 
 
+
 // First Attempt = 494 lines
 // current = 106 lines
 int v3_handle_cr0_write(struct guest_info * info) {
@@ -149,40 +150,38 @@ static int handle_mov_to_cr0_64compat(struct guest_info * info, struct x86_instr
 
 
 static int handle_mov_to_cr0_32(struct guest_info * info, struct x86_instr * dec_instr) {
-
   // 32 bit registers
-  struct cr0_32 *real_cr0 = (struct cr0_32*)&(info->ctrl_regs.cr0);
-  struct cr0_32 *new_cr0= (struct cr0_32 *)(dec_instr->src_operand.operand);
+  struct cr0_32 * shadow_cr0 = (struct cr0_32 *)&(info->ctrl_regs.cr0);
+  struct cr0_32 * new_cr0 = (struct cr0_32 *)(dec_instr->src_operand.operand);
+  struct cr0_32 * guest_cr0 = (struct cr0_32 *)&(info->shdw_pg_state.guest_cr0);
   
   PrintDebug("OperandVal = %x, length=%d\n", *(uint_t *)new_cr0, dec_instr->src_operand.size);
   
+  PrintDebug("Old CR0=%x\n", *(uint_t *)shadow_cr0);
+  PrintDebug("Old Guest CR0=%x\n", *(uint_t *)guest_cr0);	
+
+  // Guest always sees the value they wrote
+  *guest_cr0 = *new_cr0;
+
+  // This value must always be set to 1 
+  guest_cr0->et = 1;    
+
+  // Set the shadow register to catch non-virtualized flags
+  *shadow_cr0 = *guest_cr0;
   
-  PrintDebug("Old CR0=%x\n", *(uint_t *)real_cr0);
-  *real_cr0 = *new_cr0;
-  
-  
-  if (info->shdw_pg_mode == SHADOW_PAGING) {
-    struct cr0_32 * shadow_cr0 = (struct cr0_32 *)&(info->shdw_pg_state.guest_cr0);
-    
-    PrintDebug("Old Shadow CR0=%x\n", *(uint_t *)shadow_cr0);	
-    
-    real_cr0->et = 1;
-    
-    *shadow_cr0 = *new_cr0;
-    shadow_cr0->et = 1;
-    
-    if (v3_get_mem_mode(info) == VIRTUAL_MEM) {
-      struct cr3_32 * shadow_cr3 = (struct cr3_32 *)&(info->shdw_pg_state.shadow_cr3);
-      PrintDebug("Setting up Shadow Page Table\n");
-      info->ctrl_regs.cr3 = *(addr_t*)shadow_cr3;
-    } else  {
-      info->ctrl_regs.cr3 = *(addr_t*)&(info->direct_map_pt);
-      real_cr0->pg = 1;
-    }
-    
-    PrintDebug("New Shadow CR0=%x\n",*(uint_t *)shadow_cr0);
+
+  if (v3_get_mem_mode(info) == VIRTUAL_MEM) {
+    struct cr3_32 * guest_cr3 = (struct cr3_32 *)&(info->shdw_pg_state.guest_cr3);
+    PrintDebug("Setting up Guest Page Table\n");
+    info->ctrl_regs.cr3 = *(addr_t*)guest_cr3;
+  } else  {
+    info->ctrl_regs.cr3 = *(addr_t*)&(info->direct_map_pt);
+    shadow_cr0->pg = 1;
   }
-  PrintDebug("New CR0=%x\n", *(uint_t *)real_cr0);
+  
+  PrintDebug("New Guest CR0=%x\n",*(uint_t *)guest_cr0);
+  
+  PrintDebug("New CR0=%x\n", *(uint_t *)shadow_cr0);
   
   return 0;
 }
@@ -192,21 +191,21 @@ static int handle_mov_to_cr0_32(struct guest_info * info, struct x86_instr * dec
 
 static int handle_clts(struct guest_info * info, struct x86_instr * dec_instr) {
   // CLTS
-  struct cr0_32 *real_cr0 = (struct cr0_32*)&(info->ctrl_regs.cr0);
+  struct cr0_32 * real_cr0 = (struct cr0_32*)&(info->ctrl_regs.cr0);
   
   real_cr0->ts = 0;
   
   if (info->shdw_pg_mode == SHADOW_PAGING) {
-    struct cr0_32 * shadow_cr0 = (struct cr0_32 *)&(info->shdw_pg_state.guest_cr0);
-    shadow_cr0->ts = 0;
+    struct cr0_32 * guest_cr0 = (struct cr0_32 *)&(info->shdw_pg_state.guest_cr0);
+    guest_cr0->ts = 0;
   }
   return 0;
 }
 
 
 static int handle_lmsw(struct guest_info * info, struct x86_instr * dec_instr) {
- struct cr0_real *real_cr0  = (struct cr0_real*)&(info->ctrl_regs.cr0);
- struct cr0_real *new_cr0 = (struct cr0_real *)(dec_instr->src_operand.operand);	
+ struct cr0_real * real_cr0  = (struct cr0_real*)&(info->ctrl_regs.cr0);
+ struct cr0_real * new_cr0 = (struct cr0_real *)(dec_instr->src_operand.operand);	
  uchar_t new_cr0_val;
  
  PrintDebug("LMSW\n");
@@ -215,27 +214,25 @@ static int handle_lmsw(struct guest_info * info, struct x86_instr * dec_instr) {
  
  PrintDebug("OperandVal = %x\n", new_cr0_val);
  
+ // We can just copy the new value through
+ // we don't need to virtualize the lower 4 bits
  PrintDebug("Old CR0=%x\n", *(uint_t *)real_cr0);	
  *(uchar_t*)real_cr0 &= 0xf0;
  *(uchar_t*)real_cr0 |= new_cr0_val;
  PrintDebug("New CR0=%x\n", *(uint_t *)real_cr0);	
  
  
+ // If Shadow paging is enabled we push the changes to the virtualized copy of cr0
  if (info->shdw_pg_mode == SHADOW_PAGING) {
-   struct cr0_real * shadow_cr0 = (struct cr0_real*)&(info->shdw_pg_state.guest_cr0);
+   struct cr0_real * guest_cr0 = (struct cr0_real*)&(info->shdw_pg_state.guest_cr0);
    
-   PrintDebug(" Old Shadow CR0=%x\n", *(uint_t *)shadow_cr0);	
-   *(uchar_t*)shadow_cr0 &= 0xf0;
-   *(uchar_t*)shadow_cr0 |= new_cr0_val;
-   PrintDebug("New Shadow CR0=%x\n", *(uint_t *)shadow_cr0);	
+   PrintDebug("Old Guest CR0=%x\n", *(uint_t *)guest_cr0);	
+   *(uchar_t*)guest_cr0 &= 0xf0;
+   *(uchar_t*)guest_cr0 |= new_cr0_val;
+   PrintDebug("New Guest CR0=%x\n", *(uint_t *)guest_cr0);	
  }
  return 0;
 }
-
-
-
-
-
 
 
 
@@ -268,31 +265,31 @@ int v3_handle_cr0_read(struct guest_info * info) {
   }
   
   if (v3_opcode_cmp(V3_OPCODE_MOVCR2, (const uchar_t *)(dec_instr.opcode)) == 0) {
-    struct cr0_32 * virt_cr0 = (struct cr0_32 *)(dec_instr.dst_operand.operand);
-    struct cr0_32 * real_cr0 = (struct cr0_32 *)&(info->ctrl_regs.cr0);
-    
+    struct cr0_32 * dst_reg = (struct cr0_32 *)(dec_instr.dst_operand.operand);
+    struct cr0_32 * shadow_cr0 = (struct cr0_32 *)&(info->ctrl_regs.cr0);
+
     PrintDebug("MOVCR2\n");
-    PrintDebug("CR0 at 0x%p\n", (void *)real_cr0);
 
     if (info->shdw_pg_mode == SHADOW_PAGING) {
-      *virt_cr0 = *(struct cr0_32 *)&(info->shdw_pg_state.guest_cr0);
+      struct cr0_32 * guest_cr0 = (struct cr0_32 *)&(info->shdw_pg_state.guest_cr0);
+      *dst_reg = *guest_cr0;
     } else {
-      *virt_cr0 = *real_cr0;
+      *dst_reg = *shadow_cr0;
     }
-    
-    PrintDebug("real CR0: %x\n", *(uint_t*)real_cr0);
-    PrintDebug("returned CR0: %x\n", *(uint_t*)virt_cr0);
+
+    PrintDebug("Shadow CR0: %x\n", *(uint_t*)shadow_cr0);    
+    PrintDebug("returned CR0: %x\n", *(uint_t*)dst_reg);
   } else if (v3_opcode_cmp(V3_OPCODE_SMSW, (const uchar_t *)(dec_instr.opcode)) == 0) {
-    struct cr0_real *real_cr0= (struct cr0_real*)&(info->ctrl_regs.cr0);
-    struct cr0_real *virt_cr0 = (struct cr0_real *)(dec_instr.dst_operand.operand);
-    char cr0_val = *(char*)real_cr0 & 0x0f;
+    struct cr0_real * shadow_cr0 = (struct cr0_real *)&(info->ctrl_regs.cr0);
+    struct cr0_real * dst_reg = (struct cr0_real *)(dec_instr.dst_operand.operand);
+    char cr0_val = *(char*)shadow_cr0 & 0x0f;
     
     PrintDebug("SMSW\n");
 
-    PrintDebug("CR0 at 0x%p\n", real_cr0);
-
-    *(char *)virt_cr0 &= 0xf0;
-    *(char *)virt_cr0 |= cr0_val;
+    // The lower 4 bits of the guest/shadow CR0 are mapped through
+    // We can treat nested and shadow paging the same here
+    *(char *)dst_reg &= 0xf0;
+    *(char *)dst_reg |= cr0_val;
     
   } else {
     PrintError("Unhandled opcode in handle_cr0_read\n");
@@ -387,53 +384,23 @@ static int handle_mov_to_cr3_32(struct guest_info * info, struct x86_instr * dec
   if (info->shdw_pg_mode == SHADOW_PAGING) {
     struct cr3_32 * new_cr3 = (struct cr3_32 *)(dec_instr->src_operand.operand);	
     struct cr3_32 * guest_cr3 = (struct cr3_32 *)&(info->shdw_pg_state.guest_cr3);
-    struct cr3_32 * shadow_cr3 = (struct cr3_32 *)&(info->shdw_pg_state.shadow_cr3);
-    int cached = 0;
-    
+    //    struct cr3_32 * shadow_cr3 = (struct cr3_32 *)&(info->ctrl_regs.cr3);
+
     
     PrintDebug("Old Shadow CR3=%x; Old Guest CR3=%x\n", 
 	       *(uint_t*)shadow_cr3, *(uint_t*)guest_cr3);
     
+
+    // Store the write value to virtualize CR3
+    *guest_cr3 = *new_cr3;    
     
-    
-    cached = v3_cache_page_tables32(info, (addr_t)V3_PAddr((void *)(addr_t)CR3_TO_PDE32((void *)*(addr_t *)new_cr3)));
-    
-    if (cached == -1) {
-      PrintError("CR3 Cache failed\n");
+    if (v3_activate_shadow_pt(info) == -1) {
+      PrintError("Failed to activate 32 bit shadow page table\n");
       return -1;
-    } else if (cached == 0) {
-      addr_t shadow_pt;
-      
-      if(info->mem_mode == VIRTUAL_MEM) {
-	PrintDebug("New CR3 is different - flushing shadow page table %p\n", shadow_cr3 );
-	delete_page_tables_32((pde32_t *)CR3_TO_PDE32(*(uint_t*)shadow_cr3));
-      }
-      
-      shadow_pt =  v3_create_new_shadow_pt();
-      
-      shadow_cr3->pdt_base_addr = (addr_t)V3_PAddr((void *)(addr_t)PD32_BASE_ADDR(shadow_pt));
-      PrintDebug( "Created new shadow page table %p\n", (void *)(addr_t)shadow_cr3->pdt_base_addr );
-      //PrintDebugPageTables( (pde32_t *)CR3_TO_PDE32(*(uint_t*)shadow_cr3) );
-      
-      
-    } else {
-      PrintDebug("Reusing cached shadow Page table\n");
     }
-    
-    
-    shadow_cr3->pwt = new_cr3->pwt;
-    shadow_cr3->pcd = new_cr3->pcd;
-    
-    // What the hell...
-    *guest_cr3 = *new_cr3;
-    
+
     PrintDebug("New Shadow CR3=%x; New Guest CR3=%x\n", 
-	       *(uint_t*)shadow_cr3, *(uint_t*)guest_cr3);
-    
-    if (info->mem_mode == VIRTUAL_MEM) {
-      // If we aren't in paged mode then we have to preserve the identity mapped CR3
-      info->ctrl_regs.cr3 = *(addr_t*)shadow_cr3;
-    }
+	       *(uint_t*)shadow_cr3, *(uint_t*)guest_cr3);    
   }
   return 0;
 }
@@ -484,14 +451,14 @@ int v3_handle_cr3_read(struct guest_info * info) {
 
   if (v3_opcode_cmp(V3_OPCODE_MOVCR2, (const uchar_t *)(dec_instr.opcode)) == 0) {
     PrintDebug("MOVCR32\n");
-    struct cr3_32 * virt_cr3 = (struct cr3_32 *)(dec_instr.dst_operand.operand);
+    struct cr3_32 * dst_reg = (struct cr3_32 *)(dec_instr.dst_operand.operand);
 
     PrintDebug("CR3 at 0x%p\n", &(info->ctrl_regs.cr3));
 
     if (info->shdw_pg_mode == SHADOW_PAGING) {
-      *virt_cr3 = *(struct cr3_32 *)&(info->shdw_pg_state.guest_cr3);
+      *dst_reg = *(struct cr3_32 *)&(info->shdw_pg_state.guest_cr3);
     } else {
-      *virt_cr3 = *(struct cr3_32 *)&(info->ctrl_regs.cr3);
+      *dst_reg = *(struct cr3_32 *)&(info->ctrl_regs.cr3);
     }
   } else {
     PrintError("Unhandled opcode in handle_cr3_read\n");
@@ -531,18 +498,15 @@ int v3_handle_cr4_write(struct guest_info * info) {
 
   if ((info->cpu_mode == PROTECTED) || (info->cpu_mode == PROTECTED_PAE)) {
     struct cr4_32 * new_cr4 = (struct cr4_32 *)(dec_instr.src_operand.operand);
-    struct cr4_32 * old_cr4 = (struct cr4_32 *)&(info->ctrl_regs.cr4);
+    struct cr4_32 * cr4 = (struct cr4_32 *)&(info->ctrl_regs.cr4);
     
     PrintDebug("OperandVal = %x, length = %d\n", *(uint_t *)new_cr4, dec_instr.src_operand.size);
-    PrintDebug("Old CR4=%x\n", *(uint_t *)old_cr4);
-
-
-
+    PrintDebug("Old CR4=%x\n", *(uint_t *)cr4);
 
     if ((info->shdw_pg_mode == SHADOW_PAGING) && 
 	(v3_get_mem_mode(info) == PHYSICAL_MEM)) {
 
-      if ((old_cr4->pae == 0) && (new_cr4->pae == 1)) {
+      if ((cr4->pae == 0) && (new_cr4->pae == 1)) {
 	PrintDebug("Creating PAE passthrough tables\n");
 
 	// Delete the old 32 bit direct map page tables
@@ -554,16 +518,17 @@ int v3_handle_cr4_write(struct guest_info * info) {
 	// reset cr3 to new page tables
 	info->ctrl_regs.cr3 = *(addr_t*)&(info->direct_map_pt);
 
-      } else if ((old_cr4->pae == 1) && (new_cr4->pae == 0)) {
+      } else if ((cr4->pae == 1) && (new_cr4->pae == 0)) {
 	// Create passthrough standard 32bit pagetables
 	return -1;
       }
     }
 
-    *old_cr4 = *new_cr4;
-    PrintDebug("New CR4=%x\n", *(uint_t *)old_cr4);
+    *cr4 = *new_cr4;
+    PrintDebug("New CR4=%x\n", *(uint_t *)cr4);
 
   } else {
+    PrintError("CR4 write not supported in CPU_MODE: %d\n", info->cpu_mode);
     return -1;
   }
 
@@ -586,18 +551,20 @@ int v3_handle_efer_read(uint_t msr, struct v3_msr * dst, void * priv_data) {
 int v3_handle_efer_write(uint_t msr, struct v3_msr src, void * priv_data) {
   struct guest_info * info = (struct guest_info *)(priv_data);
   struct efer_64 * new_efer = (struct efer_64 *)&(src.value);
-  struct efer_64 * old_efer = (struct efer_64 *)&(info->ctrl_regs.efer);
+  struct efer_64 * shadow_efer = (struct efer_64 *)&(info->ctrl_regs.efer);
+  struct v3_msr * guest_efer = &(info->guest_efer);
 
   PrintDebug("EFER Write\n");
-  PrintDebug("Old EFER=%p\n", (void *)*(addr_t*)(old_efer));
+  PrintDebug("Old EFER=%p\n", (void *)*(addr_t*)(shadow_efer));
 
   // We virtualize the guests efer to hide the SVME and LMA bits
-  info->guest_efer.value = src.value;
+  guest_efer->value = src.value;
 
+ 
   if ((info->shdw_pg_mode == SHADOW_PAGING) && 
       (v3_get_mem_mode(info) == PHYSICAL_MEM)) {
     
-    if ((old_efer->lme == 0) && (new_efer->lme == 1)) {
+    if ((shadow_efer->lme == 0) && (new_efer->lme == 1)) {
       PrintDebug("Transition to longmode\n");
       PrintDebug("Creating Passthrough 64 bit page tables\n");
       
@@ -616,11 +583,11 @@ int v3_handle_efer_write(uint_t msr, struct v3_msr src, void * priv_data) {
       // reset cr3 to new page tables
       info->ctrl_regs.cr3 = *(addr_t*)&(info->direct_map_pt);
       
-
-      // Does this mean we will have to fully virtualize a shadow  EFER?? (yes it does)
+      // We mark the Long Mode active  because we have paging enabled
+      // We do this in new_efer because we copy the msr in full below
       new_efer->lma = 1;
       
-    } else if ((old_efer->lme == 1) && (new_efer->lme == 0)) {
+    } else if ((shadow_efer->lme == 1) && (new_efer->lme == 0)) {
       // transition out of long mode
       //((struct efer_64 *)&(info->guest_efer.value))->lme = 0;
       //((struct efer_64 *)&(info->guest_efer.value))->lma = 0;
@@ -628,9 +595,16 @@ int v3_handle_efer_write(uint_t msr, struct v3_msr src, void * priv_data) {
       return -1;
     }
 
-    *old_efer = *new_efer;
-    PrintDebug("New EFER=%p\n", (void *)*(addr_t *)(old_efer));
+    // accept all changes to the efer, but make sure that the SVME bit is set... (SVM specific)
+    *shadow_efer = *new_efer;
+    shadow_efer->svme = 1;
+    
+
+
+    PrintDebug("New EFER=%p\n", (void *)*(addr_t *)(shadow_efer));
   } else {
+    PrintError("Write to EFER in NESTED_PAGING or VIRTUAL_MEM mode not supported\n");
+    // Should probably just check for a long mode transition, and bomb out if it is
     return -1;
   }
 

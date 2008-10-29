@@ -233,12 +233,9 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
     vm_info->direct_map_pt = (addr_t)V3_PAddr(create_passthrough_pts_32(vm_info));
     /* End Test */
 
-    //vm_info->shdw_pg_state.shadow_cr3 |= (vm_info->direct_map_pt & ~0xfff);
-    vm_info->shdw_pg_state.shadow_cr3 = 0;
     vm_info->shdw_pg_state.guest_cr0 = 0x0000000000000010LL;
     PrintDebug("Created\n");
 
-    //guest_state->cr3 = vm_info->shdw_pg_state.shadow_cr3;
 
     guest_state->cr3 = vm_info->direct_map_pt;
 
