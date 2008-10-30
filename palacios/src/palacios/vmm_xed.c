@@ -246,7 +246,7 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
     if ((!xed_operand_is_register(op_enum)) ||
 	(!is_flags_reg(xed_decoded_inst_get_reg(&xed_instr, op_enum)))) {
       // special case
-      PrintDebug("Special Case not handled\n");
+      PrintError("Special Case not handled\n");
       return -1;
     }
   }
@@ -256,7 +256,7 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 
 
   if (get_opcode(iform, &(instr->opcode)) == -1) {
-    PrintDebug("Could not get opcode. (iform=%s)\n", xed_iform_enum_t2str(iform));
+    PrintError("Could not get opcode. (iform=%s)\n", xed_iform_enum_t2str(iform));
     return -1;
   }
 
@@ -430,7 +430,7 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
   // set third operand
   if (instr->num_operands >= 3) {
     const xed_operand_t * op = xed_inst_operand(xi, 2);
-    //  xed_operand_type_enum_t op_type = xed_operand_type(op);
+    xed_operand_type_enum_t op_type = xed_operand_type(op);
     xed_operand_enum_t op_enum = xed_operand_name(op);
 
     if (xed_operand_is_register(op_enum)) {
@@ -454,7 +454,7 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 
 
     } else {
-      //      PrintError("Unhandled third operand type %s\n", xed_operand_type_enum_t2str(op_type));
+      PrintError("Unhandled third operand type %s\n", xed_operand_type_enum_t2str(op_type));
       return -1;
     }
 
@@ -987,6 +987,9 @@ static int get_opcode(xed_iform_enum_t iform, addr_t * opcode) {
     *opcode = (addr_t)&V3_OPCODE_MOV2CR;
     break;
 
+  case XED_IFORM_SMSW_GPRv:
+    *opcode = (addr_t)&V3_OPCODE_SMSW;
+    break;
 
   case XED_IFORM_LMSW_GPR16:
     *opcode = (addr_t)&V3_OPCODE_LMSW;
@@ -995,6 +998,8 @@ static int get_opcode(xed_iform_enum_t iform, addr_t * opcode) {
   case XED_IFORM_CLTS:
     *opcode = (addr_t)&V3_OPCODE_CLTS;
     break;
+
+
 
   default:
     *opcode = 0;

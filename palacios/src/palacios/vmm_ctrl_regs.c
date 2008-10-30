@@ -229,7 +229,7 @@ int v3_handle_cr0_read(struct guest_info * info) {
     struct cr0_32 * dst_reg = (struct cr0_32 *)(dec_instr.dst_operand.operand);
     struct cr0_32 * shadow_cr0 = (struct cr0_32 *)&(info->ctrl_regs.cr0);
 
-    PrintDebug("MOVCR2 (mode=%s)\n", info->cpu_mode);
+    PrintDebug("MOVCR2 (mode=%s)\n", v3_cpu_mode_to_str(info->cpu_mode));
 
     if (info->shdw_pg_mode == SHADOW_PAGING) {
       struct cr0_32 * guest_cr0 = (struct cr0_32 *)&(info->shdw_pg_state.guest_cr0);
