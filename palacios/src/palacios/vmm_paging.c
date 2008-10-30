@@ -62,7 +62,7 @@ void delete_page_tables_64(pml4e64_t * pml4) {
 }
 
 
-int translate_guest_pt_32(struct guest_info * info, addr_t guest_cr3, addr_t vaddr, addr_t * paddr) {
+int v3_translate_guest_pt_32(struct guest_info * info, addr_t guest_cr3, addr_t vaddr, addr_t * paddr) {
   addr_t guest_pde_pa = CR3_TO_PDE32_PA(guest_cr3);
   pde32_t * guest_pde = 0;
   addr_t guest_pte_pa = 0;
@@ -102,7 +102,7 @@ int translate_guest_pt_32(struct guest_info * info, addr_t guest_cr3, addr_t vad
 }
 
 
-int translate_guest_pt_32pae(struct guest_info * info, addr_t guest_cr3, addr_t vaddr, addr_t * paddr) {
+int v3_translate_guest_pt_32pae(struct guest_info * info, addr_t guest_cr3, addr_t vaddr, addr_t * paddr) {
   addr_t guest_pdpe_pa = CR3_TO_PDPE32PAE_PA(guest_cr3);
   pdpe32pae_t * guest_pdpe = 0;
   addr_t guest_pde_pa = 0;
@@ -162,7 +162,7 @@ int translate_guest_pt_32pae(struct guest_info * info, addr_t guest_cr3, addr_t 
   return 0;
 }
 
-int translate_guest_pt_64(struct guest_info * info, addr_t guest_cr3, addr_t vaddr, addr_t * paddr) {
+int v3_translate_guest_pt_64(struct guest_info * info, addr_t guest_cr3, addr_t vaddr, addr_t * paddr) {
   addr_t guest_pml4_pa = CR3_TO_PML4E64_PA(guest_cr3);
   pml4e64_t * guest_pml = 0;
   addr_t guest_pdpe_pa = 0;
@@ -242,7 +242,7 @@ int translate_guest_pt_64(struct guest_info * info, addr_t guest_cr3, addr_t vad
 
 
 
-int translate_host_pt_32(addr_t host_cr3, addr_t vaddr, addr_t * paddr) {
+int v3_translate_host_pt_32(addr_t host_cr3, addr_t vaddr, addr_t * paddr) {
   pde32_t * host_pde = (pde32_t *)CR3_TO_PDE32_VA(host_cr3);
   pte32_t * host_pte = 0;
     
@@ -263,14 +263,14 @@ int translate_host_pt_32(addr_t host_cr3, addr_t vaddr, addr_t * paddr) {
 }
 
 
-int translate_host_pt_32pae(addr_t host_cr3, addr_t vaddr, addr_t * paddr) {
+int v3_translate_host_pt_32pae(addr_t host_cr3, addr_t vaddr, addr_t * paddr) {
 
 
   return -1;
 }
 
 
-int translate_host_pt_64(addr_t host_cr3, addr_t vaddr, addr_t * paddr) {
+int v3_translate_host_pt_64(addr_t host_cr3, addr_t vaddr, addr_t * paddr) {
 
 
   return -1;
