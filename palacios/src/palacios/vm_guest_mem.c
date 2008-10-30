@@ -173,13 +173,13 @@ int guest_va_to_guest_pa(struct guest_info * guest_info, addr_t guest_va, addr_t
       
       
       switch (pde32_lookup(pde, guest_va, &tmp_pa)) {
-      case PDE32_ENTRY_NOT_PRESENT: 
+      case PT_ENTRY_NOT_PRESENT: 
 	*guest_pa = 0;
 	return -1;
-      case PDE32_ENTRY_LARGE_PAGE:
+      case PT_ENTRY_LARGE_PAGE:
 	*guest_pa = tmp_pa;
 	return 0;
-      case PDE32_ENTRY_PTE32:
+      case PT_ENTRY_PAGE:
 	{
 	  pte32_t * pte = 0;
 	  
@@ -192,7 +192,7 @@ int guest_va_to_guest_pa(struct guest_info * guest_info, addr_t guest_va, addr_t
 	  
 	  //PrintDebug("PTE host addr=%x, GVA=%x, GPA=%x(should be 0)\n", pte, guest_va, *guest_pa);
 	 
-	  if (pte32_lookup(pte, guest_va, guest_pa) != 0) {
+	  if (pte32_lookup(pte, guest_va, guest_pa) != PT_ENTRY_PAGE) {
 	    PrintError("In GVA->GPA: PTE32 Lookup failure GVA=%p; PTE=%p\n", 
 		        (void *)guest_va,  (void *)pte);
 	    //	      PrintPT32(PDE32_INDEX(guest_va) << 22, pte);

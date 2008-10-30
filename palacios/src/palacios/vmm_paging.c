@@ -74,13 +74,13 @@ int translate_guest_pt_32(struct guest_info * info, addr_t guest_cr3, addr_t vad
   }
   
   switch (pde32_lookup(guest_pde, vaddr, &guest_pte_pa)) {
-  case PDE32_ENTRY_NOT_PRESENT:
+  case PT_ENTRY_NOT_PRESENT:
     *paddr = 0;  
     return -1;
-  case PDE32_ENTRY_LARGE_PAGE:
+  case PT_ENTRY_LARGE_PAGE:
     *paddr = guest_pte_pa;
     return 0;
-  case PDE32_ENTRY_PTE32:
+  case PT_ENTRY_PAGE:
     {
       pte32_t * guest_pte;
       if (guest_pa_to_host_va(info, guest_pte_pa, (addr_t*)&guest_pte) == -1) {
@@ -104,13 +104,13 @@ int translate_host_pt_32(addr_t host_cr3, addr_t vaddr, addr_t * paddr) {
   pte32_t * host_pte = 0;
     
   switch (pde32_lookup(host_pde, vaddr, (addr_t *)&host_pte)) {
-  case PDE32_ENTRY_NOT_PRESENT:
+  case PT_ENTRY_NOT_PRESENT:
     *paddr = 0;
     return -1;
-  case PDE32_ENTRY_LARGE_PAGE:
+  case PT_ENTRY_LARGE_PAGE:
     *paddr = (addr_t)host_pte;
     return 0;
-  case PDE32_ENTRY_PTE32:
+  case PT_ENTRY_PAGE:
     if (pte32_lookup(host_pte, vaddr, paddr) == -1) {
       return -1;
     }
@@ -121,42 +121,14 @@ int translate_host_pt_32(addr_t host_cr3, addr_t vaddr, addr_t * paddr) {
 
 
 int translate_host_pt_32pae(addr_t host_cr3, addr_t vaddr, addr_t * paddr) {
-  pde32_t * host_pde = (pde32_t *)CR3_TO_PDE32_VA((void *)host_cr3);
-  pte32_t * host_pte = 0;
-    
-  switch (pde32_lookup(host_pde, vaddr, (addr_t *)&host_pte)) {
-  case PDE32_ENTRY_NOT_PRESENT:
-    *paddr = 0;
-    return -1;
-  case PDE32_ENTRY_LARGE_PAGE:
-    *paddr = (addr_t)host_pte;
-    return 0;
-  case PDE32_ENTRY_PTE32:
-    if (pte32_lookup(host_pte, vaddr, paddr) == -1) {
-      return -1;
-    }
-  }
+
 
   return -1;
 }
 
 
 int translate_host_pt_64(addr_t host_cr3, addr_t vaddr, addr_t * paddr) {
-  pde32_t * host_pde = (pde32_t *)CR3_TO_PDE32_VA((void *)host_cr3);
-  pte32_t * host_pte = 0;
-    
-  switch (pde32_lookup(host_pde, vaddr, (addr_t *)&host_pte)) {
-  case PDE32_ENTRY_NOT_PRESENT:
-    *paddr = 0;
-    return -1;
-  case PDE32_ENTRY_LARGE_PAGE:
-    *paddr = (addr_t)host_pte;
-    return 0;
-  case PDE32_ENTRY_PTE32:
-    if (pte32_lookup(host_pte, vaddr, paddr) == -1) {
-      return -1;
-    }
-  }
+
 
   return -1;
 }
@@ -165,93 +137,188 @@ int translate_host_pt_64(addr_t host_cr3, addr_t vaddr, addr_t * paddr) {
 
 
 
-
-int pt32_lookup(pde32_t * pd, addr_t vaddr, addr_t * paddr) {
-  addr_t pde_entry;
-  pde32_entry_type_t pde_entry_type;
-
-  if (pd == 0) {
-    return -1;
-  }
-
-  pde_entry_type = pde32_lookup(pd, vaddr, &pde_entry);
-
-  if (pde_entry_type == PDE32_ENTRY_PTE32) {
-    return pte32_lookup((pte32_t *)pde_entry, vaddr, paddr);
-  } else if (pde_entry_type == PDE32_ENTRY_LARGE_PAGE) {
-    *paddr = pde_entry;
-    return 0;
-  }
-
-  return -1;
-}
-
-
-
-/* We can't do a full lookup because we don't know what context the page tables are in...
- * The entry addresses could be pointing to either guest physical memory or host physical memory
- * Instead we just return the entry address, and a flag to show if it points to a pte or a large page...
- */
-/* The value of entry is a return type:
+/*
+ * PAGE TABLE LOOKUP FUNCTIONS
+ *
+ *
+ * The value of entry is a return type:
  * Page not present: *entry = 0
  * Large Page: *entry = translated physical address (byte granularity)
  * PTE entry: *entry is the address of the PTE Page
  */
-pde32_entry_type_t pde32_lookup(pde32_t * pd, addr_t addr, addr_t * entry) {
+
+/**
+ * 
+ *  32 bit Page Table lookup functions
+ *
+ **/
+
+pt_entry_type_t pde32_lookup(pde32_t * pd, addr_t addr, addr_t * entry) {
   pde32_t * pde_entry = &(pd[PDE32_INDEX(addr)]);
 
   if (!pde_entry->present) {
     *entry = 0;
-    return PDE32_ENTRY_NOT_PRESENT;
-  } else  {
+    return PT_ENTRY_NOT_PRESENT;
+  } else if (pde_entry->large_page) {
+    pde32_4MB_t * large_pde = (pde32_4MB_t *)pde_entry;
 
-    if (pde_entry->large_page) {
-      pde32_4MB_t * large_pde = (pde32_4MB_t *)pde_entry;
+    *entry = BASE_TO_PAGE_ADDR_4MB(large_pde->page_base_addr);
+    *entry += PAGE_OFFSET_4MB(addr);
 
-      *entry = BASE_TO_PAGE_ADDR_4MB(large_pde->page_base_addr);
-      *entry += PAGE_OFFSET_4MB(addr);
-      return PDE32_ENTRY_LARGE_PAGE;
-    } else {
-      *entry = BASE_TO_PAGE_ADDR(pde_entry->pt_base_addr);
-      return PDE32_ENTRY_PTE32;
-    }
-  }  
-  return PDE32_ENTRY_NOT_PRESENT;
+    return PT_ENTRY_LARGE_PAGE;
+  } else {
+    *entry = BASE_TO_PAGE_ADDR(pde_entry->pt_base_addr);
+    return PT_ENTRY_PAGE;
+  }
 }
 
 
 
 /* Takes a virtual addr (addr) and returns the physical addr (entry) as defined in the page table
  */
-int pte32_lookup(pte32_t * pt, addr_t addr, addr_t * entry) {
+pt_entry_type_t pte32_lookup(pte32_t * pt, addr_t addr, addr_t * entry) {
   pte32_t * pte_entry = &(pt[PTE32_INDEX(addr)]);
 
   if (!pte_entry->present) {
     *entry = 0;
     //    PrintDebug("Lookup at non present page (index=%d)\n", PTE32_INDEX(addr));
-    return -1;
+    return PT_ENTRY_NOT_PRESENT;
   } else {
     *entry = BASE_TO_PAGE_ADDR(pte_entry->page_base_addr) + PAGE_OFFSET(addr);
-    return 0;
+    return PT_ENTRY_PAGE;
   }
 
-  return -1;
 }
 
 
-int pdpe32pae_lookup(pdpe32pae_t * pdp, addr_t addr, addr_t * entry) {
+
+/**
+ * 
+ *  32 bit PAE Page Table lookup functions
+ *
+ **/
+pt_entry_type_t pdpe32pae_lookup(pdpe32pae_t * pdp, addr_t addr, addr_t * entry) {
   pdpe32pae_t * pdpe_entry = &(pdp[PDPE32PAE_INDEX(addr)]);
   
   if (!pdpe_entry->present) {
     *entry = 0;
+    return PT_ENTRY_NOT_PRESENT;
+  } else {
+    *entry = BASE_TO_PAGE_ADDR(pdpe_entry->pd_base_addr);
+    return PT_ENTRY_PAGE;
+  }
+}
+
+pt_entry_type_t pde32pae_lookup(pde32pae_t * pd, addr_t addr, addr_t * entry) {
+  pde32pae_t * pde_entry = &(pd[PDE32PAE_INDEX(addr)]);
+
+  if (!pde_entry->present) {
+    *entry = 0;
+    return PT_ENTRY_NOT_PRESENT;
+  } else if (pde_entry->large_page) {
+    pde32pae_2MB_t * large_pde = (pde32pae_2MB_t *)pde_entry;
+
+    *entry = BASE_TO_PAGE_ADDR_2MB(large_pde->page_base_addr);
+    *entry += PAGE_OFFSET_2MB(addr);
+
+    return PT_ENTRY_LARGE_PAGE;
+  } else {
+    *entry = BASE_TO_PAGE_ADDR(pde_entry->pt_base_addr);
+    return PT_ENTRY_PAGE;
+  }
+}
+
+pt_entry_type_t pte32pae_lookup(pte32pae_t * pt, addr_t addr, addr_t * entry) {
+  pte32pae_t * pte_entry = &(pt[PTE32PAE_INDEX(addr)]);
+
+  if (!pte_entry->present) {
+    *entry = 0;
+    return PT_ENTRY_NOT_PRESENT;
+  } else {
+    *entry = BASE_TO_PAGE_ADDR(pte_entry->page_base_addr) + PAGE_OFFSET(addr);
+    return PT_ENTRY_PAGE;
+  }
+}
+
+
+
+/**
+ * 
+ *  64 bit Page Table lookup functions
+ *
+ **/
+pt_entry_type_t pml4e64_lookup(pml4e64_t * pml, addr_t addr, addr_t * entry) {
+  pml4e64_t * pml_entry = &(pml[PML4E64_INDEX(addr)]);
+
+  if (!pml_entry->present) {
+    *entry = 0;
+    return PT_ENTRY_NOT_PRESENT;
+  } else {
+    *entry = BASE_TO_PAGE_ADDR(pml_entry->pdp_base_addr);
+    return PT_ENTRY_PAGE;
+  }
+}
+
+pt_entry_type_t pdpe64_lookup(pdpe64_t * pdp, addr_t addr, addr_t * entry) {
+  pdpe64_t * pdpe_entry = &(pdp[PDPE64_INDEX(addr)]);
+  
+  if (!pdpe_entry->present) {
+    *entry = 0;
+    return PT_ENTRY_NOT_PRESENT;
+  } else if (pdpe_entry->large_page) {
+    PrintError("1 Gigabyte pages not supported\n");
+    V3_ASSERT(0);
     return -1;
   } else {
-    *entry = BASE_TO_PAGE_ADDR(pdpe_entry->pd_base_addr) + PAGE_OFFSET(addr);
-    return 0;
+    *entry = BASE_TO_PAGE_ADDR(pdpe_entry->pd_base_addr);
+    return PT_ENTRY_PAGE;
   }
-
-  return -1;
 }
+
+pt_entry_type_t pde64_lookup(pde64_t * pd, addr_t addr, addr_t * entry) {
+  pde64_t * pde_entry = &(pd[PDE64_INDEX(addr)]);
+
+  if (!pde_entry->present) {
+    *entry = 0;
+    return PT_ENTRY_NOT_PRESENT;
+  } else if (pde_entry->large_page) {
+    pde64_2MB_t * large_pde = (pde64_2MB_t *)pde_entry;
+
+    *entry = BASE_TO_PAGE_ADDR_2MB(large_pde->page_base_addr);
+    *entry += PAGE_OFFSET_2MB(addr);
+
+    return PT_ENTRY_LARGE_PAGE;
+  } else {
+    *entry = BASE_TO_PAGE_ADDR(pde_entry->pt_base_addr);
+    return PT_ENTRY_PAGE;
+  }
+}
+
+pt_entry_type_t pte64_lookup(pte64_t * pt, addr_t addr, addr_t * entry) {
+  pte64_t * pte_entry = &(pt[PTE64_INDEX(addr)]);
+
+  if (!pte_entry->present) {
+    *entry = 0;
+    return PT_ENTRY_NOT_PRESENT;
+  } else {
+    *entry = BASE_TO_PAGE_ADDR(pte_entry->page_base_addr) + PAGE_OFFSET(addr);
+    return PT_ENTRY_PAGE;
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -259,12 +326,12 @@ pt_access_status_t can_access_pde32(pde32_t * pde, addr_t addr, pf_error_t acces
   pde32_t * entry = &pde[PDE32_INDEX(addr)];
 
   if (entry->present == 0) {
-    return PT_ENTRY_NOT_PRESENT;
+    return PT_ACCESS_NOT_PRESENT;
   } else if ((entry->writable == 0) && (access_type.write == 1)) {
-    return PT_WRITE_ERROR;
+    return PT_ACCESS_WRITE_ERROR;
   } else if ((entry->user_page == 0) && (access_type.user == 1)) {
     // Check CR0.WP?
-    return PT_USER_ERROR;
+    return PT_ACCESS_USER_ERROR;
   }
 
   return PT_ACCESS_OK;
@@ -275,12 +342,12 @@ pt_access_status_t can_access_pte32(pte32_t * pte, addr_t addr, pf_error_t acces
   pte32_t * entry = &pte[PTE32_INDEX(addr)];
 
   if (entry->present == 0) {
-    return PT_ENTRY_NOT_PRESENT;
+    return PT_ACCESS_NOT_PRESENT;
   } else if ((entry->writable == 0) && (access_type.write == 1)) {
-    return PT_WRITE_ERROR;
+    return PT_ACCESS_WRITE_ERROR;
   } else if ((entry->user_page == 0) && (access_type.user == 1)) {
     // Check CR0.WP?
-    return PT_USER_ERROR;
+    return PT_ACCESS_USER_ERROR;
   }
 
   return PT_ACCESS_OK;
@@ -612,7 +679,7 @@ pml4e64_t * create_passthrough_pts_64(struct guest_info * info) {
 	  pde[k].write_through = 0;
 	  pde[k].cache_disable = 0;
 	  pde[k].accessed = 0;
-	  pde[k].reserved = 0;
+	  pde[k].avail = 0;
 	  pde[k].large_page = 0;
 	  //pde[k].global_page = 0;
 	  pde[k].vmm_info = 0;
@@ -624,7 +691,7 @@ pml4e64_t * create_passthrough_pts_64(struct guest_info * info) {
 	  pde[k].write_through = 0;
 	  pde[k].cache_disable = 0;
 	  pde[k].accessed = 0;
-	  pde[k].reserved = 0;
+	  pde[k].avail = 0;
 	  pde[k].large_page = 0;
 	  //pde[k].global_page = 0;
 	  pde[k].vmm_info = 0;
@@ -643,7 +710,7 @@ pml4e64_t * create_passthrough_pts_64(struct guest_info * info) {
 	pdpe[j].write_through = 0;
 	pdpe[j].cache_disable = 0;
 	pdpe[j].accessed = 0;
-	pdpe[j].reserved = 0;
+	pdpe[j].avail = 0;
 	pdpe[j].large_page = 0;
 	//pdpe[j].global_page = 0;
 	pdpe[j].vmm_info = 0;
@@ -655,7 +722,7 @@ pml4e64_t * create_passthrough_pts_64(struct guest_info * info) {
 	pdpe[j].write_through = 0;
 	pdpe[j].cache_disable = 0;
 	pdpe[j].accessed = 0;
-	pdpe[j].reserved = 0;
+	pdpe[j].avail = 0;
 	pdpe[j].large_page = 0;
 	//pdpe[j].global_page = 0;
 	pdpe[j].vmm_info = 0;

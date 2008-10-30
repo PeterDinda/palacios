@@ -213,7 +213,7 @@ void PrintPML4e64(addr_t virtual_address, pml4e64_t * pml)
 
 void PrintPDPE64(addr_t virtual_address, pdpe64_t * pdpe)
 {
-  PrintDebug("PDPE64 %p -> %p : present=%x, writable=%x, user=%x, wt=%x, cd=%x, accessed=%x, reserved=%x, largePages=%x, globalPage=%x, kernelInfo=%x\n",
+  PrintDebug("PDPE64 %p -> %p : present=%x, writable=%x, user=%x, wt=%x, cd=%x, accessed=%x, reserved=%x, largePages=%x, globalPage/zero=%x, kernelInfo=%x\n",
 	     (void *)virtual_address,
 	     (void *)(addr_t) (BASE_TO_PAGE_ADDR(pdpe->pd_base_addr)),
 	     pdpe->present,
@@ -222,9 +222,9 @@ void PrintPDPE64(addr_t virtual_address, pdpe64_t * pdpe)
 	     pdpe->write_through,
 	     pdpe->cache_disable,
 	     pdpe->accessed,
-	     pdpe->reserved,
+	     pdpe->avail,
 	     pdpe->large_page,
-	     0,//pdpe->global_page,
+	     pdpe->zero,
 	     pdpe->vmm_info);
 }
 
@@ -241,9 +241,9 @@ void PrintPDE64(addr_t virtual_address, pde64_t * pde)
 	     pde->write_through,
 	     pde->cache_disable,
 	     pde->accessed,
-	     pde->reserved,
+	     pde->avail,
 	     pde->large_page,
-	     0,//pde->global_page,
+	     pde->global_page,
 	     pde->vmm_info);
 }
 

@@ -206,10 +206,23 @@ the host state in the vmcs before entering the guest.
 
 
 
+/* We'll use the general form for now.... 
+   typedef enum {PDE32_ENTRY_NOT_PRESENT, PDE32_ENTRY_PTE32, PDE32_ENTRY_LARGE_PAGE} pde32_entry_type_t;
+   typedef enum {PTE32_ENTRY_NOT_PRESENT, PTE32_ENTRY_PAGE} pte32_entry_type_t;
+   
+   typedef enum {PDPE32PAE_ENTRY_NOT_PRESENT, PDPE32PAE_ENTRY_PAGE} pdpe32pae_entry_type_t;
+   typedef enum {PDE32PAE_ENTRY_NOT_PRESENT, PDE32PAE_ENTRY_PTE32, PDE32PAE_ENTRY_LARGE_PAGE} pde32pae_entry_type_t;
+   typedef enum {PTE32PAE_ENTRY_NOT_PRESENT, PTE32PAE_ENTRY_PAGE} pte32pae_entry_type_t;
+   
+   typedef enum {PML4E64_ENTRY_NOT_PRESENT, PML4E64_ENTRY_PAGE} pml4e64_entry_type_t;
+   typedef enum {PDPE64_ENTRY_NOT_PRESENT, PDPE64_ENTRY_PTE32, PDPE64_ENTRY_LARGE_PAGE} pdpe64_entry_type_t;
+   typedef enum {PDE64_ENTRY_NOT_PRESENT, PDE64_ENTRY_PTE32, PDE64_ENTRY_LARGE_PAGE} pde64_entry_type_t;
+   typedef enum {PTE64_ENTRY_NOT_PRESENT, PTE64_ENTRY_PAGE} pte64_entry_type_t;
+*/
 
-/* PDE 32 bit PAGE STRUCTURES */
-typedef enum {PDE32_ENTRY_NOT_PRESENT, PDE32_ENTRY_PTE32, PDE32_ENTRY_LARGE_PAGE} pde32_entry_type_t;
-typedef enum {PT_ACCESS_OK, PT_ENTRY_NOT_PRESENT, PT_WRITE_ERROR, PT_USER_ERROR} pt_access_status_t;
+
+typedef enum {PT_ENTRY_NOT_PRESENT, PT_ENTRY_LARGE_PAGE, PT_ENTRY_PAGE} pt_entry_type_t;
+typedef enum {PT_ACCESS_OK, PT_ACCESS_NOT_PRESENT, PT_ACCESS_WRITE_ERROR, PT_ACCESS_USER_ERROR} pt_access_status_t;
 
 typedef struct pde32 {
   uint_t present         : 1;
@@ -233,7 +246,7 @@ typedef struct pde32_4MB {
   uint_t cache_disable   : 1;
   uint_t accessed        : 1;
   uint_t dirty           : 1;
-  uint_t one             : 1;
+  uint_t large_page      : 1;
   uint_t global_page     : 1;
   uint_t vmm_info        : 3;
   uint_t pat             : 1;
@@ -288,7 +301,7 @@ typedef struct pde32pae {
   uint_t rsvd            : 28;
 } __attribute__((packed)) pde32pae_t;
 
-typedef struct pde32pae_4MB {
+typedef struct pde32pae_2MB {
   uint_t present         : 1;
   uint_t writable        : 1;
   uint_t user_page       : 1;
@@ -300,11 +313,11 @@ typedef struct pde32pae_4MB {
   uint_t global_page     : 1;
   uint_t vmm_info        : 3;
   uint_t pat             : 1;
-  uint_t rsvd            : 9;
-  uint_t page_base_addr  : 14;
+  uint_t rsvd            : 8;
+  uint_t page_base_addr  : 15;
   uint_t rsvd2           : 28;
 
-} __attribute__((packed)) pde32pae_4MB_t;
+} __attribute__((packed)) pde32pae_2MB_t;
 
 typedef struct pte32pae {
   uint_t present         : 1;
@@ -348,12 +361,12 @@ typedef struct pml4e64 {
 typedef struct pdpe64 {
   uint_t present        : 1;
   uint_t writable       : 1;
-  uint_t user_page           : 1;
+  uint_t user_page      : 1;
   uint_t write_through  : 1;
   uint_t cache_disable  : 1;
   uint_t accessed       : 1;
-  uint_t reserved       : 1;
-  uint_t large_page    : 1;
+  uint_t avail          : 1;
+  uint_t large_page     : 1;
   uint_t zero           : 1;
   uint_t vmm_info       : 3;
   ullong_t pd_base_addr : 40;
@@ -361,6 +374,25 @@ typedef struct pdpe64 {
   uint_t no_execute     : 1;
 } __attribute__((packed)) pdpe64_t;
 
+
+// We Don't support this
+typedef struct pdpe64_1GB {
+  uint_t present        : 1;
+  uint_t writable       : 1;
+  uint_t user_page      : 1;
+  uint_t write_through  : 1;
+  uint_t cache_disable  : 1;
+  uint_t accessed       : 1;
+  uint_t dirty          : 1;
+  uint_t large_page     : 1;
+  uint_t global_page    : 1;
+  uint_t vmm_info       : 3;
+  uint_t pat            : 1;
+  uint_t rsvd           : 17;
+  ullong_t page_base_addr : 22;
+  uint_t available      : 11;
+  uint_t no_execute     : 1;
+} __attribute__((packed)) pdpe64_1GB_t;
 
 
 
@@ -371,14 +403,33 @@ typedef struct pde64 {
   uint_t write_through   : 1;
   uint_t cache_disable   : 1;
   uint_t accessed        : 1;
-  uint_t reserved        : 1;
-  uint_t large_page     : 1;
-  uint_t reserved2       : 1;
+  uint_t avail           : 1;
+  uint_t large_page      : 1;
+  uint_t global_page     : 1;
   uint_t vmm_info        : 3;
   ullong_t pt_base_addr  : 40;
   uint_t available       : 11;
   uint_t no_execute      : 1;
 } __attribute__((packed)) pde64_t;
+
+typedef struct pde64_2MB {
+  uint_t present         : 1;
+  uint_t writable        : 1;
+  uint_t user_page       : 1;
+  uint_t write_through   : 1;
+  uint_t cache_disable   : 1;
+  uint_t accessed        : 1;
+  uint_t dirty           : 1;
+  uint_t large_page      : 1;
+  uint_t global_page     : 1;
+  uint_t vmm_info        : 3;
+  uint_t pat             : 1;
+  uint_t rsvd            : 8;
+  ullong_t page_base_addr  : 31;
+  uint_t available       : 11;
+  uint_t no_execute      : 1;
+} __attribute__((packed)) pde64_2MB_t;
+
 
 typedef struct pte64 {
   uint_t present         : 1;
@@ -414,12 +465,20 @@ void delete_page_tables_32(pde32_t * pde);
 void delete_page_tables_32PAE(pdpe32pae_t * pdpe);
 void delete_page_tables_64(pml4e64_t *  pml4);
 
-pde32_entry_type_t pde32_lookup(pde32_t * pd, addr_t addr, addr_t * entry);
-int pte32_lookup(pte32_t * pte, addr_t addr, addr_t * entry);
+pt_entry_type_t pde32_lookup(pde32_t * pd, addr_t addr, addr_t * entry);
+pt_entry_type_t pte32_lookup(pte32_t * pt, addr_t addr, addr_t * entry);
 
-// This assumes that the page table resides in the host address space
-// IE. IT DOES NO VM ADDR TRANSLATION
-int pt32_lookup(pde32_t * pd, addr_t vaddr, addr_t * paddr);
+pt_entry_type_t pdpe32pae_lookup(pdpe32pae_t * pdp, addr_t addr, addr_t * entry);
+pt_entry_type_t pde32pae_lookup(pde32pae_t * pd, addr_t addr, addr_t * entry);
+pt_entry_type_t pte32pae_lookup(pte32pae_t * pt, addr_t addr, addr_t * entry);
+
+pt_entry_type_t pml4e64_lookup(pml4e64_t * pml, addr_t addr, addr_t * entry);
+pt_entry_type_t pdpe64_lookup(pdpe64_t * pdp, addr_t addr, addr_t * entry);
+pt_entry_type_t pde64_lookup(pde64_t * pd, addr_t addr, addr_t * entry);
+pt_entry_type_t pte64_lookup(pte64_t * pt, addr_t addr, addr_t * entry);
+
+
+
 
 
 

@@ -370,14 +370,14 @@ static int is_guest_pf(pt_access_status_t guest_access, pt_access_status_t shado
   if (guest_access != PT_ACCESS_OK) {
     // Guest Access Error
     
-    if ((shadow_access != PT_ENTRY_NOT_PRESENT) &&
-	(guest_access != PT_ENTRY_NOT_PRESENT)) {
+    if ((shadow_access != PT_ACCESS_NOT_PRESENT) &&
+	(guest_access != PT_ACCESS_NOT_PRESENT)) {
       // aka (guest permission error)
       return 1;
     }
 
-    if ((shadow_access == PT_ENTRY_NOT_PRESENT) &&
-	(guest_access == PT_ENTRY_NOT_PRESENT)) {      
+    if ((shadow_access == PT_ACCESS_NOT_PRESENT) &&
+	(guest_access == PT_ACCESS_NOT_PRESENT)) {      
       // Page tables completely blank, handle guest first
       return 1;
     }
@@ -476,7 +476,7 @@ static int handle_shadow_pagefault_32(struct guest_info * info, addr_t fault_add
   }
 
   
-  if (shadow_pde_access == PT_ENTRY_NOT_PRESENT) 
+  if (shadow_pde_access == PT_ACCESS_NOT_PRESENT) 
     {
       pte32_t * shadow_pt =  (pte32_t *)v3_create_new_shadow_pt();
 
@@ -531,7 +531,7 @@ static int handle_shadow_pagefault_32(struct guest_info * info, addr_t fault_add
 	}
       }
     }
-  else if ((shadow_pde_access == PT_WRITE_ERROR) && 
+  else if ((shadow_pde_access == PT_ACCESS_WRITE_ERROR) && 
 	   (guest_pde->large_page == 1) && 
 	   (((pde32_4MB_t *)guest_pde)->dirty == 0)) 
     {
@@ -546,7 +546,7 @@ static int handle_shadow_pagefault_32(struct guest_info * info, addr_t fault_add
       return 0;
       
     } 
-  else if (shadow_pde_access == PT_USER_ERROR) 
+  else if (shadow_pde_access == PT_ACCESS_USER_ERROR) 
     {
       //
       // Page Directory Entry marked non-user
@@ -596,7 +596,7 @@ static int handle_large_pagefault_32(struct guest_info * info,
   }
 
   
-  if (shadow_pte_access == PT_ENTRY_NOT_PRESENT) {
+  if (shadow_pte_access == PT_ACCESS_NOT_PRESENT) {
     // Get the guest physical address of the fault
     addr_t guest_fault_pa = BASE_TO_PAGE_ADDR_4MB(large_guest_pde->page_base_addr) + PAGE_OFFSET_4MB(fault_addr);
     host_region_type_t host_page_type = get_shadow_addr_type(info, guest_fault_pa);
@@ -647,7 +647,7 @@ static int handle_large_pagefault_32(struct guest_info * info,
 	return -1;
       }
     }
-  } else if ((shadow_pte_access == PT_WRITE_ERROR) && 
+  } else if ((shadow_pte_access == PT_ACCESS_WRITE_ERROR) && 
 	     (shadow_pte->vmm_info == PT32_GUEST_PT)) {
 
     struct shadow_page_state * state = &(info->shdw_pg_state);
@@ -713,7 +713,7 @@ static int handle_shadow_pte32_fault(struct guest_info * info,
   }
 
 
-  if (shadow_pte_access == PT_ENTRY_NOT_PRESENT) {
+  if (shadow_pte_access == PT_ACCESS_NOT_PRESENT) {
 
     addr_t guest_pa = BASE_TO_PAGE_ADDR((addr_t)(guest_pte->page_base_addr)) +  PAGE_OFFSET(fault_addr);
 
@@ -781,7 +781,7 @@ static int handle_shadow_pte32_fault(struct guest_info * info,
       }
     }
 
-  } else if ((shadow_pte_access == PT_WRITE_ERROR) &&
+  } else if ((shadow_pte_access == PT_ACCESS_WRITE_ERROR) &&
 	     (guest_pte->dirty == 0)) {
 
     PrintDebug("Shadow PTE Write Error\n");
