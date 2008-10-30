@@ -428,7 +428,15 @@ static int handle_timer_event(struct guest_info * info,
 }
 
 static int set_nvram_defaults(struct vm_device * dev) {
+  struct guest_info * info = dev->vm;
   struct nvram_internal * nvram_state = (struct nvram_internal *)dev->private_data;
+  
+  /* TODO:
+   * The amount of ram in the system is stored in info->mem_size
+   * We need to reflect that value correctly here
+   */
+  PrintError("TODO: Set the nvram memory register to reflect info->mem_size (%p)\n", (void *)(info->mem_size));
+  
 
   //
   // 2 1.44 MB floppy drives
@@ -593,7 +601,7 @@ static int nvram_write_data_port(ushort_t port,
 
 
 static int nvram_init_device(struct vm_device * dev) {
- 
+
   struct nvram_internal * data = (struct nvram_internal *)dev->private_data;
 
   PrintDebug("nvram: init_device\n");
@@ -602,6 +610,8 @@ static int nvram_init_device(struct vm_device * dev) {
 
   // Would read state here
   set_nvram_defaults(dev);
+  
+
 
   nvram_reset_device(dev);
 

@@ -251,6 +251,10 @@ struct v3_vm_config {
   void * vgabios;
   int vgabios_size;
 
+  unsigned long mem_size; // in bytes, var should be natural size of cpu
+                          // so we can specify maximum physical address size
+                          // (We're screwed if we want to do 32 bit host/64 bit guest)
+
   int use_ramdisk;
   void * ramdisk;
   int ramdisk_size;

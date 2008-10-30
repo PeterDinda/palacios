@@ -111,9 +111,11 @@ struct guest_info {
 
   uint_t cpl;
 
+  addr_t mem_size; // Probably in bytes for now....
   struct shadow_map mem_map;
 
   struct vm_time time_state;
+
   
   v3_paging_mode_t shdw_pg_mode;
   struct shadow_page_state shdw_pg_state;
@@ -158,6 +160,10 @@ struct guest_info {
 
 v3_vm_cpu_mode_t v3_get_cpu_mode(struct guest_info * info);
 v3_vm_mem_mode_t v3_get_mem_mode(struct guest_info * info);
+
+
+const uchar_t * v3_cpu_mode_to_str(v3_vm_cpu_mode_t mode);
+const uchar_t * v3_mem_mode_to_str(v3_vm_mem_mode_t mode);
 
 
 void v3_print_segments(struct guest_info * info);

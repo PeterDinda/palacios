@@ -44,6 +44,11 @@
 
 
 
+static int setup_memory_map(struct guest_info * info, struct v3_vm_config * config_ptr);
+static int setup_devices(struct guest_info * info, struct v3_vm_config * config_ptr);
+static struct vm_device *  configure_generic(struct guest_info * info, struct v3_vm_config * config_ptr);
+
+
 
 static int mem_test_read(addr_t guest_addr, void * dst, uint_t length, void * priv_data) {
   int foo = 20;
@@ -70,12 +75,15 @@ static int passthrough_mem_write(addr_t guest_addr, void * src, uint_t length, v
 int v3_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) {
   extern v3_cpu_arch_t v3_cpu_type;
 
-
-  int use_ramdisk = config_ptr->use_ramdisk;
-  int use_generic = USE_GENERIC;
-
-
+  // Initialize the subsystem data strutures
   v3_init_time(info);
+  v3_init_vmm_io_map(info);
+  v3_init_msr_map(info);
+  v3_init_interrupt_state(info);
+  v3_init_dev_mgr(info);
+  v3_init_emulator(info);
+  v3_init_host_events(info);
+
   init_shadow_map(info);
   
   if (v3_cpu_type == V3_SVM_REV3_CPU) {
@@ -85,21 +93,36 @@ int v3_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) 
     info->shdw_pg_mode = SHADOW_PAGING;
   }
   
+  // Initial CPU operating mode
   info->cpu_mode = REAL;
   info->mem_mode = PHYSICAL_MEM;
-  
- 
-  v3_init_vmm_io_map(info);
-  v3_init_msr_map(info);
-  v3_init_interrupt_state(info);
-  
-  v3_init_dev_mgr(info);
 
-  v3_init_emulator(info);
-  
-  v3_init_host_events(info);
+  // Amount of ram the Guest will have
+  info->mem_size = config_ptr->mem_size;
 
+  // Configure the memory map for the guest
+  setup_memory_map(info, config_ptr);
+
+  // Configure the devices for the guest
+  setup_devices(info, config_ptr);
  
+
+  //v3_hook_io_port(info, 1234, &IO_Read, NULL, info);
+
+  // Setup initial cpu register state
+  info->rip = 0xfff0;
+  info->vm_regs.rsp = 0x0;
+  
+
+  return 0;
+}
+
+
+/* TODO:
+ * The amount of guest memory is stored in info->mem_size
+ * We need to make sure the memory map extends to cover it
+ */
+static int setup_memory_map(struct guest_info * info, struct v3_vm_config * config_ptr) {
 
   /* layout rombios */
   {
@@ -173,8 +196,13 @@ int v3_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) 
   
   
   print_shadow_map(&(info->mem_map));
-  
-  {
+
+  return 0;
+}
+
+
+
+static int setup_devices(struct guest_info * info, struct v3_vm_config * config_ptr) {
     struct vm_device * ramdisk = NULL;
     struct vm_device * cdrom = NULL;
     struct vm_device * nvram = v3_create_nvram();
@@ -187,7 +215,8 @@ int v3_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) 
     //struct vm_device * serial = v3_create_serial();
     struct vm_device * generic = NULL;
 
-
+    int use_ramdisk = config_ptr->use_ramdisk;
+    int use_generic = USE_GENERIC;
 
 
     if (use_ramdisk) {
@@ -198,8 +227,60 @@ int v3_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) 
     
     
     if (use_generic) {
+      generic = configure_generic(info, config_ptr);
+    }
+
+
+    v3_attach_device(info, nvram);
+    //v3_attach_device(info, timer);
+    v3_attach_device(info, pic);
+    v3_attach_device(info, pit);
+    v3_attach_device(info, keyboard);
+    // v3_attach_device(info, serial);
+    v3_attach_device(info, bochs_debug);
+
+    if (use_ramdisk) {
+      v3_attach_device(info, ramdisk);
+      v3_attach_device(info, cdrom);
+    }
+
+    if (use_generic) {
+      // Important that this be attached last!
+      v3_attach_device(info, generic);
+    }
+    
+    PrintDebugDevMgr(info);
+
+
+    // give keyboard interrupts to vm
+    // no longer needed since we have a keyboard device
+    //hook_irq(&vm_info, 1);
+    
+#if 0
+    // give floppy controller to vm
+    v3_hook_passthrough_irq(info, 6);
+#endif
+    
+    
+    if (!use_ramdisk) {
+      PrintDebug("Hooking IDE IRQs\n");
+      
+      //primary ide
+      v3_hook_passthrough_irq(info, 14);
+      
+      // secondary ide
+      v3_hook_passthrough_irq(info, 15);    
+    }  
+    
+
+  return 0;
+}
+
+
+
+static struct vm_device *  configure_generic(struct guest_info * info, struct v3_vm_config * config_ptr) {
       PrintDebug("Creating Generic Device\n");
-      generic = v3_create_generic();
+      struct vm_device * generic = v3_create_generic();
       
       // Make the DMA controller invisible
       v3_generic_add_port_range(generic, 0x00, 0x07, GENERIC_PRINT_AND_IGNORE);   // DMA 1 channels 0,1,2,3 (address, counter)
@@ -303,60 +384,9 @@ int v3_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) 
       
       v3_generic_add_port_range(generic, 0xc000, 0xc00f, GENERIC_PRINT_AND_IGNORE);
 #endif
-      
-    }
       //  v3_generic_add_port_range(generic, 0x378, 0x400, GENERIC_PRINT_AND_IGNORE);
       
 
+      return generic;
 
-    
-
-    v3_attach_device(info, nvram);
-    //v3_attach_device(info, timer);
-    v3_attach_device(info, pic);
-    v3_attach_device(info, pit);
-    v3_attach_device(info, keyboard);
-    // v3_attach_device(info, serial);
-    v3_attach_device(info, bochs_debug);
-
-    if (use_ramdisk) {
-      v3_attach_device(info, ramdisk);
-      v3_attach_device(info, cdrom);
-    }
-
-    if (use_generic) {
-      // Important that this be attached last!
-      v3_attach_device(info, generic);
-    }
-    
-    PrintDebugDevMgr(info);
-  }
-  
-  // give keyboard interrupts to vm
-  // no longer needed since we have a keyboard device
-  //hook_irq(&vm_info, 1);
-  
-#if 0
-  // give floppy controller to vm
-  v3_hook_passthrough_irq(info, 6);
-#endif
-  
-
-  if (!use_ramdisk) {
-    PrintDebug("Hooking IDE IRQs\n");
-
-    //primary ide
-    v3_hook_passthrough_irq(info, 14);
-  
-    // secondary ide
-    v3_hook_passthrough_irq(info, 15);    
-  }  
-
-  //v3_hook_io_port(info, 1234, &IO_Read, NULL, info);
-
-  info->rip = 0xfff0;
-  info->vm_regs.rsp = 0x0;
-  
-
-  return 0;
 }

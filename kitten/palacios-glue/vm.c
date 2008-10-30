@@ -38,6 +38,7 @@ v3vee_run_vmm( void )
 		.rombios_size		= (&rombios_end)-(&rombios_start),
 		.vgabios		= &vgabios_start,
 		.vgabios_size		= (&vgabios_end)-(&vgabios_start),
+		.mem_size               = (16 * 1024 * 1024), 
 		.use_ramdisk		= 1,
 		.ramdisk		= (void*) initrd_start,
 		.ramdisk_size		= initrd_end - initrd_start,
