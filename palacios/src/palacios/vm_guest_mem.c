@@ -160,9 +160,9 @@ int guest_va_to_guest_pa(struct guest_info * guest_info, addr_t guest_va, addr_t
       addr_t guest_pde = 0;
       
       if (guest_info->shdw_pg_mode == SHADOW_PAGING) {
-	guest_pde = CR3_TO_PDE32_PA((void *)(addr_t)(guest_info->shdw_pg_state.guest_cr3));
+	guest_pde = CR3_TO_PDE32_PA((guest_info->shdw_pg_state.guest_cr3));
       } else if (guest_info->shdw_pg_mode == NESTED_PAGING) {
-	guest_pde = CR3_TO_PDE32_PA((void *)(addr_t)(guest_info->ctrl_regs.cr3));
+	guest_pde = CR3_TO_PDE32_PA((guest_info->ctrl_regs.cr3));
       }
       
       if (guest_pa_to_host_va(guest_info, guest_pde, (addr_t *)&pde) == -1) {
