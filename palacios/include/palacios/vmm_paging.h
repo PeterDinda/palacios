@@ -123,42 +123,67 @@ the host state in the vmcs before entering the guest.
 
 /* Gets the base address needed for a Page Table entry */
 /* Deprecate these :*/
-#define PD32_BASE_ADDR(x) (((uint_t)x) >> 12)
-#define PT32_BASE_ADDR(x) (((uint_t)x) >> 12)
-#define PD32_4MB_BASE_ADDR(x) (((uint_t)x) >> 22)
-
-#define PML4E64_BASE_ADDR(x) (((ullong_t)x) >> 12)
-#define PDPE64_BASE_ADDR(x) (((ullong_t)x) >> 12)
-#define PDE64_BASE_ADDR(x) (((ullong_t)x) >> 12)
-#define PTE64_BASE_ADDR(x) (((ullong_t)x) >> 12)
-/* Accessor functions for the page table structures */
-#define PDE32_T_ADDR(x) (((x).pt_base_addr) << 12)
-#define PTE32_T_ADDR(x) (((x).page_base_addr) << 12)
-#define PDE32_4MB_T_ADDR(x) (((x).page_base_addr) << 22)
-
+/*
+  #define PD32_BASE_ADDR(x) (((uint_t)x) >> 12)
+  #define PT32_BASE_ADDR(x) (((uint_t)x) >> 12)
+  #define PD32_4MB_BASE_ADDR(x) (((uint_t)x) >> 22)
+  
+  #define PML4E64_BASE_ADDR(x) (((ullong_t)x) >> 12)
+  #define PDPE64_BASE_ADDR(x) (((ullong_t)x) >> 12)
+  #define PDE64_BASE_ADDR(x) (((ullong_t)x) >> 12)
+  #define PTE64_BASE_ADDR(x) (((ullong_t)x) >> 12)
+  
+  // Accessor functions for the page table structures 
+  #define PDE32_T_ADDR(x) (((x).pt_base_addr) << 12)
+  #define PTE32_T_ADDR(x) (((x).page_base_addr) << 12)
+  #define PDE32_4MB_T_ADDR(x) (((x).page_base_addr) << 22)
+*/
 /* Replace The above with these... */
-#define PAGE_BASE_ADDR(x) (((uint_t)x) >> 12)
-#define LARGE_PAGE_BASE_ADDR(x) (((uint_t)x) >> 22)
-#define BASE_TO_PAGE_ADDR(x) (((uint_t)x) << 12)
-#define LARGE_BASE_TO_PAGE_ADDR(x) (((uint_t)x) << 22)
+#define PAGE_BASE_ADDR(x) ((x) >> 12)
+#define PAGE_BASE_ADDR_2MB(x) ((x) >> 21)
+#define PAGE_BASE_ADDR_4MB(x) ((x) >> 22)
 
+#define BASE_TO_PAGE_ADDR(x) (((addr_t)x) << 12)
+#define BASE_TO_PAGE_ADDR_2MB(x) (((addr_t)x) << 21)
+#define BASE_TO_PAGE_ADDR_4MB(x) (((addr_t)x) << 22)
+/* *** */
 
+/* Deprecated */
+/*
+  #define PT32_PAGE_OFFSET(x) (((uint_t)x) & 0xfff)
+  #define PD32_4MB_PAGE_OFFSET(x) (((uint_t)x) & 0x003fffff)
+  
+  #define PT32_PAGE_ADDR(x)   (((uint_t)x) & 0xfffff000)
+  #define PD32_4MB_PAGE_ADDR(x) (((uint_t)x) & 0xffc00000)
+  
+  #define PT32_PAGE_POWER 12
+  #define PAGE_ALIGNED_ADDR(x)   (((uint_t) (x)) >> 12)
+  //#define PAGE_ADDR(x)   (PAGE_ALIGNED_ADDR(x) << 12)
+  #define PAGE_POWER 12
+  #define PAGE_SIZE 4096
+*/
+/* use these instead */
+#define PAGE_OFFSET(x) ((x) & 0xfff)
+#define PAGE_OFFSET_2MB(x) ((x) & 0x1fffff)
+#define PAGE_OFFSET_4MB(x) ((x) & 0x3fffff)
 
-#define PT32_PAGE_ADDR(x)   (((uint_t)x) & 0xfffff000)
-#define PT32_PAGE_OFFSET(x) (((uint_t)x) & 0xfff)
-#define PT32_PAGE_POWER 12
+#define PAGE_POWER 12
+#define PAGE_POWER_2MB 22
+#define PAGE_POWER_4MB 21
 
-#define PD32_4MB_PAGE_ADDR(x) (((uint_t)x) & 0xffc00000)
-#define PD32_4MB_PAGE_OFFSET(x) (((uint_t)x) & 0x003fffff)
+// We shift instead of mask because we don't know the address size
+#define PAGE_ADDR(x) (((x) >> PAGE_POWER) << PAGE_POWER)
+#define PAGE_ADDR_2MB(x) (((x) >> PAGE_POWER_2MB) << PAGE_POWER_2MB)
+#define PAGE_ADDR_4MB(x) (((x) >> PAGE_POWER_4MB) << PAGE_POWER_4MB)
+
+#define PAGE_SIZE 4096
+#define PAGE_SIZE_2MB (4096 * 512)
 #define PAGE_SIZE_4MB (4096 * 1024)
 
-/* The following should be phased out */
-#define PAGE_OFFSET(x)  ((((uint_t)x) & 0xfff))
-#define PAGE_ALIGNED_ADDR(x)   (((uint_t) (x)) >> 12)
-#define PAGE_ADDR(x)   (PAGE_ALIGNED_ADDR(x) << 12)
-#define PAGE_POWER 12
-#define PAGE_SIZE 4096
-/* ** */
+
+/* *** */
+
+
 
 
 

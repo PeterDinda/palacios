@@ -143,7 +143,7 @@ int v3_emulate_memory_read(struct guest_info * info, addr_t read_gva,
   uchar_t instr[15];
   int ret;
   struct emulated_page * data_page = V3_Malloc(sizeof(struct emulated_page));
-  addr_t data_addr_offset = PT32_PAGE_OFFSET(read_gva);
+  addr_t data_addr_offset = PAGE_OFFSET(read_gva);
   pte32_t saved_pte;
 
   PrintDebug("Emulating Read\n");
@@ -180,11 +180,11 @@ int v3_emulate_memory_read(struct guest_info * info, addr_t read_gva,
   */
 
   data_page->page_addr = get_new_page();
-  data_page->va = PT32_PAGE_ADDR(read_gva);
+  data_page->va = PAGE_ADDR(read_gva);
   data_page->pte.present = 1;
   data_page->pte.writable = 0;
   data_page->pte.user_page = 1;
-  data_page->pte.page_base_addr = PT32_BASE_ADDR((addr_t)V3_PAddr((void *)(addr_t)(data_page->page_addr)));
+  data_page->pte.page_base_addr = PAGE_BASE_ADDR((addr_t)V3_PAddr((void *)(addr_t)(data_page->page_addr)));
 
 
   // Read the data directly onto the emulated page
@@ -205,7 +205,7 @@ int v3_emulate_memory_read(struct guest_info * info, addr_t read_gva,
   if (saved_pte.present == 1) {
     struct saved_page * saved_data_page = V3_Malloc(sizeof(struct saved_page));
     saved_data_page->pte = saved_pte;
-    saved_data_page->va = PT32_PAGE_ADDR(read_gva);
+    saved_data_page->va = PAGE_ADDR(read_gva);
 
     list_add(&(saved_data_page->page_list), &(info->emulator.saved_pages));
     info->emulator.num_saved_pages++;
@@ -233,7 +233,7 @@ int v3_emulate_memory_write(struct guest_info * info, addr_t write_gva,
   int ret;
   struct write_region * write_op = V3_Malloc(sizeof(struct write_region ));
   struct emulated_page * data_page = V3_Malloc(sizeof(struct emulated_page));
-  addr_t data_addr_offset = PT32_PAGE_OFFSET(write_gva);
+  addr_t data_addr_offset = PAGE_OFFSET(write_gva);
   pte32_t saved_pte;
   int i;
 
@@ -271,11 +271,11 @@ int v3_emulate_memory_write(struct guest_info * info, addr_t write_gva,
   */
 
   data_page->page_addr = get_new_page();
-  data_page->va = PT32_PAGE_ADDR(write_gva);
+  data_page->va = PAGE_ADDR(write_gva);
   data_page->pte.present = 1;
   data_page->pte.writable = 1;
   data_page->pte.user_page = 1;
-  data_page->pte.page_base_addr = PT32_BASE_ADDR((addr_t)V3_PAddr((void *)(addr_t)(data_page->page_addr)));
+  data_page->pte.page_base_addr = PAGE_BASE_ADDR((addr_t)V3_PAddr((void *)(addr_t)(data_page->page_addr)));
 
 
 
@@ -298,7 +298,7 @@ int v3_emulate_memory_write(struct guest_info * info, addr_t write_gva,
   if (saved_pte.present == 1) {
     struct saved_page * saved_data_page = V3_Malloc(sizeof(struct saved_page));
     saved_data_page->pte = saved_pte;
-    saved_data_page->va = PT32_PAGE_ADDR(write_gva);
+    saved_data_page->va = PAGE_ADDR(write_gva);
 
     list_add(&(saved_data_page->page_list), &(info->emulator.saved_pages));
     info->emulator.num_saved_pages++;

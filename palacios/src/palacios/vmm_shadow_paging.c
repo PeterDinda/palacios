@@ -190,12 +190,12 @@ int v3_cache_page_tables32(struct guest_info * info, addr_t pde) {
     if ((tmp_pde[i].present) && (tmp_pde[i].large_page == 0)) {
       addr_t pte_host_addr;
 
-      if (guest_pa_to_host_va(info, (addr_t)(PDE32_T_ADDR(tmp_pde[i])), &pte_host_addr) == -1) {
+      if (guest_pa_to_host_va(info, (addr_t)(BASE_TO_PAGE_ADDR(tmp_pde[i].pt_base_addr)), &pte_host_addr) == -1) {
 	PrintError("Could not lookup host address of guest PDE\n");
 	return -1;
       }
 
-      add_pte_map(pte_cache, (addr_t)(PDE32_T_ADDR(tmp_pde[i])), pte_host_addr); 
+      add_pte_map(pte_cache, (addr_t)(BASE_TO_PAGE_ADDR(tmp_pde[i].pt_base_addr)), pte_host_addr); 
     }
   }
 
@@ -210,7 +210,7 @@ int v3_replace_shdw_page32(struct guest_info * info, addr_t location, pte32_t * 
   pde32_t * shadow_pde =  (pde32_t *)&(shadow_pd[PDE32_INDEX(location)]);
 
   if (shadow_pde->large_page == 0) {
-    pte32_t * shadow_pt = (pte32_t *)(addr_t)PDE32_T_ADDR((*shadow_pde));
+    pte32_t * shadow_pt = (pte32_t *)(addr_t)BASE_TO_PAGE_ADDR(shadow_pde->pt_base_addr);
     pte32_t * shadow_pte = (pte32_t *)&(shadow_pt[PTE32_INDEX(location)]);
 
     //if (shadow_pte->present == 1) {
@@ -252,7 +252,7 @@ static int activate_shadow_pt_32(struct guest_info * info) {
       
       shadow_pt = v3_create_new_shadow_pt();
       
-      shadow_cr3->pdt_base_addr = (addr_t)V3_PAddr((void *)(addr_t)PD32_BASE_ADDR(shadow_pt));
+      shadow_cr3->pdt_base_addr = (addr_t)V3_PAddr((void *)(addr_t)PAGE_BASE_ADDR(shadow_pt));
       PrintDebug( "Created new shadow page table %p\n", (void *)(addr_t)shadow_cr3->pdt_base_addr );
     } else {
       PrintDebug("Reusing cached shadow Page table\n");
@@ -494,7 +494,7 @@ static int handle_shadow_pagefault_32(struct guest_info * info, addr_t fault_add
       
       guest_pde->accessed = 1;
       
-      shadow_pde->pt_base_addr = PD32_BASE_ADDR((addr_t)V3_PAddr(shadow_pt));
+      shadow_pde->pt_base_addr = PAGE_BASE_ADDR((addr_t)V3_PAddr(shadow_pt));
       
       if (guest_pde->large_page == 0) {
 	shadow_pde->writable = guest_pde->writable;
@@ -509,13 +509,13 @@ static int handle_shadow_pagefault_32(struct guest_info * info, addr_t fault_add
       //
       // PTE fault
       //
-      pte32_t * shadow_pt = (pte32_t *)V3_VAddr( (void*)(addr_t) PDE32_T_ADDR(*shadow_pde) );
+      pte32_t * shadow_pt = (pte32_t *)V3_VAddr( (void*)(addr_t) BASE_TO_PAGE_ADDR(shadow_pde->pt_base_addr) );
 
       if (guest_pde->large_page == 0) {
 	pte32_t * guest_pt = NULL;
-	if (guest_pa_to_host_va(info, PDE32_T_ADDR((*guest_pde)), (addr_t*)&guest_pt) == -1) {
+	if (guest_pa_to_host_va(info, BASE_TO_PAGE_ADDR(guest_pde->pt_base_addr), (addr_t*)&guest_pt) == -1) {
 	  // Machine check the guest
-	  PrintDebug("Invalid Guest PTE Address: 0x%x\n", PDE32_T_ADDR((*guest_pde)));
+	  PrintDebug("Invalid Guest PTE Address: 0x%p\n", (void *)BASE_TO_PAGE_ADDR(guest_pde->pt_base_addr));
 	  v3_raise_exception(info, MC_EXCEPTION);
 	  return 0;
 	}
@@ -598,7 +598,7 @@ static int handle_large_pagefault_32(struct guest_info * info,
   
   if (shadow_pte_access == PT_ENTRY_NOT_PRESENT) {
     // Get the guest physical address of the fault
-    addr_t guest_fault_pa = PDE32_4MB_T_ADDR(*large_guest_pde) + PD32_4MB_PAGE_OFFSET(fault_addr);
+    addr_t guest_fault_pa = BASE_TO_PAGE_ADDR_4MB(large_guest_pde->page_base_addr) + PAGE_OFFSET_4MB(fault_addr);
     host_region_type_t host_page_type = get_shadow_addr_type(info, guest_fault_pa);
  
 
@@ -613,7 +613,7 @@ static int handle_large_pagefault_32(struct guest_info * info,
       struct shadow_page_state * state = &(info->shdw_pg_state);
       addr_t shadow_pa = get_shadow_addr(info, guest_fault_pa);
 
-      shadow_pte->page_base_addr = PT32_BASE_ADDR(shadow_pa);
+      shadow_pte->page_base_addr = PAGE_BASE_ADDR(shadow_pa);
 
       shadow_pte->present = 1;
 
@@ -624,7 +624,7 @@ static int handle_large_pagefault_32(struct guest_info * info,
        */
       shadow_pte->user_page = 1;
 
-      if (find_pte_map(state->cached_ptes, PT32_PAGE_ADDR(guest_fault_pa)) != NULL) {
+      if (find_pte_map(state->cached_ptes, PAGE_ADDR(guest_fault_pa)) != NULL) {
 	// Check if the entry is a page table...
 	PrintDebug("Marking page as Guest Page Table (large page)\n");
 	shadow_pte->vmm_info = PT32_GUEST_PT;
@@ -715,7 +715,7 @@ static int handle_shadow_pte32_fault(struct guest_info * info,
 
   if (shadow_pte_access == PT_ENTRY_NOT_PRESENT) {
 
-    addr_t guest_pa = PTE32_T_ADDR((*guest_pte)) +  PT32_PAGE_OFFSET(fault_addr);
+    addr_t guest_pa = BASE_TO_PAGE_ADDR((addr_t)(guest_pte->page_base_addr)) +  PAGE_OFFSET(fault_addr);
 
     // Page Table Entry Not Present
     PrintDebug("guest_pa =%p\n", (void *)guest_pa);
@@ -735,7 +735,7 @@ static int handle_shadow_pte32_fault(struct guest_info * info,
       struct shadow_page_state * state = &(info->shdw_pg_state);
       addr_t shadow_pa = get_shadow_addr(info, guest_pa);
       
-      shadow_pte->page_base_addr = PT32_BASE_ADDR(shadow_pa);
+      shadow_pte->page_base_addr = PAGE_BASE_ADDR(shadow_pa);
       
       shadow_pte->present = guest_pte->present;
       shadow_pte->user_page = guest_pte->user_page;
@@ -748,7 +748,7 @@ static int handle_shadow_pte32_fault(struct guest_info * info,
       
       guest_pte->accessed = 1;
       
-      if (find_pte_map(state->cached_ptes, PT32_PAGE_ADDR(guest_pa)) != NULL) {
+      if (find_pte_map(state->cached_ptes, PAGE_ADDR(guest_pa)) != NULL) {
 	// Check if the entry is a page table...
 	PrintDebug("Marking page as Guest Page Table %d\n", shadow_pte->writable);
 	shadow_pte->vmm_info = PT32_GUEST_PT;
@@ -887,7 +887,7 @@ int v3_handle_shadow_invlpg(struct guest_info * info)
     PrintDebug("Invalidating Large Page\n");
   } else
     if (shadow_pde->present == 1) {
-      pte32_t * shadow_pt = (pte32_t *)(addr_t)PDE32_T_ADDR((*shadow_pde));
+      pte32_t * shadow_pt = (pte32_t *)(addr_t)BASE_TO_PAGE_ADDR(shadow_pde->pt_base_addr);
       pte32_t * shadow_pte = (pte32_t *) V3_VAddr( (void*) &shadow_pt[PTE32_INDEX(first_operand)] );
       
 #ifdef DEBUG_SHADOW_PAGING
