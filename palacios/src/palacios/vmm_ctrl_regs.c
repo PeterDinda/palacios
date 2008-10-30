@@ -41,19 +41,7 @@
 
 static int handle_lmsw(struct guest_info * info, struct x86_instr * dec_instr);
 static int handle_clts(struct guest_info * info, struct x86_instr * dec_instr);
-
 static int handle_mov_to_cr0(struct guest_info * info, struct x86_instr * dec_instr);
-static int handle_mov_to_cr0_32(struct guest_info * info, struct x86_instr * dec_instr);
-static int handle_mov_to_cr0_32pae(struct guest_info * info, struct x86_instr * dec_instr);
-static int handle_mov_to_cr0_64(struct guest_info * info, struct x86_instr * dec_instr);
-static int handle_mov_to_cr0_64compat(struct guest_info * info, struct x86_instr * dec_instr);
-
-static int handle_mov_to_cr3_32(struct guest_info * info, struct x86_instr * dec_instr);
-static int handle_mov_to_cr3_32pae(struct guest_info * info, struct x86_instr * dec_instr);
-static int handle_mov_to_cr3_64(struct guest_info * info, struct x86_instr * dec_instr);
-static int handle_mov_to_cr3_64compat(struct guest_info * info, struct x86_instr * dec_instr);
-
-
 
 
 // First Attempt = 494 lines
@@ -68,8 +56,6 @@ int v3_handle_cr0_write(struct guest_info * info) {
   } else { 
     ret = read_guest_va_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
   }
-
-
 
   if (v3_decode(info, (addr_t)instr, &dec_instr) == -1) {
     PrintError("Could not decode instruction\n");
@@ -107,52 +93,28 @@ int v3_handle_cr0_write(struct guest_info * info) {
 
 
 
+// The CR0 register only has flags in the low 32 bits
+// The hardware does a format check to make sure the high bits are zero
+// Because of this we can ignore the high 32 bits here
 static int handle_mov_to_cr0(struct guest_info * info, struct x86_instr * dec_instr) {
-  PrintDebug("MOV2CR0\n");
-
-  switch (info->cpu_mode) {
-  case REAL:
-  case PROTECTED:
-    return handle_mov_to_cr0_32(info, dec_instr);    
-  case PROTECTED_PAE:
-    return handle_mov_to_cr0_32pae(info, dec_instr);
-  case LONG:
-    return handle_mov_to_cr0_64(info, dec_instr);
-  case LONG_32_COMPAT:
-    return handle_mov_to_cr0_64compat(info, dec_instr);
-  default:
-    PrintError("Invalid CPU Operating Mode: %d\n", info->cpu_mode);
-    return -1;
-
-  }
-}
-
-static int handle_mov_to_cr0_32pae(struct guest_info * info, struct x86_instr * dec_instr) {
-  PrintError("32 bit PAE mov to CR0 not implemented\n");
-  return -1;
-}
-
-static int handle_mov_to_cr0_64(struct guest_info * info, struct x86_instr * dec_instr) {
-  PrintError("64 bit mov to CR0 not implemented\n");
-  return -1;
-}
-
-static int handle_mov_to_cr0_64compat(struct guest_info * info, struct x86_instr * dec_instr) {
-  PrintError("64 bit compatibility mode move to CR0 not implemented\n");
-  return -1;
-}
-
-
-static int handle_mov_to_cr0_32(struct guest_info * info, struct x86_instr * dec_instr) {
   // 32 bit registers
   struct cr0_32 * shadow_cr0 = (struct cr0_32 *)&(info->ctrl_regs.cr0);
   struct cr0_32 * new_cr0 = (struct cr0_32 *)(dec_instr->src_operand.operand);
   struct cr0_32 * guest_cr0 = (struct cr0_32 *)&(info->shdw_pg_state.guest_cr0);
+  uint_t paging_transition = 0;
+
+  PrintDebug("MOV2CR0 (MODE=%s)\n", v3_cpu_mode_to_str(info->cpu_mode));
   
   PrintDebug("OperandVal = %x, length=%d\n", *(uint_t *)new_cr0, dec_instr->src_operand.size);
   
   PrintDebug("Old CR0=%x\n", *(uint_t *)shadow_cr0);
   PrintDebug("Old Guest CR0=%x\n", *(uint_t *)guest_cr0);	
+
+
+  // We detect if this is a paging transition
+  if (guest_cr0->pg != new_cr0->pg) {
+    paging_transition = 1;
+  }  
 
   // Guest always sees the value they wrote
   *guest_cr0 = *new_cr0;
@@ -162,31 +124,33 @@ static int handle_mov_to_cr0_32(struct guest_info * info, struct x86_instr * dec
 
   // Set the shadow register to catch non-virtualized flags
   *shadow_cr0 = *guest_cr0;
-  
 
-  if (v3_get_mem_mode(info) == VIRTUAL_MEM) {
-    /*    struct cr3_32 * guest_cr3 = (struct cr3_32 *)&(info->shdw_pg_state.guest_cr3);
-	  info->ctrl_regs.cr3 = *(addr_t*)guest_cr3;
-    */
-    PrintDebug("Activating Shadow Page Tables\n");
+  // Paging is always enabled
+  shadow_cr0->pg = 1;  
 
-    if (v3_activate_shadow_pt(info) == -1) {
-      PrintError("Failed to activate shadow page tables\n");
-      return -1;
+  // Was there a paging transition
+  // Meaning we need to change the page tables
+  if (paging_transition) {
+    if (v3_get_mem_mode(info) == VIRTUAL_MEM) {
+
+      PrintDebug("Activating Shadow Page Tables\n");
+      
+      if (v3_activate_shadow_pt(info) == -1) {
+	PrintError("Failed to activate shadow page tables\n");
+	return -1;
+      }
+    } else  {
+      
+      if (v3_activate_passthrough_pt(info) == -1) {
+	PrintError("Failed to activate passthrough page tables\n");
+	return -1;
+      }
     }
-  } else  {
-
-    if (v3_activate_passthrough_pt(info) == -1) {
-      PrintError("Failed to activate passthrough page tables\n");
-      return -1;
-    }
-    shadow_cr0->pg = 1;
   }
-  
-  PrintDebug("New Guest CR0=%x\n",*(uint_t *)guest_cr0);
-  
+
+  PrintDebug("New Guest CR0=%x\n",*(uint_t *)guest_cr0);  
   PrintDebug("New CR0=%x\n", *(uint_t *)shadow_cr0);
-  
+
   return 0;
 }
 
@@ -265,7 +229,7 @@ int v3_handle_cr0_read(struct guest_info * info) {
     struct cr0_32 * dst_reg = (struct cr0_32 *)(dec_instr.dst_operand.operand);
     struct cr0_32 * shadow_cr0 = (struct cr0_32 *)&(info->ctrl_regs.cr0);
 
-    PrintDebug("MOVCR2\n");
+    PrintDebug("MOVCR2 (mode=%s)\n", info->cpu_mode);
 
     if (info->shdw_pg_mode == SHADOW_PAGING) {
       struct cr0_32 * guest_cr0 = (struct cr0_32 *)&(info->shdw_pg_state.guest_cr0);
@@ -320,11 +284,15 @@ int v3_handle_cr3_write(struct guest_info * info) {
   }
 
   if (v3_opcode_cmp(V3_OPCODE_MOV2CR, (const uchar_t *)(dec_instr.opcode)) == 0) {
-    PrintDebug("MOV2CR3\n");
+    PrintDebug("MOV2CR3 (cpu_mode=%s)\n", v3_cpu_mode_to_str(info->cpu_mode));
 
-    if (info->mem_mode == PHYSICAL_MEM) {
-      // All we do is update the guest CR3
-
+    if (info->shdw_pg_mode == SHADOW_PAGING) {
+      PrintDebug("Old Shadow CR3=%p; Old Guest CR3=%p\n", 
+		 (void *)(addr_t)(info->ctrl_regs.cr3), 
+		 (void*)(addr_t)(info->shdw_pg_state.guest_cr3));
+      
+    
+      // We update the guest CR3    
       if (info->cpu_mode == LONG) {
 	struct cr3_64 * new_cr3 = (struct cr3_64 *)(dec_instr.src_operand.operand);
 	struct cr3_64 * guest_cr3 = (struct cr3_64 *)&(info->shdw_pg_state.guest_cr3);
@@ -334,34 +302,32 @@ int v3_handle_cr3_write(struct guest_info * info) {
 	struct cr3_32 * guest_cr3 = (struct cr3_32 *)&(info->shdw_pg_state.guest_cr3);
 	*guest_cr3 = *new_cr3;
       }
-
-    } else {
-
-      switch (info->cpu_mode) {
-      case PROTECTED:
-	if (handle_mov_to_cr3_32(info, &dec_instr) == -1) {
+      
+      // If Paging is enabled in the guest then we need to change the shadow page tables
+      if (info->mem_mode == VIRTUAL_MEM) {
+	if (v3_activate_shadow_pt(info) == -1) {
+	  PrintError("Failed to activate 32 bit shadow page table\n");
 	  return -1;
 	}
-	break;
-      case PROTECTED_PAE:
-	if (handle_mov_to_cr3_32pae(info, &dec_instr) == -1) {
-	  return -1;
-	}
-	break;
-      case LONG:
-	if (handle_mov_to_cr3_64(info, &dec_instr) == -1) {
-	  return -1;
-	}
-	break;
-      case LONG_32_COMPAT:
-	if (handle_mov_to_cr3_64compat(info, &dec_instr) == -1) {
-	  return -1;
-	}
-	break;
-      default:
-	PrintError("Unhandled CPU mode: %d\n", info->cpu_mode);
-	return -1;
+      } 
+ 
+      PrintDebug("New Shadow CR3=%p; New Guest CR3=%p\n", 
+		 (void *)(addr_t)(info->ctrl_regs.cr3), 
+		 (void*)(addr_t)(info->shdw_pg_state.guest_cr3));
+      
+    } else if (info->shdw_pg_mode == NESTED_PAGING) {
+ 
+     // This is just a passthrough operation which we probably don't need here
+      if (info->cpu_mode == LONG) {
+	struct cr3_64 * new_cr3 = (struct cr3_64 *)(dec_instr.src_operand.operand);
+	struct cr3_64 * guest_cr3 = (struct cr3_64 *)&(info->ctrl_regs.cr3);
+	*guest_cr3 = *new_cr3;
+      } else {
+	struct cr3_32 * new_cr3 = (struct cr3_32 *)(dec_instr.src_operand.operand);
+	struct cr3_32 * guest_cr3 = (struct cr3_32 *)&(info->ctrl_regs.cr3);
+	*guest_cr3 = *new_cr3;
       }
+
     }
   } else {
     PrintError("Unhandled opcode in handle_cr3_write\n");
@@ -371,56 +337,6 @@ int v3_handle_cr3_write(struct guest_info * info) {
   info->rip += dec_instr.instr_length;
 
   return 0;
-}
-
-
-
-
-
-
-
-static int handle_mov_to_cr3_32(struct guest_info * info, struct x86_instr * dec_instr) {
-  PrintDebug("CR3 at 0x%p\n", &(info->ctrl_regs.cr3));
-
-  if (info->shdw_pg_mode == SHADOW_PAGING) {
-    struct cr3_32 * new_cr3 = (struct cr3_32 *)(dec_instr->src_operand.operand);	
-    struct cr3_32 * guest_cr3 = (struct cr3_32 *)&(info->shdw_pg_state.guest_cr3);
-#ifdef DEBUG_CTRL_REGS
-    struct cr3_32 * shadow_cr3 = (struct cr3_32 *)&(info->ctrl_regs.cr3);    
-#endif
-
-    PrintDebug("Old Shadow CR3=%x; Old Guest CR3=%x\n", 
-	       *(uint_t*)shadow_cr3, *(uint_t*)guest_cr3);
-    
-
-    // Store the write value to virtualize CR3
-    *guest_cr3 = *new_cr3;    
-    
-    if (v3_activate_shadow_pt(info) == -1) {
-      PrintError("Failed to activate 32 bit shadow page table\n");
-      return -1;
-    }
-
-    PrintDebug("New Shadow CR3=%x; New Guest CR3=%x\n", 
-	       *(uint_t*)shadow_cr3, *(uint_t*)guest_cr3);    
-  }
-  return 0;
-}
-
-
-static int handle_mov_to_cr3_32pae(struct guest_info * info, struct x86_instr * dec_instr) {
-  PrintError("32 Bit PAE mode Mov to CR3 not implemented\n");
-  return -1;
-}
-
-static int handle_mov_to_cr3_64(struct guest_info * info, struct x86_instr * dec_instr) {
-  PrintError("Long mode Mov to CR3 not implemented\n");
-  return -1;
-}
-
-static int handle_mov_to_cr3_64compat(struct guest_info * info, struct x86_instr * dec_instr) {
-  PrintError("Long compatiblity mode move to CR3 not implemented\n");
-  return -1;
 }
 
 
@@ -438,24 +354,40 @@ int v3_handle_cr3_read(struct guest_info * info) {
     ret = read_guest_va_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
   }
 
-
-
   if (v3_decode(info, (addr_t)instr, &dec_instr) == -1) {
     PrintError("Could not decode instruction\n");
     return -1;
   }
 
   if (v3_opcode_cmp(V3_OPCODE_MOVCR2, (const uchar_t *)(dec_instr.opcode)) == 0) {
-    PrintDebug("MOVCR32\n");
-    struct cr3_32 * dst_reg = (struct cr3_32 *)(dec_instr.dst_operand.operand);
-
-    PrintDebug("CR3 at 0x%p\n", &(info->ctrl_regs.cr3));
+    PrintDebug("MOVCR32 (mode=%s)\n", v3_cpu_mode_to_str(info->cpu_mode));
 
     if (info->shdw_pg_mode == SHADOW_PAGING) {
-      *dst_reg = *(struct cr3_32 *)&(info->shdw_pg_state.guest_cr3);
-    } else {
-      *dst_reg = *(struct cr3_32 *)&(info->ctrl_regs.cr3);
+
+      if (info->cpu_mode == LONG) {
+	struct cr3_64 * dst_reg = (struct cr3_64 *)(dec_instr.dst_operand.operand);
+	struct cr3_64 * guest_cr3 = (struct cr3_64 *)&(info->shdw_pg_state.guest_cr3);
+	*dst_reg = *guest_cr3;
+      } else {
+	struct cr3_32 * dst_reg = (struct cr3_32 *)(dec_instr.dst_operand.operand);
+	struct cr3_32 * guest_cr3 = (struct cr3_32 *)&(info->shdw_pg_state.guest_cr3);
+	*dst_reg = *guest_cr3;
+      }
+
+    } else if (info->shdw_pg_mode == NESTED_PAGING) {
+
+      // This is just a passthrough operation which we probably don't need here
+      if (info->cpu_mode == LONG) {
+	struct cr3_64 * dst_reg = (struct cr3_64 *)(dec_instr.dst_operand.operand);
+	struct cr3_64 * guest_cr3 = (struct cr3_64 *)&(info->ctrl_regs.cr3);
+	*dst_reg = *guest_cr3;
+      } else {
+	struct cr3_32 * dst_reg = (struct cr3_32 *)(dec_instr.dst_operand.operand);
+	struct cr3_32 * guest_cr3 = (struct cr3_32 *)&(info->ctrl_regs.cr3);
+	*dst_reg = *guest_cr3;
+      }
     }
+
   } else {
     PrintError("Unhandled opcode in handle_cr3_read\n");
     return -1;

@@ -56,6 +56,33 @@ v3_vm_cpu_mode_t v3_get_cpu_mode(struct guest_info * info) {
   }
 }
 
+
+static const uchar_t REAL_STR[] = "Real";
+static const uchar_t PROTECTED_STR[] = "Protected";
+static const uchar_t PROTECTED_PAE_STR[] = "Protected+PAE";
+static const uchar_t LONG_STR[] = "Long";
+static const uchar_t LONG_32_COMPAT_STR[] = "32bit Compat";
+static const uchar_t LONG_16_COMPAT_STR[] = "16bit Compat";
+
+const uchar_t * v3_cpu_mode_to_str(v3_vm_cpu_mode_t mode) {
+  switch (mode) {
+  case REAL:
+    return REAL_STR;
+  case PROTECTED:
+    return PROTECTED_STR;
+  case PROTECTED_PAE:
+    return PROTECTED_PAE_STR;
+  case LONG:
+    return LONG_STR;
+  case LONG_32_COMPAT:
+    return LONG_32_COMPAT_STR;
+  case LONG_16_COMPAT:
+    return LONG_16_COMPAT_STR;
+  default:
+    return NULL;
+  }
+}
+
 v3_vm_mem_mode_t v3_get_mem_mode(struct guest_info * info) {
   struct cr0_32 * cr0;
 
@@ -69,12 +96,24 @@ v3_vm_mem_mode_t v3_get_mem_mode(struct guest_info * info) {
     return -1;
   }
 
-
-
   if (cr0->pg == 0) {
     return PHYSICAL_MEM;
   } else {
     return VIRTUAL_MEM;
+  }
+}
+
+static const uchar_t PHYS_MEM_STR[] = "Physical Memory";
+static const uchar_t VIRT_MEM_STR[] = "Virtual Memory";
+
+const uchar_t * v3_mem_mode_to_str(v3_vm_mem_mode_t mode) {
+  switch (mode) {
+  case PHYSICAL_MEM:
+    return PHYS_MEM_STR;
+  case VIRTUAL_MEM:
+    return VIRT_MEM_STR;
+  default:
+    return NULL;
   }
 }
 
