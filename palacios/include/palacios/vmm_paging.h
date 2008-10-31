@@ -465,6 +465,7 @@ void delete_page_tables_32(pde32_t * pde);
 void delete_page_tables_32PAE(pdpe32pae_t * pdpe);
 void delete_page_tables_64(pml4e64_t *  pml4);
 
+struct guest_info;
 
 int v3_translate_guest_pt_32(struct guest_info * info, addr_t guest_cr3, addr_t vaddr, addr_t * paddr);
 int v3_translate_guest_pt_32pae(struct guest_info * info, addr_t guest_cr3, addr_t vaddr, addr_t * paddr);
@@ -475,7 +476,7 @@ int v3_translate_host_pt_32pae(addr_t host_cr3, addr_t vaddr, addr_t * paddr);
 int v3_translate_host_pt_64(addr_t host_cr3, addr_t vaddr, addr_t * paddr);
 
 
-/* Should these be static?
+/* Should these be static? */
 pt_entry_type_t pde32_lookup(pde32_t * pd, addr_t addr, addr_t * entry);
 pt_entry_type_t pte32_lookup(pte32_t * pt, addr_t addr, addr_t * entry);
 

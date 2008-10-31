@@ -164,16 +164,16 @@ int v3_translate_guest_pt_32pae(struct guest_info * info, addr_t guest_cr3, addr
 
 int v3_translate_guest_pt_64(struct guest_info * info, addr_t guest_cr3, addr_t vaddr, addr_t * paddr) {
   addr_t guest_pml4_pa = CR3_TO_PML4E64_PA(guest_cr3);
-  pml4e64_t * guest_pml = 0;
+  pml4e64_t * guest_pmle = 0;
   addr_t guest_pdpe_pa = 0;
 
-  if (guest_pa_to_host_va(info, guest_pml4_pa, (addr_t*)&guest_pml) == -1) {
+  if (guest_pa_to_host_va(info, guest_pml4_pa, (addr_t*)&guest_pmle) == -1) {
     PrintError("Could not get virtual address of Guest PML4E64 (PA=%p)\n", 
 	       (void *)guest_pml4_pa);
     return -1;
   }
   
-  switch (pml4e64_lookup(guest_pml, vaddr, &guest_pdpe_pa)) {
+  switch (pml4e64_lookup(guest_pmle, vaddr, &guest_pdpe_pa)) {
   case PT_ENTRY_NOT_PRESENT:
     *paddr = 0;
     return -1;
@@ -257,22 +257,83 @@ int v3_translate_host_pt_32(addr_t host_cr3, addr_t vaddr, addr_t * paddr) {
     if (pte32_lookup(host_pte, vaddr, paddr) == PT_ENTRY_NOT_PRESENT) {
       return -1;
     }
+    return 0;
   }
-
-  return 0;
+  
+  // should never get here
+  return -1;
 }
 
 
 int v3_translate_host_pt_32pae(addr_t host_cr3, addr_t vaddr, addr_t * paddr) {
+  pdpe32pae_t * host_pdpe = (pdpe32pae_t *)CR3_TO_PDPE32PAE_VA(host_cr3);
+  pde32pae_t * host_pde = NULL;
+  pte32pae_t * host_pte = NULL;
 
+  switch (pdpe32pae_lookup(host_pdpe, vaddr, (addr_t *)&host_pde)) {
+  case PT_ENTRY_NOT_PRESENT:
+    *paddr = 0;
+    return -1;
+  case PT_ENTRY_PAGE:
+    switch (pde32pae_lookup(host_pde, vaddr, (addr_t *)&host_pte)) {
+    case PT_ENTRY_NOT_PRESENT:
+      *paddr = 0;
+      return -1;
+    case PT_ENTRY_LARGE_PAGE:
+      *paddr = (addr_t)host_pte;
+      return 0;
+    case PT_ENTRY_PAGE:
+      if (pte32pae_lookup(host_pte, vaddr, paddr) == PT_ENTRY_NOT_PRESENT) {
+	return -1;
+      }
+      return 0;
+    }
+  default:
+    return -1;
+  }
 
+  // should never get here
   return -1;
 }
 
 
 int v3_translate_host_pt_64(addr_t host_cr3, addr_t vaddr, addr_t * paddr) {
+  pml4e64_t * host_pmle = (pml4e64_t *)CR3_TO_PML4E64_VA(host_cr3);
+  pdpe64_t * host_pdpe = NULL;
+  pde64_t * host_pde = NULL;
+  pte64_t * host_pte = NULL;
 
+  switch(pml4e64_lookup(host_pmle, vaddr, (addr_t *)&host_pdpe)) {
+  case PT_ENTRY_NOT_PRESENT:
+    *paddr = 0;
+    return -1;
+  case PT_ENTRY_PAGE:
+    switch(pdpe64_lookup(host_pdpe, vaddr, (addr_t *)&host_pde)) {
+    case PT_ENTRY_NOT_PRESENT:
+      *paddr = 0;
+      return -1;
+    case PT_ENTRY_LARGE_PAGE:
+      *paddr = 0;
+      PrintError("1 Gigabyte Pages not supported\n");
+      return -1;
+    case PT_ENTRY_PAGE:
+      switch (pde64_lookup(host_pde, vaddr, (addr_t *)&host_pte)) {
+      case PT_ENTRY_NOT_PRESENT:
+	*paddr = 0;
+	return -1;
+      case PT_ENTRY_LARGE_PAGE:
+      case PT_ENTRY_PAGE:
+	if (pte64_lookup(host_pte, vaddr, paddr) == PT_ENTRY_NOT_PRESENT) {
+	  return -1;
+	}
+	return 0;
+      }
+    }
+  default:
+    return -1;
+  }
 
+  // should never get here
   return -1;
 }
 
