@@ -1833,3 +1833,53 @@ int v3_walk_host_pt_64(v3_reg_t host_cr3,
   }
   return 0;
 }
+
+
+
+static const uchar_t PAGE_4KB_STR[] = "4KB_PAGE";
+static const uchar_t PAGE_2MB_STR[] = "2MB_PAGE";
+static const uchar_t PAGE_4MB_STR[] = "4MB_PAGE";
+static const uchar_t PAGE_1GB_STR[] = "1GB_PAGE";
+static const uchar_t PAGE_PT32_STR[] = "32 Bit PT";
+static const uchar_t PAGE_PD32_STR[] = "32 Bit PD";
+static const uchar_t PAGE_PDP32PAE_STR[] = "32 Bit PAE PDP";
+static const uchar_t PAGE_PD32PAE_STR[] = "32 Bit PAE PD";
+static const uchar_t PAGE_PT32PAE_STR[] = "32 Bit PAE PT";
+static const uchar_t PAGE_PML464_STR[] = "64 Bit PML4";
+static const uchar_t PAGE_PDP64_STR[] = "64 Bit PDP";
+static const uchar_t PAGE_PD64_STR[] = "64 Bit PD";
+static const uchar_t PAGE_PT64_STR[] = "64 Bit PT";
+
+
+const uchar_t * v3_page_type_to_str(page_type_t type) {
+  switch (type) {
+  case PAGE_4KB:
+    return PAGE_4KB_STR;
+  case PAGE_2MB:
+    return PAGE_2MB_STR;
+  case PAGE_4MB:
+    return PAGE_4MB_STR;
+  case PAGE_1GB:
+    return PAGE_1GB_STR;
+  case PAGE_PT32:
+    return PAGE_PT32_STR;
+  case PAGE_PD32:
+    return PAGE_PD32_STR;
+  case PAGE_PDP32PAE:
+    return PAGE_PDP32PAE_STR;
+  case PAGE_PD32PAE:
+    return PAGE_PD32PAE_STR;
+  case PAGE_PT32PAE:
+    return PAGE_PT32PAE_STR;
+  case PAGE_PML464:
+    return PAGE_PML464_STR;
+  case PAGE_PDP64:
+    return PAGE_PDP64_STR;
+  case PAGE_PD64:
+    return PAGE_PD64_STR;
+  case PAGE_PT64:
+    return PAGE_PT64_STR;
+  default:
+    return NULL;
+  }
+}

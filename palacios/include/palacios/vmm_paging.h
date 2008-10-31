@@ -557,6 +557,8 @@ pml4e64_t * create_passthrough_pts_64(struct guest_info * info);
 
 
 
+const uchar_t * v3_page_type_to_str(page_type_t type);
+
 
 //#include <palacios/vm_guest.h>
 
