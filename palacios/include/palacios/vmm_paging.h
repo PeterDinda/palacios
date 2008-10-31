@@ -538,7 +538,7 @@ int v3_check_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t va
 
 
 int v3_walk_host_pt_32(v3_reg_t host_cr3,
-		       int (*callback)(int level, addr_t page_va, addr_t page_pa, void * private_data),
+		       void (*callback)(page_type_t type, addr_t page_va, addr_t page_pa, void * private_data),
 		       void * private_data);
 
 int v3_walk_host_pt_32pae(v3_reg_t host_cr3,
@@ -546,6 +546,18 @@ int v3_walk_host_pt_32pae(v3_reg_t host_cr3,
 			  void * private_data);
 
 int v3_walk_host_pt_64(v3_reg_t host_cr3,
+		       void (*callback)(page_type_t type, addr_t page_va, addr_t page_pa, void * private_data),
+		       void * private_data);
+
+int v3_walk_guest_pt_32(struct guest_info * info, v3_reg_t guest_cr3,
+		       void (*callback)(page_type_t type, addr_t page_va, addr_t page_pa, void * private_data),
+		       void * private_data);
+
+int v3_walk_guest_pt_32pae(struct guest_info * info, v3_reg_t guest_cr3,
+			  void (*callback)(page_type_t type, addr_t page_va, addr_t page_pa, void * private_data),
+			  void * private_data);
+
+int v3_walk_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3,
 		       void (*callback)(page_type_t type, addr_t page_va, addr_t page_pa, void * private_data),
 		       void * private_data);
   

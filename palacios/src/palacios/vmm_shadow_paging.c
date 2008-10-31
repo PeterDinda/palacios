@@ -80,6 +80,7 @@ static int handle_shadow_pagefault_64(struct guest_info * info, addr_t fault_add
 
 
 static int cache_page_tables_32(struct guest_info * info, addr_t pde);
+static int cache_page_tables_64(struct guest_info * info, addr_t pde);
 
 int v3_init_shadow_page_state(struct guest_info * info) {
   struct shadow_page_state * state = &(info->shdw_pg_state);
@@ -277,15 +278,26 @@ static int activate_shadow_pt_32pae(struct guest_info * info) {
   return -1;
 }
 
+static void activate_shadow_pt_64_cb(page_type_t type, addr_t page_ptr, addr_t page_pa, void * private_data) {
+  PrintDebug("CB: Page: %p, Type: %s\n", (void *)page_pa, v3_page_type_to_str(type));
+}
+
+
 static int activate_shadow_pt_64(struct guest_info * info) {
-  struct cr3_64 * shadow_cr3 = (struct cr3_64 *)&(info->ctrl_regs.cr3);
+  //  struct cr3_64 * shadow_cr3 = (struct cr3_64 *)&(info->ctrl_regs.cr3);
   struct cr3_64 * guest_cr3 = (struct cr3_64 *)&(info->shdw_pg_state.guest_cr3);
   int cached = 0;
   
+  v3_walk_guest_pt_64(info, info->shdw_pg_state.guest_cr3, activate_shadow_pt_64_cb, NULL);
+
+  
+
   return -1;
+
+
   // Check if shadow page tables are in the cache
   cached = cache_page_tables_64(info, CR3_TO_PDE32_PA(*(addr_t *)guest_cr3));
-  
+	      /*  
   if (cached == -1) {
     PrintError("CR3 Cache failed\n");
     return -1;
@@ -307,6 +319,7 @@ static int activate_shadow_pt_64(struct guest_info * info) {
   shadow_cr3->pcd = guest_cr3->pcd;
   
   return 0;
+		      */
 }
 
 
