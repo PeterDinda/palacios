@@ -207,6 +207,10 @@ static int cache_page_tables_32(struct guest_info * info, addr_t pde) {
 }
 
 
+static int cache_page_tables_64(struct guest_info * info, addr_t pde) {
+  return -1;
+}
+
 
 int v3_replace_shdw_page32(struct guest_info * info, addr_t location, pte32_t * new_page, pte32_t * old_page) {
   pde32_t * shadow_pd = (pde32_t *)CR3_TO_PDE32_VA(info->ctrl_regs.cr3);
@@ -293,8 +297,8 @@ static int activate_shadow_pt_64(struct guest_info * info) {
     
     shadow_pt = v3_create_new_shadow_pt();
     
-    shadow_cr3->pdt_base_addr = (addr_t)V3_PAddr((void *)(addr_t)PAGE_BASE_ADDR(shadow_pt));
-    PrintDebug( "Created new shadow page table %p\n", (void *)(addr_t)shadow_cr3->pdt_base_addr );
+    shadow_cr3->pml4t_base_addr = (addr_t)V3_PAddr((void *)(addr_t)PAGE_BASE_ADDR(shadow_pt));
+    PrintDebug( "Created new shadow page table %p\n", (void *)(addr_t)shadow_cr3->pml4t_base_addr );
   } else {
     PrintDebug("Reusing cached shadow Page table\n");
   }
