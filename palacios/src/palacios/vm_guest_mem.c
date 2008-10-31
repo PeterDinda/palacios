@@ -143,81 +143,34 @@ int guest_pa_to_host_va(struct guest_info * guest_info, addr_t guest_pa, addr_t 
 
 
 int guest_va_to_guest_pa(struct guest_info * guest_info, addr_t guest_va, addr_t * guest_pa) {
+  v3_reg_t guest_cr3 = 0;
+
   if (guest_info->mem_mode == PHYSICAL_MEM) {
     // guest virtual address is the same as the physical
     *guest_pa = guest_va;
     return 0;
   }
 
+  if (guest_info->mem_mode == SHADOW_PAGING) {
+    guest_cr3 = guest_info->shdw_pg_state.guest_cr3;
+  } else {
+    guest_cr3 = guest_info->ctrl_regs.cr3;
+  }
 
 
   // Guest Is in Paged mode
   switch (guest_info->cpu_mode) {
   case PROTECTED:
-    {
-      addr_t tmp_pa = 0;
-      pde32_t * pde = 0;
-      addr_t guest_pde = 0;
-      
-      if (guest_info->shdw_pg_mode == SHADOW_PAGING) {
-	guest_pde = CR3_TO_PDE32_PA((guest_info->shdw_pg_state.guest_cr3));
-      } else if (guest_info->shdw_pg_mode == NESTED_PAGING) {
-	guest_pde = CR3_TO_PDE32_PA((guest_info->ctrl_regs.cr3));
-      }
-      
-      if (guest_pa_to_host_va(guest_info, guest_pde, (addr_t *)&pde) == -1) {
-	PrintError("In GVA->GPA: Invalid GPA(%p)->HVA PDE32 lookup\n", 
-		    (void *)guest_pde);
-	return -1;
-      }
-      
-      
-      switch (pde32_lookup(pde, guest_va, &tmp_pa)) {
-      case PT_ENTRY_NOT_PRESENT: 
-	*guest_pa = 0;
-	return -1;
-      case PT_ENTRY_LARGE_PAGE:
-	*guest_pa = tmp_pa;
-	return 0;
-      case PT_ENTRY_PAGE:
-	{
-	  pte32_t * pte = 0;
-	  
-	  
-	  if (guest_pa_to_host_va(guest_info, tmp_pa, (addr_t*)&pte) == -1) {
-	    PrintError("In GVA->GPA: Invalid GPA(%p)->HVA PTE32 lookup\n", 
-		        (void *)guest_pa);
-	    return -1;
-	  }
-	  
-	  //PrintDebug("PTE host addr=%x, GVA=%x, GPA=%x(should be 0)\n", pte, guest_va, *guest_pa);
-	 
-	  if (pte32_lookup(pte, guest_va, guest_pa) != PT_ENTRY_PAGE) {
-	    PrintError("In GVA->GPA: PTE32 Lookup failure GVA=%p; PTE=%p\n", 
-		        (void *)guest_va,  (void *)pte);
-	    //	      PrintPT32(PDE32_INDEX(guest_va) << 22, pte);
-	    return -1;
-	  }
-	  
-	  return 0;
-	}
-      default:
-	return -1;
-      }
-    }
+    return v3_translate_guest_pt_32(guest_info, guest_cr3, guest_va, guest_pa);
   case PROTECTED_PAE:
-    {
-      // Fill in
-    }
+    return v3_translate_guest_pt_32pae(guest_info, guest_cr3, guest_va, guest_pa);
   case LONG:
-    {
-      // Fill in
-    }
+  case LONG_32_COMPAT:
+  case LONG_16_COMPAT:
+    return v3_translate_guest_pt_64(guest_info, guest_cr3, guest_va, guest_pa);
   default:
     return -1;
   }
-  
-  
   
   return 0;
 }

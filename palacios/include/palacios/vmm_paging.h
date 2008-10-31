@@ -93,17 +93,18 @@ the host state in the vmcs before entering the guest.
 
 
 
-#define MAX_PTE32_ENTRIES          1024
 #define MAX_PDE32_ENTRIES          1024
+#define MAX_PTE32_ENTRIES          1024
 
-#define MAX_PTE32PAE_ENTRIES       512
-#define MAX_PDE32PAE_ENTRIES       512
 #define MAX_PDPE32PAE_ENTRIES      4
+#define MAX_PDE32PAE_ENTRIES       512
+#define MAX_PTE32PAE_ENTRIES       512
 
-#define MAX_PTE64_ENTRIES          512
-#define MAX_PDE64_ENTRIES          512
-#define MAX_PDPE64_ENTRIES         512
 #define MAX_PML4E64_ENTRIES        512
+#define MAX_PDPE64_ENTRIES         512
+#define MAX_PDE64_ENTRIES          512
+#define MAX_PTE64_ENTRIES          512
+
 
 
 /* Converts an address into a page table index */
@@ -223,6 +224,13 @@ the host state in the vmcs before entering the guest.
 
 typedef enum {PT_ENTRY_NOT_PRESENT, PT_ENTRY_LARGE_PAGE, PT_ENTRY_PAGE} pt_entry_type_t;
 typedef enum {PT_ACCESS_OK, PT_ACCESS_NOT_PRESENT, PT_ACCESS_WRITE_ERROR, PT_ACCESS_USER_ERROR} pt_access_status_t;
+
+
+typedef struct gen_pt {
+  uint_t present        : 1;
+  uint_t writable       : 1;
+  uint_t user_page      : 1;
+} __attribute__((packed)) gen_pt_t;
 
 typedef struct pde32 {
   uint_t present         : 1;
@@ -467,13 +475,13 @@ void delete_page_tables_64(pml4e64_t *  pml4);
 
 struct guest_info;
 
-int v3_translate_guest_pt_32(struct guest_info * info, addr_t guest_cr3, addr_t vaddr, addr_t * paddr);
-int v3_translate_guest_pt_32pae(struct guest_info * info, addr_t guest_cr3, addr_t vaddr, addr_t * paddr);
-int v3_translate_guest_pt_64(struct guest_info * info, addr_t guest_cr3, addr_t vaddr, addr_t * paddr);
+int v3_translate_guest_pt_32(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr, addr_t * paddr);
+int v3_translate_guest_pt_32pae(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr, addr_t * paddr);
+int v3_translate_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr, addr_t * paddr);
 
-int v3_translate_host_pt_32(addr_t host_cr3, addr_t vaddr, addr_t * paddr);
-int v3_translate_host_pt_32pae(addr_t host_cr3, addr_t vaddr, addr_t * paddr);
-int v3_translate_host_pt_64(addr_t host_cr3, addr_t vaddr, addr_t * paddr);
+int v3_translate_host_pt_32(v3_reg_t host_cr3, addr_t vaddr, addr_t * paddr);
+int v3_translate_host_pt_32pae(v3_reg_t host_cr3, addr_t vaddr, addr_t * paddr);
+int v3_translate_host_pt_64(v3_reg_t host_cr3, addr_t vaddr, addr_t * paddr);
 
 
 /* Should these be static? */
@@ -494,8 +502,18 @@ pt_entry_type_t pte64_lookup(pte64_t * pt, addr_t addr, addr_t * entry);
 
 
 
-pt_access_status_t can_access_pde32(pde32_t * pde, addr_t addr, pf_error_t access_type);
-pt_access_status_t can_access_pte32(pte32_t * pte, addr_t addr, pf_error_t access_type);
+pt_access_status_t inline v3_can_access_pde32(pde32_t * pde, addr_t addr, pf_error_t access_type);
+pt_access_status_t inline v3_can_access_pte32(pte32_t * pte, addr_t addr, pf_error_t access_type);
+
+pt_access_status_t inline v3_can_access_pdpe32pae(pdpe32pae_t * pdpe, addr_t addr, pf_error_t access_type);
+pt_access_status_t inline v3_can_access_pde32pae(pde32pae_t * pde, addr_t addr, pf_error_t access_type);
+pt_access_status_t inline v3_can_access_pte32pae(pte32pae_t * pte, addr_t addr, pf_error_t access_type);
+
+pt_access_status_t inline v3_can_access_pml4e64(pml4e64_t * pmle, addr_t addr, pf_error_t access_type);
+pt_access_status_t inline v3_can_access_pdpe64(pdpe64_t * pdpe, addr_t addr, pf_error_t access_type);
+pt_access_status_t inline v3_can_access_pde64(pde64_t * pde, addr_t addr, pf_error_t access_type);
+pt_access_status_t inline v3_can_access_pte32(pte32_t * pte, addr_t addr, pf_error_t access_type);
+
 
 
 

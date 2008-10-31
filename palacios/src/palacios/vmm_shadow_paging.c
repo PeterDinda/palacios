@@ -462,10 +462,10 @@ static int handle_shadow_pagefault_32(struct guest_info * info, addr_t fault_add
 
 
   // Check the guest page permissions
-  guest_pde_access = can_access_pde32(guest_pd, fault_addr, error_code);
+  guest_pde_access = v3_can_access_pde32(guest_pd, fault_addr, error_code);
 
   // Check the shadow page permissions
-  shadow_pde_access = can_access_pde32(shadow_pd, fault_addr, error_code);
+  shadow_pde_access = v3_can_access_pde32(shadow_pd, fault_addr, error_code);
   
   /* Was the page fault caused by the Guest's page tables? */
   if (is_guest_pf(guest_pde_access, shadow_pde_access) == 1) {
@@ -585,7 +585,7 @@ static int handle_large_pagefault_32(struct guest_info * info,
 				    addr_t fault_addr, pf_error_t error_code, 
 				    pte32_t * shadow_pt, pde32_4MB_t * large_guest_pde) 
 {
-  pt_access_status_t shadow_pte_access = can_access_pte32(shadow_pt, fault_addr, error_code);
+  pt_access_status_t shadow_pte_access = v3_can_access_pte32(shadow_pt, fault_addr, error_code);
   pte32_t * shadow_pte = (pte32_t *)&(shadow_pt[PTE32_INDEX(fault_addr)]);
   
   if (shadow_pte_access == PT_ACCESS_OK) {
@@ -684,10 +684,10 @@ static int handle_shadow_pte32_fault(struct guest_info * info,
 
 
   // Check the guest page permissions
-  guest_pte_access = can_access_pte32(guest_pt, fault_addr, error_code);
+  guest_pte_access = v3_can_access_pte32(guest_pt, fault_addr, error_code);
 
   // Check the shadow page permissions
-  shadow_pte_access = can_access_pte32(shadow_pt, fault_addr, error_code);
+  shadow_pte_access = v3_can_access_pte32(shadow_pt, fault_addr, error_code);
   
 #ifdef DEBUG_SHADOW_PAGING
   PrintDebug("Guest PTE: (access=%d)\n\t", guest_pte_access);
