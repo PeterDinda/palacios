@@ -70,7 +70,6 @@ int v3_activate_passthrough_pt(struct guest_info * info);
  * External visibility not needed
  */
 addr_t v3_create_new_shadow_pt();
-int v3_cache_page_tables32(struct guest_info * info, addr_t  pde);
 int v3_replace_shdw_page32(struct guest_info * info, addr_t location, pte32_t * new_page, pte32_t * old_page); 
 /* *** */
 

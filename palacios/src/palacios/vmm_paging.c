@@ -994,6 +994,10 @@ pt_access_status_t inline v3_can_access_pte64(pte64_t * pte, addr_t addr, pf_err
 
 
 
+
+
+
+
 /* We generate a page table to correspond to a given memory layout
  * pulling pages from the mem_list when necessary
  * If there are any gaps in the layout, we add them as unmapped pages
@@ -1407,5 +1411,169 @@ pml4e64_t * create_passthrough_pts_64(struct guest_info * info) {
 }
 
 
+int v3_walk_guest_pt_32(struct guest_info * info,  v3_reg_t guest_cr3,
+			int (*callback)(int level, addr_t page_va, addr_t page_pa, void private_data),
+			void * private_data) {
+  
+
+}
 
 
+
+
+int v3_walk_host_pt_32(v3_reg_t host_cr3,
+		       int (*callback)(int level, addr_t page_va, addr_t page_pa, void private_data),
+		       void * private_data) {
+  pde32_t * host_pde = (pde32_t *)CR3_TO_PDE32_VA(host_cr3);
+  addr_t pde_pa = CR3_TO_PDE32_PA(host_cr3);
+  int i, j;
+
+  if (!callback) {
+    PrintError("Call back was not specified\n");
+    return -1;
+  }
+
+  callback(PAGE_PD32, host_pde, pde_pa, private_data);
+
+  for (i = 0; i < MAX_PDE32_ENTRIES; i++) {
+    if (host_pde[i].present) {
+      if (host_pde[i].lage_page) {
+	pde32_4MB_t * large_pde = (pde32_4MB_t *)&(host_pde[i]);
+	addr_t large_page_pa = BASE_TO_PAGE_ADDR_4MB(large_pde->page_base_addr);
+
+	callback(PAGE_4MB, V3_VAddr(large_page_pa), large_page_pa, private_data);
+      } else {
+	addr_t pte_pa = BASE_TO_PAGE_ADDR(host_pde[i].pt_base_addr);
+	pte32_t * tmp_pte = (pte32_t *)V3_VAddr(pte_pa);
+
+	callback(PAGE_PT32, tmp_pte, pte_pa, private_data);
+
+	for (j = 0; j < MAX_PTE32_ENTRIES; j++) {
+	  if (tmp_pte[j].present) {
+	    addr_t page_pa = BASE_TO_PAGE_ADDR(tmp_pte[j].page_base_addr);
+	    callback(PAGE_4KB, V3_VAddr(page_pa), page_pa, private_data);
+	  }
+	}
+      }
+    }
+  }
+  return 0;
+}
+	
+
+
+
+
+int v3_walk_host_pt_32pae(v3_reg_t host_cr3,
+			  void (*callback)(page_type_t type, addr_t page_va, addr_t page_pa, void * private_data),
+			  void * private_data) {
+  pdpe32pae_t * host_pdpe = (pdpe32pae_t *)CR3_TO_PDPE32PAE_VA(host_cr3);
+  addr_t pdpe_pa = CR3_TO_PDPE32PAE_PA(host_cr3);
+  int i, j, k;
+  
+  if (!callback) {
+    PrintError("Callback was not specified\n");
+    return -1;
+  }
+  
+  callback(PAGE_PDP32PAE, host_pdpe, pdpe_pa, private_data);
+  
+  for (i = 0; i < MAX_PDPE32PAE_ENTRIES; i++) {
+    if (host_pdpe[i].present) {	
+      addr_t pde_pa = BASE_TO_PAGE_ADDR(host_pdpe[i].pd_base_addr);
+      pde32pae_t * tmp_pde = (pde32pae_t *)V3_VAddr(pde_pa);
+      
+      callback(PAGE_PD32PAE, tmp_pde, pde_pa, private_data);
+      
+      for (j = 0; j < MAX_PDE32PAE_ENTRIES; j++) {
+	if (tmp_pde[j].present) {
+	  
+	  if (tmp_pde[j].large_page) {
+	    pde32pae_2MB_t * large_pde = (pde32pae_2MB_t *)&(tmp_pde[j]);
+	    addr_t large_page_pa = BASE_TO_PAGE_ADDR_2MB(large_pde->page_base_addr);
+
+	    callback(PAGE_2MB, V3_VAddr(lage_page_pa), lage_page_pa, private_data);
+	  } else {
+	    addr_t pte_pa = BASE_TO_PAGE_ADDR(tmp_pde[j].pt_base_addr);
+	    pte32pae_t * tmp_pte = (pte32pae_t *)V3_VAddr(pte_pa);
+	    
+	    callback(PAGE_PT32PAE, tmp_pte, pte_pa, private_data);
+	    
+	    for (k = 0; k < MAX_PTE32PAE_ENTRIES; k++) {
+	      if (tmp_pte[k].present) {
+		addr_t page_pa = BASE_TO_PAGE_ADDR(tmp_pte[k].page_base_addr);
+		callback(PAGE_4KB, V3_VAddr(page_pa), page_pa, private_data);
+	      }
+	    }
+	  }	    
+	}
+      }
+    }
+  }
+  return 0;
+}
+			
+
+int v3_walk_host_pt_64(v3_reg_t host_cr3,
+		       void (*callback)(page_type_t type, addr_t page_va, addr_t page_pa, void * private_data),
+		       void * private_data) {
+  pml4e64_t * host_pml = (pml3e64_t *)CR3_TO_PML4E64_VA(host_cr3);
+  addr_t pml_pa = CR3_TO_PML4E64_PA(host_cr3);
+  int i, j, k, m;
+
+  if (!callback) {
+    PrintError("Callback was not specified\n");
+    return -1;
+  }
+
+  callback(PAGE_PML464, host_pml, pml_pa, private_data);
+
+  for (i = 0; i < MAX_PML4E64_ENTRIES; i++) {
+    if (host_pml[i].present) {
+      addr_t pdpe_pa = BASE_TO_PAGE_ADDR(host_pml[i].pdp_base_addr);
+      pdpe64_t * tmp_pdpe = (pdpe64_t *)V3_VAddr(pdpe_pa);
+
+      callback(PAGE_PDP64, tmp_pdpe, pdpe_pa, private_data);
+
+      for (j = 0; j < MAX_PDPE64_ENTRIES; j++) {
+	if (tmp_pdpe[j].present) {
+	  if (tmp_pdpe[j].large_page) {
+	    pdpe64_1GB_t * large_pdp = (pdpe64_t *)&(tmp_pdpe[j]);
+	    addr_t large_page_pa = BASE_TO_PAGE_ADDR_1GB(large_pdp->page_addr);
+
+	    callback(PAGE_1GB, V3_VAddr(large_page_pa), large_page_pa, private_data);	    
+	  } else {
+	    addr_t pde_pa = BASE_TO_PAGE_ADDR(tmp_pdpe[j].pd_base_addr);
+	    pde64_t * tmp_pde = (pde64_t *)V3_VAddr(pde_pa);
+
+	    callback(PAGE_PD64, tmp_pde, pde_pa, private_data);
+
+	    for (k = 0; k < MAX_PDE64_ENRIES; k++) {
+	      if (tmp_pde[k].present) {
+		if (tmp_pde[k].large_page) {
+		  pde64_2MB_t * large_pde = (pde64_2MB_t *)&(tmp_pde[k]);
+		  addr_t large_page_pa = BASE_TO_PAGE_ADDR_2MB(large_pde->page_addr);
+		  
+		  callback(PAGE_2MB, V3_VAddr(large_page_pa), large_page_pa, private_data);
+		} else {
+		  addr_t pte_pa = BASE_TO_PAGE_ADDR(tmp_pde[k].pt_base_addr);
+		  pte64_t * tmp_pte = (pte64_t *)V3_VAddr(pte_pa);
+
+		  callback(PAGE_PT64, tmp_pte, pte_pa, private_data);
+
+		  for (m = 0; m < MAX_PTE64_ENTRIES; m++) {
+		    if (tmp_pte[m].present) {
+		      addr_t page_pa = BASE_TO_PAGE_ADDR(tmp_pte[m].page_base_addr);
+		      callback(PAGE_4KB, V3_VAddr(page_pa), page_pa, private_data);
+		    }
+		  }
+		}
+	      }
+	    }
+	  }
+	}
+      }
+    }
+  }
+  return 0;
+}

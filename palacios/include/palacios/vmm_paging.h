@@ -106,6 +106,11 @@ the host state in the vmcs before entering the guest.
 #define MAX_PTE64_ENTRIES          512
 
 
+typedef enum {PAGE_4KB, PAGE_2MB, PAGE_4MB, PAGE_1GB,
+	      PAGE_PT32, PAGE_PD32, 
+	      PAGE_PDP32PAE, PAGE_PD32PAE, PAGE_PT32PAE,
+	      PAGE_PML464, PAGE_PDP64, PAGE_PD64, PAGE_PT64} page_type_t;
+
 
 /* Converts an address into a page table index */
 #define PDE32_INDEX(x)  ((((uint_t)x) >> 22) & 0x3ff)
@@ -143,10 +148,12 @@ the host state in the vmcs before entering the guest.
 #define PAGE_BASE_ADDR(x) ((x) >> 12)
 #define PAGE_BASE_ADDR_2MB(x) ((x) >> 21)
 #define PAGE_BASE_ADDR_4MB(x) ((x) >> 22)
+#define PAGE_BASE_ADDR_1GB(x) ((x) >> 30)
 
 #define BASE_TO_PAGE_ADDR(x) (((addr_t)x) << 12)
 #define BASE_TO_PAGE_ADDR_2MB(x) (((addr_t)x) << 21)
 #define BASE_TO_PAGE_ADDR_4MB(x) (((addr_t)x) << 22)
+#define BASE_TO_PAGE_ADDR_1GB(x) (((addr_t)x) << 30)
 /* *** */
 
 /* Deprecated */
@@ -529,6 +536,19 @@ int v3_check_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t va
 			 pf_error_t access_type, pt_access_status_t * access_status);
 
 
+
+int v3_walk_host_pt_32(v3_reg_t host_cr3,
+		       int (*callback)(int level, addr_t page_va, addr_t page_pa, void private_data),
+		       void * private_data);
+
+int v3_walk_host_pt_32pae(v3_reg_t host_cr3,
+			  void (*callback)(page_type_t type, addr_t page_va, addr_t page_pa, void * private_data),
+			  void * private_data);
+
+int v3_walk_host_pt_64(v3_reg_t host_cr3,
+		       void (*callback)(page_type_t type, addr_t page_va, addr_t page_pa, void * private_data),
+		       void * private_data);
+  
 struct guest_info;
 
 pde32_t * create_passthrough_pts_32(struct guest_info * guest_info);
