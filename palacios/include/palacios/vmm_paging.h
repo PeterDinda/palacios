@@ -512,11 +512,21 @@ pt_access_status_t inline v3_can_access_pte32pae(pte32pae_t * pte, addr_t addr, 
 pt_access_status_t inline v3_can_access_pml4e64(pml4e64_t * pmle, addr_t addr, pf_error_t access_type);
 pt_access_status_t inline v3_can_access_pdpe64(pdpe64_t * pdpe, addr_t addr, pf_error_t access_type);
 pt_access_status_t inline v3_can_access_pde64(pde64_t * pde, addr_t addr, pf_error_t access_type);
-pt_access_status_t inline v3_can_access_pte32(pte32_t * pte, addr_t addr, pf_error_t access_type);
+pt_access_status_t inline v3_can_access_pte64(pte64_t * pte, addr_t addr, pf_error_t access_type);
 
 
-
-
+int v3_check_host_pt_32(v3_reg_t host_cr3, addr_t vaddr, 
+			pf_error_t access_type, pt_access_status_t * access_status);
+int v3_check_host_pt_32pae(v3_reg_t host_cr3, addr_t vaddr, 
+			   pf_error_t access_type, pt_access_status_t * access_status);
+int v3_check_host_pt_64(v3_reg_t host_cr3, addr_t vaddr, 
+			pf_error_t access_type, pt_access_status_t * access_status);
+int v3_check_guest_pt_32(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr, 
+			 pf_error_t access_type, pt_access_status_t * access_status);
+int v3_check_guest_pt_32pae(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr, 
+			    pf_error_t access_type, pt_access_status_t * access_status);
+int v3_check_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr, 
+			 pf_error_t access_type, pt_access_status_t * access_status);
 
 
 struct guest_info;

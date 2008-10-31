@@ -98,7 +98,8 @@ int v3_translate_guest_pt_32(struct guest_info * info, v3_reg_t guest_cr3, addr_
     }
   }
 
-  return 0;
+  // should never get here
+  return -1;
 }
 
 
@@ -159,7 +160,8 @@ int v3_translate_guest_pt_32pae(struct guest_info * info, v3_reg_t guest_cr3, ad
       return -1;
     }
 
-  return 0;
+  // should never get here
+  return -1;
 }
 
 int v3_translate_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr, addr_t * paddr) {
@@ -237,7 +239,9 @@ int v3_translate_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_
   default:
     return -1;
   }
-  return 0;
+
+  // should never get here
+  return -1;
 }
 
 
@@ -254,7 +258,7 @@ int v3_translate_host_pt_32(v3_reg_t host_cr3, addr_t vaddr, addr_t * paddr) {
     *paddr = (addr_t)host_pte;
     return 0;
   case PT_ENTRY_PAGE:
-    if (pte32_lookup(host_pte, vaddr, paddr) == PT_ENTRY_NOT_PRESENT) {
+    if (pte32_lookup(V3_VAddr(host_pte), vaddr, paddr) == PT_ENTRY_NOT_PRESENT) {
       return -1;
     }
     return 0;
@@ -275,7 +279,7 @@ int v3_translate_host_pt_32pae(v3_reg_t host_cr3, addr_t vaddr, addr_t * paddr) 
     *paddr = 0;
     return -1;
   case PT_ENTRY_PAGE:
-    switch (pde32pae_lookup(host_pde, vaddr, (addr_t *)&host_pte)) {
+    switch (pde32pae_lookup(V3_VAddr(host_pde), vaddr, (addr_t *)&host_pte)) {
     case PT_ENTRY_NOT_PRESENT:
       *paddr = 0;
       return -1;
@@ -283,7 +287,7 @@ int v3_translate_host_pt_32pae(v3_reg_t host_cr3, addr_t vaddr, addr_t * paddr) 
       *paddr = (addr_t)host_pte;
       return 0;
     case PT_ENTRY_PAGE:
-      if (pte32pae_lookup(host_pte, vaddr, paddr) == PT_ENTRY_NOT_PRESENT) {
+      if (pte32pae_lookup(V3_VAddr(host_pte), vaddr, paddr) == PT_ENTRY_NOT_PRESENT) {
 	return -1;
       }
       return 0;
@@ -308,7 +312,7 @@ int v3_translate_host_pt_64(v3_reg_t host_cr3, addr_t vaddr, addr_t * paddr) {
     *paddr = 0;
     return -1;
   case PT_ENTRY_PAGE:
-    switch(pdpe64_lookup(host_pdpe, vaddr, (addr_t *)&host_pde)) {
+    switch(pdpe64_lookup(V3_VAddr(host_pdpe), vaddr, (addr_t *)&host_pde)) {
     case PT_ENTRY_NOT_PRESENT:
       *paddr = 0;
       return -1;
@@ -317,13 +321,15 @@ int v3_translate_host_pt_64(v3_reg_t host_cr3, addr_t vaddr, addr_t * paddr) {
       PrintError("1 Gigabyte Pages not supported\n");
       return -1;
     case PT_ENTRY_PAGE:
-      switch (pde64_lookup(host_pde, vaddr, (addr_t *)&host_pte)) {
+      switch (pde64_lookup(V3_VAddr(host_pde), vaddr, (addr_t *)&host_pte)) {
       case PT_ENTRY_NOT_PRESENT:
 	*paddr = 0;
 	return -1;
       case PT_ENTRY_LARGE_PAGE:
+	*paddr = (addr_t)host_pte;
+	return 0;
       case PT_ENTRY_PAGE:
-	if (pte64_lookup(host_pte, vaddr, paddr) == PT_ENTRY_NOT_PRESENT) {
+	if (pte64_lookup(V3_VAddr(host_pte), vaddr, paddr) == PT_ENTRY_NOT_PRESENT) {
 	  return -1;
 	}
 	return 0;
@@ -517,9 +523,403 @@ pt_entry_type_t pte64_lookup(pte64_t * pt, addr_t addr, addr_t * entry) {
 
 
 
+/* 
+ *
+ * Page Table Access Checks
+ *
+ */
 
 
-static pt_access_status_t can_access_pt(gen_pt_t * pt, pf_error_t access_type) {
+
+
+
+
+int v3_check_host_pt_32(v3_reg_t host_cr3, addr_t vaddr, pf_error_t access_type, pt_access_status_t * access_status) {
+  pde32_t * host_pde = (pde32_t *)CR3_TO_PDE32_VA(host_cr3);
+  pte32_t * host_pte = 0;
+
+  int pt_level = 2;
+
+  // Check accessibility of PDE
+  *access_status = v3_can_access_pde32(host_pde, vaddr, access_type);
+  
+  if (*access_status != PT_ACCESS_OK) {
+    return pt_level;
+  } 
+
+  pt_level--;
+  
+  switch (pde32_lookup(host_pde, vaddr, (addr_t *)&host_pte)) {
+  case PT_ENTRY_LARGE_PAGE:
+    return 0;
+  case PT_ENTRY_PAGE:
+    *access_status = v3_can_access_pte32(V3_VAddr(host_pte), vaddr, access_type);
+    
+    if (*access_status != PT_ACCESS_OK) {
+      return pt_level;
+    }
+
+    return 0;
+  default: 
+    return -1;
+  }
+  
+  // should never get here
+  return -1;
+}
+
+int v3_check_host_pt_32pae(v3_reg_t host_cr3, addr_t vaddr, pf_error_t access_type, pt_access_status_t * access_status) {
+  pdpe32pae_t * host_pdpe = (pdpe32pae_t *)CR3_TO_PDPE32PAE_VA(host_cr3);
+  pde32pae_t * host_pde = NULL;
+  pte32pae_t * host_pte = NULL;
+  int pt_level = 3;
+
+  *access_status = v3_can_access_pdpe32pae(host_pdpe, vaddr, access_type);
+
+  if (*access_status != PT_ACCESS_OK) {
+    return pt_level;
+  }
+
+  pt_level--;
+
+  switch (pdpe32pae_lookup(host_pdpe, vaddr, (addr_t *)&host_pde)) {
+  case PT_ENTRY_PAGE:
+    *access_status = v3_can_access_pde32pae(V3_VAddr(host_pde), vaddr, access_type);
+
+    if (*access_status != PT_ACCESS_OK) {
+      return pt_level;
+    }
+
+    pt_level--;
+
+    switch (pde32pae_lookup(V3_VAddr(host_pde), vaddr, (addr_t *)&host_pte)) {
+    case PT_ENTRY_LARGE_PAGE:
+      return 0;
+    case PT_ENTRY_PAGE:
+      *access_status = v3_can_access_pte32pae(V3_VAddr(host_pte), vaddr, access_type);
+
+      if (*access_status != PT_ACCESS_OK) {
+	return pt_level;
+      }
+
+      return 0;
+    default:
+      return -1;
+    }
+  default:
+    return -1;
+  }
+
+  // should never get here
+  return -1;
+}
+
+
+
+int v3_check_host_pt_64(v3_reg_t host_cr3, addr_t vaddr, pf_error_t access_type, pt_access_status_t * access_status) {
+  pml4e64_t * host_pmle = (pml4e64_t *)CR3_TO_PML4E64_VA(host_cr3);
+  pdpe64_t * host_pdpe = NULL;
+  pde64_t * host_pde = NULL;
+  pte64_t * host_pte = NULL;
+  int pt_level = 4;
+
+
+  *access_status = v3_can_access_pml4e64(host_pmle, vaddr, access_type);
+
+  if (*access_status != PT_ACCESS_OK) {
+    return pt_level;
+  }
+
+  pt_level--;
+
+  switch(pml4e64_lookup(host_pmle, vaddr, (addr_t *)&host_pdpe)) {
+  case PT_ENTRY_PAGE:
+    *access_status = v3_can_access_pdpe64(V3_VAddr(host_pdpe), vaddr, access_type);
+
+    if (*access_status != PT_ACCESS_OK) {
+      return pt_level;
+    }
+
+    pt_level--;
+
+    switch(pdpe64_lookup(V3_VAddr(host_pdpe), vaddr, (addr_t *)&host_pde)) {
+    case PT_ENTRY_LARGE_PAGE:
+      return 0;
+    case PT_ENTRY_PAGE:
+      *access_status = v3_can_access_pde64(V3_VAddr(host_pde), vaddr, access_type);
+
+      if (*access_status != PT_ACCESS_OK) {
+	return pt_level;
+      }
+
+      pt_level--;
+
+      switch (pde64_lookup(V3_VAddr(host_pde), vaddr, (addr_t *)&host_pte)) {
+      case PT_ENTRY_LARGE_PAGE:
+	return 0;
+      case PT_ENTRY_PAGE:
+	*access_status = v3_can_access_pte64(V3_VAddr(host_pte), vaddr, access_type);
+
+	if (*access_status != PT_ACCESS_OK) {
+	  return pt_level;
+	}
+
+	return 0;
+      default:
+	return -1;
+      }
+    default:
+      return -1;
+    }
+  default:
+    return -1;
+  }
+
+  // should never get here
+  return -1;
+}
+
+
+
+
+
+int v3_check_guest_pt_32(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr, 
+			 pf_error_t access_type, pt_access_status_t * access_status) {
+  addr_t guest_pde_pa = CR3_TO_PDE32_PA(guest_cr3);
+  pde32_t * guest_pde = NULL;
+  addr_t guest_pte_pa = 0;
+  int pt_level = 2;
+
+  if (guest_pa_to_host_va(info, guest_pde_pa, (addr_t*)&guest_pde) == -1) {
+    PrintError("Could not get virtual address of Guest PDE32 (PA=%p)\n", 
+	       (void *)guest_pde_pa);
+    return -1;
+  }
+  
+
+  // Check accessibility of PDE
+  *access_status = v3_can_access_pde32(guest_pde, vaddr, access_type);
+  
+  if (*access_status != PT_ACCESS_OK) {
+    return pt_level;
+  } 
+
+  pt_level--;
+  
+  switch (pde32_lookup(guest_pde, vaddr, &guest_pte_pa)) {
+  case PT_ENTRY_LARGE_PAGE:
+    return 0;
+  case PT_ENTRY_PAGE:
+    {
+      pte32_t * guest_pte = NULL;
+
+      if (guest_pa_to_host_va(info, guest_pte_pa, (addr_t*)&guest_pte) == -1) {
+	PrintError("Could not get virtual address of Guest PTE32 (PA=%p)\n", 
+		   (void *)guest_pte_pa);
+	return -1;
+      }
+
+      *access_status = v3_can_access_pte32(guest_pte, vaddr, access_type);
+      
+      if (*access_status != PT_ACCESS_OK) {
+	return pt_level;
+      }
+      return 0;
+    }
+  default: 
+    return -1;
+  }
+  
+  // should never get here
+  return -1;
+}
+
+
+
+
+
+int v3_check_guest_pt_32pae(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr, 
+			    pf_error_t access_type, pt_access_status_t * access_status) {
+  addr_t guest_pdpe_pa = CR3_TO_PDPE32PAE_PA(guest_cr3);
+  pdpe32pae_t * guest_pdpe = NULL;
+  addr_t guest_pde_pa = 0;
+  int pt_level = 3;
+
+  if (guest_pa_to_host_va(info, guest_pdpe_pa, (addr_t*)&guest_pdpe) == -1) {
+    PrintError("Could not get virtual address of Guest PDPE32PAE (PA=%p)\n",
+	       (void *)guest_pdpe_pa);
+    return -1;
+  }
+
+  *access_status = v3_can_access_pdpe32pae(guest_pdpe, vaddr, access_type);
+
+  if (*access_status != PT_ACCESS_OK) {
+    return pt_level;
+  }
+
+  pt_level--;
+
+  switch (pdpe32pae_lookup(guest_pdpe, vaddr, &guest_pde_pa)) {
+  case PT_ENTRY_PAGE:
+    {
+      pde32pae_t * guest_pde = NULL;
+      addr_t guest_pte_pa = 0;
+	
+      if (guest_pa_to_host_va(info, guest_pde_pa, (addr_t *)&guest_pde) == -1) {
+	PrintError("Could not get virtual Address of Guest PDE32PAE (PA=%p)\n", 
+		   (void *)guest_pde_pa);
+	return -1;
+      }
+      
+      *access_status = v3_can_access_pde32pae(guest_pde, vaddr, access_type);
+      
+      if (*access_status != PT_ACCESS_OK) {
+	return pt_level;
+      }
+      
+      pt_level--;
+      
+      switch (pde32pae_lookup(guest_pde, vaddr, &guest_pte_pa)) {
+      case PT_ENTRY_LARGE_PAGE:
+	return 0;
+      case PT_ENTRY_PAGE:
+	{
+	  pte32pae_t * guest_pte = NULL;
+
+	  if (guest_pa_to_host_va(info, guest_pte_pa, (addr_t *)&guest_pte) == -1) {
+	    PrintError("Could not get virtual Address of Guest PTE32PAE (PA=%p)\n", 
+		       (void *)guest_pte_pa);
+	    return -1;
+	  }
+
+	  *access_status = v3_can_access_pte32pae(guest_pte, vaddr, access_type);
+	
+	  if (*access_status != PT_ACCESS_OK) {
+	    return pt_level;
+	  }
+	
+	  return 0;
+	}
+      default:
+	return -1;
+      }
+    }
+  default:
+    return -1;
+  }
+
+  // should never get here
+  return -1;
+}
+
+
+  pte64_t * guest_pte = NULL;
+
+int v3_check_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr, 
+			 pf_error_t access_type, pt_access_status_t * access_status) {
+  addr_t guest_pml4_pa = CR3_TO_PML4E64_PA(guest_cr3);
+  pml4e64_t * guest_pmle = NULL; 
+  addr_t guest_pdpe_pa = 0;
+  int pt_level = 4;
+
+  if (guest_pa_to_host_va(info, guest_pml4_pa, (addr_t*)&guest_pmle) == -1) {
+    PrintError("Could not get virtual address of Guest PML4E64 (PA=%p)\n", 
+	       (void *)guest_pml4_pa);
+    return -1;
+  }
+
+  *access_status = v3_can_access_pml4e64(guest_pmle, vaddr, access_type);
+
+  if (*access_status != PT_ACCESS_OK) {
+    return pt_level;
+  }
+
+  pt_level--;
+
+  switch(pml4e64_lookup(guest_pmle, vaddr, &guest_pdpe_pa)) {
+  case PT_ENTRY_PAGE:
+    {
+      pdpe64_t * guest_pdp = NULL;
+      addr_t guest_pde_pa = 0;
+
+      if (guest_pa_to_host_va(info, guest_pdpe_pa, (addr_t *)&guest_pdp) == -1) {
+	PrintError("Could not get virtual address of Guest PDPE64 (PA=%p)\n", 
+		   (void *)guest_pdpe_pa);
+	return -1;
+      }
+
+      *access_status = v3_can_access_pdpe64(guest_pdp, vaddr, access_type);
+      
+      if (*access_status != PT_ACCESS_OK) {
+	return pt_level;
+      }
+      
+      pt_level--;
+      
+      switch(pdpe64_lookup(guest_pdp, vaddr, &guest_pde_pa)) {
+      case PT_ENTRY_LARGE_PAGE:
+	return 0;
+      case PT_ENTRY_PAGE:
+	{
+	  pde64_t * guest_pde = NULL;
+  	  addr_t guest_pte_pa = 0;
+	  
+	  if (guest_pa_to_host_va(info, guest_pde_pa, (addr_t *)&guest_pde) == -1) {
+	    PrintError("Could not get virtual address of guest PDE64 (PA=%p)\n", 
+		       (void *)guest_pde_pa);
+	    return -1;
+	  }
+
+	  *access_status = v3_can_access_pde64(guest_pde, vaddr, access_type);
+	  
+	  if (*access_status != PT_ACCESS_OK) {
+	    return pt_level;
+	  }
+	  
+	  pt_level--;
+	  
+	  switch (pde64_lookup(guest_pde, vaddr, &guest_pte_pa)) {
+	  case PT_ENTRY_LARGE_PAGE:
+	    return 0;
+	  case PT_ENTRY_PAGE:
+	    {
+	      pte64_t * guest_pte = NULL;
+	      
+	      if (guest_pa_to_host_va(info, guest_pte_pa, (addr_t *)&guest_pte) == -1) {
+		PrintError("Could not get virtual address of guest PTE64 (PA=%p)\n", 
+			   (void *)guest_pte_pa);
+		return -1;
+	      }
+
+	      *access_status = v3_can_access_pte64(guest_pte, vaddr, access_type);
+	      
+	      if (*access_status != PT_ACCESS_OK) {
+		return pt_level;
+	      }
+	      
+	      return 0;
+	    }
+	  default:
+	    return -1;
+	  }
+	}
+      default:
+	return -1;
+      }
+    }
+  default:
+    return -1;
+  }
+
+  // should never get here
+  return -1;
+}
+
+
+
+
+
+static pt_access_status_t can_access_pt_entry(gen_pt_t * pt, pf_error_t access_type) {
   if (pt->present == 0) {
     return PT_ACCESS_NOT_PRESENT;
   } else if ((pt->writable == 0) && (access_type.write == 1)) {
@@ -539,12 +939,12 @@ static pt_access_status_t can_access_pt(gen_pt_t * pt, pf_error_t access_type) {
  */
 pt_access_status_t inline v3_can_access_pde32(pde32_t * pde, addr_t addr, pf_error_t access_type) {
   gen_pt_t * entry = (gen_pt_t *)&pde[PDE32_INDEX(addr)];
-  return can_access_pt(entry, access_type);
+  return can_access_pt_entry(entry, access_type);
 }
 
 pt_access_status_t inline v3_can_access_pte32(pte32_t * pte, addr_t addr, pf_error_t access_type) {
   gen_pt_t * entry = (gen_pt_t *)&pte[PTE32_INDEX(addr)];
-  return can_access_pt(entry, access_type);
+  return can_access_pt_entry(entry, access_type);
 }
 
 
@@ -553,17 +953,17 @@ pt_access_status_t inline v3_can_access_pte32(pte32_t * pte, addr_t addr, pf_err
  */
 pt_access_status_t inline v3_can_access_pdpe32pae(pdpe32pae_t * pdpe, addr_t addr, pf_error_t access_type) {
   gen_pt_t * entry = (gen_pt_t *)&pdpe[PDPE32PAE_INDEX(addr)];
-  return can_access_pt(entry, access_type);
+  return can_access_pt_entry(entry, access_type);
 }
 
 pt_access_status_t inline v3_can_access_pde32pae(pde32pae_t * pde, addr_t addr, pf_error_t access_type) {
   gen_pt_t * entry = (gen_pt_t *)&pde[PDE32PAE_INDEX(addr)];
-  return can_access_pt(entry, access_type);
+  return can_access_pt_entry(entry, access_type);
 }
 
 pt_access_status_t inline v3_can_access_pte32pae(pte32pae_t * pte, addr_t addr, pf_error_t access_type) {
   gen_pt_t * entry = (gen_pt_t *)&pte[PTE32PAE_INDEX(addr)];
-  return can_access_pt(entry, access_type);
+  return can_access_pt_entry(entry, access_type);
 }
 
 /*
@@ -571,22 +971,22 @@ pt_access_status_t inline v3_can_access_pte32pae(pte32pae_t * pte, addr_t addr, 
  */
 pt_access_status_t inline v3_can_access_pml4e64(pml4e64_t * pmle, addr_t addr, pf_error_t access_type) {
   gen_pt_t * entry = (gen_pt_t *)&pmle[PML4E64_INDEX(addr)];
-  return can_access_pt(entry, access_type);
+  return can_access_pt_entry(entry, access_type);
 }
 
 pt_access_status_t inline v3_can_access_pdpe64(pdpe64_t * pdpe, addr_t addr, pf_error_t access_type) {
   gen_pt_t * entry = (gen_pt_t *)&pdpe[PDPE64_INDEX(addr)];
-  return can_access_pt(entry, access_type);
+  return can_access_pt_entry(entry, access_type);
 }
 
 pt_access_status_t inline v3_can_access_pde64(pde64_t * pde, addr_t addr, pf_error_t access_type) {
   gen_pt_t * entry = (gen_pt_t *)&pde[PDE32_INDEX(addr)];
-  return can_access_pt(entry, access_type);
+  return can_access_pt_entry(entry, access_type);
 }
 
 pt_access_status_t inline v3_can_access_pte64(pte64_t * pte, addr_t addr, pf_error_t access_type) {
   gen_pt_t * entry = (gen_pt_t *)&pte[PTE64_INDEX(addr)];
-  return can_access_pt(entry, access_type);
+  return can_access_pt_entry(entry, access_type);
 }
 
 

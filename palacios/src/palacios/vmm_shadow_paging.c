@@ -825,7 +825,8 @@ int v3_handle_shadow_invlpg(struct guest_info * info)
   
   
   if (info->cpu_mode != PROTECTED) {
-    return 0;
+    PrintError("Unsupported CPU mode (mode=%s)\n", v3_cpu_mode_to_str(info->cpu_mode));
+    return -1;
   }
   
   uchar_t instr[15];
