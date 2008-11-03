@@ -106,7 +106,8 @@ the host state in the vmcs before entering the guest.
 #define MAX_PTE64_ENTRIES          512
 
 
-typedef enum {PAGE_4KB, PAGE_2MB, PAGE_4MB, PAGE_1GB,
+typedef enum {PAGE_4KB, PAGE_2MB, PAGE_4MB, PAGE_1GB, 
+	      PAGE_NOT_PRESENT,
 	      PAGE_PT32, PAGE_PD32, 
 	      PAGE_PDP32PAE, PAGE_PD32PAE, PAGE_PT32PAE,
 	      PAGE_PML464, PAGE_PDP64, PAGE_PD64, PAGE_PT64} page_type_t;
@@ -146,11 +147,13 @@ typedef enum {PAGE_4KB, PAGE_2MB, PAGE_4MB, PAGE_1GB,
 */
 /* Replace The above with these... */
 #define PAGE_BASE_ADDR(x) ((x) >> 12)
+#define PAGE_BASE_ADDR_4KB(x) ((x) >> 12)
 #define PAGE_BASE_ADDR_2MB(x) ((x) >> 21)
 #define PAGE_BASE_ADDR_4MB(x) ((x) >> 22)
 #define PAGE_BASE_ADDR_1GB(x) ((x) >> 30)
 
 #define BASE_TO_PAGE_ADDR(x) (((addr_t)x) << 12)
+#define BASE_TO_PAGE_ADDR_4KB(x) (((addr_t)x) << 12)
 #define BASE_TO_PAGE_ADDR_2MB(x) (((addr_t)x) << 21)
 #define BASE_TO_PAGE_ADDR_4MB(x) (((addr_t)x) << 22)
 #define BASE_TO_PAGE_ADDR_1GB(x) (((addr_t)x) << 30)
@@ -172,22 +175,29 @@ typedef enum {PAGE_4KB, PAGE_2MB, PAGE_4MB, PAGE_1GB,
 */
 /* use these instead */
 #define PAGE_OFFSET(x) ((x) & 0xfff)
+#define PAGE_OFFSET_4KB(x) ((x) & 0xfff)
 #define PAGE_OFFSET_2MB(x) ((x) & 0x1fffff)
 #define PAGE_OFFSET_4MB(x) ((x) & 0x3fffff)
+#define PAGE_OFFSET_1GB(x) ((x) & 0x3fffffff)
 
 #define PAGE_POWER 12
-#define PAGE_POWER_2MB 22
-#define PAGE_POWER_4MB 21
+#define PAGE_POWER_4KB 12
+#define PAGE_POWER_2MB 21
+#define PAGE_POWER_4MB 22
+#define PAGE_POWER_1GB 30
 
 // We shift instead of mask because we don't know the address size
 #define PAGE_ADDR(x) (((x) >> PAGE_POWER) << PAGE_POWER)
+#define PAGE_ADDR_4KB(x) (((x) >> PAGE_POWER_4KB) << PAGE_POWER_4KB)
 #define PAGE_ADDR_2MB(x) (((x) >> PAGE_POWER_2MB) << PAGE_POWER_2MB)
 #define PAGE_ADDR_4MB(x) (((x) >> PAGE_POWER_4MB) << PAGE_POWER_4MB)
+#define PAGE_ADDR_1GB(x) (((x) >> PAGE_POWER_1GB) << PAGE_POWER_1GB)
 
 #define PAGE_SIZE 4096
+#define PAGE_SIZE_4KB 4096
 #define PAGE_SIZE_2MB (4096 * 512)
 #define PAGE_SIZE_4MB (4096 * 1024)
-
+#define PAGE_SIZE_1GB 0x40000000
 
 /* *** */
 
@@ -476,9 +486,6 @@ typedef struct pf_error_code {
 
 
 
-void delete_page_tables_32(pde32_t * pde);
-void delete_page_tables_32PAE(pdpe32pae_t * pdpe);
-void delete_page_tables_64(pml4e64_t *  pml4);
 
 struct guest_info;
 
@@ -491,23 +498,18 @@ int v3_translate_host_pt_32pae(v3_reg_t host_cr3, addr_t vaddr, addr_t * paddr);
 int v3_translate_host_pt_64(v3_reg_t host_cr3, addr_t vaddr, addr_t * paddr);
 
 
-/* Should these be static? */
-pt_entry_type_t pde32_lookup(pde32_t * pd, addr_t addr, addr_t * entry);
-pt_entry_type_t pte32_lookup(pte32_t * pt, addr_t addr, addr_t * entry);
-
-pt_entry_type_t pdpe32pae_lookup(pdpe32pae_t * pdp, addr_t addr, addr_t * entry);
-pt_entry_type_t pde32pae_lookup(pde32pae_t * pd, addr_t addr, addr_t * entry);
-pt_entry_type_t pte32pae_lookup(pte32pae_t * pt, addr_t addr, addr_t * entry);
-
-pt_entry_type_t pml4e64_lookup(pml4e64_t * pml, addr_t addr, addr_t * entry);
-pt_entry_type_t pdpe64_lookup(pdpe64_t * pdp, addr_t addr, addr_t * entry);
-pt_entry_type_t pde64_lookup(pde64_t * pd, addr_t addr, addr_t * entry);
-pt_entry_type_t pte64_lookup(pte64_t * pt, addr_t addr, addr_t * entry);
-
-
-
-
-
+int v3_find_host_pt_32_page(v3_reg_t host_cr3, page_type_t type, addr_t vaddr, addr_t * page_addr);
+int v3_find_host_pt_32pae_page(v3_reg_t host_cr3, page_type_t type, addr_t vaddr, addr_t * page_addr);
+int v3_find_host_pt_64_page(v3_reg_t host_cr3, page_type_t type, addr_t vaddr, addr_t * page_addr);
+int v3_find_guest_pt_32_page(struct guest_info * info, v3_reg_t guest_cr3, 
+			     page_type_t type, addr_t vaddr, 
+			     addr_t * page_addr);
+int v3_find_guest_pt_32pae_page(struct guest_info * info, v3_reg_t guest_cr3, 
+				page_type_t type, addr_t vaddr, 
+				addr_t * page_addr);
+int v3_find_guest_pt_64_page(struct guest_info * info, v3_reg_t guest_cr3, 
+			     page_type_t type, addr_t vaddr, 
+			     addr_t * page_addr);
 
 pt_access_status_t inline v3_can_access_pde32(pde32_t * pde, addr_t addr, pf_error_t access_type);
 pt_access_status_t inline v3_can_access_pte32(pte32_t * pte, addr_t addr, pf_error_t access_type);
@@ -537,35 +539,62 @@ int v3_check_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t va
 
 
 
+
+int v3_drill_host_pt_32(v3_reg_t host_cr3, addr_t vaddr,
+			int (*callback)(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
+			void * private_data);
+int v3_drill_host_pt_32pae(v3_reg_t host_cr3, addr_t vaddr,
+			   int (*callback)(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
+			   void * private_data);
+int v3_drill_host_pt_64(v3_reg_t host_cr3, addr_t vaddr,
+			int (*callback)(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
+			void * private_data);
+
+int v3_drill_guest_pt_32(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr,
+			 int (*callback)(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
+			 void * private_data);
+int v3_drill_guest_pt_32pae(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr,
+			    int (*callback)(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
+			    void * private_data);
+int v3_drill_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr,
+			 int (*callback)(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
+			 void * private_data);
+
+
+
 int v3_walk_host_pt_32(v3_reg_t host_cr3,
-		       void (*callback)(page_type_t type, addr_t page_va, addr_t page_pa, void * private_data),
+		       void (*callback)(page_type_t type, addr_t vaddr, addr_t page_va, addr_t page_pa, void * private_data),
 		       void * private_data);
 
 int v3_walk_host_pt_32pae(v3_reg_t host_cr3,
-			  void (*callback)(page_type_t type, addr_t page_va, addr_t page_pa, void * private_data),
+			  void (*callback)(page_type_t type, addr_t vaddr, addr_t page_va, addr_t page_pa, void * private_data),
 			  void * private_data);
 
 int v3_walk_host_pt_64(v3_reg_t host_cr3,
-		       void (*callback)(page_type_t type, addr_t page_va, addr_t page_pa, void * private_data),
+		       void (*callback)(page_type_t type, addr_t vaddr, addr_t page_va, addr_t page_pa, void * private_data),
 		       void * private_data);
 
 int v3_walk_guest_pt_32(struct guest_info * info, v3_reg_t guest_cr3,
-		       void (*callback)(page_type_t type, addr_t page_va, addr_t page_pa, void * private_data),
-		       void * private_data);
+			void (*callback)(page_type_t type, addr_t vaddr, addr_t page_va, addr_t page_pa, void * private_data),
+			void * private_data);
 
 int v3_walk_guest_pt_32pae(struct guest_info * info, v3_reg_t guest_cr3,
-			  void (*callback)(page_type_t type, addr_t page_va, addr_t page_pa, void * private_data),
-			  void * private_data);
+			   void (*callback)(page_type_t type, addr_t vaddr, addr_t page_va, addr_t page_pa, void * private_data),
+			   void * private_data);
 
 int v3_walk_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3,
-		       void (*callback)(page_type_t type, addr_t page_va, addr_t page_pa, void * private_data),
-		       void * private_data);
+			void (*callback)(page_type_t type, addr_t vaddr, addr_t page_va, addr_t page_pa, void * private_data),
+			void * private_data);
   
-struct guest_info;
 
 pde32_t * create_passthrough_pts_32(struct guest_info * guest_info);
 pdpe32pae_t * create_passthrough_pts_32PAE(struct guest_info * guest_info);
 pml4e64_t * create_passthrough_pts_64(struct guest_info * info);
+
+
+void delete_page_tables_32(pde32_t * pde);
+void delete_page_tables_32PAE(pdpe32pae_t * pdpe);
+void delete_page_tables_64(pml4e64_t *  pml4);
 
 
 

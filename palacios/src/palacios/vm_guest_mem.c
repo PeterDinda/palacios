@@ -151,7 +151,7 @@ int guest_va_to_guest_pa(struct guest_info * guest_info, addr_t guest_va, addr_t
     return 0;
   }
 
-  if (guest_info->mem_mode == SHADOW_PAGING) {
+  if (guest_info->shdw_pg_mode == SHADOW_PAGING) {
     guest_cr3 = guest_info->shdw_pg_state.guest_cr3;
   } else {
     guest_cr3 = guest_info->ctrl_regs.cr3;
@@ -161,13 +161,28 @@ int guest_va_to_guest_pa(struct guest_info * guest_info, addr_t guest_va, addr_t
   // Guest Is in Paged mode
   switch (guest_info->cpu_mode) {
   case PROTECTED:
-    return v3_translate_guest_pt_32(guest_info, guest_cr3, guest_va, guest_pa);
+    if (v3_translate_guest_pt_32(guest_info, guest_cr3, guest_va, guest_pa) == -1) {
+      PrintDebug("Could not translate addr (%p) through 32 bit guest PT at %p\n", 
+		 (void *)guest_va, (void *)(addr_t)guest_cr3);
+      return -1;
+    }
+    break;
   case PROTECTED_PAE:
-    return v3_translate_guest_pt_32pae(guest_info, guest_cr3, guest_va, guest_pa);
+    if (v3_translate_guest_pt_32pae(guest_info, guest_cr3, guest_va, guest_pa) == -1) {
+      PrintDebug("Could not translate addr (%p) through 32 bitpae guest PT at %p\n", 
+		 (void *)guest_va, (void *)(addr_t)guest_cr3);
+      return -1;
+    }
+    break;
   case LONG:
   case LONG_32_COMPAT:
   case LONG_16_COMPAT:
-    return v3_translate_guest_pt_64(guest_info, guest_cr3, guest_va, guest_pa);
+    if (v3_translate_guest_pt_64(guest_info, guest_cr3, guest_va, guest_pa) == -1) {
+      PrintDebug("Could not translate addr (%p) through 64 bit guest PT at %p\n", 
+		 (void *)guest_va, (void *)(addr_t)guest_cr3);
+      return -1;
+    }
+    break;
   default:
     return -1;
   }

@@ -395,8 +395,17 @@ static int start_svm_guest(struct guest_info *info) {
       PrintDebug("RIP Linear: %p\n", (void *)linear_addr);
       v3_print_segments(info);
       v3_print_ctrl_regs(info);
+      if (info->shdw_pg_mode == SHADOW_PAGING) {
+	PrintDebug("Shadow Paging Guest Registers:\n");
+	PrintDebug("\tGuest CR0=%p\n", (void *)(addr_t)(info->shdw_pg_state.guest_cr0));
+	PrintDebug("\tGuest CR3=%p\n", (void *)(addr_t)(info->shdw_pg_state.guest_cr3));
+	// efer
+	// CR4
+      }
       v3_print_GPRs(info);
 
+
+      
 
 
       PrintDebug("SVM Exit Code: %p\n", (void *)(addr_t)guest_ctrl->exit_code); 

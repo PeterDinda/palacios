@@ -24,11 +24,28 @@
 #include <palacios/vm_guest_mem.h>
 
 
+static pt_entry_type_t pde32_lookup(pde32_t * pd, addr_t addr, addr_t * entry);
+static pt_entry_type_t pte32_lookup(pte32_t * pt, addr_t addr, addr_t * entry);
+
+static pt_entry_type_t pdpe32pae_lookup(pdpe32pae_t * pdp, addr_t addr, addr_t * entry);
+static pt_entry_type_t pde32pae_lookup(pde32pae_t * pd, addr_t addr, addr_t * entry);
+static pt_entry_type_t pte32pae_lookup(pte32pae_t * pt, addr_t addr, addr_t * entry);
+
+static pt_entry_type_t pml4e64_lookup(pml4e64_t * pml, addr_t addr, addr_t * entry);
+static pt_entry_type_t pdpe64_lookup(pdpe64_t * pdp, addr_t addr, addr_t * entry);
+static pt_entry_type_t pde64_lookup(pde64_t * pd, addr_t addr, addr_t * entry);
+static pt_entry_type_t pte64_lookup(pte64_t * pt, addr_t addr, addr_t * entry);
+
+
+
 
 #define USE_VMM_PAGING_DEBUG
 // All of the debug functions defined in vmm_paging.h are implemented in this file
 #include "vmm_paging_debug.h"
 #undef USE_VMM_PAGING_DEBUG
+
+
+
 
 
 void delete_page_tables_32(pde32_t * pde) {
@@ -62,288 +79,335 @@ void delete_page_tables_64(pml4e64_t * pml4) {
 }
 
 
-int v3_translate_guest_pt_32(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr, addr_t * paddr) {
-  addr_t guest_pde_pa = CR3_TO_PDE32_PA(guest_cr3);
-  pde32_t * guest_pde = 0;
-  addr_t guest_pte_pa = 0;
 
-  if (guest_pa_to_host_va(info, guest_pde_pa, (addr_t*)&guest_pde) == -1) {
-    PrintError("Could not get virtual address of Guest PDE32 (PA=%p)\n", 
-	       (void *)guest_pde_pa);
-    return -1;
-  }
-  
-  switch (pde32_lookup(guest_pde, vaddr, &guest_pte_pa)) {
-  case PT_ENTRY_NOT_PRESENT:
-    *paddr = 0;  
-    return -1;
-  case PT_ENTRY_LARGE_PAGE:
-    *paddr = guest_pte_pa;
+
+static int translate_pt_32_cb(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data) {
+  addr_t * paddr = (addr_t *)private_data;
+
+  switch (type) {
+  case PAGE_PD32:
+  case PAGE_PT32:
     return 0;
-  case PT_ENTRY_PAGE:
-    {
-      pte32_t * guest_pte = NULL;
-
-      if (guest_pa_to_host_va(info, guest_pte_pa, (addr_t*)&guest_pte) == -1) {
-	PrintError("Could not get virtual address of Guest PTE32 (PA=%p)\n", 
-		   (void *)guest_pte_pa);
-	return -1;
-      }
-
-      if (pte32_lookup(guest_pte, vaddr, paddr) == PT_ENTRY_NOT_PRESENT) {
-	return -1;
-      }
-
-      return 0;
-    }
-  }
-
-  // should never get here
-  return -1;
-}
-
-
-int v3_translate_guest_pt_32pae(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr, addr_t * paddr) {
-  addr_t guest_pdpe_pa = CR3_TO_PDPE32PAE_PA(guest_cr3);
-  pdpe32pae_t * guest_pdpe = 0;
-  addr_t guest_pde_pa = 0;
-
-  if (guest_pa_to_host_va(info, guest_pdpe_pa, (addr_t*)&guest_pdpe) == -1) {
-    PrintError("Could not get virtual address of Guest PDPE32PAE (PA=%p)\n",
-	       (void *)guest_pdpe_pa);
+  case PAGE_4MB:
+    *paddr = page_pa + PAGE_OFFSET_4MB(vaddr);
+    return 0;
+  case PAGE_4KB:
+    *paddr = page_pa + PAGE_OFFSET_4KB(vaddr);
+    return 0;
+  default: 
+    PrintError("Inavlid page type (%s) in tranlate pt 32 callback\n", v3_page_type_to_str(type));
     return -1;
   }
-
-  switch (pdpe32pae_lookup(guest_pdpe, vaddr, &guest_pde_pa)) 
-    {
-    case PT_ENTRY_NOT_PRESENT:
-      *paddr = 0;
-      return -1;
-    case PT_ENTRY_PAGE:
-      {
-	pde32pae_t * guest_pde = NULL;
-	addr_t guest_pte_pa = 0;
-	
-	if (guest_pa_to_host_va(info, guest_pde_pa, (addr_t *)&guest_pde) == -1) {
-	  PrintError("Could not get virtual Address of Guest PDE32PAE (PA=%p)\n", 
-		     (void *)guest_pde_pa);
-	  return -1;
-	}
-	
-	switch (pde32pae_lookup(guest_pde, vaddr, &guest_pte_pa)) 
-	  {
-	  case PT_ENTRY_NOT_PRESENT:
-	    *paddr = 0;
-	    return -1;
-	  case PT_ENTRY_LARGE_PAGE:
-	    *paddr = guest_pte_pa;
-	    return 0;
-	  case PT_ENTRY_PAGE:
-	    {
-	      pte32pae_t * guest_pte = NULL;
-	      
-	      if (guest_pa_to_host_va(info, guest_pte_pa, (addr_t *)&guest_pte) == -1) {
-		PrintError("Could not get virtual Address of Guest PTE32PAE (PA=%p)\n", 
-			   (void *)guest_pte_pa);
-		return -1;
-	      }
-
-	      if (pte32pae_lookup(guest_pte, vaddr, paddr) == PT_ENTRY_NOT_PRESENT) {
-		return -1;
-	      }
-
-	      return 0;
-	    }
-	  }
-      }
-    default:
-      return -1;
-    }
-
-  // should never get here
-  return -1;
 }
 
-int v3_translate_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr, addr_t * paddr) {
-  addr_t guest_pml4_pa = CR3_TO_PML4E64_PA(guest_cr3);
-  pml4e64_t * guest_pmle = 0;
-  addr_t guest_pdpe_pa = 0;
-
-  if (guest_pa_to_host_va(info, guest_pml4_pa, (addr_t*)&guest_pmle) == -1) {
-    PrintError("Could not get virtual address of Guest PML4E64 (PA=%p)\n", 
-	       (void *)guest_pml4_pa);
-    return -1;
-  }
+static int translate_pt_32pae_cb(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data) {
+  addr_t * paddr = (addr_t *)private_data;
   
-  switch (pml4e64_lookup(guest_pmle, vaddr, &guest_pdpe_pa)) {
-  case PT_ENTRY_NOT_PRESENT:
-    *paddr = 0;
-    return -1;
-  case PT_ENTRY_PAGE:
-    {
-      pdpe64_t * guest_pdp = NULL;
-      addr_t guest_pde_pa = 0;
-
-      if (guest_pa_to_host_va(info, guest_pdpe_pa, (addr_t *)&guest_pdp) == -1) {
-	PrintError("Could not get virtual address of Guest PDPE64 (PA=%p)\n", 
-		   (void *)guest_pdpe_pa);
-	return -1;
-      }
-
-      switch (pdpe64_lookup(guest_pdp, vaddr, &guest_pde_pa)) {
-      case PT_ENTRY_NOT_PRESENT:
-	*paddr = 0;
-	return -1;
-      case PT_ENTRY_LARGE_PAGE:
-	*paddr = 0;
-	PrintError("1 Gigabyte Pages not supported\n");
-	return -1;
-      case PT_ENTRY_PAGE:
-	{
-	  pde64_t * guest_pde = NULL;
-	  addr_t guest_pte_pa = 0;
-
-	  if (guest_pa_to_host_va(info, guest_pde_pa, (addr_t *)&guest_pde) == -1) {
-	    PrintError("Could not get virtual address of guest PDE64 (PA=%p)\n", 
-		       (void *)guest_pde_pa);
-	    return -1;
-	  }
-
-	  switch (pde64_lookup(guest_pde, vaddr, &guest_pte_pa)) {
-	  case PT_ENTRY_NOT_PRESENT:
-	    *paddr = 0;
-	    return -1;
-	  case PT_ENTRY_LARGE_PAGE:
-	    *paddr = guest_pte_pa;
-	    return 0;
-	  case PT_ENTRY_PAGE:
-	    {
-	      pte64_t * guest_pte = NULL;
-	      
-	      if (guest_pa_to_host_va(info, guest_pte_pa, (addr_t *)&guest_pte) == -1) {
-		PrintError("Could not get virtual address of guest PTE64 (PA=%p)\n", 
-			   (void *)guest_pte_pa);
-		return -1;
-	      }
-		
-	      if (pte64_lookup(guest_pte, vaddr, paddr) == PT_ENTRY_NOT_PRESENT) {
-		return -1;
-	      }
-
-	      return 0;
-	    }
-	  }
-	}
-      }
-    }
+  switch (type) {
+  case PAGE_PDP32PAE:
+  case PAGE_PD32PAE:
+  case PAGE_PT32PAE:
+    return 0;
+  case PAGE_2MB:
+    *paddr = page_pa + PAGE_OFFSET_2MB(vaddr);
+    return 0;
+  case PAGE_4KB:
+    *paddr = page_pa + PAGE_OFFSET_4KB(vaddr);
+    return 0;
   default:
+    PrintError("Inavlid page type (%s) in translate pt 32pae callback\n", v3_page_type_to_str(type));
     return -1;
   }
-
-  // should never get here
-  return -1;
 }
 
+static int translate_pt_64_cb(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data) {
+  addr_t * paddr = (addr_t *)private_data;
+
+  switch (type) {
+  case PAGE_PML464:
+  case PAGE_PDP64:
+  case PAGE_PD64:
+  case PAGE_PT64:
+    return 0;
+  case PAGE_1GB:
+    *paddr = page_pa + PAGE_OFFSET_1GB(vaddr);
+    return 0;
+  case PAGE_2MB:
+    *paddr = page_pa + PAGE_OFFSET_2MB(vaddr);
+    return 0;
+  case PAGE_4KB:
+    *paddr = page_pa + PAGE_OFFSET_4KB(vaddr);
+    return 0;
+  default:
+    PrintError("Inavlid page type (%s) in translate pt 64 callback\n", v3_page_type_to_str(type));
+    return -1;
+  }
+}
 
 
 int v3_translate_host_pt_32(v3_reg_t host_cr3, addr_t vaddr, addr_t * paddr) {
-  pde32_t * host_pde = (pde32_t *)CR3_TO_PDE32_VA(host_cr3);
-  pte32_t * host_pte = 0;
-    
-  switch (pde32_lookup(host_pde, vaddr, (addr_t *)&host_pte)) {
-  case PT_ENTRY_NOT_PRESENT:
-    *paddr = 0;
-    return -1;
-  case PT_ENTRY_LARGE_PAGE:
-    *paddr = (addr_t)host_pte;
-    return 0;
-  case PT_ENTRY_PAGE:
-    if (pte32_lookup(V3_VAddr(host_pte), vaddr, paddr) == PT_ENTRY_NOT_PRESENT) {
-      return -1;
-    }
-    return 0;
-  }
-  
-  // should never get here
-  return -1;
+  return v3_drill_host_pt_32(host_cr3, vaddr, translate_pt_32_cb, paddr);
+}
+int v3_translate_guest_pt_32(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr, addr_t * paddr) {
+  return v3_drill_guest_pt_32(info, guest_cr3, vaddr, translate_pt_32_cb, paddr);
 }
 
 
 int v3_translate_host_pt_32pae(v3_reg_t host_cr3, addr_t vaddr, addr_t * paddr) {
-  pdpe32pae_t * host_pdpe = (pdpe32pae_t *)CR3_TO_PDPE32PAE_VA(host_cr3);
-  pde32pae_t * host_pde = NULL;
-  pte32pae_t * host_pte = NULL;
-
-  switch (pdpe32pae_lookup(host_pdpe, vaddr, (addr_t *)&host_pde)) {
-  case PT_ENTRY_NOT_PRESENT:
-    *paddr = 0;
-    return -1;
-  case PT_ENTRY_PAGE:
-    switch (pde32pae_lookup(V3_VAddr(host_pde), vaddr, (addr_t *)&host_pte)) {
-    case PT_ENTRY_NOT_PRESENT:
-      *paddr = 0;
-      return -1;
-    case PT_ENTRY_LARGE_PAGE:
-      *paddr = (addr_t)host_pte;
-      return 0;
-    case PT_ENTRY_PAGE:
-      if (pte32pae_lookup(V3_VAddr(host_pte), vaddr, paddr) == PT_ENTRY_NOT_PRESENT) {
-	return -1;
-      }
-      return 0;
-    }
-  default:
-    return -1;
-  }
-
-  // should never get here
-  return -1;
+  return v3_drill_host_pt_32pae(host_cr3, vaddr, translate_pt_32pae_cb, paddr);
+}
+int v3_translate_guest_pt_32pae(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr, addr_t * paddr) {
+  return v3_drill_guest_pt_32pae(info, guest_cr3, vaddr, translate_pt_32pae_cb, paddr);
 }
 
 
 int v3_translate_host_pt_64(v3_reg_t host_cr3, addr_t vaddr, addr_t * paddr) {
-  pml4e64_t * host_pmle = (pml4e64_t *)CR3_TO_PML4E64_VA(host_cr3);
-  pdpe64_t * host_pdpe = NULL;
-  pde64_t * host_pde = NULL;
-  pte64_t * host_pte = NULL;
-
-  switch(pml4e64_lookup(host_pmle, vaddr, (addr_t *)&host_pdpe)) {
-  case PT_ENTRY_NOT_PRESENT:
-    *paddr = 0;
-    return -1;
-  case PT_ENTRY_PAGE:
-    switch(pdpe64_lookup(V3_VAddr(host_pdpe), vaddr, (addr_t *)&host_pde)) {
-    case PT_ENTRY_NOT_PRESENT:
-      *paddr = 0;
-      return -1;
-    case PT_ENTRY_LARGE_PAGE:
-      *paddr = 0;
-      PrintError("1 Gigabyte Pages not supported\n");
-      return -1;
-    case PT_ENTRY_PAGE:
-      switch (pde64_lookup(V3_VAddr(host_pde), vaddr, (addr_t *)&host_pte)) {
-      case PT_ENTRY_NOT_PRESENT:
-	*paddr = 0;
-	return -1;
-      case PT_ENTRY_LARGE_PAGE:
-	*paddr = (addr_t)host_pte;
-	return 0;
-      case PT_ENTRY_PAGE:
-	if (pte64_lookup(V3_VAddr(host_pte), vaddr, paddr) == PT_ENTRY_NOT_PRESENT) {
-	  return -1;
-	}
-	return 0;
-      }
-    }
-  default:
-    return -1;
-  }
-
-  // should never get here
-  return -1;
+  return v3_drill_host_pt_64(host_cr3, vaddr, translate_pt_64_cb, paddr);
+}
+int v3_translate_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr, addr_t * paddr) {
+  return v3_drill_guest_pt_64(info, guest_cr3, vaddr, translate_pt_64_cb, paddr);
 }
 
 
+
+struct pt_find_data {
+  page_type_t type;
+  addr_t * pt_page_addr;
+};
+
+static int find_pt_cb(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data) {
+  struct pt_find_data * pt_data = (struct pt_find_data *)private_data;
+
+  if (type == pt_data->type) {
+    *(pt_data->pt_page_addr) = page_ptr;
+    return 1;
+  }
+
+  return 0;
+}
+
+
+int v3_find_host_pt_32_page(v3_reg_t host_cr3, page_type_t type, addr_t vaddr, addr_t * page_addr) {
+  struct pt_find_data data;
+
+  data.type = type;
+  data.pt_page_addr = page_addr;
+  
+  return v3_drill_host_pt_32(host_cr3, vaddr, find_pt_cb, &data);
+}
+
+int v3_find_host_pt_32pae_page(v3_reg_t host_cr3, page_type_t type, addr_t vaddr, addr_t * page_addr) {
+  struct pt_find_data data;
+
+  data.type = type;
+  data.pt_page_addr = page_addr;
+  
+  return v3_drill_host_pt_32pae(host_cr3, vaddr, find_pt_cb, &data);
+}
+
+int v3_find_host_pt_64_page(v3_reg_t host_cr3, page_type_t type, addr_t vaddr, addr_t * page_addr) {
+  struct pt_find_data data;
+
+  data.type = type;
+  data.pt_page_addr = page_addr;
+  
+  return v3_drill_host_pt_64(host_cr3, vaddr, find_pt_cb, &data);
+}
+int v3_find_guest_pt_32_page(struct guest_info * info, v3_reg_t guest_cr3, page_type_t type, addr_t vaddr, addr_t * page_addr) {
+  struct pt_find_data data;
+
+  data.type = type;
+  data.pt_page_addr = page_addr;
+  
+  return v3_drill_guest_pt_32(info, guest_cr3, vaddr, find_pt_cb, &data);
+}
+
+int v3_find_guest_pt_32pae_page(struct guest_info * info, v3_reg_t guest_cr3, page_type_t type, addr_t vaddr, addr_t * page_addr) {
+  struct pt_find_data data;
+
+  data.type = type;
+  data.pt_page_addr = page_addr;
+  
+  return v3_drill_guest_pt_32pae(info, guest_cr3, vaddr, find_pt_cb, &data);
+}
+
+int v3_find_guest_pt_64_page(struct guest_info * info, v3_reg_t guest_cr3, page_type_t type, addr_t vaddr, addr_t * page_addr) {
+  struct pt_find_data data;
+
+  data.type = type;
+  data.pt_page_addr = page_addr;
+  
+  return v3_drill_guest_pt_64(info, guest_cr3, vaddr, find_pt_cb, &data);
+}
+
+
+/* 
+ *
+ * Page Table Access Checks
+ *
+ */
+
+
+struct pt_check_data {
+  pf_error_t access_type;
+  pt_access_status_t * access_status;
+};
+
+static int check_pt_32_cb(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data) {
+  struct pt_check_data * chk_data = (struct pt_check_data *)private_data;
+
+  switch (type) {
+  case PAGE_PD32:
+    *(chk_data->access_status) = v3_can_access_pde32((pde32_t *)page_ptr, vaddr, chk_data->access_type);
+    break;
+  case PAGE_PT32:
+    *(chk_data->access_status) = v3_can_access_pte32((pte32_t *)page_ptr, vaddr, chk_data->access_type);
+    break;
+  case PAGE_4MB:
+  case PAGE_4KB:
+    return 0;
+  default: 
+    PrintError("Inavlid page type (%s) in check pt 32 callback\n", v3_page_type_to_str(type));
+    return -1;
+  }
+
+  if (chk_data->access_status != PT_ACCESS_OK) {
+    return 1;
+  }
+
+  return 0;
+}
+
+
+static int check_pt_32pae_cb(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data) {
+  struct pt_check_data * chk_data = (struct pt_check_data *)private_data;
+
+  switch (type) {
+  case PAGE_PDP32PAE:
+    *(chk_data->access_status) = v3_can_access_pdpe32pae((pdpe32pae_t *)page_ptr, vaddr, chk_data->access_type);
+    break;
+  case PAGE_PD32PAE:
+    *(chk_data->access_status) = v3_can_access_pde32pae((pde32pae_t *)page_ptr, vaddr, chk_data->access_type);
+    break;
+  case PAGE_PT32PAE:
+    *(chk_data->access_status) = v3_can_access_pte32pae((pte32pae_t *)page_ptr, vaddr, chk_data->access_type);
+    break;
+  case PAGE_2MB:
+  case PAGE_4KB:
+    return 0;
+  default: 
+    PrintError("Inavlid page type (%s) in check pt 32pae callback\n", v3_page_type_to_str(type));
+    return -1;
+  }
+
+  if (chk_data->access_status != PT_ACCESS_OK) {
+    return 1;
+  }
+
+  return 0;
+}
+
+
+static int check_pt_64_cb(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data) {
+  struct pt_check_data * chk_data = (struct pt_check_data *)private_data;
+
+  switch (type) {
+  case PAGE_PML464:
+    *(chk_data->access_status) = v3_can_access_pml4e64((pml4e64_t *)page_ptr, vaddr, chk_data->access_type);
+    break;
+  case PAGE_PDP64:
+    *(chk_data->access_status) = v3_can_access_pdpe64((pdpe64_t *)page_ptr, vaddr, chk_data->access_type);
+    break;
+  case PAGE_PD64:
+    *(chk_data->access_status) = v3_can_access_pde64((pde64_t *)page_ptr, vaddr, chk_data->access_type);
+    break;
+  case PAGE_PT64:
+    *(chk_data->access_status) = v3_can_access_pte64((pte64_t *)page_ptr, vaddr, chk_data->access_type);
+    break;
+  case PAGE_1GB:
+  case PAGE_2MB:
+  case PAGE_4KB:
+    return 0;
+  default: 
+    PrintError("Inavlid page type (%s) in check pt 64 callback\n", v3_page_type_to_str(type));
+    return -1;
+  }
+
+  if (chk_data->access_status != PT_ACCESS_OK) {
+    return 1;
+  }
+
+  return 0;
+}
+
+
+
+int v3_check_host_pt_32(v3_reg_t host_cr3, addr_t vaddr, pf_error_t access_type, pt_access_status_t * access_status) {
+  struct pt_check_data access_data;
+
+  access_data.access_type = access_type;
+  access_data.access_status = access_status;
+
+  return v3_drill_host_pt_32(host_cr3, vaddr, check_pt_32_cb, &access_data);
+}
+
+int v3_check_host_pt_32pae(v3_reg_t host_cr3, addr_t vaddr, pf_error_t access_type, pt_access_status_t * access_status) {
+  struct pt_check_data access_data;
+
+  access_data.access_type = access_type;
+  access_data.access_status = access_status;
+
+  return v3_drill_host_pt_32pae(host_cr3, vaddr, check_pt_32pae_cb, &access_data);
+}
+
+
+
+int v3_check_host_pt_64(v3_reg_t host_cr3, addr_t vaddr, pf_error_t access_type, pt_access_status_t * access_status) {
+  struct pt_check_data access_data;
+
+  access_data.access_type = access_type;
+  access_data.access_status = access_status;
+
+  return v3_drill_host_pt_64(host_cr3, vaddr, check_pt_64_cb, &access_data);
+}
+
+
+
+int v3_check_guest_pt_32(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr, 
+			 pf_error_t access_type, pt_access_status_t * access_status) {
+  struct pt_check_data access_data;
+
+  access_data.access_type = access_type;
+  access_data.access_status = access_status;
+
+  return v3_drill_guest_pt_32(info, guest_cr3, vaddr, check_pt_32_cb, &access_data);
+}
+
+
+
+
+
+int v3_check_guest_pt_32pae(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr, 
+			    pf_error_t access_type, pt_access_status_t * access_status) {
+  struct pt_check_data access_data;
+
+  access_data.access_type = access_type;
+  access_data.access_status = access_status;
+
+  return v3_drill_guest_pt_32pae(info, guest_cr3, vaddr, check_pt_32pae_cb, &access_data);
+}
+
+
+
+int v3_check_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr, 
+			 pf_error_t access_type, pt_access_status_t * access_status) {
+  struct pt_check_data access_data;
+
+  access_data.access_type = access_type;
+  access_data.access_status = access_status;
+
+  return v3_drill_guest_pt_64(info, guest_cr3, vaddr, check_pt_64_cb, &access_data);
+}
 
 
 
@@ -363,7 +427,7 @@ int v3_translate_host_pt_64(v3_reg_t host_cr3, addr_t vaddr, addr_t * paddr) {
  *
  **/
 
-pt_entry_type_t pde32_lookup(pde32_t * pd, addr_t addr, addr_t * entry) {
+static pt_entry_type_t pde32_lookup(pde32_t * pd, addr_t addr, addr_t * entry) {
   pde32_t * pde_entry = &(pd[PDE32_INDEX(addr)]);
 
   if (!pde_entry->present) {
@@ -373,7 +437,6 @@ pt_entry_type_t pde32_lookup(pde32_t * pd, addr_t addr, addr_t * entry) {
     pde32_4MB_t * large_pde = (pde32_4MB_t *)pde_entry;
 
     *entry = BASE_TO_PAGE_ADDR_4MB(large_pde->page_base_addr);
-    *entry += PAGE_OFFSET_4MB(addr);
 
     return PT_ENTRY_LARGE_PAGE;
   } else {
@@ -386,7 +449,7 @@ pt_entry_type_t pde32_lookup(pde32_t * pd, addr_t addr, addr_t * entry) {
 
 /* Takes a virtual addr (addr) and returns the physical addr (entry) as defined in the page table
  */
-pt_entry_type_t pte32_lookup(pte32_t * pt, addr_t addr, addr_t * entry) {
+static pt_entry_type_t pte32_lookup(pte32_t * pt, addr_t addr, addr_t * entry) {
   pte32_t * pte_entry = &(pt[PTE32_INDEX(addr)]);
 
   if (!pte_entry->present) {
@@ -394,7 +457,8 @@ pt_entry_type_t pte32_lookup(pte32_t * pt, addr_t addr, addr_t * entry) {
     //    PrintDebug("Lookup at non present page (index=%d)\n", PTE32_INDEX(addr));
     return PT_ENTRY_NOT_PRESENT;
   } else {
-    *entry = BASE_TO_PAGE_ADDR(pte_entry->page_base_addr) + PAGE_OFFSET(addr);
+    *entry = BASE_TO_PAGE_ADDR(pte_entry->page_base_addr);
+
     return PT_ENTRY_PAGE;
   }
 
@@ -407,7 +471,7 @@ pt_entry_type_t pte32_lookup(pte32_t * pt, addr_t addr, addr_t * entry) {
  *  32 bit PAE Page Table lookup functions
  *
  **/
-pt_entry_type_t pdpe32pae_lookup(pdpe32pae_t * pdp, addr_t addr, addr_t * entry) {
+static pt_entry_type_t pdpe32pae_lookup(pdpe32pae_t * pdp, addr_t addr, addr_t * entry) {
   pdpe32pae_t * pdpe_entry = &(pdp[PDPE32PAE_INDEX(addr)]);
   
   if (!pdpe_entry->present) {
@@ -419,7 +483,7 @@ pt_entry_type_t pdpe32pae_lookup(pdpe32pae_t * pdp, addr_t addr, addr_t * entry)
   }
 }
 
-pt_entry_type_t pde32pae_lookup(pde32pae_t * pd, addr_t addr, addr_t * entry) {
+static pt_entry_type_t pde32pae_lookup(pde32pae_t * pd, addr_t addr, addr_t * entry) {
   pde32pae_t * pde_entry = &(pd[PDE32PAE_INDEX(addr)]);
 
   if (!pde_entry->present) {
@@ -429,7 +493,6 @@ pt_entry_type_t pde32pae_lookup(pde32pae_t * pd, addr_t addr, addr_t * entry) {
     pde32pae_2MB_t * large_pde = (pde32pae_2MB_t *)pde_entry;
 
     *entry = BASE_TO_PAGE_ADDR_2MB(large_pde->page_base_addr);
-    *entry += PAGE_OFFSET_2MB(addr);
 
     return PT_ENTRY_LARGE_PAGE;
   } else {
@@ -438,14 +501,14 @@ pt_entry_type_t pde32pae_lookup(pde32pae_t * pd, addr_t addr, addr_t * entry) {
   }
 }
 
-pt_entry_type_t pte32pae_lookup(pte32pae_t * pt, addr_t addr, addr_t * entry) {
+static pt_entry_type_t pte32pae_lookup(pte32pae_t * pt, addr_t addr, addr_t * entry) {
   pte32pae_t * pte_entry = &(pt[PTE32PAE_INDEX(addr)]);
 
   if (!pte_entry->present) {
     *entry = 0;
     return PT_ENTRY_NOT_PRESENT;
   } else {
-    *entry = BASE_TO_PAGE_ADDR(pte_entry->page_base_addr) + PAGE_OFFSET(addr);
+    *entry = BASE_TO_PAGE_ADDR(pte_entry->page_base_addr);
     return PT_ENTRY_PAGE;
   }
 }
@@ -457,7 +520,7 @@ pt_entry_type_t pte32pae_lookup(pte32pae_t * pt, addr_t addr, addr_t * entry) {
  *  64 bit Page Table lookup functions
  *
  **/
-pt_entry_type_t pml4e64_lookup(pml4e64_t * pml, addr_t addr, addr_t * entry) {
+static pt_entry_type_t pml4e64_lookup(pml4e64_t * pml, addr_t addr, addr_t * entry) {
   pml4e64_t * pml_entry = &(pml[PML4E64_INDEX(addr)]);
 
   if (!pml_entry->present) {
@@ -469,7 +532,7 @@ pt_entry_type_t pml4e64_lookup(pml4e64_t * pml, addr_t addr, addr_t * entry) {
   }
 }
 
-pt_entry_type_t pdpe64_lookup(pdpe64_t * pdp, addr_t addr, addr_t * entry) {
+static pt_entry_type_t pdpe64_lookup(pdpe64_t * pdp, addr_t addr, addr_t * entry) {
   pdpe64_t * pdpe_entry = &(pdp[PDPE64_INDEX(addr)]);
   
   if (!pdpe_entry->present) {
@@ -485,7 +548,7 @@ pt_entry_type_t pdpe64_lookup(pdpe64_t * pdp, addr_t addr, addr_t * entry) {
   }
 }
 
-pt_entry_type_t pde64_lookup(pde64_t * pd, addr_t addr, addr_t * entry) {
+static pt_entry_type_t pde64_lookup(pde64_t * pd, addr_t addr, addr_t * entry) {
   pde64_t * pde_entry = &(pd[PDE64_INDEX(addr)]);
 
   if (!pde_entry->present) {
@@ -495,7 +558,6 @@ pt_entry_type_t pde64_lookup(pde64_t * pd, addr_t addr, addr_t * entry) {
     pde64_2MB_t * large_pde = (pde64_2MB_t *)pde_entry;
 
     *entry = BASE_TO_PAGE_ADDR_2MB(large_pde->page_base_addr);
-    *entry += PAGE_OFFSET_2MB(addr);
 
     return PT_ENTRY_LARGE_PAGE;
   } else {
@@ -504,417 +566,17 @@ pt_entry_type_t pde64_lookup(pde64_t * pd, addr_t addr, addr_t * entry) {
   }
 }
 
-pt_entry_type_t pte64_lookup(pte64_t * pt, addr_t addr, addr_t * entry) {
+static pt_entry_type_t pte64_lookup(pte64_t * pt, addr_t addr, addr_t * entry) {
   pte64_t * pte_entry = &(pt[PTE64_INDEX(addr)]);
 
   if (!pte_entry->present) {
     *entry = 0;
     return PT_ENTRY_NOT_PRESENT;
   } else {
-    *entry = BASE_TO_PAGE_ADDR(pte_entry->page_base_addr) + PAGE_OFFSET(addr);
+    *entry = BASE_TO_PAGE_ADDR(pte_entry->page_base_addr);
     return PT_ENTRY_PAGE;
   }
 }
-
-
-
-
-
-
-
-
-/* 
- *
- * Page Table Access Checks
- *
- */
-
-
-
-
-
-
-int v3_check_host_pt_32(v3_reg_t host_cr3, addr_t vaddr, pf_error_t access_type, pt_access_status_t * access_status) {
-  pde32_t * host_pde = (pde32_t *)CR3_TO_PDE32_VA(host_cr3);
-  pte32_t * host_pte = 0;
-
-  int pt_level = 2;
-
-  // Check accessibility of PDE
-  *access_status = v3_can_access_pde32(host_pde, vaddr, access_type);
-  
-  if (*access_status != PT_ACCESS_OK) {
-    return pt_level;
-  } 
-
-  pt_level--;
-  
-  switch (pde32_lookup(host_pde, vaddr, (addr_t *)&host_pte)) {
-  case PT_ENTRY_LARGE_PAGE:
-    return 0;
-  case PT_ENTRY_PAGE:
-    *access_status = v3_can_access_pte32(V3_VAddr(host_pte), vaddr, access_type);
-    
-    if (*access_status != PT_ACCESS_OK) {
-      return pt_level;
-    }
-
-    return 0;
-  default: 
-    return -1;
-  }
-  
-  // should never get here
-  return -1;
-}
-
-int v3_check_host_pt_32pae(v3_reg_t host_cr3, addr_t vaddr, pf_error_t access_type, pt_access_status_t * access_status) {
-  pdpe32pae_t * host_pdpe = (pdpe32pae_t *)CR3_TO_PDPE32PAE_VA(host_cr3);
-  pde32pae_t * host_pde = NULL;
-  pte32pae_t * host_pte = NULL;
-  int pt_level = 3;
-
-  *access_status = v3_can_access_pdpe32pae(host_pdpe, vaddr, access_type);
-
-  if (*access_status != PT_ACCESS_OK) {
-    return pt_level;
-  }
-
-  pt_level--;
-
-  switch (pdpe32pae_lookup(host_pdpe, vaddr, (addr_t *)&host_pde)) {
-  case PT_ENTRY_PAGE:
-    *access_status = v3_can_access_pde32pae(V3_VAddr(host_pde), vaddr, access_type);
-
-    if (*access_status != PT_ACCESS_OK) {
-      return pt_level;
-    }
-
-    pt_level--;
-
-    switch (pde32pae_lookup(V3_VAddr(host_pde), vaddr, (addr_t *)&host_pte)) {
-    case PT_ENTRY_LARGE_PAGE:
-      return 0;
-    case PT_ENTRY_PAGE:
-      *access_status = v3_can_access_pte32pae(V3_VAddr(host_pte), vaddr, access_type);
-
-      if (*access_status != PT_ACCESS_OK) {
-	return pt_level;
-      }
-
-      return 0;
-    default:
-      return -1;
-    }
-  default:
-    return -1;
-  }
-
-  // should never get here
-  return -1;
-}
-
-
-
-int v3_check_host_pt_64(v3_reg_t host_cr3, addr_t vaddr, pf_error_t access_type, pt_access_status_t * access_status) {
-  pml4e64_t * host_pmle = (pml4e64_t *)CR3_TO_PML4E64_VA(host_cr3);
-  pdpe64_t * host_pdpe = NULL;
-  pde64_t * host_pde = NULL;
-  pte64_t * host_pte = NULL;
-  int pt_level = 4;
-
-
-  *access_status = v3_can_access_pml4e64(host_pmle, vaddr, access_type);
-
-  if (*access_status != PT_ACCESS_OK) {
-    return pt_level;
-  }
-
-  pt_level--;
-
-  switch(pml4e64_lookup(host_pmle, vaddr, (addr_t *)&host_pdpe)) {
-  case PT_ENTRY_PAGE:
-    *access_status = v3_can_access_pdpe64(V3_VAddr(host_pdpe), vaddr, access_type);
-
-    if (*access_status != PT_ACCESS_OK) {
-      return pt_level;
-    }
-
-    pt_level--;
-
-    switch(pdpe64_lookup(V3_VAddr(host_pdpe), vaddr, (addr_t *)&host_pde)) {
-    case PT_ENTRY_LARGE_PAGE:
-      return 0;
-    case PT_ENTRY_PAGE:
-      *access_status = v3_can_access_pde64(V3_VAddr(host_pde), vaddr, access_type);
-
-      if (*access_status != PT_ACCESS_OK) {
-	return pt_level;
-      }
-
-      pt_level--;
-
-      switch (pde64_lookup(V3_VAddr(host_pde), vaddr, (addr_t *)&host_pte)) {
-      case PT_ENTRY_LARGE_PAGE:
-	return 0;
-      case PT_ENTRY_PAGE:
-	*access_status = v3_can_access_pte64(V3_VAddr(host_pte), vaddr, access_type);
-
-	if (*access_status != PT_ACCESS_OK) {
-	  return pt_level;
-	}
-
-	return 0;
-      default:
-	return -1;
-      }
-    default:
-      return -1;
-    }
-  default:
-    return -1;
-  }
-
-  // should never get here
-  return -1;
-}
-
-
-
-
-
-int v3_check_guest_pt_32(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr, 
-			 pf_error_t access_type, pt_access_status_t * access_status) {
-  addr_t guest_pde_pa = CR3_TO_PDE32_PA(guest_cr3);
-  pde32_t * guest_pde = NULL;
-  addr_t guest_pte_pa = 0;
-  int pt_level = 2;
-
-  if (guest_pa_to_host_va(info, guest_pde_pa, (addr_t*)&guest_pde) == -1) {
-    PrintError("Could not get virtual address of Guest PDE32 (PA=%p)\n", 
-	       (void *)guest_pde_pa);
-    return -1;
-  }
-  
-
-  // Check accessibility of PDE
-  *access_status = v3_can_access_pde32(guest_pde, vaddr, access_type);
-  
-  if (*access_status != PT_ACCESS_OK) {
-    return pt_level;
-  } 
-
-  pt_level--;
-  
-  switch (pde32_lookup(guest_pde, vaddr, &guest_pte_pa)) {
-  case PT_ENTRY_LARGE_PAGE:
-    return 0;
-  case PT_ENTRY_PAGE:
-    {
-      pte32_t * guest_pte = NULL;
-
-      if (guest_pa_to_host_va(info, guest_pte_pa, (addr_t*)&guest_pte) == -1) {
-	PrintError("Could not get virtual address of Guest PTE32 (PA=%p)\n", 
-		   (void *)guest_pte_pa);
-	return -1;
-      }
-
-      *access_status = v3_can_access_pte32(guest_pte, vaddr, access_type);
-      
-      if (*access_status != PT_ACCESS_OK) {
-	return pt_level;
-      }
-      return 0;
-    }
-  default: 
-    return -1;
-  }
-  
-  // should never get here
-  return -1;
-}
-
-
-
-
-
-int v3_check_guest_pt_32pae(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr, 
-			    pf_error_t access_type, pt_access_status_t * access_status) {
-  addr_t guest_pdpe_pa = CR3_TO_PDPE32PAE_PA(guest_cr3);
-  pdpe32pae_t * guest_pdpe = NULL;
-  addr_t guest_pde_pa = 0;
-  int pt_level = 3;
-
-  if (guest_pa_to_host_va(info, guest_pdpe_pa, (addr_t*)&guest_pdpe) == -1) {
-    PrintError("Could not get virtual address of Guest PDPE32PAE (PA=%p)\n",
-	       (void *)guest_pdpe_pa);
-    return -1;
-  }
-
-  *access_status = v3_can_access_pdpe32pae(guest_pdpe, vaddr, access_type);
-
-  if (*access_status != PT_ACCESS_OK) {
-    return pt_level;
-  }
-
-  pt_level--;
-
-  switch (pdpe32pae_lookup(guest_pdpe, vaddr, &guest_pde_pa)) {
-  case PT_ENTRY_PAGE:
-    {
-      pde32pae_t * guest_pde = NULL;
-      addr_t guest_pte_pa = 0;
-	
-      if (guest_pa_to_host_va(info, guest_pde_pa, (addr_t *)&guest_pde) == -1) {
-	PrintError("Could not get virtual Address of Guest PDE32PAE (PA=%p)\n", 
-		   (void *)guest_pde_pa);
-	return -1;
-      }
-      
-      *access_status = v3_can_access_pde32pae(guest_pde, vaddr, access_type);
-      
-      if (*access_status != PT_ACCESS_OK) {
-	return pt_level;
-      }
-      
-      pt_level--;
-      
-      switch (pde32pae_lookup(guest_pde, vaddr, &guest_pte_pa)) {
-      case PT_ENTRY_LARGE_PAGE:
-	return 0;
-      case PT_ENTRY_PAGE:
-	{
-	  pte32pae_t * guest_pte = NULL;
-
-	  if (guest_pa_to_host_va(info, guest_pte_pa, (addr_t *)&guest_pte) == -1) {
-	    PrintError("Could not get virtual Address of Guest PTE32PAE (PA=%p)\n", 
-		       (void *)guest_pte_pa);
-	    return -1;
-	  }
-
-	  *access_status = v3_can_access_pte32pae(guest_pte, vaddr, access_type);
-	
-	  if (*access_status != PT_ACCESS_OK) {
-	    return pt_level;
-	  }
-	
-	  return 0;
-	}
-      default:
-	return -1;
-      }
-    }
-  default:
-    return -1;
-  }
-
-  // should never get here
-  return -1;
-}
-
-
-  pte64_t * guest_pte = NULL;
-
-int v3_check_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr, 
-			 pf_error_t access_type, pt_access_status_t * access_status) {
-  addr_t guest_pml4_pa = CR3_TO_PML4E64_PA(guest_cr3);
-  pml4e64_t * guest_pmle = NULL; 
-  addr_t guest_pdpe_pa = 0;
-  int pt_level = 4;
-
-  if (guest_pa_to_host_va(info, guest_pml4_pa, (addr_t*)&guest_pmle) == -1) {
-    PrintError("Could not get virtual address of Guest PML4E64 (PA=%p)\n", 
-	       (void *)guest_pml4_pa);
-    return -1;
-  }
-
-  *access_status = v3_can_access_pml4e64(guest_pmle, vaddr, access_type);
-
-  if (*access_status != PT_ACCESS_OK) {
-    return pt_level;
-  }
-
-  pt_level--;
-
-  switch(pml4e64_lookup(guest_pmle, vaddr, &guest_pdpe_pa)) {
-  case PT_ENTRY_PAGE:
-    {
-      pdpe64_t * guest_pdp = NULL;
-      addr_t guest_pde_pa = 0;
-
-      if (guest_pa_to_host_va(info, guest_pdpe_pa, (addr_t *)&guest_pdp) == -1) {
-	PrintError("Could not get virtual address of Guest PDPE64 (PA=%p)\n", 
-		   (void *)guest_pdpe_pa);
-	return -1;
-      }
-
-      *access_status = v3_can_access_pdpe64(guest_pdp, vaddr, access_type);
-      
-      if (*access_status != PT_ACCESS_OK) {
-	return pt_level;
-      }
-      
-      pt_level--;
-      
-      switch(pdpe64_lookup(guest_pdp, vaddr, &guest_pde_pa)) {
-      case PT_ENTRY_LARGE_PAGE:
-	return 0;
-      case PT_ENTRY_PAGE:
-	{
-	  pde64_t * guest_pde = NULL;
-  	  addr_t guest_pte_pa = 0;
-	  
-	  if (guest_pa_to_host_va(info, guest_pde_pa, (addr_t *)&guest_pde) == -1) {
-	    PrintError("Could not get virtual address of guest PDE64 (PA=%p)\n", 
-		       (void *)guest_pde_pa);
-	    return -1;
-	  }
-
-	  *access_status = v3_can_access_pde64(guest_pde, vaddr, access_type);
-	  
-	  if (*access_status != PT_ACCESS_OK) {
-	    return pt_level;
-	  }
-	  
-	  pt_level--;
-	  
-	  switch (pde64_lookup(guest_pde, vaddr, &guest_pte_pa)) {
-	  case PT_ENTRY_LARGE_PAGE:
-	    return 0;
-	  case PT_ENTRY_PAGE:
-	    {
-	      pte64_t * guest_pte = NULL;
-	      
-	      if (guest_pa_to_host_va(info, guest_pte_pa, (addr_t *)&guest_pte) == -1) {
-		PrintError("Could not get virtual address of guest PTE64 (PA=%p)\n", 
-			   (void *)guest_pte_pa);
-		return -1;
-	      }
-
-	      *access_status = v3_can_access_pte64(guest_pte, vaddr, access_type);
-	      
-	      if (*access_status != PT_ACCESS_OK) {
-		return pt_level;
-	      }
-	      
-	      return 0;
-	    }
-	  default:
-	    return -1;
-	  }
-	}
-      default:
-	return -1;
-      }
-    }
-  default:
-    return -1;
-  }
-
-  // should never get here
-  return -1;
-}
-
 
 
 
@@ -1411,12 +1073,503 @@ pml4e64_t * create_passthrough_pts_64(struct guest_info * info) {
 }
 
 
+int v3_drill_host_pt_32(v3_reg_t host_cr3, addr_t vaddr, 
+			int (*callback)(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
+			void * private_data) {
+  pde32_t * host_pde = (pde32_t *)CR3_TO_PDE32_VA(host_cr3);
+  addr_t host_pde_pa = CR3_TO_PDE32_PA(host_cr3);
+  addr_t host_pte_pa = 0;
+  addr_t page_pa = 0;
+  int ret;
+
+  if ((ret = callback(PAGE_PD32, vaddr, (addr_t)host_pde, host_pde_pa, private_data)) != 0) {
+    return (ret == -1) ? -1 : PAGE_PD32;
+  }
+
+  switch (pde32_lookup(host_pde, vaddr, &host_pte_pa)) {
+  case PT_ENTRY_NOT_PRESENT:
+    return -1;
+  case PT_ENTRY_LARGE_PAGE:
+    if ((ret == callback(PAGE_4MB, vaddr, (addr_t)V3_VAddr((void *)host_pte_pa), host_pte_pa, private_data)) != 0) {
+      return (ret == -1) ? -1 : PAGE_4MB;
+    }
+    return 0;
+  case PT_ENTRY_PAGE:
+    if ((ret = callback(PAGE_PT32, vaddr, (addr_t)V3_VAddr((void *)host_pte_pa), host_pte_pa, private_data) != 0)) {
+      return (ret == -1) ? -1 : PAGE_PT32;
+    }
+    
+    if (pte32_lookup(V3_VAddr((void *)host_pte_pa), vaddr, &page_pa) == PT_ENTRY_NOT_PRESENT) {
+      return -1;
+    } else {
+      if ((ret = callback(PAGE_4KB, vaddr, (addr_t)V3_VAddr((void *)PAGE_BASE_ADDR(page_pa)), page_pa, private_data)) != 0) {
+	return (ret == -1) ? -1 : PAGE_4KB;
+      }
+      return 0;
+    }
+  }
+  return -1;
+}
+
+
+
+int v3_drill_host_pt_32pae(v3_reg_t host_cr3, addr_t vaddr,
+			   int (*callback)(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
+			   void * private_data) {
+  pdpe32pae_t * host_pdpe = (pdpe32pae_t *)CR3_TO_PDPE32PAE_VA(host_cr3);
+  addr_t host_pdpe_pa = CR3_TO_PDPE32PAE_PA(host_cr3);
+  addr_t host_pde_pa = 0;
+  addr_t host_pte_pa = 0;
+  addr_t page_pa = 0;
+  int ret;
+
+  if ((ret = callback(PAGE_PDP32PAE, vaddr, (addr_t)host_pdpe, host_pdpe_pa, private_data)) != 0) {
+    return (ret == -1) ? -1 : PAGE_PDP32PAE;
+  }
+
+  switch (pdpe32pae_lookup(host_pdpe, vaddr, &host_pde_pa)) {
+  case PT_ENTRY_NOT_PRESENT:
+    return -1;
+  case PT_ENTRY_PAGE:
+
+    if ((ret = callback(PAGE_PD32PAE, vaddr, (addr_t)V3_VAddr((void *)host_pde_pa), host_pde_pa, private_data) != 0)) {
+      return (ret == -1) ? -1 : PAGE_PD32PAE;
+    }
+      
+    switch (pde32pae_lookup(V3_VAddr((void *)host_pde_pa), vaddr, &host_pte_pa)) {
+    case PT_ENTRY_NOT_PRESENT:
+      return -1;
+    case PT_ENTRY_LARGE_PAGE:
+      if ((ret == callback(PAGE_2MB, vaddr, (addr_t)V3_VAddr((void *)host_pte_pa), host_pte_pa, private_data)) != 0) {
+	return (ret == -1) ? -1 : PAGE_2MB;
+      }
+      return 0;
+    case PT_ENTRY_PAGE:
+      if ((ret = callback(PAGE_PT32PAE, vaddr, (addr_t)V3_VAddr((void *)host_pte_pa), host_pte_pa, private_data) != 0)) {
+	return (ret == -1) ? -1 : PAGE_PT32PAE;
+      }
+
+      if (pte32pae_lookup(V3_VAddr((void *)host_pte_pa), vaddr, &page_pa) == PT_ENTRY_NOT_PRESENT) {
+	return -1;
+      } else {
+	if ((ret = callback(PAGE_4KB, vaddr, (addr_t)V3_VAddr((void *)PAGE_BASE_ADDR(page_pa)), page_pa, private_data)) != 0) {
+	  return (ret == -1) ? -1 : PAGE_4KB;
+	}
+	return 0;
+      } 
+    }
+  default:
+    return -1;
+  }
+
+  // should never get here
+  return -1;
+}
+
+
+int v3_drill_host_pt_64(v3_reg_t host_cr3, addr_t vaddr,
+			int (*callback)(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
+			void * private_data) {
+  pml4e64_t * host_pmle = (pml4e64_t *)CR3_TO_PML4E64_VA(host_cr3);
+  addr_t host_pmle_pa = CR3_TO_PML4E64_PA(host_cr3);
+  addr_t host_pdpe_pa = 0;
+  addr_t host_pde_pa = 0;
+  addr_t host_pte_pa = 0;
+  addr_t page_pa = 0;
+  int ret;
+
+  if ((ret = callback(PAGE_PML464, vaddr, (addr_t)host_pmle, host_pmle_pa, private_data)) != 0) {
+    return (ret == -1) ? -1 : PAGE_PML464;
+  }
+
+  switch(pml4e64_lookup(host_pmle, vaddr, &host_pdpe_pa)) {
+  case PT_ENTRY_NOT_PRESENT:
+    return -1;
+  case PT_ENTRY_PAGE:
+
+    if ((ret = callback(PAGE_PDP64, vaddr, (addr_t)V3_VAddr((void *)host_pdpe_pa), host_pdpe_pa, private_data)) != 0) {
+      return (ret == -1) ? -1 : PAGE_PDP64;
+    }
+
+    switch(pdpe64_lookup(V3_VAddr((void *)host_pdpe_pa), vaddr, &host_pde_pa)) {
+    case PT_ENTRY_NOT_PRESENT:
+      return -1;
+    case PT_ENTRY_LARGE_PAGE:
+      if ((ret == callback(PAGE_1GB, vaddr, (addr_t)V3_VAddr((void *)host_pde_pa), host_pde_pa, private_data)) != 0) {
+	return (ret == -1) ? -1 : PAGE_1GB;
+      }
+      PrintError("1 Gigabyte Pages not supported\n");
+      return 0;
+    case PT_ENTRY_PAGE:
+
+      if ((ret = callback(PAGE_PD64, vaddr, (addr_t)V3_VAddr((void *)host_pde_pa), host_pde_pa, private_data) != 0)) {
+	return (ret == -1) ? -1 : PAGE_PD64;
+      }
+
+      switch (pde64_lookup(V3_VAddr((void *)host_pde_pa), vaddr, &host_pte_pa)) {
+      case PT_ENTRY_NOT_PRESENT:
+	return -1;
+      case PT_ENTRY_LARGE_PAGE:
+	if ((ret == callback(PAGE_2MB, vaddr, (addr_t)V3_VAddr((void *)host_pte_pa), host_pte_pa, private_data)) != 0) {
+	  return (ret == -1) ? -1 : PAGE_2MB;
+	}
+	return 0;
+      case PT_ENTRY_PAGE:
+
+	if ((ret = callback(PAGE_PT64, vaddr, (addr_t)V3_VAddr((void *)host_pte_pa), host_pte_pa, private_data) != 0)) {
+	  return (ret == -1) ? -1 : PAGE_PT64;
+	}
+
+	if (pte64_lookup(V3_VAddr((void *)host_pte_pa), vaddr, &page_pa) == PT_ENTRY_NOT_PRESENT) {
+	  return -1;
+	} else {
+	  if ((ret = callback(PAGE_4KB, vaddr, (addr_t)V3_VAddr((void *)PAGE_BASE_ADDR(page_pa)), page_pa, private_data)) != 0) {
+	    return (ret == -1) ? -1 : PAGE_4KB;
+	  }
+	  return 0;
+	}
+      }
+    }
+  default:
+    return -1;
+  }
+  // should never get here
+  return -1;
+}
+
+
+
+
+
+
+
+int v3_drill_guest_pt_32(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr, 
+			 int (*callback)(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
+			 void * private_data) {
+  addr_t guest_pde_pa = CR3_TO_PDE32_PA(guest_cr3);
+  pde32_t * guest_pde = NULL;
+  addr_t guest_pte_pa = 0;
+  int ret; 
+  
+
+  if (guest_pa_to_host_va(info, guest_pde_pa, (addr_t*)&guest_pde) == -1) {
+    PrintError("Could not get virtual address of Guest PDE32 (PA=%p)\n", 
+               (void *)guest_pde_pa);
+    return -1;
+  }
+  
+  if ((ret = callback(PAGE_PD32, vaddr, (addr_t)guest_pde, guest_pde_pa, private_data)) != 0) {
+    return (ret == -1) ? -1 : PAGE_PD32;
+  }
+  
+  switch (pde32_lookup(guest_pde, vaddr, &guest_pte_pa)) {
+  case PT_ENTRY_NOT_PRESENT:
+    return -1;
+  case PT_ENTRY_LARGE_PAGE:
+    {
+      addr_t large_page_pa = (addr_t)guest_pte_pa;
+      addr_t large_page_va = 0;
+      
+      if (guest_pa_to_host_va(info, large_page_pa, &large_page_va) == -1) {
+        PrintError("Could not get virtual address of Guest Page 4MB (PA=%p)\n", 
+                   (void *)large_page_va);
+        return -1;
+      }
+
+
+      if ((ret == callback(PAGE_4MB, vaddr, large_page_va, large_page_pa, private_data)) != 0) {
+	return (ret == -1) ? -1 : PAGE_4MB;
+      }
+      return 0;
+    }
+  case PT_ENTRY_PAGE:
+    {
+      pte32_t * guest_pte = NULL;
+      addr_t page_pa;
+
+      if (guest_pa_to_host_va(info, guest_pte_pa, (addr_t*)&guest_pte) == -1) {
+        PrintError("Could not get virtual address of Guest PTE32 (PA=%p)\n", 
+                   (void *)guest_pte_pa);
+        return -1;
+      }
+
+      if ((ret = callback(PAGE_PT32, vaddr, (addr_t)guest_pte, guest_pte_pa, private_data) != 0)) {
+	return (ret == -1) ? -1 : PAGE_PT32;
+      }
+
+      if (pte32_lookup(guest_pte, vaddr, &page_pa) == PT_ENTRY_NOT_PRESENT) {
+        return -1;
+      } else {
+	addr_t page_va;
+
+	if (guest_pa_to_host_va(info, page_pa, &page_va) == -1) {
+	  PrintError("Could not get virtual address of Guest Page 4KB (PA=%p)\n", 
+		     (void *)page_pa);
+	  return -1;
+	}
+
+	if ((ret = callback(PAGE_4KB, vaddr, page_va, page_pa, private_data)) != 0) {
+	  return (ret == -1) ? -1 : PAGE_4KB;
+	}
+	return 0;
+      }
+    }
+  }
+
+  // should never get here
+  PrintError("End of drill function (guest 32)... Should never have gotten here...\n");
+  return -1;
+}
+
+
+
+int v3_drill_guest_pt_32pae(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr,
+				int (*callback)(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
+				void * private_data) {			
+  addr_t guest_pdpe_pa = CR3_TO_PDPE32PAE_PA(guest_cr3);
+  pdpe32pae_t * guest_pdpe = 0;
+  addr_t guest_pde_pa = 0;
+  int ret = 0;
+
+  if (guest_pa_to_host_va(info, guest_pdpe_pa, (addr_t*)&guest_pdpe) == -1) {
+    PrintError("Could not get virtual address of Guest PDPE32PAE (PA=%p)\n",
+	       (void *)guest_pdpe_pa);
+    return -1;
+  }
+
+  if ((ret = callback(PAGE_PDP32PAE, vaddr, (addr_t)guest_pdpe, guest_pdpe_pa, private_data)) != 0) {
+    return (ret == -1) ? -1 : PAGE_PDP32PAE;
+  }
+
+  switch (pdpe32pae_lookup(guest_pdpe, vaddr, &guest_pde_pa)) 
+    {
+    case PT_ENTRY_NOT_PRESENT:
+      return -1;
+    case PT_ENTRY_PAGE:
+      {
+	pde32pae_t * guest_pde = NULL;
+	addr_t guest_pte_pa = 0;
+	
+	if (guest_pa_to_host_va(info, guest_pde_pa, (addr_t *)&guest_pde) == -1) {
+	  PrintError("Could not get virtual Address of Guest PDE32PAE (PA=%p)\n", 
+		     (void *)guest_pde_pa);
+	  return -1;
+	}
+
+	if ((ret = callback(PAGE_PD32PAE, vaddr, (addr_t)guest_pde, guest_pde_pa, private_data)) != 0) {
+	  return (ret == -1) ? -1 : PAGE_PD32PAE;
+	}
+	
+	switch (pde32pae_lookup(guest_pde, vaddr, &guest_pte_pa)) 
+	  {
+	  case PT_ENTRY_NOT_PRESENT:
+	    return -1;
+	  case PT_ENTRY_LARGE_PAGE:
+	    {
+	      addr_t large_page_pa = (addr_t)guest_pte_pa;
+	      addr_t large_page_va = 0;
+	      
+	      if (guest_pa_to_host_va(info, large_page_pa, &large_page_va) == -1) {
+		PrintDebug("Could not get virtual address of Guest Page 2MB (PA=%p)\n", 
+			   (void *)large_page_va);
+
+	      }
+	      
+	      if ((ret == callback(PAGE_2MB, vaddr, large_page_va, large_page_pa, private_data)) != 0) {
+		return (ret == -1) ? -1 : PAGE_2MB;
+	      }
+	      return 0;
+	    }
+	  case PT_ENTRY_PAGE:
+	    {
+	      pte32pae_t * guest_pte = NULL;
+	      addr_t page_pa;
+
+	      if (guest_pa_to_host_va(info, guest_pte_pa, (addr_t *)&guest_pte) == -1) {
+		PrintError("Could not get virtual Address of Guest PTE32PAE (PA=%p)\n", 
+			   (void *)guest_pte_pa);
+		return -1;
+	      }
+
+	      if ((ret = callback(PAGE_PT32PAE, vaddr, (addr_t)guest_pte, guest_pte_pa, private_data) != 0)) {
+		return (ret == -1) ? -1 : PAGE_PT32PAE;
+	      }
+
+	      if (pte32pae_lookup(guest_pte, vaddr, &page_pa) == PT_ENTRY_NOT_PRESENT) {
+		return -1;
+	      } else {
+		addr_t page_va;
+		
+		if (guest_pa_to_host_va(info, page_pa, &page_va) == -1) {
+		  PrintError("Could not get virtual address of Guest Page 4KB (PA=%p)\n", 
+			     (void *)page_pa);
+		  return -1;
+		}
+		
+		if ((ret = callback(PAGE_4KB, vaddr, page_va, page_pa, private_data)) != 0) {
+		  return (ret == -1) ? -1 : PAGE_4KB;
+		}
+		return 0;
+	      }
+	    }
+	  }
+      }
+    default:
+      PrintError("Invalid page type for PD32PAE\n");
+      return -1;
+    }
+
+  // should never get here
+  PrintError("End of drill function (guest 32pae)... Should never have gotten here...\n");
+  return -1;
+}
+
+int v3_drill_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr, 
+				int (*callback)(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
+				void * private_data) {	
+  addr_t guest_pml4_pa = CR3_TO_PML4E64_PA(guest_cr3);
+  pml4e64_t * guest_pmle = 0;
+  addr_t guest_pdpe_pa = 0;
+  int ret = 0;
+
+  if (guest_pa_to_host_va(info, guest_pml4_pa, (addr_t*)&guest_pmle) == -1) {
+    PrintError("Could not get virtual address of Guest PML4E64 (PA=%p)\n", 
+	       (void *)guest_pml4_pa);
+    return -1;
+  }
+  
+  if ((ret = callback(PAGE_PML464, vaddr, (addr_t)guest_pmle, guest_pml4_pa, private_data)) != 0) {
+    return (ret == -1) ? -1 : PAGE_PML464;
+  }
+
+  switch (pml4e64_lookup(guest_pmle, vaddr, &guest_pdpe_pa)) {
+  case PT_ENTRY_NOT_PRESENT:
+    return -1;
+  case PT_ENTRY_PAGE:
+    {
+      pdpe64_t * guest_pdp = NULL;
+      addr_t guest_pde_pa = 0;
+
+      if (guest_pa_to_host_va(info, guest_pdpe_pa, (addr_t *)&guest_pdp) == -1) {
+	PrintError("Could not get virtual address of Guest PDPE64 (PA=%p)\n", 
+		   (void *)guest_pdpe_pa);
+	return -1;
+      }
+
+      if ((ret = callback(PAGE_PDP64, vaddr, (addr_t)guest_pdp, guest_pdpe_pa, private_data)) != 0) {
+	return (ret == -1) ? -1 : PAGE_PDP64;
+      }
+
+      switch (pdpe64_lookup(guest_pdp, vaddr, &guest_pde_pa)) {
+      case PT_ENTRY_NOT_PRESENT:
+	return -1;
+      case PT_ENTRY_LARGE_PAGE:
+	{
+	  addr_t large_page_pa = (addr_t)guest_pde_pa;
+	  addr_t large_page_va = 0;
+	  
+	  if (guest_pa_to_host_va(info, large_page_pa, &large_page_va) == -1) {
+	    PrintDebug("Could not get virtual address of Guest Page 1GB (PA=%p)\n", 
+		       (void *)large_page_va);
+	    
+	  }
+	  
+	  if ((ret == callback(PAGE_1GB, vaddr, large_page_va, large_page_pa, private_data)) != 0) {
+	    return (ret == -1) ? -1 : PAGE_1GB;
+	  }
+	  PrintError("1 Gigabyte Pages not supported\n");
+	  return 0;
+	}
+      case PT_ENTRY_PAGE:
+	{
+	  pde64_t * guest_pde = NULL;
+	  addr_t guest_pte_pa = 0;
+
+	  if (guest_pa_to_host_va(info, guest_pde_pa, (addr_t *)&guest_pde) == -1) {
+	    PrintError("Could not get virtual address of guest PDE64 (PA=%p)\n", 
+		       (void *)guest_pde_pa);
+	    return -1;
+	  }
+	
+	  if ((ret = callback(PAGE_PD64, vaddr, (addr_t)guest_pde, guest_pde_pa, private_data)) != 0) {
+	    return (ret == -1) ? -1 : PAGE_PD64;
+	  }
+
+	  switch (pde64_lookup(guest_pde, vaddr, &guest_pte_pa)) {
+	  case PT_ENTRY_NOT_PRESENT:
+	    return -1;
+	  case PT_ENTRY_LARGE_PAGE:
+	    {
+	      addr_t large_page_pa = (addr_t)guest_pte_pa;
+	      addr_t large_page_va = 0;
+	      
+	      if (guest_pa_to_host_va(info, large_page_pa, &large_page_va) == -1) {
+		PrintDebug("Could not get virtual address of Guest Page 2MB (PA=%p)\n", 
+			   (void *)large_page_va);
+
+	      }
+	      
+	      if ((ret == callback(PAGE_2MB, vaddr, large_page_va, large_page_pa, private_data)) != 0) {
+		return (ret == -1) ? -1 : PAGE_2MB;
+	      }
+	      return 0;
+	    }
+	  case PT_ENTRY_PAGE:
+	    {
+	      pte64_t * guest_pte = NULL;
+	      addr_t page_pa;
+	      
+	      if (guest_pa_to_host_va(info, guest_pte_pa, (addr_t *)&guest_pte) == -1) {
+		PrintError("Could not get virtual address of guest PTE64 (PA=%p)\n", 
+			   (void *)guest_pte_pa);
+		return -1;
+	      }
+
+	      if ((ret = callback(PAGE_PT64, vaddr, (addr_t)guest_pte, guest_pte_pa, private_data) != 0)) {
+		return (ret == -1) ? -1 : PAGE_PT64;
+	      }
+		
+	      if (pte64_lookup(guest_pte, vaddr, &page_pa) == PT_ENTRY_NOT_PRESENT) {
+		return -1;
+	      } else {
+		addr_t page_va;
+		
+		if (guest_pa_to_host_va(info, page_pa, &page_va) == -1) {
+		  PrintError("Could not get virtual address of Guest Page 4KB (PA=%p)\n", 
+			     (void *)page_pa);
+		  return -1;
+		}
+		
+		if ((ret = callback(PAGE_4KB, vaddr, page_va, page_pa, private_data)) != 0) {
+		  return (ret == -1) ? -1 : PAGE_4KB;
+		}
+
+		return 0;
+	      }
+	    }
+	  }
+	}
+      }
+    }
+  default:
+    return -1;
+  }
+
+  // should never get here
+  PrintError("End of drill function (guest 64)... Should never have gotten here...\n");
+  return -1;
+}
+
+
+
+
 int v3_walk_guest_pt_32(struct guest_info * info,  v3_reg_t guest_cr3,
-			void (*callback)(page_type_t type, addr_t page_ptr, addr_t page_pa, void * private_data),
+			void (*callback)(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
 			void * private_data) {
   addr_t guest_pde_pa = CR3_TO_PDE32_PA(guest_cr3);
   pde32_t * guest_pde = NULL;
   int i, j;
+  addr_t vaddr = 0;
 
   if (!callback) {
     PrintError("Call back was not specified\n");
@@ -1429,7 +1582,7 @@ int v3_walk_guest_pt_32(struct guest_info * info,  v3_reg_t guest_cr3,
     return -1;
   }
 
-  callback(PAGE_PD32, (addr_t)guest_pde, guest_pde_pa, private_data);
+  callback(PAGE_PD32, vaddr, (addr_t)guest_pde, guest_pde_pa, private_data);
 
   for (i = 0; i < MAX_PDE32_ENTRIES; i++) {
     if (guest_pde[i].present) {
@@ -1439,12 +1592,15 @@ int v3_walk_guest_pt_32(struct guest_info * info,  v3_reg_t guest_cr3,
 	addr_t large_page_va = 0;
 
 	if (guest_pa_to_host_va(info, large_page_pa, &large_page_va) == -1) {
-	  PrintError("Could not get virtual address of Guest 4MB Page (PA=%p)\n", 
-		     (void *)large_page_pa);
-	  return -1;
+	  PrintDebug("Could not get virtual address of Guest 4MB Page (PA=%p)\n", 
+	  	     (void *)large_page_pa);
+	  // We'll let it through for data pages because they may be unmapped or hooked
+	  large_page_va = 0;
 	}
 
-	callback(PAGE_4MB, large_page_va, large_page_pa, private_data);
+	callback(PAGE_4MB, vaddr, large_page_va, large_page_pa, private_data);
+
+	vaddr += PAGE_SIZE_4MB;
       } else {
 	addr_t pte_pa = BASE_TO_PAGE_ADDR(guest_pde[i].pt_base_addr);
 	pte32_t * tmp_pte = NULL;
@@ -1455,7 +1611,7 @@ int v3_walk_guest_pt_32(struct guest_info * info,  v3_reg_t guest_cr3,
 	  return -1;
 	}
 
-	callback(PAGE_PT32, (addr_t)tmp_pte, pte_pa, private_data);
+	callback(PAGE_PT32, vaddr, (addr_t)tmp_pte, pte_pa, private_data);
 
 	for (j = 0; j < MAX_PTE32_ENTRIES; j++) {
 	  if (tmp_pte[j].present) {
@@ -1463,15 +1619,20 @@ int v3_walk_guest_pt_32(struct guest_info * info,  v3_reg_t guest_cr3,
 	    addr_t page_va = 0;
 
 	    if (guest_pa_to_host_va(info, page_pa, &page_va) == -1) {
-	      PrintError("Could not get virtual address of Guest 4KB Page (PA=%p)\n", 
-			 (void *)page_pa);
-	      return -1;
+	      PrintDebug("Could not get virtual address of Guest 4KB Page (PA=%p)\n", 
+	      	 (void *)page_pa);
+	      // We'll let it through for data pages because they may be unmapped or hooked
+	      page_va = 0;
 	    }
 	    
-	    callback(PAGE_4KB, page_va, page_pa, private_data);
+	    callback(PAGE_4KB, vaddr, page_va, page_pa, private_data);
 	  }
+
+	  vaddr += PAGE_SIZE_4KB;
 	}
       }
+    } else {
+      vaddr += PAGE_SIZE_4MB;
     }
   }
   return 0;
@@ -1479,11 +1640,12 @@ int v3_walk_guest_pt_32(struct guest_info * info,  v3_reg_t guest_cr3,
 
 
 int v3_walk_guest_pt_32pae(struct guest_info * info,  v3_reg_t guest_cr3,
-			   void (*callback)(page_type_t type, addr_t page_ptr, addr_t page_pa, void * private_data),
+			   void (*callback)(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
 			   void * private_data) {
   addr_t guest_pdpe_pa = CR3_TO_PDPE32PAE_PA(guest_cr3);
   pdpe32pae_t * guest_pdpe = NULL;
   int i, j, k;
+  addr_t vaddr = 0;
 
   if (!callback) {
     PrintError("Call back was not specified\n");
@@ -1498,7 +1660,7 @@ int v3_walk_guest_pt_32pae(struct guest_info * info,  v3_reg_t guest_cr3,
 
   
 
-  callback(PAGE_PDP32PAE, (addr_t)guest_pdpe, guest_pdpe_pa, private_data);
+  callback(PAGE_PDP32PAE, vaddr, (addr_t)guest_pdpe, guest_pdpe_pa, private_data);
 
   for (i = 0; i < MAX_PDPE32PAE_ENTRIES; i++) {
     if (guest_pdpe[i].present) {
@@ -1511,7 +1673,7 @@ int v3_walk_guest_pt_32pae(struct guest_info * info,  v3_reg_t guest_cr3,
 	return -1;
       }
 
-      callback(PAGE_PD32PAE, (addr_t)tmp_pde, pde_pa, private_data);
+      callback(PAGE_PD32PAE, vaddr, (addr_t)tmp_pde, pde_pa, private_data);
       
       for (j = 0; j < MAX_PDE32PAE_ENTRIES; j++) {
 	if (tmp_pde[j].present) {
@@ -1521,12 +1683,15 @@ int v3_walk_guest_pt_32pae(struct guest_info * info,  v3_reg_t guest_cr3,
 	    addr_t large_page_va = 0;
 	    
 	    if (guest_pa_to_host_va(info, large_page_pa, &large_page_va) == -1) {
-	      PrintError("Could not get virtual address of Guest 2MB Page (PA=%p)\n", 
-			 (void *)large_page_pa);
-	      return -1;
+	      PrintDebug("Could not get virtual address of Guest 2MB Page (PA=%p)\n", 
+	      		 (void *)large_page_pa);
+	      // We'll let it through for data pages because they may be unmapped or hooked
+	      large_page_va = 0;
 	    }
 	    
-	    callback(PAGE_2MB, large_page_va, large_page_pa, private_data);
+	    callback(PAGE_2MB, vaddr, large_page_va, large_page_pa, private_data);
+
+	    vaddr += PAGE_SIZE_2MB;
 	  } else {
 	    addr_t pte_pa = BASE_TO_PAGE_ADDR(tmp_pde[j].pt_base_addr);
 	    pte32pae_t * tmp_pte = NULL;
@@ -1537,7 +1702,7 @@ int v3_walk_guest_pt_32pae(struct guest_info * info,  v3_reg_t guest_cr3,
 	      return -1;
 	    }
 	    
-	    callback(PAGE_PT32PAE, (addr_t)tmp_pte, pte_pa, private_data);
+	    callback(PAGE_PT32PAE, vaddr, (addr_t)tmp_pte, pte_pa, private_data);
 	    
 	    for (k = 0; k < MAX_PTE32PAE_ENTRIES; k++) {
 	      if (tmp_pte[k].present) {
@@ -1545,17 +1710,24 @@ int v3_walk_guest_pt_32pae(struct guest_info * info,  v3_reg_t guest_cr3,
 		addr_t page_va = 0;
 		
 		if (guest_pa_to_host_va(info, page_pa, &page_va) == -1) {
-		  PrintError("Could not get virtual address of Guest 4KB Page (PA=%p)\n", 
-			     (void *)page_pa);
-		  return -1;
+		  PrintDebug("Could not get virtual address of Guest 4KB Page (PA=%p)\n", 
+		  	     (void *)page_pa);
+		  // We'll let it through for data pages because they may be unmapped or hooked
+		  page_va = 0;
 		}
 		
-		callback(PAGE_4KB, page_va, page_pa, private_data);
+		callback(PAGE_4KB, vaddr, page_va, page_pa, private_data);
 	      }
+	      
+	      vaddr += PAGE_SIZE_4KB;
 	    }
 	  }
+	} else {
+	  vaddr += PAGE_SIZE_2MB;
 	}
       }
+    } else {
+      vaddr += PAGE_SIZE_2MB * MAX_PDE32PAE_ENTRIES;
     }
   }
   return 0;
@@ -1565,11 +1737,12 @@ int v3_walk_guest_pt_32pae(struct guest_info * info,  v3_reg_t guest_cr3,
 
 
 int v3_walk_guest_pt_64(struct guest_info * info,  v3_reg_t guest_cr3,
-			void (*callback)(page_type_t type, addr_t page_ptr, addr_t page_pa, void * private_data),
+			void (*callback)(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
 			void * private_data) {
   addr_t guest_pml_pa = CR3_TO_PML4E64_PA(guest_cr3);
   pml4e64_t * guest_pml = NULL;
   int i, j, k, m;
+  addr_t vaddr = 0;
 
   if (!callback) {
     PrintError("Call back was not specified\n");
@@ -1583,7 +1756,7 @@ int v3_walk_guest_pt_64(struct guest_info * info,  v3_reg_t guest_cr3,
   }
 
 
-  callback(PAGE_PML464, (addr_t)guest_pml, guest_pml_pa, private_data);
+  callback(PAGE_PML464, vaddr, (addr_t)guest_pml, guest_pml_pa, private_data);
 
   for (i = 0; i < MAX_PML4E64_ENTRIES; i++) {
     if (guest_pml[i].present) {
@@ -1597,7 +1770,7 @@ int v3_walk_guest_pt_64(struct guest_info * info,  v3_reg_t guest_cr3,
 	return -1;
       }
       
-      callback(PAGE_PDP64, (addr_t)tmp_pdpe, pdpe_pa, private_data);
+      callback(PAGE_PDP64, vaddr, (addr_t)tmp_pdpe, pdpe_pa, private_data);
       
       for (j = 0; j < MAX_PDPE64_ENTRIES; j++) {
 	if (tmp_pdpe[j].present) {
@@ -1607,13 +1780,15 @@ int v3_walk_guest_pt_64(struct guest_info * info,  v3_reg_t guest_cr3,
 	    addr_t large_page_va = 0;
 
 	    if (guest_pa_to_host_va(info, large_page_pa, &large_page_va) == -1) {
-	      PrintError("Could not get virtual address of Guest 1GB page (PA=%p)\n", 
-			 (void *)large_page_pa);
-	      return -1;
+	      PrintDebug("Could not get virtual address of Guest 1GB page (PA=%p)\n", 
+	      		 (void *)large_page_pa);
+	      // We'll let it through for data pages because they may be unmapped or hooked
+	      large_page_va = 0;
 	    }
 
-	    callback(PAGE_1GB, (addr_t)large_page_va, large_page_pa, private_data);
+	    callback(PAGE_1GB, vaddr, (addr_t)large_page_va, large_page_pa, private_data);
 
+	    vaddr += PAGE_SIZE_1GB;
 	  } else {
 	    addr_t pde_pa = BASE_TO_PAGE_ADDR(tmp_pdpe[j].pd_base_addr);
 	    pde64_t * tmp_pde = NULL;
@@ -1624,7 +1799,7 @@ int v3_walk_guest_pt_64(struct guest_info * info,  v3_reg_t guest_cr3,
 	      return -1;
 	    }
 	    
-	    callback(PAGE_PD64, (addr_t)tmp_pde, pde_pa, private_data);
+	    callback(PAGE_PD64, vaddr, (addr_t)tmp_pde, pde_pa, private_data);
 	    
 	    for (k = 0; k < MAX_PDE64_ENTRIES; k++) {
 	      if (tmp_pde[k].present) {
@@ -1634,12 +1809,15 @@ int v3_walk_guest_pt_64(struct guest_info * info,  v3_reg_t guest_cr3,
 		  addr_t large_page_va = 0;
 		  
 		  if (guest_pa_to_host_va(info, large_page_pa, &large_page_va) == -1) {
-		    PrintError("Could not get virtual address of Guest 2MB page (PA=%p)\n", 
-			       (void *)large_page_pa);
-		    return -1;
+		    PrintDebug("Could not get virtual address of Guest 2MB page (PA=%p)\n", 
+		    	       (void *)large_page_pa);
+		    // We'll let it through for data pages because they may be unmapped or hooked
+		    large_page_va = 0;
 		  }
 		  
-		  callback(PAGE_2MB, large_page_va, large_page_pa, private_data);
+		  callback(PAGE_2MB, vaddr, large_page_va, large_page_pa, private_data);
+
+		  vaddr += PAGE_SIZE_2MB;
 		} else {
 		  addr_t pte_pa = BASE_TO_PAGE_ADDR(tmp_pde[k].pt_base_addr);
 		  pte64_t * tmp_pte = NULL;
@@ -1650,7 +1828,7 @@ int v3_walk_guest_pt_64(struct guest_info * info,  v3_reg_t guest_cr3,
 		    return -1;
 		  }
 		  
-		  callback(PAGE_PT64, (addr_t)tmp_pte, pte_pa, private_data);
+		  callback(PAGE_PT64, vaddr, (addr_t)tmp_pte, pte_pa, private_data);
 		  
 		  for (m = 0; m < MAX_PTE64_ENTRIES; m++) {
 		    if (tmp_pte[m].present) {
@@ -1658,38 +1836,48 @@ int v3_walk_guest_pt_64(struct guest_info * info,  v3_reg_t guest_cr3,
 		      addr_t page_va = 0;
 		      
 		      if (guest_pa_to_host_va(info, page_pa, &page_va) == -1) {
-			PrintError("Could not get virtual address of Guest 4KB Page (PA=%p)\n", 
+			PrintDebug("Could not get virtual address of Guest 4KB Page (PA=%p)\n", 
 				   (void *)page_pa);
-			return -1;
+			// We'll let it through for data pages because they may be unmapped or hooked
+			page_va = 0;
 		      }
 		      
-		      callback(PAGE_4KB, page_va, page_pa, private_data);
+		      callback(PAGE_4KB, vaddr, page_va, page_pa, private_data);
 		    }
+
+		    vaddr += PAGE_SIZE_4KB;
 		  }
 		}
+	      } else {
+		vaddr += PAGE_SIZE_2MB;
 	      }
 	    }
 	  }
+	} else {
+	  vaddr += PAGE_SIZE_1GB;
 	}
       }
+    } else {
+      vaddr += ((ullong_t)PAGE_SIZE_1GB * (ullong_t)MAX_PDPE64_ENTRIES);
     }
   }
   return 0;
 }
 
 int v3_walk_host_pt_32(v3_reg_t host_cr3,
-		       void (*callback)(page_type_t type, addr_t page_ptr, addr_t page_pa, void * private_data),
+		       void (*callback)(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
 		       void * private_data) {
   pde32_t * host_pde = (pde32_t *)CR3_TO_PDE32_VA(host_cr3);
   addr_t pde_pa = CR3_TO_PDE32_PA(host_cr3);
   int i, j;
+  addr_t vaddr = 0;
 
   if (!callback) {
     PrintError("Call back was not specified\n");
     return -1;
   }
 
-  callback(PAGE_PD32, (addr_t)host_pde, pde_pa, private_data);
+  callback(PAGE_PD32, vaddr, (addr_t)host_pde, pde_pa, private_data);
 
   for (i = 0; i < MAX_PDE32_ENTRIES; i++) {
     if (host_pde[i].present) {
@@ -1697,49 +1885,56 @@ int v3_walk_host_pt_32(v3_reg_t host_cr3,
 	pde32_4MB_t * large_pde = (pde32_4MB_t *)&(host_pde[i]);
 	addr_t large_page_pa = BASE_TO_PAGE_ADDR_4MB(large_pde->page_base_addr);
 
-	callback(PAGE_4MB, (addr_t)V3_VAddr((void *)large_page_pa), large_page_pa, private_data);
+	callback(PAGE_4MB, vaddr, (addr_t)V3_VAddr((void *)large_page_pa), large_page_pa, private_data);
+
+	vaddr += PAGE_SIZE_4MB;
       } else {
 	addr_t pte_pa = BASE_TO_PAGE_ADDR(host_pde[i].pt_base_addr);
 	pte32_t * tmp_pte = (pte32_t *)V3_VAddr((void *)pte_pa);
 
-	callback(PAGE_PT32, (addr_t)tmp_pte, pte_pa, private_data);
+	callback(PAGE_PT32, vaddr, (addr_t)tmp_pte, pte_pa, private_data);
 
 	for (j = 0; j < MAX_PTE32_ENTRIES; j++) {
 	  if (tmp_pte[j].present) {
 	    addr_t page_pa = BASE_TO_PAGE_ADDR(tmp_pte[j].page_base_addr);
-	    callback(PAGE_4KB, (addr_t)V3_VAddr((void *)page_pa), page_pa, private_data);
+	    callback(PAGE_4KB, vaddr, (addr_t)V3_VAddr((void *)page_pa), page_pa, private_data);
 	  }
+
+	  vaddr += PAGE_SIZE_4KB;
 	}
       }
+    } else {
+      vaddr += PAGE_SIZE_4MB;
     }
   }
   return 0;
 }
-	
+
 
 
 
 
 int v3_walk_host_pt_32pae(v3_reg_t host_cr3,
-			  void (*callback)(page_type_t type, addr_t page_ptr, addr_t page_pa, void * private_data),
+			  void (*callback)(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
 			  void * private_data) {
   pdpe32pae_t * host_pdpe = (pdpe32pae_t *)CR3_TO_PDPE32PAE_VA(host_cr3);
   addr_t pdpe_pa = CR3_TO_PDPE32PAE_PA(host_cr3);
   int i, j, k;
-  
+  addr_t vaddr = 0;
+
   if (!callback) {
     PrintError("Callback was not specified\n");
     return -1;
   }
   
-  callback(PAGE_PDP32PAE, (addr_t)host_pdpe, pdpe_pa, private_data);
+  callback(PAGE_PDP32PAE, vaddr, (addr_t)host_pdpe, pdpe_pa, private_data);
   
   for (i = 0; i < MAX_PDPE32PAE_ENTRIES; i++) {
     if (host_pdpe[i].present) {	
       addr_t pde_pa = BASE_TO_PAGE_ADDR(host_pdpe[i].pd_base_addr);
       pde32pae_t * tmp_pde = (pde32pae_t *)V3_VAddr((void *)pde_pa);
       
-      callback(PAGE_PD32PAE, (addr_t)tmp_pde, pde_pa, private_data);
+      callback(PAGE_PD32PAE, vaddr, (addr_t)tmp_pde, pde_pa, private_data);
       
       for (j = 0; j < MAX_PDE32PAE_ENTRIES; j++) {
 	if (tmp_pde[j].present) {
@@ -1748,22 +1943,30 @@ int v3_walk_host_pt_32pae(v3_reg_t host_cr3,
 	    pde32pae_2MB_t * large_pde = (pde32pae_2MB_t *)&(tmp_pde[j]);
 	    addr_t large_page_pa = BASE_TO_PAGE_ADDR_2MB(large_pde->page_base_addr);
 
-	    callback(PAGE_2MB, (addr_t)V3_VAddr((void *)large_page_pa), large_page_pa, private_data);
+	    callback(PAGE_2MB, vaddr, (addr_t)V3_VAddr((void *)large_page_pa), large_page_pa, private_data);
+
+	    vaddr += PAGE_SIZE_2MB;
 	  } else {
 	    addr_t pte_pa = BASE_TO_PAGE_ADDR(tmp_pde[j].pt_base_addr);
 	    pte32pae_t * tmp_pte = (pte32pae_t *)V3_VAddr((void *)pte_pa);
 	    
-	    callback(PAGE_PT32PAE, (addr_t)tmp_pte, pte_pa, private_data);
+	    callback(PAGE_PT32PAE, vaddr, (addr_t)tmp_pte, pte_pa, private_data);
 	    
 	    for (k = 0; k < MAX_PTE32PAE_ENTRIES; k++) {
 	      if (tmp_pte[k].present) {
 		addr_t page_pa = BASE_TO_PAGE_ADDR(tmp_pte[k].page_base_addr);
-		callback(PAGE_4KB, (addr_t)V3_VAddr((void *)page_pa), page_pa, private_data);
+		callback(PAGE_4KB, vaddr, (addr_t)V3_VAddr((void *)page_pa), page_pa, private_data);
 	      }
+
+	      vaddr += PAGE_SIZE_4KB;
 	    }
-	  }	    
+	  }
+	} else {
+	  vaddr += PAGE_SIZE_2MB;
 	}
       }
+    } else {
+      vaddr += PAGE_SIZE_2MB * MAX_PDE32PAE_ENTRIES;
     }
   }
   return 0;
@@ -1771,25 +1974,26 @@ int v3_walk_host_pt_32pae(v3_reg_t host_cr3,
 			
 
 int v3_walk_host_pt_64(v3_reg_t host_cr3,
-		       void (*callback)(page_type_t type, addr_t page_ptr, addr_t page_pa, void * private_data),
+		       void (*callback)(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
 		       void * private_data) {
   pml4e64_t * host_pml = (pml4e64_t *)CR3_TO_PML4E64_VA(host_cr3);
   addr_t pml_pa = CR3_TO_PML4E64_PA(host_cr3);
   int i, j, k, m;
+  addr_t vaddr = 0;
 
   if (!callback) {
     PrintError("Callback was not specified\n");
     return -1;
   }
 
-  callback(PAGE_PML464, (addr_t)host_pml, pml_pa, private_data);
+  callback(PAGE_PML464, vaddr, (addr_t)host_pml, pml_pa, private_data);
 
   for (i = 0; i < MAX_PML4E64_ENTRIES; i++) {
     if (host_pml[i].present) {
       addr_t pdpe_pa = BASE_TO_PAGE_ADDR(host_pml[i].pdp_base_addr);
       pdpe64_t * tmp_pdpe = (pdpe64_t *)V3_VAddr((void *)pdpe_pa);
 
-      callback(PAGE_PDP64, (addr_t)tmp_pdpe, pdpe_pa, private_data);
+      callback(PAGE_PDP64, vaddr, (addr_t)tmp_pdpe, pdpe_pa, private_data);
 
       for (j = 0; j < MAX_PDPE64_ENTRIES; j++) {
 	if (tmp_pdpe[j].present) {
@@ -1797,12 +2001,14 @@ int v3_walk_host_pt_64(v3_reg_t host_cr3,
 	    pdpe64_1GB_t * large_pdp = (pdpe64_1GB_t *)&(tmp_pdpe[j]);
 	    addr_t large_page_pa = BASE_TO_PAGE_ADDR_1GB(large_pdp->page_base_addr);
 
-	    callback(PAGE_1GB, (addr_t)V3_VAddr((void *)large_page_pa), large_page_pa, private_data);	    
+	    callback(PAGE_1GB, vaddr, (addr_t)V3_VAddr((void *)large_page_pa), large_page_pa, private_data);
+
+	    vaddr += PAGE_SIZE_1GB;
 	  } else {
 	    addr_t pde_pa = BASE_TO_PAGE_ADDR(tmp_pdpe[j].pd_base_addr);
 	    pde64_t * tmp_pde = (pde64_t *)V3_VAddr((void *)pde_pa);
 
-	    callback(PAGE_PD64, (addr_t)tmp_pde, pde_pa, private_data);
+	    callback(PAGE_PD64, vaddr, (addr_t)tmp_pde, pde_pa, private_data);
 
 	    for (k = 0; k < MAX_PDE64_ENTRIES; k++) {
 	      if (tmp_pde[k].present) {
@@ -1810,25 +2016,34 @@ int v3_walk_host_pt_64(v3_reg_t host_cr3,
 		  pde64_2MB_t * large_pde = (pde64_2MB_t *)&(tmp_pde[k]);
 		  addr_t large_page_pa = BASE_TO_PAGE_ADDR_2MB(large_pde->page_base_addr);
 		  
-		  callback(PAGE_2MB, (addr_t)V3_VAddr((void *)large_page_pa), large_page_pa, private_data);
+		  callback(PAGE_2MB, vaddr, (addr_t)V3_VAddr((void *)large_page_pa), large_page_pa, private_data);
+		  
+		  vaddr += PAGE_SIZE_2MB;
 		} else {
 		  addr_t pte_pa = BASE_TO_PAGE_ADDR(tmp_pde[k].pt_base_addr);
 		  pte64_t * tmp_pte = (pte64_t *)V3_VAddr((void *)pte_pa);
 
-		  callback(PAGE_PT64, (addr_t)tmp_pte, pte_pa, private_data);
+		  callback(PAGE_PT64, vaddr, (addr_t)tmp_pte, pte_pa, private_data);
 
 		  for (m = 0; m < MAX_PTE64_ENTRIES; m++) {
 		    if (tmp_pte[m].present) {
 		      addr_t page_pa = BASE_TO_PAGE_ADDR(tmp_pte[m].page_base_addr);
-		      callback(PAGE_4KB, (addr_t)V3_VAddr((void *)page_pa), page_pa, private_data);
+		      callback(PAGE_4KB, vaddr, (addr_t)V3_VAddr((void *)page_pa), page_pa, private_data);
 		    }
+		    vaddr += PAGE_SIZE_4KB;
 		  }
 		}
+	      } else {
+		vaddr += PAGE_SIZE_2MB;
 	      }
 	    }
 	  }
+	} else {
+	  vaddr += PAGE_SIZE_1GB;
 	}
       }
+    } else {
+      vaddr += (ullong_t)PAGE_SIZE_1GB * (ullong_t)MAX_PDPE64_ENTRIES;
     }
   }
   return 0;

@@ -50,59 +50,6 @@ void PrintPTE32(addr_t virtual_address, pte32_t * pte)
 
 
 
-
-
-void PrintPD32(pde32_t * pde)
-{
-  int i;
-
-  PrintDebug("Page Directory at %p:\n", pde);
-  for (i = 0; (i < MAX_PDE32_ENTRIES); i++) { 
-    if ( pde[i].present) {
-      PrintPDE32((addr_t)(PAGE_SIZE * MAX_PTE32_ENTRIES * i), &(pde[i]));
-    }
-  }
-}
-
-void PrintPT32(addr_t starting_address, pte32_t * pte) 
-{
-  int i;
-
-  PrintDebug("Page Table at %p:\n", pte);
-  for (i = 0; (i < MAX_PTE32_ENTRIES) ; i++) { 
-    if (pte[i].present) {
-      PrintPTE32(starting_address + (PAGE_SIZE * i), &(pte[i]));
-    }
-  }
-}
-
-
-
-
-
-
-
-void PrintDebugPageTables(pde32_t * pde)
-{
-  int i;
-  
-  PrintDebug("Dumping the pages starting with the pde page at %p\n", pde);
-
-  for (i = 0; (i < MAX_PDE32_ENTRIES); i++) { 
-    if (pde[i].present) {
-      PrintPDE32((addr_t)(PAGE_SIZE * MAX_PTE32_ENTRIES * i), &(pde[i]));
-      PrintPT32((addr_t)(PAGE_SIZE * MAX_PTE32_ENTRIES * i), (pte32_t *)V3_VAddr((void *)(addr_t)(pde[i].pt_base_addr << PAGE_POWER)));
-    }
-  }
-}
-    
-
-
-
-
-
-
-
 void PrintPDPE32PAE(addr_t virtual_address, pdpe32pae_t * pdpe)
 {
   PrintDebug("PDPE %p -> %p : present=%x, wt=%x, cd=%x, accessed=%x, kernelInfo=%x\n",
@@ -154,46 +101,6 @@ void PrintPTE32PAE(addr_t virtual_address, pte32pae_t * pte)
 
 
 
-void PrintDebugPageTables32PAE(pdpe32pae_t * pdpe)
-{
-  int i, j, k;
-  pde32pae_t * pde;
-  pte32pae_t * pte;
-  addr_t virtual_addr = 0;
-
-  PrintDebug("Dumping the pages starting with the pde page at %p\n", pdpe);
-
-  for (i = 0; (i < MAX_PDPE32PAE_ENTRIES); i++) { 
-
-    if (pdpe[i].present) {
-      pde = (pde32pae_t *)V3_VAddr((void *)(addr_t)BASE_TO_PAGE_ADDR(pdpe[i].pd_base_addr));
-
-      PrintPDPE32PAE(virtual_addr, &(pdpe[i]));
-
-      for (j = 0; j < MAX_PDE32PAE_ENTRIES; j++) {
-
-	if (pde[j].present) {
-	  pte = (pte32pae_t *)V3_VAddr((void *)(addr_t)BASE_TO_PAGE_ADDR(pde[j].pt_base_addr));
-
-	  PrintPDE32PAE(virtual_addr, &(pde[j]));
-
-	  for (k = 0; k < MAX_PTE32PAE_ENTRIES; k++) {
-	    if (pte[k].present) {
-	      PrintPTE32PAE(virtual_addr, &(pte[k]));
-	    }
-
-	    virtual_addr += PAGE_SIZE;
-	  }
-	} else {
-	  virtual_addr += PAGE_SIZE * MAX_PTE32PAE_ENTRIES;
-	}
-      }
-    } else {
-      virtual_addr += PAGE_SIZE * MAX_PDE32PAE_ENTRIES * MAX_PTE32PAE_ENTRIES;
-    }
-  }
-}
-    
 
 
 void PrintPML4e64(addr_t virtual_address, pml4e64_t * pml)
@@ -266,6 +173,104 @@ void PrintPTE64(addr_t virtual_address, pte64_t * pte)
 }
 
   
+
+
+
+
+
+
+
+
+
+
+void PrintPD32(pde32_t * pde)
+{
+  int i;
+
+  PrintDebug("Page Directory at %p:\n", pde);
+  for (i = 0; (i < MAX_PDE32_ENTRIES); i++) { 
+    if ( pde[i].present) {
+      PrintPDE32((addr_t)(PAGE_SIZE * MAX_PTE32_ENTRIES * i), &(pde[i]));
+    }
+  }
+}
+
+void PrintPT32(addr_t starting_address, pte32_t * pte) 
+{
+  int i;
+
+  PrintDebug("Page Table at %p:\n", pte);
+  for (i = 0; (i < MAX_PTE32_ENTRIES) ; i++) { 
+    if (pte[i].present) {
+      PrintPTE32(starting_address + (PAGE_SIZE * i), &(pte[i]));
+    }
+  }
+}
+
+
+
+
+
+
+
+void PrintDebugPageTables(pde32_t * pde)
+{
+  int i;
+  
+  PrintDebug("Dumping the pages starting with the pde page at %p\n", pde);
+
+  for (i = 0; (i < MAX_PDE32_ENTRIES); i++) { 
+    if (pde[i].present) {
+      PrintPDE32((addr_t)(PAGE_SIZE * MAX_PTE32_ENTRIES * i), &(pde[i]));
+      PrintPT32((addr_t)(PAGE_SIZE * MAX_PTE32_ENTRIES * i), (pte32_t *)V3_VAddr((void *)(addr_t)(pde[i].pt_base_addr << PAGE_POWER)));
+    }
+  }
+}
+    
+
+
+
+void PrintDebugPageTables32PAE(pdpe32pae_t * pdpe)
+{
+  int i, j, k;
+  pde32pae_t * pde;
+  pte32pae_t * pte;
+  addr_t virtual_addr = 0;
+
+  PrintDebug("Dumping the pages starting with the pde page at %p\n", pdpe);
+
+  for (i = 0; (i < MAX_PDPE32PAE_ENTRIES); i++) { 
+
+    if (pdpe[i].present) {
+      pde = (pde32pae_t *)V3_VAddr((void *)(addr_t)BASE_TO_PAGE_ADDR(pdpe[i].pd_base_addr));
+
+      PrintPDPE32PAE(virtual_addr, &(pdpe[i]));
+
+      for (j = 0; j < MAX_PDE32PAE_ENTRIES; j++) {
+
+	if (pde[j].present) {
+	  pte = (pte32pae_t *)V3_VAddr((void *)(addr_t)BASE_TO_PAGE_ADDR(pde[j].pt_base_addr));
+
+	  PrintPDE32PAE(virtual_addr, &(pde[j]));
+
+	  for (k = 0; k < MAX_PTE32PAE_ENTRIES; k++) {
+	    if (pte[k].present) {
+	      PrintPTE32PAE(virtual_addr, &(pte[k]));
+	    }
+
+	    virtual_addr += PAGE_SIZE;
+	  }
+	} else {
+	  virtual_addr += PAGE_SIZE * MAX_PTE32PAE_ENTRIES;
+	}
+      }
+    } else {
+      virtual_addr += PAGE_SIZE * MAX_PDE32PAE_ENTRIES * MAX_PTE32PAE_ENTRIES;
+    }
+  }
+}
+    
+
 
 
 
