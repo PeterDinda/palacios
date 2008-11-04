@@ -1564,7 +1564,7 @@ int v3_drill_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t va
 
 
 int v3_walk_guest_pt_32(struct guest_info * info,  v3_reg_t guest_cr3,
-			void (*callback)(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
+			int (*callback)(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
 			void * private_data) {
   addr_t guest_pde_pa = CR3_TO_PDE32_PA(guest_cr3);
   pde32_t * guest_pde = NULL;
@@ -1640,7 +1640,7 @@ int v3_walk_guest_pt_32(struct guest_info * info,  v3_reg_t guest_cr3,
 
 
 int v3_walk_guest_pt_32pae(struct guest_info * info,  v3_reg_t guest_cr3,
-			   void (*callback)(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
+			   int (*callback)(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
 			   void * private_data) {
   addr_t guest_pdpe_pa = CR3_TO_PDPE32PAE_PA(guest_cr3);
   pdpe32pae_t * guest_pdpe = NULL;
@@ -1737,7 +1737,7 @@ int v3_walk_guest_pt_32pae(struct guest_info * info,  v3_reg_t guest_cr3,
 
 
 int v3_walk_guest_pt_64(struct guest_info * info,  v3_reg_t guest_cr3,
-			void (*callback)(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
+			int (*callback)(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
 			void * private_data) {
   addr_t guest_pml_pa = CR3_TO_PML4E64_PA(guest_cr3);
   pml4e64_t * guest_pml = NULL;
@@ -1865,7 +1865,7 @@ int v3_walk_guest_pt_64(struct guest_info * info,  v3_reg_t guest_cr3,
 }
 
 int v3_walk_host_pt_32(v3_reg_t host_cr3,
-		       void (*callback)(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
+		       int (*callback)(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
 		       void * private_data) {
   pde32_t * host_pde = (pde32_t *)CR3_TO_PDE32_VA(host_cr3);
   addr_t pde_pa = CR3_TO_PDE32_PA(host_cr3);
@@ -1915,7 +1915,7 @@ int v3_walk_host_pt_32(v3_reg_t host_cr3,
 
 
 int v3_walk_host_pt_32pae(v3_reg_t host_cr3,
-			  void (*callback)(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
+			  int (*callback)(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
 			  void * private_data) {
   pdpe32pae_t * host_pdpe = (pdpe32pae_t *)CR3_TO_PDPE32PAE_VA(host_cr3);
   addr_t pdpe_pa = CR3_TO_PDPE32PAE_PA(host_cr3);
@@ -1974,7 +1974,7 @@ int v3_walk_host_pt_32pae(v3_reg_t host_cr3,
 			
 
 int v3_walk_host_pt_64(v3_reg_t host_cr3,
-		       void (*callback)(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
+		       int (*callback)(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
 		       void * private_data) {
   pml4e64_t * host_pml = (pml4e64_t *)CR3_TO_PML4E64_VA(host_cr3);
   addr_t pml_pa = CR3_TO_PML4E64_PA(host_cr3);

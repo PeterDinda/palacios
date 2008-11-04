@@ -563,27 +563,27 @@ int v3_drill_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t va
 
 
 int v3_walk_host_pt_32(v3_reg_t host_cr3,
-		       void (*callback)(page_type_t type, addr_t vaddr, addr_t page_va, addr_t page_pa, void * private_data),
+		       int (*callback)(page_type_t type, addr_t vaddr, addr_t page_va, addr_t page_pa, void * private_data),
 		       void * private_data);
 
 int v3_walk_host_pt_32pae(v3_reg_t host_cr3,
-			  void (*callback)(page_type_t type, addr_t vaddr, addr_t page_va, addr_t page_pa, void * private_data),
+			  int (*callback)(page_type_t type, addr_t vaddr, addr_t page_va, addr_t page_pa, void * private_data),
 			  void * private_data);
 
 int v3_walk_host_pt_64(v3_reg_t host_cr3,
-		       void (*callback)(page_type_t type, addr_t vaddr, addr_t page_va, addr_t page_pa, void * private_data),
+		       int (*callback)(page_type_t type, addr_t vaddr, addr_t page_va, addr_t page_pa, void * private_data),
 		       void * private_data);
 
 int v3_walk_guest_pt_32(struct guest_info * info, v3_reg_t guest_cr3,
-			void (*callback)(page_type_t type, addr_t vaddr, addr_t page_va, addr_t page_pa, void * private_data),
+			int (*callback)(page_type_t type, addr_t vaddr, addr_t page_va, addr_t page_pa, void * private_data),
 			void * private_data);
 
 int v3_walk_guest_pt_32pae(struct guest_info * info, v3_reg_t guest_cr3,
-			   void (*callback)(page_type_t type, addr_t vaddr, addr_t page_va, addr_t page_pa, void * private_data),
+			   int (*callback)(page_type_t type, addr_t vaddr, addr_t page_va, addr_t page_pa, void * private_data),
 			   void * private_data);
 
 int v3_walk_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3,
-			void (*callback)(page_type_t type, addr_t vaddr, addr_t page_va, addr_t page_pa, void * private_data),
+			int (*callback)(page_type_t type, addr_t vaddr, addr_t page_va, addr_t page_pa, void * private_data),
 			void * private_data);
   
 
@@ -601,24 +601,13 @@ void delete_page_tables_64(pml4e64_t *  pml4);
 const uchar_t * v3_page_type_to_str(page_type_t type);
 
 
-//#include <palacios/vm_guest.h>
 
-void PrintDebugPageTables(pde32_t * pde);
+void PrintPTEntry(page_type_t type, addr_t vaddr, void * entry);
+void PrintHostPageTables(v3_vm_cpu_mode_t cpu_mode, addr_t cr3);
+void PrintGuestPageTables(struct guest_info * info, addr_t cr3);
+void PrintHostPageTree(v3_vm_cpu_mode_t cpu_mode, addr_t virtual_addr, addr_t cr3);
+void PrintGuestPageTree(struct guest_info * info, addr_t virtual_addr, addr_t cr3);
 
-
-void PrintPageTree(v3_vm_cpu_mode_t cpu_mode, addr_t virtual_addr, addr_t cr3);
-void PrintPageTree_64(addr_t virtual_addr, pml4e64_t * pml);
-
-
-void PrintPT32(addr_t starting_address, pte32_t * pte);
-void PrintPD32(pde32_t * pde);
-void PrintPTE32(addr_t virtual_address, pte32_t * pte);
-void PrintPDE32(addr_t virtual_address, pde32_t * pde);
-  
-void PrintDebugPageTables32PAE(pdpe32pae_t * pde);
-void PrintPTE32PAE(addr_t virtual_address, pte32pae_t * pte);
-void PrintPDE32PAE(addr_t virtual_address, pde32pae_t * pde);
-void PrintPTE64(addr_t virtual_address, pte64_t * pte);
 
 #endif // !__V3VEE__
 

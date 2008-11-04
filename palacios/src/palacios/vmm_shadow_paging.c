@@ -228,8 +228,9 @@ static int activate_shadow_pt_32pae(struct guest_info * info) {
   return -1;
 }
 
-static void activate_shadow_pt_64_cb(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data) {
+static int activate_shadow_pt_64_cb(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data) {
   PrintDebug("CB: Page: %p->%p (host_ptr=%p), Type: %s\n", (void *)vaddr, (void *)page_pa, (void *)page_ptr, v3_page_type_to_str(type));
+  return 0;
 }
 
 
@@ -314,7 +315,8 @@ int v3_handle_shadow_pagefault(struct guest_info * info, addr_t fault_addr, pf_e
     // If paging is not turned on we need to handle the special cases
 
 #ifdef DEBUG_SHADOW_PAGING
-    PrintPageTree(info->cpu_mode, fault_addr, info->ctrl_regs.cr3);
+    PrintHostPageTree(info->cpu_mode, fault_addr, info->ctrl_regs.cr3);
+    PrintGuestPageTree(info, fault_addr, info->shdw_pg_state.guest_cr3);
 #endif
 
     return handle_special_page_fault(info, fault_addr, fault_addr, error_code);
@@ -576,9 +578,9 @@ static int handle_shadow_pagefault_32(struct guest_info * info, addr_t fault_add
       PrintDebug("Manual Says to inject page fault into guest\n");
 #ifdef DEBUG_SHADOW_PAGING
       PrintDebug("Guest PDE: (access=%d)\n\t", guest_pde_access);
-      PrintPDE32(fault_addr, guest_pde);
+      PrintPTEntry(PAGE_PD32, fault_addr, guest_pde);
       PrintDebug("Shadow PDE: (access=%d)\n\t", shadow_pde_access);
-      PrintPDE32(fault_addr, shadow_pde);
+      PrintPTEntry(PAGE_PD32, fault_addr, shadow_pde);
 #endif
 
       return 0; 
@@ -703,9 +705,9 @@ static int handle_shadow_pte32_fault(struct guest_info * info,
   
 #ifdef DEBUG_SHADOW_PAGING
   PrintDebug("Guest PTE: (access=%d)\n\t", guest_pte_access);
-  PrintPTE32(fault_addr, guest_pte);
+  PrintPTEntry(PAGE_PT32, fault_addr, guest_pte);
   PrintDebug("Shadow PTE: (access=%d)\n\t", shadow_pte_access);
-  PrintPTE32(fault_addr, shadow_pte);
+  PrintPTEntry(PAGE_PT32, fault_addr, shadow_pte);
 #endif
   
   /* Was the page fault caused by the Guest's page tables? */
@@ -905,7 +907,7 @@ int v3_handle_shadow_invlpg(struct guest_info * info)
       
 #ifdef DEBUG_SHADOW_PAGING
       PrintDebug("Setting not present\n");
-      PrintPTE32(first_operand, shadow_pte );
+      PrintPTEntry(PAGE_PT32, first_operand, shadow_pte);
 #endif
       
       shadow_pte->present = 0;
