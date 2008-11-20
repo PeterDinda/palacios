@@ -40,14 +40,13 @@
 # ----------------------------------------------------------------------
 PROJECT_ROOT := ..
 PALACIOS_BUILD_DIR := $(PROJECT_ROOT)/palacios/build
-KITTEN_TOP_DIR := $(PROJECT_ROOT)/kitten
 GEEKOS_BUILD_DIR := $(PROJECT_ROOT)/geekos/build
 GUEST_ISO_DIR := /opt/vmm-tools/isos
 
 # List of targets to build by default.
 # These targets encompass everything needed to boot
 # and run GeekOS.
-ALL_TARGETS := palacios geekos
+ALL_TARGETS := geekos-full
 
 QEMU := /usr/local/qemu/bin/qemu-system-x86_64
 
@@ -203,18 +202,6 @@ palacios-full64:
 palacios-lean:
 	(cd $(PALACIOS_BUILD_DIR) && make LEAN_AND_MEAN=1 world)
 
-kitten: palacios64
-	cp $(PALACIOS_BUILD_DIR)/libv3vee.a $(KITTEN_TOP_DIR)/palacios/
-	cp $(PALACIOS_BUILD_DIR)/../lib/xed/libxed32e.a $(KITTEN_TOP_DIR)/palacios/
-	cp $(PALACIOS_BUILD_DIR)/vm_kernel $(KITTEN_TOP_DIR)/palacios/
-	(cd $(KITTEN_TOP_DIR) && make)
-
-kitten-full: palacios-full64
-	(cd $(KITTEN_TOP_DIR) && make clean)
-	cp $(PALACIOS_BUILD_DIR)/libv3vee.a $(KITTEN_TOP_DIR)/palacios/
-	cp $(PALACIOS_BUILD_DIR)/../lib/xed/libxed32e.a $(KITTEN_TOP_DIR)/palacios/
-	cp $(PALACIOS_BUILD_DIR)/vm_kernel $(KITTEN_TOP_DIR)/palacios/
-	(cd $(KITTEN_TOP_DIR) && make)
 
 
 geekos: palacios32
@@ -231,7 +218,7 @@ geekos-full: palacios-full32
 	(cd $(GEEKOS_BUILD_DIR) && make clean && make)
 
 
-world: geekos-full kitten-full
+world: geekos-full palacios-full64
 
 lean-and-mean: palacios-lean geekos-full
 
