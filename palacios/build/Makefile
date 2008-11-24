@@ -264,6 +264,7 @@ VMM_OBJS := \
 	palacios/svm_lowlevel.o \
 	palacios/vmm_msr.o \
 	palacios/svm_msr.o \
+	palacios/vmm_socket.o \
 
 #		vmx.c vmcs_gen.c vmcs.c
 
