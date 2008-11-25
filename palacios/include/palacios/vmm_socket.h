@@ -162,7 +162,7 @@ struct v3_timeval {
 struct v3_sock_entry {
   V3_SOCK sock;
   unsigned int is_set;
-  struct v3_sock_set * next;
+  struct v3_sock_entry * next;
 };
 
 struct v3_sock_set {
