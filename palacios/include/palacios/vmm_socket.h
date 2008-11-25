@@ -134,7 +134,7 @@
 #define V3_RecvFrom_Host(sock, hostname, port, buf, len) ({		\
       extern struct v3_socket_hooks * sock_hooks;			\
       int ret = -1;							\
-      if ((sock_hooks) && (sock_hooks)->recvfrom_host) {			\
+      if ((sock_hooks) && (sock_hooks)->recvfrom_host) {		\
 	ret = (sock_hooks)->recvfrom_host(sock, hostname, port, buf, len); \
       }									\
       ret;								\
@@ -159,17 +159,30 @@ struct v3_timeval {
   long    tv_usec;        /* and microseconds */
 };
 
-struct v3_sock_set {
+struct v3_sock_entry {
   V3_SOCK sock;
   unsigned int is_set;
   struct v3_sock_set * next;
 };
 
+struct v3_sock_set {
+  unsigned int num_socks;
+  struct v3_sock_entry * socks;
+};
 
-#define v3_set_sock(n, p)  ((p)->fd_bits[(n)/8] |=  (1 << ((n) & 7)))
-#define v3_clr_sock(n, p)  ((p)->fd_bits[(n)/8] &= ~(1 << ((n) & 7)))
-#define v3_isset_sock(n,p) ((p)->fd_bits[(n)/8] &   (1 << ((n) & 7)))
-#define v3_zero_sockset(p)    
+
+void v3_init_sock_set(struct v3_sock_set * sock_set);
+
+void v3_set_sock(struct v3_sock_set * sock_set, V3_SOCK sock); // adds socket to the sockset
+void v3_clr_sock(struct v3_sock_set * sock_set, V3_SOCK sock); // deletes socket from sockset
+int v3_isset_sock(struct v3_sock_set * sock_set, V3_SOCK sock);  // checks is_set vairable 
+void v3_zero_sockset(struct v3_sock_set * sock_set);    // clears all is_set variables.
+
+
+
+#define v3_foreach_sock(/* (struct v3_sock_set *) */ sock_set, /* (struct v3_sock_entry *) */ iter) \
+       for (iter = sock_set->socks; iter != NULL; iter = iter->next)
+
 
 
 struct v3_socket_hooks {
@@ -183,7 +196,7 @@ struct v3_socket_hooks {
   // Network Server Calls
   int (*bind_socket)(const V3_SOCK sock, const int port);
   
-  int (*accept)(const V3_SOCK const sock);
+  int (*accept)(const V3_SOCK const sock, unsigned int * remote_ip);
   // This going to suck
   int (*select)(struct v3_sock_set * rset, \
 		struct v3_sock_set * wset, \
