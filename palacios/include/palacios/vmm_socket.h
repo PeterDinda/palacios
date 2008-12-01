@@ -42,7 +42,7 @@
       extern struct v3_socket_hooks * sock_hooks;	\
       V3_SOCK sock = 0;					\
       if ((sock_hooks) && (sock_hooks)->tcp_socket) {	\
-	sock = (sock_hooks)->tcp_socket(0,0);		\
+	sock = (sock_hooks)->tcp_socket(0,0,0);		\
       }							\
       sock;						\
     })
@@ -68,8 +68,24 @@
     })
 
 
-#define V3_Accept_Socket() (-1)
-#define V3_Select_Socket() (-1)
+#define V3_Accept_Socket(sock, ip_ptr) ({			\
+      extern struct v3_socket_hooks * sock_hooks;		\
+      int ret = -1;						\
+      if ((sock_hooks) && (sock_hooks)->accept) {		\
+	ret = (sock_hooks)->accept(sock, ip_ptr);		\
+      }								\
+      ret;							\
+    })
+
+
+#define V3_Select_Socket(rset,wset,eset,tv) ({			\
+      extern struct v3_socket_hooks * sock_hooks;		\
+      int ret = -1;						\
+      if ((sock_hooks) && (sock_hooks)->select) {		\
+	ret = (sock_hooks)->select(rset, wset, eset, tv);	\
+      }								\
+      ret;							\
+    })
 
 
 

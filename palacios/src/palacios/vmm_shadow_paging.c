@@ -26,6 +26,8 @@
 #include <palacios/vmm_decoder.h>
 #include <palacios/vmm_ctrl_regs.h>
 
+#include <palacios/vmm_hashtable.h>
+
 #ifndef DEBUG_SHADOW_PAGING
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
@@ -36,6 +38,26 @@
  ***  There be dragons
  ***/
 
+
+struct guest_table {
+  addr_t cr3;
+  struct list_head link;
+};
+
+
+struct backptr {
+  addr_t ptr;
+  struct list_head link;
+};
+
+
+struct shadow_page_data {
+  addr_t ptr;
+  addr_t guest_addr; 
+
+  struct list_head backptrs;
+  struct list_head guest_tables;
+};
 
 
 

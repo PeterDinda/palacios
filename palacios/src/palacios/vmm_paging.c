@@ -414,11 +414,8 @@ int v3_check_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t va
 /*
  * PAGE TABLE LOOKUP FUNCTIONS
  *
- *
  * The value of entry is a return type:
  * Page not present: *entry = 0
- * Large Page: *entry = translated physical address (byte granularity)
- * PTE entry: *entry is the address of the PTE Page
  */
 
 /**

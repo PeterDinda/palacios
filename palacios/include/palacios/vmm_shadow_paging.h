@@ -34,13 +34,16 @@ struct shadow_page_state {
   v3_reg_t guest_cr3;
   v3_reg_t guest_cr0;
 
-  // these two reflect the top-level page directory 
-  // of the shadow page table
-  // v3_reg_t                shadow_cr3;
 
 
-  // Hash table that ties a CR3 value to a hash table pointer for the PT entries
+
+  // Page table struct lookup table
+  struct hashtable * pt_cache;
+
+  // Guest CR3 to Shadow CR3 Lookup Table
   struct hashtable *  cr3_cache;
+
+  /* SOON TO BE DEPRECATED */
   // Hash table that contains a mapping of guest pte addresses to host pte addresses
   struct hashtable *  cached_ptes;
   addr_t cached_cr3;
