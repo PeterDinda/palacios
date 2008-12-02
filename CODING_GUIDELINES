@@ -1,0 +1,60 @@
+This is a set of guidelines for how to understand and write code for
+the V3 Hypervisor. 
+================================
+
+"The use of equal negative space, as a balance to positive space, in a
+composition is considered by many as good design. This basic and often
+overlooked principle of design gives the eye a "place to rest,"
+increasing the appeal of a composition through subtle means."
+Translation: Use the f@$#ing spacebar.
+
+Fail Stop:
+Because booting a basic linux kernel results in over 1 million VM exits
+it is catching silent errors is next to impossible. For this reason
+ANY time your code has an error it should return -1, and expect the
+execution to halt. 
+
+This includes unimplemented features and unhandled cases. These cases
+should ALWAYS return -1. 
+
+
+Function names:
+To ease porting externally visible function names should be used
+rarely and have unique names. Currently we have several techniques for
+achieving this:
+
+1. #ifdefs in the header file
+When the V3 Hypervisor is compiled it defines the symbol
+__V3VEE__. Any function that is not needed outside the Hypervisor
+context should be inside an #ifdef __V3VEE__ block, this will make it
+invisible to the host environment.
+
+2. static functions
+Any utility functions that are only needed in the .c file where they
+are defined should be declared as static and not included in the
+header file. 
+
+3. "v3_" prefix
+Major interface functions should be named with the prefix "v3_". This
+allows easy understanding of how to interact with the subsystems. And
+in the case that they need to be externally visible to the host os,
+make them unlikely to collide with other functions. 
+
+
+
+
+Debugging Output:
+Debugging output is sent through the host os via functions in the
+os_hooks structure. These functions have various wrappers of the form
+Print*, with printf style semantics. 
+
+Two functions of note are PrintDebug and PrintError.
+
+PrintDebug:
+Should be used for debugging output that will often be
+turned off selectively by the VMM configuration. 
+
+PrintError:
+Should be used when an error occurs, this will never be optimized out
+and will always print. 
+

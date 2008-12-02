@@ -1,0 +1,48 @@
+This is is a VMM that uses VT-x on 32 bit machines.   
+
+It is based on GeekOS, VmxAssist, BOCHS BIOS/VGABIOS, and code
+for playing around with VT and VT-X in the GeekOS context
+
+Peter Dinda
+
+
+Here are some things you need to know:
+
+
+Serial port I/O is used to communicate with the VMM.  This means
+you need a null modem connection between your test machine and your
+dev machine.  
+
+To configure serial on your dev machine:
+
+(as root, or other user who has access to the serial port):
+  
+   stty -F /dev/ttyS0 115200   (assume 8 bit, no parity already set)
+   
+Then use kermit to communicate:
+
+   kermit -l /dev/ttyS0
+     set carrier-watch off
+     connect
+
+To access the ethernet power switch:
+
+  
+   ifconfig eth0:1 up 192.168.0.4 (this is your address)
+
+Now you should be able to connect to http://192.168.0.100
+
+
+To build from scratch:
+
+cd build
+make clean
+make 
+make generate_sizes
+make clean
+make pxe
+
+This will copy the final image into /tftpboot so that if you have PXE
+boot properly configured, the test machine will boot from it over the
+network.
+

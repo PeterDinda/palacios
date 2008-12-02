@@ -1,6 +1,15 @@
 # Makefile for GeekOS kernel, userspace, and tools
+#
+#  Northwestern University 
+# (c) 2008, Jack Lange <jarusl@cs.northwestern.edu>
+# (c) 2008, Peter Dinda <pdinda@northwestern.edu> 
+# (c) 2008, Lei Xia <xiaxlei@gmail.com>
+# (c) 2008, The V3VEE Project <http://www.v3vee.org> 
+#
+# Based on GeekOS Makefile:
 # Copyright (c) 2004,2005 David H. Hovemeyer <daveho@cs.umd.edu>
-# $Revision: 1.1 $
+# $Revision: 1.71 $
+
 
 # This is free software.  You are permitted to use,
 # redistribute, and modify it as specified in the file "COPYING".
@@ -8,7 +17,6 @@
 # Required software to build GeekOS:
 # - GNU Make (http://www.gnu.org/software/make)
 # - gcc 2.95.2 generating code for target (i386/ELF) and host platforms
-# - nasm (http://nasm.sourceforge.net)
 # - Perl5, AWK (any version), egrep
 #
 # Cygwin (http://cygwin.com) may be used to build GeekOS.
@@ -20,19 +28,6 @@
 #   to speed the build process on 2 processor systems.
 
 
-
-# THESE MUST MATCH WHAT IS DEFINED IN defs.h and defs.asm exactly
-# MUST BE INTEGRAL NUMBER OF PAGES
-TOP_OF_MEM := 0x40000000
-VM_SIZE    := 0x20000000
-VM_START   := 0x0
-
-#
-# THE KERNEL, SETUP, BOOTPACKAGE MUST BE SMALLER THAN THIS
-# MUST BE INTEGRAL NUMBER OF PAGES
-# define 
-MAX_VMM := 0x60000
-
 # Base address of kernel
 #
 # Note: at top of memory minus three pages (GDT/TSS/IDT) 
@@ -43,10 +38,8 @@ MAX_VMM := 0x60000
 #
 # The setup code needs to copy it up to this address and jump there
 #
-KERNEL_BASE_ADDR := $(shell perl -e 'print sprintf("0x%x",$(TOP_OF_MEM)-4096*3-$(MAX_VMM));')
 
-# Kernel entry point function
-KERNEL_ENTRY = $(SYM_PFX)Main
+
 
 
 PROJECT_ROOT := ..
@@ -54,24 +47,173 @@ VPATH := $(PROJECT_ROOT)/src
 
 #when -DNDEBUG is set the kassert functions are disabled
 #JRLDEBUG=-DNDEBUG
-JRLDEBUG= -DSERIAL_PRINT_DEBUG=1 -DSERIAL_PRINT_DEBUG_LEVEL=1000 -DSERIAL_PRINT=1
 
-#
-#
-#Peter's compile flags
-PADFLAGS = -DMAX_VMM=$(MAX_VMM)
+# DEBUG=1 means VMM_DEBUG, VMM_INFO, and VMM_TRACE are enabled
+# as are SERIAL_PRINT_DEBUG
+# 
 
-# Figure out if we're compiling with cygwin, http://cygwin.com
-SYSTEM_NAME := $(shell uname -s)
-ifeq ($(findstring CYGWIN,$(SYSTEM_NAME)),CYGWIN)
-SYM_PFX            := _
-EXTRA_C_OPTS       := -DNEED_UNDERSCORE -DGNU_WIN32
-EXTRA_NASM_OPTS    := -DNEED_UNDERSCORE
-NON_ELF_SYSTEM     := yes
-EXTRA_CC_USER_OPTS := -Dmain=geekos_main
+ifeq ($(LEAN_AND_MEAN),1) 
+DEBUG=0
+DEBUG_SECTIONS=
+else
+DEBUG=1
+DEBUG_SECTIONS= 
 endif
 
-VMM_SIZES = ../include/geekos/vmm_sizes.h
+
+ifeq ($(DEBUG_ALL),1)
+  DEBUG_SECTIONS:= $(DEBUG_SECTIONS) -DDEBUG_SHADOW_PAGING -DDEBUG_CTRL_REGS -DDEBUG_INTERRUPTS -DDEBUG_IO -DDEBUG_KEYBOARD -DDEBUG_PIC -DDEBUG_PIT -DDEBUG_NVRAM -DDEBUG_EMULATOR -DDEBUG_GENERIC -DDEBUG_RAMDISK -DDEBUG_XED -DDEBUG_HALT -DDEBUG_DEV_MGR
+endif
+
+ifeq ($(DEBUG_SHADOW_PAGING),1)
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DDEBUG_SHADOW_PAGING
+else 
+ifeq ($(DEBUG_SHADOW_PAGING),0) 
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -UDEBUG_SHADOW_PAGING
+endif
+endif
+
+ifeq ($(DEBUG_CTRL_REGS),1)
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DDEBUG_CTRL_REGS
+else 
+ifeq ($(DEBUG_CTRL_REGS),0) 
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -UDEBUG_CTRL_REGS
+endif
+endif
+
+ifeq ($(DEBUG_INTERRUPTS),1)
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DDEBUG_INTERRUPTS
+else 
+ifeq ($(DEBUG_INTERRUPTS),0) 
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -UDEBUG_INTERRUPTS
+endif
+endif
+
+ifeq ($(DEBUG_IO),1)
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DDEBUG_IO
+else 
+ifeq ($(DEBUG_IO),0) 
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -UDEBUG_IO
+endif
+endif
+
+ifeq ($(DEBUG_KEYBOARD),1)
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DDEBUG_KEYBOARD
+else 
+ifeq ($(DEBUG_KEYBOARD),0) 
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -UDEBUG_KEYBOARD
+endif
+endif
+
+ifeq ($(DEBUG_PIC),1)
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DDEBUG_PIC
+else 
+ifeq ($(DEBUG_PIC),0) 
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -UDEBUG_PIC
+endif
+endif
+
+ifeq ($(DEBUG_PIT),1)
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DDEBUG_PIT
+else 
+ifeq ($(DEBUG_PIT),0) 
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -UDEBUG_PIT
+endif
+endif
+
+ifeq ($(DEBUG_NVRAM),1)
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DDEBUG_NVRAM
+else 
+ifeq ($(DEBUG_NVRAM),0) 
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -UDEBUG_NVRAM
+endif
+endif
+
+ifeq ($(DEBUG_GENERIC),1)
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DDEBUG_GENERIC
+else 
+ifeq ($(DEBUG_GENERIC),0) 
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -UDEBUG_GENERIC
+endif
+endif
+
+ifeq ($(DEBUG_EMULATOR),1)
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DDEBUG_EMULATOR
+else 
+ifeq ($(DEBUG_EMULATOR),0) 
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -UDEBUG_EMULATOR
+endif
+endif
+
+ifeq ($(DEBUG_RAMDISK),1)
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DDEBUG_RAMDISK
+else 
+ifeq ($(DEBUG_RAMDISK),0) 
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -UDEBUG_RAMDISK
+endif
+endif
+
+ifeq ($(TRACE_RAMDISK),1)
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DTRACE_RAMDISK
+else
+ifeq ($(TRACE_RAMDSK),0)
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -UTRACE_RAMDISK
+endif
+endif
+
+ifeq ($(DEBUG_XED),1)
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DDEBUG_XED
+else 
+ifeq ($(DEBUG_XED),0) 
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -UDEBUG_XED
+endif
+endif
+
+ifeq ($(DEBUG_HALT),1)
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DDEBUG_HALT
+else 
+ifeq ($(DEBUG_HALT),0) 
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -UDEBUG_HALT
+endif
+endif
+
+ifeq ($(DEBUG_DEV_MGR),1)
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DDEBUG_DEV_MGR
+else 
+ifeq ($(DEBUG_DEV_MGR),0)
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -UDEBUG_DEV_MGR
+endif
+endif
+
+#DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DTEST_NE2K
+
+ifeq ($(DEBUG),1)
+  JRLDEBUG=  -DVMM_DEBUG -DVMM_INFO -DVMM_TRACE $(DEBUG_SECTIONS)
+else
+
+endif
+
+
+
+
+
+
+#
+# This is wrong for current cygwin - no changes needed
+#
+# Figure out if we're compiling with cygwin, http://cygwin.com
+#
+# 
+#SYSTEM_NAME := $(shell uname -s)
+#ifeq ($(findstring CYGWIN,$(SYSTEM_NAME)),CYGWIN)
+#SYM_PFX            := _
+#EXTRA_C_OPTS       := -DNEED_UNDERSCORE -DGNU_WIN32
+#EXTRA_NASM_OPTS    := -DNEED_UNDERSCORE
+#NON_ELF_SYSTEM     := yes
+#EXTRA_CC_USER_OPTS := -Dmain=geekos_main
+#endif
+
+
 
 
 # ----------------------------------------------------------------------
@@ -85,47 +227,81 @@ VMM_SIZES = ../include/geekos/vmm_sizes.h
 # List of targets to build by default.
 # These targets encompass everything needed to boot
 # and run GeekOS.
-ALL_TARGETS := fd.img  rombios vgabios vmxassist
+ALL_TARGETS := vmm vm_kernel
 
 
-# Kernel source files
-KERNEL_C_SRCS := idt.c int.c trap.c irq.c io.c \
-	keyboard.c screen.c timer.c \
-	mem.c crc32.c \
-	gdt.c tss.c segment.c \
-	bget.c malloc.c \
-	synch.c kthread.c \
-	serial.c  reboot.c \
-        paging.c vmx.c vmcs_gen.c vmcs.c\
-	main.c
+VMM_OBJS := \
+	palacios/vm_guest.o \
+	palacios/svm.o \
+	palacios/svm_handler.o \
+	palacios/vmm.o \
+	palacios/vmm_util.o \
+	palacios/vmm_ctrl_regs.o \
+	palacios/vmcb.o \
+	palacios/vmm_mem.o \
+	palacios/vmm_paging.o \
+	palacios/vmm_io.o \
+	palacios/vmm_debug.o \
+	palacios/svm_io.o \
+	palacios/vmm_intr.o \
+	palacios/vmm_time.o \
+	palacios/vmm_shadow_paging.o \
+	palacios/vm_guest_mem.o \
+	palacios/vm_dev.o \
+	palacios/vmm_dev_mgr.o \
+	palacios/vmm_decoder.o \
+	palacios/svm_halt.o \
+	palacios/svm_pause.o \
+	palacios/svm_wbinvd.o \
+	palacios/vmm_config.o \
+	palacios/vmm_hashtable.o \
+	palacios/vmm_string.o \
+	palacios/vmm_emulator.o \
+	palacios/vmm_queue.o \
+	palacios/vmm_host_events.o \
+	palacios/svm_lowlevel.o \
 
-# Kernel object files built from C source files
-KERNEL_C_OBJS := $(KERNEL_C_SRCS:%.c=geekos/%.o)
+#		vmx.c vmcs_gen.c vmcs.c
 
-# Kernel assembly files
-KERNEL_ASM_SRCS := lowlevel.asm vmx_lowlevel.asm
-
-KERNEL_GAS_SRCS := testvm.s
-
-# Kernel object files build from assembler source files
-KERNEL_ASM_OBJS := $(KERNEL_ASM_SRCS:%.asm=geekos/%.o) 
-
-KERNEL_GAS_OBJS := $(KERNEL_GAS_SRCS:%.s=geekos/%.o)
+# Extra C flags for the VMM objects
+$(VMM_OBJS) :: EXTRA_CFLAGS = \
+	$(JRLDEBUG) \
 
 
-# All kernel object files
-KERNEL_OBJS := $(KERNEL_C_OBJS) \
-  $(KERNEL_ASM_OBJS) $(KERNEL_GAS_OBJS)
 
-# Common library source files.
-# This library is linked into both the kernel and user programs.
-# It provides string functions and generic printf()-style
-# formatted output.
-COMMON_C_SRCS := fmtout.c string.c memmove.c
+XED_OBJS := \
+	xed/v3-xed-compat.o \
+	xed/v3-udiv-compat.o \
 
-# Common library object files.
-COMMON_C_OBJS := $(COMMON_C_SRCS:%.c=common/%.o)
+$(XED_OBJS) :: EXTRA_CFLAGS =
 
+
+DEVICES_OBJS := \
+	devices/generic.o \
+	devices/keyboard.o \
+	devices/nvram.o \
+	devices/timer.o \
+	devices/simple_pic.o \
+	devices/8259a.o \
+	devices/8254.o \
+	devices/serial.o \
+	devices/ramdisk.o \
+	devices/cdrom.o \
+	devices/bochs_debug.o \
+
+$(DEVICES_OBJS) :: EXTRA_CFLAGS =
+
+#
+# DECODER is the decoder that will be used 
+# currently we only support xed
+#
+DECODER=XED
+
+ifeq ($(DECODER),XED)
+VMM_OBJS += palacios/vmm_xed.o
+else
+# This is an error
+endif
 
 
 
@@ -134,20 +310,28 @@ COMMON_C_OBJS := $(COMMON_C_SRCS:%.c=common/%.o)
 #   This section defines programs that are used to build GeekOS.
 # ----------------------------------------------------------------------
 
+ifeq ($(ARCH),64)
+V3_ARCH := __V3_64BIT__
+else 
+V3_ARCH := __V3_32BIT__
+endif
+
+
 # Uncomment if cross compiling
-#TARGET_CC_PREFIX := i386-elf-
+#TARGET_CC_PREFIX :=  $(PROJECT_ROOT)/../devtools/i386/bin/i386-elf-
+#TARGET_CC_PREFIX :=  i386-elf-
 
 # Target C compiler.  gcc 2.95.2 or later should work.
-TARGET_CC := $(TARGET_CC_PREFIX)gcc
+ifeq ($(ARCH),64)
+TARGET_CC := $(TARGET_CC_PREFIX)gcc -m64
+else 
+TARGET_CC := $(TARGET_CC_PREFIX)gcc -m32
+endif
+#TARGET_CC := $(TARGET_CC_PREFIX)gcc34 -m32
 
-# Host C compiler.  This is used to compile programs to execute on
-# the host platform, not the target (x86) platform.  On x86/ELF
-# systems, such as Linux and FreeBSD, it can generally be the same
-# as the target C compiler.
-HOST_CC := gcc
 
 # Target linker.  GNU ld is probably to only one that will work.
-TARGET_LD := $(TARGET_CC_PREFIX)ld
+TARGET_LD := $(TARGET_CC_PREFIX)ld -melf_i386
 
 # Target archiver
 TARGET_AR := $(TARGET_CC_PREFIX)ar
@@ -162,9 +346,18 @@ TARGET_NM := $(TARGET_CC_PREFIX)nm
 TARGET_OBJCOPY := $(TARGET_CC_PREFIX)objcopy
 
 # Nasm (http://nasm.sourceforge.net)
-NASM := /usr/local/nasm-vmx/bin/nasm
+NASM := $(PROJECT_ROOT)/../devtools/bin/nasm
+#NASM := /opt/vmm-tools/bin/nasm
 
-AS = as
+CPP := cpp
+
+
+ifeq ($(ARCH),64)
+AS = as --64
+else 
+AS = as --32
+endif
+
 
 # Tool to build PFAT filesystem images.
 BUILDFAT := tools/builtFat.exe
@@ -182,24 +375,33 @@ ZEROFILE := $(PERL) $(PROJECT_ROOT)/scripts/zerofile
 NUMSECS := $(PERL) $(PROJECT_ROOT)/scripts/numsecs
 
 
+FD_SECTORS_PER_TRACK := $(PERL) $(PROJECT_ROOT)/scripts/numsecs_per_track
+
+
 # ----------------------------------------------------------------------
 # Definitions -
 #   Options passed to the tools.
 # ----------------------------------------------------------------------
 
 # Flags used for all C source files
-GENERAL_OPTS := -O -Wall $(EXTRA_C_OPTS) $(JRLDEBUG) $(PADFLAGS)
-CC_GENERAL_OPTS := $(GENERAL_OPTS) -Werror 
 
-# Flags used for kernel C source files
-CC_KERNEL_OPTS := -g -DGEEKOS -I$(PROJECT_ROOT)/include
+CC_GENERAL_OPTS = \
+	-O \
+	-Wall \
+	-g \
+	-D__V3VEE__ \
+	-D$(V3_ARCH) \
+	$(EXTRA_C_OPTS) \
+	$(VMM_FLAGS) \
+	-I$(PROJECT_ROOT)/include \
+	-fPIC \
+	-Werror \
+	-Wp,-MD,$(@D)/.$(@F).d \
+	-Wp,-MT,$@ \
 
-# Flags user for kernel assembly files
-NASM_KERNEL_OPTS := -I$(PROJECT_ROOT)/src/geekos/ -f elf $(EXTRA_NASM_OPTS)
+#-fvisibility=hidden
 
-# Flags used for common library and libc source files
-CC_USER_OPTS := -I$(PROJECT_ROOT)/include -I$(PROJECT_ROOT)/include/libc \
-	$(EXTRA_CC_USER_OPTS)
+
 
 # Flags passed to objcopy program (strip unnecessary sections from kernel.exe)
 OBJCOPY_FLAGS := -R .dynamic -R .note -R .comment
@@ -210,25 +412,51 @@ OBJCOPY_FLAGS := -R .dynamic -R .note -R .comment
 # ----------------------------------------------------------------------
 
 # Compilation of kernel C source files
+# Usage:
+#	$(call build,TAG,commandline)
+#
+# If V=1 on the command line or the environment, then the actual
+# command executed will be echoed to the terminal.  Otherwise
+# only the tag and the output file will be printed to make
+# any warnings stand out from the compile messages.
+#
+build = \
+	@if [ -z "$V" ]; then \
+		echo '    [$1]	$@'; \
+		$2; \
+	else \
+		echo '$2'; \
+		$2; \
+	fi
 
-geekos/%.o : geekos/%.c
-	$(TARGET_CC) -c $(CC_GENERAL_OPTS) $(CC_KERNEL_OPTS) $< -o geekos/$*.o
 
 
-# Compilation of kernel assembly source files
-geekos/%.o : geekos/%.asm
-	$(NASM) $(NASM_KERNEL_OPTS) $< -o geekos/$*.o
+CC_COMPILE = \
+	$(call build,CC,$(TARGET_CC) \
+		$(CC_GENERAL_OPTS) \
+		$(EXTRA_CFLAGS) \
+		-c \
+		$< \
+		-o $@ \
+	)
 
-# Compilation of test VM
-geekos/%.o : geekos/%.s
-	$(AS) $< -o geekos/$*.o
+AS_COMPILE = \
+	$(call build,AS,$(TARGET_CC) \
+		$(CC_GENERAL_OPTS) \
+		$(EXTRA_CFLAGS) \
+		-c \
+		$< \
+		-o $@ \
+	)
 
-geekos/%.o : geekos/%.S
-	$(TARGET_CC) -c $(CC_GENERAL_OPTS) $(CC_KERNEL_OPTS) $< -o geekos/$*.o
 
-# Compilation of common library C source files
-common/%.o : common/%.c
-	$(TARGET_CC) -c $(CC_GENERAL_OPTS) $(CC_USER_OPTS) $< -o common/$*.o
+%.o: %.c
+	$(CC_COMPILE)
+%.o: %.S
+	$(AS_COMPILE)
+%.o: %.s
+	$(AS_COMPILE)
+
 
 # ----------------------------------------------------------------------
 # Targets -
@@ -239,158 +467,71 @@ common/%.o : common/%.c
 all : $(ALL_TARGETS)
 
 
-geekos/vmx_lowlevel.o: $(PROJECT_ROOT)/src/geekos/vmx_lowlevel.asm
-	$(NASM) -O99 \
-	-f elf \
-		-I$(PROJECT_ROOT)/src/geekos/ \
-		$(PROJECT_ROOT)/src/geekos/vmx_lowlevel.asm \
-	-o $@
+#geekos/vmx_lowlevel.o: $(PROJECT_ROOT)/src/geekos/vmx_lowlevel.asm
+#	$(NASM) -O99 \
+#	-f elf \
+#		-I$(PROJECT_ROOT)/src/geekos/ \
+#		$(PROJECT_ROOT)/src/geekos/vmx_lowlevel.asm \
+#	-o $@
 
 
-geekos/test: geekos/test.o geekos/vmcs.o geekos/vmx_lowlevel.o 
-	$(CC) geekos/test.o geekos/vmcs.o geekos/vmx_lowlevel.o  -o geekos/test
-
-# Standard floppy image - just boots the kernel
-fd.img : geekos/fd_boot.bin geekos/setup.bin geekos/kernel.bin rombios vgabios vmxassist
-	cat geekos/fd_boot.bin geekos/setup.bin geekos/kernel.bin > _temp
-	$(PAD) _temp 512
-# Note - second copy of rombios is intentional 
-	cat _temp rombios vgabios vmxassist rombios > $@
-
-# make ready to boot over PXE
-pxe:	fd.img
-	cp fd.img /tftpboot/geekos.img
-	$(PAD) /tftpboot/geekos.img 1474560
+#geekos/test: geekos/test.o geekos/vmcs.o geekos/vmx_lowlevel.o 
+#	$(CC) geekos/test.o geekos/vmcs.o geekos/vmx_lowlevel.o  -o geekos/test
 
 
-pxe-discovery-pdinda:	fd.img
-	cp fd.img geekos.img
-	$(PAD) geekos.img 1474560
-	/usr/local/vmm-util/pxe_cp geekos.img
-	/usr/local/vmm-util/tty_perm pdinda
-	echo "Copied file to PXE boot area and set serial permissions for pdinda"
+
+rombios_link:
+	ln -s -f ../src/vmboot/rombios/BIOS-bochs-latest rombios
+
+vgabios_link:
+	ln -s -f ../src/vmboot/vgabios/VGABIOS-lgpl-latest.bin vgabios
 
 
-pxe-discovery-bjp600:	fd.img
-	cp fd.img geekos.img
-	$(PAD) geekos.img 1474560
-	/usr/local/vmm-util/pxe_cp geekos.img
-	/usr/local/vmm-util/tty_perm bjp600
-	echo "Copied file to PXE boot area and set serial permissions for pdinda"
+force_rombios: rombios_link
+	(cd ../src/vmboot/rombios; make clean; make)
+
+force_vgabios: vgabios_link
+	(cd ../src/vmboot/vgabios; make clean; make)
+
+force_payload: force_rombios force_vgabios
+	../scripts/make_payload.pl payload_layout.txt vm_kernel
+
+inter1: force_payload
+	-make clean
+
+world: inter1 vmm
+
+vmm: palacios/vmm.lib 
 
 
-# Floppy boot sector (first stage boot loader).
-geekos/fd_boot.bin : geekos/setup.bin geekos/kernel.bin $(PROJECT_ROOT)/src/geekos/fd_boot.asm rombios vgabios vmxassist
-	$(NASM) -f bin \
-		-I$(PROJECT_ROOT)/src/geekos/ \
-		-DNUM_SETUP_SECTORS=`$(NUMSECS) geekos/setup.bin` \
-		-DNUM_KERN_SECTORS=`$(NUMSECS) geekos/kernel.bin` \
-		-DNUM_BIOS_SECTORS=`$(NUMSECS) rombios` \
-		-DNUM_VGA_BIOS_SECTORS=`$(NUMSECS) vgabios` \
-		-DNUM_VMXASSIST_SECTORS=`$(NUMSECS) vmxassist` \
-		$(PROJECT_ROOT)/src/geekos/fd_boot.asm \
-		-o $@
 
-# Setup program (second stage boot loader).
-geekos/setup.bin : geekos/kernel.exe $(PROJECT_ROOT)/src/geekos/setup.asm
-	$(NASM) -f bin \
-		-I$(PROJECT_ROOT)/src/geekos/ \
-		-DENTRY_POINT=0x`egrep 'Main$$' geekos/kernel.syms |awk '{print $$1}'` \
-	        -DVMM_FINAL_ADDR=$(KERNEL_BASE_ADDR) \
-	        -DVMM_SIZE=$(MAX_VMM) \
-		$(PROJECT_ROOT)/src/geekos/setup.asm \
-		-o $@
-	$(PAD) $@ 512
 
 # Loadable (flat) kernel image.
-geekos/kernel.bin : geekos/kernel.exe
-	$(TARGET_OBJCOPY) $(OBJCOPY_FLAGS) -S -O binary geekos/kernel.exe geekos/kernel.bin
-	$(PAD) $@ 512
+palacios/vmm.bin : palacios/vmm.lib
+	$(TARGET_OBJCOPY) $(OBJCOPY_FLAGS) -S -O binary palacios/vmm.lib palacios/vmm.bin
+
 
 # The kernel executable and symbol map.
-geekos/kernel.exe : $(KERNEL_OBJS) $(COMMON_C_OBJS)
-	$(TARGET_LD) -o geekos/kernel.exe -Ttext $(KERNEL_BASE_ADDR) -e $(KERNEL_ENTRY) \
-		$(KERNEL_OBJS) $(COMMON_C_OBJS)
-	$(TARGET_NM) geekos/kernel.exe > geekos/kernel.syms
+palacios/vmm.lib: libv3vee.a
+libv3vee.a: \
+	$(VMM_OBJS) \
+	$(DEVICES_OBJS) \
+	$(XED_OBJS) \
 
-
-generate_sizes: force
-	echo "#ifndef __vmm_sizes" > $(VMM_SIZES)
-	echo "#define __vmm_sizes" >> $(VMM_SIZES)
-	echo "#define KERNEL_LOAD_ADDRESS " $(KERNEL_BASE_ADDR)  >> $(VMM_SIZES) 
-	echo "#define KERNEL_SETUP_LENGTH (" `$(NUMSECS) geekos/setup.bin` "*512)" >> $(VMM_SIZES) 
-	echo "#define KERNEL_CORE_LENGTH (" `$(NUMSECS)  geekos/kernel.bin` "*512)" >> $(VMM_SIZES) 
-	echo "#define KERNEL_START (KERNEL_LOAD_ADDRESS)" >> $(VMM_SIZES)
-	echo "#define KERNEL_END (KERNEL_LOAD_ADDRESS+KERNEL_CORE_LENGTH-1)" >> $(VMM_SIZES)
-	echo "#define BIOS_LENGTH (" `$(NUMSECS) rombios` "*512)" >> $(VMM_SIZES) 
-	echo "#define VGA_BIOS_LENGTH (" `$(NUMSECS) vgabios` "*512)" >> $(VMM_SIZES) 
-	echo "#define VMXASSIST_LENGTH (" `$(NUMSECS) vmxassist` "*512)" >> $(VMM_SIZES) 
-	echo "#define BIOS_START (KERNEL_LOAD_ADDRESS+KERNEL_CORE_LENGTH)" >> $(VMM_SIZES) 
-	echo "#define VGA_BIOS_START (BIOS_START+BIOS_LENGTH)" >> $(VMM_SIZES)
-	echo "#define VMXASSIST_START (VGA_BIOS_START+VGA_BIOS_LENGTH)" >> $(VMM_SIZES)
-	echo "//Note this is a second copy of the rom bios for debug" >> $(VMM_SIZES)
-	echo "#define BIOS2_START (VMXASSIST_START+VMXASSIST_LENGTH)" >> $(VMM_SIZES)
-	echo "#define VM_BOOT_PACKAGE_START (BIOS_START) " >> $(VMM_SIZES)
-	echo "#define VM_BOOT_PACKAGE_END  (BIOS2_START+BIOS_LENGTH-1) " >> $(VMM_SIZES)
-	echo "#endif" >> $(VMM_SIZES)
-
-make_show_sizes: generate_sizes ../src/geekos/show_sizes.c
-	$(HOST_CC) -I../include/geekos ../src/geekos/show_sizes.c -o show_sizes
-
-show_sizes: make_show_sizes
-	./show_sizes
-
-
-get_kernel_size: make_show_sizes
-	./show_sizes | grep 
+	$(call build,AR,$(TARGET_AR) rcs $@ $^)
 
 force:
 
 
-rombios: force
-	(cd ../src/vmboot/rombios; make)
-	cp ../src/vmboot/rombios/BIOS-bochs-latest rombios
-	$(PAD) rombios 512
-	@echo "Rom bios lives at f000:0000 and is" `$(NUMSECS) rombios` "sectors long"
 
 
-vgabios: force
-	(cd ../src/vmboot/vgabios;  make)
-	cp ../src/vmboot/vgabios/vgabios.bin vgabios
-	$(PAD) vgabios 512
-	@echo "Vga bios lives at c000:0000 and is" `$(NUMSECS) vgabios` "sectors long"
-
-vmxassist: force
-	(cd ../src/vmboot/vmxassist; make)
-	cp ../src/vmboot/vmxassist/vmxassist.bin vmxassist
-	$(PAD) vmxassist 512
-	@echo "vmxassist lives at d000:0000 and is" `$(NUMSECS) vmxassist` "sectors long"
 
 # Clean build directories of generated files
 clean :
-	rm -f rombios vgabios vmxassist
-	(cd ../src/vmboot/rombios; make clean)
-	(cd ../src/vmboot/vgabios;  make clean)
-	(cd ../src/vmboot/vmxassist; make clean)
-	for d in geekos common libc user tools; do \
-		(cd $$d && rm -f *); \
+	for d in palacios devices xed; do \
+		(cd $$d && rm -f * .*.d); \
 	done
 
 
-# Build header file dependencies, so source files are recompiled when
-# header files they depend on are modified.
-depend : $(GENERATED_LIBC_SRCS)
-	$(TARGET_CC) -M $(CC_GENERAL_OPTS) $(CC_KERNEL_OPTS) \
-		$(KERNEL_C_SRCS:%.c=$(PROJECT_ROOT)/src/geekos/%.c) \
-		| $(PERL) -n -e 's,^(\S),geekos/$$1,;print' \
-		> depend.mak
-	$(TARGET_CC) -M $(CC_GENERAL_OPTS) $(CC_USER_OPTS) \
-		$(COMMON_C_SRCS:%.c=$(PROJECT_ROOT)/src/common/%.c) \
-		| $(PERL) -n -e 's,^(\S),common/$$1,;print' \
-		>> depend.mak
-
-# By default, there are no header file dependencies.
-depend.mak :
-	touch $@
-
-include depend.mak
+# Include all of the generated dependency files if they exist
+-include */.*.o.d
