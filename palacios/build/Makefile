@@ -1,4 +1,3 @@
-# Makefile for GeekOS kernel, userspace, and tools
 #
 #  Northwestern University 
 # (c) 2008, Jack Lange <jarusl@cs.northwestern.edu>
@@ -435,6 +434,7 @@ CC_COMPILE = \
 	$(call build,CC,$(TARGET_CC) \
 		$(CC_GENERAL_OPTS) \
 		$(EXTRA_CFLAGS) \
+                -fno-stack-protector \
 		-c \
 		$< \
 		-o $@ \
