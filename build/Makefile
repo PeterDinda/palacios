@@ -46,7 +46,7 @@ GUEST_ISO_DIR := /opt/vmm-tools/isos
 # List of targets to build by default.
 # These targets encompass everything needed to boot
 # and run GeekOS.
-ALL_TARGETS := palacios geekos
+ALL_TARGETS := world
 
 QEMU := /usr/local/qemu/bin/qemu-system-x86_64
 
