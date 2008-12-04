@@ -229,7 +229,7 @@ endif
 # List of targets to build by default.
 # These targets encompass everything needed to boot
 # and run GeekOS.
-ALL_TARGETS := vmm vm_kernel
+ALL_TARGETS := vmm force_payload
 
 
 VMM_OBJS := \
