@@ -160,6 +160,9 @@ EXPORT Get_ESP
 ; EBP
 EXPORT Get_EBP
 
+; Halt machine
+EXPORT Halt
+
 ; Virtual memory support.
 EXPORT Enable_Paging
 EXPORT Set_PDBR
@@ -378,6 +381,11 @@ Get_MSR:
 	ret
 
 
+
+
+align 8
+Halt:
+	hlt
 
 
 align 8
