@@ -348,13 +348,13 @@ TARGET_OBJCOPY := $(TARGET_CC_PREFIX)objcopy
 NASM := $(PROJECT_ROOT)/../devtools/bin/nasm
 #NASM := /opt/vmm-tools/bin/nasm
 
-CPP := cpp
+CPP := $(TARGET_CC_PREFIX)cpp
 
 
 ifeq ($(ARCH),64)
-AS = as --64
+AS = $(TARGET_CC_PREFIX)as --64
 else 
-AS = as --32
+AS = $(TARGET_CC_PREFIX)as --32
 endif
 
 
