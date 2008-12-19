@@ -19,6 +19,7 @@ extern struct Kernel_Thread* g_currentThread;
 
 #define KASSERT(cond) 					\
 do {							\
+  extern void Halt();					\
     if (!(cond)) {					\
 	Set_Current_Attr(ATTRIB(RED, GRAY|BRIGHT));	\
 	Print("Failed assertion in %s: %s at %s, line %d, RA=%lx, thread=%p\n",\
@@ -26,16 +27,17 @@ do {							\
 		(ulong_t) __builtin_return_address(0),	\
 		g_currentThread);			\
 	while (1)					\
-	   ; 						\
+	  Halt();					\
     }							\
 } while (0)
 
 #define TODO(message)					\
-do {							\
+  do {							\
+    extern void Halt();					\
     Set_Current_Attr(ATTRIB(BLUE, GRAY|BRIGHT));	\
     Print("Unimplemented feature: %s\n", (message));	\
     while (1)						\
-	;						\
+      Halt();						\
 } while (0)
 
 /*
@@ -66,7 +68,7 @@ do {					\
  * Its behavior does not depend on whether or not this
  * is a debug build.
  */
-#define STOP() while (1)
+#define STOP() while (1) {Halt();}
 
 /*
  * Panic function.
@@ -75,7 +77,7 @@ do {					\
 do {						\
     Set_Current_Attr(ATTRIB(RED, GRAY|BRIGHT));	\
     Print(args);				\
-    while (1) ;					\
+    while (1) Halt();				\
 } while (0)
 
 #endif  /* GEEKOS_KASSERT_H */
