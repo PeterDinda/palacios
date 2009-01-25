@@ -144,11 +144,11 @@ struct guest_info {
   struct v3_dbg_regs dbg_regs;
   struct v3_segments segments;
 
-  struct emulation_state emulator;
-
   v3_vm_operating_mode_t run_state;
   void * vmm_data;
 
+
+  void * decoder_state;
 
   struct v3_msr guest_efer;
 

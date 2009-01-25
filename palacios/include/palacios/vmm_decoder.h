@@ -27,6 +27,16 @@
 #include <palacios/vmm.h>
 
 
+typedef enum { V3_INVALID_OP,
+	       V3_OP_MOVCR2, V3_OP_MOV2CR, V3_OP_SMSW, V3_OP_LMSW, V3_OP_CLTS,
+ 	       V3_OP_ADC, V3_OP_ADD, V3_OP_AND, V3_OP_OR, V3_OP_XOR, V3_OP_SUB,
+	       V3_OP_INC, V3_OP_DEC, V3_OP_NEG, V3_OP_MOV, V3_OP_NOT, V3_OP_XCHG, 
+	       V3_OP_SETB, V3_OP_SETBE, V3_OP_SETL, V3_OP_SETLE, V3_OP_SETNB, 
+	       V3_OP_SETNBE, V3_OP_SETNL, V3_OP_SETNLE, V3_OP_SETNO, V3_OP_SETNP,
+	       V3_OP_SETNS, V3_OP_SETNZ, V3_OP_SETO, V3_OP_SETP, V3_OP_SETS, 
+	       V3_OP_SETZ, V3_OP_MOVS} v3_op_type_t;
+
+
 typedef enum {INVALID_OPERAND, REG_OPERAND, MEM_OPERAND, IMM_OPERAND} v3_operand_type_t;
 
 struct x86_operand {
@@ -49,7 +59,7 @@ struct x86_prefixes {
   uint_t fs_override : 1;  // 0x64
   uint_t gs_override : 1;  // 0x65
   uint_t br_not_taken : 1;  // 0x2E
-  uint_t br_takend   : 1;  // 0x3E
+  uint_t br_taken   : 1;  // 0x3E
   uint_t op_size     : 1;  // 0x66
   uint_t addr_size   : 1;  // 0x67
 };
@@ -58,11 +68,13 @@ struct x86_prefixes {
 struct x86_instr {
   struct x86_prefixes prefixes;
   uint_t instr_length;
-  addr_t opcode;    // a pointer to the V3_OPCODE_[*] arrays defined below
+  v3_op_type_t op_type;
   uint_t num_operands;
   struct x86_operand dst_operand;
   struct x86_operand src_operand;
   struct x86_operand third_operand;
+  addr_t str_op_length;
+  addr_t is_str_op;
   void * decoder_data;
 };
 
@@ -119,7 +131,7 @@ int v3_basic_mem_decode(struct guest_info * info, addr_t instr_ptr, struct basic
 
 /* Removes a rep prefix in place */
 void v3_strip_rep_prefix(uchar_t * instr, int length);
-
+void v3_get_prefixes(uchar_t * instr, struct x86_prefixes * prefixes);
 
 
 /* 
@@ -476,7 +488,7 @@ static inline v3_operand_type_t decode_operands32(struct v3_gprs * gprs, // inpu
       base_addr = gprs->rax;
       break;
     case 1:
-      base_addr = gprs->rcx;
+       base_addr = gprs->rcx;
       break;
     case 2:
       base_addr = gprs->rdx;

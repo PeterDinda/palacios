@@ -91,11 +91,17 @@ static inline struct page * rb_insert_page_cache(struct inode * inode,
 -----------------------------------------------------------------------
 */
 
-#ifndef	_LINUX_RBTREE_H
-#define	_LINUX_RBTREE_H
+#ifndef	_VMM_RBTREE_H
+#define	_VMM_RBTREE_H
 
-#include <linux/kernel.h>
-#include <linux/stddef.h>
+#ifdef __V3VEE__
+
+
+#define container_of(ptr, type, member) ({                      \
+        const typeof( ((type *)0)->member ) *__mptr = (ptr);    \
+        (type *)( (char *)__mptr - offsetof(type,member) );})
+
+
 
 struct rb_node
 {
@@ -136,17 +142,17 @@ static inline void rb_set_color(struct rb_node *rb, int color)
 #define RB_EMPTY_NODE(node)	(rb_parent(node) != node)
 #define RB_CLEAR_NODE(node)	(rb_set_parent(node, node))
 
-extern void rb_insert_color(struct rb_node *, struct rb_root *);
-extern void rb_erase(struct rb_node *, struct rb_root *);
+extern void v3_rb_insert_color(struct rb_node *, struct rb_root *);
+extern void v3_rb_erase(struct rb_node *, struct rb_root *);
 
 /* Find logical next and previous nodes in a tree */
-extern struct rb_node *rb_next(struct rb_node *);
-extern struct rb_node *rb_prev(struct rb_node *);
-extern struct rb_node *rb_first(struct rb_root *);
-extern struct rb_node *rb_last(struct rb_root *);
+extern struct rb_node *v3_rb_next(struct rb_node *);
+extern struct rb_node *v3_rb_prev(struct rb_node *);
+extern struct rb_node *v3_rb_first(struct rb_root *);
+extern struct rb_node *v3_rb_last(struct rb_root *);
 
 /* Fast replacement of a single node without remove/rebalance/add/rebalance */
-extern void rb_replace_node(struct rb_node *victim, struct rb_node *new, 
+extern void v3_rb_replace_node(struct rb_node *victim, struct rb_node *new, 
 			    struct rb_root *root);
 
 static inline void rb_link_node(struct rb_node * node, struct rb_node * parent,
@@ -157,5 +163,8 @@ static inline void rb_link_node(struct rb_node * node, struct rb_node * parent,
 
 	*rb_link = node;
 }
+
+
+#endif
 
 #endif	/* _LINUX_RBTREE_H */

@@ -293,6 +293,9 @@ int v3_handle_svm_exit(struct guest_info * info) {
   } 
     break;
 
+
+#if 0
+    // Emulation handlers currently not used
   case VMEXIT_EXCP1: 
     {
 #ifdef DEBUG_EMULATOR
@@ -308,7 +311,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
       }
       break;
     } 
-
+    
 
   case VMEXIT_VMMCALL: 
     {
@@ -340,7 +343,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
       }
       break;
     } 
-    
+#endif
 
 
   case VMEXIT_WBINVD: 

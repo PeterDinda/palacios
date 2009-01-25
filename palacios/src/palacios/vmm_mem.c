@@ -27,15 +27,13 @@
 void init_shadow_region(struct shadow_region * entry,
 			addr_t               guest_addr_start,
 			addr_t               guest_addr_end,
-			guest_region_type_t  guest_region_type,
-			host_region_type_t   host_region_type)
+			shdw_region_type_t   shdw_region_type)
 {
-  entry->guest_type = guest_region_type;
   entry->guest_start = guest_addr_start;
   entry->guest_end = guest_addr_end;
-  entry->host_type = host_region_type;
+  entry->host_type = shdw_region_type;
   entry->host_addr = 0;
-  entry->next=entry->prev = NULL;
+  entry->next = entry->prev = NULL;
 }
 
 int add_shadow_region_passthrough( struct guest_info *  guest_info,
@@ -46,87 +44,65 @@ int add_shadow_region_passthrough( struct guest_info *  guest_info,
   struct shadow_region * entry = (struct shadow_region *)V3_Malloc(sizeof(struct shadow_region));
 
   init_shadow_region(entry, guest_addr_start, guest_addr_end, 
-		     GUEST_REGION_PHYSICAL_MEMORY, HOST_REGION_PHYSICAL_MEMORY);
+		     SHDW_REGION_ALLOCATED);
   entry->host_addr = host_addr;
 
   return add_shadow_region(&(guest_info->mem_map), entry);
 }
 
-int hook_guest_mem(struct guest_info * info, addr_t guest_addr_start, addr_t guest_addr_end,
-		   int (*read)(addr_t guest_addr, void * dst, uint_t length, void * priv_data),
-		   int (*write)(addr_t guest_addr, void * src, uint_t length, void * priv_data),
-		   void * priv_data) {
-  
+int v3_hook_write_mem(struct guest_info * info, addr_t guest_addr_start, addr_t guest_addr_end, 
+		      addr_t host_addr,
+		      int (*write)(addr_t guest_addr, void * src, uint_t length, void * priv_data),
+		      void * priv_data) {
+
   struct shadow_region * entry = (struct shadow_region *)V3_Malloc(sizeof(struct shadow_region));
-  struct vmm_mem_hook * hook = (struct vmm_mem_hook *)V3_Malloc(sizeof(struct vmm_mem_hook));
-
-  memset(hook, 0, sizeof(struct vmm_mem_hook));
-
-  hook->read = read;
-  hook->write = write;
-  hook->region = entry;
-  hook->priv_data = priv_data;
-
 
   init_shadow_region(entry, guest_addr_start, guest_addr_end, 
-		     GUEST_REGION_PHYSICAL_MEMORY, HOST_REGION_HOOK);
+		     SHDW_REGION_WRITE_HOOK);
 
-  entry->host_addr = (addr_t)hook;
+  entry->write_hook = write;
+  entry->read_hook = NULL;
+  entry->host_addr = host_addr;
+  entry->priv_data = priv_data;
+
+  return add_shadow_region(&(info->mem_map), entry);  
+}
+
+int v3_hook_full_mem(struct guest_info * info, addr_t guest_addr_start, addr_t guest_addr_end,
+		     int (*read)(addr_t guest_addr, void * dst, uint_t length, void * priv_data),
+		     int (*write)(addr_t guest_addr, void * src, uint_t length, void * priv_data),
+		     void * priv_data) {
+  
+  struct shadow_region * entry = (struct shadow_region *)V3_Malloc(sizeof(struct shadow_region));
+
+  init_shadow_region(entry, guest_addr_start, guest_addr_end, 
+		     SHDW_REGION_FULL_HOOK);
+
+  entry->write_hook = write;
+  entry->read_hook = read;
+  entry->priv_data = priv_data;
+
+  entry->host_addr = 0;
 
   return add_shadow_region(&(info->mem_map), entry);
 }
 
 
-struct vmm_mem_hook * get_mem_hook(struct guest_info * info, addr_t guest_addr) {
-  struct shadow_region * region = get_shadow_region_by_addr(&(info->mem_map), guest_addr);
-
-  if (region == NULL) {
-    PrintDebug("Could not find shadow region for addr: %p\n", (void *)guest_addr);
-    return NULL;
-  }
-
-  return (struct vmm_mem_hook *)(region->host_addr);
-}
-
-
-/* mem_addr is the guest physical memory address */
-static int mem_hook_dispatch(struct guest_info * info, 
-			     addr_t fault_gva, addr_t fault_gpa,  
-			     pf_error_t access_info, struct vmm_mem_hook * hook) 
-{
-
-  // emulate and then dispatch 
-  // or dispatch and emulate
-
-
-  if (access_info.write == 1) {
-    if (v3_emulate_memory_write(info, fault_gva, hook->write, fault_gpa, hook->priv_data) == -1) {
-      PrintError("Memory write emulation failed\n");
-      return -1;
-    }
-    
-  } else {
-    if (v3_emulate_memory_read(info, fault_gva, hook->read, fault_gpa, hook->priv_data) == -1) {
-      PrintError("Memory read emulation failed\n");
-      return -1;
-    }
-  }    
-
-  return 0;
-}
 
 
 int handle_special_page_fault(struct guest_info * info, 
 			      addr_t fault_gva, addr_t fault_gpa, 
 			      pf_error_t access_info) 
 {
-  struct shadow_region * reg = get_shadow_region_by_addr(&(info->mem_map), fault_gpa);
+ struct shadow_region * reg = get_shadow_region_by_addr(&(info->mem_map), fault_gpa);
 
   PrintDebug("Handling Special Page Fault\n");
 
   switch (reg->host_type) {
-  case HOST_REGION_HOOK:
-    return mem_hook_dispatch(info, fault_gva, fault_gpa, access_info, (struct vmm_mem_hook *)(reg->host_addr));
+  case SHDW_REGION_WRITE_HOOK:
+    return v3_handle_mem_wr_hook(info, fault_gva, fault_gpa, reg, access_info);
+  case SHDW_REGION_FULL_HOOK:
+    return v3_handle_mem_full_hook(info, fault_gva, fault_gpa, reg, access_info);
   default:
     return -1;
   }
@@ -135,6 +111,48 @@ int handle_special_page_fault(struct guest_info * info,
 
 }
 
+int v3_handle_mem_wr_hook(struct guest_info * info, addr_t guest_va, addr_t guest_pa, 
+			  struct shadow_region * reg, pf_error_t access_info) {
+
+  addr_t write_src_addr = 0;
+
+  int write_len = v3_emulate_write_op(info, guest_va, guest_pa, &write_src_addr);
+
+  if (write_len == -1) {
+    PrintError("Emulation failure in write hook\n");
+    return -1;
+  }
+
+
+  if (reg->write_hook(guest_pa, (void *)write_src_addr, write_len, reg->priv_data) != write_len) {
+    PrintError("Memory write hook did not return correct value\n");
+    return -1;
+  }
+
+  return 0;
+}
+
+int v3_handle_mem_full_hook(struct guest_info * info, addr_t guest_va, addr_t guest_pa, 
+			    struct shadow_region * reg, pf_error_t access_info) {
+  return -1;
+}
+
+
+
+struct shadow_region * v3_get_shadow_region(struct guest_info * info, addr_t addr) {
+  struct shadow_region * reg = info->mem_map.head;
+
+  while (reg) {
+    if ((reg->guest_start <= addr) && (reg->guest_end > addr)) {
+      return reg;
+    } else if (reg->guest_start > addr) {
+      return NULL;
+    } else {
+      reg = reg->next;
+    }
+  }
+  return NULL;
+}
 
 
 void init_shadow_map(struct guest_info * info) {
@@ -259,11 +277,11 @@ struct shadow_region * get_shadow_region_by_addr(struct shadow_map * map,
 }
 
 
-host_region_type_t get_shadow_addr_type(struct guest_info * info, addr_t guest_addr) {
+shdw_region_type_t get_shadow_addr_type(struct guest_info * info, addr_t guest_addr) {
   struct shadow_region * reg = get_shadow_region_by_addr(&(info->mem_map), guest_addr);
 
   if (!reg) {
-    return HOST_REGION_INVALID;
+    return SHDW_REGION_INVALID;
   } else {
     return reg->host_type;
   }
@@ -280,19 +298,20 @@ addr_t get_shadow_addr(struct guest_info * info, addr_t guest_addr) {
 }
 
 
-host_region_type_t lookup_shadow_map_addr(struct shadow_map * map, addr_t guest_addr, addr_t * host_addr) {
+shdw_region_type_t lookup_shadow_map_addr(struct shadow_map * map, addr_t guest_addr, addr_t * host_addr) {
   struct shadow_region * reg = get_shadow_region_by_addr(map, guest_addr);
 
   if (!reg) {
     // No mapping exists
-    return HOST_REGION_INVALID;
+    return SHDW_REGION_INVALID;
   } else {
     switch (reg->host_type) {
-    case HOST_REGION_PHYSICAL_MEMORY:
+    case SHDW_REGION_ALLOCATED:
+    case SHDW_REGION_WRITE_HOOK:
      *host_addr = (guest_addr - reg->guest_start) + reg->host_addr;
      return reg->host_type;
-    case HOST_REGION_MEMORY_MAPPED_DEVICE:
-    case HOST_REGION_UNALLOCATED:
+    case SHDW_REGION_UNALLOCATED:
+    case SHDW_REGION_FULL_HOOK:
       // ... 
     default:
       *host_addr = 0;
@@ -309,32 +328,43 @@ void print_shadow_map(struct shadow_map * map) {
   PrintDebug("Memory Layout (regions: %d) \n", map->num_regions);
 
   while (cur) {
-    PrintDebug("%d:  0x%p - 0x%p (%s) -> ", i, 
-	       (void *)cur->guest_start, (void *)(cur->guest_end - 1),
-	       cur->guest_type == GUEST_REGION_PHYSICAL_MEMORY ? "GUEST_REGION_PHYSICAL_MEMORY" :
-	       cur->guest_type == GUEST_REGION_NOTHING ? "GUEST_REGION_NOTHING" :
-	       cur->guest_type == GUEST_REGION_MEMORY_MAPPED_DEVICE ? "GUEST_REGION_MEMORY_MAPPED_DEVICE" :
-	       "UNKNOWN");
-    if (cur->host_type == HOST_REGION_PHYSICAL_MEMORY || 
-	cur->host_type == HOST_REGION_UNALLOCATED ||
-	cur->host_type == HOST_REGION_MEMORY_MAPPED_DEVICE) { 
+    PrintDebug("%d:  0x%p - 0x%p -> ", i, 
+	       (void *)cur->guest_start, (void *)(cur->guest_end - 1));
+    if (cur->host_type == SHDW_REGION_ALLOCATED || 
+	cur->host_type == SHDW_REGION_UNALLOCATED) {
       PrintDebug("0x%p", (void *)(cur->host_addr));
     }
-    PrintDebug("(%s)\n",
-	       cur->host_type == HOST_REGION_PHYSICAL_MEMORY ? "HOST_REGION_PHYSICAL_MEMORY" :
-	       cur->host_type == HOST_REGION_UNALLOCATED ? "HOST_REGION_UNALLOACTED" :
-	       cur->host_type == HOST_REGION_HOOK ? "HOST_REGION_HOOK" :
-	       cur->host_type == HOST_REGION_MEMORY_MAPPED_DEVICE ? "HOST_REGION_MEMORY_MAPPED_DEVICE" :
-	       cur->host_type == HOST_REGION_REMOTE ? "HOST_REGION_REMOTE" : 
-	       cur->host_type == HOST_REGION_SWAPPED ? "HOST_REGION_SWAPPED" :
-	       "UNKNOWN");
+    PrintDebug("(%s)\n", shdw_region_type_to_str(cur->host_type));
     cur = cur->next;
     i++;
   }
 }
 
 
+static const uchar_t  SHDW_REGION_INVALID_STR[] = "SHDW_REGION_INVALID";
+static const uchar_t  SHDW_REGION_WRITE_HOOK_STR[] = "SHDW_REGION_WRITE_HOOK";
+static const uchar_t  SHDW_REGION_FULL_HOOK_STR[] = "SHDW_REGION_FULL_HOOK";
+static const uchar_t  SHDW_REGION_ALLOCATED_STR[] = "SHDW_REGION_ALLOCATED";
+static const uchar_t  SHDW_REGION_UNALLOCATED_STR[] = "SHDW_REGION_UNALLOCATED";
 
+
+
+const uchar_t * shdw_region_type_to_str(shdw_region_type_t type) {
+  switch (type) {
+  case SHDW_REGION_INVALID: 
+    return SHDW_REGION_INVALID_STR;
+  case SHDW_REGION_WRITE_HOOK:
+    return SHDW_REGION_WRITE_HOOK_STR;
+  case SHDW_REGION_FULL_HOOK:
+    return SHDW_REGION_FULL_HOOK_STR;
+  case SHDW_REGION_ALLOCATED:
+    return SHDW_REGION_ALLOCATED_STR;
+  case SHDW_REGION_UNALLOCATED:
+    return SHDW_REGION_UNALLOCATED_STR;
+  default:
+    return SHDW_REGION_INVALID_STR;
+  }
+}
 
 
 

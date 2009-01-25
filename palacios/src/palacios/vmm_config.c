@@ -21,7 +21,7 @@
 #include <palacios/vmm.h>
 #include <palacios/vmm_debug.h>
 #include <palacios/vmm_msr.h>
-
+#include <palacios/vmm_decoder.h>
 
 #include <devices/serial.h>
 #include <devices/keyboard.h>
@@ -50,23 +50,14 @@ static struct vm_device *  configure_generic(struct guest_info * info, struct v3
 
 
 
-static int mem_test_read(addr_t guest_addr, void * dst, uint_t length, void * priv_data) {
-  int foo = 20;
-
-
-  memcpy(dst, &foo, length);
-
-  PrintDebug("Passthrough mem read returning: %p (length=%d)\n", (void *)(foo + (guest_addr & 0xfff)), length);
-  return length;
-}
-
-static int passthrough_mem_read(addr_t guest_addr, void * dst, uint_t length, void * priv_data) {
-    memcpy(dst, (void*)guest_addr, length);
-    return length;
-}
 
 static int passthrough_mem_write(addr_t guest_addr, void * src, uint_t length, void * priv_data) {
-  memcpy((void*)guest_addr, src, length);
+
+  return length;
+  //  memcpy((void*)guest_addr, src, length);
+  PrintDebug("Write of %d bytes to %p\n", length, (void *)guest_addr);
+  PrintDebug("Write Value = %p\n", (void *)*(addr_t *)src);
+
   return length;
 }
 
@@ -81,8 +72,9 @@ int v3_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) 
   v3_init_msr_map(info);
   v3_init_interrupt_state(info);
   v3_init_dev_mgr(info);
-  v3_init_emulator(info);
   v3_init_host_events(info);
+
+  v3_init_decoder(info);
 
   init_shadow_map(info);
   
@@ -160,10 +152,10 @@ static int setup_memory_map(struct guest_info * info, struct v3_vm_config * conf
       //     
   add_shadow_region_passthrough(info, 0x0, 0xa0000, (addr_t)V3_AllocPages(160));
   
-  if (1) {
+  if (0) {
     add_shadow_region_passthrough(info, 0xa0000, 0xc0000, 0xa0000); 
   } else {
-    hook_guest_mem(info, 0xa0000, 0xc0000, passthrough_mem_read, passthrough_mem_write, NULL);
+    v3_hook_write_mem(info, 0xa0000, 0xc0000, 0xa0000,  passthrough_mem_write, NULL);
   }  
   
   // TEMP
@@ -185,7 +177,7 @@ static int setup_memory_map(struct guest_info * info, struct v3_vm_config * conf
   } else {
     /* MEMORY HOOK TEST */
     add_shadow_region_passthrough(info, 0x100000, 0xa00000, (addr_t)V3_AllocPages(2304));
-    hook_guest_mem(info, 0xa00000, 0xa01000, mem_test_read, passthrough_mem_write, NULL); 
+    v3_hook_write_mem(info, 0xa00000, 0xa01000, (addr_t)V3_AllocPages(1), passthrough_mem_write, NULL); 
     add_shadow_region_passthrough(info, 0xa01000, 0x1000000, (addr_t)V3_AllocPages(1791));
   }
 

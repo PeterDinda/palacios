@@ -35,7 +35,7 @@
 
 /* utility definitions */
 
-#ifdef VMM_DEBUG
+
 #define PrintDebug(fmt, args...)			\
   do {							\
     extern struct v3_os_hooks * os_hooks;		\
@@ -43,6 +43,8 @@
       (os_hooks)->print_debug((fmt), ##args);		\
     }							\
   } while (0)						
+
+#if 1
 #else
 #define PrintDebug(fmt,args ...)
 #endif

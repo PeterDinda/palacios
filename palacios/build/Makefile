@@ -399,11 +399,11 @@ CC_GENERAL_OPTS = \
 	$(EXTRA_C_OPTS) \
 	$(VMM_FLAGS) \
 	-I$(PROJECT_ROOT)/include \
-	-fPIC \
 	-Werror \
 	-Wp,-MD,$(@D)/.$(@F).d \
 	-Wp,-MT,$@ \
 
+#-fPIC \
 #-fvisibility=hidden
 
 

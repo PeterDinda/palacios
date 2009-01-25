@@ -23,14 +23,14 @@
 #include <xed/xed-interface.h>
 #include "vm_guest.h"
 #include "test.h"
+
 #else
+
 #include <palacios/vmm_decoder.h>
 #include <palacios/vmm_xed.h>
 #include <xed/xed-interface.h>
 #include <palacios/vm_guest.h>
 #include <palacios/vmm.h>
-
-
 #endif
 
 
@@ -42,7 +42,9 @@
 
 
 
-static xed_state_t decoder_state;
+
+static uint_t tables_inited = 0;
+
 
 #define GPR_REGISTER     0
 #define SEGMENT_REGISTER 1
@@ -88,8 +90,8 @@ struct memory_operand {
 
 
 
-// This returns a pointer to a V3_OPCODE_[*] array defined in vmm_decoder.h
-static int get_opcode(xed_iform_enum_t iform, addr_t * opcode);
+
+static v3_op_type_t get_opcode(xed_iform_enum_t iform);
 
 static int xed_reg_to_v3_reg(struct guest_info * info, xed_reg_enum_t xed_reg, addr_t * v3_reg, uint_t * reg_len);
 static int get_memory_operand(struct guest_info * info,  xed_decoded_inst_t * xed_instr, uint_t index, struct x86_operand * operand);
@@ -139,9 +141,18 @@ static int is_flags_reg(xed_reg_enum_t xed_reg) {
 
 
 
-int v3_init_decoder() {
-  xed_tables_init();
-  xed_state_zero(&decoder_state);
+int v3_init_decoder(struct guest_info * info) {
+  // Global library initialization, only do it once
+  if (tables_inited == 0) {
+    xed_tables_init();
+    tables_inited = 1;
+  }
+
+  xed_state_t * decoder_state = (xed_state_t *)V3_Malloc(sizeof(xed_state_t));
+  xed_state_zero(decoder_state);
+
+  info->decoder_state = decoder_state;
+
   return 0;
 }
 
@@ -152,13 +163,13 @@ int v3_basic_mem_decode(struct guest_info * info, addr_t instr_ptr, struct basic
   xed_error_enum_t xed_error;
   
 
-  if (set_decoder_mode(info, &decoder_state) == -1) {
+  if (set_decoder_mode(info, info->decoder_state) == -1) {
     PrintError("Could not set decoder mode\n");
     return -1;
   }
 
 
-  xed_decoded_inst_zero_set_mode(&xed_instr, &decoder_state);
+  xed_decoded_inst_zero_set_mode(&xed_instr, info->decoder_state);
 
   xed_error = xed_decode(&xed_instr, 
 			 REINTERPRET_CAST(const xed_uint8_t *, instr_ptr), 
@@ -198,21 +209,55 @@ int v3_basic_mem_decode(struct guest_info * info, addr_t instr_ptr, struct basic
 }
 
 
+static int decode_string_op(struct guest_info * info, 
+			    xed_decoded_inst_t * xed_instr,  const xed_inst_t * xi,
+			    struct x86_instr * instr) {
+
+  PrintDebug("String operation\n");
+
+  if (instr->op_type == V3_OP_MOVS) {
+    instr->num_operands = 2;
+
+    if (get_memory_operand(info, xed_instr, 0, &(instr->dst_operand)) == -1) {
+      PrintError("Could not get Destination memory operand\n");
+      return -1;
+    }
+
+    if (get_memory_operand(info, xed_instr, 1, &(instr->src_operand)) == -1) {
+      PrintError("Could not get Source memory operand\n");
+      return -1;
+    }
+
+    if (instr->prefixes.rep == 1) {
+      addr_t reg_addr = 0;
+      uint_t reg_length = 0;
+
+      xed_reg_to_v3_reg(info, xed_decoded_inst_get_reg(xed_instr, XED_OPERAND_REG0), &reg_addr, &reg_length);
+      instr->str_op_length = MASK(*(addr_t *)reg_addr, reg_length);
+    } else {
+      instr->str_op_length = 1;
+    }
+
+  }
+
+  return 0;
+}
+
+
 
 int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * instr) {
   xed_decoded_inst_t xed_instr;
   xed_error_enum_t xed_error;
 
 
+  v3_get_prefixes((uchar_t *)instr_ptr, &(instr->prefixes));
 
-  if (set_decoder_mode(info, &decoder_state) == -1) {
+  if (set_decoder_mode(info, info->decoder_state) == -1) {
     PrintError("Could not set decoder mode\n");
     return -1;
   }
 
-
-
-  xed_decoded_inst_zero_set_mode(&xed_instr, &decoder_state);
+  xed_decoded_inst_zero_set_mode(&xed_instr, info->decoder_state);
 
   xed_error = xed_decode(&xed_instr, 
 			 REINTERPRET_CAST(const xed_uint8_t *, instr_ptr), 
@@ -227,13 +272,34 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
   const xed_inst_t * xi = xed_decoded_inst_inst(&xed_instr);
   
   instr->instr_length = xed_decoded_inst_get_length(&xed_instr);
-  instr->num_operands = xed_decoded_inst_noperands(&xed_instr);
+
 
   xed_iform_enum_t iform = xed_decoded_inst_get_iform_enum(&xed_instr);
 
+#ifdef DEBUG_XED
+  xed_iclass_enum_t iclass = xed_decoded_inst_get_iclass(&xed_instr);
 
-  PrintDebug("iform=%s\n", xed_iform_enum_t2str(iform));
+  PrintDebug("iform=%s, iclass=%s\n", xed_iform_enum_t2str(iform), xed_iclass_enum_t2str(iclass));
+#endif
 
+
+  if ((instr->op_type = get_opcode(iform)) == V3_INVALID_OP) {
+    PrintError("Could not get opcode. (iform=%s)\n", xed_iform_enum_t2str(iform));
+    return -1;
+  }
+
+
+  // We special case the string operations...
+  if (xed_decoded_inst_get_category(&xed_instr) == XED_CATEGORY_STRINGOP) {
+    instr->is_str_op = 1;
+    return decode_string_op(info, &xed_instr, xi, instr); 
+  } else {
+    instr->is_str_op = 0;
+    instr->str_op_length = 0;
+  }
+
+
+  instr->num_operands = xed_decoded_inst_noperands(&xed_instr);
 
   if (instr->num_operands > 3) {
     PrintDebug("Special Case Not Handled\n");
@@ -250,16 +316,6 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
       return -1;
     }
   }
-
-
-
-
-
-  if (get_opcode(iform, &(instr->opcode)) == -1) {
-    PrintError("Could not get opcode. (iform=%s)\n", xed_iform_enum_t2str(iform));
-    return -1;
-  }
-
 
 
 
@@ -286,7 +342,7 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 					  xed_reg, 
 					  &(v3_op->operand), 
 					  &(v3_op->size));
-					  
+
       if (v3_reg_type == -1) {
 	PrintError("First operand is an Unhandled Operand: %s\n", xed_reg_enum_t2str(xed_reg));
 	v3_op->type = INVALID_OPERAND;
@@ -303,16 +359,6 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 
       case XED_OPERAND_MEM0:
 	{
-	  /*
-	    struct x86_operand * operand = &(instr->dst_operand);
-	    
-	    if (xed_decoded_inst_mem_read(&xed_instr, 0)) {
-	    operand = &(instr->src_operand);
-	    } else if (xed_decoded_inst_mem_written(&xed_instr, 0)) {
-	    operand = &(instr->dst_operand);
-	    }
-	  */
-	  
 	  if (get_memory_operand(info, &xed_instr, 0, v3_op) == -1) {
 	    PrintError("Could not get first memory operand\n");
 	    return -1;
@@ -379,15 +425,6 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 
       case XED_OPERAND_MEM0:
 	{
-
-	  /*
-	  if (xed_decoded_inst_mem_read(&xed_instr, 0)) {
-	    v3_op = &(instr->src_operand);
-	  } else if (xed_decoded_inst_mem_written(&xed_instr, 0)) {
-	    v3_op = &(instr->dst_operand);
-	  }
-	  */
-
 	  if (get_memory_operand(info, &xed_instr, 0, v3_op) == -1) {
 	    PrintError("Could not get first memory operand\n");
 	    return -1;
@@ -535,9 +572,8 @@ static int get_memory_operand(struct guest_info * info,  xed_decoded_inst_t * xe
   if (disp_bits) {
     xed_int64_t xed_disp = xed_decoded_inst_get_memory_displacement(xed_instr, op_index);
 
-    mem_op.displacement_size = disp_bits / 8;
+    mem_op.displacement_size = disp_bits;
     mem_op.displacement = xed_disp;
-    
   }
 
   operand->type = MEM_OPERAND;
@@ -545,9 +581,12 @@ static int get_memory_operand(struct guest_info * info,  xed_decoded_inst_t * xe
   
   
 
-  PrintDebug("Struct: Seg=%x, base=%x, index=%x, scale=%x, displacement=%x\n", 
-	     mem_op.segment, mem_op.base, mem_op.index, mem_op.scale, mem_op.displacement);
+  PrintDebug("Struct: Seg=%p, base=%p, index=%p, scale=%p, displacement=%p\n", 
+	     (void *)mem_op.segment, (void*)mem_op.base, (void *)mem_op.index, 
+	     (void *)mem_op.scale, (void *)(addr_t)mem_op.displacement);
 
+
+  PrintDebug("operand size: %d\n", operand->size);
 
   seg = mem_op.segment;
   base = MASK(mem_op.base, mem_op.base_size);
@@ -555,7 +594,8 @@ static int get_memory_operand(struct guest_info * info,  xed_decoded_inst_t * xe
   scale = mem_op.scale;
   displacement = MASK(mem_op.displacement, mem_op.displacement_size);
 
-  PrintDebug("Seg=%x, base=%x, index=%x, scale=%x, displacement=%x\n", seg, base, index, scale, displacement);
+  PrintDebug("Seg=%p, base=%p, index=%p, scale=%p, displacement=%p\n", 
+	     (void *)seg, (void *)base, (void *)index, (void *)scale, (void *)(addr_t)displacement);
   
   operand->operand = seg + base + (scale * index) + displacement;
   return 0;
@@ -773,7 +813,7 @@ static int xed_reg_to_v3_reg(struct guest_info * info, xed_reg_enum_t xed_reg, a
     return CTRL_REGISTER;
   case XED_REG_CR4:
     *v3_reg = (addr_t)&(info->ctrl_regs.cr4);
-    *reg_len = 4;
+   *reg_len = 4;
     return CTRL_REGISTER;
   case XED_REG_CR8:
     *v3_reg = (addr_t)&(info->ctrl_regs.cr8);
@@ -974,37 +1014,144 @@ static int xed_reg_to_v3_reg(struct guest_info * info, xed_reg_enum_t xed_reg, a
 
 
 
-static int get_opcode(xed_iform_enum_t iform, addr_t * opcode) {
+static v3_op_type_t get_opcode(xed_iform_enum_t iform) {
 
   switch (iform) {
   case XED_IFORM_MOV_CR_GPR64_CR:
   case XED_IFORM_MOV_CR_GPR32_CR:
-    *opcode = (addr_t)&V3_OPCODE_MOVCR2;
-    break;
+    return V3_OP_MOVCR2;
 
   case XED_IFORM_MOV_CR_CR_GPR64:
   case XED_IFORM_MOV_CR_CR_GPR32:
-    *opcode = (addr_t)&V3_OPCODE_MOV2CR;
-    break;
+    return V3_OP_MOV2CR;
 
   case XED_IFORM_SMSW_GPRv:
-    *opcode = (addr_t)&V3_OPCODE_SMSW;
-    break;
+    return V3_OP_SMSW;
 
   case XED_IFORM_LMSW_GPR16:
-    *opcode = (addr_t)&V3_OPCODE_LMSW;
-    break;
+    return V3_OP_LMSW;
 
   case XED_IFORM_CLTS:
-    *opcode = (addr_t)&V3_OPCODE_CLTS;
-    break;
+    return V3_OP_CLTS;
 
+  case XED_IFORM_ADC_MEMv_GPRv:
+  case XED_IFORM_ADC_MEMv_IMM:
+  case XED_IFORM_ADC_MEMb_GPR8:
+  case XED_IFORM_ADC_MEMb_IMM:
+    return V3_OP_ADC;
 
+  case XED_IFORM_ADD_MEMv_GPRv:
+  case XED_IFORM_ADD_MEMb_IMM:
+  case XED_IFORM_ADD_MEMb_GPR8:
+  case XED_IFORM_ADD_MEMv_IMM:
+    return V3_OP_ADD;
+
+  case XED_IFORM_AND_MEMv_IMM:
+  case XED_IFORM_AND_MEMb_GPR8:
+  case XED_IFORM_AND_MEMv_GPRv:
+  case XED_IFORM_AND_MEMb_IMM:
+    return V3_OP_AND;
+
+  case XED_IFORM_SUB_MEMv_IMM:
+  case XED_IFORM_SUB_MEMb_GPR8:
+  case XED_IFORM_SUB_MEMb_IMM:
+  case XED_IFORM_SUB_MEMv_GPRv:
+    return V3_OP_SUB;
+
+  case XED_IFORM_MOV_MEMv_GPRv:
+  case XED_IFORM_MOV_MEMb_GPR8:
+  case XED_IFORM_MOV_MEMb_AL:
+  case XED_IFORM_MOV_MEMv_IMM:
+  case XED_IFORM_MOV_MEMb_IMM:
+    return V3_OP_MOV;
+
+  case XED_IFORM_DEC_MEMv:
+  case XED_IFORM_DEC_MEMb:
+    return V3_OP_DEC;
+
+  case XED_IFORM_INC_MEMb:
+  case XED_IFORM_INC_MEMv:
+    return V3_OP_INC;
+
+  case XED_IFORM_OR_MEMv_IMM:
+  case XED_IFORM_OR_MEMb_IMM:
+  case XED_IFORM_OR_MEMv_GPRv:
+  case XED_IFORM_OR_MEMb_GPR8:
+    return V3_OP_OR;
+
+  case XED_IFORM_XOR_MEMv_GPRv:
+  case XED_IFORM_XOR_MEMb_IMM:
+  case XED_IFORM_XOR_MEMb_GPR8:
+  case XED_IFORM_XOR_MEMv_IMM:
+    return V3_OP_XOR;
+
+  case XED_IFORM_NEG_MEMb:
+  case XED_IFORM_NEG_MEMv:
+    return V3_OP_NEG;
+
+  case XED_IFORM_NOT_MEMv:
+  case XED_IFORM_NOT_MEMb:
+    return V3_OP_NOT;
+
+  case XED_IFORM_XCHG_MEMv_GPRv:
+  case XED_IFORM_XCHG_MEMb_GPR8:
+    return V3_OP_XCHG;
+
+  case XED_IFORM_SETB_MEMb:
+    return V3_OP_SETB;
+
+  case XED_IFORM_SETBE_MEMb:
+    return V3_OP_SETBE;
+
+  case XED_IFORM_SETL_MEMb:
+    return V3_OP_SETL;
+
+  case XED_IFORM_SETLE_MEMb:
+    return V3_OP_SETLE;
+
+  case XED_IFORM_SETNB_MEMb:
+    return V3_OP_SETNB;
+
+  case XED_IFORM_SETNBE_MEMb:
+    return V3_OP_SETNBE;
+
+  case XED_IFORM_SETNL_MEMb:
+    return V3_OP_SETNL;
+
+  case XED_IFORM_SETNLE_MEMb:
+    return V3_OP_SETNLE;
+
+  case XED_IFORM_SETNO_MEMb:
+    return V3_OP_SETNO;
+    
+  case XED_IFORM_SETNP_MEMb:
+    return V3_OP_SETNP;
+
+  case XED_IFORM_SETNS_MEMb:
+    return V3_OP_SETNS;
+
+  case XED_IFORM_SETNZ_MEMb:
+    return V3_OP_SETNZ;
+
+  case XED_IFORM_SETO_MEMb:
+    return V3_OP_SETO;
+    
+  case XED_IFORM_SETP_MEMb:
+    return V3_OP_SETP;
+
+  case XED_IFORM_SETS_MEMb:
+    return V3_OP_SETS;
+
+  case XED_IFORM_SETZ_MEMb:
+    return V3_OP_SETZ;
+
+  case XED_IFORM_MOVSB:
+  case XED_IFORM_MOVSW:
+  case XED_IFORM_MOVSD:
+  case XED_IFORM_MOVSQ:
+    return V3_OP_MOVS;
 
   default:
-    *opcode = 0;
-    return -1;
+    return V3_INVALID_OP;
   }
-
-  return 0;
 }

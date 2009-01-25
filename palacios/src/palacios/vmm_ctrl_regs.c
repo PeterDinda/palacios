@@ -62,19 +62,21 @@ int v3_handle_cr0_write(struct guest_info * info) {
     return -1;
   }
 
-  if (v3_opcode_cmp(V3_OPCODE_LMSW, (const uchar_t *)(dec_instr.opcode)) == 0) {
+  if (dec_instr.op_type == V3_OP_LMSW) {
+  //  if (v3_opcode_cmp(V3_OPCODE_LMSW, (const uchar_t *)(dec_instr.opcode)) == 0) {
 
     if (handle_lmsw(info, &dec_instr) == -1) {
       return -1;
     }
 
-  } else if (v3_opcode_cmp(V3_OPCODE_MOV2CR, (const uchar_t *)(dec_instr.opcode)) == 0) {
-
+    //  } else if (v3_opcode_cmp(V3_OPCODE_MOV2CR, (const uchar_t *)(dec_instr.opcode)) == 0) {
+  } else if (dec_instr.op_type == V3_OP_MOV2CR) {
     if (handle_mov_to_cr0(info, &dec_instr) == -1) {
       return -1;
     }
 
-  } else if (v3_opcode_cmp(V3_OPCODE_CLTS, (const uchar_t *)(dec_instr.opcode)) == 0) {
+    //  } else if (v3_opcode_cmp(V3_OPCODE_CLTS, (const uchar_t *)(dec_instr.opcode)) == 0) {
+  } else if (dec_instr.op_type == V3_OP_CLTS) {
 
     if (handle_clts(info, &dec_instr) == -1) {
       return -1;
@@ -225,7 +227,8 @@ int v3_handle_cr0_read(struct guest_info * info) {
     return -1;
   }
   
-  if (v3_opcode_cmp(V3_OPCODE_MOVCR2, (const uchar_t *)(dec_instr.opcode)) == 0) {
+  //  if (v3_opcode_cmp(V3_OPCODE_MOVCR2, (const uchar_t *)(dec_instr.opcode)) == 0) {
+  if (dec_instr.op_type == V3_OP_MOVCR2) {
     struct cr0_32 * dst_reg = (struct cr0_32 *)(dec_instr.dst_operand.operand);
     struct cr0_32 * shadow_cr0 = (struct cr0_32 *)&(info->ctrl_regs.cr0);
 
@@ -240,7 +243,8 @@ int v3_handle_cr0_read(struct guest_info * info) {
 
     PrintDebug("Shadow CR0: %x\n", *(uint_t*)shadow_cr0);    
     PrintDebug("returned CR0: %x\n", *(uint_t*)dst_reg);
-  } else if (v3_opcode_cmp(V3_OPCODE_SMSW, (const uchar_t *)(dec_instr.opcode)) == 0) {
+    //  } else if (v3_opcode_cmp(V3_OPCODE_SMSW, (const uchar_t *)(dec_instr.opcode)) == 0) {
+  } else if (dec_instr.op_type == V3_OP_SMSW) {
     struct cr0_real * shadow_cr0 = (struct cr0_real *)&(info->ctrl_regs.cr0);
     struct cr0_real * dst_reg = (struct cr0_real *)(dec_instr.dst_operand.operand);
     char cr0_val = *(char*)shadow_cr0 & 0x0f;
@@ -283,7 +287,8 @@ int v3_handle_cr3_write(struct guest_info * info) {
     return -1;
   }
 
-  if (v3_opcode_cmp(V3_OPCODE_MOV2CR, (const uchar_t *)(dec_instr.opcode)) == 0) {
+  //  if (v3_opcode_cmp(V3_OPCODE_MOV2CR, (const uchar_t *)(dec_instr.opcode)) == 0) {
+  if (dec_instr.op_type == V3_OP_MOV2CR) {
     PrintDebug("MOV2CR3 (cpu_mode=%s)\n", v3_cpu_mode_to_str(info->cpu_mode));
 
     if (info->shdw_pg_mode == SHADOW_PAGING) {
@@ -359,7 +364,8 @@ int v3_handle_cr3_read(struct guest_info * info) {
     return -1;
   }
 
-  if (v3_opcode_cmp(V3_OPCODE_MOVCR2, (const uchar_t *)(dec_instr.opcode)) == 0) {
+  //  if (v3_opcode_cmp(V3_OPCODE_MOVCR2, (const uchar_t *)(dec_instr.opcode)) == 0) {
+  if (dec_instr.op_type == V3_OP_MOVCR2) {
     PrintDebug("MOVCR32 (mode=%s)\n", v3_cpu_mode_to_str(info->cpu_mode));
 
     if (info->shdw_pg_mode == SHADOW_PAGING) {
@@ -422,7 +428,8 @@ int v3_handle_cr4_write(struct guest_info * info) {
     return -1;
   }
 
-  if (v3_opcode_cmp(V3_OPCODE_MOV2CR, (const uchar_t *)(dec_instr.opcode)) != 0) {
+  //  if (v3_opcode_cmp(V3_OPCODE_MOV2CR, (const uchar_t *)(dec_instr.opcode)) != 0) {
+  if (dec_instr.op_type != V3_OP_MOV2CR) {
     PrintError("Invalid opcode in write to CR4\n");
     return -1;
   }
