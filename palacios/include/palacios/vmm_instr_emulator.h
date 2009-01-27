@@ -250,8 +250,8 @@
 	 "pushf; "							\
 	 "pop %0; "							\
 	 "popf; "							\
-	 : "=b"(*flags)							\
-	 : "D"(*dst),"S"(*src),"c"(*ecx),"b"(*flags)			\
+	 : "=q"(*flags)							\
+	 : "D"(*dst),"S"(*src),"c"(*ecx),"q"(*flags)			\
 	 );								\
 									\
     /*	 : "=D"(*dst),"=S"(*src),"=c"(*ecx),"=q"(*flags)*/		\
@@ -273,8 +273,8 @@
 	 "pushf; "							\
 	 "pop %0; "							\
 	 "popf; "							\
-	 : "=b"(*flags)							\
-	 : "D"(*dst),"S"(*src),"c"(*ecx),"b"(*flags)			\
+	 : "=q"(*flags)							\
+	 : "D"(*dst),"S"(*src),"c"(*ecx),"q"(*flags)			\
 	 );								\
     *flags |= flags_rsvd;						\
   }
@@ -296,8 +296,8 @@
 	 "pushf; "							\
 	 "pop %0; "							\
 	 "popf; "							\
-	 : "=b"(*flags)							\
-	 : "D"(*dst),"S"(*src),"c"(*ecx),"b"(*flags)			\
+	 : "=q"(*flags)							\
+	 : "D"(*dst),"S"(*src),"c"(*ecx),"q"(*flags)			\
 	 );								\
     *flags |= flags_rsvd;						\
   }

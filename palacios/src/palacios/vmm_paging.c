@@ -46,6 +46,11 @@ static pt_entry_type_t pte64_lookup(pte64_t * pt, addr_t addr, addr_t * entry);
 
 
 
+#ifndef DEBUG_SHADOW_PAGING
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
+#endif
+
 
 
 void delete_page_tables_32(pde32_t * pde) {

@@ -127,7 +127,7 @@ int v3_hook_write_mem(struct guest_info * info, addr_t guest_addr_start, addr_t 
 		      int (*write)(addr_t guest_addr, void * src, uint_t length, void * priv_data),
 		      void * priv_data);
 
-int unhook_guest_mem(struct guest_info * info, addr_t guest_addr);
+
 
 
 

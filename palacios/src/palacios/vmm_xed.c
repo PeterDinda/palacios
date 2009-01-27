@@ -67,12 +67,16 @@ static const ullong_t mask_8 = 0xffffffffffffffffLL;
       switch (length) {				\
       case 1:					\
 	mask = mask_1;				\
+	break;					\
       case 2:					\
 	mask = mask_2;				\
+	break;					\
       case 4:					\
 	mask = mask_4;				\
+	break;					\
       case 8:					\
 	mask = mask_8;				\
+	break;					\
       }						\
       val & mask;})				\
 
@@ -581,14 +585,14 @@ static int get_memory_operand(struct guest_info * info,  xed_decoded_inst_t * xe
   
   
 
-  PrintDebug("Struct: Seg=%p, base=%p, index=%p, scale=%p, displacement=%p\n", 
+  PrintDebug("Struct: Seg=%p, base=%p, index=%p, scale=%p, displacement=%p (size=%d)\n", 
 	     (void *)mem_op.segment, (void*)mem_op.base, (void *)mem_op.index, 
-	     (void *)mem_op.scale, (void *)(addr_t)mem_op.displacement);
+	     (void *)mem_op.scale, (void *)(addr_t)mem_op.displacement, mem_op.displacement_size);
 
 
   PrintDebug("operand size: %d\n", operand->size);
 
-  seg = mem_op.segment;
+  seg = MASK(mem_op.segment, mem_op.segment_size);
   base = MASK(mem_op.base, mem_op.base_size);
   index = MASK(mem_op.index, mem_op.index_size);
   scale = mem_op.scale;

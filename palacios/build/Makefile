@@ -265,6 +265,7 @@ VMM_OBJS := \
 	palacios/vmm_msr.o \
 	palacios/svm_msr.o \
 	palacios/vmm_socket.o \
+	palacios/vmm_xed.o \
 
 #		vmx.c vmcs_gen.c vmcs.c
 
@@ -296,17 +297,6 @@ DEVICES_OBJS := \
 
 $(DEVICES_OBJS) :: EXTRA_CFLAGS = \
 	$(JRLDEBUG) \
-#
-# DECODER is the decoder that will be used 
-# currently we only support xed
-#
-DECODER=XED
-
-ifeq ($(DECODER),XED)
-VMM_OBJS += palacios/vmm_xed.o 
-else
-# This is an error
-endif
 
 
 
