@@ -53,11 +53,11 @@ VPATH := $(PROJECT_ROOT)/src
 # 
 
 ifeq ($(LEAN_AND_MEAN),1) 
-DEBUG=0
-DEBUG_SECTIONS=
+DEBUG := 0
+DEBUG_SECTIONS :=
 else
-DEBUG=1
-DEBUG_SECTIONS= 
+DEBUG := 1
+DEBUG_SECTIONS := 
 endif
 
 
@@ -278,8 +278,8 @@ XED_OBJS := \
 	xed/v3-xed-compat.o \
 	xed/v3-udiv-compat.o \
 
-$(XED_OBJS) :: EXTRA_CFLAGS =
-
+$(XED_OBJS) :: EXTRA_CFLAGS = \
+	$(JRLDEBUG) \
 
 DEVICES_OBJS := \
 	devices/generic.o \
@@ -294,8 +294,8 @@ DEVICES_OBJS := \
 	devices/cdrom.o \
 	devices/bochs_debug.o \
 
-$(DEVICES_OBJS) :: EXTRA_CFLAGS =
-
+$(DEVICES_OBJS) :: EXTRA_CFLAGS = \
+	$(JRLDEBUG) \
 #
 # DECODER is the decoder that will be used 
 # currently we only support xed
@@ -303,7 +303,7 @@ $(DEVICES_OBJS) :: EXTRA_CFLAGS =
 DECODER=XED
 
 ifeq ($(DECODER),XED)
-VMM_OBJS += palacios/vmm_xed.o
+VMM_OBJS += palacios/vmm_xed.o 
 else
 # This is an error
 endif
@@ -400,6 +400,7 @@ CC_GENERAL_OPTS = \
 	$(VMM_FLAGS) \
 	-I$(PROJECT_ROOT)/include \
 	-Werror \
+	-fPIC \
 	-Wp,-MD,$(@D)/.$(@F).d \
 	-Wp,-MT,$@ \
 
