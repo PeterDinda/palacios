@@ -66,14 +66,15 @@ int host_pa_to_host_va(addr_t host_pa, addr_t * host_va) {
 
 
 int guest_pa_to_host_pa(struct guest_info * guest_info, addr_t guest_pa, addr_t * host_pa) {
-  // we use the shadow map here...
-  shdw_region_type_t reg_type = lookup_shadow_map_addr(&(guest_info->mem_map), guest_pa, host_pa);
+  struct v3_shadow_region * shdw_reg = v3_get_shadow_region(guest_info, guest_pa);
 
-  if ((reg_type == SHDW_REGION_INVALID) ||
-      (reg_type == SHDW_REGION_UNALLOCATED) ||
-      (reg_type == SHDW_REGION_FULL_HOOK)){
-    PrintError("In GPA->HPA: Could not find address in shadow map (addr=%p) (reg_type=%d)\n", 
-	        (void *)guest_pa, reg_type);
+  *host_pa = v3_get_shadow_addr(shdw_reg, guest_pa);
+
+  if ((shdw_reg == NULL) ||
+      (shdw_reg->host_type == SHDW_REGION_INVALID) ||
+      (shdw_reg->host_type == SHDW_REGION_FULL_HOOK)){
+    PrintError("In GPA->HPA: Could not find address in shadow map (addr=%p) (reg_type=%s)\n", 
+	       (void *)guest_pa, v3_shdw_region_type_to_str(shdw_reg->host_type));
     return -1;
   }
 

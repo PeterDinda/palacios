@@ -625,6 +625,17 @@ static int handle_large_pagefault_32(struct guest_info * info,
   pte32_t * shadow_pte = (pte32_t *)&(shadow_pt[PTE32_INDEX(fault_addr)]);
   addr_t guest_fault_pa = BASE_TO_PAGE_ADDR_4MB(large_guest_pde->page_base_addr) + PAGE_OFFSET_4MB(fault_addr);  
 
+  struct v3_shadow_region * shdw_reg = v3_get_shadow_region(info, guest_fault_pa);
+
+ 
+  if ((shdw_reg == NULL) || 
+      (shdw_reg->host_type == SHDW_REGION_INVALID)) {
+    // Inject a machine check in the guest
+    PrintDebug("Invalid Guest Address in page table (0x%p)\n", (void *)guest_fault_pa);
+    v3_raise_exception(info, MC_EXCEPTION);
+    return -1;
+  }
+
   if (shadow_pte_access == PT_ACCESS_OK) {
     // Inconsistent state...
     // Guest Re-Entry will flush tables and everything should now workd
@@ -635,20 +646,11 @@ static int handle_large_pagefault_32(struct guest_info * info,
   
   if (shadow_pte_access == PT_ACCESS_NOT_PRESENT) {
     // Get the guest physical address of the fault
-    shdw_region_type_t host_page_type = get_shadow_addr_type(info, guest_fault_pa);
- 
 
-    if (host_page_type == SHDW_REGION_INVALID) {
-      // Inject a machine check in the guest
-      PrintDebug("Invalid Guest Address in page table (0x%p)\n", (void *)guest_fault_pa);
-      v3_raise_exception(info, MC_EXCEPTION);
-      return 0;
-    }
-
-    if ((host_page_type == SHDW_REGION_ALLOCATED) || 
-	(host_page_type == SHDW_REGION_WRITE_HOOK)) {
+    if ((shdw_reg->host_type == SHDW_REGION_ALLOCATED) || 
+	(shdw_reg->host_type == SHDW_REGION_WRITE_HOOK)) {
       struct shadow_page_state * state = &(info->shdw_pg_state);
-      addr_t shadow_pa = get_shadow_addr(info, guest_fault_pa);
+      addr_t shadow_pa = v3_get_shadow_addr(shdw_reg, guest_fault_pa);
 
       shadow_pte->page_base_addr = PAGE_BASE_ADDR(shadow_pa);
 
@@ -666,7 +668,7 @@ static int handle_large_pagefault_32(struct guest_info * info,
 	PrintDebug("Marking page as Guest Page Table (large page)\n");
 	shadow_pte->vmm_info = PT32_GUEST_PT;
 	shadow_pte->writable = 0;
-      } else if (host_page_type == SHDW_REGION_WRITE_HOOK) {
+      } else if (shdw_reg->host_type == SHDW_REGION_WRITE_HOOK) {
 	shadow_pte->writable = 0;
       } else {
 	shadow_pte->writable = 1;
@@ -681,20 +683,17 @@ static int handle_large_pagefault_32(struct guest_info * info,
     } else {
       // Handle hooked pages as well as other special pages
       //      if (handle_special_page_fault(info, fault_addr, guest_fault_pa, error_code) == -1) {
-      struct shadow_region * reg = v3_get_shadow_region(info, guest_fault_pa);
 
-      if (v3_handle_mem_full_hook(info, fault_addr, guest_fault_pa, reg, error_code) == -1) {
+      if (v3_handle_mem_full_hook(info, fault_addr, guest_fault_pa, shdw_reg, error_code) == -1) {
 	PrintError("Special Page Fault handler returned error for address: %p\n", (void *)fault_addr);
 	return -1;
       }
     }
   } else if (shadow_pte_access == PT_ACCESS_WRITE_ERROR) {
-    shdw_region_type_t host_page_type = get_shadow_addr_type(info, guest_fault_pa);
 
-    if (host_page_type == SHDW_REGION_WRITE_HOOK) {
-      struct shadow_region * reg = v3_get_shadow_region(info, guest_fault_pa);
+    if (shdw_reg->host_type == SHDW_REGION_WRITE_HOOK) {
 
-      if (v3_handle_mem_wr_hook(info, fault_addr, guest_fault_pa, reg, error_code) == -1) {
+      if (v3_handle_mem_wr_hook(info, fault_addr, guest_fault_pa, shdw_reg, error_code) == -1) {
 	PrintError("Special Page Fault handler returned error for address: %p\n", (void *)fault_addr);
 	return -1;
       }
@@ -733,6 +732,15 @@ static int handle_shadow_pte32_fault(struct guest_info * info,
   pte32_t * shadow_pte = (pte32_t *)&(shadow_pt[PTE32_INDEX(fault_addr)]);
   addr_t guest_pa = BASE_TO_PAGE_ADDR((addr_t)(guest_pte->page_base_addr)) +  PAGE_OFFSET(fault_addr);
 
+  struct v3_shadow_region * shdw_reg =  v3_get_shadow_region(info, guest_pa);
+
+  if ((shdw_reg == NULL) || 
+      (shdw_reg->host_type == SHDW_REGION_INVALID)) {
+    // Inject a machine check in the guest
+    PrintDebug("Invalid Guest Address in page table (0x%p)\n", (void *)guest_pa);
+    v3_raise_exception(info, MC_EXCEPTION);
+    return 0;
+  }
 
   // Check the guest page permissions
   guest_pte_access = v3_can_access_pte32(guest_pt, fault_addr, error_code);
@@ -765,26 +773,13 @@ static int handle_shadow_pte32_fault(struct guest_info * info,
 
 
   if (shadow_pte_access == PT_ACCESS_NOT_PRESENT) {
-
-
     // Page Table Entry Not Present
     PrintDebug("guest_pa =%p\n", (void *)guest_pa);
 
-    shdw_region_type_t host_page_type = get_shadow_addr_type(info, guest_pa);
-
-    if (host_page_type == SHDW_REGION_INVALID) {
-      // Inject a machine check in the guest
-      PrintDebug("Invalid Guest Address in page table (0x%p)\n", (void *)guest_pa);
-      v3_raise_exception(info, MC_EXCEPTION);
-      return 0;
-    }
-
-    // else...
-
-    if ((host_page_type == SHDW_REGION_ALLOCATED) ||
-	(host_page_type == SHDW_REGION_WRITE_HOOK)) {
+    if ((shdw_reg->host_type == SHDW_REGION_ALLOCATED) ||
+	(shdw_reg->host_type == SHDW_REGION_WRITE_HOOK)) {
       struct shadow_page_state * state = &(info->shdw_pg_state);
-      addr_t shadow_pa = get_shadow_addr(info, guest_pa);
+      addr_t shadow_pa = v3_get_shadow_addr(shdw_reg, guest_pa);
       
       shadow_pte->page_base_addr = PAGE_BASE_ADDR(shadow_pa);
       
@@ -805,7 +800,7 @@ static int handle_shadow_pte32_fault(struct guest_info * info,
 	shadow_pte->vmm_info = PT32_GUEST_PT;
       }
 
-      if (host_page_type == SHDW_REGION_WRITE_HOOK) {
+      if (shdw_reg->host_type == SHDW_REGION_WRITE_HOOK) {
 	shadow_pte->writable = 0;
       } else if (guest_pte->dirty == 1) {
 	shadow_pte->writable = guest_pte->writable;
@@ -826,9 +821,8 @@ static int handle_shadow_pte32_fault(struct guest_info * info,
 
     } else {
       // Page fault handled by hook functions
-      struct shadow_region * reg = v3_get_shadow_region(info, guest_pa);
 
-      if (v3_handle_mem_full_hook(info, fault_addr, guest_pa, reg, error_code) == -1) {
+      if (v3_handle_mem_full_hook(info, fault_addr, guest_pa, shdw_reg, error_code) == -1) {
 	PrintError("Special Page fault handler returned error for address: %p\n",  (void *)fault_addr);
 	return -1;
       }
@@ -840,12 +834,8 @@ static int handle_shadow_pte32_fault(struct guest_info * info,
   } else if (shadow_pte_access == PT_ACCESS_WRITE_ERROR) {
     guest_pte->dirty = 1;
 
-    shdw_region_type_t host_page_type = get_shadow_addr_type(info, guest_pa);
-
-    if (host_page_type == SHDW_REGION_WRITE_HOOK) {
-      struct shadow_region * reg = v3_get_shadow_region(info, guest_pa);
-
-      if (v3_handle_mem_wr_hook(info, fault_addr, guest_pa, reg, error_code) == -1) {
+    if (shdw_reg->host_type == SHDW_REGION_WRITE_HOOK) {
+      if (v3_handle_mem_wr_hook(info, fault_addr, guest_pa, shdw_reg, error_code) == -1) {
 	PrintError("Special Page fault handler returned error for address: %p\n",  (void *)fault_addr);
 	return -1;
       }

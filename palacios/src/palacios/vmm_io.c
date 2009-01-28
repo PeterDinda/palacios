@@ -142,6 +142,8 @@ int v3_unhook_io_port(struct guest_info * info, uint_t port) {
 
   v3_rb_erase(&(hook->tree_node), &(info->io_map));
 
+  V3_Free(hook);
+
   return 0;
 }
 

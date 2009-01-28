@@ -112,7 +112,8 @@ struct guest_info {
   uint_t cpl;
 
   addr_t mem_size; // Probably in bytes for now....
-  struct shadow_map mem_map;
+  v3_shdw_map_t mem_map;
+
 
   struct vm_time time_state;
 
