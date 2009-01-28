@@ -652,7 +652,7 @@ struct vm_device * v3_create_nvram() {
 
   nvram_state = (struct nvram_internal *)V3_Malloc(sizeof(struct nvram_internal) + 1000);
 
-  PrintDebug("nvram: internal at %x\n", nvram_state);
+  PrintDebug("nvram: internal at %p\n", (void *)nvram_state);
 
   struct vm_device * device = v3_create_device("NVRAM", &dev_ops, nvram_state);
 

@@ -1066,7 +1066,7 @@ static int keyboard_write_output(ushort_t port,
       case 0xff: // reset
 	PushToOutputQueue(dev, 0xfa, OVERWRITE, COMMAND, KEYBOARD); // ack
 	state->state = RESET;
-	PrintDebug("keyboard: reset complete and acked\n", data);
+	PrintDebug("keyboard: reset complete and acked\n");
 	break;
       case 0xf5: // disable scanning
       case 0xf4: // enable scanning
@@ -1074,7 +1074,7 @@ static int keyboard_write_output(ushort_t port,
 	PushToOutputQueue(dev, 0xfa, OVERWRITE, COMMAND, KEYBOARD);
 	// should do something here... PAD
 	state->state = NORMAL;
-	PrintDebug("keyboard: %s scanning done and acked\n",data==0xf5 ? "disable" : "enable", data);
+	PrintDebug("keyboard: %s scanning done and acked\n",data==0xf5 ? "disable" : "enable");
 	break;
       case 0xfe: // resend
       case 0xfd: // set key type make
