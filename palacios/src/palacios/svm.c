@@ -37,6 +37,7 @@
 #include <palacios/vmm_lowlevel.h>
 #include <palacios/svm_msr.h>
 
+#include <palacios/vmm_rbtree.h>
 
 
 extern void v3_stgi();
@@ -191,8 +192,9 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
 
 
 
-  if (vm_info->io_map.num_ports > 0) {
-    struct vmm_io_hook * iter;
+  if ( !RB_EMPTY_ROOT(&(vm_info->io_map)) ) {
+    struct v3_io_hook * iter;
+    struct rb_node * io_node = v3_rb_first(&(vm_info->io_map));
     addr_t io_port_bitmap;
     
     io_port_bitmap = (addr_t)V3_VAddr(V3_AllocPages(3));
@@ -202,14 +204,16 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
 
     //PrintDebug("Setting up IO Map at 0x%x\n", io_port_bitmap);
 
-    FOREACH_IO_HOOK(vm_info->io_map, iter) {
+    do {
+      iter = rb_entry(io_node, struct v3_io_hook, tree_node);
+
       ushort_t port = iter->port;
       uchar_t * bitmap = (uchar_t *)io_port_bitmap;
 
       bitmap += (port / 8);
       //      PrintDebug("Setting Bit for port 0x%x\n", port);
       *bitmap |= 1 << (port % 8);
-    }
+    } while ((io_node = v3_rb_next(io_node)));
 
 
     //PrintDebugMemDump((uchar_t*)io_port_bitmap, PAGE_SIZE *2);

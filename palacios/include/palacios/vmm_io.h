@@ -25,11 +25,16 @@
 
 #include <palacios/vmm_types.h>
 #include <palacios/vmm_util.h>
+#include <palacios/vmm_rbtree.h>
+
+typedef struct rb_root v3_io_map_t;
 
 
 struct guest_info;
 
-int v3_unhook_io_port(struct guest_info * info, uint_t port);
+void v3_init_io_map(struct guest_info * info);
+
+
 
 
 /* External API */
@@ -38,27 +43,12 @@ int v3_hook_io_port(struct guest_info * info, uint_t port,
 		    int (*write)(ushort_t port, void * src, uint_t length, void * priv_data), 
 		    void * priv_data);
 
+int v3_unhook_io_port(struct guest_info * info, uint_t port);
 
 
 
 
-
-struct vmm_io_hook;
-
-struct vmm_io_map {
-  uint_t num_ports;
-  struct vmm_io_hook * head;
-
-};
-
-
-void v3_init_vmm_io_map(struct guest_info * info);
-
-// FOREACH_IO_HOOK(vmm_io_map_t * io_map, vmm_io_hook_t * io_hook)
-#define FOREACH_IO_HOOK(io_map, io_hook) for (io_hook = (io_map).head; io_hook != NULL; io_hook = (io_hook)->next)
-
-
-struct vmm_io_hook {
+struct v3_io_hook {
   ushort_t port;
 
   // Reads data into the IO port (IN, INS)
@@ -68,17 +58,16 @@ struct vmm_io_hook {
   int (*write)(ushort_t port, void * src, uint_t length, void * priv_data);
 
   void * priv_data;
-
-  struct vmm_io_hook * next;
-  struct vmm_io_hook * prev;
+  
+  struct rb_node tree_node;
 
 };
 
 
-struct vmm_io_hook * v3_get_io_hook(struct vmm_io_map * io_map, uint_t port);
+struct v3_io_hook * v3_get_io_hook(struct guest_info * info, uint_t port);
 
 
-void v3_print_io_map(struct vmm_io_map * io_map);
+void v3_print_io_map(struct guest_info * info);
 
 
 

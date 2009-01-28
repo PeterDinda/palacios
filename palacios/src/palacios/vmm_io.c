@@ -34,78 +34,69 @@ static int default_write(ushort_t port, void *src, uint_t length, void * priv_da
 static int default_read(ushort_t port, void * dst, uint_t length, void * priv_data);
 
 
-void v3_init_vmm_io_map(struct guest_info * info) {
-  struct vmm_io_map * io_map = &(info->io_map);
-  io_map->num_ports = 0;
-  io_map->head = NULL;
+void v3_init_io_map(struct guest_info * info) {
+  info->io_map.rb_node = NULL;
 }
 
 
 
 
 
-static int add_io_hook(struct vmm_io_map * io_map, struct vmm_io_hook * io_hook) {
+static inline struct v3_io_hook * __insert_io_hook(struct guest_info * info, struct v3_io_hook * hook) {
+  struct rb_node ** p = &(info->io_map.rb_node);
+  struct rb_node * parent = NULL;
+  struct v3_io_hook * tmp_hook = NULL;
 
-  if (!(io_map->head)) {
-    io_map->head = io_hook;
-    io_map->num_ports = 1;
-    return 0;
-  } else if (io_map->head->port > io_hook->port) {
-    io_hook->next = io_map->head;
+  while (*p) {
+    parent = *p;
+    tmp_hook = rb_entry(parent, struct v3_io_hook, tree_node);
 
-    io_map->head->prev = io_hook;
-    io_map->head = io_hook;
-    io_map->num_ports++;
-
-    return 0;
-  } else {
-    struct vmm_io_hook * tmp_hook = io_map->head;
-    
-    while ((tmp_hook->next)  && 
-	   (tmp_hook->next->port <= io_hook->port)) {
-	tmp_hook = tmp_hook->next;
-    }
-    
-    if (tmp_hook->port == io_hook->port) {
-      //tmp_hook->read = io_hook->read;
-      //tmp_hook->write = io_hook->write;
-      //V3_Free(io_hook);
-      return -1;
+    if (hook->port < tmp_hook->port) {
+      p = &(*p)->rb_left;
+    } else if (hook->port > tmp_hook->port) {
+      p = &(*p)->rb_right;
     } else {
-      io_hook->prev = tmp_hook;
-      io_hook->next = tmp_hook->next;
-
-      if (tmp_hook->next) {
-	tmp_hook->next->prev = io_hook;
-      }
-
-      tmp_hook->next = io_hook;
-
-      io_map->num_ports++;
-      return 0;
+      return tmp_hook;
     }
   }
-  return -1;
+  rb_link_node(&(hook->tree_node), parent, p);
+
+  return NULL;
 }
 
-static int remove_io_hook(struct vmm_io_map * io_map, struct vmm_io_hook * io_hook) {
-  if (io_map->head == io_hook) {
-    io_map->head = io_hook->next;
-  } else if (io_hook->prev) {
-    io_hook->prev->next = io_hook->next;
-  } else {
-    return -1;
-    // data corruption failure
-  }
-  
-  if (io_hook->next) {
-    io_hook->next->prev = io_hook->prev;
+
+static inline struct v3_io_hook * insert_io_hook(struct guest_info * info, struct v3_io_hook * hook) {
+  struct v3_io_hook * ret;
+
+  if ((ret = __insert_io_hook(info, hook))) {
+    return ret;
   }
 
-  io_map->num_ports--;
+  v3_rb_insert_color(&(hook->tree_node), &(info->io_map));
 
-  return 0;
+  return NULL;
 }
+
+
+struct v3_io_hook * v3_get_io_hook(struct guest_info * info, uint_t port) {
+  struct rb_node * n = info->io_map.rb_node;
+  struct v3_io_hook * hook = NULL;
+
+  while (n) {
+    hook = rb_entry(n, struct v3_io_hook, tree_node);
+    
+    if (port < hook->port) {
+      n = n->rb_left;
+    } else if (port > hook->port) {
+      n = n->rb_right;
+    } else {
+      return hook;
+    }
+  }
+
+  return NULL;
+}
+
 
 
 
@@ -115,8 +106,7 @@ int v3_hook_io_port(struct guest_info * info, uint_t port,
 		    int (*read)(ushort_t port, void * dst, uint_t length, void * priv_data),
 		    int (*write)(ushort_t port, void * src, uint_t length, void * priv_data), 
 		    void * priv_data) {
-  struct vmm_io_map * io_map = &(info->io_map);
-  struct vmm_io_hook * io_hook = (struct vmm_io_hook *)V3_Malloc(sizeof(struct vmm_io_hook));
+  struct v3_io_hook * io_hook = (struct v3_io_hook *)V3_Malloc(sizeof(struct v3_io_hook));
 
   io_hook->port = port;
 
@@ -132,12 +122,10 @@ int v3_hook_io_port(struct guest_info * info, uint_t port,
     io_hook->write = write;
   }
 
-  io_hook->next = NULL;
-  io_hook->prev = NULL;
 
   io_hook->priv_data = priv_data;
 
-  if (add_io_hook(io_map, io_hook) != 0) {
+  if (insert_io_hook(info, io_hook)) {
     V3_Free(io_hook);
     return -1;
   }
@@ -146,40 +134,35 @@ int v3_hook_io_port(struct guest_info * info, uint_t port,
 }
 
 int v3_unhook_io_port(struct guest_info * info, uint_t port) {
-  struct vmm_io_map * io_map = &(info->io_map);
-  struct vmm_io_hook * hook = v3_get_io_hook(io_map, port);
+  struct v3_io_hook * hook = v3_get_io_hook(info, port);
 
   if (hook == NULL) {
     return -1;
   }
 
-  remove_io_hook(io_map, hook);
+  v3_rb_erase(&(hook->tree_node), &(info->io_map));
+
   return 0;
 }
 
 
-struct vmm_io_hook * v3_get_io_hook(struct vmm_io_map * io_map, uint_t port) {
-  struct vmm_io_hook * tmp_hook;
-  FOREACH_IO_HOOK(*io_map, tmp_hook) {
-    if (tmp_hook->port == port) {
-      return tmp_hook;
-    }
-  }
-  return NULL;
-}
 
 
 
-void v3_print_io_map(struct vmm_io_map * io_map) {
-  struct vmm_io_hook * iter = io_map->head;
+
+void v3_print_io_map(struct guest_info * info) {
+  struct v3_io_hook * tmp_hook = NULL;
+  struct rb_node * node = v3_rb_first(&(info->io_map));
 
   PrintDebug("VMM IO Map (Entries=%d)\n", io_map->num_ports);
 
-  while (iter) {
+  do {
+    tmp_hook = rb_entry(node, struct v3_io_hook, tree_node);
+
     PrintDebug("IO Port: %hu (Read=%p) (Write=%p)\n", 
-	       iter->port, 
-	       (void *)(iter->read), (void *)(iter->write));
-  }
+	       tmp_hook->port, 
+	       (void *)(tmp_hook->read), (void *)(tmp_hook->write));
+  } while ((node = v3_rb_next(node)));
 }
 
 

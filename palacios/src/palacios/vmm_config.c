@@ -68,7 +68,7 @@ int v3_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) 
 
   // Initialize the subsystem data strutures
   v3_init_time(info);
-  v3_init_vmm_io_map(info);
+  v3_init_io_map(info);
   v3_init_msr_map(info);
   v3_init_interrupt_state(info);
   v3_init_dev_mgr(info);
