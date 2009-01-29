@@ -385,7 +385,7 @@ static int start_svm_guest(struct guest_info *info) {
     v3_stgi();
 
 
-    if ((num_exits % 1000) == 0) {
+    if ((num_exits % 5000) == 0) {
       PrintDebug("SVM Exit number %d\n", num_exits);
       v3_print_profile(info);
     }

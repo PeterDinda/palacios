@@ -163,7 +163,7 @@ static int setup_memory_map(struct guest_info * info, struct v3_vm_config * conf
       //     
   v3_add_shadow_mem(info, 0x0, 0x9ffff, (addr_t)V3_AllocPages(160));
   
-  if (0) {
+  if (1) {
     v3_add_shadow_mem(info, 0xa0000, 0xbffff, 0xa0000); 
   } else {
     v3_hook_write_mem(info, 0xa0000, 0xbffff, 0xa0000,  passthrough_mem_write, NULL);

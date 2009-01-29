@@ -193,7 +193,7 @@
 
 
 int v3_handle_svm_exit(struct guest_info * info);
-const uchar_t * vmexit_code_to_str(uint_t exit_code);
+const char * vmexit_code_to_str(uint_t exit_code);
 
 
 #endif // ! __V3VEE__

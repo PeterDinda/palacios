@@ -132,10 +132,13 @@ void v3_print_profile(struct guest_info * info) {
   
   do {
     evt = rb_entry(node, struct exit_event, tree_node);
+    const char * code_str = vmexit_code_to_str(evt->exit_code);
 
-    PrintDebug("%s: Cnt=%u, Time=%u\n", 
-	       vmexit_code_to_str(evt->exit_code),
+    PrintDebug("%s:%sCnt=%u,%sTime=%u\n", 
+	       code_str,
+	       (strlen(code_str) > 14) ? "\t" : "\t\t",
 	       evt->exit_count,
+	       (evt->exit_count >= 100) ? "\t" : "\t\t",
 	       evt->handler_time);
 	       
   } while ((node = v3_rb_next(node)));
