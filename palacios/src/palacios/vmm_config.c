@@ -22,6 +22,8 @@
 #include <palacios/vmm_debug.h>
 #include <palacios/vmm_msr.h>
 #include <palacios/vmm_decoder.h>
+#include <palacios/vmm_profiler.h>
+#include <palacios/vmm_mem.h>
 
 #include <devices/serial.h>
 #include <devices/keyboard.h>
@@ -32,6 +34,7 @@
 #include <devices/ramdisk.h>
 #include <devices/cdrom.h>
 #include <devices/bochs_debug.h>
+
 
 
 #include <palacios/vmm_host_events.h>
@@ -98,6 +101,14 @@ int v3_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) 
   // Configure the devices for the guest
   setup_devices(info, config_ptr);
  
+
+
+  if (config_ptr->enable_profiling) {
+    info->enable_profiler = 1;
+    v3_init_profiler(info);
+  } else {
+    info->enable_profiler = 0;
+  }
 
   //v3_hook_io_port(info, 1234, &IO_Read, NULL, info);
 

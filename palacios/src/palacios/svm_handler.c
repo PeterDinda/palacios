@@ -30,10 +30,9 @@
 #include <palacios/vmm_intr.h>
 #include <palacios/vmm_emulator.h>
 #include <palacios/svm_msr.h>
+#include <palacios/vmm_profiler.h>
 
 
-
-static const uchar_t * vmexit_code_to_str(uint_t exit_code);
 
 
 int v3_handle_svm_exit(struct guest_info * info) {
@@ -69,7 +68,10 @@ int v3_handle_svm_exit(struct guest_info * info) {
 
 
   exit_code = guest_ctrl->exit_code;
- 
+
+
+
+  
 
   // Disable printing io exits due to bochs debug messages
   //if (!((exit_code == VMEXIT_IOIO) && ((ushort_t)(guest_ctrl->exit_info1 >> 16) == 0x402))) {
@@ -106,12 +108,10 @@ int v3_handle_svm_exit(struct guest_info * info) {
   }
 
 
-    //  }
-  // PrintDebugVMCB((vmcb_t*)(info->vmm_data));
 
-
-  // PrintDebug("SVM Returned:(VMCB=%x)\n", info->vmm_data); 
-  //PrintDebug("RIP: %x\n", guest_state->rip);
+  if (info->enable_profiler) {
+    rdtscll(info->profiler.start_time);
+  }
 
   
   //PrintDebug("SVM Returned: Exit Code: %x\n",exit_code); 
@@ -427,6 +427,13 @@ int v3_handle_svm_exit(struct guest_info * info) {
 
   }
   // END OF SWITCH (EXIT_CODE)
+
+
+  if (info->enable_profiler) {
+    rdtscll(info->profiler.end_time);
+    v3_profile_exit(info, exit_code);
+  }
+      
 
 
   // Update the low level state

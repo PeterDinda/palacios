@@ -104,18 +104,18 @@ ulong_t hash_buffer(uchar_t * msg, uint_t length);
 
 
 #define DEFINE_HASHTABLE_INSERT(fnname, keytype, valuetype)		\
-  int fnname (struct hashtable * htable, keytype key, valuetype value) { \
-    return hashtable_insert(htable, (addr_t)key, (addr_t)value);		\
+  static int fnname (struct hashtable * htable, keytype key, valuetype value) { \
+    return hashtable_insert(htable, (addr_t)key, (addr_t)value);	\
   }
 
 #define DEFINE_HASHTABLE_SEARCH(fnname, keytype, valuetype)		\
-  valuetype * fnname (struct hashtable * htable, keytype  key) {	\
-    return (valuetype *) (hashtable_search(htable, (addr_t)key));		\
+  static valuetype * fnname (struct hashtable * htable, keytype  key) {	\
+    return (valuetype *) (hashtable_search(htable, (addr_t)key));	\
   }
 
 #define DEFINE_HASHTABLE_REMOVE(fnname, keytype, valuetype, free_key)	\
-  valuetype * fnname (struct hashtable * htable, keytype key) {	\
-    return (valuetype *) (hashtable_remove(htable, (addr_t)key, free_key));	\
+  static valuetype * fnname (struct hashtable * htable, keytype key) {	\
+    return (valuetype *) (hashtable_remove(htable, (addr_t)key, free_key)); \
   }
 
 
@@ -153,6 +153,11 @@ addr_t hashtable_search(struct hashtable * htable, addr_t key);
 addr_t hashtable_remove(struct hashtable * htable, addr_t key, int free_key);
 
 uint_t hashtable_count(struct hashtable * htable);
+
+// Specialty functions for a counting hashtable 
+int hashtable_inc(struct hashtable * htable, addr_t key, addr_t value);
+int hashtable_dec(struct hashtable * htable, addr_t key, addr_t value);
+
 
   /* ************ */
  /* ITERATOR API */

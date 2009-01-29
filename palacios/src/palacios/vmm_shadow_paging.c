@@ -62,14 +62,14 @@ struct shadow_page_data {
 
 
 
-DEFINE_HASHTABLE_INSERT(add_cr3_to_cache, addr_t, struct hashtable *);
-DEFINE_HASHTABLE_SEARCH(find_cr3_in_cache, addr_t, struct hashtable *);
-DEFINE_HASHTABLE_REMOVE(del_cr3_from_cache, addr_t, struct hashtable *, 0);
+//DEFINE_HASHTABLE_INSERT(add_cr3_to_cache, addr_t, struct hashtable *);
+//DEFINE_HASHTABLE_SEARCH(find_cr3_in_cache, addr_t, struct hashtable *);
+//DEFINE_HASHTABLE_REMOVE(del_cr3_from_cache, addr_t, struct hashtable *, 0);
 
 
 DEFINE_HASHTABLE_INSERT(add_pte_map, addr_t, addr_t);
 DEFINE_HASHTABLE_SEARCH(find_pte_map, addr_t, addr_t);
-DEFINE_HASHTABLE_REMOVE(del_pte_map, addr_t, addr_t, 0);
+//DEFINE_HASHTABLE_REMOVE(del_pte_map, addr_t, addr_t, 0);
 
 
 

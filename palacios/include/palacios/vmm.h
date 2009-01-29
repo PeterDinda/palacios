@@ -258,6 +258,9 @@ struct v3_vm_config {
                           // so we can specify maximum physical address size
                           // (We're screwed if we want to do 32 bit host/64 bit guest)
 
+
+  int enable_profiling;
+
   int use_ramdisk;
   void * ramdisk;
   int ramdisk_size;

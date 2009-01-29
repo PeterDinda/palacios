@@ -39,6 +39,8 @@
 
 #include <palacios/vmm_rbtree.h>
 
+#include <palacios/vmm_profiler.h>
+
 
 extern void v3_stgi();
 extern void v3_clgi();
@@ -352,7 +354,6 @@ static int start_svm_guest(struct guest_info *info) {
     ullong_t tmp_tsc;
     uint_t vm_cr_low = 0, vm_cr_high = 0;
 
-
     v3_enable_ints();
     v3_clgi();
 
@@ -384,9 +385,11 @@ static int start_svm_guest(struct guest_info *info) {
     v3_stgi();
 
 
-    if (num_exits % 25 == 0) {
+    if ((num_exits % 1000) == 0) {
       PrintDebug("SVM Exit number %d\n", num_exits);
+      v3_print_profile(info);
     }
+
 
      
     if (v3_handle_svm_exit(info) != 0) {
@@ -416,10 +419,6 @@ static int start_svm_guest(struct guest_info *info) {
       }
       v3_print_GPRs(info);
 
-
-      
-
-
       PrintDebug("SVM Exit Code: %p\n", (void *)(addr_t)guest_ctrl->exit_code); 
       
       PrintDebug("exit_info1 low = 0x%.8x\n", *(uint_t*)&(guest_ctrl->exit_info1));
@@ -442,6 +441,7 @@ static int start_svm_guest(struct guest_info *info) {
 
       break;
     }
+
   }
   return 0;
 }

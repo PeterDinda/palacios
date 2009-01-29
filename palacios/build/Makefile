@@ -267,6 +267,7 @@ VMM_OBJS := \
 	palacios/vmm_socket.o \
 	palacios/vmm_xed.o \
 	palacios/vmm_rbtree.o \
+	palacios/vmm_profiler.o \
 
 #		vmx.c vmcs_gen.c vmcs.c
 

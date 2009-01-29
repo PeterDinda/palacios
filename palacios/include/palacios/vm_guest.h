@@ -32,6 +32,7 @@
 #include <palacios/vmm_emulator.h>
 #include <palacios/vmm_host_events.h>
 #include <palacios/vmm_msr.h>
+#include <palacios/vmm_profiler.h>
 
 
 
@@ -97,11 +98,9 @@ struct v3_segments {
 };
 
 struct shadow_page_state;
-struct shadow_map;
-struct vmm_io_map;
 struct emulation_state;
 struct v3_intr_state;
-
+struct v3_profiler;
 
 
 
@@ -148,6 +147,9 @@ struct guest_info {
   v3_vm_operating_mode_t run_state;
   void * vmm_data;
 
+
+  uint_t enable_profiler;
+  struct v3_profiler profiler;
 
   void * decoder_state;
 
