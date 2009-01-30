@@ -374,6 +374,10 @@ addr_t v3_create_new_shadow_pt() {
 
 
 static void inject_guest_pf(struct guest_info * info, addr_t fault_addr, pf_error_t error_code) {
+  if (info->enable_profiler) {
+    info->profiler.guest_pf_cnt++;
+  }
+
   info->ctrl_regs.cr2 = fault_addr;
   v3_raise_exception_with_error(info, PF_EXCEPTION, *(uint_t *)&error_code);
 }
@@ -533,7 +537,20 @@ static int handle_shadow_pagefault_32(struct guest_info * info, addr_t fault_add
       shadow_pde->pt_base_addr = PAGE_BASE_ADDR((addr_t)V3_PAddr(shadow_pt));
       
       if (guest_pde->large_page == 0) {
+	pte32_t * guest_pt = NULL;
 	shadow_pde->writable = guest_pde->writable;
+
+	if (guest_pa_to_host_va(info, BASE_TO_PAGE_ADDR(guest_pde->pt_base_addr), (addr_t*)&guest_pt) == -1) {
+	  // Machine check the guest
+	  PrintDebug("Invalid Guest PTE Address: 0x%p\n", (void *)BASE_TO_PAGE_ADDR(guest_pde->pt_base_addr));
+	  v3_raise_exception(info, MC_EXCEPTION);
+	  return 0;
+	}
+
+	if (handle_shadow_pte32_fault(info, fault_addr, error_code, shadow_pt, guest_pt)  == -1) {
+	  PrintError("Error handling Page fault caused by PTE\n");
+	  return -1;
+	}
       } else {
 	// ??  What if guest pde is dirty a this point?
 	((pde32_4MB_t *)guest_pde)->dirty = 0;
@@ -549,6 +566,7 @@ static int handle_shadow_pagefault_32(struct guest_info * info, addr_t fault_add
 
       if (guest_pde->large_page == 0) {
 	pte32_t * guest_pt = NULL;
+
 	if (guest_pa_to_host_va(info, BASE_TO_PAGE_ADDR(guest_pde->pt_base_addr), (addr_t*)&guest_pt) == -1) {
 	  // Machine check the guest
 	  PrintDebug("Invalid Guest PTE Address: 0x%p\n", (void *)BASE_TO_PAGE_ADDR(guest_pde->pt_base_addr));

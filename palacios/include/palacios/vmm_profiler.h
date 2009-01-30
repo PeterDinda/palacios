@@ -33,6 +33,8 @@ struct v3_profiler {
   ullong_t start_time;
   ullong_t end_time;
 
+  uint_t guest_pf_cnt;
+
   struct rb_root root;
 };
 

@@ -37,6 +37,7 @@ void v3_init_profiler(struct guest_info * info) {
 
   info->profiler.start_time = 0;
   info->profiler.end_time = 0;  
+  info->profiler.guest_pf_cnt = 0;
 
   info->profiler.root.rb_node = NULL;
 }
@@ -119,7 +120,11 @@ void v3_profile_exit(struct guest_info * info, uint_t exit_code) {
     insert_event(info, evt);
   }
 
-  evt->handler_time += time;
+  
+
+  evt->handler_time = (evt->handler_time * .99) + (time * .01);
+
+
   evt->exit_count++;
   
   info->profiler.total_exits++;
@@ -130,6 +135,8 @@ void v3_print_profile(struct guest_info * info) {
   struct exit_event * evt = NULL;
   struct rb_node * node = v3_rb_first(&(info->profiler.root));
   
+  PrintDebug("GUEST_PF: %u\n", info->profiler.guest_pf_cnt);
+
   do {
     evt = rb_entry(node, struct exit_event, tree_node);
     const char * code_str = vmexit_code_to_str(evt->exit_code);
