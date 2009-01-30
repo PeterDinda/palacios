@@ -81,7 +81,7 @@ struct v3_segment {
   uint_t long_mode      : 1;
   uint_t db             : 1;
   uint_t granularity    : 1;
-};
+} __attribute__((packed));
 
 
 struct v3_segments {
@@ -95,7 +95,7 @@ struct v3_segments {
   struct v3_segment gdtr;
   struct v3_segment idtr;
   struct v3_segment tr;
-};
+} ;
 
 struct shadow_page_state;
 struct emulation_state;
