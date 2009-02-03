@@ -61,20 +61,30 @@
 #define V3_Bind_Socket(sock, port) ({				\
       extern struct v3_socket_hooks * sock_hooks;		\
       int ret = -1;						\
-      if ((sock_hooks) && (sock_hooks)->bind) {			\
-	ret = (sock_hooks)->bind(sock, port);			\
+      if ((sock_hooks) && (sock_hooks)->bind_socket) {			\
+	ret = (sock_hooks)->bind_socket(sock, port);			\
       }								\
       ret;							\
     })
 
 
-#define V3_Accept_Socket(sock, ip_ptr) ({			\
+#define V3_Listen_Socket(sock, backlog) ({				\
       extern struct v3_socket_hooks * sock_hooks;		\
       int ret = -1;						\
-      if ((sock_hooks) && (sock_hooks)->accept) {		\
-	ret = (sock_hooks)->accept(sock, ip_ptr);		\
+      if ((sock_hooks) && (sock_hooks)->listen) {			\
+	ret = (sock_hooks)->listen(sock, backlog);			\
       }								\
       ret;							\
+    })
+
+
+#define V3_Accept_Socket(sock, ip_ptr, port_ptr) ({			\
+      extern struct v3_socket_hooks * sock_hooks;		\
+      V3_SOCK client_sock = 0;						\
+      if ((sock_hooks) && (sock_hooks)->accept) {		\
+	client_sock = (sock_hooks)->accept(sock, ip_ptr, port_ptr);		\
+      }								\
+      client_sock;							\
     })
 
 
@@ -203,7 +213,7 @@ void v3_zero_sockset(struct v3_sock_set * sock_set);    // clears all is_set var
 
 struct v3_socket_hooks {
   // Socket creation routines
-xsxsxsxsxs  V3_SOCK (*tcp_socket)(const int bufsize, const int nodelay, const int nonblocking);
+  V3_SOCK (*tcp_socket)(const int bufsize, const int nodelay, const int nonblocking);
   V3_SOCK (*udp_socket)(const int bufsize, const int nonblocking);
 
   // Socket Destruction
@@ -214,7 +224,7 @@ xsxsxsxsxs  V3_SOCK (*tcp_socket)(const int bufsize, const int nodelay, const in
 
   int (*listen)(const V3_SOCK sock, int backlog);
   
-  V3_SOCK (*accept)(const V3_SOCK const sock, unsigned int * remote_ip, unsigned int * port);
+  V3_SOCK (*accept)(const V3_SOCK sock, unsigned int * remote_ip, unsigned int * port);
   // This going to suck
   int (*select)(struct v3_sock_set * rset, \
 		struct v3_sock_set * wset, \
