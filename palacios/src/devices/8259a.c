@@ -242,8 +242,8 @@ static int pic_get_intr_number(void * private_data) {
   int i = 0;
   int irq = -1;
 
-  PrintDebug("8259 PIC: getnum: master_irr: 0x%x master_imr: 0x%x\n", i, state->master_irr, state->master_imr);
-  PrintDebug("8259 PIC: getnum: slave_irr: 0x%x slave_imr: 0x%x\n", i, state->slave_irr, state->slave_imr);
+  PrintDebug("8259 PIC: getnum: master_irr: 0x%x master_imr: 0x%x\n", state->master_irr, state->master_imr);
+  PrintDebug("8259 PIC: getnum: slave_irr: 0x%x slave_imr: 0x%x\n", state->slave_irr, state->slave_imr);
 
   for (i = 0; i < 16; i++) {
     if (i <= 7) {

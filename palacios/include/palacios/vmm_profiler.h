@@ -17,20 +17,35 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#ifndef __VMM_EMULATOR_H__
-#define __VMM_EMULATOR_H__
+#ifndef __VMM_PROFILER_H__
+#define __VMM_PROFILER_H__
 
 #ifdef __V3VEE__
 
-#include <palacios/vmm_shadow_paging.h>
-#include <palacios/vmm_paging.h>
+#include <palacios/vmm_rbtree.h>
+
+struct guest_info;
 
 
+struct v3_profiler {
+  uint_t total_exits;
+
+  ullong_t start_time;
+  ullong_t end_time;
+
+  uint_t guest_pf_cnt;
+
+  struct rb_root root;
+};
 
 
-int v3_emulate_write_op(struct guest_info * info, addr_t fault_gva, addr_t write_gpa, addr_t * dst_addr);
+void v3_init_profiler(struct guest_info * info);
+
+void v3_profile_exit(struct guest_info * info, uint_t exit_code);
+
+void v3_print_profile(struct guest_info * info);
 
 
-#endif // !__V3VEE__
+#endif
 
 #endif

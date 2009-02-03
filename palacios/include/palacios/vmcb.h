@@ -324,7 +324,7 @@ struct VMCB_State_Save_Area {
 
   //offset 0x0cb
   uchar_t cpl; // if the guest is real-mode then the CPL is forced to 0
-                                             // if the guest is virtual-mode then the CPL is forced to 3
+               // if the guest is virtual-mode then the CPL is forced to 3
 
   uint_t rsvd2;
 

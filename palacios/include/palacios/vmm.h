@@ -35,7 +35,7 @@
 
 /* utility definitions */
 
-#ifdef VMM_DEBUG
+
 #define PrintDebug(fmt, args...)			\
   do {							\
     extern struct v3_os_hooks * os_hooks;		\
@@ -43,6 +43,8 @@
       (os_hooks)->print_debug((fmt), ##args);		\
     }							\
   } while (0)						
+
+#if 1
 #else
 #define PrintDebug(fmt,args ...)
 #endif
@@ -255,6 +257,9 @@ struct v3_vm_config {
   unsigned long mem_size; // in bytes, var should be natural size of cpu
                           // so we can specify maximum physical address size
                           // (We're screwed if we want to do 32 bit host/64 bit guest)
+
+
+  int enable_profiling;
 
   int use_ramdisk;
   void * ramdisk;

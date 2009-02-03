@@ -32,6 +32,7 @@
 #include <palacios/vmm_emulator.h>
 #include <palacios/vmm_host_events.h>
 #include <palacios/vmm_msr.h>
+#include <palacios/vmm_profiler.h>
 
 
 
@@ -80,7 +81,7 @@ struct v3_segment {
   uint_t long_mode      : 1;
   uint_t db             : 1;
   uint_t granularity    : 1;
-};
+} __attribute__((packed));
 
 
 struct v3_segments {
@@ -94,14 +95,12 @@ struct v3_segments {
   struct v3_segment gdtr;
   struct v3_segment idtr;
   struct v3_segment tr;
-};
+} ;
 
 struct shadow_page_state;
-struct shadow_map;
-struct vmm_io_map;
 struct emulation_state;
 struct v3_intr_state;
-
+struct v3_profiler;
 
 
 
@@ -112,7 +111,8 @@ struct guest_info {
   uint_t cpl;
 
   addr_t mem_size; // Probably in bytes for now....
-  struct shadow_map mem_map;
+  v3_shdw_map_t mem_map;
+
 
   struct vm_time time_state;
 
@@ -126,7 +126,7 @@ struct guest_info {
   // This structure is how we get interrupts for the guest
   struct v3_intr_state intr_state;
 
-  struct vmm_io_map io_map;
+  v3_io_map_t io_map;
 
   struct v3_msr_map msr_map;
   // device_map
@@ -144,11 +144,14 @@ struct guest_info {
   struct v3_dbg_regs dbg_regs;
   struct v3_segments segments;
 
-  struct emulation_state emulator;
-
   v3_vm_operating_mode_t run_state;
   void * vmm_data;
 
+
+  uint_t enable_profiler;
+  struct v3_profiler profiler;
+
+  void * decoder_state;
 
   struct v3_msr guest_efer;
 

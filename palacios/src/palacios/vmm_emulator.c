@@ -21,11 +21,8 @@
 #include <palacios/vmm_emulator.h>
 #include <palacios/vm_guest_mem.h>
 #include <palacios/vmm_decoder.h>
-#include <palacios/vmm_debug.h>
-#include <palacios/vmcb.h>
-#include <palacios/vmm_ctrl_regs.h>
-
-static const char VMMCALL[3] = {0x0f, 0x01, 0xd9};
+#include <palacios/vmm_paging.h>
+#include <palacios/vmm_instr_emulator.h>
 
 #ifndef DEBUG_EMULATOR
 #undef PrintDebug
@@ -33,120 +30,121 @@ static const char VMMCALL[3] = {0x0f, 0x01, 0xd9};
 #endif
 
 
-int v3_init_emulator(struct guest_info * info) {
-  struct emulation_state * emulator = &(info->emulator);
-
-  emulator->num_emulated_pages = 0;
-  INIT_LIST_HEAD(&(emulator->emulated_pages));
-
-
-  emulator->num_saved_pages = 0;
-  INIT_LIST_HEAD(&(emulator->saved_pages));
-  
-  emulator->num_write_regions = 0;
-  INIT_LIST_HEAD(&(emulator->write_regions));
-
-  emulator->running = 0;
-  emulator->instr_length = 0;
-
-  emulator->tf_enabled = 0;
-
-  return 0;
-}
-
-static addr_t get_new_page() {
-  void * page = V3_VAddr(V3_AllocPages(1));
-  memset(page, 0, PAGE_SIZE);
-
-  return (addr_t)page;
-}
-
-/*
-static int setup_code_page(struct guest_info * info, char * instr, struct basic_instr_info * instr_info ) {
-  addr_t code_page_offset = PT32_PAGE_OFFSET(info->rip);
-  addr_t code_page = get_new_page();
-  struct emulated_page * new_code_page = V3_Malloc(sizeof(struct emulated_page));
-  struct saved_page * saved_code_page = V3_Malloc(sizeof(struct saved_page));
-
-
-  saved_code_page->va = PT32_PAGE_ADDR(info->rip);
-
-  new_code_page->page_addr = code_page; 
-  new_code_page->va = PT32_PAGE_ADDR(info->rip);
-
-  new_code_page->pte.present = 1;
-  new_code_page->pte.writable = 0;
-  new_code_page->pte.user_page = 1;
-  new_code_page->pte.page_base_addr = PT32_BASE_ADDR(code_page);
-
-  memcpy((void *)(code_page + code_page_offset), instr, instr_info->instr_length);
-  memcpy((void *)(code_page + code_page_offset + instr_info->instr_length), VMMCALL, 3);
-
-#ifdef DEBUG_EMULATOR
-  PrintDebug("New Instr Stream:\n");
-  PrintTraceMemDump((void *)(code_page + code_page_offset), 32);
-  PrintDebug("rip =%x\n", info->rip);
-#endif
 
 
 
-  v3_replace_shdw_page32(info, new_code_page->va, &(new_code_page->pte), &(saved_code_page->pte));
+
+// We emulate up to the next 4KB page boundry
+static int emulate_string_write_op(struct guest_info * info, struct x86_instr * dec_instr, 
+				   addr_t write_gva, addr_t write_gpa, addr_t * dst_addr) {
+  uint_t emulation_length = 0;
+  addr_t tmp_rcx = 0;
+  addr_t src_addr = 0;
+
+  if (dec_instr->op_type == V3_OP_MOVS) {
+    PrintDebug("MOVS emulation\n");
+
+    if (dec_instr->dst_operand.operand != write_gva) {
+      PrintError("Inconsistency between Pagefault and Instruction Decode XED_ADDR=%p, PF_ADDR=%p\n",
+		 (void *)dec_instr->dst_operand.operand, (void *)write_gva);
+      return -1;
+    }
+
+    emulation_length = ( (dec_instr->str_op_length  < (0x1000 - PAGE_OFFSET_4KB(write_gva))) ? 
+			 dec_instr->str_op_length :
+			 (0x1000 - PAGE_OFFSET_4KB(write_gva)));
+    /* ** Fix emulation length so that it doesn't overrun over the src page either ** */
 
 
-  list_add(&(new_code_page->page_list), &(info->emulator.emulated_pages));
-  info->emulator.num_emulated_pages++;
+    PrintDebug("STR_OP_LEN: %d, Page Len: %d\n", 
+	       (uint_t)dec_instr->str_op_length, 
+	       (uint_t)(0x1000 - PAGE_OFFSET_4KB(write_gva)));
+    PrintDebug("Emulation length: %d\n", emulation_length);
+    tmp_rcx = emulation_length;
+ 
+    if (guest_pa_to_host_va(info, write_gpa, dst_addr) == -1) {
+      PrintError("Could not translate write destination to host VA\n");
+      return -1;
+    }
 
-  list_add(&(saved_code_page->page_list), &(info->emulator.saved_pages));
-  info->emulator.num_saved_pages++;
-
-  return 0;
-}
-*/
-
-
-static int set_stepping(struct guest_info * info) {
-  vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
-  ctrl_area->exceptions.db = 1;
-
-  info->emulator.tf_enabled = ((struct rflags *)&(info->ctrl_regs.rflags))->tf;
-
-  ((struct rflags *)&(info->ctrl_regs.rflags))->tf = 1;
-
-  return 0;
-}
+    // figure out addresses here....
+    if (info->mem_mode == PHYSICAL_MEM) {
+      if (guest_pa_to_host_va(info, dec_instr->src_operand.operand, &src_addr) == -1) {
+	PrintError("Could not translate write Source (Physical) to host VA\n");
+	return -1;
+      }
+    } else {
+      if (guest_va_to_host_va(info, dec_instr->src_operand.operand, &src_addr) == -1) {
+	PrintError("Could not translate write Source (Virtual) to host VA\n");
+	return -1;
+      }
+    }
 
 
-static int unset_stepping(struct guest_info * info) {
-  vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
-  ctrl_area->exceptions.db = 0;
+    PrintDebug("Dst Operand: %p (size=%d), Src Operand: %p\n", 
+	       (void *)dec_instr->dst_operand.operand, 
+	       dec_instr->dst_operand.size,
+	       (void *)dec_instr->src_operand.operand);
+    PrintDebug("Dst Addr: %p, Src Addr: %p\n", (void *)(addr_t *)*dst_addr, (void *)src_addr);
 
-  ((struct rflags *)&(info->ctrl_regs.rflags))->tf = info->emulator.tf_enabled;
+    //return -1;
 
-  if (info->emulator.tf_enabled) {
-    // Inject breakpoint exception into guest
+
+ 
+
+
+    if (dec_instr->dst_operand.size == 1) {
+      movs8(dst_addr, &src_addr, &tmp_rcx, (addr_t *)&(info->ctrl_regs.rflags));
+    } else if (dec_instr->dst_operand.size == 2) {
+      movs16(dst_addr, &src_addr, &tmp_rcx, (addr_t *)&(info->ctrl_regs.rflags));
+    } else if (dec_instr->dst_operand.size == 4) {
+      movs32(dst_addr, &src_addr, &tmp_rcx, (addr_t *)&(info->ctrl_regs.rflags));
+    } else {
+      PrintError("Invalid operand length\n");
+      return -1;
+    }
+
+
+
+
+
+    PrintDebug("RDI=%p, RSI=%p, RCX=%p\n", 
+	       (void *)*(addr_t *)&(info->vm_regs.rdi), 
+	       (void *)*(addr_t *)&(info->vm_regs.rsi), 
+	       (void *)*(addr_t *)&(info->vm_regs.rcx)); 
+
+    info->vm_regs.rdi += emulation_length;
+    info->vm_regs.rsi += emulation_length;
+    info->vm_regs.rcx -= emulation_length;
+    
+    PrintDebug("RDI=%p, RSI=%p, RCX=%p\n", 
+	       (void *)*(addr_t *)&(info->vm_regs.rdi), 
+	       (void *)*(addr_t *)&(info->vm_regs.rsi), 
+	       (void *)*(addr_t *)&(info->vm_regs.rcx)); 
+
+    if (emulation_length == dec_instr->str_op_length) {
+      info->rip += dec_instr->instr_length;
+    }
+
+    return emulation_length;
   }
 
-  return 0;
+  
 
+
+  return -1;
 }
 
 
-// get the current instr
-// check if rep + remove
-// put into new page, vmexit after
-// replace new page with current eip page
-// 
-int v3_emulate_memory_read(struct guest_info * info, addr_t read_gva, 
-			   int (*read)(addr_t read_addr, void * dst, uint_t length, void * priv_data), 
-			   addr_t read_gpa, void * private_data) {
-  struct basic_instr_info instr_info;
+int v3_emulate_write_op(struct guest_info * info, addr_t write_gva, addr_t write_gpa, addr_t * dst_addr) {
+  struct x86_instr dec_instr;
   uchar_t instr[15];
-  int ret;
-  struct emulated_page * data_page = V3_Malloc(sizeof(struct emulated_page));
-  addr_t data_addr_offset = PAGE_OFFSET(read_gva);
-  pte32_t saved_pte;
+  int ret = 0;
+  addr_t src_addr = 0;
 
-  PrintDebug("Emulating Read\n");
+
+  PrintDebug("Emulating Write for instruction at %p\n", (void *)(addr_t)(info->rip));
+  PrintDebug("GPA=%p, GVA=%p\n", (void *)write_gpa, (void *)write_gva);
 
   if (info->mem_mode == PHYSICAL_MEM) { 
     ret = read_guest_pa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
@@ -155,233 +153,258 @@ int v3_emulate_memory_read(struct guest_info * info, addr_t read_gva,
   }
 
   if (ret == -1) {
-    PrintError("Could not read guest memory\n");
     return -1;
   }
 
-#ifdef DEBUG_EMULATOR
-  PrintDebug("Instr (15 bytes) at %p:\n", (void *)(addr_t)instr);
-  PrintTraceMemDump(instr, 15);
-#endif  
 
-
-  if (v3_basic_mem_decode(info, (addr_t)instr, &instr_info) == -1) {
-    PrintError("Could not do a basic memory instruction decode\n");
-    V3_Free(data_page);
+  if (guest_pa_to_host_va(info, write_gpa, dst_addr) == -1) {
+    PrintError("Could not translate write destination to host VA\n");
     return -1;
   }
 
-  /*
-  if (instr_info.has_rep == 1) {
-    PrintError("We currently don't handle rep* instructions\n");
-    V3_Free(data_page);
+  if (v3_decode(info, (addr_t)instr, &dec_instr) == -1) {
+    PrintError("Decoding Error\n");
+    // Kick off single step emulator
     return -1;
   }
-  */
-
-  data_page->page_addr = get_new_page();
-  data_page->va = PAGE_ADDR(read_gva);
-  data_page->pte.present = 1;
-  data_page->pte.writable = 0;
-  data_page->pte.user_page = 1;
-  data_page->pte.page_base_addr = PAGE_BASE_ADDR((addr_t)V3_PAddr((void *)(addr_t)(data_page->page_addr)));
+  
+  if (dec_instr.is_str_op) {
+    return emulate_string_write_op(info, &dec_instr, write_gva, write_gpa, dst_addr);
+  }
 
 
-  // Read the data directly onto the emulated page
-  ret = read(read_gpa, (void *)(data_page->page_addr + data_addr_offset), instr_info.op_size, private_data);
-  if ((ret == -1) || ((uint_t)ret != instr_info.op_size)) {
-    PrintError("Read error in emulator\n");
-    V3_FreePage((void *)V3_PAddr((void *)(data_page->page_addr)));
-    V3_Free(data_page);
+  if ((dec_instr.dst_operand.type != MEM_OPERAND) ||
+      (dec_instr.dst_operand.operand != write_gva)) {
+    PrintError("Inconsistency between Pagefault and Instruction Decode XED_ADDR=%p, PF_ADDR=%p\n",
+	       (void *)dec_instr.dst_operand.operand, (void *)write_gva);
     return -1;
   }
 
-  v3_replace_shdw_page32(info, data_page->va, &(data_page->pte), &saved_pte);
 
-
-  list_add(&(data_page->page_list), &(info->emulator.emulated_pages));
-  info->emulator.num_emulated_pages++;
-
-  if (saved_pte.present == 1) {
-    struct saved_page * saved_data_page = V3_Malloc(sizeof(struct saved_page));
-    saved_data_page->pte = saved_pte;
-    saved_data_page->va = PAGE_ADDR(read_gva);
-
-    list_add(&(saved_data_page->page_list), &(info->emulator.saved_pages));
-    info->emulator.num_saved_pages++;
+  if (dec_instr.src_operand.type == MEM_OPERAND) {
+    if (info->mem_mode == PHYSICAL_MEM) {
+      if (guest_pa_to_host_va(info, dec_instr.src_operand.operand, &src_addr) == -1) {
+	PrintError("Could not translate write Source (Physical) to host VA\n");
+	return -1;
+      }
+    } else {
+      if (guest_va_to_host_va(info, dec_instr.src_operand.operand, &src_addr) == -1) {
+	PrintError("Could not translate write Source (Virtual) to host VA\n");
+	return -1;
+      }
+    }
+  } else if (dec_instr.src_operand.type == REG_OPERAND) {
+    src_addr = dec_instr.src_operand.operand;
+  } else {
+    src_addr = (addr_t)&(dec_instr.src_operand.operand);
   }
 
 
-  // setup_code_page(info, instr, &instr_info);
-  set_stepping(info);
+  PrintDebug("Dst_Addr Ptr = %p (val=%p), SRC operand = %p\n", 
+	     (void *)dst_addr, (void *)*dst_addr, (void *)src_addr);
 
-  info->emulator.running = 1;
-  info->run_state = VM_EMULATING;
-  info->emulator.instr_length = instr_info.instr_length;
 
-  return 0;
+  if (dec_instr.dst_operand.size == 1) {
+
+    switch (dec_instr.op_type) {
+    case V3_OP_ADC:
+      adc8((addr_t *)*dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_ADD:
+      add8((addr_t *)*dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_AND:
+      and8((addr_t *)*dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_OR:
+      or8((addr_t *)*dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_XOR:
+      xor8((addr_t *)*dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_SUB:
+      sub8((addr_t *)*dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+
+    case V3_OP_MOV:
+      mov8((addr_t *)*dst_addr, (addr_t *)src_addr);
+      break;
+    case V3_OP_NOT:
+      not8((addr_t *)*dst_addr);
+      break;
+    case V3_OP_XCHG:
+      xchg8((addr_t *)*dst_addr, (addr_t *)src_addr);
+      break;
+      
+
+    case V3_OP_INC:
+      inc8((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_DEC:
+      dec8((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_NEG:
+      neg8((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_SETB:
+      setb8((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_SETBE:
+      setbe8((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_SETL:
+      setl8((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_SETLE:
+      setle8((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_SETNB:
+      setnb8((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_SETNBE:
+      setnbe8((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_SETNL:
+      setnl8((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_SETNLE:
+      setnle8((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_SETNO:
+      setno8((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_SETNP:
+      setnp8((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_SETNS:
+      setns8((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_SETNZ:
+      setnz8((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_SETO:
+      seto8((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_SETP:
+      setp8((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_SETS:
+      sets8((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_SETZ:
+      setz8((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+
+    default:
+      PrintError("Unknown 8 bit instruction\n");
+      return -1;
+    }
+
+  } else if (dec_instr.dst_operand.size == 2) {
+
+    switch (dec_instr.op_type) {
+    case V3_OP_ADC:
+      adc16((addr_t *)*dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_ADD:
+      add16((addr_t *)*dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_AND:
+      and16((addr_t *)*dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_OR:
+      or16((addr_t *)*dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_XOR:
+      xor16((addr_t *)*dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_SUB:
+      sub16((addr_t *)*dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+
+
+    case V3_OP_INC:
+      inc16((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_DEC:
+      dec16((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_NEG:
+      neg16((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+
+    case V3_OP_MOV:
+      mov16((addr_t *)*dst_addr, (addr_t *)src_addr);
+      break;
+    case V3_OP_NOT:
+      not16((addr_t *)*dst_addr);
+      break;
+    case V3_OP_XCHG:
+      xchg16((addr_t *)*dst_addr, (addr_t *)src_addr);
+      break;
+      
+    default:
+      PrintError("Unknown 16 bit instruction\n");
+      return -1;
+    }
+
+  } else if (dec_instr.dst_operand.size == 4) {
+
+    switch (dec_instr.op_type) {
+    case V3_OP_ADC:
+      adc32((addr_t *)*dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_ADD:
+      add32((addr_t *)*dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_AND:
+      and32((addr_t *)*dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_OR:
+      or32((addr_t *)*dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_XOR:
+      xor32((addr_t *)*dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_SUB:
+      sub32((addr_t *)*dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+
+    case V3_OP_INC:
+      inc32((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_DEC:
+      dec32((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_NEG:
+      neg32((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+
+    case V3_OP_MOV:
+      mov32((addr_t *)*dst_addr, (addr_t *)src_addr);
+      break;
+    case V3_OP_NOT:
+      not32((addr_t *)*dst_addr);
+      break;
+    case V3_OP_XCHG:
+      xchg32((addr_t *)*dst_addr, (addr_t *)src_addr);
+      break;
+      
+    default:
+      PrintError("Unknown 32 bit instruction\n");
+      return -1;
+    }
+
+  } else if (dec_instr.dst_operand.size == 8) {
+    PrintError("64 bit instructions not handled\n");
+    return -1;
+  } else {
+    PrintError("Invalid Operation Size\n");
+    return -1;
+  }
+
+  info->rip += dec_instr.instr_length;
+
+  return dec_instr.dst_operand.size;
 }
 
-
-
-int v3_emulate_memory_write(struct guest_info * info, addr_t write_gva,
-			    int (*write)(addr_t write_addr, void * src, uint_t length, void * priv_data), 
-			    addr_t write_gpa, void * private_data) {
-
-  struct basic_instr_info instr_info;
-  uchar_t instr[15];
-  int ret;
-  struct write_region * write_op = V3_Malloc(sizeof(struct write_region ));
-  struct emulated_page * data_page = V3_Malloc(sizeof(struct emulated_page));
-  addr_t data_addr_offset = PAGE_OFFSET(write_gva);
-  pte32_t saved_pte;
-  int i;
-
-  PrintDebug("Emulating Write for instruction at 0x%p\n", (void *)(addr_t)(info->rip));
-
-  if (info->mem_mode == PHYSICAL_MEM) { 
-    ret = read_guest_pa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
-  } else { 
-    ret = read_guest_va_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
-  }
-
-
-  PrintDebug("Instruction is");
-  for (i=0;i<15;i++) { PrintDebug(" 0x%x",instr[i]); } 
-  PrintDebug("\n");
-  
-  if (v3_basic_mem_decode(info, (addr_t)instr, &instr_info) == -1) {
-    PrintError("Could not do a basic memory instruction decode\n");
-    V3_Free(write_op);
-    V3_Free(data_page);
-    return -1;
-  }
-
-  if (instr_info.has_rep==1) { 
-    PrintDebug("Emulated instruction has rep\n");
-  }
-
-  /*
-  if (instr_info.has_rep == 1) {
-    PrintError("We currently don't handle rep* instructions\n");
-    V3_Free(write_op);
-    V3_Free(data_page);
-    return -1;
-  }
-  */
-
-  data_page->page_addr = get_new_page();
-  data_page->va = PAGE_ADDR(write_gva);
-  data_page->pte.present = 1;
-  data_page->pte.writable = 1;
-  data_page->pte.user_page = 1;
-  data_page->pte.page_base_addr = PAGE_BASE_ADDR((addr_t)V3_PAddr((void *)(addr_t)(data_page->page_addr)));
-
-
-
-  write_op->write = write;
-  write_op->write_addr = write_gpa;
-  write_op->length = instr_info.op_size;
-  write_op->private_data = private_data;
-
-  write_op->write_data = (void *)(data_page->page_addr + data_addr_offset);
-
-  list_add(&(write_op->write_list), &(info->emulator.write_regions));
-  info->emulator.num_write_regions--;
-
-  v3_replace_shdw_page32(info, data_page->va, &(data_page->pte), &saved_pte);
-
-
-  list_add(&(data_page->page_list), &(info->emulator.emulated_pages));
-  info->emulator.num_emulated_pages++;
-
-  if (saved_pte.present == 1) {
-    struct saved_page * saved_data_page = V3_Malloc(sizeof(struct saved_page));
-    saved_data_page->pte = saved_pte;
-    saved_data_page->va = PAGE_ADDR(write_gva);
-
-    list_add(&(saved_data_page->page_list), &(info->emulator.saved_pages));
-    info->emulator.num_saved_pages++;
-  }
-
-
-  if (info->emulator.running == 0) {
-    //    setup_code_page(info, instr, &instr_info);
-    set_stepping(info);
-    info->emulator.running = 1;
-    info->run_state = VM_EMULATING;
-    info->emulator.instr_length = instr_info.instr_length;
-  }
-
-  return 0;
-}
-
-
-// end emulation
-int v3_emulation_exit_handler(struct guest_info * info) {
-  struct saved_page * svpg, * p_svpg;
-  struct emulated_page * empg, * p_empg;
-  struct write_region * wr_reg, * p_wr_reg;
-  pte32_t dummy_pte;
-
-  // Complete the writes
-  // delete writes
-  // swap out emulated pages with blank dummies
-  // swap in saved pages
-  // increment rip
-  
-  PrintDebug("V3 Emulation Exit Handler\n");
-
-  list_for_each_entry_safe(wr_reg, p_wr_reg, &(info->emulator.write_regions), write_list) {
-    wr_reg->write(wr_reg->write_addr, wr_reg->write_data, wr_reg->length, wr_reg->private_data);
-    PrintDebug("Writing \n");
-    
-    list_del(&(wr_reg->write_list));
-    V3_Free(wr_reg);
-
-  }
-  info->emulator.num_write_regions = 0;
-
-
-  *(uint_t *)&dummy_pte = 0;
-  
-  list_for_each_entry_safe(empg, p_empg, &(info->emulator.emulated_pages), page_list) {
-    pte32_t empte32_t;
-
-    PrintDebug("wiping page %p\n", (void *)(addr_t)(empg->va)); 
-
-    v3_replace_shdw_page32(info, empg->va, &dummy_pte, &empte32_t);
-    V3_FreePage((void *)(V3_PAddr((void *)(empg->page_addr))));
-
-    list_del(&(empg->page_list));
-    V3_Free(empg);
-  }
-  info->emulator.num_emulated_pages = 0;
-
-  list_for_each_entry_safe(svpg, p_svpg, &(info->emulator.saved_pages), page_list) {
-
-    PrintDebug("Setting Saved page %p back\n", (void *)(addr_t)(svpg->va)); 
-    v3_replace_shdw_page32(info, empg->va, &(svpg->pte), &dummy_pte);
-    
-    list_del(&(svpg->page_list));
-    V3_Free(svpg);
-  }
-  info->emulator.num_saved_pages = 0;
-
-  info->run_state = VM_RUNNING;
-  info->emulator.running = 0;
-  //info->rip += info->emulator.instr_length;
-
-
-  PrintDebug("Returning to rip: 0x%p\n", (void *)(addr_t)(info->rip));
-
-  info->emulator.instr_length = 0;
-  
-  
-  unset_stepping(info);
-
-
-  PrintDebug("returning from emulation\n");
-
-  return 0;
-}

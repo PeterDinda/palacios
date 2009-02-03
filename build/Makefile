@@ -1,4 +1,4 @@
-# Makefile for GeekOS kernel, userspace, and tools
+# Top level Makefile for V3Vee
 #
 #  Northwestern University 
 # (c) 2008, Jack Lange <jarusl@cs.northwestern.edu>
@@ -6,38 +6,17 @@
 # (c) 2008, Lei Xia <xiaxlei@gmail.com>
 # (c) 2008, The V3VEE Project <http://www.v3vee.org> 
 #
-# Based on GeekOS Makefile:
-# Copyright (c) 2004,2005 David H. Hovemeyer <daveho@cs.umd.edu>
-# $Revision: 1.71 $
-
-
-# This is free software.  You are permitted to use,
-# redistribute, and modify it as specified in the file "COPYING".
-
-# Required software to build GeekOS:
+# Required software to build V3Vee:
 # - GNU Make (http://www.gnu.org/software/make)
-# - gcc 2.95.2 generating code for target (i386/ELF) and host platforms
 # - nasm (http://nasm.sourceforge.net)
 # - Perl5, AWK (any version), egrep
 #
-# Cygwin (http://cygwin.com) may be used to build GeekOS.
-# Make sure that gcc, binutils, nasm, and perl are installed.
-
-# NOTES:
-# - This makefile has been written carefully to work correctly
-#   with the -j (parallel make) option.  I regularly use "make -j 2"
-#   to speed the build process on 2 processor systems.
 
 
 
 
-# ----------------------------------------------------------------------
-# Configuration -
-#   Various options specifying how GeekOS should be built,
-#   what source files to build, which user programs to build,
-#   etc.  This is generally the only section of the makefile
-#   that will need to be modified.
-# ----------------------------------------------------------------------
+
+
 PROJECT_ROOT := ..
 PALACIOS_BUILD_DIR := $(PROJECT_ROOT)/palacios/build
 GEEKOS_BUILD_DIR := $(PROJECT_ROOT)/geekos/build
@@ -177,6 +156,11 @@ endif
 endif
 
 
+ifeq ($(PROFILE_VMM),1)
+  GEEKOS_FLAGS:= $(GEEKOS_FLAGS) PROFILE_VMM=1
+endif
+
+
 # ----------------------------------------------------------------------
 # Targets -
 #   Specifies files to be built
@@ -208,14 +192,14 @@ geekos: palacios32
 	cp $(PALACIOS_BUILD_DIR)/libv3vee.a $(GEEKOS_BUILD_DIR)/palacios/
 	cp $(PALACIOS_BUILD_DIR)/../lib/xed/libxed.a $(GEEKOS_BUILD_DIR)/palacios/
 	cp $(PALACIOS_BUILD_DIR)/vm_kernel $(GEEKOS_BUILD_DIR)/palacios/
-	(cd $(GEEKOS_BUILD_DIR) && make)
+	(cd $(GEEKOS_BUILD_DIR) && make $(GEEKOS_FLAGS))
 
 
 geekos-full: palacios-full32
 	cp $(PALACIOS_BUILD_DIR)/libv3vee.a $(GEEKOS_BUILD_DIR)/palacios/
 	cp $(PALACIOS_BUILD_DIR)/../lib/xed/libxed.a $(GEEKOS_BUILD_DIR)/palacios/
 	cp $(PALACIOS_BUILD_DIR)/vm_kernel $(GEEKOS_BUILD_DIR)/palacios/
-	(cd $(GEEKOS_BUILD_DIR) && make clean && make)
+	(cd $(GEEKOS_BUILD_DIR) && make clean && make $(GEEKOS_FLAGS))
 
 
 world: geekos-full palacios-full64

@@ -53,11 +53,11 @@ VPATH := $(PROJECT_ROOT)/src
 # 
 
 ifeq ($(LEAN_AND_MEAN),1) 
-DEBUG=0
-DEBUG_SECTIONS=
+DEBUG := 0
+DEBUG_SECTIONS :=
 else
-DEBUG=1
-DEBUG_SECTIONS= 
+DEBUG := 1
+DEBUG_SECTIONS := 
 endif
 
 
@@ -265,6 +265,9 @@ VMM_OBJS := \
 	palacios/vmm_msr.o \
 	palacios/svm_msr.o \
 	palacios/vmm_socket.o \
+	palacios/vmm_xed.o \
+	palacios/vmm_rbtree.o \
+	palacios/vmm_profiler.o \
 
 #		vmx.c vmcs_gen.c vmcs.c
 
@@ -278,8 +281,8 @@ XED_OBJS := \
 	xed/v3-xed-compat.o \
 	xed/v3-udiv-compat.o \
 
-$(XED_OBJS) :: EXTRA_CFLAGS =
-
+$(XED_OBJS) :: EXTRA_CFLAGS = \
+	$(JRLDEBUG) \
 
 DEVICES_OBJS := \
 	devices/generic.o \
@@ -294,19 +297,8 @@ DEVICES_OBJS := \
 	devices/cdrom.o \
 	devices/bochs_debug.o \
 
-$(DEVICES_OBJS) :: EXTRA_CFLAGS =
-
-#
-# DECODER is the decoder that will be used 
-# currently we only support xed
-#
-DECODER=XED
-
-ifeq ($(DECODER),XED)
-VMM_OBJS += palacios/vmm_xed.o
-else
-# This is an error
-endif
+$(DEVICES_OBJS) :: EXTRA_CFLAGS = \
+	$(JRLDEBUG) \
 
 
 
@@ -399,11 +391,12 @@ CC_GENERAL_OPTS = \
 	$(EXTRA_C_OPTS) \
 	$(VMM_FLAGS) \
 	-I$(PROJECT_ROOT)/include \
-	-fPIC \
 	-Werror \
+	-fPIC \
 	-Wp,-MD,$(@D)/.$(@F).d \
 	-Wp,-MT,$@ \
 
+#-fPIC \
 #-fvisibility=hidden
 
 

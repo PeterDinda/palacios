@@ -21,7 +21,9 @@
 #include <palacios/vmm.h>
 #include <palacios/vmm_debug.h>
 #include <palacios/vmm_msr.h>
-
+#include <palacios/vmm_decoder.h>
+#include <palacios/vmm_profiler.h>
+#include <palacios/vmm_mem.h>
 
 #include <devices/serial.h>
 #include <devices/keyboard.h>
@@ -32,6 +34,7 @@
 #include <devices/ramdisk.h>
 #include <devices/cdrom.h>
 #include <devices/bochs_debug.h>
+
 
 
 #include <palacios/vmm_host_events.h>
@@ -50,23 +53,14 @@ static struct vm_device *  configure_generic(struct guest_info * info, struct v3
 
 
 
-static int mem_test_read(addr_t guest_addr, void * dst, uint_t length, void * priv_data) {
-  int foo = 20;
-
-
-  memcpy(dst, &foo, length);
-
-  PrintDebug("Passthrough mem read returning: %p (length=%d)\n", (void *)(foo + (guest_addr & 0xfff)), length);
-  return length;
-}
-
-static int passthrough_mem_read(addr_t guest_addr, void * dst, uint_t length, void * priv_data) {
-    memcpy(dst, (void*)guest_addr, length);
-    return length;
-}
 
 static int passthrough_mem_write(addr_t guest_addr, void * src, uint_t length, void * priv_data) {
-  memcpy((void*)guest_addr, src, length);
+
+  return length;
+  //  memcpy((void*)guest_addr, src, length);
+  PrintDebug("Write of %d bytes to %p\n", length, (void *)guest_addr);
+  PrintDebug("Write Value = %p\n", (void *)*(addr_t *)src);
+
   return length;
 }
 
@@ -77,14 +71,15 @@ int v3_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) 
 
   // Initialize the subsystem data strutures
   v3_init_time(info);
-  v3_init_vmm_io_map(info);
+  v3_init_io_map(info);
   v3_init_msr_map(info);
   v3_init_interrupt_state(info);
   v3_init_dev_mgr(info);
-  v3_init_emulator(info);
   v3_init_host_events(info);
 
-  init_shadow_map(info);
+  v3_init_decoder(info);
+
+  v3_init_shadow_map(info);
   
   if (v3_cpu_type == V3_SVM_REV3_CPU) {
     info->shdw_pg_mode = NESTED_PAGING;
@@ -106,6 +101,14 @@ int v3_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) 
   // Configure the devices for the guest
   setup_devices(info, config_ptr);
  
+
+
+  if (config_ptr->enable_profiling) {
+    info->enable_profiler = 1;
+    v3_init_profiler(info);
+  } else {
+    info->enable_profiler = 0;
+  }
 
   //v3_hook_io_port(info, 1234, &IO_Read, NULL, info);
 
@@ -132,7 +135,7 @@ static int setup_memory_map(struct guest_info * info, struct v3_vm_config * conf
     PrintDebug("Layout Region %d bytes\n", config_ptr->rombios_size);
     memcpy(V3_VAddr(guest_mem), config_ptr->rombios, config_ptr->rombios_size);
 
-    add_shadow_region_passthrough(info, ROMBIOS_START, ROMBIOS_START + (num_pages * PAGE_SIZE), (addr_t)guest_mem);
+    v3_add_shadow_mem(info, ROMBIOS_START, ROMBIOS_START + (num_pages * PAGE_SIZE) - 1, (addr_t)guest_mem);
     
     PrintDebug("Adding Shadow Region (0x%p-0x%p) -> 0x%p\n", 
 	       (void *)ROMBIOS_START, 
@@ -149,7 +152,7 @@ static int setup_memory_map(struct guest_info * info, struct v3_vm_config * conf
     PrintDebug("Layout Region %d bytes\n", config_ptr->vgabios_size);
     memcpy(V3_VAddr(guest_mem), config_ptr->vgabios, config_ptr->vgabios_size);
 
-    add_shadow_region_passthrough(info, VGABIOS_START, VGABIOS_START + (num_pages * PAGE_SIZE), (addr_t)guest_mem);
+    v3_add_shadow_mem(info, VGABIOS_START, VGABIOS_START + (num_pages * PAGE_SIZE) - 1, (addr_t)guest_mem);
     
     PrintDebug("Adding Shadow Region (0x%p-0x%p) -> 0x%p\n", 
 	       (void *)VGABIOS_START, 
@@ -158,44 +161,44 @@ static int setup_memory_map(struct guest_info * info, struct v3_vm_config * conf
   }
 
       //     
-  add_shadow_region_passthrough(info, 0x0, 0xa0000, (addr_t)V3_AllocPages(160));
+  v3_add_shadow_mem(info, 0x0, 0x9ffff, (addr_t)V3_AllocPages(160));
   
   if (1) {
-    add_shadow_region_passthrough(info, 0xa0000, 0xc0000, 0xa0000); 
+    v3_add_shadow_mem(info, 0xa0000, 0xbffff, 0xa0000); 
   } else {
-    hook_guest_mem(info, 0xa0000, 0xc0000, passthrough_mem_read, passthrough_mem_write, NULL);
+    v3_hook_write_mem(info, 0xa0000, 0xbffff, 0xa0000,  passthrough_mem_write, NULL);
   }  
   
   // TEMP
   //add_shadow_region_passthrough(info, 0xc0000, 0xc8000, 0xc0000);
   
   if (1) {
-    add_shadow_region_passthrough(info, 0xc7000, 0xc8000, (addr_t)V3_AllocPages(1));
-    if (add_shadow_region_passthrough(info, 0xc8000, 0xf0000, (addr_t)V3_AllocPages(40)) == -1) {
+    v3_add_shadow_mem(info, 0xc7000, 0xc8000, (addr_t)V3_AllocPages(1));
+    if (v3_add_shadow_mem(info, 0xc8000, 0xf0000, (addr_t)V3_AllocPages(40)) == -1) {
       PrintDebug("Error adding shadow region\n");
     }
   } else {
-    add_shadow_region_passthrough(info, 0xc0000, 0xc8000, 0xc0000);
-    add_shadow_region_passthrough(info, 0xc8000, 0xf0000, 0xc8000);
+    v3_add_shadow_mem(info, 0xc0000, 0xc8000, 0xc0000);
+    v3_add_shadow_mem(info, 0xc8000, 0xf0000, 0xc8000);
   }
   
   
   if (1) {
-  add_shadow_region_passthrough(info, 0x100000, 0x1000000, (addr_t)V3_AllocPages(4096));
+    v3_add_shadow_mem(info, 0x100000, 0x1000000, (addr_t)V3_AllocPages(4096));
   } else {
     /* MEMORY HOOK TEST */
-    add_shadow_region_passthrough(info, 0x100000, 0xa00000, (addr_t)V3_AllocPages(2304));
-    hook_guest_mem(info, 0xa00000, 0xa01000, mem_test_read, passthrough_mem_write, NULL); 
-    add_shadow_region_passthrough(info, 0xa01000, 0x1000000, (addr_t)V3_AllocPages(1791));
+    v3_add_shadow_mem(info, 0x100000, 0xa00000, (addr_t)V3_AllocPages(2304));
+    v3_hook_write_mem(info, 0xa00000, 0xa01000, (addr_t)V3_AllocPages(1), passthrough_mem_write, NULL); 
+    v3_add_shadow_mem(info, 0xa01000, 0x1000000, (addr_t)V3_AllocPages(1791));
   }
 
-    add_shadow_region_passthrough(info, 0x1000000, 0x8000000, (addr_t)V3_AllocPages(32768));
+  v3_add_shadow_mem(info, 0x1000000, 0x8000000, (addr_t)V3_AllocPages(32768));
  
   // test - give linux accesss to PCI space - PAD
-  add_shadow_region_passthrough(info, 0xc0000000,0xffffffff,0xc0000000);
+  v3_add_shadow_mem(info, 0xc0000000,0xffffffff,0xc0000000);
   
   
-  print_shadow_map(&(info->mem_map));
+  print_shadow_map(info);
 
   return 0;
 }

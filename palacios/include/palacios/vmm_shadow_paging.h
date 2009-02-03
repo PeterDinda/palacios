@@ -35,14 +35,6 @@ struct shadow_page_state {
   v3_reg_t guest_cr0;
 
 
-
-
-  // Page table struct lookup table
-  struct hashtable * pt_cache;
-
-  // Guest CR3 to Shadow CR3 Lookup Table
-  struct hashtable *  cr3_cache;
-
   /* SOON TO BE DEPRECATED */
   // Hash table that contains a mapping of guest pte addresses to host pte addresses
   struct hashtable *  cached_ptes;
@@ -69,15 +61,6 @@ int v3_handle_shadow_invlpg(struct guest_info * info);
 int v3_activate_shadow_pt(struct guest_info * info);
 int v3_activate_passthrough_pt(struct guest_info * info);
 
-/* TODO: Change to static functions
- * External visibility not needed
- */
-addr_t v3_create_new_shadow_pt();
-int v3_replace_shdw_page32(struct guest_info * info, addr_t location, pte32_t * new_page, pte32_t * old_page); 
-/* *** */
-
-
-int v3_replace_shdw_page(struct guest_info * info, addr_t location, void * new_page, void * old_page);
 
 #endif // ! __V3VEE__
 

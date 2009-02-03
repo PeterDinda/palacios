@@ -51,7 +51,6 @@ VPATH := $(PROJECT_ROOT)/src
 
 
 
-
 #
 #uIP, ON -- used, OFF -- not used
 #
@@ -79,6 +78,9 @@ LWIP=OFF
 #endif
 
 
+ifeq ($(PROFILE_VMM),1)
+  EXTRA_C_OPTS:= -DPROFILE_VMM
+endif
 
 
 # ----------------------------------------------------------------------

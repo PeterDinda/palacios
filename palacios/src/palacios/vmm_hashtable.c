@@ -394,6 +394,55 @@ int hashtable_change(struct hashtable * htable, addr_t key, addr_t value, int fr
 
 
 
+int hashtable_inc(struct hashtable * htable, addr_t key, addr_t value) {
+    struct hash_entry * tmp_entry;
+    uint_t hash_value;
+    uint_t index;
+
+    hash_value = do_hash(htable, key);
+
+    index = indexFor(htable->table_length, hash_value);
+
+    tmp_entry = htable->table[index];
+
+    while (tmp_entry != NULL) {
+        /* Check hash value to short circuit heavier comparison */
+        if ((hash_value == tmp_entry->hash) && (htable->eq_fn(key, tmp_entry->key))) {
+
+	  tmp_entry->value += value;
+	  return -1;
+        }
+        tmp_entry = tmp_entry->next;
+    }
+    return 0;
+}
+
+
+int hashtable_dec(struct hashtable * htable, addr_t key, addr_t value) {
+    struct hash_entry * tmp_entry;
+    uint_t hash_value;
+    uint_t index;
+
+    hash_value = do_hash(htable, key);
+
+    index = indexFor(htable->table_length, hash_value);
+
+    tmp_entry = htable->table[index];
+
+    while (tmp_entry != NULL) {
+        /* Check hash value to short circuit heavier comparison */
+        if ((hash_value == tmp_entry->hash) && (htable->eq_fn(key, tmp_entry->key))) {
+
+	  tmp_entry->value -= value;
+	  return -1;
+        }
+        tmp_entry = tmp_entry->next;
+    }
+    return 0;
+}
+
+
+
 
 /*****************************************************************************/
 /* returns value associated with key */

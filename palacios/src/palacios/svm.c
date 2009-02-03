@@ -37,6 +37,9 @@
 #include <palacios/vmm_lowlevel.h>
 #include <palacios/svm_msr.h>
 
+#include <palacios/vmm_rbtree.h>
+
+#include <palacios/vmm_profiler.h>
 
 
 extern void v3_stgi();
@@ -191,10 +194,12 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
 
 
 
-  if (vm_info->io_map.num_ports > 0) {
-    struct vmm_io_hook * iter;
+  if ( !RB_EMPTY_ROOT(&(vm_info->io_map)) ) {
+    struct v3_io_hook * iter;
+    struct rb_node * io_node = v3_rb_first(&(vm_info->io_map));
     addr_t io_port_bitmap;
-    
+    int i = 0;
+
     io_port_bitmap = (addr_t)V3_VAddr(V3_AllocPages(3));
     memset((uchar_t*)io_port_bitmap, 0, PAGE_SIZE * 3);
     
@@ -202,14 +207,19 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
 
     //PrintDebug("Setting up IO Map at 0x%x\n", io_port_bitmap);
 
-    FOREACH_IO_HOOK(vm_info->io_map, iter) {
+    do {
+      iter = rb_entry(io_node, struct v3_io_hook, tree_node);
+
       ushort_t port = iter->port;
       uchar_t * bitmap = (uchar_t *)io_port_bitmap;
+      PrintDebug("%d: Hooking Port %d\n", i, port);
 
       bitmap += (port / 8);
       //      PrintDebug("Setting Bit for port 0x%x\n", port);
       *bitmap |= 1 << (port % 8);
-    }
+
+      i++;
+    } while ((io_node = v3_rb_next(io_node)));
 
 
     //PrintDebugMemDump((uchar_t*)io_port_bitmap, PAGE_SIZE *2);
@@ -344,12 +354,15 @@ static int start_svm_guest(struct guest_info *info) {
     ullong_t tmp_tsc;
     uint_t vm_cr_low = 0, vm_cr_high = 0;
 
-
     v3_enable_ints();
     v3_clgi();
 
 
-    //PrintDebug("SVM Entry to rip=%p...\n", (void *)info->rip);
+    /*
+    PrintDebug("SVM Entry to CS=%p  rip=%p...\n", 
+	       (void *)(addr_t)info->segments.cs.base, 
+	       (void *)(addr_t)info->rip);
+    */
 
     v3_get_msr(0xc0000101, &vm_cr_high, &vm_cr_low);
 
@@ -372,9 +385,12 @@ static int start_svm_guest(struct guest_info *info) {
     v3_stgi();
 
 
-    if (num_exits % 25 == 0) {
+    if ((num_exits % 5000) == 0) {
       PrintDebug("SVM Exit number %d\n", num_exits);
+      if (info->enable_profiler) 
+	v3_print_profile(info);
     }
+
 
      
     if (v3_handle_svm_exit(info) != 0) {
@@ -404,10 +420,6 @@ static int start_svm_guest(struct guest_info *info) {
       }
       v3_print_GPRs(info);
 
-
-      
-
-
       PrintDebug("SVM Exit Code: %p\n", (void *)(addr_t)guest_ctrl->exit_code); 
       
       PrintDebug("exit_info1 low = 0x%.8x\n", *(uint_t*)&(guest_ctrl->exit_info1));
@@ -430,6 +442,7 @@ static int start_svm_guest(struct guest_info *info) {
 
       break;
     }
+
   }
   return 0;
 }

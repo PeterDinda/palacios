@@ -106,7 +106,13 @@ int RunVMM(struct Boot_Info * bootInfo) {
     vm_config.rombios_size = rombios->length;
     
     region_start += rombios->length;
-    
+
+#ifdef PROFILE_VMM
+    vm_config.enable_profiling = 1;
+#else
+    vm_config.enable_profiling = 0;
+#endif
+
     vm_config.vgabios = region_start;
     vm_config.vgabios_size = vgabios->length;
   }

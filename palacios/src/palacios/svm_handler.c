@@ -30,10 +30,9 @@
 #include <palacios/vmm_intr.h>
 #include <palacios/vmm_emulator.h>
 #include <palacios/svm_msr.h>
+#include <palacios/vmm_profiler.h>
 
 
-
-static const uchar_t * vmexit_code_to_str(uint_t exit_code);
 
 
 int v3_handle_svm_exit(struct guest_info * info) {
@@ -69,7 +68,10 @@ int v3_handle_svm_exit(struct guest_info * info) {
 
 
   exit_code = guest_ctrl->exit_code;
- 
+
+
+
+  
 
   // Disable printing io exits due to bochs debug messages
   //if (!((exit_code == VMEXIT_IOIO) && ((ushort_t)(guest_ctrl->exit_info1 >> 16) == 0x402))) {
@@ -106,12 +108,10 @@ int v3_handle_svm_exit(struct guest_info * info) {
   }
 
 
-    //  }
-  // PrintDebugVMCB((vmcb_t*)(info->vmm_data));
 
-
-  // PrintDebug("SVM Returned:(VMCB=%x)\n", info->vmm_data); 
-  //PrintDebug("RIP: %x\n", guest_state->rip);
+  if (info->enable_profiler) {
+    rdtscll(info->profiler.start_time);
+  }
 
   
   //PrintDebug("SVM Returned: Exit Code: %x\n",exit_code); 
@@ -293,6 +293,9 @@ int v3_handle_svm_exit(struct guest_info * info) {
   } 
     break;
 
+
+#if 0
+    // Emulation handlers currently not used
   case VMEXIT_EXCP1: 
     {
 #ifdef DEBUG_EMULATOR
@@ -308,7 +311,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
       }
       break;
     } 
-
+    
 
   case VMEXIT_VMMCALL: 
     {
@@ -340,7 +343,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
       }
       break;
     } 
-    
+#endif
 
 
   case VMEXIT_WBINVD: 
@@ -424,6 +427,13 @@ int v3_handle_svm_exit(struct guest_info * info) {
 
   }
   // END OF SWITCH (EXIT_CODE)
+
+
+  if (info->enable_profiler) {
+    rdtscll(info->profiler.end_time);
+    v3_profile_exit(info, exit_code);
+  }
+      
 
 
   // Update the low level state
@@ -530,153 +540,153 @@ int v3_handle_svm_exit(struct guest_info * info) {
 }
 
 
-static const uchar_t VMEXIT_CR0_READ_STR[] = "VMEXIT_CR0_READ";
-static const uchar_t VMEXIT_CR1_READ_STR[] = "VMEXIT_CR1_READ";
-static const uchar_t VMEXIT_CR2_READ_STR[] = "VMEXIT_CR2_READ";
-static const uchar_t VMEXIT_CR3_READ_STR[] = "VMEXIT_CR3_READ";
-static const uchar_t VMEXIT_CR4_READ_STR[] = "VMEXIT_CR4_READ";
-static const uchar_t VMEXIT_CR5_READ_STR[] = "VMEXIT_CR5_READ";
-static const uchar_t VMEXIT_CR6_READ_STR[] = "VMEXIT_CR6_READ";
-static const uchar_t VMEXIT_CR7_READ_STR[] = "VMEXIT_CR7_READ";
-static const uchar_t VMEXIT_CR8_READ_STR[] = "VMEXIT_CR8_READ";
-static const uchar_t VMEXIT_CR9_READ_STR[] = "VMEXIT_CR9_READ";
-static const uchar_t VMEXIT_CR10_READ_STR[] = "VMEXIT_CR10_READ";
-static const uchar_t VMEXIT_CR11_READ_STR[] = "VMEXIT_CR11_READ";
-static const uchar_t VMEXIT_CR12_READ_STR[] = "VMEXIT_CR12_READ";
-static const uchar_t VMEXIT_CR13_READ_STR[] = "VMEXIT_CR13_READ";
-static const uchar_t VMEXIT_CR14_READ_STR[] = "VMEXIT_CR14_READ";
-static const uchar_t VMEXIT_CR15_READ_STR[] = "VMEXIT_CR15_READ";
-static const uchar_t VMEXIT_CR0_WRITE_STR[] = "VMEXIT_CR0_WRITE";
-static const uchar_t VMEXIT_CR1_WRITE_STR[] = "VMEXIT_CR1_WRITE";
-static const uchar_t VMEXIT_CR2_WRITE_STR[] = "VMEXIT_CR2_WRITE";
-static const uchar_t VMEXIT_CR3_WRITE_STR[] = "VMEXIT_CR3_WRITE";
-static const uchar_t VMEXIT_CR4_WRITE_STR[] = "VMEXIT_CR4_WRITE";
-static const uchar_t VMEXIT_CR5_WRITE_STR[] = "VMEXIT_CR5_WRITE";
-static const uchar_t VMEXIT_CR6_WRITE_STR[] = "VMEXIT_CR6_WRITE";
-static const uchar_t VMEXIT_CR7_WRITE_STR[] = "VMEXIT_CR7_WRITE";
-static const uchar_t VMEXIT_CR8_WRITE_STR[] = "VMEXIT_CR8_WRITE";
-static const uchar_t VMEXIT_CR9_WRITE_STR[] = "VMEXIT_CR9_WRITE";
-static const uchar_t VMEXIT_CR10_WRITE_STR[] = "VMEXIT_CR10_WRITE";
-static const uchar_t VMEXIT_CR11_WRITE_STR[] = "VMEXIT_CR11_WRITE";
-static const uchar_t VMEXIT_CR12_WRITE_STR[] = "VMEXIT_CR12_WRITE";
-static const uchar_t VMEXIT_CR13_WRITE_STR[] = "VMEXIT_CR13_WRITE";
-static const uchar_t VMEXIT_CR14_WRITE_STR[] = "VMEXIT_CR14_WRITE";
-static const uchar_t VMEXIT_CR15_WRITE_STR[] = "VMEXIT_CR15_WRITE";
-static const uchar_t VMEXIT_DR0_READ_STR[] = "VMEXIT_DR0_READ";
-static const uchar_t VMEXIT_DR1_READ_STR[] = "VMEXIT_DR1_READ";
-static const uchar_t VMEXIT_DR2_READ_STR[] = "VMEXIT_DR2_READ";
-static const uchar_t VMEXIT_DR3_READ_STR[] = "VMEXIT_DR3_READ";
-static const uchar_t VMEXIT_DR4_READ_STR[] = "VMEXIT_DR4_READ";
-static const uchar_t VMEXIT_DR5_READ_STR[] = "VMEXIT_DR5_READ";
-static const uchar_t VMEXIT_DR6_READ_STR[] = "VMEXIT_DR6_READ";
-static const uchar_t VMEXIT_DR7_READ_STR[] = "VMEXIT_DR7_READ";
-static const uchar_t VMEXIT_DR8_READ_STR[] = "VMEXIT_DR8_READ";
-static const uchar_t VMEXIT_DR9_READ_STR[] = "VMEXIT_DR9_READ";
-static const uchar_t VMEXIT_DR10_READ_STR[] = "VMEXIT_DR10_READ";
-static const uchar_t VMEXIT_DR11_READ_STR[] = "VMEXIT_DR11_READ";
-static const uchar_t VMEXIT_DR12_READ_STR[] = "VMEXIT_DR12_READ";
-static const uchar_t VMEXIT_DR13_READ_STR[] = "VMEXIT_DR13_READ";
-static const uchar_t VMEXIT_DR14_READ_STR[] = "VMEXIT_DR14_READ";
-static const uchar_t VMEXIT_DR15_READ_STR[] = "VMEXIT_DR15_READ";
-static const uchar_t VMEXIT_DR0_WRITE_STR[] = "VMEXIT_DR0_WRITE";
-static const uchar_t VMEXIT_DR1_WRITE_STR[] = "VMEXIT_DR1_WRITE";
-static const uchar_t VMEXIT_DR2_WRITE_STR[] = "VMEXIT_DR2_WRITE";
-static const uchar_t VMEXIT_DR3_WRITE_STR[] = "VMEXIT_DR3_WRITE";
-static const uchar_t VMEXIT_DR4_WRITE_STR[] = "VMEXIT_DR4_WRITE";
-static const uchar_t VMEXIT_DR5_WRITE_STR[] = "VMEXIT_DR5_WRITE";
-static const uchar_t VMEXIT_DR6_WRITE_STR[] = "VMEXIT_DR6_WRITE";
-static const uchar_t VMEXIT_DR7_WRITE_STR[] = "VMEXIT_DR7_WRITE";
-static const uchar_t VMEXIT_DR8_WRITE_STR[] = "VMEXIT_DR8_WRITE";
-static const uchar_t VMEXIT_DR9_WRITE_STR[] = "VMEXIT_DR9_WRITE";
-static const uchar_t VMEXIT_DR10_WRITE_STR[] = "VMEXIT_DR10_WRITE";
-static const uchar_t VMEXIT_DR11_WRITE_STR[] = "VMEXIT_DR11_WRITE";
-static const uchar_t VMEXIT_DR12_WRITE_STR[] = "VMEXIT_DR12_WRITE";
-static const uchar_t VMEXIT_DR13_WRITE_STR[] = "VMEXIT_DR13_WRITE";
-static const uchar_t VMEXIT_DR14_WRITE_STR[] = "VMEXIT_DR14_WRITE";
-static const uchar_t VMEXIT_DR15_WRITE_STR[] = "VMEXIT_DR15_WRITE";
-static const uchar_t VMEXIT_EXCP0_STR[] = "VMEXIT_EXCP0";
-static const uchar_t VMEXIT_EXCP1_STR[] = "VMEXIT_EXCP1";
-static const uchar_t VMEXIT_EXCP2_STR[] = "VMEXIT_EXCP2";
-static const uchar_t VMEXIT_EXCP3_STR[] = "VMEXIT_EXCP3";
-static const uchar_t VMEXIT_EXCP4_STR[] = "VMEXIT_EXCP4";
-static const uchar_t VMEXIT_EXCP5_STR[] = "VMEXIT_EXCP5";
-static const uchar_t VMEXIT_EXCP6_STR[] = "VMEXIT_EXCP6";
-static const uchar_t VMEXIT_EXCP7_STR[] = "VMEXIT_EXCP7";
-static const uchar_t VMEXIT_EXCP8_STR[] = "VMEXIT_EXCP8";
-static const uchar_t VMEXIT_EXCP9_STR[] = "VMEXIT_EXCP9";
-static const uchar_t VMEXIT_EXCP10_STR[] = "VMEXIT_EXCP10";
-static const uchar_t VMEXIT_EXCP11_STR[] = "VMEXIT_EXCP11";
-static const uchar_t VMEXIT_EXCP12_STR[] = "VMEXIT_EXCP12";
-static const uchar_t VMEXIT_EXCP13_STR[] = "VMEXIT_EXCP13";
-static const uchar_t VMEXIT_EXCP14_STR[] = "VMEXIT_EXCP14";
-static const uchar_t VMEXIT_EXCP15_STR[] = "VMEXIT_EXCP15";
-static const uchar_t VMEXIT_EXCP16_STR[] = "VMEXIT_EXCP16";
-static const uchar_t VMEXIT_EXCP17_STR[] = "VMEXIT_EXCP17";
-static const uchar_t VMEXIT_EXCP18_STR[] = "VMEXIT_EXCP18";
-static const uchar_t VMEXIT_EXCP19_STR[] = "VMEXIT_EXCP19";
-static const uchar_t VMEXIT_EXCP20_STR[] = "VMEXIT_EXCP20";
-static const uchar_t VMEXIT_EXCP21_STR[] = "VMEXIT_EXCP21";
-static const uchar_t VMEXIT_EXCP22_STR[] = "VMEXIT_EXCP22";
-static const uchar_t VMEXIT_EXCP23_STR[] = "VMEXIT_EXCP23";
-static const uchar_t VMEXIT_EXCP24_STR[] = "VMEXIT_EXCP24";
-static const uchar_t VMEXIT_EXCP25_STR[] = "VMEXIT_EXCP25";
-static const uchar_t VMEXIT_EXCP26_STR[] = "VMEXIT_EXCP26";
-static const uchar_t VMEXIT_EXCP27_STR[] = "VMEXIT_EXCP27";
-static const uchar_t VMEXIT_EXCP28_STR[] = "VMEXIT_EXCP28";
-static const uchar_t VMEXIT_EXCP29_STR[] = "VMEXIT_EXCP29";
-static const uchar_t VMEXIT_EXCP30_STR[] = "VMEXIT_EXCP30";
-static const uchar_t VMEXIT_EXCP31_STR[] = "VMEXIT_EXCP31";
-static const uchar_t VMEXIT_INTR_STR[] = "VMEXIT_INTR";
-static const uchar_t VMEXIT_NMI_STR[] = "VMEXIT_NMI";
-static const uchar_t VMEXIT_SMI_STR[] = "VMEXIT_SMI";
-static const uchar_t VMEXIT_INIT_STR[] = "VMEXIT_INIT";
-static const uchar_t VMEXIT_VINITR_STR[] = "VMEXIT_VINITR";
-static const uchar_t VMEXIT_CR0_SEL_WRITE_STR[] = "VMEXIT_CR0_SEL_WRITE";
-static const uchar_t VMEXIT_IDTR_READ_STR[] = "VMEXIT_IDTR_READ";
-static const uchar_t VMEXIT_GDTR_READ_STR[] = "VMEXIT_GDTR_READ";
-static const uchar_t VMEXIT_LDTR_READ_STR[] = "VMEXIT_LDTR_READ";
-static const uchar_t VMEXIT_TR_READ_STR[] = "VMEXIT_TR_READ";
-static const uchar_t VMEXIT_IDTR_WRITE_STR[] = "VMEXIT_IDTR_WRITE";
-static const uchar_t VMEXIT_GDTR_WRITE_STR[] = "VMEXIT_GDTR_WRITE";
-static const uchar_t VMEXIT_LDTR_WRITE_STR[] = "VMEXIT_LDTR_WRITE";
-static const uchar_t VMEXIT_TR_WRITE_STR[] = "VMEXIT_TR_WRITE";
-static const uchar_t VMEXIT_RDTSC_STR[] = "VMEXIT_RDTSC";
-static const uchar_t VMEXIT_RDPMC_STR[] = "VMEXIT_RDPMC";
-static const uchar_t VMEXIT_PUSHF_STR[] = "VMEXIT_PUSHF";
-static const uchar_t VMEXIT_POPF_STR[] = "VMEXIT_POPF";
-static const uchar_t VMEXIT_CPUID_STR[] = "VMEXIT_CPUID";
-static const uchar_t VMEXIT_RSM_STR[] = "VMEXIT_RSM";
-static const uchar_t VMEXIT_IRET_STR[] = "VMEXIT_IRET";
-static const uchar_t VMEXIT_SWINT_STR[] = "VMEXIT_SWINT";
-static const uchar_t VMEXIT_INVD_STR[] = "VMEXIT_INVD";
-static const uchar_t VMEXIT_PAUSE_STR[] = "VMEXIT_PAUSE";
-static const uchar_t VMEXIT_HLT_STR[] = "VMEXIT_HLT";
-static const uchar_t VMEXIT_INVLPG_STR[] = "VMEXIT_INVLPG";
-static const uchar_t VMEXIT_INVLPGA_STR[] = "VMEXIT_INVLPGA";
-static const uchar_t VMEXIT_IOIO_STR[] = "VMEXIT_IOIO";
-static const uchar_t VMEXIT_MSR_STR[] = "VMEXIT_MSR";
-static const uchar_t VMEXIT_TASK_SWITCH_STR[] = "VMEXIT_TASK_SWITCH";
-static const uchar_t VMEXIT_FERR_FREEZE_STR[] = "VMEXIT_FERR_FREEZE";
-static const uchar_t VMEXIT_SHUTDOWN_STR[] = "VMEXIT_SHUTDOWN";
-static const uchar_t VMEXIT_VMRUN_STR[] = "VMEXIT_VMRUN";
-static const uchar_t VMEXIT_VMMCALL_STR[] = "VMEXIT_VMMCALL";
-static const uchar_t VMEXIT_VMLOAD_STR[] = "VMEXIT_VMLOAD";
-static const uchar_t VMEXIT_VMSAVE_STR[] = "VMEXIT_VMSAVE";
-static const uchar_t VMEXIT_STGI_STR[] = "VMEXIT_STGI";
-static const uchar_t VMEXIT_CLGI_STR[] = "VMEXIT_CLGI";
-static const uchar_t VMEXIT_SKINIT_STR[] = "VMEXIT_SKINIT";
-static const uchar_t VMEXIT_RDTSCP_STR[] = "VMEXIT_RDTSCP";
-static const uchar_t VMEXIT_ICEBP_STR[] = "VMEXIT_ICEBP";
-static const uchar_t VMEXIT_WBINVD_STR[] = "VMEXIT_WBINVD";
-static const uchar_t VMEXIT_MONITOR_STR[] = "VMEXIT_MONITOR";
-static const uchar_t VMEXIT_MWAIT_STR[] = "VMEXIT_MWAIT";
-static const uchar_t VMEXIT_MWAIT_CONDITIONAL_STR[] = "VMEXIT_MWAIT_CONDITIONAL";
-static const uchar_t VMEXIT_NPF_STR[] = "VMEXIT_NPF";
-static const uchar_t VMEXIT_INVALID_VMCB_STR[] = "VMEXIT_INVALID_VMCB";
+static const char VMEXIT_CR0_READ_STR[] = "VMEXIT_CR0_READ";
+static const char VMEXIT_CR1_READ_STR[] = "VMEXIT_CR1_READ";
+static const char VMEXIT_CR2_READ_STR[] = "VMEXIT_CR2_READ";
+static const char VMEXIT_CR3_READ_STR[] = "VMEXIT_CR3_READ";
+static const char VMEXIT_CR4_READ_STR[] = "VMEXIT_CR4_READ";
+static const char VMEXIT_CR5_READ_STR[] = "VMEXIT_CR5_READ";
+static const char VMEXIT_CR6_READ_STR[] = "VMEXIT_CR6_READ";
+static const char VMEXIT_CR7_READ_STR[] = "VMEXIT_CR7_READ";
+static const char VMEXIT_CR8_READ_STR[] = "VMEXIT_CR8_READ";
+static const char VMEXIT_CR9_READ_STR[] = "VMEXIT_CR9_READ";
+static const char VMEXIT_CR10_READ_STR[] = "VMEXIT_CR10_READ";
+static const char VMEXIT_CR11_READ_STR[] = "VMEXIT_CR11_READ";
+static const char VMEXIT_CR12_READ_STR[] = "VMEXIT_CR12_READ";
+static const char VMEXIT_CR13_READ_STR[] = "VMEXIT_CR13_READ";
+static const char VMEXIT_CR14_READ_STR[] = "VMEXIT_CR14_READ";
+static const char VMEXIT_CR15_READ_STR[] = "VMEXIT_CR15_READ";
+static const char VMEXIT_CR0_WRITE_STR[] = "VMEXIT_CR0_WRITE";
+static const char VMEXIT_CR1_WRITE_STR[] = "VMEXIT_CR1_WRITE";
+static const char VMEXIT_CR2_WRITE_STR[] = "VMEXIT_CR2_WRITE";
+static const char VMEXIT_CR3_WRITE_STR[] = "VMEXIT_CR3_WRITE";
+static const char VMEXIT_CR4_WRITE_STR[] = "VMEXIT_CR4_WRITE";
+static const char VMEXIT_CR5_WRITE_STR[] = "VMEXIT_CR5_WRITE";
+static const char VMEXIT_CR6_WRITE_STR[] = "VMEXIT_CR6_WRITE";
+static const char VMEXIT_CR7_WRITE_STR[] = "VMEXIT_CR7_WRITE";
+static const char VMEXIT_CR8_WRITE_STR[] = "VMEXIT_CR8_WRITE";
+static const char VMEXIT_CR9_WRITE_STR[] = "VMEXIT_CR9_WRITE";
+static const char VMEXIT_CR10_WRITE_STR[] = "VMEXIT_CR10_WRITE";
+static const char VMEXIT_CR11_WRITE_STR[] = "VMEXIT_CR11_WRITE";
+static const char VMEXIT_CR12_WRITE_STR[] = "VMEXIT_CR12_WRITE";
+static const char VMEXIT_CR13_WRITE_STR[] = "VMEXIT_CR13_WRITE";
+static const char VMEXIT_CR14_WRITE_STR[] = "VMEXIT_CR14_WRITE";
+static const char VMEXIT_CR15_WRITE_STR[] = "VMEXIT_CR15_WRITE";
+static const char VMEXIT_DR0_READ_STR[] = "VMEXIT_DR0_READ";
+static const char VMEXIT_DR1_READ_STR[] = "VMEXIT_DR1_READ";
+static const char VMEXIT_DR2_READ_STR[] = "VMEXIT_DR2_READ";
+static const char VMEXIT_DR3_READ_STR[] = "VMEXIT_DR3_READ";
+static const char VMEXIT_DR4_READ_STR[] = "VMEXIT_DR4_READ";
+static const char VMEXIT_DR5_READ_STR[] = "VMEXIT_DR5_READ";
+static const char VMEXIT_DR6_READ_STR[] = "VMEXIT_DR6_READ";
+static const char VMEXIT_DR7_READ_STR[] = "VMEXIT_DR7_READ";
+static const char VMEXIT_DR8_READ_STR[] = "VMEXIT_DR8_READ";
+static const char VMEXIT_DR9_READ_STR[] = "VMEXIT_DR9_READ";
+static const char VMEXIT_DR10_READ_STR[] = "VMEXIT_DR10_READ";
+static const char VMEXIT_DR11_READ_STR[] = "VMEXIT_DR11_READ";
+static const char VMEXIT_DR12_READ_STR[] = "VMEXIT_DR12_READ";
+static const char VMEXIT_DR13_READ_STR[] = "VMEXIT_DR13_READ";
+static const char VMEXIT_DR14_READ_STR[] = "VMEXIT_DR14_READ";
+static const char VMEXIT_DR15_READ_STR[] = "VMEXIT_DR15_READ";
+static const char VMEXIT_DR0_WRITE_STR[] = "VMEXIT_DR0_WRITE";
+static const char VMEXIT_DR1_WRITE_STR[] = "VMEXIT_DR1_WRITE";
+static const char VMEXIT_DR2_WRITE_STR[] = "VMEXIT_DR2_WRITE";
+static const char VMEXIT_DR3_WRITE_STR[] = "VMEXIT_DR3_WRITE";
+static const char VMEXIT_DR4_WRITE_STR[] = "VMEXIT_DR4_WRITE";
+static const char VMEXIT_DR5_WRITE_STR[] = "VMEXIT_DR5_WRITE";
+static const char VMEXIT_DR6_WRITE_STR[] = "VMEXIT_DR6_WRITE";
+static const char VMEXIT_DR7_WRITE_STR[] = "VMEXIT_DR7_WRITE";
+static const char VMEXIT_DR8_WRITE_STR[] = "VMEXIT_DR8_WRITE";
+static const char VMEXIT_DR9_WRITE_STR[] = "VMEXIT_DR9_WRITE";
+static const char VMEXIT_DR10_WRITE_STR[] = "VMEXIT_DR10_WRITE";
+static const char VMEXIT_DR11_WRITE_STR[] = "VMEXIT_DR11_WRITE";
+static const char VMEXIT_DR12_WRITE_STR[] = "VMEXIT_DR12_WRITE";
+static const char VMEXIT_DR13_WRITE_STR[] = "VMEXIT_DR13_WRITE";
+static const char VMEXIT_DR14_WRITE_STR[] = "VMEXIT_DR14_WRITE";
+static const char VMEXIT_DR15_WRITE_STR[] = "VMEXIT_DR15_WRITE";
+static const char VMEXIT_EXCP0_STR[] = "VMEXIT_EXCP0";
+static const char VMEXIT_EXCP1_STR[] = "VMEXIT_EXCP1";
+static const char VMEXIT_EXCP2_STR[] = "VMEXIT_EXCP2";
+static const char VMEXIT_EXCP3_STR[] = "VMEXIT_EXCP3";
+static const char VMEXIT_EXCP4_STR[] = "VMEXIT_EXCP4";
+static const char VMEXIT_EXCP5_STR[] = "VMEXIT_EXCP5";
+static const char VMEXIT_EXCP6_STR[] = "VMEXIT_EXCP6";
+static const char VMEXIT_EXCP7_STR[] = "VMEXIT_EXCP7";
+static const char VMEXIT_EXCP8_STR[] = "VMEXIT_EXCP8";
+static const char VMEXIT_EXCP9_STR[] = "VMEXIT_EXCP9";
+static const char VMEXIT_EXCP10_STR[] = "VMEXIT_EXCP10";
+static const char VMEXIT_EXCP11_STR[] = "VMEXIT_EXCP11";
+static const char VMEXIT_EXCP12_STR[] = "VMEXIT_EXCP12";
+static const char VMEXIT_EXCP13_STR[] = "VMEXIT_EXCP13";
+static const char VMEXIT_EXCP14_STR[] = "VMEXIT_EXCP14";
+static const char VMEXIT_EXCP15_STR[] = "VMEXIT_EXCP15";
+static const char VMEXIT_EXCP16_STR[] = "VMEXIT_EXCP16";
+static const char VMEXIT_EXCP17_STR[] = "VMEXIT_EXCP17";
+static const char VMEXIT_EXCP18_STR[] = "VMEXIT_EXCP18";
+static const char VMEXIT_EXCP19_STR[] = "VMEXIT_EXCP19";
+static const char VMEXIT_EXCP20_STR[] = "VMEXIT_EXCP20";
+static const char VMEXIT_EXCP21_STR[] = "VMEXIT_EXCP21";
+static const char VMEXIT_EXCP22_STR[] = "VMEXIT_EXCP22";
+static const char VMEXIT_EXCP23_STR[] = "VMEXIT_EXCP23";
+static const char VMEXIT_EXCP24_STR[] = "VMEXIT_EXCP24";
+static const char VMEXIT_EXCP25_STR[] = "VMEXIT_EXCP25";
+static const char VMEXIT_EXCP26_STR[] = "VMEXIT_EXCP26";
+static const char VMEXIT_EXCP27_STR[] = "VMEXIT_EXCP27";
+static const char VMEXIT_EXCP28_STR[] = "VMEXIT_EXCP28";
+static const char VMEXIT_EXCP29_STR[] = "VMEXIT_EXCP29";
+static const char VMEXIT_EXCP30_STR[] = "VMEXIT_EXCP30";
+static const char VMEXIT_EXCP31_STR[] = "VMEXIT_EXCP31";
+static const char VMEXIT_INTR_STR[] = "VMEXIT_INTR";
+static const char VMEXIT_NMI_STR[] = "VMEXIT_NMI";
+static const char VMEXIT_SMI_STR[] = "VMEXIT_SMI";
+static const char VMEXIT_INIT_STR[] = "VMEXIT_INIT";
+static const char VMEXIT_VINITR_STR[] = "VMEXIT_VINITR";
+static const char VMEXIT_CR0_SEL_WRITE_STR[] = "VMEXIT_CR0_SEL_WRITE";
+static const char VMEXIT_IDTR_READ_STR[] = "VMEXIT_IDTR_READ";
+static const char VMEXIT_GDTR_READ_STR[] = "VMEXIT_GDTR_READ";
+static const char VMEXIT_LDTR_READ_STR[] = "VMEXIT_LDTR_READ";
+static const char VMEXIT_TR_READ_STR[] = "VMEXIT_TR_READ";
+static const char VMEXIT_IDTR_WRITE_STR[] = "VMEXIT_IDTR_WRITE";
+static const char VMEXIT_GDTR_WRITE_STR[] = "VMEXIT_GDTR_WRITE";
+static const char VMEXIT_LDTR_WRITE_STR[] = "VMEXIT_LDTR_WRITE";
+static const char VMEXIT_TR_WRITE_STR[] = "VMEXIT_TR_WRITE";
+static const char VMEXIT_RDTSC_STR[] = "VMEXIT_RDTSC";
+static const char VMEXIT_RDPMC_STR[] = "VMEXIT_RDPMC";
+static const char VMEXIT_PUSHF_STR[] = "VMEXIT_PUSHF";
+static const char VMEXIT_POPF_STR[] = "VMEXIT_POPF";
+static const char VMEXIT_CPUID_STR[] = "VMEXIT_CPUID";
+static const char VMEXIT_RSM_STR[] = "VMEXIT_RSM";
+static const char VMEXIT_IRET_STR[] = "VMEXIT_IRET";
+static const char VMEXIT_SWINT_STR[] = "VMEXIT_SWINT";
+static const char VMEXIT_INVD_STR[] = "VMEXIT_INVD";
+static const char VMEXIT_PAUSE_STR[] = "VMEXIT_PAUSE";
+static const char VMEXIT_HLT_STR[] = "VMEXIT_HLT";
+static const char VMEXIT_INVLPG_STR[] = "VMEXIT_INVLPG";
+static const char VMEXIT_INVLPGA_STR[] = "VMEXIT_INVLPGA";
+static const char VMEXIT_IOIO_STR[] = "VMEXIT_IOIO";
+static const char VMEXIT_MSR_STR[] = "VMEXIT_MSR";
+static const char VMEXIT_TASK_SWITCH_STR[] = "VMEXIT_TASK_SWITCH";
+static const char VMEXIT_FERR_FREEZE_STR[] = "VMEXIT_FERR_FREEZE";
+static const char VMEXIT_SHUTDOWN_STR[] = "VMEXIT_SHUTDOWN";
+static const char VMEXIT_VMRUN_STR[] = "VMEXIT_VMRUN";
+static const char VMEXIT_VMMCALL_STR[] = "VMEXIT_VMMCALL";
+static const char VMEXIT_VMLOAD_STR[] = "VMEXIT_VMLOAD";
+static const char VMEXIT_VMSAVE_STR[] = "VMEXIT_VMSAVE";
+static const char VMEXIT_STGI_STR[] = "VMEXIT_STGI";
+static const char VMEXIT_CLGI_STR[] = "VMEXIT_CLGI";
+static const char VMEXIT_SKINIT_STR[] = "VMEXIT_SKINIT";
+static const char VMEXIT_RDTSCP_STR[] = "VMEXIT_RDTSCP";
+static const char VMEXIT_ICEBP_STR[] = "VMEXIT_ICEBP";
+static const char VMEXIT_WBINVD_STR[] = "VMEXIT_WBINVD";
+static const char VMEXIT_MONITOR_STR[] = "VMEXIT_MONITOR";
+static const char VMEXIT_MWAIT_STR[] = "VMEXIT_MWAIT";
+static const char VMEXIT_MWAIT_CONDITIONAL_STR[] = "VMEXIT_MWAIT_CONDITIONAL";
+static const char VMEXIT_NPF_STR[] = "VMEXIT_NPF";
+static const char VMEXIT_INVALID_VMCB_STR[] = "VMEXIT_INVALID_VMCB";
 
 
 
-const uchar_t * vmexit_code_to_str(uint_t exit_code) {
+const char * vmexit_code_to_str(uint_t exit_code) {
   switch(exit_code) {
   case VMEXIT_CR0_READ:
     return VMEXIT_CR0_READ_STR;

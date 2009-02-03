@@ -233,6 +233,20 @@ static inline void list_splice_init(struct list_head *list,
 	container_of(ptr, type, member)
 
 /**
+ * list_entry - get the struct for the tail entry
+ * @ptr:	the list_head head pointer.
+ * @type:	the type of the struct this is embedded in.
+ * @member:	the name of the list_struct within the struct.
+ */
+#define list_tail_entry(head, type, member) ({	\
+      type * tail = NULL;			\
+      if ((head)->prev != (head)) {			\
+	tail = list_entry((head)->prev, type, member);	\
+      }							\
+      tail;						\
+})
+
+/**
  * list_for_each	-	iterate over a list
  * @pos:	the &struct list_head to use as a loop counter.
  * @head:	the head for your list.

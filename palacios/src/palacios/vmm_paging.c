@@ -46,6 +46,11 @@ static pt_entry_type_t pte64_lookup(pte64_t * pt, addr_t addr, addr_t * entry);
 
 
 
+#ifndef DEBUG_SHADOW_PAGING
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
+#endif
+
 
 
 void delete_page_tables_32(pde32_t * pde) {
@@ -664,7 +669,6 @@ pt_access_status_t inline v3_can_access_pte64(pte64_t * pte, addr_t addr, pf_err
 pde32_t * create_passthrough_pts_32(struct guest_info * guest_info) {
   addr_t current_page_addr = 0;
   int i, j;
-  struct shadow_map * map = &(guest_info->mem_map);
 
   pde32_t * pde = V3_VAddr(V3_AllocPages(1));
 
@@ -674,14 +678,10 @@ pde32_t * create_passthrough_pts_32(struct guest_info * guest_info) {
     
 
     for (j = 0; j < MAX_PTE32_ENTRIES; j++) {
-      struct shadow_region * region = get_shadow_region_by_addr(map, current_page_addr);
+      struct v3_shadow_region * region =  v3_get_shadow_region(guest_info, current_page_addr);
 
       if (!region || 
-	  (region->host_type == HOST_REGION_HOOK) || 
-	  (region->host_type == HOST_REGION_UNALLOCATED) || 
-	  (region->host_type == HOST_REGION_MEMORY_MAPPED_DEVICE) || 
-	  (region->host_type == HOST_REGION_REMOTE) ||
-	  (region->host_type == HOST_REGION_SWAPPED)) {
+	  (region->host_type == SHDW_REGION_FULL_HOOK)) {
 	pte[j].present = 0;
 	pte[j].writable = 0;
 	pte[j].user_page = 0;
@@ -696,7 +696,14 @@ pde32_t * create_passthrough_pts_32(struct guest_info * guest_info) {
       } else {
 	addr_t host_addr;
 	pte[j].present = 1;
-	pte[j].writable = 1;
+
+	if (region->host_type == SHDW_REGION_WRITE_HOOK) {
+	  pte[j].writable = 0;
+	  PrintDebug("Marking Write hook host_addr %p as RO\n", (void *)current_page_addr);
+	} else {
+	  pte[j].writable = 1;
+	}
+	  
 	pte[j].user_page = 1;
 	pte[j].write_through = 0;
 	pte[j].cache_disable = 0;
@@ -761,7 +768,6 @@ pde32_t * create_passthrough_pts_32(struct guest_info * guest_info) {
 pdpe32pae_t * create_passthrough_pts_32PAE(struct guest_info * guest_info) {
   addr_t current_page_addr = 0;
   int i, j, k;
-  struct shadow_map * map = &(guest_info->mem_map);
 
   pdpe32pae_t * pdpe = V3_VAddr(V3_AllocPages(1));
   memset(pdpe, 0, PAGE_SIZE);
@@ -778,14 +784,10 @@ pdpe32pae_t * create_passthrough_pts_32PAE(struct guest_info * guest_info) {
       
       
       for (k = 0; k < MAX_PTE32PAE_ENTRIES; k++) {
-	struct shadow_region * region = get_shadow_region_by_addr(map, current_page_addr);
+	struct v3_shadow_region * region = v3_get_shadow_region(guest_info, current_page_addr);
 	
 	if (!region || 
-	    (region->host_type == HOST_REGION_HOOK) || 
-	    (region->host_type == HOST_REGION_UNALLOCATED) || 
-	    (region->host_type == HOST_REGION_MEMORY_MAPPED_DEVICE) || 
-	    (region->host_type == HOST_REGION_REMOTE) ||
-	    (region->host_type == HOST_REGION_SWAPPED)) {
+	    (region->host_type == SHDW_REGION_FULL_HOOK)) {
 	  pte[k].present = 0;
 	  pte[k].writable = 0;
 	  pte[k].user_page = 0;
@@ -801,7 +803,13 @@ pdpe32pae_t * create_passthrough_pts_32PAE(struct guest_info * guest_info) {
 	} else {
 	  addr_t host_addr;
 	  pte[k].present = 1;
-	  pte[k].writable = 1;
+	
+	  if (region->host_type == SHDW_REGION_WRITE_HOOK) {
+	    pte[k].writable = 0;
+	  } else {
+	    pte[k].writable = 1;
+	  }
+
 	  pte[k].user_page = 1;
 	  pte[k].write_through = 0;
 	  pte[k].cache_disable = 0;
@@ -900,7 +908,6 @@ pdpe32pae_t * create_passthrough_pts_32PAE(struct guest_info * guest_info) {
 pml4e64_t * create_passthrough_pts_64(struct guest_info * info) {
   addr_t current_page_addr = 0;
   int i, j, k, m;
-  struct shadow_map * map = &(info->mem_map);
   
   pml4e64_t * pml = V3_VAddr(V3_AllocPages(1));
 
@@ -918,16 +925,12 @@ pml4e64_t * create_passthrough_pts_64(struct guest_info * info) {
 
 
 	for (m = 0; m < MAX_PTE64_ENTRIES; m++) {
-	  struct shadow_region * region = get_shadow_region_by_addr(map, current_page_addr);
+	  struct v3_shadow_region * region = v3_get_shadow_region(info, current_page_addr);
 	  
 
 	  
 	  if (!region || 
-	      (region->host_type == HOST_REGION_HOOK) || 
-	      (region->host_type == HOST_REGION_UNALLOCATED) || 
-	      (region->host_type == HOST_REGION_MEMORY_MAPPED_DEVICE) || 
-	      (region->host_type == HOST_REGION_REMOTE) ||
-	      (region->host_type == HOST_REGION_SWAPPED)) {
+	      (region->host_type == SHDW_REGION_FULL_HOOK)) {
 	    pte[m].present = 0;
 	    pte[m].writable = 0;
 	    pte[m].user_page = 0;
@@ -942,7 +945,13 @@ pml4e64_t * create_passthrough_pts_64(struct guest_info * info) {
 	  } else {
 	    addr_t host_addr;
 	    pte[m].present = 1;
-	    pte[m].writable = 1;
+
+	    if (region->host_type == SHDW_REGION_WRITE_HOOK) {
+	      pte[m].writable = 0;
+	    } else {
+	      pte[m].writable = 1;
+	    }
+	
 	    pte[m].user_page = 1;
 	    pte[m].write_through = 0;
 	    pte[m].cache_disable = 0;
