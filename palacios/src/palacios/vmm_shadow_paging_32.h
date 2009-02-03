@@ -495,3 +495,37 @@ static int handle_shadow_pte32_fault(struct guest_info * info,
   PrintDebug("Returning end of function\n");
   return 0;
 }
+
+
+
+/* If we start to optimize we should look up the guest pages in the cache... */
+static int handle_shadow_invlpg_32(struct guest_info * info, addr_t vaddr) {
+  pde32_t * shadow_pd = (pde32_t *)CR3_TO_PDE32_VA(info->ctrl_regs.cr3);
+  pde32_t * shadow_pde = (pde32_t *)&shadow_pd[PDE32_INDEX(vaddr)];
+
+  addr_t guest_cr3 =  CR3_TO_PDE32_PA(info->shdw_pg_state.guest_cr3);
+  pde32_t * guest_pd = NULL;
+  pde32_t * guest_pde;
+
+  if (guest_pa_to_host_va(info, guest_cr3, (addr_t*)&guest_pd) == -1) {
+    PrintError("Invalid Guest PDE Address: 0x%p\n",  (void *)guest_cr3);
+    return -1;
+  }
+  
+  guest_pde = (pde32_t *)&(guest_pd[PDE32_INDEX(vaddr)]);
+  
+  if (guest_pde->large_page == 1) {
+    shadow_pde->present = 0;
+    PrintDebug("Invalidating Large Page\n");
+  } else if (shadow_pde->present == 1) {
+    pte32_t * shadow_pt = (pte32_t *)(addr_t)BASE_TO_PAGE_ADDR_4KB(shadow_pde->pt_base_addr);
+    pte32_t * shadow_pte = (pte32_t *) V3_VAddr( (void*) &shadow_pt[PTE32_INDEX(vaddr)] );
+    
+    PrintDebug("Setting not present\n");
+    
+    shadow_pte->present = 0;
+  }
+  
+
+  return 0;
+}

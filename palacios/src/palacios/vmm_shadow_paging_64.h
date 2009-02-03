@@ -36,3 +36,9 @@ static int handle_shadow_pagefault_64(struct guest_info * info, addr_t fault_add
   PrintError("64 bit shadow paging not implemented\n");
   return -1;
 }
+
+
+static int handle_shadow_invlpg_64(struct guest_info * info, addr_t vaddr) {
+  PrintError("64 bit shadow paging not implemented\n");
+  return -1;
+}

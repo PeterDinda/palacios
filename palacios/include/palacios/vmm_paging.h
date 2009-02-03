@@ -129,23 +129,7 @@ typedef enum {PAGE_4KB, PAGE_2MB, PAGE_4MB, PAGE_1GB,
 
 
 /* Gets the base address needed for a Page Table entry */
-/* Deprecate these :*/
-/*
-  #define PD32_BASE_ADDR(x) (((uint_t)x) >> 12)
-  #define PT32_BASE_ADDR(x) (((uint_t)x) >> 12)
-  #define PD32_4MB_BASE_ADDR(x) (((uint_t)x) >> 22)
-  
-  #define PML4E64_BASE_ADDR(x) (((ullong_t)x) >> 12)
-  #define PDPE64_BASE_ADDR(x) (((ullong_t)x) >> 12)
-  #define PDE64_BASE_ADDR(x) (((ullong_t)x) >> 12)
-  #define PTE64_BASE_ADDR(x) (((ullong_t)x) >> 12)
-  
-  // Accessor functions for the page table structures 
-  #define PDE32_T_ADDR(x) (((x).pt_base_addr) << 12)
-  #define PTE32_T_ADDR(x) (((x).page_base_addr) << 12)
-  #define PDE32_4MB_T_ADDR(x) (((x).page_base_addr) << 22)
-*/
-/* Replace The above with these... */
+
 #define PAGE_BASE_ADDR(x) ((x) >> 12)
 #define PAGE_BASE_ADDR_4KB(x) ((x) >> 12)
 #define PAGE_BASE_ADDR_2MB(x) ((x) >> 21)
@@ -159,21 +143,7 @@ typedef enum {PAGE_4KB, PAGE_2MB, PAGE_4MB, PAGE_1GB,
 #define BASE_TO_PAGE_ADDR_1GB(x) (((addr_t)x) << 30)
 /* *** */
 
-/* Deprecated */
-/*
-  #define PT32_PAGE_OFFSET(x) (((uint_t)x) & 0xfff)
-  #define PD32_4MB_PAGE_OFFSET(x) (((uint_t)x) & 0x003fffff)
-  
-  #define PT32_PAGE_ADDR(x)   (((uint_t)x) & 0xfffff000)
-  #define PD32_4MB_PAGE_ADDR(x) (((uint_t)x) & 0xffc00000)
-  
-  #define PT32_PAGE_POWER 12
-  #define PAGE_ALIGNED_ADDR(x)   (((uint_t) (x)) >> 12)
-  //#define PAGE_ADDR(x)   (PAGE_ALIGNED_ADDR(x) << 12)
-  #define PAGE_POWER 12
-  #define PAGE_SIZE 4096
-*/
-/* use these instead */
+
 #define PAGE_OFFSET(x) ((x) & 0xfff)
 #define PAGE_OFFSET_4KB(x) ((x) & 0xfff)
 #define PAGE_OFFSET_2MB(x) ((x) & 0x1fffff)

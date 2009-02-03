@@ -25,6 +25,11 @@ static int handle_shadow_pagefault_32pae(struct guest_info * info, addr_t fault_
 }
 
 
+static int handle_shadow_invlpg_32pae(struct guest_info * info, addr_t vaddr) {
+  PrintError("32 bit PAE shadow paging not implemented\n");
+  return -1;
+}
+
 
 
 

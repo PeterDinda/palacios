@@ -1021,6 +1021,9 @@ static int xed_reg_to_v3_reg(struct guest_info * info, xed_reg_enum_t xed_reg, a
 static v3_op_type_t get_opcode(xed_iform_enum_t iform) {
 
   switch (iform) {
+
+    /* Control Instructions */
+
   case XED_IFORM_MOV_CR_GPR64_CR:
   case XED_IFORM_MOV_CR_GPR32_CR:
     return V3_OP_MOVCR2;
@@ -1037,6 +1040,12 @@ static v3_op_type_t get_opcode(xed_iform_enum_t iform) {
 
   case XED_IFORM_CLTS:
     return V3_OP_CLTS;
+
+  case XED_IFORM_INVLPG_MEMb:
+    return V3_OP_INVLPG;
+
+
+    /* Data Instructions */
 
   case XED_IFORM_ADC_MEMv_GPRv:
   case XED_IFORM_ADC_MEMv_IMM:
@@ -1148,6 +1157,7 @@ static v3_op_type_t get_opcode(xed_iform_enum_t iform) {
 
   case XED_IFORM_SETZ_MEMb:
     return V3_OP_SETZ;
+
 
   case XED_IFORM_MOVSB:
   case XED_IFORM_MOVSW:

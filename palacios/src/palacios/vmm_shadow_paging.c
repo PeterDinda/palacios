@@ -99,13 +99,10 @@ int v3_init_shadow_page_state(struct guest_info * info) {
   state->guest_cr0 = 0;
 
   state->cached_ptes = NULL;
-
+  state->cached_cr3 = 0;
+  
   return 0;
 }
-
-
-
-
 
 
 
@@ -148,12 +145,6 @@ int v3_handle_shadow_pagefault(struct guest_info * info, addr_t fault_addr, pf_e
   
   if (info->mem_mode == PHYSICAL_MEM) {
     // If paging is not turned on we need to handle the special cases
-
-#ifdef DEBUG_SHADOW_PAGING
-    PrintHostPageTree(info->cpu_mode, fault_addr, info->ctrl_regs.cr3);
-    PrintGuestPageTree(info, fault_addr, info->shdw_pg_state.guest_cr3);
-#endif
-
     return handle_special_page_fault(info, fault_addr, fault_addr, error_code);
   } else if (info->mem_mode == VIRTUAL_MEM) {
 
@@ -238,97 +229,58 @@ static int is_guest_pf(pt_access_status_t guest_access, pt_access_status_t shado
 
 
 
+int v3_handle_shadow_invlpg(struct guest_info * info) {
+  uchar_t instr[15];
+  struct x86_instr dec_instr;
+  int ret = 0;
+  addr_t vaddr = 0;
 
-
-/* Currently Does not work with Segmentation!!! */
-int v3_handle_shadow_invlpg(struct guest_info * info)
-{
   if (info->mem_mode != VIRTUAL_MEM) {
     // Paging must be turned on...
     // should handle with some sort of fault I think
     PrintError("ERROR: INVLPG called in non paged mode\n");
     return -1;
   }
-  
-  
-  if (info->cpu_mode != PROTECTED) {
-    PrintError("Unsupported CPU mode (mode=%s)\n", v3_cpu_mode_to_str(info->cpu_mode));
-    return -1;
-  }
-  
-  uchar_t instr[15];
-  int index = 0;
-  
-  int ret = read_guest_va_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
-  if (ret != 15) {
-    PrintError("Could not read instruction 0x%p (ret=%d)\n",  (void *)(addr_t)(info->rip), ret);
-    return -1;
-  }
-  
-  
-  /* Can INVLPG work with Segments?? */
-  while (is_prefix_byte(instr[index])) {
-    index++;
-  }
-    
-    
-  if( (instr[index + 0] != (uchar_t) 0x0f) ||  
-      (instr[index + 1] != (uchar_t) 0x01) ) {
-    PrintError("invalid Instruction Opcode\n");
-    PrintTraceMemDump(instr, 15);
-    return -1;
-  }
-  
-  addr_t first_operand;
-  addr_t second_operand;
-  addr_t guest_cr3 =  CR3_TO_PDE32_PA(info->shdw_pg_state.guest_cr3);
-  
-  pde32_t * guest_pd = NULL;
-  
-  if (guest_pa_to_host_va(info, guest_cr3, (addr_t*)&guest_pd) == -1) {
-    PrintError("Invalid Guest PDE Address: 0x%p\n",  (void *)guest_cr3);
-    return -1;
-  }
-  
-  index += 2;
 
-  v3_operand_type_t addr_type = decode_operands32(&(info->vm_regs), instr + index, &index, &first_operand, &second_operand, REG32);
-  
-  if (addr_type != MEM_OPERAND) {
-    PrintError("Invalid Operand type\n");
+  if (info->mem_mode == PHYSICAL_MEM) { 
+    ret = read_guest_pa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
+  } else { 
+    ret = read_guest_va_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
+  }
+
+  if (ret == -1) {
+    PrintError("Could not read instruction into buffer\n");
+    return -1;
+  }
+
+  if (v3_decode(info, (addr_t)instr, &dec_instr) == -1) {
+    PrintError("Decoding Error\n");
     return -1;
   }
   
-  pde32_t * shadow_pd = (pde32_t *)CR3_TO_PDE32_VA(info->ctrl_regs.cr3);
-  pde32_t * shadow_pde = (pde32_t *)&shadow_pd[PDE32_INDEX(first_operand)];
-  pde32_t * guest_pde;
-  
-  //PrintDebug("PDE Index=%d\n", PDE32_INDEX(first_operand));
-  //PrintDebug("FirstOperand = %x\n", first_operand);
-  
-  PrintDebug("Invalidating page for %p\n", (void *)first_operand);
-  
-  guest_pde = (pde32_t *)&(guest_pd[PDE32_INDEX(first_operand)]);
-  
-  if (guest_pde->large_page == 1) {
-    shadow_pde->present = 0;
-    PrintDebug("Invalidating Large Page\n");
-  } else
-    if (shadow_pde->present == 1) {
-      pte32_t * shadow_pt = (pte32_t *)(addr_t)BASE_TO_PAGE_ADDR(shadow_pde->pt_base_addr);
-      pte32_t * shadow_pte = (pte32_t *) V3_VAddr( (void*) &shadow_pt[PTE32_INDEX(first_operand)] );
-      
-#ifdef DEBUG_SHADOW_PAGING
-      PrintDebug("Setting not present\n");
-      PrintPTEntry(PAGE_PT32, first_operand, shadow_pte);
-#endif
-      
-      shadow_pte->present = 0;
-    }
-  
-  info->rip += index;
-  
-  return 0;
+  if ((dec_instr.op_type != V3_OP_INVLPG) || 
+      (dec_instr.num_operands != 1) ||
+      (dec_instr.dst_operand.type != MEM_OPERAND)) {
+    PrintError("Decoder Error: Not a valid INVLPG instruction...\n");
+    return -1;
+  }
+
+  vaddr = dec_instr.dst_operand.operand;
+
+  info->rip += dec_instr.instr_length;
+
+  switch (info->cpu_mode) {
+  case PROTECTED:
+    return handle_shadow_invlpg_32(info, vaddr);
+  case PROTECTED_PAE:
+    return handle_shadow_invlpg_32pae(info, vaddr);
+  case LONG:
+  case LONG_32_COMPAT:
+  case LONG_16_COMPAT:
+    return handle_shadow_invlpg_64(info, vaddr);
+  default:
+    PrintError("Invalid CPU mode: %d\n", info->cpu_mode);
+    return -1;
+  }
 }
-
 
