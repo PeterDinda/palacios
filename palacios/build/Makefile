@@ -3,7 +3,7 @@
 #  Northwestern University 
 # (c) 2008, Jack Lange <jarusl@cs.northwestern.edu>
 # (c) 2008, Peter Dinda <pdinda@northwestern.edu> 
-# (c) 2008, Lei Xia <xiaxlei@gmail.com>
+# (c) 2008, Lei Xia <lxia@northwestern.edu>
 # (c) 2008, The V3VEE Project <http://www.v3vee.org> 
 #
 # Based on GeekOS Makefile:
