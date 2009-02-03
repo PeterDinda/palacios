@@ -39,32 +39,12 @@
  ***/
 
 
-struct guest_table {
-  addr_t cr3;
-  struct list_head link;
-};
-
-
-struct backptr {
-  addr_t ptr;
-  struct list_head link;
-};
-
-
 struct shadow_page_data {
-  addr_t ptr;
-  addr_t guest_addr; 
-
-  struct list_head backptrs;
-  struct list_head guest_tables;
+  v3_reg_t cr3;
+  addr_t page_pa;
+  
+  struct list_head page_list_node;
 };
-
-
-
-
-//DEFINE_HASHTABLE_INSERT(add_cr3_to_cache, addr_t, struct hashtable *);
-//DEFINE_HASHTABLE_SEARCH(find_cr3_in_cache, addr_t, struct hashtable *);
-//DEFINE_HASHTABLE_REMOVE(del_cr3_from_cache, addr_t, struct hashtable *, 0);
 
 
 DEFINE_HASHTABLE_INSERT(add_pte_map, addr_t, addr_t);
@@ -81,7 +61,7 @@ static int pte_equals(addr_t key1, addr_t key2) {
   return (key1 == key2);
 }
 
-static addr_t create_new_shadow_pt();
+static addr_t create_new_shadow_pt(struct guest_info * info);
 static void inject_guest_pf(struct guest_info * info, addr_t fault_addr, pf_error_t error_code);
 static int is_guest_pf(pt_access_status_t guest_access, pt_access_status_t shadow_access);
 
@@ -97,6 +77,8 @@ int v3_init_shadow_page_state(struct guest_info * info) {
   
   state->guest_cr3 = 0;
   state->guest_cr0 = 0;
+
+  INIT_LIST_HEAD(&(state->page_list));
 
   state->cached_ptes = NULL;
   state->cached_cr3 = 0;
@@ -226,13 +208,38 @@ int v3_handle_shadow_invlpg(struct guest_info * info) {
 
 
 
-static addr_t create_new_shadow_pt() {
-  void * host_pde = 0;
+static addr_t create_new_shadow_pt(struct guest_info * info) {
+  struct shadow_page_state * state = &(info->shdw_pg_state);
+  v3_reg_t cur_cr3 = info->ctrl_regs.cr3;
+  struct shadow_page_data * page_tail = NULL;
+  addr_t shdw_page = 0;
 
-  host_pde = V3_VAddr(V3_AllocPages(1));
-  memset(host_pde, 0, PAGE_SIZE);
+  if (!list_empty(&(state->page_list))) {
+    page_tail = list_tail_entry(&(state->page_list), struct shadow_page_data, page_list_node);
+    
+    if (page_tail->cr3 != cur_cr3) {
+      page_tail->cr3 = cur_cr3;
+      list_move(&(page_tail->page_list_node), &(state->page_list));
 
-  return (addr_t)host_pde;
+      memset(V3_VAddr((void *)(page_tail->page_pa)), 0, PAGE_SIZE_4KB);
+      PrintDebug("Reusing old shadow Page\n");
+
+      return (addr_t)V3_VAddr((void *)(page_tail->page_pa));
+    }
+  }
+
+  // else  
+
+  page_tail = (struct shadow_page_data *)V3_Malloc(sizeof(struct shadow_page_data));
+  page_tail->page_pa = (addr_t)V3_AllocPages(1);
+
+  page_tail->cr3 = cur_cr3;
+  list_add(&(page_tail->page_list_node), &(state->page_list));
+
+  shdw_page = (addr_t)V3_VAddr((void *)(page_tail->page_pa));
+  memset((void *)shdw_page, 0, PAGE_SIZE_4KB);
+
+  return shdw_page;
 }
 
 
@@ -248,9 +255,9 @@ static void inject_guest_pf(struct guest_info * info, addr_t fault_addr, pf_erro
 
 static int is_guest_pf(pt_access_status_t guest_access, pt_access_status_t shadow_access) {
   /* basically the reasoning is that there can be multiple reasons for a page fault:
-     If there is a permissions failure for a page present in the guest _BUT_ 
-     the reason for the fault was that the page is not present in the shadow, 
-     _THEN_ we have to map the shadow page in and reexecute, this will generate 
+     If there is a permissions failure for a page present in the guest _BUT_
+     the reason for the fault was that the page is not present in the shadow,
+     _THEN_ we have to map the shadow page in and reexecute, this will generate
      a permissions fault which is _THEN_ valid to send to the guest
      _UNLESS_ both the guest and shadow have marked the page as not present
 
@@ -258,7 +265,7 @@ static int is_guest_pf(pt_access_status_t guest_access, pt_access_status_t shado
   */
   if (guest_access != PT_ACCESS_OK) {
     // Guest Access Error
-    
+
     if ((shadow_access != PT_ACCESS_NOT_PRESENT) &&
 	(guest_access != PT_ACCESS_NOT_PRESENT)) {
       // aka (guest permission error)
@@ -266,7 +273,7 @@ static int is_guest_pf(pt_access_status_t guest_access, pt_access_status_t shado
     }
 
     if ((shadow_access == PT_ACCESS_NOT_PRESENT) &&
-	(guest_access == PT_ACCESS_NOT_PRESENT)) {      
+	(guest_access == PT_ACCESS_NOT_PRESENT)) {
       // Page tables completely blank, handle guest first
       return 1;
     }

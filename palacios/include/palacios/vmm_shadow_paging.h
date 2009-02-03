@@ -26,6 +26,7 @@
 #include <palacios/vmm_util.h>
 #include <palacios/vmm_paging.h>
 #include <palacios/vmm_hashtable.h>
+#include <palacios/vmm_list.h>
 
 
 struct shadow_page_state {
@@ -34,6 +35,8 @@ struct shadow_page_state {
   v3_reg_t guest_cr3;
   v3_reg_t guest_cr0;
 
+  // list of allocated shadow pages
+  struct list_head page_list;
 
   /* SOON TO BE DEPRECATED */
   // Hash table that contains a mapping of guest pte addresses to host pte addresses
@@ -51,7 +54,6 @@ struct guest_info;
 
 
 int v3_init_shadow_page_state(struct guest_info * info);
-
 
 
 int v3_handle_shadow_pagefault(struct guest_info * info, addr_t fault_addr, pf_error_t error_code);

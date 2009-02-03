@@ -64,14 +64,11 @@ static inline int activate_shadow_pt_32(struct guest_info * info) {
     return -1;
   } else if (cached == 0) {
     addr_t shadow_pt;
-    
-    PrintDebug("New CR3 is different - flushing shadow page table %p\n", shadow_cr3 );
-    delete_page_tables_32(CR3_TO_PDE32_VA(*(uint_t*)shadow_cr3));
-    
-    shadow_pt = create_new_shadow_pt();
+        
+    shadow_pt = create_new_shadow_pt(info);
     
     shadow_cr3->pdt_base_addr = (addr_t)V3_PAddr((void *)(addr_t)PAGE_BASE_ADDR(shadow_pt));
-    PrintDebug( "Created new shadow page table %p\n", (void *)(addr_t)shadow_cr3->pdt_base_addr );
+    PrintDebug( "Created new shadow page table %p\n", (void *)BASE_TO_PAGE_ADDR(shadow_cr3->pdt_base_addr));
   } else {
     PrintDebug("Reusing cached shadow Page table\n");
   }
@@ -136,7 +133,7 @@ static inline int handle_shadow_pagefault_32(struct guest_info * info, addr_t fa
   
   if (shadow_pde_access == PT_ACCESS_NOT_PRESENT) 
     {
-      pte32_t * shadow_pt =  (pte32_t *)create_new_shadow_pt();
+      pte32_t * shadow_pt =  (pte32_t *)create_new_shadow_pt(info);
 
       shadow_pde->present = 1;
       shadow_pde->user_page = guest_pde->user_page;
@@ -173,6 +170,12 @@ static inline int handle_shadow_pagefault_32(struct guest_info * info, addr_t fa
 	// ??  What if guest pde is dirty a this point?
 	((pde32_4MB_t *)guest_pde)->dirty = 0;
 	shadow_pde->writable = 0;
+
+	if (handle_large_pagefault_32(info, fault_addr, error_code, shadow_pt, (pde32_4MB_t *)guest_pde) == -1) {
+	  PrintError("Error handling large pagefault\n");
+	  return -1;
+	}	
+
       }
     }
   else if (shadow_pde_access == PT_ACCESS_OK) 
