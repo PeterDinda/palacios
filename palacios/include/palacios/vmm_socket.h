@@ -203,7 +203,7 @@ void v3_zero_sockset(struct v3_sock_set * sock_set);    // clears all is_set var
 
 struct v3_socket_hooks {
   // Socket creation routines
-  V3_SOCK (*tcp_socket)(const int bufsize, const int nodelay, const int nonblocking);
+xsxsxsxsxs  V3_SOCK (*tcp_socket)(const int bufsize, const int nodelay, const int nonblocking);
   V3_SOCK (*udp_socket)(const int bufsize, const int nonblocking);
 
   // Socket Destruction
@@ -211,8 +211,10 @@ struct v3_socket_hooks {
 
   // Network Server Calls
   int (*bind_socket)(const V3_SOCK sock, const int port);
+
+  int (*listen)(const V3_SOCK sock, int backlog);
   
-  int (*accept)(const V3_SOCK const sock, unsigned int * remote_ip);
+  V3_SOCK (*accept)(const V3_SOCK const sock, unsigned int * remote_ip, unsigned int * port);
   // This going to suck
   int (*select)(struct v3_sock_set * rset, \
 		struct v3_sock_set * wset, \
@@ -240,7 +242,7 @@ struct v3_socket_hooks {
 };
 
 
-void V3_Init_Socket(struct v3_socket_hooks * hooks);
+extern void V3_Init_Sockets(struct v3_socket_hooks * hooks);
 
 
 #endif
