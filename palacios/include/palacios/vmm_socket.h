@@ -203,7 +203,7 @@ void v3_zero_sockset(struct v3_sock_set * sock_set);    // clears all is_set var
 
 struct v3_socket_hooks {
   // Socket creation routines
-xsxsxsxsxs  V3_SOCK (*tcp_socket)(const int bufsize, const int nodelay, const int nonblocking);
+  V3_SOCK (*tcp_socket)(const int bufsize, const int nodelay, const int nonblocking);
   V3_SOCK (*udp_socket)(const int bufsize, const int nonblocking);
 
   // Socket Destruction
