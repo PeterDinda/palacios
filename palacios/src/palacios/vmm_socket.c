@@ -20,16 +20,25 @@
 
 #include <palacios/vmm_socket.h>
 #include <palacios/vmm.h>
+#include <palacios/vmm_debug.h>
+#include <palacios/vmm_stddef.h>
 
 
 struct v3_socket_hooks * sock_hooks = 0;
 
 
+//static int v3_socket_api_test(void);
 
 
 void V3_Init_Sockets(struct v3_socket_hooks * hooks) {
   PrintInfo("Initializing Socket Interface\n");
   sock_hooks = hooks;
+
+  PrintDebug("V3 sockets inited\n");
+
+  //v3_socket_api_test();
+  
+  return;
 }
 
 
@@ -38,6 +47,7 @@ void v3_init_sock_set(struct v3_sock_set * sock_set) {
   sock_set->num_socks = 0;
   sock_set->socks = NULL;
 
+  return;
 }
 
 
@@ -107,3 +117,62 @@ void v3_zero_sockset(struct v3_sock_set * sock_set) {
     iter->is_set = 0;
   }
 }
+
+#if 0
+static int
+v3_socket_api_test(void)
+{
+	unsigned int port;
+	char buf[1024];
+	int rc = 0;
+	V3_SOCK sock; 
+	V3_SOCK client;
+	unsigned int remote_ip;
+	
+	PrintDebug("\nIn Palacios: TEST BEGIN: Sockets API\n");
+	sock = sock_hooks->tcp_socket(0, 0, 0);
+	if( sock == NULL ){
+		PrintDebug( "ERROR: tcp_socket() failed!\n");
+		return -1;
+	}
+
+	port = 80;
+
+	if( sock_hooks->bind_socket(sock, port) < 0){
+		PrintDebug("bind error\n");
+		return -1;
+	}
+
+	if( sock_hooks->listen(sock, 1) < 0) {
+		PrintDebug("listen error\n" );
+		return -1;
+	}
+
+	PrintDebug( "Going into mainloop: server listening on port %d\n", port);
+
+	client = sock_hooks->accept(sock, &remote_ip , &port);
+
+	PrintDebug(" New connection from %d port: %d\n", remote_ip, port);
+	     
+	sock_hooks->send(client, "Welcome!\n", 9);
+
+	while(1)
+	{		
+	     sock_hooks->send(client, buf, rc);
+            rc = sock_hooks->recv(client, buf, sizeof(buf)-1);
+	     if( rc <= 0 ){
+				PrintDebug( "Closed connection\n");
+				sock_hooks->close(client);
+				break;
+	     }
+
+	     buf[rc] = '\0';
+
+	     PrintDebug( "Read %d bytes: '%s'\n", rc, buf);
+	 }
+
+	PrintDebug("TEST END: Sockets API\n");
+	return 0;
+}
+
+#endif
