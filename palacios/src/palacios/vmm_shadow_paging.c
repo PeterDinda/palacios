@@ -168,67 +168,6 @@ int v3_handle_shadow_pagefault(struct guest_info * info, addr_t fault_addr, pf_e
 }
 
 
-
-static addr_t create_new_shadow_pt() {
-  void * host_pde = 0;
-
-  host_pde = V3_VAddr(V3_AllocPages(1));
-  memset(host_pde, 0, PAGE_SIZE);
-
-  return (addr_t)host_pde;
-}
-
-
-static void inject_guest_pf(struct guest_info * info, addr_t fault_addr, pf_error_t error_code) {
-  if (info->enable_profiler) {
-    info->profiler.guest_pf_cnt++;
-  }
-
-  info->ctrl_regs.cr2 = fault_addr;
-  v3_raise_exception_with_error(info, PF_EXCEPTION, *(uint_t *)&error_code);
-}
-
-
-static int is_guest_pf(pt_access_status_t guest_access, pt_access_status_t shadow_access) {
-  /* basically the reasoning is that there can be multiple reasons for a page fault:
-     If there is a permissions failure for a page present in the guest _BUT_ 
-     the reason for the fault was that the page is not present in the shadow, 
-     _THEN_ we have to map the shadow page in and reexecute, this will generate 
-     a permissions fault which is _THEN_ valid to send to the guest
-     _UNLESS_ both the guest and shadow have marked the page as not present
-
-     whew...
-  */
-  if (guest_access != PT_ACCESS_OK) {
-    // Guest Access Error
-    
-    if ((shadow_access != PT_ACCESS_NOT_PRESENT) &&
-	(guest_access != PT_ACCESS_NOT_PRESENT)) {
-      // aka (guest permission error)
-      return 1;
-    }
-
-    if ((shadow_access == PT_ACCESS_NOT_PRESENT) &&
-	(guest_access == PT_ACCESS_NOT_PRESENT)) {      
-      // Page tables completely blank, handle guest first
-      return 1;
-    }
-
-    // Otherwise we'll handle the guest fault later...?
-  }
-
-  return 0;
-}
-
-
-
-
-
-
-
-
-
-
 int v3_handle_shadow_invlpg(struct guest_info * info) {
   uchar_t instr[15];
   struct x86_instr dec_instr;
@@ -283,4 +222,59 @@ int v3_handle_shadow_invlpg(struct guest_info * info) {
     return -1;
   }
 }
+
+
+
+
+static addr_t create_new_shadow_pt() {
+  void * host_pde = 0;
+
+  host_pde = V3_VAddr(V3_AllocPages(1));
+  memset(host_pde, 0, PAGE_SIZE);
+
+  return (addr_t)host_pde;
+}
+
+
+static void inject_guest_pf(struct guest_info * info, addr_t fault_addr, pf_error_t error_code) {
+  if (info->enable_profiler) {
+    info->profiler.guest_pf_cnt++;
+  }
+
+  info->ctrl_regs.cr2 = fault_addr;
+  v3_raise_exception_with_error(info, PF_EXCEPTION, *(uint_t *)&error_code);
+}
+
+
+static int is_guest_pf(pt_access_status_t guest_access, pt_access_status_t shadow_access) {
+  /* basically the reasoning is that there can be multiple reasons for a page fault:
+     If there is a permissions failure for a page present in the guest _BUT_ 
+     the reason for the fault was that the page is not present in the shadow, 
+     _THEN_ we have to map the shadow page in and reexecute, this will generate 
+     a permissions fault which is _THEN_ valid to send to the guest
+     _UNLESS_ both the guest and shadow have marked the page as not present
+
+     whew...
+  */
+  if (guest_access != PT_ACCESS_OK) {
+    // Guest Access Error
+    
+    if ((shadow_access != PT_ACCESS_NOT_PRESENT) &&
+	(guest_access != PT_ACCESS_NOT_PRESENT)) {
+      // aka (guest permission error)
+      return 1;
+    }
+
+    if ((shadow_access == PT_ACCESS_NOT_PRESENT) &&
+	(guest_access == PT_ACCESS_NOT_PRESENT)) {      
+      // Page tables completely blank, handle guest first
+      return 1;
+    }
+
+    // Otherwise we'll handle the guest fault later...?
+  }
+
+  return 0;
+}
+
 

@@ -1,5 +1,5 @@
 
-static int activate_shadow_pt_64(struct guest_info * info) {
+static inline int activate_shadow_pt_64(struct guest_info * info) {
   //  struct cr3_64 * shadow_cr3 = (struct cr3_64 *)&(info->ctrl_regs.cr3);
  
   return -1;
@@ -18,7 +18,7 @@ static int activate_shadow_pt_64(struct guest_info * info) {
  * *
  */
 
-static int handle_shadow_pagefault_64(struct guest_info * info, addr_t fault_addr, pf_error_t error_code) {
+static inline int handle_shadow_pagefault_64(struct guest_info * info, addr_t fault_addr, pf_error_t error_code) {
   pt_access_status_t guest_access;
   pt_access_status_t shadow_access;
   int ret; 
@@ -38,7 +38,7 @@ static int handle_shadow_pagefault_64(struct guest_info * info, addr_t fault_add
 }
 
 
-static int handle_shadow_invlpg_64(struct guest_info * info, addr_t vaddr) {
+static inline int handle_shadow_invlpg_64(struct guest_info * info, addr_t vaddr) {
   PrintError("64 bit shadow paging not implemented\n");
   return -1;
 }

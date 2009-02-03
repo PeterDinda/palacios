@@ -51,7 +51,7 @@ static int cache_page_tables_32(struct guest_info * info, addr_t pde) {
 
 // We assume that shdw_pg_state.guest_cr3 is pointing to the page tables we want to activate
 // We also assume that the CPU mode has not changed during this page table transition
-static int activate_shadow_pt_32(struct guest_info * info) {
+static inline int activate_shadow_pt_32(struct guest_info * info) {
   struct cr3_32 * shadow_cr3 = (struct cr3_32 *)&(info->ctrl_regs.cr3);
   struct cr3_32 * guest_cr3 = (struct cr3_32 *)&(info->shdw_pg_state.guest_cr3);
   int cached = 0;
@@ -100,7 +100,7 @@ static int handle_shadow_pte32_fault(struct guest_info * info,
 				     pte32_t * guest_pt);
 
 
-static int handle_shadow_pagefault_32(struct guest_info * info, addr_t fault_addr, pf_error_t error_code) {
+static inline int handle_shadow_pagefault_32(struct guest_info * info, addr_t fault_addr, pf_error_t error_code) {
   pde32_t * guest_pd = NULL;
   pde32_t * shadow_pd = CR3_TO_PDE32_VA(info->ctrl_regs.cr3);
   addr_t guest_cr3 = CR3_TO_PDE32_PA(info->shdw_pg_state.guest_cr3);
@@ -499,7 +499,7 @@ static int handle_shadow_pte32_fault(struct guest_info * info,
 
 
 /* If we start to optimize we should look up the guest pages in the cache... */
-static int handle_shadow_invlpg_32(struct guest_info * info, addr_t vaddr) {
+static inline int handle_shadow_invlpg_32(struct guest_info * info, addr_t vaddr) {
   pde32_t * shadow_pd = (pde32_t *)CR3_TO_PDE32_VA(info->ctrl_regs.cr3);
   pde32_t * shadow_pde = (pde32_t *)&shadow_pd[PDE32_INDEX(vaddr)];
 
@@ -525,7 +525,5 @@ static int handle_shadow_invlpg_32(struct guest_info * info, addr_t vaddr) {
     
     shadow_pte->present = 0;
   }
-  
-
   return 0;
 }
