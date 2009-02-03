@@ -35,14 +35,6 @@ struct shadow_page_state {
   v3_reg_t guest_cr0;
 
 
-
-
-  // Page table struct lookup table
-  struct hashtable * pt_cache;
-
-  // Guest CR3 to Shadow CR3 Lookup Table
-  struct hashtable *  cr3_cache;
-
   /* SOON TO BE DEPRECATED */
   // Hash table that contains a mapping of guest pte addresses to host pte addresses
   struct hashtable *  cached_ptes;
