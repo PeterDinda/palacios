@@ -190,7 +190,6 @@ typedef enum {PAGE_4KB, PAGE_2MB, PAGE_4MB, PAGE_1GB,
 
 /* Page Table Flag Values */
 #define PT32_HOOK 0x1
-#define PT32_GUEST_PT 0x2
 
 
 
