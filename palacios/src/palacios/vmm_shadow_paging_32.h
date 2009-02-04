@@ -239,9 +239,9 @@ static inline int handle_shadow_pagefault_32(struct guest_info * info, addr_t fa
       PrintDebug("Manual Says to inject page fault into guest\n");
 #ifdef DEBUG_SHADOW_PAGING
       PrintDebug("Guest PDE: (access=%d)\n\t", guest_pde_access);
-      PrintPTEntry(PAGE_PD32, fault_addr, guest_pde);
+      PrintPTEntry(info, PAGE_PD32, fault_addr, guest_pde);
       PrintDebug("Shadow PDE: (access=%d)\n\t", shadow_pde_access);
-      PrintPTEntry(PAGE_PD32, fault_addr, shadow_pde);
+      PrintPTEntry(info, PAGE_PD32, fault_addr, shadow_pde);
 #endif
 
       return 0; 
@@ -392,9 +392,9 @@ static int handle_shadow_pte32_fault(struct guest_info * info,
   
 #ifdef DEBUG_SHADOW_PAGING
   PrintDebug("Guest PTE: (access=%d)\n\t", guest_pte_access);
-  PrintPTEntry(PAGE_PT32, fault_addr, guest_pte);
+  PrintPTEntry(info, PAGE_PT32, fault_addr, guest_pte);
   PrintDebug("Shadow PTE: (access=%d)\n\t", shadow_pte_access);
-  PrintPTEntry(PAGE_PT32, fault_addr, shadow_pte);
+  PrintPTEntry(info, PAGE_PT32, fault_addr, shadow_pte);
 #endif
   
   /* Was the page fault caused by the Guest's page tables? */

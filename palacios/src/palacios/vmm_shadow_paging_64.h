@@ -269,7 +269,7 @@ static int handle_pde_shadow_pagefault_64(struct guest_info * info, addr_t fault
     shadow_pde->writable = guest_pde->writable;
 
     PrintDebug("Returning due to large page Write Error\n");
-    PrintHostPageTree(info->cpu_mode, fault_addr, info->ctrl_regs.cr3);
+    PrintHostPageTree(info, fault_addr, info->ctrl_regs.cr3);
 
     return 0;
   } else if ((shadow_pde_access != PT_ACCESS_NOT_PRESENT) &&
@@ -506,7 +506,7 @@ static int handle_2MB_shadow_pagefault_64(struct guest_info * info,
     // Inconsistent state...
     // Guest Re-Entry will flush tables and everything should now workd
     PrintDebug("Inconsistent state... Guest re-entry should flush tlb\n");
-    PrintHostPageTree(info->cpu_mode, fault_addr, info->ctrl_regs.cr3);
+    PrintHostPageTree(info, fault_addr, info->ctrl_regs.cr3);
     return 0;
   }
 
@@ -583,7 +583,7 @@ static int handle_2MB_shadow_pagefault_64(struct guest_info * info,
     return -1;
   }
 
-  PrintHostPageTree(info->cpu_mode, fault_addr, info->ctrl_regs.cr3);
+  PrintHostPageTree(info, fault_addr, info->ctrl_regs.cr3);
   PrintDebug("Returning from large page fault handler\n");
   return 0;
 }

@@ -366,8 +366,6 @@ int v3_handle_svm_exit(struct guest_info * info) {
   default: {
 
     addr_t rip_addr;
-    uchar_t buf[15];
-    addr_t host_addr;
 
     PrintDebug("Unhandled SVM Exit: %s\n", vmexit_code_to_str(exit_code));
 
