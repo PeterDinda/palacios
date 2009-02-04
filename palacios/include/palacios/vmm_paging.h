@@ -129,7 +129,6 @@ typedef enum {PAGE_4KB, PAGE_2MB, PAGE_4MB, PAGE_1GB,
 
 
 /* Gets the base address needed for a Page Table entry */
-
 #define PAGE_BASE_ADDR(x) ((x) >> 12)
 #define PAGE_BASE_ADDR_4KB(x) ((x) >> 12)
 #define PAGE_BASE_ADDR_2MB(x) ((x) >> 21)
@@ -190,6 +189,7 @@ typedef enum {PAGE_4KB, PAGE_2MB, PAGE_4MB, PAGE_1GB,
 
 /* Page Table Flag Values */
 #define PT32_HOOK 0x1
+#define PT32_GUEST_PT 0x2
 
 
 
@@ -462,23 +462,26 @@ int v3_translate_guest_pt_32(struct guest_info * info, v3_reg_t guest_cr3, addr_
 int v3_translate_guest_pt_32pae(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr, addr_t * paddr);
 int v3_translate_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr, addr_t * paddr);
 
-int v3_translate_host_pt_32(v3_reg_t host_cr3, addr_t vaddr, addr_t * paddr);
-int v3_translate_host_pt_32pae(v3_reg_t host_cr3, addr_t vaddr, addr_t * paddr);
-int v3_translate_host_pt_64(v3_reg_t host_cr3, addr_t vaddr, addr_t * paddr);
+int v3_translate_host_pt_32(struct guest_info * info, v3_reg_t host_cr3, addr_t vaddr, addr_t * paddr);
+int v3_translate_host_pt_32pae(struct guest_info * info, v3_reg_t host_cr3, addr_t vaddr, addr_t * paddr);
+int v3_translate_host_pt_64(struct guest_info * info, v3_reg_t host_cr3, addr_t vaddr, addr_t * paddr);
 
 
-int v3_find_host_pt_32_page(v3_reg_t host_cr3, page_type_t type, addr_t vaddr, addr_t * page_addr);
-int v3_find_host_pt_32pae_page(v3_reg_t host_cr3, page_type_t type, addr_t vaddr, addr_t * page_addr);
-int v3_find_host_pt_64_page(v3_reg_t host_cr3, page_type_t type, addr_t vaddr, addr_t * page_addr);
+int v3_find_host_pt_32_page(struct guest_info * info, v3_reg_t host_cr3, page_type_t type, addr_t vaddr, 
+			    addr_t * page_ptr, addr_t * page_pa);
+int v3_find_host_pt_32pae_page(struct guest_info * info, v3_reg_t host_cr3, page_type_t type, addr_t vaddr, 
+			       addr_t * page_ptr, addr_t * page_pa);
+int v3_find_host_pt_64_page(struct guest_info * info, v3_reg_t host_cr3, page_type_t type, addr_t vaddr, 
+			    addr_t * page_ptr, addr_t * page_pa);
 int v3_find_guest_pt_32_page(struct guest_info * info, v3_reg_t guest_cr3, 
 			     page_type_t type, addr_t vaddr, 
-			     addr_t * page_addr);
+			     addr_t * page_ptr, addr_t * page_pa);
 int v3_find_guest_pt_32pae_page(struct guest_info * info, v3_reg_t guest_cr3, 
 				page_type_t type, addr_t vaddr, 
-				addr_t * page_addr);
+				addr_t * page_ptr, addr_t * page_pa);
 int v3_find_guest_pt_64_page(struct guest_info * info, v3_reg_t guest_cr3, 
 			     page_type_t type, addr_t vaddr, 
-			     addr_t * page_addr);
+			     addr_t * page_ptr, addr_t * page_pa);
 
 pt_access_status_t inline v3_can_access_pde32(pde32_t * pde, addr_t addr, pf_error_t access_type);
 pt_access_status_t inline v3_can_access_pte32(pte32_t * pte, addr_t addr, pf_error_t access_type);
@@ -493,11 +496,11 @@ pt_access_status_t inline v3_can_access_pde64(pde64_t * pde, addr_t addr, pf_err
 pt_access_status_t inline v3_can_access_pte64(pte64_t * pte, addr_t addr, pf_error_t access_type);
 
 
-int v3_check_host_pt_32(v3_reg_t host_cr3, addr_t vaddr, 
+int v3_check_host_pt_32(struct guest_info * info, v3_reg_t host_cr3, addr_t vaddr, 
 			pf_error_t access_type, pt_access_status_t * access_status);
-int v3_check_host_pt_32pae(v3_reg_t host_cr3, addr_t vaddr, 
+int v3_check_host_pt_32pae(struct guest_info * info, v3_reg_t host_cr3, addr_t vaddr, 
 			   pf_error_t access_type, pt_access_status_t * access_status);
-int v3_check_host_pt_64(v3_reg_t host_cr3, addr_t vaddr, 
+int v3_check_host_pt_64(struct guest_info * info, v3_reg_t host_cr3, addr_t vaddr, 
 			pf_error_t access_type, pt_access_status_t * access_status);
 int v3_check_guest_pt_32(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr, 
 			 pf_error_t access_type, pt_access_status_t * access_status);
@@ -509,50 +512,50 @@ int v3_check_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t va
 
 
 
-int v3_drill_host_pt_32(v3_reg_t host_cr3, addr_t vaddr,
-			int (*callback)(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
+int v3_drill_host_pt_32(struct guest_info * info, v3_reg_t host_cr3, addr_t vaddr,
+			int (*callback)(struct guest_info * info, page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
 			void * private_data);
-int v3_drill_host_pt_32pae(v3_reg_t host_cr3, addr_t vaddr,
-			   int (*callback)(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
+int v3_drill_host_pt_32pae(struct guest_info * info, v3_reg_t host_cr3, addr_t vaddr,
+			   int (*callback)(struct guest_info * info, page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
 			   void * private_data);
-int v3_drill_host_pt_64(v3_reg_t host_cr3, addr_t vaddr,
-			int (*callback)(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
+int v3_drill_host_pt_64(struct guest_info * info, v3_reg_t host_cr3, addr_t vaddr,
+			int (*callback)(struct guest_info * info, page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
 			void * private_data);
 
 int v3_drill_guest_pt_32(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr,
-			 int (*callback)(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
+			 int (*callback)(struct guest_info * info, page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
 			 void * private_data);
 int v3_drill_guest_pt_32pae(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr,
-			    int (*callback)(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
+			    int (*callback)(struct guest_info * info, page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
 			    void * private_data);
 int v3_drill_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr,
-			 int (*callback)(page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
+			 int (*callback)(struct guest_info * info, page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
 			 void * private_data);
 
 
 
-int v3_walk_host_pt_32(v3_reg_t host_cr3,
-		       int (*callback)(page_type_t type, addr_t vaddr, addr_t page_va, addr_t page_pa, void * private_data),
+int v3_walk_host_pt_32(struct guest_info * info, v3_reg_t host_cr3,
+		       int (*callback)(struct guest_info * info, page_type_t type, addr_t vaddr, addr_t page_va, addr_t page_pa, void * private_data),
 		       void * private_data);
 
-int v3_walk_host_pt_32pae(v3_reg_t host_cr3,
-			  int (*callback)(page_type_t type, addr_t vaddr, addr_t page_va, addr_t page_pa, void * private_data),
+int v3_walk_host_pt_32pae(struct guest_info * info, v3_reg_t host_cr3,
+			  int (*callback)(struct guest_info * info, page_type_t type, addr_t vaddr, addr_t page_va, addr_t page_pa, void * private_data),
 			  void * private_data);
 
-int v3_walk_host_pt_64(v3_reg_t host_cr3,
-		       int (*callback)(page_type_t type, addr_t vaddr, addr_t page_va, addr_t page_pa, void * private_data),
+int v3_walk_host_pt_64(struct guest_info * info, v3_reg_t host_cr3,
+		       int (*callback)(struct guest_info * info, page_type_t type, addr_t vaddr, addr_t page_va, addr_t page_pa, void * private_data),
 		       void * private_data);
 
 int v3_walk_guest_pt_32(struct guest_info * info, v3_reg_t guest_cr3,
-			int (*callback)(page_type_t type, addr_t vaddr, addr_t page_va, addr_t page_pa, void * private_data),
+			int (*callback)(struct guest_info * info, page_type_t type, addr_t vaddr, addr_t page_va, addr_t page_pa, void * private_data),
 			void * private_data);
 
 int v3_walk_guest_pt_32pae(struct guest_info * info, v3_reg_t guest_cr3,
-			   int (*callback)(page_type_t type, addr_t vaddr, addr_t page_va, addr_t page_pa, void * private_data),
+			   int (*callback)(struct guest_info * info, page_type_t type, addr_t vaddr, addr_t page_va, addr_t page_pa, void * private_data),
 			   void * private_data);
 
 int v3_walk_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3,
-			int (*callback)(page_type_t type, addr_t vaddr, addr_t page_va, addr_t page_pa, void * private_data),
+			int (*callback)(struct guest_info * info, page_type_t type, addr_t vaddr, addr_t page_va, addr_t page_pa, void * private_data),
 			void * private_data);
   
 
@@ -571,10 +574,10 @@ const uchar_t * v3_page_type_to_str(page_type_t type);
 
 
 
-void PrintPTEntry(page_type_t type, addr_t vaddr, void * entry);
-void PrintHostPageTables(v3_vm_cpu_mode_t cpu_mode, addr_t cr3);
+void PrintPTEntry(struct guest_info * info, page_type_t type, addr_t vaddr, void * entry);
+void PrintHostPageTables(struct guest_info * info,  addr_t cr3);
 void PrintGuestPageTables(struct guest_info * info, addr_t cr3);
-void PrintHostPageTree(v3_vm_cpu_mode_t cpu_mode, addr_t virtual_addr, addr_t cr3);
+void PrintHostPageTree(struct guest_info * info, addr_t virtual_addr, addr_t cr3);
 void PrintGuestPageTree(struct guest_info * info, addr_t virtual_addr, addr_t cr3);
 
 
