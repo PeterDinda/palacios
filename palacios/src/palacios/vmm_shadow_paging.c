@@ -61,7 +61,7 @@ static int pte_equals(addr_t key1, addr_t key2) {
   return (key1 == key2);
 }
 
-static addr_t create_new_shadow_pt(struct guest_info * info);
+static struct shadow_page_data * create_new_shadow_pt(struct guest_info * info);
 static void inject_guest_pf(struct guest_info * info, addr_t fault_addr, pf_error_t error_code);
 static int is_guest_pf(pt_access_status_t guest_access, pt_access_status_t shadow_access);
 
@@ -103,7 +103,7 @@ int v3_activate_shadow_pt(struct guest_info * info) {
   case LONG_16_COMPAT:
     return activate_shadow_pt_64(info);
   default:
-    PrintError("Invalid CPU mode: %d\n", info->cpu_mode);
+    PrintError("Invalid CPU mode: %s\n", v3_cpu_mode_to_str(info->cpu_mode));
     return -1;
   }
 
@@ -137,10 +137,12 @@ int v3_handle_shadow_pagefault(struct guest_info * info, addr_t fault_addr, pf_e
     case PROTECTED_PAE:
       return handle_shadow_pagefault_32pae(info, fault_addr, error_code);
     case LONG:
+    case LONG_32_COMPAT:
+    case LONG_16_COMPAT:
       return handle_shadow_pagefault_64(info, fault_addr, error_code);
       break;
     default:
-      PrintError("Unhandled CPU Mode\n");
+      PrintError("Unhandled CPU Mode: %s\n", v3_cpu_mode_to_str(info->cpu_mode));
       return -1;
     }
   } else {
@@ -200,7 +202,7 @@ int v3_handle_shadow_invlpg(struct guest_info * info) {
   case LONG_16_COMPAT:
     return handle_shadow_invlpg_64(info, vaddr);
   default:
-    PrintError("Invalid CPU mode: %d\n", info->cpu_mode);
+    PrintError("Invalid CPU mode: %s\n", v3_cpu_mode_to_str(info->cpu_mode));
     return -1;
   }
 }
@@ -208,7 +210,7 @@ int v3_handle_shadow_invlpg(struct guest_info * info) {
 
 
 
-static addr_t create_new_shadow_pt(struct guest_info * info) {
+static struct shadow_page_data * create_new_shadow_pt(struct guest_info * info) {
   struct shadow_page_state * state = &(info->shdw_pg_state);
   v3_reg_t cur_cr3 = info->ctrl_regs.cr3;
   struct shadow_page_data * page_tail = NULL;
@@ -218,13 +220,15 @@ static addr_t create_new_shadow_pt(struct guest_info * info) {
     page_tail = list_tail_entry(&(state->page_list), struct shadow_page_data, page_list_node);
     
     if (page_tail->cr3 != cur_cr3) {
-      page_tail->cr3 = cur_cr3;
+      PrintDebug("Reusing old shadow Page: %p (cur_CR3=%p)(page_cr3=%p) \n",
+		 (void *) page_tail->page_pa, (void *)cur_cr3, (void *)(page_tail->cr3));
+
       list_move(&(page_tail->page_list_node), &(state->page_list));
 
       memset(V3_VAddr((void *)(page_tail->page_pa)), 0, PAGE_SIZE_4KB);
-      PrintDebug("Reusing old shadow Page\n");
 
-      return (addr_t)V3_VAddr((void *)(page_tail->page_pa));
+
+      return page_tail;
     }
   }
 
@@ -233,13 +237,15 @@ static addr_t create_new_shadow_pt(struct guest_info * info) {
   page_tail = (struct shadow_page_data *)V3_Malloc(sizeof(struct shadow_page_data));
   page_tail->page_pa = (addr_t)V3_AllocPages(1);
 
+  PrintDebug("Allocating new shadow Page: %p (cur_cr3=%p)\n", (void *)page_tail->page_pa, (void *)cur_cr3);
+
   page_tail->cr3 = cur_cr3;
   list_add(&(page_tail->page_list_node), &(state->page_list));
 
   shdw_page = (addr_t)V3_VAddr((void *)(page_tail->page_pa));
   memset((void *)shdw_page, 0, PAGE_SIZE_4KB);
 
-  return shdw_page;
+  return page_tail;
 }
 
 

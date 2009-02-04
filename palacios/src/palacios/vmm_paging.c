@@ -644,7 +644,7 @@ pt_access_status_t inline v3_can_access_pdpe64(pdpe64_t * pdpe, addr_t addr, pf_
 }
 
 pt_access_status_t inline v3_can_access_pde64(pde64_t * pde, addr_t addr, pf_error_t access_type) {
-  gen_pt_t * entry = (gen_pt_t *)&pde[PDE32_INDEX(addr)];
+  gen_pt_t * entry = (gen_pt_t *)&pde[PDE64_INDEX(addr)];
   return can_access_pt_entry(entry, access_type);
 }
 

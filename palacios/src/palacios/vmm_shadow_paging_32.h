@@ -63,11 +63,11 @@ static inline int activate_shadow_pt_32(struct guest_info * info) {
     PrintError("CR3 Cache failed\n");
     return -1;
   } else if (cached == 0) {
-    addr_t shadow_pt;
-        
-    shadow_pt = create_new_shadow_pt(info);
+    struct shadow_page_data * shdw_page = create_new_shadow_pt(info);
+
+    shdw_page->cr3 = shdw_page->page_pa;
     
-    shadow_cr3->pdt_base_addr = (addr_t)V3_PAddr((void *)(addr_t)PAGE_BASE_ADDR(shadow_pt));
+    shadow_cr3->pdt_base_addr = PAGE_BASE_ADDR(shdw_page->page_pa);
     PrintDebug( "Created new shadow page table %p\n", (void *)BASE_TO_PAGE_ADDR(shadow_cr3->pdt_base_addr));
   } else {
     PrintDebug("Reusing cached shadow Page table\n");
@@ -133,7 +133,8 @@ static inline int handle_shadow_pagefault_32(struct guest_info * info, addr_t fa
   
   if (shadow_pde_access == PT_ACCESS_NOT_PRESENT) 
     {
-      pte32_t * shadow_pt =  (pte32_t *)create_new_shadow_pt(info);
+      struct shadow_page_data * shdw_page =  create_new_shadow_pt(info);
+      pte32_t * shadow_pt = (pte32_t *)V3_VAddr((void *)shdw_page->page_pa);
 
       shadow_pde->present = 1;
       shadow_pde->user_page = guest_pde->user_page;
@@ -207,8 +208,7 @@ static inline int handle_shadow_pagefault_32(struct guest_info * info, addr_t fa
       }
     }
   else if ((shadow_pde_access == PT_ACCESS_WRITE_ERROR) && 
-	   (guest_pde->large_page == 1) && 
-	   (((pde32_4MB_t *)guest_pde)->dirty == 0)) 
+	   (guest_pde->large_page == 1)) 
     {
       //
       // Page Directory Entry marked read-only
@@ -404,6 +404,7 @@ static int handle_shadow_pte32_fault(struct guest_info * info,
     inject_guest_pf(info, fault_addr, error_code);
     return 0; 
   }
+
   
   
   if (shadow_pte_access == PT_ACCESS_OK) {
