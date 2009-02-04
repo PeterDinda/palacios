@@ -387,39 +387,6 @@ int v3_handle_svm_exit(struct guest_info * info) {
     PrintError("io_info2 high = 0x%.8x\n", *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info2)) + 4));
 
     
-
-    if (info->mem_mode == PHYSICAL_MEM) {
-      if (guest_pa_to_host_va(info, guest_state->rip, &host_addr) == -1) {
-	PrintError("Could not translate guest_state->rip to host address\n");
-	return -1;
-      }
-    } else if (info->mem_mode == VIRTUAL_MEM) {
-      if (guest_va_to_host_va(info, guest_state->rip, &host_addr) == -1) {
-	PrintError("Could not translate guest_state->rip to host address\n");
-	return -1;
-      }
-    } else {
-      PrintError("Invalid memory mode\n");
-      return -1;
-    }
-    
-    PrintError("Host Address of rip = 0x%p\n", (void *)host_addr);
-    
-    memset(buf, 0, 32);
-    
-    PrintError("Reading instruction stream in guest (addr=%p)\n", (void *)rip_addr);
-    
-    if (info->mem_mode == PHYSICAL_MEM) {
-      read_guest_pa_memory(info, rip_addr - 16, 32, buf);
-    } else {
-      read_guest_va_memory(info, rip_addr - 16, 32, buf);
-    }
-    
-    PrintDebug("16 bytes before Rip\n");
-    PrintTraceMemDump(buf, 16);
-    PrintDebug("Rip onward\n");
-    PrintTraceMemDump(buf+16, 16);
-    
     return -1;
 
   }

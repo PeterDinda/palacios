@@ -462,7 +462,7 @@ int v3_is_svm_capable() {
 
   v3_cpuid(CPUID_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
   
-  PrintDebug("CPUID_FEATURE_IDS_ecx=0x%p\n", (void *)ecx);
+  PrintDebug("CPUID_FEATURE_IDS_ecx=%p\n", (void *)ecx);
 
   if ((ecx & CPUID_FEATURE_IDS_ecx_svm_avail) == 0) {
     PrintDebug("SVM Not Available\n");
@@ -477,7 +477,7 @@ int v3_is_svm_capable() {
 
       v3_cpuid(CPUID_SVM_REV_AND_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
       
-      PrintDebug("CPUID_FEATURE_IDS_edx=0x%p\n", (void *)edx);
+      PrintDebug("CPUID_FEATURE_IDS_edx=%p\n", (void *)edx);
       
       if ((edx & CPUID_SVM_REV_AND_FEATURE_IDS_edx_svml) == 0) {
 	PrintDebug("SVM BIOS Disabled, not unlockable\n");
@@ -490,8 +490,11 @@ int v3_is_svm_capable() {
       PrintDebug("SVM is available and  enabled.\n");
 
       v3_cpuid(CPUID_SVM_REV_AND_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
-      
-      PrintDebug("CPUID_FEATURE_IDS_edx=0x%p\n", (void *)edx);
+      PrintDebug("CPUID_FEATURE_IDS_eax=%p\n", (void *)eax);
+      PrintDebug("CPUID_FEATURE_IDS_ebx=%p\n", (void *)ebx);
+      PrintDebug("CPUID_FEATURE_IDS_ecx=%p\n", (void *)ecx);      
+      PrintDebug("CPUID_FEATURE_IDS_edx=%p\n", (void *)edx);
+
 
       if ((edx & CPUID_SVM_REV_AND_FEATURE_IDS_edx_np) == 0) {
 	PrintDebug("SVM Nested Paging not supported\n");
