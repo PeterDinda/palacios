@@ -165,17 +165,11 @@ v3_svm_launch:
 	push	%gs;
 	PUSHA
 
-	
-	
-
-
 	pushq %rsi
 
 	movq	%rdi, %rax
 	Restore_SVM_Registers(%rsi);
 
-
-	
 
 	vmload;
 	vmrun;
@@ -185,10 +179,6 @@ v3_svm_launch:
 	Save_SVM_Registers(8(%rsp));
 
 	addq $8, %rsp
-
-
-
-
 
 	POPA
 	pop	%gs;

@@ -55,7 +55,7 @@ struct v3_gprs {
   v3_reg_t r14;
   v3_reg_t r15;
   
-};
+} __attribute__((packed));
 
 
 struct v3_ctrl_regs {
@@ -164,6 +164,13 @@ struct guest_info {
   void * decoder_state;
 
   struct v3_msr guest_efer;
+
+
+  struct v3_msr shadow_cstar;
+  struct v3_msr shadow_star;
+  struct v3_msr shadow_lstar;
+  struct v3_msr shadow_syscall_mask;
+  
 
   /* TEMP */
   //ullong_t exit_tsc;

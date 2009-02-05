@@ -352,7 +352,20 @@ static int start_svm_guest(struct guest_info *info) {
 
   while (1) {
     ullong_t tmp_tsc;
-    uint_t vm_cr_low = 0, vm_cr_high = 0;
+
+
+
+#define MSR_STAR      0xc0000081
+#define MSR_LSTAR     0xc0000082
+#define MSR_CSTAR     0xc0000083
+#define MSR_SF_MASK   0xc0000084
+#define MSR_GS_BASE   0xc0000101
+
+    struct v3_msr host_cstar;
+    struct v3_msr host_star;
+    struct v3_msr host_lstar;
+    struct v3_msr host_syscall_mask;
+    struct v3_msr host_gs_base;
 
     v3_enable_ints();
     v3_clgi();
@@ -364,7 +377,12 @@ static int start_svm_guest(struct guest_info *info) {
 	       (void *)(addr_t)info->rip);
     */
 
-    v3_get_msr(0xc0000101, &vm_cr_high, &vm_cr_low);
+
+    v3_get_msr(MSR_STAR, &(host_star.hi), &(host_star.lo));
+    v3_get_msr(MSR_LSTAR, &(host_lstar.hi), &(host_lstar.lo));
+    v3_get_msr(MSR_CSTAR, &(host_cstar.hi), &(host_cstar.lo));
+    v3_get_msr(MSR_SF_MASK, &(host_syscall_mask.hi), &(host_syscall_mask.lo));
+    v3_get_msr(MSR_GS_BASE, &(host_gs_base.hi), &(host_gs_base.lo));
 
     rdtscll(info->time_state.cached_host_tsc);
 
@@ -373,7 +391,12 @@ static int start_svm_guest(struct guest_info *info) {
     v3_svm_launch((vmcb_t*)V3_PAddr(info->vmm_data), &(info->vm_regs));
     rdtscll(tmp_tsc);
 
-    v3_set_msr(0xc0000101, vm_cr_high, vm_cr_low);
+    v3_set_msr(MSR_STAR, host_star.hi, host_star.lo);
+    v3_set_msr(MSR_LSTAR, host_lstar.hi, host_lstar.lo);
+    v3_set_msr(MSR_CSTAR, host_cstar.hi, host_cstar.lo);
+    v3_set_msr(MSR_SF_MASK, host_syscall_mask.hi, host_syscall_mask.lo);
+    v3_set_msr(MSR_GS_BASE, host_gs_base.hi, host_gs_base.lo);
+
     //PrintDebug("SVM Returned\n");
 
 
