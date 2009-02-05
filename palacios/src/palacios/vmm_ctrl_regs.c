@@ -504,12 +504,12 @@ int v3_handle_efer_read(uint_t msr, struct v3_msr * dst, void * priv_data) {
 int v3_handle_efer_write(uint_t msr, struct v3_msr src, void * priv_data) {
   struct guest_info * info = (struct guest_info *)(priv_data);
   //struct efer_64 * new_efer = (struct efer_64 *)&(src.value);
-  struct efer_64 * shadow_efer = (struct efer_64 *)&(info->ctrl_regs.efer);
+  //  struct efer_64 * shadow_efer = (struct efer_64 *)&(info->ctrl_regs.efer);
   struct v3_msr * guest_efer = &(info->guest_efer);
 
   PrintDebug("EFER Write\n");
   PrintDebug("EFER Write Values: HI=%x LO=%x\n", src.hi, src.lo);
-  PrintDebug("Old EFER=%p\n", (void *)*(addr_t*)(shadow_efer));
+  //PrintDebug("Old EFER=%p\n", (void *)*(addr_t*)(shadow_efer));
 
   // We virtualize the guests efer to hide the SVME and LMA bits
   guest_efer->value = src.value;
