@@ -189,7 +189,7 @@ typedef enum {PAGE_4KB, PAGE_2MB, PAGE_4MB, PAGE_1GB,
 
 /* Page Table Flag Values */
 #define PT32_HOOK 0x1
-#define PT32_GUEST_PT 0x2
+#define V3_LARGE_PG 0x2
 
 
 
@@ -483,6 +483,8 @@ int v3_find_guest_pt_64_page(struct guest_info * info, v3_reg_t guest_cr3,
 			     page_type_t type, addr_t vaddr, 
 			     addr_t * page_ptr, addr_t * page_pa);
 
+
+
 pt_access_status_t inline v3_can_access_pde32(pde32_t * pde, addr_t addr, pf_error_t access_type);
 pt_access_status_t inline v3_can_access_pte32(pte32_t * pte, addr_t addr, pf_error_t access_type);
 
@@ -511,6 +513,13 @@ int v3_check_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t va
 
 
 
+page_type_t v3_get_guest_data_page_type_32(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr);
+page_type_t v3_get_guest_data_page_type_32pae(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr);
+page_type_t v3_get_guest_data_page_type_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr);
+page_type_t v3_get_host_data_page_type_32(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr);
+page_type_t v3_get_host_data_page_type_32pae(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr);
+page_type_t v3_get_host_data_page_type_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr);
+
 
 int v3_drill_host_pt_32(struct guest_info * info, v3_reg_t host_cr3, addr_t vaddr,
 			int (*callback)(struct guest_info * info, page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
@@ -531,6 +540,7 @@ int v3_drill_guest_pt_32pae(struct guest_info * info, v3_reg_t guest_cr3, addr_t
 int v3_drill_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t vaddr,
 			 int (*callback)(struct guest_info * info, page_type_t type, addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data),
 			 void * private_data);
+
 
 
 

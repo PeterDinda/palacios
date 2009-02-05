@@ -25,14 +25,6 @@
 #include <palacios/vmm_ctrl_regs.h>
 
 
-
-/* Segmentation is a problem here...
- *
- * When we get a memory operand, presumably we use the default segment (which is?) 
- * unless an alternate segment was specfied in the prefix...
- */
-
-
 #ifndef DEBUG_CTRL_REGS
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
@@ -62,26 +54,19 @@ int v3_handle_cr0_write(struct guest_info * info) {
     return -1;
   }
 
-  if (dec_instr.op_type == V3_OP_LMSW) {
-  //  if (v3_opcode_cmp(V3_OPCODE_LMSW, (const uchar_t *)(dec_instr.opcode)) == 0) {
 
+  if (dec_instr.op_type == V3_OP_LMSW) {
     if (handle_lmsw(info, &dec_instr) == -1) {
       return -1;
     }
-
-    //  } else if (v3_opcode_cmp(V3_OPCODE_MOV2CR, (const uchar_t *)(dec_instr.opcode)) == 0) {
   } else if (dec_instr.op_type == V3_OP_MOV2CR) {
     if (handle_mov_to_cr0(info, &dec_instr) == -1) {
       return -1;
     }
-
-    //  } else if (v3_opcode_cmp(V3_OPCODE_CLTS, (const uchar_t *)(dec_instr.opcode)) == 0) {
   } else if (dec_instr.op_type == V3_OP_CLTS) {
-
     if (handle_clts(info, &dec_instr) == -1) {
       return -1;
     }
-
   } else {
     PrintError("Unhandled opcode in handle_cr0_write\n");
     return -1;
@@ -135,6 +120,22 @@ static int handle_mov_to_cr0(struct guest_info * info, struct x86_instr * dec_in
   if (paging_transition) {
     if (v3_get_mem_mode(info) == VIRTUAL_MEM) {
 
+      struct efer_64 * guest_efer  = (struct efer_64 *)&(info->guest_efer);
+      struct efer_64 * shadow_efer = (struct efer_64 *)&(info->ctrl_regs.efer);
+
+      // Check long mode LME to set LME
+      if (guest_efer->lme == 1) {
+	PrintDebug("Enabing Long Mode\n");
+	guest_efer->lma = 1;
+	
+	shadow_efer->lma = 1;
+	shadow_efer->lme = 1;
+	
+	v3_print_segments(info);
+
+	PrintDebug("New EFER %p\n", (void *)*(addr_t *)(shadow_efer));
+      }
+
       PrintDebug("Activating Shadow Page Tables\n");
       
       if (v3_activate_shadow_pt(info) == -1) {
@@ -149,6 +150,7 @@ static int handle_mov_to_cr0(struct guest_info * info, struct x86_instr * dec_in
       }
     }
   }
+
 
   PrintDebug("New Guest CR0=%x\n",*(uint_t *)guest_cr0);  
   PrintDebug("New CR0=%x\n", *(uint_t *)shadow_cr0);
@@ -227,7 +229,6 @@ int v3_handle_cr0_read(struct guest_info * info) {
     return -1;
   }
   
-  //  if (v3_opcode_cmp(V3_OPCODE_MOVCR2, (const uchar_t *)(dec_instr.opcode)) == 0) {
   if (dec_instr.op_type == V3_OP_MOVCR2) {
     struct cr0_32 * dst_reg = (struct cr0_32 *)(dec_instr.dst_operand.operand);
     struct cr0_32 * shadow_cr0 = (struct cr0_32 *)&(info->ctrl_regs.cr0);
@@ -243,7 +244,6 @@ int v3_handle_cr0_read(struct guest_info * info) {
 
     PrintDebug("Shadow CR0: %x\n", *(uint_t*)shadow_cr0);    
     PrintDebug("returned CR0: %x\n", *(uint_t*)dst_reg);
-    //  } else if (v3_opcode_cmp(V3_OPCODE_SMSW, (const uchar_t *)(dec_instr.opcode)) == 0) {
   } else if (dec_instr.op_type == V3_OP_SMSW) {
     struct cr0_real * shadow_cr0 = (struct cr0_real *)&(info->ctrl_regs.cr0);
     struct cr0_real * dst_reg = (struct cr0_real *)(dec_instr.dst_operand.operand);
@@ -287,7 +287,6 @@ int v3_handle_cr3_write(struct guest_info * info) {
     return -1;
   }
 
-  //  if (v3_opcode_cmp(V3_OPCODE_MOV2CR, (const uchar_t *)(dec_instr.opcode)) == 0) {
   if (dec_instr.op_type == V3_OP_MOV2CR) {
     PrintDebug("MOV2CR3 (cpu_mode=%s)\n", v3_cpu_mode_to_str(info->cpu_mode));
 
@@ -364,13 +363,13 @@ int v3_handle_cr3_read(struct guest_info * info) {
     return -1;
   }
 
-  //  if (v3_opcode_cmp(V3_OPCODE_MOVCR2, (const uchar_t *)(dec_instr.opcode)) == 0) {
   if (dec_instr.op_type == V3_OP_MOVCR2) {
     PrintDebug("MOVCR32 (mode=%s)\n", v3_cpu_mode_to_str(info->cpu_mode));
 
     if (info->shdw_pg_mode == SHADOW_PAGING) {
 
-      if (info->cpu_mode == LONG) {
+      if ((v3_get_cpu_mode(info) == LONG) || 
+	  (v3_get_cpu_mode(info) == LONG_32_COMPAT)) {
 	struct cr3_64 * dst_reg = (struct cr3_64 *)(dec_instr.dst_operand.operand);
 	struct cr3_64 * guest_cr3 = (struct cr3_64 *)&(info->shdw_pg_state.guest_cr3);
 	*dst_reg = *guest_cr3;
@@ -383,7 +382,8 @@ int v3_handle_cr3_read(struct guest_info * info) {
     } else if (info->shdw_pg_mode == NESTED_PAGING) {
 
       // This is just a passthrough operation which we probably don't need here
-      if (info->cpu_mode == LONG) {
+      if ((v3_get_cpu_mode(info) == LONG) || 
+	  (v3_get_cpu_mode(info) == LONG_32_COMPAT)) {
 	struct cr3_64 * dst_reg = (struct cr3_64 *)(dec_instr.dst_operand.operand);
 	struct cr3_64 * guest_cr3 = (struct cr3_64 *)&(info->ctrl_regs.cr3);
 	*dst_reg = *guest_cr3;
@@ -416,6 +416,7 @@ int v3_handle_cr4_write(struct guest_info * info) {
   uchar_t instr[15];
   int ret;
   struct x86_instr dec_instr;
+  v3_vm_cpu_mode_t cpu_mode = v3_get_cpu_mode(info);
 
   if (info->mem_mode == PHYSICAL_MEM) { 
     ret = read_guest_pa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
@@ -428,13 +429,12 @@ int v3_handle_cr4_write(struct guest_info * info) {
     return -1;
   }
 
-  //  if (v3_opcode_cmp(V3_OPCODE_MOV2CR, (const uchar_t *)(dec_instr.opcode)) != 0) {
   if (dec_instr.op_type != V3_OP_MOV2CR) {
     PrintError("Invalid opcode in write to CR4\n");
     return -1;
   }
 
-  if ((info->cpu_mode == PROTECTED) || (info->cpu_mode == PROTECTED_PAE)) {
+  if ((cpu_mode == PROTECTED) || (cpu_mode == PROTECTED_PAE)) {
     struct cr4_32 * new_cr4 = (struct cr4_32 *)(dec_instr.src_operand.operand);
     struct cr4_32 * cr4 = (struct cr4_32 *)&(info->ctrl_regs.cr4);
     
@@ -465,8 +465,23 @@ int v3_handle_cr4_write(struct guest_info * info) {
     *cr4 = *new_cr4;
     PrintDebug("New CR4=%x\n", *(uint_t *)cr4);
 
+  } else if ((cpu_mode == LONG) || (cpu_mode == LONG_32_COMPAT)) {
+    struct cr4_64 * new_cr4 = (struct cr4_64 *)(dec_instr.src_operand.operand);
+    struct cr4_64 * cr4 = (struct cr4_64 *)&(info->ctrl_regs.cr4);
+
+    PrintDebug("Old CR4=%p\n", (void *)*(addr_t *)cr4);
+    PrintDebug("New CR4=%p\n", (void *)*(addr_t *)new_cr4);
+
+    if (new_cr4->pae == 0) {
+      // cannot turn off PAE in long mode GPF the guest
+      PrintError("Cannot disable PAE in long mode, sending GPF\n");
+      return -1;
+    }
+
+    *cr4 = *new_cr4;
+
   } else {
-    PrintError("CR4 write not supported in CPU_MODE: %d\n", info->cpu_mode);
+    PrintError("CR4 write not supported in CPU_MODE: %s\n", v3_cpu_mode_to_str(cpu_mode));
     return -1;
   }
 
@@ -477,7 +492,7 @@ int v3_handle_cr4_write(struct guest_info * info) {
 
 int v3_handle_efer_read(uint_t msr, struct v3_msr * dst, void * priv_data) {
   struct guest_info * info = (struct guest_info *)(priv_data);
-  PrintDebug("EFER Read\n");
+  PrintDebug("EFER Read HI=%x LO=%x\n", info->guest_efer.hi, info->guest_efer.lo);
 
   dst->value = info->guest_efer.value;
 
@@ -488,64 +503,66 @@ int v3_handle_efer_read(uint_t msr, struct v3_msr * dst, void * priv_data) {
 
 int v3_handle_efer_write(uint_t msr, struct v3_msr src, void * priv_data) {
   struct guest_info * info = (struct guest_info *)(priv_data);
-  struct efer_64 * new_efer = (struct efer_64 *)&(src.value);
+  //struct efer_64 * new_efer = (struct efer_64 *)&(src.value);
   struct efer_64 * shadow_efer = (struct efer_64 *)&(info->ctrl_regs.efer);
   struct v3_msr * guest_efer = &(info->guest_efer);
 
   PrintDebug("EFER Write\n");
+  PrintDebug("EFER Write Values: HI=%x LO=%x\n", src.hi, src.lo);
   PrintDebug("Old EFER=%p\n", (void *)*(addr_t*)(shadow_efer));
 
   // We virtualize the guests efer to hide the SVME and LMA bits
   guest_efer->value = src.value;
 
- 
-  if ((info->shdw_pg_mode == SHADOW_PAGING) && 
-      (v3_get_mem_mode(info) == PHYSICAL_MEM)) {
-    
-    if ((shadow_efer->lme == 0) && (new_efer->lme == 1)) {
-      PrintDebug("Transition to longmode\n");
-      PrintDebug("Creating Passthrough 64 bit page tables\n");
-      
-      // Delete the old 32 bit direct map page tables
-      /* 
-       * JRL BUG? 
-       * Will these page tables always be in PAE format?? 
-       */
-      PrintDebug("Deleting old PAE Page tables\n");
-      PrintError("JRL BUG?: Will the old page tables always be in PAE format??\n");
-      delete_page_tables_32PAE((pdpe32pae_t *)V3_VAddr((void *)(info->direct_map_pt)));
-      
-      // create 64 bit direct map page table
-      info->direct_map_pt = (addr_t)V3_PAddr(create_passthrough_pts_64(info));
-      
-      // reset cr3 to new page tables
-      info->ctrl_regs.cr3 = *(addr_t*)&(info->direct_map_pt);
-      
-      // We mark the Long Mode active  because we have paging enabled
-      // We do this in new_efer because we copy the msr in full below
-      new_efer->lma = 1;
-      
-    } else if ((shadow_efer->lme == 1) && (new_efer->lme == 0)) {
-      // transition out of long mode
-      //((struct efer_64 *)&(info->guest_efer.value))->lme = 0;
-      //((struct efer_64 *)&(info->guest_efer.value))->lma = 0;
-      
-      return -1;
-    }
+	
+  v3_print_segments(info);
+  // We have to handle long mode writes....
 
-    // accept all changes to the efer, but make sure that the SVME bit is set... (SVM specific)
-    *shadow_efer = *new_efer;
-    shadow_efer->svme = 1;
-    
-
-
-    PrintDebug("New EFER=%p\n", (void *)*(addr_t *)(shadow_efer));
-  } else {
-    PrintError("Write to EFER in NESTED_PAGING or VIRTUAL_MEM mode not supported\n");
-    // Should probably just check for a long mode transition, and bomb out if it is
-    return -1;
-  }
-
+  /* 
+     if ((info->shdw_pg_mode == SHADOW_PAGING) && 
+     (v3_get_mem_mode(info) == PHYSICAL_MEM)) {
+     
+     if ((shadow_efer->lme == 0) && (new_efer->lme == 1)) {
+     PrintDebug("Transition to longmode\n");
+     PrintDebug("Creating Passthrough 64 bit page tables\n");
+     
+     // Delete the old 32 bit direct map page tables
+     
+     PrintDebug("Deleting old PAE Page tables\n");
+     PrintError("JRL BUG?: Will the old page tables always be in PAE format??\n");
+     delete_page_tables_32PAE((pdpe32pae_t *)V3_VAddr((void *)(info->direct_map_pt)));
+     
+     // create 64 bit direct map page table
+     info->direct_map_pt = (addr_t)V3_PAddr(create_passthrough_pts_64(info));
+     
+     // reset cr3 to new page tables
+     info->ctrl_regs.cr3 = *(addr_t*)&(info->direct_map_pt);
+     
+     // We mark the Long Mode active  because we have paging enabled
+     // We do this in new_efer because we copy the msr in full below
+     // new_efer->lma = 1;
+     
+     } else if ((shadow_efer->lme == 1) && (new_efer->lme == 0)) {
+     // transition out of long mode
+     //((struct efer_64 *)&(info->guest_efer.value))->lme = 0;
+     //((struct efer_64 *)&(info->guest_efer.value))->lma = 0;
+     
+     return -1;
+     }
+     
+     // accept all changes to the efer, but make sure that the SVME bit is set... (SVM specific)
+     *shadow_efer = *new_efer;
+     shadow_efer->svme = 1;
+     
+     
+     
+     PrintDebug("New EFER=%p\n", (void *)*(addr_t *)(shadow_efer));
+     } else {
+     PrintError("Write to EFER in NESTED_PAGING or VIRTUAL_MEM mode not supported\n");
+     // Should probably just check for a long mode transition, and bomb out if it is
+     return -1;
+     }
+  */
   info->rip += 2; // WRMSR/RDMSR are two byte operands
 
   return 0;

@@ -45,6 +45,16 @@ struct v3_gprs {
   v3_reg_t rdx;
   v3_reg_t rcx;
   v3_reg_t rax;
+
+  v3_reg_t r8;
+  v3_reg_t r9;
+  v3_reg_t r10;
+  v3_reg_t r11;
+  v3_reg_t r12;
+  v3_reg_t r13;
+  v3_reg_t r14;
+  v3_reg_t r15;
+  
 };
 
 

@@ -300,6 +300,9 @@ static int handle_pde_shadow_pagefault_64(struct guest_info * info, addr_t fault
     if (guest_pde->large_page == 0) {
       shadow_pde->writable = guest_pde->writable;
     } else {
+      // This large page flag is temporary until we can get a working cache....
+      ((pde64_2MB_t *)guest_pde)->vmm_info = V3_LARGE_PG;
+
       if (error_code.write) {
 	shadow_pde->writable = guest_pde->writable;
 	((pde64_2MB_t *)guest_pde)->dirty = 1;	
@@ -506,7 +509,7 @@ static int handle_2MB_shadow_pagefault_64(struct guest_info * info,
     // Inconsistent state...
     // Guest Re-Entry will flush tables and everything should now workd
     PrintDebug("Inconsistent state... Guest re-entry should flush tlb\n");
-    PrintHostPageTree(info, fault_addr, info->ctrl_regs.cr3);
+    //PrintHostPageTree(info, fault_addr, info->ctrl_regs.cr3);
     return 0;
   }
 
@@ -583,7 +586,7 @@ static int handle_2MB_shadow_pagefault_64(struct guest_info * info,
     return -1;
   }
 
-  PrintHostPageTree(info, fault_addr, info->ctrl_regs.cr3);
+  //  PrintHostPageTree(info, fault_addr, info->ctrl_regs.cr3);
   PrintDebug("Returning from large page fault handler\n");
   return 0;
 }
@@ -591,8 +594,81 @@ static int handle_2MB_shadow_pagefault_64(struct guest_info * info,
 
 
 
+static int invalidation_cb_64(struct guest_info * info, page_type_t type, 
+			      addr_t vaddr, addr_t page_ptr, addr_t page_pa, 
+			      void * private_data) {
+
+  switch (type) {
+  case PAGE_PML464:
+    {    
+      pml4e64_t * pml = (pml4e64_t *)page_ptr;
+
+      if (pml[PML4E64_INDEX(vaddr)].present == 0) {
+	return 1;
+      }
+      return 0;
+    }
+  case PAGE_PDP64:
+    {
+      pdpe64_t * pdp = (pdpe64_t *)page_ptr;
+      pdpe64_t * pdpe = &(pdp[PDPE64_INDEX(vaddr)]);
+
+      if (pdpe->present == 0) {
+	return 1;
+      }
+     
+      if (pdpe->vmm_info == V3_LARGE_PG) {
+	PrintError("1 Gigabyte pages not supported\n");
+	return -1;
+
+	pdpe->present = 0;
+	return 1;
+      }
+
+      return 0;
+    }
+  case PAGE_PD64:
+    {
+      pde64_t * pd = (pde64_t *)page_ptr;
+      pde64_t * pde = &(pd[PDE64_INDEX(vaddr)]);
+
+      if (pde->present == 0) {
+	return 1;
+      }
+      
+      if (pde->vmm_info == V3_LARGE_PG) {
+	pde->present = 0;
+	return 1;
+      }
+
+      return 0;
+    }
+  case PAGE_PT64:
+    {
+      pte64_t * pt = (pte64_t *)page_ptr;
+
+      pt[PTE64_INDEX(vaddr)].present = 0;
+
+      return 1;
+    }
+  default:
+    PrintError("Invalid Page Type\n");
+    return -1;
+
+  }
+
+  // should not get here
+  PrintError("Should not get here....\n");
+  return -1;
+}
+
 
 static inline int handle_shadow_invlpg_64(struct guest_info * info, addr_t vaddr) {
-  PrintError("64 bit shadow paging not implemented\n");
-  return -1;
+  int ret =  v3_drill_host_pt_64(info, info->ctrl_regs.cr3, vaddr, invalidation_cb_64, NULL);
+  if (ret == -1) {
+    PrintError("Page table drill returned error.... \n");
+    PrintHostPageTree(info, vaddr, info->ctrl_regs.cr3);
+  }
+
+  return (ret == -1) ? -1 : 0; 
 }

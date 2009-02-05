@@ -83,20 +83,29 @@ v3_svm_launch:
 #elif __V3_64BIT__
 
 #define Save_SVM_Registers(location) 	\
-	push	%rax; 			\
-	mov	location, %rax;		\
-	mov	%rdi, (%rax);		\
-	mov	%rsi, 8(%rax);		\
-	mov	%rbp, 16(%rax);		\
+	pushq	%rax; 			\
+	movq	location, %rax;		\
+	movq	%rdi, (%rax);		\
+	movq	%rsi, 8(%rax);		\
+	movq	%rbp, 16(%rax);		\
 	movq	$0, 24(%rax);		\
-	mov 	%rbx, 32(%rax);		\
-	mov 	%rdx, 40(%rax);		\
-	mov 	%rcx, 48(%rax);		\
-	push	%rbx;			\
-	mov	16(%rsp), %rbx;		\
-	mov	%rbx, 56(%rax);		\
-	pop	%rbx;			\
-	pop 	%rax;			
+	movq 	%rbx, 32(%rax);		\
+	movq 	%rdx, 40(%rax);		\
+	movq 	%rcx, 48(%rax);		\
+	pushq	%rbx;			\
+	movq	16(%rsp), %rbx;		\
+	movq	%rbx, 56(%rax);		\
+	popq	%rbx;			\
+					\
+	movq	%r8, 64(%rax);		\
+	movq	%r9, 72(%rax);		\
+	movq	%r10, 80(%rax);		\
+	movq	%r11, 88(%rax);		\
+	movq	%r12, 96(%rax);		\
+	movq	%r13, 104(%rax);	\
+	movq	%r14, 112(%rax);	\
+	movq	%r15, 120(%rax);	\
+	popq 	%rax;			
 	
 
 #define Restore_SVM_Registers(location) \
@@ -108,6 +117,15 @@ v3_svm_launch:
 	mov	32(%rax), %rbx;		\
 	mov	40(%rax), %rdx;		\
 	mov 	48(%rax), %rcx;		\
+					\
+	mov	64(%rax), %r8;		\
+	mov	72(%rax), %r9;		\
+	mov	80(%rax), %r10;		\
+	mov	88(%rax), %r11;		\
+	mov	96(%rax), %r12;		\
+	mov	104(%rax), %r13;	\
+	mov	112(%rax), %r14;	\
+	mov	120(%rax), %r15;	\
 	pop	%rax;
 
 
@@ -116,6 +134,10 @@ v3_svm_launch:
 #define PUSHA				\
 	pushq %rbp;			\
 	pushq %rbx;			\
+	pushq %r8;			\
+	pushq %r9;			\
+	pushq %r10;			\
+	pushq %r11;			\
 	pushq %r12;			\
 	pushq %r13;			\
 	pushq %r14;			\
@@ -127,6 +149,10 @@ v3_svm_launch:
 	popq %r14;			\
 	popq %r13;			\
 	popq %r12;			\
+	popq %r11;			\
+	popq %r10;			\
+	popq %r9;			\
+	popq %r8;			\
 	popq %rbx;			\
 	popq %rbp;			
 

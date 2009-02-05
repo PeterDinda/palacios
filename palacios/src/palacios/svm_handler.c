@@ -79,13 +79,17 @@ int v3_handle_svm_exit(struct guest_info * info) {
 
   //  PrintDebug("SVM Returned: Exit Code: 0x%x \t\t(tsc=%ul)\n",exit_code, (uint_t)info->time_state.guest_tsc); 
   
-  if ((0) && (exit_code < 0x4f)) {
+  if ((0) && (exit_code <= VMEXIT_EXCP14)) {
     uchar_t instr[32];
     int ret;
     // Dump out the instr stream
 
     //PrintDebug("RIP: %x\n", guest_state->rip);
-    PrintDebug("RIP Linear: %p\n", (void *)get_addr_linear(info, info->rip, &(info->segments.cs)));
+    PrintDebug("\n\n\nRIP Linear: %p\n", (void *)get_addr_linear(info, info->rip, &(info->segments.cs)));
+
+    v3_print_GPRs(info);
+    v3_print_ctrl_regs(info);
+
 
     // OK, now we will read the instruction
     // The only difference between PROTECTED and PROTECTED_PG is whether we read
@@ -97,6 +101,8 @@ int v3_handle_svm_exit(struct guest_info * info) {
       ret = read_guest_va_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 32, instr);
     }
     
+
+
     if (ret != 32) {
       // I think we should inject a GPF into the guest
       PrintDebug("Could not read instruction (ret=%d)\n", ret);
@@ -384,7 +390,12 @@ int v3_handle_svm_exit(struct guest_info * info) {
     PrintError("io_info2 low = 0x%.8x\n", *(uint_t*)&(guest_ctrl->exit_info2));
     PrintError("io_info2 high = 0x%.8x\n", *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info2)) + 4));
 
-    
+
+    if (info->shdw_pg_mode == SHADOW_PAGING) {
+      PrintHostPageTables(info, info->ctrl_regs.cr3);
+      //PrintGuestPageTables(info, info->shdw_pg_state.guest_cr3);
+    }
+
     return -1;
 
   }

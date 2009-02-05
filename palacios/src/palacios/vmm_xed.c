@@ -608,6 +608,8 @@ static int get_memory_operand(struct guest_info * info,  xed_decoded_inst_t * xe
 
 static int xed_reg_to_v3_reg(struct guest_info * info, xed_reg_enum_t xed_reg, addr_t * v3_reg, uint_t * reg_len) {
 
+  PrintError("Xed Register: %s\n", xed_reg_enum_t2str(xed_reg));
+
   switch (xed_reg) {
   case XED_REG_INVALID:
     *v3_reg = 0;
@@ -774,6 +776,146 @@ static int xed_reg_to_v3_reg(struct guest_info * info, xed_reg_enum_t xed_reg, a
     return GPR_REGISTER;
 
 
+
+
+
+  case XED_REG_R8:
+    *v3_reg = (addr_t)&(info->vm_regs.r8);
+    *reg_len = 8;
+    return GPR_REGISTER;
+  case XED_REG_R8D:
+    *v3_reg = (addr_t)&(info->vm_regs.r8);
+    *reg_len = 4;
+    return GPR_REGISTER;
+  case XED_REG_R8W:
+    *v3_reg = (addr_t)&(info->vm_regs.r8);
+    *reg_len = 2;
+    return GPR_REGISTER;
+  case XED_REG_R8B:
+    *v3_reg = (addr_t)&(info->vm_regs.r8);
+    *reg_len = 1;
+    return GPR_REGISTER;
+
+  case XED_REG_R9:
+    *v3_reg = (addr_t)&(info->vm_regs.r9);
+    *reg_len = 8;
+    return GPR_REGISTER;
+  case XED_REG_R9D:
+    *v3_reg = (addr_t)&(info->vm_regs.r9);
+    *reg_len = 4;
+    return GPR_REGISTER;
+  case XED_REG_R9W:
+    *v3_reg = (addr_t)&(info->vm_regs.r9);
+    *reg_len = 2;
+    return GPR_REGISTER;
+  case XED_REG_R9B:
+    *v3_reg = (addr_t)&(info->vm_regs.r9);
+    *reg_len = 1;
+    return GPR_REGISTER;
+
+  case XED_REG_R10:
+    *v3_reg = (addr_t)&(info->vm_regs.r10);
+    *reg_len = 8;
+    return GPR_REGISTER;
+  case XED_REG_R10D:
+    *v3_reg = (addr_t)&(info->vm_regs.r10);
+    *reg_len = 4;
+    return GPR_REGISTER;
+  case XED_REG_R10W:
+    *v3_reg = (addr_t)&(info->vm_regs.r10);
+    *reg_len = 2;
+    return GPR_REGISTER;
+  case XED_REG_R10B:
+    *v3_reg = (addr_t)&(info->vm_regs.r10);
+    *reg_len = 1;
+    return GPR_REGISTER;
+
+  case XED_REG_R11:
+    *v3_reg = (addr_t)&(info->vm_regs.r11);
+    *reg_len = 8;
+    return GPR_REGISTER;
+  case XED_REG_R11D:
+    *v3_reg = (addr_t)&(info->vm_regs.r11);
+    *reg_len = 4;
+    return GPR_REGISTER;
+  case XED_REG_R11W:
+    *v3_reg = (addr_t)&(info->vm_regs.r11);
+    *reg_len = 2;
+    return GPR_REGISTER;
+  case XED_REG_R11B:
+    *v3_reg = (addr_t)&(info->vm_regs.r11);
+    *reg_len = 1;
+    return GPR_REGISTER;
+
+  case XED_REG_R12:
+    *v3_reg = (addr_t)&(info->vm_regs.r12);
+    *reg_len = 8;
+    return GPR_REGISTER;
+  case XED_REG_R12D:
+    *v3_reg = (addr_t)&(info->vm_regs.r12);
+    *reg_len = 4;
+    return GPR_REGISTER;
+  case XED_REG_R12W:
+    *v3_reg = (addr_t)&(info->vm_regs.r12);
+    *reg_len = 2;
+    return GPR_REGISTER;
+  case XED_REG_R12B:
+    *v3_reg = (addr_t)&(info->vm_regs.r12);
+    *reg_len = 1;
+    return GPR_REGISTER;
+
+  case XED_REG_R13:
+    *v3_reg = (addr_t)&(info->vm_regs.r13);
+    *reg_len = 8;
+    return GPR_REGISTER;
+  case XED_REG_R13D:
+    *v3_reg = (addr_t)&(info->vm_regs.r13);
+    *reg_len = 4;
+    return GPR_REGISTER;
+  case XED_REG_R13W:
+    *v3_reg = (addr_t)&(info->vm_regs.r13);
+    *reg_len = 2;
+    return GPR_REGISTER;
+  case XED_REG_R13B:
+    *v3_reg = (addr_t)&(info->vm_regs.r13);
+    *reg_len = 1;
+    return GPR_REGISTER;
+
+  case XED_REG_R14:
+    *v3_reg = (addr_t)&(info->vm_regs.r14);
+    *reg_len = 8;
+    return GPR_REGISTER;
+  case XED_REG_R14D:
+    *v3_reg = (addr_t)&(info->vm_regs.r14);
+    *reg_len = 4;
+    return GPR_REGISTER;
+  case XED_REG_R14W:
+    *v3_reg = (addr_t)&(info->vm_regs.r14);
+    *reg_len = 2;
+    return GPR_REGISTER;
+  case XED_REG_R14B:
+    *v3_reg = (addr_t)&(info->vm_regs.r14);
+    *reg_len = 1;
+    return GPR_REGISTER;
+
+  case XED_REG_R15:
+    *v3_reg = (addr_t)&(info->vm_regs.r15);
+    *reg_len = 8;
+    return GPR_REGISTER;
+  case XED_REG_R15D:
+    *v3_reg = (addr_t)&(info->vm_regs.r15);
+    *reg_len = 4;
+    return GPR_REGISTER;
+  case XED_REG_R15W:
+    *v3_reg = (addr_t)&(info->vm_regs.r15);
+    *reg_len = 2;
+    return GPR_REGISTER;
+  case XED_REG_R15B:
+    *v3_reg = (addr_t)&(info->vm_regs.r15);
+    *reg_len = 1;
+    return GPR_REGISTER;
+
+
     /* 
      *  CTRL REGS
      */
@@ -894,45 +1036,7 @@ static int xed_reg_to_v3_reg(struct guest_info * info, xed_reg_enum_t xed_reg, a
 
 
 
-  case XED_REG_R8:
-  case XED_REG_R8D:
-  case XED_REG_R8W:
-  case XED_REG_R8B:
 
-  case XED_REG_R9:
-  case XED_REG_R9D:
-  case XED_REG_R9W:
-  case XED_REG_R9B:
-
-  case XED_REG_R10:
-  case XED_REG_R10D:
-  case XED_REG_R10W:
-  case XED_REG_R10B:
-
-  case XED_REG_R11:
-  case XED_REG_R11D:
-  case XED_REG_R11W:
-  case XED_REG_R11B:
-
-  case XED_REG_R12:
-  case XED_REG_R12D:
-  case XED_REG_R12W:
-  case XED_REG_R12B:
-
-  case XED_REG_R13:
-  case XED_REG_R13D:
-  case XED_REG_R13W:
-  case XED_REG_R13B:
-
-  case XED_REG_R14:
-  case XED_REG_R14D:
-  case XED_REG_R14W:
-  case XED_REG_R14B:
-
-  case XED_REG_R15:
-  case XED_REG_R15D:
-  case XED_REG_R15W:
-  case XED_REG_R15B:
 
   case XED_REG_XMM0:
   case XED_REG_XMM1:

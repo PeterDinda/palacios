@@ -92,7 +92,7 @@ int v3_init_shadow_page_state(struct guest_info * info) {
 // creates new shadow page tables
 // updates the shadow CR3 register to point to the new pts
 int v3_activate_shadow_pt(struct guest_info * info) {
-  switch (info->cpu_mode) {
+  switch (v3_get_cpu_mode(info)) {
 
   case PROTECTED:
     return activate_shadow_pt_32(info);
@@ -103,7 +103,7 @@ int v3_activate_shadow_pt(struct guest_info * info) {
   case LONG_16_COMPAT:
     return activate_shadow_pt_64(info);
   default:
-    PrintError("Invalid CPU mode: %s\n", v3_cpu_mode_to_str(info->cpu_mode));
+    PrintError("Invalid CPU mode: %s\n", v3_cpu_mode_to_str(v3_get_cpu_mode(info)));
     return -1;
   }
 
@@ -125,12 +125,12 @@ int v3_activate_passthrough_pt(struct guest_info * info) {
 
 int v3_handle_shadow_pagefault(struct guest_info * info, addr_t fault_addr, pf_error_t error_code) {
   
-  if (info->mem_mode == PHYSICAL_MEM) {
+  if (v3_get_mem_mode(info) == PHYSICAL_MEM) {
     // If paging is not turned on we need to handle the special cases
     return handle_special_page_fault(info, fault_addr, fault_addr, error_code);
-  } else if (info->mem_mode == VIRTUAL_MEM) {
+  } else if (v3_get_mem_mode(info) == VIRTUAL_MEM) {
 
-    switch (info->cpu_mode) {
+    switch (v3_get_cpu_mode(info)) {
     case PROTECTED:
       return handle_shadow_pagefault_32(info, fault_addr, error_code);
       break;
@@ -142,7 +142,7 @@ int v3_handle_shadow_pagefault(struct guest_info * info, addr_t fault_addr, pf_e
       return handle_shadow_pagefault_64(info, fault_addr, error_code);
       break;
     default:
-      PrintError("Unhandled CPU Mode: %s\n", v3_cpu_mode_to_str(info->cpu_mode));
+      PrintError("Unhandled CPU Mode: %s\n", v3_cpu_mode_to_str(v3_get_cpu_mode(info)));
       return -1;
     }
   } else {
@@ -158,14 +158,14 @@ int v3_handle_shadow_invlpg(struct guest_info * info) {
   int ret = 0;
   addr_t vaddr = 0;
 
-  if (info->mem_mode != VIRTUAL_MEM) {
+  if (v3_get_mem_mode(info) != VIRTUAL_MEM) {
     // Paging must be turned on...
     // should handle with some sort of fault I think
     PrintError("ERROR: INVLPG called in non paged mode\n");
     return -1;
   }
 
-  if (info->mem_mode == PHYSICAL_MEM) { 
+  if (v3_get_mem_mode(info) == PHYSICAL_MEM) { 
     ret = read_guest_pa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
   } else { 
     ret = read_guest_va_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
@@ -192,7 +192,7 @@ int v3_handle_shadow_invlpg(struct guest_info * info) {
 
   info->rip += dec_instr.instr_length;
 
-  switch (info->cpu_mode) {
+  switch (v3_get_cpu_mode(info)) {
   case PROTECTED:
     return handle_shadow_invlpg_32(info, vaddr);
   case PROTECTED_PAE:
@@ -202,7 +202,7 @@ int v3_handle_shadow_invlpg(struct guest_info * info) {
   case LONG_16_COMPAT:
     return handle_shadow_invlpg_64(info, vaddr);
   default:
-    PrintError("Invalid CPU mode: %s\n", v3_cpu_mode_to_str(info->cpu_mode));
+    PrintError("Invalid CPU mode: %s\n", v3_cpu_mode_to_str(v3_get_cpu_mode(info)));
     return -1;
   }
 }

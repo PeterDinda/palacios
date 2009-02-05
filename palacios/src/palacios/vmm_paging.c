@@ -59,19 +59,20 @@ void delete_page_tables_32(pde32_t * pde) {
   if (pde == NULL) { 
     return;
   }
+  PrintDebug("Deleting Page Tables -- PDE (%p)\n", pde);
 
   for (i = 0; (i < MAX_PDE32_ENTRIES); i++) {
     if (pde[i].present) {
       // We double cast, first to an addr_t to handle 64 bit issues, then to the pointer
-      PrintDebug("PTE base addr %x \n", pde[i].pt_base_addr);
+      
       pte32_t * pte = (pte32_t *)((addr_t)(uint_t)(pde[i].pt_base_addr << PAGE_POWER));
 
-      PrintDebug("Deleting PTE %d (%p)\n", i, pte);
+      
       V3_FreePage(pte);
     }
   }
 
-  PrintDebug("Deleting PDE (%p)\n", pde);
+
   V3_FreePage(V3_PAddr(pde));
 }
 
@@ -433,6 +434,40 @@ int v3_check_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t va
   return v3_drill_guest_pt_64(info, guest_cr3, vaddr, check_pt_64_cb, &access_data);
 }
 
+
+static int get_data_page_type_cb(struct guest_info * info, page_type_t type, 
+				 addr_t vaddr, addr_t page_ptr, addr_t page_pa, void * private_data) {
+  switch (type) {
+  case PAGE_4KB:
+  case PAGE_2MB:
+  case PAGE_4MB:
+  case PAGE_1GB:
+    return 1;
+  default:
+    return 0;
+  }
+}
+
+
+
+page_type_t v3_get_guest_data_page_type_32(struct guest_info * info, v3_reg_t cr3, addr_t vaddr) {
+  return v3_drill_guest_pt_32(info, cr3, vaddr, get_data_page_type_cb, NULL);
+}
+page_type_t v3_get_guest_data_page_type_32pae(struct guest_info * info, v3_reg_t cr3, addr_t vaddr) {
+  return v3_drill_guest_pt_32pae(info, cr3, vaddr, get_data_page_type_cb, NULL);
+}
+page_type_t v3_get_guest_data_page_type_64(struct guest_info * info, v3_reg_t cr3, addr_t vaddr) {
+  return v3_drill_guest_pt_64(info, cr3, vaddr, get_data_page_type_cb, NULL);
+}
+page_type_t v3_get_host_data_page_type_32(struct guest_info * info, v3_reg_t cr3, addr_t vaddr) {
+  return v3_drill_host_pt_32(info, cr3, vaddr, get_data_page_type_cb, NULL);
+}
+page_type_t v3_get_host_data_page_type_32pae(struct guest_info * info, v3_reg_t cr3, addr_t vaddr) {
+  return v3_drill_host_pt_32pae(info, cr3, vaddr, get_data_page_type_cb, NULL);
+}
+page_type_t v3_get_host_data_page_type_64(struct guest_info * info, v3_reg_t cr3, addr_t vaddr) {
+  return v3_drill_host_pt_64(info, cr3, vaddr, get_data_page_type_cb, NULL);
+}
 
 
 /*

@@ -29,7 +29,7 @@
 v3_vm_cpu_mode_t v3_get_cpu_mode(struct guest_info * info) {
   struct cr0_32 * cr0;
   struct cr4_32 * cr4 = (struct cr4_32 *)&(info->ctrl_regs.cr4);
-  struct efer_64 * efer = (struct efer_64 *)&(info->ctrl_regs.efer);
+  struct efer_64 * efer = (struct efer_64 *)&(info->guest_efer);
   struct v3_segment * cs = &(info->segments.cs);
 
   if (info->shdw_pg_mode == SHADOW_PAGING) {
@@ -130,8 +130,9 @@ void v3_print_segments(struct guest_info * info) {
 
   for (i = 0; seg_names[i] != NULL; i++) {
 
-    PrintDebug("\t%s: Sel=%x, base=%p, limit=%x\n", seg_names[i], seg_ptr[i].selector, 
-	       (void *)(addr_t)seg_ptr[i].base, seg_ptr[i].limit);
+    PrintDebug("\t%s: Sel=%x, base=%p, limit=%x (long_mode=%d, db=%d)\n", seg_names[i], seg_ptr[i].selector, 
+	       (void *)(addr_t)seg_ptr[i].base, seg_ptr[i].limit,
+	       seg_ptr[i].long_mode, seg_ptr[i].db);
 
   }
 
@@ -158,6 +159,7 @@ void v3_print_ctrl_regs(struct guest_info * info) {
 }
 
 
+#ifdef __V3_32BIT__
 void v3_print_GPRs(struct guest_info * info) {
   struct v3_gprs * regs = &(info->vm_regs);
   int i = 0;
@@ -172,3 +174,23 @@ void v3_print_GPRs(struct guest_info * info) {
     PrintDebug("\t%s=0x%p\n", reg_names[i], (void *)(addr_t)reg_ptr[i]);  
   }
 }
+#elif __V3_64BIT__
+void v3_print_GPRs(struct guest_info * info) {
+  struct v3_gprs * regs = &(info->vm_regs);
+  int i = 0;
+  v3_reg_t * reg_ptr;
+  char * reg_names[] = { "RDI", "RSI", "RBP", "RSP", "RBX", "RDX", "RCX", "RAX", \
+			 "R8", "R9", "R10", "R11", "R12", "R13", "R14", "R15", NULL};
+
+  reg_ptr= (v3_reg_t *)regs;
+
+  PrintDebug("64 bit GPRs:\n");
+
+  for (i = 0; reg_names[i] != NULL; i++) {
+    PrintDebug("\t%s=0x%p\n", reg_names[i], (void *)(addr_t)reg_ptr[i]);  
+  }
+}
+
+
+
+#endif
