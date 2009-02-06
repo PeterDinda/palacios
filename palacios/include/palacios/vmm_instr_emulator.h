@@ -350,7 +350,7 @@
 
 
 #define MAKE_2OP_64_INST(iname) static inline void iname##64(addr_t * dst, addr_t * src) { \
-    uint32_t tmp_dst = *dst, tmp_src = *src;				\
+    uint64_t tmp_dst = *dst, tmp_src = *src;				\
 									\
     asm volatile (							\
 	 #iname"q %1, %0; "						\
