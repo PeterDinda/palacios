@@ -130,8 +130,6 @@ static int handle_mov_to_cr0(struct guest_info * info, struct x86_instr * dec_in
 	
 	shadow_efer->lma = 1;
 	shadow_efer->lme = 1;
-	
-	v3_print_segments(info);
 
 	PrintDebug("New EFER %p\n", (void *)*(addr_t *)(shadow_efer));
       }
@@ -515,7 +513,6 @@ int v3_handle_efer_write(uint_t msr, struct v3_msr src, void * priv_data) {
   guest_efer->value = src.value;
 
 	
-  v3_print_segments(info);
   // We have to handle long mode writes....
 
   /* 

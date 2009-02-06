@@ -139,8 +139,8 @@ struct guest_info {
   v3_io_map_t io_map;
 
   struct v3_msr_map msr_map;
-  // device_map
 
+  // device_map
   struct vmm_dev_mgr  dev_mgr;
 
   struct v3_host_events host_event_hooks;
@@ -165,15 +165,12 @@ struct guest_info {
 
   struct v3_msr guest_efer;
 
-
-  struct v3_msr shadow_cstar;
-  struct v3_msr shadow_star;
-  struct v3_msr shadow_lstar;
-  struct v3_msr shadow_syscall_mask;
-  
-
-  /* TEMP */
-  //ullong_t exit_tsc;
+  /* Do we need these ? */
+  struct v3_msr guest_star;
+  struct v3_msr guest_lstar;
+  struct v3_msr guest_cstar;
+  struct v3_msr guest_syscall_mask;
+  struct v3_msr guest_gs_base;
 
 };
 

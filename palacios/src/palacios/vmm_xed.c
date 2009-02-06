@@ -608,7 +608,7 @@ static int get_memory_operand(struct guest_info * info,  xed_decoded_inst_t * xe
 
 static int xed_reg_to_v3_reg(struct guest_info * info, xed_reg_enum_t xed_reg, addr_t * v3_reg, uint_t * reg_len) {
 
-  PrintError("Xed Register: %s\n", xed_reg_enum_t2str(xed_reg));
+  // PrintError("Xed Register: %s\n", xed_reg_enum_t2str(xed_reg));
 
   switch (xed_reg) {
   case XED_REG_INVALID:
