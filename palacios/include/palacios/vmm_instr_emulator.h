@@ -21,7 +21,7 @@
 
 
 
-#define MAKE_1OP_8FLAGS_INST(iname) static inline void iname##8(addr_t * dst,  addr_t * flags) { \
+#define MAKE_1OP_8FLAGS_WINST(iname) static inline void iname##8(addr_t * dst,  addr_t * flags) { \
     uchar_t tmp_dst = *dst;						\
 									\
     /* Some of the flags values are not copied out in a pushf, we save them here */ \
@@ -43,7 +43,7 @@
 									\
   }
 
-#define MAKE_1OP_16FLAGS_INST(iname) static inline void iname##16(addr_t * dst,  addr_t * flags) { \
+#define MAKE_1OP_16FLAGS_WINST(iname) static inline void iname##16(addr_t * dst,  addr_t * flags) { \
     ushort_t tmp_dst = *dst;						\
 									\
     /* Some of the flags values are not copied out in a pushf, we save them here */ \
@@ -65,7 +65,7 @@
 									\
   }
 
-#define MAKE_1OP_32FLAGS_INST(iname) static inline void iname##32(addr_t * dst,  addr_t * flags) { \
+#define MAKE_1OP_32FLAGS_WINST(iname) static inline void iname##32(addr_t * dst,  addr_t * flags) { \
     uint_t tmp_dst = *dst;						\
 									\
     /* Some of the flags values are not copied out in a pushf, we save them here */ \
@@ -87,7 +87,7 @@
 									\
   }
 
-#define MAKE_1OP_64FLAGS_INST(iname) static inline void iname##64(addr_t * dst,  addr_t * flags) { \
+#define MAKE_1OP_64FLAGS_WINST(iname) static inline void iname##64(addr_t * dst,  addr_t * flags) { \
     ullong_t tmp_dst = *dst;						\
 									\
     /* Some of the flags values are not copied out in a pushf, we save them here */ \
@@ -111,7 +111,7 @@
 
 
 
-#define MAKE_1OP_8_INST(iname) static inline void iname##8(addr_t * dst) { \
+#define MAKE_1OP_8_WINST(iname) static inline void iname##8(addr_t * dst) { \
     uchar_t tmp_dst = *dst;						\
 									\
     asm volatile (							\
@@ -122,7 +122,7 @@
     *dst = tmp_dst;							\
   }
 
-#define MAKE_1OP_16_INST(iname) static inline void iname##16(addr_t * dst) { \
+#define MAKE_1OP_16_WINST(iname) static inline void iname##16(addr_t * dst) { \
     ushort_t tmp_dst = *dst;						\
     									\
     asm volatile (							\
@@ -133,7 +133,7 @@
     *dst = tmp_dst;							\
   }
 
-#define MAKE_1OP_32_INST(iname) static inline void iname##32(addr_t * dst) { \
+#define MAKE_1OP_32_WINST(iname) static inline void iname##32(addr_t * dst) { \
     uint_t tmp_dst = *dst;						\
 									\
     asm volatile (							\
@@ -144,7 +144,7 @@
     *dst = tmp_dst;							\
   }
 
-#define MAKE_1OP_64_INST(iname) static inline void iname##64(addr_t * dst) { \
+#define MAKE_1OP_64_WINST(iname) static inline void iname##64(addr_t * dst) { \
     ullong_t tmp_dst = *dst;						\
     									\
     asm volatile (							\
@@ -156,7 +156,7 @@
   }
 
 
-#define MAKE_2OP_64FLAGS_INST(iname) static inline void iname##64(addr_t * dst, addr_t * src, addr_t * flags) { \
+#define MAKE_2OP_64FLAGS_WINST(iname) static inline void iname##64(addr_t * dst, addr_t * src, addr_t * flags) { \
     uint64_t tmp_dst = *dst, tmp_src = *src;					\
     addr_t tmp_flags = *flags;						\
 									\
@@ -184,7 +184,7 @@
 
 
 
-#define MAKE_2OP_32FLAGS_INST(iname) static inline void iname##32(addr_t * dst, addr_t * src, addr_t * flags) { \
+#define MAKE_2OP_32FLAGS_WINST(iname) static inline void iname##32(addr_t * dst, addr_t * src, addr_t * flags) { \
     uint32_t tmp_dst = *dst, tmp_src = *src;				\
 									\
     /* Some of the flags values are not copied out in a pushf, we save them here */ \
@@ -207,7 +207,7 @@
   }
 
 
-#define MAKE_2OP_16FLAGS_INST(iname) static inline void iname##16(addr_t * dst, addr_t * src, addr_t * flags) { \
+#define MAKE_2OP_16FLAGS_WINST(iname) static inline void iname##16(addr_t * dst, addr_t * src, addr_t * flags) { \
     ushort_t tmp_dst = *dst, tmp_src = *src;				\
 									\
     /* Some of the flags values are not copied out in a pushf, we save them here */ \
@@ -229,7 +229,7 @@
 									\
   }
 
-#define MAKE_2OP_8FLAGS_INST(iname) static inline void iname##8(addr_t * dst, addr_t * src, addr_t * flags) { \
+#define MAKE_2OP_8FLAGS_WINST(iname) static inline void iname##8(addr_t * dst, addr_t * src, addr_t * flags) { \
     uchar_t tmp_dst = *dst, tmp_src = *src;				\
 									\
     /* Some of the flags values are not copied out in a pushf, we save them here */ \
@@ -254,7 +254,32 @@
 
 
 
-#define MAKE_2OP_32STR_INST(iname) static inline void iname##32(addr_t * dst, \
+
+#define MAKE_2OP_64STR_WINST(iname) static inline void iname##64(addr_t * dst, \
+								addr_t * src, \
+								addr_t * ecx, addr_t * flags) { \
+    /* Some of the flags values are not copied out in a pushf, we save them here */ \
+    addr_t flags_rsvd = *flags & ~0xfffe7fff;				\
+									\
+    asm volatile (							\
+	 "pushfq; "							\
+	 "pushq %4; "							\
+	 "popfq; "							\
+	 "rep; "							\
+	 #iname"q; "							\
+	 "pushfq; "							\
+	 "popq %0; "							\
+	 "popfq; "							\
+	 : "=q"(*flags)							\
+	 : "D"(*dst),"S"(*src),"c"(*ecx),"q"(*flags)			\
+	 );								\
+									\
+    /*	 : "=D"(*dst),"=S"(*src),"=c"(*ecx),"=q"(*flags)*/		\
+    *flags |= flags_rsvd;						\
+  }
+
+
+#define MAKE_2OP_32STR_WINST(iname) static inline void iname##32(addr_t * dst, \
 								addr_t * src, \
 								addr_t * ecx, addr_t * flags) { \
     /* Some of the flags values are not copied out in a pushf, we save them here */ \
@@ -277,7 +302,7 @@
     *flags |= flags_rsvd;						\
   }
 
-#define MAKE_2OP_16STR_INST(iname) static inline void iname##16(addr_t * dst, \
+#define MAKE_2OP_16STR_WINST(iname) static inline void iname##16(addr_t * dst, \
 								addr_t * src, \
 								addr_t * ecx, addr_t * flags) { \
      /* Some of the flags values are not copied out in a pushf, we save them here */ \
@@ -300,7 +325,7 @@
 
 
 
-#define MAKE_2OP_8STR_INST(iname) static inline void iname##8(addr_t * dst, \
+#define MAKE_2OP_8STR_WINST(iname) static inline void iname##8(addr_t * dst, \
 							      addr_t * src, \
 							      addr_t * ecx, addr_t * flags) { \
     /* Some of the flags values are not copied out in a pushf, we save them here */ \
@@ -324,7 +349,18 @@
 
 
 
-#define MAKE_2OP_32_INST(iname) static inline void iname##32(addr_t * dst, addr_t * src) { \
+#define MAKE_2OP_64_WINST(iname) static inline void iname##64(addr_t * dst, addr_t * src) { \
+    uint32_t tmp_dst = *dst, tmp_src = *src;				\
+									\
+    asm volatile (							\
+	 #iname"q %1, %0; "						\
+	 : "=q"(tmp_dst)						\
+	 : "q"(tmp_src), "0"(tmp_dst)					\
+	 );								\
+    *dst = tmp_dst;							\
+  }
+
+#define MAKE_2OP_32_WINST(iname) static inline void iname##32(addr_t * dst, addr_t * src) { \
     uint32_t tmp_dst = *dst, tmp_src = *src;				\
 									\
     asm volatile (							\
@@ -335,7 +371,7 @@
     *dst = tmp_dst;							\
   }
 
-#define MAKE_2OP_16_INST(iname) static inline void iname##16(addr_t * dst, addr_t * src) { \
+#define MAKE_2OP_16_WINST(iname) static inline void iname##16(addr_t * dst, addr_t * src) { \
     ushort_t tmp_dst = *dst, tmp_src = *src;				\
 									\
     asm volatile (							\
@@ -346,7 +382,7 @@
     *dst = tmp_dst;							\
   }
 
-#define MAKE_2OP_8_INST(iname) static inline void iname##8(addr_t * dst, addr_t * src) { \
+#define MAKE_2OP_8_WINST(iname) static inline void iname##8(addr_t * dst, addr_t * src) { \
     uchar_t tmp_dst = *dst, tmp_src = *src;				\
 									\
     asm volatile (							\
@@ -363,80 +399,80 @@
 
 
 
-MAKE_2OP_8FLAGS_INST(adc);
-MAKE_2OP_8FLAGS_INST(add);
-MAKE_2OP_8FLAGS_INST(and);
-MAKE_2OP_8FLAGS_INST(or);
-MAKE_2OP_8FLAGS_INST(xor);
-MAKE_2OP_8FLAGS_INST(sub);
+MAKE_2OP_8FLAGS_WINST(adc);
+MAKE_2OP_8FLAGS_WINST(add);
+MAKE_2OP_8FLAGS_WINST(and);
+MAKE_2OP_8FLAGS_WINST(or);
+MAKE_2OP_8FLAGS_WINST(xor);
+MAKE_2OP_8FLAGS_WINST(sub);
 
 
-MAKE_1OP_8FLAGS_INST(inc);
-MAKE_1OP_8FLAGS_INST(dec);
-MAKE_1OP_8FLAGS_INST(neg);
-MAKE_1OP_8FLAGS_INST(setb);
-MAKE_1OP_8FLAGS_INST(setbe);
-MAKE_1OP_8FLAGS_INST(setl);
-MAKE_1OP_8FLAGS_INST(setle);
-MAKE_1OP_8FLAGS_INST(setnb);
-MAKE_1OP_8FLAGS_INST(setnbe);
-MAKE_1OP_8FLAGS_INST(setnl);
-MAKE_1OP_8FLAGS_INST(setnle);
-MAKE_1OP_8FLAGS_INST(setno);
-MAKE_1OP_8FLAGS_INST(setnp);
-MAKE_1OP_8FLAGS_INST(setns);
-MAKE_1OP_8FLAGS_INST(setnz);
-MAKE_1OP_8FLAGS_INST(seto);
-MAKE_1OP_8FLAGS_INST(setp);
-MAKE_1OP_8FLAGS_INST(sets);
-MAKE_1OP_8FLAGS_INST(setz);
+MAKE_1OP_8FLAGS_WINST(inc);
+MAKE_1OP_8FLAGS_WINST(dec);
+MAKE_1OP_8FLAGS_WINST(neg);
+MAKE_1OP_8FLAGS_WINST(setb);
+MAKE_1OP_8FLAGS_WINST(setbe);
+MAKE_1OP_8FLAGS_WINST(setl);
+MAKE_1OP_8FLAGS_WINST(setle);
+MAKE_1OP_8FLAGS_WINST(setnb);
+MAKE_1OP_8FLAGS_WINST(setnbe);
+MAKE_1OP_8FLAGS_WINST(setnl);
+MAKE_1OP_8FLAGS_WINST(setnle);
+MAKE_1OP_8FLAGS_WINST(setno);
+MAKE_1OP_8FLAGS_WINST(setnp);
+MAKE_1OP_8FLAGS_WINST(setns);
+MAKE_1OP_8FLAGS_WINST(setnz);
+MAKE_1OP_8FLAGS_WINST(seto);
+MAKE_1OP_8FLAGS_WINST(setp);
+MAKE_1OP_8FLAGS_WINST(sets);
+MAKE_1OP_8FLAGS_WINST(setz);
 
 
-MAKE_1OP_8_INST(not);
+MAKE_1OP_8_WINST(not);
 
-MAKE_2OP_8_INST(mov);
-MAKE_2OP_8_INST(xchg);
-
-
-
-MAKE_2OP_16FLAGS_INST(adc);
-MAKE_2OP_16FLAGS_INST(add);
-MAKE_2OP_16FLAGS_INST(and);
-MAKE_2OP_16FLAGS_INST(or);
-MAKE_2OP_16FLAGS_INST(xor);
-MAKE_2OP_16FLAGS_INST(sub);
-
-
-MAKE_1OP_16FLAGS_INST(inc);
-MAKE_1OP_16FLAGS_INST(dec);
-MAKE_1OP_16FLAGS_INST(neg);
-
-MAKE_1OP_16_INST(not);
-
-MAKE_2OP_16_INST(mov);
-MAKE_2OP_16_INST(xchg);
+MAKE_2OP_8_WINST(mov);
+MAKE_2OP_8_WINST(xchg);
 
 
 
+MAKE_2OP_16FLAGS_WINST(adc);
+MAKE_2OP_16FLAGS_WINST(add);
+MAKE_2OP_16FLAGS_WINST(and);
+MAKE_2OP_16FLAGS_WINST(or);
+MAKE_2OP_16FLAGS_WINST(xor);
+MAKE_2OP_16FLAGS_WINST(sub);
 
 
-MAKE_2OP_32FLAGS_INST(adc);
-MAKE_2OP_32FLAGS_INST(add);
-MAKE_2OP_32FLAGS_INST(and);
-MAKE_2OP_32FLAGS_INST(or);
-MAKE_2OP_32FLAGS_INST(xor);
-MAKE_2OP_32FLAGS_INST(sub);
+MAKE_1OP_16FLAGS_WINST(inc);
+MAKE_1OP_16FLAGS_WINST(dec);
+MAKE_1OP_16FLAGS_WINST(neg);
+
+MAKE_1OP_16_WINST(not);
+
+MAKE_2OP_16_WINST(mov);
+MAKE_2OP_16_WINST(xchg);
 
 
-MAKE_1OP_32FLAGS_INST(inc);
-MAKE_1OP_32FLAGS_INST(dec);
-MAKE_1OP_32FLAGS_INST(neg);
 
-MAKE_1OP_32_INST(not);
 
-MAKE_2OP_32_INST(mov);
-MAKE_2OP_32_INST(xchg);
 
-MAKE_2OP_8STR_INST(movs);
-MAKE_2OP_16STR_INST(movs);
-MAKE_2OP_32STR_INST(movs);
+MAKE_2OP_32FLAGS_WINST(adc);
+MAKE_2OP_32FLAGS_WINST(add);
+MAKE_2OP_32FLAGS_WINST(and);
+MAKE_2OP_32FLAGS_WINST(or);
+MAKE_2OP_32FLAGS_WINST(xor);
+MAKE_2OP_32FLAGS_WINST(sub);
+
+
+MAKE_1OP_32FLAGS_WINST(inc);
+MAKE_1OP_32FLAGS_WINST(dec);
+MAKE_1OP_32FLAGS_WINST(neg);
+
+MAKE_1OP_32_WINST(not);
+
+MAKE_2OP_32_WINST(mov);
+MAKE_2OP_32_WINST(xchg);
+
+MAKE_2OP_8STR_WINST(movs);
+MAKE_2OP_16STR_WINST(movs);
+MAKE_2OP_32STR_WINST(movs);
