@@ -35,6 +35,7 @@
 #include <devices/cdrom.h>
 #include <devices/bochs_debug.h>
 #include <devices/os_debug.h>
+#include <devices/apic.h>
 
 
 
@@ -196,7 +197,7 @@ static int setup_memory_map(struct guest_info * info, struct v3_vm_config * conf
   v3_add_shadow_mem(info, 0x1000000, 0x8000000, (addr_t)V3_AllocPages(32768));
  
   // test - give linux accesss to PCI space - PAD
-  // v3_add_shadow_mem(info, 0xc0000000,0xffffffff,0xc0000000);
+  //v3_add_shadow_mem(info, 0xc0000000,0xffffffff,0xc0000000);
   
   
   print_shadow_map(info);
@@ -216,6 +217,7 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
     struct vm_device * pit = v3_create_pit(); 
     struct vm_device * bochs_debug = v3_create_bochs_debug();
     struct vm_device * os_debug = v3_create_os_debug();
+    struct vm_device * apic = v3_create_apic();
 
     //struct vm_device * serial = v3_create_serial();
     struct vm_device * generic = NULL;
@@ -244,6 +246,8 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
     // v3_attach_device(info, serial);
     v3_attach_device(info, bochs_debug);
     v3_attach_device(info, os_debug);
+
+    v3_attach_device(info, apic);
 
     if (use_ramdisk) {
       v3_attach_device(info, ramdisk);

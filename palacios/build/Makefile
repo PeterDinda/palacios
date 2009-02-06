@@ -297,6 +297,7 @@ DEVICES_OBJS := \
 	devices/cdrom.o \
 	devices/bochs_debug.o \
 	devices/os_debug.o \
+	devices/apic.o	\
 
 $(DEVICES_OBJS) :: EXTRA_CFLAGS = \
 	$(JRLDEBUG) \

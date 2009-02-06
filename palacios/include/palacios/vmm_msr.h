@@ -41,6 +41,9 @@ struct v3_msr {
 } __attribute__((packed));
 
 
+
+typedef struct v3_msr v3_msr_t;
+
 struct v3_msr_hook {
   uint_t msr;
   
