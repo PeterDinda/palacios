@@ -39,6 +39,12 @@ int v3_init_dev_mgr(struct guest_info * info) {
   INIT_LIST_HEAD(&(mgr->io_hooks));
   mgr->num_io_hooks = 0;
 
+  INIT_LIST_HEAD(&(mgr->mem_hooks));
+  mgr->num_mem_hooks = 0;
+
+  INIT_LIST_HEAD(&(mgr->msr_hooks));
+  mgr->num_msr_hook = 0;
+
   return 0;
 }
 
@@ -58,57 +64,37 @@ int v3_dev_mgr_deinit(struct guest_info * info) {
 
 
 
+int v3_attach_device(struct guest_info * vm, struct vm_device * dev) {
+  struct vmm_dev_mgr *mgr= &(vm->dev_mgr);
+  
+  dev->vm = vm;
 
-static int dev_mgr_add_device(struct vmm_dev_mgr * mgr, struct vm_device * dev) {
   list_add(&(dev->dev_link), &(mgr->dev_list));
   mgr->num_devs++;
 
+  dev->ops->init(dev);
+
   return 0;
 }
 
-static int dev_mgr_remove_device(struct vmm_dev_mgr * mgr, struct vm_device * dev) {
+int v3_unattach_device(struct vm_device * dev) {
+  struct vmm_dev_mgr * mgr = &(dev->vm->dev_mgr);
+
+  dev->ops->deinit(dev);
+
   list_del(&(dev->dev_link));
   mgr->num_devs--;
 
+  dev->vm = NULL;
+
   return 0;
 }
+
+
 
 
 
 /* IO HOOKS */
-static int dev_mgr_add_io_hook(struct vmm_dev_mgr * mgr, struct dev_io_hook * hook) {
-  list_add(&(hook->mgr_list), &(mgr->io_hooks));
-  mgr->num_io_hooks++;
-  return 0;
-}
-
-
-static int dev_mgr_remove_io_hook(struct vmm_dev_mgr * mgr, struct dev_io_hook * hook) {
-  list_del(&(hook->mgr_list));
-  mgr->num_io_hooks--;
-
-  return 0;
-}
-
-
-static int dev_add_io_hook(struct vm_device * dev, struct dev_io_hook * hook) {
-  list_add(&(hook->dev_list), &(dev->io_hooks));
-  dev->num_io_hooks++;
-  return 0;
-}
-
-
-static int dev_remove_io_hook(struct vm_device * dev, struct dev_io_hook * hook) {
-  list_del(&(hook->dev_list));
-  dev->num_io_hooks--;
-
-  return 0;
-}
-
-
-
-
-
 static struct dev_io_hook * dev_mgr_find_io_hook(struct vmm_dev_mgr * mgr, ushort_t port) {
   struct dev_io_hook * tmp = NULL;
 
@@ -121,18 +107,6 @@ static struct dev_io_hook * dev_mgr_find_io_hook(struct vmm_dev_mgr * mgr, ushor
 }
 
 
-/*
-static struct dev_io_hook * dev_find_io_hook(struct vm_device * dev, ushort_t port) {
-  struct dev_io_hook * tmp = NULL;
-
-  list_for_each_entry(tmp, &(dev->io_hooks), dev_list) {
-    if (tmp->port == port) {
-      return tmp;
-    }
-  }
-  return NULL;
-}
-*/
 
 
 
@@ -142,7 +116,8 @@ int v3_dev_hook_io(struct vm_device   *dev,
 		   int (*write)(ushort_t port, void * src, uint_t length, struct vm_device * dev)) {
   
   struct dev_io_hook *hook = (struct dev_io_hook *)V3_Malloc(sizeof(struct dev_io_hook));
-  
+  struct vmm_dev_mgr * mgr = &(dev->vm->dev_mgr);
+
   if (!hook) { 
     return -1;
   }
@@ -158,8 +133,11 @@ int v3_dev_hook_io(struct vm_device   *dev,
     hook->read = read;
     hook->write = write;
     
-    dev_mgr_add_io_hook(&(dev->vm->dev_mgr), hook);
-    dev_add_io_hook(dev, hook);
+    list_add(&(hook->mgr_list), &(mgr->io_hooks));
+    mgr->num_io_hooks++;
+    
+    list_add(&(hook->dev_list), &(dev->io_hooks));
+    dev->num_io_hooks++;
   } else {
 
     return -1;
@@ -171,7 +149,6 @@ int v3_dev_hook_io(struct vm_device   *dev,
 
 int v3_dev_unhook_io(struct vm_device   *dev,
 		  ushort_t            port) {
-
   struct vmm_dev_mgr * mgr = &(dev->vm->dev_mgr);
   struct dev_io_hook * hook = dev_mgr_find_io_hook(mgr, port);
 
@@ -179,32 +156,29 @@ int v3_dev_unhook_io(struct vm_device   *dev,
     return -1;
   }
 
-  dev_mgr_remove_io_hook(mgr, hook);
-  dev_remove_io_hook(dev, hook);
+  list_del(&(hook->mgr_list));
+  mgr->num_io_hooks--;
+
+  list_del(&(hook->dev_list));
+  dev->num_io_hooks--;
+
 
   return v3_unhook_io_port(dev->vm, port);
 }
 
 
-int v3_attach_device(struct guest_info * vm, struct vm_device * dev) {
-  struct vmm_dev_mgr *mgr= &(vm->dev_mgr);
-  
-  dev->vm = vm;
-  dev_mgr_add_device(mgr, dev);
-  dev->ops->init(dev);
 
-  return 0;
-}
 
-int v3_unattach_device(struct vm_device * dev) {
-  struct vmm_dev_mgr * mgr = &(dev->vm->dev_mgr);
 
-  dev->ops->deinit(dev);
-  dev_mgr_remove_device(mgr, dev);
-  dev->vm = NULL;
 
-  return 0;
-}
+
+
+
+
+
+
+
+
 
 
 
@@ -266,6 +240,27 @@ static int dev_mgr_unhook_mem(struct vm_device   *dev,
   return -1;
 }
 #endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 #ifdef DEBUG_DEV_MGR

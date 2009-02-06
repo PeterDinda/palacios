@@ -40,6 +40,9 @@ struct vmm_dev_mgr {
   uint_t num_mem_hooks;
   struct list_head mem_hooks;
 
+  uint_t num_msr_hook;
+  struct list_head msr_hooks;
+
 };
 
 
