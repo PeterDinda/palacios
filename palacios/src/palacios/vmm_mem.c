@@ -20,8 +20,8 @@
 #include <palacios/vmm_mem.h>
 #include <palacios/vmm.h>
 #include <palacios/vmm_util.h>
-#include <palacios/vmm_decoder.h>
-
+//#include <palacios/vmm_decoder.h>
+#include <palacios/vmm_emulator.h>
 
 
 
@@ -35,11 +35,15 @@ struct v3_shadow_region * insert_shadow_region(struct guest_info * info,
 
 
 void v3_init_shadow_map(struct guest_info * info) {
-  info->mem_map.rb_node = NULL;
+  v3_shdw_map_t * map = &(info->mem_map);
+
+  map->shdw_regions.rb_node = NULL;
+  map->hook_hva = (addr_t)V3_VAddr(V3_AllocPages(1));
+
 }
 
 void v3_delete_shadow_map(struct guest_info * info) {
-  struct rb_node * node = v3_rb_first(&(info->mem_map));
+  struct rb_node * node = v3_rb_first(&(info->mem_map.shdw_regions));
   struct v3_shadow_region * reg;
   struct rb_node * tmp_node = NULL;
   
@@ -133,7 +137,7 @@ int v3_hook_full_mem(struct guest_info * info, addr_t guest_addr_start, addr_t g
 static inline 
 struct v3_shadow_region * __insert_shadow_region(struct guest_info * info, 
 						 struct v3_shadow_region * region) {
-  struct rb_node ** p = &(info->mem_map.rb_node);
+  struct rb_node ** p = &(info->mem_map.shdw_regions.rb_node);
   struct rb_node * parent = NULL;
   struct v3_shadow_region * tmp_region;
 
@@ -165,7 +169,7 @@ struct v3_shadow_region * insert_shadow_region(struct guest_info * info,
     return ret;
   }
   
-  v3_rb_insert_color(&(region->tree_node), &(info->mem_map));
+  v3_rb_insert_color(&(region->tree_node), &(info->mem_map.shdw_regions));
 
   return NULL;
 }
@@ -200,19 +204,12 @@ int handle_special_page_fault(struct guest_info * info,
 
 int v3_handle_mem_wr_hook(struct guest_info * info, addr_t guest_va, addr_t guest_pa, 
 			  struct v3_shadow_region * reg, pf_error_t access_info) {
+  addr_t dst_addr = 0;
+  
+  dst_addr = v3_get_shadow_addr(reg, guest_pa);
 
-  addr_t write_src_addr = 0;
-
-  int write_len = v3_emulate_write_op(info, guest_va, guest_pa, &write_src_addr);
-
-  if (write_len == -1) {
-    PrintError("Emulation failure in write hook\n");
-    return -1;
-  }
-
-
-  if (reg->write_hook(guest_pa, (void *)write_src_addr, write_len, reg->priv_data) != write_len) {
-    PrintError("Memory write hook did not return correct value\n");
+  if (v3_emulate_write_op(info, guest_va, guest_pa, dst_addr, reg->write_hook, reg->priv_data) == -1) {
+    PrintError("Write hook emulation failed\n");
     return -1;
   }
 
@@ -221,13 +218,28 @@ int v3_handle_mem_wr_hook(struct guest_info * info, addr_t guest_va, addr_t gues
 
 int v3_handle_mem_full_hook(struct guest_info * info, addr_t guest_va, addr_t guest_pa, 
 			    struct v3_shadow_region * reg, pf_error_t access_info) {
-  return -1;
+  
+  addr_t op_addr = info->mem_map.hook_hva;
+
+  if (access_info.write == 1) {
+    if (v3_emulate_write_op(info, guest_va, guest_pa, op_addr, reg->write_hook, reg->priv_data) == -1) {
+      PrintError("Read Full Hook emulation faild\n");
+      return -1;
+    }
+  } else {
+    if (v3_emulate_read_op(info, guest_va, guest_pa, op_addr, reg->read_hook, reg->priv_data) == -1) {
+      PrintError("Write Full Hook emulation faild\n");
+      return -1;
+    }
+  }
+
+  return 0;
 }
 
 
 
 struct v3_shadow_region * v3_get_shadow_region(struct guest_info * info, addr_t guest_addr) {
-  struct rb_node * n = info->mem_map.rb_node;
+  struct rb_node * n = info->mem_map.shdw_regions.rb_node;
   struct v3_shadow_region * reg = NULL;
 
   while (n) {
@@ -262,7 +274,7 @@ addr_t v3_get_shadow_addr(struct v3_shadow_region * reg, addr_t guest_addr) {
 
 void v3_delete_shadow_region(struct guest_info * info, struct v3_shadow_region * reg) {
   if (reg != NULL) {
-    v3_rb_erase(&(reg->tree_node), &(info->mem_map));
+    v3_rb_erase(&(reg->tree_node), &(info->mem_map.shdw_regions));
 
     V3_Free(reg);
   }
@@ -272,7 +284,7 @@ void v3_delete_shadow_region(struct guest_info * info, struct v3_shadow_region *
 
 
 void print_shadow_map(struct guest_info * info) {
-  struct rb_node * node = v3_rb_first(&(info->mem_map));
+  struct rb_node * node = v3_rb_first(&(info->mem_map.shdw_regions));
   struct v3_shadow_region * reg;
   int i = 0;
 

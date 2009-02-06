@@ -34,15 +34,19 @@
 
 
 
+static int run_op(struct guest_info * info, v3_op_type_t op_type, addr_t src_addr, addr_t dst_addr, int op_size);
+
 // We emulate up to the next 4KB page boundry
 static int emulate_string_write_op(struct guest_info * info, struct x86_instr * dec_instr, 
-				   addr_t write_gva, addr_t write_gpa, addr_t * dst_addr) {
+				   addr_t write_gva, addr_t write_gpa, addr_t dst_addr, 
+				   int (*write_fn)(addr_t guest_addr, void * src, uint_t length, void * priv_data), 
+				   void * priv_data) {
   uint_t emulation_length = 0;
   addr_t tmp_rcx = 0;
   addr_t src_addr = 0;
 
   if (dec_instr->op_type == V3_OP_MOVS) {
-    PrintDebug("MOVS emulation\n");
+    PrintError("MOVS emulation\n");
 
     if (dec_instr->dst_operand.operand != write_gva) {
       PrintError("Inconsistency between Pagefault and Instruction Decode XED_ADDR=%p, PF_ADDR=%p\n",
@@ -62,10 +66,7 @@ static int emulate_string_write_op(struct guest_info * info, struct x86_instr * 
     PrintDebug("Emulation length: %d\n", emulation_length);
     tmp_rcx = emulation_length;
  
-    if (guest_pa_to_host_va(info, write_gpa, dst_addr) == -1) {
-      PrintError("Could not translate write destination to host VA\n");
-      return -1;
-    }
+
 
     // figure out addresses here....
     if (info->mem_mode == PHYSICAL_MEM) {
@@ -85,7 +86,7 @@ static int emulate_string_write_op(struct guest_info * info, struct x86_instr * 
 	       (void *)dec_instr->dst_operand.operand, 
 	       dec_instr->dst_operand.size,
 	       (void *)dec_instr->src_operand.operand);
-    PrintDebug("Dst Addr: %p, Src Addr: %p\n", (void *)(addr_t *)*dst_addr, (void *)src_addr);
+    PrintDebug("Dst Addr: %p, Src Addr: %p\n", (void *)dst_addr, (void *)src_addr);
 
     //return -1;
 
@@ -94,18 +95,21 @@ static int emulate_string_write_op(struct guest_info * info, struct x86_instr * 
 
 
     if (dec_instr->dst_operand.size == 1) {
-      movs8(dst_addr, &src_addr, &tmp_rcx, (addr_t *)&(info->ctrl_regs.rflags));
+      movs8((addr_t *)dst_addr, &src_addr, &tmp_rcx, (addr_t *)&(info->ctrl_regs.rflags));
     } else if (dec_instr->dst_operand.size == 2) {
-      movs16(dst_addr, &src_addr, &tmp_rcx, (addr_t *)&(info->ctrl_regs.rflags));
+      movs16((addr_t *)dst_addr, &src_addr, &tmp_rcx, (addr_t *)&(info->ctrl_regs.rflags));
     } else if (dec_instr->dst_operand.size == 4) {
-      movs32(dst_addr, &src_addr, &tmp_rcx, (addr_t *)&(info->ctrl_regs.rflags));
+      movs32((addr_t*)dst_addr, &src_addr, &tmp_rcx, (addr_t *)&(info->ctrl_regs.rflags));
     } else {
       PrintError("Invalid operand length\n");
       return -1;
     }
 
 
-
+    if (write_fn(write_gpa, (void *)dst_addr, emulation_length, priv_data) != emulation_length) {
+      PrintError("Did not fully read hooked data\n");
+      return -1;
+    }
 
 
     PrintDebug("RDI=%p, RSI=%p, RCX=%p\n", 
@@ -136,15 +140,20 @@ static int emulate_string_write_op(struct guest_info * info, struct x86_instr * 
 }
 
 
-int v3_emulate_write_op(struct guest_info * info, addr_t write_gva, addr_t write_gpa, addr_t * dst_addr) {
+
+
+
+int v3_emulate_write_op(struct guest_info * info, addr_t write_gva, addr_t write_gpa,  addr_t dst_addr, 
+		       int (*write_fn)(addr_t guest_addr, void * src, uint_t length, void * priv_data), 
+		       void * priv_data) {
   struct x86_instr dec_instr;
   uchar_t instr[15];
   int ret = 0;
   addr_t src_addr = 0;
-
+  int op_len = 0;
 
   PrintDebug("Emulating Write for instruction at %p\n", (void *)(addr_t)(info->rip));
-  PrintDebug("GPA=%p, GVA=%p\n", (void *)write_gpa, (void *)write_gva);
+  PrintDebug("GVA=%p\n", (void *)write_gva);
 
   if (info->mem_mode == PHYSICAL_MEM) { 
     ret = read_guest_pa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
@@ -156,12 +165,6 @@ int v3_emulate_write_op(struct guest_info * info, addr_t write_gva, addr_t write
     return -1;
   }
 
-
-  if (guest_pa_to_host_va(info, write_gpa, dst_addr) == -1) {
-    PrintError("Could not translate write destination to host VA\n");
-    return -1;
-  }
-
   if (v3_decode(info, (addr_t)instr, &dec_instr) == -1) {
     PrintError("Decoding Error\n");
     // Kick off single step emulator
@@ -169,7 +172,7 @@ int v3_emulate_write_op(struct guest_info * info, addr_t write_gva, addr_t write
   }
   
   if (dec_instr.is_str_op) {
-    return emulate_string_write_op(info, &dec_instr, write_gva, write_gpa, dst_addr);
+    return emulate_string_write_op(info, &dec_instr, write_gva, write_gpa, dst_addr, write_fn, priv_data);
   }
 
 
@@ -199,100 +202,204 @@ int v3_emulate_write_op(struct guest_info * info, addr_t write_gva, addr_t write
     src_addr = (addr_t)&(dec_instr.src_operand.operand);
   }
 
+  op_len = dec_instr.dst_operand.size;
 
-  PrintDebug("Dst_Addr Ptr = %p (val=%p), SRC operand = %p\n", 
-	     (void *)dst_addr, (void *)*dst_addr, (void *)src_addr);
+  PrintDebug("Dst_Addr = %p, SRC operand = %p\n", 
+	     (void *)dst_addr, (void *)src_addr);
 
 
-  if (dec_instr.dst_operand.size == 1) {
+  if (run_op(info, dec_instr.op_type, src_addr, dst_addr, op_len) == -1) {
+    PrintError("Instruction Emulation Failed\n");
+    return -1;
+  }
 
-    switch (dec_instr.op_type) {
+  if (write_fn(write_gpa, (void *)dst_addr, op_len, priv_data) != op_len) {
+    PrintError("Did not fully read hooked data\n");
+    return -1;
+  }
+
+  info->rip += dec_instr.instr_length;
+
+  return op_len;
+}
+
+
+int v3_emulate_read_op(struct guest_info * info, addr_t read_gva, addr_t read_gpa, addr_t src_addr,
+		       int (*read_fn)(addr_t guest_addr, void * dst, uint_t length, void * priv_data), 
+		       void * priv_data) {
+  struct x86_instr dec_instr;
+  uchar_t instr[15];
+  int ret = 0;
+  addr_t dst_addr = 0;
+  int op_len = 0;
+
+  PrintDebug("Emulating Read for instruction at %p\n", (void *)(addr_t)(info->rip));
+  PrintDebug("GVA=%p\n", (void *)write_gva);
+
+  if (info->mem_mode == PHYSICAL_MEM) { 
+    ret = read_guest_pa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
+  } else { 
+    ret = read_guest_va_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
+  }
+
+  if (ret == -1) {
+    return -1;
+  }
+
+  if (v3_decode(info, (addr_t)instr, &dec_instr) == -1) {
+    PrintError("Decoding Error\n");
+    // Kick off single step emulator
+    return -1;
+  }
+  
+  if (dec_instr.is_str_op) {
+    PrintError("String operations not implemented on fully hooked regions\n");
+    return -1;
+  }
+
+
+  if ((dec_instr.src_operand.type != MEM_OPERAND) ||
+      (dec_instr.src_operand.operand != read_gva)) {
+    PrintError("Inconsistency between Pagefault and Instruction Decode XED_ADDR=%p, PF_ADDR=%p\n",
+	       (void *)dec_instr.src_operand.operand, (void *)read_gva);
+    return -1;
+  }
+
+
+  if (dec_instr.dst_operand.type == MEM_OPERAND) {
+    if (info->mem_mode == PHYSICAL_MEM) {
+      if (guest_pa_to_host_va(info, dec_instr.dst_operand.operand, &dst_addr) == -1) {
+	PrintError("Could not translate Read Destination (Physical) to host VA\n");
+	return -1;
+      }
+    } else {
+      if (guest_va_to_host_va(info, dec_instr.dst_operand.operand, &dst_addr) == -1) {
+	PrintError("Could not translate Read Destination (Virtual) to host VA\n");
+	return -1;
+      }
+    }
+  } else if (dec_instr.dst_operand.type == REG_OPERAND) {
+    dst_addr = dec_instr.dst_operand.operand;
+  } else {
+    dst_addr = (addr_t)&(dec_instr.dst_operand.operand);
+  }
+
+  op_len = dec_instr.src_operand.size;
+
+  PrintDebug("Dst_Addr = %p, SRC Addr = %p\n", 
+	     (void *)dst_addr, (void *)src_addr);
+
+  if (read_fn(read_gpa, (void *)src_addr,op_len, priv_data) != op_len) {
+    PrintError("Did not fully read hooked data\n");
+    return -1;
+  }
+
+  if (run_op(info, dec_instr.op_type, src_addr, dst_addr, op_len) == -1) {
+    PrintError("Instruction Emulation Failed\n");
+    return -1;
+  }
+
+  info->rip += dec_instr.instr_length;
+
+  return op_len;
+}
+
+
+
+
+
+
+static int run_op(struct guest_info * info, v3_op_type_t op_type, addr_t src_addr, addr_t dst_addr, int op_size) {
+
+  if (op_size == 1) {
+
+    switch (op_type) {
     case V3_OP_ADC:
-      adc8((addr_t *)*dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      adc8((addr_t *)dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
     case V3_OP_ADD:
-      add8((addr_t *)*dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      add8((addr_t *)dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
     case V3_OP_AND:
-      and8((addr_t *)*dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      and8((addr_t *)dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
     case V3_OP_OR:
-      or8((addr_t *)*dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      or8((addr_t *)dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
     case V3_OP_XOR:
-      xor8((addr_t *)*dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      xor8((addr_t *)dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
     case V3_OP_SUB:
-      sub8((addr_t *)*dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      sub8((addr_t *)dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
 
     case V3_OP_MOV:
-      mov8((addr_t *)*dst_addr, (addr_t *)src_addr);
+      mov8((addr_t *)dst_addr, (addr_t *)src_addr);
       break;
     case V3_OP_NOT:
-      not8((addr_t *)*dst_addr);
+      not8((addr_t *)dst_addr);
       break;
     case V3_OP_XCHG:
-      xchg8((addr_t *)*dst_addr, (addr_t *)src_addr);
+      xchg8((addr_t *)dst_addr, (addr_t *)src_addr);
       break;
       
 
     case V3_OP_INC:
-      inc8((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      inc8((addr_t *)dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
     case V3_OP_DEC:
-      dec8((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      dec8((addr_t *)dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
     case V3_OP_NEG:
-      neg8((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      neg8((addr_t *)dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
     case V3_OP_SETB:
-      setb8((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      setb8((addr_t *)dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
     case V3_OP_SETBE:
-      setbe8((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      setbe8((addr_t *)dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
     case V3_OP_SETL:
-      setl8((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      setl8((addr_t *)dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
     case V3_OP_SETLE:
-      setle8((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      setle8((addr_t *)dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
     case V3_OP_SETNB:
-      setnb8((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      setnb8((addr_t *)dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
     case V3_OP_SETNBE:
-      setnbe8((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      setnbe8((addr_t *)dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
     case V3_OP_SETNL:
-      setnl8((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      setnl8((addr_t *)dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
     case V3_OP_SETNLE:
-      setnle8((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      setnle8((addr_t *)dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
     case V3_OP_SETNO:
-      setno8((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      setno8((addr_t *)dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
     case V3_OP_SETNP:
-      setnp8((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      setnp8((addr_t *)dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
     case V3_OP_SETNS:
-      setns8((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      setns8((addr_t *)dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
     case V3_OP_SETNZ:
-      setnz8((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      setnz8((addr_t *)dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
     case V3_OP_SETO:
-      seto8((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      seto8((addr_t *)dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
     case V3_OP_SETP:
-      setp8((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      setp8((addr_t *)dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
     case V3_OP_SETS:
-      sets8((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      sets8((addr_t *)dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
     case V3_OP_SETZ:
-      setz8((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      setz8((addr_t *)dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
 
     default:
@@ -300,47 +407,47 @@ int v3_emulate_write_op(struct guest_info * info, addr_t write_gva, addr_t write
       return -1;
     }
 
-  } else if (dec_instr.dst_operand.size == 2) {
+  } else if (op_size == 2) {
 
-    switch (dec_instr.op_type) {
+    switch (op_type) {
     case V3_OP_ADC:
-      adc16((addr_t *)*dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      adc16((addr_t *)dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
     case V3_OP_ADD:
-      add16((addr_t *)*dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      add16((addr_t *)dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
     case V3_OP_AND:
-      and16((addr_t *)*dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      and16((addr_t *)dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
     case V3_OP_OR:
-      or16((addr_t *)*dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      or16((addr_t *)dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
     case V3_OP_XOR:
-      xor16((addr_t *)*dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      xor16((addr_t *)dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
     case V3_OP_SUB:
-      sub16((addr_t *)*dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      sub16((addr_t *)dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
 
 
     case V3_OP_INC:
-      inc16((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      inc16((addr_t *)dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
     case V3_OP_DEC:
-      dec16((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      dec16((addr_t *)dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
     case V3_OP_NEG:
-      neg16((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      neg16((addr_t *)dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
 
     case V3_OP_MOV:
-      mov16((addr_t *)*dst_addr, (addr_t *)src_addr);
+      mov16((addr_t *)dst_addr, (addr_t *)src_addr);
       break;
     case V3_OP_NOT:
-      not16((addr_t *)*dst_addr);
+      not16((addr_t *)dst_addr);
       break;
     case V3_OP_XCHG:
-      xchg16((addr_t *)*dst_addr, (addr_t *)src_addr);
+      xchg16((addr_t *)dst_addr, (addr_t *)src_addr);
       break;
       
     default:
@@ -348,46 +455,46 @@ int v3_emulate_write_op(struct guest_info * info, addr_t write_gva, addr_t write
       return -1;
     }
 
-  } else if (dec_instr.dst_operand.size == 4) {
+  } else if (op_size == 4) {
 
-    switch (dec_instr.op_type) {
+    switch (op_type) {
     case V3_OP_ADC:
-      adc32((addr_t *)*dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      adc32((addr_t *)dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
     case V3_OP_ADD:
-      add32((addr_t *)*dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      add32((addr_t *)dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
     case V3_OP_AND:
-      and32((addr_t *)*dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      and32((addr_t *)dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
     case V3_OP_OR:
-      or32((addr_t *)*dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      or32((addr_t *)dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
     case V3_OP_XOR:
-      xor32((addr_t *)*dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      xor32((addr_t *)dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
     case V3_OP_SUB:
-      sub32((addr_t *)*dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      sub32((addr_t *)dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
 
     case V3_OP_INC:
-      inc32((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      inc32((addr_t *)dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
     case V3_OP_DEC:
-      dec32((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      dec32((addr_t *)dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
     case V3_OP_NEG:
-      neg32((addr_t *)*dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      neg32((addr_t *)dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
       break;
 
     case V3_OP_MOV:
-      mov32((addr_t *)*dst_addr, (addr_t *)src_addr);
+      mov32((addr_t *)dst_addr, (addr_t *)src_addr);
       break;
     case V3_OP_NOT:
-      not32((addr_t *)*dst_addr);
+      not32((addr_t *)dst_addr);
       break;
     case V3_OP_XCHG:
-      xchg32((addr_t *)*dst_addr, (addr_t *)src_addr);
+      xchg32((addr_t *)dst_addr, (addr_t *)src_addr);
       break;
       
     default:
@@ -395,7 +502,7 @@ int v3_emulate_write_op(struct guest_info * info, addr_t write_gva, addr_t write
       return -1;
     }
 
-  } else if (dec_instr.dst_operand.size == 8) {
+  } else if (op_size == 8) {
     PrintError("64 bit instructions not handled\n");
     return -1;
   } else {
@@ -403,8 +510,5 @@ int v3_emulate_write_op(struct guest_info * info, addr_t write_gva, addr_t write
     return -1;
   }
 
-  info->rip += dec_instr.instr_length;
-
-  return dec_instr.dst_operand.size;
+  return 0;
 }
-

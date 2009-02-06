@@ -25,6 +25,7 @@
 #include <palacios/vmm_profiler.h>
 #include <palacios/vmm_mem.h>
 
+
 #include <devices/serial.h>
 #include <devices/keyboard.h>
 #include <devices/8259a.h>
@@ -58,7 +59,7 @@ static struct vm_device *  configure_generic(struct guest_info * info, struct v3
 
 static int passthrough_mem_write(addr_t guest_addr, void * src, uint_t length, void * priv_data) {
 
-  return length;
+
   //  memcpy((void*)guest_addr, src, length);
   PrintDebug("Write of %d bytes to %p\n", length, (void *)guest_addr);
   PrintDebug("Write Value = %p\n", (void *)*(addr_t *)src);
@@ -80,7 +81,7 @@ int v3_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) 
   v3_init_host_events(info);
 
   v3_init_decoder(info);
-
+  
   v3_init_shadow_map(info);
   
   if (v3_cpu_type == V3_SVM_REV3_CPU) {
@@ -165,7 +166,7 @@ static int setup_memory_map(struct guest_info * info, struct v3_vm_config * conf
       //     
   v3_add_shadow_mem(info, 0x0, 0x9ffff, (addr_t)V3_AllocPages(160));
   
-  if (1) {
+  if (0) {
     v3_add_shadow_mem(info, 0xa0000, 0xbffff, 0xa0000); 
   } else {
     v3_hook_write_mem(info, 0xa0000, 0xbffff, 0xa0000,  passthrough_mem_write, NULL);

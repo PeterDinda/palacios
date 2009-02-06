@@ -213,7 +213,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
 
       ushort_t port = iter->port;
       uchar_t * bitmap = (uchar_t *)io_port_bitmap;
-      PrintDebug("%d: Hooking Port %d\n", i, port);
+      //PrintDebug("%d: Hooking Port %d\n", i, port);
 
       bitmap += (port / 8);
       //      PrintDebug("Setting Bit for port 0x%x\n", port);

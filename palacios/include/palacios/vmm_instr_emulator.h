@@ -256,8 +256,8 @@
 
 
 #define MAKE_2OP_64STR_WINST(iname) static inline void iname##64(addr_t * dst, \
-								addr_t * src, \
-								addr_t * ecx, addr_t * flags) { \
+								 addr_t * src, \
+								 addr_t * ecx, addr_t * flags) { \
     /* Some of the flags values are not copied out in a pushf, we save them here */ \
     addr_t flags_rsvd = *flags & ~0xfffe7fff;				\
 									\

@@ -45,7 +45,11 @@ typedef enum shdw_region_type {
 } v3_shdw_region_type_t;
 
 
-typedef struct rb_root v3_shdw_map_t;
+typedef struct v3_shdw_map {
+  addr_t hook_hva;
+
+  struct rb_root shdw_regions;
+} v3_shdw_map_t;
 
 
 struct v3_shadow_region {

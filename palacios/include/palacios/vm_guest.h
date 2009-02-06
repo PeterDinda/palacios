@@ -29,7 +29,6 @@
 #include <palacios/vmm_intr.h>
 #include <palacios/vmm_dev_mgr.h>
 #include <palacios/vmm_time.h>
-#include <palacios/vmm_emulator.h>
 #include <palacios/vmm_host_events.h>
 #include <palacios/vmm_msr.h>
 #include <palacios/vmm_profiler.h>
@@ -108,7 +107,6 @@ struct v3_segments {
 } ;
 
 struct shadow_page_state;
-struct emulation_state;
 struct v3_intr_state;
 struct v3_profiler;
 
@@ -163,14 +161,14 @@ struct guest_info {
 
   void * decoder_state;
 
-  struct v3_msr guest_efer;
+  v3_msr_t guest_efer;
 
   /* Do we need these ? */
-  struct v3_msr guest_star;
-  struct v3_msr guest_lstar;
-  struct v3_msr guest_cstar;
-  struct v3_msr guest_syscall_mask;
-  struct v3_msr guest_gs_base;
+  v3_msr_t guest_star;
+  v3_msr_t guest_lstar;
+  v3_msr_t guest_cstar;
+  v3_msr_t guest_syscall_mask;
+  v3_msr_t guest_gs_base;
 
 };
 
