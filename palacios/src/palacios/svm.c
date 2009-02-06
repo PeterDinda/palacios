@@ -385,10 +385,10 @@ static int start_svm_guest(struct guest_info *info) {
     v3_get_msr(MSR_GS_BASE, &(host_gs_base.hi), &(host_gs_base.lo));
 
     rdtscll(info->time_state.cached_host_tsc);
-
     guest_ctrl->TSC_OFFSET = info->time_state.guest_tsc - info->time_state.cached_host_tsc;
 
     v3_svm_launch((vmcb_t*)V3_PAddr(info->vmm_data), &(info->vm_regs));
+
     rdtscll(tmp_tsc);
 
     v3_set_msr(MSR_STAR, host_star.hi, host_star.lo);
