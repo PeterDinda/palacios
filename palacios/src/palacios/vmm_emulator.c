@@ -32,8 +32,6 @@
 
 
 
-
-
 static int run_op(struct guest_info * info, v3_op_type_t op_type, addr_t src_addr, addr_t dst_addr, int op_size);
 
 // We emulate up to the next 4KB page boundry
@@ -502,9 +500,56 @@ static int run_op(struct guest_info * info, v3_op_type_t op_type, addr_t src_add
       return -1;
     }
 
+#ifdef __V3_64BIT__
   } else if (op_size == 8) {
-    PrintError("64 bit instructions not handled\n");
-    return -1;
+
+
+    switch (op_type) {
+    case V3_OP_ADC:
+      adc64((addr_t *)dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_ADD:
+      add64((addr_t *)dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_AND:
+      and64((addr_t *)dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_OR:
+      or64((addr_t *)dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_XOR:
+      xor64((addr_t *)dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_SUB:
+      sub64((addr_t *)dst_addr, (addr_t *)src_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+
+    case V3_OP_INC:
+      inc64((addr_t *)dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_DEC:
+      dec64((addr_t *)dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+    case V3_OP_NEG:
+      neg64((addr_t *)dst_addr, (addr_t *)&(info->ctrl_regs.rflags));
+      break;
+
+    case V3_OP_MOV:
+      mov64((addr_t *)dst_addr, (addr_t *)src_addr);
+      break;
+    case V3_OP_NOT:
+      not64((addr_t *)dst_addr);
+      break;
+    case V3_OP_XCHG:
+      xchg64((addr_t *)dst_addr, (addr_t *)src_addr);
+      break;
+      
+    default:
+      PrintError("Unknown 64 bit instruction\n");
+      return -1;
+    }
+#endif
+
   } else {
     PrintError("Invalid Operation Size\n");
     return -1;
