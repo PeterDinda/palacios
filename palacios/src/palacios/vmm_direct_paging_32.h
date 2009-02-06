@@ -40,6 +40,7 @@ static inline int v3_handle_shadow_pagefault_physical_mode_32(struct guest_info 
     pte32_t * pte = create_pte32();
     addr_t host_addr;
     if(guest_pa_to_host_pa(info, fault_addr, &host_addr) == -1) return -1;
+    struct v3_shadow_region * region =  v3_get_shadow_region(info, PAGE_BASE_ADDR(host_addr));
       pte[pte_index].present = 1;
       pte[pte_index].writable = 1;
       pte[pte_index].user_page = 1;
@@ -49,6 +50,9 @@ static inline int v3_handle_shadow_pagefault_physical_mode_32(struct guest_info 
       pde[pde_index].writable = 1;
       pde[pde_index].user_page = 1;
       pde[pde_index].pt_base_addr = PAGE_BASE_ADDR((addr_t)V3_PAddr(pte));
+      if(region->host_type == SHDW_REGION_WRITE_HOOK) {
+	pte[pte_index].writable = 0;
+      }
       PrintError("Fault Addr: 0x%p\nHost Addr: 0x%p\n", (void*)fault_addr, (void*)host_addr);
     }
     else {
@@ -56,10 +60,14 @@ static inline int v3_handle_shadow_pagefault_physical_mode_32(struct guest_info 
       if(pte[pte_index].present != 1) {
 	addr_t host_addr;
 	if(guest_pa_to_host_pa(info, fault_addr, &host_addr) == -1) return -1;
+	struct v3_shadow_region * region =  v3_get_shadow_region(info, PAGE_BASE_ADDR(host_addr));
 	pte[pte_index].present = 1;
 	pte[pte_index].writable = 1;
 	pte[pte_index].user_page = 1;
 	pte[pte_index].page_base_addr = PAGE_BASE_ADDR(host_addr);
+	if(region->host_type == SHDW_REGION_WRITE_HOOK) {
+	  pte[pte_index].writable = 0;
+	}
       }
     }
     return 0;

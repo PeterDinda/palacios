@@ -12,9 +12,7 @@ pde32_t * v3_create_direct_passthrough_pts(struct guest_info * info) {
   v3_vm_cpu_mode_t mode = v3_get_cpu_mode(info);
   switch(mode) {
     case REAL:
-      //break;
     case PROTECTED:
-      PrintError("ABC\n");
       return v3_create_direct_passthrough_pts_32(info);
     case PROTECTED_PAE:
       break;
@@ -33,7 +31,6 @@ int v3_handle_shadow_pagefault_physical_mode(struct guest_info * info, addr_t fa
   v3_vm_cpu_mode_t mode = v3_get_cpu_mode(info);
   switch(mode) {
     case REAL:
-      // break;
     case PROTECTED:
       return v3_handle_shadow_pagefault_physical_mode_32(info, fault_addr, error_code);
     case PROTECTED_PAE:
