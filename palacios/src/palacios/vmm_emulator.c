@@ -213,7 +213,7 @@ int v3_emulate_write_op(struct guest_info * info, addr_t write_gva, addr_t write
   }
 
   if (write_fn(write_gpa, (void *)dst_addr, op_len, priv_data) != op_len) {
-    PrintError("Did not fully read hooked data\n");
+    PrintError("Did not fully write hooked data\n");
     return -1;
   }
 
