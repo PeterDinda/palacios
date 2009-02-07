@@ -23,15 +23,29 @@
 #include <palacios/vmm_msr.h>
 
 #define BASE_ADDR_MSR 0x0000001B
+#define DEFAULT_BASE_ADDR 0xfee00000
 
+
+struct apic_base_addr_reg {
+  uchar_t rsvd;
+  uint_t bsc           : 1;
+  uint_t rsvd2         : 2;
+  uint_t apic_enable   : 1;
+  ullong_t base_addr   : 40;
+  uint_t rsvd3         : 12;
+} __attribute__((packed));
 
 struct apic_state {
+  addr_t base_addr;
+
   v3_msr_t base_addr_reg;
+
+  
 
 };
 
 
-static int read_base_addr(uint_t msr, v3_msr_t * dst, void * priv_data) {
+static int read_apic_msr(uint_t msr, v3_msr_t * dst, void * priv_data) {
   struct vm_device * dev = (struct vm_device *)priv_data;
   struct apic_state * apic = (struct apic_state *)dev->private_data;
   PrintDebug("READING APIC BASE ADDR: HI=%x LO=%x\n", apic->base_addr_reg.hi, apic->base_addr_reg.lo);
@@ -40,12 +54,24 @@ static int read_base_addr(uint_t msr, v3_msr_t * dst, void * priv_data) {
 }
 
 
-static int write_base_addr(uint_t msr, v3_msr_t src, void * priv_data) {
+static int write_apic_msr(uint_t msr, v3_msr_t src, void * priv_data) {
   //  struct vm_device * dev = (struct vm_device *)priv_data;
   //  struct apic_state * apic = (struct apic_state *)dev->private_data;
 
   PrintDebug("WRITING APIC BASE ADDR: HI=%x LO=%x\n", src.hi, src.lo);
 
+  return -1;
+}
+
+
+static int apic_read(addr_t guest_addr, void * dst, uint_t length, void * priv_data) {
+  PrintDebug("Read from apic address space\n");
+  return -1;
+}
+
+
+static int apic_write(addr_t guest_addr, void * dst, uint_t length, void * priv_data) {
+  PrintDebug("Write to apic address space\n");
   return -1;
 }
 
@@ -61,8 +87,13 @@ static int apic_deinit(struct vm_device * dev) {
 
 static int apic_init(struct vm_device * dev) {
   struct guest_info * info = dev->vm;
+  struct apic_state * apic = (struct apic_state *)(dev->private_data);
 
-  v3_hook_msr(info, BASE_ADDR_MSR, read_base_addr, write_base_addr, dev);
+  apic->base_addr = DEFAULT_BASE_ADDR;
+
+  v3_hook_msr(info, BASE_ADDR_MSR, read_apic_msr, write_apic_msr, dev);
+
+  v3_hook_full_mem(info, DEFAULT_BASE_ADDR, DEFAULT_BASE_ADDR + PAGE_SIZE_4KB, apic_read, apic_write, dev);
 
   return 0;
 }

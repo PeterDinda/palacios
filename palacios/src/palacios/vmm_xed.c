@@ -112,7 +112,6 @@ static int set_decoder_mode(struct guest_info * info, xed_state_t * state) {
    break;
   case PROTECTED:
   case PROTECTED_PAE:
-  case LONG_32_COMPAT:
     if (state->mmode != XED_MACHINE_MODE_LEGACY_32) {
       xed_state_init(state,
 		     XED_MACHINE_MODE_LEGACY_32, 
@@ -120,9 +119,23 @@ static int set_decoder_mode(struct guest_info * info, xed_state_t * state) {
 		     XED_ADDRESS_WIDTH_32b);
     }
     break;
+  case LONG_32_COMPAT:
+    if (state->mmode != XED_MACHINE_MODE_LONG_COMPAT_32) {
+      xed_state_init(state,
+		     XED_MACHINE_MODE_LONG_COMPAT_32, 
+		     XED_ADDRESS_WIDTH_32b, 
+		     XED_ADDRESS_WIDTH_32b);
+    }
+    break;
   case LONG:
-    if (state->mmode != XED_MACHINE_MODE_LONG_64) {    
-      state->mmode = XED_MACHINE_MODE_LONG_64;
+    if (state->mmode != XED_MACHINE_MODE_LONG_64) {
+      PrintDebug("Setting decoder to long mode\n");
+      //      state->mmode = XED_MACHINE_MODE_LONG_64;
+      //xed_state_set_machine_mode(state, XED_MACHINE_MODE_LONG_64);
+      xed_state_init(state,
+		     XED_MACHINE_MODE_LONG_64, 
+		     XED_ADDRESS_WIDTH_64b, 
+		     XED_ADDRESS_WIDTH_64b);
     }
     break;
   default:
@@ -154,6 +167,10 @@ int v3_init_decoder(struct guest_info * info) {
 
   xed_state_t * decoder_state = (xed_state_t *)V3_Malloc(sizeof(xed_state_t));
   xed_state_zero(decoder_state);
+  xed_state_init(decoder_state,
+		 XED_MACHINE_MODE_LEGACY_32, 
+		 XED_ADDRESS_WIDTH_32b, 
+		 XED_ADDRESS_WIDTH_32b);
 
   info->decoder_state = decoder_state;
 
@@ -527,8 +544,11 @@ static int get_memory_operand(struct guest_info * info,  xed_decoded_inst_t * xe
   ullong_t displacement;
   // struct v3_segment * seg_reg;
 
-
-
+  PrintDebug("Xen mode = %s\n", xed_machine_mode_enum_t2str(xed_state_get_machine_mode(info->decoder_state)));
+  PrintDebug("Address width: %s\n",
+ 	     xed_address_width_enum_t2str(xed_state_get_address_width(info->decoder_state)));
+  PrintDebug("Stack Address width: %s\n",
+ 	     xed_address_width_enum_t2str(xed_state_get_stack_address_width(info->decoder_state)));
 
   memset((void*)&mem_op, '\0', sizeof(struct memory_operand));
 
@@ -596,7 +616,8 @@ static int get_memory_operand(struct guest_info * info,  xed_decoded_inst_t * xe
   base = MASK(mem_op.base, mem_op.base_size);
   index = MASK(mem_op.index, mem_op.index_size);
   scale = mem_op.scale;
-  displacement = MASK(mem_op.displacement, mem_op.displacement_size);
+  // displacement = MASK(mem_op.displacement, mem_op.displacement_size);
+  displacement = mem_op.displacement;
 
   PrintDebug("Seg=%p, base=%p, index=%p, scale=%p, displacement=%p\n", 
 	     (void *)seg, (void *)base, (void *)index, (void *)scale, (void *)(addr_t)displacement);
@@ -608,7 +629,7 @@ static int get_memory_operand(struct guest_info * info,  xed_decoded_inst_t * xe
 
 static int xed_reg_to_v3_reg(struct guest_info * info, xed_reg_enum_t xed_reg, addr_t * v3_reg, uint_t * reg_len) {
 
-  // PrintError("Xed Register: %s\n", xed_reg_enum_t2str(xed_reg));
+  PrintDebug("Xed Register: %s\n", xed_reg_enum_t2str(xed_reg));
 
   switch (xed_reg) {
   case XED_REG_INVALID:

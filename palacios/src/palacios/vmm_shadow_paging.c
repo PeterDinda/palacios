@@ -129,7 +129,7 @@ int v3_handle_shadow_pagefault(struct guest_info * info, addr_t fault_addr, pf_e
   
   if (v3_get_mem_mode(info) == PHYSICAL_MEM) {
     // If paging is not turned on we need to handle the special cases
-    return v3_handle_shadow_pagefault_physical_mode(info, fault_addr, error_code);
+    return v3_handle_passthrough_pagefault(info, fault_addr, error_code);
   } else if (v3_get_mem_mode(info) == VIRTUAL_MEM) {
 
     switch (v3_get_cpu_mode(info)) {

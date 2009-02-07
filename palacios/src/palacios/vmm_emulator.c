@@ -93,16 +93,17 @@ static int emulate_string_write_op(struct guest_info * info, struct x86_instr * 
 
 
     if (dec_instr->dst_operand.size == 1) {
-      movs8((addr_t *)dst_addr, &src_addr, &tmp_rcx, (addr_t *)&(info->ctrl_regs.rflags));
+      movs8((addr_t *)&dst_addr, &src_addr, &tmp_rcx, (addr_t *)&(info->ctrl_regs.rflags));
     } else if (dec_instr->dst_operand.size == 2) {
-      movs16((addr_t *)dst_addr, &src_addr, &tmp_rcx, (addr_t *)&(info->ctrl_regs.rflags));
+      movs16((addr_t *)&dst_addr, &src_addr, &tmp_rcx, (addr_t *)&(info->ctrl_regs.rflags));
     } else if (dec_instr->dst_operand.size == 4) {
-      movs32((addr_t*)dst_addr, &src_addr, &tmp_rcx, (addr_t *)&(info->ctrl_regs.rflags));
+      movs32((addr_t*)&dst_addr, &src_addr, &tmp_rcx, (addr_t *)&(info->ctrl_regs.rflags));
     } else {
       PrintError("Invalid operand length\n");
       return -1;
     }
 
+    PrintDebug("Calling Write function\n");
 
     if (write_fn(write_gpa, (void *)dst_addr, emulation_length, priv_data) != emulation_length) {
       PrintError("Did not fully read hooked data\n");
@@ -232,7 +233,7 @@ int v3_emulate_read_op(struct guest_info * info, addr_t read_gva, addr_t read_gp
   int op_len = 0;
 
   PrintDebug("Emulating Read for instruction at %p\n", (void *)(addr_t)(info->rip));
-  PrintDebug("GVA=%p\n", (void *)write_gva);
+  PrintDebug("GVA=%p\n", (void *)read_gva);
 
   if (info->mem_mode == PHYSICAL_MEM) { 
     ret = read_guest_pa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
