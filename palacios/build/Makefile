@@ -269,6 +269,7 @@ VMM_OBJS := \
 	palacios/vmm_rbtree.o \
 	palacios/vmm_profiler.o \
 	palacios/vmm_direct_paging.o \
+	palacios/vmm_ringbuffer.o \
 
 #		vmx.c vmcs_gen.c vmcs.c
 
