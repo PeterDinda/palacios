@@ -24,6 +24,11 @@
 
 #include <palacios/vmm_types.h>
 
+#ifdef INSTRUMENT_VMM
+#define NO_INST __attribute__((__no_instrument_function__))
+#else 
+#define NO_INST 
+#endif
 
 struct v3_ringbuf {
   uchar_t * buf;
@@ -35,20 +40,20 @@ struct v3_ringbuf {
 };
 
 
-void v3_init_ringbuf(struct v3_ringbuf * ring, uint_t size);
-struct v3_ringbuf * v3_create_ringbuf(uint_t size);
-void v3_free_ringbuf(struct v3_ringbuf * ring);
+void v3_init_ringbuf(struct v3_ringbuf * ring, uint_t size) NO_INST;
+struct v3_ringbuf * v3_create_ringbuf(uint_t size) NO_INST;
+void v3_free_ringbuf(struct v3_ringbuf * ring) NO_INST;
 
 
-int v3_ringbuf_read(struct v3_ringbuf * ring, uchar_t * dst, uint_t len);
-int v3_ringbuf_peek(struct v3_ringbuf * ring, uchar_t * dst, uint_t len);
-int v3_ringbuf_delete(struct v3_ringbuf * ring, uint_t len);
-int v3_ringbuf_write(struct v3_ringbuf * ring, uchar_t * src, uint_t len);
-int v3_ringbuf_data_len(struct v3_ringbuf * ring);
-int v3_ringbuf_capacity(struct v3_ringbuf * ring);
+int v3_ringbuf_read(struct v3_ringbuf * ring, uchar_t * dst, uint_t len) NO_INST;
+int v3_ringbuf_peek(struct v3_ringbuf * ring, uchar_t * dst, uint_t len) NO_INST;
+int v3_ringbuf_delete(struct v3_ringbuf * ring, uint_t len) NO_INST;
+int v3_ringbuf_write(struct v3_ringbuf * ring, uchar_t * src, uint_t len) NO_INST;
+int v3_ringbuf_data_len(struct v3_ringbuf * ring) NO_INST;
+int v3_ringbuf_capacity(struct v3_ringbuf * ring) NO_INST;
+int v3_ringbuf_avail_space(struct v3_ringbuf * ring) NO_INST;
 
-
-void v3_print_ringbuf(struct v3_ringbuf * ring);
+void v3_print_ringbuf(struct v3_ringbuf * ring) NO_INST;
 
 
 #endif
