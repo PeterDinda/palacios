@@ -23,6 +23,7 @@
 #include <palacios/vmm_intr.h>
 #include <palacios/vmm_config.h>
 #include <palacios/vm_guest.h>
+#include <palacios/vmm_instrument.h>
 
 
 v3_cpu_arch_t v3_cpu_type;
@@ -43,7 +44,9 @@ void Init_V3(struct v3_os_hooks * hooks, struct v3_ctrl_ops * vmm_ops) {
 
   v3_cpu_type = V3_INVALID_CPU;
 
-
+	#ifdef INSTRUMENT_VMM
+	    v3_init_cyg_profiler();
+	#endif
 
   if (v3_is_svm_capable()) {
 

@@ -160,6 +160,9 @@ ifeq ($(PROFILE_VMM),1)
   GEEKOS_FLAGS:= $(GEEKOS_FLAGS) PROFILE_VMM=1
 endif
 
+ifeq ($(INSTRUMENT_VMM),1)
+  GEEKOS_FLAGS:= $(GEEKOS_FLAGS) INSTRUMENT_VMM=1
+endif
 
 # ----------------------------------------------------------------------
 # Targets -

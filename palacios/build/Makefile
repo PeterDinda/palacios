@@ -217,6 +217,9 @@ endif
 
 
 
+ifeq ($(INSTRUMENT_VMM),1)
+  EXTRA_C_OPTS:= -DINSTRUMENT_VMM
+endif
 
 # ----------------------------------------------------------------------
 # Configuration -
@@ -270,6 +273,7 @@ VMM_OBJS := \
 	palacios/vmm_profiler.o \
 	palacios/vmm_direct_paging.o \
 	palacios/vmm_ringbuffer.o \
+	palacios/vmm_instrument.o \
 
 #		vmx.c vmcs_gen.c vmcs.c
 
@@ -403,7 +407,11 @@ CC_GENERAL_OPTS = \
 #-fPIC \
 #-fvisibility=hidden
 
-
+ifeq ($(INSTRUMENT_VMM),1)
+	INSTRUMENT_OPT = -finstrument-functions
+else
+	INSTRUMENT_OPT = 
+endif
 
 # Flags passed to objcopy program (strip unnecessary sections from kernel.exe)
 OBJCOPY_FLAGS := -R .dynamic -R .note -R .comment
@@ -440,6 +448,7 @@ CC_COMPILE = \
 		-c \
 		$< \
 		-o $@ \
+		$(INSTRUMENT_OPT) \
 	)
 
 AS_COMPILE = \
@@ -449,6 +458,7 @@ AS_COMPILE = \
 		-c \
 		$< \
 		-o $@ \
+		$(INSTRUMENT_OPT) \
 	)
 
 
