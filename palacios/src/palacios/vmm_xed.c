@@ -1172,36 +1172,58 @@ static v3_op_type_t get_opcode(xed_iform_enum_t iform) {
 
     /* Data Instructions */
 
+    // Write
   case XED_IFORM_ADC_MEMv_GPRv:
   case XED_IFORM_ADC_MEMv_IMM:
   case XED_IFORM_ADC_MEMb_GPR8:
   case XED_IFORM_ADC_MEMb_IMM:
+    // Read
+  case XED_IFORM_ADC_GPRv_MEMv:
+  case XED_IFORM_ADC_GPR8_MEMb:
     return V3_OP_ADC;
 
+    // Write
   case XED_IFORM_ADD_MEMv_GPRv:
   case XED_IFORM_ADD_MEMb_IMM:
   case XED_IFORM_ADD_MEMb_GPR8:
   case XED_IFORM_ADD_MEMv_IMM:
+    // Read
+  case XED_IFORM_ADD_GPRv_MEMv:
+  case XED_IFORM_ADD_GPR8_MEMb:
     return V3_OP_ADD;
 
+    // Write
   case XED_IFORM_AND_MEMv_IMM:
   case XED_IFORM_AND_MEMb_GPR8:
   case XED_IFORM_AND_MEMv_GPRv:
   case XED_IFORM_AND_MEMb_IMM:
+    // Read
+  case XED_IFORM_AND_GPR8_MEMb:
+  case XED_IFORM_AND_GPRv_MEMv:
     return V3_OP_AND;
 
+    // Write
   case XED_IFORM_SUB_MEMv_IMM:
   case XED_IFORM_SUB_MEMb_GPR8:
   case XED_IFORM_SUB_MEMb_IMM:
   case XED_IFORM_SUB_MEMv_GPRv:
+    // Read
+  case XED_IFORM_SUB_GPR8_MEMb:
+  case XED_IFORM_SUB_GPRv_MEMv:
     return V3_OP_SUB;
 
+    // Write
   case XED_IFORM_MOV_MEMv_GPRv:
   case XED_IFORM_MOV_MEMb_GPR8:
   case XED_IFORM_MOV_MEMb_AL:
   case XED_IFORM_MOV_MEMv_IMM:
   case XED_IFORM_MOV_MEMb_IMM:
+    // Read 
+  case XED_IFORM_MOV_GPRv_MEMv:
+  case XED_IFORM_MOV_GPR8_MEMb:
+  case XED_IFORM_MOV_AL_MEMb:
     return V3_OP_MOV;
+
 
   case XED_IFORM_DEC_MEMv:
   case XED_IFORM_DEC_MEMb:
@@ -1211,16 +1233,24 @@ static v3_op_type_t get_opcode(xed_iform_enum_t iform) {
   case XED_IFORM_INC_MEMv:
     return V3_OP_INC;
 
+    // Write
   case XED_IFORM_OR_MEMv_IMM:
   case XED_IFORM_OR_MEMb_IMM:
   case XED_IFORM_OR_MEMv_GPRv:
   case XED_IFORM_OR_MEMb_GPR8:
+    // Read
+  case XED_IFORM_OR_GPRv_MEMv:
+  case XED_IFORM_OR_GPR8_MEMb:
     return V3_OP_OR;
 
+    // Write
   case XED_IFORM_XOR_MEMv_GPRv:
   case XED_IFORM_XOR_MEMb_IMM:
   case XED_IFORM_XOR_MEMb_GPR8:
   case XED_IFORM_XOR_MEMv_IMM:
+    // Read
+  case XED_IFORM_XOR_GPRv_MEMv:
+  case XED_IFORM_XOR_GPR8_MEMb:
     return V3_OP_XOR;
 
   case XED_IFORM_NEG_MEMb:
