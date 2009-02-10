@@ -27,7 +27,7 @@
 struct v3_socket_hooks * sock_hooks = 0;
 
 
-//static int v3_socket_api_test(void);
+//int v3_socket_api_test(void);
 
 
 void V3_Init_Sockets(struct v3_socket_hooks * hooks) {
@@ -119,7 +119,8 @@ void v3_zero_sockset(struct v3_sock_set * sock_set) {
 }
 
 #if 0
-static int
+
+int
 v3_socket_api_test(void)
 {
 	unsigned int port;
@@ -131,7 +132,7 @@ v3_socket_api_test(void)
 	
 	PrintDebug("\nIn Palacios: Test V3_Socket Macros\n");
 	sock = V3_Create_TCP_Socket();
-	if( sock == NULL ){
+	if( ((int)sock) < 0 ){
 		PrintDebug( "ERROR: tcp_socket() failed!\n");
 		return -1;
 	}
@@ -150,7 +151,7 @@ v3_socket_api_test(void)
 
 	PrintDebug( "Going into mainloop: server listening on port %d\n", port);
 
-	client = V3_Accept_Socket(sock, &remote_ip , &port);
+	client = V3_Accept_Socket(sock, &remote_ip, &port);
 
 	PrintDebug(" New connection from %d port: %d\n", remote_ip, port);
 	     
@@ -159,7 +160,7 @@ v3_socket_api_test(void)
 	while(1)
 	{		
 	     V3_Send(client, buf, rc);
-            rc = V3_Recv(client, buf, sizeof(buf)-1);
+             rc = V3_Recv(client, buf, sizeof(buf)-1);
 	     if( rc <= 0 ){
 				PrintDebug( "Closed connection\n");
 				V3_Close_Socket(client);
@@ -176,6 +177,7 @@ v3_socket_api_test(void)
 }
 
 #endif
+
 
 #if 0
 

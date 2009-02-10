@@ -23,7 +23,7 @@
 
 #include <palacios/vmm.h>
 
-#define V3_SOCK void *
+#define V3_SOCK long
 
 #ifdef __V3VEE__
 
@@ -253,6 +253,5 @@ struct v3_socket_hooks {
 
 
 extern void V3_Init_Sockets(struct v3_socket_hooks * hooks);
-
 
 #endif
