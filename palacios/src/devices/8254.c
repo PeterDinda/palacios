@@ -153,15 +153,21 @@ static int handle_crystal_tics(struct vm_device * dev, struct channel * ch, uint
     return output_changed;
   } else {
     ushort_t reload_val = ch->reload_value; 
+
+    // TODO: Check this....
+    // Is this correct???
+    if (reload_val == 0) {
+      reload_val = 1;
+    }
+
     oscillations -= ch->counter;
     ch->counter = 0;
     channel_cycles = 1;
 
-    
     if (ch->op_mode == SQR_WAVE) {
       reload_val -= reload_val % 2;
     }
-    
+
     channel_cycles += oscillations / reload_val;
     oscillations = oscillations % reload_val;
 
@@ -240,7 +246,7 @@ static void pit_update_time(ullong_t cpu_cycles, ullong_t cpu_freq, void * priva
     // Easy...
     state->pit_counter -= cpu_cycles;
   } else {
-    
+    ushort_t reload_val = state->pit_reload;
     // Take off the first part
     cpu_cycles -= state->pit_counter;
     state->pit_counter = 0;
@@ -248,10 +254,26 @@ static void pit_update_time(ullong_t cpu_cycles, ullong_t cpu_freq, void * priva
     
     if (cpu_cycles > state->pit_reload) {
       // how many full oscillations
+      
+      // PrintError("cpu_cycles = %p, reload = %p...\n", 
+      //	 (void *)(addr_t)cpu_cycles, 
+      //	 (void *)(addr_t)state->pit_reload);
+
+      // How do we check for a one shot....
+      if (state->pit_reload == 0) {
+	reload_val = 1;
+      }
+
       tmp_cycles = cpu_cycles;
 
+      
+#ifdef __V3_64BIT__
+      cpu_cycles = tmp_cycles / state->pit_reload;
+      tmp_cycles = tmp_cycles % state->pit_reload;
+#else
       cpu_cycles = do_divll(tmp_cycles, state->pit_reload);
-
+#endif
+	
       oscillations += tmp_cycles;
     }
 

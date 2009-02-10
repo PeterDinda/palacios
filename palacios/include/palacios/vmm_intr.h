@@ -23,7 +23,6 @@
 
 #ifdef __V3VEE__
 
-#include <palacios/vmm_intr.h>
 #include <palacios/vmm_types.h>
 
 

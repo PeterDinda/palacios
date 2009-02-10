@@ -59,7 +59,7 @@ static struct vm_device *  configure_generic(struct guest_info * info, struct v3
 
 static int passthrough_mem_write(addr_t guest_addr, void * src, uint_t length, void * priv_data) {
 
-
+  return length;
   //  memcpy((void*)guest_addr, src, length);
   PrintDebug("Write of %d bytes to %p\n", length, (void *)guest_addr);
   PrintDebug("Write Value = %p\n", (void *)*(addr_t *)src);

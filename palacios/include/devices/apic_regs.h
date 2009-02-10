@@ -56,6 +56,7 @@ struct ext_apic_ctrl_reg {
 } __attribute__((packed));
 
 
+
 struct local_vec_tbl_reg {
   union {
     uint32_t val;
@@ -84,6 +85,8 @@ struct tmr_vec_tbl_reg {
       uint_t del_status    : 1;
       uint_t rsvd2         : 3;
       uint_t mask          : 1;
+#define APIC_TMR_ONESHOT  0
+#define APIC_TMR_PERIODIC 1
       uint_t tmr_mode      : 1;
       uint_t rsvd3         : 14;
     } __attribute__((packed));
@@ -91,12 +94,20 @@ struct tmr_vec_tbl_reg {
 } __attribute__((packed));
 
 
-struct div_cfg_reg {
+struct tmr_div_cfg_reg {
+#define APIC_TMR_DIV1    0xb // 1011
+#define APIC_TMR_DIV2    0x0 // 0000
+#define APIC_TMR_DIV4    0x1 // 0001
+#define APIC_TMR_DIV8    0x2 // 0010
+#define APIC_TMR_DIV16   0x3 // 0011
+#define APIC_TMR_DIV32   0x8 // 1000
+#define APIC_TMR_DIV64   0x9 // 1001
+#define APIC_TMR_DIV128  0xa // 1010
   union {
     uint32_t val;
     struct {
       uint_t div_val       : 2;
-      uint_t rsvd          : 1;
+      uint_t rsvd1         : 1;
       uint_t div_val2      : 1;
       uint_t rsvd2         : 28;
     } __attribute__((packed));
@@ -224,7 +235,7 @@ struct int_cmd_reg {
 } __attribute__((packed));
 
 
-struct loc_dst_reg {
+struct log_dst_reg {
   union {
     uint32_t val;
     struct {

@@ -66,12 +66,25 @@ void PrintTraceMemDump(uchar_t * start, int n);
 #define rdtscl(low)						\
      __asm__ __volatile__("rdtsc" : "=a" (low) : : "edx")
 
-#if defined(__i386__)
+
+
+#define rdtscll(val)							\
+  do {									\
+    uint64_t tsc;							\
+    uint32_t a, d;							\
+    asm volatile("rdtsc" : "=a" (a), "=d" (d));				\
+    *(uint32_t *)&(tsc) = a;						\
+    *(uint32_t *)(((uchar_t *)&tsc) + 4) = d;				\
+    val = tsc;								\
+  } while (0)					
+
+/*
+#if __V3_32BIT__
 
 #define rdtscll(val)				\
      __asm__ __volatile__("rdtsc" : "=A" (val))
 
-#elif defined(__x86_64__)
+#elif __V3_64BIT__
 
 #define rdtscll(val) do {				    \
     unsigned int a,d;					    \
@@ -80,26 +93,39 @@ void PrintTraceMemDump(uchar_t * start, int n);
   } while(0)
 
 #endif
-
-
-
-
+*/
 
 
 
 
 
 #ifdef __V3_64BIT__
-#define do_divll do_div
 
 
-#define do_div(n,base) ({					\
-	uint32_t __base = (base);				\
-	uint32_t __rem;						\
-	__rem = ((uint64_t)(n)) % __base;			\
-	(n) = ((uint64_t)(n)) / __base;				\
-	__rem;							\
- })
+#define do_divll(n, base) ({				\
+      uint64_t __rem = 0;				\
+      uint64_t __num = 0;				\
+      while (n > base) {				\
+	__num++;					\
+	n -= base;					\
+      }							\
+      __rem = n;					\
+      n = __num;					\
+      __rem;						\
+    })						
+
+//#define do_divll do_div
+
+
+/*
+  #define do_div(n,base) ({					\
+  uint32_t __base = (base);					\
+  uint32_t __rem;						\
+  __rem = ((uint64_t)(n)) % __base;				\
+  (n) = ((uint64_t)(n)) / __base;				\
+  __rem;							\
+  })
+*/
 
 #else
 

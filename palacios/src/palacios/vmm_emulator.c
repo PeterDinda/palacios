@@ -44,7 +44,7 @@ static int emulate_string_write_op(struct guest_info * info, struct x86_instr * 
   addr_t src_addr = 0;
 
   if (dec_instr->op_type == V3_OP_MOVS) {
-    PrintError("MOVS emulation\n");
+    //   PrintError("MOVS emulation\n");
 
     if (dec_instr->dst_operand.operand != write_gva) {
       PrintError("Inconsistency between Pagefault and Instruction Decode XED_ADDR=%p, PF_ADDR=%p\n",

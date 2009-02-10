@@ -21,29 +21,27 @@
 #include <devices/os_debug.h>
 #include <palacios/vmm.h>
 
+#define BUF_SIZE 1024
 
-#define DEBUG_PORT1 0xcc
+#define DEBUG_PORT1 0xc0c0
 
 
+struct debug_state {
+  char debug_buf[BUF_SIZE];
+  uint_t debug_offset;
+
+};
 
 
 static int handle_gen_write(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
-  PrintError("OS_DEBUG Write\n");
+  struct debug_state * state = (struct debug_state *)dev->private_data;
 
-  switch (length) {
-  case 1:
-    PrintDebug("OS_DEBUG ->0x%.2x\n", *(uchar_t*)src);
-    break;
-  case 2:
-    PrintDebug("OS_DEBUG ->0x%.4x\n", *(ushort_t*)src);
-    break;
-  case 4:
-    PrintDebug("OS_DEBUG ->0x%.8x\n", *(uint_t*)src);
-    break;
-  default:
-    PrintError("OS_DEBUG -> Invalid length in handle_gen_write\n");
-    return -1;
-    break;
+  state->debug_buf[state->debug_offset++] = *(char*)src;
+
+  if ((*(char*)src == 0xa) ||  (state->debug_offset == (BUF_SIZE - 1))) {
+    PrintDebug("VM_CONSOLE>%s", state->debug_buf);
+    memset(state->debug_buf, 0, BUF_SIZE);
+    state->debug_offset = 0;
   }
 
   return length;
@@ -51,9 +49,12 @@ static int handle_gen_write(ushort_t port, void * src, uint_t length, struct vm_
 
 
 static int debug_init(struct vm_device * dev) {
+  struct debug_state * state = (struct debug_state *)dev->private_data;
 
   v3_dev_hook_io(dev, DEBUG_PORT1,  NULL, &handle_gen_write);
 
+  state->debug_offset = 0;
+  memset(state->debug_buf, 0, BUF_SIZE);
   
   return 0;
 }
@@ -78,9 +79,12 @@ static struct vm_device_ops dev_ops = {
 
 
 struct vm_device * v3_create_os_debug() {
+  struct debug_state * state = NULL;
+
+  state = (struct debug_state *)V3_Malloc(sizeof(struct debug_state));
 
   PrintDebug("Creating OS Debug Device\n");
-  struct vm_device * device = v3_create_device("OS Debug", &dev_ops, NULL);
+  struct vm_device * device = v3_create_device("OS Debug", &dev_ops, state);
 
 
 
