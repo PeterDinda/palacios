@@ -741,22 +741,10 @@ static int apic_get_intr_number(void * private_data) {
 }
 
 static int apic_raise_intr(void * private_data, int irq) {
-  struct vm_device * dev = (struct vm_device *)private_data;
-  struct apic_state * apic = (struct apic_state *)dev->private_data;
-
-  return activate_apic_irq(apic, irq);
+  return 0;
 }
 
 static int apic_lower_intr(void * private_data, int irq) {
-  struct vm_device * dev = (struct vm_device *)private_data;
-  struct apic_state * apic = (struct apic_state *)dev->private_data;
-  int major_offset = irq & ~0x00000007;
-  int minor_offset = irq & 0x00000007;
-  uchar_t * req_location = apic->int_req_reg + major_offset;
-  uchar_t flag = 0x01 << minor_offset;
-
-  *req_location &= ~flag;
-
   return 0;
 }
 
@@ -874,7 +862,7 @@ static int apic_init(struct vm_device * dev) {
   struct guest_info * info = dev->vm;
   struct apic_state * apic = (struct apic_state *)(dev->private_data);
 
-  v3_set_intr_controller(dev->vm, &intr_ops, dev);
+  v3_register_intr_controller(dev->vm, &intr_ops, dev);
   v3_add_timer(dev->vm, &timer_ops, dev);
 
   init_apic_state(apic);

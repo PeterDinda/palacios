@@ -62,7 +62,7 @@ static struct intr_ctrl_ops intr_ops = {
 
 static int pic_init_device(struct vm_device * dev) {
   struct pic_internal * data = (struct pic_internal *)dev->private_data;
-  v3_set_intr_controller(dev->vm, &intr_ops, data);
+  v3_register_intr_controller(dev->vm, &intr_ops, data);
   data->pending_irq = 0;
 
   return 0;

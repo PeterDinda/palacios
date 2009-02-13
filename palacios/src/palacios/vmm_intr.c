@@ -31,6 +31,14 @@
 
 
 
+struct intr_controller {
+  struct intr_ctrl_ops * ctrl_ops;
+
+  void * priv_data;
+  struct list_head ctrl_node;
+};
+
+
 void v3_init_interrupt_state(struct guest_info * info) {
   info->intr_state.excp_pending = 0;
   info->intr_state.excp_num = 0;
@@ -39,9 +47,14 @@ void v3_init_interrupt_state(struct guest_info * info) {
   memset((uchar_t *)(info->intr_state.hooks), 0, sizeof(struct v3_irq_hook *) * 256);
 }
 
-void v3_set_intr_controller(struct guest_info * info, struct intr_ctrl_ops * ops, void * state) {
-  info->intr_state.controller = ops;
-  info->intr_state.controller_state = state;
+void v3_register_intr_controller(struct guest_info * info, struct intr_ctrl_ops * ops, void * state) {
+  struct intr_controller * ctrlr = (struct intr_controller *)V3_Malloc(sizeof(struct intr_controller));
+
+  ctrlr->priv_data = state;
+  ctrlr->ctrl_ops = ops;
+
+  list_add(&(ctrlr->ctrl_node), &(info->intr_state.controller_list));
+
 }
 
 
@@ -97,10 +110,7 @@ static int passthrough_irq_handler(struct guest_info * info, struct v3_interrupt
 int v3_hook_passthrough_irq(struct guest_info * info, uint_t irq)
 {
 
-  int rc = v3_hook_irq(info, 
-		       irq,
-		       passthrough_irq_handler,
-		       NULL);
+  int rc = v3_hook_irq(info, irq, passthrough_irq_handler, NULL);
 
   if (rc) { 
     PrintError("guest_irq_injection: failed to hook irq 0x%x (guest=0x%p)\n", irq, (void *)info);
@@ -170,38 +180,26 @@ int v3_raise_exception(struct guest_info * info, uint_t excp) {
 
 
 int v3_lower_irq(struct guest_info * info, int irq) {
-  // Look up PIC and resend
-  V3_ASSERT(info);
-  V3_ASSERT(info->intr_state.controller);
-  V3_ASSERT(info->intr_state.controller->lower_intr);
+  struct intr_controller * ctrl = NULL;
+  struct v3_intr_state * intr_state = &(info->intr_state);
 
   PrintDebug("[v3_lower_irq]\n");
 
-  if ((info->intr_state.controller) && 
-      (info->intr_state.controller->lower_intr)) {
-    info->intr_state.controller->lower_intr(info->intr_state.controller_state, irq);
-  } else {
-    PrintError("There is no registered Interrupt Controller... (NULL POINTER)\n");
-    return -1;
+  list_for_each_entry(ctrl, &(intr_state->controller_list), ctrl_node) {
+    ctrl->ctrl_ops->lower_intr(ctrl->priv_data, irq);
   }
-
+ 
   return 0;
 }
 
 int v3_raise_irq(struct guest_info * info, int irq) {
-  // Look up PIC and resend
-  V3_ASSERT(info);
-  V3_ASSERT(info->intr_state.controller);
-  V3_ASSERT(info->intr_state.controller->raise_intr);
+  struct intr_controller * ctrl = NULL;
+  struct v3_intr_state * intr_state = &(info->intr_state);
 
   PrintDebug("[v3_raise_irq]\n");
 
-  if ((info->intr_state.controller) && 
-      (info->intr_state.controller->raise_intr)) {
-    info->intr_state.controller->raise_intr(info->intr_state.controller_state, irq);
-  } else {
-    PrintError("There is no registered Interrupt Controller... (NULL POINTER)\n");
-    return -1;
+  list_for_each_entry(ctrl, &(intr_state->controller_list), ctrl_node) {
+    ctrl->ctrl_ops->raise_intr(ctrl->priv_data, irq);
   }
 
   return 0;
@@ -215,11 +213,15 @@ int v3_intr_pending(struct guest_info * info) {
   //  PrintDebug("[intr_pending]\n");
   if (intr_state->excp_pending == 1) {
     return 1;
-  } else if (intr_state->controller->intr_pending(intr_state->controller_state) == 1) {
-    return 1;
-  }
+  } else {
+    struct intr_controller * ctrl = NULL;
 
-  /* Check [A]PIC */
+    list_for_each_entry(ctrl, &(intr_state->controller_list), ctrl_node) {
+      if (ctrl->ctrl_ops->intr_pending(ctrl->priv_data) == 1) {
+	return 1;
+      }
+    }
+  }
 
   return 0;
 }
@@ -230,12 +232,19 @@ uint_t v3_get_intr_number(struct guest_info * info) {
 
   if (intr_state->excp_pending == 1) {
     return intr_state->excp_num;
-  } else if (intr_state->controller->intr_pending(intr_state->controller_state)) {
-    PrintDebug("[get_intr_number] intr_number = %d\n", intr_state->controller->get_intr_number(intr_state->controller_state));
-    return intr_state->controller->get_intr_number(intr_state->controller_state);
-  }
+  } else {
+    struct intr_controller * ctrl = NULL;
 
-  /* someway to get the [A]PIC intr */
+    list_for_each_entry(ctrl, &(intr_state->controller_list), ctrl_node) {
+      if (ctrl->ctrl_ops->intr_pending(ctrl->priv_data)) {
+	uint_t intr_num = ctrl->ctrl_ops->get_intr_number(ctrl->priv_data);
+
+	PrintDebug("[get_intr_number] intr_number = %d\n", intr_num);
+
+	return intr_num;
+      }
+    }
+  }
 
   return 0;
 }
@@ -247,11 +256,18 @@ intr_type_t v3_get_intr_type(struct guest_info * info) {
   if (intr_state->excp_pending) {
     PrintDebug("[get_intr_type] Exception\n");
     return EXCEPTION;
-  } else if (intr_state->controller->intr_pending(intr_state->controller_state)) {
-    PrintDebug("[get_intr_type] External_irq\n");
-    return EXTERNAL_IRQ;
+  } else {
+    struct intr_controller * ctrl = NULL;
+
+    list_for_each_entry(ctrl, &(intr_state->controller_list), ctrl_node) {
+      if (ctrl->ctrl_ops->intr_pending(ctrl->priv_data) == 1) {
+	PrintDebug("[get_intr_type] External_irq\n");
+	return EXTERNAL_IRQ;
+      }
+    }
   }
-    PrintDebug("[get_intr_type] Invalid_Intr\n");
+
+  PrintDebug("[get_intr_type] Invalid_Intr\n");
   return INVALID_INTR;
 }
 
@@ -271,8 +287,12 @@ int v3_injecting_intr(struct guest_info * info, uint_t intr_num, intr_type_t typ
     intr_state->excp_error_code_valid = 0;
     
   } else if (type == EXTERNAL_IRQ) {
-    PrintDebug("[injecting_intr] External_Irq with intr_num = %x\n", intr_num);
-    return intr_state->controller->begin_irq(intr_state->controller_state, intr_num);
+    struct intr_controller * ctrl = NULL;
+
+    list_for_each_entry(ctrl, &(intr_state->controller_list), ctrl_node) {
+      PrintDebug("[injecting_intr] External_Irq with intr_num = %x\n", intr_num);
+      ctrl->ctrl_ops->begin_irq(ctrl->priv_data, intr_num);
+    }
   }
 
   return 0;

@@ -24,7 +24,7 @@
 #ifdef __V3VEE__
 
 #include <palacios/vmm_types.h>
-
+#include <palacios/vmm_list.h>
 
 #define DE_EXCEPTION          0x00  
 #define DB_EXCEPTION          0x01
@@ -52,16 +52,15 @@ typedef enum {INVALID_INTR, EXTERNAL_IRQ, NMI, EXCEPTION, SOFTWARE_INTR, VIRTUAL
 struct guest_info;
 struct v3_interrupt;
 
-/* We need a way to allow the APIC/PIC to decide when they are supposed to receive interrupts...
- * Maybe a notification call when they have been turned on, to deliver irqs to them...
- * We can rehook the guest raise_irq op, to the appropriate controller
- */
 
 
 struct v3_irq_hook {
   int (*handler)(struct guest_info * info, struct v3_interrupt * intr, void * priv_data);
   void * priv_data;
 };
+
+
+
 
 
 struct v3_intr_state {
@@ -72,11 +71,10 @@ struct v3_intr_state {
   uint_t excp_error_code_valid : 1;
   uint_t excp_error_code;
   
-  struct intr_ctrl_ops * controller;
-  void * controller_state;
+  struct list_head controller_list;
+
 
   /* some way to get the [A]PIC intr */
-
   struct v3_irq_hook * hooks[256];
   
 };
@@ -102,7 +100,7 @@ struct intr_ctrl_ops {
 
 
 
-void v3_set_intr_controller(struct guest_info * info, struct intr_ctrl_ops * ops, void * state);
+void v3_register_intr_controller(struct guest_info * info, struct intr_ctrl_ops * ops, void * state);
 
 int v3_raise_exception(struct guest_info * info, uint_t excp);
 int v3_raise_exception_with_error(struct guest_info * info, uint_t excp, uint_t error_code);
