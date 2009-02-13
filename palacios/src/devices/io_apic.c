@@ -22,6 +22,13 @@
 
 #include <devices/apic.h>
 
+/*
+#ifndef DEBUG_IO_APIC
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
+#endif
+*/
+
 
 #define IO_APIC_BASE_ADDR 0xfec00000
 
@@ -175,7 +182,7 @@ static int ioapic_read(addr_t guest_addr, void * dst, uint_t length, void * priv
       break;
     default:
       {
-	uint_t redir_index = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) % 2;
+	uint_t redir_index = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) & 0xfffffffe;
 	uint_t hi_val = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) % 1;
 
 	if (redir_index > 0x3f) {
@@ -220,16 +227,21 @@ static int ioapic_write(addr_t guest_addr, void * src, uint_t length, void * pri
       break;
     default:
       {
-	uint_t redir_index = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) % 2;
+	uint_t redir_index = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) & 0xfffffffe;
 	uint_t hi_val = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) % 1;
+
+
+
 
 	if (redir_index > 0x3f) {
 	  PrintError("Invalid redirection table entry %x\n", (uint32_t)redir_index);
 	  return -1;
 	}
 	if (hi_val) {
+	  PrintDebug("Writing to hi of pin %d\n", redir_index);
 	  ioapic->redir_tbl[redir_index].hi = op_val;
 	} else {
+	  PrintDebug("Writing to lo of pin %d\n", redir_index);
 	  op_val &= REDIR_LO_MASK;
 	  ioapic->redir_tbl[redir_index].lo &= ~REDIR_LO_MASK;
 	  ioapic->redir_tbl[redir_index].lo |= op_val;
@@ -268,6 +280,7 @@ static int ioapic_raise_irq(void * private_data, int irq) {
   irq_entry = &(ioapic->redir_tbl[irq]);
 
   if (irq_entry->mask == 0) {
+    PrintDebug("IOAPIC Signalling APIC to raise INTR %d\n", irq_entry->vec);
     v3_apic_raise_intr(ioapic->apic, irq_entry->vec);
   }
 
