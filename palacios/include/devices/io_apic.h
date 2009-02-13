@@ -17,17 +17,16 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#ifndef __DEVICES_APIC_H__
-#define __DEVICES_APIC_H__
+#ifndef __DEVICES_IO_APIC_H__
+#define __DEVICES_IO_APIC_H__
+
 
 #ifdef __V3VEE__
 
 #include <palacios/vm_dev.h>
 
-struct vm_device * v3_create_apic();
 
-
-int v3_apic_raise_intr(struct vm_device * apic_dev, int intr_num);
+struct vm_device * v3_create_io_apic();
 
 
 #endif // ! __V3VEE__

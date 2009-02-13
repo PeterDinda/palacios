@@ -310,6 +310,7 @@ DEVICES_OBJS := \
 	devices/bochs_debug.o \
 	devices/os_debug.o \
 	devices/apic.o	\
+	devices/io_apic.o \
 
 $(DEVICES_OBJS) :: EXTRA_CFLAGS = \
 	$(JRLDEBUG) \

@@ -37,6 +37,7 @@
 #include <devices/bochs_debug.h>
 #include <devices/os_debug.h>
 #include <devices/apic.h>
+#include <devices/io_apic.h>
 
 
 
@@ -218,7 +219,8 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
     struct vm_device * pit = v3_create_pit(); 
     struct vm_device * bochs_debug = v3_create_bochs_debug();
     struct vm_device * os_debug = v3_create_os_debug();
-    // struct vm_device * apic = v3_create_apic();
+    struct vm_device * apic = v3_create_apic();
+    struct vm_device * ioapic = v3_create_io_apic();
 
     //struct vm_device * serial = v3_create_serial();
     struct vm_device * generic = NULL;
@@ -248,7 +250,8 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
     v3_attach_device(info, bochs_debug);
     v3_attach_device(info, os_debug);
 
-    // v3_attach_device(info, apic);
+    v3_attach_device(info, apic);
+    v3_attach_device(info, ioapic);
 
     if (use_ramdisk) {
       v3_attach_device(info, ramdisk);

@@ -315,7 +315,7 @@ static int activate_internal_irq(struct apic_state * apic, apic_irq_type_t int_t
   }
 
   if (del_mode == APIC_FIXED_DELIVERY) {
-    PrintDebug("Activating internal APIC IRQ\n");
+    //PrintDebug("Activating internal APIC IRQ %d\n", vec_num);
     return activate_apic_irq(apic, vec_num);
   } else {
     PrintError("Unhandled Delivery Mode\n");
@@ -765,6 +765,13 @@ static int apic_begin_irq(void * private_data, int irq) {
 
 
 
+int v3_apic_raise_intr(struct vm_device * apic_dev, int intr_num) {
+  struct apic_state * apic = (struct apic_state *)apic_dev->private_data;
+  return activate_apic_irq(apic, intr_num);
+}
+
+
+
 /* Timer Functions */
 static void apic_update_time(ullong_t cpu_cycles, ullong_t cpu_freq, void * priv_data) {
   struct vm_device * dev = (struct vm_device *)priv_data;
@@ -822,7 +829,7 @@ static void apic_update_time(ullong_t cpu_cycles, ullong_t cpu_freq, void * priv
   }
 
   tmr_ticks = cpu_cycles >> shift_num;
-  PrintDebug("Timer Ticks: %p\n", (void *)tmr_ticks);
+  //  PrintDebug("Timer Ticks: %p\n", (void *)tmr_ticks);
 
   if (tmr_ticks <= apic->tmr_cur_cnt) {
     apic->tmr_cur_cnt -= tmr_ticks;
