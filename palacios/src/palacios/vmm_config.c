@@ -220,7 +220,7 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
     struct vm_device * bochs_debug = v3_create_bochs_debug();
     struct vm_device * os_debug = v3_create_os_debug();
     struct vm_device * apic = v3_create_apic();
-    struct vm_device * ioapic = v3_create_io_apic();
+    struct vm_device * ioapic = v3_create_io_apic(apic);
 
     //struct vm_device * serial = v3_create_serial();
     struct vm_device * generic = NULL;

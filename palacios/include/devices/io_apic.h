@@ -26,7 +26,7 @@
 #include <palacios/vm_dev.h>
 
 
-struct vm_device * v3_create_io_apic();
+struct vm_device * v3_create_io_apic(struct vm_device * apic);
 
 
 #endif // ! __V3VEE__
