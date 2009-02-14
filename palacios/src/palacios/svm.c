@@ -45,6 +45,7 @@
 
 extern void v3_stgi();
 extern void v3_clgi();
+//extern int v3_svm_launch(vmcb_t * vmcb, struct v3_gprs * vm_regs, uint64_t * fs, uint64_t * gs);
 extern int v3_svm_launch(vmcb_t * vmcb, struct v3_gprs * vm_regs);
 
 
@@ -299,6 +300,11 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
   }
 
 
+  /* Safety locations for fs/gs */
+  vm_info->fs = 0;
+  vm_info->gs = 0;
+
+
 
 }
 
@@ -361,12 +367,15 @@ static int start_svm_guest(struct guest_info *info) {
 #define MSR_CSTAR     0xc0000083
 #define MSR_SF_MASK   0xc0000084
 #define MSR_GS_BASE   0xc0000101
+#define MSR_KERNGS_BASE   0xc0000102
+
 
     struct v3_msr host_cstar;
     struct v3_msr host_star;
     struct v3_msr host_lstar;
     struct v3_msr host_syscall_mask;
     struct v3_msr host_gs_base;
+    struct v3_msr host_kerngs_base;
 
     v3_enable_ints();
     v3_clgi();
@@ -384,10 +393,13 @@ static int start_svm_guest(struct guest_info *info) {
     v3_get_msr(MSR_CSTAR, &(host_cstar.hi), &(host_cstar.lo));
     v3_get_msr(MSR_SF_MASK, &(host_syscall_mask.hi), &(host_syscall_mask.lo));
     v3_get_msr(MSR_GS_BASE, &(host_gs_base.hi), &(host_gs_base.lo));
+    v3_get_msr(MSR_KERNGS_BASE, &(host_kerngs_base.hi), &(host_kerngs_base.lo));
+
 
     rdtscll(info->time_state.cached_host_tsc);
     guest_ctrl->TSC_OFFSET = info->time_state.guest_tsc - info->time_state.cached_host_tsc;
 
+    //v3_svm_launch((vmcb_t*)V3_PAddr(info->vmm_data), &(info->vm_regs), &(info->fs), &(info->gs));
     v3_svm_launch((vmcb_t*)V3_PAddr(info->vmm_data), &(info->vm_regs));
 
     rdtscll(tmp_tsc);
@@ -397,6 +409,7 @@ static int start_svm_guest(struct guest_info *info) {
     v3_set_msr(MSR_CSTAR, host_cstar.hi, host_cstar.lo);
     v3_set_msr(MSR_SF_MASK, host_syscall_mask.hi, host_syscall_mask.lo);
     v3_set_msr(MSR_GS_BASE, host_gs_base.hi, host_gs_base.lo);
+    v3_set_msr(MSR_KERNGS_BASE, host_kerngs_base.hi, host_kerngs_base.lo);
 
     //PrintDebug("SVM Returned\n");
 

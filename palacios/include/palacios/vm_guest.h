@@ -104,7 +104,7 @@ struct v3_segments {
   struct v3_segment gdtr;
   struct v3_segment idtr;
   struct v3_segment tr;
-} ;
+};
 
 struct shadow_page_state;
 struct v3_intr_state;
@@ -169,6 +169,12 @@ struct guest_info {
   v3_msr_t guest_cstar;
   v3_msr_t guest_syscall_mask;
   v3_msr_t guest_gs_base;
+
+
+  uint64_t fs;
+  uint64_t gs;
+
+
 
 };
 

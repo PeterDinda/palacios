@@ -158,6 +158,8 @@ v3_svm_launch:
 
 // VMCB => RDI
 // vm_regs => RSI
+// ptr to fs => RDX
+// ptr to gs => RCX
 
 v3_svm_launch:
 	pushf;
@@ -165,7 +167,20 @@ v3_svm_launch:
 	push	%gs;
 	PUSHA
 
-	pushq %rsi
+
+
+//	pushq	%rdx // fs
+//	pushq	%rcx // gs
+
+
+//	pushq	(%rdx)
+//	pop	%fs
+//	pushq	(%rcx)
+//	pop	%gs
+
+
+
+	pushq	%rsi
 
 	movq	%rdi, %rax
 	Restore_SVM_Registers(%rsi);
@@ -179,6 +194,18 @@ v3_svm_launch:
 	Save_SVM_Registers(8(%rsp));
 
 	addq $8, %rsp
+
+//	popq	%rcx
+//	popq	%rdx
+
+//	push	%fs
+//	popq 	%rax
+//	movq	%rax, (%rdx)
+
+//	push	%gs
+//	popq 	%rax
+//	movq	%rax, (%rcx)
+
 
 	POPA
 	pop	%gs;
