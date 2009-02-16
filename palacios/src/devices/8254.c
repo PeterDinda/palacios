@@ -255,7 +255,7 @@ static void pit_update_time(ullong_t cpu_cycles, ullong_t cpu_freq, void * priva
     if (cpu_cycles > state->pit_reload) {
       // how many full oscillations
       
-      // PrintError("cpu_cycles = %p, reload = %p...\n", 
+      //PrintError("cpu_cycles = %p, reload = %p...\n", 
       //	 (void *)(addr_t)cpu_cycles, 
       //	 (void *)(addr_t)state->pit_reload);
 
@@ -268,8 +268,8 @@ static void pit_update_time(ullong_t cpu_cycles, ullong_t cpu_freq, void * priva
 
       
 #ifdef __V3_64BIT__
-      cpu_cycles = tmp_cycles / state->pit_reload;
-      tmp_cycles = tmp_cycles % state->pit_reload;
+      cpu_cycles = tmp_cycles % state->pit_reload;
+      tmp_cycles = tmp_cycles / state->pit_reload;
 #else
       cpu_cycles = do_divll(tmp_cycles, state->pit_reload);
 #endif
