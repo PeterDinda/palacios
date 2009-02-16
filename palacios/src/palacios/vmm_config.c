@@ -24,6 +24,7 @@
 #include <palacios/vmm_decoder.h>
 #include <palacios/vmm_profiler.h>
 #include <palacios/vmm_mem.h>
+#include <palacios/vmm_hypercall.h>
 
 
 #include <devices/serial.h>
@@ -84,6 +85,9 @@ int v3_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) 
   v3_init_decoder(info);
   
   v3_init_shadow_map(info);
+  
+  v3_init_hypercall_map(info);
+
   
   if (v3_cpu_type == V3_SVM_REV3_CPU) {
     info->shdw_pg_mode = NESTED_PAGING;

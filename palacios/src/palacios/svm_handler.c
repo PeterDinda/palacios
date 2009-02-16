@@ -31,6 +31,7 @@
 #include <palacios/vmm_emulator.h>
 #include <palacios/svm_msr.h>
 #include <palacios/vmm_profiler.h>
+#include <palacios/vmm_hypercall.h>
 
 
 
@@ -271,6 +272,22 @@ int v3_handle_svm_exit(struct guest_info * info) {
       */
       break;
     }
+
+
+
+  case VMEXIT_VMMCALL: 
+    { 
+      /* 
+       * Hypercall 
+       */
+
+      if (v3_handle_hypercall(info) == -1) {
+	return -1;
+      }
+      break;
+    } 
+
+
   case VMEXIT_INTR: 
     {
       // handled by interrupt dispatch earlier
@@ -300,56 +317,6 @@ int v3_handle_svm_exit(struct guest_info * info) {
     break;
 
 
-#if 0
-    // Emulation handlers currently not used
-  case VMEXIT_EXCP1: 
-    {
-#ifdef DEBUG_EMULATOR
-      PrintDebug("DEBUG EXCEPTION\n");
-#endif
-      if (info->run_state == VM_EMULATING) {
-	if (v3_emulation_exit_handler(info) == -1) {
-	  return -1;
-	}
-      } else {
-	PrintError("VMMCALL with not emulator...\n");
-	return -1;
-      }
-      break;
-    } 
-    
-
-  case VMEXIT_VMMCALL: 
-    {
-#ifdef DEBUG_EMULATOR
-      PrintDebug("VMMCALL\n");
-#endif
-      if (info->run_state == VM_EMULATING) {
-	if (v3_emulation_exit_handler(info) == -1) {
-	  return -1;
-	}
-      } else {
-	/*
-	ulong_t tsc_spread = 0;
-	ullong_t exit_tsc = 0;
-
-	ulong_t rax = (ulong_t)info->vm_regs.rbx;
-	ulong_t rdx = (ulong_t)info->vm_regs.rcx;
-
-	*(ulong_t *)(&exit_tsc) = rax;
-	*(((ulong_t *)(&exit_tsc)) + 1) = rdx; 
-
-	tsc_spread = info->exit_tsc - exit_tsc;
-
-	PrintError("VMMCALL tsc diff = %lu\n",tsc_spread); 
-	info->rip += 3;
-	*/
-	PrintError("VMMCALL with not emulator...\n");
-	return -1;
-      }
-      break;
-    } 
-#endif
 
 
   case VMEXIT_WBINVD: 

@@ -279,6 +279,7 @@ VMM_OBJS := \
 	palacios/vmm_profiler.o \
 	palacios/vmm_direct_paging.o \
 	palacios/vmm_ringbuffer.o \
+	palacios/vmm_hypercall.o \
 	$(OBJ_FILES)
 
 #		vmx.c vmcs_gen.c vmcs.c

@@ -32,6 +32,7 @@
 #include <palacios/vmm_host_events.h>
 #include <palacios/vmm_msr.h>
 #include <palacios/vmm_profiler.h>
+#include <palacios/vmm_hypercall.h>
 
 
 
@@ -137,6 +138,9 @@ struct guest_info {
   v3_io_map_t io_map;
 
   struct v3_msr_map msr_map;
+
+
+  v3_hypercall_map_t hcall_map;
 
   // device_map
   struct vmm_dev_mgr  dev_mgr;
