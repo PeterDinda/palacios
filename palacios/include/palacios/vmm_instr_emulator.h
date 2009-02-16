@@ -397,6 +397,49 @@
 
 
 
+#define MAKE_2OP_8EXT_INST(iname) static inline void iname##8(addr_t * dst, addr_t * src, uint_t dst_len) { \
+    if (dst_len == 2) {							\
+      asm volatile (							\
+		    #iname" %1, %0; "					\
+		    : "=q"(*(uint16_t *)dst)				\
+		    : "q"(*(uint8_t *)src), "0"(*(uint16_t *)dst)	\
+		    );							\
+    } else if (dst_len == 4) {						\
+      asm volatile (							\
+		    #iname" %1, %0; "					\
+		    : "=q"(*(uint32_t *)dst)				\
+		    : "q"(*(uint8_t *)src), "0"(*(uint32_t *)dst)	\
+		    );							\
+    } else if (dst_len == 8) {						\
+      asm volatile (							\
+		    #iname" %1, %0; "					\
+		    : "=q"(*(uint64_t *)dst)				\
+		    : "q"(*(uint8_t *)src), "0"(*(uint64_t *)dst)	\
+		    );							\
+    }									\
+  }
+
+#define MAKE_2OP_16EXT_INST(iname) static inline void iname##16(addr_t * dst, addr_t * src, uint_t dst_len) { \
+    if (dst_len == 4) {							\
+      asm volatile (							\
+		    #iname" %1, %0; "					\
+		    : "=q"(*(uint32_t *)dst)				\
+		    : "q"(*(uint16_t *)src), "0"(*(uint32_t *)dst)	\
+		    );							\
+    } else if (dst_len == 8) {						\
+      asm volatile (							\
+		    #iname" %1, %0; "					\
+		    : "=q"(*(uint64_t *)dst)				\
+		    : "q"(*(uint16_t *)src), "0"(*(uint64_t *)dst)	\
+		    );							\
+    }									\
+  }
+
+
+
+
+
+
 /****************************/
 /* 8 Bit instruction forms  */
 /****************************/
@@ -433,6 +476,9 @@ MAKE_1OP_8FLAGS_INST(setz);
 MAKE_1OP_8_INST(not);
 
 MAKE_2OP_8_INST(mov);
+MAKE_2OP_8EXT_INST(movzx);
+MAKE_2OP_8EXT_INST(movsx);
+
 MAKE_2OP_8_INST(xchg);
 
 MAKE_2OP_8STR_INST(movs);
@@ -456,6 +502,8 @@ MAKE_1OP_16FLAGS_INST(neg);
 MAKE_1OP_16_INST(not);
 
 MAKE_2OP_16_INST(mov);
+MAKE_2OP_16EXT_INST(movzx);
+MAKE_2OP_16EXT_INST(movsx);
 MAKE_2OP_16_INST(xchg);
 
 MAKE_2OP_16STR_INST(movs);
@@ -478,6 +526,7 @@ MAKE_1OP_32FLAGS_INST(neg);
 MAKE_1OP_32_INST(not);
 
 MAKE_2OP_32_INST(mov);
+
 MAKE_2OP_32_INST(xchg);
 
 
@@ -504,6 +553,7 @@ MAKE_1OP_64_INST(not);
 
 
 MAKE_2OP_64_INST(mov);
+
 
 MAKE_2OP_64_INST(xchg);
 

@@ -32,7 +32,7 @@
 
 
 
-static int run_op(struct guest_info * info, v3_op_type_t op_type, addr_t src_addr, addr_t dst_addr, int op_size);
+static int run_op(struct guest_info * info, v3_op_type_t op_type, addr_t src_addr, addr_t dst_addr, int src_op_size, int dst_op_size);
 
 // We emulate up to the next 4KB page boundry
 static int emulate_string_write_op(struct guest_info * info, struct x86_instr * dec_instr, 
@@ -149,7 +149,8 @@ int v3_emulate_write_op(struct guest_info * info, addr_t write_gva, addr_t write
   uchar_t instr[15];
   int ret = 0;
   addr_t src_addr = 0;
-  int op_len = 0;
+  int src_op_len = 0;
+  int dst_op_len = 0;
 
   PrintDebug("Emulating Write for instruction at %p\n", (void *)(addr_t)(info->rip));
   PrintDebug("GVA=%p\n", (void *)write_gva);
@@ -201,25 +202,26 @@ int v3_emulate_write_op(struct guest_info * info, addr_t write_gva, addr_t write
     src_addr = (addr_t)&(dec_instr.src_operand.operand);
   }
 
-  op_len = dec_instr.dst_operand.size;
+  dst_op_len = dec_instr.dst_operand.size;
+  src_op_len = dec_instr.src_operand.size;
 
   PrintDebug("Dst_Addr = %p, SRC operand = %p\n", 
 	     (void *)dst_addr, (void *)src_addr);
 
 
-  if (run_op(info, dec_instr.op_type, src_addr, dst_addr, op_len) == -1) {
+  if (run_op(info, dec_instr.op_type, src_addr, dst_addr, src_op_len, dst_op_len) == -1) {
     PrintError("Instruction Emulation Failed\n");
     return -1;
   }
 
-  if (write_fn(write_gpa, (void *)dst_addr, op_len, priv_data) != op_len) {
+  if (write_fn(write_gpa, (void *)dst_addr, dst_op_len, priv_data) != dst_op_len) {
     PrintError("Did not fully write hooked data\n");
     return -1;
   }
 
   info->rip += dec_instr.instr_length;
 
-  return op_len;
+  return dst_op_len;
 }
 
 
@@ -230,7 +232,8 @@ int v3_emulate_read_op(struct guest_info * info, addr_t read_gva, addr_t read_gp
   uchar_t instr[15];
   int ret = 0;
   addr_t dst_addr = 0;
-  int op_len = 0;
+  int src_op_len = 0;
+  int dst_op_len = 0;
 
   PrintDebug("Emulating Read for instruction at %p\n", (void *)(addr_t)(info->rip));
   PrintDebug("GVA=%p\n", (void *)read_gva);
@@ -283,24 +286,25 @@ int v3_emulate_read_op(struct guest_info * info, addr_t read_gva, addr_t read_gp
     dst_addr = (addr_t)&(dec_instr.dst_operand.operand);
   }
 
-  op_len = dec_instr.src_operand.size;
+  src_op_len = dec_instr.src_operand.size;
+  dst_op_len = dec_instr.dst_operand.size;
 
   PrintDebug("Dst_Addr = %p, SRC Addr = %p\n", 
 	     (void *)dst_addr, (void *)src_addr);
 
-  if (read_fn(read_gpa, (void *)src_addr,op_len, priv_data) != op_len) {
+  if (read_fn(read_gpa, (void *)src_addr, src_op_len, priv_data) != src_op_len) {
     PrintError("Did not fully read hooked data\n");
     return -1;
   }
 
-  if (run_op(info, dec_instr.op_type, src_addr, dst_addr, op_len) == -1) {
+  if (run_op(info, dec_instr.op_type, src_addr, dst_addr, src_op_len, dst_op_len) == -1) {
     PrintError("Instruction Emulation Failed\n");
     return -1;
   }
 
   info->rip += dec_instr.instr_length;
 
-  return op_len;
+  return src_op_len;
 }
 
 
@@ -308,9 +312,9 @@ int v3_emulate_read_op(struct guest_info * info, addr_t read_gva, addr_t read_gp
 
 
 
-static int run_op(struct guest_info * info, v3_op_type_t op_type, addr_t src_addr, addr_t dst_addr, int op_size) {
+static int run_op(struct guest_info * info, v3_op_type_t op_type, addr_t src_addr, addr_t dst_addr, int src_op_size, int dst_op_size) {
 
-  if (op_size == 1) {
+  if (src_op_size == 1) {
 
     switch (op_type) {
     case V3_OP_ADC:
@@ -335,6 +339,14 @@ static int run_op(struct guest_info * info, v3_op_type_t op_type, addr_t src_add
     case V3_OP_MOV:
       mov8((addr_t *)dst_addr, (addr_t *)src_addr);
       break;
+
+    case V3_OP_MOVZX:
+      movzx8((addr_t *)dst_addr, (addr_t *)src_addr, dst_op_size);
+      break;
+    case V3_OP_MOVSX:
+      movsx8((addr_t *)dst_addr, (addr_t *)src_addr, dst_op_size);
+      break;
+
     case V3_OP_NOT:
       not8((addr_t *)dst_addr);
       break;
@@ -406,7 +418,7 @@ static int run_op(struct guest_info * info, v3_op_type_t op_type, addr_t src_add
       return -1;
     }
 
-  } else if (op_size == 2) {
+  } else if (src_op_size == 2) {
 
     switch (op_type) {
     case V3_OP_ADC:
@@ -442,6 +454,12 @@ static int run_op(struct guest_info * info, v3_op_type_t op_type, addr_t src_add
     case V3_OP_MOV:
       mov16((addr_t *)dst_addr, (addr_t *)src_addr);
       break;
+    case V3_OP_MOVZX:
+      movzx16((addr_t *)dst_addr, (addr_t *)src_addr, dst_op_size);
+      break;
+    case V3_OP_MOVSX:
+      movsx16((addr_t *)dst_addr, (addr_t *)src_addr, dst_op_size);
+      break;
     case V3_OP_NOT:
       not16((addr_t *)dst_addr);
       break;
@@ -454,7 +472,7 @@ static int run_op(struct guest_info * info, v3_op_type_t op_type, addr_t src_add
       return -1;
     }
 
-  } else if (op_size == 4) {
+  } else if (src_op_size == 4) {
 
     switch (op_type) {
     case V3_OP_ADC:
@@ -489,6 +507,7 @@ static int run_op(struct guest_info * info, v3_op_type_t op_type, addr_t src_add
     case V3_OP_MOV:
       mov32((addr_t *)dst_addr, (addr_t *)src_addr);
       break;
+
     case V3_OP_NOT:
       not32((addr_t *)dst_addr);
       break;
@@ -502,7 +521,7 @@ static int run_op(struct guest_info * info, v3_op_type_t op_type, addr_t src_add
     }
 
 #ifdef __V3_64BIT__
-  } else if (op_size == 8) {
+  } else if (src_op_size == 8) {
 
 
     switch (op_type) {
@@ -538,6 +557,7 @@ static int run_op(struct guest_info * info, v3_op_type_t op_type, addr_t src_add
     case V3_OP_MOV:
       mov64((addr_t *)dst_addr, (addr_t *)src_addr);
       break;
+
     case V3_OP_NOT:
       not64((addr_t *)dst_addr);
       break;

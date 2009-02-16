@@ -1225,6 +1225,17 @@ static v3_op_type_t get_opcode(xed_iform_enum_t iform) {
     return V3_OP_MOV;
 
 
+    // Read 
+  case XED_IFORM_MOVZX_GPRv_MEMb:
+  case XED_IFORM_MOVZX_GPRv_MEMw:
+    return V3_OP_MOVZX;
+
+    // Read 
+  case XED_IFORM_MOVSX_GPRv_MEMb:
+  case XED_IFORM_MOVSX_GPRv_MEMw:
+    return V3_OP_MOVSX;
+
+
   case XED_IFORM_DEC_MEMv:
   case XED_IFORM_DEC_MEMb:
     return V3_OP_DEC;
