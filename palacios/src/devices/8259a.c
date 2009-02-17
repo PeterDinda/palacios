@@ -289,7 +289,7 @@ static int pic_begin_irq(void * private_data, int irq) {
     irq &= 0x7;
     irq += 8;
   } else {
-    PrintError("8259 PIC: Could not find IRQ (0x%x) to Begin\n",irq);
+    //    PrintError("8259 PIC: Could not find IRQ (0x%x) to Begin\n",irq);
     return -1;
   }
 
