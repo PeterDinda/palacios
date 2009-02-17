@@ -198,7 +198,7 @@ int v3_raise_irq(struct guest_info * info, int irq) {
   struct intr_controller * ctrl = NULL;
   struct v3_intr_state * intr_state = &(info->intr_state);
 
-  PrintDebug("[v3_raise_irq]\n");
+  PrintDebug("[v3_raise_irq (%d)]\n", irq);
 
   list_for_each_entry(ctrl, &(intr_state->controller_list), ctrl_node) {
     ctrl->ctrl_ops->raise_intr(ctrl->priv_data, irq);
@@ -291,8 +291,8 @@ int v3_injecting_intr(struct guest_info * info, uint_t intr_num, intr_type_t typ
   } else if (type == EXTERNAL_IRQ) {
     struct intr_controller * ctrl = NULL;
 
+    PrintDebug("[injecting_intr] External_Irq with intr_num = %x\n", intr_num);
     list_for_each_entry(ctrl, &(intr_state->controller_list), ctrl_node) {
-      PrintDebug("[injecting_intr] External_Irq with intr_num = %x\n", intr_num);
       ctrl->ctrl_ops->begin_irq(ctrl->priv_data, intr_num);
     }
   }
