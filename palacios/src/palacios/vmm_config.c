@@ -47,8 +47,6 @@
 #define USE_GENERIC 1
 
 
-#define ROMBIOS_START 0x000f0000
-#define VGABIOS_START 0x000c0000
 
 
 
@@ -100,11 +98,14 @@ int v3_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) 
   info->cpu_mode = REAL;
   info->mem_mode = PHYSICAL_MEM;
 
-  // Amount of ram the Guest will have
-  info->mem_size = config_ptr->mem_size;
+  // Amount of ram the Guest will have, rounded to a 4K page boundary
+  info->mem_size = config_ptr->mem_size & ~(addr_t)0xfff;
 
   // Configure the memory map for the guest
-  setup_memory_map(info, config_ptr);
+  if (setup_memory_map(info, config_ptr) == -1) {
+    PrintError("Setting up guest memory map failed...\n");
+    return -1;
+  }
 
   // Configure the devices for the guest
   setup_devices(info, config_ptr);
@@ -134,77 +135,106 @@ int v3_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) 
  * We need to make sure the memory map extends to cover it
  */
 static int setup_memory_map(struct guest_info * info, struct v3_vm_config * config_ptr) {
+  addr_t mem_pages = info->mem_size >> 12;
 
-  /* layout rombios */
-  {
-    uint_t num_pages = (config_ptr->rombios_size + PAGE_SIZE - 1) / PAGE_SIZE;
-    void * guest_mem =  V3_AllocPages(num_pages);
+  PrintDebug("Setting up memory map (memory size=%dMB)\n", (uint_t)(info->mem_size / (1024 * 1024)));
 
-    PrintDebug("Layout Region %d bytes\n", config_ptr->rombios_size);
-    memcpy(V3_VAddr(guest_mem), config_ptr->rombios, config_ptr->rombios_size);
-
-    v3_add_shadow_mem(info, ROMBIOS_START, ROMBIOS_START + (num_pages * PAGE_SIZE) - 1, (addr_t)guest_mem);
-    
-    PrintDebug("Adding Shadow Region (0x%p-0x%p) -> 0x%p\n", 
-	       (void *)ROMBIOS_START, 
-	       (void *)ROMBIOS_START + (num_pages * PAGE_SIZE), 
-	       (void *)guest_mem);
+  // Fill up to the 640K hole
+  if (mem_pages >= 160) {
+    if (v3_add_shadow_mem(info, 0x0, 0xa0000, (addr_t)V3_AllocPages(160)) == -1) {
+      PrintError("Could not map full conventional memory\n");
+      return -1;
+    }
+  } else {
+    // Less than 640k of memory
+    if (v3_add_shadow_mem(info, 0x0, (mem_pages * PAGE_SIZE), (addr_t)V3_AllocPages(mem_pages)) == -1) {
+      PrintError("Could not map subset of conventional memory\n");
+      return -1;
+    };
   }
+
+
+#define VGABIOS_START 0x000c0000
+#define ROMBIOS_START 0x000f0000
+
+  // VGA frame buffer
+  if (1) {
+    if (v3_add_shadow_mem(info, 0xa0000, 0xc0000, 0xa0000) == -1) {
+      PrintError("Could not map VGA framebuffer\n");
+      return -1;
+    }
+  } else {
+    v3_hook_write_mem(info, 0xa0000, 0xc0000, 0xa0000,  passthrough_mem_write, NULL);
+  }  
 
 
   /* layout vgabios */
   {
     uint_t num_pages = (config_ptr->vgabios_size + PAGE_SIZE - 1) / PAGE_SIZE;
     void * guest_mem =  V3_AllocPages(num_pages);
+    addr_t vgabios_end = VGABIOS_START + (num_pages * PAGE_SIZE);
 
     PrintDebug("Layout Region %d bytes\n", config_ptr->vgabios_size);
     memcpy(V3_VAddr(guest_mem), config_ptr->vgabios, config_ptr->vgabios_size);
 
-    v3_add_shadow_mem(info, VGABIOS_START, VGABIOS_START + (num_pages * PAGE_SIZE) - 1, (addr_t)guest_mem);
-    
+    if (v3_add_shadow_mem(info, VGABIOS_START, vgabios_end, (addr_t)guest_mem) == -1) {
+      PrintError("Could not map VGABIOS\n");
+      return -1;
+    }
+
     PrintDebug("Adding Shadow Region (0x%p-0x%p) -> 0x%p\n", 
 	       (void *)VGABIOS_START, 
-	       (void *)VGABIOS_START + (num_pages * PAGE_SIZE), 
+	       (void *)vgabios_end, 
 	       (void *)guest_mem);
-  }
 
-      //     
-  v3_add_shadow_mem(info, 0x0, 0x9ffff, (addr_t)V3_AllocPages(160));
-  
-  if (1) {
-    v3_add_shadow_mem(info, 0xa0000, 0xbffff, 0xa0000); 
-  } else {
-    v3_hook_write_mem(info, 0xa0000, 0xbffff, 0xa0000,  passthrough_mem_write, NULL);
-  }  
-  
-  // TEMP
-  //add_shadow_region_passthrough(info, 0xc0000, 0xc8000, 0xc0000);
-  
-  if (1) {
-    v3_add_shadow_mem(info, 0xc7000, 0xc8000, (addr_t)V3_AllocPages(1));
-    if (v3_add_shadow_mem(info, 0xc8000, 0xf0000, (addr_t)V3_AllocPages(40)) == -1) {
-      PrintDebug("Error adding shadow region\n");
+
+    // Fill in the space between the VGABIOS and the ROMBIOS
+    // We'll just back this to shadow memory for now....
+    if (v3_add_shadow_mem(info, vgabios_end, ROMBIOS_START, 
+			  (addr_t)V3_AllocPages((ROMBIOS_START - vgabios_end) / PAGE_SIZE)) == -1) {
+      PrintError("Could not map VGABIOS->ROMBIOS gap\n");
+      return -1;
     }
-  } else {
-    v3_add_shadow_mem(info, 0xc0000, 0xc8000, 0xc0000);
-    v3_add_shadow_mem(info, 0xc8000, 0xf0000, 0xc8000);
-  }
-  
-  
-  if (1) {
-    v3_add_shadow_mem(info, 0x100000, 0x1000000, (addr_t)V3_AllocPages(4096));
-  } else {
-    /* MEMORY HOOK TEST */
-    v3_add_shadow_mem(info, 0x100000, 0xa00000, (addr_t)V3_AllocPages(2304));
-    v3_hook_write_mem(info, 0xa00000, 0xa01000, (addr_t)V3_AllocPages(1), passthrough_mem_write, NULL); 
-    v3_add_shadow_mem(info, 0xa01000, 0x1000000, (addr_t)V3_AllocPages(1791));
   }
 
-  v3_add_shadow_mem(info, 0x1000000, 0x8000000, (addr_t)V3_AllocPages(32768));
- 
-  // test - give linux accesss to PCI space - PAD
-  //v3_add_shadow_mem(info, 0xc0000000,0xffffffff,0xc0000000);
-  
+  /* layout rombios */
+  {
+    uint_t num_pages = (config_ptr->rombios_size + PAGE_SIZE - 1) / PAGE_SIZE;
+    void * guest_mem =  V3_AllocPages(num_pages);
+    addr_t rombios_end = ROMBIOS_START + (num_pages * PAGE_SIZE);
+
+    PrintDebug("Layout Region %d bytes\n", config_ptr->rombios_size);
+    memcpy(V3_VAddr(guest_mem), config_ptr->rombios, config_ptr->rombios_size);
+
+    if (v3_add_shadow_mem(info, ROMBIOS_START, rombios_end, (addr_t)guest_mem) == -1) {
+      PrintError("Could not map ROMBIOS\n");
+      return -1;
+    }
+    
+    PrintDebug("Adding Shadow Region (0x%p-0x%p) -> 0x%p\n", 
+	       (void *)ROMBIOS_START, 
+	       (void *)rombios_end, 
+	       (void *)guest_mem);
+
+    if (rombios_end != 0x100000) {
+      PrintError("ROMBIOS must reach the 1MB barrier....\n");
+      return -1;
+    }
+  }
+
+
+
+  // Fill in the extended memory map....
+  {
+    int num_ext_pages = mem_pages - (0x100000 / PAGE_SIZE);
+
+    if (num_ext_pages > 0) {
+      if (v3_add_shadow_mem(info, 0x100000, info->mem_size, (addr_t)V3_AllocPages(num_ext_pages)) == -1) {
+	PrintError("Could not allocate extended shadow memory\n");
+	return -1;
+      }
+    }
+  }
   
   print_shadow_map(info);
 

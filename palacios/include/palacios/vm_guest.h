@@ -119,7 +119,7 @@ struct guest_info {
 
   uint_t cpl;
 
-  addr_t mem_size; // Probably in bytes for now....
+  addr_t mem_size; // In bytes for now
   v3_shdw_map_t mem_map;
 
 

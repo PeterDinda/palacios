@@ -79,7 +79,6 @@ typedef enum {NVRAM_READY, NVRAM_REG_POSTED} nvram_state_t;
 #define NVRAM_REG_AMI_BIG_MEMORY_HIGH     0x35
 #define NVRAM_REG_AMI_BIG_MEMORY_LOW      0x34
 
-
 #define NVRAM_REG_CSUM_HIGH               0x2e
 #define NVRAM_REG_CSUM_LOW                0x2f
 #define NVRAM_REG_IBM_CENTURY_BYTE        0x32  
@@ -427,7 +426,51 @@ static int handle_timer_event(struct guest_info * info,
   return 0;
 }
 
-static int set_nvram_defaults(struct vm_device * dev) {
+
+
+static void set_memory_size(struct nvram_internal * nvram, addr_t bytes) {
+  // 1. Conventional Mem: 0-640k in K
+  // 2. Extended Mem: 0-16MB in K
+  // 3. Big Mem: 0-4G in 64K
+
+  if (bytes > 640 * 1024) {
+    nvram->mem_state[NVRAM_REG_BASE_MEMORY_HIGH] = 0x02;
+    nvram->mem_state[NVRAM_REG_BASE_MEMORY_LOW] = 0x80;
+  } else {
+    uint16_t memk = bytes * 1024;
+    nvram->mem_state[NVRAM_REG_BASE_MEMORY_HIGH] = (memk >> 8) & 0x00ff;
+    nvram->mem_state[NVRAM_REG_BASE_MEMORY_LOW] = memk & 0x00ff;
+
+    return;
+  }
+
+  if (bytes > (16 * 1024 * 1024)) {
+    // Set extended memory to 15 MB
+    nvram->mem_state[NVRAM_REG_EXT_MEMORY_HIGH] = 0x3C;
+    nvram->mem_state[NVRAM_REG_EXT_MEMORY_LOW] = 0x00;
+    nvram->mem_state[NVRAM_REG_EXT_MEMORY_2ND_HIGH]= 0x3C;
+    nvram->mem_state[NVRAM_REG_EXT_MEMORY_2ND_LOW]= 0x00;
+  } else {
+    uint16_t memk = bytes * 1024;
+    nvram->mem_state[NVRAM_REG_EXT_MEMORY_HIGH] = (memk >> 8) & 0x00ff;
+    nvram->mem_state[NVRAM_REG_EXT_MEMORY_LOW] = memk & 0x00ff;
+    nvram->mem_state[NVRAM_REG_EXT_MEMORY_2ND_HIGH]= (memk >> 8) & 0x00ff;
+    nvram->mem_state[NVRAM_REG_EXT_MEMORY_2ND_LOW]= memk & 0x00ff;
+
+    return;
+  }
+
+  {
+    // Set the extended memory beyond 16 MB in 64k chunks
+    uint16_t mem_chunks = bytes * (1024 / 64);
+    nvram->mem_state[NVRAM_REG_AMI_BIG_MEMORY_HIGH] = (mem_chunks >> 8) & 0x00ff;
+    nvram->mem_state[NVRAM_REG_AMI_BIG_MEMORY_LOW] = mem_chunks & 0x00ff;
+  }
+
+  return;
+}
+
+static int init_nvram_state(struct vm_device * dev) {
   struct guest_info * info = dev->vm;
   struct nvram_internal * nvram_state = (struct nvram_internal *)dev->private_data;
   
@@ -437,6 +480,9 @@ static int set_nvram_defaults(struct vm_device * dev) {
    */
   PrintError("TODO: Set the nvram memory register to reflect info->mem_size (%p)\n", (void *)(info->mem_size));
   
+
+  memset(nvram_state->mem_state, 0, NVRAM_REG_MAX);
+
 
   //
   // 2 1.44 MB floppy drives
@@ -461,30 +507,13 @@ static int set_nvram_defaults(struct vm_device * dev) {
   // For new boot sequence style, do cd, hd, floppy
   nvram_state->mem_state[NVRAM_REG_BOOTSEQ_NEW_FIRST] = 0x23;
   nvram_state->mem_state[NVRAM_REG_BOOTSEQ_NEW_SECOND] = 0x10;
- 
-
+  
+  
   // Set equipment byte to note 2 floppies, vga display, keyboard,math,floppy
   nvram_state->mem_state[NVRAM_REG_EQUIPMENT_BYTE] = 0x4f;
-  //nvram_state->mem_state[NVRAM_REG_EQUIPMENT_BYTE] = 0xf;
-
-  // Set conventional memory to 640K
-  nvram_state->mem_state[NVRAM_REG_BASE_MEMORY_HIGH] = 0x02;
-  nvram_state->mem_state[NVRAM_REG_BASE_MEMORY_LOW] = 0x80;
-
-  // Set extended memory to 15 MB
-  nvram_state->mem_state[NVRAM_REG_EXT_MEMORY_HIGH] = 0x3C;
-  nvram_state->mem_state[NVRAM_REG_EXT_MEMORY_LOW] = 0x00;
-  nvram_state->mem_state[NVRAM_REG_EXT_MEMORY_2ND_HIGH]= 0x3C;
-  nvram_state->mem_state[NVRAM_REG_EXT_MEMORY_2ND_LOW]= 0x00;
-
-  // Set the extended memory beyond 16 MB to 128-16 MB
-  nvram_state->mem_state[NVRAM_REG_AMI_BIG_MEMORY_HIGH] = 0x7;
-  nvram_state->mem_state[NVRAM_REG_AMI_BIG_MEMORY_LOW] = 0x00;
-
-  //nvram_state->mem_state[NVRAM_REG_AMI_BIG_MEMORY_HIGH]= 0x00;
-  //nvram_state->mem_state[NVRAM_REG_AMI_BIG_MEMORY_LOW]= 0x00;
-
+  // nvram_state->mem_state[NVRAM_REG_EQUIPMENT_BYTE] = 0xf;
   
+
   // This is the harddisk type.... Set accordingly...
   nvram_state->mem_state[NVRAM_IBM_HD_DATA] = 0x20;
 
@@ -520,18 +549,19 @@ static int set_nvram_defaults(struct vm_device * dev) {
   nvram_state->us = 0;
   nvram_state->pus = 0;
 
+  set_memory_size(nvram_state, dev->vm->mem_size);
+
+  nvram_state->dev_state = NVRAM_READY;
+  nvram_state->thereg = 0;
+
   return 0;
 }
 
 
+
+
 static int nvram_reset_device(struct vm_device * dev) {
-  struct nvram_internal * data = (struct nvram_internal *) dev->private_data;
-  
-  PrintDebug("nvram: reset device\n");
- 
-  data->dev_state = NVRAM_READY;
-  data->thereg = 0;
-  
+
   return 0;
 }
 
@@ -601,19 +631,9 @@ static int nvram_write_data_port(ushort_t port,
 
 
 static int nvram_init_device(struct vm_device * dev) {
-
-  struct nvram_internal * data = (struct nvram_internal *)dev->private_data;
-
   PrintDebug("nvram: init_device\n");
 
-  memset(data->mem_state, 0, NVRAM_REG_MAX);
-
-  // Would read state here
-  set_nvram_defaults(dev);
-  
-
-
-  nvram_reset_device(dev);
+  init_nvram_state(dev);
 
   // hook ports
   v3_dev_hook_io(dev, NVRAM_REG_PORT, NULL, &nvram_write_reg_port);
