@@ -284,6 +284,9 @@ int v3_handle_svm_exit(struct guest_info * info) {
       if (v3_handle_hypercall(info) == -1) {
 	return -1;
       }
+
+      // VMMCALL is a 3 byte op
+      info->rip += 3;
       break;
     } 
 
@@ -324,7 +327,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
 #ifdef DEBUG_EMULATOR
       PrintDebug("WBINVD\n");
 #endif
-      if (!v3_handle_svm_wbinvd(info)) { 
+      if (v3_handle_svm_wbinvd(info) == -1) { 
 	return -1;
       }
       break;
@@ -336,38 +339,39 @@ int v3_handle_svm_exit(struct guest_info * info) {
     /* Exits Following this line are NOT HANDLED */
     /*=======================================================================*/
 
-  default: {
+  default: 
+    {
 
-    addr_t rip_addr;
-
-    PrintDebug("Unhandled SVM Exit: %s\n", vmexit_code_to_str(exit_code));
-
-    rip_addr = get_addr_linear(info, guest_state->rip, &(info->segments.cs));
-
-
-    PrintError("SVM Returned:(VMCB=%p)\n", (void *)(info->vmm_data)); 
-    PrintError("RIP: %p\n", (void *)(addr_t)(guest_state->rip));
-    PrintError("RIP Linear: %p\n", (void *)(addr_t)(rip_addr));
-    
-    PrintError("SVM Returned: Exit Code: %p\n", (void *)(addr_t)exit_code); 
-    
-    PrintError("io_info1 low = 0x%.8x\n", *(uint_t*)&(guest_ctrl->exit_info1));
-    PrintError("io_info1 high = 0x%.8x\n", *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info1)) + 4));
-    
-    PrintError("io_info2 low = 0x%.8x\n", *(uint_t*)&(guest_ctrl->exit_info2));
-    PrintError("io_info2 high = 0x%.8x\n", *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info2)) + 4));
-
-
-    if (info->shdw_pg_mode == SHADOW_PAGING) {
-      PrintHostPageTables(info, info->ctrl_regs.cr3);
-      //PrintGuestPageTables(info, info->shdw_pg_state.guest_cr3);
+      addr_t rip_addr;
+      
+      PrintDebug("Unhandled SVM Exit: %s\n", vmexit_code_to_str(exit_code));
+      
+      rip_addr = get_addr_linear(info, guest_state->rip, &(info->segments.cs));
+      
+      
+      PrintError("SVM Returned:(VMCB=%p)\n", (void *)(info->vmm_data)); 
+      PrintError("RIP: %p\n", (void *)(addr_t)(guest_state->rip));
+      PrintError("RIP Linear: %p\n", (void *)(addr_t)(rip_addr));
+      
+      PrintError("SVM Returned: Exit Code: %p\n", (void *)(addr_t)exit_code); 
+      
+      PrintError("io_info1 low = 0x%.8x\n", *(uint_t*)&(guest_ctrl->exit_info1));
+      PrintError("io_info1 high = 0x%.8x\n", *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info1)) + 4));
+      
+      PrintError("io_info2 low = 0x%.8x\n", *(uint_t*)&(guest_ctrl->exit_info2));
+      PrintError("io_info2 high = 0x%.8x\n", *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info2)) + 4));
+      
+      
+      if (info->shdw_pg_mode == SHADOW_PAGING) {
+	PrintHostPageTables(info, info->ctrl_regs.cr3);
+	//PrintGuestPageTables(info, info->shdw_pg_state.guest_cr3);
+      }
+      
+      return -1;
+      
     }
-
-    return -1;
-
-  }
     break;
-
+    
   }
   // END OF SWITCH (EXIT_CODE)
 
