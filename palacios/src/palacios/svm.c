@@ -347,7 +347,7 @@ static int init_svm_guest(struct guest_info *info) {
 // can we start a kernel thread here...
 static int start_svm_guest(struct guest_info *info) {
   vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
-  vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
+  //  vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
   uint_t num_exits = 0;
 
 
