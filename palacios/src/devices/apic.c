@@ -24,7 +24,7 @@
 #include <palacios/vmm_msr.h>
 
 
-#ifndef DEBUG_INTERRUPTS
+#ifndef DEBUG_APIC
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
@@ -362,7 +362,8 @@ static int apic_read(addr_t guest_addr, void * dst, uint_t length, void * priv_d
   struct apic_state * apic = (struct apic_state *)dev->private_data;
   addr_t reg_addr  = guest_addr - apic->base_addr;
   struct apic_msr * msr = (struct apic_msr *)&(apic->base_addr_msr.value);
-  uint32_t * val_ptr = (uint32_t *)dst;
+  uint32_t val = 0;
+
 
   PrintDebug("Read apic address space (%p)\n", 
 	     (void *)guest_addr);
@@ -373,12 +374,13 @@ static int apic_read(addr_t guest_addr, void * dst, uint_t length, void * priv_d
   }
 
 
-  if (length != 4) {
-    PrintError("Invalid apic read length (%d)\n", length);
-    return -1;
-  }
+  /* Because "May not be supported" doesn't matter to Linux developers... */
+  /*   if (length != 4) { */
+  /*     PrintError("Invalid apic read length (%d)\n", length); */
+  /*     return -1; */
+  /*   } */
 
-  switch (reg_addr) {
+  switch (reg_addr & ~0x3) {
   case EOI_OFFSET:
     PrintError("Attempting to read from write only register\n");
     return -1;
@@ -386,173 +388,173 @@ static int apic_read(addr_t guest_addr, void * dst, uint_t length, void * priv_d
 
     // data registers
   case APIC_ID_OFFSET:
-    *val_ptr = apic->lapic_id.val;
+    val = apic->lapic_id.val;
     break;
   case APIC_VERSION_OFFSET:
-    *val_ptr = apic->apic_ver.val;
+    val = apic->apic_ver.val;
     break;
   case TPR_OFFSET:
-    *val_ptr = apic->task_prio.val;
+    val = apic->task_prio.val;
     break;
   case APR_OFFSET:
-    *val_ptr = apic->arb_prio.val;
+    val = apic->arb_prio.val;
     break;
   case PPR_OFFSET:
-    *val_ptr = apic->proc_prio.val;
+    val = apic->proc_prio.val;
     break;
   case REMOTE_READ_OFFSET:
-    *val_ptr = apic->rem_rd_data;
+    val = apic->rem_rd_data;
     break;
   case LDR_OFFSET:
-    *val_ptr = apic->log_dst.val;
+    val = apic->log_dst.val;
     break;
   case DFR_OFFSET:
-    *val_ptr = apic->dst_fmt.val;
+    val = apic->dst_fmt.val;
     break;
   case SPURIOUS_INT_VEC_OFFSET:
-    *val_ptr = apic->spurious_int.val;
+    val = apic->spurious_int.val;
     break;
   case ESR_OFFSET:
-    *val_ptr = apic->err_status.val;
+    val = apic->err_status.val;
     break;
   case TMR_LOC_VEC_TBL_OFFSET:
-    *val_ptr = apic->tmr_vec_tbl.val;
+    val = apic->tmr_vec_tbl.val;
     break;
   case LINT0_VEC_TBL_OFFSET:
-    *val_ptr = apic->lint0_vec_tbl.val;
+    val = apic->lint0_vec_tbl.val;
     break;
   case LINT1_VEC_TBL_OFFSET:
-    *val_ptr = apic->lint1_vec_tbl.val;
+    val = apic->lint1_vec_tbl.val;
     break;
   case ERR_VEC_TBL_OFFSET:
-    *val_ptr = apic->err_vec_tbl.val;
+    val = apic->err_vec_tbl.val;
     break;
   case TMR_INIT_CNT_OFFSET:
-    *val_ptr = apic->tmr_init_cnt;
+    val = apic->tmr_init_cnt;
     break;
   case TMR_DIV_CFG_OFFSET:
-    *val_ptr = apic->tmr_div_cfg.val;
+    val = apic->tmr_div_cfg.val;
     break;
 
   case IER_OFFSET0:
-    *val_ptr = *(uint32_t *)(apic->int_en_reg);
+    val = *(uint32_t *)(apic->int_en_reg);
     break;
   case IER_OFFSET1:
-    *val_ptr = *(uint32_t *)(apic->int_en_reg + 4);
+    val = *(uint32_t *)(apic->int_en_reg + 4);
     break;
   case IER_OFFSET2:
-    *val_ptr = *(uint32_t *)(apic->int_en_reg + 8);
+    val = *(uint32_t *)(apic->int_en_reg + 8);
     break;
   case IER_OFFSET3:
-    *val_ptr = *(uint32_t *)(apic->int_en_reg + 12);
+    val = *(uint32_t *)(apic->int_en_reg + 12);
     break;
   case IER_OFFSET4:
-    *val_ptr = *(uint32_t *)(apic->int_en_reg + 16);
+    val = *(uint32_t *)(apic->int_en_reg + 16);
     break;
   case IER_OFFSET5:
-    *val_ptr = *(uint32_t *)(apic->int_en_reg + 20);
+    val = *(uint32_t *)(apic->int_en_reg + 20);
     break;
   case IER_OFFSET6:
-    *val_ptr = *(uint32_t *)(apic->int_en_reg + 24);
+    val = *(uint32_t *)(apic->int_en_reg + 24);
     break;
   case IER_OFFSET7:
-    *val_ptr = *(uint32_t *)(apic->int_en_reg + 28);
+    val = *(uint32_t *)(apic->int_en_reg + 28);
     break;
 
   case ISR_OFFSET0:
-    *val_ptr = *(uint32_t *)(apic->int_svc_reg);
+    val = *(uint32_t *)(apic->int_svc_reg);
     break;
   case ISR_OFFSET1:
-    *val_ptr = *(uint32_t *)(apic->int_svc_reg + 4);
+    val = *(uint32_t *)(apic->int_svc_reg + 4);
     break;
   case ISR_OFFSET2:
-    *val_ptr = *(uint32_t *)(apic->int_svc_reg + 8);
+    val = *(uint32_t *)(apic->int_svc_reg + 8);
     break;
   case ISR_OFFSET3:
-    *val_ptr = *(uint32_t *)(apic->int_svc_reg + 12);
+    val = *(uint32_t *)(apic->int_svc_reg + 12);
     break;
   case ISR_OFFSET4:
-    *val_ptr = *(uint32_t *)(apic->int_svc_reg + 16);
+    val = *(uint32_t *)(apic->int_svc_reg + 16);
     break;
   case ISR_OFFSET5:
-    *val_ptr = *(uint32_t *)(apic->int_svc_reg + 20);
+    val = *(uint32_t *)(apic->int_svc_reg + 20);
     break;
   case ISR_OFFSET6:
-    *val_ptr = *(uint32_t *)(apic->int_svc_reg + 24);
+    val = *(uint32_t *)(apic->int_svc_reg + 24);
     break;
   case ISR_OFFSET7:
-    *val_ptr = *(uint32_t *)(apic->int_svc_reg + 28);
+    val = *(uint32_t *)(apic->int_svc_reg + 28);
     break;
    
   case TRIG_OFFSET0:
-    *val_ptr = *(uint32_t *)(apic->trig_mode_reg);
+    val = *(uint32_t *)(apic->trig_mode_reg);
     break;
   case TRIG_OFFSET1:
-    *val_ptr = *(uint32_t *)(apic->trig_mode_reg + 4);
+    val = *(uint32_t *)(apic->trig_mode_reg + 4);
     break;
   case TRIG_OFFSET2:
-    *val_ptr = *(uint32_t *)(apic->trig_mode_reg + 8);
+    val = *(uint32_t *)(apic->trig_mode_reg + 8);
     break;
   case TRIG_OFFSET3:
-    *val_ptr = *(uint32_t *)(apic->trig_mode_reg + 12);
+    val = *(uint32_t *)(apic->trig_mode_reg + 12);
     break;
   case TRIG_OFFSET4:
-    *val_ptr = *(uint32_t *)(apic->trig_mode_reg + 16);
+    val = *(uint32_t *)(apic->trig_mode_reg + 16);
     break;
   case TRIG_OFFSET5:
-    *val_ptr = *(uint32_t *)(apic->trig_mode_reg + 20);
+    val = *(uint32_t *)(apic->trig_mode_reg + 20);
     break;
   case TRIG_OFFSET6:
-    *val_ptr = *(uint32_t *)(apic->trig_mode_reg + 24);
+    val = *(uint32_t *)(apic->trig_mode_reg + 24);
     break;
   case TRIG_OFFSET7:
-    *val_ptr = *(uint32_t *)(apic->trig_mode_reg + 28);
+    val = *(uint32_t *)(apic->trig_mode_reg + 28);
     break;
 
   case IRR_OFFSET0:
-    *val_ptr = *(uint32_t *)(apic->int_req_reg);
+    val = *(uint32_t *)(apic->int_req_reg);
     break;
   case IRR_OFFSET1:
-    *val_ptr = *(uint32_t *)(apic->int_req_reg + 4);
+    val = *(uint32_t *)(apic->int_req_reg + 4);
     break;
   case IRR_OFFSET2:
-    *val_ptr = *(uint32_t *)(apic->int_req_reg + 8);
+    val = *(uint32_t *)(apic->int_req_reg + 8);
     break;
   case IRR_OFFSET3:
-    *val_ptr = *(uint32_t *)(apic->int_req_reg + 12);
+    val = *(uint32_t *)(apic->int_req_reg + 12);
     break;
   case IRR_OFFSET4:
-    *val_ptr = *(uint32_t *)(apic->int_req_reg + 16);
+    val = *(uint32_t *)(apic->int_req_reg + 16);
     break;
   case IRR_OFFSET5:
-    *val_ptr = *(uint32_t *)(apic->int_req_reg + 20);
+    val = *(uint32_t *)(apic->int_req_reg + 20);
     break;
   case IRR_OFFSET6:
-    *val_ptr = *(uint32_t *)(apic->int_req_reg + 24);
+    val = *(uint32_t *)(apic->int_req_reg + 24);
     break;
   case IRR_OFFSET7:
-    *val_ptr = *(uint32_t *)(apic->int_req_reg + 28);
+    val = *(uint32_t *)(apic->int_req_reg + 28);
     break;
   case TMR_CUR_CNT_OFFSET:
-    *val_ptr = apic->tmr_cur_cnt;
+    val = apic->tmr_cur_cnt;
     break;
 
     // We are not going to implement these....
   case THERM_LOC_VEC_TBL_OFFSET:
-    *val_ptr = apic->therm_loc_vec_tbl.val;
+    val = apic->therm_loc_vec_tbl.val;
     break;
   case PERF_CTR_LOC_VEC_TBL_OFFSET:
-    *val_ptr = apic->perf_ctr_loc_vec_tbl.val;
+    val = apic->perf_ctr_loc_vec_tbl.val;
     break;
 
  
 
     // handled registers
   case INT_CMD_LO_OFFSET:    
-    *val_ptr = apic->int_cmd.lo;
+    val = apic->int_cmd.lo;
     break;
   case INT_CMD_HI_OFFSET:
-    *val_ptr = apic->int_cmd.hi;
+    val = apic->int_cmd.hi;
     break;
 
     // handle current timer count
@@ -568,6 +570,28 @@ static int apic_read(addr_t guest_addr, void * dst, uint_t length, void * priv_d
 
   default:
     PrintError("Read from Unhandled APIC Register: %x\n", (uint32_t)reg_addr);
+    return -1;
+  }
+
+
+  if (length == 1) {
+    uint_t byte_addr = reg_addr & 0x3;
+    uint8_t * val_ptr = (uint8_t *)dst;
+    
+    *val_ptr = *(((uint8_t *)&val) + byte_addr);
+
+  } else if ((length == 2) && 
+	     ((reg_addr & 0x3) == 0x3)) {
+    uint_t byte_addr = reg_addr & 0x3;
+    uint16_t * val_ptr = (uint16_t *)dst;
+    *val_ptr = *(((uint16_t *)&val) + byte_addr);
+
+  } else if (length == 4) {
+    uint32_t * val_ptr = (uint32_t *)dst;
+    *val_ptr = val;
+
+  } else {
+    PrintError("Invalid apic read length (%d)\n", length);
     return -1;
   }
 
@@ -628,7 +652,7 @@ static int apic_write(addr_t guest_addr, void * src, uint_t length, void * priv_
   case TRIG_OFFSET7:
   case PPR_OFFSET:
   case EXT_APIC_FEATURE_OFFSET:
-    PrintError("Attempting to write to read only register\n");
+    PrintError("Attempting to write to read only register %p\n", (void *)reg_addr);
     return -1;
     break;
 
@@ -744,7 +768,6 @@ static int apic_intr_pending(void * private_data) {
   struct apic_state * apic = (struct apic_state *)dev->private_data;
   int i = 0;
 
-  PrintDebug("Checking interrupt Pending...\n");
 
   // just scan the request register looking for any set bit
   // we should probably just do this with uint64 casts 
@@ -753,7 +776,6 @@ static int apic_intr_pending(void * private_data) {
       return 1;
     }
   }
-  PrintDebug("\tNone\n");
   return 0;
 }
 
