@@ -1,31 +1,44 @@
+/*
+ * This file is part of the Palacios Virtual Machine Monitor developed
+ * by the V3VEE Project with funding from the United States National 
+ * Science Foundation and the Department of Energy.  
+ *
+ * The V3VEE Project is a joint project between Northwestern University
+ * and the University of New Mexico.  You can find out more at 
+ * http://www.v3vee.org
+ *
+ * Copyright (c) 2008, Steven Jaconette <stevenjaconette2007@u.northwestern.edu> 
+ * Copyright (c) 2008, Jack Lange <jarusl@cs.northwestern.edu> 
+ * Copyright (c) 2008, The V3VEE Project <http://www.v3vee.org> 
+ * All rights reserved.
+ *
+ * Author: Steven Jaconette <stevenjaconette2007@u.northwestern.edu>
+ *
+ * This is free software.  You are permitted to use,
+ * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
+ */
+
 #include <palacios/vmm_direct_paging.h>
 #include <palacios/vmm_paging.h>
 #include <palacios/vmm.h>
 #include <palacios/vm_guest_mem.h>
 #include <palacios/vm_guest.h>
 
+static addr_t create_generic_pt_page() {
+  void * page = 0;
+  page = V3_VAddr(V3_AllocPages(1));
+  memset(page, 0, PAGE_SIZE);
 
+  return (addr_t)page;
+}
 
 // Inline handler functions for each cpu mode
 #include "vmm_direct_paging_32.h"
+#include "vmm_direct_paging_32pae.h"
 
-pde32_t * v3_create_direct_passthrough_pts(struct guest_info * info) {
-  v3_vm_cpu_mode_t mode = v3_get_cpu_mode(info);
-  switch(mode) {
-    case REAL:
-    case PROTECTED:
-      return create_direct_passthrough_pts_32(info);
-    case PROTECTED_PAE:
-      break;
-    case LONG:
-      break;
-    case LONG_32_COMPAT:
-      break;
-    default:
-      PrintError("Unknown CPU Mode\n");
-      break;
-  }
-  return NULL;
+
+addr_t v3_create_direct_passthrough_pts(struct guest_info * info) {
+  return create_generic_pt_page();
 }
 
 int v3_handle_passthrough_pagefault(struct guest_info * info, addr_t fault_addr, pf_error_t error_code) {
@@ -36,7 +49,7 @@ int v3_handle_passthrough_pagefault(struct guest_info * info, addr_t fault_addr,
     case PROTECTED:
       return handle_passthrough_pagefault_32(info, fault_addr, error_code);
     case PROTECTED_PAE:
-      break;
+      return handle_passthrough_pagefault_32pae(info, fault_addr, error_code);
     case LONG:
       break;
     case LONG_32_COMPAT:

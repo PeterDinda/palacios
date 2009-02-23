@@ -242,7 +242,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
 
     /* Testing 64 bit page tables for long paged real mode guests */
     //    vm_info->direct_map_pt = (addr_t)V3_PAddr(create_passthrough_pts_64(vm_info));
-    vm_info->direct_map_pt = (addr_t)V3_PAddr(v3_create_direct_passthrough_pts(vm_info));
+    vm_info->direct_map_pt = (addr_t)V3_PAddr((void *)v3_create_direct_passthrough_pts(vm_info));
     /* End Test */
 
     vm_info->shdw_pg_state.guest_cr0 = 0x0000000000000010LL;
