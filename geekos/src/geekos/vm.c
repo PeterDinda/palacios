@@ -106,8 +106,6 @@ int RunVMM(struct Boot_Info * bootInfo) {
     vm_config.rombios_size = rombios->length;
 
     vm_config.mem_size = 128 * 1024 * 1024;
-    
-    vm_config.mem_size = 128 * 1024 * 1024;
 
     region_start += rombios->length;
 
