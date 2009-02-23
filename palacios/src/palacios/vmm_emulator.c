@@ -43,99 +43,104 @@ static int emulate_string_write_op(struct guest_info * info, struct x86_instr * 
   addr_t tmp_rcx = 0;
   addr_t src_addr = 0;
 
-  if (dec_instr->op_type == V3_OP_MOVS) {
-    //   PrintError("MOVS emulation\n");
+  if (dec_instr->dst_operand.operand != write_gva) {
+    PrintError("Inconsistency between Pagefault and Instruction Decode XED_ADDR=%p, PF_ADDR=%p\n",
+	       (void *)dec_instr->dst_operand.operand, (void *)write_gva);
+    return -1;
+  }
+  
+  emulation_length = ( (dec_instr->str_op_length  < (0x1000 - PAGE_OFFSET_4KB(write_gva))) ? 
+		       dec_instr->str_op_length :
+		       (0x1000 - PAGE_OFFSET_4KB(write_gva)));
+  
+  /* ** Fix emulation length so that it doesn't overrun over the src page either ** */
+  tmp_rcx = emulation_length;
+  
 
-    if (dec_instr->dst_operand.operand != write_gva) {
-      PrintError("Inconsistency between Pagefault and Instruction Decode XED_ADDR=%p, PF_ADDR=%p\n",
-		 (void *)dec_instr->dst_operand.operand, (void *)write_gva);
+
+
+  if (dec_instr->op_type == V3_OP_MOVS) {
+
+  // figure out addresses here....
+  if (info->mem_mode == PHYSICAL_MEM) {
+    if (guest_pa_to_host_va(info, dec_instr->src_operand.operand, &src_addr) == -1) {
+      PrintError("Could not translate write Source (Physical) to host VA\n");
       return -1;
     }
-
-    emulation_length = ( (dec_instr->str_op_length  < (0x1000 - PAGE_OFFSET_4KB(write_gva))) ? 
-			 dec_instr->str_op_length :
-			 (0x1000 - PAGE_OFFSET_4KB(write_gva)));
-    /* ** Fix emulation length so that it doesn't overrun over the src page either ** */
-
-
-    PrintDebug("STR_OP_LEN: %d, Page Len: %d\n", 
-	       (uint_t)dec_instr->str_op_length, 
-	       (uint_t)(0x1000 - PAGE_OFFSET_4KB(write_gva)));
-    PrintDebug("Emulation length: %d\n", emulation_length);
-    tmp_rcx = emulation_length;
- 
-
-
-    // figure out addresses here....
-    if (info->mem_mode == PHYSICAL_MEM) {
-      if (guest_pa_to_host_va(info, dec_instr->src_operand.operand, &src_addr) == -1) {
-	PrintError("Could not translate write Source (Physical) to host VA\n");
-	return -1;
-      }
-    } else {
-      if (guest_va_to_host_va(info, dec_instr->src_operand.operand, &src_addr) == -1) {
-	PrintError("Could not translate write Source (Virtual) to host VA\n");
-	return -1;
-      }
+  } else {
+    if (guest_va_to_host_va(info, dec_instr->src_operand.operand, &src_addr) == -1) {
+      PrintError("Could not translate write Source (Virtual) to host VA\n");
+      return -1;
     }
-
-
-    PrintDebug("Dst Operand: %p (size=%d), Src Operand: %p\n", 
-	       (void *)dec_instr->dst_operand.operand, 
-	       dec_instr->dst_operand.size,
-	       (void *)dec_instr->src_operand.operand);
-    PrintDebug("Dst Addr: %p, Src Addr: %p\n", (void *)dst_addr, (void *)src_addr);
-
-    //return -1;
-
-
- 
-
+  }
 
     if (dec_instr->dst_operand.size == 1) {
       movs8((addr_t *)&dst_addr, &src_addr, &tmp_rcx, (addr_t *)&(info->ctrl_regs.rflags));
     } else if (dec_instr->dst_operand.size == 2) {
       movs16((addr_t *)&dst_addr, &src_addr, &tmp_rcx, (addr_t *)&(info->ctrl_regs.rflags));
     } else if (dec_instr->dst_operand.size == 4) {
-      movs32((addr_t*)&dst_addr, &src_addr, &tmp_rcx, (addr_t *)&(info->ctrl_regs.rflags));
+      movs32((addr_t *)&dst_addr, &src_addr, &tmp_rcx, (addr_t *)&(info->ctrl_regs.rflags));
+#ifdef __V3_64BIT__
+    } else if (dec_instr->dst_operand.size == 8) {
+      movs64((addr_t *)&dst_addr, &src_addr, &tmp_rcx, (addr_t *)&(info->ctrl_regs.rflags));
+#endif
     } else {
       PrintError("Invalid operand length\n");
       return -1;
     }
 
-    PrintDebug("Calling Write function\n");
+    info->vm_regs.rdi += emulation_length;
+    info->vm_regs.rsi += emulation_length;
 
-    if (write_fn(write_gpa, (void *)dst_addr, emulation_length, priv_data) != emulation_length) {
-      PrintError("Did not fully read hooked data\n");
+    // RCX is only modified if the rep prefix is present
+    if (dec_instr->prefixes.rep == 1) {
+      info->vm_regs.rcx -= emulation_length;
+    }
+
+  } else if (dec_instr->op_type == V3_OP_STOS) {
+
+    if (dec_instr->dst_operand.size == 1) {
+      stos8((addr_t *)&dst_addr, (addr_t  *)&(info->vm_regs.rax), &tmp_rcx, (addr_t *)&(info->ctrl_regs.rflags));
+    } else if (dec_instr->dst_operand.size == 2) {
+      stos16((addr_t *)&dst_addr, (addr_t  *)&(info->vm_regs.rax), &tmp_rcx, (addr_t *)&(info->ctrl_regs.rflags));
+    } else if (dec_instr->dst_operand.size == 4) {
+      stos32((addr_t *)&dst_addr, (addr_t  *)&(info->vm_regs.rax), &tmp_rcx, (addr_t *)&(info->ctrl_regs.rflags));
+#ifdef __V3_64BIT__
+    } else if (dec_instr->dst_operand.size == 8) {
+      stos64((addr_t *)&dst_addr, (addr_t  *)&(info->vm_regs.rax), &tmp_rcx, (addr_t *)&(info->ctrl_regs.rflags));
+#endif
+    } else {
+      PrintError("Invalid operand length\n");
       return -1;
     }
 
-
-    PrintDebug("RDI=%p, RSI=%p, RCX=%p\n", 
-	       (void *)*(addr_t *)&(info->vm_regs.rdi), 
-	       (void *)*(addr_t *)&(info->vm_regs.rsi), 
-	       (void *)*(addr_t *)&(info->vm_regs.rcx)); 
-
     info->vm_regs.rdi += emulation_length;
-    info->vm_regs.rsi += emulation_length;
-    info->vm_regs.rcx -= emulation_length;
     
-    PrintDebug("RDI=%p, RSI=%p, RCX=%p\n", 
-	       (void *)*(addr_t *)&(info->vm_regs.rdi), 
-	       (void *)*(addr_t *)&(info->vm_regs.rsi), 
-	       (void *)*(addr_t *)&(info->vm_regs.rcx)); 
-
-    if (emulation_length == dec_instr->str_op_length) {
-      info->rip += dec_instr->instr_length;
+    // RCX is only modified if the rep prefix is present
+    if (dec_instr->prefixes.rep == 1) {
+      info->vm_regs.rcx -= emulation_length;
     }
 
-    return emulation_length;
+  } else {
+    PrintError("Unimplemented String operation\n");
+    return -1;
   }
+
+  if (write_fn(write_gpa, (void *)dst_addr, emulation_length, priv_data) != emulation_length) {
+    PrintError("Did not fully read hooked data\n");
+    return -1;
+  }
+
+  if (emulation_length == dec_instr->str_op_length) {
+    info->rip += dec_instr->instr_length;
+  }
+
+  return emulation_length;
+
 
   
 
 
-  return -1;
 }
 
 

@@ -259,6 +259,33 @@ static int decode_string_op(struct guest_info * info,
       instr->str_op_length = 1;
     }
 
+  } else if (instr->op_type == V3_OP_STOS) {
+    instr->num_operands = 2;
+
+    if (get_memory_operand(info, xed_instr, 0, &(instr->dst_operand)) == -1) {
+      PrintError("Could not get Destination memory operand\n");
+      return -1;
+    }
+
+    // STOS reads from rax
+    xed_reg_to_v3_reg(info, xed_decoded_inst_get_reg(xed_instr, XED_OPERAND_REG0), 
+		      &(instr->src_operand.operand), 
+		      &(instr->src_operand.size));
+    instr->src_operand.type = REG_OPERAND;
+    
+    if (instr->prefixes.rep == 1) {
+      addr_t reg_addr = 0;
+      uint_t reg_length = 0;
+
+      xed_reg_to_v3_reg(info, xed_decoded_inst_get_reg(xed_instr, XED_OPERAND_REG1), &reg_addr, &reg_length);
+      instr->str_op_length = MASK(*(addr_t *)reg_addr, reg_length);
+    } else {
+      instr->str_op_length = 1;
+    }
+
+  } else {
+    PrintError("Unhandled String OP\n");
+    return -1;
   }
 
   return 0;
@@ -605,8 +632,8 @@ static int get_memory_operand(struct guest_info * info,  xed_decoded_inst_t * xe
   
   
 
-  PrintDebug("Struct: Seg=%p, base=%p, index=%p, scale=%p, displacement=%p (size=%d)\n", 
-	     (void *)mem_op.segment, (void*)mem_op.base, (void *)mem_op.index, 
+  PrintDebug("Struct: Seg=%p (size=%d), base=%p, index=%p, scale=%p, displacement=%p (size=%d)\n", 
+	     (void *)mem_op.segment, mem_op.segment_size, (void*)mem_op.base, (void *)mem_op.index, 
 	     (void *)mem_op.scale, (void *)(addr_t)mem_op.displacement, mem_op.displacement_size);
 
 
@@ -1008,21 +1035,27 @@ static int xed_reg_to_v3_reg(struct guest_info * info, xed_reg_enum_t xed_reg, a
      */
   case XED_REG_CS:
     *v3_reg = (addr_t)&(info->segments.cs);
+    *reg_len = 8;
     return SEGMENT_REGISTER;
   case XED_REG_DS:
     *v3_reg = (addr_t)&(info->segments.ds);
+    *reg_len = 8;
     return SEGMENT_REGISTER;
   case XED_REG_ES:
     *v3_reg = (addr_t)&(info->segments.es);
+    *reg_len = 8;
     return SEGMENT_REGISTER;
   case XED_REG_SS:
     *v3_reg = (addr_t)&(info->segments.ss);
+    *reg_len = 8;
     return SEGMENT_REGISTER;
   case XED_REG_FS:
     *v3_reg = (addr_t)&(info->segments.fs);
+    *reg_len = 8;
     return SEGMENT_REGISTER;
   case XED_REG_GS:
     *v3_reg = (addr_t)&(info->segments.gs);
+    *reg_len = 8;
     return SEGMENT_REGISTER;
 
 
@@ -1236,6 +1269,7 @@ static v3_op_type_t get_opcode(xed_iform_enum_t iform) {
     return V3_OP_MOVSX;
 
 
+
   case XED_IFORM_DEC_MEMv:
   case XED_IFORM_DEC_MEMb:
     return V3_OP_DEC;
@@ -1324,12 +1358,18 @@ static v3_op_type_t get_opcode(xed_iform_enum_t iform) {
   case XED_IFORM_SETZ_MEMb:
     return V3_OP_SETZ;
 
-
   case XED_IFORM_MOVSB:
   case XED_IFORM_MOVSW:
   case XED_IFORM_MOVSD:
   case XED_IFORM_MOVSQ:
     return V3_OP_MOVS;
+
+  case XED_IFORM_STOSB:
+  case XED_IFORM_STOSW:
+  case XED_IFORM_STOSD:
+  case XED_IFORM_STOSQ:
+    return V3_OP_STOS;
+
 
   default:
     return V3_INVALID_OP;

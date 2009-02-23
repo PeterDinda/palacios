@@ -349,6 +349,98 @@
 
 
 
+#define MAKE_1OP_64STR_INST(iname) static inline void iname##64(addr_t * dst, \
+								addr_t * src, \
+								addr_t * ecx, addr_t * flags) { \
+    /* Some of the flags values are not copied out in a pushf, we save them here */ \
+    addr_t flags_rsvd = *flags & ~0xfffe7fff;				\
+									\
+    asm volatile (							\
+	 "pushfq; "							\
+	 "pushq %4; "							\
+	 "popfq; "							\
+	 "rep; "							\
+	 #iname"q; "							\
+	 "pushfq; "							\
+	 "popq %0; "							\
+	 "popfq; "							\
+	 : "=q"(*flags)							\
+	 : "D"(*dst),"a"(*src),"c"(*ecx),"q"(*flags)			\
+	 );								\
+									\
+    *flags |= flags_rsvd;						\
+  }
+
+
+#define MAKE_1OP_32STR_INST(iname) static inline void iname##32(addr_t * dst, \
+								addr_t * src, \
+								addr_t * ecx, addr_t * flags) { \
+    /* Some of the flags values are not copied out in a pushf, we save them here */ \
+    addr_t flags_rsvd = *flags & ~0xfffe7fff;				\
+									\
+    asm volatile (							\
+	 "pushf; "							\
+	 "push %4; "							\
+	 "popf; "							\
+	 "rep; "							\
+	 #iname"l; "							\
+	 "pushf; "							\
+	 "pop %0; "							\
+	 "popf; "							\
+	 : "=q"(*flags)							\
+	 : "D"(*(uint32_t *)dst),"a"(*(uint32_t *)src),"c"(*(uint32_t *)ecx),"q"(*flags) \
+	 );								\
+									\
+    *flags |= flags_rsvd;						\
+  }
+
+#define MAKE_1OP_16STR_INST(iname) static inline void iname##16(addr_t * dst, \
+								addr_t * src, \
+								addr_t * ecx, addr_t * flags) { \
+     /* Some of the flags values are not copied out in a pushf, we save them here */ \
+    addr_t flags_rsvd = *flags & ~0xfffe7fff;				\
+									\
+    asm volatile (							\
+	 "pushf; "							\
+	 "push %4; "							\
+	 "popf; "							\
+	 "rep; "							\
+	 #iname"w; "							\
+	 "pushf; "							\
+	 "pop %0; "							\
+	 "popf; "							\
+	 : "=q"(*flags)							\
+	 : "D"(*dst),"a"(*src),"c"(*ecx),"q"(*flags)			\
+	 );								\
+    *flags |= flags_rsvd;						\
+  }
+
+
+
+#define MAKE_1OP_8STR_INST(iname) static inline void iname##8(addr_t * dst, \
+							      addr_t * src, \
+							      addr_t * ecx, addr_t * flags) { \
+    /* Some of the flags values are not copied out in a pushf, we save them here */ \
+    addr_t flags_rsvd = *flags & ~0xfffe7fff;				\
+									\
+    asm volatile (							\
+	 "pushf; "							\
+	 "push %4; "							\
+	 "popf; "							\
+	 "rep; "							\
+	 #iname"b; "							\
+	 "pushf; "							\
+	 "pop %0; "							\
+	 "popf; "							\
+	 : "=q"(*flags)							\
+	 : "D"(*dst),"a"(*src),"c"(*ecx),"q"(*flags)			\
+	 );								\
+    *flags |= flags_rsvd;						\
+  }
+
+
+
+
 #define MAKE_2OP_64_INST(iname) static inline void iname##64(addr_t * dst, addr_t * src) { \
     uint64_t tmp_dst = *dst, tmp_src = *src;				\
 									\
@@ -438,6 +530,41 @@
 
 
 
+#define MAKE_2OUT_64_INST(iname) static inline void iname##64(addr_t * dst, addr_t * src) { \
+    asm volatile (							\
+	 #iname"q %1, %0; "						\
+	 : "=q"(*(uint64_t *)dst), "=q"(*(uint64_t *)src)		\
+	 : "0"(*(uint64_t *)dst), "1"(*(uint64_t *)src)			\
+	 );								\
+  }
+
+#define MAKE_2OUT_32_INST(iname) static inline void iname##32(addr_t * dst, addr_t * src) { \
+    asm volatile (							\
+	 #iname"l %1, %0; "						\
+	 : "=q"(*(uint32_t *)dst), "=q"(*(uint32_t *)src)		\
+	 :  "0"(*(uint32_t *)dst), "1"(*(uint32_t *)src)		\
+	 );								\
+  }
+
+#define MAKE_2OUT_16_INST(iname) static inline void iname##16(addr_t * dst, addr_t * src) { \
+    asm volatile (							\
+	 #iname"w %1, %0; "						\
+	 : "=q"(*(uint16_t *)dst), "=q"(*(uint16_t *)src)		\
+	 : "0"(*(uint16_t *)dst), "1"(*(uint16_t *)src)			\
+	 );								\
+  }
+
+#define MAKE_2OUT_8_INST(iname) static inline void iname##8(addr_t * dst, addr_t * src) { \
+    asm volatile (							\
+	 #iname"b %1, %0; "						\
+	 : "=q"(*(uint8_t *)dst), "=q"(*(uint8_t *)src)			\
+	 : "0"(*(uint8_t *)dst), "1"(*(uint8_t *)src)			\
+	 );								\
+  }
+
+
+
+
 
 
 /****************************/
@@ -479,9 +606,11 @@ MAKE_2OP_8_INST(mov);
 MAKE_2OP_8EXT_INST(movzx);
 MAKE_2OP_8EXT_INST(movsx);
 
-MAKE_2OP_8_INST(xchg);
+MAKE_2OUT_8_INST(xchg);
 
 MAKE_2OP_8STR_INST(movs);
+MAKE_1OP_8STR_INST(stos);
+MAKE_1OP_8STR_INST(scas);
 
 
 /****************************/
@@ -504,9 +633,12 @@ MAKE_1OP_16_INST(not);
 MAKE_2OP_16_INST(mov);
 MAKE_2OP_16EXT_INST(movzx);
 MAKE_2OP_16EXT_INST(movsx);
-MAKE_2OP_16_INST(xchg);
+MAKE_2OUT_16_INST(xchg);
 
 MAKE_2OP_16STR_INST(movs);
+MAKE_1OP_16STR_INST(stos);
+MAKE_1OP_16STR_INST(scas);
+
 
 /****************************/
 /* 32 Bit instruction forms */
@@ -527,11 +659,15 @@ MAKE_1OP_32_INST(not);
 
 MAKE_2OP_32_INST(mov);
 
-MAKE_2OP_32_INST(xchg);
+MAKE_2OUT_32_INST(xchg);
 
 
 
 MAKE_2OP_32STR_INST(movs);
+MAKE_1OP_32STR_INST(stos);
+MAKE_1OP_32STR_INST(scas);
+
+
 
 #ifdef __V3_64BIT__
 
@@ -553,9 +689,11 @@ MAKE_1OP_64_INST(not);
 
 
 MAKE_2OP_64_INST(mov);
+MAKE_2OP_64STR_INST(movs);
+MAKE_1OP_64STR_INST(stos);
+MAKE_1OP_64STR_INST(scas);
 
-
-MAKE_2OP_64_INST(xchg);
+MAKE_2OUT_64_INST(xchg);
 
 
 #endif
