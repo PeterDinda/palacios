@@ -88,15 +88,14 @@ static inline int handle_passthrough_pagefault_32(struct guest_info * info,
       PrintError("Unknown Region Type...\n");
       return -1;
     }
-  } else {
-    if ( (region->host_type == SHDW_REGION_WRITE_HOOK) && 
-	 (error_code.write == 1) ) {
-      return v3_handle_mem_wr_hook(info, fault_addr, fault_addr, region, error_code);
-    } else {
-      PrintError("Weird...\n");
-      return -1;
-    }
   }
+   
+  if ( (region->host_type == SHDW_REGION_WRITE_HOOK) && 
+       (error_code.write == 1) ) {
+    
+    return v3_handle_mem_wr_hook(info, fault_addr, fault_addr, region, error_code);
+  }
+
 
   return 0;
 }
