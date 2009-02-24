@@ -158,7 +158,7 @@ static int setup_memory_map(struct guest_info * info, struct v3_vm_config * conf
 #define ROMBIOS_START 0x000f0000
 
   // VGA frame buffer
-  if (0) {
+  if (1) {
     if (v3_add_shadow_mem(info, 0xa0000, 0xc0000, 0xa0000) == -1) {
       PrintError("Could not map VGA framebuffer\n");
       return -1;
