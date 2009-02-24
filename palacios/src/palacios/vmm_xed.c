@@ -643,8 +643,14 @@ static int get_memory_operand(struct guest_info * info,  xed_decoded_inst_t * xe
   base = MASK(mem_op.base, mem_op.base_size);
   index = MASK(mem_op.index, mem_op.index_size);
   scale = mem_op.scale;
-  // displacement = MASK(mem_op.displacement, mem_op.displacement_size);
-  displacement = mem_op.displacement;
+
+  // This is a horrendous hack...
+  // XED really screwed the pooch in calculating the displacement
+  if (v3_get_cpu_mode(info) == LONG) {
+    displacement = mem_op.displacement;
+  } else {
+    displacement = MASK(mem_op.displacement, mem_op.displacement_size);
+  }
 
   PrintDebug("Seg=%p, base=%p, index=%p, scale=%p, displacement=%p\n", 
 	     (void *)seg, (void *)base, (void *)index, (void *)scale, (void *)(addr_t)displacement);

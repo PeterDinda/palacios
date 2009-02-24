@@ -30,8 +30,8 @@
 
 
 static inline int handle_passthrough_pagefault_32(struct guest_info * info, 
-							   addr_t fault_addr, 
-							   pf_error_t error_code) {
+						  addr_t fault_addr, 
+						  pf_error_t error_code) {
   // Check to see if pde and pte exist (create them if not)
   pde32_t * pde = CR3_TO_PDE32_VA(info->ctrl_regs.cr3);
   pte32_t * pte = NULL;
@@ -44,7 +44,7 @@ static inline int handle_passthrough_pagefault_32(struct guest_info * info,
 
   if ((region == NULL) || 
       (region->host_type == SHDW_REGION_INVALID)) {
-    PrintError("Invalid region in passthrough page fault 32PAE, addr=%p\n", 
+    PrintError("Invalid region in passthrough page fault 32, addr=%p\n", 
 	       (void *)fault_addr);
     return -1;
   }

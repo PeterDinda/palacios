@@ -320,6 +320,7 @@ int v3_emulate_read_op(struct guest_info * info, addr_t read_gva, addr_t read_gp
 static int run_op(struct guest_info * info, v3_op_type_t op_type, addr_t src_addr, addr_t dst_addr, int src_op_size, int dst_op_size) {
 
   if (src_op_size == 1) {
+    PrintDebug("Executing 8 bit instruction\n");
 
     switch (op_type) {
     case V3_OP_ADC:
@@ -424,6 +425,7 @@ static int run_op(struct guest_info * info, v3_op_type_t op_type, addr_t src_add
     }
 
   } else if (src_op_size == 2) {
+    PrintDebug("Executing 16 bit instruction\n");
 
     switch (op_type) {
     case V3_OP_ADC:
@@ -478,6 +480,7 @@ static int run_op(struct guest_info * info, v3_op_type_t op_type, addr_t src_add
     }
 
   } else if (src_op_size == 4) {
+    PrintDebug("Executing 32 bit instruction\n");
 
     switch (op_type) {
     case V3_OP_ADC:
@@ -527,7 +530,7 @@ static int run_op(struct guest_info * info, v3_op_type_t op_type, addr_t src_add
 
 #ifdef __V3_64BIT__
   } else if (src_op_size == 8) {
-
+    PrintDebug("Executing 64 bit instruction\n");
 
     switch (op_type) {
     case V3_OP_ADC:

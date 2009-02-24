@@ -204,9 +204,8 @@ int handle_special_page_fault(struct guest_info * info,
 
 int v3_handle_mem_wr_hook(struct guest_info * info, addr_t guest_va, addr_t guest_pa, 
 			  struct v3_shadow_region * reg, pf_error_t access_info) {
-  addr_t dst_addr = 0;
-  
-  dst_addr = v3_get_shadow_addr(reg, guest_pa);
+
+  addr_t dst_addr = (addr_t)V3_VAddr((void *)v3_get_shadow_addr(reg, guest_pa));
 
   if (v3_emulate_write_op(info, guest_va, guest_pa, dst_addr, reg->write_hook, reg->priv_data) == -1) {
     PrintError("Write hook emulation failed\n");
@@ -260,9 +259,9 @@ struct v3_shadow_region * v3_get_shadow_region(struct guest_info * info, addr_t 
 
 
 addr_t v3_get_shadow_addr(struct v3_shadow_region * reg, addr_t guest_addr) {
-  if ((reg) && 
-      (reg->host_type != SHDW_REGION_FULL_HOOK) &&
-      (reg->host_type != SHDW_REGION_INVALID)) {
+  if ( (reg) && 
+       (reg->host_type != SHDW_REGION_FULL_HOOK) &&
+       (reg->host_type != SHDW_REGION_INVALID) ) {
     return (guest_addr - reg->guest_start) + reg->host_addr;
   } else {
     PrintError("MEM Region Invalid\n");
