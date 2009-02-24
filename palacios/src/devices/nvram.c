@@ -474,15 +474,7 @@ static int init_nvram_state(struct vm_device * dev) {
   struct guest_info * info = dev->vm;
   struct nvram_internal * nvram_state = (struct nvram_internal *)dev->private_data;
   
-  /* TODO:
-   * The amount of ram in the system is stored in info->mem_size
-   * We need to reflect that value correctly here
-   */
-  PrintError("TODO: Set the nvram memory register to reflect info->mem_size (%p)\n", (void *)(info->mem_size));
-  
-
-  memset(nvram_state->mem_state, 0, NVRAM_REG_MAX);
-
+   memset(nvram_state->mem_state, 0, NVRAM_REG_MAX);
 
   //
   // 2 1.44 MB floppy drives
@@ -549,7 +541,7 @@ static int init_nvram_state(struct vm_device * dev) {
   nvram_state->us = 0;
   nvram_state->pus = 0;
 
-  set_memory_size(nvram_state, dev->vm->mem_size);
+  set_memory_size(nvram_state, info->mem_size);
 
   nvram_state->dev_state = NVRAM_READY;
   nvram_state->thereg = 0;
