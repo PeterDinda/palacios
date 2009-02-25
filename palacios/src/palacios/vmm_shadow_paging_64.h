@@ -173,6 +173,13 @@ static int handle_pdpe_shadow_pagefault_64(struct guest_info * info, addr_t faul
  
   PrintDebug("Handling PDP fault\n");
 
+  if (fault_addr==0) { 
+    PrintDebug("Guest Page Tree for guest virtual address zero fault\n");
+    PrintGuestPageTree(info,fault_addr,(addr_t)(info->shdw_pg_state.guest_cr3));
+    PrintDebug("Host Page Tree for guest virtual address zero fault\n");
+    PrintHostPageTree(info,fault_addr,(addr_t)(info->ctrl_regs.cr3));
+  }
+
   // Check the guest page permissions
   guest_pdpe_access = v3_can_access_pdpe64(guest_pdp, fault_addr, error_code);
 
@@ -683,6 +690,8 @@ static int invalidation_cb_64(struct guest_info * info, page_type_t type,
 
 
 static inline int handle_shadow_invlpg_64(struct guest_info * info, addr_t vaddr) {
+  PrintDebug("INVLPG64 - %p\n",(void*)vaddr);
+
   int ret =  v3_drill_host_pt_64(info, info->ctrl_regs.cr3, vaddr, invalidation_cb_64, NULL);
   if (ret == -1) {
     PrintError("Page table drill returned error.... \n");
