@@ -56,6 +56,37 @@ v3_vm_cpu_mode_t v3_get_cpu_mode(struct guest_info * info) {
   }
 }
 
+// Get address width in bytes
+uint_t v3_get_addr_width(struct guest_info * info) {
+  struct cr0_32 * cr0;
+  struct cr4_32 * cr4 = (struct cr4_32 *)&(info->ctrl_regs.cr4);
+  struct efer_64 * efer = (struct efer_64 *)&(info->guest_efer);
+  struct v3_segment * cs = &(info->segments.cs);
+
+  if (info->shdw_pg_mode == SHADOW_PAGING) {
+    cr0 = (struct cr0_32 *)&(info->shdw_pg_state.guest_cr0);
+  } else if (info->shdw_pg_mode == NESTED_PAGING) {
+    cr0 = (struct cr0_32 *)&(info->ctrl_regs.cr0);
+  } else {
+    PrintError("Invalid Paging Mode...\n");
+    V3_ASSERT(0);
+    return -1;
+  }
+
+  if (cr0->pe == 0) {
+    return 2;
+  } else if ((cr4->pae == 0) && (efer->lme == 0)) {
+    return 4;
+  } else if (efer->lme == 0) {
+    return 4;
+  } else if ((efer->lme == 1) && (cs->long_mode == 1)) {
+    return 8;
+  } else {
+    // What about LONG_16_COMPAT???
+    return 4;
+  }
+}
+
 
 static const uchar_t REAL_STR[] = "Real";
 static const uchar_t PROTECTED_STR[] = "Protected";
