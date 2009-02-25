@@ -136,13 +136,141 @@ static int emulate_string_write_op(struct guest_info * info, struct x86_instr * 
   }
 
   return emulation_length;
-
-
-  
-
-
 }
 
+
+static int emulate_xchg_write_op(struct guest_info * info, struct x86_instr * dec_instr, 
+				 addr_t write_gva, addr_t write_gpa, addr_t dst_addr, 
+				 int (*write_fn)(addr_t guest_addr, void * src, uint_t length, void * priv_data), 
+				 void * priv_data) {
+  addr_t src_addr = 0;
+  addr_t em_dst_addr = 0;
+  int src_op_len = 0;
+  int dst_op_len = 0;  
+  PrintDebug("Emulating XCHG write\n");
+
+  if (dec_instr->src_operand.type == MEM_OPERAND) {
+    if (dec_instr->src_operand.operand != write_gva) {
+      PrintError("XCHG: Inconsistency between Pagefault and Instruction Decode XED_ADDR=%p, PF_ADDR=%p\n",
+		 (void *)dec_instr->src_operand.operand, (void *)write_gva);
+      return -1;
+    }
+    
+    src_addr = dst_addr;
+  } else if (dec_instr->src_operand.type == REG_OPERAND) {
+    src_addr = dec_instr->src_operand.operand;
+  } else {
+    src_addr = (addr_t)&(dec_instr->src_operand.operand);
+  }
+
+
+
+  if (dec_instr->dst_operand.type == MEM_OPERAND) {
+    if (dec_instr->dst_operand.operand != write_gva) {
+      PrintError("XCHG: Inconsistency between Pagefault and Instruction Decode XED_ADDR=%p, PF_ADDR=%p\n",
+		 (void *)dec_instr->dst_operand.operand, (void *)write_gva);
+      return -1;
+    }
+    
+    em_dst_addr = dst_addr;
+  } else if (dec_instr->src_operand.type == REG_OPERAND) {
+    em_dst_addr = dec_instr->src_operand.operand;
+  } else {
+    em_dst_addr = (addr_t)&(dec_instr->src_operand.operand);
+  }
+
+  dst_op_len = dec_instr->dst_operand.size;
+  src_op_len = dec_instr->src_operand.size;
+
+  PrintDebug("Dst_Addr = %p, SRC operand = %p\n", 
+	     (void *)dst_addr, (void *)src_addr);
+
+
+  if (run_op(info, dec_instr->op_type, src_addr, em_dst_addr, src_op_len, dst_op_len) == -1) {
+    PrintError("Instruction Emulation Failed\n");
+    return -1;
+  }
+
+  if (write_fn(write_gpa, (void *)dst_addr, dst_op_len, priv_data) != dst_op_len) {
+    PrintError("Did not fully write hooked data\n");
+    return -1;
+  }
+
+  info->rip += dec_instr->instr_length;
+
+  return dst_op_len;
+}
+
+
+
+static int emulate_xchg_read_op(struct guest_info * info, struct x86_instr * dec_instr, 
+				addr_t read_gva, addr_t read_gpa, addr_t src_addr, 
+				int (*read_fn)(addr_t guest_addr, void * dst, uint_t length, void * priv_data), 
+				int (*write_fn)(addr_t guest_addr, void * src, uint_t length, void * priv_data), 			
+				void * priv_data) {
+  addr_t em_src_addr = 0;
+  addr_t em_dst_addr = 0;
+  int src_op_len = 0;
+  int dst_op_len = 0;
+
+  PrintDebug("Emulating XCHG Read\n");
+
+  if (dec_instr->src_operand.type == MEM_OPERAND) {
+    if (dec_instr->src_operand.operand != read_gva) {
+      PrintError("XCHG: Inconsistency between Pagefault and Instruction Decode XED_ADDR=%p, PF_ADDR=%p\n",
+		 (void *)dec_instr->src_operand.operand, (void *)read_gva);
+      return -1;
+    }
+    
+    em_src_addr = src_addr;
+  } else if (dec_instr->src_operand.type == REG_OPERAND) {
+    em_src_addr = dec_instr->src_operand.operand;
+  } else {
+    em_src_addr = (addr_t)&(dec_instr->src_operand.operand);
+  }
+
+
+
+  if (dec_instr->dst_operand.type == MEM_OPERAND) {
+    if (dec_instr->dst_operand.operand != read_gva) {
+      PrintError("XCHG: Inconsistency between Pagefault and Instruction Decode XED_ADDR=%p, PF_ADDR=%p\n",
+		 (void *)dec_instr->dst_operand.operand, (void *)read_gva);
+      return -1;
+    }
+    
+    em_dst_addr = src_addr;
+  } else if (dec_instr->src_operand.type == REG_OPERAND) {
+    em_dst_addr = dec_instr->src_operand.operand;
+  } else {
+    em_dst_addr = (addr_t)&(dec_instr->src_operand.operand);
+  }
+
+  dst_op_len = dec_instr->dst_operand.size;
+  src_op_len = dec_instr->src_operand.size;
+
+  PrintDebug("Dst_Addr = %p, SRC operand = %p\n", 
+	     (void *)em_dst_addr, (void *)em_src_addr);
+
+
+  if (read_fn(read_gpa, (void *)src_addr, src_op_len, priv_data) != src_op_len) {
+    PrintError("Did not fully read hooked data\n");
+    return -1;
+  }
+
+  if (run_op(info, dec_instr->op_type, em_src_addr, em_dst_addr, src_op_len, dst_op_len) == -1) {
+    PrintError("Instruction Emulation Failed\n");
+    return -1;
+  }
+
+  if (write_fn(read_gpa, (void *)src_addr, dst_op_len, priv_data) != dst_op_len) {
+    PrintError("Did not fully write hooked data\n");
+    return -1;
+  }
+
+  info->rip += dec_instr->instr_length;
+
+  return dst_op_len;
+}
 
 
 
@@ -176,9 +304,15 @@ int v3_emulate_write_op(struct guest_info * info, addr_t write_gva, addr_t write
     return -1;
   }
   
+  /* 
+   * Instructions needing to be special cased.... *
+   */
   if (dec_instr.is_str_op) {
     return emulate_string_write_op(info, &dec_instr, write_gva, write_gpa, dst_addr, write_fn, priv_data);
+  } else if (dec_instr.op_type == V3_OP_XCHG) {
+    return emulate_xchg_write_op(info, &dec_instr, write_gva, write_gpa, dst_addr, write_fn, priv_data);
   }
+
 
 
   if ((dec_instr.dst_operand.type != MEM_OPERAND) ||
@@ -231,7 +365,8 @@ int v3_emulate_write_op(struct guest_info * info, addr_t write_gva, addr_t write
 
 
 int v3_emulate_read_op(struct guest_info * info, addr_t read_gva, addr_t read_gpa, addr_t src_addr,
-		       int (*read_fn)(addr_t guest_addr, void * dst, uint_t length, void * priv_data), 
+		       int (*read_fn)(addr_t guest_addr, void * dst, uint_t length, void * priv_data),
+		       int (*write_fn)(addr_t guest_addr, void * src, uint_t length, void * priv_data),  
 		       void * priv_data) {
   struct x86_instr dec_instr;
   uchar_t instr[15];
@@ -262,6 +397,8 @@ int v3_emulate_read_op(struct guest_info * info, addr_t read_gva, addr_t read_gp
   if (dec_instr.is_str_op) {
     PrintError("String operations not implemented on fully hooked regions\n");
     return -1;
+  } else if (dec_instr.op_type == V3_OP_XCHG) {
+    return emulate_xchg_read_op(info, &dec_instr, read_gva, read_gpa, src_addr, read_fn, write_fn, priv_data);
   }
 
 

@@ -222,12 +222,12 @@ int v3_handle_mem_full_hook(struct guest_info * info, addr_t guest_va, addr_t gu
 
   if (access_info.write == 1) {
     if (v3_emulate_write_op(info, guest_va, guest_pa, op_addr, reg->write_hook, reg->priv_data) == -1) {
-      PrintError("Read Full Hook emulation faild\n");
+      PrintError("Write Full Hook emulation failed\n");
       return -1;
     }
   } else {
-    if (v3_emulate_read_op(info, guest_va, guest_pa, op_addr, reg->read_hook, reg->priv_data) == -1) {
-      PrintError("Write Full Hook emulation faild\n");
+    if (v3_emulate_read_op(info, guest_va, guest_pa, op_addr, reg->read_hook, reg->write_hook, reg->priv_data) == -1) {
+      PrintError("Read Full Hook emulation failed\n");
       return -1;
     }
   }
