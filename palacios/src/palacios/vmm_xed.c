@@ -377,12 +377,15 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 
     struct x86_operand * v3_op = NULL;
 
-    if (xed_operand_written(op)) {
+    /*
+      if (xed_operand_written(op)) {
       v3_op = &(instr->dst_operand);
-    } else {
+      } else {
       v3_op = &(instr->src_operand);
-    }
+      }
+    */
 
+    v3_op = &(instr->dst_operand);
 
     if (xed_operand_is_register(op_enum)) {
       xed_reg_enum_t xed_reg =  xed_decoded_inst_get_reg(&xed_instr, op_enum);
@@ -407,6 +410,7 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 
       case XED_OPERAND_MEM0:
 	{
+	  PrintDebug("Memory operand (1)\n");
 	  if (get_memory_operand(info, &xed_instr, 0, v3_op) == -1) {
 	    PrintError("Could not get first memory operand\n");
 	    return -1;
@@ -442,12 +446,14 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
     
     struct x86_operand * v3_op;
 
-    if (xed_operand_written(op)) {
+    /*
+      if (xed_operand_written(op)) {
       v3_op = &(instr->dst_operand);
-    } else {
+      } else {
       v3_op = &(instr->src_operand);
-    }
-
+      }
+    */
+    v3_op = &(instr->src_operand);
 
     if (xed_operand_is_register(op_enum)) {
       xed_reg_enum_t xed_reg =  xed_decoded_inst_get_reg(&xed_instr, op_enum);
@@ -473,6 +479,7 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 
       case XED_OPERAND_MEM0:
 	{
+	  PrintDebug("Memory operand (2)\n");
 	  if (get_memory_operand(info, &xed_instr, 0, v3_op) == -1) {
 	    PrintError("Could not get first memory operand\n");
 	    return -1;
@@ -569,6 +576,7 @@ static int get_memory_operand(struct guest_info * info,  xed_decoded_inst_t * xe
   addr_t scale;
   addr_t index;
   ullong_t displacement;
+  int addr_width = v3_get_addr_width(info);;
   // struct v3_segment * seg_reg;
 
   PrintDebug("Xen mode = %s\n", xed_machine_mode_enum_t2str(xed_state_get_machine_mode(info->decoder_state)));
@@ -576,6 +584,8 @@ static int get_memory_operand(struct guest_info * info,  xed_decoded_inst_t * xe
  	     xed_address_width_enum_t2str(xed_state_get_address_width(info->decoder_state)));
   PrintDebug("Stack Address width: %s\n",
  	     xed_address_width_enum_t2str(xed_state_get_stack_address_width(info->decoder_state)));
+
+  
 
   memset((void*)&mem_op, '\0', sizeof(struct memory_operand));
 
@@ -655,7 +665,8 @@ static int get_memory_operand(struct guest_info * info,  xed_decoded_inst_t * xe
   PrintDebug("Seg=%p, base=%p, index=%p, scale=%p, displacement=%p\n", 
 	     (void *)seg, (void *)base, (void *)index, (void *)scale, (void *)(addr_t)displacement);
   
-  operand->operand = seg + base + (scale * index) + displacement;
+  operand->operand = MASK((seg + base + (scale * index) + displacement), addr_width);
+
   return 0;
 }
 
