@@ -652,8 +652,12 @@ static int apic_write(addr_t guest_addr, void * src, uint_t length, void * priv_
   case TRIG_OFFSET7:
   case PPR_OFFSET:
   case EXT_APIC_FEATURE_OFFSET:
-    PrintError("Attempting to write to read only register %p\n", (void *)reg_addr);
+#if 1
+    PrintError("Attempting to write to read only register %p (ignored)\n", (void *)reg_addr);
+#else   
+    PrintError("Attempting to write to read only register %p (error)\n", (void *)reg_addr);
     return -1;
+#endif
     break;
 
     // Data registers
