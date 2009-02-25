@@ -413,6 +413,7 @@ int v3_handle_cr4_read(struct guest_info * info) {
 int v3_handle_cr4_write(struct guest_info * info) {
   uchar_t instr[15];
   int ret;
+  int flush_tlb=0;
   struct x86_instr dec_instr;
   v3_vm_cpu_mode_t cpu_mode = v3_get_cpu_mode(info);
 
@@ -432,6 +433,28 @@ int v3_handle_cr4_write(struct guest_info * info) {
     return -1;
   }
 
+  // Check to see if we need to flush the tlb
+
+  if (v3_get_mem_mode(info) == VIRTUAL_MEM) { 
+    struct cr4_32 * new_cr4 = (struct cr4_32 *)(dec_instr.src_operand.operand);
+    struct cr4_32 * cr4 = (struct cr4_32 *)&(info->ctrl_regs.cr4);
+    
+    // if pse, pge, or pae have changed while PG (in any mode) is on
+    // the side effect is a TLB flush, which means we need to
+    // toss the current shadow page tables too
+    //
+    // 
+    // TODO - PAE FLAG needs to be special cased
+    if ((cr4->pse != new_cr4->pse) || 
+	(cr4->pge != new_cr4->pge) || 
+	(cr4->pae != new_cr4->pae)) { 
+      PrintDebug("Handling PSE/PGE/PAE -> TLBFlush case, flag set\n");
+      flush_tlb=1;
+      
+    }
+  }
+
+
   if ((cpu_mode == PROTECTED) || (cpu_mode == PROTECTED_PAE)) {
     struct cr4_32 * new_cr4 = (struct cr4_32 *)(dec_instr.src_operand.operand);
     struct cr4_32 * cr4 = (struct cr4_32 *)&(info->ctrl_regs.cr4);
@@ -439,30 +462,31 @@ int v3_handle_cr4_write(struct guest_info * info) {
     PrintDebug("OperandVal = %x, length = %d\n", *(uint_t *)new_cr4, dec_instr.src_operand.size);
     PrintDebug("Old CR4=%x\n", *(uint_t *)cr4);
 
-    if ((info->shdw_pg_mode == SHADOW_PAGING) && 
-	(v3_get_mem_mode(info) == PHYSICAL_MEM)) {
-
-      if ((cr4->pae == 0) && (new_cr4->pae == 1)) {
-	PrintDebug("Creating PAE passthrough tables\n");
-
-	// Delete the old 32 bit direct map page tables
-	delete_page_tables_32((pde32_t *)V3_VAddr((void *)(info->direct_map_pt)));
-
-	// create 32 bit PAE direct map page table
-	info->direct_map_pt = (addr_t)V3_PAddr(create_passthrough_pts_32PAE(info));
-
-	// reset cr3 to new page tables
-	info->ctrl_regs.cr3 = *(addr_t*)&(info->direct_map_pt);
-
-      } else if ((cr4->pae == 1) && (new_cr4->pae == 0)) {
-	// Create passthrough standard 32bit pagetables
-	return -1;
+    if ((info->shdw_pg_mode == SHADOW_PAGING)) { 
+      if (v3_get_mem_mode(info) == PHYSICAL_MEM) {
+	
+	if ((cr4->pae == 0) && (new_cr4->pae == 1)) {
+	  PrintDebug("Creating PAE passthrough tables\n");
+	  
+	  // Delete the old 32 bit direct map page tables
+	  delete_page_tables_32((pde32_t *)V3_VAddr((void *)(info->direct_map_pt)));
+	  
+	  // create 32 bit PAE direct map page table
+	  info->direct_map_pt = (addr_t)V3_PAddr(create_passthrough_pts_32PAE(info));
+	  
+	  // reset cr3 to new page tables
+	  info->ctrl_regs.cr3 = *(addr_t*)&(info->direct_map_pt);
+	  
+	} else if ((cr4->pae == 1) && (new_cr4->pae == 0)) {
+	  // Create passthrough standard 32bit pagetables
+	  return -1;
+	} 
       }
     }
-
+    
     *cr4 = *new_cr4;
     PrintDebug("New CR4=%x\n", *(uint_t *)cr4);
-
+    
   } else if ((cpu_mode == LONG) || (cpu_mode == LONG_32_COMPAT)) {
     struct cr4_64 * new_cr4 = (struct cr4_64 *)(dec_instr.src_operand.operand);
     struct cr4_64 * cr4 = (struct cr4_64 *)&(info->ctrl_regs.cr4);
@@ -482,6 +506,16 @@ int v3_handle_cr4_write(struct guest_info * info) {
     PrintError("CR4 write not supported in CPU_MODE: %s\n", v3_cpu_mode_to_str(cpu_mode));
     return -1;
   }
+  
+  
+  if (flush_tlb) {
+    PrintDebug("Handling PSE/PGE/PAE -> TLBFlush (doing flush now!)\n");
+    if (v3_activate_shadow_pt(info) == -1) {
+      PrintError("Failed to activate shadow page tables when emulating TLB flush in handling cr4 write\n");
+      return -1;
+    }
+  }
+ 
 
   info->rip += dec_instr.instr_length;
   return 0;
