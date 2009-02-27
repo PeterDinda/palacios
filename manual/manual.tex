@@ -37,9 +37,9 @@ Palacios Internal Developer Manual
 This manual is written for Internal Palacios developers. It contains
 information on how to obtain the palacios code base, how to go about
 the development process, and how to commit those changes to the
-mainline source tree. For in depth information on the palacios code
-structure please see {\em An Introduction to the Palacios Virtual
-Machine Monitor -- Release 1.0}.
+mainline source tree.  This assumes that the reader has read {\em An
+Introduction to the Palacios Virtual Machine Monitor -- Release 1.0}
+and also has a slight working knowledge of {\em git}.
 
 
 \section{Overview}
@@ -79,28 +79,69 @@ developer before they can be added to the mainline. We will discuss
 that process in Section~\ref{sec:submission}.
 
 
-\subsection{Palacios}
-
-The central palacios repository 
-
-\includegraphics[height=3.5in]{dev_chart.pdf}
-
-\subsection{Kitten}
-
 \section{Checking out Palacios}
+The central palacios repository is located on {\em
+newskysaw.cs.northwestern.edu} in {\em /home/palacios/palacios}. All
+internal developers have read access to the directory. Each developer
+must create their own local version of the repository, this is done
+with {\em git clone}.
 
-Checkout or clone the devel branch of Palacios from the master
-repository. You should have the read permission to these branches.
+\begin{verbatim}
+git clone /home/palacios/palacios
+\end{verbatim}
+
+This creates a local copy of the repository at {\em ./palacios/}.
+
+
+All development work is done in the {\em devel} branch of the
+repository. The developer can access this branch via:
+
+\begin{verbatim}
+git checkout --track -b devel origin/devel
+\end{verbatim}
+
+or 
+
+\begin{verbatim}
+/opt/vmm-tools/bin/checkout_branch devel
+\end{verbatim}
+
+{\em Important:}
+Note that palacios is very actively developed so the contents of the
+{\em devel} branch are frequently changing. In order to keep up to
+date with the latest version, it is necessary to periodically pull the
+latest changes from the master repository by running \verb.git pull..
+
 
 
 \section{Checking out Kitten}
 
+Kitten is available from Sandia National Labs, and is the main host OS
+we are targetting with Palacios. Loosely speaking core Palacios
+developers are internal Kitten developers, and internal Palacios
+developers are external Kitten developers. Because we have limited
+access to the Kitten repository, we are maintaining a local mirror
+copy in {\em /home/palacios/kitten}. 
+
+Kitten uses Mercurial for their source management, so you will have to
+make sure the local mercurial version is configured correctly.
+Specifically you should add the following python path to your shell environment.
+
+\begin{verbatim}
+export PYTHONPATH=/usr/local/lib64/python2.4/site-packages/
+\end{verbatim}
+
+You can then clone Kitten from the local mirror:
+\begin{verbatim}
 hg clone /home/palacios/kitten
+\end{verbatim}
 
-git clone /home/palacios/palacios
 
-/opt/vmm-tools/bin/checkout\_branch devel
-
+{\em Important:} Like Palacios, Kitten is very actively developed so
+source tree is frequently changing. In order to keep up to date with
+the latest version, it is necessary to periodically pull the latest
+changes from the mirror repository by running \verb.hg pull. followed
+by \verb.hg update..
 
 \section{Compiling Palacios}
 cd palacios/build/
@@ -135,8 +176,34 @@ make  isoimage
 \section{Running Palacios/Kitten}
 Run the whole stuff built above in Qemu using following command: 
 
-/usr/local/qemu/bin/qemu-system-x86\_64 -smp 1 -m 1024 -serial file:./serial.out -cdrom ./arch/x86\_64/boot/image.iso  -net tap, ifname=tap0  < /dev/null
+\begin{verbatim}
+/usr/local/qemu/bin/qemu-system-x86_64 -smp 1 -m 1024 
+	-serial file:./serial.out 
+	-cdrom ./arch/x86_64/boot/image.iso  
+	-net tap, ifname=tap0  
+	< /dev/null
+\end{verbatim}
 
+
+
+\section{Development Guidelines}
+
+32/64 bit compatibility
+name space
+coding guidelines
+
+
+\section{Code Submission}
+\label{sec:submission}
+\subsection{Palacios}
+
+\includegraphics[height=3.5in]{dev_chart.pdf}
+
+stacked git
+
+\subsection{Kitten}
+
+mercurial queues
 
 \section{Networking}
 
@@ -186,11 +253,7 @@ Qemu has many options to build up a virtual or real networking. See http://www.h
 
 
 
-\section{Code Submission}
-\label{sec:submission}
-\subsection{Palacios}
 
-\subsection{Kitten}
 
 For more questions, talk to Jack or Lei.
 
