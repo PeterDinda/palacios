@@ -4,7 +4,7 @@ DVIPS = dvips
 XDVI = xdvi
 PS2PDF = ps2pdf -dMaxSubsetPct=100 -dCompatibilityLevel=1.2 -dSubsetFonts=true -dEmbedAllFonts=true  -dPDFSETTINGS=/prepress
 
-TEXDOCS = paper.tex 
+TEXDOCS = manual.tex 
 WORDDOCS= 
 DVIDOCS = $(TEXDOCS:.tex=.dvi)
 ERASEABLEPSDOCS=$(TEXDOCS:.tex=.ps)
@@ -26,12 +26,9 @@ all: $(PDFDOCS)
 	$(LATEX2E) $<
 
 bib: 
-	$(LATEX2E) paper
-	$(LATEX2E) paper
-	$(BIBTEX)  paper
-	$(LATEX2E) paper
-	$(LATEX2E) paper
+	$(LATEX2E) manual
+	$(LATEX2E) manual
 
 
 clean:
-	-rm -f *.dvi paper.pdf $(ERASEABLEPSDOCS)
+	-rm -f *.dvi manual.pdf $(ERASEABLEPSDOCS)

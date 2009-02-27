@@ -1,0 +1,141 @@
+
+\documentclass[11pt]{article}
+
+\usepackage{calc}
+\usepackage{graphics}
+%\usepackage{latex8}
+\usepackage{times}
+\usepackage{epsf}
+\usepackage{epsfig}
+\usepackage{graphicx}
+\usepackage{changebar}
+\usepackage{portland}
+\usepackage{lscape}
+
+\setlength{\textheight}{8.50in}
+\setlength{\textwidth}{6.5in}
+\setlength{\topmargin}{-0.3in}
+%\setlength{\leftmargin}{2.9in}
+%\setlength{\rightmargin}{-2.9in}
+\setlength{\oddsidemargin}{0in}
+\setlength{\parindent}{0.5in}
+
+
+\begin{document}
+
+\title{
+\includegraphics[height=1.5in]{v3vee.pdf}
+\includegraphics[height=1.5in]{palacios.pdf} \\
+\vspace{0.5in} 
+Palacios Internal Developer Manual
+}
+\author{Jack Lange \hspace{0.5in} Lei Xia}
+
+\maketitle
+
+
+\section{Organization}
+
+
+\section{Checking out Palacios}
+
+Checkout or clone the devel branch of Palacios from the master
+repository. You should have the read permission to these branches.
+
+
+\section{Checking out Kitten}
+
+hg clone /home/palacios/kitten
+
+git clone /home/palacios/palacios
+
+/opt/vmm-tools/bin/checkout\_branch devel
+
+
+\section{Compiling Palacios}
+cd palacios/build/
+
+
+This will build Palacios as a library, libv3vee.a in the palacios/palacios/build/.
+
+
+\section{Compiling Kitten}
+\subsection{Configuration}
+Kitten building can be configured by either text or graph configure interface, which is similar to the Linux kernel configure, By one of the following commands:
+
+make xconfig
+make config
+make menuconfig
+
+Make sure turn on the network device driver, networking, and input kernel command 'console=serial net=rtl8139'
+\subsection{Compilation}
+
+Build Palacios as a module for Kitten
+In the first time, make sure to build Kitten before you building the Palacios as the module to kitten. 
+Palacios now is built as a module of the Kitten. You can find the palacios.c and palacios.h in the kitten/palacios/. Enter the directory, build the palacios module.
+
+cd kitten/palacios
+make -C .. M=`pwd`
+cp built-in.o ../modules/palacios-mod.o
+Build Kitten
+Go back to kitten root directory, and build the Kitten again.
+
+make  isoimage
+
+\section{Running Palacios/Kitten}
+Run the whole stuff built above in Qemu using following command: 
+
+/usr/local/qemu/bin/qemu-system-x86\_64 -smp 1 -m 1024 -serial file:./serial.out -cdrom ./arch/x86\_64/boot/image.iso  -net tap, ifname=tap0  < /dev/null
+
+
+\section{networking}
+
+\section{Configuring the development host's Qemu network}
+Set up Tap interfaces:
+
+/root/util/tap\_create tapX
+
+Bridging tapX with eth1 will only work (work = send packet and also make packet visible on localhost) if the IP address is set correctly (correctly = match network it is connected to  e.g., network of eth1)  so bring up the network inside of the VM / QEMU as 10-net, and it should route through the eth1 rule and be visible both on the host and in the physical network
+
+
+\subsection{Configuring Kitten}
+
+How to set ip address in kitten:
+
+Kitten ip address setting is in file drivers/net/ne2k/rtl8139.c, in the code below which is located in function rtl8139\_init.
+
+  struct ip\_addr ipaddr = { htonl(0 | 10 << 24 | 0 << 16 | 2 << 8 | 16 << 0) }; 
+  struct ip\_addr netmask = { htonl(0xffffff00) }; 
+  struct ip\_addr gw = { htonl(0 | 10 << 24 | 0 << 16 | 2 << 8 | 2 << 0) };
+
+This sets the ip address as 10.0.2.16, netmask 255.255.255.0 and gateway address 10.0.2.2, change it as you need.
+
+
+
+\subsection{Running with networking}
+
+\paragraph*{Tap Interface}
+In which, the command line: 
+
+-net tap, ifname=tap2
+
+specifies Qemu to use the host's tap0 as its network interface, then Qemu can access the host's physical network.
+
+\paragraph*{Redirection}
+
+Also you can use the following command instead to redirect host's 9555 port to Qemu's 80 port.
+
+-net user -net nic,model=rtl8139  -redir tcp:9555::80
+
+In this case, you can access Qemu's 80 port in the host like:
+
+telnet localhost 9555
+
+Qemu has many options to build up a virtual or real networking. See http://www.h7.dion.ne.jp/~qemu-win/HowToNetwork-en.html for more information.
+
+
+
+
+For more questions, talk to Jack or Lei.
+
+\end{document}
