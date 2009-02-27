@@ -25,17 +25,67 @@
 
 \title{
 \includegraphics[height=1.5in]{v3vee.pdf}
-\includegraphics[height=1.5in]{palacios.pdf} \\
+\includegraphics[height=1.5in]{logo6.png} \\
 \vspace{0.5in} 
 Palacios Internal Developer Manual
 }
-\author{Jack Lange \hspace{0.5in} Lei Xia}
+\author{Jack Lange}
 
 \maketitle
 
 
-\section{Organization}
+This manual is written for Internal Palacios developers. It contains
+information on how to obtain the palacios code base, how to go about
+the development process, and how to commit those changes to the
+mainline source tree. For in depth information on the palacios code
+structure please see {\em An Introduction to the Palacios Virtual
+Machine Monitor -- Release 1.0}.
 
+
+\section{Overview}
+
+
+Both Palacios and Kitten follow a hybrid development process that
+uses both the centralized repository and distributed development
+models. A central repository exists that holds the master version of
+the code base. This central repository is cloned by multiple people
+and in multiple places to support various development efforts. A
+feature of git is that every developer actually has a fully copy of
+the entire repository, and so can function independently until such
+time as they need to resync with the master version. 
+
+There are typically multiple levels of access to the central
+repository, that are granted based on the type of developer being
+granted access. The three basic developer types and their access
+privileges are:
+
+\begin{itemize}
+\item Core Developers: These are the lead developers and are in
+charge of managing the master repository. They have full read/write
+access permissions to the central repository.
+
+\item Internal Developers: Formal members of the development
+team. These people are capable of pulling directly from the central
+repository, but lack the ability to write directly to it. 
+
+\item External Developers: People who are not actual members of the
+development team. These people can only access the public repository
+which is only updated to contain the release versions. 
+\end{itemize}
+
+Because internal and external developers cannot write directly to the
+master repository, they need to first submit their changes to a core
+developer before they can be added to the mainline. We will discuss
+that process in Section~\ref{sec:submission}.
+
+
+\subsection{Palacios}
+
+The central palacios repository 
+
+\includegraphics[height=3.5in]{dev_chart.pdf}
+
+\subsection{Kitten}
 
 \section{Checking out Palacios}
 
@@ -88,7 +138,7 @@ Run the whole stuff built above in Qemu using following command:
 /usr/local/qemu/bin/qemu-system-x86\_64 -smp 1 -m 1024 -serial file:./serial.out -cdrom ./arch/x86\_64/boot/image.iso  -net tap, ifname=tap0  < /dev/null
 
 
-\section{networking}
+\section{Networking}
 
 \section{Configuring the development host's Qemu network}
 Set up Tap interfaces:
@@ -135,6 +185,12 @@ Qemu has many options to build up a virtual or real networking. See http://www.h
 
 
 
+
+\section{Code Submission}
+\label{sec:submission}
+\subsection{Palacios}
+
+\subsection{Kitten}
 
 For more questions, talk to Jack or Lei.
 
