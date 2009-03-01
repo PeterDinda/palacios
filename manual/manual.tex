@@ -19,7 +19,8 @@
 %\setlength{\rightmargin}{-2.9in}
 \setlength{\oddsidemargin}{0in}
 \setlength{\parindent}{0.5in}
-
+\setlength\parindent{0in}
+\setlength\parskip{0.1in} 
 
 \begin{document}
 
@@ -289,22 +290,228 @@ all output to the serial port is written directly to a file called
 
 \section{Development Guidelines}
 
-32/64 bit compatibility
-name space
-coding guidelines
+There are standard requirements we have for code entering the mainline. 
+
+First and foremost, Palacios is designed to be OS indenpendent and
+support 32 and 64 bit architectures. This means that developers should
+not include any external OS specific dependencies in any Palacios
+component. Also all changes need to be tested on both 32 and 64 bit
+architectures to make sure that they compile as well as run corrrectly.
+
+\paragraph*{Coding Style}
+
+"The use of equal negative space, as a balance to positive space, in a
+composition is considered by many as good design. This basic and often
+overlooked principle of design gives the eye a "place to rest,"
+increasing the appeal of a composition through subtle means."
+\newline\newline
+Translation: Use the spacebar, newlines, and parentheses. 
+\newline\newline
+{\em Bad}
+\begin{verbatim}
+if(a&&b==5||c!=0){return;}
+\end{verbatim}
+
+
+{\em Good}
+
+\begin{verbatim}
+if (((a) && (b == 5)) || 
+    (c != 0)) {
+       return;
+}
+\end{verbatim}
+
+\paragraph*{Fail Stop}
+Because booting a basic linux kernel results in over 1 million VM exits
+catching silent errors is next to impossible. For this reason
+ANY time your code has an error it should return -1, and expect the
+execution to halt. 
+
+This includes unimplemented features and unhandled cases. These cases
+should ALWAYS return -1. 
+
+
+\paragraph*{Function names}
+Externally visible function names should be used rarely and have
+unique names. Currently we have several techniques for achieving this:
+
+\begin{enumerate}
+\item \verb.#ifdefs. in the header file
+\newline
+When the V3 Hypervisor is compiled it defines the symbol
+\verb.__V3VEE__. Any function that is not needed outside the Hypervisor
+context should be inside an \verb.#ifdef __V3VEE__. block, this will make it
+invisible to the host environment.
+
+\item Static Functions
+\newline
+Any utility functions that are only needed in the .c file where they
+are defined should be declared as static and not included in the
+header file. You should make an effort to use static functions
+whenever possible. 
+
+\item \verb.v3_. prefix
+\newline
+Major interface functions should be named with the prefix \verb.v3_. This
+allows easy understanding of how to interact with the subsystems. And
+in the case that they need to be externally visible to the host os,
+make them unlikely to collide with other functions. 
+\end{enumerate}
+
+\paragraph*{Debugging Output}
+Debugging output is sent through the host os via functions in the
+\verb.os_hooks. structure. These functions have various wrappers of the form
+\verb.Print*., with printf style semantics. 
+
+Two functions of note are \verb.PrintDebug. and \verb.PrintError..
+
+\begin{itemize}
+
+\item PrintDebug:
+\newline
+Should be used for debugging output that will often be
+turned off selectively by the VMM configuration. 
+
+\item PrintError
+\newline
+Should be used when an error occurs, this will never be optimized out
+and will always print. 
+\end{itemize}
 
 
 \section{Code Submission}
 \label{sec:submission}
+
+To commit changes to the central repository they need to be exported
+as a patch set that can be applied directly to a mainline. Both Git
+and Mercurial contain functionality to allow developers to maintain
+changes as a patch set. There are also a few options that make dealing
+with patches easier.
+
 \subsection{Palacios}
 
-\includegraphics[height=3.5in]{dev_chart.pdf}
+Git includes support for directly exporting local repository commits
+as a patch set. The basic operation is for a developer to commit a
+change to a local repository, and then export that change as a patch
+that can be applied to another git repository. While this is
+functionally possible, there are a number of issues. The main problem
+is that it is difficult to fully encapsulate a new feature in a single
+commit, and dealing with multiple patches that often overwrite each
+other is not a viable option either. Furthermore, once a patch is
+applied to the mainline, it will generate a conflicting commit that
+will become present when the developer next pulls from the central
+repository. This can result in both repositories getting out of
+sync. It is possible to deal with this by manually rebasing the local
+repository, but it is difficult and error-prone. 
 
-stacked git
+This approach also does not map well when patches are being revised. A
+normal patch will go through multiple revisions as it is reviewed and
+modified by others. This often leads to synchronization issues as well
+as errors with patch revisions. Ultimately it is the responsibility of
+the developer to generate a patch that will apply cleanly to the
+mainline.
+
+For this reason most internal developers should seriously consider
+{\em stacked git}. Stacked git is designed to make patch development
+easier and less of a headache. The basic mode of operation is for a
+developer to intialize a patch for a new feature and then continuously
+apply changes to the patch. Stacked Git allows a developer to layer a
+series of patches on top of a local git repository, without causing
+the repository to unsync due to local commits. Basically, the
+developer never commits changes to the repository itself but instead
+commits the changes to a specific patch. The local patches are managed
+using stack operations (push/pop) which allows a developer to apply
+and unapply patches as needed. Stacked git also manages new changes to
+the underlying git repository as a result of a pull operation and
+prevents collisions as changes are propagated upstream. For instance
+if you have a local patch that is applied to the mainline as a commit,
+when the commit is pulled down the patch becomes empty because it is
+effectively identical to the mainline. It also makes incorporating
+external revisions to a patch easier. Stacked git is installed on {\em
+newskysaw} in \verb./opt/vmm-tools/bin/. 
+
+Brief command overview:
+\begin{itemize}
+\item \verb.stg init. -- Initialize stacked git in a given branch
+\item \verb.stg new. -- create a new patch set, an editor will open
+asking for a commit message that will be used when the patch is
+ultimately committed.
+\item \verb.stg pop. -- pops a patch off of the source tree.
+\item \verb.stg push. -- pushes a patch back on to a source tree.
+\item \verb.stg export. -- exports a patch to a directory as a file
+that can then be emailed.
+\item \verb.stg refresh. -- commits local changes to the patch set at
+the top of the applied stack.
+\item \verb.stg fold. -- Apply a patch file to the current
+patch. (This is how you can manage revisions that are made by other developers).
+\end{itemize}
+
+You should definately look at the online documentation to better
+understand how stacked git works. It is not required of course, but if
+you want your changes to be applied its up to you to generate a patch
+that is acceptable to a core developer. Ultimately using Stacked git
+should be easier than going it alone.
+
+
+All patches should be emailed to Jack for inclusion in the
+mainline. An overview of the organization is given in
+Figure~\ref{fig:process}. You should assume that the first revision of
+a patch will not be accepted, and that you will have to make
+changes. Furthermore, the final form of the patch most likely will not
+be exactly what you submitted. 
+
+ 
+\begin{figure}[t]
+\begin{center}
+\includegraphics[height=3.5in]{dev_chart.pdf}
+\end{center}
+\caption{Development organization}
+\label{fig:process}
+\end{figure}
+
 
 \subsection{Kitten}
 
-mercurial queues
+Writing code for Kitten follows essentially the same process as
+Palacios. The difference is that the patches need to be emailed to the
+Kitten developers. To send in a patch, you can just email it to the
+V3Vee development list.
+
+
+Also, instead of Stacked git you should use Mercurial patch
+queues. This feature is enabled in your .hgrc file.
+\begin{verbatim}
+[extensions]
+hgext.mq=
+\end{verbatim}
+
+Mercurial queues use the same stack operations as stacked git, however
+does not automatically handle the synchronization with pull
+operations. Before you update from the central version of Kitten you
+need to pop all of the patches, and then push them once the update is
+complete.
+
+Basically:
+\begin{verbatim}
+hg qpop -a
+hg pull
+hg update
+hg qupush -a
+\end{verbatim}
+
+
+Also, remember that Kitten is not a Northwestern project and is being
+developed by professional developers at Sandia National Labs. So keep
+in mind that you are representing Northwestern and the rest of the
+Palacios development group. We are collaborating with them because
+Kitten and the resources they have are very important for our research
+efforts. They are collaborating with us because they believe that
+Palacios might be able to help them. Therefore it is important that we
+continue to ensure that they see value in our collaboration. In plain
+terms, we need to make sure they think we're smart and know what we're
+doing. So please keep that in mind when dealing with the Kitten group.
+
 
 \section{Networking}
 
@@ -313,7 +520,12 @@ Set up Tap interfaces:
 
 /root/util/tap\_create tapX
 
-Bridging tapX with eth1 will only work (work = send packet and also make packet visible on localhost) if the IP address is set correctly (correctly = match network it is connected to  e.g., network of eth1)  so bring up the network inside of the VM / QEMU as 10-net, and it should route through the eth1 rule and be visible both on the host and in the physical network
+Bridging tapX with eth1 will only work (work = send packet and also
+make packet visible on localhost) if the IP address is set correctly
+(correctly = match network it is connected to e.g., network of eth1)
+so bring up the network inside of the VM / QEMU as 10-net, and it
+should route through the eth1 rule and be visible both on the host and
+in the physical network
 
 
 \subsection{Configuring Kitten}
