@@ -1,0 +1,578 @@
+
+\documentclass[11pt]{article}
+
+\usepackage{calc}
+\usepackage{graphics}
+%\usepackage{latex8}
+\usepackage{times}
+\usepackage{epsf}
+\usepackage{epsfig}
+\usepackage{graphicx}
+\usepackage{changebar}
+\usepackage{portland}
+\usepackage{lscape}
+
+\setlength{\textheight}{8.50in}
+\setlength{\textwidth}{6.5in}
+\setlength{\topmargin}{-0.3in}
+%\setlength{\leftmargin}{2.9in}
+%\setlength{\rightmargin}{-2.9in}
+\setlength{\oddsidemargin}{0in}
+\setlength{\parindent}{0.5in}
+\setlength\parindent{0in}
+\setlength\parskip{0.1in} 
+
+\begin{document}
+
+\title{
+\includegraphics[height=1.5in]{v3vee.pdf}
+\includegraphics[height=1.5in]{logo6.png} \\
+\vspace{0.5in} 
+Palacios Internal Developer Manual
+}
+
+
+\maketitle
+
+
+This manual is written for Internal Palacios developers. It contains
+information on how to obtain the palacios code base, how to go about
+the development process, and how to commit those changes to the
+mainline source tree.  This assumes that the reader has read {\em An
+Introduction to the Palacios Virtual Machine Monitor -- Release 1.0}
+and also has a slight working knowledge of {\em git}.
+
+
+\section{Overview}
+
+
+Both Palacios and Kitten follow a hybrid development process that
+uses both the centralized repository and distributed development
+models. A central repository exists that holds the master version of
+the code base. This central repository is cloned by multiple people
+and in multiple places to support various development efforts. A
+feature of git is that every developer actually has a fully copy of
+the entire repository, and so can function independently until such
+time as they need to resync with the master version. 
+
+There are typically multiple levels of access to the central
+repository, that are granted based on the type of developer being
+granted access. The three basic developer types and their access
+privileges are:
+
+\begin{itemize}
+\item Core Developers: These are the lead developers and are in
+charge of managing the master repository. They have full read/write
+access permissions to the central repository.
+
+\item Internal Developers: Formal members of the development
+team. These people are capable of pulling directly from the central
+repository, but lack the ability to write directly to it. 
+
+\item External Developers: People who are not actual members of the
+development team. These people can only access the public repository
+which is only updated to contain the release versions. 
+\end{itemize}
+
+Because internal and external developers cannot write directly to the
+master repository, they need to first submit their changes to a core
+developer before they can be added to the mainline. We will discuss
+that process in Section~\ref{sec:submission}.
+
+
+\section{Checking out Palacios}
+The central palacios repository is located on {\em
+newskysaw.cs.northwestern.edu} in {\em /home/palacios/palacios}. All
+internal developers have read access to the directory. Each developer
+must create their own local version of the repository, this is done
+with {\em git clone}.
+
+\begin{verbatim}
+git clone /home/palacios/palacios
+\end{verbatim}
+
+This creates a local copy of the repository at {\em ./palacios/}.
+
+
+All development work is done in the {\em devel} branch of the
+repository. The developer can access this branch via:
+
+\begin{verbatim}
+git checkout --track -b devel origin/devel
+\end{verbatim}
+
+or 
+
+\begin{verbatim}
+/opt/vmm-tools/bin/checkout_branch devel
+\end{verbatim}
+
+{\em Important:}
+Note that palacios is very actively developed so the contents of the
+{\em devel} branch are frequently changing. In order to keep up to
+date with the latest version, it is necessary to periodically pull the
+latest changes from the master repository by running \verb.git pull..
+
+
+
+\section{Checking out Kitten}
+
+Kitten is available from Sandia National Labs, and is the main host OS
+we are targetting with Palacios. Loosely speaking core Palacios
+developers are internal Kitten developers, and internal Palacios
+developers are external Kitten developers. Because we have limited
+access to the Kitten repository, we are maintaining a local mirror
+copy in {\em /home/palacios/kitten}. 
+
+Kitten uses Mercurial for their source management, so you will have to
+make sure the local mercurial version is configured correctly.
+Specifically you should add the following python path to your shell environment.
+
+\begin{verbatim}
+export PYTHONPATH=/usr/local/lib64/python2.4/site-packages/
+\end{verbatim}
+
+You can then clone Kitten from the local mirror:
+\begin{verbatim}
+hg clone /home/palacios/kitten
+\end{verbatim}
+
+Both the Kitten and Palacios clone commands should be run from the
+same direcotyr. This means that both repositories should be located at
+the same directory level. The Kitten build process depends on this.
+
+{\em Important:} Like Palacios, Kitten is very actively developed so
+source tree is frequently changing. In order to keep up to date with
+the latest version, it is necessary to periodically pull the latest
+changes from the mirror repository by running \verb.hg pull. followed
+by \verb.hg update..
+
+\section{Compiling Palacios}
+Palacios is capable of targeting 32 and 64 bit operating systems, and
+includes a build process that supports both these
+architectures. Furthermore, Palacios has multiple build locations,
+with multiple makefiles: a top level build directory and a Palacios
+specific build directory. The Palacios build process first generates a
+static library that includes the Palacios VMM. This static library is
+then linked into a host operating system. Palacios internally supports
+GeekOS and can generate a complete OS image via a unified build
+process. To combine Palacios with Kitten, it is necessary to first
+compile Palacios and then to compile Kitten externally link it with
+Palacios. The output of the compilation process is a bit more complex
+and generates multiple binaries, and the specifics can be found in the
+Makefiles.
+
+The top level build directory provides a number of high level make
+targets, and is located in {\em palacios/build/}. It supports building
+32 and 64 bit versions of the Palacios library independently as well
+as building an integrated version of GeekOS.   The basic targets are:
+\begin{itemize}
+\item \verb.make palacios-full32. -- Generates a 32 bit version of the Palacios static library 
+\item \verb.make palacios-full64. -- Generates a 64 bit version of the
+Palacios static library
+\item \verb.make geekos. -- Compiles the GeekOS kernel, and link it with the
+Palacios static library 
+\item \verb.make geekos-iso. -- Generate an ISO boot disk image from the
+GeekOS kernel that has been compiled
+\end{itemize}
+
+The second build directory is located at {\em palacios/palacios/build}
+and handles only the Palacios compilation process. It supports a
+differnt set of targets and arguments:
+\begin{itemize}
+\item \verb.make ARCH=32. -- iteratively compiles a 32 bit version of Palacios
+\item \verb.make ARCH=64. -- iteratively compiles a 64 bit version of
+Palacios
+\item \verb.make ARCH=32 world. -- fully recompiles a 32 bit version of
+Palacios
+\item \verb.make ARCH=64 world. -- fully recompiles a 64 bit version of
+Palacios
+\end{itemize}
+
+Both build levels support compilation directives that control the
+debugging messages that are generated by Palacios. These are specified
+by appending a \verb.DEBUG_<COMPONENT>=1. to the end of the
+\verb.make. command. The components that are currently supported are:
+\begin{itemize}
+\item \verb.DEBUG_ALL=1. -- enables debugging for all the VMM components
+({\em Warning:} this generates a {\em lot} of debug information.
+\item \verb.DEBUG_SHADOW_PAGING=1.
+\item \verb.DEBUG_CTRL_REGS=1.
+\item \verb.DEBUG_INTERRUPTS=1.
+\item \verb.DEBUG_IO=1.
+\item \verb.DEBUG_KEYBOARD=1.
+\item \verb.DEBUG_PIC=1.
+\item \verb.DEBUG_PIT=1.
+\item \verb.DEBUG_NVRAM=1.
+\item \verb.DEBUG_GENERIC=1.
+\item \verb.DEBUG_EMULATOR=1.
+\item \verb.DEBUG_RAMDISK=1.
+\item \verb.DEBUG_XED=1.
+\item \verb.DEBUG_HALT=1.
+\item \verb.DEBUG_DEV_MGR=1.
+\item \verb.DEBUG_APIC=1.
+\end{itemize}
+
+
+
+\section{Compiling Kitten}
+Kitten requires a 64 bit version of Palacios, so make sure that
+Palacios has been correctly compiled before compiling Kitten.
+
+\subsection{Configuration}
+Kitten borrows a lot of concepts from Linux, including the Linux build
+process. As such it must be configured before it is actually compiled.
+The Kitten configuration process is the same as Linux, and can be
+accessed via any of these make targets.
+\begin{itemize}
+\item \verb.make xconfig.
+\item \verb.make config.
+\item \verb.make menuconfig.
+\end{itemize}
+
+There are some specific configuration options that should be disabled
+to work with Palacios. Because Palacios is configured by default to
+provide a guest with direct access to the VGA console, the {\em VGA
+console} device driver should be disbabled in the Kitten
+configuration. Similarly the {\em VM console} driver should be
+disabled as well.
+
+Furthermore, because the VGA console is not being used the {\em Kernel
+Command Line Arguments} must be modified to remove the {\em VGA}
+device from the console list.
+
+The guest OS that is booted as a VM is included as an ISO image in raw
+binary format inside Kitten's {\em init\_task}. To change the guest
+ISO, you must change the makefile for the init\_task. This is located
+in {\em user/hello\_world/Makefile} and the syntax is well commented.
+On {\em newskysaw} a collection of guest ISO images are located in
+{\em /opt/vmm-tools/isos/}. 
+
+
+\subsection{Compilation}
+After Kitten has been configured the compilation can be done. The
+general process is to compile a reference build of Kitten, followed by
+compiling Palacios support as a kernel module, and then doing a new
+full recompilation of Kitten.
+
+The specific compilation steps are run from the top level Kitten directory:
+\begin{verbatim}
+make
+cd palacios
+make -C .. M=`pwd`
+cp built-in.o ../modules/palacios-mod.o
+cd ..
+make
+make isoimage
+\end{verbatim}
+
+This generates an ISO boot image containing Kitten, Palacios, and the
+guest that will be run as a VM. The ISO image is located at {\em
+./arch/x86\_64/boot/image.iso}.
+
+
+\section{Running Palacios/Kitten}
+Kitten and Palacios are capable of running under Qemu, which makes
+debugging much simpler.
+
+The basic form of the command to start the Qemu emulator is:
+\begin{verbatim}
+/usr/local/qemu/bin/qemu-system-x86_64 -smp 1 -m 1024 \
+        -serial file:./serial.out \
+        -cdrom ./arch/x86_64/boot/image.iso  \
+        < /dev/null
+\end{verbatim}
+
+The command starts up a single processor emulated machine, with 1gig
+of RAM and a cdrom drive loaded with the Kitten ISO image. Furthermore
+all output to the serial port is written directly to a file called
+{\em serial.out}. This command can be copied into a shell script for easy access.
+
+\section{Development Guidelines}
+
+There are standard requirements we have for code entering the mainline. 
+
+First and foremost, Palacios is designed to be OS indenpendent and
+support 32 and 64 bit architectures. This means that developers should
+not include any external OS specific dependencies in any Palacios
+component. Also all changes need to be tested on both 32 and 64 bit
+architectures to make sure that they compile as well as run corrrectly.
+
+\paragraph*{Coding Style}
+
+"The use of equal negative space, as a balance to positive space, in a
+composition is considered by many as good design. This basic and often
+overlooked principle of design gives the eye a "place to rest,"
+increasing the appeal of a composition through subtle means."
+\newline\newline
+Translation: Use the spacebar, newlines, and parentheses. 
+\newline\newline
+{\em Bad}
+\begin{verbatim}
+if(a&&b==5||c!=0){return;}
+\end{verbatim}
+
+
+{\em Good}
+
+\begin{verbatim}
+if (((a) && (b == 5)) || 
+    (c != 0)) {
+       return;
+}
+\end{verbatim}
+
+\paragraph*{Fail Stop}
+Because booting a basic linux kernel results in over 1 million VM exits
+catching silent errors is next to impossible. For this reason
+ANY time your code has an error it should return -1, and expect the
+execution to halt. 
+
+This includes unimplemented features and unhandled cases. These cases
+should ALWAYS return -1. 
+
+
+\paragraph*{Function names}
+Externally visible function names should be used rarely and have
+unique names. Currently we have several techniques for achieving this:
+
+\begin{enumerate}
+\item \verb.#ifdefs. in the header file
+\newline
+When the V3 Hypervisor is compiled it defines the symbol
+\verb.__V3VEE__. Any function that is not needed outside the Hypervisor
+context should be inside an \verb.#ifdef __V3VEE__. block, this will make it
+invisible to the host environment.
+
+\item Static Functions
+\newline
+Any utility functions that are only needed in the .c file where they
+are defined should be declared as static and not included in the
+header file. You should make an effort to use static functions
+whenever possible. 
+
+\item \verb.v3_. prefix
+\newline
+Major interface functions should be named with the prefix \verb.v3_. This
+allows easy understanding of how to interact with the subsystems. And
+in the case that they need to be externally visible to the host os,
+make them unlikely to collide with other functions. 
+\end{enumerate}
+
+\paragraph*{Debugging Output}
+Debugging output is sent through the host os via functions in the
+\verb.os_hooks. structure. These functions have various wrappers of the form
+\verb.Print*., with printf style semantics. 
+
+Two functions of note are \verb.PrintDebug. and \verb.PrintError..
+
+\begin{itemize}
+
+\item PrintDebug:
+\newline
+Should be used for debugging output that will often be
+turned off selectively by the VMM configuration. 
+
+\item PrintError
+\newline
+Should be used when an error occurs, this will never be optimized out
+and will always print. 
+\end{itemize}
+
+
+\section{Code Submission}
+\label{sec:submission}
+
+To commit changes to the central repository they need to be exported
+as a patch set that can be applied directly to a mainline. Both Git
+and Mercurial contain functionality to allow developers to maintain
+changes as a patch set. There are also a few options that make dealing
+with patches easier.
+
+\subsection{Palacios}
+
+Git includes support for directly exporting local repository commits
+as a patch set. The basic operation is for a developer to commit a
+change to a local repository, and then export that change as a patch
+that can be applied to another git repository. While this is
+functionally possible, there are a number of issues. The main problem
+is that it is difficult to fully encapsulate a new feature in a single
+commit, and dealing with multiple patches that often overwrite each
+other is not a viable option either. Furthermore, once a patch is
+applied to the mainline, it will generate a conflicting commit that
+will become present when the developer next pulls from the central
+repository. This can result in both repositories getting out of
+sync. It is possible to deal with this by manually rebasing the local
+repository, but it is difficult and error-prone. 
+
+This approach also does not map well when patches are being revised. A
+normal patch will go through multiple revisions as it is reviewed and
+modified by others. This often leads to synchronization issues as well
+as errors with patch revisions. Ultimately it is the responsibility of
+the developer to generate a patch that will apply cleanly to the
+mainline.
+
+For this reason most internal developers should seriously consider
+{\em stacked git}. Stacked git is designed to make patch development
+easier and less of a headache. The basic mode of operation is for a
+developer to intialize a patch for a new feature and then continuously
+apply changes to the patch. Stacked Git allows a developer to layer a
+series of patches on top of a local git repository, without causing
+the repository to unsync due to local commits. Basically, the
+developer never commits changes to the repository itself but instead
+commits the changes to a specific patch. The local patches are managed
+using stack operations (push/pop) which allows a developer to apply
+and unapply patches as needed. Stacked git also manages new changes to
+the underlying git repository as a result of a pull operation and
+prevents collisions as changes are propagated upstream. For instance
+if you have a local patch that is applied to the mainline as a commit,
+when the commit is pulled down the patch becomes empty because it is
+effectively identical to the mainline. It also makes incorporating
+external revisions to a patch easier. Stacked git is installed on {\em
+newskysaw} in \verb./opt/vmm-tools/bin/. 
+
+Brief command overview:
+\begin{itemize}
+\item \verb.stg init. -- Initialize stacked git in a given branch
+\item \verb.stg new. -- create a new patch set, an editor will open
+asking for a commit message that will be used when the patch is
+ultimately committed.
+\item \verb.stg pop. -- pops a patch off of the source tree.
+\item \verb.stg push. -- pushes a patch back on to a source tree.
+\item \verb.stg export. -- exports a patch to a directory as a file
+that can then be emailed.
+\item \verb.stg refresh. -- commits local changes to the patch set at
+the top of the applied stack.
+\item \verb.stg fold. -- Apply a patch file to the current
+patch. (This is how you can manage revisions that are made by other developers).
+\end{itemize}
+
+You should definately look at the online documentation to better
+understand how stacked git works. It is not required of course, but if
+you want your changes to be applied its up to you to generate a patch
+that is acceptable to a core developer. Ultimately using Stacked git
+should be easier than going it alone.
+
+
+All patches should be emailed to Jack for inclusion in the
+mainline. An overview of the organization is given in
+Figure~\ref{fig:process}. You should assume that the first revision of
+a patch will not be accepted, and that you will have to make
+changes. Furthermore, the final form of the patch most likely will not
+be exactly what you submitted. 
+
+ 
+\begin{figure}[t]
+\begin{center}
+\includegraphics[height=3.5in]{dev_chart.pdf}
+\end{center}
+\caption{Development organization}
+\label{fig:process}
+\end{figure}
+
+
+\subsection{Kitten}
+
+Writing code for Kitten follows essentially the same process as
+Palacios. The difference is that the patches need to be emailed to the
+Kitten developers. To send in a patch, you can just email it to the
+V3Vee development list.
+
+
+Also, instead of Stacked git you should use Mercurial patch
+queues. This feature is enabled in your .hgrc file.
+\begin{verbatim}
+[extensions]
+hgext.mq=
+\end{verbatim}
+
+Mercurial queues use the same stack operations as stacked git, however
+does not automatically handle the synchronization with pull
+operations. Before you update from the central version of Kitten you
+need to pop all of the patches, and then push them once the update is
+complete.
+
+Basically:
+\begin{verbatim}
+hg qpop -a
+hg pull
+hg update
+hg qupush -a
+\end{verbatim}
+
+
+%Also, remember that Kitten is not a Northwestern project and is being
+%developed by professional developers at Sandia National Labs. So keep
+%in mind that you are representing Northwestern and the rest of the
+%Palacios development group. We are collaborating with them because
+%Kitten and the resources they have are very important for our research
+%efforts. They are collaborating with us because they believe that
+%Palacios might be able to help them. Therefore it is important that we
+%continue to ensure that they see value in our collaboration. In plain
+%terms, we need to make sure they think we're smart and know what we're
+%doing. So please keep that in mind when dealing with the Kitten group.
+
+
+\section{Networking}
+
+\section{Configuring the development host's Qemu network}
+Set up Tap interfaces:
+
+/root/util/tap\_create tapX
+
+Bridging tapX with eth1 will only work (work = send packet and also
+make packet visible on localhost) if the IP address is set correctly
+(correctly = match network it is connected to e.g., network of eth1)
+so bring up the network inside of the VM / QEMU as 10-net, and it
+should route through the eth1 rule and be visible both on the host and
+in the physical network
+
+
+\subsection{Configuring Kitten}
+
+To enable networking in Qemu, networking needs to be enabled in the configuration.
+
+Make sure turn on the network device driver, networking, and input
+kernel command 'console=serial net=rtl8139'
+
+How to set ip address in kitten:
+
+Kitten ip address setting is in file drivers/net/ne2k/rtl8139.c, in the code below which is located in function rtl8139\_init.
+
+  struct ip\_addr ipaddr = { htonl(0 | 10 << 24 | 0 << 16 | 2 << 8 | 16 << 0) }; 
+  struct ip\_addr netmask = { htonl(0xffffff00) }; 
+  struct ip\_addr gw = { htonl(0 | 10 << 24 | 0 << 16 | 2 << 8 | 2 << 0) };
+
+This sets the ip address as 10.0.2.16, netmask 255.255.255.0 and gateway address 10.0.2.2, change it as you need.
+
+
+
+\subsection{Running with networking}
+
+\paragraph*{Tap Interface}
+In which, the command line: 
+
+-net tap, ifname=tap2
+
+specifies Qemu to use the host's tap0 as its network interface, then Qemu can access the host's physical network.
+
+\paragraph*{Redirection}
+
+Also you can use the following command instead to redirect host's 9555 port to Qemu's 80 port.
+
+-net user -net nic,model=rtl8139  -redir tcp:9555::80
+
+In this case, you can access Qemu's 80 port in the host like:
+
+telnet localhost 9555
+
+Qemu has many options to build up a virtual or real networking. See http://www.h7.dion.ne.jp/~qemu-win/HowToNetwork-en.html for more information.
+
+
+
+
+
+
+For more questions, talk to Jack or Lei.
+
+\end{document}
