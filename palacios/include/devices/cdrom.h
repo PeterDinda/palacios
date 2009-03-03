@@ -33,37 +33,37 @@
 
 
 struct cdrom_ops {
-  /* 
-   * Load CD-ROM. Returns false if CD is not ready. 
-   */
-  rd_bool (*insert_cdrom)(void * private_data);
+    /* 
+     * Load CD-ROM. Returns false if CD is not ready. 
+     */
+    rd_bool (*insert_cdrom)(void * private_data);
 
-  /* 
-   * Logically eject the CD.
-   */
-  void (*eject_cdrom)(void * private_data);
+    /* 
+     * Logically eject the CD.
+     */
+    void (*eject_cdrom)(void * private_data);
   
-  /* 
-   * Read CD TOC. Returns false if start track is out of bounds.
-   */
-  rd_bool (*read_toc)(void * private_data, uchar_t * buf, int * length, rd_bool msf, int start_track);
+    /* 
+     * Read CD TOC. Returns false if start track is out of bounds.
+     */
+    rd_bool (*read_toc)(void * private_data, uchar_t * buf, int * length, rd_bool msf, int start_track);
   
-  /* 
-   * Return CD-ROM capacity (in 2048 byte frames)
-   */
-  uint32_t (*capacity)(void * private_data);
+    /* 
+     * Return CD-ROM capacity (in 2048 byte frames)
+     */
+    uint32_t (*capacity)(void * private_data);
   
-  /*
-   * Read a single block from the CD
-   */
-  void (*read_block)(void * private_data, uchar_t * buf, int lba);
+    /*
+     * Read a single block from the CD
+     */
+    void (*read_block)(void * private_data, uchar_t * buf, int lba);
   
-  /*
-   * Start (spin up) the CD.
-   */
-  int (*start_cdrom)(void * private_data);
+    /*
+     * Start (spin up) the CD.
+     */
+    int (*start_cdrom)(void * private_data);
 
-  void (*set_LBA)(void * private_data, uchar_t lba);
+    void (*set_LBA)(void * private_data, uchar_t lba);
 };
 
 
