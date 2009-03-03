@@ -23,13 +23,12 @@
 
 #include <palacios/vmm.h>
 
-#define V3_SOCK long
 
 #ifdef __V3VEE__
 
 #define V3_Create_UDP_Socket() ({			\
       extern struct v3_socket_hooks * sock_hooks;	\
-      V3_SOCK sock = 0;					\
+      int sock = 0;					\
       if ((sock_hooks) && (sock_hooks)->udp_socket) {	\
 	sock = (sock_hooks)->udp_socket(0,0);		\
       }							\
@@ -40,7 +39,7 @@
 
 #define V3_Create_TCP_Socket() ({			\
       extern struct v3_socket_hooks * sock_hooks;	\
-      V3_SOCK sock = 0;					\
+      int sock = 0;					\
       if ((sock_hooks) && (sock_hooks)->tcp_socket) {	\
 	sock = (sock_hooks)->tcp_socket(0,0,0);		\
       }							\
@@ -80,7 +79,7 @@
 
 #define V3_Accept_Socket(sock, ip_ptr, port_ptr) ({			\
       extern struct v3_socket_hooks * sock_hooks;		\
-      V3_SOCK client_sock = 0;						\
+      int client_sock = 0;						\
       if ((sock_hooks) && (sock_hooks)->accept) {		\
 	client_sock = (sock_hooks)->accept(sock, ip_ptr, port_ptr);		\
       }								\
@@ -177,6 +176,13 @@
     })
 
 
+
+#define V3_SOCK_SET(n, p)  ((p)->fd_bits[(n)/8] |=  (1 << ((n) & 7)))
+#define V3_SOCK_CLR(n, p)  ((p)->fd_bits[(n)/8] &= ~(1 << ((n) & 7)))
+#define V3_SOCK_ISSET(n,p) ((p)->fd_bits[(n)/8] &   (1 << ((n) & 7)))
+#define V3_SOCK_ZERO(p)    memset((void*)(p), 0, sizeof(*(p)))
+
+
 #endif
 
 
@@ -185,46 +191,30 @@ struct v3_timeval {
   long    tv_usec;        /* and microseconds */
 };
 
-struct v3_sock_entry {
-  V3_SOCK sock;
-  unsigned int is_set;
-  struct v3_sock_entry * next;
-};
 
-struct v3_sock_set {
-  unsigned int num_socks;
-  struct v3_sock_entry * socks;
-};
+#define V3_SOCK_SETSIZE    1000
 
-
-void v3_init_sock_set(struct v3_sock_set * sock_set);
-
-void v3_set_sock(struct v3_sock_set * sock_set, V3_SOCK sock); // adds socket to the sockset
-void v3_clr_sock(struct v3_sock_set * sock_set, V3_SOCK sock); // deletes socket from sockset
-int v3_isset_sock(struct v3_sock_set * sock_set, V3_SOCK sock);  // checks is_set vairable 
-void v3_zero_sockset(struct v3_sock_set * sock_set);    // clears all is_set variables.
-
-
-
-#define v3_foreach_sock(/* (struct v3_sock_set *) */ sock_set, /* (struct v3_sock_entry *) */ iter) \
-       for (iter = sock_set->socks; iter != NULL; iter = iter->next)
+typedef struct v3_sock_set {
+  // This format needs to match the standard posix FD_SET format, so it can be cast
+  unsigned char fd_bits [(V3_SOCK_SETSIZE + 7) / 8];
+} v3_sock_set;
 
 
 
 struct v3_socket_hooks {
   // Socket creation routines
-  V3_SOCK (*tcp_socket)(const int bufsize, const int nodelay, const int nonblocking);
-  V3_SOCK (*udp_socket)(const int bufsize, const int nonblocking);
+  int (*tcp_socket)(const int bufsize, const int nodelay, const int nonblocking);
+  int (*udp_socket)(const int bufsize, const int nonblocking);
 
   // Socket Destruction
-  void (*close)(V3_SOCK sock);
+  void (*close)(int sock);
 
   // Network Server Calls
-  int (*bind_socket)(const V3_SOCK sock, const int port);
+  int (*bind_socket)(const int sock, const int port);
 
-  int (*listen)(const V3_SOCK sock, int backlog);
+  int (*listen)(const int sock, int backlog);
   
-  V3_SOCK (*accept)(const V3_SOCK sock, unsigned int * remote_ip, unsigned int * port);
+  int (*accept)(const int sock, unsigned int * remote_ip, unsigned int * port);
   // This going to suck
   int (*select)(struct v3_sock_set * rset, \
 		struct v3_sock_set * wset, \
@@ -232,22 +222,22 @@ struct v3_socket_hooks {
 		struct v3_timeval tv);
 
   // Connect calls
-  int (*connect_to_ip)(const V3_SOCK sock, const int hostip, const int port);
-  int (*connect_to_host)(const V3_SOCK sock, const char * hostname, const int port);
+  int (*connect_to_ip)(const int sock, const int hostip, const int port);
+  int (*connect_to_host)(const int sock, const char * hostname, const int port);
 
   // TCP Data Transfer
-  int (*send)(const V3_SOCK sock, const char * buf, const int len);
-  int (*recv)(const V3_SOCK sock, char * buf, const int len);
+  int (*send)(const int sock, const char * buf, const int len);
+  int (*recv)(const int sock, char * buf, const int len);
   
   // UDP Data Transfer
-  int (*sendto_host)(const V3_SOCK sock, const char * hostname, const int port, 
+  int (*sendto_host)(const int sock, const char * hostname, const int port, 
 		    const char * buf, const int len);
-  int (*sendto_ip)(const V3_SOCK sock, const int ip_addr, const int port, 
+  int (*sendto_ip)(const int sock, const int ip_addr, const int port, 
 		  const char * buf, const int len);
   
-  int (*recvfrom_host)(const V3_SOCK sock, const char * hostname, const int port, 
+  int (*recvfrom_host)(const int sock, const char * hostname, const int port, 
 			 char * buf, const int len);
-  int (*recvfrom_ip)(const V3_SOCK sock, const int ip_addr, const int port, 
+  int (*recvfrom_ip)(const int sock, const int ip_addr, const int port, 
 			 char * buf, const int len);
 };
 
