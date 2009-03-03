@@ -23,6 +23,8 @@
 
 #include <palacios/vm_guest.h>
 #include <palacios/vmm_mem.h>
+#include <palacios/vmm_types.h>
+#include <devices/vnic.h>
 
 
 #ifdef __V3VEE__
@@ -195,7 +197,26 @@
   } while(0)								\
     
 
+#define V3_REGISTER_PKT_DELIVERY(x) \
+  ({\
+    int ret = 0;\
+    extern struct v3_os_hooks * os_hooks;		\
+    if ((os_hooks) && (os_hooks)->register_pkt_delivery) {		\
+     ret = (os_hooks)->register_pkt_delivery(x);				\
+    }\
+    ret; \
+  } )		
 
+#define V3_SEND_PKT(x, y) \
+  ({\
+    int ret=0; \
+    extern struct v3_os_hooks * os_hooks;		\
+    if ((os_hooks) && (os_hooks)->ne2k_send_packet) {		\
+      ret = (os_hooks)->ne2k_send_packet(x, y);				\
+    }\
+    ret; \
+  })
+  
 
 #define VMM_INVALID_CPU 0
 #define VMM_VMX_CPU 1
@@ -244,6 +265,10 @@ struct v3_os_hooks {
 
   void (*yield_cpu)(void);
 
+  //function by network card driver
+  int (*register_pkt_delivery)(int (*rcvd_fn)(uchar_t *packet, uint_t size));
+  int (*ne2k_send_packet)(uchar_t *packet, uint_t size);
+ 
 };
 
 
