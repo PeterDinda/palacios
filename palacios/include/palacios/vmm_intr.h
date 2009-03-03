@@ -55,8 +55,8 @@ struct v3_interrupt;
 
 
 struct v3_irq_hook {
-  int (*handler)(struct guest_info * info, struct v3_interrupt * intr, void * priv_data);
-  void * priv_data;
+    int (*handler)(struct guest_info * info, struct v3_interrupt * intr, void * priv_data);
+    void * priv_data;
 };
 
 
@@ -65,17 +65,17 @@ struct v3_irq_hook {
 
 struct v3_intr_state {
 
-  /* We need to rework the exception state, to handle stacking */
-  uint_t excp_pending;
-  uint_t excp_num;
-  uint_t excp_error_code_valid : 1;
-  uint_t excp_error_code;
+    /* We need to rework the exception state, to handle stacking */
+    uint_t excp_pending;
+    uint_t excp_num;
+    uint_t excp_error_code_valid : 1;
+    uint_t excp_error_code;
   
-  struct list_head controller_list;
+    struct list_head controller_list;
 
 
-  /* some way to get the [A]PIC intr */
-  struct v3_irq_hook * hooks[256];
+    /* some way to get the [A]PIC intr */
+    struct v3_irq_hook * hooks[256];
   
 };
 
@@ -90,11 +90,11 @@ int v3_lower_irq(struct guest_info * info, int irq);
 
 
 struct intr_ctrl_ops {
-  int (*intr_pending)(void * private_data);
-  int (*get_intr_number)(void * private_data);
-  int (*raise_intr)(void * private_data, int irq);
-  int (*lower_intr)(void * private_data, int irq);
-  int (*begin_irq)(void * private_data, int irq);
+    int (*intr_pending)(void * private_data);
+    int (*get_intr_number)(void * private_data);
+    int (*raise_intr)(void * private_data, int irq);
+    int (*lower_intr)(void * private_data, int irq);
+    int (*begin_irq)(void * private_data, int irq);
 };
 
 
@@ -112,8 +112,8 @@ intr_type_t v3_get_intr_type(struct guest_info * info);
 int v3_injecting_intr(struct guest_info * info, uint_t intr_num, intr_type_t type);
 
 /*
-int start_irq(struct vm_intr * intr);
-int end_irq(struct vm_intr * intr, int irq);
+  int start_irq(struct vm_intr * intr);
+  int end_irq(struct vm_intr * intr, int irq);
 */
 
 

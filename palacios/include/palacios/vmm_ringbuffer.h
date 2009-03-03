@@ -31,12 +31,12 @@
 #endif
 
 struct v3_ringbuf {
-  uchar_t * buf;
-  uint_t size;
+    uchar_t * buf;
+    uint_t size;
 
-  uint_t start;
-  uint_t end;
-  uint_t current_len;
+    uint_t start;
+    uint_t end;
+    uint_t current_len;
 };
 
 

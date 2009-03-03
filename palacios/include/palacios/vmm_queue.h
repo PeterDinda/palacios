@@ -35,17 +35,17 @@
 
 
 struct queue_entry {
-  addr_t entry;
-  struct list_head entry_list;
+    addr_t entry;
+    struct list_head entry_list;
 };
 
 
 struct gen_queue {
-  uint_t num_entries;
-  struct list_head entries;
+    uint_t num_entries;
+    struct list_head entries;
 
-  // We really need to implement this....
-  // void * lock;
+    // We really need to implement this....
+    // void * lock;
 };
 
 

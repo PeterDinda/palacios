@@ -37,74 +37,74 @@
 
 
 struct v3_gprs {
-  v3_reg_t rdi;
-  v3_reg_t rsi;
-  v3_reg_t rbp;
-  v3_reg_t rsp;
-  v3_reg_t rbx;
-  v3_reg_t rdx;
-  v3_reg_t rcx;
-  v3_reg_t rax;
+    v3_reg_t rdi;
+    v3_reg_t rsi;
+    v3_reg_t rbp;
+    v3_reg_t rsp;
+    v3_reg_t rbx;
+    v3_reg_t rdx;
+    v3_reg_t rcx;
+    v3_reg_t rax;
 
-  v3_reg_t r8;
-  v3_reg_t r9;
-  v3_reg_t r10;
-  v3_reg_t r11;
-  v3_reg_t r12;
-  v3_reg_t r13;
-  v3_reg_t r14;
-  v3_reg_t r15;
+    v3_reg_t r8;
+    v3_reg_t r9;
+    v3_reg_t r10;
+    v3_reg_t r11;
+    v3_reg_t r12;
+    v3_reg_t r13;
+    v3_reg_t r14;
+    v3_reg_t r15;
   
 } __attribute__((packed));
 
 
 struct v3_ctrl_regs {
-  v3_reg_t cr0;
-  v3_reg_t cr2;
-  v3_reg_t cr3;
-  v3_reg_t cr4;
-  v3_reg_t cr8;
-  v3_reg_t rflags;
-  v3_reg_t efer;
+    v3_reg_t cr0;
+    v3_reg_t cr2;
+    v3_reg_t cr3;
+    v3_reg_t cr4;
+    v3_reg_t cr8;
+    v3_reg_t rflags;
+    v3_reg_t efer;
 };
 
 
 
 struct v3_dbg_regs {
-  v3_reg_t dr0;
-  v3_reg_t dr1;
-  v3_reg_t dr2;
-  v3_reg_t dr3;
-  v3_reg_t dr6;
-  v3_reg_t dr7;
+    v3_reg_t dr0;
+    v3_reg_t dr1;
+    v3_reg_t dr2;
+    v3_reg_t dr3;
+    v3_reg_t dr6;
+    v3_reg_t dr7;
 };
 
 struct v3_segment {
-  ushort_t selector;
-  uint_t limit;
-  ullong_t base;
-  uint_t type           : 4;
-  uint_t system         : 1;
-  uint_t dpl            : 2;
-  uint_t present        : 1;
-  uint_t avail          : 1;
-  uint_t long_mode      : 1;
-  uint_t db             : 1;
-  uint_t granularity    : 1;
+    ushort_t selector;
+    uint_t limit;
+    ullong_t base;
+    uint_t type           : 4;
+    uint_t system         : 1;
+    uint_t dpl            : 2;
+    uint_t present        : 1;
+    uint_t avail          : 1;
+    uint_t long_mode      : 1;
+    uint_t db             : 1;
+    uint_t granularity    : 1;
 } __attribute__((packed));
 
 
 struct v3_segments {
-  struct v3_segment cs;
-  struct v3_segment ds;
-  struct v3_segment es;
-  struct v3_segment fs;
-  struct v3_segment gs;
-  struct v3_segment ss;
-  struct v3_segment ldtr;
-  struct v3_segment gdtr;
-  struct v3_segment idtr;
-  struct v3_segment tr;
+    struct v3_segment cs;
+    struct v3_segment ds;
+    struct v3_segment es;
+    struct v3_segment fs;
+    struct v3_segment gs;
+    struct v3_segment ss;
+    struct v3_segment ldtr;
+    struct v3_segment gdtr;
+    struct v3_segment idtr;
+    struct v3_segment tr;
 };
 
 struct shadow_page_state;
@@ -115,69 +115,69 @@ struct v3_profiler;
 
 
 struct guest_info {
-  ullong_t rip;
+    ullong_t rip;
 
-  uint_t cpl;
+    uint_t cpl;
 
-  addr_t mem_size; // In bytes for now
-  v3_shdw_map_t mem_map;
+    addr_t mem_size; // In bytes for now
+    v3_shdw_map_t mem_map;
 
 
-  struct vm_time time_state;
+    struct vm_time time_state;
 
   
-  v3_paging_mode_t shdw_pg_mode;
-  struct shadow_page_state shdw_pg_state;
-  addr_t direct_map_pt;
-  // nested_paging_t nested_page_state;
+    v3_paging_mode_t shdw_pg_mode;
+    struct shadow_page_state shdw_pg_state;
+    addr_t direct_map_pt;
+    // nested_paging_t nested_page_state;
 
 
-  // This structure is how we get interrupts for the guest
-  struct v3_intr_state intr_state;
+    // This structure is how we get interrupts for the guest
+    struct v3_intr_state intr_state;
 
-  v3_io_map_t io_map;
+    v3_io_map_t io_map;
 
-  struct v3_msr_map msr_map;
-
-
-  v3_hypercall_map_t hcall_map;
-
-  // device_map
-  struct vmm_dev_mgr  dev_mgr;
-
-  struct v3_host_events host_event_hooks;
-
-  v3_vm_cpu_mode_t cpu_mode;
-  v3_vm_mem_mode_t mem_mode;
-  uint_t addr_width;
+    struct v3_msr_map msr_map;
 
 
-  struct v3_gprs vm_regs;
-  struct v3_ctrl_regs ctrl_regs;
-  struct v3_dbg_regs dbg_regs;
-  struct v3_segments segments;
+    v3_hypercall_map_t hcall_map;
 
-  v3_vm_operating_mode_t run_state;
-  void * vmm_data;
+    // device_map
+    struct vmm_dev_mgr  dev_mgr;
 
+    struct v3_host_events host_event_hooks;
 
-  uint_t enable_profiler;
-  struct v3_profiler profiler;
-
-  void * decoder_state;
-
-  v3_msr_t guest_efer;
-
-  /* Do we need these ? */
-  v3_msr_t guest_star;
-  v3_msr_t guest_lstar;
-  v3_msr_t guest_cstar;
-  v3_msr_t guest_syscall_mask;
-  v3_msr_t guest_gs_base;
+    v3_vm_cpu_mode_t cpu_mode;
+    v3_vm_mem_mode_t mem_mode;
+    uint_t addr_width;
 
 
-  uint64_t fs;
-  uint64_t gs;
+    struct v3_gprs vm_regs;
+    struct v3_ctrl_regs ctrl_regs;
+    struct v3_dbg_regs dbg_regs;
+    struct v3_segments segments;
+
+    v3_vm_operating_mode_t run_state;
+    void * vmm_data;
+
+
+    uint_t enable_profiler;
+    struct v3_profiler profiler;
+
+    void * decoder_state;
+
+    v3_msr_t guest_efer;
+
+    /* Do we need these ? */
+    v3_msr_t guest_star;
+    v3_msr_t guest_lstar;
+    v3_msr_t guest_cstar;
+    v3_msr_t guest_syscall_mask;
+    v3_msr_t guest_gs_base;
+
+
+    uint64_t fs;
+    uint64_t gs;
 
 
 

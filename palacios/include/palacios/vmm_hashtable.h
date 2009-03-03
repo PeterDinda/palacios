@@ -104,19 +104,19 @@ ulong_t hash_buffer(uchar_t * msg, uint_t length);
 
 
 #define DEFINE_HASHTABLE_INSERT(fnname, keytype, valuetype)		\
-  static int fnname (struct hashtable * htable, keytype key, valuetype value) { \
-    return hashtable_insert(htable, (addr_t)key, (addr_t)value);	\
-  }
+    static int fnname (struct hashtable * htable, keytype key, valuetype value) { \
+	return hashtable_insert(htable, (addr_t)key, (addr_t)value);	\
+    }
 
 #define DEFINE_HASHTABLE_SEARCH(fnname, keytype, valuetype)		\
-  static valuetype * fnname (struct hashtable * htable, keytype  key) {	\
-    return (valuetype *) (hashtable_search(htable, (addr_t)key));	\
-  }
+    static valuetype * fnname (struct hashtable * htable, keytype  key) { \
+	return (valuetype *) (hashtable_search(htable, (addr_t)key));	\
+    }
 
 #define DEFINE_HASHTABLE_REMOVE(fnname, keytype, valuetype, free_key)	\
-  static valuetype * fnname (struct hashtable * htable, keytype key) {	\
-    return (valuetype *) (hashtable_remove(htable, (addr_t)key, free_key)); \
-  }
+    static valuetype * fnname (struct hashtable * htable, keytype key) { \
+	return (valuetype *) (hashtable_remove(htable, (addr_t)key, free_key)); \
+    }
 
 
 
@@ -159,14 +159,14 @@ int hashtable_inc(struct hashtable * htable, addr_t key, addr_t value);
 int hashtable_dec(struct hashtable * htable, addr_t key, addr_t value);
 
 
-  /* ************ */
- /* ITERATOR API */
+/* ************ */
+/* ITERATOR API */
 /* ************ */
 
 #define DEFINE_HASHTABLE_ITERATOR_SEARCH(fnname, keytype)		\
-  int fnname (struct hashtable_itr * iter, struct hashtable * htable, keytype * key) { \
-    return (hashtable_iterator_search(iter, htable, key));		\
-  }
+    int fnname (struct hashtable_itr * iter, struct hashtable * htable, keytype * key) { \
+	return (hashtable_iterator_search(iter, htable, key));		\
+    }
 
 
 
@@ -174,10 +174,10 @@ int hashtable_dec(struct hashtable * htable, addr_t key, addr_t value);
 /* This struct is only concrete here to allow the inlining of two of the
  * accessor functions. */
 struct hashtable_iter {
-  struct hashtable * htable;
-  struct hash_entry * entry;
-  struct hash_entry * parent;
-  uint_t index;
+    struct hashtable * htable;
+    struct hash_entry * entry;
+    struct hash_entry * parent;
+    uint_t index;
 };
 
 
@@ -294,4 +294,4 @@ int hashtable_iterator_search(struct hashtable_iter * iter, struct hashtable * h
  * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*/
+ */

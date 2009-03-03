@@ -31,17 +31,17 @@ struct guest_info;
 
 
 struct vmm_dev_mgr {
-  uint_t num_devs;
-  struct list_head dev_list;
+    uint_t num_devs;
+    struct list_head dev_list;
 
-  uint_t num_io_hooks;
-  struct list_head io_hooks;
+    uint_t num_io_hooks;
+    struct list_head io_hooks;
   
-  uint_t num_mem_hooks;
-  struct list_head mem_hooks;
+    uint_t num_mem_hooks;
+    struct list_head mem_hooks;
 
-  uint_t num_msr_hook;
-  struct list_head msr_hooks;
+    uint_t num_msr_hook;
+    struct list_head msr_hooks;
 
 };
 
@@ -63,28 +63,28 @@ int v3_unattach_device(struct vm_device *dev);
 
 
 struct dev_io_hook {
-  ushort_t port;
+    ushort_t port;
   
-  int (*read)(ushort_t port, void * dst, uint_t length, struct vm_device * dev);
-  int (*write)(ushort_t port, void * src, uint_t length, struct vm_device * dev);
+    int (*read)(ushort_t port, void * dst, uint_t length, struct vm_device * dev);
+    int (*write)(ushort_t port, void * src, uint_t length, struct vm_device * dev);
 
-  struct vm_device * dev;
+    struct vm_device * dev;
 
-  // Do not touch anything below this  
+    // Do not touch anything below this  
 
-  struct list_head dev_list;
-  struct list_head mgr_list;
+    struct list_head dev_list;
+    struct list_head mgr_list;
 };
 
 struct dev_mem_hook {
-  void  *addr_start;
-  void  *addr_end;
+    void  *addr_start;
+    void  *addr_end;
 
-  struct vm_device * dev;
+    struct vm_device * dev;
 
-  // Do not touch anything below this
-  struct list_head dev_list;
-  struct list_head mgr_list;
+    // Do not touch anything below this
+    struct list_head dev_list;
+    struct list_head mgr_list;
 };
 
 

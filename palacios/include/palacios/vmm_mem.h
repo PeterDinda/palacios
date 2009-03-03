@@ -38,37 +38,37 @@ struct guest_info;
 // These are the types of physical memory address regions
 // from the perspective of the HOST
 typedef enum shdw_region_type { 
-  SHDW_REGION_INVALID,                    // This region is INVALID (this is a return type to denote errors)
-  SHDW_REGION_WRITE_HOOK,                 // This region is mapped as read-only (page faults on write)
-  SHDW_REGION_FULL_HOOK,                  // This region is mapped as not present (always generate page faults)
-  SHDW_REGION_ALLOCATED,                  // Region is a section of host memory
+    SHDW_REGION_INVALID,                    // This region is INVALID (this is a return type to denote errors)
+    SHDW_REGION_WRITE_HOOK,                 // This region is mapped as read-only (page faults on write)
+    SHDW_REGION_FULL_HOOK,                  // This region is mapped as not present (always generate page faults)
+    SHDW_REGION_ALLOCATED,                  // Region is a section of host memory
 } v3_shdw_region_type_t;
 
 
 typedef struct v3_shdw_map {
-  addr_t hook_hva;
+    addr_t hook_hva;
 
-  struct rb_root shdw_regions;
+    struct rb_root shdw_regions;
 } v3_shdw_map_t;
 
 
 struct v3_shadow_region {
-  addr_t                  guest_start; 
-  addr_t                  guest_end; 
+    addr_t                  guest_start; 
+    addr_t                  guest_end; 
 
-  v3_shdw_region_type_t   host_type;
+    v3_shdw_region_type_t   host_type;
   
-  addr_t                  host_addr; // This either points to a host address mapping
+    addr_t                  host_addr; // This either points to a host address mapping
 
 
-  // Called when data is read from a memory page
-  int (*read_hook)(addr_t guest_addr, void * dst, uint_t length, void * priv_data);
-  // Called when data is written to a memory page
-  int (*write_hook)(addr_t guest_addr, void * src, uint_t length, void * priv_data);
+    // Called when data is read from a memory page
+    int (*read_hook)(addr_t guest_addr, void * dst, uint_t length, void * priv_data);
+    // Called when data is written to a memory page
+    int (*write_hook)(addr_t guest_addr, void * src, uint_t length, void * priv_data);
 
-  void * priv_data;
+    void * priv_data;
 
-  struct rb_node tree_node;
+    struct rb_node tree_node;
 };
 
 

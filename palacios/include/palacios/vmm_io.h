@@ -49,17 +49,17 @@ int v3_unhook_io_port(struct guest_info * info, uint_t port);
 
 
 struct v3_io_hook {
-  ushort_t port;
+    ushort_t port;
 
-  // Reads data into the IO port (IN, INS)
-  int (*read)(ushort_t port, void * dst, uint_t length, void * priv_data);
+    // Reads data into the IO port (IN, INS)
+    int (*read)(ushort_t port, void * dst, uint_t length, void * priv_data);
 
-  // Writes data from the IO port (OUT, OUTS)
-  int (*write)(ushort_t port, void * src, uint_t length, void * priv_data);
+    // Writes data from the IO port (OUT, OUTS)
+    int (*write)(ushort_t port, void * src, uint_t length, void * priv_data);
 
-  void * priv_data;
+    void * priv_data;
   
-  struct rb_node tree_node;
+    struct rb_node tree_node;
 
 };
 

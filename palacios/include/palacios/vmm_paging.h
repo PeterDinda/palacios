@@ -35,47 +35,47 @@ page table (PDEs, PTEs), etc.
 
 
 guest-visible paging state
- This is the state that the guest thinks the machine is using
- It consists of
-   - guest physical memory
-       The physical memory addresses the guest is allowed to use
-       (see shadow page maps, below)
-   - guest page tables 
-       (we care about when the current one changes)
-   - guest paging registers (these are never written to hardware)
-        CR0
-        CR3
+This is the state that the guest thinks the machine is using
+It consists of
+- guest physical memory
+The physical memory addresses the guest is allowed to use
+(see shadow page maps, below)
+- guest page tables 
+(we care about when the current one changes)
+- guest paging registers (these are never written to hardware)
+CR0
+CR3
 
 
 shadow paging state
- This the state that the machine will actually use when the guest
- is running.  It consists of:
-   - current shadow page table
-        This is the page table actually useed when the guest is running.
-        It is changed/regenerated when the guest page table changes
-        It mostly reflects the guest page table, except that it restricts 
-        physical addresses to those the VMM allocates to the guest.
-   - shadow page maps
-        This is a mapping from guest physical memory addresses to
-        the current location of the guest physical memory content.   
-        It maps from regions of physical memory addresses to regions 
-        located in physical memory or elsewhere.  
-        (8192,16384) -> MEM(8912,...)
-        (0,8191) -> DISK(65536,..) 
-   - guest paging registers (these are written to guest state)
-        CR0
-        CR3
+This the state that the machine will actually use when the guest
+is running.  It consists of:
+- current shadow page table
+This is the page table actually useed when the guest is running.
+It is changed/regenerated when the guest page table changes
+It mostly reflects the guest page table, except that it restricts 
+physical addresses to those the VMM allocates to the guest.
+- shadow page maps
+This is a mapping from guest physical memory addresses to
+the current location of the guest physical memory content.   
+It maps from regions of physical memory addresses to regions 
+located in physical memory or elsewhere.  
+(8192,16384) -> MEM(8912,...)
+(0,8191) -> DISK(65536,..) 
+- guest paging registers (these are written to guest state)
+CR0
+CR3
 
 host paging state
-  This is the state we expect to be operative when the VMM is running.
-  Typically, this is set up by the host os into which we have embedded
-  the VMM, but we include the description here for clarity.
-    - current page table
-        This is the page table we use when we are executing in 
-        the VMM (or the host os)
-    - paging regisers
-        CR0
-        CR3
+This is the state we expect to be operative when the VMM is running.
+Typically, this is set up by the host os into which we have embedded
+the VMM, but we include the description here for clarity.
+- current page table
+This is the page table we use when we are executing in 
+the VMM (or the host os)
+- paging regisers
+CR0
+CR3
 
 
 The reason why the shadow paging state and the host paging state are
@@ -209,123 +209,124 @@ typedef enum {PAGE_4KB, PAGE_2MB, PAGE_4MB, PAGE_1GB,
 
 
 typedef enum {PT_ENTRY_NOT_PRESENT, PT_ENTRY_LARGE_PAGE, PT_ENTRY_PAGE} pt_entry_type_t;
+
 typedef enum {PT_ACCESS_OK, PT_ACCESS_NOT_PRESENT, PT_ACCESS_WRITE_ERROR, PT_ACCESS_USER_ERROR} pt_access_status_t;
 
 
 typedef struct gen_pt {
-  uint_t present        : 1;
-  uint_t writable       : 1;
-  uint_t user_page      : 1;
+    uint_t present        : 1;
+    uint_t writable       : 1;
+    uint_t user_page      : 1;
 } __attribute__((packed)) gen_pt_t;
 
 typedef struct pde32 {
-  uint_t present         : 1;
-  uint_t writable        : 1;
-  uint_t user_page       : 1;
-  uint_t write_through   : 1;
-  uint_t cache_disable   : 1;
-  uint_t accessed        : 1;
-  uint_t reserved        : 1;
-  uint_t large_page     : 1;
-  uint_t global_page     : 1;
-  uint_t vmm_info        : 3;
-  uint_t pt_base_addr    : 20;
+    uint_t present         : 1;
+    uint_t writable        : 1;
+    uint_t user_page       : 1;
+    uint_t write_through   : 1;
+    uint_t cache_disable   : 1;
+    uint_t accessed        : 1;
+    uint_t reserved        : 1;
+    uint_t large_page     : 1;
+    uint_t global_page     : 1;
+    uint_t vmm_info        : 3;
+    uint_t pt_base_addr    : 20;
 } __attribute__((packed))  pde32_t;
 
 typedef struct pde32_4MB {
-  uint_t present         : 1;
-  uint_t writable        : 1;
-  uint_t user_page       : 1;
-  uint_t write_through   : 1;
-  uint_t cache_disable   : 1;
-  uint_t accessed        : 1;
-  uint_t dirty           : 1;
-  uint_t large_page      : 1;
-  uint_t global_page     : 1;
-  uint_t vmm_info        : 3;
-  uint_t pat             : 1;
-  uint_t rsvd            : 9;
-  uint_t page_base_addr  : 10;
+    uint_t present         : 1;
+    uint_t writable        : 1;
+    uint_t user_page       : 1;
+    uint_t write_through   : 1;
+    uint_t cache_disable   : 1;
+    uint_t accessed        : 1;
+    uint_t dirty           : 1;
+    uint_t large_page      : 1;
+    uint_t global_page     : 1;
+    uint_t vmm_info        : 3;
+    uint_t pat             : 1;
+    uint_t rsvd            : 9;
+    uint_t page_base_addr  : 10;
 
 } __attribute__((packed))  pde32_4MB_t;
 
 typedef struct pte32 {
-  uint_t present         : 1;
-  uint_t writable        : 1;
-  uint_t user_page       : 1;
-  uint_t write_through   : 1;
-  uint_t cache_disable   : 1;
-  uint_t accessed        : 1;
-  uint_t dirty           : 1;
-  uint_t pte_attr        : 1;
-  uint_t global_page     : 1;
-  uint_t vmm_info        : 3;
-  uint_t page_base_addr  : 20;
+    uint_t present         : 1;
+    uint_t writable        : 1;
+    uint_t user_page       : 1;
+    uint_t write_through   : 1;
+    uint_t cache_disable   : 1;
+    uint_t accessed        : 1;
+    uint_t dirty           : 1;
+    uint_t pte_attr        : 1;
+    uint_t global_page     : 1;
+    uint_t vmm_info        : 3;
+    uint_t page_base_addr  : 20;
 }  __attribute__((packed)) pte32_t;
 /* ***** */
 
 /* 32 bit PAE PAGE STRUCTURES */
 typedef struct pdpe32pae {
-  uint_t present       : 1;
-  uint_t rsvd          : 2; // MBZ
-  uint_t write_through : 1;
-  uint_t cache_disable : 1;
-  uint_t accessed      : 1; 
-  uint_t avail         : 1;
-  uint_t rsvd2         : 2;  // MBZ
-  uint_t vmm_info      : 3;
-  uint_t pd_base_addr  : 24;
-  uint_t rsvd3         : 28; // MBZ
+    uint_t present       : 1;
+    uint_t rsvd          : 2; // MBZ
+    uint_t write_through : 1;
+    uint_t cache_disable : 1;
+    uint_t accessed      : 1; 
+    uint_t avail         : 1;
+    uint_t rsvd2         : 2;  // MBZ
+    uint_t vmm_info      : 3;
+    uint_t pd_base_addr  : 24;
+    uint_t rsvd3         : 28; // MBZ
 } __attribute__((packed)) pdpe32pae_t;
 
 
 
 typedef struct pde32pae {
-  uint_t present         : 1;
-  uint_t writable        : 1;
-  uint_t user_page       : 1;
-  uint_t write_through   : 1;
-  uint_t cache_disable   : 1;
-  uint_t accessed        : 1;
-  uint_t avail           : 1;
-  uint_t large_page      : 1;
-  uint_t global_page     : 1;
-  uint_t vmm_info        : 3;
-  uint_t pt_base_addr    : 24;
-  uint_t rsvd            : 28;
+    uint_t present         : 1;
+    uint_t writable        : 1;
+    uint_t user_page       : 1;
+    uint_t write_through   : 1;
+    uint_t cache_disable   : 1;
+    uint_t accessed        : 1;
+    uint_t avail           : 1;
+    uint_t large_page      : 1;
+    uint_t global_page     : 1;
+    uint_t vmm_info        : 3;
+    uint_t pt_base_addr    : 24;
+    uint_t rsvd            : 28;
 } __attribute__((packed)) pde32pae_t;
 
 typedef struct pde32pae_2MB {
-  uint_t present         : 1;
-  uint_t writable        : 1;
-  uint_t user_page       : 1;
-  uint_t write_through   : 1;
-  uint_t cache_disable   : 1;
-  uint_t accessed        : 1;
-  uint_t dirty           : 1;
-  uint_t one             : 1;
-  uint_t global_page     : 1;
-  uint_t vmm_info        : 3;
-  uint_t pat             : 1;
-  uint_t rsvd            : 8;
-  uint_t page_base_addr  : 15;
-  uint_t rsvd2           : 28;
+    uint_t present         : 1;
+    uint_t writable        : 1;
+    uint_t user_page       : 1;
+    uint_t write_through   : 1;
+    uint_t cache_disable   : 1;
+    uint_t accessed        : 1;
+    uint_t dirty           : 1;
+    uint_t one             : 1;
+    uint_t global_page     : 1;
+    uint_t vmm_info        : 3;
+    uint_t pat             : 1;
+    uint_t rsvd            : 8;
+    uint_t page_base_addr  : 15;
+    uint_t rsvd2           : 28;
 
 } __attribute__((packed)) pde32pae_2MB_t;
 
 typedef struct pte32pae {
-  uint_t present         : 1;
-  uint_t writable        : 1;
-  uint_t user_page       : 1;
-  uint_t write_through   : 1;
-  uint_t cache_disable   : 1;
-  uint_t accessed        : 1;
-  uint_t dirty           : 1;
-  uint_t pte_attr        : 1;
-  uint_t global_page     : 1;
-  uint_t vmm_info        : 3;
-  uint_t page_base_addr  : 24;
-  uint_t rsvd            : 28;
+    uint_t present         : 1;
+    uint_t writable        : 1;
+    uint_t user_page       : 1;
+    uint_t write_through   : 1;
+    uint_t cache_disable   : 1;
+    uint_t accessed        : 1;
+    uint_t dirty           : 1;
+    uint_t pte_attr        : 1;
+    uint_t global_page     : 1;
+    uint_t vmm_info        : 3;
+    uint_t page_base_addr  : 24;
+    uint_t rsvd            : 28;
 } __attribute__((packed)) pte32pae_t;
 
 
@@ -337,119 +338,119 @@ typedef struct pte32pae {
 
 /* LONG MODE 64 bit PAGE STRUCTURES */
 typedef struct pml4e64 {
-  uint_t present        : 1;
-  uint_t writable       : 1;
-  uint_t user_page           : 1;
-  uint_t write_through  : 1;
-  uint_t cache_disable  : 1;
-  uint_t accessed       : 1;
-  uint_t reserved       : 1;
-  uint_t zero           : 2;
-  uint_t vmm_info       : 3;
-  ullong_t pdp_base_addr : 40;
-  uint_t available      : 11;
-  uint_t no_execute     : 1;
+    uint_t present        : 1;
+    uint_t writable       : 1;
+    uint_t user_page           : 1;
+    uint_t write_through  : 1;
+    uint_t cache_disable  : 1;
+    uint_t accessed       : 1;
+    uint_t reserved       : 1;
+    uint_t zero           : 2;
+    uint_t vmm_info       : 3;
+    ullong_t pdp_base_addr : 40;
+    uint_t available      : 11;
+    uint_t no_execute     : 1;
 } __attribute__((packed)) pml4e64_t;
 
 
 typedef struct pdpe64 {
-  uint_t present        : 1;
-  uint_t writable       : 1;
-  uint_t user_page      : 1;
-  uint_t write_through  : 1;
-  uint_t cache_disable  : 1;
-  uint_t accessed       : 1;
-  uint_t avail          : 1;
-  uint_t large_page     : 1;
-  uint_t zero           : 1;
-  uint_t vmm_info       : 3;
-  ullong_t pd_base_addr : 40;
-  uint_t available      : 11;
-  uint_t no_execute     : 1;
+    uint_t present        : 1;
+    uint_t writable       : 1;
+    uint_t user_page      : 1;
+    uint_t write_through  : 1;
+    uint_t cache_disable  : 1;
+    uint_t accessed       : 1;
+    uint_t avail          : 1;
+    uint_t large_page     : 1;
+    uint_t zero           : 1;
+    uint_t vmm_info       : 3;
+    ullong_t pd_base_addr : 40;
+    uint_t available      : 11;
+    uint_t no_execute     : 1;
 } __attribute__((packed)) pdpe64_t;
 
 
 // We Don't support this
 typedef struct pdpe64_1GB {
-  uint_t present        : 1;
-  uint_t writable       : 1;
-  uint_t user_page      : 1;
-  uint_t write_through  : 1;
-  uint_t cache_disable  : 1;
-  uint_t accessed       : 1;
-  uint_t dirty          : 1;
-  uint_t large_page     : 1;
-  uint_t global_page    : 1;
-  uint_t vmm_info       : 3;
-  uint_t pat            : 1;
-  uint_t rsvd           : 17;
-  ullong_t page_base_addr : 22;
-  uint_t available      : 11;
-  uint_t no_execute     : 1;
+    uint_t present        : 1;
+    uint_t writable       : 1;
+    uint_t user_page      : 1;
+    uint_t write_through  : 1;
+    uint_t cache_disable  : 1;
+    uint_t accessed       : 1;
+    uint_t dirty          : 1;
+    uint_t large_page     : 1;
+    uint_t global_page    : 1;
+    uint_t vmm_info       : 3;
+    uint_t pat            : 1;
+    uint_t rsvd           : 17;
+    ullong_t page_base_addr : 22;
+    uint_t available      : 11;
+    uint_t no_execute     : 1;
 } __attribute__((packed)) pdpe64_1GB_t;
 
 
 
 typedef struct pde64 {
-  uint_t present         : 1;
-  uint_t writable        : 1;
-  uint_t user_page       : 1;
-  uint_t write_through   : 1;
-  uint_t cache_disable   : 1;
-  uint_t accessed        : 1;
-  uint_t avail           : 1;
-  uint_t large_page      : 1;
-  uint_t global_page     : 1;
-  uint_t vmm_info        : 3;
-  ullong_t pt_base_addr  : 40;
-  uint_t available       : 11;
-  uint_t no_execute      : 1;
+    uint_t present         : 1;
+    uint_t writable        : 1;
+    uint_t user_page       : 1;
+    uint_t write_through   : 1;
+    uint_t cache_disable   : 1;
+    uint_t accessed        : 1;
+    uint_t avail           : 1;
+    uint_t large_page      : 1;
+    uint_t global_page     : 1;
+    uint_t vmm_info        : 3;
+    ullong_t pt_base_addr  : 40;
+    uint_t available       : 11;
+    uint_t no_execute      : 1;
 } __attribute__((packed)) pde64_t;
 
 typedef struct pde64_2MB {
-  uint_t present         : 1;
-  uint_t writable        : 1;
-  uint_t user_page       : 1;
-  uint_t write_through   : 1;
-  uint_t cache_disable   : 1;
-  uint_t accessed        : 1;
-  uint_t dirty           : 1;
-  uint_t large_page      : 1;
-  uint_t global_page     : 1;
-  uint_t vmm_info        : 3;
-  uint_t pat             : 1;
-  uint_t rsvd            : 8;
-  ullong_t page_base_addr  : 31;
-  uint_t available       : 11;
-  uint_t no_execute      : 1;
+    uint_t present         : 1;
+    uint_t writable        : 1;
+    uint_t user_page       : 1;
+    uint_t write_through   : 1;
+    uint_t cache_disable   : 1;
+    uint_t accessed        : 1;
+    uint_t dirty           : 1;
+    uint_t large_page      : 1;
+    uint_t global_page     : 1;
+    uint_t vmm_info        : 3;
+    uint_t pat             : 1;
+    uint_t rsvd            : 8;
+    ullong_t page_base_addr  : 31;
+    uint_t available       : 11;
+    uint_t no_execute      : 1;
 } __attribute__((packed)) pde64_2MB_t;
 
 
 typedef struct pte64 {
-  uint_t present         : 1;
-  uint_t writable        : 1;
-  uint_t user_page       : 1;
-  uint_t write_through   : 1;
-  uint_t cache_disable   : 1;
-  uint_t accessed        : 1;
-  uint_t dirty           : 1;
-  uint_t pte_attr        : 1;
-  uint_t global_page     : 1;
-  uint_t vmm_info        : 3;
-  ullong_t page_base_addr : 40;
-  uint_t available       : 11;
-  uint_t no_execute      : 1;
+    uint_t present         : 1;
+    uint_t writable        : 1;
+    uint_t user_page       : 1;
+    uint_t write_through   : 1;
+    uint_t cache_disable   : 1;
+    uint_t accessed        : 1;
+    uint_t dirty           : 1;
+    uint_t pte_attr        : 1;
+    uint_t global_page     : 1;
+    uint_t vmm_info        : 3;
+    ullong_t page_base_addr : 40;
+    uint_t available       : 11;
+    uint_t no_execute      : 1;
 } __attribute__((packed)) pte64_t;
 
 /* *************** */
 
 typedef struct pf_error_code {
-  uint_t present           : 1; // if 0, fault due to page not present
-  uint_t write             : 1; // if 1, faulting access was a write
-  uint_t user              : 1; // if 1, faulting access was in user mode
-  uint_t rsvd_access       : 1; // if 1, fault from reading a 1 from a reserved field (?)
-  uint_t ifetch            : 1; // if 1, faulting access was an instr fetch (only with NX)
-  uint_t rsvd              : 27;
+    uint_t present           : 1; // if 0, fault due to page not present
+    uint_t write             : 1; // if 1, faulting access was a write
+    uint_t user              : 1; // if 1, faulting access was in user mode
+    uint_t rsvd_access       : 1; // if 1, fault from reading a 1 from a reserved field (?)
+    uint_t ifetch            : 1; // if 1, faulting access was an instr fetch (only with NX)
+    uint_t rsvd              : 27;
 } __attribute__((packed)) pf_error_t;
 
 
