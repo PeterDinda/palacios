@@ -23,33 +23,31 @@
 
 
 struct dma_state {
-  int tmp;
-
+    int tmp
 };
 
 
 static int dma_init(struct vm_device * dev) {
-
-  return 0;
+    return 0;
 }
 
 
 
 static struct vm_device_ops dev_ops = {
-  .init = dma_init,
-  .deinit = NULL,
-  .reset = NULL,
-  .start = NULL,
-  .stop = NULL,
+    .init = dma_init,
+    .deinit = NULL,
+    .reset = NULL,
+    .start = NULL,
+    .stop = NULL,
 };
 
 struct vm_device * v3_create_dma() {
-  struct dma_state * dma = NULL;
+    struct dma_state * dma = NULL;
 
-  dma = (struct dma_state *)V3_Malloc(sizeof(struct dma_state));
-  V3_ASSERT(dma != NULL);
+    dma = (struct dma_state *)V3_Malloc(sizeof(struct dma_state));
+    V3_ASSERT(dma != NULL);
 
-  struct vm_device * dev = v3_create_device("DMA", &dev_ops, dma);
+    struct vm_device * dev = v3_create_device("DMA", &dev_ops, dma);
 
-  return dma;
+    return dma;
 }

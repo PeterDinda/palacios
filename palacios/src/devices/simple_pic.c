@@ -23,54 +23,54 @@
 #include <palacios/vmm.h>
 
 struct pic_internal {
-  int pending_irq;
+    int pending_irq;
 
 };
 
 
 static int pic_intr_pending(void * private_data) {
-  struct pic_internal * data = (struct pic_internal *)private_data;
+    struct pic_internal * data = (struct pic_internal *)private_data;
   
-  return (data->pending_irq > 0);
+    return (data->pending_irq > 0);
 }
 
 static int pic_raise_intr(void * private_data, int irq) {
-  struct pic_internal * data = (struct pic_internal *)private_data;
+    struct pic_internal * data = (struct pic_internal *)private_data;
 
-  data->pending_irq = irq;
+    data->pending_irq = irq;
 
 
-  return 0;
+    return 0;
 }
 
 
 static int pic_get_intr_number(void * private_data) {
-  struct pic_internal * data = (struct pic_internal *)private_data;
+    struct pic_internal * data = (struct pic_internal *)private_data;
 
-  return data->pending_irq;
+    return data->pending_irq;
 }
 
 
 static struct intr_ctrl_ops intr_ops = {
-  .intr_pending = pic_intr_pending,
-  .get_intr_number = pic_get_intr_number,
-  .raise_intr = pic_raise_intr
+    .intr_pending = pic_intr_pending,
+    .get_intr_number = pic_get_intr_number,
+    .raise_intr = pic_raise_intr
 };
 
 
 
 
 static int pic_init_device(struct vm_device * dev) {
-  struct pic_internal * data = (struct pic_internal *)dev->private_data;
-  v3_register_intr_controller(dev->vm, &intr_ops, data);
-  data->pending_irq = 0;
+    struct pic_internal * data = (struct pic_internal *)dev->private_data;
+    v3_register_intr_controller(dev->vm, &intr_ops, data);
+    data->pending_irq = 0;
 
-  return 0;
+    return 0;
 }
 
 
 static int pic_deinit_device(struct vm_device * dev) {
-  return 0;
+    return 0;
 }
 
 
@@ -78,21 +78,21 @@ static int pic_deinit_device(struct vm_device * dev) {
 
 
 static struct vm_device_ops dev_ops = {
-  .init = pic_init_device,
-  .deinit = pic_deinit_device,
-  .reset = NULL,
-  .start = NULL,
-  .stop = NULL
+    .init = pic_init_device,
+    .deinit = pic_deinit_device,
+    .reset = NULL,
+    .start = NULL,
+    .stop = NULL
 };
 
 
 struct vm_device * v3_create_simple_pic() {
-  struct pic_internal * state = NULL;
-  state = (struct pic_internal *)V3_Malloc(sizeof(struct pic_internal));
-  V3_ASSERT(state != NULL);
+    struct pic_internal * state = NULL;
+    state = (struct pic_internal *)V3_Malloc(sizeof(struct pic_internal));
+    V3_ASSERT(state != NULL);
 
-  struct vm_device * pic_dev = v3_create_device("Simple Pic", &dev_ops, state);
+    struct vm_device * pic_dev = v3_create_device("Simple Pic", &dev_ops, state);
 
 
-  return pic_dev;
+    return pic_dev;
 }
