@@ -223,7 +223,9 @@ static struct shadow_page_data * create_new_shadow_pt(struct guest_info * info) 
     
     if (page_tail->cr3 != cur_cr3) {
       PrintDebug("Reusing old shadow Page: %p (cur_CR3=%p)(page_cr3=%p) \n",
-		 (void *) page_tail->page_pa, (void *)cur_cr3, (void *)(page_tail->cr3));
+		 (void *)(addr_t)page_tail->page_pa, 
+		 (void *)(addr_t)cur_cr3, 
+		 (void *)(addr_t)(page_tail->cr3));
 
       list_move(&(page_tail->page_list_node), &(state->page_list));
 
@@ -239,7 +241,9 @@ static struct shadow_page_data * create_new_shadow_pt(struct guest_info * info) 
   page_tail = (struct shadow_page_data *)V3_Malloc(sizeof(struct shadow_page_data));
   page_tail->page_pa = (addr_t)V3_AllocPages(1);
 
-  PrintDebug("Allocating new shadow Page: %p (cur_cr3=%p)\n", (void *)page_tail->page_pa, (void *)cur_cr3);
+  PrintDebug("Allocating new shadow Page: %p (cur_cr3=%p)\n", 
+	     (void *)(addr_t)page_tail->page_pa, 
+	     (void *)(addr_t)cur_cr3);
 
   page_tail->cr3 = cur_cr3;
   list_add(&(page_tail->page_list_node), &(state->page_list));
