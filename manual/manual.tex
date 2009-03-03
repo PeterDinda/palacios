@@ -307,7 +307,15 @@ increasing the appeal of a composition through subtle means."
 \newline\newline
 Translation: Use the spacebar, newlines, and parentheses. 
 
-Curly-brackets are not optional, even for single line conditionals.
+Curly-brackets are not optional, even for single line conditionals. 
+
+Tabs should be 4 characters in width.
+
+{\em Special:} If you are using XEmacs add the following to your \verb.init\.el. file:
+\begin{verbatim}
+(setq c-basic-offset 4)
+(c-set-offset 'case-label 4)
+\end{verbatim}
 
 {\em Bad}
 \begin{verbatim}
@@ -320,10 +328,9 @@ if(a&&b==5||c!=0) return;
 \begin{verbatim}
 if (((a) && (b == 5)) || 
     (c != 0)) {
-       return;
+       	return;
 }
 \end{verbatim}
-
 
 
 
