@@ -25,11 +25,11 @@
 #include <palacios/vm_guest.h>
 
 static addr_t create_generic_pt_page() {
-  void * page = 0;
-  page = V3_VAddr(V3_AllocPages(1));
-  memset(page, 0, PAGE_SIZE);
+    void * page = 0;
+    page = V3_VAddr(V3_AllocPages(1));
+    memset(page, 0, PAGE_SIZE);
 
-  return (addr_t)page;
+    return (addr_t)page;
 }
 
 // Inline handler functions for each cpu mode
@@ -38,25 +38,25 @@ static addr_t create_generic_pt_page() {
 
 
 addr_t v3_create_direct_passthrough_pts(struct guest_info * info) {
-  return create_generic_pt_page();
+    return create_generic_pt_page();
 }
 
 int v3_handle_passthrough_pagefault(struct guest_info * info, addr_t fault_addr, pf_error_t error_code) {
-  v3_vm_cpu_mode_t mode = v3_get_cpu_mode(info);
-
-  switch(mode) {
-    case REAL:
-    case PROTECTED:
-      return handle_passthrough_pagefault_32(info, fault_addr, error_code);
-    case PROTECTED_PAE:
-      return handle_passthrough_pagefault_32pae(info, fault_addr, error_code);
-    case LONG:
-      break;
-    case LONG_32_COMPAT:
-      break;
-    default:
-      PrintError("Unknown CPU Mode\n");
-      break;
-  }
-  return -1;
+    v3_vm_cpu_mode_t mode = v3_get_cpu_mode(info);
+    
+    switch(mode) {
+	case REAL:
+	case PROTECTED:
+	    return handle_passthrough_pagefault_32(info, fault_addr, error_code);
+	case PROTECTED_PAE:
+	    return handle_passthrough_pagefault_32pae(info, fault_addr, error_code);
+	case LONG:
+	    break;
+	case LONG_32_COMPAT:
+	    break;
+	default:
+	    PrintError("Unknown CPU Mode\n");
+	    break;
+    }
+    return -1;
 }

@@ -27,12 +27,12 @@
 struct v3_socket_hooks * sock_hooks = 0;
 
 void V3_Init_Sockets(struct v3_socket_hooks * hooks) {
-  PrintInfo("Initializing Socket Interface\n");
-  sock_hooks = hooks;
+    PrintInfo("Initializing Socket Interface\n");
+    sock_hooks = hooks;
 
-  PrintDebug("V3 sockets inited\n");
+    PrintDebug("V3 sockets inited\n");
 
-  return;
+    return;
 }
 
 

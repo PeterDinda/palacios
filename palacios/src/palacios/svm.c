@@ -18,9 +18,6 @@
  */
 
 
-
-
-
 #include <palacios/svm.h>
 #include <palacios/vmm.h>
 
@@ -52,11 +49,11 @@ extern int v3_svm_launch(vmcb_t * vmcb, struct v3_gprs * vm_regs);
 
 
 static vmcb_t * Allocate_VMCB() {
-  vmcb_t * vmcb_page = (vmcb_t *)V3_VAddr(V3_AllocPages(1));
+    vmcb_t * vmcb_page = (vmcb_t *)V3_VAddr(V3_AllocPages(1));
 
-  memset(vmcb_page, 0, 4096);
+    memset(vmcb_page, 0, 4096);
 
-  return vmcb_page;
+    return vmcb_page;
 }
 
 
@@ -64,302 +61,298 @@ static vmcb_t * Allocate_VMCB() {
 #include <palacios/vmm_ctrl_regs.h>
 
 static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
-  vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA(vmcb);
-  vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA(vmcb);
-  uint_t i;
+    vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA(vmcb);
+    vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA(vmcb);
+    uint_t i;
 
 
-  guest_state->rsp = vm_info->vm_regs.rsp;
-  // guest_state->rip = vm_info->rip;
-  guest_state->rip = 0xfff0;
+    guest_state->rsp = vm_info->vm_regs.rsp;
+    // guest_state->rip = vm_info->rip;
+    guest_state->rip = 0xfff0;
 
-  guest_state->cpl = 0;
+    guest_state->cpl = 0;
 
-  //ctrl_area->instrs.instrs.CR0 = 1;
-  ctrl_area->cr_reads.cr0 = 1;
-  ctrl_area->cr_writes.cr0 = 1;
-  //ctrl_area->cr_reads.cr4 = 1;
-  ctrl_area->cr_writes.cr4 = 1;
-
-
-  /* Set up the efer to enable 64 bit page tables */
-  /*
-  {
-    struct efer_64 * efer = (struct efer_64 *)&(guest_state->efer);
-    struct cr4_32 * cr4 = (struct cr4_32 *)&(guest_state->cr4);
-    efer->lma = 1;
-    efer->lme = 1;
-
-    cr4->pae = 1;
-  }
-  */
-
-  guest_state->efer |= EFER_MSR_svm_enable;
-  vm_info->guest_efer.value = 0x0LL;
-
-  v3_hook_msr(vm_info, EFER_MSR, 
-	      &v3_handle_efer_read,
-	      &v3_handle_efer_write, 
-	      vm_info);
+    //ctrl_area->instrs.instrs.CR0 = 1;
+    ctrl_area->cr_reads.cr0 = 1;
+    ctrl_area->cr_writes.cr0 = 1;
+    //ctrl_area->cr_reads.cr4 = 1;
+    ctrl_area->cr_writes.cr4 = 1;
 
 
+    /* Set up the efer to enable 64 bit page tables */
+    /*
+      {
+      struct efer_64 * efer = (struct efer_64 *)&(guest_state->efer);
+      struct cr4_32 * cr4 = (struct cr4_32 *)&(guest_state->cr4);
+      efer->lma = 1;
+      efer->lme = 1;
+      
+      cr4->pae = 1;
+      }
+    */
 
-  guest_state->rflags = 0x00000002; // The reserved bit is always 1
-  ctrl_area->svm_instrs.VMRUN = 1;
-  ctrl_area->svm_instrs.VMMCALL = 1;
-  ctrl_area->svm_instrs.VMLOAD = 1;
-  ctrl_area->svm_instrs.VMSAVE = 1;
-  ctrl_area->svm_instrs.STGI = 1;
-  ctrl_area->svm_instrs.CLGI = 1;
-  ctrl_area->svm_instrs.SKINIT = 1;
-  ctrl_area->svm_instrs.RDTSCP = 1;
-  ctrl_area->svm_instrs.ICEBP = 1;
-  ctrl_area->svm_instrs.WBINVD = 1;
-  ctrl_area->svm_instrs.MONITOR = 1;
-  ctrl_area->svm_instrs.MWAIT_always = 1;
-  ctrl_area->svm_instrs.MWAIT_if_armed = 1;
-
-
-  ctrl_area->instrs.HLT = 1;
-  // guest_state->cr0 = 0x00000001;    // PE 
-  ctrl_area->guest_ASID = 1;
-
-  
-  /*
-    ctrl_area->exceptions.de = 1;
-    ctrl_area->exceptions.df = 1;
+    guest_state->efer |= EFER_MSR_svm_enable;
+    vm_info->guest_efer.value = 0x0LL;
     
-    ctrl_area->exceptions.ts = 1;
-    ctrl_area->exceptions.ss = 1;
-    ctrl_area->exceptions.ac = 1;
-    ctrl_area->exceptions.mc = 1;
-    ctrl_area->exceptions.gp = 1;
-    ctrl_area->exceptions.ud = 1;
-    ctrl_area->exceptions.np = 1;
-    ctrl_area->exceptions.of = 1;
-  
-    ctrl_area->exceptions.nmi = 1;
-  */
+    v3_hook_msr(vm_info, EFER_MSR, 
+		&v3_handle_efer_read,
+		&v3_handle_efer_write, 
+		vm_info);
 
 
-  // Debug of boot on physical machines - 7/14/08
-  ctrl_area->instrs.NMI=1;
-  ctrl_area->instrs.SMI=1;
-  ctrl_area->instrs.INIT=1;
-  ctrl_area->instrs.PAUSE=1;
-  ctrl_area->instrs.shutdown_evts=1;
 
-  vm_info->vm_regs.rdx = 0x00000f00;
+    guest_state->rflags = 0x00000002; // The reserved bit is always 1
+    ctrl_area->svm_instrs.VMRUN = 1;
+    ctrl_area->svm_instrs.VMMCALL = 1;
+    ctrl_area->svm_instrs.VMLOAD = 1;
+    ctrl_area->svm_instrs.VMSAVE = 1;
+    ctrl_area->svm_instrs.STGI = 1;
+    ctrl_area->svm_instrs.CLGI = 1;
+    ctrl_area->svm_instrs.SKINIT = 1;
+    ctrl_area->svm_instrs.RDTSCP = 1;
+    ctrl_area->svm_instrs.ICEBP = 1;
+    ctrl_area->svm_instrs.WBINVD = 1;
+    ctrl_area->svm_instrs.MONITOR = 1;
+    ctrl_area->svm_instrs.MWAIT_always = 1;
+    ctrl_area->svm_instrs.MWAIT_if_armed = 1;
 
-  guest_state->cr0 = 0x60000010;
 
-
-  guest_state->cs.selector = 0xf000;
-  guest_state->cs.limit=0xffff;
-  guest_state->cs.base = 0x0000000f0000LL;
-  guest_state->cs.attrib.raw = 0xf3;
+    ctrl_area->instrs.HLT = 1;
+    // guest_state->cr0 = 0x00000001;    // PE 
+    ctrl_area->guest_ASID = 1;
 
   
-  /* DEBUG FOR RETURN CODE */
-  ctrl_area->exit_code = 1;
-
-
-  struct vmcb_selector *segregs [] = {&(guest_state->ss), &(guest_state->ds), &(guest_state->es), &(guest_state->fs), &(guest_state->gs), NULL};
-  for ( i = 0; segregs[i] != NULL; i++) {
-    struct vmcb_selector * seg = segregs[i];
-    
-    seg->selector = 0x0000;
-    //    seg->base = seg->selector << 4;
-    seg->base = 0x00000000;
-    seg->attrib.raw = 0xf3;
-    seg->limit = ~0u;
-  }
-  
-  guest_state->gdtr.limit = 0x0000ffff;
-  guest_state->gdtr.base = 0x0000000000000000LL;
-  guest_state->idtr.limit = 0x0000ffff;
-  guest_state->idtr.base = 0x0000000000000000LL;
-
-  guest_state->ldtr.selector = 0x0000;
-  guest_state->ldtr.limit = 0x0000ffff;
-  guest_state->ldtr.base = 0x0000000000000000LL;
-  guest_state->tr.selector = 0x0000;
-  guest_state->tr.limit = 0x0000ffff;
-  guest_state->tr.base = 0x0000000000000000LL;
-
-
-  guest_state->dr6 = 0x00000000ffff0ff0LL;
-  guest_state->dr7 = 0x0000000000000400LL;
-
-  
-  
-
-
-
-  if ( !RB_EMPTY_ROOT(&(vm_info->io_map)) ) {
-    struct v3_io_hook * iter;
-    struct rb_node * io_node = v3_rb_first(&(vm_info->io_map));
-    addr_t io_port_bitmap;
-    int i = 0;
-
-    io_port_bitmap = (addr_t)V3_VAddr(V3_AllocPages(3));
-    memset((uchar_t*)io_port_bitmap, 0, PAGE_SIZE * 3);
-    
-    ctrl_area->IOPM_BASE_PA = (addr_t)V3_PAddr((void *)io_port_bitmap);
-
-    //PrintDebug("Setting up IO Map at 0x%x\n", io_port_bitmap);
-
-    do {
-      iter = rb_entry(io_node, struct v3_io_hook, tree_node);
-
-      ushort_t port = iter->port;
-      uchar_t * bitmap = (uchar_t *)io_port_bitmap;
-      //PrintDebug("%d: Hooking Port %d\n", i, port);
-
-      bitmap += (port / 8);
-      //      PrintDebug("Setting Bit for port 0x%x\n", port);
-      *bitmap |= 1 << (port % 8);
-
-      i++;
-    } while ((io_node = v3_rb_next(io_node)));
-
-
-    //PrintDebugMemDump((uchar_t*)io_port_bitmap, PAGE_SIZE *2);
-
-    ctrl_area->instrs.IOIO_PROT = 1;
-  }
-  
-
-  PrintDebug("Exiting on interrupts\n");
-  ctrl_area->guest_ctrl.V_INTR_MASKING = 1;
-  ctrl_area->instrs.INTR = 1;
-
-
-  if (vm_info->shdw_pg_mode == SHADOW_PAGING) {
-    PrintDebug("Creating initial shadow page table\n");
-
-
-
-    /* Testing 64 bit page tables for long paged real mode guests */
-    //    vm_info->direct_map_pt = (addr_t)V3_PAddr(create_passthrough_pts_64(vm_info));
-    vm_info->direct_map_pt = (addr_t)V3_PAddr((void *)v3_create_direct_passthrough_pts(vm_info));
-    /* End Test */
-
-    vm_info->shdw_pg_state.guest_cr0 = 0x0000000000000010LL;
-    PrintDebug("Created\n");
-
-
-    guest_state->cr3 = vm_info->direct_map_pt;
-
-
-    //PrintDebugPageTables((pde32_t*)(vm_info->shdw_pg_state.shadow_cr3.e_reg.low));
-
-    ctrl_area->cr_reads.cr3 = 1;
-    ctrl_area->cr_writes.cr3 = 1;
-
-
-    ctrl_area->instrs.INVLPG = 1;
-    ctrl_area->instrs.INVLPGA = 1;
-
-    ctrl_area->exceptions.pf = 1;
-
-    /* JRL: This is a performance killer, and a simplistic solution */
-    /* We need to fix this */
-    ctrl_area->TLB_CONTROL = 1;
+    /*
+      ctrl_area->exceptions.de = 1;
+      ctrl_area->exceptions.df = 1;
+      
+      ctrl_area->exceptions.ts = 1;
+      ctrl_area->exceptions.ss = 1;
+      ctrl_area->exceptions.ac = 1;
+      ctrl_area->exceptions.mc = 1;
+      ctrl_area->exceptions.gp = 1;
+      ctrl_area->exceptions.ud = 1;
+      ctrl_area->exceptions.np = 1;
+      ctrl_area->exceptions.of = 1;
+      
+      ctrl_area->exceptions.nmi = 1;
+    */
     
 
-    guest_state->g_pat = 0x7040600070406ULL;
+    // Debug of boot on physical machines - 7/14/08
+    ctrl_area->instrs.NMI=1;
+    ctrl_area->instrs.SMI=1;
+    ctrl_area->instrs.INIT=1;
+    ctrl_area->instrs.PAUSE=1;
+    ctrl_area->instrs.shutdown_evts=1;
+    
+    vm_info->vm_regs.rdx = 0x00000f00;
+    
+    guest_state->cr0 = 0x60000010;
+    
+    
+    guest_state->cs.selector = 0xf000;
+    guest_state->cs.limit=0xffff;
+    guest_state->cs.base = 0x0000000f0000LL;
+    guest_state->cs.attrib.raw = 0xf3;
 
-    guest_state->cr0 |= 0x80000000;
-
-  } else if (vm_info->shdw_pg_mode == NESTED_PAGING) {
-    // Flush the TLB on entries/exits
-    ctrl_area->TLB_CONTROL = 1;
-
-    // Enable Nested Paging
-    ctrl_area->NP_ENABLE = 1;
-
-    PrintDebug("NP_Enable at 0x%p\n", (void *)&(ctrl_area->NP_ENABLE));
-
-    // Set the Nested Page Table pointer
-    vm_info->direct_map_pt = ((addr_t)create_passthrough_pts_32(vm_info) & ~0xfff);
-    ctrl_area->N_CR3 = vm_info->direct_map_pt;
-
-    //   ctrl_area->N_CR3 = Get_CR3();
-    // guest_state->cr3 |= (Get_CR3() & 0xfffff000);
-
-    guest_state->g_pat = 0x7040600070406ULL;
-  }
+  
+    /* DEBUG FOR RETURN CODE */
+    ctrl_area->exit_code = 1;
 
 
-  if (vm_info->msr_map.num_hooks > 0) {
-    PrintDebug("Hooking %d msrs\n", vm_info->msr_map.num_hooks);
-    ctrl_area->MSRPM_BASE_PA = v3_init_svm_msr_map(vm_info);
-    ctrl_area->instrs.MSR_PROT = 1;
+    struct vmcb_selector *segregs [] = {&(guest_state->ss), &(guest_state->ds), &(guest_state->es), &(guest_state->fs), &(guest_state->gs), NULL};
+    for ( i = 0; segregs[i] != NULL; i++) {
+	struct vmcb_selector * seg = segregs[i];
+	
+	seg->selector = 0x0000;
+	//    seg->base = seg->selector << 4;
+	seg->base = 0x00000000;
+	seg->attrib.raw = 0xf3;
+	seg->limit = ~0u;
+    }
+  
+    guest_state->gdtr.limit = 0x0000ffff;
+    guest_state->gdtr.base = 0x0000000000000000LL;
+    guest_state->idtr.limit = 0x0000ffff;
+    guest_state->idtr.base = 0x0000000000000000LL;
+    
+    guest_state->ldtr.selector = 0x0000;
+    guest_state->ldtr.limit = 0x0000ffff;
+    guest_state->ldtr.base = 0x0000000000000000LL;
+    guest_state->tr.selector = 0x0000;
+    guest_state->tr.limit = 0x0000ffff;
+    guest_state->tr.base = 0x0000000000000000LL;
 
-  }
+
+    guest_state->dr6 = 0x00000000ffff0ff0LL;
+    guest_state->dr7 = 0x0000000000000400LL;
+
+  
+  
 
 
-  /* Safety locations for fs/gs */
-  vm_info->fs = 0;
-  vm_info->gs = 0;
+
+    if ( !RB_EMPTY_ROOT(&(vm_info->io_map)) ) {
+	struct v3_io_hook * iter;
+	struct rb_node * io_node = v3_rb_first(&(vm_info->io_map));
+	addr_t io_port_bitmap;
+	int i = 0;
+	
+	io_port_bitmap = (addr_t)V3_VAddr(V3_AllocPages(3));
+	memset((uchar_t*)io_port_bitmap, 0, PAGE_SIZE * 3);
+	
+	ctrl_area->IOPM_BASE_PA = (addr_t)V3_PAddr((void *)io_port_bitmap);
+	
+	//PrintDebug("Setting up IO Map at 0x%x\n", io_port_bitmap);
+	
+	do {
+	    iter = rb_entry(io_node, struct v3_io_hook, tree_node);
+	    
+	    ushort_t port = iter->port;
+	    uchar_t * bitmap = (uchar_t *)io_port_bitmap;
+	    //PrintDebug("%d: Hooking Port %d\n", i, port);
+	    
+	    bitmap += (port / 8);
+	    //      PrintDebug("Setting Bit for port 0x%x\n", port);
+	    *bitmap |= 1 << (port % 8);
+	    
+	    i++;
+	} while ((io_node = v3_rb_next(io_node)));
+	
+	
+	//PrintDebugMemDump((uchar_t*)io_port_bitmap, PAGE_SIZE *2);
+	
+	ctrl_area->instrs.IOIO_PROT = 1;
+    }
+    
+    
+    PrintDebug("Exiting on interrupts\n");
+    ctrl_area->guest_ctrl.V_INTR_MASKING = 1;
+    ctrl_area->instrs.INTR = 1;
+    
+    
+    if (vm_info->shdw_pg_mode == SHADOW_PAGING) {
+	PrintDebug("Creating initial shadow page table\n");
+	
+	
+	
+	/* Testing 64 bit page tables for long paged real mode guests */
+	//    vm_info->direct_map_pt = (addr_t)V3_PAddr(create_passthrough_pts_64(vm_info));
+	vm_info->direct_map_pt = (addr_t)V3_PAddr((void *)v3_create_direct_passthrough_pts(vm_info));
+	/* End Test */
+	
+	vm_info->shdw_pg_state.guest_cr0 = 0x0000000000000010LL;
+	PrintDebug("Created\n");
+	
+	
+	guest_state->cr3 = vm_info->direct_map_pt;
 
 
+	//PrintDebugPageTables((pde32_t*)(vm_info->shdw_pg_state.shadow_cr3.e_reg.low));
+	
+	ctrl_area->cr_reads.cr3 = 1;
+	ctrl_area->cr_writes.cr3 = 1;
 
+
+	ctrl_area->instrs.INVLPG = 1;
+	ctrl_area->instrs.INVLPGA = 1;
+	
+	ctrl_area->exceptions.pf = 1;
+	
+	/* JRL: This is a performance killer, and a simplistic solution */
+	/* We need to fix this */
+	ctrl_area->TLB_CONTROL = 1;
+	
+	
+	guest_state->g_pat = 0x7040600070406ULL;
+	
+	guest_state->cr0 |= 0x80000000;
+	
+    } else if (vm_info->shdw_pg_mode == NESTED_PAGING) {
+	// Flush the TLB on entries/exits
+	ctrl_area->TLB_CONTROL = 1;
+	
+	// Enable Nested Paging
+	ctrl_area->NP_ENABLE = 1;
+	
+	PrintDebug("NP_Enable at 0x%p\n", (void *)&(ctrl_area->NP_ENABLE));
+	
+	// Set the Nested Page Table pointer
+	vm_info->direct_map_pt = ((addr_t)create_passthrough_pts_32(vm_info) & ~0xfff);
+	ctrl_area->N_CR3 = vm_info->direct_map_pt;
+	
+	//   ctrl_area->N_CR3 = Get_CR3();
+	// guest_state->cr3 |= (Get_CR3() & 0xfffff000);
+	
+	guest_state->g_pat = 0x7040600070406ULL;
+    }
+    
+
+    if (vm_info->msr_map.num_hooks > 0) {
+	PrintDebug("Hooking %d msrs\n", vm_info->msr_map.num_hooks);
+	ctrl_area->MSRPM_BASE_PA = v3_init_svm_msr_map(vm_info);
+	ctrl_area->instrs.MSR_PROT = 1;
+	
+    }
+    
+
+    /* Safety locations for fs/gs */
+    vm_info->fs = 0;
+    vm_info->gs = 0;
 }
 
 
 static int init_svm_guest(struct guest_info *info) {
- 
-  PrintDebug("Allocating VMCB\n");
-  info->vmm_data = (void*)Allocate_VMCB();
+    PrintDebug("Allocating VMCB\n");
+    info->vmm_data = (void*)Allocate_VMCB();
 
 
-  //PrintDebug("Generating Guest nested page tables\n");
-  //  info->page_tables = NULL;
-  //info->page_tables = generate_guest_page_tables_64(&(info->mem_layout), &(info->mem_list));
-  //info->page_tables = generate_guest_page_tables(&(info->mem_layout), &(info->mem_list));
-  //  PrintDebugPageTables(info->page_tables);
+    //PrintDebug("Generating Guest nested page tables\n");
+    //  info->page_tables = NULL;
+    //info->page_tables = generate_guest_page_tables_64(&(info->mem_layout), &(info->mem_list));
+    //info->page_tables = generate_guest_page_tables(&(info->mem_layout), &(info->mem_list));
+    //  PrintDebugPageTables(info->page_tables);
 
 
-  PrintDebug("Initializing VMCB (addr=%p)\n", (void *)info->vmm_data);
-  Init_VMCB_BIOS((vmcb_t*)(info->vmm_data), info);
+    PrintDebug("Initializing VMCB (addr=%p)\n", (void *)info->vmm_data);
+    Init_VMCB_BIOS((vmcb_t*)(info->vmm_data), info);
   
 
-  info->run_state = VM_STOPPED;
+    info->run_state = VM_STOPPED;
 
-  //  info->rip = 0;
-
-  info->vm_regs.rdi = 0;
-  info->vm_regs.rsi = 0;
-  info->vm_regs.rbp = 0;
-  info->vm_regs.rsp = 0;
-  info->vm_regs.rbx = 0;
-  info->vm_regs.rdx = 0;
-  info->vm_regs.rcx = 0;
-  info->vm_regs.rax = 0;
-  
-  return 0;
+    //  info->rip = 0;
+    
+    info->vm_regs.rdi = 0;
+    info->vm_regs.rsi = 0;
+    info->vm_regs.rbp = 0;
+    info->vm_regs.rsp = 0;
+    info->vm_regs.rbx = 0;
+    info->vm_regs.rdx = 0;
+    info->vm_regs.rcx = 0;
+    info->vm_regs.rax = 0;
+    
+    return 0;
 }
 
 
 
 // can we start a kernel thread here...
 static int start_svm_guest(struct guest_info *info) {
-  vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
-  //  vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
-  uint_t num_exits = 0;
+    vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
+    //  vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
+    uint_t num_exits = 0;
 
 
 
-  PrintDebug("Launching SVM VM (vmcb=%p)\n", (void *)info->vmm_data);
-  //PrintDebugVMCB((vmcb_t*)(info->vmm_data));
-
-  info->run_state = VM_RUNNING;
-
-  while (1) {
-    ullong_t tmp_tsc;
-
+    PrintDebug("Launching SVM VM (vmcb=%p)\n", (void *)info->vmm_data);
+    //PrintDebugVMCB((vmcb_t*)(info->vmm_data));
+    
+    info->run_state = VM_RUNNING;
+    
+    while (1) {
+	ullong_t tmp_tsc;
+	
 
 
 #define MSR_STAR      0xc0000081
@@ -370,118 +363,119 @@ static int start_svm_guest(struct guest_info *info) {
 #define MSR_KERNGS_BASE   0xc0000102
 
 
-    struct v3_msr host_cstar;
-    struct v3_msr host_star;
-    struct v3_msr host_lstar;
-    struct v3_msr host_syscall_mask;
-    struct v3_msr host_gs_base;
-    struct v3_msr host_kerngs_base;
+	struct v3_msr host_cstar;
+	struct v3_msr host_star;
+	struct v3_msr host_lstar;
+	struct v3_msr host_syscall_mask;
+	struct v3_msr host_gs_base;
+	struct v3_msr host_kerngs_base;
 
-    v3_enable_ints();
-    v3_clgi();
-
-
-    /*
-    PrintDebug("SVM Entry to CS=%p  rip=%p...\n", 
-	       (void *)(addr_t)info->segments.cs.base, 
-	       (void *)(addr_t)info->rip);
-    */
+	v3_enable_ints();
+	v3_clgi();
 
 
-    v3_get_msr(MSR_STAR, &(host_star.hi), &(host_star.lo));
-    v3_get_msr(MSR_LSTAR, &(host_lstar.hi), &(host_lstar.lo));
-    v3_get_msr(MSR_CSTAR, &(host_cstar.hi), &(host_cstar.lo));
-    v3_get_msr(MSR_SF_MASK, &(host_syscall_mask.hi), &(host_syscall_mask.lo));
-    v3_get_msr(MSR_GS_BASE, &(host_gs_base.hi), &(host_gs_base.lo));
-    v3_get_msr(MSR_KERNGS_BASE, &(host_kerngs_base.hi), &(host_kerngs_base.lo));
+	/*
+	  PrintDebug("SVM Entry to CS=%p  rip=%p...\n", 
+	  (void *)(addr_t)info->segments.cs.base, 
+	  (void *)(addr_t)info->rip);
+	*/
 
 
-    rdtscll(info->time_state.cached_host_tsc);
-    //    guest_ctrl->TSC_OFFSET = info->time_state.guest_tsc - info->time_state.cached_host_tsc;
-
-    //v3_svm_launch((vmcb_t*)V3_PAddr(info->vmm_data), &(info->vm_regs), &(info->fs), &(info->gs));
-    v3_svm_launch((vmcb_t*)V3_PAddr(info->vmm_data), &(info->vm_regs));
-
-    rdtscll(tmp_tsc);
-
-    v3_set_msr(MSR_STAR, host_star.hi, host_star.lo);
-    v3_set_msr(MSR_LSTAR, host_lstar.hi, host_lstar.lo);
-    v3_set_msr(MSR_CSTAR, host_cstar.hi, host_cstar.lo);
-    v3_set_msr(MSR_SF_MASK, host_syscall_mask.hi, host_syscall_mask.lo);
-    v3_set_msr(MSR_GS_BASE, host_gs_base.hi, host_gs_base.lo);
-    v3_set_msr(MSR_KERNGS_BASE, host_kerngs_base.hi, host_kerngs_base.lo);
-
-    //PrintDebug("SVM Returned\n");
+	v3_get_msr(MSR_STAR, &(host_star.hi), &(host_star.lo));
+	v3_get_msr(MSR_LSTAR, &(host_lstar.hi), &(host_lstar.lo));
+	v3_get_msr(MSR_CSTAR, &(host_cstar.hi), &(host_cstar.lo));
+	v3_get_msr(MSR_SF_MASK, &(host_syscall_mask.hi), &(host_syscall_mask.lo));
+	v3_get_msr(MSR_GS_BASE, &(host_gs_base.hi), &(host_gs_base.lo));
+	v3_get_msr(MSR_KERNGS_BASE, &(host_kerngs_base.hi), &(host_kerngs_base.lo));
 
 
+	rdtscll(info->time_state.cached_host_tsc);
+	//    guest_ctrl->TSC_OFFSET = info->time_state.guest_tsc - info->time_state.cached_host_tsc;
+	
+	//v3_svm_launch((vmcb_t*)V3_PAddr(info->vmm_data), &(info->vm_regs), &(info->fs), &(info->gs));
+	v3_svm_launch((vmcb_t*)V3_PAddr(info->vmm_data), &(info->vm_regs));
+	
+	rdtscll(tmp_tsc);
+	
+	v3_set_msr(MSR_STAR, host_star.hi, host_star.lo);
+	v3_set_msr(MSR_LSTAR, host_lstar.hi, host_lstar.lo);
+	v3_set_msr(MSR_CSTAR, host_cstar.hi, host_cstar.lo);
+	v3_set_msr(MSR_SF_MASK, host_syscall_mask.hi, host_syscall_mask.lo);
+	v3_set_msr(MSR_GS_BASE, host_gs_base.hi, host_gs_base.lo);
+	v3_set_msr(MSR_KERNGS_BASE, host_kerngs_base.hi, host_kerngs_base.lo);
+	
+	//PrintDebug("SVM Returned\n");
 
-    v3_update_time(info, tmp_tsc - info->time_state.cached_host_tsc);
-    num_exits++;
-
-    //PrintDebug("Turning on global interrupts\n");
-    v3_stgi();
 
 
-    if ((num_exits % 5000) == 0) {
-      PrintDebug("SVM Exit number %d\n", num_exits);
-      if (info->enable_profiler) 
-	v3_print_profile(info);
-    }
+	v3_update_time(info, tmp_tsc - info->time_state.cached_host_tsc);
+	num_exits++;
+
+	//PrintDebug("Turning on global interrupts\n");
+	v3_stgi();
+	
+	
+	if ((num_exits % 5000) == 0) {
+	    PrintDebug("SVM Exit number %d\n", num_exits);
+
+	    if (info->enable_profiler) {
+		v3_print_profile(info);
+	    }
+	}
 
 
      
-    if (v3_handle_svm_exit(info) != 0) {
-      vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
-      addr_t host_addr;
-      addr_t linear_addr = 0;
-
-      info->run_state = VM_ERROR;
-
-      PrintDebug("SVM ERROR!!\n"); 
+	if (v3_handle_svm_exit(info) != 0) {
+	    vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
+	    addr_t host_addr;
+	    addr_t linear_addr = 0;
+	    
+	    info->run_state = VM_ERROR;
+	    
+	    PrintDebug("SVM ERROR!!\n"); 
       
-      PrintDebug("RIP: %p\n", (void *)(addr_t)(guest_state->rip));
+	    PrintDebug("RIP: %p\n", (void *)(addr_t)(guest_state->rip));
 
 
-      linear_addr = get_addr_linear(info, guest_state->rip, &(info->segments.cs));
+	    linear_addr = get_addr_linear(info, guest_state->rip, &(info->segments.cs));
 
 
-      PrintDebug("RIP Linear: %p\n", (void *)linear_addr);
-      v3_print_segments(info);
-      v3_print_ctrl_regs(info);
-      if (info->shdw_pg_mode == SHADOW_PAGING) {
-	PrintDebug("Shadow Paging Guest Registers:\n");
-	PrintDebug("\tGuest CR0=%p\n", (void *)(addr_t)(info->shdw_pg_state.guest_cr0));
-	PrintDebug("\tGuest CR3=%p\n", (void *)(addr_t)(info->shdw_pg_state.guest_cr3));
-	// efer
-	// CR4
-      }
-      v3_print_GPRs(info);
+	    PrintDebug("RIP Linear: %p\n", (void *)linear_addr);
+	    v3_print_segments(info);
+	    v3_print_ctrl_regs(info);
+	    if (info->shdw_pg_mode == SHADOW_PAGING) {
+		PrintDebug("Shadow Paging Guest Registers:\n");
+		PrintDebug("\tGuest CR0=%p\n", (void *)(addr_t)(info->shdw_pg_state.guest_cr0));
+		PrintDebug("\tGuest CR3=%p\n", (void *)(addr_t)(info->shdw_pg_state.guest_cr3));
+		// efer
+		// CR4
+	    }
+	    v3_print_GPRs(info);
 
-      PrintDebug("SVM Exit Code: %p\n", (void *)(addr_t)guest_ctrl->exit_code); 
+	    PrintDebug("SVM Exit Code: %p\n", (void *)(addr_t)guest_ctrl->exit_code); 
       
-      PrintDebug("exit_info1 low = 0x%.8x\n", *(uint_t*)&(guest_ctrl->exit_info1));
-      PrintDebug("exit_info1 high = 0x%.8x\n", *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info1)) + 4));
+	    PrintDebug("exit_info1 low = 0x%.8x\n", *(uint_t*)&(guest_ctrl->exit_info1));
+	    PrintDebug("exit_info1 high = 0x%.8x\n", *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info1)) + 4));
       
-      PrintDebug("exit_info2 low = 0x%.8x\n", *(uint_t*)&(guest_ctrl->exit_info2));
-      PrintDebug("exit_info2 high = 0x%.8x\n", *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info2)) + 4));
+	    PrintDebug("exit_info2 low = 0x%.8x\n", *(uint_t*)&(guest_ctrl->exit_info2));
+	    PrintDebug("exit_info2 high = 0x%.8x\n", *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info2)) + 4));
       
-      if (info->mem_mode == PHYSICAL_MEM) {
-	guest_pa_to_host_va(info, linear_addr, &host_addr);
-      } else if (info->mem_mode == VIRTUAL_MEM) {
-	guest_va_to_host_va(info, linear_addr, &host_addr);
-      }
+	    if (info->mem_mode == PHYSICAL_MEM) {
+		guest_pa_to_host_va(info, linear_addr, &host_addr);
+	    } else if (info->mem_mode == VIRTUAL_MEM) {
+		guest_va_to_host_va(info, linear_addr, &host_addr);
+	    }
 
 
-      PrintDebug("Host Address of rip = 0x%p\n", (void *)host_addr);
+	    PrintDebug("Host Address of rip = 0x%p\n", (void *)host_addr);
 
-      PrintDebug("Instr (15 bytes) at %p:\n", (void *)host_addr);
-      PrintTraceMemDump((uchar_t *)host_addr, 15);
+	    PrintDebug("Instr (15 bytes) at %p:\n", (void *)host_addr);
+	    PrintTraceMemDump((uchar_t *)host_addr, 15);
 
-      break;
+	    break;
+	}
     }
-
-  }
-  return 0;
+    return 0;
 }
 
 
@@ -491,154 +485,107 @@ static int start_svm_guest(struct guest_info *info) {
 /* Checks machine SVM capability */
 /* Implemented from: AMD Arch Manual 3, sect 15.4 */ 
 int v3_is_svm_capable() {
+    // Dinda
+    uint_t vm_cr_low = 0, vm_cr_high = 0;
+    addr_t eax = 0, ebx = 0, ecx = 0, edx = 0;
 
-#if 1
-  // Dinda
-  uint_t vm_cr_low = 0, vm_cr_high = 0;
-  addr_t eax = 0, ebx = 0, ecx = 0, edx = 0;
-
-  v3_cpuid(CPUID_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
+    v3_cpuid(CPUID_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
   
-  PrintDebug("CPUID_FEATURE_IDS_ecx=%p\n", (void *)ecx);
+    PrintDebug("CPUID_FEATURE_IDS_ecx=%p\n", (void *)ecx);
 
-  if ((ecx & CPUID_FEATURE_IDS_ecx_svm_avail) == 0) {
-    PrintDebug("SVM Not Available\n");
-    return 0;
-  }  else {
-    v3_get_msr(SVM_VM_CR_MSR, &vm_cr_high, &vm_cr_low);
-    
-    PrintDebug("SVM_VM_CR_MSR = 0x%x 0x%x\n", vm_cr_high, vm_cr_low);
-    
-    if ((vm_cr_low & SVM_VM_CR_MSR_svmdis) == 1) {
-      PrintDebug("SVM is available but is disabled.\n");
-
-      v3_cpuid(CPUID_SVM_REV_AND_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
-      
-      PrintDebug("CPUID_FEATURE_IDS_edx=%p\n", (void *)edx);
-      
-      if ((edx & CPUID_SVM_REV_AND_FEATURE_IDS_edx_svml) == 0) {
-	PrintDebug("SVM BIOS Disabled, not unlockable\n");
-      } else {
-	PrintDebug("SVM is locked with a key\n");
-      }
+    if ((ecx & CPUID_FEATURE_IDS_ecx_svm_avail) == 0) {
+      PrintDebug("SVM Not Available\n");
       return 0;
+    }  else {
+	v3_get_msr(SVM_VM_CR_MSR, &vm_cr_high, &vm_cr_low);
+	
+	PrintDebug("SVM_VM_CR_MSR = 0x%x 0x%x\n", vm_cr_high, vm_cr_low);
+	
+	if ((vm_cr_low & SVM_VM_CR_MSR_svmdis) == 1) {
+	    PrintDebug("SVM is available but is disabled.\n");
+	    
+	    v3_cpuid(CPUID_SVM_REV_AND_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
+	    
+	    PrintDebug("CPUID_FEATURE_IDS_edx=%p\n", (void *)edx);
+	    
+	    if ((edx & CPUID_SVM_REV_AND_FEATURE_IDS_edx_svml) == 0) {
+		PrintDebug("SVM BIOS Disabled, not unlockable\n");
+	    } else {
+		PrintDebug("SVM is locked with a key\n");
+	    }
+	    return 0;
+	    
+	} else {
+	    PrintDebug("SVM is available and  enabled.\n");
+	    
+	    v3_cpuid(CPUID_SVM_REV_AND_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
+	    PrintDebug("CPUID_FEATURE_IDS_eax=%p\n", (void *)eax);
+	    PrintDebug("CPUID_FEATURE_IDS_ebx=%p\n", (void *)ebx);
+	    PrintDebug("CPUID_FEATURE_IDS_ecx=%p\n", (void *)ecx);      
+	    PrintDebug("CPUID_FEATURE_IDS_edx=%p\n", (void *)edx);
 
-    } else {
-      PrintDebug("SVM is available and  enabled.\n");
-
-      v3_cpuid(CPUID_SVM_REV_AND_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
-      PrintDebug("CPUID_FEATURE_IDS_eax=%p\n", (void *)eax);
-      PrintDebug("CPUID_FEATURE_IDS_ebx=%p\n", (void *)ebx);
-      PrintDebug("CPUID_FEATURE_IDS_ecx=%p\n", (void *)ecx);      
-      PrintDebug("CPUID_FEATURE_IDS_edx=%p\n", (void *)edx);
-
-
-      if ((edx & CPUID_SVM_REV_AND_FEATURE_IDS_edx_np) == 0) {
-	PrintDebug("SVM Nested Paging not supported\n");
-      } else {
-	PrintDebug("SVM Nested Paging supported\n");
-      }
-      
-      return 1;
-      
+	    
+	    if ((edx & CPUID_SVM_REV_AND_FEATURE_IDS_edx_np) == 0) {
+		PrintDebug("SVM Nested Paging not supported\n");
+	    } else {
+		PrintDebug("SVM Nested Paging supported\n");
+	    }
+	    
+	    return 1;    
+	}
     }
-  }
-
-#else
-  uint_t eax = 0, ebx = 0, ecx = 0, edx = 0;
-  addr_t vm_cr_low = 0, vm_cr_high = 0;
-
-  v3_cpuid(CPUID_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
-
-  if ((ecx & CPUID_FEATURE_IDS_ecx_svm_avail) == 0) {
-    PrintDebug("SVM Not Available\n");
-    return 0;
-  } 
-
-  v3_get_msr(SVM_VM_CR_MSR, &vm_cr_high, &vm_cr_low);
-
-  PrintDebug("SVM_VM_CR_MSR = 0x%x 0x%x\n", vm_cr_high, vm_cr_low);
-
-
-  // this part is clearly wrong, since the np bit is in 
-  // edx, not ecx
-  if ((edx & CPUID_SVM_REV_AND_FEATURE_IDS_edx_np) == 1) {
-    PrintDebug("Nested Paging not supported\n");
-  } else {
-    PrintDebug("Nested Paging supported\n");
-  }
-
-  if ((vm_cr_low & SVM_VM_CR_MSR_svmdis) == 0) {
-    PrintDebug("SVM is disabled.\n");
-    return 1;
-  }
-
-  v3_cpuid(CPUID_SVM_REV_AND_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
-
-  if ((edx & CPUID_SVM_REV_AND_FEATURE_IDS_edx_svml) == 0) {
-    PrintDebug("SVM BIOS Disabled, not unlockable\n");
-  } else {
-    PrintDebug("SVM is locked with a key\n");
-  }
-
-  return 0;
-
-#endif
-
 }
 
 static int has_svm_nested_paging() {
-  addr_t eax = 0, ebx = 0, ecx = 0, edx = 0;
+    addr_t eax = 0, ebx = 0, ecx = 0, edx = 0;
 
-  v3_cpuid(CPUID_SVM_REV_AND_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
+    v3_cpuid(CPUID_SVM_REV_AND_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
       
-  //PrintDebug("CPUID_FEATURE_IDS_edx=0x%x\n", edx);
+    //PrintDebug("CPUID_FEATURE_IDS_edx=0x%x\n", edx);
   
-  if ((edx & CPUID_SVM_REV_AND_FEATURE_IDS_edx_np) == 0) {
-    PrintDebug("SVM Nested Paging not supported\n");
-    return 0;
-  } else {
-    PrintDebug("SVM Nested Paging supported\n");
-    return 1;
-  }
-
+    if ((edx & CPUID_SVM_REV_AND_FEATURE_IDS_edx_np) == 0) {
+	PrintDebug("SVM Nested Paging not supported\n");
+	return 0;
+    } else {
+	PrintDebug("SVM Nested Paging supported\n");
+	return 1;
+    }
 }
 
 
 
 void v3_init_SVM(struct v3_ctrl_ops * vmm_ops) {
-  reg_ex_t msr;
-  void * host_state;
+    reg_ex_t msr;
+    void * host_state;
+
+    // Enable SVM on the CPU
+    v3_get_msr(EFER_MSR, &(msr.e_reg.high), &(msr.e_reg.low));
+    msr.e_reg.low |= EFER_MSR_svm_enable;
+    v3_set_msr(EFER_MSR, 0, msr.e_reg.low);
+
+    PrintDebug("SVM Enabled\n");
 
 
-  // Enable SVM on the CPU
-  v3_get_msr(EFER_MSR, &(msr.e_reg.high), &(msr.e_reg.low));
-  msr.e_reg.low |= EFER_MSR_svm_enable;
-  v3_set_msr(EFER_MSR, 0, msr.e_reg.low);
-  
-  PrintDebug("SVM Enabled\n");
+    // Setup the host state save area
+    host_state = V3_AllocPages(4);
 
 
-  // Setup the host state save area
-  host_state = V3_AllocPages(4);
-  
+    /* 64-BIT-ISSUE */
+    //  msr.e_reg.high = 0;
+    //msr.e_reg.low = (uint_t)host_state;
+    msr.r_reg = (addr_t)host_state;
 
-  /* 64-BIT-ISSUE */
-  //  msr.e_reg.high = 0;
-  //msr.e_reg.low = (uint_t)host_state;
-  msr.r_reg = (addr_t)host_state;
-
-  PrintDebug("Host State being saved at %p\n", (void *)(addr_t)host_state);
-  v3_set_msr(SVM_VM_HSAVE_PA_MSR, msr.e_reg.high, msr.e_reg.low);
+    PrintDebug("Host State being saved at %p\n", (void *)(addr_t)host_state);
+    v3_set_msr(SVM_VM_HSAVE_PA_MSR, msr.e_reg.high, msr.e_reg.low);
 
 
 
-  // Setup the SVM specific vmm operations
-  vmm_ops->init_guest = &init_svm_guest;
-  vmm_ops->start_guest = &start_svm_guest;
-  vmm_ops->has_nested_paging = &has_svm_nested_paging;
+    // Setup the SVM specific vmm operations
+    vmm_ops->init_guest = &init_svm_guest;
+    vmm_ops->start_guest = &start_svm_guest;
+    vmm_ops->has_nested_paging = &has_svm_nested_paging;
 
-  return;
+    return;
 }
 
 

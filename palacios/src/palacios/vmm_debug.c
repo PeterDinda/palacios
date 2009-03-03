@@ -21,39 +21,37 @@
 #include <palacios/vmm.h>
 
 
-void PrintDebugHex(uchar_t x)
-{
-  unsigned char z;
+void PrintDebugHex(uchar_t x) {
+    unsigned char z;
   
-  z = (x >> 4) & 0xf ;
-  PrintDebug("%x", z);
-  z = x & 0xf;
-  PrintDebug("%x", z);
+    z = (x >> 4) & 0xf ;
+    PrintDebug("%x", z);
+    z = x & 0xf;
+    PrintDebug("%x", z);
 }
 
-void PrintDebugMemDump(uchar_t *start, int n)
-{
-  int i, j;
+void PrintDebugMemDump(uchar_t *start, int n) {
+    int i, j;
 
-  for (i = 0; i < n; i += 16) {
-    PrintDebug("%p", (void *)(start + i));
+    for (i = 0; i < n; i += 16) {
+	PrintDebug("%p", (void *)(start + i));
 
-    for (j = i; (j < (i + 16)) && (j < n); j += 2) {
-      PrintDebug(" ");
-      PrintDebugHex(*((uchar_t *)(start + j)));
+	for (j = i; (j < (i + 16)) && (j < n); j += 2) {
+	    PrintDebug(" ");
+	    PrintDebugHex(*((uchar_t *)(start + j)));
 
-      if ((j + 1) < n) { 
-	PrintDebugHex(*((uchar_t *)(start + j + 1)));
-      }
+	    if ((j + 1) < n) { 
+		PrintDebugHex(*((uchar_t *)(start + j + 1)));
+	    }
 
+	}
+
+	PrintDebug(" ");
+
+	for (j = i; (j < (i + 16)) && (j < n); j++) {
+	    PrintDebug("%c", ((start[j] >= 32) && (start[j] <= 126)) ? start[j] : '.');
+	}
+
+	PrintDebug("\n");
     }
-
-    PrintDebug(" ");
-
-    for (j = i; (j < (i + 16)) && (j < n); j++) {
-      PrintDebug("%c", ((start[j] >= 32) && (start[j] <= 126)) ? start[j] : '.');
-    }
-
-    PrintDebug("\n");
-  }
 }

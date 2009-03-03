@@ -32,72 +32,71 @@
 static inline int handle_passthrough_pagefault_32(struct guest_info * info, 
 						  addr_t fault_addr, 
 						  pf_error_t error_code) {
-  // Check to see if pde and pte exist (create them if not)
-  pde32_t * pde = CR3_TO_PDE32_VA(info->ctrl_regs.cr3);
-  pte32_t * pte = NULL;
-  addr_t host_addr = 0;
-  
-  int pde_index = PDE32_INDEX(fault_addr);
-  int pte_index = PTE32_INDEX(fault_addr);
-
-  struct v3_shadow_region * region = v3_get_shadow_region(info, fault_addr);
-
-  if ((region == NULL) || 
-      (region->host_type == SHDW_REGION_INVALID)) {
-    PrintError("Invalid region in passthrough page fault 32, addr=%p\n", 
-	       (void *)fault_addr);
-    return -1;
-  }
-
-  host_addr = v3_get_shadow_addr(region, fault_addr);
-
-  // Fix up the PDE entry
-  if (pde[pde_index].present == 0) {
-    pte = (pte32_t *)create_generic_pt_page();
+    // Check to see if pde and pte exist (create them if not)
+    pde32_t * pde = CR3_TO_PDE32_VA(info->ctrl_regs.cr3);
+    pte32_t * pte = NULL;
+    addr_t host_addr = 0;
     
-    pde[pde_index].present = 1;
-    pde[pde_index].writable = 1;
-    pde[pde_index].user_page = 1;
-    pde[pde_index].pt_base_addr = PAGE_BASE_ADDR((addr_t)V3_PAddr(pte));
-
-  } else {
-    pte = V3_VAddr((void*)BASE_TO_PAGE_ADDR(pde[pde_index].pt_base_addr));
-  }
-
-  // Fix up the PTE entry
-  if (pte[pte_index].present == 0) {
-
-    pte[pte_index].user_page = 1;
-
-    if (region->host_type == SHDW_REGION_ALLOCATED) {
-      // Full access
-      pte[pte_index].present = 1;
-      pte[pte_index].writable = 1;
-
-      pte[pte_index].page_base_addr = PAGE_BASE_ADDR(host_addr);
-    } else if (region->host_type == SHDW_REGION_WRITE_HOOK) {
-      // Only trap writes
-      pte[pte_index].present = 1;
-      pte[pte_index].writable = 0;
-
-      pte[pte_index].page_base_addr = PAGE_BASE_ADDR(host_addr);
-    } else if (region->host_type == SHDW_REGION_FULL_HOOK) {
-      // trap all accesses
-      return v3_handle_mem_full_hook(info, fault_addr, fault_addr, region, error_code);
-    } else {
-      PrintError("Unknown Region Type...\n");
-      return -1;
+    int pde_index = PDE32_INDEX(fault_addr);
+    int pte_index = PTE32_INDEX(fault_addr);
+    
+    struct v3_shadow_region * region = v3_get_shadow_region(info, fault_addr);
+    
+    if ((region == NULL) || 
+	(region->host_type == SHDW_REGION_INVALID)) {
+	PrintError("Invalid region in passthrough page fault 32, addr=%p\n", 
+		   (void *)fault_addr);
+	return -1;
     }
-  }
-   
-  if ( (region->host_type == SHDW_REGION_WRITE_HOOK) && 
-       (error_code.write == 1) ) {
     
-    return v3_handle_mem_wr_hook(info, fault_addr, fault_addr, region, error_code);
-  }
+    host_addr = v3_get_shadow_addr(region, fault_addr);
+    
+    // Fix up the PDE entry
+    if (pde[pde_index].present == 0) {
+	pte = (pte32_t *)create_generic_pt_page();
+	
+	pde[pde_index].present = 1;
+	pde[pde_index].writable = 1;
+	pde[pde_index].user_page = 1;
+	pde[pde_index].pt_base_addr = PAGE_BASE_ADDR((addr_t)V3_PAddr(pte));
+	
+    } else {
+	pte = V3_VAddr((void*)BASE_TO_PAGE_ADDR(pde[pde_index].pt_base_addr));
+    }
+    
+    // Fix up the PTE entry
+    if (pte[pte_index].present == 0) {
+	
+	pte[pte_index].user_page = 1;
+	
+	if (region->host_type == SHDW_REGION_ALLOCATED) {
+	    // Full access
+	    pte[pte_index].present = 1;
+	    pte[pte_index].writable = 1;
+	    
+	    pte[pte_index].page_base_addr = PAGE_BASE_ADDR(host_addr);
+	} else if (region->host_type == SHDW_REGION_WRITE_HOOK) {
+	    // Only trap writes
+	    pte[pte_index].present = 1;
+	    pte[pte_index].writable = 0;
+	    
+	    pte[pte_index].page_base_addr = PAGE_BASE_ADDR(host_addr);
+	} else if (region->host_type == SHDW_REGION_FULL_HOOK) {
+	    // trap all accesses
+	    return v3_handle_mem_full_hook(info, fault_addr, fault_addr, region, error_code);
+	} else {
+	    PrintError("Unknown Region Type...\n");
+	    return -1;
+	}
+    }
+    
+    if ( (region->host_type == SHDW_REGION_WRITE_HOOK) && 
+	 (error_code.write == 1) ) {
+	return v3_handle_mem_wr_hook(info, fault_addr, fault_addr, region, error_code);
+    }
 
-
-  return 0;
+    
+    return 0;
 }
 
 

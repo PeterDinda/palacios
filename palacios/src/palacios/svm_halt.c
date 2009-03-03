@@ -40,36 +40,34 @@
 
 int v3_handle_svm_halt(struct guest_info * info)
 {
-  if (info->cpl!=0) { 
-    v3_raise_exception(info, GPF_EXCEPTION);
-  } else {
+    if (info->cpl!=0) { 
+	v3_raise_exception(info, GPF_EXCEPTION);
+    } else {
     
-    // What we should do is starting waiting on an OS event that will
-    // result in an injection of an interrupt.
+	// What we should do is starting waiting on an OS event that will
+	// result in an injection of an interrupt.
+	
+	// What we will hackishly do instead is resume on any event
+	// Plus is this totally GeekOS specific
+	
+	ullong_t yield_start = 0;
+	ullong_t yield_stop = 0;
+	uint32_t gap = 0;
+	
+	PrintDebug("GeekOS Yield\n");
+	
+	rdtscll(yield_start);
+	V3_Yield();
+	rdtscll(yield_stop);
     
-    // What we will hackishly do instead is resume on any event
-    // Plus is this totally GeekOS specific
     
-    ullong_t yield_start = 0;
-    ullong_t yield_stop = 0;
-    uint32_t gap = 0;
-    
-    PrintDebug("GeekOS Yield\n");
-    
-    rdtscll(yield_start);
-    V3_Yield();
-    rdtscll(yield_stop);
-    
-    
-    //v3_update_time(info, yield_stop - yield_start);
-    gap = yield_stop - yield_start;
-    v3_raise_irq(info, 0);
-    
-    PrintDebug("GeekOS Yield Done (%d cycles)\n", gap);
-    
-    info->rip+=1;
-  }
-    
-  return 0;
-
+	//v3_update_time(info, yield_stop - yield_start);
+	gap = yield_stop - yield_start;
+	v3_raise_irq(info, 0);
+	
+	PrintDebug("GeekOS Yield Done (%d cycles)\n", gap);
+	
+	info->rip+=1;
+    }
+    return 0;
 }
