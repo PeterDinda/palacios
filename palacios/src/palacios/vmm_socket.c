@@ -36,7 +36,7 @@ void V3_Init_Sockets(struct v3_socket_hooks * hooks) {
 
   PrintDebug("V3 sockets inited\n");
 
-  //v3_socket_api_test();
+  v3_socket_api_test();
   
   return;
 }
@@ -118,7 +118,7 @@ void v3_zero_sockset(struct v3_sock_set * sock_set) {
   }
 }
 
-#if 0
+#if 1
 
 int
 v3_socket_api_test(void)

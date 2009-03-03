@@ -22,6 +22,8 @@
 \setlength\parindent{0in}
 \setlength\parskip{0.1in} 
 
+\newcommand{\note}[1]{{$\rightarrow$ \bf Note: \emph{#1}}}
+
 \begin{document}
 
 \title{
@@ -265,6 +267,8 @@ cd ..
 make
 make isoimage
 \end{verbatim}
+
+\note{This should probably explain how to change the iso (helloworld,etc)}
 
 This generates an ISO boot image containing Kitten, Palacios, and the
 guest that will be run as a VM. The ISO image is located at {\em
@@ -515,29 +519,100 @@ hg qupush -a
 
 \section{Networking}
 
-\section{Configuring the development host's Qemu network}
-Set up Tap interfaces:
+Both the Kitten and GeekOS substrates on which Palacios can run
+currently include drivers for two simple network cards, the NE2000,
+and the RTL8139.  The Kitten substrate is acquiring an ever increasing
+set of drivers for specialized network systems.   A lightweight
+networking stack is included so that TCP/IP networking is possible
+from within the host OS kernel and in Palacios.  
 
-/root/util/tap\_create tapX
+When debugging Palacios on QEMU, it is very convenient to add an
+RTL8139 card to your QEMU configuration, and then drive it from within
+Palacios.  QEMU can be configured to provide local connectivity to the
+QEMU emulated machine, including bridging the emulated machine with a
+physical network.  Local connectivity can be done with redirection, or
+with a TAP interface.  For global connectivity, a TAP interface must
+be used; it is bridged to a physical interface.
 
-Bridging tapX with eth1 will only work (work = send packet and also
-make packet visible on localhost) if the IP address is set correctly
-(correctly = match network it is connected to e.g., network of eth1)
-so bring up the network inside of the VM / QEMU as 10-net, and it
-should route through the eth1 rule and be visible both on the host and
-in the physical network
+\section{Configuring the development host's QEMU network}
+
+To get local connectivity with redirection, no networking changes on
+the host are needed.  However, people usually want to use TAP-based
+networking, which does require changes.  For one thing, TAP interfaces
+can be inspected with tools like wireshark, which makes for much
+easier debugging of network code.
+
+In order to get QEMU networking to function, it is necessary to create
+TAP interfaces, and, optionally, to bridge them to real networks.  A
+developmet machine typically will have several TAP interfaces, and
+more can be created.  Generally, each developer should have a TAP
+interface of his or her own.  In the following, we will use our
+development machine, newskysaw, as an example.
+
+To set up a TAP interface on newskysaw, the following comand is used:
+\begin{verbatim}
+/root/util/tap_create tapX
+\end{verbatim}
+
+When QEMU runs with a tap interface, it will use /etc/qemu-ifup to
+bring up the interface.  On newskysaw, /etc/qemu-ifup looks like this:
+
+\begin{verbatim}
+#!/bin/bash
+echo "Executing /etc/qemu-ifup - no external bridging"
+echo "Bringing up $1 for bridged mode..."
+NET=`echo $1 | cut -dp -f2` 
+sudo /sbin/ifconfig $1 172.2${NET}.0.1 up
+sleep 2
+\end{verbatim}
+
+The interface tap$N$ is brought up with the IP address 172.2$N$.0.1.
+ifconfig will also create a routing rule that sends 172.2$N$.0.1/16
+traffic to tap$N$.  The upshot is that if the code running in QEMU
+uses an IP address in this network (for example: 172.2$N$.0.2), you
+will be able to talk to it from newskysaw.  For example, from
+newskysaw, if you ping 172.21.0.2, the packet (and ARP) will go out via
+tap1.  The source address will appear to be 172.21.0.1.  The QEMU
+machine will see these packets on its interface, and the software
+controling its interface can respond to 172.21.0.1.  
+
+This form of networking is local to the machine.  You can also bridge
+a TAP interface with a physical interface.  The result of this is that
+a packet sent on it will be sent on the physical interface.  To do
+this requires more effort (and is not set up by default on newskysaw).
+As an example, consider that on newskysaw, the physical interface eth1
+is connected to a private network switch to which the lab test
+computers (v-test-amd, v-test-amd2, etc.) are connected.  To bridge,
+for example, tap10, to this interface, you would do the following
+(with root's help):
+\begin{enumerate}
+\item You need to bring up eth1 (ifup eth1)
+\item You would bring up tap10 without an address:  /sbin/ifconfig
+tap10 up
+\item You would bridge tap10 and eth1:  /usr/sbin/brctl addif br0
+tap10; /usr/sbin/brctl addif eth1.  This assumes that br0 was
+previously created. 
+\end{enumerate}
+
+Bridging tap$N$ with eth1 will only work (where ``work'' means sending
+a packet on the network and making the packet visible on localhost) if
+the IP address in the code running in QEMU is set correctly.  This
+means that it needs to be set to correspond to the network of eth1).  
+For the newskysaw configuration, this is a 10-net address.
 
 
 \subsection{Configuring Kitten}
 
-To enable networking in Qemu, networking needs to be enabled in the configuration.
+To enable networking in Qemu, networking needs to be enabled in the
+configuration.
 
 Make sure turn on the network device driver, networking, and input
 kernel command 'console=serial net=rtl8139'
 
 How to set ip address in kitten:
 
-Kitten ip address setting is in file drivers/net/ne2k/rtl8139.c, in the code below which is located in function rtl8139\_init.
+Kitten ip address setting is in file drivers/net/ne2k/rtl8139.c, in
+the code below which is located in function rtl8139\_init.
 
   struct ip\_addr ipaddr = { htonl(0 | 10 << 24 | 0 << 16 | 2 << 8 | 16 << 0) }; 
   struct ip\_addr netmask = { htonl(0xffffff00) }; 
@@ -546,33 +621,57 @@ Kitten ip address setting is in file drivers/net/ne2k/rtl8139.c, in the code bel
 This sets the ip address as 10.0.2.16, netmask 255.255.255.0 and gateway address 10.0.2.2, change it as you need.
 
 
-
 \subsection{Running with networking}
 
-\paragraph*{Tap Interface}
-In which, the command line: 
+\paragraph*{TAP Interface}
+Running with a TAP interface provides either local or global
+connectivity (depending on how the TAP interface is configured and/or
+bridged).  From the perspective of the QEMU command line, both look
+the same, however.  You simply add something like this to the command
+line:
+\begin{verbatim}
+-net tap,ifname=tap2 -net nic,model=rtl8139
+\end{verbatim}
+The first \verb.-net. option indicates that you want to use a tap
+interface, specifically \verb.tap2..   The second \verb.-net. option
+specifies that this interface will appear to code in the QEMU machine
+to be a network interface card of the specific model RTL8139.  Note
+that this is a model for which we have a driver.  If tap2 were
+bridged, we'd get global connectivity.  If not, we would just get
+local connectivity.  
 
--net tap, ifname=tap2
-
-specifies Qemu to use the host's tap0 as its network interface, then Qemu can access the host's physical network.
 
 \paragraph*{Redirection}
-
-Also you can use the following command instead to redirect host's 9555 port to Qemu's 80 port.
-
--net user -net nic,model=rtl8139  -redir tcp:9555::80
-
-In this case, you can access Qemu's 80 port in the host like:
-
+It is also possible to achieve limited local connectivity even if you
+have no TAP support on your development machine.  In redirection, QEMU
+essentially acts as a proxy, translating TCP or other connections and
+low-level packet operations on the network interface in the QEMU
+machine.  For example, the following options will redirect the host's
+9555 port to the QEMU machine's 80 port:
+\begin{verbatim}
+-net user -net nic,model=rtl8139  -redir tcp:9555:10.10.10.33:80
+\end{verbatim}
+The first \verb.-net. option indicates that we are using user-level
+networking (proxying).  The secod \verb.-net. option indicates that
+this user-level network will appear in the QEMU machine as an RTL8139
+network card.   The \verb.-redir. option indicates that connections on
+localhost:9555 will be translated into equivalent packet exchanges on
+the RTL8139 card in the QEMU machine.  However, we have to tell QEMU
+which IP address and port to use on the QEMU machine's side.  This is
+what the 10.10.10.33 address, and port 80 are.  In the example, if you
+access port 9555 on localhost, say with:
+\begin{verbatim}
 telnet localhost 9555
+\end{verbatim}
+The packets that appear in the QEMU machine will be bound for
+10.10.10.33, port 80.  Within the QEMU machine, your RTL8139 interface
+had better then be up on that address. 
 
-Qemu has many options to build up a virtual or real networking. See http://www.h7.dion.ne.jp/~qemu-win/HowToNetwork-en.html for more information.
+Qemu has many options to build up a virtual or real networking. See
+http://www.h7.dion.ne.jp/$\sim$qemu-win/HowToNetwork-en.html for more
+information.
 
 
-
-
-
-
-For more questions, talk to Jack or Lei.
+For more questions, talk to Jack, Lei, or Peter.
 
 \end{document}
