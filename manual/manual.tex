@@ -598,7 +598,9 @@ computers (v-test-amd, v-test-amd2, etc.) are connected.  To bridge,
 for example, tap10, to this interface, you would do the following
 (with root's help):
 \begin{enumerate}
-\item You need to bring up eth1 (ifconfig eth1 up {\em address} netmask {\em mask}).  It is important that the address and mask you choose are appropriate for the network eth1 is connected to and that it.
+\item You need to bring up eth1 (ifconfig eth1 up {\em address}
+netmask {\em mask}).  It is important that the address and mask you
+choose are appropriate for the network eth1 is connected to.
 \item You would bring up tap10 without an address:  /sbin/ifconfig
 tap10 up
 \item You would bridge tap10 and eth1:  /usr/sbin/brctl addif br0
@@ -615,22 +617,49 @@ For the newskysaw configuration, this is a 10-net address.
 
 \subsection{Configuring Kitten}
 
-To enable networking in Qemu, networking needs to be enabled in the
-configuration.
+Kitten needs to be explicitly configured to use networking. Currently
+only a subset of the networking configurations are supported. To
+enable an ethernet network you should enable the following options:
 
-Make sure turn on the network device driver, networking, and input
-kernel command 'console=serial net=rtl8139'
+\begin{itemize}
+\item Enable TCP Support
+\item Enable UDP Support
+\item Enable socket API
+\item Enable ARP support
+\end{itemize}
 
-How to set ip address in kitten:
+The other options are not supported, and enabling them will probably
+break the kernel compilation.
 
-Kitten ip address setting is in file drivers/net/ne2k/rtl8139.c, in
-the code below which is located in function rtl8139\_init.
+To allow Kitten to communicate with the Qemu network card you also
+need to enable the appropriate device driver: \newline
+\verb.NE2K Device Driver (rtl8139).
 
-  struct ip\_addr ipaddr = { htonl(0 | 10 << 24 | 0 << 16 | 2 << 8 | 16 << 0) }; 
-  struct ip\_addr netmask = { htonl(0xffffff00) }; 
-  struct ip\_addr gw = { htonl(0 | 10 << 24 | 0 << 16 | 2 << 8 | 2 << 0) };
+The driver then needs to be listed as a Kernel Command Line argument
+in the {\em ISOIMAGE configuration}. To do this add
+\verb.net=rtl819. to the end of the argument string.
 
-This sets the ip address as 10.0.2.16, netmask 255.255.255.0 and gateway address 10.0.2.2, change it as you need.
+Kitten currently does not support the dynamic assignment or IP
+addresses at runtime. Because of this it is necessary to hardcode the
+IP address into the device driver. For the rtl8139 network driver look
+in the file {\em drivers/net/ne2k/rtl8139.c} for the function
+\verb.rtl8139_init..
+
+There shoule be a block of code that looks like the following:
+\begin{verbatim}
+  struct ip_addr ipaddr = { htonl(0 | 10 << 24 | 0 << 16 | 2 << 8 | 16 << 0) }; 
+  struct ip_addr netmask = { htonl(0xffffff00) }; 
+  struct ip_addr gw = { htonl(0 | 10 << 24 | 0 << 16 | 2 << 8 | 2 << 0) };
+\end{verbatim}
+
+This sets the ip address as 10.0.2.16, netmask 255.255.255.0 and
+gateway address 10.0.2.2. Change these assignments to match your configuration.
+
+
+\paragraph*{Kitten as the Guest OS}
+
+When running Kitten as a VM, the above applies except that you will
+want to enable the {\em VMNET} device driver instead of the {\em rtl8139}.
 
 
 \subsection{Running with networking}
