@@ -160,6 +160,15 @@
 	
 
 
+#define V3_CREATE_THREAD(fn, name)				\
+    do {							\
+	extern struct v3_os_hooks * os_hooks;			\
+	if ((os_hooks) && (os_hooks)->start_kernel_thread) {	\
+	    (os_hooks)->start_kernel_thread(fn, name);		\
+	}							\
+    } while (0)
+
+
 #define V3_Hook_Interrupt(irq, opaque) ({				\
 	    int ret = 0;						\
 	    extern struct v3_os_hooks * os_hooks;			\
@@ -229,22 +238,15 @@ struct v3_os_hooks {
     void *(*paddr_to_vaddr)(void *addr);
     void *(*vaddr_to_paddr)(void *addr);
 
-    //  int (*hook_interrupt)(struct guest_info *s, int irq);
-
     int (*hook_interrupt)(struct guest_info * vm, unsigned int irq);
 
     int (*ack_irq)(int irq);
 
-
     unsigned int (*get_cpu_khz)(void);
 
+    void (*start_kernel_thread)(int (*fn)(void * arg), char * thread_name); 
 
-    void (*start_kernel_thread)(void); // include pointer to function
-
-    void (*yield_cpu)(void);
-
-
- 
+    void (*yield_cpu)(void); 
 };
 
 
