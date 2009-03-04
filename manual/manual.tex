@@ -598,7 +598,7 @@ computers (v-test-amd, v-test-amd2, etc.) are connected.  To bridge,
 for example, tap10, to this interface, you would do the following
 (with root's help):
 \begin{enumerate}
-\item You need to bring up eth1 (ifup eth1)
+\item You need to bring up eth1 (ifconfig eth1 up {\em address} netmask {\em mask}).  It is important that the address and mask you choose are appropriate for the network eth1 is connected to and that it.
 \item You would bring up tap10 without an address:  /sbin/ifconfig
 tap10 up
 \item You would bridge tap10 and eth1:  /usr/sbin/brctl addif br0
