@@ -48,12 +48,13 @@ int v3_handle_passthrough_pagefault(struct guest_info * info, addr_t fault_addr,
 	case REAL:
 	case PROTECTED:
 	    return handle_passthrough_pagefault_32(info, fault_addr, error_code);
+
 	case PROTECTED_PAE:
-	    return handle_passthrough_pagefault_32pae(info, fault_addr, error_code);
 	case LONG:
-	    break;
 	case LONG_32_COMPAT:
-	    break;
+	    // Long mode will only use 32PAE page tables...
+	    return handle_passthrough_pagefault_32pae(info, fault_addr, error_code);
+
 	default:
 	    PrintError("Unknown CPU Mode\n");
 	    break;
