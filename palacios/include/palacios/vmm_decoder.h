@@ -40,56 +40,56 @@ typedef enum { V3_INVALID_OP,
 typedef enum {INVALID_OPERAND, REG_OPERAND, MEM_OPERAND, IMM_OPERAND} v3_operand_type_t;
 
 struct x86_operand {
-  addr_t operand;
-  uint_t size;
-  v3_operand_type_t type;
+    addr_t operand;
+    uint_t size;
+    v3_operand_type_t type;
 };
 
 struct x86_prefixes {
-  uint_t lock   : 1;  // 0xF0
-  uint_t repne  : 1;  // 0xF2
-  uint_t repnz  : 1;  // 0xF2
-  uint_t rep    : 1;  // 0xF3
-  uint_t repe   : 1;  // 0xF3
-  uint_t repz   : 1;  // 0xF3
-  uint_t cs_override : 1;  // 0x2E
-  uint_t ss_override : 1;  // 0x36
-  uint_t ds_override : 1;  // 0x3E
-  uint_t es_override : 1;  // 0x26
-  uint_t fs_override : 1;  // 0x64
-  uint_t gs_override : 1;  // 0x65
-  uint_t br_not_taken : 1;  // 0x2E
-  uint_t br_taken   : 1;  // 0x3E
-  uint_t op_size     : 1;  // 0x66
-  uint_t addr_size   : 1;  // 0x67
+    uint_t lock   : 1;  // 0xF0
+    uint_t repne  : 1;  // 0xF2
+    uint_t repnz  : 1;  // 0xF2
+    uint_t rep    : 1;  // 0xF3
+    uint_t repe   : 1;  // 0xF3
+    uint_t repz   : 1;  // 0xF3
+    uint_t cs_override : 1;  // 0x2E
+    uint_t ss_override : 1;  // 0x36
+    uint_t ds_override : 1;  // 0x3E
+    uint_t es_override : 1;  // 0x26
+    uint_t fs_override : 1;  // 0x64
+    uint_t gs_override : 1;  // 0x65
+    uint_t br_not_taken : 1;  // 0x2E
+    uint_t br_taken   : 1;  // 0x3E
+    uint_t op_size     : 1;  // 0x66
+    uint_t addr_size   : 1;  // 0x67
 };
 
 
 struct x86_instr {
-  struct x86_prefixes prefixes;
-  uint_t instr_length;
-  v3_op_type_t op_type;
-  uint_t num_operands;
-  struct x86_operand dst_operand;
-  struct x86_operand src_operand;
-  struct x86_operand third_operand;
-  addr_t str_op_length;
-  addr_t is_str_op;
-  void * decoder_data;
+    struct x86_prefixes prefixes;
+    uint_t instr_length;
+    v3_op_type_t op_type;
+    uint_t num_operands;
+    struct x86_operand dst_operand;
+    struct x86_operand src_operand;
+    struct x86_operand third_operand;
+    addr_t str_op_length;
+    addr_t is_str_op;
+    void * decoder_data;
 };
 
 
 struct basic_instr_info {
-  uint_t instr_length;
-  uint_t op_size;
-  uint_t str_op    : 1;
-  uint_t has_rep : 1;
+    uint_t instr_length;
+    uint_t op_size;
+    uint_t str_op    : 1;
+    uint_t has_rep : 1;
 };
 
 
 
-  /************************/
- /* EXTERNAL DECODER API */
+/************************/
+/* EXTERNAL DECODER API */
 /************************/
 /* 
    This is an External API definition that must be implemented by a decoder
@@ -145,9 +145,9 @@ void v3_get_prefixes(uchar_t * instr, struct x86_prefixes * prefixes);
 #define MODRM_RM(x)  (x & 0x7)
 
 struct modrm_byte {
-  uint_t rm   :   3 PACKED;
-  uint_t reg  :   3 PACKED;
-  uint_t mod  :   2 PACKED;
+    uint_t rm   :   3 PACKED;
+    uint_t reg  :   3 PACKED;
+    uint_t mod  :   2 PACKED;
 };
 
 
@@ -156,9 +156,9 @@ struct modrm_byte {
 #define SIB_SCALE(x) (x & 0x7)
 
 struct sib_byte {
-  uint_t base     :   3 PACKED;
-  uint_t index    :   3 PACKED;
-  uint_t scale    :   2 PACKED;
+    uint_t base     :   3 PACKED;
+    uint_t index    :   3 PACKED;
+    uint_t scale    :   2 PACKED;
 };
 
 
@@ -224,71 +224,71 @@ int v3_opcode_cmp(const uchar_t * op1, const uchar_t * op2);
 
 
 static inline int is_prefix_byte(uchar_t byte) {
-  switch (byte) {
-  case 0xF0:      // lock
-  case 0xF2:      // REPNE/REPNZ
-  case 0xF3:      // REP or REPE/REPZ
-  case 0x2E:      // CS override or Branch hint not taken (with Jcc instrs)
-  case 0x36:      // SS override
-  case 0x3E:      // DS override or Branch hint taken (with Jcc instrs)
-  case 0x26:      // ES override
-  case 0x64:      // FS override
-  case 0x65:      // GS override
-    //case 0x2E:      // branch not taken hint
-    //  case 0x3E:      // branch taken hint
-  case 0x66:      // operand size override
-  case 0x67:      // address size override
-    return 1;
-    break;
-  default:
-    return 0;
-    break;
-  }
+    switch (byte) {
+	case 0xF0:      // lock
+	case 0xF2:      // REPNE/REPNZ
+	case 0xF3:      // REP or REPE/REPZ
+	case 0x2E:      // CS override or Branch hint not taken (with Jcc instrs)
+	case 0x36:      // SS override
+	case 0x3E:      // DS override or Branch hint taken (with Jcc instrs)
+	case 0x26:      // ES override
+	case 0x64:      // FS override
+	case 0x65:      // GS override
+	    //case 0x2E:      // branch not taken hint
+	    //  case 0x3E:      // branch taken hint
+	case 0x66:      // operand size override
+	case 0x67:      // address size override
+	    return 1;
+	    break;
+	default:
+	    return 0;
+	    break;
+    }
 }
 
 
 static inline v3_reg_t get_gpr_mask(struct guest_info * info) {
-  switch (info->cpu_mode) {
-  case REAL: 
-    return 0xffff;
-    break;
-  case PROTECTED:
-  case PROTECTED_PAE:
-    return 0xffffffff;
-  case LONG:
-  case LONG_32_COMPAT:
-  case LONG_16_COMPAT:
-  default:
-    PrintError("Unsupported Address Mode\n");
-    return -1;
-  }
+    switch (info->cpu_mode) {
+	case REAL: 
+	    return 0xffff;
+	    break;
+	case PROTECTED:
+	case PROTECTED_PAE:
+	    return 0xffffffff;
+	case LONG:
+	case LONG_32_COMPAT:
+	case LONG_16_COMPAT:
+	default:
+	    PrintError("Unsupported Address Mode\n");
+	    return -1;
+    }
 }
 
 
 static inline addr_t get_addr_linear(struct guest_info * info, addr_t addr, struct v3_segment * seg) {
-  switch (info->cpu_mode) {
-  case REAL:
-    // It appears that the segment values are computed and cached in the vmcb structure 
-    // We Need to check this for Intel
-    /*   return addr + (seg->selector << 4);
-	 break;*/
+    switch (info->cpu_mode) {
+	case REAL:
+	    // It appears that the segment values are computed and cached in the vmcb structure 
+	    // We Need to check this for Intel
+	    /*   return addr + (seg->selector << 4);
+		 break;*/
 
-  case PROTECTED:
-  case PROTECTED_PAE:
-  case LONG_32_COMPAT:
-    return addr + seg->base;
-    break;
+	case PROTECTED:
+	case PROTECTED_PAE:
+	case LONG_32_COMPAT:
+	    return addr + seg->base;
+	    break;
 
-  case LONG:
-    // In long mode the segment bases are disregarded (forced to 0), unless using 
-    // FS or GS, then the base addresses are added
-    return addr + seg->base;
+	case LONG:
+	    // In long mode the segment bases are disregarded (forced to 0), unless using 
+	    // FS or GS, then the base addresses are added
+	    return addr + seg->base;
 
-  case LONG_16_COMPAT:
-  default:
-    PrintError("Unsupported CPU Mode: %d\n", info->cpu_mode);
-    return -1;
-  }
+	case LONG_16_COMPAT:
+	default:
+	    PrintError("Unsupported CPU Mode: %d\n", info->cpu_mode);
+	    return -1;
+    }
 }
 
 
@@ -303,314 +303,314 @@ typedef enum {INVALID_REG_SIZE, REG64, REG32, REG16, REG8} reg_size_t;
 struct v3_gprs;
 
 static inline addr_t decode_register(struct v3_gprs * gprs, char reg_code, reg_size_t reg_size) {
-  addr_t reg_addr;
+    addr_t reg_addr;
 
-  switch (reg_code) {
-  case 0:
-    reg_addr = (addr_t)&(gprs->rax);
-    break;
-  case 1:
-    reg_addr = (addr_t)&(gprs->rcx);
-    break;
-  case 2:
-    reg_addr = (addr_t)&(gprs->rdx);
-    break;
-  case 3:
-    reg_addr = (addr_t)&(gprs->rbx);
-    break;
-  case 4:
-    if (reg_size == REG8) {
-      reg_addr = (addr_t)&(gprs->rax) + 1;
-    } else {
-      reg_addr = (addr_t)&(gprs->rsp);
+    switch (reg_code) {
+	case 0:
+	    reg_addr = (addr_t)&(gprs->rax);
+	    break;
+	case 1:
+	    reg_addr = (addr_t)&(gprs->rcx);
+	    break;
+	case 2:
+	    reg_addr = (addr_t)&(gprs->rdx);
+	    break;
+	case 3:
+	    reg_addr = (addr_t)&(gprs->rbx);
+	    break;
+	case 4:
+	    if (reg_size == REG8) {
+		reg_addr = (addr_t)&(gprs->rax) + 1;
+	    } else {
+		reg_addr = (addr_t)&(gprs->rsp);
+	    }
+	    break;
+	case 5:
+	    if (reg_size == REG8) {
+		reg_addr = (addr_t)&(gprs->rcx) + 1;
+	    } else {
+		reg_addr = (addr_t)&(gprs->rbp);
+	    }
+	    break;
+	case 6:
+	    if (reg_size == REG8) {
+		reg_addr = (addr_t)&(gprs->rdx) + 1;
+	    } else {
+		reg_addr = (addr_t)&(gprs->rsi);
+	    }
+	    break;
+	case 7:
+	    if (reg_size == REG8) {
+		reg_addr = (addr_t)&(gprs->rbx) + 1;
+	    } else {
+		reg_addr = (addr_t)&(gprs->rdi);
+	    }
+	    break;
+	default:
+	    reg_addr = 0;
+	    break;
     }
-    break;
-  case 5:
-    if (reg_size == REG8) {
-      reg_addr = (addr_t)&(gprs->rcx) + 1;
-    } else {
-      reg_addr = (addr_t)&(gprs->rbp);
-    }
-    break;
-  case 6:
-    if (reg_size == REG8) {
-      reg_addr = (addr_t)&(gprs->rdx) + 1;
-    } else {
-      reg_addr = (addr_t)&(gprs->rsi);
-    }
-    break;
-  case 7:
-    if (reg_size == REG8) {
-      reg_addr = (addr_t)&(gprs->rbx) + 1;
-    } else {
-      reg_addr = (addr_t)&(gprs->rdi);
-    }
-    break;
-  default:
-    reg_addr = 0;
-    break;
-  }
 
-  return reg_addr;
+    return reg_addr;
 }
 
 
 
 static inline v3_operand_type_t decode_operands16(struct v3_gprs * gprs, // input/output
-					       char * modrm_instr,       // input
-					       int * offset,             // output
-					       addr_t * first_operand,   // output
-					       addr_t * second_operand,  // output
-					       reg_size_t reg_size) {    // input
+						  char * modrm_instr,       // input
+						  int * offset,             // output
+						  addr_t * first_operand,   // output
+						  addr_t * second_operand,  // output
+						  reg_size_t reg_size) {    // input
   
-  struct modrm_byte * modrm = (struct modrm_byte *)modrm_instr;
-  addr_t base_addr = 0;
-  modrm_mode_t mod_mode = 0;
-  v3_operand_type_t addr_type = INVALID_OPERAND;
-  char * instr_cursor = modrm_instr;
+    struct modrm_byte * modrm = (struct modrm_byte *)modrm_instr;
+    addr_t base_addr = 0;
+    modrm_mode_t mod_mode = 0;
+    v3_operand_type_t addr_type = INVALID_OPERAND;
+    char * instr_cursor = modrm_instr;
 
-  //  PrintDebug("ModRM mod=%d\n", modrm->mod);
+    //  PrintDebug("ModRM mod=%d\n", modrm->mod);
 
-  instr_cursor += 1;
+    instr_cursor += 1;
 
-  if (modrm->mod == 3) {
-    mod_mode = REG;
-    addr_type = REG_OPERAND;
-    //PrintDebug("first operand = Register (RM=%d)\n",modrm->rm);
+    if (modrm->mod == 3) {
+	mod_mode = REG;
+	addr_type = REG_OPERAND;
+	//PrintDebug("first operand = Register (RM=%d)\n",modrm->rm);
 
-    *first_operand = decode_register(gprs, modrm->rm, reg_size);
+	*first_operand = decode_register(gprs, modrm->rm, reg_size);
 
-  } else {
+    } else {
 
-    addr_type = MEM_OPERAND;
+	addr_type = MEM_OPERAND;
 
-    if (modrm->mod == 0) {
-      mod_mode = DISP0;
-    } else if (modrm->mod == 1) {
-      mod_mode = DISP8;
-    } else if (modrm->mod == 2) {
-      mod_mode = DISP16;
-    }
+	if (modrm->mod == 0) {
+	    mod_mode = DISP0;
+	} else if (modrm->mod == 1) {
+	    mod_mode = DISP8;
+	} else if (modrm->mod == 2) {
+	    mod_mode = DISP16;
+	}
 
-    switch (modrm->rm) {
-    case 0:
-      base_addr = gprs->rbx + gprs->rsi;
-      break;
-    case 1:
-      base_addr = gprs->rbx + gprs->rdi;
-      break;
-    case 2:
-      base_addr = gprs->rbp + gprs->rsi;
-      break;
-    case 3:
-      base_addr = gprs->rbp + gprs->rdi;
-      break;
-    case 4:
-      base_addr = gprs->rsi;
-      break;
-    case 5:
-      base_addr = gprs->rdi;
-      break;
-    case 6:
-      if (modrm->mod == 0) {
-	base_addr = 0;
-	mod_mode = DISP16;
-      } else {
-	base_addr = gprs->rbp;
-      }
-      break;
-    case 7:
-      base_addr = gprs->rbx;
-      break;
-    }
+	switch (modrm->rm) {
+	    case 0:
+		base_addr = gprs->rbx + gprs->rsi;
+		break;
+	    case 1:
+		base_addr = gprs->rbx + gprs->rdi;
+		break;
+	    case 2:
+		base_addr = gprs->rbp + gprs->rsi;
+		break;
+	    case 3:
+		base_addr = gprs->rbp + gprs->rdi;
+		break;
+	    case 4:
+		base_addr = gprs->rsi;
+		break;
+	    case 5:
+		base_addr = gprs->rdi;
+		break;
+	    case 6:
+		if (modrm->mod == 0) {
+		    base_addr = 0;
+		    mod_mode = DISP16;
+		} else {
+		    base_addr = gprs->rbp;
+		}
+		break;
+	    case 7:
+		base_addr = gprs->rbx;
+		break;
+	}
 
 
 
-    if (mod_mode == DISP8) {
-      base_addr += (uchar_t)*(instr_cursor);
-      instr_cursor += 1;
-    } else if (mod_mode == DISP16) {
-      base_addr += (ushort_t)*(instr_cursor);
-      instr_cursor += 2;
-    }
+	if (mod_mode == DISP8) {
+	    base_addr += (uchar_t)*(instr_cursor);
+	    instr_cursor += 1;
+	} else if (mod_mode == DISP16) {
+	    base_addr += (ushort_t)*(instr_cursor);
+	    instr_cursor += 2;
+	}
     
-    *first_operand = base_addr;
-  }
+	*first_operand = base_addr;
+    }
 
-  *offset +=  (instr_cursor - modrm_instr);
-  *second_operand = decode_register(gprs, modrm->reg, reg_size);
+    *offset +=  (instr_cursor - modrm_instr);
+    *second_operand = decode_register(gprs, modrm->reg, reg_size);
 
-  return addr_type;
+    return addr_type;
 }
 
 
 
 static inline v3_operand_type_t decode_operands32(struct v3_gprs * gprs, // input/output
-					       uchar_t * modrm_instr,       // input
-					       int * offset,             // output
-					       addr_t * first_operand,   // output
-					       addr_t * second_operand,  // output
-					       reg_size_t reg_size) {    // input
+						  uchar_t * modrm_instr,       // input
+						  int * offset,             // output
+						  addr_t * first_operand,   // output
+						  addr_t * second_operand,  // output
+						  reg_size_t reg_size) {    // input
   
-  uchar_t * instr_cursor = modrm_instr;
-  struct modrm_byte * modrm = (struct modrm_byte *)modrm_instr;
-  addr_t base_addr = 0;
-  modrm_mode_t mod_mode = 0;
-  uint_t has_sib_byte = 0;
-  v3_operand_type_t addr_type = INVALID_OPERAND;
+    uchar_t * instr_cursor = modrm_instr;
+    struct modrm_byte * modrm = (struct modrm_byte *)modrm_instr;
+    addr_t base_addr = 0;
+    modrm_mode_t mod_mode = 0;
+    uint_t has_sib_byte = 0;
+    v3_operand_type_t addr_type = INVALID_OPERAND;
 
 
 
-  instr_cursor += 1;
+    instr_cursor += 1;
 
-  if (modrm->mod == 3) {
-    mod_mode = REG;
-    addr_type = REG_OPERAND;
+    if (modrm->mod == 3) {
+	mod_mode = REG;
+	addr_type = REG_OPERAND;
     
-    //    PrintDebug("first operand = Register (RM=%d)\n",modrm->rm);
+	//    PrintDebug("first operand = Register (RM=%d)\n",modrm->rm);
 
-    *first_operand = decode_register(gprs, modrm->rm, reg_size);
+	*first_operand = decode_register(gprs, modrm->rm, reg_size);
 
-  } else {
+    } else {
 
-    addr_type = MEM_OPERAND;
+	addr_type = MEM_OPERAND;
 
-    if (modrm->mod == 0) {
-      mod_mode = DISP0;
-    } else if (modrm->mod == 1) {
-      mod_mode = DISP8;
-    } else if (modrm->mod == 2) {
-      mod_mode = DISP32;
-    }
-    
-    switch (modrm->rm) {
-    case 0:
-      base_addr = gprs->rax;
-      break;
-    case 1:
-       base_addr = gprs->rcx;
-      break;
-    case 2:
-      base_addr = gprs->rdx;
-      break;
-    case 3:
-      base_addr = gprs->rbx;
-      break;
-    case 4:
-      has_sib_byte = 1;
-      break;
-    case 5:
-      if (modrm->mod == 0) {
-	base_addr = 0;
-	mod_mode = DISP32;
-      } else {
-	base_addr = gprs->rbp;
-      }
-      break;
-    case 6:
-      base_addr = gprs->rsi;
-      break;
-    case 7:
-      base_addr = gprs->rdi;
-      break;
-    }
-
-    if (has_sib_byte) {
-      instr_cursor += 1;
-      struct sib_byte * sib = (struct sib_byte *)(instr_cursor);
-      int scale = 1;
-
-      instr_cursor += 1;
-
-
-      if (sib->scale == 1) {
-	scale = 2;
-      } else if (sib->scale == 2) {
-	scale = 4;
-      } else if (sib->scale == 3) {
-	scale = 8;
-      }
-
-
-      switch (sib->index) {
-      case 0:
-	base_addr = gprs->rax;
-	break;
-      case 1:
-	base_addr = gprs->rcx;
-	break;
-      case 2:
-	base_addr = gprs->rdx;
-	break;
-      case 3:
-	base_addr = gprs->rbx;
-	break;
-      case 4:
-	base_addr = 0;
-	break;
-      case 5:
-	base_addr = gprs->rbp;
-	break;
-      case 6:
-	base_addr = gprs->rsi;
-	break;
-      case 7:
-	base_addr = gprs->rdi;
-	break;
-      }
-
-      base_addr *= scale;
-
-
-      switch (sib->base) {
-      case 0:
-	base_addr += gprs->rax;
-	break;
-      case 1:
-	base_addr += gprs->rcx;
-	break;
-      case 2:
-	base_addr += gprs->rdx;
-	break;
-      case 3:
-	base_addr += gprs->rbx;
-	break;
-      case 4:
-	base_addr += gprs->rsp;
-	break;
-      case 5:
-	if (modrm->mod != 0) {
-	  base_addr += gprs->rbp;
+	if (modrm->mod == 0) {
+	    mod_mode = DISP0;
+	} else if (modrm->mod == 1) {
+	    mod_mode = DISP8;
+	} else if (modrm->mod == 2) {
+	    mod_mode = DISP32;
 	}
-	break;
-      case 6:
-	base_addr += gprs->rsi;
-	break;
-      case 7:
-	base_addr += gprs->rdi;
-	break;
-      }
+    
+	switch (modrm->rm) {
+	    case 0:
+		base_addr = gprs->rax;
+		break;
+	    case 1:
+		base_addr = gprs->rcx;
+		break;
+	    case 2:
+		base_addr = gprs->rdx;
+		break;
+	    case 3:
+		base_addr = gprs->rbx;
+		break;
+	    case 4:
+		has_sib_byte = 1;
+		break;
+	    case 5:
+		if (modrm->mod == 0) {
+		    base_addr = 0;
+		    mod_mode = DISP32;
+		} else {
+		    base_addr = gprs->rbp;
+		}
+		break;
+	    case 6:
+		base_addr = gprs->rsi;
+		break;
+	    case 7:
+		base_addr = gprs->rdi;
+		break;
+	}
 
-    } 
+	if (has_sib_byte) {
+	    instr_cursor += 1;
+	    struct sib_byte * sib = (struct sib_byte *)(instr_cursor);
+	    int scale = 1;
+
+	    instr_cursor += 1;
 
 
-    if (mod_mode == DISP8) {
-      base_addr += (uchar_t)*(instr_cursor);
-      instr_cursor += 1;
-    } else if (mod_mode == DISP32) {
-      base_addr += (uint_t)*(instr_cursor);
-      instr_cursor += 4;
-    }
+	    if (sib->scale == 1) {
+		scale = 2;
+	    } else if (sib->scale == 2) {
+		scale = 4;
+	    } else if (sib->scale == 3) {
+		scale = 8;
+	    }
+
+
+	    switch (sib->index) {
+		case 0:
+		    base_addr = gprs->rax;
+		    break;
+		case 1:
+		    base_addr = gprs->rcx;
+		    break;
+		case 2:
+		    base_addr = gprs->rdx;
+		    break;
+		case 3:
+		    base_addr = gprs->rbx;
+		    break;
+		case 4:
+		    base_addr = 0;
+		    break;
+		case 5:
+		    base_addr = gprs->rbp;
+		    break;
+		case 6:
+		    base_addr = gprs->rsi;
+		    break;
+		case 7:
+		    base_addr = gprs->rdi;
+		    break;
+	    }
+
+	    base_addr *= scale;
+
+
+	    switch (sib->base) {
+		case 0:
+		    base_addr += gprs->rax;
+		    break;
+		case 1:
+		    base_addr += gprs->rcx;
+		    break;
+		case 2:
+		    base_addr += gprs->rdx;
+		    break;
+		case 3:
+		    base_addr += gprs->rbx;
+		    break;
+		case 4:
+		    base_addr += gprs->rsp;
+		    break;
+		case 5:
+		    if (modrm->mod != 0) {
+			base_addr += gprs->rbp;
+		    }
+		    break;
+		case 6:
+		    base_addr += gprs->rsi;
+		    break;
+		case 7:
+		    base_addr += gprs->rdi;
+		    break;
+	    }
+
+	} 
+
+
+	if (mod_mode == DISP8) {
+	    base_addr += (uchar_t)*(instr_cursor);
+	    instr_cursor += 1;
+	} else if (mod_mode == DISP32) {
+	    base_addr += (uint_t)*(instr_cursor);
+	    instr_cursor += 4;
+	}
     
 
-    *first_operand = base_addr;
-  }
+	*first_operand = base_addr;
+    }
 
-  *offset += (instr_cursor - modrm_instr);
+    *offset += (instr_cursor - modrm_instr);
 
-  *second_operand = decode_register(gprs, modrm->reg, reg_size);
+    *second_operand = decode_register(gprs, modrm->reg, reg_size);
 
-  return addr_type;
+    return addr_type;
 }
 
 

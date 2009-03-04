@@ -22,16 +22,16 @@
 
 
 struct v3_keyboard_event {
-  unsigned char status;
-  unsigned char scan_code;
+    unsigned char status;
+    unsigned char scan_code;
 };
 
 struct v3_mouse_event {
-  unsigned char data[3];
+    unsigned char data[3];
 };
 
 struct v3_timer_event {
-  unsigned int period_us;
+    unsigned int period_us;
 };
 
 #ifdef __V3VEE__
@@ -45,24 +45,24 @@ typedef enum {HOST_KEYBOARD_EVT,
 
 
 union v3_host_event_handler {
-  int (*keyboard_handler)(struct guest_info * info, struct v3_keyboard_event * evt, void * priv_data);
-  int (*mouse_handler)(struct guest_info * info, struct v3_mouse_event * evt, void * priv_data);
-  int (*timer_handler)(struct guest_info * info, struct v3_timer_event * evt, void * priv_data);
+    int (*keyboard_handler)(struct guest_info * info, struct v3_keyboard_event * evt, void * priv_data);
+    int (*mouse_handler)(struct guest_info * info, struct v3_mouse_event * evt, void * priv_data);
+    int (*timer_handler)(struct guest_info * info, struct v3_timer_event * evt, void * priv_data);
 };
 
 
 struct v3_host_event_hook {
-  union v3_host_event_handler cb;
-  void * private_data;
-  struct list_head link;
+    union v3_host_event_handler cb;
+    void * private_data;
+    struct list_head link;
 };
 
 
 
 struct v3_host_events {
-  struct list_head keyboard_events;
-  struct list_head mouse_events;
-  struct list_head timer_events;
+    struct list_head keyboard_events;
+    struct list_head mouse_events;
+    struct list_head timer_events;
 };
 
 

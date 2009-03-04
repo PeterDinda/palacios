@@ -28,18 +28,18 @@
 
 
 struct svm_io_info {
-  uint_t type        : 1       PACKED;  // (0=out, 1=in)
-  uint_t rsvd        : 1       PACKED;  // Must be Zero
-  uint_t str         : 1       PACKED;  // string based io
-  uint_t rep         : 1       PACKED;  // repeated io
-  uint_t sz8         : 1       PACKED;  // 8 bit op size
-  uint_t sz16        : 1       PACKED;  // 16 bit op size
-  uint_t sz32        : 1       PACKED;  // 32 bit op size
-  uint_t addr16      : 1       PACKED;  // 16 bit addr
-  uint_t addr32      : 1       PACKED;  // 32 bit addr
-  uint_t addr64      : 1       PACKED;  // 64 bit addr
-  uint_t rsvd2       : 6       PACKED;  // Should be Zero
-  ushort_t port                PACKED;  // port number
+    uint_t type        : 1       PACKED;  // (0=out, 1=in)
+    uint_t rsvd        : 1       PACKED;  // Must be Zero
+    uint_t str         : 1       PACKED;  // string based io
+    uint_t rep         : 1       PACKED;  // repeated io
+    uint_t sz8         : 1       PACKED;  // 8 bit op size
+    uint_t sz16        : 1       PACKED;  // 16 bit op size
+    uint_t sz32        : 1       PACKED;  // 32 bit op size
+    uint_t addr16      : 1       PACKED;  // 16 bit addr
+    uint_t addr32      : 1       PACKED;  // 32 bit addr
+    uint_t addr64      : 1       PACKED;  // 64 bit addr
+    uint_t rsvd2       : 6       PACKED;  // Should be Zero
+    ushort_t port                PACKED;  // port number
 };
 
 

@@ -26,42 +26,42 @@ extern struct v3_os_hooks * os_hooks;
 
 
 void PrintTraceHex(unsigned char x) {
-  unsigned char z;
+    unsigned char z;
   
-  z = (x >> 4) & 0xf;
-  PrintTrace("%x", z);
-  z = x & 0xf;
-  PrintTrace("%x", z);
+    z = (x >> 4) & 0xf;
+    PrintTrace("%x", z);
+    z = x & 0xf;
+    PrintTrace("%x", z);
 }
 
 void PrintTraceLL(ullong_t num) {
-  unsigned char * z = (unsigned char *)&num;
-  int i;
+    unsigned char * z = (unsigned char *)&num;
+    int i;
   
-  for (i = 7; i >= 0; i--) {
-    PrintTraceHex(*(z + i));
-  }
+    for (i = 7; i >= 0; i--) {
+	PrintTraceHex(*(z + i));
+    }
 }
 
 
 void PrintTraceMemDump(uchar_t * start, int n) {
-  int i, j;
+    int i, j;
 
-  for (i = 0; i < n; i += 16) {
-    PrintTrace("%p", (void *)(start + i));
-    for (j = i; (j < (i + 16)) && (j < n); j += 2) {
-      PrintTrace(" ");
-      PrintTraceHex(*(uchar_t *)(start + j));
-      if ((j + 1) < n) { 
-	PrintTraceHex(*((uchar_t *)(start + j + 1)));
-      }
+    for (i = 0; i < n; i += 16) {
+	PrintTrace("%p", (void *)(start + i));
+	for (j = i; (j < (i + 16)) && (j < n); j += 2) {
+	    PrintTrace(" ");
+	    PrintTraceHex(*(uchar_t *)(start + j));
+	    if ((j + 1) < n) { 
+		PrintTraceHex(*((uchar_t *)(start + j + 1)));
+	    }
+	}
+	PrintTrace(" ");
+	for (j = i; (j < (i + 16)) && (j < n); j++) {
+	    PrintTrace("%c", ((start[j] >= 32) && (start[j] <= 126)) ? start[j] : '.');
+	}
+	PrintTrace("\n");
     }
-    PrintTrace(" ");
-    for (j = i; (j < (i + 16)) && (j < n); j++) {
-      PrintTrace("%c", ((start[j] >= 32) && (start[j] <= 126)) ? start[j] : '.');
-    }
-    PrintTrace("\n");
-  }
 }
 
 

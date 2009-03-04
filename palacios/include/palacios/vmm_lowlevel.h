@@ -23,40 +23,40 @@
 #ifdef __V3_32BIT__
 
 void __inline__ v3_cpuid(uint_t target, addr_t * eax, addr_t * ebx, addr_t * ecx, addr_t * edx) {
-  __asm__ __volatile__ (
-			"pushl %%ebx\n\t"
-			"cpuid\n\t"
-			"movl %%ebx, %%esi\n\t"
-			"popl %%ebx\n\t"
-			: "=a" (*eax), "=S" (*ebx), "=c" (*ecx), "=d" (*edx)
-			: "a" (target)
-			);
-  return;
+    __asm__ __volatile__ (
+			  "pushl %%ebx\n\t"
+			  "cpuid\n\t"
+			  "movl %%ebx, %%esi\n\t"
+			  "popl %%ebx\n\t"
+			  : "=a" (*eax), "=S" (*ebx), "=c" (*ecx), "=d" (*edx)
+			  : "a" (target)
+			  );
+    return;
 }
 
 #elif __V3_64BIT__
 
 void __inline__ v3_cpuid(uint_t target, addr_t * eax, addr_t * ebx, addr_t * ecx, addr_t * edx) {
-  __asm__ __volatile__ (
-			"pushq %%rbx\n\t"
-			"cpuid\n\t"
-			"movq %%rbx, %%rsi\n\t"
-			"popq %%rbx\n\t"
-			: "=a" (*eax), "=S" (*ebx), "=c" (*ecx), "=d" (*edx)
-			: "a" (target)
-			);
-  return;
+    __asm__ __volatile__ (
+			  "pushq %%rbx\n\t"
+			  "cpuid\n\t"
+			  "movq %%rbx, %%rsi\n\t"
+			  "popq %%rbx\n\t"
+			  : "=a" (*eax), "=S" (*ebx), "=c" (*ecx), "=d" (*edx)
+			  : "a" (target)
+			  );
+    return;
 }
 
 #endif
 
 
 void __inline__ v3_set_msr(uint_t msr, uint_t high_byte, uint_t low_byte) {
-  __asm__ __volatile__ (
-			"wrmsr"
-			: 
-			: "c" (msr), "d" (high_byte), "a" (low_byte)
-			);
+    __asm__ __volatile__ (
+			  "wrmsr"
+			  : 
+			  : "c" (msr), "d" (high_byte), "a" (low_byte)
+			  );
 
 
 }
@@ -64,20 +64,20 @@ void __inline__ v3_set_msr(uint_t msr, uint_t high_byte, uint_t low_byte) {
 
 
 void __inline__ v3_get_msr(uint_t msr, uint_t * high_byte, uint_t * low_byte) {
-  __asm__ __volatile__ (
-			"rdmsr"
-			: "=d" (*high_byte), "=a" (*low_byte) 
-			: "c" (msr)
-			);
+    __asm__ __volatile__ (
+			  "rdmsr"
+			  : "=d" (*high_byte), "=a" (*low_byte) 
+			  : "c" (msr)
+			  );
 }
 
 
 
 void __inline__ v3_enable_ints() {
-  __asm__ __volatile__ ("sti");
+    __asm__ __volatile__ ("sti");
 }
 
 void __inline__ v3_disable_ints() {
-  __asm__ __volatile__ ("cli");
+    __asm__ __volatile__ ("cli");
 }
 

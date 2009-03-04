@@ -26,11 +26,11 @@
 
 
 typedef union reg_ex {
-  ullong_t r_reg;
-  struct {
-    uint_t low;
-    uint_t high;
-  } e_reg;
+    ullong_t r_reg;
+    struct {
+	uint_t low;
+	uint_t high;
+    } e_reg;
 
 } reg_ex_t;
 
@@ -38,14 +38,14 @@ typedef union reg_ex {
 
 // These are the GPRs layed out according to 'pusha'
 struct VMM_GPRs {
-  uint_t edi;
-  uint_t esi;
-  uint_t ebp;
-  uint_t esp;
-  uint_t ebx;
-  uint_t edx;
-  uint_t ecx;
-  uint_t eax;
+    uint_t edi;
+    uint_t esi;
+    uint_t ebp;
+    uint_t esp;
+    uint_t ebx;
+    uint_t edx;
+    uint_t ecx;
+    uint_t eax;
 };
 
 
@@ -61,38 +61,38 @@ void PrintTraceMemDump(uchar_t * start, int n);
 
 
 #define rdtsc(low,high)						\
-     __asm__ __volatile__("rdtsc" : "=a" (low), "=d" (high))
+    __asm__ __volatile__("rdtsc" : "=a" (low), "=d" (high))
 
 #define rdtscl(low)						\
-     __asm__ __volatile__("rdtsc" : "=a" (low) : : "edx")
+    __asm__ __volatile__("rdtsc" : "=a" (low) : : "edx")
 
 
 
-#define rdtscll(val)							\
-  do {									\
-    uint64_t tsc;							\
-    uint32_t a, d;							\
-    asm volatile("rdtsc" : "=a" (a), "=d" (d));				\
-    *(uint32_t *)&(tsc) = a;						\
-    *(uint32_t *)(((uchar_t *)&tsc) + 4) = d;				\
-    val = tsc;								\
-  } while (0)					
+#define rdtscll(val)					\
+    do {						\
+	uint64_t tsc;					\
+	uint32_t a, d;					\
+	asm volatile("rdtsc" : "=a" (a), "=d" (d));	\
+	*(uint32_t *)&(tsc) = a;			\
+	*(uint32_t *)(((uchar_t *)&tsc) + 4) = d;	\
+	val = tsc;					\
+    } while (0)					
 
 /*
-#if __V3_32BIT__
+  #if __V3_32BIT__
 
-#define rdtscll(val)				\
-     __asm__ __volatile__("rdtsc" : "=A" (val))
+  #define rdtscll(val)				\
+  __asm__ __volatile__("rdtsc" : "=A" (val))
 
-#elif __V3_64BIT__
+  #elif __V3_64BIT__
 
-#define rdtscll(val) do {				    \
-    unsigned int a,d;					    \
-    asm volatile("rdtsc" : "=a" (a), "=d" (d));		    \
-    (val) = ((unsigned long)a) | (((unsigned long)d)<<32);  \
+  #define rdtscll(val) do {				    \
+  unsigned int a,d;					    \
+  asm volatile("rdtsc" : "=a" (a), "=d" (d));		    \
+  (val) = ((unsigned long)a) | (((unsigned long)d)<<32);  \
   } while(0)
 
-#endif
+  #endif
 */
 
 
@@ -102,17 +102,17 @@ void PrintTraceMemDump(uchar_t * start, int n);
 #ifdef __V3_64BIT__
 
 
-#define do_divll(n, base) ({				\
-      uint64_t __rem = 0;				\
-      uint64_t __num = 0;				\
-      while (n > base) {				\
-	__num++;					\
-	n -= base;					\
-      }							\
-      __rem = n;					\
-      n = __num;					\
-      __rem;						\
-    })						
+#define do_divll(n, base) ({			\
+	    uint64_t __rem = 0;			\
+	    uint64_t __num = 0;			\
+	    while (n > base) {			\
+		__num++;			\
+		n -= base;			\
+	    }					\
+	    __rem = n;				\
+	    n = __num;				\
+	    __rem;				\
+	})						
 
 //#define do_divll do_div
 
@@ -141,19 +141,19 @@ void PrintTraceMemDump(uchar_t * start, int n);
  * This ends up being the most efficient "calling
  * convention" on x86.
  */
-#define do_div(n,base) ({				     \
-      unsigned long __upper, __low, __high, __mod, __base;   \
-      __base = (base);					     \
-      asm("":"=a" (__low), "=d" (__high):"A" (n));	     \
-      __upper = __high;					     \
-      if (__high) {					     \
-	__upper = __high % (__base);			     \
-	__high = __high / (__base);			     \
-      }									\
-      asm("divl %2":"=a" (__low), "=d" (__mod):"rm" (__base), "0" (__low), "1" (__upper)); \
-      asm("":"=A" (n):"a" (__low),"d" (__high));			\
-      __mod;								\
-    })
+#define do_div(n,base) ({						\
+	    unsigned long __upper, __low, __high, __mod, __base;	\
+	    __base = (base);						\
+	    asm("":"=a" (__low), "=d" (__high):"A" (n));		\
+	    __upper = __high;						\
+	    if (__high) {						\
+		__upper = __high % (__base);				\
+		__high = __high / (__base);				\
+	    }								\
+	    asm("divl %2":"=a" (__low), "=d" (__mod):"rm" (__base), "0" (__low), "1" (__upper)); \
+	    asm("":"=A" (n):"a" (__low),"d" (__high));			\
+	    __mod;							\
+	})
 
 
 
@@ -162,17 +162,17 @@ void PrintTraceMemDump(uchar_t * start, int n);
  * 
  * NOTE: This absolutely sucks... there has to be a better way....
  */
-#define do_divll(n, base) ({				\
-      ullong_t __rem = 0;				\
-      ullong_t __num = 0;				\
-      while (n > base) {				\
-	__num++;					\
-	n -= base;					\
-      }							\
-      __rem = n;					\
-      n = __num;					\
-      __rem;						\
-    })						
+#define do_divll(n, base) ({			\
+	    ullong_t __rem = 0;			\
+	    ullong_t __num = 0;			\
+	    while (n > base) {			\
+		__num++;			\
+		n -= base;			\
+	    }					\
+	    __rem = n;				\
+	    n = __num;				\
+	    __rem;				\
+	})						
 
 #endif
 

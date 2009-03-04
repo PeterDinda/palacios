@@ -31,17 +31,17 @@
 
 struct shadow_page_state {
 
-  // virtualized control registers
-  v3_reg_t guest_cr3;
-  v3_reg_t guest_cr0;
+    // virtualized control registers
+    v3_reg_t guest_cr3;
+    v3_reg_t guest_cr0;
 
-  // list of allocated shadow pages
-  struct list_head page_list;
+    // list of allocated shadow pages
+    struct list_head page_list;
 
-  /* SOON TO BE DEPRECATED */
-  // Hash table that contains a mapping of guest pte addresses to host pte addresses
-  struct hashtable *  cached_ptes;
-  addr_t cached_cr3;
+    /* SOON TO BE DEPRECATED */
+    // Hash table that contains a mapping of guest pte addresses to host pte addresses
+    struct hashtable *  cached_ptes;
+    addr_t cached_cr3;
 
 };
 

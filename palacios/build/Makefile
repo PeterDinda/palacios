@@ -320,6 +320,10 @@ DEVICES_OBJS := \
 	devices/os_debug.o \
 	devices/apic.o	\
 	devices/io_apic.o \
+	devices/vpci.o \
+
+
+#   	devices/vnic.o \
 
 $(DEVICES_OBJS) :: EXTRA_CFLAGS = \
 	$(JRLDEBUG) \

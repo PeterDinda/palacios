@@ -28,14 +28,14 @@ struct guest_info;
 
 
 struct v3_profiler {
-  uint_t total_exits;
+    uint_t total_exits;
 
-  ullong_t start_time;
-  ullong_t end_time;
+    ullong_t start_time;
+    ullong_t end_time;
 
-  uint_t guest_pf_cnt;
+    uint_t guest_pf_cnt;
 
-  struct rb_root root;
+    struct rb_root root;
 };
 
 

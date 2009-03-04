@@ -64,10 +64,10 @@
 static float e = 0.00000001;
 
 double v3_ceil(double x) {
-  if ((double)(x - (int)x) == 0) {
-    return (int)x;
-  }
-  return (int)(x + e) + 1;
+    if ((double)(x - (int)x) == 0) {
+	return (int)x;
+    }
+    return (int)(x + e) + 1;
 }
 
 
@@ -206,8 +206,8 @@ char *strncat(char *s1, const char *s2, size_t limit)
     t1 = s1;
     while (*s1) s1++;
     while (i < limit) {
-      if(*s2 == '\0') break;
-      *s1++ = *s2++;		
+	if(*s2 == '\0') break;
+	*s1++ = *s2++;		
     }
     *s1 = '\0';
     return t1;
@@ -270,9 +270,9 @@ int atoi(const char *buf)
     int ret = 0;
 
     while (*buf >= '0' && *buf <= '9') {
-       ret *= 10;
-       ret += *buf - '0';
-       buf++;
+	ret *= 10;
+	ret += *buf - '0';
+	buf++;
     }
 
     return ret;

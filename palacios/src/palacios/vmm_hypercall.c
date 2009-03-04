@@ -22,75 +22,75 @@
 
 
 void v3_init_hypercall_map(struct guest_info * info) {
-  info->hcall_map.rb_node = NULL;
+    info->hcall_map.rb_node = NULL;
 }
 
 
 struct hypercall {
-  uint_t id;
+    uint_t id;
   
-  int (*hcall_fn)(struct guest_info * info, uint_t hcall_id, void * priv_data);
-  void * priv_data;
+    int (*hcall_fn)(struct guest_info * info, uint_t hcall_id, void * priv_data);
+    void * priv_data;
   
-  struct rb_node tree_node;
+    struct rb_node tree_node;
 };
 
 
 
 static inline struct hypercall * __insert_hypercall(struct guest_info * info, struct hypercall * hcall) {
-  struct rb_node ** p = &(info->hcall_map.rb_node);
-  struct rb_node * parent = NULL;
-  struct hypercall * tmp_hcall = NULL;
+    struct rb_node ** p = &(info->hcall_map.rb_node);
+    struct rb_node * parent = NULL;
+    struct hypercall * tmp_hcall = NULL;
 
-  while (*p) {
-    parent = *p;
-    tmp_hcall = rb_entry(parent, struct hypercall, tree_node);
+    while (*p) {
+	parent = *p;
+	tmp_hcall = rb_entry(parent, struct hypercall, tree_node);
 
-    if (hcall->id < tmp_hcall->id) {
-      p = &(*p)->rb_left;
-    } else if (hcall->id > tmp_hcall->id) {
-      p = &(*p)->rb_right;
-    } else {
-      return tmp_hcall;
+	if (hcall->id < tmp_hcall->id) {
+	    p = &(*p)->rb_left;
+	} else if (hcall->id > tmp_hcall->id) {
+	    p = &(*p)->rb_right;
+	} else {
+	    return tmp_hcall;
+	}
     }
-  }
 
-  rb_link_node(&(hcall->tree_node), parent, p);
+    rb_link_node(&(hcall->tree_node), parent, p);
 
-  return NULL;
+    return NULL;
 }
 
 
 static inline struct hypercall * insert_hypercall(struct guest_info * info, struct hypercall * hcall) {
-  struct hypercall * ret;
+    struct hypercall * ret;
 
-  if ((ret = __insert_hypercall(info, hcall))) {
-    return ret;
-  }
+    if ((ret = __insert_hypercall(info, hcall))) {
+	return ret;
+    }
 
-  v3_rb_insert_color(&(hcall->tree_node), &(info->hcall_map));
+    v3_rb_insert_color(&(hcall->tree_node), &(info->hcall_map));
 
-  return NULL;
+    return NULL;
 }
 
 
 static struct hypercall * get_hypercall(struct guest_info * info, uint_t id) {
-  struct rb_node * n = info->hcall_map.rb_node;
-  struct hypercall * hcall = NULL;
+    struct rb_node * n = info->hcall_map.rb_node;
+    struct hypercall * hcall = NULL;
 
-  while (n) {
-    hcall = rb_entry(n, struct hypercall, tree_node);
+    while (n) {
+	hcall = rb_entry(n, struct hypercall, tree_node);
     
-    if (id < hcall->id) {
-      n = n->rb_left;
-    } else if (id > hcall->id) {
-      n = n->rb_right;
-    } else {
-      return hcall;
+	if (id < hcall->id) {
+	    n = n->rb_left;
+	} else if (id > hcall->id) {
+	    n = n->rb_right;
+	} else {
+	    return hcall;
+	}
     }
-  }
 
-  return NULL;
+    return NULL;
 }
 
 
@@ -98,30 +98,30 @@ int v3_register_hypercall(struct guest_info * info, uint_t hypercall_id,
 			  int (*hypercall)(struct guest_info * info, uint_t hcall_id, void * priv_data), 
 			  void * priv_data) {
 
-  struct hypercall * hcall = (struct hypercall *)V3_Malloc(sizeof(struct hypercall));
+    struct hypercall * hcall = (struct hypercall *)V3_Malloc(sizeof(struct hypercall));
 
-  hcall->id = hypercall_id;
-  hcall->priv_data = priv_data;
-  hcall->hcall_fn = hypercall;
+    hcall->id = hypercall_id;
+    hcall->priv_data = priv_data;
+    hcall->hcall_fn = hypercall;
 
-  if (insert_hypercall(info, hcall)) {
-    V3_Free(hcall);
-    return -1;
-  }
+    if (insert_hypercall(info, hcall)) {
+	V3_Free(hcall);
+	return -1;
+    }
 
-  return 0;
+    return 0;
 }
 
 
 int v3_handle_hypercall(struct guest_info * info) {
-  uint_t hypercall_id = *(uint_t *)&info->vm_regs.rax;
+    uint_t hypercall_id = *(uint_t *)&info->vm_regs.rax;
 
-  struct hypercall * hcall = get_hypercall(info, hypercall_id);
+    struct hypercall * hcall = get_hypercall(info, hypercall_id);
 
-  if (!hcall) {
-    PrintError("Invalid Hypercall (%d not registered)\n", hypercall_id);
-    return -1;
-  }
+    if (!hcall) {
+	PrintError("Invalid Hypercall (%d not registered)\n", hypercall_id);
+	return -1;
+    }
 
-  return hcall->hcall_fn(info, hypercall_id, hcall->priv_data);
+    return hcall->hcall_fn(info, hypercall_id, hcall->priv_data);
 }

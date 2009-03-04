@@ -310,10 +310,20 @@ overlooked principle of design gives the eye a "place to rest,"
 increasing the appeal of a composition through subtle means."
 \newline\newline
 Translation: Use the spacebar, newlines, and parentheses. 
-\newline\newline
+
+Curly-brackets are not optional, even for single line conditionals. 
+
+Tabs should be 4 characters in width.
+
+{\em Special:} If you are using XEmacs add the following to your \verb.init\.el. file:
+\begin{verbatim}
+(setq c-basic-offset 4)
+(c-set-offset 'case-label 4)
+\end{verbatim}
+
 {\em Bad}
 \begin{verbatim}
-if(a&&b==5||c!=0){return;}
+if(a&&b==5||c!=0) return;
 \end{verbatim}
 
 
@@ -322,9 +332,11 @@ if(a&&b==5||c!=0){return;}
 \begin{verbatim}
 if (((a) && (b == 5)) || 
     (c != 0)) {
-       return;
+       	return;
 }
 \end{verbatim}
+
+
 
 \paragraph*{Fail Stop}
 Because booting a basic linux kernel results in over 1 million VM exits
@@ -358,7 +370,7 @@ whenever possible.
 \item \verb.v3_. prefix
 \newline
 Major interface functions should be named with the prefix \verb.v3_. This
-allows easy understanding of how to interact with the subsystems. And
+xallows easy understanding of how to interact with the subsystems. And
 in the case that they need to be externally visible to the host os,
 make them unlikely to collide with other functions. 
 \end{enumerate}
@@ -374,8 +386,8 @@ Two functions of note are \verb.PrintDebug. and \verb.PrintError..
 
 \item PrintDebug:
 \newline
-Should be used for debugging output that will often be
-turned off selectively by the VMM configuration. 
+Should be used for debugging output that will often be turned off
+selectively by the VMM configuration.
 
 \item PrintError
 \newline
@@ -491,7 +503,7 @@ hgext.mq=
 \end{verbatim}
 
 Mercurial queues use the same stack operations as stacked git, however
-does not automatically handle the synchronization with pull
+it does not automatically handle the synchronization with pull
 operations. Before you update from the central version of Kitten you
 need to pop all of the patches, and then push them once the update is
 complete.
@@ -501,7 +513,7 @@ Basically:
 hg qpop -a
 hg pull
 hg update
-hg qupush -a
+hg qpush -a
 \end{verbatim}
 
 

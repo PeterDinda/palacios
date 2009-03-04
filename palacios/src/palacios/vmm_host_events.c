@@ -22,13 +22,13 @@
 
 
 int v3_init_host_events(struct guest_info * info) {
-  struct v3_host_events * host_evts = &(info->host_event_hooks);
+    struct v3_host_events * host_evts = &(info->host_event_hooks);
 
-  INIT_LIST_HEAD(&(host_evts->keyboard_events));
-  INIT_LIST_HEAD(&(host_evts->mouse_events));
-  INIT_LIST_HEAD(&(host_evts->timer_events));
+    INIT_LIST_HEAD(&(host_evts->keyboard_events));
+    INIT_LIST_HEAD(&(host_evts->mouse_events));
+    INIT_LIST_HEAD(&(host_evts->timer_events));
 
-  return 0;
+    return 0;
 }
 
 
@@ -37,74 +37,74 @@ int v3_hook_host_event(struct guest_info * info,
 		       union v3_host_event_handler cb, 
 		       void * private_data) {
   
-  struct v3_host_events * host_evts = &(info->host_event_hooks);
-  struct v3_host_event_hook * hook = NULL;
+    struct v3_host_events * host_evts = &(info->host_event_hooks);
+    struct v3_host_event_hook * hook = NULL;
 
-  hook = (struct v3_host_event_hook *)V3_Malloc(sizeof(struct v3_host_event_hook));
-  if (hook == NULL) {
-    PrintError("Could not allocate event hook\n");
-    return -1;
-  }
+    hook = (struct v3_host_event_hook *)V3_Malloc(sizeof(struct v3_host_event_hook));
+    if (hook == NULL) {
+	PrintError("Could not allocate event hook\n");
+	return -1;
+    }
 
-  hook->cb = cb;
-  hook->private_data = private_data;
+    hook->cb = cb;
+    hook->private_data = private_data;
 
-  switch (event_type)  {
-  case HOST_KEYBOARD_EVT:
-    list_add(&(hook->link), &(host_evts->keyboard_events));
-    break;
-  case HOST_MOUSE_EVT:
-    list_add(&(hook->link), &(host_evts->mouse_events));
-    break;
-  case HOST_TIMER_EVT:
-    list_add(&(hook->link), &(host_evts->timer_events));
-    break;
-  }
+    switch (event_type)  {
+	case HOST_KEYBOARD_EVT:
+	    list_add(&(hook->link), &(host_evts->keyboard_events));
+	    break;
+	case HOST_MOUSE_EVT:
+	    list_add(&(hook->link), &(host_evts->mouse_events));
+	    break;
+	case HOST_TIMER_EVT:
+	    list_add(&(hook->link), &(host_evts->timer_events));
+	    break;
+    }
 
-  return 0;
+    return 0;
 }
 
 
 int v3_deliver_keyboard_event(struct guest_info * info, 
 			      struct v3_keyboard_event * evt) {
-  struct v3_host_events * host_evts = &(info->host_event_hooks);
-  struct v3_host_event_hook * hook = NULL;
+    struct v3_host_events * host_evts = &(info->host_event_hooks);
+    struct v3_host_event_hook * hook = NULL;
 
-  list_for_each_entry(hook, &(host_evts->keyboard_events), link) {
-    if (hook->cb.keyboard_handler(info, evt, hook->private_data) == -1) {
-      return -1;
+    list_for_each_entry(hook, &(host_evts->keyboard_events), link) {
+	if (hook->cb.keyboard_handler(info, evt, hook->private_data) == -1) {
+	    return -1;
+	}
     }
-  }
 
-  return 0;
+    return 0;
 }
 
 
 int v3_deliver_mouse_event(struct guest_info * info, 
 			   struct v3_mouse_event * evt) {
-  struct v3_host_events * host_evts = &(info->host_event_hooks);
-  struct v3_host_event_hook * hook = NULL;
+    struct v3_host_events * host_evts = &(info->host_event_hooks);
+    struct v3_host_event_hook * hook = NULL;
 
-  list_for_each_entry(hook, &(host_evts->mouse_events), link) {
-    if (hook->cb.mouse_handler(info, evt, hook->private_data) == -1) {
-      return -1;
+    list_for_each_entry(hook, &(host_evts->mouse_events), link) {
+	if (hook->cb.mouse_handler(info, evt, hook->private_data) == -1) {
+	    return -1;
+	}
     }
-  }
 
-  return 0;
+    return 0;
 }
 
 
 int v3_deliver_timer_event(struct guest_info * info, 
 			   struct v3_timer_event * evt) {
-  struct v3_host_events * host_evts = &(info->host_event_hooks);
-  struct v3_host_event_hook * hook = NULL;
+    struct v3_host_events * host_evts = &(info->host_event_hooks);
+    struct v3_host_event_hook * hook = NULL;
 
-  list_for_each_entry(hook, &(host_evts->timer_events), link) {
-    if (hook->cb.timer_handler(info, evt, hook->private_data) == -1) {
-      return -1;
+    list_for_each_entry(hook, &(host_evts->timer_events), link) {
+	if (hook->cb.timer_handler(info, evt, hook->private_data) == -1) {
+	    return -1;
+	}
     }
-  }
 
-  return 0;
+    return 0;
 }

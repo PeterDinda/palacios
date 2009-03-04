@@ -30,14 +30,14 @@ struct guest_info;
 
 struct v3_msr {
 
-  union {
-    ullong_t value;
+    union {
+	ullong_t value;
 
-    struct {
-      uint_t lo;
-      uint_t hi;
+	struct {
+	    uint_t lo;
+	    uint_t hi;
+	} __attribute__((packed));
     } __attribute__((packed));
-  } __attribute__((packed));
 } __attribute__((packed));
 
 
@@ -45,14 +45,14 @@ struct v3_msr {
 typedef struct v3_msr v3_msr_t;
 
 struct v3_msr_hook {
-  uint_t msr;
+    uint_t msr;
   
-  int (*read)(uint_t msr, struct v3_msr * dst, void * priv_data);
-  int (*write)(uint_t msr, struct v3_msr src, void * priv_data);
+    int (*read)(uint_t msr, struct v3_msr * dst, void * priv_data);
+    int (*write)(uint_t msr, struct v3_msr src, void * priv_data);
 
-  void * priv_data;
+    void * priv_data;
 
-  struct list_head link;
+    struct list_head link;
 };
 
 
@@ -60,8 +60,8 @@ struct v3_msr_hook {
 struct v3_msr_hook;
 
 struct v3_msr_map {
-  uint_t num_hooks;
-  struct list_head hook_list;
+    uint_t num_hooks;
+    struct list_head hook_list;
 };
 
 
