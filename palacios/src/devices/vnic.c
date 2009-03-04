@@ -21,6 +21,9 @@
 * Virtual NE2K Network Card 
 */
 
+
+
+
 #include <devices/vnic.h>
 #include <palacios/vmm.h>
 #include <palacios/vmm_types.h>
@@ -94,44 +97,101 @@ struct vm_device *current_vnic;
 
 
 
+static int vnic_mem_write(struct nic_context * nic_state, 
+			  uint32_t addr,
+			  void * src, uint_t length) {
+    
+    PrintDebug("wmem addr: %x val: %x\n", addr, val);
 
-/* 
- * Host/Network byte conversion functions
- * TODO: These are not compiler safe
- * TODO: consistent names would be nice...
- */
+    if ((addr < NE2K_PMEM_START) || (addr > NE2K_MEM_SIZE))
 
-static inline uint16_t cpu2le16(uint16_t val) {
-    uint16_t p = 0;
-    uchar_t * p1 = (uchar_t *)&p;
+    switch (length) {
+	case 1: {
+	    uchar_t val = *(uchar_t *)src;
+	    
+	}
+	case 2:
+	case 4:
+    }
 
-    p1[0] = val;
-    p1[1] = val >> 8;
-
-    return p;
 }
 
 
-static inline uint32_t cpu2le32(uint32_t val) {
-    uint32_t p = 0;
-    uchar_t * p1 = (uchar_t *)&p;
+static void vnic_mem_writeb(struct nic_context * nic_state, 
+			    uint32_t addr,
+			    uint32_t val) {
+    uchar_t tmp = (uchar_t) (val & 0x000000ff);
 
-    p1[0] = val;
-    p1[1] = val >> 8;
-    p1[2] = val >> 16;
-    p1[3] = val >> 24;
+    if ( (addr < 32) || 
+	 ((addr >= NE2K_PMEM_START && addr) < NE2K_MEM_SIZE) ) {
+        nic_state->mem[addr] = tmp;
+    }
 
-    return p;
+    PrintDebug("wmem addr: %x val: %x\n", addr, val);
 }
 
-static inline uint16_t le16_to_cpu(const uint16_t * p) {
-    const uchar_t * p1 = (const uchar_t *)p;
-    return p1[0] | (p1[1] << 8);
+static void vnic_mem_writew(struct nic_context * nic_state, 
+			    uint32_t addr,
+			    uint32_t val) {
+
+    addr &= ~1; //XXX: check exact behaviour if not even
+
+    if ( (addr < 32) ||
+	 ((addr >= NE2K_PMEM_START && addr) < NE2K_MEM_SIZE)) {
+        *(ushort_t *)(nic_state->mem + addr) = cpu2le16(val);
+    }
+
+    PrintDebug("wmem addr: %x val: %x\n", addr, val);
 }
 
-static inline uint32_t le32_to_cpu(const uint32_t *p) {
-    const uchar_t * p1 = (const uchar_t *)p;
-    return p1[0] | (p1[1] << 8) | (p1[2] << 16) | (p1[3] << 24);
+static void vnic_mem_writel(struct nic_context * nic_state,
+			    uint32_t addr,
+			    uint32_t val) {
+    addr &= ~1; // XXX: check exact behaviour if not even
+
+    if ( (addr < 32) ||
+	 ( (addr >= NE2K_PMEM_START) && (addr < NE2K_MEM_SIZE) ) ) {
+        *(uint32_t *)(nic_state->mem + addr) = cpu2le32(val);
+    }
+    
+    PrintDebug("wmem addr: %x val: %x\n", addr, val);
+}
+
+static uchar_t vnic_mem_readb(struct nic_context * nic_state, uint32_t addr) {
+    PrintDebug("rmem addr: %x\n", addr);
+	
+    if ( (addr < 32) ||
+	 ( (addr >= NE2K_PMEM_START) && (addr < NE2K_MEM_SIZE)) ) {
+        return nic_state->mem[addr];
+    } else {
+        return 0xff;
+    }
+}
+
+static ushort_t vnic_mem_readw(struct nic_context * nic_state, uint32_t addr) {
+    PrintDebug("rmem addr: %x\n", addr);
+	
+    addr &= ~1; //XXX: check exact behaviour if not even 
+
+    if ( (addr < 32) ||
+         ( (addr >= NE2K_PMEM_START) && (addr < NE2K_MEM_SIZE))) {
+        return (ushort_t)le16_to_cpu((ushort_t *)(nic_state->mem + addr));
+    } else {
+        return 0xffff;
+    }
+}
+
+static uint32_t vnic_mem_readl(struct nic_context * nic_state, uint32_t addr) {
+    PrintDebug("rmem addr: %x\n", addr);
+
+    addr &= ~1; //XXX: check exact behaviour if not even
+
+    if ( (addr < 32) ||
+         ( (addr >= NE2K_PMEM_START && addr < NE2K_MEM_SIZE))) {
+        return (uint32_t)le32_to_cpu((uint32_t *)(nic_state->mem + addr));
+    } else {
+        return 0xffffffff;
+    }
 }
 
 
@@ -744,81 +804,6 @@ static int vnic_ioport_read(ushort_t port, void * dst, uint_t length, struct vm_
 
 
 
-static void vnic_mem_writeb(struct nic_context * nic_state, 
-			    uint32_t addr,
-			    uint32_t val) {
-    uchar_t tmp = (uchar_t) (val & 0x000000ff);
-
-    if ( (addr < 32) || 
-	 ((addr >= NE2K_PMEM_START && addr) < NE2K_MEM_SIZE) ) {
-        nic_state->mem[addr] = tmp;
-    }
-
-    PrintDebug("wmem addr: %x val: %x\n", addr, val);
-}
-
-static void vnic_mem_writew(struct nic_context * nic_state, 
-			    uint32_t addr,
-			    uint32_t val) {
-
-    addr &= ~1; //XXX: check exact behaviour if not even
-
-    if ( (addr < 32) ||
-	 ((addr >= NE2K_PMEM_START && addr) < NE2K_MEM_SIZE)) {
-        *(ushort_t *)(nic_state->mem + addr) = cpu2le16(val);
-    }
-
-    PrintDebug("wmem addr: %x val: %x\n", addr, val);
-}
-
-static void vnic_mem_writel(struct nic_context * nic_state,
-			    uint32_t addr,
-			    uint32_t val) {
-    addr &= ~1; // XXX: check exact behaviour if not even
-
-    if ( (addr < 32) ||
-	 ( (addr >= NE2K_PMEM_START) && (addr < NE2K_MEM_SIZE) ) ) {
-        *(uint32_t *)(nic_state->mem + addr) = cpu2le32(val);
-    }
-    
-    PrintDebug("wmem addr: %x val: %x\n", addr, val);
-}
-
-static uchar_t vnic_mem_readb(struct nic_context * nic_state, uint32_t addr) {
-    PrintDebug("rmem addr: %x\n", addr);
-	
-    if ( (addr < 32) ||
-	 ( (addr >= NE2K_PMEM_START) && (addr < NE2K_MEM_SIZE)) ) {
-        return nic_state->mem[addr];
-    } else {
-        return 0xff;
-    }
-}
-
-static ushort_t vnic_mem_readw(struct nic_context * nic_state, uint32_t addr) {
-    PrintDebug("rmem addr: %x\n", addr);
-	
-    addr &= ~1; //XXX: check exact behaviour if not even 
-    if ( (addr < 32) ||
-         ( (addr >= NE2K_PMEM_START) && (addr < NE2K_MEM_SIZE))) {
-        return (ushort_t)le16_to_cpu((ushort_t *)(nic_state->mem + addr));
-    } else {
-        return 0xffff;
-    }
-}
-
-static uint32_t vnic_mem_readl(struct nic_context * nic_state, uint32_t addr) {
-    PrintDebug("rmem addr: %x\n", addr);
-
-    addr &= ~1; //XXX: check exact behaviour if not even
-
-    if ( (addr < 32) ||
-         ( (addr >= NE2K_PMEM_START && addr < NE2K_MEM_SIZE))) {
-        return (uint32_t)le32_to_cpu((uint32_t *)(nic_state->mem + addr));
-    } else {
-        return 0xffffffff;
-    }
-}
 
 static void vnic_dma_update(struct vm_device * dev, int len) {		
     struct nic_context *nic_state = (struct nic_context *)dev->private_data;

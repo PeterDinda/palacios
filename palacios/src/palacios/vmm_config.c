@@ -266,7 +266,7 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
     if (use_ramdisk) {
 	PrintDebug("Creating Ramdisk\n");
 	ramdisk = v3_create_ramdisk();
-	cdrom = v3_create_cdrom(ramdisk, config_ptr->ramdisk, config_ptr->ramdisk_size); 
+	cdrom = v3_create_cdrom(ramdisk, config_ptr->ramdisk, config_ptr->ramdisk_size);
     }
     
     

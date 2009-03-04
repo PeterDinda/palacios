@@ -279,7 +279,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
 	PrintDebug("NP_Enable at 0x%p\n", (void *)&(ctrl_area->NP_ENABLE));
 	
 	// Set the Nested Page Table pointer
-	vm_info->direct_map_pt = ((addr_t)create_passthrough_pts_32(vm_info) & ~0xfff);
+	vm_info->direct_map_pt = ((addr_t)v3_create_direct_passthrough_pts(vm_info) & ~0xfff);
 	ctrl_area->N_CR3 = vm_info->direct_map_pt;
 	
 	//   ctrl_area->N_CR3 = Get_CR3();

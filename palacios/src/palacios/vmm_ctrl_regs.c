@@ -23,7 +23,7 @@
 #include <palacios/vmm_decoder.h>
 #include <palacios/vm_guest_mem.h>
 #include <palacios/vmm_ctrl_regs.h>
-
+#include <palacios/vmm_direct_paging.h>
 
 #ifndef DEBUG_CTRL_REGS
 #undef PrintDebug
@@ -473,7 +473,7 @@ int v3_handle_cr4_write(struct guest_info * info) {
 		    delete_page_tables_32((pde32_t *)V3_VAddr((void *)(info->direct_map_pt)));
 		    
 		    // create 32 bit PAE direct map page table
-		    info->direct_map_pt = (addr_t)V3_PAddr(create_passthrough_pts_32PAE(info));
+		    info->direct_map_pt = (addr_t)V3_PAddr((void *)v3_create_direct_passthrough_pts(info));
 		    
 		    // reset cr3 to new page tables
 		    info->ctrl_regs.cr3 = *(addr_t*)&(info->direct_map_pt);
