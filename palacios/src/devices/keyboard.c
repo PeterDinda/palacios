@@ -146,6 +146,18 @@ struct keyboard_internal {
 	// we wait for a new output byte on 60
 	// then send it to the mouse
 	IN_MOUSE,
+	// After the Keyboard LEDs are enabled
+	// we wait for the output byte on 64?
+	SET_LEDS,
+	// After the Keyboard SET_RATE is called
+	// we wait for the output byte on 64?
+	SET_RATE,
+	// The keyboard requests an ID which 
+	// generates 3 bytes of output...
+	KBD_ID1,
+	KBD_ID2,
+	
+	
     } state;
 
 
@@ -208,6 +220,17 @@ struct keyboard_internal {
 };
 
 
+static int keyboard_interrupt(struct vm_device * dev, uint_t irq) {
+    PrintDebug("keyboard: interrupt 0x%x\n", irq);
+
+    v3_raise_irq(dev->vm, irq);
+
+    return 0;
+
+}
+
+
+
 // 
 // push item onto outputqueue, optionally overwriting if there is no room
 // returns 0 if successful
@@ -235,6 +258,10 @@ static int PushToOutputQueue(struct vm_device * dev, uchar_t value, uchar_t over
 	    state->status_byte |= STATUS_OUTPUT_BUFFER_FULL;
 	}
     
+	if (state->cmd_byte & CMD_INTR) { 
+	    keyboard_interrupt(dev, KEYBOARD_IRQ);
+	}
+
 	return 0;
 
     } else {
@@ -326,14 +353,6 @@ static int PullFromInputQueue(struct vm_device *dev, uchar_t *value)
 
 
 
-static int keyboard_interrupt(struct vm_device * dev, uint_t irq) {
-    PrintDebug("keyboard: interrupt 0x%x\n", irq);
-
-    v3_raise_irq(dev->vm, irq);
-
-    return 0;
-
-}
 
 
 
@@ -1039,7 +1058,9 @@ static int keyboard_write_output(ushort_t port,
 	    PrintDebug("keyboard: injected key 0x%x\n", data);
 	    break;
 	case INJECTING_MOUSE:
-	    PrintDebug("keyboard: ignoring injected mouse event 0x%x\n", data);
+	    PushToOutputQueue(dev, data, OVERWRITE, DATA, MOUSE);
+	    //	    PrintDebug("keyboard: ignoring injected mouse event 0x%x\n", data);
+	    PrintDebug("keyboard: injected mouse event 0x%x\n", data);
 	    state->state = NORMAL;
 	    break;
 	case IN_MOUSE:
@@ -1059,6 +1080,17 @@ static int keyboard_write_output(ushort_t port,
 		PrintDebug("keyboard: done with password\n");
 	    }
 	    break;
+	case SET_LEDS:
+	    PrintDebug("Keyboard: LEDs being set...\n");
+	    PushToOutputQueue(dev, 0xfa, OVERWRITE, COMMAND, KEYBOARD);
+	    state->state = NORMAL;
+	    break;
+	case SET_RATE:
+	    PrintDebug("Keyboard: Rate being set...\n");
+	    PushToOutputQueue(dev, 0xfa, OVERWRITE, COMMAND, KEYBOARD);
+	    state->state = NORMAL;
+	    break;
+	default:
 	case NORMAL:
 	    {
 		// command is being sent to keyboard controller
@@ -1074,7 +1106,23 @@ static int keyboard_write_output(ushort_t port,
 			PushToOutputQueue(dev, 0xfa, OVERWRITE, COMMAND, KEYBOARD);
 			// should do something here... PAD
 			state->state = NORMAL;
-			PrintDebug("keyboard: %s scanning done and acked\n",data==0xf5 ? "disable" : "enable");
+			PrintDebug("keyboard: %s scanning done and acked\n", (data == 0xf5) ? "disable" : "enable");
+			break;
+		    case 0xf3:
+			PushToOutputQueue(dev, 0xfa, OVERWRITE, COMMAND, KEYBOARD);
+			state->state = SET_RATE;
+			break;
+		    case 0xf2: // get keyboard ID
+			PushToOutputQueue(dev, 0xfa, OVERWRITE, COMMAND, KEYBOARD);
+			state->state = KBD_ID1;
+			PrintDebug("Keyboard: Requesting Keyboard ID\n");
+
+			//PushToOutputQueue(dev, 0xab, OVERWRITE, COMMAND, KEYBOARD);
+			//state->state = KBD_ID2;
+			break;
+		    case 0xed: // enable keyboard LEDs
+			PushToOutputQueue(dev, 0xfa, OVERWRITE, COMMAND, KEYBOARD);
+			state->state = SET_LEDS;
 			break;
 		    case 0xfe: // resend
 		    case 0xfd: // set key type make
@@ -1085,18 +1133,18 @@ static int keyboard_write_output(ushort_t port,
 		    case 0xf8: // set all make/break
 		    case 0xf7: // set all typemaktic
 		    case 0xf6: // set defaults
-		    case 0xf3: // set typematic delay/rate
 			PrintDebug("keyboard: unhandled known command 0x%x on output buffer (60h)\n", data);
+			return -1;
 			break;
 		    default:
 			PrintDebug("keyboard: unhandled unknown command 0x%x on output buffer (60h)\n", data);
 			state->status_byte |= 0x1;
+			return -1;
 			break;
 		}
 		break;
 	    }
-	default:
-	    PrintDebug("keyboard: unknown state %x on command 0x%x on output buffer (60h)\n", state->state, data);
+
     }
   
     return 1;
@@ -1130,8 +1178,16 @@ static int keyboard_read_input(ushort_t port,
 	    PushToOutputQueue(dev, 0xaa, OVERWRITE, COMMAND, KEYBOARD);
 	    state->state = NORMAL;
 	    PrintDebug(" (in reset, pushing BAT test code 0xaa) ");
+	} else if (state->state == KBD_ID1) {
+	    PushToOutputQueue(dev, 0xab, OVERWRITE, COMMAND, KEYBOARD);
+	    state->state = KBD_ID2;
+	    PrintDebug(" (in kbd id request, pushing 1st ID val) ");
+	} else if (state->state == KBD_ID2) {
+	    PushToOutputQueue(dev, 0x83, OVERWRITE, COMMAND, KEYBOARD);
+	    state->state = NORMAL;
+	    PrintDebug(" (in kbd id request, pushing 2nd ID val) ");
 	}
-      
+
 	PrintDebug("0x%x\n", data);
 
 	*((uchar_t*)dest) = data;
