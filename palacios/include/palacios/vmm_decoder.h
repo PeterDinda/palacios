@@ -250,14 +250,15 @@ static inline int is_prefix_byte(uchar_t byte) {
 static inline v3_reg_t get_gpr_mask(struct guest_info * info) {
     switch (info->cpu_mode) {
 	case REAL: 
+	case LONG_16_COMPAT:
 	    return 0xffff;
 	    break;
 	case PROTECTED:
+	case LONG_32_COMPAT:
 	case PROTECTED_PAE:
 	    return 0xffffffff;
 	case LONG:
-	case LONG_32_COMPAT:
-	case LONG_16_COMPAT:
+	    return 0xffffffffffffffffLL;
 	default:
 	    PrintError("Unsupported Address Mode\n");
 	    return -1;
