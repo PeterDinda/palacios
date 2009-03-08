@@ -173,8 +173,8 @@ int v3_handle_svm_io_ins(struct guest_info * info) {
     }
 
     if (io_info->rep) {
-	//    rep_num = info->vm_regs.rcx & mask;
-	rep_num = info->vm_regs.rcx;
+	rep_num = info->vm_regs.rcx & mask;
+	//rep_num = info->vm_regs.rcx;
     }
 
 
@@ -200,9 +200,10 @@ int v3_handle_svm_io_ins(struct guest_info * info) {
 
 	info->vm_regs.rdi += read_size * direction;
 
-	if (io_info->rep)
+	if (io_info->rep) {
 	    info->vm_regs.rcx--;
-    
+	}
+
 	rep_num--;
     }
 
