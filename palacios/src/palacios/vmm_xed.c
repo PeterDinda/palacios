@@ -361,7 +361,7 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 	if ((!xed_operand_is_register(op_enum)) ||
 	    (!is_flags_reg(xed_decoded_inst_get_reg(&xed_instr, op_enum)))) {
 	    // special case
-	    PrintError("Special Case not handled\n");
+	    PrintError("Special Case not handled (iform=%s)\n", xed_iform_enum_t2str(iform));
 	    return -1;
 	}
     }
