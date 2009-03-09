@@ -1266,12 +1266,14 @@ static v3_op_type_t get_opcode(xed_iform_enum_t iform) {
 	    // Write
 	case XED_IFORM_MOV_MEMv_GPRv:
 	case XED_IFORM_MOV_MEMb_GPR8:
+	case XED_IFORM_MOV_MEMv_OrAX:
 	case XED_IFORM_MOV_MEMb_AL:
 	case XED_IFORM_MOV_MEMv_IMM:
 	case XED_IFORM_MOV_MEMb_IMM:
 	    // Read 
 	case XED_IFORM_MOV_GPRv_MEMv:
 	case XED_IFORM_MOV_GPR8_MEMb:
+	case XED_IFORM_MOV_OrAX_MEMv:
 	case XED_IFORM_MOV_AL_MEMb:
 	    return V3_OP_MOV;
 
