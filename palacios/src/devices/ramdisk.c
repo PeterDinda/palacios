@@ -319,7 +319,6 @@ static void rd_lower_irq(struct vm_device *dev, struct channel_t * channel);
 
 #ifdef DEBUG_RAMDISK
 static void rd_print_state(struct ramdisk_t *ramdisk);
-static int check_bit_fields(struct controller_t * controller);
 #endif
 
 
@@ -362,14 +361,6 @@ int v3_ramdisk_register_cdrom(struct vm_device * dev, uint_t busID, uint_t drive
   
     drive->private_data = private_data;
 
-
-#ifdef DEBUG_RAMDISK
-    if (check_bit_fields(controller) == INTR_REASON_BIT_ERR) {
-	PrintError("interrupt reason: bit field error\n");
-	return INTR_REASON_BIT_ERR;
-    }
-#endif
-  
     controller->sector_count = 0;
 
     drive->cdrom.cd = cd;
@@ -451,8 +442,8 @@ static Bit32u rd_init_hardware(struct ramdisk_t *ramdisk) {
 		strcat ((char*)(drive->model_no), " ");
 	    }
 
-	}//for device
-    }//for channel
+	}
+    }
 
 #ifdef DEBUG_RAMDISK
     rd_print_state(ramdisk);
@@ -2174,7 +2165,7 @@ void rd_identify_ATAPI_drive(struct vm_device * dev, struct channel_t * channel)
 	drive->id_drive[i] = 0;
     }
 
-    for (i = 0; i < strlen(firmware)/2; i++) {
+    for (i = 0; i < strlen(firmware) / 2; i++) {
 	drive->id_drive[23 + i] = ((firmware[i * 2] << 8) |
 				   (firmware[(i * 2) + 1]));
     }
@@ -2184,6 +2175,7 @@ void rd_identify_ATAPI_drive(struct vm_device * dev, struct channel_t * channel)
 	drive->id_drive[27 + i] = ((drive->model_no[i * 2] << 8) |
 				   (drive->model_no[(i * 2) + 1]));
     }
+
     V3_ASSERT((27 + i) == 47);
 
     drive->id_drive[47] = 0;
@@ -2573,36 +2565,5 @@ static void rd_print_state(struct ramdisk_t * ramdisk) {
     return;
 }
 
-
-
-
-static int check_bit_fields(struct controller_t * controller) {
-    //Check bit fields
-    controller->sector_count = 0;
-    controller->interrupt_reason.c_d = 1;
-    if (controller->sector_count != 0x01) {
-	return INTR_REASON_BIT_ERR;
-    }
-  
-    controller->sector_count = 0;
-    controller->interrupt_reason.i_o = 1;
-    if (controller->sector_count != 0x02) {
-	return INTR_REASON_BIT_ERR;
-    }
-  
-    controller->sector_count = 0;
-    controller->interrupt_reason.rel = 1;
-    if (controller->sector_count != 0x04) {
-	return INTR_REASON_BIT_ERR;
-    }
-  
-    controller->sector_count = 0;
-    controller->interrupt_reason.tag = 3;
-    if (controller->sector_count != 0x18) {
-	return INTR_REASON_BIT_ERR;
-    }
-  
-    return 0;
-}
 
 #endif
