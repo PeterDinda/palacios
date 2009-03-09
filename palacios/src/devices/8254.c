@@ -206,9 +206,11 @@ static int handle_crystal_tics(struct vm_device * dev, struct channel * ch, uint
 
 	    break;
 	case SW_STROBE:
+	    PrintError("Software strobe not implemented\n");
 	    return -1;
 	    break;
 	case HW_STROBE:
+	    PrintError("Hardware strobe not implemented\n");
 	    return -1;
 	    break;
 	default:
@@ -337,6 +339,7 @@ static int handle_channel_write(struct channel * ch, char val) {
 	    PrintDebug("8254 PIT: Channel Run State=%d\n", ch->run_state);
 	    break;
 	default:
+	    PrintError("Invalid Access state\n");
 	    return -1;
     }
     
@@ -355,6 +358,7 @@ static int handle_channel_write(struct channel * ch, char val) {
 	    ch->output_pin = 1;
 	    break;
 	default:
+	    PrintError("Invalid OP_MODE: %d\n", ch->op_mode);
 	    return -1;
 	    break;
     }
@@ -431,6 +435,7 @@ static int handle_channel_cmd(struct channel * ch, struct pit_cmd_word cmd) {
 	    ch->output_pin = 1;
 	    break;
 	default:
+	    PrintError("Invalid OP_MODE: %d\n", cmd.op_mode);
 	    return -1;
     }
 
@@ -455,16 +460,19 @@ static int pit_read_channel(ushort_t port, void * dst, uint_t length, struct vm_
     switch (port) {
 	case CHANNEL0_PORT: 
 	    if (handle_channel_read(&(state->ch_0), val) == -1) {
+		PrintError("CHANNEL0 read error\n");
 		return -1;
 	    }
 	    break;
 	case CHANNEL1_PORT:
 	    if (handle_channel_read(&(state->ch_1), val) == -1) {
+		PrintError("CHANNEL1 read error\n");
 		return -1;
 	    }
 	    break;
 	case CHANNEL2_PORT:
 	    if (handle_channel_read(&(state->ch_2), val) == -1) {
+		PrintError("CHANNEL2 read error\n");
 		return -1;
 	    }
 	    break;
@@ -493,16 +501,19 @@ static int pit_write_channel(ushort_t port, void * src, uint_t length, struct vm
     switch (port) {
 	case CHANNEL0_PORT:
 	    if (handle_channel_write(&(state->ch_0), val) == -1) {
+		PrintError("CHANNEL0 write error\n");
 		return -1;
 	    } 
 	    break;
 	case CHANNEL1_PORT:
 	    if (handle_channel_write(&(state->ch_1), val) == -1) {
+		PrintError("CHANNEL1 write error\n");
 		return -1;
 	    }
 	    break;
 	case CHANNEL2_PORT:
 	    if (handle_channel_write(&(state->ch_2), val) == -1) {
+		PrintError("CHANNEL2 write error\n");	
 		return -1;
 	    }
 	    break;
@@ -531,21 +542,25 @@ static int pit_write_command(ushort_t port, void * src, uint_t length, struct vm
     switch (cmd->channel) {
 	case 0:
 	    if (handle_channel_cmd(&(state->ch_0), *cmd) == -1) {
+		PrintError("CHANNEL0 command error\n");
 		return -1;
 	    }
 	    break;
 	case 1:
 	    if (handle_channel_cmd(&(state->ch_1), *cmd) == -1) {
+		PrintError("CHANNEL1 command error\n");
 		return -1;
 	    }
 	    break;
 	case 2:
 	    if (handle_channel_cmd(&(state->ch_2), *cmd) == -1) {
+		PrintError("CHANNEL2 command error\n");
 		return -1;
 	    }
 	    break;
 	case 3:
 	    // Read Back command
+	    PrintError("Read back command not implemented\n");
 	    return -1;
 	    break;
 	default:
