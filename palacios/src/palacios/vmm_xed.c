@@ -147,17 +147,16 @@ static int set_decoder_mode(struct guest_info * info, xed_state_t * state) {
 }
 
 /*
-static int is_flags_reg(xed_reg_enum_t xed_reg) {
-    switch (xed_reg) {
-	case XED_REG_FLAGS:
-	case XED_REG_EFLAGS:
-	case XED_REG_RFLAGS:
-	    return 1;
-	default:
-	    return 0;
-    }
-}
-
+  static int is_flags_reg(xed_reg_enum_t xed_reg) {
+  switch (xed_reg) {
+  case XED_REG_FLAGS:
+  case XED_REG_EFLAGS:
+  case XED_REG_RFLAGS:
+  return 1;
+  default:
+  return 0;
+  }
+  }
 */
 
 int v3_init_decoder(struct guest_info * info) {
@@ -548,7 +547,7 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 
 	} else {
 	    PrintError("Unhandled third operand type %s\n", xed_operand_type_enum_t2str(op_type));
-	    return -1;
+	    instr->num_operands = 2;
 	}
 
 
