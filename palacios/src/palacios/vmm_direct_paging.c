@@ -35,6 +35,7 @@ static addr_t create_generic_pt_page() {
 // Inline handler functions for each cpu mode
 #include "vmm_direct_paging_32.h"
 #include "vmm_direct_paging_32pae.h"
+#include "vmm_direct_paging_64.h"
 
 
 addr_t v3_create_direct_passthrough_pts(struct guest_info * info) {
