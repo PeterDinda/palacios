@@ -146,6 +146,7 @@ static int set_decoder_mode(struct guest_info * info, xed_state_t * state) {
     return 0;
 }
 
+/*
 static int is_flags_reg(xed_reg_enum_t xed_reg) {
     switch (xed_reg) {
 	case XED_REG_FLAGS:
@@ -157,7 +158,7 @@ static int is_flags_reg(xed_reg_enum_t xed_reg) {
     }
 }
 
-
+*/
 
 int v3_init_decoder(struct guest_info * info) {
     // Global library initialization, only do it once
@@ -350,21 +351,21 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
     instr->num_operands = xed_decoded_inst_noperands(&xed_instr);
 
     /*
-    if (instr->num_operands > 3) {
-	PrintDebug("Special Case Not Handled (more than 3 operands) (iform=%s)\n", xed_iform_enum_t2str(iform)
-	return -1;
-	// special case
-    } else if (instr->num_operands == 3) {
-	const xed_operand_t * op = xed_inst_operand(xi, 2);
-	xed_operand_enum_t op_enum = xed_operand_name(op);
-
-	if ((!xed_operand_is_register(op_enum)) ||
-	    (!is_flags_reg(xed_decoded_inst_get_reg(&xed_instr, op_enum)))) {
-	    // special case
-	    PrintError("Special Case not handled (iform=%s)\n", xed_iform_enum_t2str(iform));
-	    return -1;
-	}
-    }
+      if (instr->num_operands > 3) {
+      PrintDebug("Special Case Not Handled (more than 3 operands) (iform=%s)\n", xed_iform_enum_t2str(iform)
+      return -1;
+      // special case
+      } else if (instr->num_operands == 3) {
+      const xed_operand_t * op = xed_inst_operand(xi, 2);
+      xed_operand_enum_t op_enum = xed_operand_name(op);
+      
+      if ((!xed_operand_is_register(op_enum)) ||
+      (!is_flags_reg(xed_decoded_inst_get_reg(&xed_instr, op_enum)))) {
+      // special case
+      PrintError("Special Case not handled (iform=%s)\n", xed_iform_enum_t2str(iform));
+      return -1;
+      }
+      }
     */
 
     //PrintDebug("Number of operands: %d\n", instr->num_operands);
