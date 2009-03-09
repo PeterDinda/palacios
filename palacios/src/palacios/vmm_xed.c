@@ -349,6 +349,7 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 
     instr->num_operands = xed_decoded_inst_noperands(&xed_instr);
 
+    /*
     if (instr->num_operands > 3) {
 	PrintDebug("Special Case Not Handled (more than 3 operands) (iform=%s)\n", xed_iform_enum_t2str(iform)
 	return -1;
@@ -364,6 +365,7 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 	    return -1;
 	}
     }
+    */
 
     //PrintDebug("Number of operands: %d\n", instr->num_operands);
     //PrintDebug("INSTR length: %d\n", instr->instr_length);
