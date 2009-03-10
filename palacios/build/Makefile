@@ -321,7 +321,7 @@ DEVICES_OBJS := \
 	devices/apic.o	\
 	devices/io_apic.o \
 	devices/vpci.o \
-
+	devices/para_net.o \
 
 #   	devices/vnic.o \
 
@@ -339,6 +339,11 @@ ifeq ($(ARCH),64)
 V3_ARCH := __V3_64BIT__
 else 
 V3_ARCH := __V3_32BIT__
+endif
+
+
+ifeq ($(CRAY_XT),1)
+EXTRA_C_OPTS := $(EXTRA_C_OPTS) -DCRAY_XT
 endif
 
 

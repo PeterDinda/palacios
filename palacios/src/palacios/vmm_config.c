@@ -39,6 +39,7 @@
 #include <devices/os_debug.h>
 #include <devices/apic.h>
 #include <devices/io_apic.h>
+#include <devices/para_net.h>
 
 
 
@@ -222,8 +223,38 @@ static int setup_memory_map(struct guest_info * info, struct v3_vm_config * conf
 	}
     }
 
+#ifdef CRAY_XT
+    {
+#define SEASTAR_START 0xffe00000 
+#define SEASTAR_END 0xffffffff 
+	
+	// Fill in generic memory below the seastar
+	addr_t top_of_mem = (SEASTAR_START < info->mem_size) ? SEASTAR_START : info->mem_size;
+	int num_low_pages = (top_of_mem - 0x100000) / PAGE_SIZE;
+	
+	if (v3_add_shadow_mem(info, 0x100000, top_of_mem, (addr_t)V3_AllocPages(num_low_pages)) == -1) {
+	    PrintError("Could not extended memory below 4G\n");
+	    return -1;
+	}
+	
+	// Map the Seastar straight through
+	if (v3_add_shadow_mem(info, SEASTAR_START, SEASTAR_END, SEASTAR_START) == -1) {
+	    PrintError("Could not map through the seastar\n");
+	    return -1;
+	}
+	
+	
+	// Add memory above the seastar
+	if (info->mem_size > SEASTAR_END) {
+	    int num_high_pages = mem_pages - (SEASTAR_END / PAGE_SIZE);    
 
-
+	    if (v3_add_shadow_mem(info, SEASTAR_END, info->mem_size, (addr_t)V3_AllocPages(num_high_pages)) == -1) {
+		PrintError("Could not map extended memory above 4G\n");
+		return -1;
+	    }
+	}
+    }
+#else 
     // Fill in the extended memory map....
     {
 	int num_ext_pages = mem_pages - (0x100000 / PAGE_SIZE);
@@ -235,7 +266,8 @@ static int setup_memory_map(struct guest_info * info, struct v3_vm_config * conf
 	    }
 	}
     }
-    
+#endif    
+
     print_shadow_map(info);
 
     return 0;
@@ -255,6 +287,7 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
     struct vm_device * os_debug = v3_create_os_debug();
     struct vm_device * apic = v3_create_apic();
     struct vm_device * ioapic = v3_create_io_apic(apic);
+    struct vm_device * para_net = v3_create_para_net();
 
     //struct vm_device * serial = v3_create_serial();
     struct vm_device * generic = NULL;
@@ -286,6 +319,8 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
 
     v3_attach_device(info, apic);
     v3_attach_device(info, ioapic);
+
+    v3_attach_device(info, para_net);
 
     if (use_ramdisk) {
 	v3_attach_device(info, ramdisk);

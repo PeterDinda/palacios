@@ -172,6 +172,8 @@ ifeq ($(INSTRUMENT_VMM),1)
   GEEKOS_FLAGS:= $(GEEKOS_FLAGS) INSTRUMENT_VMM=1
 endif
 
+
+
 # ----------------------------------------------------------------------
 # Targets -
 #   Specifies files to be built
@@ -193,6 +195,9 @@ palacios-full32:
 
 palacios-full64:
 	(cd $(PALACIOS_BUILD_DIR) && make ARCH=64 $(DEBUG_SECTIONS) world)	
+
+palacios-full-cray:
+	(cd $(PALACIOS_BUILD_DIR) && make V=1 ARCH=64 CRAY_XT=1 $(DEBUG_SECTIONS) world)	
 
 palacios-lean:
 	(cd $(PALACIOS_BUILD_DIR) && make LEAN_AND_MEAN=1 world)
