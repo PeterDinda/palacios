@@ -22,12 +22,12 @@
 
 #include <devices/apic.h>
 
-/*
-  #ifndef DEBUG_IO_APIC
-  #undef PrintDebug
-  #define PrintDebug(fmt, args...)
-  #endif
-*/
+
+#ifndef DEBUG_IO_APIC
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
+#endif
+
 
 
 #define IO_APIC_BASE_ADDR 0xfec00000
@@ -273,7 +273,7 @@ static int ioapic_raise_irq(void * private_data, int irq) {
     struct redir_tbl_entry * irq_entry = NULL;
 
     if (irq > 24) {
-	PrintError("IRQ out of range of IO APIC\n");
+	PrintDebug("IRQ out of range of IO APIC\n");
 	return -1;
     }
 

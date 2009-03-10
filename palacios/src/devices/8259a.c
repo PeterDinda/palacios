@@ -195,7 +195,7 @@ static int pic_raise_intr(void * private_data, int irq) {
     } else if ((irq > 7) && (irq < 16)) {
 	state->slave_irr |= 0x01 << (irq - 8);  // PAD if -7 then irq 15=no irq
     } else {
-	PrintError("8259 PIC: Invalid IRQ raised (%d)\n", irq);
+	PrintDebug("8259 PIC: Invalid IRQ raised (%d)\n", irq);
 	return -1;
     }
 
