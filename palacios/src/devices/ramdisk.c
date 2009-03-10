@@ -1924,11 +1924,11 @@ int handle_atapi_packet_command(struct vm_device * dev, struct channel_t * chann
 		}
 	    case 0x42:  // read sub-channel
 		{
-		    //bool msf = get_packet_field(channel,1, 1, 1);
-		    bool sub_q = get_packet_field(channel,2, 6, 1);
-		    //uint8_t data_format = get_packet_byte(channel,3);
-		    //uint8_t track_number = get_packet_byte(channel,6);
-		    uint16_t alloc_length = get_packet_word(channel,7);
+		    //bool msf = get_packet_field(channel, 1, 1, 1);
+		    bool sub_q = get_packet_field(channel, 2, 6, 1);
+		    //uint8_t data_format = get_packet_byte(channel, 3);
+		    //uint8_t track_number = get_packet_byte(channel, 6);
+		    uint16_t alloc_length = get_packet_word(channel, 7);
 	
 
 		    /*

@@ -174,6 +174,8 @@ static void vpci_write_config(struct pci_device * dev, uchar_t offset, uint32_t 
     dev_config = (uchar_t *)&(dev->config);
     dev_config += offset;
     
+
+    // TODO: cast 'val' instead of masking it
     switch(len) {
 	case 1:
 	    *dev_config = (val & 0xff);
