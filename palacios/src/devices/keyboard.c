@@ -205,11 +205,6 @@ struct keyboard_internal {
 
     uchar_t input_byte;       //  input port of onboard uC
 
-    // Data for 8042
-    uchar_t input_queue;      //  
-    uint_t  input_queue_len;  //  
-    //uint_t  input_queue_read;
-    //uint_t  input_queue_write;
     // Data for system
     uchar_t output_queue;     //  
     uint_t  output_queue_len; //  
@@ -221,12 +216,15 @@ struct keyboard_internal {
 
 
 static int keyboard_interrupt(struct vm_device * dev, uint_t irq) {
+    struct keyboard_internal *state = (struct keyboard_internal *)(dev->private_data);
+
     PrintDebug("keyboard: interrupt 0x%x\n", irq);
 
-    v3_raise_irq(dev->vm, irq);
+    if (state->cmd_byte & CMD_INTR) { 
+	v3_raise_irq(dev->vm, irq);
+    }
 
     return 0;
-
 }
 
 
@@ -252,15 +250,12 @@ static int PushToOutputQueue(struct vm_device * dev, uchar_t value, uchar_t over
     
 	if (mouse) { 
 	    state->status_byte |= STATUS_MOUSE_BUFFER_FULL;
-	} 
-
-	{
-	    state->status_byte |= STATUS_OUTPUT_BUFFER_FULL;
-	}
-    
-	if (state->cmd_byte & CMD_INTR) { 
+	    keyboard_interrupt(dev, MOUSE_IRQ);
+	} else {
 	    keyboard_interrupt(dev, KEYBOARD_IRQ);
 	}
+
+	state->status_byte |= STATUS_OUTPUT_BUFFER_FULL;
 
 	return 0;
 
@@ -270,7 +265,7 @@ static int PushToOutputQueue(struct vm_device * dev, uchar_t value, uchar_t over
     }
 }
 
-#if 1
+
 // 
 // pull item from outputqueue 
 // returns 0 if successful
@@ -303,55 +298,6 @@ static int PullFromOutputQueue(struct vm_device * dev, uchar_t * value)
 	return -1;
     }
 }
-#endif
-
-#if 0
-// 
-// push item onto inputqueue, optionally overwriting if there is no room
-// returns 0 if successful
-//
-static int PushToInputQueue(struct vm_device * dev, uchar_t value, uchar_t overwrite) 
-{
-    struct keyboard_internal *state = (struct keyboard_internal *)(dev->private_data);
-
-    if ((state->input_queue_len == 0) || overwrite) { 
-
-	state->input_queue = value;
-	state->input_queue_len = 1;
-	state->status_byte |= STATUS_INPUT_BUFFER_FULL;
-
-	return 0;
-    } else {
-	PrintError("keyboard: PushToOutputQueue Failed - Queue Full\n");
-	return -1;
-    }
-}
-
-// 
-// pull item from inputqueue 
-// returns 0 if successful
-//
-static int PullFromInputQueue(struct vm_device *dev, uchar_t *value) 
-{
-    struct keyboard_internal * state = (struct keyboard_internal *)(dev->private_data);
-
-    if (state->input_queue_len == 1) { 
-
-	*value = state->input_queue;
-	state->input_queue_len = 0;
-	state->status_byte &= ~STATUS_INPUT_BUFFER_FULL;
-
-	return 0;
-    } else {
-	PrintError("keyboard: PullFromInputQueue Failed - Queue Empty\n");
-	return -1;
-    }
-}
-
-#endif
-
-
-
 
 
 
@@ -368,10 +314,6 @@ static int key_event_handler(struct guest_info * info,
 	 && (!(state->cmd_byte & CMD_DISABLE)) )  {   // keyboard is enabled
     
 	PushToOutputQueue(dev, evt->scan_code, OVERWRITE, DATA, KEYBOARD);
-    
-	if (state->cmd_byte & CMD_INTR) { 
-	    keyboard_interrupt(dev, KEYBOARD_IRQ);
-	}
     }
   
     return 0;
