@@ -432,8 +432,6 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 		default:
 		    PrintError("Unhandled Operand Type\n");
 		    return -1;
-
-
 	    }
 	}
     }
@@ -471,10 +469,7 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 	    }
 
 	    v3_op->type = REG_OPERAND;
-    
-
 	} else {
-
 	    switch (op_enum) {
 
 		case XED_OPERAND_MEM0:
@@ -516,7 +511,6 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 		    return -1;
 	    }
 	}
-
     }
 
     // set third operand
@@ -544,16 +538,11 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 
 	    instr->third_operand.type = REG_OPERAND;
 
-
 	} else {
 	    PrintError("Unhandled third operand type %s\n", xed_operand_type_enum_t2str(op_type));
 	    instr->num_operands = 2;
 	}
-
-
     }
-
-
 
     return 0;
 }
