@@ -156,7 +156,7 @@ void v3_print_io_map(struct guest_info * info) {
   struct v3_io_hook * tmp_hook = NULL;
   struct rb_node * node = v3_rb_first(&(info->io_map));
 
-  PrintDebug("VMM IO Map (Entries=%d)\n", io_map->num_ports);
+  PrintDebug("VMM IO Map\n");
 
   do {
     tmp_hook = rb_entry(node, struct v3_io_hook, tree_node);
