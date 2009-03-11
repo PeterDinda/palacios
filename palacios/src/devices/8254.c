@@ -154,6 +154,10 @@ static int handle_crystal_tics(struct vm_device * dev, struct channel * ch, uint
     } else {
 	ushort_t reload_val = ch->reload_value; 
 
+	if (ch->op_mode == SW_STROBE) {
+	    reload_val = 0xffff;
+	}
+
 	// TODO: Check this....
 	// Is this correct???
 	if (reload_val == 0) {
@@ -206,8 +210,13 @@ static int handle_crystal_tics(struct vm_device * dev, struct channel * ch, uint
 
 	    break;
 	case SW_STROBE:
-	    PrintError("Software strobe not implemented\n");
-	    return -1;
+
+	    if (channel_cycles > 0) {
+		if (ch->output_pin == 1) {
+		    ch->output_pin = 0;
+		    output_changed = 1;
+		}
+	    }
 	    break;
 	case HW_STROBE:
 	    PrintError("Hardware strobe not implemented\n");
@@ -357,6 +366,9 @@ static int handle_channel_write(struct channel * ch, char val) {
 	case SQR_WAVE:
 	    ch->output_pin = 1;
 	    break;
+	case SW_STROBE:
+	    ch->output_pin = 1;
+	    break;
 	default:
 	    PrintError("Invalid OP_MODE: %d\n", ch->op_mode);
 	    return -1;
@@ -432,6 +444,9 @@ static int handle_channel_cmd(struct channel * ch, struct pit_cmd_word cmd) {
 	    ch->output_pin = 1;
 	    break;
 	case SQR_WAVE:
+	    ch->output_pin = 1;
+	    break;
+	case SW_STROBE:
 	    ch->output_pin = 1;
 	    break;
 	default:
