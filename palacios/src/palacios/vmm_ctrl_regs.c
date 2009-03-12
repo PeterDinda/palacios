@@ -229,20 +229,35 @@ int v3_handle_cr0_read(struct guest_info * info) {
     }
     
     if (dec_instr.op_type == V3_OP_MOVCR2) {
-	struct cr0_32 * dst_reg = (struct cr0_32 *)(dec_instr.dst_operand.operand);
-	struct cr0_32 * shadow_cr0 = (struct cr0_32 *)&(info->ctrl_regs.cr0);
-	
 	PrintDebug("MOVCR2 (mode=%s)\n", v3_cpu_mode_to_str(info->cpu_mode));
+
+	if ((v3_get_cpu_mode(info) == LONG) || 
+	    (v3_get_cpu_mode(info) == LONG_32_COMPAT)) {
+	    struct cr0_64 * dst_reg = (struct cr0_64 *)(dec_instr.dst_operand.operand);
 	
-	if (info->shdw_pg_mode == SHADOW_PAGING) {
-	    struct cr0_32 * guest_cr0 = (struct cr0_32 *)&(info->shdw_pg_state.guest_cr0);
-	    *dst_reg = *guest_cr0;
+	    if (info->shdw_pg_mode == SHADOW_PAGING) {
+		struct cr0_64 * guest_cr0 = (struct cr0_64 *)&(info->shdw_pg_state.guest_cr0);
+		*dst_reg = *guest_cr0;
+	    } else {
+		struct cr0_64 * shadow_cr0 = (struct cr0_64 *)&(info->ctrl_regs.cr0);
+		*dst_reg = *shadow_cr0;
+	    }
+
+	    PrintDebug("returned CR0: %p\n", (void *)*dst_reg);
 	} else {
-	    *dst_reg = *shadow_cr0;
-	}
+	    struct cr0_32 * dst_reg = (struct cr0_32 *)(dec_instr.dst_operand.operand);
 	
-	PrintDebug("Shadow CR0: %x\n", *(uint_t*)shadow_cr0);    
-	PrintDebug("returned CR0: %x\n", *(uint_t*)dst_reg);
+	    if (info->shdw_pg_mode == SHADOW_PAGING) {
+		struct cr0_32 * guest_cr0 = (struct cr0_32 *)&(info->shdw_pg_state.guest_cr0);
+		*dst_reg = *guest_cr0;
+	    } else {
+		struct cr0_32 * shadow_cr0 = (struct cr0_32 *)&(info->ctrl_regs.cr0);
+		*dst_reg = *shadow_cr0;
+	    }
+
+	    PrintDebug("returned CR0: %x\n", *(uint_t*)dst_reg);
+	}
+
     } else if (dec_instr.op_type == V3_OP_SMSW) {
 	struct cr0_real * shadow_cr0 = (struct cr0_real *)&(info->ctrl_regs.cr0);
 	struct cr0_real * dst_reg = (struct cr0_real *)(dec_instr.dst_operand.operand);
