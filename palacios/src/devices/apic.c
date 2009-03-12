@@ -808,6 +808,8 @@ static int apic_get_intr_number(void * private_data) {
 
 static int apic_raise_intr(void * private_data, int irq) {
 #ifdef CRAY_XT
+    // The Seastar is connected directly to the LAPIC via LINT0 on the ICC bus
+
     if (irq == 238) {
 	struct vm_device * dev = (struct vm_device *)private_data;
 	struct apic_state * apic = (struct apic_state *)dev->private_data;
