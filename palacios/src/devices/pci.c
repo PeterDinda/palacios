@@ -227,14 +227,30 @@ static int write_pci_header(struct pci_device * pci_dev, int reg_num, void * src
 
 static int addr_port_read(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
     struct pci_internal * pci_state = (struct pci_internal *)dev->private_data;
-    
-    if (length != 4) {
+    int reg_offset = port & 0x3;
+    uint8_t * reg_addr = ((uint8_t *)&(pci_state->addr_reg.val)) + reg_offset;
+
+    PrintDebug("Reading PCI Address Port (%x): %x\n", port, pci_state->addr_reg.val);
+
+    if (length == 4) {
+	if (reg_offset != 0) {
+	    PrintError("Invalid Address Port Read\n");
+	    return -1;
+	}
+	*(uint32_t *)dst = *(uint32_t *)reg_addr;
+    } else if (length == 2) {
+	if (reg_offset > 2) {
+	    PrintError("Invalid Address Port Read\n");
+	    return -1;
+	}
+	*(uint16_t *)dst = *(uint16_t *)reg_addr;
+    } else if (length == 1) {
+	*(uint8_t *)dst = *(uint8_t *)reg_addr;
+    } else {
 	PrintError("Invalid read length (%d) for PCI address register\n", length);
 	return -1;
     }
     
-    PrintDebug("Reading PCI Address Port: %x\n", pci_state->addr_reg.val);
-    *(uint32_t *)dst = pci_state->addr_reg.val;
 
     return length;
 }
@@ -242,14 +258,32 @@ static int addr_port_read(ushort_t port, void * dst, uint_t length, struct vm_de
 
 static int addr_port_write(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
     struct pci_internal * pci_state = (struct pci_internal *)dev->private_data;
+    int reg_offset = port & 0x3; 
+    uint8_t * reg_addr = ((uint8_t *)&(pci_state->addr_reg.val)) + reg_offset;
 
-    if (length != 4) {
+    if (length == 4) {
+	if (reg_offset != 0) {
+	    PrintError("Invalid Address Port Write\n");
+	    return -1;
+	}
+
+	*(uint32_t *)reg_addr = *(uint32_t *)src;
+    } else if (length == 2) {
+	if (reg_offset > 2) {
+	    PrintError("Invalid Address Port Write\n");
+	    return -1;
+	}
+
+	*(uint16_t *)reg_addr = *(uint16_t *)src;
+    } else if (length == 1) {
+	*(uint8_t *)reg_addr = *(uint8_t *)src;
+    } else {
 	PrintError("Invalid write length (%d) for PCI address register\n", length);
 	return -1;
     }
 
-    pci_state->addr_reg.val = *(uint32_t *)src;
-    PrintDebug("Writing PCI Address Port: %x\n", pci_state->addr_reg.val);    
+    PrintDebug("Writing PCI Address Port(%x): %x\n", port, pci_state->addr_reg.val);    
+
 
     return length;
 }
@@ -267,6 +301,11 @@ static int data_port_read(ushort_t port, void * dst, uint_t length, struct vm_de
 	       reg_num);
 
     
+    if (port != CONFIG_DATA_PORT) {
+	PrintError("Weird Data port Read: %x\n", port);
+	return -1;
+    }
+
     pci_dev = get_device(&(pci_state->bus_list[0]), pci_state->addr_reg.dev_num);
     
     if (pci_dev == NULL) {
@@ -313,6 +352,12 @@ static int data_port_write(ushort_t port, void * src, uint_t length, struct vm_d
 	       pci_state->addr_reg.bus_num, 
 	       pci_state->addr_reg.dev_num, 
 	       reg_num);
+
+    if (port != CONFIG_DATA_PORT) {
+	PrintError("Weird Data port Write: %x\n", port);
+	return -1;
+    }
+
 
     pci_dev = get_device(&(pci_state->bus_list[0]), pci_state->addr_reg.dev_num);
     
@@ -382,23 +427,22 @@ static int pci_deinit_device(struct vm_device * dev) {
 
 
 
-static int init_i440fx(struct pci_internal * pci_state) {
-
-    struct pci_device * dev = v3_pci_register_device(NULL, 0, "i440FX", 0, 
-						     NULL, NULL, NULL, NULL);
+static int init_i440fx(struct vm_device * dev) {
+    struct pci_device * pci_dev = v3_pci_register_device(dev, 0, "i440FX", 0, 
+							 NULL, NULL, NULL, NULL);
     
-    if (!dev) {
+    if (!pci_dev) {
 	return -1;
     }
     
-    dev->header.vendor_id = 0x8086;
-    dev->header.device_id = 0x1237;
-    dev->header.revision = 0x0002;
-    dev->header.subclass = 0x00; //  SubClass: host2pci
-    dev->header.class = 0x06;    // Class: PCI bridge
-    dev->header.header_type = 0x00;
+    pci_dev->header.vendor_id = 0x8086;
+    pci_dev->header.device_id = 0x1237;
+    pci_dev->header.revision = 0x0002;
+    pci_dev->header.subclass = 0x00; //  SubClass: host2pci
+    pci_dev->header.class = 0x06;    // Class: PCI bridge
+    pci_dev->header.header_type = 0x00;
 
-    dev->bus_num = 0;
+    pci_dev->bus_num = 0;
     
     return 0;
 }
@@ -430,7 +474,7 @@ static int pci_init_device(struct vm_device * dev) {
 
     init_pci_busses(pci_state);
 
-    if (init_i440fx(pci_state) == -1) {
+    if (init_i440fx(dev) == -1) {
 	PrintError("Could not intialize i440fx\n");
 	return -1;
     }
@@ -467,30 +511,8 @@ struct vm_device * v3_create_pci() {
 
 
 
-/* JRL: TODO This needs to be completely rethought... */
-struct pci_bus * v3_get_pcibus(struct guest_info * vm, int bus_no) {
-    //    struct pci_internal * pci_state = NULL;
-
-    /*
-      if (vm->pci == NULL) {
-      PrintError("There is no PCI bus in guest %p\n", vm);
-      return NULL;
-      }
-      
-      pci_state = (struct pci_internal *)vm->pci->private_data;
-      
-      if ((bus_no >= 0) && (bus_no < PCI_BUS_COUNT)) {
-      return &(pci_state->bus_list[bus_no]);
-      }
-    */
-    return NULL;
-}
-
-
-
-
 // if dev_num == -1, auto assign 
-struct pci_device * v3_pci_register_device(struct vm_device * dev,
+struct pci_device * v3_pci_register_device(struct vm_device * pci,
 					   uint_t bus_num,
 					   const char * name,
 					   int dev_num,
@@ -499,7 +521,7 @@ struct pci_device * v3_pci_register_device(struct vm_device * dev,
 					   int (*bar_update)(struct pci_device * pci_dev, uint_t bar_reg, uint32_t val),
 					   void * private_data) {
 
-    struct pci_internal * pci_state = (struct pci_internal *)dev->private_data;
+    struct pci_internal * pci_state = (struct pci_internal *)pci->private_data;
     struct pci_bus * bus = &(pci_state->bus_list[bus_num]);
     struct pci_device * pci_dev = NULL;
 
@@ -535,7 +557,7 @@ struct pci_device * v3_pci_register_device(struct vm_device * dev,
     pci_dev->dev_num = dev_num;
 
     strncpy(pci_dev->name, name, sizeof(pci_dev->name));
-    pci_dev->vm_dev = dev;
+    pci_dev->vm_dev = pci;
 
     pci_dev->config_read = config_read;
     pci_dev->config_write = config_write;

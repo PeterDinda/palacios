@@ -320,7 +320,7 @@ DEVICES_OBJS := \
 	devices/os_debug.o \
 	devices/apic.o	\
 	devices/io_apic.o \
-	devices/vpci.o \
+	devices/pci.o \
 	devices/para_net.o \
 
 #   	devices/vnic.o \

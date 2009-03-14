@@ -40,6 +40,7 @@
 #include <devices/apic.h>
 #include <devices/io_apic.h>
 #include <devices/para_net.h>
+#include <devices/pci.h>
 
 
 
@@ -278,6 +279,7 @@ static int setup_memory_map(struct guest_info * info, struct v3_vm_config * conf
 static int setup_devices(struct guest_info * info, struct v3_vm_config * config_ptr) {
     struct vm_device * ramdisk = NULL;
     struct vm_device * cdrom = NULL;
+    struct vm_device * pci = v3_create_pci();
     struct vm_device * nvram = v3_create_nvram();
     //struct vm_device * timer = v3_create_timer();
     struct vm_device * pic = v3_create_pic();
@@ -307,6 +309,7 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
 	generic = configure_generic(info, config_ptr);
     }
 
+    v3_attach_device(info, pci);
 
     v3_attach_device(info, nvram);
     //v3_attach_device(info, timer);

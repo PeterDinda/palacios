@@ -61,10 +61,8 @@ struct pci_device {
 
 struct vm_device * v3_create_pci();
 
-struct pci_bus * v3_get_pcibus(struct guest_info *vm, int bus_no);
-
 struct pci_device * 
-v3_pci_register_device(struct vm_device * dev,
+v3_pci_register_device(struct vm_device * pci,
 		       uint_t bus_num,
 		       const char * name,
 		       int dev_num,
