@@ -282,7 +282,9 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
     struct vm_device * pci = v3_create_pci();
     struct vm_device * nvram = v3_create_nvram();
     //struct vm_device * timer = v3_create_timer();
+#ifdef DEBUG_PCI
     struct vm_device * pic = v3_create_pic();
+#endif
     struct vm_device * keyboard = v3_create_keyboard();
     struct vm_device * pit = v3_create_pit(); 
     struct vm_device * bochs_debug = v3_create_bochs_debug();
@@ -309,7 +311,9 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
 	generic = configure_generic(info, config_ptr);
     }
 
+#ifdef DEBUG_PCI
     v3_attach_device(info, pci);
+#endif
 
     v3_attach_device(info, nvram);
     //v3_attach_device(info, timer);
