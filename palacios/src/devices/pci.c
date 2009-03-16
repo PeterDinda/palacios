@@ -488,7 +488,6 @@ static int init_i440fx(struct vm_device * dev) {
     pci_dev->config_header.revision = 0x0002;
     pci_dev->config_header.subclass = 0x00; //  SubClass: host2pci
     pci_dev->config_header.class = 0x06;    // Class: PCI bridge
-    pci_dev->config_header.header_type = 0x00;
 
     pci_dev->bus_num = 0;
     return 0;
@@ -565,9 +564,10 @@ static inline int init_bars(struct pci_device * pci_dev) {
 	int bar_offset = 0x10 + 4 * i;
 
 	if (pci_dev->bar[i].type == PCI_BAR_IO) {
+	    pci_dev->bar[i].mask = 0x0000fffd;
 	    *(uint32_t *)(pci_dev->config_space + bar_offset) = 0x00000001;
 	} else if (pci_dev->bar[i].type == PCI_BAR_MEM32) {
-	    pci_dev->bar[i].mask = (pci_dev->bar[i].num_pages << 12) - 1;
+	    pci_dev->bar[i].mask = ~((pci_dev->bar[i].num_pages << 12) - 1);
 	    pci_dev->bar[i].mask |= 0xf; // preserve the configuration flags
 	     
 	    *(uint32_t *)(pci_dev->config_space + bar_offset) = 0x00000008;
