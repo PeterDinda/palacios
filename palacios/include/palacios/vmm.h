@@ -178,6 +178,16 @@
 	    ret;							\
 	})								\
 	
+
+#define V3_ACK_IRQ(irq)						\
+    do {							\
+	extern struct v3_os_hooks * os_hooks;			\
+	if ((os_hooks) && (os_hooks)->ack_irq) {		\
+	    (os_hooks)->ack_irq(irq);				\
+	}							\
+    } while (0)
+
+
 #define V3_Yield(addr)					\
     do {						\
 	extern struct v3_os_hooks * os_hooks;		\
