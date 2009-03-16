@@ -370,8 +370,16 @@ static int data_port_write(ushort_t port, void * src, uint_t length, struct vm_d
 		}
 	    } else if ((cur_reg >= 0x30) && (cur_reg < 0x34)) {
 		pci_dev->ext_rom_updated = 1;
-	    } else if ((cur_reg == 0x04) || (cur_reg == 0x05)) {
-		// COMMAND update
+	    } else if (cur_reg == 0x04) {
+	      // COMMAND update	     
+	      uint8_t command = *((uint8_t *)src + i);
+
+	      pci_dev->config_space[cur_reg] = command;	      
+
+	      if (pci_dev->cmd_update) {
+		pci_dev->cmd_update(pci_dev, (command & 0x01), (command & 0x02));
+	      }
+	      
 	    } else if (cur_reg == 0x0f) {
 		// BIST update
 	    }
