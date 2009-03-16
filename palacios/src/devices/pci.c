@@ -315,6 +315,21 @@ static int data_port_read(ushort_t port, void * dst, uint_t length, struct vm_de
 static inline int is_cfg_reg_writable(uchar_t header_type, int reg_num) {
     if (header_type == 0x00) {
 	switch (reg_num) {
+	    case 0x00:
+	    case 0x01:
+	    case 0x02:
+	    case 0x03:
+	    case 0x08:
+	    case 0x09:
+	    case 0x0a:
+	    case 0x0b:
+	    case 0x0e:
+	    case 0x3d:
+		return 0;
+                           
+           default:
+               return 1;
+ 
 	    // case (non writable reg list):
 	    
 	    default:
@@ -374,6 +389,7 @@ static int data_port_write(ushort_t port, void * src, uint_t length, struct vm_d
 		// COMMAND update
 	    } else if (cur_reg == 0x0f) {
 		// BIST update
+		pci_dev->config_header.BIST = 0x00;
 	    }
 	}
     }
@@ -602,7 +618,7 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
     }
 
     memset(pci_dev, 0, sizeof(struct pci_device));
-	
+    
     
     pci_dev->bus_num = bus_num;
     pci_dev->dev_num = dev_num;
