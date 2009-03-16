@@ -44,6 +44,10 @@ void v3_init_interrupt_state(struct guest_info * info) {
     info->intr_state.excp_num = 0;
     info->intr_state.excp_error_code = 0;
 
+    info->intr_state.irq_pending = 0;
+    info->intr_state.irq_vector = 0;
+
+
     INIT_LIST_HEAD(&(info->intr_state.controller_list));
 
     memset((uchar_t *)(info->intr_state.hooks), 0, sizeof(struct v3_irq_hook *) * 256);

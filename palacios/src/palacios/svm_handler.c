@@ -71,12 +71,13 @@ int v3_handle_svm_exit(struct guest_info * info) {
     exit_code = guest_ctrl->exit_code;
 
 
-    if ((info->intr_state.irq_pending) && (guest_ctrl->guest_ctrl.V_IRQ = 0)) {
+    if ((info->intr_state.irq_pending == 1) && (guest_ctrl->guest_ctrl.V_IRQ == 0)) {
 	// Interrupt was taken in the guest
+	PrintDebug("Interrupt taken by guest\n");
 	v3_injecting_intr(info, info->intr_state.irq_vector, EXTERNAL_IRQ);
-	info->intr_state.irq_pending = 0;
     }
 
+    info->intr_state.irq_pending = 0;
   
 
     // Disable printing io exits due to bochs debug messages
