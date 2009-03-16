@@ -491,12 +491,15 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
 					   uint_t bus_num,
 					   const char * name,
 					   int dev_num,
+					   struct v3_pci_bar * bars,
 					   int (*config_update)(struct pci_device * pci_dev, uint_t reg_num, int length),
+					   int (*cmd_update)(struct pci_dev *pci_dev, uchar_t io_enabled, uchar_t mem_enabled),
 					   void * private_data) {
 
     struct pci_internal * pci_state = (struct pci_internal *)pci->private_data;
     struct pci_bus * bus = &(pci_state->bus_list[bus_num]);
     struct pci_device * pci_dev = NULL;
+    int i;
 
     if (dev_num > MAX_BUS_DEVICES) {
 	PrintError("Requested Invalid device number (%d)\n", dev_num);
@@ -536,8 +539,21 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
 
     pci_dev->priv_data = private_data;
 
+    
+    //copy bars
+    for (i = 0; i < 6; i ++){
+      pci_dev->bar[i].updated = bars[i].updated;
+      pci_dev->bar[i].type = bars[i].type;
+      pci_dev->bar[i].num_resources = bars[i].num_resources;
+      pci_dev->bar[i].bar_update = bars[i].bar_update;
+    }
+
+    pci_dev->cmd_update = cmd_update;
+    pci_dev->ext_rom_update = ext_rom_update;
+
     // add the device
     add_device_to_bus(bus, pci_dev);
+
     
 #ifdef DEBUG_PCI
     pci_dump_state(pci_state);

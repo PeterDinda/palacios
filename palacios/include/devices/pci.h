@@ -33,7 +33,7 @@
 
 typedef enum {PCI_BAR_IO, PCI_BAR_MEM32, PCI_BAR_MEM64_LOW, PCI_BAR_MEM64_HIGH, PCI_BAR_NONE} pci_bar_type_t;
 
-struct bar_reg {
+struct v3_bar_reg {
     int updated;
     pci_bar_type_t type;
     int num_resources;
@@ -52,7 +52,7 @@ struct pci_device {
 
 
 
-    struct bar_reg bar[6];
+    struct v3_bar_reg bar[6];
 
     uint_t bus_num;
     struct rb_node dev_tree_node;
@@ -63,6 +63,9 @@ struct pci_device {
     struct vm_device * vm_dev;  //the corresponding virtual device
 
     int (*config_update)(struct pci_device * pci_dev, uint_t reg_num, int length);
+
+    int (*cmd_update)(struct pci_dev *pci_dev, uchar_t io_enabled, uchar_t mem_enabled);
+    int (*ext_rom_update)(struct pci_dev *pci_dev);
 
 
     void * priv_data;
