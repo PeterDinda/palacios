@@ -187,6 +187,14 @@ DEBUG_SECTIONS := $(DEBUG_SECTIONS) -UDEBUG_APIC
 endif
 endif
 
+ifeq ($(DEBUG_PCI),1)
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DDEBUG_PCI
+else 
+ifeq ($(DEBUG_PCI),0) 
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -UDEBUG_PCI
+endif
+endif
+
 ifeq ($(DEBUG_DEV_MGR),1)
 DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DDEBUG_DEV_MGR
 else 
@@ -426,6 +434,7 @@ CC_GENERAL_OPTS = \
 	-I$(PROJECT_ROOT)/include \
 	-Werror \
 	-fPIC \
+	-mno-red-zone \
 	-Wp,-MD,$(@D)/.$(@F).d \
 	-Wp,-MT,$@ \
 
