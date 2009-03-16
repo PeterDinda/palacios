@@ -74,6 +74,9 @@ struct v3_intr_state {
     struct list_head controller_list;
 
 
+    uint_t irq_pending;
+    uint_t irq_vector;
+
     /* some way to get the [A]PIC intr */
     struct v3_irq_hook * hooks[256];
   
