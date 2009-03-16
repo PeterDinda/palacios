@@ -465,11 +465,22 @@ static int pci_deinit_device(struct vm_device * dev) {
 
 
 static int init_i440fx(struct vm_device * dev) {
-    /*struct pci_device * pci_dev = v3_pci_register_device(dev, 0, "i440FX", 0, 
-							 NULL, NULL, NULL);
+    struct pci_device * pci_dev = NULL;
+    struct v3_pci_bar bars[6];
+    int i;
+    
+    for (i = 0; i < 6; i++) {
+	bars[i].type = PCI_BAR_NONE;
+	bars[i].mem_hook = 0;
+	bars[i].num_pages = 0;
+	bars[i].bar_update = NULL;
+    }    
+
+    pci_dev = v3_pci_register_device(dev, PCI_STD_DEVICE, 0, "i440FX", 0, bars,
+				     NULL, NULL, NULL, NULL);
     
     if (!pci_dev) {
-	return -1;
+ 	return -1;
     }
     
     pci_dev->config_header.vendor_id = 0x8086;
@@ -480,7 +491,6 @@ static int init_i440fx(struct vm_device * dev) {
     pci_dev->config_header.header_type = 0x00;
 
     pci_dev->bus_num = 0;
-    */
     return 0;
 }
 
@@ -585,6 +595,7 @@ static inline int init_bars(struct pci_device * pci_dev) {
 
 // if dev_num == -1, auto assign 
 struct pci_device * v3_pci_register_device(struct vm_device * pci,
+					   pci_device_type_t dev_type, 
 					   uint_t bus_num,
 					   const char * name,
 					   int dev_num,
@@ -627,6 +638,15 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
     memset(pci_dev, 0, sizeof(struct pci_device));
     
     
+    switch (dev_type) {
+	case PCI_STD_DEVICE:
+	    pci_dev->config_header.header_type = 0x00;
+	    break;
+	default:
+	    PrintError("Unhandled PCI Device Type: %d\n", dev_type);
+	    return NULL;
+    }
+
     pci_dev->bus_num = bus_num;
     pci_dev->dev_num = dev_num;
 

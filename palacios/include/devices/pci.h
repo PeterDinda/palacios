@@ -33,6 +33,8 @@
 
 typedef enum {PCI_BAR_IO, PCI_BAR_MEM16, PCI_BAR_MEM32, PCI_BAR_MEM64_LOW, PCI_BAR_MEM64_HIGH, PCI_BAR_NONE} pci_bar_type_t;
 
+typedef enum {PCI_STD_DEVICE, PCI_TO_PCI_BRIDGE, PCI_CARDBUS, PCI_MULTIFUNCTION} pci_device_type_t;
+
 struct pci_device;
 
 struct v3_pci_bar {
@@ -86,6 +88,7 @@ struct vm_device * v3_create_pci();
 
 struct pci_device * 
 v3_pci_register_device(struct vm_device * pci,
+		       pci_device_type_t dev_type, 
 		       uint_t bus_num,
 		       const char * name,
 		       int dev_num,
