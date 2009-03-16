@@ -297,12 +297,11 @@ static int data_port_read(ushort_t port, void * dst, uint_t length, struct vm_de
     pci_dev = get_device(&(pci_state->bus_list[0]), pci_state->addr_reg.dev_num);
     
     if (pci_dev == NULL) {
-	//*(uint32_t *)dst = 0xffffffff;
+	for (i = 0; i < length; i++) {
+	    *((uint8_t *)dst + i) = 0xff;
+	}
 
-	PrintError("Reading configuration space for non-present device (dev_num=%d)\n", 
-		   pci_state->addr_reg.dev_num); 
-
-	return -1;
+	return length;
     }
 
     for (i = 0; i < length; i++) {
