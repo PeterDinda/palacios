@@ -125,7 +125,7 @@ static int get_free_dev_num(struct pci_bus * bus) {
 	    // availability
 	    for (j = 0; j < 8; j++) {
 		if (!(bus->dev_map[i] & (0x1 << j))) {
-		    return i * 8 + j;
+		    return ((i * 8) + j) * 8;
 		}
 	    }
 	}
@@ -135,7 +135,7 @@ static int get_free_dev_num(struct pci_bus * bus) {
 }
 
 static void allocate_dev_num(struct pci_bus * bus, int dev_num) {
-    int major = dev_num / 8;
+    int major = (dev_num / 8) / 8;
     int minor = dev_num % 8;
 
     bus->dev_map[major] |= (0x1 << minor);
