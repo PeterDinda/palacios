@@ -289,6 +289,12 @@ static int apic_do_eoi(struct apic_state * apic) {
 		uchar_t flag = 0x1 << j;
 		if ((*svc_major) & flag) {
 		    *svc_major &= ~flag;
+
+#ifdef CRAY_XT
+		    if (((i * 8) + j) == 238) {
+			V3_ACK_IRQ(238);
+		    }
+#endif
 		    return 0;
 		}
 	    }

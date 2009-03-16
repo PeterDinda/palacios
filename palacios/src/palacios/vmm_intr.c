@@ -101,11 +101,6 @@ int v3_hook_irq(struct guest_info * info,
 
 
 static int passthrough_irq_handler(struct guest_info * info, struct v3_interrupt * intr, void * priv_data) {
-
-    if (intr->should_ack == 1) {
-	V3_ACK_IRQ(intr->irq);
-    }
-
     PrintDebug("[passthrough_irq_handler] raise_irq=%d (guest=0x%p)\n", 
 	       intr->irq, (void *)info);
 
