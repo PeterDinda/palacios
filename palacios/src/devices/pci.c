@@ -583,7 +583,7 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
 					   int dev_num,
 					   struct v3_pci_bar * bars,
 					   int (*config_update)(struct pci_device * pci_dev, uint_t reg_num, int length),
-					   int (*cmd_update)(struct pci_dev *pci_dev, uchar_t io_enabled, uchar_t mem_enabled),
+					   int (*cmd_update)(struct pci_device *pci_dev, uchar_t io_enabled, uchar_t mem_enabled),
 					   int (*bar_update)(struct pci_device * pci_dev, uint_t bar),
 					   void * private_data) {
 

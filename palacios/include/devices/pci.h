@@ -68,8 +68,8 @@ struct pci_device {
 
     int (*config_update)(struct pci_device * pci_dev, uint_t reg_num, int length);
 
-    int (*cmd_update)(struct pci_dev *pci_dev, uchar_t io_enabled, uchar_t mem_enabled);
-    int (*ext_rom_update)(struct pci_dev *pci_dev);
+    int (*cmd_update)(struct pci_device *pci_dev, uchar_t io_enabled, uchar_t mem_enabled);
+    int (*ext_rom_update)(struct pci_device *pci_dev);
 
 
     int ext_rom_update_flag;
