@@ -315,10 +315,21 @@ static int data_port_read(ushort_t port, void * dst, uint_t length, struct vm_de
 static inline int is_cfg_reg_writable(uchar_t header_type, int reg_num) {
     if (header_type == 0x00) {
 	switch (reg_num) {
-	    // case (non writable reg list):
-	    
-	    default:
-		return 1;
+	    case 0x00:
+	    case 0x01:
+	    case 0x02:
+	    case 0x03:
+	    case 0x08:
+	    case 0x09:
+	    case 0x0a:
+	    case 0x0b:
+	    case 0x0e:
+	    case 0x3d:
+		return 0;
+                           
+           default:
+               return 1;
+ 
 	}
     } else {
 	// PCI to PCI Bridge = 0x01
@@ -369,7 +380,7 @@ static int data_port_write(ushort_t port, void * src, uint_t length, struct vm_d
 		    pci_dev->bar[bar_reg].updated = 1;
 		}
 	    } else if ((cur_reg >= 0x30) && (cur_reg < 0x34)) {
-		pci_dev->ext_rom_updated = 1;
+		pci_dev->ext_rom_update_flag = 1;
 	    } else if (cur_reg == 0x04) {
 	      // COMMAND update	     
 	      uint8_t command = *((uint8_t *)src + i);
@@ -379,9 +390,11 @@ static int data_port_write(ushort_t port, void * src, uint_t length, struct vm_d
 	      if (pci_dev->cmd_update) {
 		pci_dev->cmd_update(pci_dev, (command & 0x01), (command & 0x02));
 	      }
-	      
+	     
+
 	    } else if (cur_reg == 0x0f) {
 		// BIST update
+		pci_dev->config_header.BIST = 0x00;
 	    }
 	}
     }
@@ -396,7 +409,7 @@ static int data_port_write(ushort_t port, void * src, uint_t length, struct vm_d
 	    if (pci_dev->bar[i].updated) {
 		int bar_offset = 0x10 + 4 * i;
 
-		*(uint32_t *)pci_dev->config_space + bar_offset) &= pci_dev->bar[i].mask;
+		*(uint32_t *)(pci_dev->config_space + bar_offset) &= pci_dev->bar[i].mask;
 
 		if (pci_dev->bar[i].bar_update) {
 		    pci_dev->bar[i].bar_update(pci_dev, i);
@@ -452,7 +465,7 @@ static int pci_deinit_device(struct vm_device * dev) {
 
 
 static int init_i440fx(struct vm_device * dev) {
-    struct pci_device * pci_dev = v3_pci_register_device(dev, 0, "i440FX", 0, 
+    /*struct pci_device * pci_dev = v3_pci_register_device(dev, 0, "i440FX", 0, 
 							 NULL, NULL, NULL);
     
     if (!pci_dev) {
@@ -467,7 +480,7 @@ static int init_i440fx(struct vm_device * dev) {
     pci_dev->config_header.header_type = 0x00;
 
     pci_dev->bus_num = 0;
-    
+    */
     return 0;
 }
 
@@ -503,7 +516,7 @@ static int pci_init_device(struct vm_device * dev) {
 	return -1;
     }
 
-    PrintDebug("Sizeof config header=%d\n", sizeof(struct pci_config_header));
+    PrintDebug("Sizeof config header=%d\n", (int)sizeof(struct pci_config_header));
     
     for (i = 0; i < 4; i++) {
 	v3_dev_hook_io(dev, CONFIG_ADDR_PORT + i, &addr_port_read, &addr_port_write);
@@ -564,6 +577,8 @@ static inline int init_bars(struct pci_device * pci_dev) {
 	    
 
     }
+
+    return 0;
 }
 
 
@@ -576,7 +591,7 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
 					   struct v3_pci_bar * bars,
 					   int (*config_update)(struct pci_device * pci_dev, uint_t reg_num, int length),
 					   int (*cmd_update)(struct pci_device *pci_dev, uchar_t io_enabled, uchar_t mem_enabled),
-					   int (*bar_update)(struct pci_device * pci_dev, uint_t bar),
+					   int (*ext_rom_update)(struct pci_device * pci_dev),
 					   void * private_data) {
 
     struct pci_internal * pci_state = (struct pci_internal *)pci->private_data;
@@ -610,7 +625,7 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
     }
 
     memset(pci_dev, 0, sizeof(struct pci_device));
-	
+    
     
     pci_dev->bus_num = bus_num;
     pci_dev->dev_num = dev_num;
@@ -620,7 +635,8 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
 
     // register update callbacks
     pci_dev->config_update = config_update;
-    pci_dev->bar_update = bar_update;
+    pci_dev->cmd_update = cmd_update;
+    pci_dev->ext_rom_update = ext_rom_update;
 
     pci_dev->priv_data = private_data;
 
@@ -628,7 +644,8 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
     //copy bars
     for (i = 0; i < 6; i ++){
       pci_dev->bar[i].type = bars[i].type;
-      pci_dev->bar[i].num_resources = bars[i].num_resources;
+      pci_dev->bar[i].num_pages = bars[i].num_pages;
+      pci_dev->bar[i].mem_hook = bars[i].mem_hook;
       pci_dev->bar[i].bar_update = bars[i].bar_update;
     }
 

@@ -33,7 +33,9 @@
 
 typedef enum {PCI_BAR_IO, PCI_BAR_MEM16, PCI_BAR_MEM32, PCI_BAR_MEM64_LOW, PCI_BAR_MEM64_HIGH, PCI_BAR_NONE} pci_bar_type_t;
 
-struct v3_bar_reg {
+struct pci_device;
+
+struct v3_pci_bar {
     pci_bar_type_t type;
     int mem_hook;
     int num_pages;
@@ -56,7 +58,7 @@ struct pci_device {
 
 
 
-    struct v3_bar_reg bar[6];
+    struct v3_pci_bar bar[6];
 
     uint_t bus_num;
     struct rb_node dev_tree_node;
@@ -87,8 +89,10 @@ v3_pci_register_device(struct vm_device * pci,
 		       uint_t bus_num,
 		       const char * name,
 		       int dev_num,
+		       struct v3_pci_bar * bars,
 		       int (*config_update)(struct pci_device * pci_dev, uint_t reg_num, int length),
-		       int (*bar_update)(struct pci_device * pci_dev, uint_t bar),
+		       int (*cmd_update)(struct pci_device *pci_dev, uchar_t io_enabled, uchar_t mem_enabled),
+		       int (*ext_rom_update)(struct pci_device *pci_dev),
 		       void * private_data);
 
 
