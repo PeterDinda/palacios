@@ -22,6 +22,8 @@
 #ifndef __DEVICES_PCI_H__
 #define __DEVICES_PCI_H__
 
+#ifdef __V3VEE__
+
 #include <palacios/vm_dev.h>
 #include <palacios/vmm_types.h>
 #include <palacios/vmm_rbtree.h>
@@ -29,22 +31,28 @@
 #include <devices/pci_types.h>
 
 
-#define V3_PCI_BAR_MEM		0x00
-#define V3_PCI_BAR_IO		0x01
-#define V3_PCI_BAR_MEM_PREFETCH	0x08
+typedef enum {PCI_BAR_IO, PCI_BAR_MEM32, PCI_BAR_MEM64_LOW, PCI_BAR_MEM64_HIGH, PCI_BAR_NONE} pci_bar_type_t;
 
+struct bar_reg {
+    int updated;
+    pci_bar_type_t type;
+    int num_resources;
+    int (*bar_update)(struct pci_device * pci_dev, uint_t bar);
+};
 
 struct pci_device {
     union {
+	uint8_t config_space[256];
+
 	struct {
 	    struct pci_config_header config_header;
 	    uint8_t config_data[192];
 	} __attribute__((packed));
-
-	uint8_t config_space[256];
     } __attribute__((packed));
 
 
+
+    struct bar_reg bar[6];
 
     uint_t bus_num;
     struct rb_node dev_tree_node;
@@ -55,6 +63,7 @@ struct pci_device {
     struct vm_device * vm_dev;  //the corresponding virtual device
 
     int (*config_update)(struct pci_device * pci_dev, uint_t reg_num, int length);
+
 
     void * priv_data;
 };
@@ -69,8 +78,11 @@ v3_pci_register_device(struct vm_device * pci,
 		       const char * name,
 		       int dev_num,
 		       int (*config_update)(struct pci_device * pci_dev, uint_t reg_num, int length),
+		       int (*bar_update)(struct pci_device * pci_dev, uint_t bar),
 		       void * private_data);
 
+
+#endif
 
 #endif
 
