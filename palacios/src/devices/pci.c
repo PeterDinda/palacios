@@ -385,10 +385,16 @@ static int data_port_write(ushort_t port, void * src, uint_t length, struct vm_d
     // Scan for BAR updated
     if (pci_dev->bar_update_flag) {
 	for (i = 0; i < 6; i++) {
-	    if ((pci_dev->bar[i].updated) && (pci_dev->bar[i].bar_update)) {
-		pci_dev->bar[i].bar_update(pci_dev, i);
+	    if (pci_dev->bar[i].updated) {
+		int bar_offset = 0x10 + 4 * i;
+
+		*(uint32_t *)pci_dev->config_space + bar_offset) &= pci_dev->bar[i].mask;
+
+		if (pci_dev->bar[i].bar_update) {
+		    pci_dev->bar[i].bar_update(pci_dev, i);
+		}
+		pci_dev->bar[i].updated = 0;
 	    }
-	    pci_dev->bar[i].updated = 0;
 	}
 	pci_dev->bar_update_flag = 0;
     }
@@ -521,6 +527,37 @@ struct vm_device * v3_create_pci() {
 
 
 
+static inline int init_bars(struct pci_device * pci_dev) {
+    int i = 0;
+
+    for (i = 0; i < 6; i++) {
+	int bar_offset = 0x10 + 4 * i;
+
+	if (pci_dev->bar[i].type == PCI_BAR_IO) {
+	    *(uint32_t *)(pci_dev->config_space + bar_offset) = 0x00000001;
+	} else if (pci_dev->bar[i].type == PCI_BAR_MEM32) {
+	    pci_dev->bar[i].mask = (pci_dev->bar[i].num_pages << 12) - 1;
+	    pci_dev->bar[i].mask |= 0xf; // preserve the configuration flags
+	     
+	    *(uint32_t *)(pci_dev->config_space + bar_offset) = 0x00000008;
+	    
+	    if (pci_dev->bar[i].mem_hook) {
+		// clear the prefetchable flag...
+		*(uint8_t *)(pci_dev->config_space + bar_offset) &= ~0x00000008;
+	    }
+	} else if (pci_dev->bar[i].type == PCI_BAR_MEM16) {
+	    PrintError("16 Bit memory ranges not supported (reg: %d)\n", i);
+	} else if (pci_dev->bar[i].type == PCI_BAR_NONE) {
+	    *(uint32_t *)(pci_dev->config_space + bar_offset) = 0x00000000;
+	} else {
+	    PrintError("Invalid BAR type for bar #%d\n", i);
+	    return -1;
+	}
+	    
+
+    }
+}
+
 
 
 // if dev_num == -1, auto assign 
@@ -582,10 +619,14 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
     
     //copy bars
     for (i = 0; i < 6; i ++){
-      pci_dev->bar[i].updated = bars[i].updated;
       pci_dev->bar[i].type = bars[i].type;
       pci_dev->bar[i].num_resources = bars[i].num_resources;
       pci_dev->bar[i].bar_update = bars[i].bar_update;
+    }
+
+    if (init_bars(pci_dev) == -1) {
+	PrintError("could not initialize bar registers\n");
+	return NULL;
     }
 
     pci_dev->cmd_update = cmd_update;

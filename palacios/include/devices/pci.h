@@ -31,13 +31,17 @@
 #include <devices/pci_types.h>
 
 
-typedef enum {PCI_BAR_IO, PCI_BAR_MEM32, PCI_BAR_MEM64_LOW, PCI_BAR_MEM64_HIGH, PCI_BAR_NONE} pci_bar_type_t;
+typedef enum {PCI_BAR_IO, PCI_BAR_MEM16, PCI_BAR_MEM32, PCI_BAR_MEM64_LOW, PCI_BAR_MEM64_HIGH, PCI_BAR_NONE} pci_bar_type_t;
 
 struct v3_bar_reg {
-    int updated;
     pci_bar_type_t type;
-    int num_resources;
+    int mem_hook;
+    int num_pages;
     int (*bar_update)(struct pci_device * pci_dev, uint_t bar);
+
+    // Internal PCI data
+    int updated;
+    uint32_t mask;
 };
 
 struct pci_device {
