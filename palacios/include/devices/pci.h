@@ -65,6 +65,9 @@ struct pci_device {
     int (*config_update)(struct pci_device * pci_dev, uint_t reg_num, int length);
 
 
+    int ext_rom_update_flag;
+    int bar_update_flag;
+
     void * priv_data;
 };
 
