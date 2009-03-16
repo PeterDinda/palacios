@@ -36,11 +36,15 @@
 
 struct pci_device {
     union {
-	struct pci_config_header header;
-	uint8_t header_space[64];
+	struct {
+	    struct pci_config_header config_header;
+	    uint8_t config_data[192];
+	} __attribute__((packed));
+
+	uint8_t config_space[256];
     } __attribute__((packed));
 
-    uint8_t config_space[192];
+
 
     uint_t bus_num;
     struct rb_node dev_tree_node;
@@ -50,9 +54,7 @@ struct pci_device {
 
     struct vm_device * vm_dev;  //the corresponding virtual device
 
-    int (*config_read)(struct pci_device * pci_dev, uint_t reg_num, void * dst, int len);
-    int (*config_write)(struct pci_device * pci_dev, uint_t reg_num, void * src, int len);
-    int (*bar_update)(struct pci_device * pci_dev, uint_t bar_reg, uint32_t val);
+    int (*config_update)(struct pci_device * pci_dev, uint_t reg_num, int length);
 
     void * priv_data;
 };
@@ -66,9 +68,7 @@ v3_pci_register_device(struct vm_device * pci,
 		       uint_t bus_num,
 		       const char * name,
 		       int dev_num,
-		       int (*config_read)(struct pci_device * pci_dev, uint_t reg_num, void * dst, int len),
-		       int (*config_write)(struct pci_device * pci_dev, uint_t reg_num, void * src, int len),
-		       int (*bar_update)(struct pci_device * pci_dev, uint_t bar_reg, uint32_t val),
+		       int (*config_update)(struct pci_device * pci_dev, uint_t reg_num, int length),
 		       void * private_data);
 
 

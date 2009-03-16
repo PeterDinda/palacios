@@ -88,9 +88,33 @@ struct pci_internal {
 
 
 
-#ifdef PCI_DEBUG
-static void pci_dump_state(struct pci_internal * pci_state);
+
+
+#ifdef DEBUG_PCI
+
+static void pci_dump_state(struct pci_internal * pci_state) {
+    struct rb_node * node = v3_rb_first(&(pci_state->bus_list[0].devices));
+    struct pci_device * tmp_dev = NULL;
+    
+    PrintDebug("===PCI: Dumping state Begin ==========\n");
+    
+    do {
+	tmp_dev = rb_entry(node, struct pci_device, dev_tree_node);
+
+  	PrintDebug("PCI Device Number: %d (%s):\n", tmp_dev->dev_num,  tmp_dev->name);
+	PrintDebug("irq = %d\n", tmp_dev->config_header.intr_line);
+	PrintDebug("Vend ID: 0x%x\n", tmp_dev->config_header.vendor_id);
+	PrintDebug("Device ID: 0x%x\n", tmp_dev->config_header.device_id);
+
+    } while ((node = v3_rb_next(node)));
+    
+    PrintDebug("====PCI: Dumping state End==========\n");
+}
+
 #endif
+
+
+
 
 // Scan the dev_map bitmap for the first '0' bit
 static int get_free_dev_num(struct pci_bus * bus) {
@@ -183,46 +207,8 @@ static struct pci_device * get_device(struct pci_bus * bus, int dev_num) {
 
 
 
-static int read_pci_header(struct pci_device * pci_dev, int reg_num, void * dst, int length) {
-
-    if (length == 4) {
-	*(uint32_t *)dst = *(uint32_t *)(pci_dev->header_space + reg_num);
-    } else if (length == 2) {
-	*(uint16_t *)dst = *(uint16_t *)(pci_dev->header_space + reg_num);
-    } else if (length == 1) {
-	*(uint8_t *)dst = pci_dev->header_space[reg_num];
-    } else {
-	PrintError("Invalid Read length (%d) for PCI configration header\n", length);
-	return -1;
-    }
-
-    return length;
-}
 
 
-static int write_pci_header(struct pci_device * pci_dev, int reg_num, void * src, int length) {
-
-    if (length == 4) {
-	*(uint32_t *)(pci_dev->header_space + reg_num) = *(uint32_t *)src;
-    } else if (length == 2) {
-	*(uint16_t *)(pci_dev->header_space + reg_num) = *(uint16_t *)src;
-    } else if (length == 1) {
-	pci_dev->header_space[reg_num] = *(uint8_t *)src;
-    } else {
-	PrintError("Invalid Read length (%d) for PCI configration header\n", length);
-	return -1;
-    }
-
-    // This is kind of ugly...
-    if ((reg_num >= 0x10) && (reg_num < 0x27)) {
-	int bar_num = (reg_num & ~0x3) - 0x10;
-	uint32_t val = *(uint32_t *)(pci_dev->header_space + (reg_num & ~0x3));
-
-	pci_dev->bar_update(pci_dev, bar_num, val);
-    }
-
-    return length;
-}
 
 
 static int addr_port_read(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
@@ -261,11 +247,14 @@ static int addr_port_write(ushort_t port, void * src, uint_t length, struct vm_d
     int reg_offset = port & 0x3; 
     uint8_t * reg_addr = ((uint8_t *)&(pci_state->addr_reg.val)) + reg_offset;
 
+
     if (length == 4) {
 	if (reg_offset != 0) {
 	    PrintError("Invalid Address Port Write\n");
 	    return -1;
 	}
+
+	PrintDebug("Writing PCI 4 bytes Val=%x\n",  *(uint32_t *)src);
 
 	*(uint32_t *)reg_addr = *(uint32_t *)src;
     } else if (length == 2) {
@@ -274,15 +263,18 @@ static int addr_port_write(ushort_t port, void * src, uint_t length, struct vm_d
 	    return -1;
 	}
 
+	PrintDebug("Writing PCI 2 byte Val=%x\n",  *(uint16_t *)src);
+
 	*(uint16_t *)reg_addr = *(uint16_t *)src;
     } else if (length == 1) {
+	PrintDebug("Writing PCI 1 byte Val=%x\n",  *(uint8_t *)src);
 	*(uint8_t *)reg_addr = *(uint8_t *)src;
     } else {
 	PrintError("Invalid write length (%d) for PCI address register\n", length);
 	return -1;
     }
 
-    PrintDebug("Writing PCI Address Port(%x): %x\n", port, pci_state->addr_reg.val);    
+    PrintDebug("Writing PCI Address Port(%x): %x\n", port, pci_state->addr_reg.val);
 
 
     return length;
@@ -292,19 +284,15 @@ static int addr_port_write(ushort_t port, void * src, uint_t length, struct vm_d
 static int data_port_read(ushort_t port, void * dst, uint_t length, struct vm_device * vmdev) {
     struct pci_internal * pci_state =  (struct pci_internal *)vmdev->private_data;;
     struct pci_device * pci_dev = NULL;
-    uint_t reg_num = pci_state->addr_reg.reg_num;
+    uint_t reg_num = pci_state->addr_reg.reg_num + (port & 0x3);
+    int i;
 
-        
-    PrintDebug("Reading PCI Data register. bus = %d, dev = %d, reg = %d (%x)\n", 
+    PrintDebug("Reading PCI Data register. bus = %d, dev = %d, reg = %d (%x), cfg_reg = %x\n", 
 	       pci_state->addr_reg.bus_num, 
 	       pci_state->addr_reg.dev_num, 
-	       reg_num);
+	       reg_num, reg_num, 
+	       pci_state->addr_reg.val);
 
-    
-    if (port != CONFIG_DATA_PORT) {
-	PrintError("Weird Data port Read: %x\n", port);
-	return -1;
-    }
 
     pci_dev = get_device(&(pci_state->bus_list[0]), pci_state->addr_reg.dev_num);
     
@@ -317,46 +305,45 @@ static int data_port_read(ushort_t port, void * dst, uint_t length, struct vm_de
 	return -1;
     }
 
-    // Header register
-    if (reg_num < 0x40) {
-	return read_pci_header(pci_dev, reg_num, dst, length);
+    for (i = 0; i < length; i++) {
+	*((uint8_t *)dst + i) = pci_dev->config_space[reg_num + i];
     }
+    
+    return length;
+}
 
-    if (pci_dev->config_read) {
-	return pci_dev->config_read(pci_dev, reg_num, dst, length);
-    }
 
-
-    if (length == 4) {
-	*(uint32_t *)dst = *(uint32_t *)(pci_dev->config_space + reg_num - 0x40);
-    } else if (length == 2) {
-	*(uint16_t *)dst = *(uint16_t *)(pci_dev->config_space + reg_num - 0x40);
-    } else if (length == 1) {
-	*(uint8_t *)dst = pci_dev->config_space[reg_num - 0x40];
+static inline int is_cfg_reg_writable(uchar_t header_type, int reg_num) {
+    if (header_type == 0x00) {
+	switch (reg_num) {
+	    // case (non writable reg list):
+	    
+	    default:
+		return 1;
+	}
     } else {
-	PrintError("Invalid Read length (%d) for PCI data register", length);
+	// PCI to PCI Bridge = 0x01
+	// CardBus Bridge = 0x02
+
+	// huh?
+	PrintError("Invalid PCI Header type (0x%.2x)\n", header_type);
+
 	return -1;
     }
-	
-    return length;
 }
 
 
 static int data_port_write(ushort_t port, void * src, uint_t length, struct vm_device * vmdev) {
     struct pci_internal * pci_state = (struct pci_internal *)vmdev->private_data;;
     struct pci_device * pci_dev = NULL;
-    uint_t reg_num = pci_state->addr_reg.reg_num;
-    
-    
-    PrintDebug("Writing PCI Data register. bus = %d, dev = %d, reg = %d (%x)\n", 
+    uint_t reg_num = pci_state->addr_reg.reg_num + (port & 0x3);
+    int i;
+
+    PrintDebug("Writing PCI Data register. bus = %d, dev = %d, reg = %d (%x) addr_reg = %x\n", 
 	       pci_state->addr_reg.bus_num, 
 	       pci_state->addr_reg.dev_num, 
-	       reg_num);
-
-    if (port != CONFIG_DATA_PORT) {
-	PrintError("Weird Data port Write: %x\n", port);
-	return -1;
-    }
+	       reg_num, reg_num, 
+	       pci_state->addr_reg.val);
 
 
     pci_dev = get_device(&(pci_state->bus_list[0]), pci_state->addr_reg.dev_num);
@@ -367,28 +354,17 @@ static int data_port_write(ushort_t port, void * src, uint_t length, struct vm_d
 	return -1;
     }
     
-    // Header register
-    if (reg_num < 0x40) {
-	return write_pci_header(pci_dev, reg_num, src, length);
+
+    for (i = 0; i < length; i++) {
+	if (is_cfg_reg_writable(pci_dev->config_header.header_type, reg_num)) {
+	    pci_dev->config_space[reg_num + i] = *((uint8_t *)src + i);
+	}
+    }
+
+    if (pci_dev->config_update) {
+	pci_dev->config_update(pci_dev, reg_num, length);
     }
     
-
-    if (pci_dev->config_write) {
-	return pci_dev->config_write(pci_dev, reg_num, src, length);
-    }
-
-
-    if (length == 4) {
-	*(uint32_t *)(pci_dev->config_space + reg_num - 0x40) = *(uint32_t *)src;
-    } else if (length == 2) {
-	*(uint16_t *)(pci_dev->config_space + reg_num - 0x40) =	*(uint16_t *)src;
-    } else if (length == 1) {
-	pci_dev->config_space[reg_num - 0x40] = *(uint8_t *)src;
-    } else {
-	PrintError("Invalid Write length (%d) for PCI data register", length);
-	return -1;
-    }
-	
     return length;
 }
 
@@ -429,18 +405,18 @@ static int pci_deinit_device(struct vm_device * dev) {
 
 static int init_i440fx(struct vm_device * dev) {
     struct pci_device * pci_dev = v3_pci_register_device(dev, 0, "i440FX", 0, 
-							 NULL, NULL, NULL, NULL);
+							 NULL, NULL);
     
     if (!pci_dev) {
 	return -1;
     }
     
-    pci_dev->header.vendor_id = 0x8086;
-    pci_dev->header.device_id = 0x1237;
-    pci_dev->header.revision = 0x0002;
-    pci_dev->header.subclass = 0x00; //  SubClass: host2pci
-    pci_dev->header.class = 0x06;    // Class: PCI bridge
-    pci_dev->header.header_type = 0x00;
+    pci_dev->config_header.vendor_id = 0x8086;
+    pci_dev->config_header.device_id = 0x1237;
+    pci_dev->config_header.revision = 0x0002;
+    pci_dev->config_header.subclass = 0x00; //  SubClass: host2pci
+    pci_dev->config_header.class = 0x06;    // Class: PCI bridge
+    pci_dev->config_header.header_type = 0x00;
 
     pci_dev->bus_num = 0;
     
@@ -516,9 +492,7 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
 					   uint_t bus_num,
 					   const char * name,
 					   int dev_num,
-					   int (*config_read)(struct pci_device * pci_dev, uint_t reg_num, void * dst, int len),
-					   int (*config_write)(struct pci_device * pci_dev, uint_t reg_num, void * src, int len),
-					   int (*bar_update)(struct pci_device * pci_dev, uint_t bar_reg, uint32_t val),
+					   int (*config_update)(struct pci_device * pci_dev, uint_t reg_num, int length),
 					   void * private_data) {
 
     struct pci_internal * pci_state = (struct pci_internal *)pci->private_data;
@@ -559,9 +533,7 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
     strncpy(pci_dev->name, name, sizeof(pci_dev->name));
     pci_dev->vm_dev = pci;
 
-    pci_dev->config_read = config_read;
-    pci_dev->config_write = config_write;
-    pci_dev->bar_update = bar_update;
+    pci_dev->config_update = config_update;
 
     pci_dev->priv_data = private_data;
 
@@ -577,25 +549,3 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
 
 
 
-#ifdef DEBUG_PCI
-
-static void pci_dump_state(struct pci_internal * pci_state) {
-    struct rb_node * node = v3_rb_first(&(pci_state->bus_list[0].devices));
-    struct pci_device * tmp_dev = NULL;
-    
-    PrintDebug("===PCI: Dumping state Begin ==========\n");
-    
-    do {
-	tmp_dev = rb_entry(node, struct pci_device, dev_tree_node);
-
-  	PrintDebug("PCI Device Number: %d (%s):\n", tmp_dev->dev_num,  tmp_dev->name);
-	PrintDebug("irq = %d\n", tmp_dev->header.irq_line);
-	PrintDebug("Vend ID: 0x%x\n", tmp_dev->header.vendor_id);
-	PrintDebug("Device ID: 0x%x\n", tnp_dev->header.device_id);
-
-    } while ((node = v3_rb_next(node)));
-    
-    PrintDebug("====PCI: Dumping state End==========\n");
-}
-
-#endif
