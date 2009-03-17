@@ -75,8 +75,8 @@ int v3_handle_svm_exit(struct guest_info * info) {
 	// Interrupt was taken in the guest
 #ifdef DEBUG_INTERRUPTS
 	if ((info->intr_state.irq_vector == 238) || 
-	    (info->intr_state.irq_vector == 238)) {
-	    PrintDebug("Interrupt taken by guest\n");
+	    (info->intr_state.irq_vector == 239)) {
+	    PrintDebug("Interrupt %d taken by guest\n", info->intr_state.irq_vector);
 	}
 #endif
 	v3_injecting_intr(info, info->intr_state.irq_vector, EXTERNAL_IRQ);
@@ -370,7 +370,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
 		guest_ctrl->guest_ctrl.V_INTR_PRIO = 0xf;
 #ifdef DEBUG_INTERRUPTS
 		if ((guest_ctrl->guest_ctrl.V_INTR_VECTOR == 238) || 
-		    (guest_ctrl->guest_ctrl.V_INTR_VECTOR == 238)) {
+		    (guest_ctrl->guest_ctrl.V_INTR_VECTOR == 239)) {
 		    PrintDebug("Injecting Interrupt %d (EIP=%p)\n", 
 			       guest_ctrl->guest_ctrl.V_INTR_VECTOR, 
 			       (void *)(addr_t)info->rip);
