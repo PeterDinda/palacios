@@ -296,7 +296,7 @@ static int apic_do_eoi(struct apic_state * apic) {
 
 		    if ((((i * 8) + j) == 238) || 
 			(((i * 8) + j) == 239)) {
-			PrintError("Acking IRQ %d\n");
+			PrintError("Acking IRQ %d\n", ((i * 8) + j));
 		    }
  		    
 		    if (((i * 8) + j) == 238) {
