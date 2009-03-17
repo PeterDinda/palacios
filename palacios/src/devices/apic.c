@@ -277,10 +277,8 @@ static int activate_apic_irq(struct apic_state * apic, uint32_t irq_num) {
 
 
 
-static int apic_do_eoi(struct apic_state * apic) {
+static int get_highest_isr(struct apic_state * apic) {
     int i = 0, j = 0;
-
-    PrintDebug("Received APIC EOI\n");
 
     // We iterate backwards to find the highest priority
     for (i = 31; i >= 0; i--) {
@@ -290,25 +288,72 @@ static int apic_do_eoi(struct apic_state * apic) {
 	    for (j = 7; j >= 0; j--) {
 		uchar_t flag = 0x1 << j;
 		if ((*svc_major) & flag) {
-		    *svc_major &= ~flag;
 
-#ifdef CRAY_XT
 
-		    if ((((i * 8) + j) == 238) || 
-			(((i * 8) + j) == 239)) {
-			PrintError("Acking IRQ %d\n", ((i * 8) + j));
-		    }
- 		    
-		    if (((i * 8) + j) == 238) {
-			V3_ACK_IRQ(238);
-		    }
-#endif
-		    return 0;
+		    return ((i * 8) + j);
 		}
 	    }
 	}
     }
 
+    return -1;
+}
+ 
+
+
+static int get_highest_irr(struct apic_state * apic) {
+    int i = 0, j = 0;
+
+    // We iterate backwards to find the highest priority
+    for (i = 31; i >= 0; i--) {
+	uchar_t  * req_major = apic->int_req_reg + i;
+    
+	if ((*req_major) & 0xff) {
+	    for (j = 7; j >= 0; j--) {
+		uchar_t flag = 0x1 << j;
+		if ((*req_major) & flag) {
+
+
+		    return ((i * 8) + j);
+		}
+	    }
+	}
+    }
+
+    return -1;
+}
+ 
+
+
+
+static int apic_do_eoi(struct apic_state * apic) {
+    int isr_irq = get_highest_isr(apic);
+
+    if (isr_irq != -1) {
+	int major_offset = (isr_irq & ~0x00000007) >> 3;
+	int minor_offset = isr_irq & 0x00000007;
+	uchar_t flag = 0x1 << minor_offset;
+	uchar_t * svc_location = apic->int_svc_reg + major_offset;
+	
+	PrintDebug("Received APIC EOI\n");
+	
+	*svc_location &= ~flag;
+
+#ifdef CRAY_XT
+	
+	if ((((i * 8) + j) == 238) || 
+	    (((i * 8) + j) == 239)) {
+	    PrintError("Acking IRQ %d\n", ((i * 8) + j));
+	}
+	
+	if (((i * 8) + j) == 238) {
+	    V3_ACK_IRQ(238);
+	}
+#endif
+    } else {
+	PrintError("Spurious EOI...\n");
+    }
+	
     return 0;
 }
  
@@ -781,39 +826,31 @@ static int apic_write(addr_t guest_addr, void * src, uint_t length, void * priv_
 
 /* Interrupt Controller Functions */
 
+// returns 1 if an interrupt is pending, 0 otherwise
 static int apic_intr_pending(void * private_data) {
     struct vm_device * dev = (struct vm_device *)private_data;
     struct apic_state * apic = (struct apic_state *)dev->private_data;
-    int i = 0;
+    int req_irq = get_highest_irr(apic);
+    int svc_irq = get_highest_isr(apic);
 
-
-    // just scan the request register looking for any set bit
-    // we should probably just do this with uint64 casts 
-    for (i = 0; i < 32; i++) {
-	if (apic->int_req_reg[i] & 0xff) {
-	    return 1;
-	}
+    if ((req_irq >= 0) && 
+	(req_irq > svc_irq)) {
+	return 1;
     }
+
     return 0;
 }
 
 static int apic_get_intr_number(void * private_data) {
     struct vm_device * dev = (struct vm_device *)private_data;
     struct apic_state * apic = (struct apic_state *)dev->private_data;
-    int i = 0, j = 0;
+    int req_irq = get_highest_irr(apic);
+    int svc_irq = get_highest_isr(apic);
 
-
-    // We iterate backwards to find the highest priority
-    for (i = 31; i >= 0; i--) {
-	uchar_t req_major = apic->int_req_reg[i];
-    
-	if (req_major & 0xff) {
-	    for (j = 7; j >= 0; j--) {
-		if ((req_major >> j) == 0x1) {
-		    return (i * 8) + j;
-		}
-	    }
-	}
+    if (svc_irq == -1) {
+	return req_irq;
+    } else if (svc_irq < req_irq) {
+	return req_irq;
     }
 
     return -1;
