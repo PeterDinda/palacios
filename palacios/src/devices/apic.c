@@ -747,14 +747,13 @@ static int apic_write(addr_t guest_addr, void * src, uint_t length, void * priv_
    
 
 	    // Action Registers
+	case EOI_OFFSET:
+	    // do eoi
+	    apic_do_eoi(apic);
+	    break;
+
 	case INT_CMD_LO_OFFSET:
 	case INT_CMD_HI_OFFSET:
-	case EOI_OFFSET:
-	    {
-		// do eoi
-		apic_do_eoi(apic);
-		break;
-	    }
 	    // Unhandled Registers
 	case EXT_INT_LOC_VEC_TBL_OFFSET0:
 	case EXT_INT_LOC_VEC_TBL_OFFSET1:
