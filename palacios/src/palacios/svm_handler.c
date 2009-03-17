@@ -368,17 +368,17 @@ int v3_handle_svm_exit(struct guest_info * info) {
 		guest_ctrl->guest_ctrl.V_INTR_VECTOR = irq;
 		guest_ctrl->guest_ctrl.V_IGN_TPR = 1;
 		guest_ctrl->guest_ctrl.V_INTR_PRIO = 0xf;
+
 #ifdef DEBUG_INTERRUPTS
-		if ((guest_ctrl->guest_ctrl.V_INTR_VECTOR == 238) || 
-		    (guest_ctrl->guest_ctrl.V_INTR_VECTOR == 239)) {
+		if ((irq == 238) || (irq == 239)) {
 		    PrintDebug("Injecting Interrupt %d (EIP=%p)\n", 
 			       guest_ctrl->guest_ctrl.V_INTR_VECTOR, 
 			       (void *)(addr_t)info->rip);
 		}
 #endif
+
 		info->intr_state.irq_pending = 1;
 		info->intr_state.irq_vector = irq;
-
 		    
 		break;
 	    }
@@ -394,7 +394,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
 		    guest_ctrl->EVENTINJ.error_code = info->intr_state.excp_error_code;
 		    guest_ctrl->EVENTINJ.ev = 1;
 #ifdef DEBUG_INTERRUPTS
-		    //		    PrintDebug("Injecting exception %d with error code %x\n", excp, guest_ctrl->EVENTINJ.error_code);
+		    // PrintDebug("Injecting exception %d with error code %x\n", excp, guest_ctrl->EVENTINJ.error_code);
 #endif
 		}
 		
@@ -402,9 +402,11 @@ int v3_handle_svm_exit(struct guest_info * info) {
 		
 		guest_ctrl->EVENTINJ.valid = 1;
 #ifdef DEBUG_INTERRUPTS
+		/*
 		PrintDebug("Injecting Exception %d (EIP=%p)\n", 
 			   guest_ctrl->EVENTINJ.vector, 
 			   (void *)(addr_t)info->rip);
+		*/
 #endif
 		v3_injecting_intr(info, excp, EXCEPTION);
 		break;
