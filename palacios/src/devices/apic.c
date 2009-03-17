@@ -293,6 +293,12 @@ static int apic_do_eoi(struct apic_state * apic) {
 		    *svc_major &= ~flag;
 
 #ifdef CRAY_XT
+
+		    if ((((i * 8) + j) == 238) || 
+			(((i * 8) + j) == 239)) {
+			PrintError("Acking IRQ %d\n");
+		    }
+ 		    
 		    if (((i * 8) + j) == 238) {
 			V3_ACK_IRQ(238);
 		    }
@@ -918,7 +924,7 @@ static void apic_update_time(ullong_t cpu_cycles, ullong_t cpu_freq, void * priv
     }
 
     tmr_ticks = cpu_cycles >> shift_num;
-    //  PrintDebug("Timer Ticks: %p\n", (void *)tmr_ticks);
+    PrintDebug("Timer Ticks: %p\n", (void *)tmr_ticks);
 
     if (tmr_ticks < apic->tmr_cur_cnt) {
 	apic->tmr_cur_cnt -= tmr_ticks;
@@ -929,6 +935,7 @@ static void apic_update_time(ullong_t cpu_cycles, ullong_t cpu_freq, void * priv
 	// raise irq
 	PrintDebug("Raising APIC Timer interrupt (periodic=%d) (icnt=%d) (div=%d)\n", 
 		   apic->tmr_vec_tbl.tmr_mode, apic->tmr_init_cnt, shift_num);
+
 	if (activate_internal_irq(apic, APIC_TMR_INT) == -1) {
 	    PrintError("Could not raise Timer interrupt\n");
 	}
