@@ -280,6 +280,8 @@ static int activate_apic_irq(struct apic_state * apic, uint32_t irq_num) {
 static int apic_do_eoi(struct apic_state * apic) {
     int i = 0, j = 0;
 
+    PrintDebug("Received APIC EOI\n");
+
     // We iterate backwards to find the highest priority
     for (i = 31; i >= 0; i--) {
 	uchar_t  * svc_major = apic->int_svc_reg + i;
@@ -841,6 +843,12 @@ static int apic_begin_irq(void * private_data, int irq) {
 
     *svc_location |= flag;
     *req_location &= ~flag;
+
+#ifdef CRAY_XT
+    if ((irq == 238) || (irq == 239)) {
+	PrintError("APIC: Begin IRQ %d (ISR=%x), (IRR=%x)\n", irq, *svc_location, *req_location);
+    }
+#endif
 
     return 0;
 }
