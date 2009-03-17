@@ -155,7 +155,7 @@ int v3_raise_exception_with_error(struct guest_info * info, uint_t excp, uint_t 
 	intr_state->excp_num = excp;
 	intr_state->excp_error_code = error_code;
 	intr_state->excp_error_code_valid = 1;
-	PrintDebug("[v3_raise_exception_with_error] error code: %x\n", error_code);
+	//	PrintDebug("[v3_raise_exception_with_error] error code: %x\n", error_code);
     } else {
 	PrintError("exception already pending, currently not implemented\n");
 	return -1;
@@ -166,7 +166,7 @@ int v3_raise_exception_with_error(struct guest_info * info, uint_t excp, uint_t 
 
 int v3_raise_exception(struct guest_info * info, uint_t excp) {
     struct v3_intr_state * intr_state = &(info->intr_state);
-    PrintDebug("[v3_raise_exception]\n");
+    //PrintDebug("[v3_raise_exception]\n");
     if (intr_state->excp_pending == 0) {
 	intr_state->excp_pending = 1;
 	intr_state->excp_num = excp;
@@ -185,7 +185,7 @@ int v3_lower_irq(struct guest_info * info, int irq) {
     struct intr_controller * ctrl = NULL;
     struct v3_intr_state * intr_state = &(info->intr_state);
 
-    PrintDebug("[v3_lower_irq]\n");
+    //    PrintDebug("[v3_lower_irq]\n");
 
     list_for_each_entry(ctrl, &(intr_state->controller_list), ctrl_node) {
 	ctrl->ctrl_ops->lower_intr(ctrl->priv_data, irq);
@@ -198,7 +198,7 @@ int v3_raise_irq(struct guest_info * info, int irq) {
     struct intr_controller * ctrl = NULL;
     struct v3_intr_state * intr_state = &(info->intr_state);
 
-    PrintDebug("[v3_raise_irq (%d)]\n", irq);
+    //  PrintDebug("[v3_raise_irq (%d)]\n", irq);
 
     list_for_each_entry(ctrl, &(intr_state->controller_list), ctrl_node) {
 	ctrl->ctrl_ops->raise_intr(ctrl->priv_data, irq);
@@ -241,7 +241,7 @@ uint_t v3_get_intr_number(struct guest_info * info) {
 	    if (ctrl->ctrl_ops->intr_pending(ctrl->priv_data)) {
 		uint_t intr_num = ctrl->ctrl_ops->get_intr_number(ctrl->priv_data);
 
-		PrintDebug("[get_intr_number] intr_number = %d\n", intr_num);
+		//	PrintDebug("[get_intr_number] intr_number = %d\n", intr_num);
 
 		return intr_num;
 	    }
@@ -256,20 +256,20 @@ intr_type_t v3_get_intr_type(struct guest_info * info) {
     struct v3_intr_state * intr_state = &(info->intr_state);
 
     if (intr_state->excp_pending) {
-	PrintDebug("[get_intr_type] Exception\n");
+	//	PrintDebug("[get_intr_type] Exception\n");
 	return EXCEPTION;
     } else {
 	struct intr_controller * ctrl = NULL;
 
 	list_for_each_entry(ctrl, &(intr_state->controller_list), ctrl_node) {
 	    if (ctrl->ctrl_ops->intr_pending(ctrl->priv_data) == 1) {
-		PrintDebug("[get_intr_type] External_irq\n");
+		//PrintDebug("[get_intr_type] External_irq\n");
 		return EXTERNAL_IRQ;
 	    }
 	}
     }
 
-    PrintDebug("[get_intr_type] Invalid_Intr\n");
+    PrintError("[get_intr_type] Invalid_Intr\n");
     return INVALID_INTR;
 }
 
@@ -282,7 +282,7 @@ int v3_injecting_intr(struct guest_info * info, uint_t intr_num, intr_type_t typ
     struct v3_intr_state * intr_state = &(info->intr_state);
 
     if (type == EXCEPTION) {
-	PrintDebug("[injecting_intr] Exception\n");
+	//	PrintDebug("[injecting_intr] Exception\n");
 	intr_state->excp_pending = 0;
 	intr_state->excp_num = 0;
 	intr_state->excp_error_code = 0;
@@ -291,7 +291,7 @@ int v3_injecting_intr(struct guest_info * info, uint_t intr_num, intr_type_t typ
     } else if (type == EXTERNAL_IRQ) {
 	struct intr_controller * ctrl = NULL;
 
-	PrintDebug("[injecting_intr] External_Irq with intr_num = %x\n", intr_num);
+	//	PrintDebug("[injecting_intr] External_Irq with intr_num = %x\n", intr_num);
 	list_for_each_entry(ctrl, &(intr_state->controller_list), ctrl_node) {
 	    ctrl->ctrl_ops->begin_irq(ctrl->priv_data, intr_num);
 	}
