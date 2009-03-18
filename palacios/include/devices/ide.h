@@ -24,6 +24,38 @@
 #include <palacios/vm_dev.h>
 
 
+typedef enum {IDE_DISK, IDE_CDROM, IDE_NONE} v3_ide_dev_type_t;
+
+struct v3_ide_cd_ops {
+    uint32_t (*get_capacity)(void * private_data);
+    // Reads always operate on 2048 byte blocks
+    int (*read_block)(uchar_t * buf, int offset, void * private_data);
+
+};
+
+
+struct v3_ide_hd_ops {
+    
+
+};
+
+
+int v3_ide_register_cdrom(struct vm_device * ide, 
+			  uint_t bus_num, 
+			  uint_t drive_num, 
+			  char * drive_name,
+			  struct v3_ide_cd_ops * ops, 
+			  void * private_data);
+
+int v3_ide_register_harddisk(struct vm_device * ide, 
+			     uint_t bus_num, 
+			     uint_t drive_num, 
+			     char * drive_name,
+			     struct v3_ide_hd_ops * ops, 
+			     void * private_data);
+
+
+
 struct vm_device * v3_create_ide();
 
 

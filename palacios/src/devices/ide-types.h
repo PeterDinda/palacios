@@ -78,7 +78,7 @@ struct ide_ctrl_reg {
 	uint8_t val;
 	struct {
 	    uint_t rsvd0        : 1;
-	    uint_t irq_enable   : 1;
+	    uint_t irq_disable   : 1;
 	    uint_t soft_reset   : 1;
 	    uint_t rsvd1        : 5;
 	} __attribute__((packed));

@@ -46,11 +46,11 @@
 #define SEC_ADDR_REG_PORT     0x377
 
 
-typedef enum {IDE_DISK, IDE_CDROM, IDE_NONE} ide_dev_type_t;
+
 static const char * ide_dev_type_strs[] = {"HARDDISK", "CDROM", "NONE"};
 
 
-static inline const char * device_type_to_str(ide_dev_type_t type) {
+static inline const char * device_type_to_str(v3_ide_dev_type_t type) {
     if (type > 2) {
 	return NULL;
     }
@@ -65,8 +65,16 @@ static inline const char * device_type_to_str(ide_dev_type_t type) {
 struct ide_drive {
     // Command Registers
 
-    ide_dev_type_t drive_type;
+    v3_ide_dev_type_t drive_type;
 
+    union {
+	struct v3_ide_cd_ops * cd_ops;
+	struct v3_ide_hd_ops * hd_ops;
+    };
+
+
+    char model[41];
+    void * private_data;
 
     uint8_t sector_count;               // 0x1f2,0x172
     uint8_t sector_num;               // 0x1f3,0x173
@@ -162,7 +170,7 @@ static void channel_reset(struct ide_channel * channel) {
     // clear commands
     channel->command_reg = 0x00;
 
-    channel->ctrl_reg.irq_enable = 0;
+    channel->ctrl_reg.irq_disable = 0;
 }
 
 static void channel_reset_complete(struct ide_channel * channel) {
@@ -365,9 +373,11 @@ static void init_drive(struct ide_drive * drive) {
     drive->sector_num = 0x01;
     drive->cylinder = 0x0000;
 
-
     drive->drive_type = IDE_NONE;
 
+    memset(drive->model, 0, sizeof(drive->model));
+
+    drive->cd_ops = NULL;
 }
 
 static void init_channel(struct ide_channel * channel) {
@@ -481,4 +491,75 @@ struct vm_device *  v3_create_ide() {
     PrintDebug("IDE: Creating IDE bus x 2\n");
 
     return device;
+}
+
+
+
+
+
+int v3_ide_register_cdrom(struct vm_device * ide_dev, 
+			  uint_t bus_num, 
+			  uint_t drive_num,
+			  char * dev_name, 
+			  struct v3_ide_cd_ops * ops, 
+			  void * private_data) {
+
+    struct ide_internal * ide  = (struct ide_internal *)(ide_dev->private_data);  
+    struct ide_channel * channel = NULL;
+    struct ide_drive * drive = NULL;
+
+    V3_ASSERT((bus_num >= 0) && (bus_num < 2));
+    V3_ASSERT((drive_num >= 0) && (drive_num < 2));
+
+    channel = &(ide->channels[bus_num]);
+    drive = &(channel->drives[drive_num]);
+    
+    if (drive->drive_type != IDE_NONE) {
+	PrintError("Device slot (bus=%d, drive=%d) already occupied\n", bus_num, drive_num);
+	return -1;
+    }
+
+    strncpy(drive->model, dev_name, sizeof(drive->model) - 1);
+
+    drive->drive_type = IDE_CDROM;
+
+    drive->cd_ops = ops;
+
+    drive->private_data = private_data;
+
+    return 0;
+}
+
+
+int v3_ide_register_harddisk(struct vm_device * ide_dev, 
+			     uint_t bus_num, 
+			     uint_t drive_num, 
+			     char * dev_name, 
+			     struct v3_ide_hd_ops * ops, 
+			     void * private_data) {
+
+    struct ide_internal * ide  = (struct ide_internal *)(ide_dev->private_data);  
+    struct ide_channel * channel = NULL;
+    struct ide_drive * drive = NULL;
+
+    V3_ASSERT((bus_num >= 0) && (bus_num < 2));
+    V3_ASSERT((drive_num >= 0) && (drive_num < 2));
+
+    channel = &(ide->channels[bus_num]);
+    drive = &(channel->drives[drive_num]);
+    
+    if (drive->drive_type != IDE_NONE) {
+	PrintError("Device slot (bus=%d, drive=%d) already occupied\n", bus_num, drive_num);
+	return -1;
+    }
+
+    strncpy(drive->model, dev_name, sizeof(drive->model) - 1);
+
+    drive->drive_type = IDE_DISK;
+
+    drive->hd_ops = ops;
+
+    drive->private_data = private_data;
+
+    return 0;
 }
