@@ -87,7 +87,7 @@ int v3_handle_svm_io_ins(struct guest_info * info) {
     addr_t dst_addr = 0;
     uint_t rep_num = 1;
     ullong_t mask = 0;
-    struct v3_segment *theseg = &(info->segments.es); // default is ES
+    struct v3_segment * theseg = &(info->segments.es); // default is ES
     addr_t inst_ptr;
 
 
@@ -115,8 +115,8 @@ int v3_handle_svm_io_ins(struct guest_info * info) {
 	return -1;
     }
 
-    while (is_prefix_byte(*((char*)inst_ptr))) {
-	switch (*((char*)inst_ptr)) { 
+    while (is_prefix_byte(*((char *)inst_ptr))) {
+	switch (*((char *)inst_ptr)) {
 	    case PREFIX_CS_OVERRIDE:
 		theseg = &(info->segments.cs);
 		break;
@@ -182,9 +182,9 @@ int v3_handle_svm_io_ins(struct guest_info * info) {
 
     while (rep_num > 0) {
 	addr_t host_addr;
-	dst_addr = get_addr_linear(info, info->vm_regs.rdi & mask, theseg);
+	dst_addr = get_addr_linear(info, (info->vm_regs.rdi & mask), theseg);
     
-	PrintDebug("Writing 0x%p\n", (void *)dst_addr);
+	//	PrintDebug("Writing 0x%p\n", (void *)dst_addr);
 
 	if (guest_va_to_host_va(info, dst_addr, &host_addr) == -1) {
 	    // either page fault or gpf...
@@ -192,13 +192,13 @@ int v3_handle_svm_io_ins(struct guest_info * info) {
 	    return -1;
 	}
 
-	if (hook->read(io_info->port, (char*)host_addr, read_size, hook->priv_data) != read_size) {
+	if (hook->read(io_info->port, (char *)host_addr, read_size, hook->priv_data) != read_size) {
 	    // not sure how we handle errors.....
 	    PrintError("Read Failure for ins on port %x\n", io_info->port);
 	    return -1;
 	}
 
-	info->vm_regs.rdi += read_size * direction;
+	info->vm_regs.rdi += (read_size * direction);
 
 	if (io_info->rep) {
 	    info->vm_regs.rcx--;
@@ -323,13 +323,13 @@ int v3_handle_svm_io_outs(struct guest_info * info) {
   
 
 
-    if (guest_va_to_host_va(info,get_addr_linear(info,info->rip,&(info->segments.cs)),&inst_ptr)==-1) {
+    if (guest_va_to_host_va(info, get_addr_linear(info, info->rip, &(info->segments.cs)), &inst_ptr) == -1) {
 	PrintError("Can't access instruction\n");
 	return -1;
     }
 
-    while (is_prefix_byte(*((char*)inst_ptr))) {
-	switch (*((char*)inst_ptr)) { 
+    while (is_prefix_byte(*((char *)inst_ptr))) {
+	switch (*((char *)inst_ptr)) {
 	    case PREFIX_CS_OVERRIDE:
 		theseg = &(info->segments.cs);
 		break;
