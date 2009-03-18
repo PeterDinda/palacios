@@ -86,6 +86,12 @@ struct ide_drive_ctrl_reg {
 } __attribute__((packed));
 
 
+struct ide_features_reg {
+    union {
+	uint8_t val;
+    } __attribute__((packed));
+} __attribute__((packed));
+
 
 typedef enum { 
     READ_SECT_W_RETRY = 0x20,
