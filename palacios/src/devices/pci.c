@@ -125,7 +125,7 @@ static int get_free_dev_num(struct pci_bus * bus) {
 	    // availability
 	    for (j = 0; j < 8; j++) {
 		if (!(bus->dev_map[i] & (0x1 << j))) {
-		    return ((i * 8) + j) * 8;
+		    return ((i * 8) + j);
 		}
 	    }
 	}
@@ -135,7 +135,7 @@ static int get_free_dev_num(struct pci_bus * bus) {
 }
 
 static void allocate_dev_num(struct pci_bus * bus, int dev_num) {
-    int major = (dev_num / 8) / 8;
+    int major = (dev_num / 8);
     int minor = dev_num % 8;
 
     bus->dev_map[major] |= (0x1 << minor);
@@ -495,6 +495,44 @@ static int init_i440fx(struct vm_device * dev) {
 
 
 
+static void test_devices(struct vm_device * dev) {
+    struct pci_device * pci_dev = NULL;
+    struct v3_pci_bar bars[6];
+    int i;
+    
+    for (i = 0; i < 6; i++) {
+	bars[i].type = PCI_BAR_NONE;
+	bars[i].mem_hook = 0;
+	bars[i].num_pages = 0;
+	bars[i].bar_update = NULL;
+    }    
+
+
+    pci_dev = v3_pci_register_device(dev, PCI_STD_DEVICE, 0, "", 0, bars,
+				     NULL, NULL, NULL, NULL);
+    
+    pci_dev->config_header.vendor_id = 0x8086;
+    pci_dev->config_header.device_id = 0x0101;
+    pci_dev->config_header.revision = 0x0002;
+    pci_dev->config_header.subclass = 0x01; //  SubClass: host2pci
+    pci_dev->config_header.class = 0x01;    // Class: PCI bridge
+
+    pci_dev = v3_pci_register_device(dev, PCI_STD_DEVICE, 0, "", 0, bars,
+				     NULL, NULL, NULL, NULL);
+    
+    pci_dev->config_header.vendor_id = 0x8086;
+    pci_dev->config_header.device_id = 0x0101;
+    pci_dev->config_header.revision = 0x0002;
+    pci_dev->config_header.subclass = 0x00; //  SubClass: host2pci
+    pci_dev->config_header.class = 0x02;    // Class: PCI bridge
+    
+
+
+
+}
+
+
+
 static void init_pci_busses(struct pci_internal * pci_state) {
     int i;
 
@@ -525,6 +563,8 @@ static int pci_init_device(struct vm_device * dev) {
 	return -1;
     }
 
+    test_devices(dev);
+    
     PrintDebug("Sizeof config header=%d\n", (int)sizeof(struct pci_config_header));
     
     for (i = 0; i < 4; i++) {
