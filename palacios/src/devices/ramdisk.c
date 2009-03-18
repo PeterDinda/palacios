@@ -2239,14 +2239,7 @@ void rd_identify_ATAPI_drive(struct vm_device * dev, struct channel_t * channel)
 	drive->id_drive[i] = 0;
     }
 
-    // now convert the id_drive array (native 256 word format) to
-    // the controller buffer (512 bytes)
-    Bit16u temp16;
-    for (i = 0; i <= 255; i++) {
-	temp16 = drive->id_drive[i];
-	controller->buffer[i * 2] = temp16 & 0x00ff;
-	controller->buffer[i * 2 + 1] = temp16 >> 8;
-    }
+
 
     return;
 }

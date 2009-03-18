@@ -92,21 +92,77 @@ struct ide_features_reg {
     } __attribute__((packed));
 } __attribute__((packed));
 
+typedef enum {IDE_CTRL_NOT_SPECIFIED, 
+	      IDE_CTRL_SINGLE_PORT, 
+	      IDE_CTRL_DUAL_PORT, 
+	      IDE_CTRL_DUAL_PORT_CACHE} ide_controller_type;
 
-typedef enum { 
-    READ_SECT_W_RETRY = 0x20,
-    READ_SECT = 0x21,
-    READ_LONG_W_RETRY = 0x22,
-    READ_LONG = 0x23,
-    READ_VRFY_SECT_W_RETRY = 0x40,
-    READ_VRFY_SECT = 0x41,
-    FORMAT_TRACK = 0x50,
-    EXEC_DRV_DIAG = 0x90,
-    INIT_DRIVE_PARAM = 0x91,
+struct ide_drive_id {
+    union {
+	uint16_t buf[256];
+	struct {
+	    uint_t rsvd1           : 1;
+	    uint_t hard_sectors    : 1;
+	    uint_t no_soft_sectors : 1;
+	    uint_t no_mfm_enc      : 1;
+	    uint_t head_switch_time : 1;
+	    uint_t spnd_mot_ctrl   : 1;
+	    uint_t fixed_drive     : 1;
+	    uint_t removable_media : 1;
+	    uint_t disk_speed1     : 1;
+	    uint_t disk_speed2     : 1;
+	    uint_t disk_speed3     : 1;
+	    uint_t rpm_tolerance   : 1;
+	    uint_t data_strobe_offset : 1;
+	    uint_t track_offset_option : 1;
+	    uint_t fmt_speed_tol   : 1;
+	    uint_t cdrom_flag      : 1;
 
-} ide_cmd_t;
+	    uint16_t num_cylinders;
+	    uint16_t rsvd2;
+	    uint16_t num_heads;
 
+	    uint16_t bytes_per_track;
+	    uint16_t bytes_per_sector;
+	    uint16_t sectors_per_track;
 
+	    uint16_t sector_gap;
+	    
+	    uint8_t phase_lock_bytes;
+	    uint8_t rsvd3;
+
+	    uint16_t num_vendor_wds;
+	    
+	    uint8_t serial_num[20]; // right aligned, padded with 0x20
+	    
+
+	    uint16_t controller_type;
+
+	    uint16_t buffer_size; // in 512 byte chunks
+
+	    uint16_t num_ecc_bytes;
+
+	    uint8_t firmware_rev[8]; // space padded
+	    uint8_t model_num[40]; // space padded
+	    
+	    uint16_t rw_multiples;
+
+	    uint16_t dword_io;
+
+	    uint8_t rsvd4;
+ 	    uint8_t lba_enable;
+	    
+
+	    uint16_t rsvd6;
+
+	    uint16_t min_PIO_cycle;
+	    uint16_t min_DMA_cycle;
+
+	    uint16_t rsvd7[503];
+
+	} __attribute__((packed));
+    } __attribute__((packed));
+} __attribute__((packed));
 
 
 #endif // ! __V3VEE__

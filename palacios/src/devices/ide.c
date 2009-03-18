@@ -21,7 +21,8 @@
 #include <devices/ide.h>
 #include "ide-types.h"
 
-
+#define PRI_DEFAULT_IRQ 14
+#define SEC_DEFAULT_IRQ 15
 
 #define PRI_DATA_PORT         0x1f0
 #define PRI_FEATURES_PORT     0x1f1
@@ -74,6 +75,12 @@ struct ide_drive {
 
 
     char model[41];
+
+    uint_t data_offset;
+
+    // data buffer...
+    uint8_t buffer[2048];
+
     void * private_data;
 
     uint8_t sector_count;               // 0x1f2,0x172
@@ -103,6 +110,8 @@ struct ide_channel {
 
     struct ide_status_reg status;       // [read] 0x1f7,0x177
     uint8_t command_reg;                // [write] 0x1f7,0x177
+
+    int irq; // this is temporary until we add PCI support
 
     // Control Registers
     struct ide_ctrl_reg ctrl_reg; // [write] 0x3f6,0x376
@@ -141,6 +150,13 @@ static inline struct ide_drive * get_selected_drive(struct ide_channel * channel
 
 static inline int is_lba_enabled(struct ide_channel * channel) {
     return channel->drive_head.lba_mode;
+}
+
+
+static void ide_raise_irq(struct vm_device * dev, struct ide_channel * channel) {
+    if (channel->ctrl_reg.irq_disable == 0) {
+	v3_raise_irq(dev->vm, channel->irq);
+    }
 }
 
 
@@ -184,9 +200,74 @@ static void channel_reset_complete(struct ide_channel * channel) {
 }
 
 
+static void ide_abort_command(struct vm_device * dev, struct ide_channel * channel) {
+    channel->status.val = 0x41; // Error + ready
+    channel->error_reg.val = 0x04; // No idea...
+
+    ide_raise_irq(dev, channel);
+}
+
+
+
+
+// Include the ATAPI interface handlers
+#include "atapi.h"
+
+
+
 
 static int write_cmd_port(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
+    struct ide_internal * ide = (struct ide_internal *)(dev->private_data);
+    struct ide_channel * channel = get_selected_channel(ide, port);
+    struct ide_drive * drive = get_selected_drive(channel);
+
+    if (length != 1) {
+	PrintError("Invalid Write Length on IDE command Port %x\n", port);
+	return -1;
+    }
+
+    channel->command_reg = *(uint8_t *)src;
+    
+
     PrintDebug("IDE: Writing Command Port %x (val=%x)\n", port, *(uint8_t *)src);
+
+    switch (channel->command_reg) {
+	
+	case 0xa0: // ATAPI Command Packet
+	    if (drive->drive_type != IDE_CDROM) {
+		ide_abort_command(dev, channel);
+	    }
+	    
+	    drive->sector_count = 1;
+
+	    channel->status.busy = 0;
+	    channel->status.write_fault = 0;
+	    channel->status.data_req = 1;
+	    channel->status.error = 0;
+	    
+	    drive->data_offset = 0;
+
+	case 0xa1: // ATAPI Identify Device Packet
+	    atapi_identify_device(drive);
+
+	    channel->error_reg.val = 0;
+	    channel->status.val = 0x58; // ready, data_req, seek_complete
+	    
+	    ide_raise_irq(dev, channel);
+	case 0xec: // Identify Device
+	    if (drive->drive_type != IDE_DISK) {
+		drive_reset(drive);
+
+		// JRL: Should we abort here?
+		ide_abort_command(dev, channel);
+	    } else {
+		PrintError("IDE Disks currently not implemented\n");
+		return -1;
+	    }
+	    break;
+	    
+    }
+
     return -1;
 }
 
@@ -362,6 +443,8 @@ static int read_port_std(ushort_t port, void * dst, uint_t length, struct vm_dev
 	    return -1;
     }
 
+    PrintDebug("\tVal=%x\n", *(uint8_t *)dst);
+
     return length;
 }
 
@@ -375,8 +458,11 @@ static void init_drive(struct ide_drive * drive) {
 
     drive->drive_type = IDE_NONE;
 
+    drive->data_offset = 0;
     memset(drive->model, 0, sizeof(drive->model));
+    memset(drive->buffer, 0, sizeof(drive->buffer));
 
+    drive->private_data = NULL;
     drive->cd_ops = NULL;
 }
 
@@ -389,6 +475,7 @@ static void init_channel(struct ide_channel * channel) {
     channel->command_reg = 0x00;
     channel->ctrl_reg.val = 0x08;
 
+
     for (i = 0; i < 2; i++) {
 	init_drive(&(channel->drives[i]));
     }
@@ -400,6 +487,9 @@ static void init_ide_state(struct ide_internal * ide) {
 
     for (i = 0; i < 2; i++) {
 	init_channel(&(ide->channels[i]));
+
+	// JRL: this is a terrible hack...
+	ide->channels[i].irq = PRI_DEFAULT_IRQ + i;
     }
 }
 
@@ -520,6 +610,11 @@ int v3_ide_register_cdrom(struct vm_device * ide_dev,
     }
 
     strncpy(drive->model, dev_name, sizeof(drive->model) - 1);
+
+    while (strlen((char *)(drive->model)) < 40) {
+	strcat((char*)(drive->model), " ");
+    }
+
 
     drive->drive_type = IDE_CDROM;
 
