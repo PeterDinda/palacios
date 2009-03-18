@@ -67,6 +67,18 @@ struct ide_drive {
 
     ide_dev_type_t drive_type;
 
+
+    uint8_t sector_count;               // 0x1f2,0x172
+    uint8_t sector_num;               // 0x1f3,0x173
+    union {
+	uint16_t cylinder;
+	struct {
+	    uint8_t cylinder_low;       // 0x1f4,0x174
+	    uint8_t cylinder_high;      // 0x1f5,0x175
+	} __attribute__((packed));
+    } __attribute__((packed));
+
+
 };
 
 
@@ -76,18 +88,8 @@ struct ide_channel {
 
     // Command Registers
     struct ide_error_reg error_reg;     // [read] 0x1f1,0x171
-    uint8_t sector_count;               // 0x1f2,0x172
-    uint8_t sector_num;               // 0x1f3,0x173
 
     struct ide_features_reg features;
-
-    union {
-	uint16_t cylinder;
-	struct {
-	    uint8_t cylinder_low;       // 0x1f4,0x174
-	    uint8_t cylinder_high;      // 0x1f5,0x175
-	} __attribute__((packed));
-    } __attribute__((packed));
 
     struct ide_drive_head_reg drive_head; // 0x1f6,0x176
 
@@ -95,7 +97,7 @@ struct ide_channel {
     uint8_t command_reg;                // [write] 0x1f7,0x177
 
     // Control Registers
-    struct ide_drive_ctrl_reg ctrl_reg; // [write] 0x3f6,0x376
+    struct ide_ctrl_reg ctrl_reg; // [write] 0x3f6,0x376
 };
 
 
@@ -134,6 +136,46 @@ static inline int is_lba_enabled(struct ide_channel * channel) {
 }
 
 
+static void drive_reset(struct ide_drive * drive) {
+    drive->sector_count = 0x01;
+    drive->sector_num = 0x01;
+    
+    if (drive->drive_type == IDE_CDROM) {
+	drive->cylinder = 0xeb14;
+    } else {
+	drive->cylinder = 0x0000;
+    }
+
+    // Send the reset signal to the connected device callbacks
+    //     channel->drives[0].reset();
+    //    channel->drives[1].reset();
+}
+
+static void channel_reset(struct ide_channel * channel) {
+    
+    // set busy and seek complete flags
+    channel->status.val = 0x90;
+
+    // Clear errors
+    channel->error_reg.val = 0x01;
+
+    // clear commands
+    channel->command_reg = 0x00;
+
+    channel->ctrl_reg.irq_enable = 0;
+}
+
+static void channel_reset_complete(struct ide_channel * channel) {
+    channel->status.busy = 0;
+    channel->status.ready = 1;
+
+    channel->drive_head.head_num = 0;    
+    
+    drive_reset(&(channel->drives[0]));
+    drive_reset(&(channel->drives[1]));
+}
+
+
 
 static int write_cmd_port(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
     PrintDebug("IDE: Writing Command Port %x (val=%x)\n", port, *(uint8_t *)src);
@@ -155,8 +197,8 @@ static int read_data_port(ushort_t port, void * dst, uint_t length, struct vm_de
 static int write_port_std(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
     struct ide_internal * ide = (struct ide_internal *)(dev->private_data);
     struct ide_channel * channel = get_selected_channel(ide, port);
-    //   struct ide_drive * drive = get_selected_drive(channel);
-    
+    struct ide_drive * drive = get_selected_drive(channel);
+	    
     if (length != 1) {
 	PrintError("Invalid Write length on IDE port %x\n", port);
 	return -1;
@@ -168,15 +210,19 @@ static int write_port_std(ushort_t port, void * src, uint_t length, struct vm_de
     switch (port) {
 	// reset and interrupt enable
 	case PRI_CTRL_PORT:
-	case SEC_CTRL_PORT:
-	    channel->ctrl_reg.val = *(uint8_t *)src;
+	case SEC_CTRL_PORT: {
+	    struct ide_ctrl_reg * tmp_ctrl = (struct ide_ctrl_reg *)src;
 
-	    if (channel->ctrl_reg.soft_reset) {
-		//reset_channel(channel);
-		return -1;
+	    // only reset channel on a 0->1 reset bit transition
+	    if ((!channel->ctrl_reg.soft_reset) && (tmp_ctrl->soft_reset)) {
+		channel_reset(channel);
+	    } else if ((channel->ctrl_reg.soft_reset) && (!tmp_ctrl->soft_reset)) {
+		channel_reset_complete(channel);
 	    }
-	    break;
 
+	    channel->ctrl_reg.val = tmp_ctrl->val;	    
+	    break;
+	}
 	case PRI_FEATURES_PORT:
 	case SEC_FEATURES_PORT:
 	    channel->features.val = *(uint8_t *)src;
@@ -184,34 +230,42 @@ static int write_port_std(ushort_t port, void * src, uint_t length, struct vm_de
 
 	case PRI_SECT_CNT_PORT:
 	case SEC_SECT_CNT_PORT:
-	    channel->sector_count = *(uint8_t *)src;
+	    drive->sector_count = *(uint8_t *)src;
 	    break;
 
 	case PRI_SECT_NUM_PORT:
 	case SEC_SECT_NUM_PORT:
-	    channel->sector_num = *(uint8_t *)src;
+	    drive->sector_num = *(uint8_t *)src;
 
 	case PRI_CYL_LOW_PORT:
 	case SEC_CYL_LOW_PORT:
-	    channel->cylinder_low = *(uint8_t *)src;
+	    drive->cylinder_low = *(uint8_t *)src;
 	    break;
 
 	case PRI_CYL_HIGH_PORT:
 	case SEC_CYL_HIGH_PORT:
-	    channel->cylinder_high = *(uint8_t *)src;
+	    drive->cylinder_high = *(uint8_t *)src;
 	    break;
 
 	case PRI_DRV_SEL_PORT:
-	case SEC_DRV_SEL_PORT:
+	case SEC_DRV_SEL_PORT: {
 	    channel->drive_head.val = *(uint8_t *)src;
-
+	    
 	    // make sure the reserved bits are ok..
 	    // JRL TODO: check with new ramdisk to make sure this is right...
 	    channel->drive_head.val |= 0xa0;
-	    
 
-	    return -1;
+	    drive = get_selected_drive(channel);
 
+	    // Selecting a non-present device is a no-no
+	    if (drive->drive_type == IDE_NONE) {
+		PrintDebug("Attempting to select a non-present drive\n");
+		channel->error_reg.abort = 1;
+		channel->status.error = 1;
+	    }
+
+	    break;
+	}
 	default:
 	    PrintError("IDE: Write to unknown Port %x\n", port);
 	    return -1;
@@ -263,23 +317,23 @@ static int read_port_std(ushort_t port, void * dst, uint_t length, struct vm_dev
 	    
 	case PRI_SECT_CNT_PORT:
 	case SEC_SECT_CNT_PORT:
-	    *(uint8_t *)dst = channel->sector_count;
+	    *(uint8_t *)dst = drive->sector_count;
 	    break;
 
 	case PRI_SECT_NUM_PORT:
 	case SEC_SECT_NUM_PORT:
-	    *(uint8_t *)dst = channel->sector_num;
+	    *(uint8_t *)dst = drive->sector_num;
 	    break;
 
 	case PRI_CYL_LOW_PORT:
 	case SEC_CYL_LOW_PORT:
-	    *(uint8_t *)dst = channel->cylinder_low;
+	    *(uint8_t *)dst = drive->cylinder_low;
 	    break;
 
 
 	case PRI_CYL_HIGH_PORT:
 	case SEC_CYL_HIGH_PORT:
-	    *(uint8_t *)dst = channel->cylinder_high;
+	    *(uint8_t *)dst = drive->cylinder_high;
 	    break;
 
 	case PRI_DRV_SEL_PORT:
@@ -307,6 +361,10 @@ static int read_port_std(ushort_t port, void * dst, uint_t length, struct vm_dev
 
 static void init_drive(struct ide_drive * drive) {
 
+    drive->sector_count = 0x01;
+    drive->sector_num = 0x01;
+    drive->cylinder = 0x0000;
+
 
     drive->drive_type = IDE_NONE;
 
@@ -316,9 +374,6 @@ static void init_channel(struct ide_channel * channel) {
     int i = 0;
 
     channel->error_reg.val = 0x01;
-    channel->sector_count = 0x01;
-    channel->sector_num = 0x01;
-    channel->cylinder = 0x0000;
     channel->drive_head.val = 0x00;
     channel->status.val = 0x00;
     channel->command_reg = 0x00;

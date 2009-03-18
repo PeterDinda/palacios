@@ -73,7 +73,7 @@ struct ide_status_reg {
 } __attribute__((packed));
 
 
-struct ide_drive_ctrl_reg {
+struct ide_ctrl_reg {
     union {
 	uint8_t val;
 	struct {
