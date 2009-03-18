@@ -40,7 +40,7 @@
 #include <palacios/vmm.h>
 #include <devices/cdrom.h>
 #include <devices/ide.h>
-
+#include <devices/pci.h>
 
 #ifndef TRACE_RAMDISK
 #undef PrintTrace
@@ -2304,6 +2304,33 @@ static void rd_command_aborted(struct vm_device * dev,
 }
 
 
+/*    
+static void init_pci(struct ramdisk_t * ramdisk) {
+struct v3_pci_bar bars[6];
+    struct pci_device * pci_dev;
+    int i;
+    
+    for (i = 0; i < 6; i++) {
+	bars[i].type = PCI_BAR_NONE;
+	bars[i].mem_hook = 0;
+	bars[i].num_pages = 0;
+	bars[i].bar_update = NULL;
+    }
+
+    bars[4].type = PCI_BAR_MEM32;
+    bars[4].mem_hook = 0;
+    bars[4].num_pages = 1;
+    bars[4].bar_update = NULL;
+
+    pci_dev = v3_pci_register_device(ramdisk->pci, PCI_STD_DEVICE, 0, "IDE", -1, bars, NULL, NULL, NULL, NULL);
+
+
+    pci_dev->config_header.vendor_id = 0x8086;
+    pci_dev->config_header.device_id = 0x2421;
+
+
+}
+    */
 static int ramdisk_init_device(struct vm_device *dev) {
     struct ramdisk_t *ramdisk= (struct ramdisk_t *)dev->private_data;
 
@@ -2364,6 +2391,8 @@ static int ramdisk_init_device(struct vm_device *dev) {
 
 
 
+
+
     return 0;
 
 }
@@ -2386,16 +2415,20 @@ static struct vm_device_ops dev_ops = {
 
 
 
-struct vm_device * v3_create_ramdisk()
+struct vm_device * v3_create_ramdisk(struct vm_device * pci)
 {
 
     struct ramdisk_t *ramdisk;
     ramdisk = (struct ramdisk_t *)V3_Malloc(sizeof(struct ramdisk_t));  
     V3_ASSERT(ramdisk != NULL);  
 
+    //    ramdisk->pci = pci;
+
     PrintDebug("[create_ramdisk]\n");
 
     struct vm_device * device = v3_create_device("RAMDISK", &dev_ops, ramdisk);
+
+    
 
     return device;
 }

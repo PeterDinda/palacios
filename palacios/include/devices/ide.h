@@ -41,7 +41,7 @@
 
 
 #include <palacios/vmm_types.h>
-
+#include <palacios/vm_dev.h>
 
 typedef long off_t;
 typedef sint32_t ssize_t;
@@ -178,6 +178,8 @@ struct controller_t  {
     Bit8u    current_command;
     Bit8u    sectors_per_block;
     Bit8u    lba_mode;
+
+    struct vm_device * pci;
 
     struct  {
 	rd_bool reset;       // 0=normal, 1=reset controller
