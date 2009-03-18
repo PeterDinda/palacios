@@ -63,7 +63,7 @@ endif
 
 ifeq ($(DEBUG_ALL),1)
   DEBUG_SECTIONS:= $(DEBUG_SECTIONS) -DDEBUG_SHADOW_PAGING -DDEBUG_CTRL_REGS -DDEBUG_INTERRUPTS -DDEBUG_KEYBOARD -DDEBUG_PIC -DDEBUG_PIT -DDEBUG_NVRAM -DDEBUG_EMULATOR  -DDEBUG_XED -DDEBUG_HALT -DDEBUG_DEV_MGR
-# -DDEBUG_IO -DDEBUG_GENERIC -DDEBUG_RAMDISK
+# -DDEBUG_IO -DDEBUG_GENERIC -DDEBUG_IDE
 endif
 
 
@@ -147,19 +147,11 @@ DEBUG_SECTIONS := $(DEBUG_SECTIONS) -UDEBUG_EMULATOR
 endif
 endif
 
-ifeq ($(DEBUG_RAMDISK),1)
-DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DDEBUG_RAMDISK
+ifeq ($(DEBUG_IDE),1)
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DDEBUG_IDE
 else 
-ifeq ($(DEBUG_RAMDISK),0) 
-DEBUG_SECTIONS := $(DEBUG_SECTIONS) -UDEBUG_RAMDISK
-endif
-endif
-
-ifeq ($(TRACE_RAMDISK),1)
-DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DTRACE_RAMDISK
-else
-ifeq ($(TRACE_RAMDSK),0)
-DEBUG_SECTIONS := $(DEBUG_SECTIONS) -UTRACE_RAMDISK
+ifeq ($(DEBUG_IDE),0) 
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -UDEBUG_IDE
 endif
 endif
 
@@ -322,15 +314,17 @@ DEVICES_OBJS := \
 	devices/8259a.o \
 	devices/8254.o \
 	devices/serial.o \
-	devices/ramdisk.o \
-	devices/cdrom.o \
 	devices/bochs_debug.o \
 	devices/os_debug.o \
 	devices/apic.o	\
 	devices/io_apic.o \
 	devices/pci.o \
 	devices/para_net.o \
+	devices/ide.o \
 
+
+#	devices/cdrom.o \
+#	devices/ramdisk.o \
 #   	devices/vnic.o \
 
 $(DEVICES_OBJS) :: EXTRA_CFLAGS = \

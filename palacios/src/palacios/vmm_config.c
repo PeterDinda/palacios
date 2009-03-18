@@ -33,8 +33,8 @@
 #include <devices/8254.h>
 #include <devices/nvram.h>
 #include <devices/generic.h>
-#include <devices/ramdisk.h>
-#include <devices/cdrom.h>
+#include <devices/ide.h>
+//#include <devices/cdrom.h>
 #include <devices/bochs_debug.h>
 #include <devices/os_debug.h>
 #include <devices/apic.h>
@@ -277,8 +277,8 @@ static int setup_memory_map(struct guest_info * info, struct v3_vm_config * conf
 
 
 static int setup_devices(struct guest_info * info, struct v3_vm_config * config_ptr) {
-    struct vm_device * ramdisk = NULL;
-    struct vm_device * cdrom = NULL;
+    struct vm_device * ide = NULL;
+    //    struct vm_device * cdrom = NULL;
 #ifdef DEBUG_PCI
     struct vm_device * pci = v3_create_pci();
 #endif
@@ -299,11 +299,11 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
     int use_ramdisk = config_ptr->use_ramdisk;
     int use_generic = USE_GENERIC;
 
+    ide = v3_create_ide();
 
     if (use_ramdisk) {
 	PrintDebug("Creating Ramdisk\n");
-	ramdisk = v3_create_ramdisk();
-	cdrom = v3_create_cdrom(ramdisk, config_ptr->ramdisk, config_ptr->ramdisk_size);
+	//	cdrom = v3_create_cdrom(ramdisk, config_ptr->ramdisk, config_ptr->ramdisk_size);
     }
     
     
@@ -329,9 +329,11 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
 
     v3_attach_device(info, para_net);
 
+    v3_attach_device(info, ide);
+
     if (use_ramdisk) {
-	v3_attach_device(info, ramdisk);
-	v3_attach_device(info, cdrom);
+
+	//	v3_attach_device(info, cdrom);
     }
 
     if (use_generic) {
