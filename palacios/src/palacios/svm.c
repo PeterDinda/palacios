@@ -298,8 +298,8 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
     
 
     /* Safety locations for fs/gs */
-    vm_info->fs = 0;
-    vm_info->gs = 0;
+    //    vm_info->fs = 0;
+    //    vm_info->gs = 0;
 }
 
 
