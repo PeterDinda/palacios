@@ -176,9 +176,8 @@ struct guest_info {
     v3_msr_t guest_gs_base;
 
 
-    uint64_t fs;
-    uint64_t gs;
-
+    //uint64_t fs;
+    //uint64_t gs;
 
 
 };
