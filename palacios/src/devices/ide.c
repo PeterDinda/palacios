@@ -20,9 +20,11 @@
 #include <palacios/vmm.h>
 #include <devices/ide.h>
 #include "ide-types.h"
+#include "atapi-types.h"
 
 #define PRI_DEFAULT_IRQ 14
 #define SEC_DEFAULT_IRQ 15
+
 
 #define PRI_DATA_PORT         0x1f0
 #define PRI_FEATURES_PORT     0x1f1
@@ -47,6 +49,7 @@
 #define SEC_ADDR_REG_PORT     0x377
 
 
+#define DATA_BUFFER_SIZE 2048
 
 static const char * ide_dev_type_strs[] = {"HARDDISK", "CDROM", "NONE"};
 
@@ -61,7 +64,14 @@ static inline const char * device_type_to_str(v3_ide_dev_type_t type) {
 
 
 
+struct ide_cd_state {
+    struct atapi_sense_data sense;
+    uint_t current_lba;
+};
 
+struct ide_hd_state {
+
+};
 
 struct ide_drive {
     // Command Registers
@@ -74,16 +84,26 @@ struct ide_drive {
     };
 
 
+    union {
+	struct ide_cd_state cd_state;
+	struct ide_hd_state hd_state;
+    };
+
     char model[41];
 
-    uint_t data_offset;
+    // Where we are in the data transfer
+    uint_t transfer_index;
 
-    // data buffer...
-    uint8_t buffer[2048];
+    // the length of a transfer
+    // calculated for easy access
+    uint_t transfer_length;
+
+    // We have a local data buffer that we use for IO port accesses
+    uint8_t data_buf[DATA_BUFFER_SIZE];
 
     void * private_data;
 
-    uint8_t sector_count;               // 0x1f2,0x172
+    uint8_t sector_count;             // 0x1f2,0x172
     uint8_t sector_num;               // 0x1f3,0x173
     union {
 	uint16_t cylinder;
@@ -109,7 +129,7 @@ struct ide_channel {
     struct ide_drive_head_reg drive_head; // 0x1f6,0x176
 
     struct ide_status_reg status;       // [read] 0x1f7,0x177
-    uint8_t command_reg;                // [write] 0x1f7,0x177
+    uint8_t cmd_reg;                // [write] 0x1f7,0x177
 
     int irq; // this is temporary until we add PCI support
 
@@ -124,6 +144,17 @@ struct ide_internal {
 };
 
 
+
+static inline uint32_t be_to_le_16(const uint16_t val) {
+    uint8_t * buf = (uint8_t *)&val;
+    return (buf[0] << 8) | (buf[1]) ;
+}
+
+
+static inline uint32_t be_to_le_32(const uint32_t val) {
+    uint8_t * buf = (uint8_t *)&val;
+    return (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
+}
 
 
 static inline int get_channel_index(ushort_t port) {
@@ -170,6 +201,11 @@ static void drive_reset(struct ide_drive * drive) {
 	drive->cylinder = 0x0000;
     }
 
+
+    memset(drive->data_buf, 0, sizeof(drive->data_buf));
+    drive->transfer_length = 0;
+    drive->transfer_index = 0;
+
     // Send the reset signal to the connected device callbacks
     //     channel->drives[0].reset();
     //    channel->drives[1].reset();
@@ -184,7 +220,7 @@ static void channel_reset(struct ide_channel * channel) {
     channel->error_reg.val = 0x01;
 
     // clear commands
-    channel->command_reg = 0x00;
+    channel->cmd_reg = 0x00;
 
     channel->ctrl_reg.irq_disable = 0;
 }
@@ -226,12 +262,11 @@ static int write_cmd_port(ushort_t port, void * src, uint_t length, struct vm_de
 	return -1;
     }
 
-    channel->command_reg = *(uint8_t *)src;
-    
-
     PrintDebug("IDE: Writing Command Port %x (val=%x)\n", port, *(uint8_t *)src);
-
-    switch (channel->command_reg) {
+    
+    channel->cmd_reg = *(uint8_t *)src;
+    
+    switch (channel->cmd_reg) {
 	
 	case 0xa0: // ATAPI Command Packet
 	    if (drive->drive_type != IDE_CDROM) {
@@ -244,9 +279,12 @@ static int write_cmd_port(ushort_t port, void * src, uint_t length, struct vm_de
 	    channel->status.write_fault = 0;
 	    channel->status.data_req = 1;
 	    channel->status.error = 0;
-	    
-	    drive->data_offset = 0;
 
+	    // reset the data buffer...
+	    drive->transfer_length = ATAPI_PACKET_SIZE;
+	    drive->transfer_index = 0;
+
+	    break;
 	case 0xa1: // ATAPI Identify Device Packet
 	    atapi_identify_device(drive);
 
@@ -254,6 +292,7 @@ static int write_cmd_port(ushort_t port, void * src, uint_t length, struct vm_de
 	    channel->status.val = 0x58; // ready, data_req, seek_complete
 	    
 	    ide_raise_irq(dev, channel);
+	    break;
 	case 0xec: // Identify Device
 	    if (drive->drive_type != IDE_DISK) {
 		drive_reset(drive);
@@ -265,22 +304,84 @@ static int write_cmd_port(ushort_t port, void * src, uint_t length, struct vm_de
 		return -1;
 	    }
 	    break;
-	    
+	default:
+	    PrintError("Unimplemented IDE command (%x)\n", channel->cmd_reg);
+	    return -1;
     }
 
-    return -1;
+    return length;
 }
 
 
 static int write_data_port(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
-    PrintDebug("IDE: Writing Data Port %x (val=%x)\n", port, *(uint8_t *)src);
-    return -1;
+    struct ide_internal * ide = (struct ide_internal *)(dev->private_data);
+    struct ide_channel * channel = get_selected_channel(ide, port);
+    struct ide_drive * drive = get_selected_drive(channel);
+
+    PrintDebug("IDE: Writing Data Port %x (val=%x, len=%d)\n", port, *(uint32_t *)src, length);
+    
+    memcpy(drive->data_buf + drive->transfer_index, src, length);    
+    drive->transfer_index += length;
+
+    // Transfer is complete, dispatch the command
+    if (drive->transfer_index >= drive->transfer_length) {
+	switch (channel->cmd_reg) {
+	    case 0x30: // Write Sectors
+		PrintError("Writing Data not yet implemented\n");
+		return -1;
+		
+	    case 0xa0: // ATAPI packet command
+		if (atapi_handle_packet(dev, channel) == -1) {
+		    PrintError("Error handling ATAPI packet\n");
+		    return -1;
+		}
+		break;
+	    default:
+		PrintError("Unhandld IDE Command %x\n", channel->cmd_reg);
+		return -1;
+	}
+    }
+
+    return length;
 }
 
 
 static int read_data_port(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
+    struct ide_internal * ide = (struct ide_internal *)(dev->private_data);
+    struct ide_channel * channel = get_selected_channel(ide, port);
+    struct ide_drive * drive = get_selected_drive(channel);
+    int data_offset = drive->transfer_index % DATA_BUFFER_SIZE;
+
     PrintDebug("IDE: Reading Data Port %x\n", port);
-    return -1;
+
+    if (data_offset == DATA_BUFFER_SIZE) {
+	// check for more data to transfer, if there isn't any then that's a problem...
+	/*
+	 *  if (ide_update_buffer(drive) == -1) {
+	 *  return -1;
+	 *  }
+	 */
+	return -1;
+    }
+
+
+    // check for overruns...
+    // We will return the data padded with 0's
+    if (drive->transfer_index + length > drive->transfer_length) {
+	length = drive->transfer_length - drive->transfer_index;
+	memset(dst, 0, length);
+    }
+
+    memcpy(dst, drive->data_buf + data_offset, length);
+
+    drive->transfer_index += length;
+
+    
+    if (drive->transfer_index >= drive->transfer_length) {
+	channel->status.data_req = 0;
+    }
+
+    return length;
 }
 
 static int write_port_std(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
@@ -458,9 +559,11 @@ static void init_drive(struct ide_drive * drive) {
 
     drive->drive_type = IDE_NONE;
 
-    drive->data_offset = 0;
     memset(drive->model, 0, sizeof(drive->model));
-    memset(drive->buffer, 0, sizeof(drive->buffer));
+
+    drive->transfer_index = 0;
+    drive->transfer_length = 0;
+    memset(drive->data_buf, 0, sizeof(drive->data_buf));
 
     drive->private_data = NULL;
     drive->cd_ops = NULL;
@@ -472,7 +575,7 @@ static void init_channel(struct ide_channel * channel) {
     channel->error_reg.val = 0x01;
     channel->drive_head.val = 0x00;
     channel->status.val = 0x00;
-    channel->command_reg = 0x00;
+    channel->cmd_reg = 0x00;
     channel->ctrl_reg.val = 0x08;
 
 

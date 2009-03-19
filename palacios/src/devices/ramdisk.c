@@ -2240,7 +2240,6 @@ void rd_identify_ATAPI_drive(struct vm_device * dev, struct channel_t * channel)
     }
 
 
-
     return;
 }
 

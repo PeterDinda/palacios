@@ -92,10 +92,12 @@ struct ide_features_reg {
     } __attribute__((packed));
 } __attribute__((packed));
 
+
 typedef enum {IDE_CTRL_NOT_SPECIFIED, 
 	      IDE_CTRL_SINGLE_PORT, 
 	      IDE_CTRL_DUAL_PORT, 
 	      IDE_CTRL_DUAL_PORT_CACHE} ide_controller_type;
+
 
 struct ide_drive_id {
     union {
