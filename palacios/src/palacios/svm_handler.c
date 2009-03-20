@@ -74,9 +74,15 @@ int v3_handle_svm_exit(struct guest_info * info) {
     if ((info->intr_state.irq_pending == 1) && (guest_ctrl->guest_ctrl.V_IRQ == 0)) {
 	// Interrupt was taken in the guest
 #ifdef DEBUG_INTERRUPTS
-	    PrintDebug("Interrupt %d taken by guest\n", info->intr_state.irq_vector);
+	PrintDebug("Interrupt %d taken by guest\n", info->intr_state.irq_vector);
 #endif
-	v3_injecting_intr(info, info->intr_state.irq_vector, EXTERNAL_IRQ);
+	if (!guest_ctrl->exit_int_info.valid) {
+	    v3_injecting_intr(info, info->intr_state.irq_vector, EXTERNAL_IRQ);
+	} else {
+#ifdef DEBUG_INTERRUPTS
+	    PrintDebug("EXIT INT INFO is set (vec=%d)\n", guest_ctrl->exit_int_info.vector);
+#endif
+	}
     }
 
     info->intr_state.irq_pending = 0;
