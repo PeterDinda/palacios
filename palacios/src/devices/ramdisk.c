@@ -2448,28 +2448,7 @@ static void rd_print_state(struct ramdisk_t * ramdisk) {
       memset((char *)(channels + channel), 0, sizeof(struct channel_t));
       }
     */
-    PrintDebug("sizeof(*channels) = %d\n", sizeof(*channels));
-    PrintDebug("sizeof(channles->drives[0].controller) = %d\n", sizeof((channels->drives[0].controller)));
-    PrintDebug("sizeof(channles->drives[0].cdrom) = %d\n", sizeof((channels->drives[0].cdrom)));
-    PrintDebug("sizeof(channles->drives[0].sense) = %d\n", sizeof((channels->drives[0].sense)));
-    PrintDebug("sizeof(channles->drives[0].atapi) = %d\n", sizeof((channels->drives[0].atapi)));
 
-
-    PrintDebug("sizeof(channles->drives[0].controller.status) = %d\n", 
-	       sizeof((channels->drives[0].controller.status)));
-    PrintDebug("sizeof(channles->drives[0].controller.sector_count) = %d\n", 
-	       sizeof((channels->drives[0].controller.sector_count)));
-    PrintDebug("sizeof(channles->drives[0].controller.interrupt_reason) = %d\n", 
-	       sizeof((channels->drives[0].controller.interrupt_reason)));
-
-    PrintDebug("sizeof(channles->drives[0].controller.cylinder_no) = %d\n", 
-	       sizeof((channels->drives[0].controller.cylinder_no)));
-    PrintDebug("sizeof(channles->drives[0].controller.byte_count) = %d\n", 
-	       sizeof((channels->drives[0].controller.byte_count)));
-
-
-    PrintDebug("sizeof(channles->drives[0].controller.control) = %d\n", 
-	       sizeof((channels->drives[0].controller.control)));
 
 
     for (channel = 0; channel < MAX_ATA_CHANNEL; channel++){
