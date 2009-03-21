@@ -528,13 +528,7 @@ vgabios_link:
 	ln -s -f ../src/vmboot/vgabios/VGABIOS-lgpl-latest.bin vgabios
 
 
-force_rombios: rombios_link
-	(cd ../src/vmboot/rombios; make clean; make)
-
-force_vgabios: vgabios_link
-	(cd ../src/vmboot/vgabios; make clean; make)
-
-force_payload: force_rombios force_vgabios
+force_payload: rombios_link vgabios_link
 	../scripts/make_payload.pl payload_layout.txt vm_kernel
 
 inter1: force_payload
