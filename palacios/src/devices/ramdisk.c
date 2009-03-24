@@ -498,15 +498,13 @@ static int read_data_port(ushort_t port, void * dst, uint_t length, struct vm_de
 	case 0xec:    // IDENTIFY DEVICE
 	case 0xa1:
 	    {
-
-
 		controller->status.busy = 0;
 		controller->status.drive_ready = 1;
 		controller->status.write_fault = 0;
 		controller->status.seek_complete = 1;
 		controller->status.corrected_data = 0;
 		controller->status.err = 0;
-      
+		
 		/*
 		  value32 = controller->buffer[index];
 		  index++;
@@ -531,7 +529,7 @@ static int read_data_port(ushort_t port, void * dst, uint_t length, struct vm_de
 		if (controller->buffer_index >= 512) {
 		    controller->status.drq = 0;
 		}
-      
+		
 		return length;
 	    }
 	case 0xa0: //send packet cmd 

@@ -67,6 +67,8 @@ static inline const char * device_type_to_str(v3_ide_dev_type_t type) {
 struct ide_cd_state {
     struct atapi_sense_data sense;
     uint_t current_lba;
+    uint8_t atapi_cmd;
+    struct atapi_error_recovery err_recovery;
 };
 
 struct ide_hd_state {
@@ -98,19 +100,30 @@ struct ide_drive {
     // calculated for easy access
     uint_t transfer_length;
 
+
     // We have a local data buffer that we use for IO port accesses
     uint8_t data_buf[DATA_BUFFER_SIZE];
 
-    void * private_data;
 
-    uint8_t sector_count;             // 0x1f2,0x172
+    void * private_data;
+    
+    union {
+	uint8_t sector_count;             // 0x1f2,0x172
+	struct atapi_irq_flags irq_flags;
+    } __attribute__((packed));
+
     uint8_t sector_num;               // 0x1f3,0x173
+
     union {
 	uint16_t cylinder;
+
 	struct {
 	    uint8_t cylinder_low;       // 0x1f4,0x174
 	    uint8_t cylinder_high;      // 0x1f5,0x175
 	} __attribute__((packed));
+
+	// The transfer length requested by the CPU 
+	uint16_t req_len;
     } __attribute__((packed));
 
 
@@ -145,15 +158,23 @@ struct ide_internal {
 
 
 
-static inline uint32_t be_to_le_16(const uint16_t val) {
+static inline uint16_t be_to_le_16(const uint16_t val) {
     uint8_t * buf = (uint8_t *)&val;
     return (buf[0] << 8) | (buf[1]) ;
+}
+
+static inline uint16_t le_to_be_16(const uint16_t val) {
+    return be_to_le_16(val);
 }
 
 
 static inline uint32_t be_to_le_32(const uint32_t val) {
     uint8_t * buf = (uint8_t *)&val;
     return (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
+}
+
+static inline uint32_t le_to_be_32(const uint32_t val) {
+    return be_to_le_32(val);
 }
 
 
@@ -203,7 +224,6 @@ static void drive_reset(struct ide_drive * drive) {
 
 
     memset(drive->data_buf, 0, sizeof(drive->data_buf));
-    drive->transfer_length = 0;
     drive->transfer_index = 0;
 
     // Send the reset signal to the connected device callbacks
@@ -244,12 +264,8 @@ static void ide_abort_command(struct vm_device * dev, struct ide_channel * chann
 }
 
 
-
-
 // Include the ATAPI interface handlers
 #include "atapi.h"
-
-
 
 
 static int write_cmd_port(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
@@ -318,7 +334,8 @@ static int write_data_port(ushort_t port, void * src, uint_t length, struct vm_d
     struct ide_channel * channel = get_selected_channel(ide, port);
     struct ide_drive * drive = get_selected_drive(channel);
 
-    PrintDebug("IDE: Writing Data Port %x (val=%x, len=%d)\n", port, *(uint32_t *)src, length);
+    //    PrintDebug("IDE: Writing Data Port %x (val=%x, len=%d)\n", 
+    //	       port, *(uint32_t *)src, length);
     
     memcpy(drive->data_buf + drive->transfer_index, src, length);    
     drive->transfer_index += length;
@@ -346,39 +363,126 @@ static int write_data_port(ushort_t port, void * src, uint_t length, struct vm_d
 }
 
 
-static int read_data_port(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
-    struct ide_internal * ide = (struct ide_internal *)(dev->private_data);
-    struct ide_channel * channel = get_selected_channel(ide, port);
+static int read_hd_data(uint8_t * dst, uint_t length, struct vm_device * dev, struct ide_channel * channel) {
+    PrintError("Harddrive data port read not implemented\n");
+    return -1;
+}
+
+
+
+static int read_cd_data(uint8_t * dst, uint_t length, struct vm_device * dev, struct ide_channel * channel) {
     struct ide_drive * drive = get_selected_drive(channel);
     int data_offset = drive->transfer_index % DATA_BUFFER_SIZE;
+    int req_offset = drive->transfer_index % drive->req_len;
+    
+    if (drive->cd_state.atapi_cmd != 0x28) {
+        PrintDebug("IDE: Reading CD Data (len=%d) (req_len=%d)\n", length, drive->req_len);
+    }
 
-    PrintDebug("IDE: Reading Data Port %x\n", port);
-
-    if (data_offset == DATA_BUFFER_SIZE) {
-	// check for more data to transfer, if there isn't any then that's a problem...
-	/*
-	 *  if (ide_update_buffer(drive) == -1) {
-	 *  return -1;
-	 *  }
-	 */
+    if (drive->transfer_index >= drive->transfer_length) {
+	PrintError("Buffer Overrun... (xfer_len=%d) (cur_idx=%d) (post_idx=%d)\n", 
+		   drive->transfer_length, drive->transfer_index, 
+		   drive->transfer_index + length);
 	return -1;
     }
 
 
-    // check for overruns...
-    // We will return the data padded with 0's
-    if (drive->transfer_index + length > drive->transfer_length) {
-	length = drive->transfer_length - drive->transfer_index;
-	memset(dst, 0, length);
+
+    if ((data_offset == 0) && (drive->transfer_index > 0)) {
+	
+	if (drive->drive_type == IDE_CDROM) {
+	    if (atapi_update_data_buf(dev, channel) == -1) {
+		PrintError("Could not update CDROM data buffer\n");
+		return -1;
+	    } 
+	} else {
+	    PrintError("IDE Harddrives not implemented\n");
+	    return -1;
+	}
     }
 
     memcpy(dst, drive->data_buf + data_offset, length);
-
+    
     drive->transfer_index += length;
 
+    if ((req_offset == 0) && (drive->transfer_index > 0)) {
+	if (drive->transfer_index < drive->transfer_length) {
+	    // An increment is complete, but there is still more data to be transferred...
+	    
+	    channel->status.data_req = 1;
+
+	    drive->irq_flags.c_d = 0;
+
+	    // Update the request length in the cylinder regs
+	    if (atapi_update_req_len(dev, channel, drive->transfer_length - drive->transfer_index) == -1) {
+		PrintError("Could not update request length after completed increment\n");
+		return -1;
+	    }
+	} else {
+	    // This was the final read of the request
+	    channel->status.data_req = 0;
+	    channel->status.ready = 1;
+	    
+	    drive->irq_flags.c_d = 1;
+	    drive->irq_flags.rel = 0;
+	}
+
+	drive->irq_flags.io_dir = 1;
+	channel->status.busy = 0;
+
+	ide_raise_irq(dev, channel);
+    }
+
+    return length;
+}
+
+
+static int read_drive_id(uint8_t * dst, uint_t length, struct vm_device * dev, struct ide_channel * channel) {
+    struct ide_drive * drive = get_selected_drive(channel);
+
+    channel->status.busy = 0;
+    channel->status.ready = 1;
+    channel->status.write_fault = 0;
+    channel->status.seek_complete = 1;
+    channel->status.corrected = 0;
+    channel->status.error = 0;
+		
+    
+    memcpy(dst, drive->data_buf + drive->transfer_index, length);
+    drive->transfer_index += length;
     
     if (drive->transfer_index >= drive->transfer_length) {
 	channel->status.data_req = 0;
+    }
+    
+    return length;
+}
+
+
+static int ide_read_data_port(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
+    struct ide_internal * ide = (struct ide_internal *)(dev->private_data);
+    struct ide_channel * channel = get_selected_channel(ide, port);
+    struct ide_drive * drive = get_selected_drive(channel);
+
+    //    PrintDebug("IDE: Reading Data Port %x (len=%d)\n", port, length);
+
+    if ((channel->cmd_reg == 0xec) ||
+	(channel->cmd_reg == 0xa1)) {
+	return read_drive_id((uint8_t *)dst, length, dev, channel);
+    }
+
+    if (drive->drive_type == IDE_CDROM) {
+	if (read_cd_data((uint8_t *)dst, length, dev, channel) == -1) {
+	    PrintError("IDE: Could not read CD Data\n");
+	    return -1;
+	}
+    } else if (drive->drive_type == IDE_DISK) {
+	if (read_hd_data((uint8_t *)dst, length, dev, channel) == -1) {
+	    PrintError("IDE: Could not read HD Data\n");
+	    return -1;
+	}
+    } else {
+	memset((uint8_t *)dst, 0, length);
     }
 
     return length;
@@ -610,7 +714,7 @@ static int init_ide(struct vm_device * dev) {
 		   &read_port_std, &write_port_std);
 
     v3_dev_hook_io(dev, PRI_DATA_PORT, 
-		   &read_data_port, &write_data_port);
+		   &ide_read_data_port, &write_data_port);
     v3_dev_hook_io(dev, PRI_FEATURES_PORT, 
 		   &read_port_std, &write_port_std);
     v3_dev_hook_io(dev, PRI_SECT_CNT_PORT, 
@@ -631,7 +735,7 @@ static int init_ide(struct vm_device * dev) {
 		   &read_port_std, &write_port_std);
 
     v3_dev_hook_io(dev, SEC_DATA_PORT, 
-		   &read_data_port, &write_data_port);
+		   &ide_read_data_port, &write_data_port);
     v3_dev_hook_io(dev, SEC_FEATURES_PORT, 
 		   &read_port_std, &write_port_std);
     v3_dev_hook_io(dev, SEC_SECT_CNT_PORT, 

@@ -288,8 +288,6 @@ static int get_highest_isr(struct apic_state * apic) {
 	    for (j = 7; j >= 0; j--) {
 		uchar_t flag = 0x1 << j;
 		if ((*svc_major) & flag) {
-
-
 		    return ((i * 8) + j);
 		}
 	    }
@@ -312,8 +310,6 @@ static int get_highest_irr(struct apic_state * apic) {
 	    for (j = 7; j >= 0; j--) {
 		uchar_t flag = 0x1 << j;
 		if ((*req_major) & flag) {
-
-
 		    return ((i * 8) + j);
 		}
 	    }
