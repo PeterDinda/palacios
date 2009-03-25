@@ -69,6 +69,9 @@ int v3_handle_nested_pagefault(struct guest_info * info, addr_t fault_addr, pf_e
     // THIS IS VERY BAD
     v3_vm_cpu_mode_t mode = LONG;
 
+
+    PrintDebug("Nested PageFault: fault_addr=%p, error_code=%u\n",(void*)fault_addr, *(uint_t *)&error_code);
+
     switch(mode) {
 	case REAL:
 	case PROTECTED:

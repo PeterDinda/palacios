@@ -27,6 +27,13 @@
 #include <palacios/vm_guest_mem.h>
 #include <palacios/vm_guest.h>
 
+#define DEBUG_NESTED_PAGING 1
+
+#ifndef DEBUG_NESTED_PAGING
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
+#endif
+
 
 static inline int handle_passthrough_pagefault_64(struct guest_info * info, 
 						     addr_t fault_addr, 
@@ -43,6 +50,8 @@ static inline int handle_passthrough_pagefault_64(struct guest_info * info,
     int pte_index = PTE64_INDEX(fault_addr);
 
 
+    
+
     struct v3_shadow_region * region =  v3_get_shadow_region(info, fault_addr);
   
     if ((region == NULL) || 
@@ -53,6 +62,7 @@ static inline int handle_passthrough_pagefault_64(struct guest_info * info,
     }
 
     host_addr = v3_get_shadow_addr(region, fault_addr);
+    //
 
     // Lookup the correct PML address based on the PAGING MODE
     if (info->shdw_pg_mode == SHADOW_PAGING) {
@@ -65,8 +75,11 @@ static inline int handle_passthrough_pagefault_64(struct guest_info * info,
     if (pml[pml_index].present == 0) {
 	pdpe = (pdpe64_t *)create_generic_pt_page();
    
-	pml[pml_index].present = 1;
 	// Set default PML Flags...
+	pml[pml_index].present = 1;
+        pml[pml_index].writable = 1;
+        pml[pml_index].user_page = 1;
+
 	pml[pml_index].pdp_base_addr = PAGE_BASE_ADDR((addr_t)V3_PAddr(pdpe));    
     } else {
 	pdpe = V3_VAddr((void*)BASE_TO_PAGE_ADDR(pml[pml_index].pdp_base_addr));
@@ -76,8 +89,11 @@ static inline int handle_passthrough_pagefault_64(struct guest_info * info,
     if (pdpe[pdpe_index].present == 0) {
 	pde = (pde64_t *)create_generic_pt_page();
 	
-	pdpe[pdpe_index].present = 1;
 	// Set default PDPE Flags...
+	pdpe[pdpe_index].present = 1;
+	pdpe[pdpe_index].writable = 1;
+	pdpe[pdpe_index].user_page = 1;
+
 	pdpe[pdpe_index].pd_base_addr = PAGE_BASE_ADDR((addr_t)V3_PAddr(pde));    
     } else {
 	pde = V3_VAddr((void*)BASE_TO_PAGE_ADDR(pdpe[pdpe_index].pd_base_addr));
