@@ -27,10 +27,6 @@
 #include <palacios/vm_guest_mem.h>
 #include <palacios/vm_guest.h>
 
-#ifndef DEBUG_NESTED_PAGING
-#undef PrintDebug
-#define PrintDebug(fmt, args...)
-#endif
 
 
 static inline int handle_passthrough_pagefault_64(struct guest_info * info, 

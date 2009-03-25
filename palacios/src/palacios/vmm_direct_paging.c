@@ -24,6 +24,13 @@
 #include <palacios/vm_guest_mem.h>
 #include <palacios/vm_guest.h>
 
+
+#ifndef DEBUG_NESTED_PAGING
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
+#endif
+
+
 static addr_t create_generic_pt_page() {
     void * page = 0;
     page = V3_VAddr(V3_AllocPages(1));
