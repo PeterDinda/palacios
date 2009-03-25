@@ -241,7 +241,7 @@ void Main(struct Boot_Info* bootInfo)
 #endif
 
 
-#if 1
+#if 0
   struct Kernel_Thread *spin_thread;
 
   spin_thread=Start_Kernel_Thread(Spin,0,PRIORITY_NORMAL,false);
