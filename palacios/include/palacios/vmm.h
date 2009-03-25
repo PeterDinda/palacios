@@ -273,6 +273,7 @@ struct v3_vm_config {
 
 
     int enable_profiling;
+    int enable_nested_paging;
 
     int use_ramdisk;
     void * ramdisk;

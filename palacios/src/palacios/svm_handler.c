@@ -32,7 +32,7 @@
 #include <palacios/svm_msr.h>
 #include <palacios/vmm_profiler.h>
 #include <palacios/vmm_hypercall.h>
-
+#include <palacios/vmm_direct_paging.h>
 
 
 
@@ -247,12 +247,20 @@ int v3_handle_svm_exit(struct guest_info * info) {
 	    }
 	    break;
 	} 
-	case VMEXIT_NPF: 
+ 	case VMEXIT_NPF: {
+	    addr_t fault_addr = guest_ctrl->exit_info2;
+	    pf_error_t * error_code = (pf_error_t *)&(guest_ctrl->exit_info1);
 
-	    PrintError("Currently unhandled Nested Page Fault\n");
-	    return -1;
-		
+	    if (info->shdw_pg_mode == NESTED_PAGING) {
+		if (v3_handle_nested_pagefault(info, fault_addr, *error_code) == -1) {
+		    return -1;
+		}
+	    } else {
+		PrintError("Currently unhandled Nested Page Fault\n");
+		return -1;
+		    }
 	    break;
+	    }
 	case VMEXIT_INVLPG: 
 	    if (info->shdw_pg_mode == SHADOW_PAGING) {
 #ifdef DEBUG_SHADOW_PAGING
