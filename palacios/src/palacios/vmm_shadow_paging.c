@@ -30,14 +30,6 @@
 
 #include <palacios/vmm_direct_paging.h>
 
-
-// set this to 1 if you want us to attempt to
-// fetch multiple entries on a page fault
-#define SPECULATIVE_PAGING 1
-
-#define REGULAR_PAGE_FAULT 0
-#define SPECULATIVE_PAGE_FAULT 1
-
 #ifndef DEBUG_SHADOW_PAGING
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
@@ -134,7 +126,6 @@ int v3_activate_passthrough_pt(struct guest_info * info) {
 
 
 int v3_handle_shadow_pagefault(struct guest_info * info, addr_t fault_addr, pf_error_t error_code) {
-  int rc;
   
     if (v3_get_mem_mode(info) == PHYSICAL_MEM) {
 	// If paging is not turned on we need to handle the special cases
@@ -143,38 +134,14 @@ int v3_handle_shadow_pagefault(struct guest_info * info, addr_t fault_addr, pf_e
 
 	switch (v3_get_cpu_mode(info)) {
 	    case PROTECTED:
-	      return handle_shadow_pagefault_32(info, fault_addr, error_code);
+		return handle_shadow_pagefault_32(info, fault_addr, error_code);
 		break;
 	    case PROTECTED_PAE:
 		return handle_shadow_pagefault_32pae(info, fault_addr, error_code);
 	    case LONG:
 	    case LONG_32_COMPAT:
-	case LONG_16_COMPAT: {
-	      addr_t curr_addr;
-	      addr_t fault_addr_base;
-	      // first, we will handle the actual fault, non-speculatively
-	      rc=handle_shadow_pagefault_64(info, fault_addr, error_code, REGULAR_PAGE_FAULT);
-	      if (rc) {
-		return -1;
-	      } 
-	      if (!SPECULATIVE_PAGING) { 
-		return 0;
-	      }
-	      fault_addr_base=PAGE_ADDR_4KB(fault_addr);
-	      PrintDebug("Attempting speculative paging around %p\n",(void*)fault_addr_base);
-	      for (curr_addr = (fault_addr_base & (~0x1fffffLL)) ; 
-		   curr_addr < (fault_addr_base | (0x1fffffLL)) ;
-		   curr_addr+=PAGE_SIZE) {
-		if (curr_addr!=fault_addr_base) { 
-		  rc=handle_shadow_pagefault_64(info, curr_addr, error_code, SPECULATIVE_PAGE_FAULT);
-		  if (rc) {
-		    PrintDebug("Speculative page fault handler failed at %p\n",(void*)curr_addr);
-		    return -1;
-		  } 
-		}
-	      }
-	      return 0;
-	    }
+	    case LONG_16_COMPAT:
+		return handle_shadow_pagefault_64(info, fault_addr, error_code);
 		break;
 	    default:
 		PrintError("Unhandled CPU Mode: %s\n", v3_cpu_mode_to_str(v3_get_cpu_mode(info)));

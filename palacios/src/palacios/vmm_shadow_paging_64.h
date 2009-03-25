@@ -53,19 +53,19 @@ static inline int activate_shadow_pt_64(struct guest_info * info) {
  */
 
 static int handle_2MB_shadow_pagefault_64(struct guest_info * info, addr_t fault_addr, pf_error_t error_code,
-					  pte64_t * shadow_pt, pde64_2MB_t * large_guest_pde, int speculative);
+					  pte64_t * shadow_pt, pde64_2MB_t * large_guest_pde);
 
 static int handle_pte_shadow_pagefault_64(struct guest_info * info, addr_t fault_addr, pf_error_t error_code,
-					  pte64_t * shadow_pt, pte64_t * guest_pt, int speculative);
+					  pte64_t * shadow_pt, pte64_t * guest_pt);
 
 static int handle_pde_shadow_pagefault_64(struct guest_info * info, addr_t fault_addr, pf_error_t error_code,
-					  pde64_t * shadow_pd, pde64_t * guest_pd, int speculative);
+					  pde64_t * shadow_pd, pde64_t * guest_pd);
 
 static int handle_pdpe_shadow_pagefault_64(struct guest_info * info, addr_t fault_addr, pf_error_t error_code,
-					   pdpe64_t * shadow_pdp, pdpe64_t * guest_pdp, int speculative);
+					   pdpe64_t * shadow_pdp, pdpe64_t * guest_pdp);
 
 
-static inline int handle_shadow_pagefault_64(struct guest_info * info, addr_t fault_addr, pf_error_t error_code, int speculative) {
+static inline int handle_shadow_pagefault_64(struct guest_info * info, addr_t fault_addr, pf_error_t error_code) {
     pml4e64_t * guest_pml = NULL;
     pml4e64_t * shadow_pml = CR3_TO_PML4E64_VA(info->ctrl_regs.cr3);
     addr_t guest_cr3 = CR3_TO_PML4E64_PA(info->shdw_pg_state.guest_cr3);
@@ -96,9 +96,7 @@ static inline int handle_shadow_pagefault_64(struct guest_info * info, addr_t fa
     if (is_guest_pf(guest_pml4e_access, shadow_pml4e_access) == 1) {
 	PrintDebug("Injecting PML4E pf to guest: (guest access error=%d) (pf error code=%d)\n", 
 		   *(uint_t *)&guest_pml4e_access, *(uint_t *)&error_code);
-	if (!speculative) {
-	    inject_guest_pf(info, fault_addr, error_code);
-	}
+	inject_guest_pf(info, fault_addr, error_code);
 	return 0;
     }
 
@@ -108,16 +106,12 @@ static inline int handle_shadow_pagefault_64(struct guest_info * info, addr_t fa
 	//      
 	PrintDebug("Shadow Paging User access error (shadow_pml4e_access=0x%x, guest_pml4e_access=0x%x)\n", 
 		   shadow_pml4e_access, guest_pml4e_access);
-	if (!speculative) {
-	    inject_guest_pf(info, fault_addr, error_code);
-	}
+	inject_guest_pf(info, fault_addr, error_code);
 	return 0;
     } else if ((shadow_pml4e_access != PT_ACCESS_NOT_PRESENT) &&
 	       (shadow_pml4e_access != PT_ACCESS_OK)) {
 	// inject page fault in guest
-	if (!speculative) {
-	    inject_guest_pf(info, fault_addr, error_code);
-	}
+	inject_guest_pf(info, fault_addr, error_code);
 	PrintDebug("Unknown Error occurred (shadow_pde_access=%d)\n", shadow_pml4e_access);
 	PrintDebug("Manual Says to inject page fault into guest\n");
 	return 0;
@@ -155,13 +149,11 @@ static inline int handle_shadow_pagefault_64(struct guest_info * info, addr_t fa
     if (guest_pa_to_host_va(info, BASE_TO_PAGE_ADDR(guest_pml4e->pdp_base_addr), (addr_t *)&guest_pdp) == -1) {
 	// Machine check the guest
 	PrintDebug("Invalid Guest PDP Address: 0x%p\n", (void *)BASE_TO_PAGE_ADDR(guest_pml4e->pdp_base_addr));
-	if (!speculative) {
-	    v3_raise_exception(info, MC_EXCEPTION);
-	}
+	v3_raise_exception(info, MC_EXCEPTION);
 	return 0;
     }
   
-    if (handle_pdpe_shadow_pagefault_64(info, fault_addr, error_code, shadow_pdp, guest_pdp, speculative) == -1) {
+    if (handle_pdpe_shadow_pagefault_64(info, fault_addr, error_code, shadow_pdp, guest_pdp) == -1) {
 	PrintError("Error handling Page fault caused by PDPE\n");
 	return -1;
     }
@@ -173,7 +165,7 @@ static inline int handle_shadow_pagefault_64(struct guest_info * info, addr_t fa
 
 // For now we are not going to handle 1 Gigabyte pages
 static int handle_pdpe_shadow_pagefault_64(struct guest_info * info, addr_t fault_addr, pf_error_t error_code,
-					   pdpe64_t * shadow_pdp, pdpe64_t * guest_pdp, int speculative) {
+					   pdpe64_t * shadow_pdp, pdpe64_t * guest_pdp) {
     pt_access_status_t guest_pdpe_access;
     pt_access_status_t shadow_pdpe_access;
     pdpe64_t * guest_pdpe = (pdpe64_t *)&(guest_pdp[PDPE64_INDEX(fault_addr)]);
@@ -198,9 +190,7 @@ static int handle_pdpe_shadow_pagefault_64(struct guest_info * info, addr_t faul
     if (is_guest_pf(guest_pdpe_access, shadow_pdpe_access) == 1) {
 	PrintDebug("Injecting PDPE pf to guest: (guest access error=%d) (pf error code=%d)\n", 
 		   *(uint_t *)&guest_pdpe_access, *(uint_t *)&error_code);
-	if (!speculative) {
-	    inject_guest_pf(info, fault_addr, error_code);
-	}
+	inject_guest_pf(info, fault_addr, error_code);
 	return 0;
     }
 
@@ -210,16 +200,12 @@ static int handle_pdpe_shadow_pagefault_64(struct guest_info * info, addr_t faul
 	//      
 	PrintDebug("Shadow Paging User access error (shadow_pdpe_access=0x%x, guest_pdpe_access=0x%x)\n", 
 		   shadow_pdpe_access, guest_pdpe_access);
-	if (!speculative) {
-	    inject_guest_pf(info, fault_addr, error_code);
-	}
+	inject_guest_pf(info, fault_addr, error_code);
 	return 0;
     } else if ((shadow_pdpe_access != PT_ACCESS_NOT_PRESENT) &&
 	       (shadow_pdpe_access != PT_ACCESS_OK)) {
 	// inject page fault in guest
-	if (!speculative) {
-	    inject_guest_pf(info, fault_addr, error_code);
-	}
+	inject_guest_pf(info, fault_addr, error_code);
 	PrintDebug("Unknown Error occurred (shadow_pde_access=%d)\n", shadow_pdpe_access);
 	PrintDebug("Manual Says to inject page fault into guest\n");
 	return 0;
@@ -257,13 +243,11 @@ static int handle_pdpe_shadow_pagefault_64(struct guest_info * info, addr_t faul
     if (guest_pa_to_host_va(info, BASE_TO_PAGE_ADDR(guest_pdpe->pd_base_addr), (addr_t *)&guest_pd) == -1) {
 	// Machine check the guest
 	PrintDebug("Invalid Guest PTE Address: 0x%p\n", (void *)BASE_TO_PAGE_ADDR(guest_pdpe->pd_base_addr));
-	if (!speculative) {
-	    v3_raise_exception(info, MC_EXCEPTION);
-	}
+	v3_raise_exception(info, MC_EXCEPTION);
 	return 0;
     }
   
-    if (handle_pde_shadow_pagefault_64(info, fault_addr, error_code, shadow_pd, guest_pd, speculative) == -1) {
+    if (handle_pde_shadow_pagefault_64(info, fault_addr, error_code, shadow_pd, guest_pd) == -1) {
 	PrintError("Error handling Page fault caused by PDE\n");
 	return -1;
     }
@@ -273,7 +257,7 @@ static int handle_pdpe_shadow_pagefault_64(struct guest_info * info, addr_t faul
 
 
 static int handle_pde_shadow_pagefault_64(struct guest_info * info, addr_t fault_addr, pf_error_t error_code,
-					  pde64_t * shadow_pd, pde64_t * guest_pd, int speculative) {
+					  pde64_t * shadow_pd, pde64_t * guest_pd) {
     pt_access_status_t guest_pde_access;
     pt_access_status_t shadow_pde_access;
     pde64_t * guest_pde = (pde64_t *)&(guest_pd[PDE64_INDEX(fault_addr)]);
@@ -291,9 +275,7 @@ static int handle_pde_shadow_pagefault_64(struct guest_info * info, addr_t fault
     if (is_guest_pf(guest_pde_access, shadow_pde_access) == 1) {
 	PrintDebug("Injecting PDE pf to guest: (guest access error=%d) (pf error code=%d)\n", 
 		   *(uint_t *)&guest_pde_access, *(uint_t *)&error_code);
-	if (!speculative) {
-	    inject_guest_pf(info, fault_addr, error_code);
-	}
+	inject_guest_pf(info, fault_addr, error_code);
 	return 0;
     }
 
@@ -303,9 +285,7 @@ static int handle_pde_shadow_pagefault_64(struct guest_info * info, addr_t fault
 	//      
 	PrintDebug("Shadow Paging User access error (shadow_pdpe_access=0x%x, guest_pdpe_access=0x%x)\n", 
 		   shadow_pde_access, guest_pde_access);
-	if (!speculative) {
-	    inject_guest_pf(info, fault_addr, error_code);
-	}
+	inject_guest_pf(info, fault_addr, error_code);
 	return 0;
 
     } else if ((shadow_pde_access == PT_ACCESS_WRITE_ERROR) && 
@@ -321,9 +301,7 @@ static int handle_pde_shadow_pagefault_64(struct guest_info * info, addr_t fault
     } else if ((shadow_pde_access != PT_ACCESS_NOT_PRESENT) &&
 	       (shadow_pde_access != PT_ACCESS_OK)) {
 	// inject page fault in guest
-	if (!speculative) {
-	    inject_guest_pf(info, fault_addr, error_code);
-	}
+	inject_guest_pf(info, fault_addr, error_code);
 	PrintDebug("Unknown Error occurred (shadow_pde_access=%d)\n", shadow_pde_access);
 	PrintDebug("Manual Says to inject page fault into guest\n");
 	return 0;
@@ -378,18 +356,16 @@ static int handle_pde_shadow_pagefault_64(struct guest_info * info, addr_t fault
 	if (guest_pa_to_host_va(info, BASE_TO_PAGE_ADDR(guest_pde->pt_base_addr), (addr_t *)&guest_pt) == -1) {
 	    // Machine check the guest
 	    PrintDebug("Invalid Guest PTE Address: 0x%p\n", (void *)BASE_TO_PAGE_ADDR(guest_pde->pt_base_addr));
-	    if (!speculative) {
-		v3_raise_exception(info, MC_EXCEPTION);
-	    }
+	    v3_raise_exception(info, MC_EXCEPTION);
 	    return 0;
 	}
     
-	if (handle_pte_shadow_pagefault_64(info, fault_addr, error_code, shadow_pt, guest_pt, speculative) == -1) {
+	if (handle_pte_shadow_pagefault_64(info, fault_addr, error_code, shadow_pt, guest_pt) == -1) {
 	    PrintError("Error handling Page fault caused by PDE\n");
 	    return -1;
 	}
     } else {
-	if (handle_2MB_shadow_pagefault_64(info, fault_addr, error_code, shadow_pt, (pde64_2MB_t *)guest_pde, speculative) == -1) {
+	if (handle_2MB_shadow_pagefault_64(info, fault_addr, error_code, shadow_pt, (pde64_2MB_t *)guest_pde) == -1) {
 	    PrintError("Error handling large pagefault\n");
 	    return -1;
 	} 
@@ -400,7 +376,7 @@ static int handle_pde_shadow_pagefault_64(struct guest_info * info, addr_t fault
 
 
 static int handle_pte_shadow_pagefault_64(struct guest_info * info, addr_t fault_addr, pf_error_t error_code,
-					  pte64_t * shadow_pt, pte64_t * guest_pt, int speculative) {
+					  pte64_t * shadow_pt, pte64_t * guest_pt) {
     pt_access_status_t guest_pte_access;
     pt_access_status_t shadow_pte_access;
     pte64_t * guest_pte = (pte64_t *)&(guest_pt[PTE64_INDEX(fault_addr)]);;
@@ -418,9 +394,7 @@ static int handle_pte_shadow_pagefault_64(struct guest_info * info, addr_t fault
 	(shdw_reg->host_type == SHDW_REGION_INVALID)) {
 	// Inject a machine check in the guest
 	PrintDebug("Invalid Guest Address in page table (0x%p)\n", (void *)guest_pa);
-	if (!speculative) {
-	    v3_raise_exception(info, MC_EXCEPTION);
-	}
+	v3_raise_exception(info, MC_EXCEPTION);
 	return 0;
     }
 
@@ -433,10 +407,8 @@ static int handle_pte_shadow_pagefault_64(struct guest_info * info, addr_t fault
     /* Was the page fault caused by the Guest's page tables? */
     if (is_guest_pf(guest_pte_access, shadow_pte_access) == 1) {
 	PrintDebug("Access error injecting pf to guest (guest access error=%d) (pf error code=%d)\n", 
-		   guest_pte_access, *(uint_t*)&error_code);
-	if (!speculative) {
-	    inject_guest_pf(info, fault_addr, error_code);
-	}
+		   guest_pte_access, *(uint_t*)&error_code);    
+	inject_guest_pf(info, fault_addr, error_code);
 	return 0; 
     }
 
@@ -524,10 +496,8 @@ static int handle_pte_shadow_pagefault_64(struct guest_info * info, addr_t fault
 	return 0;
 
     } else {
-	// Inject page fault into the guest
-	if (!speculative) {
-	    inject_guest_pf(info, fault_addr, error_code);
-	}
+	// Inject page fault into the guest	
+	inject_guest_pf(info, fault_addr, error_code);
 	PrintError("PTE Page fault fell through... Not sure if this should ever happen\n");
 	PrintError("Manual Says to inject page fault into guest\n");
 	return -1;
@@ -540,7 +510,7 @@ static int handle_pte_shadow_pagefault_64(struct guest_info * info, addr_t fault
 
 static int handle_2MB_shadow_pagefault_64(struct guest_info * info, 
 					  addr_t fault_addr, pf_error_t error_code, 
-					  pte64_t * shadow_pt, pde64_2MB_t * large_guest_pde, int speculative) 
+					  pte64_t * shadow_pt, pde64_2MB_t * large_guest_pde) 
 {
     pt_access_status_t shadow_pte_access = v3_can_access_pte64(shadow_pt, fault_addr, error_code);
     pte64_t * shadow_pte = (pte64_t *)&(shadow_pt[PTE64_INDEX(fault_addr)]);
@@ -557,9 +527,7 @@ static int handle_2MB_shadow_pagefault_64(struct guest_info * info,
 	(shdw_reg->host_type == SHDW_REGION_INVALID)) {
 	// Inject a machine check in the guest
 	PrintDebug("Invalid Guest Address in page table (0x%p)\n", (void *)guest_fault_pa);
-	if (!speculative) {
-	    v3_raise_exception(info, MC_EXCEPTION);
-	}
+	v3_raise_exception(info, MC_EXCEPTION);
 	return -1;
     }
 
