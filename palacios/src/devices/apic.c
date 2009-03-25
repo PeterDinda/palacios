@@ -341,12 +341,12 @@ static int apic_do_eoi(struct apic_state * apic) {
 
 #ifdef CRAY_XT
 	
-	if ((((i * 8) + j) == 238) || 
-	    (((i * 8) + j) == 239)) {
-	    PrintError("Acking IRQ %d\n", ((i * 8) + j));
+	if ((isr_irq == 238) || 
+	    (isr_irq == 239)) {
+	    PrintError("Acking IRQ %d\n", isr_irq);
 	}
 	
-	if (((i * 8) + j) == 238) {
+	if (isr_irq == 238) {
 	    V3_ACK_IRQ(238);
 	}
 #endif
