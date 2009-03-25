@@ -150,12 +150,14 @@ static int emulate_xchg_write_op(struct guest_info * info, struct x86_instr * de
     PrintDebug("Emulating XCHG write\n");
 
     if (dec_instr->src_operand.type == MEM_OPERAND) {
-	if (dec_instr->src_operand.operand != write_gva) {
-	    PrintError("XCHG: Inconsistency between Pagefault and Instruction Decode XED_ADDR=%p, PF_ADDR=%p\n",
-		       (void *)dec_instr->src_operand.operand, (void *)write_gva);
-	    return -1;
+	if (info->shdw_pg_mode == SHADOW_PAGING) {
+	    if (dec_instr->src_operand.operand != write_gva) {
+		PrintError("XCHG: Inconsistency between Pagefault and Instruction Decode XED_ADDR=%p, PF_ADDR=%p\n",
+			   (void *)dec_instr->src_operand.operand, (void *)write_gva);
+		return -1;
+	    }
 	}
-    
+
 	src_addr = dst_addr;
     } else if (dec_instr->src_operand.type == REG_OPERAND) {
 	src_addr = dec_instr->src_operand.operand;
@@ -166,41 +168,45 @@ static int emulate_xchg_write_op(struct guest_info * info, struct x86_instr * de
 
 
     if (dec_instr->dst_operand.type == MEM_OPERAND) {
-	if (dec_instr->dst_operand.operand != write_gva) {
-	    PrintError("XCHG: Inconsistency between Pagefault and Instruction Decode XED_ADDR=%p, PF_ADDR=%p\n",
-		       (void *)dec_instr->dst_operand.operand, (void *)write_gva);
-	    return -1;
+        if (info->shdw_pg_mode == SHADOW_PAGING) {
+	    if (dec_instr->dst_operand.operand != write_gva) {
+		PrintError("XCHG: Inconsistency between Pagefault and Instruction Decode XED_ADDR=%p, PF_ADDR=%p\n",
+			   (void *)dec_instr->dst_operand.operand, (void *)write_gva);
+		return -1;
+	    }
+	} else {
+	    //check that the operand (GVA) maps to the the faulting GPA
 	}
-    
+	
 	em_dst_addr = dst_addr;
     } else if (dec_instr->src_operand.type == REG_OPERAND) {
 	em_dst_addr = dec_instr->src_operand.operand;
     } else {
 	em_dst_addr = (addr_t)&(dec_instr->src_operand.operand);
     }
-
+    
     dst_op_len = dec_instr->dst_operand.size;
     src_op_len = dec_instr->src_operand.size;
-
+    
     PrintDebug("Dst_Addr = %p, SRC operand = %p\n", 
 	       (void *)dst_addr, (void *)src_addr);
-
-
+    
+    
     if (run_op(info, dec_instr->op_type, src_addr, em_dst_addr, src_op_len, dst_op_len) == -1) {
 	PrintError("Instruction Emulation Failed\n");
 	return -1;
     }
-
+    
     if (write_fn(write_gpa, (void *)dst_addr, dst_op_len, priv_data) != dst_op_len) {
 	PrintError("Did not fully write hooked data\n");
 	return -1;
     }
-
+    
     info->rip += dec_instr->instr_length;
-
+    
     return dst_op_len;
 }
-
+    
 
 
 static int emulate_xchg_read_op(struct guest_info * info, struct x86_instr * dec_instr, 
@@ -232,12 +238,16 @@ static int emulate_xchg_read_op(struct guest_info * info, struct x86_instr * dec
 
 
     if (dec_instr->dst_operand.type == MEM_OPERAND) {
-	if (dec_instr->dst_operand.operand != read_gva) {
-	    PrintError("XCHG: Inconsistency between Pagefault and Instruction Decode XED_ADDR=%p, PF_ADDR=%p\n",
-		       (void *)dec_instr->dst_operand.operand, (void *)read_gva);
-	    return -1;
+	if (info->shdw_pg_mode == SHADOW_PAGING) {
+	    if (dec_instr->dst_operand.operand != read_gva) {
+		PrintError("XCHG: Inconsistency between Pagefault and Instruction Decode XED_ADDR=%p, PF_ADDR=%p\n",
+			   (void *)dec_instr->dst_operand.operand, (void *)read_gva);
+		return -1;
+	    }
+        } else {
+	    //check that the operand (GVA) maps to the the faulting GPA
 	}
-    
+
 	em_dst_addr = src_addr;
     } else if (dec_instr->src_operand.type == REG_OPERAND) {
 	em_dst_addr = dec_instr->src_operand.operand;
@@ -314,12 +324,15 @@ int v3_emulate_write_op(struct guest_info * info, addr_t write_gva, addr_t write
     }
 
 
-
-    if ((dec_instr.dst_operand.type != MEM_OPERAND) ||
-	(dec_instr.dst_operand.operand != write_gva)) {
-	PrintError("Inconsistency between Pagefault and Instruction Decode XED_ADDR=%p, PF_ADDR=%p\n",
-		   (void *)dec_instr.dst_operand.operand, (void *)write_gva);
-	return -1;
+    if (info->shdw_pg_mode == SHADOW_PAGING) {
+	if ((dec_instr.dst_operand.type != MEM_OPERAND) ||
+	    (dec_instr.dst_operand.operand != write_gva)) {
+	    PrintError("Inconsistency between Pagefault and Instruction Decode XED_ADDR=%p, PF_ADDR=%p\n",
+		       (void *)dec_instr.dst_operand.operand, (void *)write_gva);
+	    return -1;
+	}
+    } else {
+	//check that the operand (GVA) maps to the the faulting GPA
     }
 
 
@@ -401,14 +414,16 @@ int v3_emulate_read_op(struct guest_info * info, addr_t read_gva, addr_t read_gp
 	return emulate_xchg_read_op(info, &dec_instr, read_gva, read_gpa, src_addr, read_fn, write_fn, priv_data);
     }
 
-
-    if ((dec_instr.src_operand.type != MEM_OPERAND) ||
-	(dec_instr.src_operand.operand != read_gva)) {
-	PrintError("Inconsistency between Pagefault and Instruction Decode XED_ADDR=%p, PF_ADDR=%p\n",
-		   (void *)dec_instr.src_operand.operand, (void *)read_gva);
-	return -1;
+    if (info->shdw_pg_mode == SHADOW_PAGING) {
+	if ((dec_instr.src_operand.type != MEM_OPERAND) ||
+	    (dec_instr.src_operand.operand != read_gva)) {
+	    PrintError("Inconsistency between Pagefault and Instruction Decode XED_ADDR=%p, PF_ADDR=%p\n",
+		       (void *)dec_instr.src_operand.operand, (void *)read_gva);
+	    return -1;
+	}
+    } else {
+	//check that the operand (GVA) maps to the the faulting GPA
     }
-
 
     if (dec_instr.dst_operand.type == MEM_OPERAND) {
 	if (info->mem_mode == PHYSICAL_MEM) {

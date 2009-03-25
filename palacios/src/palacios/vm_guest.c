@@ -63,13 +63,16 @@ v3_vm_cpu_mode_t v3_get_cpu_mode(struct guest_info * info) {
 uint_t v3_get_addr_width(struct guest_info * info) {
     struct cr0_32 * cr0;
     struct cr4_32 * cr4 = (struct cr4_32 *)&(info->ctrl_regs.cr4);
-    struct efer_64 * efer = (struct efer_64 *)&(info->guest_efer);
+    struct efer_64 * efer;
     struct v3_segment * cs = &(info->segments.cs);
+    vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
 
     if (info->shdw_pg_mode == SHADOW_PAGING) {
 	cr0 = (struct cr0_32 *)&(info->shdw_pg_state.guest_cr0);
+	efer = (struct efer_64 *)&(info->guest_efer);
     } else if (info->shdw_pg_mode == NESTED_PAGING) {
 	cr0 = (struct cr0_32 *)&(info->ctrl_regs.cr0);
+	efer = (struct efer_64 *)&(guest_state->efer);
     } else {
 	PrintError("Invalid Paging Mode...\n");
 	V3_ASSERT(0);
