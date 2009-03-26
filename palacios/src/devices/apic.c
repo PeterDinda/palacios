@@ -168,6 +168,7 @@ struct apic_state {
     uint32_t tmr_init_cnt;
 
 
+    struct local_vec_tbl_reg ext_intr_vec_tbl[4];
 
     uint32_t rem_rd_data;
 
@@ -223,6 +224,7 @@ static void init_apic_state(struct apic_state * apic) {
     apic->lint1_vec_tbl.val = 0x00010000;
     apic->err_vec_tbl.val = 0x00010000;
     apic->tmr_div_cfg.val = 0x00000000;
+    //apic->ext_apic_feature.val = 0x00000007;
     apic->ext_apic_feature.val = 0x00040007;
     apic->ext_apic_ctrl.val = 0x00000000;
     apic->spec_eoi.val = 0x00000000;
@@ -622,9 +624,19 @@ static int apic_read(addr_t guest_addr, void * dst, uint_t length, void * priv_d
 
 	    // Unhandled Registers
 	case EXT_INT_LOC_VEC_TBL_OFFSET0:
+	    val = apic->ext_intr_vec_tbl[0].val;
+	    break;
 	case EXT_INT_LOC_VEC_TBL_OFFSET1:
+	    val = apic->ext_intr_vec_tbl[1].val;
+	    break;
 	case EXT_INT_LOC_VEC_TBL_OFFSET2:
+	    val = apic->ext_intr_vec_tbl[2].val;
+	    break;
 	case EXT_INT_LOC_VEC_TBL_OFFSET3:
+	    val = apic->ext_intr_vec_tbl[3].val;
+	    break;
+    
+
 	case EXT_APIC_FEATURE_OFFSET:
 	case EXT_APIC_CMD_OFFSET:
 	case SEOI_OFFSET:
@@ -795,7 +807,20 @@ static int apic_write(addr_t guest_addr, void * src, uint_t length, void * priv_
 	case IER_OFFSET7:
 	    *(uint32_t *)(apic->int_en_reg + 28) = op_val;
 	    break;
-   
+
+	case EXT_INT_LOC_VEC_TBL_OFFSET0:
+	    apic->ext_intr_vec_tbl[0].val = op_val;
+	    break;
+	case EXT_INT_LOC_VEC_TBL_OFFSET1:
+	    apic->ext_intr_vec_tbl[1].val = op_val;
+	    break;
+	case EXT_INT_LOC_VEC_TBL_OFFSET2:
+	    apic->ext_intr_vec_tbl[2].val = op_val;
+	    break;
+	case EXT_INT_LOC_VEC_TBL_OFFSET3:
+	    apic->ext_intr_vec_tbl[3].val = op_val;
+	    break;
+
 
 	    // Action Registers
 	case EOI_OFFSET:
@@ -806,10 +831,7 @@ static int apic_write(addr_t guest_addr, void * src, uint_t length, void * priv_
 	case INT_CMD_LO_OFFSET:
 	case INT_CMD_HI_OFFSET:
 	    // Unhandled Registers
-	case EXT_INT_LOC_VEC_TBL_OFFSET0:
-	case EXT_INT_LOC_VEC_TBL_OFFSET1:
-	case EXT_INT_LOC_VEC_TBL_OFFSET2:
-	case EXT_INT_LOC_VEC_TBL_OFFSET3:
+
 	case EXT_APIC_CMD_OFFSET:
 	case SEOI_OFFSET:
 	default:
