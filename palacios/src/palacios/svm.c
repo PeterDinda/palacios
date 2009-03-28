@@ -364,8 +364,8 @@ static int start_svm_guest(struct guest_info *info) {
 	struct v3_msr host_gs_base;
 	struct v3_msr host_kerngs_base;
 
-	v3_enable_ints();
-	v3_clgi();
+/* 	v3_enable_ints(); */
+/* 	v3_clgi(); */
 
 
 	/*
@@ -407,7 +407,7 @@ static int start_svm_guest(struct guest_info *info) {
 
 	//PrintDebug("Turning on global interrupts\n");
 	v3_stgi();
-	
+	v3_clgi();
 	
 	if ((num_exits % 5000) == 0) {
 	    PrintDebug("SVM Exit number %d\n", num_exits);
