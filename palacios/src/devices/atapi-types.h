@@ -131,6 +131,27 @@ struct atapi_rd_capacity_resp {
     uint32_t block_len;
 } __attribute__((packed));
 
+struct atapi_config_cmd {
+    uint8_t atapi_cmd;  // 0x46
+    uint8_t rt               : 2;
+    uint8_t rsvd1            : 3;
+    uint8_t lun              : 3;
+    uint16_t start_feature_num;
+    uint8_t rsvd2[3];
+    uint16_t alloc_len;
+    uint8_t link             : 1;
+    uint8_t flag             : 1;
+    uint8_t naca             : 1;
+    uint8_t rsvd3            : 3;
+    uint8_t vendor_specific  : 2;
+} __attribute__((packed));
+
+struct atapi_config_resp {
+    uint32_t data_len;
+    uint16_t rsvd;
+    uint16_t cur_profile;
+} __attribute__((packed));
+
 
 struct atapi_rd_toc_cmd {
     uint8_t atapi_cmd;  // 0x43

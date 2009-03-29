@@ -233,19 +233,57 @@ static int atapi_get_capacity(struct vm_device * dev, struct ide_channel * chann
     return 0;
 }
 
+static int atapi_get_config(struct vm_device * dev, struct ide_channel * channel) {
+    struct ide_drive * drive = get_selected_drive(channel);
+    struct atapi_config_cmd * cmd = (struct atapi_config_cmd *)(drive->data_buf);
+    uint16_t alloc_len = be_to_le_16(cmd->alloc_len);
+    struct atapi_config_resp * resp = (struct atapi_config_resp *)(drive->data_buf);
+    int xfer_len = 8;
+
+    memset(resp, 0, sizeof(struct atapi_config_resp));
+
+    resp->data_len = le_to_be_32(xfer_len - 4);
+
+    if (alloc_len < xfer_len) {
+	xfer_len = alloc_len;
+    }
+    
+    atapi_setup_cmd_resp(dev, channel, xfer_len);
+    
+    return 0;
+}
+
 
 static int atapi_read_toc(struct vm_device * dev, struct ide_channel * channel) {
     struct ide_drive * drive = get_selected_drive(channel);
     struct atapi_rd_toc_cmd * cmd = (struct atapi_rd_toc_cmd *)(drive->data_buf);
     uint16_t alloc_len = be_to_le_16(cmd->alloc_len);
-    
-
     struct atapi_rd_toc_resp * resp = (struct atapi_rd_toc_resp *)(drive->data_buf);
 
-    resp->data_len = 10;
+    int xfer_len = 12;
 
-    return -1;
+    memset(resp, 0, sizeof(struct atapi_rd_toc_resp));
+    
+    resp->data_len = le_to_be_16(10);
+    resp->first_track_num = 1;
+    resp->last_track_num = 1;
 
+    // we don't handle multi session
+    // we'll just treat it the same as single session
+    if ((cmd->format == 0) || (cmd->format == 1)) {
+	memset(&(resp->track_descs[0]), 0, 8);
+	
+	if (alloc_len < xfer_len) {
+	    xfer_len = alloc_len;
+	}
+
+	atapi_setup_cmd_resp(dev, channel, xfer_len);
+    } else {
+	PrintError("Unhandled Format (%d)\n", cmd->format);
+	return -1;
+    }
+
+    return 0;
 }
 
 
@@ -401,6 +439,22 @@ static int atapi_handle_packet(struct vm_device * dev, struct ide_channel * chan
 	   }
 	   break;
 
+       case 0x46: // get configuration
+	   if (atapi_get_config(dev, channel) == -1) {
+	       PrintError("IDE: Error getting CDROM Configuration (%x)\n", cmd);
+	       return -1;
+	   }
+	   break;
+
+       case 0x51: // read disk info
+	   // no-op to keep the Linux CD-ROM driver happy
+	   PrintDebug("Error: Read disk info no-op to keep the Linux CD-ROM driver happy\n");
+	   atapi_cmd_error(dev, channel, ATAPI_SEN_ILL_REQ, ASC_INV_CMD_FIELD);
+	   ide_raise_irq(dev, channel);
+	   break;
+
+
+
        case 0xa8: // read(12)
 
 
@@ -415,7 +469,7 @@ static int atapi_handle_packet(struct vm_device * dev, struct ide_channel * chan
        case 0x2b: // seek
        case 0x1e: // lock door
        case 0x42: // read sub-channel
-       case 0x51: // read disk info
+
 
 	   
        case 0x55: // mode select
@@ -429,7 +483,7 @@ static int atapi_handle_packet(struct vm_device * dev, struct ide_channel * chan
        case 0xba: // scan
        case 0xbb: // set cd speed
        case 0x4e: // stop play/scan
-       case 0x46: // ???
+ 
        case 0x4a: // ???
        default:
 	   PrintError("Unhandled ATAPI command %x\n", cmd);
