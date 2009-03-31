@@ -283,13 +283,13 @@ static int addr_port_write(ushort_t port, void * src, uint_t length, struct vm_d
 static int data_port_read(ushort_t port, void * dst, uint_t length, struct vm_device * vmdev) {
     struct pci_internal * pci_state =  (struct pci_internal *)(vmdev->private_data);
     struct pci_device * pci_dev = NULL;
-    uint_t reg_num = pci_state->addr_reg.reg_num + (port & 0x3);
+    uint_t reg_num = (pci_state->addr_reg.reg_num << 2) + (port & 0x3);
     int i;
 
     if (pci_state->addr_reg.bus_num != 0) {
 	int i = 0;
 	for (i = 0; i < length; i++) {
-	    *(uint8_t *)dst = 0xff;
+	    *((uint8_t *)dst + i) = 0xff;
 	}
 
 	return length;
@@ -361,7 +361,7 @@ static int bar_update(struct pci_device * pci, int bar_num) {
 static int data_port_write(ushort_t port, void * src, uint_t length, struct vm_device * vmdev) {
     struct pci_internal * pci_state = (struct pci_internal *)vmdev->private_data;
     struct pci_device * pci_dev = NULL;
-    uint_t reg_num = pci_state->addr_reg.reg_num + (port & 0x3);
+    uint_t reg_num = (pci_state->addr_reg.reg_num << 2) + (port & 0x3);
     int i;
 
 
