@@ -279,9 +279,7 @@ static int setup_memory_map(struct guest_info * info, struct v3_vm_config * conf
 static int setup_devices(struct guest_info * info, struct v3_vm_config * config_ptr) {
     struct vm_device * ide = NULL;
     struct vm_device * ram_cd = NULL;
-#ifdef DEBUG_PCI
     struct vm_device * pci = v3_create_pci();
-#endif
     struct vm_device * nvram = v3_create_nvram();
     //struct vm_device * timer = v3_create_timer();
     struct vm_device * pic = v3_create_pic();
@@ -299,7 +297,7 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
     int use_ramdisk = config_ptr->use_ramdisk;
     int use_generic = USE_GENERIC;
 
-    ide = v3_create_ide();
+    ide = v3_create_ide(pci);
 
     if (use_ramdisk) {
 	PrintDebug("Creating Ramdisk\n");
@@ -313,9 +311,8 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
 	generic = configure_generic(info, config_ptr);
     }
 
-#ifdef DEBUG_PCI
+
     v3_attach_device(info, pci);
-#endif
 
     v3_attach_device(info, nvram);
     //v3_attach_device(info, timer);
