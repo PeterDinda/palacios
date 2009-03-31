@@ -867,12 +867,6 @@ static int pci_config_update(struct pci_device * pci_dev, uint_t reg_num, int le
 }
 */
 
-static int pci_bar_update(struct pci_device * pci_dev, uint_t bar) {
-    PrintError("IDE does not support bar updates\n");
-    return -1;
-}
-
-
 static int init_ide_state(struct vm_device * dev) {
     struct ide_internal * ide = (struct ide_internal *)(dev->private_data);
     struct v3_pci_bar bars[6];
@@ -887,14 +881,14 @@ static int init_ide_state(struct vm_device * dev) {
 
 	for (j = 0; j < 6; j++) {
 	    bars[j].type = PCI_BAR_NONE;
-	    bars[j].mem_hook = 0;
-	    bars[j].num_pages = 0;
-	    bars[j].bar_update = NULL;
 	}
 
 
 	bars[4].type = PCI_BAR_IO;
-	bars[4].bar_update = pci_bar_update;
+	bars[4].default_base_port = PRI_DMA_CMD_PORT + (i * 0x8);
+	bars[4].num_ports = 8;
+	bars[4].io_read = read_dma_port;
+	bars[4].io_write = write_dma_port;
 
 	pci_dev = v3_pci_register_device(ide->pci, PCI_STD_DEVICE, 0, "V3_IDE", -1, bars,
 					 NULL, NULL, NULL, dev);
@@ -918,9 +912,6 @@ static int init_ide_state(struct vm_device * dev) {
     /* Register PIIX3 Busmaster PCI device */
     for (j = 0; j < 6; j++) {
 	bars[j].type = PCI_BAR_NONE;
-	bars[j].mem_hook = 0;
-	bars[j].num_pages = 0;
-	bars[j].bar_update = NULL;
     }
 
     pci_dev = v3_pci_register_device(ide->pci, PCI_STD_DEVICE, 0, "PIIX3 IDE", -1, bars,
@@ -1003,6 +994,7 @@ static int init_ide(struct vm_device * dev) {
 		   &read_port_std, &write_port_std);
 
 
+    /*
 
     v3_dev_hook_io(dev, PRI_DMA_CMD_PORT, 
 		   &read_dma_port, &write_dma_port);
@@ -1030,7 +1022,7 @@ static int init_ide(struct vm_device * dev) {
 		   &read_dma_port, &write_dma_port);
     v3_dev_hook_io(dev, SEC_DMA_PRD_PORT0, 
 		   &read_dma_port, &write_dma_port);
-
+    */
     return 0;
 }
 
