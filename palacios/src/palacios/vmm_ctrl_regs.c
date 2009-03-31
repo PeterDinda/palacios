@@ -243,7 +243,7 @@ int v3_handle_cr0_read(struct guest_info * info) {
 		*dst_reg = *shadow_cr0;
 	    }
 
-	    PrintDebug("returned CR0: %p\n", (void *)*dst_reg);
+	    PrintDebug("returned CR0: %p\n", (void *)*(addr_t *)dst_reg);
 	} else {
 	    struct cr0_32 * dst_reg = (struct cr0_32 *)(dec_instr.dst_operand.operand);
 	

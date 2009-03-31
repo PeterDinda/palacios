@@ -77,14 +77,14 @@ static rd_bool cdrom_read_toc(void * private_data, uint8_t* buf, int* length, rd
 static uint32_t cdrom_capacity(void * private_data) {
     struct cdrom_state * cdrom = (struct cdrom_state *)private_data;
 
-    PrintDebug("[cdrom_capacity] s_ramdiskSize = %d\n", cdrom->capacity_in_bytes);
+    PrintDebug("[cdrom_capacity] s_ramdiskSize = %lu\n", cdrom->capacity_in_bytes);
 
     if (cdrom->lba) {
 	if (cdrom->capacity_in_bytes % 2048) {
-	    PrintDebug("\t\t capacity in LBA is %d\n", (cdrom->capacity_in_bytes / 2048) + 1);
+	    PrintDebug("\t\t capacity in LBA is %lu\n", (cdrom->capacity_in_bytes / 2048) + 1);
 	    return (cdrom->capacity_in_bytes / 2048) + 1;
 	} else {
-	    PrintDebug("\t\t capacity in LBA is %d\n", cdrom->capacity_in_bytes / 2048);
+	    PrintDebug("\t\t capacity in LBA is %lu\n", cdrom->capacity_in_bytes / 2048);
 	    return cdrom->capacity_in_bytes / 2048;
 	}
     } else {
@@ -102,7 +102,7 @@ static void cdrom_read_block(void * private_data, uint8_t * buf, int lba)/* __at
 
     V3_ASSERT(lba != 0);
   
-    PrintDebug("[cdrom_read_block] lba = %d (cdrom_image_start=%x)\n", lba, cdrom->image_addr);
+    PrintDebug("[cdrom_read_block] lba = %d (cdrom_image_start=%p)\n", lba, (void*)cdrom->image_addr);
     memcpy(buf, (uchar_t *)(cdrom->image_addr + lba * 2048), 2048);
     //PrintDebug("Returning from read block\n");
     return;
@@ -139,7 +139,7 @@ static struct cdrom_ops cd_ops = {
 static int cdrom_device_init(struct vm_device * dev) {
     struct cdrom_state * cdrom = (struct cdrom_state *)dev->private_data;
     PrintDebug("[cdrom_init]\n");
-    PrintDebug("CDIMAGE located at: %x\n", cdrom->image_addr);
+    PrintDebug("CDIMAGE located at: %p\n", (void *)cdrom->image_addr);
 
     //FIXME:lba
     cdrom->lba = 1; 

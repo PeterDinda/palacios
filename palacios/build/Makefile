@@ -62,7 +62,7 @@ endif
 
 
 ifeq ($(DEBUG_ALL),1)
-  DEBUG_SECTIONS:= $(DEBUG_SECTIONS) -DDEBUG_SHADOW_PAGING -DDEBUG_CTRL_REGS -DDEBUG_INTERRUPTS -DDEBUG_KEYBOARD -DDEBUG_PIC -DDEBUG_PIT -DDEBUG_NVRAM -DDEBUG_EMULATOR  -DDEBUG_XED -DDEBUG_HALT -DDEBUG_DEV_MGR
+  DEBUG_SECTIONS:= $(DEBUG_SECTIONS) -DDEBUG_SHADOW_PAGING -DDEBUG_NESTED_PAGING -DDEBUG_CTRL_REGS -DDEBUG_INTERRUPTS -DDEBUG_KEYBOARD -DDEBUG_PIC -DDEBUG_PIT -DDEBUG_NVRAM -DDEBUG_EMULATOR  -DDEBUG_XED -DDEBUG_HALT -DDEBUG_DEV_MGR
 # -DDEBUG_IO -DDEBUG_GENERIC -DDEBUG_IDE
 endif
 
@@ -72,6 +72,14 @@ DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DDEBUG_SHADOW_PAGING
 else 
 ifeq ($(DEBUG_SHADOW_PAGING),0) 
 DEBUG_SECTIONS := $(DEBUG_SECTIONS) -UDEBUG_SHADOW_PAGING
+endif
+
+endif
+ifeq ($(DEBUG_NESTED_PAGING),1)
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DDEBUG_NESTED_PAGING
+else 
+ifeq ($(DEBUG_NESTED_PAGING),0) 
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -UDEBUG_NESTED_PAGING
 endif
 endif
 
@@ -263,6 +271,7 @@ VMM_OBJS := \
 	palacios/vmm_debug.o \
 	palacios/svm_io.o \
 	palacios/vmm_intr.o \
+	palacios/vmm_excp.o \
 	palacios/vmm_time.o \
 	palacios/vmm_shadow_paging.o \
 	palacios/vm_guest_mem.o \
@@ -522,13 +531,7 @@ vgabios_link:
 	ln -s -f ../src/vmboot/vgabios/VGABIOS-lgpl-latest.bin vgabios
 
 
-force_rombios: rombios_link
-	(cd ../src/vmboot/rombios; make clean; make)
-
-force_vgabios: vgabios_link
-	(cd ../src/vmboot/vgabios; make clean; make)
-
-force_payload: force_rombios force_vgabios
+force_payload: rombios_link vgabios_link
 	../scripts/make_payload.pl payload_layout.txt vm_kernel
 
 inter1: force_payload

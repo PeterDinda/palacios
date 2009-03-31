@@ -88,10 +88,12 @@ int v3_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) 
     
     v3_init_hypercall_map(info);
     
-  
-    if (v3_cpu_type == V3_SVM_REV3_CPU) {
+    if ((v3_cpu_type == V3_SVM_REV3_CPU) && 
+	(config_ptr->enable_nested_paging == 1)) {
+	PrintDebug("Guest Page Mode: NESTED_PAGING\n");
 	info->shdw_pg_mode = NESTED_PAGING;
     } else {
+	PrintDebug("Guest Page Mode: SHADOW_PAGING\n");
 	v3_init_shadow_page_state(info);
 	info->shdw_pg_mode = SHADOW_PAGING;
     }

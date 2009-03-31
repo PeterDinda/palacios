@@ -120,9 +120,10 @@ void v3_profile_exit(struct guest_info * info, uint_t exit_code) {
 	insert_event(info, evt);
     }
 
+    
   
 
-    evt->handler_time = (evt->handler_time * .99) + (time * .01);
+    evt->handler_time = (evt->handler_time * 127ull + time) / 128;
 
 
     evt->exit_count++;

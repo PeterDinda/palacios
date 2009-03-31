@@ -72,11 +72,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
 
     guest_state->cpl = 0;
 
-    //ctrl_area->instrs.instrs.CR0 = 1;
-    ctrl_area->cr_reads.cr0 = 1;
-    ctrl_area->cr_writes.cr0 = 1;
-    //ctrl_area->cr_reads.cr4 = 1;
-    ctrl_area->cr_writes.cr4 = 1;
+
 
 
     /* Set up the efer to enable 64 bit page tables */
@@ -90,15 +86,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
       cr4->pae = 1;
       }
     */
-
     guest_state->efer |= EFER_MSR_svm_enable;
-    vm_info->guest_efer.value = 0x0LL;
-    
-    v3_hook_msr(vm_info, EFER_MSR, 
-		&v3_handle_efer_read,
-		&v3_handle_efer_write, 
-		vm_info);
-
 
 
     guest_state->rflags = 0x00000002; // The reserved bit is always 1
@@ -115,11 +103,12 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
     ctrl_area->svm_instrs.MONITOR = 1;
     ctrl_area->svm_instrs.MWAIT_always = 1;
     ctrl_area->svm_instrs.MWAIT_if_armed = 1;
+    ctrl_area->instrs.INVLPGA = 1;
 
 
     ctrl_area->instrs.HLT = 1;
     // guest_state->cr0 = 0x00000001;    // PE 
-    ctrl_area->guest_ASID = 1;
+
 
   
     /*
@@ -235,35 +224,39 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
     if (vm_info->shdw_pg_mode == SHADOW_PAGING) {
 	PrintDebug("Creating initial shadow page table\n");
 	
+	ctrl_area->guest_ASID = 1;
 	
-	
-	/* Testing 64 bit page tables for long paged real mode guests */
-	//    vm_info->direct_map_pt = (addr_t)V3_PAddr(create_passthrough_pts_64(vm_info));
 	vm_info->direct_map_pt = (addr_t)V3_PAddr((void *)v3_create_direct_passthrough_pts(vm_info));
-	/* End Test */
 	
 	vm_info->shdw_pg_state.guest_cr0 = 0x0000000000000010LL;
 	PrintDebug("Created\n");
 	
-	
 	guest_state->cr3 = vm_info->direct_map_pt;
 
-
-	//PrintDebugPageTables((pde32_t*)(vm_info->shdw_pg_state.shadow_cr3.e_reg.low));
-	
+	ctrl_area->cr_reads.cr0 = 1;
+	ctrl_area->cr_writes.cr0 = 1;
+	//ctrl_area->cr_reads.cr4 = 1;
+	ctrl_area->cr_writes.cr4 = 1;
 	ctrl_area->cr_reads.cr3 = 1;
 	ctrl_area->cr_writes.cr3 = 1;
 
 
+	vm_info->guest_efer.value = 0x0LL;
+    
+	v3_hook_msr(vm_info, EFER_MSR, 
+		    &v3_handle_efer_read,
+		    &v3_handle_efer_write, 
+		    vm_info);
+
+
 	ctrl_area->instrs.INVLPG = 1;
-	ctrl_area->instrs.INVLPGA = 1;
+
 	
 	ctrl_area->exceptions.pf = 1;
 	
 	/* JRL: This is a performance killer, and a simplistic solution */
 	/* We need to fix this */
 	ctrl_area->TLB_CONTROL = 1;
-	
 	
 	guest_state->g_pat = 0x7040600070406ULL;
 	
@@ -272,6 +265,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
     } else if (vm_info->shdw_pg_mode == NESTED_PAGING) {
 	// Flush the TLB on entries/exits
 	ctrl_area->TLB_CONTROL = 1;
+	ctrl_area->guest_ASID = 1;
 	
 	// Enable Nested Paging
 	ctrl_area->NP_ENABLE = 1;
@@ -279,7 +273,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
 	PrintDebug("NP_Enable at 0x%p\n", (void *)&(ctrl_area->NP_ENABLE));
 	
 	// Set the Nested Page Table pointer
-	vm_info->direct_map_pt = ((addr_t)v3_create_direct_passthrough_pts(vm_info) & ~0xfff);
+	vm_info->direct_map_pt = (addr_t)V3_PAddr((void *)v3_create_direct_passthrough_pts(vm_info));
 	ctrl_area->N_CR3 = vm_info->direct_map_pt;
 	
 	//   ctrl_area->N_CR3 = Get_CR3();
@@ -370,8 +364,8 @@ static int start_svm_guest(struct guest_info *info) {
 	struct v3_msr host_gs_base;
 	struct v3_msr host_kerngs_base;
 
-	v3_enable_ints();
-	v3_clgi();
+/* 	v3_enable_ints(); */
+/* 	v3_clgi(); */
 
 
 	/*
@@ -413,7 +407,7 @@ static int start_svm_guest(struct guest_info *info) {
 
 	//PrintDebug("Turning on global interrupts\n");
 	v3_stgi();
-	
+	v3_clgi();
 	
 	if ((num_exits % 5000) == 0) {
 	    PrintDebug("SVM Exit number %d\n", num_exits);
@@ -557,6 +551,7 @@ static int has_svm_nested_paging() {
 void v3_init_SVM(struct v3_ctrl_ops * vmm_ops) {
     reg_ex_t msr;
     void * host_state;
+    extern v3_cpu_arch_t v3_cpu_type;
 
     // Enable SVM on the CPU
     v3_get_msr(EFER_MSR, &(msr.e_reg.high), &(msr.e_reg.low));
@@ -578,7 +573,11 @@ void v3_init_SVM(struct v3_ctrl_ops * vmm_ops) {
     PrintDebug("Host State being saved at %p\n", (void *)(addr_t)host_state);
     v3_set_msr(SVM_VM_HSAVE_PA_MSR, msr.e_reg.high, msr.e_reg.low);
 
-
+    if (has_svm_nested_paging() == 1) {
+	v3_cpu_type = V3_SVM_REV3_CPU;
+    } else {
+	v3_cpu_type = V3_SVM_CPU;
+    }
 
     // Setup the SVM specific vmm operations
     vmm_ops->init_guest = &init_svm_guest;

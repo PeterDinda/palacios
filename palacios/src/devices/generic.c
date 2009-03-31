@@ -220,7 +220,7 @@ static int generic_init_device(struct vm_device * dev) {
 	list_for_each_entry(tmp, &(state->port_list), range_link) {
 	    uint_t i = 0;
       
-	    PrintDebug("generic: hooking ports 0x%x to 0x%x as %x\n", 
+	    PrintDebug("generic: hooking ports 0x%x to 0x%x as %s\n", 
 		       tmp->start, tmp->end, 
 		       (tmp->type == GENERIC_PRINT_AND_PASSTHROUGH) ? "print-and-passthrough" : "print-and-ignore");
       
@@ -251,12 +251,12 @@ static int generic_init_device(struct vm_device * dev) {
 
 	list_for_each_entry(tmp, &(state->mem_list), range_link) {
 
-	    PrintDebug("generic: hooking addresses 0x%x to 0x%x\n", 
+	    PrintDebug("generic: hooking addresses 0x%p to 0x%p\n", 
 		       tmp->start, tmp->end); 
       
       
 	    if (v3_dev_hook_mem(dev, tmp->start, tmp->end)) {
-		PrintDebug("generic: Can't hook addresses 0x%x to 0x%x (already hooked?)\n",
+		PrintDebug("generic: Can't hook addresses 0x%p to 0x%p (already hooked?)\n",
 			   tmp->start, tmp->end); 
 	    }
 	}
@@ -331,11 +331,11 @@ static int generic_deinit_device(struct vm_device * dev) {
     
 	list_for_each_entry_safe(cur, tmp, &(state->mem_list), range_link) {
 
-	    PrintDebug("generic: unhooking addresses 0x%x to 0x%x\n",
+	    PrintDebug("generic: unhooking addresses 0x%p to 0x%p\n",
 		       cur->start, cur->end); 
 
 	    if (v3_dev_unhook_mem(dev, cur->start, cur->end)) {
-		PrintDebug("generic: Can't unhook addresses 0x%x to 0x%x (already unhooked?)\n",
+		PrintDebug("generic: Can't unhook addresses 0x%p to 0x%p (already unhooked?)\n",
 			   cur->start, cur->end); 
 	    }
 
@@ -404,7 +404,7 @@ int v3_generic_add_port_range(struct vm_device * dev, uint_t start, uint_t end, 
 	range->type = type;
     
       
-	PrintDebug("generic: Adding Port Range: 0x%x to 0x%x as %x\n", 
+	PrintDebug("generic: Adding Port Range: 0x%x to 0x%x as %s\n", 
 		   range->start, range->end, 
 		   (range->type == GENERIC_PRINT_AND_PASSTHROUGH) ? "print-and-passthrough" : "print-and-ignore");
     

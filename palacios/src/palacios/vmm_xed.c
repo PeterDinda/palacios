@@ -568,7 +568,7 @@ static int get_memory_operand(struct guest_info * info,  xed_decoded_inst_t * xe
     int addr_width = v3_get_addr_width(info);;
     // struct v3_segment * seg_reg;
 
-    PrintDebug("Xen mode = %s\n", xed_machine_mode_enum_t2str(xed_state_get_machine_mode(info->decoder_state)));
+    PrintDebug("Xed mode = %s\n", xed_machine_mode_enum_t2str(xed_state_get_machine_mode(info->decoder_state)));
     PrintDebug("Address width: %s\n",
 	       xed_address_width_enum_t2str(xed_state_get_address_width(info->decoder_state)));
     PrintDebug("Stack Address width: %s\n",

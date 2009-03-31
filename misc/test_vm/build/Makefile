@@ -38,13 +38,14 @@ KERNEL_ENTRY = $(SYM_PFX)Main
 PROJECT_ROOT := ..
 VPATH := $(PROJECT_ROOT)/src
 
-#when -DNDEBUG is set the kassert functions are disabled
-#JRLDEBUG=-DNDEBUG
+
+
 ifeq ($(SERIAL_DEBUG), 1)
 JRLDEBUG= -DDEBUG_SERIAL
 else 
 JRLDEBUG= 
 endif
+
 
 # Figure out if we're compiling with cygwin, http://cygwin.com
 SYSTEM_NAME := $(shell uname -s)
@@ -178,6 +179,7 @@ NUMSECS := $(PERL) $(PROJECT_ROOT)/scripts/numsecs
 # ----------------------------------------------------------------------
 
 # Flags used for all C source files
+
 GENERAL_OPTS := -O -Wall $(EXTRA_C_OPTS) $(JRLDEBUG)
 CC_GENERAL_OPTS := $(GENERAL_OPTS) -Werror 
 

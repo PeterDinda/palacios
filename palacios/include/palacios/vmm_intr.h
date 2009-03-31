@@ -26,28 +26,9 @@
 #include <palacios/vmm_types.h>
 #include <palacios/vmm_list.h>
 
-#define DE_EXCEPTION          0x00  
-#define DB_EXCEPTION          0x01
-#define NMI_EXCEPTION         0x02
-#define BP_EXCEPTION          0x03
-#define OF_EXCEPTION          0x04
-#define BR_EXCEPTION          0x05
-#define UD_EXCEPTION          0x06
-#define NM_EXCEPTION          0x07
-#define DF_EXCEPTION          0x08
-#define TS_EXCEPTION          0x0a
-#define NP_EXCEPTION          0x0b
-#define SS_EXCEPTION          0x0c
-#define GPF_EXCEPTION         0x0d
-#define PF_EXCEPTION          0x0e
-#define MF_EXCEPTION          0x10
-#define AC_EXCEPTION          0x11
-#define MC_EXCEPTION          0x12
-#define XF_EXCEPTION          0x13
-#define SX_EXCEPTION          0x1e
 
 
-typedef enum {INVALID_INTR, EXTERNAL_IRQ, NMI, EXCEPTION, SOFTWARE_INTR, VIRTUAL_INTR} intr_type_t;
+typedef enum {INVALID_INTR, EXTERNAL_IRQ, NMI, SOFTWARE_INTR, VIRTUAL_INTR} intr_type_t;
 
 struct guest_info;
 struct v3_interrupt;
@@ -65,14 +46,7 @@ struct v3_irq_hook {
 
 struct v3_intr_state {
 
-    /* We need to rework the exception state, to handle stacking */
-    uint_t excp_pending;
-    uint_t excp_num;
-    uint_t excp_error_code_valid : 1;
-    uint_t excp_error_code;
-  
     struct list_head controller_list;
-
 
     uint_t irq_pending;
     uint_t irq_vector;
@@ -102,11 +76,7 @@ struct intr_ctrl_ops {
 
 
 
-
 void v3_register_intr_controller(struct guest_info * info, struct intr_ctrl_ops * ops, void * state);
-
-int v3_raise_exception(struct guest_info * info, uint_t excp);
-int v3_raise_exception_with_error(struct guest_info * info, uint_t excp, uint_t error_code);
 
 int v3_intr_pending(struct guest_info * info);
 uint_t v3_get_intr_number(struct guest_info * info);

@@ -29,6 +29,7 @@
 addr_t v3_create_direct_passthrough_pts(struct guest_info * guest_info);
 
 int v3_handle_passthrough_pagefault(struct guest_info * info, addr_t fault_addr, pf_error_t error_code);
+int v3_handle_nested_pagefault(struct guest_info * info, addr_t fault_addr, pf_error_t error_code);
 
 #endif // ! __V3VEE__
 

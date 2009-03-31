@@ -27,6 +27,7 @@
 #include <palacios/vmm_io.h>
 #include <palacios/vmm_shadow_paging.h>
 #include <palacios/vmm_intr.h>
+#include <palacios/vmm_excp.h>
 #include <palacios/vmm_dev_mgr.h>
 #include <palacios/vmm_time.h>
 #include <palacios/vmm_host_events.h>
@@ -134,6 +135,9 @@ struct guest_info {
 
     // This structure is how we get interrupts for the guest
     struct v3_intr_state intr_state;
+
+    // This structure is how we get exceptions for the guest
+    struct v3_excp_state excp_state;
 
     v3_io_map_t io_map;
 

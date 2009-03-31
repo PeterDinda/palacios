@@ -32,7 +32,7 @@
 #include <palacios/svm_msr.h>
 #include <palacios/vmm_profiler.h>
 #include <palacios/vmm_hypercall.h>
-
+#include <palacios/vmm_direct_paging.h>
 
 
 
@@ -74,12 +74,15 @@ int v3_handle_svm_exit(struct guest_info * info) {
     if ((info->intr_state.irq_pending == 1) && (guest_ctrl->guest_ctrl.V_IRQ == 0)) {
 	// Interrupt was taken in the guest
 #ifdef DEBUG_INTERRUPTS
-	if ((info->intr_state.irq_vector == 238) || 
-	    (info->intr_state.irq_vector == 239)) {
-	    PrintDebug("Interrupt %d taken by guest\n", info->intr_state.irq_vector);
-	}
+	PrintDebug("Interrupt %d taken by guest\n", info->intr_state.irq_vector);
 #endif
-	v3_injecting_intr(info, info->intr_state.irq_vector, EXTERNAL_IRQ);
+	if (!guest_ctrl->exit_int_info.valid) {
+	    v3_injecting_intr(info, info->intr_state.irq_vector, EXTERNAL_IRQ);
+	} else {
+#ifdef DEBUG_INTERRUPTS
+	    PrintDebug("EXIT INT INFO is set (vec=%d)\n", guest_ctrl->exit_int_info.vector);
+#endif
+	}
     }
 
     info->intr_state.irq_pending = 0;
@@ -244,12 +247,20 @@ int v3_handle_svm_exit(struct guest_info * info) {
 	    }
 	    break;
 	} 
-	case VMEXIT_NPF: 
+ 	case VMEXIT_NPF: {
+	    addr_t fault_addr = guest_ctrl->exit_info2;
+	    pf_error_t * error_code = (pf_error_t *)&(guest_ctrl->exit_info1);
 
-	    PrintError("Currently unhandled Nested Page Fault\n");
-	    return -1;
-		
+	    if (info->shdw_pg_mode == NESTED_PAGING) {
+		if (v3_handle_nested_pagefault(info, fault_addr, *error_code) == -1) {
+		    return -1;
+		}
+	    } else {
+		PrintError("Currently unhandled Nested Page Fault\n");
+		return -1;
+		    }
 	    break;
+	    }
 	case VMEXIT_INVLPG: 
 	    if (info->shdw_pg_mode == SHADOW_PAGING) {
 #ifdef DEBUG_SHADOW_PAGING
@@ -350,7 +361,29 @@ int v3_handle_svm_exit(struct guest_info * info) {
 
     // Update the low level state
 
-    if (v3_intr_pending(info)) {
+    if (v3_excp_pending(info)) {
+	uint_t excp = v3_get_excp_number(info);
+		
+	guest_ctrl->EVENTINJ.type = SVM_INJECTION_EXCEPTION;
+	
+	if (info->excp_state.excp_error_code_valid) {
+	    guest_ctrl->EVENTINJ.error_code = info->excp_state.excp_error_code;
+	    guest_ctrl->EVENTINJ.ev = 1;
+#ifdef DEBUG_INTERRUPTS
+	    PrintDebug("Injecting exception %d with error code %x\n", excp, guest_ctrl->EVENTINJ.error_code);
+#endif
+	}
+	
+	guest_ctrl->EVENTINJ.vector = excp;
+	
+	guest_ctrl->EVENTINJ.valid = 1;
+#ifdef DEBUG_INTERRUPTS
+	PrintDebug("Injecting Exception %d (EIP=%p)\n", 
+		   guest_ctrl->EVENTINJ.vector, 
+		   (void *)(addr_t)info->rip);
+#endif
+	v3_injecting_excp(info, excp);
+    } else if (v3_intr_pending(info)) {
 
 	switch (v3_get_intr_type(info)) {
 	    case EXTERNAL_IRQ: {
@@ -358,11 +391,6 @@ int v3_handle_svm_exit(struct guest_info * info) {
 		    
 		// check to see if ==-1 (non exists)
 		    
-		/*	
-		  guest_ctrl->EVENTINJ.vector = irq;
-		  guest_ctrl->EVENTINJ.valid = 1;
-		  guest_ctrl->EVENTINJ.type = SVM_INJECTION_EXTERNAL_INTR;
-		*/
 		    
 		guest_ctrl->guest_ctrl.V_IRQ = 1;
 		guest_ctrl->guest_ctrl.V_INTR_VECTOR = irq;
@@ -370,11 +398,9 @@ int v3_handle_svm_exit(struct guest_info * info) {
 		guest_ctrl->guest_ctrl.V_INTR_PRIO = 0xf;
 
 #ifdef DEBUG_INTERRUPTS
-		if ((irq == 238) || (irq == 239)) {
-		    PrintDebug("Injecting Interrupt %d (EIP=%p)\n", 
-			       guest_ctrl->guest_ctrl.V_INTR_VECTOR, 
-			       (void *)(addr_t)info->rip);
-		}
+		PrintDebug("Injecting Interrupt %d (EIP=%p)\n", 
+			   guest_ctrl->guest_ctrl.V_INTR_VECTOR, 
+			   (void *)(addr_t)info->rip);
 #endif
 
 		info->intr_state.irq_pending = 1;
@@ -385,32 +411,6 @@ int v3_handle_svm_exit(struct guest_info * info) {
 	    case NMI:
 		guest_ctrl->EVENTINJ.type = SVM_INJECTION_NMI;
 		break;
-	    case EXCEPTION: {
-		uint_t excp = v3_get_intr_number(info);
-		
-		guest_ctrl->EVENTINJ.type = SVM_INJECTION_EXCEPTION;
-		
-		if (info->intr_state.excp_error_code_valid) {  //PAD
-		    guest_ctrl->EVENTINJ.error_code = info->intr_state.excp_error_code;
-		    guest_ctrl->EVENTINJ.ev = 1;
-#ifdef DEBUG_INTERRUPTS
-		    // PrintDebug("Injecting exception %d with error code %x\n", excp, guest_ctrl->EVENTINJ.error_code);
-#endif
-		}
-		
-		guest_ctrl->EVENTINJ.vector = excp;
-		
-		guest_ctrl->EVENTINJ.valid = 1;
-#ifdef DEBUG_INTERRUPTS
-		/*
-		PrintDebug("Injecting Exception %d (EIP=%p)\n", 
-			   guest_ctrl->EVENTINJ.vector, 
-			   (void *)(addr_t)info->rip);
-		*/
-#endif
-		v3_injecting_intr(info, excp, EXCEPTION);
-		break;
-	    }
 	    case SOFTWARE_INTR:
 		guest_ctrl->EVENTINJ.type = SVM_INJECTION_SOFT_INTR;
 		break;

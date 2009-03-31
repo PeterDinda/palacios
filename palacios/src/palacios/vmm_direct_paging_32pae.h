@@ -31,7 +31,7 @@
 static inline int handle_passthrough_pagefault_32pae(struct guest_info * info, 
 						     addr_t fault_addr, 
 						     pf_error_t error_code) {
-    pdpe32pae_t * pdpe = CR3_TO_PDPE32PAE_VA(info->ctrl_regs.cr3);
+    pdpe32pae_t * pdpe = NULL;
     pde32pae_t * pde = NULL;
     pte32pae_t * pte = NULL;
     addr_t host_addr = 0;
@@ -50,6 +50,13 @@ static inline int handle_passthrough_pagefault_32pae(struct guest_info * info,
     }
 
     host_addr = v3_get_shadow_addr(region, fault_addr);
+
+    // Lookup the correct PDPE address based on the PAGING MODE
+    if (info->shdw_pg_mode == SHADOW_PAGING) {
+	pdpe = CR3_TO_PDPE32PAE_VA(info->ctrl_regs.cr3);
+    } else {
+	pdpe = CR3_TO_PDPE32PAE_VA(info->direct_map_pt);
+    }
 
     // Fix up the PDPE entry
     if (pdpe[pdpe_index].present == 0) {

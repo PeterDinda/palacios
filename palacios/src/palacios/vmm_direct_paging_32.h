@@ -33,7 +33,7 @@ static inline int handle_passthrough_pagefault_32(struct guest_info * info,
 						  addr_t fault_addr, 
 						  pf_error_t error_code) {
     // Check to see if pde and pte exist (create them if not)
-    pde32_t * pde = CR3_TO_PDE32_VA(info->ctrl_regs.cr3);
+    pde32_t * pde = NULL;
     pte32_t * pte = NULL;
     addr_t host_addr = 0;
     
@@ -51,6 +51,14 @@ static inline int handle_passthrough_pagefault_32(struct guest_info * info,
     
     host_addr = v3_get_shadow_addr(region, fault_addr);
     
+    // Lookup the correct PDE address based on the PAGING MODE
+    if (info->shdw_pg_mode == SHADOW_PAGING) {
+	pde = CR3_TO_PDE32_VA(info->ctrl_regs.cr3);
+    } else {
+	pde = CR3_TO_PDE32_VA(info->direct_map_pt);
+    }
+
+
     // Fix up the PDE entry
     if (pde[pde_index].present == 0) {
 	pte = (pte32_t *)create_generic_pt_page();
