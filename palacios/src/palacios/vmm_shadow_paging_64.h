@@ -131,11 +131,8 @@ static inline int handle_shadow_pagefault_64(struct guest_info * info, addr_t fa
 	shadow_pml4e->present = 1;
 	shadow_pml4e->user_page = guest_pml4e->user_page;
 	shadow_pml4e->writable = guest_pml4e->writable;
-    
-	// VMM Specific options
-	shadow_pml4e->write_through = 0;
-	shadow_pml4e->cache_disable = 0;
-	//
+	shadow_pml4e->cache_disable = guest_pml4e->cache_disable;
+	shadow_pml4e->write_through = guest_pml4e->write_through;
     
 	guest_pml4e->accessed = 1;
     
@@ -225,11 +222,9 @@ static int handle_pdpe_shadow_pagefault_64(struct guest_info * info, addr_t faul
 	shadow_pdpe->present = 1;
 	shadow_pdpe->user_page = guest_pdpe->user_page;
 	shadow_pdpe->writable = guest_pdpe->writable;
-    
-	// VMM Specific options
-	shadow_pdpe->write_through = 0;
-	shadow_pdpe->cache_disable = 0;
-	//
+	shadow_pdpe->write_through = guest_pdpe->write_through;
+	shadow_pdpe->cache_disable = guest_pdpe->cache_disable;
+
     
 	guest_pdpe->accessed = 1;
     
@@ -339,9 +334,9 @@ static int handle_pde_shadow_pagefault_64(struct guest_info * info, addr_t fault
 	}
     
 	// VMM Specific options
-	shadow_pde->write_through = 0;
-	shadow_pde->cache_disable = 0;
-	shadow_pde->global_page = 0;
+	shadow_pde->write_through = guest_pde->write_through;
+	shadow_pde->cache_disable = guest_pde->cache_disable;
+	shadow_pde->global_page = guest_pde->global_page;
 	//
     
 	guest_pde->accessed = 1;
@@ -435,9 +430,9 @@ static int handle_pte_shadow_pagefault_64(struct guest_info * info, addr_t fault
 	    shadow_pte->user_page = guest_pte->user_page;
       
 	    //set according to VMM policy
-	    shadow_pte->write_through = 0;
-	    shadow_pte->cache_disable = 0;
-	    shadow_pte->global_page = 0;
+	    shadow_pte->write_through = guest_pte->write_through;
+	    shadow_pte->cache_disable = guest_pte->cache_disable;
+	    shadow_pte->global_page = guest_pte->global_page;
 	    //
       
 	    guest_pte->accessed = 1;
@@ -528,7 +523,7 @@ static int handle_2MB_shadow_pagefault_64(struct guest_info * info,
 	// Inject a machine check in the guest
 	PrintDebug("Invalid Guest Address in page table (0x%p)\n", (void *)guest_fault_pa);
 	v3_raise_exception(info, MC_EXCEPTION);
-	return -1;
+	return 0;
     }
 
     if (shadow_pte_access == PT_ACCESS_OK) {
@@ -574,9 +569,9 @@ static int handle_2MB_shadow_pagefault_64(struct guest_info * info,
 	    }
 
 	    //set according to VMM policy
-	    shadow_pte->write_through = 0;
-	    shadow_pte->cache_disable = 0;
-	    shadow_pte->global_page = 0;
+	    shadow_pte->write_through = large_guest_pde->write_through;
+	    shadow_pte->cache_disable = large_guest_pde->cache_disable;
+	    shadow_pte->global_page = large_guest_pde->global_page;
 	    //
       
 	} else {

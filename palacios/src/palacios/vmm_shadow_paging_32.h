@@ -162,9 +162,9 @@ static inline int handle_shadow_pagefault_32(struct guest_info * info, addr_t fa
       
 
 	    // VMM Specific options
-	    shadow_pde->write_through = 0;
-	    shadow_pde->cache_disable = 0;
-	    shadow_pde->global_page = 0;
+	    shadow_pde->write_through = guest_pde->write_through;
+	    shadow_pde->cache_disable = guest_pde->cache_disable;
+	    shadow_pde->global_page = guest_pde->global_page;
 	    //
       
 	    guest_pde->accessed = 1;
@@ -332,9 +332,9 @@ static int handle_large_pagefault_32(struct guest_info * info,
 	    }
 
 	    //set according to VMM policy
-	    shadow_pte->write_through = 0;
-	    shadow_pte->cache_disable = 0;
-	    shadow_pte->global_page = 0;
+	    shadow_pte->write_through = large_guest_pde->write_through;
+	    shadow_pte->cache_disable = large_guest_pde->cache_disable;
+	    shadow_pte->global_page = large_guest_pde->global_page;
 	    //
       
 	} else {
@@ -448,9 +448,9 @@ static int handle_shadow_pte32_fault(struct guest_info * info,
 	    shadow_pte->user_page = guest_pte->user_page;
       
 	    //set according to VMM policy
-	    shadow_pte->write_through = 0;
-	    shadow_pte->cache_disable = 0;
-	    shadow_pte->global_page = 0;
+	    shadow_pte->write_through = guest_pte->write_through;
+	    shadow_pte->cache_disable = guest_pte->cache_disable;
+	    shadow_pte->global_page = guest_pte->global_page;
 	    //
       
 	    guest_pte->accessed = 1;
