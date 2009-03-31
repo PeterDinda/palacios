@@ -494,7 +494,7 @@ static int init_i440fx(struct vm_device * dev) {
 }
 
 
-
+/*
 static void test_devices(struct vm_device * dev) {
     struct pci_device * pci_dev = NULL;
     struct v3_pci_bar bars[6];
@@ -531,7 +531,7 @@ static void test_devices(struct vm_device * dev) {
 
 }
 
-
+*/
 
 static void init_pci_busses(struct pci_internal * pci_state) {
     int i;
@@ -563,7 +563,7 @@ static int pci_init_device(struct vm_device * dev) {
 	return -1;
     }
 
-    test_devices(dev);
+    //test_devices(dev);
     
     PrintDebug("Sizeof config header=%d\n", (int)sizeof(struct pci_config_header));
     
@@ -604,7 +604,9 @@ static inline int init_bars(struct pci_device * pci_dev) {
 	int bar_offset = 0x10 + 4 * i;
 
 	if (pci_dev->bar[i].type == PCI_BAR_IO) {
-	    pci_dev->bar[i].mask = 0x0000fffd;
+	    //pci_dev->bar[i].mask = 0x0000fffd;
+	    pci_dev->bar[i].mask = (~((pci_dev->bar[i].num_io_ports) - 1)) | 0x01;
+
 	    *(uint32_t *)(pci_dev->config_space + bar_offset) = 0x00000001;
 	} else if (pci_dev->bar[i].type == PCI_BAR_MEM32) {
 	    pci_dev->bar[i].mask = ~((pci_dev->bar[i].num_pages << 12) - 1);
@@ -624,13 +626,10 @@ static inline int init_bars(struct pci_device * pci_dev) {
 	    PrintError("Invalid BAR type for bar #%d\n", i);
 	    return -1;
 	}
-	    
-
     }
 
     return 0;
 }
-
 
 
 // if dev_num == -1, auto assign 
@@ -700,13 +699,19 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
 
     pci_dev->priv_data = private_data;
 
-    
+
     //copy bars
     for (i = 0; i < 6; i ++){
-      pci_dev->bar[i].type = bars[i].type;
-      pci_dev->bar[i].num_pages = bars[i].num_pages;
-      pci_dev->bar[i].mem_hook = bars[i].mem_hook;
-      pci_dev->bar[i].bar_update = bars[i].bar_update;
+	pci_dev->bar[i].type = bars[i].type;
+
+	if (pci_dev->bar[i].type == PCI_BAR_IO) {
+	    pci_dev->bar[i].num_io_ports = bars[i].num_io_ports;
+	} else {
+	    pci_dev->bar[i].num_pages = bars[i].num_pages;
+	}
+
+	pci_dev->bar[i].mem_hook = bars[i].mem_hook;
+	pci_dev->bar[i].bar_update = bars[i].bar_update;
     }
 
     if (init_bars(pci_dev) == -1) {
@@ -714,13 +719,9 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
 	return NULL;
     }
 
-    pci_dev->cmd_update = cmd_update;
-    pci_dev->ext_rom_update = ext_rom_update;
-
     // add the device
     add_device_to_bus(bus, pci_dev);
 
-    
 #ifdef DEBUG_PCI
     pci_dump_state(pci_state);
 #endif

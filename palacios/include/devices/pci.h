@@ -40,8 +40,14 @@ struct pci_device;
 struct v3_pci_bar {
     pci_bar_type_t type;
     int mem_hook;
-    int num_pages;
+    
+    union {
+	int num_pages;
+	int num_io_ports;
+    };
+
     int (*bar_update)(struct pci_device * pci_dev, uint_t bar);
+
 
     // Internal PCI data
     int updated;
