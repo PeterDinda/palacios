@@ -524,16 +524,21 @@ static void atapi_identify_device(struct ide_drive * drive) {
     // 32 bits access
     drive_id->dword_io = 1;
 
+    // enable DMA access
+    drive_id->dma_enable = 1;
+
     // enable LBA access
     drive_id->lba_enable = 1;
     
+    drive_id->rw_multiples = 0x80ff;
 
     // words 64-70, 54-58 valid
-    drive_id->buf[53] = 0x0003;
+    drive_id->field_valid = 0x0007; // DMA + pkg cmd valid
 
     // copied from CFA540A
-    drive_id->buf[63] = 0x0103; // variable (DMA stuff)
-    drive_id->buf[64] = 0x0001; // PIO
+    //    drive_id->buf[63] = 0x0103; // variable (DMA stuff)
+    drive_id->buf[63] = 0x0000; // variable (DMA stuff)
+    //    drive_id->buf[64] = 0x0001; // PIO
     drive_id->buf[65] = 0x00b4;
     drive_id->buf[66] = 0x00b4;
     drive_id->buf[67] = 0x012c;
@@ -542,5 +547,8 @@ static void atapi_identify_device(struct ide_drive * drive) {
     drive_id->buf[71] = 30; // faked
     drive_id->buf[72] = 30; // faked
 
-    drive_id->buf[80] = 0x1e; // supports up to ATA/ATAPI-4
+    //    drive_id->buf[80] = 0x1e; // supports up to ATA/ATAPI-4
+    drive_id->major_rev_num = 0x0040; // supports up to ATA/ATAPI-6
+
+    drive_id->dma_ultra = 0x2020; // Ultra_DMA_Mode_5_Selected | Ultra_DMA_Mode_5_Supported;
 }
