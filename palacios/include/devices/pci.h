@@ -57,9 +57,14 @@ struct v3_pci_bar {
     };
 
     // Internal PCI data
+    uint32_t val;
     int updated;
     uint32_t mask;
 };
+
+
+#define PCI_IO_BASE(bar_val) (bar_val & 0xfffffffc)
+#define PCI_MEM32_BASE(bar_val) (bar_val & 0xfffffff0)
 
 struct pci_device {
     union {

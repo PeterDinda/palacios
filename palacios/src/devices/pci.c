@@ -352,9 +352,42 @@ static inline int is_cfg_reg_writable(uchar_t header_type, int reg_num) {
 }
 
 
-static int bar_update(struct pci_device * pci, int bar_num) {
-    PrintError("Bar Updates not handled (bar=%d)\n", bar_num);
-    return -1;
+static int bar_update(struct pci_device * pci, int bar_num, uint32_t new_val) {
+    struct v3_pci_bar * bar = &(pci->bar[bar_num]);
+
+    PrintError("Updating BAR Register  (Dev=%s) (bar=%d) (val=%x)\n", 
+	       pci->name, bar_num, new_val);
+
+    switch (bar->type) {
+	case PCI_BAR_IO: {
+	    int i = 0;
+		
+	    // only do this if pci device is enabled....
+	    for (i = 0; i < bar->num_ports; i++) {
+		PrintDebug("Rehooking IO Port %x\n", PCI_IO_BASE(bar->val) + i);
+
+		v3_dev_unhook_io(pci->vm_dev, PCI_IO_BASE(bar->val) + i);
+
+		v3_dev_hook_io(pci->vm_dev, PCI_IO_BASE(new_val) + i, 
+			       bar->io_read, bar->io_write);
+	    }
+
+	    bar->val = new_val;
+
+	    break;
+	}
+	case PCI_BAR_NONE: {
+	    PrintError("Reprogramming an unsupported BAR register (Dev=%s) (bar=%d) (val=%x)\n", 
+		       pci->name, bar_num, new_val);
+	    bar->val = new_val;
+	    break;
+	}
+	default:
+	    PrintError("Invalid Bar Reg updated (bar=%d)\n", bar_num);
+	    return -1;
+    }
+
+    return 0;
 }
 
 
@@ -433,7 +466,7 @@ static int data_port_write(ushort_t port, void * src, uint_t length, struct vm_d
 		*(uint32_t *)(pci_dev->config_space + bar_offset) &= pci_dev->bar[i].mask;
 
 		// bar_update
-		if (bar_update(pci_dev, i) == -1) {
+		if (bar_update(pci_dev, i, *(uint32_t *)(pci_dev->config_space + bar_offset)) == -1) {
 		    PrintError("PCI Device %s: Bar update Error Bar=%d\n", pci_dev->name, i);
 		    return -1;
 		}
@@ -588,9 +621,9 @@ static inline int init_bars(struct pci_device * pci_dev) {
 	if (pci_dev->bar[i].type == PCI_BAR_IO) {
 	    int j = 0;
 	    pci_dev->bar[i].mask = (~((pci_dev->bar[i].num_ports) - 1)) | 0x01;
-	    
-	    *(uint32_t *)(pci_dev->config_space + bar_offset) = pci_dev->bar[i].default_base_port & pci_dev->bar[i].mask;
-	    *(uint32_t *)(pci_dev->config_space + bar_offset) |= 0x00000001;
+
+	    pci_dev->bar[i].val = pci_dev->bar[i].default_base_port & pci_dev->bar[i].mask;
+	    pci_dev->bar[i].val |= 0x00000001;
 
 	    for (j = 0; j < pci_dev->bar[i].num_ports; j++) {
 		// hook IO
@@ -601,11 +634,13 @@ static inline int init_bars(struct pci_device * pci_dev) {
 		}
 	    }
 
+	    *(uint32_t *)(pci_dev->config_space + bar_offset) = pci_dev->bar[i].val;
+
 	} else if (pci_dev->bar[i].type == PCI_BAR_MEM32) {
 	    pci_dev->bar[i].mask = ~((pci_dev->bar[i].num_pages << 12) - 1);
 	    pci_dev->bar[i].mask |= 0xf; // preserve the configuration flags
 
-	    *(uint32_t *)(pci_dev->config_space + bar_offset) = pci_dev->bar[i].default_base_addr & pci_dev->bar[i].mask;
+	    pci_dev->bar[i].val = pci_dev->bar[i].default_base_addr & pci_dev->bar[i].mask;
 
 	    // hook memory
 	    if (pci_dev->bar[i].mem_read) {
@@ -624,14 +659,18 @@ static inline int init_bars(struct pci_device * pci_dev) {
 		*/
  	    } else {
 		// set the prefetchable flag...
-		*(uint8_t *)(pci_dev->config_space + bar_offset) |= 0x00000008;
+		pci_dev->bar[i].val |= 0x00000008;
 	    }
+
+
+	    *(uint32_t *)(pci_dev->config_space + bar_offset) = pci_dev->bar[i].val;
 
 	} else if (pci_dev->bar[i].type == PCI_BAR_MEM16) {
 	    PrintError("16 Bit memory ranges not supported (reg: %d)\n", i);
 	    return -1;
 	} else if (pci_dev->bar[i].type == PCI_BAR_NONE) {
-	    *(uint32_t *)(pci_dev->config_space + bar_offset) = 0x00000000;
+	    pci_dev->bar[i].val = 0x00000000;
+	    *(uint32_t *)(pci_dev->config_space + bar_offset) = pci_dev->bar[i].val;
 	} else {
 	    PrintError("Invalid BAR type for bar #%d\n", i);
 	    return -1;
