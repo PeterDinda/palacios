@@ -19,7 +19,7 @@
 #include <geekos/string.h>
 #include <geekos/tss.h>
 
-#include <geekos/serial.h>
+#include <geekos/debug.h>
 
 /*
  * We use one TSS in GeekOS.

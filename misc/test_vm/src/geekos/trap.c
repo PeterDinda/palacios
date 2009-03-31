@@ -11,7 +11,7 @@
 #include <geekos/kthread.h>
 #include <geekos/defs.h>
 #include <geekos/trap.h>
-#include <geekos/serial.h>
+#include <geekos/debug.h>
 
 /*
  * TODO: need to add handlers for other exceptions (such as bounds
@@ -25,7 +25,7 @@
 static void GPF_Handler(struct Interrupt_State* state)
 {
     /* Send the thread to the reaper... */
-  SerialPrintLevel(1000,"Exception %d received, killing thread %p\n",state->intNum, g_currentThread);
+    PrintBoth("Exception %d received, killing thread %p\n",state->intNum, g_currentThread);
   Dump_Interrupt_State(state);
   
   Exit(-1);

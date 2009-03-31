@@ -10,7 +10,7 @@
 #include <geekos/kassert.h>
 #include <geekos/defs.h>
 #include <geekos/idt.h>
-#include <geekos/serial.h>
+#include <geekos/debug.h>
 
 /* ----------------------------------------------------------------------
  * Private data and functions
@@ -42,37 +42,17 @@ Interrupt_Handler g_interruptTable[ NUM_IDT_ENTRIES ];
 
 
 
+
+
+
 void DumpIDT()
 {
   int i;
-  Print("IDT Contents:\n");
-
-  for (i=0;i<NUM_IDT_ENTRIES/16;i++) { 
-    if (s_IDT[i].ig.present) { 
-      Print("%d: segmentselector=%u, offset=%u, offsetLow=%u, segmentSelector=%u, reserved=%u, signature=%u, dpl=%u, present=%u, offsetHigh=%u\n",
-	    i,
-	    s_IDT[i].ig.segmentSelector,
-	    (s_IDT[i].ig.offsetHigh<<16) + s_IDT[i].ig.offsetLow,
-	    s_IDT[i].ig.offsetLow,
-	    s_IDT[i].ig.segmentSelector,
-	    s_IDT[i].ig.reserved,
-	    s_IDT[i].ig.signature,
-	    s_IDT[i].ig.dpl,
-	    s_IDT[i].ig.present,
-	    s_IDT[i].ig.offsetHigh);
-    }
-  }
-}
-
-
-void SerialDumpIDT()
-{
-  int i;
-  SerialPrint("IDT Contents:\n");
+  PrintBoth("IDT Contents:\n");
 
   for (i=0;i<NUM_IDT_ENTRIES;i++) { 
     if (s_IDT[i].ig.present) { 
-      SerialPrint("%d: segmentselector=%u, offset=%u, offsetLow=%u, segmentSelector=%u, reserved=%u, signature=%u, dpl=%u, present=%u, offsetHigh=%u\n",
+      PrintBoth("%d: segmentselector=%u, offset=%u, offsetLow=%u, segmentSelector=%u, reserved=%u, signature=%u, dpl=%u, present=%u, offsetHigh=%u\n",
 	    i,
 	    s_IDT[i].ig.segmentSelector,
 	    (s_IDT[i].ig.offsetHigh<<16) + s_IDT[i].ig.offsetLow,
@@ -83,7 +63,7 @@ void SerialDumpIDT()
 	    s_IDT[i].ig.dpl,
 	    s_IDT[i].ig.present,
 	    s_IDT[i].ig.offsetHigh);
-      SerialPrint("\n");
+      PrintBoth("\n");
     }
   }
 }

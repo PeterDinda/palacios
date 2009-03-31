@@ -9,6 +9,7 @@
  * redistribute, and modify it as specified in the file "COPYING".
  */
 
+#include <geekos/debug.h>
 #include <geekos/bootinfo.h>
 #include <geekos/string.h>
 #include <geekos/screen.h>
@@ -26,9 +27,14 @@
 #include <geekos/mem.h>
 #include <geekos/paging.h>
 #include <geekos/ide.h>
-
+#include <geekos/vm_cons.h>
+#include <geekos/pci.h>
 #include <geekos/gdt.h>
 
+
+
+#define TEST_PAGING 0
+#define TEST_PCI 1
 
 /*
   static inline unsigned int cpuid_ecx(unsigned int op)
@@ -186,12 +192,10 @@ void Keyboard_Listener(ulong_t arg) {
 
   while ((key_press = Wait_For_Key())) {    
     if (key_press == KEY_F4) {
-      Print("\nToggling Speaker Port\n");
-      SerialPrintLevel(100,"\nToggling Speaker Port\n");
+      PrintBoth("\nToggling Speaker Port\n");
       *doIBuzz = (*doIBuzz + 1) % 2;
     } else if (key_press == KEY_F5) {
-      Print("\nMachine Restart\n");
-      SerialPrintLevel(100,"\nMachine Restart\n");
+      PrintBoth("\nMachine Restart\n");
       machine_real_restart();
     }
   }
@@ -245,6 +249,8 @@ void Main(struct Boot_Info* bootInfo)
   Init_BSS();
   Init_Screen();
   InitSerial();
+
+  Init_VMCons();
   Init_Mem(bootInfo);
   Init_CRC32();
   Init_TSS();
@@ -265,17 +271,17 @@ void Main(struct Boot_Info* bootInfo)
 
 
 
-  SerialPrint("\n\nHello, Welcome to this horrid output-only serial interface\n");
-  SerialPrint("Eventually, this will let us control the VMM\n\n");
+  PrintBoth("\n\nHello, Welcome to this horrid output-only serial interface\n");
+  PrintBoth("Eventually, this will let us control the VMM\n\n");
  
-  SerialPrint("\n\n===>");
+  PrintBoth("\n\n===>");
   
 
 
   
 
   
-  SerialPrintLevel(1000,"Launching Noisemaker and keyboard listener threads\n");
+  PrintBoth("Launching Noisemaker and keyboard listener threads\n");
   
   key_thread = Start_Kernel_Thread(Keyboard_Listener, (ulong_t)&doIBuzz, PRIORITY_NORMAL, false);
   spkr_thread = Start_Kernel_Thread(Buzzer, (ulong_t)&doIBuzz, PRIORITY_NORMAL, false);
@@ -284,22 +290,31 @@ void Main(struct Boot_Info* bootInfo)
 
 
 
-  SerialPrintLevel(1000,"Next: setup GDT\n");
+  PrintBoth("Next: setup GDT\n");
 
-  {
-    int i = 0;
-    for (i = 0; i < 1024; i++) {
-      uint_t * addr = (uint_t *)0xa00000;
-      uint_t foo = *addr;
 
-      SerialPrint("Read From 0x%x=%d\n", (uint_t)addr, foo);
-    }
+  if (TEST_PAGING) {
+      int i = 0;
+      for (i = 0; i < 1024; i++) {
+	  uint_t * addr = (uint_t *)0xa00000;
+	  uint_t foo = *addr;
+	  
+	  PrintBoth("Read From 0x%x=%d\n", (uint_t)addr, foo);
+      }
+
+      
+      //  Invalidate_PG((void *)0x2000);
+      
+      //  VM_Test(bootInfo, 32);  
+      //VM_Test(bootInfo, 1536);
+  }
+
+
+  if (TEST_PCI) {
+      Init_PCI();
+
 
   }
-  //  Invalidate_PG((void *)0x2000);
-
-  //  VM_Test(bootInfo, 32);  
-  //VM_Test(bootInfo, 1536);
 
   while(1);
   

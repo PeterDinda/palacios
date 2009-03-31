@@ -15,7 +15,7 @@
 #include <geekos/kthread.h>
 #include <geekos/timer.h>
 
-#include <geekos/serial.h>
+#include <geekos/debug.h>
 
 #define HZ 100
 
@@ -69,7 +69,7 @@ static void Timer_Interrupt_Handler(struct Interrupt_State* state)
 
     Begin_IRQ(state);
 
-    SerialPrintLevel(10,"Host Timer Interrupt Handler Running\n");
+    PrintBoth("Host Timer Interrupt Handler Running\n");
 
     /* Update global and per-thread number of ticks */
     ++g_numTicks;

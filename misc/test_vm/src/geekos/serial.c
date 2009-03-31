@@ -38,12 +38,6 @@ static void Serial_Interrupt_Handler(struct Interrupt_State * state) {
   End_IRQ(state);
 }
 
-void InitSerial() {
-  Print("Initialzing Serial\n");
-  Install_IRQ(COM1_IRQ, Serial_Interrupt_Handler);
-  Enable_IRQ(COM1_IRQ);
-  InitSerialAddr(DEFAULT_SERIAL_ADDR);
-}
 
 void InitSerialAddr(unsigned short io_addr) {
   serial_io_addr = io_addr;
@@ -137,4 +131,48 @@ void SerialMemDump(unsigned char *start, int n)
     }
     SerialPrint("\n");
   }
+}
+
+
+static struct Output_Sink serial_output_sink;
+static void Serial_Emit(struct Output_Sink * o, int ch) { 
+  SerialPutChar((unsigned char)ch); 
+}
+static void Serial_Finish(struct Output_Sink * o) { return; }
+
+
+static void __inline__ SerialPrintInternal(const char * format, va_list ap) {
+  Format_Output(&serial_output_sink, format, ap);
+}
+
+
+void SerialPrint(const char * format, ...) {
+  va_list args;
+  bool iflag = Begin_Int_Atomic();
+
+  va_start(args, format);
+  SerialPrintInternal(format, args);
+  va_end(args);
+
+  End_Int_Atomic(iflag);
+}
+
+void SerialPrintList(const char * format, va_list ap) {
+  bool iflag = Begin_Int_Atomic();
+  SerialPrintInternal(format, ap);
+  End_Int_Atomic(iflag);
+
+}
+
+
+
+void InitSerial() {
+  Print("Initialzing Serial\n");
+
+  serial_output_sink.Emit = &Serial_Emit;
+  serial_output_sink.Finish = &Serial_Finish;
+
+  Install_IRQ(COM1_IRQ, Serial_Interrupt_Handler);
+  Enable_IRQ(COM1_IRQ);
+  InitSerialAddr(DEFAULT_SERIAL_ADDR);
 }

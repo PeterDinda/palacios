@@ -518,6 +518,12 @@ static struct Output_Sink s_outputSink = { &Print_Emit, &Print_Finish };
  * Print to console using printf()-style formatting.
  * Calls into Format_Output in common library.
  */
+
+static __inline__ void PrintInternal(const char * format, va_list ap) {
+    Format_Output(&s_outputSink, format, ap);
+}
+
+
 void Print(const char *fmt, ...)
 {
     va_list args;
@@ -525,9 +531,14 @@ void Print(const char *fmt, ...)
     bool iflag = Begin_Int_Atomic();
 
     va_start(args, fmt);
-    Format_Output(&s_outputSink, fmt, args);
+    PrintInternal(fmt, args);
     va_end(args);
 
     End_Int_Atomic(iflag);
 }
 
+void PrintList(const char * fmt, va_list ap) {
+    bool iflag = Begin_Int_Atomic();
+    PrintInternal(fmt, ap);
+    End_Int_Atomic(iflag);
+}

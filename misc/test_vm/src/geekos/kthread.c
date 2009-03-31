@@ -16,7 +16,7 @@
 #include <geekos/string.h>
 #include <geekos/kthread.h>
 #include <geekos/malloc.h>
-#include <geekos/serial.h>
+#include <geekos/debug.h>
 
 /* ----------------------------------------------------------------------
  * Private data

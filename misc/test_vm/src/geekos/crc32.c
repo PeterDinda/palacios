@@ -8,7 +8,7 @@
 
 #include <geekos/crc32.h>
 #include <geekos/kassert.h>
-#include <geekos/serial.h>
+#include <geekos/debug.h>
 
 #define POLYNOMIAL (ulong_t)0xedb88320
 static ulong_t crc_table[256];

@@ -22,7 +22,7 @@
 //#include <geekos/vfs.h>
 #include <geekos/crc32.h>
 #include <geekos/paging.h>
-#include <geekos/serial.h>
+#include <geekos/debug.h>
 
 
 /* ----------------------------------------------------------------------
@@ -39,40 +39,40 @@
  * flag to indicate if debugging paging code
  */
 int debugFaults = 0;
-#define Debug(args...) if (debugFaults) Print(args)
+#define Debug(args...) if (debugFaults) PrintBoth(args)
 
 
 
-void SerialPrintPD(pde_t *pde)
+void PrintPD(pde_t *pde)
 {
   uint_t i;
 
-  SerialPrint("Page Directory at %p:\n",pde);
+  PrintBoth("Page Directory at %p:\n",pde);
   for (i = 0; i < NUM_PAGE_DIR_ENTRIES; i++) { 
     if (pde[i].present) {
       if ((i * PAGE_SIZE * 1024) > 0x40000000) {
-	SerialPrintPDE((void*)(PAGE_SIZE*NUM_PAGE_TABLE_ENTRIES*i),&(pde[i]));
+	PrintPDE((void*)(PAGE_SIZE*NUM_PAGE_TABLE_ENTRIES*i),&(pde[i]));
       }
     }
   }
 }
 
-void SerialPrintPT(void *starting_address, pte_t *pte) 
+void PrintPT(void *starting_address, pte_t *pte) 
 {
   int i;
 
-  SerialPrint("Page Table at %p:\n",pte);
+  PrintBoth("Page Table at %p:\n",pte);
   for (i=0;i<NUM_PAGE_TABLE_ENTRIES;i++) { 
     if (pte[i].present) {
-      SerialPrintPTE(starting_address + PAGE_SIZE*i,&(pte[i]));
+      PrintPTE(starting_address + PAGE_SIZE*i,&(pte[i]));
     }
   }
 }
 
 
-void SerialPrintPDE(void *virtual_address, pde_t *pde)
+void PrintPDE(void *virtual_address, pde_t *pde)
 {
-  SerialPrint("PDE %p -> %p : present=%x, flags=%x, accessed=%x, reserved=%x, largePages=%x, globalPage=%x, kernelInfo=%x\n",
+  Print("PDE %p -> %p : present=%x, flags=%x, accessed=%x, reserved=%x, largePages=%x, globalPage=%x, kernelInfo=%x\n",
 	      virtual_address,
 	      (void*) (pde->pageTableBaseAddr << PAGE_POWER),
 	      pde->present,
@@ -84,9 +84,9 @@ void SerialPrintPDE(void *virtual_address, pde_t *pde)
 	      pde->kernelInfo);
 }
   
-void SerialPrintPTE(void *virtual_address, pte_t *pte)
+void PrintPTE(void *virtual_address, pte_t *pte)
 {
-  SerialPrint("PTE %p -> %p : present=%x, flags=%x, accessed=%x, dirty=%x, pteAttribute=%x, globalPage=%x, kernelInfo=%x\n",
+  PrintBoth("PTE %p -> %p : present=%x, flags=%x, accessed=%x, dirty=%x, pteAttribute=%x, globalPage=%x, kernelInfo=%x\n",
 	      virtual_address,
 	      (void*)(pte->pageBaseAddr << PAGE_POWER),
 	      pte->present,
@@ -99,17 +99,17 @@ void SerialPrintPTE(void *virtual_address, pte_t *pte)
 }
 
 
-void SerialDumpPageTables(pde_t *pde)
+void DumpPageTables(pde_t *pde)
 {
   uint_t i;
   
-  SerialPrint("Dumping the pages starting with the pde page at %p\n",pde);
+  PrintBoth("Dumping the pages starting with the pde page at %p\n",pde);
 
   for (i = 0; i < NUM_PAGE_DIR_ENTRIES; i++) { 
     if (pde[i].present) {
       if ((i * PAGE_SIZE * 1024) >= 0x40000000) {
-	SerialPrintPDE((void *)(PAGE_SIZE * NUM_PAGE_TABLE_ENTRIES * i), &(pde[i]));
-	SerialPrintPT((void *)(PAGE_SIZE * NUM_PAGE_TABLE_ENTRIES * i), (void *)(pde[i].pageTableBaseAddr << PAGE_POWER));
+	PrintPDE((void *)(PAGE_SIZE * NUM_PAGE_TABLE_ENTRIES * i), &(pde[i]));
+	PrintPT((void *)(PAGE_SIZE * NUM_PAGE_TABLE_ENTRIES * i), (void *)(pde[i].pageTableBaseAddr << PAGE_POWER));
       }
     }
   }
@@ -137,20 +137,20 @@ static void Print_Fault_Info(uint_t address, faultcode_t faultCode)
 
     g_freePageCount+=0;
 
-    SerialPrintLevel(100,"Pid %d, Page Fault received, at address %x (%d pages free)\n",
+    PrintBoth("Pid %d, Page Fault received, at address %x (%d pages free)\n",
         g_currentThread->pid, address, g_freePageCount);
     if (faultCode.protectionViolation)
-        SerialPrintLevel(100,"   Protection Violation, ");
+	PrintBoth("   Protection Violation, ");
     else
-        SerialPrintLevel(100,"   Non-present page, ");
+        PrintBoth("   Non-present page, ");
     if (faultCode.writeFault)
-        SerialPrintLevel(100,"Write Fault, ");
+	PrintBoth("Write Fault, ");
     else
-        SerialPrintLevel(100,"Read Fault, ");
+        PrintBoth("Read Fault, ");
     if (faultCode.userModeFault)
-        SerialPrintLevel(100,"in User Mode\n");
+        PrintBoth("in User Mode\n");
     else
-        SerialPrintLevel(100,"in Supervisor Mode\n");
+        PrintBoth("in Supervisor Mode\n");
 }
 
 /*
@@ -167,13 +167,13 @@ static void Print_Fault_Info(uint_t address, faultcode_t faultCode)
 
     /* Get the address that caused the page fault */
     address = Get_Page_Fault_Address();
-    Debug("Page fault @%lx\n", address);
+    PrintBoth("Page fault @%lx\n", address);
 
     /* Get the fault code */
     faultCode = *((faultcode_t *) &(state->errorCode));
 
     /* rest of your handling code here */
-    SerialPrintLevel(100,"Unexpected Page Fault received\n");
+    PrintBoth("Unexpected Page Fault received\n");
     Print_Fault_Info(address, faultCode);
     Dump_Interrupt_State(state);
     /* user faults just kill the process */
@@ -205,24 +205,24 @@ void Init_VM(struct Boot_Info *bootInfo)
   PrintBoth("Intitialing Virtual Memory\n");
 
   if (checkPaging()) { 
-    SerialPrintLevel(100,"Paging is currently ON\n");
+      PrintBoth("Paging is currently ON\n");
     return ;
   }
 
-  SerialPrintLevel(100,"Paging is currently OFF - initializing the pages for a 1-1 map\n");
+  PrintBoth("Paging is currently OFF - initializing the pages for a 1-1 map\n");
   
   numpages=bootInfo->memSizeKB / (PAGE_SIZE/1024);
   numpagetables = numpages / NUM_PAGE_TABLE_ENTRIES + ((numpages % NUM_PAGE_TABLE_ENTRIES) != 0 );
 
-  SerialPrintLevel(100,"We need %d pages, and thus %d page tables, and one page directory\n",numpages, numpagetables);
+  PrintBoth("We need %d pages, and thus %d page tables, and one page directory\n",numpages, numpagetables);
   
   pd = (pde_t*)Alloc_Page();
   
   if (!pd) { 
-    SerialPrintLevel(100,"We are giving up since we can't allocate a page directory!\n");
+      PrintBoth("We are giving up since we can't allocate a page directory!\n");
     return;
   } else {
-    SerialPrintLevel(100,"Our PDE is at physical address %p\n",pd);
+      PrintBoth("Our PDE is at physical address %p\n",pd);
   }
   
   for (i=0;i<NUM_PAGE_DIR_ENTRIES;i++) { 
@@ -238,9 +238,9 @@ void Init_VM(struct Boot_Info *bootInfo)
     } else {
       pt = (pte_t*)Alloc_Page();
       if (!pt) { 
-	SerialPrintLevel(100,"We are giving up since we can't allocate page table %d\n",i);
+	  PrintBoth("We are giving up since we can't allocate page table %d\n",i);
       } else {
-	//SerialPrintLevel(100,"Page Table %d is at physical address %p\n",i,pt);
+	//PrintBoth("Page Table %d is at physical address %p\n",i,pt);
       }
       pd[i].present=1;
       pd[i].flags= VM_READ | VM_WRITE | VM_EXEC | VM_USER;
@@ -276,14 +276,14 @@ void Init_VM(struct Boot_Info *bootInfo)
   }
 
 
-  SerialPrintLevel(100,"Done creating 1<->1 initial page tables\n");
-  SerialPrintLevel(100,"Now installing page fault handler\n");
+  PrintBoth("Done creating 1<->1 initial page tables\n");
+  PrintBoth("Now installing page fault handler\n");
   //  SerialDumpPageTables(pd);
   Install_Interrupt_Handler(14,Page_Fault_Handler);
-  SerialPrintLevel(100,"Now turning on the paging bit!\n");
+  PrintBoth("Now turning on the paging bit!\n");
   Enable_Paging(pd);
-  SerialPrintLevel(100,"We are still alive after paging turned on!\n");
-  SerialPrintLevel(100,"checkPaging returns %d\n",checkPaging());
+  PrintBoth("We are still alive after paging turned on!\n");
+  PrintBoth("checkPaging returns %d\n",checkPaging());
 }
 
 
@@ -361,7 +361,7 @@ void VM_Test(struct Boot_Info *bootInfo, uint_t num_test_pages) {
   PrintBoth("Loading CR3\n");
   Set_PDBR(pd);
 
-  SerialDumpPageTables(pd);
+  DumpPageTables(pd);
 
   PrintBoth("Writing to Test Area\n");
 
@@ -369,7 +369,7 @@ void VM_Test(struct Boot_Info *bootInfo, uint_t num_test_pages) {
   uint_t * test_ptr = (uint_t *)two_gig;
   for (i = 0; i < num_test_pages; i++) {
 
-    SerialPrint("Writing %d to %p\n", i, test_ptr);
+    PrintBoth("Writing %d to %p\n", i, test_ptr);
     *test_ptr = (uint_t)i;
     test_ptr += PAGE_SIZE / 4;
   }
@@ -395,7 +395,7 @@ void VM_Test(struct Boot_Info *bootInfo, uint_t num_test_pages) {
   Set_PDBR(pd);
   
   PrintBoth("Page Mapping Reversed\n");
-  SerialDumpPageTables(pd);
+  DumpPageTables(pd);
 
 
   PrintBoth("Page Consistency Check\n");

@@ -11,6 +11,7 @@
 #define GEEKOS_SCREEN_H
 
 #include <geekos/ktypes.h>
+#include <geekos/fmtout.h>
 
 #define BLACK   0
 #define BLUE    1
@@ -51,7 +52,7 @@ void Put_Char(int c);
 void Put_String(const char* s);
 void Put_Buf(const char* buf, ulong_t length);
 void Print(const char* fmt, ...) __attribute__ ((format (printf, 1, 2)));
-
+void PrintList(const char * fmt, va_list ap);
 #endif  /* GEEKOS */
 
 #endif  /* GEEKOS_SCREEN_H */

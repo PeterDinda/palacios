@@ -112,11 +112,11 @@ static __inline__ ulong_t Get_Page_Fault_Address(void)
     return faultAddress;
 }
 
-void SerialPrintPD(pde_t *pde);
-void SerialPrintPT(void *starting_address, pte_t *pte);
-void SerialPrintPDE(void *virtual_address, pde_t *pde);
-void SerialPrintPTE(void *virtual_address,pte_t *pte);
-void SerialDumpPageTables(pde_t *pde);
+void PrintPD(pde_t *pde);
+void PrintPT(void *starting_address, pte_t *pte);
+void PrintPDE(void *virtual_address, pde_t *pde);
+void PrintPTE(void *virtual_address,pte_t *pte);
+void DumpPageTables(pde_t *pde);
 
 pte_t *LookupPage(void *vaddr);
 

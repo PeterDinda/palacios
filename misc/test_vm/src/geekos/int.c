@@ -11,7 +11,8 @@
 #include <geekos/screen.h>
 #include <geekos/kassert.h>
 #include <geekos/int.h>
-#include <geekos/serial.h>
+#include <geekos/irq.h>
+#include <geekos/debug.h>
 
 #include <geekos/cpu.h>
 
@@ -33,8 +34,7 @@ static void Dummy_Interrupt_Handler(struct Interrupt_State* state)
 {
   Begin_IRQ(state);
 
-  Print("Unexpected Interrupt!  Ignoring!\n");
-  SerialPrint("*** Unexpected interrupt! *** Ignoring!\n");
+  PrintBoth("*** Unexpected interrupt! *** Ignoring!\n");
   Dump_Interrupt_State(state);
 
   End_IRQ(state);
@@ -42,19 +42,14 @@ static void Dummy_Interrupt_Handler(struct Interrupt_State* state)
   //  STOP();
 }
 
-#if 0
+
 static void Print_Selector(const char* regName, uint_t value)
 {
-    Print("%s: index=%d, ti=%d, rpl=%d\n",
+    PrintBoth("%s: index=%d, ti=%d, rpl=%d\n",
 	regName, value >> 3, (value >> 2) & 1, value & 3);
 }
-#endif
 
-static void SerialPrint_Selector(const char* regName, uint_t value)
-{
-    SerialPrint("%s: index=%d, ti=%d, rpl=%d\n",
-	regName, value >> 3, (value >> 2) & 1, value & 3);
-}
+
 
 /* ----------------------------------------------------------------------
  * Public functions
@@ -100,7 +95,7 @@ void Dump_Interrupt_State(struct Interrupt_State* state)
 {
     uint_t errorCode = state->errorCode;
 
-   SerialPrint("eax=%08x ebx=%08x ecx=%08x edx=%08x\n"
+   PrintBoth("eax=%08x ebx=%08x ecx=%08x edx=%08x\n"
 	   "esi=%08x edi=%08x ebp=%08x\n"
 	   "eip=%08x cs=%08x eflags=%08x\n"
 	   "Interrupt number=%d, error code=%d\n"
@@ -113,11 +108,11 @@ void Dump_Interrupt_State(struct Interrupt_State* state)
     );
     if (Is_User_Interrupt(state)) {
 	struct User_Interrupt_State *ustate = (struct User_Interrupt_State*) state;
-	SerialPrint("user esp=%08x, user ss=%08x\n", ustate->espUser, ustate->ssUser);
+	PrintBoth("user esp=%08x, user ss=%08x\n", ustate->espUser, ustate->ssUser);
     }
-    SerialPrint_Selector("cs", state->cs);
-    SerialPrint_Selector("ds", state->ds);
-    SerialPrint_Selector("es", state->es);
-    SerialPrint_Selector("fs", state->fs);
-    SerialPrint_Selector("gs", state->gs);
+    Print_Selector("cs", state->cs);
+    Print_Selector("ds", state->ds);
+    Print_Selector("es", state->es);
+    Print_Selector("fs", state->fs);
+    Print_Selector("gs", state->gs);
 }

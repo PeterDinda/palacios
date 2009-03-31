@@ -21,14 +21,11 @@ void Out_Byte(ushort_t port, uchar_t value)
     );
 }
 
-extern uchar_t InByteLL(ushort_t port);
-
 /*
  * Read a byte from an I/O port.
  */
 uchar_t In_Byte(ushort_t port)
 {
-  /*
     uchar_t value;
 
     __asm__ __volatile__ (
@@ -38,9 +35,6 @@ uchar_t In_Byte(ushort_t port)
     );
 
     return value;
-  */
-
-  return InByteLL(port);
 }
 
 /*
@@ -56,7 +50,7 @@ void Out_Word(ushort_t port, ushort_t value)
 }
 
 /*
- * Read a byte from an I/O port.
+ * Read a word from an I/O port.
  */
 ushort_t In_Word(ushort_t port)
 {
@@ -64,6 +58,34 @@ ushort_t In_Word(ushort_t port)
 
     __asm__ __volatile__ (
 	"inw %w1, %w0"
+	: "=a" (value)
+	: "Nd" (port)
+    );
+
+    return value;
+}
+
+/*
+ * Write a double word to an I/O port.
+ */
+void Out_DWord(ushort_t port, uint_t value)
+{
+    __asm__ __volatile__ (
+	"outl %0, %1"
+	:
+	: "a" (value), "Nd" (port)
+    );
+}
+
+/*
+ * Read a double word from an I/O port.
+ */
+uint_t In_DWord(ushort_t port)
+{
+    uint_t value;
+
+    __asm__ __volatile__ (
+	"inl %1, %0"
 	: "=a" (value)
 	: "Nd" (port)
     );

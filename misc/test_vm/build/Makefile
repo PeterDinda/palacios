@@ -40,12 +40,11 @@ VPATH := $(PROJECT_ROOT)/src
 
 #when -DNDEBUG is set the kassert functions are disabled
 #JRLDEBUG=-DNDEBUG
-JRLDEBUG= -DSERIAL_PRINT_DEBUG=1 -DSERIAL_PRINT_DEBUG_LEVEL=1000 -DSERIAL_PRINT=1
-
-#
-#
-#Peter's compile flags
-PAD= 
+ifeq ($(SERIAL_DEBUG), 1)
+JRLDEBUG= -DDEBUG_SERIAL
+else 
+JRLDEBUG= 
+endif
 
 # Figure out if we're compiling with cygwin, http://cygwin.com
 SYSTEM_NAME := $(shell uname -s)
@@ -81,6 +80,8 @@ KERNEL_C_SRCS := idt.c int.c trap.c irq.c io.c \
 	gdt.c tss.c segment.c \
 	bget.c malloc.c \
 	synch.c kthread.c \
+	vm_cons.c debug.c \
+	pci.c \
 	serial.c  reboot.c \
         paging.c \
 	main.c
@@ -177,7 +178,7 @@ NUMSECS := $(PERL) $(PROJECT_ROOT)/scripts/numsecs
 # ----------------------------------------------------------------------
 
 # Flags used for all C source files
-GENERAL_OPTS := -O -Wall $(EXTRA_C_OPTS) $(JRLDEBUG) $(PADFLAGS)
+GENERAL_OPTS := -O -Wall $(EXTRA_C_OPTS) $(JRLDEBUG)
 CC_GENERAL_OPTS := $(GENERAL_OPTS) -Werror 
 
 # Flags used for kernel C source files
@@ -238,7 +239,6 @@ guest-img: fd.img
 	$(PAD) guest.img 1474560
 
 guest-iso: guest-img
-
 	mkisofs -pad -b guest.img -R -o guest.iso guest.img
 
 
