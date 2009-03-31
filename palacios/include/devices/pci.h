@@ -39,15 +39,22 @@ struct pci_device;
 
 struct v3_pci_bar {
     pci_bar_type_t type;
-    int mem_hook;
     
     union {
-	int num_pages;
-	int num_io_ports;
+	struct {
+	    int num_pages;
+	    addr_t default_base_addr;
+	    int (*mem_read)(addr_t guest_addr, void * dst, uint_t length, void * private_data);
+	    int (*mem_write)(addr_t guest_addr, void * src, uint_t length, void * private_data);
+	};
+
+	struct {
+	    int num_ports;
+	    uint16_t default_base_port;
+	    int (*io_read)(ushort_t port, void * dst, uint_t length, struct vm_device * dev);
+	    int (*io_write)(ushort_t port, void * src, uint_t length, struct vm_device * dev);
+	};
     };
-
-    int (*bar_update)(struct pci_device * pci_dev, uint_t bar);
-
 
     // Internal PCI data
     int updated;
