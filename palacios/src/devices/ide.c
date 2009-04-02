@@ -18,6 +18,7 @@
  */
 
 #include <palacios/vmm.h>
+#include <palacios/vm_guest_mem.h>
 #include <devices/ide.h>
 #include <devices/pci.h>
 #include "ide-types.h"
@@ -50,19 +51,9 @@
 #define SEC_ADDR_REG_PORT     0x377
 
 
-#define PRI_DMA_CMD_PORT      0xc000
-#define PRI_DMA_STATUS_PORT   0xc002
-#define PRI_DMA_PRD_PORT0     0xc004
-#define PRI_DMA_PRD_PORT1     0xc005
-#define PRI_DMA_PRD_PORT2     0xc006
-#define PRI_DMA_PRD_PORT3     0xc007
+#define PRI_DEFAULT_DMA_PORT 0xc000
+#define SEC_DEFAULT_DMA_PORT 0xc008
 
-#define SEC_DMA_CMD_PORT      0xc008
-#define SEC_DMA_STATUS_PORT   0xc00a
-#define SEC_DMA_PRD_PORT0     0xc00c
-#define SEC_DMA_PRD_PORT1     0xc00d
-#define SEC_DMA_PRD_PORT2     0xc00e
-#define SEC_DMA_PRD_PORT3     0xc00f
 
 #define DATA_BUFFER_SIZE 2048
 
@@ -75,14 +66,8 @@ static const char * ide_sec_port_strs[] = {"SEC_DATA", "SEC_FEATURES", "SEC_SECT
 					  "SEC_CYL_LOW", "SEC_CYL_HIGH", "SEC_DRV_SEL", "SEC_CMD",
 					   "SEC_CTRL", "SEC_ADDR_REG"};
 
-static const char * ide_dma_port_strs[] = {"PRI_DMA_CMD", NULL,
-					   "PRI_DMA_STATUS", NULL,
-					   "PRI_DMA_PRD0", "PRI_DMA_PRD1", 
-					   "PRI_DMA_PRD2", "PRI_DMA_PRD3",
-					   "SEC_DMA_CMD", NULL,
-					   "SEC_DMA_STATUS", NULL,
-					   "SEC_DMA_PRD0","SEC_DMA_PRD1",
-					   "SEC_DMA_PRD2","SEC_DMA_PRD3"};
+static const char * ide_dma_port_strs[] = {"DMA_CMD", NULL, "DMA_STATUS", NULL,
+					   "DMA_PRD0", "DMA_PRD1", "DMA_PRD2", "DMA_PRD3"};
 
 
 
@@ -95,12 +80,14 @@ static inline const char * io_port_to_str(uint16_t port) {
 	return ide_pri_port_strs[port - PRI_CTRL_PORT + 8];
     } else if ((port == SEC_CTRL_PORT) || (port == SEC_ADDR_REG_PORT)) {
 	return ide_sec_port_strs[port - SEC_CTRL_PORT + 8];
-    } else if ((port >= PRI_DMA_CMD_PORT) && (port <= SEC_DMA_PRD_PORT3)) {
-	return ide_dma_port_strs[port - PRI_DMA_CMD_PORT];
     } 
     return NULL;
 }
 
+
+static inline const char * dma_port_to_str(uint16_t port) {
+    return ide_dma_port_strs[port & 0x7];
+}
 
 
 static const char * ide_dev_type_strs[] = {"HARDDISK", "CDROM", "NONE"};
@@ -189,10 +176,6 @@ struct ide_drive {
 	uint16_t req_len;
     } __attribute__((packed));
 
-    struct ide_dma_cmd_reg dma_cmd;
-    struct ide_dma_status_reg dma_status;
-    uint32_t dma_prd_addr;
-
 };
 
 
@@ -216,6 +199,11 @@ struct ide_channel {
 
     // Control Registers
     struct ide_ctrl_reg ctrl_reg; // [write] 0x3f6,0x376
+
+    struct ide_dma_cmd_reg dma_cmd;
+    struct ide_dma_status_reg dma_status;
+    uint32_t dma_prd_addr;
+    uint_t dma_tbl_index;
 };
 
 
@@ -279,6 +267,8 @@ static inline int is_lba_enabled(struct ide_channel * channel) {
 
 static void ide_raise_irq(struct vm_device * dev, struct ide_channel * channel) {
     if (channel->ctrl_reg.irq_disable == 0) {
+	PrintDebug("Raising IDE Interrupt %d\n", channel->irq);
+	channel->dma_status.int_gen = 1;
 	v3_raise_irq(dev->vm, channel->irq);
     }
 }
@@ -340,45 +330,166 @@ static void ide_abort_command(struct vm_device * dev, struct ide_channel * chann
 #include "atapi.h"
 
 
-static int write_dma_port(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
-    struct ide_internal * ide = (struct ide_internal *)(dev->private_data);
-    struct ide_channel * channel = get_selected_channel(ide, port);
-    struct ide_drive * drive = get_selected_drive(channel);
 
-    if (length != 1) {
-	PrintError("IDE: Invalid Write length on IDE port %x\n", port);
+static int dma_read(struct vm_device * dev, struct ide_channel * channel) {
+    struct ide_drive * drive = get_selected_drive(channel);
+    struct ide_dma_prd prd_entry;
+    uint32_t prd_entry_addr = channel->dma_prd_addr + (sizeof(struct ide_dma_prd) * channel->dma_tbl_index);
+    int ret;
+
+
+    PrintDebug("PRD table address = %x\n", channel->dma_prd_addr);
+
+    ret = read_guest_pa_memory(dev->vm, prd_entry_addr, sizeof(struct ide_dma_prd), (void *)&prd_entry);
+
+    if (ret != sizeof(struct ide_dma_prd)) {
+	PrintError("Could not read PRD\n");
 	return -1;
     }
 
-    PrintDebug("IDE: Writing DMA Port %x (%s) (val=%x)\n", port, io_port_to_str(port), *(uint8_t *)src);
+    PrintDebug("PRD Addr: %x, PDR Len: %d, EOT: %d\n", prd_entry.base_addr, prd_entry.size, prd_entry.end_of_table);
 
-    switch (port) {
-	case PRI_DMA_CMD_PORT:
-	case SEC_DMA_CMD_PORT:
-	    drive->dma_cmd.val = *(uint8_t *)src;
+    ret = write_guest_pa_memory(dev->vm, prd_entry.base_addr, prd_entry.size, drive->data_buf); 
+
+    if (ret != prd_entry.size) {
+	PrintError("Failed to copy data into guest memory... (ret=%d)\n", ret);
+	return -1;
+    }
+
+    channel->status.busy = 0;
+    channel->status.ready = 1;
+    channel->status.data_req = 0;
+    channel->status.error = 0;
+    channel->status.seek_complete = 1;
+
+    /*
+      drive->irq_flags.io_dir = 1;
+      drive->irq_flags.c_d = 1;
+      drive->irq_flags.rel = 0;
+    */
+
+
+    // set DMA status
+    channel->dma_status.active = 0;
+    channel->dma_status.err = 1;
+    channel->dma_status.int_gen = 1;
+
+    ide_raise_irq(dev, channel);
+
+    return 0;
+}
+
+
+static int dma_write(struct vm_device * dev, struct ide_channel * channel) {
+    // unsupported
+    PrintError("DMA writes currently not supported\n");
+    return -1;
+}
+
+
+/* 
+ * This is an ugly ugly ugly way to differentiate between the first and second DMA channels 
+ */
+
+static int write_dma_port(ushort_t port_offset, void * src, uint_t length, struct vm_device * dev, struct ide_channel * channel);
+static int read_dma_port(ushort_t port_offset, void * dst, uint_t length, struct vm_device * dev, struct ide_channel * channel);
+
+
+static int write_pri_dma_port(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
+    struct ide_internal * ide = (struct ide_internal *)(dev->private_data);
+    PrintDebug("IDE: Writing PRI DMA Port %x (%s) (val=%x)\n", port, dma_port_to_str(port & 0x7), *(uint32_t *)src);
+    return write_dma_port(port & 0x7, src, length, dev, &(ide->channels[0]));
+}
+
+static int write_sec_dma_port(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
+    struct ide_internal * ide = (struct ide_internal *)(dev->private_data);
+    PrintDebug("IDE: Writing SEC DMA Port %x (%s) (val=%x)\n", port, dma_port_to_str(port & 0x7), *(uint32_t *)src);
+    return write_dma_port(port & 0x7, src, length, dev, &(ide->channels[1]));
+}
+
+
+static int read_pri_dma_port(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
+    struct ide_internal * ide = (struct ide_internal *)(dev->private_data);
+    PrintDebug("IDE: Reading PRI DMA Port %x (%s)\n", port, dma_port_to_str(port & 0x7));
+    return read_dma_port(port & 0x7, dst, length, dev, &(ide->channels[0]));
+}
+
+static int read_sec_dma_port(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
+    struct ide_internal * ide = (struct ide_internal *)(dev->private_data);
+    PrintDebug("IDE: Reading SEC DMA Port %x (%s)\n", port, dma_port_to_str(port & 0x7));
+    return read_dma_port(port & 0x7, dst, length, dev, &(ide->channels[1]));
+}
+
+
+#define DMA_CMD_PORT      0x00
+#define DMA_STATUS_PORT   0x02
+#define DMA_PRD_PORT0     0x04
+#define DMA_PRD_PORT1     0x05
+#define DMA_PRD_PORT2     0x06
+#define DMA_PRD_PORT3     0x07
+
+
+static int write_dma_port(ushort_t port_offset, void * src, uint_t length, 
+			  struct vm_device * dev, struct ide_channel * channel) {
+
+    switch (port_offset) {
+	case DMA_CMD_PORT:
+	    channel->dma_cmd.val = *(uint8_t *)src;
+
+	    if (channel->dma_cmd.start == 0) {
+		channel->dma_tbl_index = 0;
+	    } else {
+		channel->dma_status.active = 1;
+
+		if (channel->dma_cmd.read == 1) {
+		    // DMA Read
+		    if (dma_read(dev, channel) == -1) {
+			PrintError("Failed DMA Read\n");
+			return -1;
+		    }
+		} else {
+		    // DMA write
+		    if (dma_write(dev, channel) == -1) {
+			PrintError("Failed DMA Write\n");
+			return -1;
+		    }
+		}
+	    }
+
 	    break;
+	    
+	case DMA_STATUS_PORT:
+	    if (length != 1) {
+		PrintError("Invalid read length for DMA status port\n");
+		return -1;
+	    }
 
-	case PRI_DMA_STATUS_PORT:
-	case SEC_DMA_STATUS_PORT:
-	    drive->dma_status.val = *(uint8_t *)src;
+	    channel->dma_status.val = *(uint8_t *)src;
 	    break;
+	    
+	case DMA_PRD_PORT0:
+	case DMA_PRD_PORT1:
+	case DMA_PRD_PORT2:
+	case DMA_PRD_PORT3: {
+	    uint_t addr_index = port_offset & 0x3;
+	    uint8_t * addr_buf = (uint8_t *)&(channel->dma_prd_addr);
+	    int i = 0;
 
-	case PRI_DMA_PRD_PORT0:
-	case PRI_DMA_PRD_PORT1:
-	case PRI_DMA_PRD_PORT2:
-	case PRI_DMA_PRD_PORT3:
-	case SEC_DMA_PRD_PORT0:
-	case SEC_DMA_PRD_PORT1:
-	case SEC_DMA_PRD_PORT2:
-	case SEC_DMA_PRD_PORT3: {
-	    uint_t addr_index = port & 0x3;
-	    uint8_t * addr_buf = (uint8_t *)&(drive->dma_prd_addr);
+	    if (addr_index + length > 4) {
+		PrintError("DMA Port space overrun port=%x len=%d\n", port_offset, length);
+		return -1;
+	    }
 
-	    addr_buf[addr_index] = *(uint8_t *)src;
+	    for (i = 0; i < length; i++) {
+		addr_buf[addr_index + i] = *((uint8_t *)src + i);
+	    }
+
+	    PrintDebug("Writing PRD Port %x (val=%x)\n", port_offset, channel->dma_prd_addr);
+
 	    break;
 	}
 	default:
-	    PrintError("IDE: Invalid DMA Port (%x)\n", port);
+	    PrintError("IDE: Invalid DMA Port (%s)\n", dma_port_to_str(port_offset));
 	    return -1;
     }
 
@@ -386,49 +497,48 @@ static int write_dma_port(ushort_t port, void * src, uint_t length, struct vm_de
 }
 
 
-static int read_dma_port(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
-    struct ide_internal * ide = (struct ide_internal *)(dev->private_data);
-    struct ide_channel * channel = get_selected_channel(ide, port);
-    struct ide_drive * drive = get_selected_drive(channel);
+static int read_dma_port(ushort_t port_offset, void * dst, uint_t length, 
+			 struct vm_device * dev, struct ide_channel * channel) {
 
-    if (length != 1) {
-	PrintError("IDE: Invalid Write length on IDE port %x\n", port);
-	return -1;
-    }
-
-
-
-    switch (port) {
-	case PRI_DMA_CMD_PORT:
-	case SEC_DMA_CMD_PORT:
-	    *(uint8_t *)dst = drive->dma_cmd.val;
+    switch (port_offset) {
+	case DMA_CMD_PORT:
+	    *(uint8_t *)dst = channel->dma_cmd.val;
 	    break;
 
-	case PRI_DMA_STATUS_PORT:
-	case SEC_DMA_STATUS_PORT:
-	    *(uint8_t *)dst = drive->dma_status.val;
+	case DMA_STATUS_PORT:
+	    if (length != 1) {
+		PrintError("Invalid read length for DMA status port\n");
+		return -1;
+	    }
+
+	    *(uint8_t *)dst = channel->dma_status.val;
 	    break;
 
-	case PRI_DMA_PRD_PORT0:
-	case PRI_DMA_PRD_PORT1:
-	case PRI_DMA_PRD_PORT2:
-	case PRI_DMA_PRD_PORT3:
-	case SEC_DMA_PRD_PORT0:
-	case SEC_DMA_PRD_PORT1:
-	case SEC_DMA_PRD_PORT2:
-	case SEC_DMA_PRD_PORT3: {
- 	    uint_t addr_index = port & 0x3;
-	    uint8_t * addr_buf = (uint8_t *)&(drive->dma_prd_addr);
+	case DMA_PRD_PORT0:
+	case DMA_PRD_PORT1:
+	case DMA_PRD_PORT2:
+	case DMA_PRD_PORT3: {
+  	    uint_t addr_index = port_offset & 0x3;
+	    uint8_t * addr_buf = (uint8_t *)&(channel->dma_prd_addr);
+	    int i = 0;
 
-	    *(uint8_t *)dst = addr_buf[addr_index];
+	    if (addr_index + length > 4) {
+		PrintError("DMA Port space overrun port=%x len=%d\n", port_offset, length);
+		return -1;
+	    }
+
+	    for (i = 0; i < length; i++) {
+		*((uint8_t *)dst + i) = addr_buf[addr_index + i];
+	    }
+
 	    break;
 	}
 	default:
-	    PrintError("IDE: Invalid DMA Port (%x)\n", port);
+	    PrintError("IDE: Invalid DMA Port (%s)\n", dma_port_to_str(port_offset));
 	    return -1;
     }
 
-    PrintDebug("IDE: Reading DMA Port %x (%s) (val=%x)\n", port, io_port_to_str(port), *(uint8_t *)dst);
+    PrintDebug("\tval=%x\n", *(uint32_t *)dst);
 
     return length;
 }
@@ -486,6 +596,23 @@ static int write_cmd_port(ushort_t port, void * src, uint_t length, struct vm_de
 		PrintError("IDE Disks currently not implemented\n");
 		return -1;
 	    }
+	    break;
+
+	case 0xef: // Set Features
+	    // Prior to this the features register has been written to. 
+	    // This command tells the drive to check if the new value is supported (the value is drive specific)
+	    // Common is that bit0=DMA enable
+	    // If valid the drive raises an interrupt, if not it aborts.
+
+	    // Do some checking here...
+
+	    channel->status.busy = 0;
+	    channel->status.write_fault = 0;
+	    channel->status.error = 0;
+	    channel->status.ready = 1;
+	    channel->status.seek_complete = 1;
+	    
+	    ide_raise_irq(dev, channel);
 	    break;
 	default:
 	    PrintError("Unimplemented IDE command (%x)\n", channel->cmd_reg);
@@ -667,7 +794,6 @@ static int write_port_std(ushort_t port, void * src, uint_t length, struct vm_de
 
     PrintDebug("IDE: Writing Standard Port %x (%s) (val=%x)\n", port, io_port_to_str(port), *(uint8_t *)src);
 
-
     switch (port) {
 	// reset and interrupt enable
 	case PRI_CTRL_PORT:
@@ -744,9 +870,8 @@ static int read_port_std(ushort_t port, void * dst, uint_t length, struct vm_dev
 	PrintError("Invalid Read length on IDE port %x\n", port);
 	return -1;
     }
-
+    
     PrintDebug("IDE: Reading Standard Port %x (%s)\n", port, io_port_to_str(port));
-
 
     if ((port == PRI_ADDR_REG_PORT) ||
 	(port == SEC_ADDR_REG_PORT)) {
@@ -836,9 +961,7 @@ static void init_drive(struct ide_drive * drive) {
     drive->transfer_length = 0;
     memset(drive->data_buf, 0, sizeof(drive->data_buf));
 
-    drive->dma_cmd.val = 0;
-    drive->dma_status.val = 0;
-    drive->dma_prd_addr = 0;
+
 
     drive->private_data = NULL;
     drive->cd_ops = NULL;
@@ -854,18 +977,23 @@ static void init_channel(struct ide_channel * channel) {
     channel->ctrl_reg.val = 0x08;
 
 
+    channel->dma_cmd.val = 0;
+    channel->dma_status.val = 0;
+    channel->dma_prd_addr = 0;
+    channel->dma_tbl_index = 0;
+
     for (i = 0; i < 2; i++) {
 	init_drive(&(channel->drives[i]));
     }
 
 }
 
-/*
+
 static int pci_config_update(struct pci_device * pci_dev, uint_t reg_num, int length) {
-    PrintError("IDE does not handle PCI config updates\n");
-    return -1;
+    PrintDebug("Interupt register (Dev=%s), irq=%d\n", pci_dev->name, pci_dev->config_header.intr_line);
+
+    return 0;
 }
-*/
 
 static int init_ide_state(struct vm_device * dev) {
     struct ide_internal * ide = (struct ide_internal *)(dev->private_data);
@@ -885,13 +1013,19 @@ static int init_ide_state(struct vm_device * dev) {
 
 
 	bars[4].type = PCI_BAR_IO;
-	bars[4].default_base_port = PRI_DMA_CMD_PORT + (i * 0x8);
+	bars[4].default_base_port = PRI_DEFAULT_DMA_PORT + (i * 0x8);
 	bars[4].num_ports = 8;
-	bars[4].io_read = read_dma_port;
-	bars[4].io_write = write_dma_port;
+	
+	if (i == 0) {
+	    bars[4].io_read = read_pri_dma_port;
+	    bars[4].io_write = write_pri_dma_port;
+	} else {
+	    bars[4].io_read = read_sec_dma_port;
+	    bars[4].io_write = write_sec_dma_port;
+	}
 
 	pci_dev = v3_pci_register_device(ide->pci, PCI_STD_DEVICE, 0, "V3_IDE", -1, bars,
-					 NULL, NULL, NULL, dev);
+					 pci_config_update, NULL, NULL, dev);
 
 	if (pci_dev == NULL) {
 	    PrintError("Failed to register IDE BUS %d with PCI\n", i); 
@@ -905,6 +1039,9 @@ static int init_ide_state(struct vm_device * dev) {
 	pci_dev->config_header.revision = 0x8f07;
 	pci_dev->config_header.subclass = 0x01;
 	pci_dev->config_header.class = 0x01;
+
+	pci_dev->config_header.intr_line = PRI_DEFAULT_IRQ + i;
+	pci_dev->config_header.intr_pin = 1;
     }
 
 
@@ -941,8 +1078,6 @@ static int init_ide(struct vm_device * dev) {
 	PrintError("Failed to initialize IDE state\n");
 	return -1;
     }
-
-
 
 
     v3_dev_hook_io(dev, PRI_DATA_PORT, 
@@ -993,36 +1128,6 @@ static int init_ide(struct vm_device * dev) {
     v3_dev_hook_io(dev, PRI_ADDR_REG_PORT, 
 		   &read_port_std, &write_port_std);
 
-
-    /*
-
-    v3_dev_hook_io(dev, PRI_DMA_CMD_PORT, 
-		   &read_dma_port, &write_dma_port);
-    v3_dev_hook_io(dev, PRI_DMA_STATUS_PORT, 
-		   &read_dma_port, &write_dma_port);
-    v3_dev_hook_io(dev, PRI_DMA_PRD_PORT0, 
-		   &read_dma_port, &write_dma_port);
-    v3_dev_hook_io(dev, PRI_DMA_PRD_PORT0, 
-		   &read_dma_port, &write_dma_port);
-    v3_dev_hook_io(dev, PRI_DMA_PRD_PORT0, 
-		   &read_dma_port, &write_dma_port);
-    v3_dev_hook_io(dev, PRI_DMA_PRD_PORT0, 
-		   &read_dma_port, &write_dma_port);
-
-
-    v3_dev_hook_io(dev, SEC_DMA_CMD_PORT, 
-		   &read_dma_port, &write_dma_port);
-    v3_dev_hook_io(dev, SEC_DMA_STATUS_PORT, 
-		   &read_dma_port, &write_dma_port);
-    v3_dev_hook_io(dev, SEC_DMA_PRD_PORT0, 
-		   &read_dma_port, &write_dma_port);
-    v3_dev_hook_io(dev, SEC_DMA_PRD_PORT0, 
-		   &read_dma_port, &write_dma_port);
-    v3_dev_hook_io(dev, SEC_DMA_PRD_PORT0, 
-		   &read_dma_port, &write_dma_port);
-    v3_dev_hook_io(dev, SEC_DMA_PRD_PORT0, 
-		   &read_dma_port, &write_dma_port);
-    */
     return 0;
 }
 

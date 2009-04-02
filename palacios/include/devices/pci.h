@@ -114,7 +114,7 @@ v3_pci_register_device(struct vm_device * pci,
 		       int (*config_update)(struct pci_device * pci_dev, uint_t reg_num, int length),
 		       int (*cmd_update)(struct pci_device *pci_dev, uchar_t io_enabled, uchar_t mem_enabled),
 		       int (*ext_rom_update)(struct pci_device *pci_dev),
-		       void * private_data);
+		       struct vm_device * dev);
 
 
 #endif

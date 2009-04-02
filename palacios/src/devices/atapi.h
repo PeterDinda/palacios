@@ -129,8 +129,8 @@ static void atapi_cmd_nop(struct vm_device * dev, struct ide_channel * channel) 
 static int atapi_read_chunk(struct vm_device * dev, struct ide_channel * channel) {
     struct ide_drive * drive = get_selected_drive(channel);
 
-    int ret = drive->cd_ops->read(drive->data_buf, drive->cd_state.current_lba, drive->private_data);
-
+    int ret = drive->cd_ops->read(drive->data_buf, ATAPI_BLOCK_SIZE, drive->cd_state.current_lba, drive->private_data);
+	
     if (ret == -1) {
 	PrintError("IDE: Error reading CD block (LBA=%x)\n", drive->cd_state.current_lba);
 	return -1;
@@ -166,35 +166,41 @@ static int atapi_read10(struct vm_device * dev, struct ide_channel * channel) {
     struct atapi_read10_cmd * cmd = (struct atapi_read10_cmd *)(drive->data_buf);
     uint32_t lba =  be_to_le_32(cmd->lba);
     uint16_t xfer_len = be_to_le_16(cmd->xfer_len);
-    
+
+    PrintDebug("READ10: XferLen=%d\n", xfer_len);
+
     /* Check if cd is ready
      * if not: atapi_cmd_error(... ATAPI_SEN_NOT_RDY, ASC_MEDIA_NOT_PRESENT)
      */
-
+    
     if (xfer_len == 0) {
 	atapi_cmd_nop(dev, channel);
 	return 0;
     }
     
-    if ((lba + xfer_len) > drive->cd_ops->get_capacity(drive->private_data)) {
+    if (lba + xfer_len > drive->cd_ops->get_capacity(drive->private_data)) {
+	PrintError("IDE: xfer len exceeded capacity (lba=%d) (xfer_len=%d) (ReadEnd=%d) (capacity=%d)\n", 
+		   lba, xfer_len, lba + xfer_len, 
+		   drive->cd_ops->get_capacity(drive->private_data));
 	atapi_cmd_error(dev, channel, ATAPI_SEN_ILL_REQ, ASC_LOG_BLK_OOR);
 	ide_raise_irq(dev, channel);
-	return 0;}
-
+	return 0;
+    }
+	
     //    PrintDebug("Reading %d blocks from LBA 0x%x\n", xfer_len, lba);
-
+    
     drive->cd_state.current_lba = lba;
-
+	
     // Update the request length value in the cylinder registers
-
+	
     if (atapi_read_chunk(dev, channel) == -1) {
 	PrintError("IDE: Could not read initial chunk from CD\n");
- 	return -1;
+	return -1;
     }
-    
+	
     drive->transfer_length = xfer_len * ATAPI_BLOCK_SIZE;
     drive->transfer_index = 0;
-
+	
     // Length of ATAPI buffer sits in cylinder registers
     // This is weird... The host sets this value to say what it would like to transfer, 
     // if it is larger than the correct size, the device shrinks it to the correct size
@@ -202,7 +208,7 @@ static int atapi_read10(struct vm_device * dev, struct ide_channel * channel) {
 	PrintError("Could not update initial request length\n");
 	return -1;
     }
-
+    
     ide_raise_irq(dev, channel);
 
     return 0;
@@ -536,8 +542,9 @@ static void atapi_identify_device(struct ide_drive * drive) {
     drive_id->field_valid = 0x0007; // DMA + pkg cmd valid
 
     // copied from CFA540A
-    //    drive_id->buf[63] = 0x0103; // variable (DMA stuff)
-    drive_id->buf[63] = 0x0000; // variable (DMA stuff)
+    drive_id->buf[63] = 0x0103; // variable (DMA stuff)
+    //drive_id->buf[63] = 0x0000; // variable (DMA stuff)
+    
     //    drive_id->buf[64] = 0x0001; // PIO
     drive_id->buf[65] = 0x00b4;
     drive_id->buf[66] = 0x00b4;

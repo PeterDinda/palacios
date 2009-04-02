@@ -355,16 +355,18 @@ static inline int is_cfg_reg_writable(uchar_t header_type, int reg_num) {
 static int bar_update(struct pci_device * pci, int bar_num, uint32_t new_val) {
     struct v3_pci_bar * bar = &(pci->bar[bar_num]);
 
-    PrintError("Updating BAR Register  (Dev=%s) (bar=%d) (val=%x)\n", 
-	       pci->name, bar_num, new_val);
+    PrintError("Updating BAR Register  (Dev=%s) (bar=%d) (old_val=%x) (new_val=%x)\n", 
+	       pci->name, bar_num, bar->val, new_val);
 
     switch (bar->type) {
 	case PCI_BAR_IO: {
 	    int i = 0;
+
+		PrintError("\tRehooking %d IO ports from base %x to %x\n",
+			   bar->num_ports, PCI_IO_BASE(bar->val), PCI_IO_BASE(new_val));
 		
 	    // only do this if pci device is enabled....
 	    for (i = 0; i < bar->num_ports; i++) {
-		PrintDebug("Rehooking IO Port %x\n", PCI_IO_BASE(bar->val) + i);
 
 		v3_dev_unhook_io(pci->vm_dev, PCI_IO_BASE(bar->val) + i);
 
@@ -379,7 +381,6 @@ static int bar_update(struct pci_device * pci, int bar_num, uint32_t new_val) {
 	case PCI_BAR_NONE: {
 	    PrintError("Reprogramming an unsupported BAR register (Dev=%s) (bar=%d) (val=%x)\n", 
 		       pci->name, bar_num, new_val);
-	    bar->val = new_val;
 	    break;
 	}
 	default:
@@ -421,27 +422,33 @@ static int data_port_write(ushort_t port, void * src, uint_t length, struct vm_d
 
     for (i = 0; i < length; i++) {
 	uint_t cur_reg = reg_num + i;
-	
+
 	if (is_cfg_reg_writable(pci_dev->config_header.header_type, cur_reg)) {
 	    pci_dev->config_space[cur_reg] = *(uint8_t *)((uint8_t *)src + i);
 
 	    if ((cur_reg >= 0x10) && (cur_reg < 0x28)) {
-		// BAR Reg
-		int bar_reg = (cur_reg & ~0x3) - 0x10;
+		// BAR Register Update
+		int bar_reg = ((cur_reg & ~0x3) - 0x10) / 4;
 		
 		pci_dev->bar_update_flag = 1;
 		pci_dev->bar[bar_reg].updated = 1;
 		
-		PrintDebug("Updating BAR register\n");
+		// PrintDebug("Updating BAR register %d\n", bar_reg);
 
 	    } else if ((cur_reg >= 0x30) && (cur_reg < 0x34)) {
+		// Extension ROM update
+
 		pci_dev->ext_rom_update_flag = 1;
 	    } else if (cur_reg == 0x04) {
 		// COMMAND update	     
 		uint8_t command = *((uint8_t *)src + i);
 		
+		PrintError("command update for %s old=%x new=%x\n",
+			   pci_dev->name, 
+			   pci_dev->config_space[cur_reg],command);
+
 		pci_dev->config_space[cur_reg] = command;	      
-		
+
 		if (pci_dev->cmd_update) {
 		    pci_dev->cmd_update(pci_dev, (command & 0x01), (command & 0x02));
 		}
@@ -464,6 +471,7 @@ static int data_port_write(ushort_t port, void * src, uint_t length, struct vm_d
 		int bar_offset = 0x10 + 4 * i;
 
 		*(uint32_t *)(pci_dev->config_space + bar_offset) &= pci_dev->bar[i].mask;
+		// check special flags....
 
 		// bar_update
 		if (bar_update(pci_dev, i, *(uint32_t *)(pci_dev->config_space + bar_offset)) == -1) {
@@ -670,6 +678,7 @@ static inline int init_bars(struct pci_device * pci_dev) {
 	    return -1;
 	} else if (pci_dev->bar[i].type == PCI_BAR_NONE) {
 	    pci_dev->bar[i].val = 0x00000000;
+	    pci_dev->bar[i].mask = 0x00000000; // This ensures that all updates will be dropped
 	    *(uint32_t *)(pci_dev->config_space + bar_offset) = pci_dev->bar[i].val;
 	} else {
 	    PrintError("Invalid BAR type for bar #%d\n", i);
@@ -691,7 +700,7 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
 					   int (*config_update)(struct pci_device * pci_dev, uint_t reg_num, int length),
 					   int (*cmd_update)(struct pci_device *pci_dev, uchar_t io_enabled, uchar_t mem_enabled),
 					   int (*ext_rom_update)(struct pci_device * pci_dev),
-					   void * private_data) {
+					   struct vm_device * dev) {
 
     struct pci_internal * pci_state = (struct pci_internal *)pci->private_data;
     struct pci_bus * bus = &(pci_state->bus_list[bus_num]);
@@ -739,14 +748,13 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
     pci_dev->dev_num = dev_num;
 
     strncpy(pci_dev->name, name, sizeof(pci_dev->name));
-    pci_dev->vm_dev = pci;
+    pci_dev->vm_dev = dev;
 
     // register update callbacks
     pci_dev->config_update = config_update;
     pci_dev->cmd_update = cmd_update;
     pci_dev->ext_rom_update = ext_rom_update;
 
-    pci_dev->priv_data = private_data;
 
 
     //copy bars
