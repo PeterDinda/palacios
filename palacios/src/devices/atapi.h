@@ -18,7 +18,6 @@
  */
 
 #define ATAPI_PACKET_SIZE 12
-#define ATAPI_BLOCK_SIZE 2048
 
 #include "atapi-types.h"
 

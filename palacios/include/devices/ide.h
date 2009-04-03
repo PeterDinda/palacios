@@ -24,6 +24,9 @@
 #include <palacios/vm_dev.h>
 
 
+#define ATAPI_BLOCK_SIZE 2048
+#define IDE_SECTOR_SIZE 512
+
 typedef enum {IDE_DISK, IDE_CDROM, IDE_NONE} v3_ide_dev_type_t;
 
 struct v3_ide_cd_ops {
@@ -35,7 +38,9 @@ struct v3_ide_cd_ops {
 
 
 struct v3_ide_hd_ops {
-    
+    uint32_t (*get_capacity)(void * private_data);
+    // Reads always operate on 2048 byte blocks
+    int (*read)(uint8_t * buf, int count, int lba, void * private_data);    
 
 };
 

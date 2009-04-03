@@ -216,6 +216,10 @@ struct ide_internal {
 
 
 
+
+
+/* Utility functions */
+
 static inline uint16_t be_to_le_16(const uint16_t val) {
     uint8_t * buf = (uint8_t *)&val;
     return (buf[0] << 8) | (buf[1]) ;
@@ -265,6 +269,7 @@ static inline int is_lba_enabled(struct ide_channel * channel) {
 }
 
 
+/* Drive Commands */
 static void ide_raise_irq(struct vm_device * dev, struct ide_channel * channel) {
     if (channel->ctrl_reg.irq_disable == 0) {
 	PrintDebug("Raising IDE Interrupt %d\n", channel->irq);
@@ -326,11 +331,89 @@ static void ide_abort_command(struct vm_device * dev, struct ide_channel * chann
 }
 
 
-// Include the ATAPI interface handlers
+
+static void ide_identify_device(struct ide_drive * drive) {
+    struct ide_drive_id * drive_id = (struct ide_drive_id *)(drive->data_buf);
+    const char* serial_number = " VT00001\0\0\0\0\0\0\0\0\0\0\0\0";
+    const char* firmware = "ALPHA1  ";
+
+    drive->transfer_length = 512;
+    drive->transfer_index = 0;
+
+
+    memset(drive_id->buf, 0, sizeof(drive_id->buf));
+
+    drive_id->fixed_drive = 1;
+    drive_id->removable_media = 0;
+
+    // Black magic...
+    drive_id->disk_speed1 = 1;
+    drive_id->disk_speed3 = 1;
+
+    drive_id->cdrom_flag = 0;
+
+    // Make it the simplest drive possible (1 head, 1 cyl, 1 sect/track)
+    drive_id->num_cylinders = 1;
+    drive_id->num_heads = 1;
+    drive_id->bytes_per_track = IDE_SECTOR_SIZE;
+    drive_id->bytes_per_sector = IDE_SECTOR_SIZE;
+    drive_id->sectors_per_track = 1;
+
+
+    // These buffers do not contain a terminating "\0"
+    memcpy(drive_id->serial_num, serial_number, strlen(serial_number));
+    memcpy(drive_id->firmware_rev, firmware, strlen(firmware));
+    memcpy(drive_id->model_num, drive->model, 40);
+
+    // 32 bits access
+    drive_id->dword_io = 1;
+
+    // enable DMA access
+    drive_id->dma_enable = 1;
+
+    // enable LBA access
+    drive_id->lba_enable = 1;
+    
+    // Drive Capacity
+    drive_id->lba_capacity = drive->hd_ops->get_capacity(drive->private_data);
+
+    drive_id->rw_multiples = 0x80ff;
+
+    // words 64-70, 54-58 valid
+    drive_id->field_valid = 0x0007; // DMA + pkg cmd valid
+
+    // copied from CFA540A
+    drive_id->buf[63] = 0x0103; // variable (DMA stuff)
+    //drive_id->buf[63] = 0x0000; // variable (DMA stuff)
+    
+    //    drive_id->buf[64] = 0x0001; // PIO
+    drive_id->buf[65] = 0x00b4;
+    drive_id->buf[66] = 0x00b4;
+    drive_id->buf[67] = 0x012c;
+    drive_id->buf[68] = 0x00b4;
+
+    drive_id->buf[71] = 30; // faked
+    drive_id->buf[72] = 30; // faked
+
+    //    drive_id->buf[80] = 0x1e; // supports up to ATA/ATAPI-4
+    drive_id->major_rev_num = 0x0040; // supports up to ATA/ATAPI-6
+
+    drive_id->dma_ultra = 0x2020; // Ultra_DMA_Mode_5_Selected | Ultra_DMA_Mode_5_Supported;
+}
+
+
+
+
+
+
+
+
+/* ATAPI functions */
 #include "atapi.h"
 
 
 
+/* IO Operations */
 static int dma_read(struct vm_device * dev, struct ide_channel * channel) {
     struct ide_drive * drive = get_selected_drive(channel);
     struct ide_dma_prd prd_entry;
@@ -593,8 +676,12 @@ static int write_cmd_port(ushort_t port, void * src, uint_t length, struct vm_de
 		// JRL: Should we abort here?
 		ide_abort_command(dev, channel);
 	    } else {
-		PrintError("IDE Disks currently not implemented\n");
-		return -1;
+		ide_identify_device(drive);
+
+		channel->error_reg.val = 0;
+		channel->status.val = 0x58;
+
+		ide_raise_irq(dev, channel);
 	    }
 	    break;
 
@@ -1234,3 +1321,6 @@ int v3_ide_register_harddisk(struct vm_device * ide_dev,
 
     return 0;
 }
+
+
+

@@ -331,6 +331,7 @@ DEVICES_OBJS := \
 	devices/para_net.o \
 	devices/ide.o \
 	devices/ram_cd.o \
+	devices/ram_hd.o \
 
 #	devices/cdrom.o \
 #	devices/ramdisk.o \

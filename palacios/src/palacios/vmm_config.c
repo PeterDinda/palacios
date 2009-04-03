@@ -35,6 +35,7 @@
 #include <devices/generic.h>
 #include <devices/ide.h>
 #include <devices/ram_cd.h>
+#include <devices/ram_hd.h>
 #include <devices/bochs_debug.h>
 #include <devices/os_debug.h>
 #include <devices/apic.h>
@@ -280,7 +281,8 @@ static int setup_memory_map(struct guest_info * info, struct v3_vm_config * conf
 
 static int setup_devices(struct guest_info * info, struct v3_vm_config * config_ptr) {
     struct vm_device * ide = NULL;
-    struct vm_device * ram_cd = NULL;
+    //    struct vm_device * ram_cd = NULL;
+    struct vm_device * ram_hd = NULL;
     struct vm_device * pci = v3_create_pci();
     struct vm_device * nvram = v3_create_nvram();
     //struct vm_device * timer = v3_create_timer();
@@ -303,7 +305,10 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
 
     if (use_ramdisk) {
 	PrintDebug("Creating Ramdisk\n");
-	ram_cd = v3_create_ram_cd(ide, 0, 0, 
+	//	ram_cd = v3_create_ram_cd(ide, 0, 0, 
+	//			  (addr_t)(config_ptr->ramdisk), 
+	//			  config_ptr->ramdisk_size);
+	ram_hd = v3_create_ram_hd(ide, 0, 0, 
 				  (addr_t)(config_ptr->ramdisk), 
 				  config_ptr->ramdisk_size);
     }
@@ -333,7 +338,8 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
     v3_attach_device(info, ide);
 
     if (use_ramdisk) {
-	v3_attach_device(info, ram_cd);
+	//	v3_attach_device(info, ram_cd);
+	v3_attach_device(info, ram_hd);
     }
 
     if (use_generic) {
