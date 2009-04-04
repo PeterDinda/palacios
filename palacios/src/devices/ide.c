@@ -90,7 +90,7 @@ static inline const char * dma_port_to_str(uint16_t port) {
 }
 
 
-static const char * ide_dev_type_strs[] = {"HARDDISK", "CDROM", "NONE"};
+static const char * ide_dev_type_strs[] = {"NONE", "HARDDISK", "CDROM" };
 
 
 static inline const char * device_type_to_str(v3_ide_dev_type_t type) {
@@ -105,13 +105,13 @@ static inline const char * device_type_to_str(v3_ide_dev_type_t type) {
 
 struct ide_cd_state {
     struct atapi_sense_data sense;
-    uint_t current_lba;
+
     uint8_t atapi_cmd;
     struct atapi_error_recovery err_recovery;
 };
 
 struct ide_hd_state {
-
+    int accessed;
 };
 
 struct ide_drive {
@@ -139,6 +139,7 @@ struct ide_drive {
     // calculated for easy access
     uint_t transfer_length;
 
+    uint64_t current_lba;
 
     // We have a local data buffer that we use for IO port accesses
     uint8_t data_buf[DATA_BUFFER_SIZE];
@@ -154,24 +155,23 @@ struct ide_drive {
     union {
 	uint8_t sector_num;               // 0x1f3,0x173
 	uint8_t lba0;
-    };
+    } __attribute__((packed));
 
     union {
 	uint16_t cylinder;
 	uint16_t lba12;
-
-
+	
 	struct {
 	    uint8_t cylinder_low;       // 0x1f4,0x174
 	    uint8_t cylinder_high;      // 0x1f5,0x175
 	} __attribute__((packed));
-
+	
 	struct {
 	    uint8_t lba1;
 	    uint8_t lba2;
 	} __attribute__((packed));
-
-
+	
+	
 	// The transfer length requested by the CPU 
 	uint16_t req_len;
     } __attribute__((packed));
@@ -282,11 +282,14 @@ static void ide_raise_irq(struct vm_device * dev, struct ide_channel * channel) 
 static void drive_reset(struct ide_drive * drive) {
     drive->sector_count = 0x01;
     drive->sector_num = 0x01;
+
+    PrintDebug("Resetting drive %s\n", drive->model);
     
     if (drive->drive_type == IDE_CDROM) {
 	drive->cylinder = 0xeb14;
     } else {
 	drive->cylinder = 0x0000;
+	//drive->hd_state.accessed = 0;
     }
 
 
@@ -332,84 +335,14 @@ static void ide_abort_command(struct vm_device * dev, struct ide_channel * chann
 
 
 
-static void ide_identify_device(struct ide_drive * drive) {
-    struct ide_drive_id * drive_id = (struct ide_drive_id *)(drive->data_buf);
-    const char* serial_number = " VT00001\0\0\0\0\0\0\0\0\0\0\0\0";
-    const char* firmware = "ALPHA1  ";
-
-    drive->transfer_length = 512;
-    drive->transfer_index = 0;
-
-
-    memset(drive_id->buf, 0, sizeof(drive_id->buf));
-
-    drive_id->fixed_drive = 1;
-    drive_id->removable_media = 0;
-
-    // Black magic...
-    drive_id->disk_speed1 = 1;
-    drive_id->disk_speed3 = 1;
-
-    drive_id->cdrom_flag = 0;
-
-    // Make it the simplest drive possible (1 head, 1 cyl, 1 sect/track)
-    drive_id->num_cylinders = 1;
-    drive_id->num_heads = 1;
-    drive_id->bytes_per_track = IDE_SECTOR_SIZE;
-    drive_id->bytes_per_sector = IDE_SECTOR_SIZE;
-    drive_id->sectors_per_track = 1;
-
-
-    // These buffers do not contain a terminating "\0"
-    memcpy(drive_id->serial_num, serial_number, strlen(serial_number));
-    memcpy(drive_id->firmware_rev, firmware, strlen(firmware));
-    memcpy(drive_id->model_num, drive->model, 40);
-
-    // 32 bits access
-    drive_id->dword_io = 1;
-
-    // enable DMA access
-    drive_id->dma_enable = 1;
-
-    // enable LBA access
-    drive_id->lba_enable = 1;
-    
-    // Drive Capacity
-    drive_id->lba_capacity = drive->hd_ops->get_capacity(drive->private_data);
-
-    drive_id->rw_multiples = 0x80ff;
-
-    // words 64-70, 54-58 valid
-    drive_id->field_valid = 0x0007; // DMA + pkg cmd valid
-
-    // copied from CFA540A
-    drive_id->buf[63] = 0x0103; // variable (DMA stuff)
-    //drive_id->buf[63] = 0x0000; // variable (DMA stuff)
-    
-    //    drive_id->buf[64] = 0x0001; // PIO
-    drive_id->buf[65] = 0x00b4;
-    drive_id->buf[66] = 0x00b4;
-    drive_id->buf[67] = 0x012c;
-    drive_id->buf[68] = 0x00b4;
-
-    drive_id->buf[71] = 30; // faked
-    drive_id->buf[72] = 30; // faked
-
-    //    drive_id->buf[80] = 0x1e; // supports up to ATA/ATAPI-4
-    drive_id->major_rev_num = 0x0040; // supports up to ATA/ATAPI-6
-
-    drive_id->dma_ultra = 0x2020; // Ultra_DMA_Mode_5_Selected | Ultra_DMA_Mode_5_Supported;
-}
-
-
-
-
-
 
 
 
 /* ATAPI functions */
 #include "atapi.h"
+
+/* ATA functions */
+#include "ata.h"
 
 
 
@@ -643,7 +576,39 @@ static int write_cmd_port(ushort_t port, void * src, uint_t length, struct vm_de
     channel->cmd_reg = *(uint8_t *)src;
     
     switch (channel->cmd_reg) {
-	
+
+	case 0xa1: // ATAPI Identify Device Packet
+	    if (drive->drive_type != IDE_CDROM) {
+		drive_reset(drive);
+
+		// JRL: Should we abort here?
+		ide_abort_command(dev, channel);
+	    } else {
+		
+		atapi_identify_device(drive);
+		
+		channel->error_reg.val = 0;
+		channel->status.val = 0x58; // ready, data_req, seek_complete
+	    
+		ide_raise_irq(dev, channel);
+	    }
+	    break;
+	case 0xec: // Identify Device
+	    if (drive->drive_type != IDE_DISK) {
+		drive_reset(drive);
+
+		// JRL: Should we abort here?
+		ide_abort_command(dev, channel);
+	    } else {
+		ata_identify_device(drive);
+
+		channel->error_reg.val = 0;
+		channel->status.val = 0x58;
+
+		ide_raise_irq(dev, channel);
+	    }
+	    break;
+
 	case 0xa0: // ATAPI Command Packet
 	    if (drive->drive_type != IDE_CDROM) {
 		ide_abort_command(dev, channel);
@@ -661,30 +626,21 @@ static int write_cmd_port(ushort_t port, void * src, uint_t length, struct vm_de
 	    drive->transfer_index = 0;
 
 	    break;
-	case 0xa1: // ATAPI Identify Device Packet
-	    atapi_identify_device(drive);
 
-	    channel->error_reg.val = 0;
-	    channel->status.val = 0x58; // ready, data_req, seek_complete
-	    
-	    ide_raise_irq(dev, channel);
-	    break;
-	case 0xec: // Identify Device
-	    if (drive->drive_type != IDE_DISK) {
-		drive_reset(drive);
-
-		// JRL: Should we abort here?
-		ide_abort_command(dev, channel);
-	    } else {
-		ide_identify_device(drive);
-
-		channel->error_reg.val = 0;
-		channel->status.val = 0x58;
-
-		ide_raise_irq(dev, channel);
+	case 0x20: // Read Sectors with Retry
+	case 0x21: // Read Sectors without Retry
+	    if (ata_read_sectors(dev, channel) == -1) {
+		PrintError("Error reading sectors\n");
+		return -1;
 	    }
 	    break;
 
+	case 0x24: // Read Sectors Extended
+	    if (ata_read_sectors_ext(dev, channel) == -1) {
+		PrintError("Error reading extended sectors\n");
+		return -1;
+	    }
+	    break;
 	case 0xef: // Set Features
 	    // Prior to this the features register has been written to. 
 	    // This command tells the drive to check if the new value is supported (the value is drive specific)
@@ -701,6 +657,7 @@ static int write_cmd_port(ushort_t port, void * src, uint_t length, struct vm_de
 	    
 	    ide_raise_irq(dev, channel);
 	    break;
+
 	default:
 	    PrintError("Unimplemented IDE command (%x)\n", channel->cmd_reg);
 	    return -1;
@@ -745,15 +702,70 @@ static int write_data_port(ushort_t port, void * src, uint_t length, struct vm_d
 
 
 static int read_hd_data(uint8_t * dst, uint_t length, struct vm_device * dev, struct ide_channel * channel) {
-    PrintError("Harddrive data port read not implemented\n");
-    return -1;
+    struct ide_drive * drive = get_selected_drive(channel);
+    int data_offset = drive->transfer_index % IDE_SECTOR_SIZE;
+
+
+
+    if (drive->transfer_index >= drive->transfer_length) {
+	PrintError("Buffer overrun... (xfer_len=%d) (cur_idx=%x) (post_idx=%d)\n",
+		   drive->transfer_length, drive->transfer_index,
+		   drive->transfer_index + length);
+	return -1;
+    }
+
+    
+    if ((data_offset == 0) && (drive->transfer_index > 0)) {
+	drive->current_lba++;
+
+	if (ata_read(dev, channel) == -1) {
+	    PrintError("Could not read next disk sector\n");
+	    return -1;
+	}
+    }
+
+    /*
+      PrintDebug("Reading HD Data (Val=%x), (len=%d) (offset=%d)\n", 
+      *(uint32_t *)(drive->data_buf + data_offset), 
+      length, data_offset);
+    */
+    memcpy(dst, drive->data_buf + data_offset, length);
+
+    drive->transfer_index += length;
+
+    if ((drive->transfer_index % IDE_SECTOR_SIZE) == 0) {
+	if (drive->transfer_index < drive->transfer_length) {
+	    // An increment is complete, but there is still more data to be transferred...
+	    PrintDebug("Integral Complete, still transferring more sectors\n");
+	    channel->status.data_req = 1;
+
+	    drive->irq_flags.c_d = 0;
+	} else {
+	    PrintDebug("Final Sector Transferred\n");
+	    // This was the final read of the request
+	    channel->status.data_req = 0;
+
+	    
+	    drive->irq_flags.c_d = 1;
+	    drive->irq_flags.rel = 0;
+	}
+
+	channel->status.ready = 1;
+	drive->irq_flags.io_dir = 1;
+	channel->status.busy = 0;
+
+	ide_raise_irq(dev, channel);
+    }
+
+
+    return length;
 }
 
 
 
 static int read_cd_data(uint8_t * dst, uint_t length, struct vm_device * dev, struct ide_channel * channel) {
     struct ide_drive * drive = get_selected_drive(channel);
-    int data_offset = drive->transfer_index % DATA_BUFFER_SIZE;
+    int data_offset = drive->transfer_index % ATAPI_BLOCK_SIZE;
     int req_offset = drive->transfer_index % drive->req_len;
     
     if (drive->cd_state.atapi_cmd != 0x28) {
@@ -770,14 +782,8 @@ static int read_cd_data(uint8_t * dst, uint_t length, struct vm_device * dev, st
 
 
     if ((data_offset == 0) && (drive->transfer_index > 0)) {
-	
-	if (drive->drive_type == IDE_CDROM) {
-	    if (atapi_update_data_buf(dev, channel) == -1) {
-		PrintError("Could not update CDROM data buffer\n");
-		return -1;
-	    } 
-	} else {
-	    PrintError("IDE Harddrives not implemented\n");
+	if (atapi_update_data_buf(dev, channel) == -1) {
+	    PrintError("Could not update CDROM data buffer\n");
 	    return -1;
 	}
     }
@@ -786,6 +792,8 @@ static int read_cd_data(uint8_t * dst, uint_t length, struct vm_device * dev, st
     
     drive->transfer_index += length;
 
+
+    // Should the req_offset be recalculated here?????
     if ((req_offset == 0) && (drive->transfer_index > 0)) {
 	if (drive->transfer_index < drive->transfer_length) {
 	    // An increment is complete, but there is still more data to be transferred...
@@ -904,21 +912,25 @@ static int write_port_std(ushort_t port, void * src, uint_t length, struct vm_de
 
 	case PRI_SECT_CNT_PORT:
 	case SEC_SECT_CNT_PORT:
-	    drive->sector_count = *(uint8_t *)src;
+	    channel->drives[0].sector_count = *(uint8_t *)src;
+	    channel->drives[1].sector_count = *(uint8_t *)src;
 	    break;
 
 	case PRI_SECT_NUM_PORT:
 	case SEC_SECT_NUM_PORT:
-	    drive->sector_num = *(uint8_t *)src;
-
+	    channel->drives[0].sector_num = *(uint8_t *)src;
+	    channel->drives[1].sector_num = *(uint8_t *)src;
+	    break;
 	case PRI_CYL_LOW_PORT:
 	case SEC_CYL_LOW_PORT:
-	    drive->cylinder_low = *(uint8_t *)src;
+	    channel->drives[0].cylinder_low = *(uint8_t *)src;
+	    channel->drives[1].cylinder_low = *(uint8_t *)src;
 	    break;
 
 	case PRI_CYL_HIGH_PORT:
 	case SEC_CYL_HIGH_PORT:
-	    drive->cylinder_high = *(uint8_t *)src;
+	    channel->drives[0].cylinder_high = *(uint8_t *)src;
+	    channel->drives[1].cylinder_high = *(uint8_t *)src;
 	    break;
 
 	case PRI_DRV_SEL_PORT:
@@ -1047,7 +1059,6 @@ static void init_drive(struct ide_drive * drive) {
     drive->transfer_index = 0;
     drive->transfer_length = 0;
     memset(drive->data_buf, 0, sizeof(drive->data_buf));
-
 
 
     drive->private_data = NULL;
@@ -1314,6 +1325,8 @@ int v3_ide_register_harddisk(struct vm_device * ide_dev,
     strncpy(drive->model, dev_name, sizeof(drive->model) - 1);
 
     drive->drive_type = IDE_DISK;
+
+    drive->hd_state.accessed = 0;
 
     drive->hd_ops = ops;
 

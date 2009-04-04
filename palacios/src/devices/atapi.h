@@ -128,10 +128,10 @@ static void atapi_cmd_nop(struct vm_device * dev, struct ide_channel * channel) 
 static int atapi_read_chunk(struct vm_device * dev, struct ide_channel * channel) {
     struct ide_drive * drive = get_selected_drive(channel);
 
-    int ret = drive->cd_ops->read(drive->data_buf, ATAPI_BLOCK_SIZE, drive->cd_state.current_lba, drive->private_data);
-	
+    int ret = drive->cd_ops->read(drive->data_buf, 1, drive->current_lba, drive->private_data);
+    
     if (ret == -1) {
-	PrintError("IDE: Error reading CD block (LBA=%x)\n", drive->cd_state.current_lba);
+	PrintError("IDE: Error reading CD block (LBA=%p)\n", (void *)(addr_t)(drive->current_lba));
 	return -1;
     }
 
@@ -147,7 +147,7 @@ static int atapi_update_data_buf(struct vm_device * dev, struct ide_channel * ch
 	case 0xa8: // read(12)
 
 	    // Update lba address to point to next block
-	    drive->cd_state.current_lba++;
+	    drive->current_lba++;
 
 	    // read the next block
 	    return atapi_read_chunk(dev, channel);
@@ -188,7 +188,7 @@ static int atapi_read10(struct vm_device * dev, struct ide_channel * channel) {
 	
     //    PrintDebug("Reading %d blocks from LBA 0x%x\n", xfer_len, lba);
     
-    drive->cd_state.current_lba = lba;
+    drive->current_lba = lba;
 	
     // Update the request length value in the cylinder registers
 	

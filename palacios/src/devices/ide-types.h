@@ -54,6 +54,12 @@ struct ide_drive_head_reg {
 	    uint_t lba_mode      : 1;
 	    uint_t rsvd2         : 1;
 	} __attribute__((packed));
+
+	struct {
+	    uint_t lba3      : 4;
+	    uint_t rsvd3     : 4;
+	} __attribute__((packed));
+	
     } __attribute__((packed));
 } __attribute__((packed));
 
