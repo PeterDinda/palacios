@@ -72,10 +72,6 @@ int v3_handle_svm_exit(struct guest_info * info) {
 
 
     if ((info->intr_state.irq_pending == 1) && (guest_ctrl->guest_ctrl.V_IRQ == 0)) {
-	// Interrupt was taken in the guest
-	if (exit_code == VMEXIT_EXCP14) {
-	    PrintError("Page fault immeidately after interrupt injection (%d)\n", info->intr_state.irq_vector);
-	}
 
 #ifdef DEBUG_INTERRUPTS
 	PrintDebug("Interrupt %d taken by guest\n", info->intr_state.irq_vector);

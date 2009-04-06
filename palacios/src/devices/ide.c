@@ -24,6 +24,11 @@
 #include "ide-types.h"
 #include "atapi-types.h"
 
+#ifndef DEBUG_IDE
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
+#endif
+
 #define PRI_DEFAULT_IRQ 14
 #define SEC_DEFAULT_IRQ 15
 

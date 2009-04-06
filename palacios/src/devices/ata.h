@@ -56,9 +56,10 @@ static void ata_identify_device(struct ide_drive * drive) {
     // 32 bits access
     drive_id->dword_io = 1;
 
+#if 0
     // enable DMA access
     drive_id->dma_enable = 1;
-
+#endif
     // enable LBA access
     drive_id->lba_enable = 1;
     
@@ -68,11 +69,15 @@ static void ata_identify_device(struct ide_drive * drive) {
     // Drive Capacity (48 bit LBA)
     drive_id->lba_capacity_2 = drive->hd_ops->get_capacity(drive->private_data);
 
+#if 0
     // lower byte is the maximum multiple sector size...
     drive_id->rw_multiples = 0x8000 | MAX_MULT_SECTORS;
+#endif
 
+#if 0
     // words 64-70, 54-58 valid
     drive_id->field_valid = 0x0007; // DMA + pkg cmd valid
+#endif
 
     // copied from CFA540A
     drive_id->buf[63] = 0x0103; // variable (DMA stuff)
@@ -90,10 +95,12 @@ static void ata_identify_device(struct ide_drive * drive) {
     //    drive_id->buf[80] = 0x1e; // supports up to ATA/ATAPI-4
     drive_id->major_rev_num = 0x0040; // supports up to ATA/ATAPI-6
 
+#if 0
     drive_id->buf[83] |= 0x0400; // supports 48 bit LBA
 
 
     drive_id->dma_ultra = 0x2020; // Ultra_DMA_Mode_5_Selected | Ultra_DMA_Mode_5_Supported;
+#endif
 }
 
 
