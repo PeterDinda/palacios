@@ -17,6 +17,8 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
+#define MAX_MULT_SECTORS  255
+
 
 static void ata_identify_device(struct ide_drive * drive) {
     struct ide_drive_id * drive_id = (struct ide_drive_id *)(drive->data_buf);
@@ -66,7 +68,8 @@ static void ata_identify_device(struct ide_drive * drive) {
     // Drive Capacity (48 bit LBA)
     drive_id->lba_capacity_2 = drive->hd_ops->get_capacity(drive->private_data);
 
-    drive_id->rw_multiples = 0x80ff;
+    // lower byte is the maximum multiple sector size...
+    drive_id->rw_multiples = 0x8000 | MAX_MULT_SECTORS;
 
     // words 64-70, 54-58 valid
     drive_id->field_valid = 0x0007; // DMA + pkg cmd valid
@@ -94,7 +97,7 @@ static void ata_identify_device(struct ide_drive * drive) {
 }
 
 
-static int ata_read(struct vm_device * dev, struct ide_channel * channel) {
+static int ata_read(struct vm_device * dev, struct ide_channel * channel, uint8_t * dst, uint_t sect_cnt) {
     struct ide_drive * drive = get_selected_drive(channel);
 
     if (drive->hd_state.accessed == 0) {
@@ -102,7 +105,7 @@ static int ata_read(struct vm_device * dev, struct ide_channel * channel) {
 	drive->hd_state.accessed = 1;
     }
 
-    int ret = drive->hd_ops->read(drive->data_buf, 1, drive->current_lba, drive->private_data);
+    int ret = drive->hd_ops->read(dst, sect_cnt, drive->current_lba, drive->private_data);
     
     if (ret == -1) {
 	PrintError("IDE: Error reading HD block (LBA=%p)\n", (void *)(addr_t)(drive->current_lba));
@@ -137,9 +140,6 @@ static int ata_read_sectors(struct vm_device * dev, struct ide_channel * channel
     lba_addr.buf[2] = drive->lba2;
     lba_addr.buf[3] = channel->drive_head.lba3;
 
-    PrintDebug("LBA Address %d\n", drive->lba0);
-    PrintDebug("sector_num %d\n", drive->sector_num);
-
 
     if (lba_addr.addr + (sect_cnt * IDE_SECTOR_SIZE) > 
 	drive->hd_ops->get_capacity(drive->private_data)) {
@@ -153,7 +153,7 @@ static int ata_read_sectors(struct vm_device * dev, struct ide_channel * channel
 
     drive->current_lba = lba_addr.addr;
     
-    if (ata_read(dev, channel) == -1) {
+    if (ata_read(dev, channel, drive->data_buf, 1) == -1) {
 	PrintError("Could not read disk sector\n");
 	return -1;
     }

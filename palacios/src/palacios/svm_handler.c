@@ -73,10 +73,16 @@ int v3_handle_svm_exit(struct guest_info * info) {
 
     if ((info->intr_state.irq_pending == 1) && (guest_ctrl->guest_ctrl.V_IRQ == 0)) {
 	// Interrupt was taken in the guest
+	if (exit_code == VMEXIT_EXCP14) {
+	    PrintError("Page fault immeidately after interrupt injection (%d)\n", info->intr_state.irq_vector);
+	}
+
 #ifdef DEBUG_INTERRUPTS
 	PrintDebug("Interrupt %d taken by guest\n", info->intr_state.irq_vector);
 #endif
 	if (!guest_ctrl->exit_int_info.valid) {
+	    info->intr_state.irq_pending = 0;
+	    // PrintDebug("Injecting Interrupt %d\n", info->intr_state.irq_vector);
 	    v3_injecting_intr(info, info->intr_state.irq_vector, EXTERNAL_IRQ);
 	} else {
 #ifdef DEBUG_INTERRUPTS
@@ -85,7 +91,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
 	}
     }
 
-    info->intr_state.irq_pending = 0;
+
   
 
     // Disable printing io exits due to bochs debug messages
@@ -360,8 +366,14 @@ int v3_handle_svm_exit(struct guest_info * info) {
 
 
     // Update the low level state
+    if (info->intr_state.irq_pending == 1) {
 
-    if (v3_excp_pending(info)) {
+	guest_ctrl->guest_ctrl.V_IRQ = 1;
+	guest_ctrl->guest_ctrl.V_INTR_VECTOR = info->intr_state.irq_vector;
+	guest_ctrl->guest_ctrl.V_IGN_TPR = 1;
+	guest_ctrl->guest_ctrl.V_INTR_PRIO = 0xf;
+
+    } else if (v3_excp_pending(info)) {
 	uint_t excp = v3_get_excp_number(info);
 		
 	guest_ctrl->EVENTINJ.type = SVM_INJECTION_EXCEPTION;

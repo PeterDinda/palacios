@@ -54,7 +54,6 @@
 #define PRI_DEFAULT_DMA_PORT 0xc000
 #define SEC_DEFAULT_DMA_PORT 0xc008
 
-
 #define DATA_BUFFER_SIZE 2048
 
 static const char * ide_pri_port_strs[] = {"PRI_DATA", "PRI_FEATURES", "PRI_SECT_CNT", "PRI_SECT_NUM", 
@@ -112,6 +111,15 @@ struct ide_cd_state {
 
 struct ide_hd_state {
     int accessed;
+
+    /* this is the multiple sector transfer size as configured for read/write multiple sectors*/
+    uint_t mult_sector_num;
+
+    /* This is the current op sector size:
+     * for multiple sector ops this equals mult_sector_num
+     * for standard ops this equals 1
+     */
+    uint_t cur_sector_num;
 };
 
 struct ide_drive {
@@ -353,7 +361,6 @@ static int dma_read(struct vm_device * dev, struct ide_channel * channel) {
     uint32_t prd_entry_addr = channel->dma_prd_addr + (sizeof(struct ide_dma_prd) * channel->dma_tbl_index);
     int ret;
 
-
     PrintDebug("PRD table address = %x\n", channel->dma_prd_addr);
 
     ret = read_guest_pa_memory(dev->vm, prd_entry_addr, sizeof(struct ide_dma_prd), (void *)&prd_entry);
@@ -372,11 +379,7 @@ static int dma_read(struct vm_device * dev, struct ide_channel * channel) {
 	return -1;
     }
 
-    channel->status.busy = 0;
-    channel->status.ready = 1;
-    channel->status.data_req = 0;
-    channel->status.error = 0;
-    channel->status.seek_complete = 1;
+
 
     /*
       drive->irq_flags.io_dir = 1;
@@ -386,9 +389,18 @@ static int dma_read(struct vm_device * dev, struct ide_channel * channel) {
 
 
     // set DMA status
-    channel->dma_status.active = 0;
-    channel->dma_status.err = 1;
-    channel->dma_status.int_gen = 1;
+
+    if (prd_entry.end_of_table) {
+	channel->dma_status.active = 0;
+	channel->dma_status.err = 0;
+	channel->dma_status.int_gen = 1;
+
+	channel->status.busy = 0;
+	channel->status.ready = 1;
+	channel->status.data_req = 0;
+	channel->status.error = 0;
+	channel->status.seek_complete = 1;
+    }
 
     ide_raise_irq(dev, channel);
 
@@ -470,6 +482,8 @@ static int write_dma_port(ushort_t port_offset, void * src, uint_t length,
 			return -1;
 		    }
 		}
+
+		channel->dma_cmd.val &= 0x09;
 	    }
 
 	    break;
@@ -629,6 +643,8 @@ static int write_cmd_port(ushort_t port, void * src, uint_t length, struct vm_de
 
 	case 0x20: // Read Sectors with Retry
 	case 0x21: // Read Sectors without Retry
+	    drive->hd_state.cur_sector_num = 1;
+
 	    if (ata_read_sectors(dev, channel) == -1) {
 		PrintError("Error reading sectors\n");
 		return -1;
@@ -636,10 +652,18 @@ static int write_cmd_port(ushort_t port, void * src, uint_t length, struct vm_de
 	    break;
 
 	case 0x24: // Read Sectors Extended
+	    drive->hd_state.cur_sector_num = 1;
+
 	    if (ata_read_sectors_ext(dev, channel) == -1) {
 		PrintError("Error reading extended sectors\n");
 		return -1;
 	    }
+	    break;
+
+	case 0xc8: // Read DMA with retry
+	case 0xc9: // Read DMA
+	    drive->hd_state.cur_sector_num = 1;
+
 	    break;
 	case 0xef: // Set Features
 	    // Prior to this the features register has been written to. 
@@ -658,6 +682,37 @@ static int write_cmd_port(ushort_t port, void * src, uint_t length, struct vm_de
 	    ide_raise_irq(dev, channel);
 	    break;
 
+	case 0x91:  // Initialize Drive Parameters
+	case 0x10:  // recalibrate?
+	    channel->status.error = 0;
+	    channel->status.ready = 1;
+	    channel->status.seek_complete = 1;
+	    ide_raise_irq(dev, channel);
+	    break;
+	case 0xc6: { // Set multiple mode (IDE Block mode) 
+	    // This makes the drive transfer multiple sectors before generating an interrupt
+	    uint32_t tmp_sect_num = drive->sector_num; // GCC SUCKS
+
+	    if (tmp_sect_num > MAX_MULT_SECTORS) {
+		ide_abort_command(dev, channel);
+		break;
+	    }
+
+	    if (drive->sector_count == 0) {
+		drive->hd_state.mult_sector_num= 1;
+	    } else {
+		drive->hd_state.mult_sector_num = drive->sector_count;
+	    }
+
+	    channel->status.ready = 1;
+	    channel->status.error = 0;
+
+	    ide_raise_irq(dev, channel);
+
+	    break;
+	}
+	case 0xc4:  // read multiple sectors
+	    drive->hd_state.cur_sector_num = drive->hd_state.mult_sector_num;
 	default:
 	    PrintError("Unimplemented IDE command (%x)\n", channel->cmd_reg);
 	    return -1;
@@ -718,7 +773,7 @@ static int read_hd_data(uint8_t * dst, uint_t length, struct vm_device * dev, st
     if ((data_offset == 0) && (drive->transfer_index > 0)) {
 	drive->current_lba++;
 
-	if (ata_read(dev, channel) == -1) {
+	if (ata_read(dev, channel, drive->data_buf, 1) == -1) {
 	    PrintError("Could not read next disk sector\n");
 	    return -1;
 	}
@@ -733,7 +788,15 @@ static int read_hd_data(uint8_t * dst, uint_t length, struct vm_device * dev, st
 
     drive->transfer_index += length;
 
-    if ((drive->transfer_index % IDE_SECTOR_SIZE) == 0) {
+
+    /* This is the trigger for interrupt injection.
+     * For read single sector commands we interrupt after every sector
+     * For multi sector reads we interrupt only at end of the cluster size (mult_sector_num)
+     * cur_sector_num is configured depending on the operation we are currently running
+     * We also trigger an interrupt if this is the last byte to transfer, regardless of sector count
+     */
+    if (((drive->transfer_index % (IDE_SECTOR_SIZE * drive->hd_state.cur_sector_num)) == 0) || 
+	(drive->transfer_index == drive->transfer_length)) {
 	if (drive->transfer_index < drive->transfer_length) {
 	    // An increment is complete, but there is still more data to be transferred...
 	    PrintDebug("Integral Complete, still transferring more sectors\n");
@@ -1088,7 +1151,8 @@ static void init_channel(struct ide_channel * channel) {
 
 
 static int pci_config_update(struct pci_device * pci_dev, uint_t reg_num, int length) {
-    PrintDebug("Interupt register (Dev=%s), irq=%d\n", pci_dev->name, pci_dev->config_header.intr_line);
+    PrintDebug("PCI Config Update\n");
+    PrintDebug("\t\tInterupt register (Dev=%s), irq=%d\n", pci_dev->name, pci_dev->config_header.intr_line);
 
     return 0;
 }
@@ -1327,6 +1391,7 @@ int v3_ide_register_harddisk(struct vm_device * ide_dev,
     drive->drive_type = IDE_DISK;
 
     drive->hd_state.accessed = 0;
+    drive->hd_state.mult_sector_num = 1;
 
     drive->hd_ops = ops;
 

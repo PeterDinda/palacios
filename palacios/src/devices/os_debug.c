@@ -20,11 +20,12 @@
 
 #include <devices/os_debug.h>
 #include <palacios/vmm.h>
+#include <palacios/vm_guest_mem.h>
 
 #define BUF_SIZE 1024
 
 #define DEBUG_PORT1 0xc0c0
-
+#define DEBUG_HCALL 0xc0c0
 
 struct debug_state {
     char debug_buf[BUF_SIZE];
@@ -47,11 +48,36 @@ static int handle_gen_write(ushort_t port, void * src, uint_t length, struct vm_
     return length;
 }
 
+static int handle_hcall(struct guest_info * info, uint_t hcall_id, void * priv_data) {
+    struct vm_device * dev = (struct vm_device *)priv_data;
+    struct debug_state * state = (struct debug_state *)dev->private_data;
+
+    int msg_len = info->vm_regs.rcx;
+    addr_t msg_gpa = info->vm_regs.rbx;
+    
+    if (msg_len >= BUF_SIZE) {
+	PrintError("Console message too large for buffer (len=%d)\n", msg_len);
+	return -1;
+    }
+    
+    if (read_guest_pa_memory(info, msg_gpa, msg_len, (uchar_t *)state->debug_buf) != msg_len) {
+	PrintError("Could not read debug message\n");
+	return -1;
+    }
+
+    state->debug_buf[msg_len] = 0;
+
+    PrintDebug("VM_CONSOLE>%s\n", state->debug_buf);
+
+    return 0;
+}
+
 
 static int debug_init(struct vm_device * dev) {
     struct debug_state * state = (struct debug_state *)dev->private_data;
 
     v3_dev_hook_io(dev, DEBUG_PORT1,  NULL, &handle_gen_write);
+    v3_register_hypercall(dev->vm, DEBUG_HCALL, handle_hcall, dev);
 
     state->debug_offset = 0;
     memset(state->debug_buf, 0, BUF_SIZE);
