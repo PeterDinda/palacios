@@ -36,6 +36,10 @@ static const uint_t MASTER_PORT2 = 0x21;
 static const uint_t SLAVE_PORT1 = 0xA0;
 static const uint_t SLAVE_PORT2 = 0xA1;
 
+static const uint_t ELCR1_PORT = 0x4d0;
+static const uint_t ELCR2_PORT = 0x4d1;
+
+
 #define IS_ICW1(x) (((x & 0x10) >> 4) == 0x1)
 #define IS_OCW2(x) (((x & 0x18) >> 3) == 0x0)
 #define IS_OCW3(x) (((x & 0x18) >> 3) == 0x1)
@@ -123,6 +127,11 @@ struct pic_internal {
   
     uchar_t master_isr;
     uchar_t slave_isr;
+
+    uchar_t master_elcr;
+    uchar_t slave_elcr;
+    uchar_t master_elcr_mask;
+    uchar_t slave_elcr_mask;
 
     uchar_t master_icw1;
     uchar_t master_icw2;
@@ -252,7 +261,7 @@ static int pic_get_intr_number(void * private_data) {
 		// reset the irr
 		//state->master_irr &= ~(0x1 << i);
 		PrintDebug("8259 PIC: IRQ: %d, master_icw2: %x\n", i, state->master_icw2);
-		irq= i + state->master_icw2;
+		irq = i + state->master_icw2;
 		break;
 	    }
 	} else {
@@ -260,7 +269,7 @@ static int pic_get_intr_number(void * private_data) {
 		//state->slave_isr |= (0x1 << (i - 8));
 		//state->slave_irr &= ~(0x1 << (i - 8));
 		PrintDebug("8259 PIC: IRQ: %d, slave_icw2: %x\n", i, state->slave_icw2);
-		irq= (i - 8) + state->slave_icw2;
+		irq=  (i - 8) + state->slave_icw2;
 		break;
 	    }
 	}
@@ -296,11 +305,17 @@ static int pic_begin_irq(void * private_data, int irq) {
     if (irq <= 7) {
 	if (((state->master_irr & ~(state->master_imr)) >> irq) == 0x01) {
 	    state->master_isr |= (0x1 << irq);
-	    state->master_irr &= ~(0x1 << irq);
+
+	    if (!(state->master_elcr & (0x1 << irq))) {
+		state->master_irr &= ~(0x1 << irq);
+	    }
 	}
     } else {
 	state->slave_isr |= (0x1 << (irq - 8));
-	state->slave_irr &= ~(0x1 << (irq - 8));
+
+	if (!(state->slave_elcr & (0x1 << irq))) {
+	    state->slave_irr &= ~(0x1 << (irq - 8));
+	}
     }
 
     return 0;
@@ -531,7 +546,7 @@ static int write_slave_port1(ushort_t port, void * src, uint_t length, struct vm
 	    struct ocw2 * cw2 =  (struct ocw2 *)&cw;
 
 	    PrintDebug("8259 PIC: Setting OCW2 = %x (wr_Slave1)\n", cw);
-      
+
 	    if ((cw2->EOI) && (!cw2->R) && (cw2->SL)) {
 		// specific EOI;
 		state->slave_isr &= ~(0x01 << cw2->level);
@@ -544,7 +559,7 @@ static int write_slave_port1(ushort_t port, void * src, uint_t length, struct vm
 			state->slave_isr &= ~(0x01 << i);
 			break;
 		    }
-		}	
+		}
 		PrintDebug("8259 PIC: Post ISR = %x (wr_Slave1)\n", state->slave_isr);
 	    } else {
 		PrintError("8259 PIC: Command not handled or invalid  (wr_Slave1)\n");
@@ -625,7 +640,48 @@ static int write_slave_port2(ushort_t port, void * src, uint_t length, struct vm
 
 
 
+static int read_elcr_port(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
+    struct pic_internal * state = (struct pic_internal*)dev->private_data;
+    
+    if (length != 1) {
+	PrintError("ELCR read of invalid length %d\n", length);
+	return -1;
+    }
 
+    if (port == ELCR1_PORT) {
+	// master
+	*(uint8_t *)dst = state->master_elcr;
+    } else if (port == ELCR2_PORT) {
+	*(uint8_t *)dst = state->slave_elcr;
+    } else {
+	PrintError("Invalid port %x\n", port);
+	return -1;
+    }
+
+    return length;
+}
+
+
+static int write_elcr_port(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
+    struct pic_internal * state = (struct pic_internal*)dev->private_data;
+    
+    if (length != 1) {
+	PrintError("ELCR read of invalid length %d\n", length);
+	return -1;
+    }
+
+    if (port == ELCR1_PORT) {
+	// master
+	state->master_elcr  = (*(uint8_t *)src) & state->master_elcr_mask;
+    } else if (port == ELCR2_PORT) {
+	state->slave_elcr  = (*(uint8_t *)src) & state->slave_elcr_mask;
+    } else {
+	PrintError("Invalid port %x\n", port);
+	return -1;
+    }
+
+    return length;
+}
 
 
 
@@ -636,6 +692,8 @@ static int pic_init(struct vm_device * dev) {
 
     state->master_irr = 0;
     state->master_isr = 0;
+    state->master_elcr = 0;
+    state->master_elcr_mask = 0xf8;
     state->master_icw1 = 0;
     state->master_icw2 = 0;
     state->master_icw3 = 0;
@@ -648,6 +706,8 @@ static int pic_init(struct vm_device * dev) {
 
     state->slave_irr = 0;
     state->slave_isr = 0;
+    state->slave_elcr = 0;
+    state->slave_elcr_mask = 0xde;
     state->slave_icw1 = 0;
     state->slave_icw2 = 0;
     state->slave_icw3 = 0;
@@ -662,6 +722,10 @@ static int pic_init(struct vm_device * dev) {
     v3_dev_hook_io(dev, MASTER_PORT2, &read_master_port2, &write_master_port2);
     v3_dev_hook_io(dev, SLAVE_PORT1, &read_slave_port1, &write_slave_port1);
     v3_dev_hook_io(dev, SLAVE_PORT2, &read_slave_port2, &write_slave_port2);
+
+
+    v3_dev_hook_io(dev, ELCR1_PORT, &read_elcr_port, &write_elcr_port);
+    v3_dev_hook_io(dev, ELCR2_PORT, &read_elcr_port, &write_elcr_port);
 
     return 0;
 }
