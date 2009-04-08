@@ -275,7 +275,11 @@ struct v3_vm_config {
     int enable_profiling;
     int enable_nested_paging;
 
-    int use_ramdisk;
+    int enable_pci;
+    
+    int use_ram_cd;
+    int use_ram_hd;
+
     void * ramdisk;
     int ramdisk_size;
 };

@@ -22,6 +22,12 @@
 #include <devices/ide.h>
 
 
+
+#ifndef DEBUG_IDE
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
+#endif
+
 struct hd_state {
     addr_t disk_image;
     uint32_t capacity; // in bytes

@@ -42,7 +42,8 @@
 #include <devices/io_apic.h>
 #include <devices/para_net.h>
 #include <devices/pci.h>
-
+#include <devices/i440fx.h>
+#include <devices/piix3.h>
 
 
 #include <palacios/vmm_host_events.h>
@@ -280,12 +281,15 @@ static int setup_memory_map(struct guest_info * info, struct v3_vm_config * conf
 
 
 static int setup_devices(struct guest_info * info, struct v3_vm_config * config_ptr) {
+
     struct vm_device * ide = NULL;
-    //struct vm_device * ram_cd = NULL;
-    struct vm_device * ram_hd = NULL;
-    struct vm_device * pci = v3_create_pci();
+    struct vm_device * ramdisk = NULL;
+    
+    struct vm_device * pci = NULL;
+    struct vm_device * northbridge = NULL;
+    struct vm_device * southbridge = NULL;
+
     struct vm_device * nvram = v3_create_nvram();
-    //struct vm_device * timer = v3_create_timer();
     struct vm_device * pic = v3_create_pic();
     struct vm_device * keyboard = v3_create_keyboard();
     struct vm_device * pit = v3_create_pit(); 
@@ -295,22 +299,33 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
     struct vm_device * ioapic = v3_create_io_apic(apic);
     struct vm_device * para_net = v3_create_para_net();
 
+
     //struct vm_device * serial = v3_create_serial();
     struct vm_device * generic = NULL;
 
-    int use_ramdisk = config_ptr->use_ramdisk;
+
     int use_generic = USE_GENERIC;
 
-    ide = v3_create_ide(pci);
+    if (config_ptr->enable_pci == 1) {
+	pci = v3_create_pci();
+	northbridge = v3_create_i440fx(pci);
+	southbridge = v3_create_piix3(pci);
+	ide = v3_create_ide(pci, southbridge);
+    } else {
+	ide = v3_create_ide(NULL, NULL);
+    }
 
-    if (use_ramdisk) {
-	PrintDebug("Creating Ramdisk\n");
-	//ram_cd = v3_create_ram_cd(ide, 0, 0, 
-	//		  (addr_t)(config_ptr->ramdisk), 
-	//		  config_ptr->ramdisk_size);
-	ram_hd = v3_create_ram_hd(ide, 0, 0, 
-				  (addr_t)(config_ptr->ramdisk), 
-				  config_ptr->ramdisk_size);
+
+    if (config_ptr->use_ram_cd == 1) {
+	PrintDebug("Creating Ram CD\n");
+	ramdisk = v3_create_ram_cd(ide, 0, 0, 
+				   (addr_t)(config_ptr->ramdisk), 
+				   config_ptr->ramdisk_size);
+    } else if (config_ptr->use_ram_hd == 1) {
+	PrintDebug("Creating Ram HD\n");
+	ramdisk = v3_create_ram_hd(ide, 0, 0, 
+				   (addr_t)(config_ptr->ramdisk), 
+				   config_ptr->ramdisk_size);
     }
     
     
@@ -319,10 +334,9 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
     }
 
 
-    v3_attach_device(info, pci);
+
 
     v3_attach_device(info, nvram);
-    //v3_attach_device(info, timer);
     v3_attach_device(info, pic);
     v3_attach_device(info, pit);
     v3_attach_device(info, keyboard);
@@ -335,11 +349,17 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
 
     v3_attach_device(info, para_net);
 
+    if (config_ptr->enable_pci == 1) {
+	v3_attach_device(info, pci);
+	v3_attach_device(info, northbridge);
+	v3_attach_device(info, southbridge);
+    }
+
     v3_attach_device(info, ide);
 
-    if (use_ramdisk) {
-	//		v3_attach_device(info, ram_cd);
-	v3_attach_device(info, ram_hd);
+
+    if (ramdisk != NULL) {
+	v3_attach_device(info, ramdisk);
     }
 
     if (use_generic) {
@@ -348,28 +368,6 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
     }
     
     PrintDebugDevMgr(info);
-
-
-    // give keyboard interrupts to vm
-    // no longer needed since we have a keyboard device
-    //hook_irq(&vm_info, 1);
-    
-#if 0
-    // give floppy controller to vm
-    v3_hook_passthrough_irq(info, 6);
-#endif
-    
-    
-    if (!use_ramdisk) {
-	PrintDebug("Hooking IDE IRQs\n");
-	
-	//primary ide
-	v3_hook_passthrough_irq(info, 14);
-	
-	// secondary ide
-	v3_hook_passthrough_irq(info, 15);    
-    }  
-    
 
     return 0;
 }
@@ -413,8 +411,8 @@ static struct vm_device *  configure_generic(struct guest_info * info, struct v3
 
     // Make the PCI bus invisible (at least it's configuration)
     
-    v3_generic_add_port_range(generic, 0xcf8, 0xcf8, GENERIC_PRINT_AND_IGNORE); // PCI Config Address
-    v3_generic_add_port_range(generic, 0xcfc, 0xcfc, GENERIC_PRINT_AND_IGNORE); // PCI Config Data
+    //v3_generic_add_port_range(generic, 0xcf8, 0xcf8, GENERIC_PRINT_AND_IGNORE); // PCI Config Address
+    //v3_generic_add_port_range(generic, 0xcfc, 0xcfc, GENERIC_PRINT_AND_IGNORE); // PCI Config Data
     
     
     

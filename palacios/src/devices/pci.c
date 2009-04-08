@@ -355,14 +355,14 @@ static inline int is_cfg_reg_writable(uchar_t header_type, int reg_num) {
 static int bar_update(struct pci_device * pci, int bar_num, uint32_t new_val) {
     struct v3_pci_bar * bar = &(pci->bar[bar_num]);
 
-    PrintError("Updating BAR Register  (Dev=%s) (bar=%d) (old_val=%x) (new_val=%x)\n", 
+    PrintDebug("Updating BAR Register  (Dev=%s) (bar=%d) (old_val=%x) (new_val=%x)\n", 
 	       pci->name, bar_num, bar->val, new_val);
 
     switch (bar->type) {
 	case PCI_BAR_IO: {
 	    int i = 0;
 
-		PrintError("\tRehooking %d IO ports from base %x to %x\n",
+		PrintDebug("\tRehooking %d IO ports from base %x to %x\n",
 			   bar->num_ports, PCI_IO_BASE(bar->val), PCI_IO_BASE(new_val));
 		
 	    // only do this if pci device is enabled....
@@ -379,7 +379,7 @@ static int bar_update(struct pci_device * pci, int bar_num, uint32_t new_val) {
 	    break;
 	}
 	case PCI_BAR_NONE: {
-	    PrintError("Reprogramming an unsupported BAR register (Dev=%s) (bar=%d) (val=%x)\n", 
+	    PrintDebug("Reprogramming an unsupported BAR register (Dev=%s) (bar=%d) (val=%x)\n", 
 		       pci->name, bar_num, new_val);
 	    break;
 	}

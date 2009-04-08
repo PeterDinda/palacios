@@ -63,7 +63,9 @@ int v3_handle_svm_halt(struct guest_info * info)
     
 	//v3_update_time(info, yield_stop - yield_start);
 	gap = yield_stop - yield_start;
-	v3_raise_irq(info, 0);
+	if (!v3_intr_pending(info)) {
+	    v3_raise_irq(info, 0);
+	}
 	
 	PrintDebug("GeekOS Yield Done (%d cycles)\n", gap);
 	

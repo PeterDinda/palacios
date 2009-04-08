@@ -78,7 +78,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
 #endif
 	if (!guest_ctrl->exit_int_info.valid) {
 	    info->intr_state.irq_pending = 0;
-	    // PrintDebug("Injecting Interrupt %d\n", info->intr_state.irq_vector);
+	    // PrintDebug("Injected Interrupt %d\n", info->intr_state.irq_vector);
 	    v3_injecting_intr(info, info->intr_state.irq_vector, EXTERNAL_IRQ);
 	} else {
 #ifdef DEBUG_INTERRUPTS
@@ -93,8 +93,6 @@ int v3_handle_svm_exit(struct guest_info * info) {
     // Disable printing io exits due to bochs debug messages
     //if (!((exit_code == VMEXIT_IOIO) && ((ushort_t)(guest_ctrl->exit_info1 >> 16) == 0x402))) {
     
-    
-    //  PrintDebug("SVM Returned: Exit Code: 0x%x \t\t(tsc=%ul)\n",exit_code, (uint_t)info->time_state.guest_tsc); 
   
     if ((0) && (exit_code <= VMEXIT_EXCP14)) {
 	uchar_t instr[32];
@@ -141,7 +139,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
     switch (exit_code) {
 	case VMEXIT_IOIO: {
 	    struct svm_io_info * io_info = (struct svm_io_info *)&(guest_ctrl->exit_info1);
-		
+
 	    if (io_info->type == 0) {
 		if (io_info->str) {
 

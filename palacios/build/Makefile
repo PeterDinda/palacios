@@ -332,6 +332,8 @@ DEVICES_OBJS := \
 	devices/ide.o \
 	devices/ram_cd.o \
 	devices/ram_hd.o \
+	devices/i440fx.o \
+	devices/piix3.o \
 
 #	devices/cdrom.o \
 #	devices/ramdisk.o \
