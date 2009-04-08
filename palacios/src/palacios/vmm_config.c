@@ -350,11 +350,15 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
     v3_attach_device(info, para_net);
 
     if (config_ptr->enable_pci == 1) {
+	PrintDebug("Attaching PCI\n");
 	v3_attach_device(info, pci);
+	PrintDebug("Attaching Northbridge\n");
 	v3_attach_device(info, northbridge);
+	PrintDebug("Attaching Southbridge\n");
 	v3_attach_device(info, southbridge);
     }
 
+    PrintDebug("Attaching IDE\n");
     v3_attach_device(info, ide);
 
 

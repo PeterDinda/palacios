@@ -67,6 +67,7 @@ struct v3_pci_bar {
 #define PCI_MEM32_BASE(bar_val) (bar_val & 0xfffffff0)
 
 struct pci_device {
+
     union {
 	uint8_t config_space[256];
 
@@ -76,14 +77,20 @@ struct pci_device {
 	} __attribute__((packed));
     } __attribute__((packed));
 
-
-
     struct v3_pci_bar bar[6];
 
-    uint_t bus_num;
     struct rb_node dev_tree_node;
 
-    int dev_num;
+    uint_t bus_num;
+
+    union {
+	uint8_t devfn;
+	struct {
+	    uint8_t fn_num       : 3;
+	    uint8_t dev_num      : 5;
+	} __attribute__((packed));
+    } __attribute__((packed));
+
     char name[64];
 
     struct vm_device * vm_dev;  //the corresponding virtual device
@@ -92,7 +99,6 @@ struct pci_device {
 
     int (*cmd_update)(struct pci_device *pci_dev, uchar_t io_enabled, uchar_t mem_enabled);
     int (*ext_rom_update)(struct pci_device *pci_dev);
-
 
     int ext_rom_update_flag;
     int bar_update_flag;
@@ -107,9 +113,10 @@ struct vm_device * v3_create_pci();
 struct pci_device * 
 v3_pci_register_device(struct vm_device * pci,
 		       pci_device_type_t dev_type, 
-		       uint_t bus_num,
-		       const char * name,
+		       int bus_num,
 		       int dev_num,
+		       int fn_num,
+		       const char * name,
 		       struct v3_pci_bar * bars,
 		       int (*config_update)(struct pci_device * pci_dev, uint_t reg_num, int length),
 		       int (*cmd_update)(struct pci_device *pci_dev, uchar_t io_enabled, uchar_t mem_enabled),

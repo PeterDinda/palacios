@@ -21,6 +21,7 @@
 #include <palacios/vm_guest_mem.h>
 #include <devices/ide.h>
 #include <devices/pci.h>
+#include <devices/southbridge.h>
 #include "ide-types.h"
 #include "atapi-types.h"
 
@@ -208,8 +209,6 @@ struct ide_channel {
 
     int irq; // this is temporary until we add PCI support
 
-    struct pci_device * pci_dev;
-
     // Control Registers
     struct ide_ctrl_reg ctrl_reg; // [write] 0x3f6,0x376
 
@@ -223,9 +222,11 @@ struct ide_channel {
 
 struct ide_internal {
     struct ide_channel channels[2];
-    struct vm_device * pci;
-    struct vm_device * southbridge;
-    struct pci_device * busmaster_pci;
+
+    struct v3_southbridge * southbridge;
+    struct vm_device * pci_bus;
+
+    struct pci_device * ide_pci;
 };
 
 
@@ -421,39 +422,6 @@ static int dma_write(struct vm_device * dev, struct ide_channel * channel) {
 }
 
 
-/* 
- * This is an ugly ugly ugly way to differentiate between the first and second DMA channels 
- */
-
-static int write_dma_port(ushort_t port_offset, void * src, uint_t length, struct vm_device * dev, struct ide_channel * channel);
-static int read_dma_port(ushort_t port_offset, void * dst, uint_t length, struct vm_device * dev, struct ide_channel * channel);
-
-
-static int write_pri_dma_port(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
-    struct ide_internal * ide = (struct ide_internal *)(dev->private_data);
-    PrintDebug("IDE: Writing PRI DMA Port %x (%s) (val=%x)\n", port, dma_port_to_str(port & 0x7), *(uint32_t *)src);
-    return write_dma_port(port & 0x7, src, length, dev, &(ide->channels[0]));
-}
-
-static int write_sec_dma_port(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
-    struct ide_internal * ide = (struct ide_internal *)(dev->private_data);
-    PrintDebug("IDE: Writing SEC DMA Port %x (%s) (val=%x)\n", port, dma_port_to_str(port & 0x7), *(uint32_t *)src);
-    return write_dma_port(port & 0x7, src, length, dev, &(ide->channels[1]));
-}
-
-
-static int read_pri_dma_port(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
-    struct ide_internal * ide = (struct ide_internal *)(dev->private_data);
-    PrintDebug("IDE: Reading PRI DMA Port %x (%s)\n", port, dma_port_to_str(port & 0x7));
-    return read_dma_port(port & 0x7, dst, length, dev, &(ide->channels[0]));
-}
-
-static int read_sec_dma_port(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
-    struct ide_internal * ide = (struct ide_internal *)(dev->private_data);
-    PrintDebug("IDE: Reading SEC DMA Port %x (%s)\n", port, dma_port_to_str(port & 0x7));
-    return read_dma_port(port & 0x7, dst, length, dev, &(ide->channels[1]));
-}
-
 
 #define DMA_CMD_PORT      0x00
 #define DMA_STATUS_PORT   0x02
@@ -462,9 +430,13 @@ static int read_sec_dma_port(ushort_t port, void * dst, uint_t length, struct vm
 #define DMA_PRD_PORT2     0x06
 #define DMA_PRD_PORT3     0x07
 
+#define DMA_CHANNEL_FLAG  0x08
 
-static int write_dma_port(ushort_t port_offset, void * src, uint_t length, 
-			  struct vm_device * dev, struct ide_channel * channel) {
+static int write_dma_port(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
+    struct ide_internal * ide = (struct ide_internal *)(dev->private_data);
+    uint16_t port_offset = port & (DMA_CHANNEL_FLAG - 1);
+    uint_t channel_flag = (port & DMA_CHANNEL_FLAG) >> 3;
+    struct ide_channel * channel = &(ide->channels[channel_flag]);
 
     switch (port_offset) {
 	case DMA_CMD_PORT:
@@ -533,8 +505,11 @@ static int write_dma_port(ushort_t port_offset, void * src, uint_t length,
 }
 
 
-static int read_dma_port(ushort_t port_offset, void * dst, uint_t length, 
-			 struct vm_device * dev, struct ide_channel * channel) {
+static int read_dma_port(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
+    struct ide_internal * ide = (struct ide_internal *)(dev->private_data);
+    uint16_t port_offset = port & (DMA_CHANNEL_FLAG - 1);
+    uint_t channel_flag = (port & DMA_CHANNEL_FLAG) >> 3;
+    struct ide_channel * channel = &(ide->channels[channel_flag]);
 
     switch (port_offset) {
 	case DMA_CMD_PORT:
@@ -1165,72 +1140,19 @@ static int pci_config_update(struct pci_device * pci_dev, uint_t reg_num, int le
 
 static int init_ide_state(struct vm_device * dev) {
     struct ide_internal * ide = (struct ide_internal *)(dev->private_data);
-    int i, j;
-
+    int i;
 
     /* 
-       Check if the PIIX 3 actually represents both IDE channels in a single PCI entry */
+     * Check if the PIIX 3 actually represents both IDE channels in a single PCI entry 
+     */
 
     for (i = 0; i < 1; i++) {
 	init_channel(&(ide->channels[i]));
 
 	// JRL: this is a terrible hack...
 	ide->channels[i].irq = PRI_DEFAULT_IRQ + i;
-
-
-	if (ide->pci) {
-	    struct v3_pci_bar bars[6];
-	    struct pci_device * pci_dev = NULL;
-
-	    for (j = 0; j < 6; j++) {
-		bars[j].type = PCI_BAR_NONE;
-	    }
-
-
-	    bars[4].type = PCI_BAR_IO;
-	    bars[4].default_base_port = PRI_DEFAULT_DMA_PORT + (i * 0x8);
-	    bars[4].num_ports = 8;
-	    
-	    if (i == 0) {
-		bars[4].io_read = read_pri_dma_port;
-		bars[4].io_write = write_pri_dma_port;
-	    } else {
-		bars[4].io_read = read_sec_dma_port;
-		bars[4].io_write = write_sec_dma_port;
-	    }
-
-	    pci_dev = v3_pci_register_device(ide->pci, PCI_STD_DEVICE, 0, "V3_IDE", -1, bars,
-					     pci_config_update, NULL, NULL, dev);
-
-	    if (pci_dev == NULL) {
-		PrintError("Failed to register IDE BUS %d with PCI\n", i); 
-		return -1;
-	    }
-
-	    ide->channels[i].pci_dev = pci_dev;
-
-	    /* This is for CMD646 devices 
-	       pci_dev->config_header.vendor_id = 0x1095;
-	       pci_dev->config_header.device_id = 0x0646;
-	       pci_dev->config_header.revision = 0x8f07;
-	    */
-	    pci_dev->config_header.vendor_id = 0x8086;
-	    pci_dev->config_header.device_id = 0x7010;
-	    pci_dev->config_header.revision = 0x8000;
-	    
-	    pci_dev->config_header.subclass = 0x01;
-	    pci_dev->config_header.class = 0x01;
-	    
-	    
-	    pci_dev->config_header.command = 0;
-	    pci_dev->config_header.status = 0x0280;
-	    
-	    //	    pci_dev->config_header.intr_line = PRI_DEFAULT_IRQ + i;
-	    //	    pci_dev->config_header.intr_pin = 1;
-	}
-	
-
     }
+
 
     return 0;
 }
@@ -1238,7 +1160,7 @@ static int init_ide_state(struct vm_device * dev) {
 
 
 static int init_ide(struct vm_device * dev) {
-    //struct ide_internal * ide = (struct ide_internal *)(dev->private_data);
+    struct ide_internal * ide = (struct ide_internal *)(dev->private_data);
 
     PrintDebug("IDE: Initializing IDE\n");
 
@@ -1296,6 +1218,53 @@ static int init_ide(struct vm_device * dev) {
     v3_dev_hook_io(dev, PRI_ADDR_REG_PORT, 
 		   &read_port_std, &write_port_std);
 
+
+
+
+    if (ide->pci_bus) {
+	struct v3_pci_bar bars[6];
+	struct v3_southbridge * southbridge = (struct v3_southbridge *)(ide->southbridge);
+	struct pci_device * sb_pci = (struct pci_device *)(southbridge->southbridge_pci);
+	struct pci_device * pci_dev = NULL;
+	int i;
+
+	for (i = 0; i < 6; i++) {
+	    bars[i].type = PCI_BAR_NONE;
+	}
+
+	bars[4].type = PCI_BAR_IO;
+	bars[4].default_base_port = PRI_DEFAULT_DMA_PORT;
+	bars[4].num_ports = 16;
+
+	bars[4].io_read = read_dma_port;
+	bars[4].io_write = write_dma_port;
+	
+	pci_dev = v3_pci_register_device(ide->pci_bus, PCI_STD_DEVICE, 0, sb_pci->dev_num, 1, 
+					 "PIIX3_IDE", bars,
+					 pci_config_update, NULL, NULL, dev);
+
+	if (pci_dev == NULL) {
+	    PrintError("Failed to register IDE BUS %d with PCI\n", i); 
+	    return -1;
+	}
+
+	/* This is for CMD646 devices 
+	   pci_dev->config_header.vendor_id = 0x1095;
+	   pci_dev->config_header.device_id = 0x0646;
+	   pci_dev->config_header.revision = 0x8f07;
+	*/
+
+	pci_dev->config_header.vendor_id = 0x8086;
+	pci_dev->config_header.device_id = 0x7010;
+	pci_dev->config_header.revision = 0x8000;
+
+	pci_dev->config_header.subclass = 0x01;
+	pci_dev->config_header.class = 0x01;
+
+	pci_dev->config_header.command = 0;
+	pci_dev->config_header.status = 0x0280;
+    }
+
     return 0;
 }
 
@@ -1316,12 +1285,12 @@ static struct vm_device_ops dev_ops = {
 };
 
 
-struct vm_device *  v3_create_ide(struct vm_device * pci, struct vm_device * southbridge) {
+struct vm_device *  v3_create_ide(struct vm_device * pci_bus, struct vm_device * southbridge_dev) {
     struct ide_internal * ide  = (struct ide_internal *)V3_Malloc(sizeof(struct ide_internal));  
     struct vm_device * device = v3_create_device("IDE", &dev_ops, ide);
 
-    ide->pci = pci;
-    ide->southbridge = southbridge;
+    ide->pci_bus = pci_bus;
+    ide->southbridge = (struct v3_southbridge *)(southbridge_dev->private_data);
 
     PrintDebug("IDE: Creating IDE bus x 2\n");
 

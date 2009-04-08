@@ -19,9 +19,10 @@
 
 #include <palacios/vmm.h>
 #include <devices/i440fx.h>
+#include <devices/pci.h>
 
 struct i440_state {
-    int foo;
+    struct vm_device * pci;
 };
 
 
@@ -36,25 +37,38 @@ static int io_write(ushort_t port, void * src, uint_t length, struct vm_device *
 }
 
 
+
 static int i440_init(struct vm_device * dev) {
-    // struct i440_state * state = (struct i440_state *)(dev->private_data);
+    struct i440_state * state = (struct i440_state *)(dev->private_data);
+    struct pci_device * pci_dev = NULL;
+    struct v3_pci_bar bars[6];
+    int i;
 
-   
-    v3_dev_hook_io(dev, 0x00b2, 
-		   &io_read, &io_write);
-    v3_dev_hook_io(dev, 0x00b3, 
-		   &io_read, &io_write);
+    for (i = 0; i < 4; i++) {
+	v3_dev_hook_io(dev, 0x0cf8 + i,
+		       &io_read, &io_write);
+	v3_dev_hook_io(dev, 0x0cfc + i,
+		       &io_read, &io_write);
+    }
 
+    for (i = 0; i < 6; i++) {
+	bars[i].type = PCI_BAR_NONE;
+    }    
 
-    v3_dev_hook_io(dev, 0x0cf8, 
-		   &io_read, &io_write);
+    pci_dev = v3_pci_register_device(state->pci, PCI_STD_DEVICE, 0, 0, 0, "i440FX", bars,
+				     NULL, NULL, NULL, dev);
 
+    if (!pci_dev) {
+ 	return -1;
+    }
 
+    pci_dev->config_header.vendor_id = 0x8086;
+    pci_dev->config_header.device_id = 0x1237;
+    pci_dev->config_header.revision = 0x0002;
+    pci_dev->config_header.subclass = 0x00; //  SubClass: host2pci
+    pci_dev->config_header.class = 0x06;    // Class: PCI bridge
 
-    v3_dev_hook_io(dev, 0x0cf9, 
-		   &io_read, &io_write);
-
-
+    pci_dev->config_space[0x72] = 0x02; // SMRAM (?)
 
     return 0;
 }
@@ -75,14 +89,13 @@ static struct vm_device_ops dev_ops = {
 
 
 struct vm_device * v3_create_i440fx(struct vm_device * pci) {
-
     struct i440_state * state = NULL;
 
-
     state = (struct i440_state *)V3_Malloc(sizeof(struct i440_state));
+
+    state->pci = pci;
 	
     struct vm_device * i440_dev = v3_create_device("i440FX", &dev_ops, state);
 
     return i440_dev;
-
 }

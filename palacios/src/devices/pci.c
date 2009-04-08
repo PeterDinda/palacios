@@ -154,9 +154,9 @@ struct pci_device * __add_device_to_bus(struct pci_bus * bus, struct pci_device 
     parent = *p;
     tmp_dev = rb_entry(parent, struct pci_device, dev_tree_node);
 
-    if (dev->dev_num < tmp_dev->dev_num) {
+    if (dev->devfn < tmp_dev->devfn) {
       p = &(*p)->rb_left;
-    } else if (dev->dev_num > tmp_dev->dev_num) {
+    } else if (dev->devfn > tmp_dev->devfn) {
       p = &(*p)->rb_right;
     } else {
       return tmp_dev;
@@ -186,16 +186,17 @@ struct pci_device * add_device_to_bus(struct pci_bus * bus, struct pci_device * 
 }
 
 
-static struct pci_device * get_device(struct pci_bus * bus, int dev_num) {
+static struct pci_device * get_device(struct pci_bus * bus, uint8_t dev_num, uint8_t fn_num) {
     struct rb_node * n = bus->devices.rb_node;
     struct pci_device * dev = NULL;
+    uint8_t devfn = ((dev_num & 0x1f) << 3) | (fn_num & 0x7);
 
     while (n) {
 	dev = rb_entry(n, struct pci_device, dev_tree_node);
 	
-	if (dev_num < dev->dev_num) {
+	if (devfn < dev->devfn) {
 	    n = n->rb_left;
-	} else if (dev_num > dev->dev_num) {
+	} else if (devfn > dev->devfn) {
 	    n = n->rb_right;
 	} else {
 	    return dev;
@@ -301,7 +302,7 @@ static int data_port_read(ushort_t port, void * dst, uint_t length, struct vm_de
 	       reg_num, reg_num, 
 	       pci_state->addr_reg.val);
 
-    pci_dev = get_device(&(pci_state->bus_list[0]), pci_state->addr_reg.dev_num);
+    pci_dev = get_device(&(pci_state->bus_list[0]), pci_state->addr_reg.dev_num, pci_state->addr_reg.fn_num);
     
     if (pci_dev == NULL) {
 	for (i = 0; i < length; i++) {
@@ -323,6 +324,24 @@ static int data_port_read(ushort_t port, void * dst, uint_t length, struct vm_de
 
 static inline int is_cfg_reg_writable(uchar_t header_type, int reg_num) {
     if (header_type == 0x00) {
+	switch (reg_num) {
+	    case 0x00:
+	    case 0x01:
+	    case 0x02:
+	    case 0x03:
+	    case 0x08:
+	    case 0x09:
+	    case 0x0a:
+	    case 0x0b:
+	    case 0x0e:
+	    case 0x3d:
+		return 0;
+                           
+           default:
+               return 1;
+ 
+	}
+    } else if (header_type == 0x80) {
 	switch (reg_num) {
 	    case 0x00:
 	    case 0x01:
@@ -411,7 +430,7 @@ static int data_port_write(ushort_t port, void * src, uint_t length, struct vm_d
 	       *(uint32_t *)src, length);
 
 
-    pci_dev = get_device(&(pci_state->bus_list[0]), pci_state->addr_reg.dev_num);
+    pci_dev = get_device(&(pci_state->bus_list[0]), pci_state->addr_reg.dev_num, pci_state->addr_reg.fn_num);
     
     if (pci_dev == NULL) {
 	PrintError("Writing configuration space for non-present device (dev_num=%d)\n", 
@@ -422,8 +441,14 @@ static int data_port_write(ushort_t port, void * src, uint_t length, struct vm_d
 
     for (i = 0; i < length; i++) {
 	uint_t cur_reg = reg_num + i;
+	int writable = is_cfg_reg_writable(pci_dev->config_header.header_type, cur_reg);
+	
+	if (writable == -1) {
+	    PrintError("Invalid PCI configuration space\n");
+	    return -1;
+	}
 
-	if (is_cfg_reg_writable(pci_dev->config_header.header_type, cur_reg)) {
+	if (writable) {
 	    pci_dev->config_space[cur_reg] = *(uint8_t *)((uint8_t *)src + i);
 
 	    if ((cur_reg >= 0x10) && (cur_reg < 0x28)) {
@@ -528,36 +553,6 @@ static int pci_deinit_device(struct vm_device * dev) {
 
 
 
-
-static int init_i440fx(struct vm_device * dev) {
-    struct pci_device * pci_dev = NULL;
-    struct v3_pci_bar bars[6];
-    int i;
-    
-    for (i = 0; i < 6; i++) {
-	bars[i].type = PCI_BAR_NONE;
-    }    
-
-    pci_dev = v3_pci_register_device(dev, PCI_STD_DEVICE, 0, "i440FX", 0, bars,
-				     NULL, NULL, NULL, NULL);
-    
-    if (!pci_dev) {
- 	return -1;
-    }
-    
-    pci_dev->config_header.vendor_id = 0x8086;
-    pci_dev->config_header.device_id = 0x1237;
-    pci_dev->config_header.revision = 0x0002;
-    pci_dev->config_header.subclass = 0x00; //  SubClass: host2pci
-    pci_dev->config_header.class = 0x06;    // Class: PCI bridge
-
-    pci_dev->bus_num = 0;
-    return 0;
-}
-
-
-
-
 static void init_pci_busses(struct pci_internal * pci_state) {
     int i;
 
@@ -582,11 +577,6 @@ static int pci_init_device(struct vm_device * dev) {
     pci_state->addr_reg.val = 0; 
 
     init_pci_busses(pci_state);
-
-    if (init_i440fx(dev) == -1) {
-	PrintError("Could not intialize i440fx\n");
-	return -1;
-    }
     
     PrintDebug("Sizeof config header=%d\n", (int)sizeof(struct pci_config_header));
     
@@ -693,9 +683,10 @@ static inline int init_bars(struct pci_device * pci_dev) {
 // if dev_num == -1, auto assign 
 struct pci_device * v3_pci_register_device(struct vm_device * pci,
 					   pci_device_type_t dev_type, 
-					   uint_t bus_num,
-					   const char * name,
+					   int bus_num,
 					   int dev_num,
+					   int fn_num,
+					   const char * name,
 					   struct v3_pci_bar * bars,
 					   int (*config_update)(struct pci_device * pci_dev, uint_t reg_num, int length),
 					   int (*cmd_update)(struct pci_device *pci_dev, uchar_t io_enabled, uchar_t mem_enabled),
@@ -719,7 +710,7 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
 	}
     }
     
-    if (get_device(bus, dev_num) != NULL) {
+    if (get_device(bus, dev_num, fn_num) != NULL) {
 	PrintError("PCI Device already registered at slot %d on bus %d\n", 
 		   dev_num, bus->bus_num);
 	return NULL;
@@ -729,15 +720,19 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
     pci_dev = (struct pci_device *)V3_Malloc(sizeof(struct pci_device));
 
     if (pci_dev == NULL) {
+	PrintError("Could not allocate pci device\n");
 	return NULL;
     }
 
     memset(pci_dev, 0, sizeof(struct pci_device));
-    
+
     
     switch (dev_type) {
 	case PCI_STD_DEVICE:
 	    pci_dev->config_header.header_type = 0x00;
+	    break;
+	case PCI_MULTIFUNCTION:
+	    pci_dev->config_header.header_type = 0x80;
 	    break;
 	default:
 	    PrintError("Unhandled PCI Device Type: %d\n", dev_type);
@@ -746,6 +741,7 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
 
     pci_dev->bus_num = bus_num;
     pci_dev->dev_num = dev_num;
+    pci_dev->fn_num = fn_num;
 
     strncpy(pci_dev->name, name, sizeof(pci_dev->name));
     pci_dev->vm_dev = dev;
@@ -756,9 +752,8 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
     pci_dev->ext_rom_update = ext_rom_update;
 
 
-
     //copy bars
-    for (i = 0; i < 6; i ++){
+    for (i = 0; i < 6; i ++) {
 	pci_dev->bar[i].type = bars[i].type;
 
 	if (pci_dev->bar[i].type == PCI_BAR_IO) {
