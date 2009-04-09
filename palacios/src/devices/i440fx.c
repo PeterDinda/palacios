@@ -64,7 +64,7 @@ static int i440_init(struct vm_device * dev) {
 
     pci_dev->config_header.vendor_id = 0x8086;
     pci_dev->config_header.device_id = 0x1237;
-    pci_dev->config_header.revision = 0x0002;
+    pci_dev->config_header.revision = 0x02;
     pci_dev->config_header.subclass = 0x00; //  SubClass: host2pci
     pci_dev->config_header.class = 0x06;    // Class: PCI bridge
 

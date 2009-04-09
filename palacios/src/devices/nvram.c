@@ -23,6 +23,8 @@
 #include <palacios/vmm_types.h>
 
 
+#include <devices/ide.h>
+
 #ifndef DEBUG_NVRAM
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
@@ -61,6 +63,7 @@ typedef enum {NVRAM_READY, NVRAM_REG_POSTED} nvram_state_t;
 #define NVRAM_REG_SHUTDOWN_STATUS         0x0f
 
 #define NVRAM_IBM_HD_DATA                 0x12
+#define NVRAM_IDE_TRANSLATION             0x39
 
 #define NVRAM_REG_FLOPPY_TYPE             0x10
 #define NVRAM_REG_EQUIPMENT_BYTE          0x14
@@ -92,6 +95,9 @@ struct nvram_internal {
     nvram_state_t dev_state;
     uchar_t       thereg;
     uchar_t       mem_state[NVRAM_REG_MAX];
+    uchar_t       reg_map[NVRAM_REG_MAX / 8];
+
+    struct vm_device * ide;
 
     uint_t        us;   //microseconds - for clock update - zeroed every second
     uint_t        pus;  //microseconds - for periodic interrupt - cleared every period
@@ -136,6 +142,38 @@ struct bcd_num {
     uchar_t top : 4;
 };
 
+
+
+static void set_reg_num(struct nvram_internal * nvram, uint8_t reg_num) {
+    int major = (reg_num / 8);
+    int minor = reg_num % 8;
+
+    nvram->reg_map[major] |= (0x1 << minor);
+}
+
+static int is_reg_set(struct nvram_internal * nvram, uint8_t reg_num) {
+    int major = (reg_num / 8);
+    int minor = reg_num % 8;
+    
+    return (nvram->reg_map[major] & (0x1 << minor)) ? 1 : 0;
+}
+
+
+static void set_memory(struct nvram_internal * nvram, uint8_t reg, uint8_t val) {
+    set_reg_num(nvram, reg);
+    nvram->mem_state[reg] = val;
+}
+
+static int get_memory(struct nvram_internal * nvram, uint8_t reg, uint8_t * val) {
+
+    if (!is_reg_set(nvram, reg)) {
+	*val = 0;
+	return -1;
+    }
+
+    *val = nvram->mem_state[reg];
+    return 0;
+}
 
 
 static uchar_t add_to(uchar_t * left, uchar_t * right, uchar_t bcd) {
@@ -434,28 +472,32 @@ static void set_memory_size(struct nvram_internal * nvram, addr_t bytes) {
     // 3. Big Mem: 0-4G in 64K
 
     if (bytes > 640 * 1024) {
-	nvram->mem_state[NVRAM_REG_BASE_MEMORY_HIGH] = 0x02;
-	nvram->mem_state[NVRAM_REG_BASE_MEMORY_LOW] = 0x80;
+	set_memory(nvram, NVRAM_REG_BASE_MEMORY_HIGH, 0x02);
+	set_memory(nvram, NVRAM_REG_BASE_MEMORY_LOW, 0x80);
+
+	//	nvram->mem_state[NVRAM_REG_BASE_MEMORY_HIGH] = 0x02;
+	//	nvram->mem_state[NVRAM_REG_BASE_MEMORY_LOW] = 0x80;
     } else {
 	uint16_t memk = bytes * 1024;
-	nvram->mem_state[NVRAM_REG_BASE_MEMORY_HIGH] = (memk >> 8) & 0x00ff;
-	nvram->mem_state[NVRAM_REG_BASE_MEMORY_LOW] = memk & 0x00ff;
+	set_memory(nvram, NVRAM_REG_BASE_MEMORY_HIGH, (memk >> 8) & 0x00ff);
+	set_memory(nvram, NVRAM_REG_BASE_MEMORY_LOW, memk & 0x00ff);
 
 	return;
     }
 
     if (bytes > (16 * 1024 * 1024)) {
 	// Set extended memory to 15 MB
-	nvram->mem_state[NVRAM_REG_EXT_MEMORY_HIGH] = 0x3C;
-	nvram->mem_state[NVRAM_REG_EXT_MEMORY_LOW] = 0x00;
-	nvram->mem_state[NVRAM_REG_EXT_MEMORY_2ND_HIGH]= 0x3C;
-	nvram->mem_state[NVRAM_REG_EXT_MEMORY_2ND_LOW]= 0x00;
+	set_memory(nvram, NVRAM_REG_EXT_MEMORY_HIGH, 0x3C);
+	set_memory(nvram, NVRAM_REG_EXT_MEMORY_LOW, 0x00);
+	set_memory(nvram, NVRAM_REG_EXT_MEMORY_2ND_HIGH, 0x3C);
+	set_memory(nvram, NVRAM_REG_EXT_MEMORY_2ND_LOW, 0x00);
     } else {
 	uint16_t memk = bytes * 1024;
-	nvram->mem_state[NVRAM_REG_EXT_MEMORY_HIGH] = (memk >> 8) & 0x00ff;
-	nvram->mem_state[NVRAM_REG_EXT_MEMORY_LOW] = memk & 0x00ff;
-	nvram->mem_state[NVRAM_REG_EXT_MEMORY_2ND_HIGH]= (memk >> 8) & 0x00ff;
-	nvram->mem_state[NVRAM_REG_EXT_MEMORY_2ND_LOW]= memk & 0x00ff;
+
+	set_memory(nvram, NVRAM_REG_EXT_MEMORY_HIGH, (memk >> 8) & 0x00ff);
+	set_memory(nvram, NVRAM_REG_EXT_MEMORY_LOW, memk & 0x00ff);
+	set_memory(nvram, NVRAM_REG_EXT_MEMORY_2ND_HIGH, (memk >> 8) & 0x00ff);
+	set_memory(nvram, NVRAM_REG_EXT_MEMORY_2ND_LOW, memk & 0x00ff);
 
 	return;
     }
@@ -463,88 +505,166 @@ static void set_memory_size(struct nvram_internal * nvram, addr_t bytes) {
     {
 	// Set the extended memory beyond 16 MB in 64k chunks
 	uint16_t mem_chunks = (bytes - (1024 * 1024 * 16)) / (1024 * 64);
-	nvram->mem_state[NVRAM_REG_AMI_BIG_MEMORY_HIGH] = (mem_chunks >> 8) & 0x00ff;
-	nvram->mem_state[NVRAM_REG_AMI_BIG_MEMORY_LOW] = mem_chunks & 0x00ff;
+
+	set_memory(nvram, NVRAM_REG_AMI_BIG_MEMORY_HIGH, (mem_chunks >> 8) & 0x00ff);
+	set_memory(nvram, NVRAM_REG_AMI_BIG_MEMORY_LOW, mem_chunks & 0x00ff);
     }
 
     return;
 }
 
+
+
+static void init_harddrives(struct nvram_internal * nvram) {
+    uint8_t hd_data = 0;
+    uint32_t cyls;
+    uint32_t sects;
+    uint32_t heads;
+    int i = 0;
+    int info_base_reg = 0x1b;
+    int type_reg = 0x19;
+
+    // 0x19 == first drive type
+    // 0x1a == second drive type
+
+    // 0x1b == first drive geometry base
+    // 0x24 == second drive geometry base
+
+    // It looks like the BIOS only tracks the disks on the first channel at 0x12?
+    for (i = 0; i < 2; i++) {
+	if (v3_ide_get_geometry(nvram->ide, 0, i, &cyls, &heads, &sects) == 0) {
+
+	    int info_reg = info_base_reg + (i * 9);
+
+	    set_memory(nvram, type_reg + i, 0x2f);
+
+	    set_memory(nvram, info_reg, cyls & 0xff);
+	    set_memory(nvram, info_reg + 1, (cyls >> 8) & 0xff);
+	    set_memory(nvram, info_reg + 2, heads & 0xff);
+
+	    // Write precomp cylinder (1 and 2)
+	    set_memory(nvram, info_reg + 3, 0xff);
+	    set_memory(nvram, info_reg + 4, 0xff);
+
+	    // harddrive control byte 
+	    set_memory(nvram, info_reg + 5, 0xc0 | ((heads > 8) << 3));
+
+	    set_memory(nvram, info_reg + 6, cyls & 0xff);
+	    set_memory(nvram, info_reg + 7, (cyls >> 8) & 0xff);
+
+	    set_memory(nvram, info_reg + 8, sects & 0xff);
+	    
+	    hd_data |= (0xf0 >> (i * 4));
+	}
+    }
+
+    set_memory(nvram, NVRAM_IBM_HD_DATA, hd_data);
+    
+    {
+#define TRANSLATE_NONE  0x0
+#define TRANSLATE_LBA   0x1
+#define TRANSLATE_LARGE 0x2
+#define TRANSLATE_RECHS 0x3
+	// We're going to do LBA translation for everything...
+	uint8_t trans = 0;
+
+	for (i = 0; i < 4; i++) {
+	    int chan_num = i / 2;
+	    int drive_num = i % 2;
+	    uint32_t tmp[3];
+
+	    if (v3_ide_get_geometry(nvram->ide, chan_num, drive_num, &tmp[0], &tmp[1], &tmp[2]) == 0) {
+		trans |= TRANSLATE_LBA << (i * 2);
+	    }
+	}
+
+	set_memory(nvram, NVRAM_IDE_TRANSLATION, trans);
+    }
+}
+
 static int init_nvram_state(struct vm_device * dev) {
     struct guest_info * info = dev->vm;
-    struct nvram_internal * nvram_state = (struct nvram_internal *)dev->private_data;
+    struct nvram_internal * nvram = (struct nvram_internal *)dev->private_data;
   
-    memset(nvram_state->mem_state, 0, NVRAM_REG_MAX);
+    memset(nvram->mem_state, 0, NVRAM_REG_MAX);
+    memset(nvram->reg_map, 0, NVRAM_REG_MAX / 8);
 
     //
     // 2 1.44 MB floppy drives
     //
 #if 1
-    nvram_state->mem_state[NVRAM_REG_FLOPPY_TYPE] = 0x44;
+    set_memory(nvram, NVRAM_REG_FLOPPY_TYPE, 0x44);
 #else
-    nvram_state->mem_state[NVRAM_REG_FLOPPY_TYPE] = 0x00;
+    set_memory(nvram, NVRAM_REG_FLOPPY_TYPE, 0x00);
 #endif
 
     //
     // For old boot sequence style, do floppy first
     //
-    nvram_state->mem_state[NVRAM_REG_BOOTSEQ_OLD] = 0x10;
+    set_memory(nvram, NVRAM_REG_BOOTSEQ_OLD, 0x10);
 
 #if 0
     // For new boot sequence style, do floppy, cd, then hd
-    nvram_state->mem_state[NVRAM_REG_BOOTSEQ_NEW_FIRST] = 0x31;
-    nvram_state->mem_state[NVRAM_REG_BOOTSEQ_NEW_SECOND] = 0x20;
+    set_memory(nvram, NVRAM_REG_BOOTSEQ_NEW_FIRST, 0x31);
+    set_memory(nvram, NVRAM_REG_BOOTSEQ_NEW_SECOND, 0x20);
 #endif
 
     // For new boot sequence style, do cd, hd, floppy
-    nvram_state->mem_state[NVRAM_REG_BOOTSEQ_NEW_FIRST] = 0x23;
-    nvram_state->mem_state[NVRAM_REG_BOOTSEQ_NEW_SECOND] = 0x10;
+    set_memory(nvram, NVRAM_REG_BOOTSEQ_NEW_FIRST, 0x23);
+    set_memory(nvram, NVRAM_REG_BOOTSEQ_NEW_SECOND, 0x10);
   
   
     // Set equipment byte to note 2 floppies, vga display, keyboard,math,floppy
-    nvram_state->mem_state[NVRAM_REG_EQUIPMENT_BYTE] = 0x4f;
-    // nvram_state->mem_state[NVRAM_REG_EQUIPMENT_BYTE] = 0xf;
+    set_memory(nvram, NVRAM_REG_EQUIPMENT_BYTE, 0x4f);
+    // set_memory(nvram, NVRAM_REG_EQUIPMENT_BYTE, 0xf);
   
-
-    // This is the harddisk type.... Set accordingly...
-    nvram_state->mem_state[NVRAM_IBM_HD_DATA] = 0x20;
 
     // Set the shutdown status gently
     // soft reset
-    nvram_state->mem_state[NVRAM_REG_SHUTDOWN_STATUS] = 0x0;
+    set_memory(nvram, NVRAM_REG_SHUTDOWN_STATUS, 0x0);
 
 
     // RTC status A
     // 00100110 = no update in progress, base=32768 Hz, rate = 1024 Hz
-    nvram_state->mem_state[NVRAM_REG_STAT_A] = 0x26; 
+    set_memory(nvram, NVRAM_REG_STAT_A, 0x26); 
 
     // RTC status B
     // 00000100 = not setting, no interrupts, blocked rect signal, bcd mode, 24 hour, normal time
-    nvram_state->mem_state[NVRAM_REG_STAT_B] = 0x06; 
+    set_memory(nvram, NVRAM_REG_STAT_B, 0x06); 
 
 
     // RTC status C
     // No IRQ requested, result not do to any source
-    nvram_state->mem_state[NVRAM_REG_STAT_C] = 0x00;
+    set_memory(nvram, NVRAM_REG_STAT_C, 0x00);
 
     // RTC status D
     // Battery is OK
-    nvram_state->mem_state[NVRAM_REG_STAT_D] = 0x80;
+    set_memory(nvram, NVRAM_REG_STAT_D, 0x80);
 
 
     // january 1, 2008, 00:00:00
-    nvram_state->mem_state[NVRAM_REG_MONTH] = 0x1;
-    nvram_state->mem_state[NVRAM_REG_MONTH_DAY] = 0x1;
-    nvram_state->mem_state[NVRAM_REG_WEEK_DAY] = 0x1;
-    nvram_state->mem_state[NVRAM_REG_YEAR] = 0x08;
+    set_memory(nvram, NVRAM_REG_SEC, 0x00);
+    set_memory(nvram, NVRAM_REG_SEC_ALARM, 0x00);
+    set_memory(nvram, NVRAM_REG_MIN, 0x00);
+    set_memory(nvram, NVRAM_REG_MIN_ALARM, 0x00);
+    set_memory(nvram, NVRAM_REG_HOUR, 0x00);
+    set_memory(nvram, NVRAM_REG_HOUR_ALARM, 0x00);
 
-    nvram_state->us = 0;
-    nvram_state->pus = 0;
+    set_memory(nvram, NVRAM_REG_MONTH, 0x01);
+    set_memory(nvram, NVRAM_REG_MONTH_DAY, 0x1);
+    set_memory(nvram, NVRAM_REG_WEEK_DAY, 0x1);
+    set_memory(nvram, NVRAM_REG_YEAR, 0x08);
 
-    set_memory_size(nvram_state, info->mem_size);
+    set_memory(nvram, NVRAM_REG_DIAGNOSTIC_STATUS, 0x00);
+    
+    nvram->us = 0;
+    nvram->pus = 0;
 
-    nvram_state->dev_state = NVRAM_READY;
-    nvram_state->thereg = 0;
+    set_memory_size(nvram, info->mem_size);
+    init_harddrives(nvram);
+    
+    nvram->dev_state = NVRAM_READY;
+    nvram->thereg = 0;
 
     return 0;
 }
@@ -579,11 +699,11 @@ static int nvram_write_reg_port(ushort_t port,
 				void * src, 
 				uint_t length,
 				struct vm_device * dev) {
-    struct nvram_internal * data = (struct nvram_internal *)dev->private_data;
 
+    struct nvram_internal * data = (struct nvram_internal *)dev->private_data;
+    
     memcpy(&(data->thereg), src, 1);
     PrintDebug("Writing To NVRAM reg: 0x%x\n", data->thereg);
-
 
     return 1;
 }
@@ -592,30 +712,36 @@ static int nvram_read_data_port(ushort_t port,
 				void * dst, 
 				uint_t length,
 				struct vm_device * dev) {
+
     struct nvram_internal * data = (struct nvram_internal *)dev->private_data;
 
-    memcpy(dst, &(data->mem_state[data->thereg]), 1);
+    if (get_memory(data, data->thereg, (uint8_t *)dst) == -1) {
+	PrintError("Register %d (0x%x) Not set\n", data->thereg, data->thereg);
+	return -1;
+    }
 
-    PrintDebug("nvram_read_data_port(0x%x)=0x%x\n", data->thereg, data->mem_state[data->thereg]);
+    PrintDebug("nvram_read_data_port(0x%x)  =  0x%x\n", data->thereg, *(uint8_t *)dst);
 
     // hack
     if (data->thereg == NVRAM_REG_STAT_A) { 
 	data->mem_state[data->thereg] ^= 0x80;  // toggle Update in progess
     }
 
-
     return 1;
 }
+
 
 static int nvram_write_data_port(ushort_t port,
 				 void * src, 
 				 uint_t length,
 				 struct vm_device * dev) {
+
     struct nvram_internal * data = (struct nvram_internal *)dev->private_data;
 
-    memcpy(&(data->mem_state[data->thereg]), src, 1);
+    set_memory(data, data->thereg, *(uint8_t *)src);
 
-    PrintDebug("nvram_write_data_port(0x%x)=0x%x\n", data->thereg, data->mem_state[data->thereg]);
+    PrintDebug("nvram_write_data_port(0x%x) = 0x%x\n", 
+	       data->thereg, data->mem_state[data->thereg]);
 
     return 1;
 }
@@ -659,12 +785,14 @@ static struct vm_device_ops dev_ops = {
 
 
 
-struct vm_device * v3_create_nvram() {
+struct vm_device * v3_create_nvram(struct vm_device * ide) {
     struct nvram_internal * nvram_state = NULL;
 
     nvram_state = (struct nvram_internal *)V3_Malloc(sizeof(struct nvram_internal) + 1000);
 
     PrintDebug("nvram: internal at %p\n", (void *)nvram_state);
+
+    nvram_state->ide = ide;
 
     struct vm_device * device = v3_create_device("NVRAM", &dev_ops, nvram_state);
 

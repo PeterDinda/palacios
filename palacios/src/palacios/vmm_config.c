@@ -289,7 +289,7 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
     struct vm_device * northbridge = NULL;
     struct vm_device * southbridge = NULL;
 
-    struct vm_device * nvram = v3_create_nvram();
+    struct vm_device * nvram = NULL;
     struct vm_device * pic = v3_create_pic();
     struct vm_device * keyboard = v3_create_keyboard();
     struct vm_device * pit = v3_create_pit(); 
@@ -316,6 +316,9 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
     }
 
 
+
+    nvram = v3_create_nvram(ide);
+
     if (config_ptr->use_ram_cd == 1) {
 	PrintDebug("Creating Ram CD\n");
 	ramdisk = v3_create_ram_cd(ide, 0, 0, 
@@ -336,7 +339,7 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
 
 
 
-    v3_attach_device(info, nvram);
+
     v3_attach_device(info, pic);
     v3_attach_device(info, pit);
     v3_attach_device(info, keyboard);
@@ -361,7 +364,6 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
     PrintDebug("Attaching IDE\n");
     v3_attach_device(info, ide);
 
-
     if (ramdisk != NULL) {
 	v3_attach_device(info, ramdisk);
     }
@@ -370,6 +372,9 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
 	// Important that this be attached last!
 	v3_attach_device(info, generic);
     }
+
+    // This should go last because it contains the hardware state
+    v3_attach_device(info, nvram);
     
     PrintDebugDevMgr(info);
 

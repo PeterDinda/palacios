@@ -41,11 +41,11 @@ static void ata_identify_device(struct ide_drive * drive) {
     drive_id->cdrom_flag = 0;
 
     // Make it the simplest drive possible (1 head, 1 cyl, 1 sect/track)
-    drive_id->num_cylinders = 1;
-    drive_id->num_heads = 1;
-    drive_id->bytes_per_track = IDE_SECTOR_SIZE;
+    drive_id->num_cylinders = drive->num_cylinders;
+    drive_id->num_heads = drive->num_heads;
+    drive_id->bytes_per_track = drive->num_sectors * IDE_SECTOR_SIZE;
     drive_id->bytes_per_sector = IDE_SECTOR_SIZE;
-    drive_id->sectors_per_track = 1;
+    drive_id->sectors_per_track = drive->num_sectors;
 
 
     // These buffers do not contain a terminating "\0"
@@ -114,6 +114,8 @@ static int ata_read(struct vm_device * dev, struct ide_channel * channel, uint8_
 	drive->hd_state.accessed = 1;
     }
 
+    PrintDebug("Reading Drive LBA=%d (count=%d)\n", (uint32_t)(drive->current_lba), sect_cnt);
+
     int ret = drive->hd_ops->read(dst, sect_cnt, drive->current_lba, drive->private_data);
     
     if (ret == -1) {
@@ -126,8 +128,8 @@ static int ata_read(struct vm_device * dev, struct ide_channel * channel, uint8_
 
 
 
-// 28 bit LBA
-static int ata_read_sectors(struct vm_device * dev, struct ide_channel * channel) {
+
+static int ata_get_lba(struct vm_device * dev, struct ide_channel * channel, uint64_t * lba) {
     struct ide_drive * drive = get_selected_drive(channel);
     // The if the sector count == 0 then read 256 sectors (cast up to handle that value)
     uint32_t sect_cnt = (drive->sector_count == 0) ? 256 : drive->sector_count;
@@ -156,11 +158,25 @@ static int ata_read_sectors(struct vm_device * dev, struct ide_channel * channel
 		   lba_addr.addr, sect_cnt, 
 		   lba_addr.addr + (sect_cnt * IDE_SECTOR_SIZE),
 		   (void *)(addr_t)(drive->hd_ops->get_capacity(drive->private_data)));
+	return -1;
+    }
+
+    *lba = lba_addr.addr;
+    return 0;
+}
+
+
+// 28 bit LBA
+static int ata_read_sectors(struct vm_device * dev, struct ide_channel * channel) {
+    struct ide_drive * drive = get_selected_drive(channel);
+    // The if the sector count == 0 then read 256 sectors (cast up to handle that value)
+    uint32_t sect_cnt = (drive->sector_count == 0) ? 256 : drive->sector_count;
+
+    if (ata_get_lba(dev, channel, &(drive->current_lba)) == -1) {
 	ide_abort_command(dev, channel);
 	return 0;
     }
 
-    drive->current_lba = lba_addr.addr;
     
     if (ata_read(dev, channel, drive->data_buf, 1) == -1) {
 	PrintError("Could not read disk sector\n");

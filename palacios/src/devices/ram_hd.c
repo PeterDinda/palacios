@@ -46,7 +46,7 @@ static int hd_read(uint8_t * buf, int sector_count, uint64_t lba,  void * privat
     int offset = lba * IDE_SECTOR_SIZE;
     int length = sector_count * IDE_SECTOR_SIZE;
 
-    PrintDebug("Reading RAM HD at (LBA=%d) offset %d (length=%d)\n", (uint32_t)lba, offset, length);
+    //    PrintDebug("Reading RAM HD at (LBA=%d) offset %d (length=%d)\n", (uint32_t)lba, offset, length);
 
     memcpy(buf, (uint8_t *)(hd->disk_image + offset), length);
 

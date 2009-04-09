@@ -32,7 +32,8 @@ struct pci_config_header {
     uint16_t   status;
     
     
-    uint16_t    revision;
+    uint8_t    revision;
+    uint8_t    prog_if;
     uint8_t     subclass;
     uint8_t     class;
 
