@@ -191,14 +191,24 @@ static int atapi_read10(struct vm_device * dev, struct ide_channel * channel) {
     drive->current_lba = lba;
 	
     // Update the request length value in the cylinder registers
-	
+    drive->transfer_length = xfer_len * ATAPI_BLOCK_SIZE;
+    drive->transfer_index = 0;	
+
+    if (channel->features.dma) {
+
+	if (channel->dma_status.active == 1) {
+	    if (dma_read(dev, channel) == -1) {
+		PrintError("Error in DMA read for CD Read10 command\n");
+		return -1;
+	    }
+	}
+	return 0;
+    }
+
     if (atapi_read_chunk(dev, channel) == -1) {
 	PrintError("IDE: Could not read initial chunk from CD\n");
 	return -1;
     }
-	
-    drive->transfer_length = xfer_len * ATAPI_BLOCK_SIZE;
-    drive->transfer_index = 0;
 	
     // Length of ATAPI buffer sits in cylinder registers
     // This is weird... The host sets this value to say what it would like to transfer, 
