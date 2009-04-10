@@ -948,17 +948,7 @@ static int read_cd_data(uint8_t * dst, uint_t length, struct vm_device * dev, st
 	return -1;
     }
 
-    {
-	static uint32_t read_cnt = 0;
-	
-	if ((read_cnt % 200) == 0) {
-	    PrintError("CD data port read %d\n", read_cnt);
-	}
-	
-	read_cnt++;
-    }
-
-
+    
     if ((data_offset == 0) && (drive->transfer_index > 0)) {
 	if (atapi_update_data_buf(dev, channel) == -1) {
 	    PrintError("Could not update CDROM data buffer\n");
