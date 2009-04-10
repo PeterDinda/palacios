@@ -33,7 +33,6 @@ struct v3_ide_cd_ops {
     uint32_t (*get_capacity)(void * private_data);
     // Reads always operate on 2048 byte blocks
     int (*read)(uint8_t * buf, int block_count, uint64_t lba, void * private_data);
-
 };
 
 
@@ -41,7 +40,7 @@ struct v3_ide_hd_ops {
     uint64_t (*get_capacity)(void * private_data);
     // Reads always operate on 2048 byte blocks
     int (*read)(uint8_t * buf, int sector_count, uint64_t lba, void * private_data);
-
+    int (*write)(uint8_t * buf, int sector_count, uint64_t lba, void * private_data);
 };
 
 

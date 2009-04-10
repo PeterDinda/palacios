@@ -127,6 +127,21 @@ static int ata_read(struct vm_device * dev, struct ide_channel * channel, uint8_
 }
 
 
+static int ata_write(struct vm_device * dev, struct ide_channel * channel, uint8_t * src, uint_t sect_cnt) {
+    struct ide_drive * drive = get_selected_drive(channel);
+
+    PrintDebug("Writing Drive LBA=%d (count=%d)\n", (uint32_t)(drive->current_lba), sect_cnt);
+
+    int ret = drive->hd_ops->write(src, sect_cnt, drive->current_lba, drive->private_data);
+
+    if (ret == -1) {
+	PrintError("IDE: Error writing HD block (LBA=%p)\n", (void *)(addr_t)(drive->current_lba));
+	return -1;
+    }
+
+    return 0;
+}
+
 
 
 static int ata_get_lba(struct vm_device * dev, struct ide_channel * channel, uint64_t * lba) {
@@ -152,7 +167,7 @@ static int ata_get_lba(struct vm_device * dev, struct ide_channel * channel, uin
     lba_addr.buf[3] = channel->drive_head.lba3;
 
 
-    if (lba_addr.addr + (sect_cnt * IDE_SECTOR_SIZE) > 
+    if ((lba_addr.addr + sect_cnt) > 
 	drive->hd_ops->get_capacity(drive->private_data)) {
 	PrintError("IDE: request size exceeds disk capacity (lba=%d) (sect_cnt=%d) (ReadEnd=%d) (capacity=%p)\n", 
 		   lba_addr.addr, sect_cnt, 

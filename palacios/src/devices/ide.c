@@ -355,7 +355,7 @@ static void ide_abort_command(struct vm_device * dev, struct ide_channel * chann
 
 
 static int dma_read(struct vm_device * dev, struct ide_channel * channel);
-
+static int dma_write(struct vm_device * dev, struct ide_channel * channel);
 
 
 /* ATAPI functions */
@@ -381,8 +381,7 @@ static int dma_read(struct vm_device * dev, struct ide_channel * channel) {
 
     // Loop through the disk data
     while (bytes_left > 0) {
-	
-	uint32_t prd_entry_addr =  channel->dma_prd_addr + (sizeof(struct ide_dma_prd) * channel->dma_tbl_index);
+	uint32_t prd_entry_addr = channel->dma_prd_addr + (sizeof(struct ide_dma_prd) * channel->dma_tbl_index);
 	uint_t prd_bytes_left = 0;
 	uint_t prd_offset = 0;
 	int ret;
@@ -396,7 +395,8 @@ static int dma_read(struct vm_device * dev, struct ide_channel * channel) {
 	    return -1;
 	}
 	
-	PrintDebug("PRD Addr: %x, PDR Len: %d, EOT: %d\n", prd_entry.base_addr, prd_entry.size, prd_entry.end_of_table);
+	PrintDebug("PRD Addr: %x, PRD Len: %d, EOT: %d\n", 
+		   prd_entry.base_addr, prd_entry.size, prd_entry.end_of_table);
 	
 	// loop through the PRD data....
 	
@@ -463,7 +463,6 @@ static int dma_read(struct vm_device * dev, struct ide_channel * channel) {
 	    PrintError("DMA table not large enough for data transfer...\n");
 	    return -1;
 	}
-	
     }
 
     /*
@@ -495,9 +494,92 @@ static int dma_read(struct vm_device * dev, struct ide_channel * channel) {
 
 
 static int dma_write(struct vm_device * dev, struct ide_channel * channel) {
-    // unsupported
-    PrintError("DMA writes currently not supported\n");
-    return -1;
+    struct ide_drive * drive = get_selected_drive(channel);
+    // This is at top level scope to do the EOT test at the end
+    struct ide_dma_prd prd_entry;
+    uint_t bytes_left = drive->transfer_length;
+
+
+    PrintDebug("DMA write from %d bytes\n", bytes_left);
+
+    // Loop through disk data
+    while (bytes_left > 0) {
+	uint32_t prd_entry_addr = channel->dma_prd_addr + (sizeof(struct ide_dma_prd) * channel->dma_tbl_index);
+	uint_t prd_bytes_left = 0;
+	uint_t prd_offset = 0;
+	int ret;
+	
+	PrintDebug("PRD Table address = %x\n", channel->dma_prd_addr);
+
+	ret = read_guest_pa_memory(dev->vm, prd_entry_addr, sizeof(struct ide_dma_prd), (void *)&prd_entry);
+
+	if (ret != sizeof(struct ide_dma_prd)) {
+	    PrintError("Could not read PRD\n");
+	    return -1;
+	}
+
+	PrintDebug("PRD Addr: %x, PRD Len: %d, EOT: %d\n", 
+		   prd_entry.base_addr, prd_entry.size, prd_entry.end_of_table);
+
+	prd_bytes_left = prd_entry.size;
+
+	while (prd_bytes_left > 0) {
+	    uint_t bytes_to_write = 0;
+
+
+	    bytes_to_write = (prd_bytes_left > IDE_SECTOR_SIZE) ? IDE_SECTOR_SIZE : prd_bytes_left;
+
+
+	    ret = read_guest_pa_memory(dev->vm, prd_entry.base_addr + prd_offset, bytes_to_write, drive->data_buf);
+
+	    if (ret != bytes_to_write) {
+		PrintError("Faild to copy data from guest memory... (ret=%d)\n", ret);
+		return -1;
+	    }
+
+	    PrintDebug("\t DMA ret=%d (prd_bytes_left=%d) (bytes_left=%d)\n", ret, prd_bytes_left, bytes_left);
+
+
+	    if (ata_write(dev, channel, drive->data_buf, 1) == -1) {
+		PrintError("Failed to write data to disk\n");
+		return -1;
+	    }
+	    
+	    drive->current_lba++;
+
+	    drive->transfer_index += ret;
+	    prd_bytes_left -= ret;
+	    prd_offset += ret;
+	    bytes_left -= ret;
+	}
+
+	channel->dma_tbl_index++;
+
+	if (drive->transfer_index % IDE_SECTOR_SIZE) {
+	    PrintError("We currently don't handle sectors that span PRD descriptors\n");
+	    return -1;
+	}
+
+	if ((prd_entry.end_of_table == 1) && (bytes_left > 0)) {
+	    PrintError("DMA table not large enough for data transfer...\n");
+	    return -1;
+	}
+    }
+
+    if (prd_entry.end_of_table) {
+	channel->status.busy = 0;
+	channel->status.ready = 1;
+	channel->status.data_req = 0;
+	channel->status.error = 0;
+	channel->status.seek_complete = 1;
+
+	channel->dma_status.active = 0;
+	channel->dma_status.err = 0;
+    }
+
+    ide_raise_irq(dev, channel);
+
+    return 0;
 }
 
 
@@ -755,7 +837,28 @@ static int write_cmd_port(ushort_t port, void * src, uint_t length, struct vm_de
 	    break;
 	}
 
+	case 0xca: { // Write DMA
+	    uint32_t sect_cnt = (drive->sector_count == 0) ? 256 : drive->sector_count;
 
+	    if (ata_get_lba(dev, channel, &(drive->current_lba)) == -1) {
+		ide_abort_command(dev, channel);
+		return 0;
+	    }
+
+	    drive->hd_state.cur_sector_num = 1;
+
+	    drive->transfer_length = sect_cnt * IDE_SECTOR_SIZE;
+	    drive->transfer_index = 0;
+
+	    if (channel->dma_status.active == 1) {
+		// DMA Write
+		if (dma_write(dev, channel) == -1) {
+		    PrintError("Failed DMA Write\n");
+		    return -1;
+		}
+	    }
+	    break;
+	}
 	case 0xe0: // Standby Now 1
 	case 0xe1: // Set Idle Immediate
 	case 0xe2: // Standby
@@ -1531,7 +1634,7 @@ int v3_ide_register_harddisk(struct vm_device * ide_dev,
     /* this is something of a hack... */
     drive->num_sectors = 63;
     drive->num_heads = 16;
-    drive->num_cylinders = (ops->get_capacity(private_data) / 512) / (drive->num_sectors * drive->num_heads);
+    drive->num_cylinders = ops->get_capacity(private_data)  / (drive->num_sectors * drive->num_heads);
 
     if (ide->ide_pci) {
 	// Hardcode this for now, but its not a good idea....

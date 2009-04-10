@@ -39,7 +39,7 @@ struct hd_state {
 };
 
 
-// HDs always read 2048 byte blocks... ?
+// HDs always read 512 byte blocks... ?
 static int hd_read(uint8_t * buf, int sector_count, uint64_t lba,  void * private_data) {
     struct vm_device * hd_dev = (struct vm_device *)private_data;
     struct hd_state * hd = (struct hd_state *)(hd_dev->private_data);
@@ -50,7 +50,17 @@ static int hd_read(uint8_t * buf, int sector_count, uint64_t lba,  void * privat
 
     memcpy(buf, (uint8_t *)(hd->disk_image + offset), length);
 
+    return 0;
+}
 
+
+static int hd_write(uint8_t * buf, int sector_count, uint64_t lba, void * private_data) {
+    struct vm_device * hd_dev = (struct vm_device *)private_data;
+    struct hd_state * hd = (struct hd_state *)(hd_dev->private_data);
+    int offset = lba * IDE_SECTOR_SIZE;
+    int length = sector_count * IDE_SECTOR_SIZE;
+
+    memcpy((uint8_t *)(hd->disk_image + offset), buf, length);
 
     return 0;
 }
@@ -66,6 +76,7 @@ static uint64_t hd_get_capacity(void * private_data) {
 
 static struct v3_ide_hd_ops hd_ops = {
     .read = hd_read, 
+    .write = hd_write,
     .get_capacity = hd_get_capacity,
 };
 
