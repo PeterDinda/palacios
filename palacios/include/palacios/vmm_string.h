@@ -56,10 +56,6 @@ char *strrchr(const char *s, int c);
 char *strpbrk(const char *s, const char *accept);
 
 
-double v3_ceil(double x);
-
-
-
 #endif // !__V3VEE__
 
 #endif  /* STRING_H */

@@ -187,9 +187,19 @@ static const uint_t primes[] = {
     805306457, 1610612741 };
 
 
+// this assumes that the max load factor is .65
+static const uint_t load_factors[] = {
+    35, 64, 126, 253,
+    500, 1003, 2002, 3999,
+    7988, 15986, 31953, 63907,
+    127799, 255607, 511182, 1022365,
+    2044731, 4089455, 8178897, 16357798,
+    32715575, 65431158, 130862298, 261724573,
+    523449198, 1046898282 };
+
 const uint_t prime_table_length = sizeof(primes) / sizeof(primes[0]);
 
-const float max_load_factor = 0.65;
+
 
 /*****************************************************************************/
 struct hashtable * create_hashtable(uint_t min_size,
@@ -233,7 +243,7 @@ struct hashtable * create_hashtable(uint_t min_size,
     htable->entry_count   = 0;
     htable->hash_fn       = hash_fn;
     htable->eq_fn         = eq_fn;
-    htable->load_limit    = (uint_t) v3_ceil((double)(size * max_load_factor));
+    htable->load_limit    = load_factors[prime_index];
 
     return htable;
 }
@@ -317,7 +327,7 @@ static int hashtable_expand(struct hashtable * htable) {
 
     htable->table_length = new_size;
 
-    htable->load_limit   = (uint_t) v3_ceil(new_size * max_load_factor);
+    htable->load_limit   = load_factors[htable->prime_index];
 
     return -1;
 }

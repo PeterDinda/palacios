@@ -60,17 +60,6 @@
 #include <palacios/vmm.h>
 
 
-
-static float e = 0.00000001;
-
-double v3_ceil(double x) {
-    if ((double)(x - (int)x) == 0) {
-	return (int)x;
-    }
-    return (int)(x + e) + 1;
-}
-
-
 #if NEED_MEMSET
 void* memset(void* s, int c, size_t n)
 {
