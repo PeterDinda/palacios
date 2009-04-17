@@ -74,8 +74,7 @@ int guest_pa_to_host_pa(struct guest_info * guest_info, addr_t guest_pa, addr_t 
 	return -1;
     }
     
-    if ((shdw_reg->host_type == SHDW_REGION_INVALID) ||
-	(shdw_reg->host_type == SHDW_REGION_FULL_HOOK)) {
+    if (shdw_reg->host_type == SHDW_REGION_FULL_HOOK) {
 	PrintError("In GPA->HPA: Could not find address in shadow map (addr=%p) (reg_type=%s)\n", 
 		   (void *)guest_pa, v3_shdw_region_type_to_str(shdw_reg->host_type));
 	return -1;

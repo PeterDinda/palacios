@@ -130,7 +130,6 @@ struct guest_info {
     v3_paging_mode_t shdw_pg_mode;
     struct shadow_page_state shdw_pg_state;
     addr_t direct_map_pt;
-    // nested_paging_t nested_page_state;
 
 
     // This structure is how we get interrupts for the guest

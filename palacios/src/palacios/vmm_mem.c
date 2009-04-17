@@ -20,11 +20,10 @@
 #include <palacios/vmm_mem.h>
 #include <palacios/vmm.h>
 #include <palacios/vmm_util.h>
-//#include <palacios/vmm_decoder.h>
 #include <palacios/vmm_emulator.h>
 
 
-
+#define MEM_OFFSET_HCALL 0x1000
 
 
 
@@ -33,13 +32,27 @@ struct v3_shadow_region * insert_shadow_region(struct guest_info * info,
  					       struct v3_shadow_region * region);
 
 
+static int mem_offset_hypercall(struct guest_info * info, uint_t hcall_id, void * private_data) {
+    info->vm_regs.rbx = info->mem_map.base_region.host_addr;
+
+    return 0;
+}
+
 
 void v3_init_shadow_map(struct guest_info * info) {
     v3_shdw_map_t * map = &(info->mem_map);
+    addr_t mem_pages = info->mem_size >> 12;
 
     map->shdw_regions.rb_node = NULL;
     map->hook_hva = (addr_t)V3_VAddr(V3_AllocPages(1));
 
+    // There is an underlying region that contains all of the guest memory
+    map->base_region.guest_start = 0;
+    map->base_region.guest_end = info->mem_size;
+    map->base_region.host_type = SHDW_REGION_ALLOCATED;
+    map->base_region.host_addr = (addr_t)V3_AllocPages(mem_pages);
+
+    v3_register_hypercall(info, MEM_OFFSET_HCALL, mem_offset_hypercall, NULL);
 }
 
 void v3_delete_shadow_map(struct guest_info * info) {
@@ -177,10 +190,6 @@ struct v3_shadow_region * insert_shadow_region(struct guest_info * info,
 
 
 
-
-
-
-
 int handle_special_page_fault(struct guest_info * info, 
 			      addr_t fault_gva, addr_t fault_gpa, 
 			      pf_error_t access_info) 
@@ -253,22 +262,17 @@ struct v3_shadow_region * v3_get_shadow_region(struct guest_info * info, addr_t 
 	}
     }
 
-    return NULL;
-}
 
+    // There is not registered region, so we check if its a valid address in the base region
 
-
-addr_t v3_get_shadow_addr(struct v3_shadow_region * reg, addr_t guest_addr) {
-    if ( (reg) && 
-	 (reg->host_type != SHDW_REGION_FULL_HOOK) &&
-	 (reg->host_type != SHDW_REGION_INVALID) ) {
-	return (guest_addr - reg->guest_start) + reg->host_addr;
-    } else {
-	PrintDebug("MEM Region Invalid\n");
-	return 0;
+    if (guest_addr > info->mem_map.base_region.guest_end) {
+	PrintError("Guest Address Exceeds Base Memory Size (ga=%p), (limit=%p)\n", 
+		   (void *)guest_addr, (void *)info->mem_map.base_region.guest_end);
+	return NULL;
     }
+    
+    return &(info->mem_map.base_region);
 }
-
 
 
 void v3_delete_shadow_region(struct guest_info * info, struct v3_shadow_region * reg) {
@@ -282,13 +286,32 @@ void v3_delete_shadow_region(struct guest_info * info, struct v3_shadow_region *
 
 
 
+addr_t v3_get_shadow_addr(struct v3_shadow_region * reg, addr_t guest_addr) {
+    if ( (reg) && 
+         (reg->host_type != SHDW_REGION_FULL_HOOK)) {
+        return (guest_addr - reg->guest_start) + reg->host_addr;
+    } else {
+        PrintDebug("MEM Region Invalid\n");
+        return 0;
+    }
+
+}
+
+
+
 void print_shadow_map(struct guest_info * info) {
     struct rb_node * node = v3_rb_first(&(info->mem_map.shdw_regions));
-    struct v3_shadow_region * reg;
+    struct v3_shadow_region * reg = &(info->mem_map.base_region);
     int i = 0;
 
     PrintDebug("Memory Layout:\n");
+    
 
+    PrintDebug("Base Region:  0x%p - 0x%p -> 0x%p\n", 
+	       (void *)(reg->guest_start), 
+	       (void *)(reg->guest_end - 1), 
+	       (void *)(reg->host_addr));
+    
     do {
 	reg = rb_entry(node, struct v3_shadow_region, tree_node);
 
@@ -307,12 +330,9 @@ void print_shadow_map(struct guest_info * info) {
 }
 
 
-static const uchar_t  SHDW_REGION_INVALID_STR[] = "SHDW_REGION_INVALID";
 static const uchar_t  SHDW_REGION_WRITE_HOOK_STR[] = "SHDW_REGION_WRITE_HOOK";
 static const uchar_t  SHDW_REGION_FULL_HOOK_STR[] = "SHDW_REGION_FULL_HOOK";
 static const uchar_t  SHDW_REGION_ALLOCATED_STR[] = "SHDW_REGION_ALLOCATED";
-
-
 
 const uchar_t * v3_shdw_region_type_to_str(v3_shdw_region_type_t type) {
     switch (type) {
@@ -323,7 +343,7 @@ const uchar_t * v3_shdw_region_type_to_str(v3_shdw_region_type_t type) {
 	case SHDW_REGION_ALLOCATED:
 	    return SHDW_REGION_ALLOCATED_STR;
 	default:
-	    return SHDW_REGION_INVALID_STR;
+	    return (uchar_t *)"SHDW_REGION_INVALID";
     }
 }
 

@@ -38,18 +38,12 @@ struct guest_info;
 // These are the types of physical memory address regions
 // from the perspective of the HOST
 typedef enum shdw_region_type { 
-    SHDW_REGION_INVALID,                    // This region is INVALID (this is a return type to denote errors)
     SHDW_REGION_WRITE_HOOK,                 // This region is mapped as read-only (page faults on write)
     SHDW_REGION_FULL_HOOK,                  // This region is mapped as not present (always generate page faults)
     SHDW_REGION_ALLOCATED,                  // Region is a section of host memory
 } v3_shdw_region_type_t;
 
 
-typedef struct v3_shdw_map {
-    addr_t hook_hva;
-
-    struct rb_root shdw_regions;
-} v3_shdw_map_t;
 
 
 struct v3_shadow_region {
@@ -70,6 +64,17 @@ struct v3_shadow_region {
 
     struct rb_node tree_node;
 };
+
+
+typedef struct v3_shdw_map {
+    struct v3_shadow_region base_region;
+
+
+    addr_t hook_hva;
+
+    struct rb_root shdw_regions;
+} v3_shdw_map_t;
+
 
 
 

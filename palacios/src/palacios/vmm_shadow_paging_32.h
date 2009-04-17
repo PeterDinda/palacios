@@ -287,8 +287,7 @@ static int handle_large_pagefault_32(struct guest_info * info,
     struct v3_shadow_region * shdw_reg = v3_get_shadow_region(info, guest_fault_pa);
 
  
-    if ((shdw_reg == NULL) || 
-	(shdw_reg->host_type == SHDW_REGION_INVALID)) {
+    if (shdw_reg == NULL) {
 	// Inject a machine check in the guest
 	PrintDebug("Invalid Guest Address in page table (0x%p)\n", (void *)guest_fault_pa);
 	v3_raise_exception(info, MC_EXCEPTION);
@@ -395,8 +394,7 @@ static int handle_shadow_pte32_fault(struct guest_info * info,
 
     struct v3_shadow_region * shdw_reg =  v3_get_shadow_region(info, guest_pa);
 
-    if ((shdw_reg == NULL) || 
-	(shdw_reg->host_type == SHDW_REGION_INVALID)) {
+    if (shdw_reg == NULL) {
 	// Inject a machine check in the guest
 	PrintDebug("Invalid Guest Address in page table (0x%p)\n", (void *)guest_pa);
 	v3_raise_exception(info, MC_EXCEPTION);
