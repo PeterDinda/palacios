@@ -41,7 +41,6 @@ void v3_init_io_map(struct guest_info * info) {
 
 
 
-
 static inline struct v3_io_hook * __insert_io_hook(struct guest_info * info, struct v3_io_hook * hook) {
   struct rb_node ** p = &(info->io_map.rb_node);
   struct rb_node * parent = NULL;

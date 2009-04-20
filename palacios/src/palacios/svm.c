@@ -40,12 +40,13 @@
 
 #include <palacios/vmm_direct_paging.h>
 
+#include <palacios/vmm_ctrl_regs.h>
+
+
 extern void v3_stgi();
 extern void v3_clgi();
 //extern int v3_svm_launch(vmcb_t * vmcb, struct v3_gprs * vm_regs, uint64_t * fs, uint64_t * gs);
 extern int v3_svm_launch(vmcb_t * vmcb, struct v3_gprs * vm_regs);
-
-
 
 
 static vmcb_t * Allocate_VMCB() {
@@ -57,8 +58,6 @@ static vmcb_t * Allocate_VMCB() {
 }
 
 
-
-#include <palacios/vmm_ctrl_regs.h>
 
 static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
     vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA(vmcb);
@@ -72,20 +71,6 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
 
     guest_state->cpl = 0;
 
-
-
-
-    /* Set up the efer to enable 64 bit page tables */
-    /*
-      {
-      struct efer_64 * efer = (struct efer_64 *)&(guest_state->efer);
-      struct cr4_32 * cr4 = (struct cr4_32 *)&(guest_state->cr4);
-      efer->lma = 1;
-      efer->lme = 1;
-      
-      cr4->pae = 1;
-      }
-    */
     guest_state->efer |= EFER_MSR_svm_enable;
 
 
@@ -108,8 +93,6 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
 
     ctrl_area->instrs.HLT = 1;
     // guest_state->cr0 = 0x00000001;    // PE 
-
-
   
     /*
       ctrl_area->exceptions.de = 1;
@@ -128,29 +111,31 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
     */
     
 
-    // Debug of boot on physical machines - 7/14/08
-    ctrl_area->instrs.NMI=1;
-    ctrl_area->instrs.SMI=1;
-    ctrl_area->instrs.INIT=1;
-    ctrl_area->instrs.PAUSE=1;
-    ctrl_area->instrs.shutdown_evts=1;
-    
+    ctrl_area->instrs.NMI = 1;
+    ctrl_area->instrs.SMI = 1;
+    ctrl_area->instrs.INIT = 1;
+    ctrl_area->instrs.PAUSE = 1;
+    ctrl_area->instrs.shutdown_evts = 1;
+
     vm_info->vm_regs.rdx = 0x00000f00;
-    
+
     guest_state->cr0 = 0x60000010;
-    
-    
+
+
     guest_state->cs.selector = 0xf000;
-    guest_state->cs.limit=0xffff;
+    guest_state->cs.limit = 0xffff;
     guest_state->cs.base = 0x0000000f0000LL;
     guest_state->cs.attrib.raw = 0xf3;
 
-  
+
     /* DEBUG FOR RETURN CODE */
     ctrl_area->exit_code = 1;
 
 
-    struct vmcb_selector *segregs [] = {&(guest_state->ss), &(guest_state->ds), &(guest_state->es), &(guest_state->fs), &(guest_state->gs), NULL};
+    struct vmcb_selector *segregs [] = {&(guest_state->ss), &(guest_state->ds), 
+					&(guest_state->es), &(guest_state->fs), 
+					&(guest_state->gs), NULL};
+
     for ( i = 0; segregs[i] != NULL; i++) {
 	struct vmcb_selector * seg = segregs[i];
 	
@@ -160,12 +145,12 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
 	seg->attrib.raw = 0xf3;
 	seg->limit = ~0u;
     }
-  
+
     guest_state->gdtr.limit = 0x0000ffff;
     guest_state->gdtr.base = 0x0000000000000000LL;
     guest_state->idtr.limit = 0x0000ffff;
     guest_state->idtr.base = 0x0000000000000000LL;
-    
+
     guest_state->ldtr.selector = 0x0000;
     guest_state->ldtr.limit = 0x0000ffff;
     guest_state->ldtr.base = 0x0000000000000000LL;
@@ -177,10 +162,6 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
     guest_state->dr6 = 0x00000000ffff0ff0LL;
     guest_state->dr7 = 0x0000000000000400LL;
 
-  
-  
-
-
 
     if ( !RB_EMPTY_ROOT(&(vm_info->io_map)) ) {
 	struct v3_io_hook * iter;
@@ -190,44 +171,48 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
 	
 	io_port_bitmap = (addr_t)V3_VAddr(V3_AllocPages(3));
 	memset((uchar_t*)io_port_bitmap, 0, PAGE_SIZE * 3);
-	
+
 	ctrl_area->IOPM_BASE_PA = (addr_t)V3_PAddr((void *)io_port_bitmap);
-	
+
 	//PrintDebug("Setting up IO Map at 0x%x\n", io_port_bitmap);
-	
+
 	do {
 	    iter = rb_entry(io_node, struct v3_io_hook, tree_node);
-	    
+
 	    ushort_t port = iter->port;
 	    uchar_t * bitmap = (uchar_t *)io_port_bitmap;
 	    //PrintDebug("%d: Hooking Port %d\n", i, port);
-	    
+
 	    bitmap += (port / 8);
 	    //      PrintDebug("Setting Bit for port 0x%x\n", port);
 	    *bitmap |= 1 << (port % 8);
-	    
+
 	    i++;
 	} while ((io_node = v3_rb_next(io_node)));
-	
-	
+
 	//PrintDebugMemDump((uchar_t*)io_port_bitmap, PAGE_SIZE *2);
-	
+
 	ctrl_area->instrs.IOIO_PROT = 1;
     }
-    
-    
+
+
     PrintDebug("Exiting on interrupts\n");
     ctrl_area->guest_ctrl.V_INTR_MASKING = 1;
     ctrl_area->instrs.INTR = 1;
-    
-    
+
+
     if (vm_info->shdw_pg_mode == SHADOW_PAGING) {
 	PrintDebug("Creating initial shadow page table\n");
 	
 	ctrl_area->guest_ASID = 1;
 	
-	vm_info->direct_map_pt = (addr_t)V3_PAddr((void *)v3_create_direct_passthrough_pts(vm_info));
 	
+	if (v3_init_passthrough_pts(vm_info) == -1) {
+	    PrintError("Could not initialize passthrough page tables\n");
+	    return ;
+	}
+
+
 	vm_info->shdw_pg_state.guest_cr0 = 0x0000000000000010LL;
 	PrintDebug("Created\n");
 	
@@ -240,56 +225,51 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
 	ctrl_area->cr_reads.cr3 = 1;
 	ctrl_area->cr_writes.cr3 = 1;
 
-
 	vm_info->guest_efer.value = 0x0LL;
-    
+
 	v3_hook_msr(vm_info, EFER_MSR, 
 		    &v3_handle_efer_read,
 		    &v3_handle_efer_write, 
 		    vm_info);
 
-
 	ctrl_area->instrs.INVLPG = 1;
 
-	
 	ctrl_area->exceptions.pf = 1;
-	
+
 	/* JRL: This is a performance killer, and a simplistic solution */
 	/* We need to fix this */
 	ctrl_area->TLB_CONTROL = 1;
-	
+
 	guest_state->g_pat = 0x7040600070406ULL;
-	
+
 	guest_state->cr0 |= 0x80000000;
-	
+
     } else if (vm_info->shdw_pg_mode == NESTED_PAGING) {
 	// Flush the TLB on entries/exits
 	ctrl_area->TLB_CONTROL = 1;
 	ctrl_area->guest_ASID = 1;
-	
+
 	// Enable Nested Paging
 	ctrl_area->NP_ENABLE = 1;
-	
+
 	PrintDebug("NP_Enable at 0x%p\n", (void *)&(ctrl_area->NP_ENABLE));
-	
+
 	// Set the Nested Page Table pointer
-	vm_info->direct_map_pt = (addr_t)V3_PAddr((void *)v3_create_direct_passthrough_pts(vm_info));
+	if (v3_init_passthrough_pts(vm_info) == -1) {
+	    PrintError("Could not initialize Nested page tables\n");
+	    return ;
+	}
+
 	ctrl_area->N_CR3 = vm_info->direct_map_pt;
-	
-	//   ctrl_area->N_CR3 = Get_CR3();
-	// guest_state->cr3 |= (Get_CR3() & 0xfffff000);
-	
+
 	guest_state->g_pat = 0x7040600070406ULL;
     }
-    
 
     if (vm_info->msr_map.num_hooks > 0) {
 	PrintDebug("Hooking %d msrs\n", vm_info->msr_map.num_hooks);
 	ctrl_area->MSRPM_BASE_PA = v3_init_svm_msr_map(vm_info);
 	ctrl_area->instrs.MSR_PROT = 1;
-	
     }
-    
 
     /* Safety locations for fs/gs */
     //    vm_info->fs = 0;
@@ -300,14 +280,6 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
 static int init_svm_guest(struct guest_info *info) {
     PrintDebug("Allocating VMCB\n");
     info->vmm_data = (void*)Allocate_VMCB();
-
-
-    //PrintDebug("Generating Guest nested page tables\n");
-    //  info->page_tables = NULL;
-    //info->page_tables = generate_guest_page_tables_64(&(info->mem_layout), &(info->mem_list));
-    //info->page_tables = generate_guest_page_tables(&(info->mem_layout), &(info->mem_list));
-    //  PrintDebugPageTables(info->page_tables);
-
 
     PrintDebug("Initializing VMCB (addr=%p)\n", (void *)info->vmm_data);
     Init_VMCB_BIOS((vmcb_t*)(info->vmm_data), info);
@@ -508,24 +480,24 @@ int v3_is_svm_capable() {
 		PrintDebug("SVM is locked with a key\n");
 	    }
 	    return 0;
-	    
+
 	} else {
 	    PrintDebug("SVM is available and  enabled.\n");
-	    
+
 	    v3_cpuid(CPUID_SVM_REV_AND_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
 	    PrintDebug("CPUID_FEATURE_IDS_eax=%p\n", (void *)eax);
 	    PrintDebug("CPUID_FEATURE_IDS_ebx=%p\n", (void *)ebx);
-	    PrintDebug("CPUID_FEATURE_IDS_ecx=%p\n", (void *)ecx);      
+	    PrintDebug("CPUID_FEATURE_IDS_ecx=%p\n", (void *)ecx);
 	    PrintDebug("CPUID_FEATURE_IDS_edx=%p\n", (void *)edx);
 
-	    
+
 	    if ((edx & CPUID_SVM_REV_AND_FEATURE_IDS_edx_np) == 0) {
 		PrintDebug("SVM Nested Paging not supported\n");
 	    } else {
 		PrintDebug("SVM Nested Paging supported\n");
 	    }
-	    
-	    return 1;    
+
+	    return 1;
 	}
     }
 }
@@ -534,9 +506,9 @@ static int has_svm_nested_paging() {
     addr_t eax = 0, ebx = 0, ecx = 0, edx = 0;
 
     v3_cpuid(CPUID_SVM_REV_AND_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
-      
+
     //PrintDebug("CPUID_FEATURE_IDS_edx=0x%x\n", edx);
-  
+
     if ((edx & CPUID_SVM_REV_AND_FEATURE_IDS_edx_np) == 0) {
 	PrintDebug("SVM Nested Paging not supported\n");
 	return 0;

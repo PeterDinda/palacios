@@ -38,11 +38,6 @@ struct shadow_page_state {
     // list of allocated shadow pages
     struct list_head page_list;
 
-    /* SOON TO BE DEPRECATED */
-    // Hash table that contains a mapping of guest pte addresses to host pte addresses
-    struct hashtable *  cached_ptes;
-    addr_t cached_cr3;
-
 };
 
 
@@ -61,7 +56,7 @@ int v3_handle_shadow_invlpg(struct guest_info * info);
 
 
 int v3_activate_shadow_pt(struct guest_info * info);
-int v3_activate_passthrough_pt(struct guest_info * info);
+
 
 
 #endif // ! __V3VEE__

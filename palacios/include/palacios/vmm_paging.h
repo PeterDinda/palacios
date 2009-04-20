@@ -576,7 +576,7 @@ pml4e64_t * create_passthrough_pts_64(struct guest_info * info);
 
 
 void delete_page_tables_32(pde32_t * pde);
-void delete_page_tables_32PAE(pdpe32pae_t * pdpe);
+void delete_page_tables_32pae(pdpe32pae_t * pdpe);
 void delete_page_tables_64(pml4e64_t *  pml4);
 
 

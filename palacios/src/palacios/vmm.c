@@ -26,6 +26,8 @@
 #include <palacios/vmm_instrument.h>
 
 
+/* These should be the only global variables in Palacios */
+/* They are architecture specific variables */
 v3_cpu_arch_t v3_cpu_type;
 struct v3_os_hooks * os_hooks = NULL;
 
@@ -40,9 +42,11 @@ static struct guest_info * allocate_guest() {
 
 
 void Init_V3(struct v3_os_hooks * hooks, struct v3_ctrl_ops * vmm_ops) {
+    
+    // Set global variables. 
     os_hooks = hooks;
-
     v3_cpu_type = V3_INVALID_CPU;
+
 
 #ifdef INSTRUMENT_VMM
     v3_init_instrumentation();
@@ -64,7 +68,3 @@ void Init_V3(struct v3_os_hooks * hooks, struct v3_ctrl_ops * vmm_ops) {
 	PrintDebug("CPU has no virtualization Extensions\n");
     }
 }
-
-
-// Get CPU Type..
-

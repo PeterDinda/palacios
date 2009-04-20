@@ -49,19 +49,6 @@ struct shadow_page_data {
 };
 
 
-DEFINE_HASHTABLE_INSERT(add_pte_map, addr_t, addr_t);
-DEFINE_HASHTABLE_SEARCH(find_pte_map, addr_t, addr_t);
-//DEFINE_HASHTABLE_REMOVE(del_pte_map, addr_t, addr_t, 0);
-
-
-
-static uint_t pte_hash_fn(addr_t key) {
-    return hash_long(key, 32);
-}
-
-static int pte_equals(addr_t key1, addr_t key2) {
-    return (key1 == key2);
-}
 
 static struct shadow_page_data * create_new_shadow_pt(struct guest_info * info);
 static void inject_guest_pf(struct guest_info * info, addr_t fault_addr, pf_error_t error_code);
@@ -81,9 +68,6 @@ int v3_init_shadow_page_state(struct guest_info * info) {
     state->guest_cr0 = 0;
 
     INIT_LIST_HEAD(&(state->page_list));
-
-    state->cached_ptes = NULL;
-    state->cached_cr3 = 0;
   
     return 0;
 }
@@ -113,15 +97,6 @@ int v3_activate_shadow_pt(struct guest_info * info) {
 }
 
 
-int v3_activate_passthrough_pt(struct guest_info * info) {
-    // For now... But we need to change this....
-    // As soon as shadow paging becomes active the passthrough tables are hosed
-    // So this will cause chaos if it is called at that time
-
-    info->ctrl_regs.cr3 = *(addr_t*)&(info->direct_map_pt);
-    //PrintError("Activate Passthrough Page tables not implemented\n");
-    return 0;
-}
 
 
 

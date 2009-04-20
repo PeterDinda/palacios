@@ -392,11 +392,7 @@ static struct vm_device *  configure_generic(struct guest_info * info, struct v3
 #endif
 
 
-#if 1
-    // Make any Bus master ide controller invisible
-    
-    v3_generic_add_port_range(generic, 0xc000, 0xc00f, GENERIC_PRINT_AND_IGNORE);
-#endif
+
     //  v3_generic_add_port_range(generic, 0x378, 0x400, GENERIC_PRINT_AND_IGNORE);
     
 

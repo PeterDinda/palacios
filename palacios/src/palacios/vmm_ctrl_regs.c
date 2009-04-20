@@ -484,12 +484,12 @@ int v3_handle_cr4_write(struct guest_info * info) {
 		if ((cr4->pae == 0) && (new_cr4->pae == 1)) {
 		    PrintDebug("Creating PAE passthrough tables\n");
 		    
-		    // Delete the old 32 bit direct map page tables
-		    delete_page_tables_32((pde32_t *)V3_VAddr((void *)(info->direct_map_pt)));
-		    
 		    // create 32 bit PAE direct map page table
-		    info->direct_map_pt = (addr_t)V3_PAddr((void *)v3_create_direct_passthrough_pts(info));
-		    
+		    if (v3_reset_passthrough_pts(info) == -1) {
+			PrintError("Could not create 32 bit PAE passthrough pages tables\n");
+			return -1;
+		    }
+
 		    // reset cr3 to new page tables
 		    info->ctrl_regs.cr3 = *(addr_t*)&(info->direct_map_pt);
 		    
@@ -568,54 +568,6 @@ int v3_handle_efer_write(uint_t msr, struct v3_msr src, void * priv_data) {
     // Enable/Disable Syscall
     shadow_efer->sce = src.value & 0x1;
     
-    
-    // We have to handle long mode writes....
-    
-    /* 
-       if ((info->shdw_pg_mode == SHADOW_PAGING) && 
-       (v3_get_mem_mode(info) == PHYSICAL_MEM)) {
-       
-       if ((shadow_efer->lme == 0) && (new_efer->lme == 1)) {
-       PrintDebug("Transition to longmode\n");
-       PrintDebug("Creating Passthrough 64 bit page tables\n");
-       
-       // Delete the old 32 bit direct map page tables
-       
-       PrintDebug("Deleting old PAE Page tables\n");
-       PrintError("JRL BUG?: Will the old page tables always be in PAE format??\n");
-       delete_page_tables_32PAE((pdpe32pae_t *)V3_VAddr((void *)(info->direct_map_pt)));
-       
-       // create 64 bit direct map page table
-       info->direct_map_pt = (addr_t)V3_PAddr(create_passthrough_pts_64(info));
-       
-       // reset cr3 to new page tables
-       info->ctrl_regs.cr3 = *(addr_t*)&(info->direct_map_pt);
-       
-       // We mark the Long Mode active  because we have paging enabled
-       // We do this in new_efer because we copy the msr in full below
-       // new_efer->lma = 1;
-       
-       } else if ((shadow_efer->lme == 1) && (new_efer->lme == 0)) {
-       // transition out of long mode
-       //((struct efer_64 *)&(info->guest_efer.value))->lme = 0;
-       //((struct efer_64 *)&(info->guest_efer.value))->lma = 0;
-       
-       return -1;
-       }
-       
-       // accept all changes to the efer, but make sure that the SVME bit is set... (SVM specific)
-       *shadow_efer = *new_efer;
-       shadow_efer->svme = 1;
-       
-       
-       
-       PrintDebug("New EFER=%p\n", (void *)*(addr_t *)(shadow_efer));
-       } else {
-       PrintError("Write to EFER in NESTED_PAGING or VIRTUAL_MEM mode not supported\n");
-       // Should probably just check for a long mode transition, and bomb out if it is
-       return -1;
-       }
-    */
     info->rip += 2; // WRMSR/RDMSR are two byte operands
     
     return 0;

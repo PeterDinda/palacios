@@ -26,7 +26,6 @@
 #define MEM_OFFSET_HCALL 0x1000
 
 
-
 static inline
 struct v3_shadow_region * insert_shadow_region(struct guest_info * info, 
  					       struct v3_shadow_region * region);
@@ -67,6 +66,9 @@ void v3_delete_shadow_map(struct guest_info * info) {
 
 	v3_delete_shadow_region(info, reg);
     }
+
+    V3_FreePage((void *)(info->mem_map.base_region.host_addr));
+    V3_FreePage(V3_PAddr((void *)(info->mem_map.hook_hva)));
 }
 
 
@@ -184,6 +186,10 @@ struct v3_shadow_region * insert_shadow_region(struct guest_info * info,
   
     v3_rb_insert_color(&(region->tree_node), &(info->mem_map.shdw_regions));
 
+
+    // flush virtual page tables 
+    // 3 cases shadow, shadow passthrough, and nested
+
     return NULL;
 }
 						 
@@ -216,7 +222,8 @@ int v3_handle_mem_wr_hook(struct guest_info * info, addr_t guest_va, addr_t gues
 
     addr_t dst_addr = (addr_t)V3_VAddr((void *)v3_get_shadow_addr(reg, guest_pa));
 
-    if (v3_emulate_write_op(info, guest_va, guest_pa, dst_addr, reg->write_hook, reg->priv_data) == -1) {
+    if (v3_emulate_write_op(info, guest_va, guest_pa, dst_addr, 
+			    reg->write_hook, reg->priv_data) == -1) {
 	PrintError("Write hook emulation failed\n");
 	return -1;
     }
@@ -230,12 +237,15 @@ int v3_handle_mem_full_hook(struct guest_info * info, addr_t guest_va, addr_t gu
     addr_t op_addr = info->mem_map.hook_hva;
 
     if (access_info.write == 1) {
-	if (v3_emulate_write_op(info, guest_va, guest_pa, op_addr, reg->write_hook, reg->priv_data) == -1) {
+	if (v3_emulate_write_op(info, guest_va, guest_pa, op_addr, 
+				reg->write_hook, reg->priv_data) == -1) {
 	    PrintError("Write Full Hook emulation failed\n");
 	    return -1;
 	}
     } else {
-	if (v3_emulate_read_op(info, guest_va, guest_pa, op_addr, reg->read_hook, reg->write_hook, reg->priv_data) == -1) {
+	if (v3_emulate_read_op(info, guest_va, guest_pa, op_addr, 
+			       reg->read_hook, reg->write_hook, 
+			       reg->priv_data) == -1) {
 	    PrintError("Read Full Hook emulation failed\n");
 	    return -1;
 	}
@@ -281,6 +291,10 @@ void v3_delete_shadow_region(struct guest_info * info, struct v3_shadow_region *
 
 	V3_Free(reg);
     }
+
+    // flush virtual page tables 
+    // 3 cases shadow, shadow passthrough, and nested
+
 }
 
 

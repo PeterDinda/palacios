@@ -59,16 +59,14 @@ void delete_page_tables_32(pde32_t * pde) {
     if (pde == NULL) { 
 	return;
     }
-    PrintDebug("Deleting Page Tables -- PDE (%p)\n", pde);
 
-    for (i = 0; (i < MAX_PDE32_ENTRIES); i++) {
-	if (pde[i].present) {
+    PrintDebug("Deleting Page Tables (32) -- PDE (%p)\n", pde);
+
+    for (i = 0; i < MAX_PDE32_ENTRIES; i++) {
+	if ((pde[i].present) && (pde[i].large_page == 0)) {
 	    // We double cast, first to an addr_t to handle 64 bit issues, then to the pointer
       
-	    pte32_t * pte = (pte32_t *)((addr_t)(uint_t)(pde[i].pt_base_addr << PAGE_POWER));
-
-      
-	    V3_FreePage(pte);
+	    V3_FreePage((void *)(addr_t)PAGE_ADDR_4KB(pde[i].pt_base_addr));
 	}
     }
 
@@ -76,12 +74,75 @@ void delete_page_tables_32(pde32_t * pde) {
     V3_FreePage(V3_PAddr(pde));
 }
 
-void delete_page_tables_32PAE(pdpe32pae_t * pdpe) { 
-    PrintError("Unimplemented function\n");
+void delete_page_tables_32pae(pdpe32pae_t * pdpe) {
+    int i, j;
+
+    if (pdpe == NULL) {
+	return;
+    }
+
+    PrintDebug("Deleting Page Tables (32 PAE) -- PDPE (%p)\n", pdpe);
+    
+    for (i = 0; i < MAX_PDPE32PAE_ENTRIES; i++) {
+	if (pdpe[i].present == 0) {
+	    continue;
+	}
+
+	pde32pae_t * pde = (pde32pae_t *)V3_VAddr((void *)(addr_t)PAGE_ADDR_4KB(pdpe[i].pd_base_addr));
+
+	for (j = 0; j < MAX_PDE32PAE_ENTRIES; j++) {
+
+	    if ((pde[j].present == 0) || (pde[j].large_page == 1)) {
+		continue;
+	    }
+
+	    V3_FreePage((void *)(addr_t)PAGE_ADDR_4KB(pde[j].pt_base_addr));
+	}
+
+	V3_FreePage(V3_PAddr(pde));
+    }
+
+    V3_FreePage(V3_PAddr(pdpe));
 }
 
 void delete_page_tables_64(pml4e64_t * pml4) {
-    PrintError("Unimplemented function\n");
+    int i, j, k;
+
+    if (pml4 == NULL) {
+	return;
+    }
+
+    PrintDebug("Deleting Page Tables (64) -- PML4 (%p)\n", pml4);
+
+    for (i = 0; i < MAX_PML4E64_ENTRIES; i++) {
+	if (pml4[i].present == 0) {
+	    continue;
+	}
+
+	pdpe64_t * pdpe = (pdpe64_t *)V3_VAddr((void *)(addr_t)PAGE_ADDR_4KB(pml4[i].pdp_base_addr));
+
+	for (j = 0; j < MAX_PDPE64_ENTRIES; j++) {
+	    if ((pdpe[j].present == 0) || (pdpe[j].large_page == 1)) {
+		continue;
+	    }
+
+	    pde64_t * pde = (pde64_t *)V3_VAddr((void *)(addr_t)PAGE_ADDR_4KB(pdpe[j].pd_base_addr));
+
+	    for (k = 0; k < MAX_PDE64_ENTRIES; k++) {
+		if ((pde[k].present == 0) || (pde[k].large_page == 1)) {
+		    continue;
+		}
+
+		V3_FreePage((void *)(addr_t)PAGE_ADDR_4KB(pde[k].pt_base_addr));
+	    }
+	    
+	    V3_FreePage(V3_PAddr(pde));
+	}
+
+	V3_FreePage(V3_PAddr(pdpe));
+    }
+
+    V3_FreePage(V3_PAddr(pml4));
 }
 
 

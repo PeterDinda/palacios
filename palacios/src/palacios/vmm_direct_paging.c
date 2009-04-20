@@ -44,10 +44,48 @@ static addr_t create_generic_pt_page() {
 #include "vmm_direct_paging_32pae.h"
 #include "vmm_direct_paging_64.h"
 
-
-addr_t v3_create_direct_passthrough_pts(struct guest_info * info) {
-    return create_generic_pt_page();
+int v3_init_passthrough_pts(struct guest_info * info) {
+    info->direct_map_pt = (addr_t)V3_PAddr((void *)create_generic_pt_page());
+    return 0;
 }
+
+int v3_reset_passthrough_pts(struct guest_info * info) {
+    v3_vm_cpu_mode_t mode = v3_get_cpu_mode(info);
+
+    // Delete the old direct map page tables
+    switch(mode) {
+	case REAL:
+	case PROTECTED:
+	    delete_page_tables_32((pde32_t *)V3_VAddr((void *)(info->direct_map_pt)));
+	    break;
+	case PROTECTED_PAE:
+	case LONG:
+	case LONG_32_COMPAT:
+	    // Long mode will only use 32PAE page tables...
+	    delete_page_tables_32pae((pdpe32pae_t *)V3_VAddr((void *)(info->direct_map_pt)));
+	    break;
+	default:
+	    PrintError("Unknown CPU Mode\n");
+	    break;
+    }
+	    
+    // create new direct map page table
+    v3_init_passthrough_pts(info);
+    
+    return 0;
+}
+
+
+int v3_activate_passthrough_pt(struct guest_info * info) {
+    // For now... But we need to change this....
+    // As soon as shadow paging becomes active the passthrough tables are hosed
+    // So this will cause chaos if it is called at that time
+
+    info->ctrl_regs.cr3 = *(addr_t*)&(info->direct_map_pt);
+    //PrintError("Activate Passthrough Page tables not implemented\n");
+    return 0;
+}
+
 
 int v3_handle_passthrough_pagefault(struct guest_info * info, addr_t fault_addr, pf_error_t error_code) {
     v3_vm_cpu_mode_t mode = v3_get_cpu_mode(info);
@@ -98,3 +136,7 @@ int v3_handle_nested_pagefault(struct guest_info * info, addr_t fault_addr, pf_e
     return -1;
 }
 
+int v3_invalidate_passthrough_addr(struct guest_info * info, addr_t inv_addr) {
+
+    return -1;
+}
