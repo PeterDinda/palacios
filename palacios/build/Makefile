@@ -203,6 +203,14 @@ DEBUG_SECTIONS := $(DEBUG_SECTIONS) -UDEBUG_DEV_MGR
 endif
 endif
 
+ifeq ($(DEBUG_NE2K),1)
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DDEBUG_NE2K
+else 
+ifeq ($(DEBUG_NE2K),0)
+DEBUG_SECTIONS := $(DEBUG_SECTIONS) -UDEBUG_NE2K
+endif
+endif
+
 #DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DTEST_NE2K
 
 ifeq ($(DEBUG),1)
@@ -334,6 +342,7 @@ DEVICES_OBJS := \
 	devices/ram_hd.o \
 	devices/i440fx.o \
 	devices/piix3.o \
+	devices/ne2k.o	\
 
 #	devices/cdrom.o \
 #	devices/ramdisk.o \
