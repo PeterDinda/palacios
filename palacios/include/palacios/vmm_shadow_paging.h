@@ -56,7 +56,7 @@ int v3_handle_shadow_invlpg(struct guest_info * info);
 
 
 int v3_activate_shadow_pt(struct guest_info * info);
-
+int v3_invalidate_shadow_pts(struct guest_info * info);
 
 
 #endif // ! __V3VEE__

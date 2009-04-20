@@ -107,4 +107,40 @@ static inline int handle_passthrough_pagefault_32(struct guest_info * info,
 }
 
 
+
+
+static inline int invalidate_addr_32(struct guest_info * info, addr_t inv_addr) {
+    pde32_t * pde = NULL;
+    pte32_t * pte = NULL;
+
+    // TODO:
+    // Call INVLPGA
+
+    // clear the page table entry
+    int pde_index = PDE32_INDEX(inv_addr);
+    int pte_index = PTE32_INDEX(inv_addr);
+
+    
+    // Lookup the correct PDE address based on the PAGING MODE
+    if (info->shdw_pg_mode == SHADOW_PAGING) {
+	pde = CR3_TO_PDE32_VA(info->ctrl_regs.cr3);
+    } else {
+	pde = CR3_TO_PDE32_VA(info->direct_map_pt);
+    }    
+
+    if (pde[pde_index].present == 0) {
+	return 0;
+    } else if (pde[pde_index].large_page) {
+	pde[pde_index].present = 0;
+	return 0;
+    }
+
+    pte = V3_VAddr((void*)BASE_TO_PAGE_ADDR(pde[pde_index].pt_base_addr));
+
+    pte[pte_index].present = 0;
+
+    return 0;
+}
+
+
 #endif

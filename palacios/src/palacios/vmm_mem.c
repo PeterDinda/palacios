@@ -22,6 +22,9 @@
 #include <palacios/vmm_util.h>
 #include <palacios/vmm_emulator.h>
 
+#include <palacios/vmm_shadow_paging.h>
+#include <palacios/vmm_direct_paging.h>
+
 
 #define MEM_OFFSET_HCALL 0x1000
 
@@ -187,8 +190,34 @@ struct v3_shadow_region * insert_shadow_region(struct guest_info * info,
     v3_rb_insert_color(&(region->tree_node), &(info->mem_map.shdw_regions));
 
 
+
     // flush virtual page tables 
     // 3 cases shadow, shadow passthrough, and nested
+    if (info->shdw_pg_mode == SHADOW_PAGING) {
+	v3_vm_mem_mode_t mem_mode = v3_get_mem_mode(info);
+
+	if (mem_mode == PHYSICAL_MEM) {
+	    addr_t cur_addr;
+
+	    for (cur_addr = region->guest_start;
+		 cur_addr < region->guest_end;
+		 cur_addr += PAGE_SIZE_4KB) {
+		v3_invalidate_passthrough_addr(info, cur_addr);
+	    }
+	} else {
+	    v3_invalidate_shadow_pts(info);
+	}
+
+    } else if (info->shdw_pg_mode == NESTED_PAGING) {
+	addr_t cur_addr;
+
+	for (cur_addr = region->guest_start;
+	     cur_addr < region->guest_end;
+	     cur_addr += PAGE_SIZE_4KB) {
+	    
+	    v3_invalidate_nested_addr(info, cur_addr);
+	}
+    }
 
     return NULL;
 }
@@ -286,11 +315,42 @@ struct v3_shadow_region * v3_get_shadow_region(struct guest_info * info, addr_t 
 
 
 void v3_delete_shadow_region(struct guest_info * info, struct v3_shadow_region * reg) {
-    if (reg != NULL) {
-	v3_rb_erase(&(reg->tree_node), &(info->mem_map.shdw_regions));
-
-	V3_Free(reg);
+    if (reg == NULL) {
+	return;
     }
+
+    // flush virtual page tables 
+    // 3 cases shadow, shadow passthrough, and nested
+    if (info->shdw_pg_mode == SHADOW_PAGING) {
+	v3_vm_mem_mode_t mem_mode = v3_get_mem_mode(info);
+	    
+	if (mem_mode == PHYSICAL_MEM) {
+	    addr_t cur_addr;
+		
+	    for (cur_addr = reg->guest_start;
+		 cur_addr < reg->guest_end;
+		 cur_addr += PAGE_SIZE_4KB) {
+		v3_invalidate_passthrough_addr(info, cur_addr);
+	    }
+	} else {
+	    v3_invalidate_shadow_pts(info);
+	}
+
+    } else if (info->shdw_pg_mode == NESTED_PAGING) {
+	addr_t cur_addr;
+
+	for (cur_addr = reg->guest_start;
+	     cur_addr < reg->guest_end;
+	     cur_addr += PAGE_SIZE_4KB) {
+	    
+	    v3_invalidate_nested_addr(info, cur_addr);
+	}
+    }
+
+
+    v3_rb_erase(&(reg->tree_node), &(info->mem_map.shdw_regions));
+
+    V3_Free(reg);
 
     // flush virtual page tables 
     // 3 cases shadow, shadow passthrough, and nested

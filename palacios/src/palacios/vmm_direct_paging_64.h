@@ -143,5 +143,59 @@ static inline int handle_passthrough_pagefault_64(struct guest_info * info,
     return 0;
 }
 
+static inline int invalidate_addr_64(struct guest_info * info, addr_t inv_addr) {
+    pml4e64_t * pml = NULL;
+    pdpe64_t * pdpe = NULL;
+    pde64_t * pde = NULL;
+    pte64_t * pte = NULL;
+
+
+    // TODO:
+    // Call INVLPGA
+
+    // clear the page table entry
+    int pml_index = PML4E64_INDEX(inv_addr);
+    int pdpe_index = PDPE64_INDEX(inv_addr);
+    int pde_index = PDE64_INDEX(inv_addr);
+    int pte_index = PTE64_INDEX(inv_addr);
+
+    
+    // Lookup the correct PDE address based on the PAGING MODE
+    if (info->shdw_pg_mode == SHADOW_PAGING) {
+	pml = CR3_TO_PML4E64_VA(info->ctrl_regs.cr3);
+    } else {
+	pml = CR3_TO_PML4E64_VA(info->direct_map_pt);
+    }
+
+    if (pml[pml_index].present == 0) {
+	return 0;
+    }
+
+    pdpe = V3_VAddr((void*)BASE_TO_PAGE_ADDR(pml[pml_index].pdp_base_addr));
+
+    if (pdpe[pdpe_index].present == 0) {
+	return 0;
+    } else if (pdpe[pdpe_index].large_page == 1) {
+	pdpe[pdpe_index].present = 0;
+	return 0;
+    }
+
+    pde = V3_VAddr((void*)BASE_TO_PAGE_ADDR(pdpe[pdpe_index].pd_base_addr));
+
+    if (pde[pde_index].present == 0) {
+	return 0;
+    } else if (pde[pde_index].large_page == 1) {
+	pde[pde_index].present = 0;
+	return 0;
+    }
+
+    pte = V3_VAddr((void*)BASE_TO_PAGE_ADDR(pde[pde_index].pt_base_addr));
+
+    pte[pte_index].present = 0;
+
+    return 0;
+}
+
+
 
 #endif

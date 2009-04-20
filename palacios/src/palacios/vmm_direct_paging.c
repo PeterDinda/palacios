@@ -137,6 +137,46 @@ int v3_handle_nested_pagefault(struct guest_info * info, addr_t fault_addr, pf_e
 }
 
 int v3_invalidate_passthrough_addr(struct guest_info * info, addr_t inv_addr) {
+    v3_vm_cpu_mode_t mode = v3_get_cpu_mode(info);
+
+    switch(mode) {
+	case REAL:
+	case PROTECTED:
+	    return invalidate_addr_32(info, inv_addr);
+
+	case PROTECTED_PAE:
+	case LONG:
+	case LONG_32_COMPAT:
+	    // Long mode will only use 32PAE page tables...
+	    return invalidate_addr_32pae(info, inv_addr);
+
+	default:
+	    PrintError("Unknown CPU Mode\n");
+	    break;
+    }
+    return -1;
+}
+
+
+int v3_invalidate_nested_addr(struct guest_info * info, addr_t inv_addr) {
+    v3_vm_cpu_mode_t mode = LONG;
+
+    switch(mode) {
+	case REAL:
+	case PROTECTED:
+	    return invalidate_addr_32(info, inv_addr);
+
+	case PROTECTED_PAE:
+	    return invalidate_addr_32pae(info, inv_addr);
+
+	case LONG:
+	case LONG_32_COMPAT:
+	    return invalidate_addr_64(info, inv_addr);	    
+	
+	default:
+	    PrintError("Unknown CPU Mode\n");
+	    break;
+    }
 
     return -1;
 }

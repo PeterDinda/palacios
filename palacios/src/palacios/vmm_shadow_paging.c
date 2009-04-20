@@ -98,6 +98,11 @@ int v3_activate_shadow_pt(struct guest_info * info) {
 
 
 
+// This must flush any caches
+// and reset the cr3 value to the correct value
+int v3_invalidate_shadow_pts(struct guest_info * info) {
+    return v3_activate_shadow_pt(info);
+}
 
 
 int v3_handle_shadow_pagefault(struct guest_info * info, addr_t fault_addr, pf_error_t error_code) {

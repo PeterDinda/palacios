@@ -35,6 +35,7 @@ int v3_handle_nested_pagefault(struct guest_info * info, addr_t fault_addr, pf_e
 int v3_activate_passthrough_pt(struct guest_info * info);
 
 int v3_invalidate_passthrough_addr(struct guest_info * info, addr_t inv_addr);
+int v3_invalidate_nested_addr(struct guest_info * info, addr_t inv_addr);
 
 #endif // ! __V3VEE__
 
