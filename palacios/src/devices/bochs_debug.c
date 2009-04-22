@@ -28,6 +28,7 @@
 #define BOCHS_INFO_PORT 0x402
 #define BOCHS_DEBUG_PORT 0x403
 
+#define BOCHS_CONSOLE_PORT 0xe9
 
 
 struct debug_state {
@@ -36,6 +37,9 @@ struct debug_state {
 
     char info_buf[BUF_SIZE];
     uint_t info_offset;
+
+    char cons_buf[BUF_SIZE];
+    uint_t cons_offset;
 };
 
 static int handle_info_write(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
@@ -62,6 +66,21 @@ static int handle_debug_write(ushort_t port, void * src, uint_t length, struct v
 	PrintDebug("BOCHSDEBUG>%s", state->debug_buf);
 	memset(state->debug_buf, 0, BUF_SIZE);
 	state->debug_offset = 0;
+    }
+
+    return length;
+}
+
+
+static int handle_console_write(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
+    struct debug_state * state = (struct debug_state *)dev->private_data;
+
+    state->cons_buf[state->cons_offset++] = *(char*)src;
+
+    if ((*(char*)src == 0xa) ||  (state->cons_offset == (BUF_SIZE - 1))) {
+	PrintDebug("BOCHSCONSOLE>%s", state->cons_buf);
+	memset(state->cons_buf, 0, BUF_SIZE);
+	state->cons_offset = 0;
     }
 
     return length;
@@ -103,6 +122,8 @@ static int debug_init(struct vm_device * dev) {
     v3_dev_hook_io(dev, BOCHS_PORT2, NULL, &handle_gen_write);
     v3_dev_hook_io(dev, BOCHS_INFO_PORT, NULL, &handle_info_write);
     v3_dev_hook_io(dev, BOCHS_DEBUG_PORT, NULL, &handle_debug_write);
+    v3_dev_hook_io(dev, BOCHS_CONSOLE_PORT, NULL, &handle_console_write);
+    
   
     return 0;
 }
