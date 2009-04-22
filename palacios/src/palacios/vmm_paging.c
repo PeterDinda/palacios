@@ -63,13 +63,13 @@ void delete_page_tables_32(pde32_t * pde) {
     PrintDebug("Deleting Page Tables (32) -- PDE (%p)\n", pde);
 
     for (i = 0; i < MAX_PDE32_ENTRIES; i++) {
-	if ((pde[i].present) && (pde[i].large_page == 0)) {
+	if ((pde[i].present == 1) && (pde[i].large_page == 0)) {
 	    // We double cast, first to an addr_t to handle 64 bit issues, then to the pointer
       
-	    V3_FreePage((void *)(addr_t)PAGE_ADDR_4KB(pde[i].pt_base_addr));
+	    PrintDebug("Deleting PT Page %d (%p)\n", i, (void *)(addr_t)BASE_TO_PAGE_ADDR_4KB(pde[i].pt_base_addr));
+	    V3_FreePage((void *)(addr_t)BASE_TO_PAGE_ADDR_4KB(pde[i].pt_base_addr));
 	}
     }
-
 
     V3_FreePage(V3_PAddr(pde));
 }
@@ -88,7 +88,7 @@ void delete_page_tables_32pae(pdpe32pae_t * pdpe) {
 	    continue;
 	}
 
-	pde32pae_t * pde = (pde32pae_t *)V3_VAddr((void *)(addr_t)PAGE_ADDR_4KB(pdpe[i].pd_base_addr));
+	pde32pae_t * pde = (pde32pae_t *)V3_VAddr((void *)(addr_t)BASE_TO_PAGE_ADDR_4KB(pdpe[i].pd_base_addr));
 
 	for (j = 0; j < MAX_PDE32PAE_ENTRIES; j++) {
 
@@ -96,7 +96,7 @@ void delete_page_tables_32pae(pdpe32pae_t * pdpe) {
 		continue;
 	    }
 
-	    V3_FreePage((void *)(addr_t)PAGE_ADDR_4KB(pde[j].pt_base_addr));
+	    V3_FreePage((void *)(addr_t)BASE_TO_PAGE_ADDR_4KB(pde[j].pt_base_addr));
 	}
 
 	V3_FreePage(V3_PAddr(pde));
@@ -119,21 +119,21 @@ void delete_page_tables_64(pml4e64_t * pml4) {
 	    continue;
 	}
 
-	pdpe64_t * pdpe = (pdpe64_t *)V3_VAddr((void *)(addr_t)PAGE_ADDR_4KB(pml4[i].pdp_base_addr));
+	pdpe64_t * pdpe = (pdpe64_t *)V3_VAddr((void *)(addr_t)BASE_TO_PAGE_ADDR_4KB(pml4[i].pdp_base_addr));
 
 	for (j = 0; j < MAX_PDPE64_ENTRIES; j++) {
 	    if ((pdpe[j].present == 0) || (pdpe[j].large_page == 1)) {
 		continue;
 	    }
 
-	    pde64_t * pde = (pde64_t *)V3_VAddr((void *)(addr_t)PAGE_ADDR_4KB(pdpe[j].pd_base_addr));
+	    pde64_t * pde = (pde64_t *)V3_VAddr((void *)(addr_t)BASE_TO_PAGE_ADDR_4KB(pdpe[j].pd_base_addr));
 
 	    for (k = 0; k < MAX_PDE64_ENTRIES; k++) {
 		if ((pde[k].present == 0) || (pde[k].large_page == 1)) {
 		    continue;
 		}
 
-		V3_FreePage((void *)(addr_t)PAGE_ADDR_4KB(pde[k].pt_base_addr));
+		V3_FreePage((void *)(addr_t)BASE_TO_PAGE_ADDR_4KB(pde[k].pt_base_addr));
 	    }
 	    
 	    V3_FreePage(V3_PAddr(pde));
