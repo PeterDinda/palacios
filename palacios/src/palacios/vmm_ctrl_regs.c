@@ -118,7 +118,7 @@ static int handle_mov_to_cr0(struct guest_info * info, struct x86_instr * dec_in
     // Was there a paging transition
     // Meaning we need to change the page tables
     if (paging_transition) {
-	if (v3_get_mem_mode(info) == VIRTUAL_MEM) {
+	if (v3_get_vm_mem_mode(info) == VIRTUAL_MEM) {
 	    
 	    struct efer_64 * guest_efer  = (struct efer_64 *)&(info->guest_efer);
 	    struct efer_64 * shadow_efer = (struct efer_64 *)&(info->ctrl_regs.efer);
@@ -231,8 +231,8 @@ int v3_handle_cr0_read(struct guest_info * info) {
     if (dec_instr.op_type == V3_OP_MOVCR2) {
 	PrintDebug("MOVCR2 (mode=%s)\n", v3_cpu_mode_to_str(info->cpu_mode));
 
-	if ((v3_get_cpu_mode(info) == LONG) || 
-	    (v3_get_cpu_mode(info) == LONG_32_COMPAT)) {
+	if ((v3_get_vm_cpu_mode(info) == LONG) || 
+	    (v3_get_vm_cpu_mode(info) == LONG_32_COMPAT)) {
 	    struct cr0_64 * dst_reg = (struct cr0_64 *)(dec_instr.dst_operand.operand);
 	
 	    if (info->shdw_pg_mode == SHADOW_PAGING) {
@@ -382,8 +382,8 @@ int v3_handle_cr3_read(struct guest_info * info) {
 	
 	if (info->shdw_pg_mode == SHADOW_PAGING) {
 	    
-	    if ((v3_get_cpu_mode(info) == LONG) || 
-		(v3_get_cpu_mode(info) == LONG_32_COMPAT)) {
+	    if ((v3_get_vm_cpu_mode(info) == LONG) || 
+		(v3_get_vm_cpu_mode(info) == LONG_32_COMPAT)) {
 		struct cr3_64 * dst_reg = (struct cr3_64 *)(dec_instr.dst_operand.operand);
 		struct cr3_64 * guest_cr3 = (struct cr3_64 *)&(info->shdw_pg_state.guest_cr3);
 		*dst_reg = *guest_cr3;
@@ -396,8 +396,8 @@ int v3_handle_cr3_read(struct guest_info * info) {
 	} else if (info->shdw_pg_mode == NESTED_PAGING) {
 	    
 	    // This is just a passthrough operation which we probably don't need here
-	    if ((v3_get_cpu_mode(info) == LONG) || 
-		(v3_get_cpu_mode(info) == LONG_32_COMPAT)) {
+	    if ((v3_get_vm_cpu_mode(info) == LONG) || 
+		(v3_get_vm_cpu_mode(info) == LONG_32_COMPAT)) {
 		struct cr3_64 * dst_reg = (struct cr3_64 *)(dec_instr.dst_operand.operand);
 		struct cr3_64 * guest_cr3 = (struct cr3_64 *)&(info->ctrl_regs.cr3);
 		*dst_reg = *guest_cr3;
@@ -431,7 +431,7 @@ int v3_handle_cr4_write(struct guest_info * info) {
     int ret;
     int flush_tlb=0;
     struct x86_instr dec_instr;
-    v3_cpu_mode_t cpu_mode = v3_get_cpu_mode(info);
+    v3_cpu_mode_t cpu_mode = v3_get_vm_cpu_mode(info);
     
     if (info->mem_mode == PHYSICAL_MEM) { 
 	ret = read_guest_pa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
@@ -451,7 +451,7 @@ int v3_handle_cr4_write(struct guest_info * info) {
     
     // Check to see if we need to flush the tlb
     
-    if (v3_get_mem_mode(info) == VIRTUAL_MEM) { 
+    if (v3_get_vm_mem_mode(info) == VIRTUAL_MEM) { 
 	struct cr4_32 * new_cr4 = (struct cr4_32 *)(dec_instr.src_operand.operand);
 	struct cr4_32 * cr4 = (struct cr4_32 *)&(info->ctrl_regs.cr4);
 	
@@ -479,7 +479,7 @@ int v3_handle_cr4_write(struct guest_info * info) {
 	PrintDebug("Old CR4=%x\n", *(uint_t *)cr4);
 	
 	if ((info->shdw_pg_mode == SHADOW_PAGING)) { 
-	    if (v3_get_mem_mode(info) == PHYSICAL_MEM) {
+	    if (v3_get_vm_mem_mode(info) == PHYSICAL_MEM) {
 		
 		if ((cr4->pae == 0) && (new_cr4->pae == 1)) {
 		    PrintDebug("Creating PAE passthrough tables\n");

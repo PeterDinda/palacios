@@ -64,8 +64,8 @@ int v3_handle_svm_exit(struct guest_info * info) {
     info->ctrl_regs.efer = guest_state->efer;
     
     get_vmcb_segments((vmcb_t*)(info->vmm_data), &(info->segments));
-    info->cpu_mode = v3_get_cpu_mode(info);
-    info->mem_mode = v3_get_mem_mode(info);
+    info->cpu_mode = v3_get_vm_cpu_mode(info);
+    info->mem_mode = v3_get_vm_mem_mode(info);
 
 
     exit_code = guest_ctrl->exit_code;

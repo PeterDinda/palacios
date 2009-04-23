@@ -645,7 +645,7 @@ static int get_memory_operand(struct guest_info * info,  xed_decoded_inst_t * xe
 
     // This is a horrendous hack...
     // XED really screwed the pooch in calculating the displacement
-    if (v3_get_cpu_mode(info) == LONG) {
+    if (v3_get_vm_cpu_mode(info) == LONG) {
 	displacement = mem_op.displacement;
     } else {
 	displacement = MASK(mem_op.displacement, mem_op.displacement_size);

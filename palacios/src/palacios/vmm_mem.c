@@ -210,7 +210,7 @@ struct v3_shadow_region * insert_shadow_region(struct guest_info * info,
     // flush virtual page tables 
     // 3 cases shadow, shadow passthrough, and nested
     if (info->shdw_pg_mode == SHADOW_PAGING) {
-	v3_mem_mode_t mem_mode = v3_get_mem_mode(info);
+	v3_mem_mode_t mem_mode = v3_get_vm_mem_mode(info);
 
 	if (mem_mode == PHYSICAL_MEM) {
 	    addr_t cur_addr;
@@ -338,7 +338,7 @@ void v3_delete_shadow_region(struct guest_info * info, struct v3_shadow_region *
     // flush virtual page tables 
     // 3 cases shadow, shadow passthrough, and nested
     if (info->shdw_pg_mode == SHADOW_PAGING) {
-	v3_mem_mode_t mem_mode = v3_get_mem_mode(info);
+	v3_mem_mode_t mem_mode = v3_get_vm_mem_mode(info);
 	    
 	if (mem_mode == PHYSICAL_MEM) {
 	    addr_t cur_addr;
