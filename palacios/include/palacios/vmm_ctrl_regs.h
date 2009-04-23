@@ -25,6 +25,8 @@
 
 #include <palacios/vm_guest.h>
 
+#define EFER_MSR                 0xc0000080
+
 struct cr0_real {
     uint_t pe    : 1;
     uint_t mp    : 1;

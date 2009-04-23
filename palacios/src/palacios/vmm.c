@@ -24,6 +24,8 @@
 #include <palacios/vmm_config.h>
 #include <palacios/vm_guest.h>
 #include <palacios/vmm_instrument.h>
+#include <palacios/vmm_ctrl_regs.h>
+#include <palacios/vmm_lowlevel.h>
 
 
 /* These should be the only global variables in Palacios */
@@ -67,3 +69,35 @@ void Init_V3(struct v3_os_hooks * hooks, struct v3_ctrl_ops * vmm_ops) {
 	PrintDebug("CPU has no virtualization Extensions\n");
     }
 }
+
+
+
+#ifdef __V3_32BIT__
+
+v3_cpu_mode_t v3_get_host_cpu_mode() {
+    uint32_t cr4_val;
+    struct cr4_32 * cr4;
+
+    __asm__ (
+	     "movl %%cr4, %0; "
+	     : "=r"(cr4_val) 
+	     );
+
+    
+    cr4 = (struct cr4_32 *)&(cr4_val);
+
+    if (cr4->pae == 1) {
+	return PROTECTED_PAE;
+    } else {
+	return PROTECTED;
+    }
+}
+
+#elif __V3_64BIT__
+
+v3_cpu_mode_t v3_get_host_cpu_mode() {
+    return LONG;
+}
+
+#endif 
+

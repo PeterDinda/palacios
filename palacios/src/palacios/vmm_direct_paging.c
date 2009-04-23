@@ -111,8 +111,7 @@ int v3_handle_passthrough_pagefault(struct guest_info * info, addr_t fault_addr,
 
 
 int v3_handle_nested_pagefault(struct guest_info * info, addr_t fault_addr, pf_error_t error_code) {
-    // THIS IS VERY BAD
-    v3_cpu_mode_t mode = LONG;
+    v3_cpu_mode_t mode = v3_get_host_cpu_mode()
 
 
     PrintDebug("Nested PageFault: fault_addr=%p, error_code=%u\n",(void*)fault_addr, *(uint_t *)&error_code);

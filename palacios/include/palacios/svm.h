@@ -38,8 +38,6 @@
 #define CPUID_SVM_REV_AND_FEATURE_IDS_edx_svml 0x00000004
 #define CPUID_SVM_REV_AND_FEATURE_IDS_edx_np  0x00000001
 
-
-#define EFER_MSR                 0xc0000080
 #define EFER_MSR_svm_enable      0x00001000
 
 /************/
