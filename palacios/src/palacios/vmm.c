@@ -56,7 +56,6 @@ void Init_V3(struct v3_os_hooks * hooks, struct v3_ctrl_ops * vmm_ops) {
 
 	PrintDebug("Machine is SVM Capable\n");
 	vmm_ops->allocate_guest = &allocate_guest;
-	vmm_ops->config_guest = &v3_config_guest;
 	v3_init_SVM(vmm_ops);
 
 	/*

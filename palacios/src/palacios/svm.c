@@ -41,6 +41,7 @@
 #include <palacios/vmm_direct_paging.h>
 
 #include <palacios/vmm_ctrl_regs.h>
+#include <palacios/vmm_config.h>
 
 
 extern void v3_stgi();
@@ -277,14 +278,19 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
 }
 
 
-static int init_svm_guest(struct guest_info *info) {
+static int init_svm_guest(struct guest_info *info, struct v3_vm_config * config_ptr) {
+    v3_config_guest(info, config_ptr);
+
     PrintDebug("Allocating VMCB\n");
     info->vmm_data = (void*)Allocate_VMCB();
+
+    v3_config_devices(info, config_ptr);
 
     PrintDebug("Initializing VMCB (addr=%p)\n", (void *)info->vmm_data);
     Init_VMCB_BIOS((vmcb_t*)(info->vmm_data), info);
   
 
+    
     info->run_state = VM_STOPPED;
 
     //  info->rip = 0;

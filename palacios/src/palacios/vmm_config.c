@@ -55,7 +55,6 @@
 
 
 static int setup_memory_map(struct guest_info * info, struct v3_vm_config * config_ptr);
-static int setup_devices(struct guest_info * info, struct v3_vm_config * config_ptr);
 static struct vm_device *  configure_generic(struct guest_info * info, struct v3_vm_config * config_ptr);
 
 
@@ -79,6 +78,7 @@ int v3_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) 
     // Amount of ram the Guest will have, rounded to a 4K page boundary
     info->mem_size = config_ptr->mem_size & ~(addr_t)0xfff;
 
+
     // Initialize the subsystem data strutures
     v3_init_time(info);
     v3_init_io_map(info);
@@ -91,7 +91,7 @@ int v3_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) 
     
     v3_init_hypercall_map(info);
 
-    
+
     // Initialize the memory map
     v3_init_shadow_map(info);
     
@@ -116,9 +116,7 @@ int v3_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) 
 	return -1;
     }
     
-    // Configure the devices for the guest
-    setup_devices(info, config_ptr);
-    
+
     if (config_ptr->enable_profiling) {
 	info->enable_profiler = 1;
 	v3_init_profiler(info);
@@ -135,6 +133,9 @@ int v3_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) 
     
     return 0;
 }
+
+
+
 
 
 /* TODO:
@@ -188,7 +189,7 @@ static int setup_memory_map(struct guest_info * info, struct v3_vm_config * conf
 
 
 
-static int setup_devices(struct guest_info * info, struct v3_vm_config * config_ptr) {
+int v3_config_devices(struct guest_info * info, struct v3_vm_config * config_ptr) {
 
     struct vm_device * ide = NULL;
     struct vm_device * ramdisk = NULL;
@@ -295,6 +296,10 @@ static struct vm_device *  configure_generic(struct guest_info * info, struct v3
     PrintDebug("Creating Generic Device\n");
     struct vm_device * generic = v3_create_generic();
     
+
+    // port 0x92: A20 enable/disable (bit 2) (This causes an MMU flush)
+
+
     // Make the DMA controller invisible
     v3_generic_add_port_range(generic, 0x00, 0x07, GENERIC_PRINT_AND_IGNORE);   // DMA 1 channels 0,1,2,3 (address, counter)
     v3_generic_add_port_range(generic, 0xc0, 0xc7, GENERIC_PRINT_AND_IGNORE);   // DMA 2 channels 4,5,6,7 (address, counter)

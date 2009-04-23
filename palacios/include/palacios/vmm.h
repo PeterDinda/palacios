@@ -290,8 +290,7 @@ struct v3_vm_config {
 struct v3_ctrl_ops {
     struct guest_info *(*allocate_guest)(void);
 
-    int (*config_guest)(struct guest_info * info, struct v3_vm_config * config_ptr);
-    int (*init_guest)(struct guest_info * info);
+    int (*init_guest)(struct guest_info * info, struct v3_vm_config * config_ptr);
     int (*start_guest)(struct guest_info * info);
     //  int (*stop_vm)(uint_t vm_id);
 
