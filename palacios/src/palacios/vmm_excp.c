@@ -40,7 +40,8 @@ int v3_raise_exception_with_error(struct guest_info * info, uint_t excp, uint_t 
 	excp_state->excp_error_code_valid = 1;
 	//	PrintDebug("[v3_raise_exception_with_error] error code: %x\n", error_code);
     } else {
-	PrintError("exception already pending, currently not implemented\n");
+	PrintError("Error injecting exception_w_error (excp=%d) (error=%d) -- Exception (%d) (error=%d) already pending\n",
+		   excp, error_code, excp_state->excp_num, excp_state->excp_error_code);
 	return -1;
     }
 
@@ -56,7 +57,8 @@ int v3_raise_exception(struct guest_info * info, uint_t excp) {
 	excp_state->excp_error_code = 0;
 	excp_state->excp_error_code_valid = 0;
     } else {
-	PrintError("exception already pending, currently not implemented\n");
+	PrintError("Error injecting exception (excp=%d) -- Exception (%d) (error=%d) already pending\n",
+		   excp, excp_state->excp_num, excp_state->excp_error_code);
 	return -1;
     }
 
