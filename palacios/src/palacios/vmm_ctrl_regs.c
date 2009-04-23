@@ -431,7 +431,7 @@ int v3_handle_cr4_write(struct guest_info * info) {
     int ret;
     int flush_tlb=0;
     struct x86_instr dec_instr;
-    v3_vm_cpu_mode_t cpu_mode = v3_get_cpu_mode(info);
+    v3_cpu_mode_t cpu_mode = v3_get_cpu_mode(info);
     
     if (info->mem_mode == PHYSICAL_MEM) { 
 	ret = read_guest_pa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);

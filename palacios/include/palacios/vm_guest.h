@@ -150,8 +150,8 @@ struct guest_info {
 
     struct v3_host_events host_event_hooks;
 
-    v3_vm_cpu_mode_t cpu_mode;
-    v3_vm_mem_mode_t mem_mode;
+    v3_cpu_mode_t cpu_mode;
+    v3_mem_mode_t mem_mode;
     uint_t addr_width;
 
 
@@ -187,12 +187,12 @@ struct guest_info {
 
 
 uint_t v3_get_addr_width(struct guest_info * info);
-v3_vm_cpu_mode_t v3_get_cpu_mode(struct guest_info * info);
-v3_vm_mem_mode_t v3_get_mem_mode(struct guest_info * info);
+v3_cpu_mode_t v3_get_cpu_mode(struct guest_info * info);
+v3_mem_mode_t v3_get_mem_mode(struct guest_info * info);
 
 
-const uchar_t * v3_cpu_mode_to_str(v3_vm_cpu_mode_t mode);
-const uchar_t * v3_mem_mode_to_str(v3_vm_mem_mode_t mode);
+const uchar_t * v3_cpu_mode_to_str(v3_cpu_mode_t mode);
+const uchar_t * v3_mem_mode_to_str(v3_mem_mode_t mode);
 
 
 void v3_print_segments(struct guest_info * info);

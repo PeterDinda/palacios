@@ -26,7 +26,7 @@
 #include <palacios/vmcb.h>
 
 
-v3_vm_cpu_mode_t v3_get_cpu_mode(struct guest_info * info) {
+v3_cpu_mode_t v3_get_cpu_mode(struct guest_info * info) {
     struct cr0_32 * cr0;
     struct efer_64 * efer;
     struct cr4_32 * cr4 = (struct cr4_32 *)&(info->ctrl_regs.cr4);
@@ -101,7 +101,7 @@ static const uchar_t LONG_STR[] = "Long";
 static const uchar_t LONG_32_COMPAT_STR[] = "32bit Compat";
 static const uchar_t LONG_16_COMPAT_STR[] = "16bit Compat";
 
-const uchar_t * v3_cpu_mode_to_str(v3_vm_cpu_mode_t mode) {
+const uchar_t * v3_cpu_mode_to_str(v3_cpu_mode_t mode) {
     switch (mode) {
 	case REAL:
 	    return REAL_STR;
@@ -120,7 +120,7 @@ const uchar_t * v3_cpu_mode_to_str(v3_vm_cpu_mode_t mode) {
     }
 }
 
-v3_vm_mem_mode_t v3_get_mem_mode(struct guest_info * info) {
+v3_mem_mode_t v3_get_mem_mode(struct guest_info * info) {
     struct cr0_32 * cr0;
 
     if (info->shdw_pg_mode == SHADOW_PAGING) {
@@ -143,7 +143,7 @@ v3_vm_mem_mode_t v3_get_mem_mode(struct guest_info * info) {
 static const uchar_t PHYS_MEM_STR[] = "Physical Memory";
 static const uchar_t VIRT_MEM_STR[] = "Virtual Memory";
 
-const uchar_t * v3_mem_mode_to_str(v3_vm_mem_mode_t mode) {
+const uchar_t * v3_mem_mode_to_str(v3_mem_mode_t mode) {
     switch (mode) {
 	case PHYSICAL_MEM:
 	    return PHYS_MEM_STR;

@@ -50,7 +50,7 @@ int v3_init_passthrough_pts(struct guest_info * info) {
 }
 
 int v3_reset_passthrough_pts(struct guest_info * info) {
-    v3_vm_cpu_mode_t mode = v3_get_cpu_mode(info);
+    v3_cpu_mode_t mode = v3_get_cpu_mode(info);
 
     // Delete the old direct map page tables
     switch(mode) {
@@ -88,7 +88,7 @@ int v3_activate_passthrough_pt(struct guest_info * info) {
 
 
 int v3_handle_passthrough_pagefault(struct guest_info * info, addr_t fault_addr, pf_error_t error_code) {
-    v3_vm_cpu_mode_t mode = v3_get_cpu_mode(info);
+    v3_cpu_mode_t mode = v3_get_cpu_mode(info);
 
     switch(mode) {
 	case REAL:
@@ -112,7 +112,7 @@ int v3_handle_passthrough_pagefault(struct guest_info * info, addr_t fault_addr,
 
 int v3_handle_nested_pagefault(struct guest_info * info, addr_t fault_addr, pf_error_t error_code) {
     // THIS IS VERY BAD
-    v3_vm_cpu_mode_t mode = LONG;
+    v3_cpu_mode_t mode = LONG;
 
 
     PrintDebug("Nested PageFault: fault_addr=%p, error_code=%u\n",(void*)fault_addr, *(uint_t *)&error_code);
@@ -137,7 +137,7 @@ int v3_handle_nested_pagefault(struct guest_info * info, addr_t fault_addr, pf_e
 }
 
 int v3_invalidate_passthrough_addr(struct guest_info * info, addr_t inv_addr) {
-    v3_vm_cpu_mode_t mode = v3_get_cpu_mode(info);
+    v3_cpu_mode_t mode = v3_get_cpu_mode(info);
 
     switch(mode) {
 	case REAL:
@@ -159,7 +159,7 @@ int v3_invalidate_passthrough_addr(struct guest_info * info, addr_t inv_addr) {
 
 
 int v3_invalidate_nested_addr(struct guest_info * info, addr_t inv_addr) {
-    v3_vm_cpu_mode_t mode = LONG;
+    v3_cpu_mode_t mode = LONG;
 
     switch(mode) {
 	case REAL:
