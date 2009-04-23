@@ -161,7 +161,9 @@ int v3_unhook_mem(struct guest_info * info, addr_t guest_addr_start) {
 	return -1;
     }
 
-    return v3_delete_shadow_region(info, reg);
+    v3_delete_shadow_region(info, reg);
+
+    return 0;
 }
 
 
