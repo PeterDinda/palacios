@@ -22,7 +22,7 @@
 
 #ifdef __V3_32BIT__
 
-void __inline__ v3_cpuid(uint_t target, addr_t * eax, addr_t * ebx, addr_t * ecx, addr_t * edx) {
+static void __inline__ v3_cpuid(uint_t target, addr_t * eax, addr_t * ebx, addr_t * ecx, addr_t * edx) {
     __asm__ __volatile__ (
 			  "pushl %%ebx\n\t"
 			  "cpuid\n\t"
@@ -36,7 +36,7 @@ void __inline__ v3_cpuid(uint_t target, addr_t * eax, addr_t * ebx, addr_t * ecx
 
 #elif __V3_64BIT__
 
-void __inline__ v3_cpuid(uint_t target, addr_t * eax, addr_t * ebx, addr_t * ecx, addr_t * edx) {
+static void __inline__ v3_cpuid(uint_t target, addr_t * eax, addr_t * ebx, addr_t * ecx, addr_t * edx) {
     __asm__ __volatile__ (
 			  "pushq %%rbx\n\t"
 			  "cpuid\n\t"
@@ -51,7 +51,7 @@ void __inline__ v3_cpuid(uint_t target, addr_t * eax, addr_t * ebx, addr_t * ecx
 #endif
 
 
-void __inline__ v3_set_msr(uint_t msr, uint_t high_byte, uint_t low_byte) {
+static void __inline__ v3_set_msr(uint_t msr, uint_t high_byte, uint_t low_byte) {
     __asm__ __volatile__ (
 			  "wrmsr"
 			  : 
@@ -63,7 +63,7 @@ void __inline__ v3_set_msr(uint_t msr, uint_t high_byte, uint_t low_byte) {
 
 
 
-void __inline__ v3_get_msr(uint_t msr, uint_t * high_byte, uint_t * low_byte) {
+static void __inline__ v3_get_msr(uint_t msr, uint_t * high_byte, uint_t * low_byte) {
     __asm__ __volatile__ (
 			  "rdmsr"
 			  : "=d" (*high_byte), "=a" (*low_byte) 
@@ -73,11 +73,11 @@ void __inline__ v3_get_msr(uint_t msr, uint_t * high_byte, uint_t * low_byte) {
 
 
 
-void __inline__ v3_enable_ints() {
+static void __inline__ v3_enable_ints() {
     __asm__ __volatile__ ("sti");
 }
 
-void __inline__ v3_disable_ints() {
+static void __inline__ v3_disable_ints() {
     __asm__ __volatile__ ("cli");
 }
 
