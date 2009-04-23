@@ -49,10 +49,14 @@ void v3_init_shadow_map(struct guest_info * info) {
     map->hook_hva = (addr_t)V3_VAddr(V3_AllocPages(1));
 
     // There is an underlying region that contains all of the guest memory
+    // PrintDebug("Mapping %d pages of memory (%u bytes)\n", (int)mem_pages, (uint_t)info->mem_size);
+
     map->base_region.guest_start = 0;
-    map->base_region.guest_end = info->mem_size;
+    map->base_region.guest_end = mem_pages * PAGE_SIZE_4KB;
     map->base_region.host_type = SHDW_REGION_ALLOCATED;
     map->base_region.host_addr = (addr_t)V3_AllocPages(mem_pages);
+
+    //memset(V3_VAddr((void *)map->base_region.host_addr), 0xffffffff, map->base_region.guest_end);
 
     v3_register_hypercall(info, MEM_OFFSET_HCALL, mem_offset_hypercall, NULL);
 }
@@ -381,7 +385,7 @@ addr_t v3_get_shadow_addr(struct v3_shadow_region * reg, addr_t guest_addr) {
          (reg->host_type != SHDW_REGION_FULL_HOOK)) {
         return (guest_addr - reg->guest_start) + reg->host_addr;
     } else {
-        PrintDebug("MEM Region Invalid\n");
+        PrintError("MEM Region Invalid\n");
         return 0;
     }
 

@@ -205,6 +205,9 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
     if (vm_info->shdw_pg_mode == SHADOW_PAGING) {
 	PrintDebug("Creating initial shadow page table\n");
 	
+	/* JRL: This is a performance killer, and a simplistic solution */
+	/* We need to fix this */
+	ctrl_area->TLB_CONTROL = 1;
 	ctrl_area->guest_ASID = 1;
 	
 	
@@ -237,9 +240,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
 
 	ctrl_area->exceptions.pf = 1;
 
-	/* JRL: This is a performance killer, and a simplistic solution */
-	/* We need to fix this */
-	ctrl_area->TLB_CONTROL = 1;
+
 
 	guest_state->g_pat = 0x7040600070406ULL;
 

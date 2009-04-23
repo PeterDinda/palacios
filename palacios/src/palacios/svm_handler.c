@@ -71,6 +71,8 @@ int v3_handle_svm_exit(struct guest_info * info) {
     exit_code = guest_ctrl->exit_code;
 
 
+    //  PrintDebug("SVM Exit: %s (rip=%p)\n", vmexit_code_to_str(exit_code), (void *)info->rip);
+
     if ((info->intr_state.irq_pending == 1) && (guest_ctrl->guest_ctrl.V_IRQ == 0)) {
 
 #ifdef DEBUG_INTERRUPTS
@@ -342,7 +344,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
 	    
 	    
 	    if (info->shdw_pg_mode == SHADOW_PAGING) {
-		PrintHostPageTables(info, info->ctrl_regs.cr3);
+		//	PrintHostPageTables(info, info->ctrl_regs.cr3);
 		//PrintGuestPageTables(info, info->shdw_pg_state.guest_cr3);
 	    }
 	    
@@ -356,20 +358,12 @@ int v3_handle_svm_exit(struct guest_info * info) {
 	rdtscll(info->profiler.end_time);
 	v3_profile_exit(info, exit_code);
     }
-      
 
 
     // Update the low level state
-    if (info->intr_state.irq_pending == 1) {
-
-	guest_ctrl->guest_ctrl.V_IRQ = 1;
-	guest_ctrl->guest_ctrl.V_INTR_VECTOR = info->intr_state.irq_vector;
-	guest_ctrl->guest_ctrl.V_IGN_TPR = 1;
-	guest_ctrl->guest_ctrl.V_INTR_PRIO = 0xf;
-
-    } else if (v3_excp_pending(info)) {
+    if (v3_excp_pending(info)) {
 	uint_t excp = v3_get_excp_number(info);
-		
+	
 	guest_ctrl->EVENTINJ.type = SVM_INJECTION_EXCEPTION;
 	
 	if (info->excp_state.excp_error_code_valid) {
@@ -389,6 +383,15 @@ int v3_handle_svm_exit(struct guest_info * info) {
 		   (void *)(addr_t)info->rip);
 #endif
 	v3_injecting_excp(info, excp);
+    } else if (info->intr_state.irq_pending == 1) {
+#ifdef DEBUG_INTERRUPTS
+	PrintDebug("IRQ pending from previous injection\n");
+#endif
+	guest_ctrl->guest_ctrl.V_IRQ = 1;
+	guest_ctrl->guest_ctrl.V_INTR_VECTOR = info->intr_state.irq_vector;
+	guest_ctrl->guest_ctrl.V_IGN_TPR = 1;
+	guest_ctrl->guest_ctrl.V_INTR_PRIO = 0xf;
+
     } else if (v3_intr_pending(info)) {
 
 	switch (v3_get_intr_type(info)) {
@@ -430,6 +433,8 @@ int v3_handle_svm_exit(struct guest_info * info) {
 		return -1;
 	}
 	
+    } else {
+	//PrintDebug("Not interrupts or exceptions pending\n");
     }
 
 

@@ -342,8 +342,8 @@ DEVICES_OBJS := \
 	devices/ram_hd.o \
 	devices/i440fx.o \
 	devices/piix3.o \
-	devices/ne2k.o	\
 
+#	devices/ne2k.o	\
 #	devices/cdrom.o \
 #	devices/ramdisk.o \
 #   	devices/vnic.o \

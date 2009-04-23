@@ -51,7 +51,7 @@ struct shadow_page_data {
 
 
 static struct shadow_page_data * create_new_shadow_pt(struct guest_info * info);
-static void inject_guest_pf(struct guest_info * info, addr_t fault_addr, pf_error_t error_code);
+static int inject_guest_pf(struct guest_info * info, addr_t fault_addr, pf_error_t error_code);
 static int is_guest_pf(pt_access_status_t guest_access, pt_access_status_t shadow_access);
 
 
@@ -235,13 +235,13 @@ static struct shadow_page_data * create_new_shadow_pt(struct guest_info * info) 
 }
 
 
-static void inject_guest_pf(struct guest_info * info, addr_t fault_addr, pf_error_t error_code) {
+static int inject_guest_pf(struct guest_info * info, addr_t fault_addr, pf_error_t error_code) {
     if (info->enable_profiler) {
 	info->profiler.guest_pf_cnt++;
     }
 
     info->ctrl_regs.cr2 = fault_addr;
-    v3_raise_exception_with_error(info, PF_EXCEPTION, *(uint_t *)&error_code);
+    return v3_raise_exception_with_error(info, PF_EXCEPTION, *(uint_t *)&error_code);
 }
 
 

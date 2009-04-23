@@ -140,7 +140,7 @@ static int handle_mov_to_cr0(struct guest_info * info, struct x86_instr * dec_in
 		PrintError("Failed to activate shadow page tables\n");
 		return -1;
 	    }
-	} else  {
+	} else {
 	    
 	    if (v3_activate_passthrough_pt(info) == -1) {
 		PrintError("Failed to activate passthrough page tables\n");
@@ -495,6 +495,7 @@ int v3_handle_cr4_write(struct guest_info * info) {
 		    
 		} else if ((cr4->pae == 1) && (new_cr4->pae == 0)) {
 		    // Create passthrough standard 32bit pagetables
+		    PrintError("Switching From PAE to Protected mode not supported\n");
 		    return -1;
 		} 
 	    }
@@ -512,7 +513,7 @@ int v3_handle_cr4_write(struct guest_info * info) {
 	
 	if (new_cr4->pae == 0) {
 	    // cannot turn off PAE in long mode GPF the guest
-	    PrintError("Cannot disable PAE in long mode, sending GPF\n");
+	    PrintError("Cannot disable PAE in long mode, should send GPF\n");
 	    return -1;
 	}
 	
