@@ -84,9 +84,11 @@ int v3_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) 
     v3_init_io_map(info);
     v3_init_msr_map(info);
     v3_init_interrupt_state(info);
+    v3_init_exception_state(info);
     v3_init_dev_mgr(info);
     v3_init_host_events(info);
-    
+
+
     v3_init_decoder(info);
     
     v3_init_hypercall_map(info);
