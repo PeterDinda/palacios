@@ -150,6 +150,20 @@ int v3_hook_full_mem(struct guest_info * info, addr_t guest_addr_start, addr_t g
 }
 
 
+// This will unhook the memory hook registered at start address
+// We do not support unhooking subregions
+int v3_unhook_mem(struct guest_info * info, addr_t guest_addr_start) {
+    struct v3_shadow_region * reg = v3_get_shadow_region(info, guest_addr_start);
+
+    if ((reg->host_type != SHDW_REGION_FULL_HOOK) || 
+	(reg->host_type != SHDW_REGION_WRITE_HOOK)) {
+	PrintError("Trying to unhook a non hooked memory region (addr=%p)\n", (void *)guest_addr_start);
+	return -1;
+    }
+
+    return v3_delete_shadow_region(info, reg);
+}
+
 
 
 static inline 

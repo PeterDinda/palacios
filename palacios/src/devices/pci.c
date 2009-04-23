@@ -566,7 +566,7 @@ static void init_pci_busses(struct pci_internal * pci_state) {
 
 
 static int pci_init_device(struct vm_device * dev) {
-    struct pci_internal * pci_state = (struct pci_internal *)dev->private_data;;
+    struct pci_internal * pci_state = (struct pci_internal *)dev->private_data;
     int i = 0;
     
     PrintDebug("pci: init_device\n");

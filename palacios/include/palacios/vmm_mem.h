@@ -99,10 +99,12 @@ int v3_hook_write_mem(struct guest_info * info, addr_t guest_addr_start, addr_t 
 
 
 
-
+int v3_unhook_mem(struct guest_info * info, addr_t guest_addr_start);
 
 
 void v3_delete_shadow_region(struct guest_info * info, struct v3_shadow_region * reg);
+
+
 
 
 struct v3_shadow_region * v3_get_shadow_region(struct guest_info * info, addr_t guest_addr);
