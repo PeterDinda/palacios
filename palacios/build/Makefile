@@ -249,6 +249,7 @@ else
   INSTRUMENT_OPT := 
 endif
 
+CFLAGS = -fno-stack-protector
 
 
 # ----------------------------------------------------------------------
@@ -311,7 +312,7 @@ VMM_OBJS := \
 
 # Extra C flags for the VMM objects
 $(VMM_OBJS) :: EXTRA_CFLAGS = \
-	$(JRLDEBUG) \
+	$(JRLDEBUG) $(CFLAGS)\
 
 
 
@@ -320,7 +321,7 @@ XED_OBJS := \
 	xed/v3-udiv-compat.o \
 
 $(XED_OBJS) :: EXTRA_CFLAGS = \
-	$(JRLDEBUG) \
+	$(JRLDEBUG) $(CFLAGS)\
 
 DEVICES_OBJS := \
 	devices/generic.o \
@@ -349,7 +350,7 @@ DEVICES_OBJS := \
 #   	devices/vnic.o \
 
 $(DEVICES_OBJS) :: EXTRA_CFLAGS = \
-	$(JRLDEBUG) \
+	$(JRLDEBUG) $(CFLAGS)\
 
 
 
