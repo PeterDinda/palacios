@@ -294,6 +294,8 @@ int v3_config_devices(struct guest_info * info, struct v3_vm_config * config_ptr
 
 
 
+
+
 static struct vm_device *  configure_generic(struct guest_info * info, struct v3_vm_config * config_ptr) {
     PrintDebug("Creating Generic Device\n");
     struct vm_device * generic = v3_create_generic();

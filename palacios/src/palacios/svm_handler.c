@@ -71,7 +71,8 @@ int v3_handle_svm_exit(struct guest_info * info) {
     exit_code = guest_ctrl->exit_code;
 
 
-    //  PrintDebug("SVM Exit: %s (rip=%p)\n", vmexit_code_to_str(exit_code), (void *)info->rip);
+    //    PrintDebug("SVM Exit: %s (rip=%p) (info1=%p)\n", vmexit_code_to_str(exit_code), 
+    //	       (void *)(addr_t)info->rip, (void *)(addr_t)guest_ctrl->exit_info1);
 
     if ((info->intr_state.irq_pending == 1) && (guest_ctrl->guest_ctrl.V_IRQ == 0)) {
 
@@ -360,7 +361,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
     }
 
 
-    // Update the low level state
+
     if (v3_excp_pending(info)) {
 	uint_t excp = v3_get_excp_number(info);
 	
