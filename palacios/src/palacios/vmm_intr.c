@@ -43,6 +43,7 @@ struct intr_controller {
 void v3_init_interrupt_state(struct guest_info * info) {
 
     info->intr_state.irq_pending = 0;
+    info->intr_state.irq_started = 0;
     info->intr_state.irq_vector = 0;
 
     INIT_LIST_HEAD(&(info->intr_state.controller_list));
@@ -181,7 +182,7 @@ int v3_intr_pending(struct guest_info * info) {
     
     // Check if the guest has interrupts enabled
     if (flags->intr == 0) {
-	return 0;
+	//return 0;
     }
 
     list_for_each_entry(ctrl, &(intr_state->controller_list), ctrl_node) {

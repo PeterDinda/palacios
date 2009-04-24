@@ -77,17 +77,27 @@ int v3_handle_svm_exit(struct guest_info * info) {
     if ((info->intr_state.irq_pending == 1) && (guest_ctrl->guest_ctrl.V_IRQ == 0)) {
 
 #ifdef DEBUG_INTERRUPTS
+	PrintDebug("INTAK cycle completed for irq %d\n", info->intr_state.irq_vector);
+#endif
+
+	info->intr_state.irq_started = 1;
+	info->intr_state.irq_pending = 0;
+
+	v3_injecting_intr(info, info->intr_state.irq_vector, EXTERNAL_IRQ);
+    }
+
+    if ((info->intr_state.irq_started == 1) && (guest_ctrl->exit_int_info.valid == 0)) {
+#ifdef DEBUG_INTERRUPTS
 	PrintDebug("Interrupt %d taken by guest\n", info->intr_state.irq_vector);
 #endif
-	if (!guest_ctrl->exit_int_info.valid) {
-	    info->intr_state.irq_pending = 0;
-	    // PrintDebug("Injected Interrupt %d\n", info->intr_state.irq_vector);
-	    v3_injecting_intr(info, info->intr_state.irq_vector, EXTERNAL_IRQ);
-	} else {
+
+	// Interrupt was taken fully vectored
+	info->intr_state.irq_started = 0;
+
+    } else {
 #ifdef DEBUG_INTERRUPTS
-	    PrintDebug("EXIT INT INFO is set (vec=%d)\n", guest_ctrl->exit_int_info.vector);
+	PrintDebug("EXIT INT INFO is set (vec=%d)\n", guest_ctrl->exit_int_info.vector);
 #endif
-	}
     }
 
 
@@ -384,7 +394,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
 		   (void *)(addr_t)info->rip);
 #endif
 	v3_injecting_excp(info, excp);
-    } else if (info->intr_state.irq_pending == 1) {
+    } else if (info->intr_state.irq_started == 1) {
 #ifdef DEBUG_INTERRUPTS
 	PrintDebug("IRQ pending from previous injection\n");
 #endif
