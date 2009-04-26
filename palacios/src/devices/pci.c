@@ -397,6 +397,22 @@ static int bar_update(struct pci_device * pci, int bar_num, uint32_t new_val) {
 
 	    break;
 	}
+	case PCI_BAR_MEM32: {
+	    v3_unhook_mem(pci->vm_dev->vm, (addr_t)(bar->val));
+	    
+	    if (bar->mem_read) {
+		v3_hook_full_mem(pci->vm_dev->vm, PCI_MEM32_BASE(new_val), 
+				 PCI_MEM32_BASE(new_val) + (bar->num_pages * PAGE_SIZE_4KB),
+				 bar->mem_read, bar->mem_write, pci->vm_dev);
+	    } else {
+		PrintError("Write hooks not supported for PCI\n");
+		return -1;
+	    }
+
+	    bar->val = new_val;
+
+	    break;
+	}
 	case PCI_BAR_NONE: {
 	    PrintDebug("Reprogramming an unsupported BAR register (Dev=%s) (bar=%d) (val=%x)\n", 
 		       pci->name, bar_num, new_val);
@@ -761,11 +777,16 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
 	    pci_dev->bar[i].default_base_port = bars[i].default_base_port;
 	    pci_dev->bar[i].io_read = bars[i].io_read;
 	    pci_dev->bar[i].io_write = bars[i].io_write;
-	} else {
+	} else if (pci_dev->bar[i].type == PCI_BAR_MEM32) {
 	    pci_dev->bar[i].num_pages = bars[i].num_pages;
 	    pci_dev->bar[i].default_base_addr = bars[i].default_base_addr;
 	    pci_dev->bar[i].mem_read = bars[i].mem_read;
 	    pci_dev->bar[i].mem_write = bars[i].mem_write;
+	} else {
+	    pci_dev->bar[i].num_pages = 0;
+	    pci_dev->bar[i].default_base_addr = 0;
+	    pci_dev->bar[i].mem_read = NULL;
+	    pci_dev->bar[i].mem_write = NULL;
 	}
     }
 
