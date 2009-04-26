@@ -122,17 +122,17 @@ static void ne2k_update_irq(struct vm_device *dev)
     int irqline = 0;
 
     if (pdev == NULL){
-		PrintDebug("Ne2k: Device %p is not attached to any PCI Bus\n", nic_state);
-		irqline = NE2K_DEF_IRQ;
+	PrintDebug("Ne2k: Device %p is not attached to any PCI Bus\n", nic_state);
+	irqline = NE2K_DEF_IRQ;
     } else {
-    		irqline = pdev->config_header.intr_line;
+    	irqline = pdev->config_header.intr_line;
     }
 	
     isr = ((nic_state->regs.isr & nic_state->regs.imr) & 0x7f);
     
     if (irqline == 0){
-		PrintError("Ne2k: IRQ_LINE: %d\n", irqline);
-		return;
+	PrintError("Ne2k: IRQ_LINE: %d\n", irqline);
+	return;
     }
 
     PrintDebug("Ne2k: RaiseIrq: isr: 0x%02x imr: 0x%02x\n", nic_state->regs.isr, nic_state->regs.imr);
@@ -169,7 +169,7 @@ static void init_ne2k_context(struct vm_device *dev)
     nic_state->regs.macaddr[5] = nic_state->mac[5] = mac[5] + nic_no;
 
     for (i = 0; i < 8; i++)
-    	 nic_state->regs.mult[i] = 0xff;
+    	nic_state->regs.mult[i] = 0xff;
 
     for(i = 0; i < 32; i++) {
         nic_state->mem[i] = 0xff;
@@ -192,44 +192,10 @@ static int ne2k_send_packet(struct vm_device *dev, uchar_t *pkt, int length)
     PrintDebug("\nNe2k: Sending Packet\n");
 
     for (i = 0; i<length; i++)
-	    PrintDebug("%x ",pkt[i]);
+	PrintDebug("%x ",pkt[i]);
     PrintDebug("\n");
 	
     return V3_Send_pkt(pkt, length);
-}
-
-//TODO: Support Broadcast and Multicast 
-static struct vm_device * get_rx_dev(uchar_t *dst_mac)
-{
-    struct ne2k_context *nic_state;
-    struct ne2k_regs *nregs;
-    int i;
-
-    static const uchar_t brocast_mac[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
-
-    for (i = 0; i < NUM_NE2K; i++){
-		if (ne2ks[i] != NULL) {
-			nic_state = (struct ne2k_context *)ne2ks[i]->private_data;
-			nregs = &(nic_state->regs);
-			
-		    	if (nregs->rcr & 0x10) {//broadcast packets, not correct here
-		        	 return ne2ks[i];   
-		    	} else {
-		       	 if (compare_mac(dst_mac,  brocast_mac) && (nregs->rcr & 0x04)) //broadcast address
-		                		return ne2ks[i];
-		        	 if (dst_mac[0] & 0x01) {
-			            // multicast packet, not done here
-			            // ==========
-			            if (nregs->rcr & 0x08)
-			                	return ne2ks[i];
-		        	 } 
-			        if (compare_mac(dst_mac, nic_state->mac))
-		            			return ne2ks[i];   
-		      }
-	       }
-    }
-
-    return NULL;
 }
 
 static int ne2k_rxbuf_full(struct vm_device *dev)
@@ -265,7 +231,7 @@ static void ne2k_receive(struct vm_device *dev, const uchar_t *pkt, int length)
     stop = nregs->pgstop << 8;
    
     if (nregs->cmd & NE2K_STOP)
-	 return;
+	return;
 
     if (ne2k_rxbuf_full(dev)){
 	 PrintError("Ne2k: received buffer overflow\n");
@@ -342,17 +308,17 @@ static struct pci_device * pci_ne2k_init(struct vm_device *vmdev,
     ne2k_bar.io_write = io_write;
   
     pdev = v3_pci_register_device(vmdev, 
-								PCI_STD_DEVICE, 
-								bus_no, 
-								dev_num, 
-								fn_num,
-								"NE2000", 
-								&ne2k_bar, 
-								NULL, NULL, NULL, vmdev);
+				PCI_STD_DEVICE, 
+				bus_no, 
+				dev_num, 
+				fn_num,
+				"NE2000", 
+				&ne2k_bar, 
+				NULL, NULL, NULL, vmdev);
 
     if (pdev == NULL){
        PrintError("NIC: Register to PCI bus failed\n");
-      	return NULL;
+       return NULL;
     }
 
     pci_conf = pdev->config_space;
@@ -365,33 +331,50 @@ static struct pci_device * pci_ne2k_init(struct vm_device *vmdev,
     pci_conf[0x0b] = 0x02;
     pci_conf[0x0e] = 0x00; // header_type
     pci_conf[0x3d] = 1; // interrupt pin 0
-    pci_conf[0x3c] = 11;
+    pci_conf[0x3c] = 11; //default IRQ Line
 
     pdev->vm_dev = vmdev;
     
     return pdev;
 }
 
-static int netif_input(uchar_t * pkt, uint_t size)
+static int netif_input(uchar_t *pkt, uint_t size)
 {
-  uint_t i;
-  struct vm_device *dev;
+  struct ne2k_context *nic_state;
+  struct ne2k_regs *nregs;
+  static const uchar_t brocast_mac[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+  int i;
   
   PrintDebug("\nNe2k: Packet Received:\nSource:");
   for (i = 6; i < 12; i++) {
   	PrintDebug("%x ", pkt[i]);
   }
-
-  dev = get_rx_dev(pkt); //TODO: handle multiple destination packets
-
-  if (dev == NULL) 
-  	return 0;
-
   PrintDebug("\n");
   for(i= 0; i<size; i++)
   	PrintDebug("%x ", pkt[i]);
   
-  ne2k_receive(dev, pkt, size);
+
+  for (i = 0; i < NUM_NE2K; i++){
+	if (ne2ks[i] != NULL) {
+		nic_state = (struct ne2k_context *)ne2ks[i]->private_data;
+		nregs = &(nic_state->regs);
+			
+		if (nregs->rcr & 0x10) {//promiscuous mode
+		        ne2k_receive(ne2ks[i], pkt, size);
+		} else {
+		       if (compare_mac(pkt,  brocast_mac) && (nregs->rcr & 0x04)){ //broadcast packet
+		                ne2k_receive(ne2ks[i], pkt, size);
+		       } else if (pkt[0] & 0x01) {
+			     //TODO: multicast packet
+			     if (nregs->rcr & 0x08)
+			            ne2k_receive(ne2ks[i], pkt, size);
+		       } else if (compare_mac(pkt, nic_state->mac)){
+		            	ne2k_receive(ne2ks[i], pkt, size);
+		       } else 
+		       	continue;
+	       }
+	}
+    }
 
   return 0;
 }
@@ -547,7 +530,7 @@ static int ne2k_data_read(ushort_t port,
 	uint32_t val;
 	struct ne2k_context *nic_state = (struct ne2k_context *)dev->private_data;
 
-       // current dma address
+        // current dma address
 	uint32_t addr = nic_state->regs.rsar;
 
 	switch(length){
@@ -565,16 +548,16 @@ static int ne2k_data_read(ushort_t port,
 			val = 0x0;
 	}
 
-       ne2k_dma_update(dev, length);
+        ne2k_dma_update(dev, length);
 
 	memcpy(dst, &val, length);
 
 	PrintDebug("ne2k_read: port:0x%x (%u bytes): 0x%x", port & 0x1f,length, val);
 
 	#if TEST_PERFORMANCE
-       if ((++exit_num) % 50 == 0)
+        if ((++exit_num) % 50 == 0)
 	PrintError("Ne2k-Ne2k: Total Exit: %d, INT: %d\n", (int)exit_num, int_num);
-       #endif
+        #endif
 
 	return length;
 }
@@ -613,9 +596,9 @@ static int ne2k_data_write(ushort_t port,
 	PrintDebug("ne2k_write: port:0x%x (%u bytes): 0x%x\n", port & 0x1f,length, val);
 
 	#if TEST_PERFORMANCE
-       if ((++exit_num) % 50 == 0)
+        if ((++exit_num) % 50 == 0)
 		PrintError("Ne2k-Ne2k: Total Exit: %d, INT: %d\n", (int)exit_num, int_num);
-       #endif
+        #endif
 			
 	return length;
 }
@@ -646,9 +629,9 @@ static int ne2k_reset_port_read(ushort_t port,
 	ne2k_reset_device(dev);
 
 	#if TEST_PERFORMANCE
-       if ((++exit_num) % 50 == 0)
+        if ((++exit_num) % 50 == 0)
 		PrintError("Ne2k-Ne2k: Total Exit: %d, INT: %d\n", (int)exit_num, int_num);
-       #endif
+        #endif
 
 	return length;
 }
@@ -665,9 +648,9 @@ static int ne2k_reset_port_write(ushort_t port,
 	PrintDebug("ne2k_write: port:0x%x (%u bytes): 0x%x\n", port,length, val);
 
 	#if TEST_PERFORMANCE
-       if ((++exit_num) % 50 == 0)
+        if ((++exit_num) % 50 == 0)
 		PrintError("Ne2k-Ne2k: Total Exit: %d, INT: %d\n", (int)exit_num, int_num);
-       #endif
+        #endif
 			
 	return length;
 }
@@ -694,10 +677,10 @@ static int ne2k_ioport_write(ushort_t port,
     port &= 0x1f;
 
     if (port == 0x10)
-		return ne2k_data_write(port, src, length, dev);
+	return ne2k_data_write(port, src, length, dev);
 
     if (port == 0x1f)
-		return ne2k_reset_port_write(port, src, length, dev);
+	return ne2k_reset_port_write(port, src, length, dev);
 		
     if (port == EN0_COMMAND) {
         nic_state->regs.cmd = val;
@@ -734,26 +717,26 @@ static int ne2k_ioport_write(ushort_t port,
 		        case EN0_BOUNDARY:
 		            nic_state->regs.boundary = val;
 		            break;
-			 case EN0_TPSR:
+			case EN0_TPSR:
 		            nic_state->regs.tpsr = val;
 		            break;
-			 case EN0_TCNTLO:
+			case EN0_TCNTLO:
 		            nic_state->regs.tbcr = (nic_state->regs.tbcr & 0xff00) | val;
 		            break;
 		        case EN0_TCNTHI:
 		            nic_state->regs.tbcr = (nic_state->regs.tbcr & 0x00ff) | (val << 8);
 		            break;
-			 case EN0_ISR:
+			case EN0_ISR:
 		            nic_state->regs.isr &= ~(val & 0x7f);
 		            ne2k_update_irq(dev);
 		            break;
-			 case EN0_RSARLO:
+			case EN0_RSARLO:
 		            nic_state->regs.rsar = (nic_state->regs.rsar & 0xff00) | val;
 		            break;
 		        case EN0_RSARHI:
 		            nic_state->regs.rsar = (nic_state->regs.rsar & 0x00ff) | (val << 8);
 		            break;
-			 case EN0_RCNTLO:
+			case EN0_RCNTLO:
 		            nic_state->regs.rbcr = (nic_state->regs.rbcr & 0xff00) | val;
 		            break;
 		        case EN0_RCNTHI:
@@ -762,7 +745,7 @@ static int ne2k_ioport_write(ushort_t port,
 		        case EN0_RXCR:
 		            nic_state->regs.rcr = val;
 		            break;
-			 case EN0_TXCR:
+			case EN0_TXCR:
 			     nic_state->regs.tcr = val;
 		        case EN0_DCFG:
 		            nic_state->regs.dcr = val;
@@ -772,7 +755,7 @@ static int ne2k_ioport_write(ushort_t port,
 			     //PrintError("ne2k_write error: write IMR:0x%x\n", (int)val);
 		            ne2k_update_irq(dev);
 		            break;
-			 default:
+			default:
 			     PrintError("ne2k_write error: invalid port:0x%x\n", port);
 			     break;
 	        	}
@@ -789,7 +772,7 @@ static int ne2k_ioport_write(ushort_t port,
 			    // PrintError("ne2k_write error: write EN_MULT:0x%x\n", (int)val);
 		            nic_state->regs.mult[port - EN1_MULT] = val;
 		            break;
-			 default:
+			default:
     			     PrintError("ne2k_write error: invalid port:0x%x\n", port);
 			     break;
 	 		}
@@ -840,18 +823,18 @@ static int ne2k_ioport_read(ushort_t port,
     struct ne2k_context *nic_state = (struct ne2k_context* )dev->private_data;
 
     if (length > 1) {
-    	   PrintError("ne2k_read error: length %d\n", length);
-	   return length;
+	  PrintError("ne2k_read error: length %d\n", length);
+	  return length;
     }
 
     offset = port;
     port &= 0x1f;
 
     if (port == 0x10)
-		return ne2k_data_read(port, dst, length, dev);
+	return ne2k_data_read(port, dst, length, dev);
 
     if (port == 0x1f)
-		return ne2k_reset_port_read(port, dst, length, dev);
+	return ne2k_reset_port_read(port, dst, length, dev);
 
     if (port == EN0_COMMAND) {
         ret = nic_state->regs.cmd;
@@ -862,10 +845,10 @@ static int ne2k_ioport_read(ushort_t port,
 		 case EN0_CLDALO:
 	            ret = nic_state->regs.clda & 0x00ff;
 	            break;
-	        case EN0_CLDAHI:
+	         case EN0_CLDAHI:
 	            ret = (nic_state->regs.clda & 0xff00) >> 8;
 	            break;
-	        case EN0_BOUNDARY:
+	         case EN0_BOUNDARY:
 	            ret = nic_state->regs.boundary;
 	            break;
 		 case EN0_TSR:
@@ -874,7 +857,7 @@ static int ne2k_ioport_read(ushort_t port,
 		 case EN0_NCR:
 	            ret = nic_state->regs.ncr;
 	            break;
-	        case EN0_FIFO:
+	         case EN0_FIFO:
 	            ret = nic_state->regs.fifo;
 	            break;
 		 case EN0_ISR:
@@ -884,42 +867,42 @@ static int ne2k_ioport_read(ushort_t port,
 		 case EN0_CRDALO:
 	            ret = nic_state->regs.crda & 0x00ff;
 	            break;
-	        case EN0_CRDAHI:
+	         case EN0_CRDAHI:
 	            ret = (nic_state->regs.crda & 0xff00) >> 8;
 	            break;
-	        case EN0_RSR:
+	         case EN0_RSR:
 	            ret = nic_state->regs.rsr;
 	            break;
 		 case EN0_COUNTER0:
 		     ret = nic_state->regs.cntr & 0x000000ff;
 		     break;
-	        case EN0_COUNTER1:
+	         case EN0_COUNTER1:
 	            ret = (nic_state->regs.cntr & 0x0000ff00) >> 8;
 		     break;	
-	        case EN0_COUNTER2:
+	         case EN0_COUNTER2:
 	            ret = (nic_state->regs.cntr & 0x00ff0000) >> 16;
 		     break;
 		 default:
-    		     PrintError("ne2k_read error: invalid port:0x%x\n", port);
-		     ret = 0x00;
-		     break;
+    		    PrintError("ne2k_read error: invalid port:0x%x\n", port);
+		    ret = 0x00;
+		    break;
            }
         }
 	 if (page == 1){
            switch(port) {
-	        case EN1_PHYS ... EN1_PHYS + 5:
+	         case EN1_PHYS ... EN1_PHYS + 5:
 	            ret = nic_state->regs.phys[port - EN1_PHYS];
 	            break;
-	        case EN1_CURPAG:
+	         case EN1_CURPAG:
 	            ret = nic_state->regs.curpag;
 	            break;
-	        case EN1_MULT ... EN1_MULT + 7:
+	         case EN1_MULT ... EN1_MULT + 7:
 	            ret = nic_state->regs.mult[port - EN1_MULT];
 	            break;
 		 default:
-		     PrintError("ne2k_read error: invalid port:0x%x\n", port);
-		     ret = 0x00;
-		     break;
+		    PrintError("ne2k_read error: invalid port:0x%x\n", port);
+		    ret = 0x00;
+		    break;
            }
 	 }
 	 if (page == 2){
@@ -1041,11 +1024,11 @@ static int ne2k_init_device(struct vm_device * vmdev)
 
   if (pci != NULL) {
   	PrintDebug("Ne2k: attach ne2k to the pci %p\n", pci);
-       pdev = pci_ne2k_init(vmdev, pci, 0, -1, 0,  &ne2k_ioport_read, &ne2k_ioport_write);
+        pdev = pci_ne2k_init(vmdev, pci, 0, -1, 0,  &ne2k_ioport_read, &ne2k_ioport_write);
 	if (pdev == NULL)
 		PrintError("Ne2k: initiate failure, failure to attach ne2k to the bus %p\n", pci);
   } else {
-	PrintError("Ne2k: Failure to initiate Ne2k , no pci\n");
+	PrintDebug("Ne2k: Not attached to any pci\n");
 	ne2k_hook_iospace(vmdev, NE2K_DEF_BASE_ADDR, 100, 0, NULL);
   }
 
