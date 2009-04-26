@@ -66,6 +66,7 @@ int v3_init_shadow_page_state(struct guest_info * info) {
   
     state->guest_cr3 = 0;
     state->guest_cr0 = 0;
+    state->guest_efer.value = 0x0LL;
 
     INIT_LIST_HEAD(&(state->page_list));
   

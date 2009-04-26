@@ -35,7 +35,7 @@ v3_cpu_mode_t v3_get_vm_cpu_mode(struct guest_info * info) {
 
     if (info->shdw_pg_mode == SHADOW_PAGING) {
 	cr0 = (struct cr0_32 *)&(info->shdw_pg_state.guest_cr0);
-	efer = (struct efer_64 *)&(info->guest_efer);
+	efer = (struct efer_64 *)&(info->shdw_pg_state.guest_efer);
     } else if (info->shdw_pg_mode == NESTED_PAGING) {
 	cr0 = (struct cr0_32 *)&(info->ctrl_regs.cr0);
 	efer = (struct efer_64 *)&(guest_state->efer);
@@ -69,7 +69,7 @@ uint_t v3_get_addr_width(struct guest_info * info) {
 
     if (info->shdw_pg_mode == SHADOW_PAGING) {
 	cr0 = (struct cr0_32 *)&(info->shdw_pg_state.guest_cr0);
-	efer = (struct efer_64 *)&(info->guest_efer);
+	efer = (struct efer_64 *)&(info->shdw_pg_state.guest_efer);
     } else if (info->shdw_pg_mode == NESTED_PAGING) {
 	cr0 = (struct cr0_32 *)&(info->ctrl_regs.cr0);
 	efer = (struct efer_64 *)&(guest_state->efer);

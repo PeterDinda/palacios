@@ -27,6 +27,7 @@
 #include <palacios/vmm_paging.h>
 #include <palacios/vmm_hashtable.h>
 #include <palacios/vmm_list.h>
+#include <palacios/vmm_msr.h>
 
 
 struct shadow_page_state {
@@ -34,6 +35,7 @@ struct shadow_page_state {
     // virtualized control registers
     v3_reg_t guest_cr3;
     v3_reg_t guest_cr0;
+    v3_msr_t guest_efer;
 
     // list of allocated shadow pages
     struct list_head page_list;

@@ -220,8 +220,6 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
 
 	ctrl_area->exceptions.pf = 1;
 
-
-
 	guest_state->g_pat = 0x7040600070406ULL;
 
 	guest_state->cr0 |= 0x80000000;

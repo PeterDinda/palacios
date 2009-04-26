@@ -120,7 +120,7 @@ static int handle_mov_to_cr0(struct guest_info * info, struct x86_instr * dec_in
     if (paging_transition) {
 	if (v3_get_vm_mem_mode(info) == VIRTUAL_MEM) {
 	    
-	    struct efer_64 * guest_efer  = (struct efer_64 *)&(info->guest_efer);
+	    struct efer_64 * guest_efer  = (struct efer_64 *)&(info->shdw_pg_state.guest_efer);
 	    struct efer_64 * shadow_efer = (struct efer_64 *)&(info->ctrl_regs.efer);
 	    
 	    // Check long mode LME to set LME
@@ -541,9 +541,9 @@ int v3_handle_cr4_write(struct guest_info * info) {
 
 int v3_handle_efer_read(uint_t msr, struct v3_msr * dst, void * priv_data) {
     struct guest_info * info = (struct guest_info *)(priv_data);
-    PrintDebug("EFER Read HI=%x LO=%x\n", info->guest_efer.hi, info->guest_efer.lo);
+    PrintDebug("EFER Read HI=%x LO=%x\n", info->shdw_pg_state.guest_efer.hi, info->shdw_pg_state.guest_efer.lo);
     
-    dst->value = info->guest_efer.value;
+    dst->value = info->shdw_pg_state.guest_efer.value;
     
     info->rip += 2; // WRMSR/RDMSR are two byte operands
     return 0;
@@ -556,7 +556,7 @@ int v3_handle_efer_write(uint_t msr, struct v3_msr src, void * priv_data) {
     struct guest_info * info = (struct guest_info *)(priv_data);
     //struct efer_64 * new_efer = (struct efer_64 *)&(src.value);
     struct efer_64 * shadow_efer = (struct efer_64 *)&(info->ctrl_regs.efer);
-    struct v3_msr * guest_efer = &(info->guest_efer);
+    struct v3_msr * guest_efer = &(info->shdw_pg_state.guest_efer);
     
     PrintDebug("EFER Write\n");
     PrintDebug("EFER Write Values: HI=%x LO=%x\n", src.hi, src.lo);
