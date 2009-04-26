@@ -242,12 +242,6 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
 
 	guest_state->g_pat = 0x7040600070406ULL;
     }
-
-
-
-    /* Safety locations for fs/gs */
-    //    vm_info->fs = 0;
-    //    vm_info->gs = 0;
 }
 
 
@@ -265,8 +259,6 @@ static int init_svm_guest(struct guest_info *info, struct v3_vm_config * config_
 
 
     info->run_state = VM_STOPPED;
-
-    //  info->rip = 0;
 
     info->vm_regs.rdi = 0;
     info->vm_regs.rsi = 0;
@@ -299,24 +291,32 @@ static int start_svm_guest(struct guest_info *info) {
 	ullong_t tmp_tsc;
 	
 
+#ifdef __V3_64BIT__
 
-#define MSR_STAR      0xc0000081
-#define MSR_LSTAR     0xc0000082
-#define MSR_CSTAR     0xc0000083
-#define MSR_SF_MASK   0xc0000084
-#define MSR_GS_BASE   0xc0000101
+#define MSR_LSTAR         0xc0000082
+#define MSR_CSTAR         0xc0000083
+#define MSR_SF_MASK       0xc0000084
+#define MSR_GS_BASE       0xc0000101
 #define MSR_KERNGS_BASE   0xc0000102
-
-
 	struct v3_msr host_cstar;
-	struct v3_msr host_star;
 	struct v3_msr host_lstar;
 	struct v3_msr host_syscall_mask;
 	struct v3_msr host_gs_base;
 	struct v3_msr host_kerngs_base;
 
-/* 	v3_enable_ints(); */
-/* 	v3_clgi(); */
+#else 
+
+#define MSR_STAR              0xc0000081
+#define MSR_SYSENTER_CS       0x00000174
+#define MSR_SYSENTER_ESP      0x00000175
+#define MSR_SYSENTER_EIP      0x00000176
+	struct v3_msr host_star;
+	struct v3_msr host_sysenter_cs;
+	struct v3_msr host_sysenter_esp;
+	struct v3_msr host_sysenter_eip;
+
+#endif
+
 
 
 	/*
@@ -326,28 +326,43 @@ static int start_svm_guest(struct guest_info *info) {
 	*/
 
 
-	v3_get_msr(MSR_STAR, &(host_star.hi), &(host_star.lo));
+#ifdef __V3_64BIT__
+	v3_get_msr(MSR_SF_MASK, &(host_syscall_mask.hi), &(host_syscall_mask.lo));
 	v3_get_msr(MSR_LSTAR, &(host_lstar.hi), &(host_lstar.lo));
 	v3_get_msr(MSR_CSTAR, &(host_cstar.hi), &(host_cstar.lo));
-	v3_get_msr(MSR_SF_MASK, &(host_syscall_mask.hi), &(host_syscall_mask.lo));
 	v3_get_msr(MSR_GS_BASE, &(host_gs_base.hi), &(host_gs_base.lo));
 	v3_get_msr(MSR_KERNGS_BASE, &(host_kerngs_base.hi), &(host_kerngs_base.lo));
+#else 
+	v3_get_msr(MSR_SYSENTER_CS, &(host_sysenter_cs.hi), &(host_sysenter_cs.lo));
+	v3_get_msr(MSR_SYSENTER_ESP, &(host_sysenter_esp.hi), &(host_sysenter_esp.lo));
+	v3_get_msr(MSR_SYSENTER_EIP, &(host_sysenter_eip.hi), &(host_sysenter_eip.lo));
+	v3_get_msr(MSR_STAR, &(host_star.hi), &(host_star.lo));
+#endif
+
+
 
 
 	rdtscll(info->time_state.cached_host_tsc);
 	//    guest_ctrl->TSC_OFFSET = info->time_state.guest_tsc - info->time_state.cached_host_tsc;
 	
-	//v3_svm_launch((vmcb_t*)V3_PAddr(info->vmm_data), &(info->vm_regs), &(info->fs), &(info->gs));
 	v3_svm_launch((vmcb_t*)V3_PAddr(info->vmm_data), &(info->vm_regs));
 	
 	rdtscll(tmp_tsc);
 	
-	v3_set_msr(MSR_STAR, host_star.hi, host_star.lo);
+#ifdef __V3_64BIT__
+	v3_set_msr(MSR_SF_MASK, host_syscall_mask.hi, host_syscall_mask.lo);
 	v3_set_msr(MSR_LSTAR, host_lstar.hi, host_lstar.lo);
 	v3_set_msr(MSR_CSTAR, host_cstar.hi, host_cstar.lo);
-	v3_set_msr(MSR_SF_MASK, host_syscall_mask.hi, host_syscall_mask.lo);
 	v3_set_msr(MSR_GS_BASE, host_gs_base.hi, host_gs_base.lo);
 	v3_set_msr(MSR_KERNGS_BASE, host_kerngs_base.hi, host_kerngs_base.lo);
+#else 
+	v3_set_msr(MSR_SYSENTER_CS, host_sysenter_cs.hi, host_sysenter_cs.lo);
+	v3_set_msr(MSR_SYSENTER_ESP, host_sysenter_esp.hi, host_sysenter_esp.lo);
+	v3_set_msr(MSR_SYSENTER_EIP, host_sysenter_eip.hi, host_sysenter_eip.lo);
+	v3_set_msr(MSR_STAR, host_star.hi, host_star.lo);
+#endif
+
+
 	
 	//PrintDebug("SVM Returned\n");
 
@@ -392,7 +407,7 @@ static int start_svm_guest(struct guest_info *info) {
 		PrintDebug("Shadow Paging Guest Registers:\n");
 		PrintDebug("\tGuest CR0=%p\n", (void *)(addr_t)(info->shdw_pg_state.guest_cr0));
 		PrintDebug("\tGuest CR3=%p\n", (void *)(addr_t)(info->shdw_pg_state.guest_cr3));
-		// efer
+		PrintDebug("\tGuest EFER=%p\n", (void *)(addr_t)(info->shdw_pg_state.guest_efer.value));
 		// CR4
 	    }
 	    v3_print_GPRs(info);
