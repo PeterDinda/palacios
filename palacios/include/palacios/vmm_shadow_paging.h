@@ -47,9 +47,6 @@ struct shadow_page_state {
 struct guest_info;
 
 
-
-
-
 int v3_init_shadow_page_state(struct guest_info * info);
 
 

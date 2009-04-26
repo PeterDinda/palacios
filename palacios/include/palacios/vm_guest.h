@@ -168,21 +168,6 @@ struct guest_info {
     struct v3_profiler profiler;
 
     void * decoder_state;
-
-    v3_msr_t guest_efer;
-
-    /* Do we need these ? */
-    v3_msr_t guest_star;
-    v3_msr_t guest_lstar;
-    v3_msr_t guest_cstar;
-    v3_msr_t guest_syscall_mask;
-    v3_msr_t guest_gs_base;
-
-
-    //uint64_t fs;
-    //uint64_t gs;
-
-
 };
 
 

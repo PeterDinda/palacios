@@ -209,8 +209,6 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
 	ctrl_area->cr_reads.cr3 = 1;
 	ctrl_area->cr_writes.cr3 = 1;
 
-	vm_info->guest_efer.value = 0x0LL;
-
 	v3_hook_msr(vm_info, EFER_MSR, 
 		    &v3_handle_efer_read,
 		    &v3_handle_efer_write, 
