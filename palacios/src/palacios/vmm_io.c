@@ -30,19 +30,23 @@
 #endif
 
 
-static int default_write(ushort_t port, void *src, uint_t length, void * priv_data);
-static int default_read(ushort_t port, void * dst, uint_t length, void * priv_data);
+static int default_write(uint16_t port, void *src, uint_t length, void * priv_data);
+static int default_read(uint16_t port, void * dst, uint_t length, void * priv_data);
 
 
 void v3_init_io_map(struct guest_info * info) {
-  info->io_map.rb_node = NULL;
+
+  info->io_map.map.rb_node = NULL;
+  info->io_map.arch_data = NULL;
+  info->io_map.update_map = NULL;
+
 }
 
 
 
 
 static inline struct v3_io_hook * __insert_io_hook(struct guest_info * info, struct v3_io_hook * hook) {
-  struct rb_node ** p = &(info->io_map.rb_node);
+  struct rb_node ** p = &(info->io_map.map.rb_node);
   struct rb_node * parent = NULL;
   struct v3_io_hook * tmp_hook = NULL;
 
@@ -71,14 +75,14 @@ static inline struct v3_io_hook * insert_io_hook(struct guest_info * info, struc
     return ret;
   }
 
-  v3_rb_insert_color(&(hook->tree_node), &(info->io_map));
+  v3_rb_insert_color(&(hook->tree_node), &(info->io_map.map));
 
   return NULL;
 }
 
 
 struct v3_io_hook * v3_get_io_hook(struct guest_info * info, uint_t port) {
-  struct rb_node * n = info->io_map.rb_node;
+  struct rb_node * n = info->io_map.map.rb_node;
   struct v3_io_hook * hook = NULL;
 
   while (n) {
@@ -102,8 +106,8 @@ struct v3_io_hook * v3_get_io_hook(struct guest_info * info, uint_t port) {
 
 
 int v3_hook_io_port(struct guest_info * info, uint_t port, 
-		    int (*read)(ushort_t port, void * dst, uint_t length, void * priv_data),
-		    int (*write)(ushort_t port, void * src, uint_t length, void * priv_data), 
+		    int (*read)(uint16_t port, void * dst, uint_t length, void * priv_data),
+		    int (*write)(uint16_t port, void * src, uint_t length, void * priv_data), 
 		    void * priv_data) {
   struct v3_io_hook * io_hook = (struct v3_io_hook *)V3_Malloc(sizeof(struct v3_io_hook));
 
@@ -129,6 +133,15 @@ int v3_hook_io_port(struct guest_info * info, uint_t port,
     return -1;
   }
 
+
+  if (info->io_map.update_map(info, port, 
+			      ((read == NULL) ? 0 : 1), 
+			      ((write == NULL) ? 0 : 1)) == -1) {
+    V3_Free(io_hook);
+    return -1;
+  }
+
+
   return 0;
 }
 
@@ -139,7 +152,10 @@ int v3_unhook_io_port(struct guest_info * info, uint_t port) {
     return -1;
   }
 
-  v3_rb_erase(&(hook->tree_node), &(info->io_map));
+  v3_rb_erase(&(hook->tree_node), &(info->io_map.map));
+
+  // set the arch map to default (this should be 1, 1)
+  info->io_map.update_map(info, port, 0, 0);
 
   V3_Free(hook);
 
@@ -153,7 +169,7 @@ int v3_unhook_io_port(struct guest_info * info, uint_t port) {
 
 void v3_print_io_map(struct guest_info * info) {
   struct v3_io_hook * tmp_hook = NULL;
-  struct rb_node * node = v3_rb_first(&(info->io_map));
+  struct rb_node * node = v3_rb_first(&(info->io_map.map));
 
   PrintDebug("VMM IO Map\n");
 
@@ -171,7 +187,7 @@ void v3_print_io_map(struct guest_info * info) {
 /*
  * Write a byte to an I/O port.
  */
-void v3_outb(ushort_t port, uchar_t value) {
+void v3_outb(uint16_t port, uint8_t value) {
     __asm__ __volatile__ (
 	"outb %b0, %w1"
 	:
@@ -182,8 +198,8 @@ void v3_outb(ushort_t port, uchar_t value) {
 /*
  * Read a byte from an I/O port.
  */
-uchar_t v3_inb(ushort_t port) {
-    uchar_t value;
+uint8_t v3_inb(uint16_t port) {
+    uint8_t value;
 
     __asm__ __volatile__ (
 	"inb %w1, %b0"
@@ -197,7 +213,7 @@ uchar_t v3_inb(ushort_t port) {
 /*
  * Write a word to an I/O port.
  */
-void v3_outw(ushort_t port, ushort_t value) {
+void v3_outw(uint16_t port, uint16_t value) {
     __asm__ __volatile__ (
 	"outw %w0, %w1"
 	:
@@ -208,8 +224,8 @@ void v3_outw(ushort_t port, ushort_t value) {
 /*
  * Read a word from an I/O port.
  */
-ushort_t v3_inw(ushort_t port) {
-    ushort_t value;
+uint16_t v3_inw(uint16_t port) {
+    uint16_t value;
 
     __asm__ __volatile__ (
 	"inw %w1, %w0"
@@ -223,7 +239,7 @@ ushort_t v3_inw(ushort_t port) {
 /*
  * Write a double word to an I/O port.
  */
-void v3_outdw(ushort_t port, uint_t value) {
+void v3_outdw(uint16_t port, uint_t value) {
     __asm__ __volatile__ (
 	"outl %0, %1"
 	:
@@ -234,7 +250,7 @@ void v3_outdw(ushort_t port, uint_t value) {
 /*
  * Read a double word from an I/O port.
  */
-uint_t v3_indw(ushort_t port) {
+uint_t v3_indw(uint16_t port) {
     uint_t value;
 
     __asm__ __volatile__ (
@@ -250,7 +266,7 @@ uint_t v3_indw(ushort_t port) {
 
 
 /* FIX ME */
-static int default_write(ushort_t port, void *src, uint_t length, void * priv_data) {
+static int default_write(uint16_t port, void *src, uint_t length, void * priv_data) {
   /*
     
   if (length == 1) {
@@ -276,10 +292,10 @@ static int default_write(ushort_t port, void *src, uint_t length, void * priv_da
   return 0;
 }
 
-static int default_read(ushort_t port, void * dst, uint_t length, void * priv_data) {
+static int default_read(uint16_t port, void * dst, uint_t length, void * priv_data) {
 
   /*    
-	uchar_t value;
+	uint8_t value;
 
     __asm__ __volatile__ (
 	"inb %w1, %b0"

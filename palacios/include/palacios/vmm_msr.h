@@ -28,6 +28,7 @@
 
 struct guest_info;
 
+
 struct v3_msr {
 
     union {
@@ -39,7 +40,6 @@ struct v3_msr {
 	} __attribute__((packed));
     } __attribute__((packed));
 } __attribute__((packed));
-
 
 
 typedef struct v3_msr v3_msr_t;
@@ -62,6 +62,10 @@ struct v3_msr_hook;
 struct v3_msr_map {
     uint_t num_hooks;
     struct list_head hook_list;
+
+    int (*update_map)(struct guest_info * info, uint_t msr, int hook_read, int hook_write);
+    void * arch_data;
+
 };
 
 

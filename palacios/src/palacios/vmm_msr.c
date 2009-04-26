@@ -28,6 +28,9 @@ void v3_init_msr_map(struct guest_info * info) {
 
     INIT_LIST_HEAD(&(msr_map->hook_list));
     msr_map->num_hooks = 0;
+
+    msr_map->arch_data = NULL;
+    msr_map->update_map = NULL;
 }
 
 
@@ -40,6 +43,7 @@ int v3_hook_msr(struct guest_info * info, uint_t msr,
     struct v3_msr_hook * hook = NULL;
 
     hook = (struct v3_msr_hook *)V3_Malloc(sizeof(struct v3_msr_hook));
+
     if (hook == NULL) {
 	PrintError("Could not allocate msr hook for MSR %d\n", msr);
 	return -1;
@@ -54,6 +58,9 @@ int v3_hook_msr(struct guest_info * info, uint_t msr,
 
     list_add(&(hook->link), &(msr_map->hook_list));
 
+    msr_map->update_map(info, msr, 
+			(read == NULL) ? 0 : 1,
+			(write == NULL) ? 0 : 1);
     return 0;
 }
 

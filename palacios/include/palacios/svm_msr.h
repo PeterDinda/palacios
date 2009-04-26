@@ -25,7 +25,7 @@
 
 #include <palacios/vmm.h>
 
-addr_t v3_init_svm_msr_map(struct guest_info * info);
+int v3_init_svm_msr_map(struct guest_info * info);
 
 int v3_handle_msr_write(struct guest_info * info);
 

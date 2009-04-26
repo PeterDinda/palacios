@@ -53,38 +53,38 @@ static int get_bitmap_index(uint_t msr) {
 }
 
 
+static int update_map(struct guest_info * info, uint_t msr, int hook_reads, int hook_writes) {
+    int index = get_bitmap_index(msr);
+    uint_t major = index / 4;
+    uint_t minor = (index % 4) * 2;
+    uchar_t val = 0;
+    uchar_t mask = 0x3;
+    uint8_t * bitmap = (uint8_t *)(info->msr_map.arch_data);
 
-addr_t v3_init_svm_msr_map(struct guest_info * info) {
-    uchar_t * msr_bitmap = (uchar_t*)V3_VAddr(V3_AllocPages(2));
-    struct v3_msr_map * msr_map = &(info->msr_map);
-    struct v3_msr_hook * hook = NULL;
-  
-  
-    memset(msr_bitmap, 0, PAGE_SIZE * 2);
-
-    list_for_each_entry(hook, &(msr_map->hook_list), link) {
-	int index = get_bitmap_index(hook->msr);
-	uint_t byte_offset = index / 4;
-	uint_t bit_offset = (index % 4) * 2;
-	uchar_t val = 0;
-	uchar_t mask = ~0x3;
-
-	if (hook->read) {
-	    val |= 0x1;
-	} 
-
-	if (hook->write) {
-	    val |= 0x2;
-	}
-
-	val = val << bit_offset;
-	mask = mask << bit_offset;
-
-	*(msr_bitmap + byte_offset) &= mask;
-	*(msr_bitmap + byte_offset) |= val;
+    if (hook_reads) {
+	val |= 0x1;
+    } 
+    
+    if (hook_writes) {
+	val |= 0x2;
     }
 
-    return (addr_t)V3_PAddr(msr_bitmap);
+    *(bitmap + major) &= ~(mask << minor);
+    *(bitmap + major) |= (val << minor);
+    
+    return 0;
+}
+
+
+int v3_init_svm_msr_map(struct guest_info * info) {
+    struct v3_msr_map * msr_map = &(info->msr_map);
+  
+    msr_map->update_map = update_map;
+
+    msr_map->arch_data = V3_VAddr(V3_AllocPages(2));  
+    memset(msr_map->arch_data, 0, PAGE_SIZE_4KB * 2);
+
+    return 0;
 }
 
 

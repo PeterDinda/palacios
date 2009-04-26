@@ -138,7 +138,7 @@ struct guest_info {
     // This structure is how we get exceptions for the guest
     struct v3_excp_state excp_state;
 
-    v3_io_map_t io_map;
+    struct v3_io_map io_map;
 
     struct v3_msr_map msr_map;
 

@@ -39,9 +39,11 @@ struct svm_io_info {
     uint_t addr32      : 1       PACKED;  // 32 bit addr
     uint_t addr64      : 1       PACKED;  // 64 bit addr
     uint_t rsvd2       : 6       PACKED;  // Should be Zero
-    ushort_t port                PACKED;  // port number
+    uint16_t port                PACKED;  // port number
 };
 
+
+int v3_init_svm_io_map(struct guest_info * info);
 
 int v3_handle_svm_io_in(struct guest_info * info);
 int v3_handle_svm_io_ins(struct guest_info * info);

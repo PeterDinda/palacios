@@ -177,20 +177,13 @@ int v3_raise_irq(struct guest_info * info, int irq) {
 int v3_intr_pending(struct guest_info * info) {
     struct v3_intr_state * intr_state = &(info->intr_state);
     struct intr_controller * ctrl = NULL;
-    struct rflags * flags = (struct rflags *)&(info->ctrl_regs.rflags);
     //  PrintDebug("[intr_pending]\n");
     
-    // Check if the guest has interrupts enabled
-    if (flags->intr == 0) {
-	//return 0;
-    }
-
     list_for_each_entry(ctrl, &(intr_state->controller_list), ctrl_node) {
 	if (ctrl->ctrl_ops->intr_pending(ctrl->priv_data) == 1) {
 	    return 1;
 	}
     }
-
 
     return 0;
 }

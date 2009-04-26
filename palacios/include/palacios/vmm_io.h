@@ -27,7 +27,7 @@
 #include <palacios/vmm_util.h>
 #include <palacios/vmm_rbtree.h>
 
-typedef struct rb_root v3_io_map_t;
+
 
 
 struct guest_info;
@@ -39,8 +39,8 @@ void v3_init_io_map(struct guest_info * info);
 
 /* External API */
 int v3_hook_io_port(struct guest_info * info, uint_t port, 
-		    int (*read)(ushort_t port, void * dst, uint_t length, void * priv_data),
-		    int (*write)(ushort_t port, void * src, uint_t length, void * priv_data), 
+		    int (*read)(uint16_t port, void * dst, uint_t length, void * priv_data),
+		    int (*write)(uint16_t port, void * src, uint_t length, void * priv_data), 
 		    void * priv_data);
 
 int v3_unhook_io_port(struct guest_info * info, uint_t port);
@@ -48,14 +48,17 @@ int v3_unhook_io_port(struct guest_info * info, uint_t port);
 
 
 
+
 struct v3_io_hook {
-    ushort_t port;
+    uint16_t port;
 
     // Reads data into the IO port (IN, INS)
-    int (*read)(ushort_t port, void * dst, uint_t length, void * priv_data);
+    int (*read)(uint16_t port, void * dst, uint_t length, void * priv_data);
 
     // Writes data from the IO port (OUT, OUTS)
-    int (*write)(ushort_t port, void * src, uint_t length, void * priv_data);
+    int (*write)(uint16_t port, void * src, uint_t length, void * priv_data);
+
+
 
     void * priv_data;
   
@@ -63,6 +66,13 @@ struct v3_io_hook {
 
 };
 
+struct v3_io_map {
+    struct rb_root map;
+
+    int (*update_map)(struct guest_info * info, uint16_t port, int hook_read, int hook_write);
+
+    void * arch_data;
+};
 
 struct v3_io_hook * v3_get_io_hook(struct guest_info * info, uint_t port);
 
@@ -72,14 +82,14 @@ void v3_print_io_map(struct guest_info * info);
 
 
 
-void v3_outb(ushort_t port, uchar_t value);
-uchar_t v3_inb(ushort_t port);
+void v3_outb(uint16_t port, uint8_t value);
+uint8_t v3_inb(uint16_t port);
 
-void v3_outw(ushort_t port, ushort_t value);
-ushort_t v3_inw(ushort_t port);
+void v3_outw(uint16_t port, uint16_t value);
+uint16_t v3_inw(uint16_t port);
 
-void v3_outdw(ushort_t port, uint_t value);
-uint_t v3_indw(ushort_t port);
+void v3_outdw(uint16_t port, uint_t value);
+uint_t v3_indw(uint16_t port);
 
 
 

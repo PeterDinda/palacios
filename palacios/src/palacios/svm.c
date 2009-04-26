@@ -42,6 +42,7 @@
 
 #include <palacios/vmm_ctrl_regs.h>
 #include <palacios/vmm_config.h>
+#include <palacios/svm_io.h>
 
 
 extern void v3_stgi();
@@ -164,37 +165,16 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
     guest_state->dr7 = 0x0000000000000400LL;
 
 
-    if ( !RB_EMPTY_ROOT(&(vm_info->io_map)) ) {
-	struct v3_io_hook * iter;
-	struct rb_node * io_node = v3_rb_first(&(vm_info->io_map));
-	addr_t io_port_bitmap;
-	int i = 0;
-	
-	io_port_bitmap = (addr_t)V3_VAddr(V3_AllocPages(3));
-	memset((uchar_t*)io_port_bitmap, 0, PAGE_SIZE * 3);
+    v3_init_svm_io_map(vm_info);
+    ctrl_area->IOPM_BASE_PA = (addr_t)V3_PAddr(vm_info->io_map.arch_data);
+    ctrl_area->instrs.IOIO_PROT = 1;
 
-	ctrl_area->IOPM_BASE_PA = (addr_t)V3_PAddr((void *)io_port_bitmap);
 
-	//PrintDebug("Setting up IO Map at 0x%x\n", io_port_bitmap);
 
-	do {
-	    iter = rb_entry(io_node, struct v3_io_hook, tree_node);
+    v3_init_svm_msr_map(vm_info);
+    ctrl_area->MSRPM_BASE_PA = (addr_t)V3_PAddr(vm_info->msr_map.arch_data);
+    ctrl_area->instrs.MSR_PROT = 1;
 
-	    ushort_t port = iter->port;
-	    uchar_t * bitmap = (uchar_t *)io_port_bitmap;
-	    //PrintDebug("%d: Hooking Port %d\n", i, port);
-
-	    bitmap += (port / 8);
-	    //      PrintDebug("Setting Bit for port 0x%x\n", port);
-	    *bitmap |= 1 << (port % 8);
-
-	    i++;
-	} while ((io_node = v3_rb_next(io_node)));
-
-	//PrintDebugMemDump((uchar_t*)io_port_bitmap, PAGE_SIZE *2);
-
-	ctrl_area->instrs.IOIO_PROT = 1;
-    }
 
 
     PrintDebug("Exiting on interrupts\n");
@@ -267,11 +247,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
 	guest_state->g_pat = 0x7040600070406ULL;
     }
 
-    if (vm_info->msr_map.num_hooks > 0) {
-	PrintDebug("Hooking %d msrs\n", vm_info->msr_map.num_hooks);
-	ctrl_area->MSRPM_BASE_PA = v3_init_svm_msr_map(vm_info);
-	ctrl_area->instrs.MSR_PROT = 1;
-    }
+
 
     /* Safety locations for fs/gs */
     //    vm_info->fs = 0;
@@ -285,17 +261,17 @@ static int init_svm_guest(struct guest_info *info, struct v3_vm_config * config_
     PrintDebug("Allocating VMCB\n");
     info->vmm_data = (void*)Allocate_VMCB();
 
+    Init_VMCB_BIOS((vmcb_t*)(info->vmm_data), info);
+
     v3_config_devices(info, config_ptr);
 
     PrintDebug("Initializing VMCB (addr=%p)\n", (void *)info->vmm_data);
-    Init_VMCB_BIOS((vmcb_t*)(info->vmm_data), info);
-  
 
-    
+
     info->run_state = VM_STOPPED;
 
     //  info->rip = 0;
-    
+
     info->vm_regs.rdi = 0;
     info->vm_regs.rsi = 0;
     info->vm_regs.rbp = 0;
@@ -304,7 +280,7 @@ static int init_svm_guest(struct guest_info *info, struct v3_vm_config * config_
     info->vm_regs.rdx = 0;
     info->vm_regs.rcx = 0;
     info->vm_regs.rax = 0;
-    
+
     return 0;
 }
 

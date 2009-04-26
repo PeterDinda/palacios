@@ -29,6 +29,29 @@
 #endif
 
 
+static int update_map(struct guest_info * info, uint16_t port, int hook_read, int hook_write) {
+    uchar_t * bitmap = (uint8_t *)(info->io_map.arch_data);;
+    int major = port / 8;
+    int minor = port % 8;
+
+    if ((hook_read == 0) && (hook_write == 0)) {
+	*(bitmap + major) &= ~(0x1 << minor);
+    } else {
+	*(bitmap + major) |= (0x1 << minor);
+    }
+
+    return 0;
+}
+
+
+int v3_init_svm_io_map(struct guest_info * info) {
+    info->io_map.update_map = update_map;
+
+    info->io_map.arch_data = V3_VAddr(V3_AllocPages(3));
+    memset(info->io_map.arch_data, 0, PAGE_SIZE_4KB * 3);
+
+    return 0;
+}
 
 
 
