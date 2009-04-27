@@ -306,17 +306,18 @@ static int start_svm_guest(struct guest_info *info) {
 
 #else 
 
-#define MSR_STAR              0xc0000081
 #define MSR_SYSENTER_CS       0x00000174
 #define MSR_SYSENTER_ESP      0x00000175
 #define MSR_SYSENTER_EIP      0x00000176
-	struct v3_msr host_star;
+
 	struct v3_msr host_sysenter_cs;
 	struct v3_msr host_sysenter_esp;
 	struct v3_msr host_sysenter_eip;
 
 #endif
 
+#define MSR_STAR              0xc0000081
+	struct v3_msr host_star;
 
 
 	/*
@@ -336,11 +337,8 @@ static int start_svm_guest(struct guest_info *info) {
 	v3_get_msr(MSR_SYSENTER_CS, &(host_sysenter_cs.hi), &(host_sysenter_cs.lo));
 	v3_get_msr(MSR_SYSENTER_ESP, &(host_sysenter_esp.hi), &(host_sysenter_esp.lo));
 	v3_get_msr(MSR_SYSENTER_EIP, &(host_sysenter_eip.hi), &(host_sysenter_eip.lo));
-	v3_get_msr(MSR_STAR, &(host_star.hi), &(host_star.lo));
 #endif
-
-
-
+	v3_get_msr(MSR_STAR, &(host_star.hi), &(host_star.lo));
 
 	rdtscll(info->time_state.cached_host_tsc);
 	//    guest_ctrl->TSC_OFFSET = info->time_state.guest_tsc - info->time_state.cached_host_tsc;
@@ -359,9 +357,8 @@ static int start_svm_guest(struct guest_info *info) {
 	v3_set_msr(MSR_SYSENTER_CS, host_sysenter_cs.hi, host_sysenter_cs.lo);
 	v3_set_msr(MSR_SYSENTER_ESP, host_sysenter_esp.hi, host_sysenter_esp.lo);
 	v3_set_msr(MSR_SYSENTER_EIP, host_sysenter_eip.hi, host_sysenter_eip.lo);
-	v3_set_msr(MSR_STAR, host_star.hi, host_star.lo);
 #endif
-
+	v3_set_msr(MSR_STAR, host_star.hi, host_star.lo);
 
 	
 	//PrintDebug("SVM Returned\n");
