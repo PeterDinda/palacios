@@ -37,8 +37,8 @@ Palacios Internal Developer Manual
 \maketitle
 
 
-This manual is written for Internal Palacios developers. It contains
-information on how to obtain the palacios code base, how to go about
+This manual is written for internal Palacios developers. It contains
+information on how to obtain the Palacios code base, how to go about
 the development process, and how to commit those changes to the
 mainline source tree.  This assumes that the reader has read {\em An
 Introduction to the Palacios Virtual Machine Monitor -- Release 1.0}
@@ -53,9 +53,9 @@ uses both the centralized repository and distributed development
 models. A central repository exists that holds the master version of
 the code base. This central repository is cloned by multiple people
 and in multiple places to support various development efforts. A
-feature of git is that every developer actually has a fully copy of
+feature of \texttt{git} is that every developer actually has a fully copy of
 the entire repository, and so can function independently until such
-time as they need to resync with the master version. 
+time as they need to re-sync with the master version. 
 
 There are typically multiple levels of access to the central
 repository, that are granted based on the type of developer being
@@ -63,15 +63,15 @@ granted access. The three basic developer types and their access
 privileges are:
 
 \begin{itemize}
-\item Core Developers: These are the lead developers and are in
+\item Core developers: These are the lead developers and are in
 charge of managing the master repository. They have full read/write
 access permissions to the central repository.
 
-\item Internal Developers: Formal members of the development
+\item Internal developers: Formal members of the development
 team. These people are capable of pulling directly from the central
 repository, but lack the ability to write directly to it. 
 
-\item External Developers: People who are not actual members of the
+\item External developers: People who are not actual members of the
 development team. These people can only access the public repository
 which is only updated to contain the release versions. 
 \end{itemize}
@@ -83,7 +83,7 @@ that process in Section~\ref{sec:submission}.
 
 
 \section{Checking out Palacios}
-The central palacios repository is located on {\em
+The central Palacios repository is located on {\em
 newskysaw.cs.northwestern.edu} in {\em /home/palacios/palacios}. All
 internal developers have read access to the directory. Each developer
 must create their own local version of the repository, this is done
@@ -110,7 +110,7 @@ or
 \end{verbatim}
 
 {\em Important:}
-Note that palacios is very actively developed so the contents of the
+Note that Palacios is very actively developed so the contents of the
 {\em devel} branch are frequently changing. In order to keep up to
 date with the latest version, it is necessary to periodically pull the
 latest changes from the master repository by running \verb.git pull..
@@ -120,7 +120,7 @@ latest changes from the master repository by running \verb.git pull..
 \section{Checking out Kitten}
 
 Kitten is available from Sandia National Labs, and is the main host OS
-we are targetting with Palacios. Loosely speaking core Palacios
+we are targeting with Palacios. Loosely speaking, core Palacios
 developers are internal Kitten developers, and internal Palacios
 developers are external Kitten developers. Because we have limited
 access to the Kitten repository, we are maintaining a local mirror
@@ -128,7 +128,7 @@ copy in {\em /home/palacios/kitten}.
 
 Kitten uses Mercurial for their source management, so you will have to
 make sure the local mercurial version is configured correctly.
-Specifically you should add the following python path to your shell environment.
+Specifically you should add the following Python path to your shell environment.
 
 \begin{verbatim}
 export PYTHONPATH=/usr/local/lib64/python2.4/site-packages/
@@ -140,33 +140,35 @@ hg clone /home/palacios/kitten
 \end{verbatim}
 
 Both the Kitten and Palacios clone commands should be run from the
-same direcotyr. This means that both repositories should be located at
+same directory. This means that both repositories should be located at
 the same directory level. The Kitten build process depends on this.
 
-{\em Important:} Like Palacios, Kitten is very actively developed so
-source tree is frequently changing. In order to keep up to date with
-the latest version, it is necessary to periodically pull the latest
-changes from the mirror repository by running \verb.hg pull. followed
-by \verb.hg update..
+{\em Important:} Like Palacios, Kitten is under active development,
+and its source tree is frequently changing. In order to keep up to
+date with the latest version, it is necessary to periodically pull the
+latest changes from the mirror repository by running \verb.hg.
+pull. followed by \verb.hg update..
 
 \section{Compiling Palacios}
-Palacios is capable of targeting 32 and 64 bit operating systems, and
-includes a build process that supports both these
+Palacios is capable of targeting 32-bit and 64-bit operating systems,
+and includes a build process that supports both these
 architectures. Furthermore, Palacios has multiple build locations,
-with multiple makefiles: a top level build directory and a Palacios
-specific build directory. The Palacios build process first generates a
-static library that includes the Palacios VMM. This static library is
-then linked into a host operating system. Palacios internally supports
-GeekOS and can generate a complete OS image via a unified build
-process. To combine Palacios with Kitten, it is necessary to first
-compile Palacios and then to compile Kitten externally link it with
+with multiple Makefiles: a top level build directory and a
+Palacios-specific build directory. The Palacios build process first
+generates a static library that includes the Palacios VMM. This static
+library is then linked into a host operating system. Palacios
+internally supports GeekOS and can generate a complete OS image via a
+unified build process. 
+
+To combine Palacios with Kitten, it is necessary to first compile
+Palacios and then to compile Kitten externally link it with
 Palacios. The output of the compilation process is a bit more complex
 and generates multiple binaries, and the specifics can be found in the
 Makefiles.
 
 The top level build directory provides a number of high level make
 targets, and is located in {\em palacios/build/}. It supports building
-32 and 64 bit versions of the Palacios library independently as well
+32-bit and 64-bit versions of the Palacios library independently as well
 as building an integrated version of GeekOS.   The basic targets are:
 \begin{itemize}
 \item \verb.make palacios-full32. -- Generates a 32 bit version of the Palacios static library 
@@ -180,7 +182,7 @@ GeekOS kernel that has been compiled
 
 The second build directory is located at {\em palacios/palacios/build}
 and handles only the Palacios compilation process. It supports a
-differnt set of targets and arguments:
+different set of targets and arguments:
 \begin{itemize}
 \item \verb.make ARCH=32. -- iteratively compiles a 32 bit version of Palacios
 \item \verb.make ARCH=64. -- iteratively compiles a 64 bit version of
@@ -218,7 +220,7 @@ by appending a \verb.DEBUG_<COMPONENT>=1. to the end of the
 
 
 \section{Compiling Kitten}
-Kitten requires a 64 bit version of Palacios, so make sure that
+Kitten requires a 64-bit version of Palacios, so make sure that
 Palacios has been correctly compiled before compiling Kitten.
 
 \subsection{Configuration}
@@ -235,7 +237,7 @@ accessed via any of these make targets.
 There are some specific configuration options that should be disabled
 to work with Palacios. Because Palacios is configured by default to
 provide a guest with direct access to the VGA console, the {\em VGA
-console} device driver should be disbabled in the Kitten
+console} device driver should be disabled in the Kitten
 configuration. Similarly the {\em VM console} driver should be
 disabled as well.
 
@@ -245,14 +247,14 @@ device from the console list.
 
 The guest OS that is booted as a VM is included as an ISO image in raw
 binary format inside Kitten's {\em init\_task}. To change the guest
-ISO, you must change the makefile for the init\_task. This is located
+ISO, you must change the Makefile for the init\_task. This is located
 in {\em user/hello\_world/Makefile} and the syntax is well commented.
 On {\em newskysaw} a collection of guest ISO images are located in
 {\em /opt/vmm-tools/isos/}. 
 
 
 \subsection{Compilation}
-After Kitten has been configured the compilation can be done. The
+After Kitten has been configured it can be compiled. The
 general process is to compile a reference build of Kitten, followed by
 compiling Palacios support as a kernel module, and then doing a new
 full recompilation of Kitten.
@@ -276,10 +278,10 @@ guest that will be run as a VM. The ISO image is located at {\em
 
 
 \section{Running Palacios/Kitten}
-Kitten and Palacios are capable of running under Qemu, which makes
+Kitten and Palacios are capable of running under QEMU, which makes
 debugging much simpler.
 
-The basic form of the command to start the Qemu emulator is:
+The basic form of the command to start the Emu emulator is:
 \begin{verbatim}
 /usr/local/qemu/bin/qemu-system-x86_64 -smp 1 -m 1024 \
         -serial file:./serial.out \
@@ -287,20 +289,21 @@ The basic form of the command to start the Qemu emulator is:
         < /dev/null
 \end{verbatim}
 
-The command starts up a single processor emulated machine, with 1gig
-of RAM and a cdrom drive loaded with the Kitten ISO image. Furthermore
-all output to the serial port is written directly to a file called
-{\em serial.out}. This command can be copied into a shell script for easy access.
+The command starts up a single processor emulated machine, with 1GB of
+RAM and a CD-ROM drive loaded with the Kitten ISO image.  All output
+to the serial port is written directly to a file called {\em
+  serial.out}. This command can be copied into a shell script for easy
+access.
 
 \section{Development Guidelines}
 
 There are standard requirements we have for code entering the mainline. 
 
-First and foremost, Palacios is designed to be OS indenpendent and
-support 32 and 64 bit architectures. This means that developers should
+First and foremost, Palacios is designed to be OS independent and
+support 32-bit and 64-bit architectures. This means that developers should
 not include any external OS specific dependencies in any Palacios
-component. Also all changes need to be tested on both 32 and 64 bit
-architectures to make sure that they compile as well as run corrrectly.
+component. Also all changes need to be tested on both 32-bit and 64-bit
+architectures to make sure that they compile as well as run correctly.
 
 \paragraph*{Coding Style}
 
@@ -309,7 +312,7 @@ composition is considered by many as good design. This basic and often
 overlooked principle of design gives the eye a "place to rest,"
 increasing the appeal of a composition through subtle means."
 \newline\newline
-Translation: Use the spacebar, newlines, and parentheses. 
+Translation: Use the space bar, newlines, and parentheses. 
 
 Curly-brackets are not optional, even for single line conditionals. 
 
@@ -328,7 +331,6 @@ if(a&&b==5||c!=0) return;
 
 
 {\em Good}
-
 \begin{verbatim}
 if (((a) && (b == 5)) || 
     (c != 0)) {
@@ -339,7 +341,7 @@ if (((a) && (b == 5)) ||
 
 
 \paragraph*{Fail Stop}
-Because booting a basic linux kernel results in over 1 million VM exits
+Because booting a basic Linux kernel results in over 1 million VM exits
 catching silent errors is next to impossible. For this reason
 ANY time your code has an error it should return -1, and expect the
 execution to halt. 
@@ -367,18 +369,17 @@ are defined should be declared as static and not included in the
 header file. You should make an effort to use static functions
 whenever possible. 
 
-\item \verb.v3_. prefix
-\newline
-Major interface functions should be named with the prefix \verb.v3_. This
-xallows easy understanding of how to interact with the subsystems. And
-in the case that they need to be externally visible to the host os,
-make them unlikely to collide with other functions. 
+\item \verb.v3_. prefix \newline Major interface functions should be
+  named with the prefix \verb.v3_. This allows easy understanding of
+  how to interact with the subsystems.  In the case that they need to
+  be externally visible to the host OS, make them unlikely to collide
+  with other functions.
 \end{enumerate}
 
 \paragraph*{Debugging Output}
-Debugging output is sent through the host os via functions in the
+Debugging output is sent through the host OS via functions in the
 \verb.os_hooks. structure. These functions have various wrappers of the form
-\verb.Print*., with printf style semantics. 
+\verb.Print*., with \texttt{printf}-style semantics. 
 
 Two functions of note are \verb.PrintDebug. and \verb.PrintError..
 
@@ -418,7 +419,7 @@ other is not a viable option either. Furthermore, once a patch is
 applied to the mainline, it will generate a conflicting commit that
 will become present when the developer next pulls from the central
 repository. This can result in both repositories getting out of
-sync. It is possible to deal with this by manually rebasing the local
+sync. It is possible to deal with this by manually re-basing the local
 repository, but it is difficult and error-prone. 
 
 This approach also does not map well when patches are being revised. A
@@ -431,7 +432,7 @@ mainline.
 For this reason most internal developers should seriously consider
 {\em stacked git}. Stacked git is designed to make patch development
 easier and less of a headache. The basic mode of operation is for a
-developer to intialize a patch for a new feature and then continuously
+developer to initialize a patch for a new feature and then continuously
 apply changes to the patch. Stacked Git allows a developer to layer a
 series of patches on top of a local git repository, without causing
 the repository to unsync due to local commits. Basically, the
@@ -463,7 +464,7 @@ the top of the applied stack.
 patch. (This is how you can manage revisions that are made by other developers).
 \end{itemize}
 
-You should definately look at the online documentation to better
+You should definitely look at the online documentation to better
 understand how stacked git works. It is not required of course, but if
 you want your changes to be applied its up to you to generate a patch
 that is acceptable to a core developer. Ultimately using Stacked git
@@ -556,12 +557,12 @@ easier debugging of network code.
 
 In order to get QEMU networking to function, it is necessary to create
 TAP interfaces, and, optionally, to bridge them to real networks.  A
-developmet machine typically will have several TAP interfaces, and
+development machine typically will have several TAP interfaces, and
 more can be created.  Generally, each developer should have a TAP
 interface of his or her own.  In the following, we will use our
 development machine, newskysaw, as an example.
 
-To set up a TAP interface on newskysaw, the following comand is used:
+To set up a TAP interface on newskysaw, the following command is used:
 \begin{verbatim}
 /root/util/tap_create tapX
 \end{verbatim}
@@ -586,7 +587,7 @@ will be able to talk to it from newskysaw.  For example, from
 newskysaw, if you ping 172.21.0.2, the packet (and ARP) will go out via
 tap1.  The source address will appear to be 172.21.0.1.  The QEMU
 machine will see these packets on its interface, and the software
-controling its interface can respond to 172.21.0.1.  
+controlling its interface can respond to 172.21.0.1.  
 
 This form of networking is local to the machine.  You can also bridge
 a TAP interface with a physical interface.  The result of this is that
@@ -619,7 +620,7 @@ For the newskysaw configuration, this is a 10-net address.
 
 Kitten needs to be explicitly configured to use networking. Currently
 only a subset of the networking configurations are supported. To
-enable an ethernet network you should enable the following options:
+enable an Ethernet network you should enable the following options:
 
 \begin{itemize}
 \item Enable TCP Support
@@ -631,7 +632,7 @@ enable an ethernet network you should enable the following options:
 The other options are not supported, and enabling them will probably
 break the kernel compilation.
 
-To allow Kitten to communicate with the Qemu network card you also
+To allow Kitten to communicate with the QEMU network card you also
 need to enable the appropriate device driver: \newline
 \verb.NE2K Device Driver (rtl8139).
 
@@ -645,14 +646,14 @@ IP address into the device driver. For the rtl8139 network driver look
 in the file {\em drivers/net/ne2k/rtl8139.c} for the function
 \verb.rtl8139_init..
 
-There shoule be a block of code that looks like the following:
+There should be a block of code that looks like the following:
 \begin{verbatim}
   struct ip_addr ipaddr = { htonl(0 | 10 << 24 | 0 << 16 | 2 << 8 | 16 << 0) }; 
   struct ip_addr netmask = { htonl(0xffffff00) }; 
   struct ip_addr gw = { htonl(0 | 10 << 24 | 0 << 16 | 2 << 8 | 2 << 0) };
 \end{verbatim}
 
-This sets the ip address as 10.0.2.16, netmask 255.255.255.0 and
+This sets the IP address as 10.0.2.16, netmask 255.255.255.0 and
 gateway address 10.0.2.2. Change these assignments to match your configuration.
 
 
@@ -693,7 +694,7 @@ machine.  For example, the following options will redirect the host's
 -net user -net nic,model=rtl8139  -redir tcp:9555:10.10.10.33:80
 \end{verbatim}
 The first \verb.-net. option indicates that we are using user-level
-networking (proxying).  The secod \verb.-net. option indicates that
+networking (proxying).  The second \verb.-net. option indicates that
 this user-level network will appear in the QEMU machine as an RTL8139
 network card.   The \verb.-redir. option indicates that connections on
 localhost:9555 will be translated into equivalent packet exchanges on
@@ -708,7 +709,7 @@ The packets that appear in the QEMU machine will be bound for
 10.10.10.33, port 80.  Within the QEMU machine, your RTL8139 interface
 had better then be up on that address. 
 
-Qemu has many options to build up a virtual or real networking. See
+QEMU has many options to build up virtual or real networking. See
 http://www.h7.dion.ne.jp/$\sim$qemu-win/HowToNetwork-en.html for more
 information.
 
