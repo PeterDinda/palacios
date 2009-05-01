@@ -1,0 +1,87 @@
+
+  Downloading, Building, and Running the Palacios Virtual Machine Monitor
+
+
+    Overview
+
+The Palacios VMM can be embedded into existing OSes, with current
+support for the Kitten HPC OS from Sandia National Labs and the GeekOS
+teaching OS from the University of Maryland. A minimalist configuration
+of GeekOS is included with Palacios. To use Palacios with Kitten, which
+we recommend for most uses, you will need to download Kitten separately.
+
+
+    System Requirements
+
+To build Palacios, we recommend a standard Linux system with up-to-date
+gcc compiler and header files. In addition to the standard Linux
+compilation and development tools, the "syslinux" package is also needed
+to enable building guest images and bootable ISO images.
+
+To run Palacios, you will need a real or emulated AMD x86/64 system with
+hardware support for virtualization (SVM); This includes most recent AMD
+Opteron processors as well as versios 0.9.1 or newer of the QEMU full
+system simulator. Nested paging support requires an AMD processor with
+hardware nested paging support, which is currently supported on AMD
+"Barcelona" or newer systems; on systems without nested paging, Palacios
+reverts to software shadow paging support.
+
+
+    Installation Steps
+
+   1. Download the latest Palacios VM and Kitten host OS release
+          * Palacios Release Site <http://www.v3vee.org/download>
+          * Kitten Release Site <https://software.sandia.gov/trac/kitten> 
+
+   2. Unpack Palacios and Kitten into the same directory
+
+      > cd where-id-like-to-build
+      > tar xzvf downloaded-file-location/palacios.tar.gz
+      > tar xzvf downloaded-file-locaiton/kitten.tar.gz
+      	
+
+   3. Build 64-bit Palacios libraries for linking into Kitten host OS
+
+      > make -C palacios/build palacios-full64
+      	
+
+   4. Configure and compile Kitten with Palacios by running 'make
+      config'. The default config answers should be sufficient for most
+      systems, with the exception that you want to include support for
+      the palacios VMM when prompted, and you should provide a path to
+      the ISO for the guest image (see details above).
+
+      > make -C kitten config # or menuconfig (w/ ncurses) or xconfig (w/ X11)
+      	
+
+   5. Build the kitten palacios combination on a bootable iso image
+      (built into kitten/arch/x86_64/boot/image.iso)
+
+      > make -C kitten isoimage
+      	
+
+   6. Boot the resulting image.
+          * For qemu:
+
+            > qemu-system-x86_64 -m 1024 -cdrom kitten/arch/x86_64/boot/image.iso
+            	
+
+          * For hardware, boot the kitten kernel
+            (kitten/arch/x86_64/boot/bzImage) as the kernel and the
+            init_task program (in kitten/init_task) as the initial
+            ramdisk. (The isoimage containing the guest OS is bundled up
+            as part of the init_task image). 
+
+
+    Guest ISO images
+
+You will need a guest ISO image to boot on Palacios (and to specify the
+path to that image in step 4 above). In addition to testing
+self-virtualization (booting Kitten on top of Kitten/Palacios), we have
+focused on supporting the following two Linux ISO images that we suggest
+people use for initial testing and exploration:
+
+    * 32-bit Puppy Linux version 3.0
+      <http://www.puppylinux.org/downloads/official-releases>
+    * 64-bit Finnix Linux version 92.0 <http://www.finnix.org/Download> 
+
