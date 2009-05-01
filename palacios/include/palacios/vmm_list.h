@@ -1,7 +1,3 @@
-/* Stolen From Linux list implementation */
-/* 2008, Modifications by Jack Lange <jarusl@cs.northwestern.edu> */
-
-
 #ifndef _VMM_LIST_H
 #define _VMM_LIST_H
 

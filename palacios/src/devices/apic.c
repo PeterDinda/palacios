@@ -431,7 +431,6 @@ static int apic_read(addr_t guest_addr, void * dst, uint_t length, void * priv_d
     }
 
 
-    /* Because "May not be supported" doesn't matter to Linux developers... */
     /*   if (length != 4) { */
     /*     PrintError("Invalid apic read length (%d)\n", length); */
     /*     return -1; */
@@ -439,8 +438,6 @@ static int apic_read(addr_t guest_addr, void * dst, uint_t length, void * priv_d
 
     switch (reg_addr & ~0x3) {
 	case EOI_OFFSET:
-	    // Well, only an idiot would read from a architectural write only register
-	    // Oh, Hello Linux.
 	    //    PrintError("Attempting to read from write only register\n");
 	    //    return -1;
 	    break;
