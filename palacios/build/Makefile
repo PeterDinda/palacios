@@ -1,46 +1,8 @@
-# Makefile for GeekOS kernel, userspace, and tools
-#
 #  Northwestern University 
 # (c) 2008, Jack Lange <jarusl@cs.northwestern.edu>
 # (c) 2008, Peter Dinda <pdinda@northwestern.edu> 
 # (c) 2008, Lei Xia <lxia@northwestern.edu>
 # (c) 2008, The V3VEE Project <http://www.v3vee.org> 
-#
-# Based on GeekOS Makefile:
-# Copyright (c) 2004,2005 David H. Hovemeyer <daveho@cs.umd.edu>
-# $Revision: 1.71 $
-
-
-# This is free software.  You are permitted to use,
-# redistribute, and modify it as specified in the file "COPYING".
-
-# Required software to build GeekOS:
-# - GNU Make (http://www.gnu.org/software/make)
-# - gcc 2.95.2 generating code for target (i386/ELF) and host platforms
-# - Perl5, AWK (any version), egrep
-#
-# Cygwin (http://cygwin.com) may be used to build GeekOS.
-# Make sure that gcc, binutils, nasm, and perl are installed.
-
-# NOTES:
-# - This makefile has been written carefully to work correctly
-#   with the -j (parallel make) option.  I regularly use "make -j 2"
-#   to speed the build process on 2 processor systems.
-
-
-# Base address of kernel
-#
-# Note: at top of memory minus three pages (GDT/TSS/IDT) 
-# minus maximum size
-#
-#
-# Note that the code will initially load at 0x10000
-#
-# The setup code needs to copy it up to this address and jump there
-#
-
-
-
 
 PROJECT_ROOT := ..
 VPATH := $(PROJECT_ROOT)/src
@@ -203,42 +165,12 @@ DEBUG_SECTIONS := $(DEBUG_SECTIONS) -UDEBUG_DEV_MGR
 endif
 endif
 
-ifeq ($(DEBUG_NE2K),1)
-DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DDEBUG_NE2K
-else 
-ifeq ($(DEBUG_NE2K),0)
-DEBUG_SECTIONS := $(DEBUG_SECTIONS) -UDEBUG_NE2K
-endif
-endif
-
-#DEBUG_SECTIONS := $(DEBUG_SECTIONS) -DTEST_NE2K
 
 ifeq ($(DEBUG),1)
   JRLDEBUG=  -DVMM_DEBUG -DVMM_INFO -DVMM_TRACE $(DEBUG_SECTIONS)
 else
 
 endif
-
-
-
-
-
-
-#
-# This is wrong for current cygwin - no changes needed
-#
-# Figure out if we're compiling with cygwin, http://cygwin.com
-#
-# 
-#SYSTEM_NAME := $(shell uname -s)
-#ifeq ($(findstring CYGWIN,$(SYSTEM_NAME)),CYGWIN)
-#SYM_PFX            := _
-#EXTRA_C_OPTS       := -DNEED_UNDERSCORE -DGNU_WIN32
-#EXTRA_NASM_OPTS    := -DNEED_UNDERSCORE
-#NON_ELF_SYSTEM     := yes
-#EXTRA_CC_USER_OPTS := -Dmain=geekos_main
-#endif
-
 
 
 ifeq ($(INSTRUMENT_VMM),1)
@@ -252,18 +184,11 @@ endif
 CFLAGS = -fno-stack-protector
 
 
-# ----------------------------------------------------------------------
-# Configuration -
-#   Various options specifying how GeekOS should be built,
-#   what source files to build, which user programs to build,
-#   etc.  This is generally the only section of the makefile
-#   that will need to be modified.
-# ----------------------------------------------------------------------
+# Compile targets
 
-# List of targets to build by default.
-# These targets encompass everything needed to boot
-# and run GeekOS.
 ALL_TARGETS := vmm force_payload
+
+# Compilation Objects
 
 
 VMM_OBJS := \
@@ -345,8 +270,6 @@ DEVICES_OBJS := \
 	devices/piix3.o \
 
 #	devices/ne2k.o	\
-#	devices/cdrom.o \
-#	devices/ramdisk.o \
 #   	devices/vnic.o \
 
 $(DEVICES_OBJS) :: EXTRA_CFLAGS = \
@@ -375,13 +298,11 @@ endif
 #TARGET_CC_PREFIX :=  $(PROJECT_ROOT)/../devtools/i386/bin/i386-elf-
 #TARGET_CC_PREFIX :=  i386-elf-
 
-# Target C compiler.  gcc 2.95.2 or later should work.
 ifeq ($(ARCH),64)
 TARGET_CC := $(TARGET_CC_PREFIX)gcc -m64
 else 
 TARGET_CC := $(TARGET_CC_PREFIX)gcc -m32
 endif
-#TARGET_CC := $(TARGET_CC_PREFIX)gcc34 -m32
 
 
 # Target linker.  GNU ld is probably to only one that will work.
@@ -398,10 +319,6 @@ TARGET_NM := $(TARGET_CC_PREFIX)nm
 
 # Target objcopy
 TARGET_OBJCOPY := $(TARGET_CC_PREFIX)objcopy
-
-# Nasm (http://nasm.sourceforge.net)
-NASM := $(PROJECT_ROOT)/../devtools/bin/nasm
-#NASM := /opt/vmm-tools/bin/nasm
 
 CPP := cpp
 
@@ -523,20 +440,6 @@ AS_COMPILE = \
 # Default target - see definition of ALL_TARGETS in Configuration section
 all : $(ALL_TARGETS)
 
-
-#geekos/vmx_lowlevel.o: $(PROJECT_ROOT)/src/geekos/vmx_lowlevel.asm
-#	$(NASM) -O99 \
-#	-f elf \
-#		-I$(PROJECT_ROOT)/src/geekos/ \
-#		$(PROJECT_ROOT)/src/geekos/vmx_lowlevel.asm \
-#	-o $@
-
-
-#geekos/test: geekos/test.o geekos/vmcs.o geekos/vmx_lowlevel.o 
-#	$(CC) geekos/test.o geekos/vmcs.o geekos/vmx_lowlevel.o  -o geekos/test
-
-
-
 rombios_link:
 	ln -s -f ../src/vmboot/rombios/BIOS-bochs-latest rombios
 
@@ -553,8 +456,6 @@ inter1: force_payload
 world: inter1 vmm
 
 vmm: palacios/vmm.lib 
-
-
 
 
 # Loadable (flat) kernel image.
