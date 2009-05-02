@@ -22,10 +22,6 @@ PALACIOS_BUILD_DIR := $(PROJECT_ROOT)/palacios/build
 GEEKOS_BUILD_DIR := $(PROJECT_ROOT)/geekos/build
 GUEST_ISO_DIR := /opt/vmm-tools/isos
 
-# List of targets to build by default.
-# These targets encompass everything needed to boot
-# and run GeekOS.
-ALL_TARGETS := geekos-full
 
 QEMU := /usr/local/qemu/bin/qemu-system-x86_64
 
@@ -196,7 +192,7 @@ endif
 # ----------------------------------------------------------------------
 
 # Default target - see definition of ALL_TARGETS in Configuration section
-all : $(ALL_TARGETS)
+all : palacios-full64
 
 
 palacios64:
