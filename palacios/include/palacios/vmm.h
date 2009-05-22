@@ -323,7 +323,7 @@ struct v3_interrupt {
 void Init_V3(struct v3_os_hooks * hooks, struct v3_ctrl_ops * vmm_ops);
 
 int v3_deliver_irq(struct guest_info * vm, struct v3_interrupt * intr);
-int v3_deliver_keyboard_evt(struct guest_info * vm);
+
 
 
 #endif
