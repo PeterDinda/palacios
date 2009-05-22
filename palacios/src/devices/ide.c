@@ -1526,10 +1526,11 @@ struct vm_device *  v3_create_ide(struct vm_device * pci_bus, struct vm_device *
     struct vm_device * device = v3_create_device("IDE", &dev_ops, ide);
 
     ide->pci_bus = pci_bus;
-    if (ide->southbridge)
+    if (ide->southbridge) {
         ide->southbridge = (struct v3_southbridge *)(southbridge_dev->private_data);
-    else
+    } else {
        ide->southbridge = NULL;
+    }
 
     PrintDebug("IDE: Creating IDE bus x 2\n");
 
