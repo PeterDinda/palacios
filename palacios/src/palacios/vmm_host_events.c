@@ -70,6 +70,10 @@ int v3_deliver_keyboard_event(struct guest_info * info,
     struct v3_host_events * host_evts = &(info->host_event_hooks);
     struct v3_host_event_hook * hook = NULL;
 
+    if (info->run_state != VM_RUNNING) {
+	return -1;
+    }
+
     list_for_each_entry(hook, &(host_evts->keyboard_events), link) {
 	if (hook->cb.keyboard_handler(info, evt, hook->private_data) == -1) {
 	    return -1;
@@ -85,6 +89,10 @@ int v3_deliver_mouse_event(struct guest_info * info,
     struct v3_host_events * host_evts = &(info->host_event_hooks);
     struct v3_host_event_hook * hook = NULL;
 
+    if (info->run_state != VM_RUNNING) {
+	return -1;
+    }
+
     list_for_each_entry(hook, &(host_evts->mouse_events), link) {
 	if (hook->cb.mouse_handler(info, evt, hook->private_data) == -1) {
 	    return -1;
@@ -99,6 +107,10 @@ int v3_deliver_timer_event(struct guest_info * info,
 			   struct v3_timer_event * evt) {
     struct v3_host_events * host_evts = &(info->host_event_hooks);
     struct v3_host_event_hook * hook = NULL;
+
+    if (info->run_state != VM_RUNNING) {
+	return -1;
+    }
 
     list_for_each_entry(hook, &(host_evts->timer_events), link) {
 	if (hook->cb.timer_handler(info, evt, hook->private_data) == -1) {
