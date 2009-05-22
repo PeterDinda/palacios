@@ -28,9 +28,9 @@
 #include <palacios/vmm.h>
 
 
+int v3_pre_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr);
+int v3_post_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr);
 
-int v3_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr);
-int v3_config_devices(struct guest_info * info, struct v3_vm_config * config_ptr);
 
 
 #endif // ! __V3VEE__

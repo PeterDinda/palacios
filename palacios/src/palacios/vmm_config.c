@@ -55,6 +55,7 @@
 
 
 static int setup_memory_map(struct guest_info * info, struct v3_vm_config * config_ptr);
+static int setup_devices(struct guest_info * info, struct v3_vm_config * config_ptr);
 static struct vm_device *  configure_generic(struct guest_info * info, struct v3_vm_config * config_ptr);
 
 
@@ -71,9 +72,8 @@ static int passthrough_mem_write(addr_t guest_addr, void * src, uint_t length, v
 }
 
 
-
-int v3_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) {
-    extern v3_cpu_arch_t v3_cpu_type;
+int v3_pre_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) {
+   extern v3_cpu_arch_t v3_cpu_type;
 
     // Amount of ram the Guest will have, rounded to a 4K page boundary
     info->mem_size = config_ptr->mem_size & ~(addr_t)0xfff;
@@ -97,7 +97,6 @@ int v3_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) 
     // Initialize the memory map
     v3_init_shadow_map(info);
     
-    
     if ((v3_cpu_type == V3_SVM_REV3_CPU) && 
 	(config_ptr->enable_nested_paging == 1)) {
 	PrintDebug("Guest Page Mode: NESTED_PAGING\n");
@@ -107,17 +106,6 @@ int v3_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) 
 	v3_init_shadow_page_state(info);
 	info->shdw_pg_mode = SHADOW_PAGING;
     }
-    
-    // Initial CPU operating mode
-    info->cpu_mode = REAL;
-    info->mem_mode = PHYSICAL_MEM;
-    
-    // Configure the memory map for the guest
-    if (setup_memory_map(info, config_ptr) == -1) {
-	PrintError("Setting up guest memory map failed...\n");
-	return -1;
-    }
-    
 
     if (config_ptr->enable_profiling) {
 	info->enable_profiler = 1;
@@ -126,13 +114,41 @@ int v3_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) 
 	info->enable_profiler = 0;
     }
 
+    
+    // Initial CPU operating mode
+    info->cpu_mode = REAL;
+    info->mem_mode = PHYSICAL_MEM;
+
+    return 0;
+}
+
+
+int v3_post_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) {
+
+    // Configure the memory map for the guest
+    if (setup_memory_map(info, config_ptr) == -1) {
+	PrintError("Setting up guest memory map failed...\n");
+	return -1;
+    }
+    
     //v3_hook_io_port(info, 1234, &IO_Read, NULL, info);
-    
-    // Setup initial cpu register state
-    info->rip = 0xfff0;
-    info->vm_regs.rsp = 0x0;
   
-    
+    if (setup_devices(info, config_ptr) == -1) {
+	PrintError("Failed to setup devices\n");
+	return -1;
+    }
+
+    info->run_state = VM_STOPPED;
+
+    info->vm_regs.rdi = 0;
+    info->vm_regs.rsi = 0;
+    info->vm_regs.rbp = 0;
+    info->vm_regs.rsp = 0;
+    info->vm_regs.rbx = 0;
+    info->vm_regs.rdx = 0;
+    info->vm_regs.rcx = 0;
+    info->vm_regs.rax = 0;
+
     return 0;
 }
 
@@ -191,7 +207,7 @@ static int setup_memory_map(struct guest_info * info, struct v3_vm_config * conf
 
 
 
-int v3_config_devices(struct guest_info * info, struct v3_vm_config * config_ptr) {
+static int setup_devices(struct guest_info * info, struct v3_vm_config * config_ptr) {
 
     struct vm_device * ide = NULL;
     struct vm_device * ramdisk = NULL;

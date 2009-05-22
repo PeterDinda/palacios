@@ -67,9 +67,10 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
     uint_t i;
 
 
-    guest_state->rsp = vm_info->vm_regs.rsp;
-    // guest_state->rip = vm_info->rip;
+    //
+    guest_state->rsp = 0x00;
     guest_state->rip = 0xfff0;
+
 
     guest_state->cpl = 0;
 
@@ -245,29 +246,18 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
 }
 
 
-static int init_svm_guest(struct guest_info *info, struct v3_vm_config * config_ptr) {
-    v3_config_guest(info, config_ptr);
+static int init_svm_guest(struct guest_info * info, struct v3_vm_config * config_ptr) {
+
+
+    v3_pre_config_guest(info, config_ptr);
 
     PrintDebug("Allocating VMCB\n");
     info->vmm_data = (void*)Allocate_VMCB();
 
+    PrintDebug("Initializing VMCB (addr=%p)\n", (void *)info->vmm_data);
     Init_VMCB_BIOS((vmcb_t*)(info->vmm_data), info);
 
-    v3_config_devices(info, config_ptr);
-
-    PrintDebug("Initializing VMCB (addr=%p)\n", (void *)info->vmm_data);
-
-
-    info->run_state = VM_STOPPED;
-
-    info->vm_regs.rdi = 0;
-    info->vm_regs.rsi = 0;
-    info->vm_regs.rbp = 0;
-    info->vm_regs.rsp = 0;
-    info->vm_regs.rbx = 0;
-    info->vm_regs.rdx = 0;
-    info->vm_regs.rcx = 0;
-    info->vm_regs.rax = 0;
+    v3_post_config_guest(info, config_ptr);
 
     return 0;
 }
