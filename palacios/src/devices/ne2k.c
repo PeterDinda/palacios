@@ -322,14 +322,8 @@ struct ne2k_context {
     } __attribute__((packed));
 
 
-
-
-
     uint8_t      mcast_addr[8];  // multicast mask array 
     uint8_t      mac_addr[6];    // MAC Addr
-
-
-
 
     uint8_t mem[NE2K_MEM_SIZE];
 
@@ -380,7 +374,6 @@ static int ne2k_update_irq(struct vm_device *dev) {
 	return -1;
     }
 
-    PrintDebug("Ne2k: RaiseIrq: isr: 0x%02x imr: 0x%02x\n", nic_state->isr.val, nic_state->imr.val);
     PrintDebug("ne2k_update_irq: irq_line: %d\n", irq_line);
 
 
@@ -474,7 +467,7 @@ static void ne2k_receive(struct vm_device * dev, const uchar_t * pkt, int length
     uint32_t total_len;
     uint32_t next;
     uint32_t len;
-    uin32_t index;
+    uint32_t index;
     uint32_t empty;
     uchar_t buf[60];
     uint32_t start;
