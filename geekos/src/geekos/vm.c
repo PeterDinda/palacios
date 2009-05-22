@@ -114,6 +114,7 @@ int RunVMM(struct Boot_Info * bootInfo) {
 #else
     vm_config.enable_profiling = 0;
 #endif
+    vm_config.enable_pci = 1;
 
     vm_config.vgabios = region_start;
     vm_config.vgabios_size = vgabios->length;
@@ -123,7 +124,7 @@ int RunVMM(struct Boot_Info * bootInfo) {
 
 
   if (g_ramdiskImage != NULL) {
-    vm_config.use_ramdisk = 1;
+    vm_config.use_ram_cd = 1;
     vm_config.ramdisk = g_ramdiskImage;
     vm_config.ramdisk_size = s_ramdiskSize;
   }
@@ -136,11 +137,12 @@ int RunVMM(struct Boot_Info * bootInfo) {
 
   PrintBoth("Allocated Guest\n");
 
-  (v3_ops).config_guest(vm_info, &vm_config);
 
-  PrintBoth("Configured guest\n");
 
-  (v3_ops).init_guest(vm_info);
+
+  PrintBoth("Initializing guest\n");
+  (v3_ops).init_guest(vm_info, &vm_config);
+
   PrintBoth("Starting Guest\n");
   //Clear_Screen();
 

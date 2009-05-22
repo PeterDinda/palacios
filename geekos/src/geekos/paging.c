@@ -171,8 +171,10 @@ static void Print_Fault_Info(uint_t address, faultcode_t faultCode)
     Dump_Interrupt_State(state);
     //SerialPrint_VMCS_ALL();
     /* user faults just kill the process */
-    if (!faultCode.userModeFault) KASSERT(0);
-
+    if (!faultCode.userModeFault) {
+	PrintBoth("Invalid Fault at %p\n", address);
+	KASSERT(0);
+    }
     /* For now, just kill the thread/process. */
     Exit(-1);
 }
@@ -203,9 +205,9 @@ void Init_VM(struct Boot_Info *bootInfo)
     return ;
   }
 
-  SerialPrintLevel(100,"Paging is currently OFF - initializing the pages for a 1-1 map\n");
+  PrintBoth("initializing Direct mapped pages for %dKB of RAM\n", bootInfo->memSizeKB);
   
-  numpages=bootInfo->memSizeKB / (PAGE_SIZE/1024);
+  numpages = bootInfo->memSizeKB / (PAGE_SIZE / 1024);
   numpagetables = numpages / NUM_PAGE_TABLE_ENTRIES + ((numpages % NUM_PAGE_TABLE_ENTRIES) != 0 );
 
   SerialPrintLevel(100,"We need %d pages, and thus %d page tables, and one page directory\n",numpages, numpagetables);
