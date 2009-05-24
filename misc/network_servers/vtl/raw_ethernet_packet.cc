@@ -105,7 +105,7 @@ int RawEthernetPacket::Unserialize(const SOCK fd, SSL * ssl) {
     return -1;
   }
 
-  JRLDBG("Receiving TCP data. size=%d, offset=%d\n", this->get_size(), *(pkt + 2));
+  JRLDBG("Receiving TCP data. size=%lu, offset=%d\n", this->get_size(), *(pkt + 2));
 
   ret = Receive(fd, ssl, data, this->get_size(), true);
   if (ret == 0) {
@@ -143,7 +143,7 @@ int RawEthernetPacket::Unserialize(const SOCK fd) {
     return -1;
   }
 
-  JRLDBG("Receiving TCP data. size=%d, offset=%d\n", this->get_size(), *(pkt + 2));
+  JRLDBG("Receiving TCP data. size=%lu, offset=%d\n", this->get_size(), *(pkt + 2));
 
   ret = Receive(fd, data, this->get_size(), true);
   if (ret == 0) {
@@ -264,7 +264,7 @@ int RawEthernetPacket::VtpSerialize(const SOCK fd, struct in_addr * serveraddr )
 
 void RawEthernetPacket::Print(unsigned size, FILE *out) const
 {
-  fprintf(out,"raw_ethernet_packet: size %-4u first %u bytes: ", *(this->size), MIN(*(this->size),size));
+  fprintf(out,"raw_ethernet_packet: size %-4lu first %lu bytes: ", *(this->size), MIN(*(this->size), size));
   printhexbuffer(out, data, MIN(*(this->size),size));
   fprintf(out,"\n");
 }
@@ -275,7 +275,7 @@ ostream & RawEthernetPacket::Print(ostream &os) const
   unsigned n;
   unsigned i;
 
-  snprintf(buf,2048,"RawEthernetPacket(size=%u, bytes=",  this->get_size());
+  snprintf(buf,2048,"RawEthernetPacket(size=%lu, bytes=",  this->get_size());
   n=strlen(buf);
   for (i=0;i<this->get_size();i++) { 
     bytetohexbyte(data[i],&(buf[n+2*i]));

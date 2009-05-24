@@ -1,5 +1,5 @@
 #include "vtl_util.h"
-
+#include <assert.h>
 
 
 void dbg_print_pkt_info(RawEthernetPacket * pkt) {
@@ -30,7 +30,7 @@ void dbg_print_pkt(RawEthernetPacket * pkt) {
   char pkt_line[128];
   unsigned int pkt_size = pkt->get_size() - 1;
 
-  JRLDBG("Packet Dump: (pkt_size=%d) \n", pkt->get_size());
+  JRLDBG("Packet Dump: (pkt_size=%lu) \n", pkt->get_size());
 
   for (x = 0; x < pkt_size;) {
     sprintf(pkt_line, "\t%.4x:  ", x);

@@ -1,4 +1,5 @@
 #include "if.h"
+#include <assert.h>
 
 iface_t *  if_connect(string if_name, char mode) {
   char pcap_errbuf[PCAP_ERRBUF_SIZE];
@@ -117,11 +118,11 @@ int if_write_pkt(iface_t * iface, RawEthernetPacket * pkt) {
   ASSERT((iface != NULL) && (pkt != NULL) && (iface->net_interface != NULL));
 
 #ifdef linux
-  JRLDBG("Writing pkt size(%d)\n", pkt->get_size());
+  JRLDBG("Writing pkt size(%lu)\n", pkt->get_size());
   if (libnet_adv_write_link(iface->net_interface, 
 			    (u_char *)(pkt->get_data()), 
 			    pkt->get_size()) < 0) {
-    JRLDBG("Libnet could not inject packet size (%d)\n", pkt->get_size());
+    JRLDBG("Libnet could not inject packet size (%lu)\n", pkt->get_size());
     return -1;
   }
 

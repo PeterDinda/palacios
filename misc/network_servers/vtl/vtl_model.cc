@@ -1,5 +1,5 @@
 #include "vtl_model.h"
-
+#include <assert.h>
 
 
 /* VTL Models */
@@ -510,13 +510,13 @@ void dbg_dump_ip_model(ip_model_t * model) {
 
   printf("\tSrc Host {\n");
   printf("\t\taddr: %s\n", ip_to_string(model->src.addr));
-  printf("\t\tIP ID: %lu\n", model->src.ip_id);
+  printf("\t\tIP ID: %d\n", model->src.ip_id);
   printf("\t\tttl: %d\n", model->src.ttl);
   printf("\t}\n");
 
   printf("\tDst Host {\n");
   printf("\t\taddr: %s\n", ip_to_string(model->dst.addr));
-  printf("\t\tIP ID: %lu\n", model->dst.ip_id);
+  printf("\t\tIP ID: %d\n", model->dst.ip_id);
   printf("\t\tttl: %d\n", model->dst.ttl);
   printf("\t}\n");
 
