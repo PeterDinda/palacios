@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="Windows-1252"?>
+<VisualStudioProject
+	ProjectType="Visual C++"
+	Version="7.10"
+	Name="vtl"
+	ProjectGUID="{B9EAD33A-B1FB-4F2C-985C-12CD6116B05D}"
+	RootNamespace="vtl"
+	Keyword="Win32Proj">
+	<Platforms>
+		<Platform
+			Name="Win32"/>
+	</Platforms>
+	<Configurations>
+		<Configuration
+			Name="Debug|Win32"
+			OutputDirectory="Debug"
+			IntermediateDirectory="Debug"
+			ConfigurationType="4"
+			CharacterSet="2">
+			<Tool
+				Name="VCCLCompilerTool"
+				Optimization="0"
+				PreprocessorDefinitions="WIN32;_DEBUG;_LIB"
+				MinimalRebuild="TRUE"
+				BasicRuntimeChecks="3"
+				RuntimeLibrary="5"
+				UsePrecompiledHeader="0"
+				WarningLevel="3"
+				Detect64BitPortabilityProblems="TRUE"
+				DebugInformationFormat="4"/>
+			<Tool
+				Name="VCCustomBuildTool"/>
+			<Tool
+				Name="VCLibrarianTool"
+				AdditionalDependencies="ws2_32.lib wpcap.lib IPHlpApi.lib packet.lib"
+				OutputFile="$(OutDir)/vtl.lib"
+				AdditionalLibraryDirectories="&quot;$(SolutionDir)\local\WpdPack\Lib&quot;"/>
+			<Tool
+				Name="VCMIDLTool"/>
+			<Tool
+				Name="VCPostBuildEventTool"
+				CommandLine="mkdir $(SolutionDir)\local\lib
+mkdir $(SolutionDir)\local\include
+copy $(TargetPath) $(SolutionDir)\local\lib\$(TargetFileName)
+copy $(SolutionDir)\vtl\vtl.h $(SolutionDir)\local\include\vtl.h
+copy $(SolutionDir)\vtl\config.h $(SolutionDir)\local\include\config.h
+copy $(SolutionDir)\vtl\debug.h $(SolutionDir)\local\include\debug.h
+copy $(SolutionDir)\vtl\if.h $(SolutionDir)\local\include\if.h
+copy $(SolutionDir)\vtl\net_util.h $(SolutionDir)\local\include\net_util.h
+copy $(SolutionDir)\vtl\raw_ethernet_packet.h $(SolutionDir)\local\include\raw_ethernet_packet.h
+copy $(SolutionDir)\vtl\socks.h $(SolutionDir)\local\include\socks.h
+copy $(SolutionDir)\vtl\util.h $(SolutionDir)\local\include\util.h
+copy $(SolutionDir)\vtl\vtl_harness.h $(SolutionDir)\local\include\vtl_harness.h
+copy $(SolutionDir)\vtl\vtl_model.h $(SolutionDir)\local\include\vtl_model.h
+copy $(SolutionDir)\vtl\vtl_util.h $(SolutionDir)\local\include\vtl_util.h
+"/>
+			<Tool
+				Name="VCPreBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
+		<Configuration
+			Name="Release|Win32"
+			OutputDirectory="Release"
+			IntermediateDirectory="Release"
+			ConfigurationType="4"
+			CharacterSet="2">
+			<Tool
+				Name="VCCLCompilerTool"
+				PreprocessorDefinitions="WIN32;NDEBUG;_LIB"
+				RuntimeLibrary="4"
+				UsePrecompiledHeader="0"
+				WarningLevel="3"
+				Detect64BitPortabilityProblems="TRUE"
+				DebugInformationFormat="3"/>
+			<Tool
+				Name="VCCustomBuildTool"/>
+			<Tool
+				Name="VCLibrarianTool"
+				AdditionalDependencies="ws2_32.lib wpcap.lib IPHlpApi.lib packet.lib"
+				OutputFile="$(OutDir)/vtl.lib"
+				AdditionalLibraryDirectories="&quot;$(SolutionDir)\local\WpdPack\Lib&quot;"/>
+			<Tool
+				Name="VCMIDLTool"/>
+			<Tool
+				Name="VCPostBuildEventTool"
+				CommandLine="mkdir $(SolutionDir)\local\lib
+mkdir $(SolutionDir)\local\include
+copy $(TargetPath) $(SolutionDir)\local\lib\$(TargetFileName)
+copy $(SolutionDir)\vtl\vtl.h $(SolutionDir)\local\include\vtl.h
+copy $(SolutionDir)\vtl\config.h $(SolutionDir)\local\include\config.h
+copy $(SolutionDir)\vtl\debug.h $(SolutionDir)\local\include\debug.h
+copy $(SolutionDir)\vtl\if.h $(SolutionDir)\local\include\if.h
+copy $(SolutionDir)\vtl\net_util.h $(SolutionDir)\local\include\net_util.h
+copy $(SolutionDir)\vtl\raw_ethernet_packet.h $(SolutionDir)\local\include\raw_ethernet_packet.h
+copy $(SolutionDir)\vtl\socks.h $(SolutionDir)\local\include\socks.h
+copy $(SolutionDir)\vtl\util.h $(SolutionDir)\local\include\util.h
+copy $(SolutionDir)\vtl\vtl_harness.h $(SolutionDir)\local\include\vtl_harness.h
+copy $(SolutionDir)\vtl\vtl_model.h $(SolutionDir)\local\include\vtl_model.h
+copy $(SolutionDir)\vtl\vtl_util.h $(SolutionDir)\local\include\vtl_util.h
+"/>
+			<Tool
+				Name="VCPreBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
+	</Configurations>
+	<References>
+	</References>
+	<Files>
+		<Filter
+			Name="Source Files"
+			Filter="cpp;c;cxx;def;odl;idl;hpj;bat;asm;asmx"
+			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}">
+			<File
+				RelativePath="..\config.cc">
+				<FileConfiguration
+					Name="Debug|Win32">
+					<Tool
+						Name="VCCLCompilerTool"
+						AdditionalIncludeDirectories="&quot;$(SolutionDir)\local\WpdPack\Include&quot;"/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32">
+					<Tool
+						Name="VCCLCompilerTool"
+						AdditionalIncludeDirectories="&quot;$(SolutionDir)\local\WpdPack\Include&quot;"/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="..\if.cc">
+				<FileConfiguration
+					Name="Debug|Win32">
+					<Tool
+						Name="VCCLCompilerTool"
+						AdditionalIncludeDirectories="&quot;$(SolutionDir)\local\WpdPack\Include&quot;"/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32">
+					<Tool
+						Name="VCCLCompilerTool"
+						AdditionalIncludeDirectories="&quot;$(SolutionDir)\local\WpdPack\Include&quot;"/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="..\net_util.cc">
+				<FileConfiguration
+					Name="Debug|Win32">
+					<Tool
+						Name="VCCLCompilerTool"
+						AdditionalIncludeDirectories="&quot;$(SolutionDir)\local\WpdPack\Include&quot;"/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32">
+					<Tool
+						Name="VCCLCompilerTool"
+						AdditionalIncludeDirectories="&quot;$(SolutionDir)\local\WpdPack\Include&quot;"/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="..\raw_ethernet_packet.cc">
+				<FileConfiguration
+					Name="Debug|Win32">
+					<Tool
+						Name="VCCLCompilerTool"
+						AdditionalIncludeDirectories="&quot;$(SolutionDir)\local\WpdPack\Include&quot;"/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32">
+					<Tool
+						Name="VCCLCompilerTool"
+						AdditionalIncludeDirectories="&quot;$(SolutionDir)\local\WpdPack\Include&quot;"/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="..\socks.cc">
+				<FileConfiguration
+					Name="Debug|Win32">
+					<Tool
+						Name="VCCLCompilerTool"
+						AdditionalIncludeDirectories="&quot;$(SolutionDir)\local\WpdPack\Include&quot;"/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32">
+					<Tool
+						Name="VCCLCompilerTool"
+						AdditionalIncludeDirectories="&quot;$(SolutionDir)\local\WpdPack\Include&quot;"/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="..\util.cc">
+				<FileConfiguration
+					Name="Debug|Win32">
+					<Tool
+						Name="VCCLCompilerTool"
+						AdditionalIncludeDirectories="&quot;$(SolutionDir)\local\WpdPack\Include&quot;"/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32">
+					<Tool
+						Name="VCCLCompilerTool"
+						AdditionalIncludeDirectories="&quot;$(SolutionDir)\local\WpdPack\Include&quot;"/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="..\vtl_model.cc">
+				<FileConfiguration
+					Name="Debug|Win32">
+					<Tool
+						Name="VCCLCompilerTool"
+						AdditionalIncludeDirectories="&quot;$(SolutionDir)\local\WpdPack\Include&quot;"/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32">
+					<Tool
+						Name="VCCLCompilerTool"
+						AdditionalIncludeDirectories="&quot;$(SolutionDir)\local\WpdPack\Include&quot;"/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="..\vtl_util.cc">
+				<FileConfiguration
+					Name="Debug|Win32">
+					<Tool
+						Name="VCCLCompilerTool"
+						AdditionalIncludeDirectories="&quot;$(SolutionDir)\local\WpdPack\Include&quot;"/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32">
+					<Tool
+						Name="VCCLCompilerTool"
+						AdditionalIncludeDirectories="&quot;$(SolutionDir)\local\WpdPack\Include&quot;"/>
+				</FileConfiguration>
+			</File>
+		</Filter>
+		<Filter
+			Name="Header Files"
+			Filter="h;hpp;hxx;hm;inl;inc;xsd"
+			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}">
+			<File
+				RelativePath="..\config.h">
+			</File>
+			<File
+				RelativePath="..\debug.h">
+			</File>
+			<File
+				RelativePath="..\if.h">
+			</File>
+			<File
+				RelativePath="..\net_util.h">
+			</File>
+			<File
+				RelativePath="..\raw_ethernet_packet.h">
+			</File>
+			<File
+				RelativePath="..\socks.h">
+			</File>
+			<File
+				RelativePath="..\util.h">
+			</File>
+			<File
+				RelativePath="..\vtl.h">
+			</File>
+			<File
+				RelativePath="..\vtl_harness.h">
+			</File>
+			<File
+				RelativePath="..\vtl_model.h">
+			</File>
+			<File
+				RelativePath="..\vtl_util.h">
+			</File>
+		</Filter>
+		<Filter
+			Name="Resource Files"
+			Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx"
+			UniqueIdentifier="{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}">
+		</Filter>
+		<File
+			RelativePath=".\ReadMe.txt">
+		</File>
+	</Files>
+	<Globals>
+	</Globals>
+</VisualStudioProject>
