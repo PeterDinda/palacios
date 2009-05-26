@@ -1400,6 +1400,7 @@ static int init_ide(struct vm_device * dev) {
 	return -1;
     }
 
+    PrintDebug("Connecting to IDE IO ports\n");
 
     v3_dev_hook_io(dev, PRI_DATA_PORT, 
 		   &ide_read_data_port, &write_data_port);
@@ -1459,6 +1460,8 @@ static int init_ide(struct vm_device * dev) {
 	struct pci_device * pci_dev = NULL;
 	int i;
 
+	PrintDebug("Connecting IDE to PCI bus\n");
+
 	for (i = 0; i < 6; i++) {
 	    bars[i].type = PCI_BAR_NONE;
 	}
@@ -1501,6 +1504,8 @@ static int init_ide(struct vm_device * dev) {
 
     }
 
+    PrintDebug("IDE Initialized\n");
+
     return 0;
 }
 
@@ -1523,14 +1528,21 @@ static struct vm_device_ops dev_ops = {
 
 struct vm_device *  v3_create_ide(struct vm_device * pci_bus, struct vm_device * southbridge_dev) {
     struct ide_internal * ide  = (struct ide_internal *)V3_Malloc(sizeof(struct ide_internal));  
+
+    memset(ide, 0, sizeof(struct ide_internal));
+
     struct vm_device * device = v3_create_device("IDE", &dev_ops, ide);
 
-    ide->pci_bus = pci_bus;
-    if (ide->southbridge) {
-        ide->southbridge = (struct v3_southbridge *)(southbridge_dev->private_data);
-    } else {
-       ide->southbridge = NULL;
+    if (pci_bus != NULL) {
+	if (southbridge_dev == NULL) {
+	    PrintError("PCI Enabled BUT southbridge is NULL\n");
+	    return NULL;
+	}
+
+	ide->pci_bus = pci_bus;
+	ide->southbridge = (struct v3_southbridge *)(southbridge_dev->private_data);
     }
+
 
     PrintDebug("IDE: Creating IDE bus x 2\n");
 
