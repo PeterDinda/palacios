@@ -17,18 +17,69 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
+#include <string>
+#include <iostream>
+#include <fstream>
+#include <stdio.h>
 #include <sstream>
 
+#ifdef linux 
+#include <errno.h>
+#include <sys/types.h>
+#include <unistd.h>
+#elif defined(WIN32) && !defined(__CYGWIN__)
+
+#endif
+
+#include "vtl.h"
 
 
-nbd_config_t g_nbd_conf;
+#define DEFAULT_LOG_FILE "./status.log"
+#define DEFAULT_CONF_FILE "v3_nbd.ini"
+
+
+#define DEFAULT_PORT 9500
+#define MAX_STRING_SIZE 1024
+#define MAX_DISKS 32
+
+#define LOGFILE_TAG "logfile"
+#define IP_ADDR_TAG "address"
+#define PORT_TAG  "port"
+#define DISKS_TAG "disks"
+
 
 using namespace std;
 //using namespace __gnu_cxx;
 
 
+typedef enum {ISO, RAW} disk_type_t;
 
-config_t g_config;
+struct disk_info {
+    string filename;
+    string tag;
+    disk_type_t type;
+};
+
+// eqstr from vtl (config.h)
+typedef map<const string, struct disk_info, eqstr> disk_list_t;
+
+struct nbd_config {
+    unsigned long server_addr;
+    int server_port;
+    disk_list_t disks;
+    int num_disks;
+};
+
+
+
+static const int enable_debug = 1;
+static struct nbd_config g_nbd_conf;
+
+void usage();
+int config_nbd(string conf_file_name);
+int serv_loop(int serv_sock);
+void setup_disk(string disk_tag);
+
 
 int __main (int argc, char ** argv);
 
@@ -48,9 +99,7 @@ void main() {
 
 int __main (int argc, char ** argv) {
   string config_file;
-  SOCK vnet_sock = 0;
-  struct vnet_config vnet_info;
-  iface_t * iface;
+  int serv_sock;
   if (argc > 2) {
     usage();
     exit(0);
@@ -59,48 +108,33 @@ int __main (int argc, char ** argv) {
   if (argc == 2) {
     config_file = string(argv[1]);
   } else {
-    config_file = VIDS_CONF_FILE;
+    config_file = DEFAULT_CONF_FILE;
   }
 
-
-  int * foo;
-  int num_ports = GetOpenUdpPorts(&foo);
-  int i;
-  for (i = 0; i < num_ports; i++) {
-    printf("port %d open\n", foo[i]);
-  }
-  
-
-  //  g_conf.log_file = "./vids.log";
-
-  if (config_vids(config_file) == -1) {
+ 
+  if (config_nbd(config_file) == -1) {
     cerr << "Configuration Error" << endl;
     exit(-1);
   }
 
-  // JRL DEBUG
-  debug_init(g_config[LOGFILE_TAG].c_str());
-  JRLDBG("testing...\n");
+  // setup network sockets
 
-
-
-  // Configure pcap filter...
-
-  vids_loop(iface, vnet_sock, &vnet_info);
+  vtl_debug("Starting Server Loop\n");
+  serv_loop(serv_sock);
 
   return 0;
 }
 
 
 #ifdef linux
-int vids_loop(iface_t * iface, SOCK vnet_sock, struct vnet_config * vnet_info) {
+int serv_loop(int serv_sock) {
   fd_set all_set, read_set;
   int max_fd = -1;
   RawEthernetPacket pkt;
 
   FD_ZERO(&all_set);
-  FD_SET(vnet_sock, &all_set);
-  max_fd = vnet_sock;
+  FD_SET(serv_sock, &all_set);
+  max_fd = serv_sock;
 
 
   while (1) {
@@ -119,9 +153,9 @@ int vids_loop(iface_t * iface, SOCK vnet_sock, struct vnet_config * vnet_info) {
     }
     
 
-    if (FD_ISSET(vnet_sock, &read_set)) {
+    if (FD_ISSET(serv_sock, &read_set)) {
       //vnet_recv();
-      
+
 
     }
   }
@@ -130,7 +164,7 @@ int vids_loop(iface_t * iface, SOCK vnet_sock, struct vnet_config * vnet_info) {
 }
 
 #elif WIN32
-int vids_loop(iface_t * iface, SOCK vnet_sock, struct vnet_config * vnet_info) {
+int serv_loop(iface_t * iface, SOCK vnet_sock, struct vnet_config * vnet_info) {
   int ret;
   RawEthernetPacket pkt;
   WSANETWORKEVENTS net_events;
@@ -187,102 +221,66 @@ int vids_loop(iface_t * iface, SOCK vnet_sock, struct vnet_config * vnet_info) {
 
 
 
-int config_vids(string conf_file_name) {
-  if (read_config(conf_file_name, &g_config) != 0) {
-    return -1;
-  }
-
-  if (g_config.count(VIDS_SERVER_TAG) > 0) {
-    g_vids_conf.server_addr = ToIPAddress(g_config[VIDS_SERVER_TAG].c_str());
-  } else {
-    printf("Must specify VIDS server address\n");
-    return -1;
-  }
-
-  if (g_config.count(VIDS_SERVER_PORT_TAG) > 0) {
-    g_vids_conf.server_port = atoi(g_config[VIDS_SERVER_PORT_TAG].c_str());
-  } else {
-    printf("Must specify VIDS server port\n");
-    return -1;
-  }
-
-  if (g_config.count(TCP_PORTS_TAG) > 0) {
-    istringstream port_stream(g_config[TCP_PORTS_TAG], istringstream::in);
-    int port;
-    int i = 0;
+int config_nbd(string conf_file_name) {
+    config_t config_map;
     
-    while (port_stream >> port) {
-      if (i >= MAX_PORTS) {
-	cerr << "You specified too many ports to forward, truncating..." << endl;
-	break;
-      }
-      
-      g_vids_conf.tcp_ports[i] = port;      
-      i++;
+    if (read_config(conf_file_name, &config_map) != 0) {
+	cerr << "Could not read config file..." << endl;
+	return -1;
     }
 
-    g_vids_conf.num_tcp_ports = i;
-  }
+    if (config_map.count(IP_ADDR_TAG) > 0) {
+	g_nbd_conf.server_addr = ToIPAddress(config_map[IP_ADDR_TAG].c_str());
+    } 
+
+    if (config_map.count(PORT_TAG) > 0) {
+	g_nbd_conf.server_port = atoi(config_map[PORT_TAG].c_str());
+    } else {
+	g_nbd_conf.server_port = DEFAULT_PORT;
+    }
+	
+    if (config_map.count(DISKS_TAG) > 0) {
+	istringstream disk_stream(config_map[DISKS_TAG], istringstream::in);
+	string disk_tag;
+	int i = 0;
+	
+	while (disk_stream >> disk_tag) {
+
+	    if (i >= MAX_DISKS) {
+		cerr << "You specified too many disks, truncating..." << endl;
+		break;
+	    }
+	    
+	    setup_disk(disk_tag);
+
+	    i++;
+	}
+	
+	g_nbd_conf.num_disks = i;
+    } else {
+	cerr << "Must specify a set of disks" << endl;
+	return -1;
+    }
+    
+    
+    if (config_map.count(LOGFILE_TAG) == 0) {
+	config_map[LOGFILE_TAG] = DEFAULT_LOG_FILE;
+    }
+    
+
+    vtl_debug_init(config_map[LOGFILE_TAG], enable_debug);
 
 
-
-  if (g_config.count(VIRTUAL_MAC_TAG) > 0) {
-   string_to_mac(g_config[VIRTUAL_MAC_TAG].c_str(), g_vids_conf.virtual_mac);
-  }
-
-  if (g_config.count(LOGFILE_TAG) == 0) {
-    g_config[LOGFILE_TAG] = DEFAULT_LOG_FILE;
-  }
-
-  if (GetLocalMacAddress(g_config[INTERFACE_TAG], g_vids_conf.local_mac) == -1) {
-    cerr << "Could not get local mac address" << endl;
-    return -1;
-  }
-
-
-  return 0;
+    return 0;
 }
 
-
-int read_config(string conf_file_name) {
-  fstream conf_file(conf_file_name.c_str(), ios::in);
-  char line[MAX_STRING_SIZE];
-
-  while ((conf_file.getline(line, MAX_STRING_SIZE))) {
-    string conf_line = line;
-    string tag;
-    string value;
-    int offset, ltrim_index, rtrim_index;
-
-    if (conf_line[0] == '#') {
-      continue;
-    }
-
-    offset = conf_line.find(":", 0);
-    tag = conf_line.substr(0,offset);
-
-    // kill white space
-    istringstream tag_stream(tag, istringstream::in);
-    tag_stream >> tag;
-
-    if (tag.empty()) {
-      continue;
-    }
-
-    // basic whitespace trimming, we assume that the config handlers will deal with 
-    // tokenizing and further formatting
-    value = conf_line.substr(offset + 1, conf_line.length() - offset);
-    ltrim_index = value.find_first_not_of(" \t");
-    rtrim_index = value.find_last_not_of(" \t");
-    value = value.substr(ltrim_index, (rtrim_index + 1) - ltrim_index);
-
-    g_config[tag] = value;
-  }
-  return 0;
+void setup_disk(string disk_tag) {
+    printf("Setting up %s\n", disk_tag.c_str());
 }
+
 
 
 void usage() {
-  cout << "Usage: vids [config_file]" << endl;
+  cout << "Usage: v3_nbd [config_file]" << endl;
   return;
 }

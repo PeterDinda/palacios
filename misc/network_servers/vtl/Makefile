@@ -1,7 +1,4 @@
-DISTDIR= ../dist
-PREFIX=../local
-DEBUG=-DDEBUG
-#DEBUG=
+PREFIX=..
 #PROFILER=-pg
 PROFILER=
 
@@ -9,12 +6,10 @@ INCLUDEDIR=$(PREFIX)/include
 LIBDIR=$(PREFIX)/lib
 BINDIR=$(PREFIX)/bin
 
-VTL_OBJS = vtl_util.o  if.o socks.o util.o net_util.o raw_ethernet_packet.o vtl_model.o config.o
-TOR_VTL_OBJS = vtl_socks5.o tor_vtl.o vtl_dns.o
+VTL_OBJS = vtl_util.o  if.o socks.o util.o net_util.o raw_ethernet_packet.o vtl_model.o config.o debug.o
 
 VTL_HDRS = vtl.h vtl_util.h util.h socks.h if.h net_util.h vtl_model.h raw_ethernet_packet.h debug.h config.h vtl_harness.h
 
-DISTFILES = config.cc config.h debug.h if.cc if.h net_util.cc net_util.h raw_ethernet_packet.cc raw_ethernet_packet.h socks.cc socks.h util.cc util.h vtl.h vtl_harness.h vtl_model.cc vtl_model.h vtl_util.cc vtl_util.h Makefile .dependencies
 
 LIBNETLDFLAGS = -L$(LIBDIR) -lnet
 SSLFLAGS	= -lssl
@@ -29,8 +24,8 @@ CC=/usr/bin/gcc
 AR=ar
 RANLIB=ranlib
 
-#CXXFLAGS =  -DDEBUG  -g -gstabs+ -Wall $(PCAPCFLAGS) -I/usr/kerberos/include
-CXXFLAGS =   $(DEBUG) -Wall -g -gstabs+ -DUSE_SSL $(PCAPCFLAGS) -I/usr/kerberos/include
+#CXXFLAGS = -g -gstabs+ -Wall $(PCAPCFLAGS) -I/usr/kerberos/include
+CXXFLAGS =   -Wall -g -gstabs+ -DUSE_SSL $(PCAPCFLAGS) -I/usr/kerberos/include
 LDFLAGS  =  -L$(LIBDIR) $(PCAPLDFLAGS) $(LIBNETLDFLAGS) $(SSLFLAGS) 
 
 

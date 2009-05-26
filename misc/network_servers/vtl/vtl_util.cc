@@ -1,5 +1,5 @@
 #include "vtl_util.h"
-
+#include <assert.h>
 
 
 void dbg_print_pkt_info(RawEthernetPacket * pkt) {
@@ -17,7 +17,7 @@ void dbg_print_pkt_info(RawEthernetPacket * pkt) {
   dest_str = ip_to_string(GET_IP_DST(pkt->data));
   src_str = ip_to_string(GET_IP_SRC(pkt->data));
 
-  JRLDBG("Packet: %s:%d-%s:%d seq: %lu, ack: %lu\n", src_str.c_str(), ntohs(src_port), dest_str.c_str(), ntohs(dest_port), 
+  vtl_debug("Packet: %s:%d-%s:%d seq: %lu, ack: %lu\n", src_str.c_str(), ntohs(src_port), dest_str.c_str(), ntohs(dest_port), 
 	 seq_num, ack_num);
 	 
   return;
@@ -30,7 +30,7 @@ void dbg_print_pkt(RawEthernetPacket * pkt) {
   char pkt_line[128];
   unsigned int pkt_size = pkt->get_size() - 1;
 
-  JRLDBG("Packet Dump: (pkt_size=%d) \n", pkt->get_size());
+  vtl_debug("Packet Dump: (pkt_size=%lu) \n", pkt->get_size());
 
   for (x = 0; x < pkt_size;) {
     sprintf(pkt_line, "\t%.4x:  ", x);
@@ -48,7 +48,7 @@ void dbg_print_pkt(RawEthernetPacket * pkt) {
       }
     }
 
-    JRLDBG("%s\n", pkt_line);
+    vtl_debug("%s\n", pkt_line);
 
     x += 16;
   }
@@ -59,7 +59,7 @@ void dbg_print_buf(unsigned char * buf, unsigned int len) {
   int i;
   char pkt_line[128];
 
-  JRLDBG("Buf Dump: (len=%d) \n", len);
+  vtl_debug("Buf Dump: (len=%d) \n", len);
 
   for (x = 0; x < len-1;) {
     sprintf(pkt_line, "\t%.4x:  ", x);
@@ -77,7 +77,7 @@ void dbg_print_buf(unsigned char * buf, unsigned int len) {
       }
     }
 
-    JRLDBG("%s\n", pkt_line);
+    vtl_debug("%s\n", pkt_line);
 
     x += 16;
   }
@@ -135,7 +135,7 @@ int get_mss(RawEthernetPacket * pkt) {
 }
 
 int parse_tcp_options(tcp_opts_t * options, RawEthernetPacket * pkt) {
-  ASSERT((options != NULL) && (pkt != NULL));
+  assert((options != NULL) && (pkt != NULL));
   
   memset(options, 0, sizeof(options));
 
@@ -234,7 +234,7 @@ unsigned long get_tcp_timestamp(char *opts, int len) {
       offset += *(opts + offset + 1);
     } else {
       offset += *(opts + offset + 1);
-      //JRLDBG("Could not find timestamp\n");
+      //vtl_debug("Could not find timestamp\n");
       //break;
     }
   }
@@ -286,7 +286,7 @@ int pkt_has_timestamp(RawEthernetPacket * pkt) {
       return offset;
     } else {
       offset += *(opts + offset + 1);
-      //JRLDBG("Could not find timestamp\n");
+      //vtl_debug("Could not find timestamp\n");
       //break;
     }
   }
@@ -517,7 +517,7 @@ unsigned short get_tcp_checksum(RawEthernetPacket * pkt, unsigned short tcp_len)
   //  memcpy(buf + 6, (pkt->data + ETH_HDR_LEN + GET_IP_HDR_LEN(pkt->data)), tcp_len);
   memcpy(buf + 6, TCP_HDR(pkt->data), tcp_len);
   if (tcp_len % 2) {
-    JRLDBG("Odd tcp_len: %hu\n", tcp_len);
+    vtl_debug("Odd tcp_len: %hu\n", tcp_len);
     *(((char*)buf) + 2 * 6 + tcp_len) = 0;
   }
 
@@ -549,7 +549,7 @@ unsigned short get_udp_checksum(RawEthernetPacket * pkt, unsigned short udp_len)
   //  memcpy(buf + 6, (pkt->data + ETH_HDR_LEN + GET_IP_HDR_LEN(pkt->data)), udp_len);
   memcpy(buf + 6, UDP_HDR(pkt->data), udp_len);
   if (udp_len % 2) {
-    JRLDBG("Odd udp_len: %hu\n", udp_len);
+    vtl_debug("Odd udp_len: %hu\n", udp_len);
     *(((char*)buf) + 2 * 6 + udp_len) = 0;
   }
 
