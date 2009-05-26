@@ -43,45 +43,70 @@
 #define MAX_DISKS 32
 
 #define LOGFILE_TAG "logfile"
-#define IP_ADDR_TAG "address"
 #define PORT_TAG  "port"
 #define DISKS_TAG "disks"
+
+// Turn on 64 bit file offset support (see 'man fseeko')
+#define _FILE_OFFSET_BITS 64
 
 
 using namespace std;
 //using namespace __gnu_cxx;
 
 
-typedef enum {ISO, RAW} disk_type_t;
+typedef enum {INVALID, ISO, RAW} disk_type_t;
 
 struct disk_info {
     string filename;
     string tag;
     disk_type_t type;
+
+    FILE * disk_file;
 };
 
+
+
+struct eqsock {
+    bool operator()(const SOCK sock1, const SOCK sock2) const {
+	return sock1 == sock2;
+    }
+};
+
+
+// Server Port that we'll listen on
+int server_port;
+
+// List of disks being served 
 // eqstr from vtl (config.h)
-typedef map<const string, struct disk_info, eqstr> disk_list_t;
-
-struct nbd_config {
-    unsigned long server_addr;
-    int server_port;
-    disk_list_t disks;
-    int num_disks;
-};
+map<const string, struct disk_info *, eqstr> disks;
 
 
+// List of open connections
+map<SOCK, struct disk_info *, eqsock> conns;
 
+// Enable Debugging
 static const int enable_debug = 1;
-static struct nbd_config g_nbd_conf;
+
 
 void usage();
 int config_nbd(string conf_file_name);
 int serv_loop(int serv_sock);
-void setup_disk(string disk_tag);
+void setup_disk(string disk_tag, config_t &config_map);
 
 
 int __main (int argc, char ** argv);
+
+disk_type_t get_disk_type(const string type_str) {
+
+    if (type_str == "ISO") {
+	return ISO;
+    } else if (type_str == "RAW") {
+	return RAW;
+    } 
+
+    return INVALID;
+}
+
 
 #ifdef linux
 
@@ -99,7 +124,7 @@ void main() {
 
 int __main (int argc, char ** argv) {
   string config_file;
-  int serv_sock;
+  SOCK serv_sock;
   if (argc > 2) {
     usage();
     exit(0);
@@ -118,6 +143,23 @@ int __main (int argc, char ** argv) {
   }
 
   // setup network sockets
+  serv_sock = CreateAndSetupTcpSocket();
+  
+  if (serv_sock == -1) {
+      cerr << "Could not create server socket, exiting..." << endl;
+      exit(-1);
+  }
+
+  if (BindSocket(serv_sock, server_port) == -1) {
+      cerr << "Could not bind socket to port: " << server_port << endl;
+      exit(-1);
+  }
+
+  if (ListenSocket(serv_sock) == -1) {
+      cerr << "Could not listen on server socket (port=" << server_port << ")" << endl;
+      exit(-1);
+  }
+
 
   vtl_debug("Starting Server Loop\n");
   serv_loop(serv_sock);
@@ -128,39 +170,52 @@ int __main (int argc, char ** argv) {
 
 #ifdef linux
 int serv_loop(int serv_sock) {
-  fd_set all_set, read_set;
-  int max_fd = -1;
-  RawEthernetPacket pkt;
+    fd_set all_set, read_set;
+    int max_fd = -1;
+    RawEthernetPacket pkt;
 
-  FD_ZERO(&all_set);
-  FD_SET(serv_sock, &all_set);
-  max_fd = serv_sock;
+    FD_ZERO(&all_set);
+    FD_SET(serv_sock, &all_set);
+    max_fd = serv_sock;
 
 
-  while (1) {
-    int nready = 0;
-    read_set = all_set;
-    nready = select(max_fd + 1, &read_set, NULL, NULL, NULL);
+    while (1) {
+	int nready = 0;
+	read_set = all_set;
+	nready = select(max_fd + 1, &read_set, NULL, NULL, NULL);
     
+	if (nready == -1) {
+	    if (errno == EINTR) {
+		continue;
+	    } else {
+		vtl_debug("Select returned error\n");
+		exit(-1);
+	    }
+	}
     
-    if (nready == -1) {
-      if (errno == EINTR) {
-	continue;
-      } else {
-	perror("Select returned error: ");
-	break;
-      }
+
+	if (FD_ISSET(serv_sock, &read_set)) {
+	    SOCK conn_socket;
+	    struct sockaddr_in rem_addr;
+	    socklen_t addr_len = sizeof(struct sockaddr_in);
+	    // new connection
+	    conn_socket = accept(serv_sock, (struct sockaddr *)&rem_addr, &addr_len);
+
+	    if (conn_socket < 0) {
+		if (errno == EINTR) {
+		    continue;
+		} else {
+		    vtl_debug("Accept returned error\n");
+		    exit(-1);
+		}
+	    }
+
+	    // configure socket
+
+	}
     }
-    
 
-    if (FD_ISSET(serv_sock, &read_set)) {
-      //vnet_recv();
-
-
-    }
-  }
-
-  return 0;
+    return 0;
 }
 
 #elif WIN32
@@ -194,7 +249,6 @@ int serv_loop(iface_t * iface, SOCK vnet_sock, struct vnet_config * vnet_info) {
       }
       if (net_events.lNetworkEvents & FD_READ) {
 	
-	JRLDBG("Receied VNET Packet\n");
 	// we received data
 	
 	if (vnet_info->link_type == TCP_LINK) {
@@ -229,14 +283,10 @@ int config_nbd(string conf_file_name) {
 	return -1;
     }
 
-    if (config_map.count(IP_ADDR_TAG) > 0) {
-	g_nbd_conf.server_addr = ToIPAddress(config_map[IP_ADDR_TAG].c_str());
-    } 
-
     if (config_map.count(PORT_TAG) > 0) {
-	g_nbd_conf.server_port = atoi(config_map[PORT_TAG].c_str());
+	server_port = atoi(config_map[PORT_TAG].c_str());
     } else {
-	g_nbd_conf.server_port = DEFAULT_PORT;
+	server_port = DEFAULT_PORT;
     }
 	
     if (config_map.count(DISKS_TAG) > 0) {
@@ -251,32 +301,52 @@ int config_nbd(string conf_file_name) {
 		break;
 	    }
 	    
-	    setup_disk(disk_tag);
-
+	    setup_disk(disk_tag, config_map);
 	    i++;
-	}
-	
-	g_nbd_conf.num_disks = i;
+	}	
     } else {
 	cerr << "Must specify a set of disks" << endl;
 	return -1;
     }
     
-    
     if (config_map.count(LOGFILE_TAG) == 0) {
 	config_map[LOGFILE_TAG] = DEFAULT_LOG_FILE;
     }
     
-
     vtl_debug_init(config_map[LOGFILE_TAG], enable_debug);
-
 
     return 0;
 }
 
-void setup_disk(string disk_tag) {
-    printf("Setting up %s\n", disk_tag.c_str());
+void setup_disk(string disk_tag, config_t &config_map) {
+    string file_tag = disk_tag +  ".file";
+    string type_tag = disk_tag + ".type";
+    struct disk_info * disk = (struct disk_info *)malloc(sizeof(struct disk_info));
+
+    cout << "Setting up " << disk_tag.c_str() << endl;
+
+    if ((config_map.count(file_tag) == 0) && 
+	(config_map.count(type_tag) == 0)) {
+	cerr << "Missing Disk configuration directive for " << disk_tag << endl;
+    }
+
+    disk->tag = disk_tag;
+    disk->filename = config_map[file_tag];
+    disk->type = get_disk_type(config_map[type_tag]);
+
+    if (disk->type == RAW) {
+	disk->disk_file = fopen(disk->filename.c_str(), "w+");
+    } else if (disk->type == ISO) {
+	disk->disk_file = fopen(disk->filename.c_str(), "r");
+    }
+
+    disks[disk->tag] = disk;
+
+    return;
 }
+
+
+
 
 
 
