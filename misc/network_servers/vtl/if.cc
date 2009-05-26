@@ -18,7 +18,7 @@ iface_t *  if_connect(string if_name, char mode) {
 #ifdef linux 
   if (mode & IF_RD) {
     if ((iface->pcap_interface = pcap_open_live((char*)if_name.c_str(), 65536, 1, 1, pcap_errbuf)) == NULL) {
-      JRLDBG("Could not initialize pcap\n");
+      vtl_debug("Could not initialize pcap\n");
       return NULL;
     }
 
@@ -29,14 +29,14 @@ iface_t *  if_connect(string if_name, char mode) {
     char libnet_errbuf[LIBNET_ERRORBUF_SIZE];
     
     if ((iface->net_interface = libnet_init(LIBNET_LINK_ADV, (char *)if_name.c_str(), libnet_errbuf)) == NULL) {
-      JRLDBG("Could not initialize libnet\n");
+      vtl_debug("Could not initialize libnet\n");
       return NULL;
     }
   }
 
 #elif defined(WIN32) 
   if ((iface->pcap_interface = pcap_open_live((char*)if_name.c_str(), 65536, 1, 1, pcap_errbuf)) == NULL) {
-    JRLDBG("Could not initialize pcap\n");
+    vtl_debug("Could not initialize pcap\n");
     return NULL;
   }
   
@@ -115,14 +115,14 @@ int if_read_pkt(iface_t * iface, RawEthernetPacket * pkt) {
 
 
 int if_write_pkt(iface_t * iface, RawEthernetPacket * pkt) {
-  ASSERT((iface != NULL) && (pkt != NULL) && (iface->net_interface != NULL));
+  assert((iface != NULL) && (pkt != NULL) && (iface->net_interface != NULL));
 
 #ifdef linux
-  JRLDBG("Writing pkt size(%lu)\n", pkt->get_size());
+  vtl_debug("Writing pkt size(%lu)\n", pkt->get_size());
   if (libnet_adv_write_link(iface->net_interface, 
 			    (u_char *)(pkt->get_data()), 
 			    pkt->get_size()) < 0) {
-    JRLDBG("Libnet could not inject packet size (%lu)\n", pkt->get_size());
+    vtl_debug("Libnet could not inject packet size (%lu)\n", pkt->get_size());
     return -1;
   }
 
@@ -130,7 +130,7 @@ int if_write_pkt(iface_t * iface, RawEthernetPacket * pkt) {
   if (pcap_sendpacket(iface->pcap_interface, 
 		      (u_char *)(pkt->get_data()),
 		      pkt->get_size()) < 0) {
-    JRLDBG("PCAP could not inject packet\n");
+    vtl_debug("PCAP could not inject packet\n");
     return -1;
   }
 
@@ -151,19 +151,19 @@ int if_setup_filter(iface_t * iface, string bpf_str) {
   strcpy(filter_buf, bpf_str.c_str());
   cout << "Setting Getting interface info for " << iface->name << endl;
   if (pcap_lookupnet(iface->name->c_str(), &network, &netmask, errbuf) == -1) {
-    JRLDBG("Error looking up the network info\n");
+    vtl_debug("Error looking up the network info\n");
     return -1;
   }
 
   netmask=0xffffffff;
   cout << bpf_str << endl;
   if (pcap_compile(iface->pcap_interface, &fcode, filter_buf, 1, netmask) < 0) { 
-    JRLDBG("Could not compile bpf filter\n");
+    vtl_debug("Could not compile bpf filter\n");
     return -1; 
   } 
   
   if (pcap_setfilter(iface->pcap_interface, &fcode) < 0) { 
-    JRLDBG("Could not insert bpf filter\n");
+    vtl_debug("Could not insert bpf filter\n");
     return -1; 
   } 
 

@@ -18,9 +18,9 @@ vtl_model_t * new_vtl_model(model_type_t type) {
 
 
 int initialize_ethernet_model(ethernet_model_t * model, RawEthernetPacket * pkt, int dir = OUTBOUND_PKT) {
-  ASSERT((model != NULL) && (pkt != NULL));
+  assert((model != NULL) && (pkt != NULL));
 
-  printf("initializing ethernet model\n");
+  vtl_debug("initializing ethernet model\n");
   if (dir == OUTBOUND_PKT) {
     GET_ETH_DST(pkt->data, model->dst.addr);
     GET_ETH_SRC(pkt->data, model->src.addr);
@@ -37,7 +37,7 @@ int initialize_ethernet_model(ethernet_model_t * model, RawEthernetPacket * pkt,
 }
 
 int initialize_ip_model(ip_model_t * model, RawEthernetPacket * pkt, int dir) {
-  ASSERT((model != NULL) && (pkt != NULL));
+  assert((model != NULL) && (pkt != NULL));
 
   if (!is_ip_pkt(pkt)) {
     return -1;
@@ -72,7 +72,7 @@ int initialize_ip_model(ip_model_t * model, RawEthernetPacket * pkt, int dir) {
 }
 
 int initialize_tcp_model(tcp_model_t * model, RawEthernetPacket * pkt, int dir) {
-  ASSERT((model != NULL) && (pkt != NULL));
+  assert((model != NULL) && (pkt != NULL));
 
   tcp_opts_t options;
 
@@ -115,7 +115,7 @@ int initialize_tcp_model(tcp_model_t * model, RawEthernetPacket * pkt, int dir) 
 }
 
 int initialize_udp_model(udp_model_t * model, RawEthernetPacket * pkt, int dir) {
-  ASSERT((model != NULL) && (pkt != NULL));
+  assert((model != NULL) && (pkt != NULL));
   
   if (!is_udp_pkt(pkt)) {
     return -1;
@@ -141,7 +141,7 @@ int initialize_udp_model(udp_model_t * model, RawEthernetPacket * pkt, int dir) 
 
 
 int initialize_model(vtl_model_t * model, RawEthernetPacket * pkt, int dir) {
-  ASSERT((model != NULL) && (pkt != NULL));
+  assert((model != NULL) && (pkt != NULL));
 
   if (model->type == TCP_MODEL) {
     return initialize_tcp_model(&(model->model.tcp_model), pkt, dir);
@@ -157,7 +157,7 @@ int initialize_model(vtl_model_t * model, RawEthernetPacket * pkt, int dir) {
 
 
 int is_ethernet_model_pkt(ethernet_model_t * model, RawEthernetPacket * pkt) {
-  ASSERT((model != NULL) && (pkt != NULL));
+  assert((model != NULL) && (pkt != NULL));
 
   if ((memcmp(model->src.addr, ETH_SRC(pkt->data), 6) == 0) &&
       (memcmp(model->dst.addr, ETH_DST(pkt->data), 6) == 0)) {
@@ -171,7 +171,7 @@ int is_ethernet_model_pkt(ethernet_model_t * model, RawEthernetPacket * pkt) {
 }
 
 int is_ip_model_pkt(ip_model_t * model, RawEthernetPacket * pkt) {
-  ASSERT((model != NULL) && (pkt != NULL));
+  assert((model != NULL) && (pkt != NULL));
 
   if (!is_ip_pkt(pkt)) {
     return INVALID_PKT;
@@ -190,7 +190,7 @@ int is_ip_model_pkt(ip_model_t * model, RawEthernetPacket * pkt) {
 
 
 int is_tcp_model_pkt(tcp_model_t * model, RawEthernetPacket * pkt) {
-  ASSERT((model != NULL) && (pkt != NULL));
+  assert((model != NULL) && (pkt != NULL));
   int ip_ret;
 
   if (!is_tcp_pkt(pkt)) {
@@ -217,7 +217,7 @@ int is_tcp_model_pkt(tcp_model_t * model, RawEthernetPacket * pkt) {
 }
 
 int is_udp_model_pkt(udp_model_t * model, RawEthernetPacket * pkt) {
-  ASSERT((model != NULL) && (pkt != NULL));
+  assert((model != NULL) && (pkt != NULL));
   int ip_ret;
 
   if (!is_udp_pkt(pkt)) {
@@ -244,7 +244,7 @@ int is_udp_model_pkt(udp_model_t * model, RawEthernetPacket * pkt) {
 }
 
 int is_model_pkt(vtl_model_t * model, RawEthernetPacket * pkt) {
-  ASSERT((model != NULL) && (pkt != NULL));
+  assert((model != NULL) && (pkt != NULL));
   
   if (model->type == TCP_MODEL) {
     return is_tcp_model_pkt(&(model->model.tcp_model), pkt);
@@ -255,7 +255,7 @@ int is_model_pkt(vtl_model_t * model, RawEthernetPacket * pkt) {
 
 
 int sync_ip_model(ip_model_t * model, RawEthernetPacket * pkt) {
-  ASSERT((model != NULL) && (pkt != NULL));
+  assert((model != NULL) && (pkt != NULL));
 
   int ip_ret; 
   
@@ -276,7 +276,7 @@ int sync_ip_model(ip_model_t * model, RawEthernetPacket * pkt) {
 
 
 int sync_tcp_model(tcp_model_t * model, RawEthernetPacket * pkt) {
-  ASSERT((model != NULL) && (pkt != NULL));
+  assert((model != NULL) && (pkt != NULL));
   int tcp_ret;
   tcp_opts_t options;
   int has_opts = 0;
@@ -314,7 +314,7 @@ int sync_tcp_model(tcp_model_t * model, RawEthernetPacket * pkt) {
 
 
 int sync_udp_model(udp_model_t * model, RawEthernetPacket * pkt) {
-  ASSERT((model != NULL) && (pkt != NULL));
+  assert((model != NULL) && (pkt != NULL));
   int udp_ret;
   
   udp_ret = is_udp_model_pkt(model, pkt);
@@ -437,7 +437,7 @@ int create_empty_tcp_pkt(tcp_model_t * model, RawEthernetPacket * pkt, int dir) 
 
   compute_tcp_checksum(pkt);
 
-  JRLDBG("tcp_len = %d\n", GET_TCP_HDR_LEN(pkt->data));
+  vtl_debug("tcp_len = %d\n", GET_TCP_HDR_LEN(pkt->data));
 
 
   // Set the ip hdr len
@@ -483,20 +483,20 @@ void dbg_dump_eth_model(ethernet_model_t * model) {
   char src_mac[6];
   char dst_mac[6];
 
-  printf("ETHERNET MODEL {\n");
+  vtl_debug("ETHERNET MODEL {\n");
 
-  printf("\tType: %s\n", get_eth_protocol(model->type));
+  vtl_debug("\tType: %s\n", get_eth_protocol(model->type));
 
   mac_to_string(model->src.addr, src_mac);
-  printf("\tSrc Host {\n");
-  printf("\t\taddr: %s\n", src_mac);
-  printf("\t}\n");
+  vtl_debug("\tSrc Host {\n");
+  vtl_debug("\t\taddr: %s\n", src_mac);
+  vtl_debug("\t}\n");
 
   mac_to_string(model->dst.addr, dst_mac);
-  printf("\tDST Host {\n");
-  printf("\t\taddr: %s\n", dst_mac);
-  printf("\t}\n");
-  printf("}\n");
+  vtl_debug("\tDST Host {\n");
+  vtl_debug("\t\taddr: %s\n", dst_mac);
+  vtl_debug("\t}\n");
+  vtl_debug("}\n");
 }
 
 
@@ -504,50 +504,50 @@ void dbg_dump_eth_model(ethernet_model_t * model) {
 void dbg_dump_ip_model(ip_model_t * model) {
   dbg_dump_eth_model(&(model->ethernet));
 
-  printf("IP MODEL {\n");
-  printf("\tVersion: %d\n", model->version);
-  printf("\tProtocol: %s\n", get_ip_protocol(model->proto));
+  vtl_debug("IP MODEL {\n");
+  vtl_debug("\tVersion: %d\n", model->version);
+  vtl_debug("\tProtocol: %s\n", get_ip_protocol(model->proto));
 
-  printf("\tSrc Host {\n");
-  printf("\t\taddr: %s\n", ip_to_string(model->src.addr));
-  printf("\t\tIP ID: %d\n", model->src.ip_id);
-  printf("\t\tttl: %d\n", model->src.ttl);
-  printf("\t}\n");
+  vtl_debug("\tSrc Host {\n");
+  vtl_debug("\t\taddr: %s\n", ip_to_string(model->src.addr));
+  vtl_debug("\t\tIP ID: %d\n", model->src.ip_id);
+  vtl_debug("\t\tttl: %d\n", model->src.ttl);
+  vtl_debug("\t}\n");
 
-  printf("\tDst Host {\n");
-  printf("\t\taddr: %s\n", ip_to_string(model->dst.addr));
-  printf("\t\tIP ID: %d\n", model->dst.ip_id);
-  printf("\t\tttl: %d\n", model->dst.ttl);
-  printf("\t}\n");
+  vtl_debug("\tDst Host {\n");
+  vtl_debug("\t\taddr: %s\n", ip_to_string(model->dst.addr));
+  vtl_debug("\t\tIP ID: %d\n", model->dst.ip_id);
+  vtl_debug("\t\tttl: %d\n", model->dst.ttl);
+  vtl_debug("\t}\n");
 
-  printf("}\n");
+  vtl_debug("}\n");
 }
 
 void dbg_dump_tcp_model(tcp_model_t * model) {
   dbg_dump_ip_model(&(model->ip));
 
-  printf("TCP MODEL {\n");
-  printf("\tSrc Host {\n");
-  printf("\t\tport: %hu\n", model->src.port);
-  printf("\t\tseq: %lu\n", (unsigned long)(model->src.seq_num));
-  printf("\t\tlast ack: %lu\n", (unsigned long)(model->src.last_ack));
-  printf("\t\tWin Size: %hu\n", model->src.win);
-  printf("\t\tTimestamp: %lu\n", (unsigned long)(model->src.ts));
-  printf("\t\tMSS: %hu\n", model->src.mss);
+  vtl_debug("TCP MODEL {\n");
+  vtl_debug("\tSrc Host {\n");
+  vtl_debug("\t\tport: %hu\n", model->src.port);
+  vtl_debug("\t\tseq: %lu\n", (unsigned long)(model->src.seq_num));
+  vtl_debug("\t\tlast ack: %lu\n", (unsigned long)(model->src.last_ack));
+  vtl_debug("\t\tWin Size: %hu\n", model->src.win);
+  vtl_debug("\t\tTimestamp: %lu\n", (unsigned long)(model->src.ts));
+  vtl_debug("\t\tMSS: %hu\n", model->src.mss);
   
-  printf("\t}\n");
+  vtl_debug("\t}\n");
 
-  printf("\tDst Host {\n");
-  printf("\t\tport: %hu\n", model->dst.port);
-  printf("\t\tseq: %lu\n", (unsigned long)(model->dst.seq_num));
-  printf("\t\tlast ack: %lu\n", (unsigned long)(model->dst.last_ack));
-  printf("\t\tWin Size: %hu\n", model->dst.win);
-  printf("\t\tTimestamp: %lu\n", (unsigned long)(model->dst.ts));
-  printf("\t\tMSS: %hu\n", model->dst.mss);
-  printf("\t}\n");
+  vtl_debug("\tDst Host {\n");
+  vtl_debug("\t\tport: %hu\n", model->dst.port);
+  vtl_debug("\t\tseq: %lu\n", (unsigned long)(model->dst.seq_num));
+  vtl_debug("\t\tlast ack: %lu\n", (unsigned long)(model->dst.last_ack));
+  vtl_debug("\t\tWin Size: %hu\n", model->dst.win);
+  vtl_debug("\t\tTimestamp: %lu\n", (unsigned long)(model->dst.ts));
+  vtl_debug("\t\tMSS: %hu\n", model->dst.mss);
+  vtl_debug("\t}\n");
 
 
-  printf("}\n");
+  vtl_debug("}\n");
 
 }
 

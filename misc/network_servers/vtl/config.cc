@@ -35,7 +35,10 @@ int read_config(string conf_file_name, config_t * config) {
     value = conf_line.substr(offset + 1, conf_line.length() - offset);
     ltrim_index = value.find_first_not_of(" \t");
     rtrim_index = value.find_last_not_of(" \t");
-    value = value.substr(ltrim_index, (rtrim_index + 1) - ltrim_index);
+    
+    if ((ltrim_index >= 0) && (rtrim_index >= 0)) {
+	value = value.substr(ltrim_index, (rtrim_index + 1) - ltrim_index);
+    }
 
     (*config)[tag] = value;
   }

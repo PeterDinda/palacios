@@ -98,21 +98,21 @@ int RawEthernetPacket::Unserialize(const SOCK fd, SSL * ssl) {
   
   ret = Receive(fd, ssl, pkt, sizeof(char) * 2 + sizeof(size_t), true);
   if (ret == 0) {
-    JRLDBG("TCP socket closed\n");
+    vtl_debug("TCP socket closed\n");
     return 0;
   } else if (ret != (sizeof(char) * 2 + sizeof(size_t))) {
-    JRLDBG("Error unserializing packet header from tcp socket\n");
+    vtl_debug("Error unserializing packet header from tcp socket\n");
     return -1;
   }
 
-  JRLDBG("Receiving TCP data. size=%lu, offset=%d\n", this->get_size(), *(pkt + 2));
+  vtl_debug("Receiving TCP data. size=%lu, offset=%d\n", this->get_size(), *(pkt + 2));
 
   ret = Receive(fd, ssl, data, this->get_size(), true);
   if (ret == 0) {
-    JRLDBG("TCP Socket closed\n");
+    vtl_debug("TCP Socket closed\n");
     return 0;
   } else if (ret != (int)this->get_size()) {
-    JRLDBG("Error unserializing packet from tcp socket\n");
+    vtl_debug("Error unserializing packet from tcp socket\n");
     return -1;
   }
 
@@ -136,21 +136,21 @@ int RawEthernetPacket::Unserialize(const SOCK fd) {
   
   ret = Receive(fd, pkt, sizeof(char) * 2 + sizeof(size_t), true);
   if (ret == 0) {
-    JRLDBG("TCP socket closed\n");
+    vtl_debug("TCP socket closed\n");
     return 0;
   } else if (ret != (sizeof(char) * 2 + sizeof(size_t))) {
-    JRLDBG("Error unserializing packet header from tcp socket\n");
+    vtl_debug("Error unserializing packet header from tcp socket\n");
     return -1;
   }
 
-  JRLDBG("Receiving TCP data. size=%lu, offset=%d\n", this->get_size(), *(pkt + 2));
+  vtl_debug("Receiving TCP data. size=%lu, offset=%d\n", this->get_size(), *(pkt + 2));
 
   ret = Receive(fd, data, this->get_size(), true);
   if (ret == 0) {
-    JRLDBG("TCP Socket closed\n");
+    vtl_debug("TCP Socket closed\n");
     return 0;
   } else if (ret != (int)this->get_size()) {
-    JRLDBG("Error unserializing packet from tcp socket\n");
+    vtl_debug("Error unserializing packet from tcp socket\n");
     return -1;
   }
 
@@ -192,37 +192,37 @@ int RawEthernetPacket::VtpUnserialize(const SOCK fd, struct in_addr * serveraddr
 
   ret = Receive(fd, pkt, sizeof(char) * 2, true);
   if (ret == 0) {
-    JRLDBG("VTP connection has Closed\n");
+    vtl_debug("VTP connection has Closed\n");
     return 0;
   } else if (ret != (int)sizeof(char) * 2) {
-    JRLDBG("Could not read type from VTP packet\n");
+    vtl_debug("Could not read type from VTP packet\n");
     return -1;
   }
 
   ret = Receive(fd, (char *)serveraddr, sizeof(struct in_addr), true);
   if (ret == 0) {
-    JRLDBG("VTP connection has closed\n");
+    vtl_debug("VTP connection has closed\n");
     return 0;
   } else if (ret != (int)sizeof(struct in_addr))  {
-    JRLDBG("Could not read VTP address info\n");
+    vtl_debug("Could not read VTP address info\n");
     return -1;
   }
 
   ret = Receive(fd, (char *)size, sizeof(size_t), true);
   if (ret == 0) {
-    JRLDBG("VTP connection has closed\n");
+    vtl_debug("VTP connection has closed\n");
     return 0;
   } else if (ret != sizeof(size_t)) {
-    JRLDBG("Could not read VTP size\n");
+    vtl_debug("Could not read VTP size\n");
     return -1;
   }
   
   ret = Receive(fd, data, this->get_size(), true);
   if (ret == 0) {
-    JRLDBG("VTP connection has closed\n");
+    vtl_debug("VTP connection has closed\n");
     return 0;
   } else if (ret != (int)this->get_size()) {
-    JRLDBG("Could not read VTP packet data\n");
+    vtl_debug("Could not read VTP packet data\n");
     return -1;
   }
 
@@ -235,13 +235,13 @@ int RawEthernetPacket::VtpSerialize(const SOCK fd, struct in_addr * serveraddr )
 
   ret = Send(fd, type, sizeof(char) * 2, true);  
   if (ret != sizeof(char) * 2) {
-    JRLDBG("Error writing type to VTP socket\n");
+    vtl_debug("Error writing type to VTP socket\n");
     return -1;
   }
 
   ret = Send(fd, (char *)serveraddr, sizeof(struct in_addr), true);
   if (ret != sizeof(struct in_addr)) {
-    JRLDBG("Error writing dest addr to VTP socket\n");
+    vtl_debug("Error writing dest addr to VTP socket\n");
     return -1;
   }
 
@@ -249,7 +249,7 @@ int RawEthernetPacket::VtpSerialize(const SOCK fd, struct in_addr * serveraddr )
 
   ret = Send(fd, pkt + (sizeof(char) * 2), length, true);
   if (ret != (int)length) {
-    JRLDBG("ERROR writing packet length and data to VTP socket\n");
+    vtl_debug("ERROR writing packet length and data to VTP socket\n");
     return -1;
   }
   

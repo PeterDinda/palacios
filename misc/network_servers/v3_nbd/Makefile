@@ -1,4 +1,4 @@
-PREFIX=../local
+PREFIX=..
 
 INCLUDEDIR=$(PREFIX)/include
 LIBDIR=$(PREFIX)/lib
