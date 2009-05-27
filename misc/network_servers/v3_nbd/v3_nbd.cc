@@ -17,7 +17,7 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#include <string>
+
 #include <iostream>
 #include <fstream>
 #include <stdio.h>
@@ -31,7 +31,10 @@
 
 #endif
 
-#include "vtl.h"
+
+#include "v3_nbd.h"
+
+#define NBD_KEY "V3_NBD_1"
 
 
 #define DEFAULT_LOG_FILE "./status.log"
@@ -54,18 +57,6 @@ using namespace std;
 //using namespace __gnu_cxx;
 
 
-typedef enum {INVALID, ISO, RAW} disk_type_t;
-
-struct disk_info {
-    string filename;
-    string tag;
-    disk_type_t type;
-
-    FILE * disk_file;
-};
-
-
-
 struct eqsock {
     bool operator()(const SOCK sock1, const SOCK sock2) const {
 	return sock1 == sock2;
@@ -80,9 +71,9 @@ int server_port;
 // eqstr from vtl (config.h)
 map<const string, struct disk_info *, eqstr> disks;
 
-
 // List of open connections
 map<SOCK, struct disk_info *, eqsock> conns;
+
 
 // Enable Debugging
 static const int enable_debug = 1;
@@ -93,19 +84,11 @@ int config_nbd(string conf_file_name);
 int serv_loop(int serv_sock);
 void setup_disk(string disk_tag, config_t &config_map);
 
+int handle_new_connection(SOCK new_conn);
+
 
 int __main (int argc, char ** argv);
 
-disk_type_t get_disk_type(const string type_str) {
-
-    if (type_str == "ISO") {
-	return ISO;
-    } else if (type_str == "RAW") {
-	return RAW;
-    } 
-
-    return INVALID;
-}
 
 
 #ifdef linux
@@ -174,6 +157,9 @@ int serv_loop(int serv_sock) {
     int max_fd = -1;
     RawEthernetPacket pkt;
 
+
+    list<SOCK> pending_cons;
+
     FD_ZERO(&all_set);
     FD_SET(serv_sock, &all_set);
     max_fd = serv_sock;
@@ -182,7 +168,8 @@ int serv_loop(int serv_sock) {
     while (1) {
 	int nready = 0;
 	read_set = all_set;
-	nready = select(max_fd + 1, &read_set, NULL, NULL, NULL);
+	write_set = all_set;
+	nready = select(max_fd + 1, &read_set, &write_set, NULL, NULL);
     
 	if (nready == -1) {
 	    if (errno == EINTR) {
@@ -210,9 +197,39 @@ int serv_loop(int serv_sock) {
 		}
 	    }
 
-	    // configure socket
+	    pending_cons.push_front(conn_socket);
 
+	    FD_SET(conn_socket, &all_set);
+
+	    if (conn_socket > max_fd) {
+		max_fd = conn_socket;
+	    }
+
+	    if (--nready <= 0) continue;
 	}
+
+	// handle open connections
+
+
+	// check pending connections
+
+	for (list<SOCK>::iterator pending_iter = pending_cons.begin();
+	     pending_iter != pending_cons.end();
+	     pending_iter++) {
+	    
+	    if (handle_new_connection(pending_iter.value()) == -1) {
+		// error
+ 	    }
+	    
+	    pending_cons.remove(pending_iter);
+	    
+	    if (--nready <= 0) break;
+	}
+	
+	if (nready <= 0) continue;
+	
+
+
     }
 
     return 0;
@@ -275,6 +292,47 @@ int serv_loop(iface_t * iface, SOCK vnet_sock, struct vnet_config * vnet_info) {
 
 
 
+
+/* Negotiation:
+ * <NBD_KEY> <Disk Tag>\n
+ */
+
+int handle_new_connection(SOCK new_conn) {
+    string input;
+    string key_str;
+    string tag_str;
+    struct disk_info * disk = NULL;
+
+    GetLine(new_conn, input);
+
+    {
+	istringstream is(input, istringstream::in);
+	is >> key_str >> tag_str;
+    }
+
+    if (key_str != NBD_KEY) {
+	vtl_debug("Error: Invalid NBD key string (%s)\n", key_str.c_str());
+	return -1;
+    }
+
+    if (disks[tag_str].count() == 0) {
+	vtl_debug("Error: Requesting disk that does not exist (%s)\n", tag_str.c_str());
+	return -1;
+    }
+
+    // Check if already assigned...
+    disk = disks[tag_str];
+
+    if (!disk) {
+	return -1;
+    }
+
+    conns[new_conn] = disk;
+
+    return 0;
+}
+
+
 int config_nbd(string conf_file_name) {
     config_t config_map;
     
@@ -321,7 +379,9 @@ int config_nbd(string conf_file_name) {
 void setup_disk(string disk_tag, config_t &config_map) {
     string file_tag = disk_tag +  ".file";
     string type_tag = disk_tag + ".type";
-    struct disk_info * disk = (struct disk_info *)malloc(sizeof(struct disk_info));
+
+    string type;
+
 
     cout << "Setting up " << disk_tag.c_str() << endl;
 
@@ -330,17 +390,16 @@ void setup_disk(string disk_tag, config_t &config_map) {
 	cerr << "Missing Disk configuration directive for " << disk_tag << endl;
     }
 
-    disk->tag = disk_tag;
-    disk->filename = config_map[file_tag];
-    disk->type = get_disk_type(config_map[type_tag]);
+    type = config_map[type_tag];  
 
-    if (disk->type == RAW) {
-	disk->disk_file = fopen(disk->filename.c_str(), "w+");
-    } else if (disk->type == ISO) {
-	disk->disk_file = fopen(disk->filename.c_str(), "r");
+    if (type == "RAW") {
+	disks[disk->tag] = new raw_disk(config_map[file_tag]);;
+    } else if (type == "ISO") {
+	
     }
 
-    disks[disk->tag] = disk;
+
+
 
     return;
 }
