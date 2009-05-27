@@ -22,6 +22,7 @@
 #include <fstream>
 #include <stdio.h>
 #include <sstream>
+#include <list>
 
 #ifdef linux 
 #include <errno.h>
@@ -32,9 +33,16 @@
 #endif
 
 
-#include "v3_nbd.h"
+#include "v3_disk.h"
+#include "raw.h"
+#include "iso.h"
 
 #define NBD_KEY "V3_NBD_1"
+
+
+#define NBD_READ_CMD 0x1
+#define NBD_WRITE_CMD 0x2
+#define NBD_CAPACITY_CMD 0x3
 
 
 #define DEFAULT_LOG_FILE "./status.log"
@@ -69,10 +77,10 @@ int server_port;
 
 // List of disks being served 
 // eqstr from vtl (config.h)
-map<const string, struct disk_info *, eqstr> disks;
+map<const string, v3_disk *, eqstr> disks;
 
 // List of open connections
-map<SOCK, struct disk_info *, eqsock> conns;
+map<const SOCK, v3_disk *, eqsock> conns;
 
 
 // Enable Debugging
@@ -85,7 +93,11 @@ int serv_loop(int serv_sock);
 void setup_disk(string disk_tag, config_t &config_map);
 
 int handle_new_connection(SOCK new_conn);
+int handle_disk_request(SOCK conn, v3_disk * disk);
 
+int handle_capacity_request(SOCK conn, v3_disk * disk);
+int handle_read_request(SOCK conn, v3_disk * disk);
+int handle_write_request(SOCK conn, v3_disk * disk);
 
 int __main (int argc, char ** argv);
 
@@ -108,10 +120,18 @@ void main() {
 int __main (int argc, char ** argv) {
   string config_file;
   SOCK serv_sock;
+
+
+
   if (argc > 2) {
     usage();
     exit(0);
   }
+
+  // init global maps
+  disks.clear();
+  conns.clear();
+
 
   if (argc == 2) {
     config_file = string(argv[1]);
@@ -168,14 +188,14 @@ int serv_loop(int serv_sock) {
     while (1) {
 	int nready = 0;
 	read_set = all_set;
-	write_set = all_set;
-	nready = select(max_fd + 1, &read_set, &write_set, NULL, NULL);
+	nready = select(max_fd + 1, &read_set, NULL, NULL, NULL);
     
 	if (nready == -1) {
 	    if (errno == EINTR) {
 		continue;
 	    } else {
 		vtl_debug("Select returned error\n");
+		perror("Select returned error: ");
 		exit(-1);
 	    }
 	}
@@ -208,22 +228,52 @@ int serv_loop(int serv_sock) {
 	    if (--nready <= 0) continue;
 	}
 
+	
 	// handle open connections
+	for (map<SOCK, v3_disk *, eqsock>::iterator con_iter = conns.begin();
+	     con_iter != conns.end(); ) {
+	    SOCK tmp_sock = con_iter->first;
+	    v3_disk * tmp_disk = con_iter->second;
 
+	    if (FD_ISSET(con_iter->first, &read_set)) {
+
+		if (handle_disk_request(tmp_sock, tmp_disk) == -1) {
+		    vtl_debug("Error: Could not complete disk request\n");
+
+		    map<SOCK, v3_disk *, eqsock>::iterator tmp_iter = con_iter;
+		    con_iter++;
+
+		    tmp_disk->detach();
+
+		    close(tmp_sock);
+		    FD_CLR(tmp_sock, &all_set);
+
+		    conns.erase(tmp_iter);
+		} else {
+		    con_iter++;
+		}
+
+		if (--nready <= 0) break;
+	    }
+	}
+
+	if (nready <= 0) continue;
 
 	// check pending connections
-
 	for (list<SOCK>::iterator pending_iter = pending_cons.begin();
 	     pending_iter != pending_cons.end();
 	     pending_iter++) {
 	    
-	    if (handle_new_connection(pending_iter.value()) == -1) {
-		// error
- 	    }
-	    
-	    pending_cons.remove(pending_iter);
-	    
-	    if (--nready <= 0) break;
+	    if (FD_ISSET(*pending_iter, &read_set)) {
+		if (handle_new_connection(*pending_iter) == -1) {
+		    // error
+		    vtl_debug("Error: Could not connect to disk\n");
+		}
+		
+		pending_cons.erase(pending_iter);
+		
+		if (--nready <= 0) break;
+	    }
 	}
 	
 	if (nready <= 0) continue;
@@ -291,6 +341,72 @@ int serv_loop(iface_t * iface, SOCK vnet_sock, struct vnet_config * vnet_info) {
 #endif
 
 
+// byte 1: command (read = 1, write = 2, capacity = 3)
+// byte 2 - 4: zero
+int handle_disk_request(SOCK conn, v3_disk * disk) {
+    char buf[4];
+
+    int read_len = Receive(conn, buf, 4, true);
+    
+    if (read_len == 0) {
+	vtl_debug("Detaching from disk (conn=%d)\n", conn);
+	return -1;
+    }
+
+    if (read_len == -1) {
+	vtl_debug("Could not read command\n");
+	return -1;
+    }
+
+    if ((buf[1] != 0) || (buf[2] != 0) || (buf[3] != 0)) {
+	// error
+	vtl_debug("Invalid command padding\n");
+	return -1;
+    }
+
+    switch (buf[0]) {
+	case NBD_CAPACITY_CMD:
+	    return handle_capacity_request(conn, disk);
+	case NBD_READ_CMD:
+	    return handle_read_request(conn, disk);
+	case NBD_WRITE_CMD:
+	    return handle_write_request(conn, disk);
+	default:
+	    vtl_debug("Invalid Disk Command %d\n", buf[0]);
+	    return -1;
+    }
+
+    return 0;
+}
+
+
+// send: 
+//    8 bytes : capacity
+int handle_capacity_request(SOCK conn, v3_disk * disk) {
+    off_t capacity = disk->get_capacity();
+
+    return Send(conn, (char *)&capacity, 8, true);
+}
+
+// receive:
+//    8 bytes : offset
+//    4 bytes : length
+// send:
+//    1 byte  : status
+//    4 bytes : return length
+//    x bytes : data
+int handle_read_request(SOCK conn, v3_disk * disk) {
+    return -1;
+}
+
+// receive: 
+//    8 bytes : offset
+//    4 bytes : length
+// send : 
+//    1 bytes : status
+int handle_write_request(SOCK conn, v3_disk * disk) {
+    return -1;
+}
 
 
 /* Negotiation:
@@ -301,7 +417,7 @@ int handle_new_connection(SOCK new_conn) {
     string input;
     string key_str;
     string tag_str;
-    struct disk_info * disk = NULL;
+    v3_disk * disk = NULL;
 
     GetLine(new_conn, input);
 
@@ -315,19 +431,28 @@ int handle_new_connection(SOCK new_conn) {
 	return -1;
     }
 
-    if (disks[tag_str].count() == 0) {
+    if (disks.count(tag_str) == 0) {
 	vtl_debug("Error: Requesting disk that does not exist (%s)\n", tag_str.c_str());
 	return -1;
     }
 
-    // Check if already assigned...
     disk = disks[tag_str];
 
     if (!disk) {
+	vtl_debug("Disk (%s) Does not exist\n", tag_str.c_str());
+	return -1;
+    }
+
+    if (disk->locked == 1) {
+	vtl_debug("Attempting to attach to a device already in use\n");
 	return -1;
     }
 
     conns[new_conn] = disk;
+
+    disk->attach();
+
+    vtl_debug("Connected to disk %s\n", tag_str.c_str());
 
     return 0;
 }
@@ -379,7 +504,8 @@ int config_nbd(string conf_file_name) {
 void setup_disk(string disk_tag, config_t &config_map) {
     string file_tag = disk_tag +  ".file";
     string type_tag = disk_tag + ".type";
-
+    
+    v3_disk * disk;
     string type;
 
 
@@ -393,13 +519,12 @@ void setup_disk(string disk_tag, config_t &config_map) {
     type = config_map[type_tag];  
 
     if (type == "RAW") {
-	disks[disk->tag] = new raw_disk(config_map[file_tag]);;
+	disk = new raw_disk(config_map[file_tag]);
     } else if (type == "ISO") {
-	
+	disk = new iso_image(config_map[file_tag]);
     }
 
-
-
+    disks[disk_tag] = disk;
 
     return;
 }

@@ -20,24 +20,24 @@
 #ifndef __RAW_H__
 #define __RAW_H__
 
+#include "v3_disk.h"
+#include <stdio.h>
 
 class raw_disk : public v3_disk {
- private:
-    raw_disk(config_t &config_map, string &disk_tag);
-    
-    File * f;
+
 
  public:
-    unsigned long long get_capacity();
+    raw_disk(string & filename);
+
+    off_t get_capacity();
     int read(unsigned char * buf, unsigned long long offset, int length);
     int write(unsigned char * buf, unsigned long long offset, int length);
 
+    void attach();
+    void detach();
+
+ private:
+    FILE * f;
 };
-
-
-
-
-
-
 
 #endif

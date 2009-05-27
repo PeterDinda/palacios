@@ -26,17 +26,23 @@
 using namespace std;
 
 class v3_disk {
- private:
-    v3_disk();
-
-    string filename;
-
-    int in_use;
 
  public:
-    virtual unsigned long long get_capacity();
-    virtual int read(unsigned char * buf, unsigned long long offset, int length);
-    virtual int write(unsigned char * buf, unsigned long long offset, int length);
+    v3_disk(string & filename);
+    virtual ~v3_disk();
+
+    virtual off_t get_capacity()=0;
+    virtual int read(unsigned char * buf, unsigned long long offset, int length)=0;
+    virtual int write(unsigned char * buf, unsigned long long offset, int length)=0;
+
+    virtual void attach()=0;
+    virtual void detach()=0;
+
+    int locked;
+
+    string filename;
+ private:
+
 
 };
 

@@ -4,7 +4,7 @@ INCLUDEDIR=$(PREFIX)/include
 LIBDIR=$(PREFIX)/lib
 BINDIR=$(PREFIX)/bin
 
-NBD_OBJS =  v3_nbd.o
+NBD_OBJS = v3_nbd.o v3_disk.o raw.o iso.o
 
 CFLAGS = -I$(INCLUDEDIR)
 VTLFLAGS = -L$(LIBDIR) -Bstatic -lvtl -lnet -Bdynamic -lpcap -lssl
@@ -15,7 +15,6 @@ AR=ar
 RANLAB=ranlib
 
 CXXFLAGS = $(DEBUG) -g -gstabs+ -Wall $(CFLAGS) -I/usr/kerberos/include
-#CXXFLAGS =   -Wall -I/usr/kerberos/include
 LDFLAGS  = $(VTLFLAGS) 
 
 all:	v3_nbd
@@ -33,8 +32,6 @@ clean:
 	rm -f $(NBD_OBJS)
 	rm -f v3_nbd
 	rm -f *.log
-
-
 
 
 include .dependencies

@@ -17,30 +17,40 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#include "v3_nbd.h"
+#include "v3_disk.h"
+#include "raw.h"
 
 
-
-raw_disk::raw_disk(string &filename) {
+raw_disk::raw_disk(string & filename) : v3_disk(filename){
     this->f = fopen(filename.c_str(), "w+");
 }
 
 
-unsigned long long raw_disk::get_capacity() {
+off_t raw_disk::get_capacity() {
     
-
+    return 0;
 }
 
 
 
 int raw_disk::read(unsigned char * buf, unsigned long long offset, int length) {
 
-
+    return -1;
 }
 
 
 
 int raw_disk::write(unsigned char * buf, unsigned long long offset, int length) {
+    
+    return -1;
+}
 
 
+void raw_disk::attach() {
+    this->locked = 1;
+}
+
+
+void raw_disk::detach() {
+    this->locked = 0;
 }
