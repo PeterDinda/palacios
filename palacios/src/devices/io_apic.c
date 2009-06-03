@@ -182,7 +182,7 @@ static int ioapic_read(addr_t guest_addr, void * dst, uint_t length, void * priv
 		break;
 	    default:
 		{
-		    uint_t redir_index = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) & 0xfffffffe;
+		    uint_t redir_index = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) >> 1;
 		    uint_t hi_val = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) % 1;
 
 		    if (redir_index > 0x3f) {
@@ -227,7 +227,7 @@ static int ioapic_write(addr_t guest_addr, void * src, uint_t length, void * pri
 		break;
 	    default:
 		{
-		    uint_t redir_index = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) & 0xfffffffe;
+		    uint_t redir_index = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) >> 1;
 		    uint_t hi_val = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) % 1;
 
 
