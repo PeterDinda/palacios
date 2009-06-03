@@ -23,6 +23,7 @@
 #include <palacios/vm_guest.h>
 #include <palacios/vmm_ctrl_regs.h>
 #include <palacios/vmm.h>
+#include <palacios/vmm_decoder.h>
 #include <palacios/vmcb.h>
 
 
@@ -183,7 +184,7 @@ void v3_print_ctrl_regs(struct guest_info * info) {
     char * reg_names[] = {"CR0", "CR2", "CR3", "CR4", "CR8", "FLAGS", NULL};
     vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA(info->vmm_data);
 
-    reg_ptr= (v3_reg_t *)regs;
+    reg_ptr = (v3_reg_t *)regs;
 
     PrintDebug("32 bit Ctrl Regs:\n");
 
@@ -193,6 +194,27 @@ void v3_print_ctrl_regs(struct guest_info * info) {
 
     PrintDebug("\tEFER=0x%p\n", (void*)(addr_t)(guest_state->efer));
 
+}
+
+
+void v3_print_guest_state(struct guest_info * info) {
+    addr_t linear_addr = 0; 
+
+    PrintDebug("RIP: %p\n", (void *)(addr_t)(info->rip));
+    linear_addr = get_addr_linear(info, info->rip, &(info->segments.cs));
+    PrintDebug("RIP Linear: %p\n", (void *)linear_addr);
+
+    v3_print_segments(info);
+    v3_print_ctrl_regs(info);
+
+    if (info->shdw_pg_mode == SHADOW_PAGING) {
+	PrintDebug("Shadow Paging Guest Registers:\n");
+	PrintDebug("\tGuest CR0=%p\n", (void *)(addr_t)(info->shdw_pg_state.guest_cr0));
+	PrintDebug("\tGuest CR3=%p\n", (void *)(addr_t)(info->shdw_pg_state.guest_cr3));
+	PrintDebug("\tGuest EFER=%p\n", (void *)(addr_t)(info->shdw_pg_state.guest_efer.value));
+	// CR4
+    }
+    v3_print_GPRs(info);
 }
 
 

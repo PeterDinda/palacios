@@ -309,7 +309,13 @@ static int key_event_handler(struct guest_info * info,
     struct keyboard_internal *state = (struct keyboard_internal *)(dev->private_data);
 
     PrintDebug("keyboard: injected status 0x%x, and scancode 0x%x\n", evt->status, evt->scan_code);
-  
+
+
+    if (evt->scan_code == 0x44) { // F10 debug dump
+	v3_print_guest_state(info);
+	//	PrintGuestPageTables(info, info->shdw_pg_state.guest_cr3);
+    }
+
     if ( (state->status_byte & STATUS_ENABLED)      // onboard is enabled
 	 && (!(state->cmd_byte & CMD_DISABLE)) )  {   // keyboard is enabled
     
