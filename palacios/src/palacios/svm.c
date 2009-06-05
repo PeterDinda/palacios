@@ -266,7 +266,7 @@ static int init_svm_guest(struct guest_info * info, struct v3_vm_config * config
 
 // can we start a kernel thread here...
 static int start_svm_guest(struct guest_info *info) {
-    vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
+    //    vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
     //  vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
     uint_t num_exits = 0;
 
@@ -381,23 +381,7 @@ static int start_svm_guest(struct guest_info *info) {
 	    
 	    PrintDebug("SVM ERROR!!\n"); 
       
-	    PrintDebug("RIP: %p\n", (void *)(addr_t)(guest_state->rip));
-
-
-	    linear_addr = get_addr_linear(info, guest_state->rip, &(info->segments.cs));
-
-
-	    PrintDebug("RIP Linear: %p\n", (void *)linear_addr);
-	    v3_print_segments(info);
-	    v3_print_ctrl_regs(info);
-	    if (info->shdw_pg_mode == SHADOW_PAGING) {
-		PrintDebug("Shadow Paging Guest Registers:\n");
-		PrintDebug("\tGuest CR0=%p\n", (void *)(addr_t)(info->shdw_pg_state.guest_cr0));
-		PrintDebug("\tGuest CR3=%p\n", (void *)(addr_t)(info->shdw_pg_state.guest_cr3));
-		PrintDebug("\tGuest EFER=%p\n", (void *)(addr_t)(info->shdw_pg_state.guest_efer.value));
-		// CR4
-	    }
-	    v3_print_GPRs(info);
+	    v3_print_guest_state(info);
 
 	    PrintDebug("SVM Exit Code: %p\n", (void *)(addr_t)guest_ctrl->exit_code); 
       
