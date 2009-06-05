@@ -306,6 +306,7 @@ VMM_OBJS := \
 	palacios/vmm_direct_paging.o \
 	palacios/vmm_ringbuffer.o \
 	palacios/vmm_hypercall.o \
+	palacios/vmm_lock.o \
 	$(OBJ_FILES)
 
 #		vmx.c vmcs_gen.c vmcs.c
@@ -343,6 +344,7 @@ DEVICES_OBJS := \
 	devices/ram_hd.o \
 	devices/i440fx.o \
 	devices/piix3.o \
+	devices/net_cd.o \
 
 #	devices/ne2k.o	\
 #	devices/cdrom.o \

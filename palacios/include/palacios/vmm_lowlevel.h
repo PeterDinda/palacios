@@ -81,3 +81,57 @@ static void __inline__ v3_disable_ints() {
     __asm__ __volatile__ ("cli");
 }
 
+
+
+
+#ifdef __V3_32BIT__
+
+static addr_t __inline__ v3_irq_save() {
+    addr_t state;
+
+    __asm__ __volatile__ ("pushf \n\t"
+			  "popl %0 \n\t"
+			  "cli \n\t"
+			  :"=g" (x)
+			  : 
+			  :"memory"
+			  ); 
+    return state;
+}
+
+static void __inline__ v3_irq_restore(addr_t state) {
+    __asm__ __volatile__("pushl %0 \n\t"
+			 "popfl \n\t"
+			 : 
+			 :"g" (state)
+			 :"memory", "cc"
+			 );
+}
+
+#elif __V3_64BIT__
+
+static addr_t __inline__ v3_irq_save() {
+    addr_t state; 
+
+    __asm__ __volatile__ ("pushfq \n\t"
+			  "popq %0 \n\t"
+			  "cli \n\t"
+			  :"=g" (state)
+			  : 
+			  :"memory"
+			  ); 
+
+    return state;
+}
+
+
+static void __inline__ v3_irq_restore(addr_t state) {
+    __asm__ __volatile__("pushq %0 \n\t"
+			 "popfq \n\t"
+			 : 
+			 :"g" (state)
+			 :"memory", "cc"
+			 );
+}
+
+#endif

@@ -260,6 +260,11 @@ struct v3_os_hooks {
     void (*start_kernel_thread)(int (*fn)(void * arg), void * arg, char * thread_name); 
 
     void (*yield_cpu)(void); 
+
+    void *(*mutex_alloc)(void);
+    void (*mutex_free)(void * mutex);
+    void (*mutex_lock)(void * mutex, int must_spin);
+    void (*mutex_unlock)(void * mutex);
 };
 
 
@@ -282,6 +287,8 @@ struct v3_vm_config {
     
     int use_ram_cd;
     int use_ram_hd;
+    int use_net_cd;
+    int use_net_hd;
 
     void * ramdisk;
     int ramdisk_size;
