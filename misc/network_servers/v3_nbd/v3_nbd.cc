@@ -44,6 +44,9 @@
 #define NBD_WRITE_CMD 0x2
 #define NBD_CAPACITY_CMD 0x3
 
+#define NBD_STATUS_OK 0x00
+#define NBD_STATUS_ERR 0xff
+
 
 #define DEFAULT_LOG_FILE "./status.log"
 #define DEFAULT_CONF_FILE "v3_nbd.ini"
@@ -208,6 +211,8 @@ int serv_loop(int serv_sock) {
 	    // new connection
 	    conn_socket = accept(serv_sock, (struct sockaddr *)&rem_addr, &addr_len);
 
+	    vtl_debug("New Connection...\n");
+
 	    if (conn_socket < 0) {
 		if (errno == EINTR) {
 		    continue;
@@ -245,8 +250,9 @@ int serv_loop(int serv_sock) {
 
 		    tmp_disk->detach();
 
-		    close(tmp_sock);
+
 		    FD_CLR(tmp_sock, &all_set);
+		    close(tmp_sock);
 
 		    conns.erase(tmp_iter);
 		} else {
@@ -261,18 +267,22 @@ int serv_loop(int serv_sock) {
 
 	// check pending connections
 	for (list<SOCK>::iterator pending_iter = pending_cons.begin();
-	     pending_iter != pending_cons.end();
-	     pending_iter++) {
+	     pending_iter != pending_cons.end();) {
 	    
 	    if (FD_ISSET(*pending_iter, &read_set)) {
 		if (handle_new_connection(*pending_iter) == -1) {
 		    // error
 		    vtl_debug("Error: Could not connect to disk\n");
+		    FD_CLR(*pending_iter, &all_set);
 		}
-		
-		pending_cons.erase(pending_iter);
+		list<SOCK>::iterator tmp_iter = pending_iter;
+		pending_iter++;
+
+		pending_cons.erase(tmp_iter);
 		
 		if (--nready <= 0) break;
+	    } else {
+		pending_iter++;
 	    }
 	}
 	
@@ -385,6 +395,8 @@ int handle_disk_request(SOCK conn, v3_disk * disk) {
 int handle_capacity_request(SOCK conn, v3_disk * disk) {
     off_t capacity = disk->get_capacity();
 
+    vtl_debug("Returing capacity %d\n", capacity);
+
     return Send(conn, (char *)&capacity, 8, true);
 }
 
@@ -396,12 +408,74 @@ int handle_capacity_request(SOCK conn, v3_disk * disk) {
 //    4 bytes : return length
 //    x bytes : data
 int handle_read_request(SOCK conn, v3_disk * disk) {
-    return -1;
+    off_t offset = 0;
+    unsigned int length = 0;
+    unsigned char * buf = NULL;
+    unsigned int ret_len = 0;
+    unsigned char status = NBD_STATUS_OK;
+
+    vtl_debug("Read Request\n");
+
+    if (Receive(conn, (char *)&offset, 8, true) <= 0) {
+	vtl_debug("Error receiving read offset\n");
+	return -1;
+    }
+
+    vtl_debug("Read Offset %d\n", offset);
+
+    if (Receive(conn, (char *)&length, 4, true) <= 0) {
+	vtl_debug("Error receiving read length\n");
+	return -1;
+    }
+
+    vtl_debug("Read length: %d\n", length);
+
+    buf = new unsigned char[length];
+    
+    ret_len = disk->read(buf, offset, length);
+
+    vtl_debug("Read %d bytes from source disk\n", ret_len);
+
+    if (ret_len == 0) {
+	vtl_debug("Read Error\n");
+	status = NBD_STATUS_ERR;
+    }
+
+    vtl_debug("Sending Status byte (%d)\n", status);
+
+    if (Send(conn, (char *)&status, 1, true) <= 0) {
+	vtl_debug("Error Sending Read Status\n");
+	return -1;
+    }
+
+    vtl_debug("Sending Ret Len: %d\n", ret_len);
+
+    if (Send(conn, (char *)&ret_len, 4, true) <= 0) {
+	vtl_debug("Error Sending Read Length\n");
+	return -1;
+    }
+
+
+
+    if (ret_len > 0) {
+	vtl_debug("Sending Data\n");
+	if (Send(conn, (char *)buf, ret_len, true)  <= 0) {
+	    vtl_debug("Error sending Read Data\n");
+	    return -1;
+	}
+    }
+
+    vtl_debug("Read Complete\n");
+
+    delete buf;
+
+    return 0;
 }
 
 // receive: 
 //    8 bytes : offset
 //    4 bytes : length
+//    x bytes : data
 // send : 
 //    1 bytes : status
 int handle_write_request(SOCK conn, v3_disk * disk) {
@@ -420,6 +494,8 @@ int handle_new_connection(SOCK new_conn) {
     v3_disk * disk = NULL;
 
     GetLine(new_conn, input);
+
+    vtl_debug("New Connection: %s\n", input.c_str());
 
     {
 	istringstream is(input, istringstream::in);
@@ -466,6 +542,13 @@ int config_nbd(string conf_file_name) {
 	return -1;
     }
 
+    if (config_map.count(LOGFILE_TAG) == 0) {
+	config_map[LOGFILE_TAG] = DEFAULT_LOG_FILE;
+    }
+
+    vtl_debug_init(config_map[LOGFILE_TAG], enable_debug);
+
+
     if (config_map.count(PORT_TAG) > 0) {
 	server_port = atoi(config_map[PORT_TAG].c_str());
     } else {
@@ -492,11 +575,6 @@ int config_nbd(string conf_file_name) {
 	return -1;
     }
     
-    if (config_map.count(LOGFILE_TAG) == 0) {
-	config_map[LOGFILE_TAG] = DEFAULT_LOG_FILE;
-    }
-    
-    vtl_debug_init(config_map[LOGFILE_TAG], enable_debug);
 
     return 0;
 }
@@ -521,6 +599,7 @@ void setup_disk(string disk_tag, config_t &config_map) {
     if (type == "RAW") {
 	disk = new raw_disk(config_map[file_tag]);
     } else if (type == "ISO") {
+	vtl_debug("Setting up ISO\n");
 	disk = new iso_image(config_map[file_tag]);
     }
 

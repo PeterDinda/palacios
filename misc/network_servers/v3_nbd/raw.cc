@@ -22,7 +22,7 @@
 
 
 raw_disk::raw_disk(string & filename) : v3_disk(filename){
-    this->f = fopen(filename.c_str(), "w+");
+    this->f = fopen(filename.c_str(), "r+");
 }
 
 
@@ -33,16 +33,16 @@ off_t raw_disk::get_capacity() {
 
 
 
-int raw_disk::read(unsigned char * buf, unsigned long long offset, int length) {
+unsigned int raw_disk::read(unsigned char * buf, off_t offset, int length) {
 
-    return -1;
+    return 0;
 }
 
 
 
-int raw_disk::write(unsigned char * buf, unsigned long long offset, int length) {
+unsigned int raw_disk::write(unsigned char * buf, off_t offset, int length) {
     
-    return -1;
+    return 0;
 }
 
 

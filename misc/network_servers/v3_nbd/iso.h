@@ -31,8 +31,8 @@ class iso_image : public v3_disk {
     ~iso_image();
 
     off_t get_capacity();
-    int read(unsigned char * buf, unsigned long long offset, int length);
-    int write(unsigned char * buf, unsigned long long offset, int length);
+    unsigned int read(unsigned char * buf, off_t offset, int length);
+    unsigned int write(unsigned char * buf, off_t offset, int length);
 
     void attach();
     void detach();

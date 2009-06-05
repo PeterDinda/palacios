@@ -26,7 +26,9 @@
 
 
 iso_image::iso_image(string & filename) : v3_disk(filename){
-    this->f = fopen(filename.c_str(), "w+");
+    this->f = fopen(filename.c_str(), "r");
+
+    this->get_capacity();
 }
 
 iso_image::~iso_image() {
@@ -42,16 +44,29 @@ off_t iso_image::get_capacity() {
 
 
 
-int iso_image::read(unsigned char * buf, unsigned long long offset, int length) {
+unsigned int iso_image::read(unsigned char * buf, off_t offset, int length) {
+    int total_bytes = length;
+    int bytes_read = 0;
+    
+    fseeko(this->f, offset, SEEK_SET);
 
-    return -1;
+    while (bytes_read < total_bytes) {
+	int tmp_bytes = fread(buf, 1, length, this->f);
+	
+	if (tmp_bytes == 0) {
+	    break;
+	}
+	bytes_read += tmp_bytes;
+    }
+
+    return bytes_read;
 }
 
 
 
-int iso_image::write(unsigned char * buf, unsigned long long offset, int length) {
+unsigned int iso_image::write(unsigned char * buf, off_t offset, int length) {
     
-    return -1;
+    return 0;
 }
 
 void iso_image::attach() {

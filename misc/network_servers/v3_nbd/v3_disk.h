@@ -32,8 +32,8 @@ class v3_disk {
     virtual ~v3_disk();
 
     virtual off_t get_capacity()=0;
-    virtual int read(unsigned char * buf, unsigned long long offset, int length)=0;
-    virtual int write(unsigned char * buf, unsigned long long offset, int length)=0;
+    virtual unsigned int read(unsigned char * buf, off_t offset, int length)=0;
+    virtual unsigned int write(unsigned char * buf, off_t offset, int length)=0;
 
     virtual void attach()=0;
     virtual void detach()=0;
