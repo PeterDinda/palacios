@@ -1,4 +1,4 @@
-/* 
+ /* 
  * This file is part of the Palacios Virtual Machine Monitor developed
  * by the V3VEE Project with funding from the United States National 
  * Science Foundation and the Department of Energy.  
@@ -35,6 +35,7 @@
 #include <devices/generic.h>
 #include <devices/ide.h>
 #include <devices/ram_cd.h>
+#include <devices/net_cd.h>
 #include <devices/ram_hd.h>
 #include <devices/bochs_debug.h>
 #include <devices/os_debug.h>
@@ -51,7 +52,7 @@
 #define USE_GENERIC 1
 
 
-
+#include <palacios/vmm_socket.h>
 
 
 static int setup_memory_map(struct guest_info * info, struct v3_vm_config * config_ptr);
@@ -242,12 +243,10 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
 	ide = v3_create_ide(NULL, NULL);
     }
 
-
-
     nvram = v3_create_nvram(ide);
 
     if (config_ptr->use_ram_cd == 1) {
-	PrintDebug("Creating Ram CD\n");
+	PrintDebug("Creating RAM CD\n");
 	ramdisk = v3_create_ram_cd(ide, 0, 0, 
 				   (addr_t)(config_ptr->ramdisk), 
 				   config_ptr->ramdisk_size);
@@ -256,15 +255,17 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
 	ramdisk = v3_create_ram_hd(ide, 0, 0, 
 				   (addr_t)(config_ptr->ramdisk), 
 				   config_ptr->ramdisk_size);
+    } else if (config_ptr->use_net_cd == 1) {
+	PrintDebug("Creating NET CD\n");
+	ramdisk = v3_create_net_cd(ide, 0, 0, 
+				   "172.22.0.1", 9502, 
+				   "puppy-iso");    
     }
-    
-    
+
+
     if (use_generic) {
 	generic = configure_generic(info, config_ptr);
     }
-
-
-
 
 
     v3_attach_device(info, pic);
