@@ -180,6 +180,8 @@ const uchar_t * v3_cpu_mode_to_str(v3_cpu_mode_t mode);
 const uchar_t * v3_mem_mode_to_str(v3_mem_mode_t mode);
 
 
+void v3_print_guest_state(struct guest_info * info);
+
 void v3_print_segments(struct guest_info * info);
 void v3_print_ctrl_regs(struct guest_info * info);
 void v3_print_GPRs(struct guest_info * info);
