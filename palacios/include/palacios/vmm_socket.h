@@ -41,7 +41,7 @@
 	    extern struct v3_socket_hooks * sock_hooks;		\
 	    int sock = 0;					\
 	    if ((sock_hooks) && (sock_hooks)->tcp_socket) {	\
-		sock = (sock_hooks)->tcp_socket(0,0,0);		\
+		sock = (sock_hooks)->tcp_socket(0,1,0);		\
 	    }							\
 	    sock;						\
 	})
@@ -181,6 +181,15 @@
 #define V3_SOCK_CLR(n, p)  ((p)->fd_bits[(n)/8] &= ~(1 << ((n) & 7)))
 #define V3_SOCK_ISSET(n,p) ((p)->fd_bits[(n)/8] &   (1 << ((n) & 7)))
 #define V3_SOCK_ZERO(p)    memset((void*)(p), 0, sizeof(*(p)))
+
+
+uint32_t v3_inet_addr(const char * ip_str);
+char * v3_inet_ntoa(uint32_t addr);
+uint16_t v3_htons(uint16_t s);
+uint16_t v3_ntohs(uint16_t s);
+uint32_t v3_htonl(uint32_t s);
+uint32_t v3_ntohl(uint32_t s);
+
 
 
 #endif
