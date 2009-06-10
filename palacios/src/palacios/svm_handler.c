@@ -63,7 +63,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
     info->ctrl_regs.rflags = guest_state->rflags;
     info->ctrl_regs.efer = guest_state->efer;
     
-    get_vmcb_segments((vmcb_t*)(info->vmm_data), &(info->segments));
+    v3_get_vmcb_segments((vmcb_t*)(info->vmm_data), &(info->segments));
     info->cpu_mode = v3_get_vm_cpu_mode(info);
     info->mem_mode = v3_get_vm_mem_mode(info);
 
@@ -466,7 +466,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
     guest_state->rsp = info->vm_regs.rsp;
 
 
-    set_vmcb_segments((vmcb_t*)(info->vmm_data), &(info->segments));
+    v3_set_vmcb_segments((vmcb_t*)(info->vmm_data), &(info->segments));
 
     if (exit_code == VMEXIT_INTR) {
 	//PrintDebug("INTR ret IP = %x\n", guest_state->rip);

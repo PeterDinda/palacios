@@ -23,7 +23,7 @@
 
 
 
-void set_vmcb_segment(struct vmcb_selector * vmcb_seg, struct v3_segment * seg) {
+void v3_set_vmcb_segment(struct vmcb_selector * vmcb_seg, struct v3_segment * seg) {
     vmcb_seg->selector = seg->selector;
     vmcb_seg->limit = seg->limit;
     vmcb_seg->base = seg->base;
@@ -38,7 +38,7 @@ void set_vmcb_segment(struct vmcb_selector * vmcb_seg, struct v3_segment * seg) 
 }
 
 
-void get_vmcb_segment(struct vmcb_selector * vmcb_seg, struct v3_segment * seg) {
+void v3_get_vmcb_segment(struct vmcb_selector * vmcb_seg, struct v3_segment * seg) {
     seg->selector = vmcb_seg->selector;
     seg->limit = vmcb_seg->limit;
     seg->base = vmcb_seg->base;
@@ -53,35 +53,35 @@ void get_vmcb_segment(struct vmcb_selector * vmcb_seg, struct v3_segment * seg) 
 }
 
 
-void set_vmcb_segments(vmcb_t * vmcb, struct v3_segments * segs) {
+void v3_set_vmcb_segments(vmcb_t * vmcb, struct v3_segments * segs) {
     vmcb_saved_state_t * guest_area = GET_VMCB_SAVE_STATE_AREA(vmcb);
 
-    set_vmcb_segment(&(guest_area->cs), &(segs->cs));
-    set_vmcb_segment(&(guest_area->ds), &(segs->ds));
-    set_vmcb_segment(&(guest_area->es), &(segs->es));
-    set_vmcb_segment(&(guest_area->fs), &(segs->fs));
-    set_vmcb_segment(&(guest_area->gs), &(segs->gs));
-    set_vmcb_segment(&(guest_area->ss), &(segs->ss));
-    set_vmcb_segment(&(guest_area->ldtr), &(segs->ldtr));
-    set_vmcb_segment(&(guest_area->gdtr), &(segs->gdtr));
-    set_vmcb_segment(&(guest_area->idtr), &(segs->idtr));
-    set_vmcb_segment(&(guest_area->tr), &(segs->tr));
+    v3_set_vmcb_segment(&(guest_area->cs), &(segs->cs));
+    v3_set_vmcb_segment(&(guest_area->ds), &(segs->ds));
+    v3_set_vmcb_segment(&(guest_area->es), &(segs->es));
+    v3_set_vmcb_segment(&(guest_area->fs), &(segs->fs));
+    v3_set_vmcb_segment(&(guest_area->gs), &(segs->gs));
+    v3_set_vmcb_segment(&(guest_area->ss), &(segs->ss));
+    v3_set_vmcb_segment(&(guest_area->ldtr), &(segs->ldtr));
+    v3_set_vmcb_segment(&(guest_area->gdtr), &(segs->gdtr));
+    v3_set_vmcb_segment(&(guest_area->idtr), &(segs->idtr));
+    v3_set_vmcb_segment(&(guest_area->tr), &(segs->tr));
 }
 
 
-void get_vmcb_segments(vmcb_t * vmcb, struct v3_segments * segs) {
+void v3_get_vmcb_segments(vmcb_t * vmcb, struct v3_segments * segs) {
     vmcb_saved_state_t * guest_area = GET_VMCB_SAVE_STATE_AREA(vmcb);
 
-    get_vmcb_segment(&(guest_area->cs), &(segs->cs));
-    get_vmcb_segment(&(guest_area->ds), &(segs->ds));
-    get_vmcb_segment(&(guest_area->es), &(segs->es));
-    get_vmcb_segment(&(guest_area->fs), &(segs->fs));
-    get_vmcb_segment(&(guest_area->gs), &(segs->gs));
-    get_vmcb_segment(&(guest_area->ss), &(segs->ss));
-    get_vmcb_segment(&(guest_area->ldtr), &(segs->ldtr));
-    get_vmcb_segment(&(guest_area->gdtr), &(segs->gdtr));
-    get_vmcb_segment(&(guest_area->idtr), &(segs->idtr));
-    get_vmcb_segment(&(guest_area->tr), &(segs->tr));
+    v3_get_vmcb_segment(&(guest_area->cs), &(segs->cs));
+    v3_get_vmcb_segment(&(guest_area->ds), &(segs->ds));
+    v3_get_vmcb_segment(&(guest_area->es), &(segs->es));
+    v3_get_vmcb_segment(&(guest_area->fs), &(segs->fs));
+    v3_get_vmcb_segment(&(guest_area->gs), &(segs->gs));
+    v3_get_vmcb_segment(&(guest_area->ss), &(segs->ss));
+    v3_get_vmcb_segment(&(guest_area->ldtr), &(segs->ldtr));
+    v3_get_vmcb_segment(&(guest_area->gdtr), &(segs->gdtr));
+    v3_get_vmcb_segment(&(guest_area->idtr), &(segs->idtr));
+    v3_get_vmcb_segment(&(guest_area->tr), &(segs->tr));
 }
 
 

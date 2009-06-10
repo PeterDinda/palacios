@@ -50,9 +50,6 @@ extern int Launch_VM(ullong_t vmcsPtr, uint_t eip);
 #define ROMBIOS_DEBUG_PORT    0x403
 
 
-extern struct vmm_os_hooks * os_hooks;
-
-
 static struct VM theVM;
 
 static uint_t GetLinearIP(struct VM *vm)

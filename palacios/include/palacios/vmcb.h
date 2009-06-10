@@ -33,12 +33,6 @@
 #define GET_VMCB_SAVE_STATE_AREA(page)   (page + VMCB_STATE_SAVE_AREA_OFFSET)
 
 
-#if __TINYC__
-#define PACKED
-#else
-#define PACKED __attribute__((packed))
-#endif
-
 
 typedef void vmcb_t;
 
@@ -386,8 +380,8 @@ typedef struct VMCB_State_Save_Area vmcb_saved_state_t;
 void PrintDebugVMCB(vmcb_t * vmcb);
 
 
-void set_vmcb_segments(vmcb_t * vmcb, struct v3_segments * segs);
-void get_vmcb_segments(vmcb_t * vmcb, struct v3_segments * segs);
+void v3_set_vmcb_segments(vmcb_t * vmcb, struct v3_segments * segs);
+void v3_get_vmcb_segments(vmcb_t * vmcb, struct v3_segments * segs);
 
 #endif // ! __V3VEE__
 
