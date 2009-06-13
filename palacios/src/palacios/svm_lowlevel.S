@@ -18,6 +18,9 @@
 #define clgi   .byte 0x0F,0x01,0xDD
 
 
+#define SVM_VM_HSAVE_PA_MSR .dword 0xc0010117
+
+
 #ifdef __V3_32BIT__
 
 #define Save_SVM_Registers(location) 	\
@@ -49,13 +52,16 @@
 	popl	%eax;
 
 
+// 32 bit GCC passes arguments via stack
+
 v3_svm_launch:
 	push	%ebp;
 	movl	%esp, %ebp;
 	pushf;
-	push	%fs;
-	push	%gs;
 	pusha;
+
+	movl 	16(%ebp), %eax;
+	vmsave;
 
 	pushl	12(%ebp);
 	pushl 	8(%ebp);
@@ -71,9 +77,11 @@ v3_svm_launch:
 
 	addl	$4, %esp;
 
+
+	movl 	16(%ebp), %eax;
+	vmload;
+
 	popa;
-	pop	%gs;
-	pop	%fs;
 	popf;
 	pop	%ebp;
 	ret
@@ -156,29 +164,19 @@ v3_svm_launch:
 	popq %rbx;			\
 	popq %rbp;			
 
+
+// Note that this is only for 64 bit GCC, 32 bit GCC passes via stack
 // VMCB => RDI
 // vm_regs => RSI
-// ptr to fs => RDX
-// ptr to gs => RCX
+// HOST VMCB => RDX
 
 v3_svm_launch:
 	pushf;
-	push	%fs;
-	push	%gs;
 	PUSHA
-
-
-
-//	pushq	%rdx // fs
-//	pushq	%rcx // gs
-
-
-//	pushq	(%rdx)
-//	pop	%fs
-//	pushq	(%rcx)
-//	pop	%gs
-
-
+	
+	pushq	%rdx;
+	movq	%rdx, %rax;
+	vmsave;
 
 	pushq	%rsi
 
@@ -195,21 +193,11 @@ v3_svm_launch:
 
 	addq $8, %rsp
 
-//	popq	%rcx
-//	popq	%rdx
 
-//	push	%fs
-//	popq 	%rax
-//	movq	%rax, (%rdx)
-
-//	push	%gs
-//	popq 	%rax
-//	movq	%rax, (%rcx)
-
+	popq %rax;
+	vmload;
 
 	POPA
-	pop	%gs;
-	pop	%fs;
 	popf;
 	ret
 

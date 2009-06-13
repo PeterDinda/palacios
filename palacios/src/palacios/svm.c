@@ -45,10 +45,14 @@
 #include <palacios/svm_io.h>
 
 
+
+// This is a global pointer to the host's VMCB
+static void * host_vmcb = NULL;
+
 extern void v3_stgi();
 extern void v3_clgi();
 //extern int v3_svm_launch(vmcb_t * vmcb, struct v3_gprs * vm_regs, uint64_t * fs, uint64_t * gs);
-extern int v3_svm_launch(vmcb_t * vmcb, struct v3_gprs * vm_regs);
+extern int v3_svm_launch(vmcb_t * vmcb, struct v3_gprs * vm_regs, vmcb_t * host_vmcb);
 
 
 static vmcb_t * Allocate_VMCB() {
@@ -281,86 +285,32 @@ static int start_svm_guest(struct guest_info *info) {
 	ullong_t tmp_tsc;
 	
 
-#ifdef __V3_64BIT__
-
-#define MSR_LSTAR         0xc0000082
-#define MSR_CSTAR         0xc0000083
-#define MSR_SF_MASK       0xc0000084
-#define MSR_GS_BASE       0xc0000101
-#define MSR_KERNGS_BASE   0xc0000102
-	struct v3_msr host_cstar;
-	struct v3_msr host_lstar;
-	struct v3_msr host_syscall_mask;
-	struct v3_msr host_gs_base;
-	struct v3_msr host_kerngs_base;
-
-#else 
-
-#define MSR_SYSENTER_CS       0x00000174
-#define MSR_SYSENTER_ESP      0x00000175
-#define MSR_SYSENTER_EIP      0x00000176
-
-	struct v3_msr host_sysenter_cs;
-	struct v3_msr host_sysenter_esp;
-	struct v3_msr host_sysenter_eip;
-
-#endif
-
-#define MSR_STAR              0xc0000081
-	struct v3_msr host_star;
-
-
 	/*
 	  PrintDebug("SVM Entry to CS=%p  rip=%p...\n", 
 	  (void *)(addr_t)info->segments.cs.base, 
 	  (void *)(addr_t)info->rip);
 	*/
 
+	// disable global interrupts for vm state transition
+	v3_clgi();
 
-#ifdef __V3_64BIT__
-	v3_get_msr(MSR_SF_MASK, &(host_syscall_mask.hi), &(host_syscall_mask.lo));
-	v3_get_msr(MSR_LSTAR, &(host_lstar.hi), &(host_lstar.lo));
-	v3_get_msr(MSR_CSTAR, &(host_cstar.hi), &(host_cstar.lo));
-	v3_get_msr(MSR_GS_BASE, &(host_gs_base.hi), &(host_gs_base.lo));
-	v3_get_msr(MSR_KERNGS_BASE, &(host_kerngs_base.hi), &(host_kerngs_base.lo));
-#else 
-	v3_get_msr(MSR_SYSENTER_CS, &(host_sysenter_cs.hi), &(host_sysenter_cs.lo));
-	v3_get_msr(MSR_SYSENTER_ESP, &(host_sysenter_esp.hi), &(host_sysenter_esp.lo));
-	v3_get_msr(MSR_SYSENTER_EIP, &(host_sysenter_eip.hi), &(host_sysenter_eip.lo));
-#endif
-	v3_get_msr(MSR_STAR, &(host_star.hi), &(host_star.lo));
+
 
 	rdtscll(info->time_state.cached_host_tsc);
 	//    guest_ctrl->TSC_OFFSET = info->time_state.guest_tsc - info->time_state.cached_host_tsc;
 	
-	v3_svm_launch((vmcb_t*)V3_PAddr(info->vmm_data), &(info->vm_regs));
+	v3_svm_launch((vmcb_t*)V3_PAddr(info->vmm_data), &(info->vm_regs), (vmcb_t *)host_vmcb);
 	
 	rdtscll(tmp_tsc);
-	
-#ifdef __V3_64BIT__
-	v3_set_msr(MSR_SF_MASK, host_syscall_mask.hi, host_syscall_mask.lo);
-	v3_set_msr(MSR_LSTAR, host_lstar.hi, host_lstar.lo);
-	v3_set_msr(MSR_CSTAR, host_cstar.hi, host_cstar.lo);
-	v3_set_msr(MSR_GS_BASE, host_gs_base.hi, host_gs_base.lo);
-	v3_set_msr(MSR_KERNGS_BASE, host_kerngs_base.hi, host_kerngs_base.lo);
-#else 
-	v3_set_msr(MSR_SYSENTER_CS, host_sysenter_cs.hi, host_sysenter_cs.lo);
-	v3_set_msr(MSR_SYSENTER_ESP, host_sysenter_esp.hi, host_sysenter_esp.lo);
-	v3_set_msr(MSR_SYSENTER_EIP, host_sysenter_eip.hi, host_sysenter_eip.lo);
-#endif
-	v3_set_msr(MSR_STAR, host_star.hi, host_star.lo);
 
 	
 	//PrintDebug("SVM Returned\n");
 
-
+	// reenable global interrupts after vm exit
+	v3_stgi();
 
 	v3_update_time(info, tmp_tsc - info->time_state.cached_host_tsc);
 	num_exits++;
-
-	//PrintDebug("Turning on global interrupts\n");
-	v3_stgi();
-	v3_clgi();
 	
 	if ((num_exits % 5000) == 0) {
 	    PrintDebug("SVM Exit number %d\n", num_exits);
@@ -369,7 +319,6 @@ static int start_svm_guest(struct guest_info *info) {
 		v3_print_profile(info);
 	    }
 	}
-
 
      
 	if (v3_handle_svm_exit(info) != 0) {
@@ -487,7 +436,6 @@ static int has_svm_nested_paging() {
 
 void v3_init_SVM(struct v3_ctrl_ops * vmm_ops) {
     reg_ex_t msr;
-    void * host_state;
     extern v3_cpu_arch_t v3_cpu_type;
 
     // Enable SVM on the CPU
@@ -499,15 +447,15 @@ void v3_init_SVM(struct v3_ctrl_ops * vmm_ops) {
 
 
     // Setup the host state save area
-    host_state = V3_AllocPages(4);
+    host_vmcb = V3_AllocPages(4);
 
 
     /* 64-BIT-ISSUE */
     //  msr.e_reg.high = 0;
-    //msr.e_reg.low = (uint_t)host_state;
-    msr.r_reg = (addr_t)host_state;
+    //msr.e_reg.low = (uint_t)host_vmcb;
+    msr.r_reg = (addr_t)host_vmcb;
 
-    PrintDebug("Host State being saved at %p\n", (void *)(addr_t)host_state);
+    PrintDebug("Host State being saved at %p\n", (void *)(addr_t)host_vmcb);
     v3_set_msr(SVM_VM_HSAVE_PA_MSR, msr.e_reg.high, msr.e_reg.low);
 
     if (has_svm_nested_paging() == 1) {
