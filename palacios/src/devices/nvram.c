@@ -22,6 +22,7 @@
 #include <palacios/vmm.h>
 #include <palacios/vmm_types.h>
 
+#include <palacios/vmm_lock.h>
 
 #include <devices/ide.h>
 
@@ -98,6 +99,8 @@ struct nvram_internal {
     uchar_t       reg_map[NVRAM_REG_MAX / 8];
 
     struct vm_device * ide;
+
+    v3_lock_t nvram_lock;
 
     uint_t        us;   //microseconds - for clock update - zeroed every second
     uint_t        pus;  //microseconds - for periodic interrupt - cleared every period
@@ -206,7 +209,7 @@ static uchar_t add_to(uchar_t * left, uchar_t * right, uchar_t bcd) {
 }
 
 
-static uchar_t days_in_month(struct vm_device * dev, uchar_t month, uchar_t bcd) {
+static uchar_t days_in_month(uchar_t month, uchar_t bcd) {
     // This completely ignores Julian / Gregorian stuff right now
 
     if (bcd) { 
@@ -264,7 +267,7 @@ static uchar_t days_in_month(struct vm_device * dev, uchar_t month, uchar_t bcd)
 }
 
 
-static void update_time(struct vm_device * dev, uint_t period_us) {
+static void update_time( struct vm_device * dev, uint_t period_us) {
     struct nvram_internal * data = (struct nvram_internal *) (dev->private_data);
     struct rtc_stata * stata = (struct rtc_stata *) &((data->mem_state[NVRAM_REG_STAT_A]));
     struct rtc_statb * statb = (struct rtc_statb *) &((data->mem_state[NVRAM_REG_STAT_B]));
@@ -387,7 +390,7 @@ static void update_time(struct vm_device * dev, uint_t period_us) {
 
 		    *weekday %= 0x7;  // same regardless of bcd
 
-		    if ((*monthday) != days_in_month(dev, *month, bcd)) {
+		    if ((*monthday) != days_in_month(*month, bcd)) {
 			add_to(monthday, &carry, bcd);
 		    } else {
 			*monthday = 0x1;
@@ -458,7 +461,11 @@ static int handle_timer_event(struct guest_info * info,
     struct vm_device * dev = (struct vm_device *)priv_data;
 
     if (dev) {
+	struct nvram_internal * data = (struct nvram_internal *) (dev->private_data);
+	
+	addr_t irq_state = v3_lock_irqsave(data->nvram_lock);
 	update_time(dev, evt->period_us);
+	v3_unlock_irqrestore(data->nvram_lock, irq_state);
     }
   
     return 0;
@@ -589,6 +596,8 @@ static int init_nvram_state(struct vm_device * dev) {
     memset(nvram->mem_state, 0, NVRAM_REG_MAX);
     memset(nvram->reg_map, 0, NVRAM_REG_MAX / 8);
 
+    v3_lock_init(&(nvram->nvram_lock));
+
     //
     // 2 1.44 MB floppy drives
     //
@@ -715,8 +724,13 @@ static int nvram_read_data_port(ushort_t port,
 
     struct nvram_internal * data = (struct nvram_internal *)dev->private_data;
 
+    addr_t irq_state = v3_lock_irqsave(data->nvram_lock);
+
     if (get_memory(data, data->thereg, (uint8_t *)dst) == -1) {
 	PrintError("Register %d (0x%x) Not set\n", data->thereg, data->thereg);
+
+	v3_unlock_irqrestore(data->nvram_lock, irq_state);
+
 	return -1;
     }
 
@@ -726,6 +740,8 @@ static int nvram_read_data_port(ushort_t port,
     if (data->thereg == NVRAM_REG_STAT_A) { 
 	data->mem_state[data->thereg] ^= 0x80;  // toggle Update in progess
     }
+
+    v3_unlock_irqrestore(data->nvram_lock, irq_state);
 
     return 1;
 }
@@ -738,7 +754,11 @@ static int nvram_write_data_port(ushort_t port,
 
     struct nvram_internal * data = (struct nvram_internal *)dev->private_data;
 
+    addr_t irq_state = v3_lock_irqsave(data->nvram_lock);
+
     set_memory(data, data->thereg, *(uint8_t *)src);
+
+    v3_unlock_irqrestore(data->nvram_lock, irq_state);
 
     PrintDebug("nvram_write_data_port(0x%x) = 0x%x\n", 
 	       data->thereg, data->mem_state[data->thereg]);

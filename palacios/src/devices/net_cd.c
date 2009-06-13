@@ -58,12 +58,13 @@ struct cd_state {
 static int send_all(int socket, char * buf, int length) {
     int bytes_sent = 0;
     
+    PrintDebug("Sending %d bytes\n", length - bytes_sent);
     while (bytes_sent < length) {
-	PrintDebug("Sending %d bytes\n", length - bytes_sent);
 	int tmp_bytes = V3_Send(socket, buf + bytes_sent, length - bytes_sent);
 	PrintDebug("Sent %d bytes\n", tmp_bytes);
 	
 	if (tmp_bytes == 0) {
+	    PrintError("Connection Closed unexpectedly\n");
 	    return -1;
 	}
 	
@@ -77,12 +78,13 @@ static int send_all(int socket, char * buf, int length) {
 static int recv_all(int socket, char * buf, int length) {
     int bytes_read = 0;
     
+    PrintDebug("Reading %d bytes\n", length - bytes_read);
     while (bytes_read < length) {
-	PrintDebug("Reading %d bytes\n", length - bytes_read);
 	int tmp_bytes = V3_Recv(socket, buf + bytes_read, length - bytes_read);
 	PrintDebug("Received %d bytes\n", tmp_bytes);
 	
 	if (tmp_bytes == 0) {
+	    PrintError("Connection Closed unexpectedly\n");
 	    return -1;
 	}
 	
@@ -141,7 +143,7 @@ static int cd_read(uint8_t * buf, int block_count, uint64_t lba,  void * private
 	return -1;
     }
 
-    PrintDebug("Reading Data\n");
+    PrintDebug("Reading Data (%d bytes)\n", ret_len);
 
     if (recv_all(cd->socket, (char *)buf, ret_len) == -1) {
 	PrintError("Read Data Error\n");

@@ -21,6 +21,8 @@
 #include <palacios/vmm.h>
 #include <palacios/vmm_types.h>
 
+#include <palacios/vmm_lock.h>
+
 
 #ifndef DEBUG_KEYBOARD
 #undef PrintDebug
@@ -211,6 +213,7 @@ struct keyboard_internal {
     //uint_t  output_queue_read;
     //uint_t  output_queue_write;
 
+    v3_lock_t kb_lock;
 
 };
 
@@ -310,17 +313,20 @@ static int key_event_handler(struct guest_info * info,
 
     PrintDebug("keyboard: injected status 0x%x, and scancode 0x%x\n", evt->status, evt->scan_code);
 
-
     if (evt->scan_code == 0x44) { // F10 debug dump
 	v3_print_guest_state(info);
 	//	PrintGuestPageTables(info, info->shdw_pg_state.guest_cr3);
     }
+
+    addr_t irq_state = v3_lock_irqsave(state->kb_lock);
 
     if ( (state->status_byte & STATUS_ENABLED)      // onboard is enabled
 	 && (!(state->cmd_byte & CMD_DISABLE)) )  {   // keyboard is enabled
     
 	PushToOutputQueue(dev, evt->scan_code, OVERWRITE, DATA, KEYBOARD);
     }
+
+    v3_unlock_irqrestore(state->kb_lock, irq_state);
   
     return 0;
 }
@@ -331,10 +337,12 @@ static int mouse_event_handler(struct guest_info * info,
 			       void * private_data) {
     struct vm_device * dev = (struct vm_device *)private_data;
     struct keyboard_internal * state = (struct keyboard_internal *)(dev->private_data);
-
+    int ret = 0;
     PrintDebug("keyboard: injected mouse packet 0x %x %x %x\n",
 	       evt->data[0], evt->data[1], evt->data[2]);
   
+    addr_t irq_state = v3_lock_irqsave(state->kb_lock);
+
     memcpy(state->mouse_packet, evt->data, 3);
   
     state->status_byte |= STATUS_MOUSE_BUFFER_FULL;
@@ -349,11 +357,15 @@ static int mouse_event_handler(struct guest_info * info,
 	    }
 	    break;
 	default:
-	    return -1;
+	    PrintError("Invalid mouse state\n");
+	    ret = -1;
 	    break;
     }
 
-    return 0;
+
+    v3_unlock_irqrestore(state->kb_lock, irq_state);
+
+    return ret;
 }
 
 
@@ -770,6 +782,9 @@ static int keyboard_write_command(ushort_t port,
 
     cmd = *((uchar_t*)src); 
 
+
+    addr_t irq_state = v3_lock_irqsave(state->kb_lock);
+
     if (state->state != NORMAL) { 
 	PrintDebug("keyboard: warning - receiving command on 64h but state != NORMAL\n");
     }
@@ -947,8 +962,9 @@ static int keyboard_write_command(ushort_t port,
 	    break;
     }
 
-    return 1;
+    v3_unlock_irqrestore(state->kb_lock, irq_state);
 
+    return length;
 }
 
 static int keyboard_read_status(ushort_t port,
@@ -958,19 +974,21 @@ static int keyboard_read_status(ushort_t port,
 {
     struct keyboard_internal *state = (struct keyboard_internal *)(dev->private_data);
 
-    if (length == 1) { 
-
-	PrintDebug("keyboard: read status (64h): ");
-
-	*((uchar_t*)dest) = state->status_byte;
-
-	PrintDebug("0x%x\n", *((uchar_t*)dest));
-
-	return 1;
-    } else {
+    if (length != 1) { 
 	PrintError("keyboard: >1 byte read for status (64h)\n");
 	return -1;
     }
+
+
+    PrintDebug("keyboard: read status (64h): ");
+
+    addr_t irq_state = v3_lock_irqsave(state->kb_lock);
+    *((uchar_t*)dest) = state->status_byte;
+    v3_unlock_irqrestore(state->kb_lock, irq_state);
+    
+    PrintDebug("0x%x\n", *((uchar_t*)dest));
+    
+    return length;
 }
 
 static int keyboard_write_output(ushort_t port,
@@ -979,6 +997,7 @@ static int keyboard_write_output(ushort_t port,
 				 struct vm_device * dev)
 {
     struct keyboard_internal *state = (struct keyboard_internal *)(dev->private_data);
+    int ret = 0;
 
     if (length != 1) { 
 	PrintError("keyboard: write of 60h with >1 byte\n");
@@ -988,6 +1007,8 @@ static int keyboard_write_output(ushort_t port,
     uchar_t data = *((uchar_t*)src);
   
     PrintDebug("keyboard: output 0x%x on 60h\n", data);
+
+    addr_t irq_state = v3_lock_irqsave(state->kb_lock);
 
     switch (state->state) {
 	case WRITING_CMD_BYTE:
@@ -1081,13 +1102,15 @@ static int keyboard_write_output(ushort_t port,
 		    case 0xf8: // set all make/break
 		    case 0xf7: // set all typemaktic
 		    case 0xf6: // set defaults
-			PrintDebug("keyboard: unhandled known command 0x%x on output buffer (60h)\n", data);
-			return -1;
+			PrintError("keyboard: unhandled known command 0x%x on output buffer (60h)\n", data);
+
+			ret = -1;
 			break;
 		    default:
-			PrintDebug("keyboard: unhandled unknown command 0x%x on output buffer (60h)\n", data);
+			PrintError("keyboard: unhandled unknown command 0x%x on output buffer (60h)\n", data);
 			state->status_byte |= 0x1;
-			return -1;
+
+			ret = -1;
 			break;
 		}
 		break;
@@ -1095,7 +1118,13 @@ static int keyboard_write_output(ushort_t port,
 
     }
   
-    return 1;
+    v3_unlock_irqrestore(state->kb_lock, irq_state);
+
+    if (ret == -1) {
+	return -1;
+    }
+
+    return length;
 }
 
 static int keyboard_read_input(ushort_t port,
@@ -1103,48 +1132,53 @@ static int keyboard_read_input(ushort_t port,
 			       uint_t length,
 			       struct vm_device * dev)
 {
+
+    uchar_t data;
+    int done_mouse;
     struct keyboard_internal *state = (struct keyboard_internal *)(dev->private_data);
-
-    if (length == 1) { 
-	uchar_t data;
-	int done_mouse;
-
-	PrintDebug("keyboard: read from input (60h): ");
-
-	if (state->state == IN_MOUSE) { 
-	    done_mouse = mouse_read_input(dev);
-	    if (done_mouse) { 
-		state->state = NORMAL;
-	    }
-	} 
-      
-	PullFromOutputQueue(dev, &data);
-      
-	if (state->state == RESET) { 
-	    // We just delivered the ack for the reset
-	    // now we will ready ourselves to deliver the BAT code (success)
-	    PushToOutputQueue(dev, 0xaa, OVERWRITE, COMMAND, KEYBOARD);
-	    state->state = NORMAL;
-	    PrintDebug(" (in reset, pushing BAT test code 0xaa) ");
-	} else if (state->state == KBD_ID1) {
-	    PushToOutputQueue(dev, 0xab, OVERWRITE, COMMAND, KEYBOARD);
-	    state->state = KBD_ID2;
-	    PrintDebug(" (in kbd id request, pushing 1st ID val) ");
-	} else if (state->state == KBD_ID2) {
-	    PushToOutputQueue(dev, 0x83, OVERWRITE, COMMAND, KEYBOARD);
-	    state->state = NORMAL;
-	    PrintDebug(" (in kbd id request, pushing 2nd ID val) ");
-	}
-
-	PrintDebug("0x%x\n", data);
-
-	*((uchar_t*)dest) = data;
     
-	return 1;
-    } else {
+    if (length != 1) {
 	PrintError("keyboard: unknown size read from input (60h)\n");
 	return -1;
     }
+    
+    PrintDebug("keyboard: read from input (60h): ");
+
+    addr_t irq_state = v3_lock_irqsave(state->kb_lock);
+
+    if (state->state == IN_MOUSE) { 
+	done_mouse = mouse_read_input(dev);
+	if (done_mouse) { 
+	    state->state = NORMAL;
+	}
+    } 
+      
+    PullFromOutputQueue(dev, &data);
+      
+    if (state->state == RESET) { 
+	// We just delivered the ack for the reset
+	// now we will ready ourselves to deliver the BAT code (success)
+	PushToOutputQueue(dev, 0xaa, OVERWRITE, COMMAND, KEYBOARD);
+	state->state = NORMAL;
+	PrintDebug(" (in reset, pushing BAT test code 0xaa) ");
+    } else if (state->state == KBD_ID1) {
+	PushToOutputQueue(dev, 0xab, OVERWRITE, COMMAND, KEYBOARD);
+	state->state = KBD_ID2;
+	PrintDebug(" (in kbd id request, pushing 1st ID val) ");
+    } else if (state->state == KBD_ID2) {
+	PushToOutputQueue(dev, 0x83, OVERWRITE, COMMAND, KEYBOARD);
+	state->state = NORMAL;
+	PrintDebug(" (in kbd id request, pushing 2nd ID val) ");
+    }
+
+    v3_unlock_irqrestore(state->kb_lock, irq_state);
+
+    PrintDebug("0x%x\n", data);
+
+    *((uchar_t*)dest) = data;
+
+    return length;
+
 }
 
 
@@ -1154,13 +1188,15 @@ static int keyboard_read_input(ushort_t port,
 static int keyboard_init_device(struct vm_device * dev) 
 {
  
-    //  struct keyboard_internal *data = (struct keyboard_internal *) dev->private_data;
+    struct keyboard_internal *data = (struct keyboard_internal *) dev->private_data;
 
     PrintDebug("keyboard: init_device\n");
 
-    // Would read state here
-
     keyboard_reset_device(dev);
+
+
+    v3_lock_init(&(data->kb_lock));
+
 
     // hook ports
     v3_dev_hook_io(dev, KEYBOARD_64H, &keyboard_read_status, &keyboard_write_command);
