@@ -416,6 +416,8 @@ int handle_read_request(SOCK conn, v3_disk * disk) {
 
     vtl_debug("Read Request\n");
 
+
+
     if (Receive(conn, (char *)&offset, 8, true) <= 0) {
 	vtl_debug("Error receiving read offset\n");
 	return -1;
@@ -459,10 +461,15 @@ int handle_read_request(SOCK conn, v3_disk * disk) {
 
     if (ret_len > 0) {
 	vtl_debug("Sending Data\n");
+
+	SetNoDelaySocket(conn, false);
+
 	if (Send(conn, (char *)buf, ret_len, true)  <= 0) {
 	    vtl_debug("Error sending Read Data\n");
 	    return -1;
 	}
+
+	SetNoDelaySocket(conn, true);
     }
 
     vtl_debug("Read Complete\n");
@@ -527,6 +534,7 @@ int handle_new_connection(SOCK new_conn) {
     conns[new_conn] = disk;
 
     disk->attach();
+
 
     vtl_debug("Connected to disk %s\n", tag_str.c_str());
 
