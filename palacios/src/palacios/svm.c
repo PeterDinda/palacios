@@ -458,6 +458,72 @@ void v3_init_SVM(struct v3_ctrl_ops * vmm_ops) {
     PrintDebug("Host State being saved at %p\n", (void *)(addr_t)host_vmcb);
     v3_set_msr(SVM_VM_HSAVE_PA_MSR, msr.e_reg.high, msr.e_reg.low);
 
+
+
+    /* 
+     * Test VMSAVE/VMLOAD Latency 
+     */
+#define vmsave ".byte 0x0F,0x01,0xDB ; "
+#define vmload ".byte 0x0F,0x01,0xDA ; "
+    {
+	uint32_t start_lo, start_hi;
+	uint32_t end_lo, end_hi;
+	uint64_t start, end;
+
+	__asm__ __volatile__ (
+			      "rdtsc ; "
+			      "movl %%eax, %%esi ; "
+			      "movl %%edx, %%edi ; "
+			      "movq  %%rcx, %%rax ; "
+			      vmsave
+			      "rdtsc ; "
+			      : "=D"(start_hi), "=S"(start_lo), "=a"(end_lo),"=d"(end_hi)
+			      : "c"(host_vmcb), "0"(0), "1"(0), "2"(0), "3"(0)
+			      );
+	
+	start = start_hi;
+	start <<= 32;
+	start += start_lo;
+
+	end = end_hi;
+	end <<= 32;
+	end += end_lo;
+
+
+	PrintDebug("VMSave Cycle Latency: %d\n", (uint32_t)(end - start));
+	
+
+
+
+	__asm__ __volatile__ (
+			      "rdtsc ; "
+			      "movl %%eax, %%esi ; "
+			      "movl %%edx, %%edi ; "
+			      "movq  %%rcx, %%rax ; "
+			      vmload
+			      "rdtsc ; "
+			      : "=D"(start_hi), "=S"(start_lo), "=a"(end_lo),"=d"(end_hi)
+			      : "c"(host_vmcb), "0"(0), "1"(0), "2"(0), "3"(0)
+			      );
+	
+	start = start_hi;
+	start <<= 32;
+	start += start_lo;
+
+	end = end_hi;
+	end <<= 32;
+	end += end_lo;
+
+
+	PrintDebug("VMLoad Cycle Latency: %d\n", (uint32_t)(end - start));
+	
+
+			       
+    }
+
+
+    /* End Latency Test */
+
     if (has_svm_nested_paging() == 1) {
 	v3_cpu_type = V3_SVM_REV3_CPU;
     } else {
