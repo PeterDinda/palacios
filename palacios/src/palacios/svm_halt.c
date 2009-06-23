@@ -18,11 +18,6 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-
-
-
-
-
 #include <palacios/svm_halt.h>
 #include <palacios/vmm_intr.h>
 
@@ -54,7 +49,7 @@ int v3_handle_svm_halt(struct guest_info * info)
 	ullong_t yield_stop = 0;
 	uint32_t gap = 0;
 	
-	PrintDebug("GeekOS Yield\n");
+	PrintDebug("CPU Yield\n");
 	
 	rdtscll(yield_start);
 	V3_Yield();
@@ -67,7 +62,7 @@ int v3_handle_svm_halt(struct guest_info * info)
 	    v3_raise_irq(info, 0);
 	}
 	
-	PrintDebug("GeekOS Yield Done (%d cycles)\n", gap);
+	PrintDebug("CPU Yield Done (%d cycles)\n", gap);
 	
 	info->rip+=1;
     }
