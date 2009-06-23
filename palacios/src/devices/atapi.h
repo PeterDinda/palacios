@@ -404,6 +404,38 @@ static int atapi_mode_sense(struct vm_device * dev, struct ide_channel * channel
 }
 
 
+static int atapi_inquiry(struct vm_device * dev, struct ide_channel * channel) {
+    struct ide_drive * drive = get_selected_drive(channel);
+    struct atapi_inquiry_cmd * inquiry_cmd = (struct atapi_inquiry_cmd *)(drive->data_buf);
+    uint16_t alloc_len = be_to_le_16(inquiry_cmd->alloc_len);
+    struct atapi_inquiry_resp * resp = (struct atapi_inquiry_resp *)(drive->data_buf);
+    int xfer_len = sizeof(struct atapi_inquiry_resp);
+    const char * vendor_id = "VTAB    ";
+    const char * product_id = "Turbo CD-ROM    ";
+    const char * product_rev = "1.0 ";
+
+    memset(resp, 0, sizeof(struct atapi_inquiry_resp));
+    
+    resp->dev_type = DEV_TYPE_CDROM;
+    resp->removable_media = 1;
+    resp->resp_data_fmt = 0x1;
+    resp->atapi_trans_ver = 0x2;
+    resp->additional_len = 31;
+
+    memcpy(resp->t10_vendor_id, vendor_id, strlen(vendor_id));
+    memcpy(resp->product_id, product_id, strlen(product_id));
+    memcpy(resp->product_rev, product_rev, strlen(product_rev));
+    
+    if (alloc_len < xfer_len) {
+	xfer_len = alloc_len;
+    }
+
+    atapi_setup_cmd_resp(dev, channel, xfer_len);
+
+    return 0;
+}
+
+
 static int atapi_handle_packet(struct vm_device * dev, struct ide_channel * channel) {
    struct ide_drive * drive = get_selected_drive(channel);
    uint8_t cmd = drive->data_buf[0];
@@ -468,14 +500,18 @@ static int atapi_handle_packet(struct vm_device * dev, struct ide_channel * chan
 	   ide_raise_irq(dev, channel);
 	   break;
 
-
+       case 0x12: // inquiry
+	   if (atapi_inquiry(dev, channel) == -1) {
+	       PrintError("IDE: Error in ATAPI inquiry (%x)\n", cmd);
+	       return -1;
+	   }
+	   break;
 
        case 0xa8: // read(12)
 
 
        case 0x1b: // start/stop drive
        case 0xbd: // mechanism status 
-       case 0x12: // inquiry
 
        case 0xbe: // read cd
 

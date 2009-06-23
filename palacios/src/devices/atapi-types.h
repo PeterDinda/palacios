@@ -188,6 +188,72 @@ struct atapi_rd_toc_resp {
 } __attribute__((packed));
 
 
+struct atapi_inquiry_cmd {
+    uint8_t atapi_cmd;  // 0x12
+    uint8_t evpd           : 1; 
+    uint8_t obsolete       : 1;
+    uint8_t rsvd           : 3;
+    uint8_t lun            : 3;
+    uint8_t pg_op_code;
+    uint16_t alloc_len;
+    uint8_t link             : 1;
+    uint8_t flag             : 1;
+    uint8_t naca             : 1;
+    uint8_t rsvd5            : 3;
+    uint8_t vendor_specific  : 2;
+} __attribute__((packed));
+
+
+struct atapi_inquiry_resp {
+#define DEV_TYPE_CDROM 0x05 
+    uint8_t dev_type         : 5;
+    uint8_t rsvd1            : 3; // not used in ATAPI
+    uint8_t rsvd2            : 7;
+    uint8_t removable_media  : 1;
+    uint8_t version;
+    uint8_t resp_data_fmt    : 4;
+    uint8_t atapi_trans_ver  : 4;
+    uint8_t additional_len;
+    uint8_t protect          : 1;
+    uint8_t rsvd3            : 2;
+    uint8_t spc_3pc          : 1; // no idea
+    uint8_t tpgs             : 2;
+    uint8_t acc              : 1;
+    uint8_t sccs             : 1;
+    uint8_t addr16           : 1;
+    uint8_t addr32           : 1;
+    uint8_t ack_req_q        : 1;
+    uint8_t media_changer    : 1;
+    uint8_t multi_port       : 1;
+    uint8_t vs               : 1;
+    uint8_t enc_services     : 1;
+    uint8_t basic_queueing   : 1;
+    uint8_t rsvd4;
+    uint8_t vs2              : 1;
+    uint8_t cmd_queue        : 1;
+    uint8_t tran_dis         : 1;
+    uint8_t linked           : 1;
+    uint8_t sync             : 1;
+    uint8_t wbus_16          : 1;
+    uint8_t wbus_32          : 1;
+    uint8_t rel_addr         : 1;
+    uint8_t rsvd5;
+    uint8_t t10_vendor_id[8];
+    uint8_t product_id[16];
+    uint8_t product_rev[4];
+    /* We'll ignore these for now...
+      uint8_t vendor_specific[20];
+      uint8_t ius              : 1;
+      uint8_t qas              : 1;
+      uint8_t clocking         : 2;
+      uint8_t rsvd6            : 4;
+      uint8_t rsvd7;
+      uint16_t version_desc[8];
+    */
+} __attribute__((packed));
+
+
+
 struct atapi_error_recovery {
     uint8_t page_code     : 6;
     uint8_t rsvd          : 1;
