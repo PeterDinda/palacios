@@ -266,9 +266,6 @@ static int init_svm_guest(struct guest_info * info, struct v3_vm_config * config
     return 0;
 }
 
-
-
-// can we start a kernel thread here...
 static int start_svm_guest(struct guest_info *info) {
     //    vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
     //  vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
@@ -386,7 +383,7 @@ int v3_is_svm_capable() {
 	    
 	    v3_cpuid(CPUID_SVM_REV_AND_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
 	    
-	    PrintDebug("CPUID_FEATURE_IDS_edx=%p\n", (void *)edx);
+	    PrintDebug("CPUID_SVM_REV_AND_FEATURE_IDS_edx=%p\n", (void *)edx);
 	    
 	    if ((edx & CPUID_SVM_REV_AND_FEATURE_IDS_edx_svml) == 0) {
 		PrintDebug("SVM BIOS Disabled, not unlockable\n");
@@ -399,10 +396,10 @@ int v3_is_svm_capable() {
 	    PrintDebug("SVM is available and  enabled.\n");
 
 	    v3_cpuid(CPUID_SVM_REV_AND_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
-	    PrintDebug("CPUID_FEATURE_IDS_eax=%p\n", (void *)eax);
-	    PrintDebug("CPUID_FEATURE_IDS_ebx=%p\n", (void *)ebx);
-	    PrintDebug("CPUID_FEATURE_IDS_ecx=%p\n", (void *)ecx);
-	    PrintDebug("CPUID_FEATURE_IDS_edx=%p\n", (void *)edx);
+	    PrintDebug("CPUID_SVM_REV_AND_FEATURE_IDS_eax=%p\n", (void *)eax);
+	    PrintDebug("CPUID_SVM_REV_AND_FEATURE_IDS_ebx=%p\n", (void *)ebx);
+	    PrintDebug("CPUID_SVM_REV_AND_FEATURE_IDS_ecx=%p\n", (void *)ecx);
+	    PrintDebug("CPUID_SVM_REV_AND_FEATURE_IDS_edx=%p\n", (void *)edx);
 
 
 	    if ((edx & CPUID_SVM_REV_AND_FEATURE_IDS_edx_np) == 0) {

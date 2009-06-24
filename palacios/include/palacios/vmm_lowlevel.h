@@ -20,6 +20,10 @@
 #include <palacios/vmm_types.h>
 
 
+#define CPUID_FEATURE_IDS 0x80000001
+#define CPUID_EXT_FEATURE_IDS 0x80000001
+
+
 #ifdef __V3_32BIT__
 
 static void __inline__ v3_cpuid(uint_t target, addr_t * eax, addr_t * ebx, addr_t * ecx, addr_t * edx) {
@@ -92,7 +96,7 @@ static addr_t __inline__ v3_irq_save() {
     __asm__ __volatile__ ("pushf \n\t"
 			  "popl %0 \n\t"
 			  "cli \n\t"
-			  :"=g" (x)
+			  :"=g" (state)
 			  : 
 			  :"memory"
 			  ); 

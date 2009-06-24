@@ -81,9 +81,9 @@ struct v3_dbg_regs {
 };
 
 struct v3_segment {
-    ushort_t selector;
+    uint16_t selector;
     uint_t limit;
-    ullong_t base;
+    uint64_t base;
     uint_t type           : 4;
     uint_t system         : 1;
     uint_t dpl            : 2;
@@ -116,7 +116,7 @@ struct v3_profiler;
 
 
 struct guest_info {
-    ullong_t rip;
+    uint64_t rip;
 
     uint_t cpl;
 

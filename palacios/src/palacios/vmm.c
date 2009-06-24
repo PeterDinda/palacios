@@ -19,7 +19,7 @@
 
 #include <palacios/vmm.h>
 #include <palacios/svm.h>
-#include <palacios/vmx.h>
+//#include <palacios/vmx.h>
 #include <palacios/vmm_intr.h>
 #include <palacios/vmm_config.h>
 #include <palacios/vm_guest.h>

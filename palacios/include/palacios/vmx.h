@@ -29,68 +29,55 @@
 #include <palacios/vmm_types.h>
 #include <palacios/vmcs.h>
 
-#define IA32_FEATURE_CONTROL_MSR ((unsigned int)0x3a)
-#define IA32_VMX_BASIC_MSR ((unsigned int)0x480)
-#define IA32_VMX_PINBASED_CTLS_MSR ((unsigned int)0x481)
-#define IA32_VMX_PROCBASED_CTLS_MSR ((unsigned int)0x482)
-#define IA32_VMX_EXIT_CTLS_MSR ((unsigned int)0x483)
-#define IA32_VMX_ENTRY_CTLS_MSR ((unsigned int)0x484)
-#define IA32_VMX_MISC_MSR ((unsigned int)0x485)
-#define IA32_VMX_CR0_FIXED0_MSR ((unsigned int)0x486)
-#define IA32_VMX_CR0_FIXED1_MSR ((unsigned int)0x487)
-#define IA32_VMX_CR4_FIXED0_MSR ((unsigned int)0x488)
-#define IA32_VMX_CR4_FIXED1_MSR ((unsigned int)0x489)
-#define IA32_VMX_VMCS_ENUM_MSR ((unsigned ing)0x48A)
+// Intel VMX Specific MSRs
+#define VMX_FEATURE_CONTROL_MSR     0x0000003a
+#define VMX_BASIC_MSR               0x00000480
+#define VMX_PINBASED_CTLS_MSR       0x00000481
+#define VMX_PROCBASED_CTLS_MSR      0x00000482
+#define VMX_EXIT_CTLS_MSR           0x00000483
+#define VMX_ENTRY_CTLS_MSR          0x00000484
+#define VMX_MISC_MSR                0x00000485
+#define VMX_CR0_FIXED0_MSR          0x00000486
+#define VMX_CR0_FIXED1_MSR          0x00000487
+#define VMX_CR4_FIXED0_MSR          0x00000488
+#define VMX_CR4_FIXED1_MSR          0x00000489
+#define VMX_VMCS_ENUM_MSR           0x0000048A
 
-#define VMX_SUCCESS         0
+#define VMX_SUCCESS        0
 #define VMX_FAIL_INVALID   1
 #define VMX_FAIL_VALID     2
 #define VMM_ERROR          3
 
-#define FEATURE_CONTROL_LOCK (1)
-#define FEATURE_CONTROL_VMXON (1<<2)
-#define FEATURE_CONTROL_VALID ( FEATURE_CONTROL_LOCK | FEATURE_CONTROL_VMXON)
+#define FEATURE_CONTROL_LOCK  0x00000001
+#define FEATURE_CONTROL_VMXON 0x00000004
+#define FEATURE_CONTROL_VALID ( FEATURE_CONTROL_LOCK | FEATURE_CONTROL_VMXON )
 
 
-#define CPUID_1_ECX_VTXFLAG (1<<5)
-
-
-
-
-
-typedef void VmxOnRegion;
+#define CPUID_1_ECX_VTXFLAG 0x00000020
 
 
 
-struct MSR_REGS {
-  uint_t low;
-  uint_t high;
-} __attribute__((packed));
-
-struct VMX_BASIC {
-  uint_t revision;
-  uint_t regionSize   : 13;
-  uint_t rsvd1        : 4; // Always 0
-  uint_t physWidth    : 1;
-  uint_t smm          : 1; // Always 1
-  uint_t memType      : 4;
-  uint_t rsvd2        : 10; // Always 0
-}  __attribute__((packed));
-
-union VMX_MSR {
-  struct MSR_REGS regs;
-  struct VMX_BASIC vmxBasic;
+struct vmx_basic_msr {
+    uint32_t revision;
+    uint_t regionSize   : 13;
+    uint_t rsvd1        : 4; // Always 0
+    uint_t physWidth    : 1;
+    uint_t smm          : 1; // Always 1
+    uint_t memType      : 4;
+    uint_t rsvd2        : 10; // Always 0
 }  __attribute__((packed));
 
 
-struct VMDescriptor {
-  uint_t   entry_ip;
-  uint_t   exit_eip;
-  uint_t   guest_esp;
-}  __attribute__((packed));
+
 
 
 enum VMState { VM_VMXASSIST_STARTUP, VM_VMXASSIST_V8086_BIOS, VM_VMXASSIST_V8086, VM_NORMAL };
+
+
+
+
+
+
 
 struct VM {
   enum VMState        state;
@@ -114,7 +101,6 @@ struct Instruction {
 };
 
 
-void DecodeCurrentInstruction(struct VM *vm, struct Instruction *out);
 
 
 int is_vmx_capable();

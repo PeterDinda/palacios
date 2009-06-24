@@ -31,23 +31,23 @@
 
 
 /* 16 bit guest state */
-#define VMCS_GUEST_ES_SELECTOR  0x00000800
-#define VMCS_GUEST_CS_SELECTOR  0x00000802
-#define VMCS_GUEST_SS_SELECTOR  0x00000804
-#define VMCS_GUEST_DS_SELECTOR  0x00000806
-#define VMCS_GUEST_FS_SELECTOR  0x00000808
-#define VMCS_GUEST_GS_SELECTOR  0x0000080A
-#define VMCS_GUEST_LDTR_SELECTOR  0x0000080C
-#define VMCS_GUEST_TR_SELECTOR  0x0000080E
+#define VMCS_GUEST_ES_SELECTOR       0x00000800
+#define VMCS_GUEST_CS_SELECTOR       0x00000802
+#define VMCS_GUEST_SS_SELECTOR       0x00000804
+#define VMCS_GUEST_DS_SELECTOR       0x00000806
+#define VMCS_GUEST_FS_SELECTOR       0x00000808
+#define VMCS_GUEST_GS_SELECTOR       0x0000080A
+#define VMCS_GUEST_LDTR_SELECTOR     0x0000080C
+#define VMCS_GUEST_TR_SELECTOR       0x0000080E
 
 /* 16 bit host state */
-#define VMCS_HOST_ES_SELECTOR 0x00000C00
-#define VMCS_HOST_CS_SELECTOR 0x00000C02
-#define VMCS_HOST_SS_SELECTOR 0x00000C04
-#define VMCS_HOST_DS_SELECTOR 0x00000C06
-#define VMCS_HOST_FS_SELECTOR 0x00000C08
-#define VMCS_HOST_GS_SELECTOR 0x00000C0A
-#define VMCS_HOST_TR_SELECTOR 0x00000C0C
+#define VMCS_HOST_ES_SELECTOR        0x00000C00
+#define VMCS_HOST_CS_SELECTOR        0x00000C02
+#define VMCS_HOST_SS_SELECTOR        0x00000C04
+#define VMCS_HOST_DS_SELECTOR        0x00000C06
+#define VMCS_HOST_FS_SELECTOR        0x00000C08
+#define VMCS_HOST_GS_SELECTOR        0x00000C0A
+#define VMCS_HOST_TR_SELECTOR        0x00000C0C
 
 /* 64 bit control fields */
 #define IO_BITMAP_A_ADDR             0x00002000
@@ -204,140 +204,96 @@
 
 /* Processor Based VM Execution Controls */
 /* INTEL MANUAL: 20-11 vol. 3B */ 
-#define INTERRUPT_WINDOWS_EXIT   0x00000004
-#define USE_TSC_OFFSETTING       0x00000008
-#define HLT_EXITING              0x00000080
-#define INVLPG_EXITING           0x00000200
-#define MWAIT_EXITING            0x00000400
-#define RDPMC_EXITING            0x00000800
-#define RDTSC_EXITING            0x00001000
-#define CR8_LOAD_EXITING         0x00080000
-#define CR8_STORE_EXITING        0x00100000
-#define USE_TPR_SHADOW           0x00200000
-#define NMI_WINDOW_EXITING       0x00400000
-#define MOVDR_EXITING            0x00800000
-#define UNCONDITION_IO_EXITING   0x01000000
-#define USE_IO_BITMAPS           0x02000000
-#define USE_MSR_BITMAPS          0x10000000
-#define MONITOR_EXITING          0x20000000
-#define PAUSE_EXITING            0x40000000
+#define INTERRUPT_WINDOWS_EXIT       0x00000004
+#define USE_TSC_OFFSETTING           0x00000008
+#define HLT_EXITING                  0x00000080
+#define INVLPG_EXITING               0x00000200
+#define MWAIT_EXITING                0x00000400
+#define RDPMC_EXITING                0x00000800
+#define RDTSC_EXITING                0x00001000
+#define CR8_LOAD_EXITING             0x00080000
+#define CR8_STORE_EXITING            0x00100000
+#define USE_TPR_SHADOW               0x00200000
+#define NMI_WINDOW_EXITING           0x00400000
+#define MOVDR_EXITING                0x00800000
+#define UNCONDITION_IO_EXITING       0x01000000
+#define USE_IO_BITMAPS               0x02000000
+#define USE_MSR_BITMAPS              0x10000000
+#define MONITOR_EXITING              0x20000000
+#define PAUSE_EXITING                0x40000000
 
 /* VM-Exit Controls */
 /* INTEL MANUAL: 20-16 vol. 3B */
-#define HOST_ADDR_SPACE_SIZE     0x00000200
-#define ACK_IRQ_ON_EXIT          0x00008000
-
-// Exit Reasons
-#define VM_EXIT_REASON_INFO_EXCEPTION_OR_NMI 0
-#define VM_EXIT_REASON_EXTERNAL_INTR         1
-#define VM_EXIT_REASON_TRIPLE_FAULT          2
-#define VM_EXIT_REASON_INIT_SIGNAL           3
-#define VM_EXIT_REASON_STARTUP_IPI           4
-#define VM_EXIT_REASON_IO_SMI                5
-#define VM_EXIT_REASON_OTHER_SMI             6
-#define VM_EXIT_REASON_INTR_WINDOW           7
-#define VM_EXIT_REASON_NMI_WINDOW            8
-#define VM_EXIT_REASON_TASK_SWITCH           9
-#define VM_EXIT_REASON_CPUID                10
-#define VM_EXIT_REASON_HLT                  12
-#define VM_EXIT_REASON_INVD                 13
-#define VM_EXIT_REASON_INVLPG               14
-#define VM_EXIT_REASON_RDPMC                15
-#define VM_EXIT_REASON_RDTSC                16
-#define VM_EXIT_REASON_RSM                  17
-#define VM_EXIT_REASON_VMCALL               18
-#define VM_EXIT_REASON_VMCLEAR              19
-#define VM_EXIT_REASON_VMLAUNCH             20
-#define VM_EXIT_REASON_VMPTRLD              21
-#define VM_EXIT_REASON_VMPTRST              22
-#define VM_EXIT_REASON_VMREAD               23
-#define VM_EXIT_REASON_VMRESUME             24
-#define VM_EXIT_REASON_VMWRITE              25
-#define VM_EXIT_REASON_VMXOFF               26
-#define VM_EXIT_REASON_VMXON                27
-#define VM_EXIT_REASON_CR_REG_ACCESSES      28
-#define VM_EXIT_REASON_MOV_DR               29
-#define VM_EXIT_REASON_IO_INSTR             30
-#define VM_EXIT_REASON_RDMSR                31
-#define VM_EXIT_REASON_WRMSR                32
-#define VM_EXIT_REASON_ENTRY_FAIL_INVALID_GUEST_STATE     33
-#define VM_EXIT_REASON_ENTRY_FAIL_MSR_LOAD                34
-#define VM_EXIT_REASON_MWAIT                36
-#define VM_EXIT_REASON_MONITOR              39
-#define VM_EXIT_REASON_PAUSE                40
-#define VM_EXIT_REASON_ENTRY_FAILURE_MACHINE_CHECK        41
-#define VM_EXIT_REASON_TPR_BELOW_THRESHOLD                43
-
-
-extern char *exception_names[];
-extern char *exception_type_names[];
+#define HOST_ADDR_SPACE_SIZE         0x00000200
+#define ACK_IRQ_ON_EXIT              0x00008000
 
 
 
 
-typedef void VMCS;
+
+typedef void vmcs_t;
 
 
 
 
 /* VMCS Exit QUALIFICATIONs */
 struct VMExitIOQual {
-  uint_t accessSize : 3; // (0: 1 Byte ;; 1: 2 Bytes ;; 3: 4 Bytes)
-  uint_t dir        : 1; // (0: Out ;; 1: In)
-  uint_t string     : 1; // (0: not string ;; 1: string)
-  uint_t REP        : 1; // (0: not REP ;; 1: REP)
-  uint_t opEnc      : 1; // (0: DX ;; 1: immediate)
-  uint_t rsvd       : 9; // Set to 0
-  uint_t port       : 16; // IO Port Number
+    uint32_t accessSize : 3; // (0: 1 Byte ;; 1: 2 Bytes ;; 3: 4 Bytes)
+    uint32_t dir        : 1; // (0: Out ;; 1: In)
+    uint32_t string     : 1; // (0: not string ;; 1: string)
+    uint32_t REP        : 1; // (0: not REP ;; 1: REP)
+    uint32_t opEnc      : 1; // (0: DX ;; 1: immediate)
+    uint32_t rsvd       : 9; // Set to 0
+    uint32_t port       : 16; // IO Port Number
 } __attribute__((packed));
 
 
 
 struct VMExitDBGQual {
-  uint_t B0         : 1; // Breakpoint 0 condition met
-  uint_t B1         : 1; // Breakpoint 1 condition met
-  uint_t B2         : 1; // Breakpoint 2 condition met
-  uint_t B3         : 1; // Breakpoint 3 condition met
-  uint_t rsvd       : 9; // reserved to 0
-  uint_t BD         : 1; // detected DBG reg access
-  uint_t BS         : 1; // cause either single instr or taken branch
+    uint32_t B0         : 1; // Breakpoint 0 condition met
+    uint32_t B1         : 1; // Breakpoint 1 condition met
+    uint32_t B2         : 1; // Breakpoint 2 condition met
+    uint32_t B3         : 1; // Breakpoint 3 condition met
+    uint32_t rsvd       : 9; // reserved to 0
+    uint32_t BD         : 1; // detected DBG reg access
+    uint32_t BS         : 1; // cause either single instr or taken branch
 } __attribute__((packed));
 
 
 struct VMExitTSQual {
-  uint_t selector   : 16; // selector of destination TSS 
-  uint_t rsvd       : 14; // reserved to 0
-  uint_t src        : 2; // (0: CALL ; 1: IRET ; 2: JMP ; 3: Task gate in IDT)
+    uint32_t selector   : 16; // selector of destination TSS 
+    uint32_t rsvd       : 14; // reserved to 0
+    uint32_t src        : 2; // (0: CALL ; 1: IRET ; 2: JMP ; 3: Task gate in IDT)
 } __attribute__((packed));
 
 struct VMExitCRQual {
-  uint_t crID       : 4; // cr number (0 for CLTS and LMSW) (bit 3 always 0, on 32bit)
-  uint_t accessType : 2; // (0: MOV to CR ; 1: MOV from CR ; 2: CLTS ; 3: LMSW)
-  uint_t lmswOpType : 1; // (0: register ; 1: memory)
-  uint_t rsvd1      : 1; // reserved to 0
-  uint_t gpr        : 4; // (0:RAX+[CLTS/LMSW], 1:RCX, 2:RDX, 3:RBX, 4:RSP, 5:RBP, 6:RSI, 6:RDI, 8-15:64bit regs)
-  uint_t rsvd2      : 4; // reserved to 0
-  uint_t lmswSrc    : 16; // src data for lmsw
+    uint32_t crID       : 4; // cr number (0 for CLTS and LMSW) (bit 3 always 0, on 32bit)
+    uint32_t accessType : 2; // (0: MOV to CR ; 1: MOV from CR ; 2: CLTS ; 3: LMSW)
+    uint32_t lmswOpType : 1; // (0: register ; 1: memory)
+    uint32_t rsvd1      : 1; // reserved to 0
+    uint32_t gpr        : 4; // (0:RAX+[CLTS/LMSW], 1:RCX, 2:RDX, 3:RBX, 4:RSP, 5:RBP, 6:RSI, 6:RDI, 8-15:64bit regs)
+    uint32_t rsvd2      : 4; // reserved to 0
+    uint32_t lmswSrc    : 16; // src data for lmsw
 } __attribute__((packed));
 
 struct VMExitMovDRQual {
-  uint_t regID      : 3; // debug register number
-  uint_t rsvd1      : 1; // reserved to 0
-  uint_t dir        : 1; // (0: MOV to DR , 1: MOV from DR)
-  uint_t rsvd2      : 3; // reserved to 0
-  uint_t gpr        : 4; // (0:RAX, 1:RCX, 2:RDX, 3:RBX, 4:RSP, 5:RBP, 6:RSI, 6:RDI, 8-15:64bit regs)
+    uint32_t regID      : 3; // debug register number
+    uint32_t rsvd1      : 1; // reserved to 0
+    uint32_t dir        : 1; // (0: MOV to DR , 1: MOV from DR)
+    uint32_t rsvd2      : 3; // reserved to 0
+    uint32_t gpr        : 4; // (0:RAX, 1:RCX, 2:RDX, 3:RBX, 4:RSP, 5:RBP, 6:RSI, 6:RDI, 8-15:64bit regs)
 } __attribute__((packed));
 
 /* End Exit Qualifications */
 
 /* Exit Vector Info */
 struct VMExitIntInfo {
-  uint_t nr         : 8; // IRQ number, exception vector, NMI = 2 
-  uint_t type       : 3; // (0: ext. IRQ , 2: NMI , 3: hw exception , 6: sw exception
-  uint_t errorCode  : 1; // 1: error Code present
-  uint_t iret       : 1; // something to do with NMIs and IRETs (Intel 3B, sec. 23.2.2) 
-  uint_t rsvd       : 18; // always 0
-  uint_t valid      : 1; // always 1 if valid
+    uint32_t nr         : 8; // IRQ number, exception vector, NMI = 2 
+    uint32_t type       : 3; // (0: ext. IRQ , 2: NMI , 3: hw exception , 6: sw exception
+    uint32_t errorCode  : 1; // 1: error Code present
+    uint32_t iret       : 1; // something to do with NMIs and IRETs (Intel 3B, sec. 23.2.2) 
+    uint32_t rsvd       : 18; // always 0
+    uint32_t valid      : 1; // always 1 if valid
 } __attribute__((packed));
 
 
@@ -350,75 +306,77 @@ struct VMExitIntInfo {
 
 /* Segment Selector Access Rights (32 bits) */
 /* INTEL Manual: 20-4 vol 3B */
-union SegAccess {
-  struct {
-    uchar_t  type;
-    uint_t   descType    : 1; 
-    uint_t   dpl         : 2;
-    uint_t   present     : 1;
-    uchar_t  rsvd1;
-    uint_t   avail       : 1;
-    uint_t   L           : 1; // CS only (64 bit active), reserved otherwise
-    uint_t   DB          : 1; 
-    uint_t   granularity : 1;
-    uint_t   unusable    : 1; 
-    uint_t   rsvd2       : 15;
-  } __attribute__((packed)) as_fields;
-  uint_t as_dword;
-} __attribute__((packed));
 
 
-struct VMCSSegment {
-  ushort_t selector   ; 
-  union SegAccess access;
-  uint_t limit        ; 
-  uint_t baseAddr     ; // should be 64 bits?
+struct vmcs_segment {
+    uint16_t selector;
+    uint32_t limit;
+    addr_t baseAddr;
+
+    struct {
+	union {
+	    uint32_t value;
+	    struct {
+		uint8_t    type;
+		uint32_t   desc_type   : 1; 
+		uint32_t   dpl         : 2;
+		uint32_t   present     : 1;
+		uint8_t    rsvd1;
+		uint32_t   avail       : 1;
+		uint32_t   long_mode   : 1; // CS only (64 bit active), reserved otherwise
+		uint32_t   DB          : 1; 
+		uint32_t   granularity : 1;
+		uint32_t   unusable    : 1; 
+		uint32_t   rsvd2       : 15;
+	    } __attribute__((packed));
+	} __attribute__((packed));
+    } __attribute__((packed)) access;
 };
 
 
 
 struct VMCSGuestStateArea {
-  /* (1) Guest State Area */
-  /* (1.1) Guest Register State */
-  uint_t cr0   ; // should be 64 bits?
-  uint_t cr3   ; // should be 64 bits?
-  uint_t cr4   ; // should be 64 bits?
-  uint_t dr7   ; // should be 64 bits?
-  uint_t rsp   ; // should be 64 bits?
-  uint_t rip   ; // should be 64 bits?
-  uint_t rflags   ; // should be 64 bits?
-  
+    /* (1) Guest State Area */
+    /* (1.1) Guest Register State */
+    uint32_t cr0   ; // should be 64 bits?
+    uint32_t cr3   ; // should be 64 bits?
+    uint32_t cr4   ; // should be 64 bits?
+    uint32_t dr7   ; // should be 64 bits?
+    uint32_t rsp   ; // should be 64 bits?
+    uint32_t rip   ; // should be 64 bits?
+    uint32_t rflags   ; // should be 64 bits?
+    
 
-  struct VMCSSegment cs  ;
-  struct VMCSSegment ss  ;
-  struct VMCSSegment ds  ;
-  struct VMCSSegment es  ;
-  struct VMCSSegment fs  ;
-  struct VMCSSegment gs  ;
-  struct VMCSSegment ldtr  ;
-  struct VMCSSegment tr  ;
+    struct VMCSSegment cs  ;
+    struct VMCSSegment ss  ;
+    struct VMCSSegment ds  ;
+    struct VMCSSegment es  ;
+    struct VMCSSegment fs  ;
+    struct VMCSSegment gs  ;
+    struct VMCSSegment ldtr  ;
+    struct VMCSSegment tr  ;
 
-  struct VMCSSegment gdtr  ;
-  struct VMCSSegment idtr ;
+    struct VMCSSegment gdtr  ;
+    struct VMCSSegment idtr ;
 
-  // MSRs
-  ullong_t dbg_ctrl     ; 
-  uint_t sysenter_cs    ;
-  ullong_t sysenter_esp   ; // should be 64 bits?
-  ullong_t sysenter_eip   ; // should be 64 bits?
+    // MSRs
+    uint64_t dbg_ctrl     ; 
+    uint32_t sysenter_cs    ;
+    uint64_t sysenter_esp   ; // should be 64 bits?
+    uint64_t sysenter_eip   ; // should be 64 bits?
 
-  uint_t smbase         ; 
+    uint32_t smbase         ; 
+    
+    /* (1.2) Guest Non-register State */
+    uint32_t activity       ; /* (0=Active, 1=HLT, 2=Shutdown, 3=Wait-for-SIPI) 
+			       (listed in MSR: IA32_VMX_MISC) */
 
-  /* (1.2) Guest Non-register State */
-  uint_t activity       ; /* (0=Active, 1=HLT, 2=Shutdown, 3=Wait-for-SIPI) 
-				   (listed in MSR: IA32_VMX_MISC) */
+    uint32_t interrupt_state  ; // see Table 20-3 (page 20-6) INTEL MANUAL 3B 
 
-  uint_t interrupt_state  ; // see Table 20-3 (page 20-6) INTEL MANUAL 3B 
-
-  ullong_t pending_dbg_exceptions  ; // should be 64 bits?
-                                         /* Table 20-4 page 20-8 INTEL MANUAL 3B */
-
-  ullong_t vmcs_link   ; // should be set to 0xffffffff_ffffffff
+    uint64_t pending_dbg_exceptions  ; // should be 64 bits?
+    /* Table 20-4 page 20-8 INTEL MANUAL 3B */
+    
+    uint64_t vmcs_link   ; // should be set to 0xffffffff_ffffffff
 };
 
 
@@ -428,32 +386,32 @@ int CopyInVMCSGuestStateArea(struct VMCSGuestStateArea * p);
 
 
 struct VMCSHostStateArea {
-  /* (2) Host State Area */
-  ullong_t cr0  ; // Should be 64 bits?
-  ullong_t cr3   ; // should be 64 bits?
-  ullong_t cr4   ; // should be 64 bits?
-  ullong_t rsp   ; // should be 64 bits?
-  ullong_t rip   ; // should be 64 bits?
+    /* (2) Host State Area */
+    addr_t cr0  ; 
+    addr_t cr3   ; 
+    addr_t cr4   ; 
+    addr_t rsp   ; 
+    addr_t rip   ; 
 
-  ushort_t csSelector ;
-  ushort_t ssSelector ;
-  ushort_t dsSelector ;
-  ushort_t esSelector ;
-  ushort_t fsSelector ;
-  ushort_t gsSelector ;
-  ushort_t trSelector ;
+    addr_t csSelector ;
+    addr_t ssSelector ;
+    addr_t dsSelector ;
+    addr_t esSelector ;
+    addr_t fsSelector ;
+    addr_t gsSelector ;
+    addr_t trSelector ;
 
-  ullong_t fsBaseAddr ; // Should be 64 bits?
-  ullong_t gsBaseAddr ; // Should be 64 bits?
-  ullong_t trBaseAddr ; // Should be 64 bits?
-  ullong_t gdtrBaseAddr ; // Should be 64 bits?
-  ullong_t idtrBaseAddr ; // Should be 64 bits?
-  
+    addr_t fsBaseAddr ; 
+    addr_t gsBaseAddr ; 
+    addr_t trBaseAddr ; 
+    addr_t gdtrBaseAddr ; 
+    addr_t idtrBaseAddr ; 
+    
 
-  /* MSRs */
-  uint_t sysenter_cs ;
-  ullong_t sysenter_esp ; // Should be 64 bits?
-  ullong_t sysenter_eip ; // Should be 64 bits?
+    /* MSRs */
+    uint32_t sysenter_cs ;
+    addr_t sysenter_esp ; 
+    addr_t sysenter_eip ; 
 
 };
 
@@ -462,38 +420,36 @@ int CopyInVMCSHostStateArea(struct VMCSHostStateArea *p);
 
 
 struct VMCSExecCtrlFields {
-  uint_t pinCtrls ; // Table 20-5, Vol 3B. (pg. 20-10)
-  uint_t procCtrls ; // Table 20-6, Vol 3B. (pg. 20-11)
-  uint_t execBitmap ; 
-  uint_t pageFaultErrorMask ; 
-  uint_t pageFaultErrorMatch ;
-  uint_t ioBitmapA ; 
-  uint_t ioBitmapB ;
-  ullong_t tscOffset ;
-  uint_t cr0GuestHostMask ; // Should be 64 bits?
-  uint_t cr0ReadShadow ; // Should be 64 bits?
-  uint_t cr4GuestHostMask ; // Should be 64 bits?
-  uint_t cr4ReadShadow ; // Should be 64 bits?
-  uint_t cr3TargetValue0 ; // should be 64 bits?
-  uint_t cr3TargetValue1 ; // should be 64 bits?
-  uint_t cr3TargetValue2 ; // should be 64 bits?
-  uint_t cr3TargetValue3 ; // should be 64 bits?
-  uint_t cr3TargetCount ;
+    uint32_t pinCtrls ; // Table 20-5, Vol 3B. (pg. 20-10)
+    uint32_t procCtrls ; // Table 20-6, Vol 3B. (pg. 20-11)
+    uint32_t execBitmap ; 
+    uint32_t pageFaultErrorMask ; 
+    uint32_t pageFaultErrorMatch ;
+    uint32_t ioBitmapA ; 
+    uint32_t ioBitmapB ;
+    uint64_t tscOffset ;
+    uint32_t cr0GuestHostMask ; // Should be 64 bits?
+    uint32_t cr0ReadShadow ; // Should be 64 bits?
+    uint32_t cr4GuestHostMask ; // Should be 64 bits?
+    uint32_t cr4ReadShadow ; // Should be 64 bits?
+    uint32_t cr3TargetValue0 ; // should be 64 bits?
+    uint32_t cr3TargetValue1 ; // should be 64 bits?
+    uint32_t cr3TargetValue2 ; // should be 64 bits?
+    uint32_t cr3TargetValue3 ; // should be 64 bits?
+    uint32_t cr3TargetCount ;
+    
 
 
+    /* these fields enabled if "use TPR shadow"==1 */
+    /* may not need them */
+    uint64_t virtApicPageAddr ;
+    // uint32_t virtApicPageAddrHigh 
+    uint32_t tprThreshold ;
+    /**/
 
-  /* these fields enabled if "use TPR shadow"==1 */
-  /* may not need them */
-  ullong_t virtApicPageAddr ;
-  // uint_t virtApicPageAddrHigh 
-  uint_t tprThreshold ;
-  /**/
+    uint64_t MSRBitmapsBaseAddr;
 
-  ullong_t MSRBitmapsBaseAddr;
-
-
-  ullong_t vmcsExecPtr ;
-
+    uint64_t vmcsExecPtr ;
 };
 
 int CopyOutVMCSExecCtrlFields(struct VMCSExecCtrlFields *p);
@@ -503,11 +459,11 @@ int CopyInVMCSExecCtrlFields(struct VMCSExecCtrlFields *p);
 
 
 struct VMCSExitCtrlFields {
-  uint_t exitCtrls ; // Table 20-7, Vol. 3B (pg. 20-16)
-  uint_t msrStoreCount ;
-  ullong_t msrStoreAddr ;
-  uint_t msrLoadCount ;
-  ullong_t msrLoadAddr ;
+    uint32_t exitCtrls ; // Table 20-7, Vol. 3B (pg. 20-16)
+    uint32_t msrStoreCount ;
+    uint64_t msrStoreAddr ;
+    uint32_t msrLoadCount ;
+    uint64_t msrLoadAddr ;
 };
 
 int CopyOutVMCSExitCtrlFields(struct VMCSExitCtrlFields *p);
@@ -516,12 +472,12 @@ int CopyInVMCSExitCtrlFields(struct VMCSExitCtrlFields *p);
 
 
 struct VMCSEntryCtrlFields {
-  uint_t entryCtrls ; // Table 20-9, Vol. 3B (pg. 20-18) 
-  uint_t msrLoadCount ;
-  ullong_t msrLoadAddr ;
-  uint_t intInfo ; // Table 20-10, Vol. 3B (pg. 20-19)
-  uint_t exceptionErrorCode ;
-  uint_t instrLength ;
+    uint32_t entryCtrls ; // Table 20-9, Vol. 3B (pg. 20-18) 
+    uint32_t msrLoadCount ;
+    uint64_t msrLoadAddr ;
+    uint32_t intInfo ; // Table 20-10, Vol. 3B (pg. 20-19)
+    uint32_t exceptionErrorCode ;
+    uint32_t instrLength ;
 };
 
 
@@ -530,20 +486,20 @@ int CopyInVMCSEntryCtrlFields(struct VMCSEntryCtrlFields *p);
 
 
 struct VMCSExitInfoFields {
-  uint_t reason; // Table 20-11, Vol. 3B (pg. 20-20)
-  uint_t qualification ; // Should be 64 bits?
-  uint_t intInfo ;
-  uint_t intErrorCode ;
-  uint_t idtVectorInfo ;
-  uint_t idtVectorErrorCode ;
-  uint_t instrLength ;
-  ullong_t guestLinearAddr ; // Should be 64 bits?
-  uint_t instrInfo ;
-  ullong_t ioRCX ; // Should be 64 bits?
-  ullong_t ioRSI ; // Should be 64 bits?
-  ullong_t ioRDI ; // Should be 64 bits?
-  ullong_t ioRIP ; // Should be 64 bits?
-  uint_t instrErrorField ;
+    uint32_t reason; // Table 20-11, Vol. 3B (pg. 20-20)
+    uint32_t qualification ; // Should be 64 bits?
+    uint32_t intInfo ;
+    uint32_t intErrorCode ;
+    uint32_t idtVectorInfo ;
+    uint32_t idtVectorErrorCode ;
+    uint32_t instrLength ;
+    uint64_t guestLinearAddr ; // Should be 64 bits?
+    uint32_t instrInfo ;
+    uint64_t ioRCX ; // Should be 64 bits?
+    uint64_t ioRSI ; // Should be 64 bits?
+    uint64_t ioRDI ; // Should be 64 bits?
+    uint64_t ioRIP ; // Should be 64 bits?
+    uint32_t instrErrorField ;
 
 };
 
@@ -553,15 +509,15 @@ int CopyOutVMCSExitInfoFields(struct VMCSExitInfoFields *p);
 
 
 struct VMCSData {
-  uint_t revision ;
-  uint_t abort    ;
-  uint_t exitCtrlFlags;
-  struct VMCSGuestStateArea guestStateArea ; 
-  struct VMCSHostStateArea hostStateArea ;
-  struct VMCSExecCtrlFields execCtrlFields ;
-  struct VMCSExitCtrlFields exitCtrlFields ;
-  struct VMCSEntryCtrlFields entryCtrlFields ;
-  struct VMCSExitInfoFields exitInfoFields ;
+    uint32_t revision ;
+    uint32_t abort    ;
+    uint32_t exitCtrlFlags;
+    struct VMCSGuestStateArea guestStateArea ; 
+    struct VMCSHostStateArea hostStateArea ;
+    struct VMCSExecCtrlFields execCtrlFields ;
+    struct VMCSExitCtrlFields exitCtrlFields ;
+    struct VMCSEntryCtrlFields entryCtrlFields ;
+    struct VMCSExitInfoFields exitInfoFields ;
 };
 
 
@@ -569,14 +525,14 @@ int CopyOutVMCSData(struct VMCSData *p);
 int CopyInVMCSData(struct VMCSData *p);
 
 struct VMXRegs {
-  uint_t edi;
-  uint_t esi;
-  uint_t ebp;
-  uint_t esp;
-  uint_t ebx;
-  uint_t edx;
-  uint_t ecx;
-  uint_t eax;
+    uint32_t edi;
+    uint32_t esi;
+    uint32_t ebp;
+    uint32_t esp;
+    uint32_t ebx;
+    uint32_t edx;
+    uint32_t ecx;
+    uint32_t eax;
 };
   
 void PrintTrace_VMX_Regs(struct VMXRegs *regs);
@@ -589,14 +545,9 @@ void PrintTrace_VMCSEntryCtrlFields(struct VMCSEntryCtrlFields * entryCtrls);
 void PrintTrace_VMCSExitInfoFields(struct VMCSExitInfoFields * exitInfo);
 void PrintTrace_VMCSSegment(char * segname, struct VMCSSegment * seg, int abbr);
 
-VMCS * CreateVMCS();
-extern uint_t VMCS_WRITE();
-extern uint_t VMCS_READ();
 
 //uint_t VMCSRead(uint_t tag, void * val);
 
-
-#include <palacios/vmcs_gen.h>
 
 #endif // ! __V3VEE__
 
