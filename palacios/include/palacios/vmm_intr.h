@@ -25,7 +25,7 @@
 
 #include <palacios/vmm_types.h>
 #include <palacios/vmm_list.h>
-
+#include <palacios/vmm_lock.h>
 
 
 typedef enum {INVALID_INTR, EXTERNAL_IRQ, NMI, SOFTWARE_INTR, VIRTUAL_INTR} intr_type_t;
@@ -51,6 +51,8 @@ struct v3_intr_state {
     uint_t irq_pending;
     uint_t irq_started;
     uint_t irq_vector;
+
+    v3_lock_t irq_lock;
 
     /* some way to get the [A]PIC intr */
     struct v3_irq_hook * hooks[256];

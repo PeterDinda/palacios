@@ -24,6 +24,8 @@
 #include <palacios/vm_guest.h>
 #include <palacios/vmm_ctrl_regs.h>
 
+#include <palacios/vmm_lock.h>
+
 #ifndef DEBUG_INTERRUPTS
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
@@ -34,7 +36,7 @@
 
 struct intr_controller {
     struct intr_ctrl_ops * ctrl_ops;
-
+    
     void * priv_data;
     struct list_head ctrl_node;
 };
@@ -47,6 +49,8 @@ void v3_init_interrupt_state(struct guest_info * info) {
     info->intr_state.irq_vector = 0;
 
     INIT_LIST_HEAD(&(info->intr_state.controller_list));
+
+    v3_lock_init(&(info->intr_state.irq_lock));
 
     memset((uchar_t *)(info->intr_state.hooks), 0, sizeof(struct v3_irq_hook *) * 256);
 }
@@ -151,11 +155,14 @@ int v3_lower_irq(struct guest_info * info, int irq) {
     struct v3_intr_state * intr_state = &(info->intr_state);
 
     //    PrintDebug("[v3_lower_irq]\n");
+    addr_t irq_state = v3_lock_irqsave(intr_state->irq_lock);
 
     list_for_each_entry(ctrl, &(intr_state->controller_list), ctrl_node) {
 	ctrl->ctrl_ops->lower_intr(ctrl->priv_data, irq);
     }
  
+    v3_unlock_irqrestore(intr_state->irq_lock, irq_state);
+
     return 0;
 }
 
@@ -164,10 +171,13 @@ int v3_raise_irq(struct guest_info * info, int irq) {
     struct v3_intr_state * intr_state = &(info->intr_state);
 
     //  PrintDebug("[v3_raise_irq (%d)]\n", irq);
+    addr_t irq_state = v3_lock_irqsave(intr_state->irq_lock);
 
     list_for_each_entry(ctrl, &(intr_state->controller_list), ctrl_node) {
 	ctrl->ctrl_ops->raise_intr(ctrl->priv_data, irq);
     }
+
+    v3_unlock_irqrestore(intr_state->irq_lock, irq_state);
 
     return 0;
 }
@@ -177,48 +187,72 @@ int v3_raise_irq(struct guest_info * info, int irq) {
 int v3_intr_pending(struct guest_info * info) {
     struct v3_intr_state * intr_state = &(info->intr_state);
     struct intr_controller * ctrl = NULL;
+    int ret = 0;
+
     //  PrintDebug("[intr_pending]\n");
-    
+    addr_t irq_state = v3_lock_irqsave(intr_state->irq_lock);    
+
     list_for_each_entry(ctrl, &(intr_state->controller_list), ctrl_node) {
 	if (ctrl->ctrl_ops->intr_pending(ctrl->priv_data) == 1) {
-	    return 1;
+	    ret = 1;
+	    break;
 	}
     }
 
-    return 0;
+    v3_unlock_irqrestore(intr_state->irq_lock, irq_state);
+
+    return ret;
 }
 
 
 uint_t v3_get_intr_number(struct guest_info * info) {
     struct v3_intr_state * intr_state = &(info->intr_state);
     struct intr_controller * ctrl = NULL;
+    uint_t ret = 0;
+
+    addr_t irq_state = v3_lock_irqsave(intr_state->irq_lock);    
 
     list_for_each_entry(ctrl, &(intr_state->controller_list), ctrl_node) {
 	if (ctrl->ctrl_ops->intr_pending(ctrl->priv_data)) {
 	    uint_t intr_num = ctrl->ctrl_ops->get_intr_number(ctrl->priv_data);
 	    
 	    //	PrintDebug("[get_intr_number] intr_number = %d\n", intr_num);
-	    
-	    return intr_num;
+	    ret = intr_num;
+	    break;
 	}
     }
-    return 0;
+
+    v3_unlock_irqrestore(intr_state->irq_lock, irq_state);
+
+
+    return ret;
 }
 
 
 intr_type_t v3_get_intr_type(struct guest_info * info) {
     struct v3_intr_state * intr_state = &(info->intr_state);
     struct intr_controller * ctrl = NULL;
+    intr_type_t type = INVALID_INTR;
+
+    addr_t irq_state = v3_lock_irqsave(intr_state->irq_lock);  
 
     list_for_each_entry(ctrl, &(intr_state->controller_list), ctrl_node) {
 	if (ctrl->ctrl_ops->intr_pending(ctrl->priv_data) == 1) {
 	    //PrintDebug("[get_intr_type] External_irq\n");
-	    return EXTERNAL_IRQ;
+	    type = EXTERNAL_IRQ;
+	    break;
 	}
     }
 
-    PrintError("[get_intr_type] Invalid_Intr\n");
-    return INVALID_INTR;
+#ifdef DEBUG_INTERRUPTS
+    if (type == INVALID_INTR) {
+	PrintError("[get_intr_type] Invalid_Intr\n");
+    }
+#endif
+
+    v3_unlock_irqrestore(intr_state->irq_lock, irq_state);
+
+    return type;
 }
 
 
@@ -232,10 +266,14 @@ int v3_injecting_intr(struct guest_info * info, uint_t intr_num, intr_type_t typ
     if (type == EXTERNAL_IRQ) {
 	struct intr_controller * ctrl = NULL;
 
+	addr_t irq_state = v3_lock_irqsave(intr_state->irq_lock); 
+
 	//	PrintDebug("[injecting_intr] External_Irq with intr_num = %x\n", intr_num);
 	list_for_each_entry(ctrl, &(intr_state->controller_list), ctrl_node) {
 	    ctrl->ctrl_ops->begin_irq(ctrl->priv_data, intr_num);
 	}
+
+	v3_unlock_irqrestore(intr_state->irq_lock, irq_state);
     }
 
     return 0;
