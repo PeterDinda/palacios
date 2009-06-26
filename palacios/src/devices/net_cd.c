@@ -22,10 +22,10 @@
 #include <devices/ide.h>
 #include <palacios/vmm_socket.h>
 
-/* #ifndef DEBUG_IDE */
-/* #undef PrintDebug */
-/* #define PrintDebug(fmt, args...) */
-/* #endif */
+#ifndef DEBUG_IDE
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
+#endif 
 
 
 
