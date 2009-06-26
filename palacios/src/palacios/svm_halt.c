@@ -39,12 +39,6 @@ int v3_handle_svm_halt(struct guest_info * info)
 	v3_raise_exception(info, GPF_EXCEPTION);
     } else {
     
-	// What we should do is starting waiting on an OS event that will
-	// result in an injection of an interrupt.
-	
-	// What we will hackishly do instead is resume on any event
-	// Plus is this totally GeekOS specific
-	
 	ullong_t yield_start = 0;
 	ullong_t yield_stop = 0;
 	uint32_t gap = 0;
