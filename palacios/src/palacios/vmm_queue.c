@@ -19,8 +19,6 @@
 
 #include <palacios/vmm_queue.h>
 
-
-
 void v3_init_queue(struct gen_queue * queue) {
     queue->num_entries = 0;
     INIT_LIST_HEAD(&(queue->entries));
