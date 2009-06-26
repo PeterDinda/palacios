@@ -66,11 +66,11 @@ static uint_t GetLinearIP(struct VM * vm) {
 #define MAX_CODE 512
 #define INSTR_OFFSET_START 17
 #define NOP_SEQ_LEN        10
-#define INSTR_OFFSET_END   (INSTR_OFFSET_START+NOP_SEQ_LEN-1)
+#define INSTR_OFFSET_END   (INSTR_OFFSET_START + NOP_SEQ_LEN - 1)
 #define TEMPLATE_CODE_LEN  35
 
-uint_t oldesp=0;
-uint_t myregs=0;
+uint_t oldesp = 0;
+uint_t myregs = 0;
 
 
 
@@ -229,7 +229,7 @@ int MyLaunch(struct VM *vm)
 
   PrintTrace("Guest ESP: 0x%x (%u)\n", guest_esp, guest_esp);
 
-  exit_eip=(uint_t)RunVMM;
+  exit_eip = (uint_t)RunVMM;
 
   PrintTrace("Clear\n");
   VMCS_CLEAR(vmcs);
@@ -275,13 +275,14 @@ int MyLaunch(struct VM *vm)
   /* Guest state */
   PrintTrace("Setting up guest state\n");
   PrintTrace("GUEST_RIP: %x (%u)\n", entry_eip, entry_eip);
-  VMCS_WRITE(GUEST_RIP,&entry_eip);
+  VMCS_WRITE(GUEST_RIP, &entry_eip);
 
   SetCRBitsCorrectly(IA32_VMX_CR0_FIXED0_MSR, IA32_VMX_CR0_FIXED1_MSR, GUEST_CR0);
   SetCRBitsCorrectly(IA32_VMX_CR4_FIXED0_MSR, IA32_VMX_CR4_FIXED1_MSR, GUEST_CR4);
   ret = Init_VMCS_GuestState();
 
   PrintTrace("InitGuestState returned\n");
+
   if (ret != VMX_SUCCESS) {
     if (ret == VMX_FAIL_VALID) {
       PrintTrace("Init Guest state: VMCS FAILED WITH ERROR\n");
@@ -291,11 +292,11 @@ int MyLaunch(struct VM *vm)
     return ret;
   }
   PrintTrace("GUEST_RSP: %x (%u)\n", guest_esp, (uint_t)guest_esp);
-  VMCS_WRITE(GUEST_RSP,&guest_esp);
+  VMCS_WRITE(GUEST_RSP, &guest_esp);
 
   //  tmpReg = 0x4100;
   tmpReg = 0xffffffff;
-  if (VMCS_WRITE(EXCEPTION_BITMAP,&tmpReg ) != VMX_SUCCESS) {
+  if (VMCS_WRITE(EXCEPTION_BITMAP, &tmpReg) != VMX_SUCCESS) {
     PrintInfo("Bitmap error\n");
   }
 
@@ -454,7 +455,6 @@ int v3_is_vmx_capable() {
     }
 
     return 1;
-
 }
 
 static int has_vmx_nested_paging() {
@@ -476,7 +476,7 @@ static int setup_base_host_state() {
     
 
 
-    vmwrite(HOST_IDTR_BASE, 
+    //   vmwrite(HOST_IDTR_BASE, 
 
 
 }
@@ -514,7 +514,8 @@ void v3_init_vmx(struct v3_ctrl_ops * vm_ops) {
     if (v3_enable_vmx(host_state) == 0) {
 	PrintDebug("VMX Enabled\n");
     } else {
-	PrintDebug("VMX initialization failure\n");
+	PrintError("VMX initialization failure\n");
+	return;
     }
 	
 
