@@ -18,7 +18,6 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-
 #ifndef __VMM_DIRECT_PAGING_32_H__
 #define __VMM_DIRECT_PAGING_32_H__
 
