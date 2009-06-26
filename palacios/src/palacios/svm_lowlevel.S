@@ -1,6 +1,5 @@
 #;  -*- fundamental -*-
 
-
 .text
 .align 4
 
