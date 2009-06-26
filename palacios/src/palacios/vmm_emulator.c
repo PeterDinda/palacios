@@ -30,8 +30,6 @@
 #endif
 
 
-
-
 static int run_op(struct guest_info * info, v3_op_type_t op_type, addr_t src_addr, addr_t dst_addr, int src_op_size, int dst_op_size);
 
 // We emulate up to the next 4KB page boundry
