@@ -337,12 +337,13 @@ static int start_svm_guest(struct guest_info *info) {
 	    PrintDebug("exit_info2 low = 0x%.8x\n", *(uint_t*)&(guest_ctrl->exit_info2));
 	    PrintDebug("exit_info2 high = 0x%.8x\n", *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info2)) + 4));
       
+	    linear_addr = get_addr_linear(info, info->rip, &(info->segments.cs));
+
 	    if (info->mem_mode == PHYSICAL_MEM) {
 		guest_pa_to_host_va(info, linear_addr, &host_addr);
 	    } else if (info->mem_mode == VIRTUAL_MEM) {
 		guest_va_to_host_va(info, linear_addr, &host_addr);
 	    }
-
 
 	    PrintDebug("Host Address of rip = 0x%p\n", (void *)host_addr);
 
@@ -442,10 +443,8 @@ void v3_init_SVM(struct v3_ctrl_ops * vmm_ops) {
 
     PrintDebug("SVM Enabled\n");
 
-
     // Setup the host state save area
     host_vmcb = V3_AllocPages(4);
-
 
     /* 64-BIT-ISSUE */
     //  msr.e_reg.high = 0;
@@ -454,8 +453,6 @@ void v3_init_SVM(struct v3_ctrl_ops * vmm_ops) {
 
     PrintDebug("Host State being saved at %p\n", (void *)(addr_t)host_vmcb);
     v3_set_msr(SVM_VM_HSAVE_PA_MSR, msr.e_reg.high, msr.e_reg.low);
-
-
 
     /* 
      * Test VMSAVE/VMLOAD Latency 
@@ -486,12 +483,8 @@ void v3_init_SVM(struct v3_ctrl_ops * vmm_ops) {
 	end <<= 32;
 	end += end_lo;
 
-
 	PrintDebug("VMSave Cycle Latency: %d\n", (uint32_t)(end - start));
 	
-
-
-
 	__asm__ __volatile__ (
 			      "rdtsc ; "
 			      "movl %%eax, %%esi ; "
@@ -513,12 +506,7 @@ void v3_init_SVM(struct v3_ctrl_ops * vmm_ops) {
 
 
 	PrintDebug("VMLoad Cycle Latency: %d\n", (uint32_t)(end - start));
-	
-
-			       
     }
-
-
     /* End Latency Test */
 
     if (has_svm_nested_paging() == 1) {

@@ -44,14 +44,12 @@ int v3_handle_svm_exit(struct guest_info * info) {
     guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
     guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
   
-
     // Update the high level state 
     info->rip = guest_state->rip;
     info->vm_regs.rsp = guest_state->rsp;
     info->vm_regs.rax = guest_state->rax;
 
     info->cpl = guest_state->cpl;
-
 
     info->ctrl_regs.cr0 = guest_state->cr0;
     info->ctrl_regs.cr2 = guest_state->cr2;
@@ -67,9 +65,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
     info->cpu_mode = v3_get_vm_cpu_mode(info);
     info->mem_mode = v3_get_vm_mem_mode(info);
 
-
     exit_code = guest_ctrl->exit_code;
-
 
     //    PrintDebug("SVM Exit: %s (rip=%p) (info1=%p)\n", vmexit_code_to_str(exit_code), 
     //	       (void *)(addr_t)info->rip, (void *)(addr_t)guest_ctrl->exit_info1);
@@ -101,12 +97,9 @@ int v3_handle_svm_exit(struct guest_info * info) {
     }
 
 
-  
-
     // Disable printing io exits due to bochs debug messages
     //if (!((exit_code == VMEXIT_IOIO) && ((ushort_t)(guest_ctrl->exit_info1 >> 16) == 0x402))) {
-    
-  
+
     if ((0) && (exit_code <= VMEXIT_EXCP14)) {
 	uchar_t instr[32];
 	int ret;
@@ -114,7 +107,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
 
 	//PrintDebug("RIP: %x\n", guest_state->rip);
 	PrintDebug("\n\n\nRIP Linear: %p\n", (void *)get_addr_linear(info, info->rip, &(info->segments.cs)));
-	
+
 	v3_print_GPRs(info);
 	v3_print_ctrl_regs(info);
 
@@ -128,7 +121,6 @@ int v3_handle_svm_exit(struct guest_info * info) {
 	} else { 
 	    ret = read_guest_va_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 32, instr);
 	}
-	
 
 
 	if (ret != 32) {
@@ -146,7 +138,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
 	rdtscll(info->profiler.start_time);
     }
 
-  
+
     //PrintDebug("SVM Returned: Exit Code: %x\n",exit_code); 
 
     switch (exit_code) {
@@ -176,7 +168,6 @@ int v3_handle_svm_exit(struct guest_info * info) {
 			return -1;
 		    }
 		}
-
 	    }
 	    break;
 	}

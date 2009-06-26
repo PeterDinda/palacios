@@ -219,6 +219,7 @@ void v3_print_guest_state(struct guest_info * info) {
 
 
 #ifdef __V3_32BIT__
+
 void v3_print_GPRs(struct guest_info * info) {
     struct v3_gprs * regs = &(info->vm_regs);
     int i = 0;
@@ -233,7 +234,9 @@ void v3_print_GPRs(struct guest_info * info) {
 	PrintDebug("\t%s=0x%p\n", reg_names[i], (void *)(addr_t)reg_ptr[i]);  
     }
 }
+
 #elif __V3_64BIT__
+
 void v3_print_GPRs(struct guest_info * info) {
     struct v3_gprs * regs = &(info->vm_regs);
     int i = 0;
@@ -249,7 +252,5 @@ void v3_print_GPRs(struct guest_info * info) {
 	PrintDebug("\t%s=0x%p\n", reg_names[i], (void *)(addr_t)reg_ptr[i]);  
     }
 }
-
-
 
 #endif
