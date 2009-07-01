@@ -159,7 +159,6 @@ struct ide_drive {
     uint8_t data_buf[DATA_BUFFER_SIZE];
 
 
-
     uint32_t num_cylinders;
     uint32_t num_heads;
     uint32_t num_sectors;
@@ -365,6 +364,37 @@ static int dma_write(struct vm_device * dev, struct ide_channel * channel);
 #include "ata.h"
 
 
+#ifdef DEBUG_IDE
+static void print_prd_table(struct vm_device * dev, struct ide_channel * channel) {
+    struct ide_dma_prd prd_entry;
+    int index = 0;
+
+    PrintDebug("Dumping PRD table\n");
+
+    while (1) {
+	uint32_t prd_entry_addr = channel->dma_prd_addr + (sizeof(struct ide_dma_prd) * index);
+	int ret;
+
+	ret = read_guest_pa_memory(dev->vm, prd_entry_addr, sizeof(struct ide_dma_prd), (void *)&prd_entry);
+	
+	if (ret != sizeof(struct ide_dma_prd)) {
+	    PrintError("Could not read PRD\n");
+	    return;
+	}
+
+	PrintDebug("\tPRD Addr: %x, PRD Len: %d, EOT: %d\n", 
+		   prd_entry.base_addr, prd_entry.size, prd_entry.end_of_table);
+
+	if (prd_entry.end_of_table) {
+	    break;
+	}
+
+	index++;
+    }
+
+    return;
+}
+#endif
 
 /* IO Operations */
 static int dma_read(struct vm_device * dev, struct ide_channel * channel) {
@@ -376,6 +406,9 @@ static int dma_read(struct vm_device * dev, struct ide_channel * channel) {
     // Read in the data buffer....
     // Read a sector/block at a time until the prd entry is full.
 
+#ifdef DEBUG_IDE
+    print_prd_table(dev, channel);
+#endif
 
     PrintDebug("DMA read for %d bytes\n", bytes_left);
 
@@ -385,80 +418,91 @@ static int dma_read(struct vm_device * dev, struct ide_channel * channel) {
 	uint_t prd_bytes_left = 0;
 	uint_t prd_offset = 0;
 	int ret;
-	    
+
 	PrintDebug("PRD table address = %x\n", channel->dma_prd_addr);
-	
+
 	ret = read_guest_pa_memory(dev->vm, prd_entry_addr, sizeof(struct ide_dma_prd), (void *)&prd_entry);
-	
+
 	if (ret != sizeof(struct ide_dma_prd)) {
 	    PrintError("Could not read PRD\n");
 	    return -1;
 	}
-	
+
 	PrintDebug("PRD Addr: %x, PRD Len: %d, EOT: %d\n", 
 		   prd_entry.base_addr, prd_entry.size, prd_entry.end_of_table);
-	
+
 	// loop through the PRD data....
-	
+
 	prd_bytes_left = prd_entry.size;
-	
-	
+
+
 	while (prd_bytes_left > 0) {
 	    uint_t bytes_to_write = 0;
-	    
+
 	    if (drive->drive_type == IDE_DISK) {
 		bytes_to_write = (prd_bytes_left > IDE_SECTOR_SIZE) ? IDE_SECTOR_SIZE : prd_bytes_left;
-		
-		
+
+
 		if (ata_read(dev, channel, drive->data_buf, 1) == -1) {
 		    PrintError("Failed to read next disk sector\n");
 		    return -1;
 		}
 	    } else if (drive->drive_type == IDE_CDROM) {
-		bytes_to_write = (prd_bytes_left > ATAPI_BLOCK_SIZE) ? ATAPI_BLOCK_SIZE : prd_bytes_left;
-		
-		if (atapi_read_chunk(dev, channel) == -1) {
-		    PrintError("Failed to read next disk sector\n");
+		if (atapi_cmd_is_data_op(drive->cd_state.atapi_cmd)) {
+		    bytes_to_write = (prd_bytes_left > ATAPI_BLOCK_SIZE) ? ATAPI_BLOCK_SIZE : prd_bytes_left;
+
+		    if (atapi_read_chunk(dev, channel) == -1) {
+			PrintError("Failed to read next disk sector\n");
+			return -1;
+		    }
+		} else {
+		    PrintDebug("DMA of command packet\n");
+		    PrintError("How does this work???\n");
 		    return -1;
+		    bytes_to_write = (prd_bytes_left > bytes_left) ? bytes_left : prd_bytes_left;
+		    prd_bytes_left = bytes_to_write;
 		}
 	    }
-	    
+
 	    PrintDebug("Writing DMA data to guest Memory ptr=%p, len=%d\n", 
 		       (void *)(addr_t)(prd_entry.base_addr + prd_offset), bytes_to_write);
 
 	    drive->current_lba++;
-	    
+
 	    ret = write_guest_pa_memory(dev->vm, prd_entry.base_addr + prd_offset, bytes_to_write, drive->data_buf); 
-	    
+
 	    if (ret != bytes_to_write) {
 		PrintError("Failed to copy data into guest memory... (ret=%d)\n", ret);
 		return -1;
 	    }
 
 	    PrintDebug("\t DMA ret=%d, (prd_bytes_left=%d) (bytes_left=%d)\n", ret, prd_bytes_left, bytes_left);
-	    
+
 	    drive->transfer_index += ret;
 	    prd_bytes_left -= ret;
 	    prd_offset += ret;
 	    bytes_left -= ret;
-
 	}
-	
-	channel->dma_tbl_index++;	
-	
+
+	channel->dma_tbl_index++;
+
 	if (drive->drive_type == IDE_DISK) {
 	    if (drive->transfer_index % IDE_SECTOR_SIZE) {
 		PrintError("We currently don't handle sectors that span PRD descriptors\n");
 		return -1;
 	    }
 	} else if (drive->drive_type == IDE_CDROM) {
-	    if (drive->transfer_index % ATAPI_BLOCK_SIZE) {
-		PrintError("We currently don't handle ATAPI BLOCKS that span PRD descriptors\n");
-		return -1;
+	    if (atapi_cmd_is_data_op(drive->cd_state.atapi_cmd)) {
+		if (drive->transfer_index % ATAPI_BLOCK_SIZE) {
+		    PrintError("We currently don't handle ATAPI BLOCKS that span PRD descriptors\n");
+		    PrintError("transfer_index=%d, transfer_length=%d\n", 
+			       drive->transfer_index, drive->transfer_length);
+		    return -1;
+		}
 	    }
 	}
-	
-	
+
+
 	if ((prd_entry.end_of_table == 1) && (bytes_left > 0)) {
 	    PrintError("DMA table not large enough for data transfer...\n");
 	    return -1;

@@ -436,6 +436,19 @@ static int atapi_inquiry(struct vm_device * dev, struct ide_channel * channel) {
 }
 
 
+static int atapi_cmd_is_data_op(uint8_t cmd) {
+    switch (cmd) {
+	case 0x28: // read (10)
+	case 0xa8: // read (12)
+	case 0x2a: // write (10)
+	case 0xaa: // write (12)
+	    return 1;
+	default:
+	    return 0;
+    } 
+}
+
+
 static int atapi_handle_packet(struct vm_device * dev, struct ide_channel * channel) {
    struct ide_drive * drive = get_selected_drive(channel);
    uint8_t cmd = drive->data_buf[0];
@@ -454,6 +467,10 @@ static int atapi_handle_packet(struct vm_device * dev, struct ide_channel * chan
 	   break;
        case 0x03: // request sense
 	   atapi_req_sense(dev, channel);
+	   break;
+
+       case 0x1e: // lock door
+	   atapi_cmd_nop(dev, channel);
 	   break;
 
        case 0x28: // read(10)
@@ -518,7 +535,7 @@ static int atapi_handle_packet(struct vm_device * dev, struct ide_channel * chan
 
 
        case 0x2b: // seek
-       case 0x1e: // lock door
+
        case 0x42: // read sub-channel
 
 
