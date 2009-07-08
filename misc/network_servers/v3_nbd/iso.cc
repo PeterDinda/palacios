@@ -51,7 +51,7 @@ unsigned int iso_image::read(unsigned char * buf, off_t offset, int length) {
     fseeko(this->f, offset, SEEK_SET);
 
     while (bytes_read < total_bytes) {
-	int tmp_bytes = fread(buf, 1, length, this->f);
+	int tmp_bytes = fread(buf, 1, length - bytes_read, this->f);
 	
 	if (tmp_bytes == 0) {
 	    break;
@@ -65,7 +65,6 @@ unsigned int iso_image::read(unsigned char * buf, off_t offset, int length) {
 
 
 unsigned int iso_image::write(unsigned char * buf, off_t offset, int length) {
-    
     return 0;
 }
 

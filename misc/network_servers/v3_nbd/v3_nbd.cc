@@ -486,7 +486,56 @@ int handle_read_request(SOCK conn, v3_disk * disk) {
 // send : 
 //    1 bytes : status
 int handle_write_request(SOCK conn, v3_disk * disk) {
-    return -1;
+    off_t offset = 0;
+    unsigned int length = 0;
+    unsigned char * buf = NULL;
+    unsigned int ret_len = 0;
+    unsigned char status = NBD_STATUS_OK;
+
+    vtl_debug("Write Request\n");
+    
+    if (Receive(conn, (char *)&offset, 8, true) <= 0) {
+	vtl_debug("Error receiving write offset\n");
+	return -1;
+    }
+
+    vtl_debug("Write Offset %d\n", offset);
+
+    if (Receive(conn, (char *)&length, 4, true) <= 0) {
+	vtl_debug("Error receiving write length\n");
+	return -1;
+    }
+
+    vtl_debug("Write length: %d\n", length);
+
+    buf = new unsigned char[length];
+    
+    vtl_debug("Receiving Data\n");
+
+    if (Receive(conn, (char *)buf, length, true)  <= 0) {
+	vtl_debug("Error receiving Write Data\n");
+	return -1;
+    }
+
+    vtl_debug("Wrote %d bytes to source disk\n", ret_len);
+
+    if (disk->write(buf, offset, length) != length) {
+	vtl_debug("Write Error\n");
+	status = NBD_STATUS_ERR;
+    }
+
+    vtl_debug("Sending Status byte (%d)\n", status);
+
+    if (Send(conn, (char *)&status, 1, true) <= 0) {
+	vtl_debug("Error Sending Wrte Status\n");
+	return -1;
+    }
+
+    vtl_debug("Write Complete\n");
+
+    delete buf;
+
+    return 0;
 }
 
 

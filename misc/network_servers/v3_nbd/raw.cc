@@ -27,22 +27,49 @@ raw_disk::raw_disk(string & filename) : v3_disk(filename){
 
 
 off_t raw_disk::get_capacity() {
-    
-    return 0;
-}
+        struct stat f_stats;
 
+    stat(this->filename.c_str(), &f_stats);
+
+    return f_stats.st_size;
+}
 
 
 unsigned int raw_disk::read(unsigned char * buf, off_t offset, int length) {
+    int total_bytes = length;
+    int bytes_read = 0;
+    
+    fseeko(this->f, offset, SEEK_SET);
 
-    return 0;
+    while (bytes_read < total_bytes) {
+	int tmp_bytes = fread(buf, 1, length - bytes_read, this->f);
+	
+	if (tmp_bytes == 0) {
+	    break;
+	}
+	bytes_read += tmp_bytes;
+    }
+
+    return bytes_read;
 }
 
 
-
 unsigned int raw_disk::write(unsigned char * buf, off_t offset, int length) {
-    
-    return 0;
+    int total_bytes = length;
+    int bytes_written = 0;
+
+    fseeko(this->f, offset, SEEK_SET);
+
+    while (bytes_written < total_bytes) {
+	int tmp_bytes = fwrite(buf, 1, length - bytes_written, this->f);
+
+	if (tmp_bytes == 0) {
+	    break;
+	}
+	bytes_written += tmp_bytes;
+    }
+
+    return bytes_written;
 }
 
 
