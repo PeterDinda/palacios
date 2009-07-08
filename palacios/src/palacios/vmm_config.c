@@ -37,6 +37,7 @@
 #include <devices/ram_cd.h>
 #include <devices/net_cd.h>
 #include <devices/ram_hd.h>
+#include <devices/net_hd.h>
 #include <devices/bochs_debug.h>
 #include <devices/os_debug.h>
 #include <devices/apic.h>
@@ -211,7 +212,8 @@ static int setup_memory_map(struct guest_info * info, struct v3_vm_config * conf
 static int setup_devices(struct guest_info * info, struct v3_vm_config * config_ptr) {
 
     struct vm_device * ide = NULL;
-    struct vm_device * ramdisk = NULL;
+    struct vm_device * primary_disk = NULL;
+    struct vm_device * secondary_disk = NULL;
     
     struct vm_device * pci = NULL;
     struct vm_device * northbridge = NULL;
@@ -245,22 +247,68 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
 
     nvram = v3_create_nvram(ide);
 
-    if (config_ptr->use_ram_cd == 1) {
-	PrintDebug("Creating RAM CD\n");
-	ramdisk = v3_create_ram_cd(ide, 0, 0, 
-				   (addr_t)(config_ptr->ramdisk), 
-				   config_ptr->ramdisk_size);
-    } else if (config_ptr->use_ram_hd == 1) {
-	PrintDebug("Creating Ram HD\n");
-	ramdisk = v3_create_ram_hd(ide, 0, 0, 
-				   (addr_t)(config_ptr->ramdisk), 
-				   config_ptr->ramdisk_size);
-    } else if (config_ptr->use_net_cd == 1) {
-	PrintDebug("Creating NET CD\n");
-	ramdisk = v3_create_net_cd(ide, 0, 0, 
-				   "172.22.0.1", 9502, 
-				   "puppy-iso");    
+    if (config_ptr->pri_disk_type != NONE) {
+	if (config_ptr->pri_disk_type == CDROM) {
+	    if (config_ptr->pri_disk_con == RAM) {
+		PrintDebug("Creating RAM CD\n");
+		primary_disk = v3_create_ram_cd(ide, 0, 0, 
+						(addr_t)(config_ptr->pri_disk_info.ram.data_ptr), 
+						config_ptr->pri_disk_info.ram.size);
+	    } else if (config_ptr->pri_disk_con == NETWORK) {
+		PrintDebug("Creating NET CD\n");
+		primary_disk = v3_create_net_cd(ide, 0, 0, 
+						config_ptr->pri_disk_info.net.ip_str,
+						config_ptr->pri_disk_info.net.port, 
+						config_ptr->pri_disk_info.net.disk_name);    
+	    }
+	} else if (config_ptr->pri_disk_type == HARDDRIVE) {
+	    if (config_ptr->pri_disk_con == RAM) {
+		PrintDebug("Creating RAM HD\n");
+		primary_disk = v3_create_ram_hd(ide, 0, 0, 
+						(addr_t)(config_ptr->pri_disk_info.ram.data_ptr), 
+						config_ptr->pri_disk_info.ram.size);
+	    } else if (config_ptr->pri_disk_con == NETWORK) {
+		PrintDebug("Creating NET HD\n");
+		primary_disk = v3_create_net_hd(ide, 0, 0, 
+						config_ptr->pri_disk_info.net.ip_str,
+						config_ptr->pri_disk_info.net.port, 
+						config_ptr->pri_disk_info.net.disk_name);
+	    }
+	}
     }
+
+
+
+    if (config_ptr->sec_disk_type != NONE) {
+	if (config_ptr->sec_disk_type == CDROM) {
+	    if (config_ptr->sec_disk_con == RAM) {
+		PrintDebug("Creating RAM CD\n");
+		secondary_disk = v3_create_ram_cd(ide, 0, 1, 
+						  (addr_t)(config_ptr->sec_disk_info.ram.data_ptr), 
+						  config_ptr->sec_disk_info.ram.size);
+	    } else if (config_ptr->sec_disk_con == NETWORK) {
+		PrintDebug("Creating NET CD\n");
+		secondary_disk = v3_create_net_cd(ide, 0, 1, 
+						  config_ptr->sec_disk_info.net.ip_str,
+						  config_ptr->sec_disk_info.net.port, 
+						  config_ptr->sec_disk_info.net.disk_name);    
+	    }
+	} else if (config_ptr->sec_disk_type == HARDDRIVE) {
+	    if (config_ptr->sec_disk_con == RAM) {
+		PrintDebug("Creating RAM HD\n");
+		secondary_disk = v3_create_ram_hd(ide, 0, 1, 
+						  (addr_t)(config_ptr->sec_disk_info.ram.data_ptr), 
+						  config_ptr->sec_disk_info.ram.size);
+	    } else if (config_ptr->sec_disk_con == NETWORK) {
+		PrintDebug("Creating NET HD\n");
+		secondary_disk = v3_create_net_hd(ide, 0, 1, 
+						  config_ptr->sec_disk_info.net.ip_str,
+						  config_ptr->sec_disk_info.net.port, 
+						  config_ptr->sec_disk_info.net.disk_name);
+	    }
+	}
+    }
+
 
 
     if (use_generic) {
@@ -292,8 +340,12 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
     PrintDebug("Attaching IDE\n");
     v3_attach_device(info, ide);
 
-    if (ramdisk != NULL) {
-	v3_attach_device(info, ramdisk);
+    if (primary_disk != NULL) {
+	v3_attach_device(info, primary_disk);
+    }
+
+    if (secondary_disk != NULL) {
+	v3_attach_device(info, secondary_disk);
     }
 
     if (use_generic) {

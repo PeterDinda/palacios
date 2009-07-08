@@ -268,6 +268,23 @@ struct v3_os_hooks {
 };
 
 
+
+typedef enum {NONE, HARDDRIVE, CDROM} v3_disk_type_t;
+typedef enum {RAM, NETWORK} v3_disk_connection_t;
+
+union v3_disk_info {
+    struct {
+	void * data_ptr;
+	int size;
+    } ram;
+
+    struct {
+	char * ip_str;
+	int port;
+	char * disk_name;
+    } net;
+};
+
 struct v3_vm_config {
     void * rombios;
     int rombios_size;
@@ -279,19 +296,18 @@ struct v3_vm_config {
     // so we can specify maximum physical address size
     // (We're screwed if we want to do 32 bit host/64 bit guest)
 
-
     int enable_profiling;
     int enable_nested_paging;
 
     int enable_pci;
-    
-    int use_ram_cd;
-    int use_ram_hd;
-    int use_net_cd;
-    int use_net_hd;
 
-    void * ramdisk;
-    int ramdisk_size;
+    v3_disk_type_t pri_disk_type;
+    v3_disk_connection_t pri_disk_con;
+    union v3_disk_info pri_disk_info;
+   
+    v3_disk_type_t sec_disk_type;
+    v3_disk_connection_t sec_disk_con;
+    union v3_disk_info sec_disk_info;
 };
 
 
