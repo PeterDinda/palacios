@@ -345,6 +345,7 @@ DEVICES_OBJS := \
 	devices/i440fx.o \
 	devices/piix3.o \
 	devices/net_cd.o \
+	devices/net_hd.o \
 
 #	devices/ne2k.o	\
 #	devices/cdrom.o \

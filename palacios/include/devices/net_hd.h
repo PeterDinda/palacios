@@ -17,17 +17,18 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#ifndef __DEVICES_RAM_HD_H__
-#define __DEVICES_RAM_HD_H__
+#ifndef __DEVICES_NET_HD_H__
+#define __DEVICES_NET_HD_H__
 
 #ifdef __V3VEE__
 
 #include <palacios/vm_dev.h>
 
 
-struct vm_device * v3_create_ram_hd(struct vm_device * ide, 
+struct vm_device * v3_create_net_hd(struct vm_device * ide, 
 				    uint_t bus, uint_t drive, 
-				    addr_t ramdisk, uint32_t size);
+				    const char * ip_str, uint16_t port, 
+				    const char * disk_tag);
 
 
 

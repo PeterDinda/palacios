@@ -28,12 +28,9 @@
 #endif 
 
 
-
 #define NBD_READ_CMD 0x1
 #define NBD_WRITE_CMD 0x2
 #define NBD_CAPACITY_CMD 0x3
-
-
 
 #define NBD_STATUS_OK 0x00
 #define NBD_STATUS_ERR 0xff

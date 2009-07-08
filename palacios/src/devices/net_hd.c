@@ -18,19 +18,33 @@
  */
 
 #include <palacios/vmm.h>
-#include <devices/ram_hd.h>
+#include <devices/net_hd.h>
 #include <devices/ide.h>
-
-
+#include <palacios/vmm_socket.h>
 
 #ifndef DEBUG_IDE
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
 
+
+#define NBD_READ_CMD 0x1
+#define NBD_WRITE_CMD 0x2
+#define NBD_CAPACITY_CMD 0x3
+
+#define NBD_STATUS_OK 0x00
+#define NBD_STATUS_ERR 0xff
+
+
 struct hd_state {
-    addr_t disk_image;
-    uint32_t capacity; // in bytes
+    uint64_t capacity; // in bytes
+
+    int socket;
+
+    uint32_t ip_addr;
+    uint16_t port;
+
+    char disk_name[32];
 
     struct vm_device * ide;
 
@@ -39,16 +53,101 @@ struct hd_state {
 };
 
 
+static int send_all(int socket, char * buf, int length) {
+    int bytes_sent = 0;
+    
+    PrintDebug("Sending %d bytes\n", length - bytes_sent);
+    while (bytes_sent < length) {
+	int tmp_bytes = V3_Send(socket, buf + bytes_sent, length - bytes_sent);
+	PrintDebug("Sent %d bytes\n", tmp_bytes);
+	
+	if (tmp_bytes == 0) {
+	    PrintError("Connection Closed unexpectedly\n");
+	    return -1;
+	}
+	
+	bytes_sent += tmp_bytes;
+    }
+    
+    return 0;
+}
+
+
+static int recv_all(int socket, char * buf, int length) {
+    int bytes_read = 0;
+    
+    PrintDebug("Reading %d bytes\n", length - bytes_read);
+    while (bytes_read < length) {
+	int tmp_bytes = V3_Recv(socket, buf + bytes_read, length - bytes_read);
+	PrintDebug("Received %d bytes\n", tmp_bytes);
+	
+	if (tmp_bytes == 0) {
+	    PrintError("Connection Closed unexpectedly\n");
+	    return -1;
+	}
+	
+	bytes_read += tmp_bytes;
+    }
+    
+    return 0;
+}
+
+
 // HDs always read 512 byte blocks... ?
 static int hd_read(uint8_t * buf, int sector_count, uint64_t lba,  void * private_data) {
     struct vm_device * hd_dev = (struct vm_device *)private_data;
     struct hd_state * hd = (struct hd_state *)(hd_dev->private_data);
     int offset = lba * IDE_SECTOR_SIZE;
     int length = sector_count * IDE_SECTOR_SIZE;
+    uint8_t status;
+    uint32_t ret_len = 0;
+    char nbd_cmd[4] = {0,0,0,0};
 
-    //    PrintDebug("Reading RAM HD at (LBA=%d) offset %d (length=%d)\n", (uint32_t)lba, offset, length);
+    nbd_cmd[0] = NBD_READ_CMD;
+    
+    if (send_all(hd->socket, nbd_cmd, 4) == -1) {
+	PrintError("Error sending read command\n");
+	return -1;
+    }
+    
+    if (send_all(hd->socket, (char *)&offset, 8) == -1) {
+	PrintError("Error sending read offset\n");
+	return -1;
+    }
 
-    memcpy(buf, (uint8_t *)(hd->disk_image + offset), length);
+    if (send_all(hd->socket, (char *)&length, 4) == -1) {
+	PrintError("Error sending read length\n");
+	return -1;
+    }
+
+    if (recv_all(hd->socket, (char *)&status, 1) == -1) {
+	PrintError("Error receiving status\n");
+	return -1;
+    }
+
+    if (status != NBD_STATUS_OK) {
+	PrintError("NBD Error....\n");
+	return -1;
+    }
+
+    PrintDebug("Reading Data Ret Length\n");
+
+    if (recv_all(hd->socket, (char *)&ret_len, 4) == -1) {
+	PrintError("Error receiving Return read length\n");
+	return -1;
+    }
+
+    if (ret_len != length) {
+	PrintError("Read length mismatch (req=%d) (result=%d)\n", length, ret_len);
+	return -1;
+    }
+
+    PrintDebug("Reading Data (%d bytes)\n", ret_len);
+
+    if (recv_all(hd->socket, (char *)buf, ret_len) == -1) {
+	PrintError("Read Data Error\n");
+	return -1;
+    }
 
     return 0;
 }
@@ -59,8 +158,42 @@ static int hd_write(uint8_t * buf, int sector_count, uint64_t lba, void * privat
     struct hd_state * hd = (struct hd_state *)(hd_dev->private_data);
     int offset = lba * IDE_SECTOR_SIZE;
     int length = sector_count * IDE_SECTOR_SIZE;
+    uint8_t status;
+    char nbd_cmd[4] = {0,0,0,0};
 
-    memcpy((uint8_t *)(hd->disk_image + offset), buf, length);
+    nbd_cmd[0] = NBD_WRITE_CMD;
+
+    if (send_all(hd->socket, nbd_cmd, 4) == -1) {
+	PrintError("Error sending write command\n");
+	return -1;
+    }
+
+    if (send_all(hd->socket, (char *)&offset, 8) == -1) {
+	PrintError("Error sending write offset\n");
+	return -1;
+    }
+
+    if (send_all(hd->socket, (char *)&length, 4) == -1) {
+	PrintError("Error sending write length\n");
+	return -1;
+    }
+
+    PrintDebug("Writing Data (%d bytes)\n", length);
+
+    if (send_all(hd->socket, (char *)buf, length) == -1) {
+	PrintError("Write Data Error\n");
+	return -1;
+    }
+
+    if (recv_all(hd->socket, (char *)&status, 1) == -1) {
+	PrintError("Error receiving status\n");
+	return -1;
+    }
+
+    if (status != NBD_STATUS_OK) {
+	PrintError("NBD Error....\n");
+	return -1;
+    }
 
     return 0;
 }
@@ -69,8 +202,7 @@ static int hd_write(uint8_t * buf, int sector_count, uint64_t lba, void * privat
 static uint64_t hd_get_capacity(void * private_data) {
     struct vm_device * hd_dev = (struct vm_device *)private_data;
     struct hd_state * hd = (struct hd_state *)(hd_dev->private_data);
-    PrintDebug("Querying RAM HD capacity (bytes=%d) (ret = %d)\n", 
-	       hd->capacity, hd->capacity  / IDE_SECTOR_SIZE);
+
     return hd->capacity / IDE_SECTOR_SIZE;
 }
 
@@ -83,11 +215,57 @@ static struct v3_ide_hd_ops hd_ops = {
 
 static int hd_init(struct vm_device * dev) {
     struct hd_state * hd = (struct hd_state *)(dev->private_data);
+    char header[64];
+    
+    PrintDebug("Intializing Net HD\n");
 
-    if (v3_ide_register_harddisk(hd->ide, hd->bus, hd->drive, "V3-RAM-HD", &hd_ops, dev) == -1) {
+    hd->socket = V3_Create_TCP_Socket();
+
+    PrintDebug("HD socket: %d\n", hd->socket);
+    PrintDebug("Connecting to: %s:%d\n", v3_inet_ntoa(hd->ip_addr), hd->port);
+
+    V3_Connect_To_IP(hd->socket, v3_ntohl(hd->ip_addr), hd->port);
+
+    PrintDebug("Connected to NBD server\n");
+
+    //snprintf(header, 64, "V3_NBD_1 %s\n", cd->disk_name);
+    strcpy(header, "V3_NBD_1 ");
+    strncat(header, hd->disk_name, 32);
+    strncat(header, "\n", 1);
+
+
+    if (send_all(hd->socket, header, strlen(header)) == -1) {
+	PrintError("Error connecting to Network Block Device: %s\n", hd->disk_name);
+	return -1;
+    }
+
+    // Cache Capacity
+    {
+	char nbd_cmd[4] = {0,0,0,0};
+
+	nbd_cmd[0] = NBD_CAPACITY_CMD;
+	
+	if (send_all(hd->socket, nbd_cmd, 4) == -1) {
+	    PrintError("Error sending capacity command\n");
+	    return -1;
+	}
+
+	if (recv_all(hd->socket, (char *)&(hd->capacity), 8) == -1) {
+	    PrintError("Error Receiving Capacity\n");
+	    return -1;
+	}	
+
+	PrintDebug("Capacity: %p\n", (void *)(hd->capacity));
+    }
+
+    PrintDebug("Registering HD\n");
+
+    if (v3_ide_register_harddisk(hd->ide, hd->bus, hd->drive, "V3-NET-HD", &hd_ops, dev) == -1) {
 	return -1;
     }
     
+    PrintDebug("intialization done\n");
+
     return 0;
 }
 
@@ -104,28 +282,23 @@ static struct vm_device_ops dev_ops = {
     .stop = NULL,
 };
 
-struct vm_device * v3_create_ram_hd(struct vm_device * ide, 
+struct vm_device * v3_create_net_hd(struct vm_device * ide, 
 				    uint_t bus, uint_t drive, 
-				    addr_t ramdisk, uint32_t size) {
-    struct hd_state * hd = NULL;
+				    const char * ip_str, uint16_t port, 
+				    const char * disk_tag) {
+    struct hd_state * hd = (struct hd_state *)V3_Malloc(sizeof(struct hd_state));
 
-    if (size % IDE_SECTOR_SIZE) {
-	PrintError("HD image must be an integral of sector size (IDE_SECTOR_SIZE=%d)\n", IDE_SECTOR_SIZE);
-	return NULL;
-    }
+    PrintDebug("Registering Net HD at %s:%d disk=%s\n", ip_str, port, disk_tag);
 
-    hd = (struct hd_state *)V3_Malloc(sizeof(struct hd_state));
-
-    PrintDebug("Registering Ram HDD at %p (size=%d)\n", (void *)ramdisk, size);
-
-    hd->disk_image = ramdisk;
-    hd->capacity = size;
+    strncpy(hd->disk_name, disk_tag, sizeof(hd->disk_name));
+    hd->ip_addr = v3_inet_addr(ip_str);
+    hd->port = port;
 
     hd->ide = ide;
     hd->bus = bus;
     hd->drive = drive;
 	
-    struct vm_device * hd_dev = v3_create_device("RAM-HD", &dev_ops, hd);
+    struct vm_device * hd_dev = v3_create_device("NET-HD", &dev_ops, hd);
 
     return hd_dev;
 }
