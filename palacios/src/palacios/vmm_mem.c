@@ -206,7 +206,7 @@ struct v3_shadow_region * insert_shadow_region(struct guest_info * info,
     if ((ret = __insert_shadow_region(info, region))) {
 	return ret;
     }
-  
+
     v3_rb_insert_color(&(region->tree_node), &(info->mem_map.shdw_regions));
 
 
@@ -406,6 +406,12 @@ void print_shadow_map(struct guest_info * info) {
 	       (void *)(reg->guest_end - 1), 
 	       (void *)(reg->host_addr));
     
+
+    // If the memory map is empty, don't print it
+    if (node == NULL) {
+	return;
+    }
+
     do {
 	reg = rb_entry(node, struct v3_shadow_region, tree_node);
 
