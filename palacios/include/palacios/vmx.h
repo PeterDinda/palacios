@@ -31,7 +31,7 @@
 
 // Intel VMX Specific MSRs
 #define VMX_FEATURE_CONTROL_MSR     0x0000003a
-#define VMX_BASIC_MSR               0x00000480
+#define VMX_BASIC_MSR          0x00000480
 #define VMX_PINBASED_CTLS_MSR       0x00000481
 #define VMX_PROCBASED_CTLS_MSR      0x00000482
 #define VMX_EXIT_CTLS_MSR           0x00000483
@@ -67,25 +67,16 @@ struct vmx_basic_msr {
     uint_t rsvd2        : 10; // Always 0
 }  __attribute__((packed));
 
+typedef enum { 
+    VMXASSIST_STARTUP,
+    VMXASSIST_V8086_BIOS,
+    VMXASSIST_V8086,
+    NORMAL 
+} vmx_state_t;
 
-
-
-
-enum VMState { VM_VMXASSIST_STARTUP, VM_VMXASSIST_V8086_BIOS, VM_VMXASSIST_V8086, VM_NORMAL };
-
-
-
-
-
-
-
-struct VM {
-  enum VMState        state;
-  struct VMXRegs      registers;
-  struct VMDescriptor descriptor;
-  struct VMCSData     vmcs;
-  struct VMCS         *vmcsregion;
-  struct VmxOnRegion  *vmxonregion;
+struct vmx_data {
+    vmx_state_t state;
+    struct vmcs_data vmcs;
 };
 
 

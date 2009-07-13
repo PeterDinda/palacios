@@ -147,7 +147,7 @@ static inline int vmcs_store(vmcs_t * vmcs_ptr) {
 
 /* According to Intel, vmread will return an architecure sized type - be sure that
  * dst is at least 64-bits in IA-32e and 32 otherwise */
-static inline int vmcs_read(addr_t vmcs_index, void * dst) {
+static inline int vmcs_read(addr_t vmcs_index, void * dst, int len) {
     addr_t val = 0;
     uint8_t ret_valid = 0;
     uint8_t ret_invalid = 0;

@@ -23,6 +23,7 @@
 #include <palacios/vmx.h>
 #include <palacios/vmcs.h>
 #include <palacios/vmm.h>
+#include <palacios/vmx_lowlevel.h>
 
 
 // 
@@ -35,6 +36,7 @@
 
 #include <palacios/vmm_util.h>
 #include <palacios/vmm_string.h>
+#include <palacios/vmm_ctrl_regs.h>
 
 
 
@@ -50,7 +52,6 @@ extern int Launch_VM(ullong_t vmcsPtr, uint_t eip);
 #define ROMBIOS_DEBUG_PORT    0x403
 
 
-static struct VM theVM;
 
 static uint_t GetLinearIP(struct VM * vm) {
   if (vm->state == VM_VMXASSIST_V8086_BIOS || vm->state == VM_VMXASSIST_V8086) { 
@@ -77,11 +78,7 @@ uint_t myregs = 0;
 
 
 
-extern uint_t VMCS_CLEAR();
-extern uint_t VMCS_LOAD();
-extern uint_t VMCS_STORE();
 extern uint_t VMCS_LAUNCH();
-extern uint_t VMCS_RESUME();
 extern uint_t Init_VMCS_HostState();
 extern uint_t Init_VMCS_GuestState();
 
@@ -123,60 +120,61 @@ void DecodeCurrentInstruction(struct VM *vm, struct Instruction *inst)
 }
 
 
-static void V8086ModeSegmentRegisterFixup(struct VM *vm)
+static void setup_v8086_mode_for_boot(struct guest_info* vm_info)
 {
-  vm->vmcs.guestStateArea.cs.baseAddr = vm->vmcs.guestStateArea.cs.selector << 4;
-  vm->vmcs.guestStateArea.es.baseAddr = vm->vmcs.guestStateArea.es.selector << 4;
-  vm->vmcs.guestStateArea.ss.baseAddr = vm->vmcs.guestStateArea.ss.selector << 4;
-  vm->vmcs.guestStateArea.ds.baseAddr = vm->vmcs.guestStateArea.ds.selector << 4;
-  vm->vmcs.guestStateArea.fs.baseAddr = vm->vmcs.guestStateArea.fs.selector << 4;
-  vm->vmcs.guestStateArea.gs.baseAddr = vm->vmcs.guestStateArea.gs.selector << 4;
+
+    ((struct vmx_data*)vm_info->vmm_data)->state = VMXASSIST_V8086_BIOS;
+    ((struct rflags)info->ctrl_regs.rflags).vm = 1;
+    ((struct rflags)info->ctrl_regs.rflags).iopl = 3;
+
+
+    vm_info->rip = 0xfff0;
+
+    vm_info->segments.cs.selector = 0xf000;
+    vm_info->segments.cs.base = 0xf000<<4;
+    vm_info->segments.cs.limit = 0xffff;
+    vm_info->segments.cs.type = 3;
+    vm_info->segments.cs.system = 1;
+    vm_info->segments.cs.dpl = 3;
+    vm_info->segments.cs.present = 1;
+    vm_info->segments.cs.granularity = 0;
+
+    vm_info->segments.ss.selector = 0x0000;
+    vm_info->segments.ss.base = 0x0000<<4;
+    vm_info->segments.ss.limit = 0xffff;
+    vm_info->segments.ss.type = 3;
+    vm_info->segments.ss.system = 1;
+    vm_info->segments.ss.dpl = 3;
+    vm_info->segments.ss.present = 1;
+    vm_info->segments.ss.granularity = 0;
+
+    vm_info->segments.es.selector = 0x0000;
+    vm_info->segments.es.base = 0x0000<<4;
+    vm_info->segments.es.limit = 0xffff;
+    vm_info->segments.es.type = 3;
+    vm_info->segments.es.system = 1;
+    vm_info->segments.es.dpl = 3;
+    vm_info->segments.es.present = 1;
+    vm_info->segments.es.granularity = 0;
+
+    vm_info->segments.fs.selector = 0x0000;
+    vm_info->segments.fs.base = 0x0000<<4;
+    vm_info->segments.fs.limit = 0xffff;
+    vm_info->segments.fs.type = 3;
+    vm_info->segments.fs.system = 1;
+    vm_info->segments.fs.dpl = 3;
+    vm_info->segments.fs.present = 1;
+    vm_info->segments.fs.granularity = 0;
+
+    vm_info->segments.gs.selector = 0x0000;
+    vm_info->segments.gs.base = 0x0000<<4;
+    vm_info->segments.gs.limit = 0xffff;
+    vm_info->segments.gs.type = 3;
+    vm_info->segments.gs.system = 1;
+    vm_info->segments.gs.dpl = 3;
+    vm_info->segments.gs.present = 1;
+    vm_info->segments.gs.granularity = 0;
 }
-
-static void SetupV8086ModeForBoot(struct VM *vm)
-{
-  vm->state = VM_VMXASSIST_V8086_BIOS;
-
-  // Put guest into V8086 mode on return
-  vm->vmcs.guestStateArea.rflags |= EFLAGS_VM | EFLAGS_IOPL_HI | EFLAGS_IOPL_LO ;
-  
-  // We will start at f000:fff0 on return
-  //
-  // We want this to look as much as possible as a processor
-  // reset
-  vm->vmcs.guestStateArea.rip = 0xfff0;  // note, 16 bit rip
-  vm->vmcs.guestStateArea.cs.selector = 0xf000;
-  vm->vmcs.guestStateArea.cs.limit = 0xffff;
-  vm->vmcs.guestStateArea.cs.access.as_dword = 0xf3;
-
-  vm->vmcs.guestStateArea.ss.selector = 0x0000;
-  vm->vmcs.guestStateArea.ss.limit = 0xffff;
-  vm->vmcs.guestStateArea.ss.access.as_dword = 0xf3;
-
-  vm->vmcs.guestStateArea.ds.selector = 0x0000;
-  vm->vmcs.guestStateArea.ds.limit = 0xffff;
-  vm->vmcs.guestStateArea.ds.access.as_dword = 0xf3;
-
-  vm->vmcs.guestStateArea.es.selector = 0x0000;
-  vm->vmcs.guestStateArea.es.limit = 0xffff;
-  vm->vmcs.guestStateArea.es.access.as_dword = 0xf3;
-
-  vm->vmcs.guestStateArea.fs.selector = 0x0000;
-  vm->vmcs.guestStateArea.fs.limit = 0xffff;
-  vm->vmcs.guestStateArea.fs.access.as_dword = 0xf3;
-
-  vm->vmcs.guestStateArea.gs.selector = 0x0000;
-  vm->vmcs.guestStateArea.gs.limit = 0xffff;
-  vm->vmcs.guestStateArea.gs.access.as_dword = 0xf3;
-  
-  V8086ModeSegmentRegisterFixup(vm);
-
-  PrintTrace_VMCSData(&(vm->vmcs));
-
-}
-  
-
-
 
 static void ConfigureExits(struct VM *vm)
 {
@@ -385,15 +383,15 @@ static addr_t sanitize_bits2(uint32_t msr_num0, uint32_t msr_num1, addr_t val) {
 
 
 
-static vmcs_t * allocate_vmcs() {
+static vmcs_data* allocate_vmcs() {
     reg_ex_t msr;
-    vmcs_t * vmcs_page = (vmcs_t *)V3_VAddr(V3_AllocPages(1));
+    vmcs_data* vmcs_page = (vmcs_data*)V3_VAddr(V3_AllocPages(1));
 
-    memset(vmcb_page, 0, 4096);
+    memset(vmcs_page, 0, 4096);
 
     v3_get_msr(VMX_BASIC_MSR, &(msr.e_reg.high), &(msr.e_reg.low));
     
-    *(uint32_t *)vmcs_page = ((struct vmx_basic_msr *)msr.val)->revision;
+    vmcs_page->revision = ((struct vmx_basic_msr)msr).revision;
 
     return vmcs_page;
 }
@@ -409,8 +407,14 @@ static void init_vmcs_bios(vmcs_t * vmcs, struct guest_info * vm_info) {
 static int init_vmx_guest(struct guest_info * info, struct v3_vm_config * config_ptr) {
     v3_pre_config_guest(info, config_ptr);
 
+    struct vmx_data* data;
+
+    PrintDebug("Allocating vmx_data\n");
+    data = (struct vmx_data*)V3_Malloc(sizeof(vmx_data));
     PrintDebug("Allocating VMCS\n");
-    info->vmm_data = (void *)allocate_vmcs();
+    data->vmcs = allocate_vmcs();
+
+    info->vmm_data = (void*)data;
 
     PrintDebug("Initializing VMCS (addr=%p)\n", (void *)info->vmm_data);
     init_vmcs_bios((vmcs_t *)(info->vmm_data), info);

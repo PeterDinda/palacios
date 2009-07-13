@@ -1,4 +1,3 @@
-
 /* 
  * This file is part of the Palacios Virtual Machine Monitor developed
  * by the V3VEE Project with funding from the United States National 
@@ -79,7 +78,8 @@
 #define VMCS_LINK_PTR_HIGH           0x00002801
 #define GUEST_IA32_DEBUGCTL          0x00002802
 #define GUEST_IA32_DEBUGCTL_HIGH     0x00002803
-
+#define GUEST_IA32_PERF_GLOBAL_CTRL  0x00002808
+#define GUEST_IA32_PERF_GLOBAL_CTRL_HIGH 0x00002809
 
 /* 32 bit control fields */
 #define PIN_VM_EXEC_CTRLS            0x00004000
@@ -99,6 +99,8 @@
 // Only with "Use TPR Shadow" Enabled
 #define TPR_THRESHOLD                0x0000401C
 //
+
+
 
 
 /* 32 bit Read Only data fields */
@@ -231,11 +233,6 @@
 
 
 
-typedef void vmcs_t;
-
-
-
-
 /* VMCS Exit QUALIFICATIONs */
 struct VMExitIOQual {
     uint32_t accessSize : 3; // (0: 1 Byte ;; 1: 2 Bytes ;; 3: 4 Bytes)
@@ -308,115 +305,45 @@ struct VMExitIntInfo {
 /* INTEL Manual: 20-4 vol 3B */
 
 
-struct vmcs_segment {
-    uint16_t selector;
-    uint32_t limit;
-    addr_t baseAddr;
-
-    struct {
-	union {
-	    uint32_t value;
-	    struct {
-		uint8_t    type;
-		uint32_t   desc_type   : 1; 
-		uint32_t   dpl         : 2;
-		uint32_t   present     : 1;
-		uint8_t    rsvd1;
-		uint32_t   avail       : 1;
-		uint32_t   long_mode   : 1; // CS only (64 bit active), reserved otherwise
-		uint32_t   DB          : 1; 
-		uint32_t   granularity : 1;
-		uint32_t   unusable    : 1; 
-		uint32_t   rsvd2       : 15;
-	    } __attribute__((packed));
+struct vmcs_segment_access {
+    union {
+	uint32_t value;
+	struct {
+	    uint32_t    type        : 4;
+	    uint32_t    desc_type   : 1; 
+	    uint32_t    dpl         : 2;
+	    uint32_t    present     : 1;
+	    uint32_t    rsvd1       : 4;
+	    uint32_t    avail       : 1;
+	    uint32_t    long_mode   : 1; // CS only (64 bit active), reserved otherwise
+	    uint32_t    DB          : 1; 
+	    uint32_t    granularity : 1;
+	    uint32_t    unusable    : 1; 
+	    uint32_t    rsvd2       : 15;
 	} __attribute__((packed));
-    } __attribute__((packed)) access;
-};
+    } __attribute__((packed));
+}__attribute__((packed);;
 
 
+struct vmcs_interrupt_state {
+    uint32_t    sti_blocking    : 1;
+    uint32_t    mov_ss_blocking : 1;
+    uint32_t    smi_blocking    : 1;
+    uint32_t    nmi_blocking    : 1;
+    uint32_t    rsvd1           : 28;
+} __attribute__((packed));
 
-struct VMCSGuestStateArea {
-    /* (1) Guest State Area */
-    /* (1.1) Guest Register State */
-    uint32_t cr0   ; // should be 64 bits?
-    uint32_t cr3   ; // should be 64 bits?
-    uint32_t cr4   ; // should be 64 bits?
-    uint32_t dr7   ; // should be 64 bits?
-    uint32_t rsp   ; // should be 64 bits?
-    uint32_t rip   ; // should be 64 bits?
-    uint32_t rflags   ; // should be 64 bits?
-    
-
-    struct VMCSSegment cs  ;
-    struct VMCSSegment ss  ;
-    struct VMCSSegment ds  ;
-    struct VMCSSegment es  ;
-    struct VMCSSegment fs  ;
-    struct VMCSSegment gs  ;
-    struct VMCSSegment ldtr  ;
-    struct VMCSSegment tr  ;
-
-    struct VMCSSegment gdtr  ;
-    struct VMCSSegment idtr ;
-
-    // MSRs
-    uint64_t dbg_ctrl     ; 
-    uint32_t sysenter_cs    ;
-    uint64_t sysenter_esp   ; // should be 64 bits?
-    uint64_t sysenter_eip   ; // should be 64 bits?
-
-    uint32_t smbase         ; 
-    
-    /* (1.2) Guest Non-register State */
-    uint32_t activity       ; /* (0=Active, 1=HLT, 2=Shutdown, 3=Wait-for-SIPI) 
-			       (listed in MSR: IA32_VMX_MISC) */
-
-    uint32_t interrupt_state  ; // see Table 20-3 (page 20-6) INTEL MANUAL 3B 
-
-    uint64_t pending_dbg_exceptions  ; // should be 64 bits?
-    /* Table 20-4 page 20-8 INTEL MANUAL 3B */
-    
-    uint64_t vmcs_link   ; // should be set to 0xffffffff_ffffffff
-};
-
-
-int CopyOutVMCSGuestStateArea(struct VMCSGuestStateArea * p);
-int CopyInVMCSGuestStateArea(struct VMCSGuestStateArea * p);
-
-
-
-struct VMCSHostStateArea {
-    /* (2) Host State Area */
-    addr_t cr0  ; 
-    addr_t cr3   ; 
-    addr_t cr4   ; 
-    addr_t rsp   ; 
-    addr_t rip   ; 
-
-    addr_t csSelector ;
-    addr_t ssSelector ;
-    addr_t dsSelector ;
-    addr_t esSelector ;
-    addr_t fsSelector ;
-    addr_t gsSelector ;
-    addr_t trSelector ;
-
-    addr_t fsBaseAddr ; 
-    addr_t gsBaseAddr ; 
-    addr_t trBaseAddr ; 
-    addr_t gdtrBaseAddr ; 
-    addr_t idtrBaseAddr ; 
-    
-
-    /* MSRs */
-    uint32_t sysenter_cs ;
-    addr_t sysenter_esp ; 
-    addr_t sysenter_eip ; 
-
-};
-
-int CopyOutVMCSHostStateArea(struct VMCSHostStateArea *p);
-int CopyInVMCSHostStateArea(struct VMCSHostStateArea *p);
+struct vmcs_pending_debug {
+    uint32_t    B0  : 1;
+    uint32_t    B1  : 1;
+    uint32_t    B2  : 1;
+    uint32_t    B3  : 1;
+    uint32_t    rsvd1   : 8;
+    uint32_t    break_enabled   : 1;
+    uint32_t    rsvd2   :   1;
+    uint32_t    bs      :   1;
+    uint32_t    rsvd3   :   50;
+} __attribute__((packed));
 
 
 struct VMCSExecCtrlFields {
@@ -508,17 +435,10 @@ int CopyOutVMCSExitInfoFields(struct VMCSExitInfoFields *p);
 
 
 
-struct VMCSData {
+typedef struct vmcs_data {
     uint32_t revision ;
     uint32_t abort    ;
-    uint32_t exitCtrlFlags;
-    struct VMCSGuestStateArea guestStateArea ; 
-    struct VMCSHostStateArea hostStateArea ;
-    struct VMCSExecCtrlFields execCtrlFields ;
-    struct VMCSExitCtrlFields exitCtrlFields ;
-    struct VMCSEntryCtrlFields entryCtrlFields ;
-    struct VMCSExitInfoFields exitInfoFields ;
-};
+} __attribute__((packed)) vmcs_data_t;
 
 
 int CopyOutVMCSData(struct VMCSData *p);
