@@ -565,7 +565,8 @@ static int get_memory_operand(struct guest_info * info,  xed_decoded_inst_t * xe
     addr_t scale;
     addr_t index;
     ullong_t displacement;
-    int addr_width = v3_get_addr_width(info);;
+    int addr_width = v3_get_addr_width(info);
+    v3_cpu_mode_t cpu_mode = v3_get_vm_cpu_mode(info);
     // struct v3_segment * seg_reg;
 
     PrintDebug("Xed mode = %s\n", xed_machine_mode_enum_t2str(xed_state_get_machine_mode(info->decoder_state)));
@@ -645,7 +646,7 @@ static int get_memory_operand(struct guest_info * info,  xed_decoded_inst_t * xe
 
     // This is a horrendous hack...
     // XED really screwed the pooch in calculating the displacement
-    if (v3_get_vm_cpu_mode(info) == LONG) {
+    if (cpu_mode == LONG) {
 	displacement = mem_op.displacement;
     } else {
 	displacement = MASK(mem_op.displacement, mem_op.displacement_size);
@@ -654,7 +655,11 @@ static int get_memory_operand(struct guest_info * info,  xed_decoded_inst_t * xe
     PrintDebug("Seg=%p, base=%p, index=%p, scale=%p, displacement=%p\n", 
 	       (void *)seg, (void *)base, (void *)index, (void *)scale, (void *)(addr_t)displacement);
   
-    operand->operand = MASK((seg + base + (scale * index) + displacement), addr_width);
+    if (cpu_mode == REAL) {
+	operand->operand = seg +  MASK((base + (scale * index) + displacement), addr_width);
+    } else {
+	operand->operand = MASK((seg + base + (scale * index) + displacement), addr_width);
+    }
 
     return 0;
 }
