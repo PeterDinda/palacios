@@ -52,11 +52,8 @@ static int emulate_string_write_op(struct guest_info * info, struct x86_instr * 
 			 (0x1000 - PAGE_OFFSET_4KB(write_gva)));
   
     /* ** Fix emulation length so that it doesn't overrun over the src page either ** */
-    tmp_rcx = emulation_length;
+    tmp_rcx = emulation_length / dec_instr->dst_operand.size;
   
-
-
-
     if (dec_instr->op_type == V3_OP_MOVS) {
 
 	// figure out addresses here....
@@ -294,7 +291,7 @@ int v3_emulate_write_op(struct guest_info * info, addr_t write_gva, addr_t write
     int dst_op_len = 0;
 
     PrintDebug("Emulating Write for instruction at %p\n", (void *)(addr_t)(info->rip));
-    PrintDebug("GVA=%p\n", (void *)write_gva);
+    PrintDebug("GVA=%p Dst_Addr=%p\n", (void *)write_gva, (void *)dst_addr);
 
     if (info->mem_mode == PHYSICAL_MEM) { 
 	ret = read_guest_pa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
@@ -394,10 +391,12 @@ int v3_emulate_read_op(struct guest_info * info, addr_t read_gva, addr_t read_gp
     } else { 
 	ret = read_guest_va_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
     }
-
+    
     if (ret == -1) {
+	PrintError("Could not read instruction for Emulated Read at %p\n", (void *)(addr_t)(info->rip));
 	return -1;
     }
+
 
     if (v3_decode(info, (addr_t)instr, &dec_instr) == -1) {
 	PrintError("Decoding Error\n");
@@ -415,8 +414,8 @@ int v3_emulate_read_op(struct guest_info * info, addr_t read_gva, addr_t read_gp
     if (info->shdw_pg_mode == SHADOW_PAGING) {
 	if ((dec_instr.src_operand.type != MEM_OPERAND) ||
 	    (dec_instr.src_operand.operand != read_gva)) {
-	    PrintError("Inconsistency between Pagefault and Instruction Decode XED_ADDR=%p, PF_ADDR=%p\n",
-		       (void *)dec_instr.src_operand.operand, (void *)read_gva);
+	    PrintError("Inconsistency between Pagefault and Instruction Decode XED_ADDR=%p, PF_ADDR=%p operand_type=%d\n",
+		       (void *)dec_instr.src_operand.operand, (void *)read_gva, dec_instr.src_operand.type);
 	    return -1;
 	}
     } else {
