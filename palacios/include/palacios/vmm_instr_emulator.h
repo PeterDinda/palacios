@@ -342,7 +342,7 @@
 		      "pop %0; "					\
 		      "popf; "						\
 		      : "=q"(*flags)					\
-		      : "D"(*(uint32_t *)dst),"a"(*(uint32_t *)src),"c"(*(uint32_t *)ecx),"q"(*flags) \
+		      : "D"(*dst),"a"(*src),"c"(*ecx),"q"(*flags)	\
 		      );						\
 	*flags |= flags_rsvd;						\
     }
