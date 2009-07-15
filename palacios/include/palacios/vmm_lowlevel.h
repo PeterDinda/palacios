@@ -20,7 +20,7 @@
 #include <palacios/vmm_types.h>
 
 
-#define CPUID_FEATURE_IDS 0x80000001
+#define CPUID_FEATURE_IDS 0x00000001
 #define CPUID_EXT_FEATURE_IDS 0x80000001
 
 

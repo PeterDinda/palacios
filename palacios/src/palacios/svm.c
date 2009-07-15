@@ -367,11 +367,11 @@ int v3_is_svm_capable() {
     uint_t vm_cr_low = 0, vm_cr_high = 0;
     addr_t eax = 0, ebx = 0, ecx = 0, edx = 0;
 
-    v3_cpuid(CPUID_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
+    v3_cpuid(CPUID_EXT_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
   
-    PrintDebug("CPUID_FEATURE_IDS_ecx=%p\n", (void *)ecx);
+    PrintDebug("CPUID_EXT_FEATURE_IDS_ecx=%p\n", (void *)ecx);
 
-    if ((ecx & CPUID_FEATURE_IDS_ecx_svm_avail) == 0) {
+    if ((ecx & CPUID_EXT_FEATURE_IDS_ecx_svm_avail) == 0) {
       PrintDebug("SVM Not Available\n");
       return 0;
     }  else {
@@ -419,7 +419,7 @@ static int has_svm_nested_paging() {
 
     v3_cpuid(CPUID_SVM_REV_AND_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
 
-    //PrintDebug("CPUID_FEATURE_IDS_edx=0x%x\n", edx);
+    //PrintDebug("CPUID_EXT_FEATURE_IDS_edx=0x%x\n", edx);
 
     if ((edx & CPUID_SVM_REV_AND_FEATURE_IDS_edx_np) == 0) {
 	PrintDebug("SVM Nested Paging not supported\n");

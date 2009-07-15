@@ -31,8 +31,7 @@
 #include <palacios/vmcb.h>
 #include <palacios/vmm_util.h>
 
-#define CPUID_FEATURE_IDS 0x80000001
-#define CPUID_FEATURE_IDS_ecx_svm_avail 0x00000004
+#define CPUID_EXT_FEATURE_IDS_ecx_svm_avail 0x00000004
 
 #define CPUID_SVM_REV_AND_FEATURE_IDS 0x8000000a
 #define CPUID_SVM_REV_AND_FEATURE_IDS_edx_svml 0x00000004
