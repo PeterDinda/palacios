@@ -342,6 +342,141 @@ int VMLaunch(struct VMDescriptor *vm)
 //
 //
 
+static int update_vmcs_host_state(struct guest_info * info) {
+    addr_t tmp;
+
+    struct {
+	uint16 limit;
+	addr_t base;
+    } __attribute__((packed)) tmp_seg;
+
+
+    struct v3_msr tmp_msr;
+
+    __asm__ __volatile__ ( "movq    %%cr0, %1; "		
+			   : "=q"(tmp)
+			   :
+    );
+    vmcs_write(HOST_CR0, tmp);
+
+
+    __asm__ __volatile__ ( "movq %%cr3, %0; "		
+			   : "=q"(tmp)
+			   :
+    );
+    vmcs_write(HOST_CR3, tmp);
+
+
+    __asm__ __volatile__ ( "movq %%cr4, %0; "		
+			   : "=q"(tmp)
+			   :
+    );
+    vmcs_write(HOST_CR4, tmp);
+
+
+
+
+    __asm__ __volatile__ ("sgdt (%0); "
+			  : 
+			  :"q"(&tmp_seg)
+			  : "memory"
+			  );
+    vmcs_write(HOST_GDTR_BASE, tmp_seg.base);
+
+
+    __asm__ __volatile__ ("sidt (%0); "
+			  : 
+			  :"q"(&tmp_seg)
+			  : "memory"
+		  );
+    vmcs_write(HOST_IDTR_BASE, tmp_seg.base);
+
+
+    __asm__ __volatile__ ("str (%0); "
+			  : 
+			  :"q"(&tmp_seg)
+			  : "memory"
+			  );
+    vmcs_write(HOST_TR_BASE, tmp_seg.base);
+
+
+#define FS_BASE_MSR 0xc0000100
+#define GS_BASE_MSR 0xc0000101
+
+    // FS.BASE MSR
+    v3_get_msr(FS_BASE_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
+    vmcs_write(HOST_FS_BASE, tmp_msr.value);    
+
+    // GS.BASE MSR
+    v3_get_msr(GS_BASE_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
+    vmcs_write(HOST_GS_BASE, tmp_msr.value);    
+
+
+
+    __asm__ __volatile__ ( "movq %%cs, %0; "		
+			   : "=q"(tmp)
+			   :
+    );
+    vmcs_write(VMCS_HOST_CS_SELECTOR, tmp);
+
+    __asm__ __volatile__ ( "movq %%ss, %0; "		
+			   : "=q"(tmp)
+			   :
+    );
+    vmcs_write(VMCS_HOST_SS_SELECTOR, tmp);
+
+    __asm__ __volatile__ ( "movq %%ds, %0; "		
+			   : "=q"(tmp)
+			   :
+    );
+    vmcs_write(VMCS_HOST_DS_SELECTOR, tmp);
+
+    __asm__ __volatile__ ( "movq %%fs, %0; "		
+			   : "=q"(tmp)
+			   :
+    );
+    vmcs_write(VMCS_HOST_FS_SELECTOR, tmp);
+
+    __asm__ __volatile__ ( "movq %%gs, %0; "		
+			   : "=q"(tmp)
+			   :
+    );
+    vmcs_write(VMCS_HOST_GS_SELECTOR, tmp);
+
+    __asm__ __volatile__ ( "movq %%tr, %0; "		
+			   : "=q"(tmp)
+			   :
+    );
+    vmcs_write(VMCS_HOST_TR_SELECTOR, tmp);
+
+
+#define SYSENTER_CS_MSR 0x00000174
+#define SYSENTER_ESP_MSR 0x00000175
+#define SYSENTER_EIP_MSR 0x00000176
+
+   // SYSENTER CS MSR
+    v3_get_msr(SYSENTER_CS_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
+    vmcs_write(HOST_IA32_SYSENTER_CS, tmp_msr.value);    
+
+    // SYSENTER_ESP MSR
+    v3_get_msr(SYSENTER_ESP_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
+    vmcs_write(HOST_IA32_SYSENTER_ESP, tmp_msr.value);    
+ 
+
+    // SYSENTER_EIP MSR
+    v3_get_msr(SYSENTER_EIP_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
+    vmcs_write(HOST_IA32_SYSENTER_EIP, tmp_msr.value);    
+
+
+    // RIP
+    // RSP
+
+    return 0;
+
+}
+
+
+
 
 // For the 32 bit reserved bit fields 
 // MB1s are in the low 32 bits, MBZs are in the high 32 bits of the MSR
