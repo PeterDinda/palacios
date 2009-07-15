@@ -102,7 +102,7 @@ static int xed_reg_to_v3_reg(struct guest_info * info, xed_reg_enum_t xed_reg, a
 static int get_memory_operand(struct guest_info * info,  xed_decoded_inst_t * xed_instr, uint_t index, struct x86_operand * operand);
 
 static int set_decoder_mode(struct guest_info * info, xed_state_t * state) {
-    switch (info->cpu_mode) {
+    switch (v3_get_vm_cpu_mode(info)) {
 	case REAL:
 	    if (state->mmode != XED_MACHINE_MODE_LEGACY_16) {
 		xed_state_init(state,
