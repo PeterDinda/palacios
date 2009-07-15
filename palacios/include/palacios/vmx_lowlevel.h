@@ -56,7 +56,8 @@
 
 
 
-static inline int v3_enable_vmx(uint64_t host_state) {
+static inline int v3_enable_vmx(struct vmcs_data* vmxon_ptr) {
+    uint64_t vmxon_ptr_64 = (uint64_t)vmxon_ptr;
     uint8_t ret_invalid = 0;
 
     __asm__ __volatile__ (
@@ -64,7 +65,7 @@ static inline int v3_enable_vmx(uint64_t host_state) {
                 EAX_06_MODRM
                 "setnaeb %0;" // fail invalid (CF=1)
                 : "=q"(ret_invalid)
-                : "a"(&host_state),"0"(ret_invalid)
+                : "a"(&vmxon_ptr_64),"0"(ret_invalid)
                 : "memory");
 
     if (ret_invalid) {
@@ -76,7 +77,8 @@ static inline int v3_enable_vmx(uint64_t host_state) {
 
 // No vmcall necessary - is only executed by the guest
 
-static inline int vmcs_clear(uint64_t addr) {
+static inline int vmcs_clear(struct vmcs_data* vmcs_ptr) {
+    uint64_t vmcs_ptr_64 = (uint64_t)vmcs_ptr;
     uint8_t ret_valid = 0;
     uint8_t ret_invalid = 0;
 
@@ -86,7 +88,7 @@ static inline int vmcs_clear(uint64_t addr) {
             "seteb %0;" // fail valid (ZF=1)
             "setnaeb %1;" // fail invalid (CF=1)
             : "=q"(ret_valid), "=q"(ret_invalid)
-            : "a"(&addr), "0"(ret_valid), "1"(ret_invalid)
+            : "a"(&vmcs_ptr_64), "0"(ret_valid), "1"(ret_invalid)
             : "memory");
 
     CHECK_VMXFAIL(ret_valid, ret_invalid);
@@ -113,8 +115,8 @@ static inline int vmcs_resume() {
 }
 
 
-static inline int vmcs_load(vmcs_t * vmcs_ptr) {
-    uint64_t addr = (uint64_t)vmcs_ptr;
+static inline int vmcs_load(struct vmcs_data* vmcs_ptr) {
+    uint64_t vmcs_ptr_64 = (uint64_t)vmcs_ptr;
     uint8_t ret_valid = 0;
     uint8_t ret_invalid = 0;
     
@@ -124,7 +126,7 @@ static inline int vmcs_load(vmcs_t * vmcs_ptr) {
                 "seteb %0;" // fail valid (ZF=1)
                 "setnaeb %1;"  // fail invalid (CF=1)
                 : "=q"(ret_valid), "=q"(ret_invalid)
-                : "a"(&addr), "0"(ret_valid), "1"(ret_invalid)
+                : "a"(&vmcs_ptr_64), "0"(ret_valid), "1"(ret_invalid)
                 : "memory");
     
     CHECK_VMXFAIL(ret_valid, ret_invalid);
@@ -132,23 +134,21 @@ static inline int vmcs_load(vmcs_t * vmcs_ptr) {
     return VMX_SUCCESS;
 }
 
-static inline int vmcs_store(vmcs_t * vmcs_ptr) {
-    uint64_t addr = (uint64_t)vmcs_ptr;
+static inline int vmcs_store(struct vmcs_data* vmcs_ptr) {
+    uint64_t vmcs_ptr_64 = (uint64_t)vmcs_ptr;
 
     __asm__ __volatile__ (
                VMPTRSRT_OPCODE
                EAX_07_MODRM
                :
-               : "a"(&addr)
+               : "a"(&vmcs_ptr_64)
                : "memory");
 
     return VMX_SUCCESS;
 }
 
-/* According to Intel, vmread will return an architecure sized type - be sure that
- * dst is at least 64-bits in IA-32e and 32 otherwise */
 static inline int vmcs_read(addr_t vmcs_index, void * dst, int len) {
-    addr_t val = 0;
+    uint64_t val = 0;
     uint8_t ret_valid = 0;
     uint8_t ret_invalid = 0;
 
@@ -165,7 +165,19 @@ static inline int vmcs_read(addr_t vmcs_index, void * dst, int len) {
     CHECK_VMXFAIL(ret_valid, ret_invalid);
 
     // TODO: Fix this, will have to do a cast because dst will be variable length
-    *dst = val;
+    switch(len)
+    {
+        case 2:
+            *((uint16_t*)dst) = (uint16_t)val;
+            break;
+        case 4:
+            *((uint32_t*)dst) = (uint32_t)val;
+            break;
+        case 8:
+            *((uint64_t*)dst) = (uint64_t)val;
+            break;
+    }
+
 
     return VMX_SUCCESS;
 }

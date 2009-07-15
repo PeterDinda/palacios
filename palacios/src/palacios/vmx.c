@@ -75,6 +75,7 @@ uint_t myregs = 0;
 
 
 
+static struct vmcs_data* vmxon_ptr;
 
 
 
@@ -398,7 +399,9 @@ static vmcs_data* allocate_vmcs() {
 
 
 
-static void init_vmcs_bios(vmcs_t * vmcs, struct guest_info * vm_info) {
+static void init_vmcs_bios(struct guest_info * vm_info) 
+{
+
 
 }
 
@@ -410,14 +413,14 @@ static int init_vmx_guest(struct guest_info * info, struct v3_vm_config * config
     struct vmx_data* data;
 
     PrintDebug("Allocating vmx_data\n");
-    data = (struct vmx_data*)V3_Malloc(sizeof(vmx_data));
+    data = (struct vmx_data*)V3_Malloc(sizeof(struct vmx_data));
     PrintDebug("Allocating VMCS\n");
     data->vmcs = allocate_vmcs();
 
     info->vmm_data = (void*)data;
 
-    PrintDebug("Initializing VMCS (addr=%p)\n", (void *)info->vmm_data);
-    init_vmcs_bios((vmcs_t *)(info->vmm_data), info);
+    PrintDebug("Initializing VMCS (addr=%p)\n", info->vmm_data);
+    init_vmcs_bios((struct vmx_data*)(info->vmm_data), info);
 
     v3_post_config_guest(info, config_ptr);
 
@@ -427,7 +430,23 @@ static int init_vmx_guest(struct guest_info * info, struct v3_vm_config * config
 
 
 
-static int start_svm_guest(struct guest_info *info) {
+static int start_vmx_guest(struct guest_info *info) {
+    struct vmx_data* vmx_data = (struct vmx_data*)info->vmm_data;
+    int vmx_ret;
+
+    // Have to do a whole lot of flag setting here
+    vmx_ret = vmcs_clear(vmx_data->vmcs);
+    if(vmx_ret != VMX_SUCCESS) {
+        PrintDebug("VMCS Clear failed\n");
+        return -1;
+    }
+    vmx_ret = vmcs_load(vmx_data->vmcs);
+    if(vmx_ret != VMX_SUCCESS) {
+        PrintDebug("Executing VMPTRLD\n");
+        return -1;
+    }
+
+    // Setup guest state
     return -1;
 }
 
@@ -454,8 +473,8 @@ int v3_is_vmx_capable() {
 	}
 
     } else {
-	PrintDebug("VMX not supported on this cpu\n");
-	return 0;
+        PrintDebug("VMX not supported on this cpu\n");
+        return 0;
     }
 
     return 1;
@@ -490,15 +509,7 @@ static int setup_base_host_state() {
 void v3_init_vmx(struct v3_ctrl_ops * vm_ops) {
     v3_msr_t basic_msr;
 
-    // Setup the host state save area
-    void * host_state = V3_AllocPages(1);
-
-    v3_get_msr(VMX_BASIC_MSR, &(basic_msr.hi), &(basic_msr.lo));
     
-    *(uint32_t *)host_state = ((struct vmx_basic_msr *)basic_msr.value)->revision;
-    
-    PrintDebug("VMX revision: 0x%p\n", host_state);
-
     __asm__ __volatile__ (
 			  "movl %%cr4, %%ebx; "
 			  "orl  %%ebx, 0x00002000; "
@@ -514,19 +525,22 @@ void v3_init_vmx(struct v3_ctrl_ops * vm_ops) {
 			  "movl %%ebx, %%cr0"
 			  );
 
+    // Setup VMXON Region
+    vmxon_ptr = allocate_vmcs();
+    PrintDebug("VMX revision: 0x%p\n", (void*)vmxon_ptr);
 
-    if (v3_enable_vmx(host_state) == 0) {
-	PrintDebug("VMX Enabled\n");
+    if (v3_enable_vmx(vmxon_ptr) == 0) {
+        PrintDebug("VMX Enabled\n");
     } else {
-	PrintError("VMX initialization failure\n");
-	return;
+        PrintError("VMX initialization failure\n");
+        return;
     }
 	
 
     if (has_vmx_nested_paging() == 1) {
-	v3_cpu_type = V3_VMX_EPT_CPU;
+        v3_cpu_type = V3_VMX_EPT_CPU;
     } else {
-	v3_cpu_type = V3_VMX_CPU;
+        v3_cpu_type = V3_VMX_CPU;
     }
 
     // Setup the VMX specific vmm operations

@@ -28,208 +28,181 @@
 
 #include <palacios/vmm_types.h>
 
+typedef enum {
+    VMCS_GUEST_ES_SELECTOR       = 0x00000800,
+    VMCS_GUEST_CS_SELECTOR       = 0x00000802,
+    VMCS_GUEST_SS_SELECTOR       = 0x00000804,
+    VMCS_GUEST_DS_SELECTOR       = 0x00000806,
+    VMCS_GUEST_FS_SELECTOR       = 0x00000808,
+    VMCS_GUEST_GS_SELECTOR       = 0x0000080A,
+    VMCS_GUEST_LDTR_SELECTOR     = 0x0000080C,
+    VMCS_GUEST_TR_SELECTOR       = 0x0000080E,
+    /* 16 bit host state */
+    VMCS_HOST_ES_SELECTOR        = 0x00000C00,
+    VMCS_HOST_CS_SELECTOR        = 0x00000C02,
+    VMCS_HOST_SS_SELECTOR        = 0x00000C04,
+    VMCS_HOST_DS_SELECTOR        = 0x00000C06,
+    VMCS_HOST_FS_SELECTOR        = 0x00000C08,
+    VMCS_HOST_GS_SELECTOR        = 0x00000C0A,
+    VMCS_HOST_TR_SELECTOR        = 0x00000C0C,
+    /* 64 bit control fields */
+    IO_BITMAP_A_ADDR             = 0x00002000,
+    IO_BITMAP_A_ADDR_HIGH        = 0x00002001,
+    IO_BITMAP_B_ADDR             = 0x00002002,
+    IO_BITMAP_B_ADDR_HIGH        = 0x00002003,
+    MSR_BITMAPS                  = 0x00002004,
+    MSR_BITMAPS_HIGH             = 0x00002005,
+    VM_EXIT_MSR_STORE_ADDR       = 0x00002006,
+    VM_EXIT_MSR_STORE_ADDR_HIGH  = 0x00002007,
+    VM_EXIT_MSR_LOAD_ADDR        = 0x00002008,
+    VM_EXIT_MSR_LOAD_ADDR_HIGH   = 0x00002009,
+    VM_ENTRY_MSR_LOAD_ADDR       = 0x0000200A,
+    VM_ENTRY_MSR_LOAD_ADDR_HIGH  = 0x0000200B,
+    VMCS_EXEC_PTR                = 0x0000200C,
+    VMCS_EXEC_PTR_HIGH           = 0x0000200D,
+    TSC_OFFSET                   = 0x00002010,
+    TSC_OFFSET_HIGH              = 0x00002011,
+    VIRT_APIC_PAGE_ADDR          = 0x00002012,
+    VIRT_APIC_PAGE_ADDR_HIGH     = 0x00002013,
+    /* 64 bit guest state fields */
+    VMCS_LINK_PTR                = 0x00002800,
+    VMCS_LINK_PTR_HIGH           = 0x00002801,
+    GUEST_IA32_DEBUGCTL          = 0x00002802,
+    GUEST_IA32_DEBUGCTL_HIGH     = 0x00002803,
+    GUEST_IA32_PERF_GLOBAL_CTRL  = 0x00002808,
+    GUEST_IA32_PERF_GLOBAL_CTRL_HIGH = 0x00002809,
+    /* 32 bit control fields */
+    PIN_VM_EXEC_CTRLS            = 0x00004000,
+    PROC_VM_EXEC_CTRLS           = 0x00004002,
+    EXCEPTION_BITMAP             = 0x00004004,
+    PAGE_FAULT_ERROR_MASK        = 0x00004006,
+    PAGE_FAULT_ERROR_MATCH       = 0x00004008,
+    CR3_TARGET_COUNT             = 0x0000400A,
+    VM_EXIT_CTRLS                = 0x0000400C,
+    VM_EXIT_MSR_STORE_COUNT      = 0x0000400E,
+    VM_EXIT_MSR_LOAD_COUNT       = 0x00004010,
+    VM_ENTRY_CTRLS               = 0x00004012,
+    VM_ENTRY_MSR_LOAD_COUNT      = 0x00004014,
+    VM_ENTRY_INT_INFO_FIELD      = 0x00004016,
+    VM_ENTRY_EXCEPTION_ERROR     = 0x00004018,
+    VM_ENTRY_INSTR_LENGTH        = 0x0000401A,
+    TPR_THRESHOLD                = 0x0000401C,
+    /* 32 bit Read Only data fields */
+    VM_INSTR_ERROR               = 0x00004400,
+    EXIT_REASON                  = 0x00004402,
+    VM_EXIT_INT_INFO             = 0x00004404,
+    VM_EXIT_INT_ERROR            = 0x00004406,
+    IDT_VECTOR_INFO              = 0x00004408,
+    IDT_VECTOR_ERROR             = 0x0000440A,
+    VM_EXIT_INSTR_LENGTH         = 0x0000440C,
+    VMX_INSTR_INFO               = 0x0000440E,
+    /* 32 bit Guest state fields */
+    GUEST_ES_LIMIT               = 0x00004800,
+    GUEST_CS_LIMIT               = 0x00004802,
+    GUEST_SS_LIMIT               = 0x00004804,
+    GUEST_DS_LIMIT               = 0x00004806,
+    GUEST_FS_LIMIT               = 0x00004808,
+    GUEST_GS_LIMIT               = 0x0000480A,
+    GUEST_LDTR_LIMIT             = 0x0000480C,
+    GUEST_TR_LIMIT               = 0x0000480E,
+    GUEST_GDTR_LIMIT             = 0x00004810,
+    GUEST_IDTR_LIMIT             = 0x00004812,
+    GUEST_ES_ACCESS              = 0x00004814,
+    GUEST_CS_ACCESS              = 0x00004816,
+    GUEST_SS_ACCESS              = 0x00004818,
+    GUEST_DS_ACCESS              = 0x0000481A,
+    GUEST_FS_ACCESS              = 0x0000481C,
+    GUEST_GS_ACCESS              = 0x0000481E,
+    GUEST_LDTR_ACCESS            = 0x00004820,
+    GUEST_TR_ACCESS              = 0x00004822,
+    GUEST_INT_STATE              = 0x00004824,
+    GUEST_ACTIVITY_STATE         = 0x00004826,
+    GUEST_SMBASE                 = 0x00004828,
+    GUEST_IA32_SYSENTER_CS       = 0x0000482A,
+    /* 32 bit host state field */
+    HOST_IA32_SYSENTER_CS        = 0x00004C00,
+    /* Natural Width Control Fields */
+    CR0_GUEST_HOST_MASK          = 0x00006000,
+    CR4_GUEST_HOST_MASK          = 0x00006002,
+    CR0_READ_SHADOW              = 0x00006004,
+    CR4_READ_SHADOW              = 0x00006006,
+    CR3_TARGET_VALUE_0           = 0x00006008,
+    CR3_TARGET_VALUE_1           = 0x0000600A,
+    CR3_TARGET_VALUE_2           = 0x0000600C,
+    CR3_TARGET_VALUE_3           = 0x0000600E,
+    /* Natural Width Read Only Fields */
+    EXIT_QUALIFICATION           = 0x00006400,
+    IO_RCX                       = 0x00006402,
+    IO_RSI                       = 0x00006404,
+    IO_RDI                       = 0x00006406,
+    IO_RIP                       = 0x00006408,
+    GUEST_LINEAR_ADDR            = 0x0000640A,
+    /* Natural Width Guest State Fields */
+    GUEST_CR0                    = 0x00006800,
+    GUEST_CR3                    = 0x00006802,
+    GUEST_CR4                    = 0x00006804,
+    GUEST_ES_BASE                = 0x00006806,
+    GUEST_CS_BASE                = 0x00006808,
+    GUEST_SS_BASE                = 0x0000680A,
+    GUEST_DS_BASE                = 0x0000680C,
+    GUEST_FS_BASE                = 0x0000680E,
+    GUEST_GS_BASE                = 0x00006810,
+    GUEST_LDTR_BASE              = 0x00006812,
+    GUEST_TR_BASE                = 0x00006814,
+    GUEST_GDTR_BASE              = 0x00006816,
+    GUEST_IDTR_BASE              = 0x00006818,
+    GUEST_DR7                    = 0x0000681A,
+    GUEST_RSP                    = 0x0000681C,
+    GUEST_RIP                    = 0x0000681E,
+    GUEST_RFLAGS                 = 0x00006820,
+    GUEST_PENDING_DEBUG_EXCS     = 0x00006822,
+    GUEST_IA32_SYSENTER_ESP      = 0x00006824,
+    GUEST_IA32_SYSENTER_EIP      = 0x00006826,
+    /* Natural Width Host State Fields */
+    HOST_CR0                     = 0x00006C00,
+    HOST_CR3                     = 0x00006C02,
+    HOST_CR4                     = 0x00006C04,
+    HOST_FS_BASE                 = 0x00006C06,
+    HOST_GS_BASE                 = 0x00006C08,
+    HOST_TR_BASE                 = 0x00006C0A,
+    HOST_GDTR_BASE               = 0x00006C0C,
+    HOST_IDTR_BASE               = 0x00006C0E,
+    HOST_IA32_SYSENTER_ESP       = 0x00006C10,
+    HOST_IA32_SYSENTER_EIP       = 0x00006C12,
+    HOST_RSP                     = 0x00006C14,
+    HOST_RIP                     = 0x00006C16,
+    /* Pin Based VM Execution Controls */
+    /* INTEL MANUAL: 20-10 vol 3B */
+    EXTERNAL_INTERRUPT_EXITING   = 0x00000001,
+    NMI_EXITING                  = 0x00000008,
+    VIRTUAL_NMIS                 = 0x00000020,
+    /* Processor Based VM Execution Controls */
+    /* INTEL MANUAL: 20-11 vol. 3B */
+    INTERRUPT_WINDOWS_EXIT       = 0x00000004,
+    USE_TSC_OFFSETTING           = 0x00000008,
+    HLT_EXITING                  = 0x00000080,
+    INVLPG_EXITING               = 0x00000200,
+    MWAIT_EXITING                = 0x00000400,
+    RDPMC_EXITING                = 0x00000800,
+    RDTSC_EXITING                = 0x00001000,
+    CR8_LOAD_EXITING             = 0x00080000,
+    CR8_STORE_EXITING            = 0x00100000,
+    USE_TPR_SHADOW               = 0x00200000,
+    NMI_WINDOW_EXITING           = 0x00400000,
+    MOVDR_EXITING                = 0x00800000,
+    UNCONDITION_IO_EXITING       = 0x01000000,
+    USE_IO_BITMAPS               = 0x02000000,
+    USE_MSR_BITMAPS              = 0x10000000,
+    MONITOR_EXITING              = 0x20000000,
+    PAUSE_EXITING                = 0x40000000,
+    /* VM-Exit Controls */
+    /* INTEL MANUAL: 20-16 vol. 3B */
+    HOST_ADDR_SPACE_SIZE         = 0x00000200,
+    ACK_IRQ_ON_EXIT              = 0x00008000
+} vmcs_field_t;
 
-/* 16 bit guest state */
-#define VMCS_GUEST_ES_SELECTOR       0x00000800
-#define VMCS_GUEST_CS_SELECTOR       0x00000802
-#define VMCS_GUEST_SS_SELECTOR       0x00000804
-#define VMCS_GUEST_DS_SELECTOR       0x00000806
-#define VMCS_GUEST_FS_SELECTOR       0x00000808
-#define VMCS_GUEST_GS_SELECTOR       0x0000080A
-#define VMCS_GUEST_LDTR_SELECTOR     0x0000080C
-#define VMCS_GUEST_TR_SELECTOR       0x0000080E
-
-/* 16 bit host state */
-#define VMCS_HOST_ES_SELECTOR        0x00000C00
-#define VMCS_HOST_CS_SELECTOR        0x00000C02
-#define VMCS_HOST_SS_SELECTOR        0x00000C04
-#define VMCS_HOST_DS_SELECTOR        0x00000C06
-#define VMCS_HOST_FS_SELECTOR        0x00000C08
-#define VMCS_HOST_GS_SELECTOR        0x00000C0A
-#define VMCS_HOST_TR_SELECTOR        0x00000C0C
-
-/* 64 bit control fields */
-#define IO_BITMAP_A_ADDR             0x00002000
-#define IO_BITMAP_A_ADDR_HIGH        0x00002001
-#define IO_BITMAP_B_ADDR             0x00002002
-#define IO_BITMAP_B_ADDR_HIGH        0x00002003
-// Only with "Use MSR Bitmaps" enabled
-#define MSR_BITMAPS                  0x00002004
-#define MSR_BITMAPS_HIGH             0x00002005
-//
-#define VM_EXIT_MSR_STORE_ADDR       0x00002006
-#define VM_EXIT_MSR_STORE_ADDR_HIGH  0x00002007
-#define VM_EXIT_MSR_LOAD_ADDR        0x00002008
-#define VM_EXIT_MSR_LOAD_ADDR_HIGH   0x00002009
-#define VM_ENTRY_MSR_LOAD_ADDR       0x0000200A
-#define VM_ENTRY_MSR_LOAD_ADDR_HIGH  0x0000200B
-#define VMCS_EXEC_PTR                0x0000200C
-#define VMCS_EXEC_PTR_HIGH           0x0000200D
-#define TSC_OFFSET                   0x00002010
-#define TSC_OFFSET_HIGH              0x00002011
-// Only with "Use TPR Shadow" enabled
-#define VIRT_APIC_PAGE_ADDR          0x00002012  
-#define VIRT_APIC_PAGE_ADDR_HIGH     0x00002013
-//
-
-
-/* 64 bit guest state fields */
-#define VMCS_LINK_PTR                0x00002800
-#define VMCS_LINK_PTR_HIGH           0x00002801
-#define GUEST_IA32_DEBUGCTL          0x00002802
-#define GUEST_IA32_DEBUGCTL_HIGH     0x00002803
-#define GUEST_IA32_PERF_GLOBAL_CTRL  0x00002808
-#define GUEST_IA32_PERF_GLOBAL_CTRL_HIGH 0x00002809
-
-/* 32 bit control fields */
-#define PIN_VM_EXEC_CTRLS            0x00004000
-#define PROC_VM_EXEC_CTRLS           0x00004002
-#define EXCEPTION_BITMAP             0x00004004
-#define PAGE_FAULT_ERROR_MASK        0x00004006
-#define PAGE_FAULT_ERROR_MATCH       0x00004008
-#define CR3_TARGET_COUNT             0x0000400A
-#define VM_EXIT_CTRLS                0x0000400C
-#define VM_EXIT_MSR_STORE_COUNT      0x0000400E
-#define VM_EXIT_MSR_LOAD_COUNT       0x00004010
-#define VM_ENTRY_CTRLS               0x00004012
-#define VM_ENTRY_MSR_LOAD_COUNT      0x00004014
-#define VM_ENTRY_INT_INFO_FIELD      0x00004016
-#define VM_ENTRY_EXCEPTION_ERROR     0x00004018
-#define VM_ENTRY_INSTR_LENGTH        0x0000401A
-// Only with "Use TPR Shadow" Enabled
-#define TPR_THRESHOLD                0x0000401C
-//
-
-
-
-
-/* 32 bit Read Only data fields */
-#define VM_INSTR_ERROR               0x00004400
-#define EXIT_REASON                  0x00004402
-#define VM_EXIT_INT_INFO             0x00004404
-#define VM_EXIT_INT_ERROR            0x00004406
-#define IDT_VECTOR_INFO              0x00004408
-#define IDT_VECTOR_ERROR             0x0000440A
-#define VM_EXIT_INSTR_LENGTH         0x0000440C
-#define VMX_INSTR_INFO               0x0000440E
-
-/* 32 bit Guest state fields */
-#define GUEST_ES_LIMIT               0x00004800
-#define GUEST_CS_LIMIT               0x00004802
-#define GUEST_SS_LIMIT               0x00004804
-#define GUEST_DS_LIMIT               0x00004806
-#define GUEST_FS_LIMIT               0x00004808
-#define GUEST_GS_LIMIT               0x0000480A
-#define GUEST_LDTR_LIMIT             0x0000480C
-#define GUEST_TR_LIMIT               0x0000480E
-#define GUEST_GDTR_LIMIT             0x00004810
-#define GUEST_IDTR_LIMIT             0x00004812
-#define GUEST_ES_ACCESS              0x00004814
-#define GUEST_CS_ACCESS              0x00004816
-#define GUEST_SS_ACCESS              0x00004818
-#define GUEST_DS_ACCESS              0x0000481A
-#define GUEST_FS_ACCESS              0x0000481C
-#define GUEST_GS_ACCESS              0x0000481E
-#define GUEST_LDTR_ACCESS            0x00004820
-#define GUEST_TR_ACCESS              0x00004822
-#define GUEST_INT_STATE              0x00004824
-#define GUEST_ACTIVITY_STATE         0x00004826
-#define GUEST_SMBASE                 0x00004828
-#define GUEST_IA32_SYSENTER_CS       0x0000482A
-
-
-/* 32 bit host state field */
-#define HOST_IA32_SYSENTER_CS        0x00004C00
-
-/* Natural Width Control Fields */
-#define CR0_GUEST_HOST_MASK          0x00006000
-#define CR4_GUEST_HOST_MASK          0x00006002
-#define CR0_READ_SHADOW              0x00006004
-#define CR4_READ_SHADOW              0x00006006
-#define CR3_TARGET_VALUE_0           0x00006008
-#define CR3_TARGET_VALUE_1           0x0000600A
-#define CR3_TARGET_VALUE_2           0x0000600C
-#define CR3_TARGET_VALUE_3           0x0000600E
-
-
-/* Natural Width Read Only Fields */
-#define EXIT_QUALIFICATION           0x00006400
-#define IO_RCX                       0x00006402
-#define IO_RSI                       0x00006404
-#define IO_RDI                       0x00006406
-#define IO_RIP                       0x00006408
-#define GUEST_LINEAR_ADDR            0x0000640A
-
-/* Natural Width Guest State Fields */
-#define GUEST_CR0                    0x00006800
-#define GUEST_CR3                    0x00006802
-#define GUEST_CR4                    0x00006804
-#define GUEST_ES_BASE                0x00006806
-#define GUEST_CS_BASE                0x00006808
-#define GUEST_SS_BASE                0x0000680A
-#define GUEST_DS_BASE                0x0000680C
-#define GUEST_FS_BASE                0x0000680E
-#define GUEST_GS_BASE                0x00006810
-#define GUEST_LDTR_BASE              0x00006812
-#define GUEST_TR_BASE                0x00006814
-#define GUEST_GDTR_BASE              0x00006816
-#define GUEST_IDTR_BASE              0x00006818
-#define GUEST_DR7                    0x0000681A
-#define GUEST_RSP                    0x0000681C
-#define GUEST_RIP                    0x0000681E
-#define GUEST_RFLAGS                 0x00006820
-#define GUEST_PENDING_DEBUG_EXCS     0x00006822
-#define GUEST_IA32_SYSENTER_ESP      0x00006824
-#define GUEST_IA32_SYSENTER_EIP      0x00006826
-
-
-/* Natural Width Host State Fields */
-#define HOST_CR0                     0x00006C00
-#define HOST_CR3                     0x00006C02
-#define HOST_CR4                     0x00006C04
-#define HOST_FS_BASE                 0x00006C06
-#define HOST_GS_BASE                 0x00006C08
-#define HOST_TR_BASE                 0x00006C0A
-#define HOST_GDTR_BASE               0x00006C0C
-#define HOST_IDTR_BASE               0x00006C0E
-#define HOST_IA32_SYSENTER_ESP       0x00006C10
-#define HOST_IA32_SYSENTER_EIP       0x00006C12
-#define HOST_RSP                     0x00006C14
-#define HOST_RIP                     0x00006C16
-
-/* Pin Based VM Execution Controls */
-/* INTEL MANUAL: 20-10 vol 3B */
-#define EXTERNAL_INTERRUPT_EXITING   0x00000001
-#define NMI_EXITING                  0x00000008
-#define VIRTUAL_NMIS                 0x00000020
-
-
-/* Processor Based VM Execution Controls */
-/* INTEL MANUAL: 20-11 vol. 3B */ 
-#define INTERRUPT_WINDOWS_EXIT       0x00000004
-#define USE_TSC_OFFSETTING           0x00000008
-#define HLT_EXITING                  0x00000080
-#define INVLPG_EXITING               0x00000200
-#define MWAIT_EXITING                0x00000400
-#define RDPMC_EXITING                0x00000800
-#define RDTSC_EXITING                0x00001000
-#define CR8_LOAD_EXITING             0x00080000
-#define CR8_STORE_EXITING            0x00100000
-#define USE_TPR_SHADOW               0x00200000
-#define NMI_WINDOW_EXITING           0x00400000
-#define MOVDR_EXITING                0x00800000
-#define UNCONDITION_IO_EXITING       0x01000000
-#define USE_IO_BITMAPS               0x02000000
-#define USE_MSR_BITMAPS              0x10000000
-#define MONITOR_EXITING              0x20000000
-#define PAUSE_EXITING                0x40000000
-
-/* VM-Exit Controls */
-/* INTEL MANUAL: 20-16 vol. 3B */
-#define HOST_ADDR_SPACE_SIZE         0x00000200
-#define ACK_IRQ_ON_EXIT              0x00008000
-
-
+int vmcs_field_length(vmcs_field_t field);
+char* vmcs_field_name(vmcs_field_t field);
 
 
 
@@ -322,7 +295,7 @@ struct vmcs_segment_access {
 	    uint32_t    rsvd2       : 15;
 	} __attribute__((packed));
     } __attribute__((packed));
-}__attribute__((packed);;
+}__attribute__((packed));
 
 
 struct vmcs_interrupt_state {

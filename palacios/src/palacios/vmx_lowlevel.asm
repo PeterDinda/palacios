@@ -54,150 +54,6 @@ EXPORT SAFE_VM_LAUNCH
 EXPORT Init_VMCS_HostState
 EXPORT Init_VMCS_GuestState
 	
-;
-; Enable_VMX - Turn on VMX
-;
-align 8
-Enable_VMX:
-	push 	ebp
-	mov	ebp, esp
-	push	ebx
-	mov	ebx, cr4
-	or	ebx, dword 0x00002000
-	mov 	cr4, ebx
-	mov 	ebx, cr0
-	or 	ebx, dword 0x80000021
-	mov 	cr0, ebx
-	vmxon	[ebp+8]
-	pop	ebx
-	pop	ebp
-	mov	eax, VMX_SUCCESS
-	jnc	.return
-	mov 	eax, VMX_FAIL_INVALID
-.return
-	ret
-
-	
-;
-; VMREAD  - read a value from a VMCS
-;
-align 8
-VMCS_READ:
-	push	ebp
-	mov 	ebp, esp
-	push	ecx
-	push 	ebx
-
-	mov 	ecx, [ebp + 8]
-	mov 	ebx,[ebp + 12]
-;	lea	ebx, ebp
-	vmread 	[ebx], ecx
-
-	pop	ebx
-	pop	ecx
-	pop 	ebp
-	jz	.error_code
-	jc	.error
-
-	mov	eax, VMX_SUCCESS
-	jmp	.return
-.error
-	mov	eax, VMX_FAIL_INVALID
-	jmp	.return
-.error_code
-	mov	eax, VMX_FAIL_VALID
-.return
-	ret
-
-;
-; VMWRITE - write a value to a VMCS
-align 8
-VMCS_WRITE:
-	push 	ebp
-	mov	ebp, esp
-	push	ebx
-
-	mov	eax, [ebp + 8]
-	mov 	ebx, [ebp + 12]
-	vmwrite	eax, [ebx]
-
-	pop	ebx
-	pop	ebp
-	jz	.error_code
-	jc	.error
-
-	mov	eax, VMX_SUCCESS
-	jmp	.return
-.error
-	mov	eax, VMX_FAIL_INVALID
-	jmp	.return
-.error_code
-	mov	eax, VMX_FAIL_VALID
-.return
-	ret
-
-;
-; VMCLEAR - Initializes a VMCS
-;
-align 8
-VMCS_CLEAR:
-	vmclear	[esp+4]
-	jz	.error_code
-	jc	.error
-
-	mov	eax, VMX_SUCCESS
-	jmp	.return
-.error
-	mov	eax, VMX_FAIL_INVALID
-	jmp	.return
-.error_code
-	mov	eax, VMX_FAIL_VALID
-.return
-	ret
-
-
-
-;
-; VMCS_LOAD - load a VMCS 
-;
-align 8
-VMCS_LOAD:
-	vmptrld	[esp+4]
-	jz	.error_code
-	jc	.error
-
-	mov	eax, VMX_SUCCESS
-	jmp	.return
-.error
-	mov	eax, VMX_FAIL_INVALID
-	jmp	.return
-.error_code
-	mov	eax, VMX_FAIL_VALID
-.return
-	ret
-
-
-
-;
-; VMCS_STORE - Store a VMCS
-;
-align 8
-VMCS_STORE:
-	mov	eax, [esp+4]
-	vmptrst	[eax]
-	jz	.error_code
-	jc	.error
-
-	mov	eax, VMX_SUCCESS
-	jmp	.return
-.error
-	mov	eax, VMX_FAIL_INVALID
-	jmp	.return
-.error_code
-	mov	eax, VMX_FAIL_VALID
-.return
-	ret
-
 
 ;
 ; VMCS_LAUNCH
@@ -755,7 +611,18 @@ InitHostSelectors:
 	jz	.error_code
 	jc	.error
 
-	mov	ebx, VMCS_HOST_SS_SELECTOR
+	mov	ebx, VMCS_HOST_SS_SELECTOR;
+    PrintDebug("VMX revision: 0x%p\n", (void*)vmxon_ptr);
+
+    if (v3_enable_vmx(vmxon_ptr) == 0) {
+        PrintDebug("VMX Enabled\n");
+    } else {
+        PrintError("VMX initialization failure\n");
+        return;
+    }
+	
+
+
 	mov	eax, ss
 	vmwrite	ebx, eax
 	jz	.error_code
