@@ -38,6 +38,7 @@ static int emulate_string_write_op(struct guest_info * info, struct x86_instr * 
 				   int (*write_fn)(addr_t guest_addr, void * src, uint_t length, void * priv_data), 
 				   void * priv_data) {
     uint_t emulation_length = 0;
+    uint_t emulation_iter_cnt = 0;
     addr_t tmp_rcx = 0;
     addr_t src_addr = 0;
 
@@ -52,7 +53,8 @@ static int emulate_string_write_op(struct guest_info * info, struct x86_instr * 
 			 (0x1000 - PAGE_OFFSET_4KB(write_gva)));
   
     /* ** Fix emulation length so that it doesn't overrun over the src page either ** */
-    tmp_rcx = emulation_length / dec_instr->dst_operand.size;
+    emulation_iter_cnt = emulation_length / dec_instr->dst_operand.size;
+    tmp_rcx = emulation_iter_cnt;
   
     if (dec_instr->op_type == V3_OP_MOVS) {
 
@@ -89,7 +91,7 @@ static int emulate_string_write_op(struct guest_info * info, struct x86_instr * 
 
 	// RCX is only modified if the rep prefix is present
 	if (dec_instr->prefixes.rep == 1) {
-	    info->vm_regs.rcx -= emulation_length;
+	    info->vm_regs.rcx -= emulation_iter_cnt;
 	}
 
     } else if (dec_instr->op_type == V3_OP_STOS) {
@@ -113,7 +115,7 @@ static int emulate_string_write_op(struct guest_info * info, struct x86_instr * 
     
 	// RCX is only modified if the rep prefix is present
 	if (dec_instr->prefixes.rep == 1) {
-	    info->vm_regs.rcx -= emulation_length;
+	    info->vm_regs.rcx -= emulation_iter_cnt;
 	}
 
     } else {
