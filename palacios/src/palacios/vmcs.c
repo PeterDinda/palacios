@@ -159,10 +159,9 @@ void print_vmcs_segment(char * name, vmcs_segment* seg)
 /*
  * Returns the field length in bytes
  */
-int v3_vmcs_get_field_len(vmcs_field_t field)
-{
-    switch(field)
-    {
+int v3_vmcs_get_field_len(vmcs_field_t field) {
+    switch(field)  {
+	/* 16 bit Control Fields */
         case VMCS_GUEST_ES_SELECTOR:
         case VMCS_GUEST_CS_SELECTOR:
         case VMCS_GUEST_SS_SELECTOR:
@@ -171,7 +170,6 @@ int v3_vmcs_get_field_len(vmcs_field_t field)
         case VMCS_GUEST_GS_SELECTOR:
         case VMCS_GUEST_LDTR_SELECTOR:
         case VMCS_GUEST_TR_SELECTOR:
-            /* 16 bit host state */
         case VMCS_HOST_ES_SELECTOR:
         case VMCS_HOST_CS_SELECTOR:
         case VMCS_HOST_SS_SELECTOR:
@@ -180,410 +178,547 @@ int v3_vmcs_get_field_len(vmcs_field_t field)
         case VMCS_HOST_GS_SELECTOR:
         case VMCS_HOST_TR_SELECTOR:
             return 2;
-            /* 64 bit control fields */
-        case IO_BITMAP_A_ADDR:
-        case IO_BITMAP_A_ADDR_HIGH:
-        case IO_BITMAP_B_ADDR:
-        case IO_BITMAP_B_ADDR_HIGH:
-        case MSR_BITMAPS:
-        case MSR_BITMAPS_HIGH:
-        case VM_EXIT_MSR_STORE_ADDR:
-        case VM_EXIT_MSR_STORE_ADDR_HIGH:
-        case VM_EXIT_MSR_LOAD_ADDR:
-        case VM_EXIT_MSR_LOAD_ADDR_HIGH:
-        case VM_ENTRY_MSR_LOAD_ADDR:
-        case VM_ENTRY_MSR_LOAD_ADDR_HIGH:
+
+	/* 32 bit Control Fields */
+        case VMCS_PIN_CTRLS:
+        case VMCS_PROC_CTRLS:
+        case VMCS_EXCP_BITMAP:
+        case VMCS_PG_FAULT_ERR_MASK:
+        case VMCS_PG_FAULT_ERR_MATCH:
+        case VMCS_CR3_TGT_CNT:
+        case VMCS_EXIT_CTRLS:
+        case VMCS_EXIT_MSR_STORE_CNT:
+        case VMCS_EXIT_MSR_LOAD_CNT:
+        case VMCS_ENTRY_CTRLS:
+        case VMCS_ENTRY_MSR_LOAD_CNT:
+        case VMCS_ENTRY_INT_INFO:
+        case VMCS_ENTRY_EXCP_ERR:
+        case VMCS_ENTRY_INSTR_LEN:
+        case VMCS_TPR_THRESHOLD:
+        case VMCS_INSTR_ERR:
+        case VMCS_EXIT_REASON:
+        case VMCS_EXIT_INT_INFO:
+        case VMCS_EXIT_INT_ERR:
+        case VMCS_IDT_VECTOR_INFO:
+        case VMCS_IDT_VECTOR_ERR:
+        case VMCS_EXIT_INSTR_LEN:
+        case VMCS_VMX_INSTR_INFO:
+        case VMCS_GUEST_ES_LIMIT:
+        case VMCS_GUEST_CS_LIMIT:
+        case VMCS_GUEST_SS_LIMIT:
+        case VMCS_GUEST_DS_LIMIT:
+        case VMCS_GUEST_FS_LIMIT:
+        case VMCS_GUEST_GS_LIMIT:
+        case VMCS_GUEST_LDTR_LIMIT:
+        case VMCS_GUEST_TR_LIMIT:
+        case VMCS_GUEST_GDTR_LIMIT:
+        case VMCS_GUEST_IDTR_LIMIT:
+        case VMCS_GUEST_ES_ACCESS:
+        case VMCS_GUEST_CS_ACCESS:
+        case VMCS_GUEST_SS_ACCESS:
+        case VMCS_GUEST_DS_ACCESS:
+        case VMCS_GUEST_FS_ACCESS:
+        case VMCS_GUEST_GS_ACCESS:
+        case VMCS_GUEST_LDTR_ACCESS:
+        case VMCS_GUEST_TR_ACCESS:
+        case VMCS_GUEST_INT_STATE:
+        case VMCS_GUEST_ACTIVITY_STATE:
+        case VMCS_GUEST_SMBASE:
+        case VMCS_GUEST_SYSENTER_CS:
+        case VMCS_HOST_SYSENTER_CS:
+            return 4;
+
+	/* 64 bit Control Fields */
+        case VMCS_IO_BITMAP_A_ADDR:
+        case VMCS_IO_BITMAP_A_ADDR_HIGH:
+        case VMCS_IO_BITMAP_B_ADDR:
+        case VMCS_IO_BITMAP_B_ADDR_HIGH:
+        case VMCS_MSR_BITMAP:
+        case VMCS_MSR_BITMAP_HIGH:
+        case VMCS_EXIT_MSR_STORE_ADDR:
+        case VMCS_EXIT_MSR_STORE_ADDR_HIGH:
+        case VMCS_EXIT_MSR_LOAD_ADDR:
+        case VMCS_EXIT_MSR_LOAD_ADDR_HIGH:
+        case VMCS_ENTRY_MSR_LOAD_ADDR:
+        case VMCS_ENTRY_MSR_LOAD_ADDR_HIGH:
         case VMCS_EXEC_PTR:
         case VMCS_EXEC_PTR_HIGH:
-        case TSC_OFFSET:
-        case TSC_OFFSET_HIGH:
-        case VIRT_APIC_PAGE_ADDR:
-        case VIRT_APIC_PAGE_ADDR_HIGH:
-            /* 64 bit guest state fields */
+        case VMCS_TSC_OFFSET:
+        case VMCS_TSC_OFFSET_HIGH:
+        case VMCS_VAPIC_ADDR:
+        case VMCS_VAPIC_ADDR_HIGH:
         case VMCS_LINK_PTR:
         case VMCS_LINK_PTR_HIGH:
-        case GUEST_IA32_DEBUGCTL:
-        case GUEST_IA32_DEBUGCTL_HIGH:
-        case GUEST_IA32_PERF_GLOBAL_CTRL:
-        case GUEST_IA32_PERF_GLOBAL_CTRL_HIGH:
+        case VMCS_GUEST_DBG_CTL:
+        case VMCS_GUEST_DBG_CTL_HIGH:
+        case VMCS_GUEST_PERF_GLOBAL_CTRL:
+        case VMCS_GUEST_PERF_GLOBAL_CTRL_HIGH:
             return 8;
-            /* 32 bit control fields */
-        case PIN_VM_EXEC_CTRLS:
-        case PROC_VM_EXEC_CTRLS:
-        case EXCEPTION_BITMAP:
-        case PAGE_FAULT_ERROR_MASK:
-        case PAGE_FAULT_ERROR_MATCH:
-        case CR3_TARGET_COUNT:
-        case VM_EXIT_CTRLS:
-        case VM_EXIT_MSR_STORE_COUNT:
-        case VM_EXIT_MSR_LOAD_COUNT:
-        case VM_ENTRY_CTRLS:
-        case VM_ENTRY_MSR_LOAD_COUNT:
-        case VM_ENTRY_INT_INFO_FIELD:
-        case VM_ENTRY_EXCEPTION_ERROR:
-        case VM_ENTRY_INSTR_LENGTH:
-        case TPR_THRESHOLD:
-            /* 32 bit Read Only data fields */
-        case VM_INSTR_ERROR:
-        case EXIT_REASON:
-        case VM_EXIT_INT_INFO:
-        case VM_EXIT_INT_ERROR:
-        case IDT_VECTOR_INFO:
-        case IDT_VECTOR_ERROR:
-        case VM_EXIT_INSTR_LENGTH:
-        case VMX_INSTR_INFO:
-            /* 32 bit Guest state fields */
-        case GUEST_ES_LIMIT:
-        case GUEST_CS_LIMIT:
-        case GUEST_SS_LIMIT:
-        case GUEST_DS_LIMIT:
-        case GUEST_FS_LIMIT:
-        case GUEST_GS_LIMIT:
-        case GUEST_LDTR_LIMIT:
-        case GUEST_TR_LIMIT:
-        case GUEST_GDTR_LIMIT:
-        case GUEST_IDTR_LIMIT:
-        case GUEST_ES_ACCESS:
-        case GUEST_CS_ACCESS:
-        case GUEST_SS_ACCESS:
-        case GUEST_DS_ACCESS:
-        case GUEST_FS_ACCESS:
-        case GUEST_GS_ACCESS:
-        case GUEST_LDTR_ACCESS:
-        case GUEST_TR_ACCESS:
-        case GUEST_INT_STATE:
-        case GUEST_ACTIVITY_STATE:
-        case GUEST_SMBASE:
-        case GUEST_IA32_SYSENTER_CS:
-            /* 32 bit host state field */
-        case HOST_IA32_SYSENTER_CS:
-            return 4;
+
             /* Natural Width Control Fields */
-        case CR0_GUEST_HOST_MASK:
-        case CR4_GUEST_HOST_MASK:
-        case CR0_READ_SHADOW:
-        case CR4_READ_SHADOW:
-        case CR3_TARGET_VALUE_0:
-        case CR3_TARGET_VALUE_1:
-        case CR3_TARGET_VALUE_2:
-        case CR3_TARGET_VALUE_3:
-            /* Natural Width Read Only Fields */
-        case EXIT_QUALIFICATION:
-        case IO_RCX:
-        case IO_RSI:
-        case IO_RDI:
-        case IO_RIP:
-        case GUEST_LINEAR_ADDR:
-            /* Natural Width Guest State Fields */
-        case GUEST_CR0:
-        case GUEST_CR3:
-        case GUEST_CR4:
-        case GUEST_ES_BASE:
-        case GUEST_CS_BASE:
-        case GUEST_SS_BASE:
-        case GUEST_DS_BASE:
-        case GUEST_FS_BASE:
-        case GUEST_GS_BASE:
-        case GUEST_LDTR_BASE:
-        case GUEST_TR_BASE:
-        case GUEST_GDTR_BASE:
-        case GUEST_IDTR_BASE:
-        case GUEST_DR7:
-        case GUEST_RSP:
-        case GUEST_RIP:
-        case GUEST_RFLAGS:
-        case GUEST_PENDING_DEBUG_EXCS:
-        case GUEST_IA32_SYSENTER_ESP:
-        case GUEST_IA32_SYSENTER_EIP:
-            /* Natural Width Host State Fields */
-        case HOST_CR0:
-        case HOST_CR3:
-        case HOST_CR4:
-        case HOST_FS_BASE:
-        case HOST_GS_BASE:
-        case HOST_TR_BASE:
-        case HOST_GDTR_BASE:
-        case HOST_IDTR_BASE:
-        case HOST_IA32_SYSENTER_ESP:
-        case HOST_IA32_SYSENTER_EIP:
-        case HOST_RSP:
-        case HOST_RIP:
-     #ifdef __V3_64BIT__
-            return 8;
-#else
-            return 4;
-#endif
+        case VMCS_CR0_MASK:
+        case VMCS_CR4_MASK:
+        case VMCS_CR0_READ_SHDW:
+        case VMCS_CR4_READ_SHDW:
+        case VMCS_CR3_TGT_VAL_0:
+        case VMCS_CR3_TGT_VAL_1:
+        case VMCS_CR3_TGT_VAL_2:
+        case VMCS_CR3_TGT_VAL_3:
+        case VMCS_EXIT_QUAL:
+        case VMCS_IO_RCX:
+        case VMCS_IO_RSI:
+        case VMCS_IO_RDI:
+        case VMCS_IO_RIP:
+        case VMCS_GUEST_LINEAR_ADDR:
+        case VMCS_GUEST_CR0:
+        case VMCS_GUEST_CR3:
+        case VMCS_GUEST_CR4:
+        case VMCS_GUEST_ES_BASE:
+        case VMCS_GUEST_CS_BASE:
+        case VMCS_GUEST_SS_BASE:
+        case VMCS_GUEST_DS_BASE:
+        case VMCS_GUEST_FS_BASE:
+        case VMCS_GUEST_GS_BASE:
+        case VMCS_GUEST_LDTR_BASE:
+        case VMCS_GUEST_TR_BASE:
+        case VMCS_GUEST_GDTR_BASE:
+        case VMCS_GUEST_IDTR_BASE:
+        case VMCS_GUEST_DR7:
+        case VMCS_GUEST_RSP:
+        case VMCS_GUEST_RIP:
+        case VMCS_GUEST_RFLAGS:
+        case VMCS_GUEST_PENDING_DBG_EXCP:
+        case VMCS_GUEST_SYSENTER_ESP:
+        case VMCS_GUEST_SYSENTER_EIP:
+        case VMCS_HOST_CR0:
+        case VMCS_HOST_CR3:
+        case VMCS_HOST_CR4:
+        case VMCS_HOST_FS_BASE:
+        case VMCS_HOST_GS_BASE:
+        case VMCS_HOST_TR_BASE:
+        case VMCS_HOST_GDTR_BASE:
+        case VMCS_HOST_IDTR_BASE:
+        case VMCS_HOST_SYSENTER_ESP:
+        case VMCS_HOST_SYSENTER_EIP:
+        case VMCS_HOST_RSP:
+        case VMCS_HOST_RIP:
+            return sizeof(addr_t);
+
         default:
+	    PrintError("Invalid VMCS field\n");
             return -1;
     }
 }
 
-char* v3_vmcs_get_field_name(vmcs_field_t field)
-{   
-    switch(field)
-    {
+
+
+
+
+
+
+
+
+
+
+
+static const char VMCS_GUEST_ES_SELECTOR_STR[] = "GUEST_ES_SELECTOR";
+static const char VMCS_GUEST_CS_SELECTOR_STR[] = "GUEST_CS_SELECTOR";
+static const char VMCS_GUEST_SS_SELECTOR_STR[] = "GUEST_SS_SELECTOR";
+static const char VMCS_GUEST_DS_SELECTOR_STR[] = "GUEST_DS_SELECTOR";
+static const char VMCS_GUEST_FS_SELECTOR_STR[] = "GUEST_FS_SELECTOR";
+static const char VMCS_GUEST_GS_SELECTOR_STR[] = "GUEST_GS_SELECTOR";
+static const char VMCS_GUEST_LDTR_SELECTOR_STR[] = "GUEST_LDTR_SELECTOR";
+static const char VMCS_GUEST_TR_SELECTOR_STR[] = "GUEST_TR_SELECTOR";
+static const char VMCS_HOST_ES_SELECTOR_STR[] = "HOST_ES_SELECTOR";
+static const char VMCS_HOST_CS_SELECTOR_STR[] = "HOST_CS_SELECTOR";
+static const char VMCS_HOST_SS_SELECTOR_STR[] = "HOST_SS_SELECTOR";
+static const char VMCS_HOST_DS_SELECTOR_STR[] = "HOST_DS_SELECTOR";
+static const char VMCS_HOST_FS_SELECTOR_STR[] = "HOST_FS_SELECTOR";
+static const char VMCS_HOST_GS_SELECTOR_STR[] = "HOST_GS_SELECTOR";
+static const char VMCS_HOST_TR_SELECTOR_STR[] = "HOST_TR_SELECTOR";
+static const char VMCS_IO_BITMAP_A_ADDR_STR[] = "IO_BITMAP_A_ADDR";
+static const char VMCS_IO_BITMAP_A_ADDR_HIGH_STR[] = "IO_BITMAP_A_ADDR_HIGH";
+static const char VMCS_IO_BITMAP_B_ADDR_STR[] = "IO_BITMAP_B_ADDR";
+static const char VMCS_IO_BITMAP_B_ADDR_HIGH_STR[] = "IO_BITMAP_B_ADDR_HIGH";
+static const char VMCS_MSR_BITMAP_STR[] = "MSR_BITMAPS";
+static const char VMCS_MSR_BITMAP_HIGH_STR[] = "MSR_BITMAPS_HIGH";
+static const char VMCS_EXIT_MSR_STORE_ADDR_STR[] = "EXIT_MSR_STORE_ADDR";
+static const char VMCS_EXIT_MSR_STORE_ADDR_HIGH_STR[] = "EXIT_MSR_STORE_ADDR_HIGH";
+static const char VMCS_EXIT_MSR_LOAD_ADDR_STR[] = "EXIT_MSR_LOAD_ADDR";
+static const char VMCS_EXIT_MSR_LOAD_ADDR_HIGH_STR[] = "EXIT_MSR_LOAD_ADDR_HIGH";
+static const char VMCS_ENTRY_MSR_LOAD_ADDR_STR[] = "ENTRY_MSR_LOAD_ADDR";
+static const char VMCS_ENTRY_MSR_LOAD_ADDR_HIGH_STR[] = "ENTRY_MSR_LOAD_ADDR_HIGH";
+static const char VMCS_EXEC_PTR_STR[] = "VMCS_EXEC_PTR";
+static const char VMCS_EXEC_PTR_HIGH_STR[] = "VMCS_EXEC_PTR_HIGH";
+static const char VMCS_TSC_OFFSET_STR[] = "TSC_OFFSET";
+static const char VMCS_TSC_OFFSET_HIGH_STR[] = "TSC_OFFSET_HIGH";
+static const char VMCS_VAPIC_ADDR_STR[] = "VAPIC_PAGE_ADDR";
+static const char VMCS_VAPIC_ADDR_HIGH_STR[] = "VAPIC_PAGE_ADDR_HIGH";
+static const char VMCS_LINK_PTR_STR[] = "VMCS_LINK_PTR";
+static const char VMCS_LINK_PTR_HIGH_STR[] = "VMCS_LINK_PTR_HIGH";
+static const char VMCS_GUEST_DBG_CTL_STR[] = "GUEST_DEBUG_CTL";
+static const char VMCS_GUEST_DBG_CTL_HIGH_STR[] = "GUEST_DEBUG_CTL_HIGH";
+static const char VMCS_GUEST_PERF_GLOBAL_CTRL_STR[] = "GUEST_PERF_GLOBAL_CTRL";
+static const char VMCS_GUEST_PERF_GLOBAL_CTRL_HIGH_STR[] = "GUEST_PERF_GLOBAL_CTRL_HIGH";
+static const char VMCS_PIN_CTRLS_STR[] = "PIN_VM_EXEC_CTRLS";
+static const char VMCS_PROC_CTRLS_STR[] = "PROC_VM_EXEC_CTRLS";
+static const char VMCS_EXCP_BITMAP_STR[] = "EXCEPTION_BITMAP";
+static const char VMCS_PG_FAULT_ERR_MASK_STR[] = "PAGE_FAULT_ERROR_MASK";
+static const char VMCS_PG_FAULT_ERR_MATCH_STR[] = "PAGE_FAULT_ERROR_MATCH";
+static const char VMCS_CR3_TGT_CNT_STR[] = "CR3_TARGET_COUNT";
+static const char VMCS_EXIT_CTRLS_STR[] = "VM_EXIT_CTRLS";
+static const char VMCS_EXIT_MSR_STORE_CNT_STR[] = "VM_EXIT_MSR_STORE_COUNT";
+static const char VMCS_EXIT_MSR_LOAD_CNT_STR[] = "VM_EXIT_MSR_LOAD_COUNT";
+static const char VMCS_ENTRY_CTRLS_STR[] = "VM_ENTRY_CTRLS";
+static const char VMCS_ENTRY_MSR_LOAD_CNT_STR[] = "VM_ENTRY_MSR_LOAD_COUNT";
+static const char VMCS_ENTRY_INT_INFO_STR[] = "VM_ENTRY_INT_INFO_FIELD";
+static const char VMCS_ENTRY_EXCP_ERR_STR[] = "VM_ENTRY_EXCEPTION_ERROR";
+static const char VMCS_ENTRY_INSTR_LEN_STR[] = "VM_ENTRY_INSTR_LENGTH";
+static const char VMCS_TPR_THRESHOLD_STR[] = "TPR_THRESHOLD";
+static const char VMCS_INSTR_ERR_STR[] = "VM_INSTR_ERROR";
+static const char VMCS_EXIT_REASON_STR[] = "EXIT_REASON";
+static const char VMCS_EXIT_INT_INFO_STR[] = "VM_EXIT_INT_INFO";
+static const char VMCS_EXIT_INT_ERR_STR[] = "VM_EXIT_INT_ERROR";
+static const char VMCS_IDT_VECTOR_INFO_STR[] = "IDT_VECTOR_INFO";
+static const char VMCS_IDT_VECTOR_ERR_STR[] = "IDT_VECTOR_ERROR";
+static const char VMCS_EXIT_INSTR_LEN_STR[] = "VM_EXIT_INSTR_LENGTH";
+static const char VMCS_VMX_INSTR_INFO_STR[] = "VMX_INSTR_INFO";
+static const char VMCS_GUEST_ES_LIMIT_STR[] = "GUEST_ES_LIMIT";
+static const char VMCS_GUEST_CS_LIMIT_STR[] = "GUEST_CS_LIMIT";
+static const char VMCS_GUEST_SS_LIMIT_STR[] = "GUEST_SS_LIMIT";
+static const char VMCS_GUEST_DS_LIMIT_STR[] = "GUEST_DS_LIMIT";
+static const char VMCS_GUEST_FS_LIMIT_STR[] = "GUEST_FS_LIMIT";
+static const char VMCS_GUEST_GS_LIMIT_STR[] = "GUEST_GS_LIMIT";
+static const char VMCS_GUEST_LDTR_LIMIT_STR[] = "GUEST_LDTR_LIMIT";
+static const char VMCS_GUEST_TR_LIMIT_STR[] = "GUEST_TR_LIMIT";
+static const char VMCS_GUEST_GDTR_LIMIT_STR[] = "GUEST_GDTR_LIMIT";
+static const char VMCS_GUEST_IDTR_LIMIT_STR[] = "GUEST_IDTR_LIMIT";
+static const char VMCS_GUEST_ES_ACCESS_STR[] = "GUEST_ES_ACCESS";
+static const char VMCS_GUEST_CS_ACCESS_STR[] = "GUEST_CS_ACCESS";
+static const char VMCS_GUEST_SS_ACCESS_STR[] = "GUEST_SS_ACCESS";
+static const char VMCS_GUEST_DS_ACCESS_STR[] = "GUEST_DS_ACCESS";
+static const char VMCS_GUEST_FS_ACCESS_STR[] = "GUEST_FS_ACCESS";
+static const char VMCS_GUEST_GS_ACCESS_STR[] = "GUEST_GS_ACCESS";
+static const char VMCS_GUEST_LDTR_ACCESS_STR[] = "GUEST_LDTR_ACCESS";
+static const char VMCS_GUEST_TR_ACCESS_STR[] = "GUEST_TR_ACCESS";
+static const char VMCS_GUEST_INT_STATE_STR[] = "GUEST_INT_STATE";
+static const char VMCS_GUEST_ACTIVITY_STATE_STR[] = "GUEST_ACTIVITY_STATE";
+static const char VMCS_GUEST_SMBASE_STR[] = "GUEST_SMBASE";
+static const char VMCS_GUEST_SYSENTER_CS_STR[] = "GUEST_SYSENTER_CS";
+static const char VMCS_HOST_SYSENTER_CS_STR[] = "HOST_SYSENTER_CS";
+static const char VMCS_CR0_MASK_STR[] = "CR0_GUEST_HOST_MASK";
+static const char VMCS_CR4_MASK_STR[] = "CR4_GUEST_HOST_MASK";
+static const char VMCS_CR0_READ_SHDW_STR[] = "CR0_READ_SHADOW";
+static const char VMCS_CR4_READ_SHDW_STR[] = "CR4_READ_SHADOW";
+static const char VMCS_CR3_TGT_VAL_0_STR[] = "CR3_TARGET_VALUE_0";
+static const char VMCS_CR3_TGT_VAL_1_STR[] = "CR3_TARGET_VALUE_1";
+static const char VMCS_CR3_TGT_VAL_2_STR[] = "CR3_TARGET_VALUE_2";
+static const char VMCS_CR3_TGT_VAL_3_STR[] = "CR3_TARGET_VALUE_3";
+static const char VMCS_EXIT_QUAL_STR[] = "EXIT_QUALIFICATION";
+static const char VMCS_IO_RCX_STR[] = "IO_RCX";
+static const char VMCS_IO_RSI_STR[] = "IO_RSI";
+static const char VMCS_IO_RDI_STR[] = "IO_RDI";
+static const char VMCS_IO_RIP_STR[] = "IO_RIP";
+static const char VMCS_GUEST_LINEAR_ADDR_STR[] = "GUEST_LINEAR_ADDR";
+static const char VMCS_GUEST_CR0_STR[] = "GUEST_CR0";
+static const char VMCS_GUEST_CR3_STR[] = "GUEST_CR3";
+static const char VMCS_GUEST_CR4_STR[] = "GUEST_CR4";
+static const char VMCS_GUEST_ES_BASE_STR[] = "GUEST_ES_BASE";
+static const char VMCS_GUEST_CS_BASE_STR[] = "GUEST_CS_BASE";
+static const char VMCS_GUEST_SS_BASE_STR[] = "GUEST_SS_BASE";
+static const char VMCS_GUEST_DS_BASE_STR[] = "GUEST_DS_BASE";
+static const char VMCS_GUEST_FS_BASE_STR[] = "GUEST_FS_BASE";
+static const char VMCS_GUEST_GS_BASE_STR[] = "GUEST_GS_BASE";
+static const char VMCS_GUEST_LDTR_BASE_STR[] = "GUEST_LDTR_BASE";
+static const char VMCS_GUEST_TR_BASE_STR[] = "GUEST_TR_BASE";
+static const char VMCS_GUEST_GDTR_BASE_STR[] = "GUEST_GDTR_BASE";
+static const char VMCS_GUEST_IDTR_BASE_STR[] = "GUEST_IDTR_BASE";
+static const char VMCS_GUEST_DR7_STR[] = "GUEST_DR7";
+static const char VMCS_GUEST_RSP_STR[] = "GUEST_RSP";
+static const char VMCS_GUEST_RIP_STR[] = "GUEST_RIP";
+static const char VMCS_GUEST_RFLAGS_STR[] = "GUEST_RFLAGS";
+static const char VMCS_GUEST_PENDING_DBG_EXCP_STR[] = "GUEST_PENDING_DEBUG_EXCS";
+static const char VMCS_GUEST_SYSENTER_ESP_STR[] = "GUEST_SYSENTER_ESP";
+static const char VMCS_GUEST_SYSENTER_EIP_STR[] = "GUEST_SYSENTER_EIP";
+static const char VMCS_HOST_CR0_STR[] = "HOST_CR0";
+static const char VMCS_HOST_CR3_STR[] = "HOST_CR3";
+static const char VMCS_HOST_CR4_STR[] = "HOST_CR4";
+static const char VMCS_HOST_FS_BASE_STR[] = "HOST_FS_BASE";
+static const char VMCS_HOST_GS_BASE_STR[] = "HOST_GS_BASE";
+static const char VMCS_HOST_TR_BASE_STR[] = "HOST_TR_BASE";
+static const char VMCS_HOST_GDTR_BASE_STR[] = "HOST_GDTR_BASE";
+static const char VMCS_HOST_IDTR_BASE_STR[] = "HOST_IDTR_BASE";
+static const char VMCS_HOST_SYSENTER_ESP_STR[] = "HOST_SYSENTER_ESP";
+static const char VMCS_HOST_SYSENTER_EIP_STR[] = "HOST_SYSENTER_EIP";
+static const char VMCS_HOST_RSP_STR[] = "HOST_RSP";
+static const char VMCS_HOST_RIP_STR[] = "HOST_RIP";
+
+
+
+const char * v3_vmcs_get_field_name(vmcs_field_t field) {   
+    switch (field) {
         case VMCS_GUEST_ES_SELECTOR:
-            return "VMCS_GUEST_ES_SELECTOR";
+            return VMCS_GUEST_ES_SELECTOR_STR;
         case VMCS_GUEST_CS_SELECTOR:
-            return "VMCS_GUEST_CS_SELECTOR";
+            return VMCS_GUEST_CS_SELECTOR_STR;
         case VMCS_GUEST_SS_SELECTOR:
-            return "VMCS_GUEST_SS_SELECTOR";
+            return VMCS_GUEST_SS_SELECTOR_STR;
         case VMCS_GUEST_DS_SELECTOR:
-            return "VMCS_GUEST_DS_SELECTOR";
+            return VMCS_GUEST_DS_SELECTOR_STR;
         case VMCS_GUEST_FS_SELECTOR:
-            return "VMCS_GUEST_FS_SELECTOR";
+            return VMCS_GUEST_FS_SELECTOR_STR;
         case VMCS_GUEST_GS_SELECTOR:
-            return "VMCS_GUEST_GS_SELECTOR";
+            return VMCS_GUEST_GS_SELECTOR_STR;
         case VMCS_GUEST_LDTR_SELECTOR:
-            return "VMCS_GUEST_LDTR_SELECTOR";
+            return VMCS_GUEST_LDTR_SELECTOR_STR;
         case VMCS_GUEST_TR_SELECTOR:
-            return "VMCS_GUEST_TR_SELECTOR";
+            return VMCS_GUEST_TR_SELECTOR_STR;
         case VMCS_HOST_ES_SELECTOR:
-            return "VMCS_HOST_ES_SELECTOR";
+            return VMCS_HOST_ES_SELECTOR_STR;
         case VMCS_HOST_CS_SELECTOR:
-            return "VMCS_HOST_CS_SELECTOR";
+            return VMCS_HOST_CS_SELECTOR_STR;
         case VMCS_HOST_SS_SELECTOR:
-            return "VMCS_HOST_SS_SELECTOR";
+            return VMCS_HOST_SS_SELECTOR_STR;
         case VMCS_HOST_DS_SELECTOR:
-            return "VMCS_HOST_DS_SELECTOR";
+            return VMCS_HOST_DS_SELECTOR_STR;
         case VMCS_HOST_FS_SELECTOR:
-            return "VMCS_HOST_FS_SELECTOR";
+            return VMCS_HOST_FS_SELECTOR_STR;
         case VMCS_HOST_GS_SELECTOR:
-            return "VMCS_HOST_GS_SELECTOR";
+            return VMCS_HOST_GS_SELECTOR_STR;
         case VMCS_HOST_TR_SELECTOR:
-            return "VMCS_HOST_TR_SELECTOR";
-        case IO_BITMAP_A_ADDR:
-            return "IO_BITMAP_A_ADDR";
-        case IO_BITMAP_A_ADDR_HIGH:
-            return "IO_BITMAP_A_ADDR_HIGH";
-        case IO_BITMAP_B_ADDR:
-            return "IO_BITMAP_B_ADDR";
-        case IO_BITMAP_B_ADDR_HIGH:
-            return "IO_BITMAP_B_ADDR_HIGH";
-        case MSR_BITMAPS:
-            return "MSR_BITMAPS";
-        case MSR_BITMAPS_HIGH:
-            return "MSR_BITMAPS_HIGH";
-        case VM_EXIT_MSR_STORE_ADDR:
-            return "VM_EXIT_MSR_STORE_ADDR";
-        case VM_EXIT_MSR_STORE_ADDR_HIGH:
-            return "VM_EXIT_MSR_STORE_ADDR_HIGH";
-        case VM_EXIT_MSR_LOAD_ADDR:
-            return "VM_EXIT_MSR_LOAD_ADDR";
-        case VM_EXIT_MSR_LOAD_ADDR_HIGH:
-            return "VM_EXIT_MSR_LOAD_ADDR_HIGH";
-        case VM_ENTRY_MSR_LOAD_ADDR:
-            return "VM_ENTRY_MSR_LOAD_ADDR";
-        case VM_ENTRY_MSR_LOAD_ADDR_HIGH:
-            return "VM_ENTRY_MSR_LOAD_ADDR_HIGH";
+            return VMCS_HOST_TR_SELECTOR_STR;
+        case VMCS_IO_BITMAP_A_ADDR:
+            return VMCS_IO_BITMAP_A_ADDR_STR;
+        case VMCS_IO_BITMAP_A_ADDR_HIGH:
+            return VMCS_IO_BITMAP_A_ADDR_HIGH_STR;
+        case VMCS_IO_BITMAP_B_ADDR:
+            return VMCS_IO_BITMAP_B_ADDR_STR;
+        case VMCS_IO_BITMAP_B_ADDR_HIGH:
+            return VMCS_IO_BITMAP_B_ADDR_HIGH_STR;
+        case VMCS_MSR_BITMAP:
+            return VMCS_MSR_BITMAP_STR;
+        case VMCS_MSR_BITMAP_HIGH:
+            return VMCS_MSR_BITMAP_HIGH_STR;
+        case VMCS_EXIT_MSR_STORE_ADDR:
+            return VMCS_EXIT_MSR_STORE_ADDR_STR;
+        case VMCS_EXIT_MSR_STORE_ADDR_HIGH:
+            return VMCS_EXIT_MSR_STORE_ADDR_HIGH_STR;
+        case VMCS_EXIT_MSR_LOAD_ADDR:
+            return VMCS_EXIT_MSR_LOAD_ADDR_STR;
+        case VMCS_EXIT_MSR_LOAD_ADDR_HIGH:
+            return VMCS_EXIT_MSR_LOAD_ADDR_HIGH_STR;
+        case VMCS_ENTRY_MSR_LOAD_ADDR:
+            return VMCS_ENTRY_MSR_LOAD_ADDR_STR;
+        case VMCS_ENTRY_MSR_LOAD_ADDR_HIGH:
+            return VMCS_ENTRY_MSR_LOAD_ADDR_HIGH_STR;
         case VMCS_EXEC_PTR:
-            return "VMCS_EXEC_PTR";
+            return VMCS_EXEC_PTR_STR;
         case VMCS_EXEC_PTR_HIGH:
-            return "VMCS_EXEC_PTR_HIGH";
-        case TSC_OFFSET:
-            return "TSC_OFFSET";
-        case TSC_OFFSET_HIGH:
-            return "TSC_OFFSET_HIGH";
-        case VIRT_APIC_PAGE_ADDR:
-            return "VIRT_APIC_PAGE_ADDR";
-        case VIRT_APIC_PAGE_ADDR_HIGH:
-            return "VIRT_APIC_PAGE_ADDR_HIGH";
+            return VMCS_EXEC_PTR_HIGH_STR;
+        case VMCS_TSC_OFFSET:
+            return VMCS_TSC_OFFSET_STR;
+        case VMCS_TSC_OFFSET_HIGH:
+            return VMCS_TSC_OFFSET_HIGH_STR;
+        case VMCS_VAPIC_ADDR:
+            return VMCS_VAPIC_ADDR_STR;
+        case VMCS_VAPIC_ADDR_HIGH:
+            return VMCS_VAPIC_ADDR_HIGH_STR;
         case VMCS_LINK_PTR:
-            return "VMCS_LINK_PTR";
+            return VMCS_LINK_PTR_STR;
         case VMCS_LINK_PTR_HIGH:
-            return "VMCS_LINK_PTR_HIGH";
-        case GUEST_IA32_DEBUGCTL:
-            return "GUEST_IA32_DEBUGCTL";
-        case GUEST_IA32_DEBUGCTL_HIGH:
-            return "GUEST_IA32_DEBUGCTL_HIGH";
-        case GUEST_IA32_PERF_GLOBAL_CTRL:
-            return "GUEST_IA32_PERF_GLOBAL_CTRL";
-        case GUEST_IA32_PERF_GLOBAL_CTRL_HIGH:
-            return "GUEST_IA32_PERF_GLOBAL_CTRL_HIGH";
-        case PIN_VM_EXEC_CTRLS:
-            return "PIN_VM_EXEC_CTRLS";
-        case PROC_VM_EXEC_CTRLS:
-            return "PROC_VM_EXEC_CTRLS";
-        case EXCEPTION_BITMAP:
-            return "EXCEPTION_BITMAP";
-        case PAGE_FAULT_ERROR_MASK:
-            return "PAGE_FAULT_ERROR_MASK";
-        case PAGE_FAULT_ERROR_MATCH:
-            return "PAGE_FAULT_ERROR_MATCH";
-        case CR3_TARGET_COUNT:
-            return "CR3_TARGET_COUNT";
-        case VM_EXIT_CTRLS:
-            return "VM_EXIT_CTRLS";
-        case VM_EXIT_MSR_STORE_COUNT:
-            return "VM_EXIT_MSR_STORE_COUNT";
-        case VM_EXIT_MSR_LOAD_COUNT:
-            return "VM_EXIT_MSR_LOAD_COUNT";
-        case VM_ENTRY_CTRLS:
-            return "VM_ENTRY_CTRLS";
-        case VM_ENTRY_MSR_LOAD_COUNT:
-            return "VM_ENTRY_MSR_LOAD_COUNT";
-        case VM_ENTRY_INT_INFO_FIELD:
-            return "VM_ENTRY_INT_INFO_FIELD";
-        case VM_ENTRY_EXCEPTION_ERROR:
-            return "VM_ENTRY_EXCEPTION_ERROR";
-        case VM_ENTRY_INSTR_LENGTH:
-            return "VM_ENTRY_INSTR_LENGTH";
-        case TPR_THRESHOLD:
-            return "TPR_THRESHOLD";
-        case VM_INSTR_ERROR:
-            return "VM_INSTR_ERROR";
-        case EXIT_REASON:
-            return "EXIT_REASON";
-        case VM_EXIT_INT_INFO:
-            return "VM_EXIT_INT_INFO";
-        case VM_EXIT_INT_ERROR:
-            return "VM_EXIT_INT_ERROR";
-        case IDT_VECTOR_INFO:
-            return "IDT_VECTOR_INFO";
-        case IDT_VECTOR_ERROR:
-            return "IDT_VECTOR_ERROR";
-        case VM_EXIT_INSTR_LENGTH:
-            return "VM_EXIT_INSTR_LENGTH";
-        case VMX_INSTR_INFO:
-            return "VMX_INSTR_INFO";
-        case GUEST_ES_LIMIT:
-            return "GUEST_ES_LIMIT";
-        case GUEST_CS_LIMIT:
-            return "GUEST_CS_LIMIT";
-        case GUEST_SS_LIMIT:
-            return "GUEST_SS_LIMIT";
-        case GUEST_DS_LIMIT:
-            return "GUEST_DS_LIMIT";
-        case GUEST_FS_LIMIT:
-            return "GUEST_FS_LIMIT";
-        case GUEST_GS_LIMIT:
-            return "GUEST_GS_LIMIT";
-        case GUEST_LDTR_LIMIT:
-            return "GUEST_LDTR_LIMIT";
-        case GUEST_TR_LIMIT:
-            return "GUEST_TR_LIMIT";
-        case GUEST_GDTR_LIMIT:
-            return "GUEST_GDTR_LIMIT";
-        case GUEST_IDTR_LIMIT:
-            return "GUEST_IDTR_LIMIT";
-        case GUEST_ES_ACCESS:
-            return "GUEST_ES_ACCESS";
-        case GUEST_CS_ACCESS:
-            return "GUEST_CS_ACCESS";
-        case GUEST_SS_ACCESS:
-            return "GUEST_SS_ACCESS";
-        case GUEST_DS_ACCESS:
-            return "GUEST_DS_ACCESS";
-        case GUEST_FS_ACCESS:
-            return "GUEST_FS_ACCESS";
-        case GUEST_GS_ACCESS:
-            return "GUEST_GS_ACCESS";
-        case GUEST_LDTR_ACCESS:
-            return "GUEST_LDTR_ACCESS";
-        case GUEST_TR_ACCESS:
-            return "GUEST_TR_ACCESS";
-        case GUEST_INT_STATE:
-            return "GUEST_INT_STATE";
-        case GUEST_ACTIVITY_STATE:
-            return "GUEST_ACTIVITY_STATE";
-        case GUEST_SMBASE:
-            return "GUEST_SMBASE";
-        case GUEST_IA32_SYSENTER_CS:
-            return "GUEST_IA32_SYSENTER_CS";
-        case HOST_IA32_SYSENTER_CS:
-            return "HOST_IA32_SYSENTER_CS";
-        case CR0_GUEST_HOST_MASK:
-            return "CR0_GUEST_HOST_MASK";
-        case CR4_GUEST_HOST_MASK:
-            return "CR4_GUEST_HOST_MASK";
-        case CR0_READ_SHADOW:
-            return "CR0_READ_SHADOW";
-        case CR4_READ_SHADOW:
-            return "CR4_READ_SHADOW";
-        case CR3_TARGET_VALUE_0:
-            return "CR3_TARGET_VALUE_0";
-        case CR3_TARGET_VALUE_1:
-            return "CR3_TARGET_VALUE_1";
-        case CR3_TARGET_VALUE_2:
-            return "CR3_TARGET_VALUE_2";
-        case CR3_TARGET_VALUE_3:
-            return "CR3_TARGET_VALUE_3";
-        case EXIT_QUALIFICATION:
-            return "EXIT_QUALIFICATION";
-        case IO_RCX:
-            return "IO_RCX";
-        case IO_RSI:
-            return "IO_RSI";
-        case IO_RDI:
-            return "IO_RDI";
-        case IO_RIP:
-            return "IO_RIP";
-        case GUEST_LINEAR_ADDR:
-            return "GUEST_LINEAR_ADDR";
-        case GUEST_CR0:
-            return "GUEST_CR0";
-        case GUEST_CR3:
-            return "GUEST_CR3";
-        case GUEST_CR4:
-            return "GUEST_CR4";
-        case GUEST_ES_BASE:
-            return "GUEST_ES_BASE";
-        case GUEST_CS_BASE:
-            return "GUEST_CS_BASE";
-        case GUEST_SS_BASE:
-            return "GUEST_SS_BASE";
-        case GUEST_DS_BASE:
-            return "GUEST_DS_BASE";
-        case GUEST_FS_BASE:
-            return "GUEST_FS_BASE";
-        case GUEST_GS_BASE:
-            return "GUEST_GS_BASE";
-        case GUEST_LDTR_BASE:
-            return "GUEST_LDTR_BASE";
-        case GUEST_TR_BASE:
-            return "GUEST_TR_BASE";
-        case GUEST_GDTR_BASE:
-            return "GUEST_GDTR_BASE";
-        case GUEST_IDTR_BASE:
-            return "GUEST_IDTR_BASE";
-        case GUEST_DR7:
-            return "GUEST_DR7";
-        case GUEST_RSP:
-            return "GUEST_RSP";
-        case GUEST_RIP:
-            return "GUEST_RIP";
-        case GUEST_RFLAGS:
-            return "GUEST_RFLAGS";
-        case GUEST_PENDING_DEBUG_EXCS:
-            return "GUEST_PENDING_DEBUG_EXCS";
-        case GUEST_IA32_SYSENTER_ESP:
-            return "GUEST_IA32_SYSENTER_ESP";
-        case GUEST_IA32_SYSENTER_EIP:
-            return "GUEST_IA32_SYSENTER_EIP";
-        case HOST_CR0:
-            return "HOST_CR0";
-        case HOST_CR3:
-            return "HOST_CR3";
-        case HOST_CR4:
-            return "HOST_CR4";
-        case HOST_FS_BASE:
-            return "HOST_FS_BASE";
-        case HOST_GS_BASE:
-            return "HOST_GS_BASE";
-        case HOST_TR_BASE:
-            return "HOST_TR_BASE";
-        case HOST_GDTR_BASE:
-            return "HOST_GDTR_BASE";
-        case HOST_IDTR_BASE:
-            return "HOST_IDTR_BASE";
-        case HOST_IA32_SYSENTER_ESP:
-            return "HOST_IA32_SYSENTER_ESP";
-        case HOST_IA32_SYSENTER_EIP:
-            return "HOST_IA32_SYSENTER_EIP";
-        case HOST_RSP:
-            return "HOST_RSP";
-        case HOST_RIP:
-            return "HOST_RIP";
+            return VMCS_LINK_PTR_HIGH_STR;
+        case VMCS_GUEST_DBG_CTL:
+            return VMCS_GUEST_DBG_CTL_STR;
+        case VMCS_GUEST_DBG_CTL_HIGH:
+            return VMCS_GUEST_DBG_CTL_HIGH_STR;
+        case VMCS_GUEST_PERF_GLOBAL_CTRL:
+            return VMCS_GUEST_PERF_GLOBAL_CTRL_STR;
+        case VMCS_GUEST_PERF_GLOBAL_CTRL_HIGH:
+            return VMCS_GUEST_PERF_GLOBAL_CTRL_HIGH_STR;
+        case VMCS_PIN_CTRLS:
+            return VMCS_PIN_CTRLS_STR;
+        case VMCS_PROC_CTRLS:
+            return VMCS_PROC_CTRLS_STR;
+        case VMCS_EXCP_BITMAP:
+            return VMCS_EXCP_BITMAP_STR;
+        case VMCS_PG_FAULT_ERR_MASK:
+            return VMCS_PG_FAULT_ERR_MASK_STR;
+        case VMCS_PG_FAULT_ERR_MATCH:
+            return VMCS_PG_FAULT_ERR_MATCH_STR;
+        case VMCS_CR3_TGT_CNT:
+            return VMCS_CR3_TGT_CNT_STR;
+        case VMCS_EXIT_CTRLS:
+            return VMCS_EXIT_CTRLS_STR;
+        case VMCS_EXIT_MSR_STORE_CNT:
+            return VMCS_EXIT_MSR_STORE_CNT_STR;
+        case VMCS_EXIT_MSR_LOAD_CNT:
+            return VMCS_EXIT_MSR_LOAD_CNT_STR;
+        case VMCS_ENTRY_CTRLS:
+            return VMCS_ENTRY_CTRLS_STR;
+        case VMCS_ENTRY_MSR_LOAD_CNT:
+            return VMCS_ENTRY_MSR_LOAD_CNT_STR;
+        case VMCS_ENTRY_INT_INFO:
+            return VMCS_ENTRY_INT_INFO_STR;
+        case VMCS_ENTRY_EXCP_ERR:
+            return VMCS_ENTRY_EXCP_ERR_STR;
+        case VMCS_ENTRY_INSTR_LEN:
+            return VMCS_ENTRY_INSTR_LEN_STR;
+        case VMCS_TPR_THRESHOLD:
+            return VMCS_TPR_THRESHOLD_STR;
+        case VMCS_INSTR_ERR:
+            return VMCS_INSTR_ERR_STR;
+        case VMCS_EXIT_REASON:
+            return VMCS_EXIT_REASON_STR;
+        case VMCS_EXIT_INT_INFO:
+            return VMCS_EXIT_INT_INFO_STR;
+        case VMCS_EXIT_INT_ERR:
+            return VMCS_EXIT_INT_ERR_STR;
+        case VMCS_IDT_VECTOR_INFO:
+            return VMCS_IDT_VECTOR_INFO_STR;
+        case VMCS_IDT_VECTOR_ERR:
+            return VMCS_IDT_VECTOR_ERR_STR;
+        case VMCS_EXIT_INSTR_LEN:
+            return VMCS_EXIT_INSTR_LEN_STR;
+        case VMCS_VMX_INSTR_INFO:
+            return VMCS_VMX_INSTR_INFO_STR;
+        case VMCS_GUEST_ES_LIMIT:
+            return VMCS_GUEST_ES_LIMIT_STR;
+        case VMCS_GUEST_CS_LIMIT:
+            return VMCS_GUEST_CS_LIMIT_STR;
+        case VMCS_GUEST_SS_LIMIT:
+            return VMCS_GUEST_SS_LIMIT_STR;
+        case VMCS_GUEST_DS_LIMIT:
+            return VMCS_GUEST_DS_LIMIT_STR;
+        case VMCS_GUEST_FS_LIMIT:
+            return VMCS_GUEST_FS_LIMIT_STR;
+        case VMCS_GUEST_GS_LIMIT:
+            return VMCS_GUEST_GS_LIMIT_STR;
+        case VMCS_GUEST_LDTR_LIMIT:
+            return VMCS_GUEST_LDTR_LIMIT_STR;
+        case VMCS_GUEST_TR_LIMIT:
+            return VMCS_GUEST_TR_LIMIT_STR;
+        case VMCS_GUEST_GDTR_LIMIT:
+            return VMCS_GUEST_GDTR_LIMIT_STR;
+        case VMCS_GUEST_IDTR_LIMIT:
+            return VMCS_GUEST_IDTR_LIMIT_STR;
+        case VMCS_GUEST_ES_ACCESS:
+            return VMCS_GUEST_ES_ACCESS_STR;
+        case VMCS_GUEST_CS_ACCESS:
+            return VMCS_GUEST_CS_ACCESS_STR;
+        case VMCS_GUEST_SS_ACCESS:
+            return VMCS_GUEST_SS_ACCESS_STR;
+        case VMCS_GUEST_DS_ACCESS:
+            return VMCS_GUEST_DS_ACCESS_STR;
+        case VMCS_GUEST_FS_ACCESS:
+            return VMCS_GUEST_FS_ACCESS_STR;
+        case VMCS_GUEST_GS_ACCESS:
+            return VMCS_GUEST_GS_ACCESS_STR;
+        case VMCS_GUEST_LDTR_ACCESS:
+            return VMCS_GUEST_LDTR_ACCESS_STR;
+        case VMCS_GUEST_TR_ACCESS:
+            return VMCS_GUEST_TR_ACCESS_STR;
+        case VMCS_GUEST_INT_STATE:
+            return VMCS_GUEST_INT_STATE_STR;
+        case VMCS_GUEST_ACTIVITY_STATE:
+            return VMCS_GUEST_ACTIVITY_STATE_STR;
+        case VMCS_GUEST_SMBASE:
+            return VMCS_GUEST_SMBASE_STR;
+        case VMCS_GUEST_SYSENTER_CS:
+            return VMCS_GUEST_SYSENTER_CS_STR;
+        case VMCS_HOST_SYSENTER_CS:
+            return VMCS_HOST_SYSENTER_CS_STR;
+        case VMCS_CR0_MASK:
+            return VMCS_CR0_MASK_STR;
+        case VMCS_CR4_MASK:
+            return VMCS_CR4_MASK_STR;
+        case VMCS_CR0_READ_SHDW:
+            return VMCS_CR0_READ_SHDW_STR;
+        case VMCS_CR4_READ_SHDW:
+            return VMCS_CR4_READ_SHDW_STR;
+        case VMCS_CR3_TGT_VAL_0:
+            return VMCS_CR3_TGT_VAL_0_STR;
+        case VMCS_CR3_TGT_VAL_1:
+            return VMCS_CR3_TGT_VAL_1_STR;
+        case VMCS_CR3_TGT_VAL_2:
+            return VMCS_CR3_TGT_VAL_2_STR;
+        case VMCS_CR3_TGT_VAL_3:
+            return VMCS_CR3_TGT_VAL_3_STR;
+        case VMCS_EXIT_QUAL:
+            return VMCS_EXIT_QUAL_STR;
+        case VMCS_IO_RCX:
+            return VMCS_IO_RCX_STR;
+        case VMCS_IO_RSI:
+            return VMCS_IO_RSI_STR;
+        case VMCS_IO_RDI:
+            return VMCS_IO_RDI_STR;
+        case VMCS_IO_RIP:
+            return VMCS_IO_RIP_STR;
+        case VMCS_GUEST_LINEAR_ADDR:
+            return VMCS_GUEST_LINEAR_ADDR_STR;
+        case VMCS_GUEST_CR0:
+            return VMCS_GUEST_CR0_STR;
+        case VMCS_GUEST_CR3:
+            return VMCS_GUEST_CR3_STR;
+        case VMCS_GUEST_CR4:
+            return VMCS_GUEST_CR4_STR;
+        case VMCS_GUEST_ES_BASE:
+            return VMCS_GUEST_ES_BASE_STR;
+        case VMCS_GUEST_CS_BASE:
+            return VMCS_GUEST_CS_BASE_STR;
+        case VMCS_GUEST_SS_BASE:
+            return VMCS_GUEST_SS_BASE_STR;
+        case VMCS_GUEST_DS_BASE:
+            return VMCS_GUEST_DS_BASE_STR;
+        case VMCS_GUEST_FS_BASE:
+            return VMCS_GUEST_FS_BASE_STR;
+        case VMCS_GUEST_GS_BASE:
+            return VMCS_GUEST_GS_BASE_STR;
+        case VMCS_GUEST_LDTR_BASE:
+            return VMCS_GUEST_LDTR_BASE_STR;
+        case VMCS_GUEST_TR_BASE:
+            return VMCS_GUEST_TR_BASE_STR;
+        case VMCS_GUEST_GDTR_BASE:
+            return VMCS_GUEST_GDTR_BASE_STR;
+        case VMCS_GUEST_IDTR_BASE:
+            return VMCS_GUEST_IDTR_BASE_STR;
+        case VMCS_GUEST_DR7:
+            return VMCS_GUEST_DR7_STR;
+        case VMCS_GUEST_RSP:
+            return VMCS_GUEST_RSP_STR;
+        case VMCS_GUEST_RIP:
+            return VMCS_GUEST_RIP_STR;
+        case VMCS_GUEST_RFLAGS:
+            return VMCS_GUEST_RFLAGS_STR;
+        case VMCS_GUEST_PENDING_DBG_EXCP:
+            return VMCS_GUEST_PENDING_DBG_EXCP_STR;
+        case VMCS_GUEST_SYSENTER_ESP:
+            return VMCS_GUEST_SYSENTER_ESP_STR;
+        case VMCS_GUEST_SYSENTER_EIP:
+            return VMCS_GUEST_SYSENTER_EIP_STR;
+        case VMCS_HOST_CR0:
+            return VMCS_HOST_CR0_STR;
+        case VMCS_HOST_CR3:
+            return VMCS_HOST_CR3_STR;
+        case VMCS_HOST_CR4:
+            return VMCS_HOST_CR4_STR;
+        case VMCS_HOST_FS_BASE:
+            return VMCS_HOST_FS_BASE_STR;
+        case VMCS_HOST_GS_BASE:
+            return VMCS_HOST_GS_BASE_STR;
+        case VMCS_HOST_TR_BASE:
+            return VMCS_HOST_TR_BASE_STR;
+        case VMCS_HOST_GDTR_BASE:
+            return VMCS_HOST_GDTR_BASE_STR;
+        case VMCS_HOST_IDTR_BASE:
+            return VMCS_HOST_IDTR_BASE_STR;
+        case VMCS_HOST_SYSENTER_ESP:
+            return VMCS_HOST_SYSENTER_ESP_STR;
+        case VMCS_HOST_SYSENTER_EIP:
+            return VMCS_HOST_SYSENTER_EIP_STR;
+        case VMCS_HOST_RSP:
+            return VMCS_HOST_RSP_STR;
+        case VMCS_HOST_RIP:
+            return VMCS_HOST_RIP_STR;
         default:
             return NULL;
     }

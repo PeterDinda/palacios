@@ -359,21 +359,21 @@ static int update_vmcs_host_state(struct guest_info * info) {
 			   : "=q"(tmp)
 			   :
     );
-    vmcs_write(HOST_CR0, tmp);
+    vmcs_write(VMCS_HOST_CR0, tmp);
 
 
     __asm__ __volatile__ ( "movq %%cr3, %0; "		
 			   : "=q"(tmp)
 			   :
     );
-    vmcs_write(HOST_CR3, tmp);
+    vmcs_write(VMCS_HOST_CR3, tmp);
 
 
     __asm__ __volatile__ ( "movq %%cr4, %0; "		
 			   : "=q"(tmp)
 			   :
     );
-    vmcs_write(HOST_CR4, tmp);
+    vmcs_write(VMCS_HOST_CR4, tmp);
 
 
 
@@ -383,7 +383,7 @@ static int update_vmcs_host_state(struct guest_info * info) {
 			  :"q"(&tmp_seg)
 			  : "memory"
 			  );
-    vmcs_write(HOST_GDTR_BASE, tmp_seg.base);
+    vmcs_write(VMCS_HOST_GDTR_BASE, tmp_seg.base);
 
 
     __asm__ __volatile__ ("sidt (%0); "
@@ -391,7 +391,7 @@ static int update_vmcs_host_state(struct guest_info * info) {
 			  :"q"(&tmp_seg)
 			  : "memory"
 		  );
-    vmcs_write(HOST_IDTR_BASE, tmp_seg.base);
+    vmcs_write(VMCS_HOST_IDTR_BASE, tmp_seg.base);
 
     /* How do we handle this...?
     __asm__ __volatile__ ("str (%0); "
@@ -399,7 +399,7 @@ static int update_vmcs_host_state(struct guest_info * info) {
 			  :"q"(&tmp_seg)
 			  : "memory"
 			  );
-    vmcs_write(HOST_TR_BASE, tmp_seg.base);
+    vmcs_write(VMCS_HOST_TR_BASE, tmp_seg.base);
     */
 
 #define FS_BASE_MSR 0xc0000100
@@ -407,11 +407,11 @@ static int update_vmcs_host_state(struct guest_info * info) {
 
     // FS.BASE MSR
     v3_get_msr(FS_BASE_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
-    vmcs_write(HOST_FS_BASE, tmp_msr.value);    
+    vmcs_write(VMCS_HOST_FS_BASE, tmp_msr.value);    
 
     // GS.BASE MSR
     v3_get_msr(GS_BASE_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
-    vmcs_write(HOST_GS_BASE, tmp_msr.value);    
+    vmcs_write(VMCS_HOST_GS_BASE, tmp_msr.value);    
 
 
 
@@ -432,6 +432,12 @@ static int update_vmcs_host_state(struct guest_info * info) {
 			   :
     );
     vmcs_write(VMCS_HOST_DS_SELECTOR, tmp);
+
+    __asm__ __volatile__ ( "movq %%es, %0; "		
+			   : "=q"(tmp)
+			   :
+    );
+    vmcs_write(VMCS_HOST_ES_SELECTOR, tmp);
 
     __asm__ __volatile__ ( "movq %%fs, %0; "		
 			   : "=q"(tmp)
@@ -458,23 +464,21 @@ static int update_vmcs_host_state(struct guest_info * info) {
 
    // SYSENTER CS MSR
     v3_get_msr(SYSENTER_CS_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
-    vmcs_write(HOST_IA32_SYSENTER_CS, tmp_msr.value);    
+    vmcs_write(VMCS_HOST_SYSENTER_CS, tmp_msr.value);
 
     // SYSENTER_ESP MSR
     v3_get_msr(SYSENTER_ESP_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
-    vmcs_write(HOST_IA32_SYSENTER_ESP, tmp_msr.value);    
- 
+    vmcs_write(VMCS_HOST_SYSENTER_ESP, tmp_msr.value);
 
     // SYSENTER_EIP MSR
     v3_get_msr(SYSENTER_EIP_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
-    vmcs_write(HOST_IA32_SYSENTER_EIP, tmp_msr.value);    
+    vmcs_write(VMCS_HOST_SYSENTER_EIP, tmp_msr.value);
 
 
     // RIP
     // RSP
 
     return 0;
-
 }
 
 
