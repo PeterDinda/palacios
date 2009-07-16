@@ -22,6 +22,7 @@
 #include <palacios/vmm.h>
 
 
+static const char * vmcs_field_to_str(vmcs_field_t field);
 
 //extern char * exception_names;
 //
@@ -39,11 +40,11 @@ static inline void print_vmcs_field(vmcs_field_t vmcs_index) {
     };
     
     if (len == 2) {
-	PrintDebug("%s: %x\n", v3_vmcs_get_field_name(vmcs_index), (uint16_t)val);
+	PrintDebug("%s: %x\n", vmcs_field_to_str(vmcs_index), (uint16_t)val);
     } else if (len == 4) {
-	PrintDebug("%s: %x\n", v3_vmcs_get_field_name(vmcs_index), (uint32_t)val);
+	PrintDebug("%s: %x\n", vmcs_field_to_str(vmcs_index), (uint32_t)val);
     } else if (len == 8) {
-	PrintDebug("%s: %p\n", v3_vmcs_get_field_name(vmcs_index), (void *)(addr_t)val);
+	PrintDebug("%s: %p\n", vmcs_field_to_str(vmcs_index), (void *)(addr_t)val);
     }
 }
 
@@ -228,34 +229,37 @@ int v3_vmcs_get_field_len(vmcs_field_t field) {
         case VMCS_HOST_SYSENTER_CS:
             return 4;
 
-	/* 64 bit Control Fields */
-        case VMCS_IO_BITMAP_A_ADDR:
+
+	/* high bits of variable width fields
+	 * We can probably just delete most of these....
+	 */
         case VMCS_IO_BITMAP_A_ADDR_HIGH:
-        case VMCS_IO_BITMAP_B_ADDR:
         case VMCS_IO_BITMAP_B_ADDR_HIGH:
-        case VMCS_MSR_BITMAP:
         case VMCS_MSR_BITMAP_HIGH:
-        case VMCS_EXIT_MSR_STORE_ADDR:
         case VMCS_EXIT_MSR_STORE_ADDR_HIGH:
-        case VMCS_EXIT_MSR_LOAD_ADDR:
         case VMCS_EXIT_MSR_LOAD_ADDR_HIGH:
-        case VMCS_ENTRY_MSR_LOAD_ADDR:
         case VMCS_ENTRY_MSR_LOAD_ADDR_HIGH:
-        case VMCS_EXEC_PTR:
         case VMCS_EXEC_PTR_HIGH:
-        case VMCS_TSC_OFFSET:
         case VMCS_TSC_OFFSET_HIGH:
-        case VMCS_VAPIC_ADDR:
         case VMCS_VAPIC_ADDR_HIGH:
-        case VMCS_LINK_PTR:
         case VMCS_LINK_PTR_HIGH:
-        case VMCS_GUEST_DBG_CTL:
         case VMCS_GUEST_DBG_CTL_HIGH:
-        case VMCS_GUEST_PERF_GLOBAL_CTRL:
         case VMCS_GUEST_PERF_GLOBAL_CTRL_HIGH:
-            return 8;
+            return 4;
 
             /* Natural Width Control Fields */
+        case VMCS_IO_BITMAP_A_ADDR:
+        case VMCS_IO_BITMAP_B_ADDR:
+        case VMCS_MSR_BITMAP:
+        case VMCS_EXIT_MSR_STORE_ADDR:
+        case VMCS_EXIT_MSR_LOAD_ADDR:
+        case VMCS_ENTRY_MSR_LOAD_ADDR:
+        case VMCS_EXEC_PTR:
+        case VMCS_TSC_OFFSET:
+        case VMCS_VAPIC_ADDR:
+        case VMCS_LINK_PTR:
+        case VMCS_GUEST_DBG_CTL:
+        case VMCS_GUEST_PERF_GLOBAL_CTRL:
         case VMCS_CR0_MASK:
         case VMCS_CR4_MASK:
         case VMCS_CR0_READ_SHDW:
@@ -455,7 +459,7 @@ static const char VMCS_HOST_RIP_STR[] = "HOST_RIP";
 
 
 
-const char * v3_vmcs_get_field_name(vmcs_field_t field) {   
+static const char * vmcs_field_to_str(vmcs_field_t field) {   
     switch (field) {
         case VMCS_GUEST_ES_SELECTOR:
             return VMCS_GUEST_ES_SELECTOR_STR;

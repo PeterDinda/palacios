@@ -202,8 +202,6 @@ typedef enum {
 } vmcs_field_t;
 
 int v3_vmcs_get_field_len(vmcs_field_t field);
-const char * v3_vmcs_get_field_name(vmcs_field_t field);
-
 
 
 /* VMCS Exit QUALIFICATIONs */
