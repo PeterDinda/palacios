@@ -348,14 +348,14 @@ static int update_vmcs_host_state(struct guest_info * info) {
     addr_t tmp;
 
     struct {
-	uint16 limit;
+	uint16_t limit;
 	addr_t base;
     } __attribute__((packed)) tmp_seg;
 
 
     struct v3_msr tmp_msr;
 
-    __asm__ __volatile__ ( "movq    %%cr0, %1; "		
+    __asm__ __volatile__ ( "movq    %%cr0, %0; "		
 			   : "=q"(tmp)
 			   :
     );
@@ -393,14 +393,14 @@ static int update_vmcs_host_state(struct guest_info * info) {
 		  );
     vmcs_write(HOST_IDTR_BASE, tmp_seg.base);
 
-
+    /* How do we handle this...?
     __asm__ __volatile__ ("str (%0); "
 			  : 
 			  :"q"(&tmp_seg)
 			  : "memory"
 			  );
     vmcs_write(HOST_TR_BASE, tmp_seg.base);
-
+    */
 
 #define FS_BASE_MSR 0xc0000100
 #define GS_BASE_MSR 0xc0000101
@@ -445,7 +445,7 @@ static int update_vmcs_host_state(struct guest_info * info) {
     );
     vmcs_write(VMCS_HOST_GS_SELECTOR, tmp);
 
-    __asm__ __volatile__ ( "movq %%tr, %0; "		
+    __asm__ __volatile__ ( "str %0; "		
 			   : "=q"(tmp)
 			   :
     );
@@ -598,6 +598,9 @@ static int start_vmx_guest(struct guest_info *info) {
         PrintDebug("Executing VMPTRLD\n");
         return -1;
     }
+
+
+    update_vmcs_host_state(info);
 
     // Setup guest state
     return -1;
