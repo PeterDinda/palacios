@@ -307,9 +307,10 @@ VMM_OBJS := \
 	palacios/vmm_ringbuffer.o \
 	palacios/vmm_hypercall.o \
 	palacios/vmm_lock.o \
+	palacios/vmx.o \
+	palacios/vmcs.o \
 	$(OBJ_FILES)
 
-#		vmx.c vmcs_gen.c vmcs.c
 
 # Extra C flags for the VMM objects
 $(VMM_OBJS) :: EXTRA_CFLAGS = \

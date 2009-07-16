@@ -18,6 +18,8 @@
  */
 
 #include <palacios/vmcs.h>
+#include <palacios/vmx_lowlevel.h>
+#include <palacios/vmm.h>
 
 
 
@@ -27,7 +29,7 @@
 //
 
 
-static inline void print_vmcs_field(uint_t vmcs_index) {
+static inline void print_vmcs_field(vmcs_field_t vmcs_index) {
     int len = v3_vmcs_get_field_len(vmcs_index);
     addr_t val;
     
@@ -53,11 +55,11 @@ static inline void print_vmcs_segments() {
 
 
 
-
+/*
 void print_debug_vmcs_load_guest() {
     const int wordsize = sizeof(addr_t);
     uint64_t temp;
-    vmcs_segment tmp_seg;
+    struct vmcs_segment_access tmp_seg;
 
     PrintDebug("\n====== Loading Guest State ======\n");
     PRINT_VMREAD("Guest CR0: %x\n", GUEST_CR0, wordsize);
@@ -152,12 +154,12 @@ void print_vmcs_segment(char * name, vmcs_segment* seg)
     PrintDebug("\tBase Address: %x\n", seg->baseAddr);
     PrintDebug("\tLimit: %x\n", seg->limit);
     PrintDebug("\tAccess: %x\n", seg->access);
-}
+}*/
 
 /*
  * Returns the field length in bytes
  */
-int vmcs_field_length(vmcs_field_t field)
+int v3_vmcs_get_field_len(vmcs_field_t field)
 {
     switch(field)
     {
@@ -306,35 +308,7 @@ int vmcs_field_length(vmcs_field_t field)
         case HOST_IA32_SYSENTER_EIP:
         case HOST_RSP:
         case HOST_RIP:
-            /* Pin Based VM Execution Controls */
-            /* INTEL MANUAL: 20-10 vol 3B */
-        case EXTERNAL_INTERRUPT_EXITING:
-        case NMI_EXITING:
-        case VIRTUAL_NMIS:
-            /* Processor Based VM Execution Controls */
-            /* INTEL MANUAL: 20-11 vol. 3B */
-        case INTERRUPT_WINDOWS_EXIT:
-        case USE_TSC_OFFSETTING:
-        case HLT_EXITING:
-        case INVLPG_EXITING:
-        case MWAIT_EXITING:
-        case RDPMC_EXITING:
-        case RDTSC_EXITING:
-        case CR8_LOAD_EXITING:
-        case CR8_STORE_EXITING:
-        case USE_TPR_SHADOW:
-        case NMI_WINDOW_EXITING:
-        case MOVDR_EXITING:
-        case UNCONDITION_IO_EXITING:
-        case USE_IO_BITMAPS:
-        case USE_MSR_BITMAPS:
-        case MONITOR_EXITING:
-        case PAUSE_EXITING:
-            /* VM-Exit Controls */
-            /* INTEL MANUAL: 20-16 vol. 3B */
-        case HOST_ADDR_SPACE_SIZE:
-        case ACK_IRQ_ON_EXIT:
-#ifdef __V3_64BIT__
+     #ifdef __V3_64BIT__
             return 8;
 #else
             return 4;
@@ -344,9 +318,9 @@ int vmcs_field_length(vmcs_field_t field)
     }
 }
 
-char* vmcs_field_name(vmcs_field_t field)
+char* v3_vmcs_get_field_name(vmcs_field_t field)
 {   
-    case(field)
+    switch(field)
     {
         case VMCS_GUEST_ES_SELECTOR:
             return "VMCS_GUEST_ES_SELECTOR";
@@ -610,160 +584,10 @@ char* vmcs_field_name(vmcs_field_t field)
             return "HOST_RSP";
         case HOST_RIP:
             return "HOST_RIP";
-        case EXTERNAL_INTERRUPT_EXITING:
-            return "EXTERNAL_INTERRUPT_EXITING";
-        case NMI_EXITING:
-            return "NMI_EXITING";
-        case VIRTUAL_NMIS:
-            return "VIRTUAL_NMIS";
-        case INTERRUPT_WINDOWS_EXIT:
-            return "INTERRUPT_WINDOWS_EXIT";
-        case USE_TSC_OFFSETTING:
-            return "USE_TSC_OFFSETTING";
-        case HLT_EXITING:
-            return "HLT_EXITING";
-        case INVLPG_EXITING:
-            return "INVLPG_EXITING";
-        case MWAIT_EXITING:
-            return "MWAIT_EXITING";
-        case RDPMC_EXITING:
-            return "RDPMC_EXITING";
-        case RDTSC_EXITING:
-            return "RDTSC_EXITING";
-        case CR8_LOAD_EXITING:
-            return "CR8_LOAD_EXITING";
-        case CR8_STORE_EXITING:
-            return "CR8_STORE_EXITING";
-        case USE_TPR_SHADOW:
-            return "USE_TPR_SHADOW";
-        case NMI_WINDOW_EXITING:
-            return "NMI_WINDOW_EXITING";
-        case MOVDR_EXITING:
-            return "MOVDR_EXITING";
-        case UNCONDITION_IO_EXITING:
-            return "UNCONDITION_IO_EXITING";
-        case USE_IO_BITMAPS:
-            return "USE_IO_BITMAPS";
-        case USE_MSR_BITMAPS:
-            return "USE_MSR_BITMAPS";
-        case MONITOR_EXITING:
-            return "MONITOR_EXITING";
-        case PAUSE_EXITING:
-            return "PAUSE_EXITING";
-        case HOST_ADDR_SPACE_SIZE:
-            return "HOST_ADDR_SPACE_SIZE";
-        case ACK_IRQ_ON_EXIT:
-            return "ACK_IRQ_ON_EXIT";
         default:
             return NULL;
     }
 }
 
 
-void PrintTrace_VMCSHostStateArea(struct VMCSHostStateArea * hostState) {
-  PrintTrace("\n==> Host State Area\n");
-  PrintTrace("HOST_CR0: %x\n", (uint_t)hostState->cr0);
-  PrintTrace("HOST_CR3: %x\n", (uint_t)hostState->cr3);
-  PrintTrace("HOST_CR4: %x\n", (uint_t)hostState->cr4);
-  PrintTrace("HOST_RSP: %x\n", (uint_t)hostState->rsp);
-  PrintTrace("HOST_RIP: %x\n", (uint_t)hostState->rip);
-  PrintTrace("VMCS_HOST_CS_SELECTOR: %x\n", (uint_t)hostState->csSelector);
-  PrintTrace("VMCS_HOST_SS_SELECTOR: %x\n", (uint_t)hostState->ssSelector);
-  PrintTrace("VMCS_HOST_DS_SELECTOR: %x\n", (uint_t)hostState->dsSelector);
-  PrintTrace("VMCS_HOST_ES_SELECTOR: %x\n", (uint_t)hostState->esSelector);
-  PrintTrace("VMCS_HOST_FS_SELECTOR: %x\n", (uint_t)hostState->fsSelector);
-  PrintTrace("VMCS_HOST_GS_SELECTOR: %x\n", (uint_t)hostState->gsSelector);
-  PrintTrace("VMCS_HOST_TR_SELECTOR: %x\n", (uint_t)hostState->trSelector);
-  PrintTrace("HOST_FS_BASE: %x\n", (uint_t)hostState->fsBaseAddr);
-  PrintTrace("HOST_GS_BASE: %x\n", (uint_t)hostState->gsBaseAddr);
-  PrintTrace("HOST_TR_BASE: %x\n", (uint_t)hostState->trBaseAddr);
-  PrintTrace("HOST_GDTR_BASE: %x\n", (uint_t)hostState->gdtrBaseAddr);
-  PrintTrace("HOST_IDTR_BASE: %x\n", (uint_t)hostState->idtrBaseAddr);
-  PrintTrace("HOST_IA32_SYSENTER_CS: %x\n", (uint_t)hostState->sysenter_cs);
-  PrintTrace("HOST_IA32_SYSENTER_ESP: %x\n", (uint_t)hostState->sysenter_esp);
-  PrintTrace("HOST_IA32_SYSENTER_EIP: %x\n", (uint_t)hostState->sysenter_eip);
-}
 
-void PrintTrace_VMCSExecCtrlFields(struct VMCSExecCtrlFields * execCtrls) {
-  PrintTrace("\n==> VM-Execution Controls:\n");
-  PrintTrace("PIN_VM_EXEC_CTRLS: %x\n", (uint_t) execCtrls->pinCtrls);
-  PrintTrace("PROC_VM_EXEC_CTRLS: %x\n", (uint_t) execCtrls->procCtrls);
-  PrintTrace("EXCEPTION_BITMAP: %x\n", (uint_t) execCtrls->execBitmap);
-  PrintTrace("PAGE_FAULT_ERROR_MASK: %x\n", (uint_t) execCtrls->pageFaultErrorMask);
-  PrintTrace("PAGE_FAULT_ERROR_MATCH: %x\n", (uint_t) execCtrls->pageFaultErrorMatch);
-  PrintTrace("IO_BITMAP_A_ADDR: %x\n", (uint_t) execCtrls->ioBitmapA);
-  //  PrintTrace("IO_BITMAP_A_ADDR_HIGH: %x\n", (uint_t) execCtrls->);
-  PrintTrace("IO_BITMAP_B_ADDR: %x\n", (uint_t) execCtrls->ioBitmapB);
-  // PrintTrace("IO_BITMAP_B_ADDR_HIGH: %x\n", (uint_t) execCtrls->);
-  PrintTrace("TSC_OFFSET: %x\n", (uint_t) execCtrls->tscOffset & 0xffffffff);
-  PrintTrace("TSC_OFFSET_HIGH: %x\n", (uint_t) (execCtrls->tscOffset >> 32) & 0xffffffff);
-  PrintTrace("CR0_GUEST_HOST_MASK: %x\n", (uint_t) execCtrls->cr0GuestHostMask);
-  PrintTrace("CR0_READ_SHADOW: %x\n", (uint_t) execCtrls->cr0ReadShadow);
-  PrintTrace("CR4_GUEST_HOST_MASK: %x\n", (uint_t) execCtrls->cr4GuestHostMask);
-  PrintTrace("CR4_READ_SHADOW: %x\n", (uint_t) execCtrls->cr4ReadShadow);
-  PrintTrace("CR3_TARGET_COUNT: %x\n", (uint_t) execCtrls->cr3TargetCount);
-  PrintTrace("CR3_TARGET_VALUE_0: %x\n", (uint_t) execCtrls->cr3TargetValue0);
-  PrintTrace("CR3_TARGET_VALUE_1: %x\n", (uint_t) execCtrls->cr3TargetValue1);
-  PrintTrace("CR3_TARGET_VALUE_2: %x\n", (uint_t) execCtrls->cr3TargetValue2);
-  PrintTrace("CR3_TARGET_VALUE_3: %x\n", (uint_t) execCtrls->cr3TargetValue3);
-  PrintTrace("VIRT_APIC_PAGE_ADDR: %x\n", (uint_t) execCtrls->virtApicPageAddr & 0xffffffff);
-  PrintTrace("VIRT_APIC_PAGE_ADDR_HIGH: %x\n", (uint_t) (execCtrls->virtApicPageAddr >> 32) & 0xffffffff);
-  PrintTrace("TPR_THRESHOLD: %x\n", (uint_t) execCtrls->tprThreshold);
-  PrintTrace("MSR_BITMAPS: %x\n", (uint_t) execCtrls->MSRBitmapsBaseAddr & 0xffffffff);
-  PrintTrace("MSR_BITMAPS_HIGH: %x\n", (uint_t) (execCtrls->MSRBitmapsBaseAddr >> 32) & 0xffffffff);
-  PrintTrace("VMCS_EXEC_PTR: %x\n", (uint_t) execCtrls->vmcsExecPtr & 0xffffffff);
-  PrintTrace("VMCS_EXEC_PTR_HIGH: %x\n", (uint_t) (execCtrls->vmcsExecPtr >> 32) & 0xffffffff);
-}
-
-void PrintTrace_VMCSExitCtrlFields(struct VMCSExitCtrlFields * exitCtrls) {
-  PrintTrace("\n==> VM Exit Controls\n");
-  PrintTrace("VM_EXIT_CTRLS: %x\n", (uint_t) exitCtrls->exitCtrls);
-  PrintTrace("VM_EXIT_MSR_STORE_COUNT: %x\n", (uint_t) exitCtrls->msrStoreCount);
-  PrintTrace("VM_EXIT_MSR_STORE_ADDR: %x\n", (uint_t) exitCtrls->msrStoreAddr & 0xffffffff);
-  PrintTrace("VM_EXIT_MSR_STORE_ADDR_HIGH: %x\n", (uint_t) (exitCtrls->msrStoreAddr >> 32) & 0xffffffff);
-  PrintTrace("VM_EXIT_MSR_LOAD_COUNT: %x\n", (uint_t) exitCtrls->msrLoadCount);
-  PrintTrace("VM_EXIT_MSR_LOAD_ADDR: %x\n", (uint_t) exitCtrls->msrLoadAddr & 0xffffffff);
-  PrintTrace("VM_EXIT_MSR_LOAD_ADDR_HIGH: %x\n", (uint_t) (exitCtrls->msrLoadAddr >> 32) & 0xffffffff);
-}
-
-void PrintTrace_VMCSEntryCtrlFields(struct VMCSEntryCtrlFields * entryCtrls) {
-  PrintTrace("\n==> VM Entry Controls\n");
-  PrintTrace("VM_ENTRY_CTRLS: %x\n", (uint_t) entryCtrls->entryCtrls);
-  PrintTrace("VM_ENTRY_MSR_LOAD_COUNT: %x\n", (uint_t) entryCtrls->msrLoadCount);
-  PrintTrace("VM_ENTRY_MSR_LOAD_ADDR: %x\n", (uint_t) entryCtrls->msrLoadAddr & 0xffffffff);
-  PrintTrace("VM_ENTRY_MSR_LOAD_ADDR_HIGH: %x\n", (uint_t) (entryCtrls->msrLoadAddr >> 32) & 0xffffffff);
-  PrintTrace("VM_ENTRY_INT_INFO_FIELD: %x\n", (uint_t) entryCtrls->intInfo);
-  PrintTrace("VM_ENTRY_EXCEPTION_ERROR: %x\n", (uint_t) entryCtrls->exceptionErrorCode);
-  PrintTrace("VM_ENTRY_INSTR_LENGTH: %x\n", (uint_t) entryCtrls->instrLength);
-}
-
-void PrintTrace_VMCSExitInfoFields(struct VMCSExitInfoFields * exitInfo) {
-  PrintTrace("\n==> VM Exit Info\n");
-  PrintTrace("EXIT_REASON: %x\n", (uint_t) exitInfo->reason);
-  PrintTrace("EXIT_QUALIFICATION: %x\n", (uint_t) exitInfo->qualification);
-  PrintTrace("VM_EXIT_INT_INFO: %x\n", (uint_t) exitInfo->intInfo);
-  PrintTrace("VM_EXIT_INT_ERROR: %x\n", (uint_t) exitInfo->intErrorCode);
-  PrintTrace("IDT_VECTOR_INFO: %x\n", (uint_t) exitInfo->idtVectorInfo);
-  PrintTrace("IDT_VECTOR_ERROR: %x\n", (uint_t) exitInfo->idtVectorErrorCode);
-  PrintTrace("VM_EXIT_INSTR_LENGTH: %x\n", (uint_t) exitInfo->instrLength);
-  PrintTrace("GUEST_LINEAR_ADDR: %x\n", (uint_t) exitInfo->guestLinearAddr);
-  PrintTrace("VMX_INSTR_INFO: %x\n", (uint_t) exitInfo->instrInfo);
-  PrintTrace("IO_RCX: %x\n", (uint_t) exitInfo->ioRCX);
-  PrintTrace("IO_RSI: %x\n", (uint_t) exitInfo->ioRSI);
-  PrintTrace("IO_RDI: %x\n", (uint_t) exitInfo->ioRDI);
-  PrintTrace("IO_RIP: %x\n", (uint_t) exitInfo->ioRIP);
-  PrintTrace("VM_INSTR_ERROR: %x\n", (uint_t) exitInfo->instrErrorField);
-}
-
-
-void PrintTrace_VMCSData(struct VMCSData * vmcs) {
-  PrintTrace("VMCSData Structure\n");
-
-  PrintTrace_VMCSGuestStateArea(&(vmcs->guestStateArea));
-  PrintTrace_VMCSHostStateArea(&(vmcs->hostStateArea));
-  PrintTrace_VMCSExecCtrlFields(&(vmcs->execCtrlFields));
-  PrintTrace_VMCSExitCtrlFields(&(vmcs->exitCtrlFields));
-  PrintTrace_VMCSEntryCtrlFields(&(vmcs->entryCtrlFields));
-  PrintTrace_VMCSExitInfoFields(&(vmcs->exitInfoFields));
-  PrintTrace("\n");
-}

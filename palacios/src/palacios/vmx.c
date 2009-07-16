@@ -24,6 +24,8 @@
 #include <palacios/vmcs.h>
 #include <palacios/vmm.h>
 #include <palacios/vmx_lowlevel.h>
+#include <palacios/vmm_lowlevel.h>
+#include <palacios/vmm_config.h>
 
 
 // 
@@ -32,7 +34,7 @@
 //
 //
 
-
+#if 0
 
 #include <palacios/vmm_util.h>
 #include <palacios/vmm_string.h>
@@ -74,8 +76,6 @@ uint_t oldesp = 0;
 uint_t myregs = 0;
 
 
-
-static struct vmcs_data* vmxon_ptr;
 
 
 
@@ -342,6 +342,8 @@ int VMLaunch(struct VMDescriptor *vm)
 //
 //
 
+#endif
+
 static int update_vmcs_host_state(struct guest_info * info) {
     addr_t tmp;
 
@@ -478,6 +480,11 @@ static int update_vmcs_host_state(struct guest_info * info) {
 
 
 
+
+static struct vmcs_data* vmxon_ptr;
+
+
+#if 0
 // For the 32 bit reserved bit fields 
 // MB1s are in the low 32 bits, MBZs are in the high 32 bits of the MSR
 static uint32_t sanitize_bits1(uint32_t msr_num, uint32_t val) {
@@ -487,13 +494,14 @@ static uint32_t sanitize_bits1(uint32_t msr_num, uint32_t val) {
 
     v3_get_msr(msr_num, &mask_msr.hi, &mask_msr.lo);
 
-    PrintDebug("MSR %x = %x : %x \n", msr_num, msr.hi, msr.lo);
+    PrintDebug("MSR %x = %x : %x \n", msr_num, mask_msr.hi, mask_msr.lo);
 
     val &= mask_msr.lo;
     val &= mask_msr.hi;
   
     return val;
 }
+
 
 
 static addr_t sanitize_bits2(uint32_t msr_num0, uint32_t msr_num1, addr_t val) {
@@ -509,7 +517,7 @@ static addr_t sanitize_bits2(uint32_t msr_num0, uint32_t msr_num1, addr_t val) {
     msr0_val = msr0.value;
     msr1_val = msr1.value;
 
-    PrintDebug("MSR %x = %p, %x = %p \n", msr_num0, msr0_val, msr_num1, msr1_val);
+    PrintDebug("MSR %x = %p, %x = %p \n", msr_num0, (void*)msr0_val, msr_num1, (void*)msr1_val);
 
     val &= msr0_val;
     val &= msr1_val;
@@ -517,17 +525,27 @@ static addr_t sanitize_bits2(uint32_t msr_num0, uint32_t msr_num1, addr_t val) {
     return val;
 }
 
+static int setup_base_host_state() {
+    
 
 
-static vmcs_data* allocate_vmcs() {
+    //   vmwrite(HOST_IDTR_BASE, 
+
+
+}
+
+
+#endif
+
+static struct vmcs_data* allocate_vmcs() {
     reg_ex_t msr;
-    vmcs_data* vmcs_page = (vmcs_data*)V3_VAddr(V3_AllocPages(1));
+    struct vmcs_data* vmcs_page = (struct vmcs_data*)V3_VAddr(V3_AllocPages(1));
 
     memset(vmcs_page, 0, 4096);
 
     v3_get_msr(VMX_BASIC_MSR, &(msr.e_reg.high), &(msr.e_reg.low));
     
-    vmcs_page->revision = ((struct vmx_basic_msr)msr).revision;
+    vmcs_page->revision = ((struct vmx_basic_msr*)&msr)->revision;
 
     return vmcs_page;
 }
@@ -555,7 +573,7 @@ static int init_vmx_guest(struct guest_info * info, struct v3_vm_config * config
     info->vmm_data = (void*)data;
 
     PrintDebug("Initializing VMCS (addr=%p)\n", info->vmm_data);
-    init_vmcs_bios((struct vmx_data*)(info->vmm_data), info);
+    init_vmcs_bios(info);
 
     v3_post_config_guest(info, config_ptr);
 
@@ -591,21 +609,22 @@ static int start_vmx_guest(struct guest_info *info) {
 
 
 int v3_is_vmx_capable() {
-    uint_t ret;
     v3_msr_t feature_msr;
     addr_t eax = 0, ebx = 0, ecx = 0, edx = 0;
 
-    v3_cpuid(CPUID_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
+    v3_cpuid(0x1, &eax, &ebx, &ecx, &edx);
+
+    PrintDebug("ECX: %p\n", (void*)ecx);
 
     if (ecx & CPUID_1_ECX_VTXFLAG) {
-	v3_get_msr(IA32_FEATURE_CONTROL_MSR, &(feature_msr.hi), &(feature_msr.lo));
+        v3_get_msr(VMX_FEATURE_CONTROL_MSR, &(feature_msr.hi), &(feature_msr.lo));
 	
-	PrintTrace("MSRREGlow: 0x%.8x\n", feature_msr.lo);
+        PrintTrace("MSRREGlow: 0x%.8x\n", feature_msr.lo);
 
-	if ((feature_msr.lo & FEATURE_CONTROL_VALID) != FEATURE_CONTROL_VALID) {
-	    PrintDebug("VMX is locked -- enable in the BIOS\n");
-	    return 0;
-	}
+        if ((feature_msr.lo & FEATURE_CONTROL_VALID) != FEATURE_CONTROL_VALID) {
+            PrintDebug("VMX is locked -- enable in the BIOS\n");
+            return 0;
+        }
 
     } else {
         PrintDebug("VMX not supported on this cpu\n");
@@ -629,35 +648,31 @@ struct seg_descriptor {
 };
 
 
-static int setup_base_host_state() {
-    uint8_t gdt[10];
-    
 
 
-    //   vmwrite(HOST_IDTR_BASE, 
-
-
-}
-
-
-
-void v3_init_vmx(struct v3_ctrl_ops * vm_ops) {
-    v3_msr_t basic_msr;
+void v3_init_vmx(struct v3_ctrl_ops * vmm_ops) {
+    extern v3_cpu_arch_t v3_cpu_type;
 
     
     __asm__ __volatile__ (
-			  "movl %%cr4, %%ebx; "
-			  "orl  %%ebx, 0x00002000; "
-			  "movl %%ebx, %%cr4"
+			  "movq %%cr4, %%rbx; "
+			  "orq  $0x00002000,%%rbx; "
+			  "movq %%rbx, %%cr4;"
+              :
+              :
+              : "%rbx"
 			  );
 
 
 
     // Should check and return Error here.... 
     __asm__ __volatile__ (
-			  "movl %%cr0, %%ebx; "
-			  "orl  %%ebx, 0x00000020; "
-			  "movl %%ebx, %%cr0"
+			  "movq %%cr0, %%rbx; "
+			  "orq  $0x00000020,%%rbx; "
+			  "movq %%rbx, %%cr0;"
+              :
+              :
+              : "%rbx"
 			  );
 
     // Setup VMXON Region

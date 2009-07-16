@@ -28,6 +28,7 @@
 
 #include <palacios/vmm_types.h>
 #include <palacios/vmcs.h>
+#include <palacios/vmm.h>
 
 // Intel VMX Specific MSRs
 #define VMX_FEATURE_CONTROL_MSR     0x0000003a
@@ -76,7 +77,7 @@ typedef enum {
 
 struct vmx_data {
     vmx_state_t state;
-    struct vmcs_data vmcs;
+    struct vmcs_data* vmcs;
 };
 
 
@@ -94,15 +95,9 @@ struct Instruction {
 
 
 
-int is_vmx_capable();
+int v3_is_vmx_capable();
+void v3_init_vmx(struct v3_ctrl_ops* vm_ops);
 
-VmxOnRegion * Init_VMX();
-VmxOnRegion * CreateVmxOnRegion();
-
-int VMLaunch(struct VMDescriptor *vm);
-
-
-int Do_VMM(struct VMXRegs regs);
 
 
 #endif // ! __V3VEE__

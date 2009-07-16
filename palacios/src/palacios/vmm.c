@@ -19,7 +19,7 @@
 
 #include <palacios/vmm.h>
 #include <palacios/svm.h>
-//#include <palacios/vmx.h>
+#include <palacios/vmx.h>
 #include <palacios/vmm_intr.h>
 #include <palacios/vmm_config.h>
 #include <palacios/vm_guest.h>
@@ -56,17 +56,16 @@ void Init_V3(struct v3_os_hooks * hooks, struct v3_ctrl_ops * vmm_ops) {
 
     if (v3_is_svm_capable()) {
 
-	PrintDebug("Machine is SVM Capable\n");
-	vmm_ops->allocate_guest = &allocate_guest;
-	v3_init_SVM(vmm_ops);
+        PrintDebug("Machine is SVM Capable\n");
+        vmm_ops->allocate_guest = &allocate_guest;
+        v3_init_SVM(vmm_ops);
 
-	/*
-	  } else if (is_vmx_capable()) {
-	  vmm_cpu_type = VMM_VMX_CPU;
-	  PrintDebug("Machine is VMX Capable\n");
-	  //Init_VMX();*/
+
+    } else if (v3_is_vmx_capable()) {
+        PrintDebug("Machine is VMX Capable\n");
+        v3_init_vmx(vmm_ops);
     } else {
-	PrintDebug("CPU has no virtualization Extensions\n");
+        PrintDebug("CPU has no virtualization Extensions\n");
     }
 }
 

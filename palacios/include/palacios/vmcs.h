@@ -27,6 +27,34 @@
 
 
 #include <palacios/vmm_types.h>
+    /* Pin Based VM Execution Controls */
+    /* INTEL MANUAL: 20-10 vol 3B */
+#define   EXTERNAL_INTERRUPT_EXITING    0x00000001
+#define   NMI_EXITING                   0x00000008
+#define   VIRTUAL_NMIS                  0x00000020
+/* Processor Based VM Execution Controls */
+/* INTEL MANUAL: 20-11 vol. 3B */
+#define   INTERRUPT_WINDOWS_EXIT        0x00000004
+#define   USE_TSC_OFFSETTING            0x00000008
+#define   HLT_EXITING                   0x00000080
+#define   INVLPG_EXITING                0x00000200
+#define   MWAIT_EXITING                 0x00000400
+#define   RDPMC_EXITING                 0x00000800
+#define   RDTSC_EXITING                 0x00001000
+#define   CR8_LOAD_EXITING              0x00080000
+#define   CR8_STORE_EXITING             0x00100000
+#define   USE_TPR_SHADOW                0x00200000
+#define   NMI_WINDOW_EXITING            0x00400000
+#define   MOVDR_EXITING                 0x00800000
+#define   UNCONDITION_IO_EXITING        0x01000000
+#define   USE_IO_BITMAPS                0x02000000
+#define   USE_MSR_BITMAPS               0x10000000
+#define   MONITOR_EXITING               0x20000000
+#define   PAUSE_EXITING                 0x40000000
+/* VM-Exit Controls */
+/* INTEL MANUAL: 20-16 vol. 3B */
+#define   HOST_ADDR_SPACE_SIZE          0x00000200
+#define   ACK_IRQ_ON_EXIT               0x00008000
 
 typedef enum {
     VMCS_GUEST_ES_SELECTOR       = 0x00000800,
@@ -171,38 +199,10 @@ typedef enum {
     HOST_IA32_SYSENTER_EIP       = 0x00006C12,
     HOST_RSP                     = 0x00006C14,
     HOST_RIP                     = 0x00006C16,
-    /* Pin Based VM Execution Controls */
-    /* INTEL MANUAL: 20-10 vol 3B */
-    EXTERNAL_INTERRUPT_EXITING   = 0x00000001,
-    NMI_EXITING                  = 0x00000008,
-    VIRTUAL_NMIS                 = 0x00000020,
-    /* Processor Based VM Execution Controls */
-    /* INTEL MANUAL: 20-11 vol. 3B */
-    INTERRUPT_WINDOWS_EXIT       = 0x00000004,
-    USE_TSC_OFFSETTING           = 0x00000008,
-    HLT_EXITING                  = 0x00000080,
-    INVLPG_EXITING               = 0x00000200,
-    MWAIT_EXITING                = 0x00000400,
-    RDPMC_EXITING                = 0x00000800,
-    RDTSC_EXITING                = 0x00001000,
-    CR8_LOAD_EXITING             = 0x00080000,
-    CR8_STORE_EXITING            = 0x00100000,
-    USE_TPR_SHADOW               = 0x00200000,
-    NMI_WINDOW_EXITING           = 0x00400000,
-    MOVDR_EXITING                = 0x00800000,
-    UNCONDITION_IO_EXITING       = 0x01000000,
-    USE_IO_BITMAPS               = 0x02000000,
-    USE_MSR_BITMAPS              = 0x10000000,
-    MONITOR_EXITING              = 0x20000000,
-    PAUSE_EXITING                = 0x40000000,
-    /* VM-Exit Controls */
-    /* INTEL MANUAL: 20-16 vol. 3B */
-    HOST_ADDR_SPACE_SIZE         = 0x00000200,
-    ACK_IRQ_ON_EXIT              = 0x00008000
-} vmcs_field_t;
+    } vmcs_field_t;
 
-int vmcs_field_length(vmcs_field_t field);
-char* vmcs_field_name(vmcs_field_t field);
+int v3_vmcs_get_field_len(vmcs_field_t field);
+char* v3_vmcs_get_field_name(vmcs_field_t field);
 
 
 
@@ -306,137 +306,12 @@ struct vmcs_interrupt_state {
     uint32_t    rsvd1           : 28;
 } __attribute__((packed));
 
-struct vmcs_pending_debug {
-    uint32_t    B0  : 1;
-    uint32_t    B1  : 1;
-    uint32_t    B2  : 1;
-    uint32_t    B3  : 1;
-    uint32_t    rsvd1   : 8;
-    uint32_t    break_enabled   : 1;
-    uint32_t    rsvd2   :   1;
-    uint32_t    bs      :   1;
-    uint32_t    rsvd3   :   50;
-} __attribute__((packed));
 
 
-struct VMCSExecCtrlFields {
-    uint32_t pinCtrls ; // Table 20-5, Vol 3B. (pg. 20-10)
-    uint32_t procCtrls ; // Table 20-6, Vol 3B. (pg. 20-11)
-    uint32_t execBitmap ; 
-    uint32_t pageFaultErrorMask ; 
-    uint32_t pageFaultErrorMatch ;
-    uint32_t ioBitmapA ; 
-    uint32_t ioBitmapB ;
-    uint64_t tscOffset ;
-    uint32_t cr0GuestHostMask ; // Should be 64 bits?
-    uint32_t cr0ReadShadow ; // Should be 64 bits?
-    uint32_t cr4GuestHostMask ; // Should be 64 bits?
-    uint32_t cr4ReadShadow ; // Should be 64 bits?
-    uint32_t cr3TargetValue0 ; // should be 64 bits?
-    uint32_t cr3TargetValue1 ; // should be 64 bits?
-    uint32_t cr3TargetValue2 ; // should be 64 bits?
-    uint32_t cr3TargetValue3 ; // should be 64 bits?
-    uint32_t cr3TargetCount ;
-    
-
-
-    /* these fields enabled if "use TPR shadow"==1 */
-    /* may not need them */
-    uint64_t virtApicPageAddr ;
-    // uint32_t virtApicPageAddrHigh 
-    uint32_t tprThreshold ;
-    /**/
-
-    uint64_t MSRBitmapsBaseAddr;
-
-    uint64_t vmcsExecPtr ;
-};
-
-int CopyOutVMCSExecCtrlFields(struct VMCSExecCtrlFields *p);
-int CopyInVMCSExecCtrlFields(struct VMCSExecCtrlFields *p);
-
-
-
-
-struct VMCSExitCtrlFields {
-    uint32_t exitCtrls ; // Table 20-7, Vol. 3B (pg. 20-16)
-    uint32_t msrStoreCount ;
-    uint64_t msrStoreAddr ;
-    uint32_t msrLoadCount ;
-    uint64_t msrLoadAddr ;
-};
-
-int CopyOutVMCSExitCtrlFields(struct VMCSExitCtrlFields *p);
-int CopyInVMCSExitCtrlFields(struct VMCSExitCtrlFields *p);
-
-
-
-struct VMCSEntryCtrlFields {
-    uint32_t entryCtrls ; // Table 20-9, Vol. 3B (pg. 20-18) 
-    uint32_t msrLoadCount ;
-    uint64_t msrLoadAddr ;
-    uint32_t intInfo ; // Table 20-10, Vol. 3B (pg. 20-19)
-    uint32_t exceptionErrorCode ;
-    uint32_t instrLength ;
-};
-
-
-int CopyOutVMCSEntryCtrlFields(struct VMCSEntryCtrlFields *p);
-int CopyInVMCSEntryCtrlFields(struct VMCSEntryCtrlFields *p);
-
-
-struct VMCSExitInfoFields {
-    uint32_t reason; // Table 20-11, Vol. 3B (pg. 20-20)
-    uint32_t qualification ; // Should be 64 bits?
-    uint32_t intInfo ;
-    uint32_t intErrorCode ;
-    uint32_t idtVectorInfo ;
-    uint32_t idtVectorErrorCode ;
-    uint32_t instrLength ;
-    uint64_t guestLinearAddr ; // Should be 64 bits?
-    uint32_t instrInfo ;
-    uint64_t ioRCX ; // Should be 64 bits?
-    uint64_t ioRSI ; // Should be 64 bits?
-    uint64_t ioRDI ; // Should be 64 bits?
-    uint64_t ioRIP ; // Should be 64 bits?
-    uint32_t instrErrorField ;
-
-};
-
-
-int CopyOutVMCSExitInfoFields(struct VMCSExitInfoFields *p);
-
-
-
-typedef struct vmcs_data {
+struct vmcs_data {
     uint32_t revision ;
     uint32_t abort    ;
-} __attribute__((packed)) vmcs_data_t;
-
-
-int CopyOutVMCSData(struct VMCSData *p);
-int CopyInVMCSData(struct VMCSData *p);
-
-struct VMXRegs {
-    uint32_t edi;
-    uint32_t esi;
-    uint32_t ebp;
-    uint32_t esp;
-    uint32_t ebx;
-    uint32_t edx;
-    uint32_t ecx;
-    uint32_t eax;
-};
-  
-void PrintTrace_VMX_Regs(struct VMXRegs *regs);
-void PrintTrace_VMCSData(struct VMCSData * vmcs);
-void PrintTrace_VMCSGuestStateArea(struct VMCSGuestStateArea * guestState);
-void PrintTrace_VMCSHostStateArea(struct VMCSHostStateArea * hostState);
-void PrintTrace_VMCSExecCtrlFields(struct VMCSExecCtrlFields * execCtrls);
-void PrintTrace_VMCSExitCtrlFields(struct VMCSExitCtrlFields * exitCtrls);
-void PrintTrace_VMCSEntryCtrlFields(struct VMCSEntryCtrlFields * entryCtrls);
-void PrintTrace_VMCSExitInfoFields(struct VMCSExitInfoFields * exitInfo);
-void PrintTrace_VMCSSegment(char * segname, struct VMCSSegment * seg, int abbr);
+} __attribute__((packed));
 
 
 //uint_t VMCSRead(uint_t tag, void * val);

@@ -138,7 +138,7 @@ static inline int vmcs_store(struct vmcs_data* vmcs_ptr) {
     uint64_t vmcs_ptr_64 = (uint64_t)vmcs_ptr;
 
     __asm__ __volatile__ (
-               VMPTRSRT_OPCODE
+               VMPTRST_OPCODE
                EAX_07_MODRM
                :
                : "a"(&vmcs_ptr_64)
