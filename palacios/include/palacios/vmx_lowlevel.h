@@ -56,7 +56,7 @@
 
 
 
-static inline int v3_enable_vmx(struct vmcs_data* vmxon_ptr) {
+static inline int v3_enable_vmx(struct vmcs_data * vmxon_ptr) {
     uint64_t vmxon_ptr_64 = (uint64_t)vmxon_ptr;
     uint8_t ret_invalid = 0;
 

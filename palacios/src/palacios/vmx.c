@@ -26,6 +26,7 @@
 #include <palacios/vmx_lowlevel.h>
 #include <palacios/vmm_lowlevel.h>
 #include <palacios/vmm_config.h>
+#include <palacios/vmm_ctrl_regs.h>
 
 
 // 
@@ -121,61 +122,6 @@ void DecodeCurrentInstruction(struct VM *vm, struct Instruction *inst)
 }
 
 
-static void setup_v8086_mode_for_boot(struct guest_info* vm_info)
-{
-
-    ((struct vmx_data*)vm_info->vmm_data)->state = VMXASSIST_V8086_BIOS;
-    ((struct rflags)info->ctrl_regs.rflags).vm = 1;
-    ((struct rflags)info->ctrl_regs.rflags).iopl = 3;
-
-
-    vm_info->rip = 0xfff0;
-
-    vm_info->segments.cs.selector = 0xf000;
-    vm_info->segments.cs.base = 0xf000<<4;
-    vm_info->segments.cs.limit = 0xffff;
-    vm_info->segments.cs.type = 3;
-    vm_info->segments.cs.system = 1;
-    vm_info->segments.cs.dpl = 3;
-    vm_info->segments.cs.present = 1;
-    vm_info->segments.cs.granularity = 0;
-
-    vm_info->segments.ss.selector = 0x0000;
-    vm_info->segments.ss.base = 0x0000<<4;
-    vm_info->segments.ss.limit = 0xffff;
-    vm_info->segments.ss.type = 3;
-    vm_info->segments.ss.system = 1;
-    vm_info->segments.ss.dpl = 3;
-    vm_info->segments.ss.present = 1;
-    vm_info->segments.ss.granularity = 0;
-
-    vm_info->segments.es.selector = 0x0000;
-    vm_info->segments.es.base = 0x0000<<4;
-    vm_info->segments.es.limit = 0xffff;
-    vm_info->segments.es.type = 3;
-    vm_info->segments.es.system = 1;
-    vm_info->segments.es.dpl = 3;
-    vm_info->segments.es.present = 1;
-    vm_info->segments.es.granularity = 0;
-
-    vm_info->segments.fs.selector = 0x0000;
-    vm_info->segments.fs.base = 0x0000<<4;
-    vm_info->segments.fs.limit = 0xffff;
-    vm_info->segments.fs.type = 3;
-    vm_info->segments.fs.system = 1;
-    vm_info->segments.fs.dpl = 3;
-    vm_info->segments.fs.present = 1;
-    vm_info->segments.fs.granularity = 0;
-
-    vm_info->segments.gs.selector = 0x0000;
-    vm_info->segments.gs.base = 0x0000<<4;
-    vm_info->segments.gs.limit = 0xffff;
-    vm_info->segments.gs.type = 3;
-    vm_info->segments.gs.system = 1;
-    vm_info->segments.gs.dpl = 3;
-    vm_info->segments.gs.present = 1;
-    vm_info->segments.gs.granularity = 0;
-}
 
 static void ConfigureExits(struct VM *vm)
 {
@@ -539,10 +485,69 @@ static int setup_base_host_state() {
 }
 
 
+
+static void setup_v8086_mode_for_boot(struct guest_info* vm_info)
+{
+
+    ((struct vmx_data*)vm_info->vmm_data)->state = VMXASSIST_V8086_BIOS;
+    ((struct rflags*)&(vm_info->ctrl_regs.rflags))->vm = 1;
+    ((struct rflags*)&(vm_info->ctrl_regs.rflags))->iopl = 3;
+
+
+    vm_info->rip = 0xfff0;
+
+    vm_info->segments.cs.selector = 0xf000;
+    vm_info->segments.cs.base = 0xf000<<4;
+    vm_info->segments.cs.limit = 0xffff;
+    vm_info->segments.cs.type = 3;
+    vm_info->segments.cs.system = 1;
+    vm_info->segments.cs.dpl = 3;
+    vm_info->segments.cs.present = 1;
+    vm_info->segments.cs.granularity = 0;
+
+    vm_info->segments.ss.selector = 0x0000;
+    vm_info->segments.ss.base = 0x0000<<4;
+    vm_info->segments.ss.limit = 0xffff;
+    vm_info->segments.ss.type = 3;
+    vm_info->segments.ss.system = 1;
+    vm_info->segments.ss.dpl = 3;
+    vm_info->segments.ss.present = 1;
+    vm_info->segments.ss.granularity = 0;
+
+    vm_info->segments.es.selector = 0x0000;
+    vm_info->segments.es.base = 0x0000<<4;
+    vm_info->segments.es.limit = 0xffff;
+    vm_info->segments.es.type = 3;
+    vm_info->segments.es.system = 1;
+    vm_info->segments.es.dpl = 3;
+    vm_info->segments.es.present = 1;
+    vm_info->segments.es.granularity = 0;
+
+    vm_info->segments.fs.selector = 0x0000;
+    vm_info->segments.fs.base = 0x0000<<4;
+    vm_info->segments.fs.limit = 0xffff;
+    vm_info->segments.fs.type = 3;
+    vm_info->segments.fs.system = 1;
+    vm_info->segments.fs.dpl = 3;
+    vm_info->segments.fs.present = 1;
+    vm_info->segments.fs.granularity = 0;
+
+    vm_info->segments.gs.selector = 0x0000;
+    vm_info->segments.gs.base = 0x0000<<4;
+    vm_info->segments.gs.limit = 0xffff;
+    vm_info->segments.gs.type = 3;
+    vm_info->segments.gs.system = 1;
+    vm_info->segments.gs.dpl = 3;
+    vm_info->segments.gs.present = 1;
+    vm_info->segments.gs.granularity = 0;
+}
+
 #endif
 
-static struct vmcs_data* allocate_vmcs() {
+static struct vmcs_data* allocate_vmcs() 
+{
     reg_ex_t msr;
+    PrintDebug("Allocating page\n");
     struct vmcs_data* vmcs_page = (struct vmcs_data*)V3_VAddr(V3_AllocPages(1));
 
     memset(vmcs_page, 0, 4096);
@@ -550,8 +555,9 @@ static struct vmcs_data* allocate_vmcs() {
     v3_get_msr(VMX_BASIC_MSR, &(msr.e_reg.high), &(msr.e_reg.low));
     
     vmcs_page->revision = ((struct vmx_basic_msr*)&msr)->revision;
+    PrintDebug("VMX Revision: 0x%x\n",vmcs_page->revision);
 
-    return vmcs_page;
+    return (struct vmcs_data*)V3_PAddr((void*)vmcs_page);
 }
 
 
@@ -565,6 +571,7 @@ static void init_vmcs_bios(struct guest_info * vm_info)
 
 
 static int init_vmx_guest(struct guest_info * info, struct v3_vm_config * config_ptr) {
+    PrintDebug("Entering init_vmx_guest\n");
     v3_pre_config_guest(info, config_ptr);
 
     struct vmx_data* data;
@@ -592,14 +599,16 @@ static int start_vmx_guest(struct guest_info *info) {
     int vmx_ret;
 
     // Have to do a whole lot of flag setting here
+    PrintDebug("Clearing VMCS\n");
     vmx_ret = vmcs_clear(vmx_data->vmcs);
     if(vmx_ret != VMX_SUCCESS) {
-        PrintDebug("VMCS Clear failed\n");
+        PrintDebug("VMCLEAR failed\n");
         return -1;
     }
+    PrintDebug("Loading VMCS\n");
     vmx_ret = vmcs_load(vmx_data->vmcs);
     if(vmx_ret != VMX_SUCCESS) {
-        PrintDebug("Executing VMPTRLD\n");
+        PrintDebug("VMPTRLD failed\n");
         return -1;
     }
 
@@ -657,7 +666,7 @@ struct seg_descriptor {
 
 
 
-void v3_init_vmx(struct v3_ctrl_ops * vmm_ops) {
+void v3_init_vmx(struct v3_ctrl_ops * vm_ops) {
     extern v3_cpu_arch_t v3_cpu_type;
 
     
@@ -684,9 +693,9 @@ void v3_init_vmx(struct v3_ctrl_ops * vmm_ops) {
 
     // Setup VMXON Region
     vmxon_ptr = allocate_vmcs();
-    PrintDebug("VMX revision: 0x%p\n", (void*)vmxon_ptr);
+    PrintDebug("VMXON pointer: 0x%p\n", (void*)vmxon_ptr);
 
-    if (v3_enable_vmx(vmxon_ptr) == 0) {
+    if (v3_enable_vmx(vmxon_ptr) == VMX_SUCCESS) {
         PrintDebug("VMX Enabled\n");
     } else {
         PrintError("VMX initialization failure\n");
@@ -701,8 +710,8 @@ void v3_init_vmx(struct v3_ctrl_ops * vmm_ops) {
     }
 
     // Setup the VMX specific vmm operations
-    vmm_ops->init_guest = &init_vmx_guest;
-    vmm_ops->start_guest = &start_vmx_guest;
-    vmm_ops->has_nested_paging = &has_vmx_nested_paging;
+    vm_ops->init_guest = &init_vmx_guest;
+    vm_ops->start_guest = &start_vmx_guest;
+    vm_ops->has_nested_paging = &has_vmx_nested_paging;
 
 }
