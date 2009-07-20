@@ -54,13 +54,11 @@ void Init_V3(struct v3_os_hooks * hooks, struct v3_ctrl_ops * vmm_ops) {
     v3_init_instrumentation();
 #endif
 
+    vmm_ops->allocate_guest = &allocate_guest;
+
     if (v3_is_svm_capable()) {
-
         PrintDebug("Machine is SVM Capable\n");
-        vmm_ops->allocate_guest = &allocate_guest;
         v3_init_SVM(vmm_ops);
-
-
     } else if (v3_is_vmx_capable()) {
         PrintDebug("Machine is VMX Capable\n");
         v3_init_vmx(vmm_ops);
