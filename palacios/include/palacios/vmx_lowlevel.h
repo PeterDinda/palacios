@@ -57,7 +57,7 @@
 
 
 static inline int v3_enable_vmx(struct vmcs_data * vmxon_ptr) {
-    uint64_t vmxon_ptr_64 = (uint64_t)vmxon_ptr;
+    uint64_t vmxon_ptr_64 __attribute__((aligned(8))) = (uint64_t)vmxon_ptr;
     uint8_t ret_invalid = 0;
 
     __asm__ __volatile__ (
