@@ -1536,9 +1536,9 @@ static int init_ide(struct vm_device * dev) {
 	pci_dev->config_header.device_id = 0x7010;
 	pci_dev->config_header.revision = 0x00;
 
-	pci_dev->config_header.prog_if = 0x80;
-	pci_dev->config_header.subclass = 0x01;
-	pci_dev->config_header.class = 0x01;
+	pci_dev->config_header.prog_if = 0x80; // Master IDE device
+	pci_dev->config_header.subclass = PCI_STORAGE_SUBCLASS_IDE;
+	pci_dev->config_header.class = PCI_CLASS_STORAGE;
 
 	pci_dev->config_header.command = 0;
 	pci_dev->config_header.status = 0x0280;
@@ -1575,8 +1575,6 @@ struct vm_device *  v3_create_ide(struct vm_device * pci_bus, struct vm_device *
 
     memset(ide, 0, sizeof(struct ide_internal));
 
-    struct vm_device * device = v3_create_device("IDE", &dev_ops, ide);
-
     if (pci_bus != NULL) {
 	if (southbridge_dev == NULL) {
 	    PrintError("PCI Enabled BUT southbridge is NULL\n");
@@ -1590,7 +1588,7 @@ struct vm_device *  v3_create_ide(struct vm_device * pci_bus, struct vm_device *
 
     PrintDebug("IDE: Creating IDE bus x 2\n");
 
-    return device;
+    return v3_create_device("IDE", &dev_ops, ide);
 }
 
 
