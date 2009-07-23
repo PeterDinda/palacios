@@ -56,7 +56,7 @@
 
 
 
-static inline int v3_enable_vmx(struct vmcs_data * vmxon_ptr) {
+static inline int v3_enable_vmx(addr_t vmxon_ptr) {
     uint64_t vmxon_ptr_64 __attribute__((aligned(8))) = (uint64_t)vmxon_ptr;
     uint8_t ret_invalid = 0;
 
@@ -77,7 +77,7 @@ static inline int v3_enable_vmx(struct vmcs_data * vmxon_ptr) {
 
 // No vmcall necessary - is only executed by the guest
 
-static inline int vmcs_clear(struct vmcs_data* vmcs_ptr) {
+static inline int vmcs_clear(addr_t vmcs_ptr) {
     uint64_t vmcs_ptr_64 = (uint64_t)vmcs_ptr;
     uint8_t ret_valid = 0;
     uint8_t ret_invalid = 0;
@@ -115,7 +115,7 @@ static inline int vmcs_resume() {
 }
 
 
-static inline int vmcs_load(struct vmcs_data* vmcs_ptr) {
+static inline int vmcs_load(addr_t vmcs_ptr) {
     uint64_t vmcs_ptr_64 = (uint64_t)vmcs_ptr;
     uint8_t ret_valid = 0;
     uint8_t ret_invalid = 0;
@@ -134,7 +134,7 @@ static inline int vmcs_load(struct vmcs_data* vmcs_ptr) {
     return VMX_SUCCESS;
 }
 
-static inline int vmcs_store(struct vmcs_data* vmcs_ptr) {
+static inline int vmcs_store(addr_t vmcs_ptr) {
     uint64_t vmcs_ptr_64 = (uint64_t)vmcs_ptr;
 
     __asm__ __volatile__ (
@@ -147,7 +147,7 @@ static inline int vmcs_store(struct vmcs_data* vmcs_ptr) {
     return VMX_SUCCESS;
 }
 
-static inline int vmcs_read(addr_t vmcs_index, void * dst, int len) {
+static inline int vmcs_read(vmcs_field_t vmcs_field, void * dst, int len) {
     uint64_t val = 0;
     uint8_t ret_valid = 0;
     uint8_t ret_invalid = 0;
@@ -158,13 +158,12 @@ static inline int vmcs_read(addr_t vmcs_index, void * dst, int len) {
                 "seteb %0;" // fail valid
                 "setnaeb %1;" // fail invalid
                 : "=q"(ret_valid), "=q"(ret_invalid), "=c"(val) // Use ECX
-                : "a" (vmcs_index), "0"(ret_valid), "1"(ret_invalid)
+                : "a" (vmcs_field), "0"(ret_valid), "1"(ret_invalid)
                 : "memory"
                 );
 
     CHECK_VMXFAIL(ret_valid, ret_invalid);
 
-    // TODO: Fix this, will have to do a cast because dst will be variable length
     switch(len)
     {
         case 2:
@@ -182,7 +181,7 @@ static inline int vmcs_read(addr_t vmcs_index, void * dst, int len) {
     return VMX_SUCCESS;
 }
 
-static inline int vmcs_write(addr_t vmcs_index, addr_t value) {
+static inline int vmcs_write(vmcs_field_t vmcs_field, addr_t value) {
     uint8_t ret_valid = 0;
     uint8_t ret_invalid = 0;
 
@@ -192,7 +191,7 @@ static inline int vmcs_write(addr_t vmcs_index, addr_t value) {
                 "seteb %0;" // fail valid (ZF=1)
                 "setnaeb %1;" // fail invalid (CF=1)
                 : "=q" (ret_valid), "=q" (ret_invalid)
-                : "a" (vmcs_index), "c"(value), "0"(ret_valid), "1"(ret_invalid)
+                : "a" (vmcs_field), "c"(value), "0"(ret_valid), "1"(ret_invalid)
                 : "memory");
 
     CHECK_VMXFAIL(ret_valid, ret_invalid);

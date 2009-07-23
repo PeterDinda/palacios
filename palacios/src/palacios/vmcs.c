@@ -22,7 +22,7 @@
 #include <palacios/vmm.h>
 
 
-static const char * vmcs_field_to_str(vmcs_field_t field);
+// static const char * v3_vmcs_field_to_str(vmcs_field_t field);
 
 //extern char * exception_names;
 //
@@ -40,22 +40,98 @@ static inline void print_vmcs_field(vmcs_field_t vmcs_index) {
     };
     
     if (len == 2) {
-	PrintDebug("%s: %x\n", vmcs_field_to_str(vmcs_index), (uint16_t)val);
+	PrintDebug("%s: %x\n", v3_vmcs_field_to_str(vmcs_index), (uint16_t)val);
     } else if (len == 4) {
-	PrintDebug("%s: %x\n", vmcs_field_to_str(vmcs_index), (uint32_t)val);
+	PrintDebug("%s: %x\n", v3_vmcs_field_to_str(vmcs_index), (uint32_t)val);
     } else if (len == 8) {
-	PrintDebug("%s: %p\n", vmcs_field_to_str(vmcs_index), (void *)(addr_t)val);
+	PrintDebug("%s: %p\n", v3_vmcs_field_to_str(vmcs_index), (void *)(addr_t)val);
     }
 }
 
 
-static inline void print_vmcs_segments() {
-    // see vm_guest.c
+
+void v3_print_vmcs_guest_state()
+{
+    PrintDebug("\n===== VMCS Guest State =====\n");
+    print_vmcs_field(VMCS_GUEST_RIP);
+    print_vmcs_field(VMCS_GUEST_RSP);
+    print_vmcs_field(VMCS_GUEST_CR0);
+    print_vmcs_field(VMCS_GUEST_CR3);
+    print_vmcs_field(VMCS_GUEST_CR4);
+    print_vmcs_field(VMCS_GUEST_DR7);
+
+    PrintDebug("\n=== CS Segment===\n");
+    print_vmcs_field(VMCS_GUEST_CS_SELECTOR);
+    print_vmcs_field(VMCS_GUEST_CS_BASE);
+    print_vmcs_field(VMCS_GUEST_CS_LIMIT);
+    print_vmcs_field(VMCS_GUEST_CS_ACCESS);
+
+    PrintDebug("\n=== SS Segment ===\n");
+    print_vmcs_field(VMCS_GUEST_SS_SELECTOR);
+    print_vmcs_field(VMCS_GUEST_SS_BASE);
+    print_vmcs_field(VMCS_GUEST_SS_LIMIT);
+    print_vmcs_field(VMCS_GUEST_SS_ACCESS);
+
+    PrintDebug("\n=== DS Segment ===\n");
+    print_vmcs_field(VMCS_GUEST_DS_SELECTOR);
+    print_vmcs_field(VMCS_GUEST_DS_BASE);
+    print_vmcs_field(VMCS_GUEST_DS_LIMIT);
+    print_vmcs_field(VMCS_GUEST_DS_ACCESS);
+
+    PrintDebug("\n=== ES Segment ===\n");
+    print_vmcs_field(VMCS_GUEST_ES_SELECTOR);
+    print_vmcs_field(VMCS_GUEST_ES_BASE);
+    print_vmcs_field(VMCS_GUEST_ES_LIMIT);
+    print_vmcs_field(VMCS_GUEST_ES_ACCESS);
+
+    PrintDebug("\n=== FS Segment ===\n");
+    print_vmcs_field(VMCS_GUEST_FS_SELECTOR);
+    print_vmcs_field(VMCS_GUEST_FS_BASE);
+    print_vmcs_field(VMCS_GUEST_FS_LIMIT);
+    print_vmcs_field(VMCS_GUEST_FS_ACCESS);
+
+    PrintDebug("\n=== GS Segment ===\n");
+    print_vmcs_field(VMCS_GUEST_GS_SELECTOR);
+    print_vmcs_field(VMCS_GUEST_GS_BASE);
+    print_vmcs_field(VMCS_GUEST_GS_LIMIT);
+    print_vmcs_field(VMCS_GUEST_GS_ACCESS);
+
+    PrintDebug("\n=== LDTR Segment ===\n");
+    print_vmcs_field(VMCS_GUEST_LDTR_SELECTOR);
+    print_vmcs_field(VMCS_GUEST_LDTR_BASE);
+    print_vmcs_field(VMCS_GUEST_LDTR_LIMIT);
+    print_vmcs_field(VMCS_GUEST_LDTR_ACCESS);
+
+    PrintDebug("\n=== TR Segment ===\n");
+    print_vmcs_field(VMCS_GUEST_TR_SELECTOR);
+    print_vmcs_field(VMCS_GUEST_TR_BASE);
+    print_vmcs_field(VMCS_GUEST_TR_LIMIT);
+    print_vmcs_field(VMCS_GUEST_TR_ACCESS);
+
+    PrintDebug("\n=== GDTR ===\n");
+    print_vmcs_field(VMCS_GUEST_GDTR_BASE);
+    print_vmcs_field(VMCS_GUEST_GDTR_LIMIT);
+
+    PrintDebug("\n=== IDTR ===\n");
+    print_vmcs_field(VMCS_GUEST_IDTR_BASE);
+    print_vmcs_field(VMCS_GUEST_IDTR_LIMIT);
+
+    PrintDebug("\n");
+    print_vmcs_field(VMCS_GUEST_RFLAGS);
+    print_vmcs_field(VMCS_GUEST_ACTIVITY_STATE);
+    print_vmcs_field(VMCS_GUEST_INT_STATE);
+    print_vmcs_field(VMCS_GUEST_PENDING_DBG_EXCP);
+
+    print_vmcs_field(VMCS_GUEST_DBG_CTL);
+    print_vmcs_field(VMCS_GUEST_SYSENTER_CS);
+    print_vmcs_field(VMCS_GUEST_SYSENTER_ESP);
+    print_vmcs_field(VMCS_GUEST_SYSENTER_EIP);
+    print_vmcs_field(VMCS_GUEST_PERF_GLOBAL_CTRL);
+    print_vmcs_field(VMCS_LINK_PTR);
+
+    PrintDebug("\n");
 }
-
-
-
-
+       
 /*
 void print_debug_vmcs_load_guest() {
     const int wordsize = sizeof(addr_t);
@@ -459,7 +535,7 @@ static const char VMCS_HOST_RIP_STR[] = "HOST_RIP";
 
 
 
-static const char * vmcs_field_to_str(vmcs_field_t field) {   
+const char * v3_vmcs_field_to_str(vmcs_field_t field) {   
     switch (field) {
         case VMCS_GUEST_ES_SELECTOR:
             return VMCS_GUEST_ES_SELECTOR_STR;

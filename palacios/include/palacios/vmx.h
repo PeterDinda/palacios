@@ -77,7 +77,7 @@ typedef enum {
 
 struct vmx_data {
     vmx_state_t state;
-    struct vmcs_data* vmcs;
+    addr_t vmcs_ptr_phys;
 };
 
 

@@ -202,6 +202,8 @@ typedef enum {
 } vmcs_field_t;
 
 int v3_vmcs_get_field_len(vmcs_field_t field);
+const char* v3_vmcs_field_to_str(vmcs_field_t field);
+void v3_print_vmcs_guest_state();
 
 
 /* VMCS Exit QUALIFICATIONs */
@@ -287,7 +289,7 @@ struct vmcs_segment_access {
 	    uint32_t    rsvd1       : 4;
 	    uint32_t    avail       : 1;
 	    uint32_t    long_mode   : 1; // CS only (64 bit active), reserved otherwise
-	    uint32_t    DB          : 1; 
+	    uint32_t    db          : 1; 
 	    uint32_t    granularity : 1;
 	    uint32_t    unusable    : 1; 
 	    uint32_t    rsvd2       : 15;
