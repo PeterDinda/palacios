@@ -347,6 +347,8 @@ DEVICES_OBJS := \
 	devices/piix3.o \
 	devices/net_cd.o \
 	devices/net_hd.o \
+	devices/lnx_virtio_blk.o \
+	devices/sym_swap.o \
 
 #	devices/ne2k.o	\
 #	devices/cdrom.o \

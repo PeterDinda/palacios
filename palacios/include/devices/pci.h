@@ -35,57 +35,7 @@ typedef enum {PCI_BAR_IO, PCI_BAR_MEM16, PCI_BAR_MEM32, PCI_BAR_MEM64_LOW, PCI_B
 
 typedef enum {PCI_STD_DEVICE, PCI_TO_PCI_BRIDGE, PCI_CARDBUS, PCI_MULTIFUNCTION} pci_device_type_t;
 
-typedef enum { PCI_CLASS_PRE2 = 0x00, 
-	       PCI_CLASS_STORAGE = 0x01, 
-	       PCI_CLASS_NETWORK = 0x02,
-	       PCI_CLASS_DISPLAY = 0x03,
-	       PCI_CLASS_MMEDIA = 0x04,
-	       PCI_CLASS_MEMORY = 0x05,
-	       PCI_CLASS_BRIDGE = 0x06,
-	       PCI_CLASS_COMM_CTRL = 0x07,
-	       PCI_CLASS_BASE_PERIPH = 0x08,
-	       PCI_CLASS_INPUT = 0x09, 
-	       PCI_CLASS_DOCK = 0x0a,
-	       PCI_CLASS_PROC = 0x0b, 
-	       PCI_CLASS_SERIAL = 0x0c,
-	       PCI_CLASS_MISC = 0xff } pci_class_t;
 
-typedef enum { PCI_STORAGE_SUBCLASS_SCSI = 0x00,
-	       PCI_STORAGE_SUBCLASS_IDE = 0x01,
-	       PCI_STORAGE_SUBCLASS_FLOPPY = 0x02,
-	       PCI_STORAGE_SUBCLASS_IPI = 0x03,
-	       PCI_STORAGE_SUBCLASS_RAID = 0x04,
-	       PCI_STORAGE_SUBCLASS_OTHER = 0x80 } pci_storage_subclass_t;
-
-
-
-typedef enum { PCI_NET_SUBCLASS_ETHER = 0x00,
-	       PCI_NET_SUBCLASS_TOKRING = 0x01,
-	       PCI_NET_SUBCLASS_FDDI = 0x02,
-	       PCI_NET_SUBCLASS_ATM = 0x03,
-	       PCI_NET_SUBCLASS_OTHER = 0x80 } pci_network_subclass_t;
-
-typedef enum { PCI_DISPLAY_SUBCLASS_VGA = 0x00,
-	       PCI_DISPLAY_SUBCLASS_XGA = 0x01,
-	       PCI_DISPLAY_SUBCLASS_OTHER = 0x80 } pci_display_subclass_t;
-
-typedef enum { PCI_MMEDIA_SUBCLASS_VIDEO = 0x00,
-	       PCI_MMEDIA_SUBCLASS_AUDIO = 0x01,
-	       PCI_MMEDIA_SUBCLASS_OTHER = 0x80 } pci_multimedia_subclass_t;
-	       
-typedef enum { PCI_MEM_SUBCLASS_RAM = 0x00, 
-	       PCI_MEM_SUBCLASS_FLASH = 0x01,
-	       PCI_MEM_SUBCLASS_OTHER = 0x80 } pci_memory_subclass_t;
-
-typedef enum { PCI_BRIDGE_SUBCLASS_HOST_PCI = 0x00,
-	       PCI_BRIDGE_SUBCLASS_PCI_ISA = 0x01,
-	       PCI_BRIDGE_SUBCLASS_PCI_EISA = 0x02,
-	       PCI_BRIDGE_SUBCLASS_PCI_MICRO = 0x03,
-	       PCI_BRIDGE_SUBCLASS_PCI_PCI = 0x04,
-	       PCI_BRIDGE_SUBCLASS_PCI_PCMCIA = 0x05,
-	       PCI_BRIDGE_SUBCLASS_PCI_NUBUS = 0x06,
-	       PCI_BRIDGE_SUBCLASS_PCI_CARDBUS = 0x07,
-	       PCI_BRIDGE_SUBCLASS_PCI_OTHER = 0x80 } pci_bridge_subclass_t;
 
 // For the rest of the subclass codes see:
 // http://www.acm.uiuc.edu/sigops/roll_your_own/7.c.1.html

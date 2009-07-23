@@ -269,7 +269,7 @@ struct v3_os_hooks {
 
 
 
-typedef enum {NONE, HARDDRIVE, CDROM} v3_disk_type_t;
+typedef enum {NONE, HARDDRIVE, CDROM, VIRTIO} v3_disk_type_t;
 typedef enum {RAM, NETWORK} v3_disk_connection_t;
 
 union v3_disk_info {
@@ -300,6 +300,8 @@ struct v3_vm_config {
     int enable_nested_paging;
 
     int enable_pci;
+
+    int enable_swap;
 
     v3_disk_type_t pri_disk_type;
     v3_disk_connection_t pri_disk_con;

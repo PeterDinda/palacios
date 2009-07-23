@@ -78,15 +78,15 @@ static int init_piix3(struct vm_device * dev) {
 				     0, -1, 0, 
 				     "PIIX3", bars, 
 				     NULL, NULL, NULL, dev);
-    if (!pci_dev) {
+    if (pci_dev == NULL) {
 	PrintError("Could not register PCI Device for PIIX3\n");
 	return -1;
     }
 
     pci_dev->config_header.vendor_id = 0x8086;
     pci_dev->config_header.device_id = 0x7000; // PIIX4 is 0x7001
-    pci_dev->config_header.subclass = 0x01; //  SubClass: host2pci
-    pci_dev->config_header.class = 0x06;    // Class: PCI bridge
+    pci_dev->config_header.class = PCI_CLASS_BRIDGE;
+    pci_dev->config_header.subclass = PCI_BRIDGE_SUBCLASS_PCI_ISA; 
 
     piix3->southbridge_pci = pci_dev;
 
