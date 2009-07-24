@@ -1,8 +1,8 @@
 #ifndef __V3_XED_COMPAT_H__
 #define __V3_XED_COMPAT_H__
 
-#include <palacios/vmm_stddef.h>
 
+#include <palacios/vmm_types.h>
 
 /* Definition of the control structure for streams
 */
