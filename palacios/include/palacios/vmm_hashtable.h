@@ -97,25 +97,29 @@ struct hashtable;
  *
  */
 
-ulong_t hash_long(ulong_t val, uint_t bits);
-ulong_t hash_buffer(uchar_t * msg, uint_t length);
+
+
+
+/* These cannot be inlined because they are referenced as fn ptrs */
+ulong_t v3_hash_long(ulong_t val, uint_t bits);
+ulong_t v3_hash_buffer(uchar_t * msg, uint_t length);
 
 
 
 
 #define DEFINE_HASHTABLE_INSERT(fnname, keytype, valuetype)		\
     static int fnname (struct hashtable * htable, keytype key, valuetype value) { \
-	return hashtable_insert(htable, (addr_t)key, (addr_t)value);	\
+	return v3_htable_insert(htable, (addr_t)key, (addr_t)value);	\
     }
 
 #define DEFINE_HASHTABLE_SEARCH(fnname, keytype, valuetype)		\
     static valuetype * fnname (struct hashtable * htable, keytype  key) { \
-	return (valuetype *) (hashtable_search(htable, (addr_t)key));	\
+	return (valuetype *) (v3_htable_search(htable, (addr_t)key));	\
     }
 
 #define DEFINE_HASHTABLE_REMOVE(fnname, keytype, valuetype, free_key)	\
     static valuetype * fnname (struct hashtable * htable, keytype key) { \
-	return (valuetype *) (hashtable_remove(htable, (addr_t)key, free_key)); \
+	return (valuetype *) (v3_htable_remove(htable, (addr_t)key, free_key)); \
     }
 
 
@@ -123,11 +127,11 @@ ulong_t hash_buffer(uchar_t * msg, uint_t length);
 
 
 
-struct hashtable * create_hashtable(uint_t min_size,
+struct hashtable * v3_create_htable(uint_t min_size,
 				    uint_t (*hashfunction) (addr_t key),
 				    int (*key_eq_fn) (addr_t key1, addr_t key2));
 
-void hashtable_destroy(struct hashtable * htable, int free_values, int free_keys);
+void v3_free_htable(struct hashtable * htable, int free_values, int free_keys);
 
 /*
  * returns non-zero for successful insertion
@@ -141,22 +145,22 @@ void hashtable_destroy(struct hashtable * htable, int free_values, int free_keys
  * entries is reversed.
  * If in doubt, remove before insert.
  */
-int hashtable_insert(struct hashtable * htable, addr_t key, addr_t value);
+int v3_htable_insert(struct hashtable * htable, addr_t key, addr_t value);
 
-int hashtable_change(struct hashtable * htable, addr_t key, addr_t value, int free_value);
+int v3_htable_change(struct hashtable * htable, addr_t key, addr_t value, int free_value);
 
-
-// returns the value associated with the key, or NULL if none found
-addr_t hashtable_search(struct hashtable * htable, addr_t key);
 
 // returns the value associated with the key, or NULL if none found
-addr_t hashtable_remove(struct hashtable * htable, addr_t key, int free_key);
+addr_t v3_htable_search(struct hashtable * htable, addr_t key);
 
-uint_t hashtable_count(struct hashtable * htable);
+// returns the value associated with the key, or NULL if none found
+addr_t v3_htable_remove(struct hashtable * htable, addr_t key, int free_key);
+
+uint_t v3_htable_count(struct hashtable * htable);
 
 // Specialty functions for a counting hashtable 
-int hashtable_inc(struct hashtable * htable, addr_t key, addr_t value);
-int hashtable_dec(struct hashtable * htable, addr_t key, addr_t value);
+int v3_htable_inc(struct hashtable * htable, addr_t key, addr_t value);
+int v3_htable_dec(struct hashtable * htable, addr_t key, addr_t value);
 
 
 /* ************ */
@@ -164,8 +168,8 @@ int hashtable_dec(struct hashtable * htable, addr_t key, addr_t value);
 /* ************ */
 
 #define DEFINE_HASHTABLE_ITERATOR_SEARCH(fnname, keytype)		\
-    int fnname (struct hashtable_itr * iter, struct hashtable * htable, keytype * key) { \
-	return (hashtable_iterator_search(iter, htable, key));		\
+   static int fnname (struct hashtable_itr * iter, struct hashtable * htable, keytype * key) { \
+	return (v3_htable_iter_search(iter, htable, key));		\
     }
 
 
@@ -181,11 +185,11 @@ struct hashtable_iter {
 };
 
 
-struct hashtable_iter * create_hashtable_iterator(struct hashtable * htable);
+struct hashtable_iter * v3_create_htable_iter(struct hashtable * htable);
 
 /* - return the value of the (key,value) pair at the current position */
 //extern inline 
-addr_t  hashtable_get_iter_key(struct hashtable_iter * iter);
+addr_t v3_htable_get_iter_key(struct hashtable_iter * iter);
 /* {
    return iter->entry->key;
    }
@@ -194,7 +198,7 @@ addr_t  hashtable_get_iter_key(struct hashtable_iter * iter);
 
 /* value - return the value of the (key,value) pair at the current position */
 //extern inline 
-addr_t hashtable_get_iter_value(struct hashtable_iter * iter);
+addr_t v3_htable_get_iter_value(struct hashtable_iter * iter);
 /* {
    return iter->entry->value;
    }
@@ -203,20 +207,20 @@ addr_t hashtable_get_iter_value(struct hashtable_iter * iter);
 
 
 /* returns zero if advanced to end of table */
-int hashtable_iterator_advance(struct hashtable_iter * iter);
+int v3_htable_iter_advance(struct hashtable_iter * iter);
 
 /* remove current element and advance the iterator to the next element
  *          NB: if you need the value to free it, read it before
  *          removing. ie: beware memory leaks!
  *          returns zero if advanced to end of table 
  */
-int hashtable_iterator_remove(struct hashtable_iter * iter, int free_key);
+int v3_htable_iter_remove(struct hashtable_iter * iter, int free_key);
 
 
 /* search - overwrite the supplied iterator, to point to the entry
  *          matching the supplied key.
  *          returns zero if not found. */
-int hashtable_iterator_search(struct hashtable_iter * iter, struct hashtable * htable, addr_t key);
+int v3_htable_iter_search(struct hashtable_iter * iter, struct hashtable * htable, addr_t key);
 
 
 
