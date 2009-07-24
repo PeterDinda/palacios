@@ -294,6 +294,7 @@ VMM_OBJS := \
 	palacios/vmm_hashtable.o \
 	palacios/vmm_string.o \
 	palacios/vmm_emulator.o \
+	palacios/vmm_sprintf.o \
 	palacios/vmm_queue.o \
 	palacios/vmm_host_events.o \
 	palacios/svm_lowlevel.o \

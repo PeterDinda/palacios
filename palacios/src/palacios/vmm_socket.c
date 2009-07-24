@@ -21,7 +21,7 @@
 #include <palacios/vmm_socket.h>
 #include <palacios/vmm.h>
 #include <palacios/vmm_debug.h>
-#include <palacios/vmm_stddef.h>
+#include <palacios/vmm_types.h>
 
 
 struct v3_socket_hooks * sock_hooks = 0;

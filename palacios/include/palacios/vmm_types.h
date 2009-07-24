@@ -21,7 +21,7 @@
 #define __VMM_TYPES_H
 
 #ifdef __V3VEE__
-#include <palacios/vmm_stddef.h>
+//#include <palacios/vmm_stddef.h>
 
 
 
@@ -33,6 +33,8 @@ typedef enum {VM_RUNNING, VM_STOPPED, VM_SUSPENDED, VM_ERROR, VM_EMULATING} v3_v
 typedef enum {REAL, /*UNREAL,*/ PROTECTED, PROTECTED_PAE, LONG, LONG_32_COMPAT, LONG_16_COMPAT} v3_cpu_mode_t;
 typedef enum {PHYSICAL_MEM, VIRTUAL_MEM} v3_mem_mode_t;
 
+
+#define NULL ((void *)0)
 
 
 typedef signed char schar_t;
@@ -50,8 +52,8 @@ typedef unsigned long long ullong_t;
 typedef signed long slong_t;
 typedef unsigned long ulong_t;
 
-//typedef unsigned long size_t;
-       
+typedef unsigned long size_t;
+typedef long ssize_t;       
 
 #define false 0
 #define true 1

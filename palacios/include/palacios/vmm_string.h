@@ -34,7 +34,7 @@
 
 #ifdef __V3VEE__
 
-#include <palacios/vmm_stddef.h>
+#include <palacios/vmm_types.h>
 
 
 void* memset(void* s, int c, size_t n);
@@ -57,12 +57,21 @@ char *strpbrk(const char *s, const char *accept);
 
 
 
-#define in_range(c, lo, up)  ((uint8_t)c >= lo && (uint8_t)c <= up)
-#define isprint(c)           in_range(c, 0x20, 0x7f)
-#define isdigit(c)           in_range(c, '0', '9')
-#define isxdigit(c)          (isdigit(c) || in_range(c, 'a', 'f') || in_range(c, 'A', 'F'))
-#define islower(c)           in_range(c, 'a', 'z')
+
+
 #define isspace(c)           (c == ' ' || c == '\f' || c == '\n' || c == '\r' || c == '\t' || c == '\v')
+#define isascii(c)	(((c) & ~0x7f) == 0)
+#define isupper(c)	((c) >= 'A' && (c) <= 'Z')
+#define islower(c)	((c) >= 'a' && (c) <= 'z')
+#define isalpha(c)	(isupper(c) || islower(c))
+#define isdigit(c)	((c) >= '0' && (c) <= '9')
+#define isxdigit(c)	(isdigit(c) \
+			  || ((c) >= 'A' && (c) <= 'F') \
+			  || ((c) >= 'a' && (c) <= 'f'))
+#define isprint(c)	((c) >= ' ' && (c) <= '~')
+
+#define toupper(c)	((c) - 0x20 * (((c) >= 'a') && ((c) <= 'z')))
+#define tolower(c)	((c) + 0x20 * (((c) >= 'A') && ((c) <= 'Z')))
 
 
 #endif // !__V3VEE__
