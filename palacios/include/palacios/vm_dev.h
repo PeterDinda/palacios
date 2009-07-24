@@ -63,11 +63,6 @@ struct vm_device {
 
     uint_t num_io_hooks;
     struct list_head io_hooks;
-    uint_t num_mem_hooks;
-    struct list_head mem_hooks;
-    uint_t num_irq_hooks;
-    struct list_head irq_hooks;
-
 };
 
 
@@ -86,19 +81,8 @@ int v3_dev_hook_io(struct vm_device   *dev,
 int v3_dev_unhook_io(struct vm_device   *dev,
 		     ushort_t            port);
 
-int v3_dev_hook_mem(struct vm_device   *dev,
-		    void               *start,
-		    void               *end);
-
-int v3_dev_unhook_mem(struct vm_device   * dev,
-		      void               * start,
-		      void               * end);
 
 
-int v3_dev_hook_irq(struct vm_device * dev,
-		    uint_t irq, 
-		    int (*handler)(uint_t irq, struct vm_device * dev));
-int v3_dev_unhook_irq(struct vm_device * dev, uint_t irq);
 
 
 

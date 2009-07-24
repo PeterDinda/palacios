@@ -24,7 +24,6 @@
 
 
 static struct vm_device * v3_allocate_device() {
-
     struct vm_device * dev = NULL;
     dev = (struct vm_device*)V3_Malloc(sizeof(struct vm_device));
 
@@ -34,16 +33,6 @@ static struct vm_device * v3_allocate_device() {
     memset(dev->name, 0, 32);
     dev->vm = NULL;
     dev->private_data = NULL;
-
-
-    INIT_LIST_HEAD(&(dev->io_hooks));
-    dev->num_io_hooks = 0;
-
-    INIT_LIST_HEAD(&(dev->mem_hooks));
-    dev->num_mem_hooks = 0;
-  
-    INIT_LIST_HEAD(&(dev->irq_hooks));
-    dev->num_irq_hooks = 0;
 
     return dev;
 }
