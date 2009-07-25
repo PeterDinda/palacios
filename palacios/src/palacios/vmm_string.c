@@ -36,7 +36,6 @@
  */
 
 
-
 #define NEED_MEMSET 0
 #define NEED_MEMCPY 0
 #define NEED_MEMCMP 0
@@ -56,17 +55,17 @@
 
 
 
+#include <palacios/vmm_types.h>
 #include <palacios/vmm_string.h>
 #include <palacios/vmm.h>
 
 
 #if NEED_MEMSET
-void* memset(void* s, int c, size_t n)
-{
-    unsigned char* p = (unsigned char*) s;
+void * memset(void * s, int c, size_t n) {
+    uchar_t * p = (uchar_t *) s;
 
     while (n > 0) {
-	*p++ = (unsigned char) c;
+	*p++ = (uchar_t) c;
 	--n;
     }
 
@@ -75,10 +74,9 @@ void* memset(void* s, int c, size_t n)
 #endif
 
 #if NEED_MEMCPY
-void* memcpy(void *dst, const void* src, size_t n)
-{
-    unsigned char* d = (unsigned char*) dst;
-    const unsigned char* s = (const unsigned char*) src;
+void * memcpy(void * dst, const void * src, size_t n) {
+    uchar_t * d = (uchar_t *) dst;
+    const uchar_t * s = (const uchar_t *)src;
 
     while (n > 0) {
 	*d++ = *s++;
@@ -91,14 +89,17 @@ void* memcpy(void *dst, const void* src, size_t n)
 
 
 #if NEED_CMP
-int memcmp(const void *s1_, const void *s2_, size_t n)
-{
-    const signed char *s1 = s1_, *s2 = s2_;
+int memcmp(const void * s1_, const void * s2_, size_t n) {
+    const char * s1 = s1_;
+    const char * s2 = s2_;
 
     while (n > 0) {
-	int cmp = *s1 - *s2;
-	if (cmp != 0)
+	int cmp = (*s1 - *s2);
+	
+	if (cmp != 0) {
 	    return cmp;
+	}
+
 	++s1;
 	++s2;
     }
@@ -109,11 +110,13 @@ int memcmp(const void *s1_, const void *s2_, size_t n)
 
 
 #if NEED_STRLEN
-size_t strlen(const char* s)
-{
+size_t strlen(const char * s) {
     size_t len = 0;
-    while (*s++ != '\0')
+
+    while (*s++ != '\0') {
 	++len;
+    }
+
     return len;
 }
 #endif
@@ -129,23 +132,27 @@ size_t strlen(const char* s)
  * This is very useful for checking the length of untrusted
  * strings (e.g., from user space).
  */
-size_t strnlen(const char *s, size_t maxlen)
-{
+size_t strnlen(const char * s, size_t maxlen) {
     size_t len = 0;
-    while (len < maxlen && *s++ != '\0')
+
+    while ((len < maxlen) && (*s++ != '\0')) {
 	++len;
+    }
+
     return len;
 }
 #endif
 
 
 #if NEED_STRCMP
-int strcmp(const char* s1, const char* s2)
-{
+int strcmp(const char * s1, const char * s2) {
     while (1) {
-	int cmp = *s1 - *s2;
-	if (cmp != 0 || *s1 == '\0' || *s2 == '\0')
+	int cmp = (*s1 - *s2);
+	
+	if ((cmp != 0) || (*s1 == '\0') || (*s2 == '\0')) {
 	    return cmp;
+	}
+	
 	++s1;
 	++s2;
     }
@@ -154,13 +161,16 @@ int strcmp(const char* s1, const char* s2)
 
 
 #if NEED_STRNCMP
-int strncmp(const char* s1, const char* s2, size_t limit)
-{
+int strncmp(const char * s1, const char * s2, size_t limit) {
     size_t i = 0;
+
     while (i < limit) {
-	int cmp = *s1 - *s2;
-	if (cmp != 0 || *s1 == '\0' || *s2 == '\0')
+	int cmp = (*s1 - *s2);
+
+	if ((cmp != 0) || (*s1 == '\0') || (*s2 == '\0')) {
 	    return cmp;
+	}
+
 	++s1;
 	++s2;
 	++i;
@@ -173,13 +183,12 @@ int strncmp(const char* s1, const char* s2, size_t limit)
 
 
 #if NEED_STRCAT
-char *strcat(char *s1, const char *s2)
-{
-    char *t1;
+char * strcat(char * s1, const char * s2) {
+    char * t1 = s1;
 
-    t1 = s1;
-    while (*s1) s1++;
-    while(*s2) *s1++ = *s2++;
+    while (*s1) { s1++; }
+    while (*s2) { *s1++ = *s2++; }
+
     *s1 = '\0';
 
     return t1;
@@ -188,14 +197,18 @@ char *strcat(char *s1, const char *s2)
 
 
 #if NEED_STRNCAT
-char *strncat(char *s1, const char *s2, size_t limit)
-{
+char * strncat(char * s1, const char * s2, size_t limit) {
     size_t i = 0;
-    char *t1;
+    char * t1;
+
     t1 = s1;
-    while (*s1) s1++;
+
+    while (*s1) { s1++; }
+
     while (i < limit) {
-	if(*s2 == '\0') break;
+	if (*s2 == '\0') {
+	    break;
+	}
 	*s1++ = *s2++;		
     }
     *s1 = '\0';
@@ -206,7 +219,7 @@ char *strncat(char *s1, const char *s2, size_t limit)
 
 
 #if NEED_STRCPY
-char *strcpy(char *dest, const char *src)
+char * strcpy(char * dest, const char * src)
 {
     char *ret = dest;
 
@@ -221,14 +234,14 @@ char *strcpy(char *dest, const char *src)
 
 
 #if NEED_STRNCPY
-char *strncpy(char *dest, const char *src, size_t limit)
-{
-    char *ret = dest;
+char * strncpy(char * dest, const char * src, size_t limit) {
+    char * ret = dest;
 
-    while (*src != '\0' && limit > 0) {
+    while ((*src != '\0') && (limit > 0)) {
 	*dest++ = *src++;
 	--limit;
     }
+
     if (limit > 0)
 	*dest = '\0';
 
@@ -239,8 +252,7 @@ char *strncpy(char *dest, const char *src, size_t limit)
 
 
 #if NEED_STRDUP
-char *strdup(const char *s1)
-{
+char * strdup(const char * s1) {
     char *ret;
 
     ret = V3_Malloc(strlen(s1) + 1);
@@ -254,13 +266,12 @@ char *strdup(const char *s1)
 
 
 #if NEED_ATOI
-int atoi(const char *buf) 
-{
+int atoi(const char * buf) {
     int ret = 0;
 
-    while (*buf >= '0' && *buf <= '9') {
+    while ((*buf >= '0') && (*buf <= '9')) {
 	ret *= 10;
-	ret += *buf - '0';
+	ret += (*buf - '0');
 	buf++;
     }
 
@@ -270,11 +281,10 @@ int atoi(const char *buf)
 
 
 #if NEED_STRCHR
-char *strchr(const char *s, int c)
-{
+char * strchr(const char * s, int c) {
     while (*s != '\0') {
 	if (*s == c)
-	    return (char *) s;
+	    return (char *)s;
 	++s;
     }
     return 0;
@@ -283,30 +293,31 @@ char *strchr(const char *s, int c)
 
 
 #if NEED_STRRCHR
-char *strrchr(const char *s, int c)
-{
+char * strrchr(const char * s, int c) {
     size_t len = strlen(s);
-    const char *p = s + len;
+    const char * p = s + len;
 
     while (p > s) {
 	--p;
-	if (*p == c)
-	    return (char*) p;
+
+	if (*p == c) {
+	    return (char *)p;
+	}
     }
     return 0;
 }
 #endif
 
 #if NEED_STRPBRK
-char *strpbrk(const char *s, const char *accept)
-{
+char * strpbrk(const char * s, const char * accept) {
     size_t setLen = strlen(accept);
 
     while (*s != '\0') {
 	size_t i;
 	for (i = 0; i < setLen; ++i) {
-	    if (*s == accept[i])
-		return (char *) s;
+	    if (*s == accept[i]) {
+		return (char *)s;
+	    }
 	}
 	++s;
     }

@@ -66,10 +66,10 @@
 #include <palacios/vmm_sprintf.h>
 
 
-#define NEED_SPRINTF 1
-#define NEED_SNPRINTF 1
-#define NEED_VSPRINTF 1
-#define NEED_VSNPRINTF 1
+#define NEED_SPRINTF 0
+#define NEED_SNPRINTF 0
+#define NEED_VSPRINTF 0
+#define NEED_VSNPRINTF 0
 #define NEED_VSNRPRINTF 1
 
 
@@ -86,8 +86,8 @@ static char const hex2ascii_data[] = "0123456789abcdefghijklmnopqrstuvwxyz";
 
 
 struct snprintf_arg {
-	char	*str;
-	size_t	remain;
+    char	*str;
+    size_t	remain;
 };
 
 
@@ -181,9 +181,7 @@ int vsnrprintf(char * str, size_t size, int radix, const char * format, va_list 
 #endif
 
 
-static void
-snprintf_func(int ch, void *arg)
-{
+static void snprintf_func(int ch, void *arg) {
 	struct snprintf_arg *const info = arg;
 
 	if (info->remain >= 2) {
@@ -198,9 +196,7 @@ snprintf_func(int ch, void *arg)
  * written in the buffer (i.e., the first character of the string).
  * The buffer pointed to by `nbuf' must have length >= MAXNBUF.
  */
-static char *
-ksprintn(char *nbuf, uint64_t num, int base, int *lenp, int upper)
-{
+static char * ksprintn(char *nbuf, uint64_t num, int base, int *lenp, int upper) {
 	char *p, c;
 
 	p = nbuf;
@@ -554,63 +550,56 @@ number:
 }
 
 
-#define HD_COLUMN_MASK  0xff
-#define HD_DELIM_MASK   0xff00
-#define HD_OMIT_COUNT   (1 << 16)
-#define HD_OMIT_HEX     (1 << 17)
-#define HD_OMIT_CHARS   (1 << 18)
 
 
-void
-v3_hexdump(const void *ptr, int length, const char *hdr, int flags)
-{
-	int i, j, k;
-	int cols;
-	const unsigned char *cp;
-	char delim;
+void v3_hexdump(const void * ptr, int length, const char * hdr, int flags) {
+    int i, j, k;
+    int cols;
+    const unsigned char *cp;
+    char delim;
+    
+    if ((flags & HD_DELIM_MASK) != 0)
+	delim = (flags & HD_DELIM_MASK) >> 8;
+    else
+	delim = ' ';
 
-	if ((flags & HD_DELIM_MASK) != 0)
-		delim = (flags & HD_DELIM_MASK) >> 8;
-	else
-		delim = ' ';
+    if ((flags & HD_COLUMN_MASK) != 0)
+	cols = flags & HD_COLUMN_MASK;
+    else
+	cols = 16;
 
-	if ((flags & HD_COLUMN_MASK) != 0)
-		cols = flags & HD_COLUMN_MASK;
-	else
-		cols = 16;
+    cp = ptr;
+    for (i = 0; i < length; i+= cols) {
+	if (hdr != NULL)
+	    PrintDebug("%s", hdr);
 
-	cp = ptr;
-	for (i = 0; i < length; i+= cols) {
-		if (hdr != NULL)
-			PrintDebug("%s", hdr);
+	if ((flags & HD_OMIT_COUNT) == 0)
+	    PrintDebug("%04x  ", i);
 
-		if ((flags & HD_OMIT_COUNT) == 0)
-			PrintDebug("%04x  ", i);
-
-		if ((flags & HD_OMIT_HEX) == 0) {
-			for (j = 0; j < cols; j++) {
-				k = i + j;
-				if (k < length)
-					PrintDebug("%c%02x", delim, cp[k]);
-				else
-					PrintDebug("   ");
-			}
-		}
-
-		if ((flags & HD_OMIT_CHARS) == 0) {
-			PrintDebug("  |");
-			for (j = 0; j < cols; j++) {
-				k = i + j;
-				if (k >= length)
-					PrintDebug(" ");
-				else if (cp[k] >= ' ' && cp[k] <= '~')
-					PrintDebug("%c", cp[k]);
-				else
-					PrintDebug(".");
-			}
-			PrintDebug("|");
-		}
-		PrintDebug("\n");
+	if ((flags & HD_OMIT_HEX) == 0) {
+	    for (j = 0; j < cols; j++) {
+		k = i + j;
+		if (k < length)
+		    PrintDebug("%c%02x", delim, cp[k]);
+		else
+		    PrintDebug("   ");
+	    }
 	}
+
+	if ((flags & HD_OMIT_CHARS) == 0) {
+	    PrintDebug("  |");
+	    for (j = 0; j < cols; j++) {
+		k = i + j;
+		if (k >= length)
+		    PrintDebug(" ");
+		else if (cp[k] >= ' ' && cp[k] <= '~')
+		    PrintDebug("%c", cp[k]);
+		else
+		    PrintDebug(".");
+	    }
+	    PrintDebug("|");
+	}
+	PrintDebug("\n");
+    }
 }
 

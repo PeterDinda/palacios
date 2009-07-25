@@ -31,6 +31,15 @@ int snprintf(char *str, size_t size, const char * fmt, ...);
 int vsnprintf(char *str, size_t size, const char * fmt, va_list ap);
 int vsnrprintf(char *str, size_t size, int radix, const char * fmt, va_list ap);
 
+#define HD_COLUMN_MASK  0xff
+#define HD_DELIM_MASK   0xff00
+#define HD_OMIT_COUNT   (1 << 16)
+#define HD_OMIT_HEX     (1 << 17)
+#define HD_OMIT_CHARS   (1 << 18)
+
+
+void v3_hexdump(const void * ptr, int length, const char * hdr, int flags);
+
 #endif
 
 

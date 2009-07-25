@@ -97,16 +97,6 @@ struct hashtable;
  *
  */
 
-
-
-
-/* These cannot be inlined because they are referenced as fn ptrs */
-ulong_t v3_hash_long(ulong_t val, uint_t bits);
-ulong_t v3_hash_buffer(uchar_t * msg, uint_t length);
-
-
-
-
 #define DEFINE_HASHTABLE_INSERT(fnname, keytype, valuetype)		\
     static int fnname (struct hashtable * htable, keytype key, valuetype value) { \
 	return v3_htable_insert(htable, (addr_t)key, (addr_t)value);	\
@@ -124,6 +114,11 @@ ulong_t v3_hash_buffer(uchar_t * msg, uint_t length);
 
 
 
+
+
+/* These cannot be inlined because they are referenced as fn ptrs */
+ulong_t v3_hash_long(ulong_t val, uint_t bits);
+ulong_t v3_hash_buffer(uchar_t * msg, uint_t length);
 
 
 
