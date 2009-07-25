@@ -17,9 +17,9 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#include <devices/io_apic.h>
-#include <palacios/vmm.h>
 
+#include <palacios/vmm.h>
+#include <palacios/vmm_dev_mgr.h>
 #include <devices/apic.h>
 
 
@@ -301,30 +301,17 @@ static struct intr_ctrl_ops intr_ops = {
 };
 
 
-static int io_apic_init(struct vm_device * dev) {
-    struct guest_info * info = dev->vm;
-    struct io_apic_state * ioapic = (struct io_apic_state *)(dev->private_data);
-
-    v3_register_intr_controller(dev->vm, &intr_ops, dev);
-    init_ioapic_state(ioapic);
-
-    v3_hook_full_mem(info, ioapic->base_addr, ioapic->base_addr + PAGE_SIZE_4KB, 
-		     ioapic_read, ioapic_write, dev);
-  
-    return 0;
-}
 
 
-static int io_apic_deinit(struct vm_device * dev) {
+static int io_apic_free(struct vm_device * dev) {
     //  struct guest_info * info = dev->vm;
 
     return 0;
 }
 
 
-static struct vm_device_ops dev_ops = {
-    .init = io_apic_init, 
-    .deinit = io_apic_deinit,
+static struct v3_device_ops dev_ops = {
+    .free = io_apic_free,
     .reset = NULL,
     .start = NULL,
     .stop = NULL,
@@ -332,13 +319,37 @@ static struct vm_device_ops dev_ops = {
 
 
 
-struct vm_device * v3_create_io_apic(struct vm_device * apic) {
+static int ioapic_init(struct guest_info * vm, void * cfg_data) {
+    struct vm_device * apic = v3_find_dev(vm, (char *)cfg_data);
+
+    if (!apic) {
+	PrintError("Could not locate APIC device\n");
+	return -1;
+    }
+
     PrintDebug("Creating IO APIC\n");
 
     struct io_apic_state * ioapic = (struct io_apic_state *)V3_Malloc(sizeof(struct io_apic_state));
+
     ioapic->apic = apic;
 
-    struct vm_device * device = v3_create_device("IOAPIC", &dev_ops, ioapic);
+    struct vm_device * dev = v3_allocate_device("IOAPIC", &dev_ops, ioapic);
 
-    return device;
+
+    if (v3_attach_device(vm, dev) == -1) {
+	PrintError("Could not attach device %s\n", "IOAPIC");
+	return -1;
+    }
+
+
+    v3_register_intr_controller(vm, &intr_ops, dev);
+    init_ioapic_state(ioapic);
+
+    v3_hook_full_mem(vm, ioapic->base_addr, ioapic->base_addr + PAGE_SIZE_4KB, 
+		     ioapic_read, ioapic_write, dev);
+  
+    return 0;
 }
+
+
+device_register("IOAPIC", ioapic_init)

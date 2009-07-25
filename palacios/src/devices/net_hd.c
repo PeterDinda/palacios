@@ -213,8 +213,22 @@ static struct v3_ide_hd_ops hd_ops = {
 };
 
 
-static int hd_init(struct vm_device * dev) {
-    struct hd_state * hd = (struct hd_state *)(dev->private_data);
+
+
+
+static int hd_free(struct vm_device * dev) {
+    return 0;
+}
+
+static struct v3_device_ops dev_ops = {
+    .free = hd_free,
+    .reset = NULL,
+    .start = NULL,
+    .stop = NULL,
+};
+
+
+static int socket_init(struct hd_state * hd) {
     char header[64];
     
     PrintDebug("Intializing Net HD\n");
@@ -258,6 +272,45 @@ static int hd_init(struct vm_device * dev) {
 	PrintDebug("Capacity: %p\n", (void *)(hd->capacity));
     }
 
+
+
+    return 0;
+}
+
+
+static int hd_init(struct guest_info * vm, void * cfg_data) {
+    struct hd_state * hd = (struct hd_state *)V3_Malloc(sizeof(struct hd_state));
+    struct net_hd_cfg * cfg = (struct net_hd_cfg *)cfg_data;
+
+    PrintDebug("Registering Net HD at %s:%d disk=%s\n", cfg->ip_str, cfg->port, cfg->disk_tag);
+
+    strncpy(hd->disk_name, cfg->disk_tag, sizeof(hd->disk_name));
+    hd->ip_addr = v3_inet_addr(cfg->ip_str);
+    hd->port = cfg->port;
+
+    hd->ide = v3_find_dev(vm, cfg->ide);
+
+    if (hd->ide == 0) {
+	PrintError("Could not find backend %s\n", cfg->ide);
+	return -1;
+    }
+
+    hd->bus = cfg->bus;
+    hd->drive = cfg->drive;
+	
+    struct vm_device * dev = v3_allocate_device("NET-HD", &dev_ops, hd);
+
+    if (v3_attach_device(vm, dev) == -1) {
+	PrintError("Could not attach device %s\n", "NET-HD");
+	return -1;
+    }
+
+    if (socket_init(hd) == -1) {
+	PrintError("could not initialize network connection\n");
+	return -1;
+    }
+
+
     PrintDebug("Registering HD\n");
 
     if (v3_ide_register_harddisk(hd->ide, hd->bus, hd->drive, "V3-NET-HD", &hd_ops, dev) == -1) {
@@ -270,35 +323,4 @@ static int hd_init(struct vm_device * dev) {
 }
 
 
-static int hd_deinit(struct vm_device * dev) {
-    return 0;
-}
-
-static struct vm_device_ops dev_ops = {
-    .init = hd_init, 
-    .deinit = hd_deinit,
-    .reset = NULL,
-    .start = NULL,
-    .stop = NULL,
-};
-
-struct vm_device * v3_create_net_hd(struct vm_device * ide, 
-				    uint_t bus, uint_t drive, 
-				    const char * ip_str, uint16_t port, 
-				    const char * disk_tag) {
-    struct hd_state * hd = (struct hd_state *)V3_Malloc(sizeof(struct hd_state));
-
-    PrintDebug("Registering Net HD at %s:%d disk=%s\n", ip_str, port, disk_tag);
-
-    strncpy(hd->disk_name, disk_tag, sizeof(hd->disk_name));
-    hd->ip_addr = v3_inet_addr(ip_str);
-    hd->port = port;
-
-    hd->ide = ide;
-    hd->bus = bus;
-    hd->drive = drive;
-	
-    struct vm_device * hd_dev = v3_create_device("NET-HD", &dev_ops, hd);
-
-    return hd_dev;
-}
+device_register("NET-HD", hd_init)

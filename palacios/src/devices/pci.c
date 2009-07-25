@@ -556,7 +556,7 @@ static int pci_stop_device(struct vm_device * dev) {
 
 
 
-static int pci_deinit_device(struct vm_device * dev) {
+static int pci_free(struct vm_device * dev) {
     int i = 0;
     
     for (i = 0; i < 4; i++){
@@ -581,14 +581,30 @@ static void init_pci_busses(struct pci_internal * pci_state) {
 
 
 
-static int pci_init_device(struct vm_device * dev) {
-    struct pci_internal * pci_state = (struct pci_internal *)dev->private_data;
+
+static struct v3_device_ops dev_ops = {
+    .free = pci_free,
+    .reset = pci_reset_device,
+    .start = pci_start_device,
+    .stop = pci_stop_device,
+};
+
+
+
+
+static int pci_init(struct guest_info * vm, void * cfg_data) {
+    struct pci_internal * pci_state = V3_Malloc(sizeof(struct pci_internal));
     int i = 0;
     
-    PrintDebug("pci: init_device\n");
+    PrintDebug("PCI internal at %p\n",(void *)pci_state);
+    
+    struct vm_device * dev = v3_allocate_device("PCI", &dev_ops, pci_state);
+    
+    if (v3_attach_device(vm, dev) == -1) {
+	PrintError("Could not attach device %s\n", "PCI");
+	return -1;
+    }
 
-    // JRL: Fix this....
-    //    dev->vm->pci = dev;   //should be in vmm_config.c
     
     pci_state->addr_reg.val = 0; 
 
@@ -605,25 +621,7 @@ static int pci_init_device(struct vm_device * dev) {
 }
 
 
-static struct vm_device_ops dev_ops = {
-    .init = pci_init_device, 
-    .deinit = pci_deinit_device,
-    .reset = pci_reset_device,
-    .start = pci_start_device,
-    .stop = pci_stop_device,
-};
-
-
-struct vm_device * v3_create_pci() {
-    struct pci_internal * pci_state = V3_Malloc(sizeof(struct pci_internal));
-    
-    PrintDebug("PCI internal at %p\n",(void *)pci_state);
-    
-    struct vm_device * device = v3_create_device("PCI", &dev_ops, pci_state);
-    
-    return device;
-}
-
+device_register("PCI", pci_init)
 
 
 static inline int init_bars(struct pci_device * pci_dev) {

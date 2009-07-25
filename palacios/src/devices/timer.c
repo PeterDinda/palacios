@@ -17,9 +17,9 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#include <devices/timer.h>
-#include <palacios/vmm.h>
 
+#include <palacios/vmm.h>
+#include <palacios/vmm_dev_mgr.h>
 
 #define TIMER_IRQ 32
 
@@ -36,21 +36,16 @@ struct timer_state {
   }
 */
 
-static int timer_init(struct vm_device * dev) {
-    //dev_hook_irq(dev, TIMER_IRQ, &irq_handler);
+
+
+static int timer_free(struct vm_device * dev) {
 
     return 0;
 }
 
-static int timer_deinit(struct vm_device * dev) {
 
-    return 0;
-}
-
-
-static struct vm_device_ops dev_ops = {
-    .init = timer_init,
-    .deinit = timer_deinit,
+static struct v3_device_ops dev_ops = {
+    .free = timer_free,
     .reset = NULL,
     .start = NULL,
     .stop = NULL,
@@ -58,13 +53,23 @@ static struct vm_device_ops dev_ops = {
 };
 
 
-struct vm_device * v3_create_timer() {
+static int timer_init(struct guest_info * vm, void * cfg_data) {
     struct timer_state * timer = NULL;
     timer = (struct timer_state *)V3_Malloc( sizeof(struct timer_state));
     V3_ASSERT(timer != NULL);
 
-    struct vm_device * dev = v3_create_device("Timer", &dev_ops, timer);
-  
-    return dev;
+    struct vm_device * dev = v3_allocate_device("TIMER", &dev_ops, timer);
+    
+    if (v3_attach_device(vm, dev) == -1) {
+	PrintError("Could not attach device %s\n", "TIMER");
+        return -1;
+    }
+
+
+
+    return -1;
 
 }
+
+
+device_register("TIMER", timer_init)

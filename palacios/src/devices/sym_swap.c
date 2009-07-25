@@ -18,8 +18,7 @@
  */
 
 #include <palacios/vmm.h>
-
-#include <devices/sym_swap.h>
+#include <palacios/vmm_dev_mgr.h>
 #include <devices/lnx_virtio.h>
 
 
@@ -31,20 +30,16 @@ struct swap_state {
 };
 
 
-static int swap_init(struct vm_device * dev) {
+
+
+static int swap_free(struct vm_device * dev) {
     return -1;
 }
 
 
-static int swap_deinit(struct vm_device * dev) {
-    return -1;
-}
 
-
-
-static struct vm_device_ops dev_ops = {
-    .init = swap_init, 
-    .deinit = swap_deinit,
+static struct v3_device_ops dev_ops = {
+    .free = swap_free,
     .reset = NULL,
     .start = NULL,
     .stop = NULL,
@@ -52,19 +47,37 @@ static struct vm_device_ops dev_ops = {
 
 
 
-struct vm_device * v3_create_swap(struct vm_device * virtio_blk) {
+
+static int swap_init(struct guest_info * vm, void * cfg_data) {
     struct swap_state * swap = NULL;
+    struct vm_device * virtio_blk = v3_find_dev(vm, (char *)cfg_data);
+
+    if (!virtio_blk) {
+	PrintError("could not find Virtio backend\n");
+	return -1;
+    }
 
     PrintDebug("Creating Swap Device\n");
 
     if (virtio_blk == NULL) {
 	PrintError("Swap device requires a virtio block device\n");
-	return NULL;
+	return -1;
     }
 
     swap = (struct swap_state *)V3_Malloc(sizeof(struct swap_state));
 
     swap->blk_dev = virtio_blk;
 
-    return v3_create_device("SYM_SWAP", &dev_ops, swap);
+    struct vm_device * dev = v3_allocate_device("SYM_SWAP", &dev_ops, swap);
+
+    if (v3_attach_device(vm, dev) == -1) {
+	PrintError("Could not attach device %s\n", "SYM_SWAP");
+	return -1;
+    }
+
+    return 0;
 }
+
+
+
+device_register("SYM_SWAP", swap_init)

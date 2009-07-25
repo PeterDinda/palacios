@@ -18,7 +18,7 @@
  */
 
 #include <palacios/vmm.h>
-#include <devices/i440fx.h>
+#include <palacios/vmm_dev_mgr.h>
 #include <devices/pci.h>
 
 struct i440_state {
@@ -38,11 +38,45 @@ static int io_write(ushort_t port, void * src, uint_t length, struct vm_device *
 
 
 
-static int i440_init(struct vm_device * dev) {
-    struct i440_state * state = (struct i440_state *)(dev->private_data);
+
+
+static int i440_free(struct vm_device * dev) {
+    return 0;
+}
+
+static struct v3_device_ops dev_ops = {
+    .free = i440_free,
+    .reset = NULL,
+    .start = NULL,
+    .stop = NULL,
+};
+
+
+
+
+static int i440_init(struct guest_info * vm, void * cfg_data) {
     struct pci_device * pci_dev = NULL;
     struct v3_pci_bar bars[6];
     int i;
+    struct i440_state * state = NULL;
+    struct vm_device * pci = v3_find_dev(vm, (char *)cfg_data);
+
+    if (!pci) {
+	PrintError("could not find PCI Device\n");
+	return -1;
+    }
+
+    state = (struct i440_state *)V3_Malloc(sizeof(struct i440_state));
+
+    state->pci = pci;
+	
+    struct vm_device * dev = v3_allocate_device("i440FX", &dev_ops, state);
+
+    if (v3_attach_device(vm, dev) == -1) {
+	PrintError("Could not attach device %s\n", "i440FX");
+	return -1;
+    }
+
 
     for (i = 0; i < 4; i++) {
 	v3_dev_hook_io(dev, 0x0cf8 + i,
@@ -73,29 +107,4 @@ static int i440_init(struct vm_device * dev) {
     return 0;
 }
 
-
-static int i440_deinit(struct vm_device * dev) {
-    return 0;
-}
-
-static struct vm_device_ops dev_ops = {
-    .init = i440_init, 
-    .deinit = i440_deinit,
-    .reset = NULL,
-    .start = NULL,
-    .stop = NULL,
-};
-
-
-
-struct vm_device * v3_create_i440fx(struct vm_device * pci) {
-    struct i440_state * state = NULL;
-
-    state = (struct i440_state *)V3_Malloc(sizeof(struct i440_state));
-
-    state->pci = pci;
-	
-    struct vm_device * i440_dev = v3_create_device("i440FX", &dev_ops, state);
-
-    return i440_dev;
-}
+device_register("i440FX", i440_init)

@@ -33,9 +33,8 @@ static int dma_init(struct vm_device * dev) {
 
 
 
-static struct vm_device_ops dev_ops = {
-    .init = dma_init,
-    .deinit = NULL,
+static struct v3_device_ops dev_ops = {
+    .free = NULL,
     .reset = NULL,
     .start = NULL,
     .stop = NULL,

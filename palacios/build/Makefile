@@ -284,7 +284,6 @@ VMM_OBJS := \
 	palacios/vmm_time.o \
 	palacios/vmm_shadow_paging.o \
 	palacios/vm_guest_mem.o \
-	palacios/vm_dev.o \
 	palacios/vmm_dev_mgr.o \
 	palacios/vmm_decoder.o \
 	palacios/svm_halt.o \
@@ -589,6 +588,7 @@ clean :
 	for d in palacios devices xed; do \
 		(cd $$d && rm -f * .*.d); \
 	done
+	rm -f libv3vee.a
 
 
 # Include all of the generated dependency files if they exist

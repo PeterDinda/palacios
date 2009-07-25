@@ -17,8 +17,8 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#include <devices/keyboard.h>
 #include <palacios/vmm.h>
+#include <palacios/vmm_dev_mgr.h>
 #include <palacios/vmm_types.h>
 
 #include <palacios/vmm_ringbuffer.h>
@@ -934,23 +934,70 @@ static int keyboard_read_input(ushort_t port, void * dest, uint_t length, struct
 
 
 
-static int keyboard_init_device(struct vm_device * dev) {
-    struct keyboard_internal * state = (struct keyboard_internal *)(dev->private_data);
+
+static int keyboard_free(struct vm_device * dev) {
+
+    v3_dev_unhook_io(dev, KEYBOARD_60H);
+    v3_dev_unhook_io(dev, KEYBOARD_64H);
+#if KEYBOARD_DEBUG_80H
+    v3_dev_unhook_io(dev, KEYBOARD_DELAY_80H);
+#endif
+    keyboard_reset_device(dev);
+    return 0;
+}
+
+
+
+
+
+static struct v3_device_ops dev_ops = { 
+    .free = keyboard_free,
+    .reset = keyboard_reset_device,
+    .start = keyboard_start_device,
+    .stop = keyboard_stop_device,
+};
+
+
+
+
+static int keyboard_init(struct guest_info * vm, void * cfg_data) {
+    struct keyboard_internal * keyboard_state = NULL;
+
 
     PrintDebug("keyboard: init_device\n");
+
+    keyboard_state = (struct keyboard_internal *)V3_Malloc(sizeof(struct keyboard_internal));
+
+    keyboard_state->mouse_queue.start = 0;
+    keyboard_state->mouse_queue.end = 0;
+    keyboard_state->mouse_queue.count = 0;
+
+    keyboard_state->kbd_queue.start = 0;
+    keyboard_state->kbd_queue.end = 0;
+    keyboard_state->kbd_queue.count = 0;
+
+    keyboard_state->mouse_enabled = 0;
+
+    struct vm_device * dev = v3_allocate_device("KEYBOARD", &dev_ops, keyboard_state);
+
+    if (v3_attach_device(vm, dev) == -1) {
+	PrintError("Could not attach device %s\n", "KEYBOARD");
+	return -1;
+    }
+
 
     keyboard_reset_device(dev);
 
 
-    v3_lock_init(&(state->kb_lock));
+    v3_lock_init(&(keyboard_state->kb_lock));
 
 
     // hook ports
     v3_dev_hook_io(dev, KEYBOARD_64H, &keyboard_read_status, &keyboard_write_command);
     v3_dev_hook_io(dev, KEYBOARD_60H, &keyboard_read_input, &keyboard_write_output);
 
-    v3_hook_host_event(dev->vm, HOST_KEYBOARD_EVT, V3_HOST_EVENT_HANDLER(key_event_handler), dev);
-    v3_hook_host_event(dev->vm, HOST_MOUSE_EVT, V3_HOST_EVENT_HANDLER(mouse_event_handler), dev);
+    v3_hook_host_event(vm, HOST_KEYBOARD_EVT, V3_HOST_EVENT_HANDLER(key_event_handler), dev);
+    v3_hook_host_event(vm, HOST_MOUSE_EVT, V3_HOST_EVENT_HANDLER(mouse_event_handler), dev);
 
 
 #if KEYBOARD_DEBUG_80H
@@ -966,48 +1013,5 @@ static int keyboard_init_device(struct vm_device * dev) {
     return 0;
 }
 
-static int keyboard_deinit_device(struct vm_device * dev) {
 
-    v3_dev_unhook_io(dev, KEYBOARD_60H);
-    v3_dev_unhook_io(dev, KEYBOARD_64H);
-#if KEYBOARD_DEBUG_80H
-    v3_dev_unhook_io(dev, KEYBOARD_DELAY_80H);
-#endif
-    keyboard_reset_device(dev);
-    return 0;
-}
-
-
-
-
-
-static struct vm_device_ops dev_ops = { 
-    .init = keyboard_init_device, 
-    .deinit = keyboard_deinit_device,
-    .reset = keyboard_reset_device,
-    .start = keyboard_start_device,
-    .stop = keyboard_stop_device,
-};
-
-
-
-
-struct vm_device * v3_create_keyboard() {
-    struct keyboard_internal * keyboard_state = NULL;
-
-    keyboard_state = (struct keyboard_internal *)V3_Malloc(sizeof(struct keyboard_internal));
-
-    keyboard_state->mouse_queue.start = 0;
-    keyboard_state->mouse_queue.end = 0;
-    keyboard_state->mouse_queue.count = 0;
-
-    keyboard_state->kbd_queue.start = 0;
-    keyboard_state->kbd_queue.end = 0;
-    keyboard_state->kbd_queue.count = 0;
-
-    keyboard_state->mouse_enabled = 0;
-
-    struct vm_device * device = v3_create_device("KEYBOARD", &dev_ops, keyboard_state);
-
-    return device;
-}
+device_register("KEYBOARD", keyboard_init)

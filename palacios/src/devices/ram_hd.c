@@ -81,10 +81,57 @@ static struct v3_ide_hd_ops hd_ops = {
 };
 
 
-static int hd_init(struct vm_device * dev) {
-    struct hd_state * hd = (struct hd_state *)(dev->private_data);
 
-    if (v3_ide_register_harddisk(hd->ide, hd->bus, hd->drive, "V3-RAM-HD", &hd_ops, dev) == -1) {
+
+static int hd_free(struct vm_device * dev) {
+    return 0;
+}
+
+static struct v3_device_ops dev_ops = {
+    .free = hd_free,
+    .reset = NULL,
+    .start = NULL,
+    .stop = NULL,
+};
+
+
+
+
+static int hd_init(struct guest_info * vm, void * cfg_data) {
+    struct hd_state * hd = NULL;
+    struct ram_hd_cfg * cfg = (struct ram_hd_cfg *)cfg_data;
+
+    if (cfg->size % IDE_SECTOR_SIZE) {
+	PrintError("HD image must be an integral of sector size (IDE_SECTOR_SIZE=%d)\n", IDE_SECTOR_SIZE);
+	return -1;
+    }
+
+    hd = (struct hd_state *)V3_Malloc(sizeof(struct hd_state));
+
+    PrintDebug("Registering Ram HDD at %p (size=%d)\n", (void *)ramdisk, size);
+
+    hd->disk_image = cfg->ramdisk;
+    hd->capacity = cfg->size;
+
+    hd->ide = v3_find_dev(vm, cfg->ide);
+
+    if (hd->ide == 0) {
+	PrintError("Could not find backend %s\n", cfg->ide);
+	return -1;
+    }
+
+    hd->bus = cfg->bus;
+    hd->drive = cfg->drive;
+	
+    struct vm_device * dev = v3_allocate_device("RAM-HD", &dev_ops, hd);
+
+    if (v3_attach_device(vm, dev) == -1) {
+	PrintError("Could not attach device %s\n", "RAM-HD");
+	return -1;
+    }
+
+
+    if (v3_ide_register_harddisk(hd->ide, hd->bus, hd->drive, "RAM-HD", &hd_ops, dev) == -1) {
 	return -1;
     }
     
@@ -92,40 +139,4 @@ static int hd_init(struct vm_device * dev) {
 }
 
 
-static int hd_deinit(struct vm_device * dev) {
-    return 0;
-}
-
-static struct vm_device_ops dev_ops = {
-    .init = hd_init, 
-    .deinit = hd_deinit,
-    .reset = NULL,
-    .start = NULL,
-    .stop = NULL,
-};
-
-struct vm_device * v3_create_ram_hd(struct vm_device * ide, 
-				    uint_t bus, uint_t drive, 
-				    addr_t ramdisk, uint32_t size) {
-    struct hd_state * hd = NULL;
-
-    if (size % IDE_SECTOR_SIZE) {
-	PrintError("HD image must be an integral of sector size (IDE_SECTOR_SIZE=%d)\n", IDE_SECTOR_SIZE);
-	return NULL;
-    }
-
-    hd = (struct hd_state *)V3_Malloc(sizeof(struct hd_state));
-
-    PrintDebug("Registering Ram HDD at %p (size=%d)\n", (void *)ramdisk, size);
-
-    hd->disk_image = ramdisk;
-    hd->capacity = size;
-
-    hd->ide = ide;
-    hd->bus = bus;
-    hd->drive = drive;
-	
-    struct vm_device * hd_dev = v3_create_device("RAM-HD", &dev_ops, hd);
-
-    return hd_dev;
-}
+device_register("RAM-HD", hd_init)

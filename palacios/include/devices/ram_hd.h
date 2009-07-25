@@ -22,12 +22,13 @@
 
 #ifdef __V3VEE__
 
-#include <palacios/vm_dev.h>
-
-
-struct vm_device * v3_create_ram_hd(struct vm_device * ide, 
-				    uint_t bus, uint_t drive, 
-				    addr_t ramdisk, uint32_t size);
+struct ram_hd_cfg {
+    char ide[32];
+    uint_t bus; 
+    uint_t drive;
+    addr_t ramdisk;
+    uint32_t size;
+};
 
 
 

@@ -18,8 +18,9 @@
  */
 
 
-#include <devices/bochs_debug.h>
+
 #include <palacios/vmm.h>
+#include <palacios/vmm_dev_mgr.h>
 
 #define BUF_SIZE 1024
 
@@ -109,8 +110,44 @@ static int handle_gen_write(ushort_t port, void * src, uint_t length, struct vm_
 }
 
 
-static int debug_init(struct vm_device * dev) {
-    struct debug_state * state = (struct debug_state *)dev->private_data;
+
+
+static int debug_free(struct vm_device * dev) {
+    v3_dev_unhook_io(dev, BOCHS_PORT1);
+    v3_dev_unhook_io(dev, BOCHS_PORT2);
+    v3_dev_unhook_io(dev, BOCHS_INFO_PORT);
+    v3_dev_unhook_io(dev, BOCHS_DEBUG_PORT);
+
+    return 0;
+};
+
+
+
+
+static struct v3_device_ops dev_ops = {
+    .free = debug_free,
+    .reset = NULL,
+    .start = NULL,
+    .stop = NULL,
+};
+
+
+
+
+static int debug_init(struct guest_info * vm, void * cfg_data) {
+   struct debug_state * state = NULL;
+
+    state = (struct debug_state *)V3_Malloc(sizeof(struct debug_state));
+
+    V3_ASSERT(state != NULL);
+
+    PrintDebug("Creating Bochs Debug Device\n");
+    struct vm_device * dev = v3_allocate_device("BOCHS_DEBUG", &dev_ops, state);
+
+    if (v3_attach_device(vm, dev) == -1) {
+	PrintError("Could not attach device %s\n", "BOCHS_DEBUG");
+	return -1;
+    }
 
     state->debug_offset = 0;
     state->info_offset = 0;
@@ -128,38 +165,5 @@ static int debug_init(struct vm_device * dev) {
     return 0;
 }
 
-static int debug_deinit(struct vm_device * dev) {
-    v3_dev_unhook_io(dev, BOCHS_PORT1);
-    v3_dev_unhook_io(dev, BOCHS_PORT2);
-    v3_dev_unhook_io(dev, BOCHS_INFO_PORT);
-    v3_dev_unhook_io(dev, BOCHS_DEBUG_PORT);
 
-    return 0;
-};
-
-
-
-
-static struct vm_device_ops dev_ops = {
-    .init = debug_init,
-    .deinit = debug_deinit,
-    .reset = NULL,
-    .start = NULL,
-    .stop = NULL,
-};
-
-
-struct vm_device * v3_create_bochs_debug() {
-    struct debug_state * state = NULL;
-
-    state = (struct debug_state *)V3_Malloc(sizeof(struct debug_state));
-
-    V3_ASSERT(state != NULL);
-
-    PrintDebug("Creating Bochs Debug Device\n");
-    struct vm_device * device = v3_create_device("BOCHS Debug", &dev_ops, state);
-
-
-
-    return device;
-}
+device_register("BOCHS_DEBUG", debug_init);

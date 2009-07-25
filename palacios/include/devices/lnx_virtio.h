@@ -23,7 +23,6 @@
 
 #ifdef __V3VEE__
 
-#include <palacios/vm_dev.h>
 
 
 /* PCI Vendor IDs (from Qemu) */
@@ -57,11 +56,6 @@ struct virtio_config {
     uint8_t status;
     uint8_t pci_isr;
 } __attribute__((packed));
-
-
-
-struct vm_device * v3_create_virtio_blk();
-
 
 
 

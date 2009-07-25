@@ -17,8 +17,9 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#include <devices/8254.h>
+
 #include <palacios/vmm.h>
+#include <palacios/vmm_dev_mgr.h>
 #include <palacios/vmm_time.h>
 #include <palacios/vmm_util.h>
 #include <palacios/vmm_intr.h>
@@ -613,10 +614,39 @@ static void init_channel(struct channel * ch) {
 }
 
 
-static int pit_init(struct vm_device * dev) {
-    struct pit * state = (struct pit *)dev->private_data;
+
+
+static int pit_free(struct vm_device * dev) {
+
+    return 0;
+}
+
+
+static struct v3_device_ops dev_ops = {
+    .free = pit_free,
+    .reset = NULL,
+    .start = NULL,
+    .stop = NULL,
+
+};
+
+
+static int pit_init(struct guest_info * info, void * cfg_data) {
+    struct pit * pit_state = NULL;
+    struct vm_device * dev = NULL;
+
     uint_t cpu_khz = V3_CPU_KHZ();
     ullong_t reload_val = (ullong_t)cpu_khz * 1000;
+
+    pit_state = (struct pit *)V3_Malloc(sizeof(struct pit));
+    V3_ASSERT(pit_state != NULL);
+
+    dev = v3_allocate_device("PIT", &dev_ops, pit_state);
+
+    if (v3_attach_device(info, dev) == -1) {
+	PrintError("Could not attach device %s\n", "PIT");
+	return -1;
+    }
 
     v3_dev_hook_io(dev, CHANNEL0_PORT, &pit_read_channel, &pit_write_channel);
     v3_dev_hook_io(dev, CHANNEL1_PORT, &pit_read_channel, &pit_write_channel);
@@ -629,51 +659,28 @@ static int pit_init(struct vm_device * dev) {
     PrintDebug("\n");
 #endif
 
-    v3_add_timer(dev->vm, &timer_ops, dev);
+    v3_add_timer(info, &timer_ops, dev);
 
     // Get cpu frequency and calculate the global pit oscilattor counter/cycle
 
     do_divll(reload_val, OSC_HZ);
-    state->pit_counter = reload_val;
-    state->pit_reload = reload_val;
+    pit_state->pit_counter = reload_val;
+    pit_state->pit_reload = reload_val;
 
 
 
-    init_channel(&(state->ch_0));
-    init_channel(&(state->ch_1));
-    init_channel(&(state->ch_2));
+    init_channel(&(pit_state->ch_0));
+    init_channel(&(pit_state->ch_1));
+    init_channel(&(pit_state->ch_2));
 
 #ifdef DEBUG_PIT
     PrintDebug("8254 PIT: CPU MHZ=%d -- pit count=", cpu_khz / 1000);
-    PrintTraceLL(state->pit_counter);
+    PrintTraceLL(pit_state->pit_counter);
     PrintDebug("\n");
 #endif
 
     return 0;
 }
 
-static int pit_deinit(struct vm_device * dev) {
 
-    return 0;
-}
-
-
-static struct vm_device_ops dev_ops = {
-    .init = pit_init,
-    .deinit = pit_deinit,
-    .reset = NULL,
-    .start = NULL,
-    .stop = NULL,
-
-};
-
-
-struct vm_device * v3_create_pit() {
-    struct pit * pit_state = NULL;
-    pit_state = (struct pit *)V3_Malloc(sizeof(struct pit));
-    V3_ASSERT(pit_state != NULL);
-
-    struct vm_device * dev = v3_create_device("PIT", &dev_ops, pit_state);
-  
-    return dev;
-}
+device_register("8254_PIT", pit_init);

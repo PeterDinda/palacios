@@ -49,6 +49,9 @@ void Init_V3(struct v3_os_hooks * hooks, struct v3_ctrl_ops * vmm_ops) {
     os_hooks = hooks;
     v3_cpu_type = V3_INVALID_CPU;
 
+    // Register all the possible device types
+    v3_init_devices();
+
 
 #ifdef INSTRUMENT_VMM
     v3_init_instrumentation();

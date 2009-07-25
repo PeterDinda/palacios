@@ -24,7 +24,7 @@
 
 #ifdef __V3VEE__
 
-#include <palacios/vm_dev.h>
+
 #include <palacios/vmm_types.h>
 #include <palacios/vmm_rbtree.h>
 
@@ -115,7 +115,7 @@ struct pci_device {
 
 
 
-struct vm_device * v3_create_pci();
+
 
 struct pci_device * 
 v3_pci_register_device(struct vm_device * pci,

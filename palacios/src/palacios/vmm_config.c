@@ -27,25 +27,13 @@
 #include <palacios/vmm_hypercall.h>
 
 
-#include <devices/serial.h>
-#include <devices/keyboard.h>
-#include <devices/8259a.h>
-#include <devices/8254.h>
-#include <devices/nvram.h>
+
 #include <devices/generic.h>
 #include <devices/ide.h>
 #include <devices/ram_cd.h>
 #include <devices/net_cd.h>
 #include <devices/ram_hd.h>
 #include <devices/net_hd.h>
-#include <devices/bochs_debug.h>
-#include <devices/os_debug.h>
-#include <devices/apic.h>
-#include <devices/io_apic.h>
-#include <devices/para_net.h>
-#include <devices/pci.h>
-#include <devices/i440fx.h>
-#include <devices/piix3.h>
 
 
 #include <palacios/vmm_host_events.h>
@@ -58,7 +46,7 @@
 
 static int setup_memory_map(struct guest_info * info, struct v3_vm_config * config_ptr);
 static int setup_devices(struct guest_info * info, struct v3_vm_config * config_ptr);
-static struct vm_device *  configure_generic(struct guest_info * info, struct v3_vm_config * config_ptr);
+static int configure_generic(struct guest_info * info, struct v3_vm_config * config_ptr);
 
 
 
@@ -211,68 +199,71 @@ static int setup_memory_map(struct guest_info * info, struct v3_vm_config * conf
 
 static int setup_devices(struct guest_info * info, struct v3_vm_config * config_ptr) {
 
-    struct vm_device * ide = NULL;
-    struct vm_device * primary_disk = NULL;
-    struct vm_device * secondary_disk = NULL;
+
+    v3_create_device(info, "8259A", NULL);
+    v3_create_device(info, "KEYBOARD", NULL);
+    v3_create_device(info, "8254_PIT", NULL); 
+    v3_create_device(info, "BOCHS_DEBUG", NULL);
+    v3_create_device(info, "OS_DEBUG", NULL);
+    v3_create_device(info, "LAPIC", NULL);
+    v3_create_device(info, "IOAPIC", "LAPIC");
+    v3_create_device(info, "PARANET", NULL);
     
-    struct vm_device * pci = NULL;
-    struct vm_device * northbridge = NULL;
-    struct vm_device * southbridge = NULL;
-
-    struct vm_device * nvram = NULL;
-    struct vm_device * pic = v3_create_pic();
-    struct vm_device * keyboard = v3_create_keyboard();
-    struct vm_device * pit = v3_create_pit(); 
-    struct vm_device * bochs_debug = v3_create_bochs_debug();
-    struct vm_device * os_debug = v3_create_os_debug();
-    struct vm_device * apic = v3_create_apic();
-    struct vm_device * ioapic = v3_create_io_apic(apic);
-    struct vm_device * para_net = v3_create_para_net();
-
-
-    //struct vm_device * serial = v3_create_serial();
-    struct vm_device * generic = NULL;
-
-
     int use_generic = USE_GENERIC;
 
+
     if (config_ptr->enable_pci == 1) {
-	pci = v3_create_pci();
-	northbridge = v3_create_i440fx(pci);
-	southbridge = v3_create_piix3(pci);
-	ide = v3_create_ide(pci, southbridge);
+	struct ide_cfg ide_config = {"PCI", "PIIX3"};	
+	
+	v3_create_device(info, "PCI", NULL);
+	v3_create_device(info, "i440FX", "PCI");
+	v3_create_device(info, "PIIX3", "PCI");
+	
+	v3_create_device(info, "IDE", &ide_config);
     } else {
-	ide = v3_create_ide(NULL, NULL);
+	v3_create_device(info, "IDE", NULL);
+
     }
 
-    nvram = v3_create_nvram(ide);
+
+
+
 
     if (config_ptr->pri_disk_type != NONE) {
 	if (config_ptr->pri_disk_type == CDROM) {
 	    if (config_ptr->pri_disk_con == RAM) {
+		struct ram_cd_cfg cfg = {"IDE", 0, 0, 
+					 (addr_t)(config_ptr->pri_disk_info.ram.data_ptr), 
+					 config_ptr->pri_disk_info.ram.size};
+
 		PrintDebug("Creating RAM CD\n");
-		primary_disk = v3_create_ram_cd(ide, 0, 0, 
-						(addr_t)(config_ptr->pri_disk_info.ram.data_ptr), 
-						config_ptr->pri_disk_info.ram.size);
+
+		v3_create_device(info, "RAM-CD", &cfg);
 	    } else if (config_ptr->pri_disk_con == NETWORK) {
+		struct net_cd_cfg cfg = {"IDE", 0, 0, 
+					 config_ptr->pri_disk_info.net.ip_str,
+					 config_ptr->pri_disk_info.net.port, 
+					 config_ptr->pri_disk_info.net.disk_name};
 		PrintDebug("Creating NET CD\n");
-		primary_disk = v3_create_net_cd(ide, 0, 0, 
-						config_ptr->pri_disk_info.net.ip_str,
-						config_ptr->pri_disk_info.net.port, 
-						config_ptr->pri_disk_info.net.disk_name);    
+
+		v3_create_device(info, "NET-CD", &cfg);    
 	    }
 	} else if (config_ptr->pri_disk_type == HARDDRIVE) {
 	    if (config_ptr->pri_disk_con == RAM) {
+		struct ram_hd_cfg cfg = {"IDE", 0, 0, 
+					 (addr_t)(config_ptr->pri_disk_info.ram.data_ptr), 
+					 config_ptr->pri_disk_info.ram.size};
+
 		PrintDebug("Creating RAM HD\n");
-		primary_disk = v3_create_ram_hd(ide, 0, 0, 
-						(addr_t)(config_ptr->pri_disk_info.ram.data_ptr), 
-						config_ptr->pri_disk_info.ram.size);
+
+		v3_create_device(info, "RAM-HD", &cfg);
 	    } else if (config_ptr->pri_disk_con == NETWORK) {
+		struct net_hd_cfg cfg  = {"IDE", 0, 0, 
+					  config_ptr->pri_disk_info.net.ip_str,
+					  config_ptr->pri_disk_info.net.port, 
+					  config_ptr->pri_disk_info.net.disk_name};
 		PrintDebug("Creating NET HD\n");
-		primary_disk = v3_create_net_hd(ide, 0, 0, 
-						config_ptr->pri_disk_info.net.ip_str,
-						config_ptr->pri_disk_info.net.port, 
-						config_ptr->pri_disk_info.net.disk_name);
+		v3_create_device(info, "NET-HD", &cfg);
 	    }
 	}
     }
@@ -282,29 +273,35 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
     if (config_ptr->sec_disk_type != NONE) {
 	if (config_ptr->sec_disk_type == CDROM) {
 	    if (config_ptr->sec_disk_con == RAM) {
+		struct ram_cd_cfg cfg = {"IDE", 0, 1, 
+					 (addr_t)(config_ptr->sec_disk_info.ram.data_ptr), 
+					 config_ptr->sec_disk_info.ram.size};
+
 		PrintDebug("Creating RAM CD\n");
-		secondary_disk = v3_create_ram_cd(ide, 0, 1, 
-						  (addr_t)(config_ptr->sec_disk_info.ram.data_ptr), 
-						  config_ptr->sec_disk_info.ram.size);
+		v3_create_device(info, "RAM-CD", &cfg);
 	    } else if (config_ptr->sec_disk_con == NETWORK) {
+		struct net_cd_cfg cfg = {"IDE", 0, 1, 
+					 config_ptr->sec_disk_info.net.ip_str,
+					 config_ptr->sec_disk_info.net.port, 
+					 config_ptr->sec_disk_info.net.disk_name};
+
 		PrintDebug("Creating NET CD\n");
-		secondary_disk = v3_create_net_cd(ide, 0, 1, 
-						  config_ptr->sec_disk_info.net.ip_str,
-						  config_ptr->sec_disk_info.net.port, 
-						  config_ptr->sec_disk_info.net.disk_name);    
+		v3_create_device(info, "NET-CD", &cfg);    
 	    }
 	} else if (config_ptr->sec_disk_type == HARDDRIVE) {
 	    if (config_ptr->sec_disk_con == RAM) {
+		struct ram_hd_cfg cfg = {"IDE", 0, 1, 
+					 (addr_t)(config_ptr->sec_disk_info.ram.data_ptr), 
+					 config_ptr->sec_disk_info.ram.size};
 		PrintDebug("Creating RAM HD\n");
-		secondary_disk = v3_create_ram_hd(ide, 0, 1, 
-						  (addr_t)(config_ptr->sec_disk_info.ram.data_ptr), 
-						  config_ptr->sec_disk_info.ram.size);
+		v3_create_device(info, "RAM-HD", &cfg);
 	    } else if (config_ptr->sec_disk_con == NETWORK) {
+		struct net_hd_cfg cfg = {"IDE", 0, 1, 
+					 config_ptr->sec_disk_info.net.ip_str,
+					 config_ptr->sec_disk_info.net.port, 
+					 config_ptr->sec_disk_info.net.disk_name};
 		PrintDebug("Creating NET HD\n");
-		secondary_disk = v3_create_net_hd(ide, 0, 1, 
-						  config_ptr->sec_disk_info.net.ip_str,
-						  config_ptr->sec_disk_info.net.port, 
-						  config_ptr->sec_disk_info.net.disk_name);
+		v3_create_device(info, "NET-HD", &cfg);
 	    }
 	}
     }
@@ -312,49 +309,11 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
 
 
     if (use_generic) {
-	generic = configure_generic(info, config_ptr);
+	configure_generic(info, config_ptr);
     }
 
-
-    v3_attach_device(info, pic);
-    v3_attach_device(info, pit);
-    v3_attach_device(info, keyboard);
-    // v3_attach_device(info, serial);
-    v3_attach_device(info, bochs_debug);
-    v3_attach_device(info, os_debug);
-
-    v3_attach_device(info, apic);
-    v3_attach_device(info, ioapic);
-
-    v3_attach_device(info, para_net);
-
-    if (config_ptr->enable_pci == 1) {
-	PrintDebug("Attaching PCI\n");
-	v3_attach_device(info, pci);
-	PrintDebug("Attaching Northbridge\n");
-	v3_attach_device(info, northbridge);
-	PrintDebug("Attaching Southbridge\n");
-	v3_attach_device(info, southbridge);
-    }
-
-    PrintDebug("Attaching IDE\n");
-    v3_attach_device(info, ide);
-
-    if (primary_disk != NULL) {
-	v3_attach_device(info, primary_disk);
-    }
-
-    if (secondary_disk != NULL) {
-	v3_attach_device(info, secondary_disk);
-    }
-
-    if (use_generic) {
-	// Important that this be attached last!
-	v3_attach_device(info, generic);
-    }
-
-    // This should go last because it contains the hardware state
-    v3_attach_device(info, nvram);
+    // This should go last because it requires information about the Harddrives
+    v3_create_device(info, "NVRAM", "IDE");
     
     PrintDebugDevMgr(info);
 
@@ -364,11 +323,17 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
 
 
 
-
-static struct vm_device *  configure_generic(struct guest_info * info, struct v3_vm_config * config_ptr) {
+static int configure_generic(struct guest_info * info, struct v3_vm_config * config_ptr) {
     PrintDebug("Creating Generic Device\n");
-    struct vm_device * generic = v3_create_generic();
+    v3_create_device(info, "GENERIC", NULL);
     
+
+    struct vm_device * generic = v3_find_dev(info, "GENERIC");
+
+    if (!generic) {
+	PrintError("Could not find generic device\n");
+	return -1;
+    }
 
     // port 0x92: A20 enable/disable (bit 2) (This causes an MMU flush)
 
@@ -474,5 +439,5 @@ static struct vm_device *  configure_generic(struct guest_info * info, struct v3
     //  v3_generic_add_port_range(generic, 0x378, 0x400, GENERIC_PRINT_AND_IGNORE);
     
 
-    return generic;
+    return 0;
 }

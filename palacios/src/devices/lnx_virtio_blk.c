@@ -51,10 +51,48 @@ static int virtio_pci_read(uint16_t port, void * dst, uint_t length, struct vm_d
     return -1;
 }
 
-static int virtio_init(struct vm_device * dev) {
-    struct blk_state * virtio = (struct blk_state *)(dev->private_data);
+
+
+static int virtio_free(struct vm_device * dev) {
+    return -1;
+}
+
+
+
+static struct v3_device_ops dev_ops = {
+    .free = virtio_free,
+    .reset = NULL,
+    .start = NULL,
+    .stop = NULL,
+};
+
+
+
+
+
+static int virtio_init(struct guest_info * vm, void * cfg_data) {
+    struct blk_state * virtio = NULL;
+    struct vm_device * pci_bus = (struct vm_device *)cfg_data;
+
 
     PrintDebug("Initializing VIRTIO Block device\n");
+
+    if (pci_bus == NULL) {
+	PrintError("VirtIO requires a PCI bus\n");
+	return -1;
+    }
+
+    virtio = (struct blk_state *)V3_Malloc(sizeof(struct blk_state));
+
+    virtio->pci_bus = pci_bus;
+
+    struct vm_device * dev = v3_allocate_device("VIRTIO_BLK", &dev_ops, virtio);
+    if (v3_attach_device(vm, dev) == -1) {
+	PrintError("Could not attach device %s\n", "LNX_VIRTIO_BLK");
+	return -1;
+    }
+
+
 
     if (virtio->pci_bus != NULL) {
 	struct v3_pci_bar bars[6];
@@ -115,36 +153,5 @@ static int virtio_init(struct vm_device * dev) {
     return -1;
 }
 
-static int virtio_deinit(struct vm_device * dev) {
-    return -1;
-}
 
-
-
-static struct vm_device_ops dev_ops = {
-    .init = virtio_init, 
-    .deinit = virtio_deinit,
-    .reset = NULL,
-    .start = NULL,
-    .stop = NULL,
-};
-
-
-
-struct vm_device * v3_create_virtio(struct vm_device * pci_bus) {
-    struct blk_state * virtio = NULL;
-
-    PrintDebug("Creating VirtIO Block device\n");
-
-    if (pci_bus == NULL) {
-	PrintError("VirtIO requires a PCI bus\n");
-	return NULL;
-    }
-
-
-    virtio = (struct blk_state *)V3_Malloc(sizeof(struct blk_state));
-
-    virtio->pci_bus = pci_bus;
-
-    return v3_create_device("VIRTIO_BLK", &dev_ops, virtio);
-}
+device_register("LNX_VIRTIO_BLK", virtio_init)

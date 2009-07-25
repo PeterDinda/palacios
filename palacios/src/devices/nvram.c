@@ -18,7 +18,7 @@
  */
 
 
-#include <devices/nvram.h>
+#include <palacios/vmm_dev_mgr.h>
 #include <palacios/vmm.h>
 #include <palacios/vmm_types.h>
 
@@ -768,25 +768,11 @@ static int nvram_write_data_port(ushort_t port,
 
 
 
-static int nvram_init_device(struct vm_device * dev) {
-    PrintDebug("nvram: init_device\n");
 
-    init_nvram_state(dev);
-
-    // hook ports
-    v3_dev_hook_io(dev, NVRAM_REG_PORT, NULL, &nvram_write_reg_port);
-    v3_dev_hook_io(dev, NVRAM_DATA_PORT, &nvram_read_data_port, &nvram_write_data_port);
-  
-    v3_hook_host_event(dev->vm, HOST_TIMER_EVT, V3_HOST_EVENT_HANDLER(handle_timer_event), dev);
-
-    return 0;
-}
-
-static int nvram_deinit_device(struct vm_device * dev) {
+static int nvram_free(struct vm_device * dev) {
     v3_dev_unhook_io(dev, NVRAM_REG_PORT);
     v3_dev_unhook_io(dev, NVRAM_DATA_PORT);
 
-    nvram_reset_device(dev);
     return 0;
 }
 
@@ -794,9 +780,8 @@ static int nvram_deinit_device(struct vm_device * dev) {
 
 
 
-static struct vm_device_ops dev_ops = { 
-    .init = nvram_init_device, 
-    .deinit = nvram_deinit_device,
+static struct v3_device_ops dev_ops = {  
+    .free = nvram_free,
     .reset = nvram_reset_device,
     .start = nvram_start_device,
     .stop = nvram_stop_device,
@@ -805,16 +790,40 @@ static struct vm_device_ops dev_ops = {
 
 
 
-struct vm_device * v3_create_nvram(struct vm_device * ide) {
-    struct nvram_internal * nvram_state = NULL;
 
+static int nvram_init(struct guest_info * vm, void * cfg_data) {
+    struct nvram_internal * nvram_state = NULL;
+    struct vm_device * ide = v3_find_dev(vm, (char *)cfg_data);
+
+    if (!ide) {
+	PrintError("Could not find IDE device\n");
+	return -1;
+    }
+
+    PrintDebug("nvram: init_device\n");
     nvram_state = (struct nvram_internal *)V3_Malloc(sizeof(struct nvram_internal) + 1000);
 
     PrintDebug("nvram: internal at %p\n", (void *)nvram_state);
 
     nvram_state->ide = ide;
 
-    struct vm_device * device = v3_create_device("NVRAM", &dev_ops, nvram_state);
+    struct vm_device * dev = v3_allocate_device("NVRAM", &dev_ops, nvram_state);
 
-    return device;
+
+    if (v3_attach_device(vm, dev) == -1) {
+	PrintError("Could not attach device %s\n", "NVRAM");
+	return -1;
+    }
+
+    init_nvram_state(dev);
+
+    // hook ports
+    v3_dev_hook_io(dev, NVRAM_REG_PORT, NULL, &nvram_write_reg_port);
+    v3_dev_hook_io(dev, NVRAM_DATA_PORT, &nvram_read_data_port, &nvram_write_data_port);
+  
+    v3_hook_host_event(vm, HOST_TIMER_EVT, V3_HOST_EVENT_HANDLER(handle_timer_event), dev);
+
+    return 0;
 }
+
+device_register("NVRAM", nvram_init)

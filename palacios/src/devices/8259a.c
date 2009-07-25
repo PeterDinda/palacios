@@ -18,10 +18,11 @@
  */
 
 
-#include <devices/8259a.h>
+
 #include <palacios/vmm_intr.h>
 #include <palacios/vmm_types.h>
 #include <palacios/vmm.h>
+#include <palacios/vmm_dev_mgr.h>
 
 #ifndef DEBUG_PIC
 #undef PrintDebug
@@ -685,10 +686,47 @@ static int write_elcr_port(ushort_t port, void * src, uint_t length, struct vm_d
 
 
 
-static int pic_init(struct vm_device * dev) {
-    struct pic_internal * state = (struct pic_internal*)dev->private_data;
 
-    v3_register_intr_controller(dev->vm, &intr_ops, state);
+
+
+static int pic_free(struct vm_device * dev) {
+    v3_dev_unhook_io(dev, MASTER_PORT1);
+    v3_dev_unhook_io(dev, MASTER_PORT2);
+    v3_dev_unhook_io(dev, SLAVE_PORT1);
+    v3_dev_unhook_io(dev, SLAVE_PORT2);
+
+    return 0;
+}
+
+
+
+
+
+
+
+static struct v3_device_ops dev_ops = {
+    .free = pic_free,
+    .reset = NULL,
+    .start = NULL,
+    .stop = NULL,
+};
+
+
+
+static int pic_init(struct guest_info * vm, void * cfg_data) {
+    struct pic_internal * state = NULL;
+    state = (struct pic_internal *)V3_Malloc(sizeof(struct pic_internal));
+    V3_ASSERT(state != NULL);
+
+    struct vm_device * dev = v3_allocate_device("8259A", &dev_ops, state);
+
+    if (v3_attach_device(vm, dev) == -1) {
+	PrintError("Could not attach device %s\n", "8259A");
+	return -1;
+    }
+
+
+    v3_register_intr_controller(vm, &intr_ops, state);
 
     state->master_irr = 0;
     state->master_isr = 0;
@@ -731,36 +769,5 @@ static int pic_init(struct vm_device * dev) {
 }
 
 
-static int pic_deinit(struct vm_device * dev) {
-    v3_dev_unhook_io(dev, MASTER_PORT1);
-    v3_dev_unhook_io(dev, MASTER_PORT2);
-    v3_dev_unhook_io(dev, SLAVE_PORT1);
-    v3_dev_unhook_io(dev, SLAVE_PORT2);
 
-    return 0;
-}
-
-
-
-
-
-
-
-static struct vm_device_ops dev_ops = {
-    .init = pic_init,
-    .deinit = pic_deinit,
-    .reset = NULL,
-    .start = NULL,
-    .stop = NULL,
-};
-
-
-struct vm_device * v3_create_pic() {
-    struct pic_internal * state = NULL;
-    state = (struct pic_internal *)V3_Malloc(sizeof(struct pic_internal));
-    V3_ASSERT(state != NULL);
-
-    struct vm_device *device = v3_create_device("8259A", &dev_ops, state);
-
-    return device;
-}
+device_register("PIC", pic_init);

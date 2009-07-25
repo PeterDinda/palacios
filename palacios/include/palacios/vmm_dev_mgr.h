@@ -27,8 +27,28 @@
 #include <palacios/vmm_string.h>
 #include <palacios/vmm_hashtable.h>
 
-struct vm_device;
+
 struct guest_info;
+
+struct v3_device_ops;
+
+
+struct vm_device {
+    char name[32];
+  
+    void * private_data;
+
+    struct v3_device_ops * ops;
+
+    struct guest_info * vm;
+
+    struct list_head dev_link;
+
+
+    uint_t num_io_hooks;
+    struct list_head io_hooks;
+};
+
 
 struct vmm_dev_mgr {
     uint_t num_devs;
@@ -39,6 +59,14 @@ struct vmm_dev_mgr {
 
 
 
+
+int v3_create_device(struct guest_info * info, const char * dev_name, void * cfg_data);
+void v3_free_device(struct vm_device * dev);
+
+
+struct vm_device * v3_find_dev(struct guest_info * info, const char * dev_name);
+
+
 // Registration of devices
 
 //
@@ -46,15 +74,74 @@ struct vmm_dev_mgr {
 // when the guest is stopped
 //
 
-int v3_attach_device(struct guest_info * vm, struct vm_device * dev);
-int v3_detach_device(struct vm_device * dev);
 
 
 int v3_init_dev_mgr(struct guest_info * info);
 int v3_dev_mgr_deinit(struct guest_info * info);
 
+
+
+
+int v3_init_devices();
+
+
+struct v3_device_ops {
+    int (*free)(struct vm_device *dev);
+
+
+    int (*reset)(struct vm_device *dev);
+
+    int (*start)(struct vm_device *dev);
+    int (*stop)(struct vm_device *dev);
+
+
+    //int (*save)(struct vm_device *dev, struct *iostream);
+    //int (*restore)(struct vm_device *dev, struct *iostream);
+};
+
+
+
+
+
+
+int v3_dev_hook_io(struct vm_device   *dev,
+		   ushort_t            port,
+		   int (*read)(ushort_t port, void * dst, uint_t length, struct vm_device * dev),
+		   int (*write)(ushort_t port, void * src, uint_t length, struct vm_device * dev));
+
+int v3_dev_unhook_io(struct vm_device   *dev,
+		     ushort_t            port);
+
+
+int v3_attach_device(struct guest_info * vm, struct vm_device * dev);
+int v3_detach_device(struct vm_device * dev);
+
+struct vm_device * v3_allocate_device(char * name, struct v3_device_ops * ops, void * private_data);
+
+
+struct v3_device_info {
+    char * name;
+    int (*init)(struct guest_info * info, void * cfg_data);
+};
+
+
+#define device_register(name, init_dev_fn)				\
+    static char _v3_device_name[] = name;				\
+    static struct v3_device_info _v3_device				\
+    __attribute__((__used__))						\
+	__attribute__((unused, __section__ ("_v3_devices"),		\
+		       aligned(sizeof(addr_t))))			\
+	= {_v3_device_name , init_dev_fn};
+
+
+
+
 void PrintDebugDevMgr(struct guest_info * info);
 void PrintDebugDev(struct vm_device * dev);
+
+
+
+
 
 #endif // ! __V3VEE__
 

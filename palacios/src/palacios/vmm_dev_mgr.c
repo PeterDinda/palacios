@@ -17,7 +17,6 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#include <palacios/vm_dev.h>
 #include <palacios/vmm_dev_mgr.h>
 #include <palacios/vm_guest.h>
 #include <palacios/vmm.h>
@@ -30,9 +29,58 @@
 #endif
 
 
-//DEFINE_HASHTABLE_INSERT(insert_dev, const char *, struct vm_device *);
-//DEFINE_HASHTABLE_SEARCH(find_dev, const char *, struct vm_device *);
-//DEFINE_HASHTABLE_REMOVE(remove_dev, const char *, struct vm_device *, 0);
+static struct hashtable * master_dev_table = NULL;
+
+static uint_t dev_hash_fn(addr_t key) {
+    char * name = (char *)key;
+    return v3_hash_buffer((uchar_t *)name, strlen(name));
+}
+
+static int dev_eq_fn(addr_t key1, addr_t key2) {
+    char * name1 = (char *)key1;
+    char * name2 = (char *)key2;
+    
+    return (strcmp(name1, name2) == 0);
+}
+
+
+int v3_init_devices() {
+    extern struct v3_device_info __start__v3_devices[];
+    extern struct v3_device_info __stop__v3_devices[];
+    struct v3_device_info * tmp_dev =  __start__v3_devices;
+    int num_devices = (__stop__v3_devices - __start__v3_devices) / sizeof(struct v3_device_info);
+    int i = 0;
+
+
+    PrintDebug("%d Virtual devices registered with Palacios\n", num_devices);
+    PrintDebug("Start addres=%p, Stop address=%p\n", __start__v3_devices, __stop__v3_devices);
+
+    master_dev_table = v3_create_htable(0, dev_hash_fn, dev_eq_fn);
+
+
+
+    while (tmp_dev != __stop__v3_devices) {
+	PrintDebug("Device: %s\n", tmp_dev->name);
+
+	if (v3_htable_search(master_dev_table, (addr_t)(tmp_dev->name))) {
+	    PrintError("Multiple instance of device (%s)\n", tmp_dev->name);
+	    return -1;
+	}
+
+	if (v3_htable_insert(master_dev_table, 
+			     (addr_t)(tmp_dev->name), 
+			     (addr_t)(tmp_dev->init)) == 0) {
+	    PrintError("Could not add device %s to master list\n", tmp_dev->name);
+	    return -1;
+	}
+
+	tmp_dev = &(__start__v3_devices[++i]);
+    }
+
+
+    return 0;
+}
+
 
 int v3_init_dev_mgr(struct guest_info * info) {
     struct vmm_dev_mgr * mgr = &(info->dev_mgr);
@@ -40,7 +88,7 @@ int v3_init_dev_mgr(struct guest_info * info) {
     INIT_LIST_HEAD(&(mgr->dev_list));
     mgr->num_devs = 0;
 
-    //   mgr->dev_table = v3_create_htable(0, , );
+    mgr->dev_table = v3_create_htable(0, dev_hash_fn, dev_eq_fn);
 
     return 0;
 }
@@ -61,35 +109,42 @@ int v3_dev_mgr_deinit(struct guest_info * info) {
 
 
 
-int v3_attach_device(struct guest_info * vm, struct vm_device * dev) {
-    struct vmm_dev_mgr *mgr= &(vm->dev_mgr);
-  
-    dev->vm = vm;
+int v3_create_device(struct guest_info * info, const char * dev_name, void * cfg_data) {
+    int (*dev_init)(struct guest_info * info, void * cfg_data);
 
-    list_add(&(dev->dev_link), &(mgr->dev_list));
-    mgr->num_devs++;
+    dev_init = (void *)v3_htable_search(master_dev_table, (addr_t)dev_name);
 
-    dev->ops->init(dev);
+    if (dev_init == NULL) {
+	PrintError("Could not find device %s in master device table\n", dev_name);
+	return -1;
+    }
 
-    return 0;
-}
 
-int v3_detach_device(struct vm_device * dev) {
-    struct vmm_dev_mgr * mgr = &(dev->vm->dev_mgr);
-
-    dev->ops->deinit(dev);
-
-    list_del(&(dev->dev_link));
-    mgr->num_devs--;
-
-    dev->vm = NULL;
+    if (dev_init(info, cfg_data) == -1) {
+	PrintError("Could not initialize Device %s\n", dev_name);
+	return -1;
+    }
 
     return 0;
 }
 
 
+void v3_free_device(struct vm_device * dev) {
+    V3_Free(dev);
+}
 
 
+
+struct vm_device * v3_find_dev(struct guest_info * info, const char * dev_name) {
+    struct vmm_dev_mgr * mgr = &(info->dev_mgr);
+
+    return (struct vm_device *)v3_htable_search(mgr->dev_table, (addr_t)dev_name);
+}
+
+
+/****************************************************************/
+/* The remaining functions are called by the devices themselves */
+/****************************************************************/
 
 /* IO HOOKS */
 int v3_dev_hook_io(struct vm_device * dev, uint16_t port,
@@ -108,6 +163,50 @@ int v3_dev_unhook_io(struct vm_device * dev, uint16_t port) {
 
 
 
+int v3_detach_device(struct vm_device * dev) {
+    struct vmm_dev_mgr * mgr = &(dev->vm->dev_mgr);
+
+    dev->ops->free(dev);
+
+    list_del(&(dev->dev_link));
+    mgr->num_devs--;
+
+    dev->vm = NULL;
+
+    return -1;
+}
+
+
+struct vm_device * v3_allocate_device(char * name, 
+				      struct v3_device_ops * ops, 
+				      void * private_data) {
+    struct vm_device * dev = NULL;
+
+    dev = (struct vm_device*)V3_Malloc(sizeof(struct vm_device));
+
+    strncpy(dev->name, name, 32);
+    dev->ops = ops;
+    dev->private_data = private_data;
+
+    dev->vm = NULL;
+
+    return dev;
+}
+
+
+int v3_attach_device(struct guest_info * vm, struct vm_device * dev ) {
+    struct vmm_dev_mgr * mgr = &(vm->dev_mgr);
+
+    dev->vm = vm;
+
+    list_add(&(dev->dev_link), &(mgr->dev_list));
+    mgr->num_devs++;
+
+
+    v3_htable_insert(mgr->dev_table, (addr_t)(dev->name), (addr_t)dev);
+
+    return 0;
+}
 
 
 #ifdef DEBUG_DEV_MGR

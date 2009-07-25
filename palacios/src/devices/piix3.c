@@ -21,7 +21,7 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */ 
  
-#include <devices/piix3.h>
+
 #include <palacios/vmm.h>
 #include <devices/pci.h>
 #include <devices/southbridge.h>
@@ -64,7 +64,25 @@ static int reset_piix3(struct vm_device * dev) {
 }
 
 
-static int init_piix3(struct vm_device * dev) {
+
+
+
+static int piix_free(struct vm_device * dev) {
+    return 0;
+}
+
+
+static struct v3_device_ops dev_ops = {
+    .free = piix_free,
+    .reset = reset_piix3,
+    .start = NULL,
+    .stop = NULL,
+};
+
+
+
+
+static int setup_pci(struct vm_device * dev) {
     struct v3_southbridge * piix3 = (struct v3_southbridge *)(dev->private_data);
     struct pci_device * pci_dev = NULL;
     struct v3_pci_bar bars[6];
@@ -95,31 +113,30 @@ static int init_piix3(struct vm_device * dev) {
     return 0;
 }
 
-
-static int deinit_piix3(struct vm_device * dev) {
-    return 0;
-}
-
-
-static struct vm_device_ops dev_ops = {
-    .init = init_piix3,
-    .deinit = deinit_piix3,
-    .reset = reset_piix3,
-    .start = NULL,
-    .stop = NULL,
-};
-
-
-struct vm_device * v3_create_piix3(struct vm_device * pci) {
+static int piix3_init(struct guest_info * vm, void * cfg_data) {
     struct v3_southbridge * piix3 = (struct v3_southbridge *)V3_Malloc(sizeof(struct v3_southbridge));
     struct vm_device * dev = NULL;
+    struct vm_device * pci = v3_find_dev(vm, (char *)cfg_data);
+
+    if (!pci) {
+	PrintError("Could not find PCI device\n");
+	return -1;
+    }
 
     piix3->pci_bus = pci;
     piix3->type = V3_SB_PIIX3;
     
-    dev = v3_create_device("PIIX3", &dev_ops, piix3);
+    dev = v3_allocate_device("PIIX3", &dev_ops, piix3);
+
+    if (v3_attach_device(vm, dev) == -1) {
+	PrintError("Could not attach device %s\n", "PIIX3");
+	return -1;
+    }
 
     PrintDebug("Created PIIX3\n");
 
-    return dev;
+    return setup_pci(dev);
 }
+
+
+device_register("PIIX3", piix3_init)

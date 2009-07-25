@@ -17,9 +17,8 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#include <devices/serial.h>
 #include <palacios/vmm.h>
-
+#include <palacios/vmm_dev_mgr.h>
 
 #define COM1_DATA_PORT           0x3f8
 #define COM1_IRQ_ENABLE_PORT     0x3f9
@@ -490,8 +489,77 @@ static int init_serial_port(struct serial_port * com) {
     return 0;
 }
 
-static int serial_init(struct vm_device * dev) {
-    struct serial_state * state = (struct serial_state *)dev->private_data;
+
+
+static int serial_free(struct vm_device * dev) {
+
+
+    v3_dev_unhook_io(dev, COM1_DATA_PORT);
+    v3_dev_unhook_io(dev, COM1_IRQ_ENABLE_PORT);
+    v3_dev_unhook_io(dev, COM1_FIFO_CTRL_PORT);
+    v3_dev_unhook_io(dev, COM1_LINE_CTRL_PORT);
+    v3_dev_unhook_io(dev, COM1_MODEM_CTRL_PORT);
+    v3_dev_unhook_io(dev, COM1_LINE_STATUS_PORT);
+    v3_dev_unhook_io(dev, COM1_MODEM_STATUS_PORT);
+    v3_dev_unhook_io(dev, COM1_SCRATCH_PORT);
+
+    v3_dev_unhook_io(dev, COM2_DATA_PORT);
+    v3_dev_unhook_io(dev, COM2_IRQ_ENABLE_PORT);
+    v3_dev_unhook_io(dev, COM2_FIFO_CTRL_PORT);
+    v3_dev_unhook_io(dev, COM2_LINE_CTRL_PORT);
+    v3_dev_unhook_io(dev, COM2_MODEM_CTRL_PORT);
+    v3_dev_unhook_io(dev, COM2_LINE_STATUS_PORT);
+    v3_dev_unhook_io(dev, COM2_MODEM_STATUS_PORT);
+    v3_dev_unhook_io(dev, COM2_SCRATCH_PORT);
+
+    v3_dev_unhook_io(dev, COM3_DATA_PORT);
+    v3_dev_unhook_io(dev, COM3_IRQ_ENABLE_PORT);
+    v3_dev_unhook_io(dev, COM3_FIFO_CTRL_PORT);
+    v3_dev_unhook_io(dev, COM3_LINE_CTRL_PORT);
+    v3_dev_unhook_io(dev, COM3_MODEM_CTRL_PORT);
+    v3_dev_unhook_io(dev, COM3_LINE_STATUS_PORT);
+    v3_dev_unhook_io(dev, COM3_MODEM_STATUS_PORT);
+    v3_dev_unhook_io(dev, COM3_SCRATCH_PORT);
+
+    v3_dev_unhook_io(dev, COM4_DATA_PORT);
+    v3_dev_unhook_io(dev, COM4_IRQ_ENABLE_PORT);
+    v3_dev_unhook_io(dev, COM4_FIFO_CTRL_PORT);
+    v3_dev_unhook_io(dev, COM4_LINE_CTRL_PORT);
+    v3_dev_unhook_io(dev, COM4_MODEM_CTRL_PORT);
+    v3_dev_unhook_io(dev, COM4_LINE_STATUS_PORT);
+    v3_dev_unhook_io(dev, COM4_MODEM_STATUS_PORT);
+    v3_dev_unhook_io(dev, COM4_SCRATCH_PORT);
+
+    return 0;
+}
+
+
+
+static struct v3_device_ops dev_ops = {
+    .free = serial_free,
+    .reset = NULL,
+    .start = NULL,
+    .stop = NULL,
+};
+
+
+
+
+static int serial_init(struct guest_info * vm, void * cfg_data) {
+    struct serial_state * state = NULL;
+
+    state = (struct serial_state *)V3_Malloc(sizeof(struct serial_state));
+
+    V3_ASSERT(state != NULL);
+
+    struct vm_device * dev = v3_allocate_device("SERIAL", &dev_ops, state);
+
+
+    if (v3_attach_device(vm, dev) == -1) {
+        PrintError("Could not attach device %s\n", "SERIAL");
+        return -1;
+    }
+
 
 
     init_serial_port(&(state->com1));
@@ -539,65 +607,4 @@ static int serial_init(struct vm_device * dev) {
 }
 
 
-static int serial_deinit(struct vm_device * dev) {
-
-
-    v3_dev_unhook_io(dev, COM1_DATA_PORT);
-    v3_dev_unhook_io(dev, COM1_IRQ_ENABLE_PORT);
-    v3_dev_unhook_io(dev, COM1_FIFO_CTRL_PORT);
-    v3_dev_unhook_io(dev, COM1_LINE_CTRL_PORT);
-    v3_dev_unhook_io(dev, COM1_MODEM_CTRL_PORT);
-    v3_dev_unhook_io(dev, COM1_LINE_STATUS_PORT);
-    v3_dev_unhook_io(dev, COM1_MODEM_STATUS_PORT);
-    v3_dev_unhook_io(dev, COM1_SCRATCH_PORT);
-
-    v3_dev_unhook_io(dev, COM2_DATA_PORT);
-    v3_dev_unhook_io(dev, COM2_IRQ_ENABLE_PORT);
-    v3_dev_unhook_io(dev, COM2_FIFO_CTRL_PORT);
-    v3_dev_unhook_io(dev, COM2_LINE_CTRL_PORT);
-    v3_dev_unhook_io(dev, COM2_MODEM_CTRL_PORT);
-    v3_dev_unhook_io(dev, COM2_LINE_STATUS_PORT);
-    v3_dev_unhook_io(dev, COM2_MODEM_STATUS_PORT);
-    v3_dev_unhook_io(dev, COM2_SCRATCH_PORT);
-
-    v3_dev_unhook_io(dev, COM3_DATA_PORT);
-    v3_dev_unhook_io(dev, COM3_IRQ_ENABLE_PORT);
-    v3_dev_unhook_io(dev, COM3_FIFO_CTRL_PORT);
-    v3_dev_unhook_io(dev, COM3_LINE_CTRL_PORT);
-    v3_dev_unhook_io(dev, COM3_MODEM_CTRL_PORT);
-    v3_dev_unhook_io(dev, COM3_LINE_STATUS_PORT);
-    v3_dev_unhook_io(dev, COM3_MODEM_STATUS_PORT);
-    v3_dev_unhook_io(dev, COM3_SCRATCH_PORT);
-
-    v3_dev_unhook_io(dev, COM4_DATA_PORT);
-    v3_dev_unhook_io(dev, COM4_IRQ_ENABLE_PORT);
-    v3_dev_unhook_io(dev, COM4_FIFO_CTRL_PORT);
-    v3_dev_unhook_io(dev, COM4_LINE_CTRL_PORT);
-    v3_dev_unhook_io(dev, COM4_MODEM_CTRL_PORT);
-    v3_dev_unhook_io(dev, COM4_LINE_STATUS_PORT);
-    v3_dev_unhook_io(dev, COM4_MODEM_STATUS_PORT);
-    v3_dev_unhook_io(dev, COM4_SCRATCH_PORT);
-
-    return 0;
-}
-
-
-
-static struct vm_device_ops dev_ops = {
-    .init = serial_init,
-    .deinit = serial_deinit,
-    .reset = NULL,
-    .start = NULL,
-    .stop = NULL,
-};
-
-
-struct vm_device * v3_create_serial(int num_ports) {
-    struct serial_state * state = NULL;
-    state = (struct serial_state *)V3_Malloc(sizeof(struct serial_state));
-    V3_ASSERT(state != NULL);
-
-    struct vm_device * device = v3_create_device("Serial UART", &dev_ops, state);
-
-    return device;
-}
+device_register("SERIAL", serial_init)

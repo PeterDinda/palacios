@@ -22,13 +22,15 @@
 
 #ifdef __V3VEE__
 
-#include <palacios/vm_dev.h>
 
-
-struct vm_device * v3_create_net_cd(struct vm_device * ide, 
-				    uint_t bus, uint_t drive, 
-				    const char * ip_str, uint16_t port, 
-				    const char * disk_tag);
+struct net_cd_cfg {
+    char ide[32];
+    uint_t bus;
+    uint_t drive;
+    const char * ip_str;
+    uint16_t port;
+    const char * disk_tag;
+};
 
 
 

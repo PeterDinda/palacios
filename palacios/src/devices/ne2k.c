@@ -1169,7 +1169,7 @@ static int ne2k_deinit_device(struct vm_device *dev) {
 }
 
 
-static struct vm_device_ops dev_ops = { 
+static struct v3_device_ops dev_ops = { 
     .init = ne2k_init_device, 
     .deinit = ne2k_deinit_device,
     .reset = ne2k_reset_device,

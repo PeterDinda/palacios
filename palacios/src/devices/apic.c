@@ -1020,23 +1020,9 @@ static struct vm_timer_ops timer_ops = {
 };
 
 
-static int apic_init(struct vm_device * dev) {
-    struct guest_info * info = dev->vm;
-    struct apic_state * apic = (struct apic_state *)(dev->private_data);
 
-    v3_register_intr_controller(dev->vm, &intr_ops, dev);
-    v3_add_timer(dev->vm, &timer_ops, dev);
 
-    init_apic_state(apic);
-
-    v3_hook_msr(info, BASE_ADDR_MSR, read_apic_msr, write_apic_msr, dev);
-
-    v3_hook_full_mem(info, apic->base_addr, apic->base_addr + PAGE_SIZE_4KB, apic_read, apic_write, dev);
-
-    return 0;
-}
-
-static int apic_deinit(struct vm_device * dev) {
+static int apic_free(struct vm_device * dev) {
     struct guest_info * info = dev->vm;
 
     v3_unhook_msr(info, BASE_ADDR_MSR);
@@ -1045,21 +1031,39 @@ static int apic_deinit(struct vm_device * dev) {
 }
 
 
-static struct vm_device_ops dev_ops = {
-    .init = apic_init,
-    .deinit = apic_deinit,
+static struct v3_device_ops dev_ops = {
+    .free = apic_free,
     .reset = NULL,
     .start = NULL,
     .stop = NULL,
 };
 
 
-struct vm_device * v3_create_apic() {
+
+static int apic_init(struct guest_info * vm, void * cfg_data) {
     PrintDebug("Creating APIC\n");
 
     struct apic_state * apic = (struct apic_state *)V3_Malloc(sizeof(struct apic_state));
 
-    struct vm_device * device = v3_create_device("APIC", &dev_ops, apic);
-  
-    return device;
+    struct vm_device * dev = v3_allocate_device("APIC", &dev_ops, apic);
+
+    if (v3_attach_device(vm, dev) == -1) {
+	PrintError("Could not attach device %s\n", "APIC");
+	return -1;
+    }
+
+    v3_register_intr_controller(vm, &intr_ops, dev);
+    v3_add_timer(vm, &timer_ops, dev);
+
+    init_apic_state(apic);
+
+    v3_hook_msr(vm, BASE_ADDR_MSR, read_apic_msr, write_apic_msr, dev);
+
+    v3_hook_full_mem(vm, apic->base_addr, apic->base_addr + PAGE_SIZE_4KB, apic_read, apic_write, dev);
+
+    return 0;
 }
+
+
+
+device_register("LAPIC", &apic_init)

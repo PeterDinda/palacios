@@ -25,9 +25,8 @@
 
 #ifdef __V3VEE__
 
+#include <palacios/vmm_dev_mgr.h>
 
-
-#include <palacios/vm_dev.h>
 
 //
 // The generic device simply hooks ranges of ports, addresses, and irqs
@@ -54,8 +53,7 @@
 
 int v3_generic_add_port_range(struct vm_device * dev, uint_t start, uint_t end, uint_t type);
 
-// The lists given are null terminated
-struct vm_device * v3_create_generic();  
+ 
 
 
 #endif // ! __V3VEE__

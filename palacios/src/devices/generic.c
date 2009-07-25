@@ -181,48 +181,8 @@ static int generic_read_port_ignore(ushort_t port,
 
 
 
-static int generic_init_device(struct vm_device * dev) {
-    struct generic_internal * state = (struct generic_internal *)(dev->private_data);
 
-    PrintDebug("generic: init_device\n");
-    generic_reset_device(dev);
-
-
-    if (PORT_HOOKS) { // This is a runtime conditional on a #define
-	struct port_range * tmp = NULL;
-
-	list_for_each_entry(tmp, &(state->port_list), range_link) {
-	    uint_t i = 0;
-      
-	    PrintDebug("generic: hooking ports 0x%x to 0x%x as %s\n", 
-		       tmp->start, tmp->end, 
-		       (tmp->type == GENERIC_PRINT_AND_PASSTHROUGH) ? "print-and-passthrough" : "print-and-ignore");
-      
-	    for (i = tmp->start; i <= tmp->end; i++) { 
-		if (tmp->type == GENERIC_PRINT_AND_PASSTHROUGH) { 
-	  
-		    if (v3_dev_hook_io(dev, i, &generic_read_port_passthrough, &generic_write_port_passthrough)) { 
-			PrintDebug("generic: can't hook port 0x%x (already hooked?)\n", i);
-		    }
-	  
-		} else if (tmp->type == GENERIC_PRINT_AND_IGNORE) { 
-	  
-		    if (v3_dev_hook_io(dev, i, &generic_read_port_ignore, &generic_write_port_ignore)) { 
-			PrintDebug("generic: can't hook port 0x%x (already hooked?)\n", i);
-		    }
-		} 
-	    }
-
-	}
-    } else {
-	PrintDebug("generic: hooking ports not supported\n");
-    }
-
-
-    return 0;
-}
-
-static int generic_deinit_device(struct vm_device * dev) {
+static int generic_free(struct vm_device * dev) {
     struct generic_internal * state = (struct generic_internal *)(dev->private_data);
 
 
@@ -262,9 +222,8 @@ static int generic_deinit_device(struct vm_device * dev) {
 
 
 
-static struct vm_device_ops dev_ops = { 
-    .init = generic_init_device, 
-    .deinit = generic_deinit_device,
+static struct v3_device_ops dev_ops = { 
+    .free = generic_free, 
     .reset = generic_reset_device,
     .start = generic_start_device,
     .stop = generic_stop_device,
@@ -298,14 +257,60 @@ int v3_generic_add_port_range(struct vm_device * dev, uint_t start, uint_t end, 
     return 0;
 }
 
-struct vm_device * v3_create_generic() {
-    struct generic_internal * generic_state = (struct generic_internal *)V3_Malloc(sizeof(struct generic_internal));
+
+
+
+static int generic_init(struct guest_info * vm, void * cfg_data) {
+    struct generic_internal * state = (struct generic_internal *)V3_Malloc(sizeof(struct generic_internal));
   
-    generic_state->num_port_ranges = 0;
+    state->num_port_ranges = 0;
 
-    INIT_LIST_HEAD(&(generic_state->port_list));
+    INIT_LIST_HEAD(&(state->port_list));
     
-    struct vm_device * device = v3_create_device("GENERIC", &dev_ops, generic_state);
+    struct vm_device * dev = v3_allocate_device("GENERIC", &dev_ops, state);
 
-    return device;
+
+    if (v3_attach_device(vm, dev) == -1) {
+	PrintError("Could not attach device %s\n", "GENERIC");
+	return -1;
+    }
+
+    PrintDebug("generic: init_device\n");
+    generic_reset_device(dev);
+
+
+    if (PORT_HOOKS) { // This is a runtime conditional on a #define
+	struct port_range * tmp = NULL;
+
+	list_for_each_entry(tmp, &(state->port_list), range_link) {
+	    uint_t i = 0;
+      
+	    PrintDebug("generic: hooking ports 0x%x to 0x%x as %s\n", 
+		       tmp->start, tmp->end, 
+		       (tmp->type == GENERIC_PRINT_AND_PASSTHROUGH) ? "print-and-passthrough" : "print-and-ignore");
+      
+	    for (i = tmp->start; i <= tmp->end; i++) { 
+		if (tmp->type == GENERIC_PRINT_AND_PASSTHROUGH) { 
+	  
+		    if (v3_dev_hook_io(dev, i, &generic_read_port_passthrough, &generic_write_port_passthrough)) { 
+			PrintDebug("generic: can't hook port 0x%x (already hooked?)\n", i);
+		    }
+	  
+		} else if (tmp->type == GENERIC_PRINT_AND_IGNORE) { 
+	  
+		    if (v3_dev_hook_io(dev, i, &generic_read_port_ignore, &generic_write_port_ignore)) { 
+			PrintDebug("generic: can't hook port 0x%x (already hooked?)\n", i);
+		    }
+		} 
+	    }
+
+	}
+    } else {
+	PrintDebug("generic: hooking ports not supported\n");
+    }
+
+
+    return 0;
 }
+
+device_register("GENERIC", generic_init)

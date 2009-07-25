@@ -164,8 +164,22 @@ static struct v3_ide_cd_ops cd_ops = {
 };
 
 
-static int cd_init(struct vm_device * dev) {
-    struct cd_state * cd = (struct cd_state *)(dev->private_data);
+
+
+static int cd_free(struct vm_device * dev) {
+    return 0;
+}
+
+static struct v3_device_ops dev_ops = {
+    .free = cd_free,
+    .reset = NULL,
+    .start = NULL,
+    .stop = NULL,
+};
+
+
+
+static int socket_init(struct cd_state * cd) {
     char header[64];
     
     PrintDebug("Intializing Net CD\n");
@@ -210,6 +224,41 @@ static int cd_init(struct vm_device * dev) {
 	PrintDebug("Capacity: %p\n", (void *)(cd->capacity));
     }
 
+    return 0;
+}
+
+static int cd_init(struct guest_info * vm, void * cfg_data) {
+    struct net_cd_cfg * cfg = (struct net_cd_cfg *)cfg_data;
+    struct cd_state * cd = (struct cd_state *)V3_Malloc(sizeof(struct cd_state));
+
+    PrintDebug("Registering Net CD at %s:%d disk=%s\n", cfg->ip_str, cfg->port, cfg->disk_tag);
+
+    strncpy(cd->disk_name, cfg->disk_tag, sizeof(cd->disk_name));
+    cd->ip_addr = v3_inet_addr(cfg->ip_str);
+    cd->port = cfg->port;
+
+    cd->ide = (struct vm_device * )v3_find_dev(vm, cfg->ide);
+
+    if (cd->ide == 0) {
+	PrintError("Could not find backend %s\n", cfg->ide);
+	return -1;
+    }
+
+    cd->bus = cfg->bus;
+    cd->drive = cfg->drive;
+	
+    struct vm_device * dev = v3_allocate_device("NET-CD", &dev_ops, cd);
+
+
+    if (v3_attach_device(vm, dev) == -1) {
+	PrintError("Could not attach device %s\n", "NET-CD");
+	return -1;
+    }
+
+    if (socket_init(cd) == -1) {
+	PrintError("Could not initialize socket connection\n");
+	return -1;
+    }
 
     PrintDebug("Registering CD\n");
 
@@ -218,40 +267,11 @@ static int cd_init(struct vm_device * dev) {
     }
 
     PrintDebug("intialization done\n");
-    
+
     return 0;
 }
 
 
-static int cd_deinit(struct vm_device * dev) {
-    return 0;
-}
 
-static struct vm_device_ops dev_ops = {
-    .init = cd_init, 
-    .deinit = cd_deinit,
-    .reset = NULL,
-    .start = NULL,
-    .stop = NULL,
-};
 
-struct vm_device * v3_create_net_cd(struct vm_device * ide, 
-				    uint_t bus, uint_t drive, 
-				    const char * ip_str, uint16_t port, 
-				    const char * disk_tag) {
-    struct cd_state * cd = (struct cd_state *)V3_Malloc(sizeof(struct cd_state));
-
-    PrintDebug("Registering Net CD at %s:%d disk=%s\n", ip_str, port, disk_tag);
-
-    strncpy(cd->disk_name, disk_tag, sizeof(cd->disk_name));
-    cd->ip_addr = v3_inet_addr(ip_str);
-    cd->port = port;
-
-    cd->ide = ide;
-    cd->bus = bus;
-    cd->drive = drive;
-	
-    struct vm_device * cd_dev = v3_create_device("NET-CD", &dev_ops, cd);
-
-    return cd_dev;
-}
+device_register("NET-CD", cd_init)

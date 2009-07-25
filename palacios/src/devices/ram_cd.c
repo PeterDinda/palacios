@@ -19,6 +19,7 @@
 
 #include <palacios/vmm.h>
 #include <devices/ram_cd.h>
+#include <palacios/vmm_dev_mgr.h>
 #include <devices/ide.h>
 
 #ifndef DEBUG_IDE
@@ -67,8 +68,54 @@ static struct v3_ide_cd_ops cd_ops = {
 };
 
 
-static int cd_init(struct vm_device * dev) {
-    struct cd_state * cd = (struct cd_state *)(dev->private_data);
+
+
+static int cd_free(struct vm_device * dev) {
+    return 0;
+}
+
+static struct v3_device_ops dev_ops = {
+    .free = cd_free,
+    .reset = NULL,
+    .start = NULL,
+    .stop = NULL,
+};
+
+
+static int cd_init(struct guest_info * vm, void * cfg_data) {
+    struct cd_state * cd = NULL;
+    struct ram_cd_cfg * cfg = (struct ram_cd_cfg *)cfg_data;
+
+    if (cfg->size % ATAPI_BLOCK_SIZE) {
+	PrintError("CD image must be an integral of block size (ATAPI_BLOCK_SIZE=%d)\n", ATAPI_BLOCK_SIZE);
+	return -1;
+    }
+
+    cd = (struct cd_state *)V3_Malloc(sizeof(struct cd_state));
+
+    PrintDebug("Registering Ram CD at %p (size=%d)\n", (void *)ramdisk, size);
+
+  
+    cd->disk_image = cfg->ramdisk;
+    cd->capacity = cfg->size;
+
+    cd->ide = v3_find_dev(vm, cfg->ide);
+
+    if (cd->ide == 0) {
+	PrintError("Could not find backend %s\n", cfg->ide);
+	return -1;
+    }
+
+    cd->bus = cfg->bus;
+    cd->drive = cfg->drive;
+	
+    struct vm_device * dev = v3_allocate_device("RAM-CD", &dev_ops, cd);
+
+    if (v3_attach_device(vm, dev) == -1) {
+	PrintError("Could not attach device %s\n", "RAM-CD");
+	return -1;
+    }
+
 
     if (v3_ide_register_cdrom(cd->ide, cd->bus, cd->drive, "RAM-CD", &cd_ops, dev) == -1) {
 	return -1;
@@ -78,41 +125,4 @@ static int cd_init(struct vm_device * dev) {
 }
 
 
-static int cd_deinit(struct vm_device * dev) {
-    return 0;
-}
-
-static struct vm_device_ops dev_ops = {
-    .init = cd_init, 
-    .deinit = cd_deinit,
-    .reset = NULL,
-    .start = NULL,
-    .stop = NULL,
-};
-
-struct vm_device * v3_create_ram_cd(struct vm_device * ide, 
-				    uint_t bus, uint_t drive, 
-				    addr_t ramdisk, uint32_t size) {
-    struct cd_state * cd = NULL;
-
-    if (size % ATAPI_BLOCK_SIZE) {
-	PrintError("CD image must be an integral of block size (ATAPI_BLOCK_SIZE=%d)\n", ATAPI_BLOCK_SIZE);
-	return NULL;
-    }
-
-    cd = (struct cd_state *)V3_Malloc(sizeof(struct cd_state));
-
-    PrintDebug("Registering Ram CD at %p (size=%d)\n", (void *)ramdisk, size);
-
-  
-    cd->disk_image = ramdisk;
-    cd->capacity = size;
-
-    cd->ide = ide;
-    cd->bus = bus;
-    cd->drive = drive;
-	
-    struct vm_device * cd_dev = v3_create_device("RAM-CD", &dev_ops, cd);
-
-    return cd_dev;
-}
+device_register("RAM-CD", cd_init)

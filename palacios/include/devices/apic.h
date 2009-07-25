@@ -22,9 +22,7 @@
 
 #ifdef __V3VEE__
 
-#include <palacios/vm_dev.h>
-
-struct vm_device * v3_create_apic();
+#include <palacios/vmm_dev_mgr.h>
 
 
 int v3_apic_raise_intr(struct vm_device * apic_dev, int intr_num);

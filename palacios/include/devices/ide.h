@@ -21,7 +21,12 @@
 #define __DEVICES_IDE_H__
 
 #ifdef __V3VEE__
-#include <palacios/vm_dev.h>
+
+
+struct ide_cfg {
+    char pci[32];
+    char southbridge[32];
+};
 
 
 #define ATAPI_BLOCK_SIZE 2048
@@ -59,8 +64,6 @@ int v3_ide_register_harddisk(struct vm_device * ide,
 			     void * private_data);
 
 
-
-struct vm_device * v3_create_ide();
 
 
 

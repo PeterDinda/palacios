@@ -18,8 +18,9 @@
  */
 
 
-#include <devices/os_debug.h>
+
 #include <palacios/vmm.h>
+#include <palacios/vmm_dev_mgr.h>
 #include <palacios/vm_guest_mem.h>
 
 #define BUF_SIZE 1024
@@ -73,19 +74,8 @@ static int handle_hcall(struct guest_info * info, uint_t hcall_id, void * priv_d
 }
 
 
-static int debug_init(struct vm_device * dev) {
-    struct debug_state * state = (struct debug_state *)dev->private_data;
 
-    v3_dev_hook_io(dev, DEBUG_PORT1,  NULL, &handle_gen_write);
-    v3_register_hypercall(dev->vm, DEBUG_HCALL, handle_hcall, dev);
-
-    state->debug_offset = 0;
-    memset(state->debug_buf, 0, BUF_SIZE);
-  
-    return 0;
-}
-
-static int debug_deinit(struct vm_device * dev) {
+static int debug_free(struct vm_device * dev) {
     v3_dev_unhook_io(dev, DEBUG_PORT1);
 
 
@@ -95,24 +85,39 @@ static int debug_deinit(struct vm_device * dev) {
 
 
 
-static struct vm_device_ops dev_ops = {
-    .init = debug_init,
-    .deinit = debug_deinit,
+static struct v3_device_ops dev_ops = {
+    .free = debug_free,
     .reset = NULL,
     .start = NULL,
     .stop = NULL,
 };
 
 
-struct vm_device * v3_create_os_debug() {
+
+
+static int debug_init(struct guest_info * vm, void * cfg_data) {
     struct debug_state * state = NULL;
 
     state = (struct debug_state *)V3_Malloc(sizeof(struct debug_state));
 
     PrintDebug("Creating OS Debug Device\n");
-    struct vm_device * device = v3_create_device("OS Debug", &dev_ops, state);
+
+    struct vm_device * dev = v3_allocate_device("OS_DEBUG", &dev_ops, state);
 
 
+    if (v3_attach_device(vm, dev) == -1) {
+	PrintError("Could not attach device %s\n", "OS_DEBUG");
+	return -1;
+    }
 
-    return device;
+    v3_dev_hook_io(dev, DEBUG_PORT1,  NULL, &handle_gen_write);
+    v3_register_hypercall(vm, DEBUG_HCALL, handle_hcall, dev);
+
+    state->debug_offset = 0;
+    memset(state->debug_buf, 0, BUF_SIZE);
+  
+    return 0;
 }
+
+
+device_register("OS_DEBUG", debug_init)

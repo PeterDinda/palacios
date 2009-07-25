@@ -17,8 +17,9 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#include <devices/para_net.h>
+
 #include <palacios/vmm.h>
+#include <palacios/vmm_dev_mgr.h>
 #include <palacios/vm_guest_mem.h>
 #include <palacios/vmm_hypercall.h>
 
@@ -82,46 +83,51 @@ static int macaddr_call(struct guest_info * info, uint_t call_no, void * priv_da
     return 0;
 }
 
-static int net_init(struct vm_device * dev) {
-    struct nic_state * nic = (struct nic_state *)dev->private_data;
 
-    v3_register_hypercall(dev->vm, TX_HYPERCALL, tx_call, nic);
-    v3_register_hypercall(dev->vm, RX_HYPERCALL, rx_call, nic);
-    v3_register_hypercall(dev->vm, MACADDR_HYPERCALL, macaddr_call, nic);
-
-    nic->mac_addr[0] = 0x52;
-    nic->mac_addr[1] = 0x54;
-    nic->mac_addr[2] = 0x00;
-    nic->mac_addr[3] = 0x12;
-    nic->mac_addr[4] = 0x34;
-    nic->mac_addr[5] = 0x56;
-
-    return 0;
-}
-
-static int net_deinit(struct vm_device * dev) {
+static int net_free(struct vm_device * dev) {
 
     return 0;
 }
 
 
-static struct vm_device_ops dev_ops = {
-    .init = net_init,
-    .deinit = net_deinit,
+static struct v3_device_ops dev_ops = {
+    .free = net_free,
     .reset = NULL,
     .start = NULL,
     .stop = NULL,
 };
 
 
-struct vm_device * v3_create_para_net() {
+
+
+static int net_init(struct guest_info * vm, void * cfg_data) {
     struct nic_state * state = NULL;
 
     state = (struct nic_state *)V3_Malloc(sizeof(struct nic_state));
 
     PrintDebug("Creating VMNet Device\n");
 
-    struct vm_device * device = v3_create_device("VMNET", &dev_ops, state);
+    struct vm_device * dev = v3_allocate_device("VMNET", &dev_ops, state);
 
-    return device;
+    if (v3_attach_device(vm, dev) == -1) {
+        PrintError("Could not attach device %s\n", "VMNET");
+        return -1;
+    }
+
+
+    v3_register_hypercall(vm, TX_HYPERCALL, tx_call, state);
+    v3_register_hypercall(vm, RX_HYPERCALL, rx_call, state);
+    v3_register_hypercall(vm, MACADDR_HYPERCALL, macaddr_call, state);
+
+    state->mac_addr[0] = 0x52;
+    state->mac_addr[1] = 0x54;
+    state->mac_addr[2] = 0x00;
+    state->mac_addr[3] = 0x12;
+    state->mac_addr[4] = 0x34;
+    state->mac_addr[5] = 0x56;
+
+    return 0;
 }
+
+
+device_register("VMNET", net_init)
