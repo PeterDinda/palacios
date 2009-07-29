@@ -292,13 +292,7 @@ int VMLaunch(struct VMDescriptor *vm)
 
 static int update_vmcs_host_state(struct guest_info * info) {
     addr_t tmp;
-
-    struct {
-	uint16_t limit;
-	addr_t base;
-    } __attribute__((packed)) tmp_seg;
-
-
+    struct vmx_data * arch_data = (struct vmx_data *)(info->vmm_data);
     struct v3_msr tmp_msr;
 
     __asm__ __volatile__ ( "movq    %%cr0, %0; "		
@@ -323,30 +317,9 @@ static int update_vmcs_host_state(struct guest_info * info) {
 
 
 
-
-    __asm__ __volatile__ ("sgdt (%0); "
-			  : 
-			  :"q"(&tmp_seg)
-			  : "memory"
-			  );
-    vmcs_write(VMCS_HOST_GDTR_BASE, tmp_seg.base);
-
-
-    __asm__ __volatile__ ("sidt (%0); "
-			  : 
-			  :"q"(&tmp_seg)
-			  : "memory"
-		  );
-    vmcs_write(VMCS_HOST_IDTR_BASE, tmp_seg.base);
-
-    /* How do we handle this...?
-    __asm__ __volatile__ ("str (%0); "
-			  : 
-			  :"q"(&tmp_seg)
-			  : "memory"
-			  );
-    vmcs_write(VMCS_HOST_TR_BASE, tmp_seg.base);
-    */
+    vmcs_write(VMCS_HOST_GDTR_BASE, arch_data->host_state.gdtr.base);
+    vmcs_write(VMCS_HOST_IDTR_BASE, arch_data->host_state.idtr.base);
+    vmcs_write(VMCS_HOST_TR_BASE, arch_data->host_state.tr.base);
 
 #define FS_BASE_MSR 0xc0000100
 #define GS_BASE_MSR 0xc0000101
@@ -397,11 +370,7 @@ static int update_vmcs_host_state(struct guest_info * info) {
     );
     vmcs_write(VMCS_HOST_GS_SELECTOR, tmp);
 
-    __asm__ __volatile__ ( "str %0; "		
-			   : "=q"(tmp)
-			   :
-    );
-    vmcs_write(VMCS_HOST_TR_SELECTOR, tmp);
+    vmcs_write(VMCS_HOST_TR_SELECTOR, arch_data->host_state.tr.selector);
 
 
 #define SYSENTER_CS_MSR 0x00000174
@@ -421,8 +390,6 @@ static int update_vmcs_host_state(struct guest_info * info) {
     vmcs_write(VMCS_HOST_SYSENTER_EIP, tmp_msr.value);
 
 
-    // RIP
-    // RSP
 
     return 0;
 }
@@ -430,8 +397,9 @@ static int update_vmcs_host_state(struct guest_info * info) {
 
 
 
-
 static addr_t vmxon_ptr_phys;
+extern int v3_vmx_exit_handler();
+extern int v3_vmx_vmlaunch();
 
 
 #if 0
@@ -487,94 +455,6 @@ static int setup_base_host_state() {
 
 #endif
 
-static void setup_v8086_mode_for_boot(struct guest_info* vm_info)
-{
-
-    ((struct vmx_data *)vm_info->vmm_data)->state = VMXASSIST_V8086_BIOS;
-    ((struct rflags *)&(vm_info->ctrl_regs.rflags))->vm = 1;
-    ((struct rflags *)&(vm_info->ctrl_regs.rflags))->iopl = 3;
-
-    vm_info->rip = 0xfff0;
-
-    vm_info->segments.cs.selector = 0xf000;
-    vm_info->segments.cs.base = 0xf000 << 4;
-    vm_info->segments.cs.limit = 0xffff;
-    vm_info->segments.cs.type = 3;
-    vm_info->segments.cs.system = 1;
-    vm_info->segments.cs.dpl = 3;
-    vm_info->segments.cs.present = 1;
-    vm_info->segments.cs.granularity = 0;
-
-    int i = 0;
-    struct v3_segment * seg_ptr = (struct v3_segment *)&(vm_info->segments);
-
-    /* Set values for selectors ds through ss */
-    for(i = 1; i < 6 ; i++) {
-        seg_ptr[i].selector = 0x0000;
-        seg_ptr[i].base = 0x00000;
-        seg_ptr[i].type = 3;
-        seg_ptr[i].system = 1;
-        seg_ptr[i].dpl = 3;
-        seg_ptr[i].present = 1;
-        seg_ptr[i].granularity = 0;
-    }
-}
-
-
-static addr_t allocate_vmcs() 
-{
-    reg_ex_t msr;
-    PrintDebug("Allocating page\n");
-    struct vmcs_data * vmcs_page = (struct vmcs_data *)V3_VAddr(V3_AllocPages(1));
-
-
-    memset(vmcs_page, 0, 4096);
-
-    v3_get_msr(VMX_BASIC_MSR, &(msr.e_reg.high), &(msr.e_reg.low));
-    
-    vmcs_page->revision = ((struct vmx_basic_msr*)&msr)->revision;
-    PrintDebug("VMX Revision: 0x%x\n",vmcs_page->revision);
-
-    return (addr_t)V3_PAddr((void*)vmcs_page);
-}
-
-
-
-static void init_vmcs_bios(struct guest_info * vm_info) 
-{
-
-    setup_v8086_mode_for_boot(vm_info);
-
-    // TODO: Fix vmcs fields so they're 32-bit
-   
-}
-
-
-
-static int init_vmx_guest(struct guest_info * info, struct v3_vm_config * config_ptr) {
-    PrintDebug("Entering init_vmx_guest\n");
-    v3_pre_config_guest(info, config_ptr);
-
-    struct vmx_data* data;
-
-    data = (struct vmx_data*)V3_Malloc(sizeof(struct vmx_data));
-    PrintDebug("vmx_data pointer: %p\n",(void*)data);
-
-    PrintDebug("Allocating VMCS\n");
-    data->vmcs_ptr_phys = allocate_vmcs();
-    PrintDebug("VMCS pointer: %p\n",(void*)data->vmcs_ptr_phys);
-
-    info->vmm_data = (void *)data;
-
-    PrintDebug("Initializing VMCS (addr=%p)\n", info->vmm_data);
-    init_vmcs_bios(info);
-
- //   v3_post_config_guest(info, config_ptr);
-
-    return 0;
-}
-
-
 static int inline check_vmcs_write(vmcs_field_t field, addr_t val)
 {
     int ret = 0;
@@ -588,8 +468,9 @@ static int inline check_vmcs_write(vmcs_field_t field, addr_t val)
     return 0;
 }
 
+
 static void inline translate_segment_access(struct v3_segment * v3_seg,  
-						     struct vmcs_segment_access * access)
+					    struct vmcs_segment_access * access)
 {
     access->type = v3_seg->type;
     access->desc_type = v3_seg->system;
@@ -605,6 +486,8 @@ static int inline vmcs_write_guest_segments(struct guest_info* info)
 {
     int ret = 0;
     struct vmcs_segment_access access;
+
+    memset(&access, 0, sizeof(access));
 
     /* CS Segment */
     translate_segment_access(&(info->segments.cs), &access);
@@ -655,11 +538,112 @@ static int inline vmcs_write_guest_segments(struct guest_info* info)
     ret &= check_vmcs_write(VMCS_GUEST_GS_LIMIT, info->segments.gs.limit);
     ret &= check_vmcs_write(VMCS_GUEST_GS_ACCESS, access.value);
 
+    /* LDTR segment */
+    translate_segment_access(&(info->segments.ldtr), &access);
+
+    ret &= check_vmcs_write(VMCS_GUEST_LDTR_BASE, info->segments.ldtr.base);
+    ret &= check_vmcs_write(VMCS_GUEST_LDTR_SELECTOR, info->segments.ldtr.selector);
+    ret &= check_vmcs_write(VMCS_GUEST_LDTR_LIMIT, info->segments.ldtr.limit);
+    ret &= check_vmcs_write(VMCS_GUEST_LDTR_ACCESS, access.value);
+
+    /* TR Segment */
+    translate_segment_access(&(info->segments.tr), &access);
+
+    ret &= check_vmcs_write(VMCS_GUEST_TR_BASE, info->segments.tr.base);
+    ret &= check_vmcs_write(VMCS_GUEST_TR_SELECTOR, info->segments.ldtr.selector);
+    ret &= check_vmcs_write(VMCS_GUEST_TR_LIMIT, info->segments.tr.limit);
+    ret &= check_vmcs_write(VMCS_GUEST_TR_ACCESS, access.value);
+
+    /* GDTR Segment */
+
+    ret &= check_vmcs_write(VMCS_GUEST_GDTR_BASE, info->segments.gdtr.base);
+    ret &= check_vmcs_write(VMCS_GUEST_GDTR_LIMIT, info->segments.gdtr.limit);
+
+    /* IDTR Segment*/
+    ret &= check_vmcs_write(VMCS_GUEST_IDTR_BASE, info->segments.idtr.base);
+    ret &= check_vmcs_write(VMCS_GUEST_IDTR_LIMIT, info->segments.idtr.limit);
+
     return ret;
 }
 
-static int start_vmx_guest(struct guest_info* info) {
-    struct vmx_data * vmx_data = (struct vmx_data *)info->vmm_data;
+static void setup_v8086_mode_for_boot(struct guest_info * vm_info)
+{
+
+    ((struct vmx_data *)vm_info->vmm_data)->state = VMXASSIST_V8086_BIOS;
+    ((struct rflags *)&(vm_info->ctrl_regs.rflags))->vm = 1;
+    ((struct rflags *)&(vm_info->ctrl_regs.rflags))->iopl = 3;
+
+   
+    vm_info->rip = 0xfff0;
+
+    vm_info->segments.cs.selector = 0xf000;
+    vm_info->segments.cs.base = 0xf000 << 4;
+    vm_info->segments.cs.limit = 0xffff;
+    vm_info->segments.cs.type = 3;
+    vm_info->segments.cs.system = 1;
+    vm_info->segments.cs.dpl = 3;
+    vm_info->segments.cs.present = 1;
+    vm_info->segments.cs.granularity = 0;
+
+    int i = 0;
+    struct v3_segment * seg_ptr = (struct v3_segment *)&(vm_info->segments);
+
+    /* Set values for selectors ds through ss */
+    for(i = 1; i < 6 ; i++) {
+        seg_ptr[i].selector = 0x0000;
+        seg_ptr[i].base = 0x00000;
+        seg_ptr[i].type = 3;
+        seg_ptr[i].system = 1;
+        seg_ptr[i].dpl = 3;
+        seg_ptr[i].present = 1;
+        seg_ptr[i].granularity = 0;
+    }
+
+    for(i = 6; i < 10; i++) {
+        seg_ptr[i].base = 0x0;
+        seg_ptr[i].limit = 0xffff;
+    }
+
+    vm_info->segments.ldtr.selector = 0x0;
+    vm_info->segments.ldtr.type = 2;
+    vm_info->segments.ldtr.system = 0;
+    vm_info->segments.ldtr.present = 1;
+    vm_info->segments.ldtr.granularity = 0;
+
+    vm_info->segments.tr.selector = 0x0;
+    vm_info->segments.tr.type = 3;
+    vm_info->segments.tr.system = 0;
+    vm_info->segments.tr.present = 1;
+    vm_info->segments.tr.granularity = 0;
+}
+
+
+static addr_t allocate_vmcs() 
+{
+    reg_ex_t msr;
+    PrintDebug("Allocating page\n");
+    struct vmcs_data * vmcs_page = (struct vmcs_data *)V3_VAddr(V3_AllocPages(1));
+
+
+    memset(vmcs_page, 0, 4096);
+
+    v3_get_msr(VMX_BASIC_MSR, &(msr.e_reg.high), &(msr.e_reg.low));
+    
+    vmcs_page->revision = ((struct vmx_basic_msr*)&msr)->revision;
+    PrintDebug("VMX Revision: 0x%x\n",vmcs_page->revision);
+
+    return (addr_t)V3_PAddr((void *)vmcs_page);
+}
+
+
+
+static int init_vmcs_bios(struct guest_info * vm_info) 
+{
+
+    setup_v8086_mode_for_boot(vm_info);
+
+    // TODO: Fix vmcs fields so they're 32-bit
+    struct vmx_data * vmx_data = (struct vmx_data *)vm_info->vmm_data;
     int vmx_ret;
 
     // Have to do a whole lot of flag setting here
@@ -679,14 +663,80 @@ static int start_vmx_guest(struct guest_info* info) {
         return -1;
     }
 
+    struct v3_msr tmp_msr;
 
-    update_vmcs_host_state(info);
+    /* Write VMX Control Fields */
+    v3_get_msr(VMX_PINBASED_CTLS_MSR,&(tmp_msr.hi),&(tmp_msr.lo));
+    vmcs_write(VMCS_PIN_CTRLS, tmp_msr.lo);
+
+    v3_get_msr(VMX_PROCBASED_CTLS_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
+    vmcs_write(VMCS_PROC_CTRLS, tmp_msr.lo);
+
+    v3_get_msr(VMX_EXIT_CTLS_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
+    vmcs_write(VMCS_EXIT_CTRLS, tmp_msr.lo);
+
+    v3_get_msr(VMX_ENTRY_CTLS_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
+    vmcs_write(VMCS_ENTRY_CTRLS, tmp_msr.lo);
+
+    /* Cache GDTR, IDTR, and TR in host struct */
+    struct {
+        uint16_t selector;
+        addr_t   base;
+    } __attribute__((packed)) tmp_seg;
+    
+    addr_t gdtr_base;
+
+    __asm__ __volatile__(
+			 "sgdt (%0);"
+			 :
+			 : "q"(&tmp_seg)
+			 : "memory"
+			 );
+    vmx_data->host_state.gdtr.base = gdtr_base = tmp_seg.base;
+
+    __asm__ __volatile__(
+			 "sidt (%0);"
+			 :
+			 : "q"(&tmp_seg)
+			 : "memory"
+			 );
+    vmx_data->host_state.idtr.base = tmp_seg.base;
+
+    __asm__ __volatile__(
+			 "str (%0);"
+			 :
+			 : "q"(&tmp_seg)
+			 : "memory"
+			 );
+    vmx_data->host_state.tr.selector = tmp_seg.selector;
+
+    struct tss_descriptor desc = ((struct tss_descriptor *)gdtr_base)[tmp_seg.selector];
+    
+    tmp_seg.base = (
+		    (desc.base1) |
+		    (desc.base2 << 16) |
+		    (desc.base3 << 24) |
+#ifdef __V3_64BIT__
+		    ((uint64_t)desc.base4 << 32)
+#else 
+		    (0)
+#endif
+                );
+
+    vmx_data->host_state.tr.base = tmp_seg.base;
+
+    update_vmcs_host_state(vm_info);
+    vmcs_write(VMCS_HOST_RIP, (addr_t)&v3_vmx_exit_handler);
 
     // Setup guest state 
     // TODO: This is not 32-bit safe!
-    vmx_ret &= check_vmcs_write(VMCS_GUEST_RIP, info->rip);
+    vmx_ret &= check_vmcs_write(VMCS_GUEST_RIP, vm_info->rip);
+    vmx_ret &= check_vmcs_write(VMCS_GUEST_CR0, 0x60000010);
 
-    vmx_ret &= vmcs_write_guest_segments(info);
+    vmx_ret &= vmcs_write_guest_segments(vm_info);
+
+    vmx_ret &= check_vmcs_write(VMCS_GUEST_RFLAGS, vm_info->ctrl_regs.rflags);
+    vmx_ret &= check_vmcs_write(VMCS_LINK_PTR, 0xffffffffffffffff);
 
     if (vmx_ret != 0) {
 	PrintError("Could not initialize VMCS segments\n");
@@ -694,6 +744,60 @@ static int start_vmx_guest(struct guest_info* info) {
     }
 
     v3_print_vmcs_guest_state();
+    return 0;
+}
+
+int v3_vmx_handle_exit()
+{
+    PrintDebug("Exit taken!\n");
+    return 0;
+}
+
+static int init_vmx_guest(struct guest_info * info, struct v3_vm_config * config_ptr) {
+    PrintDebug("Entering init_vmx_guest\n");
+    v3_pre_config_guest(info, config_ptr);
+
+    struct vmx_data * data = NULL;
+
+    data = (struct vmx_data *)V3_Malloc(sizeof(struct vmx_data));
+
+    PrintDebug("vmx_data pointer: %p\n", (void *)data);
+
+    PrintDebug("Allocating VMCS\n");
+    data->vmcs_ptr_phys = allocate_vmcs();
+
+    PrintDebug("VMCS pointer: %p\n", (void *)(data->vmcs_ptr_phys));
+
+    info->vmm_data = data;
+
+    PrintDebug("Initializing VMCS (addr=%p)\n", info->vmm_data);
+
+    if (init_vmcs_bios(info) != 0) {
+	PrintError("Could not initialize VMCS BIOS\n");
+        return -1;
+    }
+
+    //v3_post_config_guest(info, config_ptr);
+
+    return 0;
+}
+
+
+static int start_vmx_guest(struct guest_info* info) {
+    uint32_t error = 0;
+    int ret = 0;
+
+    PrintDebug("Attempting VMLAUNCH\n");
+
+    ret = v3_vmx_vmlaunch();
+
+    PrintDebug("Returned from VMLAUNCH\n");
+
+    vmcs_read(VMCS_INSTR_ERR, &error, 4);
+
+    if (ret != VMX_SUCCESS) {
+        PrintError("VMLAUNCH failed: %d\n", error);
+    }
 
     return -1;
 }
@@ -738,27 +842,40 @@ static int has_vmx_nested_paging() {
 void v3_init_vmx(struct v3_ctrl_ops * vm_ops) {
     extern v3_cpu_arch_t v3_cpu_type;
 
+    struct v3_msr tmp_msr;
+    uint64_t ret=0;
+
+    v3_get_msr(VMX_CR4_FIXED0_MSR,&(tmp_msr.hi),&(tmp_msr.lo));
     
     __asm__ __volatile__ (
-			  "movq %%cr4, %%rbx; "
-			  "orq  $0x00002000,%%rbx; "
-			  "movq %%rbx, %%cr4;"
-              :
-              :
-              : "%rbx"
+			  "movq %%cr4, %%rbx;"
+			  "orq  $0x00002000, %%rbx;"
+			  "movq %%rbx, %0;"
+			  : "=m"(ret) 
+			  :
+			  : "%rbx"
 			  );
 
-
-
+    if((~ret & tmp_msr.value) == 0) {
+        __asm__ __volatile__ (
+			      "movq %0, %%cr4;"
+			      :
+			      : "q"(ret)
+			      );
+    } else {
+        PrintError("Invalid CR4 Settings!\n");
+        return;
+    }
+      __asm__ __volatile__ (
+			    "movq %%cr0, %%rbx; "
+			    "orq  $0x00000020,%%rbx; "
+			    "movq %%rbx, %%cr0;"
+			    :
+			    :
+			    : "%rbx"
+			    );
+      //
     // Should check and return Error here.... 
-    __asm__ __volatile__ (
-			  "movq %%cr0, %%rbx; "
-			  "orq  $0x00000020,%%rbx; "
-			  "movq %%rbx, %%cr0;"
-              :
-              :
-              : "%rbx"
-			  );
 
     // Setup VMXON Region
     vmxon_ptr_phys = allocate_vmcs();

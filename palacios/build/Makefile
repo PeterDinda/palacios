@@ -309,6 +309,7 @@ VMM_OBJS := \
 	palacios/vmm_lock.o \
 	palacios/vmx.o \
 	palacios/vmcs.o \
+	palacios/vmx_lowlevel.o \
 	$(OBJ_FILES)
 
 

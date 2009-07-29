@@ -29,6 +29,7 @@
 #include <palacios/vmm_types.h>
 #include <palacios/vmcs.h>
 #include <palacios/vmm.h>
+#include <palacios/vm_guest.h>
 
 // Intel VMX Specific MSRs
 #define VMX_FEATURE_CONTROL_MSR     0x0000003a
@@ -75,9 +76,39 @@ typedef enum {
     NORMAL 
 } vmx_state_t;
 
+struct tss_descriptor {
+    uint16_t    limit1;
+    uint16_t    base1;
+    uint_t  base2       : 8;
+    /* In 32 bit type follows the form 10B1b, where B is the busy flag */
+    uint_t  type        : 4; 
+    uint_t  zero1       : 1;
+    uint_t  dpl         : 2;
+    uint_t  present     : 1;
+    uint_t  limit2      : 4;
+    uint_t  available   : 1;
+    uint_t  zero2       : 1;
+    uint_t  zero3       : 1;
+    uint_t  granularity : 1;
+    uint_t  base3       : 8;
+#ifdef __V3_64BIT__
+    uint32_t    base4;
+    uint_t  rsvd1       : 8;
+    uint_t  zero4       : 5;
+    uint_t  rsvd2       : 19;
+#endif
+}__attribute__((packed));
+
+struct vmcs_host_state {
+    struct v3_segment  gdtr;
+    struct v3_segment  idtr;
+    struct v3_segment  tr;
+};
+
 struct vmx_data {
     vmx_state_t state;
     addr_t vmcs_ptr_phys;
+    struct vmcs_host_state host_state;
 };
 
 
@@ -103,4 +134,5 @@ void v3_init_vmx(struct v3_ctrl_ops* vm_ops);
 #endif // ! __V3VEE__
 
 #endif 
+
 
