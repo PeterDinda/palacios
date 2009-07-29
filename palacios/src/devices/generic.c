@@ -32,9 +32,6 @@
 #endif
 
 
-#define PORT_HOOKS 1
-
-
 struct generic_internal {
     struct list_head port_list;
     uint_t num_port_ranges;
@@ -75,10 +72,8 @@ static int generic_stop_device(struct vm_device * dev) {
 
 
 
-static int generic_write_port_passthrough(ushort_t port,
-					  void * src, 
-					  uint_t length,
-					  struct vm_device * dev) {
+static int generic_write_port_passthrough(uint16_t port, void * src, 
+					  uint_t length, struct vm_device * dev) {
     uint_t i;
 
     PrintDebug("generic: writing 0x");
@@ -89,13 +84,12 @@ static int generic_write_port_passthrough(ushort_t port,
   
     PrintDebug(" to port 0x%x ... ", port);
 
-
     switch (length) {
 	case 1:
 	    v3_outb(port,((uchar_t*)src)[0]);
 	    break;
 	case 2:
-	    v3_outw(port,((ushort_t*)src)[0]);
+	    v3_outw(port,((uint16_t*)src)[0]);
 	    break;
 	case 4:
 	    v3_outdw(port,((uint_t*)src)[0]);
@@ -104,18 +98,15 @@ static int generic_write_port_passthrough(ushort_t port,
 	    for (i = 0; i < length; i++) { 
 		v3_outb(port, ((uchar_t*)src)[i]);
 	    }
-    } //switch length
-
+    }
 
     PrintDebug(" done\n");
   
     return length;
 }
 
-static int generic_read_port_passthrough(ushort_t port,
-					 void * src, 
-					 uint_t length,
-					 struct vm_device * dev) {
+static int generic_read_port_passthrough(uint16_t port, void * src, 
+					 uint_t length, struct vm_device * dev) {
     uint_t i;
 
     PrintDebug("generic: reading 0x%x bytes from port 0x%x ...", length, port);
@@ -126,7 +117,7 @@ static int generic_read_port_passthrough(ushort_t port,
 	    ((uchar_t*)src)[0] = v3_inb(port);
 	    break;
 	case 2:
-	    ((ushort_t*)src)[0] = v3_inw(port);
+	    ((uint16_t*)src)[0] = v3_inw(port);
 	    break;
 	case 4:
 	    ((uint_t*)src)[0] = v3_indw(port);
@@ -135,7 +126,7 @@ static int generic_read_port_passthrough(ushort_t port,
 	    for (i = 0; i < length; i++) { 
 		((uchar_t*)src)[i] = v3_inb(port);
 	    }
-    }//switch length
+    }
 
     PrintDebug(" done ... read 0x");
 
@@ -148,10 +139,8 @@ static int generic_read_port_passthrough(ushort_t port,
     return length;
 }
 
-static int generic_write_port_ignore(ushort_t port,
-				     void * src, 
-				     uint_t length,
-				     struct vm_device * dev) {
+static int generic_write_port_ignore(uint16_t port, void * src, 
+				     uint_t length, struct vm_device * dev) {
     uint_t i;
 
     PrintDebug("generic: writing 0x");
@@ -165,10 +154,8 @@ static int generic_write_port_ignore(ushort_t port,
     return length;
 }
 
-static int generic_read_port_ignore(ushort_t port,
-				    void * src, 
-				    uint_t length,
-				    struct vm_device * dev) {
+static int generic_read_port_ignore(uint16_t port, void * src, 
+				    uint_t length, struct vm_device * dev) {
 
     PrintDebug("generic: reading 0x%x bytes from port 0x%x ...", length, port);
 
@@ -184,35 +171,27 @@ static int generic_read_port_ignore(ushort_t port,
 
 static int generic_free(struct vm_device * dev) {
     struct generic_internal * state = (struct generic_internal *)(dev->private_data);
-
+    struct port_range * tmp;
+    struct port_range * cur;
 
     PrintDebug("generic: deinit_device\n");
 
-    if (PORT_HOOKS) {
-	struct port_range * tmp;
-	struct port_range * cur;
-    
-	list_for_each_entry_safe(cur, tmp, &(state->port_list), range_link) {
-	    uint_t i;
+    list_for_each_entry_safe(cur, tmp, &(state->port_list), range_link) {
+	uint_t i;
 
-	    PrintDebug("generic: unhooking ports 0x%x to 0x%x\n",
-		       cur->start, cur->end);
-		
-	    for (i = cur->start; i <= cur->end; i++) {
-		if (v3_dev_unhook_io(dev, i)) {
-		    PrintDebug("generic: can't unhook port 0x%x (already unhooked?)\n", i);
-		}
+	PrintDebug("generic: unhooking ports 0x%x to 0x%x\n",
+		   cur->start, cur->end);
+	
+	for (i = cur->start; i <= cur->end; i++) {
+	    if (v3_dev_unhook_io(dev, i)) {
+		PrintDebug("generic: can't unhook port 0x%x (already unhooked?)\n", i);
 	    }
-
-	    list_del(&(cur->range_link));
-	    state->num_port_ranges--;
-	    V3_Free(cur);
 	}
-    } else {
-	PrintDebug("generic: unhooking ports not supported\n");
+
+	list_del(&(cur->range_link));
+	state->num_port_ranges--;
+	V3_Free(cur);
     }
-
-
 
     generic_reset_device(dev);
     return 0;
@@ -233,29 +212,38 @@ static struct v3_device_ops dev_ops = {
 
 
 int v3_generic_add_port_range(struct vm_device * dev, uint_t start, uint_t end, uint_t type) {
+    struct generic_internal * state = (struct generic_internal *)(dev->private_data);
+    struct port_range * range = (struct port_range *)V3_Malloc(sizeof(struct port_range));
+    uint_t i = 0;
 
-    if (PORT_HOOKS) {
-	struct generic_internal * state = (struct generic_internal *)(dev->private_data);
-
-	struct port_range * range = (struct port_range *)V3_Malloc(sizeof(struct port_range));
-	range->start = start;
-	range->end = end;
-	range->type = type;
-    
+    range->start = start;
+    range->end = end;
+    range->type = type;
       
-	PrintDebug("generic: Adding Port Range: 0x%x to 0x%x as %s\n", 
-		   range->start, range->end, 
-		   (range->type == GENERIC_PRINT_AND_PASSTHROUGH) ? "print-and-passthrough" : "print-and-ignore");
+    PrintDebug("generic: Adding Port Range: 0x%x to 0x%x as %s\n", 
+	       range->start, range->end, 
+	       (range->type == GENERIC_PRINT_AND_PASSTHROUGH) ? "print-and-passthrough" : "print-and-ignore");
     
-	list_add(&(range->range_link), &(state->port_list));
-	state->num_port_ranges++;
-    } else {
-	PrintDebug("generic: hooking IO ports not supported\n");
-	return -1;
+    for (i = start; i <= end; i++) { 
+	if (type == GENERIC_PRINT_AND_PASSTHROUGH) { 
+	    if (v3_dev_hook_io(dev, i, &generic_read_port_passthrough, &generic_write_port_passthrough) == -1) { 
+		PrintError("generic: can't hook port 0x%x (already hooked?)\n", i);
+		return -1;
+	    }
+	} else if (type == GENERIC_PRINT_AND_IGNORE) { 
+	    if (v3_dev_hook_io(dev, i, &generic_read_port_ignore, &generic_write_port_ignore) == -1) { 
+		PrintError("generic: can't hook port 0x%x (already hooked?)\n", i);
+		return -1;
+	    }
+	} 
     }
 
+    list_add(&(range->range_link), &(state->port_list));
+    state->num_port_ranges++;
+    
     return 0;
 }
+
 
 
 
@@ -263,12 +251,10 @@ int v3_generic_add_port_range(struct vm_device * dev, uint_t start, uint_t end, 
 static int generic_init(struct guest_info * vm, void * cfg_data) {
     struct generic_internal * state = (struct generic_internal *)V3_Malloc(sizeof(struct generic_internal));
   
-    state->num_port_ranges = 0;
-
     INIT_LIST_HEAD(&(state->port_list));
+    state->num_port_ranges = 0;
     
     struct vm_device * dev = v3_allocate_device("GENERIC", &dev_ops, state);
-
 
     if (v3_attach_device(vm, dev) == -1) {
 	PrintError("Could not attach device %s\n", "GENERIC");
@@ -277,38 +263,6 @@ static int generic_init(struct guest_info * vm, void * cfg_data) {
 
     PrintDebug("generic: init_device\n");
     generic_reset_device(dev);
-
-
-    if (PORT_HOOKS) { // This is a runtime conditional on a #define
-	struct port_range * tmp = NULL;
-
-	list_for_each_entry(tmp, &(state->port_list), range_link) {
-	    uint_t i = 0;
-      
-	    PrintDebug("generic: hooking ports 0x%x to 0x%x as %s\n", 
-		       tmp->start, tmp->end, 
-		       (tmp->type == GENERIC_PRINT_AND_PASSTHROUGH) ? "print-and-passthrough" : "print-and-ignore");
-      
-	    for (i = tmp->start; i <= tmp->end; i++) { 
-		if (tmp->type == GENERIC_PRINT_AND_PASSTHROUGH) { 
-	  
-		    if (v3_dev_hook_io(dev, i, &generic_read_port_passthrough, &generic_write_port_passthrough)) { 
-			PrintDebug("generic: can't hook port 0x%x (already hooked?)\n", i);
-		    }
-	  
-		} else if (tmp->type == GENERIC_PRINT_AND_IGNORE) { 
-	  
-		    if (v3_dev_hook_io(dev, i, &generic_read_port_ignore, &generic_write_port_ignore)) { 
-			PrintDebug("generic: can't hook port 0x%x (already hooked?)\n", i);
-		    }
-		} 
-	    }
-
-	}
-    } else {
-	PrintDebug("generic: hooking ports not supported\n");
-    }
-
 
     return 0;
 }

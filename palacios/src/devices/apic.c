@@ -1045,10 +1045,10 @@ static int apic_init(struct guest_info * vm, void * cfg_data) {
 
     struct apic_state * apic = (struct apic_state *)V3_Malloc(sizeof(struct apic_state));
 
-    struct vm_device * dev = v3_allocate_device("APIC", &dev_ops, apic);
+    struct vm_device * dev = v3_allocate_device("LAPIC", &dev_ops, apic);
 
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("Could not attach device %s\n", "APIC");
+	PrintError("Could not attach device %s\n", "LAPIC");
 	return -1;
     }
 

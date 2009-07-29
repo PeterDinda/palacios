@@ -770,4 +770,4 @@ static int pic_init(struct guest_info * vm, void * cfg_data) {
 
 
 
-device_register("PIC", pic_init);
+device_register("8259A", pic_init);

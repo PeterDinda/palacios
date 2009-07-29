@@ -89,7 +89,8 @@ static int i440_init(struct guest_info * vm, void * cfg_data) {
 	bars[i].type = PCI_BAR_NONE;
     }    
 
-    pci_dev = v3_pci_register_device(state->pci, PCI_STD_DEVICE, 0, 0, 0, "i440FX", bars,
+    pci_dev = v3_pci_register_device(state->pci, PCI_STD_DEVICE, 
+				     0, 0, 0, "i440FX", bars,
 				     NULL, NULL, NULL, dev);
 
     if (!pci_dev) {

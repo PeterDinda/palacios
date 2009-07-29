@@ -323,7 +323,7 @@ static int ioapic_init(struct guest_info * vm, void * cfg_data) {
     struct vm_device * apic = v3_find_dev(vm, (char *)cfg_data);
 
     if (!apic) {
-	PrintError("Could not locate APIC device\n");
+	PrintError("Could not locate APIC device (%s)\n", (char *)cfg_data);
 	return -1;
     }
 
