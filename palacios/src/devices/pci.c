@@ -121,9 +121,11 @@ static int get_free_dev_num(struct pci_bus * bus) {
     int i, j;
 
     for (i = 0; i < sizeof(bus->dev_map); i++) {
+	PrintDebug("i=%d\n", i);
 	if (bus->dev_map[i] != 0xff) {
 	    // availability
 	    for (j = 0; j < 8; j++) {
+		PrintDebug("\tj=%d\n", j);
 		if (!(bus->dev_map[i] & (0x1 << j))) {
 		    return ((i * 8) + j);
 		}
@@ -639,10 +641,12 @@ static inline int init_bars(struct pci_device * pci_dev) {
 
 	    for (j = 0; j < pci_dev->bar[i].num_ports; j++) {
 		// hook IO
-		if (v3_dev_hook_io(pci_dev->vm_dev, pci_dev->bar[i].default_base_port + j,
-				   pci_dev->bar[i].io_read, pci_dev->bar[i].io_write) == -1) {
-		    PrintError("Could not hook default io port %x\n", pci_dev->bar[i].default_base_port + j);
-		    return -1;
+		if (pci_dev->bar[i].default_base_port != 0xffff) {
+		    if (v3_dev_hook_io(pci_dev->vm_dev, pci_dev->bar[i].default_base_port + j,
+				       pci_dev->bar[i].io_read, pci_dev->bar[i].io_write) == -1) {
+			PrintError("Could not hook default io port %x\n", pci_dev->bar[i].default_base_port + j);
+			return -1;
+		    }
 		}
 	    }
 
@@ -717,13 +721,16 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
 	return NULL;
     }
 
-    if (dev_num == -1) {
+    if (dev_num == PCI_AUTO_DEV_NUM) {
+	PrintDebug("Searching for free device number\n");
 	if ((dev_num = get_free_dev_num(bus)) == -1) {
 	    PrintError("No more available PCI slots on bus %d\n", bus->bus_num);
 	    return NULL;
 	}
     }
     
+    PrintDebug("Checking for PCI Device\n");
+
     if (get_device(bus, dev_num, fn_num) != NULL) {
 	PrintError("PCI Device already registered at slot %d on bus %d\n", 
 		   dev_num, bus->bus_num);

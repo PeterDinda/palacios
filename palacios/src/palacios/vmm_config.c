@@ -25,7 +25,7 @@
 #include <palacios/vmm_profiler.h>
 #include <palacios/vmm_mem.h>
 #include <palacios/vmm_hypercall.h>
-
+#include <palacios/vmm_dev_mgr.h>
 
 
 #include <devices/generic.h>
@@ -161,7 +161,7 @@ static int setup_memory_map(struct guest_info * info, struct v3_vm_config * conf
 	}
     } else {
 	v3_hook_write_mem(info, 0xa0000, 0xc0000, 0xa0000,  passthrough_mem_write, NULL);
-    }  
+    }
 
 #define VGABIOS_START 0x000c0000
 #define ROMBIOS_START 0x000f0000
@@ -188,7 +188,7 @@ static int setup_memory_map(struct guest_info * info, struct v3_vm_config * conf
 	    return -1;
 	}
     }
-#endif    
+#endif
 
     print_shadow_map(info);
 
@@ -199,7 +199,6 @@ static int setup_memory_map(struct guest_info * info, struct v3_vm_config * conf
 
 static int setup_devices(struct guest_info * info, struct v3_vm_config * config_ptr) {
 
-
     v3_create_device(info, "8259A", NULL);
     v3_create_device(info, "KEYBOARD", NULL);
     v3_create_device(info, "8254_PIT", NULL); 
@@ -207,26 +206,23 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
     v3_create_device(info, "OS_DEBUG", NULL);
     v3_create_device(info, "LAPIC", NULL);
     v3_create_device(info, "IOAPIC", "LAPIC");
-    v3_create_device(info, "PARANET", NULL);
+    v3_create_device(info, "VMNET", NULL);
     
     int use_generic = USE_GENERIC;
 
-
     if (config_ptr->enable_pci == 1) {
-	struct ide_cfg ide_config = {"PCI", "PIIX3"};	
+	struct ide_cfg ide_config = {"PCI", "PIIX3"};
 	
 	v3_create_device(info, "PCI", NULL);
 	v3_create_device(info, "i440FX", "PCI");
 	v3_create_device(info, "PIIX3", "PCI");
 	
+
+	//	v3_create_device(info, "LNX_VIRTIO_BLK", "PCI");
 	v3_create_device(info, "IDE", &ide_config);
     } else {
 	v3_create_device(info, "IDE", NULL);
-
     }
-
-
-
 
 
     if (config_ptr->pri_disk_type != NONE) {
@@ -246,7 +242,7 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
 					 config_ptr->pri_disk_info.net.disk_name};
 		PrintDebug("Creating NET CD\n");
 
-		v3_create_device(info, "NET-CD", &cfg);    
+		v3_create_device(info, "NET-CD", &cfg);
 	    }
 	} else if (config_ptr->pri_disk_type == HARDDRIVE) {
 	    if (config_ptr->pri_disk_con == RAM) {
@@ -434,10 +430,7 @@ static int configure_generic(struct guest_info * info, struct v3_vm_config * con
     v3_generic_add_port_range(generic, 0xc100, 0xc1ff, GENERIC_PRINT_AND_PASSTHROUGH);
 #endif
 
-
-
     //  v3_generic_add_port_range(generic, 0x378, 0x400, GENERIC_PRINT_AND_IGNORE);
     
-
     return 0;
 }

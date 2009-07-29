@@ -18,11 +18,10 @@
  */
 
 
-#ifndef __DEVICES_LNX_VIRTIO_H__
-#define __DEVICES_LNX_VIRTIO_H__
+#ifndef __DEVICES_LNX_VIRTIO_PCI_H__
+#define __DEVICES_LNX_VIRTIO_PCI_H__
 
 #ifdef __V3VEE__
-
 
 
 /* PCI Vendor IDs (from Qemu) */
@@ -37,6 +36,19 @@
 #define VIRTIO_CONSOLE_DEV_ID     0x1003
 
 #define VIRTIO_BLOCK_SUBDEVICE_ID 2
+
+
+
+#define HOST_FEATURES_PORT 0
+#define GUEST_FEATURES_PORT 4
+#define VRING_PG_NUM_PORT 8
+#define VRING_SIZE_PORT 12
+#define VRING_Q_SEL_PORT 14
+#define VRING_Q_NOTIFY_PORT 16
+#define VIRTIO_STATUS_PORT 18
+#define VIRTIO_ISR_PORT 19
+
+
 
 /* The virtio configuration space is a hybrid io/memory mapped model 
  * All IO is done via IO port accesses
@@ -57,6 +69,31 @@ struct virtio_config {
     uint8_t pci_isr;
 } __attribute__((packed));
 
+
+struct vring_desc {
+    uint64_t addr_gpa;
+    uint32_t length;
+    uint16_t flags;
+    uint16_t next;
+} __attribute__((packed));
+
+struct vring_avail {
+    uint16_t flags;
+    uint16_t index;
+    uint16_t ring[0];
+} __attribute__((packed));
+
+
+struct vring_used_elem {
+    uint32_t id;
+    uint32_t length;
+} __attribute__((packed));
+
+struct vring_used {
+    uint16_t flags;
+    uint16_t index;
+    struct vring_used_elem ring[0];
+} __attribute__((packed));
 
 
 

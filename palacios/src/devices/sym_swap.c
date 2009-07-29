@@ -19,7 +19,7 @@
 
 #include <palacios/vmm.h>
 #include <palacios/vmm_dev_mgr.h>
-#include <devices/lnx_virtio.h>
+
 
 
 

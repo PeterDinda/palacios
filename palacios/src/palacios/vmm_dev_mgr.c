@@ -48,11 +48,15 @@ int v3_init_devices() {
     extern struct v3_device_info __start__v3_devices[];
     extern struct v3_device_info __stop__v3_devices[];
     struct v3_device_info * tmp_dev =  __start__v3_devices;
-    int num_devices = (__stop__v3_devices - __start__v3_devices) / sizeof(struct v3_device_info);
     int i = 0;
 
+#ifdef DEBUG_DEV_MGR
+    {
+	int num_devices = (__stop__v3_devices - __start__v3_devices) / sizeof(struct v3_device_info);
+	PrintDebug("%d Virtual devices registered with Palacios\n", num_devices);
+    }
+#endif
 
-    PrintDebug("%d Virtual devices registered with Palacios\n", num_devices);
     PrintDebug("Start addres=%p, Stop address=%p\n", __start__v3_devices, __stop__v3_devices);
 
     master_dev_table = v3_create_htable(0, dev_hash_fn, dev_eq_fn);
