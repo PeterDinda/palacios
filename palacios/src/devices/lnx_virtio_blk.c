@@ -61,6 +61,66 @@ struct virtio_blk_state {
 
 
 
+static int virtio_io_write(uint16_t port, void * src, uint_t length, struct vm_device * dev) {
+    struct virtio_device * virtio_dev = find_virtio_dev(dev);
+    int port_idx = port % virtio->io_range_size;
+    uint8_t * cfg_ptr = (uint8_t *)cfg;
+
+    PrintDebug("VIRTIO BLOCK Write for port %d (index=%d) len=%d, value=%x\n", 
+	       port, port_idx,  length, *(uint32_t *)src);
+
+
+
+    switch (port_index) {
+	case VRING_Q_NOTIFY_PORT:
+	    // handle output
+	    PrintError("Notification\n");
+	    return -1;
+	    break;
+	case VRING_STATUS_PORT:
+	    if (cfg->status == 0) {
+		PrintDebug("Resetting device\n");
+		return -1;
+		//reset
+	    }
+	    break;
+	default:
+	    return -1;
+	    break;
+    }
+
+
+
+
+    return length;
+}
+
+
+static int virtio_io_read(uint16_t port, void * dst, uint_t length, struct vm_device * dev) {
+    struct blk_state * virtio = (struct blk_state *)dev->private_data;
+    int port_idx = port % virtio->io_range_size;
+    uint8_t * cfg_ptr = (uint8_t *)cfg;
+
+    PrintDebug("VIRTIO BLOCK Read  for port %d (index =%d), length=%d\n", 
+	       port, port_idx, length);
+
+    switch (port_idx) {
+	// search for device....
+	// call and return dev config read
+	default:
+	return -1;
+    }
+
+
+    return length;
+}
+
+struct v3_dev_ops  = {
+    .free = virtio_free,
+    .reset = NULL,
+    .stop = NULL,
+    .start = NULL
+};
 
 
 static int virtio_free(struct vm_device * dev) {
@@ -99,81 +159,81 @@ static int virtio_init(struct guest_info * vm, void * cfg_data) {
     memset(virtio_state, 0, sizeof(struct virtio_blk_state));
 
 
-
-
     struct vm_device * dev = v3_allocate_device("LNX_VIRTIO_BLK", &dev_ops, virtio_state);
     if (v3_attach_device(vm, dev) == -1) {
 	PrintError("Could not attach device %s\n", "LNX_VIRTIO_BLK");
 	return -1;
     }
 
-    struct v3_pci_bar bars[6];
-    int num_ports = sizeof(struct virtio_config) + sizeof(struct blk_config);
-    int tmp_ports = num_ports;
-    int i;
+
+    // PCI initialization
+    {
+	struct v3_pci_bar bars[6];
+	int num_ports = sizeof(struct virtio_config) + sizeof(struct blk_config);
+	int tmp_ports = num_ports;
+	int i;
 
 
 
-    // This gets the number of ports, rounded up to a power of 2
-    virtio_state->io_range_size = 1; // must be a power of 2
+	// This gets the number of ports, rounded up to a power of 2
+	virtio_state->io_range_size = 1; // must be a power of 2
 
-    while (tmp_ports > 0) {
-	tmp_ports >>= 1;
-	virtio_state->io_range_size <<= 1;
-    }
+	while (tmp_ports > 0) {
+	    tmp_ports >>= 1;
+	    virtio_state->io_range_size <<= 1;
+	}
 	
-    // this is to account for any low order bits being set in num_ports
-    // if there are none, then num_ports was already a power of 2 so we shift right to reset it
-    if ((num_ports & ((virtio_state->io_range_size >> 1) - 1)) == 0) {
-	virtio_state->io_range_size >>= 1;
-    }
+	// this is to account for any low order bits being set in num_ports
+	// if there are none, then num_ports was already a power of 2 so we shift right to reset it
+	if ((num_ports & ((virtio_state->io_range_size >> 1) - 1)) == 0) {
+	    virtio_state->io_range_size >>= 1;
+	}
 
 
-    for (i = 0; i < 6; i++) {
-	bars[i].type = PCI_BAR_NONE;
-    }
+	for (i = 0; i < 6; i++) {
+	    bars[i].type = PCI_BAR_NONE;
+	}
 
-    bars[0].type = PCI_BAR_IO;
-    bars[0].default_base_port = -1;
-    bars[0].num_ports = virtio_state->io_range_size;
+	bars[0].type = PCI_BAR_IO;
+	bars[0].default_base_port = -1;
+	bars[0].num_ports = virtio_state->io_range_size;
 
-    //    bars[0].io_read = virtio_io_read;
-    //  bars[0].io_write = virtio_io_write;
+	bars[0].io_read = virtio_io_read;
+	bars[0].io_write = virtio_io_write;
 
-    pci_dev = v3_pci_register_device(pci_bus, PCI_STD_DEVICE, 
-				     0, PCI_AUTO_DEV_NUM, 0,
-				     "LNX_VIRTIO_BLK", bars,
-				     NULL, NULL, NULL, dev);
+	pci_dev = v3_pci_register_device(pci_bus, PCI_STD_DEVICE, 
+					 0, PCI_AUTO_DEV_NUM, 0,
+					 "LNX_VIRTIO_BLK", bars,
+					 NULL, NULL, NULL, dev);
 
-    if (!pci_dev) {
-	PrintError("Could not register PCI Device\n");
-	return -1;
-    }
+	if (!pci_dev) {
+	    PrintError("Could not register PCI Device\n");
+	    return -1;
+	}
 	
-    pci_dev->config_header.vendor_id = VIRTIO_VENDOR_ID;
-    pci_dev->config_header.subsystem_vendor_id = VIRTIO_SUBVENDOR_ID;
+	pci_dev->config_header.vendor_id = VIRTIO_VENDOR_ID;
+	pci_dev->config_header.subsystem_vendor_id = VIRTIO_SUBVENDOR_ID;
 	
 
-    pci_dev->config_header.device_id = VIRTIO_BLOCK_DEV_ID;
-    pci_dev->config_header.class = PCI_CLASS_STORAGE;
-    pci_dev->config_header.subclass = PCI_STORAGE_SUBCLASS_OTHER;
+	pci_dev->config_header.device_id = VIRTIO_BLOCK_DEV_ID;
+	pci_dev->config_header.class = PCI_CLASS_STORAGE;
+	pci_dev->config_header.subclass = PCI_STORAGE_SUBCLASS_OTHER;
     
-    pci_dev->config_header.subsystem_id = VIRTIO_BLOCK_SUBDEVICE_ID;
+	pci_dev->config_header.subsystem_id = VIRTIO_BLOCK_SUBDEVICE_ID;
 
 
-    pci_dev->config_header.intr_pin = 1;
+	pci_dev->config_header.intr_pin = 1;
 
-    pci_dev->config_header.max_latency = 1; // ?? (qemu does it...)
-
-
-    virtio_state->pci_dev = pci_dev;
-    virtio_state->pci_bus = pci_bus;
-
-    /* Block configuration */
+	pci_dev->config_header.max_latency = 1; // ?? (qemu does it...)
 
 
+	virtio_state->pci_dev = pci_dev;
+	virtio_state->pci_bus = pci_bus;
+
+	/* Block configuration */
+    }
     
-    return -1;
+    return 0;
 }
 
 
