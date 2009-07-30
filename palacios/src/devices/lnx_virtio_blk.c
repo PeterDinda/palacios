@@ -18,7 +18,7 @@
  */
 
 #include <palacios/vmm.h>
-
+#include <palacios/vmm_dev_mgr.h>
 #include <devices/lnx_virtio_pci.h>
 
 
@@ -62,23 +62,23 @@ struct virtio_blk_state {
 
 
 static int virtio_io_write(uint16_t port, void * src, uint_t length, struct vm_device * dev) {
-    struct virtio_device * virtio_dev = find_virtio_dev(dev);
+    struct virtio_blk_state * virtio = (struct virtio_blk_state *)dev->private_data;
     int port_idx = port % virtio->io_range_size;
-    uint8_t * cfg_ptr = (uint8_t *)cfg;
+
 
     PrintDebug("VIRTIO BLOCK Write for port %d (index=%d) len=%d, value=%x\n", 
 	       port, port_idx,  length, *(uint32_t *)src);
 
 
 
-    switch (port_index) {
+    switch (port_idx) {
 	case VRING_Q_NOTIFY_PORT:
 	    // handle output
 	    PrintError("Notification\n");
 	    return -1;
 	    break;
-	case VRING_STATUS_PORT:
-	    if (cfg->status == 0) {
+	case VIRTIO_STATUS_PORT:
+	    if (virtio->virtio_cfg.status == 0) {
 		PrintDebug("Resetting device\n");
 		return -1;
 		//reset
@@ -97,9 +97,9 @@ static int virtio_io_write(uint16_t port, void * src, uint_t length, struct vm_d
 
 
 static int virtio_io_read(uint16_t port, void * dst, uint_t length, struct vm_device * dev) {
-    struct blk_state * virtio = (struct blk_state *)dev->private_data;
+    struct virtio_blk_state * virtio = (struct virtio_blk_state *)dev->private_data;
     int port_idx = port % virtio->io_range_size;
-    uint8_t * cfg_ptr = (uint8_t *)cfg;
+
 
     PrintDebug("VIRTIO BLOCK Read  for port %d (index =%d), length=%d\n", 
 	       port, port_idx, length);
@@ -114,13 +114,6 @@ static int virtio_io_read(uint16_t port, void * dst, uint_t length, struct vm_de
 
     return length;
 }
-
-struct v3_dev_ops  = {
-    .free = virtio_free,
-    .reset = NULL,
-    .stop = NULL,
-    .start = NULL
-};
 
 
 static int virtio_free(struct vm_device * dev) {
