@@ -31,7 +31,12 @@
 #include <devices/pci_types.h>
 
 
-typedef enum {PCI_BAR_IO, PCI_BAR_MEM16, PCI_BAR_MEM32, PCI_BAR_MEM64_LOW, PCI_BAR_MEM64_HIGH, PCI_BAR_NONE} pci_bar_type_t;
+typedef enum { PCI_BAR_IO, 
+	       PCI_BAR_MEM16, 
+	       PCI_BAR_MEM32, 
+	       PCI_BAR_MEM64_LOW, 
+	       PCI_BAR_MEM64_HIGH, 
+	       PCI_BAR_NONE } pci_bar_type_t;
 
 typedef enum {PCI_STD_DEVICE, PCI_TO_PCI_BRIDGE, PCI_CARDBUS, PCI_MULTIFUNCTION} pci_device_type_t;
 
@@ -114,8 +119,12 @@ struct pci_device {
 };
 
 
+int v3_pci_set_irq_bridge(struct vm_device * pci_bus, int bus_num,
+			  int (*raise_pci_irq)(struct vm_device * dev, uint_t intr_line), 
+			  struct vm_device * bridge_dev);
 
 
+int v3_pci_raise_irq(struct vm_device * pci_bus, int bus_num, struct pci_device * dev);
 
 struct pci_device * 
 v3_pci_register_device(struct vm_device * pci,

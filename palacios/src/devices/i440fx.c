@@ -21,6 +21,9 @@
 #include <palacios/vmm_dev_mgr.h>
 #include <devices/pci.h>
 
+
+// We Have to setup some sort of PIC interrupt mapping here....
+
 struct i440_state {
     struct vm_device * pci;
 };
