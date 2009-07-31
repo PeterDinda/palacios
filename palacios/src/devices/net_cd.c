@@ -158,7 +158,7 @@ static uint32_t cd_get_capacity(void * private_data) {
     return cd->capacity / ATAPI_BLOCK_SIZE;
 }
 
-static struct v3_ide_cd_ops cd_ops = {
+static struct v3_cd_ops cd_ops = {
     .read = cd_read, 
     .get_capacity = cd_get_capacity,
 };

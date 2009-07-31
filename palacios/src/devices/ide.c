@@ -22,6 +22,7 @@
 #include <devices/ide.h>
 #include <devices/pci.h>
 #include <devices/southbridge.h>
+#include <devices/block_dev.h>
 #include "ide-types.h"
 #include "atapi-types.h"
 
@@ -95,18 +96,6 @@ static inline const char * dma_port_to_str(uint16_t port) {
 }
 
 
-static const char * ide_dev_type_strs[] = {"NONE", "HARDDISK", "CDROM" };
-
-
-static inline const char * device_type_to_str(v3_ide_dev_type_t type) {
-    if (type > 2) {
-	return NULL;
-    }
-
-    return ide_dev_type_strs[type];
-}
-
-
 
 struct ide_cd_state {
     struct atapi_sense_data sense;
@@ -131,11 +120,11 @@ struct ide_hd_state {
 struct ide_drive {
     // Command Registers
 
-    v3_ide_dev_type_t drive_type;
+    v3_block_type_t drive_type;
 
     union {
-	struct v3_ide_cd_ops * cd_ops;
-	struct v3_ide_hd_ops * hd_ops;
+	struct v3_cd_ops * cd_ops;
+	struct v3_hd_ops * hd_ops;
     };
 
 
@@ -304,7 +293,7 @@ static void drive_reset(struct ide_drive * drive) {
 
     PrintDebug("Resetting drive %s\n", drive->model);
     
-    if (drive->drive_type == IDE_CDROM) {
+    if (drive->drive_type == BLOCK_CDROM) {
 	drive->cylinder = 0xeb14;
     } else {
 	drive->cylinder = 0x0000;
@@ -439,15 +428,15 @@ static int dma_read(struct vm_device * dev, struct ide_channel * channel) {
 	while (prd_bytes_left > 0) {
 	    uint_t bytes_to_write = 0;
 
-	    if (drive->drive_type == IDE_DISK) {
-		bytes_to_write = (prd_bytes_left > IDE_SECTOR_SIZE) ? IDE_SECTOR_SIZE : prd_bytes_left;
+	    if (drive->drive_type == BLOCK_DISK) {
+		bytes_to_write = (prd_bytes_left > HD_SECTOR_SIZE) ? HD_SECTOR_SIZE : prd_bytes_left;
 
 
 		if (ata_read(dev, channel, drive->data_buf, 1) == -1) {
 		    PrintError("Failed to read next disk sector\n");
 		    return -1;
 		}
-	    } else if (drive->drive_type == IDE_CDROM) {
+	    } else if (drive->drive_type == BLOCK_CDROM) {
 		if (atapi_cmd_is_data_op(drive->cd_state.atapi_cmd)) {
 		    bytes_to_write = (prd_bytes_left > ATAPI_BLOCK_SIZE) ? ATAPI_BLOCK_SIZE : prd_bytes_left;
 
@@ -486,12 +475,12 @@ static int dma_read(struct vm_device * dev, struct ide_channel * channel) {
 
 	channel->dma_tbl_index++;
 
-	if (drive->drive_type == IDE_DISK) {
-	    if (drive->transfer_index % IDE_SECTOR_SIZE) {
+	if (drive->drive_type == BLOCK_DISK) {
+	    if (drive->transfer_index % HD_SECTOR_SIZE) {
 		PrintError("We currently don't handle sectors that span PRD descriptors\n");
 		return -1;
 	    }
-	} else if (drive->drive_type == IDE_CDROM) {
+	} else if (drive->drive_type == BLOCK_CDROM) {
 	    if (atapi_cmd_is_data_op(drive->cd_state.atapi_cmd)) {
 		if (drive->transfer_index % ATAPI_BLOCK_SIZE) {
 		    PrintError("We currently don't handle ATAPI BLOCKS that span PRD descriptors\n");
@@ -571,7 +560,7 @@ static int dma_write(struct vm_device * dev, struct ide_channel * channel) {
 	    uint_t bytes_to_write = 0;
 
 
-	    bytes_to_write = (prd_bytes_left > IDE_SECTOR_SIZE) ? IDE_SECTOR_SIZE : prd_bytes_left;
+	    bytes_to_write = (prd_bytes_left > HD_SECTOR_SIZE) ? HD_SECTOR_SIZE : prd_bytes_left;
 
 
 	    ret = read_guest_pa_memory(dev->vm, prd_entry.base_addr + prd_offset, bytes_to_write, drive->data_buf);
@@ -599,7 +588,7 @@ static int dma_write(struct vm_device * dev, struct ide_channel * channel) {
 
 	channel->dma_tbl_index++;
 
-	if (drive->transfer_index % IDE_SECTOR_SIZE) {
+	if (drive->transfer_index % HD_SECTOR_SIZE) {
 	    PrintError("We currently don't handle sectors that span PRD descriptors\n");
 	    return -1;
 	}
@@ -789,7 +778,7 @@ static int write_cmd_port(ushort_t port, void * src, uint_t length, struct vm_de
     switch (channel->cmd_reg) {
 
 	case 0xa1: // ATAPI Identify Device Packet
-	    if (drive->drive_type != IDE_CDROM) {
+	    if (drive->drive_type != BLOCK_CDROM) {
 		drive_reset(drive);
 
 		// JRL: Should we abort here?
@@ -805,7 +794,7 @@ static int write_cmd_port(ushort_t port, void * src, uint_t length, struct vm_de
 	    }
 	    break;
 	case 0xec: // Identify Device
-	    if (drive->drive_type != IDE_DISK) {
+	    if (drive->drive_type != BLOCK_DISK) {
 		drive_reset(drive);
 
 		// JRL: Should we abort here?
@@ -821,7 +810,7 @@ static int write_cmd_port(ushort_t port, void * src, uint_t length, struct vm_de
 	    break;
 
 	case 0xa0: // ATAPI Command Packet
-	    if (drive->drive_type != IDE_CDROM) {
+	    if (drive->drive_type != BLOCK_CDROM) {
 		ide_abort_command(dev, channel);
 	    }
 	    
@@ -868,7 +857,7 @@ static int write_cmd_port(ushort_t port, void * src, uint_t length, struct vm_de
 	    
 	    drive->hd_state.cur_sector_num = 1;
 	    
-	    drive->transfer_length = sect_cnt * IDE_SECTOR_SIZE;
+	    drive->transfer_length = sect_cnt * HD_SECTOR_SIZE;
 	    drive->transfer_index = 0;
 
 	    if (channel->dma_status.active == 1) {
@@ -891,7 +880,7 @@ static int write_cmd_port(ushort_t port, void * src, uint_t length, struct vm_de
 
 	    drive->hd_state.cur_sector_num = 1;
 
-	    drive->transfer_length = sect_cnt * IDE_SECTOR_SIZE;
+	    drive->transfer_length = sect_cnt * HD_SECTOR_SIZE;
 	    drive->transfer_index = 0;
 
 	    if (channel->dma_status.active == 1) {
@@ -1011,7 +1000,7 @@ static int write_data_port(ushort_t port, void * src, uint_t length, struct vm_d
 
 static int read_hd_data(uint8_t * dst, uint_t length, struct vm_device * dev, struct ide_channel * channel) {
     struct ide_drive * drive = get_selected_drive(channel);
-    int data_offset = drive->transfer_index % IDE_SECTOR_SIZE;
+    int data_offset = drive->transfer_index % HD_SECTOR_SIZE;
 
 
 
@@ -1048,7 +1037,7 @@ static int read_hd_data(uint8_t * dst, uint_t length, struct vm_device * dev, st
      * cur_sector_num is configured depending on the operation we are currently running
      * We also trigger an interrupt if this is the last byte to transfer, regardless of sector count
      */
-    if (((drive->transfer_index % (IDE_SECTOR_SIZE * drive->hd_state.cur_sector_num)) == 0) || 
+    if (((drive->transfer_index % (HD_SECTOR_SIZE * drive->hd_state.cur_sector_num)) == 0) || 
 	(drive->transfer_index == drive->transfer_length)) {
 	if (drive->transfer_index < drive->transfer_length) {
 	    // An increment is complete, but there is still more data to be transferred...
@@ -1175,12 +1164,12 @@ static int ide_read_data_port(ushort_t port, void * dst, uint_t length, struct v
 	return read_drive_id((uint8_t *)dst, length, dev, channel);
     }
 
-    if (drive->drive_type == IDE_CDROM) {
+    if (drive->drive_type == BLOCK_CDROM) {
 	if (read_cd_data((uint8_t *)dst, length, dev, channel) == -1) {
 	    PrintError("IDE: Could not read CD Data\n");
 	    return -1;
 	}
-    } else if (drive->drive_type == IDE_DISK) {
+    } else if (drive->drive_type == BLOCK_DISK) {
 	if (read_hd_data((uint8_t *)dst, length, dev, channel) == -1) {
 	    PrintError("IDE: Could not read HD Data\n");
 	    return -1;
@@ -1259,7 +1248,7 @@ static int write_port_std(ushort_t port, void * src, uint_t length, struct vm_de
 	    drive = get_selected_drive(channel);
 
 	    // Selecting a non-present device is a no-no
-	    if (drive->drive_type == IDE_NONE) {
+	    if (drive->drive_type == BLOCK_NONE) {
 		PrintDebug("Attempting to select a non-present drive\n");
 		channel->error_reg.abort = 1;
 		channel->status.error = 1;
@@ -1296,7 +1285,7 @@ static int read_port_std(ushort_t port, void * dst, uint_t length, struct vm_dev
 
 
     // if no drive is present just return 0 + reserved bits
-    if (drive->drive_type == IDE_NONE) {
+    if (drive->drive_type == BLOCK_NONE) {
 	if ((port == PRI_DRV_SEL_PORT) ||
 	    (port == SEC_DRV_SEL_PORT)) {
 	    *(uint8_t *)dst = 0xa0;
@@ -1367,7 +1356,7 @@ static void init_drive(struct ide_drive * drive) {
     drive->sector_num = 0x01;
     drive->cylinder = 0x0000;
 
-    drive->drive_type = IDE_NONE;
+    drive->drive_type = BLOCK_NONE;
 
     memset(drive->model, 0, sizeof(drive->model));
 
@@ -1625,7 +1614,7 @@ int v3_ide_get_geometry(struct vm_device * ide_dev, int channel_num, int drive_n
     struct ide_channel * channel = &(ide->channels[channel_num]);
     struct ide_drive * drive = &(channel->drives[drive_num]);
     
-    if (drive->drive_type == IDE_NONE) {
+    if (drive->drive_type == BLOCK_NONE) {
 	return -1;
     }
 
@@ -1643,7 +1632,7 @@ int v3_ide_register_cdrom(struct vm_device * ide_dev,
 			  uint_t bus_num, 
 			  uint_t drive_num,
 			  char * dev_name, 
-			  struct v3_ide_cd_ops * ops, 
+			  struct v3_cd_ops * ops, 
 			  void * private_data) {
 
     struct ide_internal * ide  = (struct ide_internal *)(ide_dev->private_data);  
@@ -1656,7 +1645,7 @@ int v3_ide_register_cdrom(struct vm_device * ide_dev,
     channel = &(ide->channels[bus_num]);
     drive = &(channel->drives[drive_num]);
     
-    if (drive->drive_type != IDE_NONE) {
+    if (drive->drive_type != BLOCK_NONE) {
 	PrintError("Device slot (bus=%d, drive=%d) already occupied\n", bus_num, drive_num);
 	return -1;
     }
@@ -1668,7 +1657,7 @@ int v3_ide_register_cdrom(struct vm_device * ide_dev,
     }
 
 
-    drive->drive_type = IDE_CDROM;
+    drive->drive_type = BLOCK_CDROM;
 
     drive->cd_ops = ops;
 
@@ -1687,7 +1676,7 @@ int v3_ide_register_harddisk(struct vm_device * ide_dev,
 			     uint_t bus_num, 
 			     uint_t drive_num, 
 			     char * dev_name, 
-			     struct v3_ide_hd_ops * ops, 
+			     struct v3_hd_ops * ops, 
 			     void * private_data) {
 
     struct ide_internal * ide  = (struct ide_internal *)(ide_dev->private_data);  
@@ -1700,14 +1689,14 @@ int v3_ide_register_harddisk(struct vm_device * ide_dev,
     channel = &(ide->channels[bus_num]);
     drive = &(channel->drives[drive_num]);
     
-    if (drive->drive_type != IDE_NONE) {
+    if (drive->drive_type != BLOCK_NONE) {
 	PrintError("Device slot (bus=%d, drive=%d) already occupied\n", bus_num, drive_num);
 	return -1;
     }
 
     strncpy(drive->model, dev_name, sizeof(drive->model) - 1);
 
-    drive->drive_type = IDE_DISK;
+    drive->drive_type = BLOCK_DISK;
 
     drive->hd_state.accessed = 0;
     drive->hd_state.mult_sector_num = 1;

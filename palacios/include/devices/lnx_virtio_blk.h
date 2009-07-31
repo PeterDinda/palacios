@@ -17,43 +17,24 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#ifndef __DEVICES_IDE_H__
-#define __DEVICES_IDE_H__
+#ifndef __DEVICES_LNX_VIRTIO_BLK_H__
+#define __DEVICES_LNX_VIRTIO_BLK_H__
 
 #ifdef __V3VEE__
 
 #include <devices/block_dev.h>
 
-struct ide_cfg {
-    char pci[32];
-    char southbridge[32];
-};
-
-
-int v3_ide_register_cdrom(struct vm_device * ide, 
-			  uint_t bus_num, 
-			  uint_t drive_num, 
-			  char * drive_name,
-			  struct v3_cd_ops * ops, 
-			  void * private_data);
-
-int v3_ide_register_harddisk(struct vm_device * ide, 
-			     uint_t bus_num, 
-			     uint_t drive_num, 
-			     char * drive_name,
-			     struct v3_hd_ops * ops, 
+int v3_virtio_register_cdrom(struct vm_device * dev, 
+			     struct v3_cd_ops * ops, 
 			     void * private_data);
 
 
-
-
-
-int v3_ide_get_geometry(struct vm_device * ide_dev, int channel_num, int drive_num, 
-			uint32_t * cylinders, uint32_t * heads, uint32_t * sectors);
-
-
-#endif // ! __V3VEE__
-
+int v3_virtio_register_harddisk(struct vm_device * dev, 
+				struct v3_hd_ops * ops, 
+				void * private_data);
+			     
 
 #endif
 
+
+#endif

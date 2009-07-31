@@ -48,7 +48,24 @@
 #define VIRTIO_STATUS_PORT 18
 #define VIRTIO_ISR_PORT 19
 
+#define VIRTIO_PAGE_SHIFT 12
 
+
+/* Descriptor flags */
+/* This marks a buffer as continuing via the next field. */
+#define VIRTIO_NEXT_FLAG       0x1
+/* This marks a buffer as write-only (otherwise read-only). */
+#define VIRTIO_WR_ONLY_FLAG      0x2
+
+
+/* Used Flags */
+/* This means don't notify other side when buffer added. */
+#define VRING_NO_NOTIFY_FLAG  0x1
+
+
+/* Avail Flags */
+/* This means don't interrupt guest when buffer consumed. */
+#define VIRTIO_NO_IRQ_FLAG      0x1
 
 /* The virtio configuration space is a hybrid io/memory mapped model 
  * All IO is done via IO port accesses
@@ -96,6 +113,23 @@ struct vring_used {
 } __attribute__((packed));
 
 
+
+struct virtio_queue {
+    uint16_t queue_size;
+  
+    uint16_t cur_avail_idx;
+
+    addr_t ring_desc_addr;
+    addr_t ring_avail_addr;
+    addr_t ring_used_addr;
+  
+
+    struct vring_desc * desc; // We can treat this as an array...
+    struct vring_avail * avail;
+    struct vring_used * used;
+
+    uint32_t pfn;
+};
 
 
 

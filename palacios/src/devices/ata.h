@@ -43,8 +43,8 @@ static void ata_identify_device(struct ide_drive * drive) {
     // Make it the simplest drive possible (1 head, 1 cyl, 1 sect/track)
     drive_id->num_cylinders = drive->num_cylinders;
     drive_id->num_heads = drive->num_heads;
-    drive_id->bytes_per_track = drive->num_sectors * IDE_SECTOR_SIZE;
-    drive_id->bytes_per_sector = IDE_SECTOR_SIZE;
+    drive_id->bytes_per_track = drive->num_sectors * HD_SECTOR_SIZE;
+    drive_id->bytes_per_sector = HD_SECTOR_SIZE;
     drive_id->sectors_per_track = drive->num_sectors;
 
 
@@ -171,7 +171,7 @@ static int ata_get_lba(struct vm_device * dev, struct ide_channel * channel, uin
 	drive->hd_ops->get_capacity(drive->private_data)) {
 	PrintError("IDE: request size exceeds disk capacity (lba=%d) (sect_cnt=%d) (ReadEnd=%d) (capacity=%p)\n", 
 		   lba_addr.addr, sect_cnt, 
-		   lba_addr.addr + (sect_cnt * IDE_SECTOR_SIZE),
+		   lba_addr.addr + (sect_cnt * HD_SECTOR_SIZE),
 		   (void *)(addr_t)(drive->hd_ops->get_capacity(drive->private_data)));
 	return -1;
     }
@@ -198,7 +198,7 @@ static int ata_read_sectors(struct vm_device * dev, struct ide_channel * channel
 	return -1;
     }
 
-    drive->transfer_length = sect_cnt * IDE_SECTOR_SIZE;
+    drive->transfer_length = sect_cnt * HD_SECTOR_SIZE;
     drive->transfer_index = 0;
 
     channel->status.busy = 0;

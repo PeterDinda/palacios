@@ -97,8 +97,8 @@ static int recv_all(int socket, char * buf, int length) {
 static int hd_read(uint8_t * buf, int sector_count, uint64_t lba,  void * private_data) {
     struct vm_device * hd_dev = (struct vm_device *)private_data;
     struct hd_state * hd = (struct hd_state *)(hd_dev->private_data);
-    int offset = lba * IDE_SECTOR_SIZE;
-    int length = sector_count * IDE_SECTOR_SIZE;
+    int offset = lba * HD_SECTOR_SIZE;
+    int length = sector_count * HD_SECTOR_SIZE;
     uint8_t status;
     uint32_t ret_len = 0;
     char nbd_cmd[4] = {0,0,0,0};
@@ -156,8 +156,8 @@ static int hd_read(uint8_t * buf, int sector_count, uint64_t lba,  void * privat
 static int hd_write(uint8_t * buf, int sector_count, uint64_t lba, void * private_data) {
     struct vm_device * hd_dev = (struct vm_device *)private_data;
     struct hd_state * hd = (struct hd_state *)(hd_dev->private_data);
-    int offset = lba * IDE_SECTOR_SIZE;
-    int length = sector_count * IDE_SECTOR_SIZE;
+    int offset = lba * HD_SECTOR_SIZE;
+    int length = sector_count * HD_SECTOR_SIZE;
     uint8_t status;
     char nbd_cmd[4] = {0,0,0,0};
 
@@ -203,10 +203,10 @@ static uint64_t hd_get_capacity(void * private_data) {
     struct vm_device * hd_dev = (struct vm_device *)private_data;
     struct hd_state * hd = (struct hd_state *)(hd_dev->private_data);
 
-    return hd->capacity / IDE_SECTOR_SIZE;
+    return hd->capacity / HD_SECTOR_SIZE;
 }
 
-static struct v3_ide_hd_ops hd_ops = {
+static struct v3_hd_ops hd_ops = {
     .read = hd_read, 
     .write = hd_write,
     .get_capacity = hd_get_capacity,
