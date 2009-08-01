@@ -174,7 +174,6 @@ static int handle_block_op(struct vm_device * dev, struct vring_desc * hdr_desc,
 	return -1;
     }
 
-
     if (guest_pa_to_host_va(dev->vm, buf_desc->addr_gpa, (addr_t *)&(buf)) == -1) {
 	PrintError("Could not translate buffer address\n");
 	return -1;
@@ -184,6 +183,8 @@ static int handle_block_op(struct vm_device * dev, struct vring_desc * hdr_desc,
 	PrintError("Could not translate status address\n");
 	return -1;
     }
+
+    PrintDebug("Sector=%p Length=%d\n", (void *)(addr_t)(hdr->sector), buf_desc->length);
 
     if (hdr->type == BLK_IN_REQ) {
 	if (virtio->block_type != BLOCK_NONE) {
@@ -210,8 +211,7 @@ static int handle_block_op(struct vm_device * dev, struct vring_desc * hdr_desc,
 	*status = BLK_STATUS_NOT_SUPPORTED;
     }
 
-
-
+    PrintDebug("Returning Status: %d\n", *status);
 
     return 0;
 }
@@ -221,7 +221,6 @@ static int handle_block_op(struct vm_device * dev, struct vring_desc * hdr_desc,
 static int handle_kick(struct vm_device * dev) {
     struct virtio_blk_state * virtio = (struct virtio_blk_state *)dev->private_data;    
     struct virtio_queue * q = &(virtio->queue);
-
 
     PrintDebug("VIRTIO KICK: cur_index=%d, avail_index=%d\n", q->cur_avail_idx, q->avail->index);
 
@@ -238,9 +237,8 @@ static int handle_kick(struct vm_device * dev) {
 	while (chained) {
 	    hdr_desc = &(q->desc[chain_idx]);
 	    
-	    PrintDebug("Header Descriptor gpa=%p, len=%d, flags=%x, next=%d\n", 
+	    PrintDebug("Header Descriptor (ptr=%p) gpa=%p, len=%d, flags=%x, next=%d\n", hdr_desc, 
 		       (void *)(hdr_desc->addr_gpa), hdr_desc->length, hdr_desc->flags, hdr_desc->next);
-
 	
 	    if (!(hdr_desc->flags & VIRTIO_NEXT_FLAG)) {
 		PrintError("Block operations must chain a buffer descriptor\n");
@@ -249,11 +247,9 @@ static int handle_kick(struct vm_device * dev) {
 
 	    buf_desc = &(q->desc[hdr_desc->next]);
 	    
-
-	    PrintDebug("Buffer  Descriptor gpa=%p, len=%d, flags=%x, next=%d\n", 
+	    PrintDebug("Buffer Descriptor (ptr=%p) gpa=%p, len=%d, flags=%x, next=%d\n", buf_desc, 
 		       (void *)(buf_desc->addr_gpa), buf_desc->length, buf_desc->flags, buf_desc->next);
 	    
-
 	    if (!(buf_desc->flags & VIRTIO_NEXT_FLAG)) {
 		PrintError("Block operatoins must chain a status descriptor\n");
 		return -1;
@@ -269,7 +265,7 @@ static int handle_kick(struct vm_device * dev) {
 		chained = 0;
 	    }
 
-	    PrintDebug("Status  Descriptor gpa=%p, len=%d, flags=%x, next=%d\n", 
+	    PrintDebug("Status Descriptor (ptr=%p) gpa=%p, len=%d, flags=%x, next=%d\n", status_desc, 
 		       (void *)(status_desc->addr_gpa), status_desc->length, status_desc->flags, status_desc->next);
 	    
 
@@ -279,10 +275,9 @@ static int handle_kick(struct vm_device * dev) {
 	    }
 
 	    req_len += (buf_desc->length + status_desc->length);
-
 	}
 
-	q->used->ring[q->used->index].id = q->cur_avail_idx;
+	q->used->ring[q->used->index].id = q->avail->ring[q->cur_avail_idx];
 	q->used->ring[q->used->index].length = req_len; // What do we set this to????
 
 	q->used->index = (q->used->index + 1) % (QUEUE_SIZE * sizeof(struct vring_desc));;
@@ -294,6 +289,7 @@ static int handle_kick(struct vm_device * dev) {
     if (!(q->avail->flags & VIRTIO_NO_IRQ_FLAG)) {
 	PrintDebug("Raising IRQ %d\n",  virtio->pci_dev->config_header.intr_line);
 	v3_pci_raise_irq(virtio->pci_bus, 0, virtio->pci_dev);
+	virtio->virtio_cfg.pci_isr = 1;
     }
 
     return 0;
@@ -353,10 +349,13 @@ static int virtio_io_write(uint16_t port, void * src, uint_t length, struct vm_d
 		    return -1;
 		}
 
-		PrintDebug("RingDesc=%p, Avail=%p, Used=%p\n",
+		PrintDebug("RingDesc_addr=%p, Avail_addr=%p, Used_addr=%p\n",
 			   (void *)(virtio->queue.ring_desc_addr),
 			   (void *)(virtio->queue.ring_avail_addr),
 			   (void *)(virtio->queue.ring_used_addr));
+
+		PrintDebug("RingDesc=%p, Avail=%p, Used=%p\n", 
+			   virtio->queue.desc, virtio->queue.avail, virtio->queue.used);
 
 	    } else {
 		PrintError("Illegal write length for page frame number\n");
@@ -389,13 +388,14 @@ static int virtio_io_write(uint16_t port, void * src, uint_t length, struct vm_d
 	    }
 
 	    break;
+
+	case VIRTIO_ISR_PORT:
+	    virtio->virtio_cfg.pci_isr = *(uint8_t *)src;
+	    break;
 	default:
 	    return -1;
 	    break;
     }
-
-
-
 
     return length;
 }
@@ -447,6 +447,12 @@ static int virtio_io_read(uint16_t port, void * dst, uint_t length, struct vm_de
 	    *(uint8_t *)dst = virtio->virtio_cfg.status;
 	    break;
 
+	case VIRTIO_ISR_PORT:
+	    *(uint8_t *)dst = virtio->virtio_cfg.pci_isr;
+	    virtio->virtio_cfg.pci_isr = 0;
+	    v3_pci_lower_irq(virtio->pci_bus, 0, virtio->pci_dev);
+	    break;
+
 	default:
 	    if ( (port_idx >= sizeof(struct virtio_config)) && 
 		 (port_idx < (sizeof(struct virtio_config) + sizeof(struct blk_config))) ) {
@@ -461,9 +467,6 @@ static int virtio_io_read(uint16_t port, void * dst, uint_t length, struct vm_de
 	  
 	    break;
     }
-
-
-
 
     return length;
 }
