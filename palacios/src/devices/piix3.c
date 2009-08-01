@@ -7,15 +7,11 @@
  * and the University of New Mexico.  You can find out more at 
  * http://www.v3vee.org
  *
- * Copyright (c) 2009, Lei Xia <lxia@northwestern.edu>
- * Copyright (c) 2009, Chang Seok Bae <jhuell@gmail.com>
  * Copyright (c) 2009, Jack Lange <jarusl@cs.northwestern.edu>
  * Copyright (c) 2009, The V3VEE Project <http://www.v3vee.org> 
  * All rights reserved.
  *
- * Author:  Lei Xia <lxia@northwestern.edu>
- *          Chang Seok Bae <jhuell@gmail.com>
- *          Jack Lange <jarusl@cs.northwestern.edu>
+ * Author: Jack Lange <jarusl@cs.northwestern.edu>
  *
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
@@ -375,6 +371,20 @@ static int raise_pci_irq(struct vm_device * dev, uint_t intr_pin) {
 
 
 
+static int lower_pci_irq(struct vm_device * dev, uint_t intr_pin) {
+    struct v3_southbridge * piix3 = (struct v3_southbridge *)(dev->private_data);
+    struct pci_device * pci_dev = piix3->southbridge_pci;
+    struct piix3_config_space * piix3_cfg = (struct piix3_config_space *)(pci_dev->config_data);
+
+    PrintError("Lowering PCI IRQ %d\n", piix3_cfg->pirq_rc[intr_pin]);
+    
+    v3_lower_irq(dev->vm, piix3_cfg->pirq_rc[intr_pin]);
+
+    return 0;
+}
+
+
+
 static int piix_free(struct vm_device * dev) {
     return 0;
 }
@@ -417,7 +427,7 @@ static int setup_pci(struct vm_device * dev) {
 
     piix3->southbridge_pci = pci_dev;
 
-    v3_pci_set_irq_bridge(piix3->pci_bus, bus_num, raise_pci_irq, dev);
+    v3_pci_set_irq_bridge(piix3->pci_bus, bus_num, raise_pci_irq, lower_pci_irq, dev);
 
     reset_piix3(dev);
 

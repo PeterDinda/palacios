@@ -75,7 +75,8 @@ struct pci_bus {
     // Bitmap of the allocated device numbers
     uint8_t dev_map[MAX_BUS_DEVICES / 8];
 
-    int (*raise_pci_irq)(struct vm_device * dev, uint_t intr_line);
+    int (*raise_pci_irq)(struct vm_device * dev, uint_t intr_pin);
+    int (*lower_pci_irq)(struct vm_device * dev, uint_t intr_pin);
     struct vm_device * irq_bridge_dev;
 };
 
@@ -706,11 +707,13 @@ static inline int init_bars(struct pci_device * pci_dev) {
 
 int v3_pci_set_irq_bridge(struct  vm_device * pci_bus, int bus_num, 
 			  int (*raise_pci_irq)(struct vm_device * dev, uint_t intr_line), 
+			  int (*lower_pci_irq)(struct vm_device * dev, uint_t intr_line), 
 			  struct vm_device * bridge_dev) {
     struct pci_internal * pci_state = (struct pci_internal *)pci_bus->private_data;
 
 
     pci_state->bus_list[bus_num].raise_pci_irq = raise_pci_irq;
+    pci_state->bus_list[bus_num].lower_pci_irq = lower_pci_irq;
     pci_state->bus_list[bus_num].irq_bridge_dev = bridge_dev;
 
     return 0;
@@ -721,6 +724,13 @@ int v3_pci_raise_irq(struct vm_device * pci_bus, int bus_num, struct pci_device 
    struct pci_bus * bus = &(pci_state->bus_list[bus_num]);
 
    return bus->raise_pci_irq(bus->irq_bridge_dev, dev->config_header.intr_pin);
+}
+
+int v3_pci_lower_irq(struct vm_device * pci_bus, int bus_num, struct pci_device * dev) {
+   struct pci_internal * pci_state = (struct pci_internal *)pci_bus->private_data;
+   struct pci_bus * bus = &(pci_state->bus_list[bus_num]);
+
+   return bus->lower_pci_irq(bus->irq_bridge_dev, dev->config_header.intr_pin);
 }
 
 // if dev_num == -1, auto assign 

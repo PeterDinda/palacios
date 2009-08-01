@@ -121,10 +121,12 @@ struct pci_device {
 
 int v3_pci_set_irq_bridge(struct vm_device * pci_bus, int bus_num,
 			  int (*raise_pci_irq)(struct vm_device * dev, uint_t intr_line), 
+			  int (*lower_pci_irq)(struct vm_device * dev, uint_t intr_line), 
 			  struct vm_device * bridge_dev);
 
 
 int v3_pci_raise_irq(struct vm_device * pci_bus, int bus_num, struct pci_device * dev);
+int v3_pci_lower_irq(struct vm_device * pci_bus, int bus_num, struct pci_device * dev);
 
 struct pci_device * 
 v3_pci_register_device(struct vm_device * pci,
