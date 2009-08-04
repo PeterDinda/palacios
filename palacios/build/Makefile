@@ -349,6 +349,7 @@ DEVICES_OBJS := \
 	devices/net_cd.o \
 	devices/net_hd.o \
 	devices/lnx_virtio_blk.o \
+	devices/lnx_virtio_balloon.o \
 	devices/sym_swap.o \
 
 #	devices/ne2k.o	\

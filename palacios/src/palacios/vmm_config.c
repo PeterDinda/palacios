@@ -219,6 +219,7 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
 	
 
 	v3_create_device(info, "LNX_VIRTIO_BLK", "PCI");
+	v3_create_device(info, "LNX_VIRTIO_BALLOON", "PCI");
 	v3_create_device(info, "SYM_SWAP", "LNX_VIRTIO_BLK");
 
 	v3_create_device(info, "IDE", &ide_config);
