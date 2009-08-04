@@ -309,13 +309,15 @@ VMM_OBJS := \
 	palacios/vmm_lock.o \
 	palacios/vmx.o \
 	palacios/vmcs.o \
+	palacios/vmx_handler.o \
 	palacios/vmx_lowlevel.o \
+	palacios/vmxassist.o \
 	$(OBJ_FILES)
 
 
 # Extra C flags for the VMM objects
 $(VMM_OBJS) :: EXTRA_CFLAGS = \
-	$(JRLDEBUG) $(CFLAGS)\
+	$(JRLDEBUG) $(CFLAGS) -DVMXASSIST_PATH="\"../build/vmxassist\"" \
 
 
 
@@ -551,8 +553,11 @@ rombios_link:
 vgabios_link:
 	ln -s -f ../src/vmboot/vgabios/VGABIOS-lgpl-latest.bin vgabios
 
+vmxassist_link:
+	ln -s -f ../src/vmboot/vmxassist/vmxassist.bin vmxassist
 
-force_payload: rombios_link vgabios_link
+
+force_payload: rombios_link vgabios_link vmxassist_link
 	../scripts/make_payload.pl payload_layout.txt vm_kernel
 
 inter1: force_payload

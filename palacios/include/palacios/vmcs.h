@@ -204,6 +204,7 @@ typedef enum {
 int v3_vmcs_get_field_len(vmcs_field_t field);
 const char* v3_vmcs_field_to_str(vmcs_field_t field);
 void v3_print_vmcs_guest_state();
+void v3_print_vmcs_host_state();
 
 
 /* VMCS Exit QUALIFICATIONs */

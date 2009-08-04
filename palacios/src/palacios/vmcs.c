@@ -132,106 +132,44 @@ void v3_print_vmcs_guest_state()
     PrintDebug("\n");
 }
        
-/*
-void print_debug_vmcs_load_guest() {
-    const int wordsize = sizeof(addr_t);
-    uint64_t temp;
-    struct vmcs_segment_access tmp_seg;
-
-    PrintDebug("\n====== Loading Guest State ======\n");
-    PRINT_VMREAD("Guest CR0: %x\n", GUEST_CR0, wordsize);
-    PRINT_VMREAD("Guest CR3: %x\n", GUEST_CR3, wordsize);
-    PRINT_VMREAD("Guest CR4: %x\n", GUEST_CR4, wordsize);
-    PRINT_VMREAD("Guest DR7: %x\n", GUEST_DR7, wordsize);
-
-    READ_VMCS_SEG(&tmp_seg,CS,wordsize);
-    print_vmcs_segment("CS", &tmp_seg);
-    
-    READ_VMCS_SEG(&tmp_seg,SS,wordsize);
-    print_vmcs_segment("SS", &tmp_seg);
-
-    READ_VMCS_SEG(&tmp,DS,wordsize);
-    print_vmcs_segment("DS", &tmp_seg);
-
-    READ_VMCS_SEG(&tmp_seg,ES,wordsize);
-    print_vmcs_segment("ES", &tmp_seg);
-
-    READ_VMCS_SEG(&tmp_seg,FS,wordsize);
-    print_vmcs_segment("FS", &tmp_seg);
-
-    READ_VMCS_SEG(&tmp_seg,GS,wordsize);
-    print_vmcs_segment("GS", &tmp_seg);
-
-    READ_VMCS_SEG(&tmp_seg,TR,wordsize);
-    print_vmcs_segment("TR", &tmp_seg);
-
-    READ_VMCS_SEG(&tmp_seg,LDTR,wordsize);
-    print_vmcs_segment("LDTR", &tmp_seg);
-    
-    PrintDebug("\n==GDTR==\n");
-    PRINT_VMREAD("GDTR Base: %x\n", GUEST_GDTR_BASE, wordsize);
-    PRINT_VMREAD("GDTR Limit: %x\n", GUEST_GDTR_LIMIT, 32);
-    PrintDebug("====\n");
-
-    PrintDebug("\n==LDTR==\n");
-    PRINT_VMREAD("LDTR Base: %x\n", GUEST_LDTR_BASE, wordsize);
-    PRINT_VMREAD("LDTR Limit: %x\n", GUEST_LDTR_LIMIT, 32);
-    PrintDebug("=====\n");
-
-    PRINT_VMREAD("Guest RSP: %x\n", GUEST_RSP, wordsize);
-    PRINT_VMREAD("Guest RIP: %x\n", GUEST_RIP, wordsize);
-    PRINT_VMREAD("Guest RFLAGS: %x\n", GUEST_RFLAGS, wordsize);
-    PRINT_VMREAD("Guest Activity state: %x\n", GUEST_ACTIVITY_STATE, 32);
-    PRINT_VMREAD("Guest Interruptibility state: %x\n", GUEST_INT_STATE, 32);
-    PRINT_VMREAD("Guest pending debug: %x\n", GUEST_PENDING_DEBUG_EXCS, wordsize);
-
-    PRINT_VMREAD("IA32_DEBUGCTL: %x\n", GUEST_IA32_DEBUGCTL, 64);
-    PRINT_VMREAD("IA32_SYSENTER_CS: %x\n", GUEST_IA32_SYSENTER_CS, 32);
-    PRINT_VMREAD("IA32_SYSTENTER_ESP: %x\n", GUEST_IA32_SYSENTER_ESP, wordsize);
-    PRINT_VMREAD("IA32_SYSTENTER_EIP: %x\n", GUEST_IA32_SYSENTER_EIP, wordsize);
-    PRINT_VMREAD("IA32_PERF_GLOBAL_CTRL: %x\n", GUEST_IA32_PERF_GLOBAL_CTRL, wordsize);
-    PRINT_VMREAD("VMCS Link Ptr: %x\n", VMCS_LINK_PTR, 64);
-    // TODO: Maybe add VMX preemption timer and PDTE (Intel 20-8 Vol. 3b)
-}
-
-void print_debug_load_host() {
-    const int wordsize = sizeof(addr_t);
-    uint64_t temp;
-    vmcs_segment tmp_seg;
-
-    PrintDebug("\n====== Host State ========\n");
-    PRINT_VMREAD("Host CR0: %x\n", HOST_CR0, wordsize);
-    PRINT_VMREAD("Host CR3: %x\n", HOST_CR3, wordsize);
-    PRINT_VMREAD("Host CR4: %x\n", HOST_CR4, wordsize);
-    PRINT_VMREAD("Host RSP: %x\n", HOST_RSP, wordsize);
-    PRINT_VMREAD("Host RIP: %x\n", HOST_RIP, wordsize);
-    PRINT_VMREAD("IA32_SYSENTER_CS: %x\n", HOST_IA32_SYSENTER_CS, 32);
-    PRINT_VMREAD("IA32_SYSENTER_ESP: %x\n", HOST_IA32_SYSENTER_ESP, wordsize);
-    PRINT_VMREAD("IA32_SYSENTER_EIP: %x\n", HOST_IA32_SYSENTER_EIP, wordsize);
-        
-    PRINT_VMREAD("Host CS Selector: %x\n", HOST_CS_SELECTOR, 16);
-    PRINT_VMREAD("Host SS Selector: %x\n", HOST_SS_SELECTOR, 16);
-    PRINT_VMREAD("Host DS Selector: %x\n", HOST_DS_SELECTOR, 16);
-    PRINT_VMREAD("Host ES Selector: %x\n", HOST_ES_SELECTOR, 16);
-    PRINT_VMREAD("Host FS Selector: %x\n", HOST_FS_SELECTOR, 16);
-    PRINT_VMREAD("Host GS Selector: %x\n", HOST_GS_SELECTOR, 16);
-    PRINT_VMREAD("Host TR Selector: %x\n", HOST_TR_SELECTOR, 16);
-
-    PRINT_VMREAD("Host FS Base: %x\n", HOST_FS_BASE, wordsize);
-    PRINT_VMREAD("Host GS Base: %x\n", HOST_GS_BASE, wordsize);
-    PRINT_VMREAD("Host TR Base: %x\n", HOST_TR_BASE, wordsize);
-    PRINT_VMREAD("Host GDTR Base: %x\n", HOST_GDTR_BASE, wordsize);
-    PRINT_VMREAD("Host IDTR Base: %x\n", HOSE_IDTR_BASE, wordsize);
-}
-
-void print_vmcs_segment(char * name, vmcs_segment* seg)
+void v3_print_vmcs_host_state()
 {
-    PrintDebug("\n==VMCS %s Segment==\n",name);
-    PrintDebug("\tSelector: %x\n", seg->selector);
-    PrintDebug("\tBase Address: %x\n", seg->baseAddr);
-    PrintDebug("\tLimit: %x\n", seg->limit);
-    PrintDebug("\tAccess: %x\n", seg->access);
-}*/
+    PrintDebug("=== Control Fields===\n");
+    print_vmcs_field(VMCS_PIN_CTRLS);
+    print_vmcs_field(VMCS_PROC_CTRLS);
+    print_vmcs_field(VMCS_EXIT_CTRLS);
+    print_vmcs_field(VMCS_ENTRY_CTRLS);
+    print_vmcs_field(VMCS_EXCP_BITMAP);
+
+    PrintDebug("\n");
+    print_vmcs_field(VMCS_HOST_CR0);
+    print_vmcs_field(VMCS_HOST_CR3);
+    print_vmcs_field(VMCS_HOST_CR4);
+    print_vmcs_field(VMCS_HOST_RSP);
+    print_vmcs_field(VMCS_HOST_RIP);
+    print_vmcs_field(VMCS_HOST_SYSENTER_CS);
+    print_vmcs_field(VMCS_HOST_SYSENTER_ESP);
+    print_vmcs_field(VMCS_HOST_SYSENTER_EIP);
+    
+    PrintDebug("\n=== Segment Registers===\n");
+    PrintDebug("Selector:\n");
+    print_vmcs_field(VMCS_HOST_CS_SELECTOR);
+    print_vmcs_field(VMCS_HOST_SS_SELECTOR);
+    print_vmcs_field(VMCS_HOST_DS_SELECTOR);
+    print_vmcs_field(VMCS_HOST_ES_SELECTOR);
+    print_vmcs_field(VMCS_HOST_FS_SELECTOR);
+    print_vmcs_field(VMCS_HOST_GS_SELECTOR);
+    print_vmcs_field(VMCS_HOST_TR_SELECTOR);
+
+    PrintDebug("\nBase:\n");
+    print_vmcs_field(VMCS_HOST_FS_BASE);
+    print_vmcs_field(VMCS_HOST_GS_BASE);
+    print_vmcs_field(VMCS_HOST_TR_BASE);
+    print_vmcs_field(VMCS_HOST_GDTR_BASE);
+    print_vmcs_field(VMCS_HOST_IDTR_BASE);
+
+    PrintDebug("\n");
+}
 
 /*
  * Returns the field length in bytes

@@ -37,7 +37,7 @@
 
 /* Opcode definitions for all the VM instructions */
 
-#define VMCLEAR_OPCODE  ".byte 0x66,0xf,0x67;" /* reg=/6 */
+#define VMCLEAR_OPCODE  ".byte 0x66,0xf,0xc7;" /* reg=/6 */
 #define VMRESUME_OPCODE ".byte 0x0f,0x01,0xc3;"
 #define VMPTRLD_OPCODE  ".byte 0x0f,0xc7;" /* reg=/6 */
 #define VMPTRST_OPCODE  ".byte 0x0f,0xc7;" /* reg=/7 */
@@ -75,10 +75,8 @@ static inline int v3_enable_vmx(addr_t vmxon_ptr) {
     }
 }
 
-// No vmcall necessary - is only executed by the guest
-
 static inline int vmcs_clear(addr_t vmcs_ptr) {
-    uint64_t vmcs_ptr_64 = (uint64_t)vmcs_ptr;
+    uint64_t vmcs_ptr_64 __attribute__ ((aligned(8))) = (uint64_t)vmcs_ptr;
     uint8_t ret_valid = 0;
     uint8_t ret_invalid = 0;
 
@@ -95,25 +93,6 @@ static inline int vmcs_clear(addr_t vmcs_ptr) {
   
     return VMX_SUCCESS;
 }
-
-
-static inline int vmcs_resume() {
-    uint8_t ret_valid = 0;
-    uint8_t ret_invalid = 0;
-
-    __asm__ __volatile__ (
-                VMRESUME_OPCODE
-                "seteb %0;"
-                "setnaeb %1;"
-                : "=q"(ret_valid), "=q"(ret_invalid)
-                : "0"(ret_valid), "1"(ret_invalid)
-                : "memory");
-
-    CHECK_VMXFAIL(ret_valid, ret_invalid);
-
-    return VMX_SUCCESS;
-}
-
 
 static inline int vmcs_load(addr_t vmcs_ptr) {
     uint64_t vmcs_ptr_64 = (uint64_t)vmcs_ptr;

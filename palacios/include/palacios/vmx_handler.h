@@ -22,6 +22,7 @@
 
 #ifdef __V3VEE__
 
+#include <palacios/vm_guest.h>
 
 /******************************************/
 /* VMX Intercept Exit Codes               */
@@ -66,6 +67,7 @@
 #define VMEXIT_ENTRY_FAILURE_MACHINE_CHECK        41
 #define VMEXIT_TPR_BELOW_THRESHOLD                43
 
+int v3_handle_vmx_exit(struct guest_info * info);
 
 #endif
 
