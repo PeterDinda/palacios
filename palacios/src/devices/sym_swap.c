@@ -21,7 +21,7 @@
 #include <palacios/vmm_dev_mgr.h>
 #include <devices/lnx_virtio_blk.h>
 
-#define SWAP_CAPACITY (4096 * HD_SECTOR_SIZE)
+#define SWAP_CAPACITY (150 * 1024 * 1024)
 
 struct swap_state {
     
@@ -39,6 +39,8 @@ static uint64_t swap_get_capacity(void * private_data) {
     struct vm_device * dev = (struct vm_device *)private_data;
     struct swap_state * swap = (struct swap_state *)(dev->private_data);
 
+    PrintDebug("SymSwap: Getting Capacity %d\n", (uint32_t)(swap->capacity));
+
     return swap->capacity / HD_SECTOR_SIZE;
 }
 
@@ -48,7 +50,8 @@ static int swap_read(uint8_t * buf, int sector_count, uint64_t lba,  void * priv
     int offset = lba * HD_SECTOR_SIZE;
     int length = sector_count * HD_SECTOR_SIZE;
 
-    PrintDebug("SymSwap: Reading %d bytes\n", length);
+    PrintDebug("SymSwap: Reading %d bytes to %p from %p\n", length,
+	       buf, (void *)(swap->swap_space + offset));
 
     memcpy(buf, swap->swap_space + offset, length);
 
@@ -61,7 +64,8 @@ static int swap_write(uint8_t * buf, int sector_count, uint64_t lba, void * priv
     int offset = lba * HD_SECTOR_SIZE;
     int length = sector_count * HD_SECTOR_SIZE;
 
-    PrintDebug("SymSwap: Writing %d bytes\n", length);
+    PrintDebug("SymSwap: Writing %d bytes to %p from %p\n", length, 
+	       (void *)(swap->swap_space + offset), buf);
 
     memcpy(swap->swap_space + offset, buf, length);
 
@@ -115,6 +119,8 @@ static int swap_init(struct guest_info * vm, void * cfg_data) {
 
     swap->swap_base_addr = (addr_t)V3_AllocPages(swap->capacity / 4096);
     swap->swap_space = (uint8_t *)V3_VAddr((void *)(swap->swap_base_addr));
+    memset(swap->swap_space, 0, SWAP_CAPACITY);
+
 
     struct vm_device * dev = v3_allocate_device("SYM_SWAP", &dev_ops, swap);
 
