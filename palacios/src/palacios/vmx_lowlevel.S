@@ -114,9 +114,9 @@ v3_vmx_vmresume:
 
     vmresume
 
-    addq $8, %rsp
     jz .Lfail_valid
     jc .Lfail_invalid
+    addq $8, %rsp
     jmp .Lreturn
 
 .align 8
@@ -150,24 +150,24 @@ v3_vmx_vmlaunch:
 .Lfail_valid:
     addq $8, %rsp
     POPA
+    popf
     movq $VMX_FAIL_VALID, %rax
     jmp .Lreturn
 
 .Lfail_invalid:
     addq $8, %rsp
     POPA
+    popf
     movq $VMX_FAIL_INVALID, %rax
     jmp .Lreturn
 
 .Lvmm_failure:
     addq $8, %rsp
-    POPA
     movq $VMM_FAILURE, %rax
     jmp .Lreturn
 
 .Lreturn:
     sti
-    popf
     ret
     
 #else
@@ -222,10 +222,10 @@ v3_vmx_vmlaunch:
 .globl v3_vmx_exit_handler
 v3_vmx_exit_handler:
     save_registers(4(%esp))
-    addl $8, %rsp
+    addl $8, %esp
     POPA
     popf
-    pushl %rdi
+    pushl %edi
     call v3_handle_vmx_exit
 
     andl %eax, %eax

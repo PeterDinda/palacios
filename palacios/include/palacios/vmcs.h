@@ -92,6 +92,8 @@ typedef enum {
     VMCS_TSC_OFFSET_HIGH              = 0x00002011,
     VMCS_VAPIC_ADDR                   = 0x00002012,
     VMCS_VAPIC_ADDR_HIGH              = 0x00002013,
+    VMCS_APIC_ACCESS_ADDR             = 0x00002014,
+    VMCS_APIC_ACCESS_ADDR_HIGH        = 0x00002015,
     /* 64 bit guest state fields */
     VMCS_LINK_PTR                     = 0x00002800,
     VMCS_LINK_PTR_HIGH                = 0x00002801,
@@ -99,6 +101,9 @@ typedef enum {
     VMCS_GUEST_DBG_CTL_HIGH          = 0x00002803,
     VMCS_GUEST_PERF_GLOBAL_CTRL       = 0x00002808,
     VMCS_GUEST_PERF_GLOBAL_CTRL_HIGH  = 0x00002809,
+
+    VMCS_HOST_PERF_GLOBAL_CTRL        = 0x00002c04,
+    VMCS_HOST_PERF_GLOBAL_CTRL_HIGH   = 0x00002c05,
     /* 32 bit control fields */
     VMCS_PIN_CTRLS                    = 0x00004000,
     VMCS_PROC_CTRLS                   = 0x00004002,
@@ -115,6 +120,7 @@ typedef enum {
     VMCS_ENTRY_EXCP_ERR               = 0x00004018,
     VMCS_ENTRY_INSTR_LEN              = 0x0000401A,
     VMCS_TPR_THRESHOLD                = 0x0000401C,
+    VMCS_SEC_PROC_CTRLS               = 0x0000401e,
     /* 32 bit Read Only data fields */
     VMCS_INSTR_ERR                    = 0x00004400,
     VMCS_EXIT_REASON                  = 0x00004402,
@@ -203,8 +209,8 @@ typedef enum {
 
 int v3_vmcs_get_field_len(vmcs_field_t field);
 const char* v3_vmcs_field_to_str(vmcs_field_t field);
-void v3_print_vmcs_guest_state();
-void v3_print_vmcs_host_state();
+void v3_print_vmcs();
+
 
 
 /* VMCS Exit QUALIFICATIONs */

@@ -20,10 +20,43 @@
 #include <palacios/vmx_handler.h>
 #include <palacios/vmm_types.h>
 #include <palacios/vmm.h>
+#include <palacios/vmcs.h>
+#include <palacios/vmx_lowlevel.h>
 
 
-int v3_handle_vmx_exit(struct guest_info * info)
+static int inline check_vmcs_write(vmcs_field_t field, addr_t val)
 {
-    PrintDebug("VMX Exit taken!\n");
+    int ret = 0;
+    ret = vmcs_write(field,val);
+
+    if (ret != VMX_SUCCESS) {
+        PrintError("VMWRITE error on %s!: %d\n", v3_vmcs_field_to_str(field), ret);
+        return 1;
+    }
+
     return 0;
+}
+
+static int inline check_vmcs_read(vmcs_field_t field, void * val)
+{
+    int ret = 0;
+    ret = vmcs_read(field,val);
+
+    if(ret != VMX_SUCCESS) {
+        PrintError("VMREAD error on %s!: %d\n", v3_vmcs_field_to_str(field), ret);
+        return 1;
+    }
+
+    return 0;
+}
+
+int v3_handle_vmx_exit(struct v3_gprs * gprs)
+{
+    uint32_t exit_reason;
+    ulong_t exit_qual;
+
+    check_vmcs_read(VMCS_EXIT_REASON, &exit_reason);
+    check_vmcs_read(VMCS_EXIT_QUAL, &exit_qual);
+    PrintDebug("VMX Exit taken, id-qual: %x-%ld\n", exit_reason, exit_qual);
+    return -1;
 }
