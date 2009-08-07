@@ -28,8 +28,8 @@
 #include <palacios/vmm_lowlevel.h>
 
 
-/* These should be the only global variables in Palacios */
-/* They are architecture specific variables */
+
+
 v3_cpu_arch_t v3_cpu_type;
 struct v3_os_hooks * os_hooks = NULL;
 
@@ -101,3 +101,31 @@ v3_cpu_mode_t v3_get_host_cpu_mode() {
 
 #endif 
 
+
+#define V3_Yield(addr)					\
+    do {						\
+	extern struct v3_os_hooks * os_hooks;		\
+	if ((os_hooks) && (os_hooks)->yield_cpu) {	\
+	    (os_hooks)->yield_cpu();			\
+	}						\
+    } while (0)						\
+
+
+void v3_yield_cond(struct guest_info * info) {
+    uint64_t cur_cycle;
+    rdtscll(cur_cycle);
+
+    if (cur_cycle > (info->yield_start_cycle + info->yield_cycle_period)) {
+
+	PrintDebug("Conditional Yield (cur_cyle=%p, start_cycle=%p, period=%p)\n", 
+		   (void *)cur_cycle, (void *)info->yield_start_cycle, (void *)info->yield_cycle_period);
+
+	V3_Yield();
+	rdtscll(info->yield_start_cycle);
+    }
+}
+
+void v3_yield(struct guest_info * info) {
+    V3_Yield();
+    rdtscll(info->yield_start_cycle);
+}

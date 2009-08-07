@@ -104,6 +104,14 @@ int v3_pre_config_guest(struct guest_info * info, struct v3_vm_config * config_p
 	info->enable_profiler = 0;
     }
 
+    if (config_ptr->schedule_freq == 0) {
+	// set the schedule frequency to 100 HZ
+	config_ptr->schedule_freq = 100;
+    }
+
+    PrintDebug("CPU_KHZ = %d, schedule_freq=%p\n", V3_CPU_KHZ(), (void *)config_ptr->schedule_freq);
+
+    info->yield_cycle_period = (V3_CPU_KHZ() * 1000) / config_ptr->schedule_freq;
     
     // Initial CPU operating mode
     info->cpu_mode = REAL;

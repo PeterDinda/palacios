@@ -33,9 +33,9 @@
 // This should trigger a #GP if cpl!=0, otherwise, yield to host
 //
 
-int v3_handle_svm_halt(struct guest_info * info)
-{
-    if (info->cpl!=0) { 
+int v3_handle_svm_halt(struct guest_info * info) {
+
+    if (info->cpl != 0) { 
 	v3_raise_exception(info, GPF_EXCEPTION);
     } else {
     
@@ -46,19 +46,20 @@ int v3_handle_svm_halt(struct guest_info * info)
 	PrintDebug("CPU Yield\n");
 	
 	rdtscll(yield_start);
-	V3_Yield();
+	v3_yield(info);
 	rdtscll(yield_stop);
     
     
 	//v3_update_time(info, yield_stop - yield_start);
 	gap = yield_stop - yield_start;
-	if (!v3_intr_pending(info)) {
-	    v3_raise_irq(info, 0);
-	}
+
+	v3_raise_irq(info, 0);
+
 	
 	PrintDebug("CPU Yield Done (%d cycles)\n", gap);
 	
 	info->rip+=1;
     }
+
     return 0;
 }
