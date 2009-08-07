@@ -117,9 +117,10 @@ void v3_yield_cond(struct guest_info * info) {
 
     if (cur_cycle > (info->yield_start_cycle + info->yield_cycle_period)) {
 
-	PrintDebug("Conditional Yield (cur_cyle=%p, start_cycle=%p, period=%p)\n", 
-		   (void *)cur_cycle, (void *)info->yield_start_cycle, (void *)info->yield_cycle_period);
-
+	/*
+	  PrintDebug("Conditional Yield (cur_cyle=%p, start_cycle=%p, period=%p)\n", 
+	  (void *)cur_cycle, (void *)info->yield_start_cycle, (void *)info->yield_cycle_period);
+	*/
 	V3_Yield();
 	rdtscll(info->yield_start_cycle);
     }
