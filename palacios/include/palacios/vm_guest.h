@@ -163,6 +163,10 @@ struct guest_info {
     v3_vm_operating_mode_t run_state;
     void * vmm_data;
 
+    uint64_t yield_cycle_period;
+    uint64_t yield_start_cycle;
+    
+
 
     uint_t enable_profiler;
     struct v3_profiler profiler;

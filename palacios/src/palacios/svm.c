@@ -277,10 +277,14 @@ static int start_svm_guest(struct guest_info *info) {
     //PrintDebugVMCB((vmcb_t*)(info->vmm_data));
     
     info->run_state = VM_RUNNING;
-    
+    rdtscll(info->yield_start_cycle);
+
+
     while (1) {
 	ullong_t tmp_tsc;
 	
+	// Conditionally yield the CPU if the timeslice has expired
+	v3_yield_cond(info);
 
 	/*
 	  PrintDebug("SVM Entry to CS=%p  rip=%p...\n", 
@@ -289,6 +293,7 @@ static int start_svm_guest(struct guest_info *info) {
 	*/
 
 	// disable global interrupts for vm state transition
+
 	v3_clgi();
 
 
@@ -318,6 +323,9 @@ static int start_svm_guest(struct guest_info *info) {
 	}
 
      
+	// Conditionally yield the CPU if the timeslice has expired
+	v3_yield_cond(info);
+
 	if (v3_handle_svm_exit(info) != 0) {
 	    vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
 	    addr_t host_addr;

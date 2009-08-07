@@ -188,18 +188,9 @@
     } while (0)
 
 
-#define V3_Yield(addr)					\
-    do {						\
-	extern struct v3_os_hooks * os_hooks;		\
-	if ((os_hooks) && (os_hooks)->yield_cpu) {	\
-	    (os_hooks)->yield_cpu();			\
-	}						\
-    } while (0)						\
-							\
-							\
-							\
-							\
-							\
+
+
+
 /* ** */
 
 #define V3_ASSERT(x)							\
@@ -225,6 +216,9 @@ typedef enum v3_cpu_arch {V3_INVALID_CPU, V3_SVM_CPU, V3_SVM_REV3_CPU, V3_VMX_CP
 
 
 v3_cpu_mode_t v3_get_host_cpu_mode();
+
+void v3_yield(struct guest_info * info);
+void v3_yield_cond(struct guest_info * info);
 
 
 #endif //!__V3VEE__
@@ -302,6 +296,8 @@ struct v3_vm_config {
     int enable_pci;
 
     int enable_swap;
+
+    unsigned long schedule_freq; // in HZ
 
     v3_disk_type_t pri_disk_type;
     v3_disk_connection_t pri_disk_con;
