@@ -126,7 +126,7 @@ static inline int vmcs_store(addr_t vmcs_ptr) {
     return VMX_SUCCESS;
 }
 
-static inline int vmcs_read(vmcs_field_t vmcs_field, void * dst, int len) {
+static inline int vmcs_read(vmcs_field_t vmcs_field, void * dst) {
     uint64_t val = 0;
     uint8_t ret_valid = 0;
     uint8_t ret_invalid = 0;
@@ -143,7 +143,7 @@ static inline int vmcs_read(vmcs_field_t vmcs_field, void * dst, int len) {
 
     CHECK_VMXFAIL(ret_valid, ret_invalid);
 
-    switch(len)
+    switch(v3_vmcs_get_field_len(vmcs_field))
     {
         case 2:
             *((uint16_t*)dst) = (uint16_t)val;
