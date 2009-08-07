@@ -27,6 +27,11 @@
 #include <devices/pci.h>
 
 
+#ifndef DEBUG_VIRTIO_BLK
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
+#endif
+
 #define BLK_CAPACITY_PORT     20
 #define BLK_MAX_SIZE_PORT     28
 #define BLK_MAX_SEG_PORT      32
@@ -113,8 +118,9 @@ static int virtio_reset(struct vm_device * dev) {
     return 0;
 }
 
-static int handle_read_op(struct vm_device * dev, uint8_t * buf, uint64_t sector, uint32_t len) {
+static int handle_read_op(struct vm_device * dev, uint8_t * buf, uint64_t * sector, uint32_t len) {
     struct virtio_blk_state * virtio = (struct virtio_blk_state *)dev->private_data; 
+    int ret = -1;
 
     if (virtio->block_type == BLOCK_DISK) {
 	if (len % HD_SECTOR_SIZE) {
@@ -124,25 +130,29 @@ static int handle_read_op(struct vm_device * dev, uint8_t * buf, uint64_t sector
 
 
 	PrintDebug("Reading Disk\n");
+	    
+	ret = virtio->hd_ops->read(buf, len / HD_SECTOR_SIZE, *sector, virtio->backend_data);
 
-	return virtio->hd_ops->read(buf, len / HD_SECTOR_SIZE, sector / HD_SECTOR_SIZE, virtio->backend_data);
+	*sector += len / HD_SECTOR_SIZE;
+
     } else if (virtio->block_type == BLOCK_CDROM) {
 	if (len % ATAPI_BLOCK_SIZE) {
 	    PrintError("Write of something that is not an ATAPI block len %d, mod=%d\n", len, len % ATAPI_BLOCK_SIZE);
 	    return -1;
 	}
 
-	return virtio->cd_ops->read(buf, len / ATAPI_BLOCK_SIZE, sector / ATAPI_BLOCK_SIZE, virtio->backend_data);
+	ret = virtio->cd_ops->read(buf, len / ATAPI_BLOCK_SIZE, *sector , virtio->backend_data);
 
+	*sector += len / ATAPI_BLOCK_SIZE;
     }
 
-    return -1;
+    return ret;
 }
 
 
-static int handle_write_op(struct vm_device * dev, uint8_t * buf, uint64_t sector, uint32_t len) {
+static int handle_write_op(struct vm_device * dev, uint8_t * buf, uint64_t * sector, uint32_t len) {
     struct virtio_blk_state * virtio = (struct virtio_blk_state *)dev->private_data; 
-
+    int ret = -1;
 
     if (virtio->block_type == BLOCK_DISK) {
 	if (len % HD_SECTOR_SIZE) {
@@ -152,12 +162,17 @@ static int handle_write_op(struct vm_device * dev, uint8_t * buf, uint64_t secto
 
 	PrintDebug("Writing Disk\n");
 
-	return virtio->hd_ops->write(buf, len / HD_SECTOR_SIZE, sector / HD_SECTOR_SIZE, virtio->backend_data);
+	ret = virtio->hd_ops->write(buf, len / HD_SECTOR_SIZE, *sector, virtio->backend_data);
+
+	*sector += len / HD_SECTOR_SIZE;	
     }
 
-    return -1;
+    return ret;
 }
 
+
+
+// multiple block operations need to increment the sector 
 
 static int handle_block_op(struct vm_device * dev, struct blk_op_hdr * hdr, 
 			   struct vring_desc * buf_desc, uint8_t * status) {
@@ -178,8 +193,9 @@ static int handle_block_op(struct vm_device * dev, struct blk_op_hdr * hdr,
 
     if (hdr->type == BLK_IN_REQ) {
 	if (virtio->block_type != BLOCK_NONE) {
-	    if (handle_read_op(dev, buf, hdr->sector, buf_desc->length) == -1) {
+	    if (handle_read_op(dev, buf, &(hdr->sector), buf_desc->length) == -1) {
 		*status = BLK_STATUS_ERR;
+		return -1;
 	    } else {
 		*status = BLK_STATUS_OK;
 	    }
@@ -189,18 +205,24 @@ static int handle_block_op(struct vm_device * dev, struct blk_op_hdr * hdr,
 
     } else if (hdr->type == BLK_OUT_REQ) {
 	if (virtio->block_type == BLOCK_DISK) {
-	    if (handle_write_op(dev, buf, hdr->sector, buf_desc->length) == -1) {
+	    if (handle_write_op(dev, buf, &(hdr->sector), buf_desc->length) == -1) {
 		*status = BLK_STATUS_ERR;
+		return -1;
 	    } else {
 		*status = BLK_STATUS_OK;
 	    }
+
 	} else {
 	    *status = BLK_STATUS_NOT_SUPPORTED;
 	}
+
     } else if (hdr->type == BLK_SCSI_CMD) {
-	PrintDebug("VIRTIO: SCSI Command Not supported!!!\n");
+	PrintError("VIRTIO: SCSI Command Not supported!!!\n");
 	*status = BLK_STATUS_NOT_SUPPORTED;
+	return -1;
     }
+
+
 
     PrintDebug("Returning Status: %d\n", *status);
 
@@ -232,7 +254,8 @@ static int handle_kick(struct vm_device * dev) {
 	struct vring_desc * hdr_desc = NULL;
 	struct vring_desc * buf_desc = NULL;
 	struct vring_desc * status_desc = NULL;
-	struct blk_op_hdr * hdr = NULL;
+	struct blk_op_hdr hdr;
+	addr_t hdr_addr = 0;
 	uint16_t desc_idx = q->avail->ring[q->cur_avail_idx % QUEUE_SIZE];
 	int desc_cnt = get_desc_count(q, desc_idx);
 	int i = 0;
@@ -253,10 +276,15 @@ static int handle_kick(struct vm_device * dev) {
 	PrintDebug("Header Descriptor (ptr=%p) gpa=%p, len=%d, flags=%x, next=%d\n", hdr_desc, 
 		   (void *)(hdr_desc->addr_gpa), hdr_desc->length, hdr_desc->flags, hdr_desc->next);	
 
-	if (guest_pa_to_host_va(dev->vm, hdr_desc->addr_gpa, (addr_t *)&(hdr)) == -1) {
+	if (guest_pa_to_host_va(dev->vm, hdr_desc->addr_gpa, &(hdr_addr)) == -1) {
 	    PrintError("Could not translate block header address\n");
 	    return -1;
 	}
+
+	// We copy the block op header out because we are going to modify its contents
+	memcpy(&hdr, (void *)hdr_addr, sizeof(struct blk_op_hdr));
+	
+	PrintDebug("Blk Op Hdr (ptr=%p) type=%d, sector=%p\n", (void *)hdr_addr, hdr.type, (void *)hdr.sector);
 
 	desc_idx = hdr_desc->next;
 
@@ -268,7 +296,7 @@ static int handle_kick(struct vm_device * dev) {
 	    PrintDebug("Buffer Descriptor (ptr=%p) gpa=%p, len=%d, flags=%x, next=%d\n", buf_desc, 
 		       (void *)(buf_desc->addr_gpa), buf_desc->length, buf_desc->flags, buf_desc->next);
 
-	    if (handle_block_op(dev, hdr, buf_desc, &tmp_status) == -1) {
+	    if (handle_block_op(dev, &hdr, buf_desc, &tmp_status) == -1) {
 		PrintError("Error handling block operation\n");
 		return -1;
 	    }
@@ -294,8 +322,8 @@ static int handle_kick(struct vm_device * dev) {
 	req_len += status_desc->length;
 	*status_ptr = status;
 
-	q->used->ring[q->used->index].id = q->avail->ring[q->cur_avail_idx % QUEUE_SIZE];
-	q->used->ring[q->used->index].length = req_len; // What do we set this to????
+	q->used->ring[q->used->index % QUEUE_SIZE].id = q->avail->ring[q->cur_avail_idx % QUEUE_SIZE];
+	q->used->ring[q->used->index % QUEUE_SIZE].length = req_len; // What do we set this to????
 
 	q->used->index++;
 	q->cur_avail_idx++;

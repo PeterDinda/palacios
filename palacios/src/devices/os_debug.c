@@ -55,16 +55,24 @@ static int handle_hcall(struct guest_info * info, uint_t hcall_id, void * priv_d
 
     int msg_len = info->vm_regs.rcx;
     addr_t msg_gpa = info->vm_regs.rbx;
-    
+    int buf_is_va = info->vm_regs.rdx;
+
     if (msg_len >= BUF_SIZE) {
 	PrintError("Console message too large for buffer (len=%d)\n", msg_len);
 	return -1;
     }
-    
-    if (read_guest_pa_memory(info, msg_gpa, msg_len, (uchar_t *)state->debug_buf) != msg_len) {
-	PrintError("Could not read debug message\n");
-	return -1;
-    }
+
+    if (buf_is_va == 1) {
+	if (read_guest_va_memory(info, msg_gpa, msg_len, (uchar_t *)state->debug_buf) != msg_len) {
+	    PrintError("Could not read debug message\n");
+	    return -1;
+	}
+    } else {
+	if (read_guest_pa_memory(info, msg_gpa, msg_len, (uchar_t *)state->debug_buf) != msg_len) {
+	    PrintError("Could not read debug message\n");
+	    return -1;
+	}
+    }	
 
     state->debug_buf[msg_len] = 0;
 

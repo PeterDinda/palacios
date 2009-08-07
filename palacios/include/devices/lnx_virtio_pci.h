@@ -67,6 +67,13 @@
 /* This means don't interrupt guest when buffer consumed. */
 #define VIRTIO_NO_IRQ_FLAG      0x1
 
+
+/* ISR Flags */
+#define VIRTIO_ISR_ACTIVE 0x1
+#define VIRTIO_ISR_CFG_CHANGED 0x2
+
+
+
 /* The virtio configuration space is a hybrid io/memory mapped model 
  * All IO is done via IO port accesses
  * The IO ports access fields in a virtio data structure, and the base io port 

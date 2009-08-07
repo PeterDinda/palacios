@@ -31,7 +31,8 @@
 
 #define PAGE_SIZE 4096
 
-#define BALLOON_HCALL 0xba00
+#define BALLOON_START_HCALL 0xba00 // size in rax
+#define BALLOON_QUERY_HCALL 0xba01 // req_pgs in rcx, alloc_pgs in rdx
 
 struct balloon_config {
     uint32_t requested_pages;
@@ -43,13 +44,16 @@ struct balloon_config {
 /* How this works:
  * A ballooning request is made by specifying the new memory size of the guest. The guest 
  * will then shrink the amount of of memory it uses to target. The target size is stored in the 
- * Virtio PCI configuration space in the requested pages field. The device raises its irq, to notify the guest
+ * Virtio PCI configuration space in the requested pages field. 
+ * The device raises its irq, to notify the guest
  * 
  * The guest might not be able to shrink to target, so it stores the size it was able to shrink to 
  * into the allocate_pages field of the pci configuration space.
  * 
- * When the guest frees pages it writes the addresses to the deflation queue (the 2nd one), and does a kick.
- * When pages are given back to the host they are fed in via the inflation queue (the 1st one), and raises an irq.
+ * When the guest frees pages it writes the addresses to the deflation queue (the 2nd one), 
+ * and does a kick.
+ * When pages are given back to the host they are fed in via the inflation queue (the 1st one), 
+ * and raises an irq.
  */
 
 
@@ -57,9 +61,6 @@ struct balloon_config {
 
 /* Host Feature flags */
 #define VIRTIO_NOTIFY_HOST       0x01     
-
-
-
 
 
 struct virtio_balloon_state {
@@ -107,87 +108,77 @@ static int virtio_reset(struct vm_device * dev) {
     return 0;
 }
 
+static int get_desc_count(struct virtio_queue * q, int index) {
+    struct vring_desc * tmp_desc = &(q->desc[index]);
+    int cnt = 1;
+    
+    while (tmp_desc->flags & VIRTIO_NEXT_FLAG) {
+	tmp_desc = &(q->desc[tmp_desc->next]);
+	cnt++;
+    }
 
+    return cnt;
+}
 
 
 static int handle_kick(struct vm_device * dev) {
     struct virtio_balloon_state * virtio = (struct virtio_balloon_state *)dev->private_data;    
     struct virtio_queue * q = virtio->cur_queue;
 
-    PrintDebug("VIRTIO KICK: cur_index=%d, avail_index=%d\n", q->cur_avail_idx, q->avail->index);
+    PrintDebug("VIRTIO BALLOON KICK: cur_index=%d (mod=%d), avail_index=%d\n", 
+	       q->cur_avail_idx, q->cur_avail_idx % QUEUE_SIZE, q->avail->index);
 
     while (q->cur_avail_idx < q->avail->index) {
-	struct vring_desc * hdr_desc = NULL;
-	struct vring_desc * buf_desc = NULL;
-	struct vring_desc * status_desc = NULL;
-	uint16_t chain_idx = q->avail->ring[q->cur_avail_idx];
+	struct vring_desc * tmp_desc = NULL;
+	uint16_t desc_idx = q->avail->ring[q->cur_avail_idx % QUEUE_SIZE];
+	int desc_cnt = get_desc_count(q, desc_idx);
+	int i = 0;
 	uint32_t req_len = 0;
-	int chained = 1;
 
-	PrintDebug("chained=%d, Chain Index=%d\n", chained, chain_idx);
 
-	while (chained) {
-	    hdr_desc = &(q->desc[chain_idx]);
+	PrintDebug("Descriptor Count=%d, index=%d\n", desc_cnt, q->cur_avail_idx % QUEUE_SIZE);
+
+	for (i = 0; i < desc_cnt; i++) {
+	    addr_t page_addr;
+	    tmp_desc = &(q->desc[desc_idx]);
 	    
-	    PrintDebug("Header Descriptor (ptr=%p) gpa=%p, len=%d, flags=%x, next=%d\n", hdr_desc, 
-		       (void *)(hdr_desc->addr_gpa), hdr_desc->length, hdr_desc->flags, hdr_desc->next);
+	    PrintDebug("Header Descriptor (ptr=%p) gpa=%p, len=%d, flags=%x, next=%d\n", tmp_desc, 
+		       (void *)(tmp_desc->addr_gpa), tmp_desc->length, 
+		       tmp_desc->flags, tmp_desc->next);
 	
-	    if (!(hdr_desc->flags & VIRTIO_NEXT_FLAG)) {
-		PrintError("Balloon operations must chain a buffer descriptor\n");
+
+	    if (guest_pa_to_host_va(dev->vm, tmp_desc->addr_gpa, (addr_t *)&(page_addr)) == -1) {
+		PrintError("Could not translate block header address\n");
 		return -1;
 	    }
-
-	    buf_desc = &(q->desc[hdr_desc->next]);
-	    
-	    PrintDebug("Buffer Descriptor (ptr=%p) gpa=%p, len=%d, flags=%x, next=%d\n", buf_desc, 
-		       (void *)(buf_desc->addr_gpa), buf_desc->length, buf_desc->flags, buf_desc->next);
-	    
-	    if (!(buf_desc->flags & VIRTIO_NEXT_FLAG)) {
-		PrintError("Balloon operatoins must chain a status descriptor\n");
-		return -1;
-	    }
-	    
-	    status_desc = &(q->desc[buf_desc->next]);
-
-	    // We detect whether we are chained here...
-	    if (status_desc->flags & VIRTIO_NEXT_FLAG) {
-		chained = 1;
-		chain_idx = status_desc->next; 
-	    } else {
-		chained = 0;
-	    }
-
-	    PrintDebug("Status Descriptor (ptr=%p) gpa=%p, len=%d, flags=%x, next=%d\n", status_desc, 
-		       (void *)(status_desc->addr_gpa), status_desc->length, status_desc->flags, status_desc->next);
-	    
 
 	    /* 	    
-	       if (handle_balloon_op(dev, hdr_desc, buf_desc, status_desc) == -1) {
+	       if (handle_balloon_op(dev, tmp_desc, buf_desc, status_desc) == -1) {
 	       PrintError("Error handling balloon operation\n");
 	       return -1;
 	       }
 	    */
 
 	    PrintDebug("Guest Balloon Currently Ignored\n");
-	    PrintDebug("\t Requested=%d, Allocated=%d\n", virtio->balloon_cfg.requested_pages, virtio->balloon_cfg.allocated_pages);
+	    PrintDebug("\t Requested=%d, Allocated=%d\n", 
+		       virtio->balloon_cfg.requested_pages, 
+		       virtio->balloon_cfg.allocated_pages);
 
-
-	    req_len += (buf_desc->length + status_desc->length);
+	    req_len += tmp_desc->length;
+	    desc_idx = tmp_desc->next;
 	}
 
-	q->used->ring[q->used->index].id = q->avail->ring[q->cur_avail_idx];
-	q->used->ring[q->used->index].length = req_len; // What do we set this to????
+	q->used->ring[q->used->index % QUEUE_SIZE].id = q->avail->ring[q->cur_avail_idx % QUEUE_SIZE];
+	q->used->ring[q->used->index % QUEUE_SIZE].length = req_len; // What do we set this to????
 
-	q->used->index = (q->used->index + 1) % (QUEUE_SIZE * sizeof(struct vring_desc));;
-
-
-	q->cur_avail_idx = (q->cur_avail_idx + 1) % (QUEUE_SIZE * sizeof(struct vring_desc));
+	q->used->index++;
+	q->cur_avail_idx++;
     }
 
     if (!(q->avail->flags & VIRTIO_NO_IRQ_FLAG)) {
 	PrintDebug("Raising IRQ %d\n",  virtio->pci_dev->config_header.intr_line);
 	v3_pci_raise_irq(virtio->pci_bus, 0, virtio->pci_dev);
-	virtio->virtio_cfg.pci_isr = 1;
+	virtio->virtio_cfg.pci_isr = VIRTIO_ISR_ACTIVE;
     }
 
     return 0;
@@ -356,9 +347,10 @@ static int virtio_io_read(uint16_t port, void * dst, uint_t length, struct vm_de
 	default:
 	    if ( (port_idx >= sizeof(struct virtio_config)) && 
 		 (port_idx < (sizeof(struct virtio_config) + sizeof(struct balloon_config))) ) {
-
+		int cfg_offset = port_idx - sizeof(struct virtio_config);
 		uint8_t * cfg_ptr = (uint8_t *)&(virtio->balloon_cfg);
-		memcpy(dst, cfg_ptr, length);
+
+		memcpy(dst, cfg_ptr + cfg_offset, length);
 		
 	    } else {
 		PrintError("Read of Unhandled Virtio Read\n");
@@ -386,7 +378,11 @@ static int set_size(struct vm_device * dev, addr_t size) {
     struct virtio_balloon_state * virtio = (struct virtio_balloon_state *)dev->private_data;
 
     virtio->balloon_cfg.requested_pages = size / PAGE_SIZE; // number of pages
+
+    PrintDebug("Requesting %d pages\n", virtio->balloon_cfg.requested_pages);
+
     v3_pci_raise_irq(virtio->pci_bus, 0, virtio->pci_dev);
+    virtio->virtio_cfg.pci_isr = VIRTIO_ISR_ACTIVE | VIRTIO_ISR_CFG_CHANGED;
     
     return 0;
 }
@@ -398,6 +394,19 @@ static int handle_hcall(struct guest_info * info, uint_t hcall_id, void * priv_d
 
     
     return set_size(dev, tgt_size);
+}
+
+
+
+static int handle_query_hcall(struct guest_info * info, uint_t hcall_id, void * priv_data) {
+    struct vm_device * dev = (struct vm_device *)priv_data;
+    struct virtio_balloon_state * virtio = (struct virtio_balloon_state *)dev->private_data;
+    
+    info->vm_regs.rcx = virtio->balloon_cfg.requested_pages;
+    info->vm_regs.rdx = virtio->balloon_cfg.allocated_pages;
+
+    
+    return 0;
 }
 
 
@@ -497,7 +506,8 @@ static int virtio_init(struct guest_info * vm, void * cfg_data) {
 
     virtio_reset(dev);
 
-    v3_register_hypercall(vm, BALLOON_HCALL, handle_hcall, dev);
+    v3_register_hypercall(vm, BALLOON_START_HCALL, handle_hcall, dev);
+    v3_register_hypercall(vm, BALLOON_QUERY_HCALL, handle_query_hcall, dev);
 
     return 0;
 }

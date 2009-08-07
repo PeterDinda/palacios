@@ -357,28 +357,35 @@ static int reset_piix3(struct vm_device * dev) {
     return 0;
 }
 
-static int raise_pci_irq(struct vm_device * dev, uint_t intr_pin) {
-    struct v3_southbridge * piix3 = (struct v3_southbridge *)(dev->private_data);
-    struct pci_device * pci_dev = piix3->southbridge_pci;
-    struct piix3_config_space * piix3_cfg = (struct piix3_config_space *)(pci_dev->config_data);
 
-    PrintError("Raising PCI IRQ %d\n", piix3_cfg->pirq_rc[intr_pin]);
+//irq is pirq_rc[intr_pin + pci_dev_num - 1] & 0x3
+
+static int raise_pci_irq(struct vm_device * dev, struct pci_device * pci_dev) {
+    struct v3_southbridge * piix3 = (struct v3_southbridge *)(dev->private_data);
+    struct pci_device * piix3_pci = piix3->southbridge_pci;
+    struct piix3_config_space * piix3_cfg = (struct piix3_config_space *)(piix3_pci->config_data);
+    int intr_pin = pci_dev->config_header.intr_pin - 1;
+    int irq_index = (intr_pin + pci_dev->dev_num - 1) & 0x3;
     
-    v3_raise_irq(dev->vm, piix3_cfg->pirq_rc[intr_pin]);
+    PrintError("Raising PCI IRQ %d\n", piix3_cfg->pirq_rc[irq_index]);
+    
+    v3_raise_irq(dev->vm, piix3_cfg->pirq_rc[irq_index]);
 
     return 0;
 }
 
 
 
-static int lower_pci_irq(struct vm_device * dev, uint_t intr_pin) {
+static int lower_pci_irq(struct vm_device * dev, struct pci_device * pci_dev) {
     struct v3_southbridge * piix3 = (struct v3_southbridge *)(dev->private_data);
-    struct pci_device * pci_dev = piix3->southbridge_pci;
-    struct piix3_config_space * piix3_cfg = (struct piix3_config_space *)(pci_dev->config_data);
-
-    PrintError("Lowering PCI IRQ %d\n", piix3_cfg->pirq_rc[intr_pin]);
+    struct pci_device * piix3_pci = piix3->southbridge_pci;
+    struct piix3_config_space * piix3_cfg = (struct piix3_config_space *)(piix3_pci->config_data);
+    int intr_pin = pci_dev->config_header.intr_pin - 1;
+    int irq_index = (intr_pin + pci_dev->dev_num - 1) & 0x3;
     
-    v3_lower_irq(dev->vm, piix3_cfg->pirq_rc[intr_pin]);
+    PrintError("Lowering PCI IRQ %d\n", piix3_cfg->pirq_rc[irq_index]);
+    
+    v3_lower_irq(dev->vm, piix3_cfg->pirq_rc[irq_index]);
 
     return 0;
 }

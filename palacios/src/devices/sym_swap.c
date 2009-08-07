@@ -27,10 +27,12 @@ struct swap_state {
     
     struct vm_device * blk_dev;
 
+    uint_t swapped_pages;
+    uint_t unswapped_pages;
+
     uint64_t capacity;
     uint8_t * swap_space;
     addr_t swap_base_addr;
-
 };
 
 
@@ -50,10 +52,19 @@ static int swap_read(uint8_t * buf, int sector_count, uint64_t lba,  void * priv
     int offset = lba * HD_SECTOR_SIZE;
     int length = sector_count * HD_SECTOR_SIZE;
 
+    
     PrintDebug("SymSwap: Reading %d bytes to %p from %p\n", length,
 	       buf, (void *)(swap->swap_space + offset));
+    
+    if (length % 4096) {
+	PrintError("Swapping in length that is not a page multiple\n");
+    }
 
     memcpy(buf, swap->swap_space + offset, length);
+
+    swap->unswapped_pages += (length / 4096);
+
+    PrintDebug("Swapped in %d pages\n", length / 4096);
 
     return 0;
 }
@@ -63,11 +74,19 @@ static int swap_write(uint8_t * buf, int sector_count, uint64_t lba, void * priv
     struct swap_state * swap = (struct swap_state *)(dev->private_data);
     int offset = lba * HD_SECTOR_SIZE;
     int length = sector_count * HD_SECTOR_SIZE;
-
-    PrintDebug("SymSwap: Writing %d bytes to %p from %p\n", length, 
-	       (void *)(swap->swap_space + offset), buf);
+    /*
+      PrintDebug("SymSwap: Writing %d bytes to %p from %p\n", length, 
+      (void *)(swap->swap_space + offset), buf);
+    */
+    if (length % 4096) {
+	PrintError("Swapping out length that is not a page multiple\n");
+    }
 
     memcpy(swap->swap_space + offset, buf, length);
+
+    swap->swapped_pages += (length / 4096);
+
+    PrintDebug("Swapped out %d pages\n", length / 4096);
 
     return 0;
 }
@@ -116,6 +135,9 @@ static int swap_init(struct guest_info * vm, void * cfg_data) {
 
     swap->blk_dev = virtio_blk;
     swap->capacity = SWAP_CAPACITY;
+
+    swap->swapped_pages = 0;
+    swap->unswapped_pages = 0;
 
     swap->swap_base_addr = (addr_t)V3_AllocPages(swap->capacity / 4096);
     swap->swap_space = (uint8_t *)V3_VAddr((void *)(swap->swap_base_addr));
