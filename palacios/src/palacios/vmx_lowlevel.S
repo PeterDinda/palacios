@@ -100,12 +100,14 @@ v3_vmx_exit_handler:
     POPA
     popf
     pushq %rdi
+    pushq %rsi
     call v3_handle_vmx_exit
 
     andq %rax, %rax
     jnz .Lvmm_failure
 
 v3_vmx_vmresume:
+    pop %rsi
     pop %rdi
     pushf
     PUSHA
@@ -162,7 +164,7 @@ v3_vmx_vmlaunch:
     jmp .Lreturn
 
 .Lvmm_failure:
-    addq $8, %rsp
+    addq $16, %rsp
     movq $VMM_FAILURE, %rax
     jmp .Lreturn
 

@@ -80,7 +80,7 @@ typedef enum {
     VMEXIT_XSETBV                           = 55
 } vmx_exit_t;
 
-int v3_handle_vmx_exit(struct v3_gprs * gprs);
+int v3_handle_vmx_exit(struct v3_gprs * gprs, struct guest_info * info);
 
 #endif
 

@@ -312,6 +312,8 @@ VMM_OBJS := \
 	palacios/vmx_handler.o \
 	palacios/vmx_lowlevel.o \
 	palacios/vmxassist.o \
+	palacios/vmx_io.o \
+	palacios/vmx_msr.o \
 	$(OBJ_FILES)
 
 
