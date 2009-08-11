@@ -25,7 +25,7 @@
 #include <palacios/vm_guest_mem.h>
 
 #include <devices/pci.h>
-#include <palacios/vmm_io.h>
+
 
 /*
 #ifndef DEBUG_VIRTIO_BLK

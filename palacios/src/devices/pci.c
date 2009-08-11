@@ -881,6 +881,3 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
 
     return pci_dev;
 }
-
-
-
