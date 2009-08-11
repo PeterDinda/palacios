@@ -28,7 +28,7 @@
 #include <palacios/vmm_lock.h>
 
 
-typedef enum {INVALID_INTR, EXTERNAL_IRQ, NMI, SOFTWARE_INTR, VIRTUAL_INTR} intr_type_t;
+typedef enum {V3_INVALID_INTR, V3_EXTERNAL_IRQ, V3_VIRTUAL_IRQ, V3_NMI, V3_SOFTWARE_INTR} v3_intr_type_t;
 
 struct guest_info;
 struct v3_interrupt;
@@ -40,6 +40,7 @@ struct v3_irq_hook {
     void * priv_data;
 };
 
+#define MAX_IRQ 256
 
 
 
@@ -52,6 +53,8 @@ struct v3_intr_state {
     uint_t irq_started;
     uint_t irq_vector;
 
+    uint8_t virq_map[MAX_IRQ / 8];
+
     v3_lock_t irq_lock;
 
     /* some way to get the [A]PIC intr */
@@ -63,6 +66,9 @@ struct v3_intr_state {
 
 void v3_init_interrupt_state(struct guest_info * info);
 
+
+int v3_raise_virq(struct guest_info * info, int irq);
+int v3_lower_virq(struct guest_info * info, int irq);
 
 int v3_raise_irq(struct guest_info * info, int irq);
 int v3_lower_irq(struct guest_info * info, int irq);
@@ -81,11 +87,12 @@ struct intr_ctrl_ops {
 
 void v3_register_intr_controller(struct guest_info * info, struct intr_ctrl_ops * ops, void * state);
 
-int v3_intr_pending(struct guest_info * info);
-uint_t v3_get_intr_number(struct guest_info * info);
-intr_type_t v3_get_intr_type(struct guest_info * info);
+v3_intr_type_t v3_intr_pending(struct guest_info * info);
+uint32_t v3_get_intr(struct guest_info * info);
 
-int v3_injecting_intr(struct guest_info * info, uint_t intr_num, intr_type_t type);
+//intr_type_t v3_get_intr_type(struct guest_info * info);
+
+int v3_injecting_intr(struct guest_info * info, uint_t intr_num, v3_intr_type_t type);
 
 /*
   int start_irq(struct vm_intr * intr);

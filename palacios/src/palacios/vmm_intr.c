@@ -146,8 +146,25 @@ int v3_deliver_irq(struct guest_info * info, struct v3_interrupt * intr) {
 
 
 
+int v3_raise_virq(struct guest_info * info, int irq) {
+    struct v3_intr_state * intr_state = &(info->intr_state);
+    int major = irq / 8;
+    int minor = irq % 8;
 
+    intr_state->virq_map[major] |= (1 << minor);
+   
+    return 0;
+}
 
+int v3_lower_virq(struct guest_info * info, int irq) {
+    struct v3_intr_state * intr_state = &(info->intr_state);
+    int major = irq / 8;
+    int minor = irq % 8;
+
+    intr_state->virq_map[major] &= ~(1 << minor);
+
+    return 0;
+}
 
 
 int v3_lower_irq(struct guest_info * info, int irq) {
@@ -184,18 +201,29 @@ int v3_raise_irq(struct guest_info * info, int irq) {
 
 
 
-int v3_intr_pending(struct guest_info * info) {
+v3_intr_type_t v3_intr_pending(struct guest_info * info) {
     struct v3_intr_state * intr_state = &(info->intr_state);
     struct intr_controller * ctrl = NULL;
-    int ret = 0;
+    int ret = V3_INVALID_INTR;
+    int i = 0;
 
     //  PrintDebug("[intr_pending]\n");
-    addr_t irq_state = v3_lock_irqsave(intr_state->irq_lock);    
+    addr_t irq_state = v3_lock_irqsave(intr_state->irq_lock);
 
-    list_for_each_entry(ctrl, &(intr_state->controller_list), ctrl_node) {
-	if (ctrl->ctrl_ops->intr_pending(ctrl->priv_data) == 1) {
-	    ret = 1;
+    // VIRQs have priority
+    for (i = 0; i < MAX_IRQ / 8; i++) {
+	if (intr_state->virq_map[i] != 0) {   
+	    ret = V3_VIRTUAL_IRQ;
 	    break;
+	}
+    }
+
+    if (ret == V3_INVALID_INTR) {
+	list_for_each_entry(ctrl, &(intr_state->controller_list), ctrl_node) {
+	    if (ctrl->ctrl_ops->intr_pending(ctrl->priv_data) == 1) {
+		ret = V3_EXTERNAL_IRQ;
+		break;
+	    }
 	}
     }
 
@@ -205,47 +233,63 @@ int v3_intr_pending(struct guest_info * info) {
 }
 
 
-uint_t v3_get_intr_number(struct guest_info * info) {
+uint32_t v3_get_intr(struct guest_info * info) {
     struct v3_intr_state * intr_state = &(info->intr_state);
     struct intr_controller * ctrl = NULL;
     uint_t ret = 0;
+    int i = 0;
+    int j = 0;
 
     addr_t irq_state = v3_lock_irqsave(intr_state->irq_lock);    
 
-    list_for_each_entry(ctrl, &(intr_state->controller_list), ctrl_node) {
-	if (ctrl->ctrl_ops->intr_pending(ctrl->priv_data)) {
-	    uint_t intr_num = ctrl->ctrl_ops->get_intr_number(ctrl->priv_data);
-	    
-	    //	PrintDebug("[get_intr_number] intr_number = %d\n", intr_num);
-	    ret = intr_num;
+    // virqs have priority
+    for (i = 0; i < MAX_IRQ / 8; i++) {
+	if (intr_state->virq_map[i] != 0) {
+	    for (j = 0; j < 8; j++) {
+		if (intr_state->virq_map[i] & (1 << j)) {
+		    ret = (i * 8) + j;
+		    break;
+		}
+	    }
 	    break;
+	}
+    }
+
+    if (!ret) {
+	list_for_each_entry(ctrl, &(intr_state->controller_list), ctrl_node) {
+	    if (ctrl->ctrl_ops->intr_pending(ctrl->priv_data)) {
+		uint_t intr_num = ctrl->ctrl_ops->get_intr_number(ctrl->priv_data);
+		
+		//	PrintDebug("[get_intr_number] intr_number = %d\n", intr_num);
+		ret = intr_num;
+		break;
+	    }
 	}
     }
 
     v3_unlock_irqrestore(intr_state->irq_lock, irq_state);
 
-
     return ret;
 }
 
-
+/*
 intr_type_t v3_get_intr_type(struct guest_info * info) {
     struct v3_intr_state * intr_state = &(info->intr_state);
     struct intr_controller * ctrl = NULL;
-    intr_type_t type = INVALID_INTR;
+    intr_type_t type = V3_INVALID_INTR;
 
     addr_t irq_state = v3_lock_irqsave(intr_state->irq_lock);  
 
     list_for_each_entry(ctrl, &(intr_state->controller_list), ctrl_node) {
 	if (ctrl->ctrl_ops->intr_pending(ctrl->priv_data) == 1) {
 	    //PrintDebug("[get_intr_type] External_irq\n");
-	    type = EXTERNAL_IRQ;
+	    type = V3_EXTERNAL_IRQ;	    
 	    break;
 	}
     }
 
 #ifdef DEBUG_INTERRUPTS
-    if (type == INVALID_INTR) {
+    if (type == V3_INVALID_INTR) {
 	PrintError("[get_intr_type] Invalid_Intr\n");
     }
 #endif
@@ -254,16 +298,16 @@ intr_type_t v3_get_intr_type(struct guest_info * info) {
 
     return type;
 }
+*/
 
 
 
 
 
-
-int v3_injecting_intr(struct guest_info * info, uint_t intr_num, intr_type_t type) {
+int v3_injecting_intr(struct guest_info * info, uint_t intr_num, v3_intr_type_t type) {
     struct v3_intr_state * intr_state = &(info->intr_state);
 
-    if (type == EXTERNAL_IRQ) {
+    if (type == V3_EXTERNAL_IRQ) {
 	struct intr_controller * ctrl = NULL;
 
 	addr_t irq_state = v3_lock_irqsave(intr_state->irq_lock); 

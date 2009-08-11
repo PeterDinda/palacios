@@ -79,7 +79,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
 	info->intr_state.irq_started = 1;
 	info->intr_state.irq_pending = 0;
 
-	v3_injecting_intr(info, info->intr_state.irq_vector, EXTERNAL_IRQ);
+	v3_injecting_intr(info, info->intr_state.irq_vector, V3_EXTERNAL_IRQ);
     }
 
     if ((info->intr_state.irq_started == 1) && (guest_ctrl->exit_int_info.valid == 0)) {
@@ -94,42 +94,6 @@ int v3_handle_svm_exit(struct guest_info * info) {
 #ifdef DEBUG_INTERRUPTS
 	PrintDebug("EXIT INT INFO is set (vec=%d)\n", guest_ctrl->exit_int_info.vector);
 #endif
-    }
-
-
-    // Disable printing io exits due to bochs debug messages
-    //if (!((exit_code == VMEXIT_IOIO) && ((ushort_t)(guest_ctrl->exit_info1 >> 16) == 0x402))) {
-
-    if ((0) && (exit_code <= VMEXIT_EXCP14)) {
-	uchar_t instr[32];
-	int ret;
-	// Dump out the instr stream
-
-	//PrintDebug("RIP: %x\n", guest_state->rip);
-	PrintDebug("\n\n\nRIP Linear: %p\n", (void *)get_addr_linear(info, info->rip, &(info->segments.cs)));
-
-	v3_print_GPRs(info);
-	v3_print_ctrl_regs(info);
-
-
-	// OK, now we will read the instruction
-	// The only difference between PROTECTED and PROTECTED_PG is whether we read
-	// from guest_pa or guest_va
-	if (info->mem_mode == PHYSICAL_MEM) { 
-	    // The real rip address is actually a combination of the rip + CS base 
-	    ret = read_guest_pa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 32, instr);
-	} else { 
-	    ret = read_guest_va_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 32, instr);
-	}
-
-
-	if (ret != 32) {
-	    // I think we should inject a GPF into the guest
-	    PrintDebug("Could not read instruction (ret=%d)\n", ret);
-	} else {
-	    PrintDebug("Instr Stream:\n");
-	    PrintTraceMemDump(instr, 32);
-	}
     }
 
 
@@ -362,7 +326,6 @@ int v3_handle_svm_exit(struct guest_info * info) {
     }
 
 
-
     if (v3_excp_pending(info)) {
 	uint_t excp = v3_get_excp_number(info);
 	
@@ -394,15 +357,11 @@ int v3_handle_svm_exit(struct guest_info * info) {
 	guest_ctrl->guest_ctrl.V_IGN_TPR = 1;
 	guest_ctrl->guest_ctrl.V_INTR_PRIO = 0xf;
 
-    } else if (v3_intr_pending(info)) {
+    } else {
+	switch (v3_intr_pending(info)) {
+	    case V3_EXTERNAL_IRQ: {
+		uint32_t irq = v3_get_intr(info);
 
-	switch (v3_get_intr_type(info)) {
-	    case EXTERNAL_IRQ: {
-		uint_t irq = v3_get_intr_number(info);
-		    
-		// check to see if ==-1 (non exists)
-		    
-		    
 		guest_ctrl->guest_ctrl.V_IRQ = 1;
 		guest_ctrl->guest_ctrl.V_INTR_VECTOR = irq;
 		guest_ctrl->guest_ctrl.V_IGN_TPR = 1;
@@ -416,27 +375,24 @@ int v3_handle_svm_exit(struct guest_info * info) {
 
 		info->intr_state.irq_pending = 1;
 		info->intr_state.irq_vector = irq;
-		    
+		
 		break;
 	    }
-	    case NMI:
+	    case V3_NMI:
 		guest_ctrl->EVENTINJ.type = SVM_INJECTION_NMI;
 		break;
-	    case SOFTWARE_INTR:
+	    case V3_SOFTWARE_INTR:
 		guest_ctrl->EVENTINJ.type = SVM_INJECTION_SOFT_INTR;
 		break;
-	    case VIRTUAL_INTR:
-		guest_ctrl->EVENTINJ.type = SVM_INJECTION_VIRTUAL_INTR;
+	    case V3_VIRTUAL_IRQ:
+		guest_ctrl->EVENTINJ.type = SVM_INJECTION_IRQ;
 		break;
-		
-	    case INVALID_INTR: 
+
+	    case V3_INVALID_INTR:
 	    default:
-		PrintError("Attempted to issue an invalid interrupt\n");
-		return -1;
+		break;
 	}
 	
-    } else {
-	//PrintDebug("Not interrupts or exceptions pending\n");
     }
 
 

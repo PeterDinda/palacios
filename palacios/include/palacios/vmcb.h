@@ -179,8 +179,7 @@ struct Guest_Control {
     uint_t rsvd4      : 24;  // Should be 0
 } __attribute__((packed));
 
-#define SVM_INJECTION_EXTERNAL_INTR 0
-#define SVM_INJECTION_VIRTUAL_INTR  0
+#define SVM_INJECTION_IRQ  0
 #define SVM_INJECTION_NMI           2
 #define SVM_INJECTION_EXCEPTION     3
 #define SVM_INJECTION_SOFT_INTR     4
