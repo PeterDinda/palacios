@@ -333,7 +333,7 @@ static int apic_do_eoi(struct apic_state * apic) {
 	uchar_t flag = 0x1 << minor_offset;
 	uchar_t * svc_location = apic->int_svc_reg + major_offset;
 	
-	PrintDebug("Received APIC EOI\n");
+	PrintDebug("Received APIC EOI for IRQ %d\n", isr_irq);
 	
 	*svc_location &= ~flag;
 
@@ -979,7 +979,7 @@ static void apic_update_time(ullong_t cpu_cycles, ullong_t cpu_freq, void * priv
     }
 
     tmr_ticks = cpu_cycles >> shift_num;
-    PrintDebug("Timer Ticks: %p\n", (void *)tmr_ticks);
+    //    PrintDebug("Timer Ticks: %p\n", (void *)tmr_ticks);
 
     if (tmr_ticks < apic->tmr_cur_cnt) {
 	apic->tmr_cur_cnt -= tmr_ticks;
@@ -990,6 +990,10 @@ static void apic_update_time(ullong_t cpu_cycles, ullong_t cpu_freq, void * priv
 	// raise irq
 	PrintDebug("Raising APIC Timer interrupt (periodic=%d) (icnt=%d) (div=%d)\n", 
 		   apic->tmr_vec_tbl.tmr_mode, apic->tmr_init_cnt, shift_num);
+
+	if (apic_intr_pending(priv_data)) {
+	    PrintDebug("Overriding pending IRQ %d\n", apic_get_intr_number(priv_data));
+	}
 
 	if (activate_internal_irq(apic, APIC_TMR_INT) == -1) {
 	    PrintError("Could not raise Timer interrupt\n");
@@ -1066,4 +1070,4 @@ static int apic_init(struct guest_info * vm, void * cfg_data) {
 
 
 
-device_register("LAPIC", &apic_init)
+device_register("LAPIC", apic_init)
