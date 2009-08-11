@@ -30,7 +30,7 @@
 
 
 //
-// This should trigger a #GP if cpl!=0, otherwise, yield to host
+// This should trigger a #GP if cpl != 0, otherwise, yield to host
 //
 
 int v3_handle_svm_halt(struct guest_info * info) {
@@ -39,8 +39,8 @@ int v3_handle_svm_halt(struct guest_info * info) {
 	v3_raise_exception(info, GPF_EXCEPTION);
     } else {
     
-	ullong_t yield_start = 0;
-	ullong_t yield_stop = 0;
+	uint64_t yield_start = 0;
+	uint64_t yield_stop = 0;
 	uint32_t gap = 0;
 	
 	PrintDebug("CPU Yield\n");
@@ -53,7 +53,18 @@ int v3_handle_svm_halt(struct guest_info * info) {
 	//v3_update_time(info, yield_stop - yield_start);
 	gap = yield_stop - yield_start;
 
-	v3_raise_irq(info, 0);
+	/*  WARNING!!! WARNING!!!
+	 *  
+	 * DO NOT REMOVE THIS CONDITIONAL!!!
+	 *
+	 * It is common for an OS to issue an IO op, and then sit in a halt loop
+	 * waiting for the device to complete and raise an irq.
+	 * If you remove this then the timer interrupt will ALWAYS subvert the completion 
+	 * interrupt and stall the guest.
+	 */
+	if (!v3_intr_pending(info)) {
+	    v3_raise_irq(info, 0);
+	}
 
 	
 	PrintDebug("CPU Yield Done (%d cycles)\n", gap);

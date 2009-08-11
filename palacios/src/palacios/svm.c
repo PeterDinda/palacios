@@ -293,7 +293,6 @@ static int start_svm_guest(struct guest_info *info) {
 	*/
 
 	// disable global interrupts for vm state transition
-
 	v3_clgi();
 
 
@@ -311,6 +310,11 @@ static int start_svm_guest(struct guest_info *info) {
 	// reenable global interrupts after vm exit
 	v3_stgi();
 
+
+	// Conditionally yield the CPU if the timeslice has expired
+	v3_yield_cond(info);
+
+
 	v3_update_time(info, tmp_tsc - info->time_state.cached_host_tsc);
 	num_exits++;
 	
@@ -321,10 +325,6 @@ static int start_svm_guest(struct guest_info *info) {
 		v3_print_profile(info);
 	    }
 	}
-
-     
-	// Conditionally yield the CPU if the timeslice has expired
-	v3_yield_cond(info);
 
 	if (v3_handle_svm_exit(info) != 0) {
 	    vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
