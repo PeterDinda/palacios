@@ -1554,7 +1554,8 @@ static int ide_init(struct guest_info * vm, void * cfg_data) {
 	}
 
 	bars[4].type = PCI_BAR_IO;
-	bars[4].default_base_port = PRI_DEFAULT_DMA_PORT;
+	//	bars[4].default_base_port = PRI_DEFAULT_DMA_PORT;
+	bars[4].default_base_port = -1;
 	bars[4].num_ports = 16;
 
 	bars[4].io_read = read_dma_port;

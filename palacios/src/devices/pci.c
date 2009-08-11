@@ -41,6 +41,7 @@
 #define CONFIG_ADDR_PORT    0x0cf8
 #define CONFIG_DATA_PORT    0x0cfc
 
+#define PCI_DEV_IO_PORT_BASE 0xc000
 
 #define PCI_BUS_COUNT 1
 
@@ -75,6 +76,7 @@ struct pci_bus {
     // Bitmap of the allocated device numbers
     uint8_t dev_map[MAX_BUS_DEVICES / 8];
 
+
     int (*raise_pci_irq)(struct vm_device * dev, struct pci_device * pci_dev);
     int (*lower_pci_irq)(struct vm_device * dev, struct pci_device * pci_dev);
     struct vm_device * irq_bridge_dev;
@@ -85,6 +87,9 @@ struct pci_bus {
 struct pci_internal {
     // Configuration address register
     struct pci_addr_reg addr_reg;
+
+    // Base IO Port which PCI devices will register with...
+    uint16_t dev_io_base; 
 
     // Attached Busses
     struct pci_bus bus_list[PCI_BUS_COUNT];
@@ -380,23 +385,36 @@ static inline int is_cfg_reg_writable(uchar_t header_type, int reg_num) {
 static int bar_update(struct pci_device * pci, int bar_num, uint32_t new_val) {
     struct v3_pci_bar * bar = &(pci->bar[bar_num]);
 
-    PrintDebug("Updating BAR Register  (Dev=%s) (bar=%d) (old_val=%x) (new_val=%x)\n", 
+    PrintError("Updating BAR Register  (Dev=%s) (bar=%d) (old_val=0x%x) (new_val=0x%x)\n", 
 	       pci->name, bar_num, bar->val, new_val);
 
     switch (bar->type) {
 	case PCI_BAR_IO: {
 	    int i = 0;
 
-		PrintDebug("\tRehooking %d IO ports from base %x to %x\n",
-			   bar->num_ports, PCI_IO_BASE(bar->val), PCI_IO_BASE(new_val));
+	    PrintError("\tRehooking %d IO ports from base 0x%x to 0x%x for %d ports\n",
+		       bar->num_ports, PCI_IO_BASE(bar->val), PCI_IO_BASE(new_val),
+		       bar->num_ports);
 		
 	    // only do this if pci device is enabled....
+	    if (!(pci->config_header.status & 0x1)) {
+		PrintError("PCI Device IO space not enabled\n");
+	    }
+
 	    for (i = 0; i < bar->num_ports; i++) {
+
+		PrintError("Rehooking PCI IO port (old port=%u) (new port=%u)\n",  
+			   PCI_IO_BASE(bar->val) + i, PCI_IO_BASE(new_val) + i);
 
 		v3_dev_unhook_io(pci->vm_dev, PCI_IO_BASE(bar->val) + i);
 
-		v3_dev_hook_io(pci->vm_dev, PCI_IO_BASE(new_val) + i, 
-			       bar->io_read, bar->io_write);
+		if (v3_dev_hook_io(pci->vm_dev, PCI_IO_BASE(new_val) + i, 
+				   bar->io_read, bar->io_write) == -1) {
+
+		    PrintError("Could not hook PCI IO port (old port=%u) (new port=%u)\n",  
+			       PCI_IO_BASE(bar->val) + i, PCI_IO_BASE(new_val) + i);
+		    return -1;
+		}
 	    }
 
 	    bar->val = new_val;
@@ -616,6 +634,7 @@ static int pci_init(struct guest_info * vm, void * cfg_data) {
 
     
     pci_state->addr_reg.val = 0; 
+    pci_state->dev_io_base = PCI_DEV_IO_PORT_BASE;
 
     init_pci_busses(pci_state);
     
@@ -643,7 +662,12 @@ static inline int init_bars(struct pci_device * pci_dev) {
 	    int j = 0;
 	    pci_dev->bar[i].mask = (~((pci_dev->bar[i].num_ports) - 1)) | 0x01;
 
-	    pci_dev->bar[i].val = pci_dev->bar[i].default_base_port & pci_dev->bar[i].mask;
+	    if (pci_dev->bar[i].default_base_port != 0xffff) {
+		pci_dev->bar[i].val = pci_dev->bar[i].default_base_port & pci_dev->bar[i].mask;
+	    } else {
+		pci_dev->bar[i].val = 0;
+	    }
+
 	    pci_dev->bar[i].val |= 0x00000001;
 
 	    for (j = 0; j < pci_dev->bar[i].num_ports; j++) {
@@ -663,7 +687,11 @@ static inline int init_bars(struct pci_device * pci_dev) {
 	    pci_dev->bar[i].mask = ~((pci_dev->bar[i].num_pages << 12) - 1);
 	    pci_dev->bar[i].mask |= 0xf; // preserve the configuration flags
 
-	    pci_dev->bar[i].val = pci_dev->bar[i].default_base_addr & pci_dev->bar[i].mask;
+	    if (pci_dev->bar[i].default_base_addr != 0xffffffff) {
+		pci_dev->bar[i].val = pci_dev->bar[i].default_base_addr & pci_dev->bar[i].mask;
+	    } else {
+		pci_dev->bar[i].val = 0;
+	    }
 
 	    // hook memory
 	    if (pci_dev->bar[i].mem_read) {
@@ -814,7 +842,16 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
 
 	if (pci_dev->bar[i].type == PCI_BAR_IO) {
 	    pci_dev->bar[i].num_ports = bars[i].num_ports;
-	    pci_dev->bar[i].default_base_port = bars[i].default_base_port;
+
+	    // This is a horrible HACK becaues the BIOS is supposed to set the PCI base ports 
+	    // And if the BIOS doesn't, Linux just happily overlaps device port assignments
+	    if (bars[i].default_base_port != (uint16_t)-1) {
+		pci_dev->bar[i].default_base_port = bars[i].default_base_port;
+	    } else {
+		pci_dev->bar[i].default_base_port = pci_state->dev_io_base;
+		pci_state->dev_io_base += ( 0x100 * ((bars[i].num_ports / 0x100) + 1) );
+	    }
+
 	    pci_dev->bar[i].io_read = bars[i].io_read;
 	    pci_dev->bar[i].io_write = bars[i].io_write;
 	} else if (pci_dev->bar[i].type == PCI_BAR_MEM32) {

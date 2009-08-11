@@ -25,12 +25,14 @@
 #include <palacios/vm_guest_mem.h>
 
 #include <devices/pci.h>
+#include <palacios/vmm_io.h>
 
-
+/*
 #ifndef DEBUG_VIRTIO_BLK
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
+*/
 
 #define BLK_CAPACITY_PORT     20
 #define BLK_MAX_SIZE_PORT     28
@@ -610,6 +612,8 @@ static int virtio_init(struct guest_info * vm, void * cfg_data) {
 	for (i = 0; i < 6; i++) {
 	    bars[i].type = PCI_BAR_NONE;
 	}
+
+	PrintDebug("Virtio-BLK io_range_size = %d\n", virtio_state->io_range_size);
 
 	bars[0].type = PCI_BAR_IO;
 	bars[0].default_base_port = -1;
