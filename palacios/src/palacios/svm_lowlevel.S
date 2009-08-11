@@ -23,6 +23,7 @@
 #ifdef __V3_32BIT__
 
 // Note that RAX is saved in the VMCB, so we don't touch it here
+
 #define Save_SVM_Registers(location) 	\
 	pushl	%eax; 			\
 	movl	location, %eax;		\
@@ -32,7 +33,7 @@
 	movl	$0, 24(%eax);		\
 	movl 	%ebx, 32(%eax);		\
 	movl 	%edx, 40(%eax);		\
-	movl 	%ecx, 48(%eax);		\ 
+	movl 	%ecx, 48(%eax);		\
 	popl 	%eax;			
 	
 
@@ -87,6 +88,7 @@ v3_svm_launch:
 #elif __V3_64BIT__
 
 // Note that RAX is saved in the VMCB, so we don't touch it here
+
 #define Save_SVM_Registers(location) 	\
 	pushq	%rax; 			\
 	movq	location, %rax;		\
