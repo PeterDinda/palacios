@@ -129,16 +129,18 @@ int v3_hook_io_port(struct guest_info * info, uint_t port,
   io_hook->priv_data = priv_data;
 
   if (insert_io_hook(info, io_hook)) {
-    V3_Free(io_hook);
-    return -1;
+      PrintError("Could not insert IO hook for port %d\n", port);
+      V3_Free(io_hook);
+      return -1;
   }
 
 
   if (info->io_map.update_map(info, port, 
 			      ((read == NULL) ? 0 : 1), 
 			      ((write == NULL) ? 0 : 1)) == -1) {
-    V3_Free(io_hook);
-    return -1;
+      PrintError("Could not update IO map for port %d\n", port);
+      V3_Free(io_hook);
+      return -1;
   }
 
 
