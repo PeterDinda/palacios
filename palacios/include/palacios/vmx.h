@@ -114,6 +114,13 @@ struct vmx_data {
     vmx_state_t state;
     addr_t vmcs_ptr_phys;
     struct vmcs_host_state host_state;
+    /* VMX Control Fields */
+    uint32_t pinbased_ctrls;
+    uint32_t pri_procbased_ctrls;
+    uint32_t sec_procbased_ctrls;
+    uint32_t exit_ctrls;
+    uint32_t entry_ctrls;
+    uint32_t excp_bitmap;
 };
 
 

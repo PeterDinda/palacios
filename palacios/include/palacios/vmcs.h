@@ -41,6 +41,8 @@
 #define   MWAIT_EXIT                    0x00000400
 #define   RDPMC_EXIT                    0x00000800
 #define   RDTSC_EXIT                    0x00001000
+#define   CR3_LOAD_EXIT                 0x00008000
+#define   CR3_STORE_EXIT                0x00010000
 #define   CR8_LOAD_EXIT                 0x00080000
 #define   CR8_STORE_EXIT                0x00100000
 #define   USE_TPR_SHADOW                0x00200000
@@ -51,6 +53,7 @@
 #define   USE_MSR_BITMAPS               0x10000000
 #define   MONITOR_EXIT                  0x20000000
 #define   PAUSE_EXIT                    0x40000000
+#define   ACTIVE_SEC_CTRLS              0x80000000
 /* VM-Exit Controls */
 /* INTEL MANUAL: 20-16 vol. 3B */
 #define   HOST_ADDR_SPACE_SIZE          0x00000200
@@ -214,7 +217,7 @@ void v3_print_vmcs();
 
 
 /* VMCS Exit QUALIFICATIONs */
-struct VMExitIOQual {
+struct vmcs_io_qual {
     uint32_t accessSize : 3; // (0: 1 Byte ;; 1: 2 Bytes ;; 3: 4 Bytes)
     uint32_t dir        : 1; // (0: Out ;; 1: In)
     uint32_t string     : 1; // (0: not string ;; 1: string)
