@@ -23,6 +23,28 @@
 
 #define SWAP_CAPACITY (150 * 1024 * 1024)
 
+
+/* This is the first page that linux writes to the swap area */
+/* Taken from Linux */
+union swap_header {
+    struct {
+	char reserved[PAGE_SIZE - 10];
+	char magic[10];			/* SWAP-SPACE or SWAPSPACE2 */
+    } magic;
+    struct {
+	char	         	bootbits[1024];	/* Space for disklabel etc. */
+	uint32_t		version;
+	uint32_t		last_page;
+	uint32_t		nr_badpages;
+	unsigned char   	sws_uuid[16];
+	unsigned char	        sws_volume[16];
+	uint32_t                type;           // The index into the swap_map
+	uint32_t		padding[116];
+	//		uint32_t		padding[117];
+	uint32_t		badpages[1];
+    } info;
+};
+
 struct swap_state {
     
     struct vm_device * blk_dev;
@@ -80,6 +102,20 @@ static int swap_write(uint8_t * buf, int sector_count, uint64_t lba, void * priv
     */
     if (length % 4096) {
 	PrintError("Swapping out length that is not a page multiple\n");
+    }
+
+    if (offset == 0) {
+	// This is the swap header page 
+	union swap_header * hdr;
+	if (length != 4096) {
+	    PrintError("Initializing Swap space by not writing page multiples. This sucks...\n");
+	    return -1;
+	}
+
+	hdr = (union swap_header *)buf;
+	
+
+	PrintDebug("Swap Type=%d (magic=%s)\n", hdr->info.type, hdr->magic.magic);
     }
 
     memcpy(swap->swap_space + offset, buf, length);
