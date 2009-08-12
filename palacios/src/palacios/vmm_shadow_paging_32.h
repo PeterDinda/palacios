@@ -36,6 +36,14 @@ static inline int activate_shadow_pt_32(struct guest_info * info) {
     return 0;
 }
 
+#ifdef __V3_SYMBIOTIC__
+static inline int is_swapped_pte32(pte32_t * pte) {
+    return (*(uint32_t *)pte != 0);
+}
+#endif
+
+
+
 /* 
  * *
  * * 
@@ -221,11 +229,28 @@ static int handle_pte_shadow_pagefault_32(struct guest_info * info, addr_t fault
 
 	PrintDebug("Access error injecting pf to guest (guest access error=%d) (pf error code=%d)\n", 
 		   guest_pte_access, *(uint_t*)&error_code);
+#ifdef __V3_SYMBIOTIC__
+	if (is_swapped_pg(guest_pte)) {
+	    PrintError("Page fault on swapped out page\n");
 
+	    if (inject_guest_pf(info, fault_addr, error_code) == -1) {
+		PrintError("Could not inject guest page fault\n");
+		return -1;
+	    }
+
+
+	} else {
+	    if (inject_guest_pf(info, fault_addr, error_code) == -1) {
+		PrintError("Could not inject guest page fault\n");
+		return -1;
+	    }
+	}
+#else
 	if (inject_guest_pf(info, fault_addr, error_code) == -1) {
 	    PrintError("Could not inject guest page fault\n");
 	    return -1;
 	}
+#endif
 
 	return 0; 
     }
