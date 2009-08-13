@@ -464,60 +464,8 @@ void v3_init_SVM(struct v3_ctrl_ops * vmm_ops) {
     PrintDebug("Host State being saved at %p\n", (void *)(addr_t)host_vmcb);
     v3_set_msr(SVM_VM_HSAVE_PA_MSR, msr.e_reg.high, msr.e_reg.low);
 
-    /* 
-     * Test VMSAVE/VMLOAD Latency 
-     */
-#define vmsave ".byte 0x0F,0x01,0xDB ; "
-#define vmload ".byte 0x0F,0x01,0xDA ; "
-    {
-	uint32_t start_lo, start_hi;
-	uint32_t end_lo, end_hi;
-	uint64_t start, end;
-
-	__asm__ __volatile__ (
-			      "rdtsc ; "
-			      "movl %%eax, %%esi ; "
-			      "movl %%edx, %%edi ; "
-			      "movq  %%rcx, %%rax ; "
-			      vmsave
-			      "rdtsc ; "
-			      : "=D"(start_hi), "=S"(start_lo), "=a"(end_lo),"=d"(end_hi)
-			      : "c"(host_vmcb), "0"(0), "1"(0), "2"(0), "3"(0)
-			      );
-	
-	start = start_hi;
-	start <<= 32;
-	start += start_lo;
-
-	end = end_hi;
-	end <<= 32;
-	end += end_lo;
-
-	PrintDebug("VMSave Cycle Latency: %d\n", (uint32_t)(end - start));
-	
-	__asm__ __volatile__ (
-			      "rdtsc ; "
-			      "movl %%eax, %%esi ; "
-			      "movl %%edx, %%edi ; "
-			      "movq  %%rcx, %%rax ; "
-			      vmload
-			      "rdtsc ; "
-			      : "=D"(start_hi), "=S"(start_lo), "=a"(end_lo),"=d"(end_hi)
-			      : "c"(host_vmcb), "0"(0), "1"(0), "2"(0), "3"(0)
-			      );
-	
-	start = start_hi;
-	start <<= 32;
-	start += start_lo;
-
-	end = end_hi;
-	end <<= 32;
-	end += end_lo;
 
 
-	PrintDebug("VMLoad Cycle Latency: %d\n", (uint32_t)(end - start));
-    }
-    /* End Latency Test */
 
     if (has_svm_nested_paging() == 1) {
 	v3_cpu_type = V3_SVM_REV3_CPU;
@@ -584,126 +532,63 @@ void v3_init_SVM(struct v3_ctrl_ops * vmm_ops) {
 
 
 
-/*static void Init_VMCB(vmcb_t * vmcb, struct guest_info vm_info) {
-  vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA(vmcb);
-  vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA(vmcb);
-  uint_t i;
-
-
-  guest_state->rsp = vm_info.vm_regs.rsp;
-  guest_state->rip = vm_info.rip;
-
-
-  //ctrl_area->instrs.instrs.CR0 = 1;
-  ctrl_area->cr_reads.cr0 = 1;
-  ctrl_area->cr_writes.cr0 = 1;
-
-  guest_state->efer |= EFER_MSR_svm_enable;
-  guest_state->rflags = 0x00000002; // The reserved bit is always 1
-  ctrl_area->svm_instrs.VMRUN = 1;
-  // guest_state->cr0 = 0x00000001;    // PE 
-  ctrl_area->guest_ASID = 1;
-
-
-  ctrl_area->exceptions.de = 1;
-  ctrl_area->exceptions.df = 1;
-  ctrl_area->exceptions.pf = 1;
-  ctrl_area->exceptions.ts = 1;
-  ctrl_area->exceptions.ss = 1;
-  ctrl_area->exceptions.ac = 1;
-  ctrl_area->exceptions.mc = 1;
-  ctrl_area->exceptions.gp = 1;
-  ctrl_area->exceptions.ud = 1;
-  ctrl_area->exceptions.np = 1;
-  ctrl_area->exceptions.of = 1;
-  ctrl_area->exceptions.nmi = 1;
-
-  guest_state->cs.selector = 0x0000;
-  guest_state->cs.limit=~0u;
-  guest_state->cs.base = guest_state->cs.selector<<4;
-  guest_state->cs.attrib.raw = 0xf3;
-
-  
-  struct vmcb_selector *segregs [] = {&(guest_state->ss), &(guest_state->ds), &(guest_state->es), &(guest_state->fs), &(guest_state->gs), NULL};
-  for ( i = 0; segregs[i] != NULL; i++) {
-    struct vmcb_selector * seg = segregs[i];
+#if 0
+/* 
+ * Test VMSAVE/VMLOAD Latency 
+ */
+#define vmsave ".byte 0x0F,0x01,0xDB ; "
+#define vmload ".byte 0x0F,0x01,0xDA ; "
+{
+    uint32_t start_lo, start_hi;
+    uint32_t end_lo, end_hi;
+    uint64_t start, end;
     
-    seg->selector = 0x0000;
-    seg->base = seg->selector << 4;
-    seg->attrib.raw = 0xf3;
-    seg->limit = ~0u;
-  }
-  
-  if (vm_info.io_map.num_ports > 0) {
-    struct vmm_io_hook * iter;
-    addr_t io_port_bitmap;
+    __asm__ __volatile__ (
+			  "rdtsc ; "
+			  "movl %%eax, %%esi ; "
+			  "movl %%edx, %%edi ; "
+			  "movq  %%rcx, %%rax ; "
+			  vmsave
+			  "rdtsc ; "
+			  : "=D"(start_hi), "=S"(start_lo), "=a"(end_lo),"=d"(end_hi)
+			  : "c"(host_vmcb), "0"(0), "1"(0), "2"(0), "3"(0)
+			  );
     
-    io_port_bitmap = (addr_t)V3_AllocPages(3);
-    memset((uchar_t*)io_port_bitmap, 0, PAGE_SIZE * 3);
+    start = start_hi;
+    start <<= 32;
+    start += start_lo;
     
-    ctrl_area->IOPM_BASE_PA = io_port_bitmap;
+    end = end_hi;
+    end <<= 32;
+    end += end_lo;
+    
+    PrintDebug("VMSave Cycle Latency: %d\n", (uint32_t)(end - start));
+    
+    __asm__ __volatile__ (
+			  "rdtsc ; "
+			  "movl %%eax, %%esi ; "
+			  "movl %%edx, %%edi ; "
+			  "movq  %%rcx, %%rax ; "
+			  vmload
+			  "rdtsc ; "
+			  : "=D"(start_hi), "=S"(start_lo), "=a"(end_lo),d"(end_hi)
+			      : "c"(host_vmcb), "0"(0), "1"(0), "2"(0), "3"(0)
+			      );
+	
+	start = start_hi;
+	start <<= 32;
+	start += start_lo;
 
-    //PrintDebug("Setting up IO Map at 0x%x\n", io_port_bitmap);
+	end = end_hi;
+	end <<= 32;
+	end += end_lo;
 
-    FOREACH_IO_HOOK(vm_info.io_map, iter) {
-      ushort_t port = iter->port;
-      uchar_t * bitmap = (uchar_t *)io_port_bitmap;
 
-      bitmap += (port / 8);
-      PrintDebug("Setting Bit in block %x\n", bitmap);
-      *bitmap |= 1 << (port % 8);
+	PrintDebug("VMLoad Cycle Latency: %d\n", (uint32_t)(end - start));
     }
+    /* End Latency Test */
 
-
-    //PrintDebugMemDump((uchar_t*)io_port_bitmap, PAGE_SIZE *2);
-
-    ctrl_area->instrs.IOIO_PROT = 1;
-  }
-
-  ctrl_area->instrs.INTR = 1;
-
-
-
-  if (vm_info.page_mode == SHADOW_PAGING) {
-    PrintDebug("Creating initial shadow page table\n");
-    vm_info.shdw_pg_state.shadow_cr3 |= ((addr_t)create_passthrough_pts_32(&vm_info) & ~0xfff);
-    PrintDebug("Created\n");
-
-    guest_state->cr3 = vm_info.shdw_pg_state.shadow_cr3;
-
-    ctrl_area->cr_reads.cr3 = 1;
-    ctrl_area->cr_writes.cr3 = 1;
-
-
-    ctrl_area->instrs.INVLPG = 1;
-    ctrl_area->instrs.INVLPGA = 1;
-
-    guest_state->g_pat = 0x7040600070406ULL;
-
-    guest_state->cr0 |= 0x80000000;
-  } else if (vm_info.page_mode == NESTED_PAGING) {
-    // Flush the TLB on entries/exits
-    //ctrl_area->TLB_CONTROL = 1;
-
-    // Enable Nested Paging
-    //ctrl_area->NP_ENABLE = 1;
-
-    //PrintDebug("NP_Enable at 0x%x\n", &(ctrl_area->NP_ENABLE));
-
-        // Set the Nested Page Table pointer
-    //    ctrl_area->N_CR3 = ((addr_t)vm_info.page_tables);
-    // ctrl_area->N_CR3 = (addr_t)(vm_info.page_tables);
-
-    //   ctrl_area->N_CR3 = Get_CR3();
-    // guest_state->cr3 |= (Get_CR3() & 0xfffff000);
-
-    //    guest_state->g_pat = 0x7040600070406ULL;
-  }
-
-
-
-}
-*/
+#endif
 
 
 
