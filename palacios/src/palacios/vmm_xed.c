@@ -35,7 +35,7 @@
 
 
 
-#ifndef DEBUG_XED
+#ifndef CONFIG_DEBUG_XED
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
@@ -325,7 +325,7 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 
     xed_iform_enum_t iform = xed_decoded_inst_get_iform_enum(&xed_instr);
 
-#ifdef DEBUG_XED
+#ifdef CONFIG_DEBUG_XED
     xed_iclass_enum_t iclass = xed_decoded_inst_get_iclass(&xed_instr);
 
     PrintDebug("iform=%s, iclass=%s\n", xed_iform_enum_t2str(iform), xed_iclass_enum_t2str(iclass));

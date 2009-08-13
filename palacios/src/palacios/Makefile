@@ -28,9 +28,6 @@ obj-y := \
 	vmm_time.o \
 	vmm_util.o \
 	vmm_xed.o \
-	vmm_instrument.o \
-	vmm_profiler.o \
-	vmm_socket.o \
 	vmm_binaries.o 
 
 
@@ -48,10 +45,11 @@ obj-$(CONFIG_VMX) +=  	vmx.o \
 			vmx_handler.o \
 			vmx_io.o \
 			vmx_lowlevel.o \
-			vmx_msr.o
+			vmx_msr.o \
+			vmcs.o
 
 
-#obj-$(CONFIG_INSTRUMENT) += 	vmm_instrument.o \
-#				vmm_profiler 
 
-#obj-$(CONFIG_SOCKET) +=  vmm_socket.o
+obj-$(CONFIG_INSTRUMENT_VMM) += vmm_instrument.o
+obj-$(CONFIG_PROFILE_VMM) += vmm_profiler.o 
+obj-$(CONFIG_SOCKET) +=  vmm_socket.o

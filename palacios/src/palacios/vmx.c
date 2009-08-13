@@ -682,15 +682,15 @@ static int init_vmx_guest(struct guest_info * info, struct v3_vm_config * config
 
  
 #define VMXASSIST_START 0x000d0000
-    extern uint8_t vmxassist_start[];
-    extern uint8_t vmxassist_end[];
+    extern uint8_t v3_vmxassist_start[];
+    extern uint8_t v3_vmxassist_end[];
 
     addr_t vmxassist_dst = 0;
     if(guest_pa_to_host_va(info, VMXASSIST_START, &vmxassist_dst) == -1) {
         PrintError("Could not find VMXASSIST destination\n");
         return -1;
     }
-    memcpy((void*)vmxassist_dst, vmxassist_start, vmxassist_end-vmxassist_start);
+    memcpy((void*)vmxassist_dst, v3_vmxassist_start, v3_vmxassist_end - v3_vmxassist_start);
     
     /*** Write all the info to the VMCS ***/
     if(update_vmcs_ctrl_fields(info)) {

@@ -22,7 +22,7 @@
 #include <palacios/vmm_intr.h>
 
 
-#ifndef DEBUG_HALT
+#ifndef CONFIG_DEBUG_HALT
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif

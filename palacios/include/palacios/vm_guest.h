@@ -110,8 +110,10 @@ struct v3_segments {
 
 struct shadow_page_state;
 struct v3_intr_state;
-struct v3_profiler;
 
+#ifdef CONFIG_PROFILE_VMM
+struct v3_profiler;
+#endif
 
 
 
@@ -167,9 +169,10 @@ struct guest_info {
     uint64_t yield_start_cycle;
     
 
-
+#ifdef CONFIG_PROFILE_VMM
     uint_t enable_profiler;
     struct v3_profiler profiler;
+#endif
 
     void * decoder_state;
 };

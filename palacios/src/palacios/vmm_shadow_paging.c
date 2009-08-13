@@ -30,7 +30,7 @@
 
 #include <palacios/vmm_direct_paging.h>
 
-#ifndef DEBUG_SHADOW_PAGING
+#ifndef CONFIG_DEBUG_SHADOW_PAGING
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
@@ -237,11 +237,15 @@ static struct shadow_page_data * create_new_shadow_pt(struct guest_info * info) 
 
 
 static int inject_guest_pf(struct guest_info * info, addr_t fault_addr, pf_error_t error_code) {
+
+#ifdef CONFIG_PROFILE_VMM
     if (info->enable_profiler) {
 	info->profiler.guest_pf_cnt++;
     }
+#endif
 
     info->ctrl_regs.cr2 = fault_addr;
+
     return v3_raise_exception_with_error(info, PF_EXCEPTION, *(uint_t *)&error_code);
 }
 

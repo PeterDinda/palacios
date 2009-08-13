@@ -25,7 +25,7 @@
 #include <palacios/vmm_lock.h>
 
 
-#ifndef DEBUG_KEYBOARD
+#ifndef CONFIG_DEBUG_KEYBOARD
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif

@@ -27,12 +27,12 @@
 #include <devices/pci.h>
 
 
-/*
-#ifndef DEBUG_VIRTIO_BLK
+
+#ifndef CONFIG_DEBUG_VIRTIO_BLK
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
-*/
+
 
 #define BLK_CAPACITY_PORT     20
 #define BLK_MAX_SIZE_PORT     28

@@ -17,7 +17,7 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#ifdef INSTRUMENT_VMM 
+
 
 #include <palacios/svm_handler.h>
 #include <palacios/vmm_instrument.h>
@@ -133,4 +133,3 @@ static void print_instrumentation() {
 
 
 
-#endif

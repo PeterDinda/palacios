@@ -23,7 +23,7 @@
 
 
 
-#ifndef DEBUG_IDE
+#ifndef CONFIG_DEBUG_IDE
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif

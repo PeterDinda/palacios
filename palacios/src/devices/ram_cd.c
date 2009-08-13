@@ -22,7 +22,7 @@
 #include <palacios/vmm_dev_mgr.h>
 #include <devices/ide.h>
 
-#ifndef DEBUG_IDE
+#ifndef CONFIG_DEBUG_IDE
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif

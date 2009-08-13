@@ -1,25 +1,24 @@
-obj-y := \
-	8254.o \
-	8259a.o \
-	apic.o \
-	bochs_debug.o \
-	generic.o \
-	i440fx.o \
-	ide.o \
-	io_apic.o \
-	keyboard.o \
-	lnx_virtio_balloon.o \
-	lnx_virtio_blk.o \
-	lnx_virtio_sym.o \
-	nvram.o \
-	os_debug.o \
-	pci.o \
-	piix3.o \
-	ram_cd.o \
-	ram_hd.o \
-	sym_swap.o 
+obj-$(CONFIG_APIC) += apic.o
+obj-$(CONFIG_PIT) += 8254.o
+obj-$(CONFIG_PIC) += 8259a.o
+obj-$(CONFIG_BOCHS_DEBUG) += bochs_debug.o
+obj-$(CONFIG_GENERIC) += generic.o
+obj-$(CONFIG_I440FX) += i440fx.o
+obj-$(CONFIG_IDE) += ide.o
+obj-$(CONFIG_IO_APIC) += io_apic.o
+obj-$(CONFIG_KEYBOARD) += keyboard.o
+obj-$(CONFIG_LINUX_VIRTIO_BALLOON) += lnx_virtio_balloon.o
+obj-$(CONFIG_LINUX_VIRTIO_BLOCK) += lnx_virtio_blk.o
+obj-$(CONFIG_LINUX_VIRTIO_SYM) += lnx_virtio_sym.o
+obj-$(CONFIG_NVRAM) += nvram.o
+obj-$(CONFIG_OS_DEBUG) += os_debug.o
+obj-$(CONFIG_PCI) += pci.o
+obj-$(CONFIG_PIIX3) += piix3.o
+obj-$(CONFIG_RAM_CD) += ram_cd.o
+obj-$(CONFIG_RAM_HD) += ram_hd.o
+obj-$(CONFIG_SYM_SWAP) += sym_swap.o 
 
-#	ne2k.o \
+obj-$(CONFIG_NE2K) += ne2k.o
 
-obj-$(CONFIG_SOCKET) += net_cd.o \
-			net_hd.o 
+obj-$(CONFIG_NET_CD) += net_cd.o 
+obj-$(CONFIG_NET_HD) += net_hd.o 

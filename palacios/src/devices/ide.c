@@ -26,7 +26,7 @@
 #include "ide-types.h"
 #include "atapi-types.h"
 
-#ifndef DEBUG_IDE
+#ifndef CONFIG_DEBUG_IDE
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
@@ -353,7 +353,7 @@ static int dma_write(struct vm_device * dev, struct ide_channel * channel);
 #include "ata.h"
 
 
-#ifdef DEBUG_IDE
+#ifdef CONFIG_DEBUG_IDE
 static void print_prd_table(struct vm_device * dev, struct ide_channel * channel) {
     struct ide_dma_prd prd_entry;
     int index = 0;
@@ -395,7 +395,7 @@ static int dma_read(struct vm_device * dev, struct ide_channel * channel) {
     // Read in the data buffer....
     // Read a sector/block at a time until the prd entry is full.
 
-#ifdef DEBUG_IDE
+#ifdef CONFIG_DEBUG_IDE
     print_prd_table(dev, channel);
 #endif
 

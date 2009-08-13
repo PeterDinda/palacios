@@ -24,7 +24,7 @@
 #include <palacios/vmm_msr.h>
 
 
-#ifndef DEBUG_APIC
+#ifndef CONFIG_DEBUG_APIC
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif

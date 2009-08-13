@@ -26,7 +26,7 @@
 #include <palacios/vmm_ctrl_regs.h>
 
 
-#ifndef DEBUG_EMULATOR
+#ifndef CONFIG_DEBUG_EMULATOR
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
@@ -97,7 +97,7 @@ int v3_emulate_memory_read(struct guest_info * info, addr_t read_gva,
 	return -1;
     }
 
-#ifdef DEBUG_EMULATOR
+#ifdef CONFIG_DEBUG_EMULATOR
     PrintDebug("Instr (15 bytes) at %p:\n", (void *)(addr_t)instr);
     PrintTraceMemDump(instr, 15);
 #endif  

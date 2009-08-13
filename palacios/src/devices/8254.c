@@ -26,7 +26,7 @@
 
 
 
-#ifndef DEBUG_PIT
+#ifndef CONFIG_DEBUG_PIT
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
@@ -653,7 +653,7 @@ static int pit_init(struct guest_info * info, void * cfg_data) {
     v3_dev_hook_io(dev, CHANNEL2_PORT, &pit_read_channel, &pit_write_channel);
     v3_dev_hook_io(dev, COMMAND_PORT, NULL, &pit_write_command);
 
-#ifdef DEBUG_PIT
+#ifdef CONFIG_DEBUG_PIT
     PrintDebug("8254 PIT: OSC_HZ=%d, reload_val=", OSC_HZ);
     PrintTraceLL(reload_val);
     PrintDebug("\n");
@@ -673,7 +673,7 @@ static int pit_init(struct guest_info * info, void * cfg_data) {
     init_channel(&(pit_state->ch_1));
     init_channel(&(pit_state->ch_2));
 
-#ifdef DEBUG_PIT
+#ifdef CONFIG_DEBUG_PIT
     PrintDebug("8254 PIT: CPU MHZ=%d -- pit count=", cpu_khz / 1000);
     PrintTraceLL(pit_state->pit_counter);
     PrintDebug("\n");

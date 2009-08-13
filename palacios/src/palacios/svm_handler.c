@@ -72,7 +72,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
 
     if ((info->intr_state.irq_pending == 1) && (guest_ctrl->guest_ctrl.V_IRQ == 0)) {
 
-#ifdef DEBUG_INTERRUPTS
+#ifdef CONFIG_DEBUG_INTERRUPTS
 	PrintDebug("INTAK cycle completed for irq %d\n", info->intr_state.irq_vector);
 #endif
 
@@ -83,7 +83,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
     }
 
     if ((info->intr_state.irq_started == 1) && (guest_ctrl->exit_int_info.valid == 0)) {
-#ifdef DEBUG_INTERRUPTS
+#ifdef CONFIG_DEBUG_INTERRUPTS
 	PrintDebug("Interrupt %d taken by guest\n", info->intr_state.irq_vector);
 #endif
 
@@ -91,16 +91,17 @@ int v3_handle_svm_exit(struct guest_info * info) {
 	info->intr_state.irq_started = 0;
 
     } else {
-#ifdef DEBUG_INTERRUPTS
+#ifdef CONFIG_DEBUG_INTERRUPTS
 	PrintDebug("EXIT INT INFO is set (vec=%d)\n", guest_ctrl->exit_int_info.vector);
 #endif
     }
 
 
-
+#ifdef CONFIG_PROFILE_VMM
     if (info->enable_profiler) {
 	rdtscll(info->profiler.start_time);
     }
+#endif
 
 
     //PrintDebug("SVM Returned: Exit Code: %x\n",exit_code); 
@@ -151,7 +152,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
 		
 	    break;
 	case VMEXIT_CR0_WRITE: 
-#ifdef DEBUG_CTRL_REGS
+#ifdef CONFIG_DEBUG_CTRL_REGS
 	    PrintDebug("CR0 Write\n");
 #endif
 	    if (v3_handle_cr0_write(info) == -1) {
@@ -159,7 +160,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
 	    }
 	    break;
 	case VMEXIT_CR0_READ: 
-#ifdef DEBUG_CTRL_REGS
+#ifdef CONFIG_DEBUG_CTRL_REGS
 	    PrintDebug("CR0 Read\n");
 #endif
 	    if (v3_handle_cr0_read(info) == -1) {
@@ -167,7 +168,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
 	    }
 	    break;
 	case VMEXIT_CR3_WRITE: 
-#ifdef DEBUG_CTRL_REGS
+#ifdef CONFIG_DEBUG_CTRL_REGS
 	    PrintDebug("CR3 Write\n");
 #endif
 	    if (v3_handle_cr3_write(info) == -1) {
@@ -175,7 +176,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
 	    }    
 	    break;
 	case  VMEXIT_CR3_READ: 
-#ifdef DEBUG_CTRL_REGS
+#ifdef CONFIG_DEBUG_CTRL_REGS
 	    PrintDebug("CR3 Read\n");
 #endif
 	    if (v3_handle_cr3_read(info) == -1) {
@@ -183,7 +184,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
 	    }
 	    break;
 	case VMEXIT_CR4_WRITE: 
-#ifdef DEBUG_CTRL_REGS
+#ifdef CONFIG_DEBUG_CTRL_REGS
 	    PrintDebug("CR4 Write\n");
 #endif
 	    if (v3_handle_cr4_write(info) == -1) {
@@ -191,7 +192,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
 	    }    
 	    break;
 	case  VMEXIT_CR4_READ: 
-#ifdef DEBUG_CTRL_REGS
+#ifdef CONFIG_DEBUG_CTRL_REGS
 	    PrintDebug("CR4 Read\n");
 #endif
 	    if (v3_handle_cr4_read(info) == -1) {
@@ -201,7 +202,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
 	case VMEXIT_EXCP14: {
 	    addr_t fault_addr = guest_ctrl->exit_info2;
 	    pf_error_t * error_code = (pf_error_t *)&(guest_ctrl->exit_info1);
-#ifdef DEBUG_SHADOW_PAGING
+#ifdef CONFIG_DEBUG_SHADOW_PAGING
 	    PrintDebug("PageFault at %p (error=%d)\n", 
 		       (void *)fault_addr, *(uint_t *)error_code);
 #endif
@@ -231,7 +232,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
 	    }
 	case VMEXIT_INVLPG: 
 	    if (info->shdw_pg_mode == SHADOW_PAGING) {
-#ifdef DEBUG_SHADOW_PAGING
+#ifdef CONFIG_DEBUG_SHADOW_PAGING
 		PrintDebug("Invlpg\n");
 #endif
 		if (v3_handle_shadow_invlpg(info) == -1) {
@@ -258,7 +259,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
 	    //   handle_svm_smi(info); // ignored for now
 	    break;
 	case VMEXIT_HLT:
-#ifdef DEBUG_HALT
+#ifdef CONFIG_DEBUG_HALT
 	    PrintDebug("Guest halted\n");
 #endif
 	    if (v3_handle_svm_halt(info) == -1) {
@@ -272,7 +273,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
 	    }
 	    break;
 	case VMEXIT_WBINVD:   
-#ifdef DEBUG_EMULATOR
+#ifdef CONFIG_DEBUG_EMULATOR
 	    PrintDebug("WBINVD\n");
 #endif
 	    if (v3_handle_svm_wbinvd(info) == -1) { 
@@ -319,11 +320,12 @@ int v3_handle_svm_exit(struct guest_info * info) {
     }
     // END OF SWITCH (EXIT_CODE)
 
-
+#ifdef CONFIG_PROFILE_VMM
     if (info->enable_profiler) {
 	rdtscll(info->profiler.end_time);
 	v3_profile_exit(info, exit_code);
     }
+#endif
 
 
     if (v3_excp_pending(info)) {
@@ -334,7 +336,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
 	if (info->excp_state.excp_error_code_valid) {
 	    guest_ctrl->EVENTINJ.error_code = info->excp_state.excp_error_code;
 	    guest_ctrl->EVENTINJ.ev = 1;
-#ifdef DEBUG_INTERRUPTS
+#ifdef CONFIG_DEBUG_INTERRUPTS
 	    PrintDebug("Injecting exception %d with error code %x\n", excp, guest_ctrl->EVENTINJ.error_code);
 #endif
 	}
@@ -342,14 +344,14 @@ int v3_handle_svm_exit(struct guest_info * info) {
 	guest_ctrl->EVENTINJ.vector = excp;
 	
 	guest_ctrl->EVENTINJ.valid = 1;
-#ifdef DEBUG_INTERRUPTS
+#ifdef CONFIG_DEBUG_INTERRUPTS
 	PrintDebug("Injecting Exception %d (EIP=%p)\n", 
 		   guest_ctrl->EVENTINJ.vector, 
 		   (void *)(addr_t)info->rip);
 #endif
 	v3_injecting_excp(info, excp);
     } else if (info->intr_state.irq_started == 1) {
-#ifdef DEBUG_INTERRUPTS
+#ifdef CONFIG_DEBUG_INTERRUPTS
 	PrintDebug("IRQ pending from previous injection\n");
 #endif
 	guest_ctrl->guest_ctrl.V_IRQ = 1;
@@ -367,7 +369,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
 		guest_ctrl->guest_ctrl.V_IGN_TPR = 1;
 		guest_ctrl->guest_ctrl.V_INTR_PRIO = 0xf;
 
-#ifdef DEBUG_INTERRUPTS
+#ifdef CONFIG_DEBUG_INTERRUPTS
 		PrintDebug("Injecting Interrupt %d (EIP=%p)\n", 
 			   guest_ctrl->guest_ctrl.V_INTR_VECTOR, 
 			   (void *)(addr_t)info->rip);

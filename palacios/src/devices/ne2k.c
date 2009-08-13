@@ -29,7 +29,7 @@
 #include <palacios/vmm_debug.h>
 #include <palacios/vmm_string.h>
 
-#ifndef DEBUG_NE2K
+#ifndef CONFIG_DEBUG_NE2K
 #undef PrintDebug
 #define PrintDebug(fmts, args...)
 #endif
@@ -333,7 +333,7 @@ struct ne2k_context {
 
 #define compare_mac(src, dst) !memcmp(src, dst, 6)
 
-#ifdef DEBUG_NE2K
+#ifdef CONFIG_DEBUG_NE2K
 static void dump_state(struct vm_device * dev) {
     struct ne2k_context *nic_state = (struct ne2k_context *)dev->private_data;
     int i;
@@ -413,7 +413,7 @@ static void ne2k_init_state(struct vm_device * dev) {
     nic_state->mem[14] = 0x57;
     nic_state->mem[15] = 0x57;
 
-#ifdef DEBUG_NE2K
+#ifdef CONFIG_DEBUG_NE2K
     dump_state(dev);
 #endif
 
@@ -558,7 +558,7 @@ static int netif_input(uchar_t *pkt, uint_t size) {
     static const uchar_t brocast_mac[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
     int i;
   
-#ifdef DEBUG_NE2K
+#ifdef CONFIG_DEBUG_NE2K
     PrintDebug("\nNe2k: Packet Received:\nSource:");
     for (i = 6; i < 12; i++) {
   	PrintDebug("%x ", pkt[i]);
@@ -1146,7 +1146,7 @@ static int ne2k_init_device(struct vm_device * dev) {
     }
     
 
-#ifdef DEBUG_NE2K
+#ifdef CONFIG_DEBUG_NE2K
     dump_state(dev);
 #endif
 

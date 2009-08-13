@@ -26,7 +26,7 @@
 
 #include <devices/ide.h>
 
-#ifndef DEBUG_NVRAM
+#ifndef CONFIG_DEBUG_NVRAM
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif

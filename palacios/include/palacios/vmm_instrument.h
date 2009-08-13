@@ -22,7 +22,7 @@
 
 #ifdef __V3VEE__
 
-#ifdef INSTRUMENT_VMM 
+#ifdef CONFIG_INSTRUMENT_VMM 
 
 #include <palacios/vmm_types.h>
 #include <palacios/vmm_ringbuffer.h>

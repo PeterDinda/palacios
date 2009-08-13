@@ -22,6 +22,8 @@
 
 #ifdef __V3VEE__
 
+#ifdef CONFIG_PROFILE_VMM 
+
 #include <palacios/vmm_rbtree.h>
 
 struct guest_info;
@@ -45,6 +47,7 @@ void v3_profile_exit(struct guest_info * info, uint_t exit_code);
 
 void v3_print_profile(struct guest_info * info);
 
+#endif
 
 #endif
 

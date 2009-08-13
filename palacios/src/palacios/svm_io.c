@@ -23,7 +23,7 @@
 #include <palacios/vmm_decoder.h>
 #include <palacios/vm_guest_mem.h>
 
-#ifndef DEBUG_IO
+#ifndef CONFIG_DEBUG_IO
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif

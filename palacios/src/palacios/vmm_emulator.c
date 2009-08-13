@@ -24,7 +24,7 @@
 #include <palacios/vmm_paging.h>
 #include <palacios/vmm_instr_emulator.h>
 
-#ifndef DEBUG_EMULATOR
+#ifndef CONFIG_DEBUG_EMULATOR
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif

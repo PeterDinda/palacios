@@ -321,9 +321,11 @@ static int start_svm_guest(struct guest_info *info) {
 	if ((num_exits % 5000) == 0) {
 	    PrintDebug("SVM Exit number %d\n", num_exits);
 
+#ifdef CONFIG_PROFILE_VMM
 	    if (info->enable_profiler) {
 		v3_print_profile(info);
 	    }
+#endif
 	}
 
 	if (v3_handle_svm_exit(info) != 0) {

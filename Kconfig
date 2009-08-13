@@ -1,12 +1,5 @@
 mainmenu "Palacios VMM Configuration"
 
-config x86_64
-	bool
-	default y
-	help
-	  Support for the x86-64 architecture.
-
-
 menu "Target Configuration"
 
 config CRAY_XT
@@ -25,16 +18,47 @@ config VMX
 	default y
 	help 
 	  Compile with support for Intel VMX
+
+
+config SOCKET
+	bool "Include Network Socket Support"
+	default y
+	help 
+	  Enable networking support in Palacios
+
+
+
+config PROFILE_VMM
+	bool "Enable VMM profiling support"
+	default y
+	help 
+	  Enable the profiling framework in Palacios
+	  -----
+	  This is a framwork that allows components of palacios to record 
+	  information that is periodically reported to the log file 
+
+config INSTRUMENT_VMM
+	bool "Enable VMM instrumentation"
+	default n
+	help 
+	  Enable the instrumentation framework
+	  --------
+	  This is much heavier weight than profiling
+
+
 endmenu
 
 
-menu "Virtual Devices"
 
-config APIC
-	bool "APIC"
-	default y
+
+menu "Symbiotic Functions"
+
+config SYMBIOTIC
+	bool "Enable Symbiotic Functionality"
+	default n
 	help 
-	  "Includes the Virtual APIC device"
+	  Enable Symbiotic components of the VMM
+
 
 endmenu
 
@@ -58,20 +82,75 @@ config DEBUG_ON
 	  This turns on debugging support
 
 
-	
-
-
-config DEBUG_PIC
-	bool "PIC"
+config DEBUG_SHADOW_PAGING
+	bool "Shadow paging"
+	default n
 	depends on DEBUG_ON
 	help 
-	  Enable debugging for the PIC 	
+	  This turns on debugging for the shadow paging system
 
-config DEBUG_APIC
-	bool "APIC"
-	depends on DEBUG_ON && APIC
+
+config DEBUG_NESTED_PAGING
+	bool "Nested paging"
+	default n
+	depends on DEBUG_ON
 	help 
-	  Enable debugging for the APIC
+	  This turns on debugging for the nested paging system
+
+
+config DEBUG_CTRL_REGS
+	bool "Control registers"
+	default n
+	depends on DEBUG_ON
+	help 
+	  This turns on debugging for the control register handlers
+
+
+config DEBUG_INTERRUPTS
+	bool "Interrupts"
+	default n
+	depends on DEBUG_ON
+	help 
+	  This turns on debugging for the interrupt system
+
+
+
+config DEBUG_IO
+	bool "IO"
+	default n
+	depends on DEBUG_ON
+	help 
+	  This turns on debugging for the IO handlers
+
+
+config DEBUG_EMULATOR
+	bool "Instruction Emulator"
+	default n
+	depends on DEBUG_ON
+	help 
+	  This turns on debugging for the Instruction Emulator
+
+
+config DEBUG_XED
+	bool "XED"
+	default n
+	depends on DEBUG_ON
+	help 
+	  This turns on debugging for the Xed Decoder
+
+config DEBUG_HALT
+	bool "Halt"
+	default n
+	depends on DEBUG_ON
+	help 
+	  This turns on debugging for the halt instruction handler
+
+config DEBUG_DEV_MGR
+	bool "Device Manager"
+	default n
+	depends on DEBUG_ON
+	help 
+	  This turns on debugging for the device manager
 
 
 
@@ -93,7 +172,16 @@ config VGABIOS_PATH
 	help
 	  This is the vgabios that will be used for the guests
 
+config VMXASSIST_PATH
+	string "Path to pre-built VMXASSIST binary"
+	depends on VMX
+	default "./bios/vmxassist/vmxassist.bin"
+	help
+	  This is vmxassist image to boot real mode guests on 
+	  Intel VMX Platforms
+
 endmenu
 
-#source "net/Kconfig"
+
+source "palacios/src/devices/Kconfig"
 

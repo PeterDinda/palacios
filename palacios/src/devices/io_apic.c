@@ -23,7 +23,7 @@
 #include <devices/apic.h>
 
 
-#ifndef DEBUG_IO_APIC
+#ifndef CONFIG_DEBUG_IO_APIC
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif

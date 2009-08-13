@@ -97,12 +97,14 @@ int v3_pre_config_guest(struct guest_info * info, struct v3_vm_config * config_p
 	info->shdw_pg_mode = SHADOW_PAGING;
     }
 
+#ifdef CONFIG_PROFILE_VMM
     if (config_ptr->enable_profiling) {
 	info->enable_profiler = 1;
 	v3_init_profiler(info);
     } else {
 	info->enable_profiler = 0;
     }
+#endif
 
     if (config_ptr->schedule_freq == 0) {
 	// set the schedule frequency to 100 HZ

@@ -24,7 +24,7 @@
 #include <palacios/vmm.h>
 #include <palacios/vmm_dev_mgr.h>
 
-#ifndef DEBUG_PIC
+#ifndef CONFIG_DEBUG_PIC
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
