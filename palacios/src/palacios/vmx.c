@@ -522,9 +522,9 @@ static int init_vmx_guest(struct guest_info * info, struct v3_vm_config * config
 
     /* Print Control MSRs */
     v3_get_msr(VMX_CR0_FIXED0_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
-    PrintDebug("CR0 MSR: %p\n", (void*)tmp_msr.value);
+    PrintDebug("CR0 MSR: %p\n", (void *)(addr_t)tmp_msr.value);
     v3_get_msr(VMX_CR4_FIXED0_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
-    PrintDebug("CR4 MSR: %p\n", (void*)tmp_msr.value);
+    PrintDebug("CR4 MSR: %p\n", (void *)(addr_t)tmp_msr.value);
 
 
 #define GUEST_CR0 0x80000031
@@ -615,10 +615,10 @@ static int init_vmx_guest(struct guest_info * info, struct v3_vm_config * config
     info->segments.gdtr.base = VMXASSIST_GDT;
 
 #define VMXASSIST_TSS   0x40000
-    addr_t vmxassist_tss = VMXASSIST_TSS;
+    uint64_t vmxassist_tss = VMXASSIST_TSS;
     gdt[0x08 / sizeof(gdt[0])] |=
-	((vmxassist_tss & 0xFF000000) << (56-24)) |
-	((vmxassist_tss & 0x00FF0000) << (32-16)) |
+	((vmxassist_tss & 0xFF000000) << (56 - 24)) |
+	((vmxassist_tss & 0x00FF0000) << (32 - 16)) |
 	((vmxassist_tss & 0x0000FFFF) << (16)) |
 	(8392 - 1);
 
@@ -651,7 +651,7 @@ static int init_vmx_guest(struct guest_info * info, struct v3_vm_config * config
 
     vmx_ret |= check_vmcs_write(VMCS_GUEST_DR7, 0x400);
 
-    vmx_ret |= check_vmcs_write(VMCS_LINK_PTR, 0xffffffffffffffff);
+    vmx_ret |= check_vmcs_write(VMCS_LINK_PTR, (addr_t)0xffffffffffffffffULL);
     
     if(v3_update_vmcs_ctrl_fields(info)) {
         PrintError("Could not write control fields!\n");
