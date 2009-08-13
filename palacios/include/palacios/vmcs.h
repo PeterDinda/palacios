@@ -59,6 +59,11 @@
 #define   HOST_ADDR_SPACE_SIZE          0x00000200
 #define   ACK_IRQ_ON_EXIT               0x00008000
 
+/* Control register exit masks */
+#define   CR0_PE        0x00000001
+#define   CR0_PG        0x80000000
+#define   CR4_VMXE      0x00002000
+
 typedef enum {
     VMCS_GUEST_ES_SELECTOR       = 0x00000800,
     VMCS_GUEST_CS_SELECTOR       = 0x00000802,
@@ -216,56 +221,6 @@ void v3_print_vmcs();
 
 
 
-/* VMCS Exit QUALIFICATIONs */
-struct vmcs_io_qual {
-    uint32_t accessSize : 3; // (0: 1 Byte ;; 1: 2 Bytes ;; 3: 4 Bytes)
-    uint32_t dir        : 1; // (0: Out ;; 1: In)
-    uint32_t string     : 1; // (0: not string ;; 1: string)
-    uint32_t REP        : 1; // (0: not REP ;; 1: REP)
-    uint32_t opEnc      : 1; // (0: DX ;; 1: immediate)
-    uint32_t rsvd       : 9; // Set to 0
-    uint32_t port       : 16; // IO Port Number
-} __attribute__((packed));
-
-
-
-struct VMExitDBGQual {
-    uint32_t B0         : 1; // Breakpoint 0 condition met
-    uint32_t B1         : 1; // Breakpoint 1 condition met
-    uint32_t B2         : 1; // Breakpoint 2 condition met
-    uint32_t B3         : 1; // Breakpoint 3 condition met
-    uint32_t rsvd       : 9; // reserved to 0
-    uint32_t BD         : 1; // detected DBG reg access
-    uint32_t BS         : 1; // cause either single instr or taken branch
-} __attribute__((packed));
-
-
-struct VMExitTSQual {
-    uint32_t selector   : 16; // selector of destination TSS 
-    uint32_t rsvd       : 14; // reserved to 0
-    uint32_t src        : 2; // (0: CALL ; 1: IRET ; 2: JMP ; 3: Task gate in IDT)
-} __attribute__((packed));
-
-struct VMExitCRQual {
-    uint32_t crID       : 4; // cr number (0 for CLTS and LMSW) (bit 3 always 0, on 32bit)
-    uint32_t accessType : 2; // (0: MOV to CR ; 1: MOV from CR ; 2: CLTS ; 3: LMSW)
-    uint32_t lmswOpType : 1; // (0: register ; 1: memory)
-    uint32_t rsvd1      : 1; // reserved to 0
-    uint32_t gpr        : 4; // (0:RAX+[CLTS/LMSW], 1:RCX, 2:RDX, 3:RBX, 4:RSP, 5:RBP, 6:RSI, 6:RDI, 8-15:64bit regs)
-    uint32_t rsvd2      : 4; // reserved to 0
-    uint32_t lmswSrc    : 16; // src data for lmsw
-} __attribute__((packed));
-
-struct VMExitMovDRQual {
-    uint32_t regID      : 3; // debug register number
-    uint32_t rsvd1      : 1; // reserved to 0
-    uint32_t dir        : 1; // (0: MOV to DR , 1: MOV from DR)
-    uint32_t rsvd2      : 3; // reserved to 0
-    uint32_t gpr        : 4; // (0:RAX, 1:RCX, 2:RDX, 3:RBX, 4:RSP, 5:RBP, 6:RSI, 6:RDI, 8-15:64bit regs)
-} __attribute__((packed));
-
-/* End Exit Qualifications */
-
 /* Exit Vector Info */
 struct VMExitIntInfo {
     uint32_t nr         : 8; // IRQ number, exception vector, NMI = 2 
@@ -280,6 +235,46 @@ struct VMExitIntInfo {
 
 
 /*  End Exit Vector Info */
+
+struct vmx_exception_bitmap {
+    union {
+        uint32_t value;
+    struct {
+        uint_t de          : 1; // (0) divide by zero
+        uint_t db          : 1; // (1) Debug
+        uint_t nmi         : 1; // (2) Non-maskable interrupt
+        uint_t bp          : 1; // (3) Breakpoint
+        uint_t of          : 1; // (4) Overflow
+        uint_t br          : 1; // (5) Bound-Range
+        uint_t ud          : 1; // (6) Invalid-Opcode
+        uint_t nm          : 1; // (7) Device-not-available
+        uint_t df          : 1; // (8) Double Fault
+        uint_t ex9         : 1; 
+        uint_t ts          : 1; // (10) Invalid TSS
+        uint_t np          : 1; // (11) Segment-not-present
+        uint_t ss          : 1; // (12) Stack
+        uint_t gp          : 1; // (13) General Protection Fault
+        uint_t pf          : 1; // (14) Page fault
+        uint_t ex15        : 1;
+        uint_t mf          : 1; // (15) Floating point exception
+        uint_t ac          : 1; // (16) Alignment-check
+        uint_t mc          : 1; // (17) Machine Check
+        uint_t xf          : 1; // (18) SIMD floating-point
+        uint_t ex20        : 1;
+        uint_t ex21        : 1;
+        uint_t ex22        : 1;
+        uint_t ex23        : 1;
+        uint_t ex24        : 1;
+        uint_t ex25        : 1;
+        uint_t ex26        : 1;
+        uint_t ex27        : 1;
+        uint_t ex28        : 1;
+        uint_t ex29        : 1;
+        uint_t sx          : 1; // (30) Security Exception
+        uint_t ex31        : 1;
+    } __attribute__ ((packed));
+    } __attribute__ ((packed));
+} __attribute__((packed));
 
 
 

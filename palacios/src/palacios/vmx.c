@@ -25,8 +25,8 @@
 #include <palacios/vmm.h>
 #include <palacios/vmx_lowlevel.h>
 #include <palacios/vmm_lowlevel.h>
-#include <palacios/vmm_config.h>
 #include <palacios/vmm_ctrl_regs.h>
+#include <palacios/vmm_config.h>
 #include <palacios/vm_guest_mem.h>
 #include <palacios/vmm_direct_paging.h>
 #include <palacios/vmx_io.h>
@@ -62,7 +62,7 @@ static void inline translate_segment_access(struct v3_segment * v3_seg,
     access->granularity = v3_seg->granularity;
 }
 
-static int update_vmcs_ctrl_fields(struct guest_info * info) {
+int v3_update_vmcs_ctrl_fields(struct guest_info * info) {
     int vmx_ret = 0;
     struct vmx_data * arch_data = (struct vmx_data *)(info->vmm_data);
 
@@ -75,12 +75,11 @@ static int update_vmcs_ctrl_fields(struct guest_info * info) {
 
     vmx_ret |= check_vmcs_write(VMCS_EXIT_CTRLS, arch_data->exit_ctrls);
     vmx_ret |= check_vmcs_write(VMCS_ENTRY_CTRLS, arch_data->entry_ctrls);
-    vmx_ret |= check_vmcs_write(VMCS_EXCP_BITMAP, arch_data->excp_bitmap);
 
     return vmx_ret;
 }
 
-static int update_vmcs_host_state(struct guest_info * info) {
+int v3_update_vmcs_host_state(struct guest_info * info) {
     int vmx_ret = 0;
     addr_t tmp;
     struct vmx_data * arch_data = (struct vmx_data *)(info->vmm_data);
@@ -184,9 +183,8 @@ static int update_vmcs_host_state(struct guest_info * info) {
 }
 
 
-static int inline update_vmcs_guest_state(struct guest_info * info)
+int v3_update_vmcs_guest_state(struct guest_info * info)
 {
-    struct v3_msr tmp_msr;
     int vmx_ret = 0;
 
     vmx_ret |= check_vmcs_write(VMCS_GUEST_RIP, info->rip);
@@ -198,14 +196,7 @@ static int inline update_vmcs_guest_state(struct guest_info * info)
     vmx_ret |= check_vmcs_write(VMCS_GUEST_CR4, info->ctrl_regs.cr4);
 
     vmx_ret |= check_vmcs_write(VMCS_GUEST_RFLAGS, info->ctrl_regs.rflags);
-#define DEBUGCTL_MSR 0x1d9
 
-    v3_get_msr(DEBUGCTL_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_DBG_CTL, tmp_msr.value);
-
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_DR7, 0x400);
-
-    vmx_ret |= check_vmcs_write(VMCS_LINK_PTR, 0xffffffffffffffff);
 
 
     /*** Write VMCS Segments ***/
@@ -222,6 +213,7 @@ static int inline update_vmcs_guest_state(struct guest_info * info)
     vmx_ret |= check_vmcs_write(VMCS_GUEST_CS_ACCESS, access.value);
 
     /* SS Segment */
+    memset(&access, 0, sizeof(access));
     translate_segment_access(&(info->segments.ss), &access);
 
     vmx_ret |= check_vmcs_write(VMCS_GUEST_SS_BASE, info->segments.ss.base);
@@ -230,6 +222,7 @@ static int inline update_vmcs_guest_state(struct guest_info * info)
     vmx_ret |= check_vmcs_write(VMCS_GUEST_SS_ACCESS, access.value);
 
     /* DS Segment */
+    memset(&access, 0, sizeof(access));
     translate_segment_access(&(info->segments.ds), &access);
 
     vmx_ret |= check_vmcs_write(VMCS_GUEST_DS_BASE, info->segments.ds.base);
@@ -239,6 +232,7 @@ static int inline update_vmcs_guest_state(struct guest_info * info)
 
 
     /* ES Segment */
+    memset(&access, 0, sizeof(access));
     translate_segment_access(&(info->segments.es), &access);
 
     vmx_ret |= check_vmcs_write(VMCS_GUEST_ES_BASE, info->segments.es.base);
@@ -247,6 +241,7 @@ static int inline update_vmcs_guest_state(struct guest_info * info)
     vmx_ret |= check_vmcs_write(VMCS_GUEST_ES_ACCESS, access.value);
 
     /* FS Segment */
+    memset(&access, 0, sizeof(access));
     translate_segment_access(&(info->segments.fs), &access);
 
     vmx_ret |= check_vmcs_write(VMCS_GUEST_FS_BASE, info->segments.fs.base);
@@ -255,6 +250,7 @@ static int inline update_vmcs_guest_state(struct guest_info * info)
     vmx_ret |= check_vmcs_write(VMCS_GUEST_FS_ACCESS, access.value);
 
     /* GS Segment */
+    memset(&access, 0, sizeof(access));
     translate_segment_access(&(info->segments.gs), &access);
 
     vmx_ret |= check_vmcs_write(VMCS_GUEST_GS_BASE, info->segments.gs.base);
@@ -263,6 +259,7 @@ static int inline update_vmcs_guest_state(struct guest_info * info)
     vmx_ret |= check_vmcs_write(VMCS_GUEST_GS_ACCESS, access.value);
 
     /* LDTR segment */
+    memset(&access, 0, sizeof(access));
     translate_segment_access(&(info->segments.ldtr), &access);
 
     vmx_ret |= check_vmcs_write(VMCS_GUEST_LDTR_BASE, info->segments.ldtr.base);
@@ -271,6 +268,7 @@ static int inline update_vmcs_guest_state(struct guest_info * info)
     vmx_ret |= check_vmcs_write(VMCS_GUEST_LDTR_ACCESS, access.value);
 
     /* TR Segment */
+    memset(&access, 0, sizeof(access));
     translate_segment_access(&(info->segments.tr), &access);
 
     vmx_ret |= check_vmcs_write(VMCS_GUEST_TR_BASE, info->segments.tr.base);
@@ -358,59 +356,7 @@ static addr_t allocate_vmcs()
 }
 
 #if 0
-static void setup_v8086_mode_for_boot(struct guest_info * vm_info)
-{
 
-    ((struct vmx_data *)vm_info->vmm_data)->state = VMXASSIST_V8086_BIOS;
-    struct rflags * flags = (struct rflags *)&(vm_info->ctrl_regs.rflags);
-    flags->rsvd1 = 1;
-    flags->vm = 1;
-    flags->iopl = 3;
-
-#define GUEST_CR0_MASK 0x80000021
-#define GUEST_CR4_MASK 0x00002000
-    vm_info->ctrl_regs.cr0 = GUEST_CR0_MASK;
-    vm_info->ctrl_regs.cr4 = GUEST_CR4_MASK;
-   
-    vm_info->rip = 0xd0000;
-    vm_info->vm_regs.rsp = 0x80000;
-
-    vm_info->segments.cs.selector = 0xf000;
-    vm_info->segments.cs.base = 0xf000 << 4;
-    vm_info->segments.cs.limit = 0xffff;
-    vm_info->segments.cs.type = 3;
-    vm_info->segments.cs.system = 1;
-    vm_info->segments.cs.dpl = 3;
-    vm_info->segments.cs.present = 1;
-    vm_info->segments.cs.granularity = 0;
-
-    int i = 0;
-    struct v3_segment * seg_ptr = (struct v3_segment *)&(vm_info->segments);
-
-    /* Set values for selectors ds through ss */
-    for(i = 1; i < 6 ; i++) {
-        seg_ptr[i].selector = 0x0000;
-        seg_ptr[i].base = 0x00000;
-        seg_ptr[i].limit = 0xffff;
-           }
-
-    for(i = 6; i < 10; i++) {
-        seg_ptr[i].base = 0x0;
-        seg_ptr[i].limit = 0xffff;
-    }
-
-    vm_info->segments.ldtr.selector = 0x0;
-    vm_info->segments.ldtr.type = 2;
-    vm_info->segments.ldtr.system = 0;
-    vm_info->segments.ldtr.present = 1;
-    vm_info->segments.ldtr.granularity = 0;
-
-    vm_info->segments.tr.selector = 0x0;
-    vm_info->segments.tr.type = 3;
-    vm_info->segments.tr.system = 0;
-    vm_info->segments.tr.present = 1;
-    vm_info->segments.tr.granularity = 0;
-}
 #endif
 
 #if 0
@@ -556,13 +502,14 @@ static int init_vmx_guest(struct guest_info * info, struct v3_vm_config * config
     vmx_data->pri_procbased_ctrls = tmp_msr.lo;
 
     v3_get_msr(VMX_EXIT_CTLS_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
-    vmx_data->exit_ctrls = tmp_msr.lo | HOST_ADDR_SPACE_SIZE;
+    vmx_data->exit_ctrls = tmp_msr.lo ;
 
     v3_get_msr(VMX_ENTRY_CTLS_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
     vmx_data->entry_ctrls = tmp_msr.lo;
 
-    vmx_data->excp_bitmap = 0xffffffff;
-
+    struct vmx_exception_bitmap excp_bmap;
+    excp_bmap.value = 0xffffffff;
+    vmx_ret |= check_vmcs_write(VMCS_EXCP_BITMAP, excp_bmap.value);
 
 
     /******* Setup VMXAssist guest state ***********/
@@ -594,19 +541,23 @@ static int init_vmx_guest(struct guest_info * info, struct v3_vm_config * config
             return -1;
         }
 
-        info->shdw_pg_state.guest_cr0 = 0x10LL;
+        info->shdw_pg_state.guest_cr0 = CR0_PE;
         PrintDebug("Created\n");
 
-        vmx_ret |= check_vmcs_write(VMCS_CR0_MASK, 0xffffffffffffffffLL);
-        vmx_ret |= check_vmcs_write(VMCS_CR4_MASK, 0xffffffffffffffffLL);
+        vmx_ret |= check_vmcs_write(VMCS_CR0_MASK, (CR0_PE | CR0_PG) );
+        vmx_ret |= check_vmcs_write(VMCS_CR0_READ_SHDW, info->shdw_pg_state.guest_cr0);
+        vmx_ret |= check_vmcs_write(VMCS_CR4_MASK, CR4_VMXE);
 
         info->ctrl_regs.cr3 = info->direct_map_pt;
 
+        // vmx_data->pinbased_ctrls |= NMI_EXIT;
+
         /* Add unconditional I/O and CR exits */
-        vmx_data->pri_procbased_ctrls |= UNCOND_IO_EXIT  |
-                                         CR3_LOAD_EXIT   |
-                                         CR3_STORE_EXIT;  
+        vmx_data->pri_procbased_ctrls |= UNCOND_IO_EXIT  
+                                        | CR3_LOAD_EXIT  
+                                        | CR3_STORE_EXIT;
  
+        vmx_data->exit_ctrls |= HOST_ADDR_SPACE_SIZE;
     }
 
     struct v3_segment * seg_reg = (struct v3_segment *)&(info->segments);
@@ -647,7 +598,7 @@ static int init_vmx_guest(struct guest_info * info, struct v3_vm_config * config
     uint64_t  gdt[] __attribute__ ((aligned(32))) = {
         0x0000000000000000ULL,		/* 0x00: reserved */
         0x0000830000000000ULL,		/* 0x08: 32-bit TSS */
-        //	0x0000890000000000ULL,		/* 0x08: 32-bit TSS */
+    	//0x0000890000000000ULL,		/* 0x08: 32-bit TSS */
         0x00CF9b000000FFFFULL,		/* 0x10: CS 32-bit */
         0x00CF93000000FFFFULL,		/* 0x18: DS 32-bit */
         0x000082000000FFFFULL,		/* 0x20: LDTR 32-bit */
@@ -674,7 +625,7 @@ static int init_vmx_guest(struct guest_info * info, struct v3_vm_config * config
     info->segments.tr.selector = 0x08;
     info->segments.tr.base = vmxassist_tss;
 
-    // info->segments.tr.type = 0x9; 
+    //info->segments.tr.type = 0x9; 
     info->segments.tr.type = 0x3;
     info->segments.tr.system = 0;
     info->segments.tr.present = 1;
@@ -693,24 +644,34 @@ static int init_vmx_guest(struct guest_info * info, struct v3_vm_config * config
     memcpy((void*)vmxassist_dst, v3_vmxassist_start, v3_vmxassist_end - v3_vmxassist_start);
     
     /*** Write all the info to the VMCS ***/
-    if(update_vmcs_ctrl_fields(info)) {
+
+#define DEBUGCTL_MSR 0x1d9
+    v3_get_msr(DEBUGCTL_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_DBG_CTL, tmp_msr.value);
+
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_DR7, 0x400);
+
+    vmx_ret |= check_vmcs_write(VMCS_LINK_PTR, 0xffffffffffffffff);
+    
+    if(v3_update_vmcs_ctrl_fields(info)) {
         PrintError("Could not write control fields!\n");
         return -1;
     }
     
-    if(update_vmcs_host_state(info)) {
+    if(v3_update_vmcs_host_state(info)) {
         PrintError("Could not write host state\n");
         return -1;
     }
 
 
-    if(update_vmcs_guest_state(info) != VMX_SUCCESS) {
+    if(v3_update_vmcs_guest_state(info) != VMX_SUCCESS) {
         PrintError("Writing guest state failed!\n");
         return -1;
     }
 
     v3_print_vmcs();
 
+    vmx_data->state = VMXASSIST_STARTUP;
 
     v3_post_config_guest(info, config_ptr);
 

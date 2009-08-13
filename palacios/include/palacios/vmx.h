@@ -33,7 +33,7 @@
 
 // Intel VMX Specific MSRs
 #define VMX_FEATURE_CONTROL_MSR     0x0000003a
-#define VMX_BASIC_MSR          0x00000480
+#define VMX_BASIC_MSR               0x00000480
 #define VMX_PINBASED_CTLS_MSR       0x00000481
 #define VMX_PROCBASED_CTLS_MSR      0x00000482
 #define VMX_EXIT_CTLS_MSR           0x00000483
@@ -120,7 +120,6 @@ struct vmx_data {
     uint32_t sec_procbased_ctrls;
     uint32_t exit_ctrls;
     uint32_t entry_ctrls;
-    uint32_t excp_bitmap;
 };
 
 
@@ -140,6 +139,9 @@ struct Instruction {
 
 int v3_is_vmx_capable();
 void v3_init_vmx(struct v3_ctrl_ops* vm_ops);
+int v3_update_vmcs_guest_state(struct guest_info * info);
+int v3_update_vmcs_ctrl_fields(struct guest_info * info);
+int v3_update_vmcs_host_state(struct guest_info * info);
 
 
 

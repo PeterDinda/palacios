@@ -368,8 +368,7 @@ start_bios(void)
 int
 main(void)
 {
-
-  printf("Hello from VMXAssist\n");
+    printf("Hello from VMXAssist\n");
 
 	if (booting_cpu == 0)
 		banner();

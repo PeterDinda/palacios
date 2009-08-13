@@ -21,9 +21,9 @@
 	movq 	%rdx, 40(%rax);		\
 	movq 	%rcx, 48(%rax);		\
 	pushq	%rbx;			\
-	movq	16(%rsp), %rbx;		\
+	movq	8(%rsp), %rbx;		\
 	movq	%rbx, 56(%rax);		\
-	popq	%rbx;			\
+	popq	%rbx;			    \
 					\
 	movq	%r8, 64(%rax);		\
 	movq	%r9, 72(%rax);		\
@@ -37,14 +37,13 @@
 	
 
 #define restore_registers(location) \
-	push	%rax;			\
 	mov	location, %rax;		\
 	mov	(%rax), %rdi;		\
 	mov	8(%rax), %rsi;		\
 	mov	16(%rax), %rbp;		\
 	mov	32(%rax), %rbx;		\
 	mov	40(%rax), %rdx;		\
-	mov 	48(%rax), %rcx;		\
+	mov 48(%rax), %rcx;		\
 					\
 	mov	64(%rax), %r8;		\
 	mov	72(%rax), %r9;		\
@@ -54,7 +53,11 @@
 	mov	104(%rax), %r13;	\
 	mov	112(%rax), %r14;	\
 	mov	120(%rax), %r15;	\
-	pop	%rax;
+    pushq %rbx;              \
+    movq 56(%rax), %rbx;     \
+    movq %rbx, %rax;         \
+    popq %rbx;
+
 
 
 

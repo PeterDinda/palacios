@@ -4,6 +4,7 @@
 #include <palacios/vmcs.h>
 #include <palacios/vmx_lowlevel.h>
 #include <palacios/vmm.h>
+#include <palacios/vmx_handler.h>
 
 /* Same as SVM */
 static int update_map(struct guest_info * info, uint16_t port, int hook_read, int hook_write)
@@ -33,8 +34,39 @@ int v3_init_vmx_io_map(struct guest_info * info)
 
 int v3_handle_vmx_io_in(struct guest_info * info)
 {
-    PrintDebug("IN not implemented\n");
-    return -1;
+    ulong_t exit_qual;
+
+    vmcs_read(VMCS_EXIT_QUAL, &exit_qual);
+
+    struct vmexit_io_qual * io_qual = (struct vmexit_io_qual *)&exit_qual;
+
+    struct v3_io_hook * hook = v3_get_io_hook(info,io_qual->port);
+    int read_size = 0;
+
+    if(hook == NULL) {
+        PrintError("Hook not present for IN on port %x\n", io_qual->port);
+        return -1;
+    }
+
+    read_size = 1<<(io_qual->access_size);
+
+    PrintDebug("IN of %d bytes on port %d (0x%x)\n", read_size, io_qual->port, io_qual->port);
+
+    if(hook->read(io_qual->port, &(info->vm_regs.rax), read_size, hook->priv_data) != read_size) {
+        PrintError("Read failure for IN on port %x\n", io_qual->port);
+        return -1;
+    }
+
+    uint32_t instr_length = 0;
+
+    if(vmcs_read(VMCS_EXIT_INSTR_LEN, &instr_length) != VMX_SUCCESS) {
+        PrintError("Could not read instruction length\n");
+        return -1;
+    }
+
+    info->rip += instr_length;
+
+    return 0;
 }
 
 int v3_handle_vmx_io_ins(struct guest_info * info)
@@ -49,7 +81,7 @@ int v3_handle_vmx_io_out(struct guest_info * info)
 
     vmcs_read(VMCS_EXIT_QUAL, &exit_qual);
 
-    struct vmcs_io_qual * io_qual = (struct vmcs_io_qual *)&exit_qual;
+    struct vmexit_io_qual * io_qual = (struct vmexit_io_qual *)&exit_qual;
 
     struct v3_io_hook * hook = v3_get_io_hook(info, io_qual->port);
 
@@ -58,18 +90,22 @@ int v3_handle_vmx_io_out(struct guest_info * info)
         return -1;
     }
 
-    int write_size = 1<<(io_qual->accessSize);
+    int write_size = 1<<(io_qual->access_size);
     
     PrintDebug("OUT of %d bytes on port %d (0x%x)\n", write_size, io_qual->port, io_qual->port);
+
 
     if(hook->write(io_qual->port, &(info->vm_regs.rax), write_size, hook->priv_data) != write_size) {
         PrintError("Write failure for out on port %x\n",io_qual->port);
         return -1;
     }
 
-    uint32_t instr_length;
+    uint32_t instr_length = 0;
 
-    vmcs_read(VMCS_EXIT_INSTR_LEN, &instr_length);
+    if(vmcs_read(VMCS_EXIT_INSTR_LEN, &instr_length) != VMX_SUCCESS) {
+        PrintError("Could not read instruction length\n");
+        return -1;
+    } 
 
     info->rip += instr_length;
 
@@ -82,7 +118,7 @@ int v3_handle_vmx_io_outs(struct guest_info * info)
 
     vmcs_read(VMCS_EXIT_QUAL, &exit_qual);
 
-    struct vmcs_io_qual * io_qual = (struct vmcs_io_qual *)&exit_qual;
+    struct vmexit_io_qual * io_qual = (struct vmexit_io_qual *)&exit_qual;
 
     PrintDebug("OUTS on port %d, (0x%x)\n", io_qual->port, io_qual->port);
     return -1;

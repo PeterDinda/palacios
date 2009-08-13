@@ -80,6 +80,57 @@ typedef enum {
     VMEXIT_XSETBV                           = 55
 } vmx_exit_t;
 
+/* VMCS Exit QUALIFICATIONs */
+struct vmexit_io_qual {
+    uint32_t access_size : 3; // (0: 1 Byte ;; 1: 2 Bytes ;; 3: 4 Bytes)
+    uint32_t dir        : 1; // (0: Out ;; 1: In)
+    uint32_t string     : 1; // (0: not string ;; 1: string)
+    uint32_t REP        : 1; // (0: not REP ;; 1: REP)
+    uint32_t op_enc      : 1; // (0: DX ;; 1: immediate)
+    uint32_t rsvd       : 9; // Set to 0
+    uint32_t port       : 16; // IO Port Number
+} __attribute__((packed));
+
+
+
+struct VMExitDBGQual {
+    uint32_t B0         : 1; // Breakpoint 0 condition met
+    uint32_t B1         : 1; // Breakpoint 1 condition met
+    uint32_t B2         : 1; // Breakpoint 2 condition met
+    uint32_t B3         : 1; // Breakpoint 3 condition met
+    uint32_t rsvd       : 9; // reserved to 0
+    uint32_t BD         : 1; // detected DBG reg access
+    uint32_t BS         : 1; // cause either single instr or taken branch
+} __attribute__((packed));
+
+
+struct VMExitTSQual {
+    uint32_t selector   : 16; // selector of destination TSS 
+    uint32_t rsvd       : 14; // reserved to 0
+    uint32_t src        : 2; // (0: CALL ; 1: IRET ; 2: JMP ; 3: Task gate in IDT)
+} __attribute__((packed));
+
+struct vmexit_cr_qual {
+    uint32_t cr_id       : 4; // cr number (0 for CLTS and LMSW) (bit 3 always 0, on 32bit)
+    uint32_t access_type : 2; // (0: MOV to CR ; 1: MOV from CR ; 2: CLTS ; 3: LMSW)
+    uint32_t lmsw_op_type : 1; // (0: register ; 1: memory)
+    uint32_t rsvd1      : 1; // reserved to 0
+    uint32_t gpr        : 4; // (0:RAX+[CLTS/LMSW], 1:RCX, 2:RDX, 3:RBX, 4:RSP, 5:RBP, 6:RSI, 6:RDI, 8-15:64bit regs)
+    uint32_t rsvd2      : 4; // reserved to 0
+    uint32_t lmsw_src    : 16; // src data for lmsw
+} __attribute__((packed));
+
+struct VMExitMovDRQual {
+    uint32_t regID      : 3; // debug register number
+    uint32_t rsvd1      : 1; // reserved to 0
+    uint32_t dir        : 1; // (0: MOV to DR , 1: MOV from DR)
+    uint32_t rsvd2      : 3; // reserved to 0
+    uint32_t gpr        : 4; // (0:RAX, 1:RCX, 2:RDX, 3:RBX, 4:RSP, 5:RBP, 6:RSI, 6:RDI, 8-15:64bit regs)
+} __attribute__((packed));
+
+/* End Exit Qualifications */
+
+
 int v3_handle_vmx_exit(struct v3_gprs * gprs, struct guest_info * info);
 
 #endif

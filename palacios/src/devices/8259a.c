@@ -416,56 +416,56 @@ static int write_master_port1(ushort_t port, void * src, uint_t length, struct v
     PrintDebug("8259 PIC: Write master port 1 with 0x%x\n",cw);
 
     if (length != 1) {
-	PrintError("8259 PIC: Invalid Write length (wr_Master1)\n");
-	return -1;
+        PrintError("8259 PIC: Invalid Write length (wr_Master1)\n");
+        return -1;
     }
-  
+
     if (IS_ICW1(cw)) {
 
-	PrintDebug("8259 PIC: Setting ICW1 = %x (wr_Master1)\n", cw);
-    
-	state->master_icw1 = cw;
-	state->master_state = ICW2;
+        PrintDebug("8259 PIC: Setting ICW1 = %x (wr_Master1)\n", cw);
+
+        state->master_icw1 = cw;
+        state->master_state = ICW2;
 
     } else if (state->master_state == READY) {
-	if (IS_OCW2(cw)) {
-	    // handle the EOI here
-	    struct ocw2 * cw2 =  (struct ocw2*)&cw;
+        if (IS_OCW2(cw)) {
+            // handle the EOI here
+            struct ocw2 * cw2 =  (struct ocw2*)&cw;
 
-	    PrintDebug("8259 PIC: Handling OCW2 = %x (wr_Master1)\n", cw);
-      
-	    if ((cw2->EOI) && (!cw2->R) && (cw2->SL)) {
-		// specific EOI;
-		state->master_isr &= ~(0x01 << cw2->level);
-	    } else if ((cw2->EOI) & (!cw2->R) && (!cw2->SL)) {
-		int i;
-		// Non-specific EOI
-		PrintDebug("8259 PIC: Pre ISR = %x (wr_Master1)\n", state->master_isr);
-		for (i = 0; i < 8; i++) {
-		    if (state->master_isr & (0x01 << i)) {
-			state->master_isr &= ~(0x01 << i);
-			break;
-		    }
-		}	
-		PrintDebug("8259 PIC: Post ISR = %x (wr_Master1)\n", state->master_isr);
-	    } else {
-		PrintError("8259 PIC: Command not handled, or in error (wr_Master1)\n");
-		return -1;
-	    }
+            PrintDebug("8259 PIC: Handling OCW2 = %x (wr_Master1)\n", cw);
 
-	    state->master_ocw2 = cw;
-	} else if (IS_OCW3(cw)) {
-	    PrintDebug("8259 PIC: Handling OCW3 = %x (wr_Master1)\n", cw);
-	    state->master_ocw3 = cw;
-	} else {
-	    PrintError("8259 PIC: Invalid OCW to PIC (wr_Master1)\n");
-	    PrintError("8259 PIC: CW=%x\n", cw);
-	    return -1;
-	}
+            if ((cw2->EOI) && (!cw2->R) && (cw2->SL)) {
+                // specific EOI;
+                state->master_isr &= ~(0x01 << cw2->level);
+            } else if ((cw2->EOI) & (!cw2->R) && (!cw2->SL)) {
+                int i;
+                // Non-specific EOI
+                PrintDebug("8259 PIC: Pre ISR = %x (wr_Master1)\n", state->master_isr);
+                for (i = 0; i < 8; i++) {
+                    if (state->master_isr & (0x01 << i)) {
+                        state->master_isr &= ~(0x01 << i);
+                        break;
+                    }
+                }	
+                PrintDebug("8259 PIC: Post ISR = %x (wr_Master1)\n", state->master_isr);
+            } else {
+                PrintError("8259 PIC: Command not handled, or in error (wr_Master1)\n");
+                return -1;
+            }
+
+            state->master_ocw2 = cw;
+        } else if (IS_OCW3(cw)) {
+            PrintDebug("8259 PIC: Handling OCW3 = %x (wr_Master1)\n", cw);
+            state->master_ocw3 = cw;
+        } else {
+            PrintError("8259 PIC: Invalid OCW to PIC (wr_Master1)\n");
+            PrintError("8259 PIC: CW=%x\n", cw);
+            return -1;
+        }
     } else {
-	PrintError("8259 PIC: Invalid PIC State (wr_Master1)\n");
-	PrintError("8259 PIC: CW=%x\n", cw);
-	return -1;
+        PrintError("8259 PIC: Invalid PIC State (wr_Master1)\n");
+        PrintError("8259 PIC: CW=%x\n", cw);
+        return -1;
     }
 
     return 1;
@@ -476,50 +476,51 @@ static int write_master_port2(ushort_t port, void * src, uint_t length, struct v
     uchar_t cw = *(uchar_t *)src;    
 
     PrintDebug("8259 PIC: Write master port 2 with 0x%x\n",cw);
-  
+
     if (length != 1) {
-	PrintError("8259 PIC: Invalid Write length (wr_Master2)\n");
-	return -1;
+        PrintError("8259 PIC: Invalid Write length (wr_Master2)\n");
+        return -1;
     }
-    
+
     if (state->master_state == ICW2) {
-	struct icw1 * cw1 = (struct icw1 *)&(state->master_icw1);
+        struct icw1 * cw1 = (struct icw1 *)&(state->master_icw1);
 
-	PrintDebug("8259 PIC: Setting ICW2 = %x (wr_Master2)\n", cw);
-	state->master_icw2 = cw;
+        PrintDebug("8259 PIC: Setting ICW2 = %x (wr_Master2)\n", cw);
+        state->master_icw2 = cw;
 
-	if (cw1->sngl == 0) {
-	    state->master_state = ICW3;
-	} else if (cw1->ic4 == 1) {
-	    state->master_state = ICW4;
-	} else {
-	    state->master_state = READY;
-	}
+        if (cw1->sngl == 0) {
+            state->master_state = ICW3;
+        } else if (cw1->ic4 == 1) {
+            state->master_state = ICW4;
+        } else {
+            state->master_state = READY;
+        }
 
     } else if (state->master_state == ICW3) {
-	struct icw1 * cw1 = (struct icw1 *)&(state->master_icw1);
+        struct icw1 * cw1 = (struct icw1 *)&(state->master_icw1);
 
-	PrintDebug("8259 PIC: Setting ICW3 = %x (wr_Master2)\n", cw);
+        PrintDebug("8259 PIC: Setting ICW3 = %x (wr_Master2)\n", cw);
 
-	state->master_icw3 = cw;
+        state->master_icw3 = cw;
 
-	if (cw1->ic4 == 1) {
-	    state->master_state = ICW4;
-	} else {
-	    state->master_state = READY;
-	}
+        if (cw1->ic4 == 1) {
+            state->master_state = ICW4;
+        } else {
+            state->master_state = READY;
+        }
 
     } else if (state->master_state == ICW4) {
-	PrintDebug("8259 PIC: Setting ICW4 = %x (wr_Master2)\n", cw);
-	state->master_icw4 = cw;
-	state->master_state = READY;
-    } else if (state->master_state == READY) {
-	PrintDebug("8259 PIC: Setting IMR = %x (wr_Master2)\n", cw);
-	state->master_imr = cw;
+        PrintDebug("8259 PIC: Setting ICW4 = %x (wr_Master2)\n", cw);
+        state->master_icw4 = cw;
+        state->master_state = READY;
+    } else if ((state->master_state == ICW1) || (state->master_state == READY)) {
+        PrintDebug("8259 PIC: Setting IMR = %x (wr_Master2)\n", cw);
+        state->master_imr = cw;
     } else {
-	// error
-	PrintError("8259 PIC: Invalid master PIC State (wr_Master2)\n");
-	return -1;
+        // error
+        PrintError("8259 PIC: Invalid master PIC State (wr_Master2) (state=%d)\n", 
+                state->master_state);
+        return -1;
     }
 
     return 1;
@@ -591,48 +592,48 @@ static int write_slave_port2(ushort_t port, void * src, uint_t length, struct vm
     PrintDebug("8259 PIC: Write slave port 2 with 0x%x\n",cw);
 
     if (length != 1) {
-	PrintError("8259 PIC: Invalid write length (wr_Slave2)\n");
-	return -1;
+        PrintError("8259 PIC: Invalid write length (wr_Slave2)\n");
+        return -1;
     }
 
     if (state->slave_state == ICW2) {
-	struct icw1 * cw1 =  (struct icw1 *)&(state->master_icw1);
+        struct icw1 * cw1 =  (struct icw1 *)&(state->master_icw1);
 
-	PrintDebug("8259 PIC: Setting ICW2 = %x (wr_Slave2)\n", cw);
+        PrintDebug("8259 PIC: Setting ICW2 = %x (wr_Slave2)\n", cw);
 
-	state->slave_icw2 = cw;
+        state->slave_icw2 = cw;
 
-	if (cw1->sngl == 0) {
-	    state->slave_state = ICW3;
-	} else if (cw1->ic4 == 1) {
-	    state->slave_state = ICW4;
-	} else {
-	    state->slave_state = READY;
-	}
+        if (cw1->sngl == 0) {
+            state->slave_state = ICW3;
+        } else if (cw1->ic4 == 1) {
+            state->slave_state = ICW4;
+        } else {
+            state->slave_state = READY;
+        }
 
     } else if (state->slave_state == ICW3) {
-	struct icw1 * cw1 =  (struct icw1 *)&(state->master_icw1);
+        struct icw1 * cw1 =  (struct icw1 *)&(state->master_icw1);
 
-	PrintDebug("8259 PIC: Setting ICW3 = %x (wr_Slave2)\n", cw);
+        PrintDebug("8259 PIC: Setting ICW3 = %x (wr_Slave2)\n", cw);
 
-	state->slave_icw3 = cw;
+        state->slave_icw3 = cw;
 
-	if (cw1->ic4 == 1) {
-	    state->slave_state = ICW4;
-	} else {
-	    state->slave_state = READY;
-	}
+        if (cw1->ic4 == 1) {
+            state->slave_state = ICW4;
+        } else {
+            state->slave_state = READY;
+        }
 
     } else if (state->slave_state == ICW4) {
-	PrintDebug("8259 PIC: Setting ICW4 = %x (wr_Slave2)\n", cw);
-	state->slave_icw4 = cw;
-	state->slave_state = READY;
-    } else if (state->slave_state == READY) {
-	PrintDebug("8259 PIC: Setting IMR = %x (wr_Slave2)\n", cw);
-	state->slave_imr = cw;
+        PrintDebug("8259 PIC: Setting ICW4 = %x (wr_Slave2)\n", cw);
+        state->slave_icw4 = cw;
+        state->slave_state = READY;
+    } else if ((state->slave_state == ICW1) || (state->slave_state == READY)) {
+        PrintDebug("8259 PIC: Setting IMR = %x (wr_Slave2)\n", cw);
+        state->slave_imr = cw;
     } else {
-	PrintError("8259 PIC: Invalid State at write (wr_Slave2)\n");
-	return -1;
+        PrintError("8259 PIC: Invalid State at write (wr_Slave2)\n");
+        return -1;
     }
 
     return 1;
