@@ -1,0 +1,99 @@
+mainmenu "Palacios VMM Configuration"
+
+config x86_64
+	bool
+	default y
+	help
+	  Support for the x86-64 architecture.
+
+
+menu "Target Configuration"
+
+config CRAY_XT
+        bool "Red Storm (Cray XT3/XT4)"
+        help
+	  Support for Cray XT3 and XT4 systems.
+
+config SVM
+	bool "AMD SVM Support"
+	default y
+	help
+	  Compile with support for AMD SVM
+
+config VMX
+	bool "Intel VMX Support"
+	default y
+	help 
+	  Compile with support for Intel VMX
+endmenu
+
+
+menu "Virtual Devices"
+
+config APIC
+	bool "APIC"
+	default y
+	help 
+	  "Includes the Virtual APIC device"
+
+endmenu
+
+
+
+menu "Debug configuration"
+
+config CONFIG_DEBUG_INFO
+	bool "Compile with Debug information"
+	default n
+	help 
+	 This adds the -g flag to the compilation flags
+
+
+## Is unwind information useful
+
+config DEBUG_ON
+	bool "Enable Debugging"
+	default y
+	help
+	  This turns on debugging support
+
+
+	
+
+
+config DEBUG_PIC
+	bool "PIC"
+	depends on DEBUG_ON
+	help 
+	  Enable debugging for the PIC 	
+
+config DEBUG_APIC
+	bool "APIC"
+	depends on DEBUG_ON && APIC
+	help 
+	  Enable debugging for the APIC
+
+
+
+
+endmenu
+
+
+menu "BIOS Selection"
+
+config ROMBIOS_PATH
+	string "Path to pre-built ROMBIOS binary"
+	default "./bios/rombios/BIOS-bochs-latest"
+	help
+	  This is the rombios that will be used for the guests
+
+config VGABIOS_PATH
+	string "Path to pre-built VGABIOS binary"
+	default "./bios/vgabios/VGABIOS-lgpl-latest.bin"
+	help
+	  This is the vgabios that will be used for the guests
+
+endmenu
+
+#source "net/Kconfig"
+

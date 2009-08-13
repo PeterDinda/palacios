@@ -176,14 +176,20 @@ static int setup_memory_map(struct guest_info * info, struct v3_vm_config * conf
 
     /* layout vgabios */
     {
+	extern uint8_t v3_vgabios_start[];
+	extern uint8_t v3_vgabios_end[];
+
 	addr_t vgabios_dst = v3_get_shadow_addr(&(info->mem_map.base_region), VGABIOS_START);
-	memcpy(V3_VAddr((void *)vgabios_dst), config_ptr->vgabios, config_ptr->vgabios_size);	
+	memcpy(V3_VAddr((void *)vgabios_dst), v3_vgabios_start, v3_vgabios_end - v3_vgabios_start);	
     }
     
     /* layout rombios */
     {
+	extern uint8_t v3_rombios_start[];
+	extern uint8_t v3_rombios_end[];
+
 	addr_t rombios_dst = v3_get_shadow_addr(&(info->mem_map.base_region), ROMBIOS_START);
-	memcpy(V3_VAddr((void *)rombios_dst), config_ptr->rombios, config_ptr->rombios_size);
+	memcpy(V3_VAddr((void *)rombios_dst), v3_rombios_start, v3_rombios_end - v3_rombios_start);
     }
 
 #ifdef CRAY_XT

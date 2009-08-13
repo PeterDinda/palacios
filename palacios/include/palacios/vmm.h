@@ -280,11 +280,6 @@ union v3_disk_info {
 };
 
 struct v3_vm_config {
-    void * rombios;
-    int rombios_size;
-
-    void * vgabios;
-    int vgabios_size;
 
     unsigned long mem_size; // in bytes, var should be natural size of cpu
     // so we can specify maximum physical address size
