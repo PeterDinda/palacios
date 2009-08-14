@@ -194,7 +194,7 @@ static int setup_memory_map(struct guest_info * info, struct v3_vm_config * conf
 	memcpy(V3_VAddr((void *)rombios_dst), v3_rombios_start, v3_rombios_end - v3_rombios_start);
     }
 
-#ifdef CRAY_XT
+#ifdef CONFIG_CRAY_XT
     {
 #define SEASTAR_START 0xffe00000 
 #define SEASTAR_END 0xffffffff 

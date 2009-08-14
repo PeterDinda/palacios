@@ -337,7 +337,7 @@ static int apic_do_eoi(struct apic_state * apic) {
 	
 	*svc_location &= ~flag;
 
-#ifdef CRAY_XT
+#ifdef CONFIG_CRAY_XT
 	
 	if ((isr_irq == 238) || 
 	    (isr_irq == 239)) {
@@ -875,7 +875,7 @@ static int apic_get_intr_number(void * private_data) {
 }
 
 static int apic_raise_intr(void * private_data, int irq) {
-#ifdef CRAY_XT
+#ifdef CONFIG_CRAY_XT
     // The Seastar is connected directly to the LAPIC via LINT0 on the ICC bus
 
     if (irq == 238) {
@@ -904,7 +904,7 @@ static int apic_begin_irq(void * private_data, int irq) {
     *svc_location |= flag;
     *req_location &= ~flag;
 
-#ifdef CRAY_XT
+#ifdef CONFIG_CRAY_XT
     if ((irq == 238) || (irq == 239)) {
 	PrintError("APIC: Begin IRQ %d (ISR=%x), (IRR=%x)\n", irq, *svc_location, *req_location);
     }
