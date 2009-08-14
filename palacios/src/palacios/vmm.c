@@ -18,8 +18,6 @@
  */
 
 #include <palacios/vmm.h>
-#include <palacios/svm.h>
-#include <palacios/vmx.h>
 #include <palacios/vmm_intr.h>
 #include <palacios/vmm_config.h>
 #include <palacios/vm_guest.h>
@@ -27,7 +25,12 @@
 #include <palacios/vmm_ctrl_regs.h>
 #include <palacios/vmm_lowlevel.h>
 
-
+#ifdef CONFIG_SVM
+#include <palacios/svm.h>
+#endif
+#ifdef CONFIG_VMX
+#include <palacios/vmx.h>
+#endif
 
 
 v3_cpu_arch_t v3_cpu_type;
@@ -74,7 +77,7 @@ void Init_V3(struct v3_os_hooks * hooks, struct v3_ctrl_ops * vmm_ops) {
     } else 
 #endif
     {
-       PrintDebug("CPU has no virtualization Extensions\n");
+       PrintError("CPU has no virtualization Extensions\n");
     }
 }
 

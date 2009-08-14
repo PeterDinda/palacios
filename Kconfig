@@ -90,7 +90,6 @@ config BUILT_IN_STRNLEN
 	  This enables Palacios' internal implementation of strnlen
 
 
-
 config BUILT_IN_STRCMP
 	bool "strcmp()"
 	default n
@@ -170,6 +169,43 @@ config BUILT_IN_STRPBRK
 	  This enables Palacios' internal implementation of strpbrk
 
 
+config BUILT_IN_SPRINTF
+	bool "sprintf()"
+	default n
+	depends on BUILT_IN_STDLIB
+	help 
+	  This enables Palacios' internal implementation of sprintf
+
+
+config BUILT_IN_SNPRINTF
+	bool "snprintf()"
+	default n
+	depends on BUILT_IN_STDLIB
+	help 
+	  This enables Palacios' internal implementation of snprintf
+
+
+config BUILT_IN_VSPRINTF
+	bool "vsprintf()"
+	default n
+	depends on BUILT_IN_STDLIB
+	help 
+	  This enables Palacios' internal implementation of vsprintf
+
+config BUILT_IN_VSNPRINTF
+	bool "vsnprintf()"
+	default n
+	depends on BUILT_IN_STDLIB
+	help 
+	  This enables Palacios' internal implementation of vsnprintf
+
+config BUILT_IN_VSNRPRINTF
+	bool "vsnrprintf()"
+	default n
+	depends on BUILT_IN_STDLIB
+	help 
+	  This enables Palacios' internal implementation of vsnrprintf
+
 endmenu
 
 
@@ -183,6 +219,13 @@ config SYMBIOTIC
 	help 
 	  Enable Symbiotic components of the VMM
 
+
+config SYMBIOTIC_SWAP
+	bool "Symbiotic Swap"
+	default n
+	depends on SYMBIOTIC
+	help 
+	  This enables the symbiotic swap architecture
 
 endmenu
 

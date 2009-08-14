@@ -66,11 +66,6 @@
 #include <palacios/vmm_sprintf.h>
 
 
-#define NEED_SPRINTF 0
-#define NEED_SNPRINTF 0
-#define NEED_VSPRINTF 0
-#define NEED_VSNPRINTF 0
-#define NEED_VSNRPRINTF 1
 
 
 typedef addr_t ptrdiff_t;     /* ptr1 - ptr2 */
@@ -96,7 +91,7 @@ static void snprintf_func(int ch, void * arg);
 static int kvprintf(char const * fmt, void (*func)(int, void *), void * arg, int radix, va_list ap);
 
 
-#if NEED_SPRINTF
+#ifdef CONFIG_BUILT_IN_SPRINTF
 /*
  * Scaled down version of sprintf(3).
  */
@@ -113,7 +108,7 @@ int sprintf(char * buf, const char * cfmt, ...) {
 #endif 
 
 
-#if NEED_VSPRINTF
+#ifdef CONFIG_BUILT_IN_VSPRINTF
 /*
  * Scaled down version of vsprintf(3).
  */
@@ -127,7 +122,7 @@ int vsprintf(char * buf, const char * cfmt, va_list ap) {
 #endif
 
 
-#if NEED_SNPRINTF
+#ifdef CONFIG_BUILT_IN_SNPRINTF
 /*
  * Scaled down version of snprintf(3).
  */
@@ -143,7 +138,7 @@ int snprintf(char * str, size_t size, const char * format, ...) {
 #endif
 
 
-#if NEED_VSNPRINTF 
+#ifdef CONFIG_BUILT_IN_VSNPRINTF 
 /*
  * Scaled down version of vsnprintf(3).
  */
@@ -162,7 +157,7 @@ int vsnprintf(char * str, size_t size, const char * format, va_list ap) {
 #endif 
 
 
-#if NEED_VSNRPRINTF
+#ifdef CONFIG_BUILT_IN_VSNRPRINTF
 /*
  * Kernel version which takes radix argument vsnprintf(3).
  */
