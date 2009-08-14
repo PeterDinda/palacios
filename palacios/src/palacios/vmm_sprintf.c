@@ -86,6 +86,14 @@ struct snprintf_arg {
 };
 
 
+
+#if defined(CONFIG_BUILT_IN_STDIO) &&		      \
+    ( defined(CONFIG_BUILT_IN_SPRINTF) ||	      \
+      defined(CONFIG_BUILT_IN_SNPRINTF) ||	      \
+      defined(CONFIG_BUILT_IN_VSPRINTF) ||	      \
+      defined(CONFIG_BUILT_IN_VSNPRINTF) ||	      \
+      defined(CONFIG_BUILT_IN_VSNRPRINTF ))
+
 static char * ksprintn(char * nbuf, uint64_t num, int base, int *len, int upper);
 static void snprintf_func(int ch, void * arg);
 static int kvprintf(char const * fmt, void (*func)(int, void *), void * arg, int radix, va_list ap);
@@ -544,6 +552,8 @@ number:
 #undef PCHAR
 }
 
+
+#endif // CONFIG_BUILT_IN_STDIO
 
 
 

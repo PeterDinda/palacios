@@ -169,10 +169,19 @@ config BUILT_IN_STRPBRK
 	  This enables Palacios' internal implementation of strpbrk
 
 
+config BUILT_IN_STDIO
+	bool "Enable Built in versions of stdio functions"
+	default n
+	help 
+	  Not all host OSes provide link targets for stdio functions
+	  Palacios provides internal implementations of these functions, that you can select from this list
+
+
+
 config BUILT_IN_SPRINTF
 	bool "sprintf()"
 	default n
-	depends on BUILT_IN_STDLIB
+	depends on BUILT_IN_STDIO
 	help 
 	  This enables Palacios' internal implementation of sprintf
 
@@ -180,7 +189,7 @@ config BUILT_IN_SPRINTF
 config BUILT_IN_SNPRINTF
 	bool "snprintf()"
 	default n
-	depends on BUILT_IN_STDLIB
+	depends on BUILT_IN_STDIO
 	help 
 	  This enables Palacios' internal implementation of snprintf
 
@@ -188,21 +197,21 @@ config BUILT_IN_SNPRINTF
 config BUILT_IN_VSPRINTF
 	bool "vsprintf()"
 	default n
-	depends on BUILT_IN_STDLIB
+	depends on BUILT_IN_STDIO
 	help 
 	  This enables Palacios' internal implementation of vsprintf
 
 config BUILT_IN_VSNPRINTF
 	bool "vsnprintf()"
 	default n
-	depends on BUILT_IN_STDLIB
+	depends on BUILT_IN_STDIO
 	help 
 	  This enables Palacios' internal implementation of vsnprintf
 
 config BUILT_IN_VSNRPRINTF
 	bool "vsnrprintf()"
 	default n
-	depends on BUILT_IN_STDLIB
+	depends on BUILT_IN_STDIO
 	help 
 	  This enables Palacios' internal implementation of vsnrprintf
 
