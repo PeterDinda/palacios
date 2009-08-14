@@ -254,7 +254,7 @@ config RAM_HD
 config SYM_SWAP
 	bool "Symbiotic Swap disk"
 	default y
-	depends on SYMBIOTIC && (LINUX_VIRTIO_BLOCK || IDE)
+	depends on SYMBIOTIC_SWAP && (LINUX_VIRTIO_BLOCK || IDE)
 	help 
 	  Includes the symbiotic ram based swap disk
 

@@ -30,6 +30,10 @@
 
 #include <palacios/vmm_direct_paging.h>
 
+#ifdef CONFIG_SYMBIOTIC_SWAP
+#include <palacios/vmm_sym_swap.h>
+#endif
+
 #ifndef CONFIG_DEBUG_SHADOW_PAGING
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
