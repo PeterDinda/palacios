@@ -1,0 +1,261 @@
+menu "Virtual Devices"
+
+config APIC
+	bool "APIC"
+	default y
+	help 
+	  Includes the Virtual APIC device
+
+
+config DEBUG_APIC
+	bool "APIC Debugging"
+	default n
+	depends on APIC && DEBUG_ON 
+	help 
+	  Enable debugging for the APIC
+
+
+config BOCHS_DEBUG
+	bool "Bochs Debug Console Device"
+	default y
+	help 
+	  Includes the Bochs Debug console device
+
+
+
+config GENERIC
+	bool "Generic Device"
+	default y
+	help 
+	  Includes the Virtual Generic device
+
+config DEBUG_GENERIC
+	bool "Generic device Debugging"
+	default n
+	depends on GENERIC && DEBUG_ON 
+	help 
+	  Enable debugging for Generic
+
+
+
+config I440FX
+	bool "i440fx Northbridge"
+	depends on PCI
+	default y
+	help 
+	  Includes the Virtual Northbridge
+
+
+config IDE
+	bool "IDE"
+	default y
+	help 
+	  Includes the Virtual IDE layer
+
+config DEBUG_IDE
+	bool "IDE Debugging"
+	default n
+	depends on IDE && DEBUG_ON 
+	help 
+	  Enable debugging for the IDE Layer
+
+
+config IO_APIC
+	bool "IOAPIC"
+	depends on APIC
+	default y
+	help 
+	  Includes the Virtual IO APIC
+
+config DEBUG_IO_APIC
+	bool "IO APIC Debugging"
+	default n
+	depends on IO_APIC && DEBUG_ON 
+	help 
+	  Enable debugging for the IO APIC
+
+
+
+
+config KEYBOARD
+	bool "Keyboard"
+	default y
+	help 
+	  Includes the Virtual standard PC Keyboard device
+
+config DEBUG_KEYBOARD
+	bool "Keyboard Debugging"
+	default n
+	depends on KEYBOARD && DEBUG_ON 
+	help 
+	  Enable debugging for the Keyboard
+
+
+config LINUX_VIRTIO_BALLOON
+	bool "Linux Virtio Balloon Device"
+	default y
+	depends on PCI
+	help 
+	  Includes the Linux virtio balloon device
+
+config DEBUG_VIRTIO_BALLOON
+	bool "Linux Virtio Balloon Debugging"
+	default n
+	depends on LINUX_VIRTIO_BALLOON  && DEBUG_ON 
+	help 
+	  Enable debugging for the Linux Virtio Balloon Device
+
+
+config LINUX_VIRTIO_BLOCK
+	bool "Linux Virtio Block Device"
+	default y
+	depends on PCI
+	help 
+	  Includes the Linux virtio block device
+
+config DEBUG_VIRTIO_BLOCK
+	bool "Linux Virtio Block Debugging"
+	default n
+	depends on LINUX_VIRTIO_BLOCK  && DEBUG_ON 
+	help 
+	  Enable debugging for the Linux Virtio Block Device
+
+config LINUX_VIRTIO_SYM
+	bool "Linux Virtio Symbiotic Device"
+	default y
+	depends on PCI && SYMBIOTIC
+	help 
+	  Includes the Linux virtio symbiotic device
+
+config DEBUG_VIRTIO_SYM
+	bool "Linux Virtio Symbiotic Debugging"
+	default n
+	depends on LINUX_VIRTIO_SYM && DEBUG_ON 
+	help 
+	  Enable debugging for the Linux Virtio Symbiotic Device
+
+
+
+config NE2K
+	bool "NE2K"
+	default n
+	help
+	  Includes the Virtual NE2K network card
+
+config DEBUG_NE2k
+	bool "NE2K debugging"
+	depends on NE2k && DEBUG_ON
+	help 
+	  Enable debugging for the NE2K
+
+
+config NET_CD
+	bool "Networked CD backend"
+	default y
+	depends on SOCKET && (IDE || LINUX_VIRTIO_BLOCK)
+	help 
+	  Includes the Network CD backend
+
+config NET_HD
+	bool "Networked HD backend"
+	default y
+	depends on SOCKET && (IDE || LINUX_VIRTIO_BLOCK)
+	help 
+	  Includes the Network HD backend
+
+
+config NVRAM
+	bool "NVRAM"
+	default y
+	help
+	  Includes the Virtual CMOS NVRAM Device
+
+config DEBUG_NVRAM
+	bool "NVRAM debugging"
+	depends on NVRAM && DEBUG_ON
+	help 
+	  Enable debugging for the NVRAM
+
+
+
+config OS_DEBUG
+	bool "OS Debug Console Device"
+	default y
+	help 
+	  Includes the OS Debug console device
+
+
+config PIIX3
+	bool "PIIX3 Southbridge"
+	default y
+	help
+	  Includes the Virtual Piix3 Southbridge
+
+
+config PCI
+	bool "PCI"
+	default y
+	help
+	  Includes the Virtual PCI Bus
+
+config DEBUG_PCI
+	bool "PCI debugging"
+	depends on PCI && DEBUG_ON
+	help 
+	  Enable debugging for the PCI 	
+
+
+
+config PIC
+	bool "8259A PIC"
+	default y
+	help
+	  Includes the Virtual 8259a PIC Device
+
+config DEBUG_PIC
+	bool "PIC debugging"
+	depends on PIC && DEBUG_ON
+	help 
+	  Enable debugging for the PIC 	
+
+
+config PIT
+	bool "PIT"
+	default y
+	help
+	  Includes the Virtual 8254 PIT Device
+
+config DEBUG_PIT
+	bool "PIT debugging"
+	depends on PIT && DEBUG_ON
+	help 
+	  Enable debugging for the PIT	
+
+
+
+
+config RAM_CD
+	bool "RAM based CD backend"
+	default y
+	depends on IDE || LINUX_VIRTIO_BLOCK
+	help 
+	  Includes the RAM based CD backend
+
+config RAM_HD
+	bool "RAM based HD backend"
+	default y
+	depends on IDE || LINUX_VIRTIO_BLOCK
+	help 
+	  Includes the RAM based HD backend
+
+
+
+
+config SYM_SWAP
+	bool "Symbiotic Swap disk"
+	default y
+	depends on SYMBIOTIC && (LINUX_VIRTIO_BLOCK || IDE)
+	help 
+	  Includes the symbiotic ram based swap disk
+
+endmenu
