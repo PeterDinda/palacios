@@ -52,7 +52,7 @@ static int configure_generic(struct guest_info * info, struct v3_vm_config * con
 
 
 
-#ifndef VIDEO
+#ifndef CONFIG_VIDEO
 static int passthrough_mem_write(addr_t guest_addr, void * src, uint_t length, void * priv_data) {
 
     return length;
@@ -164,7 +164,7 @@ int v3_post_config_guest(struct guest_info * info, struct v3_vm_config * config_
  */
 static int setup_memory_map(struct guest_info * info, struct v3_vm_config * config_ptr) {
 
-#ifndef VIDEO
+#ifndef CONFIG_VIDEO
     PrintDebug("Setting up memory map (memory size=%dMB)\n", (uint_t)(info->mem_size / (1024 * 1024)));
     
     // VGA frame buffer
@@ -433,7 +433,7 @@ static int configure_generic(struct guest_info * info, struct v3_vm_config * con
 
 #endif
 
-#ifndef VIDEO
+#ifndef CONFIG_VIDEO
 
     // Monitor graphics card operations
     
