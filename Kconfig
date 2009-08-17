@@ -45,6 +45,17 @@ config INSTRUMENT_VMM
 	  --------
 	  This is much heavier weight than profiling
 
+config EXPERIMENTAL
+	bool "Enable Experimental options"
+	default n
+	help 
+	  This allows the selection of experimental features. This includes incomplete or unreviewed code. 
+	  Only enable this feature if you are working on the features in question. 
+	  IMPORTANT: Non-experimental code MUST NOT use, require, or rely on experimental features. 
+	  Any code that violates this will be immediately deleted without warning. 
+	  -- 
+	  The purpose of this option is to allow features under development to be committed to the mainline
+	  to more easily track changes and provide access to multiple developers
 
 config BUILT_IN_STDLIB
 	bool "Enable Built in versions of stdlib functions"

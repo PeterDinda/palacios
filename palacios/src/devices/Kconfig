@@ -138,6 +138,7 @@ config DEBUG_VIRTIO_SYM
 
 config NE2K
 	bool "NE2K"
+	depends on EXPERIMENTAL
 	default n
 	help
 	  Includes the Virtual NE2K network card
