@@ -22,3 +22,5 @@ obj-$(CONFIG_NE2K) += ne2k.o
 
 obj-$(CONFIG_NET_CD) += net_cd.o 
 obj-$(CONFIG_NET_HD) += net_hd.o 
+
+obj-$(CONFIG_VIDEO) += video.o

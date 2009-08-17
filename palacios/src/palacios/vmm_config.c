@@ -35,6 +35,8 @@
 #include <devices/ram_hd.h>
 #include <devices/net_hd.h>
 
+#include <devices/video.h>
+
 
 #include <palacios/vmm_host_events.h>
 
@@ -50,7 +52,7 @@ static int configure_generic(struct guest_info * info, struct v3_vm_config * con
 
 
 
-
+#ifndef VIDEO
 static int passthrough_mem_write(addr_t guest_addr, void * src, uint_t length, void * priv_data) {
 
     return length;
@@ -60,7 +62,7 @@ static int passthrough_mem_write(addr_t guest_addr, void * src, uint_t length, v
     
     return length;
 }
-
+#endif
 
 int v3_pre_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) {
    extern v3_cpu_arch_t v3_cpu_type;
@@ -161,6 +163,8 @@ int v3_post_config_guest(struct guest_info * info, struct v3_vm_config * config_
  * We need to make sure the memory map extends to cover it
  */
 static int setup_memory_map(struct guest_info * info, struct v3_vm_config * config_ptr) {
+
+#ifndef VIDEO
     PrintDebug("Setting up memory map (memory size=%dMB)\n", (uint_t)(info->mem_size / (1024 * 1024)));
     
     // VGA frame buffer
@@ -172,6 +176,7 @@ static int setup_memory_map(struct guest_info * info, struct v3_vm_config * conf
     } else {
 	v3_hook_write_mem(info, 0xa0000, 0xc0000, 0xa0000,  passthrough_mem_write, NULL);
     }
+#endif
 
 #define VGABIOS_START 0x000c0000
 #define ROMBIOS_START 0x000f0000
@@ -239,6 +244,7 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
 	v3_create_device(info, "LNX_VIRTIO_BALLOON", "PCI");
 	v3_create_device(info, "SYM_SWAP", "LNX_VIRTIO_BLK");
 
+	v3_create_device(info, "VIDEO", "PCI");
 
 	v3_create_device(info, "IDE", &ide_config);
     } else {
@@ -427,7 +433,7 @@ static int configure_generic(struct guest_info * info, struct v3_vm_config * con
 
 #endif
 
-#if 1
+#ifndef VIDEO
 
     // Monitor graphics card operations
     

@@ -259,4 +259,11 @@ config SYM_SWAP
 	help 
 	  Includes the symbiotic ram based swap disk
 
+config VIDEO
+	bool "VIDEO"
+	default y
+	depends on PCI && EXPERIMENTAL
+	help
+	  Includes the Virtual Video Card Device
+
 endmenu

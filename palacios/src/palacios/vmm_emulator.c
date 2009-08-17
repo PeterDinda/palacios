@@ -48,8 +48,11 @@ static int emulate_string_write_op(struct guest_info * info, struct x86_instr * 
 	return -1;
     }
   
-    emulation_length = ( (dec_instr->str_op_length  < (0x1000 - PAGE_OFFSET_4KB(write_gva))) ? 
+    /*emulation_length = ( (dec_instr->str_op_length  < (0x1000 - PAGE_OFFSET_4KB(write_gva))) ? 
 			 dec_instr->str_op_length :
+			 (0x1000 - PAGE_OFFSET_4KB(write_gva)));*/
+     emulation_length = ( (dec_instr->str_op_length * (dec_instr->dst_operand.size)  < (0x1000 - PAGE_OFFSET_4KB(write_gva))) ? 
+			 dec_instr->str_op_length * dec_instr->dst_operand.size :
 			 (0x1000 - PAGE_OFFSET_4KB(write_gva)));
   
     /* ** Fix emulation length so that it doesn't overrun over the src page either ** */
