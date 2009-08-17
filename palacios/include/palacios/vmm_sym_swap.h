@@ -23,32 +23,45 @@
 #ifdef __V3VEE__ 
 #ifdef CONFIG_SYMBIOTIC_SWAP
 
-#include <palacios/vmm.h>
+#include <palacios/vmm_types.h>
+#include <palacios/vmm_paging.h>
 
-static inline int is_swapped_pte32(pte32_t * pte) {
-    return (*(uint32_t *)pte != 0);
-}
+
+struct v3_swap_ops {
+    void * (*get_swap_entry)(uint32_t pg_index, void * private_data);
+};
 
 
 struct v3_swap_dev {
-    addr_t (*get_page)(int index);
+    uint8_t present;
 
+    struct v3_swap_ops * ops;
+
+    void * private_data;
 };
 
 
 struct v3_sym_swap_state {
-    struct v3_swap_dev[256];
-
+    struct v3_swap_dev devs[256];
 };
+
+
+static inline int is_swapped_pte32(pte32_t * pte) {
+    return ((pte->present == 0) && (*(uint32_t *)pte != 0));
+}
+
+
 
 
 int v3_init_sym_swap(struct guest_info * info);
 
-addr_t v3_get_swapped_pg_addr(pte32_t * pte);
+addr_t v3_get_swapped_pg_addr(struct guest_info * info, pte32_t * pte);
 
+int v3_register_swap_disk(struct guest_info * info, int dev_index, 
+			  struct v3_swap_ops * ops, void * private_data);
 
+int v3_swap_out_notify(struct guest_info * info, int pg_index, int dev_index);
 
 #endif
 #endif
-
 #endif

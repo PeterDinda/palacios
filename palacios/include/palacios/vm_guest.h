@@ -32,9 +32,16 @@
 #include <palacios/vmm_time.h>
 #include <palacios/vmm_host_events.h>
 #include <palacios/vmm_msr.h>
-#include <palacios/vmm_profiler.h>
 #include <palacios/vmm_hypercall.h>
 
+
+#ifdef CONFIG_PROFILE_VMM
+#include <palacios/vmm_profiler.h>
+#endif
+
+#ifdef CONFIG_SYMBIOTIC_SWAP
+#include <palacios/vmm_sym_swap.h>
+#endif
 
 
 struct v3_gprs {
@@ -115,6 +122,9 @@ struct v3_intr_state;
 struct v3_profiler;
 #endif
 
+#ifdef CONFIG_SYMBIOTIC_SWAP
+struct v3_sym_swap_state;
+#endif
 
 
 struct guest_info {
@@ -174,6 +184,11 @@ struct guest_info {
     struct v3_profiler profiler;
 #endif
 
+
+#ifdef CONFIG_SYMBIOTIC_SWAP
+    struct v3_sym_swap_state swap_state;
+#endif
+
     void * decoder_state;
 };
 
@@ -194,7 +209,5 @@ void v3_print_ctrl_regs(struct guest_info * info);
 void v3_print_GPRs(struct guest_info * info);
 
 #endif // ! __V3VEE__
-
-
 
 #endif

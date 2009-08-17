@@ -20,8 +20,10 @@
 #include <palacios/vmm.h>
 #include <palacios/vmm_dev_mgr.h>
 #include <devices/lnx_virtio_blk.h>
+#include <palacios/vmm_sym_swap.h>
 
 #define SWAP_CAPACITY (150 * 1024 * 1024)
+
 
 
 /* This is the first page that linux writes to the swap area */
@@ -45,17 +47,70 @@ union swap_header {
     } info;
 };
 
+
+
 struct swap_state {
-    
+    int active;
+
     struct vm_device * blk_dev;
 
     uint_t swapped_pages;
     uint_t unswapped_pages;
 
+
     uint64_t capacity;
     uint8_t * swap_space;
     addr_t swap_base_addr;
+
+    uint8_t usage_map[0]; // This must be the last structure member
 };
+
+
+
+
+static inline void set_index_usage(struct swap_state * swap, uint32_t index, int used) {
+    int major = index / 8;
+    int minor = index % 8;
+
+    if (used) {
+	swap->usage_map[major] |= (1 << minor);
+    } else {
+	swap->usage_map[major] &= ~(1 << minor);
+    }
+}
+
+static inline int get_index_usage(struct swap_state * swap, uint32_t index) {
+    int major = index / 8;
+    int minor = index % 8;
+    return swap->usage_map[major] & (1 << minor);
+}
+
+
+static inline uint32_t get_swap_index_from_offset(uint32_t offset) {
+    // CAREFUL: The index might be offset by 1, because the first 4K is the header
+    return (offset / 4096);
+}
+
+
+/*
+  static inline uint32_t get_swap_index(uint32_t offset) {
+  // CAREFUL: The index might be offset by 1, because the first 4K is the header
+  return (swap_addr - swap->swap_space) / 4096;
+  }
+*/
+
+
+static inline void * get_swap_entry(uint32_t pg_index, void * private_data) {
+    struct swap_state * swap = (struct swap_state *)private_data;
+    void * pg_addr = NULL;
+
+    if (get_index_usage(swap, pg_index)) {
+	// CAREFUL: The index might be offset by 1, because the first 4K is the header
+	pg_addr = (void *)(swap->swap_space + (pg_index * 4096));
+    }
+
+    return pg_addr;
+}
 
 
 
@@ -68,11 +123,18 @@ static uint64_t swap_get_capacity(void * private_data) {
     return swap->capacity / HD_SECTOR_SIZE;
 }
 
+
+static struct v3_swap_ops swap_ops = {
+    .get_swap_entry = get_swap_entry,
+};
+
+
+
 static int swap_read(uint8_t * buf, int sector_count, uint64_t lba,  void * private_data) {
     struct vm_device * dev = (struct vm_device *)private_data;
     struct swap_state * swap = (struct swap_state *)(dev->private_data);
-    int offset = lba * HD_SECTOR_SIZE;
-    int length = sector_count * HD_SECTOR_SIZE;
+    uint32_t offset = lba * HD_SECTOR_SIZE;
+    uint32_t length = sector_count * HD_SECTOR_SIZE;
 
     
     PrintDebug("SymSwap: Reading %d bytes to %p from %p\n", length,
@@ -86,41 +148,59 @@ static int swap_read(uint8_t * buf, int sector_count, uint64_t lba,  void * priv
 
     swap->unswapped_pages += (length / 4096);
 
+    set_index_usage(swap, get_swap_index_from_offset(offset), 0);
+
+
+    // Notify the shadow paging layer
+
     PrintDebug("Swapped in %d pages\n", length / 4096);
 
     return 0;
 }
 
+
+
+
 static int swap_write(uint8_t * buf, int sector_count, uint64_t lba, void * private_data) {
     struct vm_device * dev = (struct vm_device *)private_data;
     struct swap_state * swap = (struct swap_state *)(dev->private_data);
-    int offset = lba * HD_SECTOR_SIZE;
-    int length = sector_count * HD_SECTOR_SIZE;
+    uint32_t offset = lba * HD_SECTOR_SIZE;
+    uint32_t length = sector_count * HD_SECTOR_SIZE;
+
     /*
       PrintDebug("SymSwap: Writing %d bytes to %p from %p\n", length, 
       (void *)(swap->swap_space + offset), buf);
     */
+
     if (length % 4096) {
 	PrintError("Swapping out length that is not a page multiple\n");
     }
 
-    if (offset == 0) {
-	// This is the swap header page 
-	union swap_header * hdr;
+    if ((swap->active == 0) && (offset == 0)) {
+	// This is the swap header page
+	union swap_header * hdr = (union swap_header *)buf;
+
 	if (length != 4096) {
 	    PrintError("Initializing Swap space by not writing page multiples. This sucks...\n");
 	    return -1;
 	}
 
-	hdr = (union swap_header *)buf;
-	
+	swap->active = 1;
 
 	PrintDebug("Swap Type=%d (magic=%s)\n", hdr->info.type, hdr->magic.magic);
+
+	if (v3_register_swap_disk(dev->vm, hdr->info.type, &swap_ops, dev) == -1) {
+	    PrintError("Error registering symbiotic swap disk\n");
+	    return -1;
+	}
+
     }
 
     memcpy(swap->swap_space + offset, buf, length);
 
     swap->swapped_pages += (length / 4096);
+
+    set_index_usage(swap, get_swap_index_from_offset(offset), 1);
 
     PrintDebug("Swapped out %d pages\n", length / 4096);
 
@@ -151,6 +231,8 @@ static struct v3_device_ops dev_ops = {
 
 
 
+
+
 static int swap_init(struct guest_info * vm, void * cfg_data) {
     struct swap_state * swap = NULL;
     struct vm_device * virtio_blk = v3_find_dev(vm, (char *)cfg_data);
@@ -167,7 +249,7 @@ static int swap_init(struct guest_info * vm, void * cfg_data) {
 	return -1;
     }
 
-    swap = (struct swap_state *)V3_Malloc(sizeof(struct swap_state));
+    swap = (struct swap_state *)V3_Malloc(sizeof(struct swap_state) + ((SWAP_CAPACITY / 4096) / 8));
 
     swap->blk_dev = virtio_blk;
     swap->capacity = SWAP_CAPACITY;
@@ -175,10 +257,13 @@ static int swap_init(struct guest_info * vm, void * cfg_data) {
     swap->swapped_pages = 0;
     swap->unswapped_pages = 0;
 
+    swap->active = 0;
+
     swap->swap_base_addr = (addr_t)V3_AllocPages(swap->capacity / 4096);
     swap->swap_space = (uint8_t *)V3_VAddr((void *)(swap->swap_base_addr));
     memset(swap->swap_space, 0, SWAP_CAPACITY);
 
+    memset(swap->usage_map, 0, ((SWAP_CAPACITY / 4096) / 8));
 
     struct vm_device * dev = v3_allocate_device("SYM_SWAP", &dev_ops, swap);
 

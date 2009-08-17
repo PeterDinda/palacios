@@ -243,7 +243,7 @@ config SYMBIOTIC
 config SYMBIOTIC_SWAP
 	bool "Symbiotic Swap"
 	default n
-	depends on SYMBIOTIC
+	depends on SYMBIOTIC && EXPERIMENTAL
 	help 
 	  This enables the symbiotic swap architecture
 
