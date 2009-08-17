@@ -261,7 +261,7 @@ config SYM_SWAP
 
 config VIDEO
 	bool "VIDEO"
-	default y
+	default n
 	depends on PCI && EXPERIMENTAL
 	help
 	  Includes the Virtual Video Card Device
