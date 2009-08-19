@@ -33,6 +33,10 @@ static inline int activate_shadow_pt_32(struct guest_info * info) {
     shadow_cr3->pwt = guest_cr3->pwt;
     shadow_cr3->pcd = guest_cr3->pcd;
   
+#ifdef CONFIG_SYMBIOTIC_SWAP
+    v3_swap_flush(info);
+#endif
+
     return 0;
 }
 
@@ -228,9 +232,29 @@ static int handle_pte_shadow_pagefault_32(struct guest_info * info, addr_t fault
 	if (is_swapped_pte32(guest_pte)) {
 	    PrintError("Page fault on swapped out page (pte=%x)\n", *(uint32_t *)guest_pte);
 
-	    if (inject_guest_pf(info, fault_addr, error_code) == -1) {
-		PrintError("Could not inject guest page fault\n");
-		return -1;
+ 	    addr_t swp_pg_addr = v3_get_swapped_pg_addr(info, shadow_pte, guest_pte);
+
+	    if (swp_pg_addr == 0) {
+		if (inject_guest_pf(info, fault_addr, error_code) == -1) {
+		    PrintError("Could not inject guest page fault\n");
+		    return -1;
+		}
+	    } else {
+		/* 
+		 *  Setup shadow paging state
+		 */
+		
+		/* We need some way to check permissions.... */
+
+		shadow_pte->accessed = 1;
+		shadow_pte->writable = 1;
+		shadow_pte->write_through = 0;
+		shadow_pte->cache_disable = 0;
+		shadow_pte->global_page = 0;
+		shadow_pte->user_page = 1;
+		shadow_pte->present = 1;
+		
+		shadow_pte->page_base_addr = swp_pg_addr;
 	    }
 	} else {
 	    if (inject_guest_pf(info, fault_addr, error_code) == -1) {

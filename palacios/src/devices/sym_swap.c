@@ -58,6 +58,8 @@ struct swap_state {
     uint_t unswapped_pages;
 
 
+    union swap_header * hdr;
+
     uint64_t capacity;
     uint8_t * swap_space;
     addr_t swap_base_addr;
@@ -82,7 +84,8 @@ static inline void set_index_usage(struct swap_state * swap, uint32_t index, int
 static inline int get_index_usage(struct swap_state * swap, uint32_t index) {
     int major = index / 8;
     int minor = index % 8;
-    return swap->usage_map[major] & (1 << minor);
+
+    return (swap->usage_map[major] & (1 << minor));
 }
 
 
@@ -101,10 +104,12 @@ static inline uint32_t get_swap_index_from_offset(uint32_t offset) {
 
 
 static inline void * get_swap_entry(uint32_t pg_index, void * private_data) {
-    struct swap_state * swap = (struct swap_state *)private_data;
+    struct vm_device * dev = (struct vm_device *)private_data;
+    struct swap_state * swap = (struct swap_state *)(dev->private_data);
     void * pg_addr = NULL;
+    int ret = 0;
 
-    if (get_index_usage(swap, pg_index)) {
+    if ((ret = get_index_usage(swap, pg_index))) {
 	// CAREFUL: The index might be offset by 1, because the first 4K is the header
 	pg_addr = (void *)(swap->swap_space + (pg_index * 4096));
     }
@@ -136,10 +141,12 @@ static int swap_read(uint8_t * buf, int sector_count, uint64_t lba,  void * priv
     uint32_t offset = lba * HD_SECTOR_SIZE;
     uint32_t length = sector_count * HD_SECTOR_SIZE;
 
-    
-    PrintDebug("SymSwap: Reading %d bytes to %p from %p\n", length,
-	       buf, (void *)(swap->swap_space + offset));
-    
+  
+    /*  
+	PrintDebug("SymSwap: Reading %d bytes to %p from %p\n", length,
+	buf, (void *)(swap->swap_space + offset));
+    */
+
     if (length % 4096) {
 	PrintError("Swapping in length that is not a page multiple\n");
     }
@@ -148,12 +155,15 @@ static int swap_read(uint8_t * buf, int sector_count, uint64_t lba,  void * priv
 
     swap->unswapped_pages += (length / 4096);
 
-    set_index_usage(swap, get_swap_index_from_offset(offset), 0);
-
-
-    // Notify the shadow paging layer
-
-    PrintDebug("Swapped in %d pages\n", length / 4096);
+    if ((swap->active == 1) && (offset != 0)) {
+	int i = 0;
+	// Notify the shadow paging layer
+	PrintDebug("Swapped in %d pages\n", length / 4096);
+	for (i = 0; i < length; i += 4096) {
+	    set_index_usage(swap, get_swap_index_from_offset(offset + i), 0);
+	    v3_swap_in_notify(dev->vm, get_swap_index_from_offset(offset + i), swap->hdr->info.type);
+	}
+    }
 
     return 0;
 }
@@ -178,7 +188,6 @@ static int swap_write(uint8_t * buf, int sector_count, uint64_t lba, void * priv
 
     if ((swap->active == 0) && (offset == 0)) {
 	// This is the swap header page
-	union swap_header * hdr = (union swap_header *)buf;
 
 	if (length != 4096) {
 	    PrintError("Initializing Swap space by not writing page multiples. This sucks...\n");
@@ -187,22 +196,26 @@ static int swap_write(uint8_t * buf, int sector_count, uint64_t lba, void * priv
 
 	swap->active = 1;
 
-	PrintDebug("Swap Type=%d (magic=%s)\n", hdr->info.type, hdr->magic.magic);
+	PrintDebug("Swap Type=%d (magic=%s)\n", swap->hdr->info.type, swap->hdr->magic.magic);
 
-	if (v3_register_swap_disk(dev->vm, hdr->info.type, &swap_ops, dev) == -1) {
+	if (v3_register_swap_disk(dev->vm, swap->hdr->info.type, &swap_ops, dev) == -1) {
 	    PrintError("Error registering symbiotic swap disk\n");
 	    return -1;
 	}
-
     }
 
     memcpy(swap->swap_space + offset, buf, length);
 
     swap->swapped_pages += (length / 4096);
 
-    set_index_usage(swap, get_swap_index_from_offset(offset), 1);
+    if ((swap->active == 1) && (offset != 0)) {
+	int i = 0;
+	PrintDebug("Swapped out %d pages\n", length / 4096);
 
-    PrintDebug("Swapped out %d pages\n", length / 4096);
+	for (i = 0; i < length; i += 4096) {
+	    set_index_usage(swap, get_swap_index_from_offset(offset + i), 1);
+	}
+    }
 
     return 0;
 }
@@ -258,6 +271,8 @@ static int swap_init(struct guest_info * vm, void * cfg_data) {
     swap->unswapped_pages = 0;
 
     swap->active = 0;
+    swap->hdr = (union swap_header *)swap;
+
 
     swap->swap_base_addr = (addr_t)V3_AllocPages(swap->capacity / 4096);
     swap->swap_space = (uint8_t *)V3_VAddr((void *)(swap->swap_base_addr));
@@ -277,7 +292,5 @@ static int swap_init(struct guest_info * vm, void * cfg_data) {
 
     return 0;
 }
-
-
 
 device_register("SYM_SWAP", swap_init)

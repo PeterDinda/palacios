@@ -27,6 +27,10 @@
 #include <palacios/vmm_hypercall.h>
 #include <palacios/vmm_dev_mgr.h>
 
+#ifdef CONFIG_SYMBIOTIC_SWAP
+#include <palacios/vmm_sym_swap.h>
+#endif
+
 
 #include <devices/generic.h>
 #include <devices/ide.h>
@@ -38,9 +42,10 @@
 #include <devices/video.h>
 
 
+
+
 #include <palacios/vmm_host_events.h>
 
-#define USE_GENERIC 1
 
 
 #include <palacios/vmm_socket.h>
@@ -84,6 +89,11 @@ int v3_pre_config_guest(struct guest_info * info, struct v3_vm_config * config_p
     v3_init_decoder(info);
     
     v3_init_hypercall_map(info);
+
+#ifdef CONFIG_SYMBIOTIC_SWAP
+    v3_init_sym_swap(info);
+#endif
+
 
 
     // Initialize the memory map
@@ -229,7 +239,7 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
     v3_create_device(info, "IOAPIC", "LAPIC");
     v3_create_device(info, "VMNET", NULL);
     
-    int use_generic = USE_GENERIC;
+
 
     if (config_ptr->enable_pci == 1) {
 	struct ide_cfg ide_config = {"PCI", "PIIX3"};
@@ -331,9 +341,9 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
 
 
 
-    if (use_generic) {
+#ifdef CONFIG_GENERIC
 	configure_generic(info, config_ptr);
-    }
+#endif
 
     // This should go last because it requires information about the Harddrives
     v3_create_device(info, "NVRAM", "IDE");
@@ -345,7 +355,7 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
 
 
 
-
+#ifdef CONFIG_GENERIC
 static int configure_generic(struct guest_info * info, struct v3_vm_config * config_ptr) {
     PrintDebug("Creating Generic Device\n");
     v3_create_device(info, "GENERIC", NULL);
@@ -461,3 +471,4 @@ static int configure_generic(struct guest_info * info, struct v3_vm_config * con
     
     return 0;
 }
+#endif

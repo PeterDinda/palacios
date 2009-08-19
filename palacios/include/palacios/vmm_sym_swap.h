@@ -25,6 +25,7 @@
 
 #include <palacios/vmm_types.h>
 #include <palacios/vmm_paging.h>
+#include <palacios/vmm_hashtable.h>
 
 
 struct v3_swap_ops {
@@ -43,7 +44,11 @@ struct v3_swap_dev {
 
 struct v3_sym_swap_state {
     struct v3_swap_dev devs[256];
+
+    // shadow pointers
+    struct hashtable * shdw_ptr_ht;
 };
+
 
 
 static inline int is_swapped_pte32(pte32_t * pte) {
@@ -52,15 +57,18 @@ static inline int is_swapped_pte32(pte32_t * pte) {
 
 
 
-
 int v3_init_sym_swap(struct guest_info * info);
-
-addr_t v3_get_swapped_pg_addr(struct guest_info * info, pte32_t * pte);
 
 int v3_register_swap_disk(struct guest_info * info, int dev_index, 
 			  struct v3_swap_ops * ops, void * private_data);
 
-int v3_swap_out_notify(struct guest_info * info, int pg_index, int dev_index);
+int v3_swap_in_notify(struct guest_info * info, int pg_index, int dev_index);
+
+
+addr_t v3_get_swapped_pg_addr(struct guest_info * info, pte32_t * shadow_pte, pte32_t * guest_pte);
+
+int v3_swap_flush(struct guest_info * info);
+
 
 #endif
 #endif
