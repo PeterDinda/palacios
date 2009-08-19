@@ -571,7 +571,7 @@ void v3_init_SVM(struct v3_ctrl_ops * vmm_ops) {
 			  "movq  %%rcx, %%rax ; "
 			  vmload
 			  "rdtsc ; "
-			  : "=D"(start_hi), "=S"(start_lo), "=a"(end_lo),d"(end_hi)
+			  : "=D"(start_hi), "=S"(start_lo), "=a"(end_lo),"=d"(end_hi)
 			      : "c"(host_vmcb), "0"(0), "1"(0), "2"(0), "3"(0)
 			      );
 	
