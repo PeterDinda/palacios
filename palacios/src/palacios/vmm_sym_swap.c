@@ -174,6 +174,7 @@ addr_t v3_get_swapped_pg_addr(struct guest_info * info, pte32_t * shadow_pte, pt
     if (shdw_ptr_list == NULL) {
 	shdw_ptr_list = (struct list_head *)V3_Malloc(sizeof(struct list_head *));
 	INIT_LIST_HEAD(shdw_ptr_list);
+	v3_htable_insert(swap_state->shdw_ptr_ht, (addr_t)*(uint32_t *)guest_pte, (addr_t)shdw_ptr_list);
     }
 
     shdw_ptr = (struct shadow_pointer *)V3_Malloc(sizeof(struct shadow_pointer));

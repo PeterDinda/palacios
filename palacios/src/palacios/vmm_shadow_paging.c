@@ -273,12 +273,19 @@ static int is_guest_pf(pt_access_status_t guest_access, pt_access_status_t shado
 	    return 1;
 	}
 
-	if ((shadow_access == PT_ACCESS_NOT_PRESENT) &&
-	    (guest_access == PT_ACCESS_NOT_PRESENT)) {
+	/*
+	  if ((shadow_access == PT_ACCESS_NOT_PRESENT) &&
+	  (guest_access == PT_ACCESS_NOT_PRESENT)) {
+	  // Page tables completely blank, handle guest first
+	  return 1;
+	  }
+	*/
+
+	if (guest_access == PT_ACCESS_NOT_PRESENT) {
 	    // Page tables completely blank, handle guest first
 	    return 1;
 	}
-
+	
 	// Otherwise we'll handle the guest fault later...?
     }
 

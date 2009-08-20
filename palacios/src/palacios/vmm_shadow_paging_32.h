@@ -229,7 +229,7 @@ static int handle_pte_shadow_pagefault_32(struct guest_info * info, addr_t fault
 	PrintDebug("Access error injecting pf to guest (guest access error=%d) (pf error code=%d)\n", 
 		   guest_pte_access, *(uint_t*)&error_code);
 #ifdef CONFIG_SYMBIOTIC_SWAP
-	if (is_swapped_pte32(guest_pte)) {
+	if ((error_code.write == 0) && (is_swapped_pte32(guest_pte))) {
 	    PrintError("Page fault on swapped out page (pte=%x)\n", *(uint32_t *)guest_pte);
 
  	    addr_t swp_pg_addr = v3_get_swapped_pg_addr(info, shadow_pte, guest_pte);
@@ -245,13 +245,20 @@ static int handle_pte_shadow_pagefault_32(struct guest_info * info, addr_t fault
 		 */
 		
 		/* We need some way to check permissions.... */
-
+		
 		shadow_pte->accessed = 1;
-		shadow_pte->writable = 1;
+		shadow_pte->writable = 0;
+
+		if (fault_addr & 0xc0000000) {
+		    shadow_pte->user_page = 0;
+		} else {
+		    shadow_pte->user_page = 1;
+		}
+
 		shadow_pte->write_through = 0;
 		shadow_pte->cache_disable = 0;
 		shadow_pte->global_page = 0;
-		shadow_pte->user_page = 1;
+	
 		shadow_pte->present = 1;
 		
 		shadow_pte->page_base_addr = swp_pg_addr;
