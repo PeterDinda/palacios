@@ -45,6 +45,12 @@ struct v3_swap_dev {
 struct v3_sym_swap_state {
     struct v3_swap_dev devs[256];
 
+#ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
+    uint32_t read_faults;
+    uint32_t write_faults;
+    uint32_t flushes;
+#endif
+
     // shadow pointers
     struct hashtable * shdw_ptr_ht;
 };

@@ -23,6 +23,10 @@
 #include <palacios/vmm_list.h>
 
 
+#ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
+#include <palacios/vmm_telemetry.h>
+#endif
+
 // This is a hack and 32 bit linux specific.... need to fix...
 struct swap_pte {
     uint32_t present    : 1;
@@ -65,9 +69,29 @@ static inline uint32_t get_dev_index(pte32_t * pte) {
 
 
 
+#ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
+static void telemetry_cb(struct guest_info * info, void * private_data) {
+    struct v3_sym_swap_state * swap_state = &(info->swap_state);
+
+    V3_Print("Symbiotic Swap:\n");
+    V3_Print("\tRead faults=%d\n", swap_state->read_faults);
+    V3_Print("\tWrite faults=%d\n", swap_state->write_faults);
+    V3_Print("\tFlushes=%d\n", swap_state->flushes);
+}
+#endif
+
+
 int v3_init_sym_swap(struct guest_info * info) {
-    memset(&(info->swap_state), 0, sizeof(struct v3_sym_swap_state));
-    info->swap_state.shdw_ptr_ht = v3_create_htable(0, swap_hash_fn, swap_eq_fn);
+    struct v3_sym_swap_state * swap_state = &(info->swap_state);
+
+    memset(swap_state, 0, sizeof(struct v3_sym_swap_state));
+    swap_state->shdw_ptr_ht = v3_create_htable(0, swap_hash_fn, swap_eq_fn);
+
+#ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
+    if (info->enable_telemetry) {
+	v3_add_telemetry_cb(info, telemetry_cb, NULL);
+    }
+#endif
 
     PrintDebug("Initialized Symbiotic Swap\n");
 
@@ -125,6 +149,10 @@ int v3_swap_flush(struct guest_info * info) {
     struct hashtable_iter * ht_iter = v3_create_htable_iter(swap_state->shdw_ptr_ht);
 
     PrintDebug("Flushing Symbiotic Swap table\n");
+
+#ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
+    swap_state->flushes++;
+#endif
 
     while (ht_iter->entry) {
 	struct shadow_pointer * tmp_shdw_ptr = NULL;
