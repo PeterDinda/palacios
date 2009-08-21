@@ -367,7 +367,7 @@ static int raise_pci_irq(struct vm_device * dev, struct pci_device * pci_dev) {
     int intr_pin = pci_dev->config_header.intr_pin - 1;
     int irq_index = (intr_pin + pci_dev->dev_num - 1) & 0x3;
     
-    PrintError("Raising PCI IRQ %d\n", piix3_cfg->pirq_rc[irq_index]);
+    //    PrintError("Raising PCI IRQ %d\n", piix3_cfg->pirq_rc[irq_index]);
     
     v3_raise_irq(dev->vm, piix3_cfg->pirq_rc[irq_index]);
 
@@ -383,7 +383,7 @@ static int lower_pci_irq(struct vm_device * dev, struct pci_device * pci_dev) {
     int intr_pin = pci_dev->config_header.intr_pin - 1;
     int irq_index = (intr_pin + pci_dev->dev_num - 1) & 0x3;
     
-    PrintError("Lowering PCI IRQ %d\n", piix3_cfg->pirq_rc[irq_index]);
+    //    PrintError("Lowering PCI IRQ %d\n", piix3_cfg->pirq_rc[irq_index]);
     
     v3_lower_irq(dev->vm, piix3_cfg->pirq_rc[irq_index]);
 
