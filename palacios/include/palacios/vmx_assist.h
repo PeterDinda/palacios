@@ -26,6 +26,8 @@
 #ifndef _VMX_ASSIST_H_
 #define _VMX_ASSIST_H_
 
+#ifdef __V3VEE__
+
 #include <palacios/vm_guest.h>
 
 #define VMXASSIST_BASE         0xD0000
@@ -34,8 +36,6 @@
 
 #define VMXASSIST_NEW_CONTEXT (VMXASSIST_BASE + 12)
 #define VMXASSIST_OLD_CONTEXT (VMXASSIST_NEW_CONTEXT + 4)
-
-#ifndef __ASSEMBLY__
 
 #define NR_EXCEPTION_HANDLER    32
 #define NR_INTERRUPT_HANDLERS   16
@@ -107,11 +107,13 @@ struct vmx_assist_context {
 
     unsigned char rm_irqbase[2];
 };
+
 typedef struct vmx_assist_context vmx_assist_context_t;
 
 int v3_vmxassist_ctx_switch(struct guest_info * info);
 
-#endif /* __ASSEMBLY__ */
+
+#endif
 
 #endif /* _VMX_ASSIST_H_ */
 
