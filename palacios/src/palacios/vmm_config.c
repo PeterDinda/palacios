@@ -22,7 +22,7 @@
 #include <palacios/vmm_debug.h>
 #include <palacios/vmm_msr.h>
 #include <palacios/vmm_decoder.h>
-#include <palacios/vmm_profiler.h>
+#include <palacios/vmm_telemetry.h>
 #include <palacios/vmm_mem.h>
 #include <palacios/vmm_hypercall.h>
 #include <palacios/vmm_dev_mgr.h>
@@ -75,8 +75,19 @@ int v3_pre_config_guest(struct guest_info * info, struct v3_vm_config * config_p
     // Amount of ram the Guest will have, rounded to a 4K page boundary
     info->mem_size = config_ptr->mem_size & ~(addr_t)0xfff;
 
+    /*
+     * Initialize the subsystem data strutures
+     */
+#ifdef CONFIG_TELEMETRY
+    // This should go first, because other subsystems will depend on the guest_info flag
+    if (config_ptr->enable_telemetry) {
+	info->enable_telemetry = 1;
+	v3_init_telemetry(info);
+    } else {
+	info->enable_telemetry = 0;
+    }
+#endif
 
-    // Initialize the subsystem data strutures
     v3_init_time(info);
     v3_init_io_map(info);
     v3_init_msr_map(info);
@@ -109,14 +120,7 @@ int v3_pre_config_guest(struct guest_info * info, struct v3_vm_config * config_p
 	info->shdw_pg_mode = SHADOW_PAGING;
     }
 
-#ifdef CONFIG_PROFILE_VMM
-    if (config_ptr->enable_profiling) {
-	info->enable_profiler = 1;
-	v3_init_profiler(info);
-    } else {
-	info->enable_profiler = 0;
-    }
-#endif
+
 
     if (config_ptr->schedule_freq == 0) {
 	// set the schedule frequency to 100 HZ

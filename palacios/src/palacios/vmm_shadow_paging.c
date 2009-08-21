@@ -30,6 +30,11 @@
 
 #include <palacios/vmm_direct_paging.h>
 
+
+#ifdef CONFIG_SHADOW_PAGING_TELEMETRY
+#include <palacios/vmm_telemetry.h>
+#endif
+
 #ifdef CONFIG_SYMBIOTIC_SWAP
 #include <palacios/vmm_sym_swap.h>
 #endif
@@ -65,6 +70,14 @@ static int is_guest_pf(pt_access_status_t guest_access, pt_access_status_t shado
 
 
 
+#ifdef CONFIG_SHADOW_PAGING_TELEMETRY
+static void telemetry_cb(struct guest_info * info, void * private_data) {
+    V3_Print("Guest Page faults: %d\n", info->shdw_pg_state.guest_faults);
+}
+#endif
+
+
+
 int v3_init_shadow_page_state(struct guest_info * info) {
     struct shadow_page_state * state = &(info->shdw_pg_state);
   
@@ -73,6 +86,12 @@ int v3_init_shadow_page_state(struct guest_info * info) {
     state->guest_efer.value = 0x0LL;
 
     INIT_LIST_HEAD(&(state->page_list));
+
+#ifdef CONFIG_SHADOW_PAGING_TELEMETRY
+    if (info->enable_telemetry) {
+	v3_add_telemetry_cb(info, telemetry_cb, NULL);
+    }
+#endif
   
     return 0;
 }
@@ -241,14 +260,11 @@ static struct shadow_page_data * create_new_shadow_pt(struct guest_info * info) 
 
 
 static int inject_guest_pf(struct guest_info * info, addr_t fault_addr, pf_error_t error_code) {
-
-#ifdef CONFIG_PROFILE_VMM
-    if (info->enable_profiler) {
-	info->profiler.guest_pf_cnt++;
-    }
-#endif
-
     info->ctrl_regs.cr2 = fault_addr;
+
+#ifdef CONFIG_SHADOW_PAGING_TELEMETRY
+    info->shdw_pg_state.guest_faults++;
+#endif
 
     return v3_raise_exception_with_error(info, PF_EXCEPTION, *(uint_t *)&error_code);
 }

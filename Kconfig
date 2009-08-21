@@ -28,14 +28,33 @@ config SOCKET
 
 
 
-config PROFILE_VMM
-	bool "Enable VMM profiling support"
+config TELEMETRY
+	bool "Enable VMM telemetry support"
 	default y
 	help 
-	  Enable the profiling framework in Palacios
+	  Enable the telemetry framework in Palacios
 	  -----
 	  This is a framwork that allows components of palacios to record 
-	  information that is periodically reported to the log file 
+	  information that is periodically reported to the log output.
+	  Telemetry is automatically collected for vmexits. Subsystem telemetry 
+	  is configured separately
+
+
+config SHADOW_PAGING_TELEMETRY
+	bool "Enable Shadow Paging Telemetry"
+	default y
+	depends on TELEMETRY
+	help
+	  Enable telemetry information for shadow paging 
+
+config SYMBIOTIC_SWAP_TELEMETRY
+	bool "Enable Symbiotic Swap Telemetry"
+	default n
+	depends on TELEMETRY && SYMBIOTIC_SWAP
+	help 
+	  Enable the telemetry information for the symbiotic swap subsystem
+
+
 
 config INSTRUMENT_VMM
 	bool "Enable VMM instrumentation"

@@ -35,8 +35,8 @@
 #include <palacios/vmm_hypercall.h>
 
 
-#ifdef CONFIG_PROFILE_VMM
-#include <palacios/vmm_profiler.h>
+#ifdef CONFIG_TELEMETRY
+#include <palacios/vmm_telemetry.h>
 #endif
 
 #ifdef CONFIG_SYMBIOTIC_SWAP
@@ -118,8 +118,8 @@ struct v3_segments {
 struct shadow_page_state;
 struct v3_intr_state;
 
-#ifdef CONFIG_PROFILE_VMM
-struct v3_profiler;
+#ifdef CONFIG_TELEMETRY
+struct v3_telemetry;
 #endif
 
 #ifdef CONFIG_SYMBIOTIC_SWAP
@@ -179,9 +179,9 @@ struct guest_info {
     uint64_t yield_start_cycle;
     
 
-#ifdef CONFIG_PROFILE_VMM
-    uint_t enable_profiler;
-    struct v3_profiler profiler;
+#ifdef CONFIG_TELEMETRY
+    uint_t enable_telemetry;
+    struct v3_telemetry_state telemetry;
 #endif
 
 

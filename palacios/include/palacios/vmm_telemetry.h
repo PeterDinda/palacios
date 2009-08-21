@@ -17,35 +17,45 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#ifndef __VMM_PROFILER_H__
-#define __VMM_PROFILER_H__
+#ifndef __VMM_TELEMETRY_H__
+#define __VMM_TELEMETRY_H__
 
 #ifdef __V3VEE__
 
-#ifdef CONFIG_PROFILE_VMM 
+#ifdef CONFIG_TELEMETRY
 
 #include <palacios/vmm_rbtree.h>
+#include <palacios/vmm_list.h>
 
 struct guest_info;
 
 
-struct v3_profiler {
-    uint_t total_exits;
+struct v3_telemetry_state {
 
-    ullong_t start_time;
-    ullong_t end_time;
+    uint64_t vmm_start_tsc;
+    uint64_t prev_tsc;
 
-    uint_t guest_pf_cnt;
+    uint_t exit_cnt;
+    struct rb_root exit_root;
 
-    struct rb_root root;
+    uint32_t invoke_cnt;
+    uint64_t granularity;
+
+    struct list_head cb_list;
 };
 
 
-void v3_init_profiler(struct guest_info * info);
+void v3_init_telemetry(struct guest_info * info);
 
-void v3_profile_exit(struct guest_info * info, uint_t exit_code);
+void v3_telemetry_start_exit(struct guest_info * info);
+void v3_telemetry_end_exit(struct guest_info * info, uint_t exit_code);
 
-void v3_print_profile(struct guest_info * info);
+void v3_print_telemetry(struct guest_info * info);
+
+
+void v3_add_telemetry_cb(struct guest_info * info, 
+			void (*telemetry_fn)(struct guest_info * info, void * private_data),
+			void * private_data);
 
 #endif
 

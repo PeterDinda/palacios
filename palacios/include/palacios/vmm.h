@@ -258,7 +258,7 @@ struct v3_vm_config {
     // so we can specify maximum physical address size
     // (We're screwed if we want to do 32 bit host/64 bit guest)
 
-    int enable_profiling;
+    int enable_telemetry;
     int enable_nested_paging;
 
     int enable_pci;

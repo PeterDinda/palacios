@@ -30,10 +30,12 @@
 #include <palacios/vmm_intr.h>
 #include <palacios/vmm_emulator.h>
 #include <palacios/svm_msr.h>
-#include <palacios/vmm_profiler.h>
 #include <palacios/vmm_hypercall.h>
 #include <palacios/vmm_direct_paging.h>
 
+#ifdef CONFIG_TELEMETRY
+#include <palacios/vmm_telemetry.h>
+#endif
 
 
 int v3_handle_svm_exit(struct guest_info * info) {
@@ -97,9 +99,9 @@ int v3_handle_svm_exit(struct guest_info * info) {
     }
 
 
-#ifdef CONFIG_PROFILE_VMM
-    if (info->enable_profiler) {
-	rdtscll(info->profiler.start_time);
+#ifdef CONFIG_TELEMETRY
+    if (info->enable_telemetry) {
+	v3_telemetry_start_exit(info);
     }
 #endif
 
@@ -320,10 +322,9 @@ int v3_handle_svm_exit(struct guest_info * info) {
     }
     // END OF SWITCH (EXIT_CODE)
 
-#ifdef CONFIG_PROFILE_VMM
-    if (info->enable_profiler) {
-	rdtscll(info->profiler.end_time);
-	v3_profile_exit(info, exit_code);
+#ifdef CONFIG_TELEMETRY
+    if (info->enable_telemetry) {
+	v3_telemetry_end_exit(info, exit_code);
     }
 #endif
 

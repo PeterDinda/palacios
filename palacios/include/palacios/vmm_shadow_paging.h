@@ -40,6 +40,11 @@ struct shadow_page_state {
     // list of allocated shadow pages
     struct list_head page_list;
 
+
+#ifdef CONFIG_SHADOW_PAGING_TELEMETRY
+    uint_t guest_faults;
+#endif
+
 };
 
 
