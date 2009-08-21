@@ -358,7 +358,7 @@ static int start_svm_guest(struct guest_info *info) {
 	    PrintDebug("Host Address of rip = 0x%p\n", (void *)host_addr);
 
 	    PrintDebug("Instr (15 bytes) at %p:\n", (void *)host_addr);
-	    PrintTraceMemDump((uchar_t *)host_addr, 15);
+	    v3_dump_mem((uint8_t *)host_addr, 15);
 
 	    break;
 	}

@@ -38,55 +38,32 @@
 /* utility definitions */
 
 
+#define V3_Print(fmt, args...)					\
+    do {							\
+	extern struct v3_os_hooks * os_hooks;			\
+	if ((os_hooks) && (os_hooks)->print) {			\
+	    (os_hooks)->print((fmt), ##args);			\
+	}							\
+    } while (0)	
+
+
 #define PrintDebug(fmt, args...)			\
     do {						\
 	extern struct v3_os_hooks * os_hooks;		\
-	if ((os_hooks) && (os_hooks)->print_debug) {	\
-	    (os_hooks)->print_debug((fmt), ##args);	\
+	if ((os_hooks) && (os_hooks)->print) {	\
+	    (os_hooks)->print((fmt), ##args);	\
 	}						\
     } while (0)						
-
-#if 1
-#else
-#define PrintDebug(fmt,args ...)
-#endif
-
 
 
 #define PrintError(fmt, args...)					\
     do {								\
 	extern struct v3_os_hooks * os_hooks;				\
-	if ((os_hooks) && (os_hooks)->print_debug) {			\
-	    (os_hooks)->print_debug("%s(%d): " fmt, __FILE__, __LINE__, ##args); \
+	if ((os_hooks) && (os_hooks)->print) {			\
+	    (os_hooks)->print("%s(%d): " fmt, __FILE__, __LINE__, ##args); \
 	}								\
     } while (0)						
 
-
-
-#ifdef VMM_INFO
-#define PrintInfo(fmt, args...) 		        \
-    do {						\
-	extern struct v3_os_hooks * os_hooks;		\
-	if ((os_hooks) && (os_hooks)->print_info) {	\
-	    (os_hooks)->print_info((fmt), ##args);	\
-	}						\
-    } while (0)						
-#else
-#define PrintInfo(fmt, args...)
-#endif
-
-
-#ifdef VMM_TRACE
-#define PrintTrace(fmt, args...)			\
-    do {						\
-	extern struct v3_os_hooks * os_hooks;		\
-	if ((os_hooks) && (os_hooks)->print_trace) {	\
-	    (os_hooks)->print_trace(fmt, ##args);	\
-	}						\
-    } while (0)						
-#else
-#define PrintTrace(fmt, args...)
-#endif
 
 
 #define V3_AllocPages(num_pages)				\
@@ -229,11 +206,7 @@ struct guest_info;
 
 /* This will contain function pointers that provide OS services */
 struct v3_os_hooks {
-    void (*print_info)(const char * format, ...)
-  	__attribute__ ((format (printf, 1, 2)));
-    void (*print_debug)(const char * format, ...)
-  	__attribute__ ((format (printf, 1, 2)));
-    void (*print_trace)(const char * format, ...)
+    void (*print)(const char * format, ...)
   	__attribute__ ((format (printf, 1, 2)));
   
     void *(*allocate_pages)(int numPages);

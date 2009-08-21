@@ -36,26 +36,12 @@ typedef union reg_ex {
 
 
 
-// These are the GPRs layed out according to 'pusha'
-struct VMM_GPRs {
-    uint_t edi;
-    uint_t esi;
-    uint_t ebp;
-    uint_t esp;
-    uint_t ebx;
-    uint_t edx;
-    uint_t ecx;
-    uint_t eax;
-};
-
-
 #define GET_LOW_32(x) (*((uint_t*)(&(x))))
 #define GET_HIGH_32(x) (*((uint_t*)(((uchar_t*)(&(x)))+4)))
 
 
-void PrintTraceHex(uchar_t x);
-void PrintTraceLL(ullong_t num);
-void PrintTraceMemDump(uchar_t * start, int n);
+
+void v3_dump_mem(uint8_t * start, int n);
 
 
 
@@ -78,22 +64,6 @@ void PrintTraceMemDump(uchar_t * start, int n);
 	val = tsc;					\
     } while (0)					
 
-/*
-  #if __V3_32BIT__
-
-  #define rdtscll(val)				\
-  __asm__ __volatile__("rdtsc" : "=A" (val))
-
-  #elif __V3_64BIT__
-
-  #define rdtscll(val) do {				    \
-  unsigned int a,d;					    \
-  asm volatile("rdtsc" : "=a" (a), "=d" (d));		    \
-  (val) = ((unsigned long)a) | (((unsigned long)d)<<32);  \
-  } while(0)
-
-  #endif
-*/
 
 
 

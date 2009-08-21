@@ -710,7 +710,7 @@ int v3_is_vmx_capable() {
     if (ecx & CPUID_1_ECX_VTXFLAG) {
         v3_get_msr(VMX_FEATURE_CONTROL_MSR, &(feature_msr.hi), &(feature_msr.lo));
 	
-        PrintTrace("MSRREGlow: 0x%.8x\n", feature_msr.lo);
+        PrintDebug("MSRREGlow: 0x%.8x\n", feature_msr.lo);
 
         if ((feature_msr.lo & FEATURE_CONTROL_VALID) != FEATURE_CONTROL_VALID) {
             PrintDebug("VMX is locked -- enable in the BIOS\n");
