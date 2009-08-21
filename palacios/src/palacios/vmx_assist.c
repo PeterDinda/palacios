@@ -26,42 +26,32 @@ static int vmx_save_world_ctx(struct guest_info * info, struct vmx_assist_contex
 static int vmx_restore_world_ctx(struct guest_info * info, struct vmx_assist_context * ctx);
 
 int v3_vmxassist_ctx_switch(struct guest_info * info) {
-    uint32_t vmx_magic = 0; // Magic number to check for vmxassist
     struct vmx_assist_context * old_ctx = NULL;
-    struct vmx_assist_context * new_ctx = NULL;	
-    uint32_t old_ctx_gpa = 0;
-    uint32_t new_ctx_gpa = 0;
+    struct vmx_assist_context * new_ctx = NULL;
+    struct vmx_assist_header * hdr = NULL;
     vmx_state_t state = ((struct vmx_data *)info->vmm_data)->state;
 
-    /* Check validity of VMXASSIST_MAGIC field */
-    if (read_guest_pa_memory(info, VMXASSIST_MAGIC_OFFSET, sizeof(vmx_magic), (uint8_t *)&vmx_magic) != sizeof(vmx_magic)) {
-	PrintError("Could not read guest VMXASSIST magic field\n");
+
+    if (guest_pa_to_host_va(info, VMXASSIST_BASE, (addr_t *)&hdr) == -1) {
+	PrintError("Could not translate address for vmxassist header\n");
 	return -1;
     }
 
-    if (vmx_magic != VMXASSIST_MAGIC) {
+    if (hdr->magic != VMXASSIST_MAGIC) {
 	PrintError("VMXASSIT_MAGIC field is invalid\n");
         return -1;
     }
 
 
-    /* Retrieve the pointer to the Old Context struct */
-    if (read_guest_pa_memory(info, VMXASSIST_OLD_CONTEXT, sizeof(old_ctx_gpa), (uint8_t *)&old_ctx_gpa) != sizeof(old_ctx_gpa)) {
-	PrintError("Could not read Old Context pointer field\n");
+    if (guest_pa_to_host_va(info, (addr_t)(hdr->old_ctx_gpa), (addr_t *)&(old_ctx)) == -1) {
+	PrintError("Could not translate address for VMXASSIST old context\n");
 	return -1;
     }
-    
-    guest_pa_to_host_va(info, (addr_t)old_ctx_gpa, (addr_t *)&(old_ctx));
-    
 
-    /* Retrieve the pointer to the New Context struct */
-    if (read_guest_pa_memory(info, VMXASSIST_NEW_CONTEXT, sizeof(new_ctx_gpa), (uint8_t *)&new_ctx_gpa) != sizeof(new_ctx_gpa)) {
-	PrintError("Could not read New Context pointer field\n");
+    if (guest_pa_to_host_va(info, (addr_t)(hdr->new_ctx_gpa), (addr_t *)&(new_ctx)) == -1) {
+	PrintError("Could not translate address for VMXASSIST new context\n");
 	return -1;
     }
-    
-    guest_pa_to_host_va(info, (addr_t)new_ctx_gpa, (addr_t *)&(new_ctx));
-    
 
 
     if (state == VMXASSIST_DISABLED) {

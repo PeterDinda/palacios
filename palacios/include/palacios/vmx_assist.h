@@ -32,14 +32,15 @@
 
 #define VMXASSIST_BASE         0xD0000
 #define VMXASSIST_MAGIC        0x17101966
-#define VMXASSIST_MAGIC_OFFSET (VMXASSIST_BASE+8)
 
-#define VMXASSIST_NEW_CONTEXT (VMXASSIST_BASE + 12)
-#define VMXASSIST_OLD_CONTEXT (VMXASSIST_NEW_CONTEXT + 4)
 
-#define NR_EXCEPTION_HANDLER    32
-#define NR_INTERRUPT_HANDLERS   16
-#define NR_TRAPS        (NR_EXCEPTION_HANDLER+NR_INTERRUPT_HANDLERS)
+struct vmx_assist_header {
+    uint64_t rsvd; // 8 bytes of nothing
+    uint32_t magic;
+    uint32_t new_ctx_gpa;
+    uint32_t old_ctx_gpa;
+} __attribute__((packed));
+
 
 union vmcs_arbytes {
     struct arbyte_fields {
