@@ -108,7 +108,7 @@ static int hd_init(struct guest_info * vm, void * cfg_data) {
 
     hd = (struct hd_state *)V3_Malloc(sizeof(struct hd_state));
 
-    PrintDebug("Registering Ram HDD at %p (size=%d)\n", (void *)ramdisk, size);
+    PrintDebug("Registering Ram HDD at %p (size=%d)\n", (void *)cfg->ramdisk, cfg->size);
 
     hd->disk_image = cfg->ramdisk;
     hd->capacity = cfg->size;

@@ -93,7 +93,7 @@ static int cd_init(struct guest_info * vm, void * cfg_data) {
 
     cd = (struct cd_state *)V3_Malloc(sizeof(struct cd_state));
 
-    PrintDebug("Registering Ram CD at %p (size=%d)\n", (void *)ramdisk, size);
+    PrintDebug("Registering Ram CD at %p (size=%d)\n", (void *)cfg->ramdisk, cfg->size);
 
   
     cd->disk_image = cfg->ramdisk;

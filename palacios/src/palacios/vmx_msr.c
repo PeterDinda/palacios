@@ -1,10 +1,27 @@
+/*
+ * This file is part of the Palacios Virtual Machine Monitor developed
+ * by the V3VEE Project with funding from the United States National 
+ * Science Foundation and the Department of Energy.  
+ *
+ * The V3VEE Project is a joint project between Northwestern University
+ * and the University of New Mexico.  You can find out more at 
+ * http://www.v3vee.org
+ *
+ * Copyright (c) 2008, Andy Gocke <agocke@gmail.com>
+ * Copyright (c) 2008, The V3VEE Project <http://www.v3vee.org> 
+ * All rights reserved.
+ *
+ * Author: Andy Gocke <agocke@gmail.com>
+ *
+ * This is free software.  You are permitted to use,
+ * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
+ */
 
 #include <palacios/vmm.h>
 #include <palacios/vm_guest.h>
 
 /* Same as SVM */
-static int update_map(struct guest_info * info, uint_t msr, int hook_reads, int hook_writes)
-{
+static int update_map(struct guest_info * info, uint_t msr, int hook_reads, int hook_writes) {
 
 #if 0
     int index = get_bitmap_index(msr);
@@ -29,8 +46,7 @@ static int update_map(struct guest_info * info, uint_t msr, int hook_reads, int 
     return 0;
 }
 
-int v3_init_vmx_msr_map(struct guest_info * info)
-{
+int v3_init_vmx_msr_map(struct guest_info * info) {
    struct v3_msr_map * msr_map = &(info->msr_map);
 
    msr_map->update_map = update_map;

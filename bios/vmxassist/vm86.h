@@ -26,18 +26,13 @@
 
 #include "vmx_assist.h"
 
-#define	NR_EXCEPTION_HANDLER	32
-#define	NR_INTERRUPT_HANDLERS	16
-#define	NR_TRAPS		(NR_EXCEPTION_HANDLER+NR_INTERRUPT_HANDLERS)
-
 #ifndef __ASSEMBLY__
 
 struct regs {
-        unsigned	edi, esi, ebp, esp, ebx, edx, ecx, eax;
-        unsigned	ds, es, fs, gs;
-        unsigned	trapno, errno;
-        unsigned	eip, cs, eflags, uesp, uss;
-        unsigned	ves, vds, vfs, vgs;
+	unsigned	edi, esi, ebp, esp, ebx, edx, ecx, eax;
+	unsigned	trapno, errno;
+	unsigned	eip, cs, eflags, uesp, uss;
+	unsigned	ves, vds, vfs, vgs;
 };
 
 enum vm86_mode {
@@ -55,7 +50,6 @@ enum vm86_mode {
 
 extern enum vm86_mode prevmode, mode;
 extern struct vmx_assist_context oldctx;
-extern struct vmx_assist_context newctx;
 
 extern void emulate(struct regs *);
 extern void dump_regs(struct regs *);

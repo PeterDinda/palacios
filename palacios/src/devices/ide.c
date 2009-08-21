@@ -1157,7 +1157,7 @@ static int ide_read_data_port(ushort_t port, void * dst, uint_t length, struct v
     struct ide_channel * channel = get_selected_channel(ide, port);
     struct ide_drive * drive = get_selected_drive(channel);
 
-    //    PrintDebug("IDE: Reading Data Port %x (len=%d)\n", port, length);
+       PrintDebug("IDE: Reading Data Port %x (len=%d)\n", port, length);
 
     if ((channel->cmd_reg == 0xec) ||
 	(channel->cmd_reg == 0xa1)) {

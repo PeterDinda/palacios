@@ -22,6 +22,7 @@
 
 #ifdef __V3VEE__
 
+#include <palacios/vmcs.h>
 
 #define VMX_SUCCESS         0 
 #define VMX_FAIL_INVALID    1
@@ -134,10 +135,10 @@ static inline int vmcs_read(vmcs_field_t vmcs_field, void * dst) {
     __asm__ __volatile__ (  
                 VMREAD_OPCODE
                 EAX_ECX_MODRM
-                "seteb %0;" // fail valid
-                "setnaeb %1;" // fail invalid
-                : "=q"(ret_valid), "=q"(ret_invalid), "=c"(val) // Use ECX
-                : "a" (vmcs_field), "0"(ret_valid), "1"(ret_invalid)
+                "seteb %1;" // fail valid
+                "setnaeb %2;" // fail invalid
+                :  "=&c"(val), "=q"(ret_valid), "=q"(ret_invalid) // Use ECX
+                : "a" (vmcs_field), "1"(ret_valid), "2"(ret_invalid)
                 : "memory"
                 );
 

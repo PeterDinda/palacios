@@ -85,7 +85,7 @@ struct vmexit_io_qual {
     uint32_t access_size : 3; // (0: 1 Byte ;; 1: 2 Bytes ;; 3: 4 Bytes)
     uint32_t dir        : 1; // (0: Out ;; 1: In)
     uint32_t string     : 1; // (0: not string ;; 1: string)
-    uint32_t REP        : 1; // (0: not REP ;; 1: REP)
+    uint32_t rep        : 1; // (0: not REP ;; 1: REP)
     uint32_t op_enc      : 1; // (0: DX ;; 1: immediate)
     uint32_t rsvd       : 9; // Set to 0
     uint32_t port       : 16; // IO Port Number

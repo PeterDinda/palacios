@@ -21,7 +21,6 @@
 
 
 #include <palacios/vmx.h>
-#include <palacios/vmcs.h>
 #include <palacios/vmm.h>
 #include <palacios/vmx_lowlevel.h>
 #include <palacios/vmm_lowlevel.h>
@@ -355,48 +354,6 @@ static addr_t allocate_vmcs()
     return (addr_t)V3_PAddr((void *)vmcs_page);
 }
 
-#if 0
-
-#endif
-
-#if 0
-static int init_vmcs_bios(struct guest_info * vm_info) 
-{
-#if 0
-
-    setup_v8086_mode_for_boot(vm_info);
-
-
-    // Setup guest state 
-    // TODO: This is not 32-bit safe!
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_RIP, vm_info->rip);
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_RSP, vm_info->vm_regs.rsp);
-    
-
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_CR0, vm_info->ctrl_regs.cr0);
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_CR4, vm_info->ctrl_regs.cr4);
-
-    vmx_ret |= vmcs_write_guest_segments(vm_info);
-
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_RFLAGS, vm_info->ctrl_regs.rflags);
-#define DEBUGCTL_MSR 0x1d9
-
-    v3_get_msr(DEBUGCTL_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_DBG_CTL, tmp_msr.value);
-
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_DR7, 0x400);
-
-    vmx_ret |= check_vmcs_write(VMCS_LINK_PTR, 0xffffffffffffffff);
-
-    if (vmx_ret != 0) {
-	PrintError("Could not initialize VMCS segments\n");
-        return -1;
-    }
-
-#endif
-    return 0;
-}
-#endif
 
 static int init_vmx_guest(struct guest_info * info, struct v3_vm_config * config_ptr) {
     v3_pre_config_guest(info, config_ptr);
@@ -492,6 +449,10 @@ static int init_vmx_guest(struct guest_info * info, struct v3_vm_config * config
   
 
     /********** Setup and VMX Control Fields from MSR ***********/
+    /* Setup IO map */
+    (void) v3_init_vmx_io_map(info);
+    (void) v3_init_vmx_msr_map(info);
+
     struct v3_msr tmp_msr;
 
     v3_get_msr(VMX_PINBASED_CTLS_MSR,&(tmp_msr.hi),&(tmp_msr.lo));
@@ -499,7 +460,15 @@ static int init_vmx_guest(struct guest_info * info, struct v3_vm_config * config
     vmx_data->pinbased_ctrls =  tmp_msr.lo | NMI_EXIT;
 
     v3_get_msr(VMX_PROCBASED_CTLS_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
-    vmx_data->pri_procbased_ctrls = tmp_msr.lo;
+
+    PrintDebug("MSR High: 0x%x\n", tmp_msr.hi);
+    vmx_data->pri_procbased_ctrls = tmp_msr.lo | USE_IO_BITMAPS ;
+
+    vmx_ret |= check_vmcs_write(VMCS_IO_BITMAP_A_ADDR, (addr_t)V3_PAddr(info->io_map.arch_data));
+    vmx_ret |= check_vmcs_write(VMCS_IO_BITMAP_B_ADDR, 
+            (addr_t)V3_PAddr(info->io_map.arch_data) + PAGE_SIZE_4KB); 
+
+    vmx_ret |= check_vmcs_write(VMCS_MSR_BITMAP, (addr_t)V3_PAddr(info->msr_map.arch_data));
 
     v3_get_msr(VMX_EXIT_CTLS_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
     vmx_data->exit_ctrls = tmp_msr.lo ;
@@ -509,6 +478,7 @@ static int init_vmx_guest(struct guest_info * info, struct v3_vm_config * config
 
     struct vmx_exception_bitmap excp_bmap;
     excp_bmap.value = 0xffffffff;
+    excp_bmap.gp = 0;
     vmx_ret |= check_vmcs_write(VMCS_EXCP_BITMAP, excp_bmap.value);
 
 
@@ -552,10 +522,9 @@ static int init_vmx_guest(struct guest_info * info, struct v3_vm_config * config
 
         // vmx_data->pinbased_ctrls |= NMI_EXIT;
 
-        /* Add unconditional I/O and CR exits */
-        vmx_data->pri_procbased_ctrls |= UNCOND_IO_EXIT  
-                                        | CR3_LOAD_EXIT  
-                                        | CR3_STORE_EXIT;
+        /* Add CR exits */
+        vmx_data->pri_procbased_ctrls |= CR3_LOAD_EXIT  
+                                      | CR3_STORE_EXIT;
  
         vmx_data->exit_ctrls |= HOST_ADDR_SPACE_SIZE;
     }
@@ -589,10 +558,7 @@ static int init_vmx_guest(struct guest_info * info, struct v3_vm_config * config
     info->segments.ldtr.present = 1;
     info->segments.ldtr.granularity = 0;
     
-    /* Setup IO map */
-    (void) v3_init_vmx_io_map(info);
-    (void) v3_init_vmx_msr_map(info);
-
+    
     /************* Map in GDT and vmxassist *************/
 
     uint64_t  gdt[] __attribute__ ((aligned(32))) = {
@@ -671,7 +637,7 @@ static int init_vmx_guest(struct guest_info * info, struct v3_vm_config * config
 
     v3_print_vmcs();
 
-    vmx_data->state = VMXASSIST_STARTUP;
+    vmx_data->state = VMXASSIST_DISABLED;
 
     v3_post_config_guest(info, config_ptr);
 

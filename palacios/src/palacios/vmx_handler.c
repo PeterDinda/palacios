@@ -25,37 +25,37 @@
 #include <palacios/vmx_io.h>
 #include <palacios/vmx.h>
 #include <palacios/vmm_ctrl_regs.h>
+#include <palacios/vmm_lowlevel.h>
+#include <palacios/vmx_ctrl_regs.h>
+#include <palacios/vmx_assist.h>
 
 
 static int inline check_vmcs_write(vmcs_field_t field, addr_t val)
 {
     int ret = 0;
-    ret = vmcs_write(field,val);
+    ret = vmcs_write(field, val);
 
     if (ret != VMX_SUCCESS) {
         PrintError("VMWRITE error on %s!: %d\n", v3_vmcs_field_to_str(field), ret);
-        return 1;
     }
 
-    return 0;
+    return ret;
 }
 
 static int inline check_vmcs_read(vmcs_field_t field, void * val)
 {
     int ret = 0;
-    ret = vmcs_read(field,val);
+    ret = vmcs_read(field, val);
 
-    if(ret != VMX_SUCCESS) {
+    if (ret != VMX_SUCCESS) {
         PrintError("VMREAD error on %s!: %d\n", v3_vmcs_field_to_str(field), ret);
-        return ret;
     }
 
-    return 0;
+    return ret;
 }
 
 static void inline translate_access_to_v3_seg(struct vmcs_segment_access * access, 
-        struct v3_segment * v3_seg)
-{
+					      struct v3_segment * v3_seg) {
     v3_seg->type = access->type;
     v3_seg->system = access->desc_type;
     v3_seg->dpl = access->dpl;
@@ -66,15 +66,13 @@ static void inline translate_access_to_v3_seg(struct vmcs_segment_access * acces
     v3_seg->granularity = access->granularity;
 }
 
-static void load_vmcs_guest_state(struct guest_info * info)
+static int load_vmcs_guest_state(struct guest_info * info)
 {
-    check_vmcs_read(VMCS_GUEST_RIP, &(info->rip));
-    check_vmcs_read(VMCS_GUEST_RSP, &(info->vm_regs.rsp));
-    check_vmcs_read(VMCS_GUEST_CR0, &(info->ctrl_regs.cr0));
-    check_vmcs_read(VMCS_GUEST_CR3, &(info->ctrl_regs.cr3));
-    check_vmcs_read(VMCS_GUEST_CR4, &(info->ctrl_regs.cr4));
 
     struct vmcs_segment_access access;
+    int ret = 0;
+
+    // JRL: Add error checking
 
     memset(&access, 0, sizeof(access));
 
@@ -150,9 +148,23 @@ static void load_vmcs_guest_state(struct guest_info * info)
     /* IDTR Segment */
     check_vmcs_read(VMCS_GUEST_IDTR_BASE, &(info->segments.idtr.base));
     check_vmcs_read(VMCS_GUEST_IDTR_LIMIT, &(info->segments.idtr.limit));
+
+
+    /* 
+     *  Read the control state
+     */
+    check_vmcs_read(VMCS_GUEST_RIP, &(info->rip));
+    check_vmcs_read(VMCS_GUEST_RSP, &(info->vm_regs.rsp));
+    check_vmcs_read(VMCS_GUEST_CR0, &(info->ctrl_regs.cr0));
+    check_vmcs_read(VMCS_CR0_READ_SHDW, &(info->shdw_pg_state.guest_cr0));
+    check_vmcs_read(VMCS_GUEST_CR3, &(info->ctrl_regs.cr3));
+    check_vmcs_read(VMCS_GUEST_CR4, &(info->ctrl_regs.cr4));
+
+    return ret;
 }
 
 
+#if 0
 static void setup_v8086_mode_for_boot(struct guest_info * info)
 {
 
@@ -163,7 +175,6 @@ static void setup_v8086_mode_for_boot(struct guest_info * info)
     flags->iopl = 3;
 
     info->rip = 0xfff0;
-    //info->vm_regs.rsp = 0x0;
    
     /* Zero the segment registers */
     memset(&(info->segments), 0, sizeof(struct v3_segment)*6);
@@ -193,32 +204,19 @@ static void setup_v8086_mode_for_boot(struct guest_info * info)
         seg_ptr[i].granularity = 0;
     }
 
-    PrintDebug("END INFO!\n");
-#if 0
-    for(i = 6; i < 10; i++) {
-        seg_ptr[i].base = 0x0;
-        seg_ptr[i].limit = 0xffff;
-    }
-
-    info->segments.ldtr.type = 2;
-    info->segments.ldtr.system = 0;
-    info->segments.ldtr.present = 1;
-    info->segments.ldtr.granularity = 0;
-
-    info->segments.tr.type = 3;
-    info->segments.tr.system = 0;
-    info->segments.tr.present = 1;
-    info->segments.tr.granularity = 0;
-#endif
 }
 
-static int inline handle_cr_access(struct guest_info * info, ulong_t exit_qual)
-{
+#endif
+    
+static int inline handle_cr_access(struct guest_info * info, ulong_t exit_qual) {
     struct vmexit_cr_qual * cr_qual = (struct vmexit_cr_qual *)&exit_qual;
 
-    if(cr_qual->access_type < 2) {
-        ulong_t reg = 0;
-        switch(cr_qual->gpr) {
+    PrintDebug("Control register: %d\n", cr_qual->access_type);
+
+    if (cr_qual->access_type < 2) {
+        v3_reg_t reg = 0;
+       
+	switch(cr_qual->gpr) {
             case 0:
                 reg = info->vm_regs.rax;
                 break;
@@ -268,97 +266,138 @@ static int inline handle_cr_access(struct guest_info * info, ulong_t exit_qual)
                 reg = info->vm_regs.r15;
                 break;
         }
-        PrintDebug("RAX: %p\n", (void *)info->vm_regs.rax);
 
-        if(cr_qual->cr_id == 0
-                && (~reg & CR0_PE)
-                && ((struct vmx_data*)info->vmm_data)->state == VMXASSIST_STARTUP) {
-            setup_v8086_mode_for_boot(info);
-            info->shdw_pg_state.guest_cr0 = 0x0;
-            v3_update_vmcs_guest_state(info);
+        if (cr_qual->cr_id == 0) {
+            uint32_t instr_len;
+
+            vmcs_read(VMCS_EXIT_INSTR_LEN, &instr_len);
+
+            if ( ~reg & CR0_PE ) {
+
+                if (v3_vmxassist_ctx_switch(info) != 0) {
+                    PrintError("Unable to execute VMXASSIST context switch!\n");
+                    return -1;
+                }
+
+                load_vmcs_guest_state(info);
+
+                ((struct vmx_data *)info->vmm_data)->state = VMXASSIST_ENABLED;
+
+                PrintDebug("Loading vmxassist at RIP: 0x%p\n", (void *)info->rip);
+                return 0;
+            } else if (v3_vmx_handle_cr0_write(info, reg) != 0) {
+		PrintError("Could not handle CR0 Write\n");
+                return -1;
+            }
+
+            load_vmcs_guest_state(info);
+
+            PrintDebug("Leaving VMXASSIST and entering protected mode at RIP: 0x%p\n", (void *)info->rip);
+
             return 0;
         }
     }
+
     PrintError("Unhandled CR access\n");
     return -1;
 }
 
 
-int v3_handle_vmx_exit(struct v3_gprs * gprs, struct guest_info * info)
-{
+/* At this point the GPRs are already copied into the guest_info state */
+int v3_handle_vmx_exit(struct v3_gprs * gprs, struct guest_info * info) {
     uint32_t exit_reason;
     ulong_t exit_qual;
 
     check_vmcs_read(VMCS_EXIT_REASON, &exit_reason);
     check_vmcs_read(VMCS_EXIT_QUAL, &exit_qual);
 
-    PrintDebug("VMX Exit taken, id-qual: %u-%lu\n", exit_reason, exit_qual);
+    // PrintDebug("VMX Exit taken, id-qual: %u-%lu\n", exit_reason, exit_qual);
 
     /* Update guest state */
     load_vmcs_guest_state(info);
   
-    switch(exit_reason)
-    {
-        case VMEXIT_INFO_EXCEPTION_OR_NMI:
-        {
-            uint32_t int_info;
-            pf_error_t error_code;
-            check_vmcs_read(VMCS_EXIT_INT_INFO, &int_info);
-            check_vmcs_read(VMCS_EXIT_INT_ERR, &error_code);
+    switch (exit_reason) {
+        case VMEXIT_INFO_EXCEPTION_OR_NMI: {
+	    uint32_t int_info;
+	    pf_error_t error_code;
 
-            if((uint8_t)int_info == 0x0e) {
-                PrintDebug("Page Fault at %p\n", (void*)exit_qual);
-                if(info->shdw_pg_mode == SHADOW_PAGING) {
-                    if(v3_handle_shadow_pagefault(info, (addr_t)exit_qual, error_code) == -1) {
-                        return -1;
-                    }
-                } else {
-                    PrintError("Page fault in unimplemented paging mode\n");
-                    return -1;
-                }
-            } else {
-                PrintDebug("Unknown exception: 0x%x\n", (uint8_t)int_info);
-                v3_print_GPRs(info);
-                return -1;
-            }
-            break;
-        }
+	    check_vmcs_read(VMCS_EXIT_INT_INFO, &int_info);
+	    check_vmcs_read(VMCS_EXIT_INT_ERR, &error_code);
+	    
+	    // JRL: Change "0x0e" to a macro value
+	    if ((uint8_t)int_info == 0x0e) {
+		PrintDebug("Page Fault at %p\n", (void *)exit_qual);
+		
+		if (info->shdw_pg_mode == SHADOW_PAGING) {
+		    if (v3_handle_shadow_pagefault(info, (addr_t)exit_qual, error_code) == -1) {
+			PrintError("Error handling shadow page fault\n");
+			return -1;
+		    }
+		} else {
+		    PrintError("Page fault in unimplemented paging mode\n");
+		    return -1;
+		}
+	    } else {
+		PrintDebug("Unknown exception: 0x%x\n", (uint8_t)int_info);
+		v3_print_GPRs(info);
+		return -1;
+	    }
+	    break;
+	}
+	    
+        case VMEXIT_CPUID: {
+	    int instr_len;
 
-        case VMEXIT_IO_INSTR: 
-        {
-            struct vmexit_io_qual * io_qual = (struct vmexit_io_qual *)&exit_qual;
+	    v3_cpuid(info->vm_regs.rax, (addr_t *)&(info->vm_regs.rax), (addr_t *)&(info->vm_regs.rbx), 
+		     (addr_t *)&(info->vm_regs.rcx), (addr_t *)&(info->vm_regs.rdx));
 
-            if(io_qual->dir == 0) {
-                if(io_qual->string) {
-                    if(v3_handle_vmx_io_outs(info) == -1) {
-                        return -1;
-                    }
-                } else {
-                    if(v3_handle_vmx_io_out(info) == -1) {
-                        return -1;
-                    }
-                }
-            } else {
-                if(io_qual->string) {
-                    if(v3_handle_vmx_io_ins(info) == -1) {
-                        return -1;
-                    }
-                } else {
-                    if(v3_handle_vmx_io_in(info) == -1) {
-                        return -1;
-                    }
-                }
-            }
-            break;
-        }
+	    check_vmcs_read(VMCS_EXIT_INSTR_LEN, &instr_len);
 
+	    info->rip += instr_len;
+	    break;
+	}
+	    
+        case VMEXIT_IO_INSTR: {
+	    struct vmexit_io_qual * io_qual = (struct vmexit_io_qual *)&exit_qual;
+	    
+	    if (io_qual->dir == 0) {
+		if (io_qual->string) {
+		    if (v3_handle_vmx_io_outs(info) == -1) {
+			PrintError("Error in outs IO handler\n");
+			return -1;
+		    }
+		} else {
+		    if (v3_handle_vmx_io_out(info) == -1) {
+			PrintError("Error in out IO handler\n");
+			return -1;
+		    }
+		}
+	    } else {
+		if (io_qual->string) {
+		    if(v3_handle_vmx_io_ins(info) == -1) {
+			PrintError("Error in ins IO handler\n");
+			return -1;
+		    }
+		} else {
+		    if (v3_handle_vmx_io_in(info) == -1) {
+			PrintError("Error in in IO handler\n");
+			return -1;
+		    }
+		}
+	    }
+	    break;
+	}
+	    
         case VMEXIT_CR_REG_ACCESSES:
-            if(handle_cr_access(info,exit_qual) != 0)
+            if (handle_cr_access(info,exit_qual) != 0) {
+		PrintError("Error handling CR access\n");
                 return -1;
+	    }
+
             break;
 
         default:
-            PrintError("Unhandled VMEXIT\n");
+            PrintError("Unhandled VMEXIT: %u (0x%x), %lu (0x%lx)\n", exit_reason, exit_reason, exit_qual, exit_qual);
             return -1;
     }
 

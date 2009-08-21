@@ -28,9 +28,9 @@ TEXTADDR=0x000D0000
 DEFINES=-DDEBUG -DTEXTADDR=$(TEXTADDR)
 
 # Disable PIE/SSP if GCC supports them. They can break us.
-CFLAGS  += $(call test-gcc-flag,$(CC),-nopie)
-CFLAGS  += $(call test-gcc-flag,$(CC),-fno-stack-protector)
-CFLAGS  += $(call test-gcc-flag,$(CC),-fno-stack-protector-all)
+CFLAGS  += $(call cc-option,$(CC),-nopie,)
+CFLAGS  += $(call cc-option,$(CC),-fno-stack-protector,)
+CFLAGS  += $(call cc-option,$(CC),-fno-stack-protector-all,)
 
 CPP      = cpp -P
 OBJCOPY  = objcopy -p -O binary -R .note -R .comment -R .bss -S --gap-fill=0

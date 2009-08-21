@@ -70,10 +70,8 @@ struct vmx_basic_msr {
 }  __attribute__((packed));
 
 typedef enum { 
-    VMXASSIST_STARTUP,
-    VMXASSIST_V8086_BIOS,
-    VMXASSIST_V8086,
-    NORMAL 
+    VMXASSIST_DISABLED,
+    VMXASSIST_ENABLED
 } vmx_state_t;
 
 struct tss_descriptor {

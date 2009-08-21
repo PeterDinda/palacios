@@ -47,29 +47,13 @@ unsigned long long idt[NR_TRAPS] __attribute__ ((aligned(32)));
 
 struct dtr idtr = { sizeof(idt)-1, (unsigned long) &idt };
 
-#ifdef TEST
-unsigned pgd[NR_PGD] __attribute__ ((aligned(PGSIZE))) = { 0 };
-
-struct e820entry e820map[] = {
-	{ 0x0000000000000000ULL, 0x000000000009F800ULL, E820_RAM },
-	{ 0x000000000009F800ULL, 0x0000000000000800ULL, E820_RESERVED },
-	{ 0x00000000000A0000ULL, 0x0000000000020000ULL, E820_IO },
-	{ 0x00000000000C0000ULL, 0x0000000000040000ULL, E820_RESERVED },
-	{ 0x0000000000100000ULL, 0x0000000000000000ULL, E820_RAM },
-	{ 0x0000000000000000ULL, 0x0000000000001000ULL, E820_SHARED_PAGE },
-	{ 0x0000000000000000ULL, 0x0000000000003000ULL, E820_NVS },
-	{ 0x0000000000003000ULL, 0x000000000000A000ULL, E820_ACPI },
-	{ 0x00000000FEC00000ULL, 0x0000000001400000ULL, E820_IO },
-};
-#endif /* TEST */
-
 struct vmx_assist_context oldctx;
 struct vmx_assist_context newctx;
 
 unsigned long memory_size;
 int initialize_real_mode;
 
-extern char stack[], stack_top[];
+extern char stack_top[];
 extern unsigned trap_handlers[];
 
 void
@@ -87,38 +71,11 @@ banner(void)
 		    (((get_cmos(0x31) << 8) | get_cmos(0x30)) + 0x400) << 10;
 	memory_size += 0x400 << 10; /* + 1MB */
 
-#ifdef TEST
-	/* Create an SMAP for our debug environment */
-	e820map[4].size = memory_size - e820map[4].addr - PGSIZE;
-	e820map[5].addr = memory_size - PGSIZE;
-	e820map[6].addr = memory_size;
-	e820map[7].addr += memory_size;
-
-	*E820_MAP_NR = sizeof(e820map)/sizeof(e820map[0]);
-	memcpy(E820_MAP, e820map, sizeof(e820map));
-#endif
-
 	printf("Memory size %ld MB\n", memory_size >> 20);
 	printf("E820 map:\n");
-	print_e820_map(E820_MAP, *E820_MAP_NR);
+	print_e820_map(HVM_E820, *HVM_E820_NR);
 	printf("\n");
 }
-
-#ifdef TEST
-void
-setup_paging(void)
-{
-	unsigned long i;
-
-	if (((unsigned)pgd & ~PGMASK) != 0)
-		panic("PGD not page aligned");
-	set_cr4(get_cr4() | CR4_PSE);
-	for (i = 0; i < NR_PGD; i++)
-		pgd[i] = (i * LPGSIZE)| PTE_PS | PTE_US | PTE_RW | PTE_P;
-	set_cr3((unsigned) pgd);
-	set_cr0(get_cr0() | (CR0_PE|CR0_PG));
-}
-#endif /* TEST */
 
 void
 setup_gdt(void)
@@ -128,8 +85,9 @@ setup_gdt(void)
 	/* setup task state segment */
 	memset(&tss, 0, sizeof(tss));
 	tss.ss0 = DATA_SELECTOR;
-	tss.esp0 = (unsigned) stack_top - 4*4;
+	tss.esp0 = (unsigned) stack_top;
 	tss.iomap_base = offsetof(struct tss, iomap);
+	tss.iomap[sizeof(tss.iomap)-1] = 0xff;
 
 	/* initialize gdt's tss selector */
 	gdt[TSS_SELECTOR / sizeof(gdt[0])] |=
@@ -204,7 +162,7 @@ void
 enter_real_mode(struct regs *regs)
 {
 	/* mask off TSS busy bit */
-        gdt[TSS_SELECTOR / sizeof(gdt[0])] &= ~0x0000020000000000ULL;
+	gdt[TSS_SELECTOR / sizeof(gdt[0])] &= ~0x0000020000000000ULL;
 
 	/* start 8086 emulation of BIOS */
 	if (initialize_real_mode) {
@@ -213,17 +171,15 @@ enter_real_mode(struct regs *regs)
 		regs->ves = regs->vds = regs->vfs = regs->vgs = 0xF000;
 		if (booting_cpu == 0) {
 			regs->cs = 0xF000; /* ROM BIOS POST entry point */
-#ifdef TEST
-			regs->eip = 0xFFE0;
-#else
 			regs->eip = 0xFFF0;
-#endif
 		} else {
 			regs->cs = booting_vector << 8; /* AP entry point */
 			regs->eip = 0;
 		}
-		regs->uesp = 0;
-		regs->uss = 0;
+
+		regs->uesp = regs->uss = 0;
+		regs->eax = regs->ecx = regs->edx = regs->ebx = 0;
+		regs->esp = regs->ebp = regs->esi = regs->edi = 0;
 
 		/* intercept accesses to the PIC */
 		setiomap(PIC_MASTER+PIC_CMD);
@@ -239,14 +195,13 @@ enter_real_mode(struct regs *regs)
 
 		/* this should get us into 16-bit mode */
 		return;
-	} else {
-		/* go from protected to real mode */
-		regs->eflags |= EFLAGS_VM;
-
-		set_mode(regs, VM86_PROTECTED_TO_REAL);
-
-		emulate(regs);
 	}
+
+	/* go from protected to real mode */
+	set_mode(regs, VM86_PROTECTED_TO_REAL);
+	emulate(regs);
+	if (mode != VM86_REAL)
+		panic("failed to emulate between clear PE and long jump.\n");
 }
 
 /*
@@ -261,7 +216,7 @@ setup_ctx(void)
 
 	memset(c, 0, sizeof(*c));
 	c->eip = (unsigned long) switch_to_real_mode;
-	c->esp = (unsigned) stack_top - 4*4;
+	c->esp = (unsigned) stack_top;
 	c->eflags = 0x2; /* no interrupts, please */
 
 	/*
@@ -271,13 +226,8 @@ setup_ctx(void)
 	 * more natural to enable CR0.PE to cause a world switch to
 	 * protected mode rather than disabling it.
 	 */
-#ifdef TEST
-	c->cr0 = (get_cr0() | CR0_NE | CR0_PG) & ~CR0_PE;
-	c->cr3 = (unsigned long) pgd;
-#else
 	c->cr0 = (get_cr0() | CR0_NE) & ~CR0_PE;
 	c->cr3 = 0;
-#endif
 	c->cr4 = get_cr4();
 
 	c->idtr_limit = sizeof(idt)-1;
@@ -368,21 +318,13 @@ start_bios(void)
 int
 main(void)
 {
-    printf("Hello from VMXAssist\n");
-
 	if (booting_cpu == 0)
 		banner();
-
-#ifdef TEST
-	setup_paging();
-#endif
 
 	setup_gdt();
 	setup_idt();
 
-#ifndef	TEST
 	set_cr4(get_cr4() | CR4_VME);
-#endif
 
 	setup_ctx();
 

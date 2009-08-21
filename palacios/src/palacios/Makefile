@@ -46,7 +46,9 @@ obj-$(CONFIG_VMX) +=  	vmx.o \
 			vmx_io.o \
 			vmx_lowlevel.o \
 			vmx_msr.o \
-			vmcs.o
+			vmcs.o \
+			vmx_ctrl_regs.o \
+			vmx_assist.o
 
 
 

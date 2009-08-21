@@ -38,10 +38,15 @@
 #define CR4_PSE		(1 << 4)
 #define CR4_PAE		(1 << 5)
 
+#define EFLAGS_CF	(1 << 0)
+#define EFLAGS_PF	(1 << 2)
+#define EFLAGS_AF	(1 << 4)
 #define EFLAGS_ZF	(1 << 6)
+#define EFLAGS_SF	(1 << 7)
 #define EFLAGS_TF	(1 << 8)
 #define EFLAGS_IF	(1 << 9)
 #define EFLAGS_DF	(1 << 10)
+#define EFLAGS_OF	(1 << 11)
 #define EFLAGS_IOPL	(3 << 12)
 #define EFLAGS_VM	((1 << 17) | EFLAGS_IOPL)
 #define EFLAGS_VIF	(1 << 19)
@@ -55,13 +60,6 @@
 #define	PGMASK		(~(PGSIZE - 1))		/* page mask */
 #define	LPGSIZE		(1 << LOG_PDSIZE)	/* large page size */
 #define	LPGMASK		(~(LPGSIZE - 1))	/* large page mask */
-
-#ifdef TEST
-#define	PTE_P		(1 << 0)	/* Present */
-#define	PTE_RW		(1 << 1)	/* Read/Write */
-#define	PTE_US		(1 << 2)	/* User/Supervisor */
-#define	PTE_PS		(1 << 7)	/* Page Size */
-#endif
 
 /* Programmable Interrupt Contoller (PIC) defines */
 #define	PIC_MASTER	0x20
@@ -115,7 +113,7 @@ struct tss {
 #ifdef	ENABLE_VME
 	unsigned long	int_redir[8];
 #endif
-	unsigned char	iomap[8192];
+	unsigned char	iomap[8193];
 };
 
 static inline void
@@ -194,14 +192,6 @@ set_cr4(unsigned value)
 {
 	__asm__ __volatile__("movl %0, %%cr4" : /* no outputs */ : "r"(value));
 }
-
-#ifdef TEST
-static inline void
-breakpoint(void)
-{
-	outw(0x8A00, 0x8AE0);
-}
-#endif /* TEST */
 
 #endif /* __ASSEMBLY__ */
 
