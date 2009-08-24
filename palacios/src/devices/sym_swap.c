@@ -24,6 +24,9 @@
 
 #define SWAP_CAPACITY (150 * 1024 * 1024)
 
+#ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
+#include <palacios/vmm_telemetry.h>
+#endif
 
 
 /* This is the first page that linux writes to the swap area */
@@ -59,6 +62,12 @@ struct swap_state {
 
 
     union swap_header * hdr;
+
+#ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
+    uint32_t pages_in;
+    uint32_t pages_out;
+#endif
+
 
     uint64_t capacity;
     uint8_t * swap_space;
@@ -158,7 +167,11 @@ static int swap_read(uint8_t * buf, int sector_count, uint64_t lba,  void * priv
     if ((swap->active == 1) && (offset != 0)) {
 	int i = 0;
 	// Notify the shadow paging layer
-	PrintDebug("Swapped in %d pages\n", length / 4096);
+
+#ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
+	swap->pages_in += length / 4096;
+#endif
+
 	for (i = 0; i < length; i += 4096) {
 	    set_index_usage(swap, get_swap_index_from_offset(offset + i), 0);
 	    v3_swap_in_notify(dev->vm, get_swap_index_from_offset(offset + i), swap->hdr->info.type);
@@ -210,7 +223,10 @@ static int swap_write(uint8_t * buf, int sector_count, uint64_t lba, void * priv
 
     if ((swap->active == 1) && (offset != 0)) {
 	int i = 0;
-	PrintDebug("Swapped out %d pages\n", length / 4096);
+
+#ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
+	swap->pages_out += length / 4096;
+#endif
 
 	for (i = 0; i < length; i += 4096) {
 	    set_index_usage(swap, get_swap_index_from_offset(offset + i), 1);
@@ -241,6 +257,18 @@ static struct v3_device_ops dev_ops = {
     .stop = NULL,
 };
 
+
+#ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
+static void telemetry_cb(struct guest_info * info, void * private_data, char * hdr) {
+    struct vm_device * dev = (struct vm_device *)private_data;
+    struct swap_state * swap = (struct swap_state *)(dev->private_data);
+
+    V3_Print("%sSwap Device:\n", hdr);
+    V3_Print("%s\tPages Swapped in=%d\n", hdr, swap->pages_in);
+    V3_Print("%s\tPages Swapped out=%d\n", hdr, swap->pages_out);
+
+}
+#endif
 
 
 
@@ -289,6 +317,12 @@ static int swap_init(struct guest_info * vm, void * cfg_data) {
 
 
     v3_virtio_register_harddisk(virtio_blk, &hd_ops, dev);
+
+#ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
+    if (vm->enable_telemetry) {
+	v3_add_telemetry_cb(vm, telemetry_cb, dev);
+    }
+#endif
 
     return 0;
 }

@@ -41,6 +41,7 @@ struct v3_telemetry_state {
     uint32_t invoke_cnt;
     uint64_t granularity;
 
+
     struct list_head cb_list;
 };
 
@@ -54,8 +55,8 @@ void v3_print_telemetry(struct guest_info * info);
 
 
 void v3_add_telemetry_cb(struct guest_info * info, 
-			void (*telemetry_fn)(struct guest_info * info, void * private_data),
-			void * private_data);
+			 void (*telemetry_fn)(struct guest_info * info, void * private_data, char * hdr),
+			 void * private_data);
 
 #endif
 

@@ -21,6 +21,7 @@
 #include <palacios/vmm_telemetry.h>
 #include <palacios/svm_handler.h>
 #include <palacios/vmm_rbtree.h>
+#include <palacios/vmm_sprintf.h>
 
 
 #ifdef CONFIG_TELEMETRY_GRANULARITY
@@ -33,7 +34,7 @@
 
 struct telemetry_cb {
     
-    void (*telemetry_fn)(struct guest_info * info, void * private_data);
+    void (*telemetry_fn)(struct guest_info * info, void * private_data, char * hdr);
 
     void * private_data;
     struct list_head cb_node;
@@ -168,8 +169,8 @@ void v3_telemetry_end_exit(struct guest_info * info, uint_t exit_code) {
 
 
 void v3_add_telemetry_cb(struct guest_info * info, 
-			void (*telemetry_fn)(struct guest_info * info, void * private_data),
-			void * private_data) {
+			 void (*telemetry_fn)(struct guest_info * info, void * private_data, char * hdr),
+			 void * private_data) {
     struct v3_telemetry_state * telemetry = &(info->telemetry);
     struct telemetry_cb * cb = (struct telemetry_cb *)V3_Malloc(sizeof(struct telemetry_cb));
 
@@ -180,14 +181,17 @@ void v3_add_telemetry_cb(struct guest_info * info,
 }
 
 
+
 void v3_print_telemetry(struct guest_info * info) {
     struct v3_telemetry_state * telemetry = &(info->telemetry);
     uint64_t invoke_tsc = 0;
+    char hdr_buf[32];
 
     rdtscll(invoke_tsc);
 
-    V3_Print("Telemetry (%d)\n", telemetry->invoke_cnt++);
-    V3_Print("\ttelemetry window tsc cnt: %d\n", (uint32_t)(invoke_tsc - telemetry->prev_tsc));
+    snprintf(hdr_buf, 32, "telem.%d>", telemetry->invoke_cnt++);
+
+    V3_Print("%stelemetry window tsc cnt: %d\n", hdr_buf, (uint32_t)(invoke_tsc - telemetry->prev_tsc));
 
     // Exit Telemetry
     {
@@ -198,13 +202,13 @@ void v3_print_telemetry(struct guest_info * info) {
 	    evt = rb_entry(node, struct exit_event, tree_node);
 	    const char * code_str = vmexit_code_to_str(evt->exit_code);
 	    
-	    V3_Print("%s:%sCnt=%u,%sAvg. Time=%u\n", 
-		       code_str,
-		       (strlen(code_str) > 14) ? "\t" : "\t\t",
-		       evt->cnt,
-		       (evt->cnt >= 100) ? "\t" : "\t\t",
-		       (uint32_t)(evt->handler_time / evt->cnt));
-
+	    V3_Print("%s%s:%sCnt=%u,%sAvg. Time=%u\n", 
+		     hdr_buf,
+		     code_str,
+		     (strlen(code_str) > 14) ? "\t" : "\t\t",
+		     evt->cnt,
+		     (evt->cnt >= 100) ? "\t" : "\t\t",
+		     (uint32_t)(evt->handler_time / evt->cnt));
 	} while ((node = v3_rb_next(node)));
     }
 
@@ -214,7 +218,7 @@ void v3_print_telemetry(struct guest_info * info) {
 	struct telemetry_cb * cb = NULL;
 
 	list_for_each_entry(cb, &(telemetry->cb_list), cb_node) {
-	    cb->telemetry_fn(info, cb->private_data);
+	    cb->telemetry_fn(info, cb->private_data, hdr_buf);
 	}
     }
 

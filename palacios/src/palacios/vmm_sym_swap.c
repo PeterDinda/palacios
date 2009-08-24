@@ -70,13 +70,13 @@ static inline uint32_t get_dev_index(pte32_t * pte) {
 
 
 #ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
-static void telemetry_cb(struct guest_info * info, void * private_data) {
+static void telemetry_cb(struct guest_info * info, void * private_data, char * hdr) {
     struct v3_sym_swap_state * swap_state = &(info->swap_state);
 
-    V3_Print("Symbiotic Swap:\n");
-    V3_Print("\tRead faults=%d\n", swap_state->read_faults);
-    V3_Print("\tWrite faults=%d\n", swap_state->write_faults);
-    V3_Print("\tFlushes=%d\n", swap_state->flushes);
+    V3_Print("%sSymbiotic Swap:\n", hdr);
+    V3_Print("%s\tRead faults=%d\n", hdr, swap_state->read_faults);
+    V3_Print("%s\tWrite faults=%d\n", hdr, swap_state->write_faults);
+    V3_Print("%s\tFlushes=%d\n", hdr, swap_state->flushes);
 }
 #endif
 

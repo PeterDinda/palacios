@@ -240,7 +240,8 @@ static int handle_pte_shadow_pagefault_32(struct guest_info * info, addr_t fault
 	    }
 #endif
 	    if (error_code.write == 0) {
-		PrintError("Page fault on swapped out page (pte=%x) (error_code=%x)\n", *(uint32_t *)guest_pte, *(uint32_t *)&error_code);
+		V3_Print("Page fault on swapped out page (vaddr=%p) (pte=%x) (error_code=%x)\n", 
+			 (void *)fault_addr, *(uint32_t *)guest_pte, *(uint32_t *)&error_code);
 		
 		addr_t swp_pg_addr = v3_get_swapped_pg_addr(info, shadow_pte, guest_pte);
 		
@@ -259,7 +260,7 @@ static int handle_pte_shadow_pagefault_32(struct guest_info * info, addr_t fault
 		    shadow_pte->accessed = 1;
 		    shadow_pte->writable = 0;
 		    
-		    if (fault_addr & 0xc0000000) {
+		    if ((fault_addr & 0xc0000000) == 0xc0000000) {
 			shadow_pte->user_page = 0;
 		    } else {
 			shadow_pte->user_page = 1;
