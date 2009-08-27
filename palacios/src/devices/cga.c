@@ -28,12 +28,12 @@
 
 
 
-/*
+
 #ifndef DEBUG_CGA
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
-*/
+
 
 #define START_ADDR 0xB8000
 #define END_ADDR 0xC0000
