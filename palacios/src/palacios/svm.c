@@ -124,7 +124,8 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
 
     vm_info->vm_regs.rdx = 0x00000f00;
 
-    guest_state->cr0 = 0x60000010;
+
+    guest_state->cr0 = 0x60010010; // Set the WP flag so the memory hooks work in real-mode
 
 
     guest_state->cs.selector = 0xf000;
