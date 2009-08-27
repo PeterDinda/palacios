@@ -259,11 +259,20 @@ config SYM_SWAP
 	help 
 	  Includes the symbiotic ram based swap disk
 
-config VIDEO
-	bool "VIDEO"
+config CGA
+	bool "CGA"
 	default n
-	depends on PCI && EXPERIMENTAL
+	depends on !PASSTHROUGH_VIDEO
 	help
-	  Includes the Virtual Video Card Device
+	  Includes the Virtual CGA video support
+
+
+config TELNET_CONSOLE
+	bool "Telnet Virtual Console"
+	default n
+	depends on CGA && !PASSTHROUGH_VIDEO
+	help
+	  Includes the virtual telnet console 
 
 endmenu
+

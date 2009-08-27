@@ -327,7 +327,7 @@ int v3_handle_cr3_write(struct guest_info * info) {
 		    PrintError("Failed to activate 32 bit shadow page table\n");
 		    return -1;
 		}
-	    } 
+	    }
 	    
 	    PrintDebug("New Shadow CR3=%p; New Guest CR3=%p\n", 
 		       (void *)(addr_t)(info->ctrl_regs.cr3), 

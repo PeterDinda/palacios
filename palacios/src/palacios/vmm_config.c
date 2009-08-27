@@ -39,7 +39,7 @@
 #include <devices/ram_hd.h>
 #include <devices/net_hd.h>
 
-#include <devices/video.h>
+#include <devices/telnet_cons.h>
 
 
 
@@ -57,7 +57,7 @@ static int configure_generic(struct guest_info * info, struct v3_vm_config * con
 
 
 
-#ifndef CONFIG_VIDEO
+#ifdef CONFIG_PASSTHROUGH_VIDEO
 static int passthrough_mem_write(addr_t guest_addr, void * src, uint_t length, void * priv_data) {
 
     return length;
@@ -178,7 +178,7 @@ int v3_post_config_guest(struct guest_info * info, struct v3_vm_config * config_
  */
 static int setup_memory_map(struct guest_info * info, struct v3_vm_config * config_ptr) {
 
-#ifndef CONFIG_VIDEO
+#ifdef CONFIG_PASSTHROUGH_VIDEO
     PrintDebug("Setting up memory map (memory size=%dMB)\n", (uint_t)(info->mem_size / (1024 * 1024)));
     
     // VGA frame buffer
@@ -244,6 +244,11 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
     v3_create_device(info, "VMNET", NULL);
     
 
+    v3_create_device(info, "CGA_VIDEO", (void *)1);
+    {
+	struct telnet_cons_cfg cons_cfg = {"CGA_VIDEO", 19997};
+	v3_create_device(info, "TELNET_CONSOLE", &cons_cfg);
+    }
 
     if (config_ptr->enable_pci == 1) {
 	struct ide_cfg ide_config = {"PCI", "PIIX3"};
@@ -257,8 +262,6 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
 	v3_create_device(info, "LNX_VIRTIO_BLK", "PCI");
 	v3_create_device(info, "LNX_VIRTIO_BALLOON", "PCI");
 	v3_create_device(info, "SYM_SWAP", "LNX_VIRTIO_BLK");
-
-	v3_create_device(info, "VIDEO", "PCI");
 
 	v3_create_device(info, "IDE", &ide_config);
     } else {
@@ -447,7 +450,7 @@ static int configure_generic(struct guest_info * info, struct v3_vm_config * con
 
 #endif
 
-#ifndef CONFIG_VIDEO
+#ifdef CONFIG_PASTHROUGH_VIDEO
 
     // Monitor graphics card operations
     

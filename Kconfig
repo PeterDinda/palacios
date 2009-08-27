@@ -55,6 +55,12 @@ config SYMBIOTIC_SWAP_TELEMETRY
 	  Enable the telemetry information for the symbiotic swap subsystem
 
 
+config PASSTHROUGH_VIDEO
+	bool "Enable Passthrough Video"
+	default y
+	help 
+	  Configures Palacios to map a guest's framebuffer directly 
+	  to the hardware framebuffer
 
 config INSTRUMENT_VMM
 	bool "Enable VMM instrumentation"
