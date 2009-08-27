@@ -58,9 +58,11 @@ struct video_internal {
 
     uint8_t crtc_index_reg;          // io port 3D4
     uint8_t crtc_data_regs[25];      // io port 3D5
-
+    
+    /* IMPORTANT: These are column offsets _NOT_ byte offsets */
     uint16_t screen_offset; // relative to the framebuffer
     uint16_t cursor_offset; // relative to the framebuffer
+    /* ** */
 
     // updating the screen offset is not atomic, 
     // so we need a temp variable to hold the partial update
