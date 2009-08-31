@@ -280,9 +280,9 @@ static inline int is_lba_enabled(struct ide_channel * channel) {
 /* Drive Commands */
 static void ide_raise_irq(struct vm_device * dev, struct ide_channel * channel) {
     if (channel->ctrl_reg.irq_disable == 0) {
-	PrintDebug("Raising IDE Interrupt %d\n", channel->irq);
-	channel->dma_status.int_gen = 1;
-	v3_raise_irq(dev->vm, channel->irq);
+        PrintError("Raising IDE Interrupt %d\n", channel->irq);
+        channel->dma_status.int_gen = 1;
+        v3_raise_irq(dev->vm, channel->irq);
     }
 }
 

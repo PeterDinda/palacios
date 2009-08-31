@@ -27,42 +27,21 @@
 
 
 #include <palacios/vmm_types.h>
-    /* Pin Based VM Execution Controls */
-    /* INTEL MANUAL: 20-10 vol 3B */
-#define   EXT_INTR_EXIT                 0x00000001
-#define   NMI_EXIT                      0x00000008
-#define   VIRTUAL_NMIS                  0x00000020
-/* Processor Based VM Execution Controls */
-/* INTEL MANUAL: 20-11 vol. 3B */
-#define   INTR_WIN_EXIT                 0x00000004
-#define   USE_TSC_OFFSET                0x00000008
-#define   HLT_EXIT                      0x00000080
-#define   INVLPG_EXIT                   0x00000200
-#define   MWAIT_EXIT                    0x00000400
-#define   RDPMC_EXIT                    0x00000800
-#define   RDTSC_EXIT                    0x00001000
-#define   CR3_LOAD_EXIT                 0x00008000
-#define   CR3_STORE_EXIT                0x00010000
-#define   CR8_LOAD_EXIT                 0x00080000
-#define   CR8_STORE_EXIT                0x00100000
-#define   USE_TPR_SHADOW                0x00200000
-#define   NMI_WINDOW_EXIT               0x00400000
-#define   MOVDR_EXIT                    0x00800000
-#define   UNCOND_IO_EXIT                0x01000000
-#define   USE_IO_BITMAPS                0x02000000
-#define   USE_MSR_BITMAPS               0x10000000
-#define   MONITOR_EXIT                  0x20000000
-#define   PAUSE_EXIT                    0x40000000
-#define   ACTIVE_SEC_CTRLS              0x80000000
+#include <palacios/vm_guest.h>
+
 /* VM-Exit Controls */
 /* INTEL MANUAL: 20-16 vol. 3B */
 #define   HOST_ADDR_SPACE_SIZE          0x00000200
 #define   ACK_IRQ_ON_EXIT               0x00008000
 
 /* Control register exit masks */
-#define   CR0_PE        0x00000001
-#define   CR0_PG        0x80000000
 #define   CR4_VMXE      0x00002000
+
+int v3_load_vmcs_guest_state(struct guest_info * info);
+int v3_update_vmcs_guest_state(struct guest_info * info);
+int v3_update_vmcs_host_state(struct guest_info * info);
+int v3_update_vmcs_ctrl_fields(struct guest_info * info);
+
 
 typedef enum {
     VMCS_GUEST_ES_SELECTOR       = 0x00000800,
@@ -107,6 +86,8 @@ typedef enum {
     VMCS_LINK_PTR_HIGH                = 0x00002801,
     VMCS_GUEST_DBG_CTL               = 0x00002802,
     VMCS_GUEST_DBG_CTL_HIGH          = 0x00002803,
+    VMCS_GUEST_EFER                   = 0x00002805,
+    VMCS_GUEST_EFER_HIGH              = 0x00002807,
     VMCS_GUEST_PERF_GLOBAL_CTRL       = 0x00002808,
     VMCS_GUEST_PERF_GLOBAL_CTRL_HIGH  = 0x00002809,
 
@@ -137,7 +118,7 @@ typedef enum {
     VMCS_IDT_VECTOR_INFO              = 0x00004408,
     VMCS_IDT_VECTOR_ERR               = 0x0000440A,
     VMCS_EXIT_INSTR_LEN               = 0x0000440C,
-    VMCS_VMX_INSTR_INFO               = 0x0000440E,
+    VMCS_EXIT_INSTR_INFO               = 0x0000440E,
     /* 32 bit Guest state fields */
     VMCS_GUEST_ES_LIMIT               = 0x00004800,
     VMCS_GUEST_CS_LIMIT               = 0x00004802,
@@ -215,64 +196,45 @@ typedef enum {
     VMCS_HOST_RIP                     = 0x00006C16,
 } vmcs_field_t;
 
-int v3_vmcs_get_field_len(vmcs_field_t field);
-const char* v3_vmcs_field_to_str(vmcs_field_t field);
-void v3_print_vmcs();
 
-
-
-/* Exit Vector Info */
-struct VMExitIntInfo {
-    uint32_t nr         : 8; // IRQ number, exception vector, NMI = 2 
-    uint32_t type       : 3; // (0: ext. IRQ , 2: NMI , 3: hw exception , 6: sw exception
-    uint32_t errorCode  : 1; // 1: error Code present
-    uint32_t iret       : 1; // something to do with NMIs and IRETs (Intel 3B, sec. 23.2.2) 
-    uint32_t rsvd       : 18; // always 0
-    uint32_t valid      : 1; // always 1 if valid
-} __attribute__((packed));
-
-
-
-
-/*  End Exit Vector Info */
 
 struct vmx_exception_bitmap {
     union {
         uint32_t value;
-    struct {
-        uint_t de          : 1; // (0) divide by zero
-        uint_t db          : 1; // (1) Debug
-        uint_t nmi         : 1; // (2) Non-maskable interrupt
-        uint_t bp          : 1; // (3) Breakpoint
-        uint_t of          : 1; // (4) Overflow
-        uint_t br          : 1; // (5) Bound-Range
-        uint_t ud          : 1; // (6) Invalid-Opcode
-        uint_t nm          : 1; // (7) Device-not-available
-        uint_t df          : 1; // (8) Double Fault
-        uint_t ex9         : 1; 
-        uint_t ts          : 1; // (10) Invalid TSS
-        uint_t np          : 1; // (11) Segment-not-present
-        uint_t ss          : 1; // (12) Stack
-        uint_t gp          : 1; // (13) General Protection Fault
-        uint_t pf          : 1; // (14) Page fault
-        uint_t ex15        : 1;
-        uint_t mf          : 1; // (15) Floating point exception
-        uint_t ac          : 1; // (16) Alignment-check
-        uint_t mc          : 1; // (17) Machine Check
-        uint_t xf          : 1; // (18) SIMD floating-point
-        uint_t ex20        : 1;
-        uint_t ex21        : 1;
-        uint_t ex22        : 1;
-        uint_t ex23        : 1;
-        uint_t ex24        : 1;
-        uint_t ex25        : 1;
-        uint_t ex26        : 1;
-        uint_t ex27        : 1;
-        uint_t ex28        : 1;
-        uint_t ex29        : 1;
-        uint_t sx          : 1; // (30) Security Exception
-        uint_t ex31        : 1;
-    } __attribute__ ((packed));
+	struct {
+	    uint_t de          : 1; // (0) divide by zero
+	    uint_t db          : 1; // (1) Debug
+	    uint_t nmi         : 1; // (2) Non-maskable interrupt
+	    uint_t bp          : 1; // (3) Breakpoint
+	    uint_t of          : 1; // (4) Overflow
+	    uint_t br          : 1; // (5) Bound-Range
+	    uint_t ud          : 1; // (6) Invalid-Opcode
+	    uint_t nm          : 1; // (7) Device-not-available
+	    uint_t df          : 1; // (8) Double Fault
+	    uint_t ex9         : 1; 
+	    uint_t ts          : 1; // (10) Invalid TSS
+	    uint_t np          : 1; // (11) Segment-not-present
+	    uint_t ss          : 1; // (12) Stack
+	    uint_t gp          : 1; // (13) General Protection Fault
+	    uint_t pf          : 1; // (14) Page fault
+	    uint_t ex15        : 1;
+	    uint_t mf          : 1; // (15) Floating point exception
+	    uint_t ac          : 1; // (16) Alignment-check
+	    uint_t mc          : 1; // (17) Machine Check
+	    uint_t xf          : 1; // (18) SIMD floating-point
+	    uint_t ex20        : 1;
+	    uint_t ex21        : 1;
+	    uint_t ex22        : 1;
+	    uint_t ex23        : 1;
+	    uint_t ex24        : 1;
+	    uint_t ex25        : 1;
+	    uint_t ex26        : 1;
+	    uint_t ex27        : 1;
+	    uint_t ex28        : 1;
+	    uint_t ex29        : 1;
+	    uint_t sx          : 1; // (30) Security Exception
+	    uint_t ex31        : 1;
+	} __attribute__ ((packed));
     } __attribute__ ((packed));
 } __attribute__((packed));
 
@@ -281,8 +243,6 @@ struct vmx_exception_bitmap {
 
 /* Segment Selector Access Rights (32 bits) */
 /* INTEL Manual: 20-4 vol 3B */
-
-
 struct vmcs_segment_access {
     union {
 	uint32_t value;
@@ -319,7 +279,12 @@ struct vmcs_data {
 } __attribute__((packed));
 
 
-//uint_t VMCSRead(uint_t tag, void * val);
+
+int v3_vmcs_get_field_len(vmcs_field_t field);
+
+const char * v3_vmcs_field_to_str(vmcs_field_t field);
+
+void v3_print_vmcs();
 
 
 #endif // ! __V3VEE__

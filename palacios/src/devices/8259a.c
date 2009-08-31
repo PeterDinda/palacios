@@ -292,31 +292,31 @@ static int pic_get_intr_number(void * private_data) {
 /* The IRQ number is the number returned by pic_get_intr_number(), not the pin number */
 static int pic_begin_irq(void * private_data, int irq) {
     struct pic_internal * state = (struct pic_internal*)private_data;
-
+    
     if ((irq >= state->master_icw2) && (irq <= state->master_icw2 + 7)) {
-	irq &= 0x7;
+       irq &= 0x7;
     } else if ((irq >= state->slave_icw2) && (irq <= state->slave_icw2 + 7)) {
-	irq &= 0x7;
-	irq += 8;
+       irq &= 0x7;
+       irq += 8;
     } else {
-	//    PrintError("8259 PIC: Could not find IRQ (0x%x) to Begin\n",irq);
-	return -1;
+       //    PrintError("8259 PIC: Could not find IRQ (0x%x) to Begin\n",irq);
+       return -1;
     }
-
+    
     if (irq <= 7) {
-	if (((state->master_irr & ~(state->master_imr)) >> irq) == 0x01) {
-	    state->master_isr |= (0x1 << irq);
+       if (((state->master_irr & ~(state->master_imr)) >> irq) == 0x01) {
+           state->master_isr |= (0x1 << irq);
 
-	    if (!(state->master_elcr & (0x1 << irq))) {
-		state->master_irr &= ~(0x1 << irq);
-	    }
-	}
+           if (!(state->master_elcr & (0x1 << irq))) {
+               state->master_irr &= ~(0x1 << irq);
+           }
+       }
     } else {
-	state->slave_isr |= (0x1 << (irq - 8));
+       state->slave_isr |= (0x1 << (irq - 8));
 
-	if (!(state->slave_elcr & (0x1 << irq))) {
-	    state->slave_irr &= ~(0x1 << (irq - 8));
-	}
+       if (!(state->slave_elcr & (0x1 << irq))) {
+           state->slave_irr &= ~(0x1 << (irq - 8));
+       }
     }
 
     return 0;

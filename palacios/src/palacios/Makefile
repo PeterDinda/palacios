@@ -10,6 +10,7 @@ obj-y := \
 	vmm_direct_paging.o \
 	vmm_emulator.o \
 	vmm_excp.o \
+	vmm_halt.o \
 	vmm_hashtable.o \
 	vmm_host_events.o \
 	vmm_hypercall.o \
@@ -32,7 +33,6 @@ obj-y := \
 
 
 obj-$(CONFIG_SVM) +=    svm.o \
-			svm_halt.o \
 			svm_io.o \
 			svm_lowlevel.o \
 			svm_msr.o \

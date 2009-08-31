@@ -12,22 +12,22 @@
  * All rights reserved.
  *
  * Author: Peter Dinda <pdinda@northwestern.edu>
+ * Author: Andy Gocke <agocke@gmail.com>
  *
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#ifndef __SVM_HALT_H
-#define __SVM_HALT_H
+#ifndef __VMM_HALT_H
+#define __VMM_HALT_H
 
 #ifdef __V3VEE__
 
 #include <palacios/vm_guest.h>
-#include <palacios/vmcb.h>
 #include <palacios/vmm.h>
 
 
-int v3_handle_svm_halt(struct guest_info * info);
+int v3_handle_halt(struct guest_info * info);
 
 #endif // ! __V3VEE__
 

@@ -27,12 +27,6 @@
 
 int v3_init_svm_msr_map(struct guest_info * info);
 
-int v3_handle_msr_write(struct guest_info * info);
-
-int v3_handle_msr_read(struct guest_info * info);
-
-
-
 
 #endif // ! __V3VEE__
 

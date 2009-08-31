@@ -20,7 +20,62 @@
 #include <palacios/vmcs.h>
 #include <palacios/vmx_lowlevel.h>
 #include <palacios/vmm.h>
+#include <palacios/vmx.h>
+#include <palacios/vm_guest_mem.h>
+#include <palacios/vmm_ctrl_regs.h>
+#include <palacios/vmm_lowlevel.h>
 
+static void inline translate_v3_seg_to_access(struct v3_segment * v3_seg,  
+					      struct vmcs_segment_access * access)
+{
+    access->type = v3_seg->type;
+    access->desc_type = v3_seg->system;
+    access->dpl = v3_seg->dpl;
+    access->present = v3_seg->present;
+    access->avail = v3_seg->avail;
+    access->long_mode = v3_seg->long_mode;
+    access->db = v3_seg->db;
+    access->granularity = v3_seg->granularity;
+}
+
+static void inline translate_access_to_v3_seg(struct vmcs_segment_access * access, 
+					      struct v3_segment * v3_seg)
+{
+    v3_seg->type = access->type;
+    v3_seg->system = access->desc_type;
+    v3_seg->dpl = access->dpl;
+    v3_seg->present = access->present;
+    v3_seg->avail = access->avail;
+    v3_seg->long_mode = access->long_mode;
+    v3_seg->db = access->db;
+    v3_seg->granularity = access->granularity;
+}
+
+
+static int inline check_vmcs_write(vmcs_field_t field, addr_t val)
+{
+    int ret = 0;
+    ret = vmcs_write(field, val);
+
+    if (ret != VMX_SUCCESS) {
+        PrintError("VMWRITE error on %s!: %d\n", v3_vmcs_field_to_str(field), ret);
+        return 1;
+    }
+
+    return 0;
+}
+
+static int inline check_vmcs_read(vmcs_field_t field, void * val)
+{
+    int ret = 0;
+    ret = vmcs_read(field, val);
+
+    if (ret != VMX_SUCCESS) {
+        PrintError("VMREAD error on %s!: %d\n", v3_vmcs_field_to_str(field), ret);
+    }
+
+    return ret;
+}
 
 // static const char * v3_vmcs_field_to_str(vmcs_field_t field);
 
@@ -29,6 +84,335 @@
 // Ignores "HIGH" addresses - 32 bit only for now
 //
 
+int v3_update_vmcs_guest_state(struct guest_info * info)
+{
+    int vmx_ret = 0;
+
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_RIP, info->rip);
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_RSP, info->vm_regs.rsp);
+    
+
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_CR0, info->ctrl_regs.cr0);
+    vmx_ret |= check_vmcs_write(VMCS_CR0_READ_SHDW, info->shdw_pg_state.guest_cr0);
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_CR3, info->ctrl_regs.cr3);
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_CR4, info->ctrl_regs.cr4);
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_DR7, info->dbg_regs.dr7);
+
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_RFLAGS, info->ctrl_regs.rflags);
+    if (((struct vmx_data *)info->vmm_data)->ia32e_avail) {
+        vmx_ret |= check_vmcs_write(VMCS_GUEST_EFER, info->ctrl_regs.efer);
+    }
+
+
+    /*** Write VMCS Segments ***/
+    struct vmcs_segment_access access;
+
+    memset(&access, 0, sizeof(access));
+
+    /* CS Segment */
+    translate_v3_seg_to_access(&(info->segments.cs), &access);
+
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_CS_BASE, info->segments.cs.base);
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_CS_SELECTOR, info->segments.cs.selector);
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_CS_LIMIT, info->segments.cs.limit);
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_CS_ACCESS, access.value);
+
+    /* SS Segment */
+    memset(&access, 0, sizeof(access));
+    translate_v3_seg_to_access(&(info->segments.ss), &access);
+
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_SS_BASE, info->segments.ss.base);
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_SS_SELECTOR, info->segments.ss.selector);
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_SS_LIMIT, info->segments.ss.limit);
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_SS_ACCESS, access.value);
+
+    /* DS Segment */
+    memset(&access, 0, sizeof(access));
+    translate_v3_seg_to_access(&(info->segments.ds), &access);
+
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_DS_BASE, info->segments.ds.base);
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_DS_SELECTOR, info->segments.ds.selector);
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_DS_LIMIT, info->segments.ds.limit);
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_DS_ACCESS, access.value);
+
+
+    /* ES Segment */
+    memset(&access, 0, sizeof(access));
+    translate_v3_seg_to_access(&(info->segments.es), &access);
+
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_ES_BASE, info->segments.es.base);
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_ES_SELECTOR, info->segments.es.selector);
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_ES_LIMIT, info->segments.es.limit);
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_ES_ACCESS, access.value);
+
+    /* FS Segment */
+    memset(&access, 0, sizeof(access));
+    translate_v3_seg_to_access(&(info->segments.fs), &access);
+
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_FS_BASE, info->segments.fs.base);
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_FS_SELECTOR, info->segments.fs.selector);
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_FS_LIMIT, info->segments.fs.limit);
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_FS_ACCESS, access.value);
+
+    /* GS Segment */
+    memset(&access, 0, sizeof(access));
+    translate_v3_seg_to_access(&(info->segments.gs), &access);
+
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_GS_BASE, info->segments.gs.base);
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_GS_SELECTOR, info->segments.gs.selector);
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_GS_LIMIT, info->segments.gs.limit);
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_GS_ACCESS, access.value);
+
+    /* LDTR segment */
+    memset(&access, 0, sizeof(access));
+    translate_v3_seg_to_access(&(info->segments.ldtr), &access);
+
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_LDTR_BASE, info->segments.ldtr.base);
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_LDTR_SELECTOR, info->segments.ldtr.selector);
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_LDTR_LIMIT, info->segments.ldtr.limit);
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_LDTR_ACCESS, access.value);
+
+    /* TR Segment */
+    memset(&access, 0, sizeof(access));
+    translate_v3_seg_to_access(&(info->segments.tr), &access);
+
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_TR_BASE, info->segments.tr.base);
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_TR_SELECTOR, info->segments.tr.selector);
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_TR_LIMIT, info->segments.tr.limit);
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_TR_ACCESS, access.value);
+
+    /* GDTR Segment */
+
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_GDTR_BASE, info->segments.gdtr.base);
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_GDTR_LIMIT, info->segments.gdtr.limit);
+
+    /* IDTR Segment*/
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_IDTR_BASE, info->segments.idtr.base);
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_IDTR_LIMIT, info->segments.idtr.limit);
+
+    return vmx_ret;
+
+}
+
+int v3_update_vmcs_ctrl_fields(struct guest_info * info) {
+    int vmx_ret = 0;
+    struct vmx_data * arch_data = (struct vmx_data *)(info->vmm_data);
+
+    vmx_ret |= check_vmcs_write(VMCS_PIN_CTRLS, arch_data->pin_ctrls.value);
+    vmx_ret |= check_vmcs_write(VMCS_PROC_CTRLS, arch_data->pri_proc_ctrls.value);
+
+    if (arch_data->pri_proc_ctrls.sec_ctrls) {
+        vmx_ret |= check_vmcs_write(VMCS_SEC_PROC_CTRLS, arch_data->sec_proc_ctrls.value);
+    }
+
+    vmx_ret |= check_vmcs_write(VMCS_EXIT_CTRLS, arch_data->exit_ctrls.value);
+    vmx_ret |= check_vmcs_write(VMCS_ENTRY_CTRLS, arch_data->entry_ctrls.value);
+
+    return vmx_ret;
+}
+
+int v3_update_vmcs_host_state(struct guest_info * info) {
+    int vmx_ret = 0;
+    addr_t tmp;
+    struct vmx_data * arch_data = (struct vmx_data *)(info->vmm_data);
+    struct v3_msr tmp_msr;
+
+    __asm__ __volatile__ ( "movq    %%cr0, %0; "		
+			   : "=q"(tmp)
+			   :
+    );
+    vmx_ret |= check_vmcs_write(VMCS_HOST_CR0, tmp);
+
+
+    __asm__ __volatile__ ( "movq %%cr3, %0; "		
+			   : "=q"(tmp)
+			   :
+    );
+    vmx_ret |= check_vmcs_write(VMCS_HOST_CR3, tmp);
+
+
+    __asm__ __volatile__ ( "movq %%cr4, %0; "		
+			   : "=q"(tmp)
+			   :
+    );
+    vmx_ret |= check_vmcs_write(VMCS_HOST_CR4, tmp);
+
+
+
+    vmx_ret |= check_vmcs_write(VMCS_HOST_GDTR_BASE, arch_data->host_state.gdtr.base);
+    vmx_ret |= check_vmcs_write(VMCS_HOST_IDTR_BASE, arch_data->host_state.idtr.base);
+    vmx_ret |= check_vmcs_write(VMCS_HOST_TR_BASE, arch_data->host_state.tr.base);
+
+#define FS_BASE_MSR 0xc0000100
+#define GS_BASE_MSR 0xc0000101
+
+    // FS.BASE MSR
+    v3_get_msr(FS_BASE_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
+    vmx_ret |= check_vmcs_write(VMCS_HOST_FS_BASE, tmp_msr.value);    
+
+    // GS.BASE MSR
+    v3_get_msr(GS_BASE_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
+    vmx_ret |= check_vmcs_write(VMCS_HOST_GS_BASE, tmp_msr.value);    
+
+
+
+    __asm__ __volatile__ ( "movq %%cs, %0; "		
+			   : "=q"(tmp)
+			   :
+    );
+    vmx_ret |= check_vmcs_write(VMCS_HOST_CS_SELECTOR, tmp);
+
+    __asm__ __volatile__ ( "movq %%ss, %0; "		
+			   : "=q"(tmp)
+			   :
+    );
+    vmx_ret |= check_vmcs_write(VMCS_HOST_SS_SELECTOR, tmp);
+
+    __asm__ __volatile__ ( "movq %%ds, %0; "		
+			   : "=q"(tmp)
+			   :
+    );
+    vmx_ret |= check_vmcs_write(VMCS_HOST_DS_SELECTOR, tmp);
+
+    __asm__ __volatile__ ( "movq %%es, %0; "		
+			   : "=q"(tmp)
+			   :
+    );
+    vmx_ret |= check_vmcs_write(VMCS_HOST_ES_SELECTOR, tmp);
+
+    __asm__ __volatile__ ( "movq %%fs, %0; "		
+			   : "=q"(tmp)
+			   :
+    );
+    vmx_ret |= check_vmcs_write(VMCS_HOST_FS_SELECTOR, tmp);
+
+    __asm__ __volatile__ ( "movq %%gs, %0; "		
+			   : "=q"(tmp)
+			   :
+    );
+    vmx_ret |= check_vmcs_write(VMCS_HOST_GS_SELECTOR, tmp);
+
+    vmx_ret |= check_vmcs_write(VMCS_HOST_TR_SELECTOR, arch_data->host_state.tr.selector);
+
+
+#define SYSENTER_CS_MSR 0x00000174
+#define SYSENTER_ESP_MSR 0x00000175
+#define SYSENTER_EIP_MSR 0x00000176
+
+   // SYSENTER CS MSR
+    v3_get_msr(SYSENTER_CS_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
+    vmx_ret |= check_vmcs_write(VMCS_HOST_SYSENTER_CS, tmp_msr.lo);
+
+    // SYSENTER_ESP MSR
+    v3_get_msr(SYSENTER_ESP_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
+    vmx_ret |= check_vmcs_write(VMCS_HOST_SYSENTER_ESP, tmp_msr.value);
+
+    // SYSENTER_EIP MSR
+    v3_get_msr(SYSENTER_EIP_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
+    vmx_ret |= check_vmcs_write(VMCS_HOST_SYSENTER_EIP, tmp_msr.value);
+
+    return vmx_ret;
+}
+
+
+int v3_load_vmcs_guest_state(struct guest_info * info)
+{
+
+    int error = 0;
+
+    check_vmcs_read(VMCS_GUEST_RIP, &(info->rip));
+    check_vmcs_read(VMCS_GUEST_RSP, &(info->vm_regs.rsp));
+
+    check_vmcs_read(VMCS_GUEST_CR0, &(info->ctrl_regs.cr0));
+    check_vmcs_read(VMCS_CR0_READ_SHDW, &(info->shdw_pg_state.guest_cr0));
+    check_vmcs_read(VMCS_GUEST_CR3, &(info->ctrl_regs.cr3));
+    check_vmcs_read(VMCS_GUEST_CR4, &(info->ctrl_regs.cr4));
+    check_vmcs_read(VMCS_GUEST_DR7, &(info->dbg_regs.dr7));
+
+    check_vmcs_read(VMCS_GUEST_RFLAGS, &(info->ctrl_regs.rflags));
+    if (((struct vmx_data *)info->vmm_data)->ia32e_avail) {
+        check_vmcs_read(VMCS_GUEST_EFER, &(info->ctrl_regs.efer));
+    }
+
+    // JRL: Add error checking
+
+    struct vmcs_segment_access access;
+    memset(&access, 0, sizeof(access));
+
+    /* CS Segment */
+    check_vmcs_read(VMCS_GUEST_CS_BASE, &(info->segments.cs.base));
+    check_vmcs_read(VMCS_GUEST_CS_SELECTOR, &(info->segments.cs.selector));
+    check_vmcs_read(VMCS_GUEST_CS_LIMIT, &(info->segments.cs.limit));
+    check_vmcs_read(VMCS_GUEST_CS_ACCESS, &(access.value));
+
+    translate_access_to_v3_seg(&access, &(info->segments.cs));
+
+    /* SS Segment */
+    check_vmcs_read(VMCS_GUEST_SS_BASE, &(info->segments.ss.base));
+    check_vmcs_read(VMCS_GUEST_SS_SELECTOR, &(info->segments.ss.selector));
+    check_vmcs_read(VMCS_GUEST_SS_LIMIT, &(info->segments.ss.limit));
+    check_vmcs_read(VMCS_GUEST_SS_ACCESS, &(access.value));
+
+    translate_access_to_v3_seg(&access, &(info->segments.ss));
+
+    /* DS Segment */
+    check_vmcs_read(VMCS_GUEST_DS_BASE, &(info->segments.ds.base));
+    check_vmcs_read(VMCS_GUEST_DS_SELECTOR, &(info->segments.ds.selector));
+    check_vmcs_read(VMCS_GUEST_DS_LIMIT, &(info->segments.ds.limit));
+    check_vmcs_read(VMCS_GUEST_DS_ACCESS, &(access.value));
+
+    translate_access_to_v3_seg(&access, &(info->segments.ds));
+
+    /* ES Segment */
+    check_vmcs_read(VMCS_GUEST_ES_BASE, &(info->segments.es.base));
+    check_vmcs_read(VMCS_GUEST_ES_SELECTOR, &(info->segments.es.selector));
+    check_vmcs_read(VMCS_GUEST_ES_LIMIT, &(info->segments.es.limit));
+    check_vmcs_read(VMCS_GUEST_ES_ACCESS, &(access.value));
+
+    translate_access_to_v3_seg(&access, &(info->segments.es));
+
+    /* FS Segment */
+    check_vmcs_read(VMCS_GUEST_FS_BASE, &(info->segments.fs.base));
+    check_vmcs_read(VMCS_GUEST_FS_SELECTOR, &(info->segments.fs.selector));
+    check_vmcs_read(VMCS_GUEST_FS_LIMIT, &(info->segments.fs.limit));
+    check_vmcs_read(VMCS_GUEST_FS_ACCESS, &(access.value));
+
+    translate_access_to_v3_seg(&access, &(info->segments.fs));
+
+    /* GS Segment */
+    check_vmcs_read(VMCS_GUEST_GS_BASE, &(info->segments.gs.base));
+    check_vmcs_read(VMCS_GUEST_GS_SELECTOR, &(info->segments.gs.selector));
+    check_vmcs_read(VMCS_GUEST_GS_LIMIT, &(info->segments.gs.limit));
+    check_vmcs_read(VMCS_GUEST_GS_ACCESS, &(access.value));
+
+    translate_access_to_v3_seg(&access, &(info->segments.gs));
+
+    /* LDTR Segment */
+    check_vmcs_read(VMCS_GUEST_LDTR_BASE, &(info->segments.ldtr.base));
+    check_vmcs_read(VMCS_GUEST_LDTR_SELECTOR, &(info->segments.ldtr.selector));
+    check_vmcs_read(VMCS_GUEST_LDTR_LIMIT, &(info->segments.ldtr.limit));
+    check_vmcs_read(VMCS_GUEST_LDTR_ACCESS, &(access.value));
+
+    translate_access_to_v3_seg(&access, &(info->segments.ldtr));
+
+    /* TR Segment */
+    check_vmcs_read(VMCS_GUEST_TR_BASE, &(info->segments.tr.base));
+    check_vmcs_read(VMCS_GUEST_TR_SELECTOR, &(info->segments.tr.selector));
+    check_vmcs_read(VMCS_GUEST_TR_LIMIT, &(info->segments.tr.limit));
+    check_vmcs_read(VMCS_GUEST_TR_ACCESS, &(access.value));
+
+    translate_access_to_v3_seg(&access, &(info->segments.tr));
+
+    /* GDTR Segment */
+    check_vmcs_read(VMCS_GUEST_GDTR_BASE, &(info->segments.gdtr.base));
+    check_vmcs_read(VMCS_GUEST_GDTR_LIMIT, &(info->segments.gdtr.limit));
+    
+    /* IDTR Segment */
+    check_vmcs_read(VMCS_GUEST_IDTR_BASE, &(info->segments.idtr.base));
+    check_vmcs_read(VMCS_GUEST_IDTR_LIMIT, &(info->segments.idtr.limit));
+    
+    return error;
+}
 
 static inline void print_vmcs_field(vmcs_field_t vmcs_index) {
     int len = v3_vmcs_get_field_len(vmcs_index);
@@ -302,7 +686,7 @@ static void print_exit_info() {
     print_vmcs_field(VMCS_EXIT_INSTR_LEN);
 
     print_vmcs_field(VMCS_GUEST_LINEAR_ADDR);
-    print_vmcs_field(VMCS_VMX_INSTR_INFO);
+    print_vmcs_field(VMCS_EXIT_INSTR_INFO);
 
     print_vmcs_field(VMCS_IO_RCX);
     print_vmcs_field(VMCS_IO_RSI);
@@ -381,7 +765,7 @@ int v3_vmcs_get_field_len(vmcs_field_t field) {
         case VMCS_IDT_VECTOR_INFO:
         case VMCS_IDT_VECTOR_ERR:
         case VMCS_EXIT_INSTR_LEN:
-        case VMCS_VMX_INSTR_INFO:
+        case VMCS_EXIT_INSTR_INFO:
         case VMCS_GUEST_ES_LIMIT:
         case VMCS_GUEST_CS_LIMIT:
         case VMCS_GUEST_SS_LIMIT:
@@ -573,7 +957,7 @@ static const char VMCS_EXIT_INT_ERR_STR[] = "VM_EXIT_INT_ERROR";
 static const char VMCS_IDT_VECTOR_INFO_STR[] = "IDT_VECTOR_INFO";
 static const char VMCS_IDT_VECTOR_ERR_STR[] = "IDT_VECTOR_ERROR";
 static const char VMCS_EXIT_INSTR_LEN_STR[] = "VM_EXIT_INSTR_LENGTH";
-static const char VMCS_VMX_INSTR_INFO_STR[] = "VMX_INSTR_INFO";
+static const char VMCS_EXIT_INSTR_INFO_STR[] = "VMX_INSTR_INFO";
 static const char VMCS_GUEST_ES_LIMIT_STR[] = "GUEST_ES_LIMIT";
 static const char VMCS_GUEST_CS_LIMIT_STR[] = "GUEST_CS_LIMIT";
 static const char VMCS_GUEST_SS_LIMIT_STR[] = "GUEST_SS_LIMIT";
@@ -780,8 +1164,8 @@ const char * v3_vmcs_field_to_str(vmcs_field_t field) {
             return VMCS_IDT_VECTOR_ERR_STR;
         case VMCS_EXIT_INSTR_LEN:
             return VMCS_EXIT_INSTR_LEN_STR;
-        case VMCS_VMX_INSTR_INFO:
-            return VMCS_VMX_INSTR_INFO_STR;
+        case VMCS_EXIT_INSTR_INFO:
+            return VMCS_EXIT_INSTR_INFO_STR;
         case VMCS_GUEST_ES_LIMIT:
             return VMCS_GUEST_ES_LIMIT_STR;
         case VMCS_GUEST_CS_LIMIT:

@@ -18,7 +18,7 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#include <palacios/svm_halt.h>
+#include <palacios/vmm_halt.h>
 #include <palacios/vmm_intr.h>
 
 
@@ -33,7 +33,7 @@
 // This should trigger a #GP if cpl != 0, otherwise, yield to host
 //
 
-int v3_handle_svm_halt(struct guest_info * info) {
+int v3_handle_halt(struct guest_info * info) {
 
     if (info->cpl != 0) { 
 	v3_raise_exception(info, GPF_EXCEPTION);
@@ -69,7 +69,7 @@ int v3_handle_svm_halt(struct guest_info * info) {
 	
 	PrintDebug("CPU Yield Done (%d cycles)\n", gap);
 	
-	info->rip+=1;
+	info->rip += 1;
     }
 
     return 0;

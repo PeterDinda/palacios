@@ -236,9 +236,8 @@ static void init_apic_state(struct apic_state * apic) {
 static int read_apic_msr(uint_t msr, v3_msr_t * dst, void * priv_data) {
     struct vm_device * dev = (struct vm_device *)priv_data;
     struct apic_state * apic = (struct apic_state *)dev->private_data;
-    PrintError("READING APIC BASE ADDR: HI=%x LO=%x\n", apic->base_addr_msr.hi, apic->base_addr_msr.lo);
-
-    return -1;
+    dst->value = apic->base_addr;
+    return 0;
 }
 
 

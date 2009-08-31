@@ -178,6 +178,7 @@ struct guest_info {
     uint64_t yield_cycle_period;
     uint64_t yield_start_cycle;
     
+    uint64_t num_exits;
 
 #ifdef CONFIG_TELEMETRY
     uint_t enable_telemetry;

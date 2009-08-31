@@ -28,12 +28,9 @@
 
 static void __inline__ v3_cpuid(uint_t target, addr_t * eax, addr_t * ebx, addr_t * ecx, addr_t * edx) {
     __asm__ __volatile__ (
-			  "pushl %%ebx\n\t"
 			  "cpuid\n\t"
-			  "movl %%ebx, %%esi\n\t"
-			  "popl %%ebx\n\t"
 			  : "=a" (*eax), "=S" (*ebx), "=c" (*ecx), "=d" (*edx)
-			  : "a" (target)
+			  : "0" (target), "2" (*ecx)
 			  );
     return;
 }
@@ -42,12 +39,9 @@ static void __inline__ v3_cpuid(uint_t target, addr_t * eax, addr_t * ebx, addr_
 
 static void __inline__ v3_cpuid(uint_t target, addr_t * eax, addr_t * ebx, addr_t * ecx, addr_t * edx) {
     __asm__ __volatile__ (
-			  "pushq %%rbx\n\t"
 			  "cpuid\n\t"
-			  "movq %%rbx, %%rsi\n\t"
-			  "popq %%rbx\n\t"
-			  : "=a" (*eax), "=S" (*ebx), "=c" (*ecx), "=d" (*edx)
-			  : "a" (target)
+			  : "=a" (*eax), "=b" (*ebx), "=c" (*ecx), "=d" (*edx)
+			  : "0" (target), "2" (*ecx)
 			  );
     return;
 }

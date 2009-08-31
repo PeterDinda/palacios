@@ -33,6 +33,58 @@ void v3_init_msr_map(struct guest_info * info) {
     msr_map->update_map = NULL;
 }
 
+int v3_handle_msr_write(struct guest_info * info) {
+    uint_t msr_num = info->vm_regs.rcx;
+    struct v3_msr msr_val;
+    struct v3_msr_hook * hook = NULL;
+
+    hook = v3_get_msr_hook(info, msr_num);
+
+    if (!hook) {
+        PrintError("Hook for MSR write %d not found\n", msr_num);
+        return -1;
+    }
+
+    msr_val.value = 0;
+    msr_val.lo = info->vm_regs.rax;
+    msr_val.hi = info->vm_regs.rdx;
+
+    if (hook->write(msr_num, msr_val, hook->priv_data) == -1) {
+        PrintError("Error in MSR hook Write\n");
+        return -1;
+    }
+
+    info->rip += 2;
+
+    return 0;
+}
+
+
+int v3_handle_msr_read(struct guest_info * info) {
+    uint_t msr_num = info->vm_regs.rcx;
+    struct v3_msr msr_val;
+    struct v3_msr_hook * hook = NULL;
+
+    hook = v3_get_msr_hook(info, msr_num);
+
+    if (!hook) {
+        PrintError("Hook for MSR read %d not found\n", msr_num);
+        return -1;
+    }
+
+    msr_val.value = 0;
+
+    if (hook->read(msr_num, &msr_val, hook->priv_data) == -1) {
+        PrintError("Error in MSR hook Read\n");
+        return -1;
+    }
+
+    info->vm_regs.rax = msr_val.lo;
+    info->vm_regs.rdx = msr_val.hi;
+
+    info->rip += 2;
+    return 0;
+}
 
 int v3_hook_msr(struct guest_info * info, uint_t msr, 
 		int (*read)(uint_t msr, struct v3_msr * dst, void * priv_data),

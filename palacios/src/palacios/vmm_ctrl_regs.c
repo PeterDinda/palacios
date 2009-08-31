@@ -547,7 +547,6 @@ int v3_handle_efer_read(uint_t msr, struct v3_msr * dst, void * priv_data) {
     
     dst->value = info->shdw_pg_state.guest_efer.value;
     
-    info->rip += 2; // WRMSR/RDMSR are two byte operands
     return 0;
 }
 
@@ -570,8 +569,6 @@ int v3_handle_efer_write(uint_t msr, struct v3_msr src, void * priv_data) {
     
     // Enable/Disable Syscall
     shadow_efer->sce = src.value & 0x1;
-    
-    info->rip += 2; // WRMSR/RDMSR are two byte operands
     
     return 0;
 }

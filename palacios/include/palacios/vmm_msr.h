@@ -83,6 +83,10 @@ struct v3_msr_hook * v3_get_msr_hook(struct guest_info * info, uint_t msr);
 
 void v3_print_msr_map(struct guest_info * info);
 
+int v3_handle_msr_write(struct guest_info * info);
+
+int v3_handle_msr_read(struct guest_info * info);
+
 
 
 #endif // ! __V3VEE__

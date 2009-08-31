@@ -29,51 +29,55 @@ int v3_vmxassist_ctx_switch(struct guest_info * info) {
     struct vmx_assist_context * old_ctx = NULL;
     struct vmx_assist_context * new_ctx = NULL;
     struct vmx_assist_header * hdr = NULL;
-    vmx_state_t state = ((struct vmx_data *)info->vmm_data)->state;
+    struct vmx_data * vmx_info = (struct vmx_data *)info->vmm_data;
+ 
 
 
     if (guest_pa_to_host_va(info, VMXASSIST_BASE, (addr_t *)&hdr) == -1) {
-	PrintError("Could not translate address for vmxassist header\n");
-	return -1;
+        PrintError("Could not translate address for vmxassist header\n");
+        return -1;
     }
 
     if (hdr->magic != VMXASSIST_MAGIC) {
-	PrintError("VMXASSIT_MAGIC field is invalid\n");
+        PrintError("VMXASSIST_MAGIC field is invalid\n");
         return -1;
     }
 
 
     if (guest_pa_to_host_va(info, (addr_t)(hdr->old_ctx_gpa), (addr_t *)&(old_ctx)) == -1) {
-	PrintError("Could not translate address for VMXASSIST old context\n");
-	return -1;
+        PrintError("Could not translate address for VMXASSIST old context\n");
+        return -1;
     }
 
     if (guest_pa_to_host_va(info, (addr_t)(hdr->new_ctx_gpa), (addr_t *)&(new_ctx)) == -1) {
-	PrintError("Could not translate address for VMXASSIST new context\n");
-	return -1;
+        PrintError("Could not translate address for VMXASSIST new context\n");
+        return -1;
     }
 
-
-    if (state == VMXASSIST_DISABLED) {
-
-	/* Save the old Context */
+    if (vmx_info->state == VMXASSIST_DISABLED) {
+        
+        /* Save the old Context */
         if (vmx_save_world_ctx(info, old_ctx) != 0) {
-	    PrintError("Could not save VMXASSIST world context\n");
+            PrintError("Could not save VMXASSIST world context\n");
             return -1;
-	}
+        }
 
         /* restore new context, vmxassist should launch the bios the first time */
         if (vmx_restore_world_ctx(info, new_ctx) != 0) {
-	    PrintError("VMXASSIST could not restore new context\n");
+            PrintError("VMXASSIST could not restore new context\n");
             return -1;
-	}
+        }
 
-    } else if (state == VMXASSIST_ENABLED) {
+        vmx_info->state = VMXASSIST_ENABLED;
+
+    } else if (vmx_info->state == VMXASSIST_ENABLED) {
         /* restore old context */
         if (vmx_restore_world_ctx(info, old_ctx) != 0) {
-	    PrintError("VMXASSIST could not restore old context\n");
+            PrintError("VMXASSIST could not restore old context\n");
             return -1;
-	}
+        }
+
+        vmx_info->state = VMXASSIST_DISABLED;
     }
 
     return 0;

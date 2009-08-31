@@ -63,7 +63,7 @@ static inline int handle_passthrough_pagefault_32(struct guest_info * info,
 	
 	pde[pde_index].present = 1;
 	pde[pde_index].writable = 1;
-	pde[pde_index].user_page = 0;
+	pde[pde_index].user_page = 1;
 	pde[pde_index].pt_base_addr = PAGE_BASE_ADDR((addr_t)V3_PAddr(pte));
 	
     } else {
@@ -73,7 +73,7 @@ static inline int handle_passthrough_pagefault_32(struct guest_info * info,
     // Fix up the PTE entry
     if (pte[pte_index].present == 0) {
 	
-	pte[pte_index].user_page = 0;
+	pte[pte_index].user_page = 1;
 	
 	if (region->host_type == SHDW_REGION_ALLOCATED) {
 	    // Full access

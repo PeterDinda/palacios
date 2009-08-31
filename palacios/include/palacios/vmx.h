@@ -21,8 +21,8 @@
  */
 
 
-#ifndef __VMX_H
-#define __VMX_H
+#ifndef __VMX_H__
+#define __VMX_H__
 
 #ifdef __V3VEE__
 
@@ -58,6 +58,116 @@
 #define CPUID_1_ECX_VTXFLAG 0x00000020
 
 
+struct vmx_pin_ctrls {
+    union {
+        uint32_t value;
+	struct {
+	    uint_t ext_int_exit            : 1;
+	    uint_t rsvd1                   : 2; 
+	    uint_t nmi_exit                : 1;
+	    uint_t rsvd2                   : 1;
+	    uint_t virt_nmi                : 1;
+	    uint_t active_preempt_timer    : 1;
+	    uint_t rsvd3                   : 25;
+	} __attribute__((packed));
+    } __attribute__((packed));
+} __attribute__((packed));
+
+
+struct vmx_pri_proc_ctrls {
+    union {
+        uint32_t value;
+	struct {
+	    uint_t rsvd1           : 2;
+	    uint_t int_wndw_exit   : 1;
+	    uint_t tsc_offset      : 1;
+	    uint_t rsvd2           : 3;
+	    uint_t hlt_exit        : 1;
+	    uint_t rsvd3           : 1;
+	    uint_t invlpg_exit     : 1;
+	    uint_t mwait_exit      : 1;
+	    uint_t rdpmc_exit      : 1;
+	    uint_t rdtsc_exit      : 1;
+	    uint_t rsvd4           : 2;
+	    uint_t cr3_ld_exit     : 1;
+	    uint_t cr3_str_exit    : 1;
+	    uint_t rsvd5           : 2;
+	    uint_t cr8_ld_exit     : 1;
+	    uint_t cr8_str_exit    : 1;
+	    uint_t tpr_shdw        : 1;
+	    uint_t nmi_wndw_exit   : 1;
+	    uint_t mov_dr_exit     : 1;
+	    uint_t uncon_io_exit   : 1;
+	    uint_t use_io_bitmap   : 1;
+	    uint_t rsvd6           : 1;
+	    uint_t monitor_trap    : 1;
+	    uint_t use_msr_bitmap  : 1;
+	    uint_t monitor_exit    : 1;
+	    uint_t pause_exit      : 1;
+	    uint_t sec_ctrls       : 1;
+	} __attribute__((packed));
+    } __attribute__((packed));
+} __attribute__((packed));
+
+struct vmx_sec_proc_ctrls {
+    union {
+        uint32_t value;
+	struct {
+	    uint_t virt_apic_acc   : 1;
+	    uint_t enable_ept      : 1;
+	    uint_t desc_table_exit : 1;
+	    uint_t enable_rdtscp   : 1;
+	    uint_t virt_x2apic     : 1;
+	    uint_t enable_vpid     : 1;
+	    uint_t unrstrct_guest  : 1;
+	    uint_t rsvd1           : 2;
+	    uint_t pause_loop_exit : 1;
+	    uint_t rsvd2           : 21;
+	} __attribute__((packed));
+    } __attribute__((packed));
+} __attribute__((packed));
+
+struct vmx_exit_ctrls {
+    union {
+        uint32_t value;
+	struct {
+	    uint_t rsvd1                : 2;
+	    uint_t save_dbg_ctrls       : 1;
+	    uint_t rsvd2                : 6;
+	    uint_t host_64_on           : 1;
+	    uint_t rsvd3                : 2;
+	    uint_t ld_perf_glbl_ctrl    : 1;
+	    uint_t rsvd4                : 2;
+	    uint_t ack_int_on_exit      : 1;
+	    uint_t rsvd5                : 2;
+	    uint_t save_pat             : 1;
+	    uint_t ld_pat               : 1;
+	    uint_t save_efer            : 1;
+	    uint_t ld_efer              : 1;
+	    uint_t save_preempt_timer   : 1;
+	    uint_t rsvd6                : 9;
+	} __attribute__((packed));
+    } __attribute__((packed));
+} __attribute__((packed));
+
+struct vmx_entry_ctrls {
+    union {
+        uint32_t value;
+	struct {
+	    uint_t rsvd1                : 2;
+	    uint_t ld_dbg_ctrls         : 1;
+	    uint_t rsvd2                : 6;
+	    uint_t guest_ia32e          : 1;
+	    uint_t smm_entry            : 1;
+	    uint_t no_dual_monitor      : 1;
+	    uint_t rsvd3                : 1;
+	    uint_t ld_perf_glbl_ctrl    : 1;
+	    uint_t ld_pat               : 1;
+	    uint_t ld_efer              : 1;
+	    uint_t rsvd4                : 16;
+	} __attribute__((packed));
+    } __attribute__((packed));
+} __attribute__((packed));
 
 struct vmx_basic_msr {
     uint32_t revision;
@@ -75,31 +185,26 @@ typedef enum {
 } vmx_state_t;
 
 struct tss_descriptor {
-    union {
-    ulong_t value;
-    struct {
-        uint16_t    limit1;
-        uint16_t    base1;
-        uint_t      base2       : 8;
-        /* In IA32, type follows the form 10B1b, where B is the busy flag */
-        uint_t      type        : 4; 
-        uint_t      zero1       : 1;
-        uint_t      dpl         : 2;
-        uint_t      present     : 1;
-        uint_t      limit2      : 4;
-        uint_t      available   : 1;
-        uint_t      zero2       : 1;
-        uint_t      zero3       : 1;
-        uint_t      granularity : 1;
-        uint_t      base3       : 8;
+    uint16_t    limit1;
+    uint16_t    base1;
+    uint_t      base2       : 8;
+    /* In IA32, type follows the form 10B1b, where B is the busy flag */
+    uint_t      type        : 4; 
+    uint_t      zero1       : 1;
+    uint_t      dpl         : 2;
+    uint_t      present     : 1;
+    uint_t      limit2      : 4;
+    uint_t      available   : 1;
+    uint_t      zero2       : 1;
+    uint_t      zero3       : 1;
+    uint_t      granularity : 1;
+    uint_t      base3       : 8;
 #ifdef __V3_64BIT__
-        uint32_t    base4;
-        uint_t      rsvd1       : 8;
-        uint_t      zero4       : 5;
-        uint_t      rsvd2       : 19;
+    uint32_t    base4;
+    uint_t      rsvd1       : 8;
+    uint_t      zero4       : 5;
+    uint_t      rsvd2       : 19;
 #endif
-    } __attribute__((packed));
-    } __attribute__((packed));
 }__attribute__((packed));
 
 struct vmcs_host_state {
@@ -110,36 +215,22 @@ struct vmcs_host_state {
 
 struct vmx_data {
     vmx_state_t state;
-    addr_t vmcs_ptr_phys;
     struct vmcs_host_state host_state;
+
+    addr_t vmcs_ptr_phys;
+
+    uint8_t ia32e_avail;
+
     /* VMX Control Fields */
-    uint32_t pinbased_ctrls;
-    uint32_t pri_procbased_ctrls;
-    uint32_t sec_procbased_ctrls;
-    uint32_t exit_ctrls;
-    uint32_t entry_ctrls;
+    struct vmx_pin_ctrls pin_ctrls;
+    struct vmx_pri_proc_ctrls pri_proc_ctrls;
+    struct vmx_sec_proc_ctrls sec_proc_ctrls;
+    struct vmx_exit_ctrls exit_ctrls;
+    struct vmx_entry_ctrls entry_ctrls;
 };
-
-
-enum InstructionType { VM_UNKNOWN_INST, VM_MOV_TO_CR0 } ;
-
-struct Instruction {
-  enum InstructionType type;
-  uint_t          address;
-  uint_t          size;
-  uint_t          input1;
-  uint_t          input2;
-  uint_t          output;
-};
-
-
-
 
 int v3_is_vmx_capable();
-void v3_init_vmx(struct v3_ctrl_ops* vm_ops);
-int v3_update_vmcs_guest_state(struct guest_info * info);
-int v3_update_vmcs_ctrl_fields(struct guest_info * info);
-int v3_update_vmcs_host_state(struct guest_info * info);
+void v3_init_vmx(struct v3_ctrl_ops * vm_ops);
 
 
 
