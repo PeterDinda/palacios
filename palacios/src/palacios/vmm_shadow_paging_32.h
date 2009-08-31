@@ -85,8 +85,8 @@ static inline int handle_shadow_pagefault_32(struct guest_info * info, addr_t fa
   
     /* Was the page fault caused by the Guest's page tables? */
     if (is_guest_pf(guest_pde_access, shadow_pde_access) == 1) {
-	PrintDebug("Injecting PDE pf to guest: (guest access error=%d) (pf error code=%d)\n", 
-		   *(uint_t *)&guest_pde_access, *(uint_t *)&error_code);
+	PrintDebug("Injecting PDE pf to guest: (guest access error=%d) (shdw access error=%d)  (pf error code=%d)\n", 
+		   *(uint_t *)&guest_pde_access, *(uint_t *)&shadow_pde_access, *(uint_t *)&error_code);
 	if (inject_guest_pf(info, fault_addr, error_code) == -1) {
 	    PrintError("Could not inject guest page fault\n");
 	    return -1;

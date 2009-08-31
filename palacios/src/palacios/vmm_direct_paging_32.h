@@ -40,7 +40,7 @@ static inline int handle_passthrough_pagefault_32(struct guest_info * info,
     int pte_index = PTE32_INDEX(fault_addr);
     
     struct v3_shadow_region * region = v3_get_shadow_region(info, fault_addr);
-    
+
     if (region == NULL) {
 	PrintError("Invalid region in passthrough page fault 32, addr=%p\n", 
 		   (void *)fault_addr);
@@ -63,7 +63,7 @@ static inline int handle_passthrough_pagefault_32(struct guest_info * info,
 	
 	pde[pde_index].present = 1;
 	pde[pde_index].writable = 1;
-	pde[pde_index].user_page = 1;
+	pde[pde_index].user_page = 0;
 	pde[pde_index].pt_base_addr = PAGE_BASE_ADDR((addr_t)V3_PAddr(pte));
 	
     } else {
@@ -73,7 +73,7 @@ static inline int handle_passthrough_pagefault_32(struct guest_info * info,
     // Fix up the PTE entry
     if (pte[pte_index].present == 0) {
 	
-	pte[pte_index].user_page = 1;
+	pte[pte_index].user_page = 0;
 	
 	if (region->host_type == SHDW_REGION_ALLOCATED) {
 	    // Full access
@@ -83,6 +83,7 @@ static inline int handle_passthrough_pagefault_32(struct guest_info * info,
 	    pte[pte_index].page_base_addr = PAGE_BASE_ADDR(host_addr);
 	} else if (region->host_type == SHDW_REGION_WRITE_HOOK) {
 	    // Only trap writes
+	    PrintDebug("Faulted in a write hook page\n");
 	    pte[pte_index].present = 1;
 	    pte[pte_index].writable = 0;
 	    
@@ -98,6 +99,7 @@ static inline int handle_passthrough_pagefault_32(struct guest_info * info,
     
     if ( (region->host_type == SHDW_REGION_WRITE_HOOK) && 
 	 (error_code.write == 1) ) {
+	PrintDebug("Triggering Direct paging Write hook\n");
 	return v3_handle_mem_wr_hook(info, fault_addr, fault_addr, region, error_code);
     }
 
