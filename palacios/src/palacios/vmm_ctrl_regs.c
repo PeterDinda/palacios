@@ -141,6 +141,8 @@ static int handle_mov_to_cr0(struct guest_info * info, struct x86_instr * dec_in
 		return -1;
 	    }
 	} else {
+
+	    shadow_cr0->wp = 1;
 	    
 	    if (v3_activate_passthrough_pt(info) == -1) {
 		PrintError("Failed to activate passthrough page tables\n");
