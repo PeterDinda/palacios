@@ -143,3 +143,11 @@ void v3_yield(struct guest_info * info) {
 }
 
 
+
+void v3_interrupt_cpu(struct guest_info * info, int logical_cpu) {
+    extern struct v3_os_hooks * os_hooks;
+
+    if ((os_hooks) && (os_hooks)->interrupt_cpu) {
+	(os_hooks)->interrupt_cpu(info, logical_cpu);
+    }
+}

@@ -923,6 +923,8 @@ int v3_apic_raise_intr(struct guest_info * info, struct vm_device * apic_dev, in
 	return -1;
     } 
 
+    v3_interrupt_cpu(info, 0);
+
     return 0;
 }
 

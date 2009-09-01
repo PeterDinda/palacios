@@ -209,6 +209,8 @@ static int pic_raise_intr(struct guest_info * info, void * private_data, int irq
 	return -1;
     }
 
+    v3_interrupt_cpu(info, 0);
+
     return 0;
 }
 

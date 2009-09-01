@@ -198,6 +198,9 @@ void v3_yield(struct guest_info * info);
 void v3_yield_cond(struct guest_info * info);
 
 
+void v3_interrupt_cpu(struct guest_info * vm, int logical_cpu);
+
+
 #endif //!__V3VEE__
 
 
@@ -217,6 +220,8 @@ struct v3_os_hooks {
 
     void *(*paddr_to_vaddr)(void *addr);
     void *(*vaddr_to_paddr)(void *addr);
+
+    void (*interrupt_cpu)(struct guest_info * vm, int logical_cpu);
 
     int (*hook_interrupt)(struct guest_info * vm, unsigned int irq);
 
