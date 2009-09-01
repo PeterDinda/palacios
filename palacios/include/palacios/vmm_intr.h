@@ -76,11 +76,11 @@ int v3_lower_irq(struct guest_info * info, int irq);
 
 
 struct intr_ctrl_ops {
-    int (*intr_pending)(void * private_data);
-    int (*get_intr_number)(void * private_data);
-    int (*raise_intr)(void * private_data, int irq);
-    int (*lower_intr)(void * private_data, int irq);
-    int (*begin_irq)(void * private_data, int irq);
+    int (*intr_pending)(struct guest_info * info, void * private_data);
+    int (*get_intr_number)(struct guest_info * info, void * private_data);
+    int (*raise_intr)(struct guest_info * info, void * private_data, int irq);
+    int (*lower_intr)(struct guest_info * info, void * private_data, int irq);
+    int (*begin_irq)(struct guest_info * info, void * private_data, int irq);
 };
 
 

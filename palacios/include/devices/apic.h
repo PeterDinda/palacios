@@ -25,7 +25,7 @@
 #include <palacios/vmm_dev_mgr.h>
 
 
-int v3_apic_raise_intr(struct vm_device * apic_dev, int intr_num);
+int v3_apic_raise_intr(struct guest_info * info, struct vm_device * apic_dev, int intr_num);
 
 
 #endif // ! __V3VEE__

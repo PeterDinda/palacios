@@ -844,7 +844,7 @@ static int apic_write(addr_t guest_addr, void * src, uint_t length, void * priv_
 /* Interrupt Controller Functions */
 
 // returns 1 if an interrupt is pending, 0 otherwise
-static int apic_intr_pending(void * private_data) {
+static int apic_intr_pending(struct guest_info * info, void * private_data) {
     struct vm_device * dev = (struct vm_device *)private_data;
     struct apic_state * apic = (struct apic_state *)dev->private_data;
     int req_irq = get_highest_irr(apic);
@@ -858,7 +858,7 @@ static int apic_intr_pending(void * private_data) {
     return 0;
 }
 
-static int apic_get_intr_number(void * private_data) {
+static int apic_get_intr_number(struct guest_info * info, void * private_data) {
     struct vm_device * dev = (struct vm_device *)private_data;
     struct apic_state * apic = (struct apic_state *)dev->private_data;
     int req_irq = get_highest_irr(apic);
@@ -873,7 +873,7 @@ static int apic_get_intr_number(void * private_data) {
     return -1;
 }
 
-static int apic_raise_intr(void * private_data, int irq) {
+static int apic_raise_intr(struct guest_info * info, void * private_data, int irq) {
 #ifdef CONFIG_CRAY_XT
     // The Seastar is connected directly to the LAPIC via LINT0 on the ICC bus
 
@@ -884,14 +884,15 @@ static int apic_raise_intr(void * private_data, int irq) {
 	return activate_apic_irq(apic, irq);
     }
 #endif
+
     return 0;
 }
 
-static int apic_lower_intr(void * private_data, int irq) {
+static int apic_lower_intr(struct guest_info * info, void * private_data, int irq) {
     return 0;
 }
 
-static int apic_begin_irq(void * private_data, int irq) {
+static int apic_begin_irq(struct guest_info * info, void * private_data, int irq) {
     struct vm_device * dev = (struct vm_device *)private_data;
     struct apic_state * apic = (struct apic_state *)dev->private_data;
     int major_offset = (irq & ~0x00000007) >> 3;
@@ -914,9 +915,15 @@ static int apic_begin_irq(void * private_data, int irq) {
 
 
 
-int v3_apic_raise_intr(struct vm_device * apic_dev, int intr_num) {
+int v3_apic_raise_intr(struct guest_info * info, struct vm_device * apic_dev, int intr_num) {
     struct apic_state * apic = (struct apic_state *)apic_dev->private_data;
-    return activate_apic_irq(apic, intr_num);
+
+    if (activate_apic_irq(apic, intr_num) == -1) {
+	PrintError("Error: Could not activate apic_irq\n");
+	return -1;
+    } 
+
+    return 0;
 }
 
 
@@ -990,7 +997,7 @@ static void apic_update_time(ullong_t cpu_cycles, ullong_t cpu_freq, void * priv
 	PrintDebug("Raising APIC Timer interrupt (periodic=%d) (icnt=%d) (div=%d)\n", 
 		   apic->tmr_vec_tbl.tmr_mode, apic->tmr_init_cnt, shift_num);
 
-	if (apic_intr_pending(priv_data)) {
+	if (apic_intr_pending(dev->vm, priv_data)) {
 	    PrintDebug("Overriding pending IRQ %d\n", apic_get_intr_number(priv_data));
 	}
 

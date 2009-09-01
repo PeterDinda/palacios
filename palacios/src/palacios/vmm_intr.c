@@ -175,7 +175,7 @@ int v3_lower_irq(struct guest_info * info, int irq) {
     addr_t irq_state = v3_lock_irqsave(intr_state->irq_lock);
 
     list_for_each_entry(ctrl, &(intr_state->controller_list), ctrl_node) {
-	ctrl->ctrl_ops->lower_intr(ctrl->priv_data, irq);
+	ctrl->ctrl_ops->lower_intr(info, ctrl->priv_data, irq);
     }
  
     v3_unlock_irqrestore(intr_state->irq_lock, irq_state);
@@ -191,7 +191,7 @@ int v3_raise_irq(struct guest_info * info, int irq) {
     addr_t irq_state = v3_lock_irqsave(intr_state->irq_lock);
 
     list_for_each_entry(ctrl, &(intr_state->controller_list), ctrl_node) {
-	ctrl->ctrl_ops->raise_intr(ctrl->priv_data, irq);
+	ctrl->ctrl_ops->raise_intr(info, ctrl->priv_data, irq);
     }
 
     v3_unlock_irqrestore(intr_state->irq_lock, irq_state);
@@ -220,7 +220,7 @@ v3_intr_type_t v3_intr_pending(struct guest_info * info) {
 
     if (ret == V3_INVALID_INTR) {
 	list_for_each_entry(ctrl, &(intr_state->controller_list), ctrl_node) {
-	    if (ctrl->ctrl_ops->intr_pending(ctrl->priv_data) == 1) {
+	    if (ctrl->ctrl_ops->intr_pending(info, ctrl->priv_data) == 1) {
 		ret = V3_EXTERNAL_IRQ;
 		break;
 	    }
@@ -257,8 +257,8 @@ uint32_t v3_get_intr(struct guest_info * info) {
 
     if (!ret) {
 	list_for_each_entry(ctrl, &(intr_state->controller_list), ctrl_node) {
-	    if (ctrl->ctrl_ops->intr_pending(ctrl->priv_data)) {
-		uint_t intr_num = ctrl->ctrl_ops->get_intr_number(ctrl->priv_data);
+	    if (ctrl->ctrl_ops->intr_pending(info, ctrl->priv_data)) {
+		uint_t intr_num = ctrl->ctrl_ops->get_intr_number(info, ctrl->priv_data);
 		
 		//	PrintDebug("[get_intr_number] intr_number = %d\n", intr_num);
 		ret = intr_num;
@@ -314,7 +314,7 @@ int v3_injecting_intr(struct guest_info * info, uint_t intr_num, v3_intr_type_t 
 
 	//	PrintDebug("[injecting_intr] External_Irq with intr_num = %x\n", intr_num);
 	list_for_each_entry(ctrl, &(intr_state->controller_list), ctrl_node) {
-	    ctrl->ctrl_ops->begin_irq(ctrl->priv_data, intr_num);
+	    ctrl->ctrl_ops->begin_irq(info, ctrl->priv_data, intr_num);
 	}
 
 	v3_unlock_irqrestore(intr_state->irq_lock, irq_state);

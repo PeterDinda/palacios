@@ -254,20 +254,20 @@ static int ioapic_write(addr_t guest_addr, void * src, uint_t length, void * pri
 }
 
 /* Interrupt controller functions */
-static int ioapic_intr_pending(void * private_data) {
+static int ioapic_intr_pending(struct guest_info * info, void * private_data) {
     return 0;
 }
 
 
-static int ioapic_get_intr_number(void * private_data) {
+static int ioapic_get_intr_number(struct guest_info * info, void * private_data) {
     return 0;
 }
 
-static int ioapic_begin_irq(void * private_data, int irq) {
+static int ioapic_begin_irq(struct guest_info * info, void * private_data, int irq) {
     return 0;
 }
 
-static int ioapic_raise_irq(void * private_data, int irq) {
+static int ioapic_raise_irq(struct guest_info * info, void * private_data, int irq) {
     struct vm_device * dev = (struct vm_device *)private_data;
     struct io_apic_state * ioapic = (struct io_apic_state *)(dev->private_data);  
     struct redir_tbl_entry * irq_entry = NULL;
@@ -281,14 +281,14 @@ static int ioapic_raise_irq(void * private_data, int irq) {
 
     if (irq_entry->mask == 0) {
 	PrintDebug("IOAPIC Signalling APIC to raise INTR %d\n", irq_entry->vec);
-	v3_apic_raise_intr(ioapic->apic, irq_entry->vec);
+	v3_apic_raise_intr(info, ioapic->apic, irq_entry->vec);
     }
 
     return 0;
 }
 
 /* I don't know if we can do anything here.... */
-static int ioapic_lower_irq(void * private_data, int irq) {
+static int ioapic_lower_irq(struct guest_info * info, void * private_data, int irq) {
     return 0;
 }
 

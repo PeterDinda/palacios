@@ -190,7 +190,7 @@ static void DumpPICState(struct pic_internal *p)
 }
 
 
-static int pic_raise_intr(void * private_data, int irq) {
+static int pic_raise_intr(struct guest_info * info, void * private_data, int irq) {
     struct pic_internal * state = (struct pic_internal*)private_data;
 
     if (irq == 2) {
@@ -213,9 +213,8 @@ static int pic_raise_intr(void * private_data, int irq) {
 }
 
 
-static int pic_lower_intr(void *private_data, int irq) {
-
-    struct pic_internal *state = (struct pic_internal*)private_data;
+static int pic_lower_intr(struct guest_info * info, void * private_data, int irq) {
+    struct pic_internal * state = (struct pic_internal*)private_data;
 
     PrintDebug("[pic_lower_intr] IRQ line %d now low\n", irq);
     if (irq <= 7) {
@@ -236,7 +235,7 @@ static int pic_lower_intr(void *private_data, int irq) {
 
 
 
-static int pic_intr_pending(void * private_data) {
+static int pic_intr_pending(struct guest_info * info, void * private_data) {
     struct pic_internal * state = (struct pic_internal*)private_data;
 
     if ((state->master_irr & ~(state->master_imr)) || 
@@ -247,7 +246,7 @@ static int pic_intr_pending(void * private_data) {
     return 0;
 }
 
-static int pic_get_intr_number(void * private_data) {
+static int pic_get_intr_number(struct guest_info * info, void * private_data) {
     struct pic_internal * state = (struct pic_internal *)private_data;
     int i = 0;
     int irq = -1;
@@ -290,7 +289,7 @@ static int pic_get_intr_number(void * private_data) {
 
 
 /* The IRQ number is the number returned by pic_get_intr_number(), not the pin number */
-static int pic_begin_irq(void * private_data, int irq) {
+static int pic_begin_irq(struct guest_info * info, void * private_data, int irq) {
     struct pic_internal * state = (struct pic_internal*)private_data;
     
     if ((irq >= state->master_icw2) && (irq <= state->master_icw2 + 7)) {
