@@ -230,8 +230,8 @@ struct vmx_data {
 };
 
 int v3_is_vmx_capable();
-void v3_init_vmx(struct v3_ctrl_ops * vm_ops);
-
+void v3_init_vmx_hooks(struct v3_ctrl_ops * vm_ops);
+void v3_init_vmx_cpu(int cpu_id);
 
 
 #endif // ! __V3VEE__

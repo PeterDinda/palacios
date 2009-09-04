@@ -2,6 +2,7 @@ mainmenu "Palacios VMM Configuration"
 
 menu "Target Configuration"
 
+
 config CRAY_XT
         bool "Red Storm (Cray XT3/XT4)"
         help
@@ -20,11 +21,29 @@ config VMX
 	  Compile with support for Intel VMX
 
 
+config MULTITHREAD_OS
+	bool "Compile for a multi threaded OS"
+	default y
+	help 
+	  This allows Palacios to use OS thread mechanisms
+
+
+config MAX_CPUS
+	int "Maximum number of cpus"
+	range 1 255
+	default "16"
+	help 
+	  Specifies the maximum number of hardware cpus Palacios can support
+
+	  For uniprocessor environments, set this to 1
+
+
 config SOCKET
 	bool "Include Network Socket Support"
 	default y
 	help 
 	  Enable networking support in Palacios
+
 
 
 

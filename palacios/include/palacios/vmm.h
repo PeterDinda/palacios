@@ -221,8 +221,6 @@ struct v3_os_hooks {
     void *(*paddr_to_vaddr)(void *addr);
     void *(*vaddr_to_paddr)(void *addr);
 
-    void (*interrupt_cpu)(struct guest_info * vm, int logical_cpu);
-
     int (*hook_interrupt)(struct guest_info * vm, unsigned int irq);
 
     int (*ack_irq)(int irq);
@@ -237,6 +235,10 @@ struct v3_os_hooks {
     void (*mutex_free)(void * mutex);
     void (*mutex_lock)(void * mutex, int must_spin);
     void (*mutex_unlock)(void * mutex);
+
+    void (*interrupt_cpu)(struct guest_info * vm, int logical_cpu);
+    void (*call_on_cpu)(int logical_cpu, void (*fn)(void * arg), void * arg);
+    void (*start_thread_on_cpu)(int logical_cpu, int (*fn)(void * arg), void * arg, char * thread_name);
 };
 
 
@@ -269,6 +271,8 @@ struct v3_vm_config {
     int enable_pci;
 
     int enable_swap;
+
+    int guest_cpu;
 
     unsigned long schedule_freq; // in HZ
 
@@ -314,7 +318,7 @@ struct v3_interrupt {
 
 
 
-void Init_V3(struct v3_os_hooks * hooks, struct v3_ctrl_ops * vmm_ops);
+void Init_V3(struct v3_os_hooks * hooks, struct v3_ctrl_ops * vmm_ops, int num_cpus);
 
 int v3_deliver_irq(struct guest_info * vm, struct v3_interrupt * intr);
 

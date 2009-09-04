@@ -33,7 +33,7 @@
 #endif
 
 
-v3_cpu_arch_t v3_cpu_type;
+v3_cpu_arch_t v3_cpu_types[CONFIG_MAX_CPUS];
 struct v3_os_hooks * os_hooks = NULL;
 
 
@@ -45,12 +45,54 @@ static struct guest_info * allocate_guest() {
 }
 
 
+struct vmm_init_arg {
+    int cpu_id;
+    struct v3_ctrl_ops * vmm_ops;
+};
 
-void Init_V3(struct v3_os_hooks * hooks, struct v3_ctrl_ops * vmm_ops) {
-    
+static void init_cpu(void * arg) {
+    struct vmm_init_arg * vmm_arg = (struct vmm_init_arg *)arg;
+    int cpu_id = vmm_arg->cpu_id;
+    struct v3_ctrl_ops * vmm_ops = vmm_arg->vmm_ops;
+
+#ifdef CONFIG_SVM
+    if (v3_is_svm_capable()) {
+        PrintDebug("Machine is SVM Capable\n");
+        v3_init_svm_cpu(cpu_id);
+	
+	if (cpu_id == 0) {
+	    v3_init_svm_hooks(vmm_ops);
+	}
+    } else 
+#endif
+#ifdef CONFIG_VMX
+    if (v3_is_vmx_capable()) {
+	PrintDebug("Machine is VMX Capable\n");
+	v3_init_vmx_cpu(cpu_id);
+
+	if (cpu_id == 0) {
+	    v3_init_vmx_hooks(vmm_ops);
+	}	
+    } else 
+#endif
+    {
+       PrintError("CPU has no virtualization Extensions\n");
+    }
+}
+
+
+
+void Init_V3(struct v3_os_hooks * hooks, struct v3_ctrl_ops * vmm_ops, int num_cpus) {
+    int i;
+    struct vmm_init_arg arg;
+    arg.vmm_ops = vmm_ops;    
+
     // Set global variables. 
     os_hooks = hooks;
-    v3_cpu_type = V3_INVALID_CPU;
+
+    for (i = 0; i < CONFIG_MAX_CPUS; i++) {
+	v3_cpu_types[i] = V3_INVALID_CPU;
+    }
 
     // Register all the possible device types
     v3_init_devices();
@@ -62,23 +104,18 @@ void Init_V3(struct v3_os_hooks * hooks, struct v3_ctrl_ops * vmm_ops) {
 
     vmm_ops->allocate_guest = &allocate_guest;
 
-#ifdef CONFIG_SVM
-    if (v3_is_svm_capable()) {
-        PrintDebug("Machine is SVM Capable\n");
-        v3_init_SVM(vmm_ops);
 
-    } else 
-#endif
-#ifdef CONFIG_VMX
-    if (v3_is_vmx_capable()) {
-	PrintDebug("Machine is VMX Capable\n");
-	v3_init_vmx(vmm_ops);
-	
-    } else 
-#endif
-    {
-       PrintError("CPU has no virtualization Extensions\n");
+    if ((hooks) && (hooks->call_on_cpu)) {
+
+	for (i = 0; i < num_cpus; i++) {
+	    arg.cpu_id = i;
+
+	    V3_Print("Initializing VMM extensions on cpu %d\n", i);
+	    hooks->call_on_cpu(i, &init_cpu, &arg);
+	}
     }
+
+
 }
 
 

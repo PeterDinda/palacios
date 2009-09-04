@@ -70,10 +70,12 @@ static int passthrough_mem_write(addr_t guest_addr, void * src, uint_t length, v
 #endif
 
 int v3_pre_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) {
-   extern v3_cpu_arch_t v3_cpu_type;
+   extern v3_cpu_arch_t v3_cpu_types[];
 
     // Amount of ram the Guest will have, rounded to a 4K page boundary
     info->mem_size = config_ptr->mem_size & ~(addr_t)0xfff;
+
+    info->cpu_id = config_ptr->guest_cpu;
 
     /*
      * Initialize the subsystem data strutures
@@ -110,7 +112,7 @@ int v3_pre_config_guest(struct guest_info * info, struct v3_vm_config * config_p
     // Initialize the memory map
     v3_init_shadow_map(info);
     
-    if ((v3_cpu_type == V3_SVM_REV3_CPU) && 
+    if ((v3_cpu_types[info->cpu_id] == V3_SVM_REV3_CPU) && 
 	(config_ptr->enable_nested_paging == 1)) {
 	PrintDebug("Guest Page Mode: NESTED_PAGING\n");
 	info->shdw_pg_mode = NESTED_PAGING;

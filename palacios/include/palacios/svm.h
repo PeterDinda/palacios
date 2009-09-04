@@ -77,8 +77,8 @@
 #define SVM_HANDLER_HALT      0x2
 
 
-
-void v3_init_SVM(struct v3_ctrl_ops * vmm_ops);
+void v3_init_svm_cpu(int cpu_id);
+void v3_init_svm_hooks(struct v3_ctrl_ops * vmm_ops);
 int v3_is_svm_capable();
 
 #endif

@@ -191,6 +191,9 @@ struct guest_info {
 #endif
 
     void * decoder_state;
+
+    // the logical cpu this guest context is executing on
+    int cpu_id;
 };
 
 

@@ -32,7 +32,9 @@
 #include <palacios/vmx_io.h>
 #include <palacios/vmx_msr.h>
 
-static addr_t vmxon_ptr_phys;
+static addr_t host_vmcs_ptrs[CONFIG_MAX_CPUS] = {0};
+
+
 extern int v3_vmx_exit_handler();
 extern int v3_vmx_vmlaunch(struct v3_gprs * vm_regs, struct guest_info * info, struct v3_ctrl_regs * ctrl_regs);
 
@@ -484,8 +486,8 @@ static int has_vmx_nested_paging() {
 
 
 
-void v3_init_vmx(struct v3_ctrl_ops * vm_ops) {
-    extern v3_cpu_arch_t v3_cpu_type;
+void v3_init_vmx_cpu(int cpu_id) {
+    extern v3_cpu_arch_t v3_cpu_types[];
     struct v3_msr tmp_msr;
     uint64_t ret = 0;
 
@@ -524,11 +526,11 @@ void v3_init_vmx(struct v3_ctrl_ops * vm_ops) {
 
 
     // Setup VMXON Region
-    vmxon_ptr_phys = allocate_vmcs();
+    host_vmcs_ptrs[cpu_id] = allocate_vmcs();
 
-    PrintDebug("VMXON pointer: 0x%p\n", (void *)vmxon_ptr_phys);
+    PrintDebug("VMXON pointer: 0x%p\n", (void *)host_vmcs_ptrs[cpu_id]);
 
-    if (v3_enable_vmx(vmxon_ptr_phys) == VMX_SUCCESS) {
+    if (v3_enable_vmx(host_vmcs_ptrs[cpu_id]) == VMX_SUCCESS) {
         PrintDebug("VMX Enabled\n");
     } else {
         PrintError("VMX initialization failure\n");
@@ -537,10 +539,15 @@ void v3_init_vmx(struct v3_ctrl_ops * vm_ops) {
 	
 
     if (has_vmx_nested_paging() == 1) {
-        v3_cpu_type = V3_VMX_EPT_CPU;
+        v3_cpu_types[cpu_id] = V3_VMX_EPT_CPU;
     } else {
-        v3_cpu_type = V3_VMX_CPU;
+        v3_cpu_types[cpu_id] = V3_VMX_CPU;
     }
+
+}
+
+
+void v3_init_vmx_hooks(struct v3_ctrl_ops * vm_ops) {
 
     // Setup the VMX specific vmm operations
     vm_ops->init_guest = &init_vmx_guest;

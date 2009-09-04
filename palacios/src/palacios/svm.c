@@ -45,7 +45,9 @@
 
 
 // This is a global pointer to the host's VMCB
-static void * host_vmcb = NULL;
+static addr_t host_vmcbs[CONFIG_MAX_CPUS] = {0};
+
+
 
 extern void v3_stgi();
 extern void v3_clgi();
@@ -299,7 +301,7 @@ static int start_svm_guest(struct guest_info *info) {
 	rdtscll(info->time_state.cached_host_tsc);
 	//    guest_ctrl->TSC_OFFSET = info->time_state.guest_tsc - info->time_state.cached_host_tsc;
 	
-	v3_svm_launch((vmcb_t*)V3_PAddr(info->vmm_data), &(info->vm_regs), (vmcb_t *)host_vmcb);
+	v3_svm_launch((vmcb_t *)V3_PAddr(info->vmm_data), &(info->vm_regs), (vmcb_t *)host_vmcbs[info->cpu_id]);
 	
 	rdtscll(tmp_tsc);
 
@@ -434,10 +436,9 @@ static int has_svm_nested_paging() {
 }
 
 
-
-void v3_init_SVM(struct v3_ctrl_ops * vmm_ops) {
+void v3_init_svm_cpu(int cpu_id) {
     reg_ex_t msr;
-    extern v3_cpu_arch_t v3_cpu_type;
+    extern v3_cpu_arch_t v3_cpu_types[];
 
     // Enable SVM on the CPU
     v3_get_msr(EFER_MSR, &(msr.e_reg.high), &(msr.e_reg.low));
@@ -447,24 +448,26 @@ void v3_init_SVM(struct v3_ctrl_ops * vmm_ops) {
     PrintDebug("SVM Enabled\n");
 
     // Setup the host state save area
-    host_vmcb = V3_AllocPages(4);
+    host_vmcbs[cpu_id] = (addr_t)V3_AllocPages(4);
 
     /* 64-BIT-ISSUE */
     //  msr.e_reg.high = 0;
     //msr.e_reg.low = (uint_t)host_vmcb;
-    msr.r_reg = (addr_t)host_vmcb;
+    msr.r_reg = host_vmcbs[cpu_id];
 
-    PrintDebug("Host State being saved at %p\n", (void *)(addr_t)host_vmcb);
+    PrintDebug("Host State being saved at %p\n", (void *)host_vmcbs[cpu_id]);
     v3_set_msr(SVM_VM_HSAVE_PA_MSR, msr.e_reg.high, msr.e_reg.low);
 
 
-
-
     if (has_svm_nested_paging() == 1) {
-	v3_cpu_type = V3_SVM_REV3_CPU;
+	v3_cpu_types[cpu_id] = V3_SVM_REV3_CPU;
     } else {
-	v3_cpu_type = V3_SVM_CPU;
+	v3_cpu_types[cpu_id] = V3_SVM_CPU;
     }
+}
+
+
+void v3_init_svm_hooks(struct v3_ctrl_ops * vmm_ops) {
 
     // Setup the SVM specific vmm operations
     vmm_ops->init_guest = &init_svm_guest;
@@ -544,7 +547,7 @@ void v3_init_SVM(struct v3_ctrl_ops * vmm_ops) {
 			  vmsave
 			  "rdtsc ; "
 			  : "=D"(start_hi), "=S"(start_lo), "=a"(end_lo),"=d"(end_hi)
-			  : "c"(host_vmcb), "0"(0), "1"(0), "2"(0), "3"(0)
+			  : "c"(host_vmcb[cpu_id]), "0"(0), "1"(0), "2"(0), "3"(0)
 			  );
     
     start = start_hi;
@@ -565,7 +568,7 @@ void v3_init_SVM(struct v3_ctrl_ops * vmm_ops) {
 			  vmload
 			  "rdtsc ; "
 			  : "=D"(start_hi), "=S"(start_lo), "=a"(end_lo),"=d"(end_hi)
-			      : "c"(host_vmcb), "0"(0), "1"(0), "2"(0), "3"(0)
+			      : "c"(host_vmcb[cpu_id]), "0"(0), "1"(0), "2"(0), "3"(0)
 			      );
 	
 	start = start_hi;
