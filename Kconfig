@@ -49,7 +49,7 @@ config SOCKET
 
 config TELEMETRY
 	bool "Enable VMM telemetry support"
-	default y
+	default n
 	help 
 	  Enable the telemetry framework in Palacios
 	  -----
