@@ -71,8 +71,8 @@ static int is_guest_pf(pt_access_status_t guest_access, pt_access_status_t shado
 
 
 #ifdef CONFIG_SHADOW_PAGING_TELEMETRY
-static void telemetry_cb(struct guest_info * info, void * private_data) {
-    V3_Print("Guest Page faults: %d\n", info->shdw_pg_state.guest_faults);
+static void telemetry_cb(struct guest_info * info, void * private_data, char * hdr) {
+    V3_Print("%s Guest Page faults: %d\n", hdr, info->shdw_pg_state.guest_faults);
 }
 #endif
 
