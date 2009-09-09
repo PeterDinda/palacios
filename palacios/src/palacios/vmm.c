@@ -174,9 +174,17 @@ void v3_yield_cond(struct guest_info * info) {
     }
 }
 
+/* 
+ * unconditional cpu yield 
+ * if the yielding thread is a guest context, the guest quantum is reset on resumption 
+ * Non guest context threads should call this function with a NULL argument
+ */
 void v3_yield(struct guest_info * info) {
     V3_Yield();
-    rdtscll(info->yield_start_cycle);
+
+    if (info) {
+	rdtscll(info->yield_start_cycle);
+    }
 }
 
 
