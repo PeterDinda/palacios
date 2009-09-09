@@ -156,7 +156,8 @@ static int handle_kick(struct vm_device * dev) {
 }
 
 
-static int virtio_io_write(uint16_t port, void * src, uint_t length, struct vm_device * dev) {
+static int virtio_io_write(uint16_t port, void * src, uint_t length, void * private_data) {
+    struct vm_device * dev = (struct vm_device *)private_data;
     struct virtio_sym_state * virtio = (struct virtio_sym_state *)dev->private_data;
     int port_idx = port % virtio->io_range_size;
 
@@ -264,7 +265,8 @@ static int virtio_io_write(uint16_t port, void * src, uint_t length, struct vm_d
 }
 
 
-static int virtio_io_read(uint16_t port, void * dst, uint_t length, struct vm_device * dev) {
+static int virtio_io_read(uint16_t port, void * dst, uint_t length, void * private_data) {
+    struct vm_device * dev = (struct vm_device *)private_data;
     struct virtio_sym_state * virtio = (struct virtio_sym_state *)dev->private_data;
     int port_idx = port % virtio->io_range_size;
 
@@ -407,6 +409,7 @@ static int virtio_init(struct guest_info * vm, void * cfg_data) {
 
 	bars[0].io_read = virtio_io_read;
 	bars[0].io_write = virtio_io_write;
+	bars[0].private_data = dev;
 
 	pci_dev = v3_pci_register_device(pci_bus, PCI_STD_DEVICE, 
 					 0, PCI_AUTO_DEV_NUM, 0,

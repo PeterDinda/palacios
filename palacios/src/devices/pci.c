@@ -406,10 +406,11 @@ static int bar_update(struct pci_device * pci, int bar_num, uint32_t new_val) {
 		PrintDebug("Rehooking PCI IO port (old port=%u) (new port=%u)\n",  
 			   PCI_IO_BASE(bar->val) + i, PCI_IO_BASE(new_val) + i);
 
-		v3_dev_unhook_io(pci->vm_dev, PCI_IO_BASE(bar->val) + i);
+		v3_unhook_io_port(pci->vm_dev->vm, PCI_IO_BASE(bar->val) + i);
 
-		if (v3_dev_hook_io(pci->vm_dev, PCI_IO_BASE(new_val) + i, 
-				   bar->io_read, bar->io_write) == -1) {
+		if (v3_hook_io_port(pci->vm_dev->vm, PCI_IO_BASE(new_val) + i, 
+				    bar->io_read, bar->io_write, 
+				    bar->private_data) == -1) {
 
 		    PrintError("Could not hook PCI IO port (old port=%u) (new port=%u)\n",  
 			       PCI_IO_BASE(bar->val) + i, PCI_IO_BASE(new_val) + i);
@@ -673,8 +674,9 @@ static inline int init_bars(struct pci_device * pci_dev) {
 	    for (j = 0; j < pci_dev->bar[i].num_ports; j++) {
 		// hook IO
 		if (pci_dev->bar[i].default_base_port != 0xffff) {
-		    if (v3_dev_hook_io(pci_dev->vm_dev, pci_dev->bar[i].default_base_port + j,
-				       pci_dev->bar[i].io_read, pci_dev->bar[i].io_write) == -1) {
+		    if (v3_hook_io_port(pci_dev->vm_dev->vm, pci_dev->bar[i].default_base_port + j,
+					pci_dev->bar[i].io_read, pci_dev->bar[i].io_write, 
+					pci_dev->bar[i].private_data) == -1) {
 			PrintError("Could not hook default io port %x\n", pci_dev->bar[i].default_base_port + j);
 			return -1;
 		    }
@@ -839,6 +841,7 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
     //copy bars
     for (i = 0; i < 6; i ++) {
 	pci_dev->bar[i].type = bars[i].type;
+	pci_dev->bar[i].private_data = bars[i].private_data;
 
 	if (pci_dev->bar[i].type == PCI_BAR_IO) {
 	    pci_dev->bar[i].num_ports = bars[i].num_ports;

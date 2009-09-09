@@ -63,10 +63,12 @@ struct v3_pci_bar {
 	struct {
 	    int num_ports;
 	    uint16_t default_base_port;
-	    int (*io_read)(ushort_t port, void * dst, uint_t length, struct vm_device * dev);
-	    int (*io_write)(ushort_t port, void * src, uint_t length, struct vm_device * dev);
+	    int (*io_read)(ushort_t port, void * dst, uint_t length, void * private_data);
+	    int (*io_write)(ushort_t port, void * src, uint_t length, void * private_data);
 	};
     };
+    
+    void * private_data;
 
     // Internal PCI data
     uint32_t val;
@@ -75,8 +77,11 @@ struct v3_pci_bar {
 };
 
 
-#define PCI_IO_BASE(bar_val) (bar_val & 0xfffffffc)
-#define PCI_MEM32_BASE(bar_val) (bar_val & 0xfffffff0)
+#define PCI_IO_MASK 0xfffffffc
+#define PCI_MEM32_MASK 0xfffffff0
+
+#define PCI_IO_BASE(bar_val) (bar_val & PCI_IO_MASK)
+#define PCI_MEM32_BASE(bar_val) (bar_val & PCI_MEM32_MASK)
 
 struct pci_device {
 

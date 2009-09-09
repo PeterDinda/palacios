@@ -626,7 +626,8 @@ static int dma_write(struct vm_device * dev, struct ide_channel * channel) {
 
 #define DMA_CHANNEL_FLAG  0x08
 
-static int write_dma_port(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
+static int write_dma_port(ushort_t port, void * src, uint_t length, void * private_data) {
+    struct vm_device * dev = (struct vm_device *)private_data;
     struct ide_internal * ide = (struct ide_internal *)(dev->private_data);
     uint16_t port_offset = port & (DMA_CHANNEL_FLAG - 1);
     uint_t channel_flag = (port & DMA_CHANNEL_FLAG) >> 3;
@@ -708,7 +709,8 @@ static int write_dma_port(ushort_t port, void * src, uint_t length, struct vm_de
 }
 
 
-static int read_dma_port(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
+static int read_dma_port(ushort_t port, void * dst, uint_t length, void * private_data) {
+    struct vm_device * dev = (struct vm_device *)private_data;
     struct ide_internal * ide = (struct ide_internal *)(dev->private_data);
     uint16_t port_offset = port & (DMA_CHANNEL_FLAG - 1);
     uint_t channel_flag = (port & DMA_CHANNEL_FLAG) >> 3;
@@ -1560,7 +1562,8 @@ static int ide_init(struct guest_info * vm, void * cfg_data) {
 
 	bars[4].io_read = read_dma_port;
 	bars[4].io_write = write_dma_port;
-	
+	bars[4].private_data = dev;
+
 	pci_dev = v3_pci_register_device(ide->pci_bus, PCI_STD_DEVICE, 0, sb_pci->dev_num, 1, 
 					 "PIIX3_IDE", bars,
 					 pci_config_update, NULL, NULL, dev);
