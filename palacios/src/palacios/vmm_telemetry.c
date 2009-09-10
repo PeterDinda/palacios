@@ -205,7 +205,7 @@ void v3_print_telemetry(struct guest_info * info) {
 	    V3_Print("%s%s:%sCnt=%u,%sAvg. Time=%u\n", 
 		     hdr_buf,
 		     code_str,
-		     (strlen(code_str) > 14) ? "\t" : "\t\t",
+		     (strlen(code_str) > 13) ? "\t" : "\t\t",
 		     evt->cnt,
 		     (evt->cnt >= 100) ? "\t" : "\t\t",
 		     (uint32_t)(evt->handler_time / evt->cnt));

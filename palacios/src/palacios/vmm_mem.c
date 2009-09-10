@@ -327,6 +327,8 @@ struct v3_shadow_region * v3_get_shadow_region(struct guest_info * info, addr_t 
     if (guest_addr > info->mem_map.base_region.guest_end) {
 	PrintError("Guest Address Exceeds Base Memory Size (ga=%p), (limit=%p)\n", 
 		   (void *)guest_addr, (void *)info->mem_map.base_region.guest_end);
+	v3_print_mem_map(info);
+
 	return NULL;
     }
     
@@ -393,15 +395,15 @@ addr_t v3_get_shadow_addr(struct v3_shadow_region * reg, addr_t guest_addr) {
 
 
 
-void print_shadow_map(struct guest_info * info) {
+void v3_print_mem_map(struct guest_info * info) {
     struct rb_node * node = v3_rb_first(&(info->mem_map.shdw_regions));
     struct v3_shadow_region * reg = &(info->mem_map.base_region);
     int i = 0;
 
-    PrintDebug("Memory Layout:\n");
+    V3_Print("Memory Layout:\n");
     
 
-    PrintDebug("Base Region:  0x%p - 0x%p -> 0x%p\n", 
+    V3_Print("Base Region:  0x%p - 0x%p -> 0x%p\n", 
 	       (void *)(reg->guest_start), 
 	       (void *)(reg->guest_end - 1), 
 	       (void *)(reg->host_addr));
@@ -415,12 +417,12 @@ void print_shadow_map(struct guest_info * info) {
     do {
 	reg = rb_entry(node, struct v3_shadow_region, tree_node);
 
-	PrintDebug("%d:  0x%p - 0x%p -> 0x%p\n", i, 
+	V3_Print("%d:  0x%p - 0x%p -> 0x%p\n", i, 
 		   (void *)(reg->guest_start), 
 		   (void *)(reg->guest_end - 1), 
 		   (void *)(reg->host_addr));
 
-	PrintDebug("\t(%s) (WriteHook = 0x%p) (ReadHook = 0x%p)\n", 
+	V3_Print("\t(%s) (WriteHook = 0x%p) (ReadHook = 0x%p)\n", 
 		   v3_shdw_region_type_to_str(reg->host_type),
 		   (void *)(reg->write_hook), 
 		   (void *)(reg->read_hook));

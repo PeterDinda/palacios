@@ -114,7 +114,7 @@ addr_t v3_get_shadow_addr(struct v3_shadow_region * reg, addr_t guest_addr);
 
 
 
-void print_shadow_map(struct guest_info * info);
+void v3_print_mem_map(struct guest_info * info);
 
 
 

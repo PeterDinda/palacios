@@ -421,7 +421,7 @@ static int setup_pci(struct vm_device * dev) {
     pci_dev = v3_pci_register_device(piix3->pci_bus, PCI_MULTIFUNCTION, 
 				     bus_num, -1, 0, 
 				     "PIIX3", bars, 
-				     NULL, NULL, NULL, dev);
+				     NULL, NULL, NULL, dev, NULL);
     if (pci_dev == NULL) {
 	PrintError("Could not register PCI Device for PIIX3\n");
 	return -1;

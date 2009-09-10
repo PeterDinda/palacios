@@ -31,7 +31,6 @@
 #include <palacios/vmm_sym_swap.h>
 #endif
 
-
 #include <devices/generic.h>
 #include <devices/ide.h>
 #include <devices/ram_cd.h>
@@ -40,6 +39,7 @@
 #include <devices/net_hd.h>
 
 #include <devices/telnet_cons.h>
+#include <devices/pci_passthrough.h>
 
 
 
@@ -227,7 +227,7 @@ static int setup_memory_map(struct guest_info * info, struct v3_vm_config * conf
     }
 #endif
 
-    print_shadow_map(info);
+    v3_print_mem_map(info);
 
     return 0;
 }
@@ -254,6 +254,7 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
 
     if (config_ptr->enable_pci == 1) {
 	struct ide_cfg ide_config = {"PCI", "PIIX3"};
+	struct pci_passthrough_cfg pci_pt_cfg = {"PCI", "E1000", 0x8086, 0x100e};
 	
 	v3_create_device(info, "PCI", NULL);
 	v3_create_device(info, "i440FX", "PCI");
@@ -266,6 +267,9 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
 	v3_create_device(info, "SYM_SWAP", "LNX_VIRTIO_BLK");
 
 	v3_create_device(info, "IDE", &ide_config);
+       
+	v3_create_device(info, "PCI_PASSTHROUGH", &pci_pt_cfg);
+
     } else {
 	v3_create_device(info, "IDE", NULL);
     }

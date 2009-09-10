@@ -576,35 +576,35 @@ void v3_hexdump(const void * ptr, int length, const char * hdr, int flags) {
     cp = ptr;
     for (i = 0; i < length; i+= cols) {
 	if (hdr != NULL)
-	    PrintDebug("%s", hdr);
+	    V3_Print("%s", hdr);
 
 	if ((flags & HD_OMIT_COUNT) == 0)
-	    PrintDebug("%04x  ", i);
+	    V3_Print("%04x  ", i);
 
 	if ((flags & HD_OMIT_HEX) == 0) {
 	    for (j = 0; j < cols; j++) {
 		k = i + j;
 		if (k < length)
-		    PrintDebug("%c%02x", delim, cp[k]);
+		    V3_Print("%c%02x", delim, cp[k]);
 		else
-		    PrintDebug("   ");
+		    V3_Print("   ");
 	    }
 	}
 
 	if ((flags & HD_OMIT_CHARS) == 0) {
-	    PrintDebug("  |");
+	    V3_Print("  |");
 	    for (j = 0; j < cols; j++) {
 		k = i + j;
 		if (k >= length)
-		    PrintDebug(" ");
+		    V3_Print(" ");
 		else if (cp[k] >= ' ' && cp[k] <= '~')
-		    PrintDebug("%c", cp[k]);
+		    V3_Print("%c", cp[k]);
 		else
-		    PrintDebug(".");
+		    V3_Print(".");
 	    }
-	    PrintDebug("|");
+	    V3_Print("|");
 	}
-	PrintDebug("\n");
+	V3_Print("\n");
     }
 }
 

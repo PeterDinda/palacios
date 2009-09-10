@@ -1397,7 +1397,7 @@ static void init_channel(struct ide_channel * channel) {
 }
 
 
-static int pci_config_update(struct pci_device * pci_dev, uint_t reg_num, int length) {
+static int pci_config_update(uint_t reg_num, void * src, uint_t length, void * private_data) {
     PrintDebug("PCI Config Update\n");
     PrintDebug("\t\tInterupt register (Dev=%s), irq=%d\n", pci_dev->name, pci_dev->config_header.intr_line);
 
@@ -1566,7 +1566,7 @@ static int ide_init(struct guest_info * vm, void * cfg_data) {
 
 	pci_dev = v3_pci_register_device(ide->pci_bus, PCI_STD_DEVICE, 0, sb_pci->dev_num, 1, 
 					 "PIIX3_IDE", bars,
-					 pci_config_update, NULL, NULL, dev);
+					 pci_config_update, NULL, NULL, dev, dev);
 
 	if (pci_dev == NULL) {
 	    PrintError("Failed to register IDE BUS %d with PCI\n", i); 

@@ -628,7 +628,7 @@ static int virtio_init(struct guest_info * vm, void * cfg_data) {
 	pci_dev = v3_pci_register_device(pci_bus, PCI_STD_DEVICE, 
 					 0, PCI_AUTO_DEV_NUM, 0,
 					 "LNX_VIRTIO_BLK", bars,
-					 NULL, NULL, NULL, dev);
+					 NULL, NULL, NULL, dev, NULL);
 
 	if (!pci_dev) {
 	    PrintError("Could not register PCI Device\n");

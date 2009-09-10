@@ -199,6 +199,13 @@ config PCI
 	help
 	  Includes the Virtual PCI Bus
 
+config PASSTHROUGH_PCI
+	bool "Passthrough PCI"
+	default y 
+	depends on PCI && EXPERIMENTAL
+	help 
+	  Enables hardware devices to be passed through to the VM
+
 config DEBUG_PCI
 	bool "PCI debugging"
 	depends on PCI && DEBUG_ON

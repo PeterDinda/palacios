@@ -323,6 +323,15 @@ static int data_port_read(ushort_t port, void * dst, uint_t length, struct vm_de
 	return length;
     }
 
+    if (pci_dev->type == PCI_PASSTHROUGH) {
+	if (pci_dev->config_read(reg_num, dst, length, pci_dev->priv_data) == -1) {
+	    PrintError("Failed to handle configuration update for passthrough pci_device\n");
+	    return -1;
+	}
+	
+	return 0;
+    }
+
     for (i = 0; i < length; i++) {
 	*(uint8_t *)((uint8_t *)dst + i) = pci_dev->config_space[reg_num + i];
     }
@@ -414,6 +423,7 @@ static int bar_update(struct pci_device * pci, int bar_num, uint32_t new_val) {
 
 		    PrintError("Could not hook PCI IO port (old port=%u) (new port=%u)\n",  
 			       PCI_IO_BASE(bar->val) + i, PCI_IO_BASE(new_val) + i);
+		    v3_print_io_map(pci->vm_dev->vm);
 		    return -1;
 		}
 	    }
@@ -463,7 +473,7 @@ static int data_port_write(ushort_t port, void * src, uint_t length, struct vm_d
 	return length;
     }
 
-    PrintDebug("Writing PCI Data register. bus = %d, dev = %d, fn = %d, reg = %d (%x) addr_reg = %x (val=%x, len=%d)\n", 
+    PrintDebug("Writing PCI Data register. bus = %d, dev = %d, fn = %d, reg = %d (0x%x) addr_reg = 0x%x (val=0x%x, len=%d)\n", 
 	       pci_state->addr_reg.bus_num, 
 	       pci_state->addr_reg.dev_num, 
 	       pci_state->addr_reg.fn_num,
@@ -480,6 +490,15 @@ static int data_port_write(ushort_t port, void * src, uint_t length, struct vm_d
 	return -1;
     }
     
+    if (pci_dev->type == PCI_PASSTHROUGH) {
+	if (pci_dev->config_write(reg_num, src, length, pci_dev->priv_data) == -1) {
+	    PrintError("Failed to handle configuration update for passthrough pci_device\n");
+	    return -1;
+	}
+	
+	return 0;
+    }
+
 
     for (i = 0; i < length; i++) {
 	uint_t cur_reg = reg_num + i;
@@ -530,7 +549,7 @@ static int data_port_write(ushort_t port, void * src, uint_t length, struct vm_d
     }
 
     if (pci_dev->config_update) {
-	pci_dev->config_update(pci_dev, reg_num, length);
+	pci_dev->config_update(reg_num, src, length, pci_dev->priv_data);
     }
 
     // Scan for BAR updated
@@ -539,13 +558,22 @@ static int data_port_write(ushort_t port, void * src, uint_t length, struct vm_d
 	    if (pci_dev->bar[i].updated) {
 		int bar_offset = 0x10 + 4 * i;
 
-		*(uint32_t *)(pci_dev->config_space + bar_offset) &= pci_dev->bar[i].mask;
-		// check special flags....
 
-		// bar_update
-		if (bar_update(pci_dev, i, *(uint32_t *)(pci_dev->config_space + bar_offset)) == -1) {
-		    PrintError("PCI Device %s: Bar update Error Bar=%d\n", pci_dev->name, i);
-		    return -1;
+		if (pci_dev->bar[i].type == PCI_BAR_PASSTHROUGH) {
+		    if (pci_dev->bar[i].bar_write(i, (uint32_t *)(pci_dev->config_space + bar_offset), pci_dev->bar[i].private_data) == -1) {
+			PrintError("Error in passthrough bar write operation\n");
+			return -1;
+		    }
+		} else {
+
+		    *(uint32_t *)(pci_dev->config_space + bar_offset) &= pci_dev->bar[i].mask;
+		    // check special flags....
+
+		    // bar_update
+		    if (bar_update(pci_dev, i, *(uint32_t *)(pci_dev->config_space + bar_offset)) == -1) {
+			PrintError("PCI Device %s: Bar update Error Bar=%d\n", pci_dev->name, i);
+			return -1;
+		    }
 		}
 
 		pci_dev->bar[i].updated = 0;
@@ -718,13 +746,18 @@ static inline int init_bars(struct pci_device * pci_dev) {
 
 	    *(uint32_t *)(pci_dev->config_space + bar_offset) = pci_dev->bar[i].val;
 
-	} else if (pci_dev->bar[i].type == PCI_BAR_MEM16) {
+	} else if (pci_dev->bar[i].type == PCI_BAR_MEM24) {
 	    PrintError("16 Bit memory ranges not supported (reg: %d)\n", i);
 	    return -1;
 	} else if (pci_dev->bar[i].type == PCI_BAR_NONE) {
 	    pci_dev->bar[i].val = 0x00000000;
 	    pci_dev->bar[i].mask = 0x00000000; // This ensures that all updates will be dropped
 	    *(uint32_t *)(pci_dev->config_space + bar_offset) = pci_dev->bar[i].val;
+	} else if (pci_dev->bar[i].type == PCI_BAR_PASSTHROUGH) {
+
+	    // Call the bar init function to get the local cached value
+	    pci_dev->bar[i].bar_init(i, &(pci_dev->bar[i].val), pci_dev->bar[i].private_data);
+
 	} else {
 	    PrintError("Invalid BAR type for bar #%d\n", i);
 	    return -1;
@@ -771,10 +804,10 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
 					   int fn_num,
 					   const char * name,
 					   struct v3_pci_bar * bars,
-					   int (*config_update)(struct pci_device * pci_dev, uint_t reg_num, int length),
+					   int (*config_update)(uint_t reg_num, void * src, uint_t length, void * priv_data),
 					   int (*cmd_update)(struct pci_device *pci_dev, uchar_t io_enabled, uchar_t mem_enabled),
 					   int (*ext_rom_update)(struct pci_device * pci_dev),
-					   struct vm_device * dev) {
+					   struct vm_device * dev, void * priv_data) {
 
     struct pci_internal * pci_state = (struct pci_internal *)pci->private_data;
     struct pci_bus * bus = &(pci_state->bus_list[bus_num]);
@@ -812,8 +845,10 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
 
     memset(pci_dev, 0, sizeof(struct pci_device));
 
+
+    pci_dev->type = dev_type;
     
-    switch (dev_type) {
+    switch (pci_dev->type) {
 	case PCI_STD_DEVICE:
 	    pci_dev->config_header.header_type = 0x00;
 	    break;
@@ -825,12 +860,15 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
 	    return NULL;
     }
 
+
+
     pci_dev->bus_num = bus_num;
     pci_dev->dev_num = dev_num;
     pci_dev->fn_num = fn_num;
 
     strncpy(pci_dev->name, name, sizeof(pci_dev->name));
     pci_dev->vm_dev = dev;
+    pci_dev->priv_data = priv_data;
 
     // register update callbacks
     pci_dev->config_update = config_update;
@@ -862,6 +900,9 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
 	    pci_dev->bar[i].default_base_addr = bars[i].default_base_addr;
 	    pci_dev->bar[i].mem_read = bars[i].mem_read;
 	    pci_dev->bar[i].mem_write = bars[i].mem_write;
+	} else if (pci_dev->bar[i].type == PCI_BAR_PASSTHROUGH) {
+	    pci_dev->bar[i].bar_init = bars[i].bar_init;
+	    pci_dev->bar[i].bar_write = bars[i].bar_write;
 	} else {
 	    pci_dev->bar[i].num_pages = 0;
 	    pci_dev->bar[i].default_base_addr = 0;
@@ -874,6 +915,76 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
 	PrintError("could not initialize bar registers\n");
 	return NULL;
     }
+
+    // add the device
+    add_device_to_bus(bus, pci_dev);
+
+#ifdef CONFIG_DEBUG_PCI
+    pci_dump_state(pci_state);
+#endif
+
+    return pci_dev;
+}
+
+
+
+// if dev_num == -1, auto assign 
+struct pci_device * v3_pci_register_passthrough_device(struct vm_device * pci,
+						       int bus_num,
+						       int dev_num,
+						       int fn_num,
+						       const char * name,
+						       int (*config_write)(uint_t reg_num, void * src, uint_t length, void * private_data),
+						       int (*config_read)(uint_t reg_num, void * dst, uint_t length, void * private_data),
+						       struct vm_device * dev,
+						       void * private_data) {
+
+    struct pci_internal * pci_state = (struct pci_internal *)pci->private_data;
+    struct pci_bus * bus = &(pci_state->bus_list[bus_num]);
+    struct pci_device * pci_dev = NULL;
+
+    if (dev_num > MAX_BUS_DEVICES) {
+	PrintError("Requested Invalid device number (%d)\n", dev_num);
+	return NULL;
+    }
+
+    if (dev_num == PCI_AUTO_DEV_NUM) {
+	PrintDebug("Searching for free device number\n");
+	if ((dev_num = get_free_dev_num(bus)) == -1) {
+	    PrintError("No more available PCI slots on bus %d\n", bus->bus_num);
+	    return NULL;
+	}
+    }
+    
+    PrintDebug("Checking for PCI Device\n");
+
+    if (get_device(bus, dev_num, fn_num) != NULL) {
+	PrintError("PCI Device already registered at slot %d on bus %d\n", 
+		   dev_num, bus->bus_num);
+	return NULL;
+    }
+
+    
+    pci_dev = (struct pci_device *)V3_Malloc(sizeof(struct pci_device));
+
+    if (pci_dev == NULL) {
+	PrintError("Could not allocate pci device\n");
+	return NULL;
+    }
+
+    memset(pci_dev, 0, sizeof(struct pci_device));
+    
+    pci_dev->bus_num = bus_num;
+    pci_dev->dev_num = dev_num;
+    pci_dev->fn_num = fn_num;
+
+    strncpy(pci_dev->name, name, sizeof(pci_dev->name));
+    pci_dev->vm_dev = dev;
+    pci_dev->priv_data = private_data;
+
+    // register update callbacks
+    pci_dev->config_write = config_write;
+    pci_dev->config_read = config_read;
 
     // add the device
     add_device_to_bus(bus, pci_dev);

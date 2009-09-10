@@ -55,8 +55,8 @@ struct v3_sym_swap_state {
     struct hashtable * shdw_ptr_ht;
 };
 
-
-
+// Present = 0 and Dirty = 0
+// fixme
 static inline int is_swapped_pte32(pte32_t * pte) {
     return ((pte->present == 0) && (*(uint32_t *)pte != 0));
 }
