@@ -509,6 +509,8 @@ static int setup_virt_pci_dev(struct guest_info * info, struct vm_device * dev) 
     // This will overwrite the bar registers.. but that should be ok.
     memcpy(pci_dev->config_space, (uint8_t *)&(state->real_hdr), sizeof(struct pci_config_header));
 
+    state->pci_dev = pci_dev;
+
     return 0;
 }
 
@@ -519,6 +521,22 @@ static struct v3_device_ops dev_ops = {
     .start = NULL,
     .stop = NULL,
 };
+
+
+
+static int irq_handler(struct guest_info * info, struct v3_interrupt * intr, void * private_data) {
+    struct vm_device * dev = (struct vm_device *)private_data;
+    struct pt_dev_state * state = (struct pt_dev_state *)dev->private_data;
+
+    PrintDebug("Handling E1000 IRQ %d\n", intr->irq);
+
+    v3_pci_raise_irq(state->pci_bus, 0, state->pci_dev);
+
+    V3_ACK_IRQ(intr->irq);
+
+    return 0;
+}
+
 
 
 
@@ -541,6 +559,7 @@ static int passthrough_init(struct guest_info * info, void * cfg_data) {
 
 
 
+
     dev = v3_allocate_device("PCI_PASSTHROUGH", &dev_ops, state);
 
     if (v3_attach_device(info, dev) == -1) {
@@ -555,6 +574,8 @@ static int passthrough_init(struct guest_info * info, void * cfg_data) {
     }
 
     setup_virt_pci_dev(info, dev);
+
+    v3_hook_irq(info, 59, irq_handler, dev);
 
     return 0;
 }
