@@ -1000,7 +1000,7 @@ static void apic_update_time(ullong_t cpu_cycles, ullong_t cpu_freq, void * priv
 		   apic->tmr_vec_tbl.tmr_mode, apic->tmr_init_cnt, shift_num);
 
 	if (apic_intr_pending(dev->vm, priv_data)) {
-	    PrintDebug("Overriding pending IRQ %d\n", apic_get_intr_number(priv_data));
+	    PrintDebug("Overriding pending IRQ %d\n", apic_get_intr_number(dev->vm, priv_data));
 	}
 
 	if (activate_internal_irq(apic, APIC_TMR_INT) == -1) {
