@@ -169,6 +169,11 @@ static inline void rb_link_node(struct rb_node * node, struct rb_node * parent,
     *rb_link = node;
 }
 
+#define v3_rb_for_each_entry(pos, root, member)				\
+    for (pos = rb_entry(v3_rb_first(root), typeof(*pos), member);	\
+	 &pos->member != v3_rb_last(root);				\
+	 pos = rb_entry(v3_rb_next(&(pos->member)), typeof(*pos), member))
+
 
 #endif
 
