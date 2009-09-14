@@ -32,11 +32,11 @@ struct guest_info;
 struct v3_msr {
 
     union {
-	ullong_t value;
+	uint64_t value;
 
 	struct {
-	    uint_t lo;
-	    uint_t hi;
+	    uint32_t lo;
+	    uint32_t hi;
 	} __attribute__((packed));
     } __attribute__((packed));
 } __attribute__((packed));
@@ -80,6 +80,8 @@ int v3_hook_msr(struct guest_info * info, uint_t msr,
 
 
 struct v3_msr_hook * v3_get_msr_hook(struct guest_info * info, uint_t msr);
+
+void v3_refresh_msr_map(struct guest_info * info);
 
 void v3_print_msr_map(struct guest_info * info);
 

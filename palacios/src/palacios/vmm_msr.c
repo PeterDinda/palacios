@@ -110,14 +110,18 @@ int v3_hook_msr(struct guest_info * info, uint_t msr,
 
     list_add(&(hook->link), &(msr_map->hook_list));
 
-    msr_map->update_map(info, msr, 
-			(read == NULL) ? 0 : 1,
-			(write == NULL) ? 0 : 1);
+    if (msr_map->update_map) {
+	msr_map->update_map(info, msr, 
+			    (read == NULL) ? 0 : 1,
+			    (write == NULL) ? 0 : 1);
+    }
+
     return 0;
 }
 
 
 int v3_unhook_msr(struct guest_info * info, uint_t msr) {
+    PrintError("Unhooking MSRs currently not supported\n");
     return -1;
 }
 
@@ -136,6 +140,22 @@ struct v3_msr_hook * v3_get_msr_hook(struct guest_info * info, uint_t msr) {
     return NULL;
 }
 
+
+void v3_refresh_msr_map(struct guest_info * info) {
+    struct v3_msr_map * msr_map = &(info->msr_map);
+    struct v3_msr_hook * hook = NULL;
+
+    if (msr_map->update_map == NULL) {
+	PrintError("Trying to refresh an MSR map with no backend\n");
+	return;
+    }
+
+    list_for_each_entry(hook, &(msr_map->hook_list), link) {
+	msr_map->update_map(info, hook->msr, 	
+			    (hook->read == NULL) ? 0 : 1,
+			    (hook->write == NULL) ? 0 : 1);
+    }
+}
 
 void v3_print_msr_map(struct guest_info * info) {
     struct v3_msr_map * msr_map = &(info->msr_map);

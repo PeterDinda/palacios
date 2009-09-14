@@ -84,6 +84,8 @@ int v3_init_svm_msr_map(struct guest_info * info) {
     msr_map->arch_data = V3_VAddr(V3_AllocPages(2));  
     memset(msr_map->arch_data, 0, PAGE_SIZE_4KB * 2);
 
+    v3_refresh_msr_map(info);
+
     return 0;
 }
 

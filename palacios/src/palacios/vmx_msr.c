@@ -64,12 +64,14 @@ static int update_map(struct guest_info * info, uint_t msr, int hook_reads, int 
 }
 
 int v3_init_vmx_msr_map(struct guest_info * info) {
-   struct v3_msr_map * msr_map = &(info->msr_map);
+    struct v3_msr_map * msr_map = &(info->msr_map);
 
-   msr_map->update_map = update_map;
-   
-   msr_map->arch_data = V3_VAddr(V3_AllocPages(1));
-   memset(msr_map->arch_data, 0, PAGE_SIZE_4KB);
-
-   return 0;
+    msr_map->update_map = update_map;
+    
+    msr_map->arch_data = V3_VAddr(V3_AllocPages(1));
+    memset(msr_map->arch_data, 0, PAGE_SIZE_4KB);
+    
+    v3_refresh_msr_map(info);
+    
+    return 0;
 }
