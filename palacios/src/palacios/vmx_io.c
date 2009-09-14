@@ -54,6 +54,8 @@ int v3_init_vmx_io_map(struct guest_info * info) {
     info->io_map.arch_data = V3_VAddr(V3_AllocPages(2));
     memset(info->io_map.arch_data, 0, PAGE_SIZE_4KB * 2);
 
+    v3_refresh_io_map(info);
+
     return 0;
 }
 

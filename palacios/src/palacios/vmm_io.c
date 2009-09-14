@@ -104,7 +104,6 @@ struct v3_io_hook * v3_get_io_hook(struct guest_info * info, uint16_t port) {
 
 
 
-
 int v3_hook_io_port(struct guest_info * info, uint16_t port, 
 		    int (*read)(uint16_t port, void * dst, uint_t length, void * priv_data),
 		    int (*write)(uint16_t port, void * src, uint_t length, void * priv_data), 
@@ -134,15 +133,15 @@ int v3_hook_io_port(struct guest_info * info, uint16_t port,
       return -1;
   }
 
-
-  if (info->io_map.update_map(info, port, 
-			      ((read == NULL) ? 0 : 1), 
-			      ((write == NULL) ? 0 : 1)) == -1) {
-      PrintError("Could not update IO map for port %u (0x%x)\n", port, port);
-      V3_Free(io_hook);
-      return -1;
+  if (info->io_map.update_map) {
+      if (info->io_map.update_map(info, port, 
+				  ((read == NULL) ? 0 : 1), 
+				  ((write == NULL) ? 0 : 1)) == -1) {
+	  PrintError("Could not update IO map for port %u (0x%x)\n", port, port);
+	  V3_Free(io_hook);
+	  return -1;
+      }
   }
-
 
   return 0;
 }
@@ -157,8 +156,10 @@ int v3_unhook_io_port(struct guest_info * info, uint16_t port) {
 
     v3_rb_erase(&(hook->tree_node), &(info->io_map.map));
 
-    // set the arch map to default (this should be 1, 1)
-    info->io_map.update_map(info, port, 0, 0);
+    if (info->io_map.update_map) {
+	// set the arch map to default (this should be 1, 1)
+	info->io_map.update_map(info, port, 0, 0);
+    }
 
     V3_Free(hook);
 
@@ -170,19 +171,37 @@ int v3_unhook_io_port(struct guest_info * info, uint16_t port) {
 
 
 
+
+void v3_refresh_io_map(struct guest_info * info) {
+    struct v3_io_map * io_map = &(info->io_map);
+    struct v3_io_hook * tmp = NULL;
+    
+    if (io_map->update_map == NULL) {
+	PrintError("Trying to refresh an io map with no backend\n");
+	return;
+    }
+
+    v3_rb_for_each_entry(tmp, &(io_map->map), tree_node) {
+	io_map->update_map(info, tmp->port, 
+			   ((tmp->read == NULL) ? 0 : 1), 
+			   ((tmp->write == NULL) ? 0 : 1));
+    }
+
+}
+
+
+
 void v3_print_io_map(struct guest_info * info) {
+    struct v3_io_map * io_map = &(info->io_map);
     struct v3_io_hook * tmp_hook = NULL;
-    struct rb_node * node = v3_rb_first(&(info->io_map.map));
 
     V3_Print("VMM IO Map\n");
 
-    do {
-	tmp_hook = rb_entry(node, struct v3_io_hook, tree_node);
-
+    v3_rb_for_each_entry(tmp_hook, &(io_map->map), tree_node) {
 	V3_Print("IO Port: %hu (Read=%p) (Write=%p)\n", 
 		 tmp_hook->port, 
 		 (void *)(tmp_hook->read), (void *)(tmp_hook->write));
-    } while ((node = v3_rb_next(node)));
+    }
 }
 
 

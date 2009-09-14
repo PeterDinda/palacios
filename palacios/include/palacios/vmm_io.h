@@ -79,7 +79,7 @@ struct v3_io_hook * v3_get_io_hook(struct guest_info * info, uint16_t port);
 
 void v3_print_io_map(struct guest_info * info);
 
-
+void v3_refresh_io_map(struct guest_info * info);
 
 
 void v3_outb(uint16_t port, uint8_t value);
