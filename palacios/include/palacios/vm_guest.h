@@ -33,7 +33,7 @@
 #include <palacios/vmm_host_events.h>
 #include <palacios/vmm_msr.h>
 #include <palacios/vmm_hypercall.h>
-
+#include <palacios/vmm_sym_iface.h>
 
 #ifdef CONFIG_TELEMETRY
 #include <palacios/vmm_telemetry.h>
@@ -153,6 +153,9 @@ struct guest_info {
     struct v3_io_map io_map;
 
     struct v3_msr_map msr_map;
+
+    // Symbiotic state
+    struct v3_sym_state sym_state;
 
 
     v3_hypercall_map_t hcall_map;

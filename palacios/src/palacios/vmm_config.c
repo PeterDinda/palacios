@@ -26,6 +26,7 @@
 #include <palacios/vmm_mem.h>
 #include <palacios/vmm_hypercall.h>
 #include <palacios/vmm_dev_mgr.h>
+#include <palacios/vmm_sym_iface.h>
 
 #ifdef CONFIG_SYMBIOTIC_SWAP
 #include <palacios/vmm_sym_swap.h>
@@ -90,24 +91,10 @@ int v3_pre_config_guest(struct guest_info * info, struct v3_vm_config * config_p
     }
 #endif
 
-    v3_init_time(info);
+    v3_init_hypercall_map(info);
     v3_init_io_map(info);
     v3_init_msr_map(info);
-    v3_init_interrupt_state(info);
-    v3_init_exception_state(info);
-    v3_init_dev_mgr(info);
     v3_init_host_events(info);
-
-
-    v3_init_decoder(info);
-    
-    v3_init_hypercall_map(info);
-
-#ifdef CONFIG_SYMBIOTIC_SWAP
-    v3_init_sym_swap(info);
-#endif
-
-
 
     // Initialize the memory map
     v3_init_shadow_map(info);
@@ -122,6 +109,18 @@ int v3_pre_config_guest(struct guest_info * info, struct v3_vm_config * config_p
 	info->shdw_pg_mode = SHADOW_PAGING;
     }
 
+    v3_init_sym_iface(info);
+
+    v3_init_time(info);
+    v3_init_interrupt_state(info);
+    v3_init_exception_state(info);
+    v3_init_dev_mgr(info);
+    v3_init_decoder(info);
+    
+#ifdef CONFIG_SYMBIOTIC_SWAP
+    PrintDebug("initializing symbiotic swap\n");
+    v3_init_sym_swap(info);
+#endif
 
 
     if (config_ptr->schedule_freq == 0) {
@@ -155,6 +154,9 @@ int v3_post_config_guest(struct guest_info * info, struct v3_vm_config * config_
 	PrintError("Failed to setup devices\n");
 	return -1;
     }
+
+    v3_print_io_map(info);
+    v3_print_msr_map(info);
 
     info->run_state = VM_STOPPED;
 
