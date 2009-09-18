@@ -90,14 +90,13 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
     ctrl_area->svm_instrs.CLGI = 1;
     ctrl_area->svm_instrs.SKINIT = 1;
     ctrl_area->svm_instrs.RDTSCP = 1;
-    ctrl_area->svm_instrs.CPUID = 1;
     ctrl_area->svm_instrs.ICEBP = 1;
     ctrl_area->svm_instrs.WBINVD = 1;
     ctrl_area->svm_instrs.MONITOR = 1;
     ctrl_area->svm_instrs.MWAIT_always = 1;
     ctrl_area->svm_instrs.MWAIT_if_armed = 1;
     ctrl_area->instrs.INVLPGA = 1;
-
+    ctrl_area->instrs.CPUID = 1;
 
     ctrl_area->instrs.HLT = 1;
     // guest_state->cr0 = 0x00000001;    // PE 
