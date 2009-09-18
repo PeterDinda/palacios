@@ -30,7 +30,7 @@ static void __inline__ v3_cpuid(uint32_t target,
 				uint32_t * ecx, uint32_t * edx) {
     __asm__ __volatile__ (
 			  "cpuid\n\t"
-			  : "=a" (*eax), "=S" (*ebx), "=c" (*ecx), "=d" (*edx)
+			  : "=a" (*eax), "=b" (*ebx), "=c" (*ecx), "=d" (*edx)
 			  : "0" (target), "2" (*ecx)
 			  );
     return;
