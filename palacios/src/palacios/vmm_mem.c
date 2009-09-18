@@ -387,7 +387,7 @@ addr_t v3_get_shadow_addr(struct v3_shadow_region * reg, addr_t guest_addr) {
          (reg->host_type != SHDW_REGION_FULL_HOOK)) {
         return (guest_addr - reg->guest_start) + reg->host_addr;
     } else {
-        PrintError("MEM Region Invalid\n");
+	//  PrintError("MEM Region Invalid\n");
         return 0;
     }
 
