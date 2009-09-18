@@ -23,6 +23,8 @@
 #include <palacios/vmcs.h>
 #include <palacios/vmx_lowlevel.h>
 #include <palacios/vmx_io.h>
+#include <palacios/vmm_cpuid.h>
+
 #include <palacios/vmx.h>
 #include <palacios/vmm_ctrl_regs.h>
 #include <palacios/vmm_lowlevel.h>
@@ -178,19 +180,13 @@ int v3_handle_vmx_exit(struct v3_gprs * gprs, struct guest_info * info, struct v
             }
 
             break;
-        case VMEXIT_CPUID: {
-	    int instr_len;
-            uint32_t target = info->vm_regs.rax;
-
-            v3_cpuid(target, (addr_t *)&(info->vm_regs.rax), (addr_t *)&(info->vm_regs.rbx), 
-                    (addr_t *)&(info->vm_regs.rcx), (addr_t *)&(info->vm_regs.rdx));
-
-            check_vmcs_read(VMCS_EXIT_INSTR_LEN, &instr_len);
-
-            info->rip += instr_len;
+        case VMEXIT_CPUID:
+	    if (v3_handle_cpuid(info) == -1) {
+		PrintError("Error Handling CPUID instruction\n");
+		return -1;
+	    }
 
             break;
-        }
         case VMEXIT_RDMSR: 
             if (v3_handle_msr_read(info) == -1) {
 		PrintError("Error handling MSR Read\n");

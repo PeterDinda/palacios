@@ -456,11 +456,11 @@ static int start_vmx_guest(struct guest_info* info) {
 
 int v3_is_vmx_capable() {
     v3_msr_t feature_msr;
-    addr_t eax = 0, ebx = 0, ecx = 0, edx = 0;
+    uint32_t eax = 0, ebx = 0, ecx = 0, edx = 0;
 
     v3_cpuid(0x1, &eax, &ebx, &ecx, &edx);
 
-    PrintDebug("ECX: %p\n", (void*)ecx);
+    PrintDebug("ECX: 0x%x\n", ecx);
 
     if (ecx & CPUID_1_ECX_VTXFLAG) {
         v3_get_msr(VMX_FEATURE_CONTROL_MSR, &(feature_msr.hi), &(feature_msr.lo));

@@ -30,7 +30,8 @@ obj-y := \
 	vmm_util.o \
 	vmm_xed.o \
 	vmm_binaries.o \
-	vmm_sym_iface.o
+	vmm_cpuid.o \
+	vmm_sym_iface.o \
 
 
 obj-$(CONFIG_SVM) +=    svm.o \

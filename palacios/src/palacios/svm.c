@@ -90,6 +90,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
     ctrl_area->svm_instrs.CLGI = 1;
     ctrl_area->svm_instrs.SKINIT = 1;
     ctrl_area->svm_instrs.RDTSCP = 1;
+    ctrl_area->svm_instrs.CPUID = 1;
     ctrl_area->svm_instrs.ICEBP = 1;
     ctrl_area->svm_instrs.WBINVD = 1;
     ctrl_area->svm_instrs.MONITOR = 1;
@@ -176,11 +177,9 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
     ctrl_area->instrs.IOIO_PROT = 1;
 
 
-
     v3_init_svm_msr_map(vm_info);
     ctrl_area->MSRPM_BASE_PA = (addr_t)V3_PAddr(vm_info->msr_map.arch_data);
     ctrl_area->instrs.MSR_PROT = 1;
-
 
 
     PrintDebug("Exiting on interrupts\n");
@@ -370,11 +369,11 @@ static int start_svm_guest(struct guest_info *info) {
 int v3_is_svm_capable() {
     // Dinda
     uint_t vm_cr_low = 0, vm_cr_high = 0;
-    addr_t eax = 0, ebx = 0, ecx = 0, edx = 0;
+    uint32_t eax = 0, ebx = 0, ecx = 0, edx = 0;
 
     v3_cpuid(CPUID_EXT_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
   
-    PrintDebug("CPUID_EXT_FEATURE_IDS_ecx=%p\n", (void *)ecx);
+    PrintDebug("CPUID_EXT_FEATURE_IDS_ecx=0x%x\n", ecx);
 
     if ((ecx & CPUID_EXT_FEATURE_IDS_ecx_svm_avail) == 0) {
       PrintDebug("SVM Not Available\n");
@@ -389,7 +388,7 @@ int v3_is_svm_capable() {
 	    
 	    v3_cpuid(CPUID_SVM_REV_AND_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
 	    
-	    PrintDebug("CPUID_SVM_REV_AND_FEATURE_IDS_edx=%p\n", (void *)edx);
+	    PrintDebug("CPUID_SVM_REV_AND_FEATURE_IDS_edx=0x%x\n", edx);
 	    
 	    if ((edx & CPUID_SVM_REV_AND_FEATURE_IDS_edx_svml) == 0) {
 		PrintDebug("SVM BIOS Disabled, not unlockable\n");
@@ -402,10 +401,10 @@ int v3_is_svm_capable() {
 	    PrintDebug("SVM is available and  enabled.\n");
 
 	    v3_cpuid(CPUID_SVM_REV_AND_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
-	    PrintDebug("CPUID_SVM_REV_AND_FEATURE_IDS_eax=%p\n", (void *)eax);
-	    PrintDebug("CPUID_SVM_REV_AND_FEATURE_IDS_ebx=%p\n", (void *)ebx);
-	    PrintDebug("CPUID_SVM_REV_AND_FEATURE_IDS_ecx=%p\n", (void *)ecx);
-	    PrintDebug("CPUID_SVM_REV_AND_FEATURE_IDS_edx=%p\n", (void *)edx);
+	    PrintDebug("CPUID_SVM_REV_AND_FEATURE_IDS_eax=0x%x\n", eax);
+	    PrintDebug("CPUID_SVM_REV_AND_FEATURE_IDS_ebx=0x%x\n", ebx);
+	    PrintDebug("CPUID_SVM_REV_AND_FEATURE_IDS_ecx=0x%x\n", ecx);
+	    PrintDebug("CPUID_SVM_REV_AND_FEATURE_IDS_edx=0x%x\n", edx);
 
 
 	    if ((edx & CPUID_SVM_REV_AND_FEATURE_IDS_edx_np) == 0) {
@@ -420,7 +419,7 @@ int v3_is_svm_capable() {
 }
 
 static int has_svm_nested_paging() {
-    addr_t eax = 0, ebx = 0, ecx = 0, edx = 0;
+    uint32_t eax = 0, ebx = 0, ecx = 0, edx = 0;
 
     v3_cpuid(CPUID_SVM_REV_AND_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
 

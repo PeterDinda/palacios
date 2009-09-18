@@ -24,9 +24,10 @@
 #define CPUID_EXT_FEATURE_IDS 0x80000001
 
 
-#ifdef __V3_32BIT__
 
-static void __inline__ v3_cpuid(uint_t target, addr_t * eax, addr_t * ebx, addr_t * ecx, addr_t * edx) {
+static void __inline__ v3_cpuid(uint32_t target, 
+				uint32_t * eax, uint32_t * ebx, 
+				uint32_t * ecx, uint32_t * edx) {
     __asm__ __volatile__ (
 			  "cpuid\n\t"
 			  : "=a" (*eax), "=S" (*ebx), "=c" (*ecx), "=d" (*edx)
@@ -34,19 +35,6 @@ static void __inline__ v3_cpuid(uint_t target, addr_t * eax, addr_t * ebx, addr_
 			  );
     return;
 }
-
-#elif __V3_64BIT__
-
-static void __inline__ v3_cpuid(uint_t target, addr_t * eax, addr_t * ebx, addr_t * ecx, addr_t * edx) {
-    __asm__ __volatile__ (
-			  "cpuid\n\t"
-			  : "=a" (*eax), "=b" (*ebx), "=c" (*ecx), "=d" (*edx)
-			  : "0" (target), "2" (*ecx)
-			  );
-    return;
-}
-
-#endif
 
 
 static void __inline__ v3_set_msr(uint_t msr, uint_t high_byte, uint_t low_byte) {

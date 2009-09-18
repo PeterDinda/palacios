@@ -27,6 +27,7 @@
 #include <palacios/vmm_hypercall.h>
 #include <palacios/vmm_dev_mgr.h>
 #include <palacios/vmm_sym_iface.h>
+#include <palacios/vmm_cpuid.h>
 
 #ifdef CONFIG_SYMBIOTIC_SWAP
 #include <palacios/vmm_sym_swap.h>
@@ -94,6 +95,7 @@ int v3_pre_config_guest(struct guest_info * info, struct v3_vm_config * config_p
     v3_init_hypercall_map(info);
     v3_init_io_map(info);
     v3_init_msr_map(info);
+    v3_init_cpuid_map(info);
     v3_init_host_events(info);
 
     // Initialize the memory map
@@ -155,7 +157,7 @@ int v3_post_config_guest(struct guest_info * info, struct v3_vm_config * config_
 	return -1;
     }
 
-    v3_print_io_map(info);
+    //    v3_print_io_map(info);
     v3_print_msr_map(info);
 
     info->run_state = VM_STOPPED;

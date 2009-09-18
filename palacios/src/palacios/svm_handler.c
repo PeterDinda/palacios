@@ -31,6 +31,7 @@
 #include <palacios/vmm_emulator.h>
 #include <palacios/svm_msr.h>
 #include <palacios/vmm_hypercall.h>
+#include <palacios/vmm_cpuid.h>
 #include <palacios/vmm_direct_paging.h>
 
 #ifdef CONFIG_TELEMETRY
@@ -139,6 +140,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
 	    break;
 	}
 	case VMEXIT_MSR:
+
 	    if (guest_ctrl->exit_info1 == 0) {
 		if (v3_handle_msr_read(info) == -1) {
 		    return -1;
@@ -152,6 +154,14 @@ int v3_handle_svm_exit(struct guest_info * info) {
 		return -1;
 	    }
 		
+	    break;
+
+	case VMEXIT_CPUID:
+	    if (v3_handle_cpuid(info) == -1) {
+		PrintError("Error handling CPUID\n");
+		return -1;
+	    }
+
 	    break;
 	case VMEXIT_CR0_WRITE: 
 #ifdef CONFIG_DEBUG_CTRL_REGS
