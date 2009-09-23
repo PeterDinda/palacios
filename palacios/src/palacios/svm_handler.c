@@ -34,6 +34,10 @@
 #include <palacios/vmm_cpuid.h>
 #include <palacios/vmm_direct_paging.h>
 
+#ifdef CONFIG_SYMBIOTIC
+#include <palacios/vmm_sym_iface.h>
+#endif
+
 #ifdef CONFIG_TELEMETRY
 #include <palacios/vmm_telemetry.h>
 #endif
@@ -43,7 +47,12 @@ int v3_handle_svm_exit(struct guest_info * info) {
     vmcb_ctrl_t * guest_ctrl = 0;
     vmcb_saved_state_t * guest_state = 0;
     ulong_t exit_code = 0;
-    
+
+#ifdef CONFIG_SYMBIOTIC
+    static int sym_started = 0;
+#endif
+
+
     guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
     guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
   
@@ -70,8 +79,21 @@ int v3_handle_svm_exit(struct guest_info * info) {
 
     exit_code = guest_ctrl->exit_code;
 
-    //    PrintDebug("SVM Exit: %s (rip=%p) (info1=%p)\n", vmexit_code_to_str(exit_code), 
-    //	       (void *)(addr_t)info->rip, (void *)(addr_t)guest_ctrl->exit_info1);
+
+
+#ifdef CONFIG_SYMBIOTIC
+    if (0) {
+	// ignore interrupt injection if we just started a symcall
+	PrintDebug("SVM Exit: %s (rip=%p) (info1=%p) (info2=%p)\n", vmexit_code_to_str(exit_code), 
+		   (void *)(addr_t)info->rip, (void *)(addr_t)guest_ctrl->exit_info1,
+		   (void *)(addr_t)guest_ctrl->exit_info2);
+	if (exit_code == VMEXIT_EXCP14) {
+	    PrintGuestPageTree(info, guest_ctrl->exit_info2, info->shdw_pg_state.guest_cr3);
+	}
+
+    }
+#endif
+
 
     if ((info->intr_state.irq_pending == 1) && (guest_ctrl->guest_ctrl.V_IRQ == 0)) {
 
@@ -186,6 +208,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
 	    if (v3_handle_cr3_write(info) == -1) {
 		return -1;
 	    }    
+
 	    break;
 	case  VMEXIT_CR3_READ: 
 #ifdef CONFIG_DEBUG_CTRL_REGS
@@ -256,13 +279,15 @@ int v3_handle_svm_exit(struct guest_info * info) {
 	    /* 
 	     * Hypercall 
 	     */
-		
+
+	    // VMMCALL is a 3 byte op
+	    // We do this early because some hypercalls can change the rip...
+	    info->rip += 3;	    
+
 	    if (v3_handle_hypercall(info) == -1) {
 		return -1;
 	    }
-		
-	    // VMMCALL is a 3 byte op
-	    info->rip += 3;
+	    
 	    break;	    
 	case VMEXIT_INTR:
 	    // handled by interrupt dispatch earlier
@@ -279,7 +304,7 @@ int v3_handle_svm_exit(struct guest_info * info) {
 	    }
 	    break;
 	case VMEXIT_PAUSE:
-	    //PrintDebug("Guest paused\n");
+	    PrintDebug("Guest paused\n");
 	    if (v3_handle_svm_pause(info) == -1) { 
 		return -1;
 	    }
@@ -339,6 +364,32 @@ int v3_handle_svm_exit(struct guest_info * info) {
 #endif
 
 
+
+#ifdef CONFIG_SYMBIOTIC
+    v3_activate_sym_call(info);
+#endif
+
+    guest_state->cr0 = info->ctrl_regs.cr0;
+    guest_state->cr2 = info->ctrl_regs.cr2;
+    guest_state->cr3 = info->ctrl_regs.cr3;
+    guest_state->cr4 = info->ctrl_regs.cr4;
+    guest_state->dr6 = info->dbg_regs.dr6;
+    guest_state->dr7 = info->dbg_regs.dr7;
+    guest_ctrl->guest_ctrl.V_TPR = info->ctrl_regs.cr8 & 0xff;
+    guest_state->rflags = info->ctrl_regs.rflags;
+    guest_state->efer = info->ctrl_regs.efer;
+    
+    guest_state->cpl = info->cpl;
+
+    v3_set_vmcb_segments((vmcb_t*)(info->vmm_data), &(info->segments));
+
+    guest_state->rax = info->vm_regs.rax;
+    guest_state->rip = info->rip;
+    guest_state->rsp = info->vm_regs.rsp;
+
+
+
+
     if (v3_excp_pending(info)) {
 	uint_t excp = v3_get_excp_number(info);
 	
@@ -355,12 +406,27 @@ int v3_handle_svm_exit(struct guest_info * info) {
 	guest_ctrl->EVENTINJ.vector = excp;
 	
 	guest_ctrl->EVENTINJ.valid = 1;
+
+	PrintDebug("Injecting Exception %d (EIP=%p)\n", 
+		   guest_ctrl->EVENTINJ.vector, 
+		   (void *)(addr_t)info->rip);
+
+
+
 #ifdef CONFIG_DEBUG_INTERRUPTS
 	PrintDebug("Injecting Exception %d (EIP=%p)\n", 
 		   guest_ctrl->EVENTINJ.vector, 
 		   (void *)(addr_t)info->rip);
 #endif
 	v3_injecting_excp(info, excp);
+
+#ifdef CONFIG_SYMBIOTIC
+    } else if (info->sym_state.call_active == 1) {
+	// ignore interrupt injection if we just started a symcall
+	PrintDebug("Symcall active\n");
+	sym_started = 1;
+#endif
+
     } else if (info->intr_state.irq_started == 1) {
 #ifdef CONFIG_DEBUG_INTERRUPTS
 	PrintDebug("IRQ pending from previous injection\n");
@@ -409,24 +475,6 @@ int v3_handle_svm_exit(struct guest_info * info) {
     }
 
 
-    guest_state->cr0 = info->ctrl_regs.cr0;
-    guest_state->cr2 = info->ctrl_regs.cr2;
-    guest_state->cr3 = info->ctrl_regs.cr3;
-    guest_state->cr4 = info->ctrl_regs.cr4;
-    guest_state->dr6 = info->dbg_regs.dr6;
-    guest_state->dr7 = info->dbg_regs.dr7;
-    guest_ctrl->guest_ctrl.V_TPR = info->ctrl_regs.cr8 & 0xff;
-    guest_state->rflags = info->ctrl_regs.rflags;
-    guest_state->efer = info->ctrl_regs.efer;
-    
-    guest_state->cpl = info->cpl;
-
-    guest_state->rax = info->vm_regs.rax;
-    guest_state->rip = info->rip;
-    guest_state->rsp = info->vm_regs.rsp;
-
-
-    v3_set_vmcb_segments((vmcb_t*)(info->vmm_data), &(info->segments));
 
     if (exit_code == VMEXIT_INTR) {
 	//PrintDebug("INTR ret IP = %x\n", guest_state->rip);

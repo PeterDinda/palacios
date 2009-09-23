@@ -131,7 +131,10 @@ int v3_handle_cpuid(struct guest_info * info) {
     uint32_t cpuid = info->vm_regs.rax;
     struct v3_cpuid_hook * hook = get_cpuid_hook(info, cpuid);
 
+    //PrintDebug("CPUID called for 0x%x\n", cpuid);
+
     if (hook == NULL) {
+	//PrintDebug("Calling passthrough handler\n");
 	// call the passthrough handler
 	v3_cpuid(cpuid, 
 		 (uint32_t *)&(info->vm_regs.rax), 
@@ -139,6 +142,8 @@ int v3_handle_cpuid(struct guest_info * info) {
 		 (uint32_t *)&(info->vm_regs.rcx), 
 		 (uint32_t *)&(info->vm_regs.rdx));
     } else {
+	//	PrintDebug("Calling hook function\n");
+
 	if (hook->hook_fn(info, cpuid, 
 			  (uint32_t *)&(info->vm_regs.rax), 
 			  (uint32_t *)&(info->vm_regs.rbx), 
@@ -149,6 +154,8 @@ int v3_handle_cpuid(struct guest_info * info) {
 	    return -1;
 	}
     }
+
+    //    PrintDebug("Cleaning up register contents\n");
 
     info->vm_regs.rax &= 0x00000000ffffffffLL;
     info->vm_regs.rbx &= 0x00000000ffffffffLL;

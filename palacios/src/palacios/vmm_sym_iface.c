@@ -21,10 +21,13 @@
 #include <palacios/vmm.h>
 #include <palacios/vmm_msr.h>
 #include <palacios/vmm_mem.h>
+#include <palacios/vmm_hypercall.h>
 
-#define SYM_MSR_NUM 0x535
+#define SYM_PAGE_MSR 0x535
 
+#define SYM_CPUID_NUM 0x90000000
 
+#define SYM_CALL_RET_HCALL 0x535
 
 
 static int msr_read(uint_t msr, struct v3_msr * dst, void * priv_data) {
@@ -39,6 +42,9 @@ static int msr_read(uint_t msr, struct v3_msr * dst, void * priv_data) {
 static int msr_write(uint_t msr, struct v3_msr src, void * priv_data) {
     struct guest_info * info = (struct guest_info *)priv_data;
     struct v3_sym_state * state = &(info->sym_state);
+
+
+    PrintDebug("Symbiotic MSR write for page %p\n", (void *)src.value);
 
     if (state->active == 1) {
 	// unmap page
@@ -65,45 +71,216 @@ static int msr_write(uint_t msr, struct v3_msr src, void * priv_data) {
     return 0;
 }
 
+static int cpuid_fn(struct guest_info * info, uint32_t cpuid, 
+		    uint32_t * eax, uint32_t * ebx,
+		    uint32_t * ecx, uint32_t * edx,
+		    void * private_data) {
+
+    memset(eax, 0, sizeof(uint32_t));
+    memcpy(eax, "V3V", 3);
+
+    return 0;
+}
+    
+
+static int sym_call_ret(struct guest_info * info, uint_t hcall_id, void * private_data);
+
 
 
 int v3_init_sym_iface(struct guest_info * info) {
     struct v3_sym_state * state = &(info->sym_state);
-    
     memset(state, 0, sizeof(struct v3_sym_state));
 
-    PrintDebug("Allocating symbiotic page\n");
     state->sym_page_pa = (addr_t)V3_AllocPages(1);
     state->sym_page = (struct v3_sym_interface *)V3_VAddr((void *)state->sym_page_pa);
-
-    PrintDebug("Clearing symbiotic page\n");
     memset(state->sym_page, 0, PAGE_SIZE_4KB);
 
-    PrintDebug("hooking MSR\n");
-    v3_hook_msr(info, SYM_MSR_NUM, msr_read, msr_write, info);
+    
+    memcpy(&(state->sym_page->magic), "V3V", 3);
 
-    PrintDebug("Done\n");
+    v3_hook_msr(info, SYM_PAGE_MSR, msr_read, msr_write, info);
+
+    v3_hook_cpuid(info, SYM_CPUID_NUM, cpuid_fn, info);
+
+
+    v3_register_hypercall(info, SYM_CALL_RET_HCALL, sym_call_ret, NULL);
+
     return 0;
 }
 
 int v3_sym_map_pci_passthrough(struct guest_info * info, uint_t bus, uint_t dev, uint_t fn) {
     struct v3_sym_state * state = &(info->sym_state);
-    uint_t dev_index = (bus << 16) + (dev << 8) + fn;
+    uint_t dev_index = (bus << 8) + (dev << 3) + fn;
     uint_t major = dev_index / 8;
     uint_t minor = dev_index % 8;
 
+    if (bus > 3) {
+	PrintError("Invalid PCI bus %d\n", bus);
+	return -1;
+    }
+
+    PrintDebug("Setting passthrough pci map for index=%d\n", dev_index);
+
     state->sym_page->pci_pt_map[major] |= 0x1 << minor;
+
+    PrintDebug("pt_map entry=%x\n",   state->sym_page->pci_pt_map[major]);
+
+    PrintDebug("pt map vmm addr=%p\n", state->sym_page->pci_pt_map);
 
     return 0;
 }
 
 int v3_sym_unmap_pci_passthrough(struct guest_info * info, uint_t bus, uint_t dev, uint_t fn) {
     struct v3_sym_state * state = &(info->sym_state);
-    uint_t dev_index = (bus << 16) + (dev << 8) + fn;
+    uint_t dev_index = (bus << 8) + (dev << 3) + fn;
     uint_t major = dev_index / 8;
     uint_t minor = dev_index % 8;
+
+    if (bus > 3) {
+	PrintError("Invalid PCI bus %d\n", bus);
+	return -1;
+    }
 
     state->sym_page->pci_pt_map[major] &= ~(0x1 << minor);
 
     return 0;
+}
+
+
+
+static int sym_call_ret(struct guest_info * info, uint_t hcall_id, void * private_data) {
+    struct v3_sym_state * state = (struct v3_sym_state *)&(info->sym_state);
+    struct v3_sym_context * old_ctx = (struct v3_sym_context *)&(state->old_ctx);
+
+
+    PrintError("Return from sym call\n");
+    v3_print_guest_state(info);
+    v3_print_mem_map(info);
+
+
+    if (state->notifier != NULL) {
+	if (state->notifier(info, state->private_data) == -1) {
+	    PrintError("Error in return from symcall.\n");
+	    return -1;
+	}
+    }
+
+
+    // restore guest state
+    memcpy(&(info->vm_regs), &(old_ctx->vm_regs), sizeof(struct v3_gprs));
+    memcpy(&(info->segments.cs), &(old_ctx->cs), sizeof(struct v3_segment));
+    memcpy(&(info->segments.ss), &(old_ctx->ss), sizeof(struct v3_segment));
+    info->segments.gs.base = old_ctx->gs_base;
+    info->segments.fs.base = old_ctx->fs_base;
+    info->rip = old_ctx->rip;
+    info->cpl = old_ctx->cpl;
+
+
+    PrintDebug("restoring guest state\n");
+    v3_print_guest_state(info);
+
+    // clear sym flags
+    state->call_active = 0;
+
+
+    return 0;
+}
+
+
+int v3_sym_call(struct guest_info * info, 
+		uint64_t arg0, uint64_t arg1, 
+		uint64_t arg2, uint64_t arg3,
+		uint64_t arg4, uint64_t arg5, 
+		int (*notifier)(struct guest_info * info, void * private_data),
+		void * private_data) {
+    struct v3_sym_state * state = (struct v3_sym_state *)&(info->sym_state);
+
+
+    PrintDebug("Making Sym call\n");
+
+    if ((state->sym_page->sym_call_enabled == 0) ||
+	(state->call_active == 1) || 
+	(state->call_pending == 1)) {
+	return -1;
+    }
+
+    state->args[0] = arg0;
+    state->args[1] = arg1;
+    state->args[2] = arg2;
+    state->args[3] = arg3;
+    state->args[4] = arg4;
+    state->args[5] = arg5;
+
+    state->notifier = notifier;
+    state->private_data = private_data;
+
+    state->call_pending = 1;
+
+    return 0;
+}
+
+
+
+int v3_activate_sym_call(struct guest_info * info) {
+    struct v3_sym_state * state = (struct v3_sym_state *)&(info->sym_state);
+    struct v3_sym_context * old_ctx = (struct v3_sym_context *)&(state->old_ctx);
+    struct v3_segment sym_cs;
+    struct v3_segment sym_ss;
+
+
+    if ((state->sym_page->sym_call_enabled == 0) || 
+	(state->call_pending == 0)) {
+	// Unable to make sym call or none pending
+	if (state->call_active == 1) {
+	    PrintError("handled exit while in symcall\n");
+	}
+	return 0;
+    }
+
+
+    PrintDebug("Activating Symbiotic call\n");
+    v3_print_guest_state(info);
+
+
+    // Save the old context
+    memcpy(&(old_ctx->vm_regs), &(info->vm_regs), sizeof(struct v3_gprs));
+    memcpy(&(old_ctx->cs), &(info->segments.cs), sizeof(struct v3_segment));
+    memcpy(&(old_ctx->ss), &(info->segments.ss), sizeof(struct v3_segment));
+    old_ctx->gs_base = info->segments.gs.base;
+    old_ctx->fs_base = info->segments.fs.base;
+    old_ctx->rip = info->rip;
+    old_ctx->cpl = info->cpl;
+
+    
+ 
+    // Setup the sym call context
+    info->rip = state->sym_page->sym_call_rip;
+    info->vm_regs.rsp = state->sym_page->sym_call_rsp;
+
+    v3_translate_segment(info, state->sym_page->sym_call_cs, &sym_cs);
+    memcpy(&(info->segments.cs), &sym_cs, sizeof(struct v3_segment));
+ 
+    v3_translate_segment(info, state->sym_page->sym_call_cs + 8, &sym_ss);
+    memcpy(&(info->segments.ss), &sym_ss, sizeof(struct v3_segment));
+
+    info->segments.gs.base = state->sym_page->sym_call_gs;
+    info->segments.fs.base = 0;
+    info->cpl = 0;
+
+    info->vm_regs.rax = state->args[0];
+    info->vm_regs.rbx = state->args[1];
+    info->vm_regs.rcx = state->args[2];
+    info->vm_regs.rdx = state->args[3];
+    info->vm_regs.rsi = state->args[4];
+    info->vm_regs.rdi = state->args[5];
+
+    // Mark sym call as active
+    state->call_pending = 0;
+    state->call_active = 1;
+
+
+    PrintDebug("Sym state\n");
+    v3_print_guest_state(info);
+
+    return 1;
 }

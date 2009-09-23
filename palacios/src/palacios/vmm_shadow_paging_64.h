@@ -154,7 +154,7 @@ static inline int handle_shadow_pagefault_64(struct guest_info * info, addr_t fa
 
     if (guest_pa_to_host_va(info, BASE_TO_PAGE_ADDR(guest_pml4e->pdp_base_addr), (addr_t *)&guest_pdp) == -1) {
 	// Machine check the guest
-	PrintDebug("Invalid Guest PDP Address: 0x%p\n", (void *)BASE_TO_PAGE_ADDR(guest_pml4e->pdp_base_addr));
+	PrintError("Invalid Guest PDP Address: 0x%p\n", (void *)BASE_TO_PAGE_ADDR(guest_pml4e->pdp_base_addr));
 	v3_raise_exception(info, MC_EXCEPTION);
 	return 0;
     }
@@ -255,7 +255,7 @@ static int handle_pdpe_shadow_pagefault_64(struct guest_info * info, addr_t faul
 
     if (guest_pa_to_host_va(info, BASE_TO_PAGE_ADDR(guest_pdpe->pd_base_addr), (addr_t *)&guest_pd) == -1) {
 	// Machine check the guest
-	PrintDebug("Invalid Guest PTE Address: 0x%p\n", (void *)BASE_TO_PAGE_ADDR(guest_pdpe->pd_base_addr));
+	PrintError("Invalid Guest PTE Address: 0x%p\n", (void *)BASE_TO_PAGE_ADDR(guest_pdpe->pd_base_addr));
 	v3_raise_exception(info, MC_EXCEPTION);
 	return 0;
     }
@@ -377,7 +377,7 @@ static int handle_pde_shadow_pagefault_64(struct guest_info * info, addr_t fault
     if (guest_pde->large_page == 0) {
 	if (guest_pa_to_host_va(info, BASE_TO_PAGE_ADDR(guest_pde->pt_base_addr), (addr_t *)&guest_pt) == -1) {
 	    // Machine check the guest
-	    PrintDebug("Invalid Guest PTE Address: 0x%p\n", (void *)BASE_TO_PAGE_ADDR(guest_pde->pt_base_addr));
+	    PrintError("Invalid Guest PTE Address: 0x%p\n", (void *)BASE_TO_PAGE_ADDR(guest_pde->pt_base_addr));
 	    v3_raise_exception(info, MC_EXCEPTION);
 	    return 0;
 	}
@@ -414,7 +414,7 @@ static int handle_pte_shadow_pagefault_64(struct guest_info * info, addr_t fault
 
     if (shdw_reg == NULL) {
 	// Inject a machine check in the guest
-	PrintDebug("Invalid Guest Address in page table (0x%p)\n", (void *)guest_pa);
+	PrintError("Invalid Guest Address in page table (0x%p)\n", (void *)guest_pa);
 	v3_raise_exception(info, MC_EXCEPTION);
 	return 0;
     }
@@ -541,7 +541,7 @@ static int handle_2MB_shadow_pagefault_64(struct guest_info * info,
  
     if (shdw_reg == NULL) {
 	// Inject a machine check in the guest
-	PrintDebug("Invalid Guest Address in page table (0x%p)\n", (void *)guest_fault_pa);
+	PrintError("Invalid Guest Address in page table (0x%p)\n", (void *)guest_fault_pa);
 	v3_raise_exception(info, MC_EXCEPTION);
 	return 0;
     }

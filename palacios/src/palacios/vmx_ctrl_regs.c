@@ -83,10 +83,11 @@ static int handle_mov_to_cr3(struct guest_info * info, v3_reg_t * cr3_reg) {
 
     if (info->shdw_pg_mode == SHADOW_PAGING) {
 
+	/*
         PrintDebug("Old Guest CR3=%p, Old Shadow CR3=%p\n",
 		   (void *)info->ctrl_regs.cr3,
 		   (void *)info->shdw_pg_state.guest_cr3);
-
+	*/
         if (info->cpu_mode == LONG) {
             info->shdw_pg_state.guest_cr3 = (uint64_t)*cr3_reg;
         } else {
@@ -100,11 +101,11 @@ static int handle_mov_to_cr3(struct guest_info * info, v3_reg_t * cr3_reg) {
                 return -1;
             }
         }
-
+	/*
         PrintDebug("New guest CR3=%p, New shadow CR3=%p\n",
 		   (void *)info->ctrl_regs.cr3,
 		   (void *)info->shdw_pg_state.guest_cr3);
-
+	*/
     } else if (info->shdw_pg_mode == NESTED_PAGING) {
         PrintError("Nested paging not available in VMX right now!\n");
         return -1;
@@ -150,15 +151,17 @@ static int handle_mov_to_cr0(struct guest_info * info, v3_reg_t * new_cr0) {
     uint_t paging_transition = 0;
     int instr_len = 0;
 
+    /*
     PrintDebug("Old shadow CR0: 0x%x, New shadow CR0: 0x%x\n",
 	       (uint32_t)info->shdw_pg_state.guest_cr0, (uint32_t)*new_cr0);
-
+    */
 
     if (new_shdw_cr0->pe != shdw_cr0->pe) {
+	/*
         PrintDebug("Guest CR0: 0x%x\n", *(uint32_t *)guest_cr0);
         PrintDebug("Old shadow CR0: 0x%x\n", *(uint32_t *)shdw_cr0);
         PrintDebug("New shadow CR0: 0x%x\n", *(uint32_t *)new_shdw_cr0);
-
+	*/
         if (v3_vmxassist_ctx_switch(info) != 0) {
             PrintError("Unable to execute VMXASSIST context switch!\n");
             return -1;
@@ -200,7 +203,7 @@ static int handle_mov_to_cr0(struct guest_info * info, v3_reg_t * new_cr0) {
             struct efer_64 * guest_efer = (struct efer_64 *)&(info->ctrl_regs.efer);
 
             if (guest_efer->lme == 1) {
-                PrintDebug("Enabling long mode\n");
+		//     PrintDebug("Enabling long mode\n");
 
                 guest_efer->lma = 1;
                 guest_efer->lme = 1;
@@ -208,7 +211,7 @@ static int handle_mov_to_cr0(struct guest_info * info, v3_reg_t * new_cr0) {
                 vmx_info->entry_ctrls.guest_ia32e = 1;
             }
 
-            PrintDebug("Activating Shadow Page tables\n");
+	    //            PrintDebug("Activating Shadow Page tables\n");
 
             if (v3_activate_shadow_pt(info) == -1) {
                 PrintError("Failed to activate shadow page tables\n");

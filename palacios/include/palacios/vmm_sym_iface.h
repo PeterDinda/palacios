@@ -23,7 +23,7 @@
 
 #ifdef __V3VEE__
 
-
+#include <palacios/vm_guest.h>
 
 
 
@@ -34,16 +34,45 @@ struct v3_sym_interface {
     union {
 	uint32_t feature_flags;
 	struct {
-	    uint_t cur_proc_valid         : 1;
-	    uint_t proc_list_valid        : 1;
+	    uint_t pci_map_valid          : 1;
+	    uint32_t sym_call_enabled       : 1;
 	} __attribute__((packed));
     } __attribute__((packed));
 
-    addr_t current_proc;
-    addr_t proc_list;
+    union { 
+	uint32_t state_flags;
+	struct {
+	    uint32_t sym_call_active        : 1;
+	} __attribute__((packed));
+    } __attribute__((packed));
 
-    uint8_t pci_pt_map[256 / 8];
+    uint64_t current_proc;
+    uint64_t proc_list;
+    
+    uint8_t pci_pt_map[(4 * 256) / 8]; // we're hardcoding this: (4 busses, 256 max devs)
+
+
+    uint64_t sym_call_rip;
+    uint64_t sym_call_cs;
+    uint64_t sym_call_rsp;
+    uint64_t sym_call_gs;
+    uint64_t sym_call_ret_fn;
+
 } __attribute__((packed));
+
+
+
+
+struct v3_sym_context {
+    struct v3_gprs vm_regs;
+    struct v3_segment cs;
+    struct v3_segment ss;
+    uint64_t gs_base;
+    uint64_t fs_base;
+    uint64_t rip;
+    uint8_t cpl;
+};
+
 
 
 struct v3_sym_state {
@@ -51,18 +80,54 @@ struct v3_sym_state {
     struct v3_sym_interface * sym_page;
     addr_t sym_page_pa;
 
-    uint_t active;
     uint64_t guest_pg_addr;
+
+    struct {
+	uint_t active              : 1;
+	uint_t call_pending        : 1;
+	uint_t call_active         : 1;
+    } __attribute__((packed));
+
+    struct v3_sym_context old_ctx;
+    uint64_t args[6];
+    int (*notifier)(struct guest_info * info, void * private_data);
+
+    void * private_data;
 
 };
 
 int v3_init_sym_iface(struct guest_info * info);
 
 
+
+#define v3_sym_call0(info, call_num, cb, priv)		\
+    v3_sym_call(info, call_num, 0, 0, 0, 0, 0, cb, priv)
+#define v3_sym_call1(info, call_num, arg1, cb, priv)		\
+    v3_sym_call(info, call_num, arg1, 0, 0, 0, 0, cb, priv)
+#define v3_sym_call2(info, call_num, arg1, arg2, cb, priv)	\
+    v3_sym_call(info, call_num, arg1, arg2, 0, 0, 0, cb, priv)
+#define v3_sym_call3(info, call_num, arg1, arg2, arg3, cb, priv)	\
+    v3_sym_call(info, call_num, arg1, arg2, arg3, 0, 0, cb, priv)
+#define v3_sym_call4(info, call_num, arg1, arg2, arg3, arg4, cb, priv)	\
+    v3_sym_call(info, call_num, arg1, arg2, arg3, arg4, 0, cb, priv)
+#define v3_sym_call5(info, call_num, arg1, arg2, arg3, arg4, arg5, cb, priv)	\
+    v3_sym_call(info, call_num, arg1, arg2, arg3, arg4, arg5, cb, priv)
+
+
+
+
 int v3_sym_map_pci_passthrough(struct guest_info * info, uint_t bus, uint_t dev, uint_t fn);
 int v3_sym_unmap_pci_passthrough(struct guest_info * info, uint_t bus, uint_t dev, uint_t fn);
 
 
+int v3_sym_call(struct guest_info * info, 
+		uint64_t arg0, uint64_t arg1, 
+		uint64_t arg2, uint64_t arg3,
+		uint64_t arg4, uint64_t arg5, 
+		int (*notifier)(struct guest_info * info, void * private_data),
+		void * private_data);
+
+int v3_activate_sym_call(struct guest_info * info);
 
 #endif
 

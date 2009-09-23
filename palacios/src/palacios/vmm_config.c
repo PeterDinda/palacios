@@ -258,7 +258,8 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
 
     if (config_ptr->enable_pci == 1) {
 	struct ide_cfg ide_config = {"PCI", "PIIX3"};
-	struct pci_passthrough_cfg pci_pt_cfg = {"PCI", "E1000", 0x8086, 0x100e};
+	struct pci_passthrough_cfg pci_qemu_pt_cfg = {"PCI", "E1000", 0x8086, 0x100e};
+	struct pci_passthrough_cfg pci_hw_pt_cfg = {"PCI", "E1000", 0x8086, 0x107c};
 	
 	v3_create_device(info, "PCI", NULL);
 	v3_create_device(info, "i440FX", "PCI");
@@ -272,7 +273,9 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
 
 	v3_create_device(info, "IDE", &ide_config);
        
-	v3_create_device(info, "PCI_PASSTHROUGH", &pci_pt_cfg);
+	v3_create_device(info, "PCI_PASSTHROUGH", &pci_qemu_pt_cfg);
+	v3_create_device(info, "PCI_PASSTHROUGH", &pci_hw_pt_cfg);
+
 
     } else {
 	v3_create_device(info, "IDE", NULL);

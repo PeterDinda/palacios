@@ -19,7 +19,7 @@
 
 #include <palacios/svm_msr.h>
 #include <palacios/vmm_msr.h>
-
+#include <palacios/vmm_sprintf.h>
 #include <palacios/vmm_list.h>
 
 
@@ -30,9 +30,9 @@
 #define AMD_7_8_GEN_MSRS_START        0xc0010000
 #define AMD_7_8_GEN_MSRS_END          0xc0011fff
 
-#define PENTIUM_MSRS_INDEX            (0x0 * 4)
-#define AMD_6_GEN_MSRS_INDEX          (0x800 * 4)
-#define AMD_7_8_GEN_MSRS_INDEX        (0x1000 * 4)
+#define PENTIUM_MSRS_INDEX            (0)
+#define AMD_6_GEN_MSRS_INDEX          (0x2000)
+#define AMD_7_8_GEN_MSRS_INDEX        (0x4000)
 
 
 
@@ -71,7 +71,7 @@ static int update_map(struct guest_info * info, uint_t msr, int hook_reads, int 
 
     *(bitmap + major) &= ~(mask << minor);
     *(bitmap + major) |= (val << minor);
-    
+
     return 0;
 }
 

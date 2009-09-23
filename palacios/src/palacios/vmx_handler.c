@@ -67,10 +67,10 @@ static int inline handle_cr_access(struct guest_info * info, ulong_t exit_qual) 
     // PrintDebug("Control register: %d\n", cr_qual->access_type);
     switch(cr_qual->cr_id) {
         case 0:
-	    PrintDebug("Handling CR0 Access\n");
+	    //PrintDebug("Handling CR0 Access\n");
             return v3_vmx_handle_cr0_access(info);
         case 3:
-	    PrintDebug("Handling CR3 Access\n");
+	    //PrintDebug("Handling CR3 Access\n");
             return v3_vmx_handle_cr3_access(info);
         default:
             PrintError("Unhandled CR access: %d\n", cr_qual->cr_id);
@@ -201,6 +201,19 @@ int v3_handle_vmx_exit(struct v3_gprs * gprs, struct guest_info * info, struct v
 	    }
 
             break;
+	case VMEXIT_VMCALL:
+	    /* 
+	     * Hypercall 
+	     */
+
+	    // VMCALL is a 3 byte op
+	    // We do this early because some hypercalls can change the rip...
+	    info->rip += 3;	    
+
+	    if (v3_handle_hypercall(info) == -1) {
+		return -1;
+	    }
+	    break;
         case VMEXIT_IO_INSTR: {
 	    struct vmx_exit_io_qual * io_qual = (struct vmx_exit_io_qual *)&exit_qual;
 
@@ -293,12 +306,16 @@ int v3_handle_vmx_exit(struct v3_gprs * gprs, struct guest_info * info, struct v
             check_vmcs_write(VMCS_ENTRY_EXCP_ERR, info->excp_state.excp_error_code);
             int_info.error_code = 1;
 
+#ifdef CONFIG_DEBUG_INTERRUPTS
             PrintDebug("Injecting exception %d with error code %x\n", 
                     int_info.vector, info->excp_state.excp_error_code);
+#endif
         }
 
         int_info.valid = 1;
+#ifdef CONFIG_DEBUG_INTERRUPTS
         PrintDebug("Injecting exception %d (EIP=%p)\n", int_info.vector, (void *)info->rip);
+#endif
         check_vmcs_write(VMCS_ENTRY_INT_INFO, int_info.value);
 
         v3_injecting_excp(info, int_info.vector);

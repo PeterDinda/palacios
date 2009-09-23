@@ -38,6 +38,8 @@ int v3_handle_msr_write(struct guest_info * info) {
     struct v3_msr msr_val;
     struct v3_msr_hook * hook = NULL;
 
+    PrintDebug("MSR write for msr 0x%x\n", msr_num);
+
     hook = v3_get_msr_hook(info, msr_num);
 
     if (!hook) {
@@ -151,6 +153,7 @@ void v3_refresh_msr_map(struct guest_info * info) {
     }
 
     list_for_each_entry(hook, &(msr_map->hook_list), link) {
+	PrintDebug("updating MSR map for msr %d\n", hook->msr);
 	msr_map->update_map(info, hook->msr, 	
 			    (hook->read == NULL) ? 0 : 1,
 			    (hook->write == NULL) ? 0 : 1);
@@ -162,7 +165,7 @@ void v3_print_msr_map(struct guest_info * info) {
     struct v3_msr_hook * hook = NULL;
 
     list_for_each_entry(hook, &(msr_map->hook_list), link) {
-	PrintDebug("MSR HOOK (MSR=%d) (read=0x%p) (write=0x%p)\n",
+	V3_Print("MSR HOOK (MSR=0x%x) (read=0x%p) (write=0x%p)\n",
 		   hook->msr, hook->read, hook->write);
     }
 }

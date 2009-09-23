@@ -34,7 +34,7 @@
 #include <palacios/vmm_msr.h>
 #include <palacios/vmm_hypercall.h>
 #include <palacios/vmm_cpuid.h>
-#include <palacios/vmm_sym_iface.h>
+
 
 #ifdef CONFIG_TELEMETRY
 #include <palacios/vmm_telemetry.h>
@@ -43,6 +43,9 @@
 #ifdef CONFIG_SYMBIOTIC_SWAP
 #include <palacios/vmm_sym_swap.h>
 #endif
+
+
+
 
 
 struct v3_gprs {
@@ -116,6 +119,11 @@ struct v3_segments {
     struct v3_segment tr;
 };
 
+
+#ifdef CONFIG_SYMBIOTIC
+#include <palacios/vmm_sym_iface.h>
+#endif
+
 struct shadow_page_state;
 struct v3_intr_state;
 
@@ -127,6 +135,9 @@ struct v3_telemetry;
 struct v3_sym_swap_state;
 #endif
 
+#ifdef CONFIG_SYMBIOTIC
+struct v3_sym_state;
+#endif
 
 struct guest_info {
     uint64_t rip;
@@ -157,9 +168,10 @@ struct guest_info {
 
     struct v3_cpuid_map cpuid_map;
 
+#ifdef CONFIG_SYMBIOTIC
     // Symbiotic state
     struct v3_sym_state sym_state;
-
+#endif
 
     v3_hypercall_map_t hcall_map;
 
@@ -210,6 +222,8 @@ v3_mem_mode_t v3_get_vm_mem_mode(struct guest_info * info);
 
 const uchar_t * v3_cpu_mode_to_str(v3_cpu_mode_t mode);
 const uchar_t * v3_mem_mode_to_str(v3_mem_mode_t mode);
+
+int v3_translate_segment(struct guest_info * info, uint16_t selector, struct v3_segment * seg);
 
 
 void v3_print_guest_state(struct guest_info * info);

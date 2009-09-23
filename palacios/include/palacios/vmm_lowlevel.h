@@ -23,6 +23,47 @@
 #define CPUID_FEATURE_IDS 0x00000001
 #define CPUID_EXT_FEATURE_IDS 0x80000001
 
+struct seg_selector {
+    union {
+	uint16_t value;
+	struct {
+	    uint8_t rpl     : 2;
+	    uint8_t ti      : 1;
+	    uint16_t si     : 13;
+	} __attribute__((packed));
+    } __attribute__((packed));
+} __attribute__((packed));
+
+struct gen_segment {
+    uint16_t limit_lo;
+    uint32_t base_lo     : 24;
+    uint8_t type         : 4;
+    uint8_t system       : 1;
+    uint8_t dpl          : 2;
+    uint8_t present      : 1;
+    uint8_t limit_hi     : 4;
+    uint8_t avail        : 1;
+    uint8_t long_mode    : 1;
+    uint8_t db           : 1;
+    uint8_t granularity  : 1;
+    uint8_t base_hi      : 8;
+} __attribute__((packed));
+
+struct sys_segment64 {
+    uint16_t limit_lo;
+    uint32_t base_lo     : 24;
+    uint8_t type         : 4;
+    uint8_t rsvd0        : 1;
+    uint8_t dpl          : 2;
+    uint8_t present      : 1;
+    uint8_t limit_hi     : 4;
+    uint8_t avail        : 1;
+    uint8_t rsvd1        : 3;
+    uint8_t granularity  : 1;
+    uint64_t base_hi     : 40;
+    uint32_t rsvd2;
+} __attribute__((packed));
+
 
 
 static void __inline__ v3_cpuid(uint32_t target, 

@@ -291,8 +291,39 @@ void Main(struct Boot_Info* bootInfo)
 
 
   PrintBoth("Next: setup GDT\n");
+  {
+    uint_t addr = 0xe0000;
+    uint_t hi = 0;
 
 
+   
+    //    wrmsr(SYMBIOTIC_MSR, hi, addr);
+    {
+	uint_t msr_num = 0x0000001B;
+	__asm__ __volatile__ ("rdmsr" : : "c"(msr_num) : "%eax","%edx","memory");
+    }
+    {
+	uint_t msr_num = 0x0000001c;
+	__asm__ __volatile__ ("rdmsr" : : "c"(msr_num) : "%eax","%edx","memory");
+    }
+
+
+    {
+	uint_t msr_num = 0x0000001B;
+	__asm__ __volatile__ ("wrmsr" : : "c"(msr_num), "a"(hi), "d"(addr) : "memory");
+    }
+
+
+
+    {
+	uint_t msr_num = 0x535;
+	__asm__ __volatile__ ("wrmsr" : : "c"(msr_num), "a"(hi), "d"(addr) : "memory");
+    }
+
+
+    while (1) {}
+
+  }
   if (TEST_PAGING) {
       int i = 0;
       for (i = 0; i < 1024; i++) {

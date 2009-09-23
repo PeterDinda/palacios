@@ -327,6 +327,9 @@ static int key_event_handler(struct guest_info * info,
     if (evt->scan_code == 0x44) { // F10 debug dump
 	v3_print_guest_state(info);
 	//	PrintGuestPageTables(info, info->shdw_pg_state.guest_cr3);
+    } else if (evt->scan_code == 0x43) { // F9 Sym test
+	PrintDebug("Testing sym call\n");
+	v3_sym_call0(info, 0, NULL, NULL);
     }
 
     addr_t irq_state = v3_lock_irqsave(state->kb_lock);
