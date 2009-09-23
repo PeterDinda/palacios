@@ -183,6 +183,8 @@ struct apic_state {
 
 };
 
+static int apic_read(addr_t guest_addr, void * dst, uint_t length, void * priv_data);
+static int apic_write(addr_t guest_addr, void * src, uint_t length, void * priv_data);
 
 static void init_apic_state(struct apic_state * apic) {
     apic->base_addr = DEFAULT_BASE_ADDR;
@@ -242,12 +244,26 @@ static int read_apic_msr(uint_t msr, v3_msr_t * dst, void * priv_data) {
 
 
 static int write_apic_msr(uint_t msr, v3_msr_t src, void * priv_data) {
-    //  struct vm_device * dev = (struct vm_device *)priv_data;
-    //  struct apic_state * apic = (struct apic_state *)dev->private_data;
+    struct vm_device * dev = (struct vm_device *)priv_data;
+    struct apic_state * apic = (struct apic_state *)dev->private_data;
+    struct v3_shadow_region * old_reg = v3_get_shadow_region(dev->vm, apic->base_addr);
 
-    PrintError("WRITING APIC BASE ADDR: HI=%x LO=%x\n", src.hi, src.lo);
+    if (old_reg == NULL) {
+	// uh oh...
+	PrintError("APIC Base address region does not exit...\n");
+	return -1;
+    }
+    
+    v3_delete_shadow_region(dev->vm, old_reg);
 
-    return -1;
+    apic->base_addr = src.value;
+
+    if (v3_hook_full_mem(dev->vm, apic->base_addr, apic->base_addr + PAGE_SIZE_4KB, apic_read, apic_write, dev) == -1) {
+	PrintError("Could not hook new APIC Base address\n");
+	return -1;
+    }
+
+    return 0;
 }
 
 
