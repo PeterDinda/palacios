@@ -35,7 +35,7 @@
 #include <palacios/vmm_dev_mgr.h>
 #include <palacios/vmm_sprintf.h>
 #include <palacios/vmm_lowlevel.h>
-
+#include <palacios/vmm_sym_iface.h>
 
 #include <devices/pci.h>
 #include <devices/pci_types.h>
@@ -46,7 +46,7 @@
 #define PCI_CFG_ADDR    0xcf8
 #define PCI_CFG_DATA    0xcfc
 
-#define PCI_BUS_MAX  4
+#define PCI_BUS_MAX  7
 #define PCI_DEV_MAX 32
 #define PCI_FN_MAX   7
 
@@ -451,13 +451,15 @@ static int find_real_pci_dev(uint16_t vendor_id, uint16_t device_id, struct pt_d
     } __attribute__((packed)) pci_hdr = {0};
 
 
-
+    //PrintDebug("Scanning PCI busses for vendor=%x, device=%x\n", vendor_id, device_id);
     for (i = 0, pci_addr.bus = 0; i < PCI_BUS_MAX; i++, pci_addr.bus++) {
 	for (j = 0, pci_addr.dev = 0; j < PCI_DEV_MAX; j++, pci_addr.dev++) {
 	    for (k = 0, pci_addr.func = 0; k < PCI_FN_MAX; k++, pci_addr.func++) {
 
 		v3_outdw(PCI_CFG_ADDR, pci_addr.value);
 		pci_hdr.value = v3_indw(PCI_CFG_DATA);
+
+		//PrintDebug("\bus=%d, tvendor=%x, device=%x\n", pci_addr.bus, pci_hdr.vendor, pci_hdr.device);
 
 		if ((pci_hdr.vendor == vendor_id) && (pci_hdr.device == device_id)) {
 		    uint32_t * cfg_space = (uint32_t *)&state->real_hdr;
@@ -511,6 +513,9 @@ static int setup_virt_pci_dev(struct guest_info * info, struct vm_device * dev) 
 
     state->pci_dev = pci_dev;
 
+    v3_sym_map_pci_passthrough(info, pci_dev->bus_num, pci_dev->dev_num, pci_dev->fn_num);
+
+
     return 0;
 }
 
@@ -528,7 +533,7 @@ static int irq_handler(struct guest_info * info, struct v3_interrupt * intr, voi
     struct vm_device * dev = (struct vm_device *)private_data;
     struct pt_dev_state * state = (struct pt_dev_state *)dev->private_data;
 
-    PrintDebug("Handling E1000 IRQ %d\n", intr->irq);
+    //   PrintDebug("Handling E1000 IRQ %d\n", intr->irq);
 
     v3_pci_raise_irq(state->pci_bus, 0, state->pci_dev);
 
@@ -576,6 +581,7 @@ static int passthrough_init(struct guest_info * info, void * cfg_data) {
     setup_virt_pci_dev(info, dev);
 
     v3_hook_irq(info, 59, irq_handler, dev);
+    v3_hook_irq(info, 64, irq_handler, dev);
 
     return 0;
 }
