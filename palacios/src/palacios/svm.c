@@ -42,6 +42,7 @@
 #include <palacios/vmm_config.h>
 #include <palacios/svm_io.h>
 
+#include <palacios/vmm_sprintf.h>
 
 
 // This is a global pointer to the host's VMCB
@@ -325,7 +326,7 @@ static int start_svm_guest(struct guest_info *info) {
 	    vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
 	    addr_t host_addr;
 	    addr_t linear_addr = 0;
-	    
+
 	    info->run_state = VM_ERROR;
 	    
 	    PrintDebug("SVM ERROR!!\n"); 
@@ -353,6 +354,10 @@ static int start_svm_guest(struct guest_info *info) {
 	    PrintDebug("Instr (15 bytes) at %p:\n", (void *)host_addr);
 	    v3_dump_mem((uint8_t *)host_addr, 15);
 
+
+	    v3_print_stack(info);
+
+
 	    break;
 	}
     }
@@ -366,7 +371,6 @@ static int start_svm_guest(struct guest_info *info) {
 /* Checks machine SVM capability */
 /* Implemented from: AMD Arch Manual 3, sect 15.4 */ 
 int v3_is_svm_capable() {
-    // Dinda
     uint_t vm_cr_low = 0, vm_cr_high = 0;
     uint32_t eax = 0, ebx = 0, ecx = 0, edx = 0;
 

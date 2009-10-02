@@ -52,11 +52,7 @@ struct v3_sym_interface {
     uint8_t pci_pt_map[(4 * 256) / 8]; // we're hardcoding this: (4 busses, 256 max devs)
 
 
-    uint64_t sym_call_rip;
-    uint64_t sym_call_cs;
-    uint64_t sym_call_rsp;
-    uint64_t sym_call_gs;
-    uint64_t sym_call_ret_fn;
+
 
 } __attribute__((packed));
 
@@ -90,6 +86,14 @@ struct v3_sym_state {
 
     struct v3_sym_context old_ctx;
     uint64_t args[6];
+
+    uint64_t sym_call_rip;
+    uint64_t sym_call_cs;
+    uint64_t sym_call_rsp;
+    uint64_t sym_call_gs;
+    uint64_t sym_call_fs;
+    uint64_t sym_call_ret_fn;
+
     int (*notifier)(struct guest_info * info, void * private_data);
 
     void * private_data;
@@ -120,10 +124,15 @@ int v3_sym_map_pci_passthrough(struct guest_info * info, uint_t bus, uint_t dev,
 int v3_sym_unmap_pci_passthrough(struct guest_info * info, uint_t bus, uint_t dev, uint_t fn);
 
 
+/* Symcall numbers */
+#define SYMCALL_TEST 1
+#define SYMCALL_MEM_LOOKUP 10
+/* ** */
+
 int v3_sym_call(struct guest_info * info, 
-		uint64_t arg0, uint64_t arg1, 
-		uint64_t arg2, uint64_t arg3,
-		uint64_t arg4, uint64_t arg5, 
+		uint64_t call_num, uint64_t arg0, 
+		uint64_t arg1, uint64_t arg2,
+		uint64_t arg3, uint64_t arg4, 
 		int (*notifier)(struct guest_info * info, void * private_data),
 		void * private_data);
 

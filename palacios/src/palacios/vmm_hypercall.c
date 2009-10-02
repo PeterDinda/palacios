@@ -119,7 +119,8 @@ int v3_handle_hypercall(struct guest_info * info) {
     struct hypercall * hcall = get_hypercall(info, hypercall_id);
 
     if (!hcall) {
-	PrintError("Invalid Hypercall (%d not registered)\n", hypercall_id);
+	PrintError("Invalid Hypercall (%d(0x%x) not registered)\n", 
+		   hypercall_id, hypercall_id);
 	return -1;
     }
 

@@ -30,11 +30,47 @@
 #define SYM_CALL_RET_HCALL 0x535
 
 
+/* Notes: We use a combination of SYSCALL and SYSENTER Semantics 
+ * SYSCALL just sets an EIP, CS/SS seg, and GS seg via swapgs
+ * the RSP is loaded via the structure pointed to by GS
+ * This is safe because it assumes that system calls are guaranteed to be made with an empty kernel stack.
+ * We cannot make that assumption with a symcall, so we have to have our own stack area somewhere.
+ * SYSTENTER does not really use the GS base MSRs, but we do to map to 64 bit kernels
+ */
+
+#define SYMCALL_RIP_MSR 0x536
+#define SYMCALL_RSP_MSR 0x537
+#define SYMCALL_CS_MSR  0x538
+#define SYMCALL_GS_MSR  0x539
+#define SYMCALL_FS_MSR  0x540
+
+
 static int msr_read(uint_t msr, struct v3_msr * dst, void * priv_data) {
     struct guest_info * info = (struct guest_info *)priv_data;
     struct v3_sym_state * state = &(info->sym_state);
 
-    dst->value = state->guest_pg_addr;
+    switch (msr) {
+	case SYM_PAGE_MSR:
+	    dst->value = state->guest_pg_addr;
+	    break;
+	case SYMCALL_RIP_MSR:
+	    dst->value = state->sym_call_rip;
+	    break;
+	case SYMCALL_RSP_MSR:
+	    dst->value = state->sym_call_rsp;
+	    break;
+	case SYMCALL_CS_MSR:
+	    dst->value = state->sym_call_cs;
+	    break;
+	case SYMCALL_GS_MSR:
+	    dst->value = state->sym_call_gs;
+	    break;
+	case SYMCALL_FS_MSR:
+	    dst->value = state->sym_call_fs;
+	    break;
+	default:
+	    return -1;
+    }
 
     return 0;
 }
@@ -43,30 +79,46 @@ static int msr_write(uint_t msr, struct v3_msr src, void * priv_data) {
     struct guest_info * info = (struct guest_info *)priv_data;
     struct v3_sym_state * state = &(info->sym_state);
 
+    if (msr == SYM_PAGE_MSR) {
+	PrintDebug("Symbiotic MSR write for page %p\n", (void *)src.value);
 
-    PrintDebug("Symbiotic MSR write for page %p\n", (void *)src.value);
+	if (state->active == 1) {
+	    // unmap page
+	    struct v3_shadow_region * old_reg = v3_get_shadow_region(info, (addr_t)state->guest_pg_addr);
 
-    if (state->active == 1) {
-	// unmap page
-	struct v3_shadow_region * old_reg = v3_get_shadow_region(info, (addr_t)state->guest_pg_addr);
+	    if (old_reg == NULL) {
+		PrintError("Could not find previously active symbiotic page (%p)\n", (void *)state->guest_pg_addr);
+		return -1;
+	    }
 
-	if (old_reg == NULL) {
-	    PrintError("Could not find previously active symbiotic page (%p)\n", (void *)state->guest_pg_addr);
-	    return -1;
+	    v3_delete_shadow_region(info, old_reg);
 	}
 
-	v3_delete_shadow_region(info, old_reg);
+	state->guest_pg_addr = src.value;
+	state->guest_pg_addr &= ~0xfffLL;
+
+	state->active = 1;
+
+	// map page
+	v3_add_shadow_mem(info, (addr_t)state->guest_pg_addr, 
+			  (addr_t)(state->guest_pg_addr + PAGE_SIZE_4KB - 1), 
+			  state->sym_page_pa);
+
+
+    } else if (msr == SYMCALL_RIP_MSR) {
+	state->sym_call_rip = src.value;
+    } else if (msr == SYMCALL_RSP_MSR) {
+	state->sym_call_rsp = src.value;
+    } else if (msr == SYMCALL_CS_MSR) {
+	state->sym_call_cs = src.value;
+    } else if (msr == SYMCALL_GS_MSR) {
+	state->sym_call_gs = src.value;
+    } else if (msr == SYMCALL_FS_MSR) {
+	state->sym_call_fs = src.value;
+    } else {
+	PrintError("Invalid Symbiotic MSR write (0x%x)\n", msr);
+	return -1;
     }
-
-    state->guest_pg_addr = src.value;
-    state->guest_pg_addr &= ~0xfffLL;
-
-    state->active = 1;
-
-    // map page
-    v3_add_shadow_mem(info, (addr_t)state->guest_pg_addr, 
-		      (addr_t)(state->guest_pg_addr + PAGE_SIZE_4KB - 1), 
-		      state->sym_page_pa);
 
     return 0;
 }
@@ -75,9 +127,18 @@ static int cpuid_fn(struct guest_info * info, uint32_t cpuid,
 		    uint32_t * eax, uint32_t * ebx,
 		    uint32_t * ecx, uint32_t * edx,
 		    void * private_data) {
+    extern v3_cpu_arch_t v3_cpu_types[];
 
-    memset(eax, 0, sizeof(uint32_t));
-    memcpy(eax, "V3V", 3);
+    *eax = *(uint32_t *)"V3V";
+
+    if ((v3_cpu_types[info->cpu_id] == V3_SVM_CPU) || 
+	(v3_cpu_types[info->cpu_id] == V3_SVM_REV3_CPU)) {
+	*ebx = *(uint32_t *)"SVM";
+    } else if ((v3_cpu_types[info->cpu_id] == V3_VMX_CPU) || 
+	       (v3_cpu_types[info->cpu_id] == V3_VMX_EPT_CPU)) {
+	*ebx = *(uint32_t *)"VMX";
+    }
+
 
     return 0;
 }
@@ -102,6 +163,11 @@ int v3_init_sym_iface(struct guest_info * info) {
 
     v3_hook_cpuid(info, SYM_CPUID_NUM, cpuid_fn, info);
 
+    v3_hook_msr(info, SYMCALL_RIP_MSR, msr_read, msr_write, info);
+    v3_hook_msr(info, SYMCALL_RSP_MSR, msr_read, msr_write, info);
+    v3_hook_msr(info, SYMCALL_CS_MSR, msr_read, msr_write, info);
+    v3_hook_msr(info, SYMCALL_GS_MSR, msr_read, msr_write, info);
+    v3_hook_msr(info, SYMCALL_FS_MSR, msr_read, msr_write, info);
 
     v3_register_hypercall(info, SYM_CALL_RET_HCALL, sym_call_ret, NULL);
 
@@ -188,9 +254,9 @@ static int sym_call_ret(struct guest_info * info, uint_t hcall_id, void * privat
 
 
 int v3_sym_call(struct guest_info * info, 
-		uint64_t arg0, uint64_t arg1, 
-		uint64_t arg2, uint64_t arg3,
-		uint64_t arg4, uint64_t arg5, 
+		uint64_t call_num, uint64_t arg0, 
+		uint64_t arg1, uint64_t arg2,
+		uint64_t arg3, uint64_t arg4, 
 		int (*notifier)(struct guest_info * info, void * private_data),
 		void * private_data) {
     struct v3_sym_state * state = (struct v3_sym_state *)&(info->sym_state);
@@ -204,12 +270,12 @@ int v3_sym_call(struct guest_info * info,
 	return -1;
     }
 
-    state->args[0] = arg0;
-    state->args[1] = arg1;
-    state->args[2] = arg2;
-    state->args[3] = arg3;
-    state->args[4] = arg4;
-    state->args[5] = arg5;
+    state->args[0] = call_num;
+    state->args[1] = arg0;
+    state->args[2] = arg1;
+    state->args[3] = arg2;
+    state->args[4] = arg3;
+    state->args[5] = arg4;
 
     state->notifier = notifier;
     state->private_data = private_data;
@@ -254,17 +320,17 @@ int v3_activate_sym_call(struct guest_info * info) {
     
  
     // Setup the sym call context
-    info->rip = state->sym_page->sym_call_rip;
-    info->vm_regs.rsp = state->sym_page->sym_call_rsp;
+    info->rip = state->sym_call_rip;
+    info->vm_regs.rsp = state->sym_call_rsp;
 
-    v3_translate_segment(info, state->sym_page->sym_call_cs, &sym_cs);
+    v3_translate_segment(info, state->sym_call_cs, &sym_cs);
     memcpy(&(info->segments.cs), &sym_cs, sizeof(struct v3_segment));
  
-    v3_translate_segment(info, state->sym_page->sym_call_cs + 8, &sym_ss);
+    v3_translate_segment(info, state->sym_call_cs + 8, &sym_ss);
     memcpy(&(info->segments.ss), &sym_ss, sizeof(struct v3_segment));
 
-    info->segments.gs.base = state->sym_page->sym_call_gs;
-    info->segments.fs.base = 0;
+    info->segments.gs.base = state->sym_call_gs;
+    info->segments.fs.base = state->sym_call_fs;
     info->cpl = 0;
 
     info->vm_regs.rax = state->args[0];

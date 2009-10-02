@@ -232,6 +232,8 @@ void v3_print_segments(struct guest_info * info);
 void v3_print_ctrl_regs(struct guest_info * info);
 void v3_print_GPRs(struct guest_info * info);
 
+void v3_print_stack(struct guest_info * info);
+
 #endif // ! __V3VEE__
 
 #endif

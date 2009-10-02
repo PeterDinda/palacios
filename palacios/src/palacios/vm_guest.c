@@ -168,11 +168,11 @@ void v3_print_segments(struct guest_info * info) {
     seg_ptr=(struct v3_segment *)segs;
   
     char *seg_names[] = {"CS", "DS" , "ES", "FS", "GS", "SS" , "LDTR", "GDTR", "IDTR", "TR", NULL};
-    PrintDebug("Segments\n");
+    V3_Print("Segments\n");
 
     for (i = 0; seg_names[i] != NULL; i++) {
 
-	PrintDebug("\t%s: Sel=%x, base=%p, limit=%x (long_mode=%d, db=%d)\n", seg_names[i], seg_ptr[i].selector, 
+	V3_Print("\t%s: Sel=%x, base=%p, limit=%x (long_mode=%d, db=%d)\n", seg_names[i], seg_ptr[i].selector, 
 		   (void *)(addr_t)seg_ptr[i].base, seg_ptr[i].limit,
 		   seg_ptr[i].long_mode, seg_ptr[i].db);
 
@@ -247,13 +247,13 @@ void v3_print_ctrl_regs(struct guest_info * info) {
 
     reg_ptr = (v3_reg_t *)regs;
 
-    PrintDebug("32 bit Ctrl Regs:\n");
+    V3_Print("32 bit Ctrl Regs:\n");
 
     for (i = 0; reg_names[i] != NULL; i++) {
-	PrintDebug("\t%s=0x%p\n", reg_names[i], (void *)(addr_t)reg_ptr[i]);  
+	V3_Print("\t%s=0x%p\n", reg_names[i], (void *)(addr_t)reg_ptr[i]);  
     }
 
-    PrintDebug("\tEFER=0x%p\n", (void*)(addr_t)(guest_state->efer));
+    V3_Print("\tEFER=0x%p\n", (void*)(addr_t)(guest_state->efer));
 
 }
 
@@ -261,23 +261,55 @@ void v3_print_ctrl_regs(struct guest_info * info) {
 void v3_print_guest_state(struct guest_info * info) {
     addr_t linear_addr = 0; 
 
-    PrintDebug("RIP: %p\n", (void *)(addr_t)(info->rip));
+    V3_Print("RIP: %p\n", (void *)(addr_t)(info->rip));
     linear_addr = get_addr_linear(info, info->rip, &(info->segments.cs));
-    PrintDebug("RIP Linear: %p\n", (void *)linear_addr);
+    V3_Print("RIP Linear: %p\n", (void *)linear_addr);
 
     v3_print_segments(info);
     v3_print_ctrl_regs(info);
 
     if (info->shdw_pg_mode == SHADOW_PAGING) {
-	PrintDebug("Shadow Paging Guest Registers:\n");
-	PrintDebug("\tGuest CR0=%p\n", (void *)(addr_t)(info->shdw_pg_state.guest_cr0));
-	PrintDebug("\tGuest CR3=%p\n", (void *)(addr_t)(info->shdw_pg_state.guest_cr3));
-	PrintDebug("\tGuest EFER=%p\n", (void *)(addr_t)(info->shdw_pg_state.guest_efer.value));
+	V3_Print("Shadow Paging Guest Registers:\n");
+	V3_Print("\tGuest CR0=%p\n", (void *)(addr_t)(info->shdw_pg_state.guest_cr0));
+	V3_Print("\tGuest CR3=%p\n", (void *)(addr_t)(info->shdw_pg_state.guest_cr3));
+	V3_Print("\tGuest EFER=%p\n", (void *)(addr_t)(info->shdw_pg_state.guest_efer.value));
 	// CR4
     }
     v3_print_GPRs(info);
 }
 
+
+void v3_print_stack(struct guest_info * info) {
+    addr_t linear_addr = 0;
+    addr_t host_addr = 0;
+    int i = 0;
+    v3_cpu_mode_t cpu_mode = v3_get_vm_cpu_mode(info);
+
+
+    linear_addr = get_addr_linear(info, info->vm_regs.rsp, &(info->segments.ss));
+    
+    if (info->mem_mode == PHYSICAL_MEM) {
+	guest_pa_to_host_va(info, linear_addr, &host_addr);
+    } else if (info->mem_mode == VIRTUAL_MEM) {
+	guest_va_to_host_va(info, linear_addr, &host_addr);
+    }
+    
+    V3_Print("Host Address of rsp = 0x%p\n", (void *)host_addr);    
+    V3_Print("Stack  at %p:\n", (void *)host_addr);
+
+    // We start i at one because the current stack pointer points to an unused stack element
+    for (i = 0; i <= 24; i++) {
+	if (cpu_mode == LONG) {
+	    V3_Print("\t%p\n", (void *)*(uint64_t *)(host_addr + (i * 8)));
+	} else if (cpu_mode == REAL) {
+	    V3_Print("Don't currently handle 16 bit stacks... \n");
+	} else {
+	    // 32 bit stacks...
+	    V3_Print("\t%.8x\n", *(uint32_t *)(host_addr + (i * 4)));
+	}
+    }
+
+}    
 
 #ifdef __V3_32BIT__
 
@@ -289,10 +321,10 @@ void v3_print_GPRs(struct guest_info * info) {
 
     reg_ptr= (v3_reg_t *)regs;
 
-    PrintDebug("32 bit GPRs:\n");
+    V3_Print("32 bit GPRs:\n");
 
     for (i = 0; reg_names[i] != NULL; i++) {
-	PrintDebug("\t%s=0x%p\n", reg_names[i], (void *)(addr_t)reg_ptr[i]);  
+	V3_Print("\t%s=0x%p\n", reg_names[i], (void *)(addr_t)reg_ptr[i]);  
     }
 }
 
@@ -305,12 +337,12 @@ void v3_print_GPRs(struct guest_info * info) {
     char * reg_names[] = { "RDI", "RSI", "RBP", "RSP", "RBX", "RDX", "RCX", "RAX", \
 			   "R8", "R9", "R10", "R11", "R12", "R13", "R14", "R15", NULL};
 
-    reg_ptr= (v3_reg_t *)regs;
+    reg_ptr = (v3_reg_t *)regs;
 
-    PrintDebug("64 bit GPRs:\n");
+    V3_Print("64 bit GPRs:\n");
 
     for (i = 0; reg_names[i] != NULL; i++) {
-	PrintDebug("\t%s=0x%p\n", reg_names[i], (void *)(addr_t)reg_ptr[i]);  
+	V3_Print("\t%s=0x%p\n", reg_names[i], (void *)(addr_t)reg_ptr[i]);  
     }
 }
 

@@ -83,14 +83,16 @@ int v3_handle_svm_exit(struct guest_info * info) {
 
 #ifdef CONFIG_SYMBIOTIC
     if (0) {
+	// if (sym_started == 1) {
 	// ignore interrupt injection if we just started a symcall
 	PrintDebug("SVM Exit: %s (rip=%p) (info1=%p) (info2=%p)\n", vmexit_code_to_str(exit_code), 
 		   (void *)(addr_t)info->rip, (void *)(addr_t)guest_ctrl->exit_info1,
 		   (void *)(addr_t)guest_ctrl->exit_info2);
-	if (exit_code == VMEXIT_EXCP14) {
-	    PrintGuestPageTree(info, guest_ctrl->exit_info2, info->shdw_pg_state.guest_cr3);
-	}
 
+	/*	if (exit_code == VMEXIT_EXCP14) {
+	  PrintGuestPageTree(info, guest_ctrl->exit_info2, info->shdw_pg_state.guest_cr3);
+	  }*/
+	
     }
 #endif
 

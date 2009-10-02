@@ -329,8 +329,13 @@ static int key_event_handler(struct guest_info * info,
 	//	PrintGuestPageTables(info, info->shdw_pg_state.guest_cr3);
     } else if (evt->scan_code == 0x43) { // F9 Sym test
 	PrintDebug("Testing sym call\n");
-	v3_sym_call0(info, 0, NULL, NULL);
+	v3_sym_call5(info, SYMCALL_TEST, 0x1111, 0x2222, 0x3333, 0x4444, 0x5555, NULL, NULL);
+    } else if (evt->scan_code == 0x42) { // F8 Sym test2
+	PrintDebug("Testing sym call\n");
+	v3_sym_call1(info, SYMCALL_MEM_LOOKUP, 0, NULL, NULL);
     }
+
+
 
     addr_t irq_state = v3_lock_irqsave(state->kb_lock);
 
