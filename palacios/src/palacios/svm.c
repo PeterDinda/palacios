@@ -46,7 +46,7 @@
 
 
 // This is a global pointer to the host's VMCB
-static addr_t host_vmcbs[CONFIG_MAX_CPUS] = {0};
+static addr_t host_vmcbs[CONFIG_MAX_CPUS] = { [0 ... CONFIG_MAX_CPUS - 1] = 0};
 
 
 
@@ -66,23 +66,15 @@ static vmcb_t * Allocate_VMCB() {
 
 
 
-static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
+static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * vm_info) {
     vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA(vmcb);
     vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA(vmcb);
     uint_t i;
 
 
     //
-    guest_state->rsp = 0x00;
-    guest_state->rip = 0xfff0;
 
 
-    guest_state->cpl = 0;
-
-    guest_state->efer |= EFER_MSR_svm_enable;
-
-
-    guest_state->rflags = 0x00000002; // The reserved bit is always 1
     ctrl_area->svm_instrs.VMRUN = 1;
     ctrl_area->svm_instrs.VMMCALL = 1;
     ctrl_area->svm_instrs.VMLOAD = 1;
@@ -125,51 +117,75 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
     ctrl_area->instrs.PAUSE = 1;
     ctrl_area->instrs.shutdown_evts = 1;
 
-    vm_info->vm_regs.rdx = 0x00000f00;
-
-
-    guest_state->cr0 = 0x60010010; // Set the WP flag so the memory hooks work in real-mode
-
-
-    guest_state->cs.selector = 0xf000;
-    guest_state->cs.limit = 0xffff;
-    guest_state->cs.base = 0x0000000f0000LL;
-    guest_state->cs.attrib.raw = 0xf3;
-
 
     /* DEBUG FOR RETURN CODE */
     ctrl_area->exit_code = 1;
 
 
-    struct vmcb_selector *segregs [] = {&(guest_state->ss), &(guest_state->ds), 
-					&(guest_state->es), &(guest_state->fs), 
-					&(guest_state->gs), NULL};
+    /* Setup Guest Machine state */
+
+    vm_info->vm_regs.rsp = 0x00;
+    vm_info->rip = 0xfff0;
+
+    vm_info->vm_regs.rdx = 0x00000f00;
+
+
+    vm_info->cpl = 0;
+
+    vm_info->ctrl_regs.rflags = 0x00000002; // The reserved bit is always 1
+    vm_info->ctrl_regs.cr0 = 0x60010010; // Set the WP flag so the memory hooks work in real-mode
+    vm_info->ctrl_regs.efer |= EFER_MSR_svm_enable;
+
+
+
+
+
+    vm_info->segments.cs.selector = 0xf000;
+    vm_info->segments.cs.limit = 0xffff;
+    vm_info->segments.cs.base = 0x0000000f0000LL;
+
+    // (raw attributes = 0xf3)
+    vm_info->segments.cs.type = 0x3;
+    vm_info->segments.cs.system = 0x1;
+    vm_info->segments.cs.dpl = 0x3;
+    vm_info->segments.cs.present = 1;
+
+
+
+    struct v3_segment * segregs [] = {&(vm_info->segments.ss), &(vm_info->segments.ds), 
+				      &(vm_info->segments.es), &(vm_info->segments.fs), 
+				      &(vm_info->segments.gs), NULL};
 
     for ( i = 0; segregs[i] != NULL; i++) {
-	struct vmcb_selector * seg = segregs[i];
+	struct v3_segment * seg = segregs[i];
 	
 	seg->selector = 0x0000;
 	//    seg->base = seg->selector << 4;
 	seg->base = 0x00000000;
-	seg->attrib.raw = 0xf3;
 	seg->limit = ~0u;
+
+	// (raw attributes = 0xf3)
+	seg->type = 0x3;
+	seg->system = 0x1;
+	seg->dpl = 0x3;
+	seg->present = 1;
     }
 
-    guest_state->gdtr.limit = 0x0000ffff;
-    guest_state->gdtr.base = 0x0000000000000000LL;
-    guest_state->idtr.limit = 0x0000ffff;
-    guest_state->idtr.base = 0x0000000000000000LL;
+    vm_info->segments.gdtr.limit = 0x0000ffff;
+    vm_info->segments.gdtr.base = 0x0000000000000000LL;
+    vm_info->segments.idtr.limit = 0x0000ffff;
+    vm_info->segments.idtr.base = 0x0000000000000000LL;
 
-    guest_state->ldtr.selector = 0x0000;
-    guest_state->ldtr.limit = 0x0000ffff;
-    guest_state->ldtr.base = 0x0000000000000000LL;
-    guest_state->tr.selector = 0x0000;
-    guest_state->tr.limit = 0x0000ffff;
-    guest_state->tr.base = 0x0000000000000000LL;
+    vm_info->segments.ldtr.selector = 0x0000;
+    vm_info->segments.ldtr.limit = 0x0000ffff;
+    vm_info->segments.ldtr.base = 0x0000000000000000LL;
+    vm_info->segments.tr.selector = 0x0000;
+    vm_info->segments.tr.limit = 0x0000ffff;
+    vm_info->segments.tr.base = 0x0000000000000000LL;
 
 
-    guest_state->dr6 = 0x00000000ffff0ff0LL;
-    guest_state->dr7 = 0x0000000000000400LL;
+    vm_info->dbg_regs.dr6 = 0x00000000ffff0ff0LL;
+    vm_info->dbg_regs.dr7 = 0x0000000000000400LL;
 
 
     v3_init_svm_io_map(vm_info);
@@ -205,7 +221,8 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
 	vm_info->shdw_pg_state.guest_cr0 = 0x0000000000000010LL;
 	PrintDebug("Created\n");
 	
-	guest_state->cr3 = vm_info->direct_map_pt;
+	vm_info->ctrl_regs.cr0 |= 0x80000000;
+	vm_info->ctrl_regs.cr3 = vm_info->direct_map_pt;
 
 	ctrl_area->cr_reads.cr0 = 1;
 	ctrl_area->cr_writes.cr0 = 1;
@@ -225,7 +242,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info *vm_info) {
 
 	guest_state->g_pat = 0x7040600070406ULL;
 
-	guest_state->cr0 |= 0x80000000;
+
 
     } else if (vm_info->shdw_pg_mode == NESTED_PAGING) {
 	// Flush the TLB on entries/exits
@@ -266,10 +283,260 @@ static int init_svm_guest(struct guest_info * info, struct v3_vm_config * config
     return 0;
 }
 
+
+
+static int update_irq_state_atomic(struct guest_info * info) {
+    vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
+
+    if ((info->intr_state.irq_pending == 1) && (guest_ctrl->guest_ctrl.V_IRQ == 0)) {
+	
+#ifdef CONFIG_DEBUG_INTERRUPTS
+	PrintDebug("INTAK cycle completed for irq %d\n", info->intr_state.irq_vector);
+#endif
+
+	info->intr_state.irq_started = 1;
+	info->intr_state.irq_pending = 0;
+
+	v3_injecting_intr(info, info->intr_state.irq_vector, V3_EXTERNAL_IRQ);
+    }
+
+    if ((info->intr_state.irq_started == 1) && (guest_ctrl->exit_int_info.valid == 0)) {
+#ifdef CONFIG_DEBUG_INTERRUPTS
+	PrintDebug("Interrupt %d taken by guest\n", info->intr_state.irq_vector);
+#endif
+
+	// Interrupt was taken fully vectored
+	info->intr_state.irq_started = 0;
+
+    } else {
+#ifdef CONFIG_DEBUG_INTERRUPTS
+	PrintDebug("EXIT INT INFO is set (vec=%d)\n", guest_ctrl->exit_int_info.vector);
+#endif
+    }
+
+    return 0;
+}
+
+
+static int update_irq_state(struct guest_info * info) {
+    vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
+
+    if (v3_excp_pending(info)) {
+	uint_t excp = v3_get_excp_number(info);
+	
+	guest_ctrl->EVENTINJ.type = SVM_INJECTION_EXCEPTION;
+	
+	if (info->excp_state.excp_error_code_valid) {
+	    guest_ctrl->EVENTINJ.error_code = info->excp_state.excp_error_code;
+	    guest_ctrl->EVENTINJ.ev = 1;
+#ifdef CONFIG_DEBUG_INTERRUPTS
+	    PrintDebug("Injecting exception %d with error code %x\n", excp, guest_ctrl->EVENTINJ.error_code);
+#endif
+	}
+	
+	guest_ctrl->EVENTINJ.vector = excp;
+	
+	guest_ctrl->EVENTINJ.valid = 1;
+
+	PrintDebug("<%d> Injecting Exception %d (CR2=%p) (EIP=%p)\n", 
+		   (int)info->num_exits, 
+		   guest_ctrl->EVENTINJ.vector, 
+		   (void *)(addr_t)info->ctrl_regs.cr2,
+		   (void *)(addr_t)info->rip);
+
+
+#ifdef CONFIG_DEBUG_INTERRUPTS
+	PrintDebug("Injecting Exception %d (EIP=%p)\n", 
+		   guest_ctrl->EVENTINJ.vector, 
+		   (void *)(addr_t)info->rip);
+#endif
+	v3_injecting_excp(info, excp);
+
+
+    } else if (info->intr_state.irq_started == 1) {
+#ifdef CONFIG_DEBUG_INTERRUPTS
+	PrintDebug("IRQ pending from previous injection\n");
+#endif
+	guest_ctrl->guest_ctrl.V_IRQ = 1;
+	guest_ctrl->guest_ctrl.V_INTR_VECTOR = info->intr_state.irq_vector;
+	guest_ctrl->guest_ctrl.V_IGN_TPR = 1;
+	guest_ctrl->guest_ctrl.V_INTR_PRIO = 0xf;
+
+    } else {
+	switch (v3_intr_pending(info)) {
+	    case V3_EXTERNAL_IRQ: {
+		uint32_t irq = v3_get_intr(info);
+
+		guest_ctrl->guest_ctrl.V_IRQ = 1;
+		guest_ctrl->guest_ctrl.V_INTR_VECTOR = irq;
+		guest_ctrl->guest_ctrl.V_IGN_TPR = 1;
+		guest_ctrl->guest_ctrl.V_INTR_PRIO = 0xf;
+
+#ifdef CONFIG_DEBUG_INTERRUPTS
+		PrintDebug("Injecting Interrupt %d (EIP=%p)\n", 
+			   guest_ctrl->guest_ctrl.V_INTR_VECTOR, 
+			   (void *)(addr_t)info->rip);
+#endif
+
+		info->intr_state.irq_pending = 1;
+		info->intr_state.irq_vector = irq;
+		
+		break;
+	    }
+	    case V3_NMI:
+		guest_ctrl->EVENTINJ.type = SVM_INJECTION_NMI;
+		break;
+	    case V3_SOFTWARE_INTR:
+		guest_ctrl->EVENTINJ.type = SVM_INJECTION_SOFT_INTR;
+		break;
+	    case V3_VIRTUAL_IRQ:
+		guest_ctrl->EVENTINJ.type = SVM_INJECTION_IRQ;
+		break;
+
+	    case V3_INVALID_INTR:
+	    default:
+		break;
+	}
+	
+    }
+
+    return 0;
+}
+
+
+/* 
+ * CAUTION and DANGER!!! 
+ * 
+ * The VMCB CANNOT(!!) be accessed outside of the clgi/stgi calls inside this function
+ * When exectuing a symbiotic call the VMCB WILL be overwritten, so any dependencies 
+ * on its contents will cause things to break. The contents at the time of the exit WILL 
+ * change before the exit handler is executed.
+ */
+int v3_svm_enter(struct guest_info * info) {
+    vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
+    vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data)); 
+    ullong_t tmp_tsc;
+    addr_t exit_code = 0, exit_info1 = 0, exit_info2 = 0;
+
+    // Conditionally yield the CPU if the timeslice has expired
+    v3_yield_cond(info);
+
+    // disable global interrupts for vm state transition
+    v3_clgi();
+
+    // Synchronize the guest state to the VMCB
+    guest_state->cr0 = info->ctrl_regs.cr0;
+    guest_state->cr2 = info->ctrl_regs.cr2;
+    guest_state->cr3 = info->ctrl_regs.cr3;
+    guest_state->cr4 = info->ctrl_regs.cr4;
+    guest_state->dr6 = info->dbg_regs.dr6;
+    guest_state->dr7 = info->dbg_regs.dr7;
+    guest_ctrl->guest_ctrl.V_TPR = info->ctrl_regs.cr8 & 0xff;
+    guest_state->rflags = info->ctrl_regs.rflags;
+    guest_state->efer = info->ctrl_regs.efer;
+    
+    guest_state->cpl = info->cpl;
+
+    v3_set_vmcb_segments((vmcb_t*)(info->vmm_data), &(info->segments));
+
+    guest_state->rax = info->vm_regs.rax;
+    guest_state->rip = info->rip;
+    guest_state->rsp = info->vm_regs.rsp;
+    /* ** */
+
+    /*
+      PrintDebug("SVM Entry to CS=%p  rip=%p...\n", 
+      (void *)(addr_t)info->segments.cs.base, 
+      (void *)(addr_t)info->rip);
+    */
+
+#ifdef CONFIG_SYMBIOTIC
+    if (info->sym_state.sym_call_active == 1) {
+	if (guest_ctrl->guest_ctrl.V_IRQ == 1) {
+	    V3_Print("!!! Injecting Interrupt during Sym call !!!\n");
+	}
+    }
+#endif
+
+
+    rdtscll(info->time_state.cached_host_tsc);
+    //    guest_ctrl->TSC_OFFSET = info->time_state.guest_tsc - info->time_state.cached_host_tsc;
+	
+    v3_svm_launch((vmcb_t *)V3_PAddr(info->vmm_data), &(info->vm_regs), (vmcb_t *)host_vmcbs[info->cpu_id]);
+    
+    rdtscll(tmp_tsc);
+
+    //PrintDebug("SVM Returned\n");
+    
+    info->num_exits++;
+
+    v3_update_time(info, tmp_tsc - info->time_state.cached_host_tsc);
+
+#ifdef CONFIG_SYMBIOTIC
+    if (info->sym_state.sym_call_active == 0) {
+	update_irq_state_atomic(info);
+    }
+#else 
+    update_irq_state_atomic(info);
+#endif
+
+    // Save Guest state from VMCB
+    info->rip = guest_state->rip;
+    info->vm_regs.rsp = guest_state->rsp;
+    info->vm_regs.rax = guest_state->rax;
+
+    info->cpl = guest_state->cpl;
+
+    info->ctrl_regs.cr0 = guest_state->cr0;
+    info->ctrl_regs.cr2 = guest_state->cr2;
+    info->ctrl_regs.cr3 = guest_state->cr3;
+    info->ctrl_regs.cr4 = guest_state->cr4;
+    info->dbg_regs.dr6 = guest_state->dr6;
+    info->dbg_regs.dr7 = guest_state->dr7;
+    info->ctrl_regs.cr8 = guest_ctrl->guest_ctrl.V_TPR;
+    info->ctrl_regs.rflags = guest_state->rflags;
+    info->ctrl_regs.efer = guest_state->efer;
+    
+    v3_get_vmcb_segments((vmcb_t*)(info->vmm_data), &(info->segments));
+    info->cpu_mode = v3_get_vm_cpu_mode(info);
+    info->mem_mode = v3_get_vm_mem_mode(info);
+    /* ** */
+
+
+    // save exit info here
+    exit_code = guest_ctrl->exit_code;
+    exit_info1 = guest_ctrl->exit_info1;
+    exit_info2 = guest_ctrl->exit_info2;
+
+
+    // reenable global interrupts after vm exit
+    v3_stgi();
+
+ 
+    // Conditionally yield the CPU if the timeslice has expired
+    v3_yield_cond(info);
+
+
+    if (v3_handle_svm_exit(info, exit_code, exit_info1, exit_info2) != 0) {
+	PrintError("Error in SVM exit handler\n");
+	return -1;
+    }
+
+#ifdef CONFIG_SYMBIOTIC
+    if (info->sym_state.sym_call_active == 0) {
+	update_irq_state(info);
+    }
+#else 
+    update_irq_state(info);
+#endif
+
+    return 0;
+}
+
+
 static int start_svm_guest(struct guest_info *info) {
     //    vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
     //  vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
-    uint_t num_exits = 0;
 
 
 
@@ -281,85 +548,50 @@ static int start_svm_guest(struct guest_info *info) {
 
 
     while (1) {
-	ullong_t tmp_tsc;
-	
-	// Conditionally yield the CPU if the timeslice has expired
-	v3_yield_cond(info);
-
-	/*
-	  PrintDebug("SVM Entry to CS=%p  rip=%p...\n", 
-	  (void *)(addr_t)info->segments.cs.base, 
-	  (void *)(addr_t)info->rip);
-	*/
-
-	// disable global interrupts for vm state transition
-	v3_clgi();
-
-
-
-	rdtscll(info->time_state.cached_host_tsc);
-	//    guest_ctrl->TSC_OFFSET = info->time_state.guest_tsc - info->time_state.cached_host_tsc;
-	
-	v3_svm_launch((vmcb_t *)V3_PAddr(info->vmm_data), &(info->vm_regs), (vmcb_t *)host_vmcbs[info->cpu_id]);
-	
-	rdtscll(tmp_tsc);
-
-	
-	//PrintDebug("SVM Returned\n");
-
-	// reenable global interrupts after vm exit
-	v3_stgi();
-
-
-	// Conditionally yield the CPU if the timeslice has expired
-	v3_yield_cond(info);
-
-
-	v3_update_time(info, tmp_tsc - info->time_state.cached_host_tsc);
-	num_exits++;
-	
-	if ((num_exits % 5000) == 0) {
-	    PrintDebug("SVM Exit number %d\n", num_exits);
-	}
-
-	if (v3_handle_svm_exit(info) != 0) {
+	if (v3_svm_enter(info) == -1) {
 	    vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
 	    addr_t host_addr;
 	    addr_t linear_addr = 0;
-
+	    
 	    info->run_state = VM_ERROR;
 	    
-	    PrintDebug("SVM ERROR!!\n"); 
-      
+	    V3_Print("SVM ERROR!!\n"); 
+	    
 	    v3_print_guest_state(info);
-
-	    PrintDebug("SVM Exit Code: %p\n", (void *)(addr_t)guest_ctrl->exit_code); 
-      
-	    PrintDebug("exit_info1 low = 0x%.8x\n", *(uint_t*)&(guest_ctrl->exit_info1));
-	    PrintDebug("exit_info1 high = 0x%.8x\n", *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info1)) + 4));
-      
-	    PrintDebug("exit_info2 low = 0x%.8x\n", *(uint_t*)&(guest_ctrl->exit_info2));
-	    PrintDebug("exit_info2 high = 0x%.8x\n", *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info2)) + 4));
-      
+	    
+	    V3_Print("SVM Exit Code: %p\n", (void *)(addr_t)guest_ctrl->exit_code); 
+	    
+	    V3_Print("exit_info1 low = 0x%.8x\n", *(uint_t*)&(guest_ctrl->exit_info1));
+	    V3_Print("exit_info1 high = 0x%.8x\n", *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info1)) + 4));
+	    
+	    V3_Print("exit_info2 low = 0x%.8x\n", *(uint_t*)&(guest_ctrl->exit_info2));
+	    V3_Print("exit_info2 high = 0x%.8x\n", *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info2)) + 4));
+	    
 	    linear_addr = get_addr_linear(info, info->rip, &(info->segments.cs));
-
+	    
 	    if (info->mem_mode == PHYSICAL_MEM) {
 		guest_pa_to_host_va(info, linear_addr, &host_addr);
 	    } else if (info->mem_mode == VIRTUAL_MEM) {
 		guest_va_to_host_va(info, linear_addr, &host_addr);
 	    }
-
-	    PrintDebug("Host Address of rip = 0x%p\n", (void *)host_addr);
-
-	    PrintDebug("Instr (15 bytes) at %p:\n", (void *)host_addr);
+	    
+	    V3_Print("Host Address of rip = 0x%p\n", (void *)host_addr);
+	    
+	    V3_Print("Instr (15 bytes) at %p:\n", (void *)host_addr);
 	    v3_dump_mem((uint8_t *)host_addr, 15);
-
-
+	    
 	    v3_print_stack(info);
-
 
 	    break;
 	}
+	
+	if ((info->num_exits % 5000) == 0) {
+	    V3_Print("SVM Exit number %d\n", (uint32_t)info->num_exits);
+	}
+
+
+	
+
     }
     return 0;
 }
@@ -379,7 +611,7 @@ int v3_is_svm_capable() {
     PrintDebug("CPUID_EXT_FEATURE_IDS_ecx=0x%x\n", ecx);
 
     if ((ecx & CPUID_EXT_FEATURE_IDS_ecx_svm_avail) == 0) {
-      PrintDebug("SVM Not Available\n");
+      V3_Print("SVM Not Available\n");
       return 0;
     }  else {
 	v3_get_msr(SVM_VM_CR_MSR, &vm_cr_high, &vm_cr_low);
@@ -387,34 +619,27 @@ int v3_is_svm_capable() {
 	PrintDebug("SVM_VM_CR_MSR = 0x%x 0x%x\n", vm_cr_high, vm_cr_low);
 	
 	if ((vm_cr_low & SVM_VM_CR_MSR_svmdis) == 1) {
-	    PrintDebug("SVM is available but is disabled.\n");
+	    V3_Print("SVM is available but is disabled.\n");
 	    
 	    v3_cpuid(CPUID_SVM_REV_AND_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
 	    
 	    PrintDebug("CPUID_SVM_REV_AND_FEATURE_IDS_edx=0x%x\n", edx);
 	    
 	    if ((edx & CPUID_SVM_REV_AND_FEATURE_IDS_edx_svml) == 0) {
-		PrintDebug("SVM BIOS Disabled, not unlockable\n");
+		V3_Print("SVM BIOS Disabled, not unlockable\n");
 	    } else {
-		PrintDebug("SVM is locked with a key\n");
+		V3_Print("SVM is locked with a key\n");
 	    }
 	    return 0;
 
 	} else {
-	    PrintDebug("SVM is available and  enabled.\n");
+	    V3_Print("SVM is available and  enabled.\n");
 
 	    v3_cpuid(CPUID_SVM_REV_AND_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
 	    PrintDebug("CPUID_SVM_REV_AND_FEATURE_IDS_eax=0x%x\n", eax);
 	    PrintDebug("CPUID_SVM_REV_AND_FEATURE_IDS_ebx=0x%x\n", ebx);
 	    PrintDebug("CPUID_SVM_REV_AND_FEATURE_IDS_ecx=0x%x\n", ecx);
 	    PrintDebug("CPUID_SVM_REV_AND_FEATURE_IDS_edx=0x%x\n", edx);
-
-
-	    if ((edx & CPUID_SVM_REV_AND_FEATURE_IDS_edx_np) == 0) {
-		PrintDebug("SVM Nested Paging not supported\n");
-	    } else {
-		PrintDebug("SVM Nested Paging supported\n");
-	    }
 
 	    return 1;
 	}
@@ -429,10 +654,10 @@ static int has_svm_nested_paging() {
     //PrintDebug("CPUID_EXT_FEATURE_IDS_edx=0x%x\n", edx);
 
     if ((edx & CPUID_SVM_REV_AND_FEATURE_IDS_edx_np) == 0) {
-	PrintDebug("SVM Nested Paging not supported\n");
+	V3_Print("SVM Nested Paging not supported\n");
 	return 0;
     } else {
-	PrintDebug("SVM Nested Paging supported\n");
+	V3_Print("SVM Nested Paging supported\n");
 	return 1;
     }
 }
@@ -447,7 +672,7 @@ void v3_init_svm_cpu(int cpu_id) {
     msr.e_reg.low |= EFER_MSR_svm_enable;
     v3_set_msr(EFER_MSR, 0, msr.e_reg.low);
 
-    PrintDebug("SVM Enabled\n");
+    V3_Print("SVM Enabled\n");
 
     // Setup the host state save area
     host_vmcbs[cpu_id] = (addr_t)V3_AllocPages(4);

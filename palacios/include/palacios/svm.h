@@ -81,6 +81,8 @@ void v3_init_svm_cpu(int cpu_id);
 void v3_init_svm_hooks(struct v3_ctrl_ops * vmm_ops);
 int v3_is_svm_capable();
 
+int v3_svm_enter(struct guest_info * info);
+
 #endif
 
 

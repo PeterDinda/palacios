@@ -265,6 +265,8 @@ void v3_print_guest_state(struct guest_info * info) {
     linear_addr = get_addr_linear(info, info->rip, &(info->segments.cs));
     V3_Print("RIP Linear: %p\n", (void *)linear_addr);
 
+    V3_Print("NumExits: %u\n", (uint32_t)info->num_exits);
+
     v3_print_segments(info);
     v3_print_ctrl_regs(info);
 
@@ -276,6 +278,8 @@ void v3_print_guest_state(struct guest_info * info) {
 	// CR4
     }
     v3_print_GPRs(info);
+
+    v3_print_stack(info);
 }
 
 
@@ -294,7 +298,7 @@ void v3_print_stack(struct guest_info * info) {
 	guest_va_to_host_va(info, linear_addr, &host_addr);
     }
     
-    V3_Print("Host Address of rsp = 0x%p\n", (void *)host_addr);    
+    V3_Print("Host Address of rsp = 0x%p\n", (void *)host_addr);
     V3_Print("Stack  at %p:\n", (void *)host_addr);
 
     // We start i at one because the current stack pointer points to an unused stack element

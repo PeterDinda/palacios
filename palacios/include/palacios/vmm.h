@@ -200,6 +200,8 @@ void v3_yield_cond(struct guest_info * info);
 
 void v3_interrupt_cpu(struct guest_info * vm, int logical_cpu);
 
+int v3_vm_enter(struct guest_info * info);
+
 
 #endif //!__V3VEE__
 

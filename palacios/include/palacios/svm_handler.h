@@ -192,7 +192,8 @@
 /******************************************/
 
 
-int v3_handle_svm_exit(struct guest_info * info);
+int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, 
+		       addr_t exit_info1, addr_t exit_info2);
 const char * vmexit_code_to_str(uint_t exit_code);
 
 

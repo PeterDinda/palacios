@@ -329,10 +329,21 @@ static int key_event_handler(struct guest_info * info,
 	//	PrintGuestPageTables(info, info->shdw_pg_state.guest_cr3);
     } else if (evt->scan_code == 0x43) { // F9 Sym test
 	PrintDebug("Testing sym call\n");
-	v3_sym_call5(info, SYMCALL_TEST, 0x1111, 0x2222, 0x3333, 0x4444, 0x5555, NULL, NULL);
+	sym_arg_t a0 = 0x1111;
+	sym_arg_t a1 = 0x2222;
+	sym_arg_t a2 = 0x3333;
+	sym_arg_t a3 = 0x4444;
+	sym_arg_t a4 = 0x5555;
+
+	v3_sym_call5(info, SYMCALL_TEST, &a0, &a1, &a2, &a3, &a4);
+
+	V3_Print("Symcall  Test Returned arg0=%x, arg1=%x, arg2=%x, arg3=%x, arg4=%x\n",
+		 (uint32_t)a0, (uint32_t)a1, (uint32_t)a2, (uint32_t)a3, (uint32_t)a4);
+
     } else if (evt->scan_code == 0x42) { // F8 Sym test2
 	PrintDebug("Testing sym call\n");
-	v3_sym_call1(info, SYMCALL_MEM_LOOKUP, 0, NULL, NULL);
+	sym_arg_t addr = 0;
+	v3_sym_call1(info, SYMCALL_MEM_LOOKUP, &addr);
     }
 
 

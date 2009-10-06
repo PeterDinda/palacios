@@ -178,6 +178,14 @@ int v3_swap_flush(struct guest_info * info) {
 }
 
 
+int v3_sym_get_addr_info(struct guest_info * info, addr_t vaddr,
+			    int (*cb)(struct guest_info * info)) {
+    return 0;
+
+}
+
+
+
 addr_t v3_get_swapped_pg_addr(struct guest_info * info, pte32_t * shadow_pte, pte32_t * guest_pte) {
     struct list_head * shdw_ptr_list = NULL;
     struct v3_sym_swap_state * swap_state = &(info->swap_state);

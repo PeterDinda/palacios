@@ -45,10 +45,10 @@ struct svm_io_info {
 
 int v3_init_svm_io_map(struct guest_info * info);
 
-int v3_handle_svm_io_in(struct guest_info * info);
-int v3_handle_svm_io_ins(struct guest_info * info);
-int v3_handle_svm_io_out(struct guest_info * info);
-int v3_handle_svm_io_outs(struct guest_info * info);
+int v3_handle_svm_io_in(struct guest_info * info, struct svm_io_info * io_info);
+int v3_handle_svm_io_ins(struct guest_info * info, struct svm_io_info * io_info);
+int v3_handle_svm_io_out(struct guest_info * info, struct svm_io_info * io_info);
+int v3_handle_svm_io_outs(struct guest_info * info, struct svm_io_info * io_info);
 
 #endif // !__V3VEE__
 

@@ -196,7 +196,15 @@ static inline int handle_shadow_pagefault_32(struct guest_info * info, addr_t fa
     return 0;
 }
 
+#ifdef CONFIG_SYMBIOTIC_SWAP
 
+static int sym_swap_callback(struct guest_info * info) {
+
+    return 0;
+}
+
+
+#endif
 
 static int handle_pte_shadow_pagefault_32(struct guest_info * info, addr_t fault_addr, pf_error_t error_code,
 					  pte32_t * shadow_pt, pte32_t * guest_pt) {
@@ -239,44 +247,48 @@ static int handle_pte_shadow_pagefault_32(struct guest_info * info, addr_t fault
 		info->swap_state.write_faults++;
 	    }
 #endif
-	    if (error_code.write == 0) {
-		V3_Print("Page fault on swapped out page (vaddr=%p) (pte=%x) (error_code=%x)\n", 
-			 (void *)fault_addr, *(uint32_t *)guest_pte, *(uint32_t *)&error_code);
+
+	    // This will trigger a callback...
+	    v3_sym_get_addr_info(info, fault_addr, sym_swap_callback);
+
+	    return 0;
+
+	    /*
+	      if (error_code.write == 0) {
+	      V3_Print("Page fault on swapped out page (vaddr=%p) (pte=%x) (error_code=%x)\n", 
+	      (void *)fault_addr, *(uint32_t *)guest_pte, *(uint32_t *)&error_code);
 		
-		addr_t swp_pg_addr = v3_get_swapped_pg_addr(info, shadow_pte, guest_pte);
+	      addr_t swp_pg_addr = v3_get_swapped_pg_addr(info, shadow_pte, guest_pte);
 		
-		if (swp_pg_addr == 0) {
-		    if (inject_guest_pf(info, fault_addr, error_code) == -1) {
-			PrintError("Could not inject guest page fault\n");
-			return -1;
-		    }
-		} else {
-		    /* 
-		     *  Setup shadow paging state
-		     */
+	      if (swp_pg_addr == 0) {
+	      if (inject_guest_pf(info, fault_addr, error_code) == -1) {
+	      PrintError("Could not inject guest page fault\n");
+	      return -1;
+	      }
+	      } else {
+
 		    
-		    /* We need some way to check permissions.... */
+	      shadow_pte->accessed = 1;
+	      shadow_pte->writable = 0;
 		    
-		    shadow_pte->accessed = 1;
-		    shadow_pte->writable = 0;
+	      if ((fault_addr & 0xc0000000) == 0xc0000000) {
+	      shadow_pte->user_page = 0;
+	      } else {
+	      shadow_pte->user_page = 1;
+	      }
 		    
-		    if ((fault_addr & 0xc0000000) == 0xc0000000) {
-			shadow_pte->user_page = 0;
-		    } else {
-			shadow_pte->user_page = 1;
-		    }
+	      shadow_pte->write_through = 0;
+	      shadow_pte->cache_disable = 0;
+	      shadow_pte->global_page = 0;
 		    
-		    shadow_pte->write_through = 0;
-		    shadow_pte->cache_disable = 0;
-		    shadow_pte->global_page = 0;
+	      shadow_pte->present = 1;
 		    
-		    shadow_pte->present = 1;
-		    
-		    shadow_pte->page_base_addr = swp_pg_addr;
-		}
+	      shadow_pte->page_base_addr = swp_pg_addr;
+	      }
 		
-		return 0;
-	    }
+	      return 0;
+	      }
+	    */
 	}
 #endif
 	

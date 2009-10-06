@@ -59,11 +59,7 @@ int v3_init_svm_io_map(struct guest_info * info) {
 
 
 // This should package up an IO request and call vmm_handle_io
-int v3_handle_svm_io_in(struct guest_info * info) {
-    vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA((vmcb_t *)(info->vmm_data));
-    //  vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
-    struct svm_io_info * io_info = (struct svm_io_info *)&(ctrl_area->exit_info1);
-
+int v3_handle_svm_io_in(struct guest_info * info, struct svm_io_info * io_info) {
     struct v3_io_hook * hook = v3_get_io_hook(info, io_info->port);
     int read_size = 0;
 
@@ -90,8 +86,6 @@ int v3_handle_svm_io_in(struct guest_info * info) {
 	return -1;
     }
 
-    info->rip = ctrl_area->exit_info2;
-
     return 0;
 }
 
@@ -102,12 +96,7 @@ int v3_handle_svm_io_in(struct guest_info * info) {
 /* We might not handle wrap around of the RDI register correctly...
  * In that if we do wrap around the effect will manifest in the higher bits of the register
  */
-int v3_handle_svm_io_ins(struct guest_info * info) {
-    vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA((vmcb_t *)(info->vmm_data));
-    vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
-  
-    struct svm_io_info * io_info = (struct svm_io_info *)&(ctrl_area->exit_info1);
-  
+int v3_handle_svm_io_ins(struct guest_info * info, struct svm_io_info * io_info) {
     struct v3_io_hook * hook = v3_get_io_hook(info, io_info->port);
     int read_size = 0;
     addr_t dst_addr = 0;
@@ -121,7 +110,7 @@ int v3_handle_svm_io_ins(struct guest_info * info) {
     // direction can equal either 1 or -1
     // We will multiply the final added offset by this value to go the correct direction
     int direction = 1;
-    struct rflags * flags = (struct rflags *)&(guest_state->rflags);  
+    struct rflags * flags = (struct rflags *)&(info->ctrl_regs.rflags);  
 
     if (flags->df) {
 	direction = -1;
@@ -233,17 +222,10 @@ int v3_handle_svm_io_ins(struct guest_info * info) {
 	rep_num--;
     }
 
-
-    info->rip = ctrl_area->exit_info2;
-
     return 0;
 }
 
-int v3_handle_svm_io_out(struct guest_info * info) {
-    vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA((vmcb_t *)(info->vmm_data));
-    //  vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
-    struct svm_io_info * io_info = (struct svm_io_info *)&(ctrl_area->exit_info1);
-
+int v3_handle_svm_io_out(struct guest_info * info, struct svm_io_info * io_info) {
     struct v3_io_hook * hook = v3_get_io_hook(info, io_info->port);
     int write_size = 0;
 
@@ -270,8 +252,6 @@ int v3_handle_svm_io_out(struct guest_info * info) {
 	return -1;
     }
 
-    info->rip = ctrl_area->exit_info2;
-
     return 0;
 }
 
@@ -280,13 +260,8 @@ int v3_handle_svm_io_out(struct guest_info * info) {
  * In that if we do wrap around the effect will manifest in the higher bits of the register
  */
 
-int v3_handle_svm_io_outs(struct guest_info * info) {
-    vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA((vmcb_t *)(info->vmm_data));
-    vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
-
-  
-    struct svm_io_info * io_info = (struct svm_io_info *)&(ctrl_area->exit_info1);
-  
+int v3_handle_svm_io_outs(struct guest_info * info,  struct svm_io_info * io_info) {
+ 
     struct v3_io_hook * hook = v3_get_io_hook(info, io_info->port);
     int write_size = 0;
     addr_t dst_addr = 0;
@@ -299,7 +274,7 @@ int v3_handle_svm_io_outs(struct guest_info * info) {
     // direction can equal either 1 or -1
     // We will multiply the final added offset by this value to go the correct direction
     int direction = 1;
-    struct rflags * flags = (struct rflags *)&(guest_state->rflags);  
+    struct rflags * flags = (struct rflags *)&(info->ctrl_regs.rflags);  
 
     if (flags->df) {
 	direction = -1;
@@ -405,10 +380,6 @@ int v3_handle_svm_io_outs(struct guest_info * info) {
 
 	rep_num--;
     }
-
-
-    info->rip = ctrl_area->exit_info2;
-
 
     return 0;
 }

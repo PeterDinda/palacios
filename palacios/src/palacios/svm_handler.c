@@ -34,95 +34,13 @@
 #include <palacios/vmm_cpuid.h>
 #include <palacios/vmm_direct_paging.h>
 
-#ifdef CONFIG_SYMBIOTIC
-#include <palacios/vmm_sym_iface.h>
-#endif
 
 #ifdef CONFIG_TELEMETRY
 #include <palacios/vmm_telemetry.h>
 #endif
 
 
-int v3_handle_svm_exit(struct guest_info * info) {
-    vmcb_ctrl_t * guest_ctrl = 0;
-    vmcb_saved_state_t * guest_state = 0;
-    ulong_t exit_code = 0;
-
-#ifdef CONFIG_SYMBIOTIC
-    static int sym_started = 0;
-#endif
-
-
-    guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
-    guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
-  
-    // Update the high level state 
-    info->rip = guest_state->rip;
-    info->vm_regs.rsp = guest_state->rsp;
-    info->vm_regs.rax = guest_state->rax;
-
-    info->cpl = guest_state->cpl;
-
-    info->ctrl_regs.cr0 = guest_state->cr0;
-    info->ctrl_regs.cr2 = guest_state->cr2;
-    info->ctrl_regs.cr3 = guest_state->cr3;
-    info->ctrl_regs.cr4 = guest_state->cr4;
-    info->dbg_regs.dr6 = guest_state->dr6;
-    info->dbg_regs.dr7 = guest_state->dr7;
-    info->ctrl_regs.cr8 = guest_ctrl->guest_ctrl.V_TPR;
-    info->ctrl_regs.rflags = guest_state->rflags;
-    info->ctrl_regs.efer = guest_state->efer;
-    
-    v3_get_vmcb_segments((vmcb_t*)(info->vmm_data), &(info->segments));
-    info->cpu_mode = v3_get_vm_cpu_mode(info);
-    info->mem_mode = v3_get_vm_mem_mode(info);
-
-    exit_code = guest_ctrl->exit_code;
-
-
-
-#ifdef CONFIG_SYMBIOTIC
-    if (0) {
-	// if (sym_started == 1) {
-	// ignore interrupt injection if we just started a symcall
-	PrintDebug("SVM Exit: %s (rip=%p) (info1=%p) (info2=%p)\n", vmexit_code_to_str(exit_code), 
-		   (void *)(addr_t)info->rip, (void *)(addr_t)guest_ctrl->exit_info1,
-		   (void *)(addr_t)guest_ctrl->exit_info2);
-
-	/*	if (exit_code == VMEXIT_EXCP14) {
-	  PrintGuestPageTree(info, guest_ctrl->exit_info2, info->shdw_pg_state.guest_cr3);
-	  }*/
-	
-    }
-#endif
-
-
-    if ((info->intr_state.irq_pending == 1) && (guest_ctrl->guest_ctrl.V_IRQ == 0)) {
-
-#ifdef CONFIG_DEBUG_INTERRUPTS
-	PrintDebug("INTAK cycle completed for irq %d\n", info->intr_state.irq_vector);
-#endif
-
-	info->intr_state.irq_started = 1;
-	info->intr_state.irq_pending = 0;
-
-	v3_injecting_intr(info, info->intr_state.irq_vector, V3_EXTERNAL_IRQ);
-    }
-
-    if ((info->intr_state.irq_started == 1) && (guest_ctrl->exit_int_info.valid == 0)) {
-#ifdef CONFIG_DEBUG_INTERRUPTS
-	PrintDebug("Interrupt %d taken by guest\n", info->intr_state.irq_vector);
-#endif
-
-	// Interrupt was taken fully vectored
-	info->intr_state.irq_started = 0;
-
-    } else {
-#ifdef CONFIG_DEBUG_INTERRUPTS
-	PrintDebug("EXIT INT INFO is set (vec=%d)\n", guest_ctrl->exit_int_info.vector);
-#endif
-    }
-
+int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_info1, addr_t exit_info2) {
 
 #ifdef CONFIG_TELEMETRY
     if (info->enable_telemetry) {
@@ -135,16 +53,16 @@ int v3_handle_svm_exit(struct guest_info * info) {
 
     switch (exit_code) {
 	case VMEXIT_IOIO: {
-	    struct svm_io_info * io_info = (struct svm_io_info *)&(guest_ctrl->exit_info1);
+	    struct svm_io_info * io_info = (struct svm_io_info *)&(exit_info1);
 
 	    if (io_info->type == 0) {
 		if (io_info->str) {
 
-		    if (v3_handle_svm_io_outs(info) == -1 ) {
+		    if (v3_handle_svm_io_outs(info, io_info) == -1 ) {
 			return -1;
 		    }
 		} else {
-		    if (v3_handle_svm_io_out(info) == -1) {
+		    if (v3_handle_svm_io_out(info, io_info) == -1) {
 			return -1;
 		    }
 		}
@@ -152,24 +70,27 @@ int v3_handle_svm_exit(struct guest_info * info) {
 	    } else {
 
 		if (io_info->str) {
-		    if (v3_handle_svm_io_ins(info) == -1) {
+		    if (v3_handle_svm_io_ins(info, io_info) == -1) {
 			return -1;
 		    }
 		} else {
-		    if (v3_handle_svm_io_in(info) == -1) {
+		    if (v3_handle_svm_io_in(info, io_info) == -1) {
 			return -1;
 		    }
 		}
 	    }
+
+	    info->rip = exit_info2;
+
 	    break;
 	}
 	case VMEXIT_MSR:
 
-	    if (guest_ctrl->exit_info1 == 0) {
+	    if (exit_info1 == 0) {
 		if (v3_handle_msr_read(info) == -1) {
 		    return -1;
 		}
-	    } else if (guest_ctrl->exit_info1 == 1) {
+	    } else if (exit_info1 == 1) {
 		if (v3_handle_msr_write(info) == -1) {
 		    return -1;
 		}
@@ -237,8 +158,8 @@ int v3_handle_svm_exit(struct guest_info * info) {
 	    }
 	    break;
 	case VMEXIT_EXCP14: {
-	    addr_t fault_addr = guest_ctrl->exit_info2;
-	    pf_error_t * error_code = (pf_error_t *)&(guest_ctrl->exit_info1);
+	    addr_t fault_addr = exit_info2;
+	    pf_error_t * error_code = (pf_error_t *)&(exit_info1);
 #ifdef CONFIG_DEBUG_SHADOW_PAGING
 	    PrintDebug("PageFault at %p (error=%d)\n", 
 		       (void *)fault_addr, *(uint_t *)error_code);
@@ -254,8 +175,8 @@ int v3_handle_svm_exit(struct guest_info * info) {
 	    break;
 	} 
  	case VMEXIT_NPF: {
-	    addr_t fault_addr = guest_ctrl->exit_info2;
-	    pf_error_t * error_code = (pf_error_t *)&(guest_ctrl->exit_info1);
+	    addr_t fault_addr = exit_info2;
+	    pf_error_t * error_code = (pf_error_t *)&(exit_info1);
 
 	    if (info->shdw_pg_mode == NESTED_PAGING) {
 		if (v3_handle_nested_pagefault(info, fault_addr, *error_code) == -1) {
@@ -333,20 +254,20 @@ int v3_handle_svm_exit(struct guest_info * info) {
 	    
 	    PrintDebug("Unhandled SVM Exit: %s\n", vmexit_code_to_str(exit_code));
 	    
-	    rip_addr = get_addr_linear(info, guest_state->rip, &(info->segments.cs));
+	    rip_addr = get_addr_linear(info, info->rip, &(info->segments.cs));
 	    
 	    
 	    PrintError("SVM Returned:(VMCB=%p)\n", (void *)(info->vmm_data)); 
-	    PrintError("RIP: %p\n", (void *)(addr_t)(guest_state->rip));
+	    PrintError("RIP: %p\n", (void *)(addr_t)(info->rip));
 	    PrintError("RIP Linear: %p\n", (void *)(addr_t)(rip_addr));
 	    
 	    PrintError("SVM Returned: Exit Code: %p\n", (void *)(addr_t)exit_code); 
 	    
-	    PrintError("io_info1 low = 0x%.8x\n", *(uint_t*)&(guest_ctrl->exit_info1));
-	    PrintError("io_info1 high = 0x%.8x\n", *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info1)) + 4));
+	    PrintError("io_info1 low = 0x%.8x\n", *(uint_t*)&(exit_info1));
+	    PrintError("io_info1 high = 0x%.8x\n", *(uint_t *)(((uchar_t *)&(exit_info1)) + 4));
 	    
-	    PrintError("io_info2 low = 0x%.8x\n", *(uint_t*)&(guest_ctrl->exit_info2));
-	    PrintError("io_info2 high = 0x%.8x\n", *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info2)) + 4));
+	    PrintError("io_info2 low = 0x%.8x\n", *(uint_t*)&(exit_info2));
+	    PrintError("io_info2 high = 0x%.8x\n", *(uint_t *)(((uchar_t *)&(exit_info2)) + 4));
 	    
 	    
 	    if (info->shdw_pg_mode == SHADOW_PAGING) {
@@ -364,118 +285,6 @@ int v3_handle_svm_exit(struct guest_info * info) {
 	v3_telemetry_end_exit(info, exit_code);
     }
 #endif
-
-
-
-#ifdef CONFIG_SYMBIOTIC
-    v3_activate_sym_call(info);
-#endif
-
-    guest_state->cr0 = info->ctrl_regs.cr0;
-    guest_state->cr2 = info->ctrl_regs.cr2;
-    guest_state->cr3 = info->ctrl_regs.cr3;
-    guest_state->cr4 = info->ctrl_regs.cr4;
-    guest_state->dr6 = info->dbg_regs.dr6;
-    guest_state->dr7 = info->dbg_regs.dr7;
-    guest_ctrl->guest_ctrl.V_TPR = info->ctrl_regs.cr8 & 0xff;
-    guest_state->rflags = info->ctrl_regs.rflags;
-    guest_state->efer = info->ctrl_regs.efer;
-    
-    guest_state->cpl = info->cpl;
-
-    v3_set_vmcb_segments((vmcb_t*)(info->vmm_data), &(info->segments));
-
-    guest_state->rax = info->vm_regs.rax;
-    guest_state->rip = info->rip;
-    guest_state->rsp = info->vm_regs.rsp;
-
-
-
-
-    if (v3_excp_pending(info)) {
-	uint_t excp = v3_get_excp_number(info);
-	
-	guest_ctrl->EVENTINJ.type = SVM_INJECTION_EXCEPTION;
-	
-	if (info->excp_state.excp_error_code_valid) {
-	    guest_ctrl->EVENTINJ.error_code = info->excp_state.excp_error_code;
-	    guest_ctrl->EVENTINJ.ev = 1;
-#ifdef CONFIG_DEBUG_INTERRUPTS
-	    PrintDebug("Injecting exception %d with error code %x\n", excp, guest_ctrl->EVENTINJ.error_code);
-#endif
-	}
-	
-	guest_ctrl->EVENTINJ.vector = excp;
-	
-	guest_ctrl->EVENTINJ.valid = 1;
-
-	PrintDebug("Injecting Exception %d (EIP=%p)\n", 
-		   guest_ctrl->EVENTINJ.vector, 
-		   (void *)(addr_t)info->rip);
-
-
-
-#ifdef CONFIG_DEBUG_INTERRUPTS
-	PrintDebug("Injecting Exception %d (EIP=%p)\n", 
-		   guest_ctrl->EVENTINJ.vector, 
-		   (void *)(addr_t)info->rip);
-#endif
-	v3_injecting_excp(info, excp);
-
-#ifdef CONFIG_SYMBIOTIC
-    } else if (info->sym_state.call_active == 1) {
-	// ignore interrupt injection if we just started a symcall
-	PrintDebug("Symcall active\n");
-	sym_started = 1;
-#endif
-
-    } else if (info->intr_state.irq_started == 1) {
-#ifdef CONFIG_DEBUG_INTERRUPTS
-	PrintDebug("IRQ pending from previous injection\n");
-#endif
-	guest_ctrl->guest_ctrl.V_IRQ = 1;
-	guest_ctrl->guest_ctrl.V_INTR_VECTOR = info->intr_state.irq_vector;
-	guest_ctrl->guest_ctrl.V_IGN_TPR = 1;
-	guest_ctrl->guest_ctrl.V_INTR_PRIO = 0xf;
-
-    } else {
-	switch (v3_intr_pending(info)) {
-	    case V3_EXTERNAL_IRQ: {
-		uint32_t irq = v3_get_intr(info);
-
-		guest_ctrl->guest_ctrl.V_IRQ = 1;
-		guest_ctrl->guest_ctrl.V_INTR_VECTOR = irq;
-		guest_ctrl->guest_ctrl.V_IGN_TPR = 1;
-		guest_ctrl->guest_ctrl.V_INTR_PRIO = 0xf;
-
-#ifdef CONFIG_DEBUG_INTERRUPTS
-		PrintDebug("Injecting Interrupt %d (EIP=%p)\n", 
-			   guest_ctrl->guest_ctrl.V_INTR_VECTOR, 
-			   (void *)(addr_t)info->rip);
-#endif
-
-		info->intr_state.irq_pending = 1;
-		info->intr_state.irq_vector = irq;
-		
-		break;
-	    }
-	    case V3_NMI:
-		guest_ctrl->EVENTINJ.type = SVM_INJECTION_NMI;
-		break;
-	    case V3_SOFTWARE_INTR:
-		guest_ctrl->EVENTINJ.type = SVM_INJECTION_SOFT_INTR;
-		break;
-	    case V3_VIRTUAL_IRQ:
-		guest_ctrl->EVENTINJ.type = SVM_INJECTION_IRQ;
-		break;
-
-	    case V3_INVALID_INTR:
-	    default:
-		break;
-	}
-	
-    }
-
 
 
     if (exit_code == VMEXIT_INTR) {

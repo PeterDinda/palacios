@@ -70,6 +70,9 @@ int v3_register_swap_disk(struct guest_info * info, int dev_index,
 
 int v3_swap_in_notify(struct guest_info * info, int pg_index, int dev_index);
 
+int v3_sym_get_addr_info(struct guest_info * info, addr_t vadd, 
+			 int (*cb)(struct guest_info * info));
+
 
 addr_t v3_get_swapped_pg_addr(struct guest_info * info, pte32_t * shadow_pte, pte32_t * guest_pte);
 

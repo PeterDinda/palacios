@@ -27,7 +27,10 @@
 
 #define SYM_CPUID_NUM 0x90000000
 
+// A succesfull symcall returns via the RET_HCALL, with the return values in registers
+// A symcall error returns via the ERR_HCALL with the error code in rbx
 #define SYM_CALL_RET_HCALL 0x535
+#define SYM_CALL_ERR_HCALL 0x536
 
 
 /* Notes: We use a combination of SYSCALL and SYSENTER Semantics 
@@ -145,6 +148,7 @@ static int cpuid_fn(struct guest_info * info, uint32_t cpuid,
     
 
 static int sym_call_ret(struct guest_info * info, uint_t hcall_id, void * private_data);
+static int sym_call_err(struct guest_info * info, uint_t hcall_id, void * private_data);
 
 
 
@@ -170,6 +174,7 @@ int v3_init_sym_iface(struct guest_info * info) {
     v3_hook_msr(info, SYMCALL_FS_MSR, msr_read, msr_write, info);
 
     v3_register_hypercall(info, SYM_CALL_RET_HCALL, sym_call_ret, NULL);
+    v3_register_hypercall(info, SYM_CALL_ERR_HCALL, sym_call_err, NULL);
 
     return 0;
 }
@@ -213,100 +218,70 @@ int v3_sym_unmap_pci_passthrough(struct guest_info * info, uint_t bus, uint_t de
 }
 
 
+static int sym_call_err(struct guest_info * info, uint_t hcall_id, void * private_data) {
+    struct v3_sym_state * state = (struct v3_sym_state *)&(info->sym_state);
+
+    PrintError("sym call error\n");
+
+    state->sym_call_errno = (int)info->vm_regs.rbx;
+    v3_print_guest_state(info);
+    v3_print_mem_map(info);
+
+    // clear sym flags
+    state->sym_call_error = 1;
+    state->sym_call_returned = 1;
+
+    return -1;
+}
 
 static int sym_call_ret(struct guest_info * info, uint_t hcall_id, void * private_data) {
     struct v3_sym_state * state = (struct v3_sym_state *)&(info->sym_state);
-    struct v3_sym_context * old_ctx = (struct v3_sym_context *)&(state->old_ctx);
-
 
     PrintError("Return from sym call\n");
     v3_print_guest_state(info);
     v3_print_mem_map(info);
 
+    state->sym_call_returned = 1;
 
-    if (state->notifier != NULL) {
-	if (state->notifier(info, state->private_data) == -1) {
-	    PrintError("Error in return from symcall.\n");
+    return 0;
+}
+
+static int execute_symcall(struct guest_info * info) {
+
+    while (info->sym_state.sym_call_returned == 0) {
+	if (v3_vm_enter(info) == -1) {
+	    PrintError("Error in Sym call\n");
 	    return -1;
 	}
     }
-
-
-    // restore guest state
-    memcpy(&(info->vm_regs), &(old_ctx->vm_regs), sizeof(struct v3_gprs));
-    memcpy(&(info->segments.cs), &(old_ctx->cs), sizeof(struct v3_segment));
-    memcpy(&(info->segments.ss), &(old_ctx->ss), sizeof(struct v3_segment));
-    info->segments.gs.base = old_ctx->gs_base;
-    info->segments.fs.base = old_ctx->fs_base;
-    info->rip = old_ctx->rip;
-    info->cpl = old_ctx->cpl;
-
-
-    PrintDebug("restoring guest state\n");
-    v3_print_guest_state(info);
-
-    // clear sym flags
-    state->call_active = 0;
-
 
     return 0;
 }
 
 
 int v3_sym_call(struct guest_info * info, 
-		uint64_t call_num, uint64_t arg0, 
-		uint64_t arg1, uint64_t arg2,
-		uint64_t arg3, uint64_t arg4, 
-		int (*notifier)(struct guest_info * info, void * private_data),
-		void * private_data) {
-    struct v3_sym_state * state = (struct v3_sym_state *)&(info->sym_state);
-
-
-    PrintDebug("Making Sym call\n");
-
-    if ((state->sym_page->sym_call_enabled == 0) ||
-	(state->call_active == 1) || 
-	(state->call_pending == 1)) {
-	return -1;
-    }
-
-    state->args[0] = call_num;
-    state->args[1] = arg0;
-    state->args[2] = arg1;
-    state->args[3] = arg2;
-    state->args[4] = arg3;
-    state->args[5] = arg4;
-
-    state->notifier = notifier;
-    state->private_data = private_data;
-
-    state->call_pending = 1;
-
-    return 0;
-}
-
-
-
-int v3_activate_sym_call(struct guest_info * info) {
+		uint64_t call_num, sym_arg_t * arg0, 
+		sym_arg_t * arg1, sym_arg_t * arg2,
+		sym_arg_t * arg3, sym_arg_t * arg4) {
     struct v3_sym_state * state = (struct v3_sym_state *)&(info->sym_state);
     struct v3_sym_context * old_ctx = (struct v3_sym_context *)&(state->old_ctx);
     struct v3_segment sym_cs;
     struct v3_segment sym_ss;
+    uint64_t trash_args[5] = { [0 ... 4] = 0 };
 
-
-    if ((state->sym_page->sym_call_enabled == 0) || 
-	(state->call_pending == 0)) {
-	// Unable to make sym call or none pending
-	if (state->call_active == 1) {
-	    PrintError("handled exit while in symcall\n");
-	}
-	return 0;
-    }
-
-
-    PrintDebug("Activating Symbiotic call\n");
+    PrintDebug("Making Sym call\n");
     v3_print_guest_state(info);
 
+    if ((state->sym_page->sym_call_enabled == 0) ||
+	(state->sym_call_active == 1)) {
+	return -1;
+    }
+    
+    if (!arg0) arg0 = &trash_args[0];
+    if (!arg1) arg1 = &trash_args[1];
+    if (!arg2) arg2 = &trash_args[2];
+    if (!arg3) arg3 = &trash_args[3];
+    if (!arg4) arg4 = &trash_args[4];
 
     // Save the old context
     memcpy(&(old_ctx->vm_regs), &(info->vm_regs), sizeof(struct v3_gprs));
@@ -316,12 +291,11 @@ int v3_activate_sym_call(struct guest_info * info) {
     old_ctx->fs_base = info->segments.fs.base;
     old_ctx->rip = info->rip;
     old_ctx->cpl = info->cpl;
+    old_ctx->flags = info->ctrl_regs.rflags;
 
-    
- 
     // Setup the sym call context
     info->rip = state->sym_call_rip;
-    info->vm_regs.rsp = state->sym_call_rsp;
+    info->vm_regs.rsp = state->sym_call_rsp; // old contest rsp is saved in vm_regs
 
     v3_translate_segment(info, state->sym_call_cs, &sym_cs);
     memcpy(&(info->segments.cs), &sym_cs, sizeof(struct v3_segment));
@@ -333,20 +307,51 @@ int v3_activate_sym_call(struct guest_info * info) {
     info->segments.fs.base = state->sym_call_fs;
     info->cpl = 0;
 
-    info->vm_regs.rax = state->args[0];
-    info->vm_regs.rbx = state->args[1];
-    info->vm_regs.rcx = state->args[2];
-    info->vm_regs.rdx = state->args[3];
-    info->vm_regs.rsi = state->args[4];
-    info->vm_regs.rdi = state->args[5];
+    info->vm_regs.rax = call_num;
+    info->vm_regs.rbx = *arg0;
+    info->vm_regs.rcx = *arg1;
+    info->vm_regs.rdx = *arg2;
+    info->vm_regs.rsi = *arg3;
+    info->vm_regs.rdi = *arg4;
 
     // Mark sym call as active
-    state->call_pending = 0;
-    state->call_active = 1;
-
+    state->sym_call_active = 1;
+    state->sym_call_returned = 0;
 
     PrintDebug("Sym state\n");
     v3_print_guest_state(info);
 
-    return 1;
+    // Do the sym call entry
+    if (execute_symcall(info) == -1) {
+	PrintError("SYMCALL error\n");
+	return -1;
+    } 
+
+    // clear sym flags
+    state->sym_call_active = 0;
+
+    *arg0 = info->vm_regs.rbx;
+    *arg1 = info->vm_regs.rcx;
+    *arg2 = info->vm_regs.rdx;
+    *arg3 = info->vm_regs.rsi;
+    *arg4 = info->vm_regs.rdi;
+
+    // restore guest state
+    memcpy(&(info->vm_regs), &(old_ctx->vm_regs), sizeof(struct v3_gprs));
+    memcpy(&(info->segments.cs), &(old_ctx->cs), sizeof(struct v3_segment));
+    memcpy(&(info->segments.ss), &(old_ctx->ss), sizeof(struct v3_segment));
+    info->segments.gs.base = old_ctx->gs_base;
+    info->segments.fs.base = old_ctx->fs_base;
+    info->rip = old_ctx->rip;
+    info->cpl = old_ctx->cpl;
+    info->ctrl_regs.rflags = old_ctx->flags;
+
+
+
+    PrintDebug("restoring guest state\n");
+    v3_print_guest_state(info);
+
+    return 0;
 }
+
+
