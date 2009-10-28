@@ -15,14 +15,13 @@
  * All rights reserved.
  *
  * Author: Lei Xia <lxia@northwestern.edu>
- *            Yuan Tang <ytang@northwestern.edu>
+ *		  Yuan Tang <ytang@northwestern.edu>
  *		  Jack Lange <jarusl@cs.northwestern.edu> 
  *		  Peter Dinda <pdinda@northwestern.edu
  *
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
-#if 0
 
 #ifndef __VNET_H__
 #define __VNET_H__
@@ -38,36 +37,13 @@
 #define ETHERNET_HEADER_LEN 14
 #define ETHERNET_DATA_MIN   46
 #define ETHERNET_DATA_MAX   1500
-
 #define ETHERNET_PACKET_LEN (ETHERNET_HEADER_LEN+ETHERNET_DATA_MAX)
-
-
-struct gen_queue * vnet_inpkt_q;
 
 struct ethAddr{
   char addr[6];
 };
 
-typedef struct vnet_device{
-	char name[50];
-//	struct ethAddr device_addr;
-	int (*input)(uchar_t * pkt, uint_t size);
-
-	void *data;
-	//....
-}iface_t;
-
-#define ROUTE 1
-//#define ROUTE 0
-
-#if ROUTE //new routing accrding to VNET-VTL, no hash --YT
-
-//struct gen_queue *src_link_index_q;
-
 #define SOCK int
-#define MAX_LINKS 100
-#define MAX_ROUTES 500
-#define MAX_DEVICES 16
 
 #define TCP_TYPE 0
 #define UDP_TYPE 1
@@ -78,15 +54,6 @@ typedef struct vnet_device{
 /*   
 #define HANDLER_ERROR -1
 #define HANDLER_SUCCESS 0
-*/
-/* These are the return codes for the Control Session */
-/*
-#define CTRL_DO_NOTHING 0
-#define CTRL_CLOSE 1
-#define CTRL_DELETE_TCP_SOCK 3
-#define CTRL_ADD_TCP_SOCK 4
-#define CTRL_EXIT 5
-#define CTRL_ERROR -1
 */
 
 #define ANY "any"
@@ -107,7 +74,7 @@ typedef struct vnet_device{
 #define EDGE_TYPE 1
 #define ANY_SRC_TYPE 2
 
-//This is the structure that stores the routing entries
+//the routing entry
 struct routing {
   char src_mac[6];
   char dest_mac[6];
@@ -137,10 +104,9 @@ struct topology {
   unsigned short remote_port;
 
   // LINK OR GATEWAY
-//  int link_class;
+  // int link_class;
 
   int use;
-//  int authenticated;
   int type; //TCP=0, UDP=1,VTP=2, can be extended so on
 
   int next;
@@ -154,15 +120,24 @@ struct sock_list {
   int prev;
 };
 
-typedef struct sock_list con_t;
+
+#define GENERAL_NIC 0
+
+struct vnet_if_device{
+	char name[50];
+	struct ethAddr device_addr;
+
+	int (*input)(uchar_t * pkt, uint_t size);
+
+	void *data;
+};
+
 
 struct device_list {
-  char *device_name;
+  struct vnet_if_device *device;
 
-  iface_t * vnet_device;
-
-  int type;
   int use;
+  int type;
 
   int next;
   int prev;
@@ -177,13 +152,11 @@ struct HEADERS {
 };
 
 #define FOREACH(iter, list, start) for (iter = start; iter != -1; iter = list[iter].next)
-
 #define FOREACH_SOCK(iter, socks, start) FOREACH(iter, socks, start)
 #define FOREACH_LINK(iter, links, start) FOREACH(iter, links, start)
 #define FOREACH_ROUTE(iter, routes, start) FOREACH(iter, routes, start)
 #define FOREACH_DEVICE(iter, devices, start) FOREACH(iter, devices, start)
 
-#endif
 
 int V3_Send_pkt(uchar_t *buf, int length);
 int V3_Register_pkt_event(int (*netif_input)(uchar_t * pkt, uint_t size));
@@ -192,12 +165,10 @@ int V3_Register_pkt_event(int (*netif_input)(uchar_t * pkt, uint_t size));
 int vnet_send_pkt(char *buf, int length);
 int vnet_register_pkt_event(char *dev_name, int (*netif_input)(uchar_t * pkt, uint_t size), void *data);
 
-//check if there are incoming packet in the queue for VNIC, if yes, send the packet to the VNIC
-//this should put in the svm exit handler
-int vnet_check();
+int vnet_pkt_process();
 
 void vnet_init();
 
 #endif
-#endif
+
 
