@@ -338,18 +338,16 @@ static int update_irq_state(struct guest_info * info) {
 	
 	guest_ctrl->EVENTINJ.valid = 1;
 
+
+
+#ifdef CONFIG_DEBUG_INTERRUPTS
 	PrintDebug("<%d> Injecting Exception %d (CR2=%p) (EIP=%p)\n", 
 		   (int)info->num_exits, 
 		   guest_ctrl->EVENTINJ.vector, 
 		   (void *)(addr_t)info->ctrl_regs.cr2,
 		   (void *)(addr_t)info->rip);
-
-
-#ifdef CONFIG_DEBUG_INTERRUPTS
-	PrintDebug("Injecting Exception %d (EIP=%p)\n", 
-		   guest_ctrl->EVENTINJ.vector, 
-		   (void *)(addr_t)info->rip);
 #endif
+
 	v3_injecting_excp(info, excp);
 
 
@@ -408,7 +406,7 @@ static int update_irq_state(struct guest_info * info) {
  * CAUTION and DANGER!!! 
  * 
  * The VMCB CANNOT(!!) be accessed outside of the clgi/stgi calls inside this function
- * When exectuing a symbiotic call the VMCB WILL be overwritten, so any dependencies 
+ * When exectuing a symbiotic call, the VMCB WILL be overwritten, so any dependencies 
  * on its contents will cause things to break. The contents at the time of the exit WILL 
  * change before the exit handler is executed.
  */

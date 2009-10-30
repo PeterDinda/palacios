@@ -237,9 +237,8 @@ static int sym_call_err(struct guest_info * info, uint_t hcall_id, void * privat
 static int sym_call_ret(struct guest_info * info, uint_t hcall_id, void * private_data) {
     struct v3_sym_state * state = (struct v3_sym_state *)&(info->sym_state);
 
-    PrintError("Return from sym call\n");
-    v3_print_guest_state(info);
-    v3_print_mem_map(info);
+    //    PrintError("Return from sym call\n");
+    //   v3_print_guest_state(info);
 
     state->sym_call_returned = 1;
 
@@ -269,8 +268,8 @@ int v3_sym_call(struct guest_info * info,
     struct v3_segment sym_ss;
     uint64_t trash_args[5] = { [0 ... 4] = 0 };
 
-    PrintDebug("Making Sym call\n");
-    v3_print_guest_state(info);
+    //   PrintDebug("Making Sym call\n");
+    //    v3_print_guest_state(info);
 
     if ((state->sym_page->sym_call_enabled == 0) ||
 	(state->sym_call_active == 1)) {
@@ -318,8 +317,8 @@ int v3_sym_call(struct guest_info * info,
     state->sym_call_active = 1;
     state->sym_call_returned = 0;
 
-    PrintDebug("Sym state\n");
-    v3_print_guest_state(info);
+    //    PrintDebug("Sym state\n");
+    //  v3_print_guest_state(info);
 
     // Do the sym call entry
     if (execute_symcall(info) == -1) {
@@ -348,8 +347,8 @@ int v3_sym_call(struct guest_info * info,
 
 
 
-    PrintDebug("restoring guest state\n");
-    v3_print_guest_state(info);
+    //    PrintDebug("restoring guest state\n");
+    //    v3_print_guest_state(info);
 
     return 0;
 }

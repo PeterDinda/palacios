@@ -327,7 +327,9 @@ static int key_event_handler(struct guest_info * info,
     if (evt->scan_code == 0x44) { // F10 debug dump
 	v3_print_guest_state(info);
 	//	PrintGuestPageTables(info, info->shdw_pg_state.guest_cr3);
-    } else if (evt->scan_code == 0x43) { // F9 Sym test
+    } 
+#ifdef CONFIG_SYMBIOTIC
+else if (evt->scan_code == 0x43) { // F9 Sym test
 	PrintDebug("Testing sym call\n");
 	sym_arg_t a0 = 0x1111;
 	sym_arg_t a1 = 0x2222;
@@ -345,7 +347,7 @@ static int key_event_handler(struct guest_info * info,
 	sym_arg_t addr = 0;
 	v3_sym_call1(info, SYMCALL_MEM_LOOKUP, &addr);
     }
-
+#endif
 
 
     addr_t irq_state = v3_lock_irqsave(state->kb_lock);
