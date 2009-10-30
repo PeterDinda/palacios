@@ -31,7 +31,7 @@ struct raw_ethernet_pkt {
   char  data[ETHERNET_PACKET_LEN];
 };
 
-char *vnet_version = "0.9";
+//static char *vnet_version = "0.9";
 static int vnet_server = 0;
 static bool use_tcp = false;
 
@@ -42,22 +42,22 @@ static uint_t vnet_udp_port = 22;
 #define MAX_DEVICES 16
 
 
-struct topology g_links[MAX_LINKS];
-int g_num_links; //The current number of links
-int g_first_link;
-int g_last_link;
+static struct topology g_links[MAX_LINKS];
+static int g_num_links; //The current number of links
+static int g_first_link;
+static int g_last_link;
 
-struct routing g_routes[MAX_ROUTES];
-int g_num_routes; //The current number of routes
-int g_first_route;
-int g_last_route;
+static struct routing g_routes[MAX_ROUTES];
+static int g_num_routes; //The current number of routes
+static int g_first_route;
+static int g_last_route;
 
-struct device_list g_devices[MAX_DEVICES];
-int g_num_devices;
-int g_first_device;
-int g_last_device;
+static struct device_list g_devices[MAX_DEVICES];
+static int g_num_devices;
+static int g_first_device;
+static int g_last_device;
 
-SOCK g_udp_sockfd;
+static SOCK g_udp_sockfd;
 static struct gen_queue * g_inpkt_q;//packet receiving queue
 
 
@@ -181,7 +181,7 @@ struct route_cache_entry  // This is the hash value, Format: 0: num_matched_rout
     int *matches; 
 };
 
-struct hashtable *g_route_cache; //Header of the route cache
+static struct hashtable *g_route_cache; //Header of the route cache
 
 static uint_t hash_from_key_fn(addr_t hashkey)
 {
@@ -411,7 +411,6 @@ int vnet_add_link_entry(unsigned long dest, int type, int data_port,  SOCK fd) {
 }
 
 
-// TODO: What is this used for?
 int add_sock(struct sock_list *socks, int  len, int *first_sock, int *last_sock, SOCK fd) {
   int i;
 
