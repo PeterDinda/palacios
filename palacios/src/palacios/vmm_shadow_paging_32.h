@@ -88,7 +88,7 @@ static inline int handle_shadow_pagefault_32(struct guest_info * info, addr_t fa
 	PrintDebug("Injecting PDE pf to guest: (guest access error=%d) (shdw access error=%d)  (pf error code=%d)\n", 
 		   *(uint_t *)&guest_pde_access, *(uint_t *)&shadow_pde_access, *(uint_t *)&error_code);
 	if (inject_guest_pf(info, fault_addr, error_code) == -1) {
-	    PrintError("Could not inject guest page fault\n");
+	    PrintError("Could not inject guest page fault for vaddr %p\n", (void *)fault_addr);
 	    return -1;
 	}
 	return 0;
@@ -104,7 +104,7 @@ static inline int handle_shadow_pagefault_32(struct guest_info * info, addr_t fa
 		   shadow_pde_access, guest_pde_access);
 	
 	if (inject_guest_pf(info, fault_addr, error_code) == -1) {
-	    PrintError("Could not inject guest page fault\n");
+	    PrintError("Could not inject guest page fault for vaddr %p\n", (void *)fault_addr);
 	    return -1;
 	}
 	return 0;
@@ -118,7 +118,7 @@ static inline int handle_shadow_pagefault_32(struct guest_info * info, addr_t fa
 	       (shadow_pde_access != PT_ACCESS_OK)) {
     	// inject page fault in guest
 	if (inject_guest_pf(info, fault_addr, error_code) == -1) {
-	    PrintError("Could not inject guest page fault\n");
+	    PrintError("Could not inject guest page fault for vaddr %p\n", (void *)fault_addr);
 	    return -1;
 	}
 	PrintDebug("Unknown Error occurred (shadow_pde_access=%d)\n", shadow_pde_access);
@@ -196,15 +196,6 @@ static inline int handle_shadow_pagefault_32(struct guest_info * info, addr_t fa
     return 0;
 }
 
-#ifdef CONFIG_SYMBIOTIC_SWAP
-
-static int sym_swap_callback(struct guest_info * info) {
-
-    return 0;
-}
-
-
-#endif
 
 static int handle_pte_shadow_pagefault_32(struct guest_info * info, addr_t fault_addr, pf_error_t error_code,
 					  pte32_t * shadow_pt, pte32_t * guest_pt) {
@@ -239,6 +230,7 @@ static int handle_pte_shadow_pagefault_32(struct guest_info * info, addr_t fault
 	
 #ifdef CONFIG_SYMBIOTIC_SWAP
 	if (is_swapped_pte32(guest_pte)) {
+	    pf_error_t swap_perms;
 
 #ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
 	    if (error_code.write == 0) {
@@ -248,53 +240,55 @@ static int handle_pte_shadow_pagefault_32(struct guest_info * info, addr_t fault
 	    }
 #endif
 
-	    // This will trigger a callback...
-	    v3_sym_get_addr_info(info, fault_addr, sym_swap_callback);
+	    if (v3_get_vaddr_perms(info, fault_addr, guest_pte, &swap_perms) == -1) {
+		PrintError("Error getting Swapped page permissions\n");
+		return -1;
+	    }
 
-	    return 0;
 
-	    /*
-	      if (error_code.write == 0) {
-	      V3_Print("Page fault on swapped out page (vaddr=%p) (pte=%x) (error_code=%x)\n", 
-	      (void *)fault_addr, *(uint32_t *)guest_pte, *(uint32_t *)&error_code);
-		
-	      addr_t swp_pg_addr = v3_get_swapped_pg_addr(info, shadow_pte, guest_pte);
-		
-	      if (swp_pg_addr == 0) {
-	      if (inject_guest_pf(info, fault_addr, error_code) == -1) {
-	      PrintError("Could not inject guest page fault\n");
-	      return -1;
-	      }
-	      } else {
+	    // swap_perms.write == 1 || error_code.write == 0
+	    // swap_perms.user == 0 || error_code.user == 1
 
+	    // This checks for permissions violations that require a guest PF injection
+	    if ( (swap_perms.present == 1) && 
+		 ( (swap_perms.write == 1) || 
+		   (error_code.write == 0) ) &&
+		 ( (swap_perms.user == 1) || 
+		   (error_code.user == 0) ) ) {
+		addr_t swp_pg_addr = 0;
+
+		V3_Print("Page fault on swapped out page (vaddr=%p) (pte=%x) (error_code=%x)\n", 
+			 (void *)fault_addr, *(uint32_t *)guest_pte, *(uint32_t *)&error_code);
+
+		swp_pg_addr = v3_get_swapped_pg_addr(info, shadow_pte, guest_pte);
+
+		V3_Print("Swapped page address=%p\n", (void *)swp_pg_addr);
+
+		if (swp_pg_addr != 0) {
+		    shadow_pte->writable = swap_perms.write;
+		    shadow_pte->user_page = swap_perms.user;
 		    
-	      shadow_pte->accessed = 1;
-	      shadow_pte->writable = 0;
+		    shadow_pte->write_through = 0;
+		    shadow_pte->cache_disable = 0;
+		    shadow_pte->global_page = 0;
 		    
-	      if ((fault_addr & 0xc0000000) == 0xc0000000) {
-	      shadow_pte->user_page = 0;
-	      } else {
-	      shadow_pte->user_page = 1;
-	      }
+		    shadow_pte->present = 1;
 		    
-	      shadow_pte->write_through = 0;
-	      shadow_pte->cache_disable = 0;
-	      shadow_pte->global_page = 0;
+		    shadow_pte->page_base_addr = swp_pg_addr;
 		    
-	      shadow_pte->present = 1;
-		    
-	      shadow_pte->page_base_addr = swp_pg_addr;
-	      }
-		
-	      return 0;
-	      }
-	    */
+#ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
+		    info->swap_state.mapped_pages++;
+#endif
+
+		    return 0;
+		}
+	    }
 	}
 #endif
 	
 
 	if (inject_guest_pf(info, fault_addr, error_code) == -1) {
-	    PrintError("Could not inject guest page fault\n");
+	    PrintError("Could not inject guest page fault for vaddr %p\n", (void *)fault_addr);
 	    return -1;
 	}	
 
@@ -377,7 +371,7 @@ static int handle_pte_shadow_pagefault_32(struct guest_info * info, addr_t fault
     } else {
 	// Inject page fault into the guest	
 	if (inject_guest_pf(info, fault_addr, error_code) == -1) {
-	    PrintError("Could not inject guest page fault\n");
+	    PrintError("Could not inject guest page fault for vaddr %p\n", (void *)fault_addr);
 	    return -1;
 	}
 

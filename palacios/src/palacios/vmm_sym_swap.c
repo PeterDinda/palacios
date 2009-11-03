@@ -76,6 +76,7 @@ static void telemetry_cb(struct guest_info * info, void * private_data, char * h
     V3_Print("%sSymbiotic Swap:\n", hdr);
     V3_Print("%s\tRead faults=%d\n", hdr, swap_state->read_faults);
     V3_Print("%s\tWrite faults=%d\n", hdr, swap_state->write_faults);
+    V3_Print("%s\tMapped Pages=%d\n", hdr, swap_state->mapped_pages);
     V3_Print("%s\tFlushes=%d\n", hdr, swap_state->flushes);
 }
 #endif
@@ -148,7 +149,7 @@ int v3_swap_flush(struct guest_info * info) {
     struct v3_sym_swap_state * swap_state = &(info->swap_state);
     struct hashtable_iter * ht_iter = v3_create_htable_iter(swap_state->shdw_ptr_ht);
 
-    PrintDebug("Flushing Symbiotic Swap table\n");
+    //    PrintDebug("Flushing Symbiotic Swap table\n");
 
 #ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
     swap_state->flushes++;
@@ -177,11 +178,18 @@ int v3_swap_flush(struct guest_info * info) {
     return 0;
 }
 
+int v3_get_vaddr_perms(struct guest_info * info, addr_t vaddr, pte32_t * guest_pte, pf_error_t * page_perms) {
+    uint32_t pte_val = *(uint32_t *)guest_pte;
 
-int v3_sym_get_addr_info(struct guest_info * info, addr_t vaddr,
-			    int (*cb)(struct guest_info * info)) {
+    // symcall to check if page is in cache or on swap disk
+    if (v3_sym_call3(info, SYMCALL_MEM_LOOKUP, (uint64_t *)&vaddr, (uint64_t *)&pte_val, (uint64_t *)page_perms) == -1) {
+	PrintError("Sym call error?? that's weird... \n");
+	return -1;
+    }
+
+    V3_Print("page perms = %x\n", *(uint32_t *)page_perms);
+
     return 0;
-
 }
 
 
@@ -197,6 +205,8 @@ addr_t v3_get_swapped_pg_addr(struct guest_info * info, pte32_t * shadow_pte, pt
     if (! swp_dev->present ) {
 	return 0;
     }
+
+
 
     swp_page_ptr = swp_dev->ops->get_swap_entry(get_pg_index(guest_pte), swp_dev->private_data);
 

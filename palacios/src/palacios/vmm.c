@@ -204,19 +204,17 @@ int v3_vm_enter(struct guest_info * info) {
 #ifdef CONFIG_SVM
 	case V3_SVM_CPU:
 	case V3_SVM_REV3_CPU:
-	    v3_svm_enter(info);
+	    return v3_svm_enter(info);
 	    break;
 #endif
 #if CONFIG_VMX && 0
 	case V3_VMX_CPU:
 	case V3_VMX_EPT_CPU:
-	    v3_vmx_enter(info);
+	    return v3_vmx_enter(info);
 	    break;
 #endif
 	default:
 	    PrintError("Attemping to enter a guest on an invalid CPU\n");
 	    return -1;
     }
-
-    return 0;
 }

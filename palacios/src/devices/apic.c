@@ -282,6 +282,10 @@ static int activate_apic_irq(struct apic_state * apic, uint32_t irq_num) {
 
     PrintDebug("Raising APIC IRQ %d\n", irq_num);
 
+    if (*req_location & flag) {
+	V3_Print("Interrupts coallescing\n");
+    }
+
     if (*en_location & flag) {
 	*req_location |= flag;
     } else {

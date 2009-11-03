@@ -291,16 +291,23 @@ void v3_print_stack(struct guest_info * info) {
 
 
     linear_addr = get_addr_linear(info, info->vm_regs.rsp, &(info->segments.ss));
-    
+ 
+    V3_Print("Stack  at %p:\n", (void *)linear_addr);
+   
     if (info->mem_mode == PHYSICAL_MEM) {
-	guest_pa_to_host_va(info, linear_addr, &host_addr);
+	if (guest_pa_to_host_va(info, linear_addr, &host_addr) == -1) {
+	    PrintError("Could not translate Stack address\n");
+	    return;
+	}
     } else if (info->mem_mode == VIRTUAL_MEM) {
-	guest_va_to_host_va(info, linear_addr, &host_addr);
+	if (guest_va_to_host_va(info, linear_addr, &host_addr) == -1) {
+	    PrintError("Could not translate Virtual Stack address\n");
+	    return;
+	}
     }
     
     V3_Print("Host Address of rsp = 0x%p\n", (void *)host_addr);
-    V3_Print("Stack  at %p:\n", (void *)host_addr);
-
+ 
     // We start i at one because the current stack pointer points to an unused stack element
     for (i = 0; i <= 24; i++) {
 	if (cpu_mode == LONG) {

@@ -26,11 +26,15 @@
 #include <palacios/vmm_mem.h>
 #include <palacios/vmm_hypercall.h>
 #include <palacios/vmm_dev_mgr.h>
-#include <palacios/vmm_sym_iface.h>
 #include <palacios/vmm_cpuid.h>
+
+#ifdef CONFIG_SYMBIOTIC
+#include <palacios/vmm_sym_iface.h>
 
 #ifdef CONFIG_SYMBIOTIC_SWAP
 #include <palacios/vmm_sym_swap.h>
+#endif
+
 #endif
 
 #include <devices/generic.h>
@@ -111,7 +115,9 @@ int v3_pre_config_guest(struct guest_info * info, struct v3_vm_config * config_p
 	info->shdw_pg_mode = SHADOW_PAGING;
     }
 
+#ifdef CONFIG_SYMBIOTIC
     v3_init_sym_iface(info);
+#endif
 
     v3_init_time(info);
     v3_init_interrupt_state(info);

@@ -227,7 +227,7 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 	    }
 	    break;
 	case VMEXIT_PAUSE:
-	    PrintDebug("Guest paused\n");
+	    //	    PrintDebug("Guest paused\n");
 	    if (v3_handle_svm_pause(info) == -1) { 
 		return -1;
 	    }

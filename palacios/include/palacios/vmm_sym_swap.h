@@ -49,6 +49,7 @@ struct v3_sym_swap_state {
     uint32_t read_faults;
     uint32_t write_faults;
     uint32_t flushes;
+    uint32_t mapped_pages;
 #endif
 
     // shadow pointers
@@ -70,10 +71,8 @@ int v3_register_swap_disk(struct guest_info * info, int dev_index,
 
 int v3_swap_in_notify(struct guest_info * info, int pg_index, int dev_index);
 
-int v3_sym_get_addr_info(struct guest_info * info, addr_t vadd, 
-			 int (*cb)(struct guest_info * info));
 
-
+int v3_get_vaddr_perms(struct guest_info * info, addr_t vaddr, pte32_t * guest_pte, pf_error_t * page_perms);
 addr_t v3_get_swapped_pg_addr(struct guest_info * info, pte32_t * shadow_pte, pte32_t * guest_pte);
 
 int v3_swap_flush(struct guest_info * info);

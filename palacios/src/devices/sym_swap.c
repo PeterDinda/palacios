@@ -116,12 +116,12 @@ static inline void * get_swap_entry(uint32_t pg_index, void * private_data) {
     struct vm_device * dev = (struct vm_device *)private_data;
     struct swap_state * swap = (struct swap_state *)(dev->private_data);
     void * pg_addr = NULL;
-    int ret = 0;
+    // int ret = 0;
 
-    if ((ret = get_index_usage(swap, pg_index))) {
-	// CAREFUL: The index might be offset by 1, because the first 4K is the header
-	pg_addr = (void *)(swap->swap_space + (pg_index * 4096));
-    }
+    //    if ((ret = get_index_usage(swap, pg_index))) {
+    // CAREFUL: The index might be offset by 1, because the first 4K is the header
+    pg_addr = (void *)(swap->swap_space + (pg_index * 4096));
+    //    }
 
     return pg_addr;
 }
