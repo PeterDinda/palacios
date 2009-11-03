@@ -338,8 +338,6 @@ static int update_irq_state(struct guest_info * info) {
 	
 	guest_ctrl->EVENTINJ.valid = 1;
 
-
-
 #ifdef CONFIG_DEBUG_INTERRUPTS
 	PrintDebug("<%d> Injecting Exception %d (CR2=%p) (EIP=%p)\n", 
 		   (int)info->num_exits, 
@@ -349,8 +347,6 @@ static int update_irq_state(struct guest_info * info) {
 #endif
 
 	v3_injecting_excp(info, excp);
-
-
     } else if (info->intr_state.irq_started == 1) {
 #ifdef CONFIG_DEBUG_INTERRUPTS
 	PrintDebug("IRQ pending from previous injection\n");
@@ -470,13 +466,6 @@ int v3_svm_enter(struct guest_info * info) {
 
     v3_update_time(info, tmp_tsc - info->time_state.cached_host_tsc);
 
-#ifdef CONFIG_SYMBIOTIC
-    if (info->sym_state.sym_call_active == 0) {
-	update_irq_state_atomic(info);
-    }
-#else 
-    update_irq_state_atomic(info);
-#endif
 
     // Save Guest state from VMCB
     info->rip = guest_state->rip;
@@ -505,6 +494,15 @@ int v3_svm_enter(struct guest_info * info) {
     exit_code = guest_ctrl->exit_code;
     exit_info1 = guest_ctrl->exit_info1;
     exit_info2 = guest_ctrl->exit_info2;
+
+
+#ifdef CONFIG_SYMBIOTIC
+    if (info->sym_state.sym_call_active == 0) {
+	update_irq_state_atomic(info);
+    }
+#else
+    update_irq_state_atomic(info);
+#endif
 
 
     // reenable global interrupts after vm exit
