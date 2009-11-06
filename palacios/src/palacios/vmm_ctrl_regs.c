@@ -324,7 +324,7 @@ int v3_handle_cr3_write(struct guest_info * info) {
 	    }
 
 
-
+#ifdef CONFIG_CRAY_XT
 	    
 	    // If Paging is enabled in the guest then we need to change the shadow page tables
 	    if (info->mem_mode == VIRTUAL_MEM) {
@@ -337,6 +337,18 @@ int v3_handle_cr3_write(struct guest_info * info) {
 	    }
 
 	    info->shdw_pg_state.prev_guest_cr3 = info->shdw_pg_state.guest_cr3;
+#else 
+
+	    // If Paging is enabled in the guest then we need to change the shadow page tables
+	    if (info->mem_mode == VIRTUAL_MEM) {
+		if (v3_activate_shadow_pt(info) == -1) {
+		    PrintError("Failed to activate 32 bit shadow page table\n");
+		    return -1;
+		}
+	    }
+
+#endif
+
 	    
 	    PrintDebug("New Shadow CR3=%p; New Guest CR3=%p\n", 
 		       (void *)(addr_t)(info->ctrl_regs.cr3), 
