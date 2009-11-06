@@ -81,6 +81,8 @@ static void telemetry_cb(struct guest_info * info, void * private_data, char * h
 int v3_init_shadow_page_state(struct guest_info * info) {
     struct shadow_page_state * state = &(info->shdw_pg_state);
   
+    state->prev_guest_cr3 = 0;
+
     state->guest_cr3 = 0;
     state->guest_cr0 = 0;
     state->guest_efer.value = 0x0LL;
