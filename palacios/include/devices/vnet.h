@@ -37,13 +37,8 @@
 #define ETHERNET_HEADER_LEN 14
 #define ETHERNET_DATA_MIN   46
 #define ETHERNET_DATA_MAX   1500
-#define ETHERNET_PACKET_LEN (ETHERNET_HEADER_LEN+ETHERNET_DATA_MAX)
+#define ETHERNET_PACKET_LEN (ETHERNET_HEADER_LEN + ETHERNET_DATA_MAX)
 
-struct ethAddr{
-  char addr[6];
-};
-
-#define SOCK int
 
 #define TCP_TYPE 0
 #define UDP_TYPE 1
@@ -127,10 +122,10 @@ struct device_list {
 
 // 14 (ethernet frame) + 20 bytes
 struct HEADERS {
-  char ethernetdest[6];
-  char ethernetsrc[6];
-  unsigned char ethernettype[2]; // indicates layer 3 protocol type
-  char ip[20];
+    char ethernetdest[6];
+    char ethernetsrc[6];
+    unsigned char ethernettype[2]; // indicates layer 3 protocol type
+    char ip[20];
 };
 
 #define FOREACH(iter, list, start) for (iter = start; iter != -1; iter = list[iter].next)
