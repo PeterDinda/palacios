@@ -25,6 +25,24 @@
  
 #include <devices/vnet.h>
 
+#define ANY "any"
+#define NOT "not"
+#define NONE "none"
+#define EMPTY "empty"
+
+#define ANY_TYPE 0
+#define NOT_TYPE 1
+#define NONE_TYPE 2
+#define EMPTY_TYPE 3
+
+#define INTERFACE "INTERFACE"
+#define EDGE "EDGE"
+#define ANY_SRC "ANY"
+
+#define INTERFACE_TYPE 0
+#define EDGE_TYPE 1
+#define ANY_SRC_TYPE 2
+
 struct raw_ethernet_pkt {
   int  size;
   int type; // vm or link type:  INTERFACE|EDGE
@@ -256,7 +274,7 @@ static int add_route_to_cache(route_hashkey_t hashkey, int num_matched_r, int *m
 	new_entry->num_matched_routes = num_matched_r;
 	int i;
 
-	new_entry->matches = (int *)V3_Malloc(num_matched_r*sizeof(int)); // TODO: Here need to consider where to release the memory when clear cache;
+	new_entry->matches = (int *)V3_Malloc(num_matched_r*sizeof(int));
 
 	if (new_entry->matches == NULL){
 		PrintError("Vnet: Malloc fails\n");
@@ -355,7 +373,7 @@ static inline void mac_to_string(char address[6], char * buf) {
   buf[17] = 0;
 }
 
-/*
+#if 0
 static void ip_to_string(ulong_t addr, char * buf) {
   uint32_t addr_st;
   char * tmp_str;
@@ -365,7 +383,7 @@ static void ip_to_string(ulong_t addr, char * buf) {
 
   memcpy(buf, tmp_str, strlen(tmp_str));
 }
-*/
+#endif
 
 int find_link_by_fd(SOCK sock) {
   int i;
@@ -697,10 +715,10 @@ static void store_topologies(SOCK fd)
 	int dest_mac_qual = ANY_TYPE;
 	uint_t dest;
 #ifndef VNET_SERVER
-	dest = (0 | 172 << 24 | 23 << 16 | 1 ); //this is in_addr.s_addr
-	PrintDebug("VNET: store_topologies. NO VNET_SERVER, dest = %x\n", dest);
-#elif
-	dest = (0 | 172 << 24 | 23 << 16 | 2 ); //this is in_addr.s_addr
+	dest = (0 | 172 << 24 | 23 << 16 | 1 );
+	PrintDebug("VNET: store_topologies. NOT VNET_SERVER, dest = %x\n", dest);
+#else
+	dest = (0 | 172 << 24 | 23 << 16 | 2 );
 	PrintDebug("VNET: store_topologies. VNET_SERVER, dest = %x\n", dest);
 #endif
 
@@ -1203,9 +1221,9 @@ static int process_udpdata()
 		continue;
   	}
 
-	PrintDebug("Vnet: route_thread: socket: %d. ready to receive from ip %x, port [%d] or from VMs\n", link_sock, (uint_t)dest, remote_port);
+	PrintDebug("Vnet: route_thread: socket: [%d]. ready to receive from ip [%x], port [%d] or from VMs\n", link_sock, (uint_t)dest, remote_port);
   	pt->size = V3_RecvFrom_IP( link_sock, dest, remote_port, pt->data, length);
-	PrintDebug("Vnet: route_thread: socket: %d receive from ip %x, port [%d]\n", link_sock, (uint_t)dest, remote_port);
+	PrintDebug("Vnet: route_thread: socket: [%d] receive from ip [%x], port [%d]\n", link_sock, (uint_t)dest, remote_port);
 
   	if (pt->size <= 0){
   		PrintDebug("Vnet: process_udp: receiving packet from UDP fails\n");
