@@ -39,85 +39,80 @@
 #define ETHERNET_DATA_MAX   1500
 #define ETHERNET_PACKET_LEN (ETHERNET_HEADER_LEN + ETHERNET_DATA_MAX)
 
-
 #define TCP_TYPE 0
 #define UDP_TYPE 1
 
 #define TCP_STR "TCP"
 #define UDP_STR "UDP"
 
-/*   
-#define HANDLER_ERROR -1
-#define HANDLER_SUCCESS 0
-*/
 
 //the routing entry
 struct routing {
-  char src_mac[6];
-  char dest_mac[6];
+    char src_mac[6];
+    char dest_mac[6];
 
-  int src_mac_qual;
-  int dest_mac_qual;
+    int src_mac_qual;
+    int dest_mac_qual;
 
-  int dest;
-  int type; //EDGE_TYPE|INTERFACE_TYPE
+    int dest;
+    int type; //EDGE_TYPE|INTERFACE_TYPE
  
-  int src;
-  int src_type;
+    int src;
+    int src_type;
 
-  int use;
+    int use;
 
-  int next;
-  int prev;
+    int next;
+    int prev;
 };
 
  //This is the structure that stores the topology 
 struct topology {
-  SOCK link_sock;
+    SOCK link_sock;
 
-  unsigned long dest;
+    unsigned long dest;
 
-  // Port for UDP
-  unsigned short remote_port;
+    // Port for UDP
+    unsigned short remote_port;
 
-  // LINK OR GATEWAY
-  // int link_class;
+    // LINK OR GATEWAY
+    // int link_class;
 
-  int use;
-  int type; //TCP=0, UDP=1,VTP=2, can be extended so on
+    int use;
+    int type; //TCP=0, UDP=1,VTP=2, can be extended so on
 
-  int next;
-  int prev;
+    int next;
+    int prev;
 };
 
 struct sock_list {
-  SOCK sock;
+    SOCK sock;
 
-  int next;
-  int prev;
+    int next;
+    int prev;
 };
 
 
 #define GENERAL_NIC 0
 
-struct vnet_if_device{
-	char name[50];
-	struct ethAddr device_addr;
-
-	int (*input)(uchar_t * pkt, uint_t size);
-
-	void *data;
+struct vnet_if_device {
+    char name[50];
+    struct ethAddr device_addr;
+    
+    int (*input)(uchar_t * pkt, uint_t size);
+    
+    void * data;
 };
 
 
 struct device_list {
-  struct vnet_if_device *device;
+    struct vnet_if_device *device;
 
-  int use;
-  int type;
+    int use;
+    int type;
 
-  int next;
-  int prev;
+    int next;
+    int prev;
 };
 
 // 14 (ethernet frame) + 20 bytes

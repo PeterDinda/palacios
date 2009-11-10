@@ -15,9 +15,9 @@
  * All rights reserved.
  *
  * Author: Lei Xia <lxia@northwestern.edu>
- *		  Yuan Tang <ytang@northwestern.edu>
- *		  Jack Lange <jarusl@cs.northwestern.edu> 
- *		  Peter Dinda <pdinda@northwestern.edu
+ *	   Yuan Tang <ytang@northwestern.edu>
+ *	   Jack Lange <jarusl@cs.northwestern.edu> 
+ *	   Peter Dinda <pdinda@northwestern.edu
  *
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
@@ -25,43 +25,24 @@
  
 #include <devices/vnet.h>
 
-#define ANY "any"
-#define NOT "not"
-#define NONE "none"
-#define EMPTY "empty"
+static const char any_type_str[] = "any";
+static const char not_type_str[] = "not";
+static const char none_type_str[] = "none";
+static const char empty_type_str[] = "empty";
 
-#define ANY_TYPE 0
-#define NOT_TYPE 1
-#define NONE_TYPE 2
-#define EMPTY_TYPE 3
+static const char link_edge_str[] = "EDGE";
+static const char link_any_str[] = "ANY";
 
-#define INTERFACE "INTERFACE"
-#define EDGE "EDGE"
-#define ANY_SRC "ANY"
+typedef enum {MAC_ANY, MAC_NOT, MAC_NONE, MAC_EMPTY} mac_type_t;
+typedef enum {LINK_EDGE, LINK_ANY} link_type_t;
 
-#define INTERFACE_TYPE 0
-#define EDGE_TYPE 1
-#define ANY_SRC_TYPE 2
 
 struct raw_ethernet_pkt {
     int size;
-    int type; // vm or link type:  INTERFACE|EDGE
     char data[ETHERNET_PACKET_LEN];
 };
 
-//static char *vnet_version = "0.9";
-static int vnet_server = 0;
-static bool use_tcp = false;
-
-static uint_t vnet_udp_port = 22;
-
-#define MAX_LINKS 1
-#define MAX_ROUTES 1
-#define MAX_DEVICES 16
-
-
 static struct topology g_links[MAX_LINKS];
-
 static int g_num_links; //The current number of links
 static int g_first_link;
 static int g_last_link;
@@ -75,9 +56,6 @@ static struct device_list g_devices[MAX_DEVICES];
 static int g_num_devices;
 static int g_first_device;
 static int g_last_device;
-
-static SOCK g_udp_sockfd;
-static struct gen_queue * g_inpkt_q; //packet receiving queue
 
 
 static void print_packet(char *pkt, int size) {
@@ -100,33 +78,16 @@ static void print_device_addr(char *ethaddr) {
 } 
 #endif
 
+
 //network connection functions 
-
-#if 0
-static int raw_ethernet_pkt_sendUdp(struct raw_ethernet_pkt *pt, int sock_fd, int ip, short port) {
-    int size;
-
-    PrintDebug("Vnet: sending by UDP socket %d  ip: %x,  port: %d\n", sock_fd, ip, port);
-  
-    if ((size = V3_SendTo_IP(sock_fd, ip, port, pt->data, pt->size)) != pt->size) {
-        PrintError("Vnet: sending by UDP Exception, %x\n", size);
-        return -1;
-    }
- 
-    return 0;
-}
-
-#endif
-
-static void raw_ethernet_packet_init(struct raw_ethernet_pkt * pt, const char *data, const size_t size) {
+static inline void raw_ethernet_packet_init(struct raw_ethernet_pkt * pt, const char * data, const size_t size) {
     pt->size = size;
     memcpy(pt->data, data, size);
 }
 
 
 
-#define HASH_KEY_SIZE 16
-#define MIN_CACHE_SIZE 100
+
 
 /* Hash key format:
  * 0-5:     src_eth_addr
@@ -142,44 +103,21 @@ struct route_cache_entry {
     int * matches; 
 };
 
+#define HASH_KEY_LEN 16
+#define MIN_CACHE_SIZE 100
+
 //Header of the route cache
 static struct hashtable * g_route_cache; 
 
-static uint_t hash_from_key_fn(addr_t hashkey) {
-    uint_t hash = 0;
-    uint_t temp = 0; 
-    int i;
-
-    char * key = (char *)hashkey;
-
-    for (i = 0; i < HASH_KEY_SIZE; i++) {
-        hash = (hash << 4) + *(key + i) + i;
-
-        if ((temp = (hash & 0xF0000000))) {
-	      hash ^= (temp >> 24);
-        }
-
-        hash &= ~temp;
-    }
-    PrintDebug("Hash Value: %lu\n", (unsigned long)hash);
-	
-    return hash;
+static uint_t hash_from_key_fn(addr_t hashkey) {    
+    uint8_t * key = (uint8_t *)hashkey;
+    return v3_hash_buffer(key, HASH_KEY_LEN);
 }
 
-static int hash_key_equal(addr_t left, addr_t right) {
-    int i;
-    char * key1, * key2;
- 
-    key1 = (char *)left;
-    key2 = (char *)right;
-	
-    for (i = 0; i < HASH_KEY_SIZE; i++) {
-        if (key1[i] != key2[i]) {
-	    PrintDebug("HASHes not equal\n");
-	    return -1;
-        }
-    }
-    return 0;
+static int hash_key_equal(addr_t key1, addr_t key2) {
+    uint8_t * buf1 = (uint8_t *)key1;
+    uint8_t * buf2 = (uint8_t *)key2;
+    return (memcmp(buf1, buf2, HASH_KEY_LEN) == 0);
 }
 
 static int init_route_cache() {
@@ -205,7 +143,6 @@ static void make_hash_key(route_hashkey_t hashkey, char src_addr[6], char dest_a
 
     *(int *)(hashkey + 12) = src_index;
 }
-
 static int add_route_to_cache(route_hashkey_t hashkey, int num_matched_r, int * matches) {
     struct route_cache_entry * new_entry = NULL;
     int i;
@@ -225,7 +162,7 @@ static int add_route_to_cache(route_hashkey_t hashkey, int num_matched_r, int * 
 	return -1;
     }
     
-    for(i = 0; i < num_matched_r; i++) {
+    for (i = 0; i < num_matched_r; i++) {
 	new_entry->matches[i] = matches[i];
     }
     
@@ -536,15 +473,14 @@ static int find_route_entry(char src_mac[6],
 	       ( (type == g_routes[i].type) && (g_routes[i].dest == dest)) ) &&
 	     ( (src_type == -1) || 
 	       ( (src_type == g_routes[i].src_type) && (g_routes[i].src == src)) ) ) {
-		return i;
-	    }
+	    return i;
+	}
     } 
     
     return -1;
 }
 
 static int delete_route_entry(int index) {
-  
     int next_i;
     int prev_i;
 
@@ -743,7 +679,7 @@ static void store_topologies(SOCK fd) {
     }
 }
 
-static int match_route(char *src_mac, char *dst_mac, int src_type, int src_index, int * matches) { 
+static int match_route(uint8_t * src_mac, uint8_t * dst_mac, int src_type, int src_index, int * matches) { 
     int values[MAX_ROUTES];
     int matched_routes[MAX_ROUTES];
     
@@ -1134,83 +1070,44 @@ int vnet_pkt_process() {
     return 0;
 }
 
-static int process_tcpdata() {
-    return 0;
-}
+
 
 static int process_udpdata() {
-  struct raw_ethernet_pkt * pt;
+    struct raw_ethernet_pkt * pt;
 
-  uint32_t dest = 0;
-  uint16_t remote_port = 0;
-  SOCK link_sock = g_udp_sockfd;
-  int length = sizeof(struct raw_ethernet_pkt) - (2 * sizeof(int));   //minus the "size" and "type" 
+    uint32_t dest = 0;
+    uint16_t remote_port = 0;
+    SOCK link_sock = g_udp_sockfd;
+    int length = sizeof(struct raw_ethernet_pkt) - (2 * sizeof(int));   //minus the "size" and "type" 
 
-  //run in a loop to get packets from outside network, adding them to the incoming packet queue
-  while (1) {
-      pt = (struct raw_ethernet_pkt *)V3_Malloc(sizeof(struct raw_ethernet_pkt));
-      if (pt == NULL){
-	  PrintError("Vnet: process_udp: Malloc fails\n");
-	  continue;
-      }
-      
-      PrintDebug("Vnet: route_thread: socket: [%d]. ready to receive from ip [%x], port [%d] or from VMs\n", link_sock, (uint_t)dest, remote_port);
-      pt->size = V3_RecvFrom_IP( link_sock, dest, remote_port, pt->data, length);
-      PrintDebug("Vnet: route_thread: socket: [%d] receive from ip [%x], port [%d]\n", link_sock, (uint_t)dest, remote_port);
-      
-      if (pt->size <= 0) {
-	  PrintDebug("Vnet: process_udp: receiving packet from UDP fails\n");
-	  V3_Free(pt);
-	  return -1;
-      }
-      
-      PrintDebug("Vnet: process_udp: get packet\n");
-      print_packet(pt->data, pt->size);
-      
-      v3_enqueue(g_inpkt_q, (addr_t)pt);
-      
-      //V3_Yield();
-  }
-}
+    //run in a loop to get packets from outside network, adding them to the incoming packet queue
+    while (1) {
+	pt = (struct raw_ethernet_pkt *)V3_Malloc(sizeof(struct raw_ethernet_pkt));
 
-static int indata_handler( ) {
-    if (use_tcp) {
-	process_tcpdata();
-    } else {
-	process_udpdata( );	  
-    }
-    
-    return 0;   
-}
-
-static int start_recv_data() {
-    if (use_tcp) {
-	
-    } else {
-	SOCK udp_data_socket;
-	
-	if ((udp_data_socket = V3_Create_UDP_Socket()) < 0) {
-	    PrintError("VNET: Can't setup udp socket\n");
-	    return -1; 
+	if (pt == NULL){
+	    PrintError("Vnet: process_udp: Malloc fails\n");
+	    continue;
 	}
-
-	PrintDebug("Vnet: vnet_setup_udp: get socket: %d\n", udp_data_socket);
-	g_udp_sockfd = udp_data_socket;
 	
-	store_topologies(udp_data_socket);
+	PrintDebug("Vnet: route_thread: socket: [%d]. ready to receive from ip [%x], port [%d] or from VMs\n", link_sock, (uint_t)dest, remote_port);
+	pt->size = V3_RecvFrom_IP( link_sock, dest, remote_port, pt->data, length);
+	PrintDebug("Vnet: route_thread: socket: [%d] receive from ip [%x], port [%d]\n", link_sock, (uint_t)dest, remote_port);
 	
-	if (V3_Bind_Socket(udp_data_socket, vnet_udp_port) < 0) { 
-	    PrintError("VNET: Can't bind socket\n");
+	if (pt->size <= 0) {
+	    PrintDebug("Vnet: process_udp: receiving packet from UDP fails\n");
+	    V3_Free(pt);
 	    return -1;
 	}
+	
+	PrintDebug("Vnet: process_udp: get packet\n");
+	print_packet(pt->data, pt->size);
 
-	PrintDebug("VNET: vnet_setup_udp: bind socket successful\n");
+	
+	//V3_Yield();
     }
-    
-    V3_CREATE_THREAD(&indata_handler, NULL, "VNET_DATA_HANDLER");
-
-    return 0;
 }
+
+
 
 static void init_link_table() {
     int i;
@@ -1261,24 +1158,16 @@ static void init_tables() {
     init_route_cache();
 }
 
-static void init_pkt_queue() {
-    PrintDebug("VNET Init package receiving queue\n");
-
-    g_inpkt_q = v3_create_queue();
-    v3_init_queue(g_inpkt_q);
-}
 
 void v3_vnet_init() {	
-	vnet_server = 0;
-	#ifdef VNET_SERVER
-		vnet_server = 1;
-	#endif
 
 	PrintDebug("VNET Init: Vnet input queue successful.\n");
 
 	init_tables();
-	init_pkt_queue();
  
+	
+	store_topologies(udp_data_socket);
+
 	start_recv_data();
 }
 
