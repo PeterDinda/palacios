@@ -56,24 +56,6 @@ struct ethAddr{
 #define HANDLER_SUCCESS 0
 */
 
-#define ANY "any"
-#define NOT "not"
-#define NONE "none"
-#define EMPTY "empty"
-
-#define ANY_TYPE 0
-#define NOT_TYPE 1
-#define NONE_TYPE 2
-#define EMPTY_TYPE 3
-
-#define INTERFACE "INTERFACE"
-#define EDGE "EDGE"
-#define ANY_SRC "ANY"
-
-#define INTERFACE_TYPE 0
-#define EDGE_TYPE 1
-#define ANY_SRC_TYPE 2
-
 //the routing entry
 struct routing {
   char src_mac[6];
