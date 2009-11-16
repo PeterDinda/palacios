@@ -101,6 +101,13 @@ config EXPERIMENTAL
 	  The purpose of this option is to allow features under development to be committed to the mainline
 	  to more easily track changes and provide access to multiple developers
 
+config VNET
+	depends on EXPERIMENTAL
+	bool "Enable Vnet in Palacios"
+	default n
+	help
+	  Enable the Vnet in Palacios
+
 config BUILT_IN_STDLIB
 	bool "Enable Built in versions of stdlib functions"
 	default n
