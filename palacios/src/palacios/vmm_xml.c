@@ -569,7 +569,7 @@ static void v3_xml_open_tag(struct v3_xml_root * root, char * name, char ** attr
 
 
 // parse the given xml string and return an v3_xml structure
-struct v3_xml * v3_xml_parse_str(char * buf, size_t len) {
+static struct v3_xml * parse_str(char * buf, size_t len) {
     struct v3_xml_root * root = (struct v3_xml_root *)v3_xml_new(NULL);
     char quote_char;
     char last_char; 
@@ -825,7 +825,20 @@ struct v3_xml * v3_xml_parse_str(char * buf, size_t len) {
 }
 
 
+struct v3_xml * v3_xml_parse(char * buf) {
+    int str_len = 0;
+    char * xml_buf = NULL;
 
+    if (!buf) {
+	return NULL;
+    }
+
+    str_len = strlen(buf);
+    xml_buf = (char *)V3_Malloc(str_len + 1);
+    strcpy(xml_buf, buf);
+
+    return parse_str(xml_buf, str_len);
+}
 
 
 
@@ -852,7 +865,7 @@ void v3_xml_free(struct v3_xml * xml) {
 	    }
 	}
 
-        V3_Free(root->ent); // free list of general entities
+	V3_Free(root->ent); // free list of general entities
 
         for (i = 0; (a = root->attr[i]); i++) {
             for (j = 1; a[j++]; j += 2) {
@@ -870,7 +883,6 @@ void v3_xml_free(struct v3_xml * xml) {
 	}
 
 	V3_Free(root->str_ptr); // malloced xml data
-
     }
 
     v3_xml_free_attr(xml->attr); // tag attributes

@@ -50,7 +50,7 @@ struct v3_xml {
 // structure. For efficiency, modifies the data by adding null terminators
 // and decoding ampersand sequences. If you don't want this, copy the data and
 // pass in the copy. Returns NULL on failure.
-struct v3_xml * v3_xml_parse_str(char * s, size_t len);
+struct v3_xml * v3_xml_parse(char * buf);
 
 
 // returns the name of the given tag
