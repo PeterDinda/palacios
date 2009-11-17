@@ -22,13 +22,13 @@
 
 #ifdef __V3VEE__
 #include <palacios/vmm_types.h>
-
+#include <stdarg.h>
 
 int sprintf(char *buf, const char *cfmt, ...);
 //        __attribute__ ((format (printf, 1, 2)));
 //int vsprintf(char *buf, const char * cfmt, va_list ap);
 int snprintf(char *str, size_t size, const char * fmt, ...);
-//int vsnprintf(char *str, size_t size, const char * fmt, va_list ap);
+int vsnprintf(char *str, size_t size, const char * fmt, va_list ap);
 //int vsnrprintf(char *str, size_t size, int radix, const char * fmt, va_list ap);
 
 #define HD_COLUMN_MASK  0xff

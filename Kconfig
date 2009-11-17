@@ -130,6 +130,13 @@ config BUILT_IN_MEMCPY
 	help 
 	  This enables Palacios' internal implementation of memcpy
 
+config BUILT_IN_MEMMOVE
+	bool "memmove()"
+	default n
+	depends on BUILT_IN_STDLIB
+	help 
+	  This enables Palacios' internal implementation of memmove
+
 config BUILT_IN_MEMCMP
 	bool "memcmp()"
 	default n
@@ -200,6 +207,13 @@ config BUILT_IN_STRDUP
 	depends on BUILT_IN_STDLIB
 	help 
 	  This enables Palacios' internal implementation of strdup
+
+config BUILT_IN_STRSTR
+	bool "strstr()"
+	default n
+	depends on BUILT_IN_STDLIB
+	help
+	  This enables Palacios internal implementation of strstr
 
 
 config BUILT_IN_ATOI

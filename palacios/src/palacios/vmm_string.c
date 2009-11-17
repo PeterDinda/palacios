@@ -68,6 +68,18 @@ void * memcpy(void * dst, const void * src, size_t n) {
 }
 #endif
 
+#ifdef CONFIG_BUILT_IN_MEMMOVE
+void * memmove(void * dst, const void * src, size_t n) {
+    uint8_t * tmp = (uint8_t *)V3_Malloc(n);
+    
+    memcpy(tmp, src, n);
+    memcpy(dst, tmp, n);
+    
+    V3_Free(tmp);
+    return dst;
+}
+#endif
+
 
 #ifdef CONFIG_BUILT_IN_MEMCMP
 int memcmp(const void * s1_, const void * s2_, size_t n) {
@@ -261,6 +273,68 @@ int atoi(const char * buf) {
 #endif
 
 
+int strtoi(const char * nptr, char ** endptr) {
+    int ret = 0;
+    char * buf = (char *)nptr;
+
+    while ((*buf >= '0') && (*buf <= '9')) {
+	ret *= 10;
+	ret += (*buf - '0');
+
+	buf++;
+
+	if (endptr) {
+	    *endptr = buf;
+	}
+    }
+
+    return ret;
+}
+
+uint64_t atox(const char * buf) {
+    uint64_t ret = 0;
+
+    while (isxdigit(*buf)) {
+	ret <<= 4;
+	
+	if (isdigit(*buf)) {
+	    ret += (*buf - '0');
+	} else {
+	    ret += tolower(*buf) - 'a' + 10;
+	}
+
+	buf++;
+    }
+
+    return ret;
+}
+
+uint64_t strtox(const char * nptr, char ** endptr) {
+    uint64_t ret = 0;
+    char * buf = (char *)nptr;
+
+    while (isxdigit(*buf)) {
+	ret <<= 4;
+	
+	if (isdigit(*buf)) {
+	    ret += (*buf - '0');
+	} else {
+	    ret += tolower(*buf) - 'a' + 10;
+	}
+
+	buf++;
+
+	if (endptr) {
+	    *endptr = buf;
+	}
+    }
+
+    return ret;
+
+}
+
+
+
 #ifdef CONFIG_BUILT_IN_STRCHR
 char * strchr(const char * s, int c) {
     while (*s != '\0') {
@@ -307,3 +381,67 @@ char * strpbrk(const char * s, const char * accept) {
 }
 #endif
 
+#ifdef CONFIG_BUILT_IN_STRSPN
+size_t strspn(const char * s, const char * accept) {
+    int match = 1;
+    int cnt = 0;
+    int i = 0;
+    int accept_len = strlen(accept);
+
+    while (match) {
+	match = 0;
+
+	for (i = 0; i < accept_len; i++) {
+	    if (s[cnt] == accept[i]) {
+		match = 1;
+		cnt++;
+		break;
+	    }
+	}
+    }
+
+    return cnt;
+}
+#endif
+
+
+#ifdef CONFIG_BUILT_IN_STRCSPN
+size_t strcspn(const char * s, const char * reject) {
+    int match = 0;
+    int cnt = 0;
+    int i = 0;
+    int reject_len = strlen(reject);
+
+    while (!match) {
+	for (i = 0; i < reject_len; i++) {
+	    if (s[cnt] == reject[i]) {
+		match = 1;
+		cnt++;
+		break;
+	    }
+	}
+    }
+
+    return cnt;
+}
+#endif
+
+
+#ifdef CONFIG_BUILT_IN_STRSTR
+char *strstr(const char *haystack, const char *needle)
+{
+        int l1, l2;
+
+        l2 = strlen(s2);
+        if (!l2)
+                return (char *)s1;
+        l1 = strlen(s1);
+        while (l1 >= l2) {
+                l1--;
+                if (!memcmp(s1, s2, l2))
+                        return (char *)s1;
+                s1++;
+        }
+        return NULL;
+}
+#endif
