@@ -1566,7 +1566,7 @@ static int ide_init(struct guest_info * vm, void * cfg_data) {
 
 	pci_dev = v3_pci_register_device(ide->pci_bus, PCI_STD_DEVICE, 0, sb_pci->dev_num, 1, 
 					 "PIIX3_IDE", bars,
-					 pci_config_update, NULL, NULL, dev, dev);
+					 pci_config_update, NULL, NULL, dev);
 
 	if (pci_dev == NULL) {
 	    PrintError("Failed to register IDE BUS %d with PCI\n", i); 

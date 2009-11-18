@@ -120,8 +120,6 @@ struct pci_device {
 
     char name[64];
 
-    struct vm_device * vm_dev;  //the corresponding virtual device
-
     int (*config_update)(uint_t reg_num, void * src, uint_t length, void * priv_data);
 
     int (*cmd_update)(struct pci_device * pci_dev, uchar_t io_enabled, uchar_t mem_enabled);
@@ -158,7 +156,7 @@ v3_pci_register_device(struct vm_device * pci,
 		       int (*config_update)(uint_t reg_num, void * src, uint_t length, void * private_data),
 		       int (*cmd_update)(struct pci_device *pci_dev, uchar_t io_enabled, uchar_t mem_enabled),
 		       int (*ext_rom_update)(struct pci_device *pci_dev),
-		       struct vm_device * dev, void * priv_data);
+		       void * priv_data);
 
 
 struct pci_device * 
@@ -169,7 +167,6 @@ v3_pci_register_passthrough_device(struct vm_device * pci,
 				   const char * name,
 				   int (*config_write)(uint_t reg_num, void * src, uint_t length, void * private_data),
 				   int (*config_read)(uint_t reg_num, void * dst, uint_t length, void * private_data),
-				   struct vm_device * dev, 
 				   void * private_data);
 
 

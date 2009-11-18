@@ -78,14 +78,18 @@ struct blk_op_hdr {
 #define VIRTIO_LEGACY_GEOM   0x10       /* Indicates support of legacy geometry */
 
 
-
+struct virtio_dev_state {
+    struct vm_device * pci_bus;
+    struct list_head dev_list;
+    struct guest_info * vm;
+};
 
 struct virtio_blk_state {
+
+    struct pci_device * pci_dev;
     struct blk_config block_cfg;
     struct virtio_config virtio_cfg;
 
-    struct vm_device * pci_bus;
-    struct pci_device * pci_dev;
     
     struct virtio_queue queue;
 
@@ -98,6 +102,10 @@ struct virtio_blk_state {
     void * backend_data;
 
     int io_range_size;
+
+    struct virtio_dev_state * virtio_dev;
+
+    struct list_head dev_link;
 };
 
 
@@ -105,8 +113,7 @@ static int virtio_free(struct vm_device * dev) {
     return -1;
 }
 
-static int virtio_reset(struct vm_device * dev) {
-    struct virtio_blk_state * virtio = (struct virtio_blk_state *)dev->private_data;
+static int blk_reset(struct virtio_blk_state * virtio) {
 
     virtio->queue.ring_desc_addr = 0;
     virtio->queue.ring_avail_addr = 0;
@@ -116,15 +123,25 @@ static int virtio_reset(struct vm_device * dev) {
 
     virtio->virtio_cfg.status = 0;
     virtio->virtio_cfg.pci_isr = 0;
+    return 0;
+}
+
+
+static int virtio_reset(struct vm_device * dev) {
+    struct virtio_dev_state * dev_state = (struct virtio_dev_state *)(dev->private_data);
+    struct virtio_blk_state * blk_state = NULL;
+
+    list_for_each_entry(blk_state, &(dev_state->dev_list), dev_link) {
+	blk_reset(blk_state);
+    }
 
     return 0;
 }
 
-static int handle_read_op(struct vm_device * dev, uint8_t * buf, uint64_t * sector, uint32_t len) {
-    struct virtio_blk_state * virtio = (struct virtio_blk_state *)dev->private_data; 
+static int handle_read_op(struct virtio_blk_state * blk_state, uint8_t * buf, uint64_t * sector, uint32_t len) {
     int ret = -1;
 
-    if (virtio->block_type == BLOCK_DISK) {
+    if (blk_state->block_type == BLOCK_DISK) {
 	if (len % HD_SECTOR_SIZE) {
 	    PrintError("Write of something that is not a sector len %d, mod=%d\n", len, len % HD_SECTOR_SIZE);
 	    return -1;
@@ -133,17 +150,17 @@ static int handle_read_op(struct vm_device * dev, uint8_t * buf, uint64_t * sect
 
 	PrintDebug("Reading Disk\n");
 	    
-	ret = virtio->hd_ops->read(buf, len / HD_SECTOR_SIZE, *sector, virtio->backend_data);
+	ret = blk_state->hd_ops->read(buf, len / HD_SECTOR_SIZE, *sector, blk_state->backend_data);
 
 	*sector += len / HD_SECTOR_SIZE;
 
-    } else if (virtio->block_type == BLOCK_CDROM) {
+    } else if (blk_state->block_type == BLOCK_CDROM) {
 	if (len % ATAPI_BLOCK_SIZE) {
 	    PrintError("Write of something that is not an ATAPI block len %d, mod=%d\n", len, len % ATAPI_BLOCK_SIZE);
 	    return -1;
 	}
 
-	ret = virtio->cd_ops->read(buf, len / ATAPI_BLOCK_SIZE, *sector , virtio->backend_data);
+	ret = blk_state->cd_ops->read(buf, len / ATAPI_BLOCK_SIZE, *sector , blk_state->backend_data);
 
 	*sector += len / ATAPI_BLOCK_SIZE;
     }
@@ -152,11 +169,10 @@ static int handle_read_op(struct vm_device * dev, uint8_t * buf, uint64_t * sect
 }
 
 
-static int handle_write_op(struct vm_device * dev, uint8_t * buf, uint64_t * sector, uint32_t len) {
-    struct virtio_blk_state * virtio = (struct virtio_blk_state *)dev->private_data; 
+static int handle_write_op(struct virtio_blk_state * blk_state, uint8_t * buf, uint64_t * sector, uint32_t len) {
     int ret = -1;
 
-    if (virtio->block_type == BLOCK_DISK) {
+    if (blk_state->block_type == BLOCK_DISK) {
 	if (len % HD_SECTOR_SIZE) {
 	    PrintError("Write of something that is not a sector len %d, mod=%d\n", len, len % HD_SECTOR_SIZE);
 	    return -1;
@@ -164,7 +180,7 @@ static int handle_write_op(struct vm_device * dev, uint8_t * buf, uint64_t * sec
 
 	PrintDebug("Writing Disk\n");
 
-	ret = virtio->hd_ops->write(buf, len / HD_SECTOR_SIZE, *sector, virtio->backend_data);
+	ret = blk_state->hd_ops->write(buf, len / HD_SECTOR_SIZE, *sector, blk_state->backend_data);
 
 	*sector += len / HD_SECTOR_SIZE;	
     }
@@ -176,16 +192,15 @@ static int handle_write_op(struct vm_device * dev, uint8_t * buf, uint64_t * sec
 
 // multiple block operations need to increment the sector 
 
-static int handle_block_op(struct vm_device * dev, struct blk_op_hdr * hdr, 
+static int handle_block_op(struct virtio_blk_state * blk_state, struct blk_op_hdr * hdr, 
 			   struct vring_desc * buf_desc, uint8_t * status) {
-    struct virtio_blk_state * virtio = (struct virtio_blk_state *)dev->private_data;    
     uint8_t * buf = NULL;
 
     PrintDebug("Handling Block op\n");
 
 
 
-    if (guest_pa_to_host_va(dev->vm, buf_desc->addr_gpa, (addr_t *)&(buf)) == -1) {
+    if (guest_pa_to_host_va(blk_state->virtio_dev->vm, buf_desc->addr_gpa, (addr_t *)&(buf)) == -1) {
 	PrintError("Could not translate buffer address\n");
 	return -1;
     }
@@ -194,8 +209,8 @@ static int handle_block_op(struct vm_device * dev, struct blk_op_hdr * hdr,
     PrintDebug("Sector=%p Length=%d\n", (void *)(addr_t)(hdr->sector), buf_desc->length);
 
     if (hdr->type == BLK_IN_REQ) {
-	if (virtio->block_type != BLOCK_NONE) {
-	    if (handle_read_op(dev, buf, &(hdr->sector), buf_desc->length) == -1) {
+	if (blk_state->block_type != BLOCK_NONE) {
+	    if (handle_read_op(blk_state, buf, &(hdr->sector), buf_desc->length) == -1) {
 		*status = BLK_STATUS_ERR;
 		return -1;
 	    } else {
@@ -206,8 +221,8 @@ static int handle_block_op(struct vm_device * dev, struct blk_op_hdr * hdr,
 	}
 
     } else if (hdr->type == BLK_OUT_REQ) {
-	if (virtio->block_type == BLOCK_DISK) {
-	    if (handle_write_op(dev, buf, &(hdr->sector), buf_desc->length) == -1) {
+	if (blk_state->block_type == BLOCK_DISK) {
+	    if (handle_write_op(blk_state, buf, &(hdr->sector), buf_desc->length) == -1) {
 		*status = BLK_STATUS_ERR;
 		return -1;
 	    } else {
@@ -245,9 +260,8 @@ static int get_desc_count(struct virtio_queue * q, int index) {
 
 
 
-static int handle_kick(struct vm_device * dev) {
-    struct virtio_blk_state * virtio = (struct virtio_blk_state *)dev->private_data;    
-    struct virtio_queue * q = &(virtio->queue);
+static int handle_kick(struct virtio_blk_state * blk_state) {  
+    struct virtio_queue * q = &(blk_state->queue);
 
     PrintDebug("VIRTIO KICK: cur_index=%d (mod=%d), avail_index=%d\n", 
 	       q->cur_avail_idx, q->cur_avail_idx % QUEUE_SIZE, q->avail->index);
@@ -278,7 +292,7 @@ static int handle_kick(struct vm_device * dev) {
 	PrintDebug("Header Descriptor (ptr=%p) gpa=%p, len=%d, flags=%x, next=%d\n", hdr_desc, 
 		   (void *)(hdr_desc->addr_gpa), hdr_desc->length, hdr_desc->flags, hdr_desc->next);	
 
-	if (guest_pa_to_host_va(dev->vm, hdr_desc->addr_gpa, &(hdr_addr)) == -1) {
+	if (guest_pa_to_host_va(blk_state->virtio_dev->vm, hdr_desc->addr_gpa, &(hdr_addr)) == -1) {
 	    PrintError("Could not translate block header address\n");
 	    return -1;
 	}
@@ -298,7 +312,7 @@ static int handle_kick(struct vm_device * dev) {
 	    PrintDebug("Buffer Descriptor (ptr=%p) gpa=%p, len=%d, flags=%x, next=%d\n", buf_desc, 
 		       (void *)(buf_desc->addr_gpa), buf_desc->length, buf_desc->flags, buf_desc->next);
 
-	    if (handle_block_op(dev, &hdr, buf_desc, &tmp_status) == -1) {
+	    if (handle_block_op(blk_state, &hdr, buf_desc, &tmp_status) == -1) {
 		PrintError("Error handling block operation\n");
 		return -1;
 	    }
@@ -316,7 +330,7 @@ static int handle_kick(struct vm_device * dev) {
 	PrintDebug("Status Descriptor (ptr=%p) gpa=%p, len=%d, flags=%x, next=%d\n", status_desc, 
 		   (void *)(status_desc->addr_gpa), status_desc->length, status_desc->flags, status_desc->next);
 
-	if (guest_pa_to_host_va(dev->vm, status_desc->addr_gpa, (addr_t *)&(status_ptr)) == -1) {
+	if (guest_pa_to_host_va(blk_state->virtio_dev->vm, status_desc->addr_gpa, (addr_t *)&(status_ptr)) == -1) {
 	    PrintError("Could not translate status address\n");
 	    return -1;
 	}
@@ -332,18 +346,17 @@ static int handle_kick(struct vm_device * dev) {
     }
 
     if (!(q->avail->flags & VIRTIO_NO_IRQ_FLAG)) {
-	PrintDebug("Raising IRQ %d\n",  virtio->pci_dev->config_header.intr_line);
-	v3_pci_raise_irq(virtio->pci_bus, 0, virtio->pci_dev);
-	virtio->virtio_cfg.pci_isr = 1;
+	PrintDebug("Raising IRQ %d\n",  blk_state->pci_dev->config_header.intr_line);
+	v3_pci_raise_irq(blk_state->virtio_dev->pci_bus, 0, blk_state->pci_dev);
+	blk_state->virtio_cfg.pci_isr = 1;
     }
 
     return 0;
 }
 
 static int virtio_io_write(uint16_t port, void * src, uint_t length, void * private_data) {
-    struct vm_device * dev = (struct vm_device *)private_data;
-    struct virtio_blk_state * virtio = (struct virtio_blk_state *)dev->private_data;
-    int port_idx = port % virtio->io_range_size;
+    struct virtio_blk_state * blk_state = (struct virtio_blk_state *)private_data;
+    int port_idx = port % blk_state->io_range_size;
 
 
     PrintDebug("VIRTIO BLOCK Write for port %d (index=%d) len=%d, value=%x\n", 
@@ -358,8 +371,8 @@ static int virtio_io_write(uint16_t port, void * src, uint_t length, void * priv
 		return -1;
 	    }
 	    
-	    virtio->virtio_cfg.guest_features = *(uint32_t *)src;
-	    PrintDebug("Setting Guest Features to %x\n", virtio->virtio_cfg.guest_features);
+	    blk_state->virtio_cfg.guest_features = *(uint32_t *)src;
+	    PrintDebug("Setting Guest Features to %x\n", blk_state->virtio_cfg.guest_features);
 
 	    break;
 	case VRING_PG_NUM_PORT:
@@ -368,41 +381,41 @@ static int virtio_io_write(uint16_t port, void * src, uint_t length, void * priv
 		addr_t page_addr = (pfn << VIRTIO_PAGE_SHIFT);
 
 
-		virtio->queue.pfn = pfn;
+		blk_state->queue.pfn = pfn;
 		
-		virtio->queue.ring_desc_addr = page_addr ;
-		virtio->queue.ring_avail_addr = page_addr + (QUEUE_SIZE * sizeof(struct vring_desc));
-		virtio->queue.ring_used_addr = ( virtio->queue.ring_avail_addr + \
+		blk_state->queue.ring_desc_addr = page_addr ;
+		blk_state->queue.ring_avail_addr = page_addr + (QUEUE_SIZE * sizeof(struct vring_desc));
+		blk_state->queue.ring_used_addr = ( blk_state->queue.ring_avail_addr + \
 						 sizeof(struct vring_avail)    + \
 						 (QUEUE_SIZE * sizeof(uint16_t)));
 		
 		// round up to next page boundary.
-		virtio->queue.ring_used_addr = (virtio->queue.ring_used_addr + 0xfff) & ~0xfff;
+		blk_state->queue.ring_used_addr = (blk_state->queue.ring_used_addr + 0xfff) & ~0xfff;
 
-		if (guest_pa_to_host_va(dev->vm, virtio->queue.ring_desc_addr, (addr_t *)&(virtio->queue.desc)) == -1) {
+		if (guest_pa_to_host_va(blk_state->virtio_dev->vm, blk_state->queue.ring_desc_addr, (addr_t *)&(blk_state->queue.desc)) == -1) {
 		    PrintError("Could not translate ring descriptor address\n");
 		    return -1;
 		}
 
 
-		if (guest_pa_to_host_va(dev->vm, virtio->queue.ring_avail_addr, (addr_t *)&(virtio->queue.avail)) == -1) {
+		if (guest_pa_to_host_va(blk_state->virtio_dev->vm, blk_state->queue.ring_avail_addr, (addr_t *)&(blk_state->queue.avail)) == -1) {
 		    PrintError("Could not translate ring available address\n");
 		    return -1;
 		}
 
 
-		if (guest_pa_to_host_va(dev->vm, virtio->queue.ring_used_addr, (addr_t *)&(virtio->queue.used)) == -1) {
+		if (guest_pa_to_host_va(blk_state->virtio_dev->vm, blk_state->queue.ring_used_addr, (addr_t *)&(blk_state->queue.used)) == -1) {
 		    PrintError("Could not translate ring used address\n");
 		    return -1;
 		}
 
 		PrintDebug("RingDesc_addr=%p, Avail_addr=%p, Used_addr=%p\n",
-			   (void *)(virtio->queue.ring_desc_addr),
-			   (void *)(virtio->queue.ring_avail_addr),
-			   (void *)(virtio->queue.ring_used_addr));
+			   (void *)(blk_state->queue.ring_desc_addr),
+			   (void *)(blk_state->queue.ring_avail_addr),
+			   (void *)(blk_state->queue.ring_used_addr));
 
 		PrintDebug("RingDesc=%p, Avail=%p, Used=%p\n", 
-			   virtio->queue.desc, virtio->queue.avail, virtio->queue.used);
+			   blk_state->queue.desc, blk_state->queue.avail, blk_state->queue.used);
 
 	    } else {
 		PrintError("Illegal write length for page frame number\n");
@@ -410,34 +423,34 @@ static int virtio_io_write(uint16_t port, void * src, uint_t length, void * priv
 	    }
 	    break;
 	case VRING_Q_SEL_PORT:
-	    virtio->virtio_cfg.vring_queue_selector = *(uint16_t *)src;
+	    blk_state->virtio_cfg.vring_queue_selector = *(uint16_t *)src;
 
-	    if (virtio->virtio_cfg.vring_queue_selector != 0) {
+	    if (blk_state->virtio_cfg.vring_queue_selector != 0) {
 		PrintError("Virtio Block device only uses 1 queue, selected %d\n", 
-			   virtio->virtio_cfg.vring_queue_selector);
+			   blk_state->virtio_cfg.vring_queue_selector);
 		return -1;
 	    }
 
 	    break;
 	case VRING_Q_NOTIFY_PORT:
 	    PrintDebug("Handling Kick\n");
-	    if (handle_kick(dev) == -1) {
+	    if (handle_kick(blk_state) == -1) {
 		PrintError("Could not handle Block Notification\n");
 		return -1;
 	    }
 	    break;
 	case VIRTIO_STATUS_PORT:
-	    virtio->virtio_cfg.status = *(uint8_t *)src;
+	    blk_state->virtio_cfg.status = *(uint8_t *)src;
 
-	    if (virtio->virtio_cfg.status == 0) {
+	    if (blk_state->virtio_cfg.status == 0) {
 		PrintDebug("Resetting device\n");
-		virtio_reset(dev);
+		blk_reset(blk_state);
 	    }
 
 	    break;
 
 	case VIRTIO_ISR_PORT:
-	    virtio->virtio_cfg.pci_isr = *(uint8_t *)src;
+	    blk_state->virtio_cfg.pci_isr = *(uint8_t *)src;
 	    break;
 	default:
 	    return -1;
@@ -449,9 +462,8 @@ static int virtio_io_write(uint16_t port, void * src, uint_t length, void * priv
 
 
 static int virtio_io_read(uint16_t port, void * dst, uint_t length, void * private_data) {
-    struct vm_device * dev = (struct vm_device *)private_data;
-    struct virtio_blk_state * virtio = (struct virtio_blk_state *)dev->private_data;
-    int port_idx = port % virtio->io_range_size;
+    struct virtio_blk_state * blk_state = (struct virtio_blk_state *)private_data;
+    int port_idx = port % blk_state->io_range_size;
 
 
     PrintDebug("VIRTIO BLOCK Read  for port %d (index =%d), length=%d\n", 
@@ -464,7 +476,7 @@ static int virtio_io_read(uint16_t port, void * dst, uint_t length, void * priva
 		return -1;
 	    }
 
-	    *(uint32_t *)dst = virtio->virtio_cfg.host_features;
+	    *(uint32_t *)dst = blk_state->virtio_cfg.host_features;
 	
 	    break;
 	case VRING_PG_NUM_PORT:
@@ -473,7 +485,7 @@ static int virtio_io_read(uint16_t port, void * dst, uint_t length, void * priva
 		return -1;
 	    }
 
-	    *(uint32_t *)dst = virtio->queue.pfn;
+	    *(uint32_t *)dst = blk_state->queue.pfn;
 
 	    break;
 	case VRING_SIZE_PORT:
@@ -482,7 +494,7 @@ static int virtio_io_read(uint16_t port, void * dst, uint_t length, void * priva
 		return -1;
 	    }
 		
-	    *(uint16_t *)dst = virtio->queue.queue_size;
+	    *(uint16_t *)dst = blk_state->queue.queue_size;
 
 	    break;
 
@@ -492,20 +504,20 @@ static int virtio_io_read(uint16_t port, void * dst, uint_t length, void * priva
 		return -1;
 	    }
 
-	    *(uint8_t *)dst = virtio->virtio_cfg.status;
+	    *(uint8_t *)dst = blk_state->virtio_cfg.status;
 	    break;
 
 	case VIRTIO_ISR_PORT:
-	    *(uint8_t *)dst = virtio->virtio_cfg.pci_isr;
-	    virtio->virtio_cfg.pci_isr = 0;
-	    v3_pci_lower_irq(virtio->pci_bus, 0, virtio->pci_dev);
+	    *(uint8_t *)dst = blk_state->virtio_cfg.pci_isr;
+	    blk_state->virtio_cfg.pci_isr = 0;
+	    v3_pci_lower_irq(blk_state->virtio_dev->pci_bus, 0, blk_state->pci_dev);
 	    break;
 
 	default:
 	    if ( (port_idx >= sizeof(struct virtio_config)) && 
 		 (port_idx < (sizeof(struct virtio_config) + sizeof(struct blk_config))) ) {
 		int cfg_offset = port_idx - sizeof(struct virtio_config);
-		uint8_t * cfg_ptr = (uint8_t *)&(virtio->block_cfg);
+		uint8_t * cfg_ptr = (uint8_t *)&(blk_state->block_cfg);
 
 		memcpy(dst, cfg_ptr + cfg_offset, length);
 		
@@ -525,7 +537,7 @@ static int virtio_io_read(uint16_t port, void * dst, uint_t length, void * priva
 
 static struct v3_device_ops dev_ops = {
     .free = virtio_free,
-    .reset = NULL,
+    .reset = virtio_reset,
     .start = NULL,
     .stop = NULL,
 };
@@ -533,27 +545,119 @@ static struct v3_device_ops dev_ops = {
 
 
 
-int v3_virtio_register_cdrom(struct vm_device * dev, struct v3_cd_ops * ops, void * private_data) {
-    struct virtio_blk_state * virtio = (struct virtio_blk_state *)dev->private_data;
-    
-    virtio->block_type = BLOCK_CDROM;
-    virtio->cd_ops = ops;
-    virtio->backend_data = private_data;
 
-    virtio->block_cfg.capacity = ops->get_capacity(private_data);
+static int register_dev(struct virtio_dev_state * virtio, struct virtio_blk_state * blk_state) {
+    // initialize PCI
+    struct pci_device * pci_dev = NULL;
+    struct v3_pci_bar bars[6];
+    int num_ports = sizeof(struct virtio_config) + sizeof(struct blk_config);
+    int tmp_ports = num_ports;
+    int i;
+
+
+
+    // This gets the number of ports, rounded up to a power of 2
+    blk_state->io_range_size = 1; // must be a power of 2
+    
+    while (tmp_ports > 0) {
+	tmp_ports >>= 1;
+	blk_state->io_range_size <<= 1;
+    }
+	
+    // this is to account for any low order bits being set in num_ports
+    // if there are none, then num_ports was already a power of 2 so we shift right to reset it
+    if ((num_ports & ((blk_state->io_range_size >> 1) - 1)) == 0) {
+	blk_state->io_range_size >>= 1;
+    }
+    
+    
+    for (i = 0; i < 6; i++) {
+	bars[i].type = PCI_BAR_NONE;
+    }
+    
+    PrintDebug("Virtio-BLK io_range_size = %d\n", blk_state->io_range_size);
+    
+    bars[0].type = PCI_BAR_IO;
+    bars[0].default_base_port = -1;
+    bars[0].num_ports = blk_state->io_range_size;
+    
+    bars[0].io_read = virtio_io_read;
+    bars[0].io_write = virtio_io_write;
+    bars[0].private_data = blk_state;
+    
+    pci_dev = v3_pci_register_device(virtio->pci_bus, PCI_STD_DEVICE, 
+				     0, PCI_AUTO_DEV_NUM, 0,
+				     "LNX_VIRTIO_BLK", bars,
+				     NULL, NULL, NULL, blk_state);
+    
+    if (!pci_dev) {
+	PrintError("Could not register PCI Device\n");
+	return -1;
+    }
+    
+    pci_dev->config_header.vendor_id = VIRTIO_VENDOR_ID;
+    pci_dev->config_header.subsystem_vendor_id = VIRTIO_SUBVENDOR_ID;
+    
+    
+    pci_dev->config_header.device_id = VIRTIO_BLOCK_DEV_ID;
+    pci_dev->config_header.class = PCI_CLASS_STORAGE;
+    pci_dev->config_header.subclass = PCI_STORAGE_SUBCLASS_OTHER;
+    
+    pci_dev->config_header.subsystem_id = VIRTIO_BLOCK_SUBDEVICE_ID;
+    
+    
+    pci_dev->config_header.intr_pin = 1;
+    
+    pci_dev->config_header.max_latency = 1; // ?? (qemu does it...)
+    
+    
+    blk_state->pci_dev = pci_dev;
+    
+    /* Block configuration */
+    blk_state->virtio_cfg.host_features = VIRTIO_SEG_MAX;
+    blk_state->block_cfg.max_seg = QUEUE_SIZE - 2;
+
+    // Virtio Block only uses one queue
+    blk_state->queue.queue_size = QUEUE_SIZE;
+
+    blk_state->virtio_dev = virtio;
+
+    blk_reset(blk_state);
+
+
+    return 0;
+}
+
+
+int v3_virtio_register_cdrom(struct vm_device * dev, struct v3_cd_ops * ops, void * private_data) {
+    struct virtio_dev_state * virtio = (struct virtio_dev_state *)dev->private_data;
+    struct virtio_blk_state * blk_state  = (struct virtio_blk_state *)V3_Malloc(sizeof(struct virtio_blk_state));
+    memset(blk_state, 0, sizeof(struct virtio_blk_state));
+    
+    register_dev(virtio, blk_state);
+
+    blk_state->block_type = BLOCK_CDROM;
+    blk_state->cd_ops = ops;
+    blk_state->backend_data = private_data;
+
+    blk_state->block_cfg.capacity = ops->get_capacity(private_data);
 
     return 0;
 }
 
 
 int v3_virtio_register_harddisk(struct vm_device * dev, struct v3_hd_ops * ops, void * private_data) {
-    struct virtio_blk_state * virtio = (struct virtio_blk_state *)dev->private_data;
+    struct virtio_dev_state * virtio = (struct virtio_dev_state *)dev->private_data;
+    struct virtio_blk_state * blk_state  = (struct virtio_blk_state *)V3_Malloc(sizeof(struct virtio_blk_state));
+    memset(blk_state, 0, sizeof(struct virtio_blk_state));
 
-    virtio->block_type = BLOCK_DISK;
-    virtio->hd_ops = ops;
-    virtio->backend_data = private_data;
+    register_dev(virtio, blk_state);
 
-    virtio->block_cfg.capacity = ops->get_capacity(private_data);
+    blk_state->block_type = BLOCK_DISK;
+    blk_state->hd_ops = ops;
+    blk_state->backend_data = private_data;
+
+    blk_state->block_cfg.capacity = ops->get_capacity(private_data);
 
     PrintDebug("Virtio Capacity = %d -- 0x%p\n", (int)(virtio->block_cfg.capacity), 
 	(void *)(addr_t)(virtio->block_cfg.capacity));
@@ -563,10 +667,11 @@ int v3_virtio_register_harddisk(struct vm_device * dev, struct v3_hd_ops * ops, 
 
 
 
+
 static int virtio_init(struct guest_info * vm, void * cfg_data) {
     struct vm_device * pci_bus = v3_find_dev(vm, (char *)cfg_data);
-    struct virtio_blk_state * virtio_state = NULL;
-    struct pci_device * pci_dev = NULL;
+    struct virtio_dev_state * virtio_state = NULL;
+
 
     PrintDebug("Initializing VIRTIO Block device\n");
 
@@ -575,10 +680,13 @@ static int virtio_init(struct guest_info * vm, void * cfg_data) {
 	return -1;
     }
 
-    
-    virtio_state  = (struct virtio_blk_state *)V3_Malloc(sizeof(struct virtio_blk_state));
-    memset(virtio_state, 0, sizeof(struct virtio_blk_state));
 
+    virtio_state  = (struct virtio_dev_state *)V3_Malloc(sizeof(struct virtio_dev_state));
+    memset(virtio_state, 0, sizeof(struct virtio_dev_state));
+
+    INIT_LIST_HEAD(&(virtio_state->dev_list));
+    virtio_state->pci_bus = pci_bus;
+    virtio_state->vm = vm;
 
     struct vm_device * dev = v3_allocate_device("LNX_VIRTIO_BLK", &dev_ops, virtio_state);
     if (v3_attach_device(vm, dev) == -1) {
@@ -586,92 +694,10 @@ static int virtio_init(struct guest_info * vm, void * cfg_data) {
 	return -1;
     }
 
-
-    // PCI initialization
-    {
-	struct v3_pci_bar bars[6];
-	int num_ports = sizeof(struct virtio_config) + sizeof(struct blk_config);
-	int tmp_ports = num_ports;
-	int i;
-
-
-
-	// This gets the number of ports, rounded up to a power of 2
-	virtio_state->io_range_size = 1; // must be a power of 2
-
-	while (tmp_ports > 0) {
-	    tmp_ports >>= 1;
-	    virtio_state->io_range_size <<= 1;
-	}
-	
-	// this is to account for any low order bits being set in num_ports
-	// if there are none, then num_ports was already a power of 2 so we shift right to reset it
-	if ((num_ports & ((virtio_state->io_range_size >> 1) - 1)) == 0) {
-	    virtio_state->io_range_size >>= 1;
-	}
-
-
-	for (i = 0; i < 6; i++) {
-	    bars[i].type = PCI_BAR_NONE;
-	}
-
-	PrintDebug("Virtio-BLK io_range_size = %d\n", virtio_state->io_range_size);
-
-	bars[0].type = PCI_BAR_IO;
-	bars[0].default_base_port = -1;
-	bars[0].num_ports = virtio_state->io_range_size;
-
-	bars[0].io_read = virtio_io_read;
-	bars[0].io_write = virtio_io_write;
-	bars[0].private_data = dev;
-
-	pci_dev = v3_pci_register_device(pci_bus, PCI_STD_DEVICE, 
-					 0, PCI_AUTO_DEV_NUM, 0,
-					 "LNX_VIRTIO_BLK", bars,
-					 NULL, NULL, NULL, dev, NULL);
-
-	if (!pci_dev) {
-	    PrintError("Could not register PCI Device\n");
-	    return -1;
-	}
-	
-	pci_dev->config_header.vendor_id = VIRTIO_VENDOR_ID;
-	pci_dev->config_header.subsystem_vendor_id = VIRTIO_SUBVENDOR_ID;
-	
-
-	pci_dev->config_header.device_id = VIRTIO_BLOCK_DEV_ID;
-	pci_dev->config_header.class = PCI_CLASS_STORAGE;
-	pci_dev->config_header.subclass = PCI_STORAGE_SUBCLASS_OTHER;
-    
-	pci_dev->config_header.subsystem_id = VIRTIO_BLOCK_SUBDEVICE_ID;
-
-
-	pci_dev->config_header.intr_pin = 1;
-
-	pci_dev->config_header.max_latency = 1; // ?? (qemu does it...)
-
-
-	virtio_state->pci_dev = pci_dev;
-	virtio_state->pci_bus = pci_bus;
-    }
-
-    /* Block configuration */
-    virtio_state->virtio_cfg.host_features = VIRTIO_SEG_MAX;
-    virtio_state->block_cfg.max_seg = QUEUE_SIZE - 2;
-
-    // Virtio Block only uses one queue
-    virtio_state->queue.queue_size = QUEUE_SIZE;
-
-    virtio_reset(dev);
-
-
-
-    virtio_state->backend_data = NULL;
-    virtio_state->block_type = BLOCK_NONE;
-    virtio_state->hd_ops = NULL;
-
     return 0;
 }
+    
+ 
 
 
 device_register("LNX_VIRTIO_BLK", virtio_init)

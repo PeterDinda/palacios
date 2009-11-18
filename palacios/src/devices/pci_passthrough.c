@@ -506,7 +506,7 @@ static int setup_virt_pci_dev(struct guest_info * info, struct vm_device * dev) 
 				     bus_num, -1, 0, 
 				     state->name, bars,
 				     pt_config_update, NULL, NULL, 
-				     dev, dev);
+				     dev);
     
     // This will overwrite the bar registers.. but that should be ok.
     memcpy(pci_dev->config_space, (uint8_t *)&(state->real_hdr), sizeof(struct pci_config_header));
