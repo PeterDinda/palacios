@@ -27,6 +27,7 @@
 #include <palacios/vmm_hypercall.h>
 #include <palacios/vmm_dev_mgr.h>
 #include <palacios/vmm_cpuid.h>
+#include <palacios/vmm_xml.h>
 
 #ifdef CONFIG_SYMBIOTIC
 #include <palacios/vmm_sym_iface.h>
@@ -47,6 +48,17 @@
 #include <devices/telnet_cons.h>
 #include <devices/pci_passthrough.h>
 
+
+/*
+static const char * test_cfg_xml = \
+"<root>\n \
+<memory>2048</memory>\n\
+<devices>\n\
+<device id=\"PCI\" />\n\
+<device id=\"IDE\"  />\n\
+</devices>\n\
+</root>";
+*/
 
 
 
@@ -78,6 +90,29 @@ static int passthrough_mem_write(addr_t guest_addr, void * src, uint_t length, v
 int v3_pre_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr) {
    extern v3_cpu_arch_t v3_cpu_types[];
 
+
+   /*
+   {
+       struct v3_xml * cfg = v3_xml_parse((char *)test_cfg_xml);
+       struct v3_xml * devs = NULL;
+       struct v3_xml * tmp = NULL;
+       PrintError("Parsed XML COnfig %s\n", v3_xml_name(cfg));
+       
+       PrintError("memory=%s\n", v3_xml_txt(v3_xml_child(cfg, "memory")));
+       
+       devs = v3_xml_child(cfg, "devices");
+       
+       for (tmp = v3_xml_child(devs, "device"); tmp; tmp = v3_xml_next(tmp)) {
+	   PrintError("Device: %s, id=%s\n", 
+		      v3_xml_name(tmp), 
+		      v3_xml_attr(tmp, "id"));
+       }
+       v3_xml_free(cfg);
+       
+       return -1;
+   }
+   */
+
     // Amount of ram the Guest will have, rounded to a 4K page boundary
     info->mem_size = config_ptr->mem_size & ~(addr_t)0xfff;
 
@@ -103,7 +138,10 @@ int v3_pre_config_guest(struct guest_info * info, struct v3_vm_config * config_p
     v3_init_host_events(info);
 
     // Initialize the memory map
-    v3_init_shadow_map(info);
+    if (v3_init_shadow_map(info) == -1) {
+	PrintError("Could not initialize shadow map\n");
+	return -1;
+    }
     
     if ((v3_cpu_types[info->cpu_id] == V3_SVM_REV3_CPU) && 
 	(config_ptr->enable_nested_paging == 1)) {
@@ -276,6 +314,7 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
 	v3_create_device(info, "LNX_VIRTIO_BLK", "PCI");
 	v3_create_device(info, "LNX_VIRTIO_BALLOON", "PCI");
 	v3_create_device(info, "SYM_SWAP", "LNX_VIRTIO_BLK");
+	//	v3_create_device(info, "TMP_BLK", "LNX_VIRTIO_BLK");
 
 	v3_create_device(info, "IDE", &ide_config);
        
@@ -324,6 +363,18 @@ static int setup_devices(struct guest_info * info, struct v3_vm_config * config_
 		PrintDebug("Creating NET HD\n");
 		v3_create_device(info, "NET-HD", &cfg);
 	    }
+
+	} else if (config_ptr->pri_disk_type == VIRTIO) {
+	    if (config_ptr->pri_disk_con == RAM) {
+		struct ram_hd_cfg cfg = {"LNX_VIRTIO_BLK", 0, 0,
+					 (addr_t)(config_ptr->pri_disk_info.ram.data_ptr), 
+					 config_ptr->pri_disk_info.ram.size};
+
+		PrintDebug("Creating Virtio RAM HD\n");
+
+		v3_create_device(info, "RAM-HD", &cfg);
+	    } 
+
 	}
     }
 

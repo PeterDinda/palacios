@@ -78,7 +78,7 @@ typedef struct v3_shdw_map {
 
 
 
-void v3_init_shadow_map(struct guest_info * info);
+int v3_init_shadow_map(struct guest_info * info);
 void v3_delete_shadow_map(struct guest_info * info);
 
 

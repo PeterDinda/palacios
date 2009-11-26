@@ -39,13 +39,6 @@
 #define ETHERNET_DATA_MAX   1500
 #define ETHERNET_PACKET_LEN (ETHERNET_HEADER_LEN + ETHERNET_DATA_MAX)
 
-#define TCP_TYPE 0
-#define UDP_TYPE 1
-
-#define TCP_STR "TCP"
-#define UDP_STR "UDP"
-
-
 //the routing entry
 struct routing {
     char src_mac[6];

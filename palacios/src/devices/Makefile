@@ -16,7 +16,7 @@ obj-$(CONFIG_PCI) += pci.o
 obj-$(CONFIG_PIIX3) += piix3.o
 obj-$(CONFIG_RAM_CD) += ram_cd.o
 obj-$(CONFIG_RAM_HD) += ram_hd.o
-obj-$(CONFIG_SYM_SWAP) += sym_swap.o 
+obj-$(CONFIG_SYM_SWAP) += sym_swap.o tmp_blk.o
 
 obj-$(CONFIG_NE2K) += ne2k.o
 
