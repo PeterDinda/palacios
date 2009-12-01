@@ -137,6 +137,7 @@ config DEBUG_VIRTIO_SYM
 config LINUX_VIRTIO_NET
         bool "Enable Virtio Network Device"
         default n
+	depends on PCI
         help
           Enable the Virtio Net
 
