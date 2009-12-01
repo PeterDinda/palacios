@@ -105,96 +105,96 @@
 			<ports>
                                <start>0x00</start>
                                <end>0x07</end>
-                               <op>PRINT_AND_IGNORE</op>
+                               <mode>PRINT_AND_IGNORE</mode>
 			</ports>
 			<ports>
 				<start>0xc0</start>
 				<end>0xc7</end>
-				<op>PRINT_AND_IGNORE</op>
+				<mode>PRINT_AND_IGNORE</mode>
 			</ports>
 			<ports>
 				<!-- DMA 1 page registers -->
 				<start>0x81</start>
 				<end>0x87</end>
-				<op>PRINT_AND_IGNORE</op>
+				<mode>PRINT_AND_IGNORE</mode>
 			</ports>
 			<ports>
 				<!-- DMA 2 page registers -->
 				<start>0x88</start>
 				<end>0x8f</end>
-				<op>PRINT_AND_IGNORE</op>
+				<mode>PRINT_AND_IGNORE</mode>
 			</ports>
 			<ports>
 				<!-- DMA 1 Misc Registers -->
 				<start>0x08</start>
 				<end>0x0f</end>
-				<op>PRINT_AND_IGNORE</op>
+				<mode>PRINT_AND_IGNORE</mode>
 			</ports>
 			<ports>
 				<!-- DMA 2 Misc Registers -->
 				<start>0xd0</start>
 				<end>0xde</end>
-				<op>PRINT_AND_IGNORE</op>
+				<mode>PRINT_AND_IGNORE</mode>
 			</ports>
 			<ports>
 				<!-- Serial COM 1 -->
 				<start>0x3f8</start>
 				<end>0x3ff</end>
-				<op>PRINT_AND_IGNORE</op>
+				<mode>PRINT_AND_IGNORE</mode>
 			</ports>
 			<ports>
 				<!-- Serial COM 2 -->
 				<start>0x2f8</start>
 				<end>0x2ff</end>
-				<op>PRINT_AND_IGNORE</op>
+				<mode>PRINT_AND_IGNORE</mode>
 			</ports>
 			<ports>
 				<!-- Serial COM 3 -->
 				<start>0x3e8</start>
 				<end>0x3ef</end>
-				<op>PRINT_AND_IGNORE</op>
+				<mode>PRINT_AND_IGNORE</mode>
 			</ports>
 			<ports>
 				<!-- Serial COM 4 -->
 				<start>0x2e8</start>
 				<end>0x2ef</end>
-				<op>PRINT_AND_IGNORE</op>
+				<mode>PRINT_AND_IGNORE</mode>
 			</ports>
 			<ports>
 				<!-- Parallel Port -->
 				<start>0x378</start>
 				<end>0x37f</end>
-				<op>PRINT_AND_IGNORE</op>
+				<mode>PRINT_AND_IGNORE</mode>
 			</ports>
 			<ports>
-				<!-- Graphics Card operations -->
+				<!-- Graphics Card modeerations -->
 				<start>0x3b0</start>
 				<end>0x3bb</end>
-				<op>PRINT_AND_PASSTHROUGH</op>
+				<mode>PRINT_AND_PASSTHROUGH</mode>
 			</ports>
 			<ports>
-				<!-- Graphics Card operations -->
+				<!-- Graphics Card modeerations -->
 				<start>0x3c0</start>
 				<end>0x3df</end>
-				<op>PRINT_AND_PASSTHROUGH</op>
+				<mode>PRINT_AND_PASSTHROUGH</mode>
 			</ports>
 			<ports>
 				<!-- ISA PNP -->
 				<start>0x274</start>
 				<end>0x277</end>
-				<op>PRINT_AND_IGNORE</op>
+				<mode>PRINT_AND_IGNORE</mode>
 			</ports>
 			<ports>
 				<!-- ISA PNP -->
 				<start>0x279</start>
 				<end>0x279</end>
-				<op>PRINT_AND_IGNORE</op>
+				<mode>PRINT_AND_IGNORE</mode>
 			</ports>
 			<ports>
 				<!-- ISA PNP -->
 				<start>0xa79</start>
 				<end>0xa79</end>
-				<op>PRINT_AND_IGNORE</op>
+				<mode>PRINT_AND_IGNORE</mode>
 			</ports>
                </device>
        </devices>
