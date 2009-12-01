@@ -1,0 +1,12 @@
+v3vee\0\0\0        : 8 bytes
+<length of xml>    : 4 bytes
+<xml>
+<zeroes>           : 8 bytes of zeroes
+
+<num files>        : 8 bytes
+
+<index>            : 4 bytes
+<size>             : 4 bytes
+<offset>           : 8 bytes
+...
+<padding>          : zeroes to 8 byte boundary
