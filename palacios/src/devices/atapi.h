@@ -128,7 +128,8 @@ static void atapi_cmd_nop(struct vm_device * dev, struct ide_channel * channel) 
 static int atapi_read_chunk(struct vm_device * dev, struct ide_channel * channel) {
     struct ide_drive * drive = get_selected_drive(channel);
 
-    int ret = drive->cd_ops->read(drive->data_buf, 1, drive->current_lba, drive->private_data);
+    int ret = drive->ops->read(drive->data_buf, drive->current_lba * ATAPI_BLOCK_SIZE, ATAPI_BLOCK_SIZE, 
+drive->private_data);
     
     if (ret == -1) {
 	PrintError("IDE: Error reading CD block (LBA=%p)\n", (void *)(addr_t)(drive->current_lba));
@@ -177,10 +178,10 @@ static int atapi_read10(struct vm_device * dev, struct ide_channel * channel) {
 	return 0;
     }
     
-    if (lba + xfer_len > drive->cd_ops->get_capacity(drive->private_data)) {
+    if (lba + xfer_len > drive->ops->get_capacity(drive->private_data)) {
 	PrintError("IDE: xfer len exceeded capacity (lba=%d) (xfer_len=%d) (ReadEnd=%d) (capacity=%d)\n", 
 		   lba, xfer_len, lba + xfer_len, 
-		   drive->cd_ops->get_capacity(drive->private_data));
+		   (uint32_t)drive->ops->get_capacity(drive->private_data));
 	atapi_cmd_error(dev, channel, ATAPI_SEN_ILL_REQ, ASC_LOG_BLK_OOR);
 	ide_raise_irq(dev, channel);
 	return 0;
@@ -238,7 +239,7 @@ static void atapi_req_sense(struct vm_device * dev, struct ide_channel * channel
 static int atapi_get_capacity(struct vm_device * dev, struct ide_channel * channel) {
     struct ide_drive * drive = get_selected_drive(channel);
     struct atapi_rd_capacity_resp * resp = (struct atapi_rd_capacity_resp *)(drive->data_buf);
-    uint32_t capacity = drive->cd_ops->get_capacity(drive->private_data);
+    uint32_t capacity = drive->ops->get_capacity(drive->private_data);
 
     resp->lba = le_to_be_32(capacity);
     resp->block_len = le_to_be_32(ATAPI_BLOCK_SIZE);

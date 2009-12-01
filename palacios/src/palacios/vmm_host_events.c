@@ -19,7 +19,7 @@
 
 #include <palacios/vmm.h>
 #include <palacios/vmm_host_events.h>
-
+#include <palacios/vm_guest.h>
 
 int v3_init_host_events(struct guest_info * info) {
     struct v3_host_events * host_evts = &(info->host_event_hooks);

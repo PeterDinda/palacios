@@ -100,17 +100,18 @@ static struct v3_device_ops dev_ops = {
 
 
 
-static int net_init(struct guest_info * vm, void * cfg_data) {
+static int net_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
     struct nic_state * state = NULL;
+    char * name = v3_cfg_val(cfg, "name");
 
     state = (struct nic_state *)V3_Malloc(sizeof(struct nic_state));
 
     PrintDebug("Creating VMNet Device\n");
 
-    struct vm_device * dev = v3_allocate_device("VMNET", &dev_ops, state);
+    struct vm_device * dev = v3_allocate_device(name, &dev_ops, state);
 
     if (v3_attach_device(vm, dev) == -1) {
-        PrintError("Could not attach device %s\n", "VMNET");
+        PrintError("Could not attach device %s\n", name);
         return -1;
     }
 

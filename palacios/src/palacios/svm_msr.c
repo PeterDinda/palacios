@@ -21,7 +21,7 @@
 #include <palacios/vmm_msr.h>
 #include <palacios/vmm_sprintf.h>
 #include <palacios/vmm_list.h>
-
+#include <palacios/vm_guest.h>
 
 #define PENTIUM_MSRS_START            0x00000000
 #define PENTIUM_MSRS_END              0x00001fff

@@ -48,6 +48,8 @@
 
 
 
+
+
 struct v3_gprs {
     v3_reg_t rdi;
     v3_reg_t rsi;
@@ -124,6 +126,8 @@ struct v3_segments {
 #include <palacios/vmm_sym_iface.h>
 #endif
 
+#include <palacios/vmm_config.h>
+
 struct shadow_page_state;
 struct v3_intr_state;
 
@@ -147,6 +151,8 @@ struct guest_info {
     addr_t mem_size; // In bytes for now
     v3_shdw_map_t mem_map;
 
+    struct v3_config * cfg_data;
+    v3_vm_class_t vm_class;
 
     struct vm_time time_state;
 

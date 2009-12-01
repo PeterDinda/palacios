@@ -152,6 +152,22 @@ int strcmp(const char * s1, const char * s2) {
 }
 #endif
 
+#ifdef CONFIG_BUILT_IN_STRCASECMP
+int strcasecmp(const char * s1, const char * s2) {
+    while (1) {
+	int cmp = (tolower(*s1) - tolower(*s2));
+
+	if ((cmp != 0) || (*s1 == '\0') || (*s2 == '\0')) {
+	    return cmp;
+	}
+
+	++s1;
+	++s2;
+    }
+}
+
+#endif
+
 
 #ifdef CONFIG_BUILT_IN_STRNCMP
 int strncmp(const char * s1, const char * s2, size_t limit) {
@@ -170,6 +186,26 @@ int strncmp(const char * s1, const char * s2, size_t limit) {
     }
 
     /* limit reached and equal */
+    return 0;
+}
+#endif
+
+#ifdef CONFIG_BUILT_IN_STRNCASECMP
+int strncasecmp(const char * s1, const char * s2, size_t limit) {
+    size_t i = 0;
+
+    while (i < limit) {
+	int cmp = (tolower(*s1) - tolower(*s2));
+
+	if ((cmp != 0) || (*s1 == '\0') || (*s2 == '\0')) {
+	    return cmp;
+	}
+
+	++s1;
+	++s2;
+	++i;
+    }
+
     return 0;
 }
 #endif
@@ -294,6 +330,10 @@ int strtoi(const char * nptr, char ** endptr) {
 uint64_t atox(const char * buf) {
     uint64_t ret = 0;
 
+    if (*(buf + 1) == 'x') {
+	buf += 2;
+    }
+
     while (isxdigit(*buf)) {
 	ret <<= 4;
 	
@@ -312,6 +352,10 @@ uint64_t atox(const char * buf) {
 uint64_t strtox(const char * nptr, char ** endptr) {
     uint64_t ret = 0;
     char * buf = (char *)nptr;
+
+    if (*(buf + 1) == 'x') {
+	buf += 2;
+    }
 
     while (isxdigit(*buf)) {
 	ret <<= 4;
@@ -445,3 +489,23 @@ char *strstr(const char *haystack, const char *needle)
         return NULL;
 }
 #endif
+
+
+void str_tolower(char * s) {
+    while (isalpha(*s)) {
+	if (!islower(*s)) {
+	    *s = tolower(*s);
+	}
+	s++;
+    }
+}
+
+
+void str_toupper(char * s) {
+    while (isalpha(*s)) {
+	if (!isupper(*s)) {
+	    *s = toupper(*s);
+	}
+	s++;
+    }
+}

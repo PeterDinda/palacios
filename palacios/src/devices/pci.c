@@ -28,9 +28,12 @@
 #include <palacios/vmm_io.h>
 #include <palacios/vmm_intr.h>
 #include <palacios/vmm_rbtree.h>
+#include <palacios/vmm_dev_mgr.h>
 
 #include <devices/pci.h>
 #include <devices/pci_types.h>
+
+
 
 #ifndef CONFIG_DEBUG_PCI
 #undef PrintDebug
@@ -648,16 +651,17 @@ static struct v3_device_ops dev_ops = {
 
 
 
-static int pci_init(struct guest_info * vm, void * cfg_data) {
+static int pci_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
     struct pci_internal * pci_state = V3_Malloc(sizeof(struct pci_internal));
     int i = 0;
+    char * name = v3_cfg_val(cfg, "name");
     
     PrintDebug("PCI internal at %p\n",(void *)pci_state);
     
-    struct vm_device * dev = v3_allocate_device("PCI", &dev_ops, pci_state);
+    struct vm_device * dev = v3_allocate_device(name, &dev_ops, pci_state);
     
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("Could not attach device %s\n", "PCI");
+	PrintError("Could not attach device %s\n", name);
 	return -1;
     }
 

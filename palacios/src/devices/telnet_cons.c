@@ -519,23 +519,24 @@ static int cons_server(void * arg) {
 }
 
 
-static int cons_init(struct guest_info * vm, void * cfg_data) {
-    struct telnet_cons_cfg * cfg = (struct telnet_cons_cfg *)cfg_data;
+static int cons_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
     struct cons_state * state = (struct cons_state *)V3_Malloc(sizeof(struct cons_state));
-    struct vm_device * frontend = v3_find_dev(vm, cfg->frontend);
+    v3_cfg_tree_t * frontend_cfg = v3_cfg_subtree(cfg, "frontend");
+    struct vm_device * frontend = v3_find_dev(vm, v3_cfg_val(frontend_cfg, "id"));
+    char * name = v3_cfg_val(cfg, "name");
 
 
     state->server_fd = 0;
     state->client_fd = 0;
     state->frontend_dev = frontend;
-    state->port = cfg->port;
+    state->port = atoi(v3_cfg_val(cfg, "port"));
     v3_lock_init(&(state->cons_lock));
 
 
-    struct vm_device * dev = v3_allocate_device("TELNET_CONS", &dev_ops, state);
+    struct vm_device * dev = v3_allocate_device(name, &dev_ops, state);
 
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("Could not attach device %s\n", "TELNET_CONS");
+	PrintError("Could not attach device %s\n", name);
 	return -1;
     }
 

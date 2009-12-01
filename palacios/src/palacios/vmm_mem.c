@@ -21,10 +21,10 @@
 #include <palacios/vmm.h>
 #include <palacios/vmm_util.h>
 #include <palacios/vmm_emulator.h>
+#include <palacios/vm_guest.h>
 
 #include <palacios/vmm_shadow_paging.h>
 #include <palacios/vmm_direct_paging.h>
-
 
 #define MEM_OFFSET_HCALL 0x1000
 

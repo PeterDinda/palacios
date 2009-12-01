@@ -20,6 +20,7 @@
 #include <palacios/vmm_excp.h>
 #include <palacios/vmm.h>
 #include <palacios/vmm_types.h>
+#include <palacios/vm_guest.h>
 
 void v3_init_exception_state(struct guest_info * info) {
     info->excp_state.excp_pending = 0;

@@ -64,10 +64,10 @@ static void ata_identify_device(struct ide_drive * drive) {
     drive_id->lba_enable = 1;
     
     // Drive Capacity (28 bit LBA)
-    drive_id->lba_capacity = drive->hd_ops->get_capacity(drive->private_data);
+    drive_id->lba_capacity = drive->ops->get_capacity(drive->private_data);
     
     // Drive Capacity (48 bit LBA)
-    drive_id->lba_capacity_2 = drive->hd_ops->get_capacity(drive->private_data);
+    drive_id->lba_capacity_2 = drive->ops->get_capacity(drive->private_data);
 
 
     // lower byte is the maximum multiple sector size...
@@ -116,7 +116,7 @@ static int ata_read(struct vm_device * dev, struct ide_channel * channel, uint8_
 
     PrintDebug("Reading Drive LBA=%d (count=%d)\n", (uint32_t)(drive->current_lba), sect_cnt);
 
-    int ret = drive->hd_ops->read(dst, sect_cnt, drive->current_lba, drive->private_data);
+    int ret = drive->ops->read(dst, drive->current_lba * HD_SECTOR_SIZE, sect_cnt * HD_SECTOR_SIZE, drive->private_data);
     
     if (ret == -1) {
 	PrintError("IDE: Error reading HD block (LBA=%p)\n", (void *)(addr_t)(drive->current_lba));
@@ -132,7 +132,7 @@ static int ata_write(struct vm_device * dev, struct ide_channel * channel, uint8
 
     PrintDebug("Writing Drive LBA=%d (count=%d)\n", (uint32_t)(drive->current_lba), sect_cnt);
 
-    int ret = drive->hd_ops->write(src, sect_cnt, drive->current_lba, drive->private_data);
+    int ret = drive->ops->write(src, drive->current_lba * HD_SECTOR_SIZE, sect_cnt * HD_SECTOR_SIZE, drive->private_data);
 
     if (ret == -1) {
 	PrintError("IDE: Error writing HD block (LBA=%p)\n", (void *)(addr_t)(drive->current_lba));
@@ -168,11 +168,11 @@ static int ata_get_lba(struct vm_device * dev, struct ide_channel * channel, uin
 
 
     if ((lba_addr.addr + sect_cnt) > 
-	drive->hd_ops->get_capacity(drive->private_data)) {
+	drive->ops->get_capacity(drive->private_data)) {
 	PrintError("IDE: request size exceeds disk capacity (lba=%d) (sect_cnt=%d) (ReadEnd=%d) (capacity=%p)\n", 
 		   lba_addr.addr, sect_cnt, 
 		   lba_addr.addr + (sect_cnt * HD_SECTOR_SIZE),
-		   (void *)(addr_t)(drive->hd_ops->get_capacity(drive->private_data)));
+		   (void *)(addr_t)(drive->ops->get_capacity(drive->private_data)));
 	return -1;
     }
 

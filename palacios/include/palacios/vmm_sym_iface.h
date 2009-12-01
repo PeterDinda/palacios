@@ -23,18 +23,15 @@
 
 #ifdef __V3VEE__
 
-#include <palacios/vm_guest.h>
-
 
 
 struct v3_sym_interface {
     uint64_t magic;
 
-
     union {
 	uint32_t feature_flags;
 	struct {
-	    uint_t pci_map_valid          : 1;
+	    uint_t pci_map_valid            : 1;
 	    uint32_t sym_call_enabled       : 1;
 	} __attribute__((packed));
     } __attribute__((packed));
@@ -51,12 +48,11 @@ struct v3_sym_interface {
     
     uint8_t pci_pt_map[(4 * 256) / 8]; // we're hardcoding this: (4 busses, 256 max devs)
 
-
-
-
 } __attribute__((packed));
 
 
+
+#include <palacios/vm_guest.h>
 
 
 struct v3_sym_context {
@@ -69,7 +65,6 @@ struct v3_sym_context {
     uint64_t flags;
     uint8_t cpl;
 };
-
 
 
 struct v3_sym_state {
@@ -96,6 +91,12 @@ struct v3_sym_state {
     uint64_t sym_call_gs;
     uint64_t sym_call_fs;
 };
+
+
+
+
+
+
 
 int v3_init_sym_iface(struct guest_info * info);
 

@@ -20,8 +20,6 @@
 #include <palacios/vmm.h>
 #include <palacios/vmm_dev_mgr.h>
 #include <devices/lnx_virtio_pci.h>
-#include <devices/lnx_virtio_blk.h>
-#include <devices/block_dev.h>
 #include <palacios/vm_guest_mem.h>
 
 #include <devices/pci.h>
@@ -93,12 +91,8 @@ struct virtio_blk_state {
     
     struct virtio_queue queue;
 
-    union {
-	struct v3_cd_ops * cd_ops;
-	struct v3_hd_ops * hd_ops;
-    };
+    struct v3_dev_blk_ops * ops;
 
-    v3_block_type_t block_type;
     void * backend_data;
 
     int io_range_size;
@@ -138,52 +132,23 @@ static int virtio_reset(struct vm_device * dev) {
     return 0;
 }
 
-static int handle_read_op(struct virtio_blk_state * blk_state, uint8_t * buf, uint64_t * sector, uint32_t len) {
+static int handle_read_op(struct virtio_blk_state * blk_state, uint8_t * buf, uint64_t * sector, uint64_t len) {
     int ret = -1;
 
-    if (blk_state->block_type == BLOCK_DISK) {
-	if (len % HD_SECTOR_SIZE) {
-	    PrintError("Write of something that is not a sector len %d, mod=%d\n", len, len % HD_SECTOR_SIZE);
-	    return -1;
-	}
-
-
-	PrintDebug("Reading Disk\n");
-	    
-	ret = blk_state->hd_ops->read(buf, len / HD_SECTOR_SIZE, *sector, blk_state->backend_data);
-
-	*sector += len / HD_SECTOR_SIZE;
-
-    } else if (blk_state->block_type == BLOCK_CDROM) {
-	if (len % ATAPI_BLOCK_SIZE) {
-	    PrintError("Write of something that is not an ATAPI block len %d, mod=%d\n", len, len % ATAPI_BLOCK_SIZE);
-	    return -1;
-	}
-
-	ret = blk_state->cd_ops->read(buf, len / ATAPI_BLOCK_SIZE, *sector , blk_state->backend_data);
-
-	*sector += len / ATAPI_BLOCK_SIZE;
-    }
+    PrintDebug("Reading Disk\n");
+    ret = blk_state->ops->read(buf, *sector, len, (void *)(blk_state->backend_data));
+    *sector += len;
 
     return ret;
 }
 
 
-static int handle_write_op(struct virtio_blk_state * blk_state, uint8_t * buf, uint64_t * sector, uint32_t len) {
+static int handle_write_op(struct virtio_blk_state * blk_state, uint8_t * buf, uint64_t * sector, uint64_t len) {
     int ret = -1;
 
-    if (blk_state->block_type == BLOCK_DISK) {
-	if (len % HD_SECTOR_SIZE) {
-	    PrintError("Write of something that is not a sector len %d, mod=%d\n", len, len % HD_SECTOR_SIZE);
-	    return -1;
-	}
-
-	PrintDebug("Writing Disk\n");
-
-	ret = blk_state->hd_ops->write(buf, len / HD_SECTOR_SIZE, *sector, blk_state->backend_data);
-
-	*sector += len / HD_SECTOR_SIZE;	
-    }
+    PrintDebug("Writing Disk\n");
+    ret = blk_state->ops->write(buf, *sector, len, (void *)(blk_state->backend_data));
+    *sector += len;
 
     return ret;
 }
@@ -197,49 +162,32 @@ static int handle_block_op(struct virtio_blk_state * blk_state, struct blk_op_hd
     uint8_t * buf = NULL;
 
     PrintDebug("Handling Block op\n");
-
-
-
     if (guest_pa_to_host_va(blk_state->virtio_dev->vm, buf_desc->addr_gpa, (addr_t *)&(buf)) == -1) {
 	PrintError("Could not translate buffer address\n");
 	return -1;
     }
 
-
     PrintDebug("Sector=%p Length=%d\n", (void *)(addr_t)(hdr->sector), buf_desc->length);
 
     if (hdr->type == BLK_IN_REQ) {
-	if (blk_state->block_type != BLOCK_NONE) {
-	    if (handle_read_op(blk_state, buf, &(hdr->sector), buf_desc->length) == -1) {
-		*status = BLK_STATUS_ERR;
-		return -1;
-	    } else {
-		*status = BLK_STATUS_OK;
-	    }
+	if (handle_read_op(blk_state, buf, &(hdr->sector), buf_desc->length) == -1) {
+	    *status = BLK_STATUS_ERR;
+	    return -1;
 	} else {
-	    *status = BLK_STATUS_NOT_SUPPORTED;
+	    *status = BLK_STATUS_OK;
 	}
-
     } else if (hdr->type == BLK_OUT_REQ) {
-	if (blk_state->block_type == BLOCK_DISK) {
-	    if (handle_write_op(blk_state, buf, &(hdr->sector), buf_desc->length) == -1) {
-		*status = BLK_STATUS_ERR;
-		return -1;
-	    } else {
-		*status = BLK_STATUS_OK;
-	    }
-
+	if (handle_write_op(blk_state, buf, &(hdr->sector), buf_desc->length) == -1) {
+	    *status = BLK_STATUS_ERR;
+	    return -1;
 	} else {
-	    *status = BLK_STATUS_NOT_SUPPORTED;
+	    *status = BLK_STATUS_OK;
 	}
-
     } else if (hdr->type == BLK_SCSI_CMD) {
 	PrintError("VIRTIO: SCSI Command Not supported!!!\n");
 	*status = BLK_STATUS_NOT_SUPPORTED;
 	return -1;
     }
-
-
 
     PrintDebug("Returning Status: %d\n", *status);
 
@@ -629,49 +577,35 @@ static int register_dev(struct virtio_dev_state * virtio, struct virtio_blk_stat
 }
 
 
-int v3_virtio_register_cdrom(struct vm_device * dev, struct v3_cd_ops * ops, void * private_data) {
-    struct virtio_dev_state * virtio = (struct virtio_dev_state *)dev->private_data;
-    struct virtio_blk_state * blk_state  = (struct virtio_blk_state *)V3_Malloc(sizeof(struct virtio_blk_state));
-    memset(blk_state, 0, sizeof(struct virtio_blk_state));
-    
-    register_dev(virtio, blk_state);
+static int connect_fn(struct guest_info * info, 
+		      void * frontend_data, 
+		      struct v3_dev_blk_ops * ops, 
+		      v3_cfg_tree_t * cfg, 
+		      void * private_data) {
 
-    blk_state->block_type = BLOCK_CDROM;
-    blk_state->cd_ops = ops;
-    blk_state->backend_data = private_data;
+    struct virtio_dev_state * virtio = (struct virtio_dev_state *)frontend_data;
 
-    blk_state->block_cfg.capacity = ops->get_capacity(private_data);
-
-    return 0;
-}
-
-
-int v3_virtio_register_harddisk(struct vm_device * dev, struct v3_hd_ops * ops, void * private_data) {
-    struct virtio_dev_state * virtio = (struct virtio_dev_state *)dev->private_data;
     struct virtio_blk_state * blk_state  = (struct virtio_blk_state *)V3_Malloc(sizeof(struct virtio_blk_state));
     memset(blk_state, 0, sizeof(struct virtio_blk_state));
 
     register_dev(virtio, blk_state);
 
-    blk_state->block_type = BLOCK_DISK;
-    blk_state->hd_ops = ops;
+    blk_state->ops = ops;
     blk_state->backend_data = private_data;
 
     blk_state->block_cfg.capacity = ops->get_capacity(private_data);
 
     PrintDebug("Virtio Capacity = %d -- 0x%p\n", (int)(virtio->block_cfg.capacity), 
-	(void *)(addr_t)(virtio->block_cfg.capacity));
+	       (void *)(addr_t)(virtio->block_cfg.capacity));
 
     return 0;
 }
 
 
-
-
-static int virtio_init(struct guest_info * vm, void * cfg_data) {
-    struct vm_device * pci_bus = v3_find_dev(vm, (char *)cfg_data);
+static int virtio_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
+    struct vm_device * pci_bus = v3_find_dev(vm, v3_cfg_val(cfg, "bus"));
     struct virtio_dev_state * virtio_state = NULL;
-
+    char * name = v3_cfg_val(cfg, "name");
 
     PrintDebug("Initializing VIRTIO Block device\n");
 
@@ -688,16 +622,19 @@ static int virtio_init(struct guest_info * vm, void * cfg_data) {
     virtio_state->pci_bus = pci_bus;
     virtio_state->vm = vm;
 
-    struct vm_device * dev = v3_allocate_device("LNX_VIRTIO_BLK", &dev_ops, virtio_state);
+    struct vm_device * dev = v3_allocate_device(name, &dev_ops, virtio_state);
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("Could not attach device %s\n", "LNX_VIRTIO_BLK");
+	PrintError("Could not attach device %s\n", name);
+	return -1;
+    }
+
+    if (v3_dev_add_blk_frontend(vm, name, connect_fn, (void *)virtio_state) == -1) {
+	PrintError("Could not register %s as block frontend\n", name);
 	return -1;
     }
 
     return 0;
 }
-    
- 
 
 
 device_register("LNX_VIRTIO_BLK", virtio_init)

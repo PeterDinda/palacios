@@ -1,4 +1,5 @@
 
+
 /* 
  * This file is part of the Palacios Virtual Machine Monitor developed
  * by the V3VEE Project with funding from the United States National 
@@ -230,7 +231,6 @@ struct vmx_data {
 };
 
 int v3_is_vmx_capable();
-void v3_init_vmx_hooks(struct v3_ctrl_ops * vm_ops);
 void v3_init_vmx_cpu(int cpu_id);
 
 

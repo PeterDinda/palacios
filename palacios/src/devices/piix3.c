@@ -19,8 +19,12 @@
  
 
 #include <palacios/vmm.h>
+#include <palacios/vmm_dev_mgr.h>
+#include <palacios/vmm_intr.h>
+
 #include <devices/pci.h>
 #include <devices/southbridge.h>
+
 
 struct iort_reg {
     union {
@@ -441,10 +445,11 @@ static int setup_pci(struct vm_device * dev) {
     return 0;
 }
 
-static int piix3_init(struct guest_info * vm, void * cfg_data) {
+static int piix3_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
     struct v3_southbridge * piix3 = (struct v3_southbridge *)V3_Malloc(sizeof(struct v3_southbridge));
     struct vm_device * dev = NULL;
-    struct vm_device * pci = v3_find_dev(vm, (char *)cfg_data);
+    struct vm_device * pci = v3_find_dev(vm, v3_cfg_val(cfg, "bus"));
+    char * name = v3_cfg_val(cfg, "name");
 
     if (!pci) {
 	PrintError("Could not find PCI device\n");
@@ -454,10 +459,10 @@ static int piix3_init(struct guest_info * vm, void * cfg_data) {
     piix3->pci_bus = pci;
     piix3->type = V3_SB_PIIX3;
     
-    dev = v3_allocate_device("PIIX3", &dev_ops, piix3);
+    dev = v3_allocate_device(name, &dev_ops, piix3);
 
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("Could not attach device %s\n", "PIIX3");
+	PrintError("Could not attach device %s\n", name);
 	return -1;
     }
 
