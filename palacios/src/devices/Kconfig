@@ -134,6 +134,18 @@ config DEBUG_VIRTIO_SYM
 	help 
 	  Enable debugging for the Linux Virtio Symbiotic Device
 
+config LINUX_VIRTIO_NET
+        bool "Enable Virtio Network Device"
+        default n
+        help
+          Enable the Virtio Net
+
+config DEBUG_VIRTIO_NET
+        bool "Linux Virtio Net Debugging"
+        default n
+        depends on LINUX_VIRTIO_NET && DEBUG_ON
+        help
+          Enable debugging for the Linux Virtio Network Device
 
 
 config NE2K
