@@ -24,7 +24,7 @@ int parse_config_input(ezxml_t cfg_input);
 int write_output(char * filename, ezxml_t cfg_output);
 
 void usage() {
-    printf("Usage: builder <infile> [-o outfile]\n");
+    printf("Usage: build_vm <infile> [-o outfile]\n");
 }
 
 int main(int argc, char ** argv) {
