@@ -19,7 +19,7 @@
 
 #include <palacios/vmm_hypercall.h>
 #include <palacios/vmm.h>
-
+#include <palacios/vm_guest.h>
 
 void v3_init_hypercall_map(struct guest_info * info) {
     info->hcall_map.rb_node = NULL;

@@ -44,7 +44,9 @@ int memcmp(const void *s1, const void *s2, size_t n);
 size_t strlen(const char* s);
 size_t strnlen(const char *s, size_t maxlen);
 int strcmp(const char* s1, const char* s2);
+int strcasecmp(const char* s1, const char* s2);
 int strncmp(const char* s1, const char* s2, size_t limit);
+int strncasecmp(const char* s1, const char* s2, size_t limit);
 char *strcat(char *s1, const char *s2);
 char *strncat(char *s1, const char *s2, size_t limit);
 char *strcpy(char *dest, const char *src);
@@ -62,8 +64,12 @@ size_t strspn(const char * s, const char * accept);
 size_t strcspn(const char * s, const char * reject);
 char * strstr(const char * haystack, const char * needle);
 
+void str_tolower(char * s);
+void str_toupper(char * s);
 
-#define isspace(c)           (c == ' ' || c == '\f' || c == '\n' || c == '\r' || c == '\t' || c == '\v')
+
+
+#define isspace(c)      (c == ' ' || c == '\f' || c == '\n' || c == '\r' || c == '\t' || c == '\v')
 #define isascii(c)	(((c) & ~0x7f) == 0)
 #define isupper(c)	((c) >= 'A' && (c) <= 'Z')
 #define islower(c)	((c) >= 'a' && (c) <= 'z')

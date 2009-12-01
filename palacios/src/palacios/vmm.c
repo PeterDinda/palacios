@@ -38,6 +38,9 @@ struct v3_os_hooks * os_hooks = NULL;
 
 
 
+
+
+
 static struct guest_info * allocate_guest() {
     void * info = V3_Malloc(sizeof(struct guest_info));
     memset(info, 0, sizeof(struct guest_info));
@@ -45,24 +48,14 @@ static struct guest_info * allocate_guest() {
 }
 
 
-struct vmm_init_arg {
-    int cpu_id;
-    struct v3_ctrl_ops * vmm_ops;
-};
-
 static void init_cpu(void * arg) {
-    struct vmm_init_arg * vmm_arg = (struct vmm_init_arg *)arg;
-    int cpu_id = vmm_arg->cpu_id;
-    struct v3_ctrl_ops * vmm_ops = vmm_arg->vmm_ops;
+    uint32_t cpu_id = (uint32_t)(addr_t)arg;
 
 #ifdef CONFIG_SVM
     if (v3_is_svm_capable()) {
         PrintDebug("Machine is SVM Capable\n");
         v3_init_svm_cpu(cpu_id);
 	
-	if (cpu_id == 0) {
-	    v3_init_svm_hooks(vmm_ops);
-	}
     } else 
 #endif
 #ifdef CONFIG_VMX
@@ -70,9 +63,6 @@ static void init_cpu(void * arg) {
 	PrintDebug("Machine is VMX Capable\n");
 	v3_init_vmx_cpu(cpu_id);
 
-	if (cpu_id == 0) {
-	    v3_init_vmx_hooks(vmm_ops);
-	}	
     } else 
 #endif
     {
@@ -82,10 +72,10 @@ static void init_cpu(void * arg) {
 
 
 
-void Init_V3(struct v3_os_hooks * hooks, struct v3_ctrl_ops * vmm_ops, int num_cpus) {
+
+
+void Init_V3(struct v3_os_hooks * hooks, int num_cpus) {
     int i;
-    struct vmm_init_arg arg;
-    arg.vmm_ops = vmm_ops;    
 
     // Set global variables. 
     os_hooks = hooks;
@@ -97,27 +87,68 @@ void Init_V3(struct v3_os_hooks * hooks, struct v3_ctrl_ops * vmm_ops, int num_c
     // Register all the possible device types
     v3_init_devices();
 
-
 #ifdef INSTRUMENT_VMM
     v3_init_instrumentation();
 #endif
 
-    vmm_ops->allocate_guest = &allocate_guest;
-
-
     if ((hooks) && (hooks->call_on_cpu)) {
 
 	for (i = 0; i < num_cpus; i++) {
-	    arg.cpu_id = i;
 
 	    V3_Print("Initializing VMM extensions on cpu %d\n", i);
-	    hooks->call_on_cpu(i, &init_cpu, &arg);
+	    hooks->call_on_cpu(i, &init_cpu, (void *)(addr_t)i);
 	}
+    }
+}
+
+v3_cpu_arch_t v3_get_cpu_type(int cpu_id) {
+    return v3_cpu_types[cpu_id];
+}
+
+
+struct guest_info * v3_create_vm(void * cfg) {
+    struct guest_info * info = allocate_guest();
+    
+    if (!info) {
+	PrintError("Could not allocate Guest\n");
+	return NULL;
+    }
+
+    if (v3_config_guest(info, cfg) == -1) {
+	PrintError("Could not configure guest\n");
+	return NULL;
+    }
+
+    return info;
+}
+
+int v3_start_vm(struct guest_info * info, unsigned int cpu_mask) {
+    
+    info->cpu_id = v3_get_cpu_id();
+
+    V3_Print("V3 --  Starting VM\n");
+
+    switch (v3_cpu_types[info->cpu_id]) {
+#ifdef CONFIG_SVM
+	case V3_SVM_CPU:
+	case V3_SVM_REV3_CPU:
+	    return v3_start_svm_guest(info);
+	    break;
+#endif
+#if CONFIG_VMX && 0
+	case V3_VMX_CPU:
+	case V3_VMX_EPT_CPU:
+	    return v3_start_vmx_guest(info);
+	    break;
+#endif
+	default:
+	    PrintError("Attemping to enter a guest on an invalid CPU\n");
+	    return -1;
     }
 
 
+    return 0;
 }
-
 
 
 #ifdef __V3_32BIT__
@@ -199,6 +230,21 @@ void v3_interrupt_cpu(struct guest_info * info, int logical_cpu) {
 
 
 
+unsigned int v3_get_cpu_id() {
+    extern struct v3_os_hooks * os_hooks;
+    unsigned int ret = (unsigned int)-1;
+
+    if ((os_hooks) && (os_hooks)->get_cpu) {
+	ret = os_hooks->get_cpu();
+    }
+
+    return ret;
+}
+
+
+
+
+
 int v3_vm_enter(struct guest_info * info) {
     switch (v3_cpu_types[info->cpu_id]) {
 #ifdef CONFIG_SVM
@@ -218,3 +264,6 @@ int v3_vm_enter(struct guest_info * info) {
 	    return -1;
     }
 }
+
+
+

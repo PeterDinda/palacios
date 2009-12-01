@@ -14,14 +14,13 @@ obj-$(CONFIG_NVRAM) += nvram.o
 obj-$(CONFIG_OS_DEBUG) += os_debug.o
 obj-$(CONFIG_PCI) += pci.o
 obj-$(CONFIG_PIIX3) += piix3.o
-obj-$(CONFIG_RAM_CD) += ram_cd.o
-obj-$(CONFIG_RAM_HD) += ram_hd.o
-obj-$(CONFIG_SYM_SWAP) += sym_swap.o 
+obj-$(CONFIG_SYM_SWAP) += sym_swap.o
 
 obj-$(CONFIG_NE2K) += ne2k.o
 
-obj-$(CONFIG_NET_CD) += net_cd.o 
-obj-$(CONFIG_NET_HD) += net_hd.o 
+obj-$(CONFIG_TMPDISK) += tmpdisk.o
+obj-$(CONFIG_RAMDISK) += ramdisk.o 
+obj-$(CONFIG_NETDISK) += netdisk.o 
 
 obj-$(CONFIG_CGA) += cga.o
 obj-$(CONFIG_TELNET_CONSOLE) += telnet_cons.o

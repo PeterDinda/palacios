@@ -26,6 +26,7 @@
 #include <palacios/vmm_list.h>
 #include <palacios/vmm_string.h>
 #include <palacios/vmm_hashtable.h>
+#include <palacios/vmm_config.h>
 
 
 struct guest_info;
@@ -53,14 +54,23 @@ struct vm_device {
 struct vmm_dev_mgr {
     uint_t num_devs;
     struct list_head dev_list;
-
     struct hashtable * dev_table;
+
+    struct list_head blk_list;
+    struct hashtable * blk_table;
+
+    struct list_head net_list;
+    struct hashtable * net_table;
+
+    struct list_head console_list;
+    struct hashtable * console_table;
+
 };
 
 
 
 
-int v3_create_device(struct guest_info * info, const char * dev_name, void * cfg_data);
+int v3_create_device(struct guest_info * info, const char * dev_name, v3_cfg_tree_t * cfg);
 void v3_free_device(struct vm_device * dev);
 
 
@@ -121,7 +131,7 @@ struct vm_device * v3_allocate_device(char * name, struct v3_device_ops * ops, v
 
 struct v3_device_info {
     char * name;
-    int (*init)(struct guest_info * info, void * cfg_data);
+    int (*init)(struct guest_info * info, v3_cfg_tree_t * cfg);
 };
 
 
@@ -136,11 +146,51 @@ struct v3_device_info {
 
 
 
-void PrintDebugDevMgr(struct guest_info * info);
-void PrintDebugDev(struct vm_device * dev);
+void v3_print_dev_mgr(struct guest_info * info);
 
 
+struct v3_dev_blk_ops {
+    uint64_t (*get_capacity)(void * private_data);
+    // Reads always operate on 2048 byte blocks
+    int (*read)(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * private_data);
+    int (*write)(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * private_data);
+};
 
+struct v3_dev_net_ops {
+
+};
+
+struct v3_dev_console_ops {
+
+};
+
+int v3_dev_add_blk_frontend(struct guest_info * info, 
+			    char * name, 
+			    int (*connect)(struct guest_info * info, 
+					    void * frontend_data, 
+					    struct v3_dev_blk_ops * ops, 
+					    v3_cfg_tree_t * cfg, 
+					    void * private_data), 
+			    void * priv_data);
+int v3_dev_connect_blk(struct guest_info * info, 
+		       char * frontend_name, 
+		       struct v3_dev_blk_ops * ops, 
+		       v3_cfg_tree_t * cfg, 
+		       void * private_data);
+
+int v3_dev_add_net_frontend(struct guest_info * info, 
+			    char * name, 
+			    int (*connect)(struct guest_info * info, 
+					    void * frontend_data, 
+					    struct v3_dev_net_ops * ops, 
+					    v3_cfg_tree_t * cfg, 
+					    void * private_data), 
+			    void * priv_data);
+int v3_dev_connect_net(struct guest_info * info, 
+		       char * frontend_name, 
+		       struct v3_dev_net_ops * ops, 
+		       v3_cfg_tree_t * cfg, 
+		       void * private_data);
 
 
 #endif // ! __V3VEE__

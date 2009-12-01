@@ -19,18 +19,22 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#include <devices/generic.h>
 #include <palacios/vmm.h>
 #include <palacios/vmm_types.h>
 #include <palacios/vmm_list.h>
-
-
+#include <palacios/vmm_io.h>
+#include <palacios/vmm_dev_mgr.h>
 
 #ifndef CONFIG_DEBUG_GENERIC
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
 
+
+typedef enum {GENERIC_IGNORE, 
+	      GENERIC_PASSTHROUGH, 
+	      GENERIC_PRINT_AND_PASSTHROUGH, 
+	      GENERIC_PRINT_AND_IGNORE} generic_mode_t;
 
 struct generic_internal {
     struct list_head port_list;
@@ -42,7 +46,7 @@ struct generic_internal {
 struct port_range {
     uint_t start;
     uint_t end;
-    uint_t type;
+    generic_mode_t mode;
     struct list_head range_link;
 };
 
@@ -211,26 +215,26 @@ static struct v3_device_ops dev_ops = {
 
 
 
-int v3_generic_add_port_range(struct vm_device * dev, uint_t start, uint_t end, uint_t type) {
+static int add_port_range(struct vm_device * dev, uint_t start, uint_t end, generic_mode_t mode) {
     struct generic_internal * state = (struct generic_internal *)(dev->private_data);
     struct port_range * range = (struct port_range *)V3_Malloc(sizeof(struct port_range));
     uint_t i = 0;
 
     range->start = start;
     range->end = end;
-    range->type = type;
+    range->mode = mode;
       
     PrintDebug("generic: Adding Port Range: 0x%x to 0x%x as %s\n", 
-	       range->start, range->end, 
-	       (range->type == GENERIC_PRINT_AND_PASSTHROUGH) ? "print-and-passthrough" : "print-and-ignore");
+	       start, end, 
+	       (mode == GENERIC_PRINT_AND_PASSTHROUGH) ? "print-and-passthrough" : "print-and-ignore");
     
     for (i = start; i <= end; i++) { 
-	if (type == GENERIC_PRINT_AND_PASSTHROUGH) { 
+	if (mode == GENERIC_PRINT_AND_PASSTHROUGH) { 
 	    if (v3_dev_hook_io(dev, i, &generic_read_port_passthrough, &generic_write_port_passthrough) == -1) { 
 		PrintError("generic: can't hook port 0x%x (already hooked?)\n", i);
 		return -1;
 	    }
-	} else if (type == GENERIC_PRINT_AND_IGNORE) { 
+	} else if (mode == GENERIC_PRINT_AND_IGNORE) { 
 	    if (v3_dev_hook_io(dev, i, &generic_read_port_ignore, &generic_write_port_ignore) == -1) { 
 		PrintError("generic: can't hook port 0x%x (already hooked?)\n", i);
 		return -1;
@@ -248,21 +252,51 @@ int v3_generic_add_port_range(struct vm_device * dev, uint_t start, uint_t end, 
 
 
 
-static int generic_init(struct guest_info * vm, void * cfg_data) {
+static int generic_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
     struct generic_internal * state = (struct generic_internal *)V3_Malloc(sizeof(struct generic_internal));
-  
+    char * name = v3_cfg_val(cfg, "name");
+
+    v3_cfg_tree_t * port_cfg = v3_cfg_subtree(cfg, "ports");
+
+
     INIT_LIST_HEAD(&(state->port_list));
     state->num_port_ranges = 0;
+
     
-    struct vm_device * dev = v3_allocate_device("GENERIC", &dev_ops, state);
+    struct vm_device * dev = v3_allocate_device(name, &dev_ops, state);
 
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("Could not attach device %s\n", "GENERIC");
+	PrintError("Could not attach device %s\n", name);
 	return -1;
     }
 
     PrintDebug("generic: init_device\n");
     generic_reset_device(dev);
+
+    // scan port list....
+    while (port_cfg) {
+	uint16_t start = atox(v3_cfg_val(port_cfg, "start"));
+	uint16_t end = atox(v3_cfg_val(port_cfg, "end"));
+	char * mode_str = v3_cfg_val(port_cfg, "mode");
+	generic_mode_t mode = GENERIC_IGNORE;
+
+	if (strcasecmp(mode_str, "print_and_ignore") == 0) {
+	    mode = GENERIC_PRINT_AND_IGNORE;
+	} else if (strcasecmp(mode_str, "print_and_passthrough") == 0) {
+	    mode = GENERIC_PRINT_AND_PASSTHROUGH;
+	} else {
+	    PrintError("Invalid Mode %s\n", mode_str);
+	    return -1;
+	}
+	
+	if (add_port_range(dev, start, end, mode) == -1) {
+	    PrintError("Could not add port range %d-%d\n", start, end);
+	    return -1;
+	}
+
+	port_cfg = v3_cfg_next_branch(port_cfg);
+    }
+
 
     return 0;
 }

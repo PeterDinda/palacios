@@ -17,9 +17,9 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#include "palacios/vmm_time.h"
-#include "palacios/vmm.h"
-
+#include <palacios/vmm_time.h>
+#include <palacios/vmm.h>
+#include <palacios/vm_guest.h>
 
 void v3_init_time(struct guest_info * info) {
     struct vm_time * time_state = &(info->time_state);

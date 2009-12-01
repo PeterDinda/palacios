@@ -351,10 +351,11 @@ static struct v3_device_ops dev_ops = {
 
 
 
-static int virtio_init(struct guest_info * vm, void * cfg_data) {
-    struct vm_device * pci_bus = v3_find_dev(vm, (char *)cfg_data);
+static int virtio_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
+    struct vm_device * pci_bus = v3_find_dev(vm, v3_cfg_val(cfg, "bus"));
     struct virtio_sym_state * virtio_state = NULL;
     struct pci_device * pci_dev = NULL;
+    char * name = v3_cfg_val(cfg, "name");
 
     PrintDebug("Initializing VIRTIO Symbiotic device\n");
 
@@ -368,9 +369,9 @@ static int virtio_init(struct guest_info * vm, void * cfg_data) {
     memset(virtio_state, 0, sizeof(struct virtio_sym_state));
 
 
-    struct vm_device * dev = v3_allocate_device("LNX_VIRTIO_SYM", &dev_ops, virtio_state);
+    struct vm_device * dev = v3_allocate_device(name, &dev_ops, virtio_state);
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("Could not attach device %s\n", "LNX_VIRTIO_SYM");
+	PrintError("Could not attach device %s\n", name);
 	return -1;
     }
 

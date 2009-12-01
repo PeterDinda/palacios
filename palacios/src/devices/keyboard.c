@@ -23,6 +23,9 @@
 
 #include <palacios/vmm_ringbuffer.h>
 #include <palacios/vmm_lock.h>
+#include <palacios/vmm_intr.h>
+#include <palacios/vmm_host_events.h>
+#include <palacios/vm_guest.h>
 
 
 #ifndef CONFIG_DEBUG_KEYBOARD
@@ -981,9 +984,9 @@ static struct v3_device_ops dev_ops = {
 
 
 
-static int keyboard_init(struct guest_info * vm, void * cfg_data) {
+static int keyboard_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
     struct keyboard_internal * keyboard_state = NULL;
-
+    char * name = v3_cfg_val(cfg, "name");
 
     PrintDebug("keyboard: init_device\n");
 
@@ -999,10 +1002,10 @@ static int keyboard_init(struct guest_info * vm, void * cfg_data) {
 
     keyboard_state->mouse_enabled = 0;
 
-    struct vm_device * dev = v3_allocate_device("KEYBOARD", &dev_ops, keyboard_state);
+    struct vm_device * dev = v3_allocate_device(name, &dev_ops, keyboard_state);
 
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("Could not attach device %s\n", "KEYBOARD");
+	PrintError("Could not attach device %s\n", name);
 	return -1;
     }
 

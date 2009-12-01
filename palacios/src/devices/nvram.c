@@ -25,6 +25,9 @@
 #include <palacios/vmm_lock.h>
 
 #include <devices/ide.h>
+#include <palacios/vmm_intr.h>
+#include <palacios/vmm_host_events.h>
+#include <palacios/vm_guest.h>
 
 #ifndef CONFIG_DEBUG_NVRAM
 #undef PrintDebug
@@ -791,9 +794,10 @@ static struct v3_device_ops dev_ops = {
 
 
 
-static int nvram_init(struct guest_info * vm, void * cfg_data) {
+static int nvram_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
     struct nvram_internal * nvram_state = NULL;
-    struct vm_device * ide = v3_find_dev(vm, (char *)cfg_data);
+    struct vm_device * ide = v3_find_dev(vm, v3_cfg_val(cfg, "storage"));
+    char * name = v3_cfg_val(cfg, "name");
 
     if (!ide) {
 	PrintError("Could not find IDE device\n");
@@ -807,11 +811,11 @@ static int nvram_init(struct guest_info * vm, void * cfg_data) {
 
     nvram_state->ide = ide;
 
-    struct vm_device * dev = v3_allocate_device("NVRAM", &dev_ops, nvram_state);
+    struct vm_device * dev = v3_allocate_device(name, &dev_ops, nvram_state);
 
 
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("Could not attach device %s\n", "NVRAM");
+	PrintError("Could not attach device %s\n", name);
 	return -1;
     }
 

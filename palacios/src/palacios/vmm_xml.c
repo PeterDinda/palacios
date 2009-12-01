@@ -112,12 +112,10 @@ struct v3_xml * v3_xml_child(struct v3_xml * xml, const char * name) {
 
     if (xml != NULL) {
 	child = xml->child;
-    } 
+    }
 
-    if (child != NULL) {
-	while (strcmp(name, child->name) != 0) {
-	    child = child->sibling;
-	}
+    while ((child) && (strcasecmp(name, child->name) != 0)) {
+	child = child->sibling;
     }
 
     return child;
@@ -143,7 +141,7 @@ const char * v3_xml_attr(struct v3_xml * xml, const char * attr) {
 	return NULL;
     }
 
-    while ((xml->attr[i]) && (strcmp(attr, xml->attr[i]) != 0)) {
+    while ((xml->attr[i]) && (strcasecmp(attr, xml->attr[i]) != 0)) {
 	i += 2;
     }
 
@@ -157,14 +155,14 @@ const char * v3_xml_attr(struct v3_xml * xml, const char * attr) {
 
     for (i = 0; 
 	 ( (root->attr[i] != NULL) && 
-	   (strcmp(xml->name, root->attr[i][0]) != 0) ); 
+	   (strcasecmp(xml->name, root->attr[i][0]) != 0) ); 
 	 i++);
 
     if (! root->attr[i]) {
 	return NULL; // no matching default attributes
     }
 
-    while ((root->attr[i][j] != NULL) && (strcmp(attr, root->attr[i][j]) != 0)) {
+    while ((root->attr[i][j] != NULL) && (strcasecmp(attr, root->attr[i][j]) != 0)) {
 	j += 3;
     }
 
@@ -356,7 +354,7 @@ static void v3_xml_char_content(struct v3_xml_root * root, char * s, size_t len,
 static int v3_xml_close_tag(struct v3_xml_root * root, char * name, char * s) {
     if ( (root->cur == NULL) || 
 	 (root->cur->name == NULL) || 
-	 (strcmp(name, root->cur->name))) {
+	 (strcasecmp(name, root->cur->name))) {
 	v3_xml_err(root, s, "unexpected closing tag </%s>", name);
 	return -1;
     }
@@ -484,7 +482,7 @@ static struct v3_xml * v3_xml_insert(struct v3_xml * xml, struct v3_xml * dest, 
 
 	// find tag type
         for (cur = head, prev = NULL; 
-	     ((cur) && (strcmp(cur->name, xml->name) != 0));
+	     ((cur) && (strcasecmp(cur->name, xml->name) != 0));
              prev = cur, cur = cur->sibling); 
 
 
@@ -628,7 +626,7 @@ static struct v3_xml * parse_str(char * buf, size_t len) {
 		// find attributes for correct tag
                 for ((i = 0); 
 		     ((tmp_attr = root->attr[i]) && 
-		      (strcmp(tmp_attr[0], tag_ptr) != 0)); 
+		      (strcasecmp(tmp_attr[0], tag_ptr) != 0)); 
 		     (i++)) ;
 		
 		// 'tmp_attr' now points to the attribute list associated with 'tag_ptr'
@@ -700,7 +698,7 @@ static struct v3_xml * parse_str(char * buf, size_t len) {
 
                         for (j = 1; 
 			     ( (tmp_attr) && (tmp_attr[j]) && 
-			       (strcmp(tmp_attr[j], attr[attr_idx]) != 0)); 
+			       (strcasecmp(tmp_attr[j], attr[attr_idx]) != 0)); 
 			     j += 3);
 
                         attr[val_idx] = v3_xml_decode(attr[val_idx], root->ent, 

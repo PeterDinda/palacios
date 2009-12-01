@@ -19,10 +19,8 @@
 
 #include <palacios/vmm.h>
 #include <palacios/vmm_dev_mgr.h>
-#include <devices/lnx_virtio_blk.h>
 #include <palacios/vmm_sym_swap.h>
 
-#define SWAP_CAPACITY (150 * 1024 * 1024)
 
 #ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
 #include <palacios/vmm_telemetry.h>
@@ -54,8 +52,6 @@ union swap_header {
 
 struct swap_state {
     int active;
-
-    struct vm_device * blk_dev;
 
     uint_t swapped_pages;
     uint_t unswapped_pages;
@@ -134,7 +130,7 @@ static uint64_t swap_get_capacity(void * private_data) {
 
     PrintDebug("SymSwap: Getting Capacity %d\n", (uint32_t)(swap->capacity));
 
-    return swap->capacity / HD_SECTOR_SIZE;
+    return swap->capacity;
 }
 
 
@@ -144,11 +140,11 @@ static struct v3_swap_ops swap_ops = {
 
 
 
-static int swap_read(uint8_t * buf, int sector_count, uint64_t lba,  void * private_data) {
+static int swap_read(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * private_data) {
     struct vm_device * dev = (struct vm_device *)private_data;
     struct swap_state * swap = (struct swap_state *)(dev->private_data);
-    uint32_t offset = lba * HD_SECTOR_SIZE;
-    uint32_t length = sector_count * HD_SECTOR_SIZE;
+    uint32_t offset = lba;
+    uint32_t length = num_bytes;
 
   
     /*  
@@ -184,11 +180,11 @@ static int swap_read(uint8_t * buf, int sector_count, uint64_t lba,  void * priv
 
 
 
-static int swap_write(uint8_t * buf, int sector_count, uint64_t lba, void * private_data) {
+static int swap_write(uint8_t * buf,  uint64_t lba, uint64_t num_bytes, void * private_data) {
     struct vm_device * dev = (struct vm_device *)private_data;
     struct swap_state * swap = (struct swap_state *)(dev->private_data);
-    uint32_t offset = lba * HD_SECTOR_SIZE;
-    uint32_t length = sector_count * HD_SECTOR_SIZE;
+    uint32_t offset = lba;
+    uint32_t length = num_bytes;
 
     /*
       PrintDebug("SymSwap: Writing %d bytes to %p from %p\n", length, 
@@ -242,7 +238,7 @@ static int swap_free(struct vm_device * dev) {
 }
 
 
-static struct v3_hd_ops hd_ops = {
+static struct v3_dev_blk_ops blk_ops = {
     .read = swap_read, 
     .write = swap_write, 
     .get_capacity = swap_get_capacity,
@@ -274,26 +270,22 @@ static void telemetry_cb(struct guest_info * info, void * private_data, char * h
 
 
 
-static int swap_init(struct guest_info * vm, void * cfg_data) {
+static int swap_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
     struct swap_state * swap = NULL;
-    struct vm_device * virtio_blk = v3_find_dev(vm, (char *)cfg_data);
+    v3_cfg_tree_t * frontend_cfg = v3_cfg_subtree(cfg, "frontend");
+    uint32_t capacity = atoi(v3_cfg_val(cfg, "size")) * 1024 * 1024;
+    char * name = v3_cfg_val(cfg, "name");
 
-    if (!virtio_blk) {
-	PrintError("could not find Virtio backend\n");
+    if (!frontend_cfg) {
+	PrintError("Initializing sym swap without a frontend device\n");
 	return -1;
     }
 
     PrintDebug("Creating Swap Device\n");
 
-    if (virtio_blk == NULL) {
-	PrintError("Swap device requires a virtio block device\n");
-	return -1;
-    }
+    swap = (struct swap_state *)V3_Malloc(sizeof(struct swap_state) + ((capacity / 4096) / 8));
 
-    swap = (struct swap_state *)V3_Malloc(sizeof(struct swap_state) + ((SWAP_CAPACITY / 4096) / 8));
-
-    swap->blk_dev = virtio_blk;
-    swap->capacity = SWAP_CAPACITY;
+    swap->capacity = capacity;
 
     swap->swapped_pages = 0;
     swap->unswapped_pages = 0;
@@ -301,22 +293,25 @@ static int swap_init(struct guest_info * vm, void * cfg_data) {
     swap->active = 0;
     swap->hdr = (union swap_header *)swap;
 
-
     swap->swap_base_addr = (addr_t)V3_AllocPages(swap->capacity / 4096);
     swap->swap_space = (uint8_t *)V3_VAddr((void *)(swap->swap_base_addr));
-    memset(swap->swap_space, 0, SWAP_CAPACITY);
+    memset(swap->swap_space, 0, swap->capacity);
 
-    memset(swap->usage_map, 0, ((SWAP_CAPACITY / 4096) / 8));
+    memset(swap->usage_map, 0, ((swap->capacity / 4096) / 8));
 
-    struct vm_device * dev = v3_allocate_device("SYM_SWAP", &dev_ops, swap);
+    struct vm_device * dev = v3_allocate_device(name, &dev_ops, swap);
 
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("Could not attach device %s\n", "SYM_SWAP");
+	PrintError("Could not attach device %s\n", name);
 	return -1;
     }
 
-
-    v3_virtio_register_harddisk(virtio_blk, &hd_ops, dev);
+    if (v3_dev_connect_blk(vm, v3_cfg_val(frontend_cfg, "tag"), 
+			   &blk_ops, frontend_cfg, swap) == -1) {
+	PrintError("Could not connect %s to frontend %s\n", 
+		   name, v3_cfg_val(frontend_cfg, "tag"));
+	return -1;
+    }
 
 #ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
     if (vm->enable_telemetry) {

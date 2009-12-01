@@ -30,6 +30,8 @@
 
 #include <devices/pci_types.h>
 
+struct vm_device;
+
 
 typedef enum { PCI_BAR_IO, 
 	       PCI_BAR_MEM24, 

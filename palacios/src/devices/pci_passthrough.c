@@ -35,11 +35,11 @@
 #include <palacios/vmm_dev_mgr.h>
 #include <palacios/vmm_sprintf.h>
 #include <palacios/vmm_lowlevel.h>
+#include <palacios/vm_guest.h> // must include this to avoid dependency issue
 #include <palacios/vmm_sym_iface.h>
 
 #include <devices/pci.h>
 #include <devices/pci_types.h>
-#include <devices/pci_passthrough.h>
 
 
 // Hardcoded... Are these standard??
@@ -545,12 +545,11 @@ static int irq_handler(struct guest_info * info, struct v3_interrupt * intr, voi
 
 
 
-static int passthrough_init(struct guest_info * info, void * cfg_data) {
-    struct pci_passthrough_cfg * cfg = (struct pci_passthrough_cfg *)cfg_data;
+static int passthrough_init(struct guest_info * info, v3_cfg_tree_t * cfg) {
     struct pt_dev_state * state = V3_Malloc(sizeof(struct pt_dev_state));
     struct vm_device * dev = NULL;
-    struct vm_device * pci = v3_find_dev(info, cfg->pci_bus_name);
-    
+    struct vm_device * pci = v3_find_dev(info, v3_cfg_val(cfg, "bus"));
+    char * name = v3_cfg_val(cfg, "name");    
 
     memset(state, 0, sizeof(struct pt_dev_state));
 
@@ -560,28 +559,30 @@ static int passthrough_init(struct guest_info * info, void * cfg_data) {
     }
     
     state->pci_bus = pci;
-    strncpy(state->name, cfg->name, 32);
+    strncpy(state->name, name, 32);
 
 
-
-
-    dev = v3_allocate_device("PCI_PASSTHROUGH", &dev_ops, state);
+    dev = v3_allocate_device(name, &dev_ops, state);
 
     if (v3_attach_device(info, dev) == -1) {
-	PrintError("Could not attach device %s\n", "PCI_PASSTHROUGH");
+	PrintError("Could not attach device %s\n", name);
 	return -1;
     }
 
 
-    if (find_real_pci_dev(cfg->vendor_id, cfg->device_id, state) == -1) {
-	PrintError("Could not find PCI Device %x:%x\n", cfg->vendor_id, cfg->device_id);
+    if (find_real_pci_dev(atox(v3_cfg_val(cfg, "vendor_id")), 
+			  atox(v3_cfg_val(cfg, "device_id")), 
+			  state) == -1) {
+	PrintError("Could not find PCI Device %s:%s\n", 
+		   v3_cfg_val(cfg, "vendor_id"), 
+		   v3_cfg_val(cfg, "device_id"));
 	return 0;
     }
 
     setup_virt_pci_dev(info, dev);
 
-    v3_hook_irq(info, 59, irq_handler, dev);
-    v3_hook_irq(info, 64, irq_handler, dev);
+    v3_hook_irq(info, atoi(v3_cfg_val(cfg, "irq")), irq_handler, dev);
+    //    v3_hook_irq(info, 64, irq_handler, dev);
 
     return 0;
 }

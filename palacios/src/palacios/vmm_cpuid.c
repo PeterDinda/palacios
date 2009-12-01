@@ -20,7 +20,7 @@
 #include <palacios/vmm.h>
 #include <palacios/vmm_cpuid.h>
 #include <palacios/vmm_lowlevel.h>
-
+#include <palacios/vm_guest.h>
 
 
 void v3_init_cpuid_map(struct guest_info * info) {
