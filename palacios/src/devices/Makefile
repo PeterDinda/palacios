@@ -10,6 +10,7 @@ obj-$(CONFIG_KEYBOARD) += keyboard.o
 obj-$(CONFIG_LINUX_VIRTIO_BALLOON) += lnx_virtio_balloon.o
 obj-$(CONFIG_LINUX_VIRTIO_BLOCK) += lnx_virtio_blk.o
 obj-$(CONFIG_LINUX_VIRTIO_SYM) += lnx_virtio_sym.o
+obj-$(CONFIG_LINUX_VIRTIO_NET) += lnx_virtio_nic.o
 obj-$(CONFIG_NVRAM) += nvram.o
 obj-$(CONFIG_OS_DEBUG) += os_debug.o
 obj-$(CONFIG_PCI) += pci.o

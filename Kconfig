@@ -102,11 +102,11 @@ config EXPERIMENTAL
 	  to more easily track changes and provide access to multiple developers
 
 config VNET
-	depends on EXPERIMENTAL
-	bool "Enable Vnet in Palacios"
-	default n
-	help
-	  Enable the Vnet in Palacios
+        depends on EXPERIMENTAL
+        bool "Enable Vnet in Palacios"
+        default n
+        help
+          Enable the Vnet in Palacios
 
 config BUILT_IN_STDLIB
 	bool "Enable Built in versions of stdlib functions"
