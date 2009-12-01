@@ -67,12 +67,15 @@ int main(int argc, char ** argv) {
     }
 
 
+
+
     // parse input
     if (parse_config_input(cfg_input) == -1) {
 	printf("Error parsing configuration input\n");
 	return 1;
     }
 
+    printf("xml : %s\n", ezxml_toxml(cfg_input));
 
 
 
