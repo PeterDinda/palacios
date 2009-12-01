@@ -22,6 +22,7 @@
 #include <palacios/vmm_msr.h>
 #include <palacios/vmm_mem.h>
 #include <palacios/vmm_hypercall.h>
+#include <palacios/vm_guest.h>
 
 #define SYM_PAGE_MSR 0x535
 

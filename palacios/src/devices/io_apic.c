@@ -21,7 +21,7 @@
 #include <palacios/vmm.h>
 #include <palacios/vmm_dev_mgr.h>
 #include <devices/apic.h>
-
+#include <palacios/vm_guest.h>
 
 #ifndef CONFIG_DEBUG_IO_APIC
 #undef PrintDebug
@@ -319,11 +319,12 @@ static struct v3_device_ops dev_ops = {
 
 
 
-static int ioapic_init(struct guest_info * vm, void * cfg_data) {
-    struct vm_device * apic = v3_find_dev(vm, (char *)cfg_data);
+static int ioapic_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
+    struct vm_device * apic = v3_find_dev(vm, v3_cfg_val(cfg, "irq_bus"));
+    char * name = v3_cfg_val(cfg, "name");
 
     if (!apic) {
-	PrintError("Could not locate APIC device (%s)\n", (char *)cfg_data);
+	PrintError("Could not locate APIC device (%s)\n", v3_cfg_val(cfg, "irq_bus"));
 	return -1;
     }
 
@@ -333,11 +334,11 @@ static int ioapic_init(struct guest_info * vm, void * cfg_data) {
 
     ioapic->apic = apic;
 
-    struct vm_device * dev = v3_allocate_device("IOAPIC", &dev_ops, ioapic);
+    struct vm_device * dev = v3_allocate_device(name, &dev_ops, ioapic);
 
 
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("Could not attach device %s\n", "IOAPIC");
+	PrintError("Could not attach device %s\n", name);
 	return -1;
     }
 

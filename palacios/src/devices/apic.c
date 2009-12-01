@@ -22,7 +22,7 @@
 #include <devices/apic_regs.h>
 #include <palacios/vmm.h>
 #include <palacios/vmm_msr.h>
-
+#include <palacios/vm_guest.h>
 
 #ifndef CONFIG_DEBUG_APIC
 #undef PrintDebug
@@ -1072,15 +1072,16 @@ static struct v3_device_ops dev_ops = {
 
 
 
-static int apic_init(struct guest_info * vm, void * cfg_data) {
+static int apic_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
     PrintDebug("Creating APIC\n");
+    char * name = v3_cfg_val(cfg, "name");
 
     struct apic_state * apic = (struct apic_state *)V3_Malloc(sizeof(struct apic_state));
 
-    struct vm_device * dev = v3_allocate_device("LAPIC", &dev_ops, apic);
+    struct vm_device * dev = v3_allocate_device(name, &dev_ops, apic);
 
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("Could not attach device %s\n", "LAPIC");
+	PrintError("Could not attach device %s\n", name);
 	return -1;
     }
 

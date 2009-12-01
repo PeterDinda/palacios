@@ -23,7 +23,7 @@
 #include <palacios/vmm_time.h>
 #include <palacios/vmm_util.h>
 #include <palacios/vmm_intr.h>
-
+#include <palacios/vmm_config.h>
 
 
 #ifndef CONFIG_DEBUG_PIT
@@ -631,9 +631,10 @@ static struct v3_device_ops dev_ops = {
 };
 
 
-static int pit_init(struct guest_info * info, void * cfg_data) {
+static int pit_init(struct guest_info * info, v3_cfg_tree_t * cfg) {
     struct pit * pit_state = NULL;
     struct vm_device * dev = NULL;
+    char * name = v3_cfg_val(cfg, "name");
 
     uint_t cpu_khz = V3_CPU_KHZ();
     ullong_t reload_val = (ullong_t)cpu_khz * 1000;
@@ -641,10 +642,10 @@ static int pit_init(struct guest_info * info, void * cfg_data) {
     pit_state = (struct pit *)V3_Malloc(sizeof(struct pit));
     V3_ASSERT(pit_state != NULL);
 
-    dev = v3_allocate_device("PIT", &dev_ops, pit_state);
+    dev = v3_allocate_device(name, &dev_ops, pit_state);
 
     if (v3_attach_device(info, dev) == -1) {
-	PrintError("Could not attach device %s\n", "PIT");
+	PrintError("Could not attach device %s\n", name);
 	return -1;
     }
 

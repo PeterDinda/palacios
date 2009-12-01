@@ -31,9 +31,6 @@
 
 
 struct shadow_page_state {
-    // ugly optimization hack
-    v3_reg_t prev_guest_cr3;
-
 
     // virtualized control registers
     v3_reg_t guest_cr3;

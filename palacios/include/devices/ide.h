@@ -22,30 +22,6 @@
 
 #ifdef __V3VEE__
 
-#include <devices/block_dev.h>
-
-struct ide_cfg {
-    char pci[32];
-    char southbridge[32];
-};
-
-
-int v3_ide_register_cdrom(struct vm_device * ide, 
-			  uint_t bus_num, 
-			  uint_t drive_num, 
-			  char * drive_name,
-			  struct v3_cd_ops * ops, 
-			  void * private_data);
-
-int v3_ide_register_harddisk(struct vm_device * ide, 
-			     uint_t bus_num, 
-			     uint_t drive_num, 
-			     char * drive_name,
-			     struct v3_hd_ops * ops, 
-			     void * private_data);
-
-
-
 
 
 int v3_ide_get_geometry(struct vm_device * ide_dev, int channel_num, int drive_num, 

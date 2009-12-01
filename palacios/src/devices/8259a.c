@@ -715,15 +715,17 @@ static struct v3_device_ops dev_ops = {
 
 
 
-static int pic_init(struct guest_info * vm, void * cfg_data) {
+static int pic_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
     struct pic_internal * state = NULL;
     state = (struct pic_internal *)V3_Malloc(sizeof(struct pic_internal));
+    char * name = v3_cfg_val(cfg, "name");
+
     V3_ASSERT(state != NULL);
 
-    struct vm_device * dev = v3_allocate_device("8259A", &dev_ops, state);
+    struct vm_device * dev = v3_allocate_device(name, &dev_ops, state);
 
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("Could not attach device %s\n", "8259A");
+	PrintError("Could not attach device %s\n", name);
 	return -1;
     }
 

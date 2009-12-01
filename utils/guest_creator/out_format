@@ -1,0 +1,17 @@
+v3vee\0\0\0        : 8 bytes
+<length of xml>    : 4 bytes
+<xml>              : xml configuration string
+<zero's>           : 8 bytes of zeroes
+
+<num files>        : 8 bytes
+
+<index>            : 4 bytes
+<size>             : 4 bytes
+<offset>           : 8 bytes
+... other files ...
+
+<zero's>           : 8 bytes of zeroes
+
+<file>             : raw file data
+
+... other raw file data ...

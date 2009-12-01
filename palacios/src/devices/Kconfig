@@ -162,19 +162,7 @@ config DEBUG_NE2k
 	  Enable debugging for the NE2K
 
 
-config NET_CD
-	bool "Networked CD backend"
-	default y
-	depends on SOCKET && (IDE || LINUX_VIRTIO_BLOCK)
-	help 
-	  Includes the Network CD backend
 
-config NET_HD
-	bool "Networked HD backend"
-	default y
-	depends on SOCKET && (IDE || LINUX_VIRTIO_BLOCK)
-	help 
-	  Includes the Network HD backend
 
 
 config NVRAM
@@ -252,24 +240,27 @@ config DEBUG_PIT
 	  Enable debugging for the PIT	
 
 
+config NETDISK
+	bool "NETDISK storage backend"
+	default y
+	depends on SOCKET && (IDE || LINUX_VIRTIO_BLOCK)
+	help 
+	  Includes the Network based disk backend
 
-
-config RAM_CD
-	bool "RAM based CD backend"
+config RAMDISK
+	bool "RAMDISK storage backend"
 	default y
 	depends on IDE || LINUX_VIRTIO_BLOCK
 	help 
-	  Includes the RAM based CD backend
+	  Includes the RAM based disk backend
 
-config RAM_HD
-	bool "RAM based HD backend"
+
+config TMPDISK
+	bool "TMPDISK storage backend"
 	default y
 	depends on IDE || LINUX_VIRTIO_BLOCK
 	help 
-	  Includes the RAM based HD backend
-
-
-
+	  Includes the temporary RAM disk 
 
 config SYM_SWAP
 	bool "Symbiotic Swap disk"

@@ -21,10 +21,11 @@
 #define __VMM_H__
 
 
-#include <palacios/vm_guest.h>
+//#include <palacios/vm_guest.h>
 #include <palacios/vmm_mem.h>
 #include <palacios/vmm_types.h>
 
+struct guest_info;
 
 
 #ifdef __V3VEE__
@@ -183,9 +184,8 @@
 
 
 
-#define VMM_INVALID_CPU 0
-#define VMM_VMX_CPU 1
-#define VMM_SVM_CPU 2
+
+typedef enum v3_vm_class {V3_INVALID_VM, V3_PC_VM, V3_CRAY_VM} v3_vm_class_t;
 
 
 // Maybe make this a define....
@@ -199,6 +199,11 @@ void v3_yield_cond(struct guest_info * info);
 
 
 void v3_interrupt_cpu(struct guest_info * vm, int logical_cpu);
+
+unsigned int v3_get_cpu_id();
+
+v3_cpu_arch_t v3_get_cpu_type(int cpu_id);
+
 
 int v3_vm_enter(struct guest_info * info);
 
@@ -238,6 +243,7 @@ struct v3_os_hooks {
     void (*mutex_lock)(void * mutex, int must_spin);
     void (*mutex_unlock)(void * mutex);
 
+    unsigned int (*get_cpu)(void);
     void (*interrupt_cpu)(struct guest_info * vm, int logical_cpu);
     void (*call_on_cpu)(int logical_cpu, void (*fn)(void * arg), void * arg);
     void (*start_thread_on_cpu)(int logical_cpu, int (*fn)(void * arg), void * arg, char * thread_name);
@@ -245,62 +251,6 @@ struct v3_os_hooks {
 
 
 
-typedef enum {NONE, HARDDRIVE, CDROM, VIRTIO} v3_disk_type_t;
-typedef enum {RAM, NETWORK} v3_disk_connection_t;
-
-union v3_disk_info {
-    struct {
-	void * data_ptr;
-	int size;
-    } ram;
-
-    struct {
-	char * ip_str;
-	int port;
-	char * disk_name;
-    } net;
-};
-
-struct v3_vm_config {
-
-    unsigned long mem_size; // in bytes, var should be natural size of cpu
-    // so we can specify maximum physical address size
-    // (We're screwed if we want to do 32 bit host/64 bit guest)
-
-    int enable_telemetry;
-    int enable_nested_paging;
-
-    int enable_pci;
-
-    int enable_swap;
-
-    int guest_cpu;
-
-    unsigned long schedule_freq; // in HZ
-
-    v3_disk_type_t pri_disk_type;
-    v3_disk_connection_t pri_disk_con;
-    union v3_disk_info pri_disk_info;
-   
-    v3_disk_type_t sec_disk_type;
-    v3_disk_connection_t sec_disk_con;
-    union v3_disk_info sec_disk_info;
-};
-
-
-
-/* This will contain Function pointers that control the VMs */
-struct v3_ctrl_ops {
-    struct guest_info *(*allocate_guest)(void);
-
-    int (*init_guest)(struct guest_info * info, struct v3_vm_config * config_ptr);
-    int (*start_guest)(struct guest_info * info);
-    //  int (*stop_vm)(uint_t vm_id);
-
-    int (*has_nested_paging)(void);
-
-    //  v3_cpu_arch_t (*get_cpu_arch)();
-};
 
 
 
@@ -320,7 +270,11 @@ struct v3_interrupt {
 
 
 
-void Init_V3(struct v3_os_hooks * hooks, struct v3_ctrl_ops * vmm_ops, int num_cpus);
+void Init_V3(struct v3_os_hooks * hooks,  int num_cpus);
+
+
+int v3_start_vm(struct guest_info * info, unsigned int cpu_mask);
+struct guest_info * v3_create_vm(void * cfg);
 
 int v3_deliver_irq(struct guest_info * vm, struct v3_interrupt * intr);
 

@@ -21,10 +21,10 @@
 #include <palacios/vmm.h>
 #include <palacios/vmm_util.h>
 #include <palacios/vmm_emulator.h>
+#include <palacios/vm_guest.h>
 
 #include <palacios/vmm_shadow_paging.h>
 #include <palacios/vmm_direct_paging.h>
-
 
 #define MEM_OFFSET_HCALL 0x1000
 
@@ -41,7 +41,7 @@ static int mem_offset_hypercall(struct guest_info * info, uint_t hcall_id, void 
 }
 
 
-void v3_init_shadow_map(struct guest_info * info) {
+int v3_init_shadow_map(struct guest_info * info) {
     v3_shdw_map_t * map = &(info->mem_map);
     addr_t mem_pages = info->mem_size >> 12;
 
@@ -56,9 +56,17 @@ void v3_init_shadow_map(struct guest_info * info) {
     map->base_region.host_type = SHDW_REGION_ALLOCATED;
     map->base_region.host_addr = (addr_t)V3_AllocPages(mem_pages);
 
+
+    if ((void *)map->base_region.host_addr == NULL) {
+	PrintError("Could not allocate Guest memory\n");
+	return -1;
+    }
+	
     //memset(V3_VAddr((void *)map->base_region.host_addr), 0xffffffff, map->base_region.guest_end);
 
     v3_register_hypercall(info, MEM_OFFSET_HCALL, mem_offset_hypercall, NULL);
+
+    return 0;
 }
 
 void v3_delete_shadow_map(struct guest_info * info) {

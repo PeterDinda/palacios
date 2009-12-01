@@ -7,15 +7,15 @@
  * and the University of New Mexico.  You can find out more at 
  * http://www.v3vee.org
  *
+ * Copyright (c) 2009, Jack Lange <jarusl@cs.northwestern.edu>
  * Copyright (c) 2009, Lei Xia <lxia@northwestern.edu>
  * Copyright (c) 2009, Chang Seok Bae <jhuell@gmail.com>
- * Copyright (c) 2009, Jack Lange <jarusl@cs.northwestern.edu>
  * Copyright (c) 2009, The V3VEE Project <http://www.v3vee.org> 
  * All rights reserved.
  *
- * Author:  Lei Xia <lxia@northwestern.edu>
+ * Author:  Jack Lange <jarusl@cs.northwestern.edu>
+ *          Lei Xia <lxia@northwestern.edu>
  *          Chang Seok Bae <jhuell@gmail.com>
- *          Jack Lange <jarusl@cs.northwestern.edu>
  *
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
@@ -28,9 +28,12 @@
 #include <palacios/vmm_io.h>
 #include <palacios/vmm_intr.h>
 #include <palacios/vmm_rbtree.h>
+#include <palacios/vmm_dev_mgr.h>
 
 #include <devices/pci.h>
 #include <devices/pci_types.h>
+
+
 
 #ifndef CONFIG_DEBUG_PCI
 #undef PrintDebug
@@ -391,7 +394,7 @@ static inline int is_cfg_reg_writable(uchar_t header_type, int reg_num) {
 }
 
 
-static int bar_update(struct pci_device * pci, int bar_num, uint32_t new_val) {
+static int bar_update(struct guest_info * info, struct pci_device * pci, int bar_num, uint32_t new_val) {
     struct v3_pci_bar * bar = &(pci->bar[bar_num]);
 
     PrintDebug("Updating BAR Register  (Dev=%s) (bar=%d) (old_val=0x%x) (new_val=0x%x)\n", 
@@ -415,15 +418,15 @@ static int bar_update(struct pci_device * pci, int bar_num, uint32_t new_val) {
 		PrintDebug("Rehooking PCI IO port (old port=%u) (new port=%u)\n",  
 			   PCI_IO_BASE(bar->val) + i, PCI_IO_BASE(new_val) + i);
 
-		v3_unhook_io_port(pci->vm_dev->vm, PCI_IO_BASE(bar->val) + i);
+		v3_unhook_io_port(info, PCI_IO_BASE(bar->val) + i);
 
-		if (v3_hook_io_port(pci->vm_dev->vm, PCI_IO_BASE(new_val) + i, 
+		if (v3_hook_io_port(info, PCI_IO_BASE(new_val) + i, 
 				    bar->io_read, bar->io_write, 
 				    bar->private_data) == -1) {
 
 		    PrintError("Could not hook PCI IO port (old port=%u) (new port=%u)\n",  
 			       PCI_IO_BASE(bar->val) + i, PCI_IO_BASE(new_val) + i);
-		    v3_print_io_map(pci->vm_dev->vm);
+		    v3_print_io_map(info);
 		    return -1;
 		}
 	    }
@@ -433,12 +436,12 @@ static int bar_update(struct pci_device * pci, int bar_num, uint32_t new_val) {
 	    break;
 	}
 	case PCI_BAR_MEM32: {
-	    v3_unhook_mem(pci->vm_dev->vm, (addr_t)(bar->val));
+	    v3_unhook_mem(info, (addr_t)(bar->val));
 	    
 	    if (bar->mem_read) {
-		v3_hook_full_mem(pci->vm_dev->vm, PCI_MEM32_BASE(new_val), 
+		v3_hook_full_mem(info, PCI_MEM32_BASE(new_val), 
 				 PCI_MEM32_BASE(new_val) + (bar->num_pages * PAGE_SIZE_4KB),
-				 bar->mem_read, bar->mem_write, pci->vm_dev);
+				 bar->mem_read, bar->mem_write, pci->priv_data);
 	    } else {
 		PrintError("Write hooks not supported for PCI\n");
 		return -1;
@@ -570,7 +573,7 @@ static int data_port_write(ushort_t port, void * src, uint_t length, struct vm_d
 		    // check special flags....
 
 		    // bar_update
-		    if (bar_update(pci_dev, i, *(uint32_t *)(pci_dev->config_space + bar_offset)) == -1) {
+		    if (bar_update(vmdev->vm, pci_dev, i, *(uint32_t *)(pci_dev->config_space + bar_offset)) == -1) {
 			PrintError("PCI Device %s: Bar update Error Bar=%d\n", pci_dev->name, i);
 			return -1;
 		    }
@@ -648,16 +651,17 @@ static struct v3_device_ops dev_ops = {
 
 
 
-static int pci_init(struct guest_info * vm, void * cfg_data) {
+static int pci_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
     struct pci_internal * pci_state = V3_Malloc(sizeof(struct pci_internal));
     int i = 0;
+    char * name = v3_cfg_val(cfg, "name");
     
     PrintDebug("PCI internal at %p\n",(void *)pci_state);
     
-    struct vm_device * dev = v3_allocate_device("PCI", &dev_ops, pci_state);
+    struct vm_device * dev = v3_allocate_device(name, &dev_ops, pci_state);
     
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("Could not attach device %s\n", "PCI");
+	PrintError("Could not attach device %s\n", name);
 	return -1;
     }
 
@@ -681,7 +685,7 @@ static int pci_init(struct guest_info * vm, void * cfg_data) {
 device_register("PCI", pci_init)
 
 
-static inline int init_bars(struct pci_device * pci_dev) {
+static inline int init_bars(struct guest_info * info, struct pci_device * pci_dev) {
     int i = 0;
 
     for (i = 0; i < 6; i++) {
@@ -702,7 +706,7 @@ static inline int init_bars(struct pci_device * pci_dev) {
 	    for (j = 0; j < pci_dev->bar[i].num_ports; j++) {
 		// hook IO
 		if (pci_dev->bar[i].default_base_port != 0xffff) {
-		    if (v3_hook_io_port(pci_dev->vm_dev->vm, pci_dev->bar[i].default_base_port + j,
+		    if (v3_hook_io_port(info, pci_dev->bar[i].default_base_port + j,
 					pci_dev->bar[i].io_read, pci_dev->bar[i].io_write, 
 					pci_dev->bar[i].private_data) == -1) {
 			PrintError("Could not hook default io port %x\n", pci_dev->bar[i].default_base_port + j);
@@ -726,9 +730,9 @@ static inline int init_bars(struct pci_device * pci_dev) {
 	    // hook memory
 	    if (pci_dev->bar[i].mem_read) {
 		// full hook
-		v3_hook_full_mem(pci_dev->vm_dev->vm, pci_dev->bar[i].default_base_addr,
+		v3_hook_full_mem(info, pci_dev->bar[i].default_base_addr,
 				 pci_dev->bar[i].default_base_addr + (pci_dev->bar[i].num_pages * PAGE_SIZE_4KB),
-				 pci_dev->bar[i].mem_read, pci_dev->bar[i].mem_write, pci_dev->vm_dev);
+				 pci_dev->bar[i].mem_read, pci_dev->bar[i].mem_write, pci_dev->priv_data);
 	    } else if (pci_dev->bar[i].mem_write) {
 		// write hook
 		PrintError("Write hooks not supported for PCI devices\n");
@@ -807,7 +811,7 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
 					   int (*config_update)(uint_t reg_num, void * src, uint_t length, void * priv_data),
 					   int (*cmd_update)(struct pci_device *pci_dev, uchar_t io_enabled, uchar_t mem_enabled),
 					   int (*ext_rom_update)(struct pci_device * pci_dev),
-					   struct vm_device * dev, void * priv_data) {
+					   void * priv_data) {
 
     struct pci_internal * pci_state = (struct pci_internal *)pci->private_data;
     struct pci_bus * bus = &(pci_state->bus_list[bus_num]);
@@ -867,7 +871,6 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
     pci_dev->fn_num = fn_num;
 
     strncpy(pci_dev->name, name, sizeof(pci_dev->name));
-    pci_dev->vm_dev = dev;
     pci_dev->priv_data = priv_data;
 
     // register update callbacks
@@ -911,7 +914,7 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
 	}
     }
 
-    if (init_bars(pci_dev) == -1) {
+    if (init_bars(pci->vm, pci_dev) == -1) {
 	PrintError("could not initialize bar registers\n");
 	return NULL;
     }
@@ -936,7 +939,6 @@ struct pci_device * v3_pci_register_passthrough_device(struct vm_device * pci,
 						       const char * name,
 						       int (*config_write)(uint_t reg_num, void * src, uint_t length, void * private_data),
 						       int (*config_read)(uint_t reg_num, void * dst, uint_t length, void * private_data),
-						       struct vm_device * dev,
 						       void * private_data) {
 
     struct pci_internal * pci_state = (struct pci_internal *)pci->private_data;
@@ -979,7 +981,6 @@ struct pci_device * v3_pci_register_passthrough_device(struct vm_device * pci,
     pci_dev->fn_num = fn_num;
 
     strncpy(pci_dev->name, name, sizeof(pci_dev->name));
-    pci_dev->vm_dev = dev;
     pci_dev->priv_data = private_data;
 
     // register update callbacks

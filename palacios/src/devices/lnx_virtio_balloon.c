@@ -415,10 +415,11 @@ static int handle_query_hcall(struct guest_info * info, uint_t hcall_id, void * 
 
 
 
-static int virtio_init(struct guest_info * vm, void * cfg_data) {
-    struct vm_device * pci_bus = v3_find_dev(vm, (char *)cfg_data);
+static int virtio_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
+    struct vm_device * pci_bus = v3_find_dev(vm, v3_cfg_val(cfg, "bus"));
     struct virtio_balloon_state * virtio_state = NULL;
     struct pci_device * pci_dev = NULL;
+    char * name = v3_cfg_val(cfg, "name");
 
     PrintDebug("Initializing VIRTIO Balloon device\n");
 
@@ -432,9 +433,9 @@ static int virtio_init(struct guest_info * vm, void * cfg_data) {
     memset(virtio_state, 0, sizeof(struct virtio_balloon_state));
 
 
-    struct vm_device * dev = v3_allocate_device("LNX_VIRTIO_BALLOON", &dev_ops, virtio_state);
+    struct vm_device * dev = v3_allocate_device(name, &dev_ops, virtio_state);
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("Could not attach device %s\n", "LNX_VIRTIO_BALLOON");
+	PrintError("Could not attach device %s\n", name);
 	return -1;
     }
 
@@ -481,7 +482,7 @@ static int virtio_init(struct guest_info * vm, void * cfg_data) {
 	pci_dev = v3_pci_register_device(pci_bus, PCI_STD_DEVICE, 
 					 0, PCI_AUTO_DEV_NUM, 0,
 					 "LNX_VIRTIO_BALLOON", bars,
-					 NULL, NULL, NULL, dev, NULL);
+					 NULL, NULL, NULL, dev);
 
 	if (!pci_dev) {
 	    PrintError("Could not register PCI Device\n");

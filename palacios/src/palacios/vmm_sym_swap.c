@@ -21,7 +21,7 @@
 
 #include <palacios/vmm_sym_swap.h>
 #include <palacios/vmm_list.h>
-
+#include <palacios/vm_guest.h>
 
 #ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
 #include <palacios/vmm_telemetry.h>

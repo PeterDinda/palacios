@@ -18,11 +18,11 @@
  */
 
 #include <palacios/vmm.h>
+#include <palacios/vmm_dev_mgr.h>
 #include <palacios/vm_guest_mem.h>
 #include <devices/ide.h>
 #include <devices/pci.h>
 #include <devices/southbridge.h>
-#include <devices/block_dev.h>
 #include "ide-types.h"
 #include "atapi-types.h"
 
@@ -63,6 +63,10 @@
 
 #define DATA_BUFFER_SIZE 2048
 
+#define ATAPI_BLOCK_SIZE 2048
+#define HD_SECTOR_SIZE 512
+
+
 static const char * ide_pri_port_strs[] = {"PRI_DATA", "PRI_FEATURES", "PRI_SECT_CNT", "PRI_SECT_NUM", 
 					  "PRI_CYL_LOW", "PRI_CYL_HIGH", "PRI_DRV_SEL", "PRI_CMD",
 					   "PRI_CTRL", "PRI_ADDR_REG"};
@@ -76,6 +80,7 @@ static const char * ide_dma_port_strs[] = {"DMA_CMD", NULL, "DMA_STATUS", NULL,
 					   "DMA_PRD0", "DMA_PRD1", "DMA_PRD2", "DMA_PRD3"};
 
 
+typedef enum {BLOCK_NONE, BLOCK_DISK, BLOCK_CDROM} v3_block_type_t;
 
 static inline const char * io_port_to_str(uint16_t port) {
     if ((port >= PRI_DATA_PORT) && (port <= PRI_CMD_PORT)) {
@@ -122,11 +127,7 @@ struct ide_drive {
 
     v3_block_type_t drive_type;
 
-    union {
-	struct v3_cd_ops * cd_ops;
-	struct v3_hd_ops * hd_ops;
-    };
-
+    struct v3_dev_blk_ops * ops;
 
     union {
 	struct ide_cd_state cd_state;
@@ -1372,7 +1373,7 @@ static void init_drive(struct ide_drive * drive) {
     
 
     drive->private_data = NULL;
-    drive->cd_ops = NULL;
+    drive->ops = NULL;
 }
 
 static void init_channel(struct ide_channel * channel) {
@@ -1442,28 +1443,91 @@ static struct v3_device_ops dev_ops = {
 
 
 
-static int ide_init(struct guest_info * vm, void * cfg_data) {
-    struct ide_internal * ide  = (struct ide_internal *)V3_Malloc(sizeof(struct ide_internal));  
-    struct ide_cfg * cfg = (struct ide_cfg *)(cfg_data);
+
+static int connect_fn(struct guest_info * info, 
+		      void * frontend_data, 
+		      struct v3_dev_blk_ops * ops, 
+		      v3_cfg_tree_t * cfg, 
+		      void * private_data) {
+    struct ide_internal * ide  = (struct ide_internal *)(frontend_data);  
+    struct ide_channel * channel = NULL;
+    struct ide_drive * drive = NULL;
+
+    char * bus_str = v3_cfg_val(cfg, "bus_num");
+    char * drive_str = v3_cfg_val(cfg, "drive_num");
+    char * type_str = v3_cfg_val(cfg, "type");
+    char * model_str = v3_cfg_val(cfg, "model");
+    uint_t bus_num = 0;
+    uint_t drive_num = 0;
+
+
+    if ((!type_str) || (!drive_str) || (!bus_str)) {
+	PrintError("Incomplete IDE Configuration\n");
+	return -1;
+    }
+
+    bus_num = atoi(bus_str);
+    drive_num = atoi(drive_str);
+
+    channel = &(ide->channels[bus_num]);
+    drive = &(channel->drives[drive_num]);
+
+    if (drive->drive_type != BLOCK_NONE) {
+	PrintError("Device slot (bus=%d, drive=%d) already occupied\n", bus_num, drive_num);
+	return -1;
+    }
+
+    strncpy(drive->model, model_str, sizeof(drive->model) - 1);
     
+    if (strcasecmp(type_str, "cdrom") == 0) {
+	drive->drive_type = BLOCK_CDROM;
+
+	while (strlen((char *)(drive->model)) < 40) {
+	    strcat((char*)(drive->model), " ");
+	}
+
+    } else if (strcasecmp(type_str, "hd") == 0) {
+	drive->drive_type = BLOCK_DISK;
+
+	drive->hd_state.accessed = 0;
+	drive->hd_state.mult_sector_num = 1;
+
+	drive->num_sectors = 63;
+	drive->num_heads = 16;
+	drive->num_cylinders = ops->get_capacity(private_data)  / (drive->num_sectors * drive->num_heads);
+    } else {
+	PrintError("invalid IDE drive type\n");
+	return -1;
+    }
+ 
+
+    drive->ops = ops;
+
+    if (ide->ide_pci) {
+	// Hardcode this for now, but its not a good idea....
+	ide->ide_pci->config_space[0x41 + (bus_num * 2)] = 0x80;
+    }
+ 
+    drive->private_data = private_data;
+
+    return 0;
+}
+
+
+
+
+static int ide_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
+    struct ide_internal * ide  = (struct ide_internal *)V3_Malloc(sizeof(struct ide_internal));  
+    char * name = v3_cfg_val(cfg, "name");
+
     PrintDebug("IDE: Initializing IDE\n");
     memset(ide, 0, sizeof(struct ide_internal));
 
 
-    if (cfg->pci != NULL) {
-	if (cfg->southbridge == NULL) {
-	    PrintError("PCI Enabled BUT southbridge is NULL\n");
-	    return -1;
-	}
+    ide->pci_bus = v3_find_dev(vm, v3_cfg_val(cfg, "bus"));
 
-	ide->pci_bus = v3_find_dev(vm, (char *)cfg->pci);
-	
-	if (ide->pci_bus == NULL) {
-	    PrintError("Could not find PCI device\n");
-	    return -1;
-	}
-
-	struct vm_device * southbridge = v3_find_dev(vm, cfg->southbridge);
+    if (ide->pci_bus != NULL) {
+	struct vm_device * southbridge = v3_find_dev(vm, v3_cfg_val(cfg, "controller"));
 
 	if (!southbridge) {
 	    PrintError("Could not find southbridge\n");
@@ -1473,16 +1537,14 @@ static int ide_init(struct guest_info * vm, void * cfg_data) {
 	ide->southbridge = (struct v3_southbridge *)(southbridge->private_data);
     }
 
-
     PrintDebug("IDE: Creating IDE bus x 2\n");
 
-    struct vm_device * dev = v3_allocate_device("IDE", &dev_ops, ide);
+    struct vm_device * dev = v3_allocate_device(name, &dev_ops, ide);
 
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("Could not attach device %s\n", "IDE");
+	PrintError("Could not attach device %s\n", name);
 	return -1;
     }
-
 
     if (init_ide_state(dev) == -1) {
 	PrintError("Failed to initialize IDE state\n");
@@ -1566,7 +1628,7 @@ static int ide_init(struct guest_info * vm, void * cfg_data) {
 
 	pci_dev = v3_pci_register_device(ide->pci_bus, PCI_STD_DEVICE, 0, sb_pci->dev_num, 1, 
 					 "PIIX3_IDE", bars,
-					 pci_config_update, NULL, NULL, dev, dev);
+					 pci_config_update, NULL, NULL, dev);
 
 	if (pci_dev == NULL) {
 	    PrintError("Failed to register IDE BUS %d with PCI\n", i); 
@@ -1595,6 +1657,12 @@ static int ide_init(struct guest_info * vm, void * cfg_data) {
 
     }
 
+    if (v3_dev_add_blk_frontend(vm, name, connect_fn, (void *)ide) == -1) {
+	PrintError("Could not register %s as frontend\n", name);
+	return -1;
+    }
+    
+
     PrintDebug("IDE Initialized\n");
 
     return 0;
@@ -1602,11 +1670,6 @@ static int ide_init(struct guest_info * vm, void * cfg_data) {
 
 
 device_register("IDE", ide_init)
-
-
-
-
-
 
 
 
@@ -1625,101 +1688,6 @@ int v3_ide_get_geometry(struct vm_device * ide_dev, int channel_num, int drive_n
     *cylinders = drive->num_cylinders;
     *heads = drive->num_heads;
     *sectors = drive->num_sectors;
-
-    return 0;
-}
-
-
-
-
-int v3_ide_register_cdrom(struct vm_device * ide_dev, 
-			  uint_t bus_num, 
-			  uint_t drive_num,
-			  char * dev_name, 
-			  struct v3_cd_ops * ops, 
-			  void * private_data) {
-
-    struct ide_internal * ide  = (struct ide_internal *)(ide_dev->private_data);  
-    struct ide_channel * channel = NULL;
-    struct ide_drive * drive = NULL;
-
-    V3_ASSERT((bus_num >= 0) && (bus_num < 2));
-    V3_ASSERT((drive_num >= 0) && (drive_num < 2));
-
-    channel = &(ide->channels[bus_num]);
-    drive = &(channel->drives[drive_num]);
-    
-    if (drive->drive_type != BLOCK_NONE) {
-	PrintError("Device slot (bus=%d, drive=%d) already occupied\n", bus_num, drive_num);
-	return -1;
-    }
-
-    strncpy(drive->model, dev_name, sizeof(drive->model) - 1);
-
-    while (strlen((char *)(drive->model)) < 40) {
-	strcat((char*)(drive->model), " ");
-    }
-
-
-    drive->drive_type = BLOCK_CDROM;
-
-    drive->cd_ops = ops;
-
-    if (ide->ide_pci) {
-	// Hardcode this for now, but its not a good idea....
-	ide->ide_pci->config_space[0x41 + (bus_num * 2)] = 0x80;
-    }
-
-    drive->private_data = private_data;
-
-    return 0;
-}
-
-
-int v3_ide_register_harddisk(struct vm_device * ide_dev, 
-			     uint_t bus_num, 
-			     uint_t drive_num, 
-			     char * dev_name, 
-			     struct v3_hd_ops * ops, 
-			     void * private_data) {
-
-    struct ide_internal * ide  = (struct ide_internal *)(ide_dev->private_data);  
-    struct ide_channel * channel = NULL;
-    struct ide_drive * drive = NULL;
-
-    V3_ASSERT((bus_num >= 0) && (bus_num < 2));
-    V3_ASSERT((drive_num >= 0) && (drive_num < 2));
-
-    channel = &(ide->channels[bus_num]);
-    drive = &(channel->drives[drive_num]);
-    
-    if (drive->drive_type != BLOCK_NONE) {
-	PrintError("Device slot (bus=%d, drive=%d) already occupied\n", bus_num, drive_num);
-	return -1;
-    }
-
-    strncpy(drive->model, dev_name, sizeof(drive->model) - 1);
-
-    drive->drive_type = BLOCK_DISK;
-
-    drive->hd_state.accessed = 0;
-    drive->hd_state.mult_sector_num = 1;
-
-    drive->hd_ops = ops;
-
-    /* this is something of a hack... */
-    drive->num_sectors = 63;
-    drive->num_heads = 16;
-    drive->num_cylinders = ops->get_capacity(private_data)  / (drive->num_sectors * drive->num_heads);
-
-    if (ide->ide_pci) {
-	// Hardcode this for now, but its not a good idea....
-	ide->ide_pci->config_space[0x41 + (bus_num * 2)] = 0x80;
-    }
-
-
-
-    drive->private_data = private_data;
 
     return 0;
 }

@@ -310,18 +310,20 @@ static struct v3_device_ops dev_ops = {
     .stop = NULL,
 };
 
-static int cga_init(struct guest_info * vm, void * cfg_data) {
+static int cga_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
     struct video_internal * video_state = (struct video_internal *)V3_Malloc(sizeof(struct video_internal));
     addr_t frame_buf_pa = 0;
-    uint32_t enable_passthrough = (uint32_t)(addr_t)cfg_data;
+    int enable_passthrough = 0;
+    char * name = v3_cfg_val(cfg, "name");
 
+    enable_passthrough = (strcasecmp(v3_cfg_val(cfg, "passthrough"), "enable") == 0) ? 1 : 0;
 
     PrintDebug("video: init_device\n");
 
-    struct vm_device * dev = v3_allocate_device("CGA_VIDEO", &dev_ops, video_state);
+    struct vm_device * dev = v3_allocate_device(name, &dev_ops, video_state);
 
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("Could not attach device %s\n", "CGA_VIDEO");
+	PrintError("Could not attach device %s\n", name);
 	return -1;
     }
 

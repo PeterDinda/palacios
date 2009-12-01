@@ -57,12 +57,13 @@ static struct v3_device_ops dev_ops = {
 
 
 
-static int i440_init(struct guest_info * vm, void * cfg_data) {
+static int i440_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
     struct pci_device * pci_dev = NULL;
     struct v3_pci_bar bars[6];
     int i;
     struct i440_state * state = NULL;
-    struct vm_device * pci = v3_find_dev(vm, (char *)cfg_data);
+    struct vm_device * pci = v3_find_dev(vm, v3_cfg_val(cfg, "bus"));
+    char * name = v3_cfg_val(cfg, "name");
 
     if (!pci) {
 	PrintError("could not find PCI Device\n");
@@ -73,10 +74,10 @@ static int i440_init(struct guest_info * vm, void * cfg_data) {
 
     state->pci = pci;
 	
-    struct vm_device * dev = v3_allocate_device("i440FX", &dev_ops, state);
+    struct vm_device * dev = v3_allocate_device(name, &dev_ops, state);
 
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("Could not attach device %s\n", "i440FX");
+	PrintError("Could not attach device %s\n", name);
 	return -1;
     }
 
@@ -94,7 +95,7 @@ static int i440_init(struct guest_info * vm, void * cfg_data) {
 
     pci_dev = v3_pci_register_device(state->pci, PCI_STD_DEVICE, 
 				     0, 0, 0, "i440FX", bars,
-				     NULL, NULL, NULL, dev, NULL);
+				     NULL, NULL, NULL, dev);
 
     if (!pci_dev) {
  	return -1;

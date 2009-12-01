@@ -39,7 +39,6 @@
 #include <palacios/vmm_direct_paging.h>
 
 #include <palacios/vmm_ctrl_regs.h>
-#include <palacios/vmm_config.h>
 #include <palacios/svm_io.h>
 
 #include <palacios/vmm_sprintf.h>
@@ -267,18 +266,18 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * vm_info) {
 }
 
 
-static int init_svm_guest(struct guest_info * info, struct v3_vm_config * config_ptr) {
-
-
-    v3_pre_config_guest(info, config_ptr);
+int v3_init_svm_vmcb(struct guest_info * info, v3_vm_class_t vm_class) {
 
     PrintDebug("Allocating VMCB\n");
     info->vmm_data = (void*)Allocate_VMCB();
-
-    PrintDebug("Initializing VMCB (addr=%p)\n", (void *)info->vmm_data);
-    Init_VMCB_BIOS((vmcb_t*)(info->vmm_data), info);
-
-    v3_post_config_guest(info, config_ptr);
+    
+    if (vm_class == V3_PC_VM) {
+	PrintDebug("Initializing VMCB (addr=%p)\n", (void *)info->vmm_data);
+	Init_VMCB_BIOS((vmcb_t*)(info->vmm_data), info);
+    } else {
+	PrintError("Invalid VM class\n");
+	return -1;
+    }
 
     return 0;
 }
@@ -530,7 +529,7 @@ int v3_svm_enter(struct guest_info * info) {
 }
 
 
-static int start_svm_guest(struct guest_info *info) {
+int v3_start_svm_guest(struct guest_info *info) {
     //    vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
     //  vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
 
@@ -690,15 +689,6 @@ void v3_init_svm_cpu(int cpu_id) {
 }
 
 
-void v3_init_svm_hooks(struct v3_ctrl_ops * vmm_ops) {
-
-    // Setup the SVM specific vmm operations
-    vmm_ops->init_guest = &init_svm_guest;
-    vmm_ops->start_guest = &start_svm_guest;
-    vmm_ops->has_nested_paging = &has_svm_nested_paging;
-
-    return;
-}
 
 
 

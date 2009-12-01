@@ -24,17 +24,47 @@
 
 #ifdef __V3VEE__
 
-#include <palacios/vm_guest.h>
+//#include <palacios/vm_guest.h>
 #include <palacios/vmm.h>
+#include <palacios/vmm_xml.h>
+#include <palacios/vmm_list.h>
+#include <palacios/vmm_hashtable.h>
+//#include <palacios/svm.h>
 
 
-int v3_pre_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr);
-int v3_post_config_guest(struct guest_info * info, struct v3_vm_config * config_ptr);
+struct guest_info;
+
+int v3_config_guest(struct guest_info * info, void * cfg_blob);
+
+struct v3_cfg_file {
+    void * data;
+    uint64_t size;
+
+    char tag[256];
+
+    struct list_head file_node;
+};
 
 
+
+typedef struct v3_xml v3_cfg_tree_t;
+
+struct v3_config {
+    v3_cfg_tree_t * cfg;
+
+    struct list_head file_list;
+    struct hashtable * file_table;
+
+    void * blob;
+};
+
+
+struct v3_cfg_file * v3_cfg_get_file(struct guest_info * info, char * tag);
+
+char * v3_cfg_val(v3_cfg_tree_t * tree, char * tag);
+v3_cfg_tree_t * v3_cfg_subtree(v3_cfg_tree_t * tree, char * tag);
+v3_cfg_tree_t * v3_cfg_next_branch(v3_cfg_tree_t * tree);
 
 #endif // ! __V3VEE__
-
-
 
 #endif
