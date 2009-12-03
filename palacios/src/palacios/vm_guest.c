@@ -160,8 +160,7 @@ const uchar_t * v3_mem_mode_to_str(v3_mem_mode_t mode) {
 }
 
 
-void v3_print_segments(struct guest_info * info) {
-    struct v3_segments * segs = &(info->segments);
+void v3_print_segments(struct v3_segments * segs) {
     int i = 0;
     struct v3_segment * seg_ptr;
 
@@ -267,7 +266,7 @@ void v3_print_guest_state(struct guest_info * info) {
 
     V3_Print("NumExits: %u\n", (uint32_t)info->num_exits);
 
-    v3_print_segments(info);
+    v3_print_segments(&(info->segments));
     v3_print_ctrl_regs(info);
 
     if (info->shdw_pg_mode == SHADOW_PAGING) {

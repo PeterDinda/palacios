@@ -37,125 +37,39 @@
 #endif
 
 
-static int inline check_vmcs_write(vmcs_field_t field, addr_t val) {
-    int ret = 0;
-
-    ret = vmcs_write(field, val);
-
-    if (ret != VMX_SUCCESS) {
-        PrintError("VMWRITE error on %s!: %d\n", v3_vmcs_field_to_str(field), ret);
-    }
-
-    return ret;
-}
-
-static int inline check_vmcs_read(vmcs_field_t field, void * val) {
-    int ret = 0;
-
-    ret = vmcs_read(field, val);
-
-    if (ret != VMX_SUCCESS) {
-        PrintError("VMREAD error on %s!: %d\n", v3_vmcs_field_to_str(field), ret);
-    }
-
-    return ret;
-}
-
-static int inline handle_cr_access(struct guest_info * info, ulong_t exit_qual) {
-    struct vmx_exit_cr_qual * cr_qual = (struct vmx_exit_cr_qual *)&exit_qual;
-
-    // PrintDebug("Control register: %d\n", cr_qual->access_type);
-    switch(cr_qual->cr_id) {
-        case 0:
-	    //PrintDebug("Handling CR0 Access\n");
-            return v3_vmx_handle_cr0_access(info);
-        case 3:
-	    //PrintDebug("Handling CR3 Access\n");
-            return v3_vmx_handle_cr3_access(info);
-        default:
-            PrintError("Unhandled CR access: %d\n", cr_qual->cr_id);
-            return -1;
-    }
-    
-    return -1;
-}
 
 
 /* At this point the GPRs are already copied into the guest_info state */
-int v3_handle_vmx_exit(struct v3_gprs * gprs, struct guest_info * info, struct v3_ctrl_regs * ctrl_regs) {
-    uint64_t tmp_tsc = 0;
-    uint32_t exit_reason = 0;
-    addr_t exit_qual = 0;
+int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_info) {
     struct vmx_data * vmx_info = (struct vmx_data *)(info->vmm_data);
-    struct vmx_exit_idt_vec_info idt_vec_info;
 
-    rdtscll(tmp_tsc);
-    v3_update_time(info, tmp_tsc - info->time_state.cached_host_tsc);
-
-    v3_enable_ints();
-
-    check_vmcs_read(VMCS_EXIT_REASON, &exit_reason);
-    check_vmcs_read(VMCS_EXIT_QUAL, &exit_qual);
-
-    //PrintDebug("VMX Exit taken, id-qual: %u-%lu\n", exit_reason, exit_qual);
-
-    /* Update guest state */
-    v3_load_vmcs_guest_state(info);
-
-    // Load execution controls
-    check_vmcs_read(VMCS_PIN_CTRLS, &(vmx_info->pin_ctrls.value));
-    check_vmcs_read(VMCS_PROC_CTRLS, &(vmx_info->pri_proc_ctrls.value));
-
-    if (vmx_info->pri_proc_ctrls.sec_ctrls) {
-        check_vmcs_read(VMCS_SEC_PROC_CTRLS, &(vmx_info->sec_proc_ctrls.value));
-    }
-
-    info->mem_mode = v3_get_vm_mem_mode(info);
-    info->cpu_mode = v3_get_vm_cpu_mode(info);
-
-    // Check if we got interrupted while delivering interrupt
-    // Variable will be used later if this is true
-
-    check_vmcs_read(VMCS_IDT_VECTOR_INFO, &(idt_vec_info.value));
-
-    if ((info->intr_state.irq_started == 1) && (idt_vec_info.valid == 0)) {
-#ifdef CONFIG_DEBUG_INTERRUPTS
-        PrintDebug("Calling v3_injecting_intr\n");
-#endif
-        info->intr_state.irq_started = 0;
-        v3_injecting_intr(info, info->intr_state.irq_vector, V3_EXTERNAL_IRQ);
-    }
-
-    info->num_exits++;
-
-
-
-    if ((info->num_exits % 5000) == 0) {
-	PrintDebug("VMX Exit %d\n", (uint32_t)info->num_exits);
-    }
-
+    /*
+      PrintError("Handling VMEXIT: %s (%u), %lu (0x%lx)\n", 
+      v3_vmx_exit_code_to_str(exit_info->exit_reason),
+      exit_info->exit_reason, 
+      exit_info->exit_qual, exit_info->exit_qual);
+      
+      v3_print_vmcs();
+    */
 #ifdef CONFIG_TELEMETRY
     if (info->enable_telemetry) {
 	v3_telemetry_start_exit(info);
     }
 #endif
 
-    switch (exit_reason) {
+    switch (exit_info->exit_reason) {
         case VMEXIT_INFO_EXCEPTION_OR_NMI: {
-            uint32_t int_info;
-            pf_error_t error_code;
+            pf_error_t error_code = *(pf_error_t *)&(exit_info->int_err);
 
-            check_vmcs_read(VMCS_EXIT_INT_INFO, &int_info);
-            check_vmcs_read(VMCS_EXIT_INT_ERR, &error_code);
 
             // JRL: Change "0x0e" to a macro value
-            if ((uint8_t)int_info == 0x0e) {
+            if ((uint8_t)exit_info->int_info == 0x0e) {
 #ifdef CONFIG_DEBUG_SHADOW_PAGING
-                PrintDebug("Page Fault at %p error_code=%x\n", (void *)exit_qual, *(uint32_t *)&error_code);
+                PrintDebug("Page Fault at %p error_code=%x\n", (void *)exit_info->exit_qual, *(uint32_t *)&error_code);
 #endif
 
                 if (info->shdw_pg_mode == SHADOW_PAGING) {
-                    if (v3_handle_shadow_pagefault(info, (addr_t)exit_qual, error_code) == -1) {
+                    if (v3_handle_shadow_pagefault(info, (addr_t)exit_info->exit_qual, error_code) == -1) {
                         PrintError("Error handling shadow page fault\n");
                         return -1;
                     }
@@ -164,7 +78,7 @@ int v3_handle_vmx_exit(struct v3_gprs * gprs, struct guest_info * info, struct v
                     return -1;
                 }
             } else {
-                PrintError("Unknown exception: 0x%x\n", (uint8_t)int_info);
+                PrintError("Unknown exception: 0x%x\n", (uint8_t)exit_info->int_info);
                 v3_print_GPRs(info);
                 return -1;
             }
@@ -215,7 +129,7 @@ int v3_handle_vmx_exit(struct v3_gprs * gprs, struct guest_info * info, struct v
 	    }
 	    break;
         case VMEXIT_IO_INSTR: {
-	    struct vmx_exit_io_qual * io_qual = (struct vmx_exit_io_qual *)&exit_qual;
+	    struct vmx_exit_io_qual * io_qual = (struct vmx_exit_io_qual *)&(exit_info->exit_qual);
 
             if (io_qual->dir == 0) {
                 if (io_qual->string) {
@@ -244,13 +158,34 @@ int v3_handle_vmx_exit(struct v3_gprs * gprs, struct guest_info * info, struct v
             }
             break;
 	}
-        case VMEXIT_CR_REG_ACCESSES:
-            if (handle_cr_access(info, exit_qual) != 0) {
-                PrintError("Error handling CR access\n");
-                return -1;
-            }
+        case VMEXIT_CR_REG_ACCESSES: {
+	    struct vmx_exit_cr_qual * cr_qual = (struct vmx_exit_cr_qual *)&(exit_info->exit_qual);
+	    
+	    // PrintDebug("Control register: %d\n", cr_qual->access_type);
+	    switch(cr_qual->cr_id) {
+		case 0:
+		    //PrintDebug("Handling CR0 Access\n");
+		    if (v3_vmx_handle_cr0_access(info, cr_qual, exit_info) == -1) {
+			PrintError("Error in CR0 access handler\n");
+			return -1;
+		    }
+		    break;
+		case 3:
+		    //PrintDebug("Handling CR3 Access\n");
+		    if (v3_vmx_handle_cr3_access(info, cr_qual) == -1) {
+			PrintError("Error in CR3 access handler\n");
+			return -1;
+		    }
+		    break;
+		default:
+		    PrintError("Unhandled CR access: %d\n", cr_qual->cr_id);
+		    return -1;
+	    }
+	    
+	    info->rip += exit_info->instr_len;
 
-            break;
+	    break;
+	}
         case VMEXIT_HLT:
             PrintDebug("Guest halted\n");
 
@@ -270,8 +205,9 @@ int v3_handle_vmx_exit(struct v3_gprs * gprs, struct guest_info * info, struct v
             break;
         case VMEXIT_INTR_WINDOW:
 
+	    vmcs_read(VMCS_PROC_CTRLS, &(vmx_info->pri_proc_ctrls.value));
             vmx_info->pri_proc_ctrls.int_wndw_exit = 0;
-            check_vmcs_write(VMCS_PROC_CTRLS, vmx_info->pri_proc_ctrls.value);
+            vmcs_write(VMCS_PROC_CTRLS, vmx_info->pri_proc_ctrls.value);
 
 #ifdef CONFIG_DEBUG_INTERRUPTS
             PrintDebug("Interrupts available again! (RIP=%llx)\n", info->rip);
@@ -280,141 +216,17 @@ int v3_handle_vmx_exit(struct v3_gprs * gprs, struct guest_info * info, struct v
             break;
         default:
             PrintError("Unhandled VMEXIT: %s (%u), %lu (0x%lx)\n", 
-		       v3_vmx_exit_code_to_str(exit_reason),
-		       exit_reason, exit_qual, exit_qual);
+		       v3_vmx_exit_code_to_str(exit_info->exit_reason),
+		       exit_info->exit_reason, 
+		       exit_info->exit_qual, exit_info->exit_qual);
             return -1;
     }
 
 #ifdef CONFIG_TELEMETRY
     if (info->enable_telemetry) {
-        v3_telemetry_end_exit(info, exit_reason);
+        v3_telemetry_end_exit(info, exit_info->exit_reason);
     }
 #endif
-
-
-    /* Check for pending exceptions to inject */
-    if (v3_excp_pending(info)) {
-        struct vmx_entry_int_info int_info;
-        int_info.value = 0;
-
-        // In VMX, almost every exception is hardware
-        // Software exceptions are pretty much only for breakpoint or overflow
-        int_info.type = 3;
-        int_info.vector = v3_get_excp_number(info);
-
-        if (info->excp_state.excp_error_code_valid) {
-            check_vmcs_write(VMCS_ENTRY_EXCP_ERR, info->excp_state.excp_error_code);
-            int_info.error_code = 1;
-
-#ifdef CONFIG_DEBUG_INTERRUPTS
-            PrintDebug("Injecting exception %d with error code %x\n", 
-                    int_info.vector, info->excp_state.excp_error_code);
-#endif
-        }
-
-        int_info.valid = 1;
-#ifdef CONFIG_DEBUG_INTERRUPTS
-        PrintDebug("Injecting exception %d (EIP=%p)\n", int_info.vector, (void *)info->rip);
-#endif
-        check_vmcs_write(VMCS_ENTRY_INT_INFO, int_info.value);
-
-        v3_injecting_excp(info, int_info.vector);
-
-    } else if (((struct rflags *)&(info->ctrl_regs.rflags))->intr == 1) {
-       
-        if ((info->intr_state.irq_started == 1) && (idt_vec_info.valid == 1)) {
-
-#ifdef CONFIG_DEBUG_INTERRUPTS
-            PrintDebug("IRQ pending from previous injection\n");
-#endif
-
-            // Copy the IDT vectoring info over to reinject the old interrupt
-            if (idt_vec_info.error_code == 1) {
-                uint32_t err_code = 0;
-
-                check_vmcs_read(VMCS_IDT_VECTOR_ERR, &err_code);
-                check_vmcs_write(VMCS_ENTRY_EXCP_ERR, err_code);
-            }
-
-            idt_vec_info.undef = 0;
-            check_vmcs_write(VMCS_ENTRY_INT_INFO, idt_vec_info.value);
-
-        } else {
-            struct vmx_entry_int_info ent_int;
-            ent_int.value = 0;
-
-            switch (v3_intr_pending(info)) {
-                case V3_EXTERNAL_IRQ: {
-                    info->intr_state.irq_vector = v3_get_intr(info); 
-                    ent_int.vector = info->intr_state.irq_vector;
-                    ent_int.type = 0;
-                    ent_int.error_code = 0;
-                    ent_int.valid = 1;
-
-#ifdef CONFIG_DEBUG_INTERRUPTS
-                    PrintDebug("Injecting Interrupt %d at exit %u(EIP=%p)\n", 
-			       info->intr_state.irq_vector, 
-			       (uint32_t)info->num_exits, 
-			       (void *)info->rip);
-#endif
-
-                    check_vmcs_write(VMCS_ENTRY_INT_INFO, ent_int.value);
-                    info->intr_state.irq_started = 1;
-
-                    break;
-                }
-                case V3_NMI:
-                    PrintDebug("Injecting NMI\n");
-
-                    ent_int.type = 2;
-                    ent_int.vector = 2;
-                    ent_int.valid = 1;
-                    check_vmcs_write(VMCS_ENTRY_INT_INFO, ent_int.value);
-
-                    break;
-                case V3_SOFTWARE_INTR:
-                    PrintDebug("Injecting software interrupt\n");
-                    ent_int.type = 4;
-
-                    ent_int.valid = 1;
-                    check_vmcs_write(VMCS_ENTRY_INT_INFO, ent_int.value);
-
-		    break;
-                case V3_VIRTUAL_IRQ:
-                    // Not sure what to do here, Intel doesn't have virtual IRQs
-                    // May be the same as external interrupts/IRQs
-
-		    break;
-                case V3_INVALID_INTR:
-                default:
-                    break;
-            }
-        }
-    } else if ((v3_intr_pending(info)) && (vmx_info->pri_proc_ctrls.int_wndw_exit == 0)) {
-        // Enable INTR window exiting so we know when IF=1
-        uint32_t instr_len;
-
-        check_vmcs_read(VMCS_EXIT_INSTR_LEN, &instr_len);
-
-#ifdef CONFIG_DEBUG_INTERRUPTS
-        PrintDebug("Enabling Interrupt-Window exiting: %d\n", instr_len);
-#endif
-
-        vmx_info->pri_proc_ctrls.int_wndw_exit = 1;
-        check_vmcs_write(VMCS_PROC_CTRLS, vmx_info->pri_proc_ctrls.value);
-    }
-
-    check_vmcs_write(VMCS_GUEST_CR0, info->ctrl_regs.cr0);
-    check_vmcs_write(VMCS_GUEST_CR3, info->ctrl_regs.cr3);
-    check_vmcs_write(VMCS_GUEST_CR4, info->ctrl_regs.cr4);
-    check_vmcs_write(VMCS_GUEST_RIP, info->rip);
-    check_vmcs_write(VMCS_GUEST_RSP, info->vm_regs.rsp);
-
-    check_vmcs_write(VMCS_CR0_READ_SHDW, info->shdw_pg_state.guest_cr0);
-
-    v3_disable_ints();
-
-    rdtscll(info->time_state.cached_host_tsc);
 
     return 0;
 }

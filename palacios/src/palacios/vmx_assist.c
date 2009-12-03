@@ -22,8 +22,8 @@
 #include <palacios/vm_guest_mem.h>
 #include <palacios/vmx.h>
 
-static int vmx_save_world_ctx(struct guest_info * info, struct vmx_assist_context * ctx);
-static int vmx_restore_world_ctx(struct guest_info * info, struct vmx_assist_context * ctx);
+static void vmx_save_world_ctx(struct guest_info * info, struct vmx_assist_context * ctx);
+static void vmx_restore_world_ctx(struct guest_info * info, struct vmx_assist_context * ctx);
 
 int v3_vmxassist_ctx_switch(struct guest_info * info) {
     struct vmx_assist_context * old_ctx = NULL;
@@ -57,25 +57,16 @@ int v3_vmxassist_ctx_switch(struct guest_info * info) {
     if (vmx_info->state == VMXASSIST_DISABLED) {
         
         /* Save the old Context */
-        if (vmx_save_world_ctx(info, old_ctx) != 0) {
-            PrintError("Could not save VMXASSIST world context\n");
-            return -1;
-        }
+	vmx_save_world_ctx(info, old_ctx);
 
         /* restore new context, vmxassist should launch the bios the first time */
-        if (vmx_restore_world_ctx(info, new_ctx) != 0) {
-            PrintError("VMXASSIST could not restore new context\n");
-            return -1;
-        }
+        vmx_restore_world_ctx(info, new_ctx);
 
         vmx_info->state = VMXASSIST_ENABLED;
 
     } else if (vmx_info->state == VMXASSIST_ENABLED) {
         /* restore old context */
-        if (vmx_restore_world_ctx(info, old_ctx) != 0) {
-            PrintError("VMXASSIST could not restore old context\n");
-            return -1;
-        }
+	vmx_restore_world_ctx(info, old_ctx);
 
         vmx_info->state = VMXASSIST_DISABLED;
     }
@@ -83,129 +74,94 @@ int v3_vmxassist_ctx_switch(struct guest_info * info) {
     return 0;
 }
 
-        
-int vmx_save_world_ctx(struct guest_info * info, struct vmx_assist_context * ctx) {
-    int error = 0;
 
-    PrintDebug("Writing from RIP: 0x%p\n", (void *)info->rip);
+static void save_segment(struct v3_segment * seg, struct vmx_assist_segment * vmx_assist_seg) {
+    struct vmcs_segment tmp_seg;
 
-    error |= vmcs_read(VMCS_GUEST_RIP, &(ctx->eip));
-    error |= vmcs_read(VMCS_GUEST_RSP, &(ctx->esp));
-    error |= vmcs_read(VMCS_GUEST_RFLAGS, &(ctx->eflags));
+    memset(&tmp_seg, 0, sizeof(struct vmcs_segment));
 
-    error |= vmcs_read(VMCS_CR0_READ_SHDW, &(ctx->cr0));
-    ctx->cr3 = info->shdw_pg_state.guest_cr3;
-    error |= vmcs_read(VMCS_CR4_READ_SHDW, &(ctx->cr4));
+    v3_seg_to_vmxseg(seg, &tmp_seg);
 
-    error |= vmcs_read(VMCS_GUEST_IDTR_LIMIT, &(ctx->idtr_limit));
-    error |= vmcs_read(VMCS_GUEST_IDTR_BASE, &(ctx->idtr_base));
-
-    error |= vmcs_read(VMCS_GUEST_GDTR_LIMIT, &(ctx->gdtr_limit));
-    error |= vmcs_read(VMCS_GUEST_GDTR_BASE, &(ctx->gdtr_base));
-
-    error |= vmcs_read(VMCS_GUEST_CS_SELECTOR, &(ctx->cs_sel));
-    error |= vmcs_read(VMCS_GUEST_CS_LIMIT, &(ctx->cs_limit));
-    error |= vmcs_read(VMCS_GUEST_CS_BASE, &(ctx->cs_base));
-    error |= vmcs_read(VMCS_GUEST_CS_ACCESS, &(ctx->cs_arbytes.bytes));
-
-    error |= vmcs_read(VMCS_GUEST_DS_SELECTOR, &(ctx->ds_sel));
-    error |= vmcs_read(VMCS_GUEST_DS_LIMIT, &(ctx->ds_limit));
-    error |= vmcs_read(VMCS_GUEST_DS_BASE, &(ctx->ds_base));
-    error |= vmcs_read(VMCS_GUEST_DS_ACCESS, &(ctx->ds_arbytes.bytes));
-
-    error |= vmcs_read(VMCS_GUEST_ES_SELECTOR, &(ctx->es_sel));
-    error |= vmcs_read(VMCS_GUEST_ES_LIMIT, &(ctx->es_limit));
-    error |= vmcs_read(VMCS_GUEST_ES_BASE, &(ctx->es_base));
-    error |= vmcs_read(VMCS_GUEST_ES_ACCESS, &(ctx->es_arbytes.bytes));
-
-    error |= vmcs_read(VMCS_GUEST_SS_SELECTOR, &(ctx->ss_sel));
-    error |= vmcs_read(VMCS_GUEST_SS_LIMIT, &(ctx->ss_limit));
-    error |= vmcs_read(VMCS_GUEST_SS_BASE, &(ctx->ss_base));
-    error |= vmcs_read(VMCS_GUEST_SS_ACCESS, &(ctx->ss_arbytes.bytes));
-
-    error |= vmcs_read(VMCS_GUEST_FS_SELECTOR, &(ctx->fs_sel));
-    error |= vmcs_read(VMCS_GUEST_FS_LIMIT, &(ctx->fs_limit));
-    error |= vmcs_read(VMCS_GUEST_FS_BASE, &(ctx->fs_base));
-    error |= vmcs_read(VMCS_GUEST_FS_ACCESS, &(ctx->fs_arbytes.bytes));
-
-    error |= vmcs_read(VMCS_GUEST_GS_SELECTOR, &(ctx->gs_sel));
-    error |= vmcs_read(VMCS_GUEST_GS_LIMIT, &(ctx->gs_limit));
-    error |= vmcs_read(VMCS_GUEST_GS_BASE, &(ctx->gs_base));
-    error |= vmcs_read(VMCS_GUEST_GS_ACCESS, &(ctx->gs_arbytes.bytes));
-
-    error |= vmcs_read(VMCS_GUEST_TR_SELECTOR, &(ctx->tr_sel));
-    error |= vmcs_read(VMCS_GUEST_TR_LIMIT, &(ctx->tr_limit));
-    error |= vmcs_read(VMCS_GUEST_TR_BASE, &(ctx->tr_base));
-    error |= vmcs_read(VMCS_GUEST_TR_ACCESS, &(ctx->tr_arbytes.bytes));
-
-    error |= vmcs_read(VMCS_GUEST_LDTR_SELECTOR, &(ctx->ldtr_sel));
-    error |= vmcs_read(VMCS_GUEST_LDTR_LIMIT, &(ctx->ldtr_limit));
-    error |= vmcs_read(VMCS_GUEST_LDTR_BASE, &(ctx->ldtr_base));
-    error |= vmcs_read(VMCS_GUEST_LDTR_ACCESS, &(ctx->ldtr_arbytes.bytes));
-
-    return error;
+    vmx_assist_seg->sel = tmp_seg.selector;
+    vmx_assist_seg->limit = tmp_seg.limit;
+    vmx_assist_seg->base = tmp_seg.base;
+    vmx_assist_seg->arbytes.bytes = tmp_seg.access.val;
 }
 
-int vmx_restore_world_ctx(struct guest_info * info, struct vmx_assist_context * ctx) {
-    int error = 0;
+
+static void load_segment(struct vmx_assist_segment * vmx_assist_seg, struct v3_segment * seg)  {
+    struct vmcs_segment tmp_seg;
+
+    memset(&tmp_seg, 0, sizeof(struct vmcs_segment));
+
+    tmp_seg.selector = vmx_assist_seg->sel;
+    tmp_seg.limit = vmx_assist_seg->limit;
+    tmp_seg.base = vmx_assist_seg->base;
+    tmp_seg.access.val = vmx_assist_seg->arbytes.bytes;
+
+    v3_vmxseg_to_seg(&tmp_seg, seg);
+}
+
+static void vmx_save_world_ctx(struct guest_info * info, struct vmx_assist_context * ctx) {
+    struct vmx_data * vmx_info = (struct vmx_data *)(info->vmm_data);
+
+    PrintDebug("Writing from RIP: 0x%p\n", (void *)info->rip);
+    
+    ctx->eip = info->rip;
+    ctx->esp = info->vm_regs.rsp;
+    ctx->eflags = info->ctrl_regs.rflags;
+
+    ctx->cr0 = info->shdw_pg_state.guest_cr0;
+    ctx->cr3 = info->shdw_pg_state.guest_cr3;
+    ctx->cr4 = vmx_info->guest_cr4;
+
+    
+    save_segment(&(info->segments.cs), &(ctx->cs));
+    save_segment(&(info->segments.ds), &(ctx->ds));
+    save_segment(&(info->segments.es), &(ctx->es));
+    save_segment(&(info->segments.ss), &(ctx->ss));
+    save_segment(&(info->segments.fs), &(ctx->fs));
+    save_segment(&(info->segments.gs), &(ctx->gs));
+    save_segment(&(info->segments.tr), &(ctx->tr));
+    save_segment(&(info->segments.ldtr), &(ctx->ldtr));
+
+    // Odd segments 
+    ctx->idtr_limit = info->segments.idtr.limit;
+    ctx->idtr_base = info->segments.idtr.base;
+
+    ctx->gdtr_limit = info->segments.gdtr.limit;
+    ctx->gdtr_base = info->segments.gdtr.base;
+}
+
+static void vmx_restore_world_ctx(struct guest_info * info, struct vmx_assist_context * ctx) {
+    struct vmx_data * vmx_info = (struct vmx_data *)(info->vmm_data);
 
     PrintDebug("ctx rip: %p\n", (void *)(addr_t)ctx->eip);
+    
+    info->rip = ctx->eip;
+    info->vm_regs.rsp = ctx->esp;
+    info->ctrl_regs.rflags = ctx->eflags;
 
-    error |= vmcs_write(VMCS_GUEST_RIP, ctx->eip);
-    error |= vmcs_write(VMCS_GUEST_RSP, ctx->esp);
-    error |= vmcs_write(VMCS_GUEST_RFLAGS, ctx->eflags);
-
-    error |= vmcs_write(VMCS_CR0_READ_SHDW, ctx->cr0);
+    info->shdw_pg_state.guest_cr0 = ctx->cr0;
     info->shdw_pg_state.guest_cr3 = ctx->cr3;
-    error |= vmcs_write(VMCS_CR4_READ_SHDW, ctx->cr4);
+    vmx_info->guest_cr4 = ctx->cr4;
 
-    error |= vmcs_write(VMCS_GUEST_IDTR_LIMIT, ctx->idtr_limit);
-    error |= vmcs_write(VMCS_GUEST_IDTR_BASE, ctx->idtr_base);
+    load_segment(&(ctx->cs), &(info->segments.cs));
+    load_segment(&(ctx->ds), &(info->segments.ds));
+    load_segment(&(ctx->es), &(info->segments.es));
+    load_segment(&(ctx->ss), &(info->segments.ss));
+    load_segment(&(ctx->fs), &(info->segments.fs));
+    load_segment(&(ctx->gs), &(info->segments.gs));
+    load_segment(&(ctx->tr), &(info->segments.tr));
+    load_segment(&(ctx->ldtr), &(info->segments.ldtr));
 
-    error |= vmcs_write(VMCS_GUEST_GDTR_LIMIT, ctx->gdtr_limit);
-    error |= vmcs_write(VMCS_GUEST_GDTR_BASE, ctx->gdtr_base);
+    // odd segments
+    info->segments.idtr.limit = ctx->idtr_limit;
+    info->segments.idtr.base = ctx->idtr_base;
 
-    error |= vmcs_write(VMCS_GUEST_CS_SELECTOR, ctx->cs_sel);
-    error |= vmcs_write(VMCS_GUEST_CS_LIMIT, ctx->cs_limit);
-    error |= vmcs_write(VMCS_GUEST_CS_BASE, ctx->cs_base);
-    error |= vmcs_write(VMCS_GUEST_CS_ACCESS, ctx->cs_arbytes.bytes);
+    info->segments.gdtr.limit = ctx->gdtr_limit;
+    info->segments.gdtr.base = ctx->gdtr_base;
 
-    error |= vmcs_write(VMCS_GUEST_DS_SELECTOR, ctx->ds_sel);
-    error |= vmcs_write(VMCS_GUEST_DS_LIMIT, ctx->ds_limit);
-    error |= vmcs_write(VMCS_GUEST_DS_BASE, ctx->ds_base);
-    error |= vmcs_write(VMCS_GUEST_DS_ACCESS, ctx->ds_arbytes.bytes);
-
-    error |= vmcs_write(VMCS_GUEST_ES_SELECTOR, ctx->es_sel);
-    error |= vmcs_write(VMCS_GUEST_ES_LIMIT, ctx->es_limit);
-    error |= vmcs_write(VMCS_GUEST_ES_BASE, ctx->es_base);
-    error |= vmcs_write(VMCS_GUEST_ES_ACCESS, ctx->es_arbytes.bytes);
-
-    error |= vmcs_write(VMCS_GUEST_SS_SELECTOR, ctx->ss_sel);
-    error |= vmcs_write(VMCS_GUEST_SS_LIMIT, ctx->ss_limit);
-    error |= vmcs_write(VMCS_GUEST_SS_BASE, ctx->ss_base);
-    error |= vmcs_write(VMCS_GUEST_SS_ACCESS, ctx->ss_arbytes.bytes);
-
-    error |= vmcs_write(VMCS_GUEST_FS_SELECTOR, ctx->fs_sel);
-    error |= vmcs_write(VMCS_GUEST_FS_LIMIT, ctx->fs_limit);
-    error |= vmcs_write(VMCS_GUEST_FS_BASE, ctx->fs_base);
-    error |= vmcs_write(VMCS_GUEST_FS_ACCESS, ctx->fs_arbytes.bytes);
-
-    error |= vmcs_write(VMCS_GUEST_GS_SELECTOR, ctx->gs_sel);
-    error |= vmcs_write(VMCS_GUEST_GS_LIMIT, ctx->gs_limit);
-    error |= vmcs_write(VMCS_GUEST_GS_BASE, ctx->gs_base);
-    error |= vmcs_write(VMCS_GUEST_GS_ACCESS, ctx->gs_arbytes.bytes);
-
-    error |= vmcs_write(VMCS_GUEST_TR_SELECTOR, ctx->tr_sel);
-    error |= vmcs_write(VMCS_GUEST_TR_LIMIT, ctx->tr_limit);
-    error |= vmcs_write(VMCS_GUEST_TR_BASE, ctx->tr_base);
-    error |= vmcs_write(VMCS_GUEST_TR_ACCESS, ctx->tr_arbytes.bytes);
-
-    error |= vmcs_write(VMCS_GUEST_LDTR_SELECTOR, ctx->ldtr_sel);
-    error |= vmcs_write(VMCS_GUEST_LDTR_LIMIT, ctx->ldtr_limit);
-    error |= vmcs_write(VMCS_GUEST_LDTR_BASE, ctx->ldtr_base);
-    error |= vmcs_write(VMCS_GUEST_LDTR_ACCESS, ctx->ldtr_arbytes.bytes);
-
-    return error;
 }
 
 

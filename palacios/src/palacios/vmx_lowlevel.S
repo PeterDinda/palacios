@@ -52,12 +52,12 @@
 	mov	104(%rax), %r13;	\
 	mov	112(%rax), %r14;	\
 	mov	120(%rax), %r15;	\
-    pushq %rbx;              \
-    movq 56(%rax), %rbx;     \
-    movq %rbx, %rax;         \
-    popq %rbx;;
+	pushq %rbx;                     \
+	movq 56(%rax), %rbx;            \
+	movq %rbx, %rax;                \
+	popq %rbx;
 
-#define save_ctrl_regs(location)    \
+#define save_ctrl_regs(location)  \
     pushq %rax;              \
     pushq %rbx;              \
     movq location, %rax;     \
@@ -109,73 +109,62 @@
     pop %rbx;    \
     pop %rax;    
 
-.align 8
-.globl v3_vmx_exit_handler
-v3_vmx_exit_handler:
-    // the save_* argument is a macro expansion; it has to jump past any pushes in the macro
-    // stack: vm_regs ptr, ctrl_regs_ptr
-    // save registers macro stack: vm_regs ptr, ctrl_regs ptr, pushed rax
-    // save_ctrl_regs macro stack: vm_regs ptr, ctrl_regs_ptr, pushed rax, pushed rbx
-    // Both macros jump past 2 saved values to reach their pointers, so both are 16(rsp)
-    save_registers(16(%rsp));
-    save_ctrl_regs(16(%rsp));
-    addq $16, %rsp
-    POPA
-    popf
-    pushq %rdi
-    pushq %rsi
-    pushq %rdx
-    call v3_handle_vmx_exit
 
-    andq %rax, %rax
-    jnz .Lvmm_failure
-
-v3_vmx_vmresume:
-    pop %rdx
-    pop %rsi
-    pop %rdi
-    pushf
-    PUSHA
-    pushq %rdi
-    pushq %rdx
-    restore_ctrl_regs(%rdx);
+#define PRE_LAUNCH(return_target)	\
+    pushf;				\
+    PUSHA;				\
+    pushq %rdi;				\
+    pushq %rdx;				\
+    					\
+    movq %rsp, %rax;			\
+    movq $VMCS_HOST_RSP, %rbx;		\
+    vmwrite %rax, %rbx;			\
+    jz .Lfail_valid;			\
+    jc .Lfail_invalid;			\
+					\
+    movq return_target, %rax;		\
+    movq $VMCS_HOST_RIP, %rbx;		\
+    vmwrite %rax, %rbx;			\
+    jz .Lfail_valid;			\
+    jc .Lfail_invalid;			\
+					\
+    restore_ctrl_regs(%rdx);		\
     restore_registers(%rdi);
+
+
+
+
+.align 8
+.globl v3_vmx_resume
+// vm_regs = %rdi, guest_info * = %rsi, ctrl_regs = %rdx
+v3_vmx_resume:
+
+    PRE_LAUNCH($vmx_resume_ret);
 
     vmresume
 
+vmx_resume_ret:
     jz .Lfail_valid
     jc .Lfail_invalid
-    addq $16, %rsp
-    jmp .Lreturn
+    jmp .Lnormal_exit
+
 
 .align 8
-.globl v3_vmx_vmlaunch
+.globl v3_vmx_launch
 // vm_regs = %rdi, guest_info * = %rsi, ctrl_regs = %rdx
-v3_vmx_vmlaunch:
-    pushf
-    PUSHA
-    pushq %rdi
-    pushq %rdx
-    
-    movq %rsp, %rax
-    movq $VMCS_HOST_RSP, %rbx
-    vmwrite %rax, %rbx
-    jz .Lfail_valid
-    jc .Lfail_invalid
+v3_vmx_launch:
 
-    movq $v3_vmx_exit_handler, %rax
-    movq $VMCS_HOST_RIP, %rbx
-    vmwrite %rax, %rbx
-    jz .Lfail_valid
-    jc .Lfail_invalid
-
-    restore_ctrl_regs(%rdx);
-    restore_registers(%rdi);
+    PRE_LAUNCH($vmx_launch_ret);
 
     vmlaunch
+
+vmx_launch_ret:
     jz .Lfail_valid
     jc .Lfail_invalid
-    jmp .Lreturn
+    jmp .Lnormal_exit
+
+
+
 
 .Lfail_valid:
     addq $16, %rsp
@@ -196,8 +185,18 @@ v3_vmx_vmlaunch:
     movq $VMM_FAILURE, %rax
     jmp .Lreturn
 
+
+.Lnormal_exit:
+    save_registers(16(%rsp));
+    save_ctrl_regs(16(%rsp));
+    addq $16, %rsp
+    POPA
+    popf
+    xorq %rax, %rax
+    jmp .Lreturn
+
+
 .Lreturn:
-    sti
     ret
     
 #else

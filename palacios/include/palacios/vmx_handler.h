@@ -24,6 +24,7 @@
 
 #include <palacios/vm_guest.h>
 
+
 /******************************************/
 /* VMX Intercept Exit Codes               */
 /******************************************/
@@ -197,7 +198,27 @@ struct vmx_exit_idt_vec_info {
     } __attribute__ ((packed));
 } __attribute__ ((packed));
 
-int v3_handle_vmx_exit(struct v3_gprs * gprs, struct guest_info * info, struct v3_ctrl_regs * ctrl_regs);
+
+
+
+struct vmx_exit_info {
+    uint32_t instr_len;
+    uint32_t instr_info;
+
+    uint32_t exit_reason;
+    addr_t exit_qual;
+
+    uint32_t int_info;
+    uint32_t int_err;
+
+    addr_t guest_linear_addr;
+};
+
+
+
+
+
+int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_info);
 const char * v3_vmx_exit_code_to_str(vmx_exit_t exit);
 
 #endif

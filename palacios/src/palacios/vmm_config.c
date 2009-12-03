@@ -277,7 +277,15 @@ static int pre_config_guest(struct guest_info * info, struct v3_config * config_
 
     info->yield_cycle_period = (V3_CPU_KHZ() * 1000) / sched_hz;
     
-
+    if (info->vm_class == V3_PC_VM) {
+	if (pre_config_pc(info, config_ptr) == -1) {
+	    PrintError("PC Post configuration failure\n");
+	    return -1;
+	}
+    } else {
+	PrintError("Invalid VM Class\n");
+	return -1;
+    }
 
     return 0;
 }

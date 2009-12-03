@@ -25,35 +25,11 @@
 #include <palacios/vmm_ctrl_regs.h>
 #include <palacios/vmm_lowlevel.h>
 
-static void inline translate_v3_seg_to_access(struct v3_segment * v3_seg,  
-					      struct vmcs_segment_access * access)
-{
-    access->type = v3_seg->type;
-    access->desc_type = v3_seg->system;
-    access->dpl = v3_seg->dpl;
-    access->present = v3_seg->present;
-    access->avail = v3_seg->avail;
-    access->long_mode = v3_seg->long_mode;
-    access->db = v3_seg->db;
-    access->granularity = v3_seg->granularity;
-}
-
-static void inline translate_access_to_v3_seg(struct vmcs_segment_access * access, 
-					      struct v3_segment * v3_seg)
-{
-    v3_seg->type = access->type;
-    v3_seg->system = access->desc_type;
-    v3_seg->dpl = access->dpl;
-    v3_seg->present = access->present;
-    v3_seg->avail = access->avail;
-    v3_seg->long_mode = access->long_mode;
-    v3_seg->db = access->db;
-    v3_seg->granularity = access->granularity;
-}
 
 
-static int inline check_vmcs_write(vmcs_field_t field, addr_t val)
-{
+
+
+static int inline check_vmcs_write(vmcs_field_t field, addr_t val) {
     int ret = 0;
     ret = vmcs_write(field, val);
 
@@ -65,8 +41,7 @@ static int inline check_vmcs_write(vmcs_field_t field, addr_t val)
     return 0;
 }
 
-static int inline check_vmcs_read(vmcs_field_t field, void * val)
-{
+static int inline check_vmcs_read(vmcs_field_t field, void * val) {
     int ret = 0;
     ret = vmcs_read(field, val);
 
@@ -77,122 +52,142 @@ static int inline check_vmcs_read(vmcs_field_t field, void * val)
     return ret;
 }
 
-// static const char * v3_vmcs_field_to_str(vmcs_field_t field);
 
-//extern char * exception_names;
-//
-// Ignores "HIGH" addresses - 32 bit only for now
-//
 
-int v3_update_vmcs_guest_state(struct guest_info * info)
-{
-    int vmx_ret = 0;
 
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_RIP, info->rip);
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_RSP, info->vm_regs.rsp);
-    
 
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_CR0, info->ctrl_regs.cr0);
-    vmx_ret |= check_vmcs_write(VMCS_CR0_READ_SHDW, info->shdw_pg_state.guest_cr0);
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_CR3, info->ctrl_regs.cr3);
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_CR4, info->ctrl_regs.cr4);
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_DR7, info->dbg_regs.dr7);
 
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_RFLAGS, info->ctrl_regs.rflags);
-    if (((struct vmx_data *)info->vmm_data)->ia32e_avail) {
-        vmx_ret |= check_vmcs_write(VMCS_GUEST_EFER, info->ctrl_regs.efer);
+
+typedef enum { ES = 0, 
+	       CS = 2,
+ 	       SS = 4,
+	       DS = 6, 
+	       FS = 8, 
+	       GS = 10, 
+	       LDTR = 12, 
+	       TR = 14, 
+	       GDTR = 16, 
+	       IDTR = 18} vmcs_seg_offsets_t;
+
+typedef enum {BASE = VMCS_GUEST_ES_BASE,
+	      LIMIT = VMCS_GUEST_ES_LIMIT, 
+	      ACCESS = VMCS_GUEST_ES_ACCESS, 
+	      SELECTOR = VMCS_GUEST_ES_SELECTOR } vmcs_seg_bases_t;
+ 
+
+
+static int v3_read_vmcs_segment(struct v3_segment * seg, vmcs_seg_offsets_t seg_type) {
+    vmcs_field_t selector = VMCS_GUEST_ES_SELECTOR + seg_type;
+    vmcs_field_t base = VMCS_GUEST_ES_BASE + seg_type;
+    vmcs_field_t limit = VMCS_GUEST_ES_LIMIT + seg_type;
+    vmcs_field_t access = VMCS_GUEST_ES_ACCESS + seg_type;
+    struct vmcs_segment vmcs_seg;
+
+    memset(&vmcs_seg, 0, sizeof(struct vmcs_segment));
+
+    check_vmcs_read(limit, &(vmcs_seg.limit));
+    check_vmcs_read(base, &(vmcs_seg.base));
+
+    if ((seg_type != GDTR) && (seg_type != IDTR)) {
+	check_vmcs_read(selector, &(vmcs_seg.selector));
+	check_vmcs_read(access, &(vmcs_seg.access.val)); 
     }
 
+    v3_vmxseg_to_seg(&vmcs_seg, seg);
 
-    /*** Write VMCS Segments ***/
-    struct vmcs_segment_access access;
+    return 0;
+}
 
-    memset(&access, 0, sizeof(access));
+static int v3_write_vmcs_segment(struct v3_segment * seg, vmcs_seg_offsets_t seg_type) {
+    vmcs_field_t selector = VMCS_GUEST_ES_SELECTOR + seg_type;
+    vmcs_field_t base = VMCS_GUEST_ES_BASE + seg_type;
+    vmcs_field_t limit = VMCS_GUEST_ES_LIMIT + seg_type;
+    vmcs_field_t access = VMCS_GUEST_ES_ACCESS + seg_type;
+    struct vmcs_segment vmcs_seg;
 
-    /* CS Segment */
-    translate_v3_seg_to_access(&(info->segments.cs), &access);
+    v3_seg_to_vmxseg(seg, &vmcs_seg);
 
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_CS_BASE, info->segments.cs.base);
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_CS_SELECTOR, info->segments.cs.selector);
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_CS_LIMIT, info->segments.cs.limit);
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_CS_ACCESS, access.value);
+    check_vmcs_write(limit, vmcs_seg.limit);
+    check_vmcs_write(base, vmcs_seg.base);
 
-    /* SS Segment */
-    memset(&access, 0, sizeof(access));
-    translate_v3_seg_to_access(&(info->segments.ss), &access);
+    if ((seg_type != GDTR) && (seg_type != IDTR)) {
+	check_vmcs_write(access, vmcs_seg.access.val); 
+	check_vmcs_write(selector, vmcs_seg.selector);
+    }
 
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_SS_BASE, info->segments.ss.base);
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_SS_SELECTOR, info->segments.ss.selector);
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_SS_LIMIT, info->segments.ss.limit);
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_SS_ACCESS, access.value);
+    return 0;
+}
 
-    /* DS Segment */
-    memset(&access, 0, sizeof(access));
-    translate_v3_seg_to_access(&(info->segments.ds), &access);
+int v3_read_vmcs_segments(struct v3_segments * segs) {
+    v3_read_vmcs_segment(&(segs->cs), CS);
+    v3_read_vmcs_segment(&(segs->ds), DS);
+    v3_read_vmcs_segment(&(segs->es), ES);
+    v3_read_vmcs_segment(&(segs->fs), FS);
+    v3_read_vmcs_segment(&(segs->gs), GS);
+    v3_read_vmcs_segment(&(segs->ss), SS);
+    v3_read_vmcs_segment(&(segs->ldtr), LDTR);
+    v3_read_vmcs_segment(&(segs->gdtr), GDTR);
+    v3_read_vmcs_segment(&(segs->idtr), IDTR);
+    v3_read_vmcs_segment(&(segs->tr), TR);
 
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_DS_BASE, info->segments.ds.base);
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_DS_SELECTOR, info->segments.ds.selector);
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_DS_LIMIT, info->segments.ds.limit);
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_DS_ACCESS, access.value);
+    return 0;
+}
+
+int v3_write_vmcs_segments(struct v3_segments * segs) {
+    v3_write_vmcs_segment(&(segs->cs), CS);
+    v3_write_vmcs_segment(&(segs->ds), DS);
+    v3_write_vmcs_segment(&(segs->es), ES);
+    v3_write_vmcs_segment(&(segs->fs), FS);
+    v3_write_vmcs_segment(&(segs->gs), GS);
+    v3_write_vmcs_segment(&(segs->ss), SS);
+    v3_write_vmcs_segment(&(segs->ldtr), LDTR);
+    v3_write_vmcs_segment(&(segs->gdtr), GDTR);
+    v3_write_vmcs_segment(&(segs->idtr), IDTR);
+    v3_write_vmcs_segment(&(segs->tr), TR);
+
+    return 0;
+}
 
 
-    /* ES Segment */
-    memset(&access, 0, sizeof(access));
-    translate_v3_seg_to_access(&(info->segments.es), &access);
+void v3_vmxseg_to_seg(struct vmcs_segment * vmcs_seg, struct v3_segment * seg) {
+    memset(seg, 0, sizeof(struct v3_segment));
 
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_ES_BASE, info->segments.es.base);
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_ES_SELECTOR, info->segments.es.selector);
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_ES_LIMIT, info->segments.es.limit);
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_ES_ACCESS, access.value);
+    seg->selector = vmcs_seg->selector;
+    seg->limit = vmcs_seg->limit;
+    seg->base = vmcs_seg->base;
 
-    /* FS Segment */
-    memset(&access, 0, sizeof(access));
-    translate_v3_seg_to_access(&(info->segments.fs), &access);
-
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_FS_BASE, info->segments.fs.base);
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_FS_SELECTOR, info->segments.fs.selector);
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_FS_LIMIT, info->segments.fs.limit);
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_FS_ACCESS, access.value);
-
-    /* GS Segment */
-    memset(&access, 0, sizeof(access));
-    translate_v3_seg_to_access(&(info->segments.gs), &access);
-
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_GS_BASE, info->segments.gs.base);
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_GS_SELECTOR, info->segments.gs.selector);
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_GS_LIMIT, info->segments.gs.limit);
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_GS_ACCESS, access.value);
-
-    /* LDTR segment */
-    memset(&access, 0, sizeof(access));
-    translate_v3_seg_to_access(&(info->segments.ldtr), &access);
-
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_LDTR_BASE, info->segments.ldtr.base);
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_LDTR_SELECTOR, info->segments.ldtr.selector);
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_LDTR_LIMIT, info->segments.ldtr.limit);
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_LDTR_ACCESS, access.value);
-
-    /* TR Segment */
-    memset(&access, 0, sizeof(access));
-    translate_v3_seg_to_access(&(info->segments.tr), &access);
-
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_TR_BASE, info->segments.tr.base);
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_TR_SELECTOR, info->segments.tr.selector);
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_TR_LIMIT, info->segments.tr.limit);
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_TR_ACCESS, access.value);
-
-    /* GDTR Segment */
-
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_GDTR_BASE, info->segments.gdtr.base);
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_GDTR_LIMIT, info->segments.gdtr.limit);
-
-    /* IDTR Segment*/
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_IDTR_BASE, info->segments.idtr.base);
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_IDTR_LIMIT, info->segments.idtr.limit);
-
-    return vmx_ret;
+    seg->type = vmcs_seg->access.type;
+    seg->system = vmcs_seg->access.desc_type;
+    seg->dpl = vmcs_seg->access.dpl;
+    seg->present = vmcs_seg->access.present;
+    seg->avail = vmcs_seg->access.avail;
+    seg->long_mode = vmcs_seg->access.long_mode;
+    seg->db = vmcs_seg->access.db;
+    seg->granularity = vmcs_seg->access.granularity;
+    seg->unusable = vmcs_seg->access.unusable;
 
 }
+
+void v3_seg_to_vmxseg(struct v3_segment * seg, struct vmcs_segment * vmcs_seg) {
+    memset(vmcs_seg, 0, sizeof(struct vmcs_segment));
+
+    vmcs_seg->selector = seg->selector;
+    vmcs_seg->limit = seg->limit;
+    vmcs_seg->base = seg->base;
+
+    vmcs_seg->access.type = seg->type;
+    vmcs_seg->access.desc_type = seg->system;
+    vmcs_seg->access.dpl = seg->dpl;
+    vmcs_seg->access.present = seg->present;
+    vmcs_seg->access.avail = seg->avail;
+    vmcs_seg->access.long_mode = seg->long_mode;
+    vmcs_seg->access.db = seg->db;
+    vmcs_seg->access.granularity = seg->granularity;
+    vmcs_seg->access.unusable = seg->unusable;
+}
+
+
+
 
 int v3_update_vmcs_ctrl_fields(struct guest_info * info) {
     int vmx_ret = 0;
@@ -210,6 +205,64 @@ int v3_update_vmcs_ctrl_fields(struct guest_info * info) {
 
     return vmx_ret;
 }
+
+
+
+
+
+
+int v3_vmx_save_vmcs(struct guest_info * info) {
+    struct vmx_data * vmx_info = (struct vmx_data *)(info->vmm_data);
+    int error = 0;
+
+    check_vmcs_read(VMCS_GUEST_RIP, &(info->rip));
+    check_vmcs_read(VMCS_GUEST_RSP, &(info->vm_regs.rsp));
+
+    check_vmcs_read(VMCS_GUEST_CR0, &(info->ctrl_regs.cr0));
+    check_vmcs_read(VMCS_CR0_READ_SHDW, &(info->shdw_pg_state.guest_cr0));
+    check_vmcs_read(VMCS_GUEST_CR3, &(info->ctrl_regs.cr3));
+    check_vmcs_read(VMCS_GUEST_CR4, &(info->ctrl_regs.cr4));
+    check_vmcs_read(VMCS_CR4_READ_SHDW, &(vmx_info->guest_cr4));
+    check_vmcs_read(VMCS_GUEST_DR7, &(info->dbg_regs.dr7));
+
+    check_vmcs_read(VMCS_GUEST_RFLAGS, &(info->ctrl_regs.rflags));
+    if (((struct vmx_data *)info->vmm_data)->ia32e_avail) {
+        check_vmcs_read(VMCS_GUEST_EFER, &(info->ctrl_regs.efer));
+    }
+
+    error =  v3_read_vmcs_segments(&(info->segments));
+
+    return error;
+}
+
+
+int v3_vmx_restore_vmcs(struct guest_info * info) {
+    struct vmx_data * vmx_info = (struct vmx_data *)(info->vmm_data);
+    int error = 0;
+
+    check_vmcs_write(VMCS_GUEST_RIP, info->rip);
+    check_vmcs_write(VMCS_GUEST_RSP, info->vm_regs.rsp);
+
+    check_vmcs_write(VMCS_GUEST_CR0, info->ctrl_regs.cr0);
+    check_vmcs_write(VMCS_CR0_READ_SHDW, info->shdw_pg_state.guest_cr0);
+    check_vmcs_write(VMCS_GUEST_CR3, info->ctrl_regs.cr3);
+    check_vmcs_write(VMCS_GUEST_CR4, info->ctrl_regs.cr4);
+    check_vmcs_write(VMCS_CR4_READ_SHDW, vmx_info->guest_cr4);
+    check_vmcs_write(VMCS_GUEST_DR7, info->dbg_regs.dr7);
+
+    check_vmcs_write(VMCS_GUEST_RFLAGS, info->ctrl_regs.rflags);
+
+    if (((struct vmx_data *)info->vmm_data)->ia32e_avail) {
+        check_vmcs_write(VMCS_GUEST_EFER, info->ctrl_regs.efer);
+    }
+
+    error = v3_write_vmcs_segments(&(info->segments));
+
+    return error;
+
+}
+
+
 
 int v3_update_vmcs_host_state(struct guest_info * info) {
     int vmx_ret = 0;
@@ -315,104 +368,9 @@ int v3_update_vmcs_host_state(struct guest_info * info) {
 }
 
 
-int v3_load_vmcs_guest_state(struct guest_info * info)
-{
 
-    int error = 0;
 
-    check_vmcs_read(VMCS_GUEST_RIP, &(info->rip));
-    check_vmcs_read(VMCS_GUEST_RSP, &(info->vm_regs.rsp));
 
-    check_vmcs_read(VMCS_GUEST_CR0, &(info->ctrl_regs.cr0));
-    check_vmcs_read(VMCS_CR0_READ_SHDW, &(info->shdw_pg_state.guest_cr0));
-    check_vmcs_read(VMCS_GUEST_CR3, &(info->ctrl_regs.cr3));
-    check_vmcs_read(VMCS_GUEST_CR4, &(info->ctrl_regs.cr4));
-    check_vmcs_read(VMCS_GUEST_DR7, &(info->dbg_regs.dr7));
-
-    check_vmcs_read(VMCS_GUEST_RFLAGS, &(info->ctrl_regs.rflags));
-    if (((struct vmx_data *)info->vmm_data)->ia32e_avail) {
-        check_vmcs_read(VMCS_GUEST_EFER, &(info->ctrl_regs.efer));
-    }
-
-    // JRL: Add error checking
-
-    struct vmcs_segment_access access;
-    memset(&access, 0, sizeof(access));
-
-    /* CS Segment */
-    check_vmcs_read(VMCS_GUEST_CS_BASE, &(info->segments.cs.base));
-    check_vmcs_read(VMCS_GUEST_CS_SELECTOR, &(info->segments.cs.selector));
-    check_vmcs_read(VMCS_GUEST_CS_LIMIT, &(info->segments.cs.limit));
-    check_vmcs_read(VMCS_GUEST_CS_ACCESS, &(access.value));
-
-    translate_access_to_v3_seg(&access, &(info->segments.cs));
-
-    /* SS Segment */
-    check_vmcs_read(VMCS_GUEST_SS_BASE, &(info->segments.ss.base));
-    check_vmcs_read(VMCS_GUEST_SS_SELECTOR, &(info->segments.ss.selector));
-    check_vmcs_read(VMCS_GUEST_SS_LIMIT, &(info->segments.ss.limit));
-    check_vmcs_read(VMCS_GUEST_SS_ACCESS, &(access.value));
-
-    translate_access_to_v3_seg(&access, &(info->segments.ss));
-
-    /* DS Segment */
-    check_vmcs_read(VMCS_GUEST_DS_BASE, &(info->segments.ds.base));
-    check_vmcs_read(VMCS_GUEST_DS_SELECTOR, &(info->segments.ds.selector));
-    check_vmcs_read(VMCS_GUEST_DS_LIMIT, &(info->segments.ds.limit));
-    check_vmcs_read(VMCS_GUEST_DS_ACCESS, &(access.value));
-
-    translate_access_to_v3_seg(&access, &(info->segments.ds));
-
-    /* ES Segment */
-    check_vmcs_read(VMCS_GUEST_ES_BASE, &(info->segments.es.base));
-    check_vmcs_read(VMCS_GUEST_ES_SELECTOR, &(info->segments.es.selector));
-    check_vmcs_read(VMCS_GUEST_ES_LIMIT, &(info->segments.es.limit));
-    check_vmcs_read(VMCS_GUEST_ES_ACCESS, &(access.value));
-
-    translate_access_to_v3_seg(&access, &(info->segments.es));
-
-    /* FS Segment */
-    check_vmcs_read(VMCS_GUEST_FS_BASE, &(info->segments.fs.base));
-    check_vmcs_read(VMCS_GUEST_FS_SELECTOR, &(info->segments.fs.selector));
-    check_vmcs_read(VMCS_GUEST_FS_LIMIT, &(info->segments.fs.limit));
-    check_vmcs_read(VMCS_GUEST_FS_ACCESS, &(access.value));
-
-    translate_access_to_v3_seg(&access, &(info->segments.fs));
-
-    /* GS Segment */
-    check_vmcs_read(VMCS_GUEST_GS_BASE, &(info->segments.gs.base));
-    check_vmcs_read(VMCS_GUEST_GS_SELECTOR, &(info->segments.gs.selector));
-    check_vmcs_read(VMCS_GUEST_GS_LIMIT, &(info->segments.gs.limit));
-    check_vmcs_read(VMCS_GUEST_GS_ACCESS, &(access.value));
-
-    translate_access_to_v3_seg(&access, &(info->segments.gs));
-
-    /* LDTR Segment */
-    check_vmcs_read(VMCS_GUEST_LDTR_BASE, &(info->segments.ldtr.base));
-    check_vmcs_read(VMCS_GUEST_LDTR_SELECTOR, &(info->segments.ldtr.selector));
-    check_vmcs_read(VMCS_GUEST_LDTR_LIMIT, &(info->segments.ldtr.limit));
-    check_vmcs_read(VMCS_GUEST_LDTR_ACCESS, &(access.value));
-
-    translate_access_to_v3_seg(&access, &(info->segments.ldtr));
-
-    /* TR Segment */
-    check_vmcs_read(VMCS_GUEST_TR_BASE, &(info->segments.tr.base));
-    check_vmcs_read(VMCS_GUEST_TR_SELECTOR, &(info->segments.tr.selector));
-    check_vmcs_read(VMCS_GUEST_TR_LIMIT, &(info->segments.tr.limit));
-    check_vmcs_read(VMCS_GUEST_TR_ACCESS, &(access.value));
-
-    translate_access_to_v3_seg(&access, &(info->segments.tr));
-
-    /* GDTR Segment */
-    check_vmcs_read(VMCS_GUEST_GDTR_BASE, &(info->segments.gdtr.base));
-    check_vmcs_read(VMCS_GUEST_GDTR_LIMIT, &(info->segments.gdtr.limit));
-    
-    /* IDTR Segment */
-    check_vmcs_read(VMCS_GUEST_IDTR_BASE, &(info->segments.idtr.base));
-    check_vmcs_read(VMCS_GUEST_IDTR_LIMIT, &(info->segments.idtr.limit));
-    
-    return error;
-}
 
 static inline void print_vmcs_field(vmcs_field_t vmcs_index) {
     int len = v3_vmcs_get_field_len(vmcs_index);
@@ -433,20 +391,12 @@ static inline void print_vmcs_field(vmcs_field_t vmcs_index) {
 }
 
 
+static void print_vmcs_segments() {
+    struct v3_segments segs; 
 
-static void print_guest_state()
-{
-    PrintDebug("VMCS_GUEST_STATE\n");
-    print_vmcs_field(VMCS_GUEST_RIP);
-    print_vmcs_field(VMCS_GUEST_RSP);
-    print_vmcs_field(VMCS_GUEST_RFLAGS);
-    print_vmcs_field(VMCS_GUEST_CR0);
-    print_vmcs_field(VMCS_GUEST_CR3);
-    print_vmcs_field(VMCS_GUEST_CR4);
-    print_vmcs_field(VMCS_GUEST_DR7);
+    v3_read_vmcs_segments(&segs);
+    v3_print_segments(&segs);
 
-
-    PrintDebug("\n");
 
     PrintDebug("   ==> CS\n");
     print_vmcs_field(VMCS_GUEST_CS_SELECTOR);
@@ -503,6 +453,28 @@ static void print_guest_state()
     PrintDebug("   ==> IDTR\n");
     print_vmcs_field(VMCS_GUEST_IDTR_BASE);
     print_vmcs_field(VMCS_GUEST_IDTR_LIMIT);
+
+
+}
+
+
+
+
+static void print_guest_state()
+{
+    PrintDebug("VMCS_GUEST_STATE\n");
+    print_vmcs_field(VMCS_GUEST_RIP);
+    print_vmcs_field(VMCS_GUEST_RSP);
+    print_vmcs_field(VMCS_GUEST_RFLAGS);
+    print_vmcs_field(VMCS_GUEST_CR0);
+    print_vmcs_field(VMCS_GUEST_CR3);
+    print_vmcs_field(VMCS_GUEST_CR4);
+    print_vmcs_field(VMCS_GUEST_DR7);
+
+
+    PrintDebug("\n");
+
+    print_vmcs_segments();
 
     PrintDebug("\n");
 

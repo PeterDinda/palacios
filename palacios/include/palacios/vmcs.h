@@ -37,10 +37,7 @@
 /* Control register exit masks */
 #define   CR4_VMXE      0x00002000
 
-int v3_load_vmcs_guest_state(struct guest_info * info);
-int v3_update_vmcs_guest_state(struct guest_info * info);
-int v3_update_vmcs_host_state(struct guest_info * info);
-int v3_update_vmcs_ctrl_fields(struct guest_info * info);
+
 
 
 typedef enum {
@@ -243,9 +240,13 @@ struct vmx_exception_bitmap {
 
 /* Segment Selector Access Rights (32 bits) */
 /* INTEL Manual: 20-4 vol 3B */
-struct vmcs_segment_access {
+struct vmcs_segment {
+    uint16_t selector;
+    uint32_t limit;
+    uint64_t base;
+
     union {
-	uint32_t value;
+	uint32_t val;
 	struct {
 	    uint32_t    type        : 4;
 	    uint32_t    desc_type   : 1; 
@@ -259,8 +260,8 @@ struct vmcs_segment_access {
 	    uint32_t    unusable    : 1; 
 	    uint32_t    rsvd2       : 15;
 	} __attribute__((packed));
-    } __attribute__((packed));
-}__attribute__((packed));
+    } __attribute__((packed)) access;
+};
 
 
 struct vmcs_interrupt_state {
@@ -286,6 +287,19 @@ const char * v3_vmcs_field_to_str(vmcs_field_t field);
 
 void v3_print_vmcs();
 
+
+int v3_vmx_save_vmcs(struct guest_info * info);
+int v3_vmx_restore_vmcs(struct guest_info * info);
+
+
+int v3_update_vmcs_host_state(struct guest_info * info);
+int v3_update_vmcs_ctrl_fields(struct guest_info * info);
+
+
+int v3_read_vmcs_segments(struct v3_segments * segs);
+int v3_write_vmcs_segments(struct v3_segments * segs);
+void v3_vmxseg_to_seg(struct vmcs_segment * vmcs_seg, struct v3_segment * seg);
+void v3_seg_to_vmxseg(struct v3_segment * seg, struct vmcs_segment * vmcs_seg);
 
 #endif // ! __V3VEE__
 

@@ -135,7 +135,7 @@ int v3_start_vm(struct guest_info * info, unsigned int cpu_mask) {
 	    return v3_start_svm_guest(info);
 	    break;
 #endif
-#if CONFIG_VMX && 0
+#if CONFIG_VMX
 	case V3_VMX_CPU:
 	case V3_VMX_EPT_CPU:
 	    return v3_start_vmx_guest(info);

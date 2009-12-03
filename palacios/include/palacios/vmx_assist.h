@@ -55,9 +55,16 @@ union vmcs_arbytes {
             g         : 1,
             null_bit  : 1,
             reserved2 : 15;
-    } fields;
+    } __attribute__((packed)) fields;
     unsigned int bytes;
-};
+} __attribute__((packed));
+
+struct vmx_assist_segment {
+    uint32_t sel;
+    uint32_t limit;
+    uint32_t base;
+    union vmcs_arbytes arbytes;
+} __attribute__((packed));
 
 /*
  * World switch state
@@ -69,45 +76,25 @@ struct vmx_assist_context {
     uint32_t  cr0;
     uint32_t  cr3;        /* page table directory */
     uint32_t  cr4;
+
     uint32_t  idtr_limit; /* idt */
     uint32_t  idtr_base;
+
     uint32_t  gdtr_limit; /* gdt */
     uint32_t  gdtr_base;
-    uint32_t  cs_sel;     /* cs selector */
-    uint32_t  cs_limit;
-    uint32_t  cs_base;
-    union vmcs_arbytes cs_arbytes;
-    uint32_t  ds_sel;     /* ds selector */
-    uint32_t  ds_limit;
-    uint32_t  ds_base;
-    union vmcs_arbytes ds_arbytes;
-    uint32_t  es_sel;     /* es selector */
-    uint32_t  es_limit;
-    uint32_t  es_base;
-    union vmcs_arbytes es_arbytes;
-    uint32_t  ss_sel;     /* ss selector */
-    uint32_t  ss_limit;
-    uint32_t  ss_base;
-    union vmcs_arbytes ss_arbytes;
-    uint32_t  fs_sel;     /* fs selector */
-    uint32_t  fs_limit;
-    uint32_t  fs_base;
-    union vmcs_arbytes fs_arbytes;
-    uint32_t  gs_sel;     /* gs selector */
-    uint32_t  gs_limit;
-    uint32_t  gs_base;
-    union vmcs_arbytes gs_arbytes;
-    uint32_t  tr_sel;     /* task selector */
-    uint32_t  tr_limit;
-    uint32_t  tr_base;
-    union vmcs_arbytes tr_arbytes;
-    uint32_t  ldtr_sel;   /* ldtr selector */
-    uint32_t  ldtr_limit;
-    uint32_t  ldtr_base;
-    union vmcs_arbytes ldtr_arbytes;
+
+    struct vmx_assist_segment cs;
+    struct vmx_assist_segment ds;
+    struct vmx_assist_segment es;
+    struct vmx_assist_segment ss;
+    struct vmx_assist_segment fs;
+    struct vmx_assist_segment gs;
+    struct vmx_assist_segment tr;
+    struct vmx_assist_segment ldtr;
+
 
     unsigned char rm_irqbase[2];
-};
+} __attribute__((packed));
 
 typedef struct vmx_assist_context vmx_assist_context_t;
 

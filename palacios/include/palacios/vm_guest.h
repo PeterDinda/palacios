@@ -105,6 +105,7 @@ struct v3_segment {
     uint_t long_mode      : 1;
     uint_t db             : 1;
     uint_t granularity    : 1;
+    uint_t unusable       : 1;
 } __attribute__((packed));
 
 
@@ -234,7 +235,7 @@ int v3_translate_segment(struct guest_info * info, uint16_t selector, struct v3_
 
 void v3_print_guest_state(struct guest_info * info);
 
-void v3_print_segments(struct guest_info * info);
+void v3_print_segments(struct v3_segments * segs);
 void v3_print_ctrl_regs(struct guest_info * info);
 void v3_print_GPRs(struct guest_info * info);
 

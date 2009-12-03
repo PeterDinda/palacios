@@ -214,6 +214,10 @@ struct vmcs_host_state {
     struct v3_segment  tr;
 };
 
+
+
+
+
 struct vmx_data {
     vmx_state_t state;
     struct vmcs_host_state host_state;
@@ -221,6 +225,9 @@ struct vmx_data {
     addr_t vmcs_ptr_phys;
 
     uint8_t ia32e_avail;
+
+    v3_reg_t guest_cr4; /// corresponds to the CR4 Read shadow
+
 
     /* VMX Control Fields */
     struct vmx_pin_ctrls pin_ctrls;
@@ -232,7 +239,9 @@ struct vmx_data {
 
 int v3_is_vmx_capable();
 void v3_init_vmx_cpu(int cpu_id);
+int v3_start_vmx_guest(struct guest_info* info);
 
+int v3_init_vmx_vmcs(struct guest_info * info, v3_vm_class_t vm_class);
 
 #endif // ! __V3VEE__
 

@@ -18,7 +18,7 @@
  */
 
 
-static int post_config_pc(struct guest_info * info, struct v3_config * config_ptr) {
+static int pre_config_pc(struct guest_info * info, struct v3_config * config_ptr) {
 
 
     info->cpu_mode = REAL;
@@ -34,6 +34,10 @@ static int post_config_pc(struct guest_info * info, struct v3_config * config_pt
     info->vm_regs.rcx = 0;
     info->vm_regs.rax = 0;
 
+    return 0;
+}
+
+static int post_config_pc(struct guest_info * info, struct v3_config * config_ptr) {
 
 #define VGABIOS_START 0x000c0000
 #define ROMBIOS_START 0x000f0000

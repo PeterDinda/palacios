@@ -274,7 +274,7 @@ typedef struct VMCB_Control_Area vmcb_ctrl_t;
 
 
 struct vmcb_selector {
-    ushort_t selector;
+    uint16_t selector;
 
     /* These attributes are basically a direct map of the attribute fields of a segment desc.
      * The segment limit in the middle is removed and the fields are fused together
@@ -295,8 +295,8 @@ struct vmcb_selector {
 	}  __attribute__((packed)) fields;
     }  __attribute__((packed)) attrib;
 
-    uint_t  limit;
-    ullong_t base;
+    uint32_t  limit;
+    uint64_t base;
 }  __attribute__((packed));
 
 

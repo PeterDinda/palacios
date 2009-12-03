@@ -284,7 +284,7 @@ int v3_init_svm_vmcb(struct guest_info * info, v3_vm_class_t vm_class) {
 
 
 
-static int update_irq_state_atomic(struct guest_info * info) {
+static int update_irq_exit_state(struct guest_info * info) {
     vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
 
     if ((info->intr_state.irq_pending == 1) && (guest_ctrl->guest_ctrl.V_IRQ == 0)) {
@@ -317,7 +317,7 @@ static int update_irq_state_atomic(struct guest_info * info) {
 }
 
 
-static int update_irq_state(struct guest_info * info) {
+static int update_irq_entry_state(struct guest_info * info) {
     vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
 
     if (v3_excp_pending(info)) {
@@ -435,6 +435,16 @@ int v3_svm_enter(struct guest_info * info) {
     guest_state->rax = info->vm_regs.rax;
     guest_state->rip = info->rip;
     guest_state->rsp = info->vm_regs.rsp;
+
+#ifdef CONFIG_SYMBIOTIC
+    if (info->sym_state.sym_call_active == 0) {
+	update_irq_entry_state(info);
+    }
+#else 
+    update_irq_entry_state(info);
+#endif
+
+
     /* ** */
 
     /*
@@ -497,10 +507,10 @@ int v3_svm_enter(struct guest_info * info) {
 
 #ifdef CONFIG_SYMBIOTIC
     if (info->sym_state.sym_call_active == 0) {
-	update_irq_state_atomic(info);
+	update_irq_exit_state(info);
     }
 #else
-    update_irq_state_atomic(info);
+    update_irq_exit_state(info);
 #endif
 
 
@@ -517,13 +527,6 @@ int v3_svm_enter(struct guest_info * info) {
 	return -1;
     }
 
-#ifdef CONFIG_SYMBIOTIC
-    if (info->sym_state.sym_call_active == 0) {
-	update_irq_state(info);
-    }
-#else 
-    update_irq_state(info);
-#endif
 
     return 0;
 }

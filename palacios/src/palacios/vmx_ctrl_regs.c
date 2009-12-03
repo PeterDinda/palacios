@@ -25,24 +25,21 @@
 #include <palacios/vmx_assist.h>
 #include <palacios/vm_guest_mem.h>
 #include <palacios/vmm_direct_paging.h>
-#include <palacios/vmx_handler.h>
+#include <palacios/vmm_ctrl_regs.h>
 
-static v3_reg_t * get_reg_ptr(struct guest_info * info, struct vmx_exit_cr_qual cr_qual);
-static int handle_mov_to_cr0(struct guest_info * info, v3_reg_t * new_val);
+static v3_reg_t * get_reg_ptr(struct guest_info * info, struct vmx_exit_cr_qual * cr_qual);
+static int handle_mov_to_cr0(struct guest_info * info, v3_reg_t * new_val, struct vmx_exit_info * exit_info);
 static int handle_mov_to_cr3(struct guest_info * info, v3_reg_t * cr3_reg);
 static int handle_mov_from_cr3(struct guest_info * info, v3_reg_t * cr3_reg);
 
-int v3_vmx_handle_cr0_access(struct guest_info * info) {
-    struct vmx_exit_cr_qual cr_qual;
-    
-    vmcs_read(VMCS_EXIT_QUAL, &(cr_qual.value));
+int v3_vmx_handle_cr0_access(struct guest_info * info, struct vmx_exit_cr_qual * cr_qual, struct vmx_exit_info * exit_info) {
 
-    if (cr_qual.access_type < 2) {
+    if (cr_qual->access_type < 2) {
         v3_reg_t * reg = get_reg_ptr(info, cr_qual);
         
-        if (cr_qual.access_type == 0) {
+        if (cr_qual->access_type == 0) {
 
-            if (handle_mov_to_cr0(info, reg) != 0) {
+            if (handle_mov_to_cr0(info, reg, exit_info) != 0) {
                 PrintError("Could not handle CR0 write\n");
                 return -1;
             }
@@ -55,31 +52,27 @@ int v3_vmx_handle_cr0_access(struct guest_info * info) {
         return 0;
     }
 
-    PrintError("Invalid CR0 Access type?? (type=%d)\n", cr_qual.access_type);
+    PrintError("Invalid CR0 Access type?? (type=%d)\n", cr_qual->access_type);
     return -1;
 }
 
-int v3_vmx_handle_cr3_access(struct guest_info * info) {
-    struct vmx_exit_cr_qual cr_qual;
+int v3_vmx_handle_cr3_access(struct guest_info * info, struct vmx_exit_cr_qual * cr_qual) {
 
-    vmcs_read(VMCS_EXIT_QUAL, &(cr_qual.value));
-
-    if (cr_qual.access_type < 2) {
+    if (cr_qual->access_type < 2) {
         v3_reg_t * reg = get_reg_ptr(info, cr_qual);
 
-        if (cr_qual.access_type == 0) {
+        if (cr_qual->access_type == 0) {
             return handle_mov_to_cr3(info, reg);
         } else {
             return handle_mov_from_cr3(info, reg);
         }
     }
 
-    PrintError("Invalid CR3 Access type?? (type=%d)\n", cr_qual.access_type);
+    PrintError("Invalid CR3 Access type?? (type=%d)\n", cr_qual->access_type);
     return -1;
 }
 
 static int handle_mov_to_cr3(struct guest_info * info, v3_reg_t * cr3_reg) {
-    int instr_len = 0;
 
     if (info->shdw_pg_mode == SHADOW_PAGING) {
 
@@ -88,6 +81,7 @@ static int handle_mov_to_cr3(struct guest_info * info, v3_reg_t * cr3_reg) {
 		   (void *)info->ctrl_regs.cr3,
 		   (void *)info->shdw_pg_state.guest_cr3);
 	*/
+
         if (info->cpu_mode == LONG) {
             info->shdw_pg_state.guest_cr3 = (uint64_t)*cr3_reg;
         } else {
@@ -112,14 +106,12 @@ static int handle_mov_to_cr3(struct guest_info * info, v3_reg_t * cr3_reg) {
     }
 
 
-    vmcs_read(VMCS_EXIT_INSTR_LEN, &instr_len);
-    info->rip += instr_len;
 
     return 0;
 }
 
 static int handle_mov_from_cr3(struct guest_info * info, v3_reg_t * cr3_reg) {
-    int instr_len = 0;
+
 
     if (info->shdw_pg_mode == SHADOW_PAGING) {
 
@@ -137,38 +129,33 @@ static int handle_mov_from_cr3(struct guest_info * info, v3_reg_t * cr3_reg) {
     }
 
 
-    vmcs_read(VMCS_EXIT_INSTR_LEN, &instr_len);
-    info->rip += instr_len;
-
     return 0;
 }
 
-static int handle_mov_to_cr0(struct guest_info * info, v3_reg_t * new_cr0) {
+static int handle_mov_to_cr0(struct guest_info * info, v3_reg_t * new_cr0, struct vmx_exit_info * exit_info) {
     struct cr0_32 * guest_cr0 = (struct cr0_32 *)&(info->ctrl_regs.cr0);
     struct cr0_32 * shdw_cr0 = (struct cr0_32 *)&(info->shdw_pg_state.guest_cr0);
     struct cr0_32 * new_shdw_cr0 = (struct cr0_32 *)new_cr0;
     struct vmx_data * vmx_info = (struct vmx_data *)info->vmm_data;
     uint_t paging_transition = 0;
-    int instr_len = 0;
 
     /*
-    PrintDebug("Old shadow CR0: 0x%x, New shadow CR0: 0x%x\n",
-	       (uint32_t)info->shdw_pg_state.guest_cr0, (uint32_t)*new_cr0);
+      PrintDebug("Old shadow CR0: 0x%x, New shadow CR0: 0x%x\n",
+      (uint32_t)info->shdw_pg_state.guest_cr0, (uint32_t)*new_cr0);
     */
 
     if (new_shdw_cr0->pe != shdw_cr0->pe) {
 	/*
-        PrintDebug("Guest CR0: 0x%x\n", *(uint32_t *)guest_cr0);
-        PrintDebug("Old shadow CR0: 0x%x\n", *(uint32_t *)shdw_cr0);
-        PrintDebug("New shadow CR0: 0x%x\n", *(uint32_t *)new_shdw_cr0);
+	  PrintDebug("Guest CR0: 0x%x\n", *(uint32_t *)guest_cr0);
+	  PrintDebug("Old shadow CR0: 0x%x\n", *(uint32_t *)shdw_cr0);
+	  PrintDebug("New shadow CR0: 0x%x\n", *(uint32_t *)new_shdw_cr0);
 	*/
+
         if (v3_vmxassist_ctx_switch(info) != 0) {
             PrintError("Unable to execute VMXASSIST context switch!\n");
             return -1;
         }
-
-        v3_load_vmcs_guest_state(info);
-
+	
         if (vmx_info->state == VMXASSIST_ENABLED) {
             PrintDebug("Loading VMXASSIST at RIP: %p\n", (void *)info->rip);
         } else {
@@ -176,66 +163,66 @@ static int handle_mov_to_cr0(struct guest_info * info, v3_reg_t * new_cr0) {
 		       (void *)info->rip);
         }
 
-        // vmx assist sets the new cr values itself
-        return 0;
+	// PE switches modify the RIP directly, so we clear the instr_len field to avoid catastrophe
+	exit_info->instr_len = 0;
+
+	//	v3_vmx_restore_vmcs(info);
+	//      v3_print_vmcs(info);
+
+    } else {
+
+	if (new_shdw_cr0->pg != shdw_cr0->pg) {
+	    paging_transition = 1;
+	}
+	
+	// The shadow always reflects the new value
+	*shdw_cr0 = *new_shdw_cr0;
+	
+	// We don't care about most of the flags, so lets go for it 
+	// and set them to the guest values
+	*guest_cr0 = *shdw_cr0;
+	
+	// Except PG, PE, and NE, which are always set
+	guest_cr0->pe = 1;
+	guest_cr0->pg = 1;
+	guest_cr0->ne = 1;
+	
+	if (paging_transition) {
+	    // Paging transition
+	    
+	    if (v3_get_vm_mem_mode(info) == VIRTUAL_MEM) {
+		struct efer_64 * guest_efer = (struct efer_64 *)&(info->ctrl_regs.efer);
+		
+		if (guest_efer->lme == 1) {
+		    //     PrintDebug("Enabling long mode\n");
+		    
+		    guest_efer->lma = 1;
+		    guest_efer->lme = 1;
+		    
+		    vmx_info->entry_ctrls.guest_ia32e = 1;
+		}
+		
+		//            PrintDebug("Activating Shadow Page tables\n");
+		
+		if (v3_activate_shadow_pt(info) == -1) {
+		    PrintError("Failed to activate shadow page tables\n");
+		    return -1;
+		}
+		
+	    } else if (v3_activate_passthrough_pt(info) == -1) {
+		PrintError("Failed to activate passthrough page tables\n");
+		return -1;
+	    }
+	}
     }
 
-    if (new_shdw_cr0->pg != shdw_cr0->pg) {
-        paging_transition = 1;
-    }
- 
-    // The shadow always reflects the new value
-    *shdw_cr0 = *new_shdw_cr0;
-
-    // We don't care about most of the flags, so lets go for it 
-    // and set them to the guest values
-    *guest_cr0 = *shdw_cr0;
-
-    // Except PG, PE, and NE, which are always set
-    guest_cr0->pe = 1;
-    guest_cr0->pg = 1;
-    guest_cr0->ne = 1;
-
-    if (paging_transition) {
-        // Paging transition
-
-        if (v3_get_vm_mem_mode(info) == VIRTUAL_MEM) {
-            struct efer_64 * guest_efer = (struct efer_64 *)&(info->ctrl_regs.efer);
-
-            if (guest_efer->lme == 1) {
-		//     PrintDebug("Enabling long mode\n");
-
-                guest_efer->lma = 1;
-                guest_efer->lme = 1;
-
-                vmx_info->entry_ctrls.guest_ia32e = 1;
-            }
-
-	    //            PrintDebug("Activating Shadow Page tables\n");
-
-            if (v3_activate_shadow_pt(info) == -1) {
-                PrintError("Failed to activate shadow page tables\n");
-                return -1;
-            }
-
-        } else if (v3_activate_passthrough_pt(info) == -1) {
-            PrintError("Failed to activate passthrough page tables\n");
-            return -1;
-        }
-    }
-   
-    // PE loads its own RIP, otherwise we need to skip ahead an instruction
-
-    vmcs_read(VMCS_EXIT_INSTR_LEN, &instr_len);
-    info->rip += instr_len;
-   
     return 0;
 }
 
-static v3_reg_t * get_reg_ptr(struct guest_info * info, struct vmx_exit_cr_qual cr_qual) {
+static v3_reg_t * get_reg_ptr(struct guest_info * info, struct vmx_exit_cr_qual * cr_qual) {
     v3_reg_t * reg = NULL;
 
-    switch (cr_qual.gpr) {
+    switch (cr_qual->gpr) {
 	case 0:
 	    reg = &(info->vm_regs.rax);
 	    break;
