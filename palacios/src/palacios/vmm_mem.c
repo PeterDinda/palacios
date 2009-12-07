@@ -35,6 +35,9 @@ struct v3_shadow_region * insert_shadow_region(struct guest_info * info,
 
 
 static int mem_offset_hypercall(struct guest_info * info, uint_t hcall_id, void * private_data) {
+    PrintDebug("V3Vee: Memory offset hypercall (offset=%p)\n", 
+	       (void *)(info->mem_map.base_region.host_addr));
+
     info->vm_regs.rbx = info->mem_map.base_region.host_addr;
 
     return 0;
