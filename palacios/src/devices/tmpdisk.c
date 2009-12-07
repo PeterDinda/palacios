@@ -23,8 +23,8 @@
 
 struct blk_state {
     uint64_t capacity;
-    uint8_t * blk_space;
     addr_t blk_base_addr;
+    uint8_t * blk_space;
 };
 
 
@@ -42,6 +42,11 @@ static uint64_t blk_get_capacity(void * private_data) {
 static int blk_read(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * private_data) {
     struct blk_state * blk = (struct blk_state *)private_data;
 
+    if (lba + num_bytes > blk->capacity) {
+	PrintError("TMPDISK Read past end of disk\n");
+	return -1;
+    }
+
     memcpy(buf, blk->blk_space + lba, num_bytes);
 
     return 0;
@@ -52,6 +57,11 @@ static int blk_read(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * priv
 
 static int blk_write(uint8_t * buf,  uint64_t lba, uint64_t num_bytes, void * private_data) {
     struct blk_state * blk = (struct blk_state *)private_data;
+
+    if (lba + num_bytes > blk->capacity) {
+	PrintError("TMPDISK Write past end of disk\n");
+	return -1;
+    }
 
     memcpy(blk->blk_space + lba, buf, num_bytes);
 
@@ -86,21 +96,21 @@ static int blk_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
     struct blk_state * blk = NULL;
     v3_cfg_tree_t * frontend_cfg = v3_cfg_subtree(cfg, "frontend");
     char * name = v3_cfg_val(cfg, "name");
-    uint64_t capacity = atoi(v3_cfg_val(cfg, "size"));
+    uint64_t capacity = atoi(v3_cfg_val(cfg, "size")) * 1024 * 1024;
     
     if (!frontend_cfg) {
 	PrintError("Frontend Configuration not present\n");
 	return -1;
     }
 
-    PrintDebug("Creating Blk Device\n");
+    PrintDebug("Intializing TMPDISK (capacity=%d)\n", (uint32_t)capacity);
 
 
-    blk = (struct blk_state *)V3_Malloc(sizeof(struct blk_state) + ((capacity / 4096) / 8));
+    blk = (struct blk_state *)V3_Malloc(sizeof(struct blk_state));
 
     blk->capacity = capacity;
-
-    blk->blk_base_addr = (addr_t)V3_AllocPages(capacity / 4096);
+    
+    blk->blk_base_addr = (addr_t)V3_AllocPages(blk->capacity / 4096);
     blk->blk_space = (uint8_t *)V3_VAddr((void *)(blk->blk_base_addr));
     memset(blk->blk_space, 0, capacity);
 

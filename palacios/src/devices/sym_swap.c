@@ -69,6 +69,8 @@ struct swap_state {
     uint8_t * swap_space;
     addr_t swap_base_addr;
 
+    struct guest_info * vm;
+
     uint8_t usage_map[0]; // This must be the last structure member
 };
 
@@ -109,8 +111,7 @@ static inline uint32_t get_swap_index_from_offset(uint32_t offset) {
 
 
 static inline void * get_swap_entry(uint32_t pg_index, void * private_data) {
-    struct vm_device * dev = (struct vm_device *)private_data;
-    struct swap_state * swap = (struct swap_state *)(dev->private_data);
+    struct swap_state * swap = (struct swap_state *)private_data;
     void * pg_addr = NULL;
     // int ret = 0;
 
@@ -125,8 +126,7 @@ static inline void * get_swap_entry(uint32_t pg_index, void * private_data) {
 
 
 static uint64_t swap_get_capacity(void * private_data) {
-    struct vm_device * dev = (struct vm_device *)private_data;
-    struct swap_state * swap = (struct swap_state *)(dev->private_data);
+    struct swap_state * swap = (struct swap_state *)private_data;
 
     PrintDebug("SymSwap: Getting Capacity %d\n", (uint32_t)(swap->capacity));
 
@@ -141,8 +141,7 @@ static struct v3_swap_ops swap_ops = {
 
 
 static int swap_read(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * private_data) {
-    struct vm_device * dev = (struct vm_device *)private_data;
-    struct swap_state * swap = (struct swap_state *)(dev->private_data);
+    struct swap_state * swap = (struct swap_state *)private_data;
     uint32_t offset = lba;
     uint32_t length = num_bytes;
 
@@ -170,7 +169,7 @@ static int swap_read(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * pri
 
 	for (i = 0; i < length; i += 4096) {
 	    set_index_usage(swap, get_swap_index_from_offset(offset + i), 0);
-	    v3_swap_in_notify(dev->vm, get_swap_index_from_offset(offset + i), swap->hdr->info.type);
+	    v3_swap_in_notify(swap->vm, get_swap_index_from_offset(offset + i), swap->hdr->info.type);
 	}
     }
 
@@ -181,8 +180,7 @@ static int swap_read(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * pri
 
 
 static int swap_write(uint8_t * buf,  uint64_t lba, uint64_t num_bytes, void * private_data) {
-    struct vm_device * dev = (struct vm_device *)private_data;
-    struct swap_state * swap = (struct swap_state *)(dev->private_data);
+    struct swap_state * swap = (struct swap_state *)private_data;
     uint32_t offset = lba;
     uint32_t length = num_bytes;
 
@@ -207,7 +205,7 @@ static int swap_write(uint8_t * buf,  uint64_t lba, uint64_t num_bytes, void * p
 
 	PrintDebug("Swap Type=%d (magic=%s)\n", swap->hdr->info.type, swap->hdr->magic.magic);
 
-	if (v3_register_swap_disk(dev->vm, swap->hdr->info.type, &swap_ops, dev) == -1) {
+	if (v3_register_swap_disk(swap->vm, swap->hdr->info.type, &swap_ops, swap) == -1) {
 	    PrintError("Error registering symbiotic swap disk\n");
 	    return -1;
 	}
@@ -281,9 +279,11 @@ static int swap_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
 	return -1;
     }
 
-    PrintDebug("Creating Swap Device\n");
+    PrintDebug("Creating Swap Device (size=%dMB)\n", capacity / (1024 * 1024));
 
     swap = (struct swap_state *)V3_Malloc(sizeof(struct swap_state) + ((capacity / 4096) / 8));
+
+    swap->vm = vm;
 
     swap->capacity = capacity;
 

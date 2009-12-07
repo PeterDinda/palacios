@@ -32,6 +32,8 @@
 #endif
 
 
+#define SECTOR_SIZE 512
+
 #define BLK_CAPACITY_PORT     20
 #define BLK_MAX_SIZE_PORT     28
 #define BLK_MAX_SEG_PORT      32
@@ -136,8 +138,8 @@ static int handle_read_op(struct virtio_blk_state * blk_state, uint8_t * buf, ui
     int ret = -1;
 
     PrintDebug("Reading Disk\n");
-    ret = blk_state->ops->read(buf, *sector, len, (void *)(blk_state->backend_data));
-    *sector += len;
+    ret = blk_state->ops->read(buf, (*sector) * SECTOR_SIZE, len, (void *)(blk_state->backend_data));
+    *sector += (len / SECTOR_SIZE);
 
     return ret;
 }
@@ -147,8 +149,8 @@ static int handle_write_op(struct virtio_blk_state * blk_state, uint8_t * buf, u
     int ret = -1;
 
     PrintDebug("Writing Disk\n");
-    ret = blk_state->ops->write(buf, *sector, len, (void *)(blk_state->backend_data));
-    *sector += len;
+    ret = blk_state->ops->write(buf, (*sector) * SECTOR_SIZE, len, (void *)(blk_state->backend_data));
+    *sector += (len / SECTOR_SIZE);
 
     return ret;
 }
@@ -593,10 +595,10 @@ static int connect_fn(struct guest_info * info,
     blk_state->ops = ops;
     blk_state->backend_data = private_data;
 
-    blk_state->block_cfg.capacity = ops->get_capacity(private_data);
+    blk_state->block_cfg.capacity = ops->get_capacity(private_data) / SECTOR_SIZE;
 
-    PrintDebug("Virtio Capacity = %d -- 0x%p\n", (int)(virtio->block_cfg.capacity), 
-	       (void *)(addr_t)(virtio->block_cfg.capacity));
+    PrintDebug("Virtio Capacity = %d -- 0x%p\n", (int)(blk_state->block_cfg.capacity), 
+	       (void *)(addr_t)(blk_state->block_cfg.capacity));
 
     return 0;
 }
