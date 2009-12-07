@@ -21,8 +21,24 @@
 #include <palacios/vmm.h>
 #include <palacios/vm_guest.h>
 
+
+#define HYPERCALL_TEST_HCALL 0x1
+
+static int hcall_test(struct guest_info * info, uint_t hcall_id, void * private_data) {
+    info->vm_regs.rbx = 0x1111;
+    info->vm_regs.rcx = 0x2222;
+    info->vm_regs.rdx = 0x3333;
+    info->vm_regs.rsi = 0x4444;
+    info->vm_regs.rdi = 0x5555;
+    return 0;
+}
+
+
+
 void v3_init_hypercall_map(struct guest_info * info) {
     info->hcall_map.rb_node = NULL;
+
+    v3_register_hypercall(info, HYPERCALL_TEST_HCALL, hcall_test, NULL);
 }
 
 
@@ -124,5 +140,12 @@ int v3_handle_hypercall(struct guest_info * info) {
 	return -1;
     }
 
-    return hcall->hcall_fn(info, hypercall_id, hcall->priv_data);
+    if (hcall->hcall_fn(info, hypercall_id, hcall->priv_data) == 0) {
+	info->vm_regs.rax = 0;
+    } else {
+	info->vm_regs.rax = -1;
+    }
+
+    return 0;
 }
+
