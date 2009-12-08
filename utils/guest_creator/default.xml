@@ -85,13 +85,14 @@
 			<bus>pci0</bus>
 			<vendor_id>0x8086</vendor_id>
 			<device_id>0x100e</device_id>
+			<irq>59</irq>
 		</device>
 
 		<device id="PCI_PASSTHROUGH" name="e1000-hw">
 			<bus>pci0</bus>
 			<vendor_id>0x8086</vendor_id>
 			<device_id>0x107c</device_id>
-			<irq>59</irq>
+			<irq>64</irq>
 		</device>
 
 
