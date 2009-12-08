@@ -62,7 +62,19 @@ int main(int argc, char ** argv) {
     infile = argv[optind];
 
 
-    printf("Input file: %s\n", infile);
+    if (outfile == NULL) {
+	char * endptr = rindex(infile, '.');
+
+	outfile = malloc(strlen(infile) + strlen(".dat") + 1);
+
+	strncpy(outfile, infile, endptr - infile);
+
+	sprintf(outfile, "%s.dat", outfile);
+    }
+
+
+
+    printf("Input: [%s] ==>>  Output: [%s]\n", infile, outfile);
 
     ezxml_t cfg_input = ezxml_parse_file(infile);
 
@@ -86,17 +98,6 @@ int main(int argc, char ** argv) {
 
     // write output
 
-    if (outfile == NULL) {
-	char * endptr = rindex(infile, '.');
-
-	outfile = malloc(strlen(infile) + strlen(".dat") + 1);
-
-	if (endptr) {
-	    *endptr = '\0';
-	}
-
-	sprintf(outfile, "%s.dat", infile);
-    }
 
 
     write_output(outfile, cfg_input);
@@ -271,15 +272,15 @@ int copy_file(int file_index, FILE * data_file) {
 	    memset(cons_line, 0, 256);
 	    snprintf(cons_line, 256, "\r(%s) [", files[file_index].id);
 	    
-	    for (i = 0; i < num_dots; i++) {
+	    for (i = 0; i <= num_dots; i++) {
 		strcat(cons_line, "=");
 	    }
 	    
-	    for (i = 0; i < num_blanks; i++) {
+	    for (i = 0; i < num_blanks - 1; i++) {
 		strcat(cons_line, " ");
 	    }
 	    
-	    strcat(cons_line, "]");
+	    strcat(cons_line, "] ");
 
 	    //	printf("console width = %d\n", wsz.ws_col);
 	    write(STDIO_FD, cons_line, wsz.ws_col);
