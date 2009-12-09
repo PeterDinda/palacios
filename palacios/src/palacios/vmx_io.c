@@ -19,8 +19,6 @@
 
 #include <palacios/vmx_io.h>
 #include <palacios/vmm_io.h>
-#include <palacios/vmcs.h>
-#include <palacios/vmx_lowlevel.h>
 #include <palacios/vmm.h>
 #include <palacios/vmx_handler.h>
 #include <palacios/vmm_ctrl_regs.h>
@@ -59,14 +57,12 @@ int v3_init_vmx_io_map(struct guest_info * info) {
     return 0;
 }
 
-int v3_handle_vmx_io_in(struct guest_info * info) {
-    struct vmx_exit_io_qual io_qual;
+int v3_handle_vmx_io_in(struct guest_info * info, struct vmx_exit_info * exit_info) {
+    struct vmx_exit_io_qual io_qual = *(struct vmx_exit_io_qual *)&(exit_info->exit_qual);;
     struct v3_io_hook * hook = NULL;
     int read_size = 0;
-    uint32_t instr_length = 0;
 
-    io_qual.value = 0;
-    vmcs_read(VMCS_EXIT_QUAL, &(io_qual.value));
+
     hook = v3_get_io_hook(info, io_qual.port);
 
     if (hook == NULL) {
@@ -83,29 +79,22 @@ int v3_handle_vmx_io_in(struct guest_info * info) {
         return -1;
     }
 
-    if (vmcs_read(VMCS_EXIT_INSTR_LEN, &instr_length) != VMX_SUCCESS) {
-        PrintError("Could not read instruction length\n");
-        return -1;
-    }
 
-    info->rip += instr_length;
+    info->rip += exit_info->instr_len;
 
     return 0;
 }
 
-int v3_handle_vmx_io_ins(struct guest_info * info) {
-    struct vmx_exit_io_qual io_qual;
+int v3_handle_vmx_io_ins(struct guest_info * info, struct vmx_exit_info * exit_info) {
+    struct vmx_exit_io_qual io_qual = *(struct vmx_exit_io_qual *)&(exit_info->exit_qual);;
     struct v3_io_hook * hook = NULL;
     int read_size = 0;
-    addr_t guest_va = 0;
+    addr_t guest_va = exit_info->guest_linear_addr;
     addr_t host_addr = 0;
     int rdi_change = 0;
     ulong_t rep_num = 1;
     struct rflags * flags = (struct rflags *)&(info->ctrl_regs.rflags);
-    int instr_len = 0;
 
-    io_qual.value = 0;
-    vmcs_read(VMCS_EXIT_QUAL, &(io_qual.value));
     hook = v3_get_io_hook(info, io_qual.port);
 
     if (hook == NULL) {
@@ -118,10 +107,7 @@ int v3_handle_vmx_io_ins(struct guest_info * info) {
     read_size = io_qual.access_size + 1;
 
     if (io_qual.rep) {
-        struct vmx_exit_io_instr_info instr_info;
-
-	instr_info.value = 0;
-        vmcs_read(VMCS_EXIT_INSTR_INFO, &instr_info.value);
+        struct vmx_exit_io_instr_info instr_info = *(struct vmx_exit_io_instr_info *)&(exit_info->instr_info);
 
         if (instr_info.addr_size == 0) {
             rep_num = info->vm_regs.rcx & 0xffff;
@@ -143,7 +129,7 @@ int v3_handle_vmx_io_ins(struct guest_info * info) {
 
     PrintDebug("INS size=%d for %ld steps\n", read_size, rep_num);
 
-    vmcs_read(VMCS_GUEST_LINEAR_ADDR, &guest_va);
+
 
     if (guest_va_to_host_va(info, guest_va, &host_addr) == -1) {
         PrintError("Could not convert Guest VA to host VA\n");
@@ -166,21 +152,18 @@ int v3_handle_vmx_io_ins(struct guest_info * info) {
     } while (--rep_num > 0);
 
 
-    vmcs_read(VMCS_EXIT_INSTR_LEN, &instr_len);
-    info->rip += instr_len;
+    info->rip += exit_info->instr_len;
 
     return 0;
 }
 
 
 
-int v3_handle_vmx_io_out(struct guest_info * info) {
-    struct vmx_exit_io_qual io_qual;
+int v3_handle_vmx_io_out(struct guest_info * info, struct vmx_exit_info * exit_info) {
+    struct vmx_exit_io_qual io_qual = *(struct vmx_exit_io_qual *)&(exit_info->exit_qual);
     struct v3_io_hook * hook = NULL;
     int write_size = 0;
-    uint32_t instr_length = 0;
 
-    vmcs_read(VMCS_EXIT_QUAL, &(io_qual.value));
     hook =  v3_get_io_hook(info, io_qual.port);
 
     if (hook == NULL) {
@@ -198,30 +181,24 @@ int v3_handle_vmx_io_out(struct guest_info * info) {
     }
 
 
-    if (vmcs_read(VMCS_EXIT_INSTR_LEN, &instr_length) != VMX_SUCCESS) {
-        PrintError("Could not read instruction length\n");
-        return -1;
-    } 
 
-    info->rip += instr_length;
+    info->rip += exit_info->instr_len;
 
     return 0;
 }
 
 
 
-int v3_handle_vmx_io_outs(struct guest_info * info) {
-    struct vmx_exit_io_qual io_qual;
+int v3_handle_vmx_io_outs(struct guest_info * info, struct vmx_exit_info * exit_info) {
+    struct vmx_exit_io_qual io_qual = *(struct vmx_exit_io_qual *)&(exit_info->exit_qual);
     struct v3_io_hook * hook = NULL;
     int write_size;
-    addr_t guest_va;
+    addr_t guest_va = exit_info->guest_linear_addr;
     addr_t host_addr;
     int rsi_change;
     ulong_t rep_num = 1;
     struct rflags * flags = (struct rflags *)&(info->ctrl_regs.rflags);
-    int instr_len = 0;
 
-    vmcs_read(VMCS_EXIT_QUAL, &(io_qual.value));
     hook = v3_get_io_hook(info, io_qual.port);
 
     if (hook == NULL) {
@@ -235,10 +212,7 @@ int v3_handle_vmx_io_outs(struct guest_info * info) {
 
     if (io_qual.rep) {
         // Grab the address sized bits of rcx
-        struct vmx_exit_io_instr_info instr_info;
-
-	instr_info.value = 0;
-        vmcs_read(VMCS_EXIT_INSTR_INFO, &instr_info.value);
+        struct vmx_exit_io_instr_info instr_info = *(struct vmx_exit_io_instr_info *)&(exit_info->instr_info);
 
         if (instr_info.addr_size == 0) {
             rep_num = info->vm_regs.rcx & 0xffff;
@@ -258,7 +232,7 @@ int v3_handle_vmx_io_outs(struct guest_info * info) {
         rsi_change = write_size;
     }
 
-    vmcs_read(VMCS_GUEST_LINEAR_ADDR, &guest_va);
+
 
     PrintDebug("OUTS size=%d for %ld steps\n", write_size, rep_num);
 
@@ -283,8 +257,7 @@ int v3_handle_vmx_io_outs(struct guest_info * info) {
     } while (--rep_num > 0);
 
 
-    vmcs_read(VMCS_EXIT_INSTR_LEN, &instr_len);
-    info->rip += instr_len;
+    info->rip += exit_info->instr_len;
 
     return 0;
 }

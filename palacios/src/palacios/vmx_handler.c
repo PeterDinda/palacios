@@ -133,24 +133,24 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
 
             if (io_qual->dir == 0) {
                 if (io_qual->string) {
-                    if (v3_handle_vmx_io_outs(info) == -1) {
+                    if (v3_handle_vmx_io_outs(info, exit_info) == -1) {
                         PrintError("Error in outs IO handler\n");
                         return -1;
                     }
                 } else {
-                    if (v3_handle_vmx_io_out(info) == -1) {
+                    if (v3_handle_vmx_io_out(info, exit_info) == -1) {
                         PrintError("Error in out IO handler\n");
                         return -1;
                     }
                 }
             } else {
                 if (io_qual->string) {
-                    if(v3_handle_vmx_io_ins(info) == -1) {
+                    if(v3_handle_vmx_io_ins(info, exit_info) == -1) {
                         PrintError("Error in ins IO handler\n");
                         return -1;
                     }
                 } else {
-                    if (v3_handle_vmx_io_in(info) == -1) {
+                    if (v3_handle_vmx_io_in(info, exit_info) == -1) {
                         PrintError("Error in in IO handler\n");
                         return -1;
                     }
