@@ -533,7 +533,7 @@ static int irq_handler(struct guest_info * info, struct v3_interrupt * intr, voi
     struct vm_device * dev = (struct vm_device *)private_data;
     struct pt_dev_state * state = (struct pt_dev_state *)dev->private_data;
 
-    //   PrintDebug("Handling E1000 IRQ %d\n", intr->irq);
+//    PrintDebug("Handling E1000 IRQ %d\n", intr->irq);
 
     v3_pci_raise_irq(state->pci_bus, 0, state->pci_dev);
 

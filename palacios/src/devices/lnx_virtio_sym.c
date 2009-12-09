@@ -162,9 +162,10 @@ static int virtio_io_write(uint16_t port, void * src, uint_t length, void * priv
     int port_idx = port % virtio->io_range_size;
 
 
+/*
     PrintDebug("VIRTIO SYMBIOTIC Write for port %d (index=%d) len=%d, value=%x\n", 
 	       port, port_idx,  length, *(uint32_t *)src);
-
+*/
 
 
     switch (port_idx) {
@@ -270,10 +271,10 @@ static int virtio_io_read(uint16_t port, void * dst, uint_t length, void * priva
     struct virtio_sym_state * virtio = (struct virtio_sym_state *)dev->private_data;
     int port_idx = port % virtio->io_range_size;
 
-
+/*
     PrintDebug("VIRTIO SYMBIOTIC Read  for port %d (index =%d), length=%d\n", 
 	       port, port_idx, length);
-
+*/
     switch (port_idx) {
 	case HOST_FEATURES_PORT:
 	    if (length != 4) {
