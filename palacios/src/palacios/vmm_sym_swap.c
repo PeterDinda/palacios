@@ -155,6 +155,10 @@ int v3_swap_flush(struct guest_info * info) {
     swap_state->flushes++;
 #endif
 
+    if (!ht_iter) {
+	PrintError("NULL iterator in swap flush!! Probably will crash soon...\n");
+    }
+
     while (ht_iter->entry) {
 	struct shadow_pointer * tmp_shdw_ptr = NULL;
 	struct shadow_pointer * shdw_ptr = NULL;
@@ -164,12 +168,16 @@ int v3_swap_flush(struct guest_info * info) {
 	// we can leave the list_head structures and reuse them for the next round
 	
 	list_for_each_entry_safe(shdw_ptr, tmp_shdw_ptr, shdw_ptr_list, node) {
+	    if (shadw_ptr == NULL) {
+		PrintError("Null shadow pointer in swap flush!! Probably crashing soon...\n");
+	    }
+
 	    // Trigger faults for next shadow access
 	    shdw_ptr->shadow_pte->present = 0;
 	    
 	    // Delete entry from list
 	    list_del(&(shdw_ptr->node));
-	    V3_Free(shdw_ptr);	    
+	    V3_Free(shdw_ptr);
 	}
 
 	v3_htable_iter_advance(ht_iter);
