@@ -157,6 +157,8 @@ struct v3_dev_blk_ops {
 };
 
 struct v3_dev_net_ops {
+    int (*send)(uint8_t * buf, uint32_t count, void * private_data, struct vm_device *dest_dev);
+    int (*receive)(uint8_t * buf, uint32_t count, void * private_data, struct vm_device *src_dev);
 
 };
 

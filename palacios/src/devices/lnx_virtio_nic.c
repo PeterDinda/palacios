@@ -23,8 +23,8 @@
 #include <palacios/vmm.h>
 #include <palacios/vmm_dev_mgr.h>
 #include <devices/lnx_virtio_pci.h>
-#include <devices/lnx_virtio_nic.h>
 #include <palacios/vm_guest_mem.h>
+#include <palacios/vmm_sprintf.h>
 
 #include <devices/pci.h>
 
@@ -33,11 +33,6 @@
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
-
-#define NIC_STATUS_OK             0
-#define NIC_STATUS_ERR            1
-#define NIC_STATUS_NOT_SUPPORTED  2
-
 
 /* The feature bitmap for virtio net */
 #define VIRTIO_NET_F_CSUM	0	/* Host handles pkts w/ partial csum */
@@ -65,14 +60,9 @@
 
 
 struct virtio_net_hdr {
-#define VIRTIO_NET_HDR_F_NEEDS_CSUM	1	/* Use csum_start, csum_offset */
 	uint8_t flags;
 
 #define VIRTIO_NET_HDR_GSO_NONE		0	/* Not a GSO frame */
-#define VIRTIO_NET_HDR_GSO_TCPV4	1	/* GSO frame, IPv4 TCP (TSO) */
-#define VIRTIO_NET_HDR_GSO_UDP		3	/* GSO frame, IPv4 UDP (UFO) */
-#define VIRTIO_NET_HDR_GSO_TCPV6	4	/* GSO frame, IPv6 TCP */
-#define VIRTIO_NET_HDR_GSO_ECN		0x80	/* TCP has ECN set */
 	uint8_t gso_type;
 
 	uint16_t hdr_len;		/* Ethernet + IP + tcp/udp hdrs */
@@ -87,13 +77,6 @@ struct virtio_net_hdr {
 #define QUEUE_SIZE 256
 #define CTRL_QUEUE_SIZE 64
 
-
-struct v3_net_ops {
-    int (*send)(uint8_t * buf, uint32_t count, void * private_data);
-    int (*receive)(uint8_t * buf, uint32_t count, void * private_data);
-};
-
-
 #define ETH_ALEN 6
 
 struct virtio_net_config
@@ -103,24 +86,50 @@ struct virtio_net_config
     uint16_t status;
 } __attribute__((packed));
 
+struct virtio_dev_state {
+    struct vm_device * pci_bus;
+    struct list_head dev_list;
+    struct guest_info * vm;
+};
+
 struct virtio_net_state {
     struct virtio_net_config net_cfg;
     struct virtio_config virtio_cfg;
 
-    struct vm_device * pci_bus;
+    //struct vm_device * pci_bus;
     struct pci_device * pci_dev;
     
     struct virtio_queue rx_vq;   //index 0, rvq in Linux virtio driver, handle packet to guest
     struct virtio_queue tx_vq;   //index 1, svq in Linux virtio driver, handle packet from guest
     struct virtio_queue ctrl_vq; //index 2, ctrol info from guest
 
-    struct v3_net_ops * net_ops;
+    struct v3_dev_net_ops * net_ops;
+
+    void * backend_data;
+
+    struct virtio_dev_state * virtio_dev;
+
+    struct list_head dev_link;
 
     int io_range_size;
 
     void *private_data;
 };
 
+#if 0
+//Temporarly for debug
+static void print_packet(uchar_t *pkt, int size) {
+    PrintDebug("Vnet: print_data_packet: size: %d\n", size);
+    v3_hexdump(pkt, size, NULL, 0);
+}
+
+static int send (uchar_t *buf, uint_t len)
+{
+    print_packet(buf, len);
+    return len;
+}
+
+#endif
 
 static int virtio_free(struct vm_device * dev) 
 {
@@ -128,10 +137,8 @@ static int virtio_free(struct vm_device * dev)
     return -1;
 }
 
-static int virtio_reset(struct vm_device * dev) 
+static int virtio_reset(struct virtio_net_state * virtio) 
 {
-    struct virtio_net_state * virtio = (struct virtio_net_state *)dev->private_data;
-
     virtio->rx_vq.ring_desc_addr = 0;
     virtio->rx_vq.ring_avail_addr = 0;
     virtio->rx_vq.ring_used_addr = 0;
@@ -157,37 +164,13 @@ static int virtio_reset(struct vm_device * dev)
     return 0;
 }
 
-static int read_op(struct vm_device * dev, uint8_t * buf, uint32_t len) 
-{
-    struct virtio_net_state * virtio = (struct virtio_net_state *)dev->private_data; 
-    int ret = -1;
-
-    PrintDebug("Receving pkt from guest\n");
-
-    ret = virtio->net_ops->receive(buf, len, virtio->private_data);
-    return ret;
-}
-
-
-static int write_op(struct vm_device *dev, uint8_t *buf, uint32_t len) 
-{
-    struct virtio_net_state * virtio = (struct virtio_net_state *)dev->private_data; 
-    int ret = -1;
-
-    PrintDebug("Receving pkt from guest\n");
-
-    ret = virtio->net_ops->send(buf, len, virtio->private_data);
-
-    return ret;
-}
-
 
 //sending guest's packet to network sink
-static int handle_pkt_write(struct vm_device *dev, struct virtio_net_hdr *hdr, 
-			   struct vring_desc *buf_desc, uint8_t *status) 
+static int pkt_write(struct vm_device *dev,  struct vring_desc *buf_desc) 
 {
-    //struct virtio_net_state * virtio = (struct virtio_net_state *)dev->private_data;    
-    uint8_t * buf = NULL;
+    struct virtio_net_state * virtio = (struct virtio_net_state *)dev->private_data; 
+    uint8_t *buf = NULL;
+    uint32_t len = buf_desc->length;
 
     PrintDebug("Handling Virtio Net write\n");
 
@@ -198,47 +181,125 @@ static int handle_pkt_write(struct vm_device *dev, struct virtio_net_hdr *hdr,
 
     PrintDebug("Length=%d\n", buf_desc->length);
 
-    if (write_op(dev, buf, buf_desc->length) == -1) {
-	*status = NIC_STATUS_ERR;
+    if (virtio->net_ops->send(buf, len, virtio->private_data, NULL) == -1) {
 	return -1;
-    } else {
-	*status = NIC_STATUS_OK;
     }
-
-    PrintDebug("Returning Status: %d\n", *status);
 
     return 0;
 }
 
 
-
-//get packet from network, and send to guest
-static int handle_pkt_read(struct vm_device *dev, struct virtio_net_hdr *hdr, 
-			   struct vring_desc *buf_desc, uint8_t *status) 
+static int build_receive_header(struct virtio_net_hdr *hdr, const void *buf, int raw)
 {
-    //struct virtio_net_state * virtio = (struct virtio_net_state *)dev->private_data;    
-    uint8_t * buf = NULL;
+    hdr->flags = 0;
 
-    PrintDebug("Handling Virtio Net read\n");
+    if (!raw) {
+        memcpy(hdr, buf, sizeof(struct virtio_net_hdr));
+    } else {
+        memset(hdr, 0, sizeof(struct virtio_net_hdr));
+    }
 
-    if (guest_pa_to_host_va(dev->vm, buf_desc->addr_gpa, (addr_t *)&(buf)) == -1) {
+    return 0;
+}
+
+
+//sending guest's packet to network sink
+static int copy_data_to_desc(struct vm_device * dev, struct vring_desc *desc, uchar_t *buf, uint_t buf_len) 
+{
+    uint32_t len;
+    uint8_t *desc_buf = NULL;
+
+    if (guest_pa_to_host_va(dev->vm, desc->addr_gpa, (addr_t *)&(desc_buf)) == -1) {
 	PrintError("Could not translate buffer address\n");
 	return -1;
     }
 
-    PrintDebug("Length=%d\n", buf_desc->length);
+    len = (desc->length < buf_len)?desc->length:buf_len;
 
-    if (read_op(dev, buf, buf_desc->length) == -1) {
-	*status = NIC_STATUS_ERR;
-	return -1;
-    } else {
-	*status = NIC_STATUS_OK;
+    memcpy(desc_buf, buf, len);
+
+    PrintDebug("Length=%d\n", len);
+
+    return len;
+}
+
+
+//send data to guest
+static int send_pkt_to_guest(struct vm_device * dev, uchar_t *buf, uint_t size, int raw, void *private_data) 
+{
+    struct virtio_net_state *virtio = (struct virtio_net_state *)dev->private_data;    
+    struct virtio_queue *q = &(virtio->rx_vq);
+
+    PrintDebug("VIRTIO Handle RX: cur_index=%d (mod=%d), avail_index=%d\n", 
+	       q->cur_avail_idx, q->cur_avail_idx % q->queue_size, q->avail->index);
+
+    struct virtio_net_hdr hdr;
+    uint32_t hdr_len = sizeof(struct virtio_net_hdr);
+
+    uint32_t data_len = size;
+    if (!raw)
+       data_len -=  hdr_len;
+
+    build_receive_header(&hdr, buf, 1);
+
+    //queue is not set yet
+    if (q->ring_avail_addr == 0)
+		return -1;
+
+ uint32_t offset = 0;
+    if (q->cur_avail_idx < q->avail->index) {
+	struct vring_desc * hdr_desc = NULL;
+	addr_t hdr_addr = 0;
+	uint16_t hdr_idx = q->avail->ring[q->cur_avail_idx % q->queue_size];
+
+	PrintDebug("Descriptor Count=%d, index=%d\n", desc_cnt, q->cur_avail_idx % q->queue_size);
+
+	hdr_desc = &(q->desc[hdr_idx]);
+
+	PrintDebug("Header Descriptor (ptr=%p) gpa=%p, len=%d, flags=%x, next=%d\n", hdr_desc, 
+		   (void *)(hdr_desc->addr_gpa), hdr_desc->length, hdr_desc->flags, hdr_desc->next);	
+
+	if (guest_pa_to_host_va(dev->vm, hdr_desc->addr_gpa, &(hdr_addr)) == -1) {
+	    PrintError("Could not translate receive buffer address\n");
+	    return -1;
+	}
+
+	//copy header to the header descriptor
+	memcpy((void *)hdr_addr, &hdr, sizeof(struct virtio_net_hdr));
+
+	uint16_t buf_idx = 0;
+	struct vring_desc * buf_desc = NULL;
+	//copy data to the next descriptors
+	for (buf_idx = 0; offset < data_len; buf_idx = q->desc[hdr_idx].next) {
+		q->desc[buf_idx].flags = VIRTIO_NEXT_FLAG;
+		buf_desc = &(q->desc[buf_idx]);
+		uint32_t len = copy_data_to_desc(dev, buf_desc, buf+offset, data_len - offset);
+		offset += len;
+		buf_desc->length = len;  // TODO: do we need this?
+	}
+	
+	q->used->ring[q->used->index % q->queue_size].id = q->avail->ring[q->cur_avail_idx % q->queue_size];
+	q->used->ring[q->used->index % q->queue_size].length = data_len; // What do we set this to????
+
+	q->used->index++;
+	q->cur_avail_idx++;
     }
 
-    PrintDebug("Returning Status: %d\n", *status);
+    if (!(q->avail->flags & VIRTIO_NO_IRQ_FLAG)) {
+	PrintDebug("Raising IRQ %d\n",  virtio->pci_dev->config_header.intr_line);
+	v3_pci_raise_irq(virtio->virtio_dev->pci_bus, 0, virtio->pci_dev);
+	virtio->virtio_cfg.pci_isr = 0x1;
+    }
 
-    return 0;
+    return offset;
 }
+
+
+int virtio_send(struct vm_device * dev, uchar_t *buf, uint_t size)
+{
+    return send_pkt_to_guest(dev, buf, size, 1, NULL);
+}
+
 
 static int get_desc_count(struct virtio_queue * q, int index) 
 {
@@ -254,21 +315,9 @@ static int get_desc_count(struct virtio_queue * q, int index)
 }
 
 
-static int handle_ctrl(struct vm_device * dev) {
-
-
-    return 0;
-}
-
-// TODO: handle receiving, not done yet
-//send packet to guest
-static int handle_pkt_rx(struct vm_device * dev) 
+static int handle_ctrl(struct vm_device * dev) 
 {
 
-    if (handle_pkt_read(dev, NULL, 0, NULL) == -1) {
-		PrintError("Error handling nic operation\n");
-		return -1;
-	    }
 
     return 0;
 }
@@ -277,25 +326,21 @@ static int handle_pkt_rx(struct vm_device * dev)
 static int handle_pkt_tx(struct vm_device * dev) 
 {
     struct virtio_net_state *virtio = (struct virtio_net_state *)dev->private_data;    
-    struct virtio_queue *q = &(virtio->rx_vq);
+    struct virtio_queue *q = &(virtio->tx_vq);
 
-    PrintDebug("VIRTIO NIC KICK: cur_index=%d (mod=%d), avail_index=%d\n", 
-	       q->cur_avail_idx, q->cur_avail_idx % QUEUE_SIZE, q->avail->index);
+    PrintDebug("VIRTIO NIC pkt_tx: cur_index=%d (mod=%d), avail_index=%d\n", 
+	       q->cur_avail_idx, q->cur_avail_idx % q->queue_size, q->avail->index);
 
     while (q->cur_avail_idx < q->avail->index) {
 	struct vring_desc * hdr_desc = NULL;
 	struct vring_desc * buf_desc = NULL;
-	struct vring_desc * status_desc = NULL;
-	struct virtio_net_hdr hdr;
+
 	addr_t hdr_addr = 0;
-	uint16_t desc_idx = q->avail->ring[q->cur_avail_idx % QUEUE_SIZE];
+	uint16_t desc_idx = q->avail->ring[q->cur_avail_idx % q->queue_size];
 	int desc_cnt = get_desc_count(q, desc_idx);
-	int i = 0;
-	uint8_t * status_ptr = NULL;
-	uint8_t status = NIC_STATUS_OK;
 	uint32_t req_len = 0;
 
-	PrintDebug("Descriptor Count=%d, index=%d\n", desc_cnt, q->cur_avail_idx % QUEUE_SIZE);
+	PrintDebug("Descriptor Count=%d, index=%d\n", desc_cnt, q->cur_avail_idx % q->queue_size);
 
 	hdr_desc = &(q->desc[desc_idx]);
 
@@ -307,49 +352,30 @@ static int handle_pkt_tx(struct vm_device * dev)
 	    return -1;
 	}
 
-	// We copy the block op header out because we are going to modify its contents
-	memcpy(&hdr, (void *)hdr_addr, sizeof(struct virtio_net_hdr));
+	//memcpy(&hdr, (void *)hdr_addr, sizeof(struct virtio_net_hdr));
+	hdr_desc = (struct vring_desc *)hdr_addr;
 	
-	PrintDebug("NIC Op Hdr (ptr=%p) type=%d, sector=%p\n", (void *)hdr_addr, hdr.hdr_len, (void *)hdr.csum_start);
+	PrintDebug("NIC Op Hdr (ptr=%p) type=%d, sector=%p\n", (void *)hdr_addr, hdr.hdr_len, (void *)hdr.csum_start)
 
-	desc_idx = hdr_desc->next;
-
-	for (i = 0; i < desc_cnt - 2; i++) {
-	    uint8_t tmp_status = NIC_STATUS_OK;
-
+       desc_idx= hdr_desc->next;
+	int i = 0;
+	for (i = 0; i < desc_cnt - 1; i++) {	
 	    buf_desc = &(q->desc[desc_idx]);
 
 	    PrintDebug("Buffer Descriptor (ptr=%p) gpa=%p, len=%d, flags=%x, next=%d\n", buf_desc, 
 		       (void *)(buf_desc->addr_gpa), buf_desc->length, buf_desc->flags, buf_desc->next);
 
-	    if (handle_pkt_write(dev, &hdr, buf_desc, &tmp_status) == -1) {
+	    if (pkt_write(dev, buf_desc) == -1) {
 		PrintError("Error handling nic operation\n");
 		return -1;
-	    }
-
-	    if (tmp_status != NIC_STATUS_OK) {
-		status = tmp_status;
 	    }
 
 	    req_len += buf_desc->length;
 	    desc_idx = buf_desc->next;
 	}
 
-	status_desc = &(q->desc[desc_idx]);
-
-	PrintDebug("Status Descriptor (ptr=%p) gpa=%p, len=%d, flags=%x, next=%d\n", status_desc, 
-		   (void *)(status_desc->addr_gpa), status_desc->length, status_desc->flags, status_desc->next);
-
-	if (guest_pa_to_host_va(dev->vm, status_desc->addr_gpa, (addr_t *)&(status_ptr)) == -1) {
-	    PrintError("Could not translate status address\n");
-	    return -1;
-	}
-
-	req_len += status_desc->length;
-	*status_ptr = status;
-
-	q->used->ring[q->used->index % QUEUE_SIZE].id = q->avail->ring[q->cur_avail_idx % QUEUE_SIZE];
-	q->used->ring[q->used->index % QUEUE_SIZE].length = req_len; // What do we set this to????
+	q->used->ring[q->used->index % q->queue_size].id = q->avail->ring[q->cur_avail_idx % q->queue_size];
+	q->used->ring[q->used->index % q->queue_size].length = req_len; // What do we set this to????
 
 	q->used->index++;
 	q->cur_avail_idx++;
@@ -357,7 +383,7 @@ static int handle_pkt_tx(struct vm_device * dev)
 
     if (!(q->avail->flags & VIRTIO_NO_IRQ_FLAG)) {
 	PrintDebug("Raising IRQ %d\n",  virtio->pci_dev->config_header.intr_line);
-	v3_pci_raise_irq(virtio->pci_bus, 0, virtio->pci_dev);
+	v3_pci_raise_irq(virtio->virtio_dev->pci_bus, 0, virtio->pci_dev);
 	virtio->virtio_cfg.pci_isr = 0x1;
     }
 
@@ -370,10 +396,10 @@ static int virtio_setup_queue(struct vm_device * dev, struct virtio_queue *queue
     queue->pfn = pfn;
 		
     queue->ring_desc_addr = page_addr ;
-    queue->ring_avail_addr = page_addr + (QUEUE_SIZE * sizeof(struct vring_desc));
+    queue->ring_avail_addr = page_addr + (queue->queue_size* sizeof(struct vring_desc));
     queue->ring_used_addr = (queue->ring_avail_addr + \
 						 sizeof(struct vring_avail)    + \
-						 (QUEUE_SIZE * sizeof(uint16_t)));
+						 (queue->queue_size * sizeof(uint16_t)));
 		
     // round up to next page boundary.
     queue->ring_used_addr = (queue->ring_used_addr + 0xfff) & ~0xfff;
@@ -469,10 +495,7 @@ static int virtio_io_write(uint16_t port, void * src, uint_t length, void * priv
 	    PrintDebug("Handling Kick\n");
 	    uint16_t queue_idx = *(uint16_t *)src;
 	    if (queue_idx == 0){
-		    if (handle_pkt_rx(dev) == -1) {
-			PrintError("Could not handle NIC Notification\n");
-			return -1;
-		    }
+		    PrintError("receive queue notification\n");
 	    }else if (queue_idx == 1){
 		    if (handle_pkt_tx(dev) == -1) {
 			PrintError("Could not handle NIC Notification\n");
@@ -494,7 +517,7 @@ static int virtio_io_write(uint16_t port, void * src, uint_t length, void * priv
 
 	    if (virtio->virtio_cfg.status == 0) {
 		PrintDebug("Resetting device\n");
-		virtio_reset(dev);
+		virtio_reset(virtio);
 	    }
 
 	    break;
@@ -587,7 +610,7 @@ static int virtio_io_read(uint16_t port, void * dst, uint_t length, void * priva
 	case VIRTIO_ISR_PORT:
 	    *(uint8_t *)dst = virtio->virtio_cfg.pci_isr;
 	    virtio->virtio_cfg.pci_isr = 0;
-	    v3_pci_lower_irq(virtio->pci_bus, 0, virtio->pci_dev);
+	    v3_pci_lower_irq(virtio->virtio_dev->pci_bus, 0, virtio->pci_dev);
 	    break;
 
 	default:
@@ -601,124 +624,206 @@ static int virtio_io_read(uint16_t port, void * dst, uint_t length, void * priva
 
 static struct v3_device_ops dev_ops = {
     .free = virtio_free,
-    .reset = virtio_reset,
+    .reset = NULL,
     .start = NULL,
     .stop = NULL,
 };
 
 
-int v3_virtio_register_nic(struct vm_device *dev, struct v3_net_ops *ops, void *private_data) {
-    struct virtio_net_state * virtio = (struct virtio_net_state *)dev->private_data;
+static int register_dev(struct virtio_dev_state * virtio, struct virtio_net_state * net_state) {
+    // initialize PCI
+    struct pci_device * pci_dev = NULL;
+    struct v3_pci_bar bars[6];
+    int num_ports = sizeof(struct virtio_config);
+    int tmp_ports = num_ports;
+    int i;
+
+    // This gets the number of ports, rounded up to a power of 2
+    net_state->io_range_size = 1; // must be a power of 2
     
-    virtio->net_ops = ops;
+    while (tmp_ports > 0) {
+	tmp_ports >>= 1;
+	net_state->io_range_size <<= 1;
+    }
+	
+    // this is to account for any low order bits being set in num_ports
+    // if there are none, then num_ports was already a power of 2 so we shift right to reset it
+    if ((num_ports & ((net_state->io_range_size >> 1) - 1)) == 0) {
+	net_state->io_range_size >>= 1;
+    }
+    
+    
+    for (i = 0; i < 6; i++) {
+	bars[i].type = PCI_BAR_NONE;
+    }
+    
+    PrintDebug("Virtio-BLK io_range_size = %d\n", blk_state->io_range_size);
+    
+    bars[0].type = PCI_BAR_IO;
+    bars[0].default_base_port = -1;
+    bars[0].num_ports = net_state->io_range_size;
+    
+    bars[0].io_read = virtio_io_read;
+    bars[0].io_write = virtio_io_write;
+    bars[0].private_data = net_state;
+    
+    pci_dev = v3_pci_register_device(virtio->pci_bus, PCI_STD_DEVICE, 
+				     0, PCI_AUTO_DEV_NUM, 0,
+				     "LNX_VIRTIO_BLK", bars,
+				     NULL, NULL, NULL, net_state);
+    
+    if (!pci_dev) {
+	PrintError("Could not register PCI Device\n");
+	return -1;
+    }
+    
+    pci_dev->config_header.vendor_id = VIRTIO_VENDOR_ID;
+    pci_dev->config_header.subsystem_vendor_id = VIRTIO_SUBVENDOR_ID;
+	
+
+    pci_dev->config_header.device_id = VIRTIO_NET_DEV_ID;
+    pci_dev->config_header.class = PCI_CLASS_NETWORK;
+    pci_dev->config_header.subclass = PCI_NET_SUBCLASS_OTHER;
+    
+    //TODO:how to define new one for virtio net device
+    pci_dev->config_header.subsystem_id = VIRTIO_BLOCK_SUBDEVICE_ID;
+
+    pci_dev->config_header.intr_pin = 1;
+
+    pci_dev->config_header.max_latency = 1; // ?? (qemu does it...)
+
+
+    net_state->pci_dev = pci_dev;
+    //net_state->pci_bus = pci_bus;
+    
+    net_state->virtio_cfg.host_features = 0; //no features support now
+
+    net_state->rx_vq.queue_size = QUEUE_SIZE;
+    net_state->tx_vq.queue_size = QUEUE_SIZE;
+    net_state->ctrl_vq.queue_size = CTRL_QUEUE_SIZE;
+
+    net_state->virtio_dev = virtio;
+
+    virtio_reset(net_state);
 
     return 0;
 }
 
 
-static int virtio_init(struct guest_info * vm, void *cfg_data) {
-    struct vm_device * pci_bus = v3_find_dev(vm, (char *)cfg_data);
-    struct virtio_net_state * virtio_state = NULL;
-    struct pci_device * pci_dev = NULL;
+
+static int connect_fn(struct guest_info * info, 
+		      void * frontend_data, 
+		      struct v3_dev_net_ops * ops, 
+		      v3_cfg_tree_t * cfg, 
+		      void * private_data) {
+
+    struct virtio_dev_state * virtio = (struct virtio_dev_state *)frontend_data;
+
+    struct virtio_net_state * net_state  = (struct virtio_net_state *)V3_Malloc(sizeof(struct virtio_net_state));
+    memset(net_state, 0, sizeof(struct virtio_net_state));
+
+    register_dev(virtio, net_state);
+
+    net_state->net_ops = ops;
+    net_state->backend_data = private_data;
+
+    return 0;
+}
+
+
+struct net_frontend {
+    int (*connect)(struct guest_info * info, 
+		    void * frontend_data, 
+		    struct v3_dev_net_ops * ops, 
+		    v3_cfg_tree_t * cfg, 
+		    void * priv_data);
+	
+
+    struct list_head net_node;
+
+    void * priv_data;
+};
+
+
+int v3_dev_add_net_frontend(struct guest_info * info, 
+			    char * name, 
+			    int (*connect)(struct guest_info * info, 
+					    void * frontend_data, 
+					    struct v3_dev_net_ops * ops, 
+					    v3_cfg_tree_t * cfg, 
+					    void * private_data), 
+			    void * priv_data)
+{
+    struct net_frontend * frontend = NULL;
+
+    frontend = (struct net_frontend *)V3_Malloc(sizeof(struct net_frontend));
+    memset(frontend, 0, sizeof(struct net_frontend));
+    
+    frontend->connect = connect;
+    frontend->priv_data = priv_data;
+	
+    list_add(&(frontend->net_node), &(info->dev_mgr.net_list));
+    v3_htable_insert(info->dev_mgr.net_table, (addr_t)(name), (addr_t)frontend);
+
+    return 0;
+}
+
+
+int v3_dev_connect_net(struct guest_info * info, 
+		       char * frontend_name, 
+		       struct v3_dev_net_ops * ops, 
+		       v3_cfg_tree_t * cfg, 
+		       void * private_data){
+    struct net_frontend * frontend = NULL;
+
+    frontend = (struct net_frontend *)v3_htable_search(info->dev_mgr.net_table,
+						       (addr_t)frontend_name);
+    
+    if (frontend == NULL) {
+	PrintError("Could not find frontend net device %s\n", frontend_name);
+	return 0;
+    }
+
+    if (frontend->connect(info, frontend->priv_data, ops, cfg, private_data) == -1) {
+	PrintError("Error connecting to block frontend %s\n", frontend_name);
+	return -1;
+    }
+
+    return 0;
+}
+
+static int virtio_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
+    struct vm_device * pci_bus = v3_find_dev(vm, v3_cfg_val(cfg, "bus"));
+    struct virtio_dev_state * virtio_state = NULL;
+    char * name = v3_cfg_val(cfg, "name");
 
     PrintDebug("Initializing VIRTIO Network device\n");
 
     if (pci_bus == NULL) {
-	PrintError("VirtIO network devices require a PCI Bus");
+	PrintError("VirtIO devices require a PCI Bus");
 	return -1;
     }
-    
-    virtio_state  = (struct virtio_net_state *)V3_Malloc(sizeof(struct virtio_net_state));
-    memset(virtio_state, 0, sizeof(struct virtio_net_state));
 
-    struct vm_device * dev = v3_allocate_device("LNX_VIRTIO_NIC", &dev_ops, virtio_state);
+    virtio_state  = (struct virtio_dev_state *)V3_Malloc(sizeof(struct virtio_dev_state));
+    memset(virtio_state, 0, sizeof(struct virtio_dev_state));
+
+    INIT_LIST_HEAD(&(virtio_state->dev_list));
+    virtio_state->pci_bus = pci_bus;
+    virtio_state->vm = vm;
+
+    struct vm_device * dev = v3_allocate_device(name, &dev_ops, virtio_state);
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("Could not attach device %s\n", "LNX_VIRTIO_NIC");
+	PrintError("Could not attach device %s\n", name);
 	return -1;
     }
 
-
-    // PCI initialization
-    {
-	struct v3_pci_bar bars[6];
-	int num_ports = sizeof(struct virtio_config);
-	int tmp_ports = num_ports;
-	int i;
-
-	// This gets the number of ports, rounded up to a power of 2
-	virtio_state->io_range_size = 1; // must be a power of 2
-
-	while (tmp_ports > 0) {
-	    tmp_ports >>= 1;
-	    virtio_state->io_range_size <<= 1;
-	}
-	
-	// this is to account for any low order bits being set in num_ports
-	// if there are none, then num_ports was already a power of 2 so we shift right to reset it
-	if ((num_ports & ((virtio_state->io_range_size >> 1) - 1)) == 0) {
-	    virtio_state->io_range_size >>= 1;
-	}
-
-	for (i = 0; i < 6; i++) {
-	    bars[i].type = PCI_BAR_NONE;
-	}
-
-	PrintDebug("Virtio-NIC io_range_size = %d\n", virtio_state->io_range_size);
-
-	bars[0].type = PCI_BAR_IO;
-	bars[0].default_base_port = -1;
-	bars[0].num_ports = virtio_state->io_range_size;
-
-	bars[0].io_read = virtio_io_read;
-	bars[0].io_write = virtio_io_write;
-	bars[0].private_data = dev;
-
-	pci_dev = v3_pci_register_device(pci_bus, PCI_STD_DEVICE, 
-					 0, PCI_AUTO_DEV_NUM, 0,
-					 "LNX_VIRTIO_NIC", bars,
-					 NULL, NULL, NULL, dev, NULL);
-
-	if (!pci_dev) {
-	    PrintError("Could not register PCI Device\n");
-	    return -1;
-	}
-	
-	pci_dev->config_header.vendor_id = VIRTIO_VENDOR_ID;
-	pci_dev->config_header.subsystem_vendor_id = VIRTIO_SUBVENDOR_ID;
-	
-
-	pci_dev->config_header.device_id = VIRTIO_NET_DEV_ID;
-	pci_dev->config_header.class = PCI_CLASS_NETWORK;
-	pci_dev->config_header.subclass = PCI_NET_SUBCLASS_OTHER;
-
-	// TODO:how to define new one for virtio net device
-	pci_dev->config_header.subsystem_id = VIRTIO_BLOCK_SUBDEVICE_ID;
-
-
-	pci_dev->config_header.intr_pin = 1;
-
-	pci_dev->config_header.max_latency = 1; // ?? (qemu does it...)
-
-
-	virtio_state->pci_dev = pci_dev;
-	virtio_state->pci_bus = pci_bus;
+    if (v3_dev_add_net_frontend(vm, name, connect_fn, (void *)virtio_state) == -1) {
+	PrintError("Could not register %s as block frontend\n", name);
+	return -1;
     }
-
-    virtio_state->virtio_cfg.host_features = 0; //no features support now
-
-    virtio_state->rx_vq.queue_size = QUEUE_SIZE;
-    virtio_state->tx_vq.queue_size = QUEUE_SIZE;
-    virtio_state->ctrl_vq.queue_size = CTRL_QUEUE_SIZE;
-   
-
-    virtio_reset(dev);
-
-// TODO: net ops
-    virtio_state->net_ops = NULL;
 
     return 0;
 }
 
-
 device_register("LNX_VIRTIO_NIC", virtio_init)
-
+	
