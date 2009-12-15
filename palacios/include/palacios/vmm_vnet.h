@@ -96,12 +96,12 @@ struct link_entry {
 
 
 int v3_vnet_send_pkt(uchar_t *buf, int length);
-int vnet_register_device(struct vm_device *vdev, 
-						   char *dev_name, 
-						   uchar_t mac[6], 
-						   int (*netif_input)(uchar_t * pkt, uint_t size, void *private_data), 
-						   void *data);
-int vnet_unregister_device(char *dev_name);
+//int vnet_register_device(struct vm_device *vdev, 
+//			 char *dev_name, 
+//			 uchar_t mac[6], 
+//			 int (*netif_input)(uchar_t * pkt, uint_t size, void *private_data), 
+//			 void *data);
+//int vnet_unregister_device(char *dev_name);
 
 int v3_vnet_pkt_process(); 
 
