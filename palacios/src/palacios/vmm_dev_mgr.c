@@ -303,3 +303,68 @@ int v3_dev_connect_blk(struct guest_info * info,
 
     return 0;
 }
+
+
+
+struct net_frontend {
+    int (*connect)(struct guest_info * info, 
+		    void * frontend_data, 
+		    struct v3_dev_net_ops * ops, 
+		    v3_cfg_tree_t * cfg, 
+		    void * priv_data);
+	
+
+    struct list_head net_node;
+
+    void * priv_data;
+};
+
+
+int v3_dev_add_net_frontend(struct guest_info * info, 
+			    char * name, 
+			    int (*connect)(struct guest_info * info, 
+					    void * frontend_data, 
+					    struct v3_dev_net_ops * ops, 
+					    v3_cfg_tree_t * cfg, 
+					    void * private_data), 
+			    void * priv_data)
+{
+    struct net_frontend * frontend = NULL;
+
+    frontend = (struct net_frontend *)V3_Malloc(sizeof(struct net_frontend));
+    memset(frontend, 0, sizeof(struct net_frontend));
+    
+    frontend->connect = connect;
+    frontend->priv_data = priv_data;
+	
+    list_add(&(frontend->net_node), &(info->dev_mgr.net_list));
+    v3_htable_insert(info->dev_mgr.net_table, (addr_t)(name), (addr_t)frontend);
+
+    return 0;
+}
+
+
+int v3_dev_connect_net(struct guest_info * info, 
+		       char * frontend_name, 
+		       struct v3_dev_net_ops * ops, 
+		       v3_cfg_tree_t * cfg, 
+		       void * private_data)
+{
+    struct net_frontend * frontend = NULL;
+
+    frontend = (struct net_frontend *)v3_htable_search(info->dev_mgr.net_table,
+						       (addr_t)frontend_name);
+    
+    if (frontend == NULL) {
+	PrintError("Could not find frontend net device %s\n", frontend_name);
+	return 0;
+    }
+
+    if (frontend->connect(info, frontend->priv_data, ops, cfg, private_data) == -1) {
+	PrintError("Error connecting to net frontend %s\n", frontend_name);
+	return -1;
+    }
+
+    return 0;
+}
+
