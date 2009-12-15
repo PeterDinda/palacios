@@ -702,9 +702,12 @@ int v3_start_vmx_guest(struct guest_info* info) {
 	    return -1;
 	}
 
+/*
 	if ((info->num_exits % 5000) == 0) {
-	    V3_Print("SVM Exit number %d\n", (uint32_t)info->num_exits);
+	    V3_Print("VMX Exit number %d\n", (uint32_t)info->num_exits);
 	}
+*/
+
     }
 
     return 0;

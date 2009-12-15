@@ -168,7 +168,7 @@ int v3_swap_flush(struct guest_info * info) {
 	// we can leave the list_head structures and reuse them for the next round
 	
 	list_for_each_entry_safe(shdw_ptr, tmp_shdw_ptr, shdw_ptr_list, node) {
-	    if (shadw_ptr == NULL) {
+	    if (shdw_ptr == NULL) {
 		PrintError("Null shadow pointer in swap flush!! Probably crashing soon...\n");
 	    }
 
@@ -187,7 +187,7 @@ int v3_swap_flush(struct guest_info * info) {
 }
 
 int v3_get_vaddr_perms(struct guest_info * info, addr_t vaddr, pte32_t * guest_pte, pf_error_t * page_perms) {
-    uint32_t pte_val = *(uint32_t *)guest_pte;
+    uint64_t pte_val = (uint64_t)*(uint32_t *)guest_pte;
 
     // symcall to check if page is in cache or on swap disk
     if (v3_sym_call3(info, SYMCALL_MEM_LOOKUP, (uint64_t *)&vaddr, (uint64_t *)&pte_val, (uint64_t *)page_perms) == -1) {
@@ -195,7 +195,7 @@ int v3_get_vaddr_perms(struct guest_info * info, addr_t vaddr, pte32_t * guest_p
 	return -1;
     }
 
-    V3_Print("page perms = %x\n", *(uint32_t *)page_perms);
+    //    V3_Print("page perms = %x\n", *(uint32_t *)page_perms);
 
     return 0;
 }

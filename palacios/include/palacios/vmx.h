@@ -239,7 +239,9 @@ struct vmx_data {
 
 int v3_is_vmx_capable();
 void v3_init_vmx_cpu(int cpu_id);
+
 int v3_start_vmx_guest(struct guest_info* info);
+int v3_vmx_enter(struct guest_info * info);
 
 int v3_init_vmx_vmcs(struct guest_info * info, v3_vm_class_t vm_class);
 

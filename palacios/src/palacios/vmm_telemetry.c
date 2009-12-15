@@ -27,7 +27,7 @@
 #ifdef CONFIG_TELEMETRY_GRANULARITY
 #define DEFAULT_GRANULARITY CONFIG_TELEMETRY_GRANULARITY
 #else 
-#define DEFAULT_GRANULARITY 20000
+#define DEFAULT_GRANULARITY 50000
 #endif
 
 
@@ -223,4 +223,7 @@ void v3_print_telemetry(struct guest_info * info) {
     }
 
     telemetry->prev_tsc = invoke_tsc;
+
+    V3_Print("%s Telemetry done\n", hdr_buf);
+
 }

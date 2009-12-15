@@ -257,12 +257,12 @@ static int handle_pte_shadow_pagefault_32(struct guest_info * info, addr_t fault
 		   (error_code.user == 0) ) ) {
 		addr_t swp_pg_addr = 0;
 
-		V3_Print("Page fault on swapped out page (vaddr=%p) (pte=%x) (error_code=%x)\n", 
+		PrintDebug("Page fault on swapped out page (vaddr=%p) (pte=%x) (error_code=%x)\n", 
 			 (void *)fault_addr, *(uint32_t *)guest_pte, *(uint32_t *)&error_code);
 
 		swp_pg_addr = v3_get_swapped_pg_addr(info, shadow_pte, guest_pte);
 
-		V3_Print("Swapped page address=%p\n", (void *)swp_pg_addr);
+		PrintDebug("Swapped page address=%p\n", (void *)swp_pg_addr);
 
 		if (swp_pg_addr != 0) {
 		    shadow_pte->writable = swap_perms.write;
@@ -282,6 +282,8 @@ static int handle_pte_shadow_pagefault_32(struct guest_info * info, addr_t fault
 
 		    return 0;
 		}
+	    } else {
+		PrintDebug("Not a sym swappable page\n");
 	    }
 	}
 #endif

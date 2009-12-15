@@ -24,6 +24,7 @@
 #include <palacios/vmm_instrument.h>
 #include <palacios/vmm_ctrl_regs.h>
 #include <palacios/vmm_lowlevel.h>
+#include <palacios/vmm_sprintf.h>
 
 #ifdef CONFIG_SVM
 #include <palacios/svm.h>
@@ -36,9 +37,7 @@
 v3_cpu_arch_t v3_cpu_types[CONFIG_MAX_CPUS];
 struct v3_os_hooks * os_hooks = NULL;
 
-
-
-
+int v3_dbg_enable = 0;
 
 
 static struct guest_info * allocate_guest() {
@@ -72,8 +71,6 @@ static void init_cpu(void * arg) {
 
 
 
-
-
 void Init_V3(struct v3_os_hooks * hooks, int num_cpus) {
     int i;
 
@@ -101,6 +98,7 @@ void Init_V3(struct v3_os_hooks * hooks, int num_cpus) {
     }
 }
 
+
 v3_cpu_arch_t v3_get_cpu_type(int cpu_id) {
     return v3_cpu_types[cpu_id];
 }
@@ -121,6 +119,7 @@ struct guest_info * v3_create_vm(void * cfg) {
 
     return info;
 }
+
 
 int v3_start_vm(struct guest_info * info, unsigned int cpu_mask) {
     
@@ -145,7 +144,6 @@ int v3_start_vm(struct guest_info * info, unsigned int cpu_mask) {
 	    PrintError("Attemping to enter a guest on an invalid CPU\n");
 	    return -1;
     }
-
 
     return 0;
 }
@@ -190,6 +188,7 @@ v3_cpu_mode_t v3_get_host_cpu_mode() {
     } while (0)						\
 
 
+
 void v3_yield_cond(struct guest_info * info) {
     uint64_t cur_cycle;
     rdtscll(cur_cycle);
@@ -205,6 +204,7 @@ void v3_yield_cond(struct guest_info * info) {
     }
 }
 
+
 /* 
  * unconditional cpu yield 
  * if the yielding thread is a guest context, the guest quantum is reset on resumption 
@@ -217,6 +217,23 @@ void v3_yield(struct guest_info * info) {
 	rdtscll(info->yield_start_cycle);
     }
 }
+
+
+
+
+void v3_print_cond(const char * fmt, ...) {
+    if (v3_dbg_enable == 1) {
+	char buf[2048];
+	va_list ap;
+
+	va_start(ap, fmt);
+	vsnprintf(buf, 2048, fmt, ap);
+	va_end(ap);
+
+	V3_Print("%s", buf);
+    }    
+}
+
 
 
 
@@ -243,8 +260,6 @@ unsigned int v3_get_cpu_id() {
 
 
 
-
-
 int v3_vm_enter(struct guest_info * info) {
     switch (v3_cpu_types[info->cpu_id]) {
 #ifdef CONFIG_SVM
@@ -253,7 +268,7 @@ int v3_vm_enter(struct guest_info * info) {
 	    return v3_svm_enter(info);
 	    break;
 #endif
-#if CONFIG_VMX && 0
+#if CONFIG_VMX
 	case V3_VMX_CPU:
 	case V3_VMX_EPT_CPU:
 	    return v3_vmx_enter(info);
@@ -264,6 +279,3 @@ int v3_vm_enter(struct guest_info * info) {
 	    return -1;
     }
 }
-
-
-

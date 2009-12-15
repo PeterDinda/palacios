@@ -178,6 +178,10 @@ struct guest_info {
 #ifdef CONFIG_SYMBIOTIC
     // Symbiotic state
     struct v3_sym_state sym_state;
+
+#ifdef CONFIG_SYMBIOTIC_SWAP
+    struct v3_sym_swap_state swap_state;
+#endif
 #endif
 
     v3_hypercall_map_t hcall_map;
@@ -211,9 +215,7 @@ struct guest_info {
 #endif
 
 
-#ifdef CONFIG_SYMBIOTIC_SWAP
-    struct v3_sym_swap_state swap_state;
-#endif
+
 
     void * decoder_state;
 

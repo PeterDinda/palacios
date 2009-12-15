@@ -188,6 +188,7 @@ int v3_dev_add_net_frontend(struct guest_info * info,
 					    v3_cfg_tree_t * cfg, 
 					    void * private_data), 
 			    void * priv_data);
+
 int v3_dev_connect_net(struct guest_info * info, 
 		       char * frontend_name, 
 		       struct v3_dev_net_ops * ops, 

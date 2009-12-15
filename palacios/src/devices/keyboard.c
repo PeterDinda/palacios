@@ -332,7 +332,7 @@ static int key_event_handler(struct guest_info * info,
 	//	PrintGuestPageTables(info, info->shdw_pg_state.guest_cr3);
     } 
 #ifdef CONFIG_SYMBIOTIC
-else if (evt->scan_code == 0x43) { // F9 Sym test
+    else if (evt->scan_code == 0x43) { // F9 Sym test
 	PrintDebug("Testing sym call\n");
 	sym_arg_t a0 = 0x1111;
 	sym_arg_t a1 = 0x2222;
@@ -345,12 +345,15 @@ else if (evt->scan_code == 0x43) { // F9 Sym test
 	V3_Print("Symcall  Test Returned arg0=%x, arg1=%x, arg2=%x, arg3=%x, arg4=%x\n",
 		 (uint32_t)a0, (uint32_t)a1, (uint32_t)a2, (uint32_t)a3, (uint32_t)a4);
 
-    } else if (evt->scan_code == 0x42) { // F8 Sym test2
-	PrintDebug("Testing sym call\n");
-	sym_arg_t addr = 0;
-	v3_sym_call1(info, SYMCALL_MEM_LOOKUP, &addr);
-    }
+    } 
 #endif
+    else if (evt->scan_code == 0x42) { // F8 Sym test2
+	extern int v3_dbg_enable;
+	
+	PrintDebug("Toggling Debugging\n");	
+	v3_dbg_enable ^= 1;
+    }
+
 
 
     addr_t irq_state = v3_lock_irqsave(state->kb_lock);

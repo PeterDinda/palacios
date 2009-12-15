@@ -20,6 +20,7 @@
 #include <palacios/vmm.h>
 #include <palacios/vmm_dev_mgr.h>
 #include <palacios/vmm_sym_swap.h>
+#include <palacios/vm_guest.h>
 
 
 #ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
@@ -146,10 +147,10 @@ static int swap_read(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * pri
     uint32_t length = num_bytes;
 
   
-    /*  
-	PrintDebug("SymSwap: Reading %d bytes to %p from %p\n", length,
-	buf, (void *)(swap->swap_space + offset));
-    */
+      
+    PrintDebug("SymSwap: Reading %d bytes to %p from %p\n", length,
+	       buf, (void *)(swap->swap_space + offset));
+	
 
     if (length % 4096) {
 	PrintError("Swapping in length that is not a page multiple\n");
@@ -314,7 +315,7 @@ static int swap_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
     }
 
 #ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
-    if (vm->enable_telemetry) {
+    if (vm->enable_telemetry == 1) {
 	v3_add_telemetry_cb(vm, telemetry_cb, dev);
     }
 #endif

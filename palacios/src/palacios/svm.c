@@ -44,6 +44,8 @@
 #include <palacios/vmm_sprintf.h>
 
 
+uint32_t v3_last_exit;
+
 // This is a global pointer to the host's VMCB
 static addr_t host_vmcbs[CONFIG_MAX_CPUS] = { [0 ... CONFIG_MAX_CPUS - 1] = 0};
 
@@ -467,6 +469,11 @@ int v3_svm_enter(struct guest_info * info) {
 	
     v3_svm_launch((vmcb_t *)V3_PAddr(info->vmm_data), &(info->vm_regs), (vmcb_t *)host_vmcbs[info->cpu_id]);
     
+
+    v3_last_exit = (uint32_t)(guest_ctrl->exit_code);
+
+    //  v3_print_cond("SVM Returned: Exit Code: %x\n", (uint32_t)(guest_ctrl->exit_code));
+
     rdtscll(tmp_tsc);
 
     //PrintDebug("SVM Returned\n");
@@ -583,13 +590,12 @@ int v3_start_svm_guest(struct guest_info *info) {
 	    break;
 	}
 	
+/*
 	if ((info->num_exits % 5000) == 0) {
 	    V3_Print("SVM Exit number %d\n", (uint32_t)info->num_exits);
 	}
-
-
+*/
 	
-
     }
     return 0;
 }

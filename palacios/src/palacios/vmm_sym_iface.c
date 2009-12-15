@@ -238,7 +238,7 @@ static int sym_call_err(struct guest_info * info, uint_t hcall_id, void * privat
 static int sym_call_ret(struct guest_info * info, uint_t hcall_id, void * private_data) {
     struct v3_sym_state * state = (struct v3_sym_state *)&(info->sym_state);
 
-    //    PrintError("Return from sym call\n");
+    //    PrintError("Return from sym call (ID=%x)\n", hcall_id);
     //   v3_print_guest_state(info);
 
     state->sym_call_returned = 1;
@@ -325,7 +325,7 @@ int v3_sym_call(struct guest_info * info,
     if (execute_symcall(info) == -1) {
 	PrintError("SYMCALL error\n");
 	return -1;
-    } 
+    }
 
     // clear sym flags
     state->sym_call_active = 0;
@@ -348,7 +348,7 @@ int v3_sym_call(struct guest_info * info,
 
 
 
-    //    PrintDebug("restoring guest state\n");
+    //    PrintError("restoring guest state\n");
     //    v3_print_guest_state(info);
 
     return 0;
