@@ -24,57 +24,68 @@
  */
  
 #include <palacios/vmm_vnet.h>
+#include <palacios/vmm_hypercall.h>
+#include <palacios/vm_guest_mem.h>
 
-static const char any_type_str[] = "any";
-static const char not_type_str[] = "not";
-static const char none_type_str[] = "none";
-static const char empty_type_str[] = "empty";
+#ifndef CONFIG_DEBUG_VNET
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
+#endif
 
-static const char link_interface_str[] = "INTERFACE";
-static const char link_edge_str[] = "EDGE";
-static const char link_any_str[] = "ANY";
 
-static const char link_prot_tcp_str[] = "tcp";
-static const char link_prot_udp_str[] = "udp";
-
-typedef enum {MAC_ANY, MAC_NOT, MAC_NONE, MAC_EMPTY} mac_type_t; //for 'src_mac_qual' and 'dst_mac_qual'
-typedef enum {LINK_INTERFACE, LINK_EDGE, LINK_ANY} link_type_t; //for 'type' and 'src_type' in struct routing
-typedef enum {TCP_TYPE, UDP_TYPE} link_prot_type_t;
-
-static const uint_t hash_key_size = 16;
-static SOCK g_udp_sockfd;
-static struct gen_queue * g_inpkt_q;
-static bool use_tcp = false;
-static uint_t vnet_udp_port = 1022;
-
-struct raw_ethernet_pkt {
-  int  size;
-  int type; // vm or link type:  INTERFACE|EDGE
-  char  data[ETHERNET_PACKET_LEN];
+struct ethernet_pkt {
+  uint32_t size;
+  uint16_t type;
+  char data[ETHERNET_PACKET_LEN];
 };
 
-//static char *vnet_version = "0.9";
-//static int vnet_server = 0;
 
+// 14 (ethernet frame) + 20 bytes
+struct in_pkt_header {
+    char ethernetdest[6];
+    char ethernetsrc[6];
+    unsigned char ethernettype[2]; // indicates layer 3 protocol type
+    char ip[20];
+};
 
-#define MAX_LINKS 1
-#define MAX_ROUTES 1
-#define MAX_DEVICES 16
+#define VNET_INITAB_HCALL 0xca00  // inital hypercall id
 
-static struct topology g_links[MAX_LINKS];
-static int g_num_links; //The current number of links
-static int g_first_link;
-static int g_last_link;
+#define MAX_LINKS 10
+#define MAX_ROUTES 10
+#define HASH_KEY_LEN 16
+#define MIN_CACHE_SIZE 100
+static const uint_t hash_key_size = 16;
 
-static struct routing g_routes[MAX_ROUTES];
-static int g_num_routes; //The current number of routes
-static int g_first_route;
-static int g_last_route;
+struct link_table {
+    struct link_entry *links[MAX_LINKS];
+    uint16_t size;
+};
 
-static struct device_list g_devices[MAX_DEVICES];
-static int g_num_devices;
-static int g_first_device;
-static int g_last_device;
+struct routing_table {
+    struct routing_entry *routes[MAX_ROUTES];
+    uint16_t size;
+};
+
+static struct link_table g_links;
+static struct routing_table g_routes;
+static struct gen_queue *g_inpkt_q;
+
+/* Hash key format:
+ * 0-5:     src_eth_addr
+ * 6-11:    dest_eth_addr
+ * 12:      src type
+ * 13-16:   src index
+ */
+typedef char *route_hashkey_t;
+
+// This is the hash value, Format: 0: num_matched_routes, 1...n: matches[] -- TY
+struct route_cache_entry {
+    int num_matched_routes;
+    int * matches; 
+};
+
+//the route cache
+static struct hashtable *g_route_cache; 
 
 
 static void print_packet(char *pkt, int size) {
@@ -99,46 +110,27 @@ static void print_device_addr(char *ethaddr) {
 
 
 //network connection functions 
-static inline void raw_ethernet_packet_init(struct raw_ethernet_pkt * pt, const char * data, const size_t size) {
+static inline void ethernet_packet_init(struct ethernet_pkt *pt, const char *data, const size_t size) 
+{
     pt->size = size;
     memcpy(pt->data, data, size);
 }
 
-
-
-/* Hash key format:
- * 0-5:     src_eth_addr
- * 6-11:    dest_eth_addr
- * 12:      src type
- * 13-16:   src index
- */
-typedef char * route_hashkey_t;
-
-// This is the hash value, Format: 0: num_matched_routes, 1...n: matches[] -- TY
-struct route_cache_entry {
-    int num_matched_routes;
-    int * matches; 
-};
-
-#define HASH_KEY_LEN 16
-#define MIN_CACHE_SIZE 100
-
-
-//Header of the route cache
-static struct hashtable * g_route_cache; 
-
-static uint_t hash_from_key_fn(addr_t hashkey) {    
+static uint_t hash_from_key_fn(addr_t hashkey) 
+{    
     uint8_t * key = (uint8_t *)hashkey;
     return v3_hash_buffer(key, HASH_KEY_LEN);
 }
 
-static int hash_key_equal(addr_t key1, addr_t key2) {
+static int hash_key_equal(addr_t key1, addr_t key2) 
+{
     uint8_t * buf1 = (uint8_t *)key1;
     uint8_t * buf2 = (uint8_t *)key2;
     return (memcmp(buf1, buf2, HASH_KEY_LEN) == 0);
 }
 
-static int init_route_cache() {
+static int init_route_cache() 
+{
     g_route_cache = v3_create_htable(MIN_CACHE_SIZE, &hash_from_key_fn, &hash_key_equal);
 
     if (g_route_cache == NULL){
@@ -149,7 +141,12 @@ static int init_route_cache() {
     return 0;
 }
 
-static void make_hash_key(route_hashkey_t hashkey, char src_addr[6], char dest_addr[6], char src_type, int src_index) {
+static void make_hash_key(route_hashkey_t hashkey,
+						      char src_addr[6],
+						      char dest_addr[6],
+						      char src_type,
+						      int src_index) 
+{
     int j;
 
     for (j = 0; j < 6; j++) {
@@ -161,7 +158,9 @@ static void make_hash_key(route_hashkey_t hashkey, char src_addr[6], char dest_a
 
     *(int *)(hashkey + 12) = src_index;
 }
-static int add_route_to_cache(route_hashkey_t hashkey, int num_matched_r, int * matches) {
+
+static int add_route_to_cache(route_hashkey_t hashkey, int num_matched_r, int *matches) 
+{
     struct route_cache_entry * new_entry = NULL;
     int i;
     
@@ -194,7 +193,8 @@ static int add_route_to_cache(route_hashkey_t hashkey, int num_matched_r, int * 
     return 0;
 }
 
-static int clear_hash_cache() {
+static int clear_hash_cache() 
+{
     v3_free_htable(g_route_cache, 1, 1);
 		
     g_route_cache = v3_create_htable(MIN_CACHE_SIZE, hash_from_key_fn, hash_key_equal);
@@ -207,7 +207,8 @@ static int clear_hash_cache() {
     return 0;
 }
 
-static int look_into_cache(route_hashkey_t hashkey, int * matches) {
+static int look_into_cache(route_hashkey_t hashkey, int *matches) 
+{
     int n_matches = -1;
     int i = 0;
     struct route_cache_entry * found = NULL;
@@ -225,10 +226,8 @@ static int look_into_cache(route_hashkey_t hashkey, int * matches) {
     return n_matches;
 }
 
-
-
-
-static inline uint8_t hex_nybble_to_nybble(const uint8_t hexnybble) {
+static inline uint8_t hex_nybble_to_nybble(const uint8_t hexnybble) 
+{
     uint8_t x = toupper(hexnybble);
 
     if (isdigit(x)) {
@@ -238,13 +237,14 @@ static inline uint8_t hex_nybble_to_nybble(const uint8_t hexnybble) {
     }
 }
 
-static inline uint8_t hex_byte_to_byte(const uint8_t hexbyte[2]) {
+static inline uint8_t hex_byte_to_byte(const uint8_t hexbyte[2]) 
+{
     return ((hex_nybble_to_nybble(hexbyte[0]) << 4) + 
 	    (hex_nybble_to_nybble(hexbyte[1]) & 0xf));
 }
 
-
-static inline void string_to_mac(const char * str, uint8_t mac[6]) {
+static inline void string_to_mac(const char *str, uint8_t mac[6]) 
+{
     int k;
 
     for (k = 0; k < 6; k++) {
@@ -252,63 +252,39 @@ static inline void string_to_mac(const char * str, uint8_t mac[6]) {
     }
 }
 
-static inline void mac_to_string(int mac[6], char * buf) {
+static inline void mac_to_string(char mac[6], char * buf) 
+{
     snprintf(buf, 20, "%x:%x:%x:%x:%x:%x", 
 	     mac[0], mac[1], mac[2],
 	     mac[3], mac[4], mac[5]);
 }
 
-#if 0
-static void ip_to_string(uint32_t addr, char * buf) {
-    uint32_t addr_st;
-    char * tmp_str;
+static int add_link_entry(struct link_entry *link)
+{ 
+    int idx;
     
-    addr_st = v3_htonl(addr);
-    tmp_str = v3_inet_ntoa(addr_st);
-    
-    memcpy(buf, tmp_str, strlen(tmp_str));
-}
-#endif
-
-int find_link_by_fd(SOCK sock) {
-    int i;
-
-    FOREACH_LINK(i, g_links, g_first_link) {
-	if (g_links[i].link_sock == sock) {
-	    return i;
+    for (idx = 0; idx < MAX_LINKS; idx++) {
+	if (g_links.links[idx] == NULL) {
+ 	    g_links.links[idx] = link;
+	    g_links.size ++;
+	    
+	    return idx;
 	}
     }
     
     return -1;
 }
 
-int vnet_add_link_entry(unsigned long dest, int type, int data_port,  SOCK fd) {
-    int i;
+static int add_route_entry(struct routing_entry *route)
+{ 
+    int idx;
     
-    for (i = 0; i < MAX_LINKS; i++) {
-	if (g_links[i].use == 0) {
-	    g_links[i].dest = dest;
-	    g_links[i].type = type;
-	    g_links[i].link_sock = fd;
-	    g_links[i].remote_port = data_port;
-	    g_links[i].use = 1;
-
-	    if (g_first_link == -1) {
-	        g_first_link = i;
-	    }
-
-	    g_links[i].prev = g_last_link;
-	    g_links[i].next = -1;
+    for (idx = 0; idx < MAX_ROUTES; idx++) {
+	if (g_routes.routes[idx] == NULL) {
+ 	    g_routes.routes[idx] = route;
+	    g_routes.size ++;
 	    
-	    if (g_last_link != -1) {
-	        g_links[g_last_link].next = i;
-	    }
-	    
-	    g_last_link = i;
-	    
-	    g_num_links++;
-	    
-	    return i;
+	    return idx;
 	}
     }
     
@@ -316,156 +292,78 @@ int vnet_add_link_entry(unsigned long dest, int type, int data_port,  SOCK fd) {
 }
 
 
-int add_sock(struct sock_list *socks, int  len, int *first_sock, int *last_sock, SOCK fd) {
-    int i;
+int vnet_add_route_entry(char src_mac[6],
+							char dest_mac[6],
+							int src_mac_qual,
+							int dest_mac_qual,
+							int link_idx,
+							link_type_t link_type,
+							int src,
+							link_type_t src_type)
+{
+    struct routing_entry *new_route = (struct routing_entry *)V3_Malloc(sizeof(struct routing_entry));
 
-    for (i = 0; i < len; i++) {
-	if (socks[i].sock == -1) {
-	    socks[i].sock = fd;
-	    
-	    if (*first_sock == -1) {
-		*first_sock = i;
-	    }
-	    
-	    socks[i].prev = *last_sock;
-	    socks[i].next = -1;
-	    
-	    if (*last_sock != -1) {
-		socks[*last_sock].next = i;
-	    }
-	    
-	    *last_sock = i;
-	    
-	    return i;
-	}
+    memset(new_route, 0, sizeof(struct routing_entry));
+
+    if ((src_mac_qual != MAC_ANY) && (src_mac_qual != MAC_NONE)) {
+        memcpy(new_route->src_mac, src_mac, 6);
     }
-    return -1;
-}
-
-
-int vnet_add_route_entry(char src_mac[6], char dest_mac[6], int src_mac_qual, int dest_mac_qual, int dest, int type, int src, int src_type) {
-    int i;
-    
-    for(i = 0; i < MAX_ROUTES; i++) {
-	if (g_routes[i].use == 0) {
 	    
-	    if ((src_mac_qual != MAC_ANY) && (src_mac_qual != MAC_NONE)) {
-	        memcpy(g_routes[i].src_mac, src_mac, 6);
-	    } else {
-	        memset(g_routes[i].src_mac, 0, 6);
-	    }
-	    
-	    if ((dest_mac_qual != MAC_ANY) && (dest_mac_qual != MAC_NONE)) {
-	        memcpy(g_routes[i].dest_mac, dest_mac, 6);
-	    } else {
-	        memset(g_routes[i].dest_mac, 0, 6);
-	    }
-	    
-	    g_routes[i].src_mac_qual = src_mac_qual;
-	    g_routes[i].dest_mac_qual = dest_mac_qual;
-	    g_routes[i].dest = dest;
-	    g_routes[i].type = type;
-	    g_routes[i].src = src;
-	    g_routes[i].src_type = src_type;
-	    g_routes[i].use = 1;
-	    
-	    if (g_first_route == -1) {
-		g_first_route = i;
-	    }
-	    
-	    g_routes[i].prev = g_last_route;
-	    g_routes[i].next = -1;
-	    
-	    if (g_last_route != -1) {
-	        g_routes[g_last_route].next = i;
-	    }
-	    
-	    g_last_route = i;
-	    
-	    g_num_routes++;
-	    
-	    return i;
-	}
+    if ((dest_mac_qual != MAC_ANY) && (dest_mac_qual != MAC_NONE)) {
+        memcpy(new_route->dest_mac, dest_mac, 6);
     }
+	    
+    new_route->src_mac_qual = src_mac_qual;
+    new_route->dest_mac_qual = dest_mac_qual;
+    new_route->link_idx= link_idx;
+    new_route->link_type = link_type;
+    new_route->src_link_idx = src;
+    new_route->src_type = src_type;
+
+    int idx = -1;
+    if ((idx = add_route_entry(new_route)) == -1)
+        return -1;
     
     clear_hash_cache();
     
-    return -1;
+    return idx;
 }
 
-
-static int find_link_entry(unsigned long dest, int type) {
-    int i;
-
-    FOREACH_LINK(i, g_links, g_first_link) {
-	if ((g_links[i].dest == dest) && 
-	    ((type == -1) || (g_links[i].type == type)) ) {
-	    return i;
-	}
-    } 
-    
-    return -1;
-}
-
-static int delete_link_entry(int index) {
-    int next_i;
-    int prev_i;
+static void * delete_link_entry(int index) 
+{
+    struct link_entry *link = NULL;
+    void *ret = NULL;
+    link_type_t type;
   
-    if (g_links[index].use == 0) {
-	return -1;
+    if (index >= MAX_LINKS || g_links.links[index] == NULL) {
+	return NULL;
     }
 
-    g_links[index].dest = 0;
-    g_links[index].type = 0;
-    g_links[index].link_sock = -1;
-    g_links[index].use = 0;
+    link = g_links.links[index];
+    type = g_links.links[index]->type;
 
-    prev_i = g_links[index].prev;
-    next_i = g_links[index].next;
+    if (type == LINK_INTERFACE)	
+    	ret = (void *)g_links.links[index]->dst_dev;
+    else if (type == LINK_EDGE)
+	ret = (void *)g_links.links[index]->dst_link;
 
-    if (prev_i != -1) {
-	g_links[prev_i].next = g_links[index].next;
-    }    
+    g_links.links[index] = NULL;
+    g_links.size --;
 
-    if (next_i != -1) {
-	g_links[next_i].prev = g_links[index].prev;
-    }
-    
-    if (g_first_link == index) {
-	g_first_link = g_links[index].next;
-    }    
-
-    if (g_last_link == index) {
-	g_last_link = g_links[index].prev;
-    }    
-
-    g_links[index].next = -1;
-    g_links[index].prev = -1;
-    
-    g_num_links--;
-    
-    return 0;
+    V3_Free(link);
+	
+    return ret;
 }
-
-int vnet_delete_link_entry_by_addr(unsigned long dest, int type) {
-    int index = find_link_entry(dest, type);
-  
-    if (index == -1) {
-	return -1;
-    }
-
-    return delete_link_entry(index);
-}
-
 
 static int find_route_entry(char src_mac[6], 
 			    char dest_mac[6], 
 			    int src_mac_qual, 
 			    int dest_mac_qual, 
-			    int dest, 
-			    int type, 
+			    int link_idx, 
+			    link_type_t link_type, 
 			    int src, 
-			    int src_type) {
+			    link_type_t src_type) 
+{
     int i;
     char temp_src_mac[6];
     char temp_dest_mac[6];
@@ -482,61 +380,37 @@ static int find_route_entry(char src_mac[6],
 	memset(temp_dest_mac, 0, 6);
     }
     
-    FOREACH_LINK(i, g_routes, g_first_route) {
-	if ( (memcmp(temp_src_mac, g_routes[i].src_mac, 6) == 0) && 
-	     (memcmp(temp_dest_mac, g_routes[i].dest_mac, 6) == 0) &&
-	     (g_routes[i].src_mac_qual == src_mac_qual) &&
-	     (g_routes[i].dest_mac_qual == dest_mac_qual)  &&
-	     ( (type == -1) || 
-	       ( (type == g_routes[i].type) && (g_routes[i].dest == dest)) ) &&
-	     ( (src_type == -1) || 
-	       ( (src_type == g_routes[i].src_type) && (g_routes[i].src == src)) ) ) {
-	    return i;
-	}
-    } 
+    for (i = 0; i<MAX_ROUTES; i++) {
+	if (g_routes.routes[i] != NULL) {
+	    if ((memcmp(temp_src_mac, g_routes.routes[i]->src_mac, 6) == 0) && 
+	          (memcmp(temp_dest_mac, g_routes.routes[i]->dest_mac, 6) == 0) &&
+	          (g_routes.routes[i]->src_mac_qual == src_mac_qual) &&
+	          (g_routes.routes[i]->dest_mac_qual == dest_mac_qual)  &&
+	          ((link_type == LINK_ANY) || 
+	          ((link_type == g_routes.routes[i]->link_type) && (g_routes.routes[i]->link_idx == link_idx))) &&
+	          ((src_type == LINK_ANY) || 
+	          ((src_type == g_routes.routes[i]->src_type) && (g_routes.routes[i]->src_link_idx == src)))) {
+	        return i;
+	    }
+        } 
+     }
     
     return -1;
 }
 
-static int delete_route_entry(int index) {
-    int next_i;
-    int prev_i;
+static int delete_route_entry(int index) 
+{
+    struct routing_entry *route;
 
-    memset(g_routes[index].src_mac, 0, 6);
-    memset(g_routes[index].dest_mac, 0, 6);
+    if (index >= MAX_ROUTES || g_routes.routes[index] == NULL)
+		return -1;
 
-    g_routes[index].dest = 0;
-    g_routes[index].src = 0;
-    g_routes[index].src_mac_qual = 0;
-    g_routes[index].dest_mac_qual = 0;
-    g_routes[index].type = -1;
-    g_routes[index].src_type = -1;
-    g_routes[index].use = 0;
+    route = g_routes.routes[index];
+    g_routes.routes[index] = NULL;
+    g_routes.size --;
 
-    prev_i = g_routes[index].prev;
-    next_i = g_routes[index].next;
-  
-    if (prev_i != -1) {
-	g_routes[prev_i].next = g_routes[index].next;
-    }
-    
-    if (next_i != -1) {
-	g_routes[next_i].prev = g_routes[index].prev;
-    }
-    
-    if (g_first_route == index) {
-	g_first_route = g_routes[index].next;
-    }    
+    V3_Free(route);
 
-    if (g_last_route == index) {
-	g_last_route = g_routes[index].prev;
-    }    
-
-    g_routes[index].next = -1;
-    g_routes[index].prev = -1;
-    
-    g_num_routes--;
-    
     clear_hash_cache();
     
     return 0;
@@ -546,158 +420,23 @@ int vnet_delete_route_entry_by_addr(char src_mac[6],
 				    char dest_mac[6], 
 				    int src_mac_qual, 
 				    int dest_mac_qual, 
-				    int dest, 
-				    int type, 
+				    int link_idx, 
+				    link_type_t type, 
 				    int src, 
-				    int src_type) {
+				    link_type_t src_type) 
+{
     int index = find_route_entry(src_mac, dest_mac, src_mac_qual, 
-				 dest_mac_qual, dest, type, src, src_type);
+				 dest_mac_qual, link_idx, type, src, src_type);
     
     if (index == -1) {
 	return -1;
     }
     
-    delete_route_entry(index);
-    
-    return 0;
+    return delete_route_entry(index);
 }
 
-int delete_sock(struct sock_list * socks, int * first_sock, int * last_sock, SOCK fd) {
-    int i;
-    int prev_i;
-    int next_i;
-    
-  
-    FOREACH_SOCK(i, socks, (*first_sock)) {
-	if (socks[i].sock == fd) {
-	    V3_Close_Socket(socks[i].sock);
-	    socks[i].sock = -1;
-	    
-	    prev_i = socks[i].prev;
-	    next_i = socks[i].next;
-	    
-	    if (prev_i != -1) {
-		socks[prev_i].next = socks[i].next;
-	    }
-	    
-	    if (next_i != -1) {
-		socks[next_i].prev = socks[i].prev;
-	    }
-	    
-	    if (*first_sock == i) {
-		*first_sock = socks[i].next;
-	    }
-	    
-	    if (*last_sock == i) {
-		*last_sock = socks[i].prev;
-	    }
-	    
-	    socks[i].next = -1;
-	    socks[i].prev = -1;
-	    
-	    return 0;
-	}
-    }
-    return -1;
-}
-
-//setup the topology of the testing network
-static void store_topologies(SOCK fd) {
-    int i;
-    int src_mac_qual = MAC_ANY;
-    int dest_mac_qual = MAC_ANY;
-    uint_t dest;
-#ifndef VNET_SERVER
-    dest = (0 | 172 << 24 | 23 << 16 | 1 );
-    PrintDebug("VNET: store_topologies. NOT VNET_SERVER, dest = %x\n", dest);
-#else
-    dest = (0 | 172 << 24 | 23 << 16 | 2 );
-    PrintDebug("VNET: store_topologies. VNET_SERVER, dest = %x\n", dest);
-#endif
-
-    int type = UDP_TYPE;
-    int src = 0;
-    int src_type= LINK_ANY; //ANY_SRC_TYPE
-    int data_port = 22;
-    
-    //store link table
-    for (i = 0; i < MAX_LINKS; i++) {
-	if (g_links[i].use == 0) {
-	    g_links[i].dest = (int)dest;
-	    g_links[i].type = type;
-	    g_links[i].link_sock = fd;
-	    g_links[i].remote_port = data_port;
-	    g_links[i].use = 1;
-	    
-	    if (g_first_link == -1) {
-		g_first_link = i;
-	    }	    
-
-	    g_links[i].prev = g_last_link;
-	    g_links[i].next = -1;
-	    
-	    if (g_last_link != -1) {
-		g_links[g_last_link].next = i;
-	    }
-	    
-	    g_last_link = i;
-	    
-	    g_num_links++;
-	    PrintDebug("VNET: store_topologies. new link: socket: %d, remote %x:[%d]\n", g_links[i].link_sock, (uint_t)g_links[i].dest, g_links[i].remote_port);
-	}
-    }
-    
-    
-    //store route table
-    
-    type = LINK_EDGE;
-    dest = 0;
-    
-    for (i = 0; i < MAX_ROUTES; i++) {
-	if (g_routes[i].use == 0) {
-	    if ((src_mac_qual != MAC_ANY) && (src_mac_qual != MAC_NONE)) {
-		//		    memcpy(g_routes[i].src_mac, src_mac, 6);
-	    } else {
-		memset(g_routes[i].src_mac, 0, 6);
-	    }
-	    
-	    if ((dest_mac_qual != MAC_ANY) && (dest_mac_qual != MAC_NONE)) {
-		//		    memcpy(g_routes[i].dest_mac, dest_mac, 6);
-	    } else {
-		memset(g_routes[i].dest_mac, 0, 6);
-	    }
-	    
-	    g_routes[i].src_mac_qual = src_mac_qual;
-	    g_routes[i].dest_mac_qual = dest_mac_qual;
-	    g_routes[i].dest = (int)dest;
-	    g_routes[i].type = type;
-	    g_routes[i].src = src;
-	    g_routes[i].src_type = src_type;
-	    
-	    g_routes[i].use = 1;
-	    
-	    if (g_first_route == -1) {
-		g_first_route = i;
-	    }
-	    
-	    g_routes[i].prev = g_last_route;
-	    g_routes[i].next = -1;
-	    
-	    if (g_last_route != -1) {
-		g_routes[g_last_route].next = i;
-	    }
-	    
-	    g_last_route = i;
-	    
-	    g_num_routes++;
-	    
-	    PrintDebug("VNET: store_topologies. new route: src_mac: %s, dest_mac: %s, dest: %d\n", g_routes[i].src_mac, g_routes[i].dest_mac, dest);
-	    
-	}
-    }
-}
-
-static int match_route(uint8_t * src_mac, uint8_t * dst_mac, int src_type, int src_index, int * matches) { 
+static int match_route(uint8_t *src_mac, uint8_t *dst_mac, link_type_t src_type, int src_index, int *matches)
+{ 
     int values[MAX_ROUTES];
     int matched_routes[MAX_ROUTES];
     
@@ -706,99 +445,100 @@ static int match_route(uint8_t * src_mac, uint8_t * dst_mac, int src_type, int s
     int max = 0;
     int no = 0;
     int exact_match = 0;
-    
-    FOREACH_ROUTE(i, g_routes, g_first_route) {
-	if ((g_routes[i].src_type != LINK_ANY) &&
-	    ((g_routes[i].src_type != src_type) ||
-	     ((g_routes[i].src != src_index) &&
-	      (g_routes[i].src != -1)))) {
-	    PrintDebug("Vnet: MatchRoute: Source route is on and does not match\n");
-	    continue;
-	}
+
+    for(i = 0; i<MAX_ROUTES; i++) {
+	if (g_routes.routes[i] != NULL){
+	    if ((g_routes.routes[i]->src_type != LINK_ANY) &&
+	         ((g_routes.routes[i]->src_type != src_type) ||
+	         ((g_routes.routes[i]->src_link_idx != src_index) &&
+	           (g_routes.routes[i]->src_link_idx != -1)))) {
+	        PrintDebug("Vnet: MatchRoute: Source route is on and does not match\n");
+	        continue;
+	    }
 	
-	if ( (g_routes[i].dest_mac_qual == MAC_ANY) &&
-	     (g_routes[i].src_mac_qual == MAC_ANY) ) {      
-	    matched_routes[num_matches] = i;
-	    values[num_matches] = 3;
-	    num_matches++;
-	}
+	    if ((g_routes.routes[i]->dest_mac_qual == MAC_ANY) &&
+	         (g_routes.routes[i]->src_mac_qual == MAC_ANY)) {      
+	          matched_routes[num_matches] = i;
+	          values[num_matches] = 3;
+	          num_matches++;
+	    }
 	
-	if (memcmp((void *)&g_routes[i].src_mac, (void *)src_mac, 6) == 0) {
-	    if (g_routes[i].src_mac_qual !=  MAC_NOT) {
-		if (g_routes[i].dest_mac_qual == MAC_ANY) {
-		    matched_routes[num_matches] = i;
-		    values[num_matches] = 6;
+	    if (memcmp((void *)&g_routes.routes[i]->src_mac, (void *)src_mac, 6) == 0) {
+	        if (g_routes.routes[i]->src_mac_qual !=  MAC_NOT) {
+		    if (g_routes.routes[i]->dest_mac_qual == MAC_ANY) {
+		        matched_routes[num_matches] = i;
+		        values[num_matches] = 6;
 		    
-		    num_matches++;
-		} else if (memcmp((void *)&g_routes[i].dest_mac, (void *)dst_mac, 6) == 0) {
-		    if (g_routes[i].dest_mac_qual != MAC_NOT) {   
-			matched_routes[num_matches] = i;
-			values[num_matches] = 8;    
-			exact_match = 1;
-			num_matches++;
+		        num_matches++;
+		    } else if (memcmp((void *)&g_routes.routes[i]->dest_mac, (void *)dst_mac, 6) == 0) {
+		        if (g_routes.routes[i]->dest_mac_qual != MAC_NOT) {   
+			     matched_routes[num_matches] = i;
+			     values[num_matches] = 8;    
+			     exact_match = 1;
+			     num_matches++;
+		        }
 		    }
-		}
+	        }
 	    }
-	}
 	
-	if (memcmp((void *)&g_routes[i].dest_mac, (void *)dst_mac, 6) == 0) {
-	    if (g_routes[i].dest_mac_qual != MAC_NOT) {
-		if (g_routes[i].src_mac_qual == MAC_ANY) {
-		    matched_routes[num_matches] = i;
-		    values[num_matches] = 6;
+	    if (memcmp((void *)&g_routes.routes[i]->dest_mac, (void *)dst_mac, 6) == 0) {
+	        if (g_routes.routes[i]->dest_mac_qual != MAC_NOT) {
+		    if (g_routes.routes[i]->src_mac_qual == MAC_ANY) {
+		        matched_routes[num_matches] = i;
+		        values[num_matches] = 6;
 		    
-		    num_matches++;
-		} else if (memcmp((void *)&g_routes[i].src_mac, (void *)src_mac, 6) == 0) {
-		    if (g_routes[i].src_mac_qual != MAC_NOT) {
-			if (exact_match == 0) {
-			    matched_routes[num_matches] = i;
-			    values[num_matches] = 8;
-			    num_matches++;
-			}
+		        num_matches++;
+		    } else if (memcmp((void *)&g_routes.routes[i]->src_mac, (void *)src_mac, 6) == 0) {
+		        if (g_routes.routes[i]->src_mac_qual != MAC_NOT) {
+			    if (exact_match == 0) {
+			        matched_routes[num_matches] = i;
+			        values[num_matches] = 8;
+			        num_matches++;
+			    }
+		        }
 		    }
-		}
+	        }
 	    }
-	}
 	
-	if ((g_routes[i].dest_mac_qual == MAC_NOT) &&
-	    (memcmp((void *)&g_routes[i].dest_mac, (void *)dst_mac, 6) != 0)) {
-	    if (g_routes[i].src_mac_qual == MAC_ANY) {
-		matched_routes[num_matches] = i;
-		values[num_matches] = 5;		    
-		num_matches++;    
-	    } else if (memcmp((void *)&g_routes[i].src_mac, (void *)src_mac, 6) == 0) {
-		if (g_routes[i].src_mac_qual != MAC_NOT) {      
-		    matched_routes[num_matches] = i;
-		    values[num_matches] = 7;		      
-		    num_matches++;
-		}
+	    if ((g_routes.routes[i]->dest_mac_qual == MAC_NOT) &&
+	          (memcmp((void *)&g_routes.routes[i]->dest_mac, (void *)dst_mac, 6) != 0)) {
+	        if (g_routes.routes[i]->src_mac_qual == MAC_ANY) {
+		     matched_routes[num_matches] = i;
+		     values[num_matches] = 5;		    
+		     num_matches++;    
+	        } else if (memcmp((void *)&g_routes.routes[i]->src_mac, (void *)src_mac, 6) == 0) {
+		     if (g_routes.routes[i]->src_mac_qual != MAC_NOT) {      
+		         matched_routes[num_matches] = i;
+		         values[num_matches] = 7;		      
+		         num_matches++;
+		     }
+	        }
 	    }
-	}
 	
-	if ((g_routes[i].src_mac_qual == MAC_NOT) &&
-	    (memcmp((void *)&g_routes[i].src_mac, (void *)src_mac, 6) != 0)) {
-	    if (g_routes[i].dest_mac_qual == MAC_ANY) {
-		matched_routes[num_matches] = i;
-		values[num_matches] = 5;	    
-		num_matches++;
-	    } else if (memcmp((void *)&g_routes[i].dest_mac, (void *)dst_mac, 6) == 0) {
-		if (g_routes[i].dest_mac_qual != MAC_NOT) { 
-		    matched_routes[num_matches] = i;
-		    values[num_matches] = 7;
-		    num_matches++;
-		}
+	    if ((g_routes.routes[i]->src_mac_qual == MAC_NOT) &&
+	        (memcmp((void *)&g_routes.routes[i]->src_mac, (void *)src_mac, 6) != 0)) {
+	         if (g_routes.routes[i]->dest_mac_qual == MAC_ANY) {
+		      matched_routes[num_matches] = i;
+		      values[num_matches] = 5;	    
+		      num_matches++;
+	         } else if (memcmp((void *)&g_routes.routes[i]->dest_mac, (void *)dst_mac, 6) == 0) {
+		      if (g_routes.routes[i]->dest_mac_qual != MAC_NOT) { 
+		          matched_routes[num_matches] = i;
+		          values[num_matches] = 7;
+		          num_matches++;
+		      }
+	         }
 	    }
-	}
-    }
-    //end FOREACH_ROUTE
+       }
+    }//end for
     
-    FOREACH_ROUTE(i, g_routes, g_first_route) {
-    	if ((memcmp((void *)&g_routes[i].src_mac, (void *)src_mac, 6) == 0) &&
-	    (g_routes[i].dest_mac_qual == MAC_NONE) &&
-	    ((g_routes[i].src_type == LINK_ANY) ||
-	     ((g_routes[i].src_type == src_type) &&
-	      ((g_routes[i].src == src_index) ||
-	       (g_routes[i].src == -1))))) {
+    for(i = 0; i<MAX_ROUTES; i++) {
+    	if ((memcmp((void *)&g_routes.routes[i]->src_mac, (void *)src_mac, 6) == 0) &&
+	     (g_routes.routes[i]->dest_mac_qual == MAC_NONE) &&
+	     ((g_routes.routes[i]->src_type == LINK_ANY) ||
+	     ((g_routes.routes[i]->src_type == src_type) &&
+	     ((g_routes.routes[i]->src_link_idx == src_index) ||
+	      (g_routes.routes[i]->src_link_idx == -1))))) {
 	    matched_routes[num_matches] = i;
 	    values[num_matches] = 4;
 	    PrintDebug("Vnet: MatchRoute: We matched a default route (%d)\n", i);
@@ -826,18 +566,20 @@ static int match_route(uint8_t * src_mac, uint8_t * dst_mac, int src_type, int s
     return no;
 }
 
-
-static int process_udpdata() {
-    struct raw_ethernet_pkt * pt;
+#if 0
+// TODO: To be removed
+static int process_udpdata() 
+{
+    struct ethernet_pkt * pt;
 
     uint32_t dest = 0;
     uint16_t remote_port = 0;
     SOCK link_sock = g_udp_sockfd;
-    int length = sizeof(struct raw_ethernet_pkt) - (2 * sizeof(int));   //minus the "size" and "type" 
+    int length = sizeof(struct ethernet_pkt) - (2 * sizeof(int));   //minus the "size" and "type" 
 
     //run in a loop to get packets from outside network, adding them to the incoming packet queue
     while (1) {
-	pt = (struct raw_ethernet_pkt *)V3_Malloc(sizeof(struct raw_ethernet_pkt));
+	pt = (struct ethernet_pkt *)V3_Malloc(sizeof(struct ethernet_pkt));
 
 	if (pt == NULL){
 	    PrintError("Vnet: process_udp: Malloc fails\n");
@@ -856,14 +598,10 @@ static int process_udpdata() {
 	
 	PrintDebug("Vnet: process_udp: get packet\n");
 	print_packet(pt->data, pt->size);
-
-	
-	//V3_Yield();
     }
 }
 
-
-
+// TODO: To be removed
 static int indata_handler( )
 {
       if (!use_tcp)
@@ -872,6 +610,7 @@ static int indata_handler( )
       return 0;   
 }
 
+// TODO: To be removed
 static int start_recv_data()
 {
 	if (use_tcp){
@@ -899,33 +638,46 @@ static int start_recv_data()
 	return 0;
 }
 
+static void store_test_topologies(SOCK fd) 
+{
+    int i;
+    int src_mac_qual = MAC_ANY;
+    int dest_mac_qual = MAC_ANY;
+    uint_t dest;
+#ifndef VNET_SERVER
+    dest = (0 | 172 << 24 | 23 << 16 | 1 );
+    PrintDebug("VNET: store_topologies. NOT VNET_SERVER, dest = %x\n", dest);
+#else
+    dest = (0 | 172 << 24 | 23 << 16 | 2 );
+    PrintDebug("VNET: store_topologies. VNET_SERVER, dest = %x\n", dest);
+#endif
 
-static inline int if_write_pkt(struct vnet_if_device *iface, struct raw_ethernet_pkt * pkt) {
-    return iface->input((uchar_t *)pkt->data, pkt->size);
+    int type = UDP_TYPE;
+    int src = 0;
+    int src_type= LINK_ANY; //ANY_SRC_TYPE
+    int data_port = 22;
 }
 
-static int handle_one_pkt(struct raw_ethernet_pkt * pkt) {
-    int src_link_index = 0;	//the value of src_link_index of udp always is 0
+#endif
+
+static int handle_one_pkt(struct ethernet_pkt * pkt) 
+{
+    int src_link_index = -1;	//the value of src_link_index of udp always is 0
     int i;
     char src_mac[6];
     char dst_mac[6];
 
-    int matches[g_num_routes];
+    int matches[MAX_ROUTES];
     int num_matched_routes = 0;
 
-    struct HEADERS headers;
+    struct in_pkt_header header;
   
     // get the ethernet and ip headers from the packet
-    memcpy((void *)&headers, (void *)pkt->data, sizeof(headers));
+    memcpy((void *)&header, (void *)pkt->data, sizeof(header));
+    memcpy(src_mac, header.ethernetsrc, 6);
+    memcpy(dst_mac, header.ethernetdest, 6);
 
-    int j;
-    for (j = 0;j < 6; j++) {
-	src_mac[j] = headers.ethernetsrc[j];
-	dst_mac[j] = headers.ethernetdest[j];
-    }
-
-
-#ifdef DEBUG
+#ifdef CONFIG_DEBUG_VNET
     char dest_str[18];
     char src_str[18];
     
@@ -941,11 +693,11 @@ static int handle_one_pkt(struct raw_ethernet_pkt * pkt) {
     num_matched_routes = look_into_cache((route_hashkey_t)hash_key, matches);
     
     if (num_matched_routes == -1) {  //no match
-        num_matched_routes = match_route(src_mac, dst_mac, pkt->type, src_link_index, matches);
+        num_matched_routes = match_route(src_mac, dst_mac, LINK_ANY, src_link_index, matches);
 	
-	if (num_matched_routes > 0) {
-	    add_route_to_cache(hash_key, num_matched_routes,matches);      
-	}
+	 if (num_matched_routes > 0) {
+	     add_route_to_cache(hash_key, num_matched_routes,matches);      
+	 }
     }
     
     PrintDebug("Vnet: HandleDataOverLink: Matches=%d\n", num_matched_routes);
@@ -953,103 +705,69 @@ static int handle_one_pkt(struct raw_ethernet_pkt * pkt) {
     for (i = 0; i < num_matched_routes; i++) {
         int route_index = -1;
         int link_index = -1;
-        int dev_index = -1;
+	 int pkt_len = 0;
 	
         route_index = matches[i];
 	
         PrintDebug("Vnet: HandleDataOverLink: Forward packet from link according to Route entry %d\n", route_index);
-	
-        if (g_routes[route_index].type == LINK_EDGE) {
-            link_index = g_routes[route_index].dest;
-	    
-            if(g_links[link_index].type == UDP_TYPE) {
-                int size;
 
-				
-		  PrintDebug("===Vnet: HandleDataOverLink: Serializing UDP Packet to link_sock [%d], dest [%x], remote_port [%d], size [%d]\n", g_links[link_index].link_sock, (uint_t)g_links[link_index].dest,  g_links[link_index].remote_port, (int)pkt->size);
-		
-                if ((size = V3_SendTo_IP(g_links[link_index].link_sock,  g_links[link_index].dest,  g_links[link_index].remote_port, pkt->data, pkt->size)) != pkt->size)  {
-                    PrintError("Vnet: sending by UDP Exception, %x\n", size);
-                    return -1;
-                }
-		
-                PrintDebug("Vnet: HandleDataOverLink: Serializing UDP Packet to link_sock [%d], dest [%x], remote_port [%d], size [%d]\n", g_links[link_index].link_sock, (uint_t)g_links[link_index].dest,  g_links[link_index].remote_port, (int)pkt->size);
-		
-            } else if (g_links[link_index].type == TCP_TYPE) {
-		
-            }
-        } else if (g_routes[route_index].type == LINK_INTERFACE) {
-            dev_index = g_routes[route_index].dest;
+	 link_index = g_routes.routes[route_index]->link_idx;
+	 if (link_index < 0 || link_index > MAX_LINKS)
+	     continue;
+	 
+	 struct link_entry *link = g_links.links[link_index];
+	 if (link == NULL)
+	     continue;
+	 
+	 pkt_len = pkt->size;
+        if (g_routes.routes[route_index]->link_type == LINK_EDGE) {
+
+            // TODO: apply the header in the beginning of the packet to be sent
+	     if ((link->dst_link->input(pkt->data, pkt_len, NULL)) != pkt_len)
+	         return -1;
+        } else if (g_routes.routes[route_index]->link_type == LINK_INTERFACE) {
+          
       
-            PrintDebug("Writing Packet to device=%s\n", g_devices[dev_index].device->name);
-
-            if (if_write_pkt(g_devices[dev_index].device, pkt) == -1) {
-		PrintDebug("Can't write output packet to link\n");
-                return -1;
-            }
+            if ((link->dst_link->input(pkt->data, pkt_len, NULL)) != pkt_len)
+	         return -1;
         } else {
-            PrintDebug("Vnet: Wrong Edge type\n");
+            PrintError("Vnet: Wrong Edge type\n");
+	     return -1;
         }
     }
 
      return 0;
 }
 
-static int send_ethernet_pkt(char * buf, int length) {
-	struct raw_ethernet_pkt * pt;
+static int send_ethernet_pkt(char *buf, int length) 
+{
+	struct ethernet_pkt *pt;
 
-	pt = (struct raw_ethernet_pkt *)V3_Malloc(sizeof(struct raw_ethernet_pkt));
-	raw_ethernet_packet_init(pt, buf, length);  //====here we copy sending data once 
+	pt = (struct ethernet_pkt *)V3_Malloc(sizeof(struct ethernet_pkt));
+	ethernet_packet_init(pt, buf, length);  //====here we copy sending data once 
 	
 	PrintDebug("VNET: vm_send_pkt: transmitting packet: (size:%d)\n", (int)pt->size);
 	print_packet((char *)buf, length);
 	
 	v3_enqueue(g_inpkt_q, (addr_t)pt);
+
 	return 0;
-	
 }
 
-int v3_Send_pkt(uchar_t *buf, int length) {
+int v3_vnet_send_pkt(uchar_t *buf, int length) 
+{
     PrintDebug("VNET: In V3_Send_pkt: pkt length %d\n", length);
     
     return send_ethernet_pkt((char *)buf, length);
 }
 
-static int add_device_to_table(struct vnet_if_device*device, int type) {
-    int i;
-    
-    for (i = 0; i < MAX_DEVICES; i++) {
-	if (g_devices[i].use == 0) {
-	    g_devices[i].type = type;
-	    g_devices[i].use = 1;
-	    
-	    if (g_first_device == -1) {
-	        g_first_device = i;
-	    }	    
-
-	    g_devices[i].prev = g_last_device;
-	    g_devices[i].next = -1;
-	    
-	    if (g_last_device != -1) {
-	        g_devices[g_last_device].next = i;
-	    }
-
-	    g_last_device = i;
-	    g_num_devices++;
-	    
-	    return i;
-	}
-    }
-    
-    return -1;
-}
-
-static int search_device(char *device_name) {
+static int search_device(char *device_name) 
+{
     int i;
 
-    for (i = 0; i < MAX_DEVICES; i++) {
-        if (g_devices[i].use == 1) {
-	    if (!strcmp(device_name, g_devices[i].device->name)) {
+    for (i = 0; i < MAX_LINKS; i++) {
+        if (g_links.links[i] != NULL && g_links.links[i]->type == LINK_INTERFACE) {
+	    if (!strcmp(device_name, g_links.links[i]->dst_dev->name)) {
 		return i;
 	    }
         }
@@ -1058,104 +776,75 @@ static int search_device(char *device_name) {
     return -1;
 }
 
-static struct vnet_if_device * delete_device_from_table(int index) {
-    int next_i;
-    int prev_i;
-    struct vnet_if_device * device = NULL;
+int vnet_register_device(struct vm_device *vdev, 
+						   char *dev_name, 
+						   uchar_t mac[6], 
+						   int (*netif_input)(uchar_t * pkt, uint_t size, void *private_data), 
+						   void *data) 
+{
+    struct vnet_if_device *if_dev;
 
-    if (g_devices[index].use == 0) {
-	return NULL;
-    }
-
-    g_devices[index].use = 0;
-
-    prev_i = g_devices[index].prev;
-    next_i = g_devices[index].next;
-
-    if (prev_i != -1) {
-        g_devices[prev_i].next = g_devices[index].next;
-    }
-
-    if (next_i != -1) {
-        g_devices[next_i].prev = g_devices[index].prev;
-    }
-
-    if (g_first_device == index) {
-        g_first_device = g_devices[index].next;
-    }
-
-    if (g_last_device == index) {
-        g_last_device = g_devices[index].prev;
-    }
-
-    g_devices[index].next = -1;
-    g_devices[index].prev = -1;
-
-    device = g_devices[index].device;
-    g_devices[index].device = NULL;
-
-    g_num_devices--;
-
-    return device;
-}
-
-
-int vnet_register_device(char * dev_name, int (*netif_input)(uchar_t * pkt, uint_t size), void * data) {
-    struct vnet_if_device * dev;
+    int idx = search_device(dev_name);
+    if (idx != -1)
+	return -1;
     
-    dev = (struct vnet_if_device *)V3_Malloc(sizeof(struct vnet_if_device));
+    if_dev = (struct vnet_if_device *)V3_Malloc(sizeof(struct vnet_if_device));
     
-    if (dev == NULL){
+    if (if_dev == NULL){
 	PrintError("VNET: Malloc fails\n");
 	return -1;
     }
     
-    strncpy(dev->name, dev_name, 50);
-    dev->input = netif_input;
-    dev->data = data;
+    strcpy(if_dev->name, dev_name);
+    strncpy(if_dev->mac_addr, mac, 6);
+    if_dev->dev = vdev;
+    if_dev->input = netif_input;
+    if_dev->private_data = data;
+
+    struct link_entry *link = (struct link_entry *)V3_Malloc(sizeof(struct link_entry));
+
+    link->type = LINK_INTERFACE;
+    link->dst_dev = if_dev;
+
+    idx = add_link_entry(link);
     
-    if (add_device_to_table(dev, GENERAL_NIC) == -1) {
-	return -1;
-    }
-    
-    return 0;
+    return idx;
 }
 
-int vnet_unregister_device(char * dev_name) {
-    int i;
+int vnet_unregister_device(char *dev_name) 
+{
+    int idx;
 
-    i = search_device(dev_name);
+    idx = search_device(dev_name);
     
-    if (i == -1) {
+    if (idx == -1) {
         return -1;
     }
 
-    struct vnet_if_device * device = delete_device_from_table(i);
-
+    struct vnet_if_device *device = (struct vnet_if_device *)delete_link_entry(idx);
     if (device == NULL) {
 	return -1;
     }
 
     V3_Free(device);
 
-    return 0;
+    return idx;
 }
 
-int v3_Register_pkt_event(int (*netif_input)(uchar_t * pkt, uint_t size)) {
-    return vnet_register_device("NE2000", netif_input, NULL);
-}
-
-int v3_vnet_pkt_process() {
-    struct raw_ethernet_pkt * pt;
+int v3_vnet_pkt_process() 
+{
+    struct ethernet_pkt *pt;
 
     PrintDebug("VNET: In vnet_check\n");
 	
-    while ((pt = (struct raw_ethernet_pkt *)v3_dequeue(g_inpkt_q)) != NULL) {
+    while ((pt = (struct ethernet_pkt *)v3_dequeue(g_inpkt_q)) != NULL) {
 	PrintDebug("VNET: In vnet_check: pt length %d, pt type %d\n", (int)pt->size, (int)pt->type);
 	v3_hexdump(pt->data, pt->size, NULL, 0);
 	
 	if(handle_one_pkt(pt)) {
 	    PrintDebug("VNET: vnet_check: handle one packet!\n");  
+	}else {
+	    PrintError("VNET: vnet_check: fail to forward one packet, discard it!\n"); 
 	}
 	
 	V3_Free(pt); //be careful here
@@ -1164,52 +853,31 @@ int v3_vnet_pkt_process() {
     return 0;
 }
 
-static void init_link_table() {
+
+static void init_empty_link_table() 
+{
     int i;
 
-    for (i = 0; i < MAX_LINKS; i++) {
-        g_links[i].use = 0;
-        g_links[i].next = -1;
-        g_links[i].prev = -1;
-    }
+    for (i = 0; i < MAX_LINKS; i++)
+        g_links.links[i] = NULL;
+
 	
-    g_first_link = -1;
-    g_last_link = -1;
-    g_num_links = 0;
+    g_links.size = 0;
 }
 
-static void init_device_table() {
+static void init_empty_route_table() 
+{	
     int i;
 
-    for (i = 0; i < MAX_DEVICES; i++) {
-        g_devices[i].use = 0;
-        g_devices[i].next = -1;
-        g_devices[i].prev = -1;
-    }
-	
-    g_first_device = -1;
-    g_last_device = -1;
-    g_num_devices = 0;
-}
+    for (i = 0; i < MAX_ROUTES; i++) 
+        g_routes.routes[i] = NULL;
 
-static void init_route_table() {	
-    int i;
-
-    for (i = 0; i < MAX_ROUTES; i++) {
-        g_routes[i].use = 0;
-        g_routes[i].next = -1;
-        g_routes[i].prev = -1;
-    }
-	
-     g_first_route = -1;
-     g_last_route = -1;
-     g_num_routes = 0;
+    g_links.size = 0;
 }
 
 static void init_tables() {
-    init_link_table();
-    init_device_table();
-    init_route_table();
+    init_empty_link_table();
+    init_empty_route_table();
     init_route_cache();
 }
 
@@ -1221,19 +889,61 @@ static void init_pkt_queue()
     v3_init_queue(g_inpkt_q);
 }
 
+#if 0
+// TODO: 
+static int init_routing_tables(struct routing_entry *route_tab, uint16_t size)
+{
+    //struct routing_entry *route;
 
 
-void v3_vnet_init() {	
+    return 0;
+}
 
-	PrintDebug("VNET Init: Vnet input queue successful.\n");
 
-	init_tables();
+// TODO: 
+static int init_link_tables(struct link_entry *link_tab, uint16_t size)
+{
+    //struct link_entry *link;
 
-	init_pkt_queue();
+    return 0;
+}
+
+#endif
+
+struct table_init_info {
+    addr_t routing_table_start;
+    uint16_t routing_table_size;
+    addr_t link_table_start;
+    uint16_t link_table_size;
+};
+
+static int handle_init_tables_hcall(struct guest_info * info, uint_t hcall_id, void *priv_data) 
+{
+    uint8_t *buf = NULL;
+    addr_t info_addr =	(addr_t)info->vm_regs.rcx;
+
+    if (guest_va_to_host_va(info, info_addr, (addr_t *)&(buf)) == -1) {
+	PrintError("Could not translate buffer address\n");
+	return -1;
+    }
+
+    //struct table_init_info *init_info = (struct table_init_info *)buf;
+    
+    
+    return 0;
+}
+
+
+void v3_vnet_init(struct guest_info *vm) 
+{
+    init_tables();
+    init_pkt_queue();
 	
-	//store_topologies(udp_data_socket);
+    v3_register_hypercall(vm, VNET_INITAB_HCALL, handle_init_tables_hcall, NULL);
 
-	start_recv_data();
+    //store_test_topologies(udp_data_socket); 
+
+    PrintDebug("VNET Initied\n");
 }
 
 

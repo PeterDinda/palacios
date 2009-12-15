@@ -16,8 +16,6 @@
  *
  * Author: Lei Xia <lxia@northwestern.edu>
  *		  Yuan Tang <ytang@northwestern.edu>
- *		  Jack Lange <jarusl@cs.northwestern.edu> 
- *		  Peter Dinda <pdinda@northwestern.edu
  *
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
@@ -30,119 +28,84 @@
 #include <palacios/vmm_string.h>
 #include <palacios/vmm_types.h>
 #include <palacios/vmm_queue.h>
-#include <palacios/vmm_socket.h>
 #include <palacios/vmm_hashtable.h>
 #include <palacios/vmm_sprintf.h>
-
 
 #define ETHERNET_HEADER_LEN 14
 #define ETHERNET_DATA_MIN   46
 #define ETHERNET_DATA_MAX   1500
 #define ETHERNET_PACKET_LEN (ETHERNET_HEADER_LEN + ETHERNET_DATA_MAX)
 
-#define SOCK int
+typedef enum {MAC_ANY, MAC_NOT, MAC_NONE, MAC_EMPTY} mac_type_t; //for 'src_mac_qual' and 'dst_mac_qual'
+typedef enum {LINK_INTERFACE, LINK_EDGE, LINK_ANY} link_type_t; //for 'type' and 'src_type' in struct routing
+typedef enum {TCP_TYPE, UDP_TYPE, NONE_TYPE} prot_type_t;
 
-//the routing entry
-struct routing{
+//routing table entry
+struct routing_entry{
     char src_mac[6];
     char dest_mac[6];
 
     int src_mac_qual;
     int dest_mac_qual;
 
-    int dest; //link[dest] is the link to be used to send pkt
-    int type; //EDGE|INTERFACE|ANY
+    int link_idx; //link[dest] is the link to be used to send pkt
+    link_type_t link_type; //EDGE|INTERFACE|ANY
  
-    int src;
-    int src_type; //EDGE|INTERFACE|ANY
+    int src_link_idx;
+    link_type_t src_type; //EDGE|INTERFACE|ANY
+}__attribute__((packed));
 
-    int use;
-
-    int next;
-    int prev;
-  //  struct list_head entry_list;
-};
-
-//struct  gen_route {
- //   uint_t num_entries;
-  //  struct list_head entries;
-//}
-
- //This is the structure that stores the topology 
-struct topology {
-    SOCK link_sock;
-
-    unsigned long dest;
-
-    // Port for UDP
-    unsigned short remote_port;
-
-    int use;
-    int type; //TCP=0, UDP=1,VTP=2, can be extended so on
-
-    int next;
-    int prev;
-};
-
-struct sock_list {
-    SOCK sock;
-
-    int next;
-    int prev;
-};
-
-
-#define GENERAL_NIC 0
-
-struct ethAddr{
-  char addr[6];
-};
 
 struct vnet_if_device {
     char name[50];
-    struct ethAddr device_addr;
+    uchar_t mac_addr[6];
+    struct vm_device *dev;
     
-    int (*input)(uchar_t * pkt, uint_t size);
+    int (*input)(uchar_t *data, uint32_t len, void *private_data);
     
-    void * data;
-};
+    void *private_data;
+}__attribute__((packed));
 
 
-struct device_list {
-    struct vnet_if_device *device;
+#define VNET_HEADER_LEN  64
+struct vnet_if_link {
+    prot_type_t pro_type; //protocal type of this link
+    unsigned long dest_ip;
+    uint16_t dest_port;
+
+    uchar_t vnet_header[VNET_HEADER_LEN]; //header applied to the packet in/out from this link
+    uint16_t hdr_len; 
+
+    int (*input)(uchar_t *data, uint32_t len, void *private_data);
+    
+    void *private_data;
+}__attribute__((packed));
+
+
+//link table entry
+struct link_entry {
+    link_type_t type;
+  
+    union {
+	struct vnet_if_device *dst_dev;
+	struct vnet_if_link *dst_link;
+    } __attribute__((packed));
 
     int use;
-    int type;
-
-    int next;
-    int prev;
-};
-
-// 14 (ethernet frame) + 20 bytes
-struct HEADERS {
-    char ethernetdest[6];
-    char ethernetsrc[6];
-    unsigned char ethernettype[2]; // indicates layer 3 protocol type
-    char ip[20];
-};
-
-#define FOREACH(iter, list, start) for (iter = start; iter != -1; iter = list[iter].next)
-#define FOREACH_SOCK(iter, socks, start) FOREACH(iter, socks, start)
-#define FOREACH_LINK(iter, links, start) FOREACH(iter, links, start)
-#define FOREACH_ROUTE(iter, routes, start) FOREACH(iter, routes, start)
-#define FOREACH_DEVICE(iter, devices, start) FOREACH(iter, devices, start)
+}__attribute__((packed));
 
 
-int v3_Send_pkt(uchar_t *buf, int length);
-int v3_Register_pkt_event(int (*netif_input)(uchar_t * pkt, uint_t size));
+int v3_vnet_send_pkt(uchar_t *buf, int length);
+int vnet_register_device(struct vm_device *vdev, 
+						   char *dev_name, 
+						   uchar_t mac[6], 
+						   int (*netif_input)(uchar_t * pkt, uint_t size, void *private_data), 
+						   void *data);
+int vnet_unregister_device(char *dev_name);
 
+int v3_vnet_pkt_process(); 
 
-int vnet_send_pkt(char *buf, int length);
-int vnet_register_pkt_event(char *dev_name, int (*netif_input)(uchar_t * pkt, uint_t size), void *data);
-
-int v3_vnet_pkt_process();
-
-void v3_vnet_init();
+void v3_vnet_init(struct guest_info *vm);
 
 #endif
 
