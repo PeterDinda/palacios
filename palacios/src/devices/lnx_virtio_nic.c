@@ -58,7 +58,6 @@
 /* Maximum packet size we can receive from tap device: header + 64k */
 #define VIRTIO_NET_MAX_BUFSIZE (sizeof(struct virtio_net_hdr) + (64 << 10))
 
-
 struct virtio_net_hdr {
 	uint8_t flags;
 
@@ -72,17 +71,13 @@ struct virtio_net_hdr {
 }__attribute__((packed));
 
 	
-
-
 #define QUEUE_SIZE 256
 #define CTRL_QUEUE_SIZE 64
-
 #define ETH_ALEN 6
 
 struct virtio_net_config
 {
-    uint8_t mac[ETH_ALEN];
-    // See VIRTIO_NET_F_STATUS and VIRTIO_NET_S_* above
+    uint8_t mac[ETH_ALEN]; //VIRTIO_NET_F_MAC
     uint16_t status;
 } __attribute__((packed));
 
@@ -96,8 +91,8 @@ struct virtio_net_state {
     struct virtio_net_config net_cfg;
     struct virtio_config virtio_cfg;
 
-    //struct vm_device * pci_bus;
-    struct pci_device * pci_dev;
+    struct pci_device * pci_dev; 
+    int io_range_size;
     
     struct virtio_queue rx_vq;   //index 0, rvq in Linux virtio driver, handle packet to guest
     struct virtio_queue tx_vq;   //index 1, svq in Linux virtio driver, handle packet from guest
@@ -106,14 +101,8 @@ struct virtio_net_state {
     struct v3_dev_net_ops * net_ops;
 
     void * backend_data;
-
     struct virtio_dev_state * virtio_dev;
-
     struct list_head dev_link;
-
-    int io_range_size;
-
-    void * private_data;
 };
 
 #if 1
@@ -137,8 +126,6 @@ static int receive(uint8_t * buf, uint32_t count, void * private_data, struct vm
 
     return 0;
 }
-
-
 #endif
 
 static int virtio_free(struct vm_device * dev) 
@@ -563,7 +550,7 @@ static int virtio_io_read(uint16_t port, void * dst, uint_t length, void * priva
     int port_idx = port % virtio->io_range_size;
     uint16_t queue_idx = virtio->virtio_cfg.vring_queue_selector;
 
-    PrintDebug("VIRTIO NIC Read  for port %d (index =%d), length=%d", 
+    PrintDebug("Virtio NIC: Read  for port %d (index =%d), length=%d", 
 	       port, port_idx, length);
 	
     switch (port_idx) {
@@ -648,7 +635,7 @@ static int virtio_io_read(uint16_t port, void * dst, uint_t length, void * priva
 	    break;
 
 	default:
-	    PrintError("Read of Unhandled Virtio Read\n");
+	    PrintError("Virtio NIC: Read of Unhandled Virtio Read\n");
 	    return -1;
     }
 
@@ -707,11 +694,11 @@ static int register_dev(struct virtio_dev_state * virtio, struct virtio_net_stat
 				     NULL, NULL, NULL, net_state);
     
     if (!pci_dev) {
-	PrintError("Could not register PCI Device\n");
+	PrintError("Virtio NIC: Could not register PCI Device\n");
 	return -1;
     }
 
-    PrintDebug("Virtio-NIC registered to PCI bus\n");
+    PrintDebug("Virtio NIC:  registered to PCI bus\n");
     
     pci_dev->config_header.vendor_id = VIRTIO_VENDOR_ID;
     pci_dev->config_header.subsystem_vendor_id = VIRTIO_SUBVENDOR_ID;
@@ -770,10 +757,10 @@ static int virtio_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
     struct virtio_dev_state * virtio_state = NULL;
     char * name = v3_cfg_val(cfg, "name");
 
-    PrintDebug("Initializing VIRTIO Network device\n");
+    PrintDebug("Virtio NIC: Initializing VIRTIO Network device\n");
 
     if (pci_bus == NULL) {
-	PrintError("VirtIO devices require a PCI Bus");
+	PrintError("Virtio NIC: VirtIO devices require a PCI Bus");
 	return -1;
     }
 
@@ -786,12 +773,12 @@ static int virtio_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
 
     struct vm_device * dev = v3_allocate_device(name, &dev_ops, virtio_state);
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("Could not attach device %s\n", name);
+	PrintError("Virtio NIC: Could not attach device %s\n", name);
 	return -1;
     }
 
     if (v3_dev_add_net_frontend(vm, name, connect_fn, (void *)virtio_state) == -1) {
-	PrintError("Could not register %s as net frontend\n", name);
+	PrintError("Virtio NIC: Could not register %s as net frontend\n", name);
 	return -1;
     }
 
