@@ -8,26 +8,39 @@
 
 \def\colfigsize{\epsfxsize=5in}
 
-\title{Building guest bootable image for the Palacios and Kitten}
+\pdfpagewidth 8.5in
+\pdfpageheight 11.0in
+
+\setlength\topmargin{0in}
+\setlength\evensidemargin{0in}
+\setlength\oddsidemargin{0in}
+\setlength\textheight{8.0in}
+\setlength\textwidth{6.5in}
+
+\title{Building a bootable guest image for Palacios and Kitten}
 
 \begin{document}
 \maketitle
 
-\section{Getting the stuffs used for building guest image}
+\section{Getting the guest image build tools}
 
-In order to build the bootable guest iso image, we need to build Linux kernel image from its source, 
-an initial file system containing a set of useful binary files and other necessary directories and files, 
-which will be specified in the following text.
-
-We will use a new directory for demonstration, 
-the root directory for our following examples are all in the \verb+test/+ as root directory.
+In order to build the bootable guest iso image, we need to build a Linux kernel
+image from source and an initial file system containing a set of useful binary
+files which will be described in the following text. We will use a new directory
+for demonstration; the root directory for the following examples is
+\verb+test/+:
 
 \begin{verbatim}
 mkdir test/
 cd test/
 \end{verbatim}
 
-There are a set of tools and sources that are useful for this building procedure. You can checkout these resources from our git repositories. To checkout them to your local directory, using commands:
+\vspace{10pt}
+\noindent
+There are a set of tools and sources that are useful for the guest image
+building procedure. You can checkout these resources from our git repositories;
+to check them out to your local \verb+test/+ directory use the following
+commands: 
 
 \begin{verbatim}
 git clone http://hornet.cs.northwestern.edu:9005/busybox
@@ -35,155 +48,231 @@ git clone http://hornet.cs.northwestern.edu:9005/initrd
 git clone http://hornet.cs.northwestern.edu:9005/linux-2.6.30.y
 \end{verbatim}
 
-\section{Build the ramdisk filesystem}
+\section{Building the ramdisk filesystem}
 
-Copy needed devices into the \verb+initramfs/dev/+ directory, 
-for minimal support, you need console, ram, null, tty. 
-(You probably need root privilege to copy and make the device files)
+% Introductory text explaining why a ramdisk filesystem is necessary, and a
+% small blurb about what it is. Mostly this is necessary because the
+% introduction said that the "useful binary files" would be described.
 
-There is an already costumed initial ramdisk system made 
-by Jack which you can leverage. The file is temporarily 
-in \verb|/home/jarusl/initrd/disks/v3vee_initramfs.tar.gz|
-in newskysaw machine.
+Jack has made an initial ramdisk system that you can leverage. The file is
+temporarily in the directory
+\verb|/home/jarusl/initrd/disks/v3vee_initramfs.tar.gz| on the
+newskysaw machine. If you require a custom initial ramdisk, copy the directories
+and files that you require into the \verb+initramfs+/ directory. For minimal
+device support, copy theses devices into the \verb+initramfs/dev/+ directory:
+console, ram, null, tty (you probably need root privilege to copy and make the
+device files).
 
-\section{Configure and Install Busybox tools}
 
-BusyBox is a software application released as Free software 
-under the GNU GPL that provides many standard Unix tools. BusyBox 
-combines tiny versions of many common UNIX utilities into a single 
-small executable. For more details on Busybox, visiting http://busybox.net.
 
-To configure BusyBox, in the \verb+busybox/+ directory, type
+
+\pagebreak
+\begin{figure}[h]\begin{center}\colfigsize\epsffile{busyboxConf1.eps}\end{center}\caption{BusyBox configuration}\label{fig:busyboxcf1}\end{figure}
+
+
+
+
+\pagebreak
+\begin{figure}[h]\begin{center}\colfigsize\epsffile{busyboxConf2.eps}\end{center}\caption{BusyBox configuration}\label{fig:busyboxcf2}\end{figure}
+
+
+
+
+\section{Configuring and installing BusyBox tools}
+
+BusyBox is a software application released as Free software under the GNU GPL
+that provides many standard Unix tools. BusyBox combines tiny versions of many
+common UNIX utilities into a single small executable. For more details on
+BusyBox, visiting http://busybox.net. To configure BusyBox, in the
+\verb+busybox/+ directory, type the following:
 
 \begin{verbatim}
-make meunconfig 
+make menuconfig
+\end{verbatim}
+
+or
+
+\begin{verbatim}
 make xconfig (X version)
 \end{verbatim}
 
-You can add tools as you needed into the guest image. There are 
-two specified configurations are required here:
-First, in the "\verb|Build Options|", check the option 
-"\verb|Build BusyBox as a static binary (no shared libs)|", 
-as shown in figure \ref{fig:busyboxcf1}. Second, 
-in the "\verb|Installation Options|", Change 
-the "\verb|Busybox installation prefix|" to be the path 
-of your "\verb|initramfs|" directory, as shown in figure \ref{fig:busyboxcf2}.
- 
-\begin{figure}\begin{center}\colfigsize\epsffile{busyboxConf1.eps}\end{center}\caption{BusyBox configuartion}\label{fig:busyboxcf1}\end{figure}
-
-\begin{figure}\begin{center}\colfigsize\epsffile{busyboxConf2.eps}\end{center}\caption{BusyBox configuartion}\label{fig:busyboxcf2}\end{figure}
- 
-After you finish the configuration, save your configuration
-and quit the window. Then, to make the Busybox tools, type 
+\vspace{10pt}
+\noindent
+You can add the tools you need into the guest image. There are two required
+configuration options: in ``\verb|BusyBox settings->Build Options|", check the 
+``\verb|Build BusyBox as a static binary|" option, and in
+``\verb|BusyBox settings->Installation Options|", set the
+``\verb|Busybox installation prefix|" to the path of your \verb|initramfs|
+directory, as shown in figure \ref{fig:busyboxcf2}. After you finish configuring
+BusyBox, save your configuration and quit the window. Then, to make the BusyBox
+tools, type the following:
 \begin{verbatim}
 make
 \end{verbatim}
-And then install the tools to your inital ramdisk directory
-
+Install the tools to your initial ramdisk directory:
 \begin{verbatim}
 make install
 \end{verbatim}
 
-\section{Configure and Compile Linux Kernel}
 
-Go to \verb|linux-2.6.30.y/| directory (or whatever your 
-Linux kernel source directory). Type 
+\begin{figure}[h]\begin{center}\colfigsize\epsffile{linuxConf.eps}\end{center}\caption{Linux Kernel configuration}\label{fig:linuxcf}\end{figure}
+
+
+
+\section{Configuring and compiling the Linux kernel}
+
+Change to the \verb|linux-2.6.30.y/| directory (or whatever your Linux kernel
+source directory is named) and type the following:
 
 \begin{verbatim}
-make menuconfig 
+make menuconfig
+\end{verbatim}
+or
+\begin{verbatim}
 make xconfig (X version)
 \end{verbatim}
 
-To configure the kernel as your need. 
-There is a customed configuration file "\verb|jrl-default-config|" 
-which is configured with minimal kernel options (all of 
-unnecessary stuffs are turned off to keep guest booting process faster).
+\vspace{10pt}
+\noindent
+Configure the kernel to meet your requirements. There is a custom configuration
+file \verb|jrl-default-config| which is configured with minimal kernel options
+(all unnecessary options are removed to keep the guest booting process fast).
+For more on configuring and compiling Linux kernel images, check online.
 
-For more on configuring and compiling Linux kernel image, check online. Here, one 
-option for configuring the initial ramdisk file system directory (such 
-as \verb|initrd/initramfs|) in the option 
-"\verb|initial RAM filesystem and Ram Disk|" is needed, 
-as shown in figure \ref{fig:linuxcf}.
-
-\begin{figure}\begin{center}\colfigsize\epsffile{linuxConf.eps}\end{center}\caption{Linux Kernel configuartion}\label{fig:linuxcf}\end{figure}
-
-\section{Configure guest devices}
-Checkout the updated Palacios repository to \verb|palacios/|. 
-(You can find the instruction of how to get the Palacios and
-Kitten repository in http://www.v3vee.org/palacios/).
-
-In the "\verb|palacios/utils/guest_creator|", Type
+\vspace{5pt}
+\noindent
+The kernel must be configured with the initial ramdisk file system directory
+(e.g. \verb|initrd/initramfs|): in the ``\verb|General setup|" menu under
+option
+``\verb|Initial RAM filesystem and RAM disk support|" set the
+``\verb|Initramfs source file(s)|" option to the path of your \verb|initramfs|
+directory as shown in figure \ref{fig:linuxcf}. When you are finished
+configuring the kernel, save your configuration, and type the following:
 \begin{verbatim}
 make
 \end{verbatim}
-You will get the guest configuration files creator "\verb|build_vm|".
+Some blurb about where the kernel image is...
 
-The guest configuration file is using XML format. There is a sample configuration file: \verb|default.xml|. 
-You can create your own guest configuration, after creating your file, type
 
+
+
+\section{Configuring guest devices}
+
+% Can we make this a true hyperlink?
+Checkout the updated Palacios repository to \verb|palacios/|.  (You can find
+instructions for checking out the Palacios and Kitten repositories at
+http://www.v3vee.org/palacios/). To build the guest VM creator tool, change to
+the \verb|palacios/utils/guest_creator| directory and type the following:
+
+\begin{verbatim}
+make
+\end{verbatim}
+
+\vspace{10pt}
+\noindent
+You will get the \verb|build_vm| executable. The guest configuration file uses
+XML. A sample configuration file is provided: \verb|default.xml|.
+
+\vspace{5pt}
+\noindent
+***Various information about how to configure the VM.***
+
+\vspace{5pt}
+\noindent
+Once you have configured the VM, type the following to build the full guest VM
+image:
 \begin{verbatim}
 ./build_vm myconfig.xml -o guest.iso
 \end{verbatim}
+where \verb+myconfig.xml+ is your guest configuration file, and \verb+guest.iso+
+is the output image file that will be used to configure kitten in the next
+section.
 
-Where \verb+myconfig.xml+ is your guest configuration file, 
-and \verb+guest.iso+ is the output image file that can be 
-feed into kitten¡¯s configuration (see next section).
 
-\section{Configure and Make Palacios and Kitten}
-\subsection*{Configure and build Palacios}
 
-You can find the detail manual of getting and building Palacios and Kitten 
-from scratch in the Palacios website (http://www.v3vee.org/palacios). 
-Here we only give the specific requirements related to the booting guest procedure.
 
-To configure Palacios, in Palacios root directory, such as \verb+palacios/+, type
+\pagebreak
+\begin{figure}[h]\begin{center}\colfigsize\epsffile{kittenConf1.eps}\end{center}\caption{Kitten configuration}\label{fig:kittencf}\end{figure}
 
+
+
+
+\pagebreak
+\begin{figure}[h]\begin{center}\colfigsize\epsffile{kittenConf2.eps}\end{center}\caption{Kitten configuration}\label{fig:kittencf2}\end{figure}
+
+
+
+
+\section{Configuring and building Palacios and Kitten}
+\subsection*{Configuring and building Palacios}
+
+You can find the detailed manual of getting and building Palacios and Kitten 
+from scratch in the Palacios website (http://www.v3vee.org/palacios). Here we
+only give the specific requirements related to the booting guest procedure. To
+configure Palacios, in the Palacios root directory (i.e. \verb+palacios/+) type
+the following:
 \begin{verbatim}
 make config
+\end{verbatim}
 or
+\begin{verbatim}
 make xconfig
 \end{verbatim}
 
-To configure the components you want to build into Palacios. And then type 
-
+\vspace{10pt}
+\noindent
+When you have configured the components you want to build into Palacios type
+the following:
 \begin{verbatim}
 make
+\end{verbatim}
 or
+\begin{verbatim}
 make all
 \end{verbatim}
 
-To build Palacios static library, after build, you can find the Palacios library file \verb+libv3vee.a+ in root directory.
+\vspace{10pt}
+\noindent
+Once the Palacios static library has been built you can find the library file
+\verb+libv3vee.a+ in the Palacios root directory.
 
-\subsection*{Configure and build Kitten}
+\subsection*{Configuring and building Kitten}
 
-To build Kitten, first configure it using the similar way as Palacios, go to \verb+kitten/+, type
-
+To build Kitten, first configure it in as you did Palacios. Change to the
+\verb+kitten/+ directory and type the following:
 \begin{verbatim}
 make config
+\end{verbatim}
 or
+\begin{verbatim}
 make xconfig
 \end{verbatim}
 
-Specifically, you have to enable Palacios VMM support in Kitten, 
-and configure the root directory of Palacios and the 
-path of the guest image file we just built in previous step, 
-as show in figure \ref{fig:kittencf} and \ref{fig:kittencf2}.
+\vspace{10pt}
+\noindent
+Under the ``\verb|Virtualization|" menu select the
+``\verb|Include Palacios virtual machine monitor|" option. Set the
+``\verb|Path to pre-built Palacios tree|" option to the path of your Palacios
+build, and set the ``\verb|Path to guest ISO image|" option to the path
+containing the guest image that was built in the Configuring guest devices
+section of this manual.
 
-\begin{figure}\begin{center}\colfigsize\epsffile{kittenConf1.eps}\end{center}\caption{Kitten configuartion}\label{fig:kittencf}\end{figure}
-
-\begin{figure}\begin{center}\colfigsize\epsffile{kittenConf2.eps}\end{center}\caption{Kitten configuartion}\label{fig:kittencf2}\end{figure}
- 
-After configure, to build the Kitten, type
-
+\vspace{10pt}
+\noindent
+After configuring Kitten, to build Kitten, type the following:
 \begin{verbatim}
 make isoimage
 \end{verbatim}
 
-to make the bootable ISO image file with guest OS, Palacios and Kitten.
+\vspace{10pt}
+\noindent
+This builds the bootable ISO image file with guest OS, Palacios and Kitten.
 The ISO file is located in \verb+kitten/arch/x86_64/boot/image.iso+.
 
-Until here, you have successfully created a guest CD image file that can be 
-booted on machine. You can boot the file on Qemu using following sample command
+\vspace{5pt}
+\noindent
+You have successfully created a guest CD image file that can be booted on a
+machine. You can boot the file on Qemu using the following sample command:
 
 \begin{verbatim}
 /opt/vmm-tools/qemu/bin/qemu-system-x86_64 \
@@ -194,11 +283,11 @@ booted on machine. You can boot the file on Qemu using following sample command
         < /dev/null
 \end{verbatim}
 
-Here, we finally finish the entire procedure to 
-build costumed guest and boot it on Palacios VMM. 
-For more updated details, check Palacios 
-website \verb+http://www.v3vee.org/palacios+ and 
-Kitten website \verb+https://software.sandia.gov/trac/kitten+ regularly.
-
+\vspace{10pt}
+\noindent
+We have finished the entire procedure for building a guest image and booting it
+on the Palacios VMM. For more updated details, check the Palacios website
+\verb+http://www.v3vee.org/palacios+ and Kitten website
+\verb+https://software.sandia.gov/trac/kitten+ regularly.
 
 \end{document}
