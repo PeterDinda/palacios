@@ -5,6 +5,7 @@
 \usepackage{verbatim}
 \usepackage{epsf}
 \usepackage{graphicx}
+\usepackage{hyperref}
 
 \def\colfigsize{\epsfxsize=5in}
 
@@ -65,25 +66,29 @@ device files).
 
 
 
-
 \pagebreak
-\begin{figure}[h]\begin{center}\colfigsize\epsffile{busyboxConf1.eps}\end{center}\caption{BusyBox configuration}\label{fig:busyboxcf1}\end{figure}
+\begin{figure}[ht]
+  \begin{center}
+    \colfigsize\epsffile{busyboxConf1.eps}
+    \caption{BusyBox configuration}
+    \label{fig:busyboxcf1}
+  \end{center}
+\end{figure}
 
-
-
-
-\pagebreak
-\begin{figure}[h]\begin{center}\colfigsize\epsffile{busyboxConf2.eps}\end{center}\caption{BusyBox configuration}\label{fig:busyboxcf2}\end{figure}
-
-
-
+\begin{figure}[h]
+  \begin{center}
+    \colfigsize\epsffile{busyboxConf2.eps}
+  \end{center}
+  \caption{BusyBox configuration}
+  \label{fig:busyboxcf2}
+\end{figure}
 
 \section{Configuring and installing BusyBox tools}
 
 BusyBox is a software application released as Free software under the GNU GPL
 that provides many standard Unix tools. BusyBox combines tiny versions of many
 common UNIX utilities into a single small executable. For more details on
-BusyBox, visiting http://busybox.net. To configure BusyBox, in the
+BusyBox, visiting \url{http://busybox.net}. To configure BusyBox, in the
 \verb+busybox/+ directory, type the following:
 
 \begin{verbatim}
@@ -106,6 +111,7 @@ configuration options: in ``\verb|BusyBox settings->Build Options|", check the
 directory, as shown in figure \ref{fig:busyboxcf2}. After you finish configuring
 BusyBox, save your configuration and quit the window. Then, to make the BusyBox
 tools, type the following:
+
 \begin{verbatim}
 make
 \end{verbatim}
@@ -114,9 +120,13 @@ Install the tools to your initial ramdisk directory:
 make install
 \end{verbatim}
 
-
-\begin{figure}[h]\begin{center}\colfigsize\epsffile{linuxConf.eps}\end{center}\caption{Linux Kernel configuration}\label{fig:linuxcf}\end{figure}
-
+\begin{figure}[ht]
+  \begin{center}
+    \colfigsize\epsffile{linuxConf.eps}
+  \end{center}
+  \caption{Linux Kernel configuration}
+  \label{fig:linuxcf}
+\end{figure}
 
 
 \section{Configuring and compiling the Linux kernel}
@@ -154,15 +164,13 @@ make
 Some blurb about where the kernel image is...
 
 
-
-
 \section{Configuring guest devices}
 
-% Can we make this a true hyperlink?
 Checkout the updated Palacios repository to \verb|palacios/|.  (You can find
 instructions for checking out the Palacios and Kitten repositories at
-http://www.v3vee.org/palacios/). To build the guest VM creator tool, change to
-the \verb|palacios/utils/guest_creator| directory and type the following:
+\url{http://www.v3vee.org/palacios/}). To build the guest VM creator tool,
+change to the \verb|palacios/utils/guest_creator| directory and type the
+following:
 
 \begin{verbatim}
 make
@@ -192,25 +200,32 @@ section.
 
 
 \pagebreak
-\begin{figure}[h]\begin{center}\colfigsize\epsffile{kittenConf1.eps}\end{center}\caption{Kitten configuration}\label{fig:kittencf}\end{figure}
+\begin{figure}[h]
+  \begin{center}
+    \colfigsize\epsffile{kittenConf1.eps}
+  \end{center}
+  \caption{Kitten configuration}
+  \label{fig:kittencf}
+\end{figure}
 
-
-
-
-\pagebreak
-\begin{figure}[h]\begin{center}\colfigsize\epsffile{kittenConf2.eps}\end{center}\caption{Kitten configuration}\label{fig:kittencf2}\end{figure}
-
-
+\begin{figure}[h]
+  \begin{center}
+    \colfigsize\epsffile{kittenConf2.eps}
+  \end{center}
+  \caption{Kitten configuration}
+  \label{fig:kittencf2}
+\end{figure}
 
 
 \section{Configuring and building Palacios and Kitten}
 \subsection*{Configuring and building Palacios}
 
 You can find the detailed manual of getting and building Palacios and Kitten 
-from scratch in the Palacios website (http://www.v3vee.org/palacios). Here we
-only give the specific requirements related to the booting guest procedure. To
-configure Palacios, in the Palacios root directory (i.e. \verb+palacios/+) type
-the following:
+from scratch in the Palacios website (\url{http://www.v3vee.org/palacios}). Here
+we only give the specific requirements related to the booting guest procedure.
+To configure Palacios, in the Palacios root directory (i.e. \verb+palacios/+)
+type the following:
+
 \begin{verbatim}
 make config
 \end{verbatim}
@@ -223,6 +238,7 @@ make xconfig
 \noindent
 When you have configured the components you want to build into Palacios type
 the following:
+
 \begin{verbatim}
 make
 \end{verbatim}
@@ -240,6 +256,7 @@ Once the Palacios static library has been built you can find the library file
 
 To build Kitten, first configure it in as you did Palacios. Change to the
 \verb+kitten/+ directory and type the following:
+
 \begin{verbatim}
 make config
 \end{verbatim}
@@ -260,6 +277,7 @@ section of this manual.
 \vspace{10pt}
 \noindent
 After configuring Kitten, to build Kitten, type the following:
+
 \begin{verbatim}
 make isoimage
 \end{verbatim}
@@ -269,7 +287,7 @@ make isoimage
 This builds the bootable ISO image file with guest OS, Palacios and Kitten.
 The ISO file is located in \verb+kitten/arch/x86_64/boot/image.iso+.
 
-\vspace{5pt}
+\pagebreak
 \noindent
 You have successfully created a guest CD image file that can be booted on a
 machine. You can boot the file on Qemu using the following sample command:
@@ -287,7 +305,7 @@ machine. You can boot the file on Qemu using the following sample command:
 \noindent
 We have finished the entire procedure for building a guest image and booting it
 on the Palacios VMM. For more updated details, check the Palacios website
-\verb+http://www.v3vee.org/palacios+ and Kitten website
-\verb+https://software.sandia.gov/trac/kitten+ regularly.
+\url{http://www.v3vee.org/palacios} and Kitten website
+\url{https://software.sandia.gov/trac/kitten} regularly.
 
 \end{document}
