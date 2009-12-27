@@ -74,6 +74,8 @@ static void init_cpu(void * arg) {
 void Init_V3(struct v3_os_hooks * hooks, int num_cpus) {
     int i;
 
+    V3_Print("V3 Print statement to fix a Kitten page fault bug\n");
+
     // Set global variables. 
     os_hooks = hooks;
 

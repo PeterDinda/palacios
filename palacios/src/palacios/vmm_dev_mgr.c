@@ -312,7 +312,7 @@ struct net_frontend {
 		    struct v3_dev_net_ops * ops, 
 		    v3_cfg_tree_t * cfg, 
 		    void * priv_data);
-	
+    
 
     struct list_head net_node;
 

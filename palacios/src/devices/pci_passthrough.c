@@ -187,9 +187,13 @@ static int pci_bar_init(int bar_num, uint32_t * dst,void * private_data) {
 
 	//v3_irq_restore(irq_state);
 
-	pbar->size = ~PCI_IO_BASE(max_val) + 1;
+	V3_Print("max_val = %x\n", max_val);
+
+	pbar->size = (uint16_t)~PCI_IO_BASE(max_val) + 1;
+
 
 	
+	V3_Print("IO Bar with %d (%x) ports %x->%x\n", pbar->size, pbar->size, pbar->addr, pbar->addr + pbar->size);
 	// setup a set of null io hooks
 	// This allows the guest to do passthrough IO to these ports
 	// While still reserving them in the IO map

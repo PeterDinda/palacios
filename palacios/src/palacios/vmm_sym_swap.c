@@ -183,6 +183,8 @@ int v3_swap_flush(struct guest_info * info) {
 	v3_htable_iter_advance(ht_iter);
     }
 
+    V3_Free(ht_iter);
+
     return 0;
 }
 

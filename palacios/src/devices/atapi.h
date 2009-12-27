@@ -511,6 +511,8 @@ static int atapi_handle_packet(struct vm_device * dev, struct ide_channel * chan
 	   }
 	   break;
 
+
+       case 0x4a: // Get Status/event
        case 0x51: // read disk info
 	   // no-op to keep the Linux CD-ROM driver happy
 	   PrintDebug("Error: Read disk info no-op to keep the Linux CD-ROM driver happy\n");
@@ -552,8 +554,7 @@ static int atapi_handle_packet(struct vm_device * dev, struct ide_channel * chan
        case 0xba: // scan
        case 0xbb: // set cd speed
        case 0x4e: // stop play/scan
- 
-       case 0x4a: // ???
+
        default:
 	   PrintError("Unhandled ATAPI command %x\n", cmd);
 	   atapi_cmd_error(dev, channel, ATAPI_SEN_ILL_REQ, ASC_INV_CMD_FIELD);
