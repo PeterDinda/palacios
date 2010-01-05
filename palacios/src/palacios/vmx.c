@@ -466,9 +466,11 @@ static int update_irq_exit_state(struct guest_info * info) {
 
 static int update_irq_entry_state(struct guest_info * info) {
     struct vmx_exit_idt_vec_info idt_vec_info;
+    struct vmcs_interrupt_state intr_state;
     struct vmx_data * vmx_info = (struct vmx_data *)(info->vmm_data);
 
     check_vmcs_read(VMCS_IDT_VECTOR_INFO, &(idt_vec_info.value));
+    check_vmcs_read(VMCS_GUEST_INT_STATE, &(intr_state));
 
     /* Check for pending exceptions to inject */
     if (v3_excp_pending(info)) {
@@ -498,7 +500,8 @@ static int update_irq_entry_state(struct guest_info * info) {
 
         v3_injecting_excp(info, int_info.vector);
 
-    } else if (((struct rflags *)&(info->ctrl_regs.rflags))->intr == 1) {
+    } else if ((((struct rflags *)&(info->ctrl_regs.rflags))->intr == 1) && 
+	       (intr_state.val == 0)) {
        
         if ((info->intr_state.irq_started == 1) && (idt_vec_info.valid == 1)) {
 
@@ -587,6 +590,35 @@ static int update_irq_entry_state(struct guest_info * info) {
 }
 
 
+
+static struct vmx_exit_info exit_log[10];
+
+static void print_exit_log(struct guest_info * info) {
+    int cnt = info->num_exits % 10;
+    int i = 0;
+    
+
+    V3_Print("\nExit Log (%d total exits):\n", (uint32_t)info->num_exits);
+
+    for (i = 0; i < 10; i++) {
+	struct vmx_exit_info * tmp = &exit_log[cnt];
+
+	V3_Print("%d:\texit_reason = %p\n", i, (void *)(addr_t)tmp->exit_reason);
+	V3_Print("\texit_qual = %p\n", (void *)tmp->exit_qual);
+	V3_Print("\tint_info = %p\n", (void *)(addr_t)tmp->int_info);
+	V3_Print("\tint_err = %p\n", (void *)(addr_t)tmp->int_err);
+	V3_Print("\tinstr_info = %p\n", (void *)(addr_t)tmp->instr_info);
+
+	cnt--;
+
+	if (cnt == -1) {
+	    cnt = 9;
+	}
+
+    }
+
+}
+
 /* 
  * CAUTION and DANGER!!! 
  * 
@@ -664,6 +696,8 @@ int v3_vmx_enter(struct guest_info * info) {
 
     //PrintDebug("VMX Exit taken, id-qual: %u-%lu\n", exit_info.exit_reason, exit_info.exit_qual);
 
+    exit_log[info->num_exits % 10] = exit_info;
+
 
 #ifdef CONFIG_SYMBIOTIC
     if (info->sym_state.sym_call_active == 0) {
@@ -699,6 +733,7 @@ int v3_start_vmx_guest(struct guest_info* info) {
     while (1) {
 	if (v3_vmx_enter(info) == -1) {
 	    v3_print_vmcs();
+	    print_exit_log(info);
 	    return -1;
 	}
 
