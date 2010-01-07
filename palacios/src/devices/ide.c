@@ -1494,7 +1494,7 @@ static int connect_fn(struct guest_info * info,
 
 	drive->num_sectors = 63;
 	drive->num_heads = 16;
-	drive->num_cylinders = ops->get_capacity(private_data)  / (drive->num_sectors * drive->num_heads);
+	drive->num_cylinders = (ops->get_capacity(private_data) / HD_SECTOR_SIZE) / (drive->num_sectors * drive->num_heads);
     } else {
 	PrintError("invalid IDE drive type\n");
 	return -1;

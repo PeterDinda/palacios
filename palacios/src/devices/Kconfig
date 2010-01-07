@@ -270,6 +270,20 @@ config SYM_SWAP
 	help 
 	  Includes the symbiotic ram based swap disk
 
+config SYM_SWAP2
+	bool "Symbiotic Swap disk v2"
+	default y
+	depends on SYMBIOTIC_SWAP && (LINUX_VIRTIO_BLOCK || IDE)
+	help 
+	  Includes the symbiotic ram based swap disk
+
+config DISK_MODEL
+	bool "Disk Performance Model"
+	default y
+	depends on LINUX_VIRTIO_BLOCK || IDE
+	help 
+	  Includes Performance model filter for disk operations
+
 config CGA
 	bool "CGA"
 	default n

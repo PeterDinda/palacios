@@ -32,7 +32,7 @@ struct blk_state {
 static uint64_t blk_get_capacity(void * private_data) {
     struct blk_state * blk = (struct blk_state *)private_data;
 
-    PrintDebug("SymBlk: Getting Capacity %d\n", (uint32_t)(blk->capacity));
+    //  PrintDebug("SymBlk: Getting Capacity %d\n", (uint32_t)(blk->capacity));
 
     return blk->capacity;
 }
@@ -41,6 +41,8 @@ static uint64_t blk_get_capacity(void * private_data) {
 
 static int blk_read(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * private_data) {
     struct blk_state * blk = (struct blk_state *)private_data;
+
+    //    PrintDebug("TmpDisk Reading %d bytes to %p (lba=%p)\n", (uint32_t)num_bytes, buf, (void *)(addr_t)lba);
 
     if (lba + num_bytes > blk->capacity) {
 	PrintError("TMPDISK Read past end of disk\n");
@@ -57,6 +59,8 @@ static int blk_read(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * priv
 
 static int blk_write(uint8_t * buf,  uint64_t lba, uint64_t num_bytes, void * private_data) {
     struct blk_state * blk = (struct blk_state *)private_data;
+
+    //    PrintDebug("TmpDisk Writing %d bytes to %p (lba=%p)\n", (uint32_t)num_bytes, buf, (void *)(addr_t)lba);
 
     if (lba + num_bytes > blk->capacity) {
 	PrintError("TMPDISK Write past end of disk\n");

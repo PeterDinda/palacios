@@ -64,10 +64,10 @@ static void ata_identify_device(struct ide_drive * drive) {
     drive_id->lba_enable = 1;
     
     // Drive Capacity (28 bit LBA)
-    drive_id->lba_capacity = drive->ops->get_capacity(drive->private_data);
+    drive_id->lba_capacity = drive->ops->get_capacity(drive->private_data) / HD_SECTOR_SIZE;
     
     // Drive Capacity (48 bit LBA)
-    drive_id->lba_capacity_2 = drive->ops->get_capacity(drive->private_data);
+    drive_id->lba_capacity_2 = drive->ops->get_capacity(drive->private_data) / HD_SECTOR_SIZE;
 
 
     // lower byte is the maximum multiple sector size...
@@ -124,6 +124,9 @@ static int ata_read(struct vm_device * dev, struct ide_channel * channel, uint8_
     }
 
     return 0;
+
+
+
 }
 
 
@@ -168,7 +171,7 @@ static int ata_get_lba(struct vm_device * dev, struct ide_channel * channel, uin
 
 
     if ((lba_addr.addr + sect_cnt) > 
-	drive->ops->get_capacity(drive->private_data)) {
+	drive->ops->get_capacity(drive->private_data) / HD_SECTOR_SIZE) {
 	PrintError("IDE: request size exceeds disk capacity (lba=%d) (sect_cnt=%d) (ReadEnd=%d) (capacity=%p)\n", 
 		   lba_addr.addr, sect_cnt, 
 		   lba_addr.addr + (sect_cnt * HD_SECTOR_SIZE),

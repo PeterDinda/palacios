@@ -191,7 +191,6 @@ static int pci_bar_init(int bar_num, uint32_t * dst,void * private_data) {
 
 	pbar->size = (uint16_t)~PCI_IO_BASE(max_val) + 1;
 
-
 	
 	V3_Print("IO Bar with %d (%x) ports %x->%x\n", pbar->size, pbar->size, pbar->addr, pbar->addr + pbar->size);
 	// setup a set of null io hooks
@@ -262,8 +261,6 @@ static int pci_bar_init(int bar_num, uint32_t * dst,void * private_data) {
 
 	}
     }
-    
-
 
 
     // Initially the virtual bars match the physical ones
@@ -278,8 +275,6 @@ static int pci_bar_init(int bar_num, uint32_t * dst,void * private_data) {
     PrintDebug("virt bar  type=%d, addr=0x%x, size=%d\n",
 	       state->virt_bars[bar_num].type, state->virt_bars[bar_num].addr, 
 	       state->virt_bars[bar_num].size);
-
-
 
     // Update the pci subsystem versions
     *dst = bar_val;
