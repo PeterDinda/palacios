@@ -16,6 +16,8 @@ obj-$(CONFIG_OS_DEBUG) += os_debug.o
 obj-$(CONFIG_PCI) += pci.o
 obj-$(CONFIG_PIIX3) += piix3.o
 obj-$(CONFIG_SYM_SWAP) += sym_swap.o
+obj-$(CONFIG_SYM_SWAP2) += sym_swap2.o
+obj-$(CONFIG_DISK_MODEL) += disk_model.o
 
 obj-$(CONFIG_NE2K) += ne2k.o
 

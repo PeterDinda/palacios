@@ -247,6 +247,24 @@ static inline void list_splice_init(struct list_head *list,
 })
 
 /**
+ * list_first_entry - get the struct for the first entry
+ * @ptr:	the list_head head pointer.
+ * @type:	the type of the struct this is embedded in.
+ * @member:	the name of the list_struct within the struct.
+ */
+#define list_first_entry(head, type, member)			\
+({								\
+    type * first = NULL;					\
+    if ((head)->next != (head)) {				\
+	first = list_entry((head)->next, type, member);		\
+    }								\
+    first;							\
+ })
+    
+
+
+
+/**
  * list_for_each	-	iterate over a list
  * @pos:	the &struct list_head to use as a loop counter.
  * @head:	the head for your list.

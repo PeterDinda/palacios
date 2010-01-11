@@ -265,12 +265,18 @@ struct vmcs_segment {
 
 
 struct vmcs_interrupt_state {
-    uint32_t    sti_blocking    : 1;
-    uint32_t    mov_ss_blocking : 1;
-    uint32_t    smi_blocking    : 1;
-    uint32_t    nmi_blocking    : 1;
-    uint32_t    rsvd1           : 28;
+    union {
+	uint32_t val;
+	struct {
+	    uint32_t    sti_blocking    : 1;
+	    uint32_t    mov_ss_blocking : 1;
+	    uint32_t    smi_blocking    : 1;
+	    uint32_t    nmi_blocking    : 1;
+	    uint32_t    rsvd1           : 28;
+	} __attribute__((packed));
+    } __attribute__((packed));
 } __attribute__((packed));
+
 
 
 

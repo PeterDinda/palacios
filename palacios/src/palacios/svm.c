@@ -465,7 +465,7 @@ int v3_svm_enter(struct guest_info * info) {
 
 
     rdtscll(info->time_state.cached_host_tsc);
-    //    guest_ctrl->TSC_OFFSET = info->time_state.guest_tsc - info->time_state.cached_host_tsc;
+    guest_ctrl->TSC_OFFSET = info->time_state.guest_tsc - info->time_state.cached_host_tsc;
 	
     v3_svm_launch((vmcb_t *)V3_PAddr(info->vmm_data), &(info->vm_regs), (vmcb_t *)host_vmcbs[info->cpu_id]);
     

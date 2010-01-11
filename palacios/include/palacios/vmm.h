@@ -114,6 +114,7 @@ struct guest_info;
 	    if ((os_hooks) && (os_hooks)->malloc) {	\
 		var = (os_hooks)->malloc(size);		\
 	    }						\
+	    if (!var) PrintError("MALLOC FAILURE. Memory LEAK!!\n");	\
 	    var;					\
 	})
 

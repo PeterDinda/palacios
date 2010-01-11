@@ -280,16 +280,31 @@ static int send_pkt_to_guest(struct virtio_net_state * virtio, uchar_t * buf, ui
 	//copy header to the header descriptor
 	memcpy((void *)hdr_addr, &hdr, sizeof(struct virtio_net_hdr));
 
+	//Zheng 01/02/2010: zero payload
+	if (offset >= data_len) {
+	    hdr_desc->flags &= ~VIRTIO_NEXT_FLAG;
+	}
+
 	//copy data to the next descriptors
-	for (buf_idx = 0; offset < data_len; buf_idx = q->desc[hdr_idx].next) {
+	//Zheng 01/02/2010: put data into the next descriptor, rather than 0! 
+	for (buf_idx = hdr_desc->next; offset < data_len; buf_idx = q->desc[hdr_idx].next) {
+	//	for (buf_idx = 0; offset < data_len; buf_idx = q->desc[hdr_idx].next) {
 	    struct vring_desc * buf_desc = &(q->desc[buf_idx]);
 	    uint32_t len = 0;
 
-	    buf_desc->flags = VIRTIO_NEXT_FLAG;
+	    //Zheng 01/02/2010: commented this - we need to check 
+	    //       if there still is some data left
+	    //buf_desc->flags = VIRTIO_NEXT_FLAG;
 	 
 	    len = copy_data_to_desc(virtio, buf_desc, buf + offset, data_len - offset);
 	    
 	    offset += len;
+
+	    //Zheng 01/02/2010: check if there still is some data left 
+	    if (offset < data_len) {
+		buf_desc->flags = VIRTIO_NEXT_FLAG;		
+	    }
+
 	    buf_desc->length = len;  // TODO: do we need this?
 	}
 	

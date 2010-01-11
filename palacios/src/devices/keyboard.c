@@ -317,6 +317,7 @@ static int pull_from_output_queue(struct vm_device * dev, uint8_t * value) {
 }
 
 
+#include <palacios/vmm_telemetry.h>
 
 
 static int key_event_handler(struct guest_info * info, 
@@ -347,11 +348,14 @@ static int key_event_handler(struct guest_info * info,
 
     } 
 #endif
-    else if (evt->scan_code == 0x42) { // F8 Sym test2
+    else if (evt->scan_code == 0x42) { // F8 debug toggle
 	extern int v3_dbg_enable;
 	
 	PrintDebug("Toggling Debugging\n");	
 	v3_dbg_enable ^= 1;
+    } else if (evt->scan_code == 0x41) { // F7 telemetry dump
+	v3_print_telemetry(info);
+	
     }
 
 

@@ -78,6 +78,7 @@ static void telemetry_cb(struct guest_info * info, void * private_data, char * h
     V3_Print("%s\tWrite faults=%d\n", hdr, swap_state->write_faults);
     V3_Print("%s\tMapped Pages=%d\n", hdr, swap_state->mapped_pages);
     V3_Print("%s\tFlushes=%d\n", hdr, swap_state->flushes);
+    V3_Print("%s\tlist size=%d\n", hdr, swap_state->list_size);
 }
 #endif
 
@@ -199,29 +200,38 @@ int v3_get_vaddr_perms(struct guest_info * info, addr_t vaddr, pte32_t * guest_p
 
     //    V3_Print("page perms = %x\n", *(uint32_t *)page_perms);
 
+    if (vaddr == 0) {
+	return 1;
+    }
+
     return 0;
 }
 
 
 
-addr_t v3_get_swapped_pg_addr(struct guest_info * info, pte32_t * shadow_pte, pte32_t * guest_pte) {
-    struct list_head * shdw_ptr_list = NULL;
+addr_t v3_get_swapped_pg_addr(struct guest_info * info, pte32_t * guest_pte) {
     struct v3_sym_swap_state * swap_state = &(info->swap_state);
-    struct shadow_pointer * shdw_ptr = NULL;
-    void * swp_page_ptr = NULL;
     int dev_index = get_dev_index(guest_pte);
     struct v3_swap_dev * swp_dev = &(swap_state->devs[dev_index]);
+
 
     if (! swp_dev->present ) {
 	return 0;
     }
 
+    return (addr_t)swp_dev->ops->get_swap_entry(get_pg_index(guest_pte), swp_dev->private_data);
+}
 
 
-    swp_page_ptr = swp_dev->ops->get_swap_entry(get_pg_index(guest_pte), swp_dev->private_data);
+addr_t v3_map_swp_page(struct guest_info * info, pte32_t * shadow_pte, pte32_t * guest_pte, void * swp_page_ptr) {
+    struct list_head * shdw_ptr_list = NULL;
+    struct v3_sym_swap_state * swap_state = &(info->swap_state);
+    struct shadow_pointer * shdw_ptr = NULL;
+
+
 
     if (swp_page_ptr == NULL) {
-	PrintError("Swapped out page not found on swap device\n");
+	//	PrintError("Swapped out page not found on swap device\n");
 	return 0;
     }
 
@@ -229,11 +239,18 @@ addr_t v3_get_swapped_pg_addr(struct guest_info * info, pte32_t * shadow_pte, pt
 
     if (shdw_ptr_list == NULL) {
 	shdw_ptr_list = (struct list_head *)V3_Malloc(sizeof(struct list_head *));
+	swap_state->list_size++;
 	INIT_LIST_HEAD(shdw_ptr_list);
 	v3_htable_insert(swap_state->shdw_ptr_ht, (addr_t)*(uint32_t *)guest_pte, (addr_t)shdw_ptr_list);
     }
 
     shdw_ptr = (struct shadow_pointer *)V3_Malloc(sizeof(struct shadow_pointer));
+
+    if (shdw_ptr == NULL) {
+	PrintError("MEMORY LEAK\n");
+	telemetry_cb(info, NULL, "");
+	return 0;
+    }
 
     shdw_ptr->shadow_pte = shadow_pte;
     shdw_ptr->guest_pte = *(uint32_t *)guest_pte;
@@ -245,3 +262,23 @@ addr_t v3_get_swapped_pg_addr(struct guest_info * info, pte32_t * shadow_pte, pt
 
     return PAGE_BASE_ADDR((addr_t)V3_PAddr(swp_page_ptr));
 }
+
+
+
+/*
+int v3_is_mapped_fault(struct guest_info * info, pte32_t * shadow_pte, pte32_t * guest_pte) {
+    struct list_head * shdw_ptr_list = NULL;
+
+    shdw_ptr_list = (struct list_head * )v3_htable_search(swap_state->shdw_ptr_ht, *(addr_t *)&(guest_pte));
+
+
+    if (shdw_ptr_list != NULL) {
+	PrintError("We faulted on a mapped in page....\n");
+	return -1;
+    }
+    
+    return 0;
+}
+
+
+*/
