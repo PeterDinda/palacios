@@ -29,40 +29,80 @@ In order to build the bootable guest iso image, we need to build a Linux kernel
 image from source and an initial file system containing a set of useful binary
 files which will be described in the following text. We will use a new directory
 for demonstration; the root directory for the following examples is
-\verb+test/+:
+``\verb+test/+":
 
 \begin{verbatim}
-mkdir test/
-cd test/
+[jdoe@newskysaw ~]$ mkdir test/
+[jdoe@newskysaw ~]$ cd test/
 \end{verbatim}
 
 \vspace{10pt}
 \noindent
 There are a set of tools and sources that are useful for the guest image
 building procedure. You can checkout these resources from our git repositories;
-to check them out to your local \verb+test/+ directory use the following
+to check them out to your local ``\verb+test/+" directory use the following
 commands: 
 
 \begin{verbatim}
-git clone http://hornet.cs.northwestern.edu:9005/busybox
-git clone http://hornet.cs.northwestern.edu:9005/initrd
-git clone http://hornet.cs.northwestern.edu:9005/linux-2.6.30.y
+[jdoe@newskysaw test]$ git clone http://hornet.cs.northwestern.edu:9005/busybox
+[jdoe@newskysaw test]$ git clone http://hornet.cs.northwestern.edu:9005/initrd
+[jdoe@newskysaw test]$ git clone http://hornet.cs.northwestern.edu:9005/linux-2.6.30.y
 \end{verbatim}
 
 \section{Building the ramdisk filesystem}
+The guest requires an initial ramdisk filesystem. Jack has made one that you can
+leverage; it is temporarily located in his home directory.  You will need sudo
+or root access to create the device files when you unpack the archive:
 
-% Introductory text explaining why a ramdisk filesystem is necessary, and a
-% small blurb about what it is. Mostly this is necessary because the
-% introduction said that the "useful binary files" would be described.
+\begin{verbatim}
+[jdoe@newskysaw test]$ cp /home/jarusl/initrd/disks/v3vee_initramfs.tar.gz .
+[jdoe@newskysaw test]$ sudo tar -C initrd -xzf v3vee_initramfs.tar.gz
+\end{verbatim}
 
-Jack has made an initial ramdisk system that you can leverage. The file is
-temporarily in the directory
-\verb|/home/jarusl/initrd/disks/v3vee_initramfs.tar.gz| on the
-newskysaw machine. If you require a custom initial ramdisk, copy the directories
-and files that you require into the \verb+initramfs+/ directory. For minimal
-device support, copy theses devices into the \verb+initramfs/dev/+ directory:
-console, ram, null, tty (you probably need root privilege to copy and make the
-device files).
+\noindent
+If you require a custom initial ramdisk filesystem, in the
+``\verb|initrd/initramfs/|" directory, perform the following steps:
+
+\begin{verbatim}
+[jdoe@newskysaw initramfs]$ mkdir -p proc sys var/log
+\end{verbatim}
+
+\noindent
+Edit the ``\verb|init_task|" script and uncomment these lines:
+
+\begin{verbatim}
+#mknod /dev/tty0 c 4 0
+#mknod /dev/tty1 c 4 1
+#mknod /dev/tty2 c 4 2
+\end{verbatim}
+
+\pagebreak
+
+\noindent
+Create the \verb|console| device. If you have sudo or root access it is possible
+to create this device manually:
+
+\begin{verbatim}
+[jdoe@newskysaw initramfs]$ sudo mknod dev/console c 5 1
+[jdoe@newskysaw initramfs]$ sudo chmod 0600 dev/console
+\end{verbatim}
+
+\noindent
+If you do not have sudo or root access it is still possible to create the
+\verb|console| device indirectly through the kernel build.  In the
+``\verb|initrd/|" directory create a file called ``\verb|root_files|" and add
+the following line:
+
+\begin{verbatim}
+nod /dev/console 0600 0 0 c 5 1
+\end{verbatim}
+
+\noindent
+The ``\verb|root_files|" file will be referenced in the section Configuring and
+compiling the Linux kernel. Finally, create any additional directories and copy
+any additional files that you need. Your initial ramdisk filesystem is prepped
+and ready for installation of the BusyBox tools as described in the section
+Configuring and installing BusyBox tools.
 
 
 
@@ -87,37 +127,40 @@ device files).
 
 BusyBox is a software application released as Free software under the GNU GPL
 that provides many standard Unix tools. BusyBox combines tiny versions of many
-common UNIX utilities into a single small executable. For more details on
-BusyBox, visiting \url{http://busybox.net}. To configure BusyBox, in the
-\verb+busybox/+ directory, type the following:
+common UNIX utilities into a single, small executable. For more details on
+BusyBox visit \url{http://busybox.net}. To configure BusyBox, in the
+``\verb+busybox/+" directory, type the following:
 
 \begin{verbatim}
-make menuconfig
+[jdoe@newskysaw busybox]$ make menuconfig
 \end{verbatim}
 
+\noindent
 or
 
 \begin{verbatim}
-make xconfig (X version)
+[jdoe@newskysaw busybox]$ make xconfig (X version)
 \end{verbatim}
 
-\vspace{10pt}
 \noindent
-You can add the tools you need into the guest image. There are two required
-configuration options: in ``\verb|BusyBox settings->Build Options|", check the 
-``\verb|Build BusyBox as a static binary|" option, and in
-``\verb|BusyBox settings->Installation Options|", set the
-``\verb|Busybox installation prefix|" to the path of your \verb|initramfs|
-directory, as shown in figure \ref{fig:busyboxcf2}. After you finish configuring
-BusyBox, save your configuration and quit the window. Then, to make the BusyBox
-tools, type the following:
+The BusyBox tools will be installed in the guest's initial ramdisk filesystem;
+you can add any tools that you need. There are two required configuration
+options. In the
+``\verb|BusyBox settings->Build Options|" menu check the
+``\verb|Build BusyBox as a static binary (no shared libs)|" option, as shown in
+figure \ref{fig:busyboxcf1}, and in the
+``\verb|BusyBox settings->Installation Options|" menu set the
+``\verb|Busybox installation prefix|" to the path of the
+``\verb|initrd/initramfs|" directory, as shown in figure \ref{fig:busyboxcf2}.
+After you finish configuring BusyBox, save your configuration and quit the
+window. Then, to make the BusyBox tools, type the following:
 
 \begin{verbatim}
-make
+[jdoe@newskysaw busybox]$ make
 \end{verbatim}
-Install the tools to your initial ramdisk directory:
+Install the tools to the guest's initial ramdisk filesystem directory:
 \begin{verbatim}
-make install
+[jdoe@newskysaw busybox]$ make install
 \end{verbatim}
 
 \begin{figure}[ht]
