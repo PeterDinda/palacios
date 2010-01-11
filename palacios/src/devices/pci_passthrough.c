@@ -336,7 +336,11 @@ static int pci_bar_write(int bar_num, uint32_t * src, void * private_data) {
     struct pt_bar * pbar = &(state->phys_bars[bar_num]);
     struct pt_bar * vbar = &(state->virt_bars[bar_num]);
 
-    PrintDebug("Bar update src=0x%x\n", *src);
+    PrintDebug("Bar update: bar_num=%d, src=0x%x\n", bar_num,*src);
+    PrintDebug("vbar is size=%u, type=%d, addr=0x%x, val=0x%x\n",vbar->size, vbar->type, vbar->addr, vbar->val);
+    PrintDebug("pbar is size=%u, type=%d, addr=0x%x, val=0x%x\n",pbar->size, pbar->type, pbar->addr, pbar->val);
+
+
 
     if (vbar->type == PT_BAR_NONE) {
 	return 0;
