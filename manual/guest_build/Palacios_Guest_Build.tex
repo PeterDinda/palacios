@@ -25,44 +25,80 @@
 
 \section{Getting the guest image build tools}
 
-In order to build the bootable guest iso image, we need to build a Linux kernel
-image from source and an initial file system containing a set of useful binary
-files which will be described in the following text. We will use a new directory
-for demonstration; the root directory for the following examples is
-\verb+test/+:
+In order to build the bootable guest ISO image, we need to build a Linux kernel
+ from source and an initial ramdisk file system containing a set of useful
+tools. We will use a new directory for demonstration; the root directory for the
+following examples is ``\verb+test/+":
 
 \begin{verbatim}
-mkdir test/
-cd test/
+[jdoe@newskysaw ~]$ mkdir test/
 \end{verbatim}
 
-\vspace{10pt}
 \noindent
 There are a set of tools and sources that are useful for the guest image
-building procedure. You can checkout these resources from our git repositories;
-to check them out to your local \verb+test/+ directory use the following
-commands: 
+building procedure. You can obtain these resources from our git repositories.
+Change to the ``\verb+test/+" directory and clone the resources:
 
 \begin{verbatim}
-git clone http://hornet.cs.northwestern.edu:9005/busybox
-git clone http://hornet.cs.northwestern.edu:9005/initrd
-git clone http://hornet.cs.northwestern.edu:9005/linux-2.6.30.y
+[jdoe@newskysaw test]$ git clone http://hornet.cs.northwestern.edu:9005/busybox
+[jdoe@newskysaw test]$ git clone http://hornet.cs.northwestern.edu:9005/initrd
+[jdoe@newskysaw test]$ git clone http://hornet.cs.northwestern.edu:9005/linux-2.6.30.y
 \end{verbatim}
 
 \section{Building the ramdisk filesystem}
+The guest requires an initial ramdisk filesystem. Jack has made one that you can
+leverage; it is temporarily located in his home directory.  You will need sudo
+or root access to create the device files when you unpack the archive:
 
-% Introductory text explaining why a ramdisk filesystem is necessary, and a
-% small blurb about what it is. Mostly this is necessary because the
-% introduction said that the "useful binary files" would be described.
+\begin{verbatim}
+[jdoe@newskysaw test]$ cp /home/jarusl/initrd/disks/v3vee_initramfs.tar.gz .
+[jdoe@newskysaw test]$ sudo tar -C initrd -xzf v3vee_initramfs.tar.gz
+\end{verbatim}
 
-Jack has made an initial ramdisk system that you can leverage. The file is
-temporarily in the directory
-\verb|/home/jarusl/initrd/disks/v3vee_initramfs.tar.gz| on the
-newskysaw machine. If you require a custom initial ramdisk, copy the directories
-and files that you require into the \verb+initramfs+/ directory. For minimal
-device support, copy theses devices into the \verb+initramfs/dev/+ directory:
-console, ram, null, tty (you probably need root privilege to copy and make the
-device files).
+\noindent
+If you require a custom initial ramdisk filesystem, change to the
+``\verb|initrd/initramfs/|" directory and perform the following steps:
+
+\begin{verbatim}
+[jdoe@newskysaw initramfs]$ mkdir -p proc sys var/log
+\end{verbatim}
+
+\noindent
+Edit the ``\verb|init_task|" script and uncomment these lines:
+
+\begin{verbatim}
+#mknod /dev/tty0 c 4 0
+#mknod /dev/tty1 c 4 1
+#mknod /dev/tty2 c 4 2
+\end{verbatim}
+
+\pagebreak
+
+\noindent
+Create the ``\verb|console|" device. If you have sudo or root access it is
+possible to create this device manually:
+
+\begin{verbatim}
+[jdoe@newskysaw initramfs]$ sudo mknod dev/console c 5 1
+[jdoe@newskysaw initramfs]$ sudo chmod 0600 dev/console
+\end{verbatim}
+
+\noindent
+If you do not have sudo or root access it is still possible to create the
+``\verb|console|" device indirectly through the kernel build.  Change to the
+``\verb|initrd/|" directory and create a file called ``\verb|root_files|". Add
+the following line:
+
+\begin{verbatim}
+nod /dev/console 0600 0 0 c 5 1
+\end{verbatim}
+
+\noindent
+The ``\verb|root_files|" file is used when building the Linux kernel in the
+section Configuring and building the Linux kernel. Finally, create any
+additional directories and copy any additional files that you need. Your initial
+ramdisk filesystem is prepped and ready for installation of the BusyBox tools as
+described in the section Configuring and installing BusyBox tools.
 
 
 
@@ -75,7 +111,7 @@ device files).
   \end{center}
 \end{figure}
 
-\begin{figure}[h]
+\begin{figure}[ht]
   \begin{center}
     \colfigsize\epsffile{busyboxConf2.eps}
   \end{center}
@@ -87,37 +123,40 @@ device files).
 
 BusyBox is a software application released as Free software under the GNU GPL
 that provides many standard Unix tools. BusyBox combines tiny versions of many
-common UNIX utilities into a single small executable. For more details on
-BusyBox, visiting \url{http://busybox.net}. To configure BusyBox, in the
-\verb+busybox/+ directory, type the following:
+common UNIX utilities into a single, small executable. For more details on
+BusyBox visit \url{http://busybox.net}. To configure BusyBox, in the
+``\verb+busybox/+" directory, type the following:
 
 \begin{verbatim}
-make menuconfig
+[jdoe@newskysaw busybox]$ make menuconfig
 \end{verbatim}
 
+\noindent
 or
 
 \begin{verbatim}
-make xconfig (X version)
+[jdoe@newskysaw busybox]$ make xconfig
 \end{verbatim}
 
-\vspace{10pt}
 \noindent
-You can add the tools you need into the guest image. There are two required
-configuration options: in ``\verb|BusyBox settings->Build Options|", check the 
-``\verb|Build BusyBox as a static binary|" option, and in
-``\verb|BusyBox settings->Installation Options|", set the
-``\verb|Busybox installation prefix|" to the path of your \verb|initramfs|
-directory, as shown in figure \ref{fig:busyboxcf2}. After you finish configuring
-BusyBox, save your configuration and quit the window. Then, to make the BusyBox
-tools, type the following:
+The BusyBox tools will be installed in the guest's initial ramdisk filesystem;
+you can add any tools that you need. There are two required configuration
+options. In the
+``\verb|BusyBox settings->Build Options|" menu check the
+``\verb|Build BusyBox as a static binary (no shared libs)|" option, as shown in
+figure \ref{fig:busyboxcf1}, and in the
+``\verb|BusyBox settings->Installation Options|" menu set the
+``\verb|Busybox installation prefix|" to the path of the
+``\verb|initrd/initramfs|" directory, as shown in figure \ref{fig:busyboxcf2}.
+After you finish configuring BusyBox, save your configuration and quit the
+window. Then, to make the BusyBox tools, type the following:
 
 \begin{verbatim}
-make
+[jdoe@newskysaw busybox]$ make
 \end{verbatim}
-Install the tools to your initial ramdisk directory:
+Install the tools to the guest's initial ramdisk filesystem directory:
 \begin{verbatim}
-make install
+[jdoe@newskysaw busybox]$ make install
 \end{verbatim}
 
 \begin{figure}[ht]
@@ -129,74 +168,159 @@ make install
 \end{figure}
 
 
-\section{Configuring and compiling the Linux kernel}
+\section{Configuring and building the Linux kernel}
 
-Change to the \verb|linux-2.6.30.y/| directory (or whatever your Linux kernel
-source directory is named) and type the following:
-
-\begin{verbatim}
-make menuconfig
-\end{verbatim}
-or
-\begin{verbatim}
-make xconfig (X version)
-\end{verbatim}
-
-\vspace{10pt}
-\noindent
-Configure the kernel to meet your requirements. There is a custom configuration
-file \verb|jrl-default-config| which is configured with minimal kernel options
-(all unnecessary options are removed to keep the guest booting process fast).
-For more on configuring and compiling Linux kernel images, check online.
-
-\vspace{5pt}
-\noindent
-The kernel must be configured with the initial ramdisk file system directory
-(e.g. \verb|initrd/initramfs|): in the ``\verb|General setup|" menu under
-option
-``\verb|Initial RAM filesystem and RAM disk support|" set the
-``\verb|Initramfs source file(s)|" option to the path of your \verb|initramfs|
-directory as shown in figure \ref{fig:linuxcf}. When you are finished
-configuring the kernel, save your configuration, and type the following:
-\begin{verbatim}
-make
-\end{verbatim}
-Some blurb about where the kernel image is...
-
-
-\section{Configuring guest devices}
-
-Checkout the updated Palacios repository to \verb|palacios/|.  (You can find
-instructions for checking out the Palacios and Kitten repositories at
-\url{http://www.v3vee.org/palacios/}). To build the guest VM creator tool,
-change to the \verb|palacios/utils/guest_creator| directory and type the
+The following procedure demonstrates how to configure and build a 32-bit Linux
+kernel. Change to the ``\verb|linux-2.6.30.y/|" directory. There is a custom
+configuration file ``\verb|jrl-default-config|" which is configured with minimal
+kernel options (all unnecessary options are removed to keep the guest booting
+process fast). If you are using the custom configuration file type the
 following:
 
 \begin{verbatim}
-make
+[jdoe@newskysaw linux-2.6.30.y]$ cp jrl-default-config .config
 \end{verbatim}
 
-\vspace{10pt}
 \noindent
-You will get the \verb|build_vm| executable. The guest configuration file uses
-XML. A sample configuration file is provided: \verb|default.xml|.
+Configure the kernel to meet your requirements. For more on configuring and
+building Linux kernels, check online. Type the following:
 
-\vspace{5pt}
-\noindent
-***Various information about how to configure the VM.***
-
-\vspace{5pt}
-\noindent
-Once you have configured the VM, type the following to build the full guest VM
-image:
 \begin{verbatim}
-./build_vm myconfig.xml -o guest.iso
+[jdoe@newskysaw linux-2.6.30.y]$ make ARCH=i386 menuconfig
 \end{verbatim}
-where \verb+myconfig.xml+ is your guest configuration file, and \verb+guest.iso+
-is the output image file that will be used to configure kitten in the next
-section.
+
+\noindent
+or
+
+\begin{verbatim}
+[jdoe@newskysaw linux-2.6.30.y]$ make ARCH=i386 xconfig
+\end{verbatim}
+
+\noindent
+The kernel must be configured with the initial ramdisk file system directory
+(e.g. ``\verb|initrd/initramfs/|"): in the ``\verb|General setup|" menu under
+option
+``\verb|Initial RAM filesystem and RAM disk support|" set the
+``\verb|Initramfs source file(s)|" option to the path of the
+``\verb|initrd/initramfs/|" directory, as shown in figure \ref{fig:linuxcf}.
+Additionally, if you are using the ``\verb|root_files|" file to create devices
+files, add the ``\verb|root_files|" file path, separated by a space, after the
+initial ramdisk filesystem directory. When you are finished configuring the
+kernel, save your configuration, and type the following:
+
+\begin{verbatim}
+[jdoe@newskysaw linux-2.6.30.y]$ make ARCH=i386
+\end{verbatim}
+
+\noindent
+The Linux kernel can be found here: ``\verb|arch/x86/boot/bzImage|". The initial
+ramdisk filesystem can be found here: ``\verb|usr/initramfs_data.cpio|". The
+Linux kernel and initial ramdisk filesystem are used to build the Linux ISO
+image in the section Building the Linux ISO image.
 
 
+\section{Building the Linux ISO image}
+
+The Linux ISO image is a bootable image containing the Linux kernel, initial
+ramdisk filesystem, a boot loader, and a boot loader configuration file. For
+this procedure, we'll use the ``\verb|test/iso/|" directory as the Linux ISO
+build directory:
+
+\begin{verbatim}
+[jdoe@newskysaw test]$ mkdir iso
+\end{verbatim}
+
+\noindent
+Change to the ``\verb|iso/|" directory and copy the required files:
+
+\begin{verbatim}
+[jdoe@newskysaw iso]$ cp ../linux-2.6.30.y/arch/x86/boot/bzImage vmlinuz
+[jdoe@newskysaw iso]$ cp ../linux-2.6.30.y/usr/initramfs_data.cpio initramfs
+[jdoe@newskysaw iso]$ cp /usr/lib/syslinux/isolinux.bin .
+\end{verbatim}
+
+\noindent
+Create a file called ``\verb|isolinux.cfg|" and add the following lines:
+
+\begin{verbatim}
+default linux
+prompt 0
+
+label linux
+  kernel vmlinuz
+  append initrd=initrd
+\end{verbatim}
+
+\noindent
+Change back to the ``\verb|test/|" directory and build the Linux ISO image:
+
+\begin{verbatim}
+[jdoe@newskysaw test]$ mkisofs -o linux.iso -b isolinux.bin -no-emul-boot \
+-boot-load-size 4 -boot-info-table -iso-level 2 -input-charset UTF-8 iso/
+\end{verbatim}
+
+\noindent
+The ``\verb|linux.iso|'' file is the Linux ISO image and is used to build the
+guest image in the section Configuring and building the guest image:
+
+\begin{verbatim}
+[jdoe@newskysaw test]$ file linux.iso
+linux.iso: ISO 9660 CD-ROM filesystem data 'CDROM                          ' (bootable)
+\end{verbatim}
+
+
+\section{Configuring and building the guest image}
+
+Checkout the updated Palacios repository to the ``\verb|palacios/|" directory.
+(You can find instructions for checking out the Palacios repository at
+\url{http://www.v3vee.org/palacios/}). The guest creator utility is required for
+building the guest image. Change to the ``\verb|palacios/utils/guest_creator|"
+directory and build the guest creator utility:
+
+\begin{verbatim}
+[jdoe@newskysaw guest_creator]$ make
+\end{verbatim}
+
+\noindent
+You will get the ``\verb|build_vm|" utility:
+\begin{verbatim}
+[jdoe@newskysaw guest_creator]$ file build_vm
+build_vm: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked
+(uses shared libs), for GNU/Linux 2.6.9, not stripped
+\end{verbatim}
+
+\noindent
+The guest configuration file is written in XML. A sample configuration file is
+provided: ``\verb|default.xml|". Make a copy of the default configuration file
+named ``\verb|myconfig.xml|" and edit the configuration elements that you are
+interested in (if a device is included in the guest configuration file, it
+must be configured in the section Configuring and building Palacios or the guest
+will not boot). Of particular importance is the ``\verb|files|" element. Comment
+out this attribute:
+
+\begin{verbatim}
+<file id="boot-cd" filename="/home/jarusl/image.iso" />
+\end{verbatim}
+
+\noindent
+Add an attribute that specifies the location of the Linux ISO image:
+
+\begin{verbatim}
+<file id="boot-cd" filename="../../../linux.iso" />
+\end{verbatim}
+
+\noindent
+When you are finished editing the guest configuration save the configuration
+file. The guest image consists of the guest configuration file and the Linux
+ISO image. Build the guest image with the guest creator utility:
+
+\begin{verbatim}
+[jdoe@newskysaw guest_creator]$ ./build_vm myconfig.xml -o guest.iso
+\end{verbatim}
+
+\noindent
+The guest image, ``\verb+guest.iso+", is embedded in Kitten's
+``\verb|init_task|" in the section Configuring and building Kitten.
 
 
 \pagebreak
@@ -208,7 +332,7 @@ section.
   \label{fig:kittencf}
 \end{figure}
 
-\begin{figure}[h]
+\begin{figure}[ht]
   \begin{center}
     \colfigsize\epsffile{kittenConf2.eps}
   \end{center}
@@ -222,78 +346,79 @@ section.
 
 You can find the detailed manual of getting and building Palacios and Kitten 
 from scratch in the Palacios website (\url{http://www.v3vee.org/palacios}). Here
-we only give the specific requirements related to the booting guest procedure.
-To configure Palacios, in the Palacios root directory (i.e. \verb+palacios/+)
-type the following:
+we only give the specific requirements related to the procedure of booting the
+guest. To configure Palacios, change to the ``\verb|test/palacios/|" directory
+and type the following:
 
 \begin{verbatim}
-make config
+[jdoe@newskysaw palacios]$ make menuconfig
+\end{verbatim}
+
+\noindent
+or
+
+\begin{verbatim}
+[jdoe@newskysaw palacios]$ make xconfig
+\end{verbatim}
+
+\noindent
+Don't forget to include the devices that your guest image requires. When you
+have configured the components you want to build into Palacios, save the
+configuration and close the window. To build Palacios type the following:
+
+\begin{verbatim}
+[jdoe@newskysaw palacios]$ make
 \end{verbatim}
 or
 \begin{verbatim}
-make xconfig
+[jdoe@newskysaw palacios]$ make all
 \end{verbatim}
 
-\vspace{10pt}
 \noindent
-When you have configured the components you want to build into Palacios type
-the following:
-
-\begin{verbatim}
-make
-\end{verbatim}
-or
-\begin{verbatim}
-make all
-\end{verbatim}
-
-\vspace{10pt}
-\noindent
-Once the Palacios static library has been built you can find the library file
-\verb+libv3vee.a+ in the Palacios root directory.
+Once the Palacios static library has been built you can find the library file,
+``\verb+libv3vee.a+", in the Palacios root directory.
 
 \subsection*{Configuring and building Kitten}
 
-To build Kitten, first configure it in as you did Palacios. Change to the
-\verb+kitten/+ directory and type the following:
+Configure Kitten. Change to the ``\verb+test/kitten/+" directory and type the
+following:
 
 \begin{verbatim}
-make config
+[jdoe@newskysaw kitten]$ make menuconfig
 \end{verbatim}
+
+\noindent
 or
+
 \begin{verbatim}
-make xconfig
+[jdoe@newskysaw kitten]$ make xconfig
 \end{verbatim}
 
-\vspace{10pt}
 \noindent
 Under the ``\verb|Virtualization|" menu select the
 ``\verb|Include Palacios virtual machine monitor|" option. Set the
-``\verb|Path to pre-built Palacios tree|" option to the path of your Palacios
-build, and set the ``\verb|Path to guest ISO image|" option to the path
-containing the guest image that was built in the Configuring guest devices
-section of this manual.
-
-\vspace{10pt}
-\noindent
-After configuring Kitten, to build Kitten, type the following:
+``\verb|Path to pre-built Palacios tree|" option to the Palacios build tree
+path, ``\verb|..\palacios|", as shown in figure \ref{fig:kittencf}. Set the
+``\verb|Path to guest OS ISO image|" option to the guest image path,\\
+''\verb|../palacios/utils/guest_creator/guest.iso|'', as shown in figure
+\ref{fig:kittencf2}.  When you have finished configuring Kitten, save the
+configuration and close the window. To build Kitten type the following:
 
 \begin{verbatim}
-make isoimage
+[jdoe@newskysaw kitten]$ make isoimage
 \end{verbatim}
 
-\vspace{10pt}
 \noindent
-This builds the bootable ISO image file with guest OS, Palacios and Kitten.
-The ISO file is located in \verb+kitten/arch/x86_64/boot/image.iso+.
+This builds the bootable ISO image file with guest image, Palacios, and Kitten.
+The ISO file is located in ``\verb+kitten/arch/x86_64/boot/image.iso+".
 
 \pagebreak
 \noindent
-You have successfully created a guest CD image file that can be booted on a
-machine. You can boot the file on Qemu using the following sample command:
+You have successfully created an ISO image file that can be booted on a machine.
+You can boot the file on Qemu using the following sample command:
 
 \begin{verbatim}
-/opt/vmm-tools/qemu/bin/qemu-system-x86_64 \
+[jdoe@newskysaw test]$ /opt/vmm-tools/qemu/bin/qemu-system-x86_64 \
         -smp 1 \
         -m 2047 \
         -serial file:./serial.out \
@@ -301,7 +426,6 @@ machine. You can boot the file on Qemu using the following sample command:
         < /dev/null
 \end{verbatim}
 
-\vspace{10pt}
 \noindent
 We have finished the entire procedure for building a guest image and booting it
 on the Palacios VMM. For more updated details, check the Palacios website

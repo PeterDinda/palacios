@@ -34,8 +34,9 @@
 
 
 struct ethernet_pkt {
-    uint32_t size;
+    uint32_t size; //size of data
     uint16_t type;
+    struct udp_link_header ext_hdr; //possible externel header to applied to data before sent
     char data[ETHERNET_PACKET_LEN];
 };
 
@@ -44,7 +45,7 @@ struct ethernet_pkt {
 struct in_pkt_header {
     char ethernetdest[6];
     char ethernetsrc[6];
-    unsigned char ethernettype[2]; // indicates layer 3 protocol type
+    unsigned char ethernettype[2]; //layer 3 protocol type
     char ip[20];
 };
 
@@ -88,7 +89,7 @@ struct route_cache_entry {
 static struct hashtable * g_route_cache; 
 
 
-static void print_packet(char * pkt, int size) {
+static void print_packet(uchar_t *pkt, int size) {
     PrintDebug("Vnet: print_data_packet: size: %d\n", size);
     v3_hexdump(pkt, size, NULL, 0);
 }
@@ -108,9 +109,27 @@ static void print_device_addr(char * ethaddr) {
 } 
 #endif
 
+static uint16_t ip_xsum(struct ip_header *ip_hdr, int hdr_len){
+    long sum = 0;
 
-// network connection functions 
-static inline void ethernet_packet_init(struct ethernet_pkt * pt, const char * data, const size_t size) {
+    uint16_t *p = (uint16_t*) ip_hdr;
+    while(hdr_len > 1){
+        sum += *(p++);
+        if(sum & 0x80000000)
+            sum = (sum & 0xFFFF) + (sum >> 16);
+            hdr_len -= 2;
+        }
+ 
+    if(hdr_len) 
+        sum += (uint16_t) *(uchar_t *)p;
+          
+    while(sum>>16)
+        sum = (sum & 0xFFFF) + (sum >> 16);
+
+    return (uint16_t)~sum;
+}
+
+static inline void ethernet_packet_init(struct ethernet_pkt *pt, uchar_t *data, const size_t size) {
     pt->size = size;
     memcpy(pt->data, data, size);
 }
@@ -218,6 +237,7 @@ static int look_into_cache(route_hashkey_t hashkey, int * matches) {
     return n_matches;
 }
 
+#ifdef CONFIG_DEBUG_VNET
 static inline uint8_t hex_nybble_to_nybble(const uint8_t hexnybble) {
     uint8_t x = toupper(hexnybble);
 
@@ -246,8 +266,9 @@ static inline void mac_to_string(char mac[6], char * buf) {
 	     mac[0], mac[1], mac[2],
 	     mac[3], mac[4], mac[5]);
 }
+#endif
 
-static int add_link_entry(struct link_entry * link) {
+static int __add_link_entry(struct link_entry * link) {
     int idx;
     
     for (idx = 0; idx < MAX_LINKS; idx++) {
@@ -263,7 +284,7 @@ static int add_link_entry(struct link_entry * link) {
     return -1;
 }
 
-static int add_route_entry(struct routing_entry * route) {
+static int __add_route_entry(struct routing_entry * route) {
     int idx;
     
     for (idx = 0; idx < MAX_ROUTES; idx++) {
@@ -308,7 +329,7 @@ static int vnet_add_route_entry(char src_mac[6],
     new_route->src_link_idx = src;
     new_route->src_type = src_type;
 
-    if ((idx = add_route_entry(new_route)) == -1) {
+    if ((idx = __add_route_entry(new_route)) == -1) {
 	PrintError("Could not add route entry\n");
         return -1;
     }
@@ -318,7 +339,7 @@ static int vnet_add_route_entry(char src_mac[6],
     return idx;
 }
 
-static void * delete_link_entry(int index) {
+static void * __delete_link_entry(int index) {
     struct link_entry * link = NULL;
     void * ret = NULL;
     link_type_t type;
@@ -386,11 +407,11 @@ static int find_route_entry(char src_mac[6],
     return -1;
 }
 
-static int delete_route_entry(int index) {
+static int __delete_route_entry(int index) {
     struct routing_entry * route;
 
     if ((index >= MAX_ROUTES) || (g_routes.routes[index] == NULL)) {
-	PrintError("Could not find route entry %d\n", index);
+	PrintDebug("VNET: wrong index in delete route entry %d\n", index);
 	return -1;
     }
 
@@ -417,11 +438,11 @@ static int vnet_delete_route_entry_by_addr(char src_mac[6],
 				 dest_mac_qual, link_idx, type, src, src_type);
     
     if (index == -1) {
-	PrintError("Error deleting route entry by addr\n");
+	PrintDebug("VNET: wrong in delete route entry %d\n", index);
 	return -1;
     }
     
-    return delete_route_entry(index);
+    return __delete_route_entry(index);
 }
 
 static int match_route(uint8_t * src_mac, 
@@ -559,102 +580,7 @@ static int match_route(uint8_t * src_mac,
     return no;
 }
 
-#if 0
-// TODO: To be removed
-static int process_udpdata() 
-{
-    struct ethernet_pkt * pt;
-
-    uint32_t dest = 0;
-    uint16_t remote_port = 0;
-    SOCK link_sock = g_udp_sockfd;
-    int length = sizeof(struct ethernet_pkt) - (2 * sizeof(int));   //minus the "size" and "type" 
-
-    //run in a loop to get packets from outside network, adding them to the incoming packet queue
-    while (1) {
-	pt = (struct ethernet_pkt *)V3_Malloc(sizeof(struct ethernet_pkt));
-
-	if (pt == NULL){
-	    PrintError("Vnet: process_udp: Malloc fails\n");
-	    continue;
-	}
-	
-	PrintDebug("Vnet: route_thread: socket: [%d]. ready to receive from ip [%x], port [%d] or from VMs\n", link_sock, (uint_t)dest, remote_port);
-	pt->size = V3_RecvFrom_IP( link_sock, dest, remote_port, pt->data, length);
-	PrintDebug("Vnet: route_thread: socket: [%d] receive from ip [%x], port [%d]\n", link_sock, (uint_t)dest, remote_port);
-	
-	if (pt->size <= 0) {
-	    PrintDebug("Vnet: process_udp: receiving packet from UDP fails\n");
-	    V3_Free(pt);
-	    return -1;
-	}
-	
-	PrintDebug("Vnet: process_udp: get packet\n");
-	print_packet(pt->data, pt->size);
-    }
-}
-
-// TODO: To be removed
-static int indata_handler( )
-{
-    if (!use_tcp) {
-	process_udpdata();	  
-    }
-
-    return 0;   
-}
-
-// TODO: To be removed
-static int start_recv_data()
-{
-    if (use_tcp){
-	
-    } else {
-	SOCK udp_data_socket;
-	
-	if ((udp_data_socket = V3_Create_UDP_Socket()) < 0){
-	    PrintError("VNET: Can't setup udp socket\n");
-	    return -1; 
-	}
-	PrintDebug("Vnet: vnet_setup_udp: get socket: %d\n", udp_data_socket);
-	g_udp_sockfd = udp_data_socket;
-	
-	store_topologies(udp_data_socket);
-	
-	if (V3_Bind_Socket(udp_data_socket, vnet_udp_port) < 0){ 
-	    PrintError("VNET: Can't bind socket\n");
-	    return -1;
-	}
-	PrintDebug("VNET: vnet_setup_udp: bind socket successful\n");
-    }
-    
-    V3_CREATE_THREAD(&indata_handler, NULL, "VNET_DATA_HANDLER");
-    return 0;
-}
-
-static void store_test_topologies(SOCK fd) 
-{
-    int i;
-    int src_mac_qual = MAC_ANY;
-    int dest_mac_qual = MAC_ANY;
-    uint_t dest;
-#ifndef VNET_SERVER
-    dest = (0 | 172 << 24 | 23 << 16 | 1 );
-    PrintDebug("VNET: store_topologies. NOT VNET_SERVER, dest = %x\n", dest);
-#else
-    dest = (0 | 172 << 24 | 23 << 16 | 2 );
-    PrintDebug("VNET: store_topologies. VNET_SERVER, dest = %x\n", dest);
-#endif
-
-    int type = UDP_TYPE;
-    int src = 0;
-    int src_type= LINK_ANY; //ANY_SRC_TYPE
-    int data_port = 22;
-}
-
-#endif
-
-static int handle_one_pkt(struct ethernet_pkt * pkt) {
+static int handle_one_pkt(struct ethernet_pkt *pkt) {
     int src_link_index = -1;	//the value of src_link_index of udp always is 0
     int i;
     char src_mac[6];
@@ -687,81 +613,109 @@ static int handle_one_pkt(struct ethernet_pkt * pkt) {
     
     num_matched_routes = look_into_cache((route_hashkey_t)hash_key, matches);
     
-
     if (num_matched_routes == -1) {  
-	// no match
-
+    // no match in the cache
         num_matched_routes = match_route(src_mac, dst_mac, LINK_ANY, src_link_index, matches);
 	
-	if (num_matched_routes > 0) {
-	    add_route_to_cache(hash_key, num_matched_routes,matches);      
-	}
+        if (num_matched_routes > 0) {
+	     add_route_to_cache(hash_key, num_matched_routes,matches);      
+	 }
     }
     
     PrintDebug("Vnet: HandleDataOverLink: Matches=%d\n", num_matched_routes);
     
-    for (i = 0; i < num_matched_routes; i++) {
+    for (i = 0; i < num_matched_routes; i++) {//send packet to all destinations
         int route_index = -1;
         int link_index = -1;
-	int pkt_len = 0;
-	struct link_entry * link = NULL;
+        int pkt_len = 0;
+        struct link_entry * link = NULL;
 
         route_index = matches[i];
 	
         PrintDebug("Vnet: HandleDataOverLink: Forward packet from link according to Route entry %d\n", route_index);
 	
-	link_index = g_routes.routes[route_index]->link_idx;
+        link_index = g_routes.routes[route_index]->link_idx;
 
-	if ( (link_index < 0) || 
+        if ((link_index < 0) || 
 	     (link_index > MAX_LINKS) || 
 	     (g_links.links[link_index] == NULL)) {
-	    continue;
-	}
+	     continue;
+	 }
 	
-	link = g_links.links[link_index];
-
-	
-	pkt_len = pkt->size;
-
+        link = g_links.links[link_index];
+        pkt_len = pkt->size;
         if (g_routes.routes[route_index]->link_type == LINK_EDGE) {
-	    
-            // TODO: apply the header in the beginning of the packet to be sent
-	    if ((link->dst_link->input(pkt->data, pkt_len, NULL)) != pkt_len) {
-		PrintError("LEI --  WHAT IS THE ERROR HERE?\n");
-		return -1;
-	    }
+
+	      //apply the header in the beginning of the packet to be sent
+            if (link->dst_link->pro_type == UDP_TYPE) {
+                struct udp_link_header *hdr = &(link->dst_link->vnet_header);
+                struct ip_header *ip = &hdr->ip_hdr;
+                struct udp_header *udp = &hdr->udp_hdr;
+		   udp->len = pkt_len + sizeof(struct udp_header);
+		   ip->total_len = pkt_len + sizeof(struct udp_header) + sizeof(struct ip_header);
+		   ip->cksum = ip_xsum(ip, sizeof(struct ip_header));
+		
+                int hdr_size = sizeof(struct udp_link_header);
+                memcpy(&pkt->ext_hdr, hdr, hdr_size);
+
+                pkt_len += hdr_size;
+                if ((link->dst_link->input((uchar_t *)&pkt->ext_hdr, pkt_len, link->dst_link->private_data)) != pkt_len) {
+                    PrintDebug("VNET: Packet not sent properly\n");
+                    return -1;
+                }
+	     }else {
+                PrintDebug("VNET: Link protocol type not support\n");
+                return -1;
+	     }
         } else if (g_routes.routes[route_index]->link_type == LINK_INTERFACE) {
-            if ((link->dst_link->input(pkt->data, pkt_len, NULL)) != pkt_len) {
-		PrintError("LEI --  WHAT IS THE ERROR HERE?\n");
-		return -1;
-	    }
+            if ((link->dst_dev->input(pkt->data, pkt_len, link->dst_dev->private_data)) != pkt_len) {
+		   PrintDebug("VNET: Packet not sent properly\n");
+		   return -1;
+	     }
         } else {
-            PrintError("Vnet: Wrong Edge type\n");
-	    return -1;
+            PrintDebug("Vnet: Wrong Edge type\n");
+            return -1;
         }
     }
     
     return 0;
 }
 
-static int send_ethernet_pkt(char * buf, int length) {
-    struct ethernet_pkt * pkt;
+static int send_ethernet_pkt(uchar_t *data, int len) {
+    struct ethernet_pkt *pkt;
 
     pkt = (struct ethernet_pkt *)V3_Malloc(sizeof(struct ethernet_pkt));
-    ethernet_packet_init(pkt, buf, length);  //====here we copy sending data once 
+    memset(pkt, 0, sizeof(struct ethernet_pkt));
+
+    if(pkt == NULL){
+        PrintError("VNET: Memory allocate fails\n");
+        return -1;
+    }
+	
+    ethernet_packet_init(pkt, data, len);  //====here we copy sending data once 
 	
     PrintDebug("VNET: vm_send_pkt: transmitting packet: (size:%d)\n", (int)pkt->size);
-    print_packet((char *)buf, length);
+    print_packet((char *)data, len);
     
     v3_enqueue(g_inpkt_q, (addr_t)pkt);
 
     return 0;
 }
 
-int v3_vnet_send_pkt(uchar_t * buf, int length) {
-    PrintDebug("VNET: In V3_Send_pkt: pkt length %d\n", length);
+//send raw ethernet packet
+int v3_vnet_send_rawpkt(uchar_t * buf, int len, void *private_data) {
+    PrintDebug("VNET: In V3_Send_pkt: pkt length %d\n", len);
     
-    return send_ethernet_pkt((char *)buf, length);
+    return send_ethernet_pkt(buf, len);
+}
+
+//sending the packet from Dom0, should remove the link header
+int v3_vnet_send_udppkt(uchar_t * buf, int len, void *private_data) {
+    PrintDebug("VNET: In V3_Send_pkt: pkt length %d\n", len);
+
+    uint_t hdr_len = sizeof(struct udp_link_header);
+   
+    return send_ethernet_pkt((uchar_t *)(buf+hdr_len), len - hdr_len);
 }
 
 static int search_device(char * device_name) {
@@ -774,12 +728,11 @@ static int search_device(char * device_name) {
 	    }
         }
     }
-    
-    PrintError("LEI --  WHAT IS THE ERROR HERE?\n");
+
     return -1;
 }
 
-static int vnet_register_device(struct vm_device * vdev, 
+int vnet_register_device(struct vm_device * vdev, 
 			 char * dev_name, 
 			 uchar_t mac[6], 
 			 int (*netif_input)(uchar_t * pkt, uint_t size, void * private_data), 
@@ -789,11 +742,11 @@ static int vnet_register_device(struct vm_device * vdev,
     int idx = search_device(dev_name);
 
     if (idx != -1) {
-	PrintError("LEI --  WHAT IS THE ERROR HERE?\n");
+	PrintDebug("VNET: register device: Already has device with the name %s\n", dev_name);
 	return -1;
     }
     
-    if_dev = (struct vnet_if_device *)V3_Malloc(sizeof(struct vnet_if_device));
+    if_dev = (struct vnet_if_device *)(sizeof(struct vnet_if_device));
     
     if (if_dev == NULL) {
 	PrintError("VNET: Malloc fails\n");
@@ -806,29 +759,32 @@ static int vnet_register_device(struct vm_device * vdev,
     if_dev->input = netif_input;
     if_dev->private_data = data;
 
-    struct link_entry * link = (struct link_entry *)V3_Malloc(sizeof(struct link_entry));
+    struct link_entry * link = (struct link_entry *)(sizeof(struct link_entry));
 
     link->type = LINK_INTERFACE;
     link->dst_dev = if_dev;
 
-    idx = add_link_entry(link);
+    idx = __add_link_entry(link);
+
+    PrintDebug("VNET: Add device %s to link table, idx %d", dev_name, idx);
     
     return idx;
 }
 
+#if 0
 static int vnet_unregister_device(char * dev_name) {
     int idx;
 
     idx = search_device(dev_name);
     
     if (idx == -1) {
-	PrintError("LEI --  WHAT IS THE ERROR HERE?\n");
+	PrintDebug("VNET: No device with name %s found\n", dev_name);
         return -1;
     }
 
-    struct vnet_if_device * device = (struct vnet_if_device *)delete_link_entry(idx);
+    struct vnet_if_device * device = (struct vnet_if_device *)__delete_link_entry(idx);
     if (device == NULL) {
-	PrintError("LEI --  WHAT IS THE ERROR HERE?\n");
+	PrintError("VNET: Device %s not in the link table %d, something may be wrong in link table\n", dev_name, idx);
 	return -1;
     }
 
@@ -836,6 +792,8 @@ static int vnet_unregister_device(char * dev_name) {
 
     return idx;
 }
+
+#endif
 
 int v3_vnet_pkt_process() {
     struct ethernet_pkt * pkt;
@@ -892,26 +850,117 @@ static void init_pkt_queue() {
     v3_init_queue(g_inpkt_q);
 }
 
-#if 0
-// TODO: 
-static int init_routing_tables(struct routing_entry *route_tab, uint16_t size)
-{
-    //struct routing_entry *route;
+static void free_link_mem(struct link_entry *link){
+    V3_Free(link->dst_dev);
+    V3_Free(link);
+}
+
+// TODO:
+static int addto_routing_link_tables(struct routing_entry *route_tab, 
+							uint16_t num_routes,
+							struct link_entry *link_tab,
+							uint16_t num_links){
+    struct routing_entry *route, *new_route;
+    struct link_entry *link, *new_link;
+    int new_idx;
+    int i;
+    int link_idxs[MAX_LINKS];
+
+    //add all of the links first, record their new indexs
+    for (i = 0; i < num_links; i++) {
+	link_idxs[i] = -1;
+	link = &link_tab[i];
+	new_link = (struct link_entry *)V3_Malloc(sizeof(struct link_entry));
+
+	if (new_link == NULL){
+	    PrintError("VNET: Memory allocate error\n");
+	    return -1;
+	}
+
+	new_link->type = link->type;
+	
+	//TODO: how to set the input parameters here
+	if (link->type == LINK_EDGE){
+      	    struct vnet_if_device *ifdev = (struct vnet_if_device *)V3_Malloc(sizeof(struct vnet_if_device));
+
+	    if (ifdev == NULL){
+		PrintError("VNET: Memory allocate fails\n");
+		return -1;
+	    }
+	    
+	    memcpy(ifdev->name, link->dst_dev->name, DEVICE_NAME_LEN);
+
+	    // TODO:
+	    //ifdev->mac_addr
+	    //ifdev->input
+	    //ifdev->private_data
+
+	    new_link->dst_dev = ifdev;    
+	}else if (link->type == LINK_INTERFACE){
+	    struct vnet_if_link *iflink = (struct vnet_if_link *)V3_Malloc(sizeof(struct vnet_if_link));
+
+	    if (iflink == NULL){
+		PrintError("VNET: Memory allocate fails\n");
+		return -1;
+	    }
+	    iflink->pro_type = link->dst_link->pro_type;
+	    iflink->dest_ip = link->dst_link->dest_ip;
+	    iflink->dest_port = link->dst_link->dest_port;
+	    memcpy(&iflink->vnet_header, &link->dst_link->vnet_header, sizeof(struct udp_link_header));
+
+	    // TODO:
+	    //iflink->input = 
+	    //iflink->private_data = 
+	    
+	    new_link->dst_link = iflink;
+	}else{
+	    PrintDebug("VNET: invalid link type\n");
+	    V3_Free(new_link);
+	    continue;
+	}
+	
+	new_idx = __add_link_entry(new_link);
+	if (new_idx < 0) {
+	    PrintError("VNET: Adding link fails\n");
+	    free_link_mem(new_link);
+	    continue;
+	}	
+	link_idxs[i] = new_idx;
+    }
+
+    //add all of routes, replace with new link indexs
+    for (i = 0; i < num_routes; i++) {
+	route = &route_tab[i];
+       if (route->link_idx < 0 || route->link_idx >= num_links || 
+	    ((route->src_link_idx != -1) && 
+	      (route->src_link_idx < 0 || route->src_link_idx >= num_links))){
+	    PrintError("VNET: There is error in the intial tables data from guest\n");
+	    continue;
+	}
+
+	new_route = (struct routing_entry *)V3_Malloc(sizeof(struct routing_entry));
+
+	if (new_route == NULL){
+	    PrintError("VNET: Memory allocate fails\n");
+	    return -1;
+	}
+	memcpy(new_route, route, sizeof(struct routing_entry));
+	
+	new_route->link_idx = link_idxs[new_route->link_idx];
+		
+	if (route->src_link_idx != -1)
+	    new_route->src_link_idx = link_idxs[new_route->src_link_idx];
+
+	if((__add_route_entry(new_route)) == -1){
+	    PrintDebug("VNET: Adding route fails");
+	    V3_Free(new_route);
+	}
+	new_route = NULL;	
+    }
 
 
     return 0;
 }
-
-
-// TODO: 
-static int init_link_tables(struct link_entry *link_tab, uint16_t size)
-{
-    //struct link_entry *link;
-
-    return 0;
-}
-
-#endif
 
 struct table_init_info {
     addr_t routing_table_start;
@@ -920,16 +969,34 @@ struct table_init_info {
     uint16_t link_table_size;
 };
 
+//add the guest specified routes and links to the tables
 static int handle_init_tables_hcall(struct guest_info * info, uint_t hcall_id, void * priv_data) {
-    uint8_t * buf = NULL;
-    addr_t info_addr =	(addr_t)info->vm_regs.rcx;
+    addr_t guest_addr = (addr_t)info->vm_regs.rcx;
+    addr_t info_addr, route_addr, link_addr;
+    struct table_init_info *init_info;
+    struct link_entry *link_array;
+    struct routing_entry *route_array;   
 
-    if (guest_va_to_host_va(info, info_addr, (addr_t *)&(buf)) == -1) {
-	PrintError("Could not translate buffer address\n");
+    if (guest_va_to_host_va(info, guest_addr, &info_addr) == -1) {
+	PrintError("VNET: Could not translate guest address\n");
 	return -1;
     }
 
-    //struct table_init_info *init_info = (struct table_init_info *)buf;
+    init_info = (struct table_init_info *)info_addr;
+
+    if (guest_va_to_host_va(info, init_info->routing_table_start, &route_addr) == -1) {
+	PrintError("VNET: Could not translate guest address\n");
+	return -1;
+    }
+    route_array = (struct routing_entry *)route_addr;
+
+    if (guest_va_to_host_va(info, init_info->link_table_start, &link_addr) == -1) {
+	PrintError("VNET: Could not translate guest address\n");
+	return -1;
+    }	
+    link_array = (struct link_entry *)link_addr;
+
+    addto_routing_link_tables(route_array, init_info->routing_table_size, link_array, init_info->link_table_size);
     
     return 0;
 }
@@ -940,8 +1007,6 @@ void v3_vnet_init(struct guest_info * vm) {
     init_pkt_queue();
 	
     v3_register_hypercall(vm, VNET_INITAB_HCALL, handle_init_tables_hcall, NULL);
-
-    //store_test_topologies(udp_data_socket); 
 
     PrintDebug("VNET Initialized\n");
 }

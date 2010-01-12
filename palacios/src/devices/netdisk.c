@@ -132,7 +132,7 @@ static int read(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * private_
     }
 
     if (ret_len != length) {
-	PrintError("Read length mismatch (req=%d) (result=%d)\n", length, ret_len);
+	PrintError("Read length mismatch (req=%llu) (result=%u)\n", length, ret_len);
 	return -1;
     }
 
