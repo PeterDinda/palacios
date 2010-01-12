@@ -652,6 +652,11 @@ int v3_vmx_enter(struct guest_info * info) {
     update_irq_entry_state(info);
 #endif
 
+    {
+	addr_t guest_cr3;
+	vmcs_read(VMCS_GUEST_CR3, &guest_cr3);
+	vmcs_write(VMCS_GUEST_CR3, guest_cr3);
+    }
 
     rdtscll(info->time_state.cached_host_tsc);
 
@@ -681,6 +686,8 @@ int v3_vmx_enter(struct guest_info * info) {
 
     /* Update guest state */
     v3_vmx_save_vmcs(info);
+
+    // info->cpl = info->segments.cs.selector & 0x3;
 
     info->mem_mode = v3_get_vm_mem_mode(info);
     info->cpu_mode = v3_get_vm_cpu_mode(info);
