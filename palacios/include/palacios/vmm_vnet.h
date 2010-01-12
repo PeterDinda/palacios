@@ -56,8 +56,43 @@ struct routing_entry{
 }__attribute__((packed));
 
 
+struct eth_header {
+    uchar_t dest[6];
+    uchar_t src[6];
+    uint16_t type; // indicates layer 3 protocol type
+}__attribute__((packed));
+
+struct ip_header {
+    uint8_t version: 4;
+    uint8_t hdr_len: 4;
+    uchar_t tos;
+    uint16_t total_len;
+    uint16_t id;
+    uint8_t flags:     3;
+    uint16_t offset: 13;
+    uchar_t ttl;
+    uchar_t proto;
+    uint16_t cksum;
+    uint32_t src_addr;
+    uint32_t dst_addr;
+}__attribute__((packed));
+
+struct udp_header {
+    uint16_t src_port;
+    uint16_t dst_port;
+    uint16_t len;
+    uint16_t csum;//set to zero, disable the xsum
+}__attribute__((packed));
+
+struct udp_link_header {
+    struct eth_header eth_hdr;
+    struct ip_header ip_hdr;
+    struct udp_header udp_hdr;
+}__attribute__((packed));
+
+#define DEVICE_NAME_LEN 20
 struct vnet_if_device {
-    char name[50];
+    char name[DEVICE_NAME_LEN];
     uchar_t mac_addr[6];
     struct vm_device *dev;
     
@@ -67,14 +102,12 @@ struct vnet_if_device {
 }__attribute__((packed));
 
 
-#define VNET_HEADER_LEN  64
 struct vnet_if_link {
     prot_type_t pro_type; //protocal type of this link
     unsigned long dest_ip;
     uint16_t dest_port;
 
-    uchar_t vnet_header[VNET_HEADER_LEN]; //header applied to the packet in/out from this link
-    uint16_t hdr_len; 
+    struct udp_link_header vnet_header; //header applied to the packet in/out from this link
 
     int (*input)(uchar_t *data, uint32_t len, void *private_data);
     
@@ -95,7 +128,8 @@ struct link_entry {
 }__attribute__((packed));
 
 
-int v3_vnet_send_pkt(uchar_t *buf, int length);
+int v3_vnet_send_rawpkt(uchar_t *buf, int len, void *private_data);
+int v3_vnet_send_udppkt(uchar_t *buf, int len, void *private_data);
 //int vnet_register_device(struct vm_device *vdev, 
 //			 char *dev_name, 
 //			 uchar_t mac[6], 
