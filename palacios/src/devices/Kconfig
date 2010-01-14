@@ -203,7 +203,7 @@ config PCI
 config PASSTHROUGH_PCI
 	bool "Passthrough PCI"
 	default y 
-	depends on PCI && EXPERIMENTAL
+	depends on PCI && EXPERIMENTAL && SYMBIOTIC
 	help 
 	  Enables hardware devices to be passed through to the VM
 
