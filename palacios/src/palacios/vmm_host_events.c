@@ -21,8 +21,8 @@
 #include <palacios/vmm_host_events.h>
 #include <palacios/vm_guest.h>
 
-int v3_init_host_events(struct guest_info * info) {
-    struct v3_host_events * host_evts = &(info->host_event_hooks);
+int v3_init_host_events(struct v3_vm_info * vm) {
+    struct v3_host_events * host_evts = &(vm->host_event_hooks);
 
     INIT_LIST_HEAD(&(host_evts->keyboard_events));
     INIT_LIST_HEAD(&(host_evts->mouse_events));
@@ -32,12 +32,12 @@ int v3_init_host_events(struct guest_info * info) {
 }
 
 
-int v3_hook_host_event(struct guest_info * info, 
+int v3_hook_host_event(struct v3_vm_info * vm, 
 		       v3_host_evt_type_t event_type, 
 		       union v3_host_event_handler cb, 
 		       void * private_data) {
   
-    struct v3_host_events * host_evts = &(info->host_event_hooks);
+    struct v3_host_events * host_evts = &(vm->host_event_hooks);
     struct v3_host_event_hook * hook = NULL;
 
     hook = (struct v3_host_event_hook *)V3_Malloc(sizeof(struct v3_host_event_hook));
@@ -65,17 +65,17 @@ int v3_hook_host_event(struct guest_info * info,
 }
 
 
-int v3_deliver_keyboard_event(struct guest_info * info, 
+int v3_deliver_keyboard_event(struct v3_vm_info * vm, 
 			      struct v3_keyboard_event * evt) {
-    struct v3_host_events * host_evts = &(info->host_event_hooks);
+    struct v3_host_events * host_evts = &(vm->host_event_hooks);
     struct v3_host_event_hook * hook = NULL;
 
-    if (info->run_state != VM_RUNNING) {
+    if (vm->run_state != VM_RUNNING) {
 	return -1;
     }
 
     list_for_each_entry(hook, &(host_evts->keyboard_events), link) {
-	if (hook->cb.keyboard_handler(info, evt, hook->private_data) == -1) {
+	if (hook->cb.keyboard_handler(vm, evt, hook->private_data) == -1) {
 	    return -1;
 	}
     }
@@ -84,17 +84,17 @@ int v3_deliver_keyboard_event(struct guest_info * info,
 }
 
 
-int v3_deliver_mouse_event(struct guest_info * info, 
+int v3_deliver_mouse_event(struct v3_vm_info * vm, 
 			   struct v3_mouse_event * evt) {
-    struct v3_host_events * host_evts = &(info->host_event_hooks);
+    struct v3_host_events * host_evts = &(vm->host_event_hooks);
     struct v3_host_event_hook * hook = NULL;
 
-    if (info->run_state != VM_RUNNING) {
+    if (vm->run_state != VM_RUNNING) {
 	return -1;
     }
 
     list_for_each_entry(hook, &(host_evts->mouse_events), link) {
-	if (hook->cb.mouse_handler(info, evt, hook->private_data) == -1) {
+	if (hook->cb.mouse_handler(vm, evt, hook->private_data) == -1) {
 	    return -1;
 	}
     }
@@ -103,17 +103,17 @@ int v3_deliver_mouse_event(struct guest_info * info,
 }
 
 
-int v3_deliver_timer_event(struct guest_info * info, 
+int v3_deliver_timer_event(struct v3_vm_info * vm, 
 			   struct v3_timer_event * evt) {
-    struct v3_host_events * host_evts = &(info->host_event_hooks);
+    struct v3_host_events * host_evts = &(vm->host_event_hooks);
     struct v3_host_event_hook * hook = NULL;
 
-    if (info->run_state != VM_RUNNING) {
+    if (vm->run_state != VM_RUNNING) {
 	return -1;
     }
 
     list_for_each_entry(hook, &(host_evts->timer_events), link) {
-	if (hook->cb.timer_handler(info, evt, hook->private_data) == -1) {
+	if (hook->cb.timer_handler(vm, evt, hook->private_data) == -1) {
 	    return -1;
 	}
     }

@@ -46,7 +46,7 @@ static inline int handle_passthrough_pagefault_64(struct guest_info * info,
 
     
 
-    struct v3_shadow_region * region =  v3_get_shadow_region(info, fault_addr);
+    struct v3_shadow_region * region =  v3_get_shadow_region(info->vm_info, fault_addr);
   
     if (region == NULL) {
 	PrintError("Invalid region in passthrough page fault 64, addr=%p\n", 

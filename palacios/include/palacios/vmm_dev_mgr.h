@@ -29,7 +29,7 @@
 #include <palacios/vmm_config.h>
 
 
-struct guest_info;
+struct v3_vm_info;
 
 struct v3_device_ops;
 
@@ -41,7 +41,7 @@ struct vm_device {
 
     struct v3_device_ops * ops;
 
-    struct guest_info * vm;
+    struct v3_vm_info * vm;
 
     struct list_head dev_link;
 
@@ -67,14 +67,13 @@ struct vmm_dev_mgr {
 
 };
 
+int v3_create_device(struct v3_vm_info * vm, const char * dev_name, v3_cfg_tree_t * cfg);
 
 
-
-int v3_create_device(struct guest_info * info, const char * dev_name, v3_cfg_tree_t * cfg);
 void v3_free_device(struct vm_device * dev);
 
 
-struct vm_device * v3_find_dev(struct guest_info * info, const char * dev_name);
+struct vm_device * v3_find_dev(struct v3_vm_info * info, const char * dev_name);
 
 
 // Registration of devices
@@ -86,8 +85,10 @@ struct vm_device * v3_find_dev(struct guest_info * info, const char * dev_name);
 
 
 
-int v3_init_dev_mgr(struct guest_info * info);
-int v3_dev_mgr_deinit(struct guest_info * info);
+int v3_init_dev_mgr(struct v3_vm_info * vm);
+int v3_dev_mgr_deinit(struct v3_vm_info * vm);
+
+
 
 
 
@@ -116,14 +117,14 @@ struct v3_device_ops {
 
 int v3_dev_hook_io(struct vm_device   *dev,
 		   ushort_t            port,
-		   int (*read)(ushort_t port, void * dst, uint_t length, struct vm_device * dev),
-		   int (*write)(ushort_t port, void * src, uint_t length, struct vm_device * dev));
+		   int (*read)(struct guest_info * core, ushort_t port, void * dst, uint_t length, struct vm_device * dev),
+		   int (*write)(struct guest_info * core, ushort_t port, void * src, uint_t length, struct vm_device * dev));
 
 int v3_dev_unhook_io(struct vm_device   *dev,
 		     ushort_t            port);
 
 
-int v3_attach_device(struct guest_info * vm, struct vm_device * dev);
+int v3_attach_device(struct v3_vm_info * vm, struct vm_device * dev);
 int v3_detach_device(struct vm_device * dev);
 
 struct vm_device * v3_allocate_device(char * name, struct v3_device_ops * ops, void * private_data);
@@ -131,7 +132,7 @@ struct vm_device * v3_allocate_device(char * name, struct v3_device_ops * ops, v
 
 struct v3_device_info {
     char * name;
-    int (*init)(struct guest_info * info, v3_cfg_tree_t * cfg);
+    int (*init)(struct v3_vm_info * info, v3_cfg_tree_t * cfg);
 };
 
 
@@ -146,7 +147,7 @@ struct v3_device_info {
 
 
 
-void v3_print_dev_mgr(struct guest_info * info);
+void v3_print_dev_mgr(struct v3_vm_info * vm);
 
 
 struct v3_dev_blk_ops {
@@ -166,30 +167,30 @@ struct v3_dev_console_ops {
 
 };
 
-int v3_dev_add_blk_frontend(struct guest_info * info, 
+int v3_dev_add_blk_frontend(struct v3_vm_info * vm, 
 			    char * name, 
-			    int (*connect)(struct guest_info * info, 
+			    int (*connect)(struct v3_vm_info * vm, 
 					    void * frontend_data, 
 					    struct v3_dev_blk_ops * ops, 
 					    v3_cfg_tree_t * cfg, 
 					    void * private_data), 
 			    void * priv_data);
-int v3_dev_connect_blk(struct guest_info * info, 
+int v3_dev_connect_blk(struct v3_vm_info * vm, 
 		       char * frontend_name, 
 		       struct v3_dev_blk_ops * ops, 
 		       v3_cfg_tree_t * cfg, 
 		       void * private_data);
 
-int v3_dev_add_net_frontend(struct guest_info * info, 
+int v3_dev_add_net_frontend(struct v3_vm_info * vm, 
 			    char * name, 
-			    int (*connect)(struct guest_info * info, 
+			    int (*connect)(struct v3_vm_info * vm, 
 					    void * frontend_data, 
 					    struct v3_dev_net_ops * ops, 
 					    v3_cfg_tree_t * cfg, 
 					    void * private_data), 
 			    void * priv_data);
 
-int v3_dev_connect_net(struct guest_info * info, 
+int v3_dev_connect_net(struct v3_vm_info * vm, 
 		       char * frontend_name, 
 		       struct v3_dev_net_ops * ops, 
 		       v3_cfg_tree_t * cfg, 

@@ -445,7 +445,7 @@ static int setup_pci(struct vm_device * dev) {
     return 0;
 }
 
-static int piix3_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
+static int piix3_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct v3_southbridge * piix3 = (struct v3_southbridge *)V3_Malloc(sizeof(struct v3_southbridge));
     struct vm_device * dev = NULL;
     struct vm_device * pci = v3_find_dev(vm, v3_cfg_val(cfg, "bus"));

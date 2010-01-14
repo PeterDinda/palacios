@@ -31,7 +31,7 @@
 
 struct guest_info;
 
-void v3_init_cpuid_map(struct guest_info * info);
+void v3_init_cpuid_map(struct v3_vm_info * vm);
 
 
 struct v3_cpuid_hook {
@@ -52,16 +52,16 @@ struct v3_cpuid_map {
     struct rb_root map;
 };
 
-void v3_print_cpuid_map(struct guest_info * info);
+void v3_print_cpuid_map(struct v3_vm_info * vm);
 
-int v3_hook_cpuid(struct guest_info * info, uint32_t cpuid, 
+int v3_hook_cpuid(struct v3_vm_info * vm, uint32_t cpuid, 
 		  int (*hook_fn)(struct guest_info * info, uint32_t cpuid, \
 				 uint32_t * eax, uint32_t * ebx, \
 				 uint32_t * ecx, uint32_t * edx, \
 				 void * private_data), 
 		  void * private_data);
 
-int v3_unhook_cpuid(struct guest_info * info, uint32_t cpuid);
+int v3_unhook_cpuid(struct v3_vm_info * vm, uint32_t cpuid);
 
 int v3_handle_cpuid(struct guest_info * info);
 

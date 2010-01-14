@@ -181,6 +181,7 @@ struct apic_state {
     uint32_t eoi;
 
 
+    struct guest_info * core;
 };
 
 static int apic_read(addr_t guest_addr, void * dst, uint_t length, void * priv_data);
@@ -951,7 +952,7 @@ int v3_apic_raise_intr(struct guest_info * info, struct vm_device * apic_dev, in
 
 
 /* Timer Functions */
-static void apic_update_time(ullong_t cpu_cycles, ullong_t cpu_freq, void * priv_data) {
+static void apic_update_time(struct guest_info * info, ullong_t cpu_cycles, ullong_t cpu_freq, void * priv_data) {
     struct vm_device * dev = (struct vm_device *)priv_data;
     struct apic_state * apic = (struct apic_state *)dev->private_data;
     // The 32 bit GCC runtime is a pile of shit
@@ -1019,7 +1020,7 @@ static void apic_update_time(ullong_t cpu_cycles, ullong_t cpu_freq, void * priv
 	PrintDebug("Raising APIC Timer interrupt (periodic=%d) (icnt=%d) (div=%d)\n", 
 		   apic->tmr_vec_tbl.tmr_mode, apic->tmr_init_cnt, shift_num);
 
-	if (apic_intr_pending(dev->vm, priv_data)) {
+	if (apic_intr_pending(info, priv_data)) {
 	    PrintDebug("Overriding pending IRQ %d\n", apic_get_intr_number(dev->vm, priv_data));
 	}
 
@@ -1055,9 +1056,9 @@ static struct vm_timer_ops timer_ops = {
 
 
 static int apic_free(struct vm_device * dev) {
-    struct guest_info * info = dev->vm;
+    //   struct apic_state * apic = (struct apic_state *)dev->private_data;
 
-    v3_unhook_msr(info, BASE_ADDR_MSR);
+    v3_unhook_msr(dev->vm, BASE_ADDR_MSR);
 
     return 0;
 }
@@ -1072,7 +1073,7 @@ static struct v3_device_ops dev_ops = {
 
 
 
-static int apic_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
+static int apic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     PrintDebug("Creating APIC\n");
     char * name = v3_cfg_val(cfg, "name");
 

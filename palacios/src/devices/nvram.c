@@ -457,7 +457,7 @@ static void update_time( struct vm_device * dev, uint_t period_us) {
 }
 
 
-static int handle_timer_event(struct guest_info * info, 
+static int handle_timer_event(struct v3_vm_info * vm, 
 			      struct v3_timer_event * evt, 
 			      void * priv_data) {
 
@@ -592,8 +592,8 @@ static void init_harddrives(struct nvram_internal * nvram) {
     }
 }
 
-static int init_nvram_state(struct vm_device * dev) {
-    struct guest_info * info = dev->vm;
+static int init_nvram_state(struct v3_vm_info * vm, struct vm_device * dev) {
+
     struct nvram_internal * nvram = (struct nvram_internal *)dev->private_data;
   
     memset(nvram->mem_state, 0, NVRAM_REG_MAX);
@@ -672,7 +672,7 @@ static int init_nvram_state(struct vm_device * dev) {
     nvram->us = 0;
     nvram->pus = 0;
 
-    set_memory_size(nvram, info->mem_size);
+    set_memory_size(nvram, vm->mem_size);
     init_harddrives(nvram);
     
     nvram->dev_state = NVRAM_READY;
@@ -707,10 +707,8 @@ static int nvram_stop_device(struct vm_device * dev) {
 
 
 
-static int nvram_write_reg_port(ushort_t port,
-				void * src, 
-				uint_t length,
-				struct vm_device * dev) {
+static int nvram_write_reg_port(struct guest_info * core, ushort_t port,
+				void * src, uint_t length, struct vm_device * dev) {
 
     struct nvram_internal * data = (struct nvram_internal *)dev->private_data;
     
@@ -720,10 +718,8 @@ static int nvram_write_reg_port(ushort_t port,
     return 1;
 }
 
-static int nvram_read_data_port(ushort_t port,
-				void * dst, 
-				uint_t length,
-				struct vm_device * dev) {
+static int nvram_read_data_port(struct guest_info * core, ushort_t port,
+				void * dst, uint_t length, struct vm_device * dev) {
 
     struct nvram_internal * data = (struct nvram_internal *)dev->private_data;
 
@@ -750,10 +746,8 @@ static int nvram_read_data_port(ushort_t port,
 }
 
 
-static int nvram_write_data_port(ushort_t port,
-				 void * src, 
-				 uint_t length,
-				 struct vm_device * dev) {
+static int nvram_write_data_port(struct guest_info * core, ushort_t port,
+				 void * src, uint_t length, struct vm_device * dev) {
 
     struct nvram_internal * data = (struct nvram_internal *)dev->private_data;
 
@@ -794,7 +788,7 @@ static struct v3_device_ops dev_ops = {
 
 
 
-static int nvram_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
+static int nvram_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct nvram_internal * nvram_state = NULL;
     struct vm_device * ide = v3_find_dev(vm, v3_cfg_val(cfg, "storage"));
     char * name = v3_cfg_val(cfg, "name");
@@ -819,7 +813,7 @@ static int nvram_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
 	return -1;
     }
 
-    init_nvram_state(dev);
+    init_nvram_state(vm, dev);
 
     // hook ports
     v3_dev_hook_io(dev, NVRAM_REG_PORT, NULL, &nvram_write_reg_port);

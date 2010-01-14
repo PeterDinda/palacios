@@ -96,7 +96,7 @@ static struct v3_device_ops dev_ops = {
 
 
 
-static int blk_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
+static int blk_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct blk_state * blk = NULL;
     v3_cfg_tree_t * frontend_cfg = v3_cfg_subtree(cfg, "frontend");
     char * name = v3_cfg_val(cfg, "name");

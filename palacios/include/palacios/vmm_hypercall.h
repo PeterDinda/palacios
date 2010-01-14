@@ -28,12 +28,13 @@
 typedef struct rb_root v3_hypercall_map_t;
 
 struct guest_info;
+struct v3_vm_info;
 
-void v3_init_hypercall_map(struct guest_info * info);
+void v3_init_hypercall_map(struct v3_vm_info * vm);
 
 
-int v3_register_hypercall(struct guest_info * info, uint_t hypercall_id, 
-			  int (*hypercall)(struct guest_info * info, uint_t hcall_id, void * priv_data),
+int v3_register_hypercall(struct v3_vm_info * vm, uint_t hypercall_id, 
+			  int (*hypercall)(struct guest_info * info , uint_t hcall_id, void * priv_data),
 			  void * priv_data);
 
 

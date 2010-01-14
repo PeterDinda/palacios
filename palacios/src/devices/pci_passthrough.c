@@ -548,10 +548,10 @@ static int irq_handler(struct guest_info * info, struct v3_interrupt * intr, voi
 
 
 
-static int passthrough_init(struct guest_info * info, v3_cfg_tree_t * cfg) {
+static int passthrough_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct pt_dev_state * state = V3_Malloc(sizeof(struct pt_dev_state));
     struct vm_device * dev = NULL;
-    struct vm_device * pci = v3_find_dev(info, v3_cfg_val(cfg, "bus"));
+    struct vm_device * pci = v3_find_dev(vm, v3_cfg_val(cfg, "bus"));
     char * name = v3_cfg_val(cfg, "name");    
 
     memset(state, 0, sizeof(struct pt_dev_state));
@@ -567,7 +567,7 @@ static int passthrough_init(struct guest_info * info, v3_cfg_tree_t * cfg) {
 
     dev = v3_allocate_device(name, &dev_ops, state);
 
-    if (v3_attach_device(info, dev) == -1) {
+    if (v3_attach_device(vm, dev) == -1) {
 	PrintError("Could not attach device %s\n", name);
 	return -1;
     }
@@ -582,9 +582,9 @@ static int passthrough_init(struct guest_info * info, v3_cfg_tree_t * cfg) {
 	return 0;
     }
 
-    setup_virt_pci_dev(info, dev);
+    setup_virt_pci_dev(vm, dev);
 
-    v3_hook_irq(info, atoi(v3_cfg_val(cfg, "irq")), irq_handler, dev);
+    v3_hook_irq(vm, atoi(v3_cfg_val(cfg, "irq")), irq_handler, dev);
     //    v3_hook_irq(info, 64, irq_handler, dev);
 
     return 0;

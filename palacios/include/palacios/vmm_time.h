@@ -48,8 +48,8 @@ struct vm_time {
 
 
 struct vm_timer_ops {
-    void (*update_time)(ullong_t cpu_cycles, ullong_t cpu_freq, void * priv_data);
-
+    void (*update_time)(struct guest_info * info, ullong_t cpu_cycles, ullong_t cpu_freq, void * priv_data);
+    void (*advance_timer)(struct guest_info * info);
 };
 
 struct vm_timer {
@@ -65,6 +65,7 @@ struct vm_timer {
 int v3_add_timer(struct guest_info * info, struct vm_timer_ops * ops, void * private_data);
 int v3_remove_timer(struct guest_info * info, struct vm_timer * timer);
 
+void v3_advance_time(struct guest_info * info);
 
 void v3_update_time(struct guest_info * info, ullong_t cycles);
 

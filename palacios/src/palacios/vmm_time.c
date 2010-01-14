@@ -60,13 +60,17 @@ int v3_remove_timer(struct guest_info * info, struct vm_timer * timer) {
 
 
 
-void v3_update_time(struct guest_info * info, ullong_t cycles) {
+void v3_update_time(struct guest_info * info, uint64_t cycles) {
     struct vm_timer * tmp_timer;
-  
+    
+    //   cycles *= 8;
+
+//    cycles /= 150;
+
     info->time_state.guest_tsc += cycles;
 
     list_for_each_entry(tmp_timer, &(info->time_state.timers), timer_link) {
-	tmp_timer->ops->update_time(cycles, info->time_state.cpu_freq, tmp_timer->private_data);
+	tmp_timer->ops->update_time(info, cycles, info->time_state.cpu_freq, tmp_timer->private_data);
     }
   
 

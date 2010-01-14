@@ -86,8 +86,8 @@ int v3_init_devices() {
 }
 
 
-int v3_init_dev_mgr(struct guest_info * info) {
-    struct vmm_dev_mgr * mgr = &(info->dev_mgr);
+int v3_init_dev_mgr(struct v3_vm_info * vm) {
+    struct vmm_dev_mgr * mgr = &(vm->dev_mgr);
 
     INIT_LIST_HEAD(&(mgr->dev_list));
     mgr->num_devs = 0;
@@ -106,9 +106,9 @@ int v3_init_dev_mgr(struct guest_info * info) {
 }
 
 
-int v3_dev_mgr_deinit(struct guest_info * info) {
+int v3_dev_mgr_deinit(struct v3_vm_info * vm) {
     struct vm_device * dev;
-    struct vmm_dev_mgr * mgr = &(info->dev_mgr);
+    struct vmm_dev_mgr * mgr = &(vm->dev_mgr);
     struct vm_device * tmp;
 
     list_for_each_entry_safe(dev, tmp, &(mgr->dev_list), dev_link) {
@@ -116,13 +116,40 @@ int v3_dev_mgr_deinit(struct guest_info * info) {
 	v3_free_device(dev);
     }
 
+
+    /* TODO: Clear hash tables */
+
     return 0;
 }
 
+/*
+int v3_init_core_dev_mgr(struct v3_vm_info * vm) {
+    struct v3_core_dev_mgr * mgr = &(vm->core_dev_mgr);
+
+    INIT_LIST_HEAD(&(mgr->dev_list));
+    mgr->dev_table = v3_create_htable(0, dev_hash_fn, dev_eq_fn);
+
+    return 0;
+}
+
+int v3_core_dev_mgr_deinit(struct v3_vm_info * vm) {
+    struct vm_device * dev;
+    struct v3_core_dev_mgr * mgr = &(vm->core_dev_mgr);
+    struct vm_device * tmp;
+
+    list_for_each_entry_safe(dev, tmp, &(mgr->dev_list), dev_link) {
+	v3_detach_device(dev);
+	v3_free_device(dev);
+    }
+
+    // TODO: Clear hash tables 
+
+}
+*/
 
 
-int v3_create_device(struct guest_info * info, const char * dev_name, v3_cfg_tree_t * cfg) {
-    int (*dev_init)(struct guest_info * info, void * cfg_data);
+int v3_create_device(struct v3_vm_info * vm, const char * dev_name, v3_cfg_tree_t * cfg) {
+    int (*dev_init)(struct v3_vm_info * vm, void * cfg_data);
 
     dev_init = (void *)v3_htable_search(master_dev_table, (addr_t)dev_name);
 
@@ -132,7 +159,7 @@ int v3_create_device(struct guest_info * info, const char * dev_name, v3_cfg_tre
     }
 
 
-    if (dev_init(info, cfg) == -1) {
+    if (dev_init(vm, cfg) == -1) {
 	PrintError("Could not initialize Device %s\n", dev_name);
 	return -1;
     }
@@ -147,8 +174,8 @@ void v3_free_device(struct vm_device * dev) {
 
 
 
-struct vm_device * v3_find_dev(struct guest_info * info, const char * dev_name) {
-    struct vmm_dev_mgr * mgr = &(info->dev_mgr);
+struct vm_device * v3_find_dev(struct v3_vm_info * vm, const char * dev_name) {
+    struct vmm_dev_mgr * mgr = &(vm->dev_mgr);
 
     if (!dev_name) {
 	return NULL;
@@ -164,11 +191,11 @@ struct vm_device * v3_find_dev(struct guest_info * info, const char * dev_name) 
 
 /* IO HOOKS */
 int v3_dev_hook_io(struct vm_device * dev, uint16_t port,
-		   int (*read)(uint16_t port, void * dst, uint_t length, struct vm_device * dev),
-		   int (*write)(uint16_t port, void * src, uint_t length, struct vm_device * dev)) {
+		   int (*read)(struct guest_info * core, uint16_t port, void * dst, uint_t length, struct vm_device * dev),
+		   int (*write)(struct guest_info * core, uint16_t port, void * src, uint_t length, struct vm_device * dev)) {
     return v3_hook_io_port(dev->vm, port, 
-			   (int (*)(ushort_t, void *, uint_t, void *))read, 
-			   (int (*)(ushort_t, void *, uint_t, void *))write, 
+			   (int (*)(struct guest_info * core, ushort_t, void *, uint_t, void *))read, 
+			   (int (*)(struct guest_info * core, ushort_t, void *, uint_t, void *))write, 
 			   (void *)dev);
 }
 
@@ -210,7 +237,7 @@ struct vm_device * v3_allocate_device(char * name,
 }
 
 
-int v3_attach_device(struct guest_info * vm, struct vm_device * dev ) {
+int v3_attach_device(struct v3_vm_info * vm, struct vm_device * dev ) {
     struct vmm_dev_mgr * mgr = &(vm->dev_mgr);
 
     dev->vm = vm;
@@ -226,8 +253,8 @@ int v3_attach_device(struct guest_info * vm, struct vm_device * dev ) {
 
 
 
-void v3_print_dev_mgr(struct guest_info * info) {
-    struct vmm_dev_mgr * mgr = &(info->dev_mgr);
+void v3_print_dev_mgr(struct v3_vm_info * vm) {
+    struct vmm_dev_mgr * mgr = &(vm->dev_mgr);
     struct vm_device * dev;
 
     V3_Print("%d devices registered with manager\n", mgr->num_devs);
@@ -243,7 +270,7 @@ void v3_print_dev_mgr(struct guest_info * info) {
 
 
 struct blk_frontend {
-    int (*connect)(struct guest_info * info, 
+    int (*connect)(struct v3_vm_info * vm, 
 		    void * frontend_data, 
 		    struct v3_dev_blk_ops * ops, 
 		    v3_cfg_tree_t * cfg, 
@@ -257,9 +284,9 @@ struct blk_frontend {
 
 
 
-int v3_dev_add_blk_frontend(struct guest_info * info, 
+int v3_dev_add_blk_frontend(struct v3_vm_info * vm, 
 			    char * name, 
-			    int (*connect)(struct guest_info * info, 
+			    int (*connect)(struct v3_vm_info * vm, 
 					    void * frontend_data, 
 					    struct v3_dev_blk_ops * ops, 
 					    v3_cfg_tree_t * cfg, 
@@ -274,13 +301,13 @@ int v3_dev_add_blk_frontend(struct guest_info * info,
     frontend->connect = connect;
     frontend->priv_data = priv_data;
 	
-    list_add(&(frontend->blk_node), &(info->dev_mgr.blk_list));
-    v3_htable_insert(info->dev_mgr.blk_table, (addr_t)(name), (addr_t)frontend);
+    list_add(&(frontend->blk_node), &(vm->dev_mgr.blk_list));
+    v3_htable_insert(vm->dev_mgr.blk_table, (addr_t)(name), (addr_t)frontend);
 
     return 0;
 }
 
-int v3_dev_connect_blk(struct guest_info * info, 
+int v3_dev_connect_blk(struct v3_vm_info * vm, 
 		       char * frontend_name, 
 		       struct v3_dev_blk_ops * ops, 
 		       v3_cfg_tree_t * cfg, 
@@ -288,7 +315,7 @@ int v3_dev_connect_blk(struct guest_info * info,
 
     struct blk_frontend * frontend = NULL;
 
-    frontend = (struct blk_frontend *)v3_htable_search(info->dev_mgr.blk_table,
+    frontend = (struct blk_frontend *)v3_htable_search(vm->dev_mgr.blk_table,
 						       (addr_t)frontend_name);
     
     if (frontend == NULL) {
@@ -296,7 +323,7 @@ int v3_dev_connect_blk(struct guest_info * info,
 	return 0;
     }
 
-    if (frontend->connect(info, frontend->priv_data, ops, cfg, private_data) == -1) {
+    if (frontend->connect(vm, frontend->priv_data, ops, cfg, private_data) == -1) {
 	PrintError("Error connecting to block frontend %s\n", frontend_name);
 	return -1;
     }
@@ -307,7 +334,7 @@ int v3_dev_connect_blk(struct guest_info * info,
 
 
 struct net_frontend {
-    int (*connect)(struct guest_info * info, 
+    int (*connect)(struct v3_vm_info * vm, 
 		    void * frontend_data, 
 		    struct v3_dev_net_ops * ops, 
 		    v3_cfg_tree_t * cfg, 
@@ -320,9 +347,9 @@ struct net_frontend {
 };
 
 
-int v3_dev_add_net_frontend(struct guest_info * info, 
+int v3_dev_add_net_frontend(struct v3_vm_info * vm, 
 			    char * name, 
-			    int (*connect)(struct guest_info * info, 
+			    int (*connect)(struct v3_vm_info * vm, 
 					    void * frontend_data, 
 					    struct v3_dev_net_ops * ops, 
 					    v3_cfg_tree_t * cfg, 
@@ -337,14 +364,14 @@ int v3_dev_add_net_frontend(struct guest_info * info,
     frontend->connect = connect;
     frontend->priv_data = priv_data;
 	
-    list_add(&(frontend->net_node), &(info->dev_mgr.net_list));
-    v3_htable_insert(info->dev_mgr.net_table, (addr_t)(name), (addr_t)frontend);
+    list_add(&(frontend->net_node), &(vm->dev_mgr.net_list));
+    v3_htable_insert(vm->dev_mgr.net_table, (addr_t)(name), (addr_t)frontend);
 
     return 0;
 }
 
 
-int v3_dev_connect_net(struct guest_info * info, 
+int v3_dev_connect_net(struct v3_vm_info * vm, 
 		       char * frontend_name, 
 		       struct v3_dev_net_ops * ops, 
 		       v3_cfg_tree_t * cfg, 
@@ -352,7 +379,7 @@ int v3_dev_connect_net(struct guest_info * info,
 {
     struct net_frontend * frontend = NULL;
 
-    frontend = (struct net_frontend *)v3_htable_search(info->dev_mgr.net_table,
+    frontend = (struct net_frontend *)v3_htable_search(vm->dev_mgr.net_table,
 						       (addr_t)frontend_name);
     
     if (frontend == NULL) {
@@ -360,7 +387,7 @@ int v3_dev_connect_net(struct guest_info * info,
 	return 0;
     }
 
-    if (frontend->connect(info, frontend->priv_data, ops, cfg, private_data) == -1) {
+    if (frontend->connect(vm, frontend->priv_data, ops, cfg, private_data) == -1) {
 	PrintError("Error connecting to net frontend %s\n", frontend_name);
 	return -1;
     }

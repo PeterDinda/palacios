@@ -39,7 +39,7 @@ static inline int handle_passthrough_pagefault_32(struct guest_info * info,
     int pde_index = PDE32_INDEX(fault_addr);
     int pte_index = PTE32_INDEX(fault_addr);
     
-    struct v3_shadow_region * region = v3_get_shadow_region(info, fault_addr);
+    struct v3_shadow_region * region = v3_get_shadow_region(info->vm_info, fault_addr);
 
     if (region == NULL) {
 	PrintError("Invalid region in passthrough page fault 32, addr=%p\n", 

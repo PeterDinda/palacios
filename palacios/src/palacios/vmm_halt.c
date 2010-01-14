@@ -63,7 +63,7 @@ int v3_handle_halt(struct guest_info * info) {
 	 * interrupt and stall the guest.
 	 */
 	if (!v3_intr_pending(info)) {
-	    v3_raise_irq(info, 0);
+	    v3_advance_time(info);
 	}
 
 	

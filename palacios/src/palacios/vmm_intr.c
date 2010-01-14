@@ -42,41 +42,67 @@ struct intr_controller {
 };
 
 
-void v3_init_interrupt_state(struct guest_info * info) {
+struct intr_router {
+    struct intr_router_ops * router_ops;
 
-    info->intr_state.irq_pending = 0;
-    info->intr_state.irq_started = 0;
-    info->intr_state.irq_vector = 0;
+    void * priv_data;
+    struct list_head router_node;
 
-    INIT_LIST_HEAD(&(info->intr_state.controller_list));
+};
 
-    v3_lock_init(&(info->intr_state.irq_lock));
+void v3_init_intr_controllers(struct guest_info * info) {
+    struct v3_intr_core_state * intr_state = &(info->intr_core_state);
 
-    memset((uchar_t *)(info->intr_state.hooks), 0, sizeof(struct v3_irq_hook *) * 256);
+    intr_state->irq_pending = 0;
+    intr_state->irq_started = 0;
+    intr_state->irq_vector = 0;
+
+    INIT_LIST_HEAD(&(intr_state->controller_list));
 }
 
-void v3_register_intr_controller(struct guest_info * info, struct intr_ctrl_ops * ops, void * state) {
+void v3_init_intr_routers(struct v3_vm_info * vm) {
+    
+    INIT_LIST_HEAD(&(vm->intr_routers.router_list));
+    
+    v3_lock_init(&(vm->intr_routers.irq_lock));
+
+    memset((uchar_t *)(vm->intr_routers.hooks), 0, sizeof(struct v3_irq_hook *) * 256);
+}
+
+
+int v3_register_intr_controller(struct guest_info * info, struct intr_ctrl_ops * ops, void * priv_data) {
     struct intr_controller * ctrlr = (struct intr_controller *)V3_Malloc(sizeof(struct intr_controller));
 
-    ctrlr->priv_data = state;
+    ctrlr->priv_data = priv_data;
     ctrlr->ctrl_ops = ops;
 
-    list_add(&(ctrlr->ctrl_node), &(info->intr_state.controller_list));
+    list_add(&(ctrlr->ctrl_node), &(info->intr_core_state.controller_list));
+    
+    return 0;
+}
 
+int v3_register_intr_router(struct v3_vm_info * vm, struct intr_router_ops * ops, void * priv_data) {
+    struct intr_router * router = (struct intr_router *)V3_Malloc(sizeof(struct intr_router));
+
+    router->priv_data = priv_data;
+    router->router_ops = ops;
+
+    list_add(&(router->router_node), &(vm->intr_routers.router_list));
+    
+    return 0;
 }
 
 
 
-
-static inline struct v3_irq_hook * get_irq_hook(struct guest_info * info, uint_t irq) {
+static inline struct v3_irq_hook * get_irq_hook(struct v3_vm_info * vm, uint_t irq) {
     V3_ASSERT(irq <= 256);
-    return info->intr_state.hooks[irq];
+    return vm->intr_routers.hooks[irq];
 }
 
 
-int v3_hook_irq(struct guest_info * info, 
+int v3_hook_irq(struct v3_vm_info * vm,
 		uint_t irq,
-		int (*handler)(struct guest_info * info, struct v3_interrupt * intr, void * priv_data),
+		int (*handler)(struct v3_vm_info * vm, struct v3_interrupt * intr, void * priv_data),
 		void  * priv_data) 
 {
     struct v3_irq_hook * hook = (struct v3_irq_hook *)V3_Malloc(sizeof(struct v3_irq_hook));
@@ -85,7 +111,7 @@ int v3_hook_irq(struct guest_info * info,
 	return -1; 
     }
 
-    if (get_irq_hook(info, irq) != NULL) {
+    if (get_irq_hook(vm, irq) != NULL) {
 	PrintError("IRQ %d already hooked\n", irq);
 	return -1;
     }
@@ -93,9 +119,9 @@ int v3_hook_irq(struct guest_info * info,
     hook->handler = handler;
     hook->priv_data = priv_data;
   
-    info->intr_state.hooks[irq] = hook;
+    vm->intr_routers.hooks[irq] = hook;
 
-    if (V3_Hook_Interrupt(info, irq)) { 
+    if (V3_Hook_Interrupt(vm, irq)) { 
 	PrintError("hook_irq: failed to hook irq %d\n", irq);
 	return -1;
     } else {
@@ -106,21 +132,21 @@ int v3_hook_irq(struct guest_info * info,
 
 
 
-static int passthrough_irq_handler(struct guest_info * info, struct v3_interrupt * intr, void * priv_data) {
+static int passthrough_irq_handler(struct v3_vm_info * vm, struct v3_interrupt * intr, void * priv_data) {
     PrintDebug("[passthrough_irq_handler] raise_irq=%d (guest=0x%p)\n", 
-	       intr->irq, (void *)info);
+	       intr->irq, (void *)vm);
 
-    return v3_raise_irq(info, intr->irq);
+    return v3_raise_irq(vm, intr->irq);
 }
 
-int v3_hook_passthrough_irq(struct guest_info * info, uint_t irq) {
-    int rc = v3_hook_irq(info, irq, passthrough_irq_handler, NULL);
+int v3_hook_passthrough_irq(struct v3_vm_info * vm, uint_t irq) {
+    int rc = v3_hook_irq(vm, irq, passthrough_irq_handler, NULL);
 
     if (rc) { 
-	PrintError("guest_irq_injection: failed to hook irq 0x%x (guest=0x%p)\n", irq, (void *)info);
+	PrintError("guest_irq_injection: failed to hook irq 0x%x (guest=0x%p)\n", irq, (void *)vm);
 	return -1;
     } else {
-	PrintDebug("guest_irq_injection: hooked irq 0x%x (guest=0x%p)\n", irq, (void *)info);
+	PrintDebug("guest_irq_injection: hooked irq 0x%x (guest=0x%p)\n", irq, (void *)vm);
 	return 0;
     }
 }
@@ -129,17 +155,17 @@ int v3_hook_passthrough_irq(struct guest_info * info, uint_t irq) {
 
 
 
-int v3_deliver_irq(struct guest_info * info, struct v3_interrupt * intr) {
+int v3_deliver_irq(struct v3_vm_info * vm, struct v3_interrupt * intr) {
     PrintDebug("v3_deliver_irq: irq=%d state=0x%p, \n", intr->irq, (void *)intr);
   
-    struct v3_irq_hook * hook = get_irq_hook(info, intr->irq);
+    struct v3_irq_hook * hook = get_irq_hook(vm, intr->irq);
 
     if (hook == NULL) {
 	PrintError("Attempting to deliver interrupt to non registered hook(irq=%d)\n", intr->irq);
 	return -1;
     }
   
-    return hook->handler(info, intr, hook->priv_data);
+    return hook->handler(vm, intr, hook->priv_data);
 }
 
 
@@ -147,7 +173,7 @@ int v3_deliver_irq(struct guest_info * info, struct v3_interrupt * intr) {
 
 
 int v3_raise_virq(struct guest_info * info, int irq) {
-    struct v3_intr_state * intr_state = &(info->intr_state);
+    struct v3_intr_core_state * intr_state = &(info->intr_core_state);
     int major = irq / 8;
     int minor = irq % 8;
 
@@ -157,7 +183,7 @@ int v3_raise_virq(struct guest_info * info, int irq) {
 }
 
 int v3_lower_virq(struct guest_info * info, int irq) {
-    struct v3_intr_state * intr_state = &(info->intr_state);
+    struct v3_intr_core_state * intr_state = &(info->intr_core_state);
     int major = irq / 8;
     int minor = irq % 8;
 
@@ -167,34 +193,34 @@ int v3_lower_virq(struct guest_info * info, int irq) {
 }
 
 
-int v3_lower_irq(struct guest_info * info, int irq) {
-    struct intr_controller * ctrl = NULL;
-    struct v3_intr_state * intr_state = &(info->intr_state);
+int v3_lower_irq(struct v3_vm_info * vm, int irq) {
+    struct intr_router * router = NULL;
+    struct v3_intr_routers * routers = &(vm->intr_routers);
 
     //    PrintDebug("[v3_lower_irq]\n");
-    addr_t irq_state = v3_lock_irqsave(intr_state->irq_lock);
+    addr_t irq_state = v3_lock_irqsave(routers->irq_lock);
 
-    list_for_each_entry(ctrl, &(intr_state->controller_list), ctrl_node) {
-	ctrl->ctrl_ops->lower_intr(info, ctrl->priv_data, irq);
+    list_for_each_entry(router, &(routers->router_list), router_node) {
+	router->router_ops->lower_intr(vm, router->priv_data, irq);
     }
  
-    v3_unlock_irqrestore(intr_state->irq_lock, irq_state);
+    v3_unlock_irqrestore(routers->irq_lock, irq_state);
 
     return 0;
 }
 
-int v3_raise_irq(struct guest_info * info, int irq) {
-    struct intr_controller * ctrl = NULL;
-    struct v3_intr_state * intr_state = &(info->intr_state);
+int v3_raise_irq(struct v3_vm_info * vm, int irq) {
+    struct intr_router * router = NULL;
+    struct v3_intr_routers * routers = &(vm->intr_routers);
 
     //  PrintDebug("[v3_raise_irq (%d)]\n", irq);
-    addr_t irq_state = v3_lock_irqsave(intr_state->irq_lock);
+    addr_t irq_state = v3_lock_irqsave(routers->irq_lock);
 
-    list_for_each_entry(ctrl, &(intr_state->controller_list), ctrl_node) {
-	ctrl->ctrl_ops->raise_intr(info, ctrl->priv_data, irq);
+    list_for_each_entry(router, &(routers->router_list), router_node) {
+	router->router_ops->raise_intr(vm, router->priv_data, irq);
     }
 
-    v3_unlock_irqrestore(intr_state->irq_lock, irq_state);
+    v3_unlock_irqrestore(routers->irq_lock, irq_state);
 
     return 0;
 }
@@ -202,7 +228,7 @@ int v3_raise_irq(struct guest_info * info, int irq) {
 
 
 v3_intr_type_t v3_intr_pending(struct guest_info * info) {
-    struct v3_intr_state * intr_state = &(info->intr_state);
+    struct v3_intr_core_state * intr_state = &(info->intr_core_state);
     struct intr_controller * ctrl = NULL;
     int ret = V3_INVALID_INTR;
     int i = 0;
@@ -234,7 +260,7 @@ v3_intr_type_t v3_intr_pending(struct guest_info * info) {
 
 
 uint32_t v3_get_intr(struct guest_info * info) {
-    struct v3_intr_state * intr_state = &(info->intr_state);
+    struct v3_intr_core_state * intr_state = &(info->intr_core_state);
     struct intr_controller * ctrl = NULL;
     uint_t ret = 0;
     int i = 0;
@@ -305,7 +331,7 @@ intr_type_t v3_get_intr_type(struct guest_info * info) {
 
 
 int v3_injecting_intr(struct guest_info * info, uint_t intr_num, v3_intr_type_t type) {
-    struct v3_intr_state * intr_state = &(info->intr_state);
+    struct v3_intr_core_state * intr_state = &(info->intr_core_state);
 
     if (type == V3_EXTERNAL_IRQ) {
 	struct intr_controller * ctrl = NULL;

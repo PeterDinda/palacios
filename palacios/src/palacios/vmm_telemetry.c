@@ -27,7 +27,7 @@
 #ifdef CONFIG_TELEMETRY_GRANULARITY
 #define DEFAULT_GRANULARITY CONFIG_TELEMETRY_GRANULARITY
 #else 
-#define DEFAULT_GRANULARITY 50000
+#define DEFAULT_GRANULARITY 50000000
 #endif
 
 
@@ -193,6 +193,7 @@ void v3_print_telemetry(struct guest_info * info) {
 
     V3_Print("%stelemetry window tsc cnt: %d\n", hdr_buf, (uint32_t)(invoke_tsc - telemetry->prev_tsc));
 
+    /*
     // Exit Telemetry
     {
 	struct exit_event * evt = NULL;
@@ -211,7 +212,7 @@ void v3_print_telemetry(struct guest_info * info) {
 		     (uint32_t)(evt->handler_time / evt->cnt));
 	} while ((node = v3_rb_next(node)));
     }
-
+    */
 
     // Registered callbacks
     {
