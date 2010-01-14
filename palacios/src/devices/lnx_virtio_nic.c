@@ -108,7 +108,7 @@ struct virtio_net_state {
 #if 1
 //Temporarly for debug
 static void print_packet(uchar_t *pkt, int size) {
-    PrintDebug("Vnet: print_data_packet: size: %d\n", size);
+    PrintDebug("Virtio Nic: print_data_packet: size: %d\n", size);
     v3_hexdump(pkt, size, NULL, 0);
 }
 
@@ -124,7 +124,11 @@ static int send(uint8_t * buf, uint32_t count, void * private_data, struct vm_de
    struct virtio_net_state *virtio_state = (struct virtio_net_state *)private_data;
 
    if (virtio_state == temp_net_states[0])
-   	__virtio_dev_send(buf, count, temp_net_states[1]);
+       __virtio_dev_send(buf, count, temp_net_states[1]);
+ 
+   if (virtio_state == temp_net_states[1]){ //return a RARP packet
+       __virtio_dev_send(buf, count, temp_net_states[0]);
+   }
    
    return count;
 }
@@ -179,7 +183,7 @@ static int pkt_write(struct virtio_net_state * virtio, struct vring_desc * buf_d
     uint8_t * buf = NULL;
     uint32_t len = buf_desc->length;
 
-    PrintDebug("Handling Virtio Net write, net_state: %p\n", virtio);
+    PrintDebug("Virtio NIC: Handling Virtio Write, net_state: %p\n", virtio);
 
     if (guest_pa_to_host_va(virtio->virtio_dev->vm, buf_desc->addr_gpa, (addr_t *)&(buf)) == -1) {
 	PrintError("Could not translate buffer address\n");
@@ -247,7 +251,7 @@ static int send_pkt_to_guest(struct virtio_net_state * virtio, uchar_t * buf, ui
     PrintDebug("VIRTIO NIC:  sending packet to net_state %p, size:%d", virtio, size);
 
     if (!raw) {
-       data_len -= hdr_len;
+	data_len -= hdr_len;
     }
 
     build_receive_header(&hdr, buf, 1);
@@ -296,6 +300,10 @@ static int send_pkt_to_guest(struct virtio_net_state * virtio, uchar_t * buf, ui
 	    //       if there still is some data left
 	    //buf_desc->flags = VIRTIO_NEXT_FLAG;
 	 
+	    
+	    PrintError("JACK: copying packet to up desc (len = %d)\n", data_len - offset);
+	    v3_hexdump(buf + offset, data_len - offset, NULL, 0);
+
 	    len = copy_data_to_desc(virtio, buf_desc, buf + offset, data_len - offset);
 	    
 	    offset += len;
@@ -306,10 +314,12 @@ static int send_pkt_to_guest(struct virtio_net_state * virtio, uchar_t * buf, ui
 	    }
 
 	    buf_desc->length = len;  // TODO: do we need this?
+	    PrintError("JACK: setting buffer descriptor length to %d)\n", buf_desc->length);
 	}
+
 	
 	q->used->ring[q->used->index % q->queue_size].id = q->avail->ring[q->cur_avail_idx % q->queue_size];
-	q->used->ring[q->used->index % q->queue_size].length = data_len; // What do we set this to????
+	q->used->ring[q->used->index % q->queue_size].length = data_len + hdr_len; // This should be the total length of data sent to guest (header+pkt_data)
 
 	q->used->index++;
 	q->cur_avail_idx++;
@@ -321,6 +331,8 @@ static int send_pkt_to_guest(struct virtio_net_state * virtio, uchar_t * buf, ui
 	virtio->virtio_cfg.pci_isr = 0x1;
     }
 
+
+    PrintError("\n\n\n\n");
     return offset;
 }
 
