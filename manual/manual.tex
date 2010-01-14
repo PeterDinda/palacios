@@ -42,8 +42,19 @@ information on how to obtain the Palacios code base, how to go about
 the development process, and how to commit those changes to the
 mainline source tree.  This assumes that the reader has read {\em An
 Introduction to the Palacios Virtual Machine Monitor -- Release 1.0}
-and also has a slight working knowledge of {\em git}.
+and also has a slight working knowledge of {\em git}.  You will also
+want to read the document {\em Building a bootable guest image for
+Palacios and Kitten} in order to understand how to build an extremely
+lightweight guest environment, suitable for testing.
 
+Please note that Palacios and Kitten are under rapid development,
+hence this manual may very well be out of date!
+
+\newpage
+\tableofcontents
+\newpage
+\listoffigures
+\newpage
 
 \section{Overview}
 
@@ -76,6 +87,11 @@ development team. These people can only access the public repository
 which is only updated to contain the release versions. 
 \end{itemize}
 
+Students doing independent study or REUs related to Palacios are set
+up as internal developers.  EECS 441 (Resource Virtualization)
+students are generally either set up as internal or external
+developers, depending on their projects.
+
 Because internal and external developers cannot write directly to the
 master repository, they need to first submit their changes to a core
 developer before they can be added to the mainline. We will discuss
@@ -83,6 +99,7 @@ that process in Section~\ref{sec:submission}.
 
 
 \section{Checking out Palacios}
+
 The central Palacios repository is located on {\em
 newskysaw.cs.northwestern.edu} in {\em /home/palacios/palacios}. All
 internal developers have read access to the directory. Each developer
@@ -93,11 +110,35 @@ with {\em git clone}.
 git clone /home/palacios/palacios
 \end{verbatim}
 
+On the machine {\em newbehemoth.cs.northwestern.edu} you will want to
+use the following command instead. The {\em newskysaw} home
+directories are NFS-mounted on /home-remote.
+
+
+\begin{verbatim}
+git clone /home-remote/palacios/palacios
+\end{verbatim}
+
+
+On any other machine, you can clone the repository via ssh, provided
+you have a newskysaw account:
+ 
+\begin{verbatim}
+git clone ssh://you@newskysaw.cs.northwestern.edu//home/palaicos/palacios
+\end{verbatim}
+
 This creates a local copy of the repository at {\em ./palacios/}.
 
+Note that both {\em newskysaw} and {\em newbehemoth} have all the
+tools installed that are needed to build and test Palacios and Kitten.
+If you develop on another machine, you will need to set those tools up
+for yourself.  This isn't hard and the tools are all free.  See the
+technical report for what tools you will need.
 
-All development work is done in the {\em devel} branch of the
-repository. The developer can access this branch via:
+When you first clone the repository, you will get the {\em master}
+branch, which is used to generate releases.   All development work is
+done in the {\em devel} branch of the repository. The developer can
+access this branch via:
 
 \begin{verbatim}
 git checkout --track -b devel origin/devel
@@ -122,9 +163,10 @@ latest changes from the master repository by running \verb.git pull..
 Kitten is available from Sandia National Labs, and is the main host OS
 we are targeting with Palacios. Loosely speaking, core Palacios
 developers are internal Kitten developers, and internal Palacios
-developers are external Kitten developers. Because we have limited
-access to the Kitten repository, we are maintaining a local mirror
-copy in {\em /home/palacios/kitten}. 
+developers are external Kitten developers. The public repository for
+Kitten is at {\em http://code.google.com/kitten}.  To simplify things,
+we are maintaining a local mirror copy in {\em /home/palacios/kitten}
+that tracks the public repository.
 
 Kitten uses Mercurial for their source management, so you will have to
 make sure the local mercurial version is configured correctly.
@@ -134,10 +176,20 @@ Specifically you should add the following Python path to your shell environment.
 export PYTHONPATH=/usr/local/lib64/python2.4/site-packages/
 \end{verbatim}
 
-You can then clone Kitten from the local mirror:
+You can then clone Kitten from the local mirror.   On {\em newskysaw},
+run: 
 \begin{verbatim}
 hg clone /home/palacios/kitten
 \end{verbatim}
+On {\em newbehemoth}, run
+\begin{verbatim}
+hg clone /home-remote/palacios/kitten
+\end{verbatim}
+On other machines, run
+\begin{verbatim}
+hg clone ssh://you@newskysaw.cs.northwestern.edu//home/palacios/kitten
+\end{verbatim}
+
 
 Both the Kitten and Palacios clone commands should be run from the
 same directory. This means that both repositories should be located at
@@ -150,78 +202,176 @@ latest changes from the mirror repository by running \verb.hg.
 pull. followed by \verb.hg update..
 
 \section{Compiling Palacios}
-Palacios is capable of targeting 32-bit and 64-bit operating systems,
-and includes a build process that supports both these
-architectures. Furthermore, Palacios has multiple build locations,
-with multiple Makefiles: a top level build directory and a
-Palacios-specific build directory. The Palacios build process first
-generates a static library that includes the Palacios VMM. This static
-library is then linked into a host operating system. Palacios
+
+The Palacios build process has been changed recently from a homegrown
+environment to the widely used KBuild environment.  KBuild is also
+used for building Kitten.  Because KBuild is the build environment
+used for Linux, much of what you learn about configuring and building
+Linux kernels is readily applicable to Palacios and Kitten. 
+
+The output of the Palacios build process is a static library that
+includes the Palacios VMM and relevant guest support code blocks. This
+static library is then linked into a host operating system. Palacios
 internally supports GeekOS and can generate a complete OS image via a
-unified build process. 
+unified build process.  By complete OS image, we mean an ISO image
+containing GeekOS, Palacios, and a guest image (another ISO image) for
+testing. 
 
-To combine Palacios with Kitten, it is necessary to first compile
-Palacios and then to compile Kitten externally link it with
-Palacios. The output of the compilation process is a bit more complex
-and generates multiple binaries, and the specifics can be found in the
-Makefiles.
+These days, however, Palacios is typically embedded into Kitten, not
+GeekOS.  To combine Palacios with Kitten, it is necessary to first
+configure and build Palacios, then to configure and build Kitten,
+linking in Palacios.   Kitten can also be configured to link in a
+guest image for testing.  
 
-The top level build directory provides a number of high level make
-targets, and is located in {\em palacios/build/}. It supports building
-32-bit and 64-bit versions of the Palacios library independently as well
-as building an integrated version of GeekOS.   The basic targets are:
+\subsection{Configuration}
+
+To configure Palacios, enter the top level Palacios directory and
+execute:
+\begin{verbatim}
+make clean
+make xconfig
+\end{verbatim}
+At this point, you will see be presented with a KBuild configuration
+screen, similar to what you would see in configuring a Linux kernel.
+Palacios has far fewer options, however.   If you don't have X or
+don't want the graphical configuration system, you can also use the
+\verb.menuconfig. or \verb.config. targets.  The available options
+change over time, so we do not cover all of them here, but here are a
+few that are usually important, with their recommended values noted:
 \begin{itemize}
-\item \verb.make palacios-full32. -- Generates a 32 bit version of the Palacios static library 
-\item \verb.make palacios-full64. -- Generates a 64 bit version of the
-Palacios static library
-\item \verb.make geekos. -- Compiles the GeekOS kernel, and link it with the
-Palacios static library 
-\item \verb.make geekos-iso. -- Generate an ISO boot disk image from the
-GeekOS kernel that has been compiled
+\item Target Configuration:   
+\begin{itemize}
+
+\item Red Storm (Cray XT3/XT4) --- turn on to target Cray XT4
+supercomputers.  (off)
+\item AMD SVM Support --- targets AMD processors with the SVM hardware
+virtualization features (on)
+\item Intel VMX support --- targets Intel processors with the VMX
+hardware virtualization features (on)
+\item Compile for a multi-threaded OS (on)
+\item Enable VMM telemetry support --- this is lightweight logging and
+data collection (on)  
+\item Enable VMM instrumentation --- this is heavyweight logging and
+data collection (off)
+\item Enable passthrough video --- this lets a guest write directly to
+the video card (on)
+\item Enable experimental options --- this makes it possible to select
+features that are under current development (on).  You probably want
+to leave VNET turned off.  VNET is an experimental VMM-embedded
+overlay network under development by Lei Xia and Yuan Tang.
+\item Enable built-in versions of stdlib functions --- this adds
+needed stdlib functions that the host OS may not supply.  For use with
+Kitten turn on and enable strncasecmp() and atoi().
+\item Enable built-in versions of stdio functions (off)
+\end{itemize}
+\item Symbiotic Functions (these are experimental options for Jack
+Lange's thesis). 
+\begin{itemize}
+\item Enable Symbiotic Functionality --- This adds symbiotic features
+to Palacios, specifically support for discovery and configuration by
+symbiotic guests, the SymSpy passive information interface for
+asynchronous symtiotic guest $\leftrightarrow$ symbiotic VMM
+information flow, and the SymCall functional interface for synchronous
+symbiotic VMM $\rightarrow$ symbiotic guest upcalls.  (on)
+\item Symbiotic Swap --- Enables the SwapBypass symbiotic service for
+symbiotic Linux guests.  (off)
+\end{itemize}
+\item Debug Configuration
+\begin{itemize}
+\item Compile with Debug info --- adds debug symbols (-g)  (off)
+\item Enable Debugging --- makes it possible to show PrintDebug output
+(on).   You can selectively turn on debugging output for each major
+VMM component, including shadow paging, nested paging, control
+registers, interrupts, I/O, instruction emulation and XED, halt, and
+the device manager.   Note that the more debugging output you turn on,
+the slower the VMM will go since it will have to wait for the prints
+to finish. 
+\end{itemize}
+\item BIOS Selection --- Lets you select which code blobs will be
+used for bootstrapping the guest.   There are currently three:  a
+BIOS, a Video BIOS, and the VMXAssist V8086 service (the latter is used only on
+Intel VMX).   Generally, you should not need to change these.
+\item Virtual Devices --- virtual devices can be instantiated and
+added to a guest.   The following is a list of the currently
+implemented virtual devices.
+\begin{itemize}
+\item BOCHS Debug Console Device --- used for debugging output from
+the guest BIOS (on)
+\item OS Debug Console Device --- used for debugging output from
+the guest kernel (on)
+\item 8259A PIC - legacy Programmable Interrupt Controller chip --- used
+for bootstrap of most guests (on)
+\item APIC - in-processor Advanced Programmable Interrupt Controller --- used
+for interrupt delivery on almost all guests (on)
+\item IOAPIC - Off-chip APIC  --- used for interrupt deliver for almost
+all guests (on)
+\item i440fx Northbridge --- emulation of a typical PC North Bridge
+chip, used on almost all guests (on)
+\item PIIX3 Southbridge --- emulation of a typical PC South Bridge
+chip, used on almost all guests (on)
+\item PCI --- emulation of a PCI bus - needed for attaching most
+devices (on)   
+\begin{itemize}
+\item Passthrough PCI --- allows us to make a hardware PCI device visible and
+directly accessible by the guest (on)
+\end{itemize}
+\item NVRAM - motherboard configuration memory --- needed by BIOS bootstrap (on)
+\item Keyboard - Generic PS/2 keyboard, including mostly broken mouse
+implementation (on)
+\item IDE --- Support for virtual IDE controllers that support disks
+and CD ROMs (on)
+
+\item NE2K - NE2000 and RTL8139 network devices (off)
+\item CGA - CGA video card (paritial implementation) (off)
+\begin{itemize}
+\item Telnet Virtual Console (off)   When CGA and Telnet Console are
+on, it is possible to telnet to the console of the guest.   Eventually
+the rest of this will provide simple bitmapped video console for VNC
+access.
+\end{itemize}
+\item RAMDISK storage backend --- used to create RAM disk
+implementations of block devices (on)
+\item NETDISK storage backend --- used to create network-attached disk
+implementations of block devices, e.g., network block devices (on)
+\item TMPDISK storage backend --- used to create temporary storage
+implementations of block devices (on)
+\item Linux Virtio Balloon Device --- used for memory ballooning by
+Linux virtio-compatible guests (on)
+\item Linux Virtio Block Device --- used for fast block device support
+by Linux virtio-compatible guests (on)
+\item Linux Virtio Network Device --- used for fast network device support
+by Linux virtio-compatible guests (on) 
+\item Symbiotic Swap Disk (multiple versions) --- used for the
+SwapBypass service (off)
+\item Disk Performance Model --- used for the
+SwapBypass service (off)
+\end{itemize}
 \end{itemize}
 
-The second build directory is located at {\em palacios/palacios/build}
-and handles only the Palacios compilation process. It supports a
-different set of targets and arguments:
-\begin{itemize}
-\item \verb.make ARCH=32. -- iteratively compiles a 32 bit version of Palacios
-\item \verb.make ARCH=64. -- iteratively compiles a 64 bit version of
-Palacios
-\item \verb.make ARCH=32 world. -- fully recompiles a 32 bit version of
-Palacios
-\item \verb.make ARCH=64 world. -- fully recompiles a 64 bit version of
-Palacios
-\end{itemize}
+\subsection{Compilation}
 
-Both build levels support compilation directives that control the
-debugging messages that are generated by Palacios. These are specified
-by appending a \verb.DEBUG_<COMPONENT>=1. to the end of the
-\verb.make. command. The components that are currently supported are:
-\begin{itemize}
-\item \verb.DEBUG_ALL=1. -- enables debugging for all the VMM components
-({\em Warning:} this generates a {\em lot} of debug information.
-\item \verb.DEBUG_SHADOW_PAGING=1.
-\item \verb.DEBUG_CTRL_REGS=1.
-\item \verb.DEBUG_INTERRUPTS=1.
-\item \verb.DEBUG_IO=1.
-\item \verb.DEBUG_KEYBOARD=1.
-\item \verb.DEBUG_PIC=1.
-\item \verb.DEBUG_PIT=1.
-\item \verb.DEBUG_NVRAM=1.
-\item \verb.DEBUG_GENERIC=1.
-\item \verb.DEBUG_EMULATOR=1.
-\item \verb.DEBUG_RAMDISK=1.
-\item \verb.DEBUG_XED=1.
-\item \verb.DEBUG_HALT=1.
-\item \verb.DEBUG_DEV_MGR=1.
-\item \verb.DEBUG_APIC=1.
-\end{itemize}
-
+After configuring Palacios---remember to save your changes---you can
+compile it by executing
+\begin{verbatim}
+make 
+\end{verbatim}
+This will produce the file {\em libv3vee.a} in the current directory.
+This static library contains the Palacios VMM and is ready for
+embedding into an OS, such as Kitten.  The library provides the
+ability to instantiate and run virtual machines.  By default, on a 64
+bit machine, the library is compiled for 64 bit machines (x86\_64),
+while on a 32 bit machine, it is compiled for 32 bit machines.  You
+can override this using the ARCH=i386 or ARCH=x86\_64 arguments to the
+make, provided you have the relevant tools available.  The 64 bit
+version is what you need for use with Kitten.  A 64 bit Palacios can
+run both 64 and 32 bit guests.  Both {\em newskysaw} and {\em
+newbehemoth} are 64 bit machines. 
 
 
 \section{Compiling Kitten}
 Kitten requires a 64-bit version of Palacios, so make sure that
-Palacios has been correctly compiled before compiling Kitten.
+Palacios has been correctly compiled before compiling Kitten.  The
+current default for Palacios is 64 bit. 
 
 \subsection{Configuration}
 Kitten borrows a lot of concepts from Linux, including the Linux build
@@ -234,54 +384,189 @@ accessed via any of these make targets.
 \item \verb.make menuconfig.
 \end{itemize}
 
-There are some specific configuration options that should be disabled
-to work with Palacios. Because Palacios is configured by default to
-provide a guest with direct access to the VGA console, the {\em VGA
-console} device driver should be disabled in the Kitten
-configuration. Similarly the {\em VM console} driver should be
-disabled as well.
+Of course, there are a range of configuration options.  In the
+following, we note only the most important:
+\begin{itemize}
+\item Target Configuration
+\begin{itemize}
+\item System Architecture --- you probably want to set this to
+PC-Compatible, unless you are working on Red Storm.
+\item Processor Family --- you want to set this to either
+AMD-Opteron/Athlon64 or Intel-64/Core2, depending on whether you have
+a 64 bit AMD or 64 bit Intel processor.
+\end{itemize}
+\item Virtualization
+\begin{itemize}
+\item Include Palacios VMM --- this will link against the Palacios
+library (on)
+\item Path to pre-built Palacios tree --- directory where libv3vee.a
+can be found.
+\item Path to guest image --- location of the test guest OS
+image that will be embedded.  We will say more about this later.
+Essentially, however, a guest image consists of a blob that begins
+with an XML description of the desired guest environment and the
+contents of the remainder of the blob.   The remainder of the blob
+usually contains disk or cd images.
+\end{itemize}
+\item Networking 
+\begin{itemize}
+\item Enable LWIP TCP/IP stack.  This activates a simple TCP/IP stack
+that things like NETDISK can use. (on)
+\end{itemize}
+\item Device Drivers
+\begin{itemize}
+\item VGA Console --- driver for basic video.  If you turn on
+passthrough video in Palacios, you should turn this off.
+\item Serial Console --- driver for serial port console.  (on)
+\item VM Console --- driver for Kitten console on top of Palacios.  If
+Kitten is run {\em as a guest}, and it has VM Console on, then it can output
+cleanly via the Palacios OS Console device (off).
+\item NE2K Device Driver --- driver for NE2K and RTL8139 network cards
+(on)
+\item VM Network Driver --- driver for Kitten network output using
+Palacios.  If Kitten is run {\em as a guest}, and it has VM Network
+Driver, then it can send and receive packets using the Palacios Linux
+virtio network device.  (off)
+\end{itemize}
+\item ISOIMAGE configuration:  Kitten kernel arguments.   Note that
+this is NOT for the guest image, but rather for the Kitten image.  You
+can leave this alone.  For Palacios operation, it's important that the
+option \verb.console=serial. appears.  If the NE2K/RTL8139 driver
+should be used \verb.net=rtl8139. should appear. 
+\item Kernel Hacking
+\begin{itemize}
+\item Kernel Debugging --- here you can turn on various Kitten
+Linux-like debugging features.   Only a few are noted below:
+\begin{itemize}
+\item Compile the kernel with debug info --- if this is on, you will
+have debugging information compiled in (-g)
+\item KGDB --- if you have this enabled, you will be able to attach to
+the running kernel from the GDB debugger.  This means you can also
+attach to Palacios, which is embedded.   If you want to debug Palacios
+using KGDB, be sure to turn on debugging in Palacios as well.
+\end{itemize}
+\end{itemize}
+\item Include Linux compatability layer --- if this is on, you can 
+selectively add Linux system calls and other functionality to Kitten.
+Kitten is able to run Linux ELF executables as user processes with
+this layer.   
+\end{itemize}
 
-Furthermore, because the VGA console is not being used the {\em Kernel
-Command Line Arguments} must be modified to remove the {\em VGA}
-device from the console list.
+The guest OS that is to be booted as a VM is included as a blob
+pointed to by ``Path to guest image''.   The blob starts with an XML
+description of the guest, followed by other chunks of data used, for
+example, as the content of virtual hard drives or CD ROMs.  Please see
+Section~\ref{sec:guestconfig} for basic information on how to use the
+guest builder to assemble a guest OS blob. 
 
-The guest OS that is booted as a VM is included as an ISO image in raw
-binary format inside Kitten's {\em init\_task}. To change the guest
-ISO, you must change the Makefile for the init\_task. This is located
-in {\em user/hello\_world/Makefile} and the syntax is well commented.
-On {\em newskysaw} a collection of guest ISO images are located in
-{\em /opt/vmm-tools/isos/}. 
+By default, the init task that is executed after Kitten boots (located
+in user/hello\_world) does a number of Kitten tests.  One of these is
+a test of the VMM API, which is implemented using Palacios.  When this
+test is done, a VM is created, configured according to the XML, and
+the guest OS blob is launched in it.
 
 
 \subsection{Compilation}
-After Kitten has been configured it can be compiled. The
-general process is to compile a reference build of Kitten, followed by
-compiling Palacios support as a kernel module, and then doing a new
-full recompilation of Kitten.
 
-The specific compilation steps are run from the top level Kitten directory:
+After Kitten has been configured it can be compiled.  This is done
+simply by executing
 \begin{verbatim}
-make
-cd palacios
-make -C .. M=`pwd`
-cp built-in.o ../modules/palacios-mod.o
-cd ..
-make
 make isoimage
 \end{verbatim}
+This command will compile Kitten (with Palacios embedded in it) and
+the init task (which will contain the guest OS blob), and then
+assemble an ISO image file which can used to boot a machine.  The ISO
+image is located at {\em ./arch/x86\_64/boot/image.iso}.  
 
-\note{This should probably explain how to change the iso (helloworld,etc)}
+This image file can be used for booting a QEMU emulation environment,
+for booting a remote machine using PXE, or can be burned to CD/DVD for
+booting a machine physically. 
 
-This generates an ISO boot image containing Kitten, Palacios, and the
-guest that will be run as a VM. The ISO image is located at {\em
-./arch/x86\_64/boot/image.iso}.
 
+\section{Basic Guest Configuration}
+\label{sec:guestconfig}
+
+To configure a guest, you write an XML configuration file, which
+contains references to other files that contain data needed to
+instantiate stateful devices such as virtual hard drives and CD ROMs.
+You supply this information to a guest builder utility that assembles
+a guest image suitable for reference in the Kitten configuration, as
+described above.  
+
+The guest builder utility is located in {\em
+palacios/utils/guest\_creator}.  You will need to run \verb.make. in that
+directory to compile it, resulting in the executable named {\em
+build\_vm}.  Also located in that directory is an example configuration
+file, named {\em default.xml}.   We typically use this file as a
+template.  It is carefully commented.  In summary, a configuration
+consists of
+\begin{itemize}
+\item Physical memory size of the gust
+\item Basic VMM settings, such as what form of virtual paging is to be
+used, the scheduler rate, whether services like telemetry are on, etc.
+\item A memory map that maps regions of the host physical address
+space to the guest physical address space.  This can, for example,
+make a framebuffer visible in the guest.
+\item A list of the files that will be used in assembling the image.
+For example, the contents of a boot CD.
+\item A list of the devices that the guest will have, including
+configuration data for each device.
+\end{itemize}
+There are a few subtlies involved with devices.  One is that some
+devices form attachement points for other devices.  The PCI device is
+an example of this.  Another is that each device needs to define how
+it is attached (e.g. direct (implicit), via a PCI bus, etc.)
+Finally, there may be multiple instances of devices.   For example, a
+PCI passthrough device is instantiated for every underlying PCI device
+we want to make visible in the guest. 
+
+The XML configuration format is carefully designed to be extensible.
+For example, new devices could use additional or new configuration
+options.  The configuration parser in Palacios essentially ignores XML
+blocks it doesn't understand. 
+
+
+To build a guest, one runs
+\begin{verbatim}
+palacios/utils/guest_creator/build_vm myconfig.xml -o myimage.dat
+\end{verbatim}
+Here, {\em myimage.dat} is the guest image that can be given to
+Kitten. 
+
+A common kind of guest used for testing is one that boots some form of
+bootable Linux distribution, or other a live OS distribution.  These
+distributions are CD ROM images (ISOs).  A range of them are available
+on {\em newskysaw} under {\em /opt/vmm-tools/isos}.  We often use
+Puppy Linux ({\em puppy.iso}) or Finnix ({\em finnix.iso}), for
+example, but isos are also available for Windows of different flavors,
+DOS, GeekOS, and others.  If you just want to use some guest ISO image
+like this, you can generally just copy the default XML file, and
+modify the
+\verb.filename=. attribute here:
+\begin{verbatim}
+ <files>
+    <!-- The file 'id' is used as a reference for 
+         other configuration components -->
+    <file id="boot-cd" filename="/home/jarusl/image.iso" />
+    <!--<file id="harddisk" filename="firefox.img" />-->
+ </files>
+\end{verbatim}
+
+For careful, repeatable experimentation, it is often convenient to
+build your own simplified Linux guest image.  It will boot {\em much}
+faster than a full blown distribution and you can readily set up an
+environment in which you can exert very tight control, being able to
+modify the Linux kernel, the included files (e.g., benchmarks), and
+other components very rapidly.  To learn more about how to do this,
+please consult the separate document named {\em Building a bootable
+guest image for Palacios and Kitten}.
 
 \section{Running Palacios/Kitten}
 Kitten and Palacios are capable of running under QEMU, which makes
-debugging much simpler.
+debugging much simpler.  QEMU is a user-level Linux or Windows program
+that emulates a PC machine. 
 
-The basic form of the command to start the Emu emulator is:
+The basic form of the command to start the QEMU emulator is:
 \begin{verbatim}
 /usr/local/qemu/bin/qemu-system-x86_64 -smp 1 -m 1024 \
         -serial file:./serial.out \
@@ -295,6 +580,18 @@ to the serial port is written directly to a file called {\em
   serial.out}. This command can be copied into a shell script for easy
 access.
 
+We can also run Palacios/Kitten on physical hardware.  The slow way is
+to burn the Kitten ISO image onto a CD ROM and then boot the test
+machine with it.  The much faster way is to set the test machine up to
+use the PXE network boot system (most modern BIOSes support this), and
+boot your Kitten image over the network.  The debugging output will
+then appear on the actual serial port of the physical machine.  For
+the Northwestern environment, please talk to Jack Lange or Peter Dinda
+if you need to be able to do this.  Northwestern has a range of AMD
+and Intel boxes for testing, as do UNM and Sandia.    A different form
+of network boot is used for Red Storm. 
+
+
 \section{Development Guidelines}
 
 There are standard requirements we have for code entering the mainline. 
@@ -307,10 +604,10 @@ architectures to make sure that they compile as well as run correctly.
 
 \paragraph*{Coding Style}
 
-"The use of equal negative space, as a balance to positive space, in a
+``The use of equal negative space, as a balance to positive space, in a
 composition is considered by many as good design. This basic and often
-overlooked principle of design gives the eye a "place to rest,"
-increasing the appeal of a composition through subtle means."
+overlooked principle of design gives the eye a 'place to rest,'
+increasing the appeal of a composition through subtle means.''
 \newline\newline
 Translation: Use the space bar, newlines, and parentheses. 
 
@@ -318,7 +615,7 @@ Curly-brackets are not optional, even for single line conditionals.
 
 Tabs should be 4 characters in width.
 
-{\em Special:} If you are using XEmacs add the following to your \verb.init\.el. file:
+{\em Special:} If you are using XEmacs add the following to your \verb!init.el! file:
 \begin{verbatim}
 (setq c-basic-offset 4)
 (c-set-offset 'case-label 4)
@@ -461,7 +758,7 @@ that can then be emailed.
 \item \verb.stg refresh. -- commits local changes to the patch set at
 the top of the applied stack.
 \item \verb.stg fold. -- Apply a patch file to the current
-patch. (This is how you can manage revisions that are made by other developers).
+pat1ch. (This is how you can manage revisions that are made by other developers).
 \end{itemize}
 
 You should definitely look at the online documentation to better
@@ -714,6 +1011,6 @@ http://www.h7.dion.ne.jp/$\sim$qemu-win/HowToNetwork-en.html for more
 information.
 
 
-For more questions, talk to Jack, Lei, or Peter.
+For more questions, talk to Jack, Lei,  or Peter.
 
 \end{document}
