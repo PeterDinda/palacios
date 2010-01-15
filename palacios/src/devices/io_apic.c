@@ -281,7 +281,8 @@ static int ioapic_raise_irq(struct guest_info * info, void * private_data, int i
 
     if (irq_entry->mask == 0) {
 	PrintDebug("IOAPIC Signalling APIC to raise INTR %d\n", irq_entry->vec);
-	v3_apic_raise_intr(info, ioapic->apic, irq_entry->vec);
+	//v3_apic_raise_intr(info, ioapic->apic, irq_entry->vec);
+	v3_apic_raise_intr(ioapic->apic, irq_entry->vec);
     }
 
     return 0;

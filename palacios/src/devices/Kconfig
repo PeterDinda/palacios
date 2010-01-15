@@ -62,7 +62,7 @@ config DEBUG_IDE
 
 config IO_APIC
 	bool "IOAPIC"
-	depends on APIC
+	depends on ICC_BUS
 	default y
 	help 
 	  Includes the Virtual IO APIC

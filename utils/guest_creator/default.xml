@@ -10,6 +10,8 @@
 	<paging>nested</paging>
 	<schedule_hz>100</schedule_hz>
 
+	<cores count="1"><core /></cores>
+
 
 	<!-- Memory redirections -->
 	<!-- Redirects a guest's memory region to a host physical address -->
@@ -42,10 +44,12 @@
 		<device id="8254_PIT" name="PIC" />
 		<device id="BOCHS_DEBUG" name="bochs debug"/>
 		<device id="OS_DEBUG" name="os debug" />
+<!--
 		<device id="LAPIC" name="apic"/>
 		<device id="IOAPIC" name="ioapic">
                        <irq_bus>apic</irq_bus>
 		</device>
+-->
 
 <!--
 		<device id="CGA_VIDEO" name="cga" passthrough="enable" />
