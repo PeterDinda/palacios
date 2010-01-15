@@ -53,7 +53,7 @@ static int post_config_pc(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	extern uint8_t v3_vgabios_start[];
 	extern uint8_t v3_vgabios_end[];
 	
-	addr_t vgabios_dst = v3_get_shadow_addr(&(vm->mem_map.base_region), VGABIOS_START);
+	addr_t vgabios_dst = v3_get_shadow_addr(&(vm->mem_map.base_region), V3_MEM_CORE_ANY, VGABIOS_START);
 	memcpy(V3_VAddr((void *)vgabios_dst), v3_vgabios_start, v3_vgabios_end - v3_vgabios_start);	
     }
     
@@ -62,7 +62,7 @@ static int post_config_pc(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	extern uint8_t v3_rombios_start[];
 	extern uint8_t v3_rombios_end[];
 
-	addr_t rombios_dst = v3_get_shadow_addr(&(vm->mem_map.base_region), ROMBIOS_START);
+	addr_t rombios_dst = v3_get_shadow_addr(&(vm->mem_map.base_region), V3_MEM_CORE_ANY, ROMBIOS_START);
 	memcpy(V3_VAddr((void *)rombios_dst), v3_rombios_start, v3_rombios_end - v3_rombios_start);
     }
 

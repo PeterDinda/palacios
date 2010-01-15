@@ -544,7 +544,7 @@ static int setup_memory_map(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	addr_t host_addr = atox(v3_cfg_val(mem_region, "host_addr"));
 
     
-	if (v3_add_shadow_mem(vm, start_addr, end_addr, host_addr) == -1) {
+	if (v3_add_shadow_mem(vm, V3_MEM_CORE_ANY, start_addr, end_addr, host_addr) == -1) {
 	    PrintError("Could not map memory region: %p-%p => %p\n", 
 		       (void *)start_addr, (void *)end_addr, (void *)host_addr);
 	    return -1;

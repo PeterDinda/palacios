@@ -437,10 +437,10 @@ static int bar_update(struct guest_info * info, struct pci_device * pci, int bar
 	    break;
 	}
 	case PCI_BAR_MEM32: {
-	    v3_unhook_mem(info->vm_info, (addr_t)(bar->val));
+	    v3_unhook_mem(info->vm_info, V3_MEM_CORE_ANY, (addr_t)(bar->val));
 	    
 	    if (bar->mem_read) {
-		v3_hook_full_mem(info->vm_info, PCI_MEM32_BASE(new_val), 
+		v3_hook_full_mem(info->vm_info, V3_MEM_CORE_ANY, PCI_MEM32_BASE(new_val), 
 				 PCI_MEM32_BASE(new_val) + (bar->num_pages * PAGE_SIZE_4KB),
 				 bar->mem_read, bar->mem_write, pci->priv_data);
 	    } else {
@@ -731,7 +731,7 @@ static inline int init_bars(struct v3_vm_info * vm, struct pci_device * pci_dev)
 	    // hook memory
 	    if (pci_dev->bar[i].mem_read) {
 		// full hook
-		v3_hook_full_mem(vm, pci_dev->bar[i].default_base_addr,
+		v3_hook_full_mem(vm, V3_MEM_CORE_ANY, pci_dev->bar[i].default_base_addr,
 				 pci_dev->bar[i].default_base_addr + (pci_dev->bar[i].num_pages * PAGE_SIZE_4KB),
 				 pci_dev->bar[i].mem_read, pci_dev->bar[i].mem_write, pci_dev->priv_data);
 	    } else if (pci_dev->bar[i].mem_write) {
