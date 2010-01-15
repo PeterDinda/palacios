@@ -23,13 +23,13 @@
 #include <palacios/vm_guest.h>
 
 
-void v3_init_cpuid_map(struct guest_info * info) {
-    info->cpuid_map.map.rb_node = NULL;
+void v3_init_cpuid_map(struct v3_vm_info * vm) {
+    vm->cpuid_map.map.rb_node = NULL;
 }
 
 
-static inline struct v3_cpuid_hook * __insert_cpuid_hook(struct guest_info * info, struct v3_cpuid_hook * hook) {
-  struct rb_node ** p = &(info->cpuid_map.map.rb_node);
+static inline struct v3_cpuid_hook * __insert_cpuid_hook(struct v3_vm_info * vm, struct v3_cpuid_hook * hook) {
+  struct rb_node ** p = &(vm->cpuid_map.map.rb_node);
   struct rb_node * parent = NULL;
   struct v3_cpuid_hook * tmp_hook = NULL;
 
@@ -51,22 +51,22 @@ static inline struct v3_cpuid_hook * __insert_cpuid_hook(struct guest_info * inf
 }
 
 
-static inline struct v3_cpuid_hook * insert_cpuid_hook(struct guest_info * info, struct v3_cpuid_hook * hook) {
+static inline struct v3_cpuid_hook * insert_cpuid_hook(struct v3_vm_info * vm, struct v3_cpuid_hook * hook) {
   struct v3_cpuid_hook * ret;
 
-  if ((ret = __insert_cpuid_hook(info, hook))) {
+  if ((ret = __insert_cpuid_hook(vm, hook))) {
     return ret;
   }
 
-  v3_rb_insert_color(&(hook->tree_node), &(info->cpuid_map.map));
+  v3_rb_insert_color(&(hook->tree_node), &(vm->cpuid_map.map));
 
   return NULL;
 }
 
 
 
-static struct v3_cpuid_hook * get_cpuid_hook(struct guest_info * info, uint32_t cpuid) {
-  struct rb_node * n = info->cpuid_map.map.rb_node;
+static struct v3_cpuid_hook * get_cpuid_hook(struct v3_vm_info * vm, uint32_t cpuid) {
+  struct rb_node * n = vm->cpuid_map.map.rb_node;
   struct v3_cpuid_hook * hook = NULL;
 
   while (n) {
@@ -85,22 +85,22 @@ static struct v3_cpuid_hook * get_cpuid_hook(struct guest_info * info, uint32_t 
 }
 
 
-int v3_unhook_cpuid(struct guest_info * info, uint32_t cpuid) {
-    struct v3_cpuid_hook * hook = get_cpuid_hook(info, cpuid);
+int v3_unhook_cpuid(struct v3_vm_info * vm, uint32_t cpuid) {
+    struct v3_cpuid_hook * hook = get_cpuid_hook(vm, cpuid);
 
     if (hook == NULL) {
 	PrintError("Could not find cpuid to unhook (0x%x)\n", cpuid);
 	return -1;
     }
 
-    v3_rb_erase(&(hook->tree_node), &(info->cpuid_map.map));
+    v3_rb_erase(&(hook->tree_node), &(vm->cpuid_map.map));
 
     V3_Free(hook);
 
     return 0;
 }
 
-int v3_hook_cpuid(struct guest_info * info, uint32_t cpuid, 
+int v3_hook_cpuid(struct v3_vm_info * vm, uint32_t cpuid, 
 		  int (*hook_fn)(struct guest_info * info, uint32_t cpuid, \
 				 uint32_t * eax, uint32_t * ebx, \
 				 uint32_t * ecx, uint32_t * edx, \
@@ -118,7 +118,7 @@ int v3_hook_cpuid(struct guest_info * info, uint32_t cpuid,
     hook->private_data = private_data;
     hook->hook_fn = hook_fn;
 
-    if (insert_cpuid_hook(info, hook)) {
+    if (insert_cpuid_hook(vm, hook)) {
 	PrintError("Could not hook cpuid 0x%x (already hooked)\n", cpuid);
 	V3_Free(hook);
 	return -1;
@@ -129,7 +129,7 @@ int v3_hook_cpuid(struct guest_info * info, uint32_t cpuid,
 
 int v3_handle_cpuid(struct guest_info * info) {
     uint32_t cpuid = info->vm_regs.rax;
-    struct v3_cpuid_hook * hook = get_cpuid_hook(info, cpuid);
+    struct v3_cpuid_hook * hook = get_cpuid_hook(info->vm_info, cpuid);
 
     //PrintDebug("CPUID called for 0x%x\n", cpuid);
 

@@ -52,7 +52,7 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
       v3_print_vmcs();
     */
 #ifdef CONFIG_TELEMETRY
-    if (info->enable_telemetry) {
+    if (info->vm_info->enable_telemetry) {
 	v3_telemetry_start_exit(info);
     }
 #endif
@@ -223,7 +223,7 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
     }
 
 #ifdef CONFIG_TELEMETRY
-    if (info->enable_telemetry) {
+    if (info->vm_info->enable_telemetry) {
         v3_telemetry_end_exit(info, exit_info->exit_reason);
     }
 #endif

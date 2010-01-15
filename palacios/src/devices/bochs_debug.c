@@ -43,7 +43,7 @@ struct debug_state {
     uint_t cons_offset;
 };
 
-static int handle_info_write(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
+static int handle_info_write(struct guest_info * core, ushort_t port, void * src, uint_t length, struct vm_device * dev) {
     struct debug_state * state = (struct debug_state *)dev->private_data;
 
     state->info_buf[state->info_offset++] = *(char*)src;
@@ -58,7 +58,7 @@ static int handle_info_write(ushort_t port, void * src, uint_t length, struct vm
 }
 
 
-static int handle_debug_write(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
+static int handle_debug_write(struct guest_info * core, ushort_t port, void * src, uint_t length, struct vm_device * dev) {
     struct debug_state * state = (struct debug_state *)dev->private_data;
 
     state->debug_buf[state->debug_offset++] = *(char*)src;
@@ -73,7 +73,7 @@ static int handle_debug_write(ushort_t port, void * src, uint_t length, struct v
 }
 
 
-static int handle_console_write(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
+static int handle_console_write(struct guest_info * core, ushort_t port, void * src, uint_t length, struct vm_device * dev) {
     struct debug_state * state = (struct debug_state *)dev->private_data;
 
     state->cons_buf[state->cons_offset++] = *(char*)src;
@@ -88,7 +88,7 @@ static int handle_console_write(ushort_t port, void * src, uint_t length, struct
 }
 
 
-static int handle_gen_write(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
+static int handle_gen_write(struct guest_info * core, ushort_t port, void * src, uint_t length, struct vm_device * dev) {
 
     switch (length) {
 	case 1:
@@ -134,7 +134,7 @@ static struct v3_device_ops dev_ops = {
 
 
 
-static int debug_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
+static int debug_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct debug_state * state = NULL;
     char * name = v3_cfg_val(cfg, "name");
 

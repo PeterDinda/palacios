@@ -81,7 +81,6 @@ struct blk_op_hdr {
 struct virtio_dev_state {
     struct vm_device * pci_bus;
     struct list_head dev_list;
-    struct guest_info * vm;
 };
 
 struct virtio_blk_state {
@@ -159,12 +158,12 @@ static int handle_write_op(struct virtio_blk_state * blk_state, uint8_t * buf, u
 
 // multiple block operations need to increment the sector 
 
-static int handle_block_op(struct virtio_blk_state * blk_state, struct blk_op_hdr * hdr, 
+static int handle_block_op(struct guest_info * core, struct virtio_blk_state * blk_state, struct blk_op_hdr * hdr, 
 			   struct vring_desc * buf_desc, uint8_t * status) {
     uint8_t * buf = NULL;
 
     PrintDebug("Handling Block op\n");
-    if (guest_pa_to_host_va(blk_state->virtio_dev->vm, buf_desc->addr_gpa, (addr_t *)&(buf)) == -1) {
+    if (guest_pa_to_host_va(core, buf_desc->addr_gpa, (addr_t *)&(buf)) == -1) {
 	PrintError("Could not translate buffer address\n");
 	return -1;
     }
@@ -210,7 +209,7 @@ static int get_desc_count(struct virtio_queue * q, int index) {
 
 
 
-static int handle_kick(struct virtio_blk_state * blk_state) {  
+static int handle_kick(struct guest_info * core, struct virtio_blk_state * blk_state) {  
     struct virtio_queue * q = &(blk_state->queue);
 
     PrintDebug("VIRTIO KICK: cur_index=%d (mod=%d), avail_index=%d\n", 
@@ -242,7 +241,7 @@ static int handle_kick(struct virtio_blk_state * blk_state) {
 	PrintDebug("Header Descriptor (ptr=%p) gpa=%p, len=%d, flags=%x, next=%d\n", hdr_desc, 
 		   (void *)(hdr_desc->addr_gpa), hdr_desc->length, hdr_desc->flags, hdr_desc->next);	
 
-	if (guest_pa_to_host_va(blk_state->virtio_dev->vm, hdr_desc->addr_gpa, &(hdr_addr)) == -1) {
+	if (guest_pa_to_host_va(core, hdr_desc->addr_gpa, &(hdr_addr)) == -1) {
 	    PrintError("Could not translate block header address\n");
 	    return -1;
 	}
@@ -262,7 +261,7 @@ static int handle_kick(struct virtio_blk_state * blk_state) {
 	    PrintDebug("Buffer Descriptor (ptr=%p) gpa=%p, len=%d, flags=%x, next=%d\n", buf_desc, 
 		       (void *)(buf_desc->addr_gpa), buf_desc->length, buf_desc->flags, buf_desc->next);
 
-	    if (handle_block_op(blk_state, &hdr, buf_desc, &tmp_status) == -1) {
+	    if (handle_block_op(core, blk_state, &hdr, buf_desc, &tmp_status) == -1) {
 		PrintError("Error handling block operation\n");
 		return -1;
 	    }
@@ -280,7 +279,7 @@ static int handle_kick(struct virtio_blk_state * blk_state) {
 	PrintDebug("Status Descriptor (ptr=%p) gpa=%p, len=%d, flags=%x, next=%d\n", status_desc, 
 		   (void *)(status_desc->addr_gpa), status_desc->length, status_desc->flags, status_desc->next);
 
-	if (guest_pa_to_host_va(blk_state->virtio_dev->vm, status_desc->addr_gpa, (addr_t *)&(status_ptr)) == -1) {
+	if (guest_pa_to_host_va(core, status_desc->addr_gpa, (addr_t *)&(status_ptr)) == -1) {
 	    PrintError("Could not translate status address\n");
 	    return -1;
 	}
@@ -304,7 +303,7 @@ static int handle_kick(struct virtio_blk_state * blk_state) {
     return 0;
 }
 
-static int virtio_io_write(uint16_t port, void * src, uint_t length, void * private_data) {
+static int virtio_io_write(struct guest_info * core, uint16_t port, void * src, uint_t length, void * private_data) {
     struct virtio_blk_state * blk_state = (struct virtio_blk_state *)private_data;
     int port_idx = port % blk_state->io_range_size;
 
@@ -342,19 +341,19 @@ static int virtio_io_write(uint16_t port, void * src, uint_t length, void * priv
 		// round up to next page boundary.
 		blk_state->queue.ring_used_addr = (blk_state->queue.ring_used_addr + 0xfff) & ~0xfff;
 
-		if (guest_pa_to_host_va(blk_state->virtio_dev->vm, blk_state->queue.ring_desc_addr, (addr_t *)&(blk_state->queue.desc)) == -1) {
+		if (guest_pa_to_host_va(core, blk_state->queue.ring_desc_addr, (addr_t *)&(blk_state->queue.desc)) == -1) {
 		    PrintError("Could not translate ring descriptor address\n");
 		    return -1;
 		}
 
 
-		if (guest_pa_to_host_va(blk_state->virtio_dev->vm, blk_state->queue.ring_avail_addr, (addr_t *)&(blk_state->queue.avail)) == -1) {
+		if (guest_pa_to_host_va(core, blk_state->queue.ring_avail_addr, (addr_t *)&(blk_state->queue.avail)) == -1) {
 		    PrintError("Could not translate ring available address\n");
 		    return -1;
 		}
 
 
-		if (guest_pa_to_host_va(blk_state->virtio_dev->vm, blk_state->queue.ring_used_addr, (addr_t *)&(blk_state->queue.used)) == -1) {
+		if (guest_pa_to_host_va(core, blk_state->queue.ring_used_addr, (addr_t *)&(blk_state->queue.used)) == -1) {
 		    PrintError("Could not translate ring used address\n");
 		    return -1;
 		}
@@ -384,7 +383,7 @@ static int virtio_io_write(uint16_t port, void * src, uint_t length, void * priv
 	    break;
 	case VRING_Q_NOTIFY_PORT:
 	    PrintDebug("Handling Kick\n");
-	    if (handle_kick(blk_state) == -1) {
+	    if (handle_kick(core, blk_state) == -1) {
 		PrintError("Could not handle Block Notification\n");
 		return -1;
 	    }
@@ -411,7 +410,7 @@ static int virtio_io_write(uint16_t port, void * src, uint_t length, void * priv
 }
 
 
-static int virtio_io_read(uint16_t port, void * dst, uint_t length, void * private_data) {
+static int virtio_io_read(struct guest_info * core, uint16_t port, void * dst, uint_t length, void * private_data) {
     struct virtio_blk_state * blk_state = (struct virtio_blk_state *)private_data;
     int port_idx = port % blk_state->io_range_size;
 
@@ -579,7 +578,7 @@ static int register_dev(struct virtio_dev_state * virtio, struct virtio_blk_stat
 }
 
 
-static int connect_fn(struct guest_info * info, 
+static int connect_fn(struct v3_vm_info * vm, 
 		      void * frontend_data, 
 		      struct v3_dev_blk_ops * ops, 
 		      v3_cfg_tree_t * cfg, 
@@ -604,7 +603,7 @@ static int connect_fn(struct guest_info * info,
 }
 
 
-static int virtio_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
+static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vm_device * pci_bus = v3_find_dev(vm, v3_cfg_val(cfg, "bus"));
     struct virtio_dev_state * virtio_state = NULL;
     char * name = v3_cfg_val(cfg, "name");
@@ -622,7 +621,7 @@ static int virtio_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
 
     INIT_LIST_HEAD(&(virtio_state->dev_list));
     virtio_state->pci_bus = pci_bus;
-    virtio_state->vm = vm;
+
 
     struct vm_device * dev = v3_allocate_device(name, &dev_ops, virtio_state);
     if (v3_attach_device(vm, dev) == -1) {

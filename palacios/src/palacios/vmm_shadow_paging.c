@@ -88,7 +88,7 @@ int v3_init_shadow_page_state(struct guest_info * info) {
     INIT_LIST_HEAD(&(state->page_list));
 
 #ifdef CONFIG_SHADOW_PAGING_TELEMETRY
-    if (info->enable_telemetry) {
+    if (info->vm_info->enable_telemetry) {
 	v3_add_telemetry_cb(info, telemetry_cb, NULL);
     }
 #endif

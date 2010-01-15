@@ -320,7 +320,7 @@ static int pull_from_output_queue(struct vm_device * dev, uint8_t * value) {
 #include <palacios/vmm_telemetry.h>
 
 
-static int key_event_handler(struct guest_info * info, 
+static int key_event_handler(struct v3_vm_info * vm, 
 			     struct v3_keyboard_event * evt, 
 			     void * private_data) {
     struct vm_device * dev = (struct vm_device *)private_data;
@@ -329,7 +329,10 @@ static int key_event_handler(struct guest_info * info,
     PrintDebug("keyboard: injected status 0x%x, and scancode 0x%x\n", evt->status, evt->scan_code);
 
     if (evt->scan_code == 0x44) { // F10 debug dump
-	v3_print_guest_state(info);
+	int i = 0;
+	for (i = 0; i < vm->num_cores; i++) {
+	    v3_print_guest_state(&(vm->cores[i]));
+	}
 	//	PrintGuestPageTables(info, info->shdw_pg_state.guest_cr3);
     } 
 #ifdef CONFIG_SYMBIOTIC
@@ -340,8 +343,16 @@ static int key_event_handler(struct guest_info * info,
 	sym_arg_t a2 = 0x3333;
 	sym_arg_t a3 = 0x4444;
 	sym_arg_t a4 = 0x5555;
+	uint64_t call_start = 0;
+	uint64_t call_end = 0;
+	
+	V3_Print("Exits before symcall: %d\n", (uint32_t)info->num_exits);
 
+	rdtscll(call_start);
 	v3_sym_call5(info, SYMCALL_TEST, &a0, &a1, &a2, &a3, &a4);
+	rdtscll(call_end);
+	
+	V3_Print("Symcall latency = %d cycles (%d exits)\n", (uint32_t)(call_end - call_start), (uint32_t)info->num_exits);
 
 	V3_Print("Symcall  Test Returned arg0=%x, arg1=%x, arg2=%x, arg3=%x, arg4=%x\n",
 		 (uint32_t)a0, (uint32_t)a1, (uint32_t)a2, (uint32_t)a3, (uint32_t)a4);
@@ -354,8 +365,9 @@ static int key_event_handler(struct guest_info * info,
 	PrintDebug("Toggling Debugging\n");	
 	v3_dbg_enable ^= 1;
     } else if (evt->scan_code == 0x41) { // F7 telemetry dump
-	//v3_print_telemetry(info);
-	
+#ifdef CONFIG_TELEMETRY
+	v3_print_telemetry(info);
+#endif
     }
 
 
@@ -374,7 +386,7 @@ static int key_event_handler(struct guest_info * info,
 }
 
 
-static int mouse_event_handler(struct guest_info * info, 
+static int mouse_event_handler(struct v3_vm_info * vm, 
 			       struct v3_mouse_event * evt, 
 			       void * private_data) {
     struct vm_device * dev = (struct vm_device *)private_data;
@@ -593,7 +605,7 @@ static int keyboard_write_delay(ushort_t port, void * src,  uint_t length, struc
     }
 }
 
-static int keyboard_read_delay(ushort_t port, void * dest, uint_t length, struct vm_device * dev) {
+static int keyboard_read_delay(struct guest_info * core, ushort_t port, void * dest, uint_t length, struct vm_device * dev) {
 
     if (length == 1) { 
 	*(uint8_t *)dest = v3_inb(port);
@@ -613,7 +625,7 @@ static int keyboard_read_delay(ushort_t port, void * dest, uint_t length, struct
 
 
 
-static int keyboard_write_command(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
+static int keyboard_write_command(struct guest_info * core, ushort_t port, void * src, uint_t length, struct vm_device * dev) {
     struct keyboard_internal * state = (struct keyboard_internal *)(dev->private_data);
     uint8_t cmd = *(uint8_t *)src;
 
@@ -786,7 +798,7 @@ static int keyboard_write_command(ushort_t port, void * src, uint_t length, stru
     return length;
 }
 
-static int keyboard_read_status(ushort_t port, void * dest, uint_t length, struct vm_device * dev) {
+static int keyboard_read_status(struct guest_info * core, ushort_t port, void * dest, uint_t length, struct vm_device * dev) {
     struct keyboard_internal *state = (struct keyboard_internal *)(dev->private_data);
 
     if (length != 1) { 
@@ -807,7 +819,7 @@ static int keyboard_read_status(ushort_t port, void * dest, uint_t length, struc
     return length;
 }
 
-static int keyboard_write_output(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
+static int keyboard_write_output(struct guest_info * core, ushort_t port, void * src, uint_t length, struct vm_device * dev) {
     struct keyboard_internal *state = (struct keyboard_internal *)(dev->private_data);
     int ret = length;
 
@@ -942,7 +954,7 @@ static int keyboard_write_output(ushort_t port, void * src, uint_t length, struc
     return ret;
 }
 
-static int keyboard_read_input(ushort_t port, void * dest, uint_t length, struct vm_device * dev) {
+static int keyboard_read_input(struct guest_info * core, ushort_t port, void * dest, uint_t length, struct vm_device * dev) {
     struct keyboard_internal * state = (struct keyboard_internal *)(dev->private_data);
 
     if (length != 1) {
@@ -991,7 +1003,7 @@ static struct v3_device_ops dev_ops = {
 
 
 
-static int keyboard_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
+static int keyboard_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct keyboard_internal * keyboard_state = NULL;
     char * name = v3_cfg_val(cfg, "name");
 

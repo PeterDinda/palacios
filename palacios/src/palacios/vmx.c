@@ -199,8 +199,10 @@ static int init_vmcs_bios(struct guest_info * info, struct vmx_data * vmx_state)
 
     /********** Setup and VMX Control Fields from MSR ***********/
     /* Setup IO map */
-    v3_init_vmx_io_map(info);
-    v3_init_vmx_msr_map(info);
+    /***** THEES NEED TO BE MOVED TO A GLOBAL LOCATION ***/
+    v3_init_vmx_io_map(info->vm_info);
+    v3_init_vmx_msr_map(info->vm_info);
+    /**** ****/
 
     struct v3_msr tmp_msr;
 
@@ -220,11 +222,12 @@ static int init_vmcs_bios(struct guest_info * info, struct vmx_data * vmx_state)
     vmx_state->pri_proc_ctrls.use_msr_bitmap = 1;
     vmx_state->pri_proc_ctrls.pause_exit = 1;
 
-    vmx_ret |= check_vmcs_write(VMCS_IO_BITMAP_A_ADDR, (addr_t)V3_PAddr(info->io_map.arch_data));
+    vmx_ret |= check_vmcs_write(VMCS_IO_BITMAP_A_ADDR, (addr_t)V3_PAddr(info->vm_info->io_map.arch_data));
     vmx_ret |= check_vmcs_write(VMCS_IO_BITMAP_B_ADDR, 
-            (addr_t)V3_PAddr(info->io_map.arch_data) + PAGE_SIZE_4KB); 
+            (addr_t)V3_PAddr(info->vm_info->io_map.arch_data) + PAGE_SIZE_4KB);
 
-    vmx_ret |= check_vmcs_write(VMCS_MSR_BITMAP, (addr_t)V3_PAddr(info->msr_map.arch_data));
+
+    vmx_ret |= check_vmcs_write(VMCS_MSR_BITMAP, (addr_t)V3_PAddr(info->vm_info->msr_map.arch_data));
 
     v3_get_msr(VMX_EXIT_CTLS_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
     vmx_state->exit_ctrls.value = tmp_msr.lo;
@@ -453,12 +456,12 @@ static int update_irq_exit_state(struct guest_info * info) {
 
     check_vmcs_read(VMCS_IDT_VECTOR_INFO, &(idt_vec_info.value));
 
-    if ((info->intr_state.irq_started == 1) && (idt_vec_info.valid == 0)) {
+    if ((info->intr_core_state.irq_started == 1) && (idt_vec_info.valid == 0)) {
 #ifdef CONFIG_DEBUG_INTERRUPTS
         PrintDebug("Calling v3_injecting_intr\n");
 #endif
-        info->intr_state.irq_started = 0;
-        v3_injecting_intr(info, info->intr_state.irq_vector, V3_EXTERNAL_IRQ);
+        info->intr_core_state.irq_started = 0;
+        v3_injecting_intr(info, info->intr_core_state.irq_vector, V3_EXTERNAL_IRQ);
     }
 
     return 0;
@@ -466,11 +469,11 @@ static int update_irq_exit_state(struct guest_info * info) {
 
 static int update_irq_entry_state(struct guest_info * info) {
     struct vmx_exit_idt_vec_info idt_vec_info;
-    struct vmcs_interrupt_state intr_state;
+    struct vmcs_interrupt_state intr_core_state;
     struct vmx_data * vmx_info = (struct vmx_data *)(info->vmm_data);
 
     check_vmcs_read(VMCS_IDT_VECTOR_INFO, &(idt_vec_info.value));
-    check_vmcs_read(VMCS_GUEST_INT_STATE, &(intr_state));
+    check_vmcs_read(VMCS_GUEST_INT_STATE, &(intr_core_state));
 
     /* Check for pending exceptions to inject */
     if (v3_excp_pending(info)) {
@@ -501,9 +504,9 @@ static int update_irq_entry_state(struct guest_info * info) {
         v3_injecting_excp(info, int_info.vector);
 
     } else if ((((struct rflags *)&(info->ctrl_regs.rflags))->intr == 1) && 
-	       (intr_state.val == 0)) {
+	       (intr_core_state.val == 0)) {
        
-        if ((info->intr_state.irq_started == 1) && (idt_vec_info.valid == 1)) {
+        if ((info->intr_core_state.irq_started == 1) && (idt_vec_info.valid == 1)) {
 
 #ifdef CONFIG_DEBUG_INTERRUPTS
             PrintDebug("IRQ pending from previous injection\n");
@@ -526,21 +529,21 @@ static int update_irq_entry_state(struct guest_info * info) {
 
             switch (v3_intr_pending(info)) {
                 case V3_EXTERNAL_IRQ: {
-                    info->intr_state.irq_vector = v3_get_intr(info); 
-                    ent_int.vector = info->intr_state.irq_vector;
+                    info->intr_core_state.irq_vector = v3_get_intr(info); 
+                    ent_int.vector = info->intr_core_state.irq_vector;
                     ent_int.type = 0;
                     ent_int.error_code = 0;
                     ent_int.valid = 1;
 
 #ifdef CONFIG_DEBUG_INTERRUPTS
                     PrintDebug("Injecting Interrupt %d at exit %u(EIP=%p)\n", 
-			       info->intr_state.irq_vector, 
+			       info->intr_core_state.irq_vector, 
 			       (uint32_t)info->num_exits, 
 			       (void *)info->rip);
 #endif
 
                     check_vmcs_write(VMCS_ENTRY_INT_INFO, ent_int.value);
-                    info->intr_state.irq_started = 1;
+                    info->intr_core_state.irq_started = 1;
 
                     break;
                 }
@@ -645,7 +648,7 @@ int v3_vmx_enter(struct guest_info * info) {
 
 
 #ifdef CONFIG_SYMBIOTIC
-    if (info->sym_state.sym_call_active == 0) {
+    if (info->vm_info->sym_state.symcalls[info->cpu_id].sym_call_active == 0) {
 	update_irq_entry_state(info);
     }
 #else 
@@ -660,8 +663,8 @@ int v3_vmx_enter(struct guest_info * info) {
 
     rdtscll(info->time_state.cached_host_tsc);
 
-    if (info->run_state == VM_STOPPED) {
-	info->run_state = VM_RUNNING;
+    if (info->vm_info->run_state == VM_STOPPED) {
+	info->vm_info->run_state = VM_RUNNING;
 	ret = v3_vmx_launch(&(info->vm_regs), info, &(info->ctrl_regs));
     } else {
 	ret = v3_vmx_resume(&(info->vm_regs), info, &(info->ctrl_regs));
@@ -707,7 +710,7 @@ int v3_vmx_enter(struct guest_info * info) {
 
 
 #ifdef CONFIG_SYMBIOTIC
-    if (info->sym_state.sym_call_active == 0) {
+    if (info->vm_info->sym_state.symcalls[info->cpu_id].sym_call_active == 0) {
 	update_irq_exit_state(info);
     }
 #else

@@ -24,8 +24,9 @@
 
 struct vmx_exit_info;
 struct guest_info;
+struct v3_vm_info;
 
-int v3_init_vmx_io_map(struct guest_info * info);
+int v3_init_vmx_io_map(struct v3_vm_info * vm);
 
 int v3_handle_vmx_io_in(struct guest_info * info, struct vmx_exit_info * exit_info);
 int v3_handle_vmx_io_ins(struct guest_info * info, struct vmx_exit_info * exit_info);

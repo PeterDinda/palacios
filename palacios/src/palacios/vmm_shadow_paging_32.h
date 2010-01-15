@@ -34,7 +34,7 @@ static inline int activate_shadow_pt_32(struct guest_info * info) {
     shadow_cr3->pcd = guest_cr3->pcd;
   
 #ifdef CONFIG_SYMBIOTIC_SWAP
-    v3_swap_flush(info);
+    v3_swap_flush(info->vm_info);
 #endif
 
     return 0;
@@ -206,7 +206,7 @@ static int handle_pte_shadow_pagefault_32(struct guest_info * info, addr_t fault
     pte32_t * shadow_pte = (pte32_t *)&(shadow_pt[PTE32_INDEX(fault_addr)]);
     addr_t guest_pa = BASE_TO_PAGE_ADDR((addr_t)(guest_pte->page_base_addr)) +  PAGE_OFFSET(fault_addr);
 
-    struct v3_shadow_region * shdw_reg =  v3_get_shadow_region(info, guest_pa);
+    struct v3_shadow_region * shdw_reg =  v3_get_shadow_region(info->vm_info, guest_pa);
 
     if (shdw_reg == NULL) {
 	// Inject a machine check in the guest
@@ -244,14 +244,14 @@ static int handle_pte_shadow_pagefault_32(struct guest_info * info, addr_t fault
 
 #ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
 	    if (error_code.write == 0) {
-		info->swap_state.read_faults++;
+		info->vm_info->swap_state.read_faults++;
 	    } else {
-		info->swap_state.write_faults++;
+		info->vm_info->swap_state.write_faults++;
 	    }
 #endif
 
 
-	    swp_pg_addr = v3_get_swapped_pg_addr(info,  guest_pte);
+	    swp_pg_addr = v3_get_swapped_pg_addr(info->vm_info,  guest_pte);
 
 	    if (swp_pg_addr != 0) {
 		PrintDebug("Swapped page address=%p\n", (void *)swp_pg_addr);
@@ -286,7 +286,7 @@ static int handle_pte_shadow_pagefault_32(struct guest_info * info, addr_t fault
 			   (error_code.user == 0) ) ) {
 			addr_t swp_pg_pa = 0;
 			
-			swp_pg_pa = v3_map_swp_page(info, shadow_pte, guest_pte, (void *)swp_pg_addr);
+			swp_pg_pa = v3_map_swp_page(info->vm_info, shadow_pte, guest_pte, (void *)swp_pg_addr);
 
 			PrintDebug("Page fault on swapped out page (vaddr=%p) (pte=%x) (error_code=%x)\n", 
 				   (void *)fault_addr, *(uint32_t *)guest_pte, *(uint32_t *)&error_code);
@@ -303,7 +303,7 @@ static int handle_pte_shadow_pagefault_32(struct guest_info * info, addr_t fault
 			shadow_pte->page_base_addr = swp_pg_pa;
 			
 #ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
-			info->swap_state.mapped_pages++;
+			info->vm_info->swap_state.mapped_pages++;
 #endif
 			//		PrintError("Swap fault handled\n");
 			return 0;
@@ -427,7 +427,7 @@ static int handle_4MB_shadow_pagefault_32(struct guest_info * info,
     PrintDebug("Handling 4MB fault (guest_fault_pa=%p) (error_code=%x)\n", (void *)guest_fault_pa, *(uint_t*)&error_code);
     PrintDebug("ShadowPT=%p, LargeGuestPDE=%p\n", shadow_pt, large_guest_pde);
 
-    struct v3_shadow_region * shdw_reg = v3_get_shadow_region(info, guest_fault_pa);
+    struct v3_shadow_region * shdw_reg = v3_get_shadow_region(info->vm_info, guest_fault_pa);
 
  
     if (shdw_reg == NULL) {

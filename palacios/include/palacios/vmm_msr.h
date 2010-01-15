@@ -27,7 +27,7 @@
 #include <palacios/vmm_list.h>
 
 struct guest_info;
-
+struct v3_vm_info;
 
 struct v3_msr {
 
@@ -63,27 +63,27 @@ struct v3_msr_map {
     uint_t num_hooks;
     struct list_head hook_list;
 
-    int (*update_map)(struct guest_info * info, uint_t msr, int hook_read, int hook_write);
+    int (*update_map)(struct v3_vm_info * vm, uint_t msr, int hook_read, int hook_write);
     void * arch_data;
 
 };
 
 
-void v3_init_msr_map(struct guest_info * info);
+void v3_init_msr_map(struct v3_vm_info * vm);
 
-int v3_unhook_msr(struct guest_info * info, uint_t msr);
+int v3_unhook_msr(struct v3_vm_info * vm, uint_t msr);
 
-int v3_hook_msr(struct guest_info * info, uint_t msr,
+int v3_hook_msr(struct v3_vm_info * vm, uint_t msr,
 		int (*read)(uint_t msr, struct v3_msr * dst, void * priv_data),
 		int (*write)(uint_t msr, struct v3_msr src, void * priv_data), 
 		void * priv_data);
 
 
-struct v3_msr_hook * v3_get_msr_hook(struct guest_info * info, uint_t msr);
+struct v3_msr_hook * v3_get_msr_hook(struct v3_vm_info * vm, uint_t msr);
 
-void v3_refresh_msr_map(struct guest_info * info);
+void v3_refresh_msr_map(struct v3_vm_info * vm);
 
-void v3_print_msr_map(struct guest_info * info);
+void v3_print_msr_map(struct v3_vm_info * vm);
 
 int v3_handle_msr_write(struct guest_info * info);
 

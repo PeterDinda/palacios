@@ -24,7 +24,7 @@
 
 #include <palacios/vm_guest.h>
 
-int v3_init_vmx_msr_map(struct guest_info * info);
+int v3_init_vmx_msr_map(struct v3_vm_info * vm);
 
 #endif
 #endif

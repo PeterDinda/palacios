@@ -35,7 +35,7 @@ struct debug_state {
 };
 
 
-static int handle_gen_write(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
+static int handle_gen_write(struct guest_info * core, ushort_t port, void * src, uint_t length, struct vm_device * dev) {
     struct debug_state * state = (struct debug_state *)dev->private_data;
 
     state->debug_buf[state->debug_offset++] = *(char*)src;
@@ -103,7 +103,7 @@ static struct v3_device_ops dev_ops = {
 
 
 
-static int debug_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
+static int debug_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct debug_state * state = NULL;
     char * name = v3_cfg_val(cfg, "name");
 

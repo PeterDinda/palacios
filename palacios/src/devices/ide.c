@@ -343,8 +343,8 @@ static void ide_abort_command(struct vm_device * dev, struct ide_channel * chann
 }
 
 
-static int dma_read(struct vm_device * dev, struct ide_channel * channel);
-static int dma_write(struct vm_device * dev, struct ide_channel * channel);
+static int dma_read(struct guest_info * core, struct vm_device * dev, struct ide_channel * channel);
+static int dma_write(struct guest_info * core, struct vm_device * dev, struct ide_channel * channel);
 
 
 /* ATAPI functions */
@@ -387,7 +387,7 @@ static void print_prd_table(struct vm_device * dev, struct ide_channel * channel
 #endif
 
 /* IO Operations */
-static int dma_read(struct vm_device * dev, struct ide_channel * channel) {
+static int dma_read(struct guest_info * core, struct vm_device * dev, struct ide_channel * channel) {
     struct ide_drive * drive = get_selected_drive(channel);
     // This is at top level scope to do the EOT test at the end
     struct ide_dma_prd prd_entry;
@@ -411,7 +411,7 @@ static int dma_read(struct vm_device * dev, struct ide_channel * channel) {
 
 	PrintDebug("PRD table address = %x\n", channel->dma_prd_addr);
 
-	ret = read_guest_pa_memory(dev->vm, prd_entry_addr, sizeof(struct ide_dma_prd), (void *)&prd_entry);
+	ret = read_guest_pa_memory(core, prd_entry_addr, sizeof(struct ide_dma_prd), (void *)&prd_entry);
 
 	if (ret != sizeof(struct ide_dma_prd)) {
 	    PrintError("Could not read PRD\n");
@@ -459,7 +459,7 @@ static int dma_read(struct vm_device * dev, struct ide_channel * channel) {
 
 	    drive->current_lba++;
 
-	    ret = write_guest_pa_memory(dev->vm, prd_entry.base_addr + prd_offset, bytes_to_write, drive->data_buf); 
+	    ret = write_guest_pa_memory(core, prd_entry.base_addr + prd_offset, bytes_to_write, drive->data_buf); 
 
 	    if (ret != bytes_to_write) {
 		PrintError("Failed to copy data into guest memory... (ret=%d)\n", ret);
@@ -527,7 +527,7 @@ static int dma_read(struct vm_device * dev, struct ide_channel * channel) {
 }
 
 
-static int dma_write(struct vm_device * dev, struct ide_channel * channel) {
+static int dma_write(struct guest_info * core, struct vm_device * dev, struct ide_channel * channel) {
     struct ide_drive * drive = get_selected_drive(channel);
     // This is at top level scope to do the EOT test at the end
     struct ide_dma_prd prd_entry;
@@ -545,7 +545,7 @@ static int dma_write(struct vm_device * dev, struct ide_channel * channel) {
 	
 	PrintDebug("PRD Table address = %x\n", channel->dma_prd_addr);
 
-	ret = read_guest_pa_memory(dev->vm, prd_entry_addr, sizeof(struct ide_dma_prd), (void *)&prd_entry);
+	ret = read_guest_pa_memory(core, prd_entry_addr, sizeof(struct ide_dma_prd), (void *)&prd_entry);
 
 	if (ret != sizeof(struct ide_dma_prd)) {
 	    PrintError("Could not read PRD\n");
@@ -564,7 +564,7 @@ static int dma_write(struct vm_device * dev, struct ide_channel * channel) {
 	    bytes_to_write = (prd_bytes_left > HD_SECTOR_SIZE) ? HD_SECTOR_SIZE : prd_bytes_left;
 
 
-	    ret = read_guest_pa_memory(dev->vm, prd_entry.base_addr + prd_offset, bytes_to_write, drive->data_buf);
+	    ret = read_guest_pa_memory(core, prd_entry.base_addr + prd_offset, bytes_to_write, drive->data_buf);
 
 	    if (ret != bytes_to_write) {
 		PrintError("Faild to copy data from guest memory... (ret=%d)\n", ret);
@@ -627,7 +627,7 @@ static int dma_write(struct vm_device * dev, struct ide_channel * channel) {
 
 #define DMA_CHANNEL_FLAG  0x08
 
-static int write_dma_port(ushort_t port, void * src, uint_t length, void * private_data) {
+static int write_dma_port(struct guest_info * core, ushort_t port, void * src, uint_t length, void * private_data) {
     struct vm_device * dev = (struct vm_device *)private_data;
     struct ide_internal * ide = (struct ide_internal *)(dev->private_data);
     uint16_t port_offset = port & (DMA_CHANNEL_FLAG - 1);
@@ -648,13 +648,13 @@ static int write_dma_port(ushort_t port, void * src, uint_t length, void * priva
 
 		if (channel->dma_cmd.read == 1) {
 		    // DMA Read
-		    if (dma_read(dev, channel) == -1) {
+		    if (dma_read(core, dev, channel) == -1) {
 			PrintError("Failed DMA Read\n");
 			return -1;
 		    }
 		} else {
 		    // DMA write
-		    if (dma_write(dev, channel) == -1) {
+		    if (dma_write(core, dev, channel) == -1) {
 			PrintError("Failed DMA Write\n");
 			return -1;
 		    }
@@ -710,7 +710,7 @@ static int write_dma_port(ushort_t port, void * src, uint_t length, void * priva
 }
 
 
-static int read_dma_port(ushort_t port, void * dst, uint_t length, void * private_data) {
+static int read_dma_port(struct guest_info * core, ushort_t port, void * dst, uint_t length, void * private_data) {
     struct vm_device * dev = (struct vm_device *)private_data;
     struct ide_internal * ide = (struct ide_internal *)(dev->private_data);
     uint16_t port_offset = port & (DMA_CHANNEL_FLAG - 1);
@@ -764,7 +764,7 @@ static int read_dma_port(ushort_t port, void * dst, uint_t length, void * privat
 
 
 
-static int write_cmd_port(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
+static int write_cmd_port(struct guest_info * core, ushort_t port, void * src, uint_t length, struct vm_device * dev) {
     struct ide_internal * ide = (struct ide_internal *)(dev->private_data);
     struct ide_channel * channel = get_selected_channel(ide, port);
     struct ide_drive * drive = get_selected_drive(channel);
@@ -865,7 +865,7 @@ static int write_cmd_port(ushort_t port, void * src, uint_t length, struct vm_de
 
 	    if (channel->dma_status.active == 1) {
 		// DMA Read
-		if (dma_read(dev, channel) == -1) {
+		if (dma_read(core, dev, channel) == -1) {
 		    PrintError("Failed DMA Read\n");
 		    return -1;
 		}
@@ -888,7 +888,7 @@ static int write_cmd_port(ushort_t port, void * src, uint_t length, struct vm_de
 
 	    if (channel->dma_status.active == 1) {
 		// DMA Write
-		if (dma_write(dev, channel) == -1) {
+		if (dma_write(core, dev, channel) == -1) {
 		    PrintError("Failed DMA Write\n");
 		    return -1;
 		}
@@ -967,7 +967,7 @@ static int write_cmd_port(ushort_t port, void * src, uint_t length, struct vm_de
 }
 
 
-static int write_data_port(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
+static int write_data_port(struct guest_info * core, ushort_t port, void * src, uint_t length, struct vm_device * dev) {
     struct ide_internal * ide = (struct ide_internal *)(dev->private_data);
     struct ide_channel * channel = get_selected_channel(ide, port);
     struct ide_drive * drive = get_selected_drive(channel);
@@ -986,7 +986,7 @@ static int write_data_port(ushort_t port, void * src, uint_t length, struct vm_d
 		return -1;
 		
 	    case 0xa0: // ATAPI packet command
-		if (atapi_handle_packet(dev, channel) == -1) {
+		if (atapi_handle_packet(core, dev, channel) == -1) {
 		    PrintError("Error handling ATAPI packet\n");
 		    return -1;
 		}
@@ -1133,7 +1133,7 @@ static int read_cd_data(uint8_t * dst, uint_t length, struct vm_device * dev, st
 }
 
 
-static int read_drive_id(uint8_t * dst, uint_t length, struct vm_device * dev, struct ide_channel * channel) {
+static int read_drive_id( uint8_t * dst, uint_t length, struct vm_device * dev, struct ide_channel * channel) {
     struct ide_drive * drive = get_selected_drive(channel);
 
     channel->status.busy = 0;
@@ -1155,7 +1155,7 @@ static int read_drive_id(uint8_t * dst, uint_t length, struct vm_device * dev, s
 }
 
 
-static int ide_read_data_port(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
+static int ide_read_data_port(struct guest_info * core, ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
     struct ide_internal * ide = (struct ide_internal *)(dev->private_data);
     struct ide_channel * channel = get_selected_channel(ide, port);
     struct ide_drive * drive = get_selected_drive(channel);
@@ -1184,7 +1184,7 @@ static int ide_read_data_port(ushort_t port, void * dst, uint_t length, struct v
     return length;
 }
 
-static int write_port_std(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
+static int write_port_std(struct guest_info * core, ushort_t port, void * src, uint_t length, struct vm_device * dev) {
     struct ide_internal * ide = (struct ide_internal *)(dev->private_data);
     struct ide_channel * channel = get_selected_channel(ide, port);
     struct ide_drive * drive = get_selected_drive(channel);
@@ -1267,7 +1267,7 @@ static int write_port_std(ushort_t port, void * src, uint_t length, struct vm_de
 }
 
 
-static int read_port_std(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
+static int read_port_std(struct guest_info * core, ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
     struct ide_internal * ide = (struct ide_internal *)(dev->private_data);
     struct ide_channel * channel = get_selected_channel(ide, port);
     struct ide_drive * drive = get_selected_drive(channel);
@@ -1444,7 +1444,7 @@ static struct v3_device_ops dev_ops = {
 
 
 
-static int connect_fn(struct guest_info * info, 
+static int connect_fn(struct v3_vm_info * vm, 
 		      void * frontend_data, 
 		      struct v3_dev_blk_ops * ops, 
 		      v3_cfg_tree_t * cfg, 
@@ -1500,7 +1500,6 @@ static int connect_fn(struct guest_info * info,
 	return -1;
     }
  
-
     drive->ops = ops;
 
     if (ide->ide_pci) {
@@ -1516,7 +1515,7 @@ static int connect_fn(struct guest_info * info,
 
 
 
-static int ide_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
+static int ide_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct ide_internal * ide  = (struct ide_internal *)V3_Malloc(sizeof(struct ide_internal));  
     char * name = v3_cfg_val(cfg, "name");
 

@@ -42,7 +42,7 @@ static int get_bitmap_index(uint_t msr)
 }
 
 /* Same as SVM */
-static int update_map(struct guest_info * info, uint_t msr, int hook_reads, int hook_writes) {
+static int update_map(struct v3_vm_info * vm, uint_t msr, int hook_reads, int hook_writes) {
 
     int index = get_bitmap_index(msr);
     uint_t major = index / 8;
@@ -50,7 +50,7 @@ static int update_map(struct guest_info * info, uint_t msr, int hook_reads, int 
     uchar_t mask = 0x1;
     uint8_t read_val = (hook_reads) ? 0x1 : 0x0;
     uint8_t write_val = (hook_writes) ? 0x1 : 0x0;
-    uint8_t * bitmap = (uint8_t *)(info->msr_map.arch_data);
+    uint8_t * bitmap = (uint8_t *)(vm->msr_map.arch_data);
 
 
     *(bitmap + major) &= ~(mask << minor);
@@ -63,15 +63,15 @@ static int update_map(struct guest_info * info, uint_t msr, int hook_reads, int 
     return 0;
 }
 
-int v3_init_vmx_msr_map(struct guest_info * info) {
-    struct v3_msr_map * msr_map = &(info->msr_map);
+int v3_init_vmx_msr_map(struct v3_vm_info * vm) {
+    struct v3_msr_map * msr_map = &(vm->msr_map);
 
     msr_map->update_map = update_map;
     
     msr_map->arch_data = V3_VAddr(V3_AllocPages(1));
     memset(msr_map->arch_data, 0, PAGE_SIZE_4KB);
     
-    v3_refresh_msr_map(info);
+    v3_refresh_msr_map(vm);
     
     return 0;
 }

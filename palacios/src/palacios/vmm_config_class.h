@@ -18,7 +18,7 @@
  */
 
 
-static int pre_config_pc(struct guest_info * info, struct v3_config * config_ptr) {
+static int pre_config_pc_core(struct guest_info * info, v3_cfg_tree_t * cfg) { 
 
 
     info->cpu_mode = REAL;
@@ -37,7 +37,13 @@ static int pre_config_pc(struct guest_info * info, struct v3_config * config_ptr
     return 0;
 }
 
-static int post_config_pc(struct guest_info * info, struct v3_config * config_ptr) {
+static int post_config_pc_core(struct guest_info * info, v3_cfg_tree_t * cfg) { 
+
+    v3_print_mem_map(info->vm_info);
+    return 0;
+}
+
+static int post_config_pc(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
 #define VGABIOS_START 0x000c0000
 #define ROMBIOS_START 0x000f0000
@@ -47,7 +53,7 @@ static int post_config_pc(struct guest_info * info, struct v3_config * config_pt
 	extern uint8_t v3_vgabios_start[];
 	extern uint8_t v3_vgabios_end[];
 	
-	addr_t vgabios_dst = v3_get_shadow_addr(&(info->mem_map.base_region), VGABIOS_START);
+	addr_t vgabios_dst = v3_get_shadow_addr(&(vm->mem_map.base_region), VGABIOS_START);
 	memcpy(V3_VAddr((void *)vgabios_dst), v3_vgabios_start, v3_vgabios_end - v3_vgabios_start);	
     }
     
@@ -56,11 +62,9 @@ static int post_config_pc(struct guest_info * info, struct v3_config * config_pt
 	extern uint8_t v3_rombios_start[];
 	extern uint8_t v3_rombios_end[];
 
-	addr_t rombios_dst = v3_get_shadow_addr(&(info->mem_map.base_region), ROMBIOS_START);
+	addr_t rombios_dst = v3_get_shadow_addr(&(vm->mem_map.base_region), ROMBIOS_START);
 	memcpy(V3_VAddr((void *)rombios_dst), v3_rombios_start, v3_rombios_end - v3_rombios_start);
     }
-
-    v3_print_mem_map(info);
 
     return 0;
 }

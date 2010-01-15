@@ -43,7 +43,7 @@ struct svm_io_info {
 } __attribute__((packed));
 
 
-int v3_init_svm_io_map(struct guest_info * info);
+int v3_init_svm_io_map(struct v3_vm_info * vm);
 
 int v3_handle_svm_io_in(struct guest_info * info, struct svm_io_info * io_info);
 int v3_handle_svm_io_ins(struct guest_info * info, struct svm_io_info * io_info);
