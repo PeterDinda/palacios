@@ -27,7 +27,7 @@
 
 // ROM BIOS for use with Bochs/Plex x86 emulation environment
 
-#define HVMASSIST
+//#define HVMASSIST
 #undef HVMTEST
 
 // Xen full virtualization does not handle unaligned IO with page crossing.
