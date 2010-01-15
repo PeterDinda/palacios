@@ -28,12 +28,12 @@
 
 
 int v3_emulate_write_op(struct guest_info * info, addr_t write_gva, addr_t write_gpa, addr_t dst_addr, 
-			int (*write_fn)(addr_t guest_addr, void * src, uint_t length, void * priv_data), 
+			int (*write_fn)(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data), 
 			void * priv_data);
 
 int v3_emulate_read_op(struct guest_info * info, addr_t read_gva, addr_t read_gpa, addr_t src_addr,
-		       int (*read_fn)(addr_t guest_addr, void * dst, uint_t length, void * priv_data), 
-		       int (*write_fn)(addr_t guest_addr, void * src, uint_t length, void * priv_data), 
+		       int (*read_fn)(struct guest_info * core, addr_t guest_addr, void * dst, uint_t length, void * priv_data), 
+		       int (*write_fn)(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data), 
 		       void * priv_data);
 
 

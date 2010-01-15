@@ -59,8 +59,8 @@ struct v3_pci_bar {
 	struct {
 	    int num_pages;
 	    addr_t default_base_addr;
-	    int (*mem_read)(addr_t guest_addr, void * dst, uint_t length, void * private_data);
-	    int (*mem_write)(addr_t guest_addr, void * src, uint_t length, void * private_data);
+	    int (*mem_read)(struct guest_info * core, addr_t guest_addr, void * dst, uint_t length, void * private_data);
+	    int (*mem_write)(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * private_data);
 	};
 
 	struct {
@@ -71,7 +71,7 @@ struct v3_pci_bar {
 	};
 	
 	struct {
-	    int (*bar_init)(int bar_num, uint32_t * dst,void * private_data);
+	    int (*bar_init)(int bar_num, uint32_t * dst, void * private_data);
 	    int (*bar_write)(int bar_num, uint32_t * src, void * private_data);
 	};
     };

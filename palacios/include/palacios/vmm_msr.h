@@ -47,8 +47,8 @@ typedef struct v3_msr v3_msr_t;
 struct v3_msr_hook {
     uint_t msr;
   
-    int (*read)(uint_t msr, struct v3_msr * dst, void * priv_data);
-    int (*write)(uint_t msr, struct v3_msr src, void * priv_data);
+    int (*read)(struct guest_info * core, uint_t msr, struct v3_msr * dst, void * priv_data);
+    int (*write)(struct guest_info * core, uint_t msr, struct v3_msr src, void * priv_data);
 
     void * priv_data;
 
@@ -74,8 +74,8 @@ void v3_init_msr_map(struct v3_vm_info * vm);
 int v3_unhook_msr(struct v3_vm_info * vm, uint_t msr);
 
 int v3_hook_msr(struct v3_vm_info * vm, uint_t msr,
-		int (*read)(uint_t msr, struct v3_msr * dst, void * priv_data),
-		int (*write)(uint_t msr, struct v3_msr src, void * priv_data), 
+		int (*read)(struct guest_info * core, uint_t msr, struct v3_msr * dst, void * priv_data),
+		int (*write)(struct guest_info * core, uint_t msr, struct v3_msr src, void * priv_data), 
 		void * priv_data);
 
 

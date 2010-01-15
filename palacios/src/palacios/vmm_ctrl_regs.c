@@ -542,11 +542,10 @@ int v3_handle_cr4_write(struct guest_info * info) {
 }
 
 
-int v3_handle_efer_read(uint_t msr, struct v3_msr * dst, void * priv_data) {
-    struct guest_info * info = (struct guest_info *)(priv_data);
-    PrintDebug("EFER Read HI=%x LO=%x\n", info->shdw_pg_state.guest_efer.hi, info->shdw_pg_state.guest_efer.lo);
+int v3_handle_efer_read(struct guest_info * core, uint_t msr, struct v3_msr * dst, void * priv_data) {
+    PrintDebug("EFER Read HI=%x LO=%x\n", core->shdw_pg_state.guest_efer.hi, core->shdw_pg_state.guest_efer.lo);
     
-    dst->value = info->shdw_pg_state.guest_efer.value;
+    dst->value = core->shdw_pg_state.guest_efer.value;
     
     return 0;
 }
@@ -554,11 +553,10 @@ int v3_handle_efer_read(uint_t msr, struct v3_msr * dst, void * priv_data) {
 
 
 // TODO: this is a disaster we need to clean this up...
-int v3_handle_efer_write(uint_t msr, struct v3_msr src, void * priv_data) {
-    struct guest_info * info = (struct guest_info *)(priv_data);
+int v3_handle_efer_write(struct guest_info * core, uint_t msr, struct v3_msr src, void * priv_data) {
     //struct efer_64 * new_efer = (struct efer_64 *)&(src.value);
-    struct efer_64 * shadow_efer = (struct efer_64 *)&(info->ctrl_regs.efer);
-    struct v3_msr * guest_efer = &(info->shdw_pg_state.guest_efer);
+    struct efer_64 * shadow_efer = (struct efer_64 *)&(core->ctrl_regs.efer);
+    struct v3_msr * guest_efer = &(core->shdw_pg_state.guest_efer);
     
     PrintDebug("EFER Write\n");
     PrintDebug("EFER Write Values: HI=%x LO=%x\n", src.hi, src.lo);
