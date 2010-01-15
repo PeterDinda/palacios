@@ -22,6 +22,7 @@
 #include <devices/apic_regs.h>
 #include <palacios/vmm.h>
 #include <palacios/vmm_msr.h>
+#include <palacios/vmm_sprintf.h>
 #include <palacios/vm_guest.h>
 
 #ifndef CONFIG_DEBUG_APIC
@@ -183,6 +184,7 @@ struct apic_state {
 
 };
 
+static void apic_incoming_ipi(void *val);
 static int apic_read(addr_t guest_addr, void * dst, uint_t length, void * priv_data);
 static int apic_write(addr_t guest_addr, void * src, uint_t length, void * priv_data);
 
@@ -283,7 +285,7 @@ static int activate_apic_irq(struct apic_state * apic, uint32_t irq_num) {
     PrintDebug("Raising APIC IRQ %d\n", irq_num);
 
     if (*req_location & flag) {
-	V3_Print("Interrupts coallescing\n");
+	//V3_Print("Interrupts coallescing\n");
     }
 
     if (*en_location & flag) {
@@ -368,7 +370,7 @@ static int apic_do_eoi(struct apic_state * apic) {
 	}
 #endif
     } else {
-	PrintError("Spurious EOI...\n");
+	//PrintError("Spurious EOI...\n");
     }
 	
     return 0;
@@ -844,7 +846,13 @@ static int apic_write(addr_t guest_addr, void * src, uint_t length, void * priv_
 	    break;
 
 	case INT_CMD_LO_OFFSET:
+	    apic->int_cmd.lo = op_val;
+	    V3_Call_On_CPU(apic->int_cmd.dst, apic_incoming_ipi, (void *)apic->int_cmd.val);
+    
+	    break;
 	case INT_CMD_HI_OFFSET:
+	    apic->int_cmd.hi = op_val;
+	    break;
 	    // Unhandled Registers
 
 	case EXT_APIC_CMD_OFFSET:
@@ -1036,6 +1044,49 @@ static void apic_update_time(ullong_t cpu_cycles, ullong_t cpu_freq, void * priv
 
 }
 
+static void apic_incoming_ipi(void *val)
+{
+PrintError("In apic_incoming_ipi, val=%p\n", val);
+	struct int_cmd_reg int_cmd;
+	char *type = NULL, *dest;
+	char foo[8];
+	int_cmd.val = (uint64_t)val;
+	switch (int_cmd.dst_shorthand)
+	{
+	case 0x0:
+		sprintf(foo, "%d", int_cmd.dst);
+		dest = foo;
+		break;
+	case 0x1:
+		dest = "(self)";
+		break;
+	case 0x2:
+		dest = "(broadcast inclusive)";
+		break;
+	case 0x3:
+		dest = "(broadcast)";
+		break;
+	}
+	switch (int_cmd.msg_type) 
+	{
+	case 0x0:
+		type = "";
+		break;
+	case 0x4:
+		type = "(NMI)";
+		break;
+	case 0x5:
+		type = "(INIT)";
+		break;
+	case 0x6:
+		type = "(Startup)";
+		break;
+	}
+	PrintError("Receieved IPI on CPU %d type=%s dest=%s\n",
+			V3_Get_CPU(), type, dest);
+//%p %s to CPU %d on CPU %d.\n", val, foo, type, dest, (int)V3_Get_CPU());
+	return;
+}
 
 
 static struct intr_ctrl_ops intr_ops = {

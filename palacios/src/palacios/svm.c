@@ -466,13 +466,15 @@ int v3_svm_enter(struct guest_info * info) {
 
     rdtscll(info->time_state.cached_host_tsc);
     guest_ctrl->TSC_OFFSET = info->time_state.guest_tsc - info->time_state.cached_host_tsc;
+
+    //V3_Print("Calling v3_svm_launch\n");
 	
     v3_svm_launch((vmcb_t *)V3_PAddr(info->vmm_data), &(info->vm_regs), (vmcb_t *)host_vmcbs[info->cpu_id]);
     
+    //V3_Print("SVM Returned: Exit Code: %x, guest_rip=%lx\n", (uint32_t)(guest_ctrl->exit_code), (unsigned long)guest_state->rip);
+
 
     v3_last_exit = (uint32_t)(guest_ctrl->exit_code);
-
-    //  v3_print_cond("SVM Returned: Exit Code: %x\n", (uint32_t)(guest_ctrl->exit_code));
 
     rdtscll(tmp_tsc);
 

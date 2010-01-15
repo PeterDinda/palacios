@@ -158,6 +158,24 @@ struct guest_info;
 	})								\
 	
 
+#define V3_Get_CPU() ({  				                \
+            int ret = 0;                                                \
+            extern struct v3_os_hooks * os_hooks;                       \
+            if ((os_hooks) && (os_hooks)->get_cpu) {                    \
+                ret = (os_hooks)->get_cpu();                            \
+            }                                                           \
+            ret;                                                        \
+        })
+
+#define V3_Call_On_CPU(cpu, fn, arg)    		\
+    do {						\
+        extern struct v3_os_hooks * os_hooks;           \
+        if ((os_hooks) && (os_hooks)->call_on_cpu) {    \
+            (os_hooks)->call_on_cpu(cpu, fn, arg);      \
+        }                                               \
+    } while (0)
+
+
 #define V3_ACK_IRQ(irq)						\
     do {							\
 	extern struct v3_os_hooks * os_hooks;			\

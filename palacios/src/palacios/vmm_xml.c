@@ -363,6 +363,7 @@ static int v3_xml_close_tag(struct v3_xml_root * root, char * name, char * s) {
     return 0;
 }
 
+#if 0
 // checks for circular entity references, returns non-zero if no circular
 // references are found, zero otherwise
 static int v3_xml_ent_ok(char * name, char * s, char ** ent) {
@@ -390,6 +391,7 @@ static int v3_xml_ent_ok(char * name, char * s, char ** ent) {
 	}
     }
 }
+#endif
 
 
 

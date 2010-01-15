@@ -3,7 +3,7 @@
 <vm class="PC"> 
 
 	<!-- Memory in MB -->
-	<memory>1024</memory> 
+	<memory>256</memory> 
 
 	<!-- Basic VMM system flags -->
 	<telemetry>enable</telemetry>
@@ -27,7 +27,7 @@
 	<!-- This is where you add disk images -->
 	<files>
 		<!-- The file 'id' is used as a reference for other configuration components -->
-		<file id="boot-cd" filename="/home/jarusl/image.iso" />
+		<file id="boot-cd" filename="/home/ktpedre/google_code/smp_guest/kitten_guest/arch/x86_64/boot/image.iso" />
 		<!--<file id="harddisk" filename="firefox.img" />-->
 	</files>
 
@@ -64,6 +64,12 @@
 			<bus>pci0</bus>
 		</device>
 
+		<device id="IDE" name="ide">
+			<bus>pci0</bus>
+			<controller>southbridge</controller>
+		</device>
+
+<!--
 		<device id="LNX_VIRTIO_SYM" name="sym_pci">
 			<bus>pci0</bus>
 		</device>
@@ -74,11 +80,6 @@
 
 		<device id="LNX_VIRTIO_BALLOON" name="balloon">
 			<bus>pci0</bus>
-		</device>
-
-		<device id="IDE" name="ide">
-			<bus>pci0</bus>
-			<controller>southbridge</controller>
 		</device>
 
 		<device id="PCI_PASSTHROUGH" name="e1000">
@@ -94,6 +95,7 @@
 			<device_id>0x107c</device_id>
 			<irq>64</irq>
 		</device>
+-->
 
 
 		<!-- This is a Storage Backend that connects to a frontend -->
@@ -109,10 +111,12 @@
 			</frontend>
 		</device>
 
+<!---
 		<device id="SYM_SWAP" name="sym swap">
 			<frontend tag="blk_virtio" />
 			<size>150</size>
 		</device>
+-->
 
 
 <!--
