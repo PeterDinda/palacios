@@ -13,7 +13,7 @@ clean:
 	rm -f  BIOS-bochs-*
 
 BIOS-bochs-latest: rombios.c biossums
-	gcc -DBX_SMP_PROCESSORS=4 -E -P $< > _rombios_.c
+	gcc -DBX_SMP_PROCESSORS=1 -E -P $< > _rombios_.c
 	bcc -o rombios.s -C-c -D__i86__ -0 -S _rombios_.c
 	sed -e 's/^\.text//' -e 's/^\.data//' rombios.s > _rombios_.s
 	as86 _rombios_.s -b tmp.bin -u- -w- -g -0 -j -O -l rombios.txt
@@ -23,7 +23,7 @@ BIOS-bochs-latest: rombios.c biossums
 	rm -f _rombios_.s
 
 BIOS-bochs-latest.elf: rombios.c biossums
-	gcc -DBX_SMP_PROCESSORS=4 -E -P $< > _rombios_elf.c
+	gcc -DBX_SMP_PROCESSORS=1 -E -P $< > _rombios_elf.c
 	bcc -o rombios_elf.s -C-c -D__i86__ -0 -S _rombios_elf.c
 	sed -e 's/^\.text//' -e 's/^\.data//' rombios_elf.s > _rombios_elf.s
 	as86 _rombios_elf.s  -u- -w- -g -0 -j -O -l rombios_elf.txt
