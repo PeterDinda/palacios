@@ -199,10 +199,7 @@ static int init_vmcs_bios(struct guest_info * info, struct vmx_data * vmx_state)
 
     /********** Setup and VMX Control Fields from MSR ***********/
     /* Setup IO map */
-    /***** THEES NEED TO BE MOVED TO A GLOBAL LOCATION ***/
-    v3_init_vmx_io_map(info->vm_info);
-    v3_init_vmx_msr_map(info->vm_info);
-    /**** ****/
+
 
     struct v3_msr tmp_msr;
 

@@ -66,7 +66,7 @@ int host_pa_to_host_va(addr_t host_pa, addr_t * host_va) {
 
 
 int guest_pa_to_host_pa(struct guest_info * info, addr_t guest_pa, addr_t * host_pa) {
-    struct v3_shadow_region * shdw_reg = v3_get_shadow_region(info->vm_info, guest_pa);
+    struct v3_shadow_region * shdw_reg = v3_get_shadow_region(info->vm_info, info->cpu_id, guest_pa);
 
     if (shdw_reg == NULL) {
 	PrintError("In GPA->HPA: Could not find address in shadow map (addr=%p) (NULL REGION)\n", 
@@ -80,7 +80,7 @@ int guest_pa_to_host_pa(struct guest_info * info, addr_t guest_pa, addr_t * host
 	return -1;
     }
     
-    *host_pa = v3_get_shadow_addr(shdw_reg, guest_pa);
+    *host_pa = v3_get_shadow_addr(shdw_reg, info->cpu_id, guest_pa);
 
     return 0;
 }

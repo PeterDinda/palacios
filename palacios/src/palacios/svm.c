@@ -189,15 +189,11 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
     core->dbg_regs.dr7 = 0x0000000000000400LL;
 
 
-    /** THESE NEED TO BE MOVED TO GLOBAL LOCATION **/
-    v3_init_svm_io_map(core->vm_info);
     ctrl_area->IOPM_BASE_PA = (addr_t)V3_PAddr(core->vm_info->io_map.arch_data);
     ctrl_area->instrs.IOIO_PROT = 1;
-
-    v3_init_svm_msr_map(core->vm_info);
+	    
     ctrl_area->MSRPM_BASE_PA = (addr_t)V3_PAddr(core->vm_info->msr_map.arch_data);
-    ctrl_area->instrs.MSR_PROT = 1;
-    /** *** **/
+    ctrl_area->instrs.MSR_PROT = 1;   
 
 
     PrintDebug("Exiting on interrupts\n");

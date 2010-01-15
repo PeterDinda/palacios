@@ -39,7 +39,7 @@ static inline int handle_passthrough_pagefault_32(struct guest_info * info,
     int pde_index = PDE32_INDEX(fault_addr);
     int pte_index = PTE32_INDEX(fault_addr);
     
-    struct v3_shadow_region * region = v3_get_shadow_region(info->vm_info, fault_addr);
+    struct v3_shadow_region * region = v3_get_shadow_region(info->vm_info, info->cpu_id, fault_addr);
 
     if (region == NULL) {
 	PrintError("Invalid region in passthrough page fault 32, addr=%p\n", 
@@ -47,7 +47,7 @@ static inline int handle_passthrough_pagefault_32(struct guest_info * info,
 	return -1;
     }
     
-    host_addr = v3_get_shadow_addr(region, fault_addr);
+    host_addr = v3_get_shadow_addr(region, info->cpu_id, fault_addr);
     
     // Lookup the correct PDE address based on the PAGING MODE
     if (info->shdw_pg_mode == SHADOW_PAGING) {
