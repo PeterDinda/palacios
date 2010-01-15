@@ -1,11 +1,13 @@
 obj-$(CONFIG_APIC) += apic.o
+obj-$(CONFIG_IO_APIC) += io_apic.o
+obj-$(CONFIG_ICC_BUS) += icc_bus.o
 obj-$(CONFIG_PIT) += 8254.o
 obj-$(CONFIG_PIC) += 8259a.o
 obj-$(CONFIG_BOCHS_DEBUG) += bochs_debug.o
 obj-$(CONFIG_GENERIC) += generic.o
 obj-$(CONFIG_I440FX) += i440fx.o
 obj-$(CONFIG_IDE) += ide.o
-obj-$(CONFIG_IO_APIC) += io_apic.o
+
 obj-$(CONFIG_KEYBOARD) += keyboard.o
 obj-$(CONFIG_LINUX_VIRTIO_BALLOON) += lnx_virtio_balloon.o
 obj-$(CONFIG_LINUX_VIRTIO_BLOCK) += lnx_virtio_blk.o

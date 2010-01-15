@@ -20,7 +20,7 @@
 
 #include <palacios/vmm.h>
 #include <palacios/vmm_dev_mgr.h>
-#include <devices/apic.h>
+#include <devices/icc_bus.h>
 #include <palacios/vm_guest.h>
 
 #ifndef CONFIG_DEBUG_IO_APIC
@@ -135,8 +135,7 @@ struct io_apic_state {
   
     struct redir_tbl_entry redir_tbl[24];
 
-    // This is a temporary method of communication between the IOAPIC and the LAPIC
-    struct vm_device * apic;
+    struct vm_device * icc_bus;
   
 };
 
@@ -158,7 +157,7 @@ static void init_ioapic_state(struct io_apic_state * ioapic) {
 }
 
 
-static int ioapic_read(addr_t guest_addr, void * dst, uint_t length, void * priv_data) {
+static int ioapic_read(struct guest_info * core, addr_t guest_addr, void * dst, uint_t length, void * priv_data) {
     struct vm_device * dev = (struct vm_device *)priv_data;
     struct io_apic_state * ioapic = (struct io_apic_state *)(dev->private_data);
     uint32_t reg_tgt = guest_addr - ioapic->base_addr;
@@ -202,7 +201,7 @@ static int ioapic_read(addr_t guest_addr, void * dst, uint_t length, void * priv
 }
 
 
-static int ioapic_write(addr_t guest_addr, void * src, uint_t length, void * priv_data) {
+static int ioapic_write(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data) {
     struct vm_device * dev = (struct vm_device *)priv_data;
     struct io_apic_state * ioapic = (struct io_apic_state *)(dev->private_data);
     uint32_t reg_tgt = guest_addr - ioapic->base_addr;
@@ -253,21 +252,8 @@ static int ioapic_write(addr_t guest_addr, void * src, uint_t length, void * pri
     return length;
 }
 
-/* Interrupt controller functions */
-static int ioapic_intr_pending(struct guest_info * info, void * private_data) {
-    return 0;
-}
 
-
-static int ioapic_get_intr_number(struct guest_info * info, void * private_data) {
-    return 0;
-}
-
-static int ioapic_begin_irq(struct guest_info * info, void * private_data, int irq) {
-    return 0;
-}
-
-static int ioapic_raise_irq(struct guest_info * info, void * private_data, int irq) {
+static int ioapic_raise_irq(struct v3_vm_info * vm, void * private_data, int irq) {
     struct vm_device * dev = (struct vm_device *)private_data;
     struct io_apic_state * ioapic = (struct io_apic_state *)(dev->private_data);  
     struct redir_tbl_entry * irq_entry = NULL;
@@ -281,23 +267,19 @@ static int ioapic_raise_irq(struct guest_info * info, void * private_data, int i
 
     if (irq_entry->mask == 0) {
 	PrintDebug("IOAPIC Signalling APIC to raise INTR %d\n", irq_entry->vec);
-	//v3_apic_raise_intr(info, ioapic->apic, irq_entry->vec);
-	v3_apic_raise_intr(ioapic->apic, irq_entry->vec);
+	v3_icc_send_irq(ioapic->icc_bus, irq_entry->dst_field, irq_entry->vec);
     }
 
     return 0;
 }
 
 /* I don't know if we can do anything here.... */
-static int ioapic_lower_irq(struct guest_info * info, void * private_data, int irq) {
+static int ioapic_lower_irq(struct v3_vm_info * vm, void * private_data, int irq) {
     return 0;
 }
 
-static struct intr_ctrl_ops intr_ops = {
-    .intr_pending = ioapic_intr_pending,
-    .get_intr_number = ioapic_get_intr_number,
+static struct intr_router_ops router_ops = {
     .raise_intr = ioapic_raise_irq,
-    .begin_irq = ioapic_begin_irq,
     .lower_intr = ioapic_lower_irq, 
 };
 
@@ -320,12 +302,12 @@ static struct v3_device_ops dev_ops = {
 
 
 
-static int ioapic_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
-    struct vm_device * apic = v3_find_dev(vm, v3_cfg_val(cfg, "irq_bus"));
+static int ioapic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
+    struct vm_device * icc_bus = v3_find_dev(vm, v3_cfg_val(cfg, "irq_bus"));
     char * name = v3_cfg_val(cfg, "name");
 
-    if (!apic) {
-	PrintError("Could not locate APIC device (%s)\n", v3_cfg_val(cfg, "irq_bus"));
+    if (!icc_bus) {
+	PrintError("Could not locate ICC BUS device (%s)\n", v3_cfg_val(cfg, "irq_bus"));
 	return -1;
     }
 
@@ -333,7 +315,7 @@ static int ioapic_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
 
     struct io_apic_state * ioapic = (struct io_apic_state *)V3_Malloc(sizeof(struct io_apic_state));
 
-    ioapic->apic = apic;
+    ioapic->icc_bus = icc_bus;
 
     struct vm_device * dev = v3_allocate_device(name, &dev_ops, ioapic);
 
@@ -344,10 +326,10 @@ static int ioapic_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
     }
 
 
-    v3_register_intr_controller(vm, &intr_ops, dev);
+    v3_register_intr_router(vm, &router_ops, dev);
     init_ioapic_state(ioapic);
 
-    v3_hook_full_mem(vm, ioapic->base_addr, ioapic->base_addr + PAGE_SIZE_4KB, 
+    v3_hook_full_mem(vm, V3_MEM_CORE_ANY, ioapic->base_addr, ioapic->base_addr + PAGE_SIZE_4KB, 
 		     ioapic_read, ioapic_write, dev);
   
     return 0;
