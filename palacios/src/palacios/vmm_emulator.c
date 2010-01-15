@@ -35,7 +35,7 @@ static int run_op(struct guest_info * info, v3_op_type_t op_type, addr_t src_add
 // We emulate up to the next 4KB page boundry
 static int emulate_string_write_op(struct guest_info * info, struct x86_instr * dec_instr, 
 				   addr_t write_gva, addr_t write_gpa, addr_t dst_addr, 
-				   int (*write_fn)(addr_t guest_addr, void * src, uint_t length, void * priv_data), 
+				   int (*write_fn)(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data), 
 				   void * priv_data) {
     uint_t emulation_length = 0;
     uint_t emulation_iter_cnt = 0;
@@ -126,7 +126,7 @@ static int emulate_string_write_op(struct guest_info * info, struct x86_instr * 
 	return -1;
     }
 
-    if (write_fn(write_gpa, (void *)dst_addr, emulation_length, priv_data) != emulation_length) {
+    if (write_fn(info, write_gpa, (void *)dst_addr, emulation_length, priv_data) != emulation_length) {
 	PrintError("Did not fully read hooked data\n");
 	return -1;
     }
@@ -141,7 +141,7 @@ static int emulate_string_write_op(struct guest_info * info, struct x86_instr * 
 
 static int emulate_xchg_write_op(struct guest_info * info, struct x86_instr * dec_instr, 
 				 addr_t write_gva, addr_t write_gpa, addr_t dst_addr, 
-				 int (*write_fn)(addr_t guest_addr, void * src, uint_t length, void * priv_data), 
+				 int (*write_fn)(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data), 
 				 void * priv_data) {
     addr_t src_addr = 0;
     addr_t em_dst_addr = 0;
@@ -197,7 +197,7 @@ static int emulate_xchg_write_op(struct guest_info * info, struct x86_instr * de
 	return -1;
     }
     
-    if (write_fn(write_gpa, (void *)dst_addr, dst_op_len, priv_data) != dst_op_len) {
+    if (write_fn(info, write_gpa, (void *)dst_addr, dst_op_len, priv_data) != dst_op_len) {
 	PrintError("Did not fully write hooked data\n");
 	return -1;
     }
@@ -211,8 +211,8 @@ static int emulate_xchg_write_op(struct guest_info * info, struct x86_instr * de
 
 static int emulate_xchg_read_op(struct guest_info * info, struct x86_instr * dec_instr, 
 				addr_t read_gva, addr_t read_gpa, addr_t src_addr, 
-				int (*read_fn)(addr_t guest_addr, void * dst, uint_t length, void * priv_data), 
-				int (*write_fn)(addr_t guest_addr, void * src, uint_t length, void * priv_data), 			
+				int (*read_fn)(struct guest_info * core, addr_t guest_addr, void * dst, uint_t length, void * priv_data), 
+				int (*write_fn)(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data), 			
 				void * priv_data) {
     addr_t em_src_addr = 0;
     addr_t em_dst_addr = 0;
@@ -262,7 +262,7 @@ static int emulate_xchg_read_op(struct guest_info * info, struct x86_instr * dec
 	       (void *)em_dst_addr, (void *)em_src_addr);
 
 
-    if (read_fn(read_gpa, (void *)src_addr, src_op_len, priv_data) != src_op_len) {
+    if (read_fn(info, read_gpa, (void *)src_addr, src_op_len, priv_data) != src_op_len) {
 	PrintError("Did not fully read hooked data\n");
 	return -1;
     }
@@ -272,7 +272,7 @@ static int emulate_xchg_read_op(struct guest_info * info, struct x86_instr * dec
 	return -1;
     }
 
-    if (write_fn(read_gpa, (void *)src_addr, dst_op_len, priv_data) != dst_op_len) {
+    if (write_fn(info, read_gpa, (void *)src_addr, dst_op_len, priv_data) != dst_op_len) {
 	PrintError("Did not fully write hooked data\n");
 	return -1;
     }
@@ -286,7 +286,7 @@ static int emulate_xchg_read_op(struct guest_info * info, struct x86_instr * dec
 
 
 int v3_emulate_write_op(struct guest_info * info, addr_t write_gva, addr_t write_gpa,  addr_t dst_addr, 
-			int (*write_fn)(addr_t guest_addr, void * src, uint_t length, void * priv_data), 
+			int (*write_fn)(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data), 
 			void * priv_data) {
     struct x86_instr dec_instr;
     uchar_t instr[15];
@@ -366,7 +366,7 @@ int v3_emulate_write_op(struct guest_info * info, addr_t write_gva, addr_t write
 	return -1;
     }
 
-    if (write_fn(write_gpa, (void *)dst_addr, dst_op_len, priv_data) != dst_op_len) {
+    if (write_fn(info, write_gpa, (void *)dst_addr, dst_op_len, priv_data) != dst_op_len) {
 	PrintError("Did not fully write hooked data\n");
 	return -1;
     }
@@ -378,8 +378,8 @@ int v3_emulate_write_op(struct guest_info * info, addr_t write_gva, addr_t write
 
 
 int v3_emulate_read_op(struct guest_info * info, addr_t read_gva, addr_t read_gpa, addr_t src_addr,
-		       int (*read_fn)(addr_t guest_addr, void * dst, uint_t length, void * priv_data),
-		       int (*write_fn)(addr_t guest_addr, void * src, uint_t length, void * priv_data),  
+		       int (*read_fn)(struct guest_info * core, addr_t guest_addr, void * dst, uint_t length, void * priv_data),
+		       int (*write_fn)(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data),  
 		       void * priv_data) {
     struct x86_instr dec_instr;
     uchar_t instr[15];
@@ -451,7 +451,7 @@ int v3_emulate_read_op(struct guest_info * info, addr_t read_gva, addr_t read_gp
     PrintDebug("Dst_Addr = %p, SRC Addr = %p\n", 
 	       (void *)dst_addr, (void *)src_addr);
 
-    if (read_fn(read_gpa, (void *)src_addr, src_op_len, priv_data) != src_op_len) {
+    if (read_fn(info, read_gpa, (void *)src_addr, src_op_len, priv_data) != src_op_len) {
 	PrintError("Did not fully read hooked data\n");
 	return -1;
     }
