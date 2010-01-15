@@ -311,6 +311,12 @@ static void pit_update_time(struct guest_info * info, ullong_t cpu_cycles, ullon
 }
 
 
+static void pit_advance_time(struct guest_info * core, void * private_data) {
+
+    v3_raise_irq(core->vm_info, 0);
+}
+
+
 
 /* This should call out to handle_SQR_WAVE_write, etc...
  */
@@ -593,6 +599,7 @@ static int pit_write_command(struct guest_info * core, ushort_t port, void * src
 
 static struct vm_timer_ops timer_ops = {
     .update_time = pit_update_time,
+    .advance_timer = pit_advance_time,
 };
 
 

@@ -57,6 +57,8 @@ void v3_init_intr_controllers(struct guest_info * info) {
     intr_state->irq_started = 0;
     intr_state->irq_vector = 0;
 
+    v3_lock_init(&(intr_state->irq_lock));
+
     INIT_LIST_HEAD(&(intr_state->controller_list));
 }
 

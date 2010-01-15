@@ -77,8 +77,8 @@ struct v3_mem_map {
 }; 
 
 
-int v3_init_mem_map(struct guest_info * info);
-void v3_delete_mem_map(struct guest_info * info);
+int v3_init_mem_map(struct v3_vm_info * vm);
+void v3_delete_mem_map(struct v3_vm_info * vm);
 
 
 

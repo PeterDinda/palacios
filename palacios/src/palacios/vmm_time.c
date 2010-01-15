@@ -77,3 +77,15 @@ void v3_update_time(struct guest_info * info, uint64_t cycles) {
 
     //info->time_state.pending_cycles = 0;
 }
+
+void v3_advance_time(struct guest_info * core) {
+    struct vm_timer * tmp_timer;
+
+
+    list_for_each_entry(tmp_timer, &(core->time_state.timers), timer_link) {
+	tmp_timer->ops->advance_timer(core, tmp_timer->private_data);
+    }
+  
+
+
+}

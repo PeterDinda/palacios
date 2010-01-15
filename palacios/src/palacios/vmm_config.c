@@ -232,7 +232,7 @@ static int pre_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * vm_cfg) {
     v3_init_intr_routers(vm);
 
     // Initialize the memory map
-    if (v3_init_mem_map(&(vm->cores[0])) == -1) {
+    if (v3_init_mem_map(vm) == -1) {
 	PrintError("Could not initialize shadow map\n");
 	return -1;
     }
@@ -403,7 +403,17 @@ struct v3_vm_info * v3_config_guest(void * cfg_blob) {
 
     cores_cfg = v3_cfg_subtree(cfg_data->cfg, "cores");
 
+    if (!cores_cfg) {
+	PrintError("Could not find core configuration (new config format required)\n");
+	return NULL;
+    }
+
     num_cores = atoi(v3_cfg_val(cores_cfg, "count"));
+
+    if (num_cores == 0) {
+	PrintError("No cores specified in configuration\n");
+	return NULL;
+    }
 
     V3_Print("Configuring %d cores\n", num_cores);
 

@@ -49,7 +49,7 @@ struct vm_time {
 
 struct vm_timer_ops {
     void (*update_time)(struct guest_info * info, ullong_t cpu_cycles, ullong_t cpu_freq, void * priv_data);
-    void (*advance_timer)(struct guest_info * info);
+    void (*advance_timer)(struct guest_info * info, void * private_data);
 };
 
 struct vm_timer {

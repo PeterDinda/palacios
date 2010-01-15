@@ -44,7 +44,7 @@ static int mem_offset_hypercall(struct guest_info * info, uint_t hcall_id, void 
 }
 
 
-int v3_init_shadow_map(struct v3_vm_info * vm) {
+int v3_init_mem_map(struct v3_vm_info * vm) {
     struct v3_mem_map * map = &(vm->mem_map);
     addr_t mem_pages = vm->mem_size >> 12;
 
