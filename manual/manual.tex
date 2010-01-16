@@ -127,6 +127,13 @@ you have a newskysaw account:
 git clone ssh://you@newskysaw.cs.northwestern.edu//home/palaicos/palacios
 \end{verbatim}
 
+External developers can clone the public repository via the web.  The
+public repository tracks the release and main development branch
+(e.g., devel) of the internal repository with a 30 minute delay.  The
+access information is available on the web site (http://v3vee.org).
+The web site also includes a publically accessible gitweb interface to
+allow browsing of the public repository.
+
 This creates a local copy of the repository at {\em ./palacios/}.
 
 Note that both {\em newskysaw} and {\em newbehemoth} have all the
@@ -315,6 +322,7 @@ devices (on)
 \item Passthrough PCI --- allows us to make a hardware PCI device visible and
 directly accessible by the guest (on)
 \end{itemize}
+\item Generic --- this is a run-time configurable device that can intercept I/O port read/writes and memory region reads/writes.   Intercepted reads and writes can either be ignored or forwarded to actual hardware, and the data flow can optionally be printed.   This is a useful tool with at least three purposes.  First, it makes it possible to ``stub out'' hardware that isn't currently implemented and for which we don't want to allow passthrough access. Second, it makes it possible to provide low-level passthrough access to physical hardware.   Third, it can be used to spy on guest/device interactions, which is very helpful when trying to understand the interface of a device.
 \item NVRAM - motherboard configuration memory --- needed by BIOS bootstrap (on)
 \item Keyboard - Generic PS/2 keyboard, including mostly broken mouse
 implementation (on)
