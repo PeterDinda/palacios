@@ -27,14 +27,14 @@
 #ifdef CONFIG_TELEMETRY_GRANULARITY
 #define DEFAULT_GRANULARITY CONFIG_TELEMETRY_GRANULARITY
 #else 
-#define DEFAULT_GRANULARITY 50000000
+#define DEFAULT_GRANULARITY 500
 #endif
 
 
 
 struct telemetry_cb {
     
-    void (*telemetry_fn)(struct guest_info * info, void * private_data, char * hdr);
+    void (*telemetry_fn)(struct v3_vm_info * vm, void * private_data, char * hdr);
 
     void * private_data;
     struct list_head cb_node;
@@ -50,25 +50,33 @@ struct exit_event {
 };
 
 
-void v3_init_telemetry(struct guest_info * info) {
-    struct v3_telemetry_state * telemetry = &(info->telemetry);
+void v3_init_telemetry(struct v3_vm_info * vm) {
+    struct v3_telemetry_state * telemetry = &(vm->telemetry);
 
-    telemetry->exit_cnt = 0;
-    telemetry->vmm_start_tsc = 0;
-    telemetry->prev_tsc = 0;
     telemetry->invoke_cnt = 0;
     telemetry->granularity = DEFAULT_GRANULARITY;
 
+    telemetry->prev_tsc = 0;
+
+    INIT_LIST_HEAD(&(telemetry->cb_list));
+}
+
+void v3_init_core_telemetry(struct guest_info * core) {
+    struct v3_core_telemetry * telemetry = &(core->core_telem);
+
+    telemetry->exit_cnt = 0;
+    telemetry->vmm_start_tsc = 0;
+
+    telemetry->vm_telem = &(core->vm_info->telemetry);
 
     telemetry->exit_root.rb_node = NULL;
-    INIT_LIST_HEAD(&(telemetry->cb_list));
 }
 
 
 
 static inline struct exit_event * __insert_event(struct guest_info * info, 
 						 struct exit_event * evt) {
-    struct rb_node ** p = &(info->telemetry.exit_root.rb_node);
+    struct rb_node ** p = &(info->core_telem.exit_root.rb_node);
     struct rb_node * parent = NULL;
     struct exit_event * tmp_evt = NULL;
 
@@ -97,14 +105,14 @@ static inline struct exit_event * insert_event(struct guest_info * info,
 	return ret;
     }
 
-    v3_rb_insert_color(&(evt->tree_node), &(info->telemetry.exit_root));
+    v3_rb_insert_color(&(evt->tree_node), &(info->core_telem.exit_root));
 
     return NULL;
 }
 
 
 static struct exit_event * get_exit(struct guest_info * info, uint_t exit_code) {
-    struct rb_node * n = info->telemetry.exit_root.rb_node;
+    struct rb_node * n = info->core_telem.exit_root.rb_node;
     struct exit_event * evt = NULL;
 
     while (n) {
@@ -134,12 +142,12 @@ static inline struct exit_event * create_exit(uint_t exit_code) {
 }
 
 void v3_telemetry_start_exit(struct guest_info * info) {
-    rdtscll(info->telemetry.vmm_start_tsc);
+    rdtscll(info->core_telem.vmm_start_tsc);
 }
 
 
 void v3_telemetry_end_exit(struct guest_info * info, uint_t exit_code) {
-    struct v3_telemetry_state * telemetry = &(info->telemetry);
+    struct v3_core_telemetry * telemetry = &(info->core_telem);
     struct exit_event * evt = NULL;
     uint64_t end_tsc = 0;
 
@@ -160,18 +168,18 @@ void v3_telemetry_end_exit(struct guest_info * info, uint_t exit_code) {
 
 
     // check if the exit count has expired
-    if ((telemetry->exit_cnt % telemetry->granularity) == 0) {
-	v3_print_telemetry(info);
+    if ((telemetry->exit_cnt % telemetry->vm_telem->granularity) == 0) {
+	v3_print_telemetry(info->vm_info);
     }
 }
 
 
 
 
-void v3_add_telemetry_cb(struct guest_info * info, 
-			 void (*telemetry_fn)(struct guest_info * info, void * private_data, char * hdr),
+void v3_add_telemetry_cb(struct v3_vm_info * vm, 
+			 void (*telemetry_fn)(struct v3_vm_info * vm, void * private_data, char * hdr),
 			 void * private_data) {
-    struct v3_telemetry_state * telemetry = &(info->telemetry);
+    struct v3_telemetry_state * telemetry = &(vm->telemetry);
     struct telemetry_cb * cb = (struct telemetry_cb *)V3_Malloc(sizeof(struct telemetry_cb));
 
     cb->private_data = private_data;
@@ -182,10 +190,11 @@ void v3_add_telemetry_cb(struct guest_info * info,
 
 
 
-void v3_print_telemetry(struct guest_info * info) {
-    struct v3_telemetry_state * telemetry = &(info->telemetry);
+void v3_print_telemetry(struct v3_vm_info * vm) {
+    struct v3_telemetry_state * telemetry = &(vm->telemetry);
     uint64_t invoke_tsc = 0;
     char hdr_buf[32];
+    int i;
 
     rdtscll(invoke_tsc);
 
@@ -193,12 +202,15 @@ void v3_print_telemetry(struct guest_info * info) {
 
     V3_Print("%stelemetry window tsc cnt: %d\n", hdr_buf, (uint32_t)(invoke_tsc - telemetry->prev_tsc));
 
-    /*
+
     // Exit Telemetry
-    {
+    for (i = 0; i < vm->num_cores; i++) {
+	struct guest_info * core = &(vm->cores[i]);
 	struct exit_event * evt = NULL;
-	struct rb_node * node = v3_rb_first(&(info->telemetry.exit_root));
+	struct rb_node * node = v3_rb_first(&(core->core_telem.exit_root));
 	
+	V3_Print("Exit information for Core %d\n", core->cpu_id);
+
 	do {
 	    evt = rb_entry(node, struct exit_event, tree_node);
 	    const char * code_str = vmexit_code_to_str(evt->exit_code);
@@ -212,14 +224,14 @@ void v3_print_telemetry(struct guest_info * info) {
 		     (uint32_t)(evt->handler_time / evt->cnt));
 	} while ((node = v3_rb_next(node)));
     }
-    */
+
 
     // Registered callbacks
     {
 	struct telemetry_cb * cb = NULL;
 
 	list_for_each_entry(cb, &(telemetry->cb_list), cb_node) {
-	    cb->telemetry_fn(info, cb->private_data, hdr_buf);
+	    cb->telemetry_fn(vm, cb->private_data, hdr_buf);
 	}
     }
 

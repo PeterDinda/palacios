@@ -227,6 +227,8 @@ static int pre_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * vm_cfg) {
     }
 
 #ifdef CONFIG_TELEMETRY
+    v3_init_telemetry(vm);
+
     {
 	char * telemetry = v3_cfg_val(vm_cfg, "telemetry");
 
@@ -303,9 +305,7 @@ static int pre_config_core(struct guest_info * info, v3_cfg_tree_t * core_cfg) {
      * Initialize the subsystem data strutures
      */
 #ifdef CONFIG_TELEMETRY
-    if (info->vm_info->enable_telemetry) {
-	v3_init_telemetry(info);
-    }
+    v3_init_core_telemetry(info);
 #endif
 
     

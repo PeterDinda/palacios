@@ -366,7 +366,7 @@ static int key_event_handler(struct v3_vm_info * vm,
 	v3_dbg_enable ^= 1;
     } else if (evt->scan_code == 0x41) { // F7 telemetry dump
 #ifdef CONFIG_TELEMETRY
-	v3_print_telemetry(info);
+	v3_print_telemetry(vm);
 #endif
     }
 
