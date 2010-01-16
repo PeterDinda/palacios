@@ -20,18 +20,28 @@
 #ifndef ICC_BUS_H_
 #define ICC_BUS_H_
 
+
+struct v3_icc_ops {
+    int (*raise_intr)(struct guest_info * core, int intr_num, void * private_data);
+};
+
+
 /**
  *
  */
-int v3_icc_register_apic(struct v3_vm_info *info, struct vm_device *icc_bus, struct vm_device *apic, uint32_t apic_num);
+int v3_icc_register_apic(struct guest_info * vm, struct vm_device * icc_bus, uint8_t apic_phys_id, struct v3_icc_ops * ops, void * priv_data);
+
 
 /**
  * Send an inter-processor interrupt (IPI) from this local APIC to another local APIC.
  *
- * @param icc_bus The ICC bus that facilitates the communication.
- * @param apic_num The remote APIC number.
- * @param intr_num The interrupt number.
+ * @param icc_bus - The ICC bus that routes IPIs.
+ * @param apic_num - The remote APIC number.
+ * @param intr_num - The interrupt number.
  */
-int v3_icc_send_ipi(struct vm_device * icc_bus, uint32_t apic_num, uint32_t intr_num);
+int v3_icc_send_irq(struct vm_device * icc_bus, uint8_t apic_num, uint32_t irq_num);
+
+
+
 
 #endif /* ICC_BUS_H_ */

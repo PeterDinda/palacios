@@ -71,8 +71,13 @@ static int is_guest_pf(pt_access_status_t guest_access, pt_access_status_t shado
 
 
 #ifdef CONFIG_SHADOW_PAGING_TELEMETRY
-static void telemetry_cb(struct guest_info * info, void * private_data, char * hdr) {
-    V3_Print("%s Guest Page faults: %d\n", hdr, info->shdw_pg_state.guest_faults);
+static void telemetry_cb(struct v3_vm_info * vm, void * private_data, char * hdr) {
+    int i = 0;
+    for (i = 0; i < vm->num_cores; i++) {
+	struct guest_info * core = &(vm->cores[i]);
+
+	V3_Print("%s Guest Page faults: %d\n", hdr, core->shdw_pg_state.guest_faults);
+    }
 }
 #endif
 
@@ -88,9 +93,7 @@ int v3_init_shadow_page_state(struct guest_info * info) {
     INIT_LIST_HEAD(&(state->page_list));
 
 #ifdef CONFIG_SHADOW_PAGING_TELEMETRY
-    if (info->vm_info->enable_telemetry) {
-	v3_add_telemetry_cb(info, telemetry_cb, NULL);
-    }
+    v3_add_telemetry_cb(info->vm_info, telemetry_cb, NULL);
 #endif
   
     return 0;

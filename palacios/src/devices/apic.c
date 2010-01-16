@@ -20,10 +20,12 @@
 
 #include <devices/apic.h>
 #include <devices/apic_regs.h>
+#include <devices/icc_bus.h>
 #include <palacios/vmm.h>
 #include <palacios/vmm_msr.h>
 #include <palacios/vmm_sprintf.h>
 #include <palacios/vm_guest.h>
+
 
 #ifndef CONFIG_DEBUG_APIC
 #undef PrintDebug
@@ -181,14 +183,13 @@ struct apic_state {
   
     uint32_t eoi;
 
-    uint32_t my_apic_id;
-    struct vm_device *icc_bus;
+    struct vm_device * icc_bus;
 
     v3_lock_t  lock;
 };
 
-static int apic_read(addr_t guest_addr, void * dst, uint_t length, void * priv_data);
-static int apic_write(addr_t guest_addr, void * src, uint_t length, void * priv_data);
+static int apic_read(struct guest_info * core, addr_t guest_addr, void * dst, uint_t length, void * priv_data);
+static int apic_write(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data);
 
 static void init_apic_state(struct apic_state * apic) {
     apic->base_addr = DEFAULT_BASE_ADDR;
@@ -241,9 +242,11 @@ static void init_apic_state(struct apic_state * apic) {
 
 
 
-static int read_apic_msr(uint_t msr, v3_msr_t * dst, void * priv_data) {
+static int read_apic_msr(struct guest_info * core, uint_t msr, v3_msr_t * dst, void * priv_data) {
     struct vm_device * dev = (struct vm_device *)priv_data;
-    struct apic_state * apic = (struct apic_state *)dev->private_data;
+    struct apic_state * apics = (struct apic_state *)(dev->private_data);
+    struct apic_state * apic = &(apics[core->cpu_id]);
+
     v3_lock(apic->lock);
     dst->value = apic->base_addr;
     v3_unlock(apic->lock);
@@ -251,10 +254,11 @@ static int read_apic_msr(uint_t msr, v3_msr_t * dst, void * priv_data) {
 }
 
 
-static int write_apic_msr(uint_t msr, v3_msr_t src, void * priv_data) {
+static int write_apic_msr(struct guest_info * core, uint_t msr, v3_msr_t src, void * priv_data) {
     struct vm_device * dev = (struct vm_device *)priv_data;
-    struct apic_state * apic = (struct apic_state *)dev->private_data;
-    struct v3_shadow_region * old_reg = v3_get_shadow_region(dev->vm, apic->base_addr);
+    struct apic_state * apics = (struct apic_state *)(dev->private_data);
+    struct apic_state * apic = &(apics[core->cpu_id]);
+    struct v3_shadow_region * old_reg = v3_get_shadow_region(dev->vm, core->cpu_id, apic->base_addr);
 
 
     if (old_reg == NULL) {
@@ -269,7 +273,7 @@ static int write_apic_msr(uint_t msr, v3_msr_t src, void * priv_data) {
 
     apic->base_addr = src.value;
 
-    if (v3_hook_full_mem(dev->vm, apic->base_addr, apic->base_addr + PAGE_SIZE_4KB, apic_read, apic_write, dev) == -1) {
+    if (v3_hook_full_mem(dev->vm, core->cpu_id, apic->base_addr, apic->base_addr + PAGE_SIZE_4KB, apic_read, apic_write, dev) == -1) {
 	PrintError("Could not hook new APIC Base address\n");
 	v3_unlock(apic->lock);
 	return -1;
@@ -446,9 +450,8 @@ static int activate_internal_irq(struct apic_state * apic, apic_irq_type_t int_t
 }
 
 
-static int apic_read(addr_t guest_addr, void * dst, uint_t length, void * priv_data) {
-    struct vm_device * dev = (struct vm_device *)priv_data;
-    struct apic_state * apic = (struct apic_state *)dev->private_data;
+static int apic_read(struct guest_info * core, addr_t guest_addr, void * dst, uint_t length, void * priv_data) {
+    struct apic_state * apic = (struct apic_state *)priv_data;
     addr_t reg_addr  = guest_addr - apic->base_addr;
     struct apic_msr * msr = (struct apic_msr *)&(apic->base_addr_msr.value);
     uint32_t val = 0;
@@ -705,9 +708,8 @@ static int apic_read(addr_t guest_addr, void * dst, uint_t length, void * priv_d
 /**
  *
  */
-static int apic_write(addr_t guest_addr, void * src, uint_t length, void * priv_data) {
-    struct vm_device * dev = (struct vm_device *)priv_data;
-    struct apic_state * apic = (struct apic_state *)dev->private_data;
+static int apic_write(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data) {
+    struct apic_state * apic = (struct apic_state *)priv_data;
     addr_t reg_addr  = guest_addr - apic->base_addr;
     struct apic_msr * msr = (struct apic_msr *)&(apic->base_addr_msr.value);
     uint32_t op_val = *(uint32_t *)src;
@@ -861,7 +863,8 @@ static int apic_write(addr_t guest_addr, void * src, uint_t length, void * priv_
 
 	case INT_CMD_LO_OFFSET:
 	    apic->int_cmd.lo = op_val;
-        v3_icc_send_ipi(apic->icc_bus, apic->int_cmd.dst, apic->int_cmd.val);
+	    // ICC???
+	    v3_icc_send_irq(apic->icc_bus, apic->int_cmd.dst, apic->int_cmd.val);
 	    break;
 	case INT_CMD_HI_OFFSET:
 	    apic->int_cmd.hi = op_val;
@@ -886,8 +889,7 @@ static int apic_write(addr_t guest_addr, void * src, uint_t length, void * priv_
 
 // returns 1 if an interrupt is pending, 0 otherwise
 static int apic_intr_pending(struct guest_info * info, void * private_data) {
-    struct vm_device * dev = (struct vm_device *)private_data;
-    struct apic_state * apic = (struct apic_state *)dev->private_data;
+    struct apic_state * apic = (struct apic_state *)private_data;
     int req_irq = get_highest_irr(apic);
     int svc_irq = get_highest_isr(apic);
 
@@ -900,8 +902,7 @@ static int apic_intr_pending(struct guest_info * info, void * private_data) {
 }
 
 static int apic_get_intr_number(struct guest_info * info, void * private_data) {
-    struct vm_device * dev = (struct vm_device *)private_data;
-    struct apic_state * apic = (struct apic_state *)dev->private_data;
+    struct apic_state * apic = (struct apic_state *)private_data;
     int req_irq = get_highest_irr(apic);
     int svc_irq = get_highest_isr(apic);
 
@@ -914,30 +915,17 @@ static int apic_get_intr_number(struct guest_info * info, void * private_data) {
     return -1;
 }
 
-#if 0
-static int apic_raise_intr(struct guest_info * info, void * private_data, int irq) {
-#ifdef CONFIG_CRAY_XT
-    // The Seastar is connected directly to the LAPIC via LINT0 on the ICC bus
 
-    if (irq == 238) {
-	struct vm_device * dev = (struct vm_device *)private_data;
-	struct apic_state * apic = (struct apic_state *)dev->private_data;
+static int apic_raise_intr(struct guest_info * info, int irq, void * private_data) {
+  struct apic_state * apic = (struct apic_state *)private_data;
 
-	return activate_apic_irq(apic, irq);
-    }
-#endif
-
-    return 0;
+  return activate_apic_irq(apic, irq);
 }
 
-static int apic_lower_intr(struct guest_info * info, void * private_data, int irq) {
-    return 0;
-}
-#endif
+
 
 static int apic_begin_irq(struct guest_info * info, void * private_data, int irq) {
-    struct vm_device * dev = (struct vm_device *)private_data;
-    struct apic_state * apic = (struct apic_state *)dev->private_data;
+    struct apic_state * apic = (struct apic_state *)private_data;
     int major_offset = (irq & ~0x00000007) >> 3;
     int minor_offset = irq & 0x00000007;
     uchar_t * req_location = apic->int_req_reg + major_offset;
@@ -947,41 +935,17 @@ static int apic_begin_irq(struct guest_info * info, void * private_data, int irq
     *svc_location |= flag;
     *req_location &= ~flag;
 
-#ifdef CONFIG_CRAY_XT
-    if ((irq == 238) || (irq == 239)) {
-	PrintError("APIC: Begin IRQ %d (ISR=%x), (IRR=%x)\n", irq, *svc_location, *req_location);
-    }
-#endif
+
 
     return 0;
 }
 
-
-
-int v3_apic_raise_intr(struct guest_info * info, struct vm_device * apic_dev, int intr_num) {
-    struct apic_state * apic = (struct apic_state *)apic_dev->private_data;
-
-    // Special cases go here
-    // startup, etc
-
-    if (activate_apic_irq(apic, intr_num) == -1) {
-	PrintError("Error: Could not activate apic_irq\n");
-	return -1;
-    } 
-
-    // Don't need this since we'll have the IPI force an exit if
-    // This is called on a different core
-    /* v3_interrupt_cpu(info, 0); */
-
-    return 0;
-}
 
 
 
 /* Timer Functions */
 static void apic_update_time(struct guest_info * info, ullong_t cpu_cycles, ullong_t cpu_freq, void * priv_data) {
-    struct vm_device * dev = (struct vm_device *)priv_data;
-    struct apic_state * apic = (struct apic_state *)dev->private_data;
+    struct apic_state * apic = (struct apic_state *)priv_data;
     // The 32 bit GCC runtime is a pile of shit
 #ifdef __V3_64BIT__
     uint64_t tmr_ticks = 0;
@@ -1097,19 +1061,27 @@ static struct v3_device_ops dev_ops = {
 
 
 
+static struct v3_icc_ops icc_ops = {
+    .raise_intr = apic_raise_intr,
+};
+
+
+
 static int apic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     PrintDebug("Creating APIC\n");
     char * name = v3_cfg_val(cfg, "name");
     char * icc_name = v3_cfg_val(cfg,"irq_bus");
-    int i;
     struct vm_device * icc = v3_find_dev(vm, icc_name);
+    int i;
 
     if (!icc) {
-        PrintError("Cannot find device %s\n", icc_name);
+        PrintError("Cannot find ICC Bus (%s)\n", icc_name);
         return -1;
     }
 
-    struct apic_state * apic = (struct apic_state *)V3_Malloc(sizeof(struct apic_state));
+    // We allocate one apic per core
+    // APICs are accessed via index which correlates with the core's cpu_id 
+    struct apic_state * apic = (struct apic_state *)V3_Malloc(sizeof(struct apic_state) * vm->num_cores);
 
     struct vm_device * dev = v3_allocate_device(name, &dev_ops, apic);
 
@@ -1118,19 +1090,22 @@ static int apic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	return -1;
     }
 
-    for (i = 0; i < vm->num_cores; i++)
-    {
-    	v3_register_intr_controller(&vm->cores[i], &intr_ops, dev);
-    	v3_add_timer(&vm->cores[i], &timer_ops, dev);
+    
+    for (i = 0; i < vm->num_cores; i++) {
+	struct guest_info * core = &(vm->cores[i]);
+
+    	v3_register_intr_controller(core, &intr_ops, &(apic[i]));
+    	v3_add_timer(core, &timer_ops, &(apic[i]));
+	v3_hook_full_mem(vm, core->cpu_id, apic->base_addr, apic->base_addr + PAGE_SIZE_4KB, apic_read, apic_write, &(apic[i]));
+
+	v3_icc_register_apic(core, icc, i, &icc_ops, &(apic[i]));
+
+	init_apic_state(&(apic[i]));
     }
 
-    init_apic_state(apic);
 
-    v3_icc_register_apic(vm, icc, dev,apic->my_apic_id);
 
     v3_hook_msr(vm, BASE_ADDR_MSR, read_apic_msr, write_apic_msr, dev);
-
-    v3_hook_full_mem(vm, apic->base_addr, apic->base_addr + PAGE_SIZE_4KB, apic_read, apic_write, dev);
 
     return 0;
 }

@@ -28,34 +28,40 @@
 #include <palacios/vmm_list.h>
 
 struct guest_info;
-
+struct v3_vm_info;
 
 struct v3_telemetry_state {
-
-    uint64_t vmm_start_tsc;
-    uint64_t prev_tsc;
-
-    uint_t exit_cnt;
-    struct rb_root exit_root;
-
     uint32_t invoke_cnt;
     uint64_t granularity;
 
+    uint64_t prev_tsc;
 
     struct list_head cb_list;
 };
 
 
-void v3_init_telemetry(struct guest_info * info);
+struct v3_core_telemetry {
+    uint_t exit_cnt;
+    struct rb_root exit_root;
+
+    uint64_t vmm_start_tsc;
+
+    struct v3_telemetry_state * vm_telem;
+
+};
+
+
+void v3_init_telemetry(struct v3_vm_info * vm);
+void v3_init_core_telemetry(struct guest_info * info);
 
 void v3_telemetry_start_exit(struct guest_info * info);
 void v3_telemetry_end_exit(struct guest_info * info, uint_t exit_code);
 
-void v3_print_telemetry(struct guest_info * info);
+void v3_print_telemetry(struct v3_vm_info * vm);
 
 
-void v3_add_telemetry_cb(struct guest_info * info, 
-			 void (*telemetry_fn)(struct guest_info * info, void * private_data, char * hdr),
+void v3_add_telemetry_cb(struct v3_vm_info * vm, 
+			 void (*telemetry_fn)(struct v3_vm_info * vm, void * private_data, char * hdr),
 			 void * private_data);
 
 #endif

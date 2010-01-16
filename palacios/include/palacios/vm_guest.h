@@ -132,9 +132,6 @@ struct v3_segments {
 struct shadow_page_state;
 struct v3_intr_state;
 
-#ifdef CONFIG_TELEMETRY
-struct v3_telemetry;
-#endif
 
 #ifdef CONFIG_SYMBIOTIC_SWAP
 struct v3_sym_swap_state;
@@ -181,7 +178,7 @@ struct guest_info {
     uint64_t num_exits;
 
 #ifdef CONFIG_TELEMETRY
-    struct v3_telemetry_state telemetry;
+    struct v3_core_telemetry core_telem;
 #endif
 
 
@@ -234,6 +231,7 @@ struct v3_vm_info {
 
 #ifdef CONFIG_TELEMETRY
     uint_t enable_telemetry;
+    struct v3_telemetry_state telemetry;
 #endif
 
     uint64_t yield_cycle_period;  
