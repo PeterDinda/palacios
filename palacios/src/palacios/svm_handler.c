@@ -39,6 +39,10 @@
 #include <palacios/vmm_telemetry.h>
 #endif
 
+#ifdef CONFIG_VNET
+#include <palacios/vmm_vnet.h>
+#endif
+
 
 int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_info1, addr_t exit_info2) {
 
@@ -280,6 +284,11 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 	}
     }
     // END OF SWITCH (EXIT_CODE)
+
+#ifdef CONFIG_VNET
+    v3_vnet_pkt_process(info);
+#endif
+
 
 #ifdef CONFIG_TELEMETRY
     if (info->enable_telemetry) {

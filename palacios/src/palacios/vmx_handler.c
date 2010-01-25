@@ -37,6 +37,10 @@
 #endif
 
 
+#ifdef CONFIG_VNET
+#include <palacios/vmm_vnet.h>
+#endif
+
 
 
 /* At this point the GPRs are already copied into the guest_info state */
@@ -221,6 +225,10 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
 		       exit_info->exit_qual, exit_info->exit_qual);
             return -1;
     }
+
+#ifdef CONFIG_VNET
+    v3_vnet_pkt_process(info);
+#endif
 
 #ifdef CONFIG_TELEMETRY
     if (info->enable_telemetry) {

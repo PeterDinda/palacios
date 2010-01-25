@@ -41,6 +41,10 @@
 
 #endif
 
+#ifdef CONFIG_VNET
+#include <palacios/vmm_vnet.h>
+#endif
+
 
 #include <palacios/vmm_host_events.h>
 #include <palacios/vmm_socket.h>
@@ -266,6 +270,10 @@ static int pre_config_guest(struct guest_info * info, struct v3_config * config_
 #ifdef CONFIG_SYMBIOTIC_SWAP
     PrintDebug("initializing symbiotic swap\n");
     v3_init_sym_swap(info);
+#endif
+
+#ifdef CONFIG_VNET
+    v3_vnet_init(info);
 #endif
 
     if (schedule_hz_str) {
