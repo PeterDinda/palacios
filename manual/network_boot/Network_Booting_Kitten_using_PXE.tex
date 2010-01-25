@@ -1,0 +1,120 @@
+
+\documentclass[11pt]{article}
+
+\begin{document}
+
+\title{\ \\ \LARGE\bf
+Booting Kitten using PXE
+}
+
+\author{Yuan Tang, Lei Xia}
+
+\maketitle
+
+PXE allows us to boot up Kitten/Palacios remotely from a network server, which makes testing Palacios on physical machine more easily. Following is the instruction on how to set up the PXE server.
+
+\section{Requirements}
+
+\begin{itemize}
+\item DHCP server. DHCP enables Kitten booting machine get an IP address automatically from the PXE server.
+\item TFTP server. When booting machine starts, TFTP allows it to download Kitten kernel image and initial root file system from PXE sever.
+\item {\em bzImage} and {\em init\_task}. The Kitten/Palacios boot image file and the inital root file system image. After booting machine starts, it will be copied through TFTP. After building your Kitten, these two files are typically located at:
+\begin{verbatim}
+    your_kitten_path/arch/x86_64/boot/bzImage
+    your_kitten_path/init_task
+\end{verbatim}
+\end{itemize}
+
+\section{DHCP Setup}
+Install the DHCP service, and configure the file {\em /etc/dhcpd.conf}, add the booting machine's MAC address into config file, allow the booting machine to get IP address from DHCP server at booting time.
+\begin{verbatim}
+    option domain-name "cs.northwestern.edu";
+    default-lease-time 600;
+    max-lease-time 7200;
+
+    allow booting;
+    allow bootp;
+
+    <-- Change below section according to your network configuration --->
+    subnet 165.124.184.0 netmask 255.255.254.0 {
+        range 165.124.184.90 165.124.184.95;
+        option broadcast-address 165.124.184.255;
+        option routers 165.124.184.1;
+        option domain-name-servers 165.124.180.10;
+    }
+
+    group {
+      <--- In which IP address the booting machine can find the booting image -->
+      next-server 165.124.184.209;
+      host v-test-intel-lab {
+        <-- Replace below with the IP address assigned to the booting machine -->
+        fixed-address 165.124.184.92;
+        <--- Replace below with the MAC address of the booting machine -->
+        hardware ethernet  00:1B:21:41:CF:4C;   
+        filename "pxelinux.0";
+      }
+    } 
+\end{verbatim}
+Now you can start the DHCP server.
+\begin{verbatim}
+[jdoe@newskysaw test]$ service dhcpd restart
+\end{verbatim}
+
+
+\section{TFTP Setup}
+After installing the tftp service, enables the tftp by editing the file {\em /etc/xinetd.d/tftp} (which looks like as below), just delete the line {\em disable = yes} in the configure file.
+\begin{verbatim}
+    service tftp
+    {
+        socket_type             = dgram
+        protocol                = udp
+        wait                    = yes
+        user                    = root
+        server                  = /usr/sbin/in.tftpd
+        server_args             = -s /tftpboot
+        per_source              = 11
+        cps                     = 100 2
+        flags                   = IPv4
+    }
+
+\end{verbatim}
+Then copy the Kitten boot images to the tftp boot directory, which typically locates at {\em /tftpboot}:
+\begin{verbatim}
+[jdoe@newskysaw test]$ cp your_kitten_path/arch/x86_64/boot/bzImage /tftpboot/bzImage
+[jdoe@newskysaw test]$ cp your_kitten_path/init_task /tftpboot/init_task
+\end{verbatim}
+Now start the TFTP service.
+\begin{verbatim}
+    service xinetd restart
+\end{verbatim}
+
+\section{PXE Configuration}
+In this step we will set up the PXE booting configuration. 
+Create the directory {\em pxelinux.cfg} in {\em /tftpboot}.In {\em pxelinux.cfg}, create a new file with the filename as the booting machine's MAC address.
+\begin{verbatim}
+[jdoe@newskysaw test]$ cd /tftpboot
+[jdoe@newskysaw test]$ cd pxelinux.cfg
+[jdoe@newskysaw test]$ touch 01-00-1b-21-41-cf-4c
+\end{verbatim}
+Edit the booting configuration file {\em 01-00-1b-21-41-cf-4c}, make sure replace the kernel image and init image files with yours.
+\begin{verbatim}
+    default kitten
+    label kitten
+        kernel bzImage
+        append serial.baud=115200 console=serial initrd=init_task
+
+    prompt 1 
+    timeout 20
+\end{verbatim}
+Also, you can add more than one booting options.
+\section{Testing}
+
+At this point things should be ready to go. Power on the client machine, select network booting. PXE should then go searching for the DHCP server, It will get an IP address and then try to grab (via TFTP) the booting image files. Finally, the kernel should proceed to boot Kitten.
+
+If the client fails to connect to the PXE server, you should check the firewall settings, make sure to allow the booting client's connection request.
+\end{document}
+
+
+
+
+
