@@ -36,7 +36,7 @@
 #define ETHERNET_DATA_MAX   1500
 #define ETHERNET_PACKET_LEN (ETHERNET_HEADER_LEN + ETHERNET_DATA_MAX)
 
-typedef enum {MAC_ANY, MAC_NOT, MAC_NONE, MAC_EMPTY} mac_type_t; //for 'src_mac_qual' and 'dst_mac_qual'
+typedef enum {MAC_ANY, MAC_NOT, MAC_NONE} mac_type_t; //for 'src_mac_qual' and 'dst_mac_qual'
 typedef enum {LINK_INTERFACE, LINK_EDGE, LINK_ANY} link_type_t; //for 'type' and 'src_type' in struct routing
 typedef enum {TCP_TYPE, UDP_TYPE, NONE_TYPE} prot_type_t;
 
@@ -103,7 +103,7 @@ struct vnet_if_device {
 
 
 struct vnet_if_link {
-    prot_type_t pro_type; //protocal type of this link
+    prot_type_t pro_type; //transport layer protocal type of this link
     unsigned long dest_ip;
     uint16_t dest_port;
 
@@ -130,12 +130,20 @@ struct link_entry {
 
 int v3_vnet_send_rawpkt(uchar_t *buf, int len, void *private_data);
 int v3_vnet_send_udppkt(uchar_t *buf, int len, void *private_data);
-//int vnet_register_device(struct vm_device *vdev, 
-//			 char *dev_name, 
-//			 uchar_t mac[6], 
-//			 int (*netif_input)(uchar_t * pkt, uint_t size, void *private_data), 
-//			 void *data);
-//int vnet_unregister_device(char *dev_name);
+int vnet_register_device(struct vm_device *vdev, 
+			 char *dev_name, 
+			 uchar_t mac[6], 
+			 int (*netif_input)(uchar_t * pkt, uint_t size, void *private_data), 
+			 void *data);
+
+int vnet_add_route_entry(char src_mac[6],
+				char dest_mac[6],
+				int src_mac_qual,
+				int dest_mac_qual,
+				int link_idx,
+				link_type_t link_type,
+				int src_link_idx,
+				link_type_t src_link_type);
 
 int v3_vnet_pkt_process(); 
 

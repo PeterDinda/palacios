@@ -108,6 +108,13 @@ config VNET
         help
           Enable the Vnet in Palacios
 
+config DEBUG_VNET
+        depends on VNET
+        bool "Enable Vnet Debug in Palacios"
+        default n
+        help
+          Enable the Vnet Debug in Palacios
+
 config BUILT_IN_STDLIB
 	bool "Enable Built in versions of stdlib functions"
 	default n

@@ -38,16 +38,16 @@ struct ethernet_pkt {
     uint16_t type;
     struct udp_link_header ext_hdr; //possible externel header to applied to data before sent
     char data[ETHERNET_PACKET_LEN];
-};
+}__attribute__((packed));
 
 
 // 14 (ethernet frame) + 20 bytes
 struct in_pkt_header {
-    char ethernetdest[6];
-    char ethernetsrc[6];
-    unsigned char ethernettype[2]; //layer 3 protocol type
+    uchar_t ethernetdest[6];
+    uchar_t ethernetsrc[6];
+    uchar_t ethernettype[2]; //layer 3 protocol type
     char ip[20];
-};
+}__attribute__((packed));
 
 #define VNET_INITAB_HCALL 0xca00  // inital hypercall id
 
@@ -60,12 +60,12 @@ static const uint_t hash_key_size = 16;
 struct link_table {
     struct link_entry * links[MAX_LINKS];
     uint16_t size;
-};
+}__attribute__((packed));
 
 struct routing_table {
     struct routing_entry * routes[MAX_ROUTES];
     uint16_t size;
-};
+}__attribute__((packed));
 
 static struct link_table g_links;
 static struct routing_table g_routes;
@@ -87,27 +87,6 @@ struct route_cache_entry {
 
 // the route cache
 static struct hashtable * g_route_cache; 
-
-
-static void print_packet(uchar_t *pkt, int size) {
-    PrintDebug("Vnet: print_data_packet: size: %d\n", size);
-    v3_hexdump(pkt, size, NULL, 0);
-}
-
-#if 0
-static void print_packet_addr(char * pkt) {
-    PrintDebug("Vnet: print_packet_destination_addr: ");
-    v3_hexdump(pkt + 8, 6, NULL, 0);
-    
-    PrintDebug("Vnet: print_packet_source_addr: ");
-    v3_hexdump(pkt + 14, 6, NULL, 0);
-}
-
-static void print_device_addr(char * ethaddr) {
-    PrintDebug("Vnet: print_device_addr: ");
-    v3_hexdump(ethaddr, 6, NULL, 0);
-} 
-#endif
 
 static uint16_t ip_xsum(struct ip_header *ip_hdr, int hdr_len){
     long sum = 0;
@@ -238,6 +217,12 @@ static int look_into_cache(route_hashkey_t hashkey, int * matches) {
 }
 
 #ifdef CONFIG_DEBUG_VNET
+
+static void print_packet(uchar_t *pkt, int size) {
+    PrintDebug("Vnet: print_data_packet: size: %d\n", size);
+    v3_hexdump(pkt, size, NULL, 0);
+}
+
 static inline uint8_t hex_nybble_to_nybble(const uint8_t hexnybble) {
     uint8_t x = toupper(hexnybble);
 
@@ -262,10 +247,35 @@ static inline void string_to_mac(const char *str, uint8_t mac[6]) {
 }
 
 static inline void mac_to_string(char mac[6], char * buf) {
-    snprintf(buf, 20, "%x:%x:%x:%x:%x:%x", 
+    snprintf(buf, 20, "%02x:%02x:%02x:%02x:%02x:%02x", 
 	     mac[0], mac[1], mac[2],
 	     mac[3], mac[4], mac[5]);
 }
+
+static void dump_routes(struct routing_entry **route_tables) {
+    char dest_str[18];
+    char src_str[18];
+    struct routing_entry *route = NULL;
+    int i;
+
+    PrintDebug("\nVnet: route table dump start =====\n");
+
+    for(i = 0; i < MAX_ROUTES; i++) {
+        if (route_tables[i] != NULL){
+	     route = route_tables[i];
+    
+            mac_to_string(route->src_mac, src_str);  
+            mac_to_string(route->dest_mac, dest_str);
+
+            PrintDebug("route: %d\n", i);
+            PrintDebug("SRC(%s), DEST(%s), src_mac_qual(%d), dst_mac_qual(%d)\n", src_str, dest_str, route->src_mac_qual, route->dest_mac_qual);
+            PrintDebug("Src_Link(%d), src_type(%d), dst_link(%d), dst_type(%d)\n\n", route->src_link_idx, route->src_type, route->link_idx, route->link_type);
+        }
+    }
+
+    PrintDebug("\nVnet: route table dump end =====\n");
+}
+
 #endif
 
 static int __add_link_entry(struct link_entry * link) {
@@ -301,24 +311,24 @@ static int __add_route_entry(struct routing_entry * route) {
 }
 
 
-static int vnet_add_route_entry(char src_mac[6],
+int vnet_add_route_entry(char src_mac[6],
 				char dest_mac[6],
 				int src_mac_qual,
 				int dest_mac_qual,
 				int link_idx,
 				link_type_t link_type,
-				int src,
-				link_type_t src_type) {
+				int src_link_idx,
+				link_type_t src_link_type) {
     struct routing_entry * new_route = (struct routing_entry *)V3_Malloc(sizeof(struct routing_entry));
     int idx = -1;
 
     memset(new_route, 0, sizeof(struct routing_entry));
 
-    if ((src_mac_qual != MAC_ANY) && (src_mac_qual != MAC_NONE)) {
+    if ((src_mac_qual != MAC_ANY)) {
         memcpy(new_route->src_mac, src_mac, 6);
     }
 	    
-    if ((dest_mac_qual != MAC_ANY) && (dest_mac_qual != MAC_NONE)) {
+    if ((dest_mac_qual != MAC_ANY)) {
         memcpy(new_route->dest_mac, dest_mac, 6);
     }
 	    
@@ -326,8 +336,8 @@ static int vnet_add_route_entry(char src_mac[6],
     new_route->dest_mac_qual = dest_mac_qual;
     new_route->link_idx= link_idx;
     new_route->link_type = link_type;
-    new_route->src_link_idx = src;
-    new_route->src_type = src_type;
+    new_route->src_link_idx = src_link_idx;
+    new_route->src_type = src_link_type;
 
     if ((idx = __add_route_entry(new_route)) == -1) {
 	PrintError("Could not add route entry\n");
@@ -339,6 +349,7 @@ static int vnet_add_route_entry(char src_mac[6],
     return idx;
 }
 
+#if 0
 static void * __delete_link_entry(int index) {
     struct link_entry * link = NULL;
     void * ret = NULL;
@@ -444,140 +455,101 @@ static int vnet_delete_route_entry_by_addr(char src_mac[6],
     
     return __delete_route_entry(index);
 }
+#endif
 
 static int match_route(uint8_t * src_mac, 
 		       uint8_t * dst_mac, 
 		       link_type_t src_type, 
 		       int src_index, 
-		       int * matches) { 
-    int values[MAX_ROUTES];
+		       int * matches) {
     int matched_routes[MAX_ROUTES];
-    
     int num_matches = 0;
     int i;
-    int max = 0;
-    int no = 0;
-    int exact_match = 0;
+    struct routing_entry *route = NULL; 
+
+#ifdef CONFIG_DEBUG_VNET
+    char dest_str[18];
+    char src_str[18];
+    
+    mac_to_string(src_mac, src_str);  
+    mac_to_string(dst_mac, dest_str);
+    
+    PrintDebug("Vnet: match_route. pkt: SRC(%s), DEST(%s)\n", src_str, dest_str);
+
+    dump_routes(g_routes.routes);
+#endif
 
     for(i = 0; i < MAX_ROUTES; i++) {
-	if (g_routes.routes[i] != NULL){
-	    if ( (g_routes.routes[i]->src_type != LINK_ANY) &&
-		 ( (g_routes.routes[i]->src_type != src_type) ||
-		   ( (g_routes.routes[i]->src_link_idx != src_index) &&
-		     (g_routes.routes[i]->src_link_idx != -1)))) {
-	        PrintDebug("Vnet: MatchRoute: Source route is on and does not match\n");
-	        continue;
-	    }
-	
-	    if ( (g_routes.routes[i]->dest_mac_qual == MAC_ANY) &&
-		 (g_routes.routes[i]->src_mac_qual == MAC_ANY)) {      
+        if (g_routes.routes[i] != NULL){
+	     route = g_routes.routes[i];
 
-		matched_routes[num_matches] = i;
-		values[num_matches] = 3;
-		num_matches++;
-	    }
+            if(src_type == LINK_ANY && src_index == -1) {
+	         if ((route->dest_mac_qual == MAC_ANY) &&
+		       (route->src_mac_qual == MAC_ANY)) {      
+                    matched_routes[num_matches] = i;
+                    num_matches++;
+	         }
 	
-	    if (memcmp((void *)&g_routes.routes[i]->src_mac, (void *)src_mac, 6) == 0) {
-	        if (g_routes.routes[i]->src_mac_qual !=  MAC_NOT) {
-		    if (g_routes.routes[i]->dest_mac_qual == MAC_ANY) {
-		        matched_routes[num_matches] = i;
-		        values[num_matches] = 6;
-			
-		        num_matches++;
-		    } else if (memcmp((void *)&g_routes.routes[i]->dest_mac, (void *)dst_mac, 6) == 0) {
-		        if (g_routes.routes[i]->dest_mac_qual != MAC_NOT) {   
-			    matched_routes[num_matches] = i;
-			    values[num_matches] = 8;    
-			    exact_match = 1;
-			    num_matches++;
-		        }
-		    }
-	        }
-	    }
+                if (memcmp((void *)&route->src_mac, (void *)src_mac, 6) == 0) {
+	             if (route->src_mac_qual !=  MAC_NOT) {
+		          if (route->dest_mac_qual == MAC_ANY) {
+		              matched_routes[num_matches] = i;
+		              num_matches++;
+		          } else if (route->dest_mac_qual != MAC_NOT &&
+		                      memcmp((void *)&route->dest_mac, (void *)dst_mac, 6) == 0) {
+                            matched_routes[num_matches] = i;
+                            num_matches++;
+                        }
+                    }
+                }
+
+                if (memcmp((void *)&route->dest_mac, (void *)dst_mac, 6) == 0) {
+                    if (route->dest_mac_qual != MAC_NOT) {
+                        if (route->src_mac_qual == MAC_ANY) {
+                            matched_routes[num_matches] = i;
+                            num_matches++;
+                        } else if ((route->src_mac_qual != MAC_NOT) && 
+                                       (memcmp((void *)&route->src_mac, (void *)src_mac, 6) == 0)) {
+                            matched_routes[num_matches] = i;
+                            num_matches++;
+                        }
+                     }
+                }
+
+                if ((route->dest_mac_qual == MAC_NOT) &&
+		       (memcmp((void *)&route->dest_mac, (void *)dst_mac, 6) != 0)) {
+                    if (route->src_mac_qual == MAC_ANY) {
+                        matched_routes[num_matches] = i;	    
+                        num_matches++;    
+                    } else if ((route->src_mac_qual != MAC_NOT) && 
+                                   (memcmp((void *)&route->src_mac, (void *)src_mac, 6) == 0)) {     
+                        matched_routes[num_matches] = i;     
+                        num_matches++;
+		      }
+                }
+
+                if ((route->src_mac_qual == MAC_NOT) &&
+		       (memcmp((void *)&route->src_mac, (void *)src_mac, 6) != 0)) {
+                    if (route->dest_mac_qual == MAC_ANY) {
+                        matched_routes[num_matches] = i;   
+                        num_matches++;
+                    } else if ((route->dest_mac_qual != MAC_NOT) &&
+                                   (memcmp((void *)&route->dest_mac, (void *)dst_mac, 6) == 0)) {
+                        matched_routes[num_matches] = i;
+                        num_matches++;
+                    }
+                }
+            }//end if src_type == Link_any
+        }	
+    }//end for
+
+    PrintDebug("Vnet: match_route: Matches=%d\n", num_matches);
 	
-	    if (memcmp((void *)&g_routes.routes[i]->dest_mac, (void *)dst_mac, 6) == 0) {
-	        if (g_routes.routes[i]->dest_mac_qual != MAC_NOT) {
-		    if (g_routes.routes[i]->src_mac_qual == MAC_ANY) {
-		        matched_routes[num_matches] = i;
-		        values[num_matches] = 6;
-			
-		        num_matches++;
-		    } else if (memcmp((void *)&g_routes.routes[i]->src_mac, (void *)src_mac, 6) == 0) {
-		        if (g_routes.routes[i]->src_mac_qual != MAC_NOT) {
-			    if (exact_match == 0) {
-			        matched_routes[num_matches] = i;
-			        values[num_matches] = 8;
-			        num_matches++;
-			    }
-		        }
-		    }
-	        }
-	    }
-	
-	    if ( (g_routes.routes[i]->dest_mac_qual == MAC_NOT) &&
-		 (memcmp((void *)&g_routes.routes[i]->dest_mac, (void *)dst_mac, 6) != 0)) {
-	        if (g_routes.routes[i]->src_mac_qual == MAC_ANY) {
-		    matched_routes[num_matches] = i;
-		    values[num_matches] = 5;		    
-		    num_matches++;    
-	        } else if (memcmp((void *)&g_routes.routes[i]->src_mac, (void *)src_mac, 6) == 0) {
-		    if (g_routes.routes[i]->src_mac_qual != MAC_NOT) {      
-			matched_routes[num_matches] = i;
-			values[num_matches] = 7;		      
-			num_matches++;
-		    }
-	        }
-	    }
-	    
-	    if ( (g_routes.routes[i]->src_mac_qual == MAC_NOT) &&
-		 (memcmp((void *)&g_routes.routes[i]->src_mac, (void *)src_mac, 6) != 0)) {
-		if (g_routes.routes[i]->dest_mac_qual == MAC_ANY) {
-		    matched_routes[num_matches] = i;
-		    values[num_matches] = 5;	    
-		    num_matches++;
-		} else if (memcmp((void *)&g_routes.routes[i]->dest_mac, (void *)dst_mac, 6) == 0) {
-		    if (g_routes.routes[i]->dest_mac_qual != MAC_NOT) { 
-			matched_routes[num_matches] = i;
-			values[num_matches] = 7;
-			num_matches++;
-		    }
-		}
-	    }
-       }
-    } // end for
-    
-    for (i = 0; i < MAX_ROUTES; i++) {
-    	if ( (memcmp((void *)&g_routes.routes[i]->src_mac, (void *)src_mac, 6) == 0) &&
-	     (g_routes.routes[i]->dest_mac_qual == MAC_NONE) &&
-	     ( (g_routes.routes[i]->src_type == LINK_ANY) ||
-	       ( (g_routes.routes[i]->src_type == src_type) &&
-		 ( (g_routes.routes[i]->src_link_idx == src_index) ||
-		   (g_routes.routes[i]->src_link_idx == -1))))) {
-	    matched_routes[num_matches] = i;
-	    values[num_matches] = 4;
-	    PrintDebug("Vnet: MatchRoute: We matched a default route (%d)\n", i);
-	    num_matches++;
-    	}
-    }
-    
-    //If many rules have been matched, we choose one which has the highest value rating
-    if (num_matches == 0) {
-    	return 0;
-    }
-    
     for (i = 0; i < num_matches; i++) {
-    	if (values[i] > max) {
-	    no = 0;
-	    max = values[i];
-	    matches[no] = matched_routes[i];
-	    no++;
-    	} else if (values[i] == max) {
-	    matches[no] = matched_routes[i];
-	    no++;
-    	}
+        matches[i] = matched_routes[i];
     }
     
-    return no;
+    return num_matches;
 }
 
 static int handle_one_pkt(struct ethernet_pkt *pkt) {
@@ -623,6 +595,10 @@ static int handle_one_pkt(struct ethernet_pkt *pkt) {
     }
     
     PrintDebug("Vnet: HandleDataOverLink: Matches=%d\n", num_matched_routes);
+
+    if (num_matched_routes == 0) {
+        return -1;
+    }
     
     for (i = 0; i < num_matched_routes; i++) {//send packet to all destinations
         int route_index = -1;
@@ -631,51 +607,49 @@ static int handle_one_pkt(struct ethernet_pkt *pkt) {
         struct link_entry * link = NULL;
 
         route_index = matches[i];
-	
-        PrintDebug("Vnet: HandleDataOverLink: Forward packet from link according to Route entry %d\n", route_index);
-	
         link_index = g_routes.routes[route_index]->link_idx;
 
-        if ((link_index < 0) || 
-	     (link_index > MAX_LINKS) || 
+        if ((link_index < 0) || (link_index > MAX_LINKS) || 
 	     (g_links.links[link_index] == NULL)) {
 	     continue;
 	 }
 	
         link = g_links.links[link_index];
         pkt_len = pkt->size;
-        if (g_routes.routes[route_index]->link_type == LINK_EDGE) {
+        if (link->type == LINK_EDGE) {
 
 	      //apply the header in the beginning of the packet to be sent
             if (link->dst_link->pro_type == UDP_TYPE) {
                 struct udp_link_header *hdr = &(link->dst_link->vnet_header);
                 struct ip_header *ip = &hdr->ip_hdr;
                 struct udp_header *udp = &hdr->udp_hdr;
-		   udp->len = pkt_len + sizeof(struct udp_header);
-		   ip->total_len = pkt_len + sizeof(struct udp_header) + sizeof(struct ip_header);
-		   ip->cksum = ip_xsum(ip, sizeof(struct ip_header));
+		  udp->len = pkt_len + sizeof(struct udp_header);
+		  ip->total_len = pkt_len + sizeof(struct udp_header) + sizeof(struct ip_header);
+		  ip->cksum = ip_xsum(ip, sizeof(struct ip_header));
 		
                 int hdr_size = sizeof(struct udp_link_header);
                 memcpy(&pkt->ext_hdr, hdr, hdr_size);
 
                 pkt_len += hdr_size;
                 if ((link->dst_link->input((uchar_t *)&pkt->ext_hdr, pkt_len, link->dst_link->private_data)) != pkt_len) {
-                    PrintDebug("VNET: Packet not sent properly\n");
-                    return -1;
+                    PrintDebug("VNET: Packet not sent properly to link: %d\n", link_index);
+                    continue;
                 }
 	     }else {
                 PrintDebug("VNET: Link protocol type not support\n");
-                return -1;
+                continue;
 	     }
-        } else if (g_routes.routes[route_index]->link_type == LINK_INTERFACE) {
+        } else if (link->type == LINK_INTERFACE) {
             if ((link->dst_dev->input(pkt->data, pkt_len, link->dst_dev->private_data)) != pkt_len) {
-		   PrintDebug("VNET: Packet not sent properly\n");
-		   return -1;
+                PrintDebug("VNET: Packet not sent properly to link: %d\n", link_index);
+                continue;
 	     }
         } else {
-            PrintDebug("Vnet: Wrong Edge type\n");
-            return -1;
+            PrintDebug("Vnet: Wrong Edge type of link: %d\n", link_index);
+            continue;
         }
+
+        PrintDebug("Vnet: HandleDataOverLink: Forward packet according to Route entry %d to link %d\n", route_index, link_index);
     }
     
     return 0;
@@ -695,7 +669,10 @@ static int send_ethernet_pkt(uchar_t *data, int len) {
     ethernet_packet_init(pkt, data, len);  //====here we copy sending data once 
 	
     PrintDebug("VNET: vm_send_pkt: transmitting packet: (size:%d)\n", (int)pkt->size);
+
+#ifdef CONFIG_DEBUG_VNET
     print_packet((char *)data, len);
+#endif
     
     v3_enqueue(g_inpkt_q, (addr_t)pkt);
 
@@ -740,14 +717,12 @@ int vnet_register_device(struct vm_device * vdev,
     struct vnet_if_device * if_dev;
 
     int idx = search_device(dev_name);
-
     if (idx != -1) {
 	PrintDebug("VNET: register device: Already has device with the name %s\n", dev_name);
 	return -1;
     }
     
-    if_dev = (struct vnet_if_device *)(sizeof(struct vnet_if_device));
-    
+    if_dev = (struct vnet_if_device *)V3_Malloc(sizeof(struct vnet_if_device)); 
     if (if_dev == NULL) {
 	PrintError("VNET: Malloc fails\n");
 	return -1;
@@ -759,15 +734,12 @@ int vnet_register_device(struct vm_device * vdev,
     if_dev->input = netif_input;
     if_dev->private_data = data;
 
-    struct link_entry * link = (struct link_entry *)(sizeof(struct link_entry));
-
+    struct link_entry * link = (struct link_entry *)V3_Malloc(sizeof(struct link_entry));
     link->type = LINK_INTERFACE;
     link->dst_dev = if_dev;
 
     idx = __add_link_entry(link);
 
-    PrintDebug("VNET: Add device %s to link table, idx %d", dev_name, idx);
-    
     return idx;
 }
 
@@ -798,24 +770,20 @@ static int vnet_unregister_device(char * dev_name) {
 int v3_vnet_pkt_process() {
     struct ethernet_pkt * pkt;
 
-    PrintDebug("VNET: In vnet_check\n");
-	
     while ((pkt = (struct ethernet_pkt *)v3_dequeue(g_inpkt_q)) != NULL) {
-	PrintDebug("VNET: In vnet_check: pt length %d, pt type %d\n", (int)pkt->size, (int)pkt->type);
-	v3_hexdump(pkt->data, pkt->size, NULL, 0);
+        PrintDebug("VNET: In vnet_check: pt length %d, pt type %d\n", (int)pkt->size, (int)pkt->type);
+
+        if (handle_one_pkt(pkt) != -1) {
+            PrintDebug("VNET: vnet_check: handle one packet!\n");  
+        } else {
+            PrintDebug("VNET: vnet_check: Fail to forward one packet, discard it!\n"); 
+        }
 	
-	if (handle_one_pkt(pkt)) {
-	    PrintDebug("VNET: vnet_check: handle one packet!\n");  
-	} else {
-	    PrintError("VNET: vnet_check: fail to forward one packet, discard it!\n"); 
-	}
-	
-	V3_Free(pkt); // be careful here
+        V3_Free(pkt); // be careful here
     }
     
     return 0;
 }
-
 
 static void init_empty_link_table() {
     int i;
@@ -958,7 +926,6 @@ static int addto_routing_link_tables(struct routing_entry *route_tab,
 	new_route = NULL;	
     }
 
-
     return 0;
 }
 
@@ -977,11 +944,12 @@ static int handle_init_tables_hcall(struct guest_info * info, uint_t hcall_id, v
     struct link_entry *link_array;
     struct routing_entry *route_array;   
 
+    PrintDebug("Vnet: In handle_init_tables_hcall\n");
+
     if (guest_va_to_host_va(info, guest_addr, &info_addr) == -1) {
 	PrintError("VNET: Could not translate guest address\n");
 	return -1;
     }
-
     init_info = (struct table_init_info *)info_addr;
 
     if (guest_va_to_host_va(info, init_info->routing_table_start, &route_addr) == -1) {
@@ -1000,7 +968,6 @@ static int handle_init_tables_hcall(struct guest_info * info, uint_t hcall_id, v
     
     return 0;
 }
-
 
 void v3_vnet_init(struct guest_info * vm) {
     init_tables();
