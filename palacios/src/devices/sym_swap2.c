@@ -571,7 +571,7 @@ static int connect_fn(struct guest_info * info,
 	swap->active = 0;
 
 	swap->cache_base_addr = (addr_t)V3_AllocPages(swap->cache_size / 4096);
-	swap->cache = (uint8_t *)V3_VAddr((void *)(swap->cache_base_addr));
+	swap->cache = (uint8_t *)V3_VAddr((void *)(addr_t)(swap->cache_base_addr));
 	memset(swap->cache, 0, swap->cache_size);
     }
 

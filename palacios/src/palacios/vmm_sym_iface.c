@@ -95,14 +95,14 @@ static int msr_write(uint_t msr, struct v3_msr src, void * priv_data) {
     struct v3_sym_state * state = &(info->vm_info->sym_state);
 
     if (msr == SYM_PAGE_MSR) {
-	PrintDebug("Symbiotic MSR write for page %p\n", (void *)src.value);
+	PrintDebug("Symbiotic MSR write for page %p\n", (void *)(addr_t)src.value);
 
 	if (state->active == 1) {
 	    // unmap page
 	    struct v3_shadow_region * old_reg = v3_get_shadow_region(info->vm_info, (addr_t)state->guest_pg_addr);
 
 	    if (old_reg == NULL) {
-		PrintError("Could not find previously active symbiotic page (%p)\n", (void *)state->guest_pg_addr);
+		PrintError("Could not find previously active symbiotic page (%p)\n", (void *)(addr_t)state->guest_pg_addr);
 		return -1;
 	    }
 
