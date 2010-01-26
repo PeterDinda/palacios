@@ -149,19 +149,6 @@ config DEBUG_VIRTIO_NET
           Enable debugging for the Linux Virtio Network Device
 
 
-config NE2K
-	bool "NE2K"
-	depends on EXPERIMENTAL
-	default n
-	help
-	  Includes the Virtual NE2K network card
-
-config DEBUG_NE2k
-	bool "NE2K debugging"
-	depends on NE2k && DEBUG_ON
-	help 
-	  Enable debugging for the NE2K
-
 
 
 

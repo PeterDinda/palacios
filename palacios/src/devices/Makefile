@@ -19,7 +19,6 @@ obj-$(CONFIG_SYM_SWAP) += sym_swap.o
 obj-$(CONFIG_SYM_SWAP2) += sym_swap2.o
 obj-$(CONFIG_DISK_MODEL) += disk_model.o
 
-obj-$(CONFIG_NE2K) += ne2k.o
 
 obj-$(CONFIG_TMPDISK) += tmpdisk.o
 obj-$(CONFIG_RAMDISK) += ramdisk.o 
