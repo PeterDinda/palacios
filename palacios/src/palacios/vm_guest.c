@@ -310,7 +310,7 @@ void v3_print_stack(struct guest_info * info) {
     // We start i at one because the current stack pointer points to an unused stack element
     for (i = 0; i <= 24; i++) {
 	if (cpu_mode == LONG) {
-	    V3_Print("\t%p\n", (void *)*(uint64_t *)(host_addr + (i * 8)));
+	    V3_Print("\t%p\n", (void *)*(addr_t *)(host_addr + (i * 8)));
 	} else if (cpu_mode == REAL) {
 	    V3_Print("Don't currently handle 16 bit stacks... \n");
 	} else {

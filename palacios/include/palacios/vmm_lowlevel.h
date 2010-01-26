@@ -69,11 +69,24 @@ struct sys_segment64 {
 static void __inline__ v3_cpuid(uint32_t target, 
 				uint32_t * eax, uint32_t * ebx, 
 				uint32_t * ecx, uint32_t * edx) {
+#ifdef __V3_64BIT__
     __asm__ __volatile__ (
 			  "cpuid\n\t"
 			  : "=a" (*eax), "=b" (*ebx), "=c" (*ecx), "=d" (*edx)
 			  : "0" (target), "2" (*ecx)
 			  );
+#elif __V3_32BIT__
+    // 32 bit code compiled with -fPIC, cannot use ebx as an ouput reg. Fantastic.
+    __asm__ __volatile__ (
+			  "pushl %%ebx\n\t"
+			  "movl %%edi, %%ebx\n\t"
+			  "cpuid\n\t"
+			  "movl %%ebx, %%edi\n\t"
+			  "popl %%ebx\n\t"
+			  : "=a" (*eax), "=D" (*ebx), "=c" (*ecx), "=d" (*edx)
+			  : "0" (target), "2" (*ecx)
+			  );
+#endif
     return;
 }
 
