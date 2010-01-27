@@ -206,67 +206,15 @@ option
 Additionally, if you are using the ``\verb|root_files|" file to create devices
 files, add the ``\verb|root_files|" file path, separated by a space, after the
 initial ramdisk filesystem directory. When you are finished configuring the
-kernel, save your configuration, and type the following:
+kernel, save your configuration, and build a bootable ISO image:
 
 \begin{verbatim}
-[jdoe@newskysaw linux-2.6.30.y]$ make ARCH=i386
+[jdoe@newskysaw linux-2.6.30.y]$ make ARCH=i386 isoimage
 \end{verbatim}
 
 \noindent
-The Linux kernel can be found here: ``\verb|arch/x86/boot/bzImage|". The initial
-ramdisk filesystem can be found here: ``\verb|usr/initramfs_data.cpio|". The
-Linux kernel and initial ramdisk filesystem are used to build the Linux ISO
-image in the section Building the Linux ISO image.
-
-
-\section{Building the Linux ISO image}
-
-The Linux ISO image is a bootable image containing the Linux kernel, initial
-ramdisk filesystem, a boot loader, and a boot loader configuration file. For
-this procedure, we'll use the ``\verb|test/iso/|" directory as the Linux ISO
-build directory:
-
-\begin{verbatim}
-[jdoe@newskysaw test]$ mkdir iso
-\end{verbatim}
-
-\noindent
-Change to the ``\verb|iso/|" directory and copy the required files:
-
-\begin{verbatim}
-[jdoe@newskysaw iso]$ cp ../linux-2.6.30.y/arch/x86/boot/bzImage vmlinuz
-[jdoe@newskysaw iso]$ cp ../linux-2.6.30.y/usr/initramfs_data.cpio initramfs
-[jdoe@newskysaw iso]$ cp /usr/lib/syslinux/isolinux.bin .
-\end{verbatim}
-
-\noindent
-Create a file called ``\verb|isolinux.cfg|" and add the following lines:
-
-\begin{verbatim}
-default linux
-prompt 0
-
-label linux
-  kernel vmlinuz
-  append initrd=initrd
-\end{verbatim}
-
-\noindent
-Change back to the ``\verb|test/|" directory and build the Linux ISO image:
-
-\begin{verbatim}
-[jdoe@newskysaw test]$ mkisofs -o linux.iso -b isolinux.bin -no-emul-boot \
--boot-load-size 4 -boot-info-table -iso-level 2 -input-charset UTF-8 iso/
-\end{verbatim}
-
-\noindent
-The ``\verb|linux.iso|'' file is the Linux ISO image and is used to build the
-guest image in the section Configuring and building the guest image:
-
-\begin{verbatim}
-[jdoe@newskysaw test]$ file linux.iso
-linux.iso: ISO 9660 CD-ROM filesystem data 'CDROM                          ' (bootable)
-\end{verbatim}
+The ISO image can be found here: ``\verb|arch/x86/boot/image.iso|", and will be
+used in the section Configuring and building the guest image.
 
 
 \section{Configuring and building the guest image}
@@ -306,7 +254,7 @@ out this attribute:
 Add an attribute that specifies the location of the Linux ISO image:
 
 \begin{verbatim}
-<file id="boot-cd" filename="../../../linux.iso" />
+<file id="boot-cd" filename="../../../linux-2.6.30.y/arch/x86/boot/image.iso" />
 \end{verbatim}
 
 \noindent

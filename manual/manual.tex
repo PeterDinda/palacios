@@ -64,7 +64,7 @@ uses both the centralized repository and distributed development
 models. A central repository exists that holds the master version of
 the code base. This central repository is cloned by multiple people
 and in multiple places to support various development efforts. A
-feature of \texttt{git} is that every developer actually has a fully copy of
+feature of \texttt{git} is that every developer actually has a full copy of
 the entire repository, and so can function independently until such
 time as they need to re-sync with the master version. 
 
@@ -124,7 +124,7 @@ On any other machine, you can clone the repository via ssh, provided
 you have a newskysaw account:
  
 \begin{verbatim}
-git clone ssh://you@newskysaw.cs.northwestern.edu//home/palaicos/palacios
+git clone ssh://you@newskysaw.cs.northwestern.edu//home/palacios/palacios
 \end{verbatim}
 
 External developers can clone the public repository via the web.  The
@@ -171,7 +171,7 @@ Kitten is available from Sandia National Labs, and is the main host OS
 we are targeting with Palacios. Loosely speaking, core Palacios
 developers are internal Kitten developers, and internal Palacios
 developers are external Kitten developers. The public repository for
-Kitten is at {\em http://code.google.com/kitten}.  To simplify things,
+Kitten is at {\em http://code.google.com/p/kitten}.  To simplify things,
 we are maintaining a local mirror copy in {\em /home/palacios/kitten}
 that tracks the public repository.
 
@@ -205,8 +205,8 @@ the same directory level. The Kitten build process depends on this.
 {\em Important:} Like Palacios, Kitten is under active development,
 and its source tree is frequently changing. In order to keep up to
 date with the latest version, it is necessary to periodically pull the
-latest changes from the mirror repository by running \verb.hg.
-pull. followed by \verb.hg update..
+latest changes from the mirror repository by running \verb.hg pull.
+followed by \verb.hg update..
 
 \section{Compiling Palacios}
 
@@ -268,7 +268,7 @@ to leave VNET turned off.  VNET is an experimental VMM-embedded
 overlay network under development by Lei Xia and Yuan Tang.
 \item Enable built-in versions of stdlib functions --- this adds
 needed stdlib functions that the host OS may not supply.  For use with
-Kitten turn on and enable strncasecmp() and atoi().
+Kitten turn on and enable strcasecmp() and atoi().
 \item Enable built-in versions of stdio functions (off)
 \end{itemize}
 \item Symbiotic Functions (these are experimental options for Jack
@@ -277,7 +277,7 @@ Lange's thesis).
 \item Enable Symbiotic Functionality --- This adds symbiotic features
 to Palacios, specifically support for discovery and configuration by
 symbiotic guests, the SymSpy passive information interface for
-asynchronous symtiotic guest $\leftrightarrow$ symbiotic VMM
+asynchronous symbiotic guest $\leftrightarrow$ symbiotic VMM
 information flow, and the SymCall functional interface for synchronous
 symbiotic VMM $\rightarrow$ symbiotic guest upcalls.  (on)
 \item Symbiotic Swap --- Enables the SwapBypass symbiotic service for
@@ -483,7 +483,7 @@ make isoimage
 \end{verbatim}
 This command will compile Kitten (with Palacios embedded in it) and
 the init task (which will contain the guest OS blob), and then
-assemble an ISO image file which can used to boot a machine.  The ISO
+assemble an ISO image file which can be used to boot a machine.  The ISO
 image is located at {\em ./arch/x86\_64/boot/image.iso}.  
 
 This image file can be used for booting a QEMU emulation environment,
@@ -509,7 +509,7 @@ file, named {\em default.xml}.   We typically use this file as a
 template.  It is carefully commented.  In summary, a configuration
 consists of
 \begin{itemize}
-\item Physical memory size of the gust
+\item Physical memory size of the guest
 \item Basic VMM settings, such as what form of virtual paging is to be
 used, the scheduler rate, whether services like telemetry are on, etc.
 \item A memory map that maps regions of the host physical address
@@ -520,8 +520,8 @@ For example, the contents of a boot CD.
 \item A list of the devices that the guest will have, including
 configuration data for each device.
 \end{itemize}
-There are a few subtlies involved with devices.  One is that some
-devices form attachement points for other devices.  The PCI device is
+There are a few subtleties involved with devices.  One is that some
+devices form attachment points for other devices.  The PCI device is
 an example of this.  Another is that each device needs to define how
 it is attached (e.g. direct (implicit), via a PCI bus, etc.)
 Finally, there may be multiple instances of devices.   For example, a
@@ -755,8 +755,8 @@ newskysaw} in \verb./opt/vmm-tools/bin/.
 
 Brief command overview:
 \begin{itemize}
-\item \verb.stg init. -- Initialize stacked git in a given branch
-\item \verb.stg new. -- create a new patch set, an editor will open
+\item \verb.stg init. -- initialize stacked git in a given branch
+\item \verb.stg new. -- create a new patch set; an editor will open
 asking for a commit message that will be used when the patch is
 ultimately committed.
 \item \verb.stg pop. -- pops a patch off of the source tree.
@@ -765,14 +765,14 @@ ultimately committed.
 that can then be emailed.
 \item \verb.stg refresh. -- commits local changes to the patch set at
 the top of the applied stack.
-\item \verb.stg fold. -- Apply a patch file to the current
-pat1ch. (This is how you can manage revisions that are made by other developers).
+\item \verb.stg fold. -- apply a patch file to the current
+patch. (This is how you can manage revisions that are made by other developers).
 \end{itemize}
 
 You should definitely look at the online documentation to better
 understand how stacked git works. It is not required of course, but if
-you want your changes to be applied its up to you to generate a patch
-that is acceptable to a core developer. Ultimately using Stacked git
+you want your changes to be applied it's up to you to generate a patch
+that is acceptable to a core developer. Ultimately, using Stacked git
 should be easier than going it alone.
 
 
