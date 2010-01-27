@@ -1,32 +1,98 @@
-
 \documentclass[11pt]{article}
+\usepackage{times}
+\usepackage{fullpage}
 
 \begin{document}
 
 \title{\ \\ \LARGE\bf
-Booting Kitten using PXE
+Booting Palacios/Kitten Over the Network Using PXE
 }
 
 \author{Yuan Tang, Lei Xia}
 
 \maketitle
 
-PXE allows us to boot up Kitten/Palacios remotely from a network server, which makes testing Palacios on physical machine more easily. Following is the instruction on how to set up the PXE server.
+PXE allows us to boot Kitten/Palacios (and a test guest) remotely from
+a network server, which makes testing Palacios on physical machines
+much easier.  The following gives instructions on how to set up the
+PXE server and client.  Although we explain this specifically in the
+context of Kitten/Palacios, PXE can be used to network boot most
+operating systems.
 
-\section{Requirements}
 
+In the following, we will assume there are two machines:
 \begin{itemize}
-\item DHCP server. DHCP enables Kitten booting machine get an IP address automatically from the PXE server.
-\item TFTP server. When booting machine starts, TFTP allows it to download Kitten kernel image and initial root file system from PXE sever.
-\item {\em bzImage} and {\em init\_task}. The Kitten/Palacios boot image file and the inital root file system image. After booting machine starts, it will be copied through TFTP. After building your Kitten, these two files are typically located at:
-\begin{verbatim}
-    your_kitten_path/arch/x86_64/boot/bzImage
-    your_kitten_path/init_task
-\end{verbatim}
+\item {\em Server:}  This machine will serve Kitten/Palacios kernels over the network to client machines.
+\item {\em Client:}  This machine will request Kitten/Palacios kernels from the server machine.
 \end{itemize}
 
-\section{DHCP Setup}
-Install the DHCP service, and configure the file {\em /etc/dhcpd.conf}, add the booting machine's MAC address into config file, allow the booting machine to get IP address from DHCP server at booting time.
+\section{How does it work?}
+
+When the client machine starts up, PXE will first make a DHCP request
+to retrieve a temporary IP configuration.   The server will respond to
+this request.   Part of the response will indicate that the client
+should reconnect back to the server (this time using TCP or UDP) to
+retrieve more data using FTP.  The client will do so.  The server will
+respond by sending a small bootloader, the kernel, and additional
+files.   The client copies this content into relevant memory locations
+and jumps to it.   The bootloader then boots the kernel.    In the
+typical case with Palacios/Kitten, the kernel contains Kitten and
+Palacios, while the additional file contains the init task, which in
+turn has the guest image that's being tested embedded in it. 
+
+
+
+\section{What will we boot?}
+
+PXE can be used to build quite complex boot paths.   For testing
+Palacios/Kitten, there are typically only two files involved, however:
+\begin{itemize}
+\item {\em  bzImage}:  This is the Kitten/Palacios kernel, typically
+located\\
+at \verb!your_kitten_path/arch/x86_64/boot/bzImage!.
+\item {\em init\_task}:  This is the Kitten init task.   It also
+contains the guest image that will be used for testing.  It is
+typically located at \verb!your_kitten_path/init_task!. 
+\end{itemize}
+
+For booting, we copy these files into \verb./tftpboot. on the server. 
+
+
+\section{Client requirements}
+
+PXE is a service that is implemented in the client machine's BIOS or
+on a network card's BIOS extensions.  Most modern machines, even
+inexpensive desktops and laptops, support it but have it turned off by
+default.  To turn it on, power cycle the client and enter the BIOS.
+There may be an option to enable it here, probably under local
+devices/networking.  If you can't find an option there, power cycle
+again and wait for the BIOS bootstrap message about your network
+card.  There should be an option to hit a key to go into its
+configuration screen, in which you should be able to turn on PXE.  
+
+\section{Server requirements}
+
+\begin{itemize}
+\item DHCP server. DHCP enables the client get an IP address, and
+other configuration data automatically from the server.   
+\item TFTP server.  After the client has an IP address, it will
+connect back to the TFTP server it to download the kernel and other
+files from the server.
+\item Firewall rules that allow access from the client to the DHCP
+server and TFTP server.  DHCP typically requires ports 67 and 68,
+while TFTP typically uses port 69.
+\item PXELINUX boot loader (\verb!pxelinux.0!) installed in
+\verb./tftpboot..  You may also want to have \verb.memdisk. in the
+same directory if you need to boot more ancient things. 
+\end{itemize}
+
+
+\section{DHCP setup on the server}
+
+Install the DHCP service, and configure the file {\em
+/etc/dhcpd.conf}.  You want to add the client's Ethernet MAC address
+to config file, allow the client to get an IP address/config from
+DHCP server at boot time.   Here is an example configuration:  
 \begin{verbatim}
     option domain-name "cs.northwestern.edu";
     default-lease-time 600;
@@ -55,6 +121,10 @@ Install the DHCP service, and configure the file {\em /etc/dhcpd.conf}, add the 
       }
     } 
 \end{verbatim}
+
+Notice that you can readily add additional client machines by adding
+new \verb.host. entries.
+
 Now you can start the DHCP server.
 \begin{verbatim}
 [jdoe@newskysaw test]$ service dhcpd restart
@@ -62,7 +132,11 @@ Now you can start the DHCP server.
 
 
 \section{TFTP Setup}
-After installing the tftp service, enables the tftp by editing the file {\em /etc/xinetd.d/tftp} (which looks like as below), just delete the line {\em disable = yes} in the configure file.
+
+After installing the tftp service, enable it by editing the file {\em
+/etc/xinetd.d/tftp} so that it looks similar to the following.
+Typically you can just delete the line {\em disable = yes}.
+
 \begin{verbatim}
     service tftp
     {
@@ -78,25 +152,38 @@ After installing the tftp service, enables the tftp by editing the file {\em /et
     }
 
 \end{verbatim}
-Then copy the Kitten boot images to the tftp boot directory, which typically locates at {\em /tftpboot}:
+
+You can now the Kitten/Palacios kernel and init task to the tftp boot
+directory, which typically is  {\em /tftpboot}:
 \begin{verbatim}
-[jdoe@newskysaw test]$ cp your_kitten_path/arch/x86_64/boot/bzImage /tftpboot/bzImage
+[jdoe@newskysaw test]$ cp your_kitten_path/arch/x86_64/boot/bzImage  \
+                              /tftpboot/bzImage
 [jdoe@newskysaw test]$ cp your_kitten_path/init_task /tftpboot/init_task
 \end{verbatim}
-Now start the TFTP service.
+
+You will also want to be sure that you have copied \verb!pxelinux.0!
+and \verb.memdisk. to \verb./tftpboot/.  
+
+You can now start the TFTP service:
 \begin{verbatim}
     service xinetd restart
 \end{verbatim}
 
+
 \section{PXE Configuration}
-In this step we will set up the PXE booting configuration. 
-Create the directory {\em pxelinux.cfg} in {\em /tftpboot}.In {\em pxelinux.cfg}, create a new file with the filename as the booting machine's MAC address.
+
+We will now set up the PXE boot configuration.  Create the
+directory {\em pxelinux.cfg} in {\em /tftpboot}.  In {\em pxelinux.cfg},
+create a new file with the filename as the client's MAC
+address, prefaced with \verb.01-.:
 \begin{verbatim}
 [jdoe@newskysaw test]$ cd /tftpboot
 [jdoe@newskysaw test]$ cd pxelinux.cfg
 [jdoe@newskysaw test]$ touch 01-00-1b-21-41-cf-4c
 \end{verbatim}
-Edit the booting configuration file {\em 01-00-1b-21-41-cf-4c}, make sure replace the kernel image and init image files with yours.
+Edit this new confuration file ({\em 01-00-1b-21-41-cf-4c} here), to
+set up a boot option for the machine.   For Kitten/Palacios testing,
+the option typically looks like this:
 \begin{verbatim}
     default kitten
     label kitten
@@ -106,15 +193,57 @@ Edit the booting configuration file {\em 01-00-1b-21-41-cf-4c}, make sure replac
     prompt 1 
     timeout 20
 \end{verbatim}
-Also, you can add more than one booting options.
+
+Notice that your kernel bzImage file, and the init task file are both
+referenced.  These are the copies that are /tftpboot.  You can have
+multiple options in the configuration file, each with a different
+label.   You can learn more about these configurations by reading
+about PXELINUX.  
+
+You can readily add additional machines simply by creating files
+reflecting their MAC addresses.   This allows for one PXE server to
+support numerous test machines and developers.
+
 \section{Testing}
 
-At this point things should be ready to go. Power on the client machine, select network booting. PXE should then go searching for the DHCP server, It will get an IP address and then try to grab (via TFTP) the booting image files. Finally, the kernel should proceed to boot Kitten.
+At this point things should be ready to go. Power on the client
+machine, select network booting if prompted. PXE should then go
+searching for the DHCP server, find our server, configure, and then
+continue the boot process via TFTP.  Within seconds, you will see 
+the Kitten/Palacios kernel start to boot.
 
-If the client fails to connect to the PXE server, you should check the firewall settings, make sure to allow the booting client's connection request.
+If the client fails to connect to the PXE server, you should check the
+firewall settings, making sure they allow the client's connection
+requests.   Also, make sure the DHCP and TFTP services are actually
+running. 
+
+\section{Serial}
+
+For testing, it is usually a good idea to connect the client machine
+to some other machine via the serial port.   Palacios and Kitten
+produce debugging and logging output via serial communication.   To
+connect two machines, you will want a null modem RS232 cable.
+Palacios and Kitten typically use 115200 bps communication.   If your
+machine's serial port is /dev/ttyS0, then execute the following to see
+the output:
+\begin{verbatim}
+stty -F /dev/ttyS0 115200
+cat /dev/ttyS0
+\end{verbatim}
+
+Typical machines with a single port on the machine typically actually
+have a dual UART.   If you have such a machine, you may want to try
+\verb./dev/ttyS1. if \verb./dev/ttyS0. doesn't work.  
+
+We have also experienced some challenges using SIIG multiport serial
+interfaces, but these can usually be cleared up by configuring them
+using:
+\begin{verbatim}
+setserial /dev/ttySn uart 16950 baud_base 115200
+\end{verbatim}
+
+
 \end{document}
-
-
 
 
 
