@@ -363,33 +363,33 @@ static int v3_xml_close_tag(struct v3_xml_root * root, char * name, char * s) {
     return 0;
 }
 
-// checks for circular entity references, returns non-zero if no circular
-// references are found, zero otherwise
-static int v3_xml_ent_ok(char * name, char * s, char ** ent) {
-    int i;
-
-    for (; ; s++) {
-        while ((*s != '\0') && (*s != '&')) {
-	    // find next entity reference
-	    s++; 
-	}
-
-        if (*s == '\0') {
-	    return 1;
-	}
-
-        if (strncmp(s + 1, name, strlen(name)) == 0) {
-	    // circular ref.
-	    return 0;
-	}
-
-        for (i = 0; (ent[i]) && (strncmp(ent[i], s + 1, strlen(ent[i]))); i += 2);
-
-        if ((ent[i] != NULL) && (v3_xml_ent_ok(name, ent[i + 1], ent) == 0)) {
-	    return 0;
-	}
-    }
-}
+//// checks for circular entity references, returns non-zero if no circular
+//// references are found, zero otherwise
+//static int v3_xml_ent_ok(char * name, char * s, char ** ent) {
+//    int i;
+//
+//    for (; ; s++) {
+//        while ((*s != '\0') && (*s != '&')) {
+//        // find next entity reference
+//        s++;
+//        }
+//
+//        if (*s == '\0') {
+//        return 1;
+//        }
+//
+//        if (strncmp(s + 1, name, strlen(name)) == 0) {
+//        // circular ref.
+//        return 0;
+//        }
+//
+//        for (i = 0; (ent[i]) && (strncmp(ent[i], s + 1, strlen(ent[i]))); i += 2);
+//
+//        if ((ent[i] != NULL) && (v3_xml_ent_ok(name, ent[i + 1], ent) == 0)) {
+//        return 0;
+//        }
+//    }
+//}
 
 
 

@@ -354,8 +354,10 @@ static int key_event_handler(struct guest_info * info,
 	PrintDebug("Toggling Debugging\n");	
 	v3_dbg_enable ^= 1;
     } else if (evt->scan_code == 0x41) { // F7 telemetry dump
-	v3_print_telemetry(info);
-	
+#ifdef CONFIG_TELEMETRY
+    v3_print_telemetry(info);
+#endif // CONFIG_TELEMTRY
+
     }
 
 
