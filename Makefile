@@ -578,6 +578,8 @@ define rule_palacios__
 
 endef
 
+#all
+all: libv3vee.a build_vm guest_os.img
 
 # palacios image - including updated kernel symbols
 libv3vee.a: $(palacios)
@@ -587,6 +589,15 @@ palacios: libv3vee.a
 
 palacios.asm: palacios
 	$(OBJDUMP) --disassemble $< > $@
+
+# guest builder
+build_vm : utils/guest_creator/*.c utils/guest_creator/*.h
+	(cd utils/guest_creator; make)
+	cp utils/guest_creator/build_vm .
+
+guest_os.img: guest_os.iso guest_os.xml build_vm
+	./build_vm guest_os.xml -o guest_os.img
+	
 
 # The actual objects are generated when descending, 
 # make sure no implicit rule kicks in

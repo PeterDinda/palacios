@@ -93,7 +93,7 @@ config DEBUG_KEYBOARD
 
 config LINUX_VIRTIO_BALLOON
 	bool "Linux Virtio Balloon Device"
-	default y
+	default n
 	depends on PCI
 	help 
 	  Includes the Linux virtio balloon device
@@ -108,7 +108,7 @@ config DEBUG_VIRTIO_BALLOON
 
 config LINUX_VIRTIO_BLOCK
 	bool "Linux Virtio Block Device"
-	default y
+	default n
 	depends on PCI
 	help 
 	  Includes the Linux virtio block device
@@ -122,7 +122,7 @@ config DEBUG_VIRTIO_BLOCK
 
 config LINUX_VIRTIO_SYM
 	bool "Linux Virtio Symbiotic Device"
-	default y
+	default n
 	depends on PCI && SYMBIOTIC
 	help 
 	  Includes the Linux virtio symbiotic device
@@ -252,21 +252,21 @@ config TMPDISK
 
 config SYM_SWAP
 	bool "Symbiotic Swap disk"
-	default y
+	default n
 	depends on SYMBIOTIC_SWAP && (LINUX_VIRTIO_BLOCK || IDE)
 	help 
 	  Includes the symbiotic ram based swap disk
 
 config SYM_SWAP2
 	bool "Symbiotic Swap disk v2"
-	default y
+	default n
 	depends on SYMBIOTIC_SWAP && (LINUX_VIRTIO_BLOCK || IDE)
 	help 
 	  Includes the symbiotic ram based swap disk
 
 config DISK_MODEL
 	bool "Disk Performance Model"
-	default y
+	default n
 	depends on LINUX_VIRTIO_BLOCK || IDE
 	help 
 	  Includes Performance model filter for disk operations

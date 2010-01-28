@@ -30,22 +30,29 @@
 \includegraphics[height=1.5in]{v3vee.pdf}
 \includegraphics[height=1.5in]{logo6.png} \\
 \vspace{0.5in} 
-Palacios Internal Developer Manual
+Palacios Internal and External Developer Manual
 }
 
 
 \maketitle
 
 
-This manual is written for internal Palacios developers. It contains
-information on how to obtain the Palacios code base, how to go about
-the development process, and how to commit those changes to the
-mainline source tree.  This assumes that the reader has read {\em An
-Introduction to the Palacios Virtual Machine Monitor -- Release 1.0}
-and also has a slight working knowledge of {\em git}.  You will also
-want to read the document {\em Building a bootable guest image for
-Palacios and Kitten} in order to understand how to build an extremely
-lightweight guest environment, suitable for testing.
+This manual is written for internal and external Palacios
+developers. It contains information on how to obtain the Palacios code
+base, how to go about the development process, and how to commit those
+changes to the mainline source tree.  This assumes that the reader has
+read the technical report {\em An Introduction to the Palacios Virtual
+Machine Monitor -- Release 1.0}\footnote{It's important to note that
+there have been substantial changes in the build process from 1.0 to
+1.2 and beyond.  Hence, the technical report is primarily useful as an
+explanation of the theory of operation of Palacios.  This document is
+the one to consult for the build process.}  and also has a slight
+working knowledge of {\em git}.  You will also want to read the
+document {\em Building a bootable guest image for Palacios and Kitten}
+in order to understand how to build an extremely lightweight guest
+environment, suitable for testing.  If you want to configure network 
+booting for testing on real hardware, you'll want to read the document
+{\em Booting Palacios/Kitten Over the Network Using PXE}.
 
 Please note that Palacios and Kitten are under rapid development,
 hence this manual may very well be out of date!
@@ -114,7 +121,6 @@ On the machine {\em newbehemoth.cs.northwestern.edu} you will want to
 use the following command instead. The {\em newskysaw} home
 directories are NFS-mounted on /home-remote.
 
-
 \begin{verbatim}
 git clone /home-remote/palacios/palacios
 \end{verbatim}
@@ -132,9 +138,14 @@ public repository tracks the release and main development branch
 (e.g., devel) of the internal repository with a 30 minute delay.  The
 access information is available on the web site (http://v3vee.org).
 The web site also includes a publically accessible gitweb interface to
-allow browsing of the public repository.
+allow browsing of the public repository.  The clone command looks like
 
-This creates a local copy of the repository at {\em ./palacios/}.
+\begin{verbatim}
+git clone http://v3vee.org/palacios/palacios.web/palacios.git
+\end{verbatim}
+
+No matter how you clone, the clone command creates a local copy of the
+repository at {\em ./palacios/}.  
 
 Note that both {\em newskysaw} and {\em newbehemoth} have all the
 tools installed that are needed to build and test Palacios and Kitten.
@@ -171,13 +182,14 @@ Kitten is available from Sandia National Labs, and is the main host OS
 we are targeting with Palacios. Loosely speaking, core Palacios
 developers are internal Kitten developers, and internal Palacios
 developers are external Kitten developers. The public repository for
-Kitten is at {\em http://code.google.com/p/kitten}.  To simplify things,
-we are maintaining a local mirror copy in {\em /home/palacios/kitten}
-that tracks the public repository.
+Kitten is at {\em http://code.google.com/p/kitten}.  To simplify
+things, we are maintaining a local mirror copy on newskysaw in {\em
+/home/palacios/kitten} that tracks the public repository.   
 
-Kitten uses Mercurial for their source management, so you will have to
-make sure the local mercurial version is configured correctly.
-Specifically you should add the following Python path to your shell environment.
+Kitten uses Mercurial for source management, so you will have to make
+sure the local Mercurial version is configured correctly.
+Specifically you will probably need to add something like the
+following Python path to your shell environment.
 
 \begin{verbatim}
 export PYTHONPATH=/usr/local/lib64/python2.4/site-packages/
@@ -196,7 +208,10 @@ On other machines, run
 \begin{verbatim}
 hg clone ssh://you@newskysaw.cs.northwestern.edu//home/palacios/kitten
 \end{verbatim}
-
+External developers, run
+\begin{verbatim}
+hg clone https://kitten.googlecode.com/hg/ kitten
+\end{verbatim}
 
 Both the Kitten and Palacios clone commands should be run from the
 same directory. This means that both repositories should be located at
