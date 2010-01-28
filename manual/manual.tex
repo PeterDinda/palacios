@@ -30,22 +30,29 @@
 \includegraphics[height=1.5in]{v3vee.pdf}
 \includegraphics[height=1.5in]{logo6.png} \\
 \vspace{0.5in} 
-Palacios Internal Developer Manual
+Palacios Internal and External Developer Manual
 }
 
 
 \maketitle
 
 
-This manual is written for internal Palacios developers. It contains
-information on how to obtain the Palacios code base, how to go about
-the development process, and how to commit those changes to the
-mainline source tree.  This assumes that the reader has read {\em An
-Introduction to the Palacios Virtual Machine Monitor -- Release 1.0}
-and also has a slight working knowledge of {\em git}.  You will also
-want to read the document {\em Building a bootable guest image for
-Palacios and Kitten} in order to understand how to build an extremely
-lightweight guest environment, suitable for testing.
+This manual is written for internal and external Palacios
+developers. It contains information on how to obtain the Palacios code
+base, how to go about the development process, and how to commit those
+changes to the mainline source tree.  This assumes that the reader has
+read the technical report {\em An Introduction to the Palacios Virtual
+Machine Monitor -- Release 1.0}\footnote{It's important to note that
+there have been substantial changes in the build process from 1.0 to
+1.2 and beyond.  Hence, the technical report is primarily useful as an
+explanation of the theory of operation of Palacios.  This document is
+the one to consult for the build process.}  and also has a slight
+working knowledge of {\em git}.  You will also want to read the
+document {\em Building a bootable guest image for Palacios and Kitten}
+in order to understand how to build an extremely lightweight guest
+environment, suitable for testing.  If you want to configure network 
+booting for testing on real hardware, you'll want to read the document
+{\em Booting Palacios/Kitten Over the Network Using PXE}.
 
 Please note that Palacios and Kitten are under rapid development,
 hence this manual may very well be out of date!
@@ -114,7 +121,6 @@ On the machine {\em newbehemoth.cs.northwestern.edu} you will want to
 use the following command instead. The {\em newskysaw} home
 directories are NFS-mounted on /home-remote.
 
-
 \begin{verbatim}
 git clone /home-remote/palacios/palacios
 \end{verbatim}
@@ -132,9 +138,14 @@ public repository tracks the release and main development branch
 (e.g., devel) of the internal repository with a 30 minute delay.  The
 access information is available on the web site (http://v3vee.org).
 The web site also includes a publically accessible gitweb interface to
-allow browsing of the public repository.
+allow browsing of the public repository.  The clone command looks like
 
-This creates a local copy of the repository at {\em ./palacios/}.
+\begin{verbatim}
+git clone http://v3vee.org/palacios/palacios.web/palacios.git
+\end{verbatim}
+
+No matter how you clone, the clone command creates a local copy of the
+repository at {\em ./palacios/}.  
 
 Note that both {\em newskysaw} and {\em newbehemoth} have all the
 tools installed that are needed to build and test Palacios and Kitten.
@@ -157,11 +168,27 @@ or
 /opt/vmm-tools/bin/checkout_branch devel
 \end{verbatim}
 
-{\em Important:}
-Note that Palacios is very actively developed so the contents of the
-{\em devel} branch are frequently changing. In order to keep up to
-date with the latest version, it is necessary to periodically pull the
-latest changes from the master repository by running \verb.git pull..
+
+{\em Important:} Note that Palacios is very actively developed so the
+contents of the {\em devel} branch are frequently changing (and
+broken!). In order to keep up to date with the latest version, it is
+necessary to periodically pull the latest changes from the master
+repository by running \verb.git pull..
+
+
+The released versions of Palacios are, currently, 1.0, 1.1, and 1.2.
+To switch to the current release branch, execute
+
+\begin{verbatim}
+git checkout --track -b Release-1.2 origin/Release-1.2
+\end{verbatim}
+
+or 
+
+\begin{verbatim}
+/opt/vmm-tools/bin/checkout_branch Release-1.2
+\end{verbatim}
+
 
 
 
@@ -171,13 +198,14 @@ Kitten is available from Sandia National Labs, and is the main host OS
 we are targeting with Palacios. Loosely speaking, core Palacios
 developers are internal Kitten developers, and internal Palacios
 developers are external Kitten developers. The public repository for
-Kitten is at {\em http://code.google.com/p/kitten}.  To simplify things,
-we are maintaining a local mirror copy in {\em /home/palacios/kitten}
-that tracks the public repository.
+Kitten is at {\em http://code.google.com/p/kitten}.  To simplify
+things, we are maintaining a local mirror copy on newskysaw in {\em
+/home/palacios/kitten} that tracks the public repository.   
 
-Kitten uses Mercurial for their source management, so you will have to
-make sure the local mercurial version is configured correctly.
-Specifically you should add the following Python path to your shell environment.
+Kitten uses Mercurial for source management, so you will have to make
+sure the local Mercurial version is configured correctly.
+Specifically you will probably need to add something like the
+following Python path to your shell environment.
 
 \begin{verbatim}
 export PYTHONPATH=/usr/local/lib64/python2.4/site-packages/
@@ -196,7 +224,10 @@ On other machines, run
 \begin{verbatim}
 hg clone ssh://you@newskysaw.cs.northwestern.edu//home/palacios/kitten
 \end{verbatim}
-
+External developers, run
+\begin{verbatim}
+hg clone https://kitten.googlecode.com/hg/ kitten
+\end{verbatim}
 
 Both the Kitten and Palacios clone commands should be run from the
 same directory. This means that both repositories should be located at
@@ -204,9 +235,17 @@ the same directory level. The Kitten build process depends on this.
 
 {\em Important:} Like Palacios, Kitten is under active development,
 and its source tree is frequently changing. In order to keep up to
-date with the latest version, it is necessary to periodically pull the
+date with the latest version, it is necessary to periodically pull the  
 latest changes from the mirror repository by running \verb.hg pull.
 followed by \verb.hg update..
+
+The current release of Kitten, which will work correctly with the current 1.2 release of Palacios is 1.2.0. 
+To switch to the current release branch, execute
+
+\begin{verbatim}
+hg checkout release-1.2.0
+\end{verbatim}
+
 
 \section{Compiling Palacios}
 
@@ -244,7 +283,8 @@ Palacios has far fewer options, however.   If you don't have X or
 don't want the graphical configuration system, you can also use the
 \verb.menuconfig. or \verb.config. targets.  The available options
 change over time, so we do not cover all of them here, but here are a
-few that are usually important, with their recommended values noted:
+few that are usually important.  We note how to set these options to
+configure a minimal VMM in the following.  
 \begin{itemize}
 \item Target Configuration:   
 \begin{itemize}
@@ -261,10 +301,10 @@ data collection (on)
 \item Enable VMM instrumentation --- this is heavyweight logging and
 data collection (off)
 \item Enable passthrough video --- this lets a guest write directly to
-the video card (on)
+the video card (off)  (this is outdated and handled in a different way now)
 \item Enable experimental options --- this makes it possible to select
-features that are under current development (on).  You probably want
-to leave VNET turned off.  VNET is an experimental VMM-embedded
+features that are under current development (off).  You probably want
+to leave leave this all off.  The VNET suboption is for an experimental VMM-embedded
 overlay network under development by Lei Xia and Yuan Tang.
 \item Enable built-in versions of stdlib functions --- this adds
 needed stdlib functions that the host OS may not supply.  For use with
@@ -279,7 +319,7 @@ to Palacios, specifically support for discovery and configuration by
 symbiotic guests, the SymSpy passive information interface for
 asynchronous symbiotic guest $\leftrightarrow$ symbiotic VMM
 information flow, and the SymCall functional interface for synchronous
-symbiotic VMM $\rightarrow$ symbiotic guest upcalls.  (on)
+symbiotic VMM $\rightarrow$ symbiotic guest upcalls.  (off)
 \item Symbiotic Swap --- Enables the SwapBypass symbiotic service for
 symbiotic Linux guests.  (off)
 \end{itemize}
@@ -312,6 +352,7 @@ for bootstrap of most guests (on)
 for interrupt delivery on almost all guests (on)
 \item IOAPIC - Off-chip APIC  --- used for interrupt deliver for almost
 all guests (on)
+\item PIT - legacy 8254 timer (on)
 \item i440fx Northbridge --- emulation of a typical PC North Bridge
 chip, used on almost all guests (on)
 \item PIIX3 Southbridge --- emulation of a typical PC South Bridge
@@ -320,7 +361,7 @@ chip, used on almost all guests (on)
 devices (on)   
 \begin{itemize}
 \item Passthrough PCI --- allows us to make a hardware PCI device visible and
-directly accessible by the guest (on)
+directly accessible by the guest (off)
 \end{itemize}
 \item Generic --- this is a run-time configurable device that can intercept I/O port read/writes and memory region reads/writes.   Intercepted reads and writes can either be ignored or forwarded to actual hardware, and the data flow can optionally be printed.   This is a useful tool with at least three purposes.  First, it makes it possible to ``stub out'' hardware that isn't currently implemented and for which we don't want to allow passthrough access. Second, it makes it possible to provide low-level passthrough access to physical hardware.   Third, it can be used to spy on guest/device interactions, which is very helpful when trying to understand the interface of a device.
 \item NVRAM - motherboard configuration memory --- needed by BIOS bootstrap (on)
@@ -340,15 +381,16 @@ access.
 \item RAMDISK storage backend --- used to create RAM disk
 implementations of block devices (on)
 \item NETDISK storage backend --- used to create network-attached disk
-implementations of block devices, e.g., network block devices (on)
+implementations of block devices, e.g., network block devices (off)
 \item TMPDISK storage backend --- used to create temporary storage
 implementations of block devices (on)
 \item Linux Virtio Balloon Device --- used for memory ballooning by
-Linux virtio-compatible guests (on)
+Linux virtio-compatible guests (off)
 \item Linux Virtio Block Device --- used for fast block device support
-by Linux virtio-compatible guests (on)
+by Linux virtio-compatible guests (off)
 \item Linux Virtio Network Device --- used for fast network device support
-by Linux virtio-compatible guests (on) 
+by Linux virtio-compatible guests (off) 
+\item Linux Virtio Symbiotic Device (off)
 \item Symbiotic Swap Disk (multiple versions) --- used for the
 SwapBypass service (off)
 \item Disk Performance Model --- used for the
@@ -363,7 +405,7 @@ compile it by executing
 \begin{verbatim}
 make 
 \end{verbatim}
-This will produce the file {\em libv3vee.a} in the current directory.
+This will produce the file {\em libv3vee.a} in the current directory
 This static library contains the Palacios VMM and is ready for
 embedding into an OS, such as Kitten.  The library provides the
 ability to instantiate and run virtual machines.  By default, on a 64
@@ -374,6 +416,12 @@ make, provided you have the relevant tools available.  The 64 bit
 version is what you need for use with Kitten.  A 64 bit Palacios can
 run both 64 and 32 bit guests.  Both {\em newskysaw} and {\em
 newbehemoth} are 64 bit machines. 
+
+The compilation process will also create the utility {\em build\_vm}
+(which builds guest images from XML description files), and a very
+simple guest image called {\em guest\_os.img} that essentially contains
+a Linux kernel and BusyBox.  The default Kitten configuration will use
+this guest image.
 
 
 \section{Compiling Kitten}
@@ -393,7 +441,8 @@ accessed via any of these make targets.
 \end{itemize}
 
 Of course, there are a range of configuration options.  In the
-following, we note only the most important:
+following, we note only the most important.  The indicated values are
+defaults for the simplest interaction between Kitten and Palacios.
 \begin{itemize}
 \item Target Configuration
 \begin{itemize}
@@ -413,24 +462,25 @@ can be found.
 image that will be embedded.  We will say more about this later.
 Essentially, however, a guest image consists of a blob that begins
 with an XML description of the desired guest environment and the
-contents of the remainder of the blob.   The remainder of the blob
-usually contains disk or cd images.
+contents of the remainder of the blob.  The remainder of the blob
+usually contains disk or cd images.  The default path is
+../palacios/guest\_os.img, where it will find the simple guest created
+during the Palacios build process.
 \end{itemize}
 \item Networking 
 \begin{itemize}
 \item Enable LWIP TCP/IP stack.  This activates a simple TCP/IP stack
-that things like NETDISK can use. (on)
+that things like NETDISK can use. (off)
 \end{itemize}
 \item Device Drivers
 \begin{itemize}
-\item VGA Console --- driver for basic video.  If you turn on
-passthrough video in Palacios, you should turn this off.
+\item VGA Console --- driver for basic video. (on)
 \item Serial Console --- driver for serial port console.  (on)
 \item VM Console --- driver for Kitten console on top of Palacios.  If
 Kitten is run {\em as a guest}, and it has VM Console on, then it can output
-cleanly via the Palacios OS Console device (off).
+cleanly via the Palacios OS Console device (on).
 \item NE2K Device Driver --- driver for NE2K and RTL8139 network cards
-(on)
+(off)
 \item VM Network Driver --- driver for Kitten network output using
 Palacios.  If Kitten is run {\em as a guest}, and it has VM Network
 Driver, then it can send and receive packets using the Palacios Linux
@@ -457,7 +507,7 @@ using KGDB, be sure to turn on debugging in Palacios as well.
 \item Include Linux compatability layer --- if this is on, you can 
 selectively add Linux system calls and other functionality to Kitten.
 Kitten is able to run Linux ELF executables as user processes with
-this layer.   
+this layer. (off)  
 \end{itemize}
 
 The guest OS that is to be booted as a VM is included as a blob
@@ -494,20 +544,22 @@ booting a machine physically.
 \section{Basic Guest Configuration}
 \label{sec:guestconfig}
 
-To configure a guest, you write an XML configuration file, which
-contains references to other files that contain data needed to
-instantiate stateful devices such as virtual hard drives and CD ROMs.
-You supply this information to a guest builder utility that assembles
-a guest image suitable for reference in the Kitten configuration, as
-described above.  
+A simple guest is created when you build Palacios.  To configure your
+own guest, you write an XML configuration file, which contains
+references to other files that contain data needed to instantiate
+stateful devices such as virtual hard drives and CD ROMs.  You supply
+this information to a guest builder utility that assembles a guest
+image suitable for reference in the Kitten configuration, as described
+above.
 
 The guest builder utility is located in {\em
-palacios/utils/guest\_creator}.  You will need to run \verb.make. in that
-directory to compile it, resulting in the executable named {\em
-build\_vm}.  Also located in that directory is an example configuration
-file, named {\em default.xml}.   We typically use this file as a
-template.  It is carefully commented.  In summary, a configuration
-consists of
+palacios/utils/guest\_creator}.  You will need to run \verb.make. in
+that directory to compile it, resulting in the executable named {\em
+build\_vm}\footnote{This executable will also be copied into the top-level
+Palacios directory}.  Also located in that directory is an example
+configuration file, named {\em default.xml}.  We typically use this
+file as a template.  It is carefully commented.  In summary, a
+configuration consists of
 \begin{itemize}
 \item Physical memory size of the guest
 \item Basic VMM settings, such as what form of virtual paging is to be
@@ -593,11 +645,13 @@ to burn the Kitten ISO image onto a CD ROM and then boot the test
 machine with it.  The much faster way is to set the test machine up to
 use the PXE network boot system (most modern BIOSes support this), and
 boot your Kitten image over the network.  The debugging output will
-then appear on the actual serial port of the physical machine.  For
-the Northwestern environment, please talk to Jack Lange or Peter Dinda
-if you need to be able to do this.  Northwestern has a range of AMD
-and Intel boxes for testing, as do UNM and Sandia.    A different form
-of network boot is used for Red Storm. 
+then appear on the actual serial port of the physical machine.  The
+separate document {\em Booting Palacios/Kitten Over the Network Using
+PXE} explains how to set up PXE boot and serial.  For the Northwestern
+environment, please talk to Jack, Peter, Lei, or Yuan if you need to
+be able to do this.  Northwestern has a range of AMD and Intel boxes
+for testing, as do UNM and Sandia.  A different form of network boot
+is used for Red Storm.
 
 
 \section{Development Guidelines}
@@ -716,16 +770,17 @@ with patches easier.
 Git includes support for directly exporting local repository commits
 as a patch set. The basic operation is for a developer to commit a
 change to a local repository, and then export that change as a patch
-that can be applied to another git repository. While this is
-functionally possible, there are a number of issues. The main problem
-is that it is difficult to fully encapsulate a new feature in a single
-commit, and dealing with multiple patches that often overwrite each
-other is not a viable option either. Furthermore, once a patch is
-applied to the mainline, it will generate a conflicting commit that
-will become present when the developer next pulls from the central
+that can be applied to another git repository.  Patch generation is
+done with {\em git format-patch}.  While this is functionally
+possible, there are a number of issues. The main problem is that it is
+difficult to fully encapsulate a new feature in a single commit, and
+dealing with multiple patches that often overwrite each other is not a
+viable option either. Furthermore, once a patch is applied to the
+mainline, it will generate a conflicting commit that will become
+present when the developer next pulls from the central
 repository. This can result in both repositories getting out of
 sync. It is possible to deal with this by manually re-basing the local
-repository, but it is difficult and error-prone. 
+repository, but it is difficult and error-prone.
 
 This approach also does not map well when patches are being revised. A
 normal patch will go through multiple revisions as it is reviewed and
@@ -737,21 +792,22 @@ mainline.
 For this reason most internal developers should seriously consider
 {\em stacked git}. Stacked git is designed to make patch development
 easier and less of a headache. The basic mode of operation is for a
-developer to initialize a patch for a new feature and then continuously
-apply changes to the patch. Stacked Git allows a developer to layer a
-series of patches on top of a local git repository, without causing
-the repository to unsync due to local commits. Basically, the
-developer never commits changes to the repository itself but instead
-commits the changes to a specific patch. The local patches are managed
-using stack operations (push/pop) which allows a developer to apply
-and unapply patches as needed. Stacked git also manages new changes to
-the underlying git repository as a result of a pull operation and
-prevents collisions as changes are propagated upstream. For instance
-if you have a local patch that is applied to the mainline as a commit,
-when the commit is pulled down the patch becomes empty because it is
-effectively identical to the mainline. It also makes incorporating
-external revisions to a patch easier. Stacked git is installed on {\em
-newskysaw} in \verb./opt/vmm-tools/bin/. 
+developer to initialize a patch for a new feature and then
+continuously apply changes to the patch. Stacked Git allows a
+developer to layer a series of patches on top of a local git
+repository, without causing the repository to unsync due to local
+commits. Basically, the developer never commits changes to the
+repository itself but instead commits the changes to a specific
+patch. The local patches are managed using stack operations (push/pop)
+which allows a developer to apply and unapply patches as
+needed. Stacked git also manages new changes to the underlying git
+repository as a result of a pull operation and prevents collisions as
+changes are propagated upstream. For instance if you have a local
+patch that is applied to the mainline as a commit, when the commit is
+pulled down the patch becomes empty because it is effectively
+identical to the mainline. It also makes incorporating external
+revisions to a patch easier. Stacked git is installed on {\em
+newskysaw} and {\em newbehemoth} in \verb./opt/vmm-tools/bin/.
 
 Brief command overview:
 \begin{itemize}
@@ -823,26 +879,17 @@ hg qpush -a
 \end{verbatim}
 
 
-%Also, remember that Kitten is not a Northwestern project and is being
-%developed by professional developers at Sandia National Labs. So keep
-%in mind that you are representing Northwestern and the rest of the
-%Palacios development group. We are collaborating with them because
-%Kitten and the resources they have are very important for our research
-%efforts. They are collaborating with us because they believe that
-%Palacios might be able to help them. Therefore it is important that we
-%continue to ensure that they see value in our collaboration. In plain
-%terms, we need to make sure they think we're smart and know what we're
-%doing. So please keep that in mind when dealing with the Kitten group.
-
 
 \section{Networking}
 
 Both the Kitten and GeekOS substrates on which Palacios can run
 currently include drivers for two simple network cards, the NE2000,
-and the RTL8139.  The Kitten substrate is acquiring an ever increasing
-set of drivers for specialized network systems.   A lightweight
-networking stack is included so that TCP/IP networking is possible
-from within the host OS kernel and in Palacios.  
+and the RTL8139.  Palacios also supports passthrough I/O for PCI
+devices, meaning we can make NICs directly accessible by guests. The
+Kitten substrate is acquiring an ever increasing set of drivers for
+specialized network systems.  A lightweight networking stack is
+included so that TCP/IP networking is possible from within the host OS
+kernel and in Palacios.
 
 When debugging Palacios on QEMU, it is very convenient to add an
 RTL8139 card to your QEMU configuration, and then drive it from within
@@ -864,8 +911,7 @@ In order to get QEMU networking to function, it is necessary to create
 TAP interfaces, and, optionally, to bridge them to real networks.  A
 development machine typically will have several TAP interfaces, and
 more can be created.  Generally, each developer should have a TAP
-interface of his or her own.  In the following, we will use our
-development machine, newskysaw, as an example.
+interface of his or her own.  Here we use newskysaw as an example.
 
 To set up a TAP interface on newskysaw, the following command is used:
 \begin{verbatim}
@@ -873,7 +919,7 @@ To set up a TAP interface on newskysaw, the following command is used:
 \end{verbatim}
 
 When QEMU runs with a tap interface, it will use /etc/qemu-ifup to
-bring up the interface.  On newskysaw, /etc/qemu-ifup looks like this:
+bring up the interface.  /etc/qemu-ifup looks like this:
 
 \begin{verbatim}
 #!/bin/bash
