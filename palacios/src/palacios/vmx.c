@@ -794,7 +794,7 @@ void v3_init_vmx_cpu(int cpu_id) {
     uint64_t ret = 0;
 
     v3_get_msr(VMX_CR4_FIXED0_MSR,&(tmp_msr.hi),&(tmp_msr.lo));
-    
+#ifdef __V3_64BIT__
     __asm__ __volatile__ (
 			  "movq %%cr4, %%rbx;"
 			  "orq  $0x00002000, %%rbx;"
@@ -823,6 +823,38 @@ void v3_init_vmx_cpu(int cpu_id) {
 			  :
 			  : "%rbx"
 			  );
+#elif __V3_32BIT__
+    __asm__ __volatile__ (
+			  "movq %%cr4, %%ecx;"
+			  "orq  $0x00002000, %%ecx;"
+			  "movq %%ecx, %0;"
+			  : "=m"(ret) 
+			  :
+			  : "%ecx"
+			  );
+
+    if ((~ret & tmp_msr.value) == 0) {
+        __asm__ __volatile__ (
+			      "movq %0, %%cr4;"
+			      :
+			      : "q"(ret)
+			      );
+    } else {
+        PrintError("Invalid CR4 Settings!\n");
+        return;
+    }
+
+    __asm__ __volatile__ (
+			  "movq %%cr0, %%ecx; "
+			  "orq  $0x00000020,%%ecx; "
+			  "movq %%ecx, %%cr0;"
+			  :
+			  :
+			  : "%ecx"
+			  );
+
+#endif
+
     //
     // Should check and return Error here.... 
 
