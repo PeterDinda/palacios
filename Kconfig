@@ -3,6 +3,13 @@ mainmenu "Palacios VMM Configuration"
 menu "Target Configuration"
 
 
+config KITTEN
+	bool "Set defaults needed for the Kitten OS"
+	default y
+	help
+	  This enables the necesary options to compile Palacios with Kitten
+
+
 config CRAY_XT
         bool "Red Storm (Cray XT3/XT4)"
         help
@@ -117,7 +124,7 @@ config DEBUG_VNET
 
 config BUILT_IN_STDLIB
 	bool "Enable Built in versions of stdlib functions"
-	default y
+	default y if KITTEN
 	help 
 	  Not all host OSes provide link targets for stdlib functions
 	  Palacios provides internal implementations of these functions, that you can select from this list
@@ -176,7 +183,7 @@ config BUILT_IN_STRCMP
 
 config BUILT_IN_STRCASECMP
 	bool "strcasecmp()"
-	default y
+	default y if KITTEN
 	depends on BUILT_IN_STDLIB
 	help
 	  This enables Palacios' internal implementation of strcasecmp
@@ -241,7 +248,7 @@ config BUILT_IN_STRSTR
 
 config BUILT_IN_ATOI
 	bool "atoi()"
-	default y
+	default y if KITTEN
 	depends on BUILT_IN_STDLIB
 	help 
 	  This enables Palacios' internal implementation of atoi
