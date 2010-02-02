@@ -30,20 +30,21 @@
 
 
 
+struct v3_vm_info;
 struct guest_info;
 
-void v3_init_io_map(struct guest_info * info);
+void v3_init_io_map(struct v3_vm_info * vm);
 
 
 
 
 /* External API */
-int v3_hook_io_port(struct guest_info * info, uint16_t port, 
-		    int (*read)(uint16_t port, void * dst, uint_t length, void * priv_data),
-		    int (*write)(uint16_t port, void * src, uint_t length, void * priv_data), 
+int v3_hook_io_port(struct v3_vm_info * vm, uint16_t port, 
+		    int (*read)(struct guest_info * core, uint16_t port, void * dst, uint_t length, void * priv_data),
+		    int (*write)(struct guest_info * core, uint16_t port, void * src, uint_t length, void * priv_data), 
 		    void * priv_data);
 
-int v3_unhook_io_port(struct guest_info * info, uint16_t port);
+int v3_unhook_io_port(struct v3_vm_info * vm, uint16_t port);
 
 
 
@@ -53,33 +54,30 @@ struct v3_io_hook {
     uint16_t port;
 
     // Reads data into the IO port (IN, INS)
-    int (*read)(uint16_t port, void * dst, uint_t length, void * priv_data);
+    int (*read)(struct guest_info * core, uint16_t port, void * dst, uint_t length, void * priv_data);
 
     // Writes data from the IO port (OUT, OUTS)
-    int (*write)(uint16_t port, void * src, uint_t length, void * priv_data);
-
-
+    int (*write)(struct guest_info * core, uint16_t port, void * src, uint_t length, void * priv_data);
 
     void * priv_data;
   
     struct rb_node tree_node;
-
 };
 
 struct v3_io_map {
     struct rb_root map;
 
-    int (*update_map)(struct guest_info * info, uint16_t port, int hook_read, int hook_write);
+    int (*update_map)(struct v3_vm_info * vm, uint16_t port, int hook_read, int hook_write);
 
     void * arch_data;
 };
 
-struct v3_io_hook * v3_get_io_hook(struct guest_info * info, uint16_t port);
+struct v3_io_hook * v3_get_io_hook(struct v3_vm_info * vm, uint16_t port);
 
 
-void v3_print_io_map(struct guest_info * info);
+void v3_print_io_map(struct v3_vm_info * vm);
 
-void v3_refresh_io_map(struct guest_info * info);
+void v3_refresh_io_map(struct v3_vm_info * vm);
 
 
 void v3_outb(uint16_t port, uint8_t value);

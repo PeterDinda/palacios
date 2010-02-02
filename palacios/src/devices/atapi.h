@@ -161,7 +161,9 @@ static int atapi_update_data_buf(struct vm_device * dev, struct ide_channel * ch
     return 0;
 }
 
-static int atapi_read10(struct vm_device * dev, struct ide_channel * channel) {
+static int atapi_read10(struct guest_info * core, 
+			struct vm_device * dev, 
+			struct ide_channel * channel) {
     struct ide_drive * drive = get_selected_drive(channel);
     struct atapi_read10_cmd * cmd = (struct atapi_read10_cmd *)(drive->data_buf);
     uint32_t lba =  be_to_le_32(cmd->lba);
@@ -198,7 +200,7 @@ static int atapi_read10(struct vm_device * dev, struct ide_channel * channel) {
     if (channel->features.dma) {
 
 	if (channel->dma_status.active == 1) {
-	    if (dma_read(dev, channel) == -1) {
+	    if (dma_read(core, dev, channel) == -1) {
 		PrintError("Error in DMA read for CD Read10 command\n");
 		return -1;
 	    }
@@ -450,7 +452,7 @@ static int atapi_cmd_is_data_op(uint8_t cmd) {
 }
 
 
-static int atapi_handle_packet(struct vm_device * dev, struct ide_channel * channel) {
+static int atapi_handle_packet(struct guest_info * core, struct vm_device * dev, struct ide_channel * channel) {
    struct ide_drive * drive = get_selected_drive(channel);
    uint8_t cmd = drive->data_buf[0];
 
@@ -475,7 +477,7 @@ static int atapi_handle_packet(struct vm_device * dev, struct ide_channel * chan
 	   break;
 
        case 0x28: // read(10)
-	   if (atapi_read10(dev, channel) == -1) {
+	   if (atapi_read10(core, dev, channel) == -1) {
 	       PrintError("IDE: Error in ATAPI read (%x)\n", cmd);
 	       return -1;
 	   }

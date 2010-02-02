@@ -30,23 +30,23 @@
 #endif
 
 
-static int default_write(uint16_t port, void *src, uint_t length, void * priv_data);
-static int default_read(uint16_t port, void * dst, uint_t length, void * priv_data);
+static int default_write(struct guest_info * core, uint16_t port, void *src, uint_t length, void * priv_data);
+static int default_read(struct guest_info * core, uint16_t port, void * dst, uint_t length, void * priv_data);
 
 
-void v3_init_io_map(struct guest_info * info) {
+void v3_init_io_map(struct v3_vm_info * vm) {
 
-  info->io_map.map.rb_node = NULL;
-  info->io_map.arch_data = NULL;
-  info->io_map.update_map = NULL;
+  vm->io_map.map.rb_node = NULL;
+  vm->io_map.arch_data = NULL;
+  vm->io_map.update_map = NULL;
 
 }
 
 
 
 
-static inline struct v3_io_hook * __insert_io_hook(struct guest_info * info, struct v3_io_hook * hook) {
-  struct rb_node ** p = &(info->io_map.map.rb_node);
+static inline struct v3_io_hook * __insert_io_hook(struct v3_vm_info * vm, struct v3_io_hook * hook) {
+  struct rb_node ** p = &(vm->io_map.map.rb_node);
   struct rb_node * parent = NULL;
   struct v3_io_hook * tmp_hook = NULL;
 
@@ -68,21 +68,21 @@ static inline struct v3_io_hook * __insert_io_hook(struct guest_info * info, str
 }
 
 
-static inline struct v3_io_hook * insert_io_hook(struct guest_info * info, struct v3_io_hook * hook) {
+static inline struct v3_io_hook * insert_io_hook(struct v3_vm_info * vm, struct v3_io_hook * hook) {
   struct v3_io_hook * ret;
 
-  if ((ret = __insert_io_hook(info, hook))) {
+  if ((ret = __insert_io_hook(vm, hook))) {
     return ret;
   }
 
-  v3_rb_insert_color(&(hook->tree_node), &(info->io_map.map));
+  v3_rb_insert_color(&(hook->tree_node), &(vm->io_map.map));
 
   return NULL;
 }
 
 
-struct v3_io_hook * v3_get_io_hook(struct guest_info * info, uint16_t port) {
-  struct rb_node * n = info->io_map.map.rb_node;
+struct v3_io_hook * v3_get_io_hook(struct v3_vm_info * vm, uint16_t port) {
+  struct rb_node * n = vm->io_map.map.rb_node;
   struct v3_io_hook * hook = NULL;
 
   while (n) {
@@ -104,9 +104,9 @@ struct v3_io_hook * v3_get_io_hook(struct guest_info * info, uint16_t port) {
 
 
 
-int v3_hook_io_port(struct guest_info * info, uint16_t port, 
-		    int (*read)(uint16_t port, void * dst, uint_t length, void * priv_data),
-		    int (*write)(uint16_t port, void * src, uint_t length, void * priv_data), 
+int v3_hook_io_port(struct v3_vm_info * vm, uint16_t port, 
+		    int (*read)(struct guest_info * core, uint16_t port, void * dst, uint_t length, void * priv_data),
+		    int (*write)(struct guest_info * core, uint16_t port, void * src, uint_t length, void * priv_data), 
 		    void * priv_data) {
   struct v3_io_hook * io_hook = (struct v3_io_hook *)V3_Malloc(sizeof(struct v3_io_hook));
 
@@ -127,14 +127,14 @@ int v3_hook_io_port(struct guest_info * info, uint16_t port,
 
   io_hook->priv_data = priv_data;
 
-  if (insert_io_hook(info, io_hook)) {
+  if (insert_io_hook(vm, io_hook)) {
       PrintError("Could not insert IO hook for port %u (0x%x)\n", port, port);
       V3_Free(io_hook);
       return -1;
   }
 
-  if (info->io_map.update_map) {
-      if (info->io_map.update_map(info, port, 
+  if (vm->io_map.update_map) {
+      if (vm->io_map.update_map(vm, port, 
 				  ((read == NULL) ? 0 : 1), 
 				  ((write == NULL) ? 0 : 1)) == -1) {
 	  PrintError("Could not update IO map for port %u (0x%x)\n", port, port);
@@ -146,19 +146,19 @@ int v3_hook_io_port(struct guest_info * info, uint16_t port,
   return 0;
 }
 
-int v3_unhook_io_port(struct guest_info * info, uint16_t port) {
-    struct v3_io_hook * hook = v3_get_io_hook(info, port);
+int v3_unhook_io_port(struct v3_vm_info * vm, uint16_t port) {
+    struct v3_io_hook * hook = v3_get_io_hook(vm, port);
 
     if (hook == NULL) {
 	PrintError("Could not find port to unhook %u (0x%x)\n", port, port);
 	return -1;
     }
 
-    v3_rb_erase(&(hook->tree_node), &(info->io_map.map));
+    v3_rb_erase(&(hook->tree_node), &(vm->io_map.map));
 
-    if (info->io_map.update_map) {
+    if (vm->io_map.update_map) {
 	// set the arch map to default (this should be 1, 1)
-	info->io_map.update_map(info, port, 0, 0);
+	vm->io_map.update_map(vm, port, 0, 0);
     }
 
     V3_Free(hook);
@@ -172,8 +172,8 @@ int v3_unhook_io_port(struct guest_info * info, uint16_t port) {
 
 
 
-void v3_refresh_io_map(struct guest_info * info) {
-    struct v3_io_map * io_map = &(info->io_map);
+void v3_refresh_io_map(struct v3_vm_info * vm) {
+    struct v3_io_map * io_map = &(vm->io_map);
     struct v3_io_hook * tmp = NULL;
     
     if (io_map->update_map == NULL) {
@@ -182,7 +182,7 @@ void v3_refresh_io_map(struct guest_info * info) {
     }
 
     v3_rb_for_each_entry(tmp, &(io_map->map), tree_node) {
-	io_map->update_map(info, tmp->port, 
+	io_map->update_map(vm, tmp->port, 
 			   ((tmp->read == NULL) ? 0 : 1), 
 			   ((tmp->write == NULL) ? 0 : 1));
     }
@@ -191,8 +191,8 @@ void v3_refresh_io_map(struct guest_info * info) {
 
 
 
-void v3_print_io_map(struct guest_info * info) {
-    struct v3_io_map * io_map = &(info->io_map);
+void v3_print_io_map(struct v3_vm_info * vm) {
+    struct v3_io_map * io_map = &(vm->io_map);
     struct v3_io_hook * tmp_hook = NULL;
 
     V3_Print("VMM IO Map\n");
@@ -288,7 +288,7 @@ uint_t v3_indw(uint16_t port) {
 
 
 /* FIX ME */
-static int default_write(uint16_t port, void * src, uint_t length, void * priv_data) {
+static int default_write(struct guest_info * core, uint16_t port, void * src, uint_t length, void * priv_data) {
     if (length == 1) {
 	v3_outb(port, *(uint8_t *)src);
     } else if (length == 2) {
@@ -302,7 +302,7 @@ static int default_write(uint16_t port, void * src, uint_t length, void * priv_d
     return length;
 }
 
-static int default_read(uint16_t port, void * dst, uint_t length, void * priv_data) {
+static int default_read(struct guest_info * core, uint16_t port, void * dst, uint_t length, void * priv_data) {
     if (length == 1) {
 	*(uint8_t *)dst = v3_inb(port);
     } else if (length == 2) {

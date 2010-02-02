@@ -81,7 +81,7 @@ static struct v3_device_ops dev_ops = {
 };
 
 
-static int connect_fn(struct guest_info * info, 
+static int connect_fn(struct v3_vm_info * vm, 
 		      void * frontend_data, 
 		      struct v3_dev_blk_ops * ops, 
 		      v3_cfg_tree_t * cfg, 
@@ -96,7 +96,7 @@ static int connect_fn(struct guest_info * info,
   model->seek_usecs = seek_time;
   model->private_data = private_data;
 
-  if (v3_dev_connect_blk(info, v3_cfg_val(frontend_cfg, "tag"), 
+  if (v3_dev_connect_blk(vm, v3_cfg_val(frontend_cfg, "tag"), 
 			 &blk_ops, frontend_cfg, model) == -1) {
       PrintError("Could not connect  to frontend %s\n", 
 		  v3_cfg_val(frontend_cfg, "tag"));
@@ -106,7 +106,7 @@ static int connect_fn(struct guest_info * info,
   return 0;
 }
 
-static int model_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
+static int model_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     char * name = v3_cfg_val(cfg, "name");
 

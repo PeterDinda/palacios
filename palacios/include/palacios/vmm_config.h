@@ -32,9 +32,9 @@
 //#include <palacios/svm.h>
 
 
-struct guest_info;
+struct v3_vm_info;
 
-int v3_config_guest(struct guest_info * info, void * cfg_blob);
+struct v3_vm_info * v3_config_guest( void * cfg_blob);
 
 struct v3_cfg_file {
     void * data;
@@ -59,7 +59,7 @@ struct v3_config {
 };
 
 
-struct v3_cfg_file * v3_cfg_get_file(struct guest_info * info, char * tag);
+struct v3_cfg_file * v3_cfg_get_file(struct v3_vm_info * info, char * tag);
 
 char * v3_cfg_val(v3_cfg_tree_t * tree, char * tag);
 v3_cfg_tree_t * v3_cfg_subtree(v3_cfg_tree_t * tree, char * tag);

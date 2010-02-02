@@ -65,19 +65,19 @@ static inline int is_swapped_pte32(pte32_t * pte) {
 
 
 
-int v3_init_sym_swap(struct guest_info * info);
+int v3_init_sym_swap(struct v3_vm_info * vm);
 
-int v3_register_swap_disk(struct guest_info * info, int dev_index, 
+int v3_register_swap_disk(struct v3_vm_info * vm, int dev_index, 
 			  struct v3_swap_ops * ops, void * private_data);
 
-int v3_swap_in_notify(struct guest_info * info, int pg_index, int dev_index);
+int v3_swap_in_notify(struct v3_vm_info * vm, int pg_index, int dev_index);
 
 
 int v3_get_vaddr_perms(struct guest_info * info, addr_t vaddr, pte32_t * guest_pte, pf_error_t * page_perms);
-addr_t v3_get_swapped_pg_addr(struct guest_info * info, pte32_t * guest_pte);
-addr_t v3_map_swp_page(struct guest_info * info, pte32_t * shadow_pte, pte32_t * guest_pte, void * swp_page_ptr);
+addr_t v3_get_swapped_pg_addr(struct v3_vm_info * vm, pte32_t * guest_pte);
+addr_t v3_map_swp_page(struct v3_vm_info * vm, pte32_t * shadow_pte, pte32_t * guest_pte, void * swp_page_ptr);
 
-int v3_swap_flush(struct guest_info * info);
+int v3_swap_flush(struct v3_vm_info * vm);
 
 
 #endif

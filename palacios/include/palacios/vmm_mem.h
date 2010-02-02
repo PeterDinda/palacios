@@ -29,9 +29,10 @@
 
 #include <palacios/vmm_paging.h>
 #include <palacios/vmm_rbtree.h>
-
+#include <palacios/vmm_list.h>
 
 struct guest_info;
+struct v3_vm_info;
 
 
 
@@ -43,7 +44,7 @@ typedef enum shdw_region_type {
     SHDW_REGION_ALLOCATED,                  // Region is a section of host memory
 } v3_shdw_region_type_t;
 
-
+#define V3_MEM_CORE_ANY ((uint16_t)-1)
 
 
 struct v3_shadow_region {
@@ -54,67 +55,68 @@ struct v3_shadow_region {
   
     addr_t                  host_addr; // This either points to a host address mapping
 
-
     // Called when data is read from a memory page
-    int (*read_hook)(addr_t guest_addr, void * dst, uint_t length, void * priv_data);
+    int (*read_hook)(struct guest_info * core, addr_t guest_addr, void * dst, uint_t length, void * priv_data);
     // Called when data is written to a memory page
-    int (*write_hook)(addr_t guest_addr, void * src, uint_t length, void * priv_data);
+    int (*write_hook)(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data);
 
     void * priv_data;
 
-    struct rb_node tree_node;
+    int core_id;
+
+    struct rb_node tree_node; // This for memory regions mapped to the global map
 };
 
 
-typedef struct v3_shdw_map {
+struct v3_mem_map {
     struct v3_shadow_region base_region;
 
-
-    addr_t hook_hva;
-
     struct rb_root shdw_regions;
-} v3_shdw_map_t;
+
+    void * hook_hvas; // this is an array of pages, equal to the number of cores
+};
+
+
+int v3_init_mem_map(struct v3_vm_info * vm);
+void v3_delete_mem_map(struct v3_vm_info * vm);
 
 
 
 
-int v3_init_shadow_map(struct guest_info * info);
-void v3_delete_shadow_map(struct guest_info * info);
+int v3_add_shadow_mem(struct v3_vm_info * vm, uint16_t core_id,
+		      addr_t guest_addr_start, addr_t guest_addr_end, addr_t host_addr);
 
-
-int v3_add_shadow_mem(struct guest_info * guest_info, 
-		      addr_t guest_addr_start,
-		      addr_t guest_addr_end,
-		      addr_t host_addr);
-
-int v3_hook_full_mem(struct guest_info * info, addr_t guest_addr_start, addr_t guest_addr_end,
-		     int (*read)(addr_t guest_addr, void * dst, uint_t length, void * priv_data),
-		     int (*write)(addr_t guest_addr, void * src, uint_t length, void * priv_data),
+int v3_hook_full_mem(struct v3_vm_info * vm, uint16_t core_id,
+		     addr_t guest_addr_start, addr_t guest_addr_end,
+		     int (*read)(struct guest_info * core, addr_t guest_addr, void * dst, uint_t length, void * priv_data),
+		     int (*write)(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data),
 		     void * priv_data);
 
-int v3_hook_write_mem(struct guest_info * info, addr_t guest_addr_start, addr_t guest_addr_end,
-		      addr_t host_addr,
-		      int (*write)(addr_t guest_addr, void * src, uint_t length, void * priv_data),
+int v3_hook_write_mem(struct v3_vm_info * vm, uint16_t core_id, 
+		      addr_t guest_addr_start, addr_t guest_addr_end, addr_t host_addr,
+		      int (*write)(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data),
 		      void * priv_data);
 
 
-
-int v3_unhook_mem(struct guest_info * info, addr_t guest_addr_start);
-
-
-void v3_delete_shadow_region(struct guest_info * info, struct v3_shadow_region * reg);
-
-
-
-
-struct v3_shadow_region * v3_get_shadow_region(struct guest_info * info, addr_t guest_addr);
-addr_t v3_get_shadow_addr(struct v3_shadow_region * reg, addr_t guest_addr);
+int v3_unhook_mem(struct v3_vm_info * vm, uint16_t core_id, addr_t guest_addr_start);
 
 
 
 
 
-void v3_print_mem_map(struct guest_info * info);
+void v3_delete_shadow_region(struct v3_vm_info * vm, struct v3_shadow_region * reg);
+
+
+
+
+struct v3_shadow_region * v3_get_shadow_region(struct v3_vm_info * vm, uint16_t core_id, addr_t guest_addr);
+addr_t v3_get_shadow_addr(struct v3_shadow_region * reg, uint16_t core_id, addr_t guest_addr);
+
+
+
+
+
+void v3_print_mem_map(struct v3_vm_info * vm);
 
 
 

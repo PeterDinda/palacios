@@ -35,10 +35,10 @@ static int hcall_test(struct guest_info * info, uint_t hcall_id, void * private_
 
 
 
-void v3_init_hypercall_map(struct guest_info * info) {
-    info->hcall_map.rb_node = NULL;
+void v3_init_hypercall_map(struct v3_vm_info * vm) {
+    vm->hcall_map.rb_node = NULL;
 
-    v3_register_hypercall(info, HYPERCALL_TEST_HCALL, hcall_test, NULL);
+    v3_register_hypercall(vm, HYPERCALL_TEST_HCALL, hcall_test, NULL);
 }
 
 
@@ -53,8 +53,8 @@ struct hypercall {
 
 
 
-static inline struct hypercall * __insert_hypercall(struct guest_info * info, struct hypercall * hcall) {
-    struct rb_node ** p = &(info->hcall_map.rb_node);
+static inline struct hypercall * __insert_hypercall(struct v3_vm_info * vm, struct hypercall * hcall) {
+    struct rb_node ** p = &(vm->hcall_map.rb_node);
     struct rb_node * parent = NULL;
     struct hypercall * tmp_hcall = NULL;
 
@@ -77,21 +77,21 @@ static inline struct hypercall * __insert_hypercall(struct guest_info * info, st
 }
 
 
-static inline struct hypercall * insert_hypercall(struct guest_info * info, struct hypercall * hcall) {
+static inline struct hypercall * insert_hypercall(struct v3_vm_info * vm, struct hypercall * hcall) {
     struct hypercall * ret;
 
-    if ((ret = __insert_hypercall(info, hcall))) {
+    if ((ret = __insert_hypercall(vm, hcall))) {
 	return ret;
     }
 
-    v3_rb_insert_color(&(hcall->tree_node), &(info->hcall_map));
+    v3_rb_insert_color(&(hcall->tree_node), &(vm->hcall_map));
 
     return NULL;
 }
 
 
-static struct hypercall * get_hypercall(struct guest_info * info, uint_t id) {
-    struct rb_node * n = info->hcall_map.rb_node;
+static struct hypercall * get_hypercall(struct v3_vm_info * vm, uint_t id) {
+    struct rb_node * n = vm->hcall_map.rb_node;
     struct hypercall * hcall = NULL;
 
     while (n) {
@@ -110,7 +110,7 @@ static struct hypercall * get_hypercall(struct guest_info * info, uint_t id) {
 }
 
 
-int v3_register_hypercall(struct guest_info * info, uint_t hypercall_id, 
+int v3_register_hypercall(struct v3_vm_info * vm, uint_t hypercall_id, 
 			  int (*hypercall)(struct guest_info * info, uint_t hcall_id, void * priv_data), 
 			  void * priv_data) {
 
@@ -120,7 +120,7 @@ int v3_register_hypercall(struct guest_info * info, uint_t hypercall_id,
     hcall->priv_data = priv_data;
     hcall->hcall_fn = hypercall;
 
-    if (insert_hypercall(info, hcall)) {
+    if (insert_hypercall(vm, hcall)) {
 	V3_Free(hcall);
 	return -1;
     }
@@ -132,7 +132,7 @@ int v3_register_hypercall(struct guest_info * info, uint_t hypercall_id,
 int v3_handle_hypercall(struct guest_info * info) {
     uint_t hypercall_id = *(uint_t *)&info->vm_regs.rax;
 
-    struct hypercall * hcall = get_hypercall(info, hypercall_id);
+    struct hypercall * hcall = get_hypercall(info->vm_info, hypercall_id);
 
     if (!hcall) {
 	PrintError("Invalid Hypercall (%d(0x%x) not registered)\n", 

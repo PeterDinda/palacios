@@ -55,7 +55,7 @@ struct v3_sym_interface {
 #include <palacios/vm_guest.h>
 
 
-struct v3_sym_context {
+struct v3_sym_core_context {
     struct v3_gprs vm_regs;
     struct v3_segment cs;
     struct v3_segment ss;
@@ -66,14 +66,7 @@ struct v3_sym_context {
     uint8_t cpl;
 };
 
-
-struct v3_sym_state {
-    
-    struct v3_sym_interface * sym_page;
-    addr_t sym_page_pa;
-
-    uint64_t guest_pg_addr;
-
+struct v3_symcall_state{
     struct {
 	uint_t active                  : 1; // activated when symbiotic page MSR is written
 	uint_t sym_call_active         : 1;
@@ -81,7 +74,7 @@ struct v3_sym_state {
 	uint_t sym_call_error          : 1;
     } __attribute__((packed));
 
-    struct v3_sym_context old_ctx;
+    struct v3_sym_core_context old_ctx;
 
     int sym_call_errno;    
 
@@ -92,13 +85,23 @@ struct v3_sym_state {
     uint64_t sym_call_fs;
 };
 
+struct v3_sym_state {
+    
+    struct v3_sym_interface * sym_page;
+    addr_t sym_page_pa;
+
+    uint64_t guest_pg_addr;
+
+    struct v3_symcall_state * symcalls;
+};
 
 
 
 
 
 
-int v3_init_sym_iface(struct guest_info * info);
+
+int v3_init_sym_iface(struct v3_vm_info * vm);
 
 
 typedef uint64_t sym_arg_t;
@@ -119,8 +122,8 @@ typedef uint64_t sym_arg_t;
 
 
 
-int v3_sym_map_pci_passthrough(struct guest_info * info, uint_t bus, uint_t dev, uint_t fn);
-int v3_sym_unmap_pci_passthrough(struct guest_info * info, uint_t bus, uint_t dev, uint_t fn);
+int v3_sym_map_pci_passthrough(struct v3_vm_info * vm, uint_t bus, uint_t dev, uint_t fn);
+int v3_sym_unmap_pci_passthrough(struct v3_vm_info * vm, uint_t bus, uint_t dev, uint_t fn);
 
 
 /* Symcall numbers */

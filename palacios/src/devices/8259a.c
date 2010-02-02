@@ -190,7 +190,7 @@ static void DumpPICState(struct pic_internal *p)
 }
 
 
-static int pic_raise_intr(struct guest_info * info, void * private_data, int irq) {
+static int pic_raise_intr(struct v3_vm_info * vm, void * private_data, int irq) {
     struct pic_internal * state = (struct pic_internal*)private_data;
 
     if (irq == 2) {
@@ -209,13 +209,13 @@ static int pic_raise_intr(struct guest_info * info, void * private_data, int irq
 	return -1;
     }
 
-    v3_interrupt_cpu(info, 0);
+    v3_interrupt_cpu(vm, 0);
 
     return 0;
 }
 
 
-static int pic_lower_intr(struct guest_info * info, void * private_data, int irq) {
+static int pic_lower_intr(struct v3_vm_info * vm, void * private_data, int irq) {
     struct pic_internal * state = (struct pic_internal*)private_data;
 
     PrintDebug("[pic_lower_intr] IRQ line %d now low\n", irq);
@@ -335,16 +335,16 @@ static int pic_begin_irq(struct guest_info * info, void * private_data, int irq)
 static struct intr_ctrl_ops intr_ops = {
     .intr_pending = pic_intr_pending,
     .get_intr_number = pic_get_intr_number,
-    .raise_intr = pic_raise_intr,
-    .begin_irq = pic_begin_irq,
-    .lower_intr = pic_lower_intr, 
+    .begin_irq = pic_begin_irq
+};
 
+static struct intr_router_ops router_ops = {
+    .raise_intr = pic_raise_intr,
+    .lower_intr = pic_lower_intr
 };
 
 
-
-
-static int read_master_port1(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
+static int read_master_port1(struct guest_info * core, ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
     struct pic_internal * state = (struct pic_internal*)dev->private_data;
 
     if (length != 1) {
@@ -363,7 +363,7 @@ static int read_master_port1(ushort_t port, void * dst, uint_t length, struct vm
     return 1;
 }
 
-static int read_master_port2(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
+static int read_master_port2(struct guest_info * core, ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
     struct pic_internal * state = (struct pic_internal*)dev->private_data;
 
     if (length != 1) {
@@ -377,7 +377,7 @@ static int read_master_port2(ushort_t port, void * dst, uint_t length, struct vm
   
 }
 
-static int read_slave_port1(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
+static int read_slave_port1(struct guest_info * core, ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
     struct pic_internal * state = (struct pic_internal*)dev->private_data;
 
     if (length != 1) {
@@ -396,7 +396,7 @@ static int read_slave_port1(ushort_t port, void * dst, uint_t length, struct vm_
     return 1;
 }
 
-static int read_slave_port2(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
+static int read_slave_port2(struct guest_info * core, ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
     struct pic_internal * state = (struct pic_internal*)dev->private_data;
 
     if (length != 1) {
@@ -410,7 +410,7 @@ static int read_slave_port2(ushort_t port, void * dst, uint_t length, struct vm_
 }
 
 
-static int write_master_port1(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
+static int write_master_port1(struct guest_info * core, ushort_t port, void * src, uint_t length, struct vm_device * dev) {
     struct pic_internal * state = (struct pic_internal*)dev->private_data;
     uchar_t cw = *(uchar_t *)src;
 
@@ -472,7 +472,7 @@ static int write_master_port1(ushort_t port, void * src, uint_t length, struct v
     return 1;
 }
 
-static int write_master_port2(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
+static int write_master_port2(struct guest_info * core, ushort_t port, void * src, uint_t length, struct vm_device * dev) {
     struct pic_internal * state = (struct pic_internal*)dev->private_data;
     uchar_t cw = *(uchar_t *)src;    
 
@@ -527,7 +527,7 @@ static int write_master_port2(ushort_t port, void * src, uint_t length, struct v
     return 1;
 }
 
-static int write_slave_port1(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
+static int write_slave_port1(struct guest_info * core, ushort_t port, void * src, uint_t length, struct vm_device * dev) {
     struct pic_internal * state = (struct pic_internal*)dev->private_data;
     uchar_t cw = *(uchar_t *)src;
 
@@ -586,7 +586,7 @@ static int write_slave_port1(ushort_t port, void * src, uint_t length, struct vm
     return 1;
 }
 
-static int write_slave_port2(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
+static int write_slave_port2(struct guest_info * core, ushort_t port, void * src, uint_t length, struct vm_device * dev) {
     struct pic_internal * state = (struct pic_internal*)dev->private_data;
     uchar_t cw = *(uchar_t *)src;    
 
@@ -643,7 +643,7 @@ static int write_slave_port2(ushort_t port, void * src, uint_t length, struct vm
 
 
 
-static int read_elcr_port(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
+static int read_elcr_port(struct guest_info * core, ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
     struct pic_internal * state = (struct pic_internal*)dev->private_data;
     
     if (length != 1) {
@@ -665,7 +665,7 @@ static int read_elcr_port(ushort_t port, void * dst, uint_t length, struct vm_de
 }
 
 
-static int write_elcr_port(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
+static int write_elcr_port(struct guest_info * core, ushort_t port, void * src, uint_t length, struct vm_device * dev) {
     struct pic_internal * state = (struct pic_internal*)dev->private_data;
     
     if (length != 1) {
@@ -715,10 +715,16 @@ static struct v3_device_ops dev_ops = {
 
 
 
-static int pic_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
+#include <palacios/vm_guest.h>
+
+static int pic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct pic_internal * state = NULL;
     state = (struct pic_internal *)V3_Malloc(sizeof(struct pic_internal));
     char * name = v3_cfg_val(cfg, "name");
+
+    // PIC is only usable in non-multicore environments
+    // just hardcode the core context
+    struct guest_info * core = &(vm->cores[0]);
 
     V3_ASSERT(state != NULL);
 
@@ -730,7 +736,8 @@ static int pic_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
     }
 
 
-    v3_register_intr_controller(vm, &intr_ops, state);
+    v3_register_intr_controller(core, &intr_ops, state);
+    v3_register_intr_router(vm, &router_ops, state);
 
     state->master_irr = 0;
     state->master_isr = 0;

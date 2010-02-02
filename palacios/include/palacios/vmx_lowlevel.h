@@ -136,9 +136,9 @@ static inline int vmcs_read(vmcs_field_t vmcs_field, void * dst) {
                 VMREAD_OPCODE
                 EAX_ECX_MODRM
                 "seteb %1;" // fail valid
-                "setnaeb %2;" // fail invalid
-                :  "=&c"(val), "=q"(ret_valid), "=q"(ret_invalid) // Use ECX
-                : "a" (vmcs_field), "1"(ret_valid), "2"(ret_invalid)
+                "setnaeb %1;" // fail invalid
+                :  "=c"(val), "=d"(ret_valid) //, "=r"(ret_invalid) // Use ECX
+                : "a" (vmcs_field), "0"(0), "1"(ret_valid)
                 : "memory"
                 );
 
@@ -170,8 +170,8 @@ static inline int vmcs_write(vmcs_field_t vmcs_field, addr_t value) {
                 EAX_ECX_MODRM
                 "seteb %0;" // fail valid (ZF=1)
                 "setnaeb %1;" // fail invalid (CF=1)
-                : "=q" (ret_valid), "=q" (ret_invalid)
-                : "a" (vmcs_field), "c"(value), "0"(ret_valid), "1"(ret_invalid)
+                : "=r" (ret_valid), "=r" (ret_invalid)
+                : "a" (vmcs_field), "c"(value)
                 : "memory");
 
     CHECK_VMXFAIL(ret_valid, ret_invalid);

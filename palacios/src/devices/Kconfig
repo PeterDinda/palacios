@@ -1,8 +1,9 @@
 menu "Virtual Devices"
 
 config APIC
-	bool "APIC"
+	bool "APIC" 
 	default y
+	depends on ICC_BUS
 	help 
 	  Includes the Virtual APIC device
 
@@ -13,6 +14,29 @@ config DEBUG_APIC
 	depends on APIC && DEBUG_ON 
 	help 
 	  Enable debugging for the APIC
+
+
+
+config IO_APIC
+	bool "IOAPIC"
+	depends on ICC_BUS
+	default y
+	help 
+	  Includes the Virtual IO APIC
+
+config DEBUG_IO_APIC
+	bool "IO APIC Debugging"
+	default n
+	depends on IO_APIC && DEBUG_ON 
+	help 
+	  Enable debugging for the IO APIC
+
+
+config ICC_BUS
+	bool "ICC BUS"
+	default y
+	help 
+	  The ICC Bus for APIC/IOAPIC communication
 
 
 config BOCHS_DEBUG
@@ -59,20 +83,6 @@ config DEBUG_IDE
 	help 
 	  Enable debugging for the IDE Layer
 
-
-config IO_APIC
-	bool "IOAPIC"
-	depends on APIC
-	default y
-	help 
-	  Includes the Virtual IO APIC
-
-config DEBUG_IO_APIC
-	bool "IO APIC Debugging"
-	default n
-	depends on IO_APIC && DEBUG_ON 
-	help 
-	  Enable debugging for the IO APIC
 
 
 
@@ -203,7 +213,7 @@ config PCI
 config PASSTHROUGH_PCI
 	bool "Passthrough PCI"
 	default y 
-	depends on PCI && EXPERIMENTAL
+	depends on PCI && EXPERIMENTAL && SYMBIOTIC
 	help 
 	  Enables hardware devices to be passed through to the VM
 

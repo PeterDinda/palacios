@@ -40,12 +40,6 @@ struct v3_os_hooks * os_hooks = NULL;
 int v3_dbg_enable = 0;
 
 
-static struct guest_info * allocate_guest() {
-    void * info = V3_Malloc(sizeof(struct guest_info));
-    memset(info, 0, sizeof(struct guest_info));
-    return info;
-}
-
 
 static void init_cpu(void * arg) {
     uint32_t cpu_id = (uint32_t)(addr_t)arg;
@@ -106,45 +100,46 @@ v3_cpu_arch_t v3_get_cpu_type(int cpu_id) {
 }
 
 
-struct guest_info * v3_create_vm(void * cfg) {
-    struct guest_info * info = allocate_guest();
-    
-    if (!info) {
-	PrintError("Could not allocate Guest\n");
-	return NULL;
-    }
+struct v3_vm_info * v3_create_vm(void * cfg) {
+    struct v3_vm_info * vm = v3_config_guest(cfg);
 
-    if (v3_config_guest(info, cfg) == -1) {
+    if (vm == NULL) {
 	PrintError("Could not configure guest\n");
 	return NULL;
     }
 
-    return info;
+    return vm;
 }
 
 
-int v3_start_vm(struct guest_info * info, unsigned int cpu_mask) {
-    
-    info->cpu_id = v3_get_cpu_id();
-
+int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
+    int i = 0;
     V3_Print("V3 --  Starting VM\n");
 
-    switch (v3_cpu_types[info->cpu_id]) {
+
+    for (i = 0; i < vm->num_cores; i++) {
+	struct guest_info * info = &(vm->cores[i]);
+
+	/* GRUESOM HACK... */
+	//	vm->cpu_id = v3_get_cpu_id();
+
+	switch (v3_cpu_types[info->cpu_id]) {
 #ifdef CONFIG_SVM
-	case V3_SVM_CPU:
-	case V3_SVM_REV3_CPU:
-	    return v3_start_svm_guest(info);
-	    break;
+	    case V3_SVM_CPU:
+	    case V3_SVM_REV3_CPU:
+		return v3_start_svm_guest(info);
+		break;
 #endif
 #if CONFIG_VMX
-	case V3_VMX_CPU:
-	case V3_VMX_EPT_CPU:
-	    return v3_start_vmx_guest(info);
-	    break;
+	    case V3_VMX_CPU:
+	    case V3_VMX_EPT_CPU:
+		return v3_start_vmx_guest(info);
+		break;
 #endif
-	default:
-	    PrintError("Attemping to enter a guest on an invalid CPU\n");
-	    return -1;
+	    default:
+		PrintError("Attemping to enter a guest on an invalid CPU\n");
+		return -1;
+	}
     }
 
     return 0;
@@ -195,7 +190,7 @@ void v3_yield_cond(struct guest_info * info) {
     uint64_t cur_cycle;
     rdtscll(cur_cycle);
 
-    if (cur_cycle > (info->yield_start_cycle + info->yield_cycle_period)) {
+    if (cur_cycle > (info->yield_start_cycle + info->vm_info->yield_cycle_period)) {
 
 	/*
 	  PrintDebug("Conditional Yield (cur_cyle=%p, start_cycle=%p, period=%p)\n", 
@@ -239,11 +234,11 @@ void v3_print_cond(const char * fmt, ...) {
 
 
 
-void v3_interrupt_cpu(struct guest_info * info, int logical_cpu) {
+void v3_interrupt_cpu(struct v3_vm_info * vm, int logical_cpu) {
     extern struct v3_os_hooks * os_hooks;
 
     if ((os_hooks) && (os_hooks)->interrupt_cpu) {
-	(os_hooks)->interrupt_cpu(info, logical_cpu);
+	(os_hooks)->interrupt_cpu(vm, logical_cpu);
     }
 }
 

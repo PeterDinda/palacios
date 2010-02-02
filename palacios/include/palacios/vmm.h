@@ -148,15 +148,33 @@ struct guest_info;
     } while (0)
 
 
-#define V3_Hook_Interrupt(irq, opaque) ({				\
+#define V3_Hook_Interrupt(vm, irq) ({					\
 	    int ret = 0;						\
 	    extern struct v3_os_hooks * os_hooks;			\
 	    if ((os_hooks) && (os_hooks)->hook_interrupt) {		\
-		ret = (os_hooks)->hook_interrupt(irq, opaque);		\
+		ret = (os_hooks)->hook_interrupt(vm, irq);		\
 	    }								\
 	    ret;							\
 	})								\
 	
+
+#define V3_Get_CPU() ({  				                \
+            int ret = 0;                                                \
+            extern struct v3_os_hooks * os_hooks;                       \
+            if ((os_hooks) && (os_hooks)->get_cpu) {                    \
+                ret = (os_hooks)->get_cpu();                            \
+            }                                                           \
+            ret;                                                        \
+        })
+
+#define V3_Call_On_CPU(cpu, fn, arg)    		\
+    do {						\
+        extern struct v3_os_hooks * os_hooks;           \
+        if ((os_hooks) && (os_hooks)->call_on_cpu) {    \
+            (os_hooks)->call_on_cpu(cpu, fn, arg);      \
+        }                                               \
+    } while (0)
+
 
 #define V3_ACK_IRQ(irq)						\
     do {							\
@@ -200,7 +218,7 @@ void v3_yield_cond(struct guest_info * info);
 void v3_print_cond(const char * fmt, ...);
 
 
-void v3_interrupt_cpu(struct guest_info * vm, int logical_cpu);
+void v3_interrupt_cpu(struct v3_vm_info * vm, int logical_cpu);
 
 unsigned int v3_get_cpu_id();
 
@@ -214,7 +232,7 @@ int v3_vm_enter(struct guest_info * info);
 
 
 
-struct guest_info;
+struct v3_vm_info;
 
 /* This will contain function pointers that provide OS services */
 struct v3_os_hooks {
@@ -230,7 +248,7 @@ struct v3_os_hooks {
     void *(*paddr_to_vaddr)(void *addr);
     void *(*vaddr_to_paddr)(void *addr);
 
-    int (*hook_interrupt)(struct guest_info * vm, unsigned int irq);
+    int (*hook_interrupt)(struct v3_vm_info * vm, unsigned int irq);
 
     int (*ack_irq)(int irq);
 
@@ -246,7 +264,7 @@ struct v3_os_hooks {
     void (*mutex_unlock)(void * mutex);
 
     unsigned int (*get_cpu)(void);
-    void (*interrupt_cpu)(struct guest_info * vm, int logical_cpu);
+    void (*interrupt_cpu)(struct v3_vm_info * vm, int logical_cpu);
     void (*call_on_cpu)(int logical_cpu, void (*fn)(void * arg), void * arg);
     void (*start_thread_on_cpu)(int logical_cpu, int (*fn)(void * arg), void * arg, char * thread_name);
 };
@@ -275,10 +293,10 @@ struct v3_interrupt {
 void Init_V3(struct v3_os_hooks * hooks,  int num_cpus);
 
 
-int v3_start_vm(struct guest_info * info, unsigned int cpu_mask);
-struct guest_info * v3_create_vm(void * cfg);
+int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask);
+struct v3_vm_info * v3_create_vm(void * cfg);
 
-int v3_deliver_irq(struct guest_info * vm, struct v3_interrupt * intr);
+int v3_deliver_irq(struct v3_vm_info * vm, struct v3_interrupt * intr);
 
 
 

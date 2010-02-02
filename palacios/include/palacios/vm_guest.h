@@ -132,9 +132,6 @@ struct v3_segments {
 struct shadow_page_state;
 struct v3_intr_state;
 
-#ifdef CONFIG_TELEMETRY
-struct v3_telemetry;
-#endif
 
 #ifdef CONFIG_SYMBIOTIC_SWAP
 struct v3_sym_swap_state;
@@ -144,84 +141,108 @@ struct v3_sym_swap_state;
 struct v3_sym_state;
 #endif
 
+
 struct guest_info {
     uint64_t rip;
 
     uint_t cpl;
 
-    addr_t mem_size; // In bytes for now
-    v3_shdw_map_t mem_map;
-
-    struct v3_config * cfg_data;
-    v3_vm_class_t vm_class;
-
     struct vm_time time_state;
 
-  
     v3_paging_mode_t shdw_pg_mode;
     struct shadow_page_state shdw_pg_state;
     addr_t direct_map_pt;
 
 
     // This structure is how we get interrupts for the guest
-    struct v3_intr_state intr_state;
+    struct v3_intr_core_state intr_core_state;
 
     // This structure is how we get exceptions for the guest
     struct v3_excp_state excp_state;
 
-    struct v3_io_map io_map;
-
-    struct v3_msr_map msr_map;
-
-    struct v3_cpuid_map cpuid_map;
-
-#ifdef CONFIG_SYMBIOTIC
-    // Symbiotic state
-    struct v3_sym_state sym_state;
-
-#ifdef CONFIG_SYMBIOTIC_SWAP
-    struct v3_sym_swap_state swap_state;
-#endif
-#endif
-
-    v3_hypercall_map_t hcall_map;
-
-    // device_map
-    struct vmm_dev_mgr  dev_mgr;
-
-    struct v3_host_events host_event_hooks;
 
     v3_cpu_mode_t cpu_mode;
     v3_mem_mode_t mem_mode;
     uint_t addr_width;
-
 
     struct v3_gprs vm_regs;
     struct v3_ctrl_regs ctrl_regs;
     struct v3_dbg_regs dbg_regs;
     struct v3_segments segments;
 
-    v3_vm_operating_mode_t run_state;
+
     void * vmm_data;
 
-    uint64_t yield_cycle_period;
     uint64_t yield_start_cycle;
     
     uint64_t num_exits;
+
+#ifdef CONFIG_TELEMETRY
+    struct v3_core_telemetry core_telem;
+#endif
+
+
+    // struct v3_core_dev_mgr core_dev_mgr;
+
+    void * decoder_state;
+
+
+    struct v3_vm_info * vm_info;
+    // the logical cpu this guest context is executing on
+    int cpu_id;
+};
+
+
+
+
+struct v3_vm_info {
+    v3_vm_class_t vm_class;
+
+    addr_t mem_size; // In bytes for now
+    struct v3_mem_map mem_map;
+
+
+    struct v3_io_map io_map;
+    struct v3_msr_map msr_map;
+    struct v3_cpuid_map cpuid_map;
+
+    v3_hypercall_map_t hcall_map;
+
+
+    struct v3_intr_routers intr_routers;
+    // device_map
+    struct vmm_dev_mgr  dev_mgr;
+
+    struct v3_host_events host_event_hooks;
+
+    struct v3_config * cfg_data;
+
+    v3_vm_operating_mode_t run_state;
+
+#ifdef CONFIG_SYMBIOTIC
+    // Symbiotic state
+    struct v3_sym_state sym_state;
+#ifdef CONFIG_SYMBIOTIC_SWAP
+    struct v3_sym_swap_state swap_state;
+#endif
+#endif
+
+
 
 #ifdef CONFIG_TELEMETRY
     uint_t enable_telemetry;
     struct v3_telemetry_state telemetry;
 #endif
 
+    uint64_t yield_cycle_period;  
 
+    int num_cores;
+    struct guest_info cores[0];
 
-
-    void * decoder_state;
-
-    // the logical cpu this guest context is executing on
-    int cpu_id;
 };
+
+
+
 
 
 uint_t v3_get_addr_width(struct guest_info * info);

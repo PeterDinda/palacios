@@ -71,7 +71,7 @@ static inline uint32_t get_dev_index(pte32_t * pte) {
 
 #ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
 static void telemetry_cb(struct guest_info * info, void * private_data, char * hdr) {
-    struct v3_sym_swap_state * swap_state = &(info->swap_state);
+    struct v3_sym_swap_state * swap_state = &(info->vm_info->swap_state);
 
     V3_Print("%sSymbiotic Swap:\n", hdr);
     V3_Print("%s\tRead faults=%d\n", hdr, swap_state->read_faults);
@@ -83,15 +83,15 @@ static void telemetry_cb(struct guest_info * info, void * private_data, char * h
 #endif
 
 
-int v3_init_sym_swap(struct guest_info * info) {
-    struct v3_sym_swap_state * swap_state = &(info->swap_state);
+int v3_init_sym_swap(struct v3_vm_info * vm) {
+    struct v3_sym_swap_state * swap_state = &(vm->swap_state);
 
     memset(swap_state, 0, sizeof(struct v3_sym_swap_state));
     swap_state->shdw_ptr_ht = v3_create_htable(0, swap_hash_fn, swap_eq_fn);
 
 #ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
     if (info->enable_telemetry) {
-	v3_add_telemetry_cb(info, telemetry_cb, NULL);
+	v3_add_telemetry_cb(vm, telemetry_cb, NULL);
     }
 #endif
 
@@ -101,9 +101,9 @@ int v3_init_sym_swap(struct guest_info * info) {
 }
 
 
-int v3_register_swap_disk(struct guest_info * info, int dev_index, 
+int v3_register_swap_disk(struct v3_vm_info * vm, int dev_index, 
 			  struct v3_swap_ops * ops, void * private_data) {
-    struct v3_sym_swap_state * swap_state = &(info->swap_state);
+    struct v3_sym_swap_state * swap_state = &(vm->swap_state);
 
     swap_state->devs[dev_index].present = 1;
     swap_state->devs[dev_index].private_data = private_data;
@@ -115,9 +115,9 @@ int v3_register_swap_disk(struct guest_info * info, int dev_index,
 
 
 
-int v3_swap_in_notify(struct guest_info * info, int pg_index, int dev_index) {
+int v3_swap_in_notify(struct v3_vm_info * vm, int pg_index, int dev_index) {
     struct list_head * shdw_ptr_list = NULL;
-    struct v3_sym_swap_state * swap_state = &(info->swap_state);
+    struct v3_sym_swap_state * swap_state = &(vm->swap_state);
     struct shadow_pointer * tmp_shdw_ptr = NULL;
     struct shadow_pointer * shdw_ptr = NULL;
     struct swap_pte guest_pte = {0, dev_index, pg_index};
@@ -146,8 +146,8 @@ int v3_swap_in_notify(struct guest_info * info, int pg_index, int dev_index) {
 
 
 
-int v3_swap_flush(struct guest_info * info) {
-    struct v3_sym_swap_state * swap_state = &(info->swap_state);
+int v3_swap_flush(struct v3_vm_info * vm) {
+    struct v3_sym_swap_state * swap_state = &(vm->swap_state);
     struct hashtable_iter * ht_iter = v3_create_htable_iter(swap_state->shdw_ptr_ht);
 
     //    PrintDebug("Flushing Symbiotic Swap table\n");
@@ -209,8 +209,8 @@ int v3_get_vaddr_perms(struct guest_info * info, addr_t vaddr, pte32_t * guest_p
 
 
 
-addr_t v3_get_swapped_pg_addr(struct guest_info * info, pte32_t * guest_pte) {
-    struct v3_sym_swap_state * swap_state = &(info->swap_state);
+addr_t v3_get_swapped_pg_addr(struct v3_vm_info * vm, pte32_t * guest_pte) {
+    struct v3_sym_swap_state * swap_state = &(vm->swap_state);
     int dev_index = get_dev_index(guest_pte);
     struct v3_swap_dev * swp_dev = &(swap_state->devs[dev_index]);
 
@@ -223,9 +223,9 @@ addr_t v3_get_swapped_pg_addr(struct guest_info * info, pte32_t * guest_pte) {
 }
 
 
-addr_t v3_map_swp_page(struct guest_info * info, pte32_t * shadow_pte, pte32_t * guest_pte, void * swp_page_ptr) {
+addr_t v3_map_swp_page(struct v3_vm_info * vm, pte32_t * shadow_pte, pte32_t * guest_pte, void * swp_page_ptr) {
     struct list_head * shdw_ptr_list = NULL;
-    struct v3_sym_swap_state * swap_state = &(info->swap_state);
+    struct v3_sym_swap_state * swap_state = &(vm->swap_state);
     struct shadow_pointer * shdw_ptr = NULL;
 
 

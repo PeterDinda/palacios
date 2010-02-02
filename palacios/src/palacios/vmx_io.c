@@ -32,8 +32,8 @@
 
 
 /* Same as SVM */
-static int update_map(struct guest_info * info, uint16_t port, int hook_read, int hook_write) {
-    uchar_t * bitmap = (uint8_t *)(info->io_map.arch_data);
+static int update_map(struct v3_vm_info * vm, uint16_t port, int hook_read, int hook_write) {
+    uchar_t * bitmap = (uint8_t *)(vm->io_map.arch_data);
     int major = port / 8;
     int minor = port % 8;
 
@@ -46,24 +46,24 @@ static int update_map(struct guest_info * info, uint16_t port, int hook_read, in
     return 0;
 }
 
-int v3_init_vmx_io_map(struct guest_info * info) {
-    info->io_map.update_map = update_map;
+int v3_init_vmx_io_map(struct v3_vm_info * vm) {
+    vm->io_map.update_map = update_map;
     
-    info->io_map.arch_data = V3_VAddr(V3_AllocPages(2));
-    memset(info->io_map.arch_data, 0, PAGE_SIZE_4KB * 2);
+    vm->io_map.arch_data = V3_VAddr(V3_AllocPages(2));
+    memset(vm->io_map.arch_data, 0, PAGE_SIZE_4KB * 2);
 
-    v3_refresh_io_map(info);
+    v3_refresh_io_map(vm);
 
     return 0;
 }
 
-int v3_handle_vmx_io_in(struct guest_info * info, struct vmx_exit_info * exit_info) {
+int v3_handle_vmx_io_in(struct guest_info * core, struct vmx_exit_info * exit_info) {
     struct vmx_exit_io_qual io_qual = *(struct vmx_exit_io_qual *)&(exit_info->exit_qual);;
     struct v3_io_hook * hook = NULL;
     int read_size = 0;
 
 
-    hook = v3_get_io_hook(info, io_qual.port);
+    hook = v3_get_io_hook(core->vm_info, io_qual.port);
 
     if (hook == NULL) {
         PrintError("Hook not present for IN on port %x\n", io_qual.port);
@@ -74,18 +74,18 @@ int v3_handle_vmx_io_in(struct guest_info * info, struct vmx_exit_info * exit_in
 
     PrintDebug("IN of %d bytes on port %d (0x%x)\n", read_size, io_qual.port, io_qual.port);
 
-    if (hook->read(io_qual.port, &(info->vm_regs.rax), read_size, hook->priv_data) != read_size) {
+    if (hook->read(core, io_qual.port, &(core->vm_regs.rax), read_size, hook->priv_data) != read_size) {
         PrintError("Read failure for IN on port %x\n", io_qual.port);
         return -1;
     }
 
 
-    info->rip += exit_info->instr_len;
+    core->rip += exit_info->instr_len;
 
     return 0;
 }
 
-int v3_handle_vmx_io_ins(struct guest_info * info, struct vmx_exit_info * exit_info) {
+int v3_handle_vmx_io_ins(struct guest_info * core, struct vmx_exit_info * exit_info) {
     struct vmx_exit_io_qual io_qual = *(struct vmx_exit_io_qual *)&(exit_info->exit_qual);;
     struct v3_io_hook * hook = NULL;
     int read_size = 0;
@@ -93,9 +93,9 @@ int v3_handle_vmx_io_ins(struct guest_info * info, struct vmx_exit_info * exit_i
     addr_t host_addr = 0;
     int rdi_change = 0;
     ulong_t rep_num = 1;
-    struct rflags * flags = (struct rflags *)&(info->ctrl_regs.rflags);
+    struct rflags * flags = (struct rflags *)&(core->ctrl_regs.rflags);
 
-    hook = v3_get_io_hook(info, io_qual.port);
+    hook = v3_get_io_hook(core->vm_info, io_qual.port);
 
     if (hook == NULL) {
         PrintError("Hook not present for INS on port 0x%x\n", io_qual.port);
@@ -110,11 +110,11 @@ int v3_handle_vmx_io_ins(struct guest_info * info, struct vmx_exit_info * exit_i
         struct vmx_exit_io_instr_info instr_info = *(struct vmx_exit_io_instr_info *)&(exit_info->instr_info);
 
         if (instr_info.addr_size == 0) {
-            rep_num = info->vm_regs.rcx & 0xffff;
+            rep_num = core->vm_regs.rcx & 0xffff;
         } else if(instr_info.addr_size == 1) {
-            rep_num = info->vm_regs.rcx & 0xffffffff;
+            rep_num = core->vm_regs.rcx & 0xffffffff;
         } else if(instr_info.addr_size == 2) {
-            rep_num = info->vm_regs.rcx & 0xffffffffffffffffLL;
+            rep_num = core->vm_regs.rcx & 0xffffffffffffffffLL;
         } else {
             PrintDebug("Unknown INS address size!\n");
             return -1;
@@ -131,40 +131,40 @@ int v3_handle_vmx_io_ins(struct guest_info * info, struct vmx_exit_info * exit_i
 
 
 
-    if (guest_va_to_host_va(info, guest_va, &host_addr) == -1) {
+    if (guest_va_to_host_va(core, guest_va, &host_addr) == -1) {
         PrintError("Could not convert Guest VA to host VA\n");
         return -1;
     }
 
     do {
-        if (hook->read(io_qual.port, (char *)host_addr, read_size, hook->priv_data) != read_size) {
+        if (hook->read(core, io_qual.port, (char *)host_addr, read_size, hook->priv_data) != read_size) {
             PrintError("Read Failure for INS on port 0x%x\n", io_qual.port);
             return -1;
         }
 
         host_addr += rdi_change;
-        info->vm_regs.rdi += rdi_change;
+        core->vm_regs.rdi += rdi_change;
 
         if (io_qual.rep) {
-            info->vm_regs.rcx--;
+            core->vm_regs.rcx--;
         }
         
     } while (--rep_num > 0);
 
 
-    info->rip += exit_info->instr_len;
+    core->rip += exit_info->instr_len;
 
     return 0;
 }
 
 
 
-int v3_handle_vmx_io_out(struct guest_info * info, struct vmx_exit_info * exit_info) {
+int v3_handle_vmx_io_out(struct guest_info * core, struct vmx_exit_info * exit_info) {
     struct vmx_exit_io_qual io_qual = *(struct vmx_exit_io_qual *)&(exit_info->exit_qual);
     struct v3_io_hook * hook = NULL;
     int write_size = 0;
 
-    hook =  v3_get_io_hook(info, io_qual.port);
+    hook =  v3_get_io_hook(core->vm_info, io_qual.port);
 
     if (hook == NULL) {
         PrintError("Hook not present for out on port %x\n", io_qual.port);
@@ -175,21 +175,21 @@ int v3_handle_vmx_io_out(struct guest_info * info, struct vmx_exit_info * exit_i
     
     PrintDebug("OUT of %d bytes on port %d (0x%x)\n", write_size, io_qual.port, io_qual.port);
 
-    if (hook->write(io_qual.port, &(info->vm_regs.rax), write_size, hook->priv_data) != write_size) {
+    if (hook->write(core, io_qual.port, &(core->vm_regs.rax), write_size, hook->priv_data) != write_size) {
         PrintError("Write failure for out on port %x\n",io_qual.port);
         return -1;
     }
 
 
 
-    info->rip += exit_info->instr_len;
+    core->rip += exit_info->instr_len;
 
     return 0;
 }
 
 
 
-int v3_handle_vmx_io_outs(struct guest_info * info, struct vmx_exit_info * exit_info) {
+int v3_handle_vmx_io_outs(struct guest_info * core, struct vmx_exit_info * exit_info) {
     struct vmx_exit_io_qual io_qual = *(struct vmx_exit_io_qual *)&(exit_info->exit_qual);
     struct v3_io_hook * hook = NULL;
     int write_size;
@@ -197,9 +197,9 @@ int v3_handle_vmx_io_outs(struct guest_info * info, struct vmx_exit_info * exit_
     addr_t host_addr;
     int rsi_change;
     ulong_t rep_num = 1;
-    struct rflags * flags = (struct rflags *)&(info->ctrl_regs.rflags);
+    struct rflags * flags = (struct rflags *)&(core->ctrl_regs.rflags);
 
-    hook = v3_get_io_hook(info, io_qual.port);
+    hook = v3_get_io_hook(core->vm_info, io_qual.port);
 
     if (hook == NULL) {
         PrintError("Hook not present for OUTS on port 0x%x\n", io_qual.port);
@@ -215,11 +215,11 @@ int v3_handle_vmx_io_outs(struct guest_info * info, struct vmx_exit_info * exit_
         struct vmx_exit_io_instr_info instr_info = *(struct vmx_exit_io_instr_info *)&(exit_info->instr_info);
 
         if (instr_info.addr_size == 0) {
-            rep_num = info->vm_regs.rcx & 0xffff;
+            rep_num = core->vm_regs.rcx & 0xffff;
         } else if(instr_info.addr_size == 1) {
-            rep_num = info->vm_regs.rcx & 0xffffffff;
+            rep_num = core->vm_regs.rcx & 0xffffffff;
         } else if(instr_info.addr_size == 2) {
-            rep_num = info->vm_regs.rcx & 0xffffffffffffffffLL;
+            rep_num = core->vm_regs.rcx & 0xffffffffffffffffLL;
         } else {
             PrintDebug("Unknown INS address size!\n");
             return -1;
@@ -236,28 +236,28 @@ int v3_handle_vmx_io_outs(struct guest_info * info, struct vmx_exit_info * exit_
 
     PrintDebug("OUTS size=%d for %ld steps\n", write_size, rep_num);
 
-    if (guest_va_to_host_va(info, guest_va, &host_addr) == -1) {
+    if (guest_va_to_host_va(core, guest_va, &host_addr) == -1) {
         PrintError("Could not convert guest VA to host VA\n");
         return -1;
     }
 
     do {
-       if (hook->write(io_qual.port, (char *)host_addr, write_size, hook->priv_data) != write_size) {
+	if (hook->write(core, io_qual.port, (char *)host_addr, write_size, hook->priv_data) != write_size) {
            PrintError("Read failure for INS on port 0x%x\n", io_qual.port);
            return -1;
        }
 
        host_addr += rsi_change;
-       info->vm_regs.rsi += rsi_change;
+       core->vm_regs.rsi += rsi_change;
 
        if (io_qual.rep) {
-           --info->vm_regs.rcx;
+           --core->vm_regs.rcx;
        }
 
     } while (--rep_num > 0);
 
 
-    info->rip += exit_info->instr_len;
+    core->rip += exit_info->instr_len;
 
     return 0;
 }

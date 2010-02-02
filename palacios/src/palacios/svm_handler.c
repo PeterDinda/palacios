@@ -43,7 +43,7 @@
 int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_info1, addr_t exit_info2) {
 
 #ifdef CONFIG_TELEMETRY
-    if (info->enable_telemetry) {
+    if (info->vm_info->enable_telemetry) {
 	v3_telemetry_start_exit(info);
     }
 #endif
@@ -282,7 +282,7 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
     // END OF SWITCH (EXIT_CODE)
 
 #ifdef CONFIG_TELEMETRY
-    if (info->enable_telemetry) {
+    if (info->vm_info->enable_telemetry) {
 	v3_telemetry_end_exit(info, exit_code);
     }
 #endif

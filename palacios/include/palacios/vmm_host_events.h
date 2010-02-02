@@ -38,6 +38,7 @@ struct v3_timer_event {
 
 #include <palacios/vmm_list.h>
 
+struct v3_vm_info;
 
 typedef enum {HOST_KEYBOARD_EVT, 
 	      HOST_MOUSE_EVT, 
@@ -45,9 +46,9 @@ typedef enum {HOST_KEYBOARD_EVT,
 
 
 union v3_host_event_handler {
-    int (*keyboard_handler)(struct guest_info * info, struct v3_keyboard_event * evt, void * priv_data);
-    int (*mouse_handler)(struct guest_info * info, struct v3_mouse_event * evt, void * priv_data);
-    int (*timer_handler)(struct guest_info * info, struct v3_timer_event * evt, void * priv_data);
+    int (*keyboard_handler)(struct v3_vm_info * vm, struct v3_keyboard_event * evt, void * priv_data);
+    int (*mouse_handler)(struct v3_vm_info * vm, struct v3_mouse_event * evt, void * priv_data);
+    int (*timer_handler)(struct v3_vm_info * vm, struct v3_timer_event * evt, void * priv_data);
 };
 
 
@@ -67,11 +68,11 @@ struct v3_host_events {
 
 
 
-int v3_init_host_events(struct guest_info * info);
+int v3_init_host_events(struct v3_vm_info * vm);
 
 #define V3_HOST_EVENT_HANDLER(cb) ((union v3_host_event_handler)cb)
 
-int v3_hook_host_event(struct guest_info * info, 
+int v3_hook_host_event(struct v3_vm_info * vm, 
 		       v3_host_evt_type_t event_type, 
 		       union v3_host_event_handler cb, 
 		       void * private_data);
@@ -80,9 +81,9 @@ int v3_hook_host_event(struct guest_info * info,
 
 
 
-int v3_deliver_keyboard_event(struct guest_info * info, struct v3_keyboard_event * evt);
-int v3_deliver_mouse_event(struct guest_info * info, struct v3_mouse_event * evt);
-int v3_deliver_timer_event(struct guest_info * info, struct v3_timer_event * evt);
+int v3_deliver_keyboard_event(struct v3_vm_info * vm, struct v3_keyboard_event * evt);
+int v3_deliver_mouse_event(struct v3_vm_info * vm, struct v3_mouse_event * evt);
+int v3_deliver_timer_event(struct v3_vm_info * vm, struct v3_timer_event * evt);
 
 
 

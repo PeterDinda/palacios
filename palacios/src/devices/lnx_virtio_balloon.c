@@ -121,7 +121,7 @@ static int get_desc_count(struct virtio_queue * q, int index) {
 }
 
 
-static int handle_kick(struct vm_device * dev) {
+static int handle_kick(struct guest_info * core, struct vm_device * dev) {
     struct virtio_balloon_state * virtio = (struct virtio_balloon_state *)dev->private_data;    
     struct virtio_queue * q = virtio->cur_queue;
 
@@ -142,12 +142,13 @@ static int handle_kick(struct vm_device * dev) {
 	    addr_t page_addr;
 	    tmp_desc = &(q->desc[desc_idx]);
 	    
-	    PrintDebug("Header Descriptor (ptr=%p) gpa=%p, len=%d, flags=%x, next=%d\n", tmp_desc, 
-		       (void *)(tmp_desc->addr_gpa), tmp_desc->length, 
+	    PrintDebug("Header Descriptor (ptr=%p) gpa=%p, len=%d, flags=%x, next=%d\n", 
+		       tmp_desc, 
+		       (void *)(addr_t)(tmp_desc->addr_gpa), tmp_desc->length, 
 		       tmp_desc->flags, tmp_desc->next);
 	
 
-	    if (guest_pa_to_host_va(dev->vm, tmp_desc->addr_gpa, (addr_t *)&(page_addr)) == -1) {
+	    if (guest_pa_to_host_va(core, tmp_desc->addr_gpa, (addr_t *)&(page_addr)) == -1) {
 		PrintError("Could not translate block header address\n");
 		return -1;
 	    }
@@ -184,7 +185,7 @@ static int handle_kick(struct vm_device * dev) {
     return 0;
 }
 
-static int virtio_io_write(uint16_t port, void * src, uint_t length, void * private_data) {
+static int virtio_io_write(struct guest_info * core, uint16_t port, void * src, uint_t length, void * private_data) {
     struct vm_device * dev = (struct vm_device *)private_data;
     struct virtio_balloon_state * virtio = (struct virtio_balloon_state *)dev->private_data;
     int port_idx = port % virtio->io_range_size;
@@ -222,19 +223,19 @@ static int virtio_io_write(uint16_t port, void * src, uint_t length, void * priv
 		// round up to next page boundary.
 		virtio->cur_queue->ring_used_addr = (virtio->cur_queue->ring_used_addr + 0xfff) & ~0xfff;
 
-		if (guest_pa_to_host_va(dev->vm, virtio->cur_queue->ring_desc_addr, (addr_t *)&(virtio->cur_queue->desc)) == -1) {
+		if (guest_pa_to_host_va(core, virtio->cur_queue->ring_desc_addr, (addr_t *)&(virtio->cur_queue->desc)) == -1) {
 		    PrintError("Could not translate ring descriptor address\n");
 		    return -1;
 		}
 
 
-		if (guest_pa_to_host_va(dev->vm, virtio->cur_queue->ring_avail_addr, (addr_t *)&(virtio->cur_queue->avail)) == -1) {
+		if (guest_pa_to_host_va(core, virtio->cur_queue->ring_avail_addr, (addr_t *)&(virtio->cur_queue->avail)) == -1) {
 		    PrintError("Could not translate ring available address\n");
 		    return -1;
 		}
 
 
-		if (guest_pa_to_host_va(dev->vm, virtio->cur_queue->ring_used_addr, (addr_t *)&(virtio->cur_queue->used)) == -1) {
+		if (guest_pa_to_host_va(core, virtio->cur_queue->ring_used_addr, (addr_t *)&(virtio->cur_queue->used)) == -1) {
 		    PrintError("Could not translate ring used address\n");
 		    return -1;
 		}
@@ -266,7 +267,7 @@ static int virtio_io_write(uint16_t port, void * src, uint_t length, void * priv
 	    break;
 	case VRING_Q_NOTIFY_PORT:
 	    PrintDebug("Handling Kick\n");
-	    if (handle_kick(dev) == -1) {
+	    if (handle_kick(core, dev) == -1) {
 		PrintError("Could not handle Balloon Notification\n");
 		return -1;
 	    }
@@ -293,7 +294,7 @@ static int virtio_io_write(uint16_t port, void * src, uint_t length, void * priv
 }
 
 
-static int virtio_io_read(uint16_t port, void * dst, uint_t length, void * private_data) {
+static int virtio_io_read(struct guest_info * core, uint16_t port, void * dst, uint_t length, void * private_data) {
     struct vm_device * dev = (struct vm_device *)private_data;
     struct virtio_balloon_state * virtio = (struct virtio_balloon_state *)dev->private_data;
     int port_idx = port % virtio->io_range_size;
@@ -415,7 +416,7 @@ static int handle_query_hcall(struct guest_info * info, uint_t hcall_id, void * 
 
 
 
-static int virtio_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
+static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vm_device * pci_bus = v3_find_dev(vm, v3_cfg_val(cfg, "bus"));
     struct virtio_balloon_state * virtio_state = NULL;
     struct pci_device * pci_dev = NULL;

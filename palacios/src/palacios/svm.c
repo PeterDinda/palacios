@@ -67,7 +67,7 @@ static vmcb_t * Allocate_VMCB() {
 
 
 
-static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * vm_info) {
+static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
     vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA(vmcb);
     vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA(vmcb);
     uint_t i;
@@ -125,37 +125,37 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * vm_info) {
 
     /* Setup Guest Machine state */
 
-    vm_info->vm_regs.rsp = 0x00;
-    vm_info->rip = 0xfff0;
+    core->vm_regs.rsp = 0x00;
+    core->rip = 0xfff0;
 
-    vm_info->vm_regs.rdx = 0x00000f00;
-
-
-    vm_info->cpl = 0;
-
-    vm_info->ctrl_regs.rflags = 0x00000002; // The reserved bit is always 1
-    vm_info->ctrl_regs.cr0 = 0x60010010; // Set the WP flag so the memory hooks work in real-mode
-    vm_info->ctrl_regs.efer |= EFER_MSR_svm_enable;
+    core->vm_regs.rdx = 0x00000f00;
 
 
+    core->cpl = 0;
+
+    core->ctrl_regs.rflags = 0x00000002; // The reserved bit is always 1
+    core->ctrl_regs.cr0 = 0x60010010; // Set the WP flag so the memory hooks work in real-mode
+    core->ctrl_regs.efer |= EFER_MSR_svm_enable;
 
 
 
-    vm_info->segments.cs.selector = 0xf000;
-    vm_info->segments.cs.limit = 0xffff;
-    vm_info->segments.cs.base = 0x0000000f0000LL;
+
+
+    core->segments.cs.selector = 0xf000;
+    core->segments.cs.limit = 0xffff;
+    core->segments.cs.base = 0x0000000f0000LL;
 
     // (raw attributes = 0xf3)
-    vm_info->segments.cs.type = 0x3;
-    vm_info->segments.cs.system = 0x1;
-    vm_info->segments.cs.dpl = 0x3;
-    vm_info->segments.cs.present = 1;
+    core->segments.cs.type = 0x3;
+    core->segments.cs.system = 0x1;
+    core->segments.cs.dpl = 0x3;
+    core->segments.cs.present = 1;
 
 
 
-    struct v3_segment * segregs [] = {&(vm_info->segments.ss), &(vm_info->segments.ds), 
-				      &(vm_info->segments.es), &(vm_info->segments.fs), 
-				      &(vm_info->segments.gs), NULL};
+    struct v3_segment * segregs [] = {&(core->segments.ss), &(core->segments.ds), 
+				      &(core->segments.es), &(core->segments.fs), 
+				      &(core->segments.gs), NULL};
 
     for ( i = 0; segregs[i] != NULL; i++) {
 	struct v3_segment * seg = segregs[i];
@@ -172,31 +172,28 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * vm_info) {
 	seg->present = 1;
     }
 
-    vm_info->segments.gdtr.limit = 0x0000ffff;
-    vm_info->segments.gdtr.base = 0x0000000000000000LL;
-    vm_info->segments.idtr.limit = 0x0000ffff;
-    vm_info->segments.idtr.base = 0x0000000000000000LL;
+    core->segments.gdtr.limit = 0x0000ffff;
+    core->segments.gdtr.base = 0x0000000000000000LL;
+    core->segments.idtr.limit = 0x0000ffff;
+    core->segments.idtr.base = 0x0000000000000000LL;
 
-    vm_info->segments.ldtr.selector = 0x0000;
-    vm_info->segments.ldtr.limit = 0x0000ffff;
-    vm_info->segments.ldtr.base = 0x0000000000000000LL;
-    vm_info->segments.tr.selector = 0x0000;
-    vm_info->segments.tr.limit = 0x0000ffff;
-    vm_info->segments.tr.base = 0x0000000000000000LL;
-
-
-    vm_info->dbg_regs.dr6 = 0x00000000ffff0ff0LL;
-    vm_info->dbg_regs.dr7 = 0x0000000000000400LL;
+    core->segments.ldtr.selector = 0x0000;
+    core->segments.ldtr.limit = 0x0000ffff;
+    core->segments.ldtr.base = 0x0000000000000000LL;
+    core->segments.tr.selector = 0x0000;
+    core->segments.tr.limit = 0x0000ffff;
+    core->segments.tr.base = 0x0000000000000000LL;
 
 
-    v3_init_svm_io_map(vm_info);
-    ctrl_area->IOPM_BASE_PA = (addr_t)V3_PAddr(vm_info->io_map.arch_data);
+    core->dbg_regs.dr6 = 0x00000000ffff0ff0LL;
+    core->dbg_regs.dr7 = 0x0000000000000400LL;
+
+
+    ctrl_area->IOPM_BASE_PA = (addr_t)V3_PAddr(core->vm_info->io_map.arch_data);
     ctrl_area->instrs.IOIO_PROT = 1;
-
-
-    v3_init_svm_msr_map(vm_info);
-    ctrl_area->MSRPM_BASE_PA = (addr_t)V3_PAddr(vm_info->msr_map.arch_data);
-    ctrl_area->instrs.MSR_PROT = 1;
+	    
+    ctrl_area->MSRPM_BASE_PA = (addr_t)V3_PAddr(core->vm_info->msr_map.arch_data);
+    ctrl_area->instrs.MSR_PROT = 1;   
 
 
     PrintDebug("Exiting on interrupts\n");
@@ -204,7 +201,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * vm_info) {
     ctrl_area->instrs.INTR = 1;
 
 
-    if (vm_info->shdw_pg_mode == SHADOW_PAGING) {
+    if (core->shdw_pg_mode == SHADOW_PAGING) {
 	PrintDebug("Creating initial shadow page table\n");
 	
 	/* JRL: This is a performance killer, and a simplistic solution */
@@ -213,17 +210,17 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * vm_info) {
 	ctrl_area->guest_ASID = 1;
 	
 	
-	if (v3_init_passthrough_pts(vm_info) == -1) {
+	if (v3_init_passthrough_pts(core) == -1) {
 	    PrintError("Could not initialize passthrough page tables\n");
 	    return ;
 	}
 
 
-	vm_info->shdw_pg_state.guest_cr0 = 0x0000000000000010LL;
+	core->shdw_pg_state.guest_cr0 = 0x0000000000000010LL;
 	PrintDebug("Created\n");
 	
-	vm_info->ctrl_regs.cr0 |= 0x80000000;
-	vm_info->ctrl_regs.cr3 = vm_info->direct_map_pt;
+	core->ctrl_regs.cr0 |= 0x80000000;
+	core->ctrl_regs.cr3 = core->direct_map_pt;
 
 	ctrl_area->cr_reads.cr0 = 1;
 	ctrl_area->cr_writes.cr0 = 1;
@@ -232,10 +229,10 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * vm_info) {
 	ctrl_area->cr_reads.cr3 = 1;
 	ctrl_area->cr_writes.cr3 = 1;
 
-	v3_hook_msr(vm_info, EFER_MSR, 
+	v3_hook_msr(core->vm_info, EFER_MSR, 
 		    &v3_handle_efer_read,
 		    &v3_handle_efer_write, 
-		    vm_info);
+		    core);
 
 	ctrl_area->instrs.INVLPG = 1;
 
@@ -245,7 +242,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * vm_info) {
 
 
 
-    } else if (vm_info->shdw_pg_mode == NESTED_PAGING) {
+    } else if (core->shdw_pg_mode == NESTED_PAGING) {
 	// Flush the TLB on entries/exits
 	ctrl_area->TLB_CONTROL = 1;
 	ctrl_area->guest_ASID = 1;
@@ -256,12 +253,12 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * vm_info) {
 	PrintDebug("NP_Enable at 0x%p\n", (void *)&(ctrl_area->NP_ENABLE));
 
 	// Set the Nested Page Table pointer
-	if (v3_init_passthrough_pts(vm_info) == -1) {
+	if (v3_init_passthrough_pts(core) == -1) {
 	    PrintError("Could not initialize Nested page tables\n");
 	    return ;
 	}
 
-	ctrl_area->N_CR3 = vm_info->direct_map_pt;
+	ctrl_area->N_CR3 = core->direct_map_pt;
 
 	guest_state->g_pat = 0x7040600070406ULL;
     }
@@ -289,25 +286,25 @@ int v3_init_svm_vmcb(struct guest_info * info, v3_vm_class_t vm_class) {
 static int update_irq_exit_state(struct guest_info * info) {
     vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
 
-    if ((info->intr_state.irq_pending == 1) && (guest_ctrl->guest_ctrl.V_IRQ == 0)) {
+    if ((info->intr_core_state.irq_pending == 1) && (guest_ctrl->guest_ctrl.V_IRQ == 0)) {
 	
 #ifdef CONFIG_DEBUG_INTERRUPTS
-	PrintDebug("INTAK cycle completed for irq %d\n", info->intr_state.irq_vector);
+	PrintDebug("INTAK cycle completed for irq %d\n", info->intr_core_state.irq_vector);
 #endif
 
-	info->intr_state.irq_started = 1;
-	info->intr_state.irq_pending = 0;
+	info->intr_core_state.irq_started = 1;
+	info->intr_core_state.irq_pending = 0;
 
-	v3_injecting_intr(info, info->intr_state.irq_vector, V3_EXTERNAL_IRQ);
+	v3_injecting_intr(info, info->intr_core_state.irq_vector, V3_EXTERNAL_IRQ);
     }
 
-    if ((info->intr_state.irq_started == 1) && (guest_ctrl->exit_int_info.valid == 0)) {
+    if ((info->intr_core_state.irq_started == 1) && (guest_ctrl->exit_int_info.valid == 0)) {
 #ifdef CONFIG_DEBUG_INTERRUPTS
-	PrintDebug("Interrupt %d taken by guest\n", info->intr_state.irq_vector);
+	PrintDebug("Interrupt %d taken by guest\n", info->intr_core_state.irq_vector);
 #endif
 
 	// Interrupt was taken fully vectored
-	info->intr_state.irq_started = 0;
+	info->intr_core_state.irq_started = 0;
 
     } else {
 #ifdef CONFIG_DEBUG_INTERRUPTS
@@ -348,12 +345,12 @@ static int update_irq_entry_state(struct guest_info * info) {
 #endif
 
 	v3_injecting_excp(info, excp);
-    } else if (info->intr_state.irq_started == 1) {
+    } else if (info->intr_core_state.irq_started == 1) {
 #ifdef CONFIG_DEBUG_INTERRUPTS
 	PrintDebug("IRQ pending from previous injection\n");
 #endif
 	guest_ctrl->guest_ctrl.V_IRQ = 1;
-	guest_ctrl->guest_ctrl.V_INTR_VECTOR = info->intr_state.irq_vector;
+	guest_ctrl->guest_ctrl.V_INTR_VECTOR = info->intr_core_state.irq_vector;
 	guest_ctrl->guest_ctrl.V_IGN_TPR = 1;
 	guest_ctrl->guest_ctrl.V_INTR_PRIO = 0xf;
 
@@ -373,8 +370,8 @@ static int update_irq_entry_state(struct guest_info * info) {
 			   (void *)(addr_t)info->rip);
 #endif
 
-		info->intr_state.irq_pending = 1;
-		info->intr_state.irq_vector = irq;
+		info->intr_core_state.irq_pending = 1;
+		info->intr_core_state.irq_vector = irq;
 		
 		break;
 	    }
@@ -439,7 +436,7 @@ int v3_svm_enter(struct guest_info * info) {
     guest_state->rsp = info->vm_regs.rsp;
 
 #ifdef CONFIG_SYMBIOTIC
-    if (info->sym_state.sym_call_active == 0) {
+    if (info->vm_info->sym_state.symcalls[info->cpu_id].sym_call_active == 0) {
 	update_irq_entry_state(info);
     }
 #else 
@@ -456,7 +453,7 @@ int v3_svm_enter(struct guest_info * info) {
     */
 
 #ifdef CONFIG_SYMBIOTIC
-    if (info->sym_state.sym_call_active == 1) {
+    if (info->vm_info->sym_state.symcalls[info->cpu_id].sym_call_active == 1) {
 	if (guest_ctrl->guest_ctrl.V_IRQ == 1) {
 	    V3_Print("!!! Injecting Interrupt during Sym call !!!\n");
 	}
@@ -466,13 +463,15 @@ int v3_svm_enter(struct guest_info * info) {
 
     rdtscll(info->time_state.cached_host_tsc);
     guest_ctrl->TSC_OFFSET = info->time_state.guest_tsc - info->time_state.cached_host_tsc;
+
+    //V3_Print("Calling v3_svm_launch\n");
 	
     v3_svm_launch((vmcb_t *)V3_PAddr(info->vmm_data), &(info->vm_regs), (vmcb_t *)host_vmcbs[info->cpu_id]);
     
+    //V3_Print("SVM Returned: Exit Code: %x, guest_rip=%lx\n", (uint32_t)(guest_ctrl->exit_code), (unsigned long)guest_state->rip);
+
 
     v3_last_exit = (uint32_t)(guest_ctrl->exit_code);
-
-    //  v3_print_cond("SVM Returned: Exit Code: %x\n", (uint32_t)(guest_ctrl->exit_code));
 
     rdtscll(tmp_tsc);
 
@@ -513,7 +512,7 @@ int v3_svm_enter(struct guest_info * info) {
 
 
 #ifdef CONFIG_SYMBIOTIC
-    if (info->sym_state.sym_call_active == 0) {
+    if (info->vm_info->sym_state.symcalls[info->cpu_id].sym_call_active == 0) {
 	update_irq_exit_state(info);
     }
 #else
@@ -548,7 +547,7 @@ int v3_start_svm_guest(struct guest_info *info) {
     PrintDebug("Launching SVM VM (vmcb=%p)\n", (void *)info->vmm_data);
     //PrintDebugVMCB((vmcb_t*)(info->vmm_data));
     
-    info->run_state = VM_RUNNING;
+    info->vm_info->run_state = VM_RUNNING;
     rdtscll(info->yield_start_cycle);
 
 
@@ -558,7 +557,7 @@ int v3_start_svm_guest(struct guest_info *info) {
 	    addr_t host_addr;
 	    addr_t linear_addr = 0;
 	    
-	    info->run_state = VM_ERROR;
+	    info->vm_info->run_state = VM_ERROR;
 	    
 	    V3_Print("SVM ERROR!!\n"); 
 	    

@@ -48,15 +48,26 @@
 #define SYMCALL_GS_MSR  0x539
 #define SYMCALL_FS_MSR  0x540
 
-
 static int msr_read(uint_t msr, struct v3_msr * dst, void * priv_data) {
     struct guest_info * info = (struct guest_info *)priv_data;
-    struct v3_sym_state * state = &(info->sym_state);
+    struct v3_sym_state * state = &(info->vm_info->sym_state);
 
     switch (msr) {
 	case SYM_PAGE_MSR:
 	    dst->value = state->guest_pg_addr;
 	    break;
+	default:
+	    return -1;
+    }
+
+    return 0;
+}
+
+static int symcall_msr_read(uint_t msr, struct v3_msr * dst, void * priv_data) {
+    struct guest_info * info = (struct guest_info *)priv_data;
+    struct v3_symcall_state * state = &(info->vm_info->sym_state.symcalls[info->cpu_id]);
+
+    switch (msr) {
 	case SYMCALL_RIP_MSR:
 	    dst->value = state->sym_call_rip;
 	    break;
@@ -81,21 +92,21 @@ static int msr_read(uint_t msr, struct v3_msr * dst, void * priv_data) {
 
 static int msr_write(uint_t msr, struct v3_msr src, void * priv_data) {
     struct guest_info * info = (struct guest_info *)priv_data;
-    struct v3_sym_state * state = &(info->sym_state);
+    struct v3_sym_state * state = &(info->vm_info->sym_state);
 
     if (msr == SYM_PAGE_MSR) {
-	PrintDebug("Symbiotic MSR write for page %p\n", (void *)src.value);
+	PrintDebug("Symbiotic MSR write for page %p\n", (void *)(addr_t)src.value);
 
 	if (state->active == 1) {
 	    // unmap page
-	    struct v3_shadow_region * old_reg = v3_get_shadow_region(info, (addr_t)state->guest_pg_addr);
+	    struct v3_shadow_region * old_reg = v3_get_shadow_region(info->vm_info, (addr_t)state->guest_pg_addr);
 
 	    if (old_reg == NULL) {
-		PrintError("Could not find previously active symbiotic page (%p)\n", (void *)state->guest_pg_addr);
+		PrintError("Could not find previously active symbiotic page (%p)\n", (void *)(addr_t)state->guest_pg_addr);
 		return -1;
 	    }
 
-	    v3_delete_shadow_region(info, old_reg);
+	    v3_delete_shadow_region(info->vm_info, old_reg);
 	}
 
 	state->guest_pg_addr = src.value;
@@ -104,26 +115,42 @@ static int msr_write(uint_t msr, struct v3_msr src, void * priv_data) {
 	state->active = 1;
 
 	// map page
-	v3_add_shadow_mem(info, (addr_t)state->guest_pg_addr, 
+	v3_add_shadow_mem(info->vm_info, (addr_t)state->guest_pg_addr, 
 			  (addr_t)(state->guest_pg_addr + PAGE_SIZE_4KB - 1), 
 			  state->sym_page_pa);
-
-
-    } else if (msr == SYMCALL_RIP_MSR) {
-	state->sym_call_rip = src.value;
-    } else if (msr == SYMCALL_RSP_MSR) {
-	state->sym_call_rsp = src.value;
-    } else if (msr == SYMCALL_CS_MSR) {
-	state->sym_call_cs = src.value;
-    } else if (msr == SYMCALL_GS_MSR) {
-	state->sym_call_gs = src.value;
-    } else if (msr == SYMCALL_FS_MSR) {
-	state->sym_call_fs = src.value;
     } else {
 	PrintError("Invalid Symbiotic MSR write (0x%x)\n", msr);
 	return -1;
     }
 
+    return 0;
+}
+
+
+static int symcall_msr_write(uint_t msr, struct v3_msr src, void * priv_data) {
+    struct guest_info * info = (struct guest_info *)priv_data;
+    struct v3_symcall_state * state = &(info->vm_info->sym_state.symcalls[info->cpu_id]);
+
+    switch (msr) {
+	case SYMCALL_RIP_MSR:
+	    state->sym_call_rip = src.value;
+	    break;
+	case SYMCALL_RSP_MSR:
+	    state->sym_call_rsp = src.value;
+	    break;
+	case SYMCALL_CS_MSR:
+	    state->sym_call_cs = src.value;
+	    break;
+	case SYMCALL_GS_MSR:
+	    state->sym_call_gs = src.value;
+	    break;
+	case SYMCALL_FS_MSR:
+	    state->sym_call_fs = src.value;
+	    break;
+	default:
+	    PrintError("Invalid Symbiotic MSR write (0x%x)\n", msr);
+	    return -1;
+    }
     return 0;
 }
 
@@ -153,8 +180,8 @@ static int sym_call_err(struct guest_info * info, uint_t hcall_id, void * privat
 
 
 
-int v3_init_sym_iface(struct guest_info * info) {
-    struct v3_sym_state * state = &(info->sym_state);
+int v3_init_sym_iface(struct v3_vm_info * vm) {
+    struct v3_sym_state * state = &(vm->sym_state);
     memset(state, 0, sizeof(struct v3_sym_state));
 
     state->sym_page_pa = (addr_t)V3_AllocPages(1);
@@ -164,24 +191,24 @@ int v3_init_sym_iface(struct guest_info * info) {
     
     memcpy(&(state->sym_page->magic), "V3V", 3);
 
-    v3_hook_msr(info, SYM_PAGE_MSR, msr_read, msr_write, info);
+    v3_hook_msr(vm, SYM_PAGE_MSR, msr_read, msr_write, info);
 
-    v3_hook_cpuid(info, SYM_CPUID_NUM, cpuid_fn, info);
+    v3_hook_cpuid(vm, SYM_CPUID_NUM, cpuid_fn, info);
 
-    v3_hook_msr(info, SYMCALL_RIP_MSR, msr_read, msr_write, info);
-    v3_hook_msr(info, SYMCALL_RSP_MSR, msr_read, msr_write, info);
-    v3_hook_msr(info, SYMCALL_CS_MSR, msr_read, msr_write, info);
-    v3_hook_msr(info, SYMCALL_GS_MSR, msr_read, msr_write, info);
-    v3_hook_msr(info, SYMCALL_FS_MSR, msr_read, msr_write, info);
+    v3_hook_msr(vm, SYMCALL_RIP_MSR, symcall_msr_read, msr_write, info);
+    v3_hook_msr(vm, SYMCALL_RSP_MSR, symcall_msr_read, msr_write, info);
+    v3_hook_msr(vm, SYMCALL_CS_MSR, symcall_msr_read, msr_write, info);
+    v3_hook_msr(vm, SYMCALL_GS_MSR, symcall_msr_read, msr_write, info);
+    v3_hook_msr(vm, SYMCALL_FS_MSR, symcall_msr_read, msr_write, info);
 
-    v3_register_hypercall(info, SYM_CALL_RET_HCALL, sym_call_ret, NULL);
-    v3_register_hypercall(info, SYM_CALL_ERR_HCALL, sym_call_err, NULL);
+    v3_register_hypercall(vm, SYM_CALL_RET_HCALL, sym_call_ret, NULL);
+    v3_register_hypercall(vm, SYM_CALL_ERR_HCALL, sym_call_err, NULL);
 
     return 0;
 }
 
-int v3_sym_map_pci_passthrough(struct guest_info * info, uint_t bus, uint_t dev, uint_t fn) {
-    struct v3_sym_state * state = &(info->sym_state);
+int v3_sym_map_pci_passthrough(struct v3_vm_info * vm, uint_t bus, uint_t dev, uint_t fn) {
+    struct v3_sym_state * state = &(vm->sym_state);
     uint_t dev_index = (bus << 8) + (dev << 3) + fn;
     uint_t major = dev_index / 8;
     uint_t minor = dev_index % 8;
@@ -202,8 +229,8 @@ int v3_sym_map_pci_passthrough(struct guest_info * info, uint_t bus, uint_t dev,
     return 0;
 }
 
-int v3_sym_unmap_pci_passthrough(struct guest_info * info, uint_t bus, uint_t dev, uint_t fn) {
-    struct v3_sym_state * state = &(info->sym_state);
+int v3_sym_unmap_pci_passthrough(struct v3_vm_info * vm, uint_t bus, uint_t dev, uint_t fn) {
+    struct v3_sym_state * state = &(vm->sym_state);
     uint_t dev_index = (bus << 8) + (dev << 3) + fn;
     uint_t major = dev_index / 8;
     uint_t minor = dev_index % 8;
@@ -220,7 +247,7 @@ int v3_sym_unmap_pci_passthrough(struct guest_info * info, uint_t bus, uint_t de
 
 
 static int sym_call_err(struct guest_info * info, uint_t hcall_id, void * private_data) {
-    struct v3_sym_state * state = (struct v3_sym_state *)&(info->sym_state);
+    struct v3_symcall_state * state = (struct v3_symcall_state *)&(info->sym_state.symcalls[info->cpu_id]);
 
     PrintError("sym call error\n");
 
@@ -236,7 +263,7 @@ static int sym_call_err(struct guest_info * info, uint_t hcall_id, void * privat
 }
 
 static int sym_call_ret(struct guest_info * info, uint_t hcall_id, void * private_data) {
-    struct v3_sym_state * state = (struct v3_sym_state *)&(info->sym_state);
+    struct v3_symcall_state * state = (struct v3_symcall_state *)&(info->vm_info->sym_state.symcalls[info->cpu_id]);
 
     //    PrintError("Return from sym call (ID=%x)\n", hcall_id);
     //   v3_print_guest_state(info);
@@ -247,8 +274,9 @@ static int sym_call_ret(struct guest_info * info, uint_t hcall_id, void * privat
 }
 
 static int execute_symcall(struct guest_info * info) {
+    struct v3_symcall_state * state = (struct v3_symcall_state *)&(info->vm_info->sym_state.symcalls[info->cpu_id]);
 
-    while (info->sym_state.sym_call_returned == 0) {
+    while (state->sym_call_returned == 0) {
 	if (v3_vm_enter(info) == -1) {
 	    PrintError("Error in Sym call\n");
 	    return -1;
@@ -263,7 +291,8 @@ int v3_sym_call(struct guest_info * info,
 		uint64_t call_num, sym_arg_t * arg0, 
 		sym_arg_t * arg1, sym_arg_t * arg2,
 		sym_arg_t * arg3, sym_arg_t * arg4) {
-    struct v3_sym_state * state = (struct v3_sym_state *)&(info->sym_state);
+    struct v3_sym_state * sym_state = (struct v3_sym_state *)&(info->vm_info->sym_sate);
+    struct v3_symcall_state * state = (struct v3_symcall_state *)&(sym_state->symcalls[info->cpu_id]);
     struct v3_sym_context * old_ctx = (struct v3_sym_context *)&(state->old_ctx);
     struct v3_segment sym_cs;
     struct v3_segment sym_ss;
@@ -272,7 +301,7 @@ int v3_sym_call(struct guest_info * info,
     //   PrintDebug("Making Sym call\n");
     //    v3_print_guest_state(info);
 
-    if ((state->sym_page->sym_call_enabled == 0) ||
+    if ((sym_state->sym_page->sym_call_enabled == 0) ||
 	(state->sym_call_active == 1)) {
 	return -1;
     }

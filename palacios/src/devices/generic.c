@@ -76,7 +76,7 @@ static int generic_stop_device(struct vm_device * dev) {
 
 
 
-static int generic_write_port_passthrough(uint16_t port, void * src, 
+static int generic_write_port_passthrough(struct guest_info * core, uint16_t port, void * src, 
 					  uint_t length, struct vm_device * dev) {
     uint_t i;
 
@@ -109,7 +109,7 @@ static int generic_write_port_passthrough(uint16_t port, void * src,
     return length;
 }
 
-static int generic_read_port_passthrough(uint16_t port, void * src, 
+static int generic_read_port_passthrough(struct guest_info * core, uint16_t port, void * src, 
 					 uint_t length, struct vm_device * dev) {
     uint_t i;
 
@@ -143,7 +143,7 @@ static int generic_read_port_passthrough(uint16_t port, void * src,
     return length;
 }
 
-static int generic_write_port_ignore(uint16_t port, void * src, 
+static int generic_write_port_ignore(struct guest_info * core, uint16_t port, void * src, 
 				     uint_t length, struct vm_device * dev) {
     uint_t i;
 
@@ -158,7 +158,7 @@ static int generic_write_port_ignore(uint16_t port, void * src,
     return length;
 }
 
-static int generic_read_port_ignore(uint16_t port, void * src, 
+static int generic_read_port_ignore(struct guest_info * core, uint16_t port, void * src, 
 				    uint_t length, struct vm_device * dev) {
 
     PrintDebug("generic: reading 0x%x bytes from port 0x%x ...", length, port);
@@ -252,7 +252,7 @@ static int add_port_range(struct vm_device * dev, uint_t start, uint_t end, gene
 
 
 
-static int generic_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
+static int generic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct generic_internal * state = (struct generic_internal *)V3_Malloc(sizeof(struct generic_internal));
     char * name = v3_cfg_val(cfg, "name");
 

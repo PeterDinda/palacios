@@ -231,8 +231,9 @@ static int handle_crystal_tics(struct vm_device * dev, struct channel * ch, uint
 }
 				
 
+#include <palacios/vm_guest.h>
 
-static void pit_update_time(ullong_t cpu_cycles, ullong_t cpu_freq, void * private_data) {
+static void pit_update_time(struct guest_info * info, ullong_t cpu_cycles, ullong_t cpu_freq, void * private_data) {
     struct vm_device * dev = (struct vm_device *)private_data;
     struct pit * state = (struct pit *)dev->private_data;
     //  ullong_t tmp_ctr = state->pit_counter;
@@ -296,7 +297,7 @@ static void pit_update_time(ullong_t cpu_cycles, ullong_t cpu_freq, void * priva
 	if (handle_crystal_tics(dev, &(state->ch_0), oscillations) == 1) {
 	    // raise interrupt
 	    PrintDebug("8254 PIT: Injecting Timer interrupt to guest\n");
-	    v3_raise_irq(dev->vm, 0);
+	    v3_raise_irq(info->vm_info, 0);
 	}
 
 	//handle_crystal_tics(dev, &(state->ch_1), oscillations);
@@ -307,6 +308,12 @@ static void pit_update_time(ullong_t cpu_cycles, ullong_t cpu_freq, void * priva
 
  
     return;
+}
+
+
+static void pit_advance_time(struct guest_info * core, void * private_data) {
+
+    v3_raise_irq(core->vm_info, 0);
 }
 
 
@@ -462,7 +469,7 @@ static int handle_channel_cmd(struct channel * ch, struct pit_cmd_word cmd) {
 
 
 
-static int pit_read_channel(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
+static int pit_read_channel(struct guest_info * core, ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
     struct pit * state = (struct pit *)dev->private_data;
     char * val = (char *)dst;
 
@@ -502,7 +509,7 @@ static int pit_read_channel(ushort_t port, void * dst, uint_t length, struct vm_
 
 
 
-static int pit_write_channel(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
+static int pit_write_channel(struct guest_info * core, ushort_t port, void * src, uint_t length, struct vm_device * dev) {
     struct pit * state = (struct pit *)dev->private_data;
     char val = *(char *)src;
 
@@ -544,7 +551,7 @@ static int pit_write_channel(ushort_t port, void * src, uint_t length, struct vm
 
 
 
-static int pit_write_command(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
+static int pit_write_command(struct guest_info * core, ushort_t port, void * src, uint_t length, struct vm_device * dev) {
     struct pit * state = (struct pit *)dev->private_data;
     struct pit_cmd_word * cmd = (struct pit_cmd_word *)src;
 
@@ -592,6 +599,7 @@ static int pit_write_command(ushort_t port, void * src, uint_t length, struct vm
 
 static struct vm_timer_ops timer_ops = {
     .update_time = pit_update_time,
+    .advance_timer = pit_advance_time,
 };
 
 
@@ -630,11 +638,16 @@ static struct v3_device_ops dev_ops = {
 
 };
 
+#include <palacios/vm_guest.h>
 
-static int pit_init(struct guest_info * info, v3_cfg_tree_t * cfg) {
+static int pit_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct pit * pit_state = NULL;
     struct vm_device * dev = NULL;
     char * name = v3_cfg_val(cfg, "name");
+    
+    // PIT is only usable in non-multicore environments
+    // just hardcode the core context
+    struct guest_info * info = &(vm->cores[0]);
 
     uint_t cpu_khz = V3_CPU_KHZ();
     ullong_t reload_val = (ullong_t)cpu_khz * 1000;
@@ -644,7 +657,7 @@ static int pit_init(struct guest_info * info, v3_cfg_tree_t * cfg) {
 
     dev = v3_allocate_device(name, &dev_ops, pit_state);
 
-    if (v3_attach_device(info, dev) == -1) {
+    if (v3_attach_device(vm, dev) == -1) {
 	PrintError("Could not attach device %s\n", name);
 	return -1;
     }
@@ -660,6 +673,7 @@ static int pit_init(struct guest_info * info, v3_cfg_tree_t * cfg) {
     PrintDebug("\n");
 #endif
 
+    
     v3_add_timer(info, &timer_ops, dev);
 
     // Get cpu frequency and calculate the global pit oscilattor counter/cycle

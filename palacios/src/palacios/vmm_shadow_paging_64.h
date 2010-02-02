@@ -408,7 +408,7 @@ static int handle_pte_shadow_pagefault_64(struct guest_info * info, addr_t fault
 
     PrintDebug("Handling PTE fault\n");
 
-    struct v3_shadow_region * shdw_reg =  v3_get_shadow_region(info, guest_pa);
+    struct v3_shadow_region * shdw_reg =  v3_get_shadow_region(info->vm_info, info->cpu_id, guest_pa);
 
 
 
@@ -454,7 +454,7 @@ static int handle_pte_shadow_pagefault_64(struct guest_info * info, addr_t fault
 
 	if ((shdw_reg->host_type == SHDW_REGION_ALLOCATED) ||
 	    (shdw_reg->host_type == SHDW_REGION_WRITE_HOOK)) {
-	    addr_t shadow_pa = v3_get_shadow_addr(shdw_reg, guest_pa);
+	    addr_t shadow_pa = v3_get_shadow_addr(shdw_reg, info->cpu_id, guest_pa);
       
 	    shadow_pte->page_base_addr = PAGE_BASE_ADDR(shadow_pa);
       
@@ -536,7 +536,7 @@ static int handle_2MB_shadow_pagefault_64(struct guest_info * info,
     PrintDebug("Handling 2MB fault (guest_fault_pa=%p) (error_code=%x)\n", (void *)guest_fault_pa, *(uint_t*)&error_code);
     PrintDebug("ShadowPT=%p, LargeGuestPDE=%p\n", shadow_pt, large_guest_pde);
 
-    struct v3_shadow_region * shdw_reg = v3_get_shadow_region(info, guest_fault_pa);
+    struct v3_shadow_region * shdw_reg = v3_get_shadow_region(info->vm_info, info->cpu_id, guest_fault_pa);
 
  
     if (shdw_reg == NULL) {
@@ -560,7 +560,7 @@ static int handle_2MB_shadow_pagefault_64(struct guest_info * info,
 
 	if ((shdw_reg->host_type == SHDW_REGION_ALLOCATED) || 
 	    (shdw_reg->host_type == SHDW_REGION_WRITE_HOOK)) {
-	    addr_t shadow_pa = v3_get_shadow_addr(shdw_reg, guest_fault_pa);
+	    addr_t shadow_pa = v3_get_shadow_addr(shdw_reg, info->cpu_id, guest_fault_pa);
 
 	    shadow_pte->page_base_addr = PAGE_BASE_ADDR(shadow_pa);
 

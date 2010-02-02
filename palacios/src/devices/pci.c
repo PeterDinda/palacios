@@ -33,6 +33,8 @@
 #include <devices/pci.h>
 #include <devices/pci_types.h>
 
+#include <palacios/vm_guest.h>
+
 
 
 #ifndef CONFIG_DEBUG_PCI
@@ -226,7 +228,7 @@ static struct pci_device * get_device(struct pci_bus * bus, uint8_t dev_num, uin
 
 
 
-static int addr_port_read(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
+static int addr_port_read(struct guest_info * core, ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
     struct pci_internal * pci_state = (struct pci_internal *)dev->private_data;
     int reg_offset = port & 0x3;
     uint8_t * reg_addr = ((uint8_t *)&(pci_state->addr_reg.val)) + reg_offset;
@@ -257,7 +259,7 @@ static int addr_port_read(ushort_t port, void * dst, uint_t length, struct vm_de
 }
 
 
-static int addr_port_write(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
+static int addr_port_write(struct guest_info * core, ushort_t port, void * src, uint_t length, struct vm_device * dev) {
     struct pci_internal * pci_state = (struct pci_internal *)dev->private_data;
     int reg_offset = port & 0x3; 
     uint8_t * reg_addr = ((uint8_t *)&(pci_state->addr_reg.val)) + reg_offset;
@@ -295,7 +297,7 @@ static int addr_port_write(ushort_t port, void * src, uint_t length, struct vm_d
 }
 
 
-static int data_port_read(ushort_t port, void * dst, uint_t length, struct vm_device * vmdev) {
+static int data_port_read(struct guest_info * core, ushort_t port, void * dst, uint_t length, struct vm_device * vmdev) {
     struct pci_internal * pci_state =  (struct pci_internal *)(vmdev->private_data);
     struct pci_device * pci_dev = NULL;
     uint_t reg_num = (pci_state->addr_reg.reg_num << 2) + (port & 0x3);
@@ -393,7 +395,6 @@ static inline int is_cfg_reg_writable(uchar_t header_type, int reg_num) {
     }
 }
 
-
 static int bar_update(struct guest_info * info, struct pci_device * pci, int bar_num, uint32_t new_val) {
     struct v3_pci_bar * bar = &(pci->bar[bar_num]);
 
@@ -418,15 +419,15 @@ static int bar_update(struct guest_info * info, struct pci_device * pci, int bar
 		PrintDebug("Rehooking PCI IO port (old port=%u) (new port=%u)\n",  
 			   PCI_IO_BASE(bar->val) + i, PCI_IO_BASE(new_val) + i);
 
-		v3_unhook_io_port(info, PCI_IO_BASE(bar->val) + i);
+		v3_unhook_io_port(info->vm_info, PCI_IO_BASE(bar->val) + i);
 
-		if (v3_hook_io_port(info, PCI_IO_BASE(new_val) + i, 
+		if (v3_hook_io_port(info->vm_info, PCI_IO_BASE(new_val) + i, 
 				    bar->io_read, bar->io_write, 
 				    bar->private_data) == -1) {
 
 		    PrintError("Could not hook PCI IO port (old port=%u) (new port=%u)\n",  
 			       PCI_IO_BASE(bar->val) + i, PCI_IO_BASE(new_val) + i);
-		    v3_print_io_map(info);
+		    v3_print_io_map(info->vm_info);
 		    return -1;
 		}
 	    }
@@ -436,10 +437,10 @@ static int bar_update(struct guest_info * info, struct pci_device * pci, int bar
 	    break;
 	}
 	case PCI_BAR_MEM32: {
-	    v3_unhook_mem(info, (addr_t)(bar->val));
+	    v3_unhook_mem(info->vm_info, V3_MEM_CORE_ANY, (addr_t)(bar->val));
 	    
 	    if (bar->mem_read) {
-		v3_hook_full_mem(info, PCI_MEM32_BASE(new_val), 
+		v3_hook_full_mem(info->vm_info, V3_MEM_CORE_ANY, PCI_MEM32_BASE(new_val), 
 				 PCI_MEM32_BASE(new_val) + (bar->num_pages * PAGE_SIZE_4KB),
 				 bar->mem_read, bar->mem_write, pci->priv_data);
 	    } else {
@@ -465,7 +466,7 @@ static int bar_update(struct guest_info * info, struct pci_device * pci, int bar
 }
 
 
-static int data_port_write(ushort_t port, void * src, uint_t length, struct vm_device * vmdev) {
+static int data_port_write(struct guest_info * core, ushort_t port, void * src, uint_t length, struct vm_device * vmdev) {
     struct pci_internal * pci_state = (struct pci_internal *)vmdev->private_data;
     struct pci_device * pci_dev = NULL;
     uint_t reg_num = (pci_state->addr_reg.reg_num << 2) + (port & 0x3);
@@ -573,7 +574,7 @@ static int data_port_write(ushort_t port, void * src, uint_t length, struct vm_d
 		    // check special flags....
 
 		    // bar_update
-		    if (bar_update(vmdev->vm, pci_dev, i, *(uint32_t *)(pci_dev->config_space + bar_offset)) == -1) {
+		    if (bar_update(core, pci_dev, i, *(uint32_t *)(pci_dev->config_space + bar_offset)) == -1) {
 			PrintError("PCI Device %s: Bar update Error Bar=%d\n", pci_dev->name, i);
 			return -1;
 		    }
@@ -651,7 +652,7 @@ static struct v3_device_ops dev_ops = {
 
 
 
-static int pci_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
+static int pci_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct pci_internal * pci_state = V3_Malloc(sizeof(struct pci_internal));
     int i = 0;
     char * name = v3_cfg_val(cfg, "name");
@@ -685,7 +686,7 @@ static int pci_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
 device_register("PCI", pci_init)
 
 
-static inline int init_bars(struct guest_info * info, struct pci_device * pci_dev) {
+static inline int init_bars(struct v3_vm_info * vm, struct pci_device * pci_dev) {
     int i = 0;
 
     for (i = 0; i < 6; i++) {
@@ -706,7 +707,7 @@ static inline int init_bars(struct guest_info * info, struct pci_device * pci_de
 	    for (j = 0; j < pci_dev->bar[i].num_ports; j++) {
 		// hook IO
 		if (pci_dev->bar[i].default_base_port != 0xffff) {
-		    if (v3_hook_io_port(info, pci_dev->bar[i].default_base_port + j,
+		    if (v3_hook_io_port(vm, pci_dev->bar[i].default_base_port + j,
 					pci_dev->bar[i].io_read, pci_dev->bar[i].io_write, 
 					pci_dev->bar[i].private_data) == -1) {
 			PrintError("Could not hook default io port %x\n", pci_dev->bar[i].default_base_port + j);
@@ -730,7 +731,7 @@ static inline int init_bars(struct guest_info * info, struct pci_device * pci_de
 	    // hook memory
 	    if (pci_dev->bar[i].mem_read) {
 		// full hook
-		v3_hook_full_mem(info, pci_dev->bar[i].default_base_addr,
+		v3_hook_full_mem(vm, V3_MEM_CORE_ANY, pci_dev->bar[i].default_base_addr,
 				 pci_dev->bar[i].default_base_addr + (pci_dev->bar[i].num_pages * PAGE_SIZE_4KB),
 				 pci_dev->bar[i].mem_read, pci_dev->bar[i].mem_write, pci_dev->priv_data);
 	    } else if (pci_dev->bar[i].mem_write) {

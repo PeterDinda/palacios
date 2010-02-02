@@ -115,8 +115,9 @@ static int handle_kick(struct vm_device * dev) {
 	    addr_t page_addr;
 	    tmp_desc = &(q->desc[desc_idx]);
 	    
-	    PrintDebug("Header Descriptor (ptr=%p) gpa=%p, len=%d, flags=%x, next=%d\n", tmp_desc, 
-		       (void *)(tmp_desc->addr_gpa), tmp_desc->length, 
+	    PrintDebug("Header Descriptor (ptr=%p) gpa=%p, len=%d, flags=%x, next=%d\n", 
+		       tmp_desc, 
+		       (void *)(addr_t)(tmp_desc->addr_gpa), tmp_desc->length, 
 		       tmp_desc->flags, tmp_desc->next);
 	
 

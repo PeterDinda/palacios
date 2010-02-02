@@ -30,26 +30,29 @@
 
 
 static inline
-struct v3_shadow_region * insert_shadow_region(struct guest_info * info, 
+struct v3_shadow_region * insert_shadow_region(struct v3_vm_info * vm, 
  					       struct v3_shadow_region * region);
 
 
 static int mem_offset_hypercall(struct guest_info * info, uint_t hcall_id, void * private_data) {
     PrintDebug("V3Vee: Memory offset hypercall (offset=%p)\n", 
-	       (void *)(info->mem_map.base_region.host_addr));
+	       (void *)(info->vm_info->mem_map.base_region.host_addr));
 
-    info->vm_regs.rbx = info->mem_map.base_region.host_addr;
+    info->vm_regs.rbx = info->vm_info->mem_map.base_region.host_addr;
 
     return 0;
 }
 
 
-int v3_init_shadow_map(struct guest_info * info) {
-    v3_shdw_map_t * map = &(info->mem_map);
-    addr_t mem_pages = info->mem_size >> 12;
+int v3_init_mem_map(struct v3_vm_info * vm) {
+    struct v3_mem_map * map = &(vm->mem_map);
+    addr_t mem_pages = vm->mem_size >> 12;
 
     map->shdw_regions.rb_node = NULL;
-    map->hook_hva = (addr_t)V3_VAddr(V3_AllocPages(1));
+
+
+    map->hook_hvas = V3_VAddr(V3_AllocPages(vm->num_cores));
+
 
     // There is an underlying region that contains all of the guest memory
     // PrintDebug("Mapping %d pages of memory (%u bytes)\n", (int)mem_pages, (uint_t)info->mem_size);
@@ -67,13 +70,18 @@ int v3_init_shadow_map(struct guest_info * info) {
 	
     //memset(V3_VAddr((void *)map->base_region.host_addr), 0xffffffff, map->base_region.guest_end);
 
-    v3_register_hypercall(info, MEM_OFFSET_HCALL, mem_offset_hypercall, NULL);
+    v3_register_hypercall(vm, MEM_OFFSET_HCALL, mem_offset_hypercall, NULL);
 
     return 0;
 }
 
-void v3_delete_shadow_map(struct guest_info * info) {
-    struct rb_node * node = v3_rb_first(&(info->mem_map.shdw_regions));
+
+static inline addr_t get_hook_hva(struct guest_info * info) {
+    return (addr_t)(info->vm_info->mem_map.hook_hvas + (PAGE_SIZE_4KB * info->cpu_id));
+}
+
+void v3_delete_shadow_map(struct v3_vm_info * vm) {
+    struct rb_node * node = v3_rb_first(&(vm->mem_map.shdw_regions));
     struct v3_shadow_region * reg;
     struct rb_node * tmp_node = NULL;
   
@@ -82,17 +90,17 @@ void v3_delete_shadow_map(struct guest_info * info) {
 	tmp_node = node;
 	node = v3_rb_next(node);
 
-	v3_delete_shadow_region(info, reg);
+	v3_delete_shadow_region(vm, reg);
     }
 
-    V3_FreePage((void *)(info->mem_map.base_region.host_addr));
-    V3_FreePage(V3_PAddr((void *)(info->mem_map.hook_hva)));
+    V3_FreePage((void *)(vm->mem_map.base_region.host_addr));
+    V3_FreePage(V3_PAddr((void *)(vm->mem_map.hook_hvas)));
 }
 
 
 
 
-int v3_add_shadow_mem( struct guest_info *  info,
+int v3_add_shadow_mem( struct v3_vm_info * vm, uint16_t core_id,
 		       addr_t               guest_addr_start,
 		       addr_t               guest_addr_end,
 		       addr_t               host_addr)
@@ -106,8 +114,9 @@ int v3_add_shadow_mem( struct guest_info *  info,
     entry->write_hook = NULL;
     entry->read_hook = NULL;
     entry->priv_data = NULL;
+    entry->core_id = core_id;
 
-    if (insert_shadow_region(info, entry)) {
+    if (insert_shadow_region(vm, entry)) {
 	V3_Free(entry);
 	return -1;
     }
@@ -117,9 +126,9 @@ int v3_add_shadow_mem( struct guest_info *  info,
 
 
 
-int v3_hook_write_mem(struct guest_info * info, addr_t guest_addr_start, addr_t guest_addr_end, 
-		      addr_t host_addr,
-		      int (*write)(addr_t guest_addr, void * src, uint_t length, void * priv_data),
+int v3_hook_write_mem(struct v3_vm_info * vm, uint16_t core_id,
+		      addr_t guest_addr_start, addr_t guest_addr_end, addr_t host_addr,
+		      int (*write)(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data),
 		      void * priv_data) {
 
     struct v3_shadow_region * entry = (struct v3_shadow_region *)V3_Malloc(sizeof(struct v3_shadow_region));
@@ -132,8 +141,9 @@ int v3_hook_write_mem(struct guest_info * info, addr_t guest_addr_start, addr_t 
     entry->write_hook = write;
     entry->read_hook = NULL;
     entry->priv_data = priv_data;
+    entry->core_id = core_id;
 
-    if (insert_shadow_region(info, entry)) {
+    if (insert_shadow_region(vm, entry)) {
 	V3_Free(entry);
 	return -1;
     }
@@ -141,9 +151,10 @@ int v3_hook_write_mem(struct guest_info * info, addr_t guest_addr_start, addr_t 
     return 0;  
 }
 
-int v3_hook_full_mem(struct guest_info * info, addr_t guest_addr_start, addr_t guest_addr_end,
-		     int (*read)(addr_t guest_addr, void * dst, uint_t length, void * priv_data),
-		     int (*write)(addr_t guest_addr, void * src, uint_t length, void * priv_data),
+int v3_hook_full_mem(struct v3_vm_info * vm, uint16_t core_id, 
+		     addr_t guest_addr_start, addr_t guest_addr_end,
+		     int (*read)(struct guest_info * core, addr_t guest_addr, void * dst, uint_t length, void * priv_data),
+		     int (*write)(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data),
 		     void * priv_data) {
   
     struct v3_shadow_region * entry = (struct v3_shadow_region *)V3_Malloc(sizeof(struct v3_shadow_region));
@@ -155,8 +166,9 @@ int v3_hook_full_mem(struct guest_info * info, addr_t guest_addr_start, addr_t g
     entry->write_hook = write;
     entry->read_hook = read;
     entry->priv_data = priv_data;
-  
-    if (insert_shadow_region(info, entry)) {
+    entry->core_id = core_id;
+
+    if (insert_shadow_region(vm, entry)) {
 	V3_Free(entry);
 	return -1;
     }
@@ -167,8 +179,8 @@ int v3_hook_full_mem(struct guest_info * info, addr_t guest_addr_start, addr_t g
 
 // This will unhook the memory hook registered at start address
 // We do not support unhooking subregions
-int v3_unhook_mem(struct guest_info * info, addr_t guest_addr_start) {
-    struct v3_shadow_region * reg = v3_get_shadow_region(info, guest_addr_start);
+int v3_unhook_mem(struct v3_vm_info * vm, uint16_t core_id, addr_t guest_addr_start) {
+    struct v3_shadow_region * reg = v3_get_shadow_region(vm, core_id, guest_addr_start);
 
     if ((reg->host_type != SHDW_REGION_FULL_HOOK) || 
 	(reg->host_type != SHDW_REGION_WRITE_HOOK)) {
@@ -176,7 +188,7 @@ int v3_unhook_mem(struct guest_info * info, addr_t guest_addr_start) {
 	return -1;
     }
 
-    v3_delete_shadow_region(info, reg);
+    v3_delete_shadow_region(vm, reg);
 
     return 0;
 }
@@ -184,9 +196,9 @@ int v3_unhook_mem(struct guest_info * info, addr_t guest_addr_start) {
 
 
 static inline 
-struct v3_shadow_region * __insert_shadow_region(struct guest_info * info, 
+struct v3_shadow_region * __insert_shadow_region(struct v3_vm_info * vm, 
 						 struct v3_shadow_region * region) {
-    struct rb_node ** p = &(info->mem_map.shdw_regions.rb_node);
+    struct rb_node ** p = &(vm->mem_map.shdw_regions.rb_node);
     struct rb_node * parent = NULL;
     struct v3_shadow_region * tmp_region;
 
@@ -199,7 +211,17 @@ struct v3_shadow_region * __insert_shadow_region(struct guest_info * info,
 	} else if (region->guest_start >= tmp_region->guest_end) {
 	    p = &(*p)->rb_right;
 	} else {
-	    return tmp_region;
+	    if ((region->guest_end != tmp_region->guest_end) ||
+		(region->guest_start != tmp_region->guest_start)) {
+		PrintError("Trying to map a partial overlapped core specific page...\n");
+		return tmp_region; // This is ugly... 
+	    } else if (region->core_id == tmp_region->core_id) {
+		return tmp_region;
+	    } else if (region->core_id < tmp_region->core_id) {
+		p = &(*p)->rb_left;
+	    } else {
+		p = &(*p)->rb_right;
+	    }
 	}
     }
 
@@ -210,43 +232,49 @@ struct v3_shadow_region * __insert_shadow_region(struct guest_info * info,
 
 
 static inline
-struct v3_shadow_region * insert_shadow_region(struct guest_info * info, 
+struct v3_shadow_region * insert_shadow_region(struct v3_vm_info * vm, 
  					       struct v3_shadow_region * region) {
     struct v3_shadow_region * ret;
+    int i = 0;
 
-    if ((ret = __insert_shadow_region(info, region))) {
+    if ((ret = __insert_shadow_region(vm, region))) {
 	return ret;
     }
 
-    v3_rb_insert_color(&(region->tree_node), &(info->mem_map.shdw_regions));
+    v3_rb_insert_color(&(region->tree_node), &(vm->mem_map.shdw_regions));
 
 
 
-    // flush virtual page tables 
-    // 3 cases shadow, shadow passthrough, and nested
-    if (info->shdw_pg_mode == SHADOW_PAGING) {
-	v3_mem_mode_t mem_mode = v3_get_vm_mem_mode(info);
+    for (i = 0; i < vm->num_cores; i++) {
+	struct guest_info * info = &(vm->cores[i]);
 
-	if (mem_mode == PHYSICAL_MEM) {
+	// flush virtual page tables 
+	// 3 cases shadow, shadow passthrough, and nested
+
+	if (info->shdw_pg_mode == SHADOW_PAGING) {
+	    v3_mem_mode_t mem_mode = v3_get_vm_mem_mode(info);
+	    
+	    if (mem_mode == PHYSICAL_MEM) {
+		addr_t cur_addr;
+		
+		for (cur_addr = region->guest_start;
+		     cur_addr < region->guest_end;
+		     cur_addr += PAGE_SIZE_4KB) {
+		    v3_invalidate_passthrough_addr(info, cur_addr);
+		}
+	    } else {
+		v3_invalidate_shadow_pts(info);
+	    }
+	    
+	} else if (info->shdw_pg_mode == NESTED_PAGING) {
 	    addr_t cur_addr;
-
+	    
 	    for (cur_addr = region->guest_start;
 		 cur_addr < region->guest_end;
 		 cur_addr += PAGE_SIZE_4KB) {
-		v3_invalidate_passthrough_addr(info, cur_addr);
+		
+		v3_invalidate_nested_addr(info, cur_addr);
 	    }
-	} else {
-	    v3_invalidate_shadow_pts(info);
-	}
-
-    } else if (info->shdw_pg_mode == NESTED_PAGING) {
-	addr_t cur_addr;
-
-	for (cur_addr = region->guest_start;
-	     cur_addr < region->guest_end;
-	     cur_addr += PAGE_SIZE_4KB) {
-	    
-	    v3_invalidate_nested_addr(info, cur_addr);
 	}
     }
 
@@ -256,11 +284,10 @@ struct v3_shadow_region * insert_shadow_region(struct guest_info * info,
 
 
 
-int handle_special_page_fault(struct guest_info * info, 
-			      addr_t fault_gva, addr_t fault_gpa, 
-			      pf_error_t access_info) 
+int handle_special_page_fault(struct guest_info * info,
+			      addr_t fault_gva, addr_t fault_gpa, pf_error_t access_info) 
 {
-    struct v3_shadow_region * reg = v3_get_shadow_region(info, fault_gpa);
+    struct v3_shadow_region * reg = v3_get_shadow_region(info->vm_info, info->cpu_id, fault_gpa);
 
     PrintDebug("Handling Special Page Fault\n");
 
@@ -280,7 +307,7 @@ int handle_special_page_fault(struct guest_info * info,
 int v3_handle_mem_wr_hook(struct guest_info * info, addr_t guest_va, addr_t guest_pa, 
 			  struct v3_shadow_region * reg, pf_error_t access_info) {
 
-    addr_t dst_addr = (addr_t)V3_VAddr((void *)v3_get_shadow_addr(reg, guest_pa));
+    addr_t dst_addr = (addr_t)V3_VAddr((void *)v3_get_shadow_addr(reg, info->cpu_id, guest_pa));
 
     if (v3_emulate_write_op(info, guest_va, guest_pa, dst_addr, 
 			    reg->write_hook, reg->priv_data) == -1) {
@@ -294,7 +321,7 @@ int v3_handle_mem_wr_hook(struct guest_info * info, addr_t guest_va, addr_t gues
 int v3_handle_mem_full_hook(struct guest_info * info, addr_t guest_va, addr_t guest_pa, 
 			    struct v3_shadow_region * reg, pf_error_t access_info) {
   
-    addr_t op_addr = info->mem_map.hook_hva;
+    addr_t op_addr = get_hook_hva(info);
 
     if (access_info.write == 1) {
 	if (v3_emulate_write_op(info, guest_va, guest_pa, op_addr, 
@@ -316,8 +343,8 @@ int v3_handle_mem_full_hook(struct guest_info * info, addr_t guest_va, addr_t gu
 
 
 
-struct v3_shadow_region * v3_get_shadow_region(struct guest_info * info, addr_t guest_addr) {
-    struct rb_node * n = info->mem_map.shdw_regions.rb_node;
+struct v3_shadow_region * v3_get_shadow_region(struct v3_vm_info * vm, uint16_t core_id, addr_t guest_addr) {
+    struct rb_node * n = vm->mem_map.shdw_regions.rb_node;
     struct v3_shadow_region * reg = NULL;
 
     while (n) {
@@ -328,60 +355,71 @@ struct v3_shadow_region * v3_get_shadow_region(struct guest_info * info, addr_t 
 	} else if (guest_addr >= reg->guest_end) {
 	    n = n->rb_right;
 	} else {
+	    if ((core_id == reg->core_id) || 
+		(reg->core_id == V3_MEM_CORE_ANY)) {
 	    return reg;
+	    } else {
+		n = n->rb_right;
+	    }
 	}
     }
 
 
     // There is not registered region, so we check if its a valid address in the base region
 
-    if (guest_addr > info->mem_map.base_region.guest_end) {
+    if (guest_addr > vm->mem_map.base_region.guest_end) {
 	PrintError("Guest Address Exceeds Base Memory Size (ga=%p), (limit=%p)\n", 
-		   (void *)guest_addr, (void *)info->mem_map.base_region.guest_end);
-	v3_print_mem_map(info);
+		   (void *)guest_addr, (void *)vm->mem_map.base_region.guest_end);
+	v3_print_mem_map(vm);
 
 	return NULL;
     }
     
-    return &(info->mem_map.base_region);
+    return &(vm->mem_map.base_region);
 }
 
 
-void v3_delete_shadow_region(struct guest_info * info, struct v3_shadow_region * reg) {
+void v3_delete_shadow_region(struct v3_vm_info * vm, struct v3_shadow_region * reg) {
+    int i = 0;
+
     if (reg == NULL) {
 	return;
     }
 
-    // flush virtual page tables 
-    // 3 cases shadow, shadow passthrough, and nested
-    if (info->shdw_pg_mode == SHADOW_PAGING) {
-	v3_mem_mode_t mem_mode = v3_get_vm_mem_mode(info);
+    for (i = 0; i < vm->num_cores; i++) {
+	struct guest_info * info = &(vm->cores[i]);
+
+	// flush virtual page tables 
+	// 3 cases shadow, shadow passthrough, and nested
+
+	if (info->shdw_pg_mode == SHADOW_PAGING) {
+	    v3_mem_mode_t mem_mode = v3_get_vm_mem_mode(info);
 	    
-	if (mem_mode == PHYSICAL_MEM) {
-	    addr_t cur_addr;
+	    if (mem_mode == PHYSICAL_MEM) {
+		addr_t cur_addr;
 		
+		for (cur_addr = reg->guest_start;
+		     cur_addr < reg->guest_end;
+		     cur_addr += PAGE_SIZE_4KB) {
+		    v3_invalidate_passthrough_addr(info, cur_addr);
+		}
+	    } else {
+		v3_invalidate_shadow_pts(info);
+	    }
+	    
+	} else if (info->shdw_pg_mode == NESTED_PAGING) {
+	    addr_t cur_addr;
+	    
 	    for (cur_addr = reg->guest_start;
 		 cur_addr < reg->guest_end;
 		 cur_addr += PAGE_SIZE_4KB) {
-		v3_invalidate_passthrough_addr(info, cur_addr);
+		
+		v3_invalidate_nested_addr(info, cur_addr);
 	    }
-	} else {
-	    v3_invalidate_shadow_pts(info);
-	}
-
-    } else if (info->shdw_pg_mode == NESTED_PAGING) {
-	addr_t cur_addr;
-
-	for (cur_addr = reg->guest_start;
-	     cur_addr < reg->guest_end;
-	     cur_addr += PAGE_SIZE_4KB) {
-	    
-	    v3_invalidate_nested_addr(info, cur_addr);
 	}
     }
 
-
-    v3_rb_erase(&(reg->tree_node), &(info->mem_map.shdw_regions));
+    v3_rb_erase(&(reg->tree_node), &(vm->mem_map.shdw_regions));
 
     V3_Free(reg);
 
@@ -393,7 +431,7 @@ void v3_delete_shadow_region(struct guest_info * info, struct v3_shadow_region *
 
 
 
-addr_t v3_get_shadow_addr(struct v3_shadow_region * reg, addr_t guest_addr) {
+addr_t v3_get_shadow_addr(struct v3_shadow_region * reg, uint16_t core_id, addr_t guest_addr) {
     if ( (reg) && 
          (reg->host_type != SHDW_REGION_FULL_HOOK)) {
         return (guest_addr - reg->guest_start) + reg->host_addr;
@@ -406,9 +444,9 @@ addr_t v3_get_shadow_addr(struct v3_shadow_region * reg, addr_t guest_addr) {
 
 
 
-void v3_print_mem_map(struct guest_info * info) {
-    struct rb_node * node = v3_rb_first(&(info->mem_map.shdw_regions));
-    struct v3_shadow_region * reg = &(info->mem_map.base_region);
+void v3_print_mem_map(struct v3_vm_info * vm) {
+    struct rb_node * node = v3_rb_first(&(vm->mem_map.shdw_regions));
+    struct v3_shadow_region * reg = &(vm->mem_map.base_region);
     int i = 0;
 
     V3_Print("Memory Layout:\n");

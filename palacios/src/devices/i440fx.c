@@ -29,12 +29,12 @@ struct i440_state {
 };
 
 
-static int io_read(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
+static int io_read(struct guest_info * core, ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
     PrintError("Unhandled read on port %x\n", port);
     return -1;
 }
 
-static int io_write(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
+static int io_write(struct guest_info * core, ushort_t port, void * src, uint_t length, struct vm_device * dev) {
     PrintError("Unhandled write on port %x\n", port);
     return -1;
 }
@@ -57,7 +57,7 @@ static struct v3_device_ops dev_ops = {
 
 
 
-static int i440_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
+static int i440_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct pci_device * pci_dev = NULL;
     struct v3_pci_bar bars[6];
     int i;
