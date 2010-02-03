@@ -241,8 +241,8 @@ struct v3_vm_info {
 
 };
 
-
-
+int v3_init_vm(struct v3_vm_info * vm);
+int v3_init_core(struct guest_info * core);
 
 
 uint_t v3_get_addr_width(struct guest_info * info);

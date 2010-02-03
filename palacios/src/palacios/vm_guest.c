@@ -357,3 +357,156 @@ void v3_print_GPRs(struct guest_info * info) {
 }
 
 #endif
+
+
+#include <palacios/vmcs.h>
+#include <palacios/vmcb.h>
+static int info_hcall(struct guest_info * core, uint_t hcall_id, void * priv_data) {
+    v3_cpu_arch_t cpu_type = v3_get_cpu_type(v3_get_cpu_id());
+    
+    v3_print_guest_state(core);
+    
+
+    // init SVM/VMX
+#ifdef CONFIG_SVM
+    if ((cpu_type == V3_SVM_CPU) || (cpu_type == V3_SVM_REV3_CPU)) {
+	PrintDebugVMCB((vmcb_t *)(core->vmm_data));
+    }
+#endif
+#ifdef CONFIG_VMX
+    else if ((cpu_type == V3_VMX_CPU) || (cpu_type == V3_VMX_EPT_CPU)) {
+	v3_print_vmcs();
+    }
+#endif
+    else {
+	PrintError("Invalid CPU Type\n");
+	return -1;
+    }
+    
+
+    return 0;
+}
+
+
+#ifdef CONFIG_SVM
+#include <palacios/svm.h>
+#include <palacios/svm_io.h>
+#include <palacios/svm_msr.h>
+#endif
+
+#ifdef CONFIG_VMX
+#include <palacios/vmx.h>
+#include <palacios/vmx_io.h>
+#include <palacios/vmx_msr.h>
+#endif
+
+
+int v3_init_vm(struct v3_vm_info * vm) {
+    v3_cpu_arch_t cpu_type = v3_get_cpu_type(v3_get_cpu_id());
+
+#ifdef CONFIG_TELEMETRY
+    v3_init_telemetry(vm);
+#endif
+
+    v3_init_hypercall_map(vm);
+    v3_init_io_map(vm);
+    v3_init_msr_map(vm);
+    v3_init_cpuid_map(vm);
+    v3_init_host_events(vm);
+    v3_init_intr_routers(vm);
+
+    // Initialize the memory map
+    if (v3_init_mem_map(vm) == -1) {
+	PrintError("Could not initialize shadow map\n");
+	return -1;
+    }
+
+#ifdef CONFIG_SYMBIOTIC
+    v3_init_sym_iface(vm);
+#endif
+
+    v3_init_dev_mgr(vm);
+
+
+#ifdef CONFIG_SYMBIOTIC_SWAP
+    PrintDebug("initializing symbiotic swap\n");
+    v3_init_sym_swap(vm);
+#endif
+
+
+
+    // init SVM/VMX
+#ifdef CONFIG_SVM
+    if ((cpu_type == V3_SVM_CPU) || (cpu_type == V3_SVM_REV3_CPU)) {
+	v3_init_svm_io_map(vm);
+	v3_init_svm_msr_map(vm);
+    }
+#endif
+#ifdef CONFIG_VMX
+    else if ((cpu_type == V3_VMX_CPU) || (cpu_type == V3_VMX_EPT_CPU)) {
+	v3_init_vmx_io_map(vm);
+	v3_init_vmx_msr_map(vm);
+    }
+#endif
+    else {
+	PrintError("Invalid CPU Type\n");
+	return -1;
+    }
+    
+
+
+    v3_register_hypercall(vm, GUEST_INFO_HCALL, info_hcall, NULL);
+
+
+    V3_Print("GUEST_INFO_HCALL=%x\n", GUEST_INFO_HCALL);
+
+    return 0;
+}
+
+int v3_init_core(struct guest_info * core) {
+    v3_cpu_arch_t cpu_type = v3_get_cpu_type(v3_get_cpu_id());
+    struct v3_vm_info * vm = core->vm_info;
+
+    /*
+     * Initialize the subsystem data strutures
+     */
+#ifdef CONFIG_TELEMETRY
+    v3_init_core_telemetry(core);
+#endif
+
+    if (core->shdw_pg_mode == SHADOW_PAGING) {
+	v3_init_shadow_page_state(core);
+    }
+
+    v3_init_time(core);
+    v3_init_intr_controllers(core);
+    v3_init_exception_state(core);
+
+    v3_init_decoder(core);
+
+
+
+    // init SVM/VMX
+#ifdef CONFIG_SVM
+    if ((cpu_type == V3_SVM_CPU) || (cpu_type == V3_SVM_REV3_CPU)) {
+	if (v3_init_svm_vmcb(core, vm->vm_class) == -1) {
+	    PrintError("Error in SVM initialization\n");
+	    return -1;
+	}
+    }
+#endif
+#ifdef CONFIG_VMX
+    else if ((cpu_type == V3_VMX_CPU) || (cpu_type == V3_VMX_EPT_CPU)) {
+	if (v3_init_vmx_vmcs(core, vm->vm_class) == -1) {
+	    PrintError("Error in VMX initialization\n");
+	    return -1;
+	}
+    }
+#endif
+    else {
+	PrintError("Invalid CPU Type\n");
+	return -1;
+    }
+
+    return 0;
+}

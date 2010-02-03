@@ -43,6 +43,15 @@ int v3_handle_hypercall(struct guest_info * info);
 
 
 
+typedef enum {
+    MEM_OFFSET_HCALL = 0x1000, 
+    GUEST_INFO_HCALL = 0x3000,
+    TELEMETRY_HCALL = 0x3001,
+    OS_DEBUG_HCALL = 0xc0c0
+} hcall_id_t;
+
+
+
 #endif
 
 #endif

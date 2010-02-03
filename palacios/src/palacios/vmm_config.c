@@ -42,17 +42,6 @@
 #endif
 
 
-#ifdef CONFIG_SVM
-#include <palacios/svm.h>
-#include <palacios/svm_io.h>
-#include <palacios/svm_msr.h>
-#endif
-
-#ifdef CONFIG_VMX
-#include <palacios/vmx.h>
-#include <palacios/vmx_io.h>
-#include <palacios/vmx_msr.h>
-#endif
 
 
 #include <palacios/vmm_host_events.h>
@@ -202,7 +191,7 @@ static struct v3_config * parse_config(void * cfg_blob) {
 }
 
 static int pre_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * vm_cfg) {
-    v3_cpu_arch_t cpu_type = v3_get_cpu_type(v3_get_cpu_id());
+
 
     char * memory_str = v3_cfg_val(vm_cfg, "memory");
     char * schedule_hz_str = v3_cfg_val(vm_cfg, "schedule_hz");
@@ -226,9 +215,8 @@ static int pre_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * vm_cfg) {
 	return -1;
     }
 
-#ifdef CONFIG_TELEMETRY
-    v3_init_telemetry(vm);
 
+#ifdef CONFIG_TELEMETRY
     {
 	char * telemetry = v3_cfg_val(vm_cfg, "telemetry");
 
@@ -241,49 +229,12 @@ static int pre_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * vm_cfg) {
     }
 #endif
 
-    v3_init_hypercall_map(vm);
-    v3_init_io_map(vm);
-    v3_init_msr_map(vm);
-    v3_init_cpuid_map(vm);
-    v3_init_host_events(vm);
-    v3_init_intr_routers(vm);
-
-    // Initialize the memory map
-    if (v3_init_mem_map(vm) == -1) {
-	PrintError("Could not initialize shadow map\n");
+    if (v3_init_vm(vm) == -1) {
+	PrintError("Failed to initialize VM\n");
 	return -1;
     }
 
-#ifdef CONFIG_SYMBIOTIC
-    v3_init_sym_iface(vm);
-#endif
 
-    v3_init_dev_mgr(vm);
-
-
-#ifdef CONFIG_SYMBIOTIC_SWAP
-    PrintDebug("initializing symbiotic swap\n");
-    v3_init_sym_swap(vm);
-#endif
-
-
-	// init SVM/VMX
-#ifdef CONFIG_SVM
-	if ((cpu_type == V3_SVM_CPU) || (cpu_type == V3_SVM_REV3_CPU)) {
-	    v3_init_svm_io_map(vm);
-	    v3_init_svm_msr_map(vm);
-	}
-#endif
-#ifdef CONFIG_VMX
-	else if ((cpu_type == V3_VMX_CPU) || (cpu_type == V3_VMX_EPT_CPU)) {
-	    v3_init_vmx_io_map(vm);
-	    v3_init_vmx_msr_map(vm);
-	}
-#endif
-	else {
-	    PrintError("Invalid CPU Type\n");
-	    return -1;
-	}
 
    if (schedule_hz_str) {
 	sched_hz = atoi(schedule_hz_str);
@@ -301,12 +252,6 @@ static int pre_config_core(struct guest_info * info, v3_cfg_tree_t * core_cfg) {
     extern v3_cpu_arch_t v3_cpu_types[];
     char * paging = v3_cfg_val(core_cfg, "paging");
 
-    /*
-     * Initialize the subsystem data strutures
-     */
-#ifdef CONFIG_TELEMETRY
-    v3_init_core_telemetry(info);
-#endif
 
     
     if ((v3_cpu_types[info->cpu_id] == V3_SVM_REV3_CPU) && 
@@ -315,18 +260,12 @@ static int pre_config_core(struct guest_info * info, v3_cfg_tree_t * core_cfg) {
 	info->shdw_pg_mode = NESTED_PAGING;
     } else {
 	PrintDebug("Guest Page Mode: SHADOW_PAGING\n");
-	v3_init_shadow_page_state(info);
+
 	info->shdw_pg_mode = SHADOW_PAGING;
     }
 
 
-
-    v3_init_time(info);
-    v3_init_intr_controllers(info);
-    v3_init_exception_state(info);
-
-    v3_init_decoder(info);
-    
+    v3_init_core(info);
 
 
     if (info->vm_info->vm_class == V3_PC_VM) {
@@ -481,28 +420,6 @@ struct v3_vm_info * v3_config_guest(void * cfg_blob) {
 
 	pre_config_core(info, per_core_cfg);
 
-	// init SVM/VMX
-#ifdef CONFIG_SVM
-	if ((cpu_type == V3_SVM_CPU) || (cpu_type == V3_SVM_REV3_CPU)) {
-	    if (v3_init_svm_vmcb(info, vm->vm_class) == -1) {
-		PrintError("Error in SVM initialization\n");
-		return NULL;
-	    }
-	}
-#endif
-#ifdef CONFIG_VMX
-	else if ((cpu_type == V3_VMX_CPU) || (cpu_type == V3_VMX_EPT_CPU)) {
-	    if (v3_init_vmx_vmcs(info, vm->vm_class) == -1) {
-		PrintError("Error in VMX initialization\n");
-		return NULL;
-	    }
-	}
-#endif
-	else {
-	    PrintError("Invalid CPU Type\n");
-	    return NULL;
-	}
-	
 	per_core_cfg = v3_cfg_next_branch(per_core_cfg);
     }
 
