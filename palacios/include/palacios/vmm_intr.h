@@ -84,6 +84,7 @@ struct intr_ctrl_ops {
 };
 
 
+void v3_clear_pending_intr(struct guest_info * core);
 
 void v3_register_intr_controller(struct guest_info * info, struct intr_ctrl_ops * ops, void * state);
 

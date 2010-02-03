@@ -309,7 +309,7 @@ static int update_irq_exit_state(struct guest_info * info) {
 	// Interrupt was taken fully vectored
 	info->intr_state.irq_started = 0;
 
-    } else {
+    } else if ((info->intr_state.irq_started == 1) && (guest_ctrl->exit_int_info.valid == 1)) {
 #ifdef CONFIG_DEBUG_INTERRUPTS
 	PrintDebug("EXIT INT INFO is set (vec=%d)\n", guest_ctrl->exit_int_info.vector);
 #endif
@@ -322,6 +322,12 @@ static int update_irq_exit_state(struct guest_info * info) {
 static int update_irq_entry_state(struct guest_info * info) {
     vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
 
+
+    if (info->intr_state.irq_pending == 0) {
+	guest_ctrl->guest_ctrl.V_IRQ = 0;
+	guest_ctrl->guest_ctrl.V_INTR_VECTOR = 0;
+    }
+    
     if (v3_excp_pending(info)) {
 	uint_t excp = v3_get_excp_number(info);
 	
