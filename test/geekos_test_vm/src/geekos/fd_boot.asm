@@ -151,9 +151,9 @@ load_kernel:
 	push    bx
 	push    es		;
 
-	mov 	dx, cs
-	call 	PrintHex
-	call 	PrintNL
+;	mov 	dx, cs
+;	call 	PrintHex
+;	call 	PrintNL
 
 	push    cs
 	pop     es
@@ -166,32 +166,32 @@ load_kernel:
 	shl	cx, 8				; multiply by 9-1 to get number of bytes / 2 (words)
 
 	;; Print out the size of the kernel
-	mov     dx, cx	
-	call    PrintHex
-	call    PrintNL
+;	mov     dx, cx	
+;	call    PrintHex
+;	call    PrintNL
 
 	int     0x15
 	
 	adc     ax, 0
 
 	;; Print out the return code to the screen
-	mov     dx, ax	
-	call    PrintHex
-	call    PrintNL
+;	mov     dx, ax	
+;	call    PrintHex
+;	call    PrintNL
 
-	mov	dx, KERNSEG
-	call 	PrintHex
-	call 	PrintNL
+;	mov	dx, KERNSEG
+;	call 	PrintHex
+;	call 	PrintNL
 
-	mov	dx, SETUPSEG
-	call 	PrintHex
-	call 	PrintNL
+;	mov	dx, SETUPSEG
+;	call 	PrintHex
+;	call 	PrintNL
 
 
 
-	mov	dx, 0x4a4a
-	call 	PrintHex
-	call 	PrintNL
+;	mov	dx, 0x4a4a
+;	call 	PrintHex
+;	call 	PrintNL
 
 	pop     es		;
 	pop     bx

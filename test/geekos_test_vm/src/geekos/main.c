@@ -17,7 +17,7 @@
 #include <geekos/crc32.h>
 #include <geekos/tss.h>
 #include <geekos/int.h>
-#include <geekos/kthread.h>
+#include <geekos/kthread.h> 
 #include <geekos/trap.h>
 #include <geekos/timer.h>
 #include <geekos/keyboard.h>
@@ -243,6 +243,7 @@ void Main(struct Boot_Info* bootInfo)
   struct Kernel_Thread * spkr_thread;
 
 
+  //  VMConsPutLineN("hello\n", 6);
 
   ulong_t doIBuzz = 0;
 
@@ -335,7 +336,7 @@ void Main(struct Boot_Info* bootInfo)
 
       
       //  Invalidate_PG((void *)0x2000);
-      
+       
       //  VM_Test(bootInfo, 32);  
       //VM_Test(bootInfo, 1536);
   }

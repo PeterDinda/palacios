@@ -31,6 +31,11 @@ start_setup:
 	mov	ds, ax
 
 
+;	mov	ah, 0x2e
+;	out    0xc0c0, ax
+;	mov	ah, 0xa
+;	out    0xc0c0, ax
+
 	; Use int 15h to find out size of extended memory in KB.
 	; Extended memory is the memory above 1MB.  So by
 	; adding 1MB to this amount, we get the total amount
