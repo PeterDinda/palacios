@@ -41,7 +41,7 @@
 	<devices>
 		<device id="8259A" name="PIC"/>
 		<device id="KEYBOARD" name="keyboard"/>
-		<device id="8254_PIT" name="PIC" />
+		<device id="8254_PIT" name="PIT" />
 		<device id="BOCHS_DEBUG" name="bochs debug"/>
 		<device id="OS_DEBUG" name="os debug" />
 <!--
@@ -123,12 +123,12 @@
 -->
 
 
-<!--
+
 		<device id="RAMDISK" name="HD0">
 			<file>harddisk</file>
 			<frontend tag="blk_virtio" />
 		</device>
--->
+
 
 		<device id="NVRAM" name="nvram">
 			<storage>ide</storage>
