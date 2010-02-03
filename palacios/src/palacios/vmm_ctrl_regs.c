@@ -468,7 +468,7 @@ int v3_handle_cr4_write(struct guest_info * info) {
 	    (cr4->pge != new_cr4->pge) || 
 	    (cr4->pae != new_cr4->pae)) { 
 	    PrintDebug("Handling PSE/PGE/PAE -> TLBFlush case, flag set\n");
-	    flush_tlb=1;
+	    flush_tlb = 1;
 	    
 	}
     }
