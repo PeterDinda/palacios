@@ -645,7 +645,7 @@ int v3_vmx_enter(struct guest_info * info) {
 
 
 #ifdef CONFIG_SYMBIOTIC
-    if (info->vm_info->sym_state.symcalls[info->cpu_id].sym_call_active == 0) {
+    if (info->sym_local_state.symcall_state.sym_call_active == 0) {
 	update_irq_entry_state(info);
     }
 #else 
@@ -707,7 +707,7 @@ int v3_vmx_enter(struct guest_info * info) {
 
 
 #ifdef CONFIG_SYMBIOTIC
-    if (info->vm_info->sym_state.symcalls[info->cpu_id].sym_call_active == 0) {
+    if (info->sym_local_state.symcall_state.sym_call_active == 0) {
 	update_irq_exit_state(info);
     }
 #else

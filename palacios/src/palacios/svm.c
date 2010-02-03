@@ -442,7 +442,7 @@ int v3_svm_enter(struct guest_info * info) {
     guest_state->rsp = info->vm_regs.rsp;
 
 #ifdef CONFIG_SYMBIOTIC
-    if (info->vm_info->sym_state.symcalls[info->cpu_id].sym_call_active == 0) {
+    if (info->sym_local_state.symcall_state.sym_call_active == 0) {
 	update_irq_entry_state(info);
     }
 #else 
@@ -459,7 +459,7 @@ int v3_svm_enter(struct guest_info * info) {
     */
 
 #ifdef CONFIG_SYMBIOTIC
-    if (info->vm_info->sym_state.symcalls[info->cpu_id].sym_call_active == 1) {
+    if (info->sym_local_state.symcall_state.sym_call_active == 1) {
 	if (guest_ctrl->guest_ctrl.V_IRQ == 1) {
 	    V3_Print("!!! Injecting Interrupt during Sym call !!!\n");
 	}
@@ -518,7 +518,7 @@ int v3_svm_enter(struct guest_info * info) {
 
 
 #ifdef CONFIG_SYMBIOTIC
-    if (info->vm_info->sym_state.symcalls[info->cpu_id].sym_call_active == 0) {
+    if (info->sym_local_state.symcall_state.sym_call_active == 0) {
 	update_irq_exit_state(info);
     }
 #else

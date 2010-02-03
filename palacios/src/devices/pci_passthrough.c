@@ -147,7 +147,7 @@ static inline void pci_cfg_write8(uint32_t addr, uint8_t val) {
 
 
 // We initialize this 
-static int pci_bar_init(int bar_num, uint32_t * dst,void * private_data) {
+static int pci_bar_init(int bar_num, uint32_t * dst, void * private_data) {
     struct vm_device * dev = (struct vm_device *)private_data;
     struct pt_dev_state * state = (struct pt_dev_state *)dev->private_data;
     const uint32_t bar_base_reg = 4;
@@ -234,7 +234,7 @@ static int pci_bar_init(int bar_num, uint32_t * dst,void * private_data) {
 		PrintDebug("Adding 32 bit PCI mem region: start=0x%x, end=0x%x\n",
 			   pbar->addr, pbar->addr + pbar->size);
 
-		v3_add_shadow_mem(dev->vm, 
+		v3_add_shadow_mem(dev->vm, V3_MEM_CORE_ANY,
 				  pbar->addr, 
 				  pbar->addr + pbar->size - 1,
 				  pbar->addr);
@@ -245,7 +245,7 @@ static int pci_bar_init(int bar_num, uint32_t * dst,void * private_data) {
 		pbar->addr = PCI_MEM24_BASE(bar_val);
 		pbar->size = ~PCI_MEM24_BASE(max_val) + 1;
 
-		v3_add_shadow_mem(dev->vm, 
+		v3_add_shadow_mem(dev->vm, V3_MEM_CORE_ANY,
 				  pbar->addr, 
 				  pbar->addr + pbar->size - 1,
 				  pbar->addr);
@@ -282,7 +282,7 @@ static int pci_bar_init(int bar_num, uint32_t * dst,void * private_data) {
     return 0;
 }
 
-static int pt_io_read(uint16_t port, void * dst, uint_t length, void * priv_data) {
+static int pt_io_read(struct guest_info * core, uint16_t port, void * dst, uint_t length, void * priv_data) {
     struct pt_bar * pbar = (struct pt_bar *)priv_data;
     int port_offset = port % pbar->size;
 
@@ -301,7 +301,7 @@ static int pt_io_read(uint16_t port, void * dst, uint_t length, void * priv_data
 }
 
 
-static int pt_io_write(uint16_t port, void * src, uint_t length, void * priv_data) {
+static int pt_io_write(struct guest_info * core, uint16_t port, void * src, uint_t length, void * priv_data) {
     struct pt_bar * pbar = (struct pt_bar *)priv_data;
     int port_offset = port % pbar->size;
     
@@ -379,7 +379,7 @@ static int pci_bar_write(int bar_num, uint32_t * src, void * private_data) {
 	}
     } else if (vbar->type == PT_BAR_MEM32) {
 	// remove old mapping
-	struct v3_shadow_region * old_reg = v3_get_shadow_region(dev->vm, vbar->addr);
+	struct v3_shadow_region * old_reg = v3_get_shadow_region(dev->vm, V3_MEM_CORE_ANY, vbar->addr);
 
 	if (old_reg == NULL) {
 	    // uh oh...
@@ -402,7 +402,7 @@ static int pci_bar_write(int bar_num, uint32_t * src, void * private_data) {
 	PrintDebug("Adding pci Passthrough remapping: start=0x%x, size=%d, end=0x%x\n", 
 		   vbar->addr, vbar->size, vbar->addr + vbar->size);
 
-	v3_add_shadow_mem(dev->vm, 
+	v3_add_shadow_mem(dev->vm, V3_MEM_CORE_ANY, 
 			  vbar->addr, 
 			  vbar->addr + vbar->size - 1,
 			  pbar->addr);
@@ -490,7 +490,7 @@ static int find_real_pci_dev(uint16_t vendor_id, uint16_t device_id, struct pt_d
 
 
 
-static int setup_virt_pci_dev(struct guest_info * info, struct vm_device * dev) {
+static int setup_virt_pci_dev(struct v3_vm_info * vm_info, struct vm_device * dev) {
     struct pt_dev_state * state = (struct pt_dev_state *)dev->private_data;
     struct pci_device * pci_dev = NULL;
     struct v3_pci_bar bars[6];
@@ -516,7 +516,7 @@ static int setup_virt_pci_dev(struct guest_info * info, struct vm_device * dev) 
 
     state->pci_dev = pci_dev;
 
-    v3_sym_map_pci_passthrough(info, pci_dev->bus_num, pci_dev->dev_num, pci_dev->fn_num);
+    v3_sym_map_pci_passthrough(vm_info, pci_dev->bus_num, pci_dev->dev_num, pci_dev->fn_num);
 
 
     return 0;
@@ -532,7 +532,7 @@ static struct v3_device_ops dev_ops = {
 
 
 
-static int irq_handler(struct guest_info * info, struct v3_interrupt * intr, void * private_data) {
+static int irq_handler(struct v3_vm_info * vm, struct v3_interrupt * intr, void * private_data) {
     struct vm_device * dev = (struct vm_device *)private_data;
     struct pt_dev_state * state = (struct pt_dev_state *)dev->private_data;
 

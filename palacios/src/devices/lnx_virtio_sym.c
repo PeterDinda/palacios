@@ -59,8 +59,7 @@ struct virtio_sym_state {
 
 
 
-static int virtio_reset(struct vm_device * dev) {
-    struct virtio_sym_state * virtio = (struct virtio_sym_state *)dev->private_data;
+static int virtio_reset(struct virtio_sym_state * virtio) {
 
     memset(virtio->queue, 0, sizeof(struct virtio_queue));
 
@@ -92,9 +91,8 @@ static int get_desc_count(struct virtio_queue * q, int index) {
 }
 
 
-static int handle_kick(struct vm_device * dev) {
-    struct virtio_sym_state * virtio = (struct virtio_sym_state *)dev->private_data;    
-    struct virtio_queue * q = virtio->cur_queue;
+static int handle_kick(struct guest_info * core, struct virtio_sym_state * sym_state) {
+    struct virtio_queue * q = sym_state->cur_queue;
 
     return -1;
 
@@ -121,7 +119,7 @@ static int handle_kick(struct vm_device * dev) {
 		       tmp_desc->flags, tmp_desc->next);
 	
 
-	    if (guest_pa_to_host_va(dev->vm, tmp_desc->addr_gpa, (addr_t *)&(page_addr)) == -1) {
+	    if (guest_pa_to_host_va(core, tmp_desc->addr_gpa, (addr_t *)&(page_addr)) == -1) {
 		PrintError("Could not translate block header address\n");
 		return -1;
 	    }
@@ -148,19 +146,18 @@ static int handle_kick(struct vm_device * dev) {
     }
 
     if (!(q->avail->flags & VIRTIO_NO_IRQ_FLAG)) {
-	PrintDebug("Raising IRQ %d\n",  virtio->pci_dev->config_header.intr_line);
-	v3_pci_raise_irq(virtio->pci_bus, 0, virtio->pci_dev);
-	virtio->virtio_cfg.pci_isr = VIRTIO_ISR_ACTIVE;
+	PrintDebug("Raising IRQ %d\n",  sym_state->pci_dev->config_header.intr_line);
+	v3_pci_raise_irq(sym_state->pci_bus, 0, sym_state->pci_dev);
+	sym_state->virtio_cfg.pci_isr = VIRTIO_ISR_ACTIVE;
     }
 
     return 0;
 }
 
 
-static int virtio_io_write(uint16_t port, void * src, uint_t length, void * private_data) {
-    struct vm_device * dev = (struct vm_device *)private_data;
-    struct virtio_sym_state * virtio = (struct virtio_sym_state *)dev->private_data;
-    int port_idx = port % virtio->io_range_size;
+static int virtio_io_write(struct guest_info * core, uint16_t port, void * src, uint_t length, void * private_data) {
+    struct virtio_sym_state * sym_state = (struct virtio_sym_state *)private_data;
+    int port_idx = port % sym_state->io_range_size;
 
 
 /*
@@ -176,7 +173,7 @@ static int virtio_io_write(uint16_t port, void * src, uint_t length, void * priv
 		return -1;
 	    }
 	    
-	    virtio->virtio_cfg.guest_features = *(uint32_t *)src;
+	    sym_state->virtio_cfg.guest_features = *(uint32_t *)src;
 
 	    break;
 	case VRING_PG_NUM_PORT:
@@ -185,41 +182,41 @@ static int virtio_io_write(uint16_t port, void * src, uint_t length, void * priv
 		addr_t page_addr = (pfn << VIRTIO_PAGE_SHIFT);
 
 
-		virtio->cur_queue->pfn = pfn;
+		sym_state->cur_queue->pfn = pfn;
 		
-		virtio->cur_queue->ring_desc_addr = page_addr ;
-		virtio->cur_queue->ring_avail_addr = page_addr + (QUEUE_SIZE * sizeof(struct vring_desc));
-		virtio->cur_queue->ring_used_addr = ( virtio->cur_queue->ring_avail_addr + \
+		sym_state->cur_queue->ring_desc_addr = page_addr ;
+		sym_state->cur_queue->ring_avail_addr = page_addr + (QUEUE_SIZE * sizeof(struct vring_desc));
+		sym_state->cur_queue->ring_used_addr = ( sym_state->cur_queue->ring_avail_addr + \
 						 sizeof(struct vring_avail)    + \
 						 (QUEUE_SIZE * sizeof(uint16_t)));
 		
 		// round up to next page boundary.
-		virtio->cur_queue->ring_used_addr = (virtio->cur_queue->ring_used_addr + 0xfff) & ~0xfff;
+		sym_state->cur_queue->ring_used_addr = (sym_state->cur_queue->ring_used_addr + 0xfff) & ~0xfff;
 
-		if (guest_pa_to_host_va(dev->vm, virtio->cur_queue->ring_desc_addr, (addr_t *)&(virtio->cur_queue->desc)) == -1) {
+		if (guest_pa_to_host_va(core, sym_state->cur_queue->ring_desc_addr, (addr_t *)&(sym_state->cur_queue->desc)) == -1) {
 		    PrintError("Could not translate ring descriptor address\n");
 		    return -1;
 		}
 
 
-		if (guest_pa_to_host_va(dev->vm, virtio->cur_queue->ring_avail_addr, (addr_t *)&(virtio->cur_queue->avail)) == -1) {
+		if (guest_pa_to_host_va(core, sym_state->cur_queue->ring_avail_addr, (addr_t *)&(sym_state->cur_queue->avail)) == -1) {
 		    PrintError("Could not translate ring available address\n");
 		    return -1;
 		}
 
 
-		if (guest_pa_to_host_va(dev->vm, virtio->cur_queue->ring_used_addr, (addr_t *)&(virtio->cur_queue->used)) == -1) {
+		if (guest_pa_to_host_va(core, sym_state->cur_queue->ring_used_addr, (addr_t *)&(sym_state->cur_queue->used)) == -1) {
 		    PrintError("Could not translate ring used address\n");
 		    return -1;
 		}
 
 		PrintDebug("RingDesc_addr=%p, Avail_addr=%p, Used_addr=%p\n",
-			   (void *)(virtio->cur_queue->ring_desc_addr),
-			   (void *)(virtio->cur_queue->ring_avail_addr),
-			   (void *)(virtio->cur_queue->ring_used_addr));
+			   (void *)(sym_state->cur_queue->ring_desc_addr),
+			   (void *)(sym_state->cur_queue->ring_avail_addr),
+			   (void *)(sym_state->cur_queue->ring_used_addr));
 
 		PrintDebug("RingDesc=%p, Avail=%p, Used=%p\n", 
-			   virtio->cur_queue->desc, virtio->cur_queue->avail, virtio->cur_queue->used);
+			   sym_state->cur_queue->desc, sym_state->cur_queue->avail, sym_state->cur_queue->used);
 
 	    } else {
 		PrintError("Illegal write length for page frame number\n");
@@ -227,36 +224,36 @@ static int virtio_io_write(uint16_t port, void * src, uint_t length, void * priv
 	    }
 	    break;
 	case VRING_Q_SEL_PORT:
-	    virtio->virtio_cfg.vring_queue_selector = *(uint16_t *)src;
+	    sym_state->virtio_cfg.vring_queue_selector = *(uint16_t *)src;
 
-	    if (virtio->virtio_cfg.vring_queue_selector > 0) {
+	    if (sym_state->virtio_cfg.vring_queue_selector > 0) {
 		PrintError("Virtio Symbiotic device has not qeueues. Selected %d\n", 
-			   virtio->virtio_cfg.vring_queue_selector);
+			   sym_state->virtio_cfg.vring_queue_selector);
 		return -1;
 	    }
 	    
-	    virtio->cur_queue = &(virtio->queue[virtio->virtio_cfg.vring_queue_selector]);
+	    sym_state->cur_queue = &(sym_state->queue[sym_state->virtio_cfg.vring_queue_selector]);
 
 	    break;
 	case VRING_Q_NOTIFY_PORT:
 	    PrintDebug("Handling Kick\n");
-	    if (handle_kick(dev) == -1) {
+	    if (handle_kick(core, sym_state) == -1) {
 		PrintError("Could not handle Symbiotic Notification\n");
 		return -1;
 	    }
 	    break;
 	case VIRTIO_STATUS_PORT:
-	    virtio->virtio_cfg.status = *(uint8_t *)src;
+	    sym_state->virtio_cfg.status = *(uint8_t *)src;
 
-	    if (virtio->virtio_cfg.status == 0) {
+	    if (sym_state->virtio_cfg.status == 0) {
 		PrintDebug("Resetting device\n");
-		virtio_reset(dev);
+		virtio_reset(sym_state);
 	    }
 
 	    break;
 
 	case VIRTIO_ISR_PORT:
-	    virtio->virtio_cfg.pci_isr = *(uint8_t *)src;
+	    sym_state->virtio_cfg.pci_isr = *(uint8_t *)src;
 	    break;
 	default:
 	    return -1;
@@ -267,10 +264,10 @@ static int virtio_io_write(uint16_t port, void * src, uint_t length, void * priv
 }
 
 
-static int virtio_io_read(uint16_t port, void * dst, uint_t length, void * private_data) {
-    struct vm_device * dev = (struct vm_device *)private_data;
-    struct virtio_sym_state * virtio = (struct virtio_sym_state *)dev->private_data;
-    int port_idx = port % virtio->io_range_size;
+static int virtio_io_read(struct guest_info * core, uint16_t port, void * dst, uint_t length, void * private_data) {
+
+    struct virtio_sym_state * sym_state = (struct virtio_sym_state *)private_data;
+    int port_idx = port % sym_state->io_range_size;
 
 /*
     PrintDebug("VIRTIO SYMBIOTIC Read  for port %d (index =%d), length=%d\n", 
@@ -283,7 +280,7 @@ static int virtio_io_read(uint16_t port, void * dst, uint_t length, void * priva
 		return -1;
 	    }
 
-	    *(uint32_t *)dst = virtio->virtio_cfg.host_features;
+	    *(uint32_t *)dst = sym_state->virtio_cfg.host_features;
 	
 	    break;
 	case VRING_PG_NUM_PORT:
@@ -292,7 +289,7 @@ static int virtio_io_read(uint16_t port, void * dst, uint_t length, void * priva
 		return -1;
 	    }
 
-	    *(uint32_t *)dst = virtio->cur_queue->pfn;
+	    *(uint32_t *)dst = sym_state->cur_queue->pfn;
 
 	    break;
 	case VRING_SIZE_PORT:
@@ -301,7 +298,7 @@ static int virtio_io_read(uint16_t port, void * dst, uint_t length, void * priva
 		return -1;
 	    }
 		
-	    *(uint16_t *)dst = virtio->cur_queue->queue_size;
+	    *(uint16_t *)dst = sym_state->cur_queue->queue_size;
 
 	    break;
 
@@ -311,20 +308,20 @@ static int virtio_io_read(uint16_t port, void * dst, uint_t length, void * priva
 		return -1;
 	    }
 
-	    *(uint8_t *)dst = virtio->virtio_cfg.status;
+	    *(uint8_t *)dst = sym_state->virtio_cfg.status;
 	    break;
 
 	case VIRTIO_ISR_PORT:
-	    *(uint8_t *)dst = virtio->virtio_cfg.pci_isr;
-	    virtio->virtio_cfg.pci_isr = 0;
-	    v3_pci_lower_irq(virtio->pci_bus, 0, virtio->pci_dev);
+	    *(uint8_t *)dst = sym_state->virtio_cfg.pci_isr;
+	    sym_state->virtio_cfg.pci_isr = 0;
+	    v3_pci_lower_irq(sym_state->pci_bus, 0, sym_state->pci_dev);
 	    break;
 
 	default:
 	    if ( (port_idx >= sizeof(struct virtio_config)) && 
 		 (port_idx < (sizeof(struct virtio_config) + sizeof(struct sym_config))) ) {
 		int cfg_offset = port_idx - sizeof(struct virtio_config);
-		uint8_t * cfg_ptr = (uint8_t *)&(virtio->sym_cfg);
+		uint8_t * cfg_ptr = (uint8_t *)&(sym_state->sym_cfg);
 
 		memcpy(dst, cfg_ptr + cfg_offset, length);
 		
@@ -353,7 +350,7 @@ static struct v3_device_ops dev_ops = {
 
 
 
-static int virtio_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
+static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vm_device * pci_bus = v3_find_dev(vm, v3_cfg_val(cfg, "bus"));
     struct virtio_sym_state * virtio_state = NULL;
     struct pci_device * pci_dev = NULL;
@@ -444,7 +441,7 @@ static int virtio_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
 	virtio_state->pci_bus = pci_bus;
     }
 
-    virtio_reset(dev);
+    virtio_reset(virtio_state);
 
 
     return 0;

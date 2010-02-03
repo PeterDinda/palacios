@@ -25,37 +25,38 @@
 
 
 
-struct v3_sym_interface {
+
+struct v3_sym_global_page {
     uint64_t magic;
 
     union {
 	uint32_t feature_flags;
 	struct {
-	    uint_t pci_map_valid            : 1;
-	    uint32_t sym_call_enabled       : 1;
+	    uint_t pci_map_valid      : 1;
 	} __attribute__((packed));
     } __attribute__((packed));
-
-    union { 
-	uint32_t state_flags;
-	struct {
-	    uint32_t sym_call_active        : 1;
-	} __attribute__((packed));
-    } __attribute__((packed));
-
-    uint64_t current_proc;
-    uint64_t proc_list;
     
     uint8_t pci_pt_map[(4 * 256) / 8]; // we're hardcoding this: (4 busses, 256 max devs)
 
 } __attribute__((packed));
 
+struct v3_sym_local_page {
+    uint64_t magic;
+
+    union { 
+	uint32_t state_flags;
+	struct {
+	    uint32_t sym_call_active        : 1;
+	    uint32_t sym_call_enabled       : 1;
+	} __attribute__((packed));
+    } __attribute__((packed));
+};
 
 
 #include <palacios/vm_guest.h>
 
 
-struct v3_sym_core_context {
+struct v3_sym_cpu_context {
     struct v3_gprs vm_regs;
     struct v3_segment cs;
     struct v3_segment ss;
@@ -66,17 +67,16 @@ struct v3_sym_core_context {
     uint8_t cpl;
 };
 
-struct v3_symcall_state{
+struct v3_symcall_state {
     struct {
-	uint_t active                  : 1; // activated when symbiotic page MSR is written
 	uint_t sym_call_active         : 1;
 	uint_t sym_call_returned       : 1;
 	uint_t sym_call_error          : 1;
     } __attribute__((packed));
 
-    struct v3_sym_core_context old_ctx;
+    struct v3_sym_cpu_context old_ctx;
 
-    int sym_call_errno;    
+    int sym_call_errno;
 
     uint64_t sym_call_rip;
     uint64_t sym_call_cs;
@@ -85,17 +85,26 @@ struct v3_symcall_state{
     uint64_t sym_call_fs;
 };
 
-struct v3_sym_state {
-    
-    struct v3_sym_interface * sym_page;
-    addr_t sym_page_pa;
+struct v3_sym_global_state {
+    struct v3_sym_global_page * sym_page;
 
-    uint64_t guest_pg_addr;
+    addr_t global_page_pa;
+    uint64_t global_guest_pa;
 
-    struct v3_symcall_state * symcalls;
+    int active; // activated when symbiotic page MSR is written
 };
 
 
+struct v3_sym_local_state {
+    struct v3_sym_local_page * local_page;
+
+    addr_t local_page_pa;
+    uint64_t local_guest_pa;
+
+    struct v3_symcall_state symcall_state;
+
+    int active;  // activated when symbiotic page MSR is written
+};
 
 
 

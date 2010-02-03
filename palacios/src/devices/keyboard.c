@@ -337,6 +337,7 @@ static int key_event_handler(struct v3_vm_info * vm,
     } 
 #ifdef CONFIG_SYMBIOTIC
     else if (evt->scan_code == 0x43) { // F9 Sym test
+	struct guest_info * core = &(vm->cores[0]);
 	PrintDebug("Testing sym call\n");
 	sym_arg_t a0 = 0x1111;
 	sym_arg_t a1 = 0x2222;
@@ -346,13 +347,13 @@ static int key_event_handler(struct v3_vm_info * vm,
 	uint64_t call_start = 0;
 	uint64_t call_end = 0;
 	
-	V3_Print("Exits before symcall: %d\n", (uint32_t)info->num_exits);
+	V3_Print("Exits before symcall: %d\n", (uint32_t)core->num_exits);
 
 	rdtscll(call_start);
-	v3_sym_call5(info, SYMCALL_TEST, &a0, &a1, &a2, &a3, &a4);
+	v3_sym_call5(core, SYMCALL_TEST, &a0, &a1, &a2, &a3, &a4);
 	rdtscll(call_end);
 	
-	V3_Print("Symcall latency = %d cycles (%d exits)\n", (uint32_t)(call_end - call_start), (uint32_t)info->num_exits);
+	V3_Print("Symcall latency = %d cycles (%d exits)\n", (uint32_t)(call_end - call_start), (uint32_t)core->num_exits);
 
 	V3_Print("Symcall  Test Returned arg0=%x, arg1=%x, arg2=%x, arg3=%x, arg4=%x\n",
 		 (uint32_t)a0, (uint32_t)a1, (uint32_t)a2, (uint32_t)a3, (uint32_t)a4);

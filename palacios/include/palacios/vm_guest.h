@@ -186,6 +186,11 @@ struct guest_info {
 
     void * decoder_state;
 
+#ifdef CONFIG_SYMBIOTIC
+    // Symbiotic state
+    struct v3_sym_local_state sym_local_state;
+#endif
+
 
     struct v3_vm_info * vm_info;
     // the logical cpu this guest context is executing on
@@ -221,7 +226,7 @@ struct v3_vm_info {
 
 #ifdef CONFIG_SYMBIOTIC
     // Symbiotic state
-    struct v3_sym_state sym_state;
+    struct v3_sym_global_state sym_global_state;
 #ifdef CONFIG_SYMBIOTIC_SWAP
     struct v3_sym_swap_state swap_state;
 #endif
