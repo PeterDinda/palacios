@@ -300,12 +300,6 @@ config BUILT_IN_VSPRINTF
 	help 
 	  This enables Palacios' internal implementation of vsprintf
 
-config BUILT_IN_VSNPRINTF
-	bool "vsnprintf()"
-	default n
-	depends on BUILT_IN_STDIO
-	help 
-	  This enables Palacios' internal implementation of vsnprintf
 
 config BUILT_IN_VSNRPRINTF
 	bool "vsnrprintf()"

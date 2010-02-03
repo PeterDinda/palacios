@@ -91,7 +91,6 @@ struct snprintf_arg {
     ( defined(CONFIG_BUILT_IN_SPRINTF) ||	      \
       defined(CONFIG_BUILT_IN_SNPRINTF) ||	      \
       defined(CONFIG_BUILT_IN_VSPRINTF) ||	      \
-      defined(CONFIG_BUILT_IN_VSNPRINTF) ||	      \
       defined(CONFIG_BUILT_IN_VSNRPRINTF ))
 
 static char * ksprintn(char * nbuf, uint64_t num, int base, int *len, int upper);
@@ -146,7 +145,7 @@ int snprintf(char * str, size_t size, const char * format, ...) {
 #endif
 
 
-#ifdef CONFIG_BUILT_IN_VSNPRINTF 
+
 /*
  * Scaled down version of vsnprintf(3).
  */
@@ -162,7 +161,7 @@ int vsnprintf(char * str, size_t size, const char * format, va_list ap) {
     }
     return (retval);
 }
-#endif 
+
 
 
 #ifdef CONFIG_BUILT_IN_VSNRPRINTF
