@@ -228,6 +228,13 @@ int v3_raise_irq(struct v3_vm_info * vm, int irq) {
 }
 
 
+void v3_clear_pending_intr(struct guest_info * core) {
+    struct v3_intr_core_state * intr_state = &(core->intr_core_state);
+
+    intr_state->irq_pending = 0;
+
+}
+
 
 v3_intr_type_t v3_intr_pending(struct guest_info * info) {
     struct v3_intr_core_state * intr_state = &(info->intr_core_state);

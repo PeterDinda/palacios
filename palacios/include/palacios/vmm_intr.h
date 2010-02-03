@@ -89,6 +89,7 @@ struct intr_router_ops {
     int (*lower_intr)(struct v3_vm_info * vm, void * private_data, int irq);
 };
 
+void v3_clear_pending_intr(struct guest_info * core);
 
 
 int v3_register_intr_controller(struct guest_info * info, struct intr_ctrl_ops * ops, void * priv_data);
