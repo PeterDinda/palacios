@@ -65,7 +65,7 @@ struct swap_state {
     int active;
     int disabled;
 
-    struct guest_info * vm;
+    struct v3_vm_info * vm;
     struct swap_state * swap_info;
 
     int symbiotic;
@@ -519,7 +519,7 @@ static void telemetry_cb(struct guest_info * info, void * private_data, char * h
 #endif
 
 
-static int connect_fn(struct guest_info * info, 
+static int connect_fn(struct v3_vm_info * vm, 
 		      void * frontend_data, 
 		      struct v3_dev_blk_ops * ops, 
 		      v3_cfg_tree_t * cfg, 
@@ -540,7 +540,7 @@ static int connect_fn(struct guest_info * info,
 
     swap = (struct swap_state *)V3_Malloc(sizeof(struct swap_state));
 
-    swap->vm = info;
+    swap->vm = vm;
     swap->cache_size = cache_size;
     swap->io_flag = 0;
     swap->seek_usecs = seek_us;
@@ -575,7 +575,7 @@ static int connect_fn(struct guest_info * info,
 	memset(swap->cache, 0, swap->cache_size);
     }
 
-    if (v3_dev_connect_blk(info, v3_cfg_val(frontend_cfg, "tag"), 
+    if (v3_dev_connect_blk(vm, v3_cfg_val(frontend_cfg, "tag"), 
 			   &blk_ops, frontend_cfg, swap) == -1) {
 	PrintError("Could not connect to frontend %s\n", 
 		    v3_cfg_val(frontend_cfg, "tag"));
@@ -585,8 +585,8 @@ static int connect_fn(struct guest_info * info,
 
 #ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
 
-    if (info->enable_telemetry == 1) {
-	v3_add_telemetry_cb(info, telemetry_cb, swap);
+    if (vm->enable_telemetry == 1) {
+	v3_add_telemetry_cb(vm, telemetry_cb, swap);
     }
     
 #endif
@@ -597,7 +597,7 @@ static int connect_fn(struct guest_info * info,
 
 
 
-static int swap_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
+static int swap_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     char * name = v3_cfg_val(cfg, "name");
 

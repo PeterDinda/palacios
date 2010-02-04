@@ -239,7 +239,9 @@ addr_t v3_map_swp_page(struct v3_vm_info * vm, pte32_t * shadow_pte, pte32_t * g
 
     if (shdw_ptr_list == NULL) {
 	shdw_ptr_list = (struct list_head *)V3_Malloc(sizeof(struct list_head *));
+#ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
 	swap_state->list_size++;
+#endif
 	INIT_LIST_HEAD(shdw_ptr_list);
 	v3_htable_insert(swap_state->shdw_ptr_ht, (addr_t)*(uint32_t *)guest_pte, (addr_t)shdw_ptr_list);
     }
@@ -248,7 +250,9 @@ addr_t v3_map_swp_page(struct v3_vm_info * vm, pte32_t * shadow_pte, pte32_t * g
 
     if (shdw_ptr == NULL) {
 	PrintError("MEMORY LEAK\n");
+#ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
 	telemetry_cb(info, NULL, "");
+#endif
 	return 0;
     }
 

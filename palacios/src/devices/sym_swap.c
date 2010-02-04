@@ -70,7 +70,7 @@ struct swap_state {
     uint8_t * swap_space;
     addr_t swap_base_addr;
 
-    struct guest_info * vm;
+    struct v3_vm_info * vm;
 
     uint8_t usage_map[0]; // This must be the last structure member
 };
@@ -269,7 +269,7 @@ static void telemetry_cb(struct guest_info * info, void * private_data, char * h
 
 
 
-static int swap_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
+static int swap_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct swap_state * swap = NULL;
     v3_cfg_tree_t * frontend_cfg = v3_cfg_subtree(cfg, "frontend");
     uint32_t capacity = atoi(v3_cfg_val(cfg, "size")) * 1024 * 1024;
