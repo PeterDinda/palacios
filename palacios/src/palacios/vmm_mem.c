@@ -26,8 +26,6 @@
 #include <palacios/vmm_shadow_paging.h>
 #include <palacios/vmm_direct_paging.h>
 
-#define MEM_OFFSET_HCALL 0x1000
-
 
 static inline
 struct v3_shadow_region * insert_shadow_region(struct v3_vm_info * vm, 

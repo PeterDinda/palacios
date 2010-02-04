@@ -22,9 +22,7 @@
 #include <palacios/vm_guest.h>
 
 
-#define HYPERCALL_TEST_HCALL 0x1
-
-static int hcall_test(struct guest_info * info, uint_t hcall_id, void * private_data) {
+static int hcall_test(struct guest_info * info, hcall_id_t hcall_id, void * private_data) {
     info->vm_regs.rbx = 0x1111;
     info->vm_regs.rcx = 0x2222;
     info->vm_regs.rdx = 0x3333;
@@ -38,14 +36,14 @@ static int hcall_test(struct guest_info * info, uint_t hcall_id, void * private_
 void v3_init_hypercall_map(struct v3_vm_info * vm) {
     vm->hcall_map.rb_node = NULL;
 
-    v3_register_hypercall(vm, HYPERCALL_TEST_HCALL, hcall_test, NULL);
+    v3_register_hypercall(vm, TEST_HCALL, hcall_test, NULL);
 }
 
 
 struct hypercall {
     uint_t id;
   
-    int (*hcall_fn)(struct guest_info * info, uint_t hcall_id, void * priv_data);
+    int (*hcall_fn)(struct guest_info * info, hcall_id_t hcall_id, void * priv_data);
     void * priv_data;
   
     struct rb_node tree_node;
@@ -90,7 +88,7 @@ static inline struct hypercall * insert_hypercall(struct v3_vm_info * vm, struct
 }
 
 
-static struct hypercall * get_hypercall(struct v3_vm_info * vm, uint_t id) {
+static struct hypercall * get_hypercall(struct v3_vm_info * vm, hcall_id_t id) {
     struct rb_node * n = vm->hcall_map.rb_node;
     struct hypercall * hcall = NULL;
 
@@ -110,8 +108,8 @@ static struct hypercall * get_hypercall(struct v3_vm_info * vm, uint_t id) {
 }
 
 
-int v3_register_hypercall(struct v3_vm_info * vm, uint_t hypercall_id, 
-			  int (*hypercall)(struct guest_info * info, uint_t hcall_id, void * priv_data), 
+int v3_register_hypercall(struct v3_vm_info * vm, hcall_id_t hypercall_id, 
+			  int (*hypercall)(struct guest_info * info, hcall_id_t hcall_id, void * priv_data), 
 			  void * priv_data) {
 
     struct hypercall * hcall = (struct hypercall *)V3_Malloc(sizeof(struct hypercall));
@@ -130,8 +128,7 @@ int v3_register_hypercall(struct v3_vm_info * vm, uint_t hypercall_id,
 
 
 int v3_handle_hypercall(struct guest_info * info) {
-    uint_t hypercall_id = *(uint_t *)&info->vm_regs.rax;
-
+    hcall_id_t hypercall_id = *(uint_t *)&info->vm_regs.rax;
     struct hypercall * hcall = get_hypercall(info->vm_info, hypercall_id);
 
     if (!hcall) {

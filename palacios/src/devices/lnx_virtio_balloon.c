@@ -31,8 +31,6 @@
 
 #define PAGE_SIZE 4096
 
-#define BALLOON_START_HCALL 0xba00 // size in rax
-#define BALLOON_QUERY_HCALL 0xba01 // req_pgs in rcx, alloc_pgs in rdx
 
 struct balloon_config {
     uint32_t requested_pages;
