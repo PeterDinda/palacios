@@ -254,7 +254,7 @@ static struct v3_device_ops dev_ops = {
 
 
 #ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
-static void telemetry_cb(struct guest_info * info, void * private_data, char * hdr) {
+static void telemetry_cb(struct v3_vm_info * vm, void * private_data, char * hdr) {
     struct vm_device * dev = (struct vm_device *)private_data;
     struct swap_state * swap = (struct swap_state *)(dev->private_data);
 

@@ -70,8 +70,8 @@ static inline uint32_t get_dev_index(pte32_t * pte) {
 
 
 #ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
-static void telemetry_cb(struct guest_info * info, void * private_data, char * hdr) {
-    struct v3_sym_swap_state * swap_state = &(info->vm_info->swap_state);
+static void telemetry_cb(struct v3_vm_info * vm, void * private_data, char * hdr) {
+    struct v3_sym_swap_state * swap_state = &(vm->swap_state);
 
     V3_Print("%sSymbiotic Swap:\n", hdr);
     V3_Print("%s\tRead faults=%d\n", hdr, swap_state->read_faults);
@@ -90,7 +90,7 @@ int v3_init_sym_swap(struct v3_vm_info * vm) {
     swap_state->shdw_ptr_ht = v3_create_htable(0, swap_hash_fn, swap_eq_fn);
 
 #ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
-    if (info->enable_telemetry) {
+    if (vm->enable_telemetry) {
 	v3_add_telemetry_cb(vm, telemetry_cb, NULL);
     }
 #endif
@@ -251,7 +251,7 @@ addr_t v3_map_swp_page(struct v3_vm_info * vm, pte32_t * shadow_pte, pte32_t * g
     if (shdw_ptr == NULL) {
 	PrintError("MEMORY LEAK\n");
 #ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
-	telemetry_cb(info, NULL, "");
+	telemetry_cb(vm, NULL, "");
 #endif
 	return 0;
     }
