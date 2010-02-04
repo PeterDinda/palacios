@@ -31,6 +31,8 @@
 #include <palacios/vmm_direct_paging.h>
 
 
+
+
 #ifdef CONFIG_SHADOW_PAGING_TELEMETRY
 #include <palacios/vmm_telemetry.h>
 #endif
@@ -45,29 +47,57 @@
 #endif
 
 
+
+static struct hashtable * master_shdw_pg_table = NULL;
+
+static uint_t shdw_pg_hash_fn(addr_t key) {
+    char * name = (char *)key;
+    return v3_hash_buffer((uint8_t *)name, strlen(name));
+}
+
+static int shdw_pg_eq_fn(addr_t key1, addr_t key2) {
+    char * name1 = (char *)key1;
+    char * name2 = (char *)key2;
+
+    return (strcmp(name1, name2) == 0);
+}
+
+
+int V3_init_shdw_paging() {
+    extern struct v3_shdw_pg_impl * __start__v3_shdw_pg_impls[];
+    extern struct v3_shdw_pg_impl * __stop__v3_shdw_pg_impls[];
+    struct v3_shdw_pg_impl ** tmp_impl = __start__v3_shdw_pg_impls;
+    int i = 0;
+
+    master_shdw_pg_table = v3_create_htable(0, shdw_pg_hash_fn, shdw_pg_eq_fn);
+
+
+    while (tmp_impl != __stop__v3_shdw_pg_impls) {
+	V3_Print("Registering Shadow Paging Impl (%s)\n", (*tmp_impl)->name);
+
+	if (v3_htable_search(master_shdw_pg_table, (addr_t)((*tmp_impl)->name))) {
+	    PrintError("Multiple instances of shadow paging impl (%s)\n", (*tmp_impl)->name);
+	    return -1;
+	}
+
+	if (v3_htable_insert(master_shdw_pg_table, 
+			     (addr_t)((*tmp_impl)->name),
+			     (addr_t)(*tmp_impl)) == 0) {
+	    PrintError("Could not register shadow paging impl (%s)\n", (*tmp_impl)->name);
+	    return -1;
+	}
+
+	tmp_impl = &(__start__v3_shdw_pg_impls[++i]);
+    }
+
+    return 0;
+}
+
+
+
 /*** 
  ***  There be dragons
  ***/
-
-
-struct shadow_page_data {
-    v3_reg_t cr3;
-    addr_t page_pa;
-  
-    struct list_head page_list_node;
-};
-
-
-
-static struct shadow_page_data * create_new_shadow_pt(struct guest_info * info);
-static int inject_guest_pf(struct guest_info * info, addr_t fault_addr, pf_error_t error_code);
-static int is_guest_pf(pt_access_status_t guest_access, pt_access_status_t shadow_access);
-
-
-#include "vmm_shadow_paging_32.h"
-#include "vmm_shadow_paging_32pae.h"
-#include "vmm_shadow_paging_64.h"
-
 
 
 #ifdef CONFIG_SHADOW_PAGING_TELEMETRY
@@ -83,17 +113,24 @@ static void telemetry_cb(struct v3_vm_info * vm, void * private_data, char * hdr
 
 
 
-int v3_init_shadow_page_state(struct guest_info * info) {
-    struct shadow_page_state * state = &(info->shdw_pg_state);
+int v3_init_shdw_pg_state(struct guest_info * core) {
+    struct v3_shdw_pg_state * state = &(core->shdw_pg_state);
+    struct v3_shdw_pg_impl * impl = core->vm_info->shdw_impl.current_impl;
   
+
     state->guest_cr3 = 0;
     state->guest_cr0 = 0;
     state->guest_efer.value = 0x0LL;
 
-    INIT_LIST_HEAD(&(state->page_list));
+
+    if (impl->local_init(core) == -1) {
+	PrintError("Error in Shadow paging local initialization (%s)\n", impl->name);
+	return -1;
+    }
+
 
 #ifdef CONFIG_SHADOW_PAGING_TELEMETRY
-    v3_add_telemetry_cb(info->vm_info, telemetry_cb, NULL);
+    v3_add_telemetry_cb(core->vm_info, telemetry_cb, NULL);
 #endif
   
     return 0;
@@ -101,59 +138,65 @@ int v3_init_shadow_page_state(struct guest_info * info) {
 
 
 
+int v3_init_shdw_impl(struct v3_vm_info * vm) {
+    struct v3_shdw_impl_state * impl_state = &(vm->shdw_impl);
+    v3_cfg_tree_t * pg_cfg = v3_cfg_subtree(vm->cfg_data->cfg, "paging");
+    char * impl_name = v3_cfg_val(pg_cfg, "mode");
+    struct v3_shdw_pg_impl * impl = NULL;
+   
+    V3_Print("Initialization of Shadow Paging implementation\n");
+
+    impl = (struct v3_shdw_pg_impl *)v3_htable_search(master_shdw_pg_table, (addr_t)impl_name);
+
+    if (impl == NULL) {
+	PrintError("Could not find shadow paging impl (%s)\n", impl_name);
+	return -1;
+    }
+   
+    impl_state->current_impl = impl;
+
+    if (impl->init(vm, pg_cfg) == -1) {
+	PrintError("Could not initialize Shadow paging implemenation (%s)\n", impl->name);
+	return -1;
+    }
+
+    
+
+
+    return 0;
+}
+
+
 // Reads the guest CR3 register
 // creates new shadow page tables
 // updates the shadow CR3 register to point to the new pts
-int v3_activate_shadow_pt(struct guest_info * info) {
-    switch (v3_get_vm_cpu_mode(info)) {
-
-	case PROTECTED:
-	    return activate_shadow_pt_32(info);
-	case PROTECTED_PAE:
-	    return activate_shadow_pt_32pae(info);
-	case LONG:
-	case LONG_32_COMPAT:
-	case LONG_16_COMPAT:
-	    return activate_shadow_pt_64(info);
-	default:
-	    PrintError("Invalid CPU mode: %s\n", v3_cpu_mode_to_str(v3_get_vm_cpu_mode(info)));
-	    return -1;
-    }
-
-    return 0;
+int v3_activate_shadow_pt(struct guest_info * core) {
+    struct v3_shdw_impl_state * state = &(core->vm_info->shdw_impl);
+    struct v3_shdw_pg_impl * impl = state->current_impl;
+    return impl->activate_shdw_pt(core);
 }
 
 
 
 // This must flush any caches
 // and reset the cr3 value to the correct value
-int v3_invalidate_shadow_pts(struct guest_info * info) {
-    return v3_activate_shadow_pt(info);
+int v3_invalidate_shadow_pts(struct guest_info * core) {
+    struct v3_shdw_impl_state * state = &(core->vm_info->shdw_impl);
+    struct v3_shdw_pg_impl * impl = state->current_impl;
+    return impl->invalidate_shdw_pt(core);
 }
 
 
-int v3_handle_shadow_pagefault(struct guest_info * info, addr_t fault_addr, pf_error_t error_code) {
+int v3_handle_shadow_pagefault(struct guest_info * core, addr_t fault_addr, pf_error_t error_code) {
   
-    if (v3_get_vm_mem_mode(info) == PHYSICAL_MEM) {
+    if (v3_get_vm_mem_mode(core) == PHYSICAL_MEM) {
 	// If paging is not turned on we need to handle the special cases
-	return v3_handle_passthrough_pagefault(info, fault_addr, error_code);
-    } else if (v3_get_vm_mem_mode(info) == VIRTUAL_MEM) {
+	return v3_handle_passthrough_pagefault(core, fault_addr, error_code);
+    } else if (v3_get_vm_mem_mode(core) == VIRTUAL_MEM) {
+	struct v3_shdw_impl_state * state = &(core->vm_info->shdw_impl);
+	struct v3_shdw_pg_impl * impl = state->current_impl;
 
-	switch (v3_get_vm_cpu_mode(info)) {
-	    case PROTECTED:
-		return handle_shadow_pagefault_32(info, fault_addr, error_code);
-		break;
-	    case PROTECTED_PAE:
-		return handle_shadow_pagefault_32pae(info, fault_addr, error_code);
-	    case LONG:
-	    case LONG_32_COMPAT:
-	    case LONG_16_COMPAT:
-		return handle_shadow_pagefault_64(info, fault_addr, error_code);
-		break;
-	    default:
-		PrintError("Unhandled CPU Mode: %s\n", v3_cpu_mode_to_str(v3_get_vm_cpu_mode(info)));
-		return -1;
-	}
+	return impl->handle_pagefault(core, fault_addr, error_code);
     } else {
 	PrintError("Invalid Memory mode\n");
 	return -1;
@@ -161,23 +204,23 @@ int v3_handle_shadow_pagefault(struct guest_info * info, addr_t fault_addr, pf_e
 }
 
 
-int v3_handle_shadow_invlpg(struct guest_info * info) {
+int v3_handle_shadow_invlpg(struct guest_info * core) {
     uchar_t instr[15];
     struct x86_instr dec_instr;
     int ret = 0;
     addr_t vaddr = 0;
 
-    if (v3_get_vm_mem_mode(info) != VIRTUAL_MEM) {
+    if (v3_get_vm_mem_mode(core) != VIRTUAL_MEM) {
 	// Paging must be turned on...
 	// should handle with some sort of fault I think
 	PrintError("ERROR: INVLPG called in non paged mode\n");
 	return -1;
     }
 
-    if (v3_get_vm_mem_mode(info) == PHYSICAL_MEM) { 
-	ret = read_guest_pa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
+    if (v3_get_vm_mem_mode(core) == PHYSICAL_MEM) { 
+	ret = read_guest_pa_memory(core, get_addr_linear(core, core->rip, &(core->segments.cs)), 15, instr);
     } else { 
-	ret = read_guest_va_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
+	ret = read_guest_va_memory(core, get_addr_linear(core, core->rip, &(core->segments.cs)), 15, instr);
     }
 
     if (ret == -1) {
@@ -185,7 +228,7 @@ int v3_handle_shadow_invlpg(struct guest_info * info) {
 	return -1;
     }
 
-    if (v3_decode(info, (addr_t)instr, &dec_instr) == -1) {
+    if (v3_decode(core, (addr_t)instr, &dec_instr) == -1) {
 	PrintError("Decoding Error\n");
 	return -1;
     }
@@ -199,81 +242,33 @@ int v3_handle_shadow_invlpg(struct guest_info * info) {
 
     vaddr = dec_instr.dst_operand.operand;
 
-    info->rip += dec_instr.instr_length;
+    core->rip += dec_instr.instr_length;
 
-    switch (v3_get_vm_cpu_mode(info)) {
-	case PROTECTED:
-	    return handle_shadow_invlpg_32(info, vaddr);
-	case PROTECTED_PAE:
-	    return handle_shadow_invlpg_32pae(info, vaddr);
-	case LONG:
-	case LONG_32_COMPAT:
-	case LONG_16_COMPAT:
-	    return handle_shadow_invlpg_64(info, vaddr);
-	default:
-	    PrintError("Invalid CPU mode: %s\n", v3_cpu_mode_to_str(v3_get_vm_cpu_mode(info)));
-	    return -1;
+    {
+	struct v3_shdw_impl_state * state = &(core->vm_info->shdw_impl);
+	struct v3_shdw_pg_impl * impl = state->current_impl;
+
+	return impl->handle_invlpg(core, vaddr);
     }
 }
 
 
 
 
-static struct shadow_page_data * create_new_shadow_pt(struct guest_info * info) {
-    struct shadow_page_state * state = &(info->shdw_pg_state);
-    v3_reg_t cur_cr3 = info->ctrl_regs.cr3;
-    struct shadow_page_data * page_tail = NULL;
-    addr_t shdw_page = 0;
-
-    if (!list_empty(&(state->page_list))) {
-	page_tail = list_tail_entry(&(state->page_list), struct shadow_page_data, page_list_node);
-    
-	if (page_tail->cr3 != cur_cr3) {
-	    PrintDebug("Reusing old shadow Page: %p (cur_CR3=%p)(page_cr3=%p) \n",
-		       (void *)(addr_t)page_tail->page_pa, 
-		       (void *)(addr_t)cur_cr3, 
-		       (void *)(addr_t)(page_tail->cr3));
-
-	    list_move(&(page_tail->page_list_node), &(state->page_list));
-
-	    memset(V3_VAddr((void *)(page_tail->page_pa)), 0, PAGE_SIZE_4KB);
 
 
-	    return page_tail;
-	}
-    }
-
-    // else  
-
-    page_tail = (struct shadow_page_data *)V3_Malloc(sizeof(struct shadow_page_data));
-    page_tail->page_pa = (addr_t)V3_AllocPages(1);
-
-    PrintDebug("Allocating new shadow Page: %p (cur_cr3=%p)\n", 
-	       (void *)(addr_t)page_tail->page_pa, 
-	       (void *)(addr_t)cur_cr3);
-
-    page_tail->cr3 = cur_cr3;
-    list_add(&(page_tail->page_list_node), &(state->page_list));
-
-    shdw_page = (addr_t)V3_VAddr((void *)(page_tail->page_pa));
-    memset((void *)shdw_page, 0, PAGE_SIZE_4KB);
-
-    return page_tail;
-}
-
-
-static int inject_guest_pf(struct guest_info * info, addr_t fault_addr, pf_error_t error_code) {
-    info->ctrl_regs.cr2 = fault_addr;
+int v3_inject_guest_pf(struct guest_info * core, addr_t fault_addr, pf_error_t error_code) {
+    core->ctrl_regs.cr2 = fault_addr;
 
 #ifdef CONFIG_SHADOW_PAGING_TELEMETRY
-    info->shdw_pg_state.guest_faults++;
+    core->shdw_pg_state.guest_faults++;
 #endif
 
-    return v3_raise_exception_with_error(info, PF_EXCEPTION, *(uint_t *)&error_code);
+    return v3_raise_exception_with_error(core, PF_EXCEPTION, *(uint_t *)&error_code);
 }
 
 
-static int is_guest_pf(pt_access_status_t guest_access, pt_access_status_t shadow_access) {
+int v3_is_guest_pf(pt_access_status_t guest_access, pt_access_status_t shadow_access) {
     /* basically the reasoning is that there can be multiple reasons for a page fault:
        If there is a permissions failure for a page present in the guest _BUT_
        the reason for the fault was that the page is not present in the shadow,

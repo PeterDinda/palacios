@@ -150,7 +150,7 @@ struct guest_info {
     struct vm_time time_state;
 
     v3_paging_mode_t shdw_pg_mode;
-    struct shadow_page_state shdw_pg_state;
+    struct v3_shdw_pg_state shdw_pg_state;
     addr_t direct_map_pt;
 
 
@@ -206,6 +206,8 @@ struct v3_vm_info {
     addr_t mem_size; // In bytes for now
     struct v3_mem_map mem_map;
 
+
+    struct v3_shdw_impl_state shdw_impl;
 
     struct v3_io_map io_map;
     struct v3_msr_map msr_map;

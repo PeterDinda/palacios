@@ -250,7 +250,8 @@ static int pre_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * vm_cfg) {
 
 static int pre_config_core(struct guest_info * info, v3_cfg_tree_t * core_cfg) {
     extern v3_cpu_arch_t v3_cpu_types[];
-    char * paging = v3_cfg_val(core_cfg, "paging");
+    v3_cfg_tree_t * paging_cfg = v3_cfg_subtree(core_cfg, "paging");
+    char * paging = v3_cfg_val(paging_cfg, "mode");
 
 
     

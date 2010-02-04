@@ -421,6 +421,14 @@ int v3_init_vm(struct v3_vm_info * vm) {
 	return -1;
     }
 
+
+    if (v3_init_shdw_impl(vm) == -1) {
+	PrintError("VM initialization error in shadow implementaion\n");
+	return -1;
+    }
+
+
+
 #ifdef CONFIG_SYMBIOTIC
     v3_init_sym_iface(vm);
 #endif
@@ -475,7 +483,7 @@ int v3_init_core(struct guest_info * core) {
 #endif
 
     if (core->shdw_pg_mode == SHADOW_PAGING) {
-	v3_init_shadow_page_state(core);
+	v3_init_shdw_pg_state(core);
     }
 
     v3_init_time(core);

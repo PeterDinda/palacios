@@ -80,6 +80,9 @@ void Init_V3(struct v3_os_hooks * hooks, int num_cpus) {
     // Register all the possible device types
     v3_init_devices();
 
+    // Register all shadow paging handlers
+    V3_init_shdw_paging();
+
 #ifdef INSTRUMENT_VMM
     v3_init_instrumentation();
 #endif
