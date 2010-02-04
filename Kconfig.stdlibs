@@ -1,0 +1,197 @@
+menu "Standard library functions"
+
+config BUILT_IN_STDLIB
+	bool "Enable Built in versions of stdlib functions"
+	default y if KITTEN
+	help 
+	  Not all host OSes provide link targets for stdlib functions
+	  Palacios provides internal implementations of these functions, that you can select from this list
+
+config BUILT_IN_MEMSET
+	bool "memset()"
+	default n
+	depends on BUILT_IN_STDLIB
+	help 
+	  This enables Palacios' internal implementation of memset
+
+
+config BUILT_IN_MEMCPY
+	bool "memcpy()"
+	default n
+	depends on BUILT_IN_STDLIB
+	help 
+	  This enables Palacios' internal implementation of memcpy
+
+config BUILT_IN_MEMMOVE
+	bool "memmove()"
+	default n
+	depends on BUILT_IN_STDLIB
+	help 
+	  This enables Palacios' internal implementation of memmove
+
+config BUILT_IN_MEMCMP
+	bool "memcmp()"
+	default n
+	depends on BUILT_IN_STDLIB
+	help 
+	  This enables Palacios' internal implementation of memcmp
+
+config BUILT_IN_STRLEN
+	bool "strlen()"
+	default n
+	depends on BUILT_IN_STDLIB
+	help 
+	  This enables Palacios' internal implementation of strlen
+
+config BUILT_IN_STRNLEN
+	bool "strnlen()"
+	default n
+	depends on BUILT_IN_STDLIB
+	help 
+	  This enables Palacios' internal implementation of strnlen
+
+
+config BUILT_IN_STRCMP
+	bool "strcmp()"
+	default n
+	depends on BUILT_IN_STDLIB
+	help 
+	  This enables Palacios' internal implementation of strcmp
+
+
+config BUILT_IN_STRCASECMP
+	bool "strcasecmp()"
+	default y if KITTEN
+	depends on BUILT_IN_STDLIB
+	help
+	  This enables Palacios' internal implementation of strcasecmp
+
+config BUILT_IN_STRNCMP
+	bool "strncmp()"
+	default n
+	depends on BUILT_IN_STDLIB
+	help 
+	  This enables Palacios' internal implementation of strncmp
+
+config BUILT_IN_STRNCASECMP
+	bool "strncasecmp()"
+	default n
+	depends on BUILT_IN_STDLIB
+	help
+	  This enables Palacios' internal implementation of strncasecmp
+
+
+config BUILT_IN_STRCAT
+	bool "strcat()"
+	default n
+	depends on BUILT_IN_STDLIB
+	help 
+	  This enables Palacios' internal implementation of strcat
+
+config BUILT_IN_STRNCAT
+	bool "strncat()"
+	default n
+	depends on BUILT_IN_STDLIB
+	help 
+	  This enables Palacios' internal implementation of strncat
+
+config BUILT_IN_STRCPY
+	bool "strcpy()"
+	default n
+	depends on BUILT_IN_STDLIB
+	help 
+	  This enables Palacios' internal implementation of strcpy
+
+config BUILT_IN_STRNCPY
+	bool "strncpy()"
+	default n
+	depends on BUILT_IN_STDLIB
+	help 
+	  This enables Palacios' internal implementation of strncpy
+
+config BUILT_IN_STRDUP
+	bool "strdup()"
+	default n
+	depends on BUILT_IN_STDLIB
+	help 
+	  This enables Palacios' internal implementation of strdup
+
+config BUILT_IN_STRSTR
+	bool "strstr()"
+	default n
+	depends on BUILT_IN_STDLIB
+	help
+	  This enables Palacios internal implementation of strstr
+
+
+config BUILT_IN_ATOI
+	bool "atoi()"
+	default y if KITTEN
+	depends on BUILT_IN_STDLIB
+	help 
+	  This enables Palacios' internal implementation of atoi
+
+config BUILT_IN_STRCHR
+	bool "strchr()"
+	default n
+	depends on BUILT_IN_STDLIB
+	help 
+	  This enables Palacios' internal implementation of strchr
+
+config BUILT_IN_STRRCHR
+	bool "strrchr()"
+	default n
+	depends on BUILT_IN_STDLIB
+	help 
+	  This enables Palacios' internal implementation of strrchr
+
+config BUILT_IN_STRPBRK
+	bool "strpbrk()"
+	default n
+	depends on BUILT_IN_STDLIB
+	help 
+	  This enables Palacios' internal implementation of strpbrk
+
+
+config BUILT_IN_STDIO
+	bool "Enable Built in versions of stdio functions"
+	default n
+	help 
+	  Not all host OSes provide link targets for stdio functions
+	  Palacios provides internal implementations of these functions, that you can select from this list
+
+
+
+config BUILT_IN_SPRINTF
+	bool "sprintf()"
+	default n
+	depends on BUILT_IN_STDIO
+	help 
+	  This enables Palacios' internal implementation of sprintf
+
+
+config BUILT_IN_SNPRINTF
+	bool "snprintf()"
+	default n
+	depends on BUILT_IN_STDIO
+	help 
+	  This enables Palacios' internal implementation of snprintf
+
+
+config BUILT_IN_VSPRINTF
+	bool "vsprintf()"
+	default n
+	depends on BUILT_IN_STDIO
+	help 
+	  This enables Palacios' internal implementation of vsprintf
+
+
+config BUILT_IN_VSNRPRINTF
+	bool "vsnrprintf()"
+	default n
+	depends on BUILT_IN_STDIO
+	help 
+	  This enables Palacios' internal implementation of vsnrprintf
+
+
+endmenu
