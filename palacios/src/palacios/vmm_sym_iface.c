@@ -33,8 +33,6 @@
 
 // A succesfull symcall returns via the RET_HCALL, with the return values in registers
 // A symcall error returns via the ERR_HCALL with the error code in rbx
-#define SYM_CALL_RET_HCALL 0x535
-#define SYM_CALL_ERR_HCALL 0x536
 
 
 /* Notes: We use a combination of SYSCALL and SYSENTER Semantics 
@@ -237,8 +235,8 @@ int v3_init_sym_iface(struct v3_vm_info * vm) {
     v3_hook_msr(vm, SYMCALL_GS_MSR, symcall_msr_read, symcall_msr_write, NULL);
     v3_hook_msr(vm, SYMCALL_FS_MSR, symcall_msr_read, symcall_msr_write, NULL);
 
-    v3_register_hypercall(vm, SYM_CALL_RET_HCALL, sym_call_ret, NULL);
-    v3_register_hypercall(vm, SYM_CALL_ERR_HCALL, sym_call_err, NULL);
+    v3_register_hypercall(vm, SYMCALL_RET_HCALL, sym_call_ret, NULL);
+    v3_register_hypercall(vm, SYMCALL_ERR_HCALL, sym_call_err, NULL);
 
     return 0;
 }

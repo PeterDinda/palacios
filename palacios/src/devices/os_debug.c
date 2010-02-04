@@ -26,7 +26,6 @@
 #define BUF_SIZE 1024
 
 #define DEBUG_PORT1 0xc0c0
-#define DEBUG_HCALL 0xc0c0
 
 struct debug_state {
     char debug_buf[BUF_SIZE];
@@ -120,7 +119,7 @@ static int debug_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     }
 
     v3_dev_hook_io(dev, DEBUG_PORT1,  NULL, &handle_gen_write);
-    v3_register_hypercall(vm, DEBUG_HCALL, handle_hcall, dev);
+    v3_register_hypercall(vm, OS_DEBUG_HCALL, handle_hcall, dev);
 
     state->debug_offset = 0;
     memset(state->debug_buf, 0, BUF_SIZE);

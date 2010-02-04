@@ -30,25 +30,34 @@ typedef struct rb_root v3_hypercall_map_t;
 struct guest_info;
 struct v3_vm_info;
 
+
+
+typedef enum {
+    TEST_HCALL =           0x0001,
+    SYMCALL_RET_HCALL =    0x0535,         // args in GPRs
+    SYMCALL_ERR_HCALL =    0x0536,         // RBX: error code
+    MEM_OFFSET_HCALL =     0x1000,         // RBX: base addr(out)
+    GUEST_INFO_HCALL =     0x3000,         // no args
+    TELEMETRY_HCALL =      0x3001,         // no args
+    BALLOON_START_HCALL =  0xba00,         // RAX: size
+    BALLOON_QUERY_HCALL =  0xba01,         // RCX: req_pgs(out), RDX: alloc_pgs(out)
+    OS_DEBUG_HCALL =       0xc0c0          // RBX: msg_gpa, RCX: msg_len, RDX: buf_is_va (flag)
+} hcall_id_t;
+
+
+
+
 void v3_init_hypercall_map(struct v3_vm_info * vm);
 
 
-int v3_register_hypercall(struct v3_vm_info * vm, uint_t hypercall_id, 
-			  int (*hypercall)(struct guest_info * info , uint_t hcall_id, void * priv_data),
+int v3_register_hypercall(struct v3_vm_info * vm, hcall_id_t hypercall_id, 
+			  int (*hypercall)(struct guest_info * info , hcall_id_t hcall_id, void * priv_data),
 			  void * priv_data);
 
 
 
 int v3_handle_hypercall(struct guest_info * info);
 
-
-
-typedef enum {
-    MEM_OFFSET_HCALL = 0x1000, 
-    GUEST_INFO_HCALL = 0x3000,
-    TELEMETRY_HCALL = 0x3001,
-    OS_DEBUG_HCALL = 0xc0c0
-} hcall_id_t;
 
 
 
