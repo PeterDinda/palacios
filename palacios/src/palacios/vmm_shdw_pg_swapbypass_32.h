@@ -84,10 +84,10 @@ static inline int handle_shadow_pagefault_32(struct guest_info * info, addr_t fa
     shadow_pde_access = v3_can_access_pde32(shadow_pd, fault_addr, error_code);
   
     /* Was the page fault caused by the Guest's page tables? */
-    if (is_guest_pf(guest_pde_access, shadow_pde_access) == 1) {
+    if (v3_is_guest_pf(guest_pde_access, shadow_pde_access) == 1) {
 	PrintDebug("Injecting PDE pf to guest: (guest access error=%d) (shdw access error=%d)  (pf error code=%d)\n", 
 		   *(uint_t *)&guest_pde_access, *(uint_t *)&shadow_pde_access, *(uint_t *)&error_code);
-	if (inject_guest_pf(info, fault_addr, error_code) == -1) {
+	if (v3_inject_guest_pf(info, fault_addr, error_code) == -1) {
 	    PrintError("Could not inject guest page fault for vaddr %p\n", (void *)fault_addr);
 	    return -1;
 	}
@@ -103,7 +103,7 @@ static inline int handle_shadow_pagefault_32(struct guest_info * info, addr_t fa
 	PrintDebug("Shadow Paging User access error (shadow_pde_access=0x%x, guest_pde_access=0x%x)\n", 
 		   shadow_pde_access, guest_pde_access);
 	
-	if (inject_guest_pf(info, fault_addr, error_code) == -1) {
+	if (v3_inject_guest_pf(info, fault_addr, error_code) == -1) {
 	    PrintError("Could not inject guest page fault for vaddr %p\n", (void *)fault_addr);
 	    return -1;
 	}
@@ -117,7 +117,7 @@ static inline int handle_shadow_pagefault_32(struct guest_info * info, addr_t fa
     } else if ((shadow_pde_access != PT_ACCESS_NOT_PRESENT) &&
 	       (shadow_pde_access != PT_ACCESS_OK)) {
     	// inject page fault in guest
-	if (inject_guest_pf(info, fault_addr, error_code) == -1) {
+	if (v3_inject_guest_pf(info, fault_addr, error_code) == -1) {
 	    PrintError("Could not inject guest page fault for vaddr %p\n", (void *)fault_addr);
 	    return -1;
 	}
@@ -223,12 +223,12 @@ static int handle_pte_shadow_pagefault_32(struct guest_info * info, addr_t fault
   
   
     /* Was the page fault caused by the Guest's page tables? */
-    if (is_guest_pf(guest_pte_access, shadow_pte_access) == 1) {
+    if (v3_is_guest_pf(guest_pte_access, shadow_pte_access) == 1) {
 
 	PrintDebug("Access error injecting pf to guest (guest access error=%d) (pf error code=%d)\n", 
 		   guest_pte_access, *(uint_t*)&error_code);
 	
-#ifdef CONFIG_SYMBIOTIC_SWAP
+
 	if (is_swapped_pte32(guest_pte)) {
 
 	    pf_error_t swap_perms;
@@ -314,10 +314,10 @@ static int handle_pte_shadow_pagefault_32(struct guest_info * info, addr_t fault
 	    }
 
 	}
-#endif
+
 	//   inject:
 
-	if (inject_guest_pf(info, fault_addr, error_code) == -1) {
+	if (v3_inject_guest_pf(info, fault_addr, error_code) == -1) {
 	    PrintError("Could not inject guest page fault for vaddr %p\n", (void *)fault_addr);
 	    return -1;
 	}	
@@ -400,7 +400,7 @@ static int handle_pte_shadow_pagefault_32(struct guest_info * info, addr_t fault
 
     } else {
 	// Inject page fault into the guest	
-	if (inject_guest_pf(info, fault_addr, error_code) == -1) {
+	if (v3_inject_guest_pf(info, fault_addr, error_code) == -1) {
 	    PrintError("Could not inject guest page fault for vaddr %p\n", (void *)fault_addr);
 	    return -1;
 	}
