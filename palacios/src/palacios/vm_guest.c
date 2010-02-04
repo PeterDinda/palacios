@@ -485,6 +485,9 @@ int v3_init_core(struct guest_info * core) {
     v3_init_decoder(core);
 
 
+#ifdef CONFIG_SYMBIOTIC
+    v3_init_sym_core(core);
+#endif
 
     // init SVM/VMX
 #ifdef CONFIG_SVM

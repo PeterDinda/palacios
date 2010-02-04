@@ -50,7 +50,7 @@ struct v3_sym_local_page {
 	    uint32_t sym_call_enabled       : 1;
 	} __attribute__((packed));
     } __attribute__((packed));
-};
+} __attribute__((packed));
 
 
 #include <palacios/vm_guest.h>
@@ -111,7 +111,7 @@ struct v3_sym_local_state {
 
 
 int v3_init_sym_iface(struct v3_vm_info * vm);
-
+int v3_init_sym_core(struct guest_info * core);
 
 typedef uint64_t sym_arg_t;
 
