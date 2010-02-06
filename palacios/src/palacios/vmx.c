@@ -644,8 +644,8 @@ int v3_vmx_enter(struct guest_info * info) {
     v3_vmx_restore_vmcs(info);
 
 
-#ifdef CONFIG_SYMBIOTIC
-    if (info->sym_local_state.symcall_state.sym_call_active == 0) {
+#ifdef CONFIG_SYMCALL
+    if (info->sym_core_state.symcall_state.sym_call_active == 0) {
 	update_irq_entry_state(info);
     }
 #else 
@@ -706,8 +706,8 @@ int v3_vmx_enter(struct guest_info * info) {
     exit_log[info->num_exits % 10] = exit_info;
 
 
-#ifdef CONFIG_SYMBIOTIC
-    if (info->sym_local_state.symcall_state.sym_call_active == 0) {
+#ifdef CONFIG_SYMCALL
+    if (info->sym_core_state.symcall_state.sym_call_active == 0) {
 	update_irq_exit_state(info);
     }
 #else

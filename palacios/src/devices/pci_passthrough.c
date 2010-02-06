@@ -36,7 +36,7 @@
 #include <palacios/vmm_sprintf.h>
 #include <palacios/vmm_lowlevel.h>
 #include <palacios/vm_guest.h> // must include this to avoid dependency issue
-#include <palacios/vmm_sym_iface.h>
+#include <palacios/vmm_symspy.h>
 
 #include <devices/pci.h>
 #include <devices/pci_types.h>

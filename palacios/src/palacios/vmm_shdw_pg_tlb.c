@@ -23,6 +23,13 @@
 #include <palacios/vm_guest.h>
 #include <palacios/vm_guest_mem.h>
 
+
+#ifndef CONFIG_DEBUG_SHDW_PG_VTLB
+#undef PrintDebug
+#define PrintDebug(fmt, ...)
+#endif
+
+
 struct shadow_page_data {
     v3_reg_t cr3;
     addr_t page_pa;

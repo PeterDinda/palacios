@@ -21,7 +21,6 @@
 #define __VMM_SYM_SWAP_H__
 
 #ifdef __V3VEE__ 
-#ifdef CONFIG_SYMBIOTIC_SWAP
 
 #include <palacios/vmm_types.h>
 #include <palacios/vmm_paging.h>
@@ -80,6 +79,6 @@ addr_t v3_map_swp_page(struct v3_vm_info * vm, pte32_t * shadow_pte, pte32_t * g
 int v3_swap_flush(struct v3_vm_info * vm);
 
 
-#endif
+
 #endif
 #endif

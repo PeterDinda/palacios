@@ -32,14 +32,7 @@
 #include <palacios/vmm_msr.h>
 
 
-#ifdef CONFIG_SYMBIOTIC
-#include <palacios/vmm_sym_iface.h>
 
-#ifdef CONFIG_SYMBIOTIC_SWAP
-#include <palacios/vmm_sym_swap.h>
-#endif
-
-#endif
 
 
 

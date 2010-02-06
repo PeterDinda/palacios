@@ -430,7 +430,7 @@ int v3_init_vm(struct v3_vm_info * vm) {
 
 
 #ifdef CONFIG_SYMBIOTIC
-    v3_init_sym_iface(vm);
+    v3_init_symbiotic_vm(vm);
 #endif
 
     v3_init_dev_mgr(vm);
@@ -494,7 +494,7 @@ int v3_init_core(struct guest_info * core) {
 
 
 #ifdef CONFIG_SYMBIOTIC
-    v3_init_sym_core(core);
+    v3_init_symbiotic_core(core);
 #endif
 
     // init SVM/VMX

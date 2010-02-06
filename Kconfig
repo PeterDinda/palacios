@@ -73,13 +73,6 @@ config SHADOW_PAGING_TELEMETRY
 	help
 	  Enable telemetry information for shadow paging 
 
-config SYMBIOTIC_SWAP_TELEMETRY
-	bool "Enable Symbiotic Swap Telemetry"
-	default n
-	depends on TELEMETRY && SYMBIOTIC_SWAP
-	help 
-	  Enable the telemetry information for the symbiotic swap subsystem
-
 
 config PASSTHROUGH_VIDEO
 	bool "Enable Passthrough Video"
@@ -138,6 +131,14 @@ config SHADOW_PAGING_VTLB
 	help 
 	   Enables Virtual TLB implemenation for shadow paging
 
+
+config DEBUG_SHDW_PG_VTLB
+	bool "Enable VTLB debugging"
+	default n
+	depends on SHADOW_PAGING_VTLB
+	help
+	  Enables debugging messages for VTLB implementation
+
 endmenu
 
 
@@ -150,12 +151,36 @@ config SYMBIOTIC
 	  Enable Symbiotic components of the VMM
 
 
+
+config SYMCALL
+	bool "Symbiotic upcalls"
+	default n
+	depends on SYMBIOTIC && EXPERIMENTAL
+	help
+	  Enables the Symbiotic upcall interface
+
+config SYMMOD
+	bool "Symbiotic Modules"
+	default n
+	depends on SYMBIOTIC && EXPERIMENTAL
+	help
+	  Enable Symbiotic module loading
+
+
 config SYMBIOTIC_SWAP
 	bool "Symbiotic Swap"
 	default n
-	depends on SYMBIOTIC && EXPERIMENTAL
+	depends on SYMBIOTIC && SYMCALL && EXPERIMENTAL
 	help 
 	  This enables the symbiotic swap architecture
+
+config SYMBIOTIC_SWAP_TELEMETRY
+	bool "Enable Symbiotic Swap Telemetry"
+	default n
+	depends on TELEMETRY && SYMBIOTIC_SWAP
+	help 
+	  Enable the telemetry information for the symbiotic swap subsystem
+
 
 endmenu
 

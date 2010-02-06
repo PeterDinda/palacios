@@ -33,9 +33,8 @@ static inline int activate_shadow_pt_32(struct guest_info * info) {
     shadow_cr3->pwt = guest_cr3->pwt;
     shadow_cr3->pcd = guest_cr3->pcd;
   
-#ifdef CONFIG_SYMBIOTIC_SWAP
+
     v3_swap_flush(info->vm_info);
-#endif
 
     return 0;
 }

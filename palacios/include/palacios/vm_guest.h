@@ -48,88 +48,14 @@
 
 
 
-
-
-struct v3_gprs {
-    v3_reg_t rdi;
-    v3_reg_t rsi;
-    v3_reg_t rbp;
-    v3_reg_t rsp;
-    v3_reg_t rbx;
-    v3_reg_t rdx;
-    v3_reg_t rcx;
-    v3_reg_t rax;
-
-    v3_reg_t r8;
-    v3_reg_t r9;
-    v3_reg_t r10;
-    v3_reg_t r11;
-    v3_reg_t r12;
-    v3_reg_t r13;
-    v3_reg_t r14;
-    v3_reg_t r15;
-  
-} __attribute__((packed));
-
-
-struct v3_ctrl_regs {
-    v3_reg_t cr0;
-    v3_reg_t cr2;
-    v3_reg_t cr3;
-    v3_reg_t cr4;
-    v3_reg_t cr8;
-    v3_reg_t rflags;
-    v3_reg_t efer;
-};
-
-
-
-struct v3_dbg_regs {
-    v3_reg_t dr0;
-    v3_reg_t dr1;
-    v3_reg_t dr2;
-    v3_reg_t dr3;
-    v3_reg_t dr6;
-    v3_reg_t dr7;
-};
-
-struct v3_segment {
-    uint16_t selector;
-    uint_t limit;
-    uint64_t base;
-    uint_t type           : 4;
-    uint_t system         : 1;
-    uint_t dpl            : 2;
-    uint_t present        : 1;
-    uint_t avail          : 1;
-    uint_t long_mode      : 1;
-    uint_t db             : 1;
-    uint_t granularity    : 1;
-    uint_t unusable       : 1;
-} __attribute__((packed));
-
-
-struct v3_segments {
-    struct v3_segment cs;
-    struct v3_segment ds;
-    struct v3_segment es;
-    struct v3_segment fs;
-    struct v3_segment gs;
-    struct v3_segment ss;
-    struct v3_segment ldtr;
-    struct v3_segment gdtr;
-    struct v3_segment idtr;
-    struct v3_segment tr;
-};
-
-
 #ifdef CONFIG_SYMBIOTIC
-#include <palacios/vmm_sym_iface.h>
+#include <palacios/vmm_symbiotic.h>
+struct v3_sym_core_state;
 #endif
 
 #include <palacios/vmm_config.h>
 
-struct shadow_page_state;
+
 struct v3_intr_state;
 
 
@@ -137,9 +63,7 @@ struct v3_intr_state;
 struct v3_sym_swap_state;
 #endif
 
-#ifdef CONFIG_SYMBIOTIC
-struct v3_sym_state;
-#endif
+
 
 
 struct guest_info {
@@ -188,7 +112,7 @@ struct guest_info {
 
 #ifdef CONFIG_SYMBIOTIC
     // Symbiotic state
-    struct v3_sym_local_state sym_local_state;
+    struct v3_sym_core_state sym_core_state;
 #endif
 
 
@@ -228,7 +152,7 @@ struct v3_vm_info {
 
 #ifdef CONFIG_SYMBIOTIC
     // Symbiotic state
-    struct v3_sym_global_state sym_global_state;
+    struct v3_sym_vm_state sym_vm_state;
 #ifdef CONFIG_SYMBIOTIC_SWAP
     struct v3_sym_swap_state swap_state;
 #endif

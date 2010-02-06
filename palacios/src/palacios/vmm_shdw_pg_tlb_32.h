@@ -32,10 +32,6 @@ static inline int activate_shadow_pt_32(struct guest_info * core) {
   
     shadow_cr3->pwt = guest_cr3->pwt;
     shadow_cr3->pcd = guest_cr3->pcd;
-  
-#ifdef CONFIG_SYMBIOTIC_SWAP
-    v3_swap_flush(core->vm_info);
-#endif
 
     return 0;
 }
@@ -228,95 +224,8 @@ static int handle_pte_shadow_pagefault_32(struct guest_info * info, addr_t fault
 	PrintDebug("Access error injecting pf to guest (guest access error=%d) (pf error code=%d)\n", 
 		   guest_pte_access, *(uint_t*)&error_code);
 	
-#ifdef CONFIG_SYMBIOTIC_SWAP
-	if (is_swapped_pte32(guest_pte)) {
 
-	    pf_error_t swap_perms;
-
-
-	    /*
-	    int sym_ret = v3_get_vaddr_perms(info, fault_addr, guest_pte, &swap_perms);
-	    sym_ret = 0;
-	    */
-	    addr_t swp_pg_addr = 0;
-
-
-
-#ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
-	    if (error_code.write == 0) {
-		info->vm_info->swap_state.read_faults++;
-	    } else {
-		info->vm_info->swap_state.write_faults++;
-	    }
-#endif
-
-
-	    swp_pg_addr = v3_get_swapped_pg_addr(info->vm_info,  guest_pte);
-
-	    if (swp_pg_addr != 0) {
-		PrintDebug("Swapped page address=%p\n", (void *)swp_pg_addr);
-
-		/*
-		if (info->cpl == 0) {
-		    PrintError("Swapped Page fault in kernel mode.... bad...\n");
-		    goto inject;
-		}
-		*/
-
-		int sym_ret = v3_get_vaddr_perms(info, fault_addr, guest_pte, &swap_perms);
-
-		if (sym_ret == -1) {
-		    PrintError("Symcall error...\n");
-		    return -1;
-		} else if (sym_ret == 0) {
-
-
-		    if (swap_perms.present == 0) {
-			PrintError("Nonpresent swapped page\n");
-		    }
-		    
-		    // swap_perms.write ==1 || error_code.write == 0
-		    // swap_perms.user == 0 || error_code.user == 1
-		    
-		    // This checks for permissions violations that require a guest PF injection
-		    if ( (swap_perms.present == 1) && 
-			 ( (swap_perms.write == 1) || 
-			   (error_code.write == 0) ) &&
-			 ( (swap_perms.user == 1) || 
-			   (error_code.user == 0) ) ) {
-			addr_t swp_pg_pa = 0;
-			
-			swp_pg_pa = v3_map_swp_page(info->vm_info, shadow_pte, guest_pte, (void *)swp_pg_addr);
-
-			PrintDebug("Page fault on swapped out page (vaddr=%p) (pte=%x) (error_code=%x)\n", 
-				   (void *)fault_addr, *(uint32_t *)guest_pte, *(uint32_t *)&error_code);
-			
-			shadow_pte->writable = swap_perms.write;
-			shadow_pte->user_page = swap_perms.user;
-			
-			shadow_pte->write_through = 0;
-			shadow_pte->cache_disable = 0;
-			shadow_pte->global_page = 0;
-			
-			shadow_pte->present = 1;
-			
-			shadow_pte->page_base_addr = swp_pg_pa;
-			
-#ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
-			info->vm_info->swap_state.mapped_pages++;
-#endif
-			//		PrintError("Swap fault handled\n");
-			return 0;
-		    }
-		}
-	    } else {
-		PrintDebug("Not a sym swappable page\n");
-	    }
-
-	}
-#endif
 	//   inject:
-
 	if (v3_inject_guest_pf(info, fault_addr, error_code) == -1) {
 	    PrintError("Could not inject guest page fault for vaddr %p\n", (void *)fault_addr);
 	    return -1;
