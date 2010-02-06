@@ -40,9 +40,6 @@
 #include <palacios/vmm_telemetry.h>
 #endif
 
-#ifdef CONFIG_SYMBIOTIC_SWAP
-#include <palacios/vmm_sym_swap.h>
-#endif
 
 
 
@@ -59,9 +56,6 @@ struct v3_sym_core_state;
 struct v3_intr_state;
 
 
-#ifdef CONFIG_SYMBIOTIC_SWAP
-struct v3_sym_swap_state;
-#endif
 
 
 
@@ -153,9 +147,6 @@ struct v3_vm_info {
 #ifdef CONFIG_SYMBIOTIC
     // Symbiotic state
     struct v3_sym_vm_state sym_vm_state;
-#ifdef CONFIG_SYMBIOTIC_SWAP
-    struct v3_sym_swap_state swap_state;
-#endif
 #endif
 
 

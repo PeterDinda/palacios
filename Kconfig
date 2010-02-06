@@ -167,19 +167,19 @@ config SYMMOD
 	  Enable Symbiotic module loading
 
 
-config SYMBIOTIC_SWAP
-	bool "Symbiotic Swap"
+config SWAPBYPASS
+	bool "SwapBypass"
 	default n
 	depends on SYMBIOTIC && SYMCALL && EXPERIMENTAL
 	help 
-	  This enables the symbiotic swap architecture
+	  This enables the SwapBypass architecture
 
-config SYMBIOTIC_SWAP_TELEMETRY
-	bool "Enable Symbiotic Swap Telemetry"
+config SWAPBYPASS_TELEMETRY
+	bool "Enable SwapBypass Telemetry"
 	default n
-	depends on TELEMETRY && SYMBIOTIC_SWAP
+	depends on TELEMETRY && SWAPBYPASS
 	help 
-	  Enable the telemetry information for the symbiotic swap subsystem
+	  Enable the telemetry information for the SwapBypass subsystem
 
 
 endmenu

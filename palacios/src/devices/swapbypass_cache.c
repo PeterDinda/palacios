@@ -19,11 +19,11 @@
 
 #include <palacios/vmm.h>
 #include <palacios/vmm_dev_mgr.h>
-#include <palacios/vmm_sym_swap.h>
+#include <palacios/vmm_swapbypass.h>
 #include <palacios/vm_guest.h>
 
 
-#ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
+#ifdef CONFIG_SWAPBYPASS_TELEMETRY
 #include <palacios/vmm_telemetry.h>
 #endif
 
@@ -60,7 +60,7 @@ struct swap_state {
 
     union swap_header * hdr;
 
-#ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
+#ifdef CONFIG_SWAPBYPASS_TELEMETRY
     uint32_t pages_in;
     uint32_t pages_out;
 #endif
@@ -164,7 +164,7 @@ static int swap_read(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * pri
 	int i = 0;
 	// Notify the shadow paging layer
 
-#ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
+#ifdef CONFIG_SWAPBYPASS_TELEMETRY
 	swap->pages_in += length / 4096;
 #endif
 
@@ -219,7 +219,7 @@ static int swap_write(uint8_t * buf,  uint64_t lba, uint64_t num_bytes, void * p
     if ((swap->active == 1) && (offset != 0)) {
 	int i = 0;
 
-#ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
+#ifdef CONFIG_SWAPBYPASS_TELEMETRY
 	swap->pages_out += length / 4096;
 #endif
 
@@ -253,7 +253,7 @@ static struct v3_device_ops dev_ops = {
 };
 
 
-#ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
+#ifdef CONFIG_SWAPBYPASS_TELEMETRY
 static void telemetry_cb(struct v3_vm_info * vm, void * private_data, char * hdr) {
     struct vm_device * dev = (struct vm_device *)private_data;
     struct swap_state * swap = (struct swap_state *)(dev->private_data);
@@ -314,7 +314,7 @@ static int swap_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	return -1;
     }
 
-#ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
+#ifdef CONFIG_SWAPBYPASS_TELEMETRY
     if (vm->enable_telemetry == 1) {
 	v3_add_telemetry_cb(vm, telemetry_cb, dev);
     }
@@ -323,4 +323,4 @@ static int swap_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     return 0;
 }
 
-device_register("SYM_SWAP", swap_init)
+device_register("SWAPBYPASS_CACHE", swap_init)

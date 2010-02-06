@@ -436,13 +436,6 @@ int v3_init_vm(struct v3_vm_info * vm) {
     v3_init_dev_mgr(vm);
 
 
-#ifdef CONFIG_SYMBIOTIC_SWAP
-    PrintDebug("initializing symbiotic swap\n");
-    v3_init_sym_swap(vm);
-#endif
-
-
-
     // init SVM/VMX
 #ifdef CONFIG_SVM
     if ((cpu_type == V3_SVM_CPU) || (cpu_type == V3_SVM_REV3_CPU)) {

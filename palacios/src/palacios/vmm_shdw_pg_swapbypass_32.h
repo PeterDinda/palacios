@@ -250,7 +250,7 @@ static int handle_pte_shadow_pagefault_32(struct guest_info * info, addr_t fault
 #endif
 
 
-	    swp_pg_addr = v3_get_swapped_pg_addr(info->vm_info,  guest_pte);
+	    swp_pg_addr = get_swapped_pg_addr(info->vm_info,  guest_pte);
 
 	    if (swp_pg_addr != 0) {
 		PrintDebug("Swapped page address=%p\n", (void *)swp_pg_addr);
@@ -262,7 +262,7 @@ static int handle_pte_shadow_pagefault_32(struct guest_info * info, addr_t fault
 		}
 		*/
 
-		int sym_ret = v3_get_vaddr_perms(info, fault_addr, guest_pte, &swap_perms);
+		int sym_ret = get_vaddr_perms(info, fault_addr, guest_pte, &swap_perms);
 
 		if (sym_ret == -1) {
 		    PrintError("Symcall error...\n");
@@ -285,7 +285,7 @@ static int handle_pte_shadow_pagefault_32(struct guest_info * info, addr_t fault
 			   (error_code.user == 0) ) ) {
 			addr_t swp_pg_pa = 0;
 			
-			swp_pg_pa = v3_map_swp_page(info->vm_info, shadow_pte, guest_pte, (void *)swp_pg_addr);
+			swp_pg_pa = map_swp_page(info->vm_info, shadow_pte, guest_pte, (void *)swp_pg_addr);
 
 			PrintDebug("Page fault on swapped out page (vaddr=%p) (pte=%x) (error_code=%x)\n", 
 				   (void *)fault_addr, *(uint32_t *)guest_pte, *(uint32_t *)&error_code);

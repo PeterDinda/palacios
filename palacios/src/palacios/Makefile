@@ -64,4 +64,4 @@ obj-$(CONFIG_SYMBIOTIC) += vmm_symbiotic.o vmm_symspy.o
 obj-$(CONFIG_SYMCALL) += vmm_symcall.o
 obj-$(CONFIG_SYMMOD) += vmm_symmod.o
 
-obj-$(CONFIG_SYMBIOTIC_SWAP) += vmm_sym_swap.o vmm_shdw_pg_swapbypass.o
+obj-$(CONFIG_SWAPBYPASS) += vmm_shdw_pg_swapbypass.o

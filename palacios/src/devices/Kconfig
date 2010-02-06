@@ -273,19 +273,19 @@ config TMPDISK
 	help 
 	  Includes the temporary RAM disk 
 
-config SYM_SWAP
-	bool "Symbiotic Swap disk"
+config SWAPBYPASS_DISK_CACHE
+	bool "SwapBypass disk cache"
 	default y
-	depends on SYMBIOTIC_SWAP && (LINUX_VIRTIO_BLOCK || IDE)
+	depends on SWAPBYPASS && (LINUX_VIRTIO_BLOCK || IDE)
 	help 
-	  Includes the symbiotic ram based swap disk
+	  Includes the SwapBypass ram based swap disk cache
 
-config SYM_SWAP2
-	bool "Symbiotic Swap disk v2"
+config SWAPBYPASS_DISK_CACHE2
+	bool "SwapBypass disk cache v2"
 	default y
-	depends on SYMBIOTIC_SWAP && (LINUX_VIRTIO_BLOCK || IDE)
+	depends on SWAPBYPASS && (LINUX_VIRTIO_BLOCK || IDE)
 	help 
-	  Includes the symbiotic ram based swap disk
+	  Includes the SwapBypass ram based swap disk cache
 
 config DISK_MODEL
 	bool "Disk Performance Model"
