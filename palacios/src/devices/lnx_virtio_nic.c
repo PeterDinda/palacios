@@ -7,14 +7,12 @@
  * and the University of New Mexico.  You can find out more at 
  * http://www.v3vee.org
  *
- * Copyright (c) 2008, Jack Lange <jarusl@cs.northwestern.edu>
  * Copyright (c) 2008, Lei Xia <lxia@northwestern.edu>
  * Copyright (c) 2008, Cui Zheng <cuizheng@cs.unm.edu>
  * Copyright (c) 2008, The V3VEE Project <http://www.v3vee.org> 
  * All rights reserved.
  *
- * Author: Jack Lange <jarusl@cs.northwestern.edu>
- *		  Lei Xia <lxia@northwestern.edu>
+ * Author: Lei Xia <lxia@northwestern.edu>
  *             Cui Zheng <cuizheng@cs.unm.edu>
  * 		 
  *
@@ -36,6 +34,8 @@
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
+
+//#define VIRTIO_NIC_PROFILE
 
 /* The feature bitmap for virtio net */
 #define VIRTIO_NET_F_CSUM	0	/* Host handles pkts w/ partial csum */
@@ -74,7 +74,7 @@ struct virtio_net_hdr {
 }__attribute__((packed));
 
 	
-#define QUEUE_SIZE 1024
+#define QUEUE_SIZE 4096
 #define CTRL_QUEUE_SIZE 64
 #define ETH_ALEN 6
 
@@ -106,6 +106,8 @@ struct virtio_net_state {
     void * backend_data;
     struct virtio_dev_state * virtio_dev;
     struct list_head dev_link;
+
+    ulong_t pkt_sent, pkt_recv, pkt_drop;
 };
 
 
@@ -254,12 +256,11 @@ static int send_pkt_to_guest(struct virtio_net_state * virtio, uchar_t * buf, ui
     uint32_t hdr_len = sizeof(struct virtio_net_hdr);
     uint32_t data_len = size;
     uint32_t offset = 0;
+	
+    PrintDebug("VIRTIO NIC:  sending packet to virtio nic %p, size:%d", virtio, size);
 
-    //PrintDebug("VIRTIO NIC:  Handle RX: cur_index=%d (mod=%d), avail_index=%d\n", 
-	       //q->cur_avail_idx, q->cur_avail_idx % q->queue_size, q->avail->index);
-
-    PrintError("VIRTIO NIC:  sending packet to net_state %p, size:%d", virtio, size);
-
+    virtio->pkt_recv ++;
+	
     if (!raw) {
 	data_len -= hdr_len;
     }
@@ -272,66 +273,65 @@ static int send_pkt_to_guest(struct virtio_net_state * virtio, uchar_t * buf, ui
 	return -1;
     }
 
-    if (q->cur_avail_idx < q->avail->index) {
+    if (q->last_avail_idx > q->avail->index)
+	q->idx_overflow = true;
+    q->last_avail_idx = q->avail->index;
+
+    if (q->cur_avail_idx < q->avail->index || (q->idx_overflow && q->cur_avail_idx < q->avail->index+65536)){
 	addr_t hdr_addr = 0;
 	uint16_t hdr_idx = q->avail->ring[q->cur_avail_idx % q->queue_size];
 	uint16_t buf_idx = 0;
 	struct vring_desc * hdr_desc = NULL;
 
-	//PrintDebug("Descriptor index=%d\n", q->cur_avail_idx % q->queue_size);
-
 	hdr_desc = &(q->desc[hdr_idx]);
-
-	//PrintDebug("Header Descriptor (ptr=%p) gpa=%p, len=%d, flags=%x, next=%d\n", hdr_desc, 
-		   //(void *)(hdr_desc->addr_gpa), hdr_desc->length, hdr_desc->flags, hdr_desc->next);	
-
 	if (guest_pa_to_host_va(virtio->virtio_dev->vm, hdr_desc->addr_gpa, &(hdr_addr)) == -1) {
 	    PrintError("Could not translate receive buffer address\n");
 	    return -1;
 	}
 
-	//copy header to the header descriptor
 	memcpy((void *)hdr_addr, &hdr, sizeof(struct virtio_net_hdr));
 
-	//Zheng 01/02/2010: zero payload
 	if (offset >= data_len) {
 	    hdr_desc->flags &= ~VIRTIO_NEXT_FLAG;
 	}
 
-	//copy data to the next descriptors
-	//Zheng 01/02/2010: put data into the next descriptor, rather than 0! 
 	for (buf_idx = hdr_desc->next; offset < data_len; buf_idx = q->desc[hdr_idx].next) {
-	//	for (buf_idx = 0; offset < data_len; buf_idx = q->desc[hdr_idx].next) {
 	    struct vring_desc * buf_desc = &(q->desc[buf_idx]);
 	    uint32_t len = 0;
-
-	    //Zheng 01/02/2010: commented this - we need to check 
-	    //       if there still is some data left
-	    //buf_desc->flags = VIRTIO_NEXT_FLAG;
-	 
-	    //PrintError("JACK: copying packet to up desc (len = %d)\n", data_len - offset);
-	    //v3_hexdump(buf + offset, data_len - offset, NULL, 0);
 
 	    len = copy_data_to_desc(virtio, buf_desc, buf + offset, data_len - offset);
 	    
 	    offset += len;
 
-	    //Zheng 01/02/2010: check if there still is some data left 
 	    if (offset < data_len) {
 		buf_desc->flags = VIRTIO_NEXT_FLAG;		
 	    }
 
 	    buf_desc->length = len;  // TODO: do we need this?
-	    //PrintError("JACK: setting buffer descriptor length to %d)\n", buf_desc->length);
 	}
-
 	
 	q->used->ring[q->used->index % q->queue_size].id = q->avail->ring[q->cur_avail_idx % q->queue_size];
 	q->used->ring[q->used->index % q->queue_size].length = data_len + hdr_len; // This should be the total length of data sent to guest (header+pkt_data)
 
 	q->used->index++;
+
+	int last_idx = q->cur_avail_idx;
 	q->cur_avail_idx++;
+	if (q->cur_avail_idx < last_idx)
+	    q->idx_overflow = false;
+    } else {
+	virtio->pkt_drop++;
+	
+#ifdef VIRTIO_NIC_PROFILE
+	PrintError("Virtio NIC: %p, one pkt dropped receieved: %ld, dropped: %ld, sent: %ld curidx: %d, avaiIdx: %d\n", virtio, virtio->pkt_recv, virtio->pkt_drop, virtio->pkt_sent, q->cur_avail_idx, q->avail->index);
+#endif
     }
+
+#ifdef VIRTIO_NIC_PROFILE
+    if ((virtio->pkt_recv % 10000) == 0){
+	PrintError("Virtio NIC: %p, receieved: %ld, dropped: %ld, sent: %ld curidx: %d, avaiIdx: %d\n", virtio, virtio->pkt_recv, virtio->pkt_drop, virtio->pkt_sent, q->cur_avail_idx, q->avail->index);
+    }
+#endif
 
     if (!(q->avail->flags & VIRTIO_NO_IRQ_FLAG)) {
 	PrintDebug("Raising IRQ %d\n",  virtio->pci_dev->config_header.intr_line);
@@ -381,15 +381,21 @@ static int handle_ctrl(struct virtio_net_state * dev) {
 //get packet from guest
 static int handle_pkt_tx(struct virtio_net_state * virtio_state) 
 {
-    //struct virtio_net_state *virtio = (struct virtio_net_state *)dev->private_data;    
     struct virtio_queue * q = &(virtio_state->tx_vq);
-
-    //PrintDebug("VIRTIO NIC pkt_tx: cur_index=%d (mod=%d), avail_index=%d\n", 
-	      // q->cur_avail_idx, q->cur_avail_idx % q->queue_size, q->avail->index);
-
     struct virtio_net_hdr * hdr = NULL;
 
-    while (q->cur_avail_idx < q->avail->index) {
+    virtio_state->pkt_sent ++;
+
+    if (q->avail->index < q->last_avail_idx)
+	q->idx_overflow = true;
+    q->last_avail_idx = q->avail->index;
+
+#ifdef VIRTIO_NIC_PROFILE
+    if(virtio_state->pkt_sent % 10000 == 0)
+ 	PrintError("Virtio NIC: %p, pkt_sent: %ld curidx: %d, avaiIdx: %d\n", virtio_state, virtio_state->pkt_sent, q->cur_avail_idx, q->avail->index);
+#endif	
+
+    while (q->cur_avail_idx < q->avail->index ||(q->idx_overflow && q->cur_avail_idx < (q->avail->index + 65536))) {
 	struct vring_desc * hdr_desc = NULL;
 	addr_t hdr_addr = 0;
 	uint16_t desc_idx = q->avail->ring[q->cur_avail_idx % q->queue_size];
@@ -397,30 +403,17 @@ static int handle_pkt_tx(struct virtio_net_state * virtio_state)
 	uint32_t req_len = 0;
 	int i = 0;
 
-	//PrintDebug("Descriptor Count=%d, index=%d\n", desc_cnt, q->cur_avail_idx % q->queue_size);
-
 	hdr_desc = &(q->desc[desc_idx]);
-
-	//PrintDebug("Header Descriptor (ptr=%p) gpa=%p, len=%d, flags=%x, next=%d\n", hdr_desc, 
-		   //(void *)(hdr_desc->addr_gpa), hdr_desc->length, hdr_desc->flags, hdr_desc->next);	
-
 	if (guest_pa_to_host_va(virtio_state->virtio_dev->vm, hdr_desc->addr_gpa, &(hdr_addr)) == -1) {
 	    PrintError("Could not translate block header address\n");
 	    return -1;
 	}
 
 	hdr = (struct virtio_net_hdr*)hdr_addr;
-	
-	//PrintDebug("NIC Op Hdr (ptr=%p) header len =%x\n", (void *)hdr_addr, (int)hdr->hdr_len);
-
 	desc_idx = hdr_desc->next;
 	
 	for (i = 0; i < desc_cnt - 1; i++) {	
 	    struct vring_desc * buf_desc = &(q->desc[desc_idx]);
-
-	    //PrintDebug("Buffer Descriptor (ptr=%p) gpa=%p, len=%d, flags=%x, next=%d\n", buf_desc, 
-		       //(void *)(buf_desc->addr_gpa), buf_desc->length, buf_desc->flags, buf_desc->next);
-
 	    if (pkt_write(virtio_state, buf_desc) == -1) {
 		PrintError("Error handling nic operation\n");
 		return -1;
@@ -434,11 +427,14 @@ static int handle_pkt_tx(struct virtio_net_state * virtio_state)
 	q->used->ring[q->used->index % q->queue_size].length = req_len; // What do we set this to????
 
 	q->used->index++;
-	q->cur_avail_idx++;
+
+	int last_idx = q->cur_avail_idx;
+	q->cur_avail_idx ++;
+	if (q->cur_avail_idx < last_idx)
+	    q->idx_overflow = false;
     }
 
     if (!(q->avail->flags & VIRTIO_NO_IRQ_FLAG)) {
-	//PrintDebug("Raising IRQ %d\n",  virtio_state->pci_dev->config_header.intr_line);
 	v3_pci_raise_irq(virtio_state->virtio_dev->pci_bus, 0, virtio_state->pci_dev);
 	virtio_state->virtio_cfg.pci_isr = 0x1;
     }
@@ -777,6 +773,7 @@ static int register_dev(struct virtio_dev_state * virtio, struct virtio_net_stat
     net_state->ctrl_vq.queue_size = CTRL_QUEUE_SIZE;
 
     net_state->virtio_dev = virtio;
+    net_state->pkt_sent = net_state->pkt_recv = net_state->pkt_drop = 0;
 
     virtio_reset(net_state);
 

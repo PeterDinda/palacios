@@ -128,6 +128,8 @@ struct virtio_queue {
     uint16_t queue_size;
   
     uint16_t cur_avail_idx;
+    uint16_t last_avail_idx;
+    bool idx_overflow;
 
     addr_t ring_desc_addr;
     addr_t ring_avail_addr;

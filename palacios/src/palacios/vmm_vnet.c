@@ -8,16 +8,14 @@
  * http://www.v3vee.org
  *
  * Copyright (c) 2009, Lei Xia <lxia@northwestern.edu> 
- * Copyright (c) 2009, Yuan Tang <ytang@northwestern.edu> 
- * Copyright (c) 2009, Jack Lange <jarusl@cs.northwestern.edu> 
- * Copyright (c) 2009, Peter Dinda <pdinda@northwestern.edu>
+ * Copyright (c) 2009, Yuan Tang <ytang@northwestern.edu>  
+ * Copyright (c) 2009, Zheng Cui <czheng@unm.edu>
  * Copyright (c) 2009, The V3VEE Project <http://www.v3vee.org> 
  * All rights reserved.
  *
  * Author: Lei Xia <lxia@northwestern.edu>
  *	   Yuan Tang <ytang@northwestern.edu>
- *	   Jack Lange <jarusl@cs.northwestern.edu> 
- *	   Peter Dinda <pdinda@northwestern.edu
+ *       Zheng Cui <czheng@unm.edu>
  *
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
@@ -216,6 +214,7 @@ static int look_into_cache(route_hashkey_t hashkey, int * matches) {
     return n_matches;
 }
 
+
 #ifdef CONFIG_DEBUG_VNET
 
 static void print_packet(uchar_t *pkt, int size) {
@@ -274,6 +273,43 @@ static void dump_routes(struct routing_entry **route_tables) {
     }
 
     PrintDebug("\nVnet: route table dump end =====\n");
+}
+
+static void dump_dom0_routes(struct routing_entry routes[], int size) {
+    char dest_str[18];
+    char src_str[18];
+    struct routing_entry *route = NULL;
+    int i;
+
+    PrintDebug("\nVnet: route table from dom0 guest =====\n");
+
+    for(i = 0; i <size; i++) {
+        route = &routes[i];
+        mac_to_string(route->src_mac, src_str);  
+        mac_to_string(route->dest_mac, dest_str);
+        PrintDebug("route: %d\n", i);
+        PrintDebug("SRC(%s), DEST(%s), src_mac_qual(%d), dst_mac_qual(%d)\n", src_str, dest_str, route->src_mac_qual, route->dest_mac_qual);
+        PrintDebug("Src_Link(%d), src_type(%d), dst_link(%d), dst_type(%d)\n\n", route->src_link_idx, route->src_type, route->link_idx, route->link_type);
+    }
+
+    PrintDebug("\nVnet: route table dom0 guest end =====\n");
+}
+
+static void dump_dom0_links(struct vnet_if_link links[], int size) {
+    struct vnet_if_link *link = NULL;
+    int i;
+
+    PrintDebug("\nVnet: link table from dom0 guest =====\n");
+
+    for(i = 0; i <size; i++) {
+        link = &links[i];
+        PrintDebug("link: %d\n", i);
+        PrintDebug("dest_ip(%ld), dst_port(%d), prot_type(%d)\n", link->dest_ip, link->dest_port, link->pro_type);
+        PrintDebug("vnet_header:\n");
+	 v3_hexdump(&link->vnet_header, sizeof(struct udp_link_header), NULL, 0);
+    }
+
+    PrintDebug("\nVnet: link table dom0 guest end =====\n");
 }
 
 #endif
@@ -659,12 +695,12 @@ static int send_ethernet_pkt(uchar_t *data, int len) {
     struct ethernet_pkt *pkt;
 
     pkt = (struct ethernet_pkt *)V3_Malloc(sizeof(struct ethernet_pkt));
-    memset(pkt, 0, sizeof(struct ethernet_pkt));
-
+   
     if(pkt == NULL){
         PrintError("VNET: Memory allocate fails\n");
         return -1;
     }
+    memset(pkt, 0, sizeof(struct ethernet_pkt));
 	
     ethernet_packet_init(pkt, data, len);  //====here we copy sending data once 
 	
@@ -929,43 +965,47 @@ static int addto_routing_link_tables(struct routing_entry *route_tab,
     return 0;
 }
 
-struct table_init_info {
-    addr_t routing_table_start;
-    uint16_t routing_table_size;
-    addr_t link_table_start;
-    uint16_t link_table_size;
-};
-
 //add the guest specified routes and links to the tables
 static int handle_init_tables_hcall(struct guest_info * info, uint_t hcall_id, void * priv_data) {
-    addr_t guest_addr = (addr_t)info->vm_regs.rcx;
-    addr_t info_addr, route_addr, link_addr;
-    struct table_init_info *init_info;
-    struct link_entry *link_array;
-    struct routing_entry *route_array;   
+    struct vnet_if_link *link_array;
+    struct routing_entry *route_array;
+    addr_t routes_addr, routes_addr_gva;
+    addr_t links_addr, links_addr_gva;
+    uint16_t route_size, link_size;
+
+    routes_addr_gva = (addr_t)info->vm_regs.rbx;
+    route_size = (uint16_t)info->vm_regs.rcx;
+    links_addr_gva  = (addr_t)info->vm_regs.rdx;
+    link_size = (uint16_t)info->vm_regs.rsi;
 
     PrintDebug("Vnet: In handle_init_tables_hcall\n");
-
-    if (guest_va_to_host_va(info, guest_addr, &info_addr) == -1) {
+    PrintDebug("Vnet: route_table_start: %x, route size: %d\n", (int)routes_addr_gva, route_size);
+    PrintDebug("Vnet: link_table_start: %x, link size: %d\n", (int)links_addr_gva, link_size);
+	
+    if (guest_va_to_host_va(info, routes_addr_gva, &routes_addr) == -1) {
 	PrintError("VNET: Could not translate guest address\n");
 	return -1;
     }
-    init_info = (struct table_init_info *)info_addr;
+    route_array = (struct routing_entry *)routes_addr;
 
-    if (guest_va_to_host_va(info, init_info->routing_table_start, &route_addr) == -1) {
-	PrintError("VNET: Could not translate guest address\n");
-	return -1;
-    }
-    route_array = (struct routing_entry *)route_addr;
+#ifdef CONFIG_DEBUG_VNET
+    dump_dom0_routes(route_array, route_size);
+#endif
 
-    if (guest_va_to_host_va(info, init_info->link_table_start, &link_addr) == -1) {
+    if (guest_va_to_host_va(info, links_addr_gva, &links_addr) == -1) {
 	PrintError("VNET: Could not translate guest address\n");
 	return -1;
     }	
-    link_array = (struct link_entry *)link_addr;
+    link_array = (struct vnet_if_link *)links_addr;
 
-    addto_routing_link_tables(route_array, init_info->routing_table_size, link_array, init_info->link_table_size);
-    
+#ifdef CONFIG_DEBUG_VNET
+    dump_dom0_links(link_array, link_size);
+#endif
+
+
+// TODO:
+    if (0)addto_routing_link_tables(route_array, route_size, NULL, 0);
+
     return 0;
 }
 
