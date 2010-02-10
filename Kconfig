@@ -148,7 +148,8 @@ config SYMBIOTIC
 	bool "Enable Symbiotic Functionality"
 	default n
 	help 
-	  Enable Symbiotic components of the VMM
+	  Enable Symbiotic components of the VMM. 
+	  This includes the SymSpy interface.
 
 
 

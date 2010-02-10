@@ -64,7 +64,10 @@ int v3_init_symbiotic_vm(struct v3_vm_info * vm) {
 #endif
 
 #ifdef CONFIG_SYMMOD
-
+    if (v3_init_symmod_vm(vm, vm->cfg_data->cfg) == -1) {
+	PrintError("Error initializing global SymMod state\n");
+	return -1;
+    }
 #endif
 
 

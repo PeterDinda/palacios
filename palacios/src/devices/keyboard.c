@@ -318,7 +318,9 @@ static int pull_from_output_queue(struct vm_device * dev, uint8_t * value) {
 
 
 #include <palacios/vmm_telemetry.h>
-
+#ifdef CONFIG_SYMMOD
+#include <palacios/vmm_symmod.h>
+#endif
 
 static int key_event_handler(struct v3_vm_info * vm, 
 			     struct v3_keyboard_event * evt, 
@@ -365,12 +367,19 @@ static int key_event_handler(struct v3_vm_info * vm,
 	
 	PrintDebug("Toggling Debugging\n");	
 	v3_dbg_enable ^= 1;
-    } else if (evt->scan_code == 0x41) { // F7 telemetry dump
-#ifdef CONFIG_TELEMETRY
-	v3_print_telemetry(vm);
-#endif
-    }
 
+    } 
+#ifdef CONFIG_TELEMETRY
+
+    else if (evt->scan_code == 0x41) { // F7 telemetry dump
+	v3_print_telemetry(vm);
+    } 
+#endif
+#ifdef CONFIG_SYMMOD
+    else if (evt->scan_code == 0x40) { // F6 Test symmod load
+	v3_load_sym_module(vm, "test");
+    }
+#endif
 
 
     addr_t irq_state = v3_lock_irqsave(state->kb_lock);

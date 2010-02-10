@@ -41,7 +41,7 @@ struct v3_sym_vm_state {
     struct v3_symspy_global_state symspy_state;
 
 #ifdef CONFIG_SYMMOD
-    struct v3_symmod_global_state symmod_state;
+    struct v3_symmod_state symmod_state;
 #endif
 };
 
@@ -53,9 +53,6 @@ struct v3_sym_core_state {
     struct v3_symcall_state symcall_state;
 #endif
 
-#ifdef CONFIG_SYMMOD
-    struct v3_symmod_local_state symmod_state;
-#endif
 };
 
 
