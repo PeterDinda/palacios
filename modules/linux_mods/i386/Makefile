@@ -1,0 +1,1 @@
+obj-$(CONFIG_LNX_MOD_32BIT)   += binaries.o headers.o

@@ -429,6 +429,7 @@ scripts_basic: palacios/include/autoconf.h
 core-y          := palacios/src/palacios/
 libs-y		:= palacios/lib/$(ARCH)/
 devices-y       := palacios/src/devices/
+modules-y       := modules/
 
 ifeq ($(dot-config),1)
 # In this section, we need .config
@@ -507,7 +508,7 @@ export	INSTALL_PATH ?= /build
 
 
 palacios-dirs	:= $(patsubst %/,%,$(filter %/,  \
-		     $(core-y) $(devices-y) $(libs-y)))
+		     $(core-y) $(devices-y) $(libs-y)) $(modules-y))
 
 #palacios-alldirs	:= $(sort $(palacios-dirs) $(patsubst %/,%,$(filter %/, \
 #		     $(core-n) $(core-) $(devices-n) $(devices-) \
@@ -515,13 +516,14 @@ palacios-dirs	:= $(patsubst %/,%,$(filter %/,  \
 
 
 palacios-cleandirs := $(sort $(palacios-dirs) $(patsubst %/,%,$(filter %/, \
-		     	$(core-n) $(core-) $(devices-n) $(devices-))))
+		     	$(core-n) $(core-) $(devices-n) $(devices-) $(modules-n) $(modules-))))
 
 
 
 core-y		:= $(patsubst %/, %/built-in.o, $(core-y))
 devices-y	:= $(patsubst %/, %/built-in.o, $(devices-y))
 libs-y		:= $(patsubst %/, %/built-in.o, $(libs-y))
+modules-y       := $(patsubst %/, %/built-in.o, $(modules-y))
 #core-y		:= $(patsubst %/, %/lib.a, $(core-y))
 #devices-y	:= $(patsubst %/, %/lib.a, $(devices-y))
 
@@ -544,7 +546,7 @@ libs-y		:= $(patsubst %/, %/built-in.o, $(libs-y))
 
 
 
-palacios := $(core-y) $(devices-y) $(libs-y)
+palacios := $(core-y) $(devices-y) $(libs-y) $(modules-y)
 
 # Rule to link palacios - also used during CONFIG_KALLSYMS
 # May be overridden by /Makefile.$(ARCH)

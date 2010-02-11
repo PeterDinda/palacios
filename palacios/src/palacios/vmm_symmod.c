@@ -21,6 +21,7 @@
 #include <palacios/vmm_symbiotic.h>
 #include <palacios/vm_guest.h>
 
+static struct v3_sym_module  test_module;
 
 int V3_init_symmod() {
 
@@ -37,31 +38,44 @@ int v3_init_symmod_vm(struct v3_vm_info * info, v3_cfg_tree_t * cfg) {
 
 int v3_set_symmod_loader(struct v3_vm_info * vm, struct v3_symmod_loader_ops * ops, void * priv_data) {
     struct v3_symmod_state * symmod_state = &(vm->sym_vm_state.symmod_state);
+    extern uint8_t symmod_start[];
+    extern uint8_t symmod_end[];
+
+
+
+
+    struct v3_sym_module tmp_mod = {
+	.name = "test",
+	.num_bytes = symmod_end - symmod_start,
+	.data = symmod_start,
+    };
+    
+    
+    test_module = tmp_mod;
 
 
     symmod_state->loader_ops = ops;
     symmod_state->loader_data = priv_data;
 
+    
     return 0;
+
 }
 
 
 
-static char test_module_data[16] = {"hello"};
 
-static struct v3_sym_module test_module = {
-    .name = "test",
-    .num_bytes = 16,
-    .data = test_module_data,
-};
 
 int v3_load_sym_module(struct v3_vm_info * vm, char * mod_name) {
     struct v3_symmod_state * symmod_state = &(vm->sym_vm_state.symmod_state);
 
     PrintDebug("Loading Module (%s)\n", mod_name);
 
-    return symmod_state->loader_ops->load_module(vm, mod_name, 16, symmod_state->loader_data);
+    return symmod_state->loader_ops->load_module(vm, test_module.name, test_module.num_bytes, symmod_state->loader_data);
 }
+
+
+
 
 struct v3_sym_module * v3_get_sym_module(struct v3_vm_info * vm, char * name) {
     return &test_module;

@@ -1,0 +1,31 @@
+
+
+
+config LNX_KERN_MODS
+	bool "Linux kernel modules"
+	select LNX_MOD_32BIT
+	select LNX_MOD_64BIT
+	
+
+
+
+
+config LNX_MOD_32BIT
+	bool "32 bit modules"
+	depends on LNX_KERN_MODS
+
+config LNX_MOD_32BIT_TEST
+	bool "Linux (i386) test module"
+	default y if SYMMOD
+	depends on LNX_MOD_32BIT
+	help 
+	    This is a simple 32 bit test Linux kernel module
+
+
+
+
+config LNX_MOD_64BIT
+	bool "64 bit modules" 
+	depends on LNX_KERN_MODS
+	default y		
+

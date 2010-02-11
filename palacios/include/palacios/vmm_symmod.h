@@ -59,6 +59,25 @@ int v3_init_symmod_vm(struct v3_vm_info * vm, v3_cfg_tree_t * cfg);
 struct v3_sym_module * v3_get_sym_module(struct v3_vm_info * vm, char * name);
 
 
+
+
+
+struct v3_module_hdr {
+    char * name;
+    void * start_addr;
+    void * end_addr;
+} __attribute__((packed));
+
+
+#define register_module(name, start, end)			\
+    static char v3_module_name[] = name;			\
+    static struct v3_module_hdr _v3_module			\
+    __attribute__((__used__))					\
+	__attribute__((unused, __section__ ("_v3_modules"),	\
+		       aligned(sizeof(addr_t))))		\
+	= {v3_module_name, start, end};
+
+
 int V3_init_symmod();
 
 
