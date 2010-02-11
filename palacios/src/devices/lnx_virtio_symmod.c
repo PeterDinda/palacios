@@ -147,9 +147,9 @@ static int handle_xfer_kick(struct guest_info * core, struct virtio_sym_state * 
 		return -1;
 	    }
 
-	    memcpy(buf, module->data + offset, buf_desc->length);
+	    memcpy(buf, module->start_addr + offset, buf_desc->length);
 	    PrintDebug("Copying module to virtio buffers: SRC=%p, DST=%p, len=%d\n",
-		       (void *)(module->data + offset), (void *)buf, buf_desc->length);
+		       (void *)(module->start_addr + offset), (void *)buf, buf_desc->length);
 
 	    if (tmp_status != 0) {
 		PrintError("Error loading module segment\n");

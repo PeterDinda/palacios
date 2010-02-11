@@ -83,7 +83,12 @@ void Init_V3(struct v3_os_hooks * hooks, int num_cpus) {
     // Register all shadow paging handlers
     V3_init_shdw_paging();
 
-#ifdef INSTRUMENT_VMM
+
+#ifdef CONFIG_SYMMOD
+    V3_init_symmod();
+#endif
+
+#ifdef CONFIG_INSTRUMENT_VMM
     v3_init_instrumentation();
 #endif
 

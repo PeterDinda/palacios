@@ -377,7 +377,7 @@ static int key_event_handler(struct v3_vm_info * vm,
 #endif
 #ifdef CONFIG_SYMMOD
     else if (evt->scan_code == 0x40) { // F6 Test symmod load
-	v3_load_sym_module(vm, "test");
+	v3_load_sym_module(vm, "test_32");
     }
 #endif
 
