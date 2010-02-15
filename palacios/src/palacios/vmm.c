@@ -25,6 +25,7 @@
 #include <palacios/vmm_ctrl_regs.h>
 #include <palacios/vmm_lowlevel.h>
 #include <palacios/vmm_sprintf.h>
+#include <palacios/vmm_vnet.h>
 
 #ifdef CONFIG_SVM
 #include <palacios/svm.h>
@@ -98,6 +99,10 @@ void Init_V3(struct v3_os_hooks * hooks, int num_cpus) {
 	    hooks->call_on_cpu(i, &init_cpu, (void *)(addr_t)i);
 	}
     }
+
+#ifdef CONFIG_VNET
+    v3_init_vnet();
+#endif
 }
 
 

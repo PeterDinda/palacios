@@ -25,7 +25,7 @@
 
 #include <palacios/vmm.h>
 #include <palacios/vmm_list.h>
-
+#include <palacios/vmm_lock.h>
 
 
 /* IMPORTANT:
@@ -43,9 +43,7 @@ struct queue_entry {
 struct gen_queue {
     uint_t num_entries;
     struct list_head entries;
-
-    // We really need to implement this....
-    // void * lock;
+    v3_lock_t lock;
 };
 
 

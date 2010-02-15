@@ -9,8 +9,6 @@
  *
  * Copyright (c) 2009, Lei Xia <lxia@northwestern.edu> 
  * Copyright (c) 2009, Yuan Tang <ytang@northwestern.edu> 
- * Copyright (c) 2009, Jack Lange <jarusl@cs.northwestern.edu> 
- * Copyright (c) 2009, Peter Dinda <pdinda@northwestern.edu
  * Copyright (c) 2009, The V3VEE Project <http://www.v3vee.org> 
  * All rights reserved.
  *
@@ -39,6 +37,8 @@
 typedef enum {MAC_ANY, MAC_NOT, MAC_NONE} mac_type_t; //for 'src_mac_qual' and 'dst_mac_qual'
 typedef enum {LINK_INTERFACE, LINK_EDGE, LINK_ANY} link_type_t; //for 'type' and 'src_type' in struct routing
 typedef enum {TCP_TYPE, UDP_TYPE, NONE_TYPE} prot_type_t;
+
+#define VNET_INITAB_HCALL 0xca00
 
 //routing table entry
 struct routing_entry{
@@ -115,7 +115,6 @@ struct vnet_if_link {
 }__attribute__((packed));
 
 
-//link table entry
 struct link_entry {
     link_type_t type;
   
@@ -127,6 +126,13 @@ struct link_entry {
     int use;
 }__attribute__((packed));
 
+struct ethernet_pkt {
+    uint32_t size; //size of data field
+    uint16_t type;
+    uint8_t use_header;
+    struct udp_link_header ext_hdr;
+    char data[ETHERNET_PACKET_LEN];
+}__attribute__((packed));
 
 int v3_vnet_send_rawpkt(uchar_t *buf, int len, void *private_data);
 int v3_vnet_send_udppkt(uchar_t *buf, int len, void *private_data);
@@ -147,7 +153,7 @@ int vnet_add_route_entry(char src_mac[6],
 
 int v3_vnet_pkt_process(); 
 
-void v3_vnet_init(struct guest_info *vm);
+void v3_init_vnet();
 
 #endif
 

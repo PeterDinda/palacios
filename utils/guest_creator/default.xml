@@ -27,7 +27,7 @@
 	<!-- This is where you add disk images -->
 	<files>
 		<!-- The file 'id' is used as a reference for other configuration components -->
-		<file id="boot-cd" filename="/home/jarusl/image.iso" />
+		<file id="boot-cd" filename="image.iso" />
 		<!--<file id="harddisk" filename="firefox.img" />-->
 	</files>
 
@@ -108,12 +108,12 @@
 				<drive_num>0</drive_num>
 			</frontend>
 		</device>
-
+<!--
 		<device id="SYM_SWAP" name="sym swap">
 			<frontend tag="blk_virtio" />
 			<size>150</size>
 		</device>
-
+-->
 
 <!--
 		<device id="RAMDISK" name="HD0">
