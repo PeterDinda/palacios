@@ -46,31 +46,12 @@
 #include <palacios/vmm_telemetry.h>
 #endif
 
-#define VNET_PROFILE
-/* for vnet profiling*/
-#ifdef VNET_PROFILE
-static uint64_t vmm_time = 0;
-static uint64_t vnet_time = 0;
-static uint64_t guest_time = 0;
-static uint64_t last_exit_time = 0;
-static uint64_t num_exit = 0;
-#endif
-
 int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_info1, addr_t exit_info2) {
 
 #ifdef CONFIG_TELEMETRY
     if (info->enable_telemetry) {
 	v3_telemetry_start_exit(info);
     }
-#endif
-
-#ifdef VNET_PROFILE
-    uint64_t exit_start_time, vnet_start_time;
-    uint64_t exit_end_time, vnet_end_time;
-    rdtscll(exit_start_time);
-    num_exit ++;
-    if (last_exit_time > 0)
-	guest_time += exit_start_time - last_exit_time;
 #endif
 
     //PrintDebug("SVM Returned: Exit Code: %x\n",exit_code); 
@@ -307,34 +288,12 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 
 
 #ifdef CONFIG_VNET
-
-#ifdef VNET_PROFILE
-    rdtscll(vnet_start_time);
-#endif
     v3_vnet_pkt_process(info);
-#ifdef VNET_PROFILE
-    rdtscll(vnet_end_time);
-    vnet_time += vnet_end_time - vnet_start_time;
-#endif
 #endif
 
 #ifdef CONFIG_LINUX_VIRTIO_NET
     v3_virtionic_pktprocess(info);
 #endif
-
-#ifdef VNET_PROFILE
-    rdtscll(exit_end_time);
-    vmm_time += exit_end_time - exit_start_time;
-    last_exit_time = exit_end_time;
-    if ((num_exit % 100000) == 0) {
-	PrintError("exit: %ld, vmm_time: %ld, guest_time: %ld, vnet_time: %ld\n", (long)num_exit, (long)vmm_time, (long)guest_time, (long)vnet_time);
- 	vmm_time = 0;
-	vnet_time = 0;
-	guest_time = 0;
-	last_exit_time = 0;
-    }
-#endif
-
 
 #ifdef CONFIG_TELEMETRY
     if (info->enable_telemetry) {

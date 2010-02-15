@@ -44,17 +44,6 @@
 #include <palacios/vmm_telemetry.h>
 #endif
 
-//#define VNET_PROFILE
-/* for vnet profiling*/
-#ifdef VNET_PROFILE
-static uint64_t vmm_time = 0;
-static uint64_t vnet_time = 0;
-static uint64_t guest_time = 0;
-static uint64_t last_exit_time = 0;
-static uint64_t num_exit = 0;
-#endif
-
-
 /* At this point the GPRs are already copied into the guest_info state */
 int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_info) {
     struct vmx_data * vmx_info = (struct vmx_data *)(info->vmm_data);
@@ -86,8 +75,7 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
         case VMEXIT_INFO_EXCEPTION_OR_NMI: {
             pf_error_t error_code = *(pf_error_t *)&(exit_info->int_err);
 
-
-            // JRL: Change "0x0e" to a macro value
+	// JRL: Change "0x0e" to a macro value
             if ((uint8_t)exit_info->int_info == 0x0e) {
 #ifdef CONFIG_DEBUG_SHADOW_PAGING
                 PrintDebug("Page Fault at %p error_code=%x\n", (void *)exit_info->exit_qual, *(uint32_t *)&error_code);
@@ -249,34 +237,12 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
 
 
 #ifdef CONFIG_VNET
-#ifdef VNET_PROFILE
-    rdtscll(vnet_start_time);
-#endif
     v3_vnet_pkt_process(info);
-#ifdef VNET_PROFILE
-    rdtscll(vnet_end_time);
-    vnet_time += vnet_end_time - vnet_start_time;
-#endif
 #endif
 
 #ifdef CONFIG_LINUX_VIRTIO_NET
     v3_virtionic_pktprocess(info);
 #endif
-
-#ifdef VNET_PROFILE
-    rdtscll(exit_end_time);
-    vmm_time += exit_end_time - exit_start_time;
-    last_exit_time = exit_end_time;
-    if ((num_exit % 100000) == 0) {
-	PrintError("exit: %ld, vmm_time: %ld, guest_time: %ld, vnet_time: %ld\n", (long)num_exit, (long)vmm_time, (long)guest_time, (long)vnet_time);
- 	vmm_time = 0;
-	vnet_time = 0;
-	guest_time = 0;
-	last_exit_time = 0;
-    }
-#endif
-
-
 
 #ifdef CONFIG_TELEMETRY
     if (info->enable_telemetry) {
