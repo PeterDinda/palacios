@@ -50,3 +50,13 @@ pxebios_start:
 .globl pxebios_end
 pxebios_end:
 #endif
+
+
+/* temporary module */
+/*
+.globl symmod_start
+symmod_start:
+.incbin "./palacios/src/modules/test.ko"
+.globl symmod_end
+symmod_end:*/
+

@@ -147,7 +147,9 @@ static int handle_xfer_kick(struct guest_info * core, struct virtio_sym_state * 
 		return -1;
 	    }
 
-	    memcpy(buf, module->data + offset, buf_desc->length);
+	    memcpy(buf, module->start_addr + offset, buf_desc->length);
+	    PrintDebug("Copying module to virtio buffers: SRC=%p, DST=%p, len=%d\n",
+		       (void *)(module->start_addr + offset), (void *)buf, buf_desc->length);
 
 	    if (tmp_status != 0) {
 		PrintError("Error loading module segment\n");
@@ -170,6 +172,7 @@ static int handle_xfer_kick(struct guest_info * core, struct virtio_sym_state * 
 	xfer_len += status_desc->length;
 	*status_ptr = status;
 
+	PrintDebug("Transferred %d bytes (xfer_len)\n", xfer_len);
 	q->used->ring[q->used->index % QUEUE_SIZE].id = q->avail->ring[q->cur_avail_idx % QUEUE_SIZE];
 	q->used->ring[q->used->index % QUEUE_SIZE].length = xfer_len; // set to total inbound xfer length
 

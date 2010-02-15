@@ -151,22 +151,12 @@ config SYMBIOTIC
 	  Enable Symbiotic components of the VMM. 
 	  This includes the SymSpy interface.
 
-
-
 config SYMCALL
 	bool "Symbiotic upcalls"
 	default n
 	depends on SYMBIOTIC && EXPERIMENTAL
 	help
 	  Enables the Symbiotic upcall interface
-
-config SYMMOD
-	bool "Symbiotic Modules"
-	default n
-	depends on SYMBIOTIC && EXPERIMENTAL
-	help
-	  Enable Symbiotic module loading
-
 
 config SWAPBYPASS
 	bool "SwapBypass"
@@ -181,6 +171,21 @@ config SWAPBYPASS_TELEMETRY
 	depends on TELEMETRY && SWAPBYPASS
 	help 
 	  Enable the telemetry information for the SwapBypass subsystem
+
+menuconfig SYMMOD 
+	bool "Symbiotic Modules"
+	default n
+	depends on EXPERIMENTAL
+#	depends on SYMBIOTIC
+	help
+	  Enable Symbiotic module loading
+
+if SYMMOD
+
+source "modules/Kconfig"
+
+endif
+
 
 
 endmenu

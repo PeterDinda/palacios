@@ -42,10 +42,10 @@ struct v3_symmod_state {
 
 
 struct v3_sym_module {
-    char name[32];
-    uint16_t num_bytes;
-    char * data;
-};
+    char * name;
+    void * start_addr;
+    void * end_addr;
+} __attribute__((packed));
 
 
 int v3_set_symmod_loader(struct v3_vm_info * vm, struct v3_symmod_loader_ops * ops, void * priv_data);
@@ -57,6 +57,17 @@ int v3_init_symmod_vm(struct v3_vm_info * vm, v3_cfg_tree_t * cfg);
 
 
 struct v3_sym_module * v3_get_sym_module(struct v3_vm_info * vm, char * name);
+
+
+
+
+#define register_module(name, start, end)			\
+    static char v3_module_name[] = name;			\
+    static struct v3_sym_module _v3_module			\
+    __attribute__((__used__))					\
+	__attribute__((unused, __section__ ("_v3_modules"),	\
+		       aligned(sizeof(addr_t))))		\
+	= {v3_module_name, start, end};
 
 
 int V3_init_symmod();
