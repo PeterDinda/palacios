@@ -337,7 +337,7 @@ static int key_event_handler(struct v3_vm_info * vm,
 	}
 	//	PrintGuestPageTables(info, info->shdw_pg_state.guest_cr3);
     } 
-#ifdef CONFIG_SYMBIOTIC
+#ifdef CONFIG_SYMCALL
     else if (evt->scan_code == 0x43) { // F9 Sym test
 	struct guest_info * core = &(vm->cores[0]);
 	PrintDebug("Testing sym call\n");
