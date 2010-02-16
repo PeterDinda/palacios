@@ -34,7 +34,7 @@
 #include <palacios/vmm_msr.h>
 #include <palacios/vmm_hypercall.h>
 #include <palacios/vmm_cpuid.h>
-
+#include <palacios/vmm_regs.h>
 
 #ifdef CONFIG_TELEMETRY
 #include <palacios/vmm_telemetry.h>

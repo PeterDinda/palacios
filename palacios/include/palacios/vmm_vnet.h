@@ -9,8 +9,6 @@
  *
  * Copyright (c) 2009, Lei Xia <lxia@northwestern.edu> 
  * Copyright (c) 2009, Yuan Tang <ytang@northwestern.edu> 
- * Copyright (c) 2009, Jack Lange <jarusl@cs.northwestern.edu> 
- * Copyright (c) 2009, Peter Dinda <pdinda@northwestern.edu
  * Copyright (c) 2009, The V3VEE Project <http://www.v3vee.org> 
  * All rights reserved.
  *
@@ -31,115 +29,54 @@
 #include <palacios/vmm_hashtable.h>
 #include <palacios/vmm_sprintf.h>
 
-#define ETHERNET_HEADER_LEN 14
-#define ETHERNET_DATA_MIN   46
-#define ETHERNET_DATA_MAX   1500
-#define ETHERNET_PACKET_LEN (ETHERNET_HEADER_LEN + ETHERNET_DATA_MAX)
-
-typedef enum {MAC_ANY, MAC_NOT, MAC_NONE, MAC_EMPTY} mac_type_t; //for 'src_mac_qual' and 'dst_mac_qual'
+typedef enum {MAC_ANY, MAC_NOT, MAC_NONE} mac_type_t; //for 'src_mac_qual' and 'dst_mac_qual'
 typedef enum {LINK_INTERFACE, LINK_EDGE, LINK_ANY} link_type_t; //for 'type' and 'src_type' in struct routing
-typedef enum {TCP_TYPE, UDP_TYPE, NONE_TYPE} prot_type_t;
 
 //routing table entry
-struct routing_entry{
+struct v3_vnet_route {
     char src_mac[6];
     char dest_mac[6];
 
-    int src_mac_qual;
-    int dest_mac_qual;
+    mac_type_t src_mac_qual;
+    mac_type_t dest_mac_qual;
 
     int link_idx; //link[dest] is the link to be used to send pkt
     link_type_t link_type; //EDGE|INTERFACE|ANY
  
     int src_link_idx;
     link_type_t src_type; //EDGE|INTERFACE|ANY
-}__attribute__((packed));
-
-
-struct eth_header {
-    uchar_t dest[6];
-    uchar_t src[6];
-    uint16_t type; // indicates layer 3 protocol type
-}__attribute__((packed));
-
-struct ip_header {
-    uint8_t version: 4;
-    uint8_t hdr_len: 4;
-    uchar_t tos;
-    uint16_t total_len;
-    uint16_t id;
-    uint8_t flags:     3;
-    uint16_t offset: 13;
-    uchar_t ttl;
-    uchar_t proto;
-    uint16_t cksum;
-    uint32_t src_addr;
-    uint32_t dst_addr;
-}__attribute__((packed));
-
-struct udp_header {
-    uint16_t src_port;
-    uint16_t dst_port;
-    uint16_t len;
-    uint16_t csum;//set to zero, disable the xsum
-}__attribute__((packed));
-
-struct udp_link_header {
-    struct eth_header eth_hdr;
-    struct ip_header ip_hdr;
-    struct udp_header udp_hdr;
-}__attribute__((packed));
-
-#define DEVICE_NAME_LEN 20
-struct vnet_if_device {
-    char name[DEVICE_NAME_LEN];
-    uchar_t mac_addr[6];
-    struct vm_device *dev;
-    
-    int (*input)(uchar_t *data, uint32_t len, void *private_data);
-    
-    void *private_data;
-}__attribute__((packed));
-
-
-struct vnet_if_link {
-    prot_type_t pro_type; //protocal type of this link
-    unsigned long dest_ip;
-    uint16_t dest_port;
-
-    struct udp_link_header vnet_header; //header applied to the packet in/out from this link
-
-    int (*input)(uchar_t *data, uint32_t len, void *private_data);
-    
-    void *private_data;
-}__attribute__((packed));
-
-
-//link table entry
-struct link_entry {
-    link_type_t type;
-  
-    union {
-	struct vnet_if_device *dst_dev;
-	struct vnet_if_link *dst_link;
-    } __attribute__((packed));
-
-    int use;
-}__attribute__((packed));
+};
 
 
 int v3_vnet_send_rawpkt(uchar_t *buf, int len, void *private_data);
 int v3_vnet_send_udppkt(uchar_t *buf, int len, void *private_data);
-//int vnet_register_device(struct vm_device *vdev, 
-//			 char *dev_name, 
-//			 uchar_t mac[6], 
-//			 int (*netif_input)(uchar_t * pkt, uint_t size, void *private_data), 
-//			 void *data);
-//int vnet_unregister_device(char *dev_name);
 
-int v3_vnet_pkt_process(); 
+int v3_vnet_add_route(struct v3_vnet_route *route);
 
-void v3_vnet_init(struct guest_info *vm);
+//int v3_vnet_del_route();
+//int v3_vnet_get_routes();
+
+
+//int v3_vnet_add_link(struct v3_vnet_link link);
+
+// int v3_vnet_del_link();
+//int v3_vnet_get_link(int idx, struct vnet_link * link);
+
+
+int v3_init_vnet();
+
+//int v3_vnet_add_bridge(struct v3_vm_info * vm, uint8_t mac[6]);
+
+int v3_vnet_add_node(struct v3_vm_info *info, 
+	           char * dev_name, 
+	           uchar_t mac[6], 
+		    int (*netif_input)(struct v3_vm_info * vm, uchar_t * pkt, uint_t size, void * private_data), 
+		    void * priv_data);
+
+
+// temporary hack
+int v3_vnet_pkt_process();
+
 
 #endif
 

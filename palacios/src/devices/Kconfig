@@ -147,7 +147,7 @@ config DEBUG_VIRTIO_SYM
 config LINUX_VIRTIO_NET
         bool "Enable Virtio Network Device"
         default n
-	depends on PCI
+	depends on PCI && EXPERIMENTAL
         help
           Enable the Virtio Net
 
@@ -157,6 +157,20 @@ config DEBUG_VIRTIO_NET
         depends on LINUX_VIRTIO_NET && DEBUG_ON
         help
           Enable debugging for the Linux Virtio Network Device
+
+config VNET_NIC
+        bool "Enable VNET NIC Device"
+        default n
+	depends on PCI && EXPERIMENTAL
+        help
+          Enable the VNET NIC backend device
+
+config VNET_NIC_NET
+        bool "VNET NIC Device Debugging"
+        default n
+        depends on VNET_NIC && DEBUG_ON
+        help
+          Enable debugging for the VNET NIC Device
 
 
 config NE2K
