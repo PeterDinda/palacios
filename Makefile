@@ -692,12 +692,14 @@ PHONY += $(clean-dirs) clean archclean
 $(clean-dirs):
 	$(Q)$(MAKE) $(clean)=$(patsubst _clean_%,%,$@)
 
+
+#	 	\( -name '*.[oas]' -o -name '*.ko' -o -name '.*.cmd' \
 clean: archclean $(clean-dirs)
 	$(call cmd,rmdirs)
 	$(call cmd,rmfiles)
 	@find . $(RCS_FIND_IGNORE) \
 		\( -name 'lib' \) -prune -o \
-	 	\( -name '*.[oas]' -o -name '*.ko' -o -name '.*.cmd' \
+	 	\( -name '*.[oas]' -o -name '.*.cmd' \
 		-o -name '.*.d' -o -name '.*.tmp' -o -name '*.mod.c' \) \
 		-type f -print | xargs rm -f
 
