@@ -201,7 +201,7 @@ vmx_launch_ret:
     
 #else
 
-#define save_resgisters(location) 	\
+#define save_registers(location) 	\
 	pushl	%eax; 			\
 	movl	location, %eax;		\
 	movl	%edi, (%eax);		\
@@ -229,6 +229,25 @@ vmx_launch_ret:
 	movl 	48(%eax), %ecx;		\
 	popl	%eax;
  
+
+#define save_ctrl_regs(location)  \
+    push %eax;              \
+    push %ebx;              \
+    movl location, %eax;     \
+    movl %cr2, %ebx;         \
+    movl %ebx, 8(%eax);      \
+    popl %ebx;               \
+    popl %eax
+
+#define restore_ctrl_regs(location)  \
+    push %eax;              \
+    push %ebx;              \
+    movl location, %eax;     \
+    movl 8(%eax), %ebx;      \
+    movl %ebx, %cr2;         \
+    popl %ebx;               \
+    popl %eax
+
 #define PUSHA    \
     push %eax;   \
     push %ebx;   \
@@ -247,82 +266,86 @@ vmx_launch_ret:
     pop %ebx;    \
     pop %eax;
 
-.align 8
-.globl v3_vmx_exit_handler
-v3_vmx_exit_handler:
-    save_registers(4(%esp))
-    addl $8, %esp
-    POPA
-    popf
-    pushl %edi
-    call v3_handle_vmx_exit
 
-    andl %eax, %eax
-    jnz .Lvmm_failure
+#define PRE_LAUNCH(return_target)	\
+    pushf;				\
+    PUSHA;				\
+    pushl %edi;				\
+    pushl %edx;				\
+    					\
+    movl %esp, %eax;			\
+    movl $VMCS_HOST_RSP, %ebx;		\
+    vmwrite %eax, %ebx;			\
+    jz .Lfail_valid;			\
+    jc .Lfail_invalid;			\
+					\
+    movl return_target, %eax;		\
+    movl $VMCS_HOST_RIP, %ebx;		\
+    vmwrite %eax, %ebx;			\
+    jz .Lfail_valid;			\
+    jc .Lfail_invalid;			\
+					\
+    restore_ctrl_regs(%edx);		\
+    restore_registers(%edi);
 
-v3_vmx_vmresume:
-    popl %edi
-    pushf
-    PUSHA
-    pushl %edi
-    restore_registers(%rdi)
+
+.align 4
+.globl v3_vmx_resume
+v3_vmx_resume:
+
+    PRE_LAUNCH($vmx_resume_ret);
 
     vmresume
 
-    addl $8, %esp
+vmx_resume_ret:
     jz .Lfail_valid
     jc .Lfail_invalid
-    jmp .Lreturn
+    jmp .Lnormal_exit
 
-.align 8
-.globl v3_vmx_vmlaunch
+.align 4
+.globl v3_vmx_launch
 // vm_regs = %edi
-v3_vmx_vmlaunch:
-    cli
-    pushf
-    PUSHA
-    pushl %edi
+v3_vmx_launch:
 
-    movl %esp, %eax
-    movl $VMCS_HOST_RSP, %ebx
-    vmwrite %eax, %ebx
-    jz .Lfail_valid
-    jc .Lfail_invalid
-
-    movl $v3_vmx_exit_handler, %eax
-    movl $VMCS_HOST_RIP, %ebx
-    vmwrite %eax, %ebx
-    jz .Lfail_valid
-    jc .Lfail_invalid
-
-    restore_registers(%edi)
+    PRE_LAUNCH($vmx_launch_ret);
 
     vmlaunch
+
+vmx_launch_ret:
     jz .Lfail_valid
     jc .Lfail_invalid
-    jmp .Lreturn
+    jmp .Lnormal_exit
 
 .Lfail_valid:
     addl $8, %esp
     POPA
+    popf
     movl $VMX_FAIL_VALID, %eax
     jmp .Lreturn
 
 .Lfail_invalid:
-    addq $8, %esp
+    addl $8, %esp
     POPA
-    movl $MVX_FAIL_INVALID, %eax
+    popf
+    movl $VMX_FAIL_INVALID, %eax
     jmp .Lreturn
 
 .Lvmm_failure:
-    addq $8, %esp
-    POPA
+    addl $12, %esp
     movl $VMM_FAILURE, %eax
     jmp .Lreturn
 
-.Lreturn:
-    sti
+
+.Lnormal_exit:
+    save_registers(8(%esp));
+    save_ctrl_regs(8(%esp));
+    addl $8, %esp
+    POPA
     popf
+    xorl %eax, %eax
+    jmp .Lreturn
+
+.Lreturn:
     ret
 
 #endif
