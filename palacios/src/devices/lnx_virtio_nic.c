@@ -66,7 +66,7 @@ struct virtio_net_config
 struct virtio_dev_state {
     struct vm_device * pci_bus;
     struct list_head dev_list;
-    struct guest_info * vm;
+    struct guest_info *vm;
 };
 
 struct virtio_net_state {
@@ -82,7 +82,6 @@ struct virtio_net_state {
     struct virtio_queue ctrl_vq; //index 2, ctrol info from guest
 
     ulong_t pkt_sent, pkt_recv, pkt_drop;
-    struct gen_queue * inpkt_q;
 
     struct v3_dev_net_ops * net_ops;
 
@@ -90,12 +89,6 @@ struct virtio_net_state {
     struct virtio_dev_state * virtio_dev;
     struct list_head dev_link;
 };
-
-#define ETHERNET_PACKET_LEN 1514
-struct eth_pkt {
-    uint32_t size; //size of data
-    char data[ETHERNET_PACKET_LEN];
-}__attribute__((packed));
 
 static int virtio_free(struct vm_device * dev) 
 {
@@ -128,9 +121,6 @@ static int virtio_init_state(struct virtio_net_state * virtio)
     virtio->virtio_cfg.pci_isr = 0;
 
     virtio->pkt_sent = virtio->pkt_recv = virtio->pkt_drop = 0;
-
-    virtio->inpkt_q = v3_create_queue();
-    v3_init_queue(virtio->inpkt_q);
 
     return 0;
 }
@@ -271,28 +261,13 @@ int send_pkt_to_guest(struct virtio_net_state * virtio, uchar_t * buf, uint_t si
     return offset;
 }
 
-static int virtio_sendto_buf(struct virtio_net_state * net_state, uchar_t * buf, uint_t size) {
-    struct eth_pkt *pkt;
-
-    pkt = (struct eth_pkt *)V3_Malloc(sizeof(struct eth_pkt));
-    if(pkt == NULL){
-        PrintError("Virtio NIC: Memory allocate fails\n");
-        return -1;
-    }
-  
-    pkt->size = size;
-    memcpy(pkt->data, buf, size);
-    v3_enqueue(net_state->inpkt_q, (addr_t)pkt);
-	
-    PrintDebug("Virtio NIC: __virtio_sendto_buf: transmitting packet: (size:%d)\n", (int)pkt->size);
-
-    return pkt->size;
-}
-
-int virtio_dev_send(uchar_t * buf, uint32_t size, void *private_data) {
+int virtio_dev_send(struct v3_vm_info *info,
+                                   uchar_t * buf,
+                                   uint32_t size,
+                                   void *private_data) {
     struct virtio_net_state *virtio_state = (struct virtio_net_state *)private_data;
-	
-    return virtio_sendto_buf(virtio_state, buf, size);
+
+    return send_pkt_to_guest(virtio_state, buf, size, 1, NULL);
 }
 
 static int get_desc_count(struct virtio_queue * q, int index) {
@@ -673,6 +648,9 @@ static int connect_fn(struct v3_vm_info * info,
     net_state->net_ops = ops;
     net_state->backend_data = private_data;
 
+    //register input callback to the backend
+    net_state->net_ops->register_input(net_state->backend_data, virtio_dev_send, (void *)net_state);
+
     return 0;
 }
 
@@ -693,7 +671,6 @@ static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     INIT_LIST_HEAD(&(virtio_state->dev_list));
     virtio_state->pci_bus = pci_bus;
-    //virtio_state->vm = vm;
 
     struct vm_device * dev = v3_allocate_device(name, &dev_ops, virtio_state);
     if (v3_attach_device(vm, dev) == -1) {

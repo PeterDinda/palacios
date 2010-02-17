@@ -108,6 +108,14 @@ config VNET
         help
           Enable the Vnet in Palacios
 
+config DEBUG_VNET
+        depends on EXPERIMENTAL && VNET
+        bool "Enable Vnet Debug in Palacios"
+        default n
+        help
+          Enable the Vnet debug in Palacios
+
+
 endmenu
 
 

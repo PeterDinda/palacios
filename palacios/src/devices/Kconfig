@@ -165,7 +165,7 @@ config VNET_NIC
         help
           Enable the VNET NIC backend device
 
-config VNET_NIC_NET
+config DEBUG_VNET_NIC
         bool "VNET NIC Device Debugging"
         default n
         depends on VNET_NIC && DEBUG_ON

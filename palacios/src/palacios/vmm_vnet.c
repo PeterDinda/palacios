@@ -388,38 +388,6 @@ static void dump_routes(struct routing_entry **route_tables) {
     PrintDebug("\nVnet: route table dump end =====\n");
 }
 
-static void dump_dom0_routes(struct routing_entry routes[], int size) {
-    int i;
-
-    PrintDebug("\nVnet: route table from dom0 guest =====\n");
-
-    for(i = 0; i <size; i++) {
-        print_route(&routes[i]);
-    }
-
-    PrintDebug("\nVnet: route table dom0 guest end =====\n");
-}
-
-static void dump_dom0_links(struct vnet_if_link links[], int size) {
-    struct vnet_if_link *link = NULL;
-    int i;
-
-    PrintDebug("\nVnet: link table from dom0 guest =====\n");
-
-    for(i = 0; i <size; i++) {
-        link = &links[i];
-        PrintDebug("link: %d\n", i);
-        PrintDebug("dest_ip(%ld), dst_port(%d), prot_type(%d)\n", 
-                     link->dest_ip, 
-                     link->dest_port, 
-                     link->pro_type);
-        PrintDebug("vnet_header:\n");
-        v3_hexdump(&link->vnet_header, sizeof(struct udp_link_header), NULL, 0);
-    }
-
-    PrintDebug("\nVnet: link table dom0 guest end =====\n");
-}
-
 #endif
 
 static int __add_link_entry(struct link_entry * link) {
