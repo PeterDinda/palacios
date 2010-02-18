@@ -21,7 +21,7 @@
 #include <palacios/vmm_dev_mgr.h>
 #include <palacios/vm_guest_mem.h>
 #include <devices/lnx_virtio_pci.h>
-
+#include <palacios/vmm_vnet.h>
 #include <devices/pci.h>
 
 
@@ -63,7 +63,7 @@ struct virtio_vnet_state {
 #define VNET_ADD_LINK 21
 #define VNET_DEL_LINK 22
 
-// structure of the symmod notifier ring structures
+// structure of the vnet command header
 struct vnet_ctrl_hdr {
     uint8_t cmd_type;
     uint32_t num_cmds;
@@ -124,7 +124,7 @@ static int handle_cmd_kick(struct guest_info * core, struct virtio_vnet_state * 
 	PrintDebug("Descriptor Count=%d, index=%d\n", desc_cnt, q->cur_avail_idx % QUEUE_SIZE);
 
 	if (desc_cnt < 3) {
-	    PrintError("Symmod loads must include at least 3 descriptors (cnt=%d)\n", desc_cnt);
+	    PrintError("VirtioVNET cmd must include at least 3 descriptors (cnt=%d)\n", desc_cnt);
 	    return -1;
 	}
 	
@@ -141,20 +141,24 @@ static int handle_cmd_kick(struct guest_info * core, struct virtio_vnet_state * 
 	    
 	    for (i = 0; i < hdr->num_cmds; i++) {
 		uint8_t tmp_status = 0;
-		uint8_t * buf = NULL;
+		struct v3_vnet_route * route = NULL;
 		
 		buf_desc = &(q->desc[desc_idx]);
 
-		if (guest_pa_to_host_va(core, buf_desc->addr_gpa, (addr_t *)&(buf)) == -1) {
-		    PrintError("Could not translate buffer address\n");
+		if (guest_pa_to_host_va(core, buf_desc->addr_gpa, (addr_t *)&(route)) == -1) {
+		    PrintError("Could not translate route address\n");
 		    return -1;
 		}
 
 		// add route
 		PrintDebug("Adding VNET Route\n");
 
+		tmp_status = v3_vnet_add_route(route);
+
+		PrintDebug("VNET Route Added\n");
+
 		if (tmp_status != 0) {
-		    PrintError("Error loading module segment\n");
+		    PrintError("Error adding VNET ROUTE\n");
 		    status = tmp_status;
 		}
 
@@ -172,7 +176,7 @@ static int handle_cmd_kick(struct guest_info * core, struct virtio_vnet_state * 
 	status_desc = &(q->desc[desc_idx]);
 
 	if (guest_pa_to_host_va(core, status_desc->addr_gpa, (addr_t *)&status_ptr) == -1) {
-	    PrintError("SYMMOD Error could not translate status address\n");
+	    PrintError("VirtioVNET Error could not translate status address\n");
 	    return -1;
 	}
 
