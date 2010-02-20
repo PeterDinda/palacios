@@ -80,6 +80,8 @@ static int virtio_reset(struct virtio_vnet_state * virtio) {
     virtio->virtio_cfg.pci_isr = 0;
 
     virtio->queue[0].queue_size = QUEUE_SIZE;
+    virtio->queue[1].queue_size = QUEUE_SIZE;
+    virtio->queue[2].queue_size = QUEUE_SIZE;
 
     memset(&(virtio->vnet_cfg), 0, sizeof(struct vnet_config));
 
@@ -104,7 +106,7 @@ static int get_desc_count(struct virtio_queue * q, int index) {
 
 
 static int handle_cmd_kick(struct guest_info * core, struct virtio_vnet_state * vnet_state) {
-    struct virtio_queue * q = vnet_state->cur_queue;
+    struct virtio_queue * q = &(vnet_state->queue[0]);
     
     PrintDebug("VirtioVNET: Virtio Kick on command  queue\n");
 
@@ -121,7 +123,7 @@ static int handle_cmd_kick(struct guest_info * core, struct virtio_vnet_state * 
 	uint8_t status = 0;
 
 
-	PrintDebug("Descriptor Count=%d, index=%d\n", desc_cnt, q->cur_avail_idx % QUEUE_SIZE);
+	PrintDebug("Descriptor Count=%d, index=%d, desc_idx=%d\n", desc_cnt, q->cur_avail_idx % QUEUE_SIZE, desc_idx);
 
 	if (desc_cnt < 3) {
 	    PrintError("VirtioVNET cmd must include at least 3 descriptors (cnt=%d)\n", desc_cnt);
@@ -291,6 +293,11 @@ static int virtio_io_write(struct guest_info * core, uint16_t port, void * src, 
 		    PrintError("Could not handle VNET Control command\n");
 		    return -1;
 		}
+	    } else if (queue_idx == 1) {
+
+		// down queue
+	    } else if (queue_idx == 2) {
+		// up queue
 	    } else {
 		PrintError("Kick on invalid queue (%d)\n", queue_idx);
 		return -1;
