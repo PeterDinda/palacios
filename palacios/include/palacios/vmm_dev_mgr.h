@@ -159,12 +159,11 @@ struct v3_dev_blk_ops {
 
 struct v3_dev_net_ops {
     int (*send)(uint8_t * buf, uint32_t count, void * private_data, struct vm_device *dest_dev);
-    int (*register_input)(void *backend_data, 
-		                      int (*frontend_input)(struct v3_vm_info *info, 
-		                                                     uchar_t * buf,
-                                                                  uint32_t size,
-                                                                  void *private_data), 
-                                   void *front_data);
+
+    // This will be filled in by the frontend when a backend is connected.
+    // The backend then calls this function for packet RX
+    int (*recv)(uint8_t * buf, uint32_t count, void * private_data);
+    void * frontend_data;
 };
 
 struct v3_dev_console_ops {
@@ -179,6 +178,7 @@ int v3_dev_add_blk_frontend(struct v3_vm_info * vm,
 					    v3_cfg_tree_t * cfg, 
 					    void * private_data), 
 			    void * priv_data);
+
 int v3_dev_connect_blk(struct v3_vm_info * vm, 
 		       char * frontend_name, 
 		       struct v3_dev_blk_ops * ops, 

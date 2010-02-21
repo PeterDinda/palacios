@@ -171,104 +171,8 @@ static int copy_data_to_desc(struct virtio_net_state * virtio_state, struct vrin
     return len;
 }
 
-//send data to guest
-int send_pkt_to_guest(struct virtio_net_state * virtio, uchar_t * buf, uint_t size, int raw, void * private_data) 
-{
-    struct virtio_queue * q = &(virtio->rx_vq);
-    struct virtio_net_hdr hdr;
-    uint32_t hdr_len = sizeof(struct virtio_net_hdr);
-    uint32_t data_len = size;
-    uint32_t offset = 0;
-	
-    PrintDebug("VIRTIO NIC:  sending packet to virtio nic %p, size:%d", virtio, size);
 
-    virtio->pkt_recv ++;
-    if (!raw) {
-	data_len -= hdr_len;
-    }
 
-    build_receive_header(&hdr, buf, 1);
-
-    if (q->ring_avail_addr == 0) {
-	PrintError("Queue is not set\n");
-	return -1;
-    }
-
-    if (q->last_avail_idx > q->avail->index)
-	q->idx_overflow = true;
-    q->last_avail_idx = q->avail->index;
-
-    if (q->cur_avail_idx < q->avail->index || (q->idx_overflow && q->cur_avail_idx < q->avail->index+65536)){
-	addr_t hdr_addr = 0;
-	uint16_t hdr_idx = q->avail->ring[q->cur_avail_idx % q->queue_size];
-	uint16_t buf_idx = 0;
-	struct vring_desc * hdr_desc = NULL;
-
-	hdr_desc = &(q->desc[hdr_idx]);
-	if (guest_pa_to_host_va(virtio->virtio_dev->vm, hdr_desc->addr_gpa, &(hdr_addr)) == -1) {
-	    PrintError("Could not translate receive buffer address\n");
-	    return -1;
-	}
-
-	memcpy((void *)hdr_addr, &hdr, sizeof(struct virtio_net_hdr));
-	if (offset >= data_len) {
-	    hdr_desc->flags &= ~VIRTIO_NEXT_FLAG;
-	}
-
-	for (buf_idx = hdr_desc->next; offset < data_len; buf_idx = q->desc[hdr_idx].next) {
-	    struct vring_desc * buf_desc = &(q->desc[buf_idx]);
-	    uint32_t len = 0;
-
-	    len = copy_data_to_desc(virtio, buf_desc, buf + offset, data_len - offset);	    
-	    offset += len;
-	    if (offset < data_len) {
-		buf_desc->flags = VIRTIO_NEXT_FLAG;		
-	    }
-	    buf_desc->length = len;
-	}
-	
-	q->used->ring[q->used->index % q->queue_size].id = q->avail->ring[q->cur_avail_idx % q->queue_size];
-	q->used->ring[q->used->index % q->queue_size].length = data_len + hdr_len; // This should be the total length of data sent to guest (header+pkt_data)
-	q->used->index++;
-
-	int last_idx = q->cur_avail_idx;
-	q->cur_avail_idx++;
-	if (q->cur_avail_idx < last_idx)
-	    q->idx_overflow = false;
-    } else {
-	virtio->pkt_drop++;
-
-#ifdef VIRTIO_NIC_PROFILE
-	PrintError("Virtio NIC: %p, one pkt dropped receieved: %ld, dropped: %ld, sent: %ld curidx: %d, avaiIdx: %d\n", 
-		virtio, virtio->pkt_recv, virtio->pkt_drop, virtio->pkt_sent, q->cur_avail_idx, q->avail->index);
-#endif
-    }
-
-    if (!(q->avail->flags & VIRTIO_NO_IRQ_FLAG)) {
-	PrintDebug("Raising IRQ %d\n",  virtio->pci_dev->config_header.intr_line);
-	v3_pci_raise_irq(virtio->virtio_dev->pci_bus, 0, virtio->pci_dev);
-	virtio->virtio_cfg.pci_isr = 0x1;
-    }
-
-#ifdef VIRTIO_NIC_PROFILE
-    if ((virtio->pkt_recv % 10000) == 0){
-	PrintError("Virtio NIC: %p, receieved: %ld, dropped: %ld, sent: %ld\n", 
-		virtio, virtio->pkt_recv, virtio->pkt_drop, virtio->pkt_sent);
-    }
-#endif
-
-    
-    return offset;
-}
-
-int virtio_dev_send(struct v3_vm_info *info,
-                                   uchar_t * buf,
-                                   uint32_t size,
-                                   void *private_data) {
-    struct virtio_net_state *virtio_state = (struct virtio_net_state *)private_data;
-
-    return send_pkt_to_guest(virtio_state, buf, size, 1, NULL);
-}
 
 static int get_desc_count(struct virtio_queue * q, int index) {
     struct vring_desc * tmp_desc = &(q->desc[index]);
@@ -291,12 +195,14 @@ static int handle_pkt_tx(struct virtio_net_state * virtio_state)
     struct virtio_queue * q = &(virtio_state->tx_vq);
     struct virtio_net_hdr * hdr = NULL;
 
-    if (q->avail->index < q->last_avail_idx)
+    if (q->avail->index < q->last_avail_idx) {
 	q->idx_overflow = true;
+    }
+
     q->last_avail_idx = q->avail->index;
 
     while (q->cur_avail_idx < q->avail->index || 
-		 (q->idx_overflow && q->cur_avail_idx < (q->avail->index + 65536))) {
+	   (q->idx_overflow && q->cur_avail_idx < (q->avail->index + 65536))) {
 	struct vring_desc * hdr_desc = NULL;
 	addr_t hdr_addr = 0;
 	uint16_t desc_idx = q->avail->ring[q->cur_avail_idx % q->queue_size];
@@ -330,9 +236,12 @@ static int handle_pkt_tx(struct virtio_net_state * virtio_state)
 	q->used->index++;
 
 	int last_idx = q->cur_avail_idx;
+
 	q->cur_avail_idx ++;
-	if (q->cur_avail_idx < last_idx)
+
+	if (q->cur_avail_idx < last_idx) {
 	    q->idx_overflow = false;
+	}
     }
 
     if (!(q->avail->flags & VIRTIO_NO_IRQ_FLAG)) {
@@ -558,6 +467,98 @@ static int virtio_io_read(struct guest_info *core, uint16_t port, void * dst, ui
 }
 
 
+
+
+static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
+    struct virtio_net_state * virtio = (struct virtio_net_state *)private_data;
+    struct virtio_queue * q = &(virtio->rx_vq);
+    struct virtio_net_hdr hdr;
+    uint32_t hdr_len = sizeof(struct virtio_net_hdr);
+    uint32_t data_len = size;
+    uint32_t offset = 0;
+	
+    PrintDebug("VIRTIO NIC:  sending packet to virtio nic %p, size:%d", virtio, size);
+
+    virtio->pkt_recv ++;
+
+    data_len -= hdr_len;
+
+
+    build_receive_header(&hdr, buf, 1);
+
+    if (q->ring_avail_addr == 0) {
+	PrintError("Queue is not set\n");
+	return -1;
+    }
+
+    if (q->last_avail_idx > q->avail->index)
+	q->idx_overflow = true;
+    q->last_avail_idx = q->avail->index;
+
+    if (q->cur_avail_idx < q->avail->index || (q->idx_overflow && q->cur_avail_idx < q->avail->index+65536)){
+	addr_t hdr_addr = 0;
+	uint16_t hdr_idx = q->avail->ring[q->cur_avail_idx % q->queue_size];
+	uint16_t buf_idx = 0;
+	struct vring_desc * hdr_desc = NULL;
+
+	hdr_desc = &(q->desc[hdr_idx]);
+	if (guest_pa_to_host_va(virtio->virtio_dev->vm, hdr_desc->addr_gpa, &(hdr_addr)) == -1) {
+	    PrintError("Could not translate receive buffer address\n");
+	    return -1;
+	}
+
+	memcpy((void *)hdr_addr, &hdr, sizeof(struct virtio_net_hdr));
+	if (offset >= data_len) {
+	    hdr_desc->flags &= ~VIRTIO_NEXT_FLAG;
+	}
+
+	for (buf_idx = hdr_desc->next; offset < data_len; buf_idx = q->desc[hdr_idx].next) {
+	    struct vring_desc * buf_desc = &(q->desc[buf_idx]);
+	    uint32_t len = 0;
+
+	    len = copy_data_to_desc(virtio, buf_desc, buf + offset, data_len - offset);	    
+	    offset += len;
+	    if (offset < data_len) {
+		buf_desc->flags = VIRTIO_NEXT_FLAG;		
+	    }
+	    buf_desc->length = len;
+	}
+	
+	q->used->ring[q->used->index % q->queue_size].id = q->avail->ring[q->cur_avail_idx % q->queue_size];
+	q->used->ring[q->used->index % q->queue_size].length = data_len + hdr_len; // This should be the total length of data sent to guest (header+pkt_data)
+	q->used->index++;
+
+	int last_idx = q->cur_avail_idx;
+	q->cur_avail_idx++;
+	if (q->cur_avail_idx < last_idx)
+	    q->idx_overflow = false;
+    } else {
+	virtio->pkt_drop++;
+
+#ifdef VIRTIO_NIC_PROFILE
+	PrintError("Virtio NIC: %p, one pkt dropped receieved: %ld, dropped: %ld, sent: %ld curidx: %d, avaiIdx: %d\n", 
+		virtio, virtio->pkt_recv, virtio->pkt_drop, virtio->pkt_sent, q->cur_avail_idx, q->avail->index);
+#endif
+    }
+
+    if (!(q->avail->flags & VIRTIO_NO_IRQ_FLAG)) {
+	PrintDebug("Raising IRQ %d\n",  virtio->pci_dev->config_header.intr_line);
+	v3_pci_raise_irq(virtio->virtio_dev->pci_bus, 0, virtio->pci_dev);
+	virtio->virtio_cfg.pci_isr = 0x1;
+    }
+
+#ifdef VIRTIO_NIC_PROFILE
+    if ((virtio->pkt_recv % 10000) == 0){
+	PrintError("Virtio NIC: %p, receieved: %ld, dropped: %ld, sent: %ld\n", 
+		virtio, virtio->pkt_recv, virtio->pkt_drop, virtio->pkt_sent);
+    }
+#endif
+
+    
+    return offset;
+}
+
+
 static struct v3_device_ops dev_ops = {
     .free = virtio_free,
     .reset = NULL,
@@ -648,8 +649,8 @@ static int connect_fn(struct v3_vm_info * info,
     net_state->net_ops = ops;
     net_state->backend_data = private_data;
 
-    //register input callback to the backend
-    net_state->net_ops->register_input(net_state->backend_data, virtio_dev_send, (void *)net_state);
+    ops->recv = virtio_rx;
+    ops->frontend_data = net_state;
 
     return 0;
 }

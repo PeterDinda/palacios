@@ -155,7 +155,7 @@ static int handle_cmd_kick(struct guest_info * core, struct virtio_vnet_state * 
 		// add route
 		PrintDebug("Adding VNET Route\n");
 
-		tmp_status = v3_vnet_add_route(route);
+		tmp_status = v3_vnet_add_route(*route);
 
 		PrintDebug("VNET Route Added\n");
 

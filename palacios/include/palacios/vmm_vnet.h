@@ -22,61 +22,78 @@
 #ifndef __VNET_H__
 #define __VNET_H__
 
+#ifdef __V3VEE__
+
 #include <palacios/vmm.h>
-#include <palacios/vmm_string.h>
-#include <palacios/vmm_types.h>
-#include <palacios/vmm_queue.h>
-#include <palacios/vmm_hashtable.h>
-#include <palacios/vmm_sprintf.h>
 
 typedef enum {MAC_ANY, MAC_NOT, MAC_NONE} mac_type_t; //for 'src_mac_qual' and 'dst_mac_qual'
 typedef enum {LINK_INTERFACE, LINK_EDGE, LINK_ANY} link_type_t; //for 'type' and 'src_type' in struct routing
 
+
+#define VNET_HASH_SIZE 16
+#define ETHERNET_HEADER_LEN 14
+#define ETHERNET_DATA_MAX   1500
+#define ETHERNET_PACKET_LEN (ETHERNET_HEADER_LEN + ETHERNET_DATA_MAX)
+
 //routing table entry
 struct v3_vnet_route {
-    char src_mac[6];
-    char dest_mac[6];
+    uint8_t src_mac[6];
+    uint8_t dst_mac[6];
 
-    mac_type_t src_mac_qual;
-    mac_type_t dest_mac_qual;
+    uint8_t src_mac_qual;
+    uint8_t dst_mac_qual;
 
-    int link_idx; //link[dest] is the link to be used to send pkt
-    link_type_t link_type; //EDGE|INTERFACE|ANY
+    uint32_t dst_id; //link[dest] is the link to be used to send pkt
+    uint8_t dst_type; //EDGE|INTERFACE|ANY
  
-    int src_link_idx;
-    link_type_t src_type; //EDGE|INTERFACE|ANY
-};
+    uint32_t src_id;
+    uint8_t src_type; //EDGE|INTERFACE|ANY
+} __attribute__((packed));
 
 
-int v3_vnet_send_rawpkt(uchar_t *buf, int len, void *private_data);
-int v3_vnet_send_udppkt(uchar_t *buf, int len, void *private_data);
+struct v3_vnet_pkt {
+    uint32_t size; 
+    
+    uint8_t dst_type;
+    uint32_t dst_id;
 
-int v3_vnet_add_route(struct v3_vnet_route *route);
+    /*
+     * IMPORTANT The next three fields must be grouped and packed together
+     *  They are used to generate a hash value 
+     */
+    union {
+	uint8_t hash_buf[VNET_HASH_SIZE];
+	struct {
+	    uint8_t src_type;
+	    uint32_t src_id;
+	    uint8_t data[ETHERNET_PACKET_LEN];
+	} __attribute__((packed));
+    } __attribute__((packed));
+} __attribute__((packed));
+
+
+int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt);
+
+int v3_vnet_add_route(struct v3_vnet_route route);
 
 //int v3_vnet_del_route();
-//int v3_vnet_get_routes();
 
 
-//int v3_vnet_add_link(struct v3_vnet_link link);
 
-// int v3_vnet_del_link();
-//int v3_vnet_get_link(int idx, struct vnet_link * link);
-
-
-int v3_init_vnet();
+int V3_init_vnet();
 
 //int v3_vnet_add_bridge(struct v3_vm_info * vm, uint8_t mac[6]);
 
-int v3_vnet_add_node(struct v3_vm_info *info, 
-	           char * dev_name, 
-	           uchar_t mac[6], 
-		    int (*netif_input)(struct v3_vm_info * vm, uchar_t * pkt, uint_t size, void * private_data), 
+int v3_vnet_add_dev(struct v3_vm_info *info, char * dev_name, uint8_t mac[6], 
+		    int (*dev_input)(struct v3_vm_info * vm, struct v3_vnet_pkt * pkt, void * private_data), 
 		    void * priv_data);
 
 
 // temporary hack
 int v3_vnet_pkt_process();
 
+
+#endif
 
 #endif
 
