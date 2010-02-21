@@ -147,7 +147,7 @@ int register_to_vnet(struct v3_vm_info * vm,
    
     PrintDebug("Vnet-nic: register Vnet-nic device %s, state %p to VNET\n", dev_name, vnet_nic);
 	
-    v3_vnet_add_dev(vm, dev_name, mac, virtio_input, (void *)vnet_nic);
+    v3_vnet_add_dev(vm, mac, virtio_input, (void *)vnet_nic);
 
 
 

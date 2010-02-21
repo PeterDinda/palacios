@@ -84,7 +84,7 @@ int V3_init_vnet();
 
 //int v3_vnet_add_bridge(struct v3_vm_info * vm, uint8_t mac[6]);
 
-int v3_vnet_add_dev(struct v3_vm_info *info, char * dev_name, uint8_t mac[6], 
+int v3_vnet_add_dev(struct v3_vm_info *info, uint8_t mac[6], 
 		    int (*dev_input)(struct v3_vm_info * vm, struct v3_vnet_pkt * pkt, void * private_data), 
 		    void * priv_data);
 

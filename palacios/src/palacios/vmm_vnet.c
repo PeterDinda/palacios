@@ -31,9 +31,6 @@
 
 
 
-
-
-
 struct eth_hdr {
     uint8_t dst_mac[6];
     uint8_t src_mac[6];
@@ -43,9 +40,9 @@ struct eth_hdr {
 
 
 
-#define DEVICE_NAME_LEN 20
+
 struct vnet_dev {
-    char name[DEVICE_NAME_LEN];
+
     uint8_t mac_addr[6];
     struct v3_vm_info * vm;
     
@@ -130,6 +127,8 @@ static int clear_hash_cache() {
     /* USE the hash table iterators. 
      * See v3_swap_flush(struct v3_vm_info * vm) in vmm_shdw_pg_swapbypass.c
      */
+
+    // MAKE SURE YOU DELETE the route_list entries
 
     return 0;
 }
@@ -374,17 +373,17 @@ static struct vnet_dev * find_dev_by_id(int idx) {
 }
 */
 
-static struct vnet_dev * find_dev_by_name(char * name) {
+static struct vnet_dev * find_dev_by_mac(char * name) {
 
     return NULL;
 }
 
-int v3_vnet_add_dev(struct v3_vm_info *vm, char * dev_name, uint8_t mac[6], 
+int v3_vnet_add_dev(struct v3_vm_info *vm,uint8_t mac[6], 
 		    int (*netif_input)(struct v3_vm_info * vm, struct v3_vnet_pkt * pkt, void * private_data), 
 		    void * priv_data){
     struct vnet_dev * new_dev = NULL;
 
-    new_dev = find_dev_by_name(dev_name);
+    new_dev = find_dev_by_mac(mac);
 
     if (new_dev) {
 	PrintDebug("VNET: register device: Already has device with the name %s\n", dev_name);
@@ -398,7 +397,6 @@ int v3_vnet_add_dev(struct v3_vm_info *vm, char * dev_name, uint8_t mac[6],
 	return -1;
     }
     
-    strcpy(new_dev->name, dev_name);
     memcpy(new_dev->mac_addr, mac, 6);
     new_dev->input = netif_input;
     new_dev->private_data = priv_data;
@@ -432,6 +430,7 @@ int V3_init_vnet() {
     PrintDebug("VNET: Links table initiated\n");
 
     INIT_LIST_HEAD(&(vnet_state.routes));
+    INIT_LIST_HEAD(&(vnet_state.devs));
 
     if (v3_lock_init(&(vnet_state.lock)) == -1){
         PrintError("VNET: Failure to init lock for routes table\n");
