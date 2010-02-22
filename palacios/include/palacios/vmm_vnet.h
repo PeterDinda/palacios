@@ -30,7 +30,7 @@ typedef enum {MAC_ANY, MAC_NOT, MAC_NONE} mac_type_t; //for 'src_mac_qual' and '
 typedef enum {LINK_INTERFACE, LINK_EDGE, LINK_ANY} link_type_t; //for 'type' and 'src_type' in struct routing
 
 
-#define VNET_HASH_SIZE 16
+#define VNET_HASH_SIZE 17
 #define ETHERNET_HEADER_LEN 14
 #define ETHERNET_DATA_MAX   1500
 #define ETHERNET_PACKET_LEN (ETHERNET_HEADER_LEN + ETHERNET_DATA_MAX)

@@ -29,7 +29,7 @@
 #define NUM_QUEUES 3
 
 struct vnet_config {
-    uint32_t num_links;
+    uint32_t num_devs;
     uint32_t num_routes;
 } __attribute__((packed));
 
@@ -168,10 +168,7 @@ static int handle_cmd_kick(struct guest_info * core, struct virtio_vnet_state * 
 		desc_idx = buf_desc->next;
 	    }
 
-	} else if (hdr->cmd_type == VNET_ADD_LINK) {
-
-
-	}
+	} 
 
 
 
