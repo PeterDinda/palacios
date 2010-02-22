@@ -36,12 +36,7 @@
 struct vnet_nic_state {
     char mac[6];
     struct guest_info * core;
-	
-    void *frontend_data;
-    int (*frontend_input)(struct v3_vm_info *info, 
-			  uchar_t * buf,
-			  uint32_t size,
-			  void *private_data);
+    struct v3_dev_net_ops net_ops;
 };
 
 //used when virtio_nic get a packet from guest and send it to the backend
@@ -50,6 +45,17 @@ static int vnet_send(uint8_t * buf, uint32_t len, void * private_data, struct vm
     struct v3_vnet_pkt * pkt = NULL; 
 
     // fill in packet
+    pkt = (struct v3_vnet_pkt *)V3_Malloc(sizeof(struct v3_vnet_pkt));
+
+    if(pkt == NULL){
+	PrintError("Malloc() fails");
+	return -1;
+    }
+
+    pkt->size = len;
+    memcpy(pkt->data, buf, pkt->size);
+
+    //TODO: 
 
     v3_vnet_send_pkt(pkt);
     return 0;
@@ -57,16 +63,16 @@ static int vnet_send(uint8_t * buf, uint32_t len, void * private_data, struct vm
 
 
 // We need to make this dynamically allocated
-static struct v3_dev_net_ops net_ops = {
-    .send = vnet_send, 
-};
+//static struct v3_dev_net_ops net_ops = {
+//    .send = vnet_send, 
+//};
 
 static int virtio_input(struct v3_vm_info *info, struct v3_vnet_pkt * pkt, void * private_data){
-    //  struct vnet_nic_state *vnetnic = (struct vnet_nic_state *)private_data;
+    struct vnet_nic_state *vnetnic = (struct vnet_nic_state *)private_data;
 	
-    // PrintDebug("Vnet-nic: In input: vnet_nic state %p\n", vnetnic);	
+    PrintDebug("Vnet-nic: In input: vnet_nic state %p\n", vnetnic);	
 
-    return net_ops.recv(pkt->data, pkt->size, net_ops.frontend_data);
+    return vnetnic->net_ops.recv(pkt->data, pkt->size, vnetnic->net_ops.frontend_data);
 }
 
 #if 0
@@ -149,8 +155,6 @@ int register_to_vnet(struct v3_vm_info * vm,
 	
     v3_vnet_add_dev(vm, mac, virtio_input, (void *)vnet_nic);
 
-
-
     return 0;
 }
 
@@ -181,8 +185,9 @@ static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	return -1;
     }
 
+    vnetnic->net_ops.send = vnet_send;
     if (v3_dev_connect_net(vm, v3_cfg_val(frontend_cfg, "tag"), 
-			   &net_ops, frontend_cfg, vnetnic) == -1) {
+			   &(vnetnic->net_ops), frontend_cfg, vnetnic) == -1) {
 	PrintError("Could not connect %s to frontend %s\n", 
 		   name, v3_cfg_val(frontend_cfg, "tag"));
 	return -1;
