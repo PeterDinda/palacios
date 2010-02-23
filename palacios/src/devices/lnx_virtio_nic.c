@@ -85,6 +85,8 @@ struct virtio_net_state {
 
     struct v3_dev_net_ops * net_ops;
 
+    v3_lock_t lock;
+
     void * backend_data;
     struct virtio_dev_state * virtio_dev;
     struct list_head dev_link;
@@ -119,6 +121,10 @@ static int virtio_init_state(struct virtio_net_state * virtio)
     virtio->virtio_cfg.host_features = 0;
     //virtio->virtio_cfg.status = VIRTIO_NET_S_LINK_UP;
     virtio->virtio_cfg.pci_isr = 0;
+
+    if (v3_lock_init(&(virtio->lock)) == -1){
+        PrintError("Virtio NIC: Failure to init lock for net_state\n");
+    }
 
     virtio->pkt_sent = virtio->pkt_recv = virtio->pkt_drop = 0;
 
@@ -476,13 +482,14 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
     uint32_t hdr_len = sizeof(struct virtio_net_hdr);
     uint32_t data_len = size;
     uint32_t offset = 0;
+    unsigned long flags;
+
+    flags = v3_lock_irqsave(virtio->lock);
 	
     PrintDebug("VIRTIO NIC:  sending packet to virtio nic %p, size:%d", virtio, size);
 
     virtio->pkt_recv ++;
-
     data_len -= hdr_len;
-
 
     build_receive_header(&hdr, buf, 1);
 
@@ -554,6 +561,7 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
     }
 #endif
 
+    v3_unlock_irqrestore(virtio->lock, flags);
     
     return offset;
 }

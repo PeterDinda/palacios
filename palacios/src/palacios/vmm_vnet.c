@@ -142,26 +142,8 @@ static int add_route_to_cache(struct v3_vnet_pkt * pkt, struct route_list * rout
 
 static int clear_hash_cache() {
 
-    /* USE the hash table iterators. 
-     * See v3_swap_flush(struct v3_vm_info * vm) in vmm_shdw_pg_swapbypass.c
-     */
-
-    // MAKE SURE YOU DELETE the route_list entries
-    struct hashtable_iter * ht_iter = v3_create_htable_iter(vnet_state.route_cache);
-
-    if (!ht_iter) {
-	PrintError("NULL iterator in vnet cache!\n");
-    }
-
-    while (ht_iter->entry) {
-	struct route_list * route_list_ptr = (struct route_list *)v3_htable_get_iter_value(ht_iter);
-	V3_Free(route_list_ptr);
-	v3_htable_iter_advance(ht_iter);
-    }
-
-    V3_Free(ht_iter);
-
-    //v3_free_htable(vnet_state.route_cache, 0, 1);
+    v3_free_htable(vnet_state.route_cache, 1, 1);
+    vnet_state.route_cache = v3_create_htable(0, &hash_fn, &hash_eq);
 
     return 0;
 }
@@ -173,6 +155,30 @@ static int look_into_cache(struct v3_vnet_pkt * pkt, struct route_list ** routes
     return 0;
 }
 
+
+struct vnet_dev * find_dev_by_id(int idx) {
+    struct vnet_dev * dev = NULL; 
+    
+    list_for_each_entry(dev, &(vnet_state.devs), node) {
+	int dev_id = dev->dev_id;
+
+	if (dev_id == idx)
+	    return dev;
+    }
+
+    return NULL;
+}
+
+static struct vnet_dev * find_dev_by_mac(char * name) {
+    struct vnet_dev * dev = NULL; 
+    
+    list_for_each_entry(dev, &(vnet_state.devs), node) {
+	if (!memcmp(dev->mac_addr, name, 6))
+	    return dev;
+    }
+
+    return NULL;
+}
 
 
 int v3_vnet_add_route(struct v3_vnet_route route) {
@@ -188,11 +194,11 @@ int v3_vnet_add_route(struct v3_vnet_route route) {
 
     /* TODO: Find devices */
     if (new_route->route_def.dst_type == LINK_INTERFACE) {
-	//new_route->dst_dev = FIND_DEV();
+	new_route->dst_dev = find_dev_by_id(new_route->route_def.dst_id);
     }
 
     if (new_route->route_def.src_type == LINK_INTERFACE) {
-	// new_route->src_dev = FIND_DEV()
+	new_route->src_dev = find_dev_by_id(new_route->route_def.src_id);
     }
 
     flags = v3_lock_irqsave(vnet_state.lock);
@@ -334,6 +340,7 @@ static struct route_list * match_route(struct v3_vnet_pkt * pkt) {
 
 static int handle_one_pkt(struct v3_vnet_pkt * pkt) {
     struct route_list * matched_routes = NULL;
+    unsigned long flags;
     int i;
 
 
@@ -349,18 +356,22 @@ static int handle_one_pkt(struct v3_vnet_pkt * pkt) {
    }
 #endif
 
-    look_into_cache(pkt, &matched_routes);
-    
-    if (matched_routes == NULL) {  
-        matched_routes = match_route(pkt);	
+    flags = v3_lock_irqsave(vnet_state.lock);
 
+    look_into_cache(pkt, &matched_routes);
+	
+    if (matched_routes == NULL) {  
+        matched_routes = match_route(pkt);
+		
       if (matched_routes) {
-	    add_route_to_cache(pkt, matched_routes);      
+	    add_route_to_cache(pkt, matched_routes);
 	} else {
 	    PrintError("Could not find route for packet...\n");
 	    return -1;
 	}
     }
+
+    v3_unlock_irqrestore(vnet_state.lock, flags);
     
     
     for (i = 0; i < matched_routes->num_routes; i++) {
@@ -398,30 +409,6 @@ int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt) {
 #endif
 
     return 0;
-}
-
-struct vnet_dev * find_dev_by_id(int idx) {
-    struct vnet_dev * dev = NULL; 
-    
-    list_for_each_entry(dev, &(vnet_state.devs), node) {
-	int dev_id = dev->dev_id;
-
-	if (dev_id == idx)
-	    return dev;
-    }
-
-    return NULL;
-}
-
-static struct vnet_dev * find_dev_by_mac(char * name) {
-    struct vnet_dev * dev = NULL; 
-    
-    list_for_each_entry(dev, &(vnet_state.devs), node) {
-	if (!memcmp(dev->mac_addr, name, 6))
-	    return dev;
-    }
-
-    return NULL;
 }
 
 int v3_vnet_add_dev(struct v3_vm_info *vm,uint8_t mac[6], 
