@@ -35,12 +35,13 @@ struct guest_info;
 
 
 
-// These are the types of physical memory address regions
-// from the perspective of the HOST
+/* These are the types of physical memory address regions
+ * from the perspective of the HOST
+ */
 typedef enum shdw_region_type { 
-    SHDW_REGION_WRITE_HOOK,                 // This region is mapped as read-only (page faults on write)
-    SHDW_REGION_FULL_HOOK,                  // This region is mapped as not present (always generate page faults)
-    SHDW_REGION_ALLOCATED,                  // Region is a section of host memory
+    SHDW_REGION_WRITE_HOOK,                 /* This region is mapped as read-only (page faults on write) */
+    SHDW_REGION_FULL_HOOK,                  /* This region is mapped as not present (always generate page faults) */
+    SHDW_REGION_ALLOCATED,                  /* Region is a section of host memory */
 } v3_shdw_region_type_t;
 
 
@@ -52,12 +53,12 @@ struct v3_shadow_region {
 
     v3_shdw_region_type_t   host_type;
   
-    addr_t                  host_addr; // This either points to a host address mapping
+    addr_t                  host_addr; /* This either points to a host address mapping */
 
 
-    // Called when data is read from a memory page
+    /* Called when data is read from a memory page */
     int (*read_hook)(addr_t guest_addr, void * dst, uint_t length, void * priv_data);
-    // Called when data is written to a memory page
+    /* Called when data is written to a memory page */
     int (*write_hook)(addr_t guest_addr, void * src, uint_t length, void * priv_data);
 
     void * priv_data;
@@ -131,7 +132,7 @@ int v3_handle_mem_wr_hook(struct guest_info * info, addr_t guest_va, addr_t gues
 int v3_handle_mem_full_hook(struct guest_info * info, addr_t guest_va, addr_t guest_pa, 
 			    struct v3_shadow_region * reg, pf_error_t access_info);
 
-#endif // ! __V3VEE__
+#endif /* ! __V3VEE__ */
 
 
 #endif

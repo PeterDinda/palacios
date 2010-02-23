@@ -21,7 +21,7 @@
 #define __VMM_H__
 
 
-//#include <palacios/vm_guest.h>
+/*#include <palacios/vm_guest.h>*/
 #include <palacios/vmm_mem.h>
 #include <palacios/vmm_types.h>
 
@@ -30,11 +30,11 @@ struct guest_info;
 
 #ifdef __V3VEE__
 
-//#include <palacios/vmm_types.h>
+/*#include <palacios/vmm_types.h>*/
 #include <palacios/vmm_string.h>
 
 
-//#include <palacios/vmm_paging.h>
+/*#include <palacios/vmm_paging.h>*/
 
 /* utility definitions */
 
@@ -118,7 +118,7 @@ struct guest_info;
 	    var;					\
 	})
 
-// We need to check the hook structure at runtime to ensure its SAFE
+/* We need to check the hook structure at runtime to ensure its SAFE */
 #define V3_Free(addr)				\
     do {					\
 	extern struct v3_os_hooks * os_hooks;	\
@@ -127,7 +127,7 @@ struct guest_info;
 	}					\
     } while (0)
 
-// uint_t V3_CPU_KHZ();
+/* uint_t V3_CPU_KHZ(); */
 #define V3_CPU_KHZ() ({							\
 	    unsigned int khz = 0;					\
 	    extern struct v3_os_hooks * os_hooks;			\
@@ -189,7 +189,7 @@ struct guest_info;
 typedef enum v3_vm_class {V3_INVALID_VM, V3_PC_VM, V3_CRAY_VM} v3_vm_class_t;
 
 
-// Maybe make this a define....
+/* Maybe make this a define.... */
 typedef enum v3_cpu_arch {V3_INVALID_CPU, V3_SVM_CPU, V3_SVM_REV3_CPU, V3_VMX_CPU, V3_VMX_EPT_CPU} v3_cpu_arch_t;
 
 
@@ -210,7 +210,7 @@ v3_cpu_arch_t v3_get_cpu_type(int cpu_id);
 int v3_vm_enter(struct guest_info * info);
 
 
-#endif //!__V3VEE__
+#endif /* !__V3VEE__ */
 
 
 
@@ -257,16 +257,17 @@ struct v3_os_hooks {
 
 
 
-//
-//
-// This is the interrupt state that the VMM's interrupt handlers need to see
-//
+/*
+ *
+ * This is the interrupt state that the VMM's interrupt handlers need to see
+ */
 struct v3_interrupt {
     unsigned int irq;
     unsigned int error;
 
-    unsigned int should_ack;  // Should the vmm ack this interrupt, or will
-    // the host OS do it?
+    unsigned int should_ack;  /* Should the vmm ack this interrupt, or will
+                               * the host OS do it?
+                               */
 };
 
 
