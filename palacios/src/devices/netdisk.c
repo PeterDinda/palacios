@@ -270,7 +270,7 @@ static int socket_init(struct disk_state * disk) {
 }
 
 
-static int disk_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
+static int disk_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct disk_state * disk = (struct disk_state *)V3_Malloc(sizeof(struct disk_state));
 
     char * ip_str = v3_cfg_val(cfg, "IP");
