@@ -98,13 +98,6 @@ static struct {
 
 
 #ifdef CONFIG_DEBUG_VNET
-
-static void print_packet(struct v3_vnet_pkt * pkt) {
-    PrintDebug("Vnet: data_packet: size: %d\n", pkt->size);
-    v3_hexdump(pkt->data, pkt->size, NULL, 0);
-}
-
-
 static inline void mac_to_string(char mac[6], char * buf) {
     snprintf(buf, 20, "%02x:%02x:%02x:%02x:%02x:%02x", 
 	     mac[0], mac[1], mac[2],
@@ -367,6 +360,7 @@ static int handle_one_pkt(struct v3_vnet_pkt * pkt) {
 	    add_route_to_cache(pkt, matched_routes);
 	} else {
 	    PrintError("Could not find route for packet...\n");
+	    v3_unlock_irqrestore(vnet_state.lock, flags);
 	    return -1;
 	}
     }
@@ -396,17 +390,14 @@ static int handle_one_pkt(struct v3_vnet_pkt * pkt) {
 }
 
 int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt) {
-    // find the destination and call the send packet function, passing pkt *
-
+    
+    PrintDebug("In Vnet Send: pkt size: %d\n", pkt->size);
+		
     if (handle_one_pkt(pkt) != -1) {
         PrintDebug("VNET: send one packet! pt length %d\n", pkt->size);  
     } else {
         PrintDebug("VNET: Fail to forward one packet, discard it!\n"); 
     }
-
-#ifdef CONFIG_DEBUG_VNET
-    print_packet(pkt);
-#endif
 
     return 0;
 }
@@ -417,6 +408,8 @@ int v3_vnet_add_dev(struct v3_vm_info *vm,uint8_t mac[6],
     struct vnet_dev * new_dev = NULL;
 
     new_dev = find_dev_by_mac(mac);
+
+    PrintDebug("VNET: register device\n");
 
     if (new_dev) {
 	PrintDebug("VNET: register device: Already has device with the same mac\n");
@@ -429,15 +422,14 @@ int v3_vnet_add_dev(struct v3_vm_info *vm,uint8_t mac[6],
 	PrintError("VNET: Malloc fails\n");
 	return -1;
     }
-    
+   
     memcpy(new_dev->mac_addr, mac, 6);
     new_dev->input = netif_input;
     new_dev->private_data = priv_data;
     new_dev->vm = vm;
 
-    // ADD TO dev list
-    // increment dev count
-    
+    PrintDebug("VNET: register device new_dev22 %p\n", (void *)new_dev);
+	
     list_add(&(new_dev->node), &(vnet_state.devs));
     vnet_state.num_devs ++;
     new_dev->dev_id = vnet_state.num_devs;
@@ -445,7 +437,8 @@ int v3_vnet_add_dev(struct v3_vm_info *vm,uint8_t mac[6],
     return 0;
 }
 
-int v3_vnet_pkt_process() {
+#if 0
+static int v3_vnet_pkt_process() {
     struct v3_vnet_pkt * pkt = NULL;
 
     while ((pkt = (struct v3_vnet_pkt *)v3_dequeue(vnet_state.inpkt_q)) != NULL) {
@@ -460,23 +453,23 @@ int v3_vnet_pkt_process() {
     
     return 0;
 }
-
+#endif
 
 int V3_init_vnet() {
-
-    PrintDebug("VNET: Links table initiated\n");
-
+	
     INIT_LIST_HEAD(&(vnet_state.routes));
     INIT_LIST_HEAD(&(vnet_state.devs));
 
     vnet_state.num_devs = 0;
     vnet_state.num_routes = 0;
 
+    PrintDebug("VNET: Links and Routes tables initiated\n");
+
     if (v3_lock_init(&(vnet_state.lock)) == -1){
         PrintError("VNET: Failure to init lock for routes table\n");
     }
 
-    PrintDebug("VNET: Routes table initiated\n");
+    PrintDebug("VNET: Locks initiated\n");
 
     /*initial pkt receiving queue */
     vnet_state.inpkt_q = v3_create_queue();
@@ -489,6 +482,8 @@ int V3_init_vnet() {
         PrintError("Vnet: Route Cache Init Fails\n");
         return -1;
     }
+
+    PrintDebug("VNET: initiated\n");
 
     return 0;
 }

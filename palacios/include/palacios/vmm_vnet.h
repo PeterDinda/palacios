@@ -89,9 +89,6 @@ int v3_vnet_add_dev(struct v3_vm_info *info, uint8_t mac[6],
 		    void * priv_data);
 
 
-// temporary hack
-int v3_vnet_pkt_process();
-
 
 #endif
 

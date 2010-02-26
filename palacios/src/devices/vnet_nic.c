@@ -25,7 +25,7 @@
 #include <devices/lnx_virtio_pci.h>
 #include <palacios/vm_guest_mem.h>
 #include <devices/pci.h>
-
+#include <palacios/vmm_sprintf.h>
 
 #ifndef CONFIG_DEBUG_VNET_NIC
 #undef PrintDebug
@@ -41,10 +41,13 @@ struct vnet_nic_state {
 
 //used when virtio_nic get a packet from guest and send it to the backend
 static int vnet_send(uint8_t * buf, uint32_t len, void * private_data, struct vm_device *dest_dev){
-    PrintDebug("Virito NIC: In vnet_send: guest net state %p\n", private_data);
-    struct v3_vnet_pkt * pkt = NULL; 
+    struct v3_vnet_pkt * pkt = NULL;
 
-    // fill in packet
+    PrintDebug("Virtio VNET-NIC: send pkt size: %d\n", len);
+#ifdef CONFIG_DEBUG_VNET_NIC
+    v3_hexdump(buf, len, NULL, 0);
+#endif
+
     pkt = (struct v3_vnet_pkt *)V3_Malloc(sizeof(struct v3_vnet_pkt));
 
     if(pkt == NULL){
@@ -55,9 +58,9 @@ static int vnet_send(uint8_t * buf, uint32_t len, void * private_data, struct vm
     pkt->size = len;
     memcpy(pkt->data, buf, pkt->size);
 
-    //TODO: 
-
     v3_vnet_send_pkt(pkt);
+
+    V3_Free(pkt);
     return 0;
 }
 

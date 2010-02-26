@@ -66,7 +66,7 @@ struct virtio_net_config
 struct virtio_dev_state {
     struct vm_device * pci_bus;
     struct list_head dev_list;
-    struct guest_info *vm;
+    struct v3_vm_info *vm;
 };
 
 struct virtio_net_state {
@@ -131,14 +131,14 @@ static int virtio_init_state(struct virtio_net_state * virtio)
     return 0;
 }
 
-static int pkt_tx(struct virtio_net_state * virtio, struct vring_desc * buf_desc) 
+static int pkt_tx(struct guest_info *core, struct virtio_net_state * virtio, struct vring_desc * buf_desc) 
 {
     uint8_t * buf = NULL;
     uint32_t len = buf_desc->length;
 
-    PrintDebug("Virtio NIC: Handling Virtio Write, net_state: %p\n", virtio);
+    PrintDebug("Virtio NIC: Virtio Pkt Sending, net_state: %p, pkt size: %d\n", virtio, len);
 
-    if (guest_pa_to_host_va(virtio->virtio_dev->vm, buf_desc->addr_gpa, (addr_t *)&(buf)) == -1) {
+    if (guest_pa_to_host_va(core, buf_desc->addr_gpa, (addr_t *)&(buf)) == -1) {
 	PrintError("Could not translate buffer address\n");
 	return -1;
     }
@@ -162,12 +162,16 @@ static int build_receive_header(struct virtio_net_hdr * hdr, const void * buf, i
     return 0;
 }
 
-static int copy_data_to_desc(struct virtio_net_state * virtio_state, struct vring_desc * desc, uchar_t * buf, uint_t buf_len) 
+static int copy_data_to_desc(struct guest_info *core, 
+					struct virtio_net_state * virtio_state, 
+					struct vring_desc * desc, 
+					uchar_t * buf, 
+					uint_t buf_len) 
 {
     uint32_t len;
     uint8_t * desc_buf = NULL;
 
-    if (guest_pa_to_host_va(virtio_state->virtio_dev->vm, desc->addr_gpa, (addr_t *)&(desc_buf)) == -1) {
+    if (guest_pa_to_host_va(core, desc->addr_gpa, (addr_t *)&(desc_buf)) == -1) {
 	PrintError("Could not translate buffer address\n");
 	return -1;
     }
@@ -192,11 +196,11 @@ static int get_desc_count(struct virtio_queue * q, int index) {
     return cnt;
 }
 
-static int handle_ctrl(struct virtio_net_state * dev) {
+static int handle_ctrl(struct guest_info *core, struct virtio_net_state * dev) {
     return 0;
 }
 
-static int handle_pkt_tx(struct virtio_net_state * virtio_state) 
+static int handle_pkt_tx(struct guest_info *core, struct virtio_net_state * virtio_state) 
 {
     struct virtio_queue * q = &(virtio_state->tx_vq);
     struct virtio_net_hdr * hdr = NULL;
@@ -217,7 +221,7 @@ static int handle_pkt_tx(struct virtio_net_state * virtio_state)
 	int i = 0;
 
 	hdr_desc = &(q->desc[desc_idx]);
-	if (guest_pa_to_host_va(virtio_state->virtio_dev->vm, hdr_desc->addr_gpa, &(hdr_addr)) == -1) {
+	if (guest_pa_to_host_va(core, hdr_desc->addr_gpa, &(hdr_addr)) == -1) {
 	    PrintError("Could not translate block header address\n");
 	    return -1;
 	}
@@ -227,7 +231,7 @@ static int handle_pkt_tx(struct virtio_net_state * virtio_state)
 	
 	for (i = 0; i < desc_cnt - 1; i++) {	
 	    struct vring_desc * buf_desc = &(q->desc[desc_idx]);
-	    if (pkt_tx(virtio_state, buf_desc) == -1) {
+	    if (pkt_tx(core, virtio_state, buf_desc) == -1) {
 		PrintError("Error handling nic operation\n");
 		return -1;
 	    }
@@ -263,7 +267,12 @@ static int handle_pkt_tx(struct virtio_net_state * virtio_state)
     return 0;
 }
 
-static int virtio_setup_queue(struct virtio_net_state * virtio_state, struct virtio_queue * queue, addr_t pfn, addr_t page_addr) {
+
+static int virtio_setup_queue(struct guest_info *core, 
+							struct virtio_net_state * virtio_state, 
+							struct virtio_queue * queue, 
+							addr_t pfn, 
+							addr_t page_addr) {
     queue->pfn = pfn;
 		
     queue->ring_desc_addr = page_addr;
@@ -271,23 +280,31 @@ static int virtio_setup_queue(struct virtio_net_state * virtio_state, struct vir
     queue->ring_used_addr = ((queue->ring_avail_addr) + 
 			     (sizeof(struct vring_avail)) + 
 			     (queue->queue_size * sizeof(uint16_t)));
-		
+
+    PrintDebug("Virtio NIC: In setup queue: queue %p\n", (void *)queue);
+
     // round up to next page boundary.
     queue->ring_used_addr = (queue->ring_used_addr + 0xfff) & ~0xfff;
-    if (guest_pa_to_host_va(virtio_state->virtio_dev->vm, queue->ring_desc_addr, (addr_t *)&(queue->desc)) == -1) {
+    if (guest_pa_to_host_va(core, queue->ring_desc_addr, (addr_t *)&(queue->desc)) == -1) {
         PrintError("Could not translate ring descriptor address\n");
 	 return -1;
     }
+
+    PrintDebug("Virtio NIC: In setup queue111: queue %p\n", (void *)queue);
  
-    if (guest_pa_to_host_va(virtio_state->virtio_dev->vm, queue->ring_avail_addr, (addr_t *)&(queue->avail)) == -1) {
+    if (guest_pa_to_host_va(core, queue->ring_avail_addr, (addr_t *)&(queue->avail)) == -1) {
         PrintError("Could not translate ring available address\n");
         return -1;
     }
 
-    if (guest_pa_to_host_va(virtio_state->virtio_dev->vm, queue->ring_used_addr, (addr_t *)&(queue->used)) == -1) {
+    PrintDebug("Virtio NIC: In setup queue222: queue %p\n", (void *)queue);
+
+    if (guest_pa_to_host_va(core, queue->ring_used_addr, (addr_t *)&(queue->used)) == -1) {
         PrintError("Could not translate ring used address\n");
         return -1;
     }
+
+    PrintDebug("Virtio NIC: In setup queue333: queue %p\n", (void *)queue);
 
     PrintDebug("RingDesc_addr=%p, Avail_addr=%p, Used_addr=%p\n",
 	       (void *)(queue->ring_desc_addr),
@@ -326,15 +343,18 @@ static int virtio_io_write(struct guest_info *core, uint16_t port, void * src, u
 	    addr_t pfn = *(uint32_t *)src;
 	    addr_t page_addr = (pfn << VIRTIO_PAGE_SHIFT);
 	    uint16_t queue_idx = virtio->virtio_cfg.vring_queue_selector;
+
+	    PrintDebug("Virtio Write: pfn: %p, page_addr %p, queue_idx %d\n", (void *)pfn, (void *)page_addr, queue_idx);
+
 	    switch (queue_idx) {
 		case 0:
-		    virtio_setup_queue(virtio, &virtio->rx_vq, pfn, page_addr);
+		    virtio_setup_queue(core, virtio, &virtio->rx_vq, pfn, page_addr);
 		    break;
 		case 1:
-		    virtio_setup_queue(virtio, &virtio->tx_vq, pfn, page_addr);
+		    virtio_setup_queue(core, virtio, &virtio->tx_vq, pfn, page_addr);
 		    break;
 		case 2:
-		    virtio_setup_queue(virtio, &virtio->ctrl_vq, pfn, page_addr);
+		    virtio_setup_queue(core, virtio, &virtio->ctrl_vq, pfn, page_addr);
 		    break;	    
 		default:
 		    break;
@@ -356,12 +376,12 @@ static int virtio_io_write(struct guest_info *core, uint16_t port, void * src, u
 		if (queue_idx == 0){
 		    PrintDebug("receive queue notification 0, packet get by Guest\n");
 		} else if (queue_idx == 1){
-		    if (handle_pkt_tx(virtio) == -1) {
+		    if (handle_pkt_tx(core, virtio) == -1) {
 			PrintError("Could not handle NIC Notification\n");
 			return -1;
 		    }
 		} else if (queue_idx == 2){
-		    if (handle_ctrl(virtio) == -1) {
+		    if (handle_ctrl(core, virtio) == -1) {
 			PrintError("Could not handle NIC Notification\n");
 			return -1;
 		    }
@@ -397,7 +417,7 @@ static int virtio_io_read(struct guest_info *core, uint16_t port, void * dst, ui
     int port_idx = port % virtio->io_range_size;
     uint16_t queue_idx = virtio->virtio_cfg.vring_queue_selector;
 
-    PrintDebug("Virtio NIC %p: Read  for port %d (index =%d), length=%d", private_data,
+    PrintDebug("Virtio NIC %p: Read  for port %d (index =%d), length=%d\n", private_data,
 	       port, port_idx, length);
 	
     switch (port_idx) {
@@ -483,10 +503,11 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
     uint32_t data_len = size;
     uint32_t offset = 0;
     unsigned long flags;
+    int ret_val;
 
     flags = v3_lock_irqsave(virtio->lock);
 	
-    PrintDebug("VIRTIO NIC:  sending packet to virtio nic %p, size:%d", virtio, size);
+    PrintDebug("VIRTIO NIC: receiving packet to virtio nic %p, size:%d\n", virtio, size);
 
     virtio->pkt_recv ++;
     data_len -= hdr_len;
@@ -495,7 +516,8 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
 
     if (q->ring_avail_addr == 0) {
 	PrintError("Queue is not set\n");
-	return -1;
+	ret_val = -1;
+	goto exit;
     }
 
     if (q->last_avail_idx > q->avail->index)
@@ -509,9 +531,10 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
 	struct vring_desc * hdr_desc = NULL;
 
 	hdr_desc = &(q->desc[hdr_idx]);
-	if (guest_pa_to_host_va(virtio->virtio_dev->vm, hdr_desc->addr_gpa, &(hdr_addr)) == -1) {
+	if (guest_pa_to_host_va(&(virtio->virtio_dev->vm->cores[0]), hdr_desc->addr_gpa, &(hdr_addr)) == -1) {
 	    PrintError("Could not translate receive buffer address\n");
-	    return -1;
+	    ret_val = -1;
+	    goto exit;
 	}
 
 	memcpy((void *)hdr_addr, &hdr, sizeof(struct virtio_net_hdr));
@@ -523,7 +546,7 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
 	    struct vring_desc * buf_desc = &(q->desc[buf_idx]);
 	    uint32_t len = 0;
 
-	    len = copy_data_to_desc(virtio, buf_desc, buf + offset, data_len - offset);	    
+	    len = copy_data_to_desc(&(virtio->virtio_dev->vm->cores[0]), virtio, buf_desc, buf + offset, data_len - offset);	    
 	    offset += len;
 	    if (offset < data_len) {
 		buf_desc->flags = VIRTIO_NEXT_FLAG;		
@@ -561,9 +584,13 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
     }
 #endif
 
+    ret_val = offset;
+
+exit:
+
     v3_unlock_irqrestore(virtio->lock, flags);
-    
-    return offset;
+ 
+    return ret_val;
 }
 
 
@@ -680,6 +707,7 @@ static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     INIT_LIST_HEAD(&(virtio_state->dev_list));
     virtio_state->pci_bus = pci_bus;
+    virtio_state->vm = vm;
 
     struct vm_device * dev = v3_allocate_device(name, &dev_ops, virtio_state);
     if (v3_attach_device(vm, dev) == -1) {
