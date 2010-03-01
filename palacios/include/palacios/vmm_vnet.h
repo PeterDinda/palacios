@@ -72,7 +72,21 @@ struct v3_vnet_pkt {
 } __attribute__((packed));
 
 
-int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt);
+#ifdef CONFIG_VNET_PROFILE
+struct v3_vnet_profile{
+    uint64_t  time_copy_from_guest;
+    uint64_t  time_route_lookup;
+    uint64_t  time_mallocfree;
+    uint64_t  time_copy_to_guest;
+    uint64_t  total_handle_time;
+    uint64_t  vnet_handle_time;
+
+    uint64_t virtio_handle_start;
+};
+#endif
+
+
+int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void *private_data);
 
 int v3_vnet_add_route(struct v3_vnet_route route);
 

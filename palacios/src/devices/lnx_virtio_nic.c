@@ -27,6 +27,7 @@
 #include <palacios/vmm_sprintf.h>
 #include <palacios/vmm_vnet.h>
 #include <palacios/vmm_lock.h>
+#include <palacios/vmm_util.h>
 
 #include <devices/pci.h>
 
@@ -143,7 +144,7 @@ static int pkt_tx(struct guest_info *core, struct virtio_net_state * virtio, str
 	return -1;
     }
 
-    if (virtio->net_ops->send(buf, len, (void *)virtio, NULL) == -1) {
+    if (virtio->net_ops->send(buf, len, (void *)core, NULL) == -1) {
 	return -1;
     }
 
@@ -264,6 +265,20 @@ static int handle_pkt_tx(struct guest_info *core, struct virtio_net_state * virt
  	PrintError("Virtio NIC: %p, pkt_sent: %ld\n", virtio_state, virtio_state->pkt_sent);
 #endif	
 
+#ifdef CONFIG_VNET_PROFILE
+    uint64_t time;
+    rdtscll(time);
+    core->vnet_times.total_handle_time = time - core->vnet_times.virtio_handle_start;
+
+    PrintError("Vnet_profiling: total_handle_time: %ld vnet_time: %ld  copy_from_guest: %ld copy_to_guest: %ld malloc_free: %ld, route_lookup: %ld\n", 
+			 (long)core->vnet_times.total_handle_time,
+			 (long)core->vnet_times.vnet_handle_time,
+			 (long)core->vnet_times.time_copy_from_guest,
+			 (long)core->vnet_times.time_copy_to_guest,
+			 (long)core->vnet_times.time_mallocfree,
+			 (long)core->vnet_times.time_route_lookup);
+#endif
+
     return 0;
 }
 
@@ -281,30 +296,22 @@ static int virtio_setup_queue(struct guest_info *core,
 			     (sizeof(struct vring_avail)) + 
 			     (queue->queue_size * sizeof(uint16_t)));
 
-    PrintDebug("Virtio NIC: In setup queue: queue %p\n", (void *)queue);
-
     // round up to next page boundary.
     queue->ring_used_addr = (queue->ring_used_addr + 0xfff) & ~0xfff;
     if (guest_pa_to_host_va(core, queue->ring_desc_addr, (addr_t *)&(queue->desc)) == -1) {
         PrintError("Could not translate ring descriptor address\n");
 	 return -1;
     }
-
-    PrintDebug("Virtio NIC: In setup queue111: queue %p\n", (void *)queue);
  
     if (guest_pa_to_host_va(core, queue->ring_avail_addr, (addr_t *)&(queue->avail)) == -1) {
         PrintError("Could not translate ring available address\n");
         return -1;
     }
 
-    PrintDebug("Virtio NIC: In setup queue222: queue %p\n", (void *)queue);
-
     if (guest_pa_to_host_va(core, queue->ring_used_addr, (addr_t *)&(queue->used)) == -1) {
         PrintError("Could not translate ring used address\n");
         return -1;
     }
-
-    PrintDebug("Virtio NIC: In setup queue333: queue %p\n", (void *)queue);
 
     PrintDebug("RingDesc_addr=%p, Avail_addr=%p, Used_addr=%p\n",
 	       (void *)(queue->ring_desc_addr),
@@ -321,6 +328,12 @@ static int virtio_io_write(struct guest_info *core, uint16_t port, void * src, u
 {
     struct virtio_net_state * virtio = (struct virtio_net_state *)private_data;
     int port_idx = port % virtio->io_range_size;
+
+#ifdef CONFIG_VNET_PROFILE
+    uint64_t time;
+    rdtscll(time);
+    core->vnet_times.virtio_handle_start = time;
+#endif
 
     PrintDebug("VIRTIO NIC %p Write for port %d (index=%d) len=%d, value=%x\n", private_data,
 	       port, port_idx,  length, *(uint32_t *)src);
@@ -504,15 +517,19 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
     uint32_t offset = 0;
     unsigned long flags;
     int ret_val;
+    int raw = 1;
 
     flags = v3_lock_irqsave(virtio->lock);
 	
     PrintDebug("VIRTIO NIC: receiving packet to virtio nic %p, size:%d\n", virtio, size);
 
     virtio->pkt_recv ++;
-    data_len -= hdr_len;
 
-    build_receive_header(&hdr, buf, 1);
+    if (!raw){
+    	data_len -= hdr_len;
+    }
+
+    build_receive_header(&hdr, buf, raw);
 
     if (q->ring_avail_addr == 0) {
 	PrintError("Queue is not set\n");

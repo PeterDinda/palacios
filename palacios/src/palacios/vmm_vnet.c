@@ -99,9 +99,45 @@ static struct {
 
 #ifdef CONFIG_DEBUG_VNET
 static inline void mac_to_string(char mac[6], char * buf) {
-    snprintf(buf, 20, "%02x:%02x:%02x:%02x:%02x:%02x", 
+    snprintf(buf, 50, "%x:%x:%x:%x:%x:%x", 
 	     mac[0], mac[1], mac[2],
 	     mac[3], mac[4], mac[5]);
+}
+
+static void print_route(struct vnet_route_info *route){
+    char str[50];
+
+    mac_to_string(route->route_def.src_mac, str);
+    PrintDebug("Src Mac (%s),  src_qual (%d)\n", 
+			str, route->route_def.src_mac_qual);
+    mac_to_string(route->route_def.dst_mac, str);
+    PrintDebug("Dst Mac (%s),  dst_qual (%d)\n", 
+			str, route->route_def.dst_mac_qual);
+    PrintDebug("Src dev id (%d), src type (%d)", 
+			route->route_def.src_id, 
+			route->route_def.src_type);
+    PrintDebug("Dst dev id (%d), dst type (%d)", 
+			route->route_def.dst_id, 
+			route->route_def.dst_type);
+    PrintDebug("dst_dev (%p), dst_dev_id (%d), dst_dev_input (%p), dst_dev_data (%p)\n",
+					route->dst_dev,
+					route->dst_dev->dev_id,
+					route->dst_dev->input,
+					route->dst_dev->private_data);
+
+}
+
+static void dump_routes(){
+	struct vnet_route_info *route;
+
+	int i = 0;
+	PrintDebug("\n========Dump routes starts ============\n");
+	list_for_each_entry(route, &(vnet_state.routes), node) {
+		PrintDebug("\nroute %d:\n", ++i);
+		
+		print_route(route);
+	}
+	PrintDebug("\n========Dump routes end ============\n");
 }
 
 #endif
@@ -149,7 +185,7 @@ static int look_into_cache(struct v3_vnet_pkt * pkt, struct route_list ** routes
 }
 
 
-struct vnet_dev * find_dev_by_id(int idx) {
+static struct vnet_dev * find_dev_by_id(int idx) {
     struct vnet_dev * dev = NULL; 
     
     list_for_each_entry(dev, &(vnet_state.devs), node) {
@@ -162,15 +198,25 @@ struct vnet_dev * find_dev_by_id(int idx) {
     return NULL;
 }
 
-static struct vnet_dev * find_dev_by_mac(char * name) {
+static struct vnet_dev * find_dev_by_mac(char mac[6]) {
     struct vnet_dev * dev = NULL; 
     
     list_for_each_entry(dev, &(vnet_state.devs), node) {
-	if (!memcmp(dev->mac_addr, name, 6))
+	if (!memcmp(dev->mac_addr, mac, 6))
 	    return dev;
     }
 
     return NULL;
+}
+
+int get_device_id_by_mac(char mac[6]){
+
+    struct vnet_dev *dev = find_dev_by_mac(mac);
+
+    if (dev == NULL)
+	return -1;
+
+    return dev->dev_id;
 }
 
 
@@ -181,13 +227,22 @@ int v3_vnet_add_route(struct v3_vnet_route route) {
     new_route = (struct vnet_route_info *)V3_Malloc(sizeof(struct vnet_route_info));
     memset(new_route, 0, sizeof(struct vnet_route_info));
 
-    PrintDebug("Vnet: vnet_add_route_entry\n");	
+    PrintDebug("Vnet: vnet_add_route_entry: dst_id: %d, dst_type: %d\n",
+			route.dst_id, route.dst_type);	
     
-    new_route->route_def = route;
+    memcpy(new_route->route_def.src_mac, route.src_mac, 6);
+    memcpy(new_route->route_def.dst_mac, route.dst_mac, 6);
+    new_route->route_def.src_mac_qual = route.src_mac_qual;
+    new_route->route_def.dst_mac_qual = route.dst_mac_qual;
+    new_route->route_def.dst_id = route.dst_id;
+    new_route->route_def.dst_type = route.dst_type;
+    new_route->route_def.src_id = route.src_id;
+    new_route->route_def.src_type = route.src_type;
 
-    /* TODO: Find devices */
     if (new_route->route_def.dst_type == LINK_INTERFACE) {
 	new_route->dst_dev = find_dev_by_id(new_route->route_def.dst_id);
+	PrintDebug("Vnet: Add route, get device: dev_id %d, input : %p, private_data %p\n",
+			new_route->dst_dev->dev_id, new_route->dst_dev->input, new_route->dst_dev->private_data);
     }
 
     if (new_route->route_def.src_type == LINK_INTERFACE) {
@@ -199,6 +254,10 @@ int v3_vnet_add_route(struct v3_vnet_route route) {
     v3_unlock_irqrestore(vnet_state.lock, flags);
    
     clear_hash_cache();
+
+#ifdef CONFIG_DEBUG_VNET
+    dump_routes();
+#endif
 
     return 0;
 }
@@ -219,8 +278,8 @@ static struct route_list * match_route(struct v3_vnet_pkt * pkt) {
 
 #ifdef CONFIG_DEBUG_VNET
     {
-	char dst_str[18];
-	char src_str[18];
+	char dst_str[50];
+	char src_str[50];
 
 	mac_to_string(hdr->src_mac, src_str);  
 	mac_to_string(hdr->dst_mac, dst_str);
@@ -304,7 +363,7 @@ static struct route_list * match_route(struct v3_vnet_pkt * pkt) {
 	}
 	
 	// Default route
-	if ( (memcmp(route_def->src_mac, hdr->src_mac, 6) == 0) &
+	if ( (memcmp(route_def->src_mac, hdr->src_mac, 6) == 0) &&
 	     (route_def->dst_mac_qual == MAC_NONE)) {
 	    UPDATE_MATCHES(4);
 	}
@@ -323,7 +382,7 @@ static struct route_list * match_route(struct v3_vnet_pkt * pkt) {
 
     {
 	int i = 0;
-	list_for_each_entry(route, &match_list, node) {
+	list_for_each_entry(route, &match_list, match_node) {
 	    matches->routes[i++] = route;
 	}
     }
@@ -331,7 +390,7 @@ static struct route_list * match_route(struct v3_vnet_pkt * pkt) {
     return matches;
 }
 
-static int handle_one_pkt(struct v3_vnet_pkt * pkt) {
+static int handle_one_pkt(struct v3_vnet_pkt * pkt, void *private_data) {
     struct route_list * matched_routes = NULL;
     unsigned long flags;
     int i;
@@ -340,8 +399,8 @@ static int handle_one_pkt(struct v3_vnet_pkt * pkt) {
 #ifdef CONFIG_DEBUG_VNET
    {
 	struct eth_hdr * hdr = (struct eth_hdr *)(pkt->data);
-	char dest_str[18];
-	char src_str[18];
+	char dest_str[30];
+	char src_str[30];
 
 	mac_to_string(hdr->src_mac, src_str);  
 	mac_to_string(hdr->dst_mac, dest_str);
@@ -349,28 +408,41 @@ static int handle_one_pkt(struct v3_vnet_pkt * pkt) {
    }
 #endif
 
+#ifdef CONFIG_VNET_PROFILE
+    struct guest_info *core = (struct guest_info *)private_data;
+    uint64_t start, end;
+    rdtscll(start);
+#endif
+
     flags = v3_lock_irqsave(vnet_state.lock);
 
     look_into_cache(pkt, &matched_routes);
 	
     if (matched_routes == NULL) {  
-        matched_routes = match_route(pkt);
+	matched_routes = match_route(pkt);
 		
-      if (matched_routes) {
+      	if (matched_routes) {
 	    add_route_to_cache(pkt, matched_routes);
 	} else {
-	    PrintError("Could not find route for packet...\n");
+	    PrintDebug("Could not find route for packet...\n");
 	    v3_unlock_irqrestore(vnet_state.lock, flags);
 	    return -1;
 	}
     }
 
     v3_unlock_irqrestore(vnet_state.lock, flags);
-    
-    
-    for (i = 0; i < matched_routes->num_routes; i++) {
-	struct vnet_route_info * route = matched_routes->routes[i];
 
+#ifdef CONFIG_VNET_PROFILE
+    {
+    	rdtscll(end);
+	core->vnet_times.time_route_lookup = end - start;
+    }
+#endif
+
+    PrintDebug("Vnet: HandleOnePacket: %d\n", matched_routes->num_routes);
+    for (i = 0; i < matched_routes->num_routes; i++) {
+	 struct vnet_route_info * route = matched_routes->routes[i];
+	
         if (route->route_def.dst_type == LINK_EDGE) {
 
         } else if (route->route_def.dst_type == LINK_INTERFACE) {
@@ -383,17 +455,23 @@ static int handle_one_pkt(struct v3_vnet_pkt * pkt) {
             continue;
         }
 
-        PrintDebug("Vnet: HandleDataOverLink: Forward packet according to Route\n");
+        PrintDebug("Vnet: HandleOnePacket: Forward packet according to Route\n");
     }
+
+#ifdef CONFIG_VNET_PROFILE
+    {
+    	rdtscll(start);
+	core->vnet_times.time_copy_to_guest = start - end;
+    }
+#endif
     
     return 0;
 }
 
-int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt) {
-    
+int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void *private_data) {
     PrintDebug("In Vnet Send: pkt size: %d\n", pkt->size);
 		
-    if (handle_one_pkt(pkt) != -1) {
+    if (handle_one_pkt(pkt, private_data) != -1) {
         PrintDebug("VNET: send one packet! pt length %d\n", pkt->size);  
     } else {
         PrintDebug("VNET: Fail to forward one packet, discard it!\n"); 
@@ -406,54 +484,47 @@ int v3_vnet_add_dev(struct v3_vm_info *vm,uint8_t mac[6],
 		    int (*netif_input)(struct v3_vm_info * vm, struct v3_vnet_pkt * pkt, void * private_data), 
 		    void * priv_data){
     struct vnet_dev * new_dev = NULL;
+    unsigned long flags;
+    int dev_id;
 
+    flags = v3_lock_irqsave(vnet_state.lock);
+	
     new_dev = find_dev_by_mac(mac);
-
-    PrintDebug("VNET: register device\n");
 
     if (new_dev) {
 	PrintDebug("VNET: register device: Already has device with the same mac\n");
-	return -1;
+	dev_id = -1;
+	goto exit;
     }
     
     new_dev = (struct vnet_dev *)V3_Malloc(sizeof(struct vnet_dev)); 
 
     if (new_dev == NULL) {
 	PrintError("VNET: Malloc fails\n");
-	return -1;
+	dev_id = -1;
+	goto exit;
     }
    
     memcpy(new_dev->mac_addr, mac, 6);
     new_dev->input = netif_input;
     new_dev->private_data = priv_data;
     new_dev->vm = vm;
-
-    PrintDebug("VNET: register device new_dev22 %p\n", (void *)new_dev);
 	
     list_add(&(new_dev->node), &(vnet_state.devs));
     vnet_state.num_devs ++;
     new_dev->dev_id = vnet_state.num_devs;
+    dev_id = new_dev->dev_id;
 
-    return 0;
-}
+    PrintDebug("Vnet: Add Device: dev_id %d, input : %p, private_data %p\n",
+			new_dev->dev_id, new_dev->input, new_dev->private_data);
 
-#if 0
-static int v3_vnet_pkt_process() {
-    struct v3_vnet_pkt * pkt = NULL;
-
-    while ((pkt = (struct v3_vnet_pkt *)v3_dequeue(vnet_state.inpkt_q)) != NULL) {
-        if (handle_one_pkt(pkt) != -1) {
-            PrintDebug("VNET: vnet_check: handle one packet! pt length %d\n", (int)pkt->size);  
-        } else {
-            PrintDebug("VNET: vnet_check: Fail to forward one packet, discard it!\n"); 
-        }
+exit:
 	
-        V3_Free(pkt); // be careful here
-    }
-    
-    return 0;
+    v3_unlock_irqrestore(vnet_state.lock, flags);
+ 
+    return dev_id;
 }
-#endif
+
 
 int V3_init_vnet() {
 	
@@ -471,7 +542,6 @@ int V3_init_vnet() {
 
     PrintDebug("VNET: Locks initiated\n");
 
-    /*initial pkt receiving queue */
     vnet_state.inpkt_q = v3_create_queue();
     v3_init_queue(vnet_state.inpkt_q);
     PrintDebug("VNET: Receiving queue initiated\n");

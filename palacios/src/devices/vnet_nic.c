@@ -42,10 +42,16 @@ struct vnet_nic_state {
 //used when virtio_nic get a packet from guest and send it to the backend
 static int vnet_send(uint8_t * buf, uint32_t len, void * private_data, struct vm_device *dest_dev){
     struct v3_vnet_pkt * pkt = NULL;
+    struct guest_info *core  = (struct guest_info *)private_data; 
 
     PrintDebug("Virtio VNET-NIC: send pkt size: %d\n", len);
 #ifdef CONFIG_DEBUG_VNET_NIC
     v3_hexdump(buf, len, NULL, 0);
+#endif
+
+#ifdef CONFIG_VNET_PROFILE
+    uint64_t start, end;
+    rdtscll(start);
 #endif
 
     pkt = (struct v3_vnet_pkt *)V3_Malloc(sizeof(struct v3_vnet_pkt));
@@ -54,21 +60,46 @@ static int vnet_send(uint8_t * buf, uint32_t len, void * private_data, struct vm
 	PrintError("Malloc() fails");
 	return -1;
     }
+	
+#ifdef CONFIG_VNET_PROFILE
+    {
+    	rdtscll(end);
+    	core->vnet_times.time_mallocfree = end - start;
+    }
+#endif
+
 
     pkt->size = len;
     memcpy(pkt->data, buf, pkt->size);
 
-    v3_vnet_send_pkt(pkt);
+#ifdef CONFIG_VNET_PROFILE
+    {
+    	rdtscll(start);
+    	core->vnet_times.time_copy_from_guest = start - end;
+    }
+#endif
+
+    v3_vnet_send_pkt(pkt, (void *)core);
+
+#ifdef CONFIG_VNET_PROFILE
+    {
+    	rdtscll(end);
+    	core->vnet_times.vnet_handle_time = end - start;
+    }
+#endif
 
     V3_Free(pkt);
+
+#ifdef CONFIG_VNET_PROFILE
+    {
+    	rdtscll(start);
+    	core->vnet_times.time_mallocfree += start - end;
+    }
+#endif
+
     return 0;
 }
 
-
-// We need to make this dynamically allocated
-//static struct v3_dev_net_ops net_ops = {
-//    .send = vnet_send, 
-//};
 
 static int virtio_input(struct v3_vm_info *info, struct v3_vnet_pkt * pkt, void * private_data){
     struct vnet_nic_state *vnetnic = (struct vnet_nic_state *)private_data;
@@ -78,87 +109,14 @@ static int virtio_input(struct v3_vm_info *info, struct v3_vnet_pkt * pkt, void 
     return vnetnic->net_ops.recv(pkt->data, pkt->size, vnetnic->net_ops.frontend_data);
 }
 
-#if 0
-static int sendto_buf(struct vnet_nic_dev_state *vnetnic_dev, uchar_t * buf, uint_t size) {
-    struct eth_pkt *pkt;
-
-    pkt = (struct eth_pkt *)V3_Malloc(sizeof(struct eth_pkt));
-    if(pkt == NULL){
-        PrintError("Vnet NIC: Memory allocate fails\n");
-        return -1;
-    }
-  
-    pkt->size = size;
-    memcpy(pkt->data, buf, size);
-    v3_enqueue(vnetnic_dev->inpkt_q, (addr_t)pkt);
-	
-    PrintDebug("Vnet NIC: sendto_buf: packet: (size:%d)\n", (int)pkt->size);
-
-    return pkt->size;
-}
-
-/*
-  *called in svm/vmx handler
-  *iteative handled the unsent packet in incoming packet queues for
-  *all virtio nic devices in this guest
-  */
-int v3_virtionic_pktprocess(struct guest_info * info)
-{
-    struct eth_pkt *pkt = NULL;
-    struct virtio_net_state *net_state;
-    int i;
-
-    //PrintDebug("Virtio NIC: processing guest %p\n", info);
-    for (i = 0; i < net_idx; i++) {
-        while (1) {
-            net_state = temp_net_states[i];
-            if(net_state->dev->vm != info)
-                break;
-
-            pkt = (struct eth_pkt *)v3_dequeue(net_state->inpkt_q);
-            if(pkt == NULL) 
-                break;
-			
-            if (send_pkt_to_guest(net_state, pkt->data, pkt->size, 1, NULL)) {
-                PrintDebug("Virtio NIC: %p In pkt_handle: send one packet! pt length %d\n", 
-				net_state, (int)pkt->size);  
-            } else {
-                PrintDebug("Virtio NIC: %p In pkt_handle: Fail to send one packet, pt length %d, discard it!\n", 
-				net_state, (int)pkt->size); 
-            }
-	
-            V3_Free(pkt);
-        }
-    }
-    
-    return 0;
-}
-
-
-/*
-  *called in svm/vmx handler
-  *iteative handled the unsent packet in incoming packet queues for
-  *all virtio nic devices in this guest
-  */
-int v3_vnetnic_pktprocess(struct guest_info * info)
-{
- 
-    return 0;
-}
-
-#endif
-
-//register a virtio device to the vnet as backend
-int register_to_vnet(struct v3_vm_info * vm,
+static int register_to_vnet(struct v3_vm_info * vm,
 		     struct vnet_nic_state *vnet_nic,
 		     char *dev_name,
 		     uchar_t mac[6]) { 
    
     PrintDebug("Vnet-nic: register Vnet-nic device %s, state %p to VNET\n", dev_name, vnet_nic);
 	
-    v3_vnet_add_dev(vm, mac, virtio_input, (void *)vnet_nic);
-
-    return 0;
+    return v3_vnet_add_dev(vm, mac, virtio_input, (void *)vnet_nic);
 }
 
 static int vnet_nic_free(struct vm_device * dev) {
@@ -172,11 +130,32 @@ static struct v3_device_ops dev_ops = {
     .stop = NULL,
 };
 
+
+static int str2mac(char *macstr, char mac[6]){
+    char hex[2], *s = macstr;
+    int i = 0;
+
+    while(s){
+	memcpy(hex, s, 2);
+	mac[i++] = (char)atox(hex);
+	if (i == 6) return 0;
+	s=strchr(s, ':');
+	if(s) s++;
+    }
+
+    return -1;
+}
+
 static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vnet_nic_state * vnetnic = NULL;
     char * name = v3_cfg_val(cfg, "name");
+    char * macstr;
+    char mac[6];
+    int vnet_dev_id;
 
     v3_cfg_tree_t * frontend_cfg = v3_cfg_subtree(cfg, "frontend");
+    macstr = v3_cfg_val(frontend_cfg, "mac");
+    str2mac(macstr, mac);
 
     vnetnic = (struct vnet_nic_state *)V3_Malloc(sizeof(struct vnet_nic_state));
     memset(vnetnic, 0, sizeof(struct vnet_nic_state));
@@ -189,6 +168,8 @@ static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     }
 
     vnetnic->net_ops.send = vnet_send;
+    memcpy(vnetnic->mac, mac, 6);
+	
     if (v3_dev_connect_net(vm, v3_cfg_val(frontend_cfg, "tag"), 
 			   &(vnetnic->net_ops), frontend_cfg, vnetnic) == -1) {
 	PrintError("Could not connect %s to frontend %s\n", 
@@ -196,11 +177,57 @@ static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	return -1;
     }
 
-    if (register_to_vnet(vm, vnetnic, name, vnetnic->mac) == -1) {
+    PrintDebug("Vnet-nic: Connect %s to frontend %s\n", 
+		   name, v3_cfg_val(frontend_cfg, "tag"));
+
+    if ((vnet_dev_id = register_to_vnet(vm, vnetnic, name, vnetnic->mac)) == -1) {
 	return -1;
     }
 
-    PrintDebug("Vnet-nic device %s initialized\n", name);
+    PrintDebug("Vnet-nic device %s (mac: %s, %ld) initialized\n", name, macstr, *((ulong_t *)vnetnic->mac));
+
+
+//for temporary hack
+#if 1	
+    {
+	 //uchar_t tapmac[6] = {0x00,0x02,0x55,0x67,0x42,0x39}; //for Intel-VT test HW
+    	uchar_t tapmac[6] = {0x6e,0xa8,0x75,0xf4,0x82,0x95};
+    	uchar_t dstmac[6] = {0xff,0xff,0xff,0xff,0xff,0xff};
+    	uchar_t zeromac[6] = {0,0,0,0,0,0};
+
+	struct v3_vnet_route route;
+       route.dst_id = vnet_dev_id;
+	route.dst_type = LINK_INTERFACE;
+	route.src_id = -1;
+	route.src_type = LINK_ANY;
+
+	if(!strcmp(name, "vnet_nicdom0")){
+	    memcpy(route.dst_mac, tapmac, 6);
+	    route.dst_mac_qual = MAC_NONE;
+	    memcpy(route.src_mac, zeromac, 6);
+	    route.src_mac_qual = MAC_ANY;
+	   
+	    v3_vnet_add_route(route);
+
+	    memcpy(route.dst_mac, dstmac, 6);
+	    route.dst_mac_qual = MAC_NONE;
+	    memcpy(route.src_mac, tapmac, 6);
+	    route.src_mac_qual = MAC_NOT;
+
+	    v3_vnet_add_route(route);
+	}
+
+	if (!strcmp(name, "vnet_nic0")){
+	    memcpy(route.dst_mac, zeromac, 6);
+	    route.dst_mac_qual = MAC_ANY;
+	    memcpy(route.src_mac, tapmac, 6);
+	    route.src_mac_qual = MAC_NONE;
+	   
+	    v3_vnet_add_route(route);
+	}
+    }
+
+#endif
 
     return 0;
 }
