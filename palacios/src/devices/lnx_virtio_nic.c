@@ -37,7 +37,9 @@
 #define PrintDebug(fmt, args...)
 #endif
 
+#ifdef CONFIG_VNET_PROFILE
 #define VIRTIO_NIC_PROFILE
+#endif
 
 #define VIRTIO_NET_S_LINK_UP	1	/* Link is up */
 #define VIRTIO_NET_MAX_BUFSIZE (sizeof(struct virtio_net_hdr) + (64 << 10))
@@ -269,14 +271,7 @@ static int handle_pkt_tx(struct guest_info *core, struct virtio_net_state * virt
     uint64_t time;
     rdtscll(time);
     core->vnet_times.total_handle_time = time - core->vnet_times.virtio_handle_start;
-
-    PrintError("Vnet_profiling: total_handle_time: %ld vnet_time: %ld  copy_from_guest: %ld copy_to_guest: %ld malloc_free: %ld, route_lookup: %ld\n", 
-			 (long)core->vnet_times.total_handle_time,
-			 (long)core->vnet_times.vnet_handle_time,
-			 (long)core->vnet_times.time_copy_from_guest,
-			 (long)core->vnet_times.time_copy_to_guest,
-			 (long)core->vnet_times.time_mallocfree,
-			 (long)core->vnet_times.time_route_lookup);
+    core->vnet_times.print = true;
 #endif
 
     return 0;

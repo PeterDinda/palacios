@@ -148,12 +148,12 @@ static void dump_routes(){
  * This means we can generate the hash from an offset into the pkt struct
  */
 static inline uint_t hash_fn(addr_t hdr_ptr) {    
-    uint8_t * hdr_buf = (uint8_t *)&(hdr_ptr);
-    
+    uint8_t * hdr_buf = (uint8_t *)hdr_ptr;
+
     return v3_hash_buffer(hdr_buf, VNET_HASH_SIZE);
 }
 
-static inline int hash_eq(addr_t key1, addr_t key2) {
+static inline int hash_eq(addr_t key1, addr_t key2) {	
     return (memcmp((uint8_t *)key1, (uint8_t *)key2, VNET_HASH_SIZE) == 0);
 }
 
@@ -179,7 +179,7 @@ static int clear_hash_cache() {
 
 static int look_into_cache(struct v3_vnet_pkt * pkt, struct route_list ** routes) {
     
-    *routes = (struct route_list *)v3_htable_search(vnet_state.route_cache, (addr_t)pkt);
+    *routes = (struct route_list *)v3_htable_search(vnet_state.route_cache, (addr_t)(pkt->hash_buf));
    
     return 0;
 }
@@ -419,6 +419,8 @@ static int handle_one_pkt(struct v3_vnet_pkt * pkt, void *private_data) {
     look_into_cache(pkt, &matched_routes);
 	
     if (matched_routes == NULL) {  
+	PrintDebug("Vnet: can not find route in cache, looking into routing table\n");
+	
 	matched_routes = match_route(pkt);
 		
       	if (matched_routes) {

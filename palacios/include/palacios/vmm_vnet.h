@@ -79,7 +79,10 @@ struct v3_vnet_profile{
     uint64_t  time_mallocfree;
     uint64_t  time_copy_to_guest;
     uint64_t  total_handle_time;
-    uint64_t  vnet_handle_time;
+    uint64_t  memcpy_time;
+
+    uint64_t  total_exit_time;
+    bool print;
 
     uint64_t virtio_handle_start;
 };
