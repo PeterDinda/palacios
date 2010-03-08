@@ -269,7 +269,7 @@ static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
 
 //for temporary hack
-#if 1	
+#if 0
     {
 	uchar_t tapmac[6] = {0x00,0x02,0x55,0x67,0x42,0x39}; //for Intel-VT test HW
     	//uchar_t tapmac[6] = {0x6e,0xa8,0x75,0xf4,0x82,0x95};

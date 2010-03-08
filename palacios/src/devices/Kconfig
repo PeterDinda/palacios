@@ -159,11 +159,11 @@ config DEBUG_VIRTIO_NET
           Enable debugging for the Linux Virtio Network Device
 
 config VNET_NIC
-        bool "Enable VNET NIC Device"
+        bool "Enable VNET VIrtio NIC Device"
         default n
 	depends on PCI && EXPERIMENTAL
         help
-          Enable the VNET NIC backend device
+          Enable the VNET Virtio backend device
 
 config DEBUG_VNET_NIC
         bool "VNET NIC Device Debugging"

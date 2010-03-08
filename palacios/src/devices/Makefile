@@ -35,4 +35,4 @@ obj-$(CONFIG_PASSTHROUGH_PCI) += pci_passthrough.o
 
 obj-$(CONFIG_SYMMOD) += lnx_virtio_symmod.o
 
-obj-$(CONFIG_VNET) += lnx_virtio_vnet.o
+obj-$(CONFIG_VNET_BRG) += lnx_virtio_vnet.o

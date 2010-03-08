@@ -47,11 +47,19 @@ struct vnet_dev {
     uint8_t mac_addr[6];
     struct v3_vm_info * vm;
     
-    int (*input)(struct v3_vm_info * vm, struct v3_vnet_pkt * pkt,  void * private_data);
+    int (*input)(struct v3_vm_info * vm, struct v3_vnet_pkt * pkt, void * private_data);
     void * private_data;
     
     int dev_id;
     struct list_head node;
+} __attribute__((packed));
+
+
+struct vnet_brg_dev {
+    struct v3_vm_info * vm;
+    
+    int (*input)(struct v3_vm_info * vm, struct v3_vnet_pkt * pkt, void * private_data);
+    void * private_data;
 } __attribute__((packed));
 
 
@@ -83,9 +91,11 @@ struct route_list {
 static struct {
     struct list_head routes;
     struct list_head devs;
-
+    
     int num_routes;
     int num_devs;
+
+    struct vnet_brg_dev *bridge;
 
     v3_lock_t lock;
 
@@ -116,15 +126,16 @@ static void print_route(struct vnet_route_info *route){
     PrintDebug("Src dev id (%d), src type (%d)", 
 			route->route_def.src_id, 
 			route->route_def.src_type);
-    PrintDebug("Dst dev id (%d), dst type (%d)", 
+    PrintDebug("Dst dev id (%d), dst type (%d)\n", 
 			route->route_def.dst_id, 
 			route->route_def.dst_type);
-    PrintDebug("dst_dev (%p), dst_dev_id (%d), dst_dev_input (%p), dst_dev_data (%p)\n",
+    if (route->route_def.dst_type == LINK_INTERFACE) {
+    	PrintDebug("dst_dev (%p), dst_dev_id (%d), dst_dev_input (%p), dst_dev_data (%p)\n",
 					route->dst_dev,
 					route->dst_dev->dev_id,
 					route->dst_dev->input,
 					route->dst_dev->private_data);
-
+    }
 }
 
 static void dump_routes(){
@@ -441,12 +452,21 @@ static int handle_one_pkt(struct v3_vnet_pkt * pkt, void *private_data) {
     }
 #endif
 
-    PrintDebug("Vnet: HandleOnePacket: %d\n", matched_routes->num_routes);
+    PrintDebug("Vnet: HandleOnePacket: route matches %d\n", matched_routes->num_routes);
     for (i = 0; i < matched_routes->num_routes; i++) {
 	 struct vnet_route_info * route = matched_routes->routes[i];
 	
         if (route->route_def.dst_type == LINK_EDGE) {
-
+            pkt->dst_type = LINK_EDGE;
+            pkt->dst_id = route->route_def.dst_id;
+            if (vnet_state.bridge == NULL) {
+                PrintDebug("VNET: No bridge to sent data to links\n");
+                continue;
+            }
+            if (vnet_state.bridge->input(vnet_state.bridge->vm, pkt, vnet_state.bridge->private_data) == -1) {
+                PrintDebug("VNET: Packet not sent properly\n");
+                continue;
+	      } 
         } else if (route->route_def.dst_type == LINK_INTERFACE) {
             if (route->dst_dev->input(route->dst_dev->vm, pkt, route->dst_dev->private_data) == -1) {
                 PrintDebug("VNET: Packet not sent properly\n");
@@ -527,6 +547,32 @@ exit:
     return dev_id;
 }
 
+
+int v3_vnet_add_bridge(struct v3_vm_info * vm,
+				int (*input)(struct v3_vm_info * vm, struct v3_vnet_pkt * pkt, void * private_data), 
+		    		void * priv_data){
+    unsigned long flags;
+	
+    flags = v3_lock_irqsave(vnet_state.lock);
+
+    if(vnet_state.bridge != NULL){
+	PrintDebug("Vnet: Replace current bridge with a new one\n");
+    } else {
+    	vnet_state.bridge = (struct vnet_brg_dev *)V3_Malloc(sizeof(struct vnet_brg_dev));
+	if (vnet_state.bridge == NULL) {
+	    PrintError("Malloc Fails\n");
+	    return -1;
+	}
+    }
+
+    vnet_state.bridge->vm = vm;
+    vnet_state.bridge->input = input;
+    vnet_state.bridge->private_data = priv_data;
+
+    v3_unlock_irqrestore(vnet_state.lock, flags);
+
+    return 0;
+}
 
 int V3_init_vnet() {
 	

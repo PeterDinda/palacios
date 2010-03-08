@@ -108,6 +108,26 @@ config DEBUG_VNET
         help
           Enable the Vnet debug in Palacios
 
+config VNET_PROFILE
+	depends on EXPERIMENTAL && VNET
+	bool "Enable Vnet Profiling in Palacios"
+	default n
+	help
+          Enable the Vnet performance profiling in Palacios
+
+config VNET_BRG
+        bool "Enable VNET Bridge"
+        default n
+        depends on PCI && EXPERIMENTAL && VNET
+        help
+          Enable the VNET Bridge device
+
+config DEBUG_VNET_BRG
+        bool "VNET Bridge Debugging"
+        default n
+        depends on VNET_BRG && DEBUG_ON
+        help
+          Enable debugging for the VNET Bridge Device
 
 endmenu
 
