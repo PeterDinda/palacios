@@ -75,21 +75,6 @@ struct vnet_ctrl_hdr {
     uint32_t num_cmds;
 } __attribute__((packed));
 
-#define VIRTIO_NET_S_LINK_UP	1	/* Link is up */
-#define VIRTIO_NET_MAX_BUFSIZE (sizeof(struct virtio_net_hdr) + (64 << 10))
-
-struct virtio_net_hdr {
-	uint8_t flags;
-
-#define VIRTIO_NET_HDR_GSO_NONE		0	/* Not a GSO frame */
-	uint8_t gso_type;
-	uint16_t hdr_len;		/* Ethernet + IP + tcp/udp hdrs */
-	uint16_t gso_size;		/* Bytes to append to hdr_len per frame */
-	uint16_t csum_start;	/* Position to start checksumming from */
-	uint16_t csum_offset;	/* Offset after that to place checksum */
-}__attribute__((packed));
-
-
 static int virtio_reset(struct virtio_vnet_state * vnet_brg) {
 
     memset(vnet_brg->queue, 0, sizeof(struct virtio_queue) * 2);
