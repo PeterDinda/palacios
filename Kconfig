@@ -115,19 +115,19 @@ config VNET_PROFILE
 	help
           Enable the Vnet performance profiling in Palacios
 
-config VNET_BRG
-        bool "Enable VNET Bridge"
+config LINUX_VIRTIO_VNET
+        bool "Enable Virtio VNET interface"
         default n
         depends on PCI && EXPERIMENTAL && VNET
         help
-          Enable the VNET Bridge device
+          Enable the Virtio VNET interface
 
-config DEBUG_VNET_BRG
-        bool "VNET Bridge Debugging"
+config DEBUG_LINUX_VIRTIO_VNET
+        bool "VNET Virtio Device Debugging"
         default n
-        depends on VNET_BRG && DEBUG_ON
+        depends on LINUX_VIRTIO_VNET && DEBUG_ON
         help
-          Enable debugging for the VNET Bridge Device
+          Enable debugging for the VNET Virtio Device
 
 endmenu
 

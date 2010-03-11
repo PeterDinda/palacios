@@ -26,7 +26,7 @@
 #include <devices/pci.h>
 
 
-#ifndef CONFIG_DEBUG_VNET_BRG
+#ifndef CONFIG_LINUX_VIRTIO_VNET_DEBUG
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
@@ -600,7 +600,7 @@ static struct v3_device_ops dev_ops = {
 };
 
 
-static int vnet_brg_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
+static int dev_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vm_device * pci_bus = v3_find_dev(vm, v3_cfg_val(cfg, "bus"));
     struct virtio_vnet_state * vbrg_state = NULL;
     struct pci_device * pci_dev = NULL;
@@ -711,4 +711,4 @@ static int vnet_brg_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 }
 
 
-device_register("LNX_VNET_BRG", vnet_brg_init)
+device_register("LNX_VIRTIO_VNET", dev_init)
