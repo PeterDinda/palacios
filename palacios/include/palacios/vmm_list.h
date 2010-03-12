@@ -263,6 +263,21 @@ static inline void list_splice_init(struct list_head *list,
     
 
 
+/** 
+ * list_next_entry -- get the struct for the next entry in a list
+ * @ptr:  current list entry
+ * @type: type of the struct this is embedded in
+ * @member: name of the list struct within the struct
+ */
+#define list_next_entry(node, type, member)			\
+    ({								\
+	type * next = NULL;					\
+	if ((node)->next != (node)) {				\
+	    next = list_entry((node)->next, type, member);	\
+	}							\
+	next;							\
+    })
+
 
 /**
  * list_for_each	-	iterate over a list

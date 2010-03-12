@@ -406,7 +406,7 @@ static int virtio_load_module(struct v3_vm_info * vm, char * name, int mod_size,
     }
 
     
-    if (q->cur_avail_idx < q->avail->index) {
+    if (q->cur_avail_idx != q->avail->index) {
 	uint16_t notifier_idx = q->avail->ring[q->cur_avail_idx % q->queue_size];
 	struct symmod_hdr * notifier = NULL;
 	struct vring_desc * notifier_desc = NULL;

@@ -36,6 +36,15 @@ typedef enum {
     TEST_HCALL =           0x0001,
     SYMCALL_RET_HCALL =    0x0535,         // args in GPRs
     SYMCALL_ERR_HCALL =    0x0536,         // RBX: error code
+
+    /* -- Symmod symbol table hypercall --
+     * RBX: SymTable start 
+     * RCX: SymTable size  
+     * RDX: SymStrs start 
+     * RSI: SymStrs size
+     */
+    SYMMOD_SYMS_HCALL =    0x0600,         
+    
     MEM_OFFSET_HCALL =     0x1000,         // RBX: base addr(out)
     GUEST_INFO_HCALL =     0x3000,         // no args
     TELEMETRY_HCALL =      0x3001,         // no args

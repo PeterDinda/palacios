@@ -1,1 +1,2 @@
 source "./modules/linux_mods/Kconfig"
+source "./modules/v3_mods/Kconfig"

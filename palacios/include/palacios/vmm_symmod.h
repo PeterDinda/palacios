@@ -36,38 +36,49 @@ struct v3_symmod_state {
     struct v3_symmod_loader_ops * loader_ops;
     void * loader_data;
 
-
     struct hashtable * module_table;
 };
+
+#define V3_SYMMOD_INV (0x00000000)
+#define V3_SYMMOD_LNX (0x00000001)
+#define V3_SYMMOD_MOD (0x00000002)
+#define V3_SYMMOD_SEC (0x00000003)
+union v3_symmod_flags {
+    uint32_t flags;
+    struct {
+	uint8_t type;
+    } __attribute__((packed));
+} __attribute__((packed));
 
 
 struct v3_sym_module {
     char * name;
     void * start_addr;
     void * end_addr;
+    uint32_t flags; // see 'struct v3_symmod_flags'
 } __attribute__((packed));
+
+
 
 
 int v3_set_symmod_loader(struct v3_vm_info * vm, struct v3_symmod_loader_ops * ops, void * priv_data);
 
 int v3_load_sym_module(struct v3_vm_info * vm, char * mod_name);
 
-
 int v3_init_symmod_vm(struct v3_vm_info * vm, v3_cfg_tree_t * cfg);
-
 
 struct v3_sym_module * v3_get_sym_module(struct v3_vm_info * vm, char * name);
 
 
 
 
-#define register_module(name, start, end)			\
+#define register_module(name, start, end, flags)		\
     static char v3_module_name[] = name;			\
     static struct v3_sym_module _v3_module			\
     __attribute__((__used__))					\
 	__attribute__((unused, __section__ ("_v3_modules"),	\
 		       aligned(sizeof(addr_t))))		\
-	= {v3_module_name, start, end};
+	= {v3_module_name, start, end, flags};
 
 
 int V3_init_symmod();
