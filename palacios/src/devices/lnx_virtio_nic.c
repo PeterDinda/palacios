@@ -208,14 +208,8 @@ static int handle_pkt_tx(struct guest_info *core, struct virtio_net_state * virt
     struct virtio_queue * q = &(virtio_state->tx_vq);
     struct virtio_net_hdr * hdr = NULL;
 
-    if (q->avail->index < q->last_avail_idx) {
-	q->idx_overflow = true;
-    }
 
-    q->last_avail_idx = q->avail->index;
-
-    while (q->cur_avail_idx < q->avail->index || 
-	   (q->idx_overflow && q->cur_avail_idx < (q->avail->index + 65536))) {
+    while (q->cur_avail_idx != q->avail->index) {
 	struct vring_desc * hdr_desc = NULL;
 	addr_t hdr_addr = 0;
 	uint16_t desc_idx = q->avail->ring[q->cur_avail_idx % q->queue_size];
@@ -248,13 +242,7 @@ static int handle_pkt_tx(struct guest_info *core, struct virtio_net_state * virt
 	q->used->ring[q->used->index % q->queue_size].length = req_len; // What do we set this to????
 	q->used->index++;
 
-	int last_idx = q->cur_avail_idx;
-
 	q->cur_avail_idx ++;
-
-	if (q->cur_avail_idx < last_idx) {
-	    q->idx_overflow = false;
-	}
     }
 
     if (!(q->avail->flags & VIRTIO_NO_IRQ_FLAG)) {
@@ -532,11 +520,7 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
 	goto exit;
     }
 
-    if (q->last_avail_idx > q->avail->index)
-	q->idx_overflow = true;
-    q->last_avail_idx = q->avail->index;
-
-    if (q->cur_avail_idx < q->avail->index || (q->idx_overflow && q->cur_avail_idx < q->avail->index+65536)){
+    if (q->cur_avail_idx != q->avail->index){
 	addr_t hdr_addr = 0;
 	uint16_t hdr_idx = q->avail->ring[q->cur_avail_idx % q->queue_size];
 	uint16_t buf_idx = 0;
@@ -570,10 +554,7 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
 	q->used->ring[q->used->index % q->queue_size].length = data_len + hdr_len; // This should be the total length of data sent to guest (header+pkt_data)
 	q->used->index++;
 
-	int last_idx = q->cur_avail_idx;
 	q->cur_avail_idx++;
-	if (q->cur_avail_idx < last_idx)
-	    q->idx_overflow = false;
     } else {
 	virtio->pkt_drop++;
 

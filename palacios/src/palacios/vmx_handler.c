@@ -50,10 +50,6 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
       
       v3_print_vmcs();
     */
-#ifdef CONFIG_VNET_PROFILE
-    uint64_t start, end;
-    rdtscll(start);
-#endif
 
 #ifdef CONFIG_TELEMETRY
     if (info->vm_info->enable_telemetry) {
@@ -230,22 +226,6 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
     if (info->vm_info->enable_telemetry) {
         v3_telemetry_end_exit(info, exit_info->exit_reason);
     }
-#endif
-
-#ifdef CONFIG_VNET_PROFILE
-    rdtscll(end);
-    info->vnet_times.total_exit_time = end - start;
-    if(info->vnet_times.print) 
-    	PrintError("Vnet_profiling: total_exit_time: %ld, total_handle_time: %ld memcpy_time: %ld  copy_from_guest: %ld copy_to_guest: %ld malloc_free: %ld, route_lookup: %ld\n", 
-                    (long)info->vnet_times.total_exit_time,
-	 		 (long)info->vnet_times.total_handle_time,
-			 (long)info->vnet_times.memcpy_time,
-			 (long)info->vnet_times.time_copy_from_guest,
-			 (long)info->vnet_times.time_copy_to_guest,
-			 (long)info->vnet_times.time_mallocfree,
-			 (long)info->vnet_times.time_route_lookup);
-
-    info->vnet_times.print = false;
 #endif
 
 
