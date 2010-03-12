@@ -75,7 +75,7 @@ struct vnet_ctrl_hdr {
     uint32_t num_cmds;
 } __attribute__((packed));
 
-static int virtio_reset(struct virtio_vnet_state * vnet_brg) {
+static int vnetbrg_reset(struct virtio_vnet_state * vnet_brg) {
 
     memset(vnet_brg->queue, 0, sizeof(struct virtio_queue) * 2);
 
@@ -129,7 +129,7 @@ static int handle_cmd_kick(struct guest_info * core, struct virtio_vnet_state * 
 	uint8_t status = 0;
 
 
-	PrintDebug("Descriptor Count=%d, index=%d, desc_idx=%d\n", desc_cnt, q->cur_avail_idx % QUEUE_SIZE, desc_idx);
+	PrintDebug("VNET Bridge: CMD: Descriptor Count=%d, index=%d, desc_idx=%d\n", desc_cnt, q->cur_avail_idx % QUEUE_SIZE, desc_idx);
 
 	if (desc_cnt < 3) {
 	    PrintError("VNET Bridge cmd must include at least 3 descriptors (cnt=%d)\n", desc_cnt);
@@ -159,7 +159,7 @@ static int handle_cmd_kick(struct guest_info * core, struct virtio_vnet_state * 
 		}
 
 		// add route
-		PrintDebug("Adding VNET Route\n");
+		PrintDebug("VNET Bridge: Adding VNET Route\n");
 
 		tmp_status = v3_vnet_add_route(*route);
 
@@ -301,24 +301,29 @@ exit:
 }
 
 static int vnet_send(struct v3_vnet_pkt *pkt, int pkt_len, void * private_data){
-    struct guest_info *core  = (struct guest_info *)private_data; 
+    struct virtio_vnet_state *vnet_brg  = (struct virtio_vnet_state *)private_data; 
+    struct guest_info *core = &(vnet_brg->vm->cores[0]);
 
 #ifdef CONFIG_DEBUG_VNET_BRG
     {
-    	PrintDebug("VNET Bridge: send pkt size: %d\n", pkt->size);
+    	PrintDebug("VNET Bridge: send pkt size: %d, src_id: %d, src_type: %d\n", 
+			pkt->size, pkt->src_id, pkt->src_type);
     	v3_hexdump(pkt->data,pkt->size, NULL, 0);
     }
 #endif
 
 #ifdef CONFIG_VNET_PROFILE
-    uint64_t start, end;
-    rdtscll(start);
-    core->vnet_times.time_copy_from_guest = start - core->vnet_times.virtio_handle_start;
+    uint64_t time;
+    rdtscll(time);
+    core->vnet_times.time_copy_from_guest = time - core->vnet_times.virtio_handle_start;
 #endif
 
     pkt->src_type = LINK_EDGE;
 
-    return v3_vnet_send_pkt(pkt, (void *)core);
+    v3_vnet_send_pkt(pkt, (void *)core);
+
+    return 0;
+//v3_vnet_send_pkt(pkt, (void *)core);
 }
 
 static int pkt_tx(struct guest_info *core, struct virtio_vnet_state * vnet_brg, struct vring_desc * buf_desc) 
@@ -333,7 +338,7 @@ static int pkt_tx(struct guest_info *core, struct virtio_vnet_state * vnet_brg, 
     }
  
     pkt = (struct v3_vnet_pkt *)buf;
-    if (vnet_send(pkt, len, (void *)core) == -1) {
+    if (vnet_send(pkt, len, vnet_brg) == -1) {
 	return -1;
     }
 
@@ -392,7 +397,7 @@ static int handle_pkt_tx(struct guest_info *core, struct virtio_vnet_state * vne
     return 0;
 }
 
-static int virtio_io_write(struct guest_info * core, uint16_t port, void * src, uint_t length, void * private_data) {
+static int vnetbrg_io_write(struct guest_info * core, uint16_t port, void * src, uint_t length, void * private_data) {
     struct virtio_vnet_state * vnet_brg = (struct virtio_vnet_state *)private_data;
     int port_idx = port % vnet_brg->io_range_size;
 
@@ -496,7 +501,7 @@ static int virtio_io_write(struct guest_info * core, uint16_t port, void * src, 
 
 	    if (vnet_brg->virtio_cfg.status == 0) {
 		PrintDebug("VNET Bridge: Resetting device\n");
-		virtio_reset(vnet_brg);
+		vnetbrg_reset(vnet_brg);
 	    }
 
 	    break;
@@ -513,7 +518,7 @@ static int virtio_io_write(struct guest_info * core, uint16_t port, void * src, 
 }
 
 
-static int virtio_io_read(struct guest_info * core, uint16_t port, void * dst, uint_t length, void * private_data) {
+static int vnetbrg_io_read(struct guest_info * core, uint16_t port, void * dst, uint_t length, void * private_data) {
 
     struct virtio_vnet_state * vnet_state = (struct virtio_vnet_state *)private_data;
     int port_idx = port % vnet_state->io_range_size;
@@ -654,8 +659,8 @@ static int vnet_brg_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	bars[0].type = PCI_BAR_IO;
 	bars[0].default_base_port = -1;
 	bars[0].num_ports = vbrg_state->io_range_size;
-	bars[0].io_read = virtio_io_read;
-	bars[0].io_write = virtio_io_write;
+	bars[0].io_read = vnetbrg_io_read;
+	bars[0].io_write = vnetbrg_io_write;
 	bars[0].private_data = vbrg_state;
 
 	pci_dev = v3_pci_register_device(pci_bus, PCI_STD_DEVICE, 
@@ -682,30 +687,9 @@ static int vnet_brg_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	vbrg_state->pci_bus = pci_bus;
     }
 
-    virtio_reset(vbrg_state);
+    vnetbrg_reset(vbrg_state);
 
     v3_vnet_add_bridge(vm, vnet_brg_input, (void *)vbrg_state);
-
-//for temporary hack
-#if 1	
-    {
-    	uchar_t dstmac[6] = {0xff,0xff,0xff,0xff,0xff,0xff};
-    	uchar_t zeromac[6] = {0,0,0,0,0,0};
-
-	struct v3_vnet_route route;
-	route.dst_id = 0;
-	route.dst_type = LINK_EDGE;
-	route.src_id = -1;
-	route.src_type = LINK_ANY;
-
-	memcpy(route.dst_mac, dstmac, 6);
-	route.dst_mac_qual = MAC_NONE;
-	memcpy(route.src_mac, zeromac, 6);
-	route.src_mac_qual = MAC_ANY;
-	   
-	v3_vnet_add_route(route);
-    }
-#endif
 
     return 0;
 }
