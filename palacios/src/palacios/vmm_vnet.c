@@ -261,10 +261,12 @@ int v3_vnet_add_route(struct v3_vnet_route route) {
     }
 
     flags = v3_lock_irqsave(vnet_state.lock);
+
     list_add(&(new_route->node), &(vnet_state.routes));
+    clear_hash_cache();
+
     v3_unlock_irqrestore(vnet_state.lock, flags);
    
-    clear_hash_cache();
 
 #ifdef CONFIG_DEBUG_VNET
     dump_routes();
@@ -401,11 +403,11 @@ static struct route_list * match_route(struct v3_vnet_pkt * pkt) {
     return matches;
 }
 
-static int handle_one_pkt(struct v3_vnet_pkt * pkt, void *private_data) {
+
+int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data) {
     struct route_list * matched_routes = NULL;
     unsigned long flags;
     int i;
-
 
 #ifdef CONFIG_DEBUG_VNET
    {
@@ -453,20 +455,24 @@ static int handle_one_pkt(struct v3_vnet_pkt * pkt, void *private_data) {
 #endif
 
     PrintDebug("Vnet: HandleOnePacket: route matches %d\n", matched_routes->num_routes);
+
     for (i = 0; i < matched_routes->num_routes; i++) {
 	 struct vnet_route_info * route = matched_routes->routes[i];
 	
         if (route->route_def.dst_type == LINK_EDGE) {
             pkt->dst_type = LINK_EDGE;
             pkt->dst_id = route->route_def.dst_id;
+
             if (vnet_state.bridge == NULL) {
                 PrintDebug("VNET: No bridge to sent data to links\n");
                 continue;
             }
+
             if (vnet_state.bridge->input(vnet_state.bridge->vm, pkt, vnet_state.bridge->private_data) == -1) {
                 PrintDebug("VNET: Packet not sent properly\n");
                 continue;
-	      } 
+	    } 
+
         } else if (route->route_def.dst_type == LINK_INTERFACE) {
             if (route->dst_dev->input(route->dst_dev->vm, pkt, route->dst_dev->private_data) == -1) {
                 PrintDebug("VNET: Packet not sent properly\n");
@@ -490,85 +496,83 @@ static int handle_one_pkt(struct v3_vnet_pkt * pkt, void *private_data) {
     return 0;
 }
 
-int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void *private_data) {
-    PrintDebug("In Vnet Send: pkt size: %d\n", pkt->size);
-		
-    if (handle_one_pkt(pkt, private_data) != -1) {
-        PrintDebug("VNET: send one packet! pt length %d\n", pkt->size);  
-    } else {
-        PrintDebug("VNET: Fail to forward one packet, discard it!\n"); 
-    }
-
-    return 0;
-}
-
-int v3_vnet_add_dev(struct v3_vm_info *vm,uint8_t mac[6], 
+int v3_vnet_add_dev(struct v3_vm_info *vm, uint8_t mac[6], 
 		    int (*netif_input)(struct v3_vm_info * vm, struct v3_vnet_pkt * pkt, void * private_data), 
 		    void * priv_data){
     struct vnet_dev * new_dev = NULL;
     unsigned long flags;
-    int dev_id;
 
-    flags = v3_lock_irqsave(vnet_state.lock);
-	
-    new_dev = find_dev_by_mac(mac);
-
-    if (new_dev) {
-	PrintDebug("VNET: register device: Already has device with the same mac\n");
-	dev_id = -1;
-	goto exit;
-    }
-    
     new_dev = (struct vnet_dev *)V3_Malloc(sizeof(struct vnet_dev)); 
 
     if (new_dev == NULL) {
 	PrintError("VNET: Malloc fails\n");
-	dev_id = -1;
-	goto exit;
+	return -1;
     }
    
     memcpy(new_dev->mac_addr, mac, 6);
     new_dev->input = netif_input;
     new_dev->private_data = priv_data;
     new_dev->vm = vm;
-	
-    list_add(&(new_dev->node), &(vnet_state.devs));
-    vnet_state.num_devs ++;
-    new_dev->dev_id = vnet_state.num_devs;
-    dev_id = new_dev->dev_id;
+    new_dev->dev_id = 0;	
+
+    flags = v3_lock_irqsave(vnet_state.lock);
+
+    if (!find_dev_by_mac(mac)) {
+	list_add(&(new_dev->node), &(vnet_state.devs));
+	new_dev->dev_id = ++vnet_state.num_devs;
+    }
+
+    v3_unlock_irqrestore(vnet_state.lock, flags);
+
+    // if the device was found previosly the id should still be 0
+    if (new_dev->dev_id == 0) {
+	PrintError("Device Alrady exists\n");
+	return -1;
+    }
 
     PrintDebug("Vnet: Add Device: dev_id %d, input : %p, private_data %p\n",
 			new_dev->dev_id, new_dev->input, new_dev->private_data);
 
-exit:
-	
-    v3_unlock_irqrestore(vnet_state.lock, flags);
- 
-    return dev_id;
+    return new_dev->dev_id;
 }
 
 
 int v3_vnet_add_bridge(struct v3_vm_info * vm,
-				int (*input)(struct v3_vm_info * vm, struct v3_vnet_pkt * pkt, void * private_data), 
-		    		void * priv_data){
+		       int (*input)(struct v3_vm_info * vm, struct v3_vnet_pkt * pkt, void * private_data), 
+		       void * priv_data) {
     unsigned long flags;
-	
+    int bridge_free = 0;
+    struct vnet_brg_dev * tmp_bridge = NULL;
+    
+    
     flags = v3_lock_irqsave(vnet_state.lock);
 
-    if(vnet_state.bridge != NULL){
-	PrintDebug("Vnet: Replace current bridge with a new one\n");
-    } else {
-    	vnet_state.bridge = (struct vnet_brg_dev *)V3_Malloc(sizeof(struct vnet_brg_dev));
-	if (vnet_state.bridge == NULL) {
-	    PrintError("Malloc Fails\n");
-	    return -1;
-	}
+    if (vnet_state.bridge == NULL) {
+	bridge_free = 1;
+	vnet_state.bridge = (void *)1;
     }
 
-    vnet_state.bridge->vm = vm;
-    vnet_state.bridge->input = input;
-    vnet_state.bridge->private_data = priv_data;
+    v3_unlock_irqrestore(vnet_state.lock, flags);
 
+    if (bridge_free == 0) {
+	PrintError("Bridge already set\n");
+	return -1;
+    }
+
+    tmp_bridge = (struct vnet_brg_dev *)V3_Malloc(sizeof(struct vnet_brg_dev));
+
+    if (tmp_bridge == NULL) {
+	PrintError("Malloc Fails\n");
+	return -1;
+    }
+    
+    tmp_bridge->vm = vm;
+    tmp_bridge->input = input;
+    tmp_bridge->private_data = priv_data;
+
+    // make this atomic to avoid possible race conditions
+    flags = v3_lock_irqsave(vnet_state.lock);
+    vnet_state.bridge = tmp_bridge;
     v3_unlock_irqrestore(vnet_state.lock, flags);
 
     return 0;

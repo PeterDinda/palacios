@@ -613,6 +613,7 @@ static int dev_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     virtio_reset(vnet_state);
 
+    V3_Print("Registering Virtio device as vnet bridge\n");
     v3_vnet_add_bridge(vm, vnet_pkt_input_cb, (void *)vnet_state);
 
     return 0;
