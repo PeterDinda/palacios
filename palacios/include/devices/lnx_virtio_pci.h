@@ -136,9 +136,6 @@ struct virtio_queue {
     addr_t ring_avail_addr;
     addr_t ring_used_addr;
   
-    uint16_t last_avail_idx;
-    int idx_overflow;
-
     struct vring_desc * desc; // We can treat this as an array...
     struct vring_avail * avail;
     struct vring_used * used;
