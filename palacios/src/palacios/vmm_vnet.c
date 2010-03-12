@@ -421,12 +421,6 @@ int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data) {
    }
 #endif
 
-#ifdef CONFIG_VNET_PROFILE
-    struct guest_info *core = (struct guest_info *)private_data;
-    uint64_t start, end;
-    rdtscll(start);
-#endif
-
     flags = v3_lock_irqsave(vnet_state.lock);
 
     look_into_cache(pkt, &matched_routes);
@@ -447,12 +441,6 @@ int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data) {
 
     v3_unlock_irqrestore(vnet_state.lock, flags);
 
-#ifdef CONFIG_VNET_PROFILE
-    {
-    	rdtscll(end);
-	core->vnet_times.time_route_lookup = end - start;
-    }
-#endif
 
     PrintDebug("Vnet: HandleOnePacket: route matches %d\n", matched_routes->num_routes);
 
@@ -485,13 +473,6 @@ int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data) {
 
         PrintDebug("Vnet: HandleOnePacket: Forward packet according to Route\n");
     }
-
-#ifdef CONFIG_VNET_PROFILE
-    {
-    	rdtscll(start);
-	core->vnet_times.time_copy_to_guest = start - end;
-    }
-#endif
     
     return 0;
 }

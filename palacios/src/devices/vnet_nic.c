@@ -40,83 +40,11 @@ struct vnet_nic_state {
     int vnet_dev_id;
 };
 
-#if 0
-//Malloc/Free version of send
-static int vnet_send(uint8_t * buf, uint32_t len, void * private_data, struct vm_device *dest_dev){
-    struct v3_vnet_pkt * pkt = NULL;
-    struct guest_info *core  = (struct guest_info *)private_data; 
 
-#ifdef WCONFIG_DEBUG_VNET_NIC
-    {
-    	PrintDebug("Virtio VNET-NIC: send pkt size: %d\n", len);
-    	v3_hexdump(buf, len, NULL, 0);
-    }
-#endif
-
-#ifdef CONFIG_VNET_PROFILE
-    uint64_t start, end;
-    rdtscll(start);
-#endif
-
-    pkt = (struct v3_vnet_pkt *)V3_Malloc(sizeof(struct v3_vnet_pkt));
-
-    if(pkt == NULL){
-	PrintError("Malloc() fails");
-	return -1;
-    }
-	
-#ifdef CONFIG_VNET_PROFILE
-    {
-    	rdtscll(end);
-    	core->vnet_times.time_mallocfree = end - start;
-    }
-#endif
-
-
-    pkt->size = len;
-    pkt->src_type = LINK_INTERFACE;
-    pkt->src_id = 0;
-    memcpy(pkt->data, buf, pkt->size);
-
-#ifdef CONFIG_VNET_PROFILE
-    {
-    	rdtscll(start);
-    	core->vnet_times.memcpy_time = start - end;
-	core->vnet_times.time_copy_from_guest = start - core->vnet_times.virtio_handle_start - core->vnet_times.time_mallocfree;
-    }
-#endif
-
-    v3_vnet_send_pkt(pkt, (void *)core);
-
-#ifdef CONFIG_VNET_PROFILE
-    rdtscll(start);
-#endif
-
-    V3_Free(pkt);
-
-#ifdef CONFIG_VNET_PROFILE
-    {
-    	rdtscll(end);
-    	core->vnet_times.time_mallocfree += end - start;
-    }
-#endif
-
-    return 0;
-}
-
-#endif
-
-#if 1
-//alternative way, no malloc/free
 static int vnet_send(uint8_t * buf, uint32_t len, void * private_data, struct vm_device *dest_dev){
     struct v3_vnet_pkt pkt;
     struct vnet_nic_state *vnetnic = (struct vnet_nic_state *)private_data;
-    struct guest_info *core  = &(vnetnic->vm->cores[0]); 
 
-#ifdef CONFIG_VNET_PROFILE
-    uint64_t start, end;
-    rdtscll(start);
-#endif
 
     pkt.size = len;
     pkt.src_type = LINK_INTERFACE;
@@ -132,54 +60,10 @@ static int vnet_send(uint8_t * buf, uint32_t len, void * private_data, struct vm
 #endif
 
 
-#ifdef CONFIG_VNET_PROFILE
-    rdtscll(end);
-    core->vnet_times.time_copy_from_guest = end - core->vnet_times.virtio_handle_start;
-    core->vnet_times.memcpy_time = end - start;
-#endif
-
-    v3_vnet_send_pkt(&pkt, (void *)core);
+    v3_vnet_send_pkt(&pkt, NULL);
 
     return 0;
 }
-#endif
-
-#if 0
-//alternative way, no malloc/free, no copy
-//need to change pkt format
-static int vnet_send(uint8_t * buf, uint32_t len, void * private_data, struct vm_device *dest_dev){
-    struct v3_vnet_pkt pkt;
-    struct guest_info *core  = (struct guest_info *)private_data; 
-
-    
-#ifdef CONFIG_DEBUG_VNET_NIC
-    {
-    	PrintDebug("Virtio VNET-NIC: send pkt size: %d\n", len);
-    	v3_hexdump(buf, len, NULL, 0);
-    }
-#endif
-
-    pkt.size = len;
-    pkt.data = buf;
-
-#ifdef CONFIG_VNET_PROFILE
-    uint64_t start, end;
-    rdtscll(start);
-#endif
-
-    v3_vnet_send_pkt(&pkt, (void *)core);
-
-#ifdef CONFIG_VNET_PROFILE
-    {
-    	rdtscll(end);
-    	core->vnet_times.vnet_handle_time = end - start;
-    }
-#endif
-
-    return 0;
-}
-
-#endif
 
 static int virtio_input(struct v3_vm_info *info, struct v3_vnet_pkt * pkt, void * private_data){
     struct vnet_nic_state *vnetnic = (struct vnet_nic_state *)private_data;
@@ -302,45 +186,6 @@ static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	    memcpy(route.src_mac, zeromac, 6);
 	    route.src_mac_qual = MAC_ANY;
 
-	    v3_vnet_add_route(route);
-	}
-    }
-#endif
-#if 0 //temporay hacking for vnet virtio bridge
-    {
-	uchar_t tapmac[6] = {0x00,0x02,0x55,0x67,0x42,0x39}; //for Intel-VT test HW
-    	//uchar_t tapmac[6] = {0x6e,0xa8,0x75,0xf4,0x82,0x95};
-    	uchar_t dstmac[6] = {0xff,0xff,0xff,0xff,0xff,0xff};
-    	uchar_t zeromac[6] = {0,0,0,0,0,0};
-
-	struct v3_vnet_route route;
-        route.dst_id = vnet_dev_id;
-	route.dst_type = LINK_INTERFACE;
-	route.src_id = -1;
-	route.src_type = LINK_ANY;
-
-	if(!strcmp(name, "vnet_nicdom0")){
-	    memcpy(route.dst_mac, tapmac, 6);
-	    route.dst_mac_qual = MAC_NONE;
-	    memcpy(route.src_mac, zeromac, 6);
-	    route.src_mac_qual = MAC_ANY;
-	   
-	    v3_vnet_add_route(route);
-
-	    memcpy(route.dst_mac, dstmac, 6);
-	    route.dst_mac_qual = MAC_NONE;
-	    memcpy(route.src_mac, tapmac, 6);
-	    route.src_mac_qual = MAC_NOT;
-
-	    v3_vnet_add_route(route);
-	}
-
-	if (!strcmp(name, "vnet_nic0")){
-	    memcpy(route.dst_mac, zeromac, 6);
-	    route.dst_mac_qual = MAC_ANY;
-	    memcpy(route.src_mac, tapmac, 6);
-	    route.src_mac_qual = MAC_NONE;
-	   
 	    v3_vnet_add_route(route);
 	}
     }

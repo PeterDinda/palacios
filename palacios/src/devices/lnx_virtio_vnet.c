@@ -315,13 +315,6 @@ static int handle_pkt_kick(struct guest_info *core, struct virtio_vnet_state * v
 	vnet_state->virtio_cfg.pci_isr = 0x1;
     }
 
-#ifdef CONFIG_VNET_PROFILE
-    uint64_t time;
-    rdtscll(time);
-    core->vnet_times.total_handle_time = time - core->vnet_times.virtio_handle_start;
-    core->vnet_times.print = true;
-#endif
-
     return 0;
 }
 
@@ -445,7 +438,7 @@ static int virtio_io_write(struct guest_info * core, uint16_t port, void * src, 
 }
 
 
-static int vnetbrg_io_read(struct guest_info * core, uint16_t port, void * dst, uint_t length, void * private_data) {
+static int virtio_io_read(struct guest_info * core, uint16_t port, void * dst, uint_t length, void * private_data) {
 
     struct virtio_vnet_state * vnet_state = (struct virtio_vnet_state *)private_data;
     int port_idx = port % vnet_state->io_range_size;

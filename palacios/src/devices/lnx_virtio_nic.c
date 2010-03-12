@@ -37,10 +37,6 @@
 #define PrintDebug(fmt, args...)
 #endif
 
-#ifdef CONFIG_VNET_PROFILE
-#define VIRTIO_NIC_PROFILE
-#endif
-
 #define VIRTIO_NET_S_LINK_UP	1	/* Link is up */
 #define VIRTIO_NET_MAX_BUFSIZE (sizeof(struct virtio_net_hdr) + (64 << 10))
 
@@ -250,18 +246,6 @@ static int handle_pkt_tx(struct guest_info *core, struct virtio_net_state * virt
 	virtio_state->virtio_cfg.pci_isr = 0x1;
     }
 
-#ifdef VIRTIO_NIC_PROFILE
-    if(virtio_state->pkt_sent % 10000 == 0)
- 	PrintError("Virtio NIC: %p, pkt_sent: %ld\n", virtio_state, virtio_state->pkt_sent);
-#endif	
-
-#ifdef CONFIG_VNET_PROFILE
-    uint64_t time;
-    rdtscll(time);
-    core->vnet_times.total_handle_time = time - core->vnet_times.virtio_handle_start;
-    core->vnet_times.print = true;
-#endif
-
     return 0;
 }
 
@@ -312,11 +296,6 @@ static int virtio_io_write(struct guest_info *core, uint16_t port, void * src, u
     struct virtio_net_state * virtio = (struct virtio_net_state *)private_data;
     int port_idx = port % virtio->io_range_size;
 
-#ifdef CONFIG_VNET_PROFILE
-    uint64_t time;
-    rdtscll(time);
-    core->vnet_times.virtio_handle_start = time;
-#endif
 
     PrintDebug("VIRTIO NIC %p Write for port %d (index=%d) len=%d, value=%x\n", private_data,
 	       port, port_idx,  length, *(uint32_t *)src);
@@ -557,11 +536,6 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
 	q->cur_avail_idx++;
     } else {
 	virtio->pkt_drop++;
-
-#ifdef VIRTIO_NIC_PROFILE
-	PrintError("Virtio NIC: %p, one pkt dropped receieved: %ld, dropped: %ld, sent: %ld curidx: %d, avaiIdx: %d\n", 
-		virtio, virtio->pkt_recv, virtio->pkt_drop, virtio->pkt_sent, q->cur_avail_idx, q->avail->index);
-#endif
     }
 
     if (!(q->avail->flags & VIRTIO_NO_IRQ_FLAG)) {
@@ -569,13 +543,6 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
 	v3_pci_raise_irq(virtio->virtio_dev->pci_bus, 0, virtio->pci_dev);
 	virtio->virtio_cfg.pci_isr = 0x1;
     }
-
-#ifdef VIRTIO_NIC_PROFILE
-    if ((virtio->pkt_recv % 10000) == 0){
-	PrintError("Virtio NIC: %p, receieved: %ld, dropped: %ld, sent: %ld\n", 
-		virtio, virtio->pkt_recv, virtio->pkt_drop, virtio->pkt_sent);
-    }
-#endif
 
     ret_val = offset;
 
