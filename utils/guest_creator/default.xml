@@ -3,12 +3,12 @@
 <vm class="PC"> 
 
 	<!-- Memory in MB -->
-	<memory>512</memory> 
+	<memory>256</memory> 
 
 	<!-- Basic VMM system flags -->
 	<telemetry>enable</telemetry>
 	<paging mode="VTLB" />
-	<schedule_hz>1000</schedule_hz>
+	<schedule_hz>100</schedule_hz>
 
 	<cores count="1"><core /></cores>
 
@@ -73,24 +73,6 @@
 			<controller>southbridge</controller>
 		</device>
                  
-                <device id="LNX_VIRTIO_NIC" name="net_virtio0">
-                        <bus>pci0</bus>
-                </device>
-
-		 <device id="LNX_VIRTIO_NIC" name="net_virtio1">
-                        <bus>pci0</bus>
-                </device>
-
-                <device id="LNX_VIRTIO_NIC" name="net_virtio2">
-                        <bus>pci0</bus>
-                </device>
-
-		 <device id="PCI_PASSTHROUGH" name="e1000">
-                        <bus>pci0</bus>
-                        <vendor_id>0x8086</vendor_id>
-                        <device_id>0x100e</device_id>
-                        <irq>59</irq>
-                </device>
 
 
 <!--
@@ -135,23 +117,6 @@
 			</frontend>
 		</device>
 
-		<device id="VNET_NIC", name="vnet_nic0">
-			<frontend tag="net_virtio0">
-				<mac>10:20:30:40:50:60</mac>
-			</frontend>
-		</device>
-
-		<device id="VNET_NIC", name="vnet_nic1">
-                        <frontend tag="net_virtio1">
-                       		 <mac>10:20:30:40:50:61</mac>
-                        </frontend>
-                </device>
-
-                <device id="VNET_NIC", name="vnet_nic2">
-                        <frontend tag="net_virtio2">
-                                <mac>10:20:30:40:50:62</mac>
-                        </frontend>
-                </device>
 
 <!---
 		<device id="SYM_SWAP" name="sym swap">
