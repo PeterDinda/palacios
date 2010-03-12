@@ -41,8 +41,9 @@
 #endif
 
 
-
-
+#ifdef CONFIG_VNET
+#include <palacios/vmm_vnet.h>
+#endif
 
 
 #ifdef CONFIG_SYMBIOTIC
@@ -113,6 +114,10 @@ struct guest_info {
     struct v3_vm_info * vm_info;
     // the logical cpu this guest context is executing on
     int cpu_id;
+
+#ifdef CONFIG_VNET_PROFILE
+    struct v3_vnet_profile vnet_times;
+#endif
 };
 
 

@@ -35,12 +35,13 @@
 
 struct vnet_nic_state {
     char mac[6];
-    struct guest_info * core;
+    struct v3_vm_info * vm;
     struct v3_dev_net_ops net_ops;
+    int vnet_dev_id;
 };
 
 #if 0
-//used when virtio_nic get a packet from guest and send it to the backend
+//Malloc/Free version of send
 static int vnet_send(uint8_t * buf, uint32_t len, void * private_data, struct vm_device *dest_dev){
     struct v3_vnet_pkt * pkt = NULL;
     struct guest_info *core  = (struct guest_info *)private_data; 
@@ -109,14 +110,8 @@ static int vnet_send(uint8_t * buf, uint32_t len, void * private_data, struct vm
 //alternative way, no malloc/free
 static int vnet_send(uint8_t * buf, uint32_t len, void * private_data, struct vm_device *dest_dev){
     struct v3_vnet_pkt pkt;
-    struct guest_info *core  = (struct guest_info *)private_data; 
-
-#ifdef CONFIG_DEBUG_VNET_NIC
-    {
-    	PrintDebug("Virtio VNET-NIC: send pkt size: %d\n", len);
-    	v3_hexdump(buf, len, NULL, 0);
-    }
-#endif
+    struct vnet_nic_state *vnetnic = (struct vnet_nic_state *)private_data;
+    struct guest_info *core  = &(vnetnic->vm->cores[0]); 
 
 #ifdef CONFIG_VNET_PROFILE
     uint64_t start, end;
@@ -125,8 +120,17 @@ static int vnet_send(uint8_t * buf, uint32_t len, void * private_data, struct vm
 
     pkt.size = len;
     pkt.src_type = LINK_INTERFACE;
-    pkt.src_id = 0;
+    pkt.src_id = vnetnic->vnet_dev_id;
     memcpy(pkt.data, buf, pkt.size);
+
+#ifdef CONFIG_DEBUG_VNET_NIC
+    {
+    	PrintDebug("Virtio VNET-NIC: send pkt size: %d, pkt src_id: %d, src_type: %d\n", 
+			len, pkt.src_id, pkt.src_type);
+    	v3_hexdump(buf, len, NULL, 0);
+    }
+#endif
+
 
 #ifdef CONFIG_VNET_PROFILE
     rdtscll(end);
@@ -250,6 +254,7 @@ static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     vnetnic->net_ops.send = vnet_send;
     memcpy(vnetnic->mac, mac, 6);
+    vnetnic->vm = vm;
 	
     if (v3_dev_connect_net(vm, v3_cfg_val(frontend_cfg, "tag"), 
 			   &(vnetnic->net_ops), frontend_cfg, vnetnic) == -1) {
@@ -264,12 +269,44 @@ static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     if ((vnet_dev_id = register_to_vnet(vm, vnetnic, name, vnetnic->mac)) == -1) {
 	PrintError("Vnet-nic device %s (mac: %s) fails to registered to VNET\n", name, macstr);
     }
+    vnetnic->vnet_dev_id = vnet_dev_id;
 
     PrintDebug("Vnet-nic device %s (mac: %s, %ld) registered to VNET\n", name, macstr, *((ulong_t *)vnetnic->mac));
 
 
-//for temporary hack
-#if 0
+//for temporary hack for vnet bridge test
+#if 1
+    {
+    	uchar_t zeromac[6] = {0,0,0,0,0,0};
+		
+	if(!strcmp(name, "vnet_nic")){
+	    struct v3_vnet_route route;
+		
+	    route.dst_id = vnet_dev_id;
+	    route.dst_type = LINK_INTERFACE;
+	    route.src_id = 0;
+	    route.src_type = LINK_EDGE;
+	    memcpy(route.dst_mac, zeromac, 6);
+	    route.dst_mac_qual = MAC_ANY;
+	    memcpy(route.src_mac, zeromac, 6);
+	    route.src_mac_qual = MAC_ANY;  
+	    v3_vnet_add_route(route);
+
+
+	    route.dst_id = 0;
+	    route.dst_type = LINK_EDGE;
+	    route.src_id = vnet_dev_id;
+	    route.src_type = LINK_INTERFACE;
+	    memcpy(route.dst_mac, zeromac, 6);
+	    route.dst_mac_qual = MAC_ANY;
+	    memcpy(route.src_mac, zeromac, 6);
+	    route.src_mac_qual = MAC_ANY;
+
+	    v3_vnet_add_route(route);
+	}
+    }
+#endif
+#if 0 //temporay hacking for vnet virtio bridge
     {
 	uchar_t tapmac[6] = {0x00,0x02,0x55,0x67,0x42,0x39}; //for Intel-VT test HW
     	//uchar_t tapmac[6] = {0x6e,0xa8,0x75,0xf4,0x82,0x95};
@@ -307,7 +344,6 @@ static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	    v3_vnet_add_route(route);
 	}
     }
-
 #endif
 
     return 0;

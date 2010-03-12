@@ -26,8 +26,8 @@
 
 #include <palacios/vmm.h>
 
-typedef enum {MAC_ANY, MAC_NOT, MAC_NONE} mac_type_t; //for 'src_mac_qual' and 'dst_mac_qual'
-typedef enum {LINK_INTERFACE, LINK_EDGE, LINK_ANY} link_type_t; //for 'type' and 'src_type' in struct routing
+typedef enum {MAC_ANY=0, MAC_NOT, MAC_NONE, MAC_ADDR} mac_type_t; //for 'src_mac_qual' and 'dst_mac_qual'
+typedef enum {LINK_INTERFACE=0, LINK_EDGE, LINK_ANY} link_type_t; //for 'type' and 'src_type' in struct routing
 
 
 #define VNET_HASH_SIZE 17

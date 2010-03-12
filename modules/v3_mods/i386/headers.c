@@ -21,9 +21,9 @@
 
 
 
-#ifdef CONFIG_LNX_MOD_32BIT_TEST
-extern uint8_t v3_lnx_mod_32bit_test_start[];
-extern uint8_t v3_lnx_mod_32bit_test_stop[];
+#ifdef CONFIG_V3_MOD_32BIT_TEST
+extern uint8_t v3_mod_32bit_test_start[];
+extern uint8_t v3_mod_32bit_test_stop[];
 
-register_module("test_32", v3_lnx_mod_32bit_test_start, v3_lnx_mod_32bit_test_stop, V3_SYMMOD_LNX);
+register_module("v3_test_32", v3_mod_32bit_test_start, v3_mod_32bit_test_stop, V3_SYMMOD_MOD);
 #endif

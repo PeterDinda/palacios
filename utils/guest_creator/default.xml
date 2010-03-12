@@ -3,12 +3,12 @@
 <vm class="PC"> 
 
 	<!-- Memory in MB -->
-	<memory>256</memory> 
+	<memory>512</memory> 
 
 	<!-- Basic VMM system flags -->
 	<telemetry>enable</telemetry>
 	<paging mode="VTLB" />
-	<schedule_hz>100</schedule_hz>
+	<schedule_hz>1000</schedule_hz>
 
 	<cores count="1"><core /></cores>
 
@@ -29,7 +29,7 @@
 	<!-- This is where you add disk images -->
 	<files>
 		<!-- The file 'id' is used as a reference for other configuration components -->
-		<file id="boot-cd" filename="/home/ktpedre/google_code/smp_guest/kitten_guest/arch/x86_64/boot/image.iso" />
+		<file id="boot-cd" filename="image.iso" />
 		<!--<file id="harddisk" filename="firefox.img" />-->
 	</files>
 
@@ -72,6 +72,26 @@
 			<bus>pci0</bus>
 			<controller>southbridge</controller>
 		</device>
+                 
+                <device id="LNX_VIRTIO_NIC" name="net_virtio0">
+                        <bus>pci0</bus>
+                </device>
+
+		 <device id="LNX_VIRTIO_NIC" name="net_virtio1">
+                        <bus>pci0</bus>
+                </device>
+
+                <device id="LNX_VIRTIO_NIC" name="net_virtio2">
+                        <bus>pci0</bus>
+                </device>
+
+		 <device id="PCI_PASSTHROUGH" name="e1000">
+                        <bus>pci0</bus>
+                        <vendor_id>0x8086</vendor_id>
+                        <device_id>0x100e</device_id>
+                        <irq>59</irq>
+                </device>
+
 
 <!--
 		<device id="LNX_VIRTIO_SYM" name="sym_pci">
@@ -115,20 +135,35 @@
 			</frontend>
 		</device>
 
+		<device id="VNET_NIC", name="vnet_nic0">
+			<frontend tag="net_virtio0">
+				<mac>10:20:30:40:50:60</mac>
+			</frontend>
+		</device>
+
+		<device id="VNET_NIC", name="vnet_nic1">
+                        <frontend tag="net_virtio1">
+                       		 <mac>10:20:30:40:50:61</mac>
+                        </frontend>
+                </device>
+
+                <device id="VNET_NIC", name="vnet_nic2">
+                        <frontend tag="net_virtio2">
+                                <mac>10:20:30:40:50:62</mac>
+                        </frontend>
+                </device>
+
 <!---
 		<device id="SYM_SWAP" name="sym swap">
 			<frontend tag="blk_virtio" />
 			<size>150</size>
 		</device>
--->
-
-
 
 		<device id="RAMDISK" name="HD0">
 			<file>harddisk</file>
 			<frontend tag="blk_virtio" />
 		</device>
-
+-->
 
 		<device id="NVRAM" name="nvram">
 			<storage>ide</storage>

@@ -146,7 +146,7 @@ static int pkt_tx(struct guest_info *core, struct virtio_net_state * virtio, str
 	return -1;
     }
 
-    if (virtio->net_ops->send(buf, len, (void *)core, NULL) == -1) {
+    if (virtio->net_ops->send(buf, len, virtio->backend_data, NULL) == -1) {
 	return -1;
     }
 

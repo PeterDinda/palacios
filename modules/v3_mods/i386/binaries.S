@@ -1,3 +1,5 @@
+#;  -*- fundamental -*-
+
 /* 
  * This file is part of the Palacios Virtual Machine Monitor developed
  * by the V3VEE Project with funding from the United States National 
@@ -7,7 +9,7 @@
  * and the University of New Mexico.  You can find out more at 
  * http://www.v3vee.org
  *
- * Copyright (c) 2010, Jack Lange <jarusl@cs.northwestern.edu> 
+ * Copyright (c) 2010, Jack Lange <jarusl@cs.northwestern.edu>
  * Copyright (c) 2010, The V3VEE Project <http://www.v3vee.org> 
  * All rights reserved.
  *
@@ -17,13 +19,17 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#include <palacios/vmm_symmod.h>
+.data
 
+#define TOSTR(str) #str
+#define MOD_DIR(name) TOSTR(./modules/v3_mods/i386/binaries/name)
 
-
-#ifdef CONFIG_LNX_MOD_32BIT_TEST
-extern uint8_t v3_lnx_mod_32bit_test_start[];
-extern uint8_t v3_lnx_mod_32bit_test_stop[];
-
-register_module("test_32", v3_lnx_mod_32bit_test_start, v3_lnx_mod_32bit_test_stop, V3_SYMMOD_LNX);
+	
+#ifdef CONFIG_V3_MOD_32BIT_TEST
+.globl v3_mod_32bit_test_start
+v3_mod_32bit_test_start:
+.incbin MOD_DIR(test.vo)
+.globl v3_mod_32bit_test_stop
+v3_mod_32bit_test_stop:
 #endif
+

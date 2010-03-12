@@ -13,6 +13,7 @@ obj-$(CONFIG_LINUX_VIRTIO_BALLOON) += lnx_virtio_balloon.o
 obj-$(CONFIG_LINUX_VIRTIO_BLOCK) += lnx_virtio_blk.o
 obj-$(CONFIG_LINUX_VIRTIO_SYM) += lnx_virtio_sym.o
 obj-$(CONFIG_LINUX_VIRTIO_NET) += lnx_virtio_nic.o
+obj-$(CONFIG_LINUX_VIRTIO_VNET) += lnx_virtio_vnet.o
 obj-$(CONFIG_VNET_NIC) += vnet_nic.o
 obj-$(CONFIG_NVRAM) += nvram.o
 obj-$(CONFIG_OS_DEBUG) += os_debug.o
@@ -35,4 +36,3 @@ obj-$(CONFIG_PASSTHROUGH_PCI) += pci_passthrough.o
 
 obj-$(CONFIG_SYMMOD) += lnx_virtio_symmod.o
 
-obj-$(CONFIG_VNET_BRG) += lnx_virtio_vnet.o

@@ -1,0 +1,20 @@
+
+
+
+config LINUX_KERN_MODS
+	bool "Include Linux kernel modules"
+	depends on SYMMOD
+
+if LINUX_KERN_MODS 
+
+config LINUX_TEST_MODULE
+	bool "Linux test module"
+	default y if SYMMOD
+	depends on SYMMOD
+	help 
+	    This is a simple test linux kernel module
+
+
+	
+
+endif

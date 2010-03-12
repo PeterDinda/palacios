@@ -215,7 +215,7 @@ static int handle_kick(struct guest_info * core, struct virtio_blk_state * blk_s
     PrintDebug("VIRTIO KICK: cur_index=%d (mod=%d), avail_index=%d\n", 
 	       q->cur_avail_idx, q->cur_avail_idx % QUEUE_SIZE, q->avail->index);
 
-    while (q->cur_avail_idx < q->avail->index) {
+    while (q->cur_avail_idx != q->avail->index) {
 	struct vring_desc * hdr_desc = NULL;
 	struct vring_desc * buf_desc = NULL;
 	struct vring_desc * status_desc = NULL;

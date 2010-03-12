@@ -47,13 +47,10 @@ int V3_init_symmod() {
     master_mod_table = v3_create_htable(0, mod_hash_fn, mod_eq_fn);
 
     while (tmp_mod != __stop__v3_modules) {
-
 	if (v3_htable_search(master_mod_table, (addr_t)(tmp_mod->name))) {
 	    PrintError("Multiple instances of Module (%s)\n", tmp_mod->name);
 	    return -1;
-	}
-	
-	
+	}	
 	PrintDebug("Registering Symbiotic Module (%s)\n", tmp_mod->name);
 
 	if (v3_htable_insert(master_mod_table, 
@@ -62,12 +59,9 @@ int V3_init_symmod() {
 	    PrintError("Could not insert module %s to master list\n", tmp_mod->name);
 	    return -1;
 	}
-
-
 	tmp_mod = &(__start__v3_modules[++i]);
     }
     
-
     return 0;
 }
 
@@ -111,7 +105,6 @@ int v3_load_sym_module(struct v3_vm_info * vm, char * mod_name) {
 
 struct v3_sym_module * v3_get_sym_module(struct v3_vm_info * vm, char * name) {
     struct v3_sym_module * mod = (struct v3_sym_module *)v3_htable_search(master_mod_table, (addr_t)name);
-
 
     if (!mod) {
 	PrintError("Could not find module %s\n", name);
