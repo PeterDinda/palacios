@@ -419,6 +419,8 @@ int v3_svm_enter(struct guest_info * info) {
     // disable global interrupts for vm state transition
     v3_clgi();
 
+    /// checkpoint 
+
     // Synchronize the guest state to the VMCB
     guest_state->cr0 = info->ctrl_regs.cr0;
     guest_state->cr2 = info->ctrl_regs.cr2;
