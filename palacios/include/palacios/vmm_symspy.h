@@ -32,7 +32,8 @@ struct v3_symspy_global_page {
     union {
 	uint32_t feature_flags;
 	struct {
-	    uint_t pci_map_valid      : 1;
+	    uint8_t pci_map_valid      : 1;
+	    uint8_t symmod_enabled     : 1;
 	} __attribute__((packed));
     } __attribute__((packed));
     
@@ -87,6 +88,8 @@ int v3_sym_unmap_pci_passthrough(struct v3_vm_info * vm, uint_t bus, uint_t dev,
 
 
 
+struct v3_symspy_global_page * v3_sym_get_symspy_vm(struct v3_vm_info * vm);
+struct v3_symspy_local_page * v3_sym_get_symspy_core(struct guest_info * core);
 
 #endif
 

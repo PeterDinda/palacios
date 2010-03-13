@@ -25,19 +25,11 @@
 #include <palacios/vmm_config.h>
 #include <palacios/vmm_hashtable.h>
 
-struct v3_symmod_loader_ops {
-
-    int (*load_module)(struct v3_vm_info * vm, char * name, int len, void * priv_data);
-};
 
 
-struct v3_symmod_state {
 
-    struct v3_symmod_loader_ops * loader_ops;
-    void * loader_data;
 
-    struct hashtable * module_table;
-};
+
 
 #define V3_SYMMOD_INV (0x00000000)
 #define V3_SYMMOD_LNX (0x00000001)
@@ -58,6 +50,25 @@ struct v3_sym_module {
     uint32_t flags; // see 'struct v3_symmod_flags'
 } __attribute__((packed));
 
+
+
+struct v3_symmod_loader_ops {
+
+    int (*load_module)(struct v3_vm_info * vm, struct v3_sym_module * mod,  void * priv_data);
+};
+
+
+struct v3_symmod_state {
+
+    struct v3_symmod_loader_ops * loader_ops;
+    void * loader_data;
+
+    struct hashtable * module_table;
+
+    /* List containing V3 symbols */
+    /* (defined in vmm_symmod.c)  */
+    struct list_head v3_sym_list;
+};
 
 
 

@@ -24,6 +24,7 @@
 static struct hashtable * master_mod_table = NULL;
 
 
+
 static uint_t mod_hash_fn(addr_t key) {
     char * name = (char *)key;
     return v3_hash_buffer((uchar_t *)name, strlen(name));
@@ -65,9 +66,80 @@ int V3_init_symmod() {
     return 0;
 }
 
+/* ***************** */
+/* Linkage functions */
+/* ***************** */
 
 
-int v3_init_symmod_vm(struct v3_vm_info * info, v3_cfg_tree_t * cfg) {
+/* Data structure containing symbols exported via the symbiotic interface */
+struct v3_symbol_def32 {
+    uint32_t name_gva;
+    uint32_t value;
+} __attribute__((packed));
+
+struct v3_symbol {
+    char name[256];
+    uint64_t linkage;
+
+    struct list_head sym_node;
+};
+
+
+
+#include <palacios/vm_guest_mem.h>
+
+static int symbol_hcall_handler(struct guest_info * core, hcall_id_t hcall_id, void * priv_data) {
+    struct v3_symmod_state * symmod_state = &(core->vm_info->sym_vm_state.symmod_state);
+    addr_t sym_start_gva = core->vm_regs.rbx;
+    uint32_t sym_size = core->vm_regs.rcx;
+
+    int i = 0;
+
+    PrintError("Received SYMMOD symbol tables addr=%p, size=%d\n", (void *)sym_start_gva, sym_size);
+
+    for (i = 0; i < sym_size; i++) {
+	char * sym_name = NULL;
+	struct v3_symbol_def32 * tmp_symbol = NULL;
+	struct v3_symbol * new_symbol = NULL;
+	addr_t sym_gva = sym_start_gva + (sizeof(struct v3_symbol_def32) * i);
+
+
+	if (guest_va_to_host_va(core, sym_gva, (addr_t *)&(tmp_symbol)) == -1) {
+	    PrintError("Could not locate symbiotic symbol definition\n");
+	    continue;
+	}
+	
+	if (guest_va_to_host_va(core, tmp_symbol->name_gva, (addr_t *)&(sym_name)) == -1) {
+	    PrintError("Could not locate symbiotic symbol name\n");
+	    continue;
+	}
+	
+	PrintError("Symbiotic Symbol (%s) at %p\n", sym_name, (void *)(addr_t)tmp_symbol->value);
+	
+	new_symbol = (struct v3_symbol *)V3_Malloc(sizeof(struct v3_symbol));
+
+	strncpy(new_symbol->name, sym_name, 256);
+	new_symbol->linkage = tmp_symbol->value;
+
+	list_add(&(new_symbol->sym_node), &(symmod_state->v3_sym_list));
+    }
+
+    return 0;
+}
+
+
+int v3_init_symmod_vm(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
+    struct v3_symmod_state * symmod_state = &(vm->sym_vm_state.symmod_state);
+    struct v3_symspy_global_page * sym_page = v3_sym_get_symspy_vm(vm);
+
+    sym_page->symmod_enabled = 1;
+
+    v3_register_hypercall(vm, SYMMOD_SYMS_HCALL, symbol_hcall_handler, NULL);
+
+    INIT_LIST_HEAD(&(symmod_state->v3_sym_list));
+
+    V3_Print("Symmod initialized\n");
+
     return 0;
 }
 
@@ -97,7 +169,7 @@ int v3_load_sym_module(struct v3_vm_info * vm, char * mod_name) {
 
     PrintDebug("Loading Module (%s)\n", mod_name);
 
-    return symmod_state->loader_ops->load_module(vm, mod->name, mod->end_addr - mod->start_addr, symmod_state->loader_data);
+    return symmod_state->loader_ops->load_module(vm, mod, symmod_state->loader_data);
 }
 
 
