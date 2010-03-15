@@ -169,7 +169,7 @@ static inline int hash_eq(addr_t key1, addr_t key2) {
 }
 
 
-static int add_route_to_cache(struct v3_vnet_pkt * pkt, struct route_list * routes) {
+static int add_route_to_cache(const struct v3_vnet_pkt * pkt, struct route_list * routes) {
     memcpy(routes->hash_buf, pkt->hash_buf, VNET_HASH_SIZE);    
 
     if (v3_htable_insert(vnet_state.route_cache, (addr_t)routes->hash_buf, (addr_t)routes) == 0) {
@@ -188,7 +188,7 @@ static int clear_hash_cache() {
     return 0;
 }
 
-static int look_into_cache(struct v3_vnet_pkt * pkt, struct route_list ** routes) {
+static int look_into_cache(const struct v3_vnet_pkt * pkt, struct route_list ** routes) {
     
     *routes = (struct route_list *)v3_htable_search(vnet_state.route_cache, (addr_t)(pkt->hash_buf));
    
@@ -279,7 +279,7 @@ int v3_vnet_add_route(struct v3_vnet_route route) {
 
 // At the end allocate a route_list
 // This list will be inserted into the cache so we don't need to free it
-static struct route_list * match_route(struct v3_vnet_pkt * pkt) {
+static struct route_list * match_route(const struct v3_vnet_pkt * pkt) {
     struct vnet_route_info * route = NULL; 
     struct route_list * matches = NULL;
     int num_matches = 0;
@@ -411,7 +411,7 @@ int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data) {
 
 #ifdef CONFIG_DEBUG_VNET
    {
-	struct eth_hdr * hdr = (struct eth_hdr *)(pkt->data);
+	struct eth_hdr * hdr = (struct eth_hdr *)(pkt->header);
 	char dest_str[30];
 	char src_str[30];
 
@@ -426,14 +426,14 @@ int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data) {
     look_into_cache(pkt, &matched_routes);
 	
     if (matched_routes == NULL) {  
-	PrintDebug("Vnet: can not find route in cache, looking into routing table\n");
+	PrintDebug("Vnet: send pkt Looking into routing table\n");
 	
 	matched_routes = match_route(pkt);
 		
       	if (matched_routes) {
 	    add_route_to_cache(pkt, matched_routes);
 	} else {
-	    PrintDebug("Could not find route for packet...\n");
+	    PrintDebug("Could not find route for packet... discards packet\n");
 	    v3_unlock_irqrestore(vnet_state.lock, flags);
 	    return -1;
 	}
@@ -442,7 +442,7 @@ int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data) {
     v3_unlock_irqrestore(vnet_state.lock, flags);
 
 
-    PrintDebug("Vnet: HandleOnePacket: route matches %d\n", matched_routes->num_routes);
+    PrintDebug("Vnet: send pkt route matches %d\n", matched_routes->num_routes);
 
     for (i = 0; i < matched_routes->num_routes; i++) {
 	 struct vnet_route_info * route = matched_routes->routes[i];

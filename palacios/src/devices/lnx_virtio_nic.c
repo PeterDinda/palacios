@@ -478,7 +478,7 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
     uint32_t data_len = size;
     uint32_t offset = 0;
     unsigned long flags;
-    int ret_val;
+    int ret_val = -1;
     int raw = 1;
 
     flags = v3_lock_irqsave(virtio->lock);
@@ -495,7 +495,6 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
 
     if (q->ring_avail_addr == 0) {
 	PrintError("Queue is not set\n");
-	ret_val = -1;
 	goto exit;
     }
 

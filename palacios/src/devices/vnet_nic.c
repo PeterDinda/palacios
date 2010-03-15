@@ -49,7 +49,8 @@ static int vnet_send(uint8_t * buf, uint32_t len, void * private_data, struct vm
     pkt.size = len;
     pkt.src_type = LINK_INTERFACE;
     pkt.src_id = vnetnic->vnet_dev_id;
-    memcpy(pkt.data, buf, pkt.size);
+    memcpy(pkt.header, buf, ETHERNET_HEADER_LEN);
+    pkt.data = buf;
 
 #ifdef CONFIG_DEBUG_VNET_NIC
     {

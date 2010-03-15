@@ -66,7 +66,8 @@ struct v3_vnet_pkt {
 	struct {
 	    uint8_t src_type;
 	    uint32_t src_id;
-	    uint8_t data[ETHERNET_PACKET_LEN];
+	    uint8_t header[ETHERNET_HEADER_LEN];
+	    uint8_t *data;
 	} __attribute__((packed));
     } __attribute__((packed));
 } __attribute__((packed));

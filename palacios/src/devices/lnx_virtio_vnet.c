@@ -26,7 +26,7 @@
 #include <devices/pci.h>
 
 
-#ifndef CONFIG_LINUX_VIRTIO_VNET_DEBUG
+#ifndef CONFIG_DEBUG_LINUX_VIRTIO_VNET
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
@@ -78,8 +78,9 @@ struct vnet_ctrl_hdr {
 struct vnet_virtio_pkt {
     uint32_t link_id;
     uint32_t pkt_size;
-    uint8_t pkt[1500];
-};
+    uint8_t pkt[ETHERNET_PACKET_LEN];
+}__attribute__((packed));
+
 
 static int virtio_reset(struct virtio_vnet_state * vnet_state) {
 
@@ -222,8 +223,6 @@ static int vnet_pkt_input_cb(struct v3_vm_info * vm,  struct v3_vnet_pkt * pkt, 
 
     flags = v3_lock_irqsave(vnet_state->lock);
 	
-    PrintDebug("VNET Bridge: RX: pkt sent to guest size: %d\n, pkt_header_len: %d\n", data_len, pkt_head_len);
-
     if (q->ring_avail_addr == 0) {
 	PrintError("Queue is not set\n");
 	goto exit;
@@ -244,11 +243,12 @@ static int vnet_pkt_input_cb(struct v3_vm_info * vm,  struct v3_vnet_pkt * pkt, 
 	    return -1;
 	}
 
+	PrintDebug("VNET Bridge: RX: pkt sent to guest pkt size: %d, dst link: %d\n", pkt->size, pkt->dst_id);
+
 	// Fill in dst packet buffer
 	virtio_pkt->link_id = pkt->dst_id;
 	virtio_pkt->pkt_size = pkt->size;
 	memcpy(virtio_pkt->pkt, pkt->data, pkt->size);
-
 	
 	q->used->ring[q->used->index % q->queue_size].id = q->avail->ring[q->cur_avail_idx % q->queue_size];
 	q->used->ring[q->used->index % q->queue_size].length = sizeof(struct vnet_virtio_pkt); // This should be the total length of data sent to guest (header+pkt_data)
@@ -256,7 +256,7 @@ static int vnet_pkt_input_cb(struct v3_vm_info * vm,  struct v3_vnet_pkt * pkt, 
 	q->used->index++;
 	q->cur_avail_idx++;
     } else {
-	PrintError("Packet buffer overflow in the guest\n");
+	PrintError("Packet buffer overflow in the guest: cur_avai_idx %d, idx: %d\n", q->cur_avail_idx, q->avail->index);
     }
 
     if (!(q->avail->flags & VIRTIO_NO_IRQ_FLAG)) {
@@ -264,7 +264,6 @@ static int vnet_pkt_input_cb(struct v3_vm_info * vm,  struct v3_vnet_pkt * pkt, 
 	vnet_state->virtio_cfg.pci_isr = 0x1;
 	PrintDebug("Raising IRQ %d\n",  vnet_state->pci_dev->config_header.intr_line);
     }
-
 
     ret_val = 0;
 
@@ -278,8 +277,7 @@ exit:
 static int handle_pkt_kick(struct guest_info *core, struct virtio_vnet_state * vnet_state) 
 {
     struct virtio_queue * q = &(vnet_state->queue[XMIT_QUEUE]);
-
-    PrintDebug("VNET Bridge Device: Handle TX\n");
+    struct v3_vnet_pkt pkt;
 
     while (q->cur_avail_idx != q->avail->index) {
 	uint16_t desc_idx = q->avail->ring[q->cur_avail_idx % q->queue_size];
@@ -288,21 +286,33 @@ static int handle_pkt_kick(struct guest_info *core, struct virtio_vnet_state * v
 
 	pkt_desc = &(q->desc[desc_idx]);
 
-	PrintDebug("VNET Bridge: Handle TX buf_len: %d\n", pkt_desc->length);
+	PrintDebug("VNET Bridge: Handle TX desc buf_len: %d\n", pkt_desc->length);
+
+	//PrintDebug("q: %p, %p, %p, %d\n", q, vnet_state->queue, &vnet_state->queue[XMIT_QUEUE], XMIT_QUEUE);
+	//PrintDebug("q->used: %p\n", q->used);
+	//PrintDebug("q->used->ring %p\n", q->used->ring);
 
 	if (guest_pa_to_host_va(core, pkt_desc->addr_gpa, (addr_t *)&(virtio_pkt)) == -1) {
 	    PrintError("Could not translate buffer address\n");
 	    return -1;
 	}
 
-	//TODO:  SETUP VNET PACKET data structure
+	PrintDebug("VNET Bridge: TX: pkt size: %d, dst link: %d\n", virtio_pkt->pkt_size, virtio_pkt->link_id);
 
-	/*
-	  if (v3_vnet_send_pkt(pkt, (void *)core) == -1) {
-	    PrintError("Error sending packet to vnet\n");
-	    return -1;
-	}	
-	*/
+	pkt.size = virtio_pkt->pkt_size;
+	pkt.src_id = virtio_pkt->link_id;
+	pkt.src_type = LINK_EDGE;
+	memcpy(pkt.header, virtio_pkt->pkt, ETHERNET_HEADER_LEN);
+	pkt.data = virtio_pkt->pkt;
+
+	v3_vnet_send_pkt(&pkt, NULL);
+
+	q = (struct virtio_queue *)((addr_t)vnet_state->queue + XMIT_QUEUE*sizeof(struct virtio_queue));
+
+	PrintDebug("After q: %p, , %p, %p, %d\n", q, vnet_state->queue, &(vnet_state->queue[XMIT_QUEUE]), XMIT_QUEUE);
+	//PrintDebug("After q->used: %p\n", q->used);
+	//PrintDebug("After q->used->ring %p\n", q->used->ring);
+	
 	q->used->ring[q->used->index % q->queue_size].id = q->avail->ring[q->cur_avail_idx % q->queue_size];
 	q->used->ring[q->used->index % q->queue_size].length = pkt_desc->length; // What do we set this to????
 	q->used->index++;
