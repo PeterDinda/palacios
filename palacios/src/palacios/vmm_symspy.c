@@ -180,3 +180,12 @@ int v3_sym_unmap_pci_passthrough(struct v3_vm_info * vm, uint_t bus, uint_t dev,
 
     return 0;
 }
+
+
+struct v3_symspy_global_page * v3_sym_get_symspy_vm(struct v3_vm_info * vm) {
+    return vm->sym_vm_state.symspy_state.sym_page;
+}
+
+struct v3_symspy_local_page * v3_sym_get_symspy_core(struct guest_info * core) {
+    return core->sym_core_state.symspy_state.local_page;
+}

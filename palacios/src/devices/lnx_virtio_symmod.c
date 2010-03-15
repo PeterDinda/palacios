@@ -103,7 +103,7 @@ static int handle_xfer_kick(struct guest_info * core, struct virtio_sym_state * 
     
     PrintDebug("SYMMOD: VIRTIO SYMMOD Kick on loader queue\n");
 
-    while (q->cur_avail_idx < q->avail->index) {
+    while (q->cur_avail_idx ! q->avail->index) {
 	struct vring_desc * hdr_desc = NULL;
 	struct vring_desc * buf_desc = NULL;
 	struct vring_desc * status_desc = NULL;
@@ -387,13 +387,14 @@ static int virtio_io_read(struct guest_info * core, uint16_t port, void * dst, u
 
 
 
-static int virtio_load_module(struct v3_vm_info * vm, char * name, int mod_size, void * priv_data) {
+static int virtio_load_module(struct v3_vm_info * vm, struct v3_sym_module * mod, void * priv_data) {
     struct virtio_sym_state * virtio = (struct virtio_sym_state *)priv_data;
     //   struct virtio_queue * q = virtio->cur_queue;
     struct virtio_queue * q = &(virtio->queue[NOTIFY_QUEUE]);
+    uint32_t mod_size = mod->end_addr - mod->start_addr;
 
-    if (strlen(name) >= 32) {
-	PrintError("Module name is too long... (%d bytes) limit is 32\n", (uint32_t)strlen(name));
+    if (strlen(mod->name) >= 32) {
+	PrintError("Module name is too long... (%d bytes) limit is 32\n", (uint32_t)strlen(mod->name));
 	return -1;
     }
 
@@ -427,7 +428,7 @@ static int virtio_load_module(struct v3_vm_info * vm, char * name, int mod_size,
 	memset(notifier, 0, sizeof(struct symmod_hdr));
 
 	// set the module name
-	memcpy(notifier->name, name, strlen(name));
+	memcpy(notifier->name, mod->name, strlen(mod->name));
 
 	// set module length
 	notifier->num_bytes = mod_size;
