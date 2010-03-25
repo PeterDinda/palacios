@@ -204,6 +204,7 @@ static int handle_pkt_tx(struct guest_info *core, struct virtio_net_state * virt
     struct virtio_queue * q = &(virtio_state->tx_vq);
     struct virtio_net_hdr * hdr = NULL;
 
+    PrintDebug("Virtio NIC: TX: running on cpu: %d\n", V3_Get_CPU());
 
     while (q->cur_avail_idx != q->avail->index) {
 	struct vring_desc * hdr_desc = NULL;
@@ -221,7 +222,7 @@ static int handle_pkt_tx(struct guest_info *core, struct virtio_net_state * virt
 
 	hdr = (struct virtio_net_hdr*)hdr_addr;
 	desc_idx = hdr_desc->next;
-	
+
 	for (i = 0; i < desc_cnt - 1; i++) {	
 	    struct vring_desc * buf_desc = &(q->desc[desc_idx]);
 	    if (pkt_tx(core, virtio_state, buf_desc) == -1) {
@@ -245,6 +246,15 @@ static int handle_pkt_tx(struct guest_info *core, struct virtio_net_state * virt
 	v3_pci_raise_irq(virtio_state->virtio_dev->pci_bus, 0, virtio_state->pci_dev);
 	virtio_state->virtio_cfg.pci_isr = 0x1;
     }
+
+#ifdef CONFIG_VNET_PROFILE
+    if (virtio_state->pkt_sent % 10000 == 0)
+	PrintError("Virtio NIC: sent: %ld, rxed: %ld, dropped: %ld\n",
+			virtio_state->pkt_sent,
+			virtio_state->pkt_recv,
+			virtio_state->pkt_drop);
+
+#endif
 
     return 0;
 }
@@ -482,8 +492,8 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
     int raw = 1;
 
     flags = v3_lock_irqsave(virtio->lock);
-	
-    PrintDebug("VIRTIO NIC: receiving packet to virtio nic %p, size:%d\n", virtio, size);
+
+    PrintDebug("VIRTIO NIC: RX on cpu %d to virtio nic %p, size:%d\n", V3_Get_CPU(), virtio, size);
 
     virtio->pkt_recv ++;
 
@@ -535,6 +545,7 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
 	q->cur_avail_idx++;
     } else {
 	virtio->pkt_drop++;
+	goto exit;
     }
 
     if (!(q->avail->flags & VIRTIO_NO_IRQ_FLAG)) {
@@ -546,6 +557,15 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
     ret_val = offset;
 
 exit:
+	
+#ifdef CONFIG_VNET_PROFILE
+    if (virtio->pkt_recv % 10000 == 0)
+	PrintError("Virtio NIC: sent: %ld, rxed: %ld, dropped: %ld\n",
+			virtio->pkt_sent,
+			virtio->pkt_recv,
+			virtio->pkt_drop);
+
+#endif
 
     v3_unlock_irqrestore(virtio->lock, flags);
  

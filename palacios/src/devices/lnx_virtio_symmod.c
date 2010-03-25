@@ -103,7 +103,7 @@ static int handle_xfer_kick(struct guest_info * core, struct virtio_sym_state * 
     
     PrintDebug("SYMMOD: VIRTIO SYMMOD Kick on loader queue\n");
 
-    while (q->cur_avail_idx ! q->avail->index) {
+    while (q->cur_avail_idx != q->avail->index) {
 	struct vring_desc * hdr_desc = NULL;
 	struct vring_desc * buf_desc = NULL;
 	struct vring_desc * status_desc = NULL;
