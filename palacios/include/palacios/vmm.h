@@ -199,9 +199,9 @@ struct guest_info;
 	    while(1);							\
 	}								\
     } while(0)								\
-	
 
 
+#ifdef CONFIG_VNET
 #define V3_lapic_send_ipi(cpu, vector)							\
    do {							\
 	extern struct v3_os_hooks * os_hooks;			\
@@ -210,6 +210,7 @@ struct guest_info;
 	}							\
     } while (0)
 
+#endif
 
 
 typedef enum v3_vm_class {V3_INVALID_VM, V3_PC_VM, V3_CRAY_VM} v3_vm_class_t;
@@ -276,7 +277,9 @@ struct v3_os_hooks {
     void (*call_on_cpu)(int logical_cpu, void (*fn)(void * arg), void * arg);
     void (*start_thread_on_cpu)(int logical_cpu, int (*fn)(void * arg), void * arg, char * thread_name);
 
+#ifdef CONFIG_VNET
     void (*lapic_send_ipi)(unsigned int cpu, unsigned int vector);
+#endif
 };
 
 
