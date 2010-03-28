@@ -251,11 +251,11 @@ void v3_print_cond(const char * fmt, ...) {
 
 
 
-void v3_interrupt_cpu(struct v3_vm_info * vm, int logical_cpu) {
+void v3_interrupt_cpu(struct v3_vm_info * vm, int logical_cpu, int vector) {
     extern struct v3_os_hooks * os_hooks;
 
     if ((os_hooks) && (os_hooks)->interrupt_cpu) {
-	(os_hooks)->interrupt_cpu(vm, logical_cpu);
+	(os_hooks)->interrupt_cpu(vm, logical_cpu, vector);
     }
 }
 

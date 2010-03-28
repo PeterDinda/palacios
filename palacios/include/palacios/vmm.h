@@ -201,16 +201,7 @@ struct guest_info;
     } while(0)								\
 
 
-#ifdef CONFIG_VNET
-#define V3_lapic_send_ipi(cpu, vector)							\
-   do {							\
-	extern struct v3_os_hooks * os_hooks;			\
-	if ((os_hooks) && (os_hooks)->lapic_send_ipi) {		\
-	    (os_hooks)->lapic_send_ipi(cpu, vector);			\
-	}							\
-    } while (0)
 
-#endif
 
 
 typedef enum v3_vm_class {V3_INVALID_VM, V3_PC_VM, V3_CRAY_VM} v3_vm_class_t;
@@ -227,7 +218,7 @@ void v3_yield_cond(struct guest_info * info);
 void v3_print_cond(const char * fmt, ...);
 
 
-void v3_interrupt_cpu(struct v3_vm_info * vm, int logical_cpu);
+void v3_interrupt_cpu(struct v3_vm_info * vm, int logical_cpu, int vector);
 
 unsigned int v3_get_cpu_id();
 
@@ -273,13 +264,10 @@ struct v3_os_hooks {
     void (*mutex_unlock)(void * mutex);
 
     unsigned int (*get_cpu)(void);
-    void (*interrupt_cpu)(struct v3_vm_info * vm, int logical_cpu);
+    void (*interrupt_cpu)(struct v3_vm_info * vm, int logical_cpu, int vector);
     void (*call_on_cpu)(int logical_cpu, void (*fn)(void * arg), void * arg);
     void (*start_thread_on_cpu)(int logical_cpu, int (*fn)(void * arg), void * arg, char * thread_name);
 
-#ifdef CONFIG_VNET
-    void (*lapic_send_ipi)(unsigned int cpu, unsigned int vector);
-#endif
 };
 
 

@@ -209,7 +209,7 @@ static int pic_raise_intr(struct v3_vm_info * vm, void * private_data, int irq) 
 	return -1;
     }
 
-    v3_interrupt_cpu(vm, 0);
+    v3_interrupt_cpu(vm, 0, 0);
 
     return 0;
 }
