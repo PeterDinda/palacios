@@ -31,7 +31,8 @@ obj-y := \
 	vmm_xed.o \
 	vmm_binaries.o \
 	vmm_cpuid.o \
-	vmm_xml.o 
+	vmm_xml.o \
+	vmm_muxer.o
 
 obj-$(CONFIG_SVM) +=    svm.o \
 			svm_io.o \
