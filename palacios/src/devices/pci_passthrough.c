@@ -41,7 +41,6 @@
 #include <devices/pci.h>
 #include <devices/pci_types.h>
 
-
 // Hardcoded... Are these standard??
 #define PCI_CFG_ADDR    0xcf8
 #define PCI_CFG_DATA    0xcfc
@@ -86,6 +85,14 @@ struct pt_bar {
     uint32_t val;
 };
 
+
+//Zheng 03/15/2010
+struct pt_exp_rom_base {
+    uint32_t size;
+    uint32_t addr;
+    uint32_t val;
+};
+
 struct pt_dev_state {
     union {
 	uint8_t config_space[256];
@@ -95,7 +102,10 @@ struct pt_dev_state {
     struct pt_bar phys_bars[6];
     struct pt_bar virt_bars[6];
 
-    
+   //Zheng 03/19/2010
+    struct pt_exp_rom_base phys_exp_rom_base;
+    struct pt_exp_rom_base virt_exp_rom_base;
+     
     struct vm_device * pci_bus;
     struct pci_device * pci_dev;
 
@@ -146,6 +156,89 @@ static inline void pci_cfg_write8(uint32_t addr, uint8_t val) {
 }
 
 
+//Zheng: 03/15/2010
+static inline bool is_pci_mem64_high_bar(struct pt_bar *prev_pbar)
+{
+    return ((prev_pbar) && 
+	    (prev_pbar->type == PT_BAR_MEM64_LOW));
+}
+
+
+//Zheng: 03/19/2010
+static int pci_exp_rom_base_init(struct pci_device *pci_dev) {
+
+    struct vm_device *dev = (struct vm_device *)(pci_dev->priv_data);   
+    struct pt_dev_state * state = (struct pt_dev_state *)dev->private_data;
+    const uint32_t exp_rom_base_reg = 12;
+    union pci_addr_reg pci_addr = {state->phys_pci_addr.value};
+    uint32_t exp_rom_base_val = 0;
+    uint32_t max_val = 0;
+
+    uint32_t *dst = ((uint32_t *)(&(pci_dev->config_space[4 * exp_rom_base_reg])));
+
+    struct pt_exp_rom_base *pexp_rom_base = &(state->phys_exp_rom_base);
+    //    struct pt_exp_rom_base *vexp_rom_base = &(state->virt_exp_rom_base);
+
+    // should read from cached header
+    pci_addr.reg = exp_rom_base_reg;
+
+    exp_rom_base_val = pci_cfg_read32(pci_addr.value);
+    pexp_rom_base->val = exp_rom_base_val; 
+
+    max_val = exp_rom_base_val | PCI_EXP_ROM_BASE_MASK;
+    
+    // Cycle the physical bar, to determine the actual size
+    // Disable irqs, to try to prevent accesses to the space via a interrupt handler
+    // This is not SMP safe!!
+    // What we probably want to do is write a 0 to the command register
+    //irq_state = v3_irq_save();
+    
+    pci_cfg_write32(pci_addr.value, max_val);
+    max_val = pci_cfg_read32(pci_addr.value);
+    pci_cfg_write32(pci_addr.value, exp_rom_base_val);
+    
+    //v3_irq_restore(irq_state);
+    
+    
+    if (max_val == 0) {
+	PrintDebug("The real device doesn't implement the Exp_Rom_Base\n");
+    } else {
+	
+	// if its a memory region, setup passthrough mem mapping
+	pexp_rom_base->addr = PCI_EXP_ROM_BASE(exp_rom_base_val);
+	pexp_rom_base->size = ~PCI_EXP_ROM_BASE(max_val) + 1;
+	
+	PrintDebug("Adding 32 bit PCI mem region: start=0x%x, end=0x%x\n",
+		   pexp_rom_base->addr, pexp_rom_base->addr + pexp_rom_base->size);
+
+	v3_add_shadow_mem(dev->vm, V3_MEM_CORE_ANY, 
+			  pexp_rom_base->addr, 
+			  pexp_rom_base->addr + pexp_rom_base->size - 1,
+			  pexp_rom_base->addr);
+    }
+    
+
+    // Initially the virtual bars match the physical ones
+    memcpy(&(state->virt_exp_rom_base), &(state->phys_exp_rom_base), sizeof(struct pt_exp_rom_base));
+
+    PrintDebug("exp_rom_base_val=0x%x\n", exp_rom_base_val);
+
+    PrintDebug("phys exp_rom_base: addr=0x%x, size=%u\n", 
+	       pexp_rom_base->addr, 
+	       pexp_rom_base->size);
+
+    PrintDebug("virt exp_rom_base: addr=0x%x, size=%u\n",
+	       state->virt_exp_rom_base.addr, 
+	       state->virt_exp_rom_base.size);
+
+
+    // Update the pci subsystem versions
+    *dst = exp_rom_base_val;
+
+    return 0;
+}
+
+
 // We initialize this 
 static int pci_bar_init(int bar_num, uint32_t * dst, void * private_data) {
     struct vm_device * dev = (struct vm_device *)private_data;
@@ -156,7 +249,15 @@ static int pci_bar_init(int bar_num, uint32_t * dst, void * private_data) {
     uint32_t max_val = 0;
     //addr_t irq_state = 0;
     struct pt_bar * pbar = &(state->phys_bars[bar_num]);
+    //    struct pt_bar * vbar = &(state->virt_bars[bar_num]);
 
+    struct pt_bar *prev_pbar = bar_num > 0 ? 
+	(&(state->phys_bars[bar_num - 1])) :
+	NULL;
+
+    struct pt_bar *prev_vbar = bar_num > 0 ? 
+	(&(state->virt_bars[bar_num - 1])) :
+	NULL;
 
     // should read from cached header
     pci_addr.reg = bar_base_reg + bar_num;
@@ -164,7 +265,55 @@ static int pci_bar_init(int bar_num, uint32_t * dst, void * private_data) {
     PrintDebug("PCI Address = 0x%x\n", pci_addr.value);
 
     bar_val = pci_cfg_read32(pci_addr.value);
-    pbar->val = bar_val;
+    pbar->val = bar_val; 
+
+    if (is_pci_mem64_high_bar(prev_pbar)) {
+
+	max_val = PCI_MEM64_HIGH_MASK32;
+
+	pci_cfg_write32(pci_addr.value, max_val);
+	max_val = pci_cfg_read32(pci_addr.value);
+	pci_cfg_write32(pci_addr.value, bar_val);
+
+	pbar->type = PT_BAR_MEM64_HIGH;
+	pbar->addr = PCI_MEM64_BASE_HIGH(bar_val);
+
+	uint64_t mem64_bar_size = 
+	    (~(PCI_MEM64_BASE((((uint64_t)max_val) << PCI_MEM64_BASE_HIGH_SHIFT) | (prev_pbar->size)))) + 1;
+	
+
+	pbar->size = 
+	    (mem64_bar_size >> PCI_MEM64_BASE_HIGH_SHIFT) & 
+	    PCI_MEM64_HIGH_MASK32;
+	prev_pbar->size = (uint32_t)mem64_bar_size;
+	prev_vbar->size = (uint32_t)mem64_bar_size;
+
+	uint64_t mem64_addr = 
+	    (((uint64_t)(pbar->addr)) << PCI_MEM64_BASE_HIGH_SHIFT) |  
+	    (prev_pbar->addr);
+
+	PrintDebug("Adding 64 bit PCI mem region: start=0x%llx, end=0x%llx\n",
+		   mem64_addr, mem64_addr + mem64_bar_size);
+	
+	int ret = -1;
+	if ((ret = (v3_add_shadow_mem(dev->vm, V3_MEM_CORE_ANY, 
+				      mem64_addr, 
+				      mem64_addr + mem64_bar_size - 1,
+				      mem64_addr)))) {
+
+	    PrintDebug("Fail to insert shadow region (0x%llx, 0x%llx)  -> 0x%llx\n",
+		       mem64_addr,
+		       mem64_addr + mem64_bar_size - 1,
+		       mem64_addr);
+
+	    return -1;
+
+	}
+
+	goto done;
+	
+    } //MEM64_HIGH
+
 
     if ((bar_val & 0x3) == 0x1) {
 	int i = 0;
@@ -252,8 +401,18 @@ static int pci_bar_init(int bar_num, uint32_t * dst, void * private_data) {
 
 	    } else if ((bar_val & 0x6) == 0x4) {
 		// Mem 64
-		PrintError("64 Bit PCI bars not supported\n");
+		/*
+     		PrintError("64 Bit PCI bars not supported\n");
 		return -1;
+		*/
+
+		//Zheng 03/15/2010
+		pbar->type = PT_BAR_MEM64_LOW;
+		pbar->addr = PCI_MEM32_BASE(bar_val);
+		/*temperary size, which will be corrected 
+		  in the MEM_HIGH bar initialization*/
+		pbar->size = PCI_MEM32_BASE(max_val);
+
 	    } else {
 		PrintError("Invalid Memory bar type\n");
 		return -1;
@@ -262,6 +421,7 @@ static int pci_bar_init(int bar_num, uint32_t * dst, void * private_data) {
 	}
     }
 
+ done:
 
     // Initially the virtual bars match the physical ones
     memcpy(&(state->virt_bars[bar_num]), &(state->phys_bars[bar_num]), sizeof(struct pt_bar));
@@ -406,20 +566,118 @@ static int pci_bar_write(int bar_num, uint32_t * src, void * private_data) {
 			  vbar->addr, 
 			  vbar->addr + vbar->size - 1,
 			  pbar->addr);
+
+    } else if (vbar->type == PT_BAR_MEM64_LOW) {
+	//Zheng: 03/15/2010
+
+	PrintDebug("Uncooked MEM64_LOW src=0x%x\n", *src);
+
+	// clear the low bits to match the size
+	*src &= ~(pbar->size - 1);
+
+	// Set reserved bits
+	*src |= (pbar->val & ~PCI_MEM_MASK);
+
+	PrintDebug("Cooked MEM64_LOW src=0x%x\n", *src);
+
+	vbar->addr = PCI_MEM32_BASE(*src);
+
+    } else if (vbar->type == PT_BAR_MEM64_HIGH) {
+
+	//Zheng: 03/15/2010
+	// remove old mapping
+
+	if (bar_num == 0) {
+	    PrintError("The first bar register could not be of type PT_BAR_MEM64_HIGH\n");
+	    return -1;
+	}
+
+	struct pt_bar * prev_pbar = &(state->phys_bars[bar_num - 1]);
+	struct pt_bar * prev_vbar = &(state->virt_bars[bar_num - 1]);
+
+
+	addr_t valid_vbar_mem64_addr = 
+	    (addr_t)(((((uint64_t)vbar->addr) << PCI_MEM64_BASE_HIGH_SHIFT) & 
+		      (PCI_MEM64_HIGH_MASK64)) | 
+		     (prev_vbar->addr));
+
+	struct v3_shadow_region * old_reg = 
+	    v3_get_shadow_region(dev->vm, V3_MEM_CORE_ANY, valid_vbar_mem64_addr);
+
+	if (old_reg == NULL) {
+
+	    PrintError("Could not find PCI Passthrough memory redirection region (addr=0x%lx)\n", valid_vbar_mem64_addr);
+
+	    return -1;
+	}
+
+	v3_delete_shadow_region(dev->vm, old_reg);
+
+	uint64_t mem64_src = 
+	    ((((uint64_t)(*src)) << PCI_MEM64_BASE_HIGH_SHIFT) & 
+	     (PCI_MEM64_HIGH_MASK64)) | 
+	    (prev_vbar->val);
+
+	uint64_t mem64_bar_size = 
+	    ((((uint64_t)(pbar->size)) << PCI_MEM64_BASE_HIGH_SHIFT) & 
+	     (PCI_MEM64_HIGH_MASK64)) | 
+	    (prev_pbar->size);
+	    
+	// clear the low bits to match the size
+	mem64_src &= ~(mem64_bar_size - 1);
+
+	uint64_t mem64_pbar_val = 
+	    ((((uint64_t)(pbar->val)) << PCI_MEM64_BASE_HIGH_SHIFT) & 
+	     (PCI_MEM64_HIGH_MASK64)) | 
+	    (prev_pbar->val);
+	    
+	// Set reserved bits
+	mem64_src |= (mem64_pbar_val & ~PCI_MEM64_MASK);
+
+	PrintDebug("Cooked mem64_src=0x%llx\n", mem64_src);
+
+	prev_vbar->val = (uint32_t)mem64_src;
+
+	*src = (uint32_t)((mem64_src & PCI_MEM64_HIGH_MASK64) >> 
+		PCI_MEM64_BASE_HIGH_SHIFT);
+
+	uint64_t mem64_vbar_addr = PCI_MEM64_BASE(mem64_src);
+	prev_vbar->addr = (uint32_t)(mem64_vbar_addr);
+	vbar->addr = 
+	    (uint32_t)(((uint64_t)(mem64_vbar_addr)) >> PCI_MEM64_BASE_HIGH_SHIFT);
+
+	PrintDebug("Adding pci Passthrough remapping: start=0x%llx, size=0x%llu, end=0x%llx\n", 
+		   mem64_vbar_addr, mem64_bar_size, mem64_vbar_addr + mem64_bar_size);
+
+	uint64_t mem64_pbar_addr = 
+	    (((uint64_t)(pbar->addr)) << PCI_MEM64_BASE_HIGH_SHIFT) |
+	    (prev_pbar->addr);
+
+	int ret = -1;
+	if ((ret = (v3_add_shadow_mem(dev->vm, V3_MEM_CORE_ANY,
+				     mem64_vbar_addr, 
+				     mem64_vbar_addr + mem64_bar_size - 1,
+				     mem64_pbar_addr)))) {
+	    PrintDebug("Fail to insert shadow region (0x%llx, 0x%llx)  -> 0x%llx\n",
+			   mem64_vbar_addr,
+			   mem64_vbar_addr + mem64_bar_size - 1,
+			   mem64_pbar_addr);
+
+	    return -1;
+	}
 	
     } else {
 	PrintError("Unhandled Pasthrough PCI Bar type %d\n", vbar->type);
 	return -1;
     }
 
-
     vbar->val = *src;
     
-
     return 0;
 }
 
 
+#if 0 //Zheng: 03/19/2010
 static int pt_config_update(uint_t reg_num, void * src, uint_t length, void * private_data) {
     struct vm_device * dev = (struct vm_device *)private_data;
     struct pt_dev_state * state = (struct pt_dev_state *)dev->private_data;
@@ -439,6 +697,92 @@ static int pt_config_update(uint_t reg_num, void * src, uint_t length, void * pr
     return 0;
 }
 
+#endif //old pt_config_update
+
+
+//Zheng: 03/19/2010
+static int pt_config_update(uint_t reg_num, void * src, uint_t length, void * private_data) {
+    struct vm_device * dev = (struct vm_device *)private_data;
+    struct pt_dev_state * state = (struct pt_dev_state *)dev->private_data;
+    union pci_addr_reg pci_addr = {state->phys_pci_addr.value};
+
+    pci_addr.reg = reg_num >> 2;
+    uint32_t org_val = pci_cfg_read32(pci_addr.value);
+    uint_t offset = reg_num & 0x3;
+
+    uint32_t cooked_val = org_val;
+    if (length == 1) {
+	*(((uint8_t *)(&cooked_val)) + offset) = *((uint8_t *)src); 
+    } else if (length == 2) {
+	*((uint16_t *)(((uint8_t *)(&cooked_val)) + offset)) = *((uint16_t *)src); 
+    } else if (length == 4) {
+	*((uint32_t *)(((uint8_t *)(&cooked_val)) + offset)) = *((uint32_t *)src); 
+    }
+
+    pci_cfg_write32(pci_addr.value, cooked_val);
+	
+    *(((uint32_t *)(state->pci_dev->config_space)) + pci_addr.reg) = pci_cfg_read32(pci_addr.value);
+    
+    return 0;
+}
+
+
+//Zheng 03/19/2010
+
+static int pci_exp_rom_base_write(struct pci_device *pci_dev) {
+    struct vm_device * dev = (struct vm_device *)(pci_dev->priv_data);
+    struct pt_dev_state * state = (struct pt_dev_state *)dev->private_data;
+    
+    struct pt_exp_rom_base * pexp_rom_base = &(state->phys_exp_rom_base);
+    struct pt_exp_rom_base * vexp_rom_base = &(state->virt_exp_rom_base);
+
+    const uint32_t exp_rom_base_reg = 12;
+    uint32_t *src = ((uint32_t *)(&(pci_dev->config_space[4 * exp_rom_base_reg])));
+
+    PrintDebug("exp_rom_base update: src=0x%x\n", *src);
+    PrintDebug("vexp_rom_base is size=%u, addr=0x%x, val=0x%x\n",vexp_rom_base->size, vexp_rom_base->addr, vexp_rom_base->val);
+    PrintDebug("pexp_rom_base is size=%u, addr=0x%x, val=0x%x\n",pexp_rom_base->size, pexp_rom_base->addr, pexp_rom_base->val);
+
+    // remove old mapping
+    struct v3_shadow_region * old_reg = v3_get_shadow_region(dev->vm, V3_MEM_CORE_ANY, vexp_rom_base->addr);
+    
+    if (old_reg == NULL) {
+	// uh oh...
+	PrintError("Could not find PCI Passthrough exp_rom_base redirection region (addr=0x%x)\n", vexp_rom_base->addr);
+
+	return -1;
+    }
+    
+    v3_delete_shadow_region(dev->vm, old_reg);
+    
+    // clear the low bits to match the size
+    *src &= ~(pexp_rom_base->size - 1);
+    
+    // Set reserved bits
+    *src |= (pexp_rom_base->val & ~PCI_MEM_MASK);
+    
+    PrintDebug("Cooked src=0x%x\n", *src);
+    vexp_rom_base->addr = PCI_EXP_ROM_BASE(*src);
+    
+    PrintDebug("Adding pci Passthrough exp_rom_base remapping: start=0x%x, size=%u, end=0x%x\n", 
+	       vexp_rom_base->addr, vexp_rom_base->size, vexp_rom_base->addr + vexp_rom_base->size);
+
+    int ret = -1;
+
+    if ((ret = v3_add_shadow_mem(dev->vm, V3_MEM_CORE_ANY, 
+				 vexp_rom_base->addr, 
+				 vexp_rom_base->addr + vexp_rom_base->size - 1,
+				 pexp_rom_base->addr))) {
+	PrintError("Fail to add pci Passthrough exp_rom_base remapping: start=0x%x, size=%u, end=0x%x\n", 
+	       vexp_rom_base->addr, vexp_rom_base->size, vexp_rom_base->addr + vexp_rom_base->size);
+
+	return -1;
+    }
+    
+    vexp_rom_base->val = *src;
+    
+    return 0;
+}
 
 
 static int find_real_pci_dev(uint16_t vendor_id, uint16_t device_id, struct pt_dev_state * state) {
@@ -452,7 +796,6 @@ static int find_real_pci_dev(uint16_t vendor_id, uint16_t device_id, struct pt_d
 	    uint16_t device;
 	} __attribute__((packed));
     } __attribute__((packed)) pci_hdr = {0};
-
 
     //PrintDebug("Scanning PCI busses for vendor=%x, device=%x\n", vendor_id, device_id);
     for (i = 0, pci_addr.bus = 0; i < PCI_BUS_MAX; i++, pci_addr.bus++) {
@@ -504,17 +847,31 @@ static int setup_virt_pci_dev(struct v3_vm_info * vm_info, struct vm_device * de
 	bars[i].bar_write = pci_bar_write;
     }
 
+    //Zheng:03/19/2010 
+    pci_dev = v3_pci_register_device(state->pci_bus,
+				     PCI_STD_DEVICE,
+				     bus_num, -1, 0, 
+				     state->name, bars,
+				     pt_config_update,
+				     NULL,
+				     pci_exp_rom_base_write,               
+				     dev);
+#if 0 
     pci_dev = v3_pci_register_device(state->pci_bus,
 				     PCI_STD_DEVICE,
 				     bus_num, -1, 0, 
 				     state->name, bars,
 				     pt_config_update, NULL, NULL, 
 				     dev);
-    
+#endif //if 0 old v3_pci_register_device
+
     // This will overwrite the bar registers.. but that should be ok.
     memcpy(pci_dev->config_space, (uint8_t *)&(state->real_hdr), sizeof(struct pci_config_header));
 
     state->pci_dev = pci_dev;
+
+    //Zheng 03/19/2010
+    pci_exp_rom_base_init(pci_dev);
 
     v3_sym_map_pci_passthrough(vm_info, pci_dev->bus_num, pci_dev->dev_num, pci_dev->fn_num);
 
@@ -536,6 +893,17 @@ static int irq_handler(struct v3_vm_info * vm, struct v3_interrupt * intr, void 
     struct vm_device * dev = (struct vm_device *)private_data;
     struct pt_dev_state * state = (struct pt_dev_state *)dev->private_data;
 
+
+#if 0 //hacking
+static long irq_time = 0;
+    if(intr->irq == 64)
+		irq_time ++;
+    if(irq_time % 10 == 0)
+	      PrintError("Handling IRQ %d, time: %ld\n", intr->irq, irq_time);
+
+    PrintError("Handling IRQ %d, time: %ld\n", intr->irq, irq_time);
+
+#endif
 //    PrintDebug("Handling E1000 IRQ %d\n", intr->irq);
 
     v3_pci_raise_irq(state->pci_bus, 0, state->pci_dev);
@@ -553,6 +921,7 @@ static int passthrough_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vm_device * dev = NULL;
     struct vm_device * pci = v3_find_dev(vm, v3_cfg_val(cfg, "bus"));
     char * name = v3_cfg_val(cfg, "name");    
+
 
     memset(state, 0, sizeof(struct pt_dev_state));
 
