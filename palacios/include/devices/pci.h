@@ -30,6 +30,7 @@
 
 #include <devices/pci_types.h>
 
+
 struct vm_device;
 
 
@@ -66,12 +67,12 @@ struct v3_pci_bar {
 	struct {
 	    int num_ports;
 	    uint16_t default_base_port;
-	    int (*io_read)(struct guest_info * core, ushort_t port, void * dst, uint_t length, void * private_data);
-	    int (*io_write)(struct guest_info * core, ushort_t port, void * src, uint_t length, void * private_data);
+	    int (*io_read)(struct guest_info * core, uint16_t port, void * src, uint_t length, void * private_data);
+	    int (*io_write)(struct guest_info * core, uint16_t port, void * src, uint_t length, void * private_data);
 	};
 	
 	struct {
-	    int (*bar_init)(int bar_num, uint32_t * dst, void * private_data);
+	    int (*bar_init)(int bar_num, uint32_t * dst,void * private_data);
 	    int (*bar_write)(int bar_num, uint32_t * src, void * private_data);
 	};
     };
@@ -89,9 +90,22 @@ struct v3_pci_bar {
 #define PCI_MEM_MASK 0xfffffff0
 #define PCI_MEM24_MASK 0x000ffff0
 
+//Zheng 03/15/2010
+#define PCI_MEM64_HIGH_MASK32 0xffffffff
+#define PCI_MEM64_HIGH_MASK64 0xffffffff00000000
+#define PCI_MEM64_MASK 0xfffffffffffffff0
+#define PCI_EXP_ROM_BASE_MASK 0xfffff800
+
 #define PCI_IO_BASE(bar_val) (bar_val & PCI_IO_MASK)
 #define PCI_MEM32_BASE(bar_val) (bar_val & PCI_MEM_MASK)
 #define PCI_MEM24_BASE(bar_val) (bar_val & PCI_MEM24_MASK)
+//Zheng 03/15/2010
+#define PCI_MEM64_BASE_HIGH(bar_val) (bar_val & PCI_MEM64_HIGH_MASK32)
+#define PCI_MEM64_BASE(mem64_bar_val) ((mem64_bar_val) & PCI_MEM64_MASK)
+#define PCI_EXP_ROM_BASE(exp_rom_base_val) (exp_rom_base_val & PCI_EXP_ROM_BASE_MASK)
+
+//Zheng 03/15/2010
+#define PCI_MEM64_BASE_HIGH_SHIFT 32
 
 struct pci_device {
 

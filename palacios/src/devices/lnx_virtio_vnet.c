@@ -301,7 +301,6 @@ exit:
 			vnet_state->pkt_sent,
 			vnet_state->pkt_recv,
 			vnet_state->pkt_drop);
-
 #endif
 
     v3_unlock_irqrestore(vnet_state->lock, flags);
@@ -349,7 +348,7 @@ static int handle_pkt_kick(struct guest_info *core, struct virtio_vnet_state * v
     //interrupt the vnet to poll pkts
     int cpu = V3_Get_CPU();
     cpu = (cpu == 0)?1:0;
-    V3_lapic_send_ipi(cpu, V3_VNET_POLLING_VECTOR);
+    v3_interrupt_cpu(vnet_state->vm, cpu, V3_VNET_POLLING_VECTOR);
 
     if((vnet_state->pkt_sent % (QUEUE_SIZE/20)) == 0) { //optimized for guest's, batch the interrupts
 	    if (!(q->avail->flags & VIRTIO_NO_IRQ_FLAG)) {
@@ -364,7 +363,6 @@ static int handle_pkt_kick(struct guest_info *core, struct virtio_vnet_state * v
 			vnet_state->pkt_sent,
 			vnet_state->pkt_recv,
 			vnet_state->pkt_drop);
-
 #endif
 
     return 0;
@@ -374,8 +372,7 @@ static int handle_pkt_kick(struct guest_info *core, struct virtio_vnet_state * v
 static int handle_rx_kick(struct guest_info *core, struct virtio_vnet_state * vnet_state) 
 {
     v3_vnet_enable_bridge();
-    //PrintError("Enable Bridge\n");
-
+	
     return 0;
 }
 
@@ -671,7 +668,7 @@ static int dev_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     virtio_reset(vnet_state);
 
     V3_Print("Registering Virtio device as vnet bridge\n");
-    v3_vnet_add_bridge(vm, vnet_pkt_input_cb, vnet_pkt_input_xcall, 5, 1000000, (void *)vnet_state);
+    v3_vnet_add_bridge(vm, vnet_pkt_input_cb, vnet_pkt_input_xcall, 0, 500000, (void *)vnet_state);
 
 
     return 0;

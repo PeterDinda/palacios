@@ -248,12 +248,12 @@ static int handle_pkt_tx(struct guest_info *core, struct virtio_net_state * virt
     }
 
 #ifdef CONFIG_VNET_PROFILE
-    if (virtio_state->pkt_sent % 10000 == 0)
-	PrintError("Virtio NIC: sent: %ld, rxed: %ld, dropped: %ld\n",
+    if (virtio_state->pkt_sent % 10000 == 0){
+	    PrintError("Virtio NIC: sent: %ld, rxed: %ld, dropped: %ld\n",
 			virtio_state->pkt_sent,
 			virtio_state->pkt_recv,
 			virtio_state->pkt_drop);
-
+    }
 #endif
 
     return 0;
@@ -559,12 +559,12 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
 exit:
 	
 #ifdef CONFIG_VNET_PROFILE
-    if (virtio->pkt_recv % 10000 == 0)
+    if (virtio->pkt_recv % 100000 == 0){
 	PrintError("Virtio NIC: sent: %ld, rxed: %ld, dropped: %ld\n",
-			virtio->pkt_sent,
-			virtio->pkt_recv,
-			virtio->pkt_drop);
-
+		virtio->pkt_sent,
+		virtio->pkt_recv,
+		virtio->pkt_drop);
+    }
 #endif
 
     v3_unlock_irqrestore(virtio->lock, flags);
