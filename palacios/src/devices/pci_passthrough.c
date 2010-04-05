@@ -743,17 +743,19 @@ static int pci_exp_rom_base_write(struct pci_device *pci_dev) {
     PrintDebug("vexp_rom_base is size=%u, addr=0x%x, val=0x%x\n",vexp_rom_base->size, vexp_rom_base->addr, vexp_rom_base->val);
     PrintDebug("pexp_rom_base is size=%u, addr=0x%x, val=0x%x\n",pexp_rom_base->size, pexp_rom_base->addr, pexp_rom_base->val);
 
-    // remove old mapping
-    struct v3_shadow_region * old_reg = v3_get_shadow_region(dev->vm, V3_MEM_CORE_ANY, vexp_rom_base->addr);
+    if (pexp_rom_base->size) {
+	// remove old mapping
+	struct v3_shadow_region * old_reg = v3_get_shadow_region(dev->vm, V3_MEM_CORE_ANY, vexp_rom_base->addr);
+	
+	if (old_reg == NULL) {
+	    // uh oh...
+	    PrintError("Could not find PCI Passthrough exp_rom_base redirection region (addr=0x%x)\n", vexp_rom_base->addr);
+	    
+	    return -1;
+	}
     
-    if (old_reg == NULL) {
-	// uh oh...
-	PrintError("Could not find PCI Passthrough exp_rom_base redirection region (addr=0x%x)\n", vexp_rom_base->addr);
-
-	return -1;
-    }
-    
-    v3_delete_shadow_region(dev->vm, old_reg);
+	v3_delete_shadow_region(dev->vm, old_reg);
+    }//if size > 0
     
     // clear the low bits to match the size
     *src &= ~(pexp_rom_base->size - 1);
@@ -764,20 +766,24 @@ static int pci_exp_rom_base_write(struct pci_device *pci_dev) {
     PrintDebug("Cooked src=0x%x\n", *src);
     vexp_rom_base->addr = PCI_EXP_ROM_BASE(*src);
     
-    PrintDebug("Adding pci Passthrough exp_rom_base remapping: start=0x%x, size=%u, end=0x%x\n", 
-	       vexp_rom_base->addr, vexp_rom_base->size, vexp_rom_base->addr + vexp_rom_base->size);
 
-    int ret = -1;
+    if (pexp_rom_base->size) {
+	PrintDebug("Adding pci Passthrough exp_rom_base remapping: start=0x%x, size=%u, end=0x%x\n", 
+		   vexp_rom_base->addr, vexp_rom_base->size, vexp_rom_base->addr + vexp_rom_base->size);
+	
+	int ret = -1;
+	
+	if ((ret = v3_add_shadow_mem(dev->vm, V3_MEM_CORE_ANY, 
+				     vexp_rom_base->addr, 
+				     vexp_rom_base->addr + vexp_rom_base->size - 1,
+				     pexp_rom_base->addr))) {
+	    PrintError("Fail to add pci Passthrough exp_rom_base remapping: start=0x%x, size=%u, end=0x%x\n", 
+		       vexp_rom_base->addr, vexp_rom_base->size, vexp_rom_base->addr + vexp_rom_base->size);
+	    
+	    return -1;
+	}
+    } //if size > 0
 
-    if ((ret = v3_add_shadow_mem(dev->vm, V3_MEM_CORE_ANY, 
-				 vexp_rom_base->addr, 
-				 vexp_rom_base->addr + vexp_rom_base->size - 1,
-				 pexp_rom_base->addr))) {
-	PrintError("Fail to add pci Passthrough exp_rom_base remapping: start=0x%x, size=%u, end=0x%x\n", 
-	       vexp_rom_base->addr, vexp_rom_base->size, vexp_rom_base->addr + vexp_rom_base->size);
-
-	return -1;
-    }
     
     vexp_rom_base->val = *src;
     
