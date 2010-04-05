@@ -467,8 +467,10 @@ int v3_svm_enter(struct guest_info * info) {
 #endif
 
 
+    rdtscll(tmp_tsc);
+    v3_update_time(info, tmp_tsc - info->time_state.cached_host_tsc);
     rdtscll(info->time_state.cached_host_tsc);
-    guest_ctrl->TSC_OFFSET = info->time_state.guest_tsc - info->time_state.cached_host_tsc;
+    //    guest_ctrl->TSC_OFFSET = info->time_state.guest_tsc - info->time_state.cached_host_tsc;
 
     //V3_Print("Calling v3_svm_launch\n");
 	
@@ -479,13 +481,14 @@ int v3_svm_enter(struct guest_info * info) {
 
     v3_last_exit = (uint32_t)(guest_ctrl->exit_code);
 
-    rdtscll(tmp_tsc);
+    //rdtscll(tmp_tsc);
+    //    v3_update_time(info, tmp_tsc - info->time_state.cached_host_tsc);
 
     //PrintDebug("SVM Returned\n");
     
     info->num_exits++;
 
-    v3_update_time(info, tmp_tsc - info->time_state.cached_host_tsc);
+
 
 
     // Save Guest state from VMCB

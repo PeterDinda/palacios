@@ -658,6 +658,9 @@ int v3_vmx_enter(struct guest_info * info) {
 	vmcs_write(VMCS_GUEST_CR3, guest_cr3);
     }
 
+    // We do timer injection here to track real host time.
+    rdtscll(tmp_tsc);
+    v3_update_time(info, tmp_tsc - info->time_state.cached_host_tsc);
     rdtscll(info->time_state.cached_host_tsc);
 
     if (info->vm_info->run_state == VM_STOPPED) {
@@ -678,11 +681,11 @@ int v3_vmx_enter(struct guest_info * info) {
 	return -1;
     }
 
-    rdtscll(tmp_tsc);
+    //   rdtscll(tmp_tsc);
+    //    v3_update_time(info, tmp_tsc - info->time_state.cached_host_tsc);
 
     info->num_exits++;
 
-    v3_update_time(info, tmp_tsc - info->time_state.cached_host_tsc);
 
     /* Update guest state */
     v3_vmx_save_vmcs(info);
