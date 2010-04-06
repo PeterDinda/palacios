@@ -28,7 +28,7 @@
 #include <palacios/vm_guest_mem.h>
 #include <palacios/vmm_lowlevel.h>
 #include <palacios/vmm_sprintf.h>
-
+#include <palacios/vmm_muxer.h>
 
 
 v3_cpu_mode_t v3_get_vm_cpu_mode(struct guest_info * info) {
@@ -403,6 +403,11 @@ static int info_hcall(struct guest_info * core, uint_t hcall_id, void * priv_dat
 
 int v3_init_vm(struct v3_vm_info * vm) {
     v3_cpu_arch_t cpu_type = v3_get_cpu_type(v3_get_cpu_id());
+
+
+    if (v3_get_foreground_vm() == NULL) {
+	v3_set_foreground_vm(vm);
+    }
 
 #ifdef CONFIG_TELEMETRY
     v3_init_telemetry(vm);
