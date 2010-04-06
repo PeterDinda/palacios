@@ -42,10 +42,9 @@ struct vnet_nic_state {
 
 
 static int vnet_send(uint8_t * buf, uint32_t len, void * private_data, struct vm_device *dest_dev){
-    struct v3_vnet_pkt pkt;
     struct vnet_nic_state *vnetnic = (struct vnet_nic_state *)private_data;
 
-
+    struct v3_vnet_pkt pkt;
     pkt.size = len;
     pkt.src_type = LINK_INTERFACE;
     pkt.src_id = vnetnic->vnet_dev_id;
@@ -54,13 +53,21 @@ static int vnet_send(uint8_t * buf, uint32_t len, void * private_data, struct vm
 
 #ifdef CONFIG_DEBUG_VNET_NIC
     {
-    	PrintDebug("Virtio VNET-NIC: send pkt size: %d, pkt src_id: %d, src_type: %d\n", 
-			len, pkt.src_id, pkt.src_type);
+    	PrintDebug("Virtio VNET-NIC: send pkt size: %d, pkt src_id: %d\n", 
+			len,  vnetnic->vnet_dev_id);
     	v3_hexdump(buf, len, NULL, 0);
     }
 #endif
-
-
+/*
+    v3_vnet_rx(buf, len, vnetnic->vnet_dev_id, LINK_INTERFACE);
+	
+    //if on the dom0 core, interrupt the domU core to poll pkts
+    //otherwise, call the polling directly
+    int cpu = V3_Get_CPU();
+    cpu = (cpu == 0)?1:0;
+    v3_interrupt_cpu(vnetnic->vm, cpu, V3_VNET_POLLING_VECTOR);
+ */
+ 
     v3_vnet_send_pkt(&pkt, NULL);
 
     return 0;
@@ -182,6 +189,48 @@ static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	    route.dst_type = LINK_EDGE;
 	    route.src_id = vnet_dev_id;
 	    route.src_type = LINK_INTERFACE;
+	    memcpy(route.dst_mac, zeromac, 6);
+	    route.dst_mac_qual = MAC_ANY;
+	    memcpy(route.src_mac, zeromac, 6);
+	    route.src_mac_qual = MAC_ANY;
+
+	    v3_vnet_add_route(route);
+	}
+    }
+#endif
+
+//for temporary hack for Linux bridge (w/o encapuslation) test
+#if 0
+    {
+ 	static int vnet_nic_guestid = -1;
+	static int vnet_nic_dom0 = -1;
+    	uchar_t zeromac[6] = {0,0,0,0,0,0};
+		
+	if(!strcmp(name, "vnet_nic")){ //domu
+	    vnet_nic_guestid = vnet_dev_id;
+	}
+	if (!strcmp(name, "vnet_nic_dom0")){
+	    vnet_nic_dom0 = vnet_dev_id;
+	}
+
+	if(vnet_nic_guestid != -1 && vnet_nic_dom0 !=-1){
+	    struct v3_vnet_route route;
+		
+	    route.src_id = vnet_nic_guestid;
+	    route.src_type = LINK_INTERFACE;
+	    route.dst_id = vnet_nic_dom0;
+	    route.dst_type = LINK_INTERFACE;
+	    memcpy(route.dst_mac, zeromac, 6);
+	    route.dst_mac_qual = MAC_ANY;
+	    memcpy(route.src_mac, zeromac, 6);
+	    route.src_mac_qual = MAC_ANY;  
+	    v3_vnet_add_route(route);
+
+
+	    route.src_id = vnet_nic_dom0;
+	    route.src_type = LINK_INTERFACE;
+	    route.dst_id = vnet_nic_guestid;
+	    route.dst_type = LINK_INTERFACE;
 	    memcpy(route.dst_mac, zeromac, 6);
 	    route.dst_mac_qual = MAC_ANY;
 	    memcpy(route.src_mac, zeromac, 6);

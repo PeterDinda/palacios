@@ -35,8 +35,8 @@ typedef enum {LINK_INTERFACE=0, LINK_EDGE, LINK_ANY} link_type_t; //for 'type' a
 
 #define VNET_HASH_SIZE 17
 #define ETHERNET_HEADER_LEN 14
-#define ETHERNET_DATA_MAX   1500
-#define ETHERNET_PACKET_LEN (ETHERNET_HEADER_LEN + ETHERNET_DATA_MAX)
+#define ETHERNET_MTU   6000
+#define ETHERNET_PACKET_LEN (ETHERNET_HEADER_LEN + ETHERNET_MTU)
 
 //routing table entry
 struct v3_vnet_route {
@@ -108,11 +108,12 @@ int v3_vnet_add_route(struct v3_vnet_route route);
 int V3_init_vnet();
 
 int v3_vnet_add_bridge(struct v3_vm_info * vm,
-		    int (*input)(struct v3_vm_info * vm, struct v3_vnet_pkt pkt[], uint16_t pkt_num, void * private_data),
-		    void (*xcall_input)(void *data),
-		    uint16_t max_delayed_pkts,
-		    long max_latency,
-		    void * priv_data);
+		int (*input)(struct v3_vm_info * vm, struct v3_vnet_pkt pkt[], uint16_t pkt_num, void * private_data),
+		void (*xcall_input)(void *data),
+		int (*poll_pkt)(struct v3_vm_info * vm, void * private_data),
+		uint16_t max_delayed_pkts,
+		long max_latency,
+		void * priv_data);
 
 int v3_vnet_add_dev(struct v3_vm_info *info, uint8_t mac[6], 
 		    int (*dev_input)(struct v3_vm_info * vm, struct v3_vnet_pkt * pkt, void * private_data), 
@@ -124,9 +125,9 @@ void v3_vnet_heartbeat(struct guest_info *core);
 int v3_vnet_disable_bridge();
 int v3_vnet_enable_bridge();
 
-void v3_vnet_bridge_polling();
+void v3_vnet_polling();
 
-int v3_vnet_bridge_rx(uchar_t *buf, uint16_t size, uint16_t src_link);
+int v3_vnet_rx(uchar_t *buf, uint16_t size, uint16_t src_id, uint8_t src_type);
 
 
 #endif
