@@ -468,6 +468,10 @@ int v3_svm_enter(struct guest_info * info) {
 
 
     rdtscll(tmp_tsc);
+    if (tmp_tsc < info->time_state.cached_host_tsc) { 
+	PrintError("Time has gone backwards, panicing!\n");
+	return -1;
+    }
     v3_update_time(info, tmp_tsc - info->time_state.cached_host_tsc);
     rdtscll(info->time_state.cached_host_tsc);
     //    guest_ctrl->TSC_OFFSET = info->time_state.guest_tsc - info->time_state.cached_host_tsc;
