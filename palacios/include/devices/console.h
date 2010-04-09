@@ -28,7 +28,7 @@ struct v3_console_ops {
     // filled in by the backend device
     int (*update_screen)(uint_t x, uint_t y, uint_t length, void * private_data);
     int (*update_cursor)(uint_t x, uint_t y, void * private_data);
-    int (*scroll)(uint_t rows, void * private_data);
+    int (*scroll)(int rows, void * private_data);
 };
 
 
