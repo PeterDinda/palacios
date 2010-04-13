@@ -29,8 +29,10 @@
 #include <palacios/vmm_string.h>
 #include <palacios/vmm_socket.h>
 
-#include <devices/cga.h>
+#include <devices/console.h>
+#if 0
 #include <devices/telnet_cons.h>
+#endif
 
 #define NUM_ROWS 25
 #define NUM_COLS 80
@@ -516,6 +518,8 @@ static int cons_server(void * arg) {
 	state->connected = 0;
 	V3_Close_Socket(state->client_fd);
     }
+    
+    return -1;
 }
 
 
