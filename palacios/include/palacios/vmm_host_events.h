@@ -77,7 +77,7 @@ int v3_hook_host_event(struct v3_vm_info * vm,
 		       union v3_host_event_handler cb, 
 		       void * private_data);
 
-#endif // ! __V3VEE__
+#endif /* ! __V3VEE__ */
 
 
 
