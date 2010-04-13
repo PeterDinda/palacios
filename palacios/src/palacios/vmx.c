@@ -494,7 +494,7 @@ static int update_irq_entry_state(struct guest_info * info) {
 
         int_info.valid = 1;
 #ifdef CONFIG_DEBUG_INTERRUPTS
-        PrintDebug("Injecting exception %d (EIP=%p)\n", int_info.vector, (void *)info->rip);
+        PrintDebug("Injecting exception %d (EIP=%p)\n", int_info.vector, (void *)(addr_t)info->rip);
 #endif
         check_vmcs_write(VMCS_ENTRY_INT_INFO, int_info.value);
 
@@ -536,7 +536,7 @@ static int update_irq_entry_state(struct guest_info * info) {
                     PrintDebug("Injecting Interrupt %d at exit %u(EIP=%p)\n", 
 			       info->intr_state.irq_vector, 
 			       (uint32_t)info->num_exits, 
-			       (void *)info->rip);
+			       (void *)(addr_t)info->rip);
 #endif
 
                     check_vmcs_write(VMCS_ENTRY_INT_INFO, ent_int.value);
@@ -825,9 +825,9 @@ void v3_init_vmx_cpu(int cpu_id) {
 			  );
 #elif __V3_32BIT__
     __asm__ __volatile__ (
-			  "movq %%cr4, %%ecx;"
-			  "orq  $0x00002000, %%ecx;"
-			  "movq %%ecx, %0;"
+			  "movl %%cr4, %%ecx;"
+			  "orl  $0x00002000, %%ecx;"
+			  "movl %%ecx, %0;"
 			  : "=m"(ret) 
 			  :
 			  : "%ecx"
@@ -835,7 +835,7 @@ void v3_init_vmx_cpu(int cpu_id) {
 
     if ((~ret & tmp_msr.value) == 0) {
         __asm__ __volatile__ (
-			      "movq %0, %%cr4;"
+			      "movl %0, %%cr4;"
 			      :
 			      : "q"(ret)
 			      );
@@ -845,9 +845,9 @@ void v3_init_vmx_cpu(int cpu_id) {
     }
 
     __asm__ __volatile__ (
-			  "movq %%cr0, %%ecx; "
-			  "orq  $0x00000020,%%ecx; "
-			  "movq %%ecx, %%cr0;"
+			  "movl %%cr0, %%ecx; "
+			  "orl  $0x00000020,%%ecx; "
+			  "movl %%ecx, %%cr0;"
 			  :
 			  :
 			  : "%ecx"
