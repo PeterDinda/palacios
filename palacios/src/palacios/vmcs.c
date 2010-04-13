@@ -270,24 +270,45 @@ int v3_update_vmcs_host_state(struct guest_info * info) {
     struct vmx_data * arch_data = (struct vmx_data *)(info->vmm_data);
     struct v3_msr tmp_msr;
 
+#ifdef __V3_64BIT__
     __asm__ __volatile__ ( "movq    %%cr0, %0; "		
 			   : "=q"(tmp)
 			   :
     );
+#else
+    __asm__ __volatile__ ( "movl    %%cr0, %0; "		
+			   : "=q"(tmp)
+			   :
+    );
+#endif    
     vmx_ret |= check_vmcs_write(VMCS_HOST_CR0, tmp);
 
 
+#ifdef __V3_64BIT__
     __asm__ __volatile__ ( "movq %%cr3, %0; "		
 			   : "=q"(tmp)
 			   :
     );
+#else
+    __asm__ __volatile__ ( "movl %%cr3, %0; "		
+			   : "=q"(tmp)
+			   :
+    );
+#endif
     vmx_ret |= check_vmcs_write(VMCS_HOST_CR3, tmp);
 
 
+#ifdef __V3_64BIT__
     __asm__ __volatile__ ( "movq %%cr4, %0; "		
 			   : "=q"(tmp)
 			   :
     );
+#else
+    __asm__ __volatile__ ( "movl %%cr4, %0; "		
+			   : "=q"(tmp)
+			   :
+    );
+#endif
     vmx_ret |= check_vmcs_write(VMCS_HOST_CR4, tmp);
 
 
@@ -309,40 +330,82 @@ int v3_update_vmcs_host_state(struct guest_info * info) {
 
 
 
+#ifdef __V3_64BIT__
     __asm__ __volatile__ ( "movq %%cs, %0; "		
 			   : "=q"(tmp)
 			   :
     );
+#else
+    __asm__ __volatile__ ( "movl %%cs, %0; "		
+			   : "=q"(tmp)
+			   :
+    );
+#endif
     vmx_ret |= check_vmcs_write(VMCS_HOST_CS_SELECTOR, tmp);
 
+#ifdef __V3_64BIT__
     __asm__ __volatile__ ( "movq %%ss, %0; "		
 			   : "=q"(tmp)
 			   :
     );
+#else
+    __asm__ __volatile__ ( "movl %%ss, %0; "		
+			   : "=q"(tmp)
+			   :
+    );
+#endif
     vmx_ret |= check_vmcs_write(VMCS_HOST_SS_SELECTOR, tmp);
 
+#ifdef __V3_64BIT__
     __asm__ __volatile__ ( "movq %%ds, %0; "		
 			   : "=q"(tmp)
 			   :
     );
+#else
+    __asm__ __volatile__ ( "movl %%ds, %0; "		
+			   : "=q"(tmp)
+			   :
+    );
+#endif
     vmx_ret |= check_vmcs_write(VMCS_HOST_DS_SELECTOR, tmp);
 
+#ifdef __V3_64BIT__
     __asm__ __volatile__ ( "movq %%es, %0; "		
 			   : "=q"(tmp)
 			   :
     );
+#else
+    __asm__ __volatile__ ( "movl %%es, %0; "		
+			   : "=q"(tmp)
+			   :
+    );
+#endif
     vmx_ret |= check_vmcs_write(VMCS_HOST_ES_SELECTOR, tmp);
 
+#ifdef __V3_64BIT__
     __asm__ __volatile__ ( "movq %%fs, %0; "		
 			   : "=q"(tmp)
 			   :
     );
+#else
+    __asm__ __volatile__ ( "movl %%fs, %0; "		
+			   : "=q"(tmp)
+			   :
+    );
+#endif
     vmx_ret |= check_vmcs_write(VMCS_HOST_FS_SELECTOR, tmp);
 
+#ifdef __V3_64BIT__
     __asm__ __volatile__ ( "movq %%gs, %0; "		
 			   : "=q"(tmp)
 			   :
     );
+#else
+    __asm__ __volatile__ ( "movl %%gs, %0; "		
+			   : "=q"(tmp)
+			   :
+    );
+#endif
     vmx_ret |= check_vmcs_write(VMCS_HOST_GS_SELECTOR, tmp);
 
     vmx_ret |= check_vmcs_write(VMCS_HOST_TR_SELECTOR, arch_data->host_state.tr.selector);

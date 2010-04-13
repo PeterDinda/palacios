@@ -128,7 +128,7 @@ static inline int vmcs_store(addr_t vmcs_ptr) {
 }
 
 static inline int vmcs_read(vmcs_field_t vmcs_field, void * dst) {
-    uint64_t val = 0;
+    addr_t val = 0;
     uint8_t ret_valid = 0;
     uint8_t ret_invalid = 0;
 
@@ -170,7 +170,7 @@ static inline int vmcs_write(vmcs_field_t vmcs_field, addr_t value) {
                 EAX_ECX_MODRM
                 "seteb %0;" // fail valid (ZF=1)
                 "setnaeb %1;" // fail invalid (CF=1)
-                : "=r" (ret_valid), "=r" (ret_invalid)
+                : "=q" (ret_valid), "=q" (ret_invalid)
                 : "a" (vmcs_field), "c"(value)
                 : "memory");
 

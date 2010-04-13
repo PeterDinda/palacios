@@ -157,10 +157,10 @@ static int handle_mov_to_cr0(struct guest_info * info, v3_reg_t * new_cr0, struc
         }
 	
         if (vmx_info->state == VMXASSIST_ENABLED) {
-            PrintDebug("Loading VMXASSIST at RIP: %p\n", (void *)info->rip);
+            PrintDebug("Loading VMXASSIST at RIP: %p\n", (void *)(addr_t)info->rip);
         } else {
             PrintDebug("Leaving VMXASSIST and entering protected mode at RIP: %p\n",
-		       (void *)info->rip);
+		       (void *)(addr_t)info->rip);
         }
 
 	// PE switches modify the RIP directly, so we clear the instr_len field to avoid catastrophe
