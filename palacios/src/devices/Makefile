@@ -26,5 +26,6 @@ obj-$(CONFIG_NETDISK) += netdisk.o
 
 obj-$(CONFIG_CGA) += cga.o
 obj-$(CONFIG_TELNET_CONSOLE) += telnet_cons.o
+obj-$(CONFIG_CURSES_CONSOLE) += curses_cons.o
 
 obj-$(CONFIG_PASSTHROUGH_PCI) += pci_passthrough.o

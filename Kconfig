@@ -45,6 +45,15 @@ config MAX_CPUS
 	  For uniprocessor environments, set this to 1
 
 
+config CONSOLE
+	bool "Include Console Support"
+	default n
+	help 
+	  Enable console support in Palacios
+
+
+
+
 config SOCKET
 	bool "Include Network Socket Support"
 	default n
