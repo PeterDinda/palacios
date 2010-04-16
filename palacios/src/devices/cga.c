@@ -24,7 +24,7 @@
 #include <palacios/vmm_emulator.h>
 #include <palacios/vm_guest_mem.h>
 
-#include <devices/cga.h>
+#include <devices/console.h>
 
 
 
@@ -120,6 +120,7 @@ static int video_write_mem(addr_t guest_addr, void * dest, uint_t length, void *
     struct video_internal * state = (struct video_internal *)dev->private_data;
     uint_t fb_offset = guest_addr - START_ADDR;
     uint_t screen_byte_offset = state->screen_offset * BYTES_PER_COL;
+    uint_t screen_length;
 
     PrintDebug("Guest address: %p length = %d, fb_offset=%d, screen_offset=%d\n", 
 	       (void *)guest_addr, length, fb_offset, screen_byte_offset);
@@ -136,7 +137,11 @@ static int video_write_mem(addr_t guest_addr, void * dest, uint_t length, void *
 	
 	if (state->ops) {
 	    PrintDebug("\tcalling update_screen()\n");
-	    state->ops->update_screen(x, y, length, state->private_data);
+	    
+	    /* avoid updates past end of screen */
+	    screen_length = SCREEN_SIZE - screen_byte_offset;
+	    if (screen_length > length) screen_length = length;
+	    state->ops->update_screen(x, y, screen_length, state->private_data);
 	}
     }
 
