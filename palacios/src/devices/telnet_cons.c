@@ -29,8 +29,10 @@
 #include <palacios/vmm_string.h>
 #include <palacios/vmm_socket.h>
 
-#include <devices/cga.h>
+#include <devices/console.h>
+#if 0
 #include <devices/telnet_cons.h>
+#endif
 
 #define NUM_ROWS 25
 #define NUM_COLS 80
@@ -354,7 +356,7 @@ static int screen_update(uint_t x, uint_t y, uint_t length, void * private_data)
     return ret;
 }
 
-static int scroll(uint_t rows, void * private_data) {
+static int scroll(int rows, void * private_data) {
     struct vm_device * dev = (struct vm_device *)private_data;
     struct cons_state * state = (struct cons_state *)dev->private_data;
     addr_t irq_state = 0;
@@ -516,6 +518,8 @@ static int cons_server(void * arg) {
 	state->connected = 0;
 	V3_Close_Socket(state->client_fd);
     }
+    
+    return -1;
 }
 
 

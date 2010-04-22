@@ -28,12 +28,13 @@ struct v3_console_ops {
     // filled in by the backend device
     int (*update_screen)(uint_t x, uint_t y, uint_t length, void * private_data);
     int (*update_cursor)(uint_t x, uint_t y, void * private_data);
-    int (*scroll)(uint_t rows, void * private_data);
+    int (*scroll)(int rows, void * private_data);
 };
 
 
 
 int v3_cons_get_fb(struct vm_device * frontend_dev, uint8_t * dst, uint_t offset, uint_t length);
+int v3_console_register_cga(struct vm_device * cga_dev, struct v3_console_ops * ops, void * private_data);
 
 #endif // ! __V3VEE__
 

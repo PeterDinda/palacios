@@ -323,6 +323,12 @@ config TELNET_CONSOLE
 	help
 	  Includes the virtual telnet console 
 
+config CURSES_CONSOLE
+	bool "Curses Virtual Console"
+	default n
+	depends on CGA && !PASSTHROUGH_VIDEO
+	help
+	  Includes the virtual curses console 
 
 endmenu
 

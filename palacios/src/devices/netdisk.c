@@ -261,7 +261,7 @@ static int socket_init(struct disk_state * disk) {
 	    return -1;
 	}	
 
-	PrintDebug("Capacity: %p\n", (void *)(disk->capacity));
+	PrintDebug("Capacity: %p\n", (void *)(addr_t)disk->capacity);
     }
 
 

@@ -105,7 +105,7 @@ static void load_segment(struct vmx_assist_segment * vmx_assist_seg, struct v3_s
 static void vmx_save_world_ctx(struct guest_info * info, struct vmx_assist_context * ctx) {
     struct vmx_data * vmx_info = (struct vmx_data *)(info->vmm_data);
 
-    PrintDebug("Writing from RIP: 0x%p\n", (void *)info->rip);
+    PrintDebug("Writing from RIP: 0x%p\n", (void *)(addr_t)info->rip);
     
     ctx->eip = info->rip;
     ctx->esp = info->vm_regs.rsp;
