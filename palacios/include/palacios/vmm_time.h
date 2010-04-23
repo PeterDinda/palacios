@@ -36,6 +36,13 @@ struct vm_time {
     // Cache value to help calculate the guest_tsc
     ullong_t cached_host_tsc;
 
+	
+    /* The total num of numcycles spent in the halt handler 
+    	  that the halt handler has already updated to the 
+    	  timer infrastructure about.   That is, "update_time" has been
+     */
+    ullong_t cached_hlt_tsc;
+
     // The number of cycles pending for notification to the timers
     //ullong_t pending_cycles;
 

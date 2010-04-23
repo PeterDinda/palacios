@@ -44,6 +44,8 @@ int v3_handle_halt(struct guest_info * info) {
 	uint32_t gap = 0;
 	
 	PrintDebug("CPU Yield\n");
+
+again:
 	
 	rdtscll(yield_start);
 	v3_yield(info);
@@ -52,7 +54,26 @@ int v3_handle_halt(struct guest_info * info) {
     
 	//v3_update_time(info, yield_stop - yield_start);
 	gap = yield_stop - yield_start;
+	 /*
+           If we got here, either an interrupt has occured or
+           sufficient time has passed that we may need to inject 
+           a timer interrupt.  
+           First, we will update time, which may or may not inject an
+           interrupt 
+        */
+	v3_update_time(info, gap);
+	info->time_state.cached_hlt_tsc += gap;
 
+	/* At this point, we either have some combination of 
+           interrupts, including perhaps a timer interrupt, or 
+           no interrupt.
+        */
+	if (!v3_intr_pending(info)) {
+       /* if no interrupt, then we yield again */
+	    goto again;
+	}
+
+#if 0
 	/*  WARNING!!! WARNING!!!
 	 *  
 	 * DO NOT REMOVE THIS CONDITIONAL!!!
@@ -65,7 +86,9 @@ int v3_handle_halt(struct guest_info * info) {
 	if (!v3_intr_pending(info)) {
 	    v3_advance_time(info);
 	}
+#endif
 
+      //PrintError("HLT instruction issued\n");
 	
 	PrintDebug("CPU Yield Done (%d cycles)\n", gap);
 	
