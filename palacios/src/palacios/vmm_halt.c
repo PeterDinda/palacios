@@ -45,32 +45,35 @@ int v3_handle_halt(struct guest_info * info) {
 	
 	PrintDebug("CPU Yield\n");
 
-again:
-	
-	rdtscll(yield_start);
-	v3_yield(info);
-	rdtscll(yield_stop);
-    
-    
-	//v3_update_time(info, yield_stop - yield_start);
-	gap = yield_stop - yield_start;
-	 /*
-           If we got here, either an interrupt has occured or
-           sufficient time has passed that we may need to inject 
-           a timer interrupt.  
-           First, we will update time, which may or may not inject an
-           interrupt 
-        */
-	v3_update_time(info, gap);
-	info->time_state.cached_hlt_tsc += gap;
+	while(1){
+		if (v3_intr_pending(info)) {
+	       /* if there is pending interrupt, just return */
+		    break;
+		}
 
-	/* At this point, we either have some combination of 
-           interrupts, including perhaps a timer interrupt, or 
-           no interrupt.
-        */
-	if (!v3_intr_pending(info)) {
-       /* if no interrupt, then we yield again */
-	    goto again;
+		rdtscll(yield_start);
+		v3_yield(info);
+		rdtscll(yield_stop);
+
+		gap = yield_stop - yield_start;
+		 /*
+	           If we got here, either an interrupt has occured or
+	           sufficient time has passed that we may need to inject 
+	           a timer interrupt.  
+	           First, we will update time, which may or may not inject an
+	           interrupt 
+	        */
+		v3_update_time(info, gap);
+		info->time_state.cached_hlt_tsc += gap;
+
+		/* At this point, we either have some combination of 
+	           interrupts, including perhaps a timer interrupt, or 
+	           no interrupt.
+	        */
+		if (!v3_intr_pending(info)) {
+	       /* if no interrupt, then we do halt*/
+		    asm("hlt");
+		}
 	}
 
 #if 0
