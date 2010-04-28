@@ -38,62 +38,27 @@ int v3_handle_halt(struct guest_info * info) {
     if (info->cpl != 0) { 
 	v3_raise_exception(info, GPF_EXCEPTION);
     } else {
-    
 	uint64_t yield_start = 0;
-	uint64_t yield_stop = 0;
-	uint32_t gap = 0;
 	
 	PrintDebug("CPU Yield\n");
 
-	while(1){
-		if (v3_intr_pending(info)) {
-	       /* if there is pending interrupt, just return */
-		    break;
-		}
-
-		rdtscll(yield_start);
-		v3_yield(info);
-		rdtscll(yield_stop);
-
-		gap = yield_stop - yield_start;
-		 /*
-	           If we got here, either an interrupt has occured or
-	           sufficient time has passed that we may need to inject 
-	           a timer interrupt.  
-	           First, we will update time, which may or may not inject an
-	           interrupt 
-	        */
-		v3_update_time(info, gap);
-		info->time_state.cached_hlt_tsc += gap;
-
-		/* At this point, we either have some combination of 
-	           interrupts, including perhaps a timer interrupt, or 
-	           no interrupt.
-	        */
-		if (!v3_intr_pending(info)) {
-	       /* if no interrupt, then we do halt*/
-		    asm("hlt");
-		}
+	while (!v3_intr_pending(info)) {
+	    rdtscll(yield_start);
+	    v3_yield(info);
+	    
+	    v3_update_time(info, yield_start - info->time_state.cached_host_tsc);
+	    
+	    rdtscll(info->time_state.cached_host_tsc);
+	    
+	    /* At this point, we either have some combination of 
+	       interrupts, including perhaps a timer interrupt, or 
+	       no interrupt.
+	    */
+	    if (!v3_intr_pending(info)) {
+		/* if no interrupt, then we do halt */
+		asm("hlt");
+	    }
 	}
-
-#if 0
-	/*  WARNING!!! WARNING!!!
-	 *  
-	 * DO NOT REMOVE THIS CONDITIONAL!!!
-	 *
-	 * It is common for an OS to issue an IO op, and then sit in a halt loop
-	 * waiting for the device to complete and raise an irq.
-	 * If you remove this then the timer interrupt will ALWAYS subvert the completion 
-	 * interrupt and stall the guest.
-	 */
-	if (!v3_intr_pending(info)) {
-	    v3_advance_time(info);
-	}
-#endif
-
-      //PrintError("HLT instruction issued\n");
-	
-	PrintDebug("CPU Yield Done (%d cycles)\n", gap);
 	
 	info->rip += 1;
     }
