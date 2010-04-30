@@ -37,8 +37,8 @@ struct vm_device;
 typedef enum { PCI_BAR_IO, 
 	       PCI_BAR_MEM24, 
 	       PCI_BAR_MEM32, 
-	       PCI_BAR_MEM64_LOW, 
-	       PCI_BAR_MEM64_HIGH, 
+	       PCI_BAR_MEM64_LO, 
+	       PCI_BAR_MEM64_HI, 
 	       PCI_BAR_PASSTHROUGH,
 	       PCI_BAR_NONE } pci_bar_type_t;
 
@@ -72,7 +72,7 @@ struct v3_pci_bar {
 	};
 	
 	struct {
-	    int (*bar_init)(int bar_num, uint32_t * dst,void * private_data);
+	    int (*bar_init)(int bar_num, uint32_t * dst, void * private_data);
 	    int (*bar_write)(int bar_num, uint32_t * src, void * private_data);
 	};
     };
@@ -87,25 +87,21 @@ struct v3_pci_bar {
 
 
 #define PCI_IO_MASK 0xfffffffc
-#define PCI_MEM_MASK 0xfffffff0
 #define PCI_MEM24_MASK 0x000ffff0
+#define PCI_MEM_MASK 0xfffffff0
+#define PCI_MEM64_MASK_HI 0xffffffff
+#define PCI_MEM64_MASK_LO 0xfffffff0
+#define PCI_EXP_ROM_MASK 0xfffff800
 
-//Zheng 03/15/2010
-#define PCI_MEM64_HIGH_MASK32 0xffffffff
-#define PCI_MEM64_HIGH_MASK64 0xffffffff00000000
-#define PCI_MEM64_MASK 0xfffffffffffffff0
-#define PCI_EXP_ROM_BASE_MASK 0xfffff800
+
 
 #define PCI_IO_BASE(bar_val) (bar_val & PCI_IO_MASK)
-#define PCI_MEM32_BASE(bar_val) (bar_val & PCI_MEM_MASK)
 #define PCI_MEM24_BASE(bar_val) (bar_val & PCI_MEM24_MASK)
-//Zheng 03/15/2010
-#define PCI_MEM64_BASE_HIGH(bar_val) (bar_val & PCI_MEM64_HIGH_MASK32)
-#define PCI_MEM64_BASE(mem64_bar_val) ((mem64_bar_val) & PCI_MEM64_MASK)
-#define PCI_EXP_ROM_BASE(exp_rom_base_val) (exp_rom_base_val & PCI_EXP_ROM_BASE_MASK)
+#define PCI_MEM32_BASE(bar_val) (bar_val & PCI_MEM_MASK)
+#define PCI_MEM64_BASE_HI(bar_val) (bar_val & PCI_MEM64_MASK_HI)
+#define PCI_MEM64_BASE_LO(bar_val) (bar_val & PCI_MEM64_MASK_LO)
+#define PCI_EXP_ROM_BASE(rom_val) (rom_val & PCI_EXP_ROM_MASK)
 
-//Zheng 03/15/2010
-#define PCI_MEM64_BASE_HIGH_SHIFT 32
 
 struct pci_device {
 
@@ -139,13 +135,13 @@ struct pci_device {
     int (*config_update)(uint_t reg_num, void * src, uint_t length, void * priv_data);
 
     int (*cmd_update)(struct pci_device * pci_dev, uchar_t io_enabled, uchar_t mem_enabled);
-    int (*ext_rom_update)(struct pci_device * pci_dev);
+    int (*exp_rom_update)(struct pci_device * pci_dev, uint32_t * src, void * private_data);
 
     int (*config_write)(uint_t reg_num, void * src, uint_t length, void * private_data);
     int (*config_read)(uint_t reg_num, void * dst, uint_t length, void * private_data);
 
 
-    int ext_rom_update_flag;
+    int exp_rom_update_flag;
     int bar_update_flag;
 
     void * priv_data;
@@ -171,7 +167,7 @@ v3_pci_register_device(struct vm_device * pci,
 		       struct v3_pci_bar * bars,
 		       int (*config_update)(uint_t reg_num, void * src, uint_t length, void * private_data),
 		       int (*cmd_update)(struct pci_device *pci_dev, uchar_t io_enabled, uchar_t mem_enabled),
-		       int (*ext_rom_update)(struct pci_device *pci_dev),
+		       int (*exp_rom_update)(struct pci_device * pci_dev, uint32_t * src, void * private_data),
 		       void * priv_data);
 
 
