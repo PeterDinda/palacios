@@ -682,6 +682,9 @@ MRPROPER_FILES += .config .config.old  .version .old_version \
 		  tags TAGS cscope*
 
 
+#	 	\( -name '*.[oas]' -o -name '*.ko' -o -name '.*.cmd' \
+
+
 # clean - Delete most, but leave enough to build external modules
 #
 clean: rm-dirs  := $(CLEAN_DIRS)
@@ -693,7 +696,6 @@ $(clean-dirs):
 	$(Q)$(MAKE) $(clean)=$(patsubst _clean_%,%,$@)
 
 
-#	 	\( -name '*.[oas]' -o -name '*.ko' -o -name '.*.cmd' \
 clean: archclean $(clean-dirs)
 	$(call cmd,rmdirs)
 	$(call cmd,rmfiles)
