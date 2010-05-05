@@ -210,13 +210,6 @@ menuconfig SYMMOD
 	help
 	  Enable Symbiotic module loading
 
-if SYMMOD
-
-source "modules/Kconfig"
-
-endif
-
-
 
 endmenu
 
