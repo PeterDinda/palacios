@@ -39,7 +39,7 @@ mod_name:
 .ascii MOD_NM(MOD_NAME)
 
 
-.section "_v3_modules"
+.section _v3_modules, "a"
 IDENT(#ifdef __x86_64__)
 .quad mod_name 
 .quad mod_start

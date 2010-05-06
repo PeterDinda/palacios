@@ -17,10 +17,11 @@ DEFS := -DMOD_NAME=$(MOD_NAME) \
 #	cpp -undef $(DEFS) binary.S -o $(MOD_DIR)/.tmp.binary.S
 #	cpp $(DEFS) $(MOD_DIR)/.tmp.binary.S
 
+CFLAGS := -fno-stack-protector -Wall -O -Werror -fPIC -mno-red-zone
 
 module: FORCE
 	cpp -undef $(DEFS) binary.S -o $(MOD_DIR)/.tmp.binary.S
-	gcc $(DEFS) -c $(MOD_DIR)/.tmp.binary.S -o $(MOD_DIR)/$(MOD_NAME).vo
+	gcc $(CFLAGS) $(DEFS) -c $(MOD_DIR)/.tmp.binary.S -o $(MOD_DIR)/$(MOD_NAME).vo
 	rm -f $(MOD_DIR)/.tmp.binary.S
 
 FORCE:

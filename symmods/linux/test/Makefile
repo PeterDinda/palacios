@@ -17,9 +17,16 @@ else
 	PALACIOSDIR := $(PWD)/../../capsule
 	V3_MOD_TYPE := V3_LINUX_MOD
 
-default:
+
+linux: FORCE
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules
+
+capsule: FORCE 
 	$(MAKE) -C $(PALACIOSDIR) MOD_NAME=$(V3_MOD_NAME) MOD_DIR=$(PWD) \
 		MOD_OBJ=$(V3_MOD_OBJ) MOD_TYPE=$(V3_MOD_TYPE)
+
+default: linux capsule	
+
+FORCE:
 
 endif

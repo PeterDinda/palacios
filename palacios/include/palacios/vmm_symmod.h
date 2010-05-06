@@ -83,6 +83,8 @@ struct v3_sym_module * v3_get_sym_module(struct v3_vm_info * vm, char * name);
 
 
 
+
+
 #define register_module(name, start, end, flags)		\
     static char v3_module_name[] = name;			\
     static struct v3_sym_module _v3_module			\

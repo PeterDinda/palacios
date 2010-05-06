@@ -23,7 +23,12 @@
 
 static struct hashtable * master_mod_table = NULL;
 
-
+/* 
+ * This is a place holder to ensure that the _v3_modules section gets created 
+ */
+static struct {} null_mod  __attribute__((__used__))			\
+    __attribute__((unused, __section__ ("_v3_modules"),			\
+		   aligned(sizeof(addr_t))));
 
 static uint_t mod_hash_fn(addr_t key) {
     char * name = (char *)key;
@@ -45,13 +50,20 @@ int V3_init_symmod() {
     struct v3_sym_module * tmp_mod = __start__v3_modules;
     int i = 0;
 
+    if (tmp_mod == __stop__v3_modules) {
+	PrintDebug("No Symbiotic modules found\n");
+	return 0;
+    }
+
     master_mod_table = v3_create_htable(0, mod_hash_fn, mod_eq_fn);
 
     while (tmp_mod != __stop__v3_modules) {
+
 	if (v3_htable_search(master_mod_table, (addr_t)(tmp_mod->name))) {
 	    PrintError("Multiple instances of Module (%s)\n", tmp_mod->name);
 	    return -1;
-	}	
+	}
+	
 	PrintDebug("Registering Symbiotic Module (%s)\n", tmp_mod->name);
 
 	if (v3_htable_insert(master_mod_table, 
