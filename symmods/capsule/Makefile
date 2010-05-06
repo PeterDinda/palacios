@@ -1,14 +1,12 @@
-mod_name := test
-mod_dir := /home/jarusl
-mod_obj := bar.o
-mod_type := 1
 
-DEFS := -DMOD_NAME=$(mod_name) -DMOD_DIR=$(mod_dir) -DMOD_OBJ=$(mod_obj) -DMOD_TYPE=$(mod_type)
-
-
-
+DEFS := -DMOD_NAME=$(MOD_NAME) \
+	-DMOD_DIR=$(MOD_DIR) \
+	-DMOD_OBJ=$(MOD_OBJ) \
+	-DMOD_TYPE=$(MOD_TYPE)
 
 module: FORCE
-	gcc $(DEFS) -c binary.S -o module.vo
+	cpp -undef $(DEFS) binary.S -o $(MOD_DIR)/.tmp.binary.S
+	gcc $(DEFS) -c $(MOD_DIR)/.tmp.binary.S -o $(MOD_DIR)/$(MOD_NAME).vo
+	rm -f $(MOD_DIR)/.tmp.binary.S
 
 FORCE:

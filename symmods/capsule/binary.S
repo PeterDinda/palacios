@@ -21,13 +21,18 @@
 
 .data
 
-#define TOSTR(str) #str
-#define MOD_PATH(dir,name) TOSTR(dir/name)
+#define IDENT(str) str
+#define TOSTR(str) #str 
+#define XSTR(str) TOSTR(str)
+#define MOD_PATH(dir, name)  TOSTR(dir/name)
 #define MOD_NM(name) TOSTR(name)
+
+
+
 
 .globl mod_start
 mod_start:
-.incbin MOD_PATH(MOD_DIR, MOD_OBJ)
+.incbin MOD_PATH(MOD_DIR,MOD_OBJ)
 mod_stop:
 
 mod_name:
@@ -35,8 +40,17 @@ mod_name:
 
 
 .section "_v3_modules"
-.quad mod_name
+IDENT(#ifdef __X86_64__)
+.quad mod_name 
 .quad mod_start
-.quad mod_stop
+.quad mod_stop 
 .long MOD_TYPE
-
+IDENT(#else)
+.long mod_name
+.space 4
+.long mod_start
+.space 4
+.long mod_stop
+.space 4
+.long MOD_TYPE 
+IDENT(#endif)
