@@ -40,7 +40,7 @@ mod_name:
 
 
 .section "_v3_modules"
-IDENT(#ifdef __X86_64__)
+IDENT(#ifdef __x86_64__)
 .quad mod_name 
 .quad mod_start
 .quad mod_stop 
