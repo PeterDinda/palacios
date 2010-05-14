@@ -75,34 +75,26 @@ static inline int handle_passthrough_pagefault_32(struct guest_info * info,
 	
 	pte[pte_index].user_page = 1;
 	
-	if (region->host_type == SHDW_REGION_ALLOCATED) {
-	    // Full access
+	if ((region->flags.alloced == 1) && 
+	    (region->flags.read == 1)) {
+
 	    pte[pte_index].present = 1;
-	    pte[pte_index].writable = 1;
+
+	    if (region->flags.write == 1) {
+		pte[pte_index].writable = 1;
+	    } else {
+		pte[pte_index].writable = 0;
+	    }
 	    
 	    pte[pte_index].page_base_addr = PAGE_BASE_ADDR(host_addr);
-	} else if (region->host_type == SHDW_REGION_WRITE_HOOK) {
-	    // Only trap writes
-	    PrintDebug("Faulted in a write hook page\n");
-	    pte[pte_index].present = 1;
-	    pte[pte_index].writable = 0;
-	    
-	    pte[pte_index].page_base_addr = PAGE_BASE_ADDR(host_addr);
-	} else if (region->host_type == SHDW_REGION_FULL_HOOK) {
-	    // trap all accesses
-	    return v3_handle_mem_hook(info, fault_addr, fault_addr, region, error_code);
-	} else {
-	    PrintError("Unknown Region Type...\n");
-	    return -1;
 	}
     }
-    
-    if ( (region->host_type == SHDW_REGION_WRITE_HOOK) && 
-	 (error_code.write == 1) ) {
-	PrintDebug("Triggering Direct paging Write hook\n");
-	return v3_handle_mem_hook(info, fault_addr, fault_addr, region, error_code);
-    }
 
+    if (region->flags.hook == 1) {
+	if ((error_code.write == 1) || (region->flags.read == 0))  {
+	    return v3_handle_mem_hook(info, fault_addr, fault_addr, region, error_code);	    
+	}
+    }
     
     return 0;
 }

@@ -30,8 +30,8 @@
 
 
 static inline int handle_passthrough_pagefault_64(struct guest_info * info, 
-						     addr_t fault_addr, 
-						     pf_error_t error_code) {
+						  addr_t fault_addr, 
+						  pf_error_t error_code) {
     pml4e64_t * pml = NULL;
     pdpe64_t * pdpe = NULL;
     pde64_t * pde = NULL;
@@ -111,33 +111,25 @@ static inline int handle_passthrough_pagefault_64(struct guest_info * info,
     if (pte[pte_index].present == 0) {
 	pte[pte_index].user_page = 1;
 	
-	if (region->host_type == SHDW_REGION_ALLOCATED) {
+	if ((region->flags.alloced == 1) && 
+	    (region->flags.read == 1)) {
 	    // Full access
 	    pte[pte_index].present = 1;
-	    pte[pte_index].writable = 1;
+
+	    if (region->flags.write == 1) {
+		pte[pte_index].writable = 1;
+	    } else {
+		pte[pte_index].writable = 0;
+	    }
 
 	    pte[pte_index].page_base_addr = PAGE_BASE_ADDR(host_addr);
-	    
-	} else if (region->host_type == SHDW_REGION_WRITE_HOOK) {
-	    // Only trap writes
-	    pte[pte_index].present = 1; 
-	    pte[pte_index].writable = 0;
-
-	    pte[pte_index].page_base_addr = PAGE_BASE_ADDR(host_addr);
-
-	} else if (region->host_type == SHDW_REGION_FULL_HOOK) {
-	    // trap all accesses
-	    return v3_handle_mem_hook(info, fault_addr, fault_addr, region, error_code);
-
-	} else {
-	    PrintError("Unknown Region Type...\n");
-	    return -1;
 	}
     }
    
-    if ( (region->host_type == SHDW_REGION_WRITE_HOOK) && 
-	 (error_code.write == 1) ) {
-	return v3_handle_mem_hook(info, fault_addr, fault_addr, region, error_code);
+    if (region->flags.hook == 1) {
+	if ((error_code.write == 1) || (region->flags.read == 0)) {
+	    return v3_handle_mem_hook(info, fault_addr, fault_addr, region, error_code);
+	}
     }
 
     return 0;
