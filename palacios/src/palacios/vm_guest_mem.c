@@ -72,9 +72,9 @@ int guest_pa_to_host_pa(struct guest_info * info, addr_t guest_pa, addr_t * host
 	return -1;
     }
     
-    if (shdw_reg->host_type == SHDW_REGION_FULL_HOOK) {
-	PrintError("In GPA->HPA: Could not find address in shadow map (addr=%p) (reg_type=%s)\n", 
-		   (void *)guest_pa, v3_shdw_region_type_to_str(shdw_reg->host_type));
+    if (shdw_reg->flags.alloced == 0) {
+	PrintError("In GPA->HPA: Tried to translate physical address of non allocated page (addr=%p)\n", 
+		   (void *)guest_pa);
 	return -1;
     }
 	
