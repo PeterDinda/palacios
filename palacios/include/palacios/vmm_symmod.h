@@ -30,31 +30,39 @@
 
 
 
-
-#define V3_SYMMOD_INV (0x00000000)
-#define V3_SYMMOD_LNX (0x00000001)
-#define V3_SYMMOD_MOD (0x00000002)
-#define V3_SYMMOD_SEC (0x00000003)
-union v3_symmod_flags {
-    uint32_t flags;
-    struct {
-	uint8_t type;
-    } __attribute__((packed));
-} __attribute__((packed));
-
-
-struct v3_sym_module {
+struct v3_sym_capsule {
     char * name;
     void * start_addr;
-    void * end_addr;
-    uint32_t flags; // see 'struct v3_symmod_flags'
-} __attribute__((packed));
+    uint32_t size;
+    uint32_t guest_size;
+
+    union {
+	uint32_t flags;
+	struct {
+#define V3_SYMMOD_INV (0x00)
+#define V3_SYMMOD_LNX (0x01)
+#define V3_SYMMOD_MOD (0x02)
+#define V3_SYMMOD_SEC (0x03)
+	    uint8_t type;
+
+#define V3_SYMMOD_ARCH_INV     (0x00)
+#define V3_SYMMOD_ARCH_i386    (0x01)
+#define V3_SYMMOD_ARCH_x86_64  (0x02)
+	    uint8_t arch;
+	    uint16_t rsvd;
+	} __attribute__((packed));
+    } __attribute__((packed));
+    
+    void * capsule_data;
+
+    struct list_head node;
+};
 
 
 
 struct v3_symmod_loader_ops {
 
-    int (*load_module)(struct v3_vm_info * vm, struct v3_sym_module * mod,  void * priv_data);
+    int (*load_capsule)(struct v3_vm_info * vm, struct v3_sym_capsule * mod,  void * priv_data);
 };
 
 
@@ -63,7 +71,10 @@ struct v3_symmod_state {
     struct v3_symmod_loader_ops * loader_ops;
     void * loader_data;
 
-    struct hashtable * module_table;
+    uint32_t num_avail_capsules;
+    uint32_t num_loaded_capsules;
+
+    struct hashtable * capsule_table;
 
     /* List containing V3 symbols */
     /* (defined in vmm_symmod.c)  */
@@ -74,24 +85,12 @@ struct v3_symmod_state {
 
 int v3_set_symmod_loader(struct v3_vm_info * vm, struct v3_symmod_loader_ops * ops, void * priv_data);
 
-int v3_load_sym_module(struct v3_vm_info * vm, char * mod_name);
+int v3_load_sym_capsule(struct v3_vm_info * vm, char * mod_name);
 
 int v3_init_symmod_vm(struct v3_vm_info * vm, v3_cfg_tree_t * cfg);
 
-struct v3_sym_module * v3_get_sym_module(struct v3_vm_info * vm, char * name);
+struct v3_sym_capsule * v3_get_sym_capsule(struct v3_vm_info * vm, char * name);
 
-
-
-
-
-
-#define register_module(name, start, end, flags)		\
-    static char v3_module_name[] = name;			\
-    static struct v3_sym_module _v3_module			\
-    __attribute__((__used__))					\
-	__attribute__((unused, __section__ ("_v3_modules"),	\
-		       aligned(sizeof(addr_t))))		\
-	= {v3_module_name, start, end, flags};
 
 
 int V3_init_symmod();

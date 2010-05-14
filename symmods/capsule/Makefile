@@ -1,9 +1,19 @@
 ifeq ($(MOD_TYPE),V3_LINUX_MOD)
-	MOD_IDX := 1
+	TYPE_IDX := 1
 else ifeq ($(MOD_TYPE),V3_SYM_MOD)
-	MOD_IDX := 2
-else ifeq($(MOD_TYPE),V3_SEC_MOD)
-	MOD_IDX := 3
+	TYPE_IDX := 2
+else ifeq ($(MOD_TYPE),V3_SEC_MOD)
+	TYPE_IDX := 3
+else 
+	TYPE_IDX := 0
+endif
+
+ifeq ($(MOD_ARCH),i386)
+	ARCH_IDX := 1
+else ifeq ($(MOD_ARCH),x86_64)
+	ARCH_IDX := 2
+else 
+	ARCH_IDX := 0
 endif
 
 
@@ -11,7 +21,8 @@ endif
 DEFS := -DMOD_NAME=$(MOD_NAME) \
 	-DMOD_DIR=$(MOD_DIR) \
 	-DMOD_OBJ=$(MOD_OBJ) \
-	-DMOD_TYPE=$(MOD_IDX)
+	-DMOD_TYPE=$(TYPE_IDX) \
+	-DMOD_ARCH=$(ARCH_IDX)
 
 
 #	cpp -undef $(DEFS) binary.S -o $(MOD_DIR)/.tmp.binary.S

@@ -28,9 +28,6 @@
 #define MOD_NM(name) TOSTR(name)
 
 
-
-
-.globl mod_start
 mod_start:
 .incbin MOD_PATH(MOD_DIR,MOD_OBJ)
 mod_stop:
@@ -39,12 +36,14 @@ mod_name:
 .ascii MOD_NM(MOD_NAME)
 
 
-.section _v3_modules, "a"
+.section _v3_capsules, "a"
 IDENT(#ifdef __x86_64__)
 .quad mod_name 
 .quad mod_start
 .quad mod_stop 
-.long MOD_TYPE
+.byte MOD_TYPE
+.byte MOD_ARCH
+.space 2
 IDENT(#else)
 .long mod_name
 .space 4
@@ -52,5 +51,7 @@ IDENT(#else)
 .space 4
 .long mod_stop
 .space 4
-.long MOD_TYPE 
+.byte MOD_TYPE 
+.byte MOD_ARCH
+.space 2
 IDENT(#endif)
