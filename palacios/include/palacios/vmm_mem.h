@@ -36,15 +36,6 @@ struct v3_vm_info;
 
 
 
-// These are the types of physical memory address regions
-// from the perspective of the HOST
-typedef enum shdw_region_type { 
-    SHDW_REGION_WRITE_HOOK,                 // This region is mapped as read-only (page faults on write)
-    SHDW_REGION_FULL_HOOK,                  // This region is mapped as not present (always generate page faults)
-    SHDW_REGION_ALLOCATED,                  // Region is a section of host memory
-    SHDW_REGION_BASE,
-} v3_shdw_region_type_t;
-
 #define V3_MEM_CORE_ANY ((uint16_t)-1)
 
 
@@ -69,7 +60,6 @@ struct v3_shadow_region {
     addr_t                  guest_start; 
     addr_t                  guest_end; 
 
-    v3_shdw_region_type_t   host_type;
     v3_mem_flags_t          flags;
 
     addr_t                  host_addr; // This either points to a host address mapping

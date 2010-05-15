@@ -59,7 +59,6 @@ int v3_init_mem_map(struct v3_vm_info * vm) {
 
     map->base_region.guest_start = 0;
     map->base_region.guest_end = mem_pages * PAGE_SIZE_4KB;
-    map->base_region.host_type = SHDW_REGION_ALLOCATED;
     map->base_region.host_addr = (addr_t)V3_AllocPages(mem_pages);
 
     map->base_region.flags.read = 1;
@@ -115,7 +114,6 @@ int v3_add_shadow_mem( struct v3_vm_info * vm, uint16_t core_id,
 
     entry->guest_start = guest_addr_start;
     entry->guest_end = guest_addr_end;
-    entry->host_type = SHDW_REGION_ALLOCATED;
     entry->host_addr = host_addr;
     entry->write_hook = NULL;
     entry->read_hook = NULL;
@@ -147,7 +145,6 @@ int v3_hook_write_mem(struct v3_vm_info * vm, uint16_t core_id,
 
     entry->guest_start = guest_addr_start;
     entry->guest_end = guest_addr_end;
-    entry->host_type = SHDW_REGION_WRITE_HOOK;
     entry->host_addr = host_addr;
     entry->write_hook = write;
     entry->read_hook = NULL;
@@ -179,7 +176,6 @@ int v3_hook_full_mem(struct v3_vm_info * vm, uint16_t core_id,
 
     entry->guest_start = guest_addr_start;
     entry->guest_end = guest_addr_end;
-    entry->host_type = SHDW_REGION_FULL_HOOK;
     entry->host_addr = (addr_t)NULL;
     entry->write_hook = write;
     entry->read_hook = read;
