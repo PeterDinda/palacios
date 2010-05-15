@@ -500,7 +500,7 @@ static int handle_pte_shadow_pagefault_64(struct guest_info * info, addr_t fault
 		PrintError("Special Page fault handler returned error for address: %p\n",  (void *)fault_addr);
 		return -1;
 	    }
-	} else {
+	} else if (shdw_reg->flags.write == 1) {
 	    PrintDebug("Shadow PTE Write Error\n");
 	    shadow_pte->writable = guest_pte->writable;
 	}
