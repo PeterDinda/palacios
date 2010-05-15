@@ -278,6 +278,8 @@ void v3_print_guest_state(struct guest_info * info) {
     }
     v3_print_GPRs(info);
 
+    v3_print_mem_map(info->vm_info);
+
     v3_print_stack(info);
 }
 
