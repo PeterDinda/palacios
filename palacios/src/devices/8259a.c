@@ -271,7 +271,7 @@ static int pic_get_intr_number(struct guest_info * info, void * private_data) {
 		//state->slave_isr |= (0x1 << (i - 8));
 		//state->slave_irr &= ~(0x1 << (i - 8));
 		PrintDebug("8259 PIC: IRQ: %d, slave_icw2: %x\n", i, state->slave_icw2);
-		irq=  (i - 8) + state->slave_icw2;
+		irq = (i - 8) + state->slave_icw2;
 		break;
 	    }
 	}
@@ -305,6 +305,7 @@ static int pic_begin_irq(struct guest_info * info, void * private_data, int irq)
     }
     
     if (irq <= 7) {
+	// This should always be true: See pic_get_intr_number
        if (((state->master_irr & ~(state->master_imr)) >> irq) == 0x01) {
            state->master_isr |= (0x1 << irq);
 
@@ -313,10 +314,13 @@ static int pic_begin_irq(struct guest_info * info, void * private_data, int irq)
            }
        }
     } else {
-       state->slave_isr |= (0x1 << (irq - 8));
-
-       if (!(state->slave_elcr & (0x1 << irq))) {
-           state->slave_irr &= ~(0x1 << (irq - 8));
+	// This should always be true: See pic_get_intr_number
+	if (((state->slave_irr & ~(state->slave_imr)) >> (irq - 8)) == 0x01) {
+	   state->slave_isr |= (0x1 << (irq - 8));
+	   
+	   if (!(state->slave_elcr & (0x1 << (irq - 8)))) {
+	       state->slave_irr &= ~(0x1 << (irq - 8));
+	   }
        }
     }
 
