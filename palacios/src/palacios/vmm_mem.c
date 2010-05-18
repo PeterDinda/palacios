@@ -27,9 +27,6 @@
 #include <palacios/vmm_direct_paging.h>
 
 
-static inline
-struct v3_shadow_region * insert_shadow_region(struct v3_vm_info * vm, 
- 					       struct v3_shadow_region * region);
 
 
 static int mem_offset_hypercall(struct guest_info * info, uint_t hcall_id, void * private_data) {
@@ -41,6 +38,19 @@ static int mem_offset_hypercall(struct guest_info * info, uint_t hcall_id, void 
     return 0;
 }
 
+static int unhandled_err(struct guest_info * core, addr_t guest_va, addr_t guest_pa, 
+			 struct v3_shadow_region * reg, pf_error_t access_info) {
+
+    PrintError("Unhandled memory access error\n");
+
+    v3_print_mem_map(core->vm_info);
+
+    v3_print_guest_state(core);
+
+    return -1;
+}
+
+
 
 int v3_init_mem_map(struct v3_vm_info * vm) {
     struct v3_mem_map * map = &(vm->mem_map);
@@ -49,9 +59,6 @@ int v3_init_mem_map(struct v3_vm_info * vm) {
     memset(&(map->base_region), 0, sizeof(struct v3_shadow_region));
 
     map->shdw_regions.rb_node = NULL;
-
-
-    map->hook_hvas = V3_VAddr(V3_AllocPages(vm->num_cores));
 
 
     // There is an underlying region that contains all of the guest memory
@@ -66,6 +73,8 @@ int v3_init_mem_map(struct v3_vm_info * vm) {
     map->base_region.flags.exec = 1;
     map->base_region.flags.base = 1;
     map->base_region.flags.alloced = 1;
+    
+    map->base_region.unhandled = unhandled_err;
 
     if ((void *)map->base_region.host_addr == NULL) {
 	PrintError("Could not allocate Guest memory\n");
@@ -80,11 +89,7 @@ int v3_init_mem_map(struct v3_vm_info * vm) {
 }
 
 
-static inline addr_t get_hook_hva(struct guest_info * info) {
-    return (addr_t)(info->vm_info->mem_map.hook_hvas + (PAGE_SIZE_4KB * info->cpu_id));
-}
-
-void v3_delete_shadow_map(struct v3_vm_info * vm) {
+void v3_delete_mem_map(struct v3_vm_info * vm) {
     struct rb_node * node = v3_rb_first(&(vm->mem_map.shdw_regions));
     struct v3_shadow_region * reg;
     struct rb_node * tmp_node = NULL;
@@ -98,7 +103,21 @@ void v3_delete_shadow_map(struct v3_vm_info * vm) {
     }
 
     V3_FreePage((void *)(vm->mem_map.base_region.host_addr));
-    V3_FreePage(V3_PAddr((void *)(vm->mem_map.hook_hvas)));
+}
+
+
+struct v3_shadow_region * v3_create_mem_region(struct v3_vm_info * vm, uint16_t core_id, 
+					       addr_t guest_addr_start, addr_t guest_addr_end) {
+    
+    struct v3_shadow_region * entry = (struct v3_shadow_region *)V3_Malloc(sizeof(struct v3_shadow_region));
+    memset(entry, 0, sizeof(struct v3_shadow_region));
+
+    entry->guest_start = guest_addr_start;
+    entry->guest_end = guest_addr_end;
+    entry->core_id = core_id;
+    entry->unhandled = unhandled_err;
+
+    return entry;
 }
 
 
@@ -109,101 +128,24 @@ int v3_add_shadow_mem( struct v3_vm_info * vm, uint16_t core_id,
 		       addr_t               guest_addr_end,
 		       addr_t               host_addr)
 {
-    struct v3_shadow_region * entry = (struct v3_shadow_region *)V3_Malloc(sizeof(struct v3_shadow_region));
-    memset(entry, 0, sizeof(struct v3_shadow_region));
+    struct v3_shadow_region * entry = NULL;
 
-    entry->guest_start = guest_addr_start;
-    entry->guest_end = guest_addr_end;
+    entry = v3_create_mem_region(vm, core_id, 
+				 guest_addr_start, 
+				 guest_addr_end);
+
     entry->host_addr = host_addr;
-    entry->write_hook = NULL;
-    entry->read_hook = NULL;
-    entry->priv_data = NULL;
-    entry->core_id = core_id;
+
 
     entry->flags.read = 1;
     entry->flags.write = 1;
     entry->flags.exec = 1;
     entry->flags.alloced = 1;
 
-    if (insert_shadow_region(vm, entry)) {
+    if (v3_insert_shadow_region(vm, entry) == -1) {
 	V3_Free(entry);
 	return -1;
     }
-
-    return 0;
-}
-
-
-
-int v3_hook_write_mem(struct v3_vm_info * vm, uint16_t core_id,
-		      addr_t guest_addr_start, addr_t guest_addr_end, addr_t host_addr,
-		      int (*write)(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data),
-		      void * priv_data) {
-
-    struct v3_shadow_region * entry = (struct v3_shadow_region *)V3_Malloc(sizeof(struct v3_shadow_region));
-    memset(entry, 0, sizeof(struct v3_shadow_region));
-
-    entry->guest_start = guest_addr_start;
-    entry->guest_end = guest_addr_end;
-    entry->host_addr = host_addr;
-    entry->write_hook = write;
-    entry->read_hook = NULL;
-    entry->priv_data = priv_data;
-    entry->core_id = core_id;
-
-    entry->flags.hook = 1;
-    entry->flags.read = 1;
-    entry->flags.exec = 1;
-    entry->flags.alloced = 1;
-
-
-    if (insert_shadow_region(vm, entry)) {
-	V3_Free(entry);
-	return -1;
-    }
-
-    return 0;  
-}
-
-int v3_hook_full_mem(struct v3_vm_info * vm, uint16_t core_id, 
-		     addr_t guest_addr_start, addr_t guest_addr_end,
-		     int (*read)(struct guest_info * core, addr_t guest_addr, void * dst, uint_t length, void * priv_data),
-		     int (*write)(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data),
-		     void * priv_data) {
-  
-    struct v3_shadow_region * entry = (struct v3_shadow_region *)V3_Malloc(sizeof(struct v3_shadow_region));
-    memset(entry, 0, sizeof(struct v3_shadow_region));
-
-    entry->guest_start = guest_addr_start;
-    entry->guest_end = guest_addr_end;
-    entry->host_addr = (addr_t)NULL;
-    entry->write_hook = write;
-    entry->read_hook = read;
-    entry->priv_data = priv_data;
-    entry->core_id = core_id;
-
-    entry->flags.hook = 1;
-
-    if (insert_shadow_region(vm, entry)) {
-	V3_Free(entry);
-	return -1;
-    }
-
-    return 0;
-}
-
-
-// This will unhook the memory hook registered at start address
-// We do not support unhooking subregions
-int v3_unhook_mem(struct v3_vm_info * vm, uint16_t core_id, addr_t guest_addr_start) {
-    struct v3_shadow_region * reg = v3_get_shadow_region(vm, core_id, guest_addr_start);
-
-    if (!reg->flags.hook) {
-	PrintError("Trying to unhook a non hooked memory region (addr=%p)\n", (void *)guest_addr_start);
-	return -1;
-    }
-
-    v3_delete_shadow_region(vm, reg);
 
     return 0;
 }
@@ -246,14 +188,14 @@ struct v3_shadow_region * __insert_shadow_region(struct v3_vm_info * vm,
 }
 
 
-static inline
-struct v3_shadow_region * insert_shadow_region(struct v3_vm_info * vm, 
- 					       struct v3_shadow_region * region) {
+
+int v3_insert_shadow_region(struct v3_vm_info * vm, 
+			    struct v3_shadow_region * region) {
     struct v3_shadow_region * ret;
     int i = 0;
 
     if ((ret = __insert_shadow_region(vm, region))) {
-	return ret;
+	return -1;
     }
 
     v3_rb_insert_color(&(region->tree_node), &(vm->mem_map.shdw_regions));
@@ -293,55 +235,9 @@ struct v3_shadow_region * insert_shadow_region(struct v3_vm_info * vm,
 	}
     }
 
-    return NULL;
-}
-						 
-
-
-
-
-
-int v3_handle_mem_hook(struct guest_info * info, addr_t guest_va, addr_t guest_pa, 
-		       struct v3_shadow_region * reg, pf_error_t access_info) {
-
-    addr_t op_addr = 0;
-
-    if (reg->flags.alloced == 0) {
-	op_addr = get_hook_hva(info);
-    } else {
-	op_addr = (addr_t)V3_VAddr((void *)v3_get_shadow_addr(reg, info->cpu_id, guest_pa));
-    }
-
-    
-    if (access_info.write == 1) { 
-	// Write Operation 
-
-	if (v3_emulate_write_op(info, guest_va, guest_pa, op_addr, 
-				reg->write_hook, reg->priv_data) == -1) {
-	    PrintError("Write Full Hook emulation failed\n");
-	    return -1;
-	}
-    } else {
-	// Read Operation
-	
-	if (reg->flags.read == 1) {
-	    PrintError("Tried to emulate read for a guest Readable page\n");
-	    return -1;
-	}
-
-	if (v3_emulate_read_op(info, guest_va, guest_pa, op_addr, 
-			       reg->read_hook, reg->write_hook, 
-			       reg->priv_data) == -1) {
-	    PrintError("Read Full Hook emulation failed\n");
-	    return -1;
-	}
-
-    }
-
-
     return 0;
 }
-
+						 
 
 
 
@@ -474,10 +370,9 @@ void v3_print_mem_map(struct v3_vm_info * vm) {
 		   (void *)(reg->guest_end - 1), 
 		   (void *)(reg->host_addr));
 
-	V3_Print("\t(flags=%x) (WriteHook = 0x%p) (ReadHook = 0x%p)\n", 
+	V3_Print("\t(flags=%x) (unhandled = 0x%p)\n", 
 		   reg->flags.value,
-		   (void *)(reg->write_hook), 
-		   (void *)(reg->read_hook));
+		   reg->unhandled);
     
 	i++;
     } while ((node = v3_rb_next(node)));

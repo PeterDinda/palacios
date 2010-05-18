@@ -47,7 +47,6 @@ typedef struct {
 	    uint8_t read   : 1;
 	    uint8_t write  : 1;
 	    uint8_t exec   : 1;
-	    uint8_t hook   : 1;
 	    uint8_t base   : 1;
 	    uint8_t alloced : 1;
 	} __attribute__((packed));
@@ -64,10 +63,8 @@ struct v3_shadow_region {
 
     addr_t                  host_addr; // This either points to a host address mapping
 
-    // Called when data is read from a memory page
-    int (*read_hook)(struct guest_info * core, addr_t guest_addr, void * dst, uint_t length, void * priv_data);
-    // Called when data is written to a memory page
-    int (*write_hook)(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data);
+    int (*unhandled)(struct guest_info * info, addr_t guest_va, addr_t guest_pa, 
+		     struct v3_shadow_region * reg, pf_error_t access_info);
 
     void * priv_data;
 
@@ -81,8 +78,6 @@ struct v3_mem_map {
     struct v3_shadow_region base_region;
 
     struct rb_root shdw_regions;
-
-    void * hook_hvas; // this is an array of pages, equal to the number of cores
 };
 
 
@@ -92,29 +87,18 @@ void v3_delete_mem_map(struct v3_vm_info * vm);
 
 
 
-int v3_add_shadow_mem(struct v3_vm_info * vm, uint16_t core_id,
-		      addr_t guest_addr_start, addr_t guest_addr_end, addr_t host_addr);
 
-int v3_hook_full_mem(struct v3_vm_info * vm, uint16_t core_id,
-		     addr_t guest_addr_start, addr_t guest_addr_end,
-		     int (*read)(struct guest_info * core, addr_t guest_addr, void * dst, uint_t length, void * priv_data),
-		     int (*write)(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data),
-		     void * priv_data);
+struct v3_shadow_region * v3_create_mem_region(struct v3_vm_info * vm, uint16_t core_id, 
+					       addr_t guest_addr_start, addr_t guest_addr_end);
 
-int v3_hook_write_mem(struct v3_vm_info * vm, uint16_t core_id, 
-		      addr_t guest_addr_start, addr_t guest_addr_end, addr_t host_addr,
-		      int (*write)(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data),
-		      void * priv_data);
-
-
-int v3_unhook_mem(struct v3_vm_info * vm, uint16_t core_id, addr_t guest_addr_start);
-
-
-
-
+int v3_insert_shadow_region(struct v3_vm_info * vm, struct v3_shadow_region * reg);
 
 void v3_delete_shadow_region(struct v3_vm_info * vm, struct v3_shadow_region * reg);
 
+
+/* This is a shortcut function for creating + inserting a memory region which redirects to host memory */
+int v3_add_shadow_mem(struct v3_vm_info * vm, uint16_t core_id,
+		      addr_t guest_addr_start, addr_t guest_addr_end, addr_t host_addr);
 
 
 
@@ -131,8 +115,6 @@ void v3_print_mem_map(struct v3_vm_info * vm);
 
 
 
-int v3_handle_mem_hook(struct guest_info * info, addr_t guest_va, addr_t guest_pa, 
-		       struct v3_shadow_region * reg, pf_error_t access_info);
 
 
 #endif // ! __V3VEE__

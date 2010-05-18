@@ -123,13 +123,14 @@ static inline int handle_passthrough_pagefault_64(struct guest_info * info,
 	    }
 
 	    pte[pte_index].page_base_addr = PAGE_BASE_ADDR(host_addr);
+	} else {
+	    return region->unhandled(info, fault_addr, fault_addr, region, error_code);
 	}
-    }
-   
-    if (region->flags.hook == 1) {
-	if ((error_code.write == 1) || (region->flags.read == 0)) {
-	    return v3_handle_mem_hook(info, fault_addr, fault_addr, region, error_code);
-	}
+    } else {
+	// We fix all permissions on the first pass, 
+	// so we only get here if its an unhandled exception
+
+	return region->unhandled(info, fault_addr, fault_addr, region, error_code);
     }
 
     return 0;

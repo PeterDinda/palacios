@@ -367,16 +367,14 @@ static int handle_pte_shadow_pagefault_32(struct guest_info * info, addr_t fault
 	    }
 
 
-
-	    // Write hooks trump all, and are set Read Only
 	    if (shdw_reg->flags.write == 0) {
 		shadow_pte->writable = 0;
 	    }
 
-	} else if (shdw_reg->flags.hook == 1) {
+	} else {
 	    // Page fault handled by hook functions
 
-	    if (v3_handle_mem_hook(info, fault_addr, guest_pa, shdw_reg, error_code) == -1) {
+	    if (shdw_reg->unhandled(info, fault_addr, guest_pa, shdw_reg, error_code) == -1) {
 		PrintError("Special Page fault handler returned error for address: %p\n",  (void *)fault_addr);
 		return -1;
 	    }
@@ -384,15 +382,16 @@ static int handle_pte_shadow_pagefault_32(struct guest_info * info, addr_t fault
     } else if (shadow_pte_access == PT_ACCESS_WRITE_ERROR) {
 	guest_pte->dirty = 1;
 
-	if (shdw_reg->flags.hook == 1) {
-	    if (v3_handle_mem_hook(info, fault_addr, guest_pa, shdw_reg, error_code) == -1) {
+
+	if (shdw_reg->flags.write == 1) {
+	    PrintDebug("Shadow PTE Write Error\n");
+	    shadow_pte->writable = guest_pte->writable;
+	} else {
+	    if (shdw_reg->unhandled(info, fault_addr, guest_pa, shdw_reg, error_code) == -1) {
 		PrintError("Special Page fault handler returned error for address: %p\n",  (void *)fault_addr);
 		return -1;
 	    }
-	} else if (shdw_reg->flags.write == 1) {
-	    PrintDebug("Shadow PTE Write Error\n");
-	    shadow_pte->writable = guest_pte->writable;
-	}
+	} 
 
 
 	return 0;
@@ -476,21 +475,17 @@ static int handle_4MB_shadow_pagefault_32(struct guest_info * info,
 	    shadow_pte->global_page = large_guest_pde->global_page;
 	    //
       
-	} else if (shdw_reg->flags.hook == 1) {
-	    if (v3_handle_mem_hook(info, fault_addr, guest_fault_pa, shdw_reg, error_code) == -1) {
+	} else {
+	    if (shdw_reg->unhandled(info, fault_addr, guest_fault_pa, shdw_reg, error_code) == -1) {
 		PrintError("Special Page Fault handler returned error for address: %p\n", (void *)fault_addr);
 		return -1;
 	    }
 	}
     } else if (shadow_pte_access == PT_ACCESS_WRITE_ERROR) {
-
-	if (shdw_reg->flags.hook == 1) {
-	    if (v3_handle_mem_hook(info, fault_addr, guest_fault_pa, shdw_reg, error_code) == -1) {
-		PrintError("Special Page Fault handler returned error for address: %p\n", (void *)fault_addr);
-		return -1;
-	    }
-	}
-
+	if (shdw_reg->unhandled(info, fault_addr, guest_fault_pa, shdw_reg, error_code) == -1) {
+	    PrintError("Special Page Fault handler returned error for address: %p\n", (void *)fault_addr);
+	    return -1;
+	}	
     } else {
 	PrintError("Error in large page fault handler...\n");
 	PrintError("This case should have been handled at the top level handler\n");

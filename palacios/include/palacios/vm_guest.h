@@ -24,6 +24,7 @@
 
 #include <palacios/vmm_types.h>
 #include <palacios/vmm_mem.h>
+#include <palacios/vmm_mem_hook.h>
 #include <palacios/vmm_io.h>
 #include <palacios/vmm_shadow_paging.h>
 #include <palacios/vmm_intr.h>
@@ -118,6 +119,7 @@ struct v3_vm_info {
     addr_t mem_size; // In bytes for now
     struct v3_mem_map mem_map;
 
+    struct v3_mem_hooks mem_hooks;
 
     struct v3_shdw_impl_state shdw_impl;
 

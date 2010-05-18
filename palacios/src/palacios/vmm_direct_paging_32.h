@@ -73,10 +73,11 @@ static inline int handle_passthrough_pagefault_32(struct guest_info * info,
     // Fix up the PTE entry
     if (pte[pte_index].present == 0) {
 	
-	pte[pte_index].user_page = 1;
 	
 	if ((region->flags.alloced == 1) && 
 	    (region->flags.read == 1)) {
+
+	    pte[pte_index].user_page = 1;
 
 	    pte[pte_index].present = 1;
 
@@ -87,15 +88,15 @@ static inline int handle_passthrough_pagefault_32(struct guest_info * info,
 	    }
 	    
 	    pte[pte_index].page_base_addr = PAGE_BASE_ADDR(host_addr);
+	} else {
+	    return region->unhandled(info, fault_addr, fault_addr, region, error_code);
 	}
+    } else {
+	// We fix all permissions on the first pass, 
+	// so we only get here if its an unhandled exception
+	return region->unhandled(info, fault_addr, fault_addr, region, error_code);	    
     }
 
-    if (region->flags.hook == 1) {
-	if ((error_code.write == 1) || (region->flags.read == 0))  {
-	    return v3_handle_mem_hook(info, fault_addr, fault_addr, region, error_code);	    
-	}
-    }
-    
     return 0;
 }
 

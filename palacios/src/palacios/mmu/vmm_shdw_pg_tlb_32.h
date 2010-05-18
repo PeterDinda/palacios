@@ -278,10 +278,10 @@ static int handle_pte_shadow_pagefault_32(struct guest_info * info, addr_t fault
 		shadow_pte->writable = 0;
 	    }
 
-	} else if (shdw_reg->flags.hook == 1) {
-	    // Page fault handled by hook functions
-
-	    if (v3_handle_mem_hook(info, fault_addr, guest_pa, shdw_reg, error_code) == -1) {
+	} else {
+	    // Page fault on unhandled memory region
+	    
+	    if (shdw_reg->unhandled(info, fault_addr, guest_pa, shdw_reg, error_code) == -1) {
 		PrintError("Special Page fault handler returned error for address: %p\n",  (void *)fault_addr);
 		return -1;
 	    }
@@ -289,14 +289,14 @@ static int handle_pte_shadow_pagefault_32(struct guest_info * info, addr_t fault
     } else if (shadow_pte_access == PT_ACCESS_WRITE_ERROR) {
 	guest_pte->dirty = 1;
 
-	if (shdw_reg->flags.hook == 1) {
-	    if (v3_handle_mem_hook(info, fault_addr, guest_pa, shdw_reg, error_code) == -1) {
+	if (shdw_reg->flags.write == 1) {
+	    PrintDebug("Shadow PTE Write Error\n");
+	    shadow_pte->writable = guest_pte->writable;
+	} else {
+	    if (shdw_reg->unhandled(info, fault_addr, guest_pa, shdw_reg, error_code) == -1) {
 		PrintError("Special Page fault handler returned error for address: %p\n",  (void *)fault_addr);
 		return -1;
 	    }
-	} else if (shdw_reg->flags.write == 1) {
-	    PrintDebug("Shadow PTE Write Error\n");
-	    shadow_pte->writable = guest_pte->writable;
 	}
 
 
@@ -382,16 +382,16 @@ static int handle_4MB_shadow_pagefault_32(struct guest_info * info,
 		shadow_pte->writable = 1;
 	    }
 
-	} else if (shdw_reg->flags.hook == 1) {
-	    if (v3_handle_mem_hook(info, fault_addr, guest_fault_pa, shdw_reg, error_code) == -1) {
+	} else {
+	    if (shdw_reg->unhandled(info, fault_addr, guest_fault_pa, shdw_reg, error_code) == -1) {
 		PrintError("Special Page Fault handler returned error for address: %p\n", (void *)fault_addr);
 		return -1;
 	    }
 	}
     } else if (shadow_pte_access == PT_ACCESS_WRITE_ERROR) {
 
-	if (shdw_reg->flags.hook == 1) {
-	    if (v3_handle_mem_hook(info, fault_addr, guest_fault_pa, shdw_reg, error_code) == -1) {
+	if (shdw_reg->flags.write == 0) {
+	    if (shdw_reg->unhandled(info, fault_addr, guest_fault_pa, shdw_reg, error_code) == -1) {
 		PrintError("Special Page Fault handler returned error for address: %p\n", (void *)fault_addr);
 		return -1;
 	    }

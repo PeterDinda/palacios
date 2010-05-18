@@ -428,6 +428,7 @@ int v3_init_vm(struct v3_vm_info * vm) {
 	return -1;
     }
 
+    v3_init_mem_hooks(vm);
 
     if (v3_init_shdw_impl(vm) == -1) {
 	PrintError("VM initialization error in shadow implementaion\n");
