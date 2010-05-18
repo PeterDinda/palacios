@@ -51,7 +51,7 @@ int v3_init_mem_hooks(struct v3_vm_info * vm) {
 
 
 static int handle_mem_hook(struct guest_info * info, addr_t guest_va, addr_t guest_pa, 
-			   struct v3_shadow_region * reg, pf_error_t access_info) {
+			   struct v3_mem_region * reg, pf_error_t access_info) {
     struct mem_hook * hook = reg->priv_data;
     addr_t op_addr = 0;
 
@@ -98,7 +98,7 @@ int v3_hook_write_mem(struct v3_vm_info * vm, uint16_t core_id,
 		      addr_t guest_addr_start, addr_t guest_addr_end, addr_t host_addr,
 		      int (*write)(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data),
 		      void * priv_data) {
-    struct v3_shadow_region * entry = NULL;
+    struct v3_mem_region * entry = NULL;
     struct mem_hook * hook = V3_Malloc(sizeof(struct mem_hook));
     //    struct v3_mem_hooks * hooks = &(vm->mem_hooks);
 
@@ -119,7 +119,7 @@ int v3_hook_write_mem(struct v3_vm_info * vm, uint16_t core_id,
     entry->flags.exec = 1;
     entry->flags.alloced = 1;
 
-    if (v3_insert_shadow_region(vm, entry) == -1) {
+    if (v3_insert_mem_region(vm, entry) == -1) {
 	V3_Free(entry);
 	V3_Free(hook);
 	return -1;
@@ -136,7 +136,7 @@ int v3_hook_full_mem(struct v3_vm_info * vm, uint16_t core_id,
 		     int (*write)(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data),
 		     void * priv_data) {
   
-    struct v3_shadow_region * entry = NULL;
+    struct v3_mem_region * entry = NULL;
     struct mem_hook * hook = V3_Malloc(sizeof(struct mem_hook));
     struct v3_mem_hooks * hooks = &(vm->mem_hooks);
 
@@ -152,7 +152,7 @@ int v3_hook_full_mem(struct v3_vm_info * vm, uint16_t core_id,
     entry->unhandled = handle_mem_hook;
     entry->priv_data = hook;
 
-    if (v3_insert_shadow_region(vm, entry)) {
+    if (v3_insert_mem_region(vm, entry)) {
 	V3_Free(entry);
 	V3_Free(hook);
 	return -1;
@@ -166,12 +166,12 @@ int v3_hook_full_mem(struct v3_vm_info * vm, uint16_t core_id,
 // This will unhook the memory hook registered at start address
 // We do not support unhooking subregions
 int v3_unhook_mem(struct v3_vm_info * vm, uint16_t core_id, addr_t guest_addr_start) {
-    struct v3_shadow_region * reg = v3_get_shadow_region(vm, core_id, guest_addr_start);
+    struct v3_mem_region * reg = v3_get_mem_region(vm, core_id, guest_addr_start);
     struct mem_hook * hook = reg->priv_data;
 
     V3_Free(hook);
   
-    v3_delete_shadow_region(vm, reg);
+    v3_delete_mem_region(vm, reg);
 
     return 0;
 }

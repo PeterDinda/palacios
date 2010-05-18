@@ -39,7 +39,7 @@ static int mem_offset_hypercall(struct guest_info * info, uint_t hcall_id, void 
 }
 
 static int unhandled_err(struct guest_info * core, addr_t guest_va, addr_t guest_pa, 
-			 struct v3_shadow_region * reg, pf_error_t access_info) {
+			 struct v3_mem_region * reg, pf_error_t access_info) {
 
     PrintError("Unhandled memory access error\n");
 
@@ -56,9 +56,9 @@ int v3_init_mem_map(struct v3_vm_info * vm) {
     struct v3_mem_map * map = &(vm->mem_map);
     addr_t mem_pages = vm->mem_size >> 12;
 
-    memset(&(map->base_region), 0, sizeof(struct v3_shadow_region));
+    memset(&(map->base_region), 0, sizeof(struct v3_mem_region));
 
-    map->shdw_regions.rb_node = NULL;
+    map->mem_regions.rb_node = NULL;
 
 
     // There is an underlying region that contains all of the guest memory
@@ -90,27 +90,27 @@ int v3_init_mem_map(struct v3_vm_info * vm) {
 
 
 void v3_delete_mem_map(struct v3_vm_info * vm) {
-    struct rb_node * node = v3_rb_first(&(vm->mem_map.shdw_regions));
-    struct v3_shadow_region * reg;
+    struct rb_node * node = v3_rb_first(&(vm->mem_map.mem_regions));
+    struct v3_mem_region * reg;
     struct rb_node * tmp_node = NULL;
   
     while (node) {
-	reg = rb_entry(node, struct v3_shadow_region, tree_node);
+	reg = rb_entry(node, struct v3_mem_region, tree_node);
 	tmp_node = node;
 	node = v3_rb_next(node);
 
-	v3_delete_shadow_region(vm, reg);
+	v3_delete_mem_region(vm, reg);
     }
 
     V3_FreePage((void *)(vm->mem_map.base_region.host_addr));
 }
 
 
-struct v3_shadow_region * v3_create_mem_region(struct v3_vm_info * vm, uint16_t core_id, 
+struct v3_mem_region * v3_create_mem_region(struct v3_vm_info * vm, uint16_t core_id, 
 					       addr_t guest_addr_start, addr_t guest_addr_end) {
     
-    struct v3_shadow_region * entry = (struct v3_shadow_region *)V3_Malloc(sizeof(struct v3_shadow_region));
-    memset(entry, 0, sizeof(struct v3_shadow_region));
+    struct v3_mem_region * entry = (struct v3_mem_region *)V3_Malloc(sizeof(struct v3_mem_region));
+    memset(entry, 0, sizeof(struct v3_mem_region));
 
     entry->guest_start = guest_addr_start;
     entry->guest_end = guest_addr_end;
@@ -128,7 +128,7 @@ int v3_add_shadow_mem( struct v3_vm_info * vm, uint16_t core_id,
 		       addr_t               guest_addr_end,
 		       addr_t               host_addr)
 {
-    struct v3_shadow_region * entry = NULL;
+    struct v3_mem_region * entry = NULL;
 
     entry = v3_create_mem_region(vm, core_id, 
 				 guest_addr_start, 
@@ -142,7 +142,7 @@ int v3_add_shadow_mem( struct v3_vm_info * vm, uint16_t core_id,
     entry->flags.exec = 1;
     entry->flags.alloced = 1;
 
-    if (v3_insert_shadow_region(vm, entry) == -1) {
+    if (v3_insert_mem_region(vm, entry) == -1) {
 	V3_Free(entry);
 	return -1;
     }
@@ -153,15 +153,15 @@ int v3_add_shadow_mem( struct v3_vm_info * vm, uint16_t core_id,
 
 
 static inline 
-struct v3_shadow_region * __insert_shadow_region(struct v3_vm_info * vm, 
-						 struct v3_shadow_region * region) {
-    struct rb_node ** p = &(vm->mem_map.shdw_regions.rb_node);
+struct v3_mem_region * __insert_mem_region(struct v3_vm_info * vm, 
+						 struct v3_mem_region * region) {
+    struct rb_node ** p = &(vm->mem_map.mem_regions.rb_node);
     struct rb_node * parent = NULL;
-    struct v3_shadow_region * tmp_region;
+    struct v3_mem_region * tmp_region;
 
     while (*p) {
 	parent = *p;
-	tmp_region = rb_entry(parent, struct v3_shadow_region, tree_node);
+	tmp_region = rb_entry(parent, struct v3_mem_region, tree_node);
 
 	if (region->guest_end <= tmp_region->guest_start) {
 	    p = &(*p)->rb_left;
@@ -189,16 +189,16 @@ struct v3_shadow_region * __insert_shadow_region(struct v3_vm_info * vm,
 
 
 
-int v3_insert_shadow_region(struct v3_vm_info * vm, 
-			    struct v3_shadow_region * region) {
-    struct v3_shadow_region * ret;
+int v3_insert_mem_region(struct v3_vm_info * vm, 
+			    struct v3_mem_region * region) {
+    struct v3_mem_region * ret;
     int i = 0;
 
-    if ((ret = __insert_shadow_region(vm, region))) {
+    if ((ret = __insert_mem_region(vm, region))) {
 	return -1;
     }
 
-    v3_rb_insert_color(&(region->tree_node), &(vm->mem_map.shdw_regions));
+    v3_rb_insert_color(&(region->tree_node), &(vm->mem_map.mem_regions));
 
 
 
@@ -241,12 +241,12 @@ int v3_insert_shadow_region(struct v3_vm_info * vm,
 
 
 
-struct v3_shadow_region * v3_get_shadow_region(struct v3_vm_info * vm, uint16_t core_id, addr_t guest_addr) {
-    struct rb_node * n = vm->mem_map.shdw_regions.rb_node;
-    struct v3_shadow_region * reg = NULL;
+struct v3_mem_region * v3_get_mem_region(struct v3_vm_info * vm, uint16_t core_id, addr_t guest_addr) {
+    struct rb_node * n = vm->mem_map.mem_regions.rb_node;
+    struct v3_mem_region * reg = NULL;
 
     while (n) {
-	reg = rb_entry(n, struct v3_shadow_region, tree_node);
+	reg = rb_entry(n, struct v3_mem_region, tree_node);
 
 	if (guest_addr < reg->guest_start) {
 	    n = n->rb_left;
@@ -279,7 +279,7 @@ struct v3_shadow_region * v3_get_shadow_region(struct v3_vm_info * vm, uint16_t 
 
 
 
-void v3_delete_shadow_region(struct v3_vm_info * vm, struct v3_shadow_region * reg) {
+void v3_delete_mem_region(struct v3_vm_info * vm, struct v3_mem_region * reg) {
     int i = 0;
 
     if (reg == NULL) {
@@ -319,7 +319,7 @@ void v3_delete_shadow_region(struct v3_vm_info * vm, struct v3_shadow_region * r
 	}
     }
 
-    v3_rb_erase(&(reg->tree_node), &(vm->mem_map.shdw_regions));
+    v3_rb_erase(&(reg->tree_node), &(vm->mem_map.mem_regions));
 
     V3_Free(reg);
 
@@ -331,7 +331,7 @@ void v3_delete_shadow_region(struct v3_vm_info * vm, struct v3_shadow_region * r
 
 
 
-addr_t v3_get_shadow_addr(struct v3_shadow_region * reg, uint16_t core_id, addr_t guest_addr) {
+addr_t v3_get_shadow_addr(struct v3_mem_region * reg, uint16_t core_id, addr_t guest_addr) {
     if (reg && (reg->flags.alloced == 1)) {
         return (guest_addr - reg->guest_start) + reg->host_addr;
     } else {
@@ -344,8 +344,8 @@ addr_t v3_get_shadow_addr(struct v3_shadow_region * reg, uint16_t core_id, addr_
 
 
 void v3_print_mem_map(struct v3_vm_info * vm) {
-    struct rb_node * node = v3_rb_first(&(vm->mem_map.shdw_regions));
-    struct v3_shadow_region * reg = &(vm->mem_map.base_region);
+    struct rb_node * node = v3_rb_first(&(vm->mem_map.mem_regions));
+    struct v3_mem_region * reg = &(vm->mem_map.base_region);
     int i = 0;
 
     V3_Print("Memory Layout:\n");
@@ -363,7 +363,7 @@ void v3_print_mem_map(struct v3_vm_info * vm) {
     }
 
     do {
-	reg = rb_entry(node, struct v3_shadow_region, tree_node);
+	reg = rb_entry(node, struct v3_mem_region, tree_node);
 
 	V3_Print("%d:  0x%p - 0x%p -> 0x%p\n", i, 
 		   (void *)(reg->guest_start), 

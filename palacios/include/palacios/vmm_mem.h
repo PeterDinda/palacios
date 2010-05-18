@@ -55,7 +55,7 @@ typedef struct {
 
 
 
-struct v3_shadow_region {
+struct v3_mem_region {
     addr_t                  guest_start; 
     addr_t                  guest_end; 
 
@@ -64,7 +64,7 @@ struct v3_shadow_region {
     addr_t                  host_addr; // This either points to a host address mapping
 
     int (*unhandled)(struct guest_info * info, addr_t guest_va, addr_t guest_pa, 
-		     struct v3_shadow_region * reg, pf_error_t access_info);
+		     struct v3_mem_region * reg, pf_error_t access_info);
 
     void * priv_data;
 
@@ -75,9 +75,9 @@ struct v3_shadow_region {
 
 
 struct v3_mem_map {
-    struct v3_shadow_region base_region;
+    struct v3_mem_region base_region;
 
-    struct rb_root shdw_regions;
+    struct rb_root mem_regions;
 };
 
 
@@ -88,12 +88,12 @@ void v3_delete_mem_map(struct v3_vm_info * vm);
 
 
 
-struct v3_shadow_region * v3_create_mem_region(struct v3_vm_info * vm, uint16_t core_id, 
+struct v3_mem_region * v3_create_mem_region(struct v3_vm_info * vm, uint16_t core_id, 
 					       addr_t guest_addr_start, addr_t guest_addr_end);
 
-int v3_insert_shadow_region(struct v3_vm_info * vm, struct v3_shadow_region * reg);
+int v3_insert_mem_region(struct v3_vm_info * vm, struct v3_mem_region * reg);
 
-void v3_delete_shadow_region(struct v3_vm_info * vm, struct v3_shadow_region * reg);
+void v3_delete_mem_region(struct v3_vm_info * vm, struct v3_mem_region * reg);
 
 
 /* This is a shortcut function for creating + inserting a memory region which redirects to host memory */
@@ -102,10 +102,10 @@ int v3_add_shadow_mem(struct v3_vm_info * vm, uint16_t core_id,
 
 
 
-struct v3_shadow_region * v3_get_shadow_region(struct v3_vm_info * vm, uint16_t core_id, addr_t guest_addr);
+struct v3_mem_region * v3_get_mem_region(struct v3_vm_info * vm, uint16_t core_id, addr_t guest_addr);
 
 
-addr_t v3_get_shadow_addr(struct v3_shadow_region * reg, uint16_t core_id, addr_t guest_addr);
+addr_t v3_get_shadow_addr(struct v3_mem_region * reg, uint16_t core_id, addr_t guest_addr);
 
 
 

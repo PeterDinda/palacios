@@ -64,21 +64,21 @@ int host_pa_to_host_va(addr_t host_pa, addr_t * host_va) {
 }
 
 int guest_pa_to_host_pa(struct guest_info * info, addr_t guest_pa, addr_t * host_pa) {
-    struct v3_shadow_region * shdw_reg = v3_get_shadow_region(info->vm_info, info->cpu_id, guest_pa);
+    struct v3_mem_region * reg = v3_get_mem_region(info->vm_info, info->cpu_id, guest_pa);
 
-    if (shdw_reg == NULL) {
+    if (reg == NULL) {
 	PrintError("In GPA->HPA: Could not find address in shadow map (addr=%p) (NULL REGION)\n", 
 		   (void *)guest_pa);
 	return -1;
     }
     
-    if (shdw_reg->flags.alloced == 0) {
+    if (reg->flags.alloced == 0) {
 	PrintError("In GPA->HPA: Tried to translate physical address of non allocated page (addr=%p)\n", 
 		   (void *)guest_pa);
 	return -1;
     }
 	
-    *host_pa = v3_get_shadow_addr(shdw_reg, info->cpu_id, guest_pa);
+    *host_pa = v3_get_shadow_addr(reg, info->cpu_id, guest_pa);
 
     return 0;
 }

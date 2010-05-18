@@ -500,7 +500,7 @@ static int pci_bar_write(int bar_num, uint32_t * src, void * private_data) {
 	}
     } else if (vbar->type == PT_BAR_MEM32) {
 	// remove old mapping
-	struct v3_shadow_region * old_reg = v3_get_shadow_region(dev->vm, V3_MEM_CORE_ANY, vbar->addr);
+	struct v3_mem_region * old_reg = v3_get_mem_region(dev->vm, V3_MEM_CORE_ANY, vbar->addr);
 
 	if (old_reg == NULL) {
 	    // uh oh...
@@ -508,7 +508,7 @@ static int pci_bar_write(int bar_num, uint32_t * src, void * private_data) {
 	    return -1;
 	}
 
-	v3_delete_shadow_region(dev->vm, old_reg);
+	v3_delete_mem_region(dev->vm, old_reg);
 
 	// clear the low bits to match the size
 	*src &= ~(pbar->size - 1);
@@ -542,7 +542,7 @@ static int pci_bar_write(int bar_num, uint32_t * src, void * private_data) {
 
     } else if (vbar->type == PT_BAR_MEM64_HI) {
 	struct pt_bar * lo_vbar = &(state->virt_bars[bar_num - 1]);
-	struct v3_shadow_region * old_reg =  v3_get_shadow_region(dev->vm, V3_MEM_CORE_ANY, vbar->addr);
+	struct v3_mem_region * old_reg =  v3_get_mem_region(dev->vm, V3_MEM_CORE_ANY, vbar->addr);
 
 	if (old_reg == NULL) {
 	    // uh oh...
@@ -552,7 +552,7 @@ static int pci_bar_write(int bar_num, uint32_t * src, void * private_data) {
 	}
 
 	// remove old mapping
-	v3_delete_shadow_region(dev->vm, old_reg);
+	v3_delete_mem_region(dev->vm, old_reg);
 
 	// We don't set size, because we assume region is less than 4GB
 
@@ -625,7 +625,7 @@ static int pt_exp_rom_write(struct pci_device * pci_dev, uint32_t * src, void * 
 
     // only remove old mapping if present, I.E. if the rom was enabled previously 
     if ((vrom->val & 0x1) == 0x1) {
-	struct v3_shadow_region * old_reg = v3_get_shadow_region(dev->vm, V3_MEM_CORE_ANY, vrom->addr);
+	struct v3_mem_region * old_reg = v3_get_mem_region(dev->vm, V3_MEM_CORE_ANY, vrom->addr);
 	
 	if (old_reg == NULL) {
 	    // uh oh...
@@ -633,7 +633,7 @@ static int pt_exp_rom_write(struct pci_device * pci_dev, uint32_t * src, void * 
 	    return -1;
 	}
     
-	v3_delete_shadow_region(dev->vm, old_reg);
+	v3_delete_mem_region(dev->vm, old_reg);
     }
     
     // clear the low bits to match the size

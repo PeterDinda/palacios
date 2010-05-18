@@ -56,7 +56,7 @@ static int symspy_msr_write(struct guest_info * core, uint_t msr, struct v3_msr 
 
 	if (global_state->active == 1) {
 	    // unmap page
-	    struct v3_shadow_region * old_reg = v3_get_shadow_region(core->vm_info, core->cpu_id, 
+	    struct v3_mem_region * old_reg = v3_get_mem_region(core->vm_info, core->cpu_id, 
 								     (addr_t)global_state->global_guest_pa);
 
 	    if (old_reg == NULL) {
@@ -65,7 +65,7 @@ static int symspy_msr_write(struct guest_info * core, uint_t msr, struct v3_msr 
 		return -1;
 	    }
 
-	    v3_delete_shadow_region(core->vm_info, old_reg);
+	    v3_delete_mem_region(core->vm_info, old_reg);
 	}
 
 	global_state->global_guest_pa = src.value;
@@ -84,7 +84,7 @@ static int symspy_msr_write(struct guest_info * core, uint_t msr, struct v3_msr 
 
 	if (local_state->active == 1) {
 	    // unmap page
-	    struct v3_shadow_region * old_reg = v3_get_shadow_region(core->vm_info, core->cpu_id,
+	    struct v3_mem_region * old_reg = v3_get_mem_region(core->vm_info, core->cpu_id,
 								     (addr_t)local_state->local_guest_pa);
 
 	    if (old_reg == NULL) {
@@ -93,7 +93,7 @@ static int symspy_msr_write(struct guest_info * core, uint_t msr, struct v3_msr 
 		return -1;
 	    }
 
-	    v3_delete_shadow_region(core->vm_info, old_reg);
+	    v3_delete_mem_region(core->vm_info, old_reg);
 	}
 
 	local_state->local_guest_pa = src.value;
