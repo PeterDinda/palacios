@@ -163,7 +163,7 @@ static int handle_block_op(struct guest_info * core, struct virtio_blk_state * b
     uint8_t * buf = NULL;
 
     PrintDebug("Handling Block op\n");
-    if (guest_pa_to_host_va(core, buf_desc->addr_gpa, (addr_t *)&(buf)) == -1) {
+    if (v3_gpa_to_hva(core, buf_desc->addr_gpa, (addr_t *)&(buf)) == -1) {
 	PrintError("Could not translate buffer address\n");
 	return -1;
     }
@@ -241,7 +241,7 @@ static int handle_kick(struct guest_info * core, struct virtio_blk_state * blk_s
 	PrintDebug("Header Descriptor (ptr=%p) gpa=%p, len=%d, flags=%x, next=%d\n", hdr_desc, 
 		   (void *)(hdr_desc->addr_gpa), hdr_desc->length, hdr_desc->flags, hdr_desc->next);	
 
-	if (guest_pa_to_host_va(core, hdr_desc->addr_gpa, &(hdr_addr)) == -1) {
+	if (v3_gpa_to_hva(core, hdr_desc->addr_gpa, &(hdr_addr)) == -1) {
 	    PrintError("Could not translate block header address\n");
 	    return -1;
 	}
@@ -279,7 +279,7 @@ static int handle_kick(struct guest_info * core, struct virtio_blk_state * blk_s
 	PrintDebug("Status Descriptor (ptr=%p) gpa=%p, len=%d, flags=%x, next=%d\n", status_desc, 
 		   (void *)(status_desc->addr_gpa), status_desc->length, status_desc->flags, status_desc->next);
 
-	if (guest_pa_to_host_va(core, status_desc->addr_gpa, (addr_t *)&(status_ptr)) == -1) {
+	if (v3_gpa_to_hva(core, status_desc->addr_gpa, (addr_t *)&(status_ptr)) == -1) {
 	    PrintError("Could not translate status address\n");
 	    return -1;
 	}
@@ -341,19 +341,19 @@ static int virtio_io_write(struct guest_info * core, uint16_t port, void * src, 
 		// round up to next page boundary.
 		blk_state->queue.ring_used_addr = (blk_state->queue.ring_used_addr + 0xfff) & ~0xfff;
 
-		if (guest_pa_to_host_va(core, blk_state->queue.ring_desc_addr, (addr_t *)&(blk_state->queue.desc)) == -1) {
+		if (v3_gpa_to_hva(core, blk_state->queue.ring_desc_addr, (addr_t *)&(blk_state->queue.desc)) == -1) {
 		    PrintError("Could not translate ring descriptor address\n");
 		    return -1;
 		}
 
 
-		if (guest_pa_to_host_va(core, blk_state->queue.ring_avail_addr, (addr_t *)&(blk_state->queue.avail)) == -1) {
+		if (v3_gpa_to_hva(core, blk_state->queue.ring_avail_addr, (addr_t *)&(blk_state->queue.avail)) == -1) {
 		    PrintError("Could not translate ring available address\n");
 		    return -1;
 		}
 
 
-		if (guest_pa_to_host_va(core, blk_state->queue.ring_used_addr, (addr_t *)&(blk_state->queue.used)) == -1) {
+		if (v3_gpa_to_hva(core, blk_state->queue.ring_used_addr, (addr_t *)&(blk_state->queue.used)) == -1) {
 		    PrintError("Could not translate ring used address\n");
 		    return -1;
 		}

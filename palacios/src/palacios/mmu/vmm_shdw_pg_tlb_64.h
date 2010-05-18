@@ -77,7 +77,7 @@ static inline int handle_shadow_pagefault_64(struct guest_info * info, addr_t fa
     PrintDebug("64 bit Shadow page fault handler: %p\n", (void *)fault_addr);
     PrintDebug("Handling PML fault\n");
 
-    if (guest_pa_to_host_va(info, guest_cr3, (addr_t*)&guest_pml) == -1) {
+    if (v3_gpa_to_hva(info, guest_cr3, (addr_t*)&guest_pml) == -1) {
 	PrintError("Invalid Guest PML4E Address: 0x%p\n",  (void *)guest_cr3);
 	return -1;
     } 
@@ -152,7 +152,7 @@ static inline int handle_shadow_pagefault_64(struct guest_info * info, addr_t fa
 
     // Continue processing at the next level
 
-    if (guest_pa_to_host_va(info, BASE_TO_PAGE_ADDR(guest_pml4e->pdp_base_addr), (addr_t *)&guest_pdp) == -1) {
+    if (v3_gpa_to_hva(info, BASE_TO_PAGE_ADDR(guest_pml4e->pdp_base_addr), (addr_t *)&guest_pdp) == -1) {
 	// Machine check the guest
 	PrintError("Invalid Guest PDP Address: 0x%p\n", (void *)BASE_TO_PAGE_ADDR(guest_pml4e->pdp_base_addr));
 	v3_raise_exception(info, MC_EXCEPTION);
@@ -253,7 +253,7 @@ static int handle_pdpe_shadow_pagefault_64(struct guest_info * info, addr_t faul
 
     // Continue processing at the next level
 
-    if (guest_pa_to_host_va(info, BASE_TO_PAGE_ADDR(guest_pdpe->pd_base_addr), (addr_t *)&guest_pd) == -1) {
+    if (v3_gpa_to_hva(info, BASE_TO_PAGE_ADDR(guest_pdpe->pd_base_addr), (addr_t *)&guest_pd) == -1) {
 	// Machine check the guest
 	PrintError("Invalid Guest PTE Address: 0x%p\n", (void *)BASE_TO_PAGE_ADDR(guest_pdpe->pd_base_addr));
 	v3_raise_exception(info, MC_EXCEPTION);
@@ -375,7 +375,7 @@ static int handle_pde_shadow_pagefault_64(struct guest_info * info, addr_t fault
 
     // Continue processing at the next level
     if (guest_pde->large_page == 0) {
-	if (guest_pa_to_host_va(info, BASE_TO_PAGE_ADDR(guest_pde->pt_base_addr), (addr_t *)&guest_pt) == -1) {
+	if (v3_gpa_to_hva(info, BASE_TO_PAGE_ADDR(guest_pde->pt_base_addr), (addr_t *)&guest_pt) == -1) {
 	    // Machine check the guest
 	    PrintError("Invalid Guest PTE Address: 0x%p\n", (void *)BASE_TO_PAGE_ADDR(guest_pde->pt_base_addr));
 	    v3_raise_exception(info, MC_EXCEPTION);
@@ -454,8 +454,13 @@ static int handle_pte_shadow_pagefault_64(struct guest_info * info, addr_t fault
 
 	if ((shdw_reg->flags.alloced == 1) ||
 	    (shdw_reg->flags.read == 1)) {
-	    addr_t shadow_pa = v3_get_shadow_addr(shdw_reg, info->cpu_id, guest_pa);
-      
+	    addr_t shadow_pa = 0;
+
+      	    if (v3_gpa_to_hpa(info, guest_pa, &shadow_pa) == -1) {
+		PrintError("could not translate page fault address (%p)\n", (void *)guest_pa);
+		return -1;
+	    }
+
 	    shadow_pte->page_base_addr = PAGE_BASE_ADDR(shadow_pa);
       
 	    shadow_pte->present = guest_pte->present;
@@ -562,7 +567,12 @@ static int handle_2MB_shadow_pagefault_64(struct guest_info * info,
 
 	if ((shdw_reg->flags.alloced == 1) || 
 	    (shdw_reg->flags.read == 1)) {
-	    addr_t shadow_pa = v3_get_shadow_addr(shdw_reg, info->cpu_id, guest_fault_pa);
+	    addr_t shadow_pa = 0;
+
+	    if (v3_gpa_to_hpa(info, guest_fault_pa, &shadow_pa) == -1) {
+		PrintError("could not translate page fault address (%p)\n", (void *)guest_fault_pa);
+		return -1;
+	    }
 
 	    shadow_pte->page_base_addr = PAGE_BASE_ADDR(shadow_pa);
 

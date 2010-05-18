@@ -152,7 +152,7 @@ static int handle_cmd_kick(struct guest_info * core, struct virtio_vnet_state * 
 	
 	hdr_desc = &(q->desc[desc_idx]);
 
-	if (guest_pa_to_host_va(core, hdr_desc->addr_gpa, (addr_t *)&hdr) == -1) {
+	if (v3_gpa_to_hva(core, hdr_desc->addr_gpa, (addr_t *)&hdr) == -1) {
 	    PrintError("Could not translate VirtioVNET header address\n");
 	    return -1;
 	}
@@ -167,7 +167,7 @@ static int handle_cmd_kick(struct guest_info * core, struct virtio_vnet_state * 
 		
 		buf_desc = &(q->desc[desc_idx]);
 
-		if (guest_pa_to_host_va(core, buf_desc->addr_gpa, (addr_t *)&(route)) == -1) {
+		if (v3_gpa_to_hva(core, buf_desc->addr_gpa, (addr_t *)&(route)) == -1) {
 		    PrintError("Could not translate route address\n");
 		    return -1;
 		}
@@ -194,7 +194,7 @@ static int handle_cmd_kick(struct guest_info * core, struct virtio_vnet_state * 
 
 	status_desc = &(q->desc[desc_idx]);
 
-	if (guest_pa_to_host_va(core, status_desc->addr_gpa, (addr_t *)&status_ptr) == -1) {
+	if (v3_gpa_to_hva(core, status_desc->addr_gpa, (addr_t *)&status_ptr) == -1) {
 	    PrintError("VirtioVNET Error could not translate status address\n");
 	    return -1;
 	}
@@ -254,7 +254,7 @@ static int vnet_pkt_input_cb(struct v3_vm_info * vm,  struct v3_vnet_pkt vnet_pk
 	    pkt_desc = &(q->desc[pkt_idx]);
 	    PrintDebug("VNET Bridge RX: buffer desc len: %d\n", pkt_desc->length);
 
-	    if (guest_pa_to_host_va(&(vm->cores[0]), pkt_desc->addr_gpa, (addr_t *)&(virtio_pkt)) == -1) {
+	    if (v3_gpa_to_hva(&(vm->cores[0]), pkt_desc->addr_gpa, (addr_t *)&(virtio_pkt)) == -1) {
 	        PrintError("Could not translate buffer address\n");
 	        goto exit;
 	    }
@@ -335,7 +335,7 @@ static int handle_pkt_kick(struct guest_info *core, struct virtio_vnet_state * v
 
 	PrintDebug("VNET Bridge: Handle TX desc buf_len: %d\n", pkt_desc->length);
 	
-	if (guest_pa_to_host_va(core, pkt_desc->addr_gpa, (addr_t *)&(virtio_pkt)) == -1) {
+	if (v3_gpa_to_hva(core, pkt_desc->addr_gpa, (addr_t *)&(virtio_pkt)) == -1) {
 	    PrintError("Could not translate buffer address\n");
 	    return -1;
 	}
@@ -442,17 +442,17 @@ static int vnet_virtio_io_write(struct guest_info * core, uint16_t port, void * 
 		// round up to next page boundary.
 		vnet_state->cur_queue->ring_used_addr = (vnet_state->cur_queue->ring_used_addr + 0xfff) & ~0xfff;
 
-		if (guest_pa_to_host_va(core, vnet_state->cur_queue->ring_desc_addr, (addr_t *)&(vnet_state->cur_queue->desc)) == -1) {
+		if (v3_gpa_to_hva(core, vnet_state->cur_queue->ring_desc_addr, (addr_t *)&(vnet_state->cur_queue->desc)) == -1) {
 		    PrintError("Could not translate ring descriptor address\n");
 		    return -1;
 		}
 
-		if (guest_pa_to_host_va(core, vnet_state->cur_queue->ring_avail_addr, (addr_t *)&(vnet_state->cur_queue->avail)) == -1) {
+		if (v3_gpa_to_hva(core, vnet_state->cur_queue->ring_avail_addr, (addr_t *)&(vnet_state->cur_queue->avail)) == -1) {
 		    PrintError("Could not translate ring available address\n");
 		    return -1;
 		}
 
-		if (guest_pa_to_host_va(core, vnet_state->cur_queue->ring_used_addr, (addr_t *)&(vnet_state->cur_queue->used)) == -1) {
+		if (v3_gpa_to_hva(core, vnet_state->cur_queue->ring_used_addr, (addr_t *)&(vnet_state->cur_queue->used)) == -1) {
 		    PrintError("Could not translate ring used address\n");
 		    return -1;
 		}

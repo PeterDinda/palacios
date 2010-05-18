@@ -159,12 +159,12 @@ static int symbol_hcall_handler(struct guest_info * core, hcall_id_t hcall_id, v
 	addr_t sym_gva = sym_start_gva + (sizeof(struct v3_symbol_def32) * i);
 
 
-	if (guest_va_to_host_va(core, sym_gva, (addr_t *)&(tmp_symbol)) == -1) {
+	if (v3_gva_to_hva(core, sym_gva, (addr_t *)&(tmp_symbol)) == -1) {
 	    PrintError("Could not locate symbiotic symbol definition\n");
 	    continue;
 	}
 	
-	if (guest_va_to_host_va(core, tmp_symbol->name_gva, (addr_t *)&(sym_name)) == -1) {
+	if (v3_gva_to_hva(core, tmp_symbol->name_gva, (addr_t *)&(sym_name)) == -1) {
 	    PrintError("Could not locate symbiotic symbol name\n");
 	    continue;
 	}

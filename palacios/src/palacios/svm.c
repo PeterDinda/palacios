@@ -583,9 +583,9 @@ int v3_start_svm_guest(struct guest_info *info) {
 	    linear_addr = get_addr_linear(info, info->rip, &(info->segments.cs));
 	    
 	    if (info->mem_mode == PHYSICAL_MEM) {
-		guest_pa_to_host_va(info, linear_addr, &host_addr);
+		v3_gpa_to_hva(info, linear_addr, &host_addr);
 	    } else if (info->mem_mode == VIRTUAL_MEM) {
-		guest_va_to_host_va(info, linear_addr, &host_addr);
+		v3_gva_to_hva(info, linear_addr, &host_addr);
 	    }
 	    
 	    V3_Print("Host Address of rip = 0x%p\n", (void *)host_addr);

@@ -17,6 +17,8 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
+#include <palacios/vm_guest_mem.h>
+
 
 static int pre_config_pc_core(struct guest_info * info, v3_cfg_tree_t * cfg) { 
 
@@ -52,18 +54,30 @@ static int post_config_pc(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     {
 	extern uint8_t v3_vgabios_start[];
 	extern uint8_t v3_vgabios_end[];
-	
-	addr_t vgabios_dst = v3_get_shadow_addr(&(vm->mem_map.base_region), V3_MEM_CORE_ANY, VGABIOS_START);
-	memcpy(V3_VAddr((void *)vgabios_dst), v3_vgabios_start, v3_vgabios_end - v3_vgabios_start);	
+	addr_t vgabios_dst = 0;
+
+	if (v3_gpa_to_hpa(&(vm->cores[0]), VGABIOS_START, &vgabios_dst) == -1) {
+	    PrintError("Could not find VGABIOS destination address\n");
+	    return -1;
+	}
+
+	memcpy(V3_VAddr((void *)vgabios_dst), v3_vgabios_start, 
+	       v3_vgabios_end - v3_vgabios_start);	
     }
     
     /* layout rombios */
     {
 	extern uint8_t v3_rombios_start[];
 	extern uint8_t v3_rombios_end[];
+	addr_t rombios_dst = 0;
+	
+	if (v3_gpa_to_hpa(&(vm->cores[0]), ROMBIOS_START, &rombios_dst) == -1) {
+	    PrintError("Could not find ROMBIOS destination address\n");
+	    return -1;
+	}
 
-	addr_t rombios_dst = v3_get_shadow_addr(&(vm->mem_map.base_region), V3_MEM_CORE_ANY, ROMBIOS_START);
-	memcpy(V3_VAddr((void *)rombios_dst), v3_rombios_start, v3_rombios_end - v3_rombios_start);
+	memcpy(V3_VAddr((void *)rombios_dst), v3_rombios_start, 
+	       v3_rombios_end - v3_rombios_start);
     }
 
     return 0;

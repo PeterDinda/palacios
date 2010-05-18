@@ -21,6 +21,7 @@
 #include <palacios/vm_guest.h>
 #include <palacios/vmm_mem_hook.h>
 #include <palacios/vmm_emulator.h>
+#include <palacios/vm_guest_mem.h>
 
 struct mem_hook {
   
@@ -58,7 +59,10 @@ static int handle_mem_hook(struct guest_info * info, addr_t guest_va, addr_t gue
     if (reg->flags.alloced == 0) {
 	op_addr = hook->hook_hva;
     } else {
-	op_addr = (addr_t)V3_VAddr((void *)v3_get_shadow_addr(reg, info->cpu_id, guest_pa));
+	if (v3_gpa_to_hva(info, guest_pa, &op_addr) == -1) {
+	    PrintError("Could not translate hook address (%p)\n", (void *)guest_pa);
+	    return -1;
+	}
     }
 
     

@@ -153,11 +153,11 @@ static int handle_xfer_kick(struct guest_info * core, struct virtio_sym_state * 
 
 	cmd_desc = &(q->desc[desc_idx]);
 	
-	if (guest_pa_to_host_va(core, cmd_desc->addr_gpa, (addr_t *)&cmd) == -1) {
+	if (v3_gpa_to_hva(core, cmd_desc->addr_gpa, (addr_t *)&cmd) == -1) {
 	    PrintError("Could not translate SYMMOD header address\n");
 	    return -1;
 	}
-
+ 
 	desc_idx = cmd_desc->next;
 
 	if (cmd->cmd == CMD_LOAD) {
@@ -177,7 +177,7 @@ static int handle_xfer_kick(struct guest_info * core, struct virtio_sym_state * 
 	
 	    name_desc = &(q->desc[desc_idx]);
 
-	    if (guest_pa_to_host_va(core, name_desc->addr_gpa, (addr_t *)&name) == -1) {
+	    if (v3_gpa_to_hva(core, name_desc->addr_gpa, (addr_t *)&name) == -1) {
 		PrintError("Could not translate SYMMOD header address\n");
 		return -1;
 	    }
@@ -192,7 +192,7 @@ static int handle_xfer_kick(struct guest_info * core, struct virtio_sym_state * 
 
 		buf_desc = &(q->desc[desc_idx]);
 
-		if (guest_pa_to_host_va(core, buf_desc->addr_gpa, (addr_t *)&(buf)) == -1) {
+		if (v3_gpa_to_hva(core, buf_desc->addr_gpa, (addr_t *)&(buf)) == -1) {
 		    PrintError("Could not translate buffer address\n");
 		    return -1;
 		}
@@ -218,7 +218,7 @@ static int handle_xfer_kick(struct guest_info * core, struct virtio_sym_state * 
 
 	status_desc = &(q->desc[desc_idx]);
 
-	if (guest_pa_to_host_va(core, status_desc->addr_gpa, (addr_t *)&status_ptr) == -1) {
+	if (v3_gpa_to_hva(core, status_desc->addr_gpa, (addr_t *)&status_ptr) == -1) {
 	    PrintError("SYMMOD Error could not translate status address\n");
 	    return -1;
 	}
@@ -283,7 +283,7 @@ static int handle_notification_kick(struct guest_info * core, struct virtio_sym_
 
 	hdr_desc = &(q->desc[desc_idx]);
 
-	if (guest_pa_to_host_va(core, hdr_desc->addr_gpa, (addr_t *)&hdr) == -1) {
+	if (v3_gpa_to_hva(core, hdr_desc->addr_gpa, (addr_t *)&hdr) == -1) {
 	    PrintError("Could not translate SYMMOD header address\n");
 	    return -1;
 	}
@@ -352,19 +352,19 @@ static int virtio_io_write(struct guest_info * core, uint16_t port, void * src, 
 		// round up to next page boundary.
 		sym_state->cur_queue->ring_used_addr = (sym_state->cur_queue->ring_used_addr + 0xfff) & ~0xfff;
 
-		if (guest_pa_to_host_va(core, sym_state->cur_queue->ring_desc_addr, (addr_t *)&(sym_state->cur_queue->desc)) == -1) {
+		if (v3_gpa_to_hva(core, sym_state->cur_queue->ring_desc_addr, (addr_t *)&(sym_state->cur_queue->desc)) == -1) {
 		    PrintError("Could not translate ring descriptor address\n");
 		    return -1;
 		}
 
 
-		if (guest_pa_to_host_va(core, sym_state->cur_queue->ring_avail_addr, (addr_t *)&(sym_state->cur_queue->avail)) == -1) {
+		if (v3_gpa_to_hva(core, sym_state->cur_queue->ring_avail_addr, (addr_t *)&(sym_state->cur_queue->avail)) == -1) {
 		    PrintError("Could not translate ring available address\n");
 		    return -1;
 		}
 
 
-		if (guest_pa_to_host_va(core, sym_state->cur_queue->ring_used_addr, (addr_t *)&(sym_state->cur_queue->used)) == -1) {
+		if (v3_gpa_to_hva(core, sym_state->cur_queue->ring_used_addr, (addr_t *)&(sym_state->cur_queue->used)) == -1) {
 		    PrintError("Could not translate ring used address\n");
 		    return -1;
 		}
@@ -550,7 +550,7 @@ static int virtio_load_capsule(struct v3_vm_info * vm, struct v3_sym_capsule * m
 	PrintDebug("SYMMOD: Notifier Descriptor (ptr=%p) gpa=%p, len=%d, flags=%x, next=%d\n", notifier_desc, 
 		   (void *)(notifier_desc->addr_gpa), notifier_desc->length, notifier_desc->flags, notifier_desc->next);	
 
-	if (guest_pa_to_host_va(&(vm->cores[0]), notifier_desc->addr_gpa, (addr_t *)&(notifier)) == -1) {
+	if (v3_gpa_to_hva(&(vm->cores[0]), notifier_desc->addr_gpa, (addr_t *)&(notifier)) == -1) {
 	    PrintError("Could not translate receive buffer address\n");
 	    return -1;
 	}

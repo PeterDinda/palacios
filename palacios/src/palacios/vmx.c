@@ -341,7 +341,7 @@ static int init_vmcs_bios(struct guest_info * info, struct vmx_data * vmx_state)
 #define VMXASSIST_GDT   0x10000
 	addr_t vmxassist_gdt = 0;
 
-	if (guest_pa_to_host_va(info, VMXASSIST_GDT, &vmxassist_gdt) == -1) {
+	if (v3_gpa_to_hva(info, VMXASSIST_GDT, &vmxassist_gdt) == -1) {
 	    PrintError("Could not find VMXASSIST GDT destination\n");
 	    return -1;
 	}
@@ -375,7 +375,7 @@ static int init_vmcs_bios(struct guest_info * info, struct vmx_data * vmx_state)
 	extern uint8_t v3_vmxassist_end[];
 	addr_t vmxassist_dst = 0;
 
-	if (guest_pa_to_host_va(info, VMXASSIST_START, &vmxassist_dst) == -1) {
+	if (v3_gpa_to_hva(info, VMXASSIST_START, &vmxassist_dst) == -1) {
 	    PrintError("Could not find VMXASSIST destination\n");
 	    return -1;
 	}

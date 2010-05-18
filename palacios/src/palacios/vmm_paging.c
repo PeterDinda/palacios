@@ -952,7 +952,7 @@ int v3_drill_guest_pt_32(struct guest_info * info, v3_reg_t guest_cr3, addr_t va
     int ret; 
   
 
-    if (guest_pa_to_host_va(info, guest_pde_pa, (addr_t *)&guest_pde) == -1) {
+    if (v3_gpa_to_hva(info, guest_pde_pa, (addr_t *)&guest_pde) == -1) {
 	PrintError("Could not get virtual address of Guest PDE32 (PA=%p)\n", 
 		   (void *)guest_pde_pa);
 	return -1;
@@ -970,7 +970,7 @@ int v3_drill_guest_pt_32(struct guest_info * info, v3_reg_t guest_cr3, addr_t va
 		addr_t large_page_pa = (addr_t)guest_pte_pa;
 		addr_t large_page_va = 0;
       
-		if (guest_pa_to_host_va(info, large_page_pa, &large_page_va) == -1) {
+		if (v3_gpa_to_hva(info, large_page_pa, &large_page_va) == -1) {
 		    PrintError("Could not get virtual address of Guest Page 4MB (PA=%p)\n", 
 			       (void *)large_page_va);
 		    return -1;
@@ -987,7 +987,7 @@ int v3_drill_guest_pt_32(struct guest_info * info, v3_reg_t guest_cr3, addr_t va
 		pte32_t * guest_pte = NULL;
 		addr_t page_pa;
 
-		if (guest_pa_to_host_va(info, guest_pte_pa, (addr_t*)&guest_pte) == -1) {
+		if (v3_gpa_to_hva(info, guest_pte_pa, (addr_t*)&guest_pte) == -1) {
 		    PrintError("Could not get virtual address of Guest PTE32 (PA=%p)\n", 
 			       (void *)guest_pte_pa);
 		    return -1;
@@ -1002,7 +1002,7 @@ int v3_drill_guest_pt_32(struct guest_info * info, v3_reg_t guest_cr3, addr_t va
 		} else {
 		    addr_t page_va;
 
-		    if (guest_pa_to_host_va(info, page_pa, &page_va) == -1) {
+		    if (v3_gpa_to_hva(info, page_pa, &page_va) == -1) {
 			PrintError("Could not get virtual address of Guest Page 4KB (PA=%p)\n", 
 				   (void *)page_pa);
 			return -1;
@@ -1031,7 +1031,7 @@ int v3_drill_guest_pt_32pae(struct guest_info * info, v3_reg_t guest_cr3, addr_t
     addr_t guest_pde_pa = 0;
     int ret = 0;
 
-    if (guest_pa_to_host_va(info, guest_pdpe_pa, (addr_t*)&guest_pdpe) == -1) {
+    if (v3_gpa_to_hva(info, guest_pdpe_pa, (addr_t*)&guest_pdpe) == -1) {
 	PrintError("Could not get virtual address of Guest PDPE32PAE (PA=%p)\n",
 		   (void *)guest_pdpe_pa);
 	return -1;
@@ -1050,7 +1050,7 @@ int v3_drill_guest_pt_32pae(struct guest_info * info, v3_reg_t guest_cr3, addr_t
 		    pde32pae_t * guest_pde = NULL;
 		    addr_t guest_pte_pa = 0;
 	
-		    if (guest_pa_to_host_va(info, guest_pde_pa, (addr_t *)&guest_pde) == -1) {
+		    if (v3_gpa_to_hva(info, guest_pde_pa, (addr_t *)&guest_pde) == -1) {
 			PrintError("Could not get virtual Address of Guest PDE32PAE (PA=%p)\n", 
 				   (void *)guest_pde_pa);
 			return -1;
@@ -1069,7 +1069,7 @@ int v3_drill_guest_pt_32pae(struct guest_info * info, v3_reg_t guest_cr3, addr_t
 				    addr_t large_page_pa = (addr_t)guest_pte_pa;
 				    addr_t large_page_va = 0;
 	      
-				    if (guest_pa_to_host_va(info, large_page_pa, &large_page_va) == -1) {
+				    if (v3_gpa_to_hva(info, large_page_pa, &large_page_va) == -1) {
 					PrintDebug("Could not get virtual address of Guest Page 2MB (PA=%p)\n", 
 						   (void *)large_page_va);
 
@@ -1085,7 +1085,7 @@ int v3_drill_guest_pt_32pae(struct guest_info * info, v3_reg_t guest_cr3, addr_t
 				    pte32pae_t * guest_pte = NULL;
 				    addr_t page_pa;
 
-				    if (guest_pa_to_host_va(info, guest_pte_pa, (addr_t *)&guest_pte) == -1) {
+				    if (v3_gpa_to_hva(info, guest_pte_pa, (addr_t *)&guest_pte) == -1) {
 					PrintError("Could not get virtual Address of Guest PTE32PAE (PA=%p)\n", 
 						   (void *)guest_pte_pa);
 					return -1;
@@ -1100,7 +1100,7 @@ int v3_drill_guest_pt_32pae(struct guest_info * info, v3_reg_t guest_cr3, addr_t
 				    } else {
 					addr_t page_va;
 		
-					if (guest_pa_to_host_va(info, page_pa, &page_va) == -1) {
+					if (v3_gpa_to_hva(info, page_pa, &page_va) == -1) {
 					    PrintError("Could not get virtual address of Guest Page 4KB (PA=%p)\n", 
 						       (void *)page_pa);
 					    return -1;
@@ -1132,7 +1132,7 @@ int v3_drill_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t va
     addr_t guest_pdpe_pa = 0;
     int ret = 0;
 
-    if (guest_pa_to_host_va(info, guest_pml4_pa, (addr_t*)&guest_pmle) == -1) {
+    if (v3_gpa_to_hva(info, guest_pml4_pa, (addr_t*)&guest_pmle) == -1) {
 	PrintError("Could not get virtual address of Guest PML4E64 (PA=%p)\n", 
 		   (void *)guest_pml4_pa);
 	return -1;
@@ -1150,7 +1150,7 @@ int v3_drill_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t va
 		pdpe64_t * guest_pdp = NULL;
 		addr_t guest_pde_pa = 0;
 
-		if (guest_pa_to_host_va(info, guest_pdpe_pa, (addr_t *)&guest_pdp) == -1) {
+		if (v3_gpa_to_hva(info, guest_pdpe_pa, (addr_t *)&guest_pdp) == -1) {
 		    PrintError("Could not get virtual address of Guest PDPE64 (PA=%p)\n", 
 			       (void *)guest_pdpe_pa);
 		    return -1;
@@ -1168,7 +1168,7 @@ int v3_drill_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t va
 			    addr_t large_page_pa = (addr_t)guest_pde_pa;
 			    addr_t large_page_va = 0;
 	  
-			    if (guest_pa_to_host_va(info, large_page_pa, &large_page_va) == -1) {
+			    if (v3_gpa_to_hva(info, large_page_pa, &large_page_va) == -1) {
 				PrintDebug("Could not get virtual address of Guest Page 1GB (PA=%p)\n", 
 					   (void *)large_page_va);
 	    
@@ -1185,7 +1185,7 @@ int v3_drill_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t va
 			    pde64_t * guest_pde = NULL;
 			    addr_t guest_pte_pa = 0;
 
-			    if (guest_pa_to_host_va(info, guest_pde_pa, (addr_t *)&guest_pde) == -1) {
+			    if (v3_gpa_to_hva(info, guest_pde_pa, (addr_t *)&guest_pde) == -1) {
 				PrintError("Could not get virtual address of guest PDE64 (PA=%p)\n", 
 					   (void *)guest_pde_pa);
 				return -1;
@@ -1203,7 +1203,7 @@ int v3_drill_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t va
 					addr_t large_page_pa = (addr_t)guest_pte_pa;
 					addr_t large_page_va = 0;
 	      
-					if (guest_pa_to_host_va(info, large_page_pa, &large_page_va) == -1) {
+					if (v3_gpa_to_hva(info, large_page_pa, &large_page_va) == -1) {
 					    PrintDebug("Could not get virtual address of Guest Page 2MB (PA=%p)\n", 
 						       (void *)large_page_va);
 
@@ -1219,7 +1219,7 @@ int v3_drill_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t va
 					pte64_t * guest_pte = NULL;
 					addr_t page_pa;
 	      
-					if (guest_pa_to_host_va(info, guest_pte_pa, (addr_t *)&guest_pte) == -1) {
+					if (v3_gpa_to_hva(info, guest_pte_pa, (addr_t *)&guest_pte) == -1) {
 					    PrintError("Could not get virtual address of guest PTE64 (PA=%p)\n", 
 						       (void *)guest_pte_pa);
 					    return -1;
@@ -1234,7 +1234,7 @@ int v3_drill_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t va
 					} else {
 					    addr_t page_va;
 		
-					    if (guest_pa_to_host_va(info, page_pa, &page_va) == -1) {
+					    if (v3_gpa_to_hva(info, page_pa, &page_va) == -1) {
 						PrintError("Could not get virtual address of Guest Page 4KB (PA=%p)\n", 
 							   (void *)page_pa);
 						return -1;
@@ -1277,7 +1277,7 @@ int v3_walk_guest_pt_32(struct guest_info * info,  v3_reg_t guest_cr3,
 	return -1;
     }
 
-    if (guest_pa_to_host_va(info, guest_pde_pa, (addr_t *)&guest_pde) == -1) {
+    if (v3_gpa_to_hva(info, guest_pde_pa, (addr_t *)&guest_pde) == -1) {
 	PrintError("Could not get virtual address of Guest PDE32 (PA=%p)\n", 
 		   (void *)guest_pde_pa);
 	return -1;
@@ -1294,7 +1294,7 @@ int v3_walk_guest_pt_32(struct guest_info * info,  v3_reg_t guest_cr3,
 		addr_t large_page_pa = BASE_TO_PAGE_ADDR_4MB(large_pde->page_base_addr);
 		addr_t large_page_va = 0;
 
-		if (guest_pa_to_host_va(info, large_page_pa, &large_page_va) == -1) {
+		if (v3_gpa_to_hva(info, large_page_pa, &large_page_va) == -1) {
 		    PrintDebug("Could not get virtual address of Guest 4MB Page (PA=%p)\n", 
 			       (void *)large_page_pa);
 		    // We'll let it through for data pages because they may be unmapped or hooked
@@ -1310,7 +1310,7 @@ int v3_walk_guest_pt_32(struct guest_info * info,  v3_reg_t guest_cr3,
 		addr_t pte_pa = BASE_TO_PAGE_ADDR(guest_pde[i].pt_base_addr);
 		pte32_t * tmp_pte = NULL;
 
-		if (guest_pa_to_host_va(info, pte_pa, (addr_t *)&tmp_pte) == -1) {
+		if (v3_gpa_to_hva(info, pte_pa, (addr_t *)&tmp_pte) == -1) {
 		    PrintError("Could not get virtual address of Guest PTE32 (PA=%p)\n", 
 			       (void *)pte_pa);
 		    return -1;
@@ -1325,7 +1325,7 @@ int v3_walk_guest_pt_32(struct guest_info * info,  v3_reg_t guest_cr3,
 			addr_t page_pa = BASE_TO_PAGE_ADDR(tmp_pte[j].page_base_addr);
 			addr_t page_va = 0;
 
-			if (guest_pa_to_host_va(info, page_pa, &page_va) == -1) {
+			if (v3_gpa_to_hva(info, page_pa, &page_va) == -1) {
 			    PrintDebug("Could not get virtual address of Guest 4KB Page (PA=%p)\n", 
 				       (void *)page_pa);
 			    // We'll let it through for data pages because they may be unmapped or hooked
@@ -1362,7 +1362,7 @@ int v3_walk_guest_pt_32pae(struct guest_info * info,  v3_reg_t guest_cr3,
 	return -1;
     }
 
-    if (guest_pa_to_host_va(info, guest_pdpe_pa, (addr_t *)&guest_pdpe) == -1) {
+    if (v3_gpa_to_hva(info, guest_pdpe_pa, (addr_t *)&guest_pdpe) == -1) {
 	PrintError("Could not get virtual address of Guest PDPE32PAE (PA=%p)\n", 
 		   (void *)guest_pdpe_pa);
 	return -1;
@@ -1378,7 +1378,7 @@ int v3_walk_guest_pt_32pae(struct guest_info * info,  v3_reg_t guest_cr3,
 	    addr_t pde_pa = BASE_TO_PAGE_ADDR(guest_pdpe[i].pd_base_addr);
 	    pde32pae_t * tmp_pde = NULL;
 
-	    if (guest_pa_to_host_va(info, pde_pa, (addr_t *)&tmp_pde) == -1) {
+	    if (v3_gpa_to_hva(info, pde_pa, (addr_t *)&tmp_pde) == -1) {
 		PrintError("Could not get virtual address of Guest PDE32PAE (PA=%p)\n", 
 			   (void *)pde_pa);
 		return -1;
@@ -1395,7 +1395,7 @@ int v3_walk_guest_pt_32pae(struct guest_info * info,  v3_reg_t guest_cr3,
 			addr_t large_page_pa = BASE_TO_PAGE_ADDR_2MB(large_pde->page_base_addr);
 			addr_t large_page_va = 0;
 	    
-			if (guest_pa_to_host_va(info, large_page_pa, &large_page_va) == -1) {
+			if (v3_gpa_to_hva(info, large_page_pa, &large_page_va) == -1) {
 			    PrintDebug("Could not get virtual address of Guest 2MB Page (PA=%p)\n", 
 				       (void *)large_page_pa);
 			    // We'll let it through for data pages because they may be unmapped or hooked
@@ -1411,7 +1411,7 @@ int v3_walk_guest_pt_32pae(struct guest_info * info,  v3_reg_t guest_cr3,
 			addr_t pte_pa = BASE_TO_PAGE_ADDR(tmp_pde[j].pt_base_addr);
 			pte32pae_t * tmp_pte = NULL;
 	    
-			if (guest_pa_to_host_va(info, pte_pa, (addr_t *)&tmp_pte) == -1) {
+			if (v3_gpa_to_hva(info, pte_pa, (addr_t *)&tmp_pte) == -1) {
 			    PrintError("Could not get virtual address of Guest PTE32PAE (PA=%p)\n", 
 				       (void *)pte_pa);
 			    return -1;
@@ -1426,7 +1426,7 @@ int v3_walk_guest_pt_32pae(struct guest_info * info,  v3_reg_t guest_cr3,
 				addr_t page_pa = BASE_TO_PAGE_ADDR(tmp_pte[k].page_base_addr);
 				addr_t page_va = 0;
 		
-				if (guest_pa_to_host_va(info, page_pa, &page_va) == -1) {
+				if (v3_gpa_to_hva(info, page_pa, &page_va) == -1) {
 				    PrintDebug("Could not get virtual address of Guest 4KB Page (PA=%p)\n", 
 					       (void *)page_pa);
 				    // We'll let it through for data pages because they may be unmapped or hooked
@@ -1469,7 +1469,7 @@ int v3_walk_guest_pt_64(struct guest_info * info,  v3_reg_t guest_cr3,
 	return -1;
     }
 
-    if (guest_pa_to_host_va(info, guest_pml_pa, (addr_t *)&guest_pml) == -1) {
+    if (v3_gpa_to_hva(info, guest_pml_pa, (addr_t *)&guest_pml) == -1) {
 	PrintError("Could not get virtual address of Guest PML464 (PA=%p)\n", 
 		   (void *)guest_pml);
 	return -1;
@@ -1486,7 +1486,7 @@ int v3_walk_guest_pt_64(struct guest_info * info,  v3_reg_t guest_cr3,
 	    pdpe64_t * tmp_pdpe = NULL;
       
       
-	    if (guest_pa_to_host_va(info, pdpe_pa, (addr_t *)&tmp_pdpe) == -1) {
+	    if (v3_gpa_to_hva(info, pdpe_pa, (addr_t *)&tmp_pdpe) == -1) {
 		PrintError("Could not get virtual address of Guest PDPE64 (PA=%p)\n", 
 			   (void *)pdpe_pa);
 		return -1;
@@ -1503,7 +1503,7 @@ int v3_walk_guest_pt_64(struct guest_info * info,  v3_reg_t guest_cr3,
 			addr_t large_page_pa = BASE_TO_PAGE_ADDR_1GB(large_pdpe->page_base_addr);
 			addr_t large_page_va = 0;
 
-			if (guest_pa_to_host_va(info, large_page_pa, &large_page_va) == -1) {
+			if (v3_gpa_to_hva(info, large_page_pa, &large_page_va) == -1) {
 			    PrintDebug("Could not get virtual address of Guest 1GB page (PA=%p)\n", 
 				       (void *)large_page_pa);
 			    // We'll let it through for data pages because they may be unmapped or hooked
@@ -1519,7 +1519,7 @@ int v3_walk_guest_pt_64(struct guest_info * info,  v3_reg_t guest_cr3,
 			addr_t pde_pa = BASE_TO_PAGE_ADDR(tmp_pdpe[j].pd_base_addr);
 			pde64_t * tmp_pde = NULL;
 	    
-			if (guest_pa_to_host_va(info, pde_pa, (addr_t *)&tmp_pde) == -1) {
+			if (v3_gpa_to_hva(info, pde_pa, (addr_t *)&tmp_pde) == -1) {
 			    PrintError("Could not get virtual address of Guest PDE64 (PA=%p)\n", 
 				       (void *)pde_pa);
 			    return -1;
@@ -1536,7 +1536,7 @@ int v3_walk_guest_pt_64(struct guest_info * info,  v3_reg_t guest_cr3,
 				    addr_t large_page_pa = BASE_TO_PAGE_ADDR_2MB(large_pde->page_base_addr);
 				    addr_t large_page_va = 0;
 		  
-				    if (guest_pa_to_host_va(info, large_page_pa, &large_page_va) == -1) {
+				    if (v3_gpa_to_hva(info, large_page_pa, &large_page_va) == -1) {
 					PrintDebug("Could not get virtual address of Guest 2MB page (PA=%p)\n", 
 						   (void *)large_page_pa);
 					// We'll let it through for data pages because they may be unmapped or hooked
@@ -1552,7 +1552,7 @@ int v3_walk_guest_pt_64(struct guest_info * info,  v3_reg_t guest_cr3,
 				    addr_t pte_pa = BASE_TO_PAGE_ADDR(tmp_pde[k].pt_base_addr);
 				    pte64_t * tmp_pte = NULL;
 		  
-				    if (guest_pa_to_host_va(info, pte_pa, (addr_t *)&tmp_pte) == -1) {
+				    if (v3_gpa_to_hva(info, pte_pa, (addr_t *)&tmp_pte) == -1) {
 					PrintError("Could not get virtual address of Guest PTE64 (PA=%p)\n", 
 						   (void *)pte_pa);
 					return -1;
@@ -1567,7 +1567,7 @@ int v3_walk_guest_pt_64(struct guest_info * info,  v3_reg_t guest_cr3,
 					    addr_t page_pa = BASE_TO_PAGE_ADDR(tmp_pte[m].page_base_addr);
 					    addr_t page_va = 0;
 		      
-					    if (guest_pa_to_host_va(info, page_pa, &page_va) == -1) {
+					    if (v3_gpa_to_hva(info, page_pa, &page_va) == -1) {
 						PrintDebug("Could not get virtual address of Guest 4KB Page (PA=%p)\n", 
 							   (void *)page_pa);
 						// We'll let it through for data pages because they may be unmapped or hooked

@@ -65,7 +65,7 @@ static inline int handle_shadow_pagefault_32(struct guest_info * info, addr_t fa
     PrintDebug("Shadow page fault handler: %p\n", (void*) fault_addr );
     PrintDebug("Handling PDE32 Fault\n");
 
-    if (guest_pa_to_host_va(info, guest_cr3, (addr_t*)&guest_pd) == -1) {
+    if (v3_gpa_to_hva(info, guest_cr3, (addr_t*)&guest_pd) == -1) {
 	PrintError("Invalid Guest PDE Address: 0x%p\n",  (void *)guest_cr3);
 	return -1;
     } 
@@ -169,7 +169,7 @@ static inline int handle_shadow_pagefault_32(struct guest_info * info, addr_t fa
 
       
     if (guest_pde->large_page == 0) {
-	if (guest_pa_to_host_va(info, BASE_TO_PAGE_ADDR(guest_pde->pt_base_addr), (addr_t*)&guest_pt) == -1) {
+	if (v3_gpa_to_hva(info, BASE_TO_PAGE_ADDR(guest_pde->pt_base_addr), (addr_t*)&guest_pt) == -1) {
 	    // Machine check the guest
 	    PrintDebug("Invalid Guest PTE Address: 0x%p\n", (void *)BASE_TO_PAGE_ADDR(guest_pde->pt_base_addr));
 	    v3_raise_exception(info, MC_EXCEPTION);
@@ -247,8 +247,13 @@ static int handle_pte_shadow_pagefault_32(struct guest_info * info, addr_t fault
 	PrintDebug("guest_pa =%p\n", (void *)guest_pa);
 
 	if ((shdw_reg->flags.alloced == 1) && (shdw_reg->flags.read == 1)) {
-	    addr_t shadow_pa = v3_get_shadow_addr(shdw_reg, info->cpu_id, guest_pa);
-      
+	    addr_t shadow_pa = 0;
+
+	    if (v3_gpa_to_hpa(info, guest_pa, &shadow_pa) == -1) {
+		PrintError("could not translate page fault address (%p)\n", (void *)guest_pa);
+		return -1;
+	    }
+
 	    shadow_pte->page_base_addr = PAGE_BASE_ADDR(shadow_pa);
 
 	    PrintDebug("\tMapping shadow page (%p)\n", (void *)BASE_TO_PAGE_ADDR(shadow_pte->page_base_addr));
@@ -354,7 +359,13 @@ static int handle_4MB_shadow_pagefault_32(struct guest_info * info,
 
 	if ((shdw_reg->flags.alloced == 1) && 
 	    (shdw_reg->flags.read  == 1)) {
-	    addr_t shadow_pa = v3_get_shadow_addr(shdw_reg, info->cpu_id, guest_fault_pa);
+	    addr_t shadow_pa = 0;
+
+
+	    if (v3_gpa_to_hpa(info, guest_fault_pa, &shadow_pa) == -1) {
+		PrintError("could not translate page fault address (%p)\n", (void *)guest_fault_pa);
+		return -1;
+	    }
 
 	    shadow_pte->page_base_addr = PAGE_BASE_ADDR(shadow_pa);
 
@@ -427,7 +438,7 @@ static inline int handle_shadow_invlpg_32(struct guest_info * info, addr_t vaddr
     pde32_t * guest_pd = NULL;
     pde32_t * guest_pde;
 
-    if (guest_pa_to_host_va(info, guest_cr3, (addr_t*)&guest_pd) == -1) {
+    if (v3_gpa_to_hva(info, guest_cr3, (addr_t*)&guest_pd) == -1) {
 	PrintError("Invalid Guest PDE Address: 0x%p\n",  (void *)guest_cr3);
 	return -1;
     }

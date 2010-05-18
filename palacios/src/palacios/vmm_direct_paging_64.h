@@ -54,8 +54,11 @@ static inline int handle_passthrough_pagefault_64(struct guest_info * info,
 	return -1;
     }
 
-    host_addr = v3_get_shadow_addr(region, info->cpu_id, fault_addr);
-    //
+    if (v3_gpa_to_hpa(info, fault_addr, &host_addr) == -1) {
+	PrintError("Error Could not translate fault addr (%p)\n", (void *)fault_addr);
+	return -1;
+    }
+
 
     // Lookup the correct PML address based on the PAGING MODE
     if (info->shdw_pg_mode == SHADOW_PAGING) {

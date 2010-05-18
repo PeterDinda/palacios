@@ -330,19 +330,6 @@ void v3_delete_mem_region(struct v3_vm_info * vm, struct v3_mem_region * reg) {
 
 
 
-
-addr_t v3_get_shadow_addr(struct v3_mem_region * reg, uint16_t core_id, addr_t guest_addr) {
-    if (reg && (reg->flags.alloced == 1)) {
-        return (guest_addr - reg->guest_start) + reg->host_addr;
-    } else {
-	//  PrintError("MEM Region Invalid\n");
-        return 0;
-    }
-
-}
-
-
-
 void v3_print_mem_map(struct v3_vm_info * vm) {
     struct rb_node * node = v3_rb_first(&(vm->mem_map.mem_regions));
     struct v3_mem_region * reg = &(vm->mem_map.base_region);
