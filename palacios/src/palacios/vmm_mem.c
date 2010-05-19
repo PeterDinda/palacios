@@ -27,9 +27,6 @@
 #include <palacios/vmm_direct_paging.h>
 
 
-static inline
-struct v3_shadow_region * insert_shadow_region(struct v3_vm_info * vm, 
- 					       struct v3_shadow_region * region);
 
 
 static int mem_offset_hypercall(struct guest_info * info, uint_t hcall_id, void * private_data) {
@@ -41,15 +38,27 @@ static int mem_offset_hypercall(struct guest_info * info, uint_t hcall_id, void 
     return 0;
 }
 
+static int unhandled_err(struct guest_info * core, addr_t guest_va, addr_t guest_pa, 
+			 struct v3_mem_region * reg, pf_error_t access_info) {
+
+    PrintError("Unhandled memory access error\n");
+
+    v3_print_mem_map(core->vm_info);
+
+    v3_print_guest_state(core);
+
+    return -1;
+}
+
+
 
 int v3_init_mem_map(struct v3_vm_info * vm) {
     struct v3_mem_map * map = &(vm->mem_map);
     addr_t mem_pages = vm->mem_size >> 12;
 
-    map->shdw_regions.rb_node = NULL;
+    memset(&(map->base_region), 0, sizeof(struct v3_mem_region));
 
-
-    map->hook_hvas = V3_VAddr(V3_AllocPages(vm->num_cores));
+    map->mem_regions.rb_node = NULL;
 
 
     // There is an underlying region that contains all of the guest memory
@@ -57,9 +66,15 @@ int v3_init_mem_map(struct v3_vm_info * vm) {
 
     map->base_region.guest_start = 0;
     map->base_region.guest_end = mem_pages * PAGE_SIZE_4KB;
-    map->base_region.host_type = SHDW_REGION_ALLOCATED;
     map->base_region.host_addr = (addr_t)V3_AllocPages(mem_pages);
 
+    map->base_region.flags.read = 1;
+    map->base_region.flags.write = 1;
+    map->base_region.flags.exec = 1;
+    map->base_region.flags.base = 1;
+    map->base_region.flags.alloced = 1;
+    
+    map->base_region.unhandled = unhandled_err;
 
     if ((void *)map->base_region.host_addr == NULL) {
 	PrintError("Could not allocate Guest memory\n");
@@ -74,25 +89,35 @@ int v3_init_mem_map(struct v3_vm_info * vm) {
 }
 
 
-static inline addr_t get_hook_hva(struct guest_info * info) {
-    return (addr_t)(info->vm_info->mem_map.hook_hvas + (PAGE_SIZE_4KB * info->cpu_id));
-}
-
-void v3_delete_shadow_map(struct v3_vm_info * vm) {
-    struct rb_node * node = v3_rb_first(&(vm->mem_map.shdw_regions));
-    struct v3_shadow_region * reg;
+void v3_delete_mem_map(struct v3_vm_info * vm) {
+    struct rb_node * node = v3_rb_first(&(vm->mem_map.mem_regions));
+    struct v3_mem_region * reg;
     struct rb_node * tmp_node = NULL;
   
     while (node) {
-	reg = rb_entry(node, struct v3_shadow_region, tree_node);
+	reg = rb_entry(node, struct v3_mem_region, tree_node);
 	tmp_node = node;
 	node = v3_rb_next(node);
 
-	v3_delete_shadow_region(vm, reg);
+	v3_delete_mem_region(vm, reg);
     }
 
     V3_FreePage((void *)(vm->mem_map.base_region.host_addr));
-    V3_FreePage(V3_PAddr((void *)(vm->mem_map.hook_hvas)));
+}
+
+
+struct v3_mem_region * v3_create_mem_region(struct v3_vm_info * vm, uint16_t core_id, 
+					       addr_t guest_addr_start, addr_t guest_addr_end) {
+    
+    struct v3_mem_region * entry = (struct v3_mem_region *)V3_Malloc(sizeof(struct v3_mem_region));
+    memset(entry, 0, sizeof(struct v3_mem_region));
+
+    entry->guest_start = guest_addr_start;
+    entry->guest_end = guest_addr_end;
+    entry->core_id = core_id;
+    entry->unhandled = unhandled_err;
+
+    return entry;
 }
 
 
@@ -103,90 +128,24 @@ int v3_add_shadow_mem( struct v3_vm_info * vm, uint16_t core_id,
 		       addr_t               guest_addr_end,
 		       addr_t               host_addr)
 {
-    struct v3_shadow_region * entry = (struct v3_shadow_region *)V3_Malloc(sizeof(struct v3_shadow_region));
+    struct v3_mem_region * entry = NULL;
 
-    entry->guest_start = guest_addr_start;
-    entry->guest_end = guest_addr_end;
-    entry->host_type = SHDW_REGION_ALLOCATED;
+    entry = v3_create_mem_region(vm, core_id, 
+				 guest_addr_start, 
+				 guest_addr_end);
+
     entry->host_addr = host_addr;
-    entry->write_hook = NULL;
-    entry->read_hook = NULL;
-    entry->priv_data = NULL;
-    entry->core_id = core_id;
 
-    if (insert_shadow_region(vm, entry)) {
+
+    entry->flags.read = 1;
+    entry->flags.write = 1;
+    entry->flags.exec = 1;
+    entry->flags.alloced = 1;
+
+    if (v3_insert_mem_region(vm, entry) == -1) {
 	V3_Free(entry);
 	return -1;
     }
-
-    return 0;
-}
-
-
-
-int v3_hook_write_mem(struct v3_vm_info * vm, uint16_t core_id,
-		      addr_t guest_addr_start, addr_t guest_addr_end, addr_t host_addr,
-		      int (*write)(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data),
-		      void * priv_data) {
-
-    struct v3_shadow_region * entry = (struct v3_shadow_region *)V3_Malloc(sizeof(struct v3_shadow_region));
-
-
-    entry->guest_start = guest_addr_start;
-    entry->guest_end = guest_addr_end;
-    entry->host_type = SHDW_REGION_WRITE_HOOK;
-    entry->host_addr = host_addr;
-    entry->write_hook = write;
-    entry->read_hook = NULL;
-    entry->priv_data = priv_data;
-    entry->core_id = core_id;
-
-    if (insert_shadow_region(vm, entry)) {
-	V3_Free(entry);
-	return -1;
-    }
-
-    return 0;  
-}
-
-int v3_hook_full_mem(struct v3_vm_info * vm, uint16_t core_id, 
-		     addr_t guest_addr_start, addr_t guest_addr_end,
-		     int (*read)(struct guest_info * core, addr_t guest_addr, void * dst, uint_t length, void * priv_data),
-		     int (*write)(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data),
-		     void * priv_data) {
-  
-    struct v3_shadow_region * entry = (struct v3_shadow_region *)V3_Malloc(sizeof(struct v3_shadow_region));
-
-    entry->guest_start = guest_addr_start;
-    entry->guest_end = guest_addr_end;
-    entry->host_type = SHDW_REGION_FULL_HOOK;
-    entry->host_addr = (addr_t)NULL;
-    entry->write_hook = write;
-    entry->read_hook = read;
-    entry->priv_data = priv_data;
-    entry->core_id = core_id;
-
-    if (insert_shadow_region(vm, entry)) {
-	V3_Free(entry);
-	return -1;
-    }
-
-    return 0;
-}
-
-
-// This will unhook the memory hook registered at start address
-// We do not support unhooking subregions
-int v3_unhook_mem(struct v3_vm_info * vm, uint16_t core_id, addr_t guest_addr_start) {
-    struct v3_shadow_region * reg = v3_get_shadow_region(vm, core_id, guest_addr_start);
-
-    if ((reg->host_type != SHDW_REGION_FULL_HOOK) || 
-	(reg->host_type != SHDW_REGION_WRITE_HOOK)) {
-	PrintError("Trying to unhook a non hooked memory region (addr=%p)\n", (void *)guest_addr_start);
-	return -1;
-    }
-
-    v3_delete_shadow_region(vm, reg);
 
     return 0;
 }
@@ -194,15 +153,15 @@ int v3_unhook_mem(struct v3_vm_info * vm, uint16_t core_id, addr_t guest_addr_st
 
 
 static inline 
-struct v3_shadow_region * __insert_shadow_region(struct v3_vm_info * vm, 
-						 struct v3_shadow_region * region) {
-    struct rb_node ** p = &(vm->mem_map.shdw_regions.rb_node);
+struct v3_mem_region * __insert_mem_region(struct v3_vm_info * vm, 
+						 struct v3_mem_region * region) {
+    struct rb_node ** p = &(vm->mem_map.mem_regions.rb_node);
     struct rb_node * parent = NULL;
-    struct v3_shadow_region * tmp_region;
+    struct v3_mem_region * tmp_region;
 
     while (*p) {
 	parent = *p;
-	tmp_region = rb_entry(parent, struct v3_shadow_region, tree_node);
+	tmp_region = rb_entry(parent, struct v3_mem_region, tree_node);
 
 	if (region->guest_end <= tmp_region->guest_start) {
 	    p = &(*p)->rb_left;
@@ -229,17 +188,17 @@ struct v3_shadow_region * __insert_shadow_region(struct v3_vm_info * vm,
 }
 
 
-static inline
-struct v3_shadow_region * insert_shadow_region(struct v3_vm_info * vm, 
- 					       struct v3_shadow_region * region) {
-    struct v3_shadow_region * ret;
+
+int v3_insert_mem_region(struct v3_vm_info * vm, 
+			    struct v3_mem_region * region) {
+    struct v3_mem_region * ret;
     int i = 0;
 
-    if ((ret = __insert_shadow_region(vm, region))) {
-	return ret;
+    if ((ret = __insert_mem_region(vm, region))) {
+	return -1;
     }
 
-    v3_rb_insert_color(&(region->tree_node), &(vm->mem_map.shdw_regions));
+    v3_rb_insert_color(&(region->tree_node), &(vm->mem_map.mem_regions));
 
 
 
@@ -276,77 +235,18 @@ struct v3_shadow_region * insert_shadow_region(struct v3_vm_info * vm,
 	}
     }
 
-    return NULL;
+    return 0;
 }
 						 
 
 
 
-int handle_special_page_fault(struct guest_info * info,
-			      addr_t fault_gva, addr_t fault_gpa, pf_error_t access_info) 
-{
-    struct v3_shadow_region * reg = v3_get_shadow_region(info->vm_info, info->cpu_id, fault_gpa);
-
-    PrintDebug("Handling Special Page Fault\n");
-
-    switch (reg->host_type) {
-	case SHDW_REGION_WRITE_HOOK:
-	    return v3_handle_mem_wr_hook(info, fault_gva, fault_gpa, reg, access_info);
-	case SHDW_REGION_FULL_HOOK:
-	    return v3_handle_mem_full_hook(info, fault_gva, fault_gpa, reg, access_info);
-	default:
-	    return -1;
-    }
-
-    return 0;
-
-}
-
-int v3_handle_mem_wr_hook(struct guest_info * info, addr_t guest_va, addr_t guest_pa, 
-			  struct v3_shadow_region * reg, pf_error_t access_info) {
-
-    addr_t dst_addr = (addr_t)V3_VAddr((void *)v3_get_shadow_addr(reg, info->cpu_id, guest_pa));
-
-    if (v3_emulate_write_op(info, guest_va, guest_pa, dst_addr, 
-			    reg->write_hook, reg->priv_data) == -1) {
-	PrintError("Write hook emulation failed\n");
-	return -1;
-    }
-
-    return 0;
-}
-
-int v3_handle_mem_full_hook(struct guest_info * info, addr_t guest_va, addr_t guest_pa, 
-			    struct v3_shadow_region * reg, pf_error_t access_info) {
-  
-    addr_t op_addr = get_hook_hva(info);
-
-    if (access_info.write == 1) {
-	if (v3_emulate_write_op(info, guest_va, guest_pa, op_addr, 
-				reg->write_hook, reg->priv_data) == -1) {
-	    PrintError("Write Full Hook emulation failed\n");
-	    return -1;
-	}
-    } else {
-	if (v3_emulate_read_op(info, guest_va, guest_pa, op_addr, 
-			       reg->read_hook, reg->write_hook, 
-			       reg->priv_data) == -1) {
-	    PrintError("Read Full Hook emulation failed\n");
-	    return -1;
-	}
-    }
-
-    return 0;
-}
-
-
-
-struct v3_shadow_region * v3_get_shadow_region(struct v3_vm_info * vm, uint16_t core_id, addr_t guest_addr) {
-    struct rb_node * n = vm->mem_map.shdw_regions.rb_node;
-    struct v3_shadow_region * reg = NULL;
+struct v3_mem_region * v3_get_mem_region(struct v3_vm_info * vm, uint16_t core_id, addr_t guest_addr) {
+    struct rb_node * n = vm->mem_map.mem_regions.rb_node;
+    struct v3_mem_region * reg = NULL;
 
     while (n) {
-	reg = rb_entry(n, struct v3_shadow_region, tree_node);
+	reg = rb_entry(n, struct v3_mem_region, tree_node);
 
 	if (guest_addr < reg->guest_start) {
 	    n = n->rb_left;
@@ -377,7 +277,9 @@ struct v3_shadow_region * v3_get_shadow_region(struct v3_vm_info * vm, uint16_t 
 }
 
 
-void v3_delete_shadow_region(struct v3_vm_info * vm, struct v3_shadow_region * reg) {
+
+
+void v3_delete_mem_region(struct v3_vm_info * vm, struct v3_mem_region * reg) {
     int i = 0;
 
     if (reg == NULL) {
@@ -417,7 +319,7 @@ void v3_delete_shadow_region(struct v3_vm_info * vm, struct v3_shadow_region * r
 	}
     }
 
-    v3_rb_erase(&(reg->tree_node), &(vm->mem_map.shdw_regions));
+    v3_rb_erase(&(reg->tree_node), &(vm->mem_map.mem_regions));
 
     V3_Free(reg);
 
@@ -428,23 +330,9 @@ void v3_delete_shadow_region(struct v3_vm_info * vm, struct v3_shadow_region * r
 
 
 
-
-addr_t v3_get_shadow_addr(struct v3_shadow_region * reg, uint16_t core_id, addr_t guest_addr) {
-    if ( (reg) && 
-         (reg->host_type != SHDW_REGION_FULL_HOOK)) {
-        return (guest_addr - reg->guest_start) + reg->host_addr;
-    } else {
-	//  PrintError("MEM Region Invalid\n");
-        return 0;
-    }
-
-}
-
-
-
 void v3_print_mem_map(struct v3_vm_info * vm) {
-    struct rb_node * node = v3_rb_first(&(vm->mem_map.shdw_regions));
-    struct v3_shadow_region * reg = &(vm->mem_map.base_region);
+    struct rb_node * node = v3_rb_first(&(vm->mem_map.mem_regions));
+    struct v3_mem_region * reg = &(vm->mem_map.base_region);
     int i = 0;
 
     V3_Print("Memory Layout:\n");
@@ -462,37 +350,18 @@ void v3_print_mem_map(struct v3_vm_info * vm) {
     }
 
     do {
-	reg = rb_entry(node, struct v3_shadow_region, tree_node);
+	reg = rb_entry(node, struct v3_mem_region, tree_node);
 
 	V3_Print("%d:  0x%p - 0x%p -> 0x%p\n", i, 
 		   (void *)(reg->guest_start), 
 		   (void *)(reg->guest_end - 1), 
 		   (void *)(reg->host_addr));
 
-	V3_Print("\t(%s) (WriteHook = 0x%p) (ReadHook = 0x%p)\n", 
-		   v3_shdw_region_type_to_str(reg->host_type),
-		   (void *)(reg->write_hook), 
-		   (void *)(reg->read_hook));
+	V3_Print("\t(flags=%x) (unhandled = 0x%p)\n", 
+		   reg->flags.value,
+		   reg->unhandled);
     
 	i++;
     } while ((node = v3_rb_next(node)));
-}
-
-
-static const uchar_t  SHDW_REGION_WRITE_HOOK_STR[] = "SHDW_REGION_WRITE_HOOK";
-static const uchar_t  SHDW_REGION_FULL_HOOK_STR[] = "SHDW_REGION_FULL_HOOK";
-static const uchar_t  SHDW_REGION_ALLOCATED_STR[] = "SHDW_REGION_ALLOCATED";
-
-const uchar_t * v3_shdw_region_type_to_str(v3_shdw_region_type_t type) {
-    switch (type) {
-	case SHDW_REGION_WRITE_HOOK:
-	    return SHDW_REGION_WRITE_HOOK_STR;
-	case SHDW_REGION_FULL_HOOK:
-	    return SHDW_REGION_FULL_HOOK_STR;
-	case SHDW_REGION_ALLOCATED:
-	    return SHDW_REGION_ALLOCATED_STR;
-	default:
-	    return (uchar_t *)"SHDW_REGION_INVALID";
-    }
 }
 

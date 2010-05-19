@@ -36,29 +36,35 @@ struct v3_vm_info;
 
 
 
-// These are the types of physical memory address regions
-// from the perspective of the HOST
-typedef enum shdw_region_type { 
-    SHDW_REGION_WRITE_HOOK,                 // This region is mapped as read-only (page faults on write)
-    SHDW_REGION_FULL_HOOK,                  // This region is mapped as not present (always generate page faults)
-    SHDW_REGION_ALLOCATED,                  // Region is a section of host memory
-} v3_shdw_region_type_t;
-
 #define V3_MEM_CORE_ANY ((uint16_t)-1)
 
 
-struct v3_shadow_region {
+
+typedef struct {
+    union {
+	uint16_t value;
+	struct {
+	    uint8_t read   : 1;
+	    uint8_t write  : 1;
+	    uint8_t exec   : 1;
+	    uint8_t base   : 1;
+	    uint8_t alloced : 1;
+	} __attribute__((packed));
+    } __attribute__((packed));
+} __attribute__((packed)) v3_mem_flags_t;
+
+
+
+struct v3_mem_region {
     addr_t                  guest_start; 
     addr_t                  guest_end; 
 
-    v3_shdw_region_type_t   host_type;
-  
+    v3_mem_flags_t          flags;
+
     addr_t                  host_addr; // This either points to a host address mapping
 
-    // Called when data is read from a memory page
-    int (*read_hook)(struct guest_info * core, addr_t guest_addr, void * dst, uint_t length, void * priv_data);
-    // Called when data is written to a memory page
-    int (*write_hook)(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data);
+    int (*unhandled)(struct guest_info * info, addr_t guest_va, addr_t guest_pa, 
+		     struct v3_mem_region * reg, pf_error_t access_info);
 
     void * priv_data;
 
@@ -69,11 +75,9 @@ struct v3_shadow_region {
 
 
 struct v3_mem_map {
-    struct v3_shadow_region base_region;
+    struct v3_mem_region base_region;
 
-    struct rb_root shdw_regions;
-
-    void * hook_hvas; // this is an array of pages, equal to the number of cores
+    struct rb_root mem_regions;
 };
 
 
@@ -83,36 +87,22 @@ void v3_delete_mem_map(struct v3_vm_info * vm);
 
 
 
+
+struct v3_mem_region * v3_create_mem_region(struct v3_vm_info * vm, uint16_t core_id, 
+					       addr_t guest_addr_start, addr_t guest_addr_end);
+
+int v3_insert_mem_region(struct v3_vm_info * vm, struct v3_mem_region * reg);
+
+void v3_delete_mem_region(struct v3_vm_info * vm, struct v3_mem_region * reg);
+
+
+/* This is a shortcut function for creating + inserting a memory region which redirects to host memory */
 int v3_add_shadow_mem(struct v3_vm_info * vm, uint16_t core_id,
 		      addr_t guest_addr_start, addr_t guest_addr_end, addr_t host_addr);
 
-int v3_hook_full_mem(struct v3_vm_info * vm, uint16_t core_id,
-		     addr_t guest_addr_start, addr_t guest_addr_end,
-		     int (*read)(struct guest_info * core, addr_t guest_addr, void * dst, uint_t length, void * priv_data),
-		     int (*write)(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data),
-		     void * priv_data);
-
-int v3_hook_write_mem(struct v3_vm_info * vm, uint16_t core_id, 
-		      addr_t guest_addr_start, addr_t guest_addr_end, addr_t host_addr,
-		      int (*write)(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data),
-		      void * priv_data);
 
 
-int v3_unhook_mem(struct v3_vm_info * vm, uint16_t core_id, addr_t guest_addr_start);
-
-
-
-
-
-void v3_delete_shadow_region(struct v3_vm_info * vm, struct v3_shadow_region * reg);
-
-
-
-
-struct v3_shadow_region * v3_get_shadow_region(struct v3_vm_info * vm, uint16_t core_id, addr_t guest_addr);
-addr_t v3_get_shadow_addr(struct v3_shadow_region * reg, uint16_t core_id, addr_t guest_addr);
-
-
+struct v3_mem_region * v3_get_mem_region(struct v3_vm_info * vm, uint16_t core_id, addr_t guest_addr);
 
 
 
@@ -121,17 +111,6 @@ void v3_print_mem_map(struct v3_vm_info * vm);
 
 
 
-
-const uchar_t * v3_shdw_region_type_to_str(v3_shdw_region_type_t type);
-
-
-
-int handle_special_page_fault(struct guest_info * info, addr_t fault_addr, addr_t gp_addr, pf_error_t access_info);
-
-int v3_handle_mem_wr_hook(struct guest_info * info, addr_t guest_va, addr_t guest_pa, 
-			  struct v3_shadow_region * reg, pf_error_t access_info);
-int v3_handle_mem_full_hook(struct guest_info * info, addr_t guest_va, addr_t guest_pa, 
-			    struct v3_shadow_region * reg, pf_error_t access_info);
 
 #endif // ! __V3VEE__
 

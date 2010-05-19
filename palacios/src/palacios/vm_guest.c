@@ -198,7 +198,7 @@ int v3_translate_segment(struct guest_info * info, uint16_t selector, struct v3_
 	return -1;
     }
 
-    if (guest_va_to_host_va(info, gdt->base, &gdt_addr) == -1) {
+    if (v3_gva_to_hva(info, gdt->base, &gdt_addr) == -1) {
 	PrintError("Unable to translate GDT address\n");
 	return -1;
     }
@@ -278,6 +278,8 @@ void v3_print_guest_state(struct guest_info * info) {
     }
     v3_print_GPRs(info);
 
+    v3_print_mem_map(info->vm_info);
+
     v3_print_stack(info);
 }
 
@@ -294,12 +296,12 @@ void v3_print_stack(struct guest_info * info) {
     V3_Print("Stack  at %p:\n", (void *)linear_addr);
    
     if (info->mem_mode == PHYSICAL_MEM) {
-	if (guest_pa_to_host_va(info, linear_addr, &host_addr) == -1) {
+	if (v3_gpa_to_hva(info, linear_addr, &host_addr) == -1) {
 	    PrintError("Could not translate Stack address\n");
 	    return;
 	}
     } else if (info->mem_mode == VIRTUAL_MEM) {
-	if (guest_va_to_host_va(info, linear_addr, &host_addr) == -1) {
+	if (v3_gva_to_hva(info, linear_addr, &host_addr) == -1) {
 	    PrintError("Could not translate Virtual Stack address\n");
 	    return;
 	}
@@ -426,6 +428,7 @@ int v3_init_vm(struct v3_vm_info * vm) {
 	return -1;
     }
 
+    v3_init_mem_hooks(vm);
 
     if (v3_init_shdw_impl(vm) == -1) {
 	PrintError("VM initialization error in shadow implementaion\n");

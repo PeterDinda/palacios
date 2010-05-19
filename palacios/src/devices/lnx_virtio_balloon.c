@@ -146,7 +146,7 @@ static int handle_kick(struct guest_info * core, struct vm_device * dev) {
 		       tmp_desc->flags, tmp_desc->next);
 	
 
-	    if (guest_pa_to_host_va(core, tmp_desc->addr_gpa, (addr_t *)&(page_addr)) == -1) {
+	    if (v3_gpa_to_hva(core, tmp_desc->addr_gpa, (addr_t *)&(page_addr)) == -1) {
 		PrintError("Could not translate block header address\n");
 		return -1;
 	    }
@@ -221,19 +221,19 @@ static int virtio_io_write(struct guest_info * core, uint16_t port, void * src, 
 		// round up to next page boundary.
 		virtio->cur_queue->ring_used_addr = (virtio->cur_queue->ring_used_addr + 0xfff) & ~0xfff;
 
-		if (guest_pa_to_host_va(core, virtio->cur_queue->ring_desc_addr, (addr_t *)&(virtio->cur_queue->desc)) == -1) {
+		if (v3_gpa_to_hva(core, virtio->cur_queue->ring_desc_addr, (addr_t *)&(virtio->cur_queue->desc)) == -1) {
 		    PrintError("Could not translate ring descriptor address\n");
 		    return -1;
 		}
 
 
-		if (guest_pa_to_host_va(core, virtio->cur_queue->ring_avail_addr, (addr_t *)&(virtio->cur_queue->avail)) == -1) {
+		if (v3_gpa_to_hva(core, virtio->cur_queue->ring_avail_addr, (addr_t *)&(virtio->cur_queue->avail)) == -1) {
 		    PrintError("Could not translate ring available address\n");
 		    return -1;
 		}
 
 
-		if (guest_pa_to_host_va(core, virtio->cur_queue->ring_used_addr, (addr_t *)&(virtio->cur_queue->used)) == -1) {
+		if (v3_gpa_to_hva(core, virtio->cur_queue->ring_used_addr, (addr_t *)&(virtio->cur_queue->used)) == -1) {
 		    PrintError("Could not translate ring used address\n");
 		    return -1;
 		}

@@ -20,10 +20,18 @@
 #include <palacios/vmm_symmod.h>
 #include <palacios/vmm_symbiotic.h>
 #include <palacios/vm_guest.h>
+#include <palacios/vmm_list.h>
 
-static struct hashtable * master_mod_table = NULL;
+static struct hashtable * capsule_table = NULL;
+static LIST_HEAD(capsule_list);
 
 
+/* 
+ * This is a place holder to ensure that the _v3_modules section gets created by gcc
+ */
+static struct {} null_mod  __attribute__((__used__))			\
+    __attribute__((unused, __section__ ("_v3_capsules"),		\
+		   aligned(sizeof(addr_t))));
 
 static uint_t mod_hash_fn(addr_t key) {
     char * name = (char *)key;
@@ -38,29 +46,69 @@ static int mod_eq_fn(addr_t key1, addr_t key2) {
 }
 
 
+struct capsule_def {
+    char * name;
+    addr_t start_addr;
+    addr_t end_addr;
+    uint32_t flags; // see 'struct v3_symmod_flags'
+} __attribute__((packed));
+
+
 
 int V3_init_symmod() {
-    extern struct v3_sym_module __start__v3_modules[];
-    extern struct v3_sym_module __stop__v3_modules[];
-    struct v3_sym_module * tmp_mod = __start__v3_modules;
+    extern struct capsule_def __start__v3_capsules[];
+    extern struct capsule_def __stop__v3_capsules[];
+    struct capsule_def * tmp_def = __start__v3_capsules;
     int i = 0;
 
-    master_mod_table = v3_create_htable(0, mod_hash_fn, mod_eq_fn);
+    if (tmp_def == __stop__v3_capsules) {
+	PrintDebug("No Symbiotic capsules found\n");
+	return 0;
+    }
 
-    while (tmp_mod != __stop__v3_modules) {
-	if (v3_htable_search(master_mod_table, (addr_t)(tmp_mod->name))) {
-	    PrintError("Multiple instances of Module (%s)\n", tmp_mod->name);
-	    return -1;
-	}	
-	PrintDebug("Registering Symbiotic Module (%s)\n", tmp_mod->name);
+    capsule_table = v3_create_htable(0, mod_hash_fn, mod_eq_fn);
 
-	if (v3_htable_insert(master_mod_table, 
-			     (addr_t)(tmp_mod->name),
-			     (addr_t)(tmp_mod)) == 0) {
-	    PrintError("Could not insert module %s to master list\n", tmp_mod->name);
+    while (tmp_def != __stop__v3_capsules) {
+	struct v3_sym_capsule * capsule = NULL;
+
+	if (v3_htable_search(capsule_table, (addr_t)(tmp_def->name))) {
+	    PrintError("Multiple instances of Module (%s)\n", tmp_def->name);
 	    return -1;
 	}
-	tmp_mod = &(__start__v3_modules[++i]);
+	
+
+	capsule = V3_Malloc(sizeof(struct v3_sym_capsule));
+	memset(capsule, 0, sizeof(struct v3_sym_capsule));
+
+	capsule->name = tmp_def->name;
+	capsule->start_addr = (void *)(tmp_def->start_addr);
+	capsule->size = tmp_def->end_addr - tmp_def->start_addr;
+	capsule->flags = tmp_def->flags;
+	
+	
+
+	if (capsule->type == V3_SYMMOD_MOD) {
+	    // parse module
+	    // capsule->capsule_data = v3_sym_module...
+	    // capsule->guest_size = size of linked module
+	} else if (capsule->type == V3_SYMMOD_LNX) {
+	    capsule->guest_size = capsule->size;
+	    capsule->capsule_data = NULL;
+	} else {
+	    return -1;
+	}
+
+	PrintDebug("Registering Symbiotic Module (%s)\n", tmp_def->name);
+
+	if (v3_htable_insert(capsule_table, 
+			     (addr_t)(tmp_def->name),
+			     (addr_t)(capsule)) == 0) {
+	    PrintError("Could not insert module %s to master list\n", tmp_def->name);
+	    return -1;
+	}
+	list_add(&(capsule->node), &capsule_list);
+
+	tmp_def = &(__start__v3_capsules[++i]);
     }
     
     return 0;
@@ -76,6 +124,13 @@ struct v3_symbol_def32 {
     uint32_t name_gva;
     uint32_t value;
 } __attribute__((packed));
+
+struct v3_symbol_def64 {
+    uint64_t name_gva;
+    uint64_t value;
+} __attribute__((packed));
+
+
 
 struct v3_symbol {
     char name[256];
@@ -104,12 +159,12 @@ static int symbol_hcall_handler(struct guest_info * core, hcall_id_t hcall_id, v
 	addr_t sym_gva = sym_start_gva + (sizeof(struct v3_symbol_def32) * i);
 
 
-	if (guest_va_to_host_va(core, sym_gva, (addr_t *)&(tmp_symbol)) == -1) {
+	if (v3_gva_to_hva(core, sym_gva, (addr_t *)&(tmp_symbol)) == -1) {
 	    PrintError("Could not locate symbiotic symbol definition\n");
 	    continue;
 	}
 	
-	if (guest_va_to_host_va(core, tmp_symbol->name_gva, (addr_t *)&(sym_name)) == -1) {
+	if (v3_gva_to_hva(core, tmp_symbol->name_gva, (addr_t *)&(sym_name)) == -1) {
 	    PrintError("Could not locate symbiotic symbol name\n");
 	    continue;
 	}
@@ -131,7 +186,24 @@ static int symbol_hcall_handler(struct guest_info * core, hcall_id_t hcall_id, v
 int v3_init_symmod_vm(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct v3_symmod_state * symmod_state = &(vm->sym_vm_state.symmod_state);
     struct v3_symspy_global_page * sym_page = v3_sym_get_symspy_vm(vm);
+    struct v3_sym_capsule * tmp_capsule = NULL;
 
+    symmod_state->capsule_table = v3_create_htable(0, mod_hash_fn, mod_eq_fn);
+
+
+    // Add modules to local hash table, should be keyed to config
+    list_for_each_entry(tmp_capsule, &capsule_list, node) {
+	V3_Print("Adding %s to local module table\n", tmp_capsule->name);
+	if (v3_htable_insert(symmod_state->capsule_table, 
+			     (addr_t)(tmp_capsule->name),
+			     (addr_t)(tmp_capsule)) == 0) {
+	    PrintError("Could not insert module %s to vm local list\n", tmp_capsule->name);
+	    return -1;
+	}
+	symmod_state->num_avail_capsules++;
+    }
+
+    symmod_state->num_loaded_capsules = 0;
     sym_page->symmod_enabled = 1;
 
     v3_register_hypercall(vm, SYMMOD_SYMS_HCALL, symbol_hcall_handler, NULL);
@@ -158,25 +230,29 @@ int v3_set_symmod_loader(struct v3_vm_info * vm, struct v3_symmod_loader_ops * o
 
 
 
-int v3_load_sym_module(struct v3_vm_info * vm, char * mod_name) {
+int v3_load_sym_capsule(struct v3_vm_info * vm, char * name) {
     struct v3_symmod_state * symmod_state = &(vm->sym_vm_state.symmod_state);
-    struct v3_sym_module * mod = (struct v3_sym_module *)v3_htable_search(master_mod_table, (addr_t)mod_name);
+    struct v3_sym_capsule * capsule = (struct v3_sym_capsule *)v3_htable_search(capsule_table, (addr_t)name);
 
-    if (!mod) {
-	PrintError("Could not find module %s\n", mod_name);
+    if (!capsule) {
+	PrintError("Could not find capsule %s\n", name);
 	return -1;
     }
 
-    PrintDebug("Loading Module (%s)\n", mod_name);
+    PrintDebug("Loading Capsule (%s)\n", name);
 
-    return symmod_state->loader_ops->load_module(vm, mod, symmod_state->loader_data);
+    return symmod_state->loader_ops->load_capsule(vm, capsule, symmod_state->loader_data);
 }
 
 
 
+struct list_head * v3_get_sym_capsule_list() {
+    return &(capsule_list);
+}
 
-struct v3_sym_module * v3_get_sym_module(struct v3_vm_info * vm, char * name) {
-    struct v3_sym_module * mod = (struct v3_sym_module *)v3_htable_search(master_mod_table, (addr_t)name);
+
+struct v3_sym_capsule * v3_get_sym_capsule(struct v3_vm_info * vm, char * name) {
+    struct v3_sym_capsule * mod = (struct v3_sym_capsule *)v3_htable_search(capsule_table, (addr_t)name);
 
     if (!mod) {
 	PrintError("Could not find module %s\n", name);

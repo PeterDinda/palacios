@@ -39,7 +39,7 @@ static inline int handle_passthrough_pagefault_32(struct guest_info * info,
     int pde_index = PDE32_INDEX(fault_addr);
     int pte_index = PTE32_INDEX(fault_addr);
     
-    struct v3_shadow_region * region = v3_get_shadow_region(info->vm_info, info->cpu_id, fault_addr);
+    struct v3_mem_region * region = v3_get_mem_region(info->vm_info, info->cpu_id, fault_addr);
 
     if (region == NULL) {
 	PrintError("Invalid region in passthrough page fault 32, addr=%p\n", 
@@ -47,8 +47,11 @@ static inline int handle_passthrough_pagefault_32(struct guest_info * info,
 	return -1;
     }
     
-    host_addr = v3_get_shadow_addr(region, info->cpu_id, fault_addr);
-    
+    if (v3_gpa_to_hpa(info, fault_addr, &host_addr) == -1) {
+	PrintError("Could not translate fault address (%p)\n", (void *)fault_addr);
+	return -1;
+    }
+
     // Lookup the correct PDE address based on the PAGING MODE
     if (info->shdw_pg_mode == SHADOW_PAGING) {
 	pde = CR3_TO_PDE32_VA(info->ctrl_regs.cr3);
@@ -73,37 +76,30 @@ static inline int handle_passthrough_pagefault_32(struct guest_info * info,
     // Fix up the PTE entry
     if (pte[pte_index].present == 0) {
 	
-	pte[pte_index].user_page = 1;
 	
-	if (region->host_type == SHDW_REGION_ALLOCATED) {
-	    // Full access
+	if ((region->flags.alloced == 1) && 
+	    (region->flags.read == 1)) {
+
+	    pte[pte_index].user_page = 1;
+
 	    pte[pte_index].present = 1;
-	    pte[pte_index].writable = 1;
+
+	    if (region->flags.write == 1) {
+		pte[pte_index].writable = 1;
+	    } else {
+		pte[pte_index].writable = 0;
+	    }
 	    
 	    pte[pte_index].page_base_addr = PAGE_BASE_ADDR(host_addr);
-	} else if (region->host_type == SHDW_REGION_WRITE_HOOK) {
-	    // Only trap writes
-	    PrintDebug("Faulted in a write hook page\n");
-	    pte[pte_index].present = 1;
-	    pte[pte_index].writable = 0;
-	    
-	    pte[pte_index].page_base_addr = PAGE_BASE_ADDR(host_addr);
-	} else if (region->host_type == SHDW_REGION_FULL_HOOK) {
-	    // trap all accesses
-	    return v3_handle_mem_full_hook(info, fault_addr, fault_addr, region, error_code);
 	} else {
-	    PrintError("Unknown Region Type...\n");
-	    return -1;
+	    return region->unhandled(info, fault_addr, fault_addr, region, error_code);
 	}
-    }
-    
-    if ( (region->host_type == SHDW_REGION_WRITE_HOOK) && 
-	 (error_code.write == 1) ) {
-	PrintDebug("Triggering Direct paging Write hook\n");
-	return v3_handle_mem_wr_hook(info, fault_addr, fault_addr, region, error_code);
+    } else {
+	// We fix all permissions on the first pass, 
+	// so we only get here if its an unhandled exception
+	return region->unhandled(info, fault_addr, fault_addr, region, error_code);	    
     }
 
-    
     return 0;
 }
 

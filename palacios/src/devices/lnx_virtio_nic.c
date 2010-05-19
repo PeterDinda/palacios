@@ -82,6 +82,10 @@ struct virtio_net_state {
 
     ulong_t pkt_sent, pkt_recv, pkt_drop;
 
+#if 1 //for temporary performance testing purpose
+    long last_sent_time, last_recv_time;	
+#endif
+
     struct v3_dev_net_ops * net_ops;
 
     v3_lock_t lock;
@@ -248,11 +252,16 @@ static int handle_pkt_tx(struct guest_info *core, struct virtio_net_state * virt
     }
 
 #ifdef CONFIG_VNET_PROFILE
-    if (virtio_state->pkt_sent % 10000 == 0){
-	    PrintError("Virtio NIC: sent: %ld, rxed: %ld, dropped: %ld\n",
-			virtio_state->pkt_sent,
-			virtio_state->pkt_recv,
-			virtio_state->pkt_drop);
+    if (virtio_state->pkt_sent % 50000 == 0){
+	    long cur_time, time;
+	    rdtscll(cur_time);
+	    time = cur_time - virtio_state->last_sent_time;
+	    PrintError("Virtio NIC: last sent 50000 cycles: %ld\n",time);
+	    //PrintError("Virtio NIC: sent: %ld, rxed: %ld, dropped: %ld\n",
+		//	virtio_state->pkt_sent,
+		//	virtio_state->pkt_recv,
+		//	virtio_state->pkt_drop);
+	    rdtscll(virtio_state->last_sent_time);
     }
 #endif
 
@@ -559,11 +568,16 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
 exit:
 	
 #ifdef CONFIG_VNET_PROFILE
-    if (virtio->pkt_recv % 100000 == 0){
-	PrintError("Virtio NIC: sent: %ld, rxed: %ld, dropped: %ld\n",
-		virtio->pkt_sent,
-		virtio->pkt_recv,
-		virtio->pkt_drop);
+    if (virtio->pkt_recv % 50000 == 0){
+	    long cur_time, time;
+	    rdtscll(cur_time);
+	    time = cur_time - virtio->last_recv_time;
+	    PrintError("Virtio NIC: last recv 50000 cycles: %ld\n",time);
+	    //PrintError("Virtio NIC: sent: %ld, rxed: %ld, dropped: %ld\n",
+		//virtio->pkt_sent,
+		//virtio->pkt_recv,
+		//virtio->pkt_drop);
+	    rdtscll(virtio->last_recv_time);
     }
 #endif
 

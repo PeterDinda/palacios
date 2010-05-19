@@ -31,10 +31,10 @@ struct vm_time {
     uint32_t cpu_freq; // in kHZ
 
     // Total number of guest run time cycles
-    ullong_t guest_tsc;
+    uint64_t guest_tsc;
 
     // Cache value to help calculate the guest_tsc
-    ullong_t cached_host_tsc;
+    uint64_t cached_host_tsc;
 
     // The number of cycles pending for notification to the timers
     //ullong_t pending_cycles;

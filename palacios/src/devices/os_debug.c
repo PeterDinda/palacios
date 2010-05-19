@@ -62,12 +62,12 @@ static int handle_hcall(struct guest_info * info, uint_t hcall_id, void * priv_d
     }
 
     if (buf_is_va == 1) {
-	if (read_guest_va_memory(info, msg_gpa, msg_len, (uchar_t *)state->debug_buf) != msg_len) {
+	if (v3_read_gva_memory(info, msg_gpa, msg_len, (uchar_t *)state->debug_buf) != msg_len) {
 	    PrintError("Could not read debug message\n");
 	    return -1;
 	}
     } else {
-	if (read_guest_pa_memory(info, msg_gpa, msg_len, (uchar_t *)state->debug_buf) != msg_len) {
+	if (v3_read_gpa_memory(info, msg_gpa, msg_len, (uchar_t *)state->debug_buf) != msg_len) {
 	    PrintError("Could not read debug message\n");
 	    return -1;
 	}

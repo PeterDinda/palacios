@@ -36,15 +36,15 @@
 
 /* Fundamental converters */
 // Call out to OS
-int host_va_to_host_pa(addr_t host_va, addr_t * host_pa);
-int host_pa_to_host_va(addr_t host_pa, addr_t * host_va);
+int v3_hva_to_hpa(addr_t host_va, addr_t * host_pa);
+int v3_hpa_to_hva(addr_t host_pa, addr_t * host_va);
 
 // guest_pa -> (shadow map) -> host_pa
-int guest_pa_to_host_pa(struct guest_info * guest_info, addr_t guest_pa, addr_t * host_pa);
+int v3_gpa_to_hpa(struct guest_info * guest_info, addr_t guest_pa, addr_t * host_pa);
 
 /* !! Currently not implemented !! */
 // host_pa -> (shadow_map) -> guest_pa
-int host_pa_to_guest_pa(struct guest_info * guest_info, addr_t host_pa, addr_t * guest_pa);
+int v3_hpa_to_gpa(struct guest_info * guest_info, addr_t host_pa, addr_t * guest_pa);
 
 
 /**********************************/
@@ -54,18 +54,18 @@ int host_pa_to_guest_pa(struct guest_info * guest_info, addr_t host_pa, addr_t *
 
 /* !! Currently not implemented !! */
 // host_va -> host_pa -> guest_pa
-int host_va_to_guest_pa(struct guest_info * guest_info, addr_t host_va, addr_t * guest_pa);
+int v3_hva_to_gpa(struct guest_info * guest_info, addr_t host_va, addr_t * guest_pa);
 
 
 // guest_pa -> host_pa -> host_va
-int guest_pa_to_host_va(struct guest_info * guest_info, addr_t guest_pa, addr_t * host_va);
+int v3_gpa_to_hva(struct guest_info * guest_info, addr_t guest_pa, addr_t * host_va);
 
 
 // Look up the address in the guests page tables.. This can cause multiple calls that translate
 //     ------------------------------------------------
 //     |                                              |
 //     -->   guest_pa -> host_pa -> host_va ->   (read table) --> guest_pa
-int guest_va_to_guest_pa(struct guest_info * guest_info, addr_t guest_va, addr_t * guest_pa);
+int v3_gva_to_gpa(struct guest_info * guest_info, addr_t guest_va, addr_t * guest_pa);
 
 
 
@@ -74,7 +74,7 @@ int guest_va_to_guest_pa(struct guest_info * guest_info, addr_t guest_va, addr_t
 //     ------------------------------------------------
 //     |                                              |
 //     -->   guest_pa -> host_pa -> host_va ->   (read table) --> guest_va
-int guest_pa_to_guest_va(struct guest_info * guest_info, addr_t guest_pa, addr_t * guest_va);
+int v3_gpa_to_gva(struct guest_info * guest_info, addr_t guest_pa, addr_t * guest_va);
 
 
 
@@ -82,20 +82,20 @@ int guest_pa_to_guest_va(struct guest_info * guest_info, addr_t guest_pa, addr_t
 /* GROUP 2                        */
 /**********************************/
 // guest_va -> guest_pa -> host_pa
-int guest_va_to_host_pa(struct guest_info * guest_info, addr_t guest_va, addr_t * host_pa);
+int v3_gva_to_hpa(struct guest_info * guest_info, addr_t guest_va, addr_t * host_pa);
 
 
 /* !! Currently not implemented !! */
 // host_pa -> guest_pa -> guest_va
-int host_pa_to_guest_va(struct guest_info * guest_info, addr_t host_pa, addr_t * guest_va);
+int v3_hpa_to_gva(struct guest_info * guest_info, addr_t host_pa, addr_t * guest_va);
 
 // guest_va -> guest_pa -> host_pa -> host_va
-int guest_va_to_host_va(struct guest_info * guest_info, addr_t guest_va, addr_t * host_va);
+int v3_gva_to_hva(struct guest_info * guest_info, addr_t guest_va, addr_t * host_va);
 
 
 /* !! Currently not implemented !! */
 // host_va -> host_pa -> guest_pa -> guest_va
-int host_va_to_guest_va(struct guest_info * guest_info, addr_t host_va, addr_t  * guest_va);
+int v3_hva_to_gva(struct guest_info * guest_info, addr_t host_va, addr_t  * guest_va);
 
 
 
@@ -105,9 +105,9 @@ int host_va_to_guest_va(struct guest_info * guest_info, addr_t host_va, addr_t  
 
 
 
-int read_guest_va_memory(struct guest_info * guest_info, addr_t guest_va, int count, uchar_t * dest);
-int read_guest_pa_memory(struct guest_info * guest_info, addr_t guest_pa, int count, uchar_t * dest);
-int write_guest_pa_memory(struct guest_info * guest_info, addr_t guest_pa, int count, uchar_t * src);
+int v3_read_gva_memory(struct guest_info * guest_info, addr_t guest_va, int count, uchar_t * dest);
+int v3_read_gpa_memory(struct guest_info * guest_info, addr_t guest_pa, int count, uchar_t * dest);
+int v3_write_gpa_memory(struct guest_info * guest_info, addr_t guest_pa, int count, uchar_t * src);
 // TODO int write_guest_va_memory(struct guest_info * guest_info, addr_t guest_va, int count, char * src);
 
 

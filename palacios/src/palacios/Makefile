@@ -32,7 +32,8 @@ obj-y := \
 	vmm_binaries.o \
 	vmm_cpuid.o \
 	vmm_xml.o \
-	vmm_muxer.o
+	vmm_muxer.o \
+	vmm_mem_hook.o \
 
 obj-$(CONFIG_SVM) +=    svm.o \
 			svm_io.o \
@@ -53,7 +54,6 @@ obj-$(CONFIG_VMX) +=  	vmx.o \
 			vmx_assist.o
 
 
-obj-$(CONFIG_SHADOW_PAGING_VTLB) += vmm_shdw_pg_tlb.o
 
 
 obj-$(CONFIG_INSTRUMENT_VMM) += vmm_instrument.o
@@ -66,4 +66,5 @@ obj-$(CONFIG_SYMBIOTIC) += vmm_symbiotic.o vmm_symspy.o
 obj-$(CONFIG_SYMCALL) += vmm_symcall.o
 obj-$(CONFIG_SYMMOD) += vmm_symmod.o
 
-obj-$(CONFIG_SWAPBYPASS) += vmm_shdw_pg_swapbypass.o
+
+obj-y += mmu/

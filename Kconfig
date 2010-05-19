@@ -3,12 +3,29 @@ mainmenu "Palacios VMM Configuration"
 menu "Target Configuration"
 
 
+choice
+	prompt "Target Host OS"
+	default KITTEN
+
 config KITTEN
-	bool "Set defaults needed for the Kitten OS"
-	default y
+	bool "Kitten OS"
+	select BUILT_IN_STDLIB
+	select BUILT_IN_STRCASECMP
+	select BUILT_IN_ATOI
 	help
 	  This enables the necesary options to compile Palacios with Kitten
 
+config MINIX
+	bool "MINIX 3"
+	help
+	  This enables the necesary options to compile Palacios with Kitten
+
+config OTHER_OS
+	bool "Other OS"
+	help 
+	  Choose this to compile Palacios for a Generic Host OS
+
+endchoice
 
 config CRAY_XT
         bool "Red Storm (Cray XT3/XT4)"
@@ -209,13 +226,6 @@ menuconfig SYMMOD
 #	depends on SYMBIOTIC
 	help
 	  Enable Symbiotic module loading
-
-if SYMMOD
-
-source "modules/Kconfig"
-
-endif
-
 
 
 endmenu

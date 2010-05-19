@@ -218,9 +218,9 @@ int v3_handle_shadow_invlpg(struct guest_info * core) {
     }
 
     if (v3_get_vm_mem_mode(core) == PHYSICAL_MEM) { 
-	ret = read_guest_pa_memory(core, get_addr_linear(core, core->rip, &(core->segments.cs)), 15, instr);
+	ret = v3_read_gpa_memory(core, get_addr_linear(core, core->rip, &(core->segments.cs)), 15, instr);
     } else { 
-	ret = read_guest_va_memory(core, get_addr_linear(core, core->rip, &(core->segments.cs)), 15, instr);
+	ret = v3_read_gva_memory(core, get_addr_linear(core, core->rip, &(core->segments.cs)), 15, instr);
     }
 
     if (ret == -1) {

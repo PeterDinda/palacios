@@ -21,6 +21,18 @@
 #include <palacios/vmm.h>
 #include <palacios/vm_guest.h>
 
+static int handle_cpufreq_hcall(struct guest_info * info, uint_t hcall_id, void * priv_data) {
+    struct vm_time * time_state = &(info->time_state);
+
+    info->vm_regs.rbx = time_state->cpu_freq;
+
+    PrintDebug("Guest request cpu frequency: return %ld\n", (long)info->vm_regs.rbx);
+    
+    return 0;
+}
+
+
+
 void v3_init_time(struct guest_info * info) {
     struct vm_time * time_state = &(info->time_state);
 
@@ -32,6 +44,8 @@ void v3_init_time(struct guest_info * info) {
   
     INIT_LIST_HEAD(&(time_state->timers));
     time_state->num_timers = 0;
+
+    v3_register_hypercall(info->vm_info, TIME_CPUFREQ_HCALL, handle_cpufreq_hcall, NULL);
 }
 
 

@@ -33,7 +33,7 @@ int v3_vmxassist_ctx_switch(struct guest_info * info) {
  
 
 
-    if (guest_pa_to_host_va(info, VMXASSIST_BASE, (addr_t *)&hdr) == -1) {
+    if (v3_gpa_to_hva(info, VMXASSIST_BASE, (addr_t *)&hdr) == -1) {
         PrintError("Could not translate address for vmxassist header\n");
         return -1;
     }
@@ -44,12 +44,12 @@ int v3_vmxassist_ctx_switch(struct guest_info * info) {
     }
 
 
-    if (guest_pa_to_host_va(info, (addr_t)(hdr->old_ctx_gpa), (addr_t *)&(old_ctx)) == -1) {
+    if (v3_gpa_to_hva(info, (addr_t)(hdr->old_ctx_gpa), (addr_t *)&(old_ctx)) == -1) {
         PrintError("Could not translate address for VMXASSIST old context\n");
         return -1;
     }
 
-    if (guest_pa_to_host_va(info, (addr_t)(hdr->new_ctx_gpa), (addr_t *)&(new_ctx)) == -1) {
+    if (v3_gpa_to_hva(info, (addr_t)(hdr->new_ctx_gpa), (addr_t *)&(new_ctx)) == -1) {
         PrintError("Could not translate address for VMXASSIST new context\n");
         return -1;
     }

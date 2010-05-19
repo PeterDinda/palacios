@@ -21,15 +21,37 @@
 
 .data
 
-#define TOSTR(str) #str
-#define MOD_DIR(name) TOSTR(./modules/linux_mods/i386/binaries/name)
+#define IDENT(str) str
+#define TOSTR(str) #str 
+#define XSTR(str) TOSTR(str)
+#define MOD_PATH(dir, name)  TOSTR(dir/name)
+#define MOD_NM(name) TOSTR(name)
 
-	
-#ifdef CONFIG_LNX_MOD_32BIT_TEST
-.globl v3_lnx_mod_32bit_test_start
-v3_lnx_mod_32bit_test_start:
-.incbin MOD_DIR(test.ko)
-.globl v3_lnx_mod_32bit_test_stop
-v3_lnx_mod_32bit_test_stop:
-#endif
 
+mod_start:
+.incbin MOD_PATH(MOD_DIR,MOD_OBJ)
+mod_stop:
+
+mod_name:
+.ascii MOD_NM(MOD_NAME)
+
+
+.section _v3_capsules, "a"
+IDENT(#ifdef __x86_64__)
+.quad mod_name 
+.quad mod_start
+.quad mod_stop 
+.byte MOD_TYPE
+.byte MOD_ARCH
+.space 2
+IDENT(#else)
+.long mod_name
+.space 4
+.long mod_start
+.space 4
+.long mod_stop
+.space 4
+.byte MOD_TYPE 
+.byte MOD_ARCH
+.space 2
+IDENT(#endif)

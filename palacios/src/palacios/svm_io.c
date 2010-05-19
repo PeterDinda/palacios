@@ -126,7 +126,7 @@ int v3_handle_svm_io_ins(struct guest_info * core, struct svm_io_info * io_info)
 
 
 
-    if (guest_va_to_host_va(core, get_addr_linear(core, core->rip, &(core->segments.cs)), &inst_ptr) == -1) {
+    if (v3_gva_to_hva(core, get_addr_linear(core, core->rip, &(core->segments.cs)), &inst_ptr) == -1) {
 	PrintError("Can't access instruction\n");
 	return -1;
     }
@@ -202,7 +202,7 @@ int v3_handle_svm_io_ins(struct guest_info * core, struct svm_io_info * io_info)
     
 	//	PrintDebug("Writing 0x%p\n", (void *)dst_addr);
 
-	if (guest_va_to_host_va(core, dst_addr, &host_addr) == -1) {
+	if (v3_gva_to_hva(core, dst_addr, &host_addr) == -1) {
 	    // either page fault or gpf...
 	    PrintError("Could not convert Guest VA to host VA\n");
 	    return -1;
@@ -325,7 +325,7 @@ int v3_handle_svm_io_outs(struct guest_info * core, struct svm_io_info * io_info
   
 
 
-    if (guest_va_to_host_va(core, get_addr_linear(core, core->rip, &(core->segments.cs)), &inst_ptr) == -1) {
+    if (v3_gva_to_hva(core, get_addr_linear(core, core->rip, &(core->segments.cs)), &inst_ptr) == -1) {
 	PrintError("Can't access instruction\n");
 	return -1;
     }
@@ -363,7 +363,7 @@ int v3_handle_svm_io_outs(struct guest_info * core, struct svm_io_info * io_info
 
 	dst_addr = get_addr_linear(core, (core->vm_regs.rsi & mask), theseg);
     
-	if (guest_va_to_host_va(core, dst_addr, &host_addr) == -1) {
+	if (v3_gva_to_hva(core, dst_addr, &host_addr) == -1) {
 	    // either page fault or gpf...
 	}
 

@@ -468,11 +468,7 @@ int v3_svm_enter(struct guest_info * info) {
 
 
     rdtscll(tmp_tsc);
-    if (tmp_tsc < info->time_state.cached_host_tsc) { 
-	PrintError("Time has gone backwards, panicing!\n");
-	return -1;
-    }
-    v3_update_time(info, tmp_tsc - info->time_state.cached_host_tsc);
+    v3_update_time(info, (tmp_tsc - info->time_state.cached_host_tsc));
     rdtscll(info->time_state.cached_host_tsc);
     //    guest_ctrl->TSC_OFFSET = info->time_state.guest_tsc - info->time_state.cached_host_tsc;
 
@@ -587,9 +583,9 @@ int v3_start_svm_guest(struct guest_info *info) {
 	    linear_addr = get_addr_linear(info, info->rip, &(info->segments.cs));
 	    
 	    if (info->mem_mode == PHYSICAL_MEM) {
-		guest_pa_to_host_va(info, linear_addr, &host_addr);
+		v3_gpa_to_hva(info, linear_addr, &host_addr);
 	    } else if (info->mem_mode == VIRTUAL_MEM) {
-		guest_va_to_host_va(info, linear_addr, &host_addr);
+		v3_gva_to_hva(info, linear_addr, &host_addr);
 	    }
 	    
 	    V3_Print("Host Address of rip = 0x%p\n", (void *)host_addr);

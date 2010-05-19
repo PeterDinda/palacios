@@ -63,12 +63,12 @@ static int emulate_string_write_op(struct guest_info * info, struct x86_instr * 
 
 	// figure out addresses here....
 	if (info->mem_mode == PHYSICAL_MEM) {
-	    if (guest_pa_to_host_va(info, dec_instr->src_operand.operand, &src_addr) == -1) {
+	    if (v3_gpa_to_hva(info, dec_instr->src_operand.operand, &src_addr) == -1) {
 		PrintError("Could not translate write Source (Physical) to host VA\n");
 		return -1;
 	    }
 	} else {
-	    if (guest_va_to_host_va(info, dec_instr->src_operand.operand, &src_addr) == -1) {
+	    if (v3_gva_to_hva(info, dec_instr->src_operand.operand, &src_addr) == -1) {
 		PrintError("Could not translate write Source (Virtual) to host VA\n");
 		return -1;
 	    }
@@ -299,9 +299,9 @@ int v3_emulate_write_op(struct guest_info * info, addr_t write_gva, addr_t write
     PrintDebug("GVA=%p Dst_Addr=%p\n", (void *)write_gva, (void *)dst_addr);
 
     if (info->mem_mode == PHYSICAL_MEM) { 
-	ret = read_guest_pa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
+	ret = v3_read_gpa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
     } else { 
-	ret = read_guest_va_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
+	ret = v3_read_gva_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
     }
 
     if (ret == -1) {
@@ -338,12 +338,12 @@ int v3_emulate_write_op(struct guest_info * info, addr_t write_gva, addr_t write
 
     if (dec_instr.src_operand.type == MEM_OPERAND) {
 	if (info->mem_mode == PHYSICAL_MEM) {
-	    if (guest_pa_to_host_va(info, dec_instr.src_operand.operand, &src_addr) == -1) {
+	    if (v3_gpa_to_hva(info, dec_instr.src_operand.operand, &src_addr) == -1) {
 		PrintError("Could not translate write Source (Physical) to host VA\n");
 		return -1;
 	    }
 	} else {
-	    if (guest_va_to_host_va(info, dec_instr.src_operand.operand, &src_addr) == -1) {
+	    if (v3_gva_to_hva(info, dec_instr.src_operand.operand, &src_addr) == -1) {
 		PrintError("Could not translate write Source (Virtual) to host VA\n");
 		return -1;
 	    }
@@ -392,9 +392,9 @@ int v3_emulate_read_op(struct guest_info * info, addr_t read_gva, addr_t read_gp
     PrintDebug("GVA=%p\n", (void *)read_gva);
 
     if (info->mem_mode == PHYSICAL_MEM) { 
-	ret = read_guest_pa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
+	ret = v3_read_gpa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
     } else { 
-	ret = read_guest_va_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
+	ret = v3_read_gva_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
     }
     
     if (ret == -1) {
@@ -429,12 +429,12 @@ int v3_emulate_read_op(struct guest_info * info, addr_t read_gva, addr_t read_gp
 
     if (dec_instr.dst_operand.type == MEM_OPERAND) {
 	if (info->mem_mode == PHYSICAL_MEM) {
-	    if (guest_pa_to_host_va(info, dec_instr.dst_operand.operand, &dst_addr) == -1) {
+	    if (v3_gpa_to_hva(info, dec_instr.dst_operand.operand, &dst_addr) == -1) {
 		PrintError("Could not translate Read Destination (Physical) to host VA\n");
 		return -1;
 	    }
 	} else {
-	    if (guest_va_to_host_va(info, dec_instr.dst_operand.operand, &dst_addr) == -1) {
+	    if (v3_gva_to_hva(info, dec_instr.dst_operand.operand, &dst_addr) == -1) {
 		PrintError("Could not translate Read Destination (Virtual) to host VA\n");
 		return -1;
 	    }

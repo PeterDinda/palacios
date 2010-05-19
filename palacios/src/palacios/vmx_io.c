@@ -131,7 +131,7 @@ int v3_handle_vmx_io_ins(struct guest_info * core, struct vmx_exit_info * exit_i
 
 
 
-    if (guest_va_to_host_va(core, guest_va, &host_addr) == -1) {
+    if (v3_gva_to_hva(core, guest_va, &host_addr) == -1) {
         PrintError("Could not convert Guest VA to host VA\n");
         return -1;
     }
@@ -236,7 +236,7 @@ int v3_handle_vmx_io_outs(struct guest_info * core, struct vmx_exit_info * exit_
 
     PrintDebug("OUTS size=%d for %ld steps\n", write_size, rep_num);
 
-    if (guest_va_to_host_va(core, guest_va, &host_addr) == -1) {
+    if (v3_gva_to_hva(core, guest_va, &host_addr) == -1) {
         PrintError("Could not convert guest VA to host VA\n");
         return -1;
     }

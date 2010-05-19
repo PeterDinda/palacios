@@ -411,7 +411,7 @@ static int dma_read(struct guest_info * core, struct vm_device * dev, struct ide
 
 	PrintDebug("PRD table address = %x\n", channel->dma_prd_addr);
 
-	ret = read_guest_pa_memory(core, prd_entry_addr, sizeof(struct ide_dma_prd), (void *)&prd_entry);
+	ret = v3_read_gpa_memory(core, prd_entry_addr, sizeof(struct ide_dma_prd), (void *)&prd_entry);
 
 	if (ret != sizeof(struct ide_dma_prd)) {
 	    PrintError("Could not read PRD\n");
@@ -459,7 +459,7 @@ static int dma_read(struct guest_info * core, struct vm_device * dev, struct ide
 
 	    drive->current_lba++;
 
-	    ret = write_guest_pa_memory(core, prd_entry.base_addr + prd_offset, bytes_to_write, drive->data_buf); 
+	    ret = v3_write_gpa_memory(core, prd_entry.base_addr + prd_offset, bytes_to_write, drive->data_buf); 
 
 	    if (ret != bytes_to_write) {
 		PrintError("Failed to copy data into guest memory... (ret=%d)\n", ret);
@@ -545,7 +545,7 @@ static int dma_write(struct guest_info * core, struct vm_device * dev, struct id
 	
 	PrintDebug("PRD Table address = %x\n", channel->dma_prd_addr);
 
-	ret = read_guest_pa_memory(core, prd_entry_addr, sizeof(struct ide_dma_prd), (void *)&prd_entry);
+	ret = v3_read_gpa_memory(core, prd_entry_addr, sizeof(struct ide_dma_prd), (void *)&prd_entry);
 
 	if (ret != sizeof(struct ide_dma_prd)) {
 	    PrintError("Could not read PRD\n");
@@ -564,7 +564,7 @@ static int dma_write(struct guest_info * core, struct vm_device * dev, struct id
 	    bytes_to_write = (prd_bytes_left > HD_SECTOR_SIZE) ? HD_SECTOR_SIZE : prd_bytes_left;
 
 
-	    ret = read_guest_pa_memory(core, prd_entry.base_addr + prd_offset, bytes_to_write, drive->data_buf);
+	    ret = v3_read_gpa_memory(core, prd_entry.base_addr + prd_offset, bytes_to_write, drive->data_buf);
 
 	    if (ret != bytes_to_write) {
 		PrintError("Faild to copy data from guest memory... (ret=%d)\n", ret);

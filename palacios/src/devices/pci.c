@@ -528,7 +528,7 @@ static int data_port_write(struct guest_info * core, ushort_t port, void * src, 
 	    } else if ((cur_reg >= 0x30) && (cur_reg < 0x34)) {
 		// Extension ROM update
 
-		pci_dev->ext_rom_update_flag = 1;
+		pci_dev->exp_rom_update_flag = 1;
 	    } else if (cur_reg == 0x04) {
 		// COMMAND update	     
 		uint8_t command = *((uint8_t *)src + i);
@@ -586,9 +586,9 @@ static int data_port_write(struct guest_info * core, ushort_t port, void * src, 
 	pci_dev->bar_update_flag = 0;
     }
 
-    if ((pci_dev->ext_rom_update_flag) && (pci_dev->ext_rom_update)) {
-	pci_dev->ext_rom_update(pci_dev);
-	pci_dev->ext_rom_update_flag = 0;
+    if ((pci_dev->exp_rom_update_flag) && (pci_dev->exp_rom_update)) {
+	pci_dev->exp_rom_update(pci_dev, &(pci_dev->config_header.expansion_rom_address), pci_dev->priv_data);
+	pci_dev->exp_rom_update_flag = 0;
     }
 
 
@@ -810,8 +810,8 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
 					   const char * name,
 					   struct v3_pci_bar * bars,
 					   int (*config_update)(uint_t reg_num, void * src, uint_t length, void * priv_data),
-					   int (*cmd_update)(struct pci_device *pci_dev, uchar_t io_enabled, uchar_t mem_enabled),
-					   int (*ext_rom_update)(struct pci_device * pci_dev),
+					   int (*cmd_update)(struct pci_device * pci_dev, uchar_t io_enabled, uchar_t mem_enabled),
+					   int (*exp_rom_update)(struct pci_device * pci_dev, uint32_t * src, void * priv_data),
 					   void * priv_data) {
 
     struct pci_internal * pci_state = (struct pci_internal *)pci->private_data;
@@ -877,7 +877,7 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
     // register update callbacks
     pci_dev->config_update = config_update;
     pci_dev->cmd_update = cmd_update;
-    pci_dev->ext_rom_update = ext_rom_update;
+    pci_dev->exp_rom_update = exp_rom_update;
 
 
     //copy bars
