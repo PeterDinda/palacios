@@ -551,7 +551,7 @@ static int handle_pte_shadow_pagefault_64(struct guest_info * core, addr_t fault
 
     PrintDebug("Handling PTE fault\n");
 
-    struct v3_shadow_region * shdw_reg =  v3_get_shadow_region(core->vm_info, core->cpu_id, guest_pa);
+    struct v3_mem_region * shdw_reg =  v3_get_mem_region(core->vm_info, core->cpu_id, guest_pa);
 
 
 
@@ -739,7 +739,7 @@ static int handle_2MB_shadow_pagefault_64(struct guest_info * core,
     PrintDebug("Handling 2MB fault (guest_fault_pa=%p) (error_code=%x)\n", (void *)guest_fault_pa, *(uint_t*)&error_code);
     PrintDebug("ShadowPT=%p, LargeGuestPDE=%p\n", shadow_pt, large_guest_pde);
 
-    struct v3_shadow_region * shdw_reg = v3_get_shadow_region(core->vm_info, core->cpu_id, guest_fault_pa);
+    struct v3_mem_region * shdw_reg = v3_get_mem_region(core->vm_info, core->cpu_id, guest_fault_pa);
 
     int fixed = 0;
     int write_pt = 0;

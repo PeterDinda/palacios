@@ -258,7 +258,7 @@ static int write_apic_msr(struct guest_info * core, uint_t msr, v3_msr_t src, vo
     struct vm_device * dev = (struct vm_device *)priv_data;
     struct apic_state * apics = (struct apic_state *)(dev->private_data);
     struct apic_state * apic = &(apics[core->cpu_id]);
-    struct v3_shadow_region * old_reg = v3_get_shadow_region(dev->vm, core->cpu_id, apic->base_addr);
+    struct v3_mem_region * old_reg = v3_get_mem_region(dev->vm, core->cpu_id, apic->base_addr);
 
 
     if (old_reg == NULL) {
@@ -269,7 +269,7 @@ static int write_apic_msr(struct guest_info * core, uint_t msr, v3_msr_t src, vo
     
     v3_lock(apic->lock);
 
-    v3_delete_shadow_region(dev->vm, old_reg);
+    v3_delete_mem_region(dev->vm, old_reg);
 
     apic->base_addr = src.value;
 

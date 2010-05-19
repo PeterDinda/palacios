@@ -141,7 +141,7 @@ struct guest_info;
 
 #define V3_CREATE_THREAD(fn, arg, name)				\
     do {							\
-	extern struct v3_os_hooks * os_hooks;			\ 
+	extern struct v3_os_hooks * os_hooks;			\
 	if ((os_hooks) && (os_hooks)->start_kernel_thread) {	\
 	    (os_hooks)->start_kernel_thread(fn, arg, name);	\
 	}							\
