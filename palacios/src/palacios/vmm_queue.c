@@ -22,8 +22,8 @@
 void v3_init_queue(struct gen_queue * queue) {
     queue->num_entries = 0;
     INIT_LIST_HEAD(&(queue->entries));
+    v3_lock_init(&queue->lock);
 }
-
 
 struct gen_queue * v3_create_queue() {
     struct gen_queue * tmp_queue = V3_Malloc(sizeof(struct gen_queue));
@@ -34,15 +34,18 @@ struct gen_queue * v3_create_queue() {
 void v3_enqueue(struct gen_queue * queue, addr_t entry) {
     struct queue_entry * q_entry = V3_Malloc(sizeof(struct queue_entry));
 
+    v3_lock(queue->lock);
     q_entry->entry = entry;
     list_add_tail(&(q_entry->entry_list), &(queue->entries));
     queue->num_entries++;
+    v3_unlock(queue->lock);
 }
 
 
 addr_t v3_dequeue(struct gen_queue * queue) {
     addr_t entry_val = 0;
 
+    v3_lock(queue->lock);
     if (!list_empty(&(queue->entries))) {
 	struct list_head * q_entry = queue->entries.next;
 	struct queue_entry * tmp_entry = list_entry(q_entry, struct queue_entry, entry_list);
@@ -51,6 +54,7 @@ addr_t v3_dequeue(struct gen_queue * queue) {
 	list_del(q_entry);
 	V3_Free(tmp_entry);
     }
+    v3_unlock(queue->lock);
 
     return entry_val;
 }

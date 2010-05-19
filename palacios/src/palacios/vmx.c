@@ -494,7 +494,7 @@ static int update_irq_entry_state(struct guest_info * info) {
 
         int_info.valid = 1;
 #ifdef CONFIG_DEBUG_INTERRUPTS
-        PrintDebug("Injecting exception %d (EIP=%p)\n", int_info.vector, (void *)info->rip);
+        PrintDebug("Injecting exception %d (EIP=%p)\n", int_info.vector, (void *)(addr_t)info->rip);
 #endif
         check_vmcs_write(VMCS_ENTRY_INT_INFO, int_info.value);
 
@@ -536,7 +536,7 @@ static int update_irq_entry_state(struct guest_info * info) {
                     PrintDebug("Injecting Interrupt %d at exit %u(EIP=%p)\n", 
 			       info->intr_state.irq_vector, 
 			       (uint32_t)info->num_exits, 
-			       (void *)info->rip);
+			       (void *)(addr_t)info->rip);
 #endif
 
                     check_vmcs_write(VMCS_ENTRY_INT_INFO, ent_int.value);
@@ -794,7 +794,7 @@ void v3_init_vmx_cpu(int cpu_id) {
     uint64_t ret = 0;
 
     v3_get_msr(VMX_CR4_FIXED0_MSR,&(tmp_msr.hi),&(tmp_msr.lo));
-    
+#ifdef __V3_64BIT__
     __asm__ __volatile__ (
 			  "movq %%cr4, %%rbx;"
 			  "orq  $0x00002000, %%rbx;"
@@ -823,6 +823,38 @@ void v3_init_vmx_cpu(int cpu_id) {
 			  :
 			  : "%rbx"
 			  );
+#elif __V3_32BIT__
+    __asm__ __volatile__ (
+			  "movl %%cr4, %%ecx;"
+			  "orl  $0x00002000, %%ecx;"
+			  "movl %%ecx, %0;"
+			  : "=m"(ret) 
+			  :
+			  : "%ecx"
+			  );
+
+    if ((~ret & tmp_msr.value) == 0) {
+        __asm__ __volatile__ (
+			      "movl %0, %%cr4;"
+			      :
+			      : "q"(ret)
+			      );
+    } else {
+        PrintError("Invalid CR4 Settings!\n");
+        return;
+    }
+
+    __asm__ __volatile__ (
+			  "movl %%cr0, %%ecx; "
+			  "orl  $0x00000020,%%ecx; "
+			  "movl %%ecx, %%cr0;"
+			  :
+			  :
+			  : "%ecx"
+			  );
+
+#endif
+
     //
     // Should check and return Error here.... 
 

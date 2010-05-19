@@ -204,41 +204,41 @@ struct v3_timeval {
 #define V3_SOCK_SETSIZE    1000
 
 typedef struct v3_sock_set {
-    // This format needs to match the standard posix FD_SET format, so it can be cast
+    /* This format needs to match the standard posix FD_SET format, so it can be cast */
     unsigned char fd_bits [(V3_SOCK_SETSIZE + 7) / 8];
 } v3_sock_set;
 
 
 
 struct v3_socket_hooks {
-    // Socket creation routines
+    /* Socket creation routines */
     int (*tcp_socket)(const int bufsize, const int nodelay, const int nonblocking);
     int (*udp_socket)(const int bufsize, const int nonblocking);
 
-    // Socket Destruction
+    /* Socket Destruction */
     void (*close)(int sock);
 
-    // Network Server Calls
+    /* Network Server Calls */
     int (*bind_socket)(const int sock, const int port);
 
     int (*listen)(const int sock, int backlog);
   
     int (*accept)(const int sock, unsigned int * remote_ip, unsigned int * port);
-    // This going to suck
+    /* This going to suck */
     int (*select)(struct v3_sock_set * rset, \
 		  struct v3_sock_set * wset, \
 		  struct v3_sock_set * eset, \
 		  struct v3_timeval tv);
 
-    // Connect calls
+    /* Connect calls */
     int (*connect_to_ip)(const int sock, const int hostip, const int port);
     int (*connect_to_host)(const int sock, const char * hostname, const int port);
 
-    // TCP Data Transfer
+    /* TCP Data Transfer */
     int (*send)(const int sock, const char * buf, const int len);
     int (*recv)(const int sock, char * buf, const int len);
   
-    // UDP Data Transfer
+    /* UDP Data Transfer */
     int (*sendto_host)(const int sock, const char * hostname, const int port, 
 		       const char * buf, const int len);
     int (*sendto_ip)(const int sock, const int ip_addr, const int port, 

@@ -74,12 +74,15 @@ v3_svm_launch:
 
 	addl	$4, %esp;
 
+	popa;
+	popf;
 
 	movl 	16(%ebp), %eax;
 	vmload;
 
-	popa;
-	popf;
+	// We don't detect failures here, so just return 0
+	xorl	%eax, %eax 
+
 	pop	%ebp;
 	ret
 

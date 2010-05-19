@@ -370,7 +370,7 @@ typedef struct pdpe64 {
 } __attribute__((packed)) pdpe64_t;
 
 
-// We Don't support this
+/* We Don't support this */
 typedef struct pdpe64_1GB {
     uint_t present        : 1;
     uint_t writable       : 1;
@@ -445,11 +445,11 @@ typedef struct pte64 {
 /* *************** */
 
 typedef struct pf_error_code {
-    uint_t present           : 1; // if 0, fault due to page not present
-    uint_t write             : 1; // if 1, faulting access was a write
-    uint_t user              : 1; // if 1, faulting access was in user mode
-    uint_t rsvd_access       : 1; // if 1, fault from reading a 1 from a reserved field (?)
-    uint_t ifetch            : 1; // if 1, faulting access was an instr fetch (only with NX)
+    uint_t present           : 1; /* if 0, fault due to page not present */
+    uint_t write             : 1; /* if 1, faulting access was a write */
+    uint_t user              : 1; /* if 1, faulting access was in user mode */
+    uint_t rsvd_access       : 1; /* if 1, fault from reading a 1 from a reserved field (?) */
+    uint_t ifetch            : 1; /* if 1, faulting access was an instr fetch (only with NX) */
     uint_t rsvd              : 27;
 } __attribute__((packed)) pf_error_t;
 
@@ -592,7 +592,7 @@ void PrintHostPageTree(struct guest_info * info, addr_t virtual_addr, addr_t cr3
 void PrintGuestPageTree(struct guest_info * info, addr_t virtual_addr, addr_t cr3);
 
 
-#endif // !__V3VEE__
+#endif /* !__V3VEE__ */
 
 
 

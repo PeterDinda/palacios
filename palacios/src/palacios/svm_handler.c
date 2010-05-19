@@ -34,15 +34,17 @@
 #include <palacios/vmm_cpuid.h>
 #include <palacios/vmm_direct_paging.h>
 
-
-#ifdef CONFIG_TELEMETRY
-#include <palacios/vmm_telemetry.h>
-#endif
-
 #ifdef CONFIG_VNET
 #include <palacios/vmm_vnet.h>
 #endif
 
+#ifdef CONFIG_LINUX_VIRTIO_NET
+    extern int v3_virtionic_pktprocess(struct guest_info * info);
+#endif
+
+#ifdef CONFIG_TELEMETRY
+#include <palacios/vmm_telemetry.h>
+#endif
 
 int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_info1, addr_t exit_info2) {
 
@@ -51,7 +53,6 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 	v3_telemetry_start_exit(info);
     }
 #endif
-
 
     //PrintDebug("SVM Returned: Exit Code: %x\n",exit_code); 
 
@@ -285,10 +286,14 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
     }
     // END OF SWITCH (EXIT_CODE)
 
+
 #ifdef CONFIG_VNET
     v3_vnet_pkt_process(info);
 #endif
 
+#ifdef CONFIG_LINUX_VIRTIO_NET
+    v3_virtionic_pktprocess(info);
+#endif
 
 #ifdef CONFIG_TELEMETRY
     if (info->enable_telemetry) {
@@ -300,6 +305,7 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
     if (exit_code == VMEXIT_INTR) {
 	//PrintDebug("INTR ret IP = %x\n", guest_state->rip);
     }
+
     
     return 0;
 }

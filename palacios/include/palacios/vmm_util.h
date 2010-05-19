@@ -84,7 +84,7 @@ void v3_dump_mem(uint8_t * start, int n);
 	    __rem;				\
 	})						
 
-//#define do_divll do_div
+/*#define do_divll do_div*/
 
 
 /*
@@ -150,6 +150,6 @@ void v3_dump_mem(uint8_t * start, int n);
 
 
 
-#endif // ! __V3VEE__
+#endif /* ! __V3VEE__ */
 
 #endif

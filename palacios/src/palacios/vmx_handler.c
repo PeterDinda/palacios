@@ -32,16 +32,17 @@
 #include <palacios/vmx_assist.h>
 #include <palacios/vmm_halt.h>
 
-#ifdef CONFIG_TELEMETRY
-#include <palacios/vmm_telemetry.h>
-#endif
-
-
 #ifdef CONFIG_VNET
 #include <palacios/vmm_vnet.h>
 #endif
 
+#ifdef CONFIG_LINUX_VIRTIO_NET
+    extern int v3_virtionic_pktprocess(struct guest_info * info);
+#endif
 
+#ifdef CONFIG_TELEMETRY
+#include <palacios/vmm_telemetry.h>
+#endif
 
 /* At this point the GPRs are already copied into the guest_info state */
 int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_info) {
@@ -61,12 +62,20 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
     }
 #endif
 
+#ifdef VNET_PROFILE
+    uint64_t exit_start_time, vnet_start_time;
+    uint64_t exit_end_time, vnet_end_time;
+    rdtscll(exit_start_time);
+    num_exit ++;
+    if (last_exit_time > 0)
+	guest_time += exit_start_time - last_exit_time;
+#endif
+
     switch (exit_info->exit_reason) {
         case VMEXIT_INFO_EXCEPTION_OR_NMI: {
             pf_error_t error_code = *(pf_error_t *)&(exit_info->int_err);
 
-
-            // JRL: Change "0x0e" to a macro value
+	// JRL: Change "0x0e" to a macro value
             if ((uint8_t)exit_info->int_info == 0x0e) {
 #ifdef CONFIG_DEBUG_SHADOW_PAGING
                 PrintDebug("Page Fault at %p error_code=%x\n", (void *)exit_info->exit_qual, *(uint32_t *)&error_code);
@@ -226,8 +235,13 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
             return -1;
     }
 
+
 #ifdef CONFIG_VNET
     v3_vnet_pkt_process(info);
+#endif
+
+#ifdef CONFIG_LINUX_VIRTIO_NET
+    v3_virtionic_pktprocess(info);
 #endif
 
 #ifdef CONFIG_TELEMETRY
@@ -235,6 +249,7 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
         v3_telemetry_end_exit(info, exit_info->exit_reason);
     }
 #endif
+
 
     return 0;
 }

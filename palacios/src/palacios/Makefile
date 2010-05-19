@@ -56,6 +56,7 @@ obj-$(CONFIG_VMX) +=  	vmx.o \
 obj-$(CONFIG_INSTRUMENT_VMM) += vmm_instrument.o
 obj-$(CONFIG_TELEMETRY) += vmm_telemetry.o 
 obj-$(CONFIG_SOCKET) +=  vmm_socket.o
+obj-$(CONFIG_CONSOLE) +=  vmm_console.o
 obj-$(CONFIG_VNET) += vmm_vnet.o
 
 obj-$(CONFIG_SYMBIOTIC) += vmm_sym_iface.o
