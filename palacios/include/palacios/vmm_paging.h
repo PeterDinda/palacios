@@ -186,13 +186,6 @@ typedef enum {PAGE_4KB, PAGE_2MB, PAGE_4MB, PAGE_1GB,
 
 
 
-
-/* Page Table Flag Values */
-#define PT32_HOOK 0x1
-#define V3_LARGE_PG 0x2
-
-
-
 /* We'll use the general form for now.... 
    typedef enum {PDE32_ENTRY_NOT_PRESENT, PDE32_ENTRY_PTE32, PDE32_ENTRY_LARGE_PAGE} pde32_entry_type_t;
    typedef enum {PTE32_ENTRY_NOT_PRESENT, PTE32_ENTRY_PAGE} pte32_entry_type_t;
