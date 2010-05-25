@@ -92,7 +92,6 @@ the host state in the vmcs before entering the guest.
 
 
 
-
 #define MAX_PDE32_ENTRIES          1024
 #define MAX_PTE32_ENTRIES          1024
 
@@ -204,6 +203,9 @@ typedef enum {PAGE_4KB, PAGE_2MB, PAGE_4MB, PAGE_1GB,
 typedef enum {PT_ENTRY_NOT_PRESENT, PT_ENTRY_LARGE_PAGE, PT_ENTRY_PAGE} pt_entry_type_t;
 
 typedef enum {PT_ACCESS_OK, PT_ACCESS_NOT_PRESENT, PT_ACCESS_WRITE_ERROR, PT_ACCESS_USER_ERROR} pt_access_status_t;
+
+/* Page table flag values */
+#define V3_LARGE_PG 0x2
 
 
 typedef struct gen_pt {
