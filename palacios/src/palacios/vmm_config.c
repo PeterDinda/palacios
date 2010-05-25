@@ -355,7 +355,6 @@ struct v3_vm_info * v3_config_guest(void * cfg_blob) {
     int i = 0;
     v3_cfg_tree_t * cores_cfg = NULL;
     v3_cfg_tree_t * per_core_cfg = NULL;
-    int start_cpu_id = 0;
 
     if (cpu_type == V3_INVALID_CPU) {
 	PrintError("Configuring guest on invalid CPU\n");
@@ -377,7 +376,6 @@ struct v3_vm_info * v3_config_guest(void * cfg_blob) {
     }
 
     num_cores = atoi(v3_cfg_val(cores_cfg, "count"));
-    start_cpu_id = atoi(v3_cfg_val(cores_cfg, "start"));
 
     if (num_cores == 0) {
 	PrintError("No cores specified in configuration\n");
@@ -411,7 +409,7 @@ struct v3_vm_info * v3_config_guest(void * cfg_blob) {
 	struct guest_info * info = &(vm->cores[i]);
 
 	
-	info->cpu_id = start_cpu_id + i;
+	info->cpu_id = i;
 	info->vm_info = vm;
 
 	pre_config_core(info, per_core_cfg);
