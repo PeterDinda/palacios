@@ -286,6 +286,9 @@ int v3_init_svm_vmcb(struct guest_info * info, v3_vm_class_t vm_class) {
 static int update_irq_exit_state(struct guest_info * info) {
     vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
 
+    // Fix for QEMU bug using EVENTINJ as an internal cache
+    guest_ctrl->EVENTINJ.valid = 0;
+
     if ((info->intr_core_state.irq_pending == 1) && (guest_ctrl->guest_ctrl.V_IRQ == 0)) {
 	
 #ifdef CONFIG_DEBUG_INTERRUPTS
