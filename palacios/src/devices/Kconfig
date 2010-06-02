@@ -330,5 +330,11 @@ config CURSES_CONSOLE
 	help
 	  Includes the virtual curses console 
 
+config SERIAL_UART
+	bool "Serial Port"
+	default y
+	help 
+	  Include virtual serial port
+
 endmenu
 

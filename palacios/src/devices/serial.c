@@ -1,24 +1,33 @@
 /*
  * This file is part of the Palacios Virtual Machine Monitor developed
- * by the V3VEE Project with funding from the United States National 
- * Science Foundation and the Department of Energy.  
+ * by the V3VEE Project with funding from the United States National
+ * Science Foundation and the Department of Energy.
  *
  * The V3VEE Project is a joint project between Northwestern University
- * and the University of New Mexico.  You can find out more at 
+ * and the University of New Mexico.  You can find out more at
  * http://www.v3vee.org
  *
- * Copyright (c) 2008, Jack Lange <jarusl@cs.northwestern.edu> 
- * Copyright (c) 2008, The V3VEE Project <http://www.v3vee.org> 
+ * Copyright (c) 2010, Rumou Duan <duanrumou@gmail.com>
+ * Copyright (c) 2010, The V3VEE Project <http://www.v3vee.org>
  * All rights reserved.
  *
- * Author: Jack Lange <jarusl@cs.northwestern.edu>
+ * Author: Rumou Duan <duanrumou@gmail.com>
  *
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
+
 #include <palacios/vmm.h>
 #include <palacios/vmm_dev_mgr.h>
+#include <palacios/vmm_types.h>
+
+#include <palacios/vmm_ringbuffer.h>
+#include <palacios/vmm_lock.h>
+#include <palacios/vmm_intr.h>
+#include <palacios/vmm_host_events.h>
+#include <palacios/vm_guest.h>
+
 
 #define COM1_DATA_PORT           0x3f8
 #define COM1_IRQ_ENABLE_PORT     0x3f9
@@ -69,17 +78,6 @@
 #define COM4_SCRATCH_PORT        0x2ef
 
 
-
-struct irq_enable_reg {
-    uint_t erbfi   : 1;  // Enable Receiver Buffer full interrupt
-    uint_t etbei   : 1;  // Enable Transmit buffer empty interrupt
-    uint_t elsi    : 1;  // Enable Line Status Interrupt
-    uint_t edssi   : 1;  // Enable Delta Status signals interrupt
-    uint_t rsvd    : 4;   // MBZ
-};
-
-
-
 // Interrupt IDs (in priority order, highest is first)
 #define STATUS_IRQ_LSR_OE_SET   0x3
 #define STATUS_IRQ_LSR_PE_SET   0x3
@@ -91,113 +89,194 @@ struct irq_enable_reg {
 #define TX_IRQ_THRE             0x1
 #define MODEL_IRQ_DELTA_SET     0x0
 
-struct irq_id_reg {
-    uint_t pending : 1; // Interrupt pending (0=interrupt pending)
-    uint_t iid     : 3; // Interrupt Identification
-    uint_t rsvd    : 2; // MBZ
-    uint_t fifo_en : 2; // FIFO enable
+//COMs IRQ ID
+#define COM1_IRQ  0x4
+#define COM2_IRQ  0x3
+#define COM3_IRQ  0x4
+#define COM4_IRQ  0x3
+
+#define RX_BUFFER 0x1
+#define TX_BUFFER 0x2
+
+//initial value for registers
+
+#define  IER_INIT_VAL 0x3
+//receive data available interrupt and THRE interrupt are enabled
+#define  IIR_INIT_VAL 0x1
+//No Pending Interrupt bit is set.
+#define  FCR_INIT_VAL 0xc0
+//fifo control register is set to 0
+#define  LCR_INIT_VAL 0x3
+#define  MCR_INIT_VAL 0x0
+#define  LSR_INIT_VAL 0x60
+#define  MSR_INIT_VAL 0x0
+#define  DLL_INIT_VAL 0x1
+#define  DLM_INIT_VAL 0x0
+
+
+
+//receiver buffer register
+struct rbr_register {
+    uint8_t data;
 };
 
-struct fifo_ctrl_reg {
-    uint_t enable  : 1; // enable fifo
-    uint_t rfres   : 1; // RX FIFO reset
-    uint_t xfres   : 1; // TX FIFO reset
-    uint_t dma_sel : 1; // DMA mode select
-    uint_t rsvd    : 2; // MBZ
-    uint_t rx_trigger: 2; // RX FIFO trigger level select
+// transmitter holding register
+struct thr_register {
+    uint8_t data;
 };
 
-struct line_ctrl_reg {
-    uint_t word_len       : 2;  // word length select
-    uint_t stop_bits      : 1;  // Stop Bit select
-    uint_t parity_enable  : 1;  // Enable parity 
-    uint_t even_sel       : 1;  // Even Parity Select
-    uint_t stick_parity   : 1;  // Stick Parity Select
-    uint_t sbr            : 1;  // Set Break 
-    uint_t dlab           : 1;  // Divisor latch access bit
+//interrupt enable register
+struct ier_register {
+    union {
+	uint8_t val;
+	struct {
+	    uint8_t erbfi   : 1;   // Enable Receiver Buffer full interrupt
+	    uint8_t etbei   : 1;  // Enable Transmit buffer empty interrupt
+	    uint8_t elsi    : 1;  // Enable Line Status Interrupt
+	    uint8_t edssi   : 1;  // Enable Delta Status signals interrupt
+	    uint8_t rsvd    : 4;   // MBZ
+	} __attribute__((packed));
+    } __attribute__((packed));
+} __attribute__((packed));
+
+
+//interrupt identification register
+struct iir_register {
+    union {
+	uint8_t val;
+	struct {
+	    uint8_t pending : 1; // Interrupt pending (0=interrupt pending)
+	    uint8_t iid     : 3; // Interrupt Identification
+	    uint8_t rsvd    : 2; // MBZ
+	    uint8_t fifo_en : 2; // FIFO enable
+	} __attribute__((packed));
+    } __attribute__((packed));
+} __attribute__((packed));
+
+//FIFO control register
+struct fcr_register {
+    union {
+	uint8_t val;
+	struct {
+	    uint8_t enable  : 1; // enable fifo
+	    uint8_t rfres   : 1; // RX FIFO reset
+	    uint8_t xfres   : 1; // TX FIFO reset
+	    uint8_t dma_sel : 1; // DMA mode select
+	    uint8_t rsvd    : 2; // MBZ
+	    uint8_t rx_trigger: 2; // RX FIFO trigger level select
+	} __attribute__((packed));
+    } __attribute__((packed));
+} __attribute__((packed));
+
+
+//line control register
+struct lcr_register {
+    union {
+	uint8_t val;
+	struct {
+	    uint8_t word_len       : 2;  // word length select
+	    uint8_t stop_bits      : 1;  // Stop Bit select
+	    uint8_t parity_enable  : 1;  // Enable parity
+	    uint8_t even_sel       : 1;  // Even Parity Select
+	    uint8_t stick_parity   : 1;  // Stick Parity Select
+	    uint8_t sbr            : 1;  // Set Break
+	    uint8_t dlab           : 1;  // Divisor latch access bit
+	} __attribute__((packed));
+    } __attribute__((packed));
+} __attribute__((packed));
+
+
+//modem control register
+struct mcr_register {
+    union {
+	uint8_t val;
+	struct {
+	    uint8_t dtr      : 1;
+	    uint8_t rts      : 1;
+	    uint8_t out1     : 1;
+	    uint8_t out2     : 1;
+	    uint8_t loop     : 1;  // loopback mode
+	    uint8_t rsvd     : 3;  // MBZ
+	} __attribute__((packed));
+    } __attribute__((packed));
+} __attribute__((packed));
+
+
+//line status register
+struct lsr_register {
+    union {
+	uint8_t val;
+	struct {
+	    uint8_t dr      : 1;  // data ready
+	    uint8_t oe       : 1;  // Overrun error
+	    uint8_t pe       : 1;  // Parity Error
+	    uint8_t fe       : 1;  // Framing Error
+	    uint8_t brk      : 1;  // broken line detected
+	    uint8_t thre     : 1;  // Transmitter holding register empty
+	    uint8_t temt     : 1;  // Transmitter Empty
+	    uint8_t fifo_err : 1;  // at least one error is pending in the RX FIFO chain
+	} __attribute__((packed));
+    } __attribute__((packed));
+} __attribute__((packed));
+
+
+struct msr_register {
+    union {
+	uint8_t val;
+	struct {
+	    uint8_t dcts     : 1;  // Delta Clear To Send
+	    uint8_t ddsr     : 1;  // Delta Data Set Ready
+	    uint8_t teri     : 1;  // Trailing Edge Ring Indicator
+	    uint8_t ddcd     : 1;  // Delta Data Carrier Detect
+	    uint8_t cts      : 1;  // Clear to Send
+	    uint8_t dsr      : 1;  // Data Set Ready
+	    uint8_t ri       : 1;  // Ring Indicator
+	    uint8_t dcd      : 1;  // Data Carrier Detect
+	} __attribute__((packed));
+    } __attribute__((packed));
+} __attribute__((packed));
+
+//scratch register
+struct scr_register {
+    uint8_t data;
 };
 
-
-struct modem_ctrl_reg { 
-    uint_t dtr      : 1;
-    uint_t rts      : 1;
-    uint_t out1     : 1;
-    uint_t out2     : 1;
-    uint_t loop     : 1;  // loopback mode
-    uint_t rsvd     : 3;  // MBZ
+//divisor latch LSB
+struct dll_register {
+    uint8_t data;
 };
 
-
-struct line_status_reg {
-    uint_t rbf      : 1;  // Receiver Buffer Full
-    uint_t oe       : 1;  // Overrun error
-    uint_t pe       : 1;  // Parity Error
-    uint_t fe       : 1;  // Framing Error
-    uint_t brk      : 1;  // broken line detected
-    uint_t thre     : 1;  // Transmitter holding register empty
-    uint_t temt     : 1;  // Transmitter Empty
-    uint_t fifo_err : 1;  // at least one error is pending in the RX FIFO chain
+//divisor latch MSB
+struct dlm_register {
+    uint8_t data;
 };
-
-
-struct modem_status_reg {
-    uint_t dcts     : 1;  // Delta Clear To Send
-    uint_t ddsr     : 1;  // Delta Data Set Ready
-    uint_t teri     : 1;  // Trailing Edge Ring Indicator
-    uint_t ddcd     : 1;  // Delta Data Carrier Detect
-    uint_t cts      : 1;  // Clear to Send
-    uint_t dsr      : 1;  // Data Set Ready
-    uint_t ri       : 1;  // Ring Indicator
-    uint_t dcd      : 1;  // Data Carrier Detect
-};
-
-
-#define SERIAL_BUF_LEN 256
+#define SERIAL_BUF_LEN 16
 
 struct serial_buffer {
-    uint_t head; // most recent data
-    uint_t tail; // oldest char
-    char buffer[SERIAL_BUF_LEN];
+    int head; // most recent data
+    int tail; // oldest char
+    int full;
+    uint8_t buffer[SERIAL_BUF_LEN];
 };
 
-static int queue_data(struct serial_buffer * buf, char data) {
-    uint_t next_loc = (buf->head + 1) % SERIAL_BUF_LEN;
-
-    if (next_loc == buf->tail) {
-	return -1;
-    }
-
-    buf->buffer[next_loc] = data;
-    buf->head = next_loc;
-
-    return 0;
-}
-
-static int dequeue_data(struct serial_buffer * buf, char * data) {
-    uint_t next_tail = (buf->tail + 1) % SERIAL_BUF_LEN;
-
-    if (buf->head == buf->tail) {
-	return -1;
-    }
-
-    *data = buf->buffer[buf->tail];
-    buf->tail = next_tail;
-
-    return 0;
-}
-
-
 struct serial_port {
-    char     ier;
-    char     iir;
-    char     fcr;
-    char     lcr;
-    char     mcr;
-    char     lsr;
-    char     msr;
-
+    struct rbr_register     rbr;
+    struct thr_register     thr;
+    struct ier_register     ier;
+    struct iir_register     iir;
+    struct fcr_register     fcr;
+    struct lcr_register     lcr;
+    struct mcr_register     mcr;
+    struct lsr_register     lsr;
+    struct msr_register     msr;
+    struct scr_register     scr;
+    struct dll_register     dll;
+    struct dlm_register     dlm;
+    
+    
     struct serial_buffer tx_buffer;
     struct serial_buffer rx_buffer;
+    uint_t irq_number;
 };
 
 
@@ -209,289 +288,550 @@ struct serial_state {
 };
 
 
-static int write_data_port(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
-    struct serial_state * state = (struct serial_state *)dev->private_data;
-    char * val = (char *)src;
-    PrintDebug("Write to Data Port 0x%x (val=%x)\n", port, *(char*)src);
 
-    if (length != 1) {
-	PrintDebug("Invalid length(%d) in write to 0x%x\n", length, port);
-	return -1;
+static struct serial_port * get_com_from_port(struct serial_state * serial, uint16_t port) {
+    if ((port >= COM1_DATA_PORT) && (port <= COM1_SCRATCH_PORT)) {
+	return &(serial->com1);
+    } else if ((port >= COM2_DATA_PORT) && (port <= COM2_SCRATCH_PORT)) {
+	return &(serial->com2);
+    } else if ((port >= COM3_DATA_PORT) && (port <= COM3_SCRATCH_PORT)) {
+	return &(serial->com3);
+    } else if ((port >= COM4_DATA_PORT) && (port <= COM4_SCRATCH_PORT)) {
+	return &(serial->com4);
+    } else {
+	PrintError("Error: Could not find serial port associated with IO port %d\n", port);
+	return NULL;
     }
-
-    switch (port) {
-	case COM1_DATA_PORT:
-	    queue_data(&(state->com1.tx_buffer), *val);
-	    break;
-	case COM2_DATA_PORT:
-	    queue_data(&(state->com2.tx_buffer), *val);
-	    break;
-	case COM3_DATA_PORT:
-	    queue_data(&(state->com3.tx_buffer), *val);
-	    break;
-	case COM4_DATA_PORT:
-	    queue_data(&(state->com4.tx_buffer), *val);
-	    break;
-	default:
-	    return -1;
-    }
-  
-
-    return length;
 }
 
+static inline bool receive_buffer_trigger(int number, int trigger_number) {
 
-
-static int read_data_port(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
-    struct serial_state * state = (struct serial_state *)dev->private_data;
-    char * val = (char *)dst;
-    PrintDebug("Read from Data Port 0x%x\n", port);
-
-    if (length != 1) {
-	PrintDebug("Invalid length(%d) in write to 0x%x\n", length, port);
-	return -1;
+    switch (trigger_number) {
+	case 0:
+	    return (number >= 1);
+	case 1:
+	    return (number >= 4);
+	case 2:
+	    return (number >= 8);
+	case 3:
+	    return (number >= 14);
     }
 
-    switch (port) {
-	case COM1_DATA_PORT:
-	    dequeue_data(&(state->com1.tx_buffer), val);
-	    break;
-	case COM2_DATA_PORT:
-	    dequeue_data(&(state->com2.tx_buffer), val);
-	    break;
-	case COM3_DATA_PORT:
-	    dequeue_data(&(state->com3.tx_buffer), val);
-	    break;
-	case COM4_DATA_PORT:
-	    dequeue_data(&(state->com4.tx_buffer), val);
-	    break;
-	default:
-	    return -1;
-    }
-  
-
-    return length;
+    return false;
 }
 
-
-
-static int handle_ier_write(struct serial_port * com, struct irq_enable_reg * ier) {
+static int getNumber(struct serial_buffer * buf) {
+    int number = buf->head - buf->tail;
   
-
-    return -1;
+    if (buf->full == 1) {
+	return SERIAL_BUF_LEN;
+    } else if (number >= 0) {
+	return number;
+    } else {
+	return SERIAL_BUF_LEN + number;
+    }
 }
 
-
-static int write_ctrl_port(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
-    struct serial_state * state = (struct serial_state *)dev->private_data;
-    char * val = (char *)src;
-    PrintDebug("Write to Control Port (val=%x)\n", *(char *)src);
-
-    if (length != 1) {
-	PrintDebug("Invalid Write length to control port %d\n", port);
-	return -1;
-    }
-
-    switch (port) {
-	case COM1_IRQ_ENABLE_PORT:
-	    if (handle_ier_write(&(state->com1), (struct irq_enable_reg *)val) == -1) {
-		return -1;
-	    }
-	    break;
-	case COM2_IRQ_ENABLE_PORT:
-	    if (handle_ier_write(&(state->com2), (struct irq_enable_reg *)val) == -1) {
-		return -1;
-	    }
-	    break;
-	case COM3_IRQ_ENABLE_PORT:
-	    if (handle_ier_write(&(state->com3), (struct irq_enable_reg *)val) == -1) {
-		return -1;
-	    }
-	    break;
-	case COM4_IRQ_ENABLE_PORT:
-	    if (handle_ier_write(&(state->com4), (struct irq_enable_reg *)val) == -1) {
-		return -1;
-	    }
-	    break;
-
-	case COM1_FIFO_CTRL_PORT:
-	case COM2_FIFO_CTRL_PORT:
-	case COM3_FIFO_CTRL_PORT:
-	case COM4_FIFO_CTRL_PORT:
-
-	case COM1_LINE_CTRL_PORT:
-	case COM2_LINE_CTRL_PORT:
-	case COM3_LINE_CTRL_PORT:
-	case COM4_LINE_CTRL_PORT:
-
-	case COM1_MODEM_CTRL_PORT:
-	case COM2_MODEM_CTRL_PORT:
-	case COM3_MODEM_CTRL_PORT:
-	case COM4_MODEM_CTRL_PORT:
+static int updateIRQ(struct serial_port * com, struct vm_device * dev) {
     
+    if ( (com->ier.erbfi == 0x1) && 
+	 (receive_buffer_trigger( getNumber(&(com->rx_buffer)), com->fcr.rx_trigger)) ) {
 
+	PrintDebug("UART: receive buffer interrupt(trigger level reached)");
 
-	default:
-	    return -1;
+	com->iir.iid = RX_IRQ_TRIGGER_LEVEL;
+	v3_raise_irq(dev->vm, com->irq_number);
     }
-
-
-    return -1;
-}
-
-
-
-
-static int read_ctrl_port(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
-    struct serial_state * state = (struct serial_state *)dev->private_data;
-    char * val = (char *)dst;
-    PrintDebug("Read from Control Port\n");
-
-    if (length != 1) {
-	PrintDebug("Invalid Read length to control port\n");
-	return -1;
-    }
-
-    switch (port) {
-	case COM1_IRQ_ENABLE_PORT:
-	    *val = state->com1.ier;
-	    break;
-	case COM2_IRQ_ENABLE_PORT:
-	    *val = state->com2.ier;
-	    break;
-	case COM3_IRQ_ENABLE_PORT:
-	    *val = state->com3.ier;
-	    break;
-	case COM4_IRQ_ENABLE_PORT:
-	    *val = state->com4.ier;
-	    break;
-
-	case COM1_FIFO_CTRL_PORT:
-	    *val = state->com1.fcr;
-	    break;
-	case COM2_FIFO_CTRL_PORT:
-	    *val = state->com2.fcr;
-	    break;
-	case COM3_FIFO_CTRL_PORT:
-	    *val = state->com3.fcr;
-	    break;
-	case COM4_FIFO_CTRL_PORT:
-	    *val = state->com4.fcr;
-	    break;
-
-	case COM1_LINE_CTRL_PORT:
-	    *val = state->com1.lcr;
-	    break;
-	case COM2_LINE_CTRL_PORT:
-	    *val = state->com2.lcr;
-	    break;
-	case COM3_LINE_CTRL_PORT:
-	    *val = state->com3.lcr;
-	    break;
-	case COM4_LINE_CTRL_PORT:
-	    *val = state->com4.lcr;
-	    break;
-
-	case COM1_MODEM_CTRL_PORT:
-	    *val = state->com1.mcr;
-	    break;
-	case COM2_MODEM_CTRL_PORT:
-	    *val = state->com2.mcr;
-	    break;
-	case COM3_MODEM_CTRL_PORT:
-	    *val = state->com3.mcr;
-	    break;
-	case COM4_MODEM_CTRL_PORT:
-	    *val = state->com4.mcr;
-	    break;
-
-	default:
-	    return -1;
-    }
-
-    return length;
-}
-
-
-static int write_status_port(ushort_t port, void * src, uint_t length, struct vm_device * dev) {
-    PrintDebug("Write to Status Port 0x%x (val=%x)\n", port, *(char *)src);
-
-    return -1;
-}
-
-static int read_status_port(ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
-    struct serial_state * state = (struct serial_state *)dev->private_data;
-    char * val = (char *)dst;
-    PrintDebug("Read from Status Port 0x%x\n", port);
-  
-    if (length != 1) {
-	PrintDebug("Invalid Read length to control port\n");
-	return -1;
-    }
-  
-    switch (port) {
-	case COM1_LINE_STATUS_PORT:
-	    *val = state->com1.lsr;
-	    break;
-	case COM2_LINE_STATUS_PORT:
-	    *val = state->com2.lsr;
-	    break;
-	case COM3_LINE_STATUS_PORT:
-	    *val = state->com3.lsr;
-	    break;
-	case COM4_LINE_STATUS_PORT:
-	    *val = state->com4.lsr;
-	    break;
     
-	case COM1_MODEM_STATUS_PORT:
-	    *val = state->com1.msr;
-	    break;
-	case COM2_MODEM_STATUS_PORT:
-	    *val = state->com2.msr;
-	    break;
-	case COM3_MODEM_STATUS_PORT:
-	    *val = state->com3.msr;
-	    break;
-	case COM4_MODEM_STATUS_PORT:
-	    *val = state->com4.msr;
-	    break;
+    if ( (com->iir.iid == RX_IRQ_TRIGGER_LEVEL) && 
+	 (!(receive_buffer_trigger( getNumber(&(com->rx_buffer)), com->fcr.rx_trigger))) ) {
 
-	default:
-	    return -1;
+	com->iir.iid = 0x0;   //reset interrupt identification register
+	com->iir.pending = 0x1;
+    }
+    
+    if ( (com->iir.iid == TX_IRQ_THRE) && 
+	 (getNumber(&(com->tx_buffer)) == SERIAL_BUF_LEN)) {
+
+	com->iir.iid = 0x0; //reset interrupt identification register
+	com->iir.pending = 0x1;
+
+    } else if ( (com->ier.etbei == 0x1) && 
+		(getNumber(&(com->tx_buffer)) != SERIAL_BUF_LEN )) {
+	
+	PrintDebug("UART: transmit buffer interrupt(buffer not full)");
+
+	com->iir.iid = TX_IRQ_THRE;
+	com->iir.pending = 0;
+
+	v3_raise_irq(dev->vm, com->irq_number);
     }
 
-
-
-    return length;
+    return 1;
 }
 
 
+static int queue_data(struct serial_buffer * buf, uint8_t  data, 
+		      struct serial_port * com, struct vm_device * dev) {
 
+    int next_loc = (buf->head + 1) % SERIAL_BUF_LEN;    
 
+    if (buf->full == 1) {
+	PrintDebug("Buffer is full!\n");
 
-static int init_serial_port(struct serial_port * com) {
-    //struct irq_enable_reg * ier = (struct irq_enable_reg *)&(com->ier);
-    //struct irq_id_reg * iir = (struct irq_id_reg *)&(com->iir);
-    //struct fifo_ctrl_reg * fcr = (struct fifo_ctrl_reg *)&(com->fcr);
-    //struct line_ctrl_reg * lcr = (struct line_ctrl_reg *)&(com->lcr);
-    //struct modem_ctrl_reg * mcr = (struct modem_ctrl_reg *)&(com->mcr);
-    //struct line_status_reg * lsr = (struct line_status_reg *)&(com->lsr);
-    //struct modem_status_reg * msr = (struct modem_status_reg *)&(com->msr);
+	if (buf == &(com->rx_buffer)) {
+	    com->lsr.oe = 1; //overrun error bit set
+	}
 
-    com->ier = 0x00;
-    com->iir = 0x01;
-    com->fcr = 0x00;
-    com->lcr = 0x00;
-    com->mcr = 0x00;
-    com->lsr = 0x60;
-    com->msr = 0x00;
-
+	return 0;
+    }
+    
+    buf->buffer[next_loc] = data;
+    buf->head = next_loc;
+    
+    if (buf->head == buf->tail) {
+	buf->full = 1;
+    }
+    
+    if (buf == &(com->rx_buffer)) {
+	com->lsr.dr = 1; //as soon as new data arrives at receive buffer, set data ready bit in lsr.
+    }
+    
+    if (buf == &(com->tx_buffer)) {
+	com->lsr.thre = 0; //reset thre and temt bits.
+	com->lsr.temt = 0;
+    }
+    
+    updateIRQ(com, dev);
+    
     return 0;
 }
 
+static int dequeue_data(struct serial_buffer * buf, uint8_t * data, 
+			struct serial_port * com, struct vm_device * dev) {
+
+    int next_tail = (buf->tail + 1) % SERIAL_BUF_LEN;
 
 
-static int serial_free(struct vm_device * dev) {
+    if ( (buf->head == buf->tail) && (buf->full != 1) ) {
+	PrintDebug("no data to delete!\n");
+	return -1;
+    }
+    
+    if (buf->full == 1) {
+	buf->full = 0;
+    }
+    
+        
+    *data = buf->buffer[next_tail];
+    buf->buffer[next_tail] = 0;
+    buf->tail = next_tail;
+    
+    if ( (buf == &(com->rx_buffer)) && (getNumber(&(com->rx_buffer)) == 0) ) {
+	com->lsr.dr = 0;
+    }
+    
+    if ((buf == &(com->tx_buffer)) && (getNumber(&(com->tx_buffer)) == 0)) {
+	com->lsr.thre = 1;
+	com->lsr.temt = 1;
+    }
+    
+    updateIRQ(com, dev);
+    
+    return 0;
+}
+
+/*
+static void printBuffer(struct serial_buffer * buf) {
+    int i = 0;
+
+    for (i = 0; i < SERIAL_BUF_LEN; i++) {
+	PrintDebug(" %d ", buf->buffer[i]);
+    }
+
+    PrintDebug("\n the number of elements is %d \n", getNumber(buf));
+}
+*/
+
+//note: write to data port is NOT implemented and corresponding codes are commented out
+static int write_data_port(struct guest_info * core, uint16_t port, 
+			   void * src, uint_t length, struct vm_device * dev) {
+    struct serial_state * state = (struct serial_state *)dev->private_data;
+    uint8_t * val = (uint8_t *)src;
+    struct serial_port * com_port = NULL;
+
+    PrintDebug("Write to Data Port 0x%x (val=%x)\n", port, *val);
+    
+    if (length != 1) {
+	PrintDebug("Invalid length(%d) in write to 0x%x\n", length, port);
+	return -1;
+    }
+
+    if ((port != COM1_DATA_PORT) && (port != COM2_DATA_PORT) && 
+	(port != COM3_DATA_PORT) && (port != COM4_DATA_PORT)) {
+	PrintError("Serial Read data port for illegal port Number (%d)\n", port);
+	return -1;
+    }
+
+    com_port = get_com_from_port(state, port);
+
+    if (com_port == NULL) {
+	PrintDebug("UART:read from NOBODY");
+	return -1;
+    }
+    
+
+    // dlab is always checked first
+    if (com_port->lcr.dlab == 1) {
+	com_port->dll.data = *val;
+    }  else {
+	queue_data(&(com_port->tx_buffer), *val, com_port, dev);
+    }
+    
+    
+    return length;
+}
+
+
+
+static int read_data_port(struct guest_info * core, uint16_t port, 
+			  void * dst, uint_t length, struct vm_device * dev) {
+    struct serial_state * state = (struct serial_state *)dev->private_data;
+    uint8_t * val = (uint8_t *)dst;
+    struct serial_port * com_port = NULL;
+
+    PrintDebug("Read from Data Port 0x%x\n", port);
+    
+    if (length != 1) {
+	PrintDebug("Invalid length(%d) in write to 0x%x\n", length, port);
+	return -1;
+    }
+    
+    if ((port != COM1_DATA_PORT) && (port != COM2_DATA_PORT) && 
+	(port != COM3_DATA_PORT) && (port != COM4_DATA_PORT)) {
+	PrintError("Serial Read data port for illegal port Number (%d)\n", port);
+	return -1;
+    }
+
+    com_port = get_com_from_port(state, port);
+
+    if (com_port == NULL) {
+	PrintDebug("UART:read from NOBODY");
+	return -1;
+    }
+    
+    if (com_port->lcr.dlab == 1) {
+	*val = com_port->dll.data;
+    } else {
+	dequeue_data(&(com_port->rx_buffer), val, com_port, dev);
+    }
+    
+    return length;
+}
+
+
+
+static int handle_fcr_write(struct serial_port * com, uint8_t value) {
+
+    com->fcr.enable = value & 0x1;
+    
+    if (com->fcr.enable == 0x1) {
+	com->fcr.val = value;
+
+	com->fcr.enable = 1; // Do we need to set this??
+
+	//if rfres set, clear receive buffer.
+	if (com->fcr.rfres == 0x1) {
+	    com->rx_buffer.head = 0;
+	    com->rx_buffer.tail = 0;
+	    com->rx_buffer.full = 0;
+	    memset(com->rx_buffer.buffer, 0, SERIAL_BUF_LEN);
+	    com->fcr.rfres = 0;
+	}
+
+	//if xfres set, clear transmit buffer.
+	if (com->fcr.xfres == 0x1) {
+	    com->tx_buffer.head = 0;
+	    com->tx_buffer.tail = 0;
+	    com->tx_buffer.full = 0;
+	    memset(com->tx_buffer.buffer, 0, SERIAL_BUF_LEN);
+	    com->fcr.xfres = 0;
+	}
+    } else {
+	//clear both buffers.
+	com->tx_buffer.head = 0;
+	com->tx_buffer.tail = 0;
+	com->tx_buffer.full = 0;
+	com->rx_buffer.head = 0;
+	com->rx_buffer.tail = 0;
+	com->rx_buffer.full = 0;
+	
+	memset(com->rx_buffer.buffer, 0, SERIAL_BUF_LEN);
+	memset(com->tx_buffer.buffer, 0, SERIAL_BUF_LEN);
+    }
+    
+    return 1;
+}
+
+
+
+
+
+static int write_ctrl_port(struct guest_info * core, uint16_t port, void * src, 
+			   uint_t length, struct vm_device * dev) {
+    struct serial_state * state = (struct serial_state *)dev->private_data;
+    uint8_t val = *(uint8_t *)src;
+    struct serial_port * com_port = NULL;
+
+    PrintDebug("UART:Write to Control Port (val=%x)\n", val);
+    
+    if (length != 1) {
+	PrintDebug("UART:Invalid Write length to control port%d\n", port);
+	return -1;
+    }
+
+    com_port = get_com_from_port(state, port);
+
+    if (com_port == NULL) {
+	PrintError("Could not find serial port corresponding to IO port %d\n", port);
+	return -1;
+    }
+    
+    //always check dlab first
+    switch (port) {
+	case COM1_IRQ_ENABLE_PORT:
+	case COM2_IRQ_ENABLE_PORT:
+	case COM3_IRQ_ENABLE_PORT:
+	case COM4_IRQ_ENABLE_PORT: {
+	    PrintDebug("UART:Write to IER/LATCH port: dlab is %x\n", com_port->lcr.dlab);
+
+	    if (com_port->lcr.dlab == 1) {
+		com_port->dlm.data = val;
+	    } else {
+		com_port->ier.val = val;
+	    }
+
+	    break;
+	}	    
+	case COM1_FIFO_CTRL_PORT:
+	case COM2_FIFO_CTRL_PORT:
+	case COM3_FIFO_CTRL_PORT:
+	case COM4_FIFO_CTRL_PORT: {
+	    PrintDebug("UART:Write to FCR");
+
+	    if (handle_fcr_write(com_port, val) == -1) {
+		return -1;
+	    }
+
+	    break;
+	}
+	case COM1_LINE_CTRL_PORT:
+	case COM2_LINE_CTRL_PORT:
+	case COM3_LINE_CTRL_PORT:
+	case COM4_LINE_CTRL_PORT: {
+	    PrintDebug("UART:Write to LCR");
+	    com_port->lcr.val = val;
+	    break;
+	}
+	case COM1_MODEM_CTRL_PORT:
+	case COM2_MODEM_CTRL_PORT:
+	case COM3_MODEM_CTRL_PORT:
+	case COM4_MODEM_CTRL_PORT: {
+	    PrintDebug("UART:Write to MCR");
+	    com_port->mcr.val = val;
+	    break;
+	}
+	case COM1_SCRATCH_PORT:
+	case COM2_SCRATCH_PORT:
+	case COM3_SCRATCH_PORT:
+	case COM4_SCRATCH_PORT: {
+	    PrintDebug("UART:Write to SCRATCH");
+	    com_port->scr.data = val;
+	    break;
+	}
+	default:
+	    PrintDebug("UART:Write to NOBODY, ERROR");
+	    return -1;
+    }
+    
+
+    return length;
+}
+
+
+
+
+static int read_ctrl_port(struct guest_info * core, uint16_t port, void * dst, 
+			  uint_t length, struct vm_device * dev) {
+    struct serial_state * state = (struct serial_state *)dev->private_data;
+    uint8_t * val = (uint8_t *)dst;
+    struct serial_port * com_port = NULL;
+
+    PrintDebug("Read from Control Port\n");
+    
+    if (length != 1) {
+	PrintDebug("Invalid Read length to control port\n");
+	return -1;
+    }
+
+    com_port = get_com_from_port(state, port);
+
+    if (com_port == NULL) {
+	PrintError("Could not find serial port corresponding to IO port %d\n", port);
+	return -1;
+    }
+    
+    //always check dlab first
+    switch (port) {
+	case COM1_IRQ_ENABLE_PORT:
+	case COM2_IRQ_ENABLE_PORT:
+	case COM3_IRQ_ENABLE_PORT:
+	case COM4_IRQ_ENABLE_PORT: {
+	    PrintDebug("UART:read from IER");
+
+	    if (com_port->lcr.dlab == 1) {
+		*val = com_port->dlm.data;
+	    } else {
+		*val = com_port->ier.val;
+	    }
+	    break;
+	}
+
+	case COM1_FIFO_CTRL_PORT:
+	case COM2_FIFO_CTRL_PORT:
+	case COM3_FIFO_CTRL_PORT:
+	case COM4_FIFO_CTRL_PORT:
+	    PrintDebug("UART:read from FCR");
+	    *val = com_port->fcr.val;
+	    break;
+
+	case COM1_LINE_CTRL_PORT:
+	case COM2_LINE_CTRL_PORT:
+	case COM3_LINE_CTRL_PORT:
+	case COM4_LINE_CTRL_PORT:
+	    PrintDebug("UART:read from LCR");
+	    *val = com_port->lcr.val;
+	    break;
+
+	case COM1_MODEM_CTRL_PORT:
+	case COM2_MODEM_CTRL_PORT:
+	case COM3_MODEM_CTRL_PORT:
+	case COM4_MODEM_CTRL_PORT:
+	    PrintDebug("UART:read from MCR");
+	    *val = com_port->mcr.val;
+	    break;
+
+	case COM1_SCRATCH_PORT:
+	case COM2_SCRATCH_PORT:
+	case COM3_SCRATCH_PORT:
+	case COM4_SCRATCH_PORT:
+	    PrintDebug("UART:read from SCRATCH");
+	    *val = com_port->scr.data;
+	    break;
+
+	default:
+	    PrintDebug("UART:read from NOBODY");
+	    return -1;
+    }
+
+    return length;
+}
+
+
+static int write_status_port(struct guest_info * core, uint16_t port, void * src, 
+			     uint_t length, struct vm_device * dev) {
+    struct serial_state * state = (struct serial_state *)dev->private_data;
+    uint8_t val = *(uint8_t *)src;
+    struct serial_port * com_port = NULL;
+
+    PrintDebug("Write to Status Port (val=%x)\n", val);
+
+    if (length != 1) {
+	PrintDebug("Invalid Write length to status port %d\n", port);
+	return -1;
+    }
+
+    com_port = get_com_from_port(state, port);
+
+    if (com_port == NULL) {
+	PrintError("Could not find serial port corresponding to IO port %d\n", port);
+	return -1;
+    }
+
+    switch (port) {
+	case COM1_LINE_STATUS_PORT:
+	case COM2_LINE_STATUS_PORT:
+	case COM3_LINE_STATUS_PORT:
+	case COM4_LINE_STATUS_PORT:
+	    PrintDebug("UART:write to LSR");
+	    com_port->lsr.val = val;
+	    break;
+
+	case COM1_MODEM_STATUS_PORT:
+	case COM2_MODEM_STATUS_PORT:
+	case COM3_MODEM_STATUS_PORT:
+	case COM4_MODEM_STATUS_PORT:
+	    PrintDebug("UART:write to MSR");
+	    com_port->msr.val = val;
+	    break;
+
+	default:
+	    PrintDebug("UART:write to NOBODY");
+	    return -1;
+    }
+
+    return length;
+}
+
+static int read_status_port(struct guest_info * core, uint16_t port, void * dst, 
+			    uint_t length, struct vm_device * dev) {
+    struct serial_state * state = (struct serial_state *)dev->private_data;
+    uint8_t * val = (uint8_t *)dst;
+    struct serial_port * com_port = NULL;
+
+    PrintDebug("Read from Status Port 0x%x\n", port);
+
+    if (length != 1) {
+	PrintDebug("Invalid Read length to control port\n");
+	return -1;
+    }
+
+    com_port = get_com_from_port(state, port);
+
+    if (com_port == NULL) {
+	PrintError("Could not find serial port corresponding to IO port %d\n", port);
+	return -1;
+    }
+
+    switch (port) {
+	case COM1_LINE_STATUS_PORT:
+	case COM2_LINE_STATUS_PORT:
+	case COM3_LINE_STATUS_PORT:
+	case COM4_LINE_STATUS_PORT:
+	    PrintDebug("UART:read from LSR");
+
+	    *val = com_port->lsr.val;
+	    com_port->lsr.oe = 0;     // Why do we clear this??
+
+	    break;
+
+	case COM1_MODEM_STATUS_PORT:
+	case COM2_MODEM_STATUS_PORT:
+	case COM3_MODEM_STATUS_PORT:
+	case COM4_MODEM_STATUS_PORT:
+	    PrintDebug("UART:read from COM4 MSR");
+	    *val = com_port->msr.val;
+	    break;
+
+	default:
+	    PrintDebug("UART:read from NOBODY");
+	    return -1;
+    }
+
+    return length;
+}
+
+static int serial_deinit(struct vm_device * dev) {
 
 
     v3_dev_unhook_io(dev, COM1_DATA_PORT);
@@ -535,8 +875,10 @@ static int serial_free(struct vm_device * dev) {
 
 
 
+
 static struct v3_device_ops dev_ops = {
-    .free = serial_free,
+    //.init = serial_init,
+    .free = serial_deinit,
     .reset = NULL,
     .start = NULL,
     .stop = NULL,
@@ -544,28 +886,54 @@ static struct v3_device_ops dev_ops = {
 
 
 
+static int init_serial_port(struct serial_port * com) {
 
-static int serial_init(struct guest_info * vm, void * cfg_data) {
-    struct serial_state * state = NULL;
+    com->ier.val = IER_INIT_VAL;
+    com->iir.val = IIR_INIT_VAL;
+    com->fcr.val = FCR_INIT_VAL;
+    com->lcr.val = LCR_INIT_VAL;
+    com->mcr.val = MCR_INIT_VAL;
+    com->lsr.val = LSR_INIT_VAL;
+    com->msr.val = MSR_INIT_VAL;
 
-    state = (struct serial_state *)V3_Malloc(sizeof(struct serial_state));
+    com->dll.data =  DLL_INIT_VAL;
+    com->dlm.data =  DLM_INIT_VAL;
+    
+    com->tx_buffer.head = 0;
+    com->tx_buffer.tail = 0;
+    com->tx_buffer.full = 0;
+    memset(com->tx_buffer.buffer, 0, SERIAL_BUF_LEN);
 
-    V3_ASSERT(state != NULL);
+    com->rx_buffer.head = 0;
+    com->rx_buffer.tail = 0;
+    com->rx_buffer.full = 0;
+    memset(com->rx_buffer.buffer, 0, SERIAL_BUF_LEN);
+    
+    return 0;
+}
 
-    struct vm_device * dev = v3_allocate_device("SERIAL", &dev_ops, state);
+static int serial_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
+    struct serial_state * state = (struct serial_state *)V3_Malloc(sizeof(struct serial_state));
+    char * name = v3_cfg_val(cfg, "name");
 
-
-    if (v3_attach_device(vm, dev) == -1) {
-        PrintError("Could not attach device %s\n", "SERIAL");
-        return -1;
-    }
-
-
-
+    PrintDebug("UART: init_device\n");
     init_serial_port(&(state->com1));
     init_serial_port(&(state->com2));
     init_serial_port(&(state->com3));
     init_serial_port(&(state->com4));
+
+    state->com1.irq_number = COM1_IRQ;
+    state->com2.irq_number = COM2_IRQ;
+    state->com3.irq_number = COM3_IRQ;
+    state->com4.irq_number = COM4_IRQ;
+
+
+    struct vm_device * dev = v3_allocate_device(name, &dev_ops, state);
+
+    if (v3_attach_device(vm, dev) == -1) {
+	PrintError("Could not attach device %s\n", name);
+	return -1;
+    }
 
     v3_dev_hook_io(dev, COM1_DATA_PORT, &read_data_port, &write_data_port);
     v3_dev_hook_io(dev, COM1_IRQ_ENABLE_PORT, &read_ctrl_port, &write_ctrl_port);
