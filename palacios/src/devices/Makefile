@@ -7,6 +7,7 @@ obj-$(CONFIG_BOCHS_DEBUG) += bochs_debug.o
 obj-$(CONFIG_GENERIC) += generic.o
 obj-$(CONFIG_I440FX) += i440fx.o
 obj-$(CONFIG_IDE) += ide.o
+obj-$(CONFIG_SERIAL_UART) += serial.o
 
 obj-$(CONFIG_KEYBOARD) += keyboard.o
 obj-$(CONFIG_LINUX_VIRTIO_BALLOON) += lnx_virtio_balloon.o

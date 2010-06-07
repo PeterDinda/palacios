@@ -608,7 +608,7 @@ static int pt_config_update(uint_t reg_num, void * src, uint_t length, void * pr
 
 
 /* This is really iffy....
- * It was totally broken before, but it's totally fixed now
+ * It was totally broken before, but it's _not_ totally fixed now
  * The Expansion rom can be enabled/disabled via software using the low order bit
  * We should probably handle that somehow here... 
  */
