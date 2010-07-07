@@ -96,7 +96,7 @@
 struct mp_floating_pointer {
     uint32_t signature;          // "_MP_"
     uint32_t pointer;            // gpa of MP table (0xfcc00)
-    uint8_t  length;             
+    uint8_t  length;             // length in 16 byte chunks (paragraphs)
     uint8_t  spec_rev;           // 0x4
     uint8_t  checksum;          
     uint8_t  mp_featurebyte[5];  // zero out to indicate mp config table
@@ -118,6 +118,7 @@ struct mp_table_header {
     uint32_t lapic_addr;         // apic address on all processors
     uint16_t extended_table_length; // zero by default
     uint8_t  extended_table_checksum; // zero by default
+    uint8_t  reserved;           // zero by default
     // this is followed by entries of the various types indicated below
 } __attribute__((packed));
 
