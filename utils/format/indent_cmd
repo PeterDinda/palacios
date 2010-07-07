@@ -1,0 +1,3 @@
+indent -br  -bap -ce -cdw -cli4 -npcs -saf -sai -saw -ncs -nbc -npsl -hnl -di1 -brs -brf -i4 -l256 -lp -T uint8_t -T uint16_t -T uint32_t -T addr_t -T uint64_t vmm_
+mptable.c -o test.out.c
+
