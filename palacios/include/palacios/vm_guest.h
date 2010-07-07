@@ -54,7 +54,7 @@ struct v3_intr_state;
 
 
 
-
+/* per-core state */
 struct guest_info {
     uint64_t rip;
 
@@ -112,7 +112,7 @@ struct guest_info {
 
 
 
-
+/* shared state across cores */
 struct v3_vm_info {
     v3_vm_class_t vm_class;
 

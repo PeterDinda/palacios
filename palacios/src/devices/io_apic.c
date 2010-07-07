@@ -303,11 +303,11 @@ static struct v3_device_ops dev_ops = {
 
 
 static int ioapic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
-    struct vm_device * icc_bus = v3_find_dev(vm, v3_cfg_val(cfg, "irq_bus"));
+    struct vm_device * icc_bus = v3_find_dev(vm, v3_cfg_val(cfg, "bus"));
     char * name = v3_cfg_val(cfg, "name");
 
     if (!icc_bus) {
-	PrintError("Could not locate ICC BUS device (%s)\n", v3_cfg_val(cfg, "irq_bus"));
+	PrintError("Could not locate ICC BUS device (%s)\n", v3_cfg_val(cfg, "bus"));
 	return -1;
     }
 

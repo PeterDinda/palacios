@@ -191,7 +191,7 @@ struct apic_state {
 static int apic_read(struct guest_info * core, addr_t guest_addr, void * dst, uint_t length, void * priv_data);
 static int apic_write(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data);
 
-static void init_apic_state(struct apic_state * apic) {
+static void init_apic_state(struct apic_state * apic, uint32_t id) {
     apic->base_addr = DEFAULT_BASE_ADDR;
     apic->base_addr_msr.value = 0x0000000000000900LL;
     apic->base_addr_msr.value |= ((uint64_t)DEFAULT_BASE_ADDR); 
@@ -209,9 +209,7 @@ static void init_apic_state(struct apic_state * apic) {
     apic->tmr_init_cnt = 0x00000000;
     apic->tmr_cur_cnt = 0x00000000;
 
-    // TODO:
-    // We need to figure out what the APIC ID is....
-    apic->lapic_id.val = 0x00000000;
+    apic->lapic_id.val = id;
 
     // The P6 has 6 LVT entries, so we set the value to (6-1)...
     apic->apic_ver.val = 0x80050010;
@@ -1068,9 +1066,9 @@ static struct v3_icc_ops icc_ops = {
 
 
 static int apic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
-    PrintDebug("Creating APIC\n");
+    PrintDebug("Creating an APIC for each core\n");
     char * name = v3_cfg_val(cfg, "name");
-    char * icc_name = v3_cfg_val(cfg,"irq_bus");
+    char * icc_name = v3_cfg_val(cfg,"bus");
     struct vm_device * icc = v3_find_dev(vm, icc_name);
     int i;
 
@@ -1081,6 +1079,7 @@ static int apic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     // We allocate one apic per core
     // APICs are accessed via index which correlates with the core's cpu_id 
+    // 0..num_cores-1   at num_cores is the ioapic (one only)
     struct apic_state * apic = (struct apic_state *)V3_Malloc(sizeof(struct apic_state) * vm->num_cores);
 
     struct vm_device * dev = v3_allocate_device(name, &dev_ops, apic);
@@ -1094,13 +1093,16 @@ static int apic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     for (i = 0; i < vm->num_cores; i++) {
 	struct guest_info * core = &(vm->cores[i]);
 
+	init_apic_state(&(apic[i]),i);
+
     	v3_register_intr_controller(core, &intr_ops, &(apic[i]));
+
     	v3_add_timer(core, &timer_ops, &(apic[i]));
+
 	v3_hook_full_mem(vm, core->cpu_id, apic->base_addr, apic->base_addr + PAGE_SIZE_4KB, apic_read, apic_write, &(apic[i]));
 
 	v3_icc_register_apic(core, icc, i, &icc_ops, &(apic[i]));
 
-	init_apic_state(&(apic[i]));
     }
 
 
