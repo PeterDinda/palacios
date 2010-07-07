@@ -22,12 +22,14 @@
 */
 
 #include <devices/pci.h>
-#include <devices/ne2k.h>
+#include <config/ne2k.h>
 #include <palacios/vmm.h>
 #include <palacios/vmm_types.h>
 #include <palacios/vmm_io.h>
 #include <palacios/vmm_debug.h>
 #include <palacios/vmm_string.h>
+#include <palacios/vmm_dev_mgr.h>
+#include <palacios/vmm_intr.h>
 
 #ifndef CONFIG_DEBUG_NE2K
 #undef PrintDebug
@@ -358,7 +360,7 @@ static void dump_state(struct vm_device * dev) {
 
 
 static int ne2k_update_irq(struct vm_device *dev) {
-    struct ne2k_context * nic_state = (struct ne2k_context *)dev->private_data;
+    struct ne2k_context * nic_state = (struct ne2k_context *)(dev->private_data);
     struct pci_device * pci_dev = nic_state->pci_dev;
     int irq_line = 0;
 
@@ -366,7 +368,7 @@ static int ne2k_update_irq(struct vm_device *dev) {
 	PrintDebug("Ne2k: Device %p is not attached to any PCI Bus\n", nic_state);
 	irq_line = NE2K_DEFAULT_IRQ;
     } else {
-    	irq_line = pdev->config_header.intr_line;
+    	irq_line = pci_dev->config_header.intr_line;
     }
 	    
     if (irq_line == 0){
@@ -380,7 +382,7 @@ static int ne2k_update_irq(struct vm_device *dev) {
     // The top bit of the ISR/IMR is reserved and does not indicate and irq event
     // We mask the bit out of the irq pending check
     if ((nic_state->isr.val & nic_state->imr.val) & 0x7f) {
-    	v3_raise_irq(nic_state->vm, irq_line);
+    	v3_raise_virq(nic_state->vm, irq_line);
 	PrintDebug("Ne2k: RaiseIrq: isr: 0x%02x imr: 0x%02x\n", nic_state->isr.val, nic_state->imr.val);
     }
 
@@ -396,7 +398,7 @@ static void ne2k_init_state(struct vm_device * dev) {
 
     nic_state->vm = dev->vm;
 
-    nic_state->isr.reset = 1;
+    nic_state->isr.reset_status = 1;
     nic_state->imr.val = 0x00;
     nic_state->cmd.val = 0x22;
 
@@ -508,7 +510,7 @@ static void ne2k_receive(struct vm_device * dev, const uchar_t * pkt, int length
 
     p = nic_state->mem + index;
     nic_state->rsr.val = 0;
-    nic_state->rsr.rx_pkt_ok = 1;
+    nic_state->rsr.pkt_rx_ok = 1;
 
     if (pkt[0] & 0x01) {
         nic_state->rsr.phy = 1;
@@ -782,7 +784,7 @@ static int ne2k_cmd_write(uint16_t port, void * src, uint_t length, struct vm_de
     nic_state->cmd.val = *(uint8_t *)src;
 
     if (!(nic_state->cmd.stop)) {
-	nic_state->isr.reset = 0;
+	nic_state->isr.reset_status = 0;
 	
 
 	// if ((send pkt) && (dma byte count == 0)) 

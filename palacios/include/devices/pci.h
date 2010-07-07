@@ -51,6 +51,8 @@ typedef enum {PCI_STD_DEVICE, PCI_TO_PCI_BRIDGE, PCI_CARDBUS, PCI_MULTIFUNCTION,
 
 #define PCI_AUTO_DEV_NUM (-1)
 
+struct guest_info;
+
 struct pci_device;
 
 struct v3_pci_bar {
