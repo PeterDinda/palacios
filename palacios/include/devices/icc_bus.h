@@ -29,19 +29,32 @@ struct v3_icc_ops {
 /**
  *
  */
-int v3_icc_register_apic(struct guest_info * vm, struct vm_device * icc_bus, uint8_t apic_phys_id, struct v3_icc_ops * ops, void * priv_data);
-
+int v3_icc_register_apic(struct guest_info *core, struct vm_device * icc_bus, uint8_t apic_phys_id, struct v3_icc_ops * ops, void * priv_data);
+int v3_icc_register_ioapic(struct v3_vm_info *vm, struct vm_device * icc_bus, uint8_t apic_phys_id);
 
 /**
- * Send an inter-processor interrupt (IPI) from this local APIC to another local APIC.
+ * Send an inter-processor interrupt (IPI) from one local APIC to another local APIC.
  *
- * @param icc_bus - The ICC bus that routes IPIs.
+ * @param icc_bus  - The ICC bus that routes IPIs.
+ * @param apic_src - The source APIC id.
  * @param apic_num - The remote APIC number.
- * @param intr_num - The interrupt number.
+ * @param icr      - A copy of the APIC's ICR.  (LAPIC-style ICR, clone from redir table for ioapics)
  */
-int v3_icc_send_irq(struct vm_device * icc_bus, uint8_t apic_num, uint32_t irq_num);
+int v3_icc_send_ipi(struct vm_device * icc_bus, uint32_t apic_src, uint64_t icr);
 
 
+#if 0
+/**
+ * Send an IRQinter-processor interrupt (IPI) from one local APIC to another local APIC.
+ *
+ * @param icc_bus  - The ICC bus that routes IPIs.
+ * @param apic_src - The source APIC id.
+ * @param apic_num - The remote APIC number.
+ * @param icrlo    - The low 32 bites of the APIC's ICR.
+ */
+int v3_icc_send_irq(struct vm_device * icc_bus, uint32_t ioapic_src, uint8_t apic_num, uint8_t irq);
+
+#endif
 
 
 #endif /* ICC_BUS_H_ */

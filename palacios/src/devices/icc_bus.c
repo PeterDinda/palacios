@@ -21,40 +21,24 @@
 #include <palacios/vmm_sprintf.h>
 #include <palacios/vm_guest.h>
 #include <devices/icc_bus.h>
+#include <devices/apic_regs.h>
+
 
 #define MAX_APICS 256
 
+#ifndef CONFIG_DEBUG_ICC_BUS
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
+#endif
+
+
+void v3_force_exit() {
+}
 
 struct ipi_thunk_data {
     struct vm_device * target;
     uint64_t val;
 };
-
-struct int_cmd_reg {
-    union {
-        uint64_t val;
-
-        struct {
-            uint32_t lo;
-            uint32_t hi;
-        } __attribute__((packed));
-
-        struct {
-            uint_t vec           : 8;
-            uint_t msg_type      : 3;
-            uint_t dst_mode      : 1;
-            uint_t del_status    : 1;
-            uint_t rsvd1         : 1;
-            uint_t lvl           : 1;
-            uint_t trig_mode     : 1;
-            uint_t rem_rd_status : 2;
-            uint_t dst_shorthand : 2;
-            uint64_t rsvd2       : 36;
-            uint32_t dst         : 8;
-        } __attribute__((packed));
-    } __attribute__((packed));
-} __attribute__((packed));
-
 
 
 
@@ -69,6 +53,8 @@ struct apic_data {
 
 struct icc_bus_state {
     struct apic_data apics[MAX_APICS];
+    
+    uint32_t         ioapic_id;
 };
 
 static struct v3_device_ops dev_ops = {
@@ -79,59 +65,131 @@ static struct v3_device_ops dev_ops = {
 };
 
 
+static char *shorthand_str[] = { 
+    "(no shorthand)",
+    "(self)",
+    "(all)",
+    "(all-but-me)",
+ };
+
+static char *deliverymode_str[] = { 
+    "(fixed)",
+    "(lowest priority)",
+    "(SMI)",
+    "(reserved)",
+    "(NMI)",
+    "(INIT)",
+    "(Start Up)",
+    "(reserved)",
+};
 
 
-int v3_icc_send_irq(struct vm_device * icc_bus, uint8_t apic_num, uint32_t irq_num) {
+
+static int deliver(uint32_t src_apic, struct apic_data *dest_apic, struct int_cmd_reg *icr, struct icc_bus_state * state) {
+
+    switch (icr->del_mode) {						
+
+	case 0:  //fixed
+	case 1: // lowest priority
+	    PrintDebug("icc_bus: delivering to core %u\n",dest_apic->core->cpu_id); 
+	    dest_apic->ops->raise_intr(dest_apic->core, icr->vec, dest_apic->priv_data); 
+	    if (src_apic!=state->ioapic_id && dest_apic->core->cpu_id != src_apic) { 
+		PrintDebug("icc_bus: non-local core, forcing it to exit\n"); 
+		// TODO: do what the print says
+	    }							
+	    break;							
+	    
+	case 2:   //SMI			
+	    PrintError("icc_bus: SMI delivery is unsupported\n");	
+	    return -1;						
+	    break;							
+	    
+	case 3:  //reserved						
+	case 7:
+	    PrintError("icc_bus: Reserved delivery mode 3 is unsupported\n"); 
+	    return -1;						
+	    break;							
+
+	case 4:  //NMI					
+	    PrintError("icc_bus: NMI delivery is unsupported\n"); 
+	    return -1;						
+	    break;							
+
+	case 5: //INIT
+	    PrintError("icc_bus: INIT delivery is unsupported\n"); 
+	    return -1;						
+	    break;							
+
+	case 6: //Start Up
+	    PrintError("icc_bus: Startup Delivery is unsupported\n"); 
+	    return -1;						
+	    break;							
+    }
+
+    return 0;
+} 
+
+
+
+int v3_icc_send_ipi(struct vm_device * icc_bus, uint32_t src_apic, uint64_t icr_data) {
+
+    PrintDebug("icc_bus: icc_bus=%p, src_apic=%u, icr_data=%llx\n",icc_bus,src_apic,icr_data);
+
+    struct int_cmd_reg *icr = (struct int_cmd_reg *)&icr_data;
     struct icc_bus_state * state = (struct icc_bus_state *)icc_bus->private_data;
-    struct apic_data * apic = &(state->apics[apic_num]);    
+
+    // initial sanity checks
+    if (src_apic>=MAX_APICS || (!state->apics[src_apic].present && src_apic!=state->ioapic_id)) { 
+	PrintError("icc_bus: Apparently sending from unregistered apic id=%u\n",src_apic);
+	return -1;
+    }
+    if (icr->dst_mode==0  && !state->apics[icr->dst].present) { 
+	PrintError("icc_bus: Attempted send to unregistered apic id=%u\n",icr->dst);
+	return -1;
+    }
+    
+    struct apic_data * dest_apic =  &(state->apics[icr->dst]);
 
 
-    struct int_cmd_reg icr;
-    icr.lo = irq_num;
+    PrintDebug("icc_bus: IPI %s %u from %s %u to %s %u (icr=0x%llx)\n",
+	       deliverymode_str[icr->del_mode], icr->vec, src_apic==state->ioapic_id ? "ioapic" : "apic",
+	       src_apic, shorthand_str[icr->dst_shorthand], icr->dst,icr->val);
 
 
-    char * type = NULL;
-    char * dest = NULL;
-    char foo[8];
 
-    switch (icr.dst_shorthand) {
-	case 0x0:
-	    sprintf(foo, "%d", icr.dst);
-	    dest = foo;
+
+    switch (icr->dst_shorthand) {
+
+	case 0:  // no shorthand
+	    if (deliver(src_apic,dest_apic,icr,state)) { 
+		return -1;
+	    }
 	    break;
-	case 0x1:
-	    dest = "(self)";
+
+	case 1:  // self
+	    if (icr->dst==state->ioapic_id) { 
+		PrintError("icc_bus: ioapic attempting to send to itself\n");
+		return -1;
+	    }
+	    if (deliver(src_apic,dest_apic,icr,state)) { 
+		return -1;
+	    }
 	    break;
-	case 0x2:
-	    dest = "(broadcast inclusive)";
-	    break;
-	case 0x3:
-	    dest = "(broadcast)";
+
+	case 2: 
+	case 3: { // all and all-but-me
+	    int i;
+	    for (i=0;i<MAX_APICS;i++) { 
+		dest_apic=&(state->apics[i]);
+		if (dest_apic->present && (i!=src_apic || icr->dst_shorthand==2)) { 
+		    if (deliver(src_apic,dest_apic,icr,state)) { 
+			return -1;
+		    }
+		}
+	    }
+	}
 	    break;
     }
-
-    switch (icr.msg_type) {
-	case 0x0:
-	    type = "";
-	    break;
-	case 0x4:
-	    type = "(NMI)";
-	    break;
-	case 0x5:
-	    type = "(INIT)";
-	    break;
-	case 0x6:
-	    type = "(Startup)";
-	    break;
-    }
-
-
-    PrintDebug("Sending IPI of type %s and destination type %s from LAPIC %u to LAPIC %u.\n", 
-	       type, dest, V3_Get_CPU(), apic_num);
-
-    apic->ops->raise_intr(apic->core, irq_num & 0xff, apic->priv_data);
-
-    //V3_Call_On_CPU(apic_num,  icc_force_exit, (void *)(uint64_t)(val & 0xff));
 
     return 0;
 }
@@ -146,7 +204,7 @@ int v3_icc_register_apic(struct guest_info  * core, struct vm_device * icc_bus,
     struct apic_data * apic = &(icc->apics[apic_num]);
 
     if (apic->present == 1) {
-	PrintError("Attempt to re-register apic %u\n", apic_num);
+	PrintError("icc_bus: Attempt to re-register apic %u\n", apic_num);
 	return -1;
     }
     
@@ -155,16 +213,33 @@ int v3_icc_register_apic(struct guest_info  * core, struct vm_device * icc_bus,
     apic->core = core;
     apic->ops = ops;
    
-    PrintDebug("Registered apic%u\n", apic_num);
+    PrintDebug("icc_bus: Registered apic %u\n", apic_num);
+
+    return 0;
+}
+
+
+int v3_icc_register_ioapic(struct v3_vm_info *vm, struct vm_device * icc_bus, uint8_t apic_num)
+{
+    struct icc_bus_state * icc = (struct icc_bus_state *)icc_bus->private_data;
+
+    if (icc->ioapic_id) { 
+	PrintError("icc_bus: Attempt to register a second ioapic!\n");
+	return -1;
+    }
+
+    icc->ioapic_id=apic_num;
+
+    PrintDebug("icc_bus: Registered ioapic %u\n", apic_num);
+    
 
     return 0;
 }
 
 
 
-
 static int icc_bus_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
-    PrintDebug("Creating ICC_BUS\n");
+    PrintDebug("icc_bus: Creating ICC_BUS\n");
 
     char * name = v3_cfg_val(cfg, "name");
 
@@ -174,7 +249,7 @@ static int icc_bus_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vm_device * dev = v3_allocate_device(name, &dev_ops, icc_bus);
 
     if (v3_attach_device(vm, dev) == -1) {
-        PrintError("Could not attach device %s\n", name);
+        PrintError("icc_bus: Could not attach device %s\n", name);
         return -1;
     }
 
