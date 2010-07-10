@@ -22,8 +22,17 @@
 
 static int pre_config_pc_core(struct guest_info * info, v3_cfg_tree_t * cfg) { 
 
+    if (info->cpu_id!=0) { 
+	// I am an AP, so I will start in INIT mode,
+	// not in real mode.   This means I will wait for
+	// an INIT and then for a SIPI.   The SIPI will
+	// tell me where to start executing in real mode
+	info->cpu_mode = INIT;
+    } else {
+	// I am the MP, so I will start as normal
+	info->cpu_mode = REAL;
+    }
 
-    info->cpu_mode = REAL;
     info->mem_mode = PHYSICAL_MEM;
 
 
