@@ -359,12 +359,13 @@ int v3_handle_svm_io_outs(struct guest_info * core, struct svm_io_info * io_info
     PrintDebug("OUTS size=%d for %d steps\n", write_size, rep_num);
 
     while (rep_num > 0) {
-	addr_t host_addr;
+	addr_t host_addr = 0;
 
 	dst_addr = get_addr_linear(core, (core->vm_regs.rsi & mask), theseg);
     
 	if (v3_gva_to_hva(core, dst_addr, &host_addr) == -1) {
-	    // either page fault or gpf...
+	    PrintError("Could not translate outs dest addr, either page fault or gpf...\n");
+	    return -1;
 	}
 
 	if (hook->write(core, io_info->port, (char*)host_addr, write_size, hook->priv_data) != write_size) {
