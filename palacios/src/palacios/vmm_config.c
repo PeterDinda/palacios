@@ -244,23 +244,36 @@ static int pre_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * vm_cfg) {
 static int pre_config_core(struct guest_info * info, v3_cfg_tree_t * core_cfg) {
     extern v3_cpu_arch_t v3_cpu_types[];
     v3_cfg_tree_t * paging_cfg = v3_cfg_subtree(core_cfg, "paging");
-    char * paging = v3_cfg_val(paging_cfg, "mode");
+    char * paging = v3_cfg_val(paging_cfg, NULL);
 
-
-    
-    if ((v3_cpu_types[info->cpu_id] == V3_SVM_REV3_CPU) && 
-	(paging) && (strcasecmp(paging, "nested") == 0)) {
-	PrintDebug("Guest Page Mode: NESTED_PAGING\n");
-	info->shdw_pg_mode = NESTED_PAGING;
+    if (paging) {
+	if ((strcasecmp(paging, "nested") == 0)) {
+	    if (v3_cpu_types[info->cpu_id] == V3_SVM_REV3_CPU) {
+	    	info->shdw_pg_mode = NESTED_PAGING;
+	    } else {
+		PrintError("Nested paging not supported on this hardware. Defaulting to shadow paging\n");
+	    	info->shdw_pg_mode = SHADOW_PAGING;
+	    }
+	} else if ((strcasecmp(paging, "shadow") == 0)) {
+	    info->shdw_pg_mode = SHADOW_PAGING;
+	} else {
+	    PrintError("Invalid paging type specified in configuration. Defaulting to shadow paging\n");
+	    info->shdw_pg_mode = SHADOW_PAGING;
+	}
     } else {
-	PrintDebug("Guest Page Mode: SHADOW_PAGING\n");
-
+	PrintDebug("No paging type specified in configuration.\n");
 	info->shdw_pg_mode = SHADOW_PAGING;
     }
-
+    if (info->shdw_pg_mode == NESTED_PAGING) {
+    	PrintDebug("Guest Page Mode: NESTED_PAGING\n");
+    } else if (info->shdw_pg_mode == SHADOW_PAGING) {
+        PrintDebug("Guest Page Mode: SHADOW_PAGING\n");
+    } else {
+	PrintError("Guest paging mode incorrectly set.\n");
+	return -1;
+    }
 
     v3_init_core(info);
-
 
     if (info->vm_info->vm_class == V3_PC_VM) {
 	if (pre_config_pc_core(info, core_cfg) == -1) {
