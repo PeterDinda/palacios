@@ -146,8 +146,8 @@ int v3_init_shdw_impl(struct v3_vm_info * vm) {
     struct v3_shdw_pg_impl * impl = NULL;
    
     PrintDebug("Checking if shadow paging requested.\n");
-    if (type_name && (strcasecmp(type_name, "shadow") != 0)) {
-	PrintDebug("Shadow paging not specified for VM.\n");
+    if (type_name && (strcasecmp(type_name, "nested") == 0)) {
+	PrintDebug("Nested paging specified - not initializing shadow paging.\n");
 	return 0;
     }
 	
