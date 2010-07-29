@@ -141,22 +141,22 @@ int v3_init_shdw_pg_state(struct guest_info * core) {
 int v3_init_shdw_impl(struct v3_vm_info * vm) {
     struct v3_shdw_impl_state * impl_state = &(vm->shdw_impl);
     v3_cfg_tree_t * pg_cfg = v3_cfg_subtree(vm->cfg_data->cfg, "paging");
-    char * type_name = v3_cfg_val(pg_cfg, "type");
-    char * impl_name = v3_cfg_val(pg_cfg, "mode");
+    char * pg_type = v3_cfg_val(vm->cfg_data->cfg, "paging");
+    char * pg_mode = v3_cfg_val(pg_cfg, "mode");
     struct v3_shdw_pg_impl * impl = NULL;
    
     PrintDebug("Checking if shadow paging requested.\n");
-    if (type_name && (strcasecmp(type_name, "nested") == 0)) {
+    if (pg_type && (strcasecmp(pg_type, "nested") == 0)) {
 	PrintDebug("Nested paging specified - not initializing shadow paging.\n");
 	return 0;
     }
 	
     V3_Print("Initialization of Shadow Paging implementation\n");
 
-    impl = (struct v3_shdw_pg_impl *)v3_htable_search(master_shdw_pg_table, (addr_t)impl_name);
+    impl = (struct v3_shdw_pg_impl *)v3_htable_search(master_shdw_pg_table, (addr_t)pg_mode);
 
     if (impl == NULL) {
-	PrintError("Could not find shadow paging impl (%s)\n", impl_name);
+	PrintError("Could not find shadow paging impl (%s)\n", pg_mode);
 	return -1;
     }
    

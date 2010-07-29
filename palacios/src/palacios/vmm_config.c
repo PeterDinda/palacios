@@ -247,7 +247,7 @@ static int determine_paging_mode(struct guest_info *info, v3_cfg_tree_t * core_c
 
     v3_cfg_tree_t *vm_tree = info->vm_info->cfg_data->cfg;
     v3_cfg_tree_t *pg_tree = v3_cfg_subtree(vm_tree, "paging");
-    char *pg_type = v3_cfg_val(pg_tree, "type");
+    char *pg_type = v3_cfg_val(vm_tree, "paging");
     char *pg_mode = v3_cfg_val(pg_tree, "mode");
     
     PrintDebug("Paging mode specified as %s(%s)\n", pg_type, pg_mode);
