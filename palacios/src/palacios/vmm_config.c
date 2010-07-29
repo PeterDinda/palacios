@@ -270,6 +270,7 @@ static int determine_paging_mode(struct guest_info *info, v3_cfg_tree_t * core_c
 	PrintDebug("No paging type specified in configuration.\n");
 	info->shdw_pg_mode = SHADOW_PAGING;
     }
+
     if (info->shdw_pg_mode == NESTED_PAGING) {
     	PrintDebug("Guest Page Mode: NESTED_PAGING\n");
     } else if (info->shdw_pg_mode == SHADOW_PAGING) {
@@ -283,7 +284,7 @@ static int determine_paging_mode(struct guest_info *info, v3_cfg_tree_t * core_c
 
 static int pre_config_core(struct guest_info * info, v3_cfg_tree_t * core_cfg) {
 
-    if (!determine_paging_mode(info, core_cfg))
+    if (determine_paging_mode(info, core_cfg))
 	return -1;
 
     v3_init_core(info);
@@ -442,7 +443,10 @@ struct v3_vm_info * v3_config_guest(void * cfg_blob) {
 	info->cpu_id = i;
 	info->vm_info = vm;
 
-	pre_config_core(info, per_core_cfg);
+	if (pre_config_core(info, per_core_cfg) == -1) {
+	    PrintError("Error in core %d preconfiguration\n", i);
+	    return NULL;
+	}
 
 	per_core_cfg = v3_cfg_next_branch(per_core_cfg);
     }
