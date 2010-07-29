@@ -555,8 +555,36 @@ int v3_start_svm_guest(struct guest_info *info) {
     //  vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
 
 
+    PrintDebug("Starting SVM core %u\n",info->cpu_id);
+    if (info->cpu_mode==INIT) { 
+	PrintDebug("SVM core %u: I am an AP in INIT mode, waiting for that to change\n",info->cpu_id);
+	while (info->cpu_mode==INIT) {
+	    v3_yield(info);
+	    //PrintDebug("SVM core %u: still waiting for INIT\n",info->cpu_id);
+	}
+	PrintDebug("SVM core %u: I am out of INIT\n",info->cpu_id);
+	if (info->cpu_mode==SIPI) { 
+	    PrintDebug("SVM core %u: I am waiting on a SIPI to set my starting address\n",info->cpu_id);
+	    while (info->cpu_mode==SIPI) {
+		v3_yield(info);
+		//PrintDebug("SVM core %u: still waiting for SIPI\n",info->cpu_id);
+	    }
+	}
+	PrintDebug("SVM core %u: I have my SIPI\n", info->cpu_id);
+    }
 
-    PrintDebug("Launching SVM VM (vmcb=%p)\n", (void *)info->vmm_data);
+    if (info->cpu_mode!=REAL) { 
+	PrintError("SVM core %u: I am not in REAL mode at launch!  Huh?!\n", info->cpu_id);
+	return -1;
+    }
+
+    PrintDebug("SVM core %u: I am starting at CS=0x%x (base=0x%p, limit=0x%x),  RIP=0x%p\n", 
+	       info->cpu_id, info->segments.cs.selector, (void*)(info->segments.cs.base), 
+	       info->segments.cs.limit,(void*)(info->rip));
+
+
+
+    PrintDebug("SVM core %u: Launching SVM VM (vmcb=%p)\n", info->cpu_id, (void *)info->vmm_data);
     //PrintDebugVMCB((vmcb_t*)(info->vmm_data));
     
     info->vm_info->run_state = VM_RUNNING;
@@ -571,17 +599,17 @@ int v3_start_svm_guest(struct guest_info *info) {
 	    
 	    info->vm_info->run_state = VM_ERROR;
 	    
-	    V3_Print("SVM ERROR!!\n"); 
+	    V3_Print("SVM core %u: SVM ERROR!!\n", info->cpu_id); 
 	    
 	    v3_print_guest_state(info);
 	    
-	    V3_Print("SVM Exit Code: %p\n", (void *)(addr_t)guest_ctrl->exit_code); 
+	    V3_Print("SVM core %u: SVM Exit Code: %p\n", info->cpu_id, (void *)(addr_t)guest_ctrl->exit_code); 
 	    
-	    V3_Print("exit_info1 low = 0x%.8x\n", *(uint_t*)&(guest_ctrl->exit_info1));
-	    V3_Print("exit_info1 high = 0x%.8x\n", *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info1)) + 4));
+	    V3_Print("SVM core %u: exit_info1 low = 0x%.8x\n", info->cpu_id, *(uint_t*)&(guest_ctrl->exit_info1));
+	    V3_Print("SVM core %u: exit_info1 high = 0x%.8x\n", info->cpu_id, *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info1)) + 4));
 	    
-	    V3_Print("exit_info2 low = 0x%.8x\n", *(uint_t*)&(guest_ctrl->exit_info2));
-	    V3_Print("exit_info2 high = 0x%.8x\n", *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info2)) + 4));
+	    V3_Print("SVM core %u: exit_info2 low = 0x%.8x\n", info->cpu_id, *(uint_t*)&(guest_ctrl->exit_info2));
+	    V3_Print("SVM core %u: exit_info2 high = 0x%.8x\n", info->cpu_id, *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info2)) + 4));
 	    
 	    linear_addr = get_addr_linear(info, info->rip, &(info->segments.cs));
 	    
@@ -591,9 +619,9 @@ int v3_start_svm_guest(struct guest_info *info) {
 		v3_gva_to_hva(info, linear_addr, &host_addr);
 	    }
 	    
-	    V3_Print("Host Address of rip = 0x%p\n", (void *)host_addr);
+	    V3_Print("SVM core %u: Host Address of rip = 0x%p\n", info->cpu_id, (void *)host_addr);
 	    
-	    V3_Print("Instr (15 bytes) at %p:\n", (void *)host_addr);
+	    V3_Print("SVM core %u: Instr (15 bytes) at %p:\n", info->cpu_id, (void *)host_addr);
 	    v3_dump_mem((uint8_t *)host_addr, 15);
 	    
 	    v3_print_stack(info);
@@ -608,6 +636,9 @@ int v3_start_svm_guest(struct guest_info *info) {
 */
 	
     }
+
+    // Need to take down the other cores on error... 
+
     return 0;
 }
 

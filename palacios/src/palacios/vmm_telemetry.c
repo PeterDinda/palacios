@@ -211,6 +211,11 @@ void v3_print_telemetry(struct v3_vm_info * vm) {
 	
 	V3_Print("Exit information for Core %d\n", core->cpu_id);
 
+	if (!node) { 
+	    V3_Print("No information yet for this core\n");
+	    continue;
+	}
+
 	do {
 	    evt = rb_entry(node, struct exit_event, tree_node);
 	    const char * code_str = vmexit_code_to_str(evt->exit_code);

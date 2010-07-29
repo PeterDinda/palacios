@@ -266,7 +266,7 @@ struct v3_os_hooks {
     unsigned int (*get_cpu)(void);
     void (*interrupt_cpu)(struct v3_vm_info * vm, int logical_cpu, int vector);
     void (*call_on_cpu)(int logical_cpu, void (*fn)(void * arg), void * arg);
-    void (*start_thread_on_cpu)(int logical_cpu, int (*fn)(void * arg), void * arg, char * thread_name);
+    void * (*start_thread_on_cpu)(int logical_cpu, int (*fn)(void * arg), void * arg, char * thread_name);
 
 };
 

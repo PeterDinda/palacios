@@ -141,7 +141,7 @@ static int pkt_tx(struct guest_info *core, struct virtio_net_state * virtio, str
 
     PrintDebug("Virtio NIC: Virtio Pkt Sending, net_state: %p, pkt size: %d\n", virtio, len);
 
-    if (guest_pa_to_host_va(core, buf_desc->addr_gpa, (addr_t *)&(buf)) == -1) {
+    if (v3_gpa_to_hva(core, buf_desc->addr_gpa, (addr_t *)&(buf)) == -1) {
 	PrintError("Could not translate buffer address\n");
 	return -1;
     }
@@ -174,7 +174,7 @@ static int copy_data_to_desc(struct guest_info *core,
     uint32_t len;
     uint8_t * desc_buf = NULL;
 
-    if (guest_pa_to_host_va(core, desc->addr_gpa, (addr_t *)&(desc_buf)) == -1) {
+    if (v3_gpa_to_hva(core, desc->addr_gpa, (addr_t *)&(desc_buf)) == -1) {
 	PrintError("Could not translate buffer address\n");
 	return -1;
     }
@@ -219,7 +219,7 @@ static int handle_pkt_tx(struct guest_info *core, struct virtio_net_state * virt
 	int i = 0;
 
 	hdr_desc = &(q->desc[desc_idx]);
-	if (guest_pa_to_host_va(core, hdr_desc->addr_gpa, &(hdr_addr)) == -1) {
+	if (v3_gpa_to_hva(core, hdr_desc->addr_gpa, &(hdr_addr)) == -1) {
 	    PrintError("Could not translate block header address\n");
 	    return -1;
 	}
@@ -284,17 +284,17 @@ static int virtio_setup_queue(struct guest_info *core,
 
     // round up to next page boundary.
     queue->ring_used_addr = (queue->ring_used_addr + 0xfff) & ~0xfff;
-    if (guest_pa_to_host_va(core, queue->ring_desc_addr, (addr_t *)&(queue->desc)) == -1) {
+    if (v3_gpa_to_hva(core, queue->ring_desc_addr, (addr_t *)&(queue->desc)) == -1) {
         PrintError("Could not translate ring descriptor address\n");
 	 return -1;
     }
  
-    if (guest_pa_to_host_va(core, queue->ring_avail_addr, (addr_t *)&(queue->avail)) == -1) {
+    if (v3_gpa_to_hva(core, queue->ring_avail_addr, (addr_t *)&(queue->avail)) == -1) {
         PrintError("Could not translate ring available address\n");
         return -1;
     }
 
-    if (guest_pa_to_host_va(core, queue->ring_used_addr, (addr_t *)&(queue->used)) == -1) {
+    if (v3_gpa_to_hva(core, queue->ring_used_addr, (addr_t *)&(queue->used)) == -1) {
         PrintError("Could not translate ring used address\n");
         return -1;
     }
@@ -524,7 +524,7 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
 	struct vring_desc * hdr_desc = NULL;
 
 	hdr_desc = &(q->desc[hdr_idx]);
-	if (guest_pa_to_host_va(&(virtio->virtio_dev->vm->cores[0]), hdr_desc->addr_gpa, &(hdr_addr)) == -1) {
+	if (v3_gpa_to_hva(&(virtio->virtio_dev->vm->cores[0]), hdr_desc->addr_gpa, &(hdr_addr)) == -1) {
 	    PrintError("Could not translate receive buffer address\n");
 	    ret_val = -1;
 	    goto exit;

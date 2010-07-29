@@ -38,6 +38,13 @@ config ICC_BUS
 	help 
 	  The ICC Bus for APIC/IOAPIC communication
 
+config DEBUG_ICC_BUS
+	bool "ICC BUS Debugging"
+	default n
+	depends on ICC_BUS && DEBUG_ON
+	help
+	  Enable debugging for the ICC BUS
+
 
 config BOCHS_DEBUG
 	bool "Bochs Debug Console Device"
