@@ -84,19 +84,22 @@ static char *deliverymode_str[] = {
     "(NMI)",
     "(INIT)",
     "(Start Up)",
-    "(reserved)",
+    "(ExtInt)",
 };
 #endif
 
 
-static int deliver(uint32_t src_apic, struct apic_data *dest_apic, struct int_cmd_reg *icr, struct icc_bus_state * state) {
+static int deliver(uint32_t src_apic, struct apic_data *dest_apic, struct int_cmd_reg *icr, struct icc_bus_state * state, uint32_t extirq) {
 
     switch (icr->del_mode) {						
 
 	case 0:  //fixed
 	case 1: // lowest priority
+	case 7: // ExtInt
 	    PrintDebug("icc_bus: delivering IRQ to core %u\n",dest_apic->core->cpu_id); 
-	    dest_apic->ops->raise_intr(dest_apic->core, icr->vec, dest_apic->priv_data); 
+	    dest_apic->ops->raise_intr(dest_apic->core, 
+				       icr->del_mode!=7 ? icr->vec : extirq,
+				       dest_apic->priv_data); 
 	    if (src_apic!=state->ioapic_id && dest_apic->core->cpu_id != src_apic) { 
 		// Assume core # is same as logical processor for now
 		// TODO FIX THIS FIX THIS
@@ -115,7 +118,6 @@ static int deliver(uint32_t src_apic, struct apic_data *dest_apic, struct int_cm
 	    break;							
 	    
 	case 3:  //reserved						
-	case 7:
 	    PrintError("icc_bus: Reserved delivery mode 3 is unsupported\n"); 
 	    return -1;						
 	    break;							
@@ -190,10 +192,13 @@ static int deliver(uint32_t src_apic, struct apic_data *dest_apic, struct int_cm
 } 
 
 
+//
+// icr_data contains interrupt vector *except* for ext_int
+// in which case it is given via irq
+//
+int v3_icc_send_ipi(struct vm_device * icc_bus, uint32_t src_apic, uint64_t icr_data, uint32_t extirq) {
 
-int v3_icc_send_ipi(struct vm_device * icc_bus, uint32_t src_apic, uint64_t icr_data) {
-
-    PrintDebug("icc_bus: icc_bus=%p, src_apic=%u, icr_data=%llx\n",icc_bus,src_apic,icr_data);
+    PrintDebug("icc_bus: icc_bus=%p, src_apic=%u, icr_data=%llx, extirq=%u\n",icc_bus,src_apic,icr_data,extirq);
 
     struct int_cmd_reg *icr = (struct int_cmd_reg *)&icr_data;
     struct icc_bus_state * state = (struct icc_bus_state *)icc_bus->private_data;
@@ -210,10 +215,10 @@ int v3_icc_send_ipi(struct vm_device * icc_bus, uint32_t src_apic, uint64_t icr_
     
     struct apic_data * dest_apic =  &(state->apics[icr->dst]);
 
-
-    PrintDebug("icc_bus: IPI %s %u from %s %u to %s %u (icr=0x%llx)\n",
+    PrintDebug("icc_bus: IPI %s %u from %s %u to %s %u (icr=0x%llx) (extirq=%u)\n",
 	       deliverymode_str[icr->del_mode], icr->vec, src_apic==state->ioapic_id ? "ioapic" : "apic",
-	       src_apic, shorthand_str[icr->dst_shorthand], icr->dst,icr->val);
+	       src_apic, shorthand_str[icr->dst_shorthand], icr->dst,icr->val,
+	       extirq);
 
 
 
@@ -221,7 +226,7 @@ int v3_icc_send_ipi(struct vm_device * icc_bus, uint32_t src_apic, uint64_t icr_
     switch (icr->dst_shorthand) {
 
 	case 0:  // no shorthand
-	    if (deliver(src_apic,dest_apic,icr,state)) { 
+	    if (deliver(src_apic,dest_apic,icr,state,extirq)) { 
 		return -1;
 	    }
 	    break;
@@ -231,7 +236,7 @@ int v3_icc_send_ipi(struct vm_device * icc_bus, uint32_t src_apic, uint64_t icr_
 		PrintError("icc_bus: ioapic attempting to send to itself\n");
 		return -1;
 	    }
-	    if (deliver(src_apic,dest_apic,icr,state)) { 
+	    if (deliver(src_apic,dest_apic,icr,state,extirq)) { 
 		return -1;
 	    }
 	    break;
@@ -242,7 +247,7 @@ int v3_icc_send_ipi(struct vm_device * icc_bus, uint32_t src_apic, uint64_t icr_
 	    for (i=0;i<MAX_APICS;i++) { 
 		dest_apic=&(state->apics[i]);
 		if (dest_apic->present && (i!=src_apic || icr->dst_shorthand==2)) { 
-		    if (deliver(src_apic,dest_apic,icr,state)) { 
+		    if (deliver(src_apic,dest_apic,icr,state,extirq)) { 
 			return -1;
 		    }
 		}
