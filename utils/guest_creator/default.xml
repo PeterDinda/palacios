@@ -44,12 +44,13 @@
 		<device id="8254_PIT" name="PIT" />
 		<device id="BOCHS_DEBUG" name="bochs debug"/>
 		<device id="OS_DEBUG" name="os debug" />
-<!--
-		<device id="LAPIC" name="apic"/>
-		<device id="IOAPIC" name="ioapic">
-                       <irq_bus>apic</irq_bus>
+		<device id="ICC_BUS" name="icc"/>
+		<device id="LAPIC" name="apic">
+			<bus>icc</bus>
 		</device>
--->
+		<device id="IOAPIC" name="ioapic">
+                	<bus>icc</bus>
+		</device>
 
 <!--
 		<device id="CGA_VIDEO" name="cga" passthrough="enable" />
