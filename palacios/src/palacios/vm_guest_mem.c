@@ -75,6 +75,7 @@ int v3_gpa_to_hpa(struct guest_info * info, addr_t gpa, addr_t * hpa) {
     if (reg->flags.alloced == 0) {
 	PrintError("In GPA->HPA: Tried to translate physical address of non allocated page (addr=%p)\n", 
 		   (void *)gpa);
+	v3_print_mem_map(info->vm_info);
 	return -1;
     }
 	

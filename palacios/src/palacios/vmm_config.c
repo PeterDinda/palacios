@@ -30,7 +30,7 @@
 #include <palacios/vmm_xml.h>
 #include <palacios/vmm_io.h>
 #include <palacios/vmm_msr.h>
-
+#include <palacios/vmm_mptable.h>
 
 
 
@@ -309,6 +309,11 @@ static int post_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	return -1;
     }
 
+    if (v3_inject_mptable(vm)==-1) { 
+	PrintError("Failed to inject mptable during configuration\n");
+	return -1;
+    }
+
     return 0;
 }
 
@@ -408,7 +413,6 @@ struct v3_vm_info * v3_config_guest(void * cfg_blob) {
     for (i = 0; i < vm->num_cores; i++) {
 	struct guest_info * info = &(vm->cores[i]);
 
-	
 	info->cpu_id = i;
 	info->vm_info = vm;
 

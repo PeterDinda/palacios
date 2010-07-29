@@ -220,7 +220,7 @@ struct int_cmd_reg {
 
 	struct {
 	    uint_t vec           : 8;
-	    uint_t msg_type      : 3;
+	    uint_t del_mode      : 3; 
 	    uint_t dst_mode      : 1;
 	    uint_t del_status    : 1;
 	    uint_t rsvd1         : 1;
