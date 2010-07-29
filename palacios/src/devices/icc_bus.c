@@ -33,7 +33,9 @@
 
 
 void v3_force_exit(void *p) {
+#ifdef CONFIG_DEBUG_ICC_BUS
     struct guest_info *core=(struct guest_info *)p;
+#endif
     PrintDebug("core %u: Forced to exit!\n",core->cpu_id);
 }
 
@@ -66,7 +68,7 @@ static struct v3_device_ops dev_ops = {
     .stop = NULL,
 };
 
-
+#ifdef CONFIG_DEBUG_ICC_BUS
 static char *shorthand_str[] = { 
     "(no shorthand)",
     "(self)",
@@ -84,7 +86,7 @@ static char *deliverymode_str[] = {
     "(Start Up)",
     "(reserved)",
 };
-
+#endif
 
 
 static int deliver(uint32_t src_apic, struct apic_data *dest_apic, struct int_cmd_reg *icr, struct icc_bus_state * state) {
