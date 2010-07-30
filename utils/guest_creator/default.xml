@@ -7,8 +7,14 @@
 
 	<!-- Basic VMM system flags -->
 	<telemetry>enable</telemetry>
-	<paging type="shadow" mode="VTLB"/>
-	<!-- <paging type="nested" mode="4KB"/> -->
+	<paging mode="shadow">
+		<strategy>VTLB</strategy>
+	</paging>
+<!--
+	<paging mode="nested">
+		<pagesize>4KB</pagesize>
+	</paging>
+-->
 	<schedule_hz>100</schedule_hz>
 
 	<cores count="1"><core /></cores>

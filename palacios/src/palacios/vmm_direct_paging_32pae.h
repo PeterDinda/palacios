@@ -48,11 +48,6 @@ static inline int handle_passthrough_pagefault_32pae(struct guest_info * info,
 	return -1;
     }
 
-    if (v3_gpa_to_hpa(info, fault_addr, &host_addr) == -1) {
-	PrintError("Could not translate fault address (%p)\n", (void *)fault_addr);
-	return -1;
-    }
-
     // Lookup the correct PDPE address based on the PAGING MODE
     if (info->shdw_pg_mode == SHADOW_PAGING) {
 	pdpe = CR3_TO_PDPE32PAE_VA(info->ctrl_regs.cr3);
@@ -99,6 +94,11 @@ static inline int handle_passthrough_pagefault_32pae(struct guest_info * info,
 		pte[pte_index].writable = 1;
 	    } else {
 		pte[pte_index].writable = 0;
+	    }
+
+	    if (v3_gpa_to_hpa(info, fault_addr, &host_addr) == -1) {
+		PrintError("Could not translate fault address (%p)\n", (void *)fault_addr);
+		return -1;
 	    }
 
 	    pte[pte_index].page_base_addr = PAGE_BASE_ADDR(host_addr);
