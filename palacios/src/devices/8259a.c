@@ -277,13 +277,16 @@ static int pic_get_intr_number(struct guest_info * info, void * private_data) {
 	}
     }
 
+#if 1
     if ((i == 15) || (i == 6)) { 
 	DumpPICState(state);
     }
+#endif
   
     if (i == 16) { 
 	return -1;
     } else {
+	PrintDebug("8259 PIC: get num is returning %d\n",irq);
 	return irq;
     }
 }

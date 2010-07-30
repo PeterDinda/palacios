@@ -364,7 +364,7 @@ static int write_mptable(void *target, uint32_t numcores)
 	interrupt->io_interrupt_flags.fields.el=INT_TRIGGER_DEFAULT;
 	interrupt->source_bus_id=0;
 	interrupt->source_bus_irq=irq;
-	interrupt->dest_ioapic_id=1;
+	interrupt->dest_ioapic_id=numcores;
 	interrupt->dest_ioapic_intn=irq;
     }
 

@@ -68,7 +68,6 @@ static int handle_mem_hook(struct guest_info * info, addr_t guest_va, addr_t gue
     
     if (access_info.write == 1) { 
 	// Write Operation 
-
 	if (v3_emulate_write_op(info, guest_va, guest_pa, op_addr, 
 				hook->write, hook->priv_data) == -1) {
 	    PrintError("Write Full Hook emulation failed\n");

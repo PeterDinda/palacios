@@ -40,6 +40,7 @@
 #endif
 
 
+
 int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_info1, addr_t exit_info2) {
 
 #ifdef CONFIG_TELEMETRY
@@ -49,6 +50,11 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 #endif
 
 
+#if 0
+    if (info->cpu_id==1) { 
+	V3_Print("Core 1 SVM Exit: %s  rip=0x%p\n", vmexit_code_to_str(exit_code), (void *) get_addr_linear(info, info->rip, &(info->segments.cs)));
+    }
+#endif
     //PrintDebug("SVM Returned: Exit Code: %x\n",exit_code); 
 
     switch (exit_code) {
@@ -163,6 +169,12 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 #ifdef CONFIG_DEBUG_SHADOW_PAGING
 	    PrintDebug("PageFault at %p (error=%d)\n", 
 		       (void *)fault_addr, *(uint_t *)error_code);
+#endif
+#if 0
+	    if (info->cpu_id==1) { 
+		V3_Print("SVM Core 1: PageFault at %p (error=%d)\n", 
+		       (void *)fault_addr, *(uint_t *)error_code);
+	    }
 #endif
 	    if (info->shdw_pg_mode == SHADOW_PAGING) {
 		if (v3_handle_shadow_pagefault(info, fault_addr, *error_code) == -1) {

@@ -491,7 +491,6 @@ static int handle_pte_shadow_pagefault_64(struct guest_info * info, addr_t fault
 
 	} else {
 	    // Pass to unhandled call back
-
 	    if (shdw_reg->unhandled(info, fault_addr, guest_pa, shdw_reg, error_code) == -1) {
 		PrintError("Special Page fault handler returned error for address: %p\n",  (void *)fault_addr);
 		return -1;

@@ -157,10 +157,6 @@ static int deliver(uint32_t src_apic, struct apic_data *dest_apic, struct int_cm
 
 	case 6: { //SIPI
 	    struct guest_info *core = dest_apic->core;
-	    uint64_t rip = icr->vec << 12;  // vector encodes target address;
-
-	    PrintDebug("icc_bus: SIPI delivery (0x%x -> rip=0x%p) to core %u\n",
-		       icr->vec, (void*)rip, core->cpu_id);
 
 	    // Sanity check
 	    if (core->cpu_mode!=SIPI) { 
@@ -170,11 +166,21 @@ static int deliver(uint32_t src_apic, struct apic_data *dest_apic, struct int_cm
 
 	    // Write the RIP, CS, and descriptor
 	    // assume the rest is already good to go
-	    core->rip=rip & 0xffff;
-	    core->segments.cs.selector = (rip >> 4) & 0xf000;
+	    //
+	    // vector VV -> rip at 0
+	    //              CS = VV00
+	    //  This means we start executing at linear address VV000
+	    //
+	    // So the selector needs to be VV00
+	    // and the base needs to be VV000
+	    //
+	    core->rip=0;
+	    core->segments.cs.selector = icr->vec<<8;
 	    core->segments.cs.limit= 0xffff;
-	    core->segments.cs.base = rip & 0xf0000;
+	    core->segments.cs.base = icr->vec<<12;
 
+	    PrintDebug("icc_bus: SIPI delivery (0x%x -> 0x%x:0x0) to core %u\n",
+		       icr->vec, core->segments.cs.selector, core->cpu_id);
 	    // Maybe need to adjust the APIC?
 	    
 	    // We transition the target core to SIPI state

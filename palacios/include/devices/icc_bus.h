@@ -39,8 +39,9 @@ int v3_icc_register_ioapic(struct v3_vm_info *vm, struct vm_device * icc_bus, ui
  * @param apic_src - The source APIC id.
  * @param apic_num - The remote APIC number.
  * @param icr      - A copy of the APIC's ICR.  (LAPIC-style ICR, clone from redir table for ioapics)
+ & @param extirq   - irq for external interrupts (e.g., from 8259)
  */
-int v3_icc_send_ipi(struct vm_device * icc_bus, uint32_t apic_src, uint64_t icr);
+int v3_icc_send_ipi(struct vm_device * icc_bus, uint32_t apic_src, uint64_t icr, uint32_t ext_irq);
 
 
 #if 0
