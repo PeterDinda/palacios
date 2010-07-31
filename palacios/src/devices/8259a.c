@@ -315,7 +315,10 @@ static int pic_begin_irq(struct guest_info * info, void * private_data, int irq)
            if (!(state->master_elcr & (0x1 << irq))) {
                state->master_irr &= ~(0x1 << irq);
            }
+       } else {
+	   PrintDebug("8259 PIC: (master) Ignoring begin_irq for %d since I don't own it\n",irq);
        }
+
     } else {
 	// This should always be true: See pic_get_intr_number
 	if (((state->slave_irr & ~(state->slave_imr)) >> (irq - 8)) & 0x01) {
@@ -324,7 +327,10 @@ static int pic_begin_irq(struct guest_info * info, void * private_data, int irq)
 	   if (!(state->slave_elcr & (0x1 << (irq - 8)))) {
 	       state->slave_irr &= ~(0x1 << (irq - 8));
 	   }
-       }
+	} else {
+	   PrintDebug("8259 PIC: (slave) Ignoring begin_irq for %d since I don't own it\n",irq);
+	}
+
     }
 
     return 0;

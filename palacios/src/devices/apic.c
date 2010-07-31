@@ -917,6 +917,8 @@ static int apic_intr_pending(struct guest_info * info, void * private_data) {
     int req_irq = get_highest_irr(apic);
     int svc_irq = get_highest_isr(apic);
 
+    PrintDebug("apic %u: core %u: req_irq=%d, svc_irq=%d\n",apic->lapic_id.val,info->cpu_id,req_irq,svc_irq);
+
     if ((req_irq >= 0) && 
 	(req_irq > svc_irq)) {
 	return 1;
@@ -956,8 +958,16 @@ static int apic_begin_irq(struct guest_info * info, void * private_data, int irq
     uchar_t * svc_location = apic->int_svc_reg + major_offset;
     uchar_t flag = 0x01 << minor_offset;
 
-    *svc_location |= flag;
-    *req_location &= ~flag;
+    if (*req_location & flag) {
+	// we will only pay attention to a begin irq if we
+	// know that we initiated it!
+	*svc_location |= flag;
+	*req_location &= ~flag;
+    } else {
+	// do nothing... 
+	PrintDebug("apic %u: core %u: begin irq for %d ignored since I don't own it\n",
+		   apic->lapic_id.val,info->cpu_id,irq);
+    }
 
 
 
