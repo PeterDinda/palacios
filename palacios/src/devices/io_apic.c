@@ -155,6 +155,10 @@ static void init_ioapic_state(struct io_apic_state * ioapic, uint32_t id) {
 	// Mask all interrupts until they are enabled....
 	ioapic->redir_tbl[i].mask = 1;
     }
+    
+    // special case redir_tbl[0] for pin 0 as ExtInt for Virtual Wire Mode
+    ioapic->redir_tbl[0].del_mode=EXTINT;
+    ioapic->redir_tbl[0].mask=0;
 }
 
 
@@ -197,6 +201,8 @@ static int ioapic_read(struct guest_info * core, addr_t guest_addr, void * dst, 
 		}
 	}
     }
+
+    PrintDebug("ioapic %u: IOAPIC Read at %p gave value 0x%x\n", ioapic->ioapic_id.val, (void *)guest_addr, *op_val);
 
     return length;
 }
@@ -267,7 +273,9 @@ static int ioapic_raise_irq(struct v3_vm_info * vm, void * private_data, int irq
     irq_entry = &(ioapic->redir_tbl[irq]);
 
     if (irq_entry->mask == 0) {
+
 	PrintDebug("ioapic %u: IOAPIC Signalling APIC to raise INTR %d\n", ioapic->ioapic_id.val, irq_entry->vec);
+
 
 	// the format of the redirection table entry is just slightly 
 	// different than that of the lapic's cmd register, which is the other
@@ -283,7 +291,7 @@ static int ioapic_raise_irq(struct v3_vm_info * vm, void * private_data, int irq
 	icr.dst_shorthand=0; // no shorthand
 	icr.rsvd2=0;
 
-	v3_icc_send_ipi(ioapic->icc_bus, ioapic->ioapic_id.val,icr.val);
+	v3_icc_send_ipi(ioapic->icc_bus, ioapic->ioapic_id.val,icr.val, irq);
     }
 
     return 0;

@@ -33,6 +33,13 @@
 #include <palacios/vmx_io.h>
 #include <palacios/vmx_msr.h>
 
+
+#ifndef CONFIG_DEBUG_VMX
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
+#endif
+
+
 static addr_t host_vmcs_ptrs[CONFIG_MAX_CPUS] = { [0 ... CONFIG_MAX_CPUS - 1] = 0};
 
 

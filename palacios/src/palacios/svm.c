@@ -113,7 +113,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
     
 
     ctrl_area->instrs.NMI = 1;
-    ctrl_area->instrs.SMI = 1;
+    ctrl_area->instrs.SMI = 0; // allow SMIs to run in guest
     ctrl_area->instrs.INIT = 1;
     ctrl_area->instrs.PAUSE = 1;
     ctrl_area->instrs.shutdown_evts = 1;
@@ -476,7 +476,8 @@ int v3_svm_enter(struct guest_info * info) {
     //    guest_ctrl->TSC_OFFSET = info->time_state.guest_tsc - info->time_state.cached_host_tsc;
 
     //V3_Print("Calling v3_svm_launch\n");
-	
+
+
     v3_svm_launch((vmcb_t *)V3_PAddr(info->vmm_data), &(info->vm_regs), (vmcb_t *)host_vmcbs[info->cpu_id]);
     
     //V3_Print("SVM Returned: Exit Code: %x, guest_rip=%lx\n", (uint32_t)(guest_ctrl->exit_code), (unsigned long)guest_state->rip);
@@ -538,6 +539,7 @@ int v3_svm_enter(struct guest_info * info) {
  
     // Conditionally yield the CPU if the timeslice has expired
     v3_yield_cond(info);
+
 
 
     if (v3_handle_svm_exit(info, exit_code, exit_info1, exit_info2) != 0) {

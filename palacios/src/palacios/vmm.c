@@ -63,7 +63,7 @@ static void init_cpu(void * arg) {
     } else 
 #endif
     {
-       PrintError("CPU has no virtualization Extensions\n");
+       PrintError("CPU has no virtualizationExtensions\n");
     }
 }
 
@@ -156,7 +156,7 @@ static int start_core(void *p)
 	    break;
 #endif
 	default:
-	    PrintError("Attemping to enter a guest on an invalid CPU\n");
+	    PrintError("Attempting to enter a guest on an invalid CPU\n");
 	    return -1;
     }
     // should not happen
@@ -203,6 +203,9 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
 	proc_to_use=get_next_core(cpu_mask,last_proc);
 	last_proc=proc_to_use;
 
+	// vm->cores[i].cpu_id=i;
+	// vm->cores[i].physical_cpu_id=proc_to_use;
+
 	PrintDebug("Starting virtual core %u on logical core %u\n",i,proc_to_use);
 	
 	sprintf(tname,"core%u",i);
@@ -216,6 +219,9 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
 	    return -1;
 	}
     }
+
+    // vm->cores[0].cpu_id=0;
+    // vm->cores[0].physical_cpu_id=0;
 
     // Finally launch the BSP on core 0
     sprintf(tname,"core%u",0);

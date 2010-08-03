@@ -32,6 +32,11 @@
 #include <palacios/vmx_assist.h>
 #include <palacios/vmm_halt.h>
 
+#ifndef CONFIG_DEBUG_VMX
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
+#endif
+
 #ifdef CONFIG_TELEMETRY
 #include <palacios/vmm_telemetry.h>
 #endif

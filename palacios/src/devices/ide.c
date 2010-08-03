@@ -365,7 +365,7 @@ static void print_prd_table(struct vm_device * dev, struct ide_channel * channel
 	uint32_t prd_entry_addr = channel->dma_prd_addr + (sizeof(struct ide_dma_prd) * index);
 	int ret;
 
-	ret = read_guest_pa_memory(dev->vm, prd_entry_addr, sizeof(struct ide_dma_prd), (void *)&prd_entry);
+	ret = v3_read_gpa_memory(&(dev->vm->cores[0]), prd_entry_addr, sizeof(struct ide_dma_prd), (void *)&prd_entry);
 	
 	if (ret != sizeof(struct ide_dma_prd)) {
 	    PrintError("Could not read PRD\n");
@@ -1400,7 +1400,11 @@ static void init_channel(struct ide_channel * channel) {
 
 static int pci_config_update(uint_t reg_num, void * src, uint_t length, void * private_data) {
     PrintDebug("PCI Config Update\n");
-    PrintDebug("\t\tInterupt register (Dev=%s), irq=%d\n", pci_dev->name, pci_dev->config_header.intr_line);
+    /*    struct vm_device * dev = (struct vm_device *)private_data;
+    struct ide_internal * ide = (struct ide_internal *)(dev->private_data);
+
+    PrintDebug("\t\tInterupt register (Dev=%s), irq=%d\n", ide->ide_pci->name, ide->ide_pci->config_header.intr_line);
+    */
 
     return 0;
 }

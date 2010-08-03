@@ -241,26 +241,52 @@ static int pre_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * vm_cfg) {
     return 0;
 }
 
-static int pre_config_core(struct guest_info * info, v3_cfg_tree_t * core_cfg) {
+static int determine_paging_mode(struct guest_info *info, v3_cfg_tree_t * core_cfg)
+{
     extern v3_cpu_arch_t v3_cpu_types[];
-    v3_cfg_tree_t * paging_cfg = v3_cfg_subtree(core_cfg, "paging");
-    char * paging = v3_cfg_val(paging_cfg, "mode");
 
-
+    v3_cfg_tree_t *vm_tree = info->vm_info->cfg_data->cfg;
+    v3_cfg_tree_t *pg_tree = v3_cfg_subtree(vm_tree, "paging");
+    char *pg_mode = v3_cfg_val(pg_tree, "mode");
     
-    if ((v3_cpu_types[info->cpu_id] == V3_SVM_REV3_CPU) && 
-	(paging) && (strcasecmp(paging, "nested") == 0)) {
-	PrintDebug("Guest Page Mode: NESTED_PAGING\n");
-	info->shdw_pg_mode = NESTED_PAGING;
-    } else {
-	PrintDebug("Guest Page Mode: SHADOW_PAGING\n");
+    PrintDebug("Paging mode specified as %s\n", pg_mode);
 
+    if (pg_mode) {
+	if ((strcasecmp(pg_mode, "nested") == 0)) {
+	    if (v3_cpu_types[info->cpu_id] == V3_SVM_REV3_CPU) {
+	    	info->shdw_pg_mode = NESTED_PAGING;
+	    } else {
+		PrintError("Nested paging not supported on this hardware. Defaulting to shadow paging\n");
+	    	info->shdw_pg_mode = SHADOW_PAGING;
+	    }
+	} else if ((strcasecmp(pg_mode, "shadow") == 0)) {
+	    info->shdw_pg_mode = SHADOW_PAGING;
+	} else {
+	    PrintError("Invalid paging mode (%s) specified in configuration. Defaulting to shadow paging\n", pg_mode);
+	    info->shdw_pg_mode = SHADOW_PAGING;
+	}
+    } else {
+	PrintDebug("No paging mode specified in configuration.\n");
 	info->shdw_pg_mode = SHADOW_PAGING;
     }
 
+    if (info->shdw_pg_mode == NESTED_PAGING) {
+    	PrintDebug("Guest Paging Mode: NESTED_PAGING\n");
+    } else if (info->shdw_pg_mode == SHADOW_PAGING) {
+        PrintDebug("Guest Paging Mode: SHADOW_PAGING\n");
+    } else {
+	PrintError("Guest paging mode incorrectly set.\n");
+	return -1;
+    }
+    return 0;
+}
+
+static int pre_config_core(struct guest_info * info, v3_cfg_tree_t * core_cfg) {
+
+    if (determine_paging_mode(info, core_cfg))
+	return -1;
 
     v3_init_core(info);
-
 
     if (info->vm_info->vm_class == V3_PC_VM) {
 	if (pre_config_pc_core(info, core_cfg) == -1) {
@@ -416,7 +442,10 @@ struct v3_vm_info * v3_config_guest(void * cfg_blob) {
 	info->cpu_id = i;
 	info->vm_info = vm;
 
-	pre_config_core(info, per_core_cfg);
+	if (pre_config_core(info, per_core_cfg) == -1) {
+	    PrintError("Error in core %d preconfiguration\n", i);
+	    return NULL;
+	}
 
 	per_core_cfg = v3_cfg_next_branch(per_core_cfg);
     }

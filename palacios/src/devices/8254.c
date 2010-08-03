@@ -669,7 +669,7 @@ static int pit_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
 #ifdef CONFIG_DEBUG_PIT
     PrintDebug("8254 PIT: OSC_HZ=%d, reload_val=", OSC_HZ);
-    PrintTraceLL(reload_val);
+    //PrintTrace(reload_val);
     PrintDebug("\n");
 #endif
 
@@ -690,7 +690,7 @@ static int pit_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
 #ifdef CONFIG_DEBUG_PIT
     PrintDebug("8254 PIT: CPU MHZ=%d -- pit count=", cpu_khz / 1000);
-    PrintTraceLL(pit_state->pit_counter);
+    //PrintTraceLL(pit_state->pit_counter);
     PrintDebug("\n");
 #endif
 

@@ -219,7 +219,6 @@ static int check_table(void *target)
     uint8_t sum;
     struct mp_table_header *header;
 
-    V3_Print("Checksuming mptable header and entries at %p\n",target);
 
     header=(struct mp_table_header *)target;
     sum=0;
@@ -227,10 +226,9 @@ static int check_table(void *target)
 	sum+=((uint8_t *)target)[i];
     }
     if (sum==0) { 
-	V3_Print("Checksum passed\n");
 	return 1;
     } else {
-	V3_Print("Checksum FAILED\n");
+	// failed checksum
 	return 0;
     }
 }
@@ -242,18 +240,16 @@ static int check_pointer(void *target)
     uint8_t sum;
     struct mp_floating_pointer *p;
 
-    V3_Print("Checksuming mptable floating pointer at %p\n",target);
-
     p=(struct mp_floating_pointer *)target;
     sum=0;
     for (i=0;i<p->length*16;i++) {
 	sum+=((uint8_t *)target)[i];
     }
     if (sum==0) { 
-	V3_Print("Checksum passed\n");
+	// passed
 	return 1;
     } else {
-	V3_Print("Checksum FAILED\n");
+	// failed
 	return 0;
     }
 }
@@ -280,8 +276,6 @@ static int write_pointer(void *target, uint32_t mptable_gpa)
 	sum+=((uint8_t *)target)[i];
     }
     p->checksum=(255-sum)+1;
-
-    V3_Print("MP Floating Pointer written to %p\n",target);
 
     return 0;
 }
@@ -364,7 +358,7 @@ static int write_mptable(void *target, uint32_t numcores)
 	interrupt->io_interrupt_flags.fields.el=INT_TRIGGER_DEFAULT;
 	interrupt->source_bus_id=0;
 	interrupt->source_bus_irq=irq;
-	interrupt->dest_ioapic_id=1;
+	interrupt->dest_ioapic_id=numcores;
 	interrupt->dest_ioapic_intn=irq;
     }
 
@@ -405,7 +399,7 @@ int v3_inject_mptable(struct v3_vm_info *vm)
 	return -1;
     }
 
-    V3_Print("Starting mptable pointer, header, and entry construction for %u cores at %p\n",vm->num_cores,target);
+    V3_Print("Constructing mptable for %u cores at %p\n",vm->num_cores,target);
 
     if (-1==write_pointer(target,BIOS_MP_TABLE_DEFAULT_LOCATION+sizeof(struct mp_floating_pointer))) { 
 	PrintError("Unable to write mptable floating pointer, aborting.\n");
@@ -427,7 +421,6 @@ int v3_inject_mptable(struct v3_vm_info *vm)
 	return -1;
     }
 
-    V3_Print("Done with mptable pointer, header, and entry construction\n");
 
     return 0;
     

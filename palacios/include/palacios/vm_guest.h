@@ -106,8 +106,9 @@ struct guest_info {
 
 
     struct v3_vm_info * vm_info;
-    // the logical cpu this guest context is executing on
-    int cpu_id;
+
+    // the logical cpu on which this core runs
+    uint32_t cpu_id;
 };
 
 

@@ -34,10 +34,15 @@
 #include <palacios/vmm_cpuid.h>
 #include <palacios/vmm_direct_paging.h>
 
+#ifndef CONFIG_DEBUG_SVM
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
+#endif
 
 #ifdef CONFIG_TELEMETRY
 #include <palacios/vmm_telemetry.h>
 #endif
+
 
 
 int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_info1, addr_t exit_info2) {

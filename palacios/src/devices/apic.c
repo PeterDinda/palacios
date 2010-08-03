@@ -120,7 +120,7 @@ typedef enum { APIC_TMR_INT, APIC_THERM_INT, APIC_PERF_INT,
 
 struct apic_msr {
     union {
-	uint64_t val;
+	uint64_t value;
 	struct {
 	    uchar_t rsvd;
 	    uint_t bootstrap_cpu : 1;
@@ -139,7 +139,7 @@ struct apic_state {
     addr_t base_addr;
 
     /* MSRs */
-    v3_msr_t base_addr_msr;
+    struct apic_msr base_addr_msr;
 
 
     /* memory map registers */
@@ -193,11 +193,21 @@ static int apic_write(struct guest_info * core, addr_t guest_addr, void * src, u
 
 static void init_apic_state(struct apic_state * apic, uint32_t id, struct vm_device * icc) {
     apic->base_addr = DEFAULT_BASE_ADDR;
-    apic->base_addr_msr.value = 0x0000000000000900LL;
+    if (id==0) { 
+	// boot processor, enabled
+	apic->base_addr_msr.value = 0x0000000000000900LL;
+    } else {
+	// ap processor, enabled
+	apic->base_addr_msr.value = 0x0000000000000800LL;
+    }
+
+    // same base address regardless of ap or main
     apic->base_addr_msr.value |= ((uint64_t)DEFAULT_BASE_ADDR); 
 
-    PrintDebug("apic %u: Sizeof Interrupt Request Register %d, should be 32\n", apic->lapic_id.val,
-	       (uint_t)sizeof(apic->int_req_reg));
+    PrintDebug("apic %u: (init_apic_state): msr=0x%llx\n",id, apic->base_addr_msr.value);
+
+    PrintDebug("apic %u: (init_apic_state): Sizeof Interrupt Request Register %d, should be 32\n",
+	       id, (uint_t)sizeof(apic->int_req_reg));
 
     memset(apic->int_req_reg, 0, sizeof(apic->int_req_reg));
     memset(apic->int_svc_reg, 0, sizeof(apic->int_svc_reg));
@@ -247,6 +257,7 @@ static int read_apic_msr(struct guest_info * core, uint_t msr, v3_msr_t * dst, v
     struct apic_state * apics = (struct apic_state *)(dev->private_data);
     struct apic_state * apic = &(apics[core->cpu_id]);
 
+    PrintDebug("apic %u: core %u: MSR read\n",apic->lapic_id.val,core->cpu_id);
     v3_lock(apic->lock);
     dst->value = apic->base_addr;
     v3_unlock(apic->lock);
@@ -261,9 +272,11 @@ static int write_apic_msr(struct guest_info * core, uint_t msr, v3_msr_t src, vo
     struct v3_mem_region * old_reg = v3_get_mem_region(dev->vm, core->cpu_id, apic->base_addr);
 
 
+    PrintDebug("apic %u: core %u: MSR write\n",apic->lapic_id.val,core->cpu_id);
+
     if (old_reg == NULL) {
 	// uh oh...
-	PrintError("apic %u: APIC Base address region does not exit...\n",apic->lapic_id.val);
+	PrintError("apic %u: core %u: APIC Base address region does not exit...\n",apic->lapic_id.val,core->cpu_id);
 	return -1;
     }
     
@@ -274,7 +287,7 @@ static int write_apic_msr(struct guest_info * core, uint_t msr, v3_msr_t src, vo
     apic->base_addr = src.value;
 
     if (v3_hook_full_mem(dev->vm, core->cpu_id, apic->base_addr, apic->base_addr + PAGE_SIZE_4KB, apic_read, apic_write, dev) == -1) {
-	PrintError("apic %u: Could not hook new APIC Base address\n",apic->lapic_id.val);
+	PrintError("apic %u: core %u: Could not hook new APIC Base address\n",apic->lapic_id.val,core->cpu_id);
 	v3_unlock(apic->lock);
 	return -1;
     }
@@ -296,14 +309,14 @@ static int activate_apic_irq(struct apic_state * apic, uint32_t irq_num) {
 #if 1
 
     if (irq_num <= 15) {
-	PrintError("apic %u: Attempting to raise an invalid interrupt: %d\n", apic->lapic_id.val,irq_num);
+	PrintError("apic %u: core ?: Attempting to raise an invalid interrupt: %d\n", apic->lapic_id.val,irq_num);
 	return -1;
     }
 
 #endif
 
 
-    PrintDebug("apic %u: Raising APIC IRQ %d\n", apic->lapic_id.val,irq_num);
+    PrintDebug("apic %u: core ?: Raising APIC IRQ %d\n", apic->lapic_id.val,irq_num);
 
     if (*req_location & flag) {
 	//V3_Print("Interrupts coallescing\n");
@@ -312,7 +325,7 @@ static int activate_apic_irq(struct apic_state * apic, uint32_t irq_num) {
     if (*en_location & flag) {
 	*req_location |= flag;
     } else {
-	PrintDebug("apic %u: Interrupt  not enabled... %.2x\n", apic->lapic_id.val, *en_location);
+	PrintDebug("apic %u: core ?: Interrupt  not enabled... %.2x\n", apic->lapic_id.val, *en_location);
 	return 0;
     }
 
@@ -375,7 +388,7 @@ static int apic_do_eoi(struct apic_state * apic) {
 	uchar_t flag = 0x1 << minor_offset;
 	uchar_t * svc_location = apic->int_svc_reg + major_offset;
 	
-	PrintDebug("Received APIC EOI for IRQ %d\n", isr_irq);
+	PrintDebug("apic %u: core ?: Received APIC EOI for IRQ %d\n", apic->lapic_id.val,isr_irq);
 	
 	*svc_location &= ~flag;
 
@@ -383,7 +396,7 @@ static int apic_do_eoi(struct apic_state * apic) {
 	
 	if ((isr_irq == 238) || 
 	    (isr_irq == 239)) {
-	    PrintError("Acking IRQ %d\n", isr_irq);
+	    PrintError("apic %u: core ?: Acking IRQ %d\n", apic->lapic_id.val,isr_irq);
 	}
 	
 	if (isr_irq == 238) {
@@ -391,7 +404,7 @@ static int apic_do_eoi(struct apic_state * apic) {
 	}
 #endif
     } else {
-	//PrintError("Spurious EOI...\n");
+	//PrintError("apic %u: core ?: Spurious EOI...\n",apic->lapic_id.val);
     }
 	
     return 0;
@@ -436,13 +449,13 @@ static int activate_internal_irq(struct apic_state * apic, apic_irq_type_t int_t
 	    masked = apic->err_vec_tbl.mask;
 	    break;
 	default:
-	    PrintError("apic %u: Invalid APIC interrupt type\n",apic->lapic_id.val);
+	    PrintError("apic %u: core ?: Invalid APIC interrupt type\n",apic->lapic_id.val);
 	    return -1;
     }
 
     // interrupt is masked, don't send
     if (masked == 1) {
-	PrintDebug("apic %u: Inerrupt is masked\n",apic->lapic_id.val);
+	PrintDebug("apic %u: core ?: Inerrupt is masked\n",apic->lapic_id.val);
 	return 0;
     }
 
@@ -450,25 +463,24 @@ static int activate_internal_irq(struct apic_state * apic, apic_irq_type_t int_t
 	//PrintDebug("Activating internal APIC IRQ %d\n", vec_num);
 	return activate_apic_irq(apic, vec_num);
     } else {
-	PrintError("apic %u: Unhandled Delivery Mode\n",apic->lapic_id.val);
+	PrintError("apic %u: core ?: Unhandled Delivery Mode\n",apic->lapic_id.val);
 	return -1;
     }
 }
 
 
 static int apic_read(struct guest_info * core, addr_t guest_addr, void * dst, uint_t length, void * priv_data) {
-    struct apic_state * apics = (struct apic_state *)(priv_data);
-    struct apic_state * apic = &(apics[core->cpu_id]);
+    struct apic_state * apic = (struct apic_state *)(priv_data);
     addr_t reg_addr  = guest_addr - apic->base_addr;
     struct apic_msr * msr = (struct apic_msr *)&(apic->base_addr_msr.value);
     uint32_t val = 0;
 
 
-    PrintDebug("apic %u: Read apic address space (%p)\n",apic->lapic_id.val, 
-	       (void *)guest_addr);
+    PrintDebug("apic %u: core %u: at %p: Read apic address space (%p)\n",apic->lapic_id.val,core->cpu_id, apic, (void *)guest_addr);
 
     if (msr->apic_enable == 0) {
-	PrintError("apic %u: Write to APIC address space with disabled APIC\n",apic->lapic_id.val);
+	PrintError("apic %u: core %u: Read from APIC address space with disabled APIC, apic msr=0x%llx\n",apic->lapic_id.val,core->cpu_id,apic->base_addr_msr.value);
+
 	return -1;
     }
 
@@ -680,7 +692,7 @@ static int apic_read(struct guest_info * core, addr_t guest_addr, void * dst, ui
 	case SEOI_OFFSET:
 
 	default:
-	    PrintError("apic %u: Read from Unhandled APIC Register: %x (getting zero)\n", apic->lapic_id.val, (uint32_t)reg_addr);
+	    PrintError("apic %u: core %u: Read from Unhandled APIC Register: %x (getting zero)\n", apic->lapic_id.val,core->cpu_id, (uint32_t)reg_addr);
 	    //	    return -1;
 	    val=0;
     }
@@ -703,11 +715,11 @@ static int apic_read(struct guest_info * core, addr_t guest_addr, void * dst, ui
 	*val_ptr = val;
 
     } else {
-	PrintError("apic %u: Invalid apic read length (%d)\n", apic->lapic_id.val, length);
+	PrintError("apic %u: core %u: Invalid apic read length (%d)\n", apic->lapic_id.val,core->cpu_id, length);
 	return -1;
     }
 
-    PrintDebug("apic %u: Read finished (val=%x)\n", apic->lapic_id.val, *(uint32_t *)dst);
+    PrintDebug("apic %u: core %u: Read finished (val=%x)\n", apic->lapic_id.val,core->cpu_id, *(uint32_t *)dst);
 
     return length;
 }
@@ -717,24 +729,23 @@ static int apic_read(struct guest_info * core, addr_t guest_addr, void * dst, ui
  *
  */
 static int apic_write(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data) {
-    struct apic_state * apics = (struct apic_state *)(priv_data);
-    struct apic_state * apic = &(apics[core->cpu_id]);
+    struct apic_state * apic = (struct apic_state *)(priv_data);
     addr_t reg_addr  = guest_addr - apic->base_addr;
     struct apic_msr * msr = (struct apic_msr *)&(apic->base_addr_msr.value);
     uint32_t op_val = *(uint32_t *)src;
 
-    PrintDebug("apic %u: Write to address space (%p) (val=%x)\n", 
-	       apic->lapic_id.val,
+    PrintDebug("apic %u: core %u: at %p and priv_data is at %p: Write to address space (%p) (val=%x)\n", 
+	       apic->lapic_id.val, core->cpu_id, apic,priv_data,
 	       (void *)guest_addr, *(uint32_t *)src);
 
     if (msr->apic_enable == 0) {
-	PrintError("apic %u: Write to APIC address space with disabled APIC\n",apic->lapic_id.val);
+	PrintError("apic %u: core %u: Write to APIC address space with disabled APIC, apic msr=0x%llx\n",apic->lapic_id.val,core->cpu_id,apic->base_addr_msr.value);
 	return -1;
     }
 
 
     if (length != 4) {
-	PrintError("apic %u: Invalid apic write length (%d)\n", apic->lapic_id.val, length);
+	PrintError("apic %u: core %u: Invalid apic write length (%d)\n", apic->lapic_id.val, length,core->cpu_id);
 	return -1;
     }
 
@@ -769,15 +780,16 @@ static int apic_write(struct guest_info * core, addr_t guest_addr, void * src, u
 	case PPR_OFFSET:
 	case EXT_APIC_FEATURE_OFFSET:
 #if 1
-	    PrintError("apic %u: Attempting to write to read only register %p (ignored)\n", apic->lapic_id.val, (void *)reg_addr);
+	    PrintError("apic %u: core %u: Attempting to write to read only register %p (ignored)\n", apic->lapic_id.val,core->cpu_id, (void *)reg_addr);
 #else   
-	    PrintError("apic %u: Attempting to write to read only register %p (error)\n", apic->lapic_id.val, (void *)reg_addr);
+	    PrintError("apic %u: core %u: Attempting to write to read only register %p (error)\n", apic->lapic_id.val,core->cpu_id, (void *)reg_addr);
 	    return -1;
 #endif
 	    break;
 
 	    // Data registers
 	case APIC_ID_OFFSET:
+	    PrintDebug("apic %u: core %u: my id is being changed to %u\n",apic->lapic_id.val,core->cpu_id,op_val);
 	    apic->lapic_id.val = op_val;
 	    break;
 	case TPR_OFFSET:
@@ -874,9 +886,9 @@ static int apic_write(struct guest_info * core, addr_t guest_addr, void * src, u
 	case INT_CMD_LO_OFFSET:
 	    apic->int_cmd.lo = op_val;
 	    // ICC???
-	    PrintDebug("apic %u: sending cmd 0x%llx to apic %u\n",apic->lapic_id.val,
+	    PrintDebug("apic %u: core %u: sending cmd 0x%llx to apic %u\n",apic->lapic_id.val,core->cpu_id,
 		       apic->int_cmd.val, apic->int_cmd.dst);
-	    v3_icc_send_ipi(apic->icc_bus, apic->lapic_id.val, apic->int_cmd.val);
+	    v3_icc_send_ipi(apic->icc_bus, apic->lapic_id.val, apic->int_cmd.val,0);
 	    break;
 	case INT_CMD_HI_OFFSET:
 	    apic->int_cmd.hi = op_val;
@@ -886,11 +898,11 @@ static int apic_write(struct guest_info * core, addr_t guest_addr, void * src, u
 	case EXT_APIC_CMD_OFFSET:
 	case SEOI_OFFSET:
 	default:
-	    PrintError("apic %u: Write to Unhandled APIC Register: %x (ignored)\n", apic->lapic_id.val, (uint32_t)reg_addr);
+	    PrintError("apic %u: core %u: Write to Unhandled APIC Register: %x (ignored)\n", apic->lapic_id.val,core->cpu_id, (uint32_t)reg_addr);
 	    //	    return -1;
     }
 
-    PrintDebug("apic %u: Write finished\n",apic->lapic_id.val);
+    PrintDebug("apic %u: core %u: Write finished\n",apic->lapic_id.val,core->cpu_id);
 
     return length;
 }
@@ -904,6 +916,8 @@ static int apic_intr_pending(struct guest_info * info, void * private_data) {
     struct apic_state * apic = (struct apic_state *)private_data;
     int req_irq = get_highest_irr(apic);
     int svc_irq = get_highest_isr(apic);
+
+    //    PrintDebug("apic %u: core %u: req_irq=%d, svc_irq=%d\n",apic->lapic_id.val,info->cpu_id,req_irq,svc_irq);
 
     if ((req_irq >= 0) && 
 	(req_irq > svc_irq)) {
@@ -944,8 +958,16 @@ static int apic_begin_irq(struct guest_info * info, void * private_data, int irq
     uchar_t * svc_location = apic->int_svc_reg + major_offset;
     uchar_t flag = 0x01 << minor_offset;
 
-    *svc_location |= flag;
-    *req_location &= ~flag;
+    if (*req_location & flag) {
+	// we will only pay attention to a begin irq if we
+	// know that we initiated it!
+	*svc_location |= flag;
+	*req_location &= ~flag;
+    } else {
+	// do nothing... 
+	PrintDebug("apic %u: core %u: begin irq for %d ignored since I don't own it\n",
+		   apic->lapic_id.val,info->cpu_id,irq);
+    }
 
 
 
@@ -957,8 +979,7 @@ static int apic_begin_irq(struct guest_info * info, void * private_data, int irq
 
 /* Timer Functions */
 static void apic_update_time(struct guest_info * info, ullong_t cpu_cycles, ullong_t cpu_freq, void * priv_data) {
-    struct apic_state * apics = (struct apic_state *)(priv_data);
-    struct apic_state * apic = &(apics[info->cpu_id]);
+    struct apic_state * apic = (struct apic_state *)(priv_data);
     // The 32 bit GCC runtime is a pile of shit
 #ifdef __V3_64BIT__
     uint64_t tmr_ticks = 0;
@@ -976,7 +997,7 @@ static void apic_update_time(struct guest_info * info, ullong_t cpu_cycles, ullo
     if ((apic->tmr_init_cnt == 0) || 
 	( (apic->tmr_vec_tbl.tmr_mode == APIC_TMR_ONESHOT) &&
 	  (apic->tmr_cur_cnt == 0))) {
-	//PrintDebug("apic %u: APIC timer not yet initialized\n",apic->lapic_id.val);
+	//PrintDebug("apic %u: core %u: APIC timer not yet initialized\n",apic->lapic_id.val,info->cpu_id);
 	return;
     }
 
@@ -1007,7 +1028,7 @@ static void apic_update_time(struct guest_info * info, ullong_t cpu_cycles, ullo
 	    shift_num = 7;
 	    break;
 	default:
-	    PrintError("apic %u: Invalid Timer Divider configuration\n",apic->lapic_id.val);
+	    PrintError("apic %u: core %u: Invalid Timer Divider configuration\n",apic->lapic_id.val,info->cpu_id);
 	    return;
     }
 
@@ -1021,15 +1042,15 @@ static void apic_update_time(struct guest_info * info, ullong_t cpu_cycles, ullo
 	apic->tmr_cur_cnt = 0;
 
 	// raise irq
-	PrintDebug("apic %u: Raising APIC Timer interrupt (periodic=%d) (icnt=%d) (div=%d)\n", apic->lapic_id.val,
+	PrintDebug("apic %u: core %u: Raising APIC Timer interrupt (periodic=%d) (icnt=%d) (div=%d)\n", apic->lapic_id.val,info->cpu_id,
 		   apic->tmr_vec_tbl.tmr_mode, apic->tmr_init_cnt, shift_num);
 
 	if (apic_intr_pending(info, priv_data)) {
-	    PrintDebug("apic %u: Overriding pending IRQ %d\n", apic->lapic_id.val, apic_get_intr_number(info, priv_data));
+	    PrintDebug("apic %u: core %u: Overriding pending IRQ %d\n", apic->lapic_id.val,info->cpu_id, apic_get_intr_number(info, priv_data));
 	}
 
 	if (activate_internal_irq(apic, APIC_TMR_INT) == -1) {
-	    PrintError("apic %u: Could not raise Timer interrupt\n",apic->lapic_id.val);
+	    PrintError("apic %u: core %u: Could not raise Timer interrupt\n",apic->lapic_id.val,info->cpu_id);
 	}
     
 	if (apic->tmr_vec_tbl.tmr_mode == APIC_TMR_PERIODIC) {
@@ -1121,9 +1142,15 @@ static int apic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
 	v3_icc_register_apic(core, icc, i, &icc_ops, &(apic[i]));
 
+	PrintDebug("apic %u: (setup device): done, my id is %u\n",i,apic[i].lapic_id.val);
+
     }
 
-
+    for (i=0;i<vm->num_cores;i++) {
+	PrintDebug("apic: sanity check: apic %u (at %p) has id %u and msr value %llx\n",
+		   i, &(apic[i]), apic[i].lapic_id.val, apic[i].base_addr_msr.value);
+    }
+    PrintDebug("apic: priv_data is at %p\n", apic);
 
     v3_hook_msr(vm, BASE_ADDR_MSR, read_apic_msr, write_apic_msr, dev);
 

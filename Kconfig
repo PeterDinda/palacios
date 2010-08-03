@@ -259,6 +259,21 @@ config DEBUG_ON
 	  This turns on debugging support
 
 
+config DEBUG_SVM
+	bool "AMD SVM"
+	default n
+	depends on DEBUG_ON
+	help 
+	  This turns on debugging for the AMD SVM-specific code
+
+config DEBUG_VMX
+	bool "Intel VT"
+	default n
+	depends on DEBUG_ON
+	help 
+	  This turns on debugging for the Intel VT-specific code
+
+
 config DEBUG_SHADOW_PAGING
 	bool "Shadow paging"
 	default n
