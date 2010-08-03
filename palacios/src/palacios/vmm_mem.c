@@ -176,7 +176,7 @@ struct v3_mem_region * __insert_mem_region(struct v3_vm_info * vm,
 		return tmp_region;
 	    } else if (region->core_id < tmp_region->core_id) {
 		p = &(*p)->rb_left;
-	    } else {
+	    } else { 
 		p = &(*p)->rb_right;
 	    }
 	}
@@ -246,6 +246,7 @@ struct v3_mem_region * v3_get_mem_region(struct v3_vm_info * vm, uint16_t core_i
     struct v3_mem_region * reg = NULL;
 
     while (n) {
+
 	reg = rb_entry(n, struct v3_mem_region, tree_node);
 
 	if (guest_addr < reg->guest_start) {
@@ -253,11 +254,21 @@ struct v3_mem_region * v3_get_mem_region(struct v3_vm_info * vm, uint16_t core_i
 	} else if (guest_addr >= reg->guest_end) {
 	    n = n->rb_right;
 	} else {
-	    if ((core_id == reg->core_id) || 
-		(reg->core_id == V3_MEM_CORE_ANY)) {
-	    return reg;
-	    } else {
+	    if (reg->core_id == V3_MEM_CORE_ANY) {
+		// found relevant region, it's available on all cores
+		return reg;
+	    } else if (core_id==reg->core_id) { 
+		// found relevant region, it's available on the indicated core
+		return reg;
+	    } else if (core_id < reg->core_id) { 
+		// go left, core too big
+		n = n->rb_left;
+	    } else if (core_id > reg->core_id) { 
+		// go right, core too small
 		n = n->rb_right;
+	    } else {
+		PrintDebug("v3_get_mem_region: Impossible!\n");
+		return NULL;
 	    }
 	}
     }
@@ -266,12 +277,13 @@ struct v3_mem_region * v3_get_mem_region(struct v3_vm_info * vm, uint16_t core_i
     // There is not registered region, so we check if its a valid address in the base region
 
     if (guest_addr > vm->mem_map.base_region.guest_end) {
-	PrintError("Guest Address Exceeds Base Memory Size (ga=%p), (limit=%p)\n", 
-		   (void *)guest_addr, (void *)vm->mem_map.base_region.guest_end);
+	PrintError("Guest Address Exceeds Base Memory Size (ga=0x%p), (limit=0x%p) (core=0x%x)\n", 
+		   (void *)guest_addr, (void *)vm->mem_map.base_region.guest_end, core_id);
 	v3_print_mem_map(vm);
 
 	return NULL;
     }
+    
     
     return &(vm->mem_map.base_region);
 }
@@ -335,10 +347,10 @@ void v3_print_mem_map(struct v3_vm_info * vm) {
     struct v3_mem_region * reg = &(vm->mem_map.base_region);
     int i = 0;
 
-    V3_Print("Memory Layout:\n");
+    V3_Print("Memory Layout (all cores):\n");
     
 
-    V3_Print("Base Region:  0x%p - 0x%p -> 0x%p\n", 
+    V3_Print("Base Region (all cores):  0x%p - 0x%p -> 0x%p\n", 
 	       (void *)(reg->guest_start), 
 	       (void *)(reg->guest_end - 1), 
 	       (void *)(reg->host_addr));
@@ -357,9 +369,10 @@ void v3_print_mem_map(struct v3_vm_info * vm) {
 		   (void *)(reg->guest_end - 1), 
 		   (void *)(reg->host_addr));
 
-	V3_Print("\t(flags=%x) (unhandled = 0x%p)\n", 
-		   reg->flags.value,
-		   reg->unhandled);
+	V3_Print("\t(flags=0x%x) (core=0x%x) (unhandled = 0x%p)\n", 
+		 reg->flags.value, 
+		 reg->core_id,
+		 reg->unhandled);
     
 	i++;
     } while ((node = v3_rb_next(node)));
