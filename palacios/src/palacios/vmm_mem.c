@@ -257,7 +257,7 @@ struct v3_mem_region * v3_get_mem_region(struct v3_vm_info * vm, uint16_t core_i
 	    if (reg->core_id == V3_MEM_CORE_ANY) {
 		// found relevant region, it's available on all cores
 		return reg;
-	    } else if (core_id==reg->core_id) { 
+	    } else if (core_id == reg->core_id) { 
 		// found relevant region, it's available on the indicated core
 		return reg;
 	    } else if (core_id < reg->core_id) { 
