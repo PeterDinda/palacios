@@ -189,8 +189,7 @@ struct v3_mem_region * __insert_mem_region(struct v3_vm_info * vm,
 
 
 
-int v3_insert_mem_region(struct v3_vm_info * vm, 
-			    struct v3_mem_region * region) {
+int v3_insert_mem_region(struct v3_vm_info * vm, struct v3_mem_region * region) {
     struct v3_mem_region * ret;
     int i = 0;
 
@@ -283,8 +282,44 @@ struct v3_mem_region * v3_get_mem_region(struct v3_vm_info * vm, uint16_t core_i
 
 	return NULL;
     }
-    
-    
+
+    return &(vm->mem_map.base_region);
+}
+
+
+
+/* Search the "hooked" memory regions for a region that ends after the given address.  If the
+ * address is invalid, return NULL. Else, return the first region found or the base region if no
+ * region ends after the given address.
+ */
+struct v3_mem_region * v3_get_next_mem_region( struct v3_vm_info * vm, uint16_t core_id, addr_t guest_addr) {
+    struct rb_node * n = vm->mem_map.mem_regions.rb_node;
+    struct v3_mem_region * reg = NULL;
+
+    // Keep going to the right in the tree while the address is greater than the current region's
+    // end address.
+    while (n) {
+        reg = rb_entry(n, struct v3_mem_region, tree_node);
+        if (guest_addr >= reg->guest_end) { // reg is [start,end)
+            n = n->rb_right;
+        } else {
+	    if ((core_id == reg->core_id) || (reg->core_id == V3_MEM_CORE_ANY)) {
+		return reg;
+	    } else {
+		n = n->rb_right;
+	    }
+        }
+    }
+
+    // There is no registered region, so we check if it's a valid address in the base region
+
+    if (guest_addr >= vm->mem_map.base_region.guest_end) {
+	PrintError("%s: Guest Address Exceeds Base Memory Size (ga=%p), (limit=%p)\n",
+		__FUNCTION__, (void *)guest_addr, (void *)vm->mem_map.base_region.guest_end);
+        v3_print_mem_map(vm);
+        return NULL;
+    }
+
     return &(vm->mem_map.base_region);
 }
 

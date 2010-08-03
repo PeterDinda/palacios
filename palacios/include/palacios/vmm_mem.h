@@ -103,6 +103,7 @@ int v3_add_shadow_mem(struct v3_vm_info * vm, uint16_t core_id,
 
 
 struct v3_mem_region * v3_get_mem_region(struct v3_vm_info * vm, uint16_t core_id, addr_t guest_addr);
+struct v3_mem_region * v3_get_next_mem_region(struct v3_vm_info * vm, uint16_t core_id, addr_t guest_addr);
 
 
 
