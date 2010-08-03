@@ -67,14 +67,26 @@ struct guest_info;
 
 
 
-#define V3_AllocPages(num_pages)				\
-    ({								\
-	extern struct v3_os_hooks * os_hooks;			\
-	void * ptr = 0;						\
-	if ((os_hooks) && (os_hooks)->allocate_pages) {		\
-	    ptr = (os_hooks)->allocate_pages(num_pages);	\
-	}							\
-	ptr;							\
+/* 4KB-aligned */
+#define V3_AllocPages(num_pages)			        	\
+    ({							        	\
+	extern struct v3_os_hooks * os_hooks;		        	\
+	void * ptr = 0;					        	\
+	if ((os_hooks) && (os_hooks)->allocate_pages) {	        	\
+	    ptr = (os_hooks)->allocate_pages(num_pages,PAGE_SIZE_4KB);	\
+	}						        	\
+	ptr;						        	\
+    })
+
+
+#define V3_AllocAlignedPages(num_pages, align)		        	\
+    ({							        	\
+	extern struct v3_os_hooks * os_hooks;		        	\
+	void * ptr = 0;					        	\
+	if ((os_hooks) && (os_hooks)->allocate_pages) {	        	\
+	    ptr = (os_hooks)->allocate_pages(num_pages,align);  	\
+	}						        	\
+	ptr;						        	\
     })
 
 
@@ -239,7 +251,7 @@ struct v3_os_hooks {
     void (*print)(const char * format, ...)
   	__attribute__ ((format (printf, 1, 2)));
   
-    void *(*allocate_pages)(int numPages);
+    void *(*allocate_pages)(int numPages, unsigned int alignment);
     void (*free_page)(void * page);
 
     void *(*malloc)(unsigned int size);
@@ -266,7 +278,7 @@ struct v3_os_hooks {
     unsigned int (*get_cpu)(void);
     void (*interrupt_cpu)(struct v3_vm_info * vm, int logical_cpu, int vector);
     void (*call_on_cpu)(int logical_cpu, void (*fn)(void * arg), void * arg);
-    void * (*start_thread_on_cpu)(int logical_cpu, int (*fn)(void * arg), void * arg, char * thread_name);
+    void * (*start_thread_on_cpu)(int cpu_id, int (*fn)(void * arg), void * arg, char * thread_name);
 
 };
 
