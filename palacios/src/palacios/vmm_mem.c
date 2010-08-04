@@ -51,9 +51,23 @@ static int unhandled_err(struct guest_info * core, addr_t guest_va, addr_t guest
 }
 
 
+static inline uint32_t get_alignment(char * align_str) {
+    if (align_str != NULL) {
+	if (strncasecmp(align_str, "2MB", strlen("2MB")) == 0) {
+	    return PAGE_SIZE_2MB;
+	} else if (strncasecmp(align_str, "4MB", strlen("4MB")) == 0) {
+	    return PAGE_SIZE_4MB;
+	}
+    }
+    
+    // default is 4KB alignment
+    return PAGE_SIZE_4KB;
+}
 
 int v3_init_mem_map(struct v3_vm_info * vm) {
     struct v3_mem_map * map = &(vm->mem_map);
+    v3_cfg_tree_t * pg_cfg = v3_cfg_subtree(vm->cfg_data->cfg, "memory");
+    uint32_t alignment = get_alignment(v3_cfg_val(pg_cfg, "alignment"));
     addr_t mem_pages = vm->mem_size >> 12;
 
     memset(&(map->base_region), 0, sizeof(struct v3_mem_region));
@@ -66,7 +80,16 @@ int v3_init_mem_map(struct v3_vm_info * vm) {
 
     map->base_region.guest_start = 0;
     map->base_region.guest_end = mem_pages * PAGE_SIZE_4KB;
+
+#ifdef ALIGNED_PG_ALLOC
+    map->base_region.host_addr = (addr_t)V3_AllocAlignedPages(mem_pages, alignment);
+#else
+    if (alignment != PAGE_SIZE_4KB) {
+	PrintError("Aligned page allocations are not supported in this host (requested alignment=%d)\n", alignment);
+	PrintError("Ignoring alignment request\n");
+    }
     map->base_region.host_addr = (addr_t)V3_AllocPages(mem_pages);
+#endif
 
     map->base_region.flags.read = 1;
     map->base_region.flags.write = 1;

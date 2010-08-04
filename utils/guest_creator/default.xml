@@ -3,7 +3,7 @@
 <vm class="PC"> 
 
 	<!-- Memory in MB -->
-	<memory>256</memory> 
+	<memory alignment="4KB">256</memory> 
 
 	<!-- Basic VMM system flags -->
 	<telemetry>enable</telemetry>
