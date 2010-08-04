@@ -23,7 +23,6 @@
 #include <devices/icc_bus.h>
 #include <devices/apic_regs.h>
 
-
 #define MAX_APICS 256
 
 #ifndef CONFIG_DEBUG_ICC_BUS
@@ -202,11 +201,13 @@ static int deliver(uint32_t src_apic, struct apic_data *dest_apic, struct int_cm
 // icr_data contains interrupt vector *except* for ext_int
 // in which case it is given via irq
 //
-int v3_icc_send_ipi(struct vm_device * icc_bus, uint32_t src_apic, uint64_t icr_data, uint32_t extirq) {
+int v3_icc_send_ipi(struct vm_device * icc_bus, uint32_t src_apic, uint64_t icr_data, 
+		    uint32_t dfr_data, uint32_t extirq) {
 
     PrintDebug("icc_bus: icc_bus=%p, src_apic=%u, icr_data=%llx, extirq=%u\n",icc_bus,src_apic,icr_data,extirq);
 
     struct int_cmd_reg *icr = (struct int_cmd_reg *)&icr_data;
+    struct dst_fmt_reg *dfr = (struct dst_fmt_reg*)&dfr_data;
     struct icc_bus_state * state = (struct icc_bus_state *)icc_bus->private_data;
 
     // initial sanity checks
@@ -218,23 +219,63 @@ int v3_icc_send_ipi(struct vm_device * icc_bus, uint32_t src_apic, uint64_t icr_
 	PrintError("icc_bus: Attempted send to unregistered apic id=%u\n",icr->dst);
 	return -1;
     }
-    
-    struct apic_data * dest_apic =  &(state->apics[icr->dst]);
 
-    PrintDebug("icc_bus: IPI %s %u from %s %u to %s %u (icr=0x%llx) (extirq=%u)\n",
-	       deliverymode_str[icr->del_mode], icr->vec, src_apic==state->ioapic_id ? "ioapic" : "apic",
-	       src_apic, shorthand_str[icr->dst_shorthand], icr->dst,icr->val,
+    PrintDebug("icc_bus: IPI %s %u from %s %u to %s %s %u (icr=0x%llx, dfr=0x%x) (extirq=%u)\n",
+	       deliverymode_str[icr->del_mode], icr->vec, 
+	       src_apic==state->ioapic_id ? "ioapic" : "apic",
+	       src_apic, 	       
+	       icr->dst_mode==0 ? "(physical)" : "(logical)", 
+	       shorthand_str[icr->dst_shorthand], icr->dst,icr->val, dfr->val,
 	       extirq);
 
+    /*
+
+    if (icr->dst==state->ioapic_id) { 
+	PrintError("icc_bus: Attempted send to ioapic ignored\n");
+	return -1;
+    }
+    */
 
 
 
     switch (icr->dst_shorthand) {
 
 	case 0:  // no shorthand
-	    if (deliver(src_apic,dest_apic,icr,state,extirq)) { 
-		return -1;
+	    if (icr->dst_mode==0) { 
+		// physical delivery
+		struct apic_data * dest_apic =  &(state->apics[icr->dst]);
+		if (deliver(src_apic,dest_apic,icr,state,extirq)) { 
+		    return -1;
+		}
+	    } else {
+		// logical delivery
+		uint8_t mda = icr->dst; // message destination address, not physical address
+		
+		if (dfr->model==0xf) { 
+		    // flat model
+		    // deliver irq if
+		    // mda of sender & ldr of receiver is nonzero
+		    // mda=0xff means broadcaset to all
+		    
+		    int i;
+		    for (i=0;i<MAX_APICS;i++) { 
+			struct apic_data *dest_apic=&(state->apics[i]);
+			if (dest_apic->present &&
+			    dest_apic->ops->should_deliver_flat(dest_apic->core,
+								mda,
+								dest_apic->priv_data)) { 
+			    if (deliver(src_apic,dest_apic,icr,state,extirq)) { 
+				return -1;
+			    }
+			}
+		    }
+		} else {
+		    // cluster model
+		    PrintError("icc_bus: use of cluster model not yet supported\n");
+		    return -1;
+		}
 	    }
+		
 	    break;
 
 	case 1:  // self
@@ -242,6 +283,7 @@ int v3_icc_send_ipi(struct vm_device * icc_bus, uint32_t src_apic, uint64_t icr_
 		PrintError("icc_bus: ioapic attempting to send to itself\n");
 		return -1;
 	    }
+	    struct apic_data *dest_apic=&(state->apics[src_apic]);
 	    if (deliver(src_apic,dest_apic,icr,state,extirq)) { 
 		return -1;
 	    }
@@ -251,7 +293,7 @@ int v3_icc_send_ipi(struct vm_device * icc_bus, uint32_t src_apic, uint64_t icr_
 	case 3: { // all and all-but-me
 	    int i;
 	    for (i=0;i<MAX_APICS;i++) { 
-		dest_apic=&(state->apics[i]);
+		struct apic_data *dest_apic=&(state->apics[i]);
 		if (dest_apic->present && (i!=src_apic || icr->dst_shorthand==2)) { 
 		    if (deliver(src_apic,dest_apic,icr,state,extirq)) { 
 			return -1;
@@ -260,7 +302,7 @@ int v3_icc_send_ipi(struct vm_device * icc_bus, uint32_t src_apic, uint64_t icr_
 	    }
 	}
 	    break;
-    }
+	    }
 
     return 0;
 }

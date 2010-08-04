@@ -12,7 +12,7 @@
 	</paging>
 <!--
 	<paging mode="nested">
-		<pagesize>4KB</pagesize>
+		<page_size>2MB</page_size>
 	</paging>
 -->
 	<schedule_hz>100</schedule_hz>

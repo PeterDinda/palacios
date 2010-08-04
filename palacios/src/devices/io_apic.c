@@ -291,7 +291,9 @@ static int ioapic_raise_irq(struct v3_vm_info * vm, void * private_data, int irq
 	icr.dst_shorthand=0; // no shorthand
 	icr.rsvd2=0;
 
-	v3_icc_send_ipi(ioapic->icc_bus, ioapic->ioapic_id.val,icr.val, irq);
+	// Note: 0 yhere is "cluster model", but it should be irrelevant
+	// since we are sending this as a physical destination
+	v3_icc_send_ipi(ioapic->icc_bus, ioapic->ioapic_id.val,icr.val, 0, irq);
     }
 
     return 0;

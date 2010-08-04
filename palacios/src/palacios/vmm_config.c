@@ -199,7 +199,7 @@ static int pre_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * vm_cfg) {
     PrintDebug("Memory=%s\n", memory_str);
 
     // Amount of ram the Guest will have, always in MB
-    vm->mem_size = atoi(memory_str) * 1024 * 1024;
+    vm->mem_size = (unsigned long)atoi(memory_str) * 1024UL * 1024UL;
     
     if (strcasecmp(vm_class, "PC") == 0) {
 	vm->vm_class = V3_PC_VM;
@@ -207,7 +207,6 @@ static int pre_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * vm_cfg) {
 	PrintError("Invalid VM class\n");
 	return -1;
     }
-
 
 #ifdef CONFIG_TELEMETRY
     {
@@ -247,7 +246,8 @@ static int determine_paging_mode(struct guest_info *info, v3_cfg_tree_t * core_c
 
     v3_cfg_tree_t *vm_tree = info->vm_info->cfg_data->cfg;
     v3_cfg_tree_t *pg_tree = v3_cfg_subtree(vm_tree, "paging");
-    char *pg_mode = v3_cfg_val(pg_tree, "mode");
+    char *pg_mode          = v3_cfg_val(pg_tree, "mode");
+    char *page_size        = v3_cfg_val(pg_tree, "page_size");
     
     PrintDebug("Paging mode specified as %s\n", pg_mode);
 
@@ -266,12 +266,21 @@ static int determine_paging_mode(struct guest_info *info, v3_cfg_tree_t * core_c
 	    info->shdw_pg_mode = SHADOW_PAGING;
 	}
     } else {
-	PrintDebug("No paging mode specified in configuration.\n");
+	PrintDebug("No paging type specified in configuration. Defaulting to shadow paging\n");
 	info->shdw_pg_mode = SHADOW_PAGING;
     }
 
     if (info->shdw_pg_mode == NESTED_PAGING) {
     	PrintDebug("Guest Paging Mode: NESTED_PAGING\n");
+	if (strcasecmp(page_size, "4kb") == 0) { /* TODO: this may not be an ideal place for this */
+	    info->vm_info->paging_size = PAGING_4KB;
+	} else if (strcasecmp(page_size, "2mb") == 0) {
+	    info->vm_info->paging_size = PAGING_2MB;
+	} else {
+	    PrintError("Invalid VM paging size: '%s'\n", page_size);
+	    return -1;
+	}
+	PrintDebug("VM page size=%s\n", page_size);
     } else if (info->shdw_pg_mode == SHADOW_PAGING) {
         PrintDebug("Guest Paging Mode: SHADOW_PAGING\n");
     } else {

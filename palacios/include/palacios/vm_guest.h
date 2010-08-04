@@ -66,7 +66,6 @@ struct guest_info {
     struct v3_shdw_pg_state shdw_pg_state;
     addr_t direct_map_pt;
 
-
     // This structure is how we get interrupts for the guest
     struct v3_intr_core_state intr_core_state;
 
@@ -119,6 +118,8 @@ struct v3_vm_info {
 
     addr_t mem_size; // In bytes for now
     struct v3_mem_map mem_map;
+
+    v3_paging_size_t paging_size; // for nested paging
 
     struct v3_mem_hooks mem_hooks;
 
