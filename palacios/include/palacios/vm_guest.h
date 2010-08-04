@@ -75,7 +75,7 @@ struct guest_info {
 
     v3_cpu_mode_t cpu_mode;
     v3_mem_mode_t mem_mode;
-    uint_t addr_width;
+
 
     struct v3_gprs vm_regs;
     struct v3_ctrl_regs ctrl_regs;

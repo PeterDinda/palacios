@@ -12,6 +12,8 @@ config KITTEN
 	select BUILT_IN_STDLIB
 	select BUILT_IN_STRCASECMP
 	select BUILT_IN_ATOI
+	select ALIGNED_PG_ALLOC
+	select MULTITHREAD_OS
 	help
 	  This enables the necesary options to compile Palacios with Kitten
 
@@ -54,38 +56,48 @@ config VMX
 	  Compile with support for Intel VMX
 
 
+menu "Supported host OS features"
+      
 config MULTITHREAD_OS
-	bool "Compile for a multi threaded OS"
+	bool "Host support for  multiple threads"
 	default y
 	help 
-	  This allows Palacios to use OS thread mechanisms
+	  Select this if your OS supports multiple threads of execution. This will enable features in Palacios 
+	  to require the creation of additional execution threads.
 
+
+config ALIGNED_PG_ALLOC
+	bool "Host support for aligned page allocations"
+	default n
+	help 
+	  Select this if your OS supports allocating memory pages using an alignment. This is required 
+	  if you want Palacios to run with large page table pages. 
 
 config MAX_CPUS
 	int "Maximum number of cpus"
 	range 1 255
 	default "16"
 	help 
-	  Specifies the maximum number of hardware cpus Palacios can support
-
+	  Specifies the maximum number of hardware CPUs supported by the OS
 	  For uniprocessor environments, set this to 1
 
 
 config CONSOLE
-	bool "Include Console Support"
+	bool "Host Support for VM console"
 	default n
 	help 
-	  Enable console support in Palacios
-
+	  Select this if you want to forward a guest console interface to some host OS service
 
 
 
 config SOCKET
-	bool "Include Network Socket Support"
+	bool "Host support for Network Sockets"
 	default y
 	help 
-	  Enable networking support in Palacios
+	  Select this if you host OS implements a socket API that is available to Palacios. This is required 
+	  to support the internal networking features of Palacios.
 
+endmenu
 
 
 
