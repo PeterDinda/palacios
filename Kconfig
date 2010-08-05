@@ -21,6 +21,7 @@ config LINUX
 	bool "Linux 2.6"
 	select BUILT_IN_STDLIB
 	select BUILT_IN_ATOI
+	select FILE
 	help
 	  This enables the necessary options to compile Palacios with Linux 2.6
           Currently, this is in development, and only 2.6.32 is verified to work
