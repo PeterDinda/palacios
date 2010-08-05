@@ -51,14 +51,14 @@
     ({									\
 	extern struct v3_file_hooks *file_hooks;				\
 	((file_hooks) && (file_hooks)->file_read) ?				\
-	    (file_hooks)->file_read((fd),(start),(buf),(length)) : -1 ;  \
+	    (file_hooks)->file_read((fd),(start),(buf),(len)) : -1 ;  \
     })
 
 #define V3_FileWrite(fd,start,buf,len)					\
     ({									\
 	extern struct v3_file_hooks *file_hooks;				\
 	((file_hooks) && (file_hooks)->file_write) ?				\
-	    (file_hooks)->file_write((fd),(start),(buf),(length)) : -1 ;  \
+	    (file_hooks)->file_write((fd),(start),(buf),(len)) : -1 ;  \
     })
 
 

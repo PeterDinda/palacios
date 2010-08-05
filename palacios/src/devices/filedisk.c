@@ -90,7 +90,6 @@ static struct v3_device_ops dev_ops = {
 
 static int disk_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
     struct disk_state * disk = NULL;
-    struct v3_cfg_file * file = NULL;
     char * name = v3_cfg_val(cfg, "filename");
     char * filename = v3_cfg_val(cfg, "file");
 
