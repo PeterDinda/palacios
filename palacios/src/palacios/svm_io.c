@@ -269,7 +269,7 @@ int v3_handle_svm_io_outs(struct guest_info * core, struct svm_io_info * io_info
     uint_t rep_num = 1;
     ullong_t mask = 0;
     addr_t inst_ptr;
-    struct v3_segment * theseg = &(core->segments.es); // default is ES
+    struct v3_segment * theseg = &(core->segments.ds); // default is DS
 
     // This is kind of hacky...
     // direction can equal either 1 or -1
