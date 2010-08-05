@@ -81,6 +81,12 @@ config MAX_CPUS
 	  Specifies the maximum number of hardware CPUs supported by the OS
 	  For uniprocessor environments, set this to 1
 
+config FILE
+	bool "Host Support for file operations"
+	default n
+	help
+	  Select this if your host OS supports file operatoins and you want Palacios to be able to use them.
+
 
 config CONSOLE
 	bool "Host Support for VM console"
