@@ -271,6 +271,13 @@ config DEBUG_PIT
 	help 
 	  Enable debugging for the PIT	
 
+config FILEDISK
+	bool "FILEDISK storage backend"
+	default y
+	depends on FILE && (IDE || LINUX_VIRTIO_BLOCK)
+	help
+	  Includes the file based disk backend
+
 
 config NETDISK
 	bool "NETDISK storage backend"
