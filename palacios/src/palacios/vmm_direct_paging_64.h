@@ -29,10 +29,10 @@
 
 // Reference: AMD Software Developer Manual Vol.2 Ch.5 "Page Translation and Protection"
 
-static int check_large_page_ok() {
+static int get_page_size() {
 
     // Need to fix this....
-    return 0; 
+    return PAGE_SIZE_4KB; 
 
 
 #if 0
@@ -82,7 +82,7 @@ static int check_large_page_ok() {
 	    return -1;
 	}
 
-	if ((pg_next_reg->base == 1) { // next region == base region
+	if (pg_next_reg->base == 1) { // next region == base region
 	    use_large_page = 1; // State A
 	} else {
 #if 0       // State B/C and D optimization
@@ -119,15 +119,15 @@ static inline int handle_passthrough_pagefault_64(struct guest_info * core, addr
     int pte_index  = PTE64_INDEX(fault_addr);
 
     struct v3_mem_region * region =  v3_get_mem_region(core->vm_info, core->cpu_id, fault_addr);
-    int use_large_page = 0;
+    int page_size = PAGE_SIZE_4KB;
 
 
     /*  Check if:
      *  1. the guest is configured to use large pages and 
      * 	2. the memory regions can be referenced by a large page
      */
-    if ((core->use_large_pages == 1) && (check_large_page_ok() == 1)) {
-	use_large_page = 1;
+    if ((core->use_large_pages == 1) ) {
+	page_size = get_page_size();
     }
 
  
@@ -167,7 +167,7 @@ static inline int handle_passthrough_pagefault_64(struct guest_info * core, addr
     }
 
     // Fix up the 2MiB PDE and exit here
-    if (use_large_page == 1) {
+    if (page_size == PAGE_SIZE_2MB) {
 	pde2mb = (pde64_2MB_t *)pde; // all but these two lines are the same for PTE
 	pde2mb[pde_index].large_page = 1;
 
@@ -200,10 +200,13 @@ static inline int handle_passthrough_pagefault_64(struct guest_info * core, addr
 
 	    return region->unhandled(core, fault_addr, fault_addr, region, error_code);
 	}
-    }
+
+	// All done
+	return 0;
+    } 
 
     // Continue with the 4KiB page heirarchy
-
+    
     // Fix up the PDE entry
     if (pde[pde_index].present == 0) {
 	pte = (pte64_t *)create_generic_pt_page();
@@ -216,7 +219,6 @@ static inline int handle_passthrough_pagefault_64(struct guest_info * core, addr
     } else {
 	pte = V3_VAddr((void*)BASE_TO_PAGE_ADDR_4KB(pde[pde_index].pt_base_addr));
     }
-
 
     // Fix up the PTE entry
     if (pte[pte_index].present == 0) {
