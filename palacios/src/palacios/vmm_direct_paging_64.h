@@ -33,75 +33,6 @@ static int get_page_size() {
 
     // Need to fix this....
     return PAGE_SIZE_4KB; 
-
-
-#if 0
-   struct v3_mem_region * base_reg = &(info->vm_info->mem_map.base_region);
-
-   /* If the guest has been configured for 2MiB pages, then we must check for hooked regions of
-     * memory which may overlap with the 2MiB page containing the faulting address (due to
-     * potentially differing access policies in place for e.g. i/o devices and APIC). A 2MiB page
-     * can be used if a) no region overlaps the page [or b) a region does overlap but fully contains
-     * the page]. The [bracketed] text pertains to the #if 0'd code below, state D. TODO modify this
-     * note if someone decides to enable this optimization. It can be tested with the SeaStar
-     * mapping.
-     *
-     * Examples: (CAPS regions are returned by v3_get_next_mem_region; state A returns the base reg)
-     *
-     *    |region| |region|                               2MiB mapped (state A)
-     *                   |reg|          |REG|             2MiB mapped (state B)
-     *   |region|     |reg|   |REG| |region|   |reg|      4KiB mapped (state C)
-     *        |reg|  |reg|   |--REGION---|                [2MiB mapped (state D)]
-     * |--------------------------------------------|     RAM
-     *                             ^                      fault addr
-     * |----|----|----|----|----|page|----|----|----|     2MB pages
-     *                           >>>>>>>>>>>>>>>>>>>>     search space
-     */
-    addr_t pg_start = 0UL, pg_end = 0UL; // 2MiB page containing the faulting address
-    struct v3_mem_region * pg_next_reg = NULL; // next immediate mem reg after page start addr
-    bool use_large_page = false;
-
-    if (region == NULL) {
-	PrintError("%s: invalid region, addr=%p\n", __FUNCTION__, (void *)fault_addr);
-	return -1;
-    }
-
-    // set use_large_page here
-    if (info->vm_info->paging_size == PAGING_2MB) {
-
-	// guest page maps to a host page + offset (so when we shift, it aligns with a host page)
-	pg_start = PAGE_ADDR_2MB(fault_addr);
-	pg_end = (pg_start + PAGE_SIZE_2MB);
-
-	PrintDebug("%s: page   [%p,%p) contains address\n", __FUNCTION__, (void *)pg_start, (void *)pg_end);
-
-	pg_next_reg = v3_get_next_mem_region(info->vm_info, info->cpu_id, pg_start);
-
-	if (pg_next_reg == NULL) {
-	    PrintError("%s: Error: address not in base region, %p\n", __FUNCTION__, (void *)fault_addr);
-	    return -1;
-	}
-
-	if (pg_next_reg->base == 1) { // next region == base region
-	    use_large_page = 1; // State A
-	} else {
-#if 0       // State B/C and D optimization
-	    use_large_page = (pg_next_reg->guest_end >= pg_end) &&
-		((pg_next_reg->guest_start >= pg_end) || (pg_next_reg->guest_start <= pg_start));
-	    PrintDebug("%s: region [%p,%p) %s partial overlap with page\n", __FUNCTION__,
-		    (void *)pg_next_reg->guest_start, (void *)pg_next_reg->guest_end,
-		    (use_large_page ? "does not have" : "has"));
-#else       // State B/C
-	    use_large_page = (pg_next_reg->guest_start >= pg_end);
-	    PrintDebug("%s: region [%p,%p) %s overlap with page\n", __FUNCTION__,
-		    (void *)pg_next_reg->guest_start, (void *)pg_next_reg->guest_end,
-		    (use_large_page ? "does not have" : "has"));
-#endif
-	}
-    }
-
-    PrintDebug("%s: Address gets a 2MiB page? %s\n", __FUNCTION__, (use_large_page ? "yes" : "no"));
-#endif
 }
 
 
@@ -166,44 +97,7 @@ static inline int handle_passthrough_pagefault_64(struct guest_info * core, addr
 	pde = V3_VAddr((void*)BASE_TO_PAGE_ADDR_4KB(pdpe[pdpe_index].pd_base_addr));
     }
 
-    // Fix up the 2MiB PDE and exit here
-    if (page_size == PAGE_SIZE_2MB) {
-	pde2mb = (pde64_2MB_t *)pde; // all but these two lines are the same for PTE
-	pde2mb[pde_index].large_page = 1;
-
-	if (pde2mb[pde_index].present == 0) {
-	    pde2mb[pde_index].user_page = 1;
-
-	    if ( (region->flags.alloced == 1) && 
-		 (region->flags.read == 1)) {
-		// Full access
-		pde2mb[pde_index].present = 1;
-
-		if (region->flags.write == 1) {
-		    pde2mb[pde_index].writable = 1;
-		} else {
-		    pde2mb[pde_index].writable = 0;
-		}
-
-		if (v3_gpa_to_hpa(core, fault_addr, &host_addr) == -1) {
-		    PrintError("Error Could not translate fault addr (%p)\n", (void *)fault_addr);
-		    return -1;
-		}
-
-		pde2mb[pde_index].page_base_addr = PAGE_BASE_ADDR_2MB(host_addr);
-	    } else {
-		return region->unhandled(core, fault_addr, fault_addr, region, error_code);
-	    }
-	} else {
-	    // We fix all permissions on the first pass, 
-	    // so we only get here if its an unhandled exception
-
-	    return region->unhandled(core, fault_addr, fault_addr, region, error_code);
-	}
-
-	// All done
-	return 0;
-    } 
+  
 
     // Continue with the 4KiB page heirarchy
     
