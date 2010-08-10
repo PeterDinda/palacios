@@ -209,9 +209,9 @@ static int pre_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * vm_cfg) {
 
 
     char * memory_str = v3_cfg_val(vm_cfg, "memory");
-    v3_cfg_tree_t * pg_cfg = v3_cfg_subtree(vm_cfg, "memory");
     char * schedule_hz_str = v3_cfg_val(vm_cfg, "schedule_hz");
     char * vm_class = v3_cfg_val(vm_cfg, "class");
+    char * align_str = v3_cfg_val(v3_cfg_subtree(vm_cfg, "memory"), "alignment");
     uint32_t sched_hz = 100; 	// set the schedule frequency to 100 HZ
     
     if (!memory_str) {
@@ -220,10 +220,17 @@ static int pre_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * vm_cfg) {
     }
     
     PrintDebug("Memory=%s\n", memory_str);
+    if (align_str) {
+	 PrintDebug("Alignment=%s\n", align_str);
+    } else {
+	 PrintDebug("Alignment defaulted to 4KB.\n");
+    }
 
     // Amount of ram the Guest will have, always in MB
     vm->mem_size = atoi(memory_str) * 1024 * 1024;
-    vm->mem_align = get_alignment(v3_cfg_val(pg_cfg, "alignment"));
+    vm->mem_align = get_alignment(align_str);
+
+    PrintDebug("Alignment computed as 0x%x\n", vm->mem_align);
 
     if (strcasecmp(vm_class, "PC") == 0) {
 	vm->vm_class = V3_PC_VM;
