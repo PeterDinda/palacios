@@ -183,10 +183,33 @@ static struct v3_config * parse_config(void * cfg_blob) {
     return cfg;
 }
 
+
+static inline uint32_t get_alignment(char * align_str) {
+    // default is 4KB alignment
+    uint32_t alignment = PAGE_SIZE_4KB;
+
+    if (align_str != NULL) {
+	if (strncasecmp(align_str, "2MB", strlen("2MB")) == 0) {
+	    alignment = PAGE_SIZE_2MB;
+	} else if (strncasecmp(align_str, "4MB", strlen("4MB")) == 0) {
+	    alignment = PAGE_SIZE_4MB;
+	}
+    }
+    
+#ifndef CONFIG_ALIGNED_PG_ALLOC
+    if (alignment != PAGE_SIZE_4KB) {
+	PrintError("Aligned page allocations are not supported in this host (requested alignment=%d)\n", alignment);
+	PrintError("Ignoring alignment request\n");
+    }
+#endif 
+
+    return alignment;
+}
 static int pre_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * vm_cfg) {
 
 
     char * memory_str = v3_cfg_val(vm_cfg, "memory");
+    v3_cfg_tree_t * pg_cfg = v3_cfg_subtree(vm_cfg, "memory");
     char * schedule_hz_str = v3_cfg_val(vm_cfg, "schedule_hz");
     char * vm_class = v3_cfg_val(vm_cfg, "class");
     uint32_t sched_hz = 100; 	// set the schedule frequency to 100 HZ
@@ -200,7 +223,8 @@ static int pre_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * vm_cfg) {
 
     // Amount of ram the Guest will have, always in MB
     vm->mem_size = atoi(memory_str) * 1024 * 1024;
-    
+    vm->mem_align = get_alignment(v3_cfg_val(pg_cfg, "alignment"));
+
     if (strcasecmp(vm_class, "PC") == 0) {
 	vm->vm_class = V3_PC_VM;
     } else {

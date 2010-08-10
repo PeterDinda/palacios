@@ -127,6 +127,7 @@ struct v3_vm_info {
     v3_vm_class_t vm_class;
 
     addr_t mem_size; /* In bytes for now */
+    uint32_t mem_align;
     struct v3_mem_map mem_map;
 
     struct v3_mem_hooks mem_hooks;
