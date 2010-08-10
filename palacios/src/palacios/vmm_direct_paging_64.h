@@ -82,7 +82,7 @@ static int get_page_size() {
 	    return -1;
 	}
 
-	if (pg_next_reg->base == 1) { // next region == base region
+	if (pg_next_reg->base == 1) {
 	    use_large_page = 1; // State A
 	} else {
 #if 0       // State B/C and D optimization
@@ -121,6 +121,10 @@ static inline int handle_passthrough_pagefault_64(struct guest_info * core, addr
     struct v3_mem_region * region =  v3_get_mem_region(core->vm_info, core->cpu_id, fault_addr);
     int page_size = PAGE_SIZE_4KB;
 
+    if (region == NULL) {
+	PrintError("%s: invalid region, addr=%p\n", __FUNCTION__, (void *)fault_addr);
+	return -1;
+    }
 
     /*  Check if:
      *  1. the guest is configured to use large pages and 

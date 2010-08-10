@@ -311,30 +311,38 @@ struct v3_mem_region * v3_get_mem_region(struct v3_vm_info * vm, uint16_t core_i
 
 
 
-/* Search the "hooked" memory regions for a region that ends after the given address.  If the
- * address is invalid, return NULL. Else, return the first region found or the base region if no
- * region ends after the given address.
+/* Given an address, find the successor region. If the address is within a region, return that
+ * region. Input is an address, because the address may not have a region associated with it.
+ *
+ * Returns a region following or touching the given address. If address is invalid, NULL is
+ * returned, else the base region is returned if no region exists at or after the given address.
  */
 struct v3_mem_region * v3_get_next_mem_region( struct v3_vm_info * vm, uint16_t core_id, addr_t guest_addr) {
-    struct rb_node * n = vm->mem_map.mem_regions.rb_node;
-    struct v3_mem_region * reg = NULL;
+    struct rb_node * current_n		= vm->mem_map.mem_regions.rb_node;
+    struct rb_node * successor_n	= NULL; /* left-most node greater than guest_addr */
+    struct v3_mem_region * current_r	= NULL;
 
-    // Keep going to the right in the tree while the address is greater than the current region's
-    // end address.
-    while (n) {
-        reg = rb_entry(n, struct v3_mem_region, tree_node);
-        if (guest_addr >= reg->guest_end) { // reg is [start,end)
-            n = n->rb_right;
-        } else {
-	    if ((core_id == reg->core_id) || (reg->core_id == V3_MEM_CORE_ANY)) {
-		return reg;
-	    } else {
-		n = n->rb_right;
+    /* current_n tries to find the region containing guest_addr, going right when smaller and left when
+     * greater. Each time current_n becomes greater than guest_addr, update successor <- current_n.
+     * current_n becomes successively closer to guest_addr than the previous time it was greater
+     * than guest_addr.
+     */
+
+    /* | is address, ---- is region, + is intersection */
+    while (current_n) {
+        current_r = rb_entry(current_n, struct v3_mem_region, tree_node);
+	if (current_r->guest_start > guest_addr) { /* | ---- */
+	    successor_n = current_n;
+	    current_n = current_n->rb_left;
+	} else {
+	    if (current_r->guest_end > guest_addr) {
+		return current_r; /* +--- or --+- */
 	    }
-        }
+	    current_n = current_n->rb_right; /* ---- | */
+	}
     }
 
-    // There is no registered region, so we check if it's a valid address in the base region
+    /* Address does not have its own region. Check if it's a valid address in the base region */
 
     if (guest_addr >= vm->mem_map.base_region.guest_end) {
 	PrintError("%s: Guest Address Exceeds Base Memory Size (ga=%p), (limit=%p)\n",
