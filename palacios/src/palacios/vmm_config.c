@@ -189,9 +189,9 @@ static inline uint32_t get_alignment(char * align_str) {
     uint32_t alignment = PAGE_SIZE_4KB;
 
     if (align_str != NULL) {
-	if (strncasecmp(align_str, "2MB", strlen("2MB")) == 0) {
+	if (strcasecmp(align_str, "2MB") == 0) {
 	    alignment = PAGE_SIZE_2MB;
-	} else if (strncasecmp(align_str, "4MB", strlen("4MB")) == 0) {
+	} else if (strcasecmp(align_str, "4MB") == 0) {
 	    alignment = PAGE_SIZE_4MB;
 	}
     }
