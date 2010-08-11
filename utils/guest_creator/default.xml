@@ -3,16 +3,17 @@
 <vm class="PC"> 
 
 	<!-- Memory in MB -->
-	<memory alignment="4KB">256</memory> 
+	<memory alignment="2MB">256</memory> 
 
 	<!-- Basic VMM system flags -->
 	<telemetry>enable</telemetry>
 	<paging mode="shadow">
 		<strategy>VTLB</strategy>
+		<large_pages/>
 	</paging>
 <!--
 	<paging mode="nested">
-		<pagesize>4KB</pagesize>
+		<large_pages/>
 	</paging>
 -->
 	<schedule_hz>100</schedule_hz>

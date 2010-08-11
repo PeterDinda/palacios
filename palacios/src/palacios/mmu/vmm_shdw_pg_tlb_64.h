@@ -332,23 +332,32 @@ static int handle_pde_shadow_pagefault_64(struct guest_info * info, addr_t fault
 	return 0;
     }
 
-    // Handle as a shadow large page if possible
-    if (guest_pde->large_page 
-	&& (info->vm_info->mem_align >= PAGE_SIZE_2MB)) {
-	if (handle_2MB_shadow_pagefault_pde_64(info, fault_addr, error_code, shadow_pde_access,
-		 	 		       (pde64_2MB_t *)shadow_pde, (pde64_2MB_t *)guest_pde) == -1) {
-	    PrintError("Error handling large pagefault with large page\n");
-	    return -1;
-	} else {
-	    return 0;
-	}
-    } 
-
     pte64_t * shadow_pt = NULL;
     pte64_t * guest_pt = NULL;
 
     // get the next shadow page level, allocate if not present
     if (shadow_pde_access == PT_ACCESS_NOT_PRESENT) {
+        // Check if  we can use large pages and the guest memory is properly aligned
+        // to potentially use a large page
+        if (info->use_large_pages && guest_pde->large_page 
+	    && (info->vm_info->mem_align >= PAGE_SIZE_2MB)) {
+            // Check underlying physical memory map to see if a large page is viable
+	    addr_t guest_pa = BASE_TO_PAGE_ADDR_2MB(((pde64_2MB_t *)guest_pde)->page_base_addr);
+	    uint32_t max_size = v3_get_max_page_size(info, guest_pa, PAGE_SIZE_2MB);
+	    if (max_size >= PAGE_SIZE_2MB) {
+	        if (handle_2MB_shadow_pagefault_pde_64(info, fault_addr, error_code, shadow_pde_access,
+		 	 		               (pde64_2MB_t *)shadow_pde, (pde64_2MB_t *)guest_pde) ==  0) {
+	    	    return 0;
+	        } else {
+	            PrintError("Error handling large pagefault with large page\n");
+	            return -1;
+		}
+	    } else {
+		PrintDebug("Underlying physical memory map doesn't allow use of a large page.\n");
+	    }
+	    // Fallthrough to handle the region with small pages
+	}
+
 	struct shadow_page_data * shdw_page = create_new_shadow_pt(info);
 	shadow_pt = (pte64_t *)V3_VAddr((void *)shdw_page->page_pa);
 

@@ -301,6 +301,7 @@ static int determine_paging_mode(struct guest_info *info, v3_cfg_tree_t * core_c
 	info->shdw_pg_mode = SHADOW_PAGING;
     }
 
+
     if (info->shdw_pg_mode == NESTED_PAGING) {
     	PrintDebug("Guest Paging Mode: NESTED_PAGING\n");
     } else if (info->shdw_pg_mode == SHADOW_PAGING) {
@@ -309,6 +310,12 @@ static int determine_paging_mode(struct guest_info *info, v3_cfg_tree_t * core_c
 	PrintError("Guest paging mode incorrectly set.\n");
 	return -1;
     }
+
+    if (strcasecmp(v3_cfg_val(pg_tree, "large_pages"), "true") == 0) {
+	info->use_large_pages = 1;
+    	PrintDebug("Use of large pages in memory virtualization enabled.\n");
+    }
+
     return 0;
 }
 

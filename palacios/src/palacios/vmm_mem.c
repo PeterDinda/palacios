@@ -385,6 +385,93 @@ void v3_delete_mem_region(struct v3_vm_info * vm, struct v3_mem_region * reg) {
 
 }
 
+// Determine if a given address can be handled by a large page of the requested size
+uint32_t v3_get_max_page_size(struct guest_info * core, addr_t fault_addr, uint32_t req_size) {
+    addr_t pg_start = 0UL, pg_end = 0UL; // large page containing the faulting addres
+    struct v3_mem_region * pg_next_reg = NULL; // next immediate mem reg after page start addr
+    uint32_t page_size = PAGE_SIZE_4KB;
+
+   /* If the guest has been configured for large pages, then we must check for hooked regions of
+     * memory which may overlap with the large page containing the faulting address (due to
+     * potentially differing access policies in place for e.g. i/o devices and APIC). A large page
+     * can be used if a) no region overlaps the page [or b) a region does overlap but fully contains
+     * the page]. The [bracketed] text pertains to the #if 0'd code below, state D. TODO modify this
+     * note if someone decides to enable this optimization. It can be tested with the SeaStar
+     * mapping.
+     *
+     * Examples: (CAPS regions are returned by v3_get_next_mem_region; state A returns the base reg)
+     *
+     *    |region| |region|                               2MiB mapped (state A)
+     *                   |reg|          |REG|             2MiB mapped (state B)
+     *   |region|     |reg|   |REG| |region|   |reg|      4KiB mapped (state C)
+     *        |reg|  |reg|   |--REGION---|                [2MiB mapped (state D)]
+     * |--------------------------------------------|     RAM
+     *                             ^                      fault addr
+     * |----|----|----|----|----|page|----|----|----|     2MB pages
+     *                           >>>>>>>>>>>>>>>>>>>>     search space
+     */
+
+
+    // guest page maps to a host page + offset (so when we shift, it aligns with a host page)
+    switch (req_size) {
+	case PAGE_SIZE_4KB:
+		return PAGE_SIZE_4KB;
+	case PAGE_SIZE_2MB:
+    		pg_start = PAGE_ADDR_2MB(fault_addr);
+    		pg_end = (pg_start + PAGE_SIZE_2MB);
+		break;
+	case PAGE_SIZE_4MB:
+    		pg_start = PAGE_ADDR_4MB(fault_addr);
+    		pg_end = (pg_start + PAGE_SIZE_4MB);
+		break;
+	case PAGE_SIZE_1GB:
+    		pg_start = PAGE_ADDR_1GB(fault_addr);
+    		pg_end = (pg_start + PAGE_SIZE_1GB);
+		break;
+	default:
+		PrintError("Invalid large page size requested.\n");
+		return -1;
+    }
+
+    PrintDebug("%s: page   [%p,%p) contains address\n", __FUNCTION__, (void *)pg_start, (void *)pg_end);
+
+    pg_next_reg = v3_get_next_mem_region(core->vm_info, core->cpu_id, pg_start);
+
+    if (pg_next_reg == NULL) {
+	PrintError("%s: Error: address not in base region, %p\n", __FUNCTION__, (void *)fault_addr);
+	return PAGE_SIZE_4KB;
+    }
+
+    if (pg_next_reg->flags.base == 1) {
+	page_size = req_size; // State A
+	PrintDebug("%s: base region [%p,%p) contains page.\n", __FUNCTION__,
+		   (void *)pg_next_reg->guest_start, (void *)pg_next_reg->guest_end);
+    } else {
+#if 0       // State B/C and D optimization
+	if ((pg_next_reg->guest_end >= pg_end) &&
+	    ((pg_next_reg->guest_start >= pg_end) || (pg_next_reg->guest_start <= pg_start))) {	    
+	    page_size = req_size;
+	}
+
+	PrintDebug("%s: region [%p,%p) %s partially overlap with page\n", __FUNCTION__,
+		   (void *)pg_next_reg->guest_start, (void *)pg_next_reg->guest_end, 
+		   (page_size == req_size) ? "does not" : "does");
+
+#else       // State B/C
+	if (pg_next_reg->guest_start >= pg_end) {
+	    
+	    page_size = req_size;
+	}
+
+	PrintDebug("%s: region [%p,%p) %s overlap with page\n", __FUNCTION__,
+		   (void *)pg_next_reg->guest_start, (void *)pg_next_reg->guest_end,
+		   (page_size == req_size) ? "does not" : "does");
+
+#endif
+    }
+
+    return page_size;
+}
 
 
 void v3_print_mem_map(struct v3_vm_info * vm) {
