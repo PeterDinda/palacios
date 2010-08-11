@@ -29,14 +29,10 @@
 
 // Reference: AMD Software Developer Manual Vol.2 Ch.5 "Page Translation and Protection"
 
-static int get_page_size() {
-
-    // Need to fix this....
-    return PAGE_SIZE_4KB; 
-
-
-#if 0
-   struct v3_mem_region * base_reg = &(info->vm_info->mem_map.base_region);
+static uint32_t get_page_size(struct guest_info * core, addr_t fault_addr) {
+    addr_t pg_start = 0UL, pg_end = 0UL; // 2MiB page containing the faulting address
+    struct v3_mem_region * pg_next_reg = NULL; // next immediate mem reg after page start addr
+    uint32_t page_size = PAGE_SIZE_4KB;
 
    /* If the guest has been configured for 2MiB pages, then we must check for hooked regions of
      * memory which may overlap with the 2MiB page containing the faulting address (due to
@@ -57,51 +53,48 @@ static int get_page_size() {
      * |----|----|----|----|----|page|----|----|----|     2MB pages
      *                           >>>>>>>>>>>>>>>>>>>>     search space
      */
-    addr_t pg_start = 0UL, pg_end = 0UL; // 2MiB page containing the faulting address
-    struct v3_mem_region * pg_next_reg = NULL; // next immediate mem reg after page start addr
-    bool use_large_page = false;
 
-    if (region == NULL) {
-	PrintError("%s: invalid region, addr=%p\n", __FUNCTION__, (void *)fault_addr);
-	return -1;
+
+    // guest page maps to a host page + offset (so when we shift, it aligns with a host page)
+    pg_start = PAGE_ADDR_2MB(fault_addr);
+    pg_end = (pg_start + PAGE_SIZE_2MB);
+
+    PrintDebug("%s: page   [%p,%p) contains address\n", __FUNCTION__, (void *)pg_start, (void *)pg_end);
+
+    pg_next_reg = v3_get_next_mem_region(core->vm_info, core->cpu_id, pg_start);
+
+    if (pg_next_reg == NULL) {
+	PrintError("%s: Error: address not in base region, %p\n", __FUNCTION__, (void *)fault_addr);
+	return PAGE_SIZE_4KB;
     }
 
-    // set use_large_page here
-    if (info->vm_info->paging_size == PAGING_2MB) {
-
-	// guest page maps to a host page + offset (so when we shift, it aligns with a host page)
-	pg_start = PAGE_ADDR_2MB(fault_addr);
-	pg_end = (pg_start + PAGE_SIZE_2MB);
-
-	PrintDebug("%s: page   [%p,%p) contains address\n", __FUNCTION__, (void *)pg_start, (void *)pg_end);
-
-	pg_next_reg = v3_get_next_mem_region(info->vm_info, info->cpu_id, pg_start);
-
-	if (pg_next_reg == NULL) {
-	    PrintError("%s: Error: address not in base region, %p\n", __FUNCTION__, (void *)fault_addr);
-	    return -1;
-	}
-
-	if (pg_next_reg->base == 1) { // next region == base region
-	    use_large_page = 1; // State A
-	} else {
+    if (pg_next_reg->flags.base == 1) {
+	page_size = PAGE_SIZE_2MB; // State A
+    } else {
 #if 0       // State B/C and D optimization
-	    use_large_page = (pg_next_reg->guest_end >= pg_end) &&
-		((pg_next_reg->guest_start >= pg_end) || (pg_next_reg->guest_start <= pg_start));
-	    PrintDebug("%s: region [%p,%p) %s partial overlap with page\n", __FUNCTION__,
-		    (void *)pg_next_reg->guest_start, (void *)pg_next_reg->guest_end,
-		    (use_large_page ? "does not have" : "has"));
-#else       // State B/C
-	    use_large_page = (pg_next_reg->guest_start >= pg_end);
-	    PrintDebug("%s: region [%p,%p) %s overlap with page\n", __FUNCTION__,
-		    (void *)pg_next_reg->guest_start, (void *)pg_next_reg->guest_end,
-		    (use_large_page ? "does not have" : "has"));
-#endif
+	if ((pg_next_reg->guest_end >= pg_end) &&
+	    ((pg_next_reg->guest_start >= pg_end) || (pg_next_reg->guest_start <= pg_start))) {	    
+	    page_size = PAGE_SIZE_2MB;
 	}
+
+	PrintDebug("%s: region [%p,%p) %s partially overlap with page\n", __FUNCTION__,
+		   (void *)pg_next_reg->guest_start, (void *)pg_next_reg->guest_end, 
+		   (page_size == PAGE_SIZE_2MB) ? "does not" : "does");
+
+#else       // State B/C
+	if (pg_next_reg->guest_start >= pg_end) {
+	    
+	    page_size = PAGE_SIZE_2MB;
+	}
+
+	PrintDebug("%s: region [%p,%p) %s overlap with page\n", __FUNCTION__,
+		   (void *)pg_next_reg->guest_start, (void *)pg_next_reg->guest_end,
+		   (page_size == PAGE_SIZE_2MB) ? "does not" : "does");
+
+#endif
     }
 
-    PrintDebug("%s: Address gets a 2MiB page? %s\n", __FUNCTION__, (use_large_page ? "yes" : "no"));
-#endif
+    return page_size;
 }
 
 
@@ -121,14 +114,20 @@ static inline int handle_passthrough_pagefault_64(struct guest_info * core, addr
     struct v3_mem_region * region =  v3_get_mem_region(core->vm_info, core->cpu_id, fault_addr);
     int page_size = PAGE_SIZE_4KB;
 
+    if (region == NULL) {
+	PrintError("%s: invalid region, addr=%p\n", __FUNCTION__, (void *)fault_addr);
+	return -1;
+    }
 
     /*  Check if:
      *  1. the guest is configured to use large pages and 
      * 	2. the memory regions can be referenced by a large page
      */
     if ((core->use_large_pages == 1) ) {
-	page_size = get_page_size();
+	page_size = get_page_size(core, fault_addr);
     }
+
+    PrintDebug("Using page size of %dKB\n", page_size / 1024);
 
  
     // Lookup the correct PML address based on the PAGING MODE
