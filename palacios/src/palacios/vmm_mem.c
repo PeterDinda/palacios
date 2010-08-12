@@ -473,6 +473,23 @@ uint32_t v3_get_max_page_size(struct guest_info * core, addr_t fault_addr, uint3
     return page_size;
 }
 
+// For an address on a page of size page_size, compute the actual alignment
+// of the physical page it maps to
+uint32_t v3_compute_page_alignment(addr_t page_addr)
+{
+    if (PAGE_OFFSET_1GB(page_addr) == 0) {
+	 return PAGE_SIZE_1GB;
+    } else if (PAGE_OFFSET_4MB(page_addr) == 0) {
+	 return PAGE_SIZE_4MB;
+    } else if (PAGE_OFFSET_2MB(page_addr) == 0) {
+	return PAGE_SIZE_2MB;
+    } else if (PAGE_OFFSET_4KB(page_addr) == 0) {
+	return PAGE_SIZE_4KB;
+    } else {
+        PrintError("Non-page aligned address passed to %s.\n", __FUNCTION__);
+	return 0;
+    }
+}
 
 void v3_print_mem_map(struct v3_vm_info * vm) {
     struct rb_node * node = v3_rb_first(&(vm->mem_map.mem_regions));

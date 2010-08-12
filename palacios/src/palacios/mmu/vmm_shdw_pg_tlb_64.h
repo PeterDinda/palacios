@@ -271,44 +271,6 @@ static int handle_pdpe_shadow_pagefault_64(struct guest_info * info, addr_t faul
     return 0;
 }
 
-// For an address on a page of size page_size, compute the actual alignment
-// of the physical page it maps to
-int compute_physical_alignment(addr_t va, addr_t pa, uint32_t page_size)
-{
-    addr_t va_offset, pa_base;
-    switch (page_size) {
-	case PAGE_SIZE_1GB:
-	    va_offset = PAGE_OFFSET_1GB(va);
-	    break;
-	case PAGE_SIZE_4MB:
-	    va_offset = PAGE_OFFSET_4MB(va);
-	    break;
-	case PAGE_SIZE_2MB:
-	    va_offset = PAGE_OFFSET_2MB(va);
-	    break;
-	case PAGE_SIZE_4KB:
-	    return 1;
-	default:
-	    PrintError("Invalid page size in %s.\n", __FUNCTION__);
-	    return 0;
-    }
- 
-    pa_base = pa - va_offset;
-
-    if (PAGE_OFFSET_1GB(pa_base) == 0) {
-	 return PAGE_SIZE_1GB;
-    } else if (PAGE_OFFSET_4MB(pa_base) == 0) {
-	 return PAGE_SIZE_4MB;
-    } else if (PAGE_OFFSET_2MB(pa_base) == 0) {
-	return PAGE_SIZE_2MB;
-    } else if (PAGE_OFFSET_4KB(pa_base) == 0) {
-	return PAGE_SIZE_4KB;
-    } else {
-        PrintError("Incorrection alignment setup or calculation in %s.\n", __FUNCTION__);
-	return 0;
-    }
-}
-
 static int handle_pde_shadow_pagefault_64(struct guest_info * info, addr_t fault_addr, pf_error_t error_code,
 					  pde64_t * shadow_pd, pde64_t * guest_pd) {
     pt_access_status_t guest_pde_access;
@@ -379,18 +341,20 @@ static int handle_pde_shadow_pagefault_64(struct guest_info * info, addr_t fault
         if (info->use_large_pages && guest_pde->large_page) {
             // Check underlying physical memory map to see if a large page is viable
 	    addr_t guest_pa = BASE_TO_PAGE_ADDR_2MB(((pde64_2MB_t *)guest_pde)->page_base_addr);
-	    if ((compute_physical_alignment(fault_addr, guest_pa, PAGE_SIZE_2MB) >= PAGE_SIZE_2MB)
-	        && (v3_get_max_page_size(info, guest_pa, PAGE_SIZE_2MB) >= PAGE_SIZE_2MB)) {
-	    	// should be able to use a large page.
-	        if (handle_2MB_shadow_pagefault_pde_64(info, fault_addr, error_code, shadow_pde_access,
-		 	 		               (pde64_2MB_t *)shadow_pde, (pde64_2MB_t *)guest_pde) ==  0) {
-	    	    return 0;
-	        } else {
-	            PrintError("Error handling large pagefault with large page\n");
-	            return -1;
-		}
+	    addr_t host_pa;
+	    if (v3_get_max_page_size(info, guest_pa, PAGE_SIZE_2MB) < PAGE_SIZE_2MB) {
+		PrintDebug("Underlying physical memory map doesn't allow use of a large page.\n");
+		// Fallthrough to small pages
+	    } else if ((v3_gpa_to_hpa(info, guest_pa, &host_pa) != 0)
+		       || (v3_compute_page_alignment(host_pa) < PAGE_SIZE_2MB)) {
+		PrintDebug("Host memory alignment doesn't allow use of a large page.\n");
+		// Fallthrough to small pages
+	    } else if (handle_2MB_shadow_pagefault_pde_64(info, fault_addr, error_code, shadow_pde_access,
+		 	 		               (pde64_2MB_t *)shadow_pde, (pde64_2MB_t *)guest_pde) == 0) {
+	    	return 0;
 	    } else {
-		PrintDebug("Alignment or underlying physical memory map doesn't allow use of a large page.\n");
+	        PrintError("Error handling large pagefault with large page\n");
+	        return -1;
 	    }
 	    // Fallthrough to handle the region with small pages
 	}

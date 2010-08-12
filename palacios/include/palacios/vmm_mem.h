@@ -110,7 +110,7 @@ struct v3_mem_region * v3_get_next_mem_region(struct v3_vm_info * vm, uint16_t c
 void v3_print_mem_map(struct v3_vm_info * vm);
 
 uint32_t v3_get_max_page_size(struct guest_info * core, addr_t fault_addr, uint32_t req_size);
-
+uint32_t v3_compute_page_alignment(addr_t addr);
 
 
 #endif // ! __V3VEE__
