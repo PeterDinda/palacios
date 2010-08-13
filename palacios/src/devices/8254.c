@@ -643,7 +643,7 @@ static struct v3_device_ops dev_ops = {
 static int pit_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct pit * pit_state = NULL;
     struct vm_device * dev = NULL;
-    char * name = v3_cfg_val(cfg, "name");
+    char * dev_id = v3_cfg_val(cfg, "ID");
     
     // PIT is only usable in non-multicore environments
     // just hardcode the core context
@@ -655,10 +655,10 @@ static int pit_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     pit_state = (struct pit *)V3_Malloc(sizeof(struct pit));
     V3_ASSERT(pit_state != NULL);
 
-    dev = v3_allocate_device(name, &dev_ops, pit_state);
+    dev = v3_allocate_device(dev_id, &dev_ops, pit_state);
 
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("Could not attach device %s\n", name);
+	PrintError("Could not attach device %s\n", dev_id);
 	return -1;
     }
 

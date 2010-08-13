@@ -779,7 +779,7 @@ static int passthrough_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct pt_dev_state * state = V3_Malloc(sizeof(struct pt_dev_state));
     struct vm_device * dev = NULL;
     struct vm_device * pci = v3_find_dev(vm, v3_cfg_val(cfg, "bus"));
-    char * name = v3_cfg_val(cfg, "name");    
+    char * dev_id = v3_cfg_val(cfg, "ID");    
 
 
     memset(state, 0, sizeof(struct pt_dev_state));
@@ -790,13 +790,13 @@ static int passthrough_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     }
     
     state->pci_bus = pci;
-    strncpy(state->name, name, 32);
+    strncpy(state->name, dev_id, 32);
 
 
-    dev = v3_allocate_device(name, &dev_ops, state);
+    dev = v3_allocate_device(dev_id, &dev_ops, state);
 
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("Could not attach device %s\n", name);
+	PrintError("Could not attach device %s\n", dev_id);
 	return -1;
     }
 

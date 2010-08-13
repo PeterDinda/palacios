@@ -104,17 +104,17 @@ static struct v3_device_ops dev_ops = {
 
 static int debug_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct debug_state * state = NULL;
-    char * name = v3_cfg_val(cfg, "name");
+    char * dev_id = v3_cfg_val(cfg, "ID");
 
     state = (struct debug_state *)V3_Malloc(sizeof(struct debug_state));
 
     PrintDebug("Creating OS Debug Device\n");
 
-    struct vm_device * dev = v3_allocate_device(name, &dev_ops, state);
+    struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, state);
 
 
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("Could not attach device %s\n", name);
+	PrintError("Could not attach device %s\n", dev_id);
 	return -1;
     }
 

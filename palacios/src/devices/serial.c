@@ -914,7 +914,7 @@ static int init_serial_port(struct serial_port * com) {
 
 static int serial_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct serial_state * state = (struct serial_state *)V3_Malloc(sizeof(struct serial_state));
-    char * name = v3_cfg_val(cfg, "name");
+    char * dev_id = v3_cfg_val(cfg, "ID");
 
     PrintDebug("UART: init_device\n");
     init_serial_port(&(state->com1));
@@ -928,10 +928,10 @@ static int serial_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     state->com4.irq_number = COM4_IRQ;
 
 
-    struct vm_device * dev = v3_allocate_device(name, &dev_ops, state);
+    struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, state);
 
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("Could not attach device %s\n", name);
+	PrintError("Could not attach device %s\n", dev_id);
 	return -1;
     }
 

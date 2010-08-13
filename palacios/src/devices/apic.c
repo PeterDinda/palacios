@@ -1106,13 +1106,13 @@ static struct v3_icc_ops icc_ops = {
 
 static int apic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     PrintDebug("apic: creating an APIC for each core\n");
-    char * name = v3_cfg_val(cfg, "name");
-    char * icc_name = v3_cfg_val(cfg,"bus");
-    struct vm_device * icc = v3_find_dev(vm, icc_name);
+    char * dev_id = v3_cfg_val(cfg, "ID");
+    char * icc_bus_id = v3_cfg_val(cfg,"bus");
+    struct vm_device * icc = v3_find_dev(vm, icc_bus_id);
     int i;
 
     if (!icc) {
-        PrintError("apic: Cannot find ICC Bus (%s)\n", icc_name);
+        PrintError("apic: Cannot find ICC Bus (%s)\n", icc_bus_id);
         return -1;
     }
 
@@ -1121,10 +1121,10 @@ static int apic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     // 0..num_cores-1   at num_cores is the ioapic (one only)
     struct apic_state * apic = (struct apic_state *)V3_Malloc(sizeof(struct apic_state) * vm->num_cores);
 
-    struct vm_device * dev = v3_allocate_device(name, &dev_ops, apic);
+    struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, apic);
 
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("apic: Could not attach device %s\n", name);
+	PrintError("apic: Could not attach device %s\n", dev_id);
 	return -1;
     }
 

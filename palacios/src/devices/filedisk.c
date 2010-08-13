@@ -90,8 +90,10 @@ static struct v3_device_ops dev_ops = {
 
 static int disk_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
     struct disk_state * disk = NULL;
-    char * name = v3_cfg_val(cfg, "filename");
+    char * path = v3_cfg_val(cfg, "path");
+    char * dev_id = v3_cfg_val(cfg, "ID");
     char * filename = v3_cfg_val(cfg, "file");
+
 
     v3_cfg_tree_t * frontend_cfg = v3_cfg_subtree(cfg, "frontend");
 
@@ -99,28 +101,28 @@ static int disk_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
     memset(disk, 0, sizeof(struct disk_state));
 
 
-    if (!filename) {
-	PrintError("Missing filename (%s) for %s\n", filename, name);
+    if (!path) {
+	PrintError("Missing path (%s) for %s\n", path, dev_id);
 	return -1;
     }
     
-    disk->fd = V3_FileOpen(filename, 0);
+    disk->fd = V3_FileOpen(path, 0);
     disk->capacity = V3_FileSize(disk->fd);
 
     PrintDebug("Registering RAMDISK at %p (size=%d)\n", 
 	       (void *)file->data, (uint32_t)file->size);
 
-    struct vm_device * dev = v3_allocate_device(name, &dev_ops, disk);
+    struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, disk);
 
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("Could not attach device %s\n", name);
+	PrintError("Could not attach device %s\n", dev_id);
 	return -1;
     }
 
     if (v3_dev_connect_blk(vm, v3_cfg_val(frontend_cfg, "tag"), 
 			   &blk_ops, frontend_cfg, disk) == -1) {
 	PrintError("Could not connect %s to frontend %s\n", 
-		   name, v3_cfg_val(frontend_cfg, "tag"));
+		   dev_id, v3_cfg_val(frontend_cfg, "tag"));
 	return -1;
     }
     

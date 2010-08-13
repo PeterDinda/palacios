@@ -546,12 +546,12 @@ static int setup_devices(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     
     while (device) {
-	char * id = v3_cfg_val(device, "id");
+	char * dev_class = v3_cfg_val(device, "class");
 
-	V3_Print("configuring device %s\n", id);
+	V3_Print("configuring device %s\n", dev_class);
 
-	if (v3_create_device(vm, id, device) == -1) {
-	    PrintError("Error creating device %s\n", id);
+	if (v3_create_device(vm, dev_class, device) == -1) {
+	    PrintError("Error creating device %s\n", dev_class);
 	    return -1;
 	}
 	

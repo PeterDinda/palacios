@@ -423,12 +423,12 @@ static struct v3_device_ops dev_ops = {
 static int cirrus_gfx_card_init(struct guest_info * vm, v3_cfg_tree_t * cfg){
     struct video_internal * video_state = (struct video_internal *)V3_Malloc(sizeof(struct video_internal));
     struct vm_device * pci_bus = v3_find_dev(vm, (char *)cfg_data);
-    char * name = v3_cfg_val(cfg, "name");
+    char * dev_id = v3_cfg_val(cfg, "ID");
 
-    struct vm_device * dev = v3_allocate_device("TEXT_GFX_CARD", &dev_ops, video_state);
+    struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, video_state);
 
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("Could not attach device %s\n", "TEXT_GFX_CARD");
+	PrintError("Could not attach device %s\n", dev_id);
 	return -1;
     }
 

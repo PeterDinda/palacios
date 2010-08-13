@@ -115,7 +115,7 @@ static void passthrough_out(uint16_t port, void * src, uint_t length) {
     }
 }
 
-static int video_write_mem(addr_t guest_addr, void * dest, uint_t length, void * priv_data) {
+static int video_write_mem(struct guest_info * core, addr_t guest_addr, void * dest, uint_t length, void * priv_data) {
     struct vm_device * dev = (struct vm_device *)priv_data;
     struct video_internal * state = (struct video_internal *)dev->private_data;
     uint_t fb_offset = guest_addr - START_ADDR;
@@ -148,7 +148,7 @@ static int video_write_mem(addr_t guest_addr, void * dest, uint_t length, void *
     return length;
 }
 
-static int video_read_port(uint16_t port, void * dest, uint_t length, struct vm_device * dev) {
+static int video_read_port(struct guest_info * core, uint16_t port, void * dest, uint_t length, struct vm_device * dev) {
     struct video_internal * video_state = (struct video_internal *)dev->private_data;
 
 
@@ -163,7 +163,7 @@ static int video_read_port(uint16_t port, void * dest, uint_t length, struct vm_
 
 
 
-static int video_write_port(uint16_t port, void * src, uint_t length, struct vm_device * dev) {
+static int video_write_port(struct guest_info * core, uint16_t port, void * src, uint_t length, struct vm_device * dev) {
     struct video_internal * video_state = (struct video_internal *)dev->private_data;
 
 
@@ -178,7 +178,7 @@ static int video_write_port(uint16_t port, void * src, uint_t length, struct vm_
 
 
 
-static int crtc_data_write(uint16_t port, void * src, uint_t length, struct vm_device * dev) {
+static int crtc_data_write(struct guest_info * core, uint16_t port, void * src, uint_t length, struct vm_device * dev) {
     struct video_internal * video_state = (struct video_internal *)dev->private_data;
     uint8_t val = *(uint8_t *)src;
     uint_t index = video_state->crtc_index_reg;
@@ -257,7 +257,7 @@ static int crtc_data_write(uint16_t port, void * src, uint_t length, struct vm_d
 }
 
 
-static int crtc_index_write(uint16_t port, void * src, uint_t length, struct vm_device * dev) {
+static int crtc_index_write(struct guest_info * core, uint16_t port, void * src, uint_t length, struct vm_device * dev) {
     struct video_internal * video_state = (struct video_internal *)dev->private_data;
     
     if (length > 2) {
@@ -276,7 +276,7 @@ static int crtc_index_write(uint16_t port, void * src, uint_t length, struct vm_
     }
 
     if (length == 2) {
-	if (crtc_data_write(port + 1, src + 1, length - 1, dev) != (length - 1)) {
+	if (crtc_data_write(core, port + 1, src + 1, length - 1, dev) != (length - 1)) {
 	    PrintError("could not handle implicit crtc data write\n");
 	    return -1;
 	}
@@ -302,7 +302,7 @@ int v3_cons_get_fb(struct vm_device * frontend_dev, uint8_t * dst, uint_t offset
 
 
 static int free_device(struct vm_device * dev) {
-    v3_unhook_mem(dev->vm, START_ADDR);
+    v3_unhook_mem(dev->vm, V3_MEM_CORE_ANY, START_ADDR);
     return 0;
 }
 
@@ -315,20 +315,20 @@ static struct v3_device_ops dev_ops = {
     .stop = NULL,
 };
 
-static int cga_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
+static int cga_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct video_internal * video_state = (struct video_internal *)V3_Malloc(sizeof(struct video_internal));
     addr_t frame_buf_pa = 0;
     int enable_passthrough = 0;
-    char * name = v3_cfg_val(cfg, "name");
+    char * dev_id = v3_cfg_val(cfg, "ID");
 
     enable_passthrough = (strcasecmp(v3_cfg_val(cfg, "passthrough"), "enable") == 0) ? 1 : 0;
 
     PrintDebug("video: init_device\n");
 
-    struct vm_device * dev = v3_allocate_device(name, &dev_ops, video_state);
+    struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, video_state);
 
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("Could not attach device %s\n", name);
+	PrintError("Could not attach device %s\n", dev_id);
 	return -1;
     }
 
@@ -347,11 +347,11 @@ static int cga_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
     if (enable_passthrough) {
 	PrintDebug("Enabling CGA Passthrough\n");
 
-	if (v3_hook_write_mem(vm, START_ADDR, END_ADDR, START_ADDR, &video_write_mem, dev) == -1) {
+	if (v3_hook_write_mem(vm, V3_MEM_CORE_ANY, START_ADDR, END_ADDR, START_ADDR, &video_write_mem, dev) == -1) {
 	    PrintDebug("\n\nVideo Hook failed.\n\n");
 	}
     } else {
-	if (v3_hook_write_mem(vm, START_ADDR, END_ADDR, frame_buf_pa, &video_write_mem, dev) == -1) {
+	if (v3_hook_write_mem(vm, V3_MEM_CORE_ANY, START_ADDR, END_ADDR, frame_buf_pa, &video_write_mem, dev) == -1) {
 	    PrintDebug("\n\nVideo Hook failed.\n\n");
 	}
     }

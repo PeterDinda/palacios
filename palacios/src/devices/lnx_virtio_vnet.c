@@ -624,9 +624,9 @@ static int dev_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vm_device * pci_bus = v3_find_dev(vm, v3_cfg_val(cfg, "bus"));
     struct virtio_vnet_state * vnet_state = NULL;
     struct pci_device * pci_dev = NULL;
-    char * name = v3_cfg_val(cfg, "name");
+    char * dev_id = v3_cfg_val(cfg, "ID");
 
-    PrintDebug("VNET Bridge: Initializing VNET Bridge Control device: %s\n", name);
+    PrintDebug("VNET Bridge: Initializing VNET Bridge Control device: %s\n", dev_id);
 
     if (pci_bus == NULL) {
 	PrintError("VNET Bridge device require a PCI Bus");
@@ -638,10 +638,10 @@ static int dev_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	
     vnet_state->vm = vm;
 
-    struct vm_device * dev = v3_allocate_device(name, &dev_ops, vnet_state);
+    struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, vnet_state);
 
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("Could not attach device %s\n", name);
+	PrintError("Could not attach device %s\n", dev_id);
 	return -1;
     }
 

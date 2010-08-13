@@ -99,7 +99,7 @@ static struct v3_device_ops dev_ops = {
 static int blk_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct blk_state * blk = NULL;
     v3_cfg_tree_t * frontend_cfg = v3_cfg_subtree(cfg, "frontend");
-    char * name = v3_cfg_val(cfg, "name");
+    char * dev_id = v3_cfg_val(cfg, "ID");
     uint64_t capacity = atoi(v3_cfg_val(cfg, "size")) * 1024 * 1024;
     
     if (!frontend_cfg) {
@@ -119,17 +119,17 @@ static int blk_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     memset(blk->blk_space, 0, capacity);
 
 
-    struct vm_device * dev = v3_allocate_device(name, &dev_ops, blk);
+    struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, blk);
 
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("Could not attach device %s\n", name);
+	PrintError("Could not attach device %s\n", dev_id);
 	return -1;
     }
 
     if (v3_dev_connect_blk(vm, v3_cfg_val(frontend_cfg, "tag"), 
 			   &blk_ops, frontend_cfg, blk) == -1) {
 	PrintError("Could not connect %s to frontend %s\n", 
-		   name, v3_cfg_val(frontend_cfg, "tag"));
+		   dev_id, v3_cfg_val(frontend_cfg, "tag"));
 	return -1;
     }
 

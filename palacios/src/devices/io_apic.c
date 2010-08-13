@@ -328,7 +328,7 @@ static struct v3_device_ops dev_ops = {
 
 static int ioapic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vm_device * icc_bus = v3_find_dev(vm, v3_cfg_val(cfg, "bus"));
-    char * name = v3_cfg_val(cfg, "name");
+    char * dev_id = v3_cfg_val(cfg, "ID");
 
     if (!icc_bus) {
 	PrintError("ioapic: Could not locate ICC BUS device (%s)\n", v3_cfg_val(cfg, "bus"));
@@ -341,11 +341,11 @@ static int ioapic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     ioapic->icc_bus = icc_bus;
 
-    struct vm_device * dev = v3_allocate_device(name, &dev_ops, ioapic);
+    struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, ioapic);
 
 
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("ioapic: Could not attach device %s\n", name);
+	PrintError("ioapic: Could not attach device %s\n", dev_id);
 	return -1;
     }
 

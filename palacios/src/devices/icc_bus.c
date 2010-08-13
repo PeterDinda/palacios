@@ -312,15 +312,15 @@ int v3_icc_register_ioapic(struct v3_vm_info *vm, struct vm_device * icc_bus, ui
 static int icc_bus_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     PrintDebug("icc_bus: Creating ICC_BUS\n");
 
-    char * name = v3_cfg_val(cfg, "name");
+    char * dev_id = v3_cfg_val(cfg, "ID");
 
     struct icc_bus_state * icc_bus = (struct icc_bus_state *)V3_Malloc(sizeof(struct icc_bus_state));
     memset(icc_bus, 0, sizeof(struct icc_bus_state));
 
-    struct vm_device * dev = v3_allocate_device(name, &dev_ops, icc_bus);
+    struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, icc_bus);
 
     if (v3_attach_device(vm, dev) == -1) {
-        PrintError("icc_bus: Could not attach device %s\n", name);
+        PrintError("icc_bus: Could not attach device %s\n", dev_id);
         return -1;
     }
 
