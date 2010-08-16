@@ -9,11 +9,11 @@
 	<telemetry>enable</telemetry>
 	<paging mode="shadow">
 		<strategy>VTLB</strategy>
-		<large_pages/>
+		<large_pages>true<large_pages/>
 	</paging>
 <!--
 	<paging mode="nested">
-		<large_pages/>
+		<large_pages>true<large_pages/>
 	</paging>
 -->
 	<schedule_hz>100</schedule_hz>

@@ -396,7 +396,7 @@ static int apic_do_eoi(struct apic_state * apic) {
 	
 	if ((isr_irq == 238) || 
 	    (isr_irq == 239)) {
-	    PrintError("apic %u: core ?: Acking IRQ %d\n", apic->lapic_id.val,isr_irq);
+	    PrintDebug("apic %u: core ?: Acking IRQ %d\n", apic->lapic_id.val,isr_irq);
 	}
 	
 	if (isr_irq == 238) {
