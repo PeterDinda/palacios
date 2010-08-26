@@ -22,6 +22,11 @@
 #include <palacios/vm_guest_mem.h>
 #include <palacios/vmx.h>
 
+#ifndef CONFIG_DEBUG_VMX
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
+#endif
+
 static void vmx_save_world_ctx(struct guest_info * info, struct vmx_assist_context * ctx);
 static void vmx_restore_world_ctx(struct guest_info * info, struct vmx_assist_context * ctx);
 

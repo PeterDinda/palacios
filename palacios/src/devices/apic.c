@@ -309,7 +309,7 @@ static int activate_apic_irq(struct apic_state * apic, uint32_t irq_num) {
 #if 1
 
     if (irq_num <= 15) {
-	PrintError("apic %u: core ?: Attempting to raise an invalid interrupt: %d\n", apic->lapic_id.val,irq_num);
+//	PrintError("apic %u: core ?: Attempting to raise an invalid interrupt: %d\n", apic->lapic_id.val,irq_num);
 	return -1;
     }
 

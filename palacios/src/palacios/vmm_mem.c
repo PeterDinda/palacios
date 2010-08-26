@@ -433,7 +433,7 @@ uint32_t v3_get_max_page_size(struct guest_info * core, addr_t fault_addr, uint3
 		return -1;
     }
 
-    PrintDebug("%s: page   [%p,%p) contains address\n", __FUNCTION__, (void *)pg_start, (void *)pg_end);
+    //PrintDebug("%s: page   [%p,%p) contains address\n", __FUNCTION__, (void *)pg_start, (void *)pg_end);
 
     pg_next_reg = v3_get_next_mem_region(core->vm_info, core->cpu_id, pg_start);
 
@@ -444,8 +444,8 @@ uint32_t v3_get_max_page_size(struct guest_info * core, addr_t fault_addr, uint3
 
     if (pg_next_reg->flags.base == 1) {
 	page_size = req_size; // State A
-	PrintDebug("%s: base region [%p,%p) contains page.\n", __FUNCTION__,
-		   (void *)pg_next_reg->guest_start, (void *)pg_next_reg->guest_end);
+	//PrintDebug("%s: base region [%p,%p) contains page.\n", __FUNCTION__,
+	//	   (void *)pg_next_reg->guest_start, (void *)pg_next_reg->guest_end);
     } else {
 #if 0       // State B/C and D optimization
 	if ((pg_next_reg->guest_end >= pg_end) &&
