@@ -21,6 +21,11 @@
 #include <palacios/vmm.h>
 #include <palacios/vm_guest.h>
 
+#ifndef CONFIG_DEBUG_TIME
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
+#endif
+
 static int handle_cpufreq_hcall(struct guest_info * info, uint_t hcall_id, void * priv_data) {
     struct vm_time * time_state = &(info->time_state);
 
@@ -62,6 +67,8 @@ uint64_t v3_get_guest_time(struct guest_info * info) {
 int v3_start_time(struct guest_info * info) {
     /* We start running with guest_time == host_time */
     uint64_t t = v3_get_host_time(info); 
+
+    PrintDebug("Starting initial guest time as %llu\n", t);
     info->time_state.last_update = t;
     info->time_state.pause_time = t;
     return 0;
@@ -70,17 +77,24 @@ int v3_start_time(struct guest_info * info) {
 int v3_pause_time(struct guest_info * info) {
     V3_ASSERT(info->time_state.pause_time == 0);
     info->time_state.pause_time = v3_get_guest_time(info);
+    PrintDebug("Time paused at guest time as %llu\n", 
+	       info->time_state.pause_time);
     return 0;
 }
 
 int v3_resume_time(struct guest_info * info) {
     uint64_t t = v3_get_host_time(info);
     V3_ASSERT(info->time_state.pause_time != 0);
-#ifdef OPTION_TIME_ADJUST_TSC_OFFSET
-#endif
     info->time_state.host_offset = 
 	(sint64_t)info->time_state.pause_time - (sint64_t)t;
+#ifdef OPTION_TIME_ADJUST_TSC_OFFSET
+    /* XXX Adjust host_offset towards zero based on resolution/accuracy
+     * constraints. */
+#endif
     info->time_state.pause_time = 0;
+    PrintDebug("Time resumed paused at guest time as %llu "
+	       "offset %lld from host time.\n", t, info->time_state.host_offset);
+
     return 0;
 }
 

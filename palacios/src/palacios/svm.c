@@ -416,7 +416,6 @@ static int update_irq_entry_state(struct guest_info * info) {
 int v3_svm_enter(struct guest_info * info) {
     vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
     vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data)); 
-    ullong_t tmp_tsc;
     addr_t exit_code = 0, exit_info1 = 0, exit_info2 = 0;
 
     // Conditionally yield the CPU if the timeslice has expired
@@ -470,30 +469,26 @@ int v3_svm_enter(struct guest_info * info) {
 #endif
 
 
-    rdtscll(tmp_tsc);
-    v3_update_timers(info, (tmp_tsc - info->time_state.cached_host_tsc));
-    rdtscll(info->time_state.cached_host_tsc);
-    //    guest_ctrl->TSC_OFFSET = info->time_state.guest_tsc - info->time_state.cached_host_tsc;
+    v3_update_timers(info);
+    v3_resume_time(info);
+    guest_ctrl->TSC_OFFSET = info->time_state.host_offset;
 
     //V3_Print("Calling v3_svm_launch\n");
 
-
     v3_svm_launch((vmcb_t *)V3_PAddr(info->vmm_data), &(info->vm_regs), (vmcb_t *)host_vmcbs[info->cpu_id]);
-    
+
+    v3_pause_time(info);
+#ifdef OPTION_TIME_MASK_OVERHEAD
+    v3_offset_time(info, -SVM_ENTRY_OVERHEAD);
+#endif
+
     //V3_Print("SVM Returned: Exit Code: %x, guest_rip=%lx\n", (uint32_t)(guest_ctrl->exit_code), (unsigned long)guest_state->rip);
 
-
     v3_last_exit = (uint32_t)(guest_ctrl->exit_code);
-
-    //rdtscll(tmp_tsc);
-    //    v3_update_time(info, tmp_tsc - info->time_state.cached_host_tsc);
 
     //PrintDebug("SVM Returned\n");
     
     info->num_exits++;
-
-
-
 
     // Save Guest state from VMCB
     info->rip = guest_state->rip;
@@ -590,8 +585,7 @@ int v3_start_svm_guest(struct guest_info *info) {
     //PrintDebugVMCB((vmcb_t*)(info->vmm_data));
     
     info->vm_info->run_state = VM_RUNNING;
-    rdtscll(info->yield_start_cycle);
-
+    v3_start_time(info);
 
     while (1) {
 	if (v3_svm_enter(info) == -1) {

@@ -324,7 +324,12 @@ config DEBUG_INTERRUPTS
 	help 
 	  This turns on debugging for the interrupt system
 
-
+config DEBUG_TIME
+	bool "Timing"
+	default n
+	depends on DEBUG_ON
+	help
+	  This turns on debugging of system time virtualization
 
 config DEBUG_IO
 	bool "IO"
