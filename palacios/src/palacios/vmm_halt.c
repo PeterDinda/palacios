@@ -38,17 +38,12 @@ int v3_handle_halt(struct guest_info * info) {
     if (info->cpl != 0) { 
 	v3_raise_exception(info, GPF_EXCEPTION);
     } else {
-	uint64_t yield_start = 0;
-	
 	PrintDebug("CPU Yield\n");
 
 	while (!v3_intr_pending(info)) {
-	    rdtscll(yield_start);
+	    /* Since we're in an exit, time is already paused here, so no need to pause again. */
 	    v3_yield(info);
-	    
-	    v3_update_time(info, yield_start - info->time_state.cached_host_tsc);
-	    
-	    rdtscll(info->time_state.cached_host_tsc);
+	    v3_update_timers(info);
 	    
 	    /* At this point, we either have some combination of 
 	       interrupts, including perhaps a timer interrupt, or 

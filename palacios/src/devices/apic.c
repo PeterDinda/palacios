@@ -978,7 +978,7 @@ static int apic_begin_irq(struct guest_info * info, void * private_data, int irq
 
 
 /* Timer Functions */
-static void apic_update_time(struct guest_info * info, ullong_t cpu_cycles, ullong_t cpu_freq, void * priv_data) {
+static void apic_update_timer(struct guest_info * info, ullong_t cpu_cycles, ullong_t cpu_freq, void * priv_data) {
     struct apic_state * apic = (struct apic_state *)(priv_data);
     // The 32 bit GCC runtime is a pile of shit
 #ifdef __V3_64BIT__
@@ -1071,7 +1071,7 @@ static struct intr_ctrl_ops intr_ops = {
 
 
 static struct vm_timer_ops timer_ops = {
-    .update_time = apic_update_time,
+    .update_timer = apic_update_timer,
 };
 
 

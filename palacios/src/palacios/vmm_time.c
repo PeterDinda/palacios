@@ -38,18 +38,54 @@ void v3_init_time(struct guest_info * info) {
 
     time_state->cpu_freq = V3_CPU_KHZ();
  
-    time_state->guest_tsc = 0;
-    time_state->cached_host_tsc = 0;
-    // time_state->pending_cycles = 0;
-  
+    time_state->pause_time = 0;
+    time_state->last_update = 0;
+    time_state->host_offset = 0;
+    
     INIT_LIST_HEAD(&(time_state->timers));
     time_state->num_timers = 0;
 
     v3_register_hypercall(info->vm_info, TIME_CPUFREQ_HCALL, handle_cpufreq_hcall, NULL);
 }
 
+uint64_t v3_get_host_time(struct guest_info * info) {
+    uint64_t tmp;
+    rdtscll(tmp);
+    return tmp;
+}
 
-int v3_add_timer(struct guest_info * info, struct vm_timer_ops * ops, void * private_data) {
+uint64_t v3_get_guest_time(struct guest_info * info) {
+    return v3_get_host_time(info) + info->time_state.host_offset;
+}
+
+
+int v3_start_time(struct guest_info * info) {
+    /* We start running with guest_time == host_time */
+    uint64_t t = v3_get_host_time(info); 
+    info->time_state.last_update = t;
+    info->time_state.pause_time = t;
+    return 0;
+}
+
+int v3_pause_time(struct guest_info * info) {
+    V3_ASSERT(info->time_state.pause_time == 0);
+    info->time_state.pause_time = v3_get_guest_time(info);
+    return 0;
+}
+
+int v3_resume_time(struct guest_info * info) {
+    uint64_t t = v3_get_host_time(info);
+    V3_ASSERT(info->time_state.pause_time != 0);
+#ifdef OPTION_TIME_ADJUST_TSC_OFFSET
+#endif
+    info->time_state.host_offset = 
+	(sint64_t)info->time_state.pause_time - (sint64_t)t;
+    info->time_state.pause_time = 0;
+    return 0;
+}
+
+int v3_add_timer(struct guest_info * info, struct vm_timer_ops * ops, 
+	     void * private_data) {
     struct vm_timer * timer = NULL;
     timer = (struct vm_timer *)V3_Malloc(sizeof(struct vm_timer));
     V3_ASSERT(timer != NULL);
@@ -72,34 +108,15 @@ int v3_remove_timer(struct guest_info * info, struct vm_timer * timer) {
     return 0;
 }
 
-
-
-void v3_update_time(struct guest_info * info, uint64_t cycles) {
+void v3_update_timers(struct guest_info * info) {
     struct vm_timer * tmp_timer;
-    
-    //   cycles *= 8;
+    uint64_t old_time = info->time_state.last_update;
+    uint64_t cycles;
 
-//    cycles /= 150;
-
-    info->time_state.guest_tsc += cycles;
+    info->time_state.last_update = v3_get_guest_time(info);
+    cycles = info->time_state.last_update - old_time;
 
     list_for_each_entry(tmp_timer, &(info->time_state.timers), timer_link) {
-	tmp_timer->ops->update_time(info, cycles, info->time_state.cpu_freq, tmp_timer->private_data);
+	tmp_timer->ops->update_timer(info, cycles, info->time_state.cpu_freq, tmp_timer->private_data);
     }
-  
-
-
-    //info->time_state.pending_cycles = 0;
-}
-
-void v3_advance_time(struct guest_info * core) {
-    struct vm_timer * tmp_timer;
-
-
-    list_for_each_entry(tmp_timer, &(core->time_state.timers), timer_link) {
-	tmp_timer->ops->advance_timer(core, tmp_timer->private_data);
-    }
-  
-
-
 }

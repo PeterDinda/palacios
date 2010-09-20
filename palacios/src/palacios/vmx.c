@@ -636,12 +636,11 @@ static void print_exit_log(struct guest_info * info) {
  */
 int v3_vmx_enter(struct guest_info * info) {
     int ret = 0;
-    uint64_t tmp_tsc = 0;
+    uint32_t tsc_offset_low, tsc_offset_high;
     struct vmx_exit_info exit_info;
 
     // Conditionally yield the CPU if the timeslice has expired
     v3_yield_cond(info);
-
 
     // v3_print_guest_state(info);
 
@@ -665,11 +664,15 @@ int v3_vmx_enter(struct guest_info * info) {
 	vmcs_write(VMCS_GUEST_CR3, guest_cr3);
     }
 
-    // We do timer injection here to track real host time.
-    rdtscll(tmp_tsc);
-    v3_update_time(info, tmp_tsc - info->time_state.cached_host_tsc);
-    rdtscll(info->time_state.cached_host_tsc);
+    v3_update_timers(info);
+    v3_resume_time(info);
 
+    tsc_offset_high = 
+	(uint32_t)((info->time_state.host_offset >> 32) & 0xffffffff);
+    tsc_offset_low = (uint32_t)(info->time_state.host_offset & 0xffffffff);
+    check_vmcs_write(VMCS_TSC_OFFSET_HIGH, tsc_offset_high);
+    check_vmcs_write(VMCS_TSC_OFFSET, tsc_offset_low);
+		     
     if (info->vm_info->run_state == VM_STOPPED) {
 	info->vm_info->run_state = VM_RUNNING;
 	ret = v3_vmx_launch(&(info->vm_regs), info, &(info->ctrl_regs));
@@ -688,11 +691,12 @@ int v3_vmx_enter(struct guest_info * info) {
 	return -1;
     }
 
-    //   rdtscll(tmp_tsc);
-    //    v3_update_time(info, tmp_tsc - info->time_state.cached_host_tsc);
+    v3_pause_time(info);
+#ifdef OPTION_TIME_MASK_OVERHEAD
+    v3_offset_time(info, -VMX_ENTRY_OVERHEAD);
+#endif
 
     info->num_exits++;
-
 
     /* Update guest state */
     v3_vmx_save_vmcs(info);
@@ -744,8 +748,7 @@ int v3_start_vmx_guest(struct guest_info* info) {
 
     PrintDebug("Launching VMX guest\n");
 
-    rdtscll(info->time_state.cached_host_tsc);
-
+    v3_start_time(info);
 
     while (1) {
 	if (v3_vmx_enter(info) == -1) {

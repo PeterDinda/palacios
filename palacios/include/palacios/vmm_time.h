@@ -30,14 +30,14 @@ struct guest_info;
 struct vm_time {
     uint32_t cpu_freq; // in kHZ
 
-    // Total number of guest run time cycles
-    uint64_t guest_tsc;
-
+    // Last time (in guest time) the timers were updated
+    uint64_t last_update;
+    
     // Cache value to help calculate the guest_tsc
-    uint64_t cached_host_tsc;
+    uint64_t pause_time;
 
-    // The number of cycles pending for notification to the timers
-    //ullong_t pending_cycles;
+    // Offset of guest time from host time.
+    sint64_t host_offset;
 
     // Installed Timers 
     uint_t num_timers;
@@ -48,7 +48,7 @@ struct vm_time {
 
 
 struct vm_timer_ops {
-    void (*update_time)(struct guest_info * info, ullong_t cpu_cycles, ullong_t cpu_freq, void * priv_data);
+    void (*update_timer)(struct guest_info * info, ullong_t cpu_cycles, ullong_t cpu_freq, void * priv_data);
     void (*advance_timer)(struct guest_info * info, void * private_data);
 };
 
@@ -64,14 +64,15 @@ struct vm_timer {
 
 int v3_add_timer(struct guest_info * info, struct vm_timer_ops * ops, void * private_data);
 int v3_remove_timer(struct guest_info * info, struct vm_timer * timer);
-
-void v3_advance_time(struct guest_info * info);
-
-void v3_update_time(struct guest_info * info, ullong_t cycles);
+void v3_update_timers(struct guest_info * info);
 
 
 void v3_init_time(struct guest_info * info);
-
+int v3_start_time(struct guest_info * info);
+int v3_pause_time(struct guest_info * info);
+int v3_resume_time(struct guest_info * info);
+uint64_t v3_get_host_time(struct guest_info * info);
+uint64_t v3_get_guest_time(struct guest_info * info);
 #endif // !__V3VEE__
 
 #endif
