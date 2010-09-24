@@ -174,17 +174,17 @@ static int deliver(uint32_t src_apic, struct apic_data *dest_apic, struct int_cm
 	    // So the selector needs to be VV00
 	    // and the base needs to be VV000
 	    //
-	    core->rip=0;
-	    core->segments.cs.selector = icr->vec<<8;
-	    core->segments.cs.limit= 0xffff;
-	    core->segments.cs.base = icr->vec<<12;
+	    core->rip = 0;
+	    core->segments.cs.selector = icr->vec << 8;
+	    core->segments.cs.limit = 0xffff;
+	    core->segments.cs.base = icr->vec << 12;
 
 	    PrintDebug("icc_bus: SIPI delivery (0x%x -> 0x%x:0x0) to core %u\n",
 		       icr->vec, core->segments.cs.selector, core->cpu_id);
 	    // Maybe need to adjust the APIC?
 	    
 	    // We transition the target core to SIPI state
-	    core->cpu_mode=REAL;  // note: locking should not be needed here
+	    core->cpu_mode = REAL;  // note: locking should not be needed here
 
 	    // As with INIT, we should not need to do anything else
 

@@ -184,21 +184,21 @@ static int ioapic_read(struct guest_info * core, addr_t guest_addr, void * dst, 
 	    case IOAPIC_ARB_REG:
 		*op_val = ioapic->ioapic_arb_id.val;
 		break;
-	    default:
-		{
-		    uint_t redir_index = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) >> 1;
-		    uint_t hi_val = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) % 1;
-
-		    if (redir_index > 0x3f) {
-			PrintError("ioapic %u: Invalid redirection table entry %x\n", ioapic->ioapic_id.id, (uint32_t)redir_index);
-			return -1;
-		    }
-		    if (hi_val) {
-			*op_val = ioapic->redir_tbl[redir_index].hi;
-		    } else {
-			*op_val = ioapic->redir_tbl[redir_index].lo;
-		    }
+	    default: {
+		uint_t redir_index = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) >> 1;
+		uint_t hi_val = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) % 1;
+		
+		if (redir_index > 0x3f) {
+		    PrintError("ioapic %u: Invalid redirection table entry %x\n", ioapic->ioapic_id.id, (uint32_t)redir_index);
+		    return -1;
 		}
+		
+		if (hi_val) {
+		    *op_val = ioapic->redir_tbl[redir_index].hi;
+		} else {
+		    *op_val = ioapic->redir_tbl[redir_index].lo;
+		}
+	    }
 	}
     }
 

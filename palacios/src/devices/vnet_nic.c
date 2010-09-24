@@ -41,10 +41,10 @@ struct vnet_nic_state {
 };
 
 
-static int vnet_send(uint8_t * buf, uint32_t len, void * private_data, struct vm_device *dest_dev){
-    struct vnet_nic_state *vnetnic = (struct vnet_nic_state *)private_data;
-
+static int vnet_send(uint8_t * buf, uint32_t len, void * private_data, struct vm_device * dest_dev){
+    struct vnet_nic_state * vnetnic = (struct vnet_nic_state *)private_data;
     struct v3_vnet_pkt pkt;
+
     pkt.size = len;
     pkt.src_type = LINK_INTERFACE;
     pkt.src_id = vnetnic->vnet_dev_id;
@@ -82,10 +82,10 @@ static int virtio_input(struct v3_vm_info *info, struct v3_vnet_pkt * pkt, void 
 }
 
 static int register_to_vnet(struct v3_vm_info * vm,
-		     struct vnet_nic_state *vnet_nic,
-		     char *dev_name,
-		     uchar_t mac[6]) { 
-   
+			    struct vnet_nic_state * vnet_nic,
+			    char * dev_name,
+			    uint8_t mac[6]) { 
+    
     PrintDebug("Vnet-nic: register Vnet-nic device %s, state %p to VNET\n", dev_name, vnet_nic);
 	
     return v3_vnet_add_dev(vm, mac, virtio_input, (void *)vnet_nic);
@@ -103,16 +103,24 @@ static struct v3_device_ops dev_ops = {
 };
 
 
-static int str2mac(char *macstr, char mac[6]){
-    char hex[2], *s = macstr;
+static int str2mac(char * macstr, uint8_t mac[6]){
+    uint8_t hex[2];
     int i = 0;
+    char * s = macstr;
 
-    while(s){
+    while (s) {
 	memcpy(hex, s, 2);
 	mac[i++] = (char)atox(hex);
-	if (i == 6) return 0;
-	s=strchr(s, ':');
-	if(s) s++;
+
+	if (i == 6) {
+	    return 0;
+	}
+
+	s = strchr(s, ':');
+
+	if (s) {
+	    s++;
+	}
     }
 
     return -1;
@@ -122,16 +130,14 @@ static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vnet_nic_state * vnetnic = NULL;
     char * dev_id = v3_cfg_val(cfg, "ID");
     char * macstr = NULL;
-    char mac[6];
     int vnet_dev_id = 0;
-
     v3_cfg_tree_t * frontend_cfg = v3_cfg_subtree(cfg, "frontend");
+
     macstr = v3_cfg_val(frontend_cfg, "mac");
 
     if (macstr == NULL) {
-	PrintDebug("Vnet-nic: No Mac specified\n");
-    } else {
-    	str2mac(macstr, mac);
+	PrintDebug("Vnet-nic configuration error: No Mac specified\n");
+	return -1;
     }
 
     vnetnic = (struct vnet_nic_state *)V3_Malloc(sizeof(struct vnet_nic_state));
@@ -144,8 +150,10 @@ static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	return -1;
     }
 
+
+
     vnetnic->net_ops.send = vnet_send;
-    memcpy(vnetnic->mac, mac, 6);
+    str2mac(macstr, vnetnic->mac);
     vnetnic->vm = vm;
 	
     if (v3_dev_connect_net(vm, v3_cfg_val(frontend_cfg, "tag"), 
@@ -156,90 +164,17 @@ static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     }
 
     PrintDebug("Vnet-nic: Connect %s to frontend %s\n", 
-		   dev_id, v3_cfg_val(frontend_cfg, "tag"));
+	       dev_id, v3_cfg_val(frontend_cfg, "tag"));
 
     if ((vnet_dev_id = register_to_vnet(vm, vnetnic, dev_id, vnetnic->mac)) == -1) {
 	PrintError("Vnet-nic device %s (mac: %s) fails to registered to VNET\n", dev_id, macstr);
+	return -1;
     }
+
     vnetnic->vnet_dev_id = vnet_dev_id;
 
-    PrintDebug("Vnet-nic device %s (mac: %s, %ld) registered to VNET\n", dev_id, macstr, *((ulong_t *)vnetnic->mac));
+    PrintDebug("Vnet-nic device %s (mac: %s, %ld) registered to VNET\n", dev_id, macstr, *((uint32_t *)vnetnic->mac));
 
-
-//for temporary hack for vnet bridge test
-#if 1
-    {
-    	uchar_t zeromac[6] = {0,0,0,0,0,0};
-		
-	if(!strcmp(dev_id, "vnet_nic")){
-	    struct v3_vnet_route route;
-		
-	    route.dst_id = vnet_dev_id;
-	    route.dst_type = LINK_INTERFACE;
-	    route.src_id = 0;
-	    route.src_type = LINK_EDGE;
-	    memcpy(route.dst_mac, zeromac, 6);
-	    route.dst_mac_qual = MAC_ANY;
-	    memcpy(route.src_mac, zeromac, 6);
-	    route.src_mac_qual = MAC_ANY;  
-	    v3_vnet_add_route(route);
-
-
-	    route.dst_id = 0;
-	    route.dst_type = LINK_EDGE;
-	    route.src_id = vnet_dev_id;
-	    route.src_type = LINK_INTERFACE;
-	    memcpy(route.dst_mac, zeromac, 6);
-	    route.dst_mac_qual = MAC_ANY;
-	    memcpy(route.src_mac, zeromac, 6);
-	    route.src_mac_qual = MAC_ANY;
-
-	    v3_vnet_add_route(route);
-	}
-    }
-#endif
-
-//for temporary hack for Linux bridge (w/o encapuslation) test
-#if 0
-    {
- 	static int vnet_nic_guestid = -1;
-	static int vnet_nic_dom0 = -1;
-    	uchar_t zeromac[6] = {0,0,0,0,0,0};
-		
-	if(!strcmp(dev_id, "vnet_nic")){ //domu
-	    vnet_nic_guestid = vnet_dev_id;
-	}
-	if (!strcmp(dev_id, "vnet_nic_dom0")){
-	    vnet_nic_dom0 = vnet_dev_id;
-	}
-
-	if(vnet_nic_guestid != -1 && vnet_nic_dom0 !=-1){
-	    struct v3_vnet_route route;
-		
-	    route.src_id = vnet_nic_guestid;
-	    route.src_type = LINK_INTERFACE;
-	    route.dst_id = vnet_nic_dom0;
-	    route.dst_type = LINK_INTERFACE;
-	    memcpy(route.dst_mac, zeromac, 6);
-	    route.dst_mac_qual = MAC_ANY;
-	    memcpy(route.src_mac, zeromac, 6);
-	    route.src_mac_qual = MAC_ANY;  
-	    v3_vnet_add_route(route);
-
-
-	    route.src_id = vnet_nic_dom0;
-	    route.src_type = LINK_INTERFACE;
-	    route.dst_id = vnet_nic_guestid;
-	    route.dst_type = LINK_INTERFACE;
-	    memcpy(route.dst_mac, zeromac, 6);
-	    route.dst_mac_qual = MAC_ANY;
-	    memcpy(route.src_mac, zeromac, 6);
-	    route.src_mac_qual = MAC_ANY;
-
-	    v3_vnet_add_route(route);
-	}
-    }
-#endif
 
     return 0;
 }
