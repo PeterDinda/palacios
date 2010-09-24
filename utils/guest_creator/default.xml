@@ -52,6 +52,9 @@
 		<device class="8254_PIT" id="PIT" />
 		<device class="BOCHS_DEBUG" id="bochs debug"/>
 		<device class="OS_DEBUG" id="os debug" />
+
+
+<!--
 		<device class="ICC_BUS" id="icc"/>
 		<device class="LAPIC" id="apic">
 			<bus>icc</bus>
@@ -59,7 +62,7 @@
 		<device class="IOAPIC" id="ioapic">
                 	<bus>icc</bus>
 		</device>
-
+-->
 <!--
 		<device class="CGA_VIDEO" id="cga" passthrough="enable" />
 		<device class="TELNET_CONSOLE" id="telnet console">

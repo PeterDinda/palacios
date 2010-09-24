@@ -3,7 +3,7 @@ menu "Virtual Devices"
 config APIC
 	bool "APIC" 
 	default y
-	depends on ICC_BUS
+	depends on ICC_BUS && EXPERIMENTAL
 	help 
 	  Includes the Virtual APIC device
 
@@ -19,7 +19,7 @@ config DEBUG_APIC
 
 config IO_APIC
 	bool "IOAPIC"
-	depends on ICC_BUS
+	depends on ICC_BUS && EXPERIMENTAL
 	default y
 	help 
 	  Includes the Virtual IO APIC
@@ -35,6 +35,7 @@ config DEBUG_IO_APIC
 config ICC_BUS
 	bool "ICC BUS"
 	default y
+	depends on EXPERIMENTAL
 	help 
 	  The ICC Bus for APIC/IOAPIC communication
 
