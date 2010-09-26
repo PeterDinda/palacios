@@ -253,56 +253,107 @@ int v3_icc_send_ipi(struct vm_device * icc_bus, uint32_t src_apic, uint64_t icr_
 		
 		if (dfr->model==0xf) { 
 		    // flat model
-		    // deliver irq if
+		    // this means we deliver the IPI each destination APIC where
 		    // mda of sender & ldr of receiver is nonzero
-		    // mda=0xff means broadcaset to all
-		    
+		    // mda=0xff means broadcast to all
+		    //
 		    int i;
 		    for (i=0;i<MAX_APICS;i++) { 
 			struct apic_data *dest_apic=&(state->apics[i]);
 			if (dest_apic->present &&
 			    dest_apic->ops->should_deliver_flat(dest_apic->core,
 								mda,
-								dest_apic->priv_data)) { 
+								dest_apic->priv_data)) {
+			    if (deliver(src_apic,dest_apic,icr,state,extirq)) { 
+				return -1;
+			    }
+			}
+		    }
+		} else if (dfr->model==0x0) {
+		    // cluster model
+		    //
+		    // there are two variants of this
+		    //
+		    // 1. (ancient P5/P6) All apics are on one bus
+		    //    mda[31:28] is the target cluster, 
+		    //    mda[27:24] has one bit for each apic in the cluster
+		    //    mda[31:28] of sending apic == ldr[31:28] of dest apic means
+		    //      the dest apic is part of the cluster
+		    //      then mda[27:24] & ldr[27:24] nonzero means to deliver
+		    //    also, mda=0xff still means broadcast 
+		    //    So, basically, you have 15 clusters of 4 apics each + broadcast
+		    //
+		    // 2. (current) hierarchical cluster model
+		    //    This is some hwat unclearly documented in volume 3, 9-32
+		    //    basically, you have a hierarchy of clusters that where
+		    //    each cluster has 4 agents (APICs?) and a cluster manager.
+		    //    The cluster manager is not an apic, though, and outside of
+		    //    scope of documents.  Again, you have 15 clusters of 4 apics
+		    //    each + broadcast.   My impression is that this is identical 
+		    //    to variant 1 for our purposes. 
+		    //
+		    //
+		    // if we are in lowest priorty mode, we should just pick one
+		    // according to the arbitrarion prioty register
+		    int i;
+		    for (i=0;i<MAX_APICS;i++) { 
+			struct apic_data *dest_apic=&(state->apics[i]);
+			if (dest_apic->present &&
+			    dest_apic->ops->should_deliver_cluster(dest_apic->core,
+								   mda,
+								   dest_apic->priv_data)) {
 			    if (deliver(src_apic,dest_apic,icr,state,extirq)) { 
 				return -1;
 			    }
 			}
 		    }
 		} else {
-		    // cluster model
-		    PrintError("icc_bus: use of cluster model not yet supported\n");
+		    PrintError("icc_bus: unknown logical delivery model 0x%x\n", dfr->model);
 		    return -1;
 		}
 	    }
-		
+	    
 	    break;
-
+	    
 	case 1:  // self
-	    if (icr->dst==state->ioapic_id) { 
-		PrintError("icc_bus: ioapic attempting to send to itself\n");
-		return -1;
-	    }
-	    struct apic_data *dest_apic=&(state->apics[src_apic]);
-	    if (deliver(src_apic,dest_apic,icr,state,extirq)) { 
+	    if (icr->dst_mode==0) { 
+		// physical delivery
+		if (icr->dst==state->ioapic_id) { 
+		    PrintError("icc_bus: ioapic attempting to send to itself\n");
+		    return -1;
+		}
+		struct apic_data *dest_apic=&(state->apics[src_apic]);
+		if (deliver(src_apic,dest_apic,icr,state,extirq)) { 
+		    return -1;
+		}
+	    } else {
+		// logical delivery
+		PrintError("icc_bus: use of logical delivery in self is not yet supported.\n");
 		return -1;
 	    }
 	    break;
-
+	    
 	case 2: 
-	case 3: { // all and all-but-me
-	    int i;
-	    for (i=0;i<MAX_APICS;i++) { 
-		struct apic_data *dest_apic=&(state->apics[i]);
-		if (dest_apic->present && (i!=src_apic || icr->dst_shorthand==2)) { 
-		    if (deliver(src_apic,dest_apic,icr,state,extirq)) { 
-			return -1;
+	case 3:  // all and all-but-me
+	    if (icr->dst_mode==0) { 
+		// physical
+		int i;
+		for (i=0;i<MAX_APICS;i++) { 
+		    struct apic_data *dest_apic=&(state->apics[i]);
+		    if (dest_apic->present && (i!=src_apic || icr->dst_shorthand==2)) { 
+			if (deliver(src_apic,dest_apic,icr,state,extirq)) { 
+			    return -1;
+			}
 		    }
 		}
+	    } else {
+		// logical delivery
+		PrintError("icc_bus: use of logical delivery in %s is not yet supported\n",
+			   icr->dst_shorthand==2 ? "all" : "all-but-me" );
+		return -1;
 	    }
-	}
 	    break;
-	    }
+    }
 
     return 0;
 }
@@ -348,7 +399,6 @@ int v3_icc_register_ioapic(struct v3_vm_info *vm, struct vm_device * icc_bus, ui
 
     return 0;
 }
-
 
 
 static int icc_bus_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {

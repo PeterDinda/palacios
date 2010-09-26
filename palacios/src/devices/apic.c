@@ -1108,7 +1108,21 @@ static int apic_should_deliver_flat(struct guest_info * core, uint8_t mda, void 
 {
   struct apic_state * apic = (struct apic_state *)private_data;
 
-  if (mda==0xff || (apic->log_dst.dst_log_id & mda)) { 
+  if (mda==0xff ||                         // broadcast or
+      (apic->log_dst.dst_log_id & mda)) {  // I am in the set 
+      return 1;
+  } else {
+      return 0;
+  }
+}
+
+static int apic_should_deliver_cluster(struct guest_info * core, uint8_t mda, void * private_data)
+{
+  struct apic_state * apic = (struct apic_state *)private_data;
+
+  if (mda==0xff ||                                                 // broadcast or
+      ( ((mda & 0xf0) == (apic->log_dst.dst_log_id & 0xf0)) &&     // (I am in the cluster and
+        ((mda & 0x0f)  & (apic->log_dst.dst_log_id & 0x0f)) ) ) {  //  I am in the set)
       return 1;
   } else {
       return 0;
@@ -1118,6 +1132,7 @@ static int apic_should_deliver_flat(struct guest_info * core, uint8_t mda, void 
 static struct v3_icc_ops icc_ops = {
     .raise_intr = apic_raise_intr,
     .should_deliver_flat = apic_should_deliver_flat,
+    .should_deliver_cluster = apic_should_deliver_cluster,
 };
 
 

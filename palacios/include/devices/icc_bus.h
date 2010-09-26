@@ -24,6 +24,7 @@
 struct v3_icc_ops {
     int (*raise_intr)(struct guest_info * core, int intr_num, void * private_data);
     int (*should_deliver_flat)(struct guest_info * core, uint8_t mda, void * private_data);
+    int (*should_deliver_cluster)(struct guest_info * core, uint8_t mda, void * private_data);
 };
 
 
