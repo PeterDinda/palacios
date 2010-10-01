@@ -24,6 +24,7 @@
 
 #include <palacios/vmm_types.h>
 #include <palacios/vmm_list.h>
+#include <palacios/vmm_util.h>
 
 struct guest_info;
 
@@ -71,8 +72,16 @@ void v3_init_time(struct guest_info * info);
 int v3_start_time(struct guest_info * info);
 int v3_pause_time(struct guest_info * info);
 int v3_resume_time(struct guest_info * info);
-uint64_t v3_get_host_time(struct guest_info * info);
-uint64_t v3_get_guest_time(struct guest_info * info);
+
+static inline uint64_t v3_get_host_time(struct vm_time *t) {
+    uint64_t tmp;
+    rdtscll(tmp);
+    return tmp;
+}
+
+static inline uint64_t v3_get_guest_time(struct vm_time *t) {
+    return v3_get_host_time(t) + t->host_offset;
+}
 #endif // !__V3VEE__
 
 #endif

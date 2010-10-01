@@ -670,8 +670,11 @@ int v3_vmx_enter(struct guest_info * info) {
     tsc_offset_high = 
 	(uint32_t)((info->time_state.host_offset >> 32) & 0xffffffff);
     tsc_offset_low = (uint32_t)(info->time_state.host_offset & 0xffffffff);
+#ifdef CONFIG_TIME_TSC_OFFSET
     check_vmcs_write(VMCS_TSC_OFFSET_HIGH, tsc_offset_high);
     check_vmcs_write(VMCS_TSC_OFFSET, tsc_offset_low);
+#endif
+
     PrintDebug("Stored 0x %x %x into vmcs TSC offset.\n", 
 	       tsc_offset_high, tsc_offset_low);
     if (info->vm_info->run_state == VM_STOPPED) {

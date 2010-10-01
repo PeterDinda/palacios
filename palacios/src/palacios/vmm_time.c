@@ -12,6 +12,7 @@
  * All rights reserved.
  *
  * Author: Jack Lange <jarusl@cs.northwestern.edu>
+ *         Patrick G. Bridges <bridges@cs.unm.edu>
  *
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
@@ -53,20 +54,9 @@ void v3_init_time(struct guest_info * info) {
     v3_register_hypercall(info->vm_info, TIME_CPUFREQ_HCALL, handle_cpufreq_hcall, NULL);
 }
 
-uint64_t v3_get_host_time(struct guest_info * info) {
-    uint64_t tmp;
-    rdtscll(tmp);
-    return tmp;
-}
-
-uint64_t v3_get_guest_time(struct guest_info * info) {
-    return v3_get_host_time(info) + info->time_state.host_offset;
-}
-
-
 int v3_start_time(struct guest_info * info) {
     /* We start running with guest_time == host_time */
-    uint64_t t = v3_get_host_time(info); 
+    uint64_t t = v3_get_host_time(&info->time_state); 
 
     PrintDebug("Starting initial guest time as %llu\n", t);
     info->time_state.last_update = t;
@@ -76,18 +66,18 @@ int v3_start_time(struct guest_info * info) {
 
 int v3_pause_time(struct guest_info * info) {
     V3_ASSERT(info->time_state.pause_time == 0);
-    info->time_state.pause_time = v3_get_guest_time(info);
+    info->time_state.pause_time = v3_get_guest_time(&info->time_state);
     PrintDebug("Time paused at guest time as %llu\n", 
 	       info->time_state.pause_time);
     return 0;
 }
 
 int v3_resume_time(struct guest_info * info) {
-    uint64_t t = v3_get_host_time(info);
+    uint64_t t = v3_get_host_time(&info->time_state);
     V3_ASSERT(info->time_state.pause_time != 0);
     info->time_state.host_offset = 
 	(sint64_t)info->time_state.pause_time - (sint64_t)t;
-#ifdef OPTION_TIME_ADJUST_TSC_OFFSET
+#ifdef CONFIG_TIME_TSC_OFFSET_ADJUST
     /* XXX Adjust host_offset towards zero based on resolution/accuracy
      * constraints. */
 #endif
@@ -127,7 +117,7 @@ void v3_update_timers(struct guest_info * info) {
     uint64_t old_time = info->time_state.last_update;
     uint64_t cycles;
 
-    info->time_state.last_update = v3_get_guest_time(info);
+    info->time_state.last_update = v3_get_guest_time(&info->time_state);
     cycles = info->time_state.last_update - old_time;
 
     list_for_each_entry(tmp_timer, &(info->time_state.timers), timer_link) {
