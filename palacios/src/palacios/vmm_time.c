@@ -61,6 +61,7 @@ int v3_start_time(struct guest_info * info) {
     PrintDebug("Starting initial guest time as %llu\n", t);
     info->time_state.last_update = t;
     info->time_state.pause_time = t;
+    info->yield_start_cycle = t;
     return 0;
 }
 
