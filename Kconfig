@@ -189,7 +189,6 @@ endmenu
 source "Kconfig.stdlibs"
 
 
-
 menu "Virtual Paging"
 
 config SHADOW_PAGING
@@ -216,6 +215,38 @@ config DEBUG_SHDW_PG_VTLB
 
 endmenu
 
+
+menu "Time Management"
+
+
+config TIME_VIRTUALIZE_TSC
+	bool "Virtualize guest TSC"
+	default n
+	help
+	    Virtualize the processor time stamp counter in the guest, 
+	    generally increasing consistency between various time sources 
+	    but also potentially making guest time run slightly slower
+	    than real time.
+
+config TIME_VIRTUAL_TSC_CONTROL
+	bool "Adjust virtual TSC towards real time when possible"
+	default y
+	depends on TIME_VIRTUALIZE_TSC
+	help 
+	    Enables control of TSC virtualization so that the TSC
+	    attempts to catch up with real time when possible
+
+config TIME_MASK_OVERHEAD
+	bool "Hide virtualization overhead from guest timing"
+	default n
+	depends on TIME_VIRTUALIZE_TSC
+	help
+	    Try to mask the overhead of virtualization from guests
+	    by not including it in the time updates. Can dramatically
+	    slow virtual time compared to real time if VIRTUAL_TSC_CONTROL
+	    is not enabled.
+
+endmenu
 
 menu "Symbiotic Functions"
 

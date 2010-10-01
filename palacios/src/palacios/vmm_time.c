@@ -47,7 +47,8 @@ void v3_init_time(struct guest_info * info) {
     time_state->pause_time = 0;
     time_state->last_update = 0;
     time_state->host_offset = 0;
-    
+    time_state->offset_sum = 0;
+
     INIT_LIST_HEAD(&(time_state->timers));
     time_state->num_timers = 0;
 
@@ -73,14 +74,43 @@ int v3_pause_time(struct guest_info * info) {
     return 0;
 }
 
+/* Use a control-theoretic approach, specifically a PI control approach,
+ * to adjust host_offset towards 0. Overall control documentation in 
+ * palacios/docs/time_control.tex Control parameters are P and I, 
+ * broken into rational numbers
+ */
+
+/* These numbers need to be actually determined by pole placement work. They're 
+ * just blind guesses for now, which is a really bad idea. :) */
+#define P_NUM 1
+#define P_DENOM 2
+#define I_NUM 1
+#define I_DENOM 20
+
+void adjust_time_offset(struct guest_info * info) {
+    /* Set point for control: Desired offset = 0; 
+     * Error = host_offset - 0 = host_offset */
+
+    sint64_t adjust;
+
+    /* Update the integral of the errror */
+    info->time_state.offset_sum += info->time_state.host_offset;
+    adjust = (P_NUM * info->time_state.host_offset) / P_DENOM +
+	(I_NUM * info->time_state.offset_sum) / I_DENOM;
+
+    /* We may want to constrain *adjust* because of
+     * resolution/accuracy constraints. Explore that later. */
+    info->time_state.host_offset -= adjust;
+    return;
+}
+
 int v3_resume_time(struct guest_info * info) {
     uint64_t t = v3_get_host_time(&info->time_state);
     V3_ASSERT(info->time_state.pause_time != 0);
     info->time_state.host_offset = 
 	(sint64_t)info->time_state.pause_time - (sint64_t)t;
 #ifdef CONFIG_TIME_TSC_OFFSET_ADJUST
-    /* XXX Adjust host_offset towards zero based on resolution/accuracy
-     * constraints. */
+    adjust_time_offset(info);
 #endif
     info->time_state.pause_time = 0;
     PrintDebug("Time resumed paused at guest time as %llu "

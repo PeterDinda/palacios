@@ -31,14 +31,10 @@ struct guest_info;
 struct vm_time {
     uint32_t cpu_freq; // in kHZ
 
-    // Last time (in guest time) the timers were updated
-    uint64_t last_update;
-    
-    // Cache value to help calculate the guest_tsc
-    uint64_t pause_time;
-
-    // Offset of guest time from host time.
-    sint64_t host_offset;
+    uint64_t last_update;  // Last time (in guest time) the timers were updated
+    uint64_t pause_time;   // Cache value to help calculate the guest_tsc
+    sint64_t host_offset;  // Offset of guest time from host time.
+    sint64_t offset_sum;   // Sum of past and current host_offsets
 
     // Installed Timers 
     uint_t num_timers;
@@ -80,7 +76,8 @@ static inline uint64_t v3_get_host_time(struct vm_time *t) {
 }
 
 static inline uint64_t v3_get_guest_time(struct vm_time *t) {
-    return v3_get_host_time(t) + t->host_offset;
+    if (t->pause_time) return t->pause_time;
+    else return v3_get_host_time(t) + t->host_offset;
 }
 #endif // !__V3VEE__
 

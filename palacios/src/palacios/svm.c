@@ -471,14 +471,17 @@ int v3_svm_enter(struct guest_info * info) {
 
     v3_update_timers(info);
     v3_resume_time(info);
+
+#ifdef CONFIG_TIME_TSC_OFFSET
     guest_ctrl->TSC_OFFSET = info->time_state.host_offset;
+#endif
 
     //V3_Print("Calling v3_svm_launch\n");
 
     v3_svm_launch((vmcb_t *)V3_PAddr(info->vmm_data), &(info->vm_regs), (vmcb_t *)host_vmcbs[info->cpu_id]);
 
     v3_pause_time(info);
-#ifdef OPTION_TIME_MASK_OVERHEAD
+#ifdef CONFIG_TIME_MASK_OVERHEAD
     v3_offset_time(info, -SVM_ENTRY_OVERHEAD);
 #endif
 

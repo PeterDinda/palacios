@@ -225,6 +225,9 @@ static int init_vmcs_bios(struct guest_info * info, struct vmx_data * vmx_state)
     vmx_state->pri_proc_ctrls.invlpg_exit = 1;
     vmx_state->pri_proc_ctrls.use_msr_bitmap = 1;
     vmx_state->pri_proc_ctrls.pause_exit = 1;
+#ifdef CONFIG_TIME_TSC_OFFSET
+    vmx_state->pri_proc_ctrls.tsc_offset = 1;
+#endif
 
     vmx_ret |= check_vmcs_write(VMCS_IO_BITMAP_A_ADDR, (addr_t)V3_PAddr(info->vm_info->io_map.arch_data));
     vmx_ret |= check_vmcs_write(VMCS_IO_BITMAP_B_ADDR, 
@@ -696,7 +699,7 @@ int v3_vmx_enter(struct guest_info * info) {
     }
 
     v3_pause_time(info);
-#ifdef OPTION_TIME_MASK_OVERHEAD
+#ifdef CONFIG_TIME_MASK_OVERHEAD
     v3_offset_time(info, -VMX_ENTRY_OVERHEAD);
 #endif
 
