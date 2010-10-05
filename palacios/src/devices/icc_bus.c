@@ -135,14 +135,14 @@ static int deliver(uint32_t src_apic, struct apic_data *dest_apic, struct int_cm
 	    // TODO: any APIC reset on dest core (shouldn't be needed, but not sure...)
 
 	    // Sanity check
-	    if (core->cpu_mode!=INIT) { 
+	    if (core->cpu_mode != INIT) { 
 		PrintError("icc_bus: Warning: core %u is not in INIT state, ignored\n",core->cpu_id);
 		// Only a warning, since INIT INIT SIPI is common
 		break;
 	    }
 
 	    // We transition the target core to SIPI state
-	    core->cpu_mode=SIPI;  // note: locking should not be needed here
+	    core->cpu_mode = SIPI;  // note: locking should not be needed here
 
 	    // That should be it since the target core should be
 	    // waiting in host on this transition
@@ -203,26 +203,31 @@ static int deliver(uint32_t src_apic, struct apic_data *dest_apic, struct int_cm
 // in which case it is given via irq
 //
 int v3_icc_send_ipi(struct vm_device * icc_bus, uint32_t src_apic, uint64_t icr_data, uint32_t extirq) {
-
-    PrintDebug("icc_bus: icc_bus=%p, src_apic=%u, icr_data=%llx, extirq=%u\n",icc_bus,src_apic,icr_data,extirq);
-
-    struct int_cmd_reg *icr = (struct int_cmd_reg *)&icr_data;
+    struct int_cmd_reg * icr = (struct int_cmd_reg *)&icr_data;
     struct icc_bus_state * state = (struct icc_bus_state *)icc_bus->private_data;
+    struct apic_data * dest_apic = NULL;
+    PrintDebug("icc_bus: icc_bus=%p, src_apic=%u, icr_data=%llx, extirq=%u\n", 
+	       icc_bus, src_apic, icr_data, extirq);
 
     // initial sanity checks
-    if (src_apic>=MAX_APICS || (!state->apics[src_apic].present && src_apic!=state->ioapic_id)) { 
+    if ((src_apic >= MAX_APICS) || 
+	((state->apics[src_apic].present == 0) && 
+	 (src_apic != state->ioapic_id))) { 
 	PrintError("icc_bus: Apparently sending from unregistered apic id=%u\n",src_apic);
 	return -1;
     }
-    if (icr->dst_mode==0  && !state->apics[icr->dst].present) { 
-	PrintError("icc_bus: Attempted send to unregistered apic id=%u\n",icr->dst);
+
+
+    if ((icr->dst_mode == 0) && (state->apics[icr->dst].present == 0)) { 
+	PrintError("icc_bus: Attempted send to unregistered apic id=%u\n", icr->dst);
 	return -1;
     }
     
-    struct apic_data * dest_apic =  &(state->apics[icr->dst]);
+    dest_apic =  &(state->apics[icr->dst]);
 
     PrintDebug("icc_bus: IPI %s %u from %s %u to %s %u (icr=0x%llx) (extirq=%u)\n",
-	       deliverymode_str[icr->del_mode], icr->vec, src_apic==state->ioapic_id ? "ioapic" : "apic",
+	       deliverymode_str[icr->del_mode], icr->vec, 
+	       (src_apic == state->ioapic_id) ? "ioapic" : "apic",
 	       src_apic, shorthand_str[icr->dst_shorthand], icr->dst,icr->val,
 	       extirq);
 
@@ -232,17 +237,18 @@ int v3_icc_send_ipi(struct vm_device * icc_bus, uint32_t src_apic, uint64_t icr_
     switch (icr->dst_shorthand) {
 
 	case 0:  // no shorthand
-	    if (deliver(src_apic,dest_apic,icr,state,extirq)) { 
+	    if (deliver(src_apic, dest_apic, icr, state, extirq)) { 
 		return -1;
 	    }
 	    break;
 
 	case 1:  // self
-	    if (icr->dst==state->ioapic_id) { 
+	    if (icr->dst == state->ioapic_id) { 
 		PrintError("icc_bus: ioapic attempting to send to itself\n");
 		return -1;
 	    }
-	    if (deliver(src_apic,dest_apic,icr,state,extirq)) { 
+
+	    if (deliver(src_apic, dest_apic, icr, state, extirq)) { 
 		return -1;
 	    }
 	    break;
@@ -250,16 +256,21 @@ int v3_icc_send_ipi(struct vm_device * icc_bus, uint32_t src_apic, uint64_t icr_
 	case 2: 
 	case 3: { // all and all-but-me
 	    int i;
-	    for (i=0;i<MAX_APICS;i++) { 
-		dest_apic=&(state->apics[i]);
-		if (dest_apic->present && (i!=src_apic || icr->dst_shorthand==2)) { 
-		    if (deliver(src_apic,dest_apic,icr,state,extirq)) { 
+	    for (i = 0; i < MAX_APICS; i++) { 
+		dest_apic = &(state->apics[i]);
+
+		if ( (dest_apic->present == 1) && 
+		     ((i != src_apic) || (icr->dst_shorthand == 2)) ) { 
+		    if (deliver(src_apic, dest_apic, icr, state, extirq)) { 
 			return -1;
 		    }
 		}
 	    }
-	}
 	    break;
+	}
+
+	default:
+	    return -1;
     }
 
     return 0;
