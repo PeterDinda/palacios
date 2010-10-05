@@ -791,7 +791,7 @@ static int apic_write(struct guest_info * core, addr_t guest_addr, void * src, u
 
 	    PrintError("apic %u: core %u: Attempting to write to read only register %p (error)\n", 
 		       apic->lapic_id.val, core->cpu_id, (void *)reg_addr);
-	    return -1;
+	    //  return -1;
 
 	    break;
 
