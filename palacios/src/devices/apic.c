@@ -902,7 +902,7 @@ static int apic_write(struct guest_info * core, addr_t guest_addr, void * src, u
 
 	    // ICC???
 	    PrintDebug("apic %u: core %u: sending cmd 0x%llx to apic %u\n", 
-		       apic->clapic_id.val, core->cpu_id,
+		       apic->lapic_id.val, core->cpu_id,
 		       apic->int_cmd.val, apic->int_cmd.dst);
 	    if (v3_icc_send_ipi(apic->icc_bus, apic->lapic_id.val, apic->int_cmd.val,apic->dst_fmt.val,0)==-1) { 
 		return -1;
