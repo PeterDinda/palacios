@@ -23,7 +23,6 @@
 #include <devices/icc_bus.h>
 #include <devices/apic_regs.h>
 
-
 #define MAX_APICS 256
 
 #ifndef CONFIG_DEBUG_ICC_BUS
@@ -202,8 +201,15 @@ static int deliver(uint32_t src_apic, struct apic_data *dest_apic, struct int_cm
 // icr_data contains interrupt vector *except* for ext_int
 // in which case it is given via irq
 //
-int v3_icc_send_ipi(struct vm_device * icc_bus, uint32_t src_apic, uint64_t icr_data, uint32_t extirq) {
-    struct int_cmd_reg * icr = (struct int_cmd_reg *)&icr_data;
+
+int v3_icc_send_ipi(struct vm_device * icc_bus, uint32_t src_apic, uint64_t icr_data, 
+		    uint32_t dfr_data, uint32_t extirq) {
+
+    PrintDebug("icc_bus: icc_bus=%p, src_apic=%u, icr_data=%llx, extirq=%u\n",icc_bus,src_apic,icr_data,extirq);
+
+    struct int_cmd_reg *icr = (struct int_cmd_reg *)&icr_data;
+    struct dst_fmt_reg *dfr = (struct dst_fmt_reg*)&dfr_data;
+
     struct icc_bus_state * state = (struct icc_bus_state *)icc_bus->private_data;
     struct apic_data * dest_apic = NULL;
     PrintDebug("icc_bus: icc_bus=%p, src_apic=%u, icr_data=%llx, extirq=%u\n", 
@@ -222,49 +228,147 @@ int v3_icc_send_ipi(struct vm_device * icc_bus, uint32_t src_apic, uint64_t icr_
 	PrintError("icc_bus: Attempted send to unregistered apic id=%u\n", icr->dst);
 	return -1;
     }
-    
+
     dest_apic =  &(state->apics[icr->dst]);
 
-    PrintDebug("icc_bus: IPI %s %u from %s %u to %s %u (icr=0x%llx) (extirq=%u)\n",
+
+    PrintDebug("icc_bus: IPI %s %u from %s %u to %s %s %u (icr=0x%llx, dfr=0x%x) (extirq=%u)\n",
 	       deliverymode_str[icr->del_mode], icr->vec, 
-	       (src_apic == state->ioapic_id) ? "ioapic" : "apic",
-	       src_apic, shorthand_str[icr->dst_shorthand], icr->dst,icr->val,
+	       src_apic==state->ioapic_id ? "ioapic" : "apic",
+	       src_apic, 	       
+	       icr->dst_mode==0 ? "(physical)" : "(logical)", 
+	       shorthand_str[icr->dst_shorthand], icr->dst,icr->val, dfr->val,
 	       extirq);
 
+    /*
+
+    if (icr->dst==state->ioapic_id) { 
+	PrintError("icc_bus: Attempted send to ioapic ignored\n");
+	return -1;
+    }
+    */
 
 
 
     switch (icr->dst_shorthand) {
 
 	case 0:  // no shorthand
-	    if (deliver(src_apic, dest_apic, icr, state, extirq)) { 
-		return -1;
-	    }
-	    break;
 
+	    if (icr->dst_mode==0) { 
+		// physical delivery
+		struct apic_data * dest_apic =  &(state->apics[icr->dst]);
+		if (deliver(src_apic,dest_apic,icr,state,extirq)) { 
+		    return -1;
+		}
+	    } else {
+		// logical delivery
+		uint8_t mda = icr->dst; // message destination address, not physical address
+		
+		if (dfr->model==0xf) { 
+		    // flat model
+		    // this means we deliver the IPI each destination APIC where
+		    // mda of sender & ldr of receiver is nonzero
+		    // mda=0xff means broadcast to all
+		    //
+		    int i;
+		    for (i=0;i<MAX_APICS;i++) { 
+			struct apic_data *dest_apic=&(state->apics[i]);
+			if (dest_apic->present &&
+			    dest_apic->ops->should_deliver_flat(dest_apic->core,
+								mda,
+								dest_apic->priv_data)) {
+			    if (deliver(src_apic,dest_apic,icr,state,extirq)) { 
+				return -1;
+			    }
+			}
+		    }
+		} else if (dfr->model==0x0) {
+		    // cluster model
+		    //
+		    // there are two variants of this
+		    //
+		    // 1. (ancient P5/P6) All apics are on one bus
+		    //    mda[31:28] is the target cluster, 
+		    //    mda[27:24] has one bit for each apic in the cluster
+		    //    mda[31:28] of sending apic == ldr[31:28] of dest apic means
+		    //      the dest apic is part of the cluster
+		    //      then mda[27:24] & ldr[27:24] nonzero means to deliver
+		    //    also, mda=0xff still means broadcast 
+		    //    So, basically, you have 15 clusters of 4 apics each + broadcast
+		    //
+		    // 2. (current) hierarchical cluster model
+		    //    This is some hwat unclearly documented in volume 3, 9-32
+		    //    basically, you have a hierarchy of clusters that where
+		    //    each cluster has 4 agents (APICs?) and a cluster manager.
+		    //    The cluster manager is not an apic, though, and outside of
+		    //    scope of documents.  Again, you have 15 clusters of 4 apics
+		    //    each + broadcast.   My impression is that this is identical 
+		    //    to variant 1 for our purposes. 
+		    //
+		    //
+		    // if we are in lowest priorty mode, we should just pick one
+		    // according to the arbitrarion prioty register
+		    int i;
+		    for (i=0;i<MAX_APICS;i++) { 
+			struct apic_data *dest_apic=&(state->apics[i]);
+			if (dest_apic->present &&
+			    dest_apic->ops->should_deliver_cluster(dest_apic->core,
+								   mda,
+								   dest_apic->priv_data)) {
+			    if (deliver(src_apic,dest_apic,icr,state,extirq)) { 
+				return -1;
+			    }
+			}
+		    }
+		} else {
+		    PrintError("icc_bus: unknown logical delivery model 0x%x\n", dfr->model);
+		    return -1;
+		}
+
+	    }
+	    
+	    break;
+	    
 	case 1:  // self
-	    if (icr->dst == state->ioapic_id) { 
-		PrintError("icc_bus: ioapic attempting to send to itself\n");
-		return -1;
-	    }
 
-	    if (deliver(src_apic, dest_apic, icr, state, extirq)) { 
+	    if (icr->dst_mode==0) { 
+		// physical delivery
+		if (icr->dst==state->ioapic_id) { 
+		    PrintError("icc_bus: ioapic attempting to send to itself\n");
+		    return -1;
+		}
+		struct apic_data *dest_apic=&(state->apics[src_apic]);
+		if (deliver(src_apic,dest_apic,icr,state,extirq)) { 
+		    return -1;
+		}
+	    } else {
+		// logical delivery
+		PrintError("icc_bus: use of logical delivery in self is not yet supported.\n");
+
 		return -1;
 	    }
 	    break;
-
+	    
 	case 2: 
-	case 3: { // all and all-but-me
-	    int i;
-	    for (i = 0; i < MAX_APICS; i++) { 
-		dest_apic = &(state->apics[i]);
 
-		if ( (dest_apic->present == 1) && 
-		     ((i != src_apic) || (icr->dst_shorthand == 2)) ) { 
-		    if (deliver(src_apic, dest_apic, icr, state, extirq)) { 
-			return -1;
+	case 3:  // all and all-but-me
+	    if (icr->dst_mode==0) { 
+		// physical
+		int i;
+		for (i=0;i<MAX_APICS;i++) { 
+		    struct apic_data *dest_apic=&(state->apics[i]);
+		    if (dest_apic->present && (i!=src_apic || icr->dst_shorthand==2)) { 
+			if (deliver(src_apic,dest_apic,icr,state,extirq)) { 
+			    return -1;
+			}
+
 		    }
 		}
+	    } else {
+		// logical delivery
+		PrintError("icc_bus: use of logical delivery in %s is not yet supported\n",
+			   icr->dst_shorthand==2 ? "all" : "all-but-me" );
+		return -1;
 	    }
 	    break;
 	}
@@ -317,7 +421,6 @@ int v3_icc_register_ioapic(struct v3_vm_info *vm, struct vm_device * icc_bus, ui
 
     return 0;
 }
-
 
 
 static int icc_bus_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {

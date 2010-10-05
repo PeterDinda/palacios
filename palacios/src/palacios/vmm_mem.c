@@ -61,6 +61,7 @@ int v3_init_mem_map(struct v3_vm_info * vm) {
     // There is an underlying region that contains all of the guest memory
     // PrintDebug("Mapping %d pages of memory (%u bytes)\n", (int)mem_pages, (uint_t)info->mem_size);
 
+    // 2MB page alignment needed for 2MB hardware nested paging
     map->base_region.guest_start = 0;
     map->base_region.guest_end = mem_pages * PAGE_SIZE_4KB;
 

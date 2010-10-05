@@ -130,6 +130,8 @@ struct v3_vm_info {
     uint32_t mem_align;
     struct v3_mem_map mem_map;
 
+    v3_paging_size_t paging_size; // for nested paging
+
     struct v3_mem_hooks mem_hooks;
 
     struct v3_shdw_impl_state shdw_impl;

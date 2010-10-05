@@ -118,6 +118,8 @@ typedef enum { APIC_TMR_INT, APIC_THERM_INT, APIC_PERF_INT,
 
 
 
+
+
 struct apic_msr {
     union {
 	uint64_t value;
@@ -131,8 +133,6 @@ struct apic_msr {
 	} __attribute__((packed));
     } __attribute__((packed));
 } __attribute__((packed));
-
-
 
 
 struct apic_state {
@@ -187,6 +187,10 @@ struct apic_state {
 
     v3_lock_t  lock;
 };
+
+
+
+
 
 static int apic_read(struct guest_info * core, addr_t guest_addr, void * dst, uint_t length, void * priv_data);
 static int apic_write(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data);
@@ -898,10 +902,11 @@ static int apic_write(struct guest_info * core, addr_t guest_addr, void * src, u
 
 	    // ICC???
 	    PrintDebug("apic %u: core %u: sending cmd 0x%llx to apic %u\n", 
-		       apic->clapic_id.val, core->cpu_id,
+		       apic->lapic_id.val, core->cpu_id,
 		       apic->int_cmd.val, apic->int_cmd.dst);
-
-	    v3_icc_send_ipi(apic->icc_bus, apic->lapic_id.val, apic->int_cmd.val, 0);
+	    if (v3_icc_send_ipi(apic->icc_bus, apic->lapic_id.val, apic->int_cmd.val,apic->dst_fmt.val,0)==-1) { 
+		return -1;
+	    }
 	    break;
 
 	case INT_CMD_HI_OFFSET:
@@ -1120,8 +1125,35 @@ static struct v3_device_ops dev_ops = {
 
 
 
+static int apic_should_deliver_flat(struct guest_info * core, uint8_t mda, void * private_data)
+{
+  struct apic_state * apic = (struct apic_state *)private_data;
+
+  if (mda==0xff ||                         // broadcast or
+      (apic->log_dst.dst_log_id & mda)) {  // I am in the set 
+      return 1;
+  } else {
+      return 0;
+  }
+}
+
+static int apic_should_deliver_cluster(struct guest_info * core, uint8_t mda, void * private_data)
+{
+  struct apic_state * apic = (struct apic_state *)private_data;
+
+  if (mda==0xff ||                                                 // broadcast or
+      ( ((mda & 0xf0) == (apic->log_dst.dst_log_id & 0xf0)) &&     // (I am in the cluster and
+        ((mda & 0x0f)  & (apic->log_dst.dst_log_id & 0x0f)) ) ) {  //  I am in the set)
+      return 1;
+  } else {
+      return 0;
+  }
+}
+
 static struct v3_icc_ops icc_ops = {
     .raise_intr = apic_raise_intr,
+    .should_deliver_flat = apic_should_deliver_flat,
+    .should_deliver_cluster = apic_should_deliver_cluster,
 };
 
 

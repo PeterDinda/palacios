@@ -44,6 +44,12 @@
 #include <palacios/vmm_sprintf.h>
 
 
+#ifndef CONFIG_DEBUG_SVM
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
+#endif
+
+
 uint32_t v3_last_exit;
 
 // This is a global pointer to the host's VMCB
