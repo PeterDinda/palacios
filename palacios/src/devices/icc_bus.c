@@ -351,7 +351,7 @@ int v3_icc_send_ipi(struct vm_device * icc_bus, uint32_t src_apic, uint64_t icr_
 	    
 	case 2: 
 
-	case 3:  // all and all-but-me
+	case 3: { // all and all-but-me
 	    if (icr->dst_mode==0) { 
 		// physical
 		int i;
@@ -372,10 +372,10 @@ int v3_icc_send_ipi(struct vm_device * icc_bus, uint32_t src_apic, uint64_t icr_
 	    }
 	    break;
 	}
-
 	default:
 	    return -1;
     }
+    
 
     return 0;
 }
