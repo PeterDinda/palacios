@@ -261,7 +261,6 @@ struct v3_os_hooks {
     void *(*vaddr_to_paddr)(void *addr);
 
     int (*hook_interrupt)(struct v3_vm_info * vm, unsigned int irq);
-
     int (*ack_irq)(int irq);
 
     unsigned int (*get_cpu_khz)(void);
@@ -301,8 +300,9 @@ struct v3_interrupt {
 void Init_V3(struct v3_os_hooks * hooks,  int num_cpus);
 
 
-int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask);
 struct v3_vm_info * v3_create_vm(void * cfg);
+int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask);
+
 
 int v3_deliver_irq(struct v3_vm_info * vm, struct v3_interrupt * intr);
 
