@@ -157,8 +157,8 @@ static void init_ioapic_state(struct io_apic_state * ioapic, uint32_t id) {
     }
     
     // special case redir_tbl[0] for pin 0 as ExtInt for Virtual Wire Mode
-    ioapic->redir_tbl[0].del_mode=EXTINT;
-    ioapic->redir_tbl[0].mask=0;
+    // ioapic->redir_tbl[0].del_mode=EXTINT;
+    // ioapic->redir_tbl[0].mask=0;
 }
 
 
