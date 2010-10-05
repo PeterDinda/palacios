@@ -606,7 +606,7 @@ static int connect_fn(struct v3_vm_info * vm,
 static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vm_device * pci_bus = v3_find_dev(vm, v3_cfg_val(cfg, "bus"));
     struct virtio_dev_state * virtio_state = NULL;
-    char * name = v3_cfg_val(cfg, "name");
+    char * dev_id = v3_cfg_val(cfg, "ID");
 
     PrintDebug("Initializing VIRTIO Block device\n");
 
@@ -623,14 +623,14 @@ static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     virtio_state->pci_bus = pci_bus;
 
 
-    struct vm_device * dev = v3_allocate_device(name, &dev_ops, virtio_state);
+    struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, virtio_state);
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("Could not attach device %s\n", name);
+	PrintError("Could not attach device %s\n", dev_id);
 	return -1;
     }
 
-    if (v3_dev_add_blk_frontend(vm, name, connect_fn, (void *)virtio_state) == -1) {
-	PrintError("Could not register %s as block frontend\n", name);
+    if (v3_dev_add_blk_frontend(vm, dev_id, connect_fn, (void *)virtio_state) == -1) {
+	PrintError("Could not register %s as block frontend\n", dev_id);
 	return -1;
     }
 

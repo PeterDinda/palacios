@@ -686,9 +686,9 @@ static int connect_fn(struct v3_vm_info * info,
 static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vm_device * pci_bus = v3_find_dev(vm, v3_cfg_val(cfg, "bus"));
     struct virtio_dev_state * virtio_state = NULL;
-    char * name = v3_cfg_val(cfg, "name");
+    char * dev_id = v3_cfg_val(cfg, "ID");
 
-    PrintDebug("Virtio NIC: Initializing VIRTIO Network device: %s\n", name);
+    PrintDebug("Virtio NIC: Initializing VIRTIO Network device: %s\n", dev_id);
 
     if (pci_bus == NULL) {
 	PrintError("Virtio NIC: VirtIO devices require a PCI Bus");
@@ -702,14 +702,14 @@ static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     virtio_state->pci_bus = pci_bus;
     virtio_state->vm = vm;
 
-    struct vm_device * dev = v3_allocate_device(name, &dev_ops, virtio_state);
+    struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, virtio_state);
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("Virtio NIC: Could not attach device %s\n", name);
+	PrintError("Virtio NIC: Could not attach device %s\n", dev_id);
 	return -1;
     }
 
-    if (v3_dev_add_net_frontend(vm, name, connect_fn, (void *)virtio_state) == -1) {
-	PrintError("Virtio NIC: Could not register %s as net frontend\n", name);
+    if (v3_dev_add_net_frontend(vm, dev_id, connect_fn, (void *)virtio_state) == -1) {
+	PrintError("Virtio NIC: Could not register %s as net frontend\n", dev_id);
 	return -1;
     }
 	

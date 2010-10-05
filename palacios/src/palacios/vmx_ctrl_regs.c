@@ -27,6 +27,11 @@
 #include <palacios/vmm_direct_paging.h>
 #include <palacios/vmm_ctrl_regs.h>
 
+#ifndef CONFIG_DEBUG_VMX
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
+#endif
+
 static v3_reg_t * get_reg_ptr(struct guest_info * info, struct vmx_exit_cr_qual * cr_qual);
 static int handle_mov_to_cr0(struct guest_info * info, v3_reg_t * new_val, struct vmx_exit_info * exit_info);
 static int handle_mov_to_cr3(struct guest_info * info, v3_reg_t * cr3_reg);

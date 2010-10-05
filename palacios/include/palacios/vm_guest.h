@@ -65,11 +65,21 @@ struct guest_info {
     v3_paging_mode_t shdw_pg_mode;
     struct v3_shdw_pg_state shdw_pg_state;
     addr_t direct_map_pt;
+    
 
-    // This structure is how we get interrupts for the guest
+    union {
+	uint32_t flags;
+	struct {
+	    uint8_t use_large_pages        : 1;    /* Enable virtual page tables to use large pages */
+	    uint32_t rsvd                  : 31;
+	} __attribute__((packed));
+    } __attribute__((packed));
+
+
+    /* This structure is how we get interrupts for the guest */
     struct v3_intr_core_state intr_core_state;
 
-    // This structure is how we get exceptions for the guest
+    /* This structure is how we get exceptions for the guest */
     struct v3_excp_state excp_state;
 
 
@@ -94,19 +104,19 @@ struct guest_info {
 #endif
 
 
-    // struct v3_core_dev_mgr core_dev_mgr;
+    /* struct v3_core_dev_mgr core_dev_mgr; */
 
     void * decoder_state;
 
 #ifdef CONFIG_SYMBIOTIC
-    // Symbiotic state
+    /* Symbiotic state */
     struct v3_sym_core_state sym_core_state;
 #endif
 
 
     struct v3_vm_info * vm_info;
 
-    // the logical cpu on which this core runs
+    /* the logical cpu on which this core runs */
     uint32_t cpu_id;
 };
 
@@ -116,7 +126,8 @@ struct guest_info {
 struct v3_vm_info {
     v3_vm_class_t vm_class;
 
-    addr_t mem_size; // In bytes for now
+    addr_t mem_size; /* In bytes for now */
+    uint32_t mem_align;
     struct v3_mem_map mem_map;
 
     v3_paging_size_t paging_size; // for nested paging
@@ -133,7 +144,8 @@ struct v3_vm_info {
 
 
     struct v3_intr_routers intr_routers;
-    // device_map
+
+    /* device_map */
     struct vmm_dev_mgr  dev_mgr;
 
     struct v3_host_events host_event_hooks;
@@ -143,7 +155,7 @@ struct v3_vm_info {
     v3_vm_operating_mode_t run_state;
 
 #ifdef CONFIG_SYMBIOTIC
-    // Symbiotic state
+    /* Symbiotic state */
     struct v3_sym_vm_state sym_vm_state;
 #endif
 
@@ -184,6 +196,6 @@ void v3_print_GPRs(struct guest_info * info);
 
 void v3_print_stack(struct guest_info * info);
 
-#endif // ! __V3VEE__
+#endif /* ! __V3VEE__ */
 
 #endif

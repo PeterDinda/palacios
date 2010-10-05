@@ -170,28 +170,25 @@ static struct v3_device_ops dev_ops = {
     .stop = NULL,
 };
 
-static int cons_init(struct guest_info * vm, v3_cfg_tree_t * cfg) 
+static int cons_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) 
 {
-	struct cons_state * state;
-	v3_cfg_tree_t * frontend_cfg;
-	const char *frontend_tag;
-	struct vm_device * frontend;
-	char *name, *ttypath;
+	struct cons_state * state = NULL;
+	v3_cfg_tree_t * frontend_cfg = v3_cfg_subtree(cfg, "frontend");
+	const char * frontend_tag = v3_cfg_val(frontend_cfg, "tag");
+	struct vm_device * frontend = v3_find_dev(vm, frontend_tag);
+	char * dev_id = v3_cfg_val(cfg, "ID");
+	char * ttypath = v3_cfg_val(cfg, "tty");
 
 	/* read configuration */
-	frontend_cfg = v3_cfg_subtree(cfg, "frontend");
 	V3_ASSERT(frontend_cfg);
-	frontend_tag = v3_cfg_val(frontend_cfg, "tag");
 	V3_ASSERT(frontend_tag);
-	frontend = v3_find_dev(vm, frontend_tag);
 	V3_ASSERT(frontend);
-	name = v3_cfg_val(cfg, "name");
+
 
 	/* allocate state */
-	state = (struct cons_state *) V3_Malloc(sizeof(struct cons_state));
+	state = (struct cons_state *)V3_Malloc(sizeof(struct cons_state));
 	V3_ASSERT(state);
 	state->frontend_dev = frontend;
-	ttypath = v3_cfg_val(cfg, "tty");
 	V3_ASSERT(ttypath);
 
 	/* open tty for screen display */
@@ -203,12 +200,12 @@ static int cons_init(struct guest_info * vm, v3_cfg_tree_t * cfg)
 	}
 
 	/* allocate device */
-	struct vm_device *dev = v3_allocate_device(name, &dev_ops, state);
+	struct vm_device *dev = v3_allocate_device(dev_id, &dev_ops, state);
 	V3_ASSERT(dev);
 
 	/* attach device to virtual machine */
 	if (v3_attach_device(vm, dev) == -1) {
-		PrintError("Could not attach device %s\n", name);
+		PrintError("Could not attach device %s\n", dev_id);
 		V3_Free(state);
 		return -1;
 	}

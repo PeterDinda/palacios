@@ -46,8 +46,11 @@ static inline int activate_shadow_pt_32(struct guest_info * core) {
  * *
  * *
  */
-static int handle_4MB_shadow_pagefault_32(struct guest_info * info,  addr_t fault_addr, pf_error_t error_code, 
-					  pte32_t * shadow_pt, pde32_4MB_t * large_guest_pde);
+static int handle_4MB_shadow_pagefault_pde_32(struct guest_info * info,  addr_t fault_addr, pf_error_t error_code, 
+					      pt_access_status_t shadow_pde_access, pde32_4MB_t * large_shadow_pde, 
+					      pde32_4MB_t * large_guest_pde);
+static int handle_4MB_shadow_pagefault_pte_32(struct guest_info * info,  addr_t fault_addr, pf_error_t error_code, 
+					      pte32_t * shadow_pt, pde32_4MB_t * large_guest_pde);
 
 static int handle_pte_shadow_pagefault_32(struct guest_info * info, addr_t fault_addr, pf_error_t error_code,
 					  pte32_t * shadow_pt,  pte32_t * guest_pt);
@@ -129,6 +132,28 @@ static inline int handle_shadow_pagefault_32(struct guest_info * info, addr_t fa
     // Get the next shadow page level, allocate if not present
 
     if (shadow_pde_access == PT_ACCESS_NOT_PRESENT) {
+
+        if (info->use_large_pages && guest_pde->large_page) {
+            // Check underlying physical memory map to see if a large page is viable
+            addr_t guest_pa = BASE_TO_PAGE_ADDR_4MB(((pde32_4MB_t *)guest_pde)->page_base_addr);
+            addr_t host_pa;
+            if (v3_get_max_page_size(info, guest_pa, PAGE_SIZE_4MB) < PAGE_SIZE_4MB) {
+                PrintDebug("Underlying physical memory map doesn't allow use of a large page.\n");
+                // Fallthrough to small pages
+            } else if ((v3_gpa_to_hpa(info, guest_pa, &host_pa) != 0)
+                       || (v3_compute_page_alignment(host_pa) < PAGE_SIZE_4MB)) {
+                PrintDebug("Host memory alignment doesn't allow use of a large page.\n");
+                // Fallthrough to small pages
+            } else if (handle_4MB_shadow_pagefault_pde_32(info, fault_addr, error_code, shadow_pde_access,
+                                                          (pde32_4MB_t *)shadow_pde, (pde32_4MB_t *)guest_pde) == 0) {
+                return 0;
+            } else {
+                PrintError("Error handling large pagefault with large page\n");
+                return -1;
+            }
+            // Fallthrough to handle the region with small pages
+        }
+
 	struct shadow_page_data * shdw_page =  create_new_shadow_pt(info);
 	shadow_pt = (pte32_t *)V3_VAddr((void *)shdw_page->page_pa);
 
@@ -181,7 +206,7 @@ static inline int handle_shadow_pagefault_32(struct guest_info * info, addr_t fa
 	    return -1;
 	}
     } else {
-	if (handle_4MB_shadow_pagefault_32(info, fault_addr, error_code, shadow_pt, (pde32_4MB_t *)guest_pde) == -1) {
+	if (handle_4MB_shadow_pagefault_pte_32(info, fault_addr, error_code, shadow_pt, (pde32_4MB_t *)guest_pde) == -1) {
 	    PrintError("Error handling large pagefault\n");
 	    return -1;
 	}	
@@ -322,9 +347,8 @@ static int handle_pte_shadow_pagefault_32(struct guest_info * info, addr_t fault
     return 0;
 }
 
-
-
-static int handle_4MB_shadow_pagefault_32(struct guest_info * info, 
+// Handle a 4MB page fault with small pages in the PTE
+static int handle_4MB_shadow_pagefault_pte_32(struct guest_info * info, 
 				     addr_t fault_addr, pf_error_t error_code, 
 				     pte32_t * shadow_pt, pde32_4MB_t * large_guest_pde) 
 {
@@ -414,20 +438,98 @@ static int handle_4MB_shadow_pagefault_32(struct guest_info * info,
 	return -1;
     }
 
-    PrintDebug("Returning from large page fault handler\n");
+    PrintDebug("Returning from large page->small page fault handler\n");
     return 0;
 }
 
 
+// Handle a 4MB page fault with a 4MB page in the PDE
+static int handle_4MB_shadow_pagefault_pde_32(struct guest_info * info, 
+				     addr_t fault_addr, pf_error_t error_code, 
+				     pt_access_status_t shadow_pde_access,
+				     pde32_4MB_t * large_shadow_pde, pde32_4MB_t * large_guest_pde) 
+{
+    addr_t guest_fault_pa = BASE_TO_PAGE_ADDR_4MB(large_guest_pde->page_base_addr) + PAGE_OFFSET_4MB(fault_addr);  
 
 
+    PrintDebug("Handling 4MB fault with large page (guest_fault_pa=%p) (error_code=%x)\n", (void *)guest_fault_pa, *(uint_t*)&error_code);
+    PrintDebug("LargeShadowPDE=%p, LargeGuestPDE=%p\n", large_shadow_pde, large_guest_pde);
+
+    struct v3_mem_region * shdw_reg = v3_get_mem_region(info->vm_info, info->cpu_id, guest_fault_pa);
+
+ 
+    if (shdw_reg == NULL) {
+	// Inject a machine check in the guest
+	PrintDebug("Invalid Guest Address in page table (0x%p)\n", (void *)guest_fault_pa);
+	v3_raise_exception(info, MC_EXCEPTION);
+	return -1;
+    }
+
+    if (shadow_pde_access == PT_ACCESS_OK) {
+	// Inconsistent state...
+	// Guest Re-Entry will flush tables and everything should now workd
+	PrintDebug("Inconsistent state... Guest re-entry should flush tlb\n");
+	return 0;
+    }
+
+  
+    if (shadow_pde_access == PT_ACCESS_NOT_PRESENT) {
+	// Get the guest physical address of the fault
+
+	if ((shdw_reg->flags.alloced == 1) && 
+	    (shdw_reg->flags.read  == 1)) {
+	    addr_t shadow_pa = 0;
 
 
+	    if (v3_gpa_to_hpa(info, guest_fault_pa, &shadow_pa) == -1) {
+		PrintError("could not translate page fault address (%p)\n", (void *)guest_fault_pa);
+		return -1;
+	    }
 
+	    PrintDebug("\tMapping shadow page (%p)\n", (void *)BASE_TO_PAGE_ADDR(shadow_pte->page_base_addr));
 
+            large_guest_pde->vmm_info = V3_LARGE_PG; /* For invalidations */
+            large_shadow_pde->page_base_addr = PAGE_BASE_ADDR_4MB(shadow_pa);
+            large_shadow_pde->large_page = 1;
+            large_shadow_pde->present = 1;
+            large_shadow_pde->user_page = 1;
 
+            if (shdw_reg->flags.write == 0) {
+                large_shadow_pde->writable = 0;
+            } else {
+                large_shadow_pde->writable = 1;
+            }
 
+	    //set according to VMM policy
+	    large_shadow_pde->write_through = large_guest_pde->write_through;
+	    large_shadow_pde->cache_disable = large_guest_pde->cache_disable;
+	    large_shadow_pde->global_page = large_guest_pde->global_page;
+	    //
 
+	} else {
+	    if (shdw_reg->unhandled(info, fault_addr, guest_fault_pa, shdw_reg, error_code) == -1) {
+		PrintError("Special Page Fault handler returned error for address: %p\n", (void *)fault_addr);
+		return -1;
+	    }
+	}
+    } else if (shadow_pde_access == PT_ACCESS_WRITE_ERROR) {
+
+	if (shdw_reg->flags.write == 0) {
+	    if (shdw_reg->unhandled(info, fault_addr, guest_fault_pa, shdw_reg, error_code) == -1) {
+		PrintError("Special Page Fault handler returned error for address: %p\n", (void *)fault_addr);
+		return -1;
+	    }
+	}
+
+    } else {
+	PrintError("Error in large page fault handler...\n");
+	PrintError("This case should have been handled at the top level handler\n");
+	return -1;
+    }
+
+    PrintDebug("Returning from large page->large page fault handler\n");
+    return 0;
+}
 
 /* If we start to optimize we should look up the guest pages in the cache... */
 static inline int handle_shadow_invlpg_32(struct guest_info * info, addr_t vaddr) {

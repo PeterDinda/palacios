@@ -449,7 +449,7 @@ static int piix3_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct v3_southbridge * piix3 = (struct v3_southbridge *)V3_Malloc(sizeof(struct v3_southbridge));
     struct vm_device * dev = NULL;
     struct vm_device * pci = v3_find_dev(vm, v3_cfg_val(cfg, "bus"));
-    char * name = v3_cfg_val(cfg, "name");
+    char * dev_id = v3_cfg_val(cfg, "ID");
 
     if (!pci) {
 	PrintError("Could not find PCI device\n");
@@ -459,10 +459,10 @@ static int piix3_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     piix3->pci_bus = pci;
     piix3->type = V3_SB_PIIX3;
     
-    dev = v3_allocate_device(name, &dev_ops, piix3);
+    dev = v3_allocate_device(dev_id, &dev_ops, piix3);
 
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("Could not attach device %s\n", name);
+	PrintError("Could not attach device %s\n", dev_id);
 	return -1;
     }
 

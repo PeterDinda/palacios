@@ -146,7 +146,7 @@ static void init_ioapic_state(struct io_apic_state * ioapic, uint32_t id) {
     ioapic->base_addr = IO_APIC_BASE_ADDR;
     ioapic->index_reg = 0;
 
-    ioapic->ioapic_id.val = id;
+    ioapic->ioapic_id.id = id;
     ioapic->ioapic_ver.val = 0x00170011;
     ioapic->ioapic_arb_id.val = 0x00000000;
 
@@ -168,7 +168,7 @@ static int ioapic_read(struct guest_info * core, addr_t guest_addr, void * dst, 
     uint32_t reg_tgt = guest_addr - ioapic->base_addr;
     uint32_t * op_val = (uint32_t *)dst;
 
-    PrintDebug("ioapic %u: IOAPIC Read at %p\n", ioapic->ioapic_id.val, (void *)guest_addr);
+    PrintDebug("ioapic %u: IOAPIC Read at %p\n", ioapic->ioapic_id.id, (void *)guest_addr);
 
     if (reg_tgt == 0x00) {
 	*op_val = ioapic->index_reg;
@@ -184,25 +184,25 @@ static int ioapic_read(struct guest_info * core, addr_t guest_addr, void * dst, 
 	    case IOAPIC_ARB_REG:
 		*op_val = ioapic->ioapic_arb_id.val;
 		break;
-	    default:
-		{
-		    uint_t redir_index = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) >> 1;
-		    uint_t hi_val = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) % 1;
-
-		    if (redir_index > 0x3f) {
-			PrintError("ioapic %u: Invalid redirection table entry %x\n", ioapic->ioapic_id.val, (uint32_t)redir_index);
-			return -1;
-		    }
-		    if (hi_val) {
-			*op_val = ioapic->redir_tbl[redir_index].hi;
-		    } else {
-			*op_val = ioapic->redir_tbl[redir_index].lo;
-		    }
+	    default: {
+		uint_t redir_index = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) >> 1;
+		uint_t hi_val = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) % 1;
+		
+		if (redir_index > 0x3f) {
+		    PrintError("ioapic %u: Invalid redirection table entry %x\n", ioapic->ioapic_id.id, (uint32_t)redir_index);
+		    return -1;
 		}
+		
+		if (hi_val) {
+		    *op_val = ioapic->redir_tbl[redir_index].hi;
+		} else {
+		    *op_val = ioapic->redir_tbl[redir_index].lo;
+		}
+	    }
 	}
     }
 
-    PrintDebug("ioapic %u: IOAPIC Read at %p gave value 0x%x\n", ioapic->ioapic_id.val, (void *)guest_addr, *op_val);
+    PrintDebug("ioapic %u: IOAPIC Read at %p gave value 0x%x\n", ioapic->ioapic_id.id, (void *)guest_addr, *op_val);
 
     return length;
 }
@@ -214,7 +214,7 @@ static int ioapic_write(struct guest_info * core, addr_t guest_addr, void * src,
     uint32_t reg_tgt = guest_addr - ioapic->base_addr;
     uint32_t op_val = *(uint32_t *)src;
 
-    PrintDebug("ioapic %u: IOAPIC Write at %p (val = %d)\n",  ioapic->ioapic_id.val, (void *)guest_addr, *(uint32_t *)src);
+    PrintDebug("ioapic %u: IOAPIC Write at %p (val = %d)\n",  ioapic->ioapic_id.id, (void *)guest_addr, *(uint32_t *)src);
 
     if (reg_tgt == 0x00) {
 	ioapic->index_reg = op_val;
@@ -222,11 +222,12 @@ static int ioapic_write(struct guest_info * core, addr_t guest_addr, void * src,
 	// IOWIN register
 	switch (ioapic->index_reg) {
 	    case IOAPIC_ID_REG:
+		// What does this do to our relationship with the ICC bus?
 		ioapic->ioapic_id.val = op_val;
 		break;
 	    case IOAPIC_VER_REG:
 		// GPF/PageFault/Ignore?
-		PrintError("ioapic %u: Writing to read only IOAPIC register\n", ioapic->ioapic_id.val);
+		PrintError("ioapic %u: Writing to read only IOAPIC register\n", ioapic->ioapic_id.id);
 		return -1;
 	    case IOAPIC_ARB_REG:
 		ioapic->ioapic_arb_id.val = op_val;
@@ -240,14 +241,14 @@ static int ioapic_write(struct guest_info * core, addr_t guest_addr, void * src,
 
 
 		    if (redir_index > 0x3f) {
-			PrintError("ioapic %u: Invalid redirection table entry %x\n", ioapic->ioapic_id.val, (uint32_t)redir_index);
+			PrintError("ioapic %u: Invalid redirection table entry %x\n", ioapic->ioapic_id.id, (uint32_t)redir_index);
 			return -1;
 		    }
 		    if (hi_val) {
 			PrintDebug("ioapic %u: Writing to hi of pin %d\n", ioapic->ioapic_id.val, redir_index);
 			ioapic->redir_tbl[redir_index].hi = op_val;
 		    } else {
-			PrintDebug("ioapic %u: Writing to lo of pin %d\n", ioapic->ioapic_id.val, redir_index);
+			PrintDebug("ioapic %u: Writing to lo of pin %d\n", ioapic->ioapic_id.id, redir_index);
 			op_val &= REDIR_LO_MASK;
 			ioapic->redir_tbl[redir_index].lo &= ~REDIR_LO_MASK;
 			ioapic->redir_tbl[redir_index].lo |= op_val;
@@ -266,7 +267,7 @@ static int ioapic_raise_irq(struct v3_vm_info * vm, void * private_data, int irq
     struct redir_tbl_entry * irq_entry = NULL;
 
     if (irq > 24) {
-	PrintDebug("ioapic %u: IRQ out of range of IO APIC\n", ioapic->ioapic_id.val);
+	PrintDebug("ioapic %u: IRQ out of range of IO APIC\n", ioapic->ioapic_id.id);
 	return -1;
     }
 
@@ -274,7 +275,7 @@ static int ioapic_raise_irq(struct v3_vm_info * vm, void * private_data, int irq
 
     if (irq_entry->mask == 0) {
 
-	PrintDebug("ioapic %u: IOAPIC Signalling APIC to raise INTR %d\n", ioapic->ioapic_id.val, irq_entry->vec);
+	PrintDebug("ioapic %u: IOAPIC Signalling APIC to raise INTR %d\n", ioapic->ioapic_id.id, irq_entry->vec);
 
 
 	// the format of the redirection table entry is just slightly 
@@ -293,7 +294,9 @@ static int ioapic_raise_irq(struct v3_vm_info * vm, void * private_data, int irq
 
 	// Note: 0 yhere is "cluster model", but it should be irrelevant
 	// since we are sending this as a physical destination
-	v3_icc_send_ipi(ioapic->icc_bus, ioapic->ioapic_id.val,icr.val, 0, irq);
+	PrintDebug("io apic %u: raising irq %u on ICC bus.\n",
+		   ioapic->ioapic_id.id, irq);
+	v3_icc_send_ipi(ioapic->icc_bus, ioapic->ioapic_id.id,icr.val, 0, irq);
     }
 
     return 0;
@@ -330,7 +333,7 @@ static struct v3_device_ops dev_ops = {
 
 static int ioapic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vm_device * icc_bus = v3_find_dev(vm, v3_cfg_val(cfg, "bus"));
-    char * name = v3_cfg_val(cfg, "name");
+    char * dev_id = v3_cfg_val(cfg, "ID");
 
     if (!icc_bus) {
 	PrintError("ioapic: Could not locate ICC BUS device (%s)\n", v3_cfg_val(cfg, "bus"));
@@ -343,11 +346,11 @@ static int ioapic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     ioapic->icc_bus = icc_bus;
 
-    struct vm_device * dev = v3_allocate_device(name, &dev_ops, ioapic);
+    struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, ioapic);
 
 
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("ioapic: Could not attach device %s\n", name);
+	PrintError("ioapic: Could not attach device %s\n", dev_id);
 	return -1;
     }
 
@@ -356,7 +359,7 @@ static int ioapic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     init_ioapic_state(ioapic,vm->num_cores);
 
-    v3_icc_register_ioapic(vm,icc_bus,ioapic->ioapic_id.val);
+    v3_icc_register_ioapic(vm,icc_bus,ioapic->ioapic_id.id);
 
     v3_hook_full_mem(vm, V3_MEM_CORE_ANY, ioapic->base_addr, ioapic->base_addr + PAGE_SIZE_4KB, 
 		     ioapic_read, ioapic_write, dev);

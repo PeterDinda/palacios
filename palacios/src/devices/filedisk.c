@@ -20,15 +20,17 @@
 #include <palacios/vmm.h>
 #include <palacios/vmm_dev_mgr.h>
 
+#include <palacios/vmm_file.h>
 
-#ifndef CONFIG_DEBUG_RAMDISK
+#ifndef CONFIG_DEBUG_FILEDISK
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
 
 struct disk_state {
-    uint8_t * disk_image;
-    uint32_t capacity; // in bytes
+    uint64_t capacity; // in bytes
+
+    int fd;
 };
 
 
@@ -37,7 +39,7 @@ static int read(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * private_
 
     PrintDebug("Reading %d bytes from %p to %p\n", (uint32_t)num_bytes, (uint8_t *)(disk->disk_image + lba), buf);
 
-    memcpy(buf, (uint8_t *)(disk->disk_image + lba), num_bytes);
+    V3_FileRead(disk->fd, lba, buf, num_bytes);
 
     return 0;
 }
@@ -48,7 +50,7 @@ static int write(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * private
 
     PrintDebug("Writing %d bytes from %p to %p\n", (uint32_t)num_bytes,  buf, (uint8_t *)(disk->disk_image + lba));
 
-    memcpy((uint8_t *)(disk->disk_image + lba), buf, num_bytes);
+    V3_FileWrite(disk->fd, lba, buf, num_bytes);
 
     return 0;
 }
@@ -86,11 +88,12 @@ static struct v3_device_ops dev_ops = {
 
 
 
-static int disk_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
+static int disk_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
     struct disk_state * disk = NULL;
-    struct v3_cfg_file * file = NULL;
+    char * path = v3_cfg_val(cfg, "path");
     char * dev_id = v3_cfg_val(cfg, "ID");
     char * filename = v3_cfg_val(cfg, "file");
+
 
     v3_cfg_tree_t * frontend_cfg = v3_cfg_subtree(cfg, "frontend");
 
@@ -98,20 +101,14 @@ static int disk_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     memset(disk, 0, sizeof(struct disk_state));
 
 
-    if (!filename) {
-	PrintError("Missing filename (%s) for %s\n", filename, dev_id);
+    if (!path) {
+	PrintError("Missing path (%s) for %s\n", path, dev_id);
 	return -1;
     }
+    
+    disk->fd = V3_FileOpen(path, 0);
+    disk->capacity = V3_FileSize(disk->fd);
 
-    file = v3_cfg_get_file(vm, filename);
-
-    if (!file) {
-	PrintError("Invalid ramdisk file: %s\n", filename);
-	return -1;
-    }
-
-    disk->disk_image = file->data;
-    disk->capacity = file->size;
     PrintDebug("Registering RAMDISK at %p (size=%d)\n", 
 	       (void *)file->data, (uint32_t)file->size);
 
@@ -134,4 +131,4 @@ static int disk_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 }
 
 
-device_register("RAMDISK", disk_init)
+device_register("FILEDISK", disk_init)

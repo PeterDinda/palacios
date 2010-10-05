@@ -1521,7 +1521,7 @@ static int connect_fn(struct v3_vm_info * vm,
 
 static int ide_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct ide_internal * ide  = (struct ide_internal *)V3_Malloc(sizeof(struct ide_internal));  
-    char * name = v3_cfg_val(cfg, "name");
+    char * dev_id = v3_cfg_val(cfg, "ID");
 
     PrintDebug("IDE: Initializing IDE\n");
     memset(ide, 0, sizeof(struct ide_internal));
@@ -1542,10 +1542,10 @@ static int ide_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     PrintDebug("IDE: Creating IDE bus x 2\n");
 
-    struct vm_device * dev = v3_allocate_device(name, &dev_ops, ide);
+    struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, ide);
 
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("Could not attach device %s\n", name);
+	PrintError("Could not attach device %s\n", dev_id);
 	return -1;
     }
 
@@ -1660,8 +1660,8 @@ static int ide_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     }
 
-    if (v3_dev_add_blk_frontend(vm, name, connect_fn, (void *)ide) == -1) {
-	PrintError("Could not register %s as frontend\n", name);
+    if (v3_dev_add_blk_frontend(vm, dev_id, connect_fn, (void *)ide) == -1) {
+	PrintError("Could not register %s as frontend\n", dev_id);
 	return -1;
     }
     
@@ -1694,6 +1694,3 @@ int v3_ide_get_geometry(struct vm_device * ide_dev, int channel_num, int drive_n
 
     return 0;
 }
-
-
-

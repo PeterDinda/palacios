@@ -63,7 +63,7 @@ static int i440_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     int i;
     struct i440_state * state = NULL;
     struct vm_device * pci = v3_find_dev(vm, v3_cfg_val(cfg, "bus"));
-    char * name = v3_cfg_val(cfg, "name");
+    char * dev_id = v3_cfg_val(cfg, "ID");
 
     if (!pci) {
 	PrintError("could not find PCI Device\n");
@@ -74,10 +74,10 @@ static int i440_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     state->pci = pci;
 	
-    struct vm_device * dev = v3_allocate_device(name, &dev_ops, state);
+    struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, state);
 
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("Could not attach device %s\n", name);
+	PrintError("Could not attach device %s\n", dev_id);
 	return -1;
     }
 

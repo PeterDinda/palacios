@@ -34,6 +34,7 @@ struct v3_symspy_global_page {
 	struct {
 	    uint8_t pci_map_valid      : 1;
 	    uint8_t symmod_enabled     : 1;
+	    uint8_t sec_symmod_enabled : 1;
 	} __attribute__((packed));
     } __attribute__((packed));
     

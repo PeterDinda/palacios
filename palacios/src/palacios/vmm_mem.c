@@ -50,8 +50,6 @@ static int unhandled_err(struct guest_info * core, addr_t guest_va, addr_t guest
     return -1;
 }
 
-
-
 int v3_init_mem_map(struct v3_vm_info * vm) {
     struct v3_mem_map * map = &(vm->mem_map);
     addr_t mem_pages = vm->mem_size >> 12;
@@ -60,14 +58,18 @@ int v3_init_mem_map(struct v3_vm_info * vm) {
 
     map->mem_regions.rb_node = NULL;
 
-
     // There is an underlying region that contains all of the guest memory
     // PrintDebug("Mapping %d pages of memory (%u bytes)\n", (int)mem_pages, (uint_t)info->mem_size);
 
     // 2MB page alignment needed for 2MB hardware nested paging
     map->base_region.guest_start = 0;
     map->base_region.guest_end = mem_pages * PAGE_SIZE_4KB;
-    map->base_region.host_addr = (addr_t)V3_AllocAlignedPages(mem_pages, PAGE_SIZE_2MB);
+
+#ifdef CONFIG_ALIGNED_PG_ALLOC
+    map->base_region.host_addr = (addr_t)V3_AllocAlignedPages(mem_pages, vm->mem_align);
+#else
+    map->base_region.host_addr = (addr_t)V3_AllocPages(mem_pages);
+#endif
 
     map->base_region.flags.read = 1;
     map->base_region.flags.write = 1;
@@ -289,30 +291,38 @@ struct v3_mem_region * v3_get_mem_region(struct v3_vm_info * vm, uint16_t core_i
 
 
 
-/* Search the "hooked" memory regions for a region that ends after the given address.  If the
- * address is invalid, return NULL. Else, return the first region found or the base region if no
- * region ends after the given address.
+/* Given an address, find the successor region. If the address is within a region, return that
+ * region. Input is an address, because the address may not have a region associated with it.
+ *
+ * Returns a region following or touching the given address. If address is invalid, NULL is
+ * returned, else the base region is returned if no region exists at or after the given address.
  */
 struct v3_mem_region * v3_get_next_mem_region( struct v3_vm_info * vm, uint16_t core_id, addr_t guest_addr) {
-    struct rb_node * n = vm->mem_map.mem_regions.rb_node;
-    struct v3_mem_region * reg = NULL;
+    struct rb_node * current_n		= vm->mem_map.mem_regions.rb_node;
+    struct rb_node * successor_n	= NULL; /* left-most node greater than guest_addr */
+    struct v3_mem_region * current_r	= NULL;
 
-    // Keep going to the right in the tree while the address is greater than the current region's
-    // end address.
-    while (n) {
-        reg = rb_entry(n, struct v3_mem_region, tree_node);
-        if (guest_addr >= reg->guest_end) { // reg is [start,end)
-            n = n->rb_right;
-        } else {
-	    if ((core_id == reg->core_id) || (reg->core_id == V3_MEM_CORE_ANY)) {
-		return reg;
-	    } else {
-		n = n->rb_right;
+    /* current_n tries to find the region containing guest_addr, going right when smaller and left when
+     * greater. Each time current_n becomes greater than guest_addr, update successor <- current_n.
+     * current_n becomes successively closer to guest_addr than the previous time it was greater
+     * than guest_addr.
+     */
+
+    /* | is address, ---- is region, + is intersection */
+    while (current_n) {
+        current_r = rb_entry(current_n, struct v3_mem_region, tree_node);
+	if (current_r->guest_start > guest_addr) { /* | ---- */
+	    successor_n = current_n;
+	    current_n = current_n->rb_left;
+	} else {
+	    if (current_r->guest_end > guest_addr) {
+		return current_r; /* +--- or --+- */
 	    }
-        }
+	    current_n = current_n->rb_right; /* ---- | */
+	}
     }
 
-    // There is no registered region, so we check if it's a valid address in the base region
+    /* Address does not have its own region. Check if it's a valid address in the base region */
 
     if (guest_addr >= vm->mem_map.base_region.guest_end) {
 	PrintError("%s: Guest Address Exceeds Base Memory Size (ga=%p), (limit=%p)\n",
@@ -376,7 +386,111 @@ void v3_delete_mem_region(struct v3_vm_info * vm, struct v3_mem_region * reg) {
 
 }
 
+// Determine if a given address can be handled by a large page of the requested size
+uint32_t v3_get_max_page_size(struct guest_info * core, addr_t fault_addr, uint32_t req_size) {
+    addr_t pg_start = 0UL, pg_end = 0UL; // large page containing the faulting addres
+    struct v3_mem_region * pg_next_reg = NULL; // next immediate mem reg after page start addr
+    uint32_t page_size = PAGE_SIZE_4KB;
 
+   /* If the guest has been configured for large pages, then we must check for hooked regions of
+     * memory which may overlap with the large page containing the faulting address (due to
+     * potentially differing access policies in place for e.g. i/o devices and APIC). A large page
+     * can be used if a) no region overlaps the page [or b) a region does overlap but fully contains
+     * the page]. The [bracketed] text pertains to the #if 0'd code below, state D. TODO modify this
+     * note if someone decides to enable this optimization. It can be tested with the SeaStar
+     * mapping.
+     *
+     * Examples: (CAPS regions are returned by v3_get_next_mem_region; state A returns the base reg)
+     *
+     *    |region| |region|                               2MiB mapped (state A)
+     *                   |reg|          |REG|             2MiB mapped (state B)
+     *   |region|     |reg|   |REG| |region|   |reg|      4KiB mapped (state C)
+     *        |reg|  |reg|   |--REGION---|                [2MiB mapped (state D)]
+     * |--------------------------------------------|     RAM
+     *                             ^                      fault addr
+     * |----|----|----|----|----|page|----|----|----|     2MB pages
+     *                           >>>>>>>>>>>>>>>>>>>>     search space
+     */
+
+
+    // guest page maps to a host page + offset (so when we shift, it aligns with a host page)
+    switch (req_size) {
+	case PAGE_SIZE_4KB:
+		return PAGE_SIZE_4KB;
+	case PAGE_SIZE_2MB:
+    		pg_start = PAGE_ADDR_2MB(fault_addr);
+    		pg_end = (pg_start + PAGE_SIZE_2MB);
+		break;
+	case PAGE_SIZE_4MB:
+    		pg_start = PAGE_ADDR_4MB(fault_addr);
+    		pg_end = (pg_start + PAGE_SIZE_4MB);
+		break;
+	case PAGE_SIZE_1GB:
+    		pg_start = PAGE_ADDR_1GB(fault_addr);
+    		pg_end = (pg_start + PAGE_SIZE_1GB);
+		break;
+	default:
+		PrintError("Invalid large page size requested.\n");
+		return -1;
+    }
+
+    //PrintDebug("%s: page   [%p,%p) contains address\n", __FUNCTION__, (void *)pg_start, (void *)pg_end);
+
+    pg_next_reg = v3_get_next_mem_region(core->vm_info, core->cpu_id, pg_start);
+
+    if (pg_next_reg == NULL) {
+	PrintError("%s: Error: address not in base region, %p\n", __FUNCTION__, (void *)fault_addr);
+	return PAGE_SIZE_4KB;
+    }
+
+    if (pg_next_reg->flags.base == 1) {
+	page_size = req_size; // State A
+	//PrintDebug("%s: base region [%p,%p) contains page.\n", __FUNCTION__,
+	//	   (void *)pg_next_reg->guest_start, (void *)pg_next_reg->guest_end);
+    } else {
+#if 0       // State B/C and D optimization
+	if ((pg_next_reg->guest_end >= pg_end) &&
+	    ((pg_next_reg->guest_start >= pg_end) || (pg_next_reg->guest_start <= pg_start))) {	    
+	    page_size = req_size;
+	}
+
+	PrintDebug("%s: region [%p,%p) %s partially overlap with page\n", __FUNCTION__,
+		   (void *)pg_next_reg->guest_start, (void *)pg_next_reg->guest_end, 
+		   (page_size == req_size) ? "does not" : "does");
+
+#else       // State B/C
+	if (pg_next_reg->guest_start >= pg_end) {
+	    
+	    page_size = req_size;
+	}
+
+	PrintDebug("%s: region [%p,%p) %s overlap with page\n", __FUNCTION__,
+		   (void *)pg_next_reg->guest_start, (void *)pg_next_reg->guest_end,
+		   (page_size == req_size) ? "does not" : "does");
+
+#endif
+    }
+
+    return page_size;
+}
+
+// For an address on a page of size page_size, compute the actual alignment
+// of the physical page it maps to
+uint32_t v3_compute_page_alignment(addr_t page_addr)
+{
+    if (PAGE_OFFSET_1GB(page_addr) == 0) {
+	 return PAGE_SIZE_1GB;
+    } else if (PAGE_OFFSET_4MB(page_addr) == 0) {
+	 return PAGE_SIZE_4MB;
+    } else if (PAGE_OFFSET_2MB(page_addr) == 0) {
+	return PAGE_SIZE_2MB;
+    } else if (PAGE_OFFSET_4KB(page_addr) == 0) {
+	return PAGE_SIZE_4KB;
+    } else {
+        PrintError("Non-page aligned address passed to %s.\n", __FUNCTION__);
+	return 0;
+    }
+}
 
 void v3_print_mem_map(struct v3_vm_info * vm) {
     struct rb_node * node = v3_rb_first(&(vm->mem_map.mem_regions));

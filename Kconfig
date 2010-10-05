@@ -21,6 +21,7 @@ config LINUX
 	bool "Linux 2.6"
 	select BUILT_IN_STDLIB
 	select BUILT_IN_ATOI
+	select FILE
 	help
 	  This enables the necessary options to compile Palacios with Linux 2.6
           Currently, this is in development, and only 2.6.32 is verified to work
@@ -80,6 +81,12 @@ config MAX_CPUS
 	help 
 	  Specifies the maximum number of hardware CPUs supported by the OS
 	  For uniprocessor environments, set this to 1
+
+config FILE
+	bool "Host Support for file operations"
+	default n
+	help
+	  Select this if your host OS supports file operatoins and you want Palacios to be able to use them.
 
 
 config CONSOLE

@@ -29,6 +29,7 @@ obj-$(CONFIG_NE2K) += ne2k.o
 obj-$(CONFIG_TMPDISK) += tmpdisk.o
 obj-$(CONFIG_RAMDISK) += ramdisk.o 
 obj-$(CONFIG_NETDISK) += netdisk.o 
+obj-$(CONFIG_FILEDISK) += filedisk.o
 
 obj-$(CONFIG_CGA) += cga.o
 obj-$(CONFIG_TELNET_CONSOLE) += telnet_cons.o

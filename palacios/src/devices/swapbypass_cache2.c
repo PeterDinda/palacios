@@ -599,17 +599,17 @@ static int connect_fn(struct v3_vm_info * vm,
 
 static int swap_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
-    char * name = v3_cfg_val(cfg, "name");
+    char * dev_id = v3_cfg_val(cfg, "ID");
 
-    struct vm_device * dev = v3_allocate_device(name, &dev_ops, NULL);
+    struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, NULL);
 
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("Could not attach device %s\n", name);
+	PrintError("Could not attach device %s\n", dev_id);
 	return -1;
     }
 
-    if (v3_dev_add_blk_frontend(vm, name, connect_fn, NULL) == -1) {
-	PrintError("Could not register %s as block frontend\n", name);
+    if (v3_dev_add_blk_frontend(vm, dev_id, connect_fn, NULL) == -1) {
+	PrintError("Could not register %s as block frontend\n", dev_id);
 	return -1;
     }
 

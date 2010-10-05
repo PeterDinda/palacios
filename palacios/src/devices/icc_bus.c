@@ -173,17 +173,17 @@ static int deliver(uint32_t src_apic, struct apic_data *dest_apic, struct int_cm
 	    // So the selector needs to be VV00
 	    // and the base needs to be VV000
 	    //
-	    core->rip=0;
-	    core->segments.cs.selector = icr->vec<<8;
-	    core->segments.cs.limit= 0xffff;
-	    core->segments.cs.base = icr->vec<<12;
+	    core->rip = 0;
+	    core->segments.cs.selector = icr->vec << 8;
+	    core->segments.cs.limit = 0xffff;
+	    core->segments.cs.base = icr->vec << 12;
 
 	    PrintDebug("icc_bus: SIPI delivery (0x%x -> 0x%x:0x0) to core %u\n",
 		       icr->vec, core->segments.cs.selector, core->cpu_id);
 	    // Maybe need to adjust the APIC?
 	    
 	    // We transition the target core to SIPI state
-	    core->cpu_mode=REAL;  // note: locking should not be needed here
+	    core->cpu_mode = REAL;  // note: locking should not be needed here
 
 	    // As with INIT, we should not need to do anything else
 
@@ -404,15 +404,15 @@ int v3_icc_register_ioapic(struct v3_vm_info *vm, struct vm_device * icc_bus, ui
 static int icc_bus_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     PrintDebug("icc_bus: Creating ICC_BUS\n");
 
-    char * name = v3_cfg_val(cfg, "name");
+    char * dev_id = v3_cfg_val(cfg, "ID");
 
     struct icc_bus_state * icc_bus = (struct icc_bus_state *)V3_Malloc(sizeof(struct icc_bus_state));
     memset(icc_bus, 0, sizeof(struct icc_bus_state));
 
-    struct vm_device * dev = v3_allocate_device(name, &dev_ops, icc_bus);
+    struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, icc_bus);
 
     if (v3_attach_device(vm, dev) == -1) {
-        PrintError("icc_bus: Could not attach device %s\n", name);
+        PrintError("icc_bus: Could not attach device %s\n", dev_id);
         return -1;
     }
 

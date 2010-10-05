@@ -791,7 +791,7 @@ static struct v3_device_ops dev_ops = {
 static int nvram_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct nvram_internal * nvram_state = NULL;
     struct vm_device * ide = v3_find_dev(vm, v3_cfg_val(cfg, "storage"));
-    char * name = v3_cfg_val(cfg, "name");
+    char * dev_id = v3_cfg_val(cfg, "ID");
 
     if (!ide) {
 	PrintError("Could not find IDE device\n");
@@ -805,11 +805,11 @@ static int nvram_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     nvram_state->ide = ide;
 
-    struct vm_device * dev = v3_allocate_device(name, &dev_ops, nvram_state);
+    struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, nvram_state);
 
 
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("Could not attach device %s\n", name);
+	PrintError("Could not attach device %s\n", dev_id);
 	return -1;
     }
 

@@ -183,12 +183,35 @@ static struct v3_config * parse_config(void * cfg_blob) {
     return cfg;
 }
 
+
+static inline uint32_t get_alignment(char * align_str) {
+    // default is 4KB alignment
+    uint32_t alignment = PAGE_SIZE_4KB;
+
+    if (align_str != NULL) {
+	if (strcasecmp(align_str, "2MB") == 0) {
+	    alignment = PAGE_SIZE_2MB;
+	} else if (strcasecmp(align_str, "4MB") == 0) {
+	    alignment = PAGE_SIZE_4MB;
+	}
+    }
+    
+#ifndef CONFIG_ALIGNED_PG_ALLOC
+    if (alignment != PAGE_SIZE_4KB) {
+	PrintError("Aligned page allocations are not supported in this host (requested alignment=%d)\n", alignment);
+	PrintError("Ignoring alignment request\n");
+    }
+#endif 
+
+    return alignment;
+}
 static int pre_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * vm_cfg) {
 
 
     char * memory_str = v3_cfg_val(vm_cfg, "memory");
     char * schedule_hz_str = v3_cfg_val(vm_cfg, "schedule_hz");
     char * vm_class = v3_cfg_val(vm_cfg, "class");
+    char * align_str = v3_cfg_val(v3_cfg_subtree(vm_cfg, "memory"), "alignment");
     uint32_t sched_hz = 100; 	// set the schedule frequency to 100 HZ
     
     if (!memory_str) {
@@ -197,10 +220,18 @@ static int pre_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * vm_cfg) {
     }
     
     PrintDebug("Memory=%s\n", memory_str);
+    if (align_str) {
+	 PrintDebug("Alignment=%s\n", align_str);
+    } else {
+	 PrintDebug("Alignment defaulted to 4KB.\n");
+    }
 
     // Amount of ram the Guest will have, always in MB
-    vm->mem_size = (unsigned long)atoi(memory_str) * 1024UL * 1024UL;
-    
+    vm->mem_size = atoi(memory_str) * 1024 * 1024;
+    vm->mem_align = get_alignment(align_str);
+
+    PrintDebug("Alignment computed as 0x%x\n", vm->mem_align);
+
     if (strcasecmp(vm_class, "PC") == 0) {
 	vm->vm_class = V3_PC_VM;
     } else {
@@ -270,6 +301,7 @@ static int determine_paging_mode(struct guest_info *info, v3_cfg_tree_t * core_c
 	info->shdw_pg_mode = SHADOW_PAGING;
     }
 
+
     if (info->shdw_pg_mode == NESTED_PAGING) {
     	PrintDebug("Guest Paging Mode: NESTED_PAGING\n");
 	if (strcasecmp(page_size, "4kb") == 0) { /* TODO: this may not be an ideal place for this */
@@ -287,6 +319,12 @@ static int determine_paging_mode(struct guest_info *info, v3_cfg_tree_t * core_c
 	PrintError("Guest paging mode incorrectly set.\n");
 	return -1;
     }
+
+    if (strcasecmp(v3_cfg_val(pg_tree, "large_pages"), "true") == 0) {
+	info->use_large_pages = 1;
+    	PrintDebug("Use of large pages in memory virtualization enabled.\n");
+    }
+
     return 0;
 }
 
@@ -517,12 +555,12 @@ static int setup_devices(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     
     while (device) {
-	char * id = v3_cfg_val(device, "id");
+	char * dev_class = v3_cfg_val(device, "class");
 
-	V3_Print("configuring device %s\n", id);
+	V3_Print("configuring device %s\n", dev_class);
 
-	if (v3_create_device(vm, id, device) == -1) {
-	    PrintError("Error creating device %s\n", id);
+	if (v3_create_device(vm, dev_class, device) == -1) {
+	    PrintError("Error creating device %s\n", dev_class);
 	    return -1;
 	}
 	

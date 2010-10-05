@@ -42,9 +42,11 @@
 #define CHANNEL1_PORT 0x41
 #define CHANNEL2_PORT 0x42
 #define COMMAND_PORT 0x43
+#define SPEAKER_PORT 0x61
 
 
 #define PIT_INTR_NUM 0
+#define PIT_SPEAKER_GATE 0x01
 
 /* The order of these typedefs is important because the numerical values correspond to the 
  * values coming from the io ports
@@ -88,6 +90,7 @@ struct pit {
     struct channel ch_0;
     struct channel ch_1;
     struct channel ch_2;
+    uint8_t speaker;
 };
 
 
@@ -301,7 +304,7 @@ static void pit_update_time(struct guest_info * info, ullong_t cpu_cycles, ullon
 	}
 
 	//handle_crystal_tics(dev, &(state->ch_1), oscillations);
-	//handle_crystal_tics(dev, &(state->ch_2), oscillations);
+	handle_crystal_tics(dev, &(state->ch_2), oscillations);
     }
   
 
@@ -413,9 +416,20 @@ static int handle_channel_read(struct channel * ch, char * val) {
 
 }
 
+static int handle_speaker_read(uint8_t *speaker, struct channel * ch, char * val) {
+    *val = *speaker;
 
+    if ((*speaker & PIT_SPEAKER_GATE)) {
+    	*val |= (ch->output_pin << 5);
+    }
+    
+    return 0;
+}
 
-
+static int handle_speaker_write(uint8_t *speaker, struct channel * ch, char val) {
+    *speaker = (val & ~0x20);
+    return 0;
+}
 
 static int handle_channel_cmd(struct channel * ch, struct pit_cmd_word cmd) {
     ch->op_mode = cmd.op_mode;
@@ -499,6 +513,12 @@ static int pit_read_channel(struct guest_info * core, ushort_t port, void * dst,
 		return -1;
 	    }
 	    break;
+	case SPEAKER_PORT:
+	    if (handle_speaker_read(&state->speaker, &(state->ch_2), val) == -1) {
+		PrintError("SPEAKER read error\n");
+		return -1;
+	    }
+	    break;
 	default:
 	    PrintError("8254 PIT: Read from invalid port (%d)\n", port);
 	    return -1;
@@ -537,6 +557,12 @@ static int pit_write_channel(struct guest_info * core, ushort_t port, void * src
 	case CHANNEL2_PORT:
 	    if (handle_channel_write(&(state->ch_2), val) == -1) {
 		PrintError("CHANNEL2 write error\n");	
+		return -1;
+	    }
+	    break;
+	case SPEAKER_PORT:
+	    if (handle_speaker_write(&state->speaker, &(state->ch_2), val) == -1) {
+		PrintError("SPEAKER write error\n");
 		return -1;
 	    }
 	    break;
@@ -643,7 +669,7 @@ static struct v3_device_ops dev_ops = {
 static int pit_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct pit * pit_state = NULL;
     struct vm_device * dev = NULL;
-    char * name = v3_cfg_val(cfg, "name");
+    char * dev_id = v3_cfg_val(cfg, "ID");
     
     // PIT is only usable in non-multicore environments
     // just hardcode the core context
@@ -654,11 +680,12 @@ static int pit_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     pit_state = (struct pit *)V3_Malloc(sizeof(struct pit));
     V3_ASSERT(pit_state != NULL);
+    pit_state->speaker = 0;
 
-    dev = v3_allocate_device(name, &dev_ops, pit_state);
+    dev = v3_allocate_device(dev_id, &dev_ops, pit_state);
 
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("Could not attach device %s\n", name);
+	PrintError("Could not attach device %s\n", dev_id);
 	return -1;
     }
 
@@ -666,6 +693,7 @@ static int pit_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     v3_dev_hook_io(dev, CHANNEL1_PORT, &pit_read_channel, &pit_write_channel);
     v3_dev_hook_io(dev, CHANNEL2_PORT, &pit_read_channel, &pit_write_channel);
     v3_dev_hook_io(dev, COMMAND_PORT, NULL, &pit_write_command);
+    v3_dev_hook_io(dev, SPEAKER_PORT, &pit_read_channel, &pit_write_channel);
 
 #ifdef CONFIG_DEBUG_PIT
     PrintDebug("8254 PIT: OSC_HZ=%d, reload_val=", OSC_HZ);
