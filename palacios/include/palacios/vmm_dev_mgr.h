@@ -158,11 +158,18 @@ struct v3_dev_blk_ops {
 };
 
 struct v3_dev_net_ops {
+    /* below functions are called by frontend device
+     * These will be filled in by the backend when a backend is initiated.  --Lei*/
     int (*send)(uint8_t * buf, uint32_t count, void * private_data, struct vm_device *dest_dev);
+    void (*start_rx)(void *back_data);
+    void (*stop_rx)(void *back_data);
 
-    // This will be filled in by the frontend when a backend is connected.
-    // The backend then calls this function for packet RX
-    int (*recv)(uint8_t * buf, uint32_t count, void * private_data);
+    /* below functions are called by Backend device
+     * These will be filled in by the frontend when a backend is connected. -- Lei*/
+    int (*recv)(uint8_t * buf, uint32_t count, void * frnt_data);
+    void (*poll)(struct v3_vm_info *vm, void* frnt_data);
+    void (*start_tx)(void * frnt_data);
+    void (*stop_tx)(void * frnt_data);
     void * frontend_data;
 };
 

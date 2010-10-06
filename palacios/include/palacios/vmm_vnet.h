@@ -7,9 +7,9 @@
  * and the University of New Mexico.  You can find out more at 
  * http://www.v3vee.org
  *
- * Copyright (c) 2009, Lei Xia <lxia@northwestern.edu> 
+ * Copyright (c) 2010, Lei Xia <lxia@northwestern.edu> 
  * Copyright (c) 2009, Yuan Tang <ytang@northwestern.edu> 
- * Copyright (c) 2009, The V3VEE Project <http://www.v3vee.org> 
+ * Copyright (c) 2010, The V3VEE Project <http://www.v3vee.org> 
  * All rights reserved.
  *
  * Author: Lei Xia <lxia@northwestern.edu>
@@ -35,7 +35,7 @@ typedef enum {LINK_INTERFACE=0, LINK_EDGE, LINK_ANY} link_type_t; //for 'type' a
 
 #define VNET_HASH_SIZE 17
 #define ETHERNET_HEADER_LEN 14
-#define ETHERNET_MTU   6000
+#define ETHERNET_MTU   1500
 #define ETHERNET_PACKET_LEN (ETHERNET_HEADER_LEN + ETHERNET_MTU)
 
 //routing table entry
@@ -92,43 +92,59 @@ struct v3_vnet_profile{
 };
 #endif
 
-struct v3_vnet_bridge_input_args{
+
+struct v3_vnet_bridge_xcall_args{
     struct v3_vm_info * vm;
     struct v3_vnet_pkt *vnet_pkts; 
     uint16_t pkt_num;
     void * private_data;
 };
 
-int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void *private_data);
+struct v3_vnet_dev_xcall_args{
+    struct v3_vm_info * vm;
+    void * private_data;
+};
 
-void v3_vnet_send_pkt_xcall(void * data);
+struct v3_vnet_dev_ops {
+    int (*input)(struct v3_vm_info * vm, struct v3_vnet_pkt * pkt, void * dev_data);
+    void (*poll) (struct v3_vm_info *vm, void *dev_data);
+    void (*poll_xcall)(void *arg);
+
+    void (*start_tx)(void * dev_data);
+    void (*stop_tx)(void * dev_data);
+};
+
+struct v3_vnet_bridge_ops {
+    int (*input)(struct v3_vm_info * vm, struct v3_vnet_pkt pkt[], uint16_t pkt_num, void * private_data);
+    int (*xcall_input)(void *data);
+    void (*polling_pkt)(struct v3_vm_info * vm,  void *private_data);
+};
+	
+
+int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void *private_data);
 
 int v3_vnet_add_route(struct v3_vnet_route route);
 
-int V3_init_vnet();
+int v3_init_vnet();
 
 int v3_vnet_add_bridge(struct v3_vm_info * vm,
-		int (*input)(struct v3_vm_info * vm, struct v3_vnet_pkt pkt[], uint16_t pkt_num, void * private_data),
+		/*int (*input)(struct v3_vm_info * vm, struct v3_vnet_pkt pkt[], uint16_t pkt_num, void * private_data),
 		void (*xcall_input)(void *data),
-		int (*poll_pkt)(struct v3_vm_info * vm, void * private_data),
-		uint16_t max_delayed_pkts,
-		long max_latency,
+		int (*poll_pkt)(struct v3_vm_info * vm, void * private_data),*/
+		struct v3_vnet_bridge_ops *ops,
 		void * priv_data);
 
 int v3_vnet_add_dev(struct v3_vm_info *info, uint8_t mac[6], 
-		    int (*dev_input)(struct v3_vm_info * vm, struct v3_vnet_pkt * pkt, void * private_data), 
+		    struct v3_vnet_dev_ops *ops,
 		    void * priv_data);
 
-void v3_vnet_heartbeat(struct guest_info *core);
+void v3_vnet_poll(struct v3_vm_info *vm);
 
+/* enable a vnet device, tell VNET can send pkts to it */
+int v3_vnet_enable_device(int dev_id);
 
-int v3_vnet_disable_bridge();
-int v3_vnet_enable_bridge();
-
-void v3_vnet_polling();
-
-int v3_vnet_rx(uchar_t *buf, uint16_t size, uint16_t src_id, uint8_t src_type);
-
+/* tell VNET stop sending pkts to it */
+int v3_vnet_disable_device(int dev_id);
 
 #endif
 
