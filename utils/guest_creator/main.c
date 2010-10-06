@@ -77,6 +77,10 @@ int main(int argc, char ** argv) {
     printf("Input: [%s] ==>>  Output: [%s]\n", infile, outfile);
 
     ezxml_t cfg_input = ezxml_parse_file(infile);
+    if (strcmp("", ezxml_error(cfg_input)) != 0) {
+	printf("%s\n", ezxml_error(cfg_input));
+	return -1;
+    }
 
     if (cfg_input == NULL) {
 	printf("Could not open configuration input file: %s\n", infile);
