@@ -124,12 +124,12 @@ static struct v3_device_ops dev_ops = {
 
 
 
-static int disk_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
+static int disk_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct disk_state * disk = NULL;
     char * path = v3_cfg_val(cfg, "path");
 
     char * dev_id = v3_cfg_val(cfg, "ID");
-    char * filename = v3_cfg_val(cfg, "file");
+
 
 
     char * writable = v3_cfg_val(cfg, "writable");
@@ -159,7 +159,7 @@ static int disk_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
     } else if ( !allowRead && allowWrite ) {
     	disk->fd = V3_FileOpen(path, FILE_OPEN_MODE_WRITE );
     } else {
-    	PrintError("Error on %s: No file mode specified\n", name );
+    	PrintError("Error on %s: No file mode specified\n", dev_id );
     	return -1;
 
     }
@@ -167,7 +167,7 @@ static int disk_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
     disk->capacity = V3_FileSize(disk->fd);
 
     PrintDebug("Registering FILEDISK %s (path=%s, fd=%lu, size=%lu)\n",
-	       name, path, file->fd, file->capacity);
+	       dev_id, path, file->fd, file->capacity);
 
     struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, disk);
 
