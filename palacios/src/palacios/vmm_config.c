@@ -72,9 +72,16 @@ char * v3_cfg_val(v3_cfg_tree_t * tree, char * tag) {
 	return NULL;
     }
 
-    val = (attrib == NULL) ? v3_xml_txt(child_entry): attrib;
-
-    return val; 
+    if (attrib == NULL) {
+    	val = v3_xml_txt(child_entry);
+    	
+    	if ( val[0] == 0 )
+    		val = NULL;
+    } else {
+    	val = attrib;
+    }
+    
+    return val;
 }
 
 v3_cfg_tree_t * v3_cfg_subtree(v3_cfg_tree_t * tree, char * tag) {
