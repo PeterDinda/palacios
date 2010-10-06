@@ -29,6 +29,12 @@
 #include <palacios/vm_guest.h>
 
 
+#ifndef CONFIG_DEBUG_SERIAL
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
+#endif
+
+
 #define COM1_DATA_PORT           0x3f8
 #define COM1_IRQ_ENABLE_PORT     0x3f9
 #define COM1_DIV_LATCH_LSB_PORT  0x3f8
