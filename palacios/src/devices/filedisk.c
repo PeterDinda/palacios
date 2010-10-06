@@ -127,9 +127,16 @@ static struct v3_device_ops dev_ops = {
 static int disk_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
     struct disk_state * disk = NULL;
     char * path = v3_cfg_val(cfg, "path");
+
     char * dev_id = v3_cfg_val(cfg, "ID");
     char * filename = v3_cfg_val(cfg, "file");
 
+
+    char * writable = v3_cfg_val(cfg, "writable");
+    char * readable = v3_cfg_val(cfg, "readable");
+    
+    int allowWrite = ( writable && writable[0] == '1' );
+    int allowRead = ( !readable || readable[0] == '1' );
 
     v3_cfg_tree_t * frontend_cfg = v3_cfg_subtree(cfg, "frontend");
 
@@ -139,11 +146,24 @@ static int disk_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
 
     if (!path) {
 
+
 	PrintError("Missing path (%s) for %s\n", path, dev_id);
 	return -1;
+
     }
     
-    disk->fd = V3_FileOpen(path, 0);
+    if ( allowRead && allowWrite ) {
+    	disk->fd = V3_FileOpen(path, FILE_OPEN_MODE_READ | FILE_OPEN_MODE_WRITE );
+    } else if ( allowRead && !allowWrite ) {
+    	disk->fd = V3_FileOpen(path, FILE_OPEN_MODE_READ );
+    } else if ( !allowRead && allowWrite ) {
+    	disk->fd = V3_FileOpen(path, FILE_OPEN_MODE_WRITE );
+    } else {
+    	PrintError("Error on %s: No file mode specified\n", name );
+    	return -1;
+
+    }
+    
     disk->capacity = V3_FileSize(disk->fd);
 
     PrintDebug("Registering FILEDISK %s (path=%s, fd=%lu, size=%lu)\n",
@@ -152,15 +172,19 @@ static int disk_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
     struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, disk);
 
     if (v3_attach_device(vm, dev) == -1) {
+
 	PrintError("Could not attach device %s\n", dev_id);
 	return -1;
+
     }
 
     if (v3_dev_connect_blk(vm, v3_cfg_val(frontend_cfg, "tag"), 
 			   &blk_ops, frontend_cfg, disk) == -1) {
+
 	PrintError("Could not connect %s to frontend %s\n", 
 		   dev_id, v3_cfg_val(frontend_cfg, "tag"));
 	return -1;
+
     }
     
 
