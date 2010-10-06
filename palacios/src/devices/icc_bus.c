@@ -352,26 +352,20 @@ int v3_icc_send_ipi(struct vm_device * icc_bus, uint32_t src_apic, uint64_t icr_
 	case 2: 
 
 	case 3: { // all and all-but-me
-	    if (icr->dst_mode==0) { 
-		// physical
-		int i;
-		for (i=0;i<MAX_APICS;i++) { 
-		    struct apic_data *dest_apic=&(state->apics[i]);
-		    if (dest_apic->present && (i!=src_apic || icr->dst_shorthand==2)) { 
-			if (deliver(src_apic,dest_apic,icr,state,extirq)) { 
-			    return -1;
-			}
-
+	    // assuming that logical verus physical doesn't matter
+	    // although it is odd that both are used
+	    int i;
+	    for (i=0;i<MAX_APICS;i++) { 
+		struct apic_data *dest_apic=&(state->apics[i]);
+		if (dest_apic->present && (i!=src_apic || icr->dst_shorthand==2)) { 
+		    if (deliver(src_apic,dest_apic,icr,state,extirq)) { 
+			return -1;
 		    }
 		}
-	    } else {
-		// logical delivery
-		PrintError("icc_bus: use of logical delivery in %s is not yet supported\n",
-			   icr->dst_shorthand==2 ? "all" : "all-but-me" );
-		return -1;
 	    }
-	    break;
 	}
+	    break;
+
 	default:
 	    return -1;
     }
