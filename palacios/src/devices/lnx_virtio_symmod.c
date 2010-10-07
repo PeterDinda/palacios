@@ -547,8 +547,10 @@ static int virtio_load_capsule(struct v3_vm_info * vm, struct v3_sym_capsule * m
 
 	notifier_desc = &(q->desc[notifier_idx]);
 
-	PrintDebug("SYMMOD: Notifier Descriptor (ptr=%p) gpa=%p, len=%d, flags=%x, next=%d\n", notifier_desc, 
-		   (void *)(notifier_desc->addr_gpa), notifier_desc->length, notifier_desc->flags, notifier_desc->next);	
+	PrintDebug("SYMMOD: Notifier Descriptor (ptr=%p) gpa=%p, len=%d, flags=%x, next=%d\n", 
+		   notifier_desc, (void *)(addr_t)(notifier_desc->addr_gpa), 
+		   notifier_desc->length, notifier_desc->flags, 
+		   notifier_desc->next);	
 
 	if (v3_gpa_to_hva(&(vm->cores[0]), notifier_desc->addr_gpa, (addr_t *)&(notifier)) == -1) {
 	    PrintError("Could not translate receive buffer address\n");
