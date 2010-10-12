@@ -810,6 +810,8 @@ static int apic_write(struct guest_info * core, addr_t guest_addr, void * src, u
 	    apic->task_prio.val = op_val;
 	    break;
 	case LDR_OFFSET:
+	    PrintDebug("apic %u: core %u: setting log_dst.val to 0x%x\n",
+		       apic->lapic_id.val, core->cpu_id, op_val);
 	    apic->log_dst.val = op_val;
 	    break;
 	case DFR_OFFSET:
@@ -1131,8 +1133,12 @@ static int apic_should_deliver_flat(struct guest_info * core, uint8_t mda, void 
 
   if (mda==0xff ||                         // broadcast or
       (apic->log_dst.dst_log_id & mda)) {  // I am in the set 
+	PrintDebug("apic %u core %u: accepting flat IRQ (mda 0x%x == log_dst 0x%x)\n",
+		   apic->lapic_id.val, core->cpu_id, mda, apic->log_dst.dst_log_id);
       return 1;
   } else {
+	PrintDebug("apic %u core %u: rejecting flat IRQ (mda 0x%x != log_dst 0x%x)\n",
+		   apic->lapic_id.val, core->cpu_id, mda, apic->log_dst.dst_log_id);
       return 0;
   }
 }
@@ -1144,8 +1150,13 @@ static int apic_should_deliver_cluster(struct guest_info * core, uint8_t mda, vo
   if (mda==0xff ||                                                 // broadcast or
       ( ((mda & 0xf0) == (apic->log_dst.dst_log_id & 0xf0)) &&     // (I am in the cluster and
         ((mda & 0x0f)  & (apic->log_dst.dst_log_id & 0x0f)) ) ) {  //  I am in the set)
+	PrintDebug("apic %u core %u: accepting clustered IRQ (mda 0x%x == log_dst 0x%x)\n",
+		   apic->lapic_id.val, core->cpu_id, mda, apic->log_dst.dst_log_id);
+		   
       return 1;
   } else {
+	PrintDebug("apic %u core %u: rejecting clustered IRQ (mda 0x%x != log_dst 0x%x)\n",
+		   apic->lapic_id.val, core->cpu_id, mda, apic->log_dst.dst_log_id);
       return 0;
   }
 }

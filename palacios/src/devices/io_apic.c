@@ -186,7 +186,7 @@ static int ioapic_read(struct guest_info * core, addr_t guest_addr, void * dst, 
 		break;
 	    default: {
 		uint_t redir_index = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) >> 1;
-		uint_t hi_val = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) % 1;
+		uint_t hi_val = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) & 1;
 		
 		if (redir_index > 0x3f) {
 		    PrintError("ioapic %u: Invalid redirection table entry %x\n", ioapic->ioapic_id.id, (uint32_t)redir_index);
@@ -217,6 +217,7 @@ static int ioapic_write(struct guest_info * core, addr_t guest_addr, void * src,
     PrintDebug("ioapic %u: IOAPIC Write at %p (val = %d)\n",  ioapic->ioapic_id.id, (void *)guest_addr, *(uint32_t *)src);
 
     if (reg_tgt == 0x00) {
+	PrintDebug("ioapic %u: Setting ioapic index register to 0x%x.\n", ioapic->ioapic_id.id, op_val);
 	ioapic->index_reg = op_val;
     } else if (reg_tgt == 0x10) {
 	// IOWIN register
@@ -235,10 +236,10 @@ static int ioapic_write(struct guest_info * core, addr_t guest_addr, void * src,
 	    default:
 		{
 		    uint_t redir_index = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) >> 1;
-		    uint_t hi_val = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) % 1;
+		    uint_t hi_val = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) & 1;
 
-
-
+		    PrintDebug("ioapic %u: Writing value 0x%x to redirection entry %u (%s)\n",
+			       ioapic->ioapic_id.id, op_val, redir_index, hi_val ? "hi" : "low");
 
 		    if (redir_index > 0x3f) {
 			PrintError("ioapic %u: Invalid redirection table entry %x\n", ioapic->ioapic_id.id, (uint32_t)redir_index);
