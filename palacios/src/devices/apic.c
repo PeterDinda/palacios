@@ -906,7 +906,7 @@ static int apic_write(struct guest_info * core, addr_t guest_addr, void * src, u
 	    PrintDebug("apic %u: core %u: sending cmd 0x%llx to apic %u\n", 
 		       apic->lapic_id.val, core->cpu_id,
 		       apic->int_cmd.val, apic->int_cmd.dst);
-	    if (v3_icc_send_ipi(apic->icc_bus, apic->lapic_id.val, apic->int_cmd.val,apic->dst_fmt.val,0)==-1) { 
+	    if (v3_icc_send_ipi(apic->icc_bus, apic->lapic_id.val, apic->int_cmd.val,0)==-1) { 
 		return -1;
 	    }
 	    break;
@@ -1125,8 +1125,6 @@ static struct v3_device_ops dev_ops = {
     .stop = NULL,
 };
 
-
-
 static int apic_should_deliver_flat(struct guest_info * core, uint8_t mda, void * private_data)
 {
   struct apic_state * apic = (struct apic_state *)private_data;
@@ -1161,13 +1159,23 @@ static int apic_should_deliver_cluster(struct guest_info * core, uint8_t mda, vo
   }
 }
 
+static int apic_should_deliver(struct guest_info * core, uint8_t mda, void *private_data)
+{
+    struct apic_state * apic = (struct apic_state *)private_data;
+    if (apic->dst_fmt.model == 0xf) {
+	return apic_should_deliver_cluster(core, mda, private_data);
+    } else if (apic->dst_fmt.model == 0x0) {
+	return apic_should_deliver_flat(core, mda, private_data);
+    } else {
+	PrintError("apic %u core %u: invalid destination format register value 0x%x for logical mode delivery.\n", apic->lapic_id.val, core->cpu_id, apic->dst_fmt.model);
+	return 0;
+    }
+}
+
 static struct v3_icc_ops icc_ops = {
     .raise_intr = apic_raise_intr,
-    .should_deliver_flat = apic_should_deliver_flat,
-    .should_deliver_cluster = apic_should_deliver_cluster,
+    .should_deliver = apic_should_deliver,
 };
-
-
 
 static int apic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     PrintDebug("apic: creating an APIC for each core\n");

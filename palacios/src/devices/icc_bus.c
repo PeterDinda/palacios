@@ -202,13 +202,11 @@ static int deliver(uint32_t src_apic, struct apic_data *dest_apic, struct int_cm
 // in which case it is given via irq
 //
 
-int v3_icc_send_ipi(struct vm_device * icc_bus, uint32_t src_apic, uint64_t icr_data, 
-		    uint32_t dfr_data, uint32_t extirq) {
+int v3_icc_send_ipi(struct vm_device * icc_bus, uint32_t src_apic, uint64_t icr_data, uint32_t extirq) {
 
     PrintDebug("icc_bus: icc_bus=%p, src_apic=%u, icr_data=%llx, extirq=%u\n",icc_bus,src_apic,icr_data,extirq);
 
     struct int_cmd_reg *icr = (struct int_cmd_reg *)&icr_data;
-    struct dst_fmt_reg *dfr = (struct dst_fmt_reg*)&dfr_data;
 
     struct icc_bus_state * state = (struct icc_bus_state *)icc_bus->private_data;
     struct apic_data * dest_apic = NULL;
@@ -232,12 +230,12 @@ int v3_icc_send_ipi(struct vm_device * icc_bus, uint32_t src_apic, uint64_t icr_
     dest_apic =  &(state->apics[icr->dst]);
 
 
-    PrintDebug("icc_bus: IPI %s %u from %s %u to %s %s %u (icr=0x%llx, dfr=0x%x) (extirq=%u)\n",
+    PrintDebug("icc_bus: IPI %s %u from %s %u to %s %s %u (icr=0x%llx, extirq=%u)\n",
 	       deliverymode_str[icr->del_mode], icr->vec, 
 	       src_apic==state->ioapic_id ? "ioapic" : "apic",
 	       src_apic, 	       
 	       icr->dst_mode==0 ? "(physical)" : "(logical)", 
-	       shorthand_str[icr->dst_shorthand], icr->dst,icr->val, dfr->val,
+	       shorthand_str[icr->dst_shorthand], icr->dst,icr->val,
 	       extirq);
 
     /*
@@ -262,69 +260,19 @@ int v3_icc_send_ipi(struct vm_device * icc_bus, uint32_t src_apic, uint64_t icr_
 		}
 	    } else {
 		// logical delivery
-		uint8_t mda = icr->dst; // message destination address, not physical address
-		
-		if (dfr->model==0xf) { 
-		    // flat model
-		    // this means we deliver the IPI each destination APIC where
-		    // mda of sender & ldr of receiver is nonzero
-		    // mda=0xff means broadcast to all
-		    //
-		    int i;
-		    for (i=0;i<MAX_APICS;i++) { 
-			struct apic_data *dest_apic=&(state->apics[i]);
-			if (dest_apic->present &&
-			    dest_apic->ops->should_deliver_flat(dest_apic->core,
-								mda,
-								dest_apic->priv_data)) {
-			    if (deliver(src_apic,dest_apic,icr,state,extirq)) { 
-				return -1;
-			    }
+		int i;
+		uint8_t mda = icr->dst;
+		for (i=0;i<MAX_APICS;i++) { 
+		    struct apic_data *dest_apic=&(state->apics[i]);
+		    if (dest_apic->present &&
+			dest_apic->ops->should_deliver(dest_apic->core,
+						       mda,
+						       dest_apic->priv_data)) {
+			if (deliver(src_apic,dest_apic,icr,state,extirq)) { 
+			    return -1;
 			}
 		    }
-		} else if (dfr->model==0x0) {
-		    // cluster model
-		    //
-		    // there are two variants of this
-		    //
-		    // 1. (ancient P5/P6) All apics are on one bus
-		    //    mda[31:28] is the target cluster, 
-		    //    mda[27:24] has one bit for each apic in the cluster
-		    //    mda[31:28] of sending apic == ldr[31:28] of dest apic means
-		    //      the dest apic is part of the cluster
-		    //      then mda[27:24] & ldr[27:24] nonzero means to deliver
-		    //    also, mda=0xff still means broadcast 
-		    //    So, basically, you have 15 clusters of 4 apics each + broadcast
-		    //
-		    // 2. (current) hierarchical cluster model
-		    //    This is some hwat unclearly documented in volume 3, 9-32
-		    //    basically, you have a hierarchy of clusters that where
-		    //    each cluster has 4 agents (APICs?) and a cluster manager.
-		    //    The cluster manager is not an apic, though, and outside of
-		    //    scope of documents.  Again, you have 15 clusters of 4 apics
-		    //    each + broadcast.   My impression is that this is identical 
-		    //    to variant 1 for our purposes. 
-		    //
-		    //
-		    // if we are in lowest priorty mode, we should just pick one
-		    // according to the arbitrarion prioty register
-		    int i;
-		    for (i=0;i<MAX_APICS;i++) { 
-			struct apic_data *dest_apic=&(state->apics[i]);
-			if (dest_apic->present &&
-			    dest_apic->ops->should_deliver_cluster(dest_apic->core,
-								   mda,
-								   dest_apic->priv_data)) {
-			    if (deliver(src_apic,dest_apic,icr,state,extirq)) { 
-				return -1;
-			    }
-			}
-		    }
-		} else {
-		    PrintError("icc_bus: unknown logical delivery model 0x%x\n", dfr->model);
-		    return -1;
 		}
-
 	    }
 	    
 	    break;
