@@ -225,8 +225,9 @@ static int init_vmcs_bios(struct guest_info * info, struct vmx_data * vmx_state)
     vmx_state->pri_proc_ctrls.invlpg_exit = 1;
     vmx_state->pri_proc_ctrls.use_msr_bitmap = 1;
     vmx_state->pri_proc_ctrls.pause_exit = 1;
-#ifdef CONFIG_TIME_TSC_OFFSET
+#ifdef CONFIG_TIME_VIRTUALIZE_TSC
     vmx_state->pri_proc_ctrls.tsc_offset = 1;
+    vmx_state->pri_proc_ctrls.rdtsc_exit = 1;
 #endif
 
     vmx_ret |= check_vmcs_write(VMCS_IO_BITMAP_A_ADDR, (addr_t)V3_PAddr(info->vm_info->io_map.arch_data));
@@ -670,13 +671,14 @@ int v3_vmx_enter(struct guest_info * info) {
     v3_update_timers(info);
     v3_resume_time(info);
 
-    tsc_offset_high = 
-	(uint32_t)((info->time_state.host_offset >> 32) & 0xffffffff);
-    tsc_offset_low = (uint32_t)(info->time_state.host_offset & 0xffffffff);
-#ifdef CONFIG_TIME_TSC_OFFSET
-    check_vmcs_write(VMCS_TSC_OFFSET_HIGH, tsc_offset_high);
-    check_vmcs_write(VMCS_TSC_OFFSET, tsc_offset_low);
-#endif
+    {
+	sint64_t total_tsc_offset = info->time_state.time_offset + info->time_state.tsc_time_offset;
+
+	tsc_offset_high = (uint32_t)((total_tsc_offset >> 32) & 0xffffffff);
+	tsc_offset_low = (uint32_t)(total_tsc_offset & 0xffffffff);
+	check_vmcs_write(VMCS_TSC_OFFSET_HIGH, tsc_offset_high);
+	check_vmcs_write(VMCS_TSC_OFFSET, tsc_offset_low);
+    }
 
     PrintDebug("Stored 0x %x %x into vmcs TSC offset.\n", 
 	       tsc_offset_high, tsc_offset_low);

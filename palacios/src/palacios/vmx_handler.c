@@ -100,15 +100,16 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
 
             break;
 
-#if 0
         case VMEXIT_RDTSC:
+#ifdef CONFIG_DEBUG_TIME
+	    PrintDebug("RDTSC\n");
+#endif 
 	    if (v3_handle_rdtsc(info) == -1) {
 		PrintError("Error Handling RDTSC instruction\n");
 		return -1;
 	    }
 	    
 	    break;
-#endif
 
         case VMEXIT_CPUID:
 	    if (v3_handle_cpuid(info) == -1) {

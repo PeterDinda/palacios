@@ -24,19 +24,31 @@
 
 #include <palacios/vmm_types.h>
 #include <palacios/vmm_list.h>
+#include <palacios/vmm_msr.h>
 #include <palacios/vmm_util.h>
 
 struct guest_info;
 
 struct vm_time {
-    uint32_t cpu_freq; // in kHZ
+    uint32_t cpu_freq;         // in kHZ in terms of guest CPU speed
+                               // which ideally can be different lower than
+                               // host CPU speed!
+         
+    uint32_t time_mult;        // Fields for computing monotonic guest time
+    uint32_t time_div;         // from host (tsc) time
+    sint64_t time_offset;      
 
-    uint64_t last_update;  // Last time (in guest time) the timers were updated
-    uint64_t pause_time;   // Cache value to help calculate the guest_tsc
-    sint64_t host_offset;  // Offset of guest time from host time.
-    sint64_t offset_sum;   // Sum of past and current host_offsets
+    sint64_t tsc_time_offset;  // Offset for computing guest TSC value from
+                               // monotonic guest time
+    
+    uint64_t last_update;      // Last time (in monotonic guest time) the 
+                               // timers were updated
 
-    // Installed Timers 
+    uint64_t pause_time;       // Cache value to help calculate the guest_tsc
+    
+    struct v3_msr tsc_aux;     // Auxilliary MSR for RDTSCP
+
+    // Installed Timers slaved off of the guest monotonic TSC
     uint_t num_timers;
     struct list_head timers;
 };
@@ -69,16 +81,30 @@ int v3_start_time(struct guest_info * info);
 int v3_pause_time(struct guest_info * info);
 int v3_resume_time(struct guest_info * info);
 
+// Returns host time
 static inline uint64_t v3_get_host_time(struct vm_time *t) {
     uint64_t tmp;
     rdtscll(tmp);
     return tmp;
 }
 
+// Returns *monotonic* guest time.
 static inline uint64_t v3_get_guest_time(struct vm_time *t) {
     if (t->pause_time) return t->pause_time;
-    else return v3_get_host_time(t) + t->host_offset;
+    else return v3_get_host_time(t) + t->time_offset;
 }
+
+// Returns the TSC value seen by the guest
+static inline uint64_t v3_get_guest_tsc(struct vm_time *t) {
+    return v3_get_guest_time(t) + t->tsc_time_offset;
+}
+
+#define TSC_MSR     0x10
+#define TSC_AUX_MSR 0xC0000103
+
+int v3_handle_rdtscp(struct guest_info *info);
+int v3_handle_rdtsc(struct guest_info *info);
+
 #endif // !__V3VEE__
 
 #endif
