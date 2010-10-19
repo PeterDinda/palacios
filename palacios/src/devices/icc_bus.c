@@ -23,7 +23,6 @@
 #include <devices/icc_bus.h>
 #include <devices/apic_regs.h>
 
-
 #define MAX_APICS 256
 
 #ifndef CONFIG_DEBUG_ICC_BUS
@@ -135,14 +134,14 @@ static int deliver(uint32_t src_apic, struct apic_data *dest_apic, struct int_cm
 	    // TODO: any APIC reset on dest core (shouldn't be needed, but not sure...)
 
 	    // Sanity check
-	    if (core->cpu_mode!=INIT) { 
+	    if (core->cpu_mode != INIT) { 
 		PrintError("icc_bus: Warning: core %u is not in INIT state, ignored\n",core->cpu_id);
 		// Only a warning, since INIT INIT SIPI is common
 		break;
 	    }
 
 	    // We transition the target core to SIPI state
-	    core->cpu_mode=SIPI;  // note: locking should not be needed here
+	    core->cpu_mode = SIPI;  // note: locking should not be needed here
 
 	    // That should be it since the target core should be
 	    // waiting in host on this transition
@@ -174,17 +173,17 @@ static int deliver(uint32_t src_apic, struct apic_data *dest_apic, struct int_cm
 	    // So the selector needs to be VV00
 	    // and the base needs to be VV000
 	    //
-	    core->rip=0;
-	    core->segments.cs.selector = icr->vec<<8;
-	    core->segments.cs.limit= 0xffff;
-	    core->segments.cs.base = icr->vec<<12;
+	    core->rip = 0;
+	    core->segments.cs.selector = icr->vec << 8;
+	    core->segments.cs.limit = 0xffff;
+	    core->segments.cs.base = icr->vec << 12;
 
 	    PrintDebug("icc_bus: SIPI delivery (0x%x -> 0x%x:0x0) to core %u\n",
 		       icr->vec, core->segments.cs.selector, core->cpu_id);
 	    // Maybe need to adjust the APIC?
 	    
 	    // We transition the target core to SIPI state
-	    core->cpu_mode=REAL;  // note: locking should not be needed here
+	    core->cpu_mode = REAL;  // note: locking should not be needed here
 
 	    // As with INIT, we should not need to do anything else
 
@@ -202,56 +201,110 @@ static int deliver(uint32_t src_apic, struct apic_data *dest_apic, struct int_cm
 // icr_data contains interrupt vector *except* for ext_int
 // in which case it is given via irq
 //
+
 int v3_icc_send_ipi(struct vm_device * icc_bus, uint32_t src_apic, uint64_t icr_data, uint32_t extirq) {
 
     PrintDebug("icc_bus: icc_bus=%p, src_apic=%u, icr_data=%llx, extirq=%u\n",icc_bus,src_apic,icr_data,extirq);
 
     struct int_cmd_reg *icr = (struct int_cmd_reg *)&icr_data;
+
     struct icc_bus_state * state = (struct icc_bus_state *)icc_bus->private_data;
+    struct apic_data * dest_apic = NULL;
+    PrintDebug("icc_bus: icc_bus=%p, src_apic=%u, icr_data=%llx, extirq=%u\n", 
+	       icc_bus, src_apic, icr_data, extirq);
 
     // initial sanity checks
-    if (src_apic>=MAX_APICS || (!state->apics[src_apic].present && src_apic!=state->ioapic_id)) { 
+    if ((src_apic >= MAX_APICS) || 
+	((state->apics[src_apic].present == 0) && 
+	 (src_apic != state->ioapic_id))) { 
 	PrintError("icc_bus: Apparently sending from unregistered apic id=%u\n",src_apic);
 	return -1;
     }
-    if (icr->dst_mode==0  && !state->apics[icr->dst].present) { 
-	PrintError("icc_bus: Attempted send to unregistered apic id=%u\n",icr->dst);
+
+
+    if ((icr->dst_mode == 0) && (state->apics[icr->dst].present == 0)) { 
+	PrintError("icc_bus: Attempted send to unregistered apic id=%u\n", icr->dst);
 	return -1;
     }
-    
-    struct apic_data * dest_apic =  &(state->apics[icr->dst]);
 
-    PrintDebug("icc_bus: IPI %s %u from %s %u to %s %u (icr=0x%llx) (extirq=%u)\n",
-	       deliverymode_str[icr->del_mode], icr->vec, src_apic==state->ioapic_id ? "ioapic" : "apic",
-	       src_apic, shorthand_str[icr->dst_shorthand], icr->dst,icr->val,
+    dest_apic =  &(state->apics[icr->dst]);
+
+
+    PrintDebug("icc_bus: IPI %s %u from %s %u to %s %s %u (icr=0x%llx, extirq=%u)\n",
+	       deliverymode_str[icr->del_mode], icr->vec, 
+	       src_apic==state->ioapic_id ? "ioapic" : "apic",
+	       src_apic, 	       
+	       icr->dst_mode==0 ? "(physical)" : "(logical)", 
+	       shorthand_str[icr->dst_shorthand], icr->dst,icr->val,
 	       extirq);
 
+    /*
+
+    if (icr->dst==state->ioapic_id) { 
+	PrintError("icc_bus: Attempted send to ioapic ignored\n");
+	return -1;
+    }
+    */
 
 
 
     switch (icr->dst_shorthand) {
 
 	case 0:  // no shorthand
-	    if (deliver(src_apic,dest_apic,icr,state,extirq)) { 
-		return -1;
-	    }
-	    break;
 
+	    if (icr->dst_mode==0) { 
+		// physical delivery
+		struct apic_data * dest_apic =  &(state->apics[icr->dst]);
+		if (deliver(src_apic,dest_apic,icr,state,extirq)) { 
+		    return -1;
+		}
+	    } else {
+		// logical delivery
+		int i;
+		uint8_t mda = icr->dst;
+		for (i=0;i<MAX_APICS;i++) { 
+		    struct apic_data *dest_apic=&(state->apics[i]);
+		    if (dest_apic->present &&
+			dest_apic->ops->should_deliver(dest_apic->core,
+						       mda,
+						       dest_apic->priv_data)) {
+			if (deliver(src_apic,dest_apic,icr,state,extirq)) { 
+			    return -1;
+			}
+		    }
+		}
+	    }
+	    
+	    break;
+	    
 	case 1:  // self
-	    if (icr->dst==state->ioapic_id) { 
-		PrintError("icc_bus: ioapic attempting to send to itself\n");
-		return -1;
-	    }
-	    if (deliver(src_apic,dest_apic,icr,state,extirq)) { 
+
+	    if (icr->dst_mode==0) { 
+		// physical delivery
+		if (icr->dst==state->ioapic_id) { 
+		    PrintError("icc_bus: ioapic attempting to send to itself\n");
+		    return -1;
+		}
+		struct apic_data *dest_apic=&(state->apics[src_apic]);
+		if (deliver(src_apic,dest_apic,icr,state,extirq)) { 
+		    return -1;
+		}
+	    } else {
+		// logical delivery
+		PrintError("icc_bus: use of logical delivery in self is not yet supported.\n");
+
 		return -1;
 	    }
 	    break;
-
+	    
 	case 2: 
+
 	case 3: { // all and all-but-me
+	    // assuming that logical verus physical doesn't matter
+	    // although it is odd that both are used
 	    int i;
 	    for (i=0;i<MAX_APICS;i++) { 
-		dest_apic=&(state->apics[i]);
+		struct apic_data *dest_apic=&(state->apics[i]);
 		if (dest_apic->present && (i!=src_apic || icr->dst_shorthand==2)) { 
 		    if (deliver(src_apic,dest_apic,icr,state,extirq)) { 
 			return -1;
@@ -260,7 +313,11 @@ int v3_icc_send_ipi(struct vm_device * icc_bus, uint32_t src_apic, uint64_t icr_
 	    }
 	}
 	    break;
+
+	default:
+	    return -1;
     }
+    
 
     return 0;
 }
@@ -306,7 +363,6 @@ int v3_icc_register_ioapic(struct v3_vm_info *vm, struct vm_device * icc_bus, ui
 
     return 0;
 }
-
 
 
 static int icc_bus_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {

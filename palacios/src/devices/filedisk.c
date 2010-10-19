@@ -34,14 +34,52 @@ struct disk_state {
 };
 
 
+
+static int write_all(int fd, char * buf, int offset, int length) {
+    int bytes_written = 0;
+    
+    PrintDebug("Writing %d bytes\n", length - bytes_written);
+    while (bytes_written < length) {
+	int tmp_bytes = V3_FileWrite(fd, offset+bytes_written, buf + bytes_written, length - bytes_written);
+	PrintDebug("Wrote %d bytes\n", tmp_bytes);
+	
+	if (tmp_bytes <= 0 ) {
+	    PrintError("Write failed\n");
+	    return -1;
+	}
+	
+	bytes_written += tmp_bytes;
+    }
+    
+    return 0;
+}
+
+
+static int read_all(int fd, char * buf, int offset, int length) {
+    int bytes_read = 0;
+    
+    PrintDebug("Reading %d bytes\n", length - bytes_read);
+    while (bytes_read < length) {
+	int tmp_bytes = V3_FileRead(fd, offset+bytes_read, buf + bytes_read, length - bytes_read);
+	PrintDebug("Read %d bytes\n", tmp_bytes);
+	
+	if (tmp_bytes <= 0) {
+	    PrintError("Read failed\n");
+	    return -1;
+	}
+	
+	bytes_read += tmp_bytes;
+    }
+    
+    return 0;
+}
+
 static int read(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * private_data) {
     struct disk_state * disk = (struct disk_state *)private_data;
 
     PrintDebug("Reading %d bytes from %p to %p\n", (uint32_t)num_bytes, (uint8_t *)(disk->disk_image + lba), buf);
 
-    V3_FileRead(disk->fd, lba, buf, num_bytes);
-
-    return 0;
+    return read_all(disk->fd, buf, lba, num_bytes);
 }
 
 
@@ -50,9 +88,7 @@ static int write(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * private
 
     PrintDebug("Writing %d bytes from %p to %p\n", (uint32_t)num_bytes,  buf, (uint8_t *)(disk->disk_image + lba));
 
-    V3_FileWrite(disk->fd, lba, buf, num_bytes);
-
-    return 0;
+    return write_all(disk->fd,  buf, lba, num_bytes);
 }
 
 
@@ -88,12 +124,19 @@ static struct v3_device_ops dev_ops = {
 
 
 
-static int disk_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
+static int disk_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct disk_state * disk = NULL;
     char * path = v3_cfg_val(cfg, "path");
-    char * dev_id = v3_cfg_val(cfg, "ID");
-    char * filename = v3_cfg_val(cfg, "file");
 
+    char * dev_id = v3_cfg_val(cfg, "ID");
+
+
+
+    char * writable = v3_cfg_val(cfg, "writable");
+    char * readable = v3_cfg_val(cfg, "readable");
+    
+    int allowWrite = ( writable && writable[0] == '1' );
+    int allowRead = ( !readable || readable[0] == '1' );
 
     v3_cfg_tree_t * frontend_cfg = v3_cfg_subtree(cfg, "frontend");
 
@@ -102,28 +145,46 @@ static int disk_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
 
 
     if (!path) {
+
+
 	PrintError("Missing path (%s) for %s\n", path, dev_id);
 	return -1;
+
     }
     
-    disk->fd = V3_FileOpen(path, 0);
+    if ( allowRead && allowWrite ) {
+    	disk->fd = V3_FileOpen(path, FILE_OPEN_MODE_READ | FILE_OPEN_MODE_WRITE );
+    } else if ( allowRead && !allowWrite ) {
+    	disk->fd = V3_FileOpen(path, FILE_OPEN_MODE_READ );
+    } else if ( !allowRead && allowWrite ) {
+    	disk->fd = V3_FileOpen(path, FILE_OPEN_MODE_WRITE );
+    } else {
+    	PrintError("Error on %s: No file mode specified\n", dev_id );
+    	return -1;
+
+    }
+    
     disk->capacity = V3_FileSize(disk->fd);
 
-    PrintDebug("Registering RAMDISK at %p (size=%d)\n", 
-	       (void *)file->data, (uint32_t)file->size);
+    PrintDebug("Registering FILEDISK %s (path=%s, fd=%lu, size=%lu)\n",
+	       dev_id, path, file->fd, file->capacity);
 
     struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, disk);
 
     if (v3_attach_device(vm, dev) == -1) {
+
 	PrintError("Could not attach device %s\n", dev_id);
 	return -1;
+
     }
 
     if (v3_dev_connect_blk(vm, v3_cfg_val(frontend_cfg, "tag"), 
 			   &blk_ops, frontend_cfg, disk) == -1) {
+
 	PrintError("Could not connect %s to frontend %s\n", 
 		   dev_id, v3_cfg_val(frontend_cfg, "tag"));
 	return -1;
+
     }
     
 

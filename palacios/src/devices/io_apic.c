@@ -157,8 +157,8 @@ static void init_ioapic_state(struct io_apic_state * ioapic, uint32_t id) {
     }
     
     // special case redir_tbl[0] for pin 0 as ExtInt for Virtual Wire Mode
-    ioapic->redir_tbl[0].del_mode=EXTINT;
-    ioapic->redir_tbl[0].mask=0;
+    // ioapic->redir_tbl[0].del_mode=EXTINT;
+    // ioapic->redir_tbl[0].mask=0;
 }
 
 
@@ -184,21 +184,21 @@ static int ioapic_read(struct guest_info * core, addr_t guest_addr, void * dst, 
 	    case IOAPIC_ARB_REG:
 		*op_val = ioapic->ioapic_arb_id.val;
 		break;
-	    default:
-		{
-		    uint_t redir_index = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) >> 1;
-		    uint_t hi_val = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) % 1;
-
-		    if (redir_index > 0x3f) {
-			PrintError("ioapic %u: Invalid redirection table entry %x\n", ioapic->ioapic_id.id, (uint32_t)redir_index);
-			return -1;
-		    }
-		    if (hi_val) {
-			*op_val = ioapic->redir_tbl[redir_index].hi;
-		    } else {
-			*op_val = ioapic->redir_tbl[redir_index].lo;
-		    }
+	    default: {
+		uint_t redir_index = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) >> 1;
+		uint_t hi_val = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) & 1;
+		
+		if (redir_index > 0x3f) {
+		    PrintError("ioapic %u: Invalid redirection table entry %x\n", ioapic->ioapic_id.id, (uint32_t)redir_index);
+		    return -1;
 		}
+		
+		if (hi_val) {
+		    *op_val = ioapic->redir_tbl[redir_index].hi;
+		} else {
+		    *op_val = ioapic->redir_tbl[redir_index].lo;
+		}
+	    }
 	}
     }
 
@@ -217,6 +217,7 @@ static int ioapic_write(struct guest_info * core, addr_t guest_addr, void * src,
     PrintDebug("ioapic %u: IOAPIC Write at %p (val = %d)\n",  ioapic->ioapic_id.id, (void *)guest_addr, *(uint32_t *)src);
 
     if (reg_tgt == 0x00) {
+	PrintDebug("ioapic %u: Setting ioapic index register to 0x%x.\n", ioapic->ioapic_id.id, op_val);
 	ioapic->index_reg = op_val;
     } else if (reg_tgt == 0x10) {
 	// IOWIN register
@@ -235,10 +236,10 @@ static int ioapic_write(struct guest_info * core, addr_t guest_addr, void * src,
 	    default:
 		{
 		    uint_t redir_index = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) >> 1;
-		    uint_t hi_val = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) % 1;
+		    uint_t hi_val = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) & 1;
 
-
-
+		    PrintDebug("ioapic %u: Writing value 0x%x to redirection entry %u (%s)\n",
+			       ioapic->ioapic_id.id, op_val, redir_index, hi_val ? "hi" : "low");
 
 		    if (redir_index > 0x3f) {
 			PrintError("ioapic %u: Invalid redirection table entry %x\n", ioapic->ioapic_id.id, (uint32_t)redir_index);
@@ -291,6 +292,7 @@ static int ioapic_raise_irq(struct v3_vm_info * vm, void * private_data, int irq
 	icr.rem_rd_status=0;
 	icr.dst_shorthand=0; // no shorthand
 	icr.rsvd2=0;
+
 	PrintDebug("io apic %u: raising irq %u on ICC bus.\n",
 		   ioapic->ioapic_id.id, irq);
 	v3_icc_send_ipi(ioapic->icc_bus, ioapic->ioapic_id.id,icr.val, irq);

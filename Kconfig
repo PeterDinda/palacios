@@ -96,7 +96,6 @@ config CONSOLE
 	  Select this if you want to forward a guest console interface to some host OS service
 
 
-
 config SOCKET
 	bool "Host support for Network Sockets"
 	default y

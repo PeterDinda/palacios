@@ -23,6 +23,7 @@
 
 struct v3_icc_ops {
     int (*raise_intr)(struct guest_info * core, int intr_num, void * private_data);
+    int (*should_deliver)(struct guest_info * core, uint8_t mda, void * private_data);
 };
 
 
@@ -39,6 +40,7 @@ int v3_icc_register_ioapic(struct v3_vm_info *vm, struct vm_device * icc_bus, ui
  * @param apic_src - The source APIC id.
  * @param apic_num - The remote APIC number.
  * @param icr      - A copy of the APIC's ICR.  (LAPIC-style ICR, clone from redir table for ioapics)
+ * @param dfr      - A copy of the APIC's DFR   (LAPIC-style DFR)
  & @param extirq   - irq for external interrupts (e.g., from 8259)
  */
 int v3_icc_send_ipi(struct vm_device * icc_bus, uint32_t apic_src, uint64_t icr, uint32_t ext_irq);

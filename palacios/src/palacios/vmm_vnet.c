@@ -61,15 +61,15 @@ struct bridge_pkts_buf {
     int num; 
     v3_lock_t lock;
     struct v3_vnet_pkt pkts[BRIDGE_BUF_SIZE];
-    uint8_t datas[ETHERNET_PACKET_LEN*BRIDGE_BUF_SIZE];
+    uint8_t datas[ETHERNET_PACKET_LEN * BRIDGE_BUF_SIZE];
 };
 
 struct vnet_brg_dev {
     struct v3_vm_info * vm;
     
     int (*input)(struct v3_vm_info * vm, struct v3_vnet_pkt pkt[], uint16_t pkt_num, void * private_data);
-    void (*xcall_input)(void *data);
-    int (*polling_pkt)(struct v3_vm_info * vm,  void *private_data);
+    void (*xcall_input)(void * data);
+    int (*polling_pkt)(struct v3_vm_info * vm,  void * private_data);
 
     int disabled;
 	
@@ -109,7 +109,7 @@ static struct {
     int num_routes;
     int num_devs;
 
-    struct vnet_brg_dev *bridge;
+    struct vnet_brg_dev * bridge;
 
     v3_lock_t lock;
 
@@ -122,46 +122,53 @@ static struct {
 
 
 #ifdef CONFIG_DEBUG_VNET
-static inline void mac_to_string(char mac[6], char * buf) {
+static inline void mac_to_string(uint8_t mac[6], char * buf) {
     snprintf(buf, 100, "%d:%d:%d:%d:%d:%d", 
 	     mac[0], mac[1], mac[2],
 	     mac[3], mac[4], mac[5]);
 }
 
-static void print_route(struct vnet_route_info *route){
+static void print_route(struct vnet_route_info * route){
     char str[50];
+
+    memset(str, 0, 50);
 
     mac_to_string(route->route_def.src_mac, str);
     PrintDebug("Src Mac (%s),  src_qual (%d)\n", 
 			str, route->route_def.src_mac_qual);
+
     mac_to_string(route->route_def.dst_mac, str);
     PrintDebug("Dst Mac (%s),  dst_qual (%d)\n", 
 			str, route->route_def.dst_mac_qual);
+
     PrintDebug("Src dev id (%d), src type (%d)", 
 			route->route_def.src_id, 
 			route->route_def.src_type);
+
     PrintDebug("Dst dev id (%d), dst type (%d)\n", 
 			route->route_def.dst_id, 
 			route->route_def.dst_type);
+
     if (route->route_def.dst_type == LINK_INTERFACE) {
     	PrintDebug("dst_dev (%p), dst_dev_id (%d), dst_dev_input (%p), dst_dev_data (%p)\n",
-					route->dst_dev,
-					route->dst_dev->dev_id,
-					route->dst_dev->input,
-					route->dst_dev->private_data);
+		   route->dst_dev,
+		   route->dst_dev->dev_id,
+		   route->dst_dev->input,
+		   route->dst_dev->private_data);
     }
 }
 
-static void dump_routes(){
-	struct vnet_route_info *route;
-
+static void dump_routes() {
+	struct vnet_route_info * route = NULL;
 	int i = 0;
+
 	PrintDebug("\n========Dump routes starts ============\n");
+
 	list_for_each_entry(route, &(vnet_state.routes), node) {
-		PrintDebug("\nroute %d:\n", ++i);
-		
+		PrintDebug("\nroute %d:\n", i++);
 		print_route(route);
 	}
+
 	PrintDebug("\n========Dump routes end ============\n");
 }
 
@@ -215,8 +222,9 @@ static struct vnet_dev * find_dev_by_id(int idx) {
     list_for_each_entry(dev, &(vnet_state.devs), node) {
 	int dev_id = dev->dev_id;
 
-	if (dev_id == idx)
+	if (dev_id == idx) {
 	    return dev;
+	}
     }
 
     return NULL;
@@ -226,27 +234,28 @@ static struct vnet_dev * find_dev_by_mac(char mac[6]) {
     struct vnet_dev * dev = NULL; 
     
     list_for_each_entry(dev, &(vnet_state.devs), node) {
-	if (!memcmp(dev->mac_addr, mac, 6))
+	if (memcmp(dev->mac_addr, mac, 6) == 0) {
 	    return dev;
+	}
     }
 
     return NULL;
 }
 
-int get_device_id_by_mac(char mac[6]){
-
-    struct vnet_dev *dev = find_dev_by_mac(mac);
-
-    if (dev == NULL)
+int get_device_id_by_mac(char mac[6]) {
+    struct vnet_dev * dev = find_dev_by_mac(mac);
+    
+    if (dev == NULL) {
 	return -1;
-
+    }
+    
     return dev->dev_id;
 }
 
 
 int v3_vnet_add_route(struct v3_vnet_route route) {
     struct vnet_route_info * new_route = NULL;
-    unsigned long flags; 
+    uint32_t flags = 0; 
 
     new_route = (struct vnet_route_info *)V3_Malloc(sizeof(struct vnet_route_info));
     memset(new_route, 0, sizeof(struct vnet_route_info));
@@ -418,8 +427,10 @@ static struct route_list * match_route(const struct v3_vnet_pkt * pkt) {
 
 #if 0
 static int flush_bridge_pkts(struct vnet_brg_dev *bridge){
-    unsigned long flags;
-    int num, start, send;
+    uint32_t flags;
+    int num;
+    int start;
+    int send;
     struct v3_vnet_bridge_input_args args;
     int cpu_id = bridge->vm->cores[0].cpu_id;
     int current_core = V3_Get_CPU();
@@ -441,34 +452,34 @@ static int flush_bridge_pkts(struct vnet_brg_dev *bridge){
     v3_unlock_irqrestore(bridge->recv_buf.lock, flags);
 
 
-    if(bridge->disabled){
+    if (bridge->disabled) {
 	PrintDebug("VNET: In flush bridge pkts: Bridge is disabled\n");
 	return -1;
     }
 
-    if(num <= 2 && num > 0){
+    if (num <= 2 && num > 0) {
 	PrintDebug("VNET: In flush bridge pkts: %d\n", num);
     }
 
-    if(num > 0) {
+    if (num > 0) {
 	PrintDebug("VNET: In flush bridge pkts to bridge, cur_cpu %d, brige_core: %d\n", current_core, cpu_id);
-	if (current_core == cpu_id){
-	    if ((start + num) < BRIDGE_BUF_SIZE){
+	if (current_core == cpu_id) {
+	    if ((start + num) < BRIDGE_BUF_SIZE) { 
 	    	bridge->input(bridge->vm, &(bridge->recv_buf.pkts[start]), num, bridge->private_data);
-	    }else {
+	    } else {
 		bridge->input(bridge->vm, &(bridge->recv_buf.pkts[start]), (BRIDGE_BUF_SIZE - start), bridge->private_data);				
 	    	send = num - (BRIDGE_BUF_SIZE - start);
 		bridge->input(bridge->vm, &(bridge->recv_buf.pkts[0]), send, bridge->private_data);
 	    }	
-	}else {
+	} else {
 	    args.vm = bridge->vm;
 	    args.private_data = bridge->private_data;
 	
-	    if ((start + num) < BRIDGE_BUF_SIZE){
+	    if ((start + num) < BRIDGE_BUF_SIZE) {
 	    	args.pkt_num = num;
 	    	args.vnet_pkts = &(bridge->recv_buf.pkts[start]);
 		V3_Call_On_CPU(cpu_id, bridge->xcall_input, (void *)&args);
-	    }else {
+	    } else {
 	    	args.pkt_num = BRIDGE_BUF_SIZE - start;
 	    	args.vnet_pkts = &(bridge->recv_buf.pkts[start]);
 	    	V3_Call_On_CPU(cpu_id, bridge->xcall_input, (void *)&args);
@@ -488,96 +499,43 @@ static int flush_bridge_pkts(struct vnet_brg_dev *bridge){
 #endif
 
 static int send_to_bridge(struct v3_vnet_pkt * pkt){
-    struct vnet_brg_dev *bridge = vnet_state.bridge;
+    struct vnet_brg_dev * bridge = vnet_state.bridge;
 
     if (bridge == NULL) {
 	PrintDebug("VNET: No bridge to sent data to links\n");
 	return -1;
     }
 
-    if(bridge->max_delayed_pkts <= 1){
-	if(bridge->disabled){
+    if (bridge->max_delayed_pkts <= 1) {
+
+	if (bridge->disabled) {
 	    PrintDebug("VNET: Bridge diabled\n");
 	    return -1;
-      }
+	}
 
-/*
-	//avoid the cross-core call here
-	int cpu_id = bridge->vm->cores[0].cpu_id;
-	struct v3_vnet_bridge_input_args args;
-
-	args.pkt_num = 1;
-	args.vm = bridge->vm;
-	args.vnet_pkts = pkt;
-	args.private_data = bridge->private_data;
-	
-	V3_Call_On_CPU(cpu_id, bridge->xcall_input, (void *)&args);
-*/
 	bridge->input(bridge->vm, pkt, 1, bridge->private_data);
 
 	PrintDebug("VNET: sent one packet to the bridge\n");
-	return 0;
     }
 
-/*
-    unsigned long flags;
-    int end, num=0;
-    struct v3_vnet_pkt *buf;
 
-    PrintDebug("VNET: send_to_bridge\n");
-
-    flags = v3_lock_irqsave(bridge->recv_buf.lock);
-
-    if(bridge->disabled && bridge->recv_buf.num >= BRIDGE_BUF_SIZE){
-	PrintDebug("Bridge diabled and bridge receive buffer full\n");
-    	v3_unlock_irqrestore(bridge->recv_buf.lock, flags);//maybe should move this after copy
-    	num = bridge->recv_buf.num;
-    	goto exit;
-    }
-	    
-    end = 	bridge->recv_buf.end;
-    buf = &(bridge->recv_buf.pkts[end]);
-
-    bridge->recv_buf.num ++;
-    bridge->recv_buf.end ++;
-    bridge->recv_buf.end %= BRIDGE_BUF_SIZE;
-
-    num = bridge->recv_buf.num;
-
-    v3_unlock_irqrestore(bridge->recv_buf.lock, flags);//maybe should move this after copy
-
-
-    buf->size = pkt->size;
-    buf->dst_id = pkt->dst_id;
-    buf->src_id = pkt->src_id;
-    buf->src_type = pkt->src_type;
-    buf->dst_type = pkt->dst_type;
-    memcpy(buf->header, pkt->header, ETHERNET_HEADER_LEN);
-    memcpy(buf->data, pkt->data, pkt->size);
-
-exit:	
-
-    if (num >= bridge->max_delayed_pkts){
-	flush_bridge_pkts(bridge);
-    }
-*/
     return 0;
 }
 
 int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data) {
     struct route_list * matched_routes = NULL;
-    unsigned long flags;
-    int i;
-
+    uint32_t flags = 0;
+    int i = 0;
+    
 #ifdef CONFIG_DEBUG_VNET
-   {
+    {
 	struct eth_hdr * hdr = (struct eth_hdr *)(pkt->header);
 	char dest_str[100];
 	char src_str[100];
-
+	int cpu = V3_Get_CPU();
+	
 	mac_to_string(hdr->src_mac, src_str);  
 	mac_to_string(hdr->dst_mac, dest_str);
-	int cpu = V3_Get_CPU();
 	PrintDebug("Vnet: on cpu %d, HandleDataOverLink. SRC(%s), DEST(%s), pkt size: %d\n", cpu, src_str, dest_str, pkt->size);
    }
 #endif
@@ -632,17 +590,17 @@ int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data) {
     return 0;
 }
 
-void v3_vnet_send_pkt_xcall(void * data){
+void v3_vnet_send_pkt_xcall(void * data) {
     struct v3_vnet_pkt * pkt = (struct v3_vnet_pkt *)data;
     v3_vnet_send_pkt(pkt, NULL);
 }
 
 
-void v3_vnet_polling()
-{
-    unsigned long flags;
-    int num, start;
-    struct v3_vnet_pkt *buf;
+void v3_vnet_polling() {
+    uint32_t flags = 0;
+    int num = 0;
+    int start = 0;
+    struct v3_vnet_pkt * buf = NULL;
 
     PrintDebug("In vnet pollling: cpu %d\n", V3_Get_CPU());
 
@@ -653,15 +611,15 @@ void v3_vnet_polling()
 
     PrintDebug("VNET: polling pkts %d\n", num);
 
-    while(num > 0) {
+    while (num > 0) {
 	buf = &(vnet_state.in_buf.pkts[vnet_state.in_buf.start]);
 
 	v3_vnet_send_pkt(buf, NULL);
 
-	vnet_state.in_buf.num --;
-    	vnet_state.in_buf.start ++;
+	vnet_state.in_buf.num--;
+    	vnet_state.in_buf.start++;
 	vnet_state.in_buf.start %= BRIDGE_BUF_SIZE;
-	num --;
+	num--;
     }
 
     v3_unlock_irqrestore(vnet_state.in_buf.lock, flags);
@@ -670,23 +628,24 @@ void v3_vnet_polling()
 }
 
 
-int v3_vnet_rx(uchar_t *buf, uint16_t size, uint16_t src_id, uint8_t src_type){
-    unsigned long flags;
-    int end;
-    struct v3_vnet_pkt *pkt;
+int v3_vnet_rx(uint8_t * buf, uint16_t size, uint16_t src_id, uint8_t src_type) {
+    uint32_t flags = 0;
+    int end = 0;
+    struct v3_vnet_pkt * pkt = NULL;
    
     flags = v3_lock_irqsave(vnet_state.in_buf.lock);
 	    
     end = vnet_state.in_buf.end;
     pkt = &(vnet_state.in_buf.pkts[end]);
 
-    if(vnet_state.in_buf.num > BRIDGE_BUF_SIZE){
+    if (vnet_state.in_buf.num > BRIDGE_BUF_SIZE){
  	PrintDebug("VNET: bridge rx: buffer full\n");
-	goto exit;
+	v3_unlock_irqrestore(vnet_state.in_buf.lock, flags);
+	return 0;
     }
 
-    vnet_state.in_buf.num ++;
-    vnet_state.in_buf.end ++;
+    vnet_state.in_buf.num++;
+    vnet_state.in_buf.end++;
     vnet_state.in_buf.end %= BRIDGE_BUF_SIZE;
 
     pkt->size = size;
@@ -695,7 +654,6 @@ int v3_vnet_rx(uchar_t *buf, uint16_t size, uint16_t src_id, uint8_t src_type){
     memcpy(pkt->header, buf, ETHERNET_HEADER_LEN);
     memcpy(pkt->data, buf, size);
 
-exit:
 	
     v3_unlock_irqrestore(vnet_state.in_buf.lock, flags);
 
@@ -703,11 +661,11 @@ exit:
 }
 	
 
-int v3_vnet_add_dev(struct v3_vm_info *vm, uint8_t mac[6], 
+int v3_vnet_add_dev(struct v3_vm_info * vm, uint8_t mac[6], 
 		    int (*netif_input)(struct v3_vm_info * vm, struct v3_vnet_pkt * pkt, void * private_data), 
 		    void * priv_data){
     struct vnet_dev * new_dev = NULL;
-    unsigned long flags;
+    uint32_t flags = 0;
 
     new_dev = (struct vnet_dev *)V3_Malloc(sizeof(struct vnet_dev)); 
 
@@ -738,17 +696,18 @@ int v3_vnet_add_dev(struct v3_vm_info *vm, uint8_t mac[6],
     }
 
     PrintDebug("Vnet: Add Device: dev_id %d, input : %p, private_data %p\n",
-			new_dev->dev_id, new_dev->input, new_dev->private_data);
+	       new_dev->dev_id, new_dev->input, new_dev->private_data);
 
     return new_dev->dev_id;
 }
 
 
-void  v3_vnet_heartbeat(struct guest_info *core){
+void v3_vnet_heartbeat(struct guest_info *core){
     //static long last_time, cur_time;
 
-    if(vnet_state.bridge == NULL)
+    if (vnet_state.bridge == NULL) {
 	return;
+    }
 /*	
     if(vnet_state.bridge->max_delayed_pkts > 1){
 	if(V3_Get_CPU() != vnet_state.bridge->vm->cores[0].cpu_id){
@@ -766,12 +725,13 @@ void  v3_vnet_heartbeat(struct guest_info *core){
 
 int v3_vnet_add_bridge(struct v3_vm_info * vm,
 		       int (*input)(struct v3_vm_info * vm, struct v3_vnet_pkt pkt[], uint16_t pkt_num, void * private_data),
-		       void (*xcall_input)(void *data),
+		       void (*xcall_input)(void * data),
 		       int (*poll_pkt)(struct v3_vm_info * vm, void * private_data),
 		       uint16_t max_delayed_pkts,
 		       long max_latency,
 		       void * priv_data) {
-    unsigned long flags;
+
+    uint32_t flags = 0;
     int bridge_free = 0;
     struct vnet_brg_dev * tmp_bridge = NULL;    
     
@@ -819,7 +779,7 @@ int v3_vnet_add_bridge(struct v3_vm_info * vm,
 
 */
     
-    tmp_bridge->max_delayed_pkts = (max_delayed_pkts<BRIDGE_BUF_SIZE)?max_delayed_pkts : BRIDGE_BUF_SIZE;
+    tmp_bridge->max_delayed_pkts = (max_delayed_pkts < BRIDGE_BUF_SIZE) ? max_delayed_pkts : BRIDGE_BUF_SIZE;
     tmp_bridge->max_latency = max_latency;
 	
     // make this atomic to avoid possible race conditions
@@ -832,7 +792,7 @@ int v3_vnet_add_bridge(struct v3_vm_info * vm,
 
 
 int v3_vnet_disable_bridge() {
-    unsigned long flags; 
+    uint32_t flags = 0; 
     
     flags = v3_lock_irqsave(vnet_state.lock);
 
@@ -847,7 +807,7 @@ int v3_vnet_disable_bridge() {
 
 
 int v3_vnet_enable_bridge() {
-    unsigned long flags; 
+    uint32_t flags = 0;
     
     flags = v3_lock_irqsave(vnet_state.lock);
 
@@ -863,7 +823,7 @@ int v3_vnet_enable_bridge() {
 
 
 int V3_init_vnet() {
-    int i;
+    int i = 0;
 
     memset(&vnet_state, 0, sizeof(vnet_state));
 	
@@ -885,12 +845,15 @@ int V3_init_vnet() {
     vnet_state.in_buf.start = 0;
     vnet_state.in_buf.end = 0;
     vnet_state.in_buf.num = 0;
-    if(v3_lock_init(&(vnet_state.in_buf.lock)) == -1){
+
+    if (v3_lock_init(&(vnet_state.in_buf.lock)) == -1){
 	PrintError("VNET: add bridge, error to initiate send buf lock\n");
     }
-    for(i = 0; i<BRIDGE_BUF_SIZE; i++){
-	vnet_state.in_buf.pkts[i].data = &(vnet_state.in_buf.datas[i*ETHERNET_PACKET_LEN]);
+
+    for (i = 0; i < BRIDGE_BUF_SIZE; i++){
+	vnet_state.in_buf.pkts[i].data = &(vnet_state.in_buf.datas[i * ETHERNET_PACKET_LEN]);
     }
+
     PrintDebug("VNET: Receiving buffer initiated\n");
 
     vnet_state.route_cache = v3_create_htable(0, &hash_fn, &hash_eq);
