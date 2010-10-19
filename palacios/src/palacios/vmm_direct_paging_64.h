@@ -54,8 +54,8 @@ static inline int handle_passthrough_pagefault_64(struct guest_info * core, addr
      *  1. the guest is configured to use large pages and 
      * 	2. the memory regions can be referenced by a large page
      */
-    if ((core->use_large_pages == 1) ) {
-	page_size = v3_get_max_page_size(core, fault_addr, PAGE_SIZE_2MB);
+    if ((core->use_large_pages == 1) || (core->use_giant_pages == 1)) {
+	page_size = v3_get_max_page_size(core, fault_addr, LONG);
     }
 
     PrintDebug("Using page size of %dKB\n", page_size / 1024);

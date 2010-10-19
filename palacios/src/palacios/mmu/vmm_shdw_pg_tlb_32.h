@@ -133,25 +133,21 @@ static inline int handle_shadow_pagefault_32(struct guest_info * info, addr_t fa
 
     if (shadow_pde_access == PT_ACCESS_NOT_PRESENT) {
 
-        if (info->use_large_pages && guest_pde->large_page) {
+        if ((info->use_large_pages == 1) && (guest_pde->large_page == 1)) {
             // Check underlying physical memory map to see if a large page is viable
-            addr_t guest_pa = BASE_TO_PAGE_ADDR_4MB(((pde32_4MB_t *)guest_pde)->page_base_addr);
-            addr_t host_pa;
-            if (v3_get_max_page_size(info, guest_pa, PAGE_SIZE_4MB) < PAGE_SIZE_4MB) {
-                PrintDebug("Underlying physical memory map doesn't allow use of a large page.\n");
-                // Fallthrough to small pages
-            } else if ((v3_gpa_to_hpa(info, guest_pa, &host_pa) != 0)
-                       || (v3_compute_page_alignment(host_pa) < PAGE_SIZE_4MB)) {
-                PrintDebug("Host memory alignment doesn't allow use of a large page.\n");
-                // Fallthrough to small pages
-            } else if (handle_4MB_shadow_pagefault_pde_32(info, fault_addr, error_code, shadow_pde_access,
-                                                          (pde32_4MB_t *)shadow_pde, (pde32_4MB_t *)guest_pde) == 0) {
+	    addr_t guest_pa = BASE_TO_PAGE_ADDR_4MB(((pde32_4MB_t *)guest_pde)->page_base_addr);
+	    uint32_t page_size = v3_get_max_page_size(info, guest_pa, PROTECTED);
+	    
+	    if (page_size == PAGE_SIZE_4MB) {
+		PrintError("using large page for fault_addr %p (gpa=%p)\n", (void *)fault_addr, (void *)guest_pa); 
+		if (handle_4MB_shadow_pagefault_pde_32(info, fault_addr, error_code, shadow_pde_access,
+						       (pde32_4MB_t *)shadow_pde, (pde32_4MB_t *)guest_pde) == -1) {
+		    PrintError("Error handling large pagefault with large page\n");
+		    return -1;
+		}
+		
                 return 0;
-            } else {
-                PrintError("Error handling large pagefault with large page\n");
-                return -1;
-            }
-            // Fallthrough to handle the region with small pages
+	    }
         }
 
 	struct shadow_page_data * shdw_page =  create_new_shadow_pt(info);
@@ -176,7 +172,6 @@ static inline int handle_shadow_pagefault_32(struct guest_info * info, addr_t fa
 	    }
 	}
       
-
 	// VMM Specific options
 	shadow_pde->write_through = guest_pde->write_through;
 	shadow_pde->cache_disable = guest_pde->cache_disable;
@@ -185,14 +180,12 @@ static inline int handle_shadow_pagefault_32(struct guest_info * info, addr_t fa
       
 	guest_pde->accessed = 1;
       
-
 	shadow_pde->pt_base_addr = PAGE_BASE_ADDR(shdw_page->page_pa);
     } else {
 	shadow_pt = (pte32_t *)V3_VAddr((void *)BASE_TO_PAGE_ADDR(shadow_pde->pt_base_addr));
     }
 
-
-      
+    
     if (guest_pde->large_page == 0) {
 	if (v3_gpa_to_hva(info, BASE_TO_PAGE_ADDR(guest_pde->pt_base_addr), (addr_t*)&guest_pt) == -1) {
 	    // Machine check the guest
@@ -486,13 +479,16 @@ static int handle_4MB_shadow_pagefault_pde_32(struct guest_info * info,
 		return -1;
 	    }
 
-	    PrintDebug("\tMapping shadow page (%p)\n", (void *)BASE_TO_PAGE_ADDR(shadow_pte->page_base_addr));
+	    PrintError("shadow PA = %p\n", (void *)shadow_pa);
+
 
             large_guest_pde->vmm_info = V3_LARGE_PG; /* For invalidations */
             large_shadow_pde->page_base_addr = PAGE_BASE_ADDR_4MB(shadow_pa);
             large_shadow_pde->large_page = 1;
             large_shadow_pde->present = 1;
             large_shadow_pde->user_page = 1;
+
+	    PrintDebug("\tMapping shadow page (%p)\n", (void *)BASE_TO_PAGE_ADDR_4MB(large_shadow_pde->page_base_addr));
 
             if (shdw_reg->flags.write == 0) {
                 large_shadow_pde->writable = 0;

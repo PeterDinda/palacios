@@ -71,7 +71,8 @@ struct guest_info {
 	uint32_t flags;
 	struct {
 	    uint8_t use_large_pages        : 1;    /* Enable virtual page tables to use large pages */
-	    uint32_t rsvd                  : 31;
+	    uint8_t use_giant_pages        : 1;    /* Enable virtual page tables to use giant (1GB) pages */
+	    uint32_t rsvd                  : 30;
 	} __attribute__((packed));
     } __attribute__((packed));
 

@@ -47,6 +47,8 @@
 #endif
 
 
+static const char default_strategy[] = "VTLB";
+
 
 static struct hashtable * master_shdw_pg_table = NULL;
 
@@ -146,9 +148,13 @@ int v3_init_shdw_impl(struct v3_vm_info * vm) {
     struct v3_shdw_pg_impl * impl = NULL;
    
     PrintDebug("Checking if shadow paging requested.\n");
-    if (pg_mode && (strcasecmp(pg_mode, "nested") == 0)) {
+    if ((pg_mode != NULL) && (strcasecmp(pg_mode, "nested") == 0)) {
 	PrintDebug("Nested paging specified - not initializing shadow paging.\n");
 	return 0;
+    }
+
+    if (pg_strat == NULL) {
+	pg_strat = (char *)default_strategy;
     }
 	
     V3_Print("Initialization of Shadow Paging implementation\n");
