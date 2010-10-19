@@ -139,7 +139,7 @@ static inline int handle_shadow_pagefault_32(struct guest_info * info, addr_t fa
 	    uint32_t page_size = v3_get_max_page_size(info, guest_pa, PROTECTED);
 	    
 	    if (page_size == PAGE_SIZE_4MB) {
-		PrintError("using large page for fault_addr %p (gpa=%p)\n", (void *)fault_addr, (void *)guest_pa); 
+		PrintDebug("using large page for fault_addr %p (gpa=%p)\n", (void *)fault_addr, (void *)guest_pa); 
 		if (handle_4MB_shadow_pagefault_pde_32(info, fault_addr, error_code, shadow_pde_access,
 						       (pde32_4MB_t *)shadow_pde, (pde32_4MB_t *)guest_pde) == -1) {
 		    PrintError("Error handling large pagefault with large page\n");
@@ -479,7 +479,7 @@ static int handle_4MB_shadow_pagefault_pde_32(struct guest_info * info,
 		return -1;
 	    }
 
-	    PrintError("shadow PA = %p\n", (void *)shadow_pa);
+	    PrintDebug("shadow PA = %p\n", (void *)shadow_pa);
 
 
             large_guest_pde->vmm_info = V3_LARGE_PG; /* For invalidations */

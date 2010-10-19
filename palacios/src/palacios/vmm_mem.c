@@ -458,9 +458,6 @@ uint32_t v3_get_max_page_size(struct guest_info * core, addr_t page_addr, v3_cpu
     addr_t pg_end = 0; 
     uint32_t page_size = PAGE_SIZE_4KB;
     struct v3_mem_region * reg = NULL;
-
-
-    PrintError("Getting max page size for addr %p\n", (void *)page_addr);
     
     switch (mode) {
         case PROTECTED:
@@ -518,8 +515,6 @@ uint32_t v3_get_max_page_size(struct guest_info * core, addr_t page_addr, v3_cpu
             return -1;
     }
 
-
-    PrintError("Returning PAGE size = %d\n", page_size);
     return page_size;
 }
 
