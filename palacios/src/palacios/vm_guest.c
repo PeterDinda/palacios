@@ -365,23 +365,25 @@ void v3_print_GPRs(struct guest_info * info) {
 #include <palacios/vmcb.h>
 static int info_hcall(struct guest_info * core, uint_t hcall_id, void * priv_data) {
     v3_cpu_arch_t cpu_type = v3_get_cpu_type(v3_get_cpu_id());
-    
+    int cpu_valid = 0;
+
     v3_print_guest_state(core);
     
-
     // init SVM/VMX
 #ifdef CONFIG_SVM
     if ((cpu_type == V3_SVM_CPU) || (cpu_type == V3_SVM_REV3_CPU)) {
+	cpu_valid = 1;
 	PrintDebugVMCB((vmcb_t *)(core->vmm_data));
     }
 #endif
 #ifdef CONFIG_VMX
     if ((cpu_type == V3_VMX_CPU) || (cpu_type == V3_VMX_EPT_CPU)) {
+	cpu_valid = 1;
 	v3_print_vmcs();
     }
 #endif
-    else {
-	PrintError("Invalid CPU Type\n");
+    if (!cpu_valid) {
+	PrintError("Invalid CPU Type 0x%x\n", cpu_type);
 	return -1;
     }
     
@@ -405,7 +407,7 @@ static int info_hcall(struct guest_info * core, uint_t hcall_id, void * priv_dat
 
 int v3_init_vm(struct v3_vm_info * vm) {
     v3_cpu_arch_t cpu_type = v3_get_cpu_type(v3_get_cpu_id());
-
+    int cpu_valid = 0;
 
     if (v3_get_foreground_vm() == NULL) {
 	v3_set_foreground_vm(vm);
@@ -449,23 +451,22 @@ int v3_init_vm(struct v3_vm_info * vm) {
     if ((cpu_type == V3_SVM_CPU) || (cpu_type == V3_SVM_REV3_CPU)) {
 	v3_init_svm_io_map(vm);
 	v3_init_svm_msr_map(vm);
-    }
+	cpu_valid = 1;
+    } 
 #endif
 #ifdef CONFIG_VMX
     if ((cpu_type == V3_VMX_CPU) || (cpu_type == V3_VMX_EPT_CPU)) {
 	v3_init_vmx_io_map(vm);
 	v3_init_vmx_msr_map(vm);
+	cpu_valid = 1;
     }
 #endif
-    else {
-	PrintError("Invalid CPU Type\n");
+    if (!cpu_valid) {
+	PrintError("Invalid CPU Type 0x%x\n", cpu_type);
 	return -1;
     }
     
-
-
     v3_register_hypercall(vm, GUEST_INFO_HCALL, info_hcall, NULL);
-
 
     V3_Print("GUEST_INFO_HCALL=%x\n", GUEST_INFO_HCALL);
 
@@ -474,6 +475,7 @@ int v3_init_vm(struct v3_vm_info * vm) {
 
 int v3_init_core(struct guest_info * core) {
     v3_cpu_arch_t cpu_type = v3_get_cpu_type(v3_get_cpu_id());
+    int cpu_valid = 0;
     struct v3_vm_info * vm = core->vm_info;
 
     /*
@@ -505,6 +507,7 @@ int v3_init_core(struct guest_info * core) {
 	    PrintError("Error in SVM initialization\n");
 	    return -1;
 	}
+	cpu_valid = 1;
     }
 #endif
 #ifdef CONFIG_VMX
@@ -513,10 +516,11 @@ int v3_init_core(struct guest_info * core) {
 	    PrintError("Error in VMX initialization\n");
 	    return -1;
 	}
+	cpu_valid = 1;
     }
 #endif
-    else {
-	PrintError("Invalid CPU Type\n");
+    if (!cpu_valid) {
+	PrintError("Invalid CPU Type 0x%x\n", cpu_type);
 	return -1;
     }
 

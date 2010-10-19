@@ -669,18 +669,13 @@ int v3_vmx_enter(struct guest_info * info) {
     }
 
     v3_update_timers(info);
-    v3_resume_time(info);
 
-    {
-	sint64_t total_tsc_offset = info->time_state.time_offset + info->time_state.tsc_time_offset;
+    tsc_offset_high = (uint32_t)((v3_tsc_host_offset(&info->time_state) >> 32) & 0xffffffff);
+    tsc_offset_low = (uint32_t)(v3_tsc_host_offset(&info->time_state) & 0xffffffff);
+    check_vmcs_write(VMCS_TSC_OFFSET_HIGH, tsc_offset_high);
+    check_vmcs_write(VMCS_TSC_OFFSET, tsc_offset_low);
 
-	tsc_offset_high = (uint32_t)((total_tsc_offset >> 32) & 0xffffffff);
-	tsc_offset_low = (uint32_t)(total_tsc_offset & 0xffffffff);
-	check_vmcs_write(VMCS_TSC_OFFSET_HIGH, tsc_offset_high);
-	check_vmcs_write(VMCS_TSC_OFFSET, tsc_offset_low);
-    }
-
-    PrintDebug("Stored 0x %x %x into vmcs TSC offset.\n", 
+    PrintDebug("Stored 0x%x_%x into vmcs TSC offset.\n", 
 	       tsc_offset_high, tsc_offset_low);
     if (info->vm_info->run_state == VM_STOPPED) {
 	info->vm_info->run_state = VM_RUNNING;
@@ -700,10 +695,9 @@ int v3_vmx_enter(struct guest_info * info) {
 	return -1;
     }
 
-    v3_pause_time(info);
-#ifdef CONFIG_TIME_MASK_OVERHEAD
-    v3_offset_time(info, -VMX_ENTRY_OVERHEAD);
-#endif
+    /* If this guest is frequency-lagged behind host time, wait 
+     * for the appropriate host time. */
+    v3_adjust_time(info);
 
     info->num_exits++;
 

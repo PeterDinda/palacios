@@ -74,8 +74,6 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
 
 
     //
-
-
     ctrl_area->svm_instrs.VMRUN = 1;
     ctrl_area->svm_instrs.VMMCALL = 1;
     ctrl_area->svm_instrs.VMLOAD = 1;
@@ -468,21 +466,15 @@ int v3_svm_enter(struct guest_info * info) {
     }
 #endif
 
-
     v3_update_timers(info);
-    v3_resume_time(info);
 
-    guest_ctrl->TSC_OFFSET = info->time_state.time_offset 
-	+ info->time_state.tsc_time_offset;
+    guest_ctrl->TSC_OFFSET = v3_tsc_host_offset(&info->time_state);
 
     //V3_Print("Calling v3_svm_launch\n");
 
     v3_svm_launch((vmcb_t *)V3_PAddr(info->vmm_data), &(info->vm_regs), (vmcb_t *)host_vmcbs[info->cpu_id]);
 
-    v3_pause_time(info);
-#ifdef CONFIG_TIME_MASK_OVERHEAD
-    v3_offset_time(info, -SVM_ENTRY_OVERHEAD);
-#endif
+    v3_adjust_time(info);
 
     //V3_Print("SVM Returned: Exit Code: %x, guest_rip=%lx\n", (uint32_t)(guest_ctrl->exit_code), (unsigned long)guest_state->rip);
 

@@ -59,7 +59,7 @@
 static int handle_cpufreq_hcall(struct guest_info * info, uint_t hcall_id, void * priv_data) {
     struct vm_time * time_state = &(info->time_state);
 
-    info->vm_regs.rbx = time_state->cpu_freq;
+    info->vm_regs.rbx = time_state->guest_cpu_freq;
 
     PrintDebug("Guest request cpu frequency: return %ld\n", (long)info->vm_regs.rbx);
     
@@ -74,28 +74,27 @@ int v3_start_time(struct guest_info * info) {
 
     PrintDebug("Starting initial guest time as %llu\n", t);
     info->time_state.last_update = t;
-    info->time_state.pause_time = t;
+    info->time_state.initial_time = t;
     info->yield_start_cycle = t;
     return 0;
 }
 
-int v3_pause_time(struct guest_info * info) {
-    V3_ASSERT(info->time_state.pause_time == 0);
-    info->time_state.pause_time = v3_get_guest_time(&info->time_state);
-    PrintDebug("Time paused at guest time as %llu\n", 
-	       info->time_state.pause_time);
-    return 0;
-}
+// If the guest is supposed to run slower than the host, yield out until
+// the host time is appropriately far along;
+int v3_adjust_time(struct guest_info * info)
+{
+    struct vm_time * time_state = &(info->time_state);
+    uint64_t guest_time, host_time, target_host_time;
+    guest_time = v3_get_guest_time(time_state);
+    host_time = v3_get_host_time(time_state);
+    target_host_time = (host_time - time_state->initial_time) *
+	time_state->host_cpu_freq / time_state->guest_cpu_freq;
 
-int v3_resume_time(struct guest_info * info) {
-    uint64_t t = v3_get_host_time(&info->time_state);
-    V3_ASSERT(info->time_state.pause_time != 0);
-    info->time_state.time_offset = 
-	(sint64_t)info->time_state.pause_time - (sint64_t)t;
-    info->time_state.pause_time = 0;
-    PrintDebug("Time resumed paused at guest time as %llu "
-	       "offset %lld from host time.\n", t, info->time_state.time_offset);
-
+    while (host_time < target_host_time) {
+	v3_yield(info);
+	host_time = v3_get_host_time(time_state);
+    }
+    time_state->guest_host_offset = guest_time - host_time;
     return 0;
 }
 
@@ -132,7 +131,7 @@ void v3_update_timers(struct guest_info * info) {
     cycles = info->time_state.last_update - old_time;
 
     list_for_each_entry(tmp_timer, &(info->time_state.timers), timer_link) {
-	tmp_timer->ops->update_timer(info, cycles, info->time_state.cpu_freq, tmp_timer->private_data);
+	tmp_timer->ops->update_timer(info, cycles, info->time_state.guest_cpu_freq, tmp_timer->private_data);
     }
 }
 
@@ -233,23 +232,41 @@ static int tsc_msr_write_hook(struct guest_info *info, uint_t msr_num,
     V3_ASSERT(msr_num == TSC_MSR);
     new_tsc = (((uint64_t)msr_val.hi) << 32) | (uint64_t)msr_val.lo;
     guest_time = v3_get_guest_time(time_state);
-    time_state->tsc_time_offset = (sint64_t)new_tsc - (sint64_t)guest_time; 
+    time_state->tsc_guest_offset = (sint64_t)new_tsc - (sint64_t)guest_time; 
 
     return 0;
 }
 
+static int init_vm_time(struct v3_vm_info *vm_info) {
+    int ret;
+
+    PrintDebug("Installing TSC MSR hook.\n");
+    ret = v3_hook_msr(vm_info, TSC_MSR, 
+		      tsc_msr_read_hook, tsc_msr_write_hook, NULL);
+
+    PrintDebug("Installing TSC_AUX MSR hook.\n");
+    if (ret) return ret;
+    ret = v3_hook_msr(vm_info, TSC_AUX_MSR, tsc_aux_msr_read_hook, 
+		      tsc_aux_msr_write_hook, NULL);
+    if (ret) return ret;
+
+    PrintDebug("Registering TIME_CPUFREQ hypercall.\n");
+    ret = v3_register_hypercall(vm_info, TIME_CPUFREQ_HCALL, 
+				handle_cpufreq_hcall, NULL);
+    return ret;
+}
 
 void v3_init_time(struct guest_info * info) {
     struct vm_time * time_state = &(info->time_state);
+    static int one_time = 0;
 
-    time_state->cpu_freq = V3_CPU_KHZ();
+    time_state->host_cpu_freq = V3_CPU_KHZ();
+    time_state->guest_cpu_freq = V3_CPU_KHZ();
  
-    time_state->pause_time = 0;
+    time_state->initial_time = 0;
     time_state->last_update = 0;
-    time_state->time_offset = 0;
-    time_state->time_div = 1;
-    time_state->time_mult = 1;
-    time_state->tsc_time_offset = 0;
+    time_state->guest_host_offset = 0;
+    time_state->tsc_guest_offset = 0;
 
     INIT_LIST_HEAD(&(time_state->timers));
     time_state->num_timers = 0;
@@ -257,11 +274,14 @@ void v3_init_time(struct guest_info * info) {
     time_state->tsc_aux.lo = 0;
     time_state->tsc_aux.hi = 0;
 
-    /* does init_time get called once, or once *per core*??? */
-    v3_hook_msr(info->vm_info, TSC_MSR, 
-		tsc_msr_read_hook, tsc_msr_write_hook, NULL);
-    v3_hook_msr(info->vm_info, TSC_AUX_MSR, tsc_aux_msr_read_hook, 
-		tsc_aux_msr_write_hook, NULL);
-
-    v3_register_hypercall(info->vm_info, TIME_CPUFREQ_HCALL, handle_cpufreq_hcall, NULL);
+    if (!one_time) {
+	init_vm_time(info->vm_info);
+	one_time = 1;
+    }
 }
+
+
+
+
+
+
