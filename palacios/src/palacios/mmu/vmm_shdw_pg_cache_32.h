@@ -27,10 +27,15 @@ static inline int activate_shadow_pt_32(struct guest_info * core) {
     PrintDebug("Activating 32 Bit cacheable page tables\n");
     shdw_pg = find_shdw_pt(core->vm_info, gpa, PAGE_PD32);
     
-    PrintError("shdw_pg returned as %p\n", shdw_pg);
+    PrintError("shdw_pg returned as %p for CR3:%p\n", shdw_pg, (void *)gpa);
 
     if (shdw_pg == NULL) {
 	shdw_pg = create_shdw_pt(core->vm_info, gpa, PAGE_PD32);
+
+	// update current reverse map entries...
+	// We are now using this page in a PT, so:
+	//     any existing writable mappings must be updated
+	update_rmap_entries(core->vm_info, gpa);
     }
 
     PrintDebug("shdw_pg now exists...\n");
@@ -133,7 +138,7 @@ static inline int handle_shadow_pagefault_32(struct guest_info * core, addr_t fa
 	return 0;
     }
 
-  
+
     pte32_t * shadow_pt = NULL;
     pte32_t * guest_pt = NULL;
 
@@ -141,7 +146,7 @@ static inline int handle_shadow_pagefault_32(struct guest_info * core, addr_t fa
     /*  Set up cache state */
     addr_t gpa = BASE_TO_PAGE_ADDR_4KB(guest_pde->pt_base_addr);
 
-	
+
     struct shdw_pg_data * shdw_page = NULL;
     page_type_t pt_type = PAGE_PT32;
 
@@ -154,12 +159,15 @@ static inline int handle_shadow_pagefault_32(struct guest_info * core, addr_t fa
 	
     if (shdw_page == NULL) {
 	shdw_page = create_shdw_pt(core->vm_info, gpa, pt_type);
-    }
-    
-    // update current reverse map entries...
-    // We are now using this page in a PT, so:
-    //     any existing writable mappings must be updated
-    update_rmap_entries(core->vm_info, gpa);
+
+	if (pt_type == PAGE_PT32) {
+	    // update current reverse map entries...
+	    // We are now using this page in a PT, so:
+	    //     any existing writable mappings must be updated
+	    update_rmap_entries(core->vm_info, gpa);
+	}
+    }    
+
     
     struct shdw_pg_data * parent_page = find_shdw_pt(core->vm_info, guest_cr3, PAGE_PD32);
     
@@ -369,6 +377,8 @@ static int handle_pte_shadow_pagefault_32(struct guest_info * core, addr_t fault
 		}
 
 		if (pt_page != NULL) {
+		    PrintError("Found PT page (small), marking RD-ONLY (va=%p), (gpa=%p)\n", 
+			       (void *)fault_addr, (void *)pg_gpa);
 		    // This is a page table page... 
 		    shadow_pte->writable = 0;
 		    shadow_pte->vmm_info = V3_CACHED_PG;
@@ -524,6 +534,9 @@ static int handle_4MB_shadow_pagefault_pte_32(struct guest_info * core,
 
 		if (pt_page != NULL) {
 		    // This is a page table page... 
+		    PrintError("Found PT page (large), marking RD-ONLY (va=%p), (gpa=%p)\n", 
+			       (void *)fault_addr, (void *)pg_gpa);
+
 		    shadow_pte->writable = 0;
 		    shadow_pte->vmm_info = V3_CACHED_PG;
 		}
@@ -594,6 +607,8 @@ static inline int handle_shadow_invlpg_32(struct guest_info * core, addr_t vaddr
   
     guest_pde = (pde32_t *)&(guest_pd[PDE32_INDEX(vaddr)]);
   
+    // Should we back propagate the invalidations, because they might be cached...?? 
+    
 
     if (guest_pde->large_page == 1) {
 	shadow_pde->present = 0;
@@ -604,7 +619,7 @@ static inline int handle_shadow_invlpg_32(struct guest_info * core, addr_t vaddr
 
 	
 
-	    PrintError("\tInvalidating small page\n");
+	//	    PrintError("\tInvalidating small page\n");
 
 
 	shadow_pte->present = 0;

@@ -100,37 +100,37 @@ static  inline int evict_pt(void * pt, addr_t va, page_type_t pt_type) {
     switch (pt_type) {
 	case PAGE_PD32: {
 	    pde32_t * pde = pt;
-	    pde[PDE32_INDEX(va)].writable = 1;
+	    pde[PDE32_INDEX(va)].present = 0;
 	    break;
 	}
 	case PAGE_4MB: {
 	    pde32_4MB_t * pde = pt;
-	    pde[PDE32_INDEX(va)].writable = 1;
+	    pde[PDE32_INDEX(va)].present = 0;
 	    break;
 	}
 	case PAGE_PT32: {
 	    pte32_t * pte = pt;
-	    pte[PTE32_INDEX(va)].writable = 1;
+	    pte[PTE32_INDEX(va)].present = 0;
 	    break;
 	}
 	case PAGE_PML464: {
 	    pml4e64_t * pml = pt;
-	    pml[PML4E64_INDEX(va)].writable = 1;
+	    pml[PML4E64_INDEX(va)].present = 0;
 	    break;
 	}
 	case PAGE_PDP64: {
 	    pdpe64_t * pdp = pt;
-	    pdp[PDPE64_INDEX(va)].writable = 1;
+	    pdp[PDPE64_INDEX(va)].present = 0;
 	    break;
 	}
 	case PAGE_PD64: {
 	    pde64_t * pde = pt;
-	    pde[PDE64_INDEX(va)].writable = 1;
+	    pde[PDE64_INDEX(va)].present = 0;
 	    break;
 	}
 	case PAGE_PT64: {
 	    pte64_t * pte = pt;
-	    pte[PTE64_INDEX(va)].writable = 1;
+	    pte[PTE64_INDEX(va)].present = 0;
 	    break;
 	}
 	default:
@@ -261,7 +261,7 @@ static int update_rmap_entries(struct v3_vm_info * vm, addr_t gpa) {
 	pg_data = (struct shdw_pg_data *)v3_htable_search(cache_state->page_htable, (addr_t)&tuple);
 
 	if (!pg_data) {
-	    PrintError("Invalid PTE reference...\n");
+	    PrintError("Invalid PTE reference... Should Delete rmap entry\n");
 	    continue;
 	}
 
@@ -341,6 +341,8 @@ static struct shdw_pg_data * pop_queue_pg(struct v3_vm_info * vm,
 					  struct cache_vm_state * cache_state) {
     struct shdw_pg_data * pg_data = NULL;
 
+    PrintError("popping page from queue\n");
+
     pg_data = list_tail_entry(&(cache_state->pg_queue), struct shdw_pg_data, pg_queue_node);
 
 
@@ -371,6 +373,8 @@ static struct shdw_pg_data * create_shdw_pt(struct v3_vm_info * vm, addr_t gpa, 
 	pg_data->hva = (void *)V3_VAddr((void *)pg_data->hpa);
 
     } else if (cache_state->pgs_in_free_list) {
+
+	PrintError("pulling page from free list\n");
 	// pull from free list
 	pg_data = list_tail_entry(&(cache_state->free_list), struct shdw_pg_data, pg_queue_node);
 	
