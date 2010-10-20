@@ -327,11 +327,12 @@ static int determine_paging_mode(struct guest_info *info, v3_cfg_tree_t * core_c
 	return -1;
     }
 
-    if (strcasecmp(v3_cfg_val(pg_tree, "large_pages"), "true") == 0) {
-	info->use_large_pages = 1;
-    	PrintDebug("Use of large pages in memory virtualization enabled.\n");
+    if (v3_cfg_val(pg_tree, "large_pages") != NULL) {
+	if (strcasecmp(v3_cfg_val(pg_tree, "large_pages"), "true") == 0) {
+	    info->use_large_pages = 1;
+	    PrintDebug("Use of large pages in memory virtualization enabled.\n");
+	}
     }
-
     return 0;
 }
 

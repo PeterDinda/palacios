@@ -205,7 +205,7 @@ static addr_t map_swp_page(struct v3_vm_info * vm, pte32_t * shadow_pte, pte32_t
     shdw_ptr_list = (struct list_head *)v3_htable_search(swap_state->shdw_ptr_ht, (addr_t)*(uint32_t *)guest_pte);
 
     if (shdw_ptr_list == NULL) {
-	shdw_ptr_list = (struct list_head *)V3_Malloc(sizeof(struct list_head *));
+	shdw_ptr_list = (struct list_head *)V3_Malloc(sizeof(struct list_head));
 #ifdef CONFIG_SWAPBYPASS_TELEMETRY
 	swap_state->list_size++;
 #endif
