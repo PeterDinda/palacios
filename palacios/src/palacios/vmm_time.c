@@ -95,19 +95,12 @@ int v3_adjust_time(struct guest_info * info) {
 
 	target_host_time = time_state->initial_time + desired_elapsed;
 	host_time = v3_get_host_time(time_state);
-	PrintDebug("Core %d: Yielding %Lu cycles for guest frequency mismatch "
-		   "(%Lu cycles elapsed in guest, %Lu in host).\n", 
-		   info->cpu_id, target_host_time - host_time,
-		   guest_elapsed, host_time - time_state->initial_time);
 
-	host_time = v3_get_host_time(time_state);
 	while (host_time < target_host_time) {
 	    v3_yield(info);
 	    host_time = v3_get_host_time(time_state);
 	}
 
-	PrintDebug("Core %d: done adjusting time at host time %Lu.\n", 
-		   info->cpu_id, host_time);
 	time_state->guest_host_offset = guest_time - host_time;
 
     }
@@ -153,8 +146,10 @@ void v3_update_timers(struct guest_info * info) {
 /* 
  * Handle full virtualization of the time stamp counter.  As noted
  * above, we don't store the actual value of the TSC, only the guest's
- * offset from the host TSC. If the guest write's the to TSC, we handle
- * this by changing that offset.
+ * offset from monotonic guest's time. If the guest writes to the TSC, we
+ * handle this by changing that offset.
+ *
+ * Possible TODO: Proper hooking of TSC read/writes?
  */ 
 
 int v3_rdtsc(struct guest_info * info) {
@@ -184,8 +179,7 @@ int v3_rdtscp(struct guest_info * info) {
     if (ret) return ret;
     info->vm_regs.rcx = info->vm_regs.rax;
 
-    /* Now do the TSC half of the instruction, which may hit the normal 
-     * TSC hook if it exists */
+    /* Now do the TSC half of the instruction */
     ret = v3_rdtsc(info);
     if (ret) return ret;
     
@@ -206,7 +200,6 @@ int v3_handle_rdtscp(struct guest_info * info) {
     return 0;
 }
 
-#if 0
 static int tsc_aux_msr_read_hook(struct guest_info *info, uint_t msr_num, 
 				 struct v3_msr *msr_val, void *priv) {
     struct vm_time * time_state = &(info->time_state);
@@ -252,12 +245,10 @@ static int tsc_msr_write_hook(struct guest_info *info, uint_t msr_num,
     return 0;
 }
 
-#endif
 
 static int init_vm_time(struct v3_vm_info *vm_info) {
     int ret;
 
-#if 0
     PrintDebug("Installing TSC MSR hook.\n");
     ret = v3_hook_msr(vm_info, TSC_MSR, 
 		      tsc_msr_read_hook, tsc_msr_write_hook, NULL);
@@ -267,7 +258,6 @@ static int init_vm_time(struct v3_vm_info *vm_info) {
     ret = v3_hook_msr(vm_info, TSC_AUX_MSR, tsc_aux_msr_read_hook, 
 		      tsc_aux_msr_write_hook, NULL);
     if (ret) return ret;
-#endif
 
     PrintDebug("Registering TIME_CPUFREQ hypercall.\n");
     ret = v3_register_hypercall(vm_info, TIME_CPUFREQ_HCALL, 
