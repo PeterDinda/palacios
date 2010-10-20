@@ -97,6 +97,12 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
     ctrl_area->instrs.CPUID = 1;
 
     ctrl_area->instrs.HLT = 1;
+
+#ifdef CONFIG_TIME_VIRTUALIZE_TSC
+    ctrl_area->instrs.rdtsc = 1;
+    ctrl_area->svm_instrs.rdtscp = 1;
+#endif
+
     // guest_state->cr0 = 0x00000001;    // PE 
   
     /*

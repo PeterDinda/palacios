@@ -81,20 +81,23 @@ int v3_start_time(struct guest_info * info) {
 
 // If the guest is supposed to run slower than the host, yield out until
 // the host time is appropriately far along;
-int v3_adjust_time(struct guest_info * info)
-{
+int v3_adjust_time(struct guest_info * info) {
     struct vm_time * time_state = &(info->time_state);
-    uint64_t guest_time, host_time, target_host_time;
-    guest_time = v3_get_guest_time(time_state);
-    host_time = v3_get_host_time(time_state);
-    target_host_time = (host_time - time_state->initial_time) *
-	time_state->host_cpu_freq / time_state->guest_cpu_freq;
-
-    while (host_time < target_host_time) {
-	v3_yield(info);
+    if (time_state->host_cpu_freq == time_state->guest_cpu_freq) {
+	time_state->guest_host_offset = 0;
+    } else {
+	uint64_t guest_time, host_time, target_host_time;
+	guest_time = v3_get_guest_time(time_state);
 	host_time = v3_get_host_time(time_state);
+	target_host_time = (host_time - time_state->initial_time) *
+	    time_state->host_cpu_freq / time_state->guest_cpu_freq;
+	while (host_time < target_host_time) {
+	    v3_yield(info);
+	    host_time = v3_get_host_time(time_state);
+	}
+	time_state->guest_host_offset = guest_time - host_time;
+
     }
-    time_state->guest_host_offset = guest_time - host_time;
     return 0;
 }
 
@@ -112,7 +115,6 @@ int v3_add_timer(struct guest_info * info, struct vm_timer_ops * ops,
 
     return 0;
 }
-
 
 int v3_remove_timer(struct guest_info * info, struct vm_timer * timer) {
     list_del(&(timer->timer_link));
@@ -134,7 +136,6 @@ void v3_update_timers(struct guest_info * info) {
 	tmp_timer->ops->update_timer(info, cycles, info->time_state.guest_cpu_freq, tmp_timer->private_data);
     }
 }
-
 
 /* 
  * Handle full virtualization of the time stamp counter.  As noted

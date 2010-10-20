@@ -225,8 +225,8 @@ static int init_vmcs_bios(struct guest_info * info, struct vmx_data * vmx_state)
     vmx_state->pri_proc_ctrls.invlpg_exit = 1;
     vmx_state->pri_proc_ctrls.use_msr_bitmap = 1;
     vmx_state->pri_proc_ctrls.pause_exit = 1;
-#ifdef CONFIG_TIME_VIRTUALIZE_TSC
     vmx_state->pri_proc_ctrls.tsc_offset = 1;
+#ifdef CONFIG_TIME_VIRTUALIZE_TSC
     vmx_state->pri_proc_ctrls.rdtsc_exit = 1;
 #endif
 
