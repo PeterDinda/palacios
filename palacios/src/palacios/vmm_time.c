@@ -83,18 +83,31 @@ int v3_start_time(struct guest_info * info) {
 // the host time is appropriately far along;
 int v3_adjust_time(struct guest_info * info) {
     struct vm_time * time_state = &(info->time_state);
+
     if (time_state->host_cpu_freq == time_state->guest_cpu_freq) {
 	time_state->guest_host_offset = 0;
     } else {
-	uint64_t guest_time, host_time, target_host_time;
+	uint64_t guest_time, guest_elapsed, desired_elapsed;
+	uint64_t host_time, target_host_time;
 	guest_time = v3_get_guest_time(time_state);
+	guest_elapsed = (guest_time - time_state->initial_time);
+	desired_elapsed = (guest_elapsed * time_state->host_cpu_freq) / time_state->guest_cpu_freq;
+
+	target_host_time = time_state->initial_time + desired_elapsed;
 	host_time = v3_get_host_time(time_state);
-	target_host_time = (host_time - time_state->initial_time) *
-	    time_state->host_cpu_freq / time_state->guest_cpu_freq;
+	PrintDebug("Core %d: Yielding %Lu cycles for guest frequency mismatch "
+		   "(%Lu cycles elapsed in guest, %Lu in host).\n", 
+		   info->cpu_id, target_host_time - host_time,
+		   guest_elapsed, host_time - time_state->initial_time);
+
+	host_time = v3_get_host_time(time_state);
 	while (host_time < target_host_time) {
 	    v3_yield(info);
 	    host_time = v3_get_host_time(time_state);
 	}
+
+	PrintDebug("Core %d: done adjusting time at host time %Lu.\n", 
+		   info->cpu_id, host_time);
 	time_state->guest_host_offset = guest_time - host_time;
 
     }
@@ -193,6 +206,7 @@ int v3_handle_rdtscp(struct guest_info * info) {
     return 0;
 }
 
+#if 0
 static int tsc_aux_msr_read_hook(struct guest_info *info, uint_t msr_num, 
 				 struct v3_msr *msr_val, void *priv) {
     struct vm_time * time_state = &(info->time_state);
@@ -238,9 +252,12 @@ static int tsc_msr_write_hook(struct guest_info *info, uint_t msr_num,
     return 0;
 }
 
+#endif
+
 static int init_vm_time(struct v3_vm_info *vm_info) {
     int ret;
 
+#if 0
     PrintDebug("Installing TSC MSR hook.\n");
     ret = v3_hook_msr(vm_info, TSC_MSR, 
 		      tsc_msr_read_hook, tsc_msr_write_hook, NULL);
@@ -250,6 +267,7 @@ static int init_vm_time(struct v3_vm_info *vm_info) {
     ret = v3_hook_msr(vm_info, TSC_AUX_MSR, tsc_aux_msr_read_hook, 
 		      tsc_aux_msr_write_hook, NULL);
     if (ret) return ret;
+#endif
 
     PrintDebug("Registering TIME_CPUFREQ hypercall.\n");
     ret = v3_register_hypercall(vm_info, TIME_CPUFREQ_HCALL, 
@@ -259,11 +277,23 @@ static int init_vm_time(struct v3_vm_info *vm_info) {
 
 void v3_init_time(struct guest_info * info) {
     struct vm_time * time_state = &(info->time_state);
+    v3_cfg_tree_t * cfg_tree = info->core_cfg_data;
     static int one_time = 0;
+    char *khz;
 
     time_state->host_cpu_freq = V3_CPU_KHZ();
-    time_state->guest_cpu_freq = V3_CPU_KHZ();
- 
+    khz = v3_cfg_val(cfg_tree, "khz");
+    if (khz) {
+	time_state->guest_cpu_freq = atoi(khz);
+	PrintDebug("Core %d CPU frequency requested at %d khz.\n", 
+		   info->cpu_id, time_state->guest_cpu_freq);
+    }
+    
+    if (!khz || time_state->guest_cpu_freq > time_state->host_cpu_freq) {
+	time_state->guest_cpu_freq = time_state->host_cpu_freq;
+    }
+    PrintDebug("Core %d CPU frequency set to %d KHz (host CPU frequency = %d KHz).\n", info->cpu_id, time_state->guest_cpu_freq, time_state->host_cpu_freq);
+
     time_state->initial_time = 0;
     time_state->last_update = 0;
     time_state->guest_host_offset = 0;

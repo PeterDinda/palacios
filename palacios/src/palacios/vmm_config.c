@@ -496,6 +496,7 @@ struct v3_vm_info * v3_config_guest(void * cfg_blob) {
 
 	info->cpu_id = i;
 	info->vm_info = vm;
+	info->core_cfg_data = per_core_cfg;
 
 	if (pre_config_core(info, per_core_cfg) == -1) {
 	    PrintError("Error in core %d preconfiguration\n", i);

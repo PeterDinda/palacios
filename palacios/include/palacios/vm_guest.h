@@ -114,6 +114,8 @@ struct guest_info {
     struct v3_sym_core_state sym_core_state;
 #endif
 
+    /* Per-core config tree data. */
+    v3_cfg_tree_t * core_cfg_data;
 
     struct v3_vm_info * vm_info;
 
