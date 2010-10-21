@@ -48,9 +48,6 @@ struct vm_time {
     struct list_head timers;
 };
 
-
-
-
 struct vm_timer_ops {
     void (*update_timer)(struct guest_info * info, ullong_t cpu_cycles, ullong_t cpu_freq, void * priv_data);
     void (*advance_timer)(struct guest_info * info, void * private_data);
@@ -63,19 +60,17 @@ struct vm_timer {
     struct list_head timer_link;
 };
 
-
-
-
-int v3_add_timer(struct guest_info * info, struct vm_timer_ops * ops, void * private_data);
-int v3_remove_timer(struct guest_info * info, struct vm_timer * timer);
-void v3_update_timers(struct guest_info * info);
-
-
+// Basic functions for handling passage of time in palacios
 void v3_init_time(struct guest_info * info);
 int v3_start_time(struct guest_info * info);
 int v3_adjust_time(struct guest_info * info);
 
-// Returns host time
+// Basic functions for attaching timers to the passage of time
+int v3_add_timer(struct guest_info * info, struct vm_timer_ops * ops, void * private_data);
+int v3_remove_timer(struct guest_info * info, struct vm_timer * timer);
+void v3_update_timers(struct guest_info * info);
+
+// Functions to return the different notions of time in Palacios.
 static inline uint64_t v3_get_host_time(struct vm_time *t) {
     uint64_t tmp;
     rdtscll(tmp);
@@ -97,12 +92,16 @@ static inline sint64_t v3_tsc_host_offset(struct vm_time *time_state) {
     return time_state->guest_host_offset + time_state->tsc_guest_offset;
 }
 
-
+// Functions for handling exits on the TSC when fully virtualizing 
+// the timestamp counter.
 #define TSC_MSR     0x10
 #define TSC_AUX_MSR 0xC0000103
 
 int v3_handle_rdtscp(struct guest_info *info);
 int v3_handle_rdtsc(struct guest_info *info);
+
+
+
 
 #endif // !__V3VEE__
 

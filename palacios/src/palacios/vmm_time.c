@@ -41,18 +41,31 @@
  * the passage of time:
  * (1) The host timestamp counter - read directly from HW and never written
  * (2) A monotonic guest timestamp counter used to measure the progression of
- *     time in the guest. This is computed as a multipler/offset from (1) above
+ *     time in the guest. This is computed using an offsets from (1) above.
  * (3) The actual guest timestamp counter (which can be written by
  *     writing to the guest TSC MSR - MSR 0x10) from the monotonic guest TSC.
  *     This is also computed as an offset from (2) above when the TSC and
  *     this offset is updated when the TSC MSR is written.
  *
+ * The value used to offset the guest TSC from the host TSC is the *sum* of all
+ * of these offsets (2 and 3) above
+ * 
  * Because all other devices are slaved off of the passage of time in the guest,
  * it is (2) above that drives the firing of other timers in the guest, 
  * including timer devices such as the Programmable Interrupt Timer (PIT).
  *
- *  
- *
+ * Future additions:
+ * (1) Add support for temporarily skewing guest time off of where it should
+ *     be to support slack simulation of guests. The idea is that simulators
+ *     set this skew to be the difference between how much time passed for a 
+ *     simulated feature and a real implementation of that feature, making 
+ *     pass at a different rate from real time on this core. The VMM will then
+ *     attempt to move this skew back towards 0 subject to resolution/accuracy
+ *     constraints from various system timers.
+ *   
+ *     The main effort in doing this will be to get accuracy/resolution 
+ *     information from each local timer and to use this to bound how much skew
+ *     is removed on each exit.
  */
 
 
@@ -89,20 +102,22 @@ int v3_adjust_time(struct guest_info * info) {
     } else {
 	uint64_t guest_time, guest_elapsed, desired_elapsed;
 	uint64_t host_time, target_host_time;
+
 	guest_time = v3_get_guest_time(time_state);
+
+	/* Compute what host time this guest time should correspond to. */
 	guest_elapsed = (guest_time - time_state->initial_time);
 	desired_elapsed = (guest_elapsed * time_state->host_cpu_freq) / time_state->guest_cpu_freq;
-
 	target_host_time = time_state->initial_time + desired_elapsed;
-	host_time = v3_get_host_time(time_state);
 
+	/* Yield until that host time is reached */
+	host_time = v3_get_host_time(time_state);
 	while (host_time < target_host_time) {
 	    v3_yield(info);
 	    host_time = v3_get_host_time(time_state);
 	}
 
-	time_state->guest_host_offset = guest_time - host_time;
-
+	time_state->guest_host_offset = (sint64_t)guest_time - (sint64_t)host_time;
     }
     return 0;
 }
@@ -300,6 +315,9 @@ void v3_init_time(struct guest_info * info) {
 	one_time = 1;
     }
 }
+
+
+
 
 
 

@@ -670,6 +670,10 @@ int v3_vmx_enter(struct guest_info * info) {
 
     v3_update_timers(info);
 
+    /* If this guest is frequency-lagged behind host time, wait 
+     * for the appropriate host time before resuming the guest. */
+    v3_adjust_time(info);
+
     tsc_offset_high = (uint32_t)((v3_tsc_host_offset(&info->time_state) >> 32) & 0xffffffff);
     tsc_offset_low = (uint32_t)(v3_tsc_host_offset(&info->time_state) & 0xffffffff);
     check_vmcs_write(VMCS_TSC_OFFSET_HIGH, tsc_offset_high);
@@ -694,10 +698,6 @@ int v3_vmx_enter(struct guest_info * info) {
 
 	return -1;
     }
-
-    /* If this guest is frequency-lagged behind host time, wait 
-     * for the appropriate host time. */
-    v3_adjust_time(info);
 
     info->num_exits++;
 
