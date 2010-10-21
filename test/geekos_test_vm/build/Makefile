@@ -81,11 +81,14 @@ KERNEL_C_SRCS := idt.c int.c trap.c irq.c io.c \
 	gdt.c tss.c segment.c \
 	bget.c malloc.c \
 	synch.c kthread.c \
-	vm_cons.c debug.c \
+	 debug.c \
+	vm_cons.c \
 	pci.c \
 	serial.c  reboot.c \
         paging.c \
 	main.c
+
+ # 
 
 # Kernel object files built from C source files
 KERNEL_C_OBJS := $(KERNEL_C_SRCS:%.c=geekos/%.o)
@@ -124,17 +127,17 @@ COMMON_C_OBJS := $(COMMON_C_SRCS:%.c=common/%.o)
 
 # Uncomment if cross compiling
 #TARGET_CC_PREFIX := i386-elf-
-TARGET_CC_PREFIX :=  $(PROJECT_ROOT)/../../devtools/i386/bin/i386-elf-
+#TARGET_CC_PREFIX :=  $(PROJECT_ROOT)/../../devtools/i386/bin/i386-elf-
 
 # Target C compiler.  gcc 2.95.2 or later should work.
-TARGET_CC := $(TARGET_CC_PREFIX)gcc
+TARGET_CC := $(TARGET_CC_PREFIX)gcc -m32
 
 
 # Host C compiler.  This is used to compile programs to execute on
 # the host platform, not the target (x86) platform.  On x86/ELF
 # systems, such as Linux and FreeBSD, it can generally be the same
 # as the target C compiler.
-HOST_CC := gcc
+HOST_CC := gcc 
 
 # Target linker.  GNU ld is probably to only one that will work.
 TARGET_LD := $(TARGET_CC_PREFIX)ld -melf_i386
@@ -152,8 +155,8 @@ TARGET_NM := $(TARGET_CC_PREFIX)nm
 TARGET_OBJCOPY := $(TARGET_CC_PREFIX)objcopy
 
 # Nasm (http://nasm.sourceforge.net)
-NASM := $(PROJECT_ROOT)/../../devtools/bin/nasm
-#NASM := /opt/vmm-tools/bin/nasm
+#NASM := $(PROJECT_ROOT)/../../devtools/bin/nasm
+NASM := nasm
 
 AS = as --32
 

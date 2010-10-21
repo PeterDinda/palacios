@@ -117,7 +117,7 @@ void SerialMemDump(unsigned char *start, int n)
   int i, j;
 
   for (i=0;i<n;i+=16) {
-    SerialPrint("%8x", (unsigned)(start+i));
+    SerialPrint("%8x", *(unsigned char *)(start+i));
     for (j=i; j<i+16 && j<n; j+=2) {
       SerialPrint(" ");
       SerialPrintHex(*((unsigned char *)(start+j)));
