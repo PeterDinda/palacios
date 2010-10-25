@@ -679,8 +679,6 @@ int v3_vmx_enter(struct guest_info * info) {
     check_vmcs_write(VMCS_TSC_OFFSET_HIGH, tsc_offset_high);
     check_vmcs_write(VMCS_TSC_OFFSET, tsc_offset_low);
 
-    PrintDebug("Stored 0x%x_%x into vmcs TSC offset.\n", 
-	       tsc_offset_high, tsc_offset_low);
     if (info->vm_info->run_state == VM_STOPPED) {
 	info->vm_info->run_state = VM_RUNNING;
 	ret = v3_vmx_launch(&(info->vm_regs), info, &(info->ctrl_regs));
@@ -748,8 +746,36 @@ int v3_vmx_enter(struct guest_info * info) {
 
 int v3_start_vmx_guest(struct guest_info* info) {
 
+    PrintDebug("Starting VMX core %u\n",info->cpu_id);
+    if (info->cpu_mode==INIT) {
+        PrintDebug("VMX core %u: I am an AP in INIT mode, waiting for that to change\n",info->cpu_id);
+        while (info->cpu_mode==INIT) {
+            v3_yield(info);
+            //PrintDebug("VMX core %u: still waiting for INIT\n",info->cpu_id);
+        }
+        PrintDebug("VMX core %u: I am out of INIT\n",info->cpu_id);
+        if (info->cpu_mode==SIPI) {
+            PrintDebug("VMX core %u: I am waiting on a SIPI to set my starting address\n",info->cpu_id);
+            while (info->cpu_mode==SIPI) {
+                v3_yield(info);
+                //PrintDebug("VMX core %u: still waiting for SIPI\n",info->cpu_id);
+            }
+        }
+        PrintDebug("VMX core %u: I have my SIPI\n", info->cpu_id);
+    }
 
-    PrintDebug("Launching VMX guest\n");
+    if (info->cpu_mode!=REAL) {
+        PrintError("VMX core %u: I am not in REAL mode at launch!  Huh?!\n", info->cpu_id);
+        return -1;
+    }
+
+    PrintDebug("VMX core %u: I am starting at CS=0x%x (base=0x%p, limit=0x%x),  RIP=0x%p\n",
+               info->cpu_id, info->segments.cs.selector, (void*)(info->segments.cs.base),
+               info->segments.cs.limit,(void*)(info->rip));
+
+
+
+    PrintDebug("VMX core %u: Launching VMX VM\n", info->cpu_id);
 
     v3_start_time(info);
 

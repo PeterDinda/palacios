@@ -818,7 +818,7 @@ endif
 ALLSOURCE_ARCHS := $(ARCH)
 
 define all-sources
-	( find $(__srctree)/palacios $(RCS_FIND_IGNORE) \
+	( find $(__srctree)palacios $(RCS_FIND_IGNORE) \
 	       \( -name lib \) -prune -o \
 	       -name '*.[chS]' -print; )
 endef

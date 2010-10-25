@@ -135,7 +135,7 @@ static int deliver(uint32_t src_apic, struct apic_data *dest_apic, struct int_cm
 
 	    // Sanity check
 	    if (core->cpu_mode != INIT) { 
-		PrintError("icc_bus: Warning: core %u is not in INIT state, ignored\n",core->cpu_id);
+		PrintError("icc_bus: Warning: core %u is not in INIT state (mode = %d), ignored\n",core->cpu_id, core->cpu_mode);
 		// Only a warning, since INIT INIT SIPI is common
 		break;
 	    }
@@ -159,7 +159,7 @@ static int deliver(uint32_t src_apic, struct apic_data *dest_apic, struct int_cm
 
 	    // Sanity check
 	    if (core->cpu_mode!=SIPI) { 
-		PrintError("icc_bus: core %u is not in SIPI state, ignored!\n",core->cpu_id);
+		PrintError("icc_bus: core %u is not in SIPI state (mode = %d), ignored!\n",core->cpu_id, core->cpu_mode);
 		break;
 	    }
 
@@ -203,8 +203,6 @@ static int deliver(uint32_t src_apic, struct apic_data *dest_apic, struct int_cm
 //
 
 int v3_icc_send_ipi(struct vm_device * icc_bus, uint32_t src_apic, uint64_t icr_data, uint32_t extirq) {
-
-    PrintDebug("icc_bus: icc_bus=%p, src_apic=%u, icr_data=%llx, extirq=%u\n",icc_bus,src_apic,icr_data,extirq);
 
     struct int_cmd_reg *icr = (struct int_cmd_reg *)&icr_data;
 
