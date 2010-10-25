@@ -172,6 +172,9 @@ struct v3_vm_info {
     int num_cores;
     struct guest_info cores[0];
 
+
+    void * host_priv_data;
+
 };
 
 int v3_init_vm(struct v3_vm_info * vm);

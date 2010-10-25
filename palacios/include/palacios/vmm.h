@@ -211,7 +211,7 @@ struct guest_info;
 	    while(1);							\
 	}								\
     } while(0)								\
-
+	
 
 
 
@@ -300,7 +300,7 @@ struct v3_interrupt {
 void Init_V3(struct v3_os_hooks * hooks,  int num_cpus);
 
 
-struct v3_vm_info * v3_create_vm(void * cfg);
+struct v3_vm_info * v3_create_vm(void * cfg, void * priv_data);
 int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask);
 
 

@@ -117,7 +117,7 @@ v3_cpu_arch_t v3_get_cpu_type(int cpu_id) {
 }
 
 
-struct v3_vm_info * v3_create_vm(void * cfg) {
+struct v3_vm_info * v3_create_vm(void * cfg, void * priv_data) {
     struct v3_vm_info * vm = v3_config_guest(cfg);
 
     if (vm == NULL) {
@@ -125,13 +125,15 @@ struct v3_vm_info * v3_create_vm(void * cfg) {
 	return NULL;
     }
 
+    vm->host_priv_data = priv_data;
+
     return vm;
 }
 
 
 static int start_core(void *p)
 {
-    struct guest_info * info = (struct guest_info*)p;
+    struct guest_info * info = (struct guest_info *)p;
 
 
     PrintDebug("core %u: in start_core\n",info->cpu_id);
