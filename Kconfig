@@ -212,6 +212,14 @@ config DEBUG_SHDW_PG_VTLB
 	help
 	  Enables debugging messages for VTLB implementation
 
+config SHADOW_PAGING_CACHE1
+	bool "Shadow Page Cache (1)"
+	default y
+	depends on SHADOW_PAGING
+	help 
+	   Enables caching implemenation for shadow paging
+
+
 endmenu
 
 
