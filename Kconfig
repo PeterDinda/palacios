@@ -188,7 +188,6 @@ endmenu
 source "Kconfig.stdlibs"
 
 
-
 menu "Virtual Paging"
 
 config SHADOW_PAGING
@@ -223,6 +222,18 @@ config SHADOW_PAGING_CACHE1
 
 endmenu
 
+
+menu "Time Management"
+
+config TIME_VIRTUALIZE_TSC
+	bool "Virtualize guest TSC"
+	default n
+	help
+	    Virtualize the processor time stamp counter in the guest, 
+	    generally increasing consistency between various time sources 
+	    but also potentially making guest time run slower than real time.
+
+endmenu
 
 menu "Symbiotic Functions"
 
@@ -331,7 +342,12 @@ config DEBUG_INTERRUPTS
 	help 
 	  This turns on debugging for the interrupt system
 
-
+config DEBUG_TIME
+	bool "Timing"
+	default n
+	depends on DEBUG_ON
+	help
+	  This turns on debugging of system time virtualization
 
 config DEBUG_IO
 	bool "IO"

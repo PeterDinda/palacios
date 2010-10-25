@@ -236,7 +236,7 @@ static int handle_crystal_tics(struct vm_device * dev, struct channel * ch, uint
 
 #include <palacios/vm_guest.h>
 
-static void pit_update_time(struct guest_info * info, ullong_t cpu_cycles, ullong_t cpu_freq, void * private_data) {
+static void pit_update_timer(struct guest_info * info, ullong_t cpu_cycles, ullong_t cpu_freq, void * private_data) {
     struct vm_device * dev = (struct vm_device *)private_data;
     struct pit * state = (struct pit *)dev->private_data;
     //  ullong_t tmp_ctr = state->pit_counter;
@@ -312,14 +312,6 @@ static void pit_update_time(struct guest_info * info, ullong_t cpu_cycles, ullon
  
     return;
 }
-
-
-static void pit_advance_time(struct guest_info * core, void * private_data) {
-
-    v3_raise_irq(core->vm_info, 0);
-}
-
-
 
 /* This should call out to handle_SQR_WAVE_write, etc...
  */
@@ -624,8 +616,7 @@ static int pit_write_command(struct guest_info * core, ushort_t port, void * src
 
 
 static struct vm_timer_ops timer_ops = {
-    .update_time = pit_update_time,
-    .advance_timer = pit_advance_time,
+    .update_timer = pit_update_timer,
 };
 
 
