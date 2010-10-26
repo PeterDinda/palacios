@@ -282,10 +282,10 @@ static int determine_paging_mode(struct guest_info *info, v3_cfg_tree_t * core_c
 {
     extern v3_cpu_arch_t v3_cpu_types[];
 
-    v3_cfg_tree_t *vm_tree = info->vm_info->cfg_data->cfg;
-    v3_cfg_tree_t *pg_tree = v3_cfg_subtree(vm_tree, "paging");
-    char *pg_mode          = v3_cfg_val(pg_tree, "mode");
-    char *page_size        = v3_cfg_val(pg_tree, "page_size");
+    v3_cfg_tree_t * vm_tree = info->vm_info->cfg_data->cfg;
+    v3_cfg_tree_t * pg_tree = v3_cfg_subtree(vm_tree, "paging");
+    char * pg_mode          = v3_cfg_val(pg_tree, "mode");
+    char * page_size        = v3_cfg_val(pg_tree, "page_size");
     
     PrintDebug("Paging mode specified as %s\n", pg_mode);
 
@@ -403,7 +403,7 @@ static int post_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
 static int post_config_core(struct guest_info * info, v3_cfg_tree_t * cfg) {
 
-
+    info->core_run_state = CORE_STOPPED;
  
     if (info->vm_info->vm_class == V3_PC_VM) {
 	if (post_config_pc_core(info, cfg) == -1) {

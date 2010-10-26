@@ -131,12 +131,12 @@ struct v3_vm_info * v3_create_vm(void * cfg, void * priv_data) {
 }
 
 
-static int start_core(void *p)
+static int start_core(void * p)
 {
     struct guest_info * info = (struct guest_info *)p;
 
 
-    PrintDebug("core %u: in start_core\n",info->cpu_id);
+    PrintDebug("core %u: in start_core\n", info->cpu_id);
     
     // we assume here that the APs are in INIT mode
     // and only the BSP is in REAL
@@ -166,84 +166,68 @@ static int start_core(void *p)
 }
 
 
-static uint32_t get_next_core(unsigned int cpu_mask, uint32_t last_proc)
-{
-    uint32_t proc_to_use;
-
-    PrintDebug("In get_next_core cpu_mask=0x%x last_proc=%u\n",cpu_mask,last_proc);
-
-    proc_to_use=(last_proc+1) % 32; // only 32 procs
-    // This will wrap around, and eventually we can use proc 0, 
-    // since that's clearly available
-    while (!((cpu_mask >> proc_to_use)&0x1)) {
-	proc_to_use=(proc_to_use+1)%32;
-    }
-    return proc_to_use;
-}
+// For the moment very ugly. Eventually we will shift the cpu_mask to an arbitrary sized type...
+#define MAX_CORES 32
 
 int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
     uint32_t i;
-    uint32_t last_proc;
-    uint32_t proc_to_use;
     char tname[16];
+    int vcore_id = 0;
+    uint8_t * core_mask = (uint8_t *)&cpu_mask; // This is to make future expansion easier
+    uint32_t avail_cores = 0;
 
-    V3_Print("V3 --  Starting VM (%u cores)\n",vm->num_cores);
 
-    // We assume that we are running on CPU 0 of the underlying system
-    last_proc=0;
 
-    // We will fork off cores 1..n first, then boot core zero
-    
-    // for the AP, we need to create threads
- 
-    for (i = 1; i < vm->num_cores; i++) {
-	if (!os_hooks->start_thread_on_cpu) { 
-	    PrintError("Host OS does not support start_thread_on_cpu - FAILING\n");
-	    return -1;
+    /// CHECK IF WE ARE MULTICORE ENABLED....
+
+    V3_Print("V3 --  Starting VM (%u cores)\n", vm->num_cores);
+
+    // Check that enough cores are present in the mask to handle vcores
+    for (i = 0; i < MAX_CORES; i++) {
+	int major = i / 8;
+	int minor = i % 8;
+
+	if (core_mask[major] & (0x1 << minor)) {
+	    avail_cores++;
 	}
-
-	proc_to_use=get_next_core(cpu_mask,last_proc);
-	last_proc=proc_to_use;
-
-	// vm->cores[i].cpu_id=i;
-	// vm->cores[i].physical_cpu_id=proc_to_use;
-
-	PrintDebug("Starting virtual core %u on logical core %u\n",i,proc_to_use);
 	
-	sprintf(tname,"core%u",i);
+    }
+    
+    if (vm->num_cores > avail_cores) {
+	PrintError("Attempted to start a VM with too many cores (MAX=%d)\n", MAX_CORES);
+	return -1;
+    }
+
+
+    for (i = 0; (i < MAX_CORES) && (vcore_id < vm->num_cores); i++) {
+	int major = i / 8;
+	int minor = i % 8;
+	void * core_thread = NULL;
+
+	if ((core_mask[major] & (0x1 << minor)) == 0) {
+	    // cpuid not set in cpu_mask
+	    continue;
+	} 
+
+	PrintDebug("Starting virtual core %u on logical core %u\n", 
+		   vcore_id, i);
+	
+	sprintf(tname, "core%u", vcore_id);
 
 	PrintDebug("run: core=%u, func=0x%p, arg=0x%p, name=%s\n",
-		   proc_to_use, start_core, &(vm->cores[i]), tname);
+		   i, start_core, &(vm->cores[vcore_id]), tname);
 
 	// TODO: actually manage these threads instead of just launching them
-	if (!(os_hooks->start_thread_on_cpu(proc_to_use,start_core,&(vm->cores[i]),tname))) { 
+	core_thread = V3_CREATE_THREAD_ON_CPU(i, start_core, 
+					      &(vm->cores[vcore_id]), tname);
+
+	if (core_thread == NULL) {
 	    PrintError("Thread launch failed\n");
 	    return -1;
 	}
-    }
 
-    // vm->cores[0].cpu_id=0;
-    // vm->cores[0].physical_cpu_id=0;
-
-    // Finally launch the BSP on core 0
-    sprintf(tname,"core%u",0);
-
-#if CONFIG_LINUX
-    if (vm->num_cores==1) { 
-	start_core(&(vm->cores[0]));
-	return -1;
-    } else {
-	if (!os_hooks->start_thread_on_cpu(0,start_core,&(vm->cores[0]),tname)) { 
-	    PrintError("Thread launch failed\n");
-	    return -1;
-	}
+	vcore_id++;
     }
-#else
-    if (!os_hooks->start_thread_on_cpu(0,start_core,&(vm->cores[0]),tname)) { 
-	PrintError("Thread launch failed\n");
-	return -1;
-    }
-#endif
 
     return 0;
 

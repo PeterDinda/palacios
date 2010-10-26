@@ -160,6 +160,9 @@ struct guest_info;
     } while (0)
 
 
+
+
+
 #define V3_Hook_Interrupt(vm, irq) ({					\
 	    int ret = 0;						\
 	    extern struct v3_os_hooks * os_hooks;			\
@@ -186,6 +189,17 @@ struct guest_info;
             (os_hooks)->call_on_cpu(cpu, fn, arg);      \
         }                                               \
     } while (0)
+
+
+
+#define V3_CREATE_THREAD_ON_CPU(cpu, fn, arg, name) ({			\
+	    void * thread = NULL;					\
+	    extern struct v3_os_hooks * os_hooks;			\
+	    if ((os_hooks) && (os_hooks)->start_thread_on_cpu) {	\
+		thread = (os_hooks)->start_thread_on_cpu(cpu, fn, arg, name); \
+	    }								\
+	    thread;							\
+	})
 
 
 #define V3_ACK_IRQ(irq)						\

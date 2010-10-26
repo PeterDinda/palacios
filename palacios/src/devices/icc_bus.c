@@ -96,17 +96,20 @@ static int deliver(uint32_t src_apic, struct apic_data *dest_apic, struct int_cm
 	case 1: // lowest priority
 	case 7: // ExtInt
 	    PrintDebug("icc_bus: delivering IRQ to core %u\n",dest_apic->core->cpu_id); 
+
 	    dest_apic->ops->raise_intr(dest_apic->core, 
-				       icr->del_mode!=7 ? icr->vec : extirq,
+				       (icr->del_mode != 7) ? icr->vec : extirq,
 				       dest_apic->priv_data); 
-	    if (src_apic!=state->ioapic_id && dest_apic->core->cpu_id != src_apic) { 
+
+	    if ((src_apic != state->ioapic_id) && (dest_apic->core->cpu_id != src_apic)) { 
 		// Assume core # is same as logical processor for now
 		// TODO FIX THIS FIX THIS
 		// THERE SHOULD BE:  guestapicid->virtualapicid map,
 		//                   cpu_id->logical processor map
 		//     host maitains logical proc->phsysical proc
 		PrintDebug("icc_bus: non-local core, forcing it to exit\n"); 
-		V3_Call_On_CPU(dest_apic->core->cpu_id,v3_force_exit,(void*)(dest_apic->core));
+
+		V3_Call_On_CPU(dest_apic->core->cpu_id, v3_force_exit, (void *)(dest_apic->core));
 		// TODO: do what the print says
 	    }							
 	    break;							
@@ -129,19 +132,20 @@ static int deliver(uint32_t src_apic, struct apic_data *dest_apic, struct int_cm
 	case 5: { //INIT
 	    struct guest_info *core = dest_apic->core;
 
-	    PrintDebug("icc_bus: INIT delivery to core %u\n",core->cpu_id);
+	    PrintDebug("icc_bus: INIT delivery to core %u\n", core->cpu_id);
 
 	    // TODO: any APIC reset on dest core (shouldn't be needed, but not sure...)
 
 	    // Sanity check
-	    if (core->cpu_mode != INIT) { 
-		PrintError("icc_bus: Warning: core %u is not in INIT state (mode = %d), ignored\n",core->cpu_id, core->cpu_mode);
+	    if (dest_apic->ipi_state != INIT) { 
+		PrintError("icc_bus: Warning: core %u is not in INIT state (mode = %d), ignored\n",
+			   core->cpu_id, core->cpu_mode);
 		// Only a warning, since INIT INIT SIPI is common
 		break;
 	    }
 
 	    // We transition the target core to SIPI state
-	    core->cpu_mode = SIPI;  // note: locking should not be needed here
+	    dest_apic->ipi_state = SIPI;  // note: locking should not be needed here
 
 	    // That should be it since the target core should be
 	    // waiting in host on this transition
@@ -158,7 +162,7 @@ static int deliver(uint32_t src_apic, struct apic_data *dest_apic, struct int_cm
 	    struct guest_info *core = dest_apic->core;
 
 	    // Sanity check
-	    if (core->cpu_mode!=SIPI) { 
+	    if (dest_apic->ipi_state != SIPI) { 
 		PrintError("icc_bus: core %u is not in SIPI state (mode = %d), ignored!\n",core->cpu_id, core->cpu_mode);
 		break;
 	    }
@@ -183,7 +187,7 @@ static int deliver(uint32_t src_apic, struct apic_data *dest_apic, struct int_cm
 	    // Maybe need to adjust the APIC?
 	    
 	    // We transition the target core to SIPI state
-	    core->cpu_mode = REAL;  // note: locking should not be needed here
+	    core->core_run_state = CORE_RUNNING;  // note: locking should not be needed here
 
 	    // As with INIT, we should not need to do anything else
 

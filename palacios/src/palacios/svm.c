@@ -555,44 +555,35 @@ int v3_svm_enter(struct guest_info * info) {
 }
 
 
-int v3_start_svm_guest(struct guest_info *info) {
+int v3_start_svm_guest(struct guest_info * info) {
     //    vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
     //  vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
 
+    PrintDebug("Starting SVM core %u\n", info->cpu_id);
 
-    PrintDebug("Starting SVM core %u\n",info->cpu_id);
-    if (info->cpu_mode==INIT) { 
-	PrintDebug("SVM core %u: I am an AP in INIT mode, waiting for that to change\n",info->cpu_id);
-	while (info->cpu_mode==INIT) {
+    if (info->cpu_id == 0) {
+	info->core_run_state = CORE_RUNNING;
+	info->vm_info->run_state = VM_RUNNING;
+    } else  { 
+	PrintDebug("SVM core %u: Waiting for core initialization\n", info->cpu_id);
+
+	while (info->core_run_state == CORE_STOPPED) {
 	    v3_yield(info);
 	    //PrintDebug("SVM core %u: still waiting for INIT\n",info->cpu_id);
 	}
-	PrintDebug("SVM core %u: I am out of INIT\n",info->cpu_id);
-	if (info->cpu_mode==SIPI) { 
-	    PrintDebug("SVM core %u: I am waiting on a SIPI to set my starting address\n",info->cpu_id);
-	    while (info->cpu_mode==SIPI) {
-		v3_yield(info);
-		//PrintDebug("SVM core %u: still waiting for SIPI\n",info->cpu_id);
-	    }
-	}
-	PrintDebug("SVM core %u: I have my SIPI\n", info->cpu_id);
-    }
 
-    if (info->cpu_mode!=REAL) { 
-	PrintError("SVM core %u: I am not in REAL mode at launch!  Huh?!\n", info->cpu_id);
-	return -1;
-    }
+	PrintDebug("SVM core %u initialized\n", info->cpu_id);
+    } 
 
     PrintDebug("SVM core %u: I am starting at CS=0x%x (base=0x%p, limit=0x%x),  RIP=0x%p\n", 
-	       info->cpu_id, info->segments.cs.selector, (void*)(info->segments.cs.base), 
-	       info->segments.cs.limit,(void*)(info->rip));
+	       info->cpu_id, info->segments.cs.selector, (void *)(info->segments.cs.base), 
+	       info->segments.cs.limit,(void *)(info->rip));
 
 
 
     PrintDebug("SVM core %u: Launching SVM VM (vmcb=%p)\n", info->cpu_id, (void *)info->vmm_data);
     //PrintDebugVMCB((vmcb_t*)(info->vmm_data));
     
-    info->vm_info->run_state = VM_RUNNING;
     v3_start_time(info);
 
     while (1) {

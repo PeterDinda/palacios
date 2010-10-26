@@ -135,6 +135,9 @@ struct apic_msr {
 } __attribute__((packed));
 
 
+
+typedef enum {INIT, SIPI, STARTED} ipi_state_t; 
+
 struct apic_state {
     addr_t base_addr;
 
@@ -175,6 +178,8 @@ struct apic_state {
 
     uint32_t rem_rd_data;
 
+
+    ipi_state_t ipi_state;
 
     uint8_t int_req_reg[32];
     uint8_t int_svc_reg[32];
@@ -227,6 +232,8 @@ static void init_apic_state(struct apic_state * apic, uint32_t id, struct vm_dev
     apic->lapic_id.val = id;
     
     apic->icc_bus = icc;
+
+    apic->ipi_state = INIT;
 
     // The P6 has 6 LVT entries, so we set the value to (6-1)...
     apic->apic_ver.val = 0x80050010;
@@ -906,7 +913,7 @@ static int apic_write(struct guest_info * core, addr_t guest_addr, void * src, u
 	    PrintDebug("apic %u: core %u: sending cmd 0x%llx to apic %u\n", 
 		       apic->lapic_id.val, core->cpu_id,
 		       apic->int_cmd.val, apic->int_cmd.dst);
-	    if (v3_icc_send_ipi(apic->icc_bus, apic->lapic_id.val, apic->int_cmd.val,0)==-1) { 
+	    if (v3_icc_send_ipi(apic->icc_bus, apic->lapic_id.val, apic->int_cmd.val, 0)==-1) { 
 		return -1;
 	    }
 	    break;

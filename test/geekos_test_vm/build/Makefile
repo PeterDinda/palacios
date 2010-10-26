@@ -156,7 +156,7 @@ TARGET_OBJCOPY := $(TARGET_CC_PREFIX)objcopy
 
 # Nasm (http://nasm.sourceforge.net)
 #NASM := $(PROJECT_ROOT)/../../devtools/bin/nasm
-NASM := nasm
+NASM := nasm -f elf
 
 AS = as --32
 
