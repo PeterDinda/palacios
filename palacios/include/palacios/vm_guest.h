@@ -173,12 +173,13 @@ struct v3_vm_info {
 
     uint64_t yield_cycle_period;  
 
-    int num_cores;
-    struct guest_info cores[0];
-
 
     void * host_priv_data;
 
+    int num_cores;
+
+    // JRL: This MUST be the last entry...
+    struct guest_info cores[0];
 };
 
 int v3_init_vm(struct v3_vm_info * vm);
