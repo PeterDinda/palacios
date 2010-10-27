@@ -20,8 +20,7 @@
 
 #include <palacios/vmm.h>
 #include <palacios/vmm_dev_mgr.h>
-#include <devices/icc_bus.h>
-#include <devices/apic_regs.h>
+#include <devices/apic.h>
 #include <palacios/vm_guest.h>
 
 #ifndef CONFIG_DEBUG_IO_APIC
@@ -136,7 +135,7 @@ struct io_apic_state {
   
     struct redir_tbl_entry redir_tbl[24];
 
-    struct vm_device * icc_bus;
+    struct vm_device * apic_dev;
   
 };
 
@@ -276,26 +275,19 @@ static int ioapic_raise_irq(struct v3_vm_info * vm, void * private_data, int irq
 
     if (irq_entry->mask == 0) {
 
-	PrintDebug("ioapic %u: IOAPIC Signalling APIC to raise INTR %d\n", ioapic->ioapic_id.id, irq_entry->vec);
+	PrintDebug("ioapic %u: IOAPIC Signalling APIC to raise INTR %d\n", 
+		   ioapic->ioapic_id.id, irq_entry->vec);
 
-
-	// the format of the redirection table entry is just slightly 
-	// different than that of the lapic's cmd register, which is the other
-	// way an IPI is initiated.   So we will translate
-	//
-	struct int_cmd_reg icr;
 	
-	icr.val = irq_entry->val;
-	icr.rsvd1=0;
-	icr.lvl=1;
-	icr.trig_mode=irq_entry->trig_mode;
-	icr.rem_rd_status=0;
-	icr.dst_shorthand=0; // no shorthand
-	icr.rsvd2=0;
+	// May need these for future reference
+	//	icr.val = irq_entry->val;
+	//	icr.trig_mode = irq_entry->trig_mode;
 
-	PrintDebug("io apic %u: raising irq %u on ICC bus.\n",
-		   ioapic->ioapic_id.id, irq);
-	v3_icc_send_ipi(ioapic->icc_bus, ioapic->ioapic_id.id,icr.val, irq);
+	PrintDebug("io apic: raising irq %u\n", irq);
+
+
+	v3_apic_raise_intr(vm, ioapic->apic_dev, irq, irq_entry->val);
+
     }
 
     return 0;
@@ -331,19 +323,15 @@ static struct v3_device_ops dev_ops = {
 
 
 static int ioapic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
-    struct vm_device * icc_bus = v3_find_dev(vm, v3_cfg_val(cfg, "bus"));
+    struct vm_device * apic_dev = v3_find_dev(vm, v3_cfg_val(cfg, "apic"));
     char * dev_id = v3_cfg_val(cfg, "ID");
 
-    if (!icc_bus) {
-	PrintError("ioapic: Could not locate ICC BUS device (%s)\n", v3_cfg_val(cfg, "bus"));
-	return -1;
-    }
 
     PrintDebug("ioapic: Creating IO APIC\n");
 
     struct io_apic_state * ioapic = (struct io_apic_state *)V3_Malloc(sizeof(struct io_apic_state));
 
-    ioapic->icc_bus = icc_bus;
+    ioapic->apic_dev = apic_dev;
 
     struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, ioapic);
 
@@ -357,8 +345,6 @@ static int ioapic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     v3_register_intr_router(vm, &router_ops, dev);
 
     init_ioapic_state(ioapic,vm->num_cores);
-
-    v3_icc_register_ioapic(vm,icc_bus,ioapic->ioapic_id.id);
 
     v3_hook_full_mem(vm, V3_MEM_CORE_ANY, ioapic->base_addr, ioapic->base_addr + PAGE_SIZE_4KB, 
 		     ioapic_read, ioapic_write, dev);

@@ -26,7 +26,7 @@
 
 
 
-int v3_apic_raise_intr(struct guest_info * info, struct vm_device * apic_dev, int intr_num);
+int v3_apic_raise_intr(struct v3_vm_info * vm, struct vm_device * apic_dev, uint32_t irq, uint32_t dst);
 
 
 #endif // ! __V3VEE__
