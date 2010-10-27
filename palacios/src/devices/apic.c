@@ -556,7 +556,7 @@ static int deliver_ipi(struct guest_info * core,
 
 	case 0:  //fixed
 	case 1: // lowest priority
-	    PrintDebug("icc_bus: delivering IRQ to core %u\n", dst_core->cpu_id); 
+	    PrintDebug(" delivering IRQ to core %u\n", dst_core->cpu_id); 
 
 	    activate_apic_irq(dst_apic, vector);
 
@@ -566,7 +566,7 @@ static int deliver_ipi(struct guest_info * core,
 		// THERE SHOULD BE:  guestapicid->virtualapicid map,
 		//                   cpu_id->logical processor map
 		//     host maitains logical proc->phsysical proc
-		PrintDebug("icc_bus: non-local core, forcing it to exit\n"); 
+		PrintDebug(" non-local core, forcing it to exit\n"); 
 
 		v3_interrupt_cpu(core->vm_info, dst_core->cpu_id, 0);
 	    }
@@ -574,13 +574,13 @@ static int deliver_ipi(struct guest_info * core,
 	    break;
 	case 5: { //INIT
 
-	    PrintDebug("icc_bus: INIT delivery to core %u\n", dst_core->cpu_id);
+	    PrintDebug(" INIT delivery to core %u\n", dst_core->cpu_id);
 
 	    // TODO: any APIC reset on dest core (shouldn't be needed, but not sure...)
 
 	    // Sanity check
 	    if (dst_apic->ipi_state != INIT) { 
-		PrintError("icc_bus: Warning: core %u is not in INIT state (mode = %d), ignored\n",
+		PrintError(" Warning: core %u is not in INIT state (mode = %d), ignored\n",
 			   dst_core->cpu_id, dst_core->cpu_mode);
 		// Only a warning, since INIT INIT SIPI is common
 		break;
@@ -595,7 +595,7 @@ static int deliver_ipi(struct guest_info * core,
 	    // in both cases, it will quickly notice this transition 
 	    // in particular, we should not need to force an exit here
 
-	    PrintDebug("icc_bus: INIT delivery done\n");
+	    PrintDebug(" INIT delivery done\n");
 
 	    break;							
 	}
@@ -603,7 +603,7 @@ static int deliver_ipi(struct guest_info * core,
 
 	    // Sanity check
 	    if (dst_apic->ipi_state != SIPI) { 
-		PrintError("icc_bus: core %u is not in SIPI state (mode = %d), ignored!\n",
+		PrintError(" core %u is not in SIPI state (mode = %d), ignored!\n",
 			   dst_core->cpu_id, dst_core->cpu_mode);
 		break;
 	    }
@@ -623,7 +623,7 @@ static int deliver_ipi(struct guest_info * core,
 	    dst_core->segments.cs.limit = 0xffff;
 	    dst_core->segments.cs.base = vector << 12;
 
-	    PrintDebug("icc_bus: SIPI delivery (0x%x -> 0x%x:0x0) to core %u\n",
+	    PrintDebug(" SIPI delivery (0x%x -> 0x%x:0x0) to core %u\n",
 		       vec, dst_core->segments.cs.selector, dst_core->cpu_id);
 	    // Maybe need to adjust the APIC?
 	    
@@ -632,7 +632,7 @@ static int deliver_ipi(struct guest_info * core,
 
 	    // As with INIT, we should not need to do anything else
 
-	    PrintDebug("icc_bus: SIPI delivery done\n");
+	    PrintDebug(" SIPI delivery done\n");
 
 	    break;							
 	}
