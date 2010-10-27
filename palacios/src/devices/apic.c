@@ -629,6 +629,7 @@ static int deliver_ipi(struct guest_info * core,
 	    
 	    // We transition the target core to SIPI state
 	    dst_core->core_run_state = CORE_RUNNING;  // note: locking should not be needed here
+	    dst_apic->ipi_state = STARTED;
 
 	    // As with INIT, we should not need to do anything else
 
