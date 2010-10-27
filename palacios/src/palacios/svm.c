@@ -577,7 +577,7 @@ int v3_start_svm_guest(struct guest_info * info) {
 
     PrintDebug("SVM core %u: I am starting at CS=0x%x (base=0x%p, limit=0x%x),  RIP=0x%p\n", 
 	       info->cpu_id, info->segments.cs.selector, (void *)(info->segments.cs.base), 
-	       info->segments.cs.limit,(void *)(info->rip));
+	       info->segments.cs.limit, (void *)(info->rip));
 
 
 

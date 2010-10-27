@@ -120,6 +120,8 @@ v3_cpu_arch_t v3_get_cpu_type(int cpu_id) {
 struct v3_vm_info * v3_create_vm(void * cfg, void * priv_data) {
     struct v3_vm_info * vm = v3_config_guest(cfg);
 
+    V3_Print("CORE 0 RIP=%p\n", (void *)(addr_t)(vm->cores[0].rip));
+
     if (vm == NULL) {
 	PrintError("Could not configure guest\n");
 	return NULL;
@@ -133,28 +135,25 @@ struct v3_vm_info * v3_create_vm(void * cfg, void * priv_data) {
 
 static int start_core(void * p)
 {
-    struct guest_info * info = (struct guest_info *)p;
+    struct guest_info * core = (struct guest_info *)p;
 
 
-    PrintDebug("core %u: in start_core\n", info->cpu_id);
-    
-    // we assume here that the APs are in INIT mode
-    // and only the BSP is in REAL
-    // the per-architecture code will rely on this
-    // assumption
+    PrintDebug("core %u: in start_core (RIP=%p)\n", 
+	       core->cpu_id, (void *)(addr_t)core->rip);
 
 
-    switch (v3_cpu_types[info->cpu_id]) {
+    // JRL: Whoa WTF? cpu_types are tied to the vcoreID????
+    switch (v3_cpu_types[core->cpu_id]) {
 #ifdef CONFIG_SVM
 	case V3_SVM_CPU:
 	case V3_SVM_REV3_CPU:
-	    return v3_start_svm_guest(info);
+	    return v3_start_svm_guest(core);
 	    break;
 #endif
 #if CONFIG_VMX
 	case V3_VMX_CPU:
 	case V3_VMX_EPT_CPU:
-	    return v3_start_vmx_guest(info);
+	    return v3_start_vmx_guest(core);
 	    break;
 #endif
 	default:
@@ -181,6 +180,7 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
     /// CHECK IF WE ARE MULTICORE ENABLED....
 
     V3_Print("V3 --  Starting VM (%u cores)\n", vm->num_cores);
+    V3_Print("CORE 0 RIP=%p\n", (void *)(addr_t)(vm->cores[0].rip));
 
     // Check that enough cores are present in the mask to handle vcores
     for (i = 0; i < MAX_CORES; i++) {

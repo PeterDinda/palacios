@@ -475,7 +475,6 @@ int v3_init_vm(struct v3_vm_info * vm) {
 
 int v3_init_core(struct guest_info * core) {
     v3_cpu_arch_t cpu_type = v3_get_cpu_type(v3_get_cpu_id());
-    int cpu_valid = 0;
     struct v3_vm_info * vm = core->vm_info;
 
     /*
@@ -501,27 +500,30 @@ int v3_init_core(struct guest_info * core) {
 #endif
 
     // init SVM/VMX
+
+
+    switch (cpu_type) {
 #ifdef CONFIG_SVM
-    if ((cpu_type == V3_SVM_CPU) || (cpu_type == V3_SVM_REV3_CPU)) {
-	if (v3_init_svm_vmcb(core, vm->vm_class) == -1) {
-	    PrintError("Error in SVM initialization\n");
-	    return -1;
-	}
-	cpu_valid = 1;
-    }
+	case V3_SVM_CPU:
+	case V3_SVM_REV3_CPU:
+	    if (v3_init_svm_vmcb(core, vm->vm_class) == -1) {
+		PrintError("Error in SVM initialization\n");
+		return -1;
+	    }
+	    break;
 #endif
 #ifdef CONFIG_VMX
-    if ((cpu_type == V3_VMX_CPU) || (cpu_type == V3_VMX_EPT_CPU)) {
-	if (v3_init_vmx_vmcs(core, vm->vm_class) == -1) {
-	    PrintError("Error in VMX initialization\n");
-	    return -1;
-	}
-	cpu_valid = 1;
-    }
+	case V3_VMX_CPU:
+	case V3_VMX_EPT_CPU:
+	    if (v3_init_vmx_vmcs(core, vm->vm_class) == -1) {
+		PrintError("Error in VMX initialization\n");
+		return -1;
+	    }
+	    break;
 #endif
-    if (!cpu_valid) {
-	PrintError("Invalid CPU Type 0x%x\n", cpu_type);
-	return -1;
+	default:
+	    PrintError("Invalid CPU Type 0x%x\n", cpu_type);
+	    return -1;
     }
 
     return 0;
