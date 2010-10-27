@@ -285,8 +285,8 @@ static int ioapic_raise_irq(struct v3_vm_info * vm, void * private_data, int irq
 
 	PrintDebug("io apic: raising irq %u\n", irq);
 
-
-	v3_apic_raise_intr(vm, ioapic->apic_dev, irq, irq_entry->val);
+	// Need to add destination argument here...
+	v3_apic_raise_intr(vm, ioapic->apic_dev, irq, irq_entry->vec);
 
     }
 
