@@ -596,7 +596,7 @@ static int deliver_ipi(struct apic_state * src_apic,
 		//     host maitains logical proc->phsysical proc
 		PrintDebug(" non-local core, forcing it to exit\n"); 
 
-		v3_interrupt_cpu(core->vm_info, dst_core->cpu_id, 0);
+		v3_interrupt_cpu(dst_core->vm_info, dst_core->cpu_id, 0);
 	    }
 
 	    break;

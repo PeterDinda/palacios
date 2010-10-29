@@ -284,8 +284,8 @@ static int ioapic_raise_irq(struct v3_vm_info * vm, void * private_data, int irq
 	ipi.mode = irq_entry->del_mode;
 	ipi.logical = irq_entry->dst_mode;
 	ipi.trigger_mode = irq_entry->trig_mode;
-	ipi->dst = irq_entry->dst_field;
-	ipi->dst_shorthand = 0;
+	ipi.dst = irq_entry->dst_field;
+	ipi.dst_shorthand = 0;
 
 	// Need to add destination argument here...
 	v3_apic_send_ipi(vm, ioapic->apic_dev, &ipi);
