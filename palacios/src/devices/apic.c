@@ -128,15 +128,15 @@ struct apic_msr {
 	    uint8_t bootstrap_cpu : 1;
 	    uint8_t rsvd2         : 2;
 	    uint8_t apic_enable   : 1;
-	    uint64_t base_addr   : 40;
-	    uint32_t rsvd3         : 12;
+	    uint64_t base_addr    : 40;
+	    uint32_t rsvd3        : 12;
 	} __attribute__((packed));
     } __attribute__((packed));
 } __attribute__((packed));
 
 
 
-typedef enum {INIT, SIPI, STARTED} ipi_state_t; 
+typedef enum {INIT_ST, SIPI, STARTED} ipi_state_t; 
 
 struct apic_dev_state;
 
@@ -240,7 +240,7 @@ static void init_apic_state(struct apic_state * apic, uint32_t id) {
 
     apic->lapic_id.val = id;
     
-    apic->ipi_state = INIT;
+    apic->ipi_state = INIT_ST;
 
     // The P6 has 6 LVT entries, so we set the value to (6-1)...
     apic->apic_ver.val = 0x80050010;
@@ -304,7 +304,9 @@ static int write_apic_msr(struct guest_info * core, uint_t msr, v3_msr_t src, vo
 
     apic->base_addr = src.value;
 
-    if (v3_hook_full_mem(core->vm_info, core->cpu_id, apic->base_addr, apic->base_addr + PAGE_SIZE_4KB, apic_read, apic_write, apic_dev) == -1) {
+    if (v3_hook_full_mem(core->vm_info, core->cpu_id, apic->base_addr, 
+			 apic->base_addr + PAGE_SIZE_4KB, 
+			 apic_read, apic_write, apic_dev) == -1) {
 	PrintError("apic %u: core %u: Could not hook new APIC Base address\n",
 		   apic->lapic_id.val, core->cpu_id);
 	v3_unlock(apic->lock);
@@ -528,14 +530,22 @@ static inline int should_deliver_flat_ipi(struct guest_info * dst_core,
 static int should_deliver_ipi(struct guest_info * dst_core, 
 			      struct apic_state * dst_apic, uint8_t mda) {
 
-    if (mda == 0xff) {
-	// always deliver broadcast
-	return 1;
-    }
 
     if (dst_apic->dst_fmt.model == 0xf) {
+
+	if (mda == 0xff) {
+	    // always deliver broadcast
+	    return 1;
+	}
+
 	return should_deliver_cluster_ipi(dst_core, dst_apic, mda);
     } else if (dst_apic->dst_fmt.model == 0x0) {
+
+	if (mda == 0xff) {
+	    // always deliver broadcast
+	    return 1;
+	}
+
 	return should_deliver_flat_ipi(dst_core, dst_apic, mda);
     } else {
 	PrintError("apic %u core %u: invalid destination format register value 0x%x for logical mode delivery.\n", 
@@ -545,8 +555,7 @@ static int should_deliver_ipi(struct guest_info * dst_core,
 }
 
 
-static int deliver_ipi(struct guest_info * core, 
-		       struct apic_state * src_apic, 
+static int deliver_ipi(struct apic_state * src_apic, 
 		       struct apic_state * dst_apic, 
 		       uint32_t vector, uint8_t del_mode) {
 
@@ -579,7 +588,7 @@ static int deliver_ipi(struct guest_info * core,
 	    // TODO: any APIC reset on dest core (shouldn't be needed, but not sure...)
 
 	    // Sanity check
-	    if (dst_apic->ipi_state != INIT) { 
+	    if (dst_apic->ipi_state != INIT_ST) { 
 		PrintError(" Warning: core %u is not in INIT state (mode = %d), ignored\n",
 			   dst_core->cpu_id, dst_core->cpu_mode);
 		// Only a warning, since INIT INIT SIPI is common
@@ -651,21 +660,13 @@ static int deliver_ipi(struct guest_info * core,
 }
 
 
-static int route_ipi(struct guest_info * core, struct apic_dev_state * apic_dev,
-		     struct apic_state * src_apic,  uint32_t icr_val) {
-    struct int_cmd_reg * icr = (struct int_cmd_reg *)&icr_val;
+static int route_ipi(struct apic_dev_state * apic_dev,
+		     struct apic_state * src_apic, 
+		     struct int_cmd_reg * icr) {
     struct apic_state * dest_apic = NULL;
 
     PrintDebug("icc_bus: icc_bus=%p, src_apic=%u, icr_data=%llx, extirq=%u\n", 
 	       icc_bus, src_apic, icr_data, extirq);
-
-
-    // initial sanity checks
-    if (src_apic == NULL) { 
-	PrintError("icc_bus: Apparently sending from unregistered apic id=%d\n", 
-		   src_apic->core->cpu_id);
-	return -1;
-    }
 
 
     if ((icr->dst_mode == 0) && (icr->dst >= apic_dev->num_apics)) { 
@@ -680,7 +681,6 @@ static int route_ipi(struct guest_info * core, struct apic_dev_state * apic_dev,
     PrintDebug("icc_bus: IPI %s %u from %s %u to %s %s %u (icr=0x%llx, extirq=%u)\n",
 	       deliverymode_str[icr->del_mode], 
 	       icr->vec, 
-	       (src_apic == state->ioapic_id) ? "ioapic" : "apic",
 	       src_apic, 	       
 	       (icr->dst_mode == 0) ? "(physical)" : "(logical)", 
 	       shorthand_str[icr->dst_shorthand], 
@@ -695,7 +695,7 @@ static int route_ipi(struct guest_info * core, struct apic_dev_state * apic_dev,
 	    if (icr->dst_mode == 0) { 
 		// physical delivery
 
-		if (deliver_ipi(core, src_apic, dest_apic, 
+		if (deliver_ipi(src_apic, dest_apic, 
 				icr->vec, icr->del_mode) == -1) {
 		    PrintError("Error: Could not deliver IPI\n");
 		    return -1;
@@ -714,7 +714,7 @@ static int route_ipi(struct guest_info * core, struct apic_dev_state * apic_dev,
 			 PrintError("Error checking delivery mode\n");
 			 return -1;
 		     } else if (del_flag == 1) {
-			if (deliver_ipi(core, src_apic, dest_apic, 
+			if (deliver_ipi(src_apic, dest_apic, 
 					icr->vec, icr->del_mode) == -1) {
 			    PrintError("Error: Could not deliver IPI\n");
 			    return -1;
@@ -727,8 +727,13 @@ static int route_ipi(struct guest_info * core, struct apic_dev_state * apic_dev,
 	    
 	case 1:  // self
 
+	    if (src_apic == NULL) {
+		PrintError("Sending IPI to self from generic IPI sender\n");
+		break;
+	    }
+
 	    if (icr->dst_mode == 0) { 
-		if (deliver_ipi(core, src_apic, src_apic, icr->vec, icr->del_mode) == -1) {
+		if (deliver_ipi(src_apic, src_apic, icr->vec, icr->del_mode) == -1) {
 		    PrintError("Could not deliver IPI\n");
 		    return -1;
 		}
@@ -749,7 +754,7 @@ static int route_ipi(struct guest_info * core, struct apic_dev_state * apic_dev,
 		dest_apic = &(apic_dev->apics[i]);
 
 		if ((dest_apic != src_apic) || (icr->dst_shorthand == 2)) { 
-		    if (deliver_ipi(core, src_apic, dest_apic, icr->vec, icr->del_mode) == -1) {
+		    if (deliver_ipi(src_apic, dest_apic, icr->vec, icr->del_mode) == -1) {
 			PrintError("Error: Could not deliver IPI\n");
 			return -1;
 		    }
@@ -1203,7 +1208,7 @@ static int apic_write(struct guest_info * core, addr_t guest_addr, void * src, u
 		       apic->lapic_id.val, core->cpu_id,
 		       apic->int_cmd.val, apic->int_cmd.dst);
 
-	    if (route_ipi(core, apic_dev, apic, apic->int_cmd.val) == -1) { 
+	    if (route_ipi(apic_dev, apic, &(apic->int_cmd)) == -1) { 
 		PrintError("IPI Routing failure\n");
 		return -1;
 	    }
@@ -1263,6 +1268,28 @@ static int apic_get_intr_number(struct guest_info * core, void * private_data) {
 	return req_irq;
     }
 
+    return -1;
+}
+
+
+int v3_apic_send_ipi(struct v3_vm_info * vm, struct vm_device * dev, 
+		     struct v3_gen_ipi * ipi) {
+    struct apic_dev_state * apic_dev = (struct apic_dev_state *)(dev->private_data);
+    struct int_cmd_reg tmp_icr;
+
+    // zero out all the fields
+    tmp_icr.val = 0;
+
+
+    tmp_icr.vec = ipi->vector;
+    tmp_icr.del_mode = ipi->mode;
+    tmp_icr.dst_mode = ipi->logical;
+    tmp_icr.trig_mode = ipi->trigger_mode;
+    tmp_icr.dst_shorthand = ipi->dst_shorthand;
+    tmp_icr.dst = ipi->dst;
+    
+
+    route_ipi(apic_dev, NULL, &tmp_icr);
     return -1;
 }
 

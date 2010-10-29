@@ -274,20 +274,21 @@ static int ioapic_raise_irq(struct v3_vm_info * vm, void * private_data, int irq
     irq_entry = &(ioapic->redir_tbl[irq]);
 
     if (irq_entry->mask == 0) {
+	struct v3_gen_ipi ipi;
 
 	PrintDebug("ioapic %u: IOAPIC Signalling APIC to raise INTR %d\n", 
 		   ioapic->ioapic_id.id, irq_entry->vec);
 
-	
-	// May need these for future reference
-	//	icr.val = irq_entry->val;
-	//	icr.trig_mode = irq_entry->trig_mode;
 
-	PrintDebug("io apic: raising irq %u\n", irq);
+	ipi.vector = irq_entry->vec;
+	ipi.mode = irq_entry->del_mode;
+	ipi.logical = irq_entry->dst_mode;
+	ipi.trigger_mode = irq_entry->trig_mode;
+	ipi->dst = irq_entry->dst_field;
+	ipi->dst_shorthand = 0;
 
 	// Need to add destination argument here...
-	v3_apic_raise_intr(vm, ioapic->apic_dev, irq, irq_entry->vec);
-
+	v3_apic_send_ipi(vm, ioapic->apic_dev, &ipi);
     }
 
     return 0;

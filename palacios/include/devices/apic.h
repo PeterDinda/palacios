@@ -25,8 +25,32 @@
 #include <palacios/vmm_dev_mgr.h>
 
 
+typedef enum {IPI_FIXED = 0,
+	      IPI_LOWEST_PRIO = 1,
+	      IPI_SMI = 2,
+	      IPI_NMI = 4,
+	      IPI_INIT = 5,
+	      IPI_EXINT = 7 } ipi_mode_t; 
 
-int v3_apic_raise_intr(struct v3_vm_info * vm, struct vm_device * apic_dev, uint32_t irq, uint32_t dst);
+
+struct v3_gen_ipi {
+    uint8_t vector;
+    ipi_mode_t mode;
+
+    uint8_t logical      : 1;
+    uint8_t trigger_mode : 1;
+    uint8_t dst_shorthand : 2;
+
+    uint8_t dst;
+} __attribute__((packed));
+
+int v3_apic_send_ipi(struct v3_vm_info * vm, struct vm_device * dev, 
+		     struct v3_gen_ipi * ipi);
+
+int v3_apic_raise_intr(struct v3_vm_info * vm, struct vm_device * apic_dev, 
+		       uint32_t irq, uint32_t dst);
+
+
 
 
 #endif // ! __V3VEE__
