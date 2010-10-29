@@ -245,7 +245,7 @@ static int ioapic_write(struct guest_info * core, addr_t guest_addr, void * src,
 			return -1;
 		    }
 		    if (hi_val) {
-			PrintDebug("ioapic %u: Writing to hi of pin %d\n", ioapic->ioapic_id.val, redir_index);
+			PrintDebug("ioapic %u: Writing to hi of pin %d\n", ioapic->ioapic_id.id, redir_index);
 			ioapic->redir_tbl[redir_index].hi = op_val;
 		    } else {
 			PrintDebug("ioapic %u: Writing to lo of pin %d\n", ioapic->ioapic_id.id, redir_index);
@@ -288,7 +288,10 @@ static int ioapic_raise_irq(struct v3_vm_info * vm, void * private_data, int irq
 	ipi.dst_shorthand = 0;
 
 	// Need to add destination argument here...
-	v3_apic_send_ipi(vm, ioapic->apic_dev, &ipi);
+	if (v3_apic_send_ipi(vm, ioapic->apic_dev, &ipi) == -1) {
+	    PrintError("Error sending IPI to apic %d\n", ipi.dst);
+	    return -1;
+	}
     }
 
     return 0;

@@ -155,7 +155,9 @@ struct apic_msr {
 
 
 
-typedef enum {INIT_ST, SIPI, STARTED} ipi_state_t; 
+typedef enum {INIT_ST, 
+	      SIPI, 
+	      STARTED} ipi_state_t; 
 
 struct apic_dev_state;
 
@@ -348,22 +350,23 @@ static int activate_apic_irq(struct apic_state * apic, uint32_t irq_num) {
 
 
     if (irq_num <= 15) {
-	PrintError("apic %u: core ?: Attempting to raise an invalid interrupt: %d\n", apic->lapic_id.val,irq_num);
+	PrintError("apic %u: core %d: Attempting to raise an invalid interrupt: %d\n", 
+		   apic->lapic_id.val, apic->core->cpu_id, irq_num);
 	return -1;
     }
 
 
-    PrintDebug("apic %u: core ?: Raising APIC IRQ %d\n", apic->lapic_id.val, irq_num);
+    PrintDebug("apic %u: core %d: Raising APIC IRQ %d\n", apic->lapic_id.val, apic->core->cpu_id, irq_num);
 
     if (*req_location & flag) {
-	//V3_Print("Interrupts coallescing\n");
+	PrintDebug("Interrupt %d  coallescing\n", irq_num);
     }
 
     if (*en_location & flag) {
 	*req_location |= flag;
     } else {
-	PrintDebug("apic %u: core ?: Interrupt  not enabled... %.2x\n", 
-		   apic->lapic_id.val, *en_location);
+	PrintDebug("apic %u: core %d: Interrupt  not enabled... %.2x\n", 
+		   apic->lapic_id.val, apic->core->cpu_id,*en_location);
 	return 0;
     }
 
@@ -584,7 +587,7 @@ static int deliver_ipi(struct apic_state * src_apic,
 
 	case 0:  //fixed
 	case 1: // lowest priority
-	    PrintDebug(" delivering IRQ to core %u\n", dst_core->cpu_id); 
+	    PrintDebug("delivering IRQ %d to core %u\n", vector, dst_core->cpu_id); 
 
 	    activate_apic_irq(dst_apic, vector);
 
@@ -609,7 +612,7 @@ static int deliver_ipi(struct apic_state * src_apic,
 	    // Sanity check
 	    if (dst_apic->ipi_state != INIT_ST) { 
 		PrintError(" Warning: core %u is not in INIT state (mode = %d), ignored\n",
-			   dst_core->cpu_id, dst_core->cpu_mode);
+			   dst_core->cpu_id, dst_apic->ipi_state);
 		// Only a warning, since INIT INIT SIPI is common
 		break;
 	    }
@@ -632,7 +635,7 @@ static int deliver_ipi(struct apic_state * src_apic,
 	    // Sanity check
 	    if (dst_apic->ipi_state != SIPI) { 
 		PrintError(" core %u is not in SIPI state (mode = %d), ignored!\n",
-			   dst_core->cpu_id, dst_core->cpu_mode);
+			   dst_core->cpu_id, dst_apic->ipi_state);
 		break;
 	    }
 
@@ -684,8 +687,8 @@ static int route_ipi(struct apic_dev_state * apic_dev,
 		     struct int_cmd_reg * icr) {
     struct apic_state * dest_apic = NULL;
 
-    PrintDebug("route_ipi: src_apic=%p, icr_data=%x", 
-	       src_apic, icr_val);
+    PrintDebug("route_ipi: src_apic=%p, icr_data=%p\n", 
+	       src_apic, (void *)(addr_t)icr->val);
 
 
     if ((icr->dst_mode == 0) && (icr->dst >= apic_dev->num_apics)) { 
@@ -757,7 +760,7 @@ static int route_ipi(struct apic_dev_state * apic_dev,
 		}
 	    } else {
 		// logical delivery
-		PrintError("icc_bus: use of logical delivery in self is not yet supported.\n");
+		PrintError("use of logical delivery in self is not yet supported.\n");
 		return -1;
 	    }
 	    break;
@@ -1307,8 +1310,7 @@ int v3_apic_send_ipi(struct v3_vm_info * vm, struct vm_device * dev,
     tmp_icr.dst = ipi->dst;
     
 
-    route_ipi(apic_dev, NULL, &tmp_icr);
-    return -1;
+    return route_ipi(apic_dev, NULL, &tmp_icr);
 }
 
 

@@ -87,7 +87,6 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
     ctrl_area->svm_instrs.STGI = 1;
     ctrl_area->svm_instrs.CLGI = 1;
     ctrl_area->svm_instrs.SKINIT = 1;
-    ctrl_area->svm_instrs.RDTSCP = 1;
     ctrl_area->svm_instrs.ICEBP = 1;
     ctrl_area->svm_instrs.WBINVD = 1;
     ctrl_area->svm_instrs.MONITOR = 1;
@@ -99,8 +98,8 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
     ctrl_area->instrs.HLT = 1;
 
 #ifdef CONFIG_TIME_VIRTUALIZE_TSC
-    ctrl_area->instrs.rdtsc = 1;
-    ctrl_area->svm_instrs.rdtscp = 1;
+    ctrl_area->instrs.RDTSC = 1;
+    ctrl_area->svm_instrs.RDTSCP = 1;
 #endif
 
     // guest_state->cr0 = 0x00000001;    // PE 
