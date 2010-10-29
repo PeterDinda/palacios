@@ -241,18 +241,15 @@ void Main(struct Boot_Info* bootInfo)
 {
   struct Kernel_Thread * key_thread;
   struct Kernel_Thread * spkr_thread;
-
-
-  //  VMConsPutLineN("hello\n", 6);
-
   ulong_t doIBuzz = 0;
 
   Init_BSS();
+  Init_VMCons();
   Init_Screen();
   InitSerial();
-
-  Init_VMCons();
+  Print("Initializing Memory\n");
   Init_Mem(bootInfo);
+  Print("Memory Done\n");
   Init_CRC32();
   Init_TSS();
   Init_Interrupts();
@@ -264,10 +261,6 @@ void Main(struct Boot_Info* bootInfo)
   Init_Paging();
 
   //  Init_IDE();
-
-
-
-
 
 
 
