@@ -32,6 +32,25 @@
 #define PrintDebug(fmt, args...)
 #endif
 
+#ifdef CONFIG_DEBUG_APIC
+static char *shorthand_str[] = { 
+    "(no shorthand)",
+    "(self)",
+    "(all)",
+    "(all-but-me)",
+};
+
+static char *deliverymode_str[] = { 
+    "(fixed)",
+    "(lowest priority)",
+    "(SMI)",
+    "(reserved)",
+    "(NMI)",
+    "(INIT)",
+    "(Start Up)",
+    "(ExtInt)",
+};
+#endif
 
 typedef enum { APIC_TMR_INT, APIC_THERM_INT, APIC_PERF_INT, 
 	       APIC_LINT0_INT, APIC_LINT1_INT, APIC_ERR_INT } apic_irq_type_t;
@@ -327,7 +346,7 @@ static int activate_apic_irq(struct apic_state * apic, uint32_t irq_num) {
 
 
     if (irq_num <= 15) {
-//	PrintError("apic %u: core ?: Attempting to raise an invalid interrupt: %d\n", apic->lapic_id.val,irq_num);
+	PrintError("apic %u: core ?: Attempting to raise an invalid interrupt: %d\n", apic->lapic_id.val,irq_num);
 	return -1;
     }
 
@@ -500,7 +519,7 @@ static inline int should_deliver_cluster_ipi(struct guest_info * dst_core,
 	return 1;
     } else {
 	PrintDebug("apic %u core %u: rejecting clustered IRQ (mda 0x%x != log_dst 0x%x)\n",
-		   dst_apic->lapic_id.val, dst_core->cpu_id, mda, dst_
+		   dst_apic->lapic_id.val, dst_core->cpu_id, mda, 
 		   dst_apic->log_dst.dst_log_id);
 	return 0;
     }
@@ -624,7 +643,7 @@ static int deliver_ipi(struct guest_info * core,
 	    dst_core->segments.cs.base = vector << 12;
 
 	    PrintDebug(" SIPI delivery (0x%x -> 0x%x:0x0) to core %u\n",
-		       vec, dst_core->segments.cs.selector, dst_core->cpu_id);
+		       vector, dst_core->segments.cs.selector, dst_core->cpu_id);
 	    // Maybe need to adjust the APIC?
 	    
 	    // We transition the target core to SIPI state
@@ -656,20 +675,20 @@ static int route_ipi(struct guest_info * core, struct apic_dev_state * apic_dev,
     struct int_cmd_reg * icr = (struct int_cmd_reg *)&icr_val;
     struct apic_state * dest_apic = NULL;
 
-    PrintDebug("icc_bus: icc_bus=%p, src_apic=%u, icr_data=%llx, extirq=%u\n", 
-	       icc_bus, src_apic, icr_data, extirq);
+    PrintDebug("route_ipi: src_apic=%p, icr_data=%x", 
+	       src_apic, icr_val);
 
 
     // initial sanity checks
     if (src_apic == NULL) { 
-	PrintError("icc_bus: Apparently sending from unregistered apic id=%d\n", 
+	PrintError("route_ipi: Apparently sending from unregistered apic id=%d\n", 
 		   src_apic->core->cpu_id);
 	return -1;
     }
 
 
     if ((icr->dst_mode == 0) && (icr->dst >= apic_dev->num_apics)) { 
-	PrintError("icc_bus: Attempted send to unregistered apic id=%u\n", 
+	PrintError("route_ipi: Attempted send to unregistered apic id=%u\n", 
 		   icr->dst);
 	return -1;
     }
@@ -677,16 +696,14 @@ static int route_ipi(struct guest_info * core, struct apic_dev_state * apic_dev,
     dest_apic =  &(apic_dev->apics[icr->dst]);
 
 
-    PrintDebug("icc_bus: IPI %s %u from %s %u to %s %s %u (icr=0x%llx, extirq=%u)\n",
+    PrintDebug("route_ipi: IPI %s %u from apic %p to %s %s %u (icr=0x%llx)\n",
 	       deliverymode_str[icr->del_mode], 
 	       icr->vec, 
-	       (src_apic == state->ioapic_id) ? "ioapic" : "apic",
 	       src_apic, 	       
 	       (icr->dst_mode == 0) ? "(physical)" : "(logical)", 
 	       shorthand_str[icr->dst_shorthand], 
 	       icr->dst,
-	       icr->val,
-	       extirq);
+	       icr->val);
 
 
     switch (icr->dst_shorthand) {
@@ -1272,6 +1289,8 @@ int v3_apic_raise_intr(struct v3_vm_info * vm, struct vm_device * dev,
     struct apic_dev_state * apic_dev = (struct apic_dev_state *)(dev->private_data);
     struct apic_state * apic = &(apic_dev->apics[dst]); 
 
+    PrintDebug("apic %u core ?: raising interrupt IRQ %u (dst = %u).\n", apic->lapic_id.val, irq, dst); 
+
     activate_apic_irq(apic, irq);
 
     if (V3_Get_CPU() != dst) {
@@ -1299,8 +1318,8 @@ static int apic_begin_irq(struct guest_info * core, void * private_data, int irq
 	*req_location &= ~flag;
     } else {
 	// do nothing... 
-	PrintDebug("apic %u: core %u: begin irq for %d ignored since I don't own it\n",
-		   apic->lapic_id.val, info->cpu_id, irq);
+	//PrintDebug("apic %u: core %u: begin irq for %d ignored since I don't own it\n",
+	//	   apic->lapic_id.val, core->cpu_id, irq);
     }
 
     return 0;
@@ -1380,13 +1399,13 @@ static void apic_update_time(struct guest_info * core,
 
 	// raise irq
 	PrintDebug("apic %u: core %u: Raising APIC Timer interrupt (periodic=%d) (icnt=%d) (div=%d)\n",
-		   apic->lapic_id.val, info->cpu_id,
+		   apic->lapic_id.val, core->cpu_id,
 		   apic->tmr_vec_tbl.tmr_mode, apic->tmr_init_cnt, shift_num);
 
 	if (apic_intr_pending(core, priv_data)) {
 	    PrintDebug("apic %u: core %u: Overriding pending IRQ %d\n", 
-		       apic->lapic_id.val, info->cpu_id, 
-		       apic_get_intr_number(info, priv_data));
+		       apic->lapic_id.val, core->cpu_id, 
+		       apic_get_intr_number(core, priv_data));
 	}
 
 	if (activate_internal_irq(apic, APIC_TMR_INT) == -1) {
