@@ -135,10 +135,6 @@ typedef enum { APIC_TMR_INT, APIC_THERM_INT, APIC_PERF_INT,
 #define EXT_INT_LOC_VEC_TBL_OFFSET2       0x520   // 0x500 - 0x530
 #define EXT_INT_LOC_VEC_TBL_OFFSET3       0x530   // 0x500 - 0x530
 
-
-
-
-
 struct apic_msr {
     union {
 	uint64_t value;
@@ -560,7 +556,7 @@ static int should_deliver_ipi(struct guest_info * dst_core,
 	    return 1;
 	}
 
-	return should_deliver_cluster_ipi(dst_core, dst_apic, mda);
+	return should_deliver_flat_ipi(dst_core, dst_apic, mda);
     } else if (dst_apic->dst_fmt.model == 0x0) {
 
 	if (mda == 0xff) {
@@ -568,7 +564,7 @@ static int should_deliver_ipi(struct guest_info * dst_core,
 	    return 1;
 	}
 
-	return should_deliver_flat_ipi(dst_core, dst_apic, mda);
+	return should_deliver_cluster_ipi(dst_core, dst_apic, mda);
     } else {
 	PrintError("apic %u core %u: invalid destination format register value 0x%x for logical mode delivery.\n", 
 		   dst_apic->lapic_id.val, dst_core->cpu_id, dst_apic->dst_fmt.model);
