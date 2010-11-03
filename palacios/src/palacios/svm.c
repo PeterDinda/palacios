@@ -80,8 +80,6 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
 
 
     //
-
-
     ctrl_area->svm_instrs.VMRUN = 1;
     ctrl_area->svm_instrs.VMMCALL = 1;
     ctrl_area->svm_instrs.VMLOAD = 1;
@@ -89,7 +87,6 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
     ctrl_area->svm_instrs.STGI = 1;
     ctrl_area->svm_instrs.CLGI = 1;
     ctrl_area->svm_instrs.SKINIT = 1;
-    ctrl_area->svm_instrs.RDTSCP = 1;
     ctrl_area->svm_instrs.ICEBP = 1;
     ctrl_area->svm_instrs.WBINVD = 1;
     ctrl_area->svm_instrs.MONITOR = 1;
@@ -99,6 +96,12 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
     ctrl_area->instrs.CPUID = 1;
 
     ctrl_area->instrs.HLT = 1;
+
+#ifdef CONFIG_TIME_VIRTUALIZE_TSC
+    ctrl_area->instrs.RDTSC = 1;
+    ctrl_area->svm_instrs.RDTSCP = 1;
+#endif
+
     // guest_state->cr0 = 0x00000001;    // PE 
   
     /*
@@ -422,7 +425,6 @@ static int update_irq_entry_state(struct guest_info * info) {
 int v3_svm_enter(struct guest_info * info) {
     vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
     vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data)); 
-    ullong_t tmp_tsc;
     addr_t exit_code = 0, exit_info1 = 0, exit_info2 = 0;
 
     // Conditionally yield the CPU if the timeslice has expired
@@ -475,31 +477,25 @@ int v3_svm_enter(struct guest_info * info) {
     }
 #endif
 
+    v3_update_timers(info);
 
-    rdtscll(tmp_tsc);
-    v3_update_time(info, (tmp_tsc - info->time_state.cached_host_tsc));
-    rdtscll(info->time_state.cached_host_tsc);
-    //    guest_ctrl->TSC_OFFSET = info->time_state.guest_tsc - info->time_state.cached_host_tsc;
+    /* If this guest is frequency-lagged behind host time, wait 
+     * for the appropriate host time before resuming the guest. */
+    v3_adjust_time(info);
+
+    guest_ctrl->TSC_OFFSET = v3_tsc_host_offset(&info->time_state);
 
     //V3_Print("Calling v3_svm_launch\n");
 
-
     v3_svm_launch((vmcb_t *)V3_PAddr(info->vmm_data), &(info->vm_regs), (vmcb_t *)host_vmcbs[info->cpu_id]);
-    
+
     //V3_Print("SVM Returned: Exit Code: %x, guest_rip=%lx\n", (uint32_t)(guest_ctrl->exit_code), (unsigned long)guest_state->rip);
 
-
     v3_last_exit = (uint32_t)(guest_ctrl->exit_code);
-
-    //rdtscll(tmp_tsc);
-    //    v3_update_time(info, tmp_tsc - info->time_state.cached_host_tsc);
 
     //PrintDebug("SVM Returned\n");
     
     info->num_exits++;
-
-
-
 
     // Save Guest state from VMCB
     info->rip = guest_state->rip;
@@ -558,46 +554,36 @@ int v3_svm_enter(struct guest_info * info) {
 }
 
 
-int v3_start_svm_guest(struct guest_info *info) {
+int v3_start_svm_guest(struct guest_info * info) {
     //    vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
     //  vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
 
+    PrintDebug("Starting SVM core %u\n", info->cpu_id);
 
-    PrintDebug("Starting SVM core %u\n",info->cpu_id);
-    if (info->cpu_mode==INIT) { 
-	PrintDebug("SVM core %u: I am an AP in INIT mode, waiting for that to change\n",info->cpu_id);
-	while (info->cpu_mode==INIT) {
+    if (info->cpu_id == 0) {
+	info->core_run_state = CORE_RUNNING;
+	info->vm_info->run_state = VM_RUNNING;
+    } else  { 
+	PrintDebug("SVM core %u: Waiting for core initialization\n", info->cpu_id);
+
+	while (info->core_run_state == CORE_STOPPED) {
 	    v3_yield(info);
 	    //PrintDebug("SVM core %u: still waiting for INIT\n",info->cpu_id);
 	}
-	PrintDebug("SVM core %u: I am out of INIT\n",info->cpu_id);
-	if (info->cpu_mode==SIPI) { 
-	    PrintDebug("SVM core %u: I am waiting on a SIPI to set my starting address\n",info->cpu_id);
-	    while (info->cpu_mode==SIPI) {
-		v3_yield(info);
-		//PrintDebug("SVM core %u: still waiting for SIPI\n",info->cpu_id);
-	    }
-	}
-	PrintDebug("SVM core %u: I have my SIPI\n", info->cpu_id);
-    }
 
-    if (info->cpu_mode!=REAL) { 
-	PrintError("SVM core %u: I am not in REAL mode at launch!  Huh?!\n", info->cpu_id);
-	return -1;
-    }
+	PrintDebug("SVM core %u initialized\n", info->cpu_id);
+    } 
 
     PrintDebug("SVM core %u: I am starting at CS=0x%x (base=0x%p, limit=0x%x),  RIP=0x%p\n", 
-	       info->cpu_id, info->segments.cs.selector, (void*)(info->segments.cs.base), 
-	       info->segments.cs.limit,(void*)(info->rip));
+	       info->cpu_id, info->segments.cs.selector, (void *)(info->segments.cs.base), 
+	       info->segments.cs.limit, (void *)(info->rip));
 
 
 
     PrintDebug("SVM core %u: Launching SVM VM (vmcb=%p)\n", info->cpu_id, (void *)info->vmm_data);
     //PrintDebugVMCB((vmcb_t*)(info->vmm_data));
     
-    info->vm_info->run_state = VM_RUNNING;
-    rdtscll(info->yield_start_cycle);
-
+    v3_start_time(info);
 
     while (1) {
 	if (v3_svm_enter(info) == -1) {

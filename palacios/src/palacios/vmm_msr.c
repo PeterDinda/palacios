@@ -26,6 +26,8 @@
 void v3_init_msr_map(struct v3_vm_info * vm) {
     struct v3_msr_map * msr_map  = &(vm->msr_map);
 
+    PrintDebug("Initializing MSR map.\n");
+
     INIT_LIST_HEAD(&(msr_map->hook_list));
     msr_map->num_hooks = 0;
 

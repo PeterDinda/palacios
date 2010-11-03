@@ -71,7 +71,8 @@ struct guest_info {
 	uint32_t flags;
 	struct {
 	    uint8_t use_large_pages        : 1;    /* Enable virtual page tables to use large pages */
-	    uint32_t rsvd                  : 31;
+	    uint8_t use_giant_pages        : 1;    /* Enable virtual page tables to use giant (1GB) pages */
+	    uint32_t rsvd                  : 30;
 	} __attribute__((packed));
     } __attribute__((packed));
 
@@ -113,8 +114,12 @@ struct guest_info {
     struct v3_sym_core_state sym_core_state;
 #endif
 
+    /* Per-core config tree data. */
+    v3_cfg_tree_t * core_cfg_data;
 
     struct v3_vm_info * vm_info;
+
+    v3_core_operating_mode_t core_run_state;
 
     /* the logical cpu on which this core runs */
     uint32_t cpu_id;
@@ -168,9 +173,13 @@ struct v3_vm_info {
 
     uint64_t yield_cycle_period;  
 
-    int num_cores;
-    struct guest_info cores[0];
 
+    void * host_priv_data;
+
+    int num_cores;
+
+    // JRL: This MUST be the last entry...
+    struct guest_info cores[0];
 };
 
 int v3_init_vm(struct v3_vm_info * vm);

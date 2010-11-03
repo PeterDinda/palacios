@@ -78,7 +78,8 @@ enum ranks {
 #define PTRDIFF_T_RANK	rank_long
 
 /* DHH */
-#define EMIT(x) do { (q)->Emit((q), (x)); } while (0)
+#include <geekos/vm_cons.h>
+#define EMIT(x) do { if (q == NULL) {(q)->Emit((q), (x));} } while (0)
 
 /*
  * DHH - As a hack, we buffer this many digits when generating

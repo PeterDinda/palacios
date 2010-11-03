@@ -338,23 +338,19 @@ static int handle_pde_shadow_pagefault_64(struct guest_info * info, addr_t fault
     if (shadow_pde_access == PT_ACCESS_NOT_PRESENT) {
         // Check if  we can use large pages and the guest memory is properly aligned
         // to potentially use a large page
-        if (info->use_large_pages && guest_pde->large_page) {
-            // Check underlying physical memory map to see if a large page is viable
+
+        if ((info->use_large_pages == 1) && (guest_pde->large_page == 1)) {
 	    addr_t guest_pa = BASE_TO_PAGE_ADDR_2MB(((pde64_2MB_t *)guest_pde)->page_base_addr);
-	    addr_t host_pa;
-	    if (v3_get_max_page_size(info, guest_pa, PAGE_SIZE_2MB) < PAGE_SIZE_2MB) {
-		PrintDebug("Underlying physical memory map doesn't allow use of a large page.\n");
-		// Fallthrough to small pages
-	    } else if ((v3_gpa_to_hpa(info, guest_pa, &host_pa) != 0)
-		       || (v3_compute_page_alignment(host_pa) < PAGE_SIZE_2MB)) {
-		PrintDebug("Host memory alignment doesn't allow use of a large page.\n");
-		// Fallthrough to small pages
-	    } else if (handle_2MB_shadow_pagefault_pde_64(info, fault_addr, error_code, shadow_pde_access,
-		 	 		               (pde64_2MB_t *)shadow_pde, (pde64_2MB_t *)guest_pde) == 0) {
-	    	return 0;
-	    } else {
-	        PrintError("Error handling large pagefault with large page\n");
-	        return -1;
+	    uint32_t page_size = v3_get_max_page_size(info, guest_pa, LONG);
+	    
+	    if (page_size == PAGE_SIZE_2MB) {
+		if (handle_2MB_shadow_pagefault_pde_64(info, fault_addr, error_code, shadow_pde_access,
+						       (pde64_2MB_t *)shadow_pde, (pde64_2MB_t *)guest_pde) == -1) {
+		    PrintError("Error handling large pagefault with large page\n");
+		    return -1;
+		}
+
+		return 0;
 	    }
 	    // Fallthrough to handle the region with small pages
 	}
@@ -366,7 +362,6 @@ static int handle_pde_shadow_pagefault_64(struct guest_info * info, addr_t fault
 
 	shadow_pde->present = 1;
 	shadow_pde->user_page = guest_pde->user_page;
-
 
 	if (guest_pde->large_page == 0) {
 	    shadow_pde->writable = guest_pde->writable;

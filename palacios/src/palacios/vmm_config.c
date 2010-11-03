@@ -282,10 +282,10 @@ static int determine_paging_mode(struct guest_info *info, v3_cfg_tree_t * core_c
 {
     extern v3_cpu_arch_t v3_cpu_types[];
 
-    v3_cfg_tree_t *vm_tree = info->vm_info->cfg_data->cfg;
-    v3_cfg_tree_t *pg_tree = v3_cfg_subtree(vm_tree, "paging");
-    char *pg_mode          = v3_cfg_val(pg_tree, "mode");
-    char *page_size        = v3_cfg_val(pg_tree, "page_size");
+    v3_cfg_tree_t * vm_tree = info->vm_info->cfg_data->cfg;
+    v3_cfg_tree_t * pg_tree = v3_cfg_subtree(vm_tree, "paging");
+    char * pg_mode          = v3_cfg_val(pg_tree, "mode");
+    char * page_size        = v3_cfg_val(pg_tree, "page_size");
     
     PrintDebug("Paging mode specified as %s\n", pg_mode);
 
@@ -327,11 +327,12 @@ static int determine_paging_mode(struct guest_info *info, v3_cfg_tree_t * core_c
 	return -1;
     }
 
-    if (strcasecmp(v3_cfg_val(pg_tree, "large_pages"), "true") == 0) {
-	info->use_large_pages = 1;
-    	PrintDebug("Use of large pages in memory virtualization enabled.\n");
+    if (v3_cfg_val(pg_tree, "large_pages") != NULL) {
+	if (strcasecmp(v3_cfg_val(pg_tree, "large_pages"), "true") == 0) {
+	    info->use_large_pages = 1;
+	    PrintDebug("Use of large pages in memory virtualization enabled.\n");
+	}
     }
-
     return 0;
 }
 
@@ -389,12 +390,6 @@ static int post_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	return -1;
     }
 
-    if (v3_inject_mptable(vm) == -1) { 
-	PrintError("Failed to inject mptable during configuration\n");
-	return -1;
-    }
-
-
     return 0;
 }
 
@@ -402,7 +397,7 @@ static int post_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
 static int post_config_core(struct guest_info * info, v3_cfg_tree_t * cfg) {
 
-
+    info->core_run_state = CORE_STOPPED;
  
     if (info->vm_info->vm_class == V3_PC_VM) {
 	if (post_config_pc_core(info, cfg) == -1) {
@@ -496,6 +491,7 @@ struct v3_vm_info * v3_config_guest(void * cfg_blob) {
 
 	info->cpu_id = i;
 	info->vm_info = vm;
+	info->core_cfg_data = per_core_cfg;
 
 	if (pre_config_core(info, per_core_cfg) == -1) {
 	    PrintError("Error in core %d preconfiguration\n", i);

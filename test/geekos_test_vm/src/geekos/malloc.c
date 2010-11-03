@@ -19,7 +19,7 @@
  */
 void Init_Heap(ulong_t start, ulong_t size)
 {
-    /*Print("Creating kernel heap: start=%lx, size=%ld\n", start, size);*/
+    Print("Creating kernel heap: start=%lx, size=%ld\n", start, size);
     bpool((void*) start, size);
 }
 

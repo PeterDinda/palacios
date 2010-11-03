@@ -225,6 +225,10 @@ static int init_vmcs_bios(struct guest_info * info, struct vmx_data * vmx_state)
     vmx_state->pri_proc_ctrls.invlpg_exit = 1;
     vmx_state->pri_proc_ctrls.use_msr_bitmap = 1;
     vmx_state->pri_proc_ctrls.pause_exit = 1;
+    vmx_state->pri_proc_ctrls.tsc_offset = 1;
+#ifdef CONFIG_TIME_VIRTUALIZE_TSC
+    vmx_state->pri_proc_ctrls.rdtsc_exit = 1;
+#endif
 
     vmx_ret |= check_vmcs_write(VMCS_IO_BITMAP_A_ADDR, (addr_t)V3_PAddr(info->vm_info->io_map.arch_data));
     vmx_ret |= check_vmcs_write(VMCS_IO_BITMAP_B_ADDR, 
@@ -636,12 +640,11 @@ static void print_exit_log(struct guest_info * info) {
  */
 int v3_vmx_enter(struct guest_info * info) {
     int ret = 0;
-    uint64_t tmp_tsc = 0;
+    uint32_t tsc_offset_low, tsc_offset_high;
     struct vmx_exit_info exit_info;
 
     // Conditionally yield the CPU if the timeslice has expired
     v3_yield_cond(info);
-
 
     // v3_print_guest_state(info);
 
@@ -665,10 +668,16 @@ int v3_vmx_enter(struct guest_info * info) {
 	vmcs_write(VMCS_GUEST_CR3, guest_cr3);
     }
 
-    // We do timer injection here to track real host time.
-    rdtscll(tmp_tsc);
-    v3_update_time(info, tmp_tsc - info->time_state.cached_host_tsc);
-    rdtscll(info->time_state.cached_host_tsc);
+    v3_update_timers(info);
+
+    /* If this guest is frequency-lagged behind host time, wait 
+     * for the appropriate host time before resuming the guest. */
+    v3_adjust_time(info);
+
+    tsc_offset_high = (uint32_t)((v3_tsc_host_offset(&info->time_state) >> 32) & 0xffffffff);
+    tsc_offset_low = (uint32_t)(v3_tsc_host_offset(&info->time_state) & 0xffffffff);
+    check_vmcs_write(VMCS_TSC_OFFSET_HIGH, tsc_offset_high);
+    check_vmcs_write(VMCS_TSC_OFFSET, tsc_offset_low);
 
     if (info->vm_info->run_state == VM_STOPPED) {
 	info->vm_info->run_state = VM_RUNNING;
@@ -688,11 +697,7 @@ int v3_vmx_enter(struct guest_info * info) {
 	return -1;
     }
 
-    //   rdtscll(tmp_tsc);
-    //    v3_update_time(info, tmp_tsc - info->time_state.cached_host_tsc);
-
     info->num_exits++;
-
 
     /* Update guest state */
     v3_vmx_save_vmcs(info);
@@ -739,13 +744,34 @@ int v3_vmx_enter(struct guest_info * info) {
 }
 
 
-int v3_start_vmx_guest(struct guest_info* info) {
+int v3_start_vmx_guest(struct guest_info * info) {
+
+    PrintDebug("Starting VMX core %u\n", info->cpu_id);
+
+    if (info->cpu_id == 0) {
+	info->core_run_state = CORE_RUNNING;
+	info->vm_info->run_state = VM_RUNNING;
+    } else {
+
+        PrintDebug("VMX core %u: Waiting for core initialization\n", info->cpu_id);
+
+        while (info->core_run_state == CORE_STOPPED) {
+            v3_yield(info);
+            //PrintDebug("VMX core %u: still waiting for INIT\n",info->cpu_id);
+        }
+	
+	PrintDebug("VMX core %u initialized\n", info->cpu_id);
+    }
 
 
-    PrintDebug("Launching VMX guest\n");
+    PrintDebug("VMX core %u: I am starting at CS=0x%x (base=0x%p, limit=0x%x),  RIP=0x%p\n",
+               info->cpu_id, info->segments.cs.selector, (void *)(info->segments.cs.base),
+               info->segments.cs.limit, (void *)(info->rip));
 
-    rdtscll(info->time_state.cached_host_tsc);
 
+    PrintDebug("VMX core %u: Launching VMX VM\n", info->cpu_id);
+
+    v3_start_time(info);
 
     while (1) {
 	if (v3_vmx_enter(info) == -1) {
