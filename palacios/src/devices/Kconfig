@@ -351,5 +351,11 @@ config SERIAL_UART
 	help 
 	  Include virtual serial port
 
+config STREAM
+	bool "Stream device"
+	default n
+	help
+	  Stream Device
+
 endmenu
 

@@ -28,6 +28,8 @@
 #include <palacios/vmm_host_events.h>
 #include <palacios/vm_guest.h>
 
+#include <devices/serial.h>
+
 
 #ifndef CONFIG_DEBUG_SERIAL
 #undef PrintDebug
@@ -283,6 +285,10 @@ struct serial_port {
     struct serial_buffer tx_buffer;
     struct serial_buffer rx_buffer;
     uint_t irq_number;
+
+    struct v3_stream_ops *stream_ops;
+    void                 *backend_data;
+
 };
 
 
@@ -291,6 +297,8 @@ struct serial_state {
     struct serial_port com2;
     struct serial_port com3;
     struct serial_port com4;
+
+    
 };
 
 
@@ -492,6 +500,11 @@ static int write_data_port(struct guest_info * core, uint16_t port,
 	com_port->dll.data = *val;
     }  else {
 	queue_data(&(com_port->tx_buffer), *val, com_port, dev);
+	if (com_port->stream_ops) { 
+	    uint8_t c;
+	    dequeue_data(&(com_port->tx_buffer), &c, com_port, dev);
+	    com_port->stream_ops->write(&c,1,com_port->backend_data);
+	}
     }
     
     
@@ -976,6 +989,17 @@ static int serial_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     v3_dev_hook_io(dev, COM4_LINE_STATUS_PORT, &read_status_port, &write_status_port);
     v3_dev_hook_io(dev, COM4_MODEM_STATUS_PORT, &read_status_port, &write_status_port);
     v3_dev_hook_io(dev, COM4_SCRATCH_PORT, &read_ctrl_port, &write_ctrl_port);
+
+    return 0;
+}
+
+int v3_stream_register_serial(struct vm_device * serial_dev, struct v3_stream_ops * ops, void * private_data)
+{
+    struct serial_state *state = (struct serial_state *)(serial_dev->private_data);
+
+    state->com1.stream_ops = ops;
+    state->com1.backend_data = private_data;
+    /* bind to other ports here */
 
     return 0;
 }

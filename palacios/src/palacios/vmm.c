@@ -226,22 +226,10 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
     // Finally launch the BSP on core 0
     sprintf(tname,"core%u",0);
 
-#if CONFIG_LINUX
-    if (vm->num_cores==1) { 
-	start_core(&(vm->cores[0]));
-	return -1;
-    } else {
-	if (!os_hooks->start_thread_on_cpu(0,start_core,&(vm->cores[0]),tname)) { 
-	    PrintError("Thread launch failed\n");
-	    return -1;
-	}
-    }
-#else
     if (!os_hooks->start_thread_on_cpu(0,start_core,&(vm->cores[0]),tname)) { 
 	PrintError("Thread launch failed\n");
 	return -1;
     }
-#endif
 
     return 0;
 
