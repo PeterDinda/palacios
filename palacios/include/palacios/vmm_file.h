@@ -28,37 +28,37 @@
 
 #define V3_FileOpen(path, mode)						\
     ({									\
-	extern struct v3_file_hooks *file_hooks;				\
-	((file_hooks) && (file_hooks)->file_open) ?				\
-	    (file_hooks)->file_open((path), (mode)) : -1 ;		\
+	extern struct v3_file_hooks * file_hooks;			\
+	((file_hooks) && (file_hooks)->file_open) ?			\
+	    (file_hooks)->file_open((path), (mode)) : -1;		\
     })
 
 #define V3_FileClose(fd)						\
     ({									\
-	extern struct v3_file_hooks *file_hooks;				\
-	((file_hooks) && (file_hooks)->file_close) ?				\
-	    (file_hooks)->file_close((fd))  :  -1 ;	\
+	extern struct v3_file_hooks * file_hooks;			\
+	((file_hooks) && (file_hooks)->file_close) ?			\
+	    (file_hooks)->file_close((fd))  :  -1;			\
     })
 
-#define V3_FileSize(fd)						\
+#define V3_FileSize(fd)							\
     ({									\
-	extern struct v3_file_hooks *file_hooks;				\
-	((file_hooks) && (file_hooks)->file_size) ?				\
-	    (file_hooks)->file_size((fd))  : -1 ;	\
+	extern struct v3_file_hooks * file_hooks;			\
+	((file_hooks) && (file_hooks)->file_size) ?			\
+	    (file_hooks)->file_size((fd))  : -1;			\
     })
 
-#define V3_FileRead(fd,start,buf,len)					\
+#define V3_FileRead(fd, start, buf, len)				\
     ({									\
-	extern struct v3_file_hooks *file_hooks;				\
-	((file_hooks) && (file_hooks)->file_read) ?				\
-	    (file_hooks)->file_read((fd),(start),(buf),(len)) : -1 ;  \
+	extern struct v3_file_hooks * file_hooks;			\
+	((file_hooks) && (file_hooks)->file_read) ?			\
+	    (file_hooks)->file_read((fd), (buf), (len), (start)) : -1;	\
     })
 
 #define V3_FileWrite(fd,start,buf,len)					\
     ({									\
-	extern struct v3_file_hooks *file_hooks;				\
-	((file_hooks) && (file_hooks)->file_write) ?				\
-	    (file_hooks)->file_write((fd),(start),(buf),(len)) : -1 ;  \
+	extern struct v3_file_hooks * file_hooks;			\
+	((file_hooks) && (file_hooks)->file_write) ?			\
+	    (file_hooks)->file_write((fd), (buf), (len), (start)) : -1;	\
     })
 
 
@@ -69,14 +69,14 @@
 
 struct v3_file_hooks {
 
-    int (*file_open)(const char *path, int mode);
+    int (*file_open)(const char * path, int mode);
     int (*file_close)(int fd);
 
     long long (*file_size)(int fd);
 
     // blocking reads and writes
-    long long  (*file_read)(int fd,  long long start, void *buffer, long long length);
-    long long  (*file_write)(int fd, long long start, void *buffer, long long length);
+    long long (*file_read)(int fd, void * buffer, long long length, long long offset);
+    long long (*file_write)(int fd, void * buffer, long long length, long long offset);
 
 };
 

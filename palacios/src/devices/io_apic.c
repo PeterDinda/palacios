@@ -20,8 +20,7 @@
 
 #include <palacios/vmm.h>
 #include <palacios/vmm_dev_mgr.h>
-#include <devices/icc_bus.h>
-#include <devices/apic_regs.h>
+#include <devices/apic.h>
 #include <palacios/vm_guest.h>
 
 #ifndef CONFIG_DEBUG_IO_APIC
@@ -136,7 +135,7 @@ struct io_apic_state {
   
     struct redir_tbl_entry redir_tbl[24];
 
-    struct vm_device * icc_bus;
+    struct vm_device * apic_dev;
   
 };
 
@@ -186,7 +185,7 @@ static int ioapic_read(struct guest_info * core, addr_t guest_addr, void * dst, 
 		break;
 	    default: {
 		uint_t redir_index = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) >> 1;
-		uint_t hi_val = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) % 1;
+		uint_t hi_val = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) & 1;
 		
 		if (redir_index > 0x3f) {
 		    PrintError("ioapic %u: Invalid redirection table entry %x\n", ioapic->ioapic_id.id, (uint32_t)redir_index);
@@ -217,6 +216,7 @@ static int ioapic_write(struct guest_info * core, addr_t guest_addr, void * src,
     PrintDebug("ioapic %u: IOAPIC Write at %p (val = %d)\n",  ioapic->ioapic_id.id, (void *)guest_addr, *(uint32_t *)src);
 
     if (reg_tgt == 0x00) {
+	PrintDebug("ioapic %u: Setting ioapic index register to 0x%x.\n", ioapic->ioapic_id.id, op_val);
 	ioapic->index_reg = op_val;
     } else if (reg_tgt == 0x10) {
 	// IOWIN register
@@ -235,17 +235,17 @@ static int ioapic_write(struct guest_info * core, addr_t guest_addr, void * src,
 	    default:
 		{
 		    uint_t redir_index = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) >> 1;
-		    uint_t hi_val = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) % 1;
+		    uint_t hi_val = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) & 1;
 
-
-
+		    PrintDebug("ioapic %u: Writing value 0x%x to redirection entry %u (%s)\n",
+			       ioapic->ioapic_id.id, op_val, redir_index, hi_val ? "hi" : "low");
 
 		    if (redir_index > 0x3f) {
 			PrintError("ioapic %u: Invalid redirection table entry %x\n", ioapic->ioapic_id.id, (uint32_t)redir_index);
 			return -1;
 		    }
 		    if (hi_val) {
-			PrintDebug("ioapic %u: Writing to hi of pin %d\n", ioapic->ioapic_id.val, redir_index);
+			PrintDebug("ioapic %u: Writing to hi of pin %d\n", ioapic->ioapic_id.id, redir_index);
 			ioapic->redir_tbl[redir_index].hi = op_val;
 		    } else {
 			PrintDebug("ioapic %u: Writing to lo of pin %d\n", ioapic->ioapic_id.id, redir_index);
@@ -274,29 +274,24 @@ static int ioapic_raise_irq(struct v3_vm_info * vm, void * private_data, int irq
     irq_entry = &(ioapic->redir_tbl[irq]);
 
     if (irq_entry->mask == 0) {
+	struct v3_gen_ipi ipi;
 
-	PrintDebug("ioapic %u: IOAPIC Signalling APIC to raise INTR %d\n", ioapic->ioapic_id.id, irq_entry->vec);
+	PrintDebug("ioapic %u: IOAPIC Signalling APIC to raise INTR %d\n", 
+		   ioapic->ioapic_id.id, irq_entry->vec);
 
 
-	// the format of the redirection table entry is just slightly 
-	// different than that of the lapic's cmd register, which is the other
-	// way an IPI is initiated.   So we will translate
-	//
-	struct int_cmd_reg icr;
-	
-	icr.val = irq_entry->val;
-	icr.rsvd1=0;
-	icr.lvl=1;
-	icr.trig_mode=irq_entry->trig_mode;
-	icr.rem_rd_status=0;
-	icr.dst_shorthand=0; // no shorthand
-	icr.rsvd2=0;
+	ipi.vector = irq_entry->vec;
+	ipi.mode = irq_entry->del_mode;
+	ipi.logical = irq_entry->dst_mode;
+	ipi.trigger_mode = irq_entry->trig_mode;
+	ipi.dst = irq_entry->dst_field;
+	ipi.dst_shorthand = 0;
 
-	// Note: 0 yhere is "cluster model", but it should be irrelevant
-	// since we are sending this as a physical destination
-	PrintDebug("io apic %u: raising irq %u on ICC bus.\n",
-		   ioapic->ioapic_id.id, irq);
-	v3_icc_send_ipi(ioapic->icc_bus, ioapic->ioapic_id.id,icr.val, 0, irq);
+	// Need to add destination argument here...
+	if (v3_apic_send_ipi(vm, ioapic->apic_dev, &ipi) == -1) {
+	    PrintError("Error sending IPI to apic %d\n", ipi.dst);
+	    return -1;
+	}
     }
 
     return 0;
@@ -332,19 +327,15 @@ static struct v3_device_ops dev_ops = {
 
 
 static int ioapic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
-    struct vm_device * icc_bus = v3_find_dev(vm, v3_cfg_val(cfg, "bus"));
+    struct vm_device * apic_dev = v3_find_dev(vm, v3_cfg_val(cfg, "apic"));
     char * dev_id = v3_cfg_val(cfg, "ID");
 
-    if (!icc_bus) {
-	PrintError("ioapic: Could not locate ICC BUS device (%s)\n", v3_cfg_val(cfg, "bus"));
-	return -1;
-    }
 
     PrintDebug("ioapic: Creating IO APIC\n");
 
     struct io_apic_state * ioapic = (struct io_apic_state *)V3_Malloc(sizeof(struct io_apic_state));
 
-    ioapic->icc_bus = icc_bus;
+    ioapic->apic_dev = apic_dev;
 
     struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, ioapic);
 
@@ -358,8 +349,6 @@ static int ioapic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     v3_register_intr_router(vm, &router_ops, dev);
 
     init_ioapic_state(ioapic,vm->num_cores);
-
-    v3_icc_register_ioapic(vm,icc_bus,ioapic->ioapic_id.id);
 
     v3_hook_full_mem(vm, V3_MEM_CORE_ANY, ioapic->base_addr, ioapic->base_addr + PAGE_SIZE_4KB, 
 		     ioapic_read, ioapic_write, dev);

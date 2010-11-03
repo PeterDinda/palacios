@@ -109,7 +109,11 @@ void Init_Mem(struct Boot_Info* bootInfo)
     ulong_t pageListAddr;
     ulong_t kernEnd;
 
+
+    memset(&s_freeList, 0, sizeof(struct Page_List));
+    
     KASSERT(bootInfo->memSizeKB > 0);
+    Print("Booting with %d KB memory\n", bootInfo->memSizeKB);
 
     /*
      * Before we do anything, switch from setup.asm's temporary GDT
@@ -180,10 +184,12 @@ void Init_Mem(struct Boot_Info* bootInfo)
 
     /* Initialize the kernel heap */
     //    Init_Heap(HIGHMEM_START, KERNEL_HEAP_SIZE);
+
+    Print("Initing heap\n");
     Init_Heap(kernEnd, KERNEL_HEAP_SIZE);
 
     Print("%uKB memory detected, %u pages in freelist, %d bytes in kernel heap\n",
-	bootInfo->memSizeKB, g_freePageCount, KERNEL_HEAP_SIZE);
+	  bootInfo->memSizeKB, g_freePageCount, KERNEL_HEAP_SIZE);
 }
 
 /*

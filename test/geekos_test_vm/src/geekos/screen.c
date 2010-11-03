@@ -14,6 +14,7 @@
 #include <geekos/int.h>
 #include <geekos/fmtout.h>
 #include <geekos/screen.h>
+#include <geekos/vm_cons.h>
 
 /*
  * Information sources for VT100 and ANSI escape sequences:
@@ -387,20 +388,6 @@ static void Update_Cursor(void)
  * Public functions
  * ---------------------------------------------------------------------- */
 
-/*
- * Initialize the screen module.
- */
-void Init_Screen(void)
-{
-    bool iflag = Begin_Int_Atomic();
-
-    s_cons.row = s_cons.col = 0;
-    s_cons.currentAttr = DEFAULT_ATTRIBUTE;
-    Clear_Screen();
-
-    End_Int_Atomic(iflag);
-    Print("Screen Inited\n");
-}
 
 /*
  * Clear the screen using the current attribute.
@@ -512,7 +499,7 @@ void Put_Buf(const char* buf, ulong_t length)
 /* Support for Print(). */
 static void Print_Emit(struct Output_Sink *o, int ch) { Put_Char_Imp(ch); }
 static void Print_Finish(struct Output_Sink *o) { Update_Cursor(); }
-static struct Output_Sink s_outputSink = { &Print_Emit, &Print_Finish };
+static struct Output_Sink s_outputSink;
 
 /*
  * Print to console using printf()-style formatting.
@@ -541,4 +528,23 @@ void PrintList(const char * fmt, va_list ap) {
     bool iflag = Begin_Int_Atomic();
     PrintInternal(fmt, ap);
     End_Int_Atomic(iflag);
+}
+
+
+/*
+ * Initialize the screen module.
+ */
+void Init_Screen(void)
+{
+    bool iflag = Begin_Int_Atomic();
+    
+    s_outputSink.Emit = &Print_Emit;
+    s_outputSink.Finish = &Print_Finish;
+
+    s_cons.row = s_cons.col = 0;
+    s_cons.currentAttr = DEFAULT_ATTRIBUTE;
+    Clear_Screen();
+
+    End_Int_Atomic(iflag);
+    Print("Screen Inited\n");
 }

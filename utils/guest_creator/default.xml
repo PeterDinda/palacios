@@ -55,12 +55,9 @@
 
 
 <!--
-		<device class="ICC_BUS" id="icc"/>
-		<device class="LAPIC" id="apic">
-			<bus>icc</bus>
-		</device>
+		<device class="LAPIC" id="apic"/>
 		<device class="IOAPIC" id="ioapic">
-                	<bus>icc</bus>
+                	<apic>apic</apic>
 		</device>
 -->
 <!--

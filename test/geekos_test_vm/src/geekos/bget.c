@@ -525,10 +525,9 @@ struct bfhead {
 };
 #define BFH(p)	((struct bfhead *) (p))
 
-static struct bfhead freelist = {     /* List of free buffers */
-    {0, 0},
-    {&freelist, &freelist}
-};
+static struct bfhead freelist;     /* List of free buffers */
+
+
 
 
 #ifdef BufStats
@@ -1016,6 +1015,14 @@ void bpool(buf, len)
        whose size we can store in bhead.bsize. */
 
     assert(len - sizeof(struct bhead) <= -((bufsize) ESent + 1));
+
+    /* Initialize Free list since compile time static initializations appear to be broken */
+    freelist.bh.prevfree = 0;
+    freelist.bh.bsize = 0;
+    freelist.ql.flink = &freelist;
+    freelist.ql.blink = &freelist;
+
+
 
     /* Clear  the  backpointer at  the start of the block to indicate that
        there  is  no  free  block  prior  to  this   one.    That   blocks

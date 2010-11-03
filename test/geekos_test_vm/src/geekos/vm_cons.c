@@ -44,7 +44,7 @@ void VMConsMemDump(unsigned char *start, int n)
   int i, j;
 
   for (i=0;i<n;i+=16) {
-    VMConsPrint("%8x", (unsigned)(start+i));
+    VMConsPrint("%8x", *(uchar_t*)(start+i));
     for (j=i; j<i+16 && j<n; j+=2) {
       VMConsPrint(" ");
       VMConsPrintHex(*((unsigned char *)(start+j)));

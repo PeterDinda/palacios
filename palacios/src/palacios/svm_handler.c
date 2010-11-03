@@ -246,9 +246,24 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 		return -1;
 	    }
 	    break;
-	
-
-
+        case VMEXIT_RDTSC:
+#ifdef CONFIG_DEBUG_TIME
+	    PrintDebug("RDTSC/RDTSCP\n");
+#endif 
+	    if (v3_handle_rdtsc(info) == -1) {
+		PrintError("Error Handling RDTSC instruction\n");
+		return -1;
+	    }
+	    break;
+        case VMEXIT_RDTSCP:
+#ifdef CONFIG_DEBUG_TIME
+	    PrintDebug("RDTSCP\n");
+#endif 
+	    if (v3_handle_rdtscp(info) == -1) {
+		PrintError("Error Handling RDTSCP instruction\n");
+		return -1;
+	    }
+	    break;
 
 
 	    /* Exits Following this line are NOT HANDLED */

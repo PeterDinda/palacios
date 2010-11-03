@@ -19,29 +19,23 @@
 
 struct TSS;
 
-#if __TINYC__
-#define PACKED
-#else
-#define PACKED __attribute__((packed))
-#endif
-
 /*
  * The general format of a segment descriptor.
  */
 struct Segment_Descriptor {
-    ushort_t sizeLow        PACKED ;
-    uint_t baseLow     : 24 PACKED ;
-    uint_t type        : 4  PACKED ;
-    uint_t system      : 1  PACKED ;
-    uint_t dpl         : 2  PACKED ;
-    uint_t present     : 1  PACKED ;
-    uint_t sizeHigh    : 4  PACKED ;
-    uint_t avail       : 1  PACKED ;
-    uint_t reserved    : 1  PACKED ;  /* set to zero */
-    uint_t dbBit       : 1  PACKED ;
-    uint_t granularity : 1  PACKED ;
-    uchar_t baseHigh        PACKED ;
-};
+    ushort_t sizeLow;
+    uint_t baseLow     : 24;
+    uint_t type        : 4;
+    uint_t system      : 1;
+    uint_t dpl         : 2;
+    uint_t present     : 1;
+    uint_t sizeHigh    : 4;
+    uint_t avail       : 1;
+    uint_t reserved    : 1;  /* set to zero */
+    uint_t dbBit       : 1;
+    uint_t granularity : 1;
+    uchar_t baseHigh ;
+} __attribute__((packed));
 
 /**
  * Construct a segment selector.
