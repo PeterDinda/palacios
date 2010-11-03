@@ -234,10 +234,10 @@ static int pre_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * vm_cfg) {
     }
 
     // Amount of ram the Guest will have, always in MB
-    vm->mem_size = atoi(memory_str) * 1024 * 1024;
+    vm->mem_size = (addr_t)atoi(memory_str) * 1024 * 1024;
     vm->mem_align = get_alignment(align_str);
 
-    PrintDebug("Alignment computed as 0x%x\n", vm->mem_align);
+    PrintDebug("Alignment for %lu bytes of memory computed as 0x%x\n", vm->mem_size, vm->mem_align);
 
     if (strcasecmp(vm_class, "PC") == 0) {
 	vm->vm_class = V3_PC_VM;
