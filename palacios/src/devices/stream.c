@@ -26,7 +26,6 @@
 #include <palacios/vmm_string.h>
 #include <devices/serial.h>
 
-
 struct stream_state {
     void *stream;
     struct vm_device *frontend_dev;
@@ -104,8 +103,8 @@ static int stream_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg)
     }
 
     v3_stream_register_serial(frontend, &stream_ops, dev);
-
-	return 0;
+	
+    return 0;
 }
 
 device_register("STREAM", stream_init)
