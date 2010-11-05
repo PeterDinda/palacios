@@ -268,10 +268,14 @@ vmx_launch_ret:
 
 
 #define PRE_LAUNCH(return_target)	\
+    push %ebp;				\
+    movl %esp, %ebp; 			\
     pushf;				\
     PUSHA;				\
-    pushl %edi;				\
-    pushl %edx;				\
+  					\
+    movl 8(%ebp),  %edi;		\
+    movl 12(%ebp), %esi; 		\
+    movl 16(%ebp), %edx;		\
     					\
     movl %esp, %eax;			\
     movl $VMCS_HOST_RSP, %ebx;		\
@@ -288,6 +292,8 @@ vmx_launch_ret:
     restore_ctrl_regs(%edx);		\
     restore_registers(%edi);
 
+
+// 32 bit GCC passes arguments via stack
 
 .align 4
 .globl v3_vmx_resume
@@ -346,6 +352,7 @@ vmx_launch_ret:
     jmp .Lreturn
 
 .Lreturn:
+    pop  %ebp;
     ret
 
 #endif
