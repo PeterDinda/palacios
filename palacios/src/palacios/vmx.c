@@ -778,12 +778,24 @@ int v3_start_vmx_guest(struct guest_info * info) {
     v3_start_time(info);
 
     while (1) {
+
+	if (info->vm_info->run_state == VM_STOPPED) {
+	    info->core_run_state = CORE_STOPPED;
+	    break;
+	}
+
 	if (v3_vmx_enter(info) == -1) {
 	    v3_print_vmcs();
 	    print_exit_log(info);
 	    return -1;
 	}
 
+
+
+	if (info->vm_info->run_state == VM_STOPPED) {
+	    info->core_run_state = CORE_STOPPED;
+	    break;
+	}
 /*
 	if ((info->num_exits % 5000) == 0) {
 	    V3_Print("VMX Exit number %d\n", (uint32_t)info->num_exits);
