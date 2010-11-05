@@ -42,12 +42,16 @@ static int emulate_string_write_op(struct guest_info * info, struct x86_instr * 
     addr_t tmp_rcx = 0;
     addr_t src_addr = 0;
 
-    if (dec_instr->dst_operand.operand != write_gva) {
-	PrintError("Inconsistency between Pagefault and Instruction Decode XED_ADDR=%p, PF_ADDR=%p\n",
-		   (void *)dec_instr->dst_operand.operand, (void *)write_gva);
-	return -1;
+    if (info->shdw_pg_mode == SHADOW_PAGING) {
+	if (dec_instr->dst_operand.operand != write_gva) {
+	    PrintError("Inconsistency between Pagefault and Instruction Decode XED_ADDR=%p, PF_ADDR=%p\n",
+		       (void *)dec_instr->dst_operand.operand, (void *)write_gva);
+	    return -1;
+	}
+    } else {
+	// Nested paging (Need check??) 
     }
-  
+
     /*emulation_length = ( (dec_instr->str_op_length  < (0x1000 - PAGE_OFFSET_4KB(write_gva))) ? 
 			 dec_instr->str_op_length :
 			 (0x1000 - PAGE_OFFSET_4KB(write_gva)));*/
