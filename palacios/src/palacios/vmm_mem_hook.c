@@ -54,10 +54,15 @@ int v3_init_mem_hooks(struct v3_vm_info * vm) {
 static int handle_mem_hook(struct guest_info * info, addr_t guest_va, addr_t guest_pa, 
 			   struct v3_mem_region * reg, pf_error_t access_info) {
     struct mem_hook * hook = reg->priv_data;
+    struct v3_mem_hooks * hooks = &(info->vm_info->mem_hooks);
     addr_t op_addr = 0;
 
     if (reg->flags.alloced == 0) {
-	op_addr = hook->hook_hva;
+	if (hook->hook_hva & 0xfff) {
+	    op_addr = (addr_t)(hooks->hook_hvas + (PAGE_SIZE * info->cpu_id));
+	} else {
+	    op_addr = hook->hook_hva;
+	}
     } else {
 	if (v3_gpa_to_hva(info, guest_pa, &op_addr) == -1) {
 	    PrintError("Could not translate hook address (%p)\n", (void *)guest_pa);
@@ -141,14 +146,14 @@ int v3_hook_full_mem(struct v3_vm_info * vm, uint16_t core_id,
   
     struct v3_mem_region * entry = NULL;
     struct mem_hook * hook = V3_Malloc(sizeof(struct mem_hook));
-    struct v3_mem_hooks * hooks = &(vm->mem_hooks);
+    //    struct v3_mem_hooks * hooks = &(vm->mem_hooks);
 
     memset(hook, 0, sizeof(struct mem_hook));
 
     hook->write = write;
     hook->read = read;
     hook->priv_data = priv_data;
-    hook->hook_hva = (addr_t)hooks->hook_hvas + (PAGE_SIZE_4KB * core_id);
+    hook->hook_hva = (addr_t)0xfff;
 
     entry = v3_create_mem_region(vm, core_id, guest_addr_start, guest_addr_end);
 
