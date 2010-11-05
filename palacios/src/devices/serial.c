@@ -503,7 +503,7 @@ static int write_data_port(struct guest_info * core, uint16_t port,
 	if (com_port->stream_ops) { 
 	    uint8_t c;
 	    dequeue_data(&(com_port->tx_buffer), &c, com_port, dev);
-	    com_port->stream_ops->stream_write(&c,1,com_port->backend_data);
+	    com_port->stream_ops->write(&c,1,com_port->backend_data);
 	}
     }
     
@@ -1000,6 +1000,7 @@ int v3_stream_register_serial(struct vm_device * serial_dev, struct v3_stream_op
     state->com1.stream_ops = ops;
     state->com1.backend_data = private_data;
     /* bind to other ports here */
+    return 0;
 }
 
 

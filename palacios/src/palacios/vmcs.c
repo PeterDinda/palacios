@@ -227,7 +227,14 @@ int v3_vmx_save_vmcs(struct guest_info * info) {
 
     check_vmcs_read(VMCS_GUEST_RFLAGS, &(info->ctrl_regs.rflags));
     if (((struct vmx_data *)info->vmm_data)->ia32e_avail) {
+#ifdef __V3_64BIT__
         check_vmcs_read(VMCS_GUEST_EFER, &(info->ctrl_regs.efer));
+#else
+	uint32_t hi, lo;
+        check_vmcs_read(VMCS_GUEST_EFER, &hi);
+        check_vmcs_read(VMCS_GUEST_EFER_HIGH, &lo);
+        info->ctrl_regs.efer = ((uint64_t) hi << 32) | lo;
+#endif
     }
 
     error =  v3_read_vmcs_segments(&(info->segments));

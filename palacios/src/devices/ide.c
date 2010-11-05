@@ -390,7 +390,7 @@ static void print_prd_table(struct vm_device * dev, struct ide_channel * channel
 static int dma_read(struct guest_info * core, struct vm_device * dev, struct ide_channel * channel) {
     struct ide_drive * drive = get_selected_drive(channel);
     // This is at top level scope to do the EOT test at the end
-    struct ide_dma_prd prd_entry;
+    struct ide_dma_prd prd_entry = {};
     uint_t bytes_left = drive->transfer_length;
 
     // Read in the data buffer....
@@ -530,7 +530,7 @@ static int dma_read(struct guest_info * core, struct vm_device * dev, struct ide
 static int dma_write(struct guest_info * core, struct vm_device * dev, struct ide_channel * channel) {
     struct ide_drive * drive = get_selected_drive(channel);
     // This is at top level scope to do the EOT test at the end
-    struct ide_dma_prd prd_entry;
+    struct ide_dma_prd prd_entry = {};
     uint_t bytes_left = drive->transfer_length;
 
 

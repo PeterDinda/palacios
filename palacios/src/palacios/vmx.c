@@ -402,8 +402,12 @@ static int init_vmcs_bios(struct guest_info * info, struct vmx_data * vmx_state)
 
     info->dbg_regs.dr7 = 0x400;
 
+#ifdef __V3_64BIT__
     vmx_ret |= check_vmcs_write(VMCS_LINK_PTR, (addr_t)0xffffffffffffffffULL);
-    
+#else
+    vmx_ret |= check_vmcs_write(VMCS_LINK_PTR, (addr_t)0xffffffffUL);
+    vmx_ret |= check_vmcs_write(VMCS_LINK_PTR_HIGH, (addr_t)0xffffffffUL);
+#endif
 
     if (v3_update_vmcs_ctrl_fields(info)) {
         PrintError("Could not write control fields!\n");

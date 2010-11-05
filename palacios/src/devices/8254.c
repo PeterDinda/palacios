@@ -162,18 +162,18 @@ static int handle_crystal_tics(struct vm_device * dev, struct channel * ch, uint
 	    reload_val = 0xffff;
 	}
 
-	// TODO: Check this....
-	// Is this correct???
-	if (reload_val == 0) {
-	    reload_val = 1;
-	}
-
 	oscillations -= ch->counter;
 	ch->counter = 0;
 	channel_cycles = 1;
 
 	if (ch->op_mode == SQR_WAVE) {
 	    reload_val -= reload_val % 2;
+	}
+
+	// TODO: Check this....
+	// Is this correct???
+	if (reload_val == 0) {
+	    reload_val = 1;
 	}
 
 	channel_cycles += oscillations / reload_val;
