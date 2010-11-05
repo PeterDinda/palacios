@@ -191,4 +191,63 @@ config BUILT_IN_VSNRPRINTF
 	  This enables Palacios' internal implementation of vsnrprintf
 
 
+config BUILT_IN_USERSPACE_SYMS
+	bool "Enable build in versions of user space symbols needed"
+	default y
+	help 
+	  This enables a set of dummy symbols corresponding to user space. 
+	  This is needed to link user space libraries such as XED.
+
+
+config BUILT_IN_STDIN
+	bool "FILE * stdin;"
+	default y
+	depends on BUILT_IN_USERSPACE_SYMS
+	help 
+	  Includes the stdin file pointer
+
+config BUILT_IN_STDOUT
+	bool "FILE * stdout;"
+	default y
+	depends on BUILT_IN_USERSPACE_SYMS
+	help 
+	  Includes the stdout file pointer
+
+config BUILT_IN_STDERR
+	bool "FILE * stderr;"
+	default y
+	depends on BUILT_IN_USERSPACE_SYMS
+	help 
+	  Includes the stderr file pointer
+
+
+config BUILT_IN_FPRINTF
+	bool "fprintf();"
+	default y
+	depends on BUILT_IN_USERSPACE_SYMS
+	help 
+	  Includes fprintf()
+
+config BUILT_IN_PRINTF
+	bool "printf();"
+	default y
+	depends on BUILT_IN_USERSPACE_SYMS
+	help 
+	  Includes printf();
+
+config BUILT_IN_FFLUSH
+	bool "fflush();"
+	default y
+	depends on BUILT_IN_USERSPACE_SYMS
+	help 
+	  Includes fflush()
+
+config BUILT_IN_ABORT
+	bool "abort();"
+	default y
+	depends on BUILT_IN_USERSPACE_SYMS
+	help 
+	  Includes abort();
+	
+
 endmenu
