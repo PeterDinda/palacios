@@ -234,6 +234,21 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
 }
 
 
+int v3_stop_vm(struct v3_vm_info * vm) {
+
+    vm->run_state = VM_STOPPED;
+
+
+    // force exit all cores via a cross call/IPI
+
+    // Wait for all cores to enter CORE_STOPPED state
+
+    // deinitialize guest (free memory, etc...)
+
+    return 0;
+}
+
+
 #ifdef __V3_32BIT__
 
 v3_cpu_mode_t v3_get_host_cpu_mode() {
