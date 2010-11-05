@@ -112,7 +112,7 @@ void v3_print_mem_map(struct v3_vm_info * vm);
 
 
 
-#endif // ! __V3VEE__
+#endif /* ! __V3VEE__ */
 
 
 #endif

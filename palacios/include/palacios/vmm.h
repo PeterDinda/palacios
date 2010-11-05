@@ -21,7 +21,7 @@
 #define __VMM_H__
 
 
-//#include <palacios/vm_guest.h>
+/*#include <palacios/vm_guest.h>*/
 #include <palacios/vmm_mem.h>
 #include <palacios/vmm_types.h>
 
@@ -254,7 +254,7 @@ v3_cpu_arch_t v3_get_cpu_type(int cpu_id);
 int v3_vm_enter(struct guest_info * info);
 
 
-#endif //!__V3VEE__
+#endif /*!__V3VEE__ */
 
 
 
@@ -296,16 +296,16 @@ struct v3_os_hooks {
 };
 
 
-//
-//
-// This is the interrupt state that the VMM's interrupt handlers need to see
-//
+/*
+ *
+ * This is the interrupt state that the VMM's interrupt handlers need to see
+ */
 struct v3_interrupt {
     unsigned int irq;
     unsigned int error;
 
-    unsigned int should_ack;  // Should the vmm ack this interrupt, or will
-    // the host OS do it?
+    unsigned int should_ack;  /* Should the vmm ack this interrupt, or will
+    			       * the host OS do it? */
 };
 
 
