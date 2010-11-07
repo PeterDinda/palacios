@@ -151,6 +151,39 @@ struct guest_info;
 	
 
 
+
+#define V3_Hook_Interrupt(vm, irq) ({					\
+	    int ret = 0;						\
+	    extern struct v3_os_hooks * os_hooks;			\
+	    if ((os_hooks) && (os_hooks)->hook_interrupt) {		\
+		ret = (os_hooks)->hook_interrupt(vm, irq);		\
+	    }								\
+	    ret;							\
+	})								\
+	
+
+#define V3_ACK_IRQ(irq)						\
+    do {							\
+	extern struct v3_os_hooks * os_hooks;			\
+	if ((os_hooks) && (os_hooks)->ack_irq) {		\
+	    (os_hooks)->ack_irq(irq);				\
+	}							\
+    } while (0)
+
+
+
+#define V3_Get_CPU() ({  				                \
+            int ret = 0;                                                \
+            extern struct v3_os_hooks * os_hooks;                       \
+            if ((os_hooks) && (os_hooks)->get_cpu) {                    \
+                ret = (os_hooks)->get_cpu();                            \
+            }                                                           \
+            ret;                                                        \
+        })
+
+
+#ifdef CONFIG_MULTITHREAD_OS
+
 #define V3_CREATE_THREAD(fn, arg, name)				\
     do {							\
 	extern struct v3_os_hooks * os_hooks;			\
@@ -163,24 +196,6 @@ struct guest_info;
 
 
 
-#define V3_Hook_Interrupt(vm, irq) ({					\
-	    int ret = 0;						\
-	    extern struct v3_os_hooks * os_hooks;			\
-	    if ((os_hooks) && (os_hooks)->hook_interrupt) {		\
-		ret = (os_hooks)->hook_interrupt(vm, irq);		\
-	    }								\
-	    ret;							\
-	})								\
-	
-
-#define V3_Get_CPU() ({  				                \
-            int ret = 0;                                                \
-            extern struct v3_os_hooks * os_hooks;                       \
-            if ((os_hooks) && (os_hooks)->get_cpu) {                    \
-                ret = (os_hooks)->get_cpu();                            \
-            }                                                           \
-            ret;                                                        \
-        })
 
 #define V3_Call_On_CPU(cpu, fn, arg)    		\
     do {						\
@@ -202,13 +217,8 @@ struct guest_info;
 	})
 
 
-#define V3_ACK_IRQ(irq)						\
-    do {							\
-	extern struct v3_os_hooks * os_hooks;			\
-	if ((os_hooks) && (os_hooks)->ack_irq) {		\
-	    (os_hooks)->ack_irq(irq);				\
-	}							\
-    } while (0)
+#endif
+
 
 
 
@@ -246,7 +256,6 @@ void v3_print_cond(const char * fmt, ...);
 
 void v3_interrupt_cpu(struct v3_vm_info * vm, int logical_cpu, int vector);
 
-unsigned int v3_get_cpu_id();
 
 v3_cpu_arch_t v3_get_cpu_type(int cpu_id);
 
@@ -279,7 +288,6 @@ struct v3_os_hooks {
 
     unsigned int (*get_cpu_khz)(void);
 
-    void (*start_kernel_thread)(int (*fn)(void * arg), void * arg, char * thread_name); 
 
     void (*yield_cpu)(void); 
 
@@ -289,10 +297,14 @@ struct v3_os_hooks {
     void (*mutex_unlock)(void * mutex);
 
     unsigned int (*get_cpu)(void);
+
+
+#ifdef CONFIG_MULTITHREAD_OS
+    void (*start_kernel_thread)(int (*fn)(void * arg), void * arg, char * thread_name); 
     void (*interrupt_cpu)(struct v3_vm_info * vm, int logical_cpu, int vector);
     void (*call_on_cpu)(int logical_cpu, void (*fn)(void * arg), void * arg);
     void * (*start_thread_on_cpu)(int cpu_id, int (*fn)(void * arg), void * arg, char * thread_name);
-
+#endif
 };
 
 

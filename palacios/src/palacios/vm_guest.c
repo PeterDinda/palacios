@@ -364,7 +364,7 @@ void v3_print_GPRs(struct guest_info * info) {
 #include <palacios/vmcs.h>
 #include <palacios/vmcb.h>
 static int info_hcall(struct guest_info * core, uint_t hcall_id, void * priv_data) {
-    v3_cpu_arch_t cpu_type = v3_get_cpu_type(v3_get_cpu_id());
+    v3_cpu_arch_t cpu_type = v3_get_cpu_type(V3_Get_CPU());
     int cpu_valid = 0;
 
     v3_print_guest_state(core);
@@ -406,7 +406,7 @@ static int info_hcall(struct guest_info * core, uint_t hcall_id, void * priv_dat
 
 
 int v3_init_vm(struct v3_vm_info * vm) {
-    v3_cpu_arch_t cpu_type = v3_get_cpu_type(v3_get_cpu_id());
+    v3_cpu_arch_t cpu_type = v3_get_cpu_type(V3_Get_CPU());
     int cpu_valid = 0;
 
     if (v3_get_foreground_vm() == NULL) {
@@ -474,7 +474,7 @@ int v3_init_vm(struct v3_vm_info * vm) {
 }
 
 int v3_init_core(struct guest_info * core) {
-    v3_cpu_arch_t cpu_type = v3_get_cpu_type(v3_get_cpu_id());
+    v3_cpu_arch_t cpu_type = v3_get_cpu_type(V3_Get_CPU());
     struct v3_vm_info * vm = core->vm_info;
 
     /*
