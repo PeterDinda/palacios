@@ -123,15 +123,27 @@ v3_cpu_arch_t v3_get_cpu_type(int cpu_id) {
 }
 
 
-struct v3_vm_info * v3_create_vm(void * cfg, void * priv_data) {
+struct v3_vm_info * v3_create_vm(void * cfg, void * priv_data, char * name) {
     struct v3_vm_info * vm = v3_config_guest(cfg);
 
     V3_Print("CORE 0 RIP=%p\n", (void *)(addr_t)(vm->cores[0].rip));
+
 
     if (vm == NULL) {
 	PrintError("Could not configure guest\n");
 	return NULL;
     }
+
+ 
+
+    if (name == NULL) {
+	name = "[V3_VM]";
+    } else if (strlen(name) >= 128) {
+	PrintError("VM name is too long. Will be truncated to 128 chars.\n");
+    }
+
+    memset(vm->name, 0, 128);
+    strncpy(vm->name, name, 127);
 
     vm->host_priv_data = priv_data;
 
@@ -170,14 +182,13 @@ static int start_core(void * p)
     return 0;
 }
 
-#ifdef CONFIG_MULTITHREAD_OS
+
 // For the moment very ugly. Eventually we will shift the cpu_mask to an arbitrary sized type...
 #define MAX_CORES 32
 
 
-static int start_vm_multicore(struct v3_vm_info * vm, unsigned int cpu_mask) {
+static int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
     uint32_t i;
-    char tname[16];
     int vcore_id = 0;
     uint8_t * core_mask = (uint8_t *)&cpu_mask; // This is to make future expansion easier
     uint32_t avail_cores = 0;
@@ -206,10 +217,18 @@ static int start_vm_multicore(struct v3_vm_info * vm, unsigned int cpu_mask) {
     }
 
 
-    for (i = 0; (i < MAX_CORES) && (vcore_id < vm->num_cores); i++) {
+    // spawn off new threads, for other cores
+    for (i = 0, vcore_id = 1; (i < MAX_CORES) && (vcore_id < vm->num_cores); i++) {
 	int major = i / 8;
 	int minor = i % 8;
 	void * core_thread = NULL;
+	struct guest_info * core = &(vm->cores[vcore_id]);
+
+	if (i == V3_Get_CPU()) {
+	    // We skip the local CPU, because it is reserved for vcore 0
+	    continue;
+	}
+
 
 	if ((core_mask[major] & (0x1 << minor)) == 0) {
 	    // cpuid not set in cpu_mask
@@ -219,14 +238,13 @@ static int start_vm_multicore(struct v3_vm_info * vm, unsigned int cpu_mask) {
 	PrintDebug("Starting virtual core %u on logical core %u\n", 
 		   vcore_id, i);
 	
-	sprintf(tname, "core%u", vcore_id);
+	sprintf(core->exec_name, "%s-%u", vm->name, vcore_id);
 
 	PrintDebug("run: core=%u, func=0x%p, arg=0x%p, name=%s\n",
-		   i, start_core, &(vm->cores[vcore_id]), tname);
+		   i, start_core, core, core->exec_name);
 
 	// TODO: actually manage these threads instead of just launching them
-	core_thread = V3_CREATE_THREAD_ON_CPU(i, start_core, 
-					      &(vm->cores[vcore_id]), tname);
+	core_thread = V3_CREATE_THREAD_ON_CPU(i, start_core, core, core->exec_name);
 
 	if (core_thread == NULL) {
 	    PrintError("Thread launch failed\n");
@@ -236,19 +254,19 @@ static int start_vm_multicore(struct v3_vm_info * vm, unsigned int cpu_mask) {
 	vcore_id++;
     }
 
+    sprintf(vm->cores[0].exec_name, "%s", vm->name);
+
+    if (start_core(&(vm->cores[0])) != 0) {
+	PrintError("Error starting VM core 0\n");
+	return -1;
+    }
+
+
     return 0;
 
 }
-#endif
 
 
-int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
-#ifdef CONFIG_MULTITHREAD_OS
-    return start_vm_multicore(vm, cpu_mask);
-#else 
-    return start_core(&(vm->cores[0]));
-#endif
-}
 
 
 int v3_stop_vm(struct v3_vm_info * vm) {

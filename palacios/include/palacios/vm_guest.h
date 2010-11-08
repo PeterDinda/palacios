@@ -56,6 +56,8 @@ struct v3_intr_state;
 
 /* per-core state */
 struct guest_info {
+    char exec_name[256];
+    
     uint64_t rip;
 
     uint_t cpl;
@@ -129,6 +131,8 @@ struct guest_info {
 
 /* shared state across cores */
 struct v3_vm_info {
+    char name[128];
+
     v3_vm_class_t vm_class;
 
     addr_t mem_size; /* In bytes for now */

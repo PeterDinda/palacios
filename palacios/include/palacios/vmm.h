@@ -34,7 +34,7 @@ struct guest_info;
 #include <palacios/vmm_string.h>
 
 
-//#include <palacios/vmm_paging.h>
+
 
 /* utility definitions */
 
@@ -300,12 +300,12 @@ struct v3_os_hooks {
     unsigned int (*get_cpu)(void);
 
 
-#ifdef CONFIG_MULTITHREAD_OS
+
     void (*start_kernel_thread)(int (*fn)(void * arg), void * arg, char * thread_name); 
     void (*interrupt_cpu)(struct v3_vm_info * vm, int logical_cpu, int vector);
     void (*call_on_cpu)(int logical_cpu, void (*fn)(void * arg), void * arg);
     void * (*start_thread_on_cpu)(int cpu_id, int (*fn)(void * arg), void * arg, char * thread_name);
-#endif
+
 };
 
 
@@ -327,7 +327,7 @@ struct v3_interrupt {
 void Init_V3(struct v3_os_hooks * hooks,  int num_cpus);
 
 
-struct v3_vm_info * v3_create_vm(void * cfg, void * priv_data);
+struct v3_vm_info * v3_create_vm(void * cfg, void * priv_data, char * name);
 int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask);
 int v3_stop_vm(struct v3_vm_info * vm);
 

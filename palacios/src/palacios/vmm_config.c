@@ -31,7 +31,7 @@
 #include <palacios/vmm_io.h>
 #include <palacios/vmm_msr.h>
 #include <palacios/vmm_mptable.h>
-
+#include <palacios/vmm_sprintf.h>
 
 
 
@@ -220,7 +220,8 @@ static int pre_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * vm_cfg) {
     char * vm_class = v3_cfg_val(vm_cfg, "class");
     char * align_str = v3_cfg_val(v3_cfg_subtree(vm_cfg, "memory"), "alignment");
     uint32_t sched_hz = 100; 	// set the schedule frequency to 100 HZ
-    
+
+
     if (!memory_str) {
 	PrintError("Memory is a required configuration parameter\n");
 	return -1;
