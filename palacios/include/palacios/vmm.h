@@ -211,18 +211,27 @@ struct guest_info;
     } while (0)
 
 
-
-
+#define V3_Reparent_Threadd()					\
+    do {							\
+	if((os_hooks) && (os_hooks)->reparent_threaded) {	\
+	    (os_hooks)->reparent_threaded();			\
+	}							\
+    } while(0)
 
 /* ** */
 
 #define V3_ASSERT(x)							\
     do {								\
+	extern struct v3_os_hooks * os_hooks; 				\
 	if (!(x)) {							\
 	    PrintDebug("Failed assertion in %s: %s at %s, line %d, RA=%lx\n", \
 		       __func__, #x, __FILE__, __LINE__,		\
 		       (ulong_t) __builtin_return_address(0));		\
-	    while(1);							\
+	    while(1){							\
+		if ((os_hooks) && (os_hooks)->yield_cpu) {		\
+	    		(os_hooks)->yield_cpu();			\
+		}							\
+	    }								\
 	}								\
     } while(0)								\
 	
@@ -292,7 +301,7 @@ struct v3_os_hooks {
     void (*interrupt_cpu)(struct v3_vm_info * vm, int logical_cpu, int vector);
     void (*call_on_cpu)(int logical_cpu, void (*fn)(void * arg), void * arg);
     void * (*start_thread_on_cpu)(int cpu_id, int (*fn)(void * arg), void * arg, char * thread_name);
-
+    void (*reparent_threadd)(void);
 };
 
 

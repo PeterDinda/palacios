@@ -26,8 +26,13 @@
    to different kinds of frontend devices that can act as a stream */
 
 struct v3_stream_ops  {
+    /* called by serial device to the backend stream device */
     int (*read)(char *buf, uint_t len, void *private_data);
     int (*write)(char *buf, uint_t len, void *private_data);
+
+    /* called by backend device to frontend serial device */
+    int (*input)(char *buf, uint_t len, void *front_data);
+    void *front_data;
 };
 
 

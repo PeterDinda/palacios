@@ -124,7 +124,6 @@ int v3_hook_io_port(struct v3_vm_info * vm, uint16_t port,
     io_hook->write = write;
   }
 
-
   io_hook->priv_data = priv_data;
 
   if (insert_io_hook(vm, io_hook)) {

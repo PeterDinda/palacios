@@ -26,11 +26,11 @@
 
 #ifdef __V3VEE__
 
-#define V3_StreamOpen(path, mode)						\
+#define V3_StreamOpen(path, notify_fn, private_data, mode)						\
     ({									\
 	extern struct v3_stream_hooks *stream_hooks;				\
 	((stream_hooks) && (stream_hooks)->stream_open) ?				\
-	    (stream_hooks)->stream_open((path), (mode)) : NULL;		\
+	    (stream_hooks)->stream_open((path), (notify_fn), (private_data), (mode)) : NULL;		\
     })
 
 #define V3_StreamRead(stream, b, l)					\
@@ -62,11 +62,10 @@
 #define STREAM_OPEN_MODE_WRITE	(1 << 1)
 
 struct v3_stream_hooks {
-    void *(*stream_open)(const char *path, int mode);
+    void *(*stream_open)(const char *path, void (*notify)(void *), void *private_data, int mode);
     int (*stream_read)(void *stream, char *buf, int len);
     int (*stream_write)(void *stream, char *buf, int len);
     int (*stream_close)(void *stream);
-
 };
 
 

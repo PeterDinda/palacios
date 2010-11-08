@@ -12,6 +12,7 @@
  * All rights reserved.
  *
  * Author: Rumou Duan <duanrumou@gmail.com>
+ *             Lei Xia <lxia@northwestern.edu>
  *
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
@@ -289,6 +290,7 @@ struct serial_port {
     struct v3_stream_ops *stream_ops;
     void                 *backend_data;
 
+    struct vm_device * vm_dev;
 };
 
 
@@ -297,8 +299,6 @@ struct serial_state {
     struct serial_port com2;
     struct serial_port com3;
     struct serial_port com4;
-
-    
 };
 
 
@@ -455,19 +455,6 @@ static int dequeue_data(struct serial_buffer * buf, uint8_t * data,
     return 0;
 }
 
-/*
-static void printBuffer(struct serial_buffer * buf) {
-    int i = 0;
-
-    for (i = 0; i < SERIAL_BUF_LEN; i++) {
-	PrintDebug(" %d ", buf->buffer[i]);
-    }
-
-    PrintDebug("\n the number of elements is %d \n", getNumber(buf));
-}
-*/
-
-//note: write to data port is NOT implemented and corresponding codes are commented out
 static int write_data_port(struct guest_info * core, uint16_t port, 
 			   void * src, uint_t length, struct vm_device * dev) {
     struct serial_state * state = (struct serial_state *)dev->private_data;
@@ -543,8 +530,8 @@ static int read_data_port(struct guest_info * core, uint16_t port,
 	*val = com_port->dll.data;
     } else {
 	dequeue_data(&(com_port->rx_buffer), val, com_port, dev);
-    }
-    
+    }    
+	
     return length;
 }
 
@@ -931,11 +918,21 @@ static int init_serial_port(struct serial_port * com) {
     return 0;
 }
 
+static int serial_input(char *buf, uint_t len, void *front_data){
+    struct serial_port *com_port = (struct serial_port *)front_data;
+    int i;
+
+    for(i=0; i<len; i++){
+    	queue_data(&(com_port->rx_buffer), buf[i], com_port, com_port->vm_dev);
+    }
+
+    return len;
+}
+
 static int serial_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct serial_state * state = (struct serial_state *)V3_Malloc(sizeof(struct serial_state));
     char * dev_id = v3_cfg_val(cfg, "ID");
 
-    PrintDebug("UART: init_device\n");
     init_serial_port(&(state->com1));
     init_serial_port(&(state->com2));
     init_serial_port(&(state->com3));
@@ -946,13 +943,18 @@ static int serial_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     state->com3.irq_number = COM3_IRQ;
     state->com4.irq_number = COM4_IRQ;
 
-
     struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, state);
-
     if (v3_attach_device(vm, dev) == -1) {
 	PrintError("Could not attach device %s\n", dev_id);
 	return -1;
     }
+
+    state->com1.vm_dev = dev;
+    state->com2.vm_dev = dev;
+    state->com3.vm_dev = dev;
+    state->com4.vm_dev = dev;	
+
+    PrintDebug("Serial device attached\n");
 
     v3_dev_hook_io(dev, COM1_DATA_PORT, &read_data_port, &write_data_port);
     v3_dev_hook_io(dev, COM1_IRQ_ENABLE_PORT, &read_ctrl_port, &write_ctrl_port);
@@ -990,6 +992,8 @@ static int serial_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     v3_dev_hook_io(dev, COM4_MODEM_STATUS_PORT, &read_status_port, &write_status_port);
     v3_dev_hook_io(dev, COM4_SCRATCH_PORT, &read_ctrl_port, &write_ctrl_port);
 
+    PrintDebug("Serial ports hooked\n");
+
     return 0;
 }
 
@@ -1000,6 +1004,9 @@ int v3_stream_register_serial(struct vm_device * serial_dev, struct v3_stream_op
     state->com1.stream_ops = ops;
     state->com1.backend_data = private_data;
     /* bind to other ports here */
+
+    ops->input = serial_input;
+    ops->front_data = &(state->com1);
 
     return 0;
 }
