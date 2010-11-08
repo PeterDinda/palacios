@@ -187,7 +187,7 @@ static int start_core(void * p)
 #define MAX_CORES 32
 
 
-static int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
+int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
     uint32_t i;
     int vcore_id = 0;
     uint8_t * core_mask = (uint8_t *)&cpu_mask; // This is to make future expansion easier
