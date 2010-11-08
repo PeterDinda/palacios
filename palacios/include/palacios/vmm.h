@@ -220,14 +220,6 @@ struct guest_info;
 #endif
 
 
-
-#define V3_Reparent_Threadd()					\
-    do {							\
-	if((os_hooks) && (os_hooks)->reparent_threaded) {	\
-	    (os_hooks)->reparent_threaded();			\
-	}							\
-    } while(0)
-
 /* ** */
 
 #define V3_ASSERT(x)							\
@@ -313,7 +305,7 @@ struct v3_os_hooks {
     void (*interrupt_cpu)(struct v3_vm_info * vm, int logical_cpu, int vector);
     void (*call_on_cpu)(int logical_cpu, void (*fn)(void * arg), void * arg);
     void * (*start_thread_on_cpu)(int cpu_id, int (*fn)(void * arg), void * arg, char * thread_name);
-    void (*reparent_threadd)(void);
+#endif
 };
 
 
