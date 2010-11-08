@@ -128,9 +128,6 @@ int v3_vnet_add_route(struct v3_vnet_route route);
 int v3_init_vnet();
 
 int v3_vnet_add_bridge(struct v3_vm_info * vm,
-		/*int (*input)(struct v3_vm_info * vm, struct v3_vnet_pkt pkt[], uint16_t pkt_num, void * private_data),
-		void (*xcall_input)(void *data),
-		int (*poll_pkt)(struct v3_vm_info * vm, void * private_data),*/
 		struct v3_vnet_bridge_ops *ops,
 		void * priv_data);
 
@@ -140,10 +137,8 @@ int v3_vnet_add_dev(struct v3_vm_info *info, uint8_t mac[6],
 
 void v3_vnet_poll(struct v3_vm_info *vm);
 
-/* enable a vnet device, tell VNET can send pkts to it */
 int v3_vnet_enable_device(int dev_id);
 
-/* tell VNET stop sending pkts to it */
 int v3_vnet_disable_device(int dev_id);
 
 #endif

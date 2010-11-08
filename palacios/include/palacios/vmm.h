@@ -193,10 +193,6 @@ struct guest_info;
     } while (0)
 
 
-
-
-
-
 #define V3_Call_On_CPU(cpu, fn, arg)    		\
     do {						\
         extern struct v3_os_hooks * os_hooks;           \
@@ -216,11 +212,14 @@ struct guest_info;
 	    thread;							\
 	})
 
-
 #endif
 
+<<<<<<< HEAD:palacios/include/palacios/vmm.h
 
+=======
+>>>>>>> 0956466aad020813d1e470df366d552fdabab2a9:palacios/include/palacios/vmm.h
 /* ** */
+
 
 #define V3_ASSERT(x)							\
     do {								\
@@ -332,7 +331,6 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask);
 int v3_stop_vm(struct v3_vm_info * vm);
 
 int v3_deliver_irq(struct v3_vm_info * vm, struct v3_interrupt * intr);
-
 
 
 #endif
