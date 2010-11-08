@@ -429,7 +429,7 @@ static struct v3_vm_info * allocate_guest(int num_cores) {
 
 
 struct v3_vm_info * v3_config_guest(void * cfg_blob) {
-    v3_cpu_arch_t cpu_type = v3_get_cpu_type(v3_get_cpu_id());
+    v3_cpu_arch_t cpu_type = v3_get_cpu_type(V3_Get_CPU());
     struct v3_config * cfg_data = NULL;
     struct v3_vm_info * vm = NULL;
     int num_cores = 0;

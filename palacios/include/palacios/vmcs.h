@@ -83,7 +83,7 @@ typedef enum {
     VMCS_LINK_PTR_HIGH                = 0x00002801,
     VMCS_GUEST_DBG_CTL               = 0x00002802,
     VMCS_GUEST_DBG_CTL_HIGH          = 0x00002803,
-    VMCS_GUEST_EFER                   = 0x00002805,
+    VMCS_GUEST_EFER                   = 0x00002806,
     VMCS_GUEST_EFER_HIGH              = 0x00002807,
     VMCS_GUEST_PERF_GLOBAL_CTRL       = 0x00002808,
     VMCS_GUEST_PERF_GLOBAL_CTRL_HIGH  = 0x00002809,

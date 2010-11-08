@@ -586,6 +586,12 @@ int v3_start_svm_guest(struct guest_info * info) {
     v3_start_time(info);
 
     while (1) {
+
+	if (info->vm_info->run_state == VM_STOPPED) {
+	    info->core_run_state = CORE_STOPPED;
+	    break;
+	}
+	
 	if (v3_svm_enter(info) == -1) {
 	    vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
 	    addr_t host_addr;
@@ -622,6 +628,13 @@ int v3_start_svm_guest(struct guest_info * info) {
 
 	    break;
 	}
+
+
+	if (info->vm_info->run_state == VM_STOPPED) {
+	    info->core_run_state = CORE_STOPPED;
+	    break;
+	}
+
 	
 /*
 	if ((info->num_exits % 5000) == 0) {

@@ -4,33 +4,41 @@
 /* Standard I/O predefined streams
 */
 static FILE   _streams = {0, 0, 0, 0, 0, NULL, NULL, 0, 0};
+#ifdef CONFIG_BUILT_IN_STDIN
 FILE  *stdin = (&_streams);
+#endif
+
+#ifdef CONFIG_BUILT_IN_STDOUT
 FILE  *stdout = (&_streams);
+#endif
+
+#ifdef CONFIG_BUILT_IN_STDERR
 FILE  *stderr = (&_streams);
+#endif
 
-int fprintf(FILE *file, char *fmt, ...)
-{
+#ifdef CONFIG_BUILT_IN_FPRINTF
+int fprintf(FILE *file, char *fmt, ...) {
    // PrintDebug("In fprintf!!\n");
-
    return 0;
 
 }
+#endif
 
-int printf(char *fmt, ...)
-{
+#ifdef CONFIG_BUILT_IN_PRINTF
+int printf(char *fmt, ...) {
    // PrintDebug("In fprintf!!\n");
-
    return 0;
-
 }
+#endif
 
-int fflush(FILE *stream)
-{
+#ifdef CONFIG_BUILT_IN_FFLUSH
+int fflush(FILE *stream) {
     //PrintDebug("In fflush!!\n");
-
     return 0;
 }
+#endif
 
+#ifdef CONFIG_BUILT_IN_ABORT
 void abort(void)
 {
    //PrintDebug("Abort!!\n");
@@ -38,7 +46,6 @@ void abort(void)
    //__asm__ __volatile__("trap"); 
    //__builtin_unreached();
 
-
-   while(1);
-   
+   while(1);   
 }
+#endif

@@ -101,6 +101,8 @@ void Init_V3(struct v3_os_hooks * hooks, int num_cpus) {
     v3_init_vnet();
 #endif
 
+
+#ifdef CONFIG_MULTITHREAD_OS
     if ((hooks) && (hooks->call_on_cpu)) {
 
 	for (i = 0; i < num_cpus; i++) {
@@ -109,6 +111,10 @@ void Init_V3(struct v3_os_hooks * hooks, int num_cpus) {
 	    hooks->call_on_cpu(i, &init_cpu, (void *)(addr_t)i);
 	}
     }
+#else 
+    init_cpu(0);
+#endif
+
 }
 
 
@@ -164,11 +170,12 @@ static int start_core(void * p)
     return 0;
 }
 
-
+#ifdef CONFIG_MULTITHREAD_OS
 // For the moment very ugly. Eventually we will shift the cpu_mask to an arbitrary sized type...
 #define MAX_CORES 32
 
-int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
+
+static int start_vm_multicore(struct v3_vm_info * vm, unsigned int cpu_mask) {
     uint32_t i;
     char tname[16];
     int vcore_id = 0;
@@ -231,6 +238,31 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
 
     return 0;
 
+}
+#endif
+
+
+int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
+#ifdef CONFIG_MULTITHREAD_OS
+    return start_vm_multicore(vm, cpu_mask);
+#else 
+    return start_core(&(vm->cores[0]));
+#endif
+}
+
+
+int v3_stop_vm(struct v3_vm_info * vm) {
+
+    vm->run_state = VM_STOPPED;
+
+
+    // force exit all cores via a cross call/IPI
+
+    // Wait for all cores to enter CORE_STOPPED state
+
+    // deinitialize guest (free memory, etc...)
+
+    return 0;
 }
 
 
@@ -320,7 +352,7 @@ void v3_print_cond(const char * fmt, ...) {
 }
 
 
-
+#ifdef CONFIG_MULTITHREAD_OS
 
 void v3_interrupt_cpu(struct v3_vm_info * vm, int logical_cpu, int vector) {
     extern struct v3_os_hooks * os_hooks;
@@ -329,19 +361,7 @@ void v3_interrupt_cpu(struct v3_vm_info * vm, int logical_cpu, int vector) {
 	(os_hooks)->interrupt_cpu(vm, logical_cpu, vector);
     }
 }
-
-
-
-unsigned int v3_get_cpu_id() {
-    extern struct v3_os_hooks * os_hooks;
-    unsigned int ret = (unsigned int)-1;
-
-    if ((os_hooks) && (os_hooks)->get_cpu) {
-	ret = os_hooks->get_cpu();
-    }
-
-    return ret;
-}
+#endif
 
 
 

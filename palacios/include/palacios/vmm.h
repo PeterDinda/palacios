@@ -21,7 +21,7 @@
 #define __VMM_H__
 
 
-//#include <palacios/vm_guest.h>
+/*#include <palacios/vm_guest.h>*/
 #include <palacios/vmm_mem.h>
 #include <palacios/vmm_types.h>
 
@@ -151,6 +151,39 @@ struct guest_info;
 	
 
 
+
+#define V3_Hook_Interrupt(vm, irq) ({					\
+	    int ret = 0;						\
+	    extern struct v3_os_hooks * os_hooks;			\
+	    if ((os_hooks) && (os_hooks)->hook_interrupt) {		\
+		ret = (os_hooks)->hook_interrupt(vm, irq);		\
+	    }								\
+	    ret;							\
+	})								\
+	
+
+#define V3_ACK_IRQ(irq)						\
+    do {							\
+	extern struct v3_os_hooks * os_hooks;			\
+	if ((os_hooks) && (os_hooks)->ack_irq) {		\
+	    (os_hooks)->ack_irq(irq);				\
+	}							\
+    } while (0)
+
+
+
+#define V3_Get_CPU() ({  				                \
+            int ret = 0;                                                \
+            extern struct v3_os_hooks * os_hooks;                       \
+            if ((os_hooks) && (os_hooks)->get_cpu) {                    \
+                ret = (os_hooks)->get_cpu();                            \
+            }                                                           \
+            ret;                                                        \
+        })
+
+
+#ifdef CONFIG_MULTITHREAD_OS
+
 #define V3_CREATE_THREAD(fn, arg, name)				\
     do {							\
 	extern struct v3_os_hooks * os_hooks;			\
@@ -163,24 +196,6 @@ struct guest_info;
 
 
 
-#define V3_Hook_Interrupt(vm, irq) ({					\
-	    int ret = 0;						\
-	    extern struct v3_os_hooks * os_hooks;			\
-	    if ((os_hooks) && (os_hooks)->hook_interrupt) {		\
-		ret = (os_hooks)->hook_interrupt(vm, irq);		\
-	    }								\
-	    ret;							\
-	})								\
-	
-
-#define V3_Get_CPU() ({  				                \
-            int ret = 0;                                                \
-            extern struct v3_os_hooks * os_hooks;                       \
-            if ((os_hooks) && (os_hooks)->get_cpu) {                    \
-                ret = (os_hooks)->get_cpu();                            \
-            }                                                           \
-            ret;                                                        \
-        })
 
 #define V3_Call_On_CPU(cpu, fn, arg)    		\
     do {						\
@@ -202,13 +217,8 @@ struct guest_info;
 	})
 
 
-#define V3_ACK_IRQ(irq)						\
-    do {							\
-	extern struct v3_os_hooks * os_hooks;			\
-	if ((os_hooks) && (os_hooks)->ack_irq) {		\
-	    (os_hooks)->ack_irq(irq);				\
-	}							\
-    } while (0)
+#endif
+
 
 
 #define V3_Reparent_Threadd()					\
@@ -255,7 +265,6 @@ void v3_print_cond(const char * fmt, ...);
 
 void v3_interrupt_cpu(struct v3_vm_info * vm, int logical_cpu, int vector);
 
-unsigned int v3_get_cpu_id();
 
 v3_cpu_arch_t v3_get_cpu_type(int cpu_id);
 
@@ -263,7 +272,7 @@ v3_cpu_arch_t v3_get_cpu_type(int cpu_id);
 int v3_vm_enter(struct guest_info * info);
 
 
-#endif //!__V3VEE__
+#endif /*!__V3VEE__ */
 
 
 
@@ -288,7 +297,6 @@ struct v3_os_hooks {
 
     unsigned int (*get_cpu_khz)(void);
 
-    void (*start_kernel_thread)(int (*fn)(void * arg), void * arg, char * thread_name); 
 
     void (*yield_cpu)(void); 
 
@@ -298,6 +306,10 @@ struct v3_os_hooks {
     void (*mutex_unlock)(void * mutex);
 
     unsigned int (*get_cpu)(void);
+
+
+#ifdef CONFIG_MULTITHREAD_OS
+    void (*start_kernel_thread)(int (*fn)(void * arg), void * arg, char * thread_name); 
     void (*interrupt_cpu)(struct v3_vm_info * vm, int logical_cpu, int vector);
     void (*call_on_cpu)(int logical_cpu, void (*fn)(void * arg), void * arg);
     void * (*start_thread_on_cpu)(int cpu_id, int (*fn)(void * arg), void * arg, char * thread_name);
@@ -305,16 +317,16 @@ struct v3_os_hooks {
 };
 
 
-//
-//
-// This is the interrupt state that the VMM's interrupt handlers need to see
-//
+/*
+ *
+ * This is the interrupt state that the VMM's interrupt handlers need to see
+ */
 struct v3_interrupt {
     unsigned int irq;
     unsigned int error;
 
-    unsigned int should_ack;  // Should the vmm ack this interrupt, or will
-    // the host OS do it?
+    unsigned int should_ack;  /* Should the vmm ack this interrupt, or will
+    			       * the host OS do it? */
 };
 
 
@@ -325,7 +337,7 @@ void Init_V3(struct v3_os_hooks * hooks,  int num_cpus);
 
 struct v3_vm_info * v3_create_vm(void * cfg, void * priv_data);
 int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask);
-
+int v3_stop_vm(struct v3_vm_info * vm);
 
 int v3_deliver_irq(struct v3_vm_info * vm, struct v3_interrupt * intr);
 

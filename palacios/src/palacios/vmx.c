@@ -402,8 +402,12 @@ static int init_vmcs_bios(struct guest_info * info, struct vmx_data * vmx_state)
 
     info->dbg_regs.dr7 = 0x400;
 
+#ifdef __V3_64BIT__
     vmx_ret |= check_vmcs_write(VMCS_LINK_PTR, (addr_t)0xffffffffffffffffULL);
-    
+#else
+    vmx_ret |= check_vmcs_write(VMCS_LINK_PTR, (addr_t)0xffffffffUL);
+    vmx_ret |= check_vmcs_write(VMCS_LINK_PTR_HIGH, (addr_t)0xffffffffUL);
+#endif
 
     if (v3_update_vmcs_ctrl_fields(info)) {
         PrintError("Could not write control fields!\n");
@@ -774,12 +778,24 @@ int v3_start_vmx_guest(struct guest_info * info) {
     v3_start_time(info);
 
     while (1) {
+
+	if (info->vm_info->run_state == VM_STOPPED) {
+	    info->core_run_state = CORE_STOPPED;
+	    break;
+	}
+
 	if (v3_vmx_enter(info) == -1) {
 	    v3_print_vmcs();
 	    print_exit_log(info);
 	    return -1;
 	}
 
+
+
+	if (info->vm_info->run_state == VM_STOPPED) {
+	    info->core_run_state = CORE_STOPPED;
+	    break;
+	}
 /*
 	if ((info->num_exits % 5000) == 0) {
 	    V3_Print("VMX Exit number %d\n", (uint32_t)info->num_exits);

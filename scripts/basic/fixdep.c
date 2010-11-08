@@ -261,6 +261,66 @@ int strrcmp(char *s, char *sub)
 	return memcmp(s + slen - sublen, sub, sublen);
 }
 
+#ifdef __minix
+/* MINIX does not support memory-mapped files;
+ * fortunately we only need to read the file which means we can just
+ * use malloc and read to achieve a similar effect
+ */
+#define mmap mmap_hack
+#define munmap munmap_hack
+
+#include <assert.h>
+
+static void *mmap(void *start, size_t size, int prot, int flags, int fd, 
+	off_t offset)
+{
+	void *map;
+	off_t position;
+	ssize_t sizeread;
+
+	/* verify that we can handle this request */
+	assert(start == NULL);
+	assert(prot == PROT_READ);
+	assert(flags == MAP_PRIVATE);
+
+	/* seek to offset, storing old file pointer */
+	if ((position = lseek(fd, 0, SEEK_CUR)) == -1 ||
+		lseek(fd, offset, SEEK_SET) != offset) {
+		perror("fixdep: lseek");
+	}
+
+	/* allocate memory for file buffer */
+	map = malloc(size);
+	if (map) {
+		/* read the file data */
+		sizeread = read(fd, map, size);
+		if (sizeread != size) {
+			/* read failed or file size not as expected, 
+			 * return mmap error code 
+			 */
+			free(map);
+			map = (void *) -1L;
+		}
+	} else {
+		/* malloc failed, return mmap error code */
+		map = (void *) -1L;
+	}
+
+	/* restore old file pointer */
+	if (lseek(fd, position, SEEK_SET) != position) {
+		perror("fixdep: lseek");
+	}
+
+	return map;
+}
+
+static int munmap(void *start, size_t length)
+{
+	free(start);
+	return 0;
+}
+#endif
+
 void do_config_file(char *filename)
 {
 	struct stat st;
