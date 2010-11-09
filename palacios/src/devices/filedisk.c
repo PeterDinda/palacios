@@ -21,6 +21,7 @@
 #include <palacios/vmm_dev_mgr.h>
 
 #include <palacios/vmm_file.h>
+#include <palacios/vm_guest.h>
 
 #ifndef CONFIG_DEBUG_FILEDISK
 #undef PrintDebug
@@ -30,12 +31,12 @@
 struct disk_state {
     uint64_t capacity; // in bytes
 
-    int fd;
+    void * fd;
 };
 
 
 
-static int write_all(int fd, char * buf, int offset, int length) {
+static int write_all(void * fd, char * buf, int offset, int length) {
     int bytes_written = 0;
     
     PrintDebug("Writing %d bytes\n", length - bytes_written);
@@ -55,7 +56,7 @@ static int write_all(int fd, char * buf, int offset, int length) {
 }
 
 
-static int read_all(int fd, char * buf, int offset, int length) {
+static int read_all(void * fd, char * buf, int offset, int length) {
     int bytes_read = 0;
     
     PrintDebug("Reading %d bytes\n", length - bytes_read);
@@ -127,10 +128,7 @@ static struct v3_device_ops dev_ops = {
 static int disk_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct disk_state * disk = NULL;
     char * path = v3_cfg_val(cfg, "path");
-
     char * dev_id = v3_cfg_val(cfg, "ID");
-
-
 
     char * writable = v3_cfg_val(cfg, "writable");
     char * readable = v3_cfg_val(cfg, "readable");
@@ -144,20 +142,18 @@ static int disk_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     memset(disk, 0, sizeof(struct disk_state));
 
 
-    if (!path) {
-
-
+    if (path == NULL) {
 	PrintError("Missing path (%s) for %s\n", path, dev_id);
 	return -1;
 
     }
     
-    if ( allowRead && allowWrite ) {
-    	disk->fd = V3_FileOpen(path, FILE_OPEN_MODE_READ | FILE_OPEN_MODE_WRITE );
-    } else if ( allowRead && !allowWrite ) {
-    	disk->fd = V3_FileOpen(path, FILE_OPEN_MODE_READ );
-    } else if ( !allowRead && allowWrite ) {
-    	disk->fd = V3_FileOpen(path, FILE_OPEN_MODE_WRITE );
+    if ( (allowRead == 1) && (allowWrite == 1) ) {
+    	disk->fd = V3_FileOpen(path, FILE_OPEN_MODE_READ | FILE_OPEN_MODE_WRITE, vm->host_priv_data );
+    } else if ( (allowRead == 1) && (allowWrite == 0) ) {
+    	disk->fd = V3_FileOpen(path, FILE_OPEN_MODE_READ, vm->host_priv_data );
+    } else if ( (allowRead == 0) && (allowWrite == 1) ) {
+    	disk->fd = V3_FileOpen(path, FILE_OPEN_MODE_WRITE, vm->host_priv_data );
     } else {
     	PrintError("Error on %s: No file mode specified\n", dev_id );
     	return -1;

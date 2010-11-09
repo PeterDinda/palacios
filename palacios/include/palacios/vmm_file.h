@@ -26,39 +26,54 @@
 
 #ifdef __V3VEE__
 
-#define V3_FileOpen(path, mode)						\
+#define V3_FileOpen(path, mode, host_data)				\
     ({									\
+	void * fd = NULL;						\
 	extern struct v3_file_hooks * file_hooks;			\
-	((file_hooks) && (file_hooks)->file_open) ?			\
-	    (file_hooks)->file_open((path), (mode)) : -1;		\
+	if ((file_hooks) && (file_hooks)->file_open) {			\
+	    fd = (file_hooks)->file_open((path), (mode), (host_data));	\
+	}								\
+	fd;								\
     })
 
 #define V3_FileClose(fd)						\
     ({									\
+	int ret = 0;							\
 	extern struct v3_file_hooks * file_hooks;			\
-	((file_hooks) && (file_hooks)->file_close) ?			\
-	    (file_hooks)->file_close((fd))  :  -1;			\
+	if ((file_hooks) && (file_hooks)->file_close) {			\
+	    ret = (file_hooks)->file_close((fd));			\
+	}								\
+	ret;								\
     })
 
 #define V3_FileSize(fd)							\
     ({									\
+	long long size = -1;						\
 	extern struct v3_file_hooks * file_hooks;			\
-	((file_hooks) && (file_hooks)->file_size) ?			\
-	    (file_hooks)->file_size((fd))  : -1;			\
+	if ((file_hooks) && (file_hooks)->file_size) {			\
+	    size = (file_hooks)->file_size((fd));			\
+	}								\
+	size;								\
     })
 
 #define V3_FileRead(fd, start, buf, len)				\
     ({									\
+	long long ret = -1;						\
 	extern struct v3_file_hooks * file_hooks;			\
-	((file_hooks) && (file_hooks)->file_read) ?			\
-	    (file_hooks)->file_read((fd), (buf), (len), (start)) : -1;	\
+	if ((file_hooks) && (file_hooks)->file_read) {			\
+	    ret = (file_hooks)->file_read((fd), (buf), (len), (start));	\
+	}								\
+	ret;								\
     })
 
 #define V3_FileWrite(fd,start,buf,len)					\
     ({									\
+	long long ret = -1;						\
 	extern struct v3_file_hooks * file_hooks;			\
-	((file_hooks) && (file_hooks)->file_write) ?			\
-	    (file_hooks)->file_write((fd), (buf), (len), (start)) : -1;	\
+	if ((file_hooks) && (file_hooks)->file_write) {			\
+	    ret = (file_hooks)->file_write((fd), (buf), (len), (start)); \
+	}								\
+	ret;								\
     })
 
 
@@ -69,7 +84,7 @@
 
 struct v3_file_hooks {
 
-    void (*file_open)(const char * path, int mode, void * host_data);
+    void * (*file_open)(const char * path, int mode, void * host_data);
     int (*file_close)(void * fd);
 
     long long (*file_size)(void * fd);
