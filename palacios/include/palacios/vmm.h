@@ -214,10 +214,6 @@ struct guest_info;
 
 #endif
 
-<<<<<<< HEAD:palacios/include/palacios/vmm.h
-
-=======
->>>>>>> 0956466aad020813d1e470df366d552fdabab2a9:palacios/include/palacios/vmm.h
 /* ** */
 
 
