@@ -337,11 +337,11 @@ config SERIAL_UART
 	help 
 	  Include virtual serial port
 
-config STREAM
-	bool "Stream device"
+config CHAR_STREAM
+	bool "Stream based character frontend"
 	default n
 	help
-	  Stream Device
+	  Include Stream based character device frontend
 
 endmenu
 

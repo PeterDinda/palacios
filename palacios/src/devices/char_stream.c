@@ -106,5 +106,5 @@ static int stream_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg)
     return 0;
 }
 
-device_register("STREAM", stream_init)
+device_register("CHAR_STREAM", stream_init)
 
