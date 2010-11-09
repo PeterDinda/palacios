@@ -62,6 +62,9 @@ struct vmm_dev_mgr {
     struct list_head net_list;
     struct hashtable * net_table;
 
+    struct list_head char_list;
+    struct hashtable * char_table;
+
     struct list_head console_list;
     struct hashtable * console_table;
 
@@ -158,24 +161,34 @@ struct v3_dev_blk_ops {
 };
 
 struct v3_dev_net_ops {
-    /* below functions are called by frontend device
-     * These will be filled in by the backend when a backend is initiated.  --Lei*/
+    /* Backend implemented functions */
     int (*send)(uint8_t * buf, uint32_t count, void * private_data, struct vm_device *dest_dev);
     void (*start_rx)(void *back_data);
     void (*stop_rx)(void *back_data);
 
-    /* below functions are called by Backend device
-     * These will be filled in by the frontend when a backend is connected. -- Lei*/
+    /* Frontend implemented functions */
     int (*recv)(uint8_t * buf, uint32_t count, void * frnt_data);
-    void (*poll)(struct v3_vm_info *vm, void* frnt_data);
+    void (*poll)(struct v3_vm_info * vm, void * frnt_data);
     void (*start_tx)(void * frnt_data);
     void (*stop_tx)(void * frnt_data);
-    void * frontend_data;
+
+    /* This is ugly... */
+    void * frontend_data; 
 };
 
 struct v3_dev_console_ops {
 
 };
+
+struct v3_dev_char_ops {
+    /* Backend implemented functions */
+    int (*write)(uint8_t * buf, uint64_t len, void * private_data);
+    //  int (*read)(uint8_t * buf, uint64_t len, void * private_data);
+
+    /* Frontend Implemented functions */
+    int (*push)(uint8_t * buf, uint64_t len, void * private_data);
+};
+
 
 int v3_dev_add_blk_frontend(struct v3_vm_info * vm, 
 			    char * name, 
@@ -206,6 +219,24 @@ int v3_dev_connect_net(struct v3_vm_info * vm,
 		       struct v3_dev_net_ops * ops, 
 		       v3_cfg_tree_t * cfg, 
 		       void * private_data);
+
+
+int v3_dev_add_char_frontend(struct v3_vm_info * vm, 
+			     char * name, 
+			     int (*connect)(struct v3_vm_info * vm, 
+					    void * frontend_data, 
+					    struct v3_dev_char_ops * ops, 
+					    v3_cfg_tree_t * cfg, 
+					    void * private_data,
+					    void ** push_fn_arg), 
+			     void * priv_data);
+
+int v3_dev_connect_char(struct v3_vm_info * vm, 
+			char * frontend_name, 
+			struct v3_dev_char_ops * ops, 
+			v3_cfg_tree_t * cfg, 
+			void * private_data, 
+			void ** push_fn_arg);
 
 
 #endif // ! __V3VEE__

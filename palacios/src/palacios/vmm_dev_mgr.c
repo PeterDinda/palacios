@@ -96,10 +96,12 @@ int v3_init_dev_mgr(struct v3_vm_info * vm) {
 
     INIT_LIST_HEAD(&(mgr->blk_list));
     INIT_LIST_HEAD(&(mgr->net_list));
+    INIT_LIST_HEAD(&(mgr->char_list));
     INIT_LIST_HEAD(&(mgr->console_list));
 
     mgr->blk_table = v3_create_htable(0, dev_hash_fn, dev_eq_fn);
     mgr->net_table = v3_create_htable(0, dev_hash_fn, dev_eq_fn);
+    mgr->char_table = v3_create_htable(0, dev_hash_fn, dev_eq_fn);
     mgr->console_table = v3_create_htable(0, dev_hash_fn, dev_eq_fn);
     
     return 0;
@@ -389,6 +391,73 @@ int v3_dev_connect_net(struct v3_vm_info * vm,
 
     if (frontend->connect(vm, frontend->priv_data, ops, cfg, private_data) == -1) {
 	PrintError("Error connecting to net frontend %s\n", frontend_name);
+	return -1;
+    }
+
+    return 0;
+}
+
+
+struct char_frontend {
+    int (*connect)(struct v3_vm_info * vm, 
+		   void * frontend_data, 
+		   struct v3_dev_char_ops * ops, 
+		   v3_cfg_tree_t * cfg, 
+		   void * priv_data, 
+		   void ** push_fn_arg);
+    
+
+    struct list_head char_node;
+
+    void * priv_data;
+};
+
+
+
+int v3_dev_add_char_frontend(struct v3_vm_info * vm, 
+			     char * name, 
+			     int (*connect)(struct v3_vm_info * vm, 
+					    void * frontend_data, 
+					    struct v3_dev_char_ops * ops, 
+					    v3_cfg_tree_t * cfg, 
+					    void * private_data, 
+					    void ** push_fn_arg), 
+			     void * priv_data)
+{
+    struct char_frontend * frontend = NULL;
+
+    frontend = (struct char_frontend *)V3_Malloc(sizeof(struct char_frontend));
+    memset(frontend, 0, sizeof(struct char_frontend));
+    
+    frontend->connect = connect;
+    frontend->priv_data = priv_data;
+	
+    list_add(&(frontend->char_node), &(vm->dev_mgr.char_list));
+    v3_htable_insert(vm->dev_mgr.char_table, (addr_t)(name), (addr_t)frontend);
+
+    return 0;
+}
+
+
+int v3_dev_connect_char(struct v3_vm_info * vm, 
+			char * frontend_name, 
+			struct v3_dev_char_ops * ops, 
+			v3_cfg_tree_t * cfg, 
+			void * private_data, 
+			void ** push_fn_arg)
+{
+    struct char_frontend * frontend = NULL;
+
+    frontend = (struct char_frontend *)v3_htable_search(vm->dev_mgr.char_table,
+							(addr_t)frontend_name);
+    
+    if (frontend == NULL) {
+	PrintError("Could not find frontend char device %s\n", frontend_name);
+	return 0;
+    }
+    
+    if (frontend->connect(vm, frontend->priv_data, ops, cfg, private_data, push_fn_arg) == -1) {
+	PrintError("Error connecting to char frontend %s\n", frontend_name);
 	return -1;
     }
 

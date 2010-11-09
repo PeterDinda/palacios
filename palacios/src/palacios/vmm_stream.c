@@ -23,6 +23,7 @@
 #include <palacios/vmm_types.h>
 
 #include <palacios/vmm_stream.h>
+#include <palacios/vm_guest.h>
 
 static struct v3_stream_hooks * stream_hooks = NULL;
 
@@ -31,7 +32,7 @@ v3_stream_t v3_stream_open(struct v3_vm_info * vm, const char * name) {
     V3_ASSERT(stream_hooks != NULL);
     V3_ASSERT(stream_hooks->open != NULL);
 
-    return stream_hooks->open(name, vm->host_private_data);
+    return stream_hooks->open(name, vm->host_priv_data);
 }
 
 int v3_stream_write(v3_stream_t stream, uint8_t * buf, uint32_t len) {
