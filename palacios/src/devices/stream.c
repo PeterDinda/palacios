@@ -29,7 +29,9 @@
 struct stream_state {
     v3_stream_t stream;
 
-    struct v3_dev_char_ops * char_ops;
+    struct v3_dev_char_ops char_ops;
+
+    void * push_fn_arg;
 };
 
 
@@ -44,7 +46,6 @@ static int stream_write(uint8_t * buf, uint64_t length, void * private_data)
 
 
 
-
 static struct v3_device_ops dev_ops = {
     .free = NULL,
     .reset = NULL,
@@ -54,16 +55,21 @@ static struct v3_device_ops dev_ops = {
 
 static int stream_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) 
 {
-    //   v3_cfg_tree_t * frontend_cfg = v3_cfg_subtree(cfg, "frontend");
     char * dev_id = v3_cfg_val(cfg, "ID");
-    char * stream_name = v3_cfg_val(cfg, "stream");
+    char * stream_name = v3_cfg_val(cfg, "name");
     struct stream_state * state = NULL;
+
+    v3_cfg_tree_t * frontend_cfg = v3_cfg_subtree(cfg, "frontend");
 
 
     state = (struct stream_state *)V3_Malloc(sizeof(struct stream_state));
 
-    V3_ASSERT(state);
+    if (state == NULL) {
+	PrintError("Could not allocate stream backend device\n");
+	return -1;
+    }
 
+    memset(state, 0, sizeof(struct stream_state));
 
     state->stream = v3_stream_open(vm, stream_name);
 
@@ -72,8 +78,8 @@ static int stream_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg)
 	V3_Free(state);
 	return -1;
     }
-
-    state->char_ops->write = stream_write;
+    
+    state->char_ops.write = stream_write;
 	
     struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, state);
 
@@ -88,6 +94,14 @@ static int stream_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg)
 	return -1;
     }
 
+    if (v3_dev_connect_char(vm, v3_cfg_val(frontend_cfg, "tag"), 
+			    &(state->char_ops), frontend_cfg, 
+			    state, &(state->push_fn_arg)) == -1) {
+	PrintError("Could not connect %s to frontend %s\n", 
+		   dev_id, v3_cfg_val(frontend_cfg, "tag"));
+	return -1;
+    }
+    
 
 
     return 0;
