@@ -26,7 +26,6 @@
 #include <palacios/vmm_ringbuffer.h>
 #include <palacios/vmm_lock.h>
 #include <palacios/vmm_intr.h>
-#include <palacios/vmm_host_events.h>
 #include <palacios/vm_guest.h>
 
 #include <devices/serial.h>
@@ -287,31 +286,29 @@ struct serial_port {
     struct serial_buffer rx_buffer;
     uint_t irq_number;
 
-    struct v3_stream_ops *stream_ops;
-    void                 *backend_data;
 
-    struct vm_device * vm_dev;
+    void * backend_data;
+    struct v3_dev_char_ops * ops;
+
 };
 
 
 struct serial_state {
-    struct serial_port com1;
-    struct serial_port com2;
-    struct serial_port com3;
-    struct serial_port com4;
+    struct serial_port coms[4];
+
 };
 
 
 
 static struct serial_port * get_com_from_port(struct serial_state * serial, uint16_t port) {
     if ((port >= COM1_DATA_PORT) && (port <= COM1_SCRATCH_PORT)) {
-	return &(serial->com1);
+	return &(serial->coms[0]);
     } else if ((port >= COM2_DATA_PORT) && (port <= COM2_SCRATCH_PORT)) {
-	return &(serial->com2);
+	return &(serial->coms[1]);
     } else if ((port >= COM3_DATA_PORT) && (port <= COM3_SCRATCH_PORT)) {
-	return &(serial->com3);
+	return &(serial->coms[2]);
     } else if ((port >= COM4_DATA_PORT) && (port <= COM4_SCRATCH_PORT)) {
-	return &(serial->com4);
+	return &(serial->coms[3]);
     } else {
 	PrintError("Error: Could not find serial port associated with IO port %d\n", port);
 	return NULL;
@@ -346,7 +343,7 @@ static int getNumber(struct serial_buffer * buf) {
     }
 }
 
-static int updateIRQ(struct serial_port * com, struct vm_device * dev) {
+static int updateIRQ(struct v3_vm_info * vm, struct serial_port * com) {
     
     if ( (com->ier.erbfi == 0x1) && 
 	 (receive_buffer_trigger( getNumber(&(com->rx_buffer)), com->fcr.rx_trigger)) ) {
@@ -354,7 +351,7 @@ static int updateIRQ(struct serial_port * com, struct vm_device * dev) {
 	PrintDebug("UART: receive buffer interrupt(trigger level reached)");
 
 	com->iir.iid = RX_IRQ_TRIGGER_LEVEL;
-	v3_raise_irq(dev->vm, com->irq_number);
+	v3_raise_irq(vm, com->irq_number);
     }
     
     if ( (com->iir.iid == RX_IRQ_TRIGGER_LEVEL) && 
@@ -378,16 +375,15 @@ static int updateIRQ(struct serial_port * com, struct vm_device * dev) {
 	com->iir.iid = TX_IRQ_THRE;
 	com->iir.pending = 0;
 
-	v3_raise_irq(dev->vm, com->irq_number);
+	v3_raise_irq(vm, com->irq_number);
     }
 
     return 1;
 }
 
 
-static int queue_data(struct serial_buffer * buf, uint8_t  data, 
-		      struct serial_port * com, struct vm_device * dev) {
-
+static int queue_data(struct v3_vm_info * vm, struct serial_port * com,
+		      struct serial_buffer * buf, uint8_t data) {
     int next_loc = (buf->head + 1) % SERIAL_BUF_LEN;    
 
     if (buf->full == 1) {
@@ -416,13 +412,13 @@ static int queue_data(struct serial_buffer * buf, uint8_t  data,
 	com->lsr.temt = 0;
     }
     
-    updateIRQ(com, dev);
+    updateIRQ(vm, com);
     
     return 0;
 }
 
-static int dequeue_data(struct serial_buffer * buf, uint8_t * data, 
-			struct serial_port * com, struct vm_device * dev) {
+static int dequeue_data(struct v3_vm_info * vm, struct serial_port * com,
+			struct serial_buffer * buf, uint8_t * data) {
 
     int next_tail = (buf->tail + 1) % SERIAL_BUF_LEN;
 
@@ -450,7 +446,7 @@ static int dequeue_data(struct serial_buffer * buf, uint8_t * data,
 	com->lsr.temt = 1;
     }
     
-    updateIRQ(com, dev);
+    updateIRQ(vm, com);
     
     return 0;
 }
@@ -486,14 +482,15 @@ static int write_data_port(struct guest_info * core, uint16_t port,
     if (com_port->lcr.dlab == 1) {
 	com_port->dll.data = *val;
     }  else {
-	queue_data(&(com_port->tx_buffer), *val, com_port, dev);
-	if (com_port->stream_ops) { 
-	    uint8_t c;
-	    dequeue_data(&(com_port->tx_buffer), &c, com_port, dev);
-	    com_port->stream_ops->write(&c,1,com_port->backend_data);
+	
+
+	/* JRL: Some buffering would probably be a good idea here.... */
+	if (com_port->ops) {
+	    com_port->ops->write(val, 1, com_port->backend_data);
+	} else {
+	    queue_data(core->vm_info, com_port, &(com_port->tx_buffer), *val);
 	}
     }
-    
     
     return length;
 }
@@ -529,7 +526,7 @@ static int read_data_port(struct guest_info * core, uint16_t port,
     if (com_port->lcr.dlab == 1) {
 	*val = com_port->dll.data;
     } else {
-	dequeue_data(&(com_port->rx_buffer), val, com_port, dev);
+	dequeue_data(core->vm_info, com_port, &(com_port->rx_buffer), val);
     }    
 	
     return length;
@@ -915,44 +912,91 @@ static int init_serial_port(struct serial_port * com) {
     com->rx_buffer.full = 0;
     memset(com->rx_buffer.buffer, 0, SERIAL_BUF_LEN);
     
+    com->ops = NULL;
+    com->backend_data = NULL;
+
     return 0;
 }
 
-static int serial_input(char *buf, uint_t len, void *front_data){
-    struct serial_port *com_port = (struct serial_port *)front_data;
+static int serial_input(struct v3_vm_info * vm, uint8_t * buf, uint64_t len, void * priv_data){
+    struct serial_port * com_port = (struct serial_port *)priv_data;
     int i;
 
-    for(i=0; i<len; i++){
-    	queue_data(&(com_port->rx_buffer), buf[i], com_port, com_port->vm_dev);
+    for(i = 0; i < len; i++){
+    	queue_data(vm, com_port, &(com_port->rx_buffer), buf[i]);
     }
 
     return len;
 }
 
+
+static int connect_fn(struct v3_vm_info * vm, 
+		      void * frontend_data, 
+		      struct v3_dev_char_ops * ops, 
+		      v3_cfg_tree_t * cfg, 
+		      void * private_data, 
+		      void ** push_fn_arg) {
+
+    struct serial_state * serial = (struct serial_state *)frontend_data;
+    struct serial_port * com = NULL;
+    char * com_port = v3_cfg_val(cfg, "com_port");
+    int com_idx = 0;
+
+    if (com_port == NULL) {
+	PrintError("Invalid Serial frontend config: missing \"com_port\"\n");
+	return -1;
+    }
+    
+    com_idx = atoi(com_port) - 1;
+
+    if ((com_idx > 3) || (com_idx < 0)) {
+	PrintError("Invalid Com port (%s) \n", com_port);
+	return -1;
+    }
+
+    com = &(serial->coms[com_idx]);
+
+    com->ops = ops;
+    com->backend_data = private_data;
+
+    com->ops->push = serial_input;
+    *push_fn_arg = com;
+
+    return 0;
+}
+
 static int serial_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
-    struct serial_state * state = (struct serial_state *)V3_Malloc(sizeof(struct serial_state));
+    struct serial_state * state = NULL;
     char * dev_id = v3_cfg_val(cfg, "ID");
 
-    init_serial_port(&(state->com1));
-    init_serial_port(&(state->com2));
-    init_serial_port(&(state->com3));
-    init_serial_port(&(state->com4));
+    state = (struct serial_state *)V3_Malloc(sizeof(struct serial_state));
+    
+    if (state == NULL) {
+	PrintError("Could not allocate Serial Device\n");
+	return -1;
+    }
+    
+    memset(state, 0, sizeof(struct serial_state));
 
-    state->com1.irq_number = COM1_IRQ;
-    state->com2.irq_number = COM2_IRQ;
-    state->com3.irq_number = COM3_IRQ;
-    state->com4.irq_number = COM4_IRQ;
+
+
+    init_serial_port(&(state->coms[0]));
+    init_serial_port(&(state->coms[1]));
+    init_serial_port(&(state->coms[2]));
+    init_serial_port(&(state->coms[3]));
+
+    state->coms[0].irq_number = COM1_IRQ;
+    state->coms[1].irq_number = COM2_IRQ;
+    state->coms[2].irq_number = COM3_IRQ;
+    state->coms[3].irq_number = COM4_IRQ;
+
 
     struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, state);
+
     if (v3_attach_device(vm, dev) == -1) {
 	PrintError("Could not attach device %s\n", dev_id);
 	return -1;
     }
-
-    state->com1.vm_dev = dev;
-    state->com2.vm_dev = dev;
-    state->com3.vm_dev = dev;
-    state->com4.vm_dev = dev;	
 
     PrintDebug("Serial device attached\n");
 
@@ -994,22 +1038,19 @@ static int serial_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     PrintDebug("Serial ports hooked\n");
 
-    return 0;
-}
 
-int v3_stream_register_serial(struct vm_device * serial_dev, struct v3_stream_ops * ops, void * private_data)
-{
-    struct serial_state *state = (struct serial_state *)(serial_dev->private_data);
 
-    state->com1.stream_ops = ops;
-    state->com1.backend_data = private_data;
-    /* bind to other ports here */
+    if (v3_dev_add_char_frontend(vm, dev_id, connect_fn, (void *)state) == -1) {
+	PrintError("Could not register %s as frontend\n", dev_id);
+	return -1;
+    }
 
-    ops->input = serial_input;
-    ops->front_data = &(state->com1);
 
     return 0;
 }
+
+
+
 
 
 device_register("SERIAL", serial_init)

@@ -186,7 +186,7 @@ struct v3_dev_char_ops {
     //  int (*read)(uint8_t * buf, uint64_t len, void * private_data);
 
     /* Frontend Implemented functions */
-    int (*push)(uint8_t * buf, uint64_t len, void * private_data);
+    int (*push)(struct v3_vm_info * vm, uint8_t * buf, uint64_t len, void * private_data);
 };
 
 
