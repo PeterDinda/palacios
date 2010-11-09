@@ -38,8 +38,7 @@ struct stream_state {
 
 static int stream_write(uint8_t * buf, uint64_t length, void * private_data) 
 {
-    struct vm_device *dev = (struct vm_device *) private_data;
-    struct stream_state *state = (struct stream_state *) dev->private_data;
+    struct stream_state *state = (struct stream_state *)private_data;
     
     return v3_stream_write(state->stream, buf, length);
 }
