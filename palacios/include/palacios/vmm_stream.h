@@ -21,54 +21,29 @@
 #ifndef __VMM_STREAM_H__
 #define __VMM_STREAM_H__
 
-#include <palacios/vmm.h>
 
 
 #ifdef __V3VEE__
+#include <palacios/vmm.h>
 
-#define V3_StreamOpen(path, notify_fn, private_data, mode)						\
-    ({									\
-	extern struct v3_stream_hooks *stream_hooks;				\
-	((stream_hooks) && (stream_hooks)->stream_open) ?				\
-	    (stream_hooks)->stream_open((path), (notify_fn), (private_data), (mode)) : NULL;		\
-    })
+typedef void * v3_stream_t;
 
-#define V3_StreamRead(stream, b, l)					\
-    ({									\
-	extern struct v3_stream_hooks *stream_hooks;				\
-	((stream_hooks) && (stream_hooks)->stream_read) ?			\
-	    (stream_hooks)->stream_read((stream), (b), (l)) : -1;		\
-    })
+/* VM Can be NULL */
+v3_stream_t v3_stream_open(struct v3_vm_info * vm, const char * name);
+int v3_stream_write(v3_stream_t stream, uint8_t * buf, uint32_t len);
 
-#define V3_StreamWrite(stream, b, l)					\
-    ({									\
-	extern struct v3_stream_hooks *stream_hooks;				\
-	((stream_hooks) && (stream_hooks)->stream_write) ?			\
-	    (stream_hooks)->stream_write((stream), (b), (l)) : -1;		\
-    })
-
-
-#define V3_StreamClose(stream)						\
-    ({									\
-	extern struct v3_stream_hooks *stream_hooks;				\
-	((stream_hooks) && (stream_hooks)->stream_close) ?				\
-	    (stream_hooks)->stream_close((stream), (mode)) : NULL;	\
-    })
-
+void v3_stream_close(v3_stream_t stream);
 
 #endif
 
-#define STREAM_OPEN_MODE_READ	(1 << 0)
-#define STREAM_OPEN_MODE_WRITE	(1 << 1)
 
 struct v3_stream_hooks {
-    void *(*stream_open)(const char *path, void (*notify)(void *), void *private_data, int mode);
-    int (*stream_read)(void *stream, char *buf, int len);
-    int (*stream_write)(void *stream, char *buf, int len);
-    int (*stream_close)(void *stream);
+    void *(*open)(const char * name, void * private_data);
+    int (*write)(void * stream, char * buf, int len);
+    void (*close)(void * stream);
 };
 
 
-extern void V3_Init_Stream(struct v3_stream_hooks * hooks);
+void V3_Init_Stream(struct v3_stream_hooks * hooks);
 
 #endif

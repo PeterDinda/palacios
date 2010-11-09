@@ -18,13 +18,39 @@
  */
 
 
-#include <palacios/vmm_stream.h>
 #include <palacios/vmm.h>
 #include <palacios/vmm_debug.h>
 #include <palacios/vmm_types.h>
 
+#include <palacios/vmm_stream.h>
 
-struct v3_stream_hooks * stream_hooks = 0;
+static struct v3_stream_hooks * stream_hooks = NULL;
+
+// VM can be NULL
+v3_stream_t v3_stream_open(struct v3_vm_info * vm, const char * name) {
+    V3_ASSERT(stream_hooks != NULL);
+    V3_ASSERT(stream_hooks->open != NULL);
+
+    return stream_hooks->open(name, vm->host_private_data);
+}
+
+int v3_stream_write(v3_stream_t stream, uint8_t * buf, uint32_t len) {
+    V3_ASSERT(stream_hooks != NULL);
+    V3_ASSERT(stream_hooks->write != NULL);
+
+    return stream_hooks->write(stream, buf, len);
+}
+
+void v3_stream_close(v3_stream_t stream) {
+    V3_ASSERT(stream_hooks != NULL);
+    V3_ASSERT(stream_hooks->close != NULL);
+
+    return stream_hooks->close(stream);
+}
+
+
+
+
 
 void V3_Init_Stream(struct v3_stream_hooks * hooks) {
     stream_hooks = hooks;
