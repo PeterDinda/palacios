@@ -28,6 +28,7 @@ int v3_init_host_events(struct v3_vm_info * vm) {
     INIT_LIST_HEAD(&(host_evts->keyboard_events));
     INIT_LIST_HEAD(&(host_evts->mouse_events));
     INIT_LIST_HEAD(&(host_evts->timer_events));
+    INIT_LIST_HEAD(&(host_evts->console_events));
 
     return 0;
 }
@@ -60,7 +61,7 @@ int v3_hook_host_event(struct v3_vm_info * vm,
 	case HOST_TIMER_EVT:
 	    list_add(&(hook->link), &(host_evts->timer_events));
 	    break;
-	case HOST_CONSLE_EVT:
+	case HOST_CONSOLE_EVT:
 	    list_add(&(hook->link), &(host_evts->console_events));
 	    break;
     }

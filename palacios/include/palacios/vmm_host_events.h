@@ -48,7 +48,7 @@ struct v3_vm_info;
 typedef enum {HOST_KEYBOARD_EVT, 
 	      HOST_MOUSE_EVT, 
 	      HOST_TIMER_EVT,
-	      HOST_CONSLE_EVT} v3_host_evt_type_t;
+	      HOST_CONSOLE_EVT} v3_host_evt_type_t;
 
 
 union v3_host_event_handler {

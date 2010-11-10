@@ -35,6 +35,17 @@ struct stream_state {
 };
 
 
+static int console_event_handler(struct v3_vm_info * vm, 
+			     struct v3_console_event * evt, 
+			     void * private_data) {
+    struct stream_state *state = (struct stream_state *)private_data;
+
+    if(state->char_ops.push != NULL){
+    	state->char_ops.push(vm, evt->data, evt->len, state->push_fn_arg);
+    }
+
+    return 0;
+}
 
 static int stream_write(uint8_t * buf, uint64_t length, void * private_data) 
 {
@@ -101,6 +112,8 @@ static int stream_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg)
 	return -1;
     }
     
+
+    v3_hook_host_event(vm, HOST_CONSOLE_EVT, V3_HOST_EVENT_HANDLER(console_event_handler), state);
 
 
     return 0;
