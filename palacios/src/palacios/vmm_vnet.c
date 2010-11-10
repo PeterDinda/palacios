@@ -450,7 +450,7 @@ static int send_to_bridge(struct v3_vnet_pkt * pkt){
 	return -1;
     }
 
-    return bridge->brg_ops.input(bridge->vm, pkt, 1, bridge->private_data);
+    return bridge->brg_ops.input(bridge->vm, pkt, bridge->private_data);
 }
 
 

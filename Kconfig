@@ -182,6 +182,20 @@ config DEBUG_LINUX_VIRTIO_VNET
         help
           Enable debugging for the VNET Virtio Device
 
+config LINUX_VNET_BRIDGE
+        bool "Enable VNET Bridge for Linux host"
+        default n
+        depends on PCI && EXPERIMENTAL && VNET && LINUX
+        help
+          Enable the VNET Bridge for Linux host
+
+config DEBUG_LINUX_VNET_BRIDGE
+        bool "VNET Host Linux Bridge Debug"
+        default n
+        depends on LINUX_VNET_BRIDGE && DEBUG_ON && LINUX
+        help
+          Enable debugging for the VNET Host Linux Bridge
+
 endmenu
 
 

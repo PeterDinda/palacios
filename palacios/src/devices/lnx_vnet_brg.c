@@ -41,6 +41,7 @@ struct vnet_link {
     
     int socket;
     sock_type_t type;
+
     int link_idx;
 
     struct list_head node;
@@ -48,22 +49,17 @@ struct vnet_link {
 
 struct vnet_brg_state {
     uint32_t num_links; 
-
     struct list_head link_list;
 
     int serv_sock;
     sock_type_t serv_sock_type;
     int serv_port;
-    
-    /* The thread recving pkts from sockets. */
-    int serv_thread;
 
     v3_lock_t lock;
 
     unsigned long pkt_sent, pkt_recv, pkt_drop;
 };
 
-static struct vnet_brg_state lnxbrg_state;
 
 static int vnet_lnxbrg_reset(struct vnet_brg_state * state) {
     memset(state, 0, sizeof(struct vnet_brg_state));
@@ -127,10 +123,10 @@ udp_recv(int sockid, uint32_t * src_ip,
 
 
 static int 
-brg_send(struct vnet_brg_state * state,
-			struct v3_vm_info * vm,  
+brg_send(	struct v3_vm_info * vm,  
 			struct v3_vnet_pkt * vnet_pkt, 
 			void * private_data){
+    struct vnet_brg_state * state = (struct vnet_brg_state *)private_data;
     struct vnet_link * link = NULL;
 	
     #ifdef CONFIG_DEBUG_VNET_LNX_BRIGE
@@ -143,11 +139,9 @@ brg_send(struct vnet_brg_state * state,
     #endif
 
     state->pkt_recv ++;
-    link = link_by_idx(vnet_pkt->dst_id);
+    link = link_by_idx(state, vnet_pkt->dst_id);
     if (link != NULL) {
-	if(link->type == SOCK_TCP){
-		
-	}else if(link->type == SOCK_UDP){
+	if(link->type == SOCK_UDP){
 	    udp_send(link->socket, 0, 0, vnet_pkt->data, vnet_pkt->size);
 	    state->pkt_sent ++;
 	}else {
@@ -200,7 +194,7 @@ static int vnet_server(void * arg) {
 	    continue;
 	}
 
-	link = link_by_ip(ip);
+	link = link_by_ip(state, ip);
 	if (link != NULL) {
 	    pkt.src_id= link->link_idx;
 	}
@@ -243,7 +237,7 @@ static int vnet_lnxbrg_init() {
 
     v3_vnet_add_bridge(NULL, &brg_ops, state);
 
-    init_serv();
+    init_serv(state);
     V3_CREATE_THREAD(vnet_server, state, "VNET_LNX_BRIDGE");
 
     PrintDebug("VNET Linux Bridge initiated\n");

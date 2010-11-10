@@ -70,7 +70,7 @@ struct v3_vnet_pkt {
 	    uint8_t src_type;
 	    uint32_t src_id;
 	    uint8_t header[ETHERNET_HEADER_LEN];
-	    uint8_t *data;
+	    uint8_t * data;
 	} __attribute__((packed));
     } __attribute__((packed));
 } __attribute__((packed));
@@ -106,8 +106,10 @@ struct v3_vnet_dev_xcall_args{
 };
 
 struct v3_vnet_dev_ops {
-    int (*input)(struct v3_vm_info * vm, struct v3_vnet_pkt * pkt, void * dev_data);
-    void (*poll) (struct v3_vm_info *vm, void *dev_data);
+    int (*input)(struct v3_vm_info * vm, 
+		struct v3_vnet_pkt * pkt, 
+		void * dev_data);
+    void (*poll) (struct v3_vm_info * vm, void * dev_data);
     void (*poll_xcall)(void *arg);
 
     void (*start_tx)(void * dev_data);
@@ -115,9 +117,12 @@ struct v3_vnet_dev_ops {
 };
 
 struct v3_vnet_bridge_ops {
-    int (*input)(struct v3_vm_info * vm, struct v3_vnet_pkt pkt[], uint16_t pkt_num, void * private_data);
-    int (*xcall_input)(void *data);
-    void (*polling_pkt)(struct v3_vm_info * vm,  void *private_data);
+    int (*input)(struct v3_vm_info * vm, 
+		struct v3_vnet_pkt * pkt,
+		void * private_data);
+    int (*xcall_input)(void * data);
+    void (*polling_pkt)(struct v3_vm_info * vm,  
+		void * private_data);
 };
 	
 

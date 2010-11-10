@@ -222,16 +222,12 @@ static int handle_cmd_kick(struct guest_info * core, struct virtio_vnet_state * 
 }
 
 
-static int vnet_pkt_input_cb(struct v3_vm_info * vm,  struct v3_vnet_pkt vnet_pkts[], uint16_t pkt_num, void * private_data){
+static int vnet_pkt_input_cb(struct v3_vm_info * vm,  struct v3_vnet_pkt *pkt, void * private_data){
     struct virtio_vnet_state * vnet_state = (struct virtio_vnet_state *)private_data;
     struct virtio_queue * q = &(vnet_state->queue[RECV_QUEUE]);
     int ret_val = -1;
     unsigned long flags;
     uint16_t sent;
-    struct v3_vnet_pkt *pkt;
-
-    if(pkt_num <= 0)
-	return 0;
 
     flags = v3_lock_irqsave(vnet_state->lock);
 	
@@ -240,45 +236,33 @@ static int vnet_pkt_input_cb(struct v3_vm_info * vm,  struct v3_vnet_pkt vnet_pk
 	goto exit;
     }
 
-    PrintDebug("VNET Bridge: RX: running on cpu: %d, num of pkts: %d\n", V3_Get_CPU(), pkt_num);
+    if (q->cur_avail_idx != q->avail->index) {
+	uint16_t pkt_idx = q->avail->ring[q->cur_avail_idx % q->queue_size];
+	struct vring_desc * pkt_desc = NULL;
+	struct vnet_bridge_pkt * virtio_pkt = NULL;
 
-    for(sent = 0; sent < pkt_num; sent ++) {
-	pkt = &vnet_pkts[sent];
-	vnet_state->pkt_recv ++;
+	pkt_desc = &(q->desc[pkt_idx]);
+	PrintDebug("VNET Bridge RX: buffer desc len: %d\n", pkt_desc->length);
 
-    	if (q->cur_avail_idx != q->avail->index) {
-	    uint16_t pkt_idx = q->avail->ring[q->cur_avail_idx % q->queue_size];
-	    struct vring_desc * pkt_desc = NULL;
-	    struct vnet_bridge_pkt * virtio_pkt = NULL;
-
-	    pkt_desc = &(q->desc[pkt_idx]);
-	    PrintDebug("VNET Bridge RX: buffer desc len: %d\n", pkt_desc->length);
-
-	    if (v3_gpa_to_hva(&(vm->cores[0]), pkt_desc->addr_gpa, (addr_t *)&(virtio_pkt)) == -1) {
-	        PrintError("Could not translate buffer address\n");
-	        goto exit;
-	    }
-
-	    PrintDebug("VNET Bridge: RX: pkt sent to guest pkt size: %d, dst link: %d\n", pkt->size, pkt->dst_id);
-
-	    // Fill in dst packet buffer
-	    virtio_pkt->link_id = pkt->dst_id;
-	    virtio_pkt->pkt_size = pkt->size;
-	    memcpy(virtio_pkt->pkt, pkt->data, pkt->size);
-	
-	    q->used->ring[q->used->index % q->queue_size].id = q->avail->ring[q->cur_avail_idx % q->queue_size];
-	    q->used->ring[q->used->index % q->queue_size].length = sizeof(struct vnet_bridge_pkt); 
-
-	    q->used->index++;
-	    q->cur_avail_idx++;
-	} else {
-	    vnet_state->pkt_drop ++;
-	    //v3_vnet_disable_bridge();
+	if (v3_gpa_to_hva(&(vm->cores[0]), pkt_desc->addr_gpa, (addr_t *)&(virtio_pkt)) == -1) {
+	    PrintError("Could not translate buffer address\n");
+	    goto exit;
 	}
-    }
 
-    if(sent == 0){
-	goto exit;
+	PrintDebug("VNET Bridge: RX: pkt sent to guest pkt size: %d, dst link: %d\n", pkt->size, pkt->dst_id);
+
+	// Fill in dst packet buffer
+	virtio_pkt->link_id = pkt->dst_id;
+	virtio_pkt->pkt_size = pkt->size;
+	memcpy(virtio_pkt->pkt, pkt->data, pkt->size);
+	
+	q->used->ring[q->used->index % q->queue_size].id = q->avail->ring[q->cur_avail_idx % q->queue_size];
+	q->used->ring[q->used->index % q->queue_size].length = sizeof(struct vnet_bridge_pkt); 
+
+	q->used->index++;
+	q->cur_avail_idx++;
+    } else {
+	vnet_state->pkt_drop ++;
     }
 
     if (!(q->avail->flags & VIRTIO_NO_IRQ_FLAG)) {
@@ -288,19 +272,7 @@ static int vnet_pkt_input_cb(struct v3_vm_info * vm,  struct v3_vnet_pkt vnet_pk
     }
 
     ret_val = 0;
-
     	
-#ifdef CONFIG_VNET_PROFILE
-    if (vnet_state->pkt_recv % 20000 == 0)
-	PrintError("Vnet Bridge: sent: %ld, rxed: %ld, dropped: %ld, total exit: %ld, tx exit: %ld, rx exit: %ld\n",
-			vnet_state->pkt_sent,
-			vnet_state->pkt_recv,
-			vnet_state->pkt_drop, 
-			vnet_state->total_exit,
-			vnet_state->tx_exit,
-			vnet_state->rx_exit);
-#endif
-
 exit:
 
     v3_unlock_irqrestore(vnet_state->lock, flags);
@@ -310,8 +282,13 @@ exit:
 
 static int vnet_pkt_input_xcall(void *data){
     struct v3_vnet_bridge_xcall_args *args = (struct v3_vnet_bridge_xcall_args *)data;
+    int i = 0;
+
+    for(i = 0; i < args->pkt_num; i++) {
+	vnet_pkt_input_cb(args->vm, args->vnet_pkts[i], args->private_data);
+    }
 	
-    return vnet_pkt_input_cb(args->vm, args->vnet_pkts, args->pkt_num, args->private_data);
+    return 0;
 }
 
 static int handle_pkt_kick(struct guest_info *core, struct virtio_vnet_state * vnet_state) 
@@ -366,20 +343,7 @@ static int handle_pkt_kick(struct guest_info *core, struct virtio_vnet_state * v
 	    v3_pci_raise_irq(vnet_state->pci_bus, 0, vnet_state->pci_dev);
 	    vnet_state->virtio_cfg.pci_isr = 0x1;
     }
-
-    //PrintError("Virtio VNET: polling %d pkts\n", recvd);
 	
-#ifdef CONFIG_VNET_PROFILE
-    if (vnet_state->pkt_sent % 20000 == 0)
-	PrintError("Vnet Bridge: sent: %ld, rxed: %ld, dropped: %ld, total exit: %ld, tx exit: %ld, rx exit: %ld\n",
-			vnet_state->pkt_sent,
-			vnet_state->pkt_recv,
-			vnet_state->pkt_drop, 
-			vnet_state->total_exit,
-			vnet_state->tx_exit,
-			vnet_state->rx_exit);
-#endif
-
     return 0;
 }
 
