@@ -30,7 +30,7 @@
 
 typedef void * v3_console_t;
 
-v3_console_t v3_console_open(struct v3_vm_info * vm);
+v3_console_t v3_console_open(struct v3_vm_info * vm, uint32_t width, uint32_t height);
 
 int v3_console_set_cursor(v3_console_t cons, int x, int y);
 int v3_console_set_char(v3_console_t cons, int x, int y, char c, uint8_t style);
