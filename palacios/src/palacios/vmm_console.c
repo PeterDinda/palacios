@@ -28,11 +28,11 @@
 
 struct v3_console_hooks * console_hooks = 0;
 
-v3_console_t v3_console_open(struct v3_vm_info * vm) {
+v3_console_t v3_console_open(struct v3_vm_info * vm, uint32_t width, uint32_t height) {
     V3_ASSERT(console_hooks != NULL);
     V3_ASSERT(console_hooks->open != NULL);
 
-    return console_hooks->open(vm->host_priv_data);
+    return console_hooks->open(vm->host_priv_data, width, height);
 }
 
 

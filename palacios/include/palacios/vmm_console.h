@@ -43,7 +43,7 @@ int v3_console_update(v3_console_t cons);
 
 struct v3_console_hooks {
     /* open console device, mode is a combination of TTY_OPEN_MODE_* flags */
-    void *(*open)(void * priv_data);
+    void *(*open)(void * priv_data, unsigned int width, unsigned int height);
 
     /* set cursor position */
     int (*set_cursor)(void * tty, int x, int y);

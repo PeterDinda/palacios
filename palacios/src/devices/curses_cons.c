@@ -190,7 +190,7 @@ static int cons_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg)
     state->frontend_dev = frontend;
 
     /* open tty for screen display */
-    state->cons = v3_console_open(vm);
+    state->cons = v3_console_open(vm, NUM_COLS, NUM_ROWS);
 
     if (!state->cons) {
 	PrintError("Could not open console\n");
