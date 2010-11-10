@@ -28,6 +28,7 @@ int v3_init_host_events(struct v3_vm_info * vm) {
     INIT_LIST_HEAD(&(host_evts->keyboard_events));
     INIT_LIST_HEAD(&(host_evts->mouse_events));
     INIT_LIST_HEAD(&(host_evts->timer_events));
+    INIT_LIST_HEAD(&(host_evts->serial_events));
     INIT_LIST_HEAD(&(host_evts->console_events));
 
     return 0;
@@ -60,6 +61,9 @@ int v3_hook_host_event(struct v3_vm_info * vm,
 	    break;
 	case HOST_TIMER_EVT:
 	    list_add(&(hook->link), &(host_evts->timer_events));
+	    break;
+	case HOST_SERIAL_EVT:
+	    list_add(&(hook->link), &(host_evts->serial_events));
 	    break;
 	case HOST_CONSOLE_EVT:
 	    list_add(&(hook->link), &(host_evts->console_events));
@@ -144,8 +148,34 @@ int v3_deliver_timer_event(struct v3_vm_info * vm,
     return 0;
 }
 
+int v3_deliver_serial_event(struct v3_vm_info * vm, 
+			    struct v3_serial_event * evt) {
+    struct v3_host_events * host_evts = NULL;
+    struct v3_host_event_hook * hook = NULL;
+
+    if (vm == NULL) {
+	vm = v3_get_foreground_vm();
+    }
+
+    host_evts = &(vm->host_event_hooks);
+
+    if (vm->run_state != VM_RUNNING) {
+	return -1;
+    }
+
+    list_for_each_entry(hook, &(host_evts->serial_events), link) {
+	if (hook->cb.serial_handler(vm, evt, hook->private_data) == -1) {
+	    return -1;
+	}
+    }
+
+    return 0;
+}
+
+
+
 int v3_deliver_console_event(struct v3_vm_info * vm, 
-			   struct v3_console_event * evt) {
+			     struct v3_console_event * evt) {
     struct v3_host_events * host_evts = NULL;
     struct v3_host_event_hook * hook = NULL;
 

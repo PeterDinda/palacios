@@ -34,9 +34,13 @@ struct v3_timer_event {
     unsigned int period_us;
 };
 
-struct v3_console_event {
+struct v3_serial_event {
     unsigned char data[128];
     unsigned int len;
+};
+
+struct v3_console_event {
+    unsigned int cmd;
 };
 
 #ifdef __V3VEE__
@@ -45,16 +49,18 @@ struct v3_console_event {
 
 struct v3_vm_info;
 
-typedef enum {HOST_KEYBOARD_EVT, 
-	      HOST_MOUSE_EVT, 
-	      HOST_TIMER_EVT,
-	      HOST_CONSOLE_EVT} v3_host_evt_type_t;
+typedef enum { HOST_KEYBOARD_EVT, 
+	       HOST_MOUSE_EVT, 
+	       HOST_TIMER_EVT,
+	       HOST_CONSOLE_EVT,
+	       HOST_SERIAL_EVT } v3_host_evt_type_t;
 
 
 union v3_host_event_handler {
     int (*keyboard_handler)(struct v3_vm_info * vm, struct v3_keyboard_event * evt, void * priv_data);
     int (*mouse_handler)(struct v3_vm_info * vm, struct v3_mouse_event * evt, void * priv_data);
     int (*timer_handler)(struct v3_vm_info * vm, struct v3_timer_event * evt, void * priv_data);
+    int (*serial_handler)(struct v3_vm_info * vm, struct v3_serial_event * evt, void * priv_data);
     int (*console_handler)(struct v3_vm_info * vm, struct v3_console_event * evt, void * priv_data);
 };
 
@@ -71,6 +77,7 @@ struct v3_host_events {
     struct list_head keyboard_events;
     struct list_head mouse_events;
     struct list_head timer_events;
+    struct list_head serial_events;
     struct list_head console_events;
 };
 
@@ -92,6 +99,7 @@ int v3_hook_host_event(struct v3_vm_info * vm,
 int v3_deliver_keyboard_event(struct v3_vm_info * vm, struct v3_keyboard_event * evt);
 int v3_deliver_mouse_event(struct v3_vm_info * vm, struct v3_mouse_event * evt);
 int v3_deliver_timer_event(struct v3_vm_info * vm, struct v3_timer_event * evt);
+int v3_deliver_serial_event(struct v3_vm_info * vm, struct v3_serial_event * evt);
 int v3_deliver_console_event(struct v3_vm_info * vm, struct v3_console_event * evt);
 
 

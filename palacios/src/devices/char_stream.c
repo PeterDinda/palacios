@@ -35,8 +35,8 @@ struct stream_state {
 };
 
 
-static int console_event_handler(struct v3_vm_info * vm, 
-			     struct v3_console_event * evt, 
+static int serial_event_handler(struct v3_vm_info * vm, 
+				struct v3_serial_event * evt, 
 			     void * private_data) {
     struct stream_state *state = (struct stream_state *)private_data;
 
@@ -113,7 +113,7 @@ static int stream_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg)
     }
     
 
-    v3_hook_host_event(vm, HOST_CONSOLE_EVT, V3_HOST_EVENT_HANDLER(console_event_handler), state);
+    v3_hook_host_event(vm, HOST_SERIAL_EVT, V3_HOST_EVENT_HANDLER(serial_event_handler), state);
 
 
     return 0;
