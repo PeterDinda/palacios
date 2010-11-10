@@ -24,9 +24,47 @@
 #include <palacios/vmm.h>
 #include <palacios/vmm_debug.h>
 #include <palacios/vmm_types.h>
-
+#include <palacios/vm_guest.h>
 
 struct v3_console_hooks * console_hooks = 0;
+
+v3_console_t v3_console_open(struct v3_vm_info * vm) {
+    V3_ASSERT(console_hooks != NULL);
+    V3_ASSERT(console_hooks->open != NULL);
+
+    return console_hooks->open(vm->host_priv_data);
+}
+
+
+int v3_console_set_cursor(v3_console_t cons, int x, int y) {
+    V3_ASSERT(console_hooks != NULL);
+    V3_ASSERT(console_hooks->set_cursor != NULL);
+
+    return console_hooks->set_cursor(cons, x, y);
+}
+
+int v3_console_set_char(v3_console_t cons, int x, int y, char c, uint8_t style) {
+    V3_ASSERT(console_hooks != NULL);
+    V3_ASSERT(console_hooks->set_character != NULL);
+
+    return console_hooks->set_character(cons, x, y, c, style);    
+}
+
+    
+int v3_console_scroll(v3_console_t cons, int lines) {
+    V3_ASSERT(console_hooks != NULL);
+    V3_ASSERT(console_hooks->scroll != NULL);
+    
+    return console_hooks->scroll(cons, lines);
+}
+
+
+int v3_console_update(v3_console_t cons) {
+    V3_ASSERT(console_hooks != NULL);
+    V3_ASSERT(console_hooks->update != NULL);
+    
+    return console_hooks->update(cons);
+}
 
 void V3_Init_Console(struct v3_console_hooks * hooks) {
     console_hooks = hooks;

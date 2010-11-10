@@ -40,7 +40,7 @@
 
 struct cons_state 
 {
-    void * tty;
+    v3_console_t cons;
     struct vm_device * frontend_dev;
 };
 
@@ -68,14 +68,14 @@ static int cursor_update(uint_t x, uint_t y, void *private_data)
     }
     
     /* adjust cursor */	
-    if (V3_TtyCursorSet(state->tty, x, y) < 0) {
-	PrintError("V3_TtyCursorSet(0x%p, %d, %d) failed\n", state->tty, x, y);
+    if (v3_console_set_cursor(state->cons, x, y) < 0) {
+	PrintError("set cursor (0x%p, %d, %d) failed\n", state->cons, x, y);
 	return -1;
     }
     
     /* done with console update */
-    if (V3_TtyUpdate(state->tty) < 0) {
-	PrintError("V3_TtyUpdate(0x%p) failed\n", state->tty);
+    if (v3_console_update(state->cons) < 0) {
+	PrintError("console update (0x%p) failed\n", state->cons);
 	return -1;
     }
     
@@ -104,9 +104,9 @@ static int screen_update(uint_t x, uint_t y, uint_t length, void * private_data)
 	col[1] = fb_buf[col_index + 1]; // Attribute
 	
 	/* update current character */
-	if (V3_TtyCharacterSet(state->tty, cur_x, cur_y, col[0], col[1]) < 0) {
-	    PrintError("V3_TtyCursorSet(0x%p, %d, %d, %d, %d) failed\n", 
-		       state->tty, cur_x, cur_y, col[1], col[0]);
+	if (v3_console_set_char(state->cons, cur_x, cur_y, col[0], col[1]) < 0) {
+	    PrintError("set cursor (0x%p, %d, %d, %d, %d) failed\n", 
+		       state->cons, cur_x, cur_y, col[1], col[0]);
 	    return -1;
 	}
 	
@@ -117,8 +117,8 @@ static int screen_update(uint_t x, uint_t y, uint_t length, void * private_data)
     }
     
     /* done with console update */
-    if (V3_TtyUpdate(state->tty) < 0) {
-	PrintError("V3_TtyUpdate(0x%p) failed\n", state->tty);
+    if (v3_console_update(state->cons) < 0) {
+	PrintError("console update(0x%p) failed\n", state->cons);
 	return -1;
     }
     
@@ -139,14 +139,14 @@ static int scroll(int rows, void * private_data) {
 
     if (rows > 0) {
 	/* scroll requested number of lines*/		
-	if (V3_TtyScroll(state->tty, rows) < 0) {
-	    PrintError("V3_TtyScroll(0x%p, %u) failed\n", state->tty, rows);
+	if (v3_console_scroll(state->cons, rows) < 0) {
+	    PrintError("console scroll (0x%p, %u) failed\n", state->cons, rows);
 	    return -1;
 	}
 
 	/* done with console update */
-	if (V3_TtyUpdate(state->tty) < 0) {
-	    PrintError("V3_TtyUpdate(0x%p) failed\n", state->tty);
+	if (v3_console_update(state->cons) < 0) {
+	    PrintError("console update (0x%p) failed\n", state->cons);
 	    return -1;
 	}
 		
@@ -176,7 +176,6 @@ static int cons_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg)
     const char * frontend_tag = v3_cfg_val(frontend_cfg, "tag");
     struct vm_device * frontend = v3_find_dev(vm, frontend_tag);
     char * dev_id = v3_cfg_val(cfg, "ID");
-    char * ttypath = v3_cfg_val(cfg, "tty");
 
     /* read configuration */
     V3_ASSERT(frontend_cfg);
@@ -187,14 +186,14 @@ static int cons_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg)
     /* allocate state */
     state = (struct cons_state *)V3_Malloc(sizeof(struct cons_state));
     V3_ASSERT(state);
+
     state->frontend_dev = frontend;
-    V3_ASSERT(ttypath);
 
     /* open tty for screen display */
-    state->tty = V3_TtyOpen(vm, ttypath, TTY_OPEN_MODE_READ | TTY_OPEN_MODE_WRITE);
+    state->cons = v3_console_open(vm);
 
-    if (!state->tty) {
-	PrintError("Could not open tty %s\n", ttypath);
+    if (!state->cons) {
+	PrintError("Could not open console\n");
 	V3_Free(state);
 	return -1;
     }
