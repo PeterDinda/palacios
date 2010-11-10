@@ -705,7 +705,6 @@ static int route_ipi(struct apic_dev_state * apic_dev,
 	       icr->dst,
 	       icr->val);
 
-
     switch (icr->dst_shorthand) {
 
 	case 0:  // no shorthand
@@ -1065,8 +1064,8 @@ static int apic_write(struct guest_info * core, addr_t guest_addr, void * src, u
     PrintDebug("apic %u: core %u: at %p and priv_data is at %p\n",
 	       apic->lapic_id.val, core->cpu_id, apic, priv_data);
 
-    PrintDebug("Write to address space (%p) (val=%x)\n", 
-	       (void *)guest_addr, *(uint32_t *)src);
+    PrintDebug("apic %u: core %u: write to address space (%p) (val=%x)\n", 
+	       apic->lapic_id.val, core->cpu_id, (void *)guest_addr, *(uint32_t *)src);
 
     if (msr->apic_enable == 0) {
 	PrintError("apic %u: core %u: Write to APIC address space with disabled APIC, apic msr=0x%llx\n",
