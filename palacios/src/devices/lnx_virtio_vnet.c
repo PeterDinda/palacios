@@ -227,7 +227,6 @@ static int vnet_pkt_input_cb(struct v3_vm_info * vm,  struct v3_vnet_pkt *pkt, v
     struct virtio_queue * q = &(vnet_state->queue[RECV_QUEUE]);
     int ret_val = -1;
     unsigned long flags;
-    uint16_t sent;
 
     flags = v3_lock_irqsave(vnet_state->lock);
 	
@@ -285,7 +284,7 @@ static int vnet_pkt_input_xcall(void *data){
     int i = 0;
 
     for(i = 0; i < args->pkt_num; i++) {
-	vnet_pkt_input_cb(args->vm, args->vnet_pkts[i], args->private_data);
+	vnet_pkt_input_cb(args->vm, &(args->vnet_pkts[i]), args->private_data);
     }
 	
     return 0;
