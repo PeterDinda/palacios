@@ -367,6 +367,7 @@ static int info_hcall(struct guest_info * core, uint_t hcall_id, void * priv_dat
     v3_cpu_arch_t cpu_type = v3_get_cpu_type(V3_Get_CPU());
     int cpu_valid = 0;
 
+    V3_Print("************** Guest State ************\n");
     v3_print_guest_state(core);
     
     // init SVM/VMX

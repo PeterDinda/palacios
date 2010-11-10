@@ -28,9 +28,9 @@ void v3_dump_mem(uint8_t * start, int n) {
 	V3_Print("%p", (void *)(start + i));
 	for (j = i; (j < (i + 16)) && (j < n); j += 2) {
 	    V3_Print(" ");
-	    V3_Print("%x", *(uint8_t *)(start + j));
+	    V3_Print("%02x", *(uint8_t *)(start + j));
 	    if ((j + 1) < n) { 
-		V3_Print("%x", *((uint8_t *)(start + j + 1)));
+		V3_Print("%02x", *((uint8_t *)(start + j + 1)));
 	    }
 	}
 	V3_Print(" ");
