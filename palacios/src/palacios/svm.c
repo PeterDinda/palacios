@@ -427,7 +427,6 @@ int v3_svm_enter(struct guest_info * info) {
     vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data)); 
     addr_t exit_code = 0, exit_info1 = 0, exit_info2 = 0;
 
-    v3_update_timers(info);
     v3_adjust_time(info);
 
     // Conditionally yield the CPU if the timeslice has expired
@@ -480,6 +479,7 @@ int v3_svm_enter(struct guest_info * info) {
     }
 #endif
 
+    v3_update_timers(info);
     guest_ctrl->TSC_OFFSET = v3_tsc_host_offset(&info->time_state);
 
     //V3_Print("Calling v3_svm_launch\n");

@@ -650,6 +650,10 @@ int v3_vmx_enter(struct guest_info * info) {
     // Conditionally yield the CPU if the timeslice has expired
     v3_yield_cond(info);
 
+    /* If this guest is frequency-lagged behind host time, wait 
+     * for the appropriate host time before resuming the guest. */
+    v3_adjust_time(info);
+
     // v3_print_guest_state(info);
 
     // disable global interrupts for vm state transition
@@ -673,10 +677,6 @@ int v3_vmx_enter(struct guest_info * info) {
     }
 
     v3_update_timers(info);
-
-    /* If this guest is frequency-lagged behind host time, wait 
-     * for the appropriate host time before resuming the guest. */
-    v3_adjust_time(info);
 
     tsc_offset_high = (uint32_t)((v3_tsc_host_offset(&info->time_state) >> 32) & 0xffffffff);
     tsc_offset_low = (uint32_t)(v3_tsc_host_offset(&info->time_state) & 0xffffffff);
