@@ -265,6 +265,11 @@ config FILEDISK
 	help
 	  Includes the file based disk backend
 
+config DEBUG_FILEDISK
+	bool "FILEDISK backend debugging"
+	depends on FILEDISK && DEBUG_ON
+	help 
+	  Enable debugging for the file based disk backend 	
 
 config NETDISK
 	bool "NETDISK storage backend"
@@ -280,6 +285,11 @@ config RAMDISK
 	help 
 	  Includes the RAM based disk backend
 
+config DEBUG_RAMDISK
+	bool "RAMDISK baskend debugging"
+	depends on RAMDISK && DEBUG_ON
+	help 
+	  Enable debugging for the ram based disk backend 	
 
 config TMPDISK
 	bool "TMPDISK storage backend"
