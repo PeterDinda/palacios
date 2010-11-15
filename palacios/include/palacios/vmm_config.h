@@ -34,7 +34,7 @@
 
 struct v3_vm_info;
 
-struct v3_vm_info * v3_config_guest( void * cfg_blob);
+struct v3_vm_info * v3_config_guest( void * cfg_blob, void * priv_data);
 
 struct v3_cfg_file {
     void * data;

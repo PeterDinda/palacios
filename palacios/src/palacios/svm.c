@@ -64,7 +64,15 @@ extern int v3_svm_launch(vmcb_t * vmcb, struct v3_gprs * vm_regs, vmcb_t * host_
 
 
 static vmcb_t * Allocate_VMCB() {
-    vmcb_t * vmcb_page = (vmcb_t *)V3_VAddr(V3_AllocPages(1));
+    vmcb_t * vmcb_page = NULL;
+    addr_t vmcb_pa = (addr_t)V3_AllocPages(1);
+
+    if ((void *)vmcb_pa == NULL) {
+	PrintError("Error allocating VMCB\n");
+	return NULL;
+    }
+
+    vmcb_page = (vmcb_t *)V3_VAddr((void *)vmcb_pa);
 
     memset(vmcb_page, 0, 4096);
 
@@ -279,6 +287,11 @@ int v3_init_svm_vmcb(struct guest_info * info, v3_vm_class_t vm_class) {
     PrintDebug("Allocating VMCB\n");
     info->vmm_data = (void*)Allocate_VMCB();
     
+    if (info->vmm_data == NULL) {
+	PrintError("Could not allocate VMCB, Exiting...\n");
+	return -1;
+    }
+
     if (vm_class == V3_PC_VM) {
 	PrintDebug("Initializing VMCB (addr=%p)\n", (void *)info->vmm_data);
 	Init_VMCB_BIOS((vmcb_t*)(info->vmm_data), info);

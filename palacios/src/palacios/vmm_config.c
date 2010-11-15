@@ -429,7 +429,7 @@ static struct v3_vm_info * allocate_guest(int num_cores) {
 
 
 
-struct v3_vm_info * v3_config_guest(void * cfg_blob) {
+struct v3_vm_info * v3_config_guest(void * cfg_blob, void * priv_data) {
     v3_cpu_arch_t cpu_type = v3_get_cpu_type(V3_Get_CPU());
     struct v3_config * cfg_data = NULL;
     struct v3_vm_info * vm = NULL;
@@ -472,6 +472,8 @@ struct v3_vm_info * v3_config_guest(void * cfg_blob) {
 	PrintError("Could not allocate %d core guest\n", vm->num_cores);
 	return NULL;
     }
+
+    vm->host_priv_data = priv_data;
 
     vm->cfg_data = cfg_data;
 

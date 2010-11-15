@@ -124,7 +124,7 @@ v3_cpu_arch_t v3_get_cpu_type(int cpu_id) {
 
 
 struct v3_vm_info * v3_create_vm(void * cfg, void * priv_data, char * name) {
-    struct v3_vm_info * vm = v3_config_guest(cfg);
+    struct v3_vm_info * vm = v3_config_guest(cfg, priv_data);
 
     V3_Print("CORE 0 RIP=%p\n", (void *)(addr_t)(vm->cores[0].rip));
 
@@ -134,8 +134,6 @@ struct v3_vm_info * v3_create_vm(void * cfg, void * priv_data, char * name) {
 	return NULL;
     }
 
- 
-
     if (name == NULL) {
 	name = "[V3_VM]";
     } else if (strlen(name) >= 128) {
@@ -144,8 +142,6 @@ struct v3_vm_info * v3_create_vm(void * cfg, void * priv_data, char * name) {
 
     memset(vm->name, 0, 128);
     strncpy(vm->name, name, 127);
-
-    vm->host_priv_data = priv_data;
 
     return vm;
 }
