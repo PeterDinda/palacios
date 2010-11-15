@@ -38,8 +38,7 @@
 
 #define SCREEN_SIZE (BYTES_PER_ROW * NUM_ROWS)
 
-struct cons_state 
-{
+struct cons_state {
     v3_console_t cons;
     struct vm_device * frontend_dev;
 };
@@ -156,6 +155,15 @@ static int scroll(int rows, void * private_data) {
     return 0;
 }
 
+
+static int console_event_handler(struct v3_vm_info * vm, 
+				 struct v3_console_event * evt, 
+				 void * priv_data) {
+    screen_update(0, 0, SCREEN_SIZE, priv_data);
+    
+    return 0;
+}
+
 static struct v3_console_ops cons_ops = {
     .update_screen = screen_update, 
     .update_cursor = cursor_update,
@@ -211,6 +219,8 @@ static int cons_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg)
 
     /* attach to front-end display adapter */
     v3_console_register_cga(frontend, &cons_ops, dev);
+
+    v3_hook_host_event(vm, HOST_CONSOLE_EVT, V3_HOST_EVENT_HANDLER(console_event_handler), dev);
 
     return 0;
 }
