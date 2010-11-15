@@ -76,10 +76,10 @@ static int handle_debug_write(struct guest_info * core, ushort_t port, void * sr
 static int handle_console_write(struct guest_info * core, ushort_t port, void * src, uint_t length, struct vm_device * dev) {
     struct debug_state * state = (struct debug_state *)dev->private_data;
 
-    state->cons_buf[state->cons_offset++] = *(char*)src;
+    state->cons_buf[state->cons_offset++] = *(char *)src;
 
-    if ((*(char*)src == 0xa) ||  (state->cons_offset == (BUF_SIZE - 1))) {
-	PrintDebug("BOCHSCONSOLE>%s", state->cons_buf);
+    if ((*(char *)src == 0xa) ||  (state->cons_offset == (BUF_SIZE - 1))) {
+	V3_Print("BOCHSCONSOLE>%s", state->cons_buf);
 	memset(state->cons_buf, 0, BUF_SIZE);
 	state->cons_offset = 0;
     }
@@ -152,8 +152,10 @@ static int debug_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     state->debug_offset = 0;
     state->info_offset = 0;
+    state->cons_offset = 0;
     memset(state->debug_buf, 0, BUF_SIZE);
     memset(state->info_buf, 0, BUF_SIZE);
+    memset(state->cons_buf, 0, BUF_SIZE);
 
 
     v3_dev_hook_io(dev, BOCHS_PORT1,  NULL, &handle_gen_write);
