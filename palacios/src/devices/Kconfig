@@ -155,7 +155,7 @@ config DEBUG_VIRTIO_NET
 config VNET_NIC
         bool "Enable VNET VIrtio NIC Device"
         default n
-	depends on PCI && EXPERIMENTAL
+	depends on PCI && EXPERIMENTAL && VNET
         help
           Enable the VNET Virtio backend device
 
