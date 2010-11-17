@@ -222,7 +222,9 @@ static int handle_cmd_kick(struct guest_info * core, struct virtio_vnet_state * 
 }
 
 
-static int vnet_pkt_input_cb(struct v3_vm_info * vm,  struct v3_vnet_pkt *pkt, void * private_data){
+static int vnet_pkt_input_cb(struct v3_vm_info * vm,  
+							struct v3_vnet_pkt * pkt, 
+							void * private_data){
     struct virtio_vnet_state * vnet_state = (struct virtio_vnet_state *)private_data;
     struct virtio_queue * q = &(vnet_state->queue[RECV_QUEUE]);
     int ret_val = -1;
@@ -277,17 +279,6 @@ exit:
     v3_unlock_irqrestore(vnet_state->lock, flags);
  
     return ret_val;
-}
-
-static int vnet_pkt_input_xcall(void *data){
-    struct v3_vnet_bridge_xcall_args *args = (struct v3_vnet_bridge_xcall_args *)data;
-    int i = 0;
-
-    for(i = 0; i < args->pkt_num; i++) {
-	vnet_pkt_input_cb(args->vm, &(args->vnet_pkts[i]), args->private_data);
-    }
-	
-    return 0;
 }
 
 static int handle_pkt_kick(struct guest_info *core, struct virtio_vnet_state * vnet_state) 
@@ -658,11 +649,10 @@ static int dev_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     struct v3_vnet_bridge_ops brg_ops;
     brg_ops.input = vnet_pkt_input_cb;
-    brg_ops.polling_pkt = vnet_virtio_poll;
-    brg_ops.xcall_input = vnet_pkt_input_xcall;
+    brg_ops.poll = vnet_virtio_poll;
 
     V3_Print("Registering Virtio device as vnet bridge\n");
-    v3_vnet_add_bridge(vm, &brg_ops, (void *)vnet_state);
+    v3_vnet_add_bridge(vm, &brg_ops, CTL_VM_BRIDGE, (void *)vnet_state);
 
     return 0;
 }

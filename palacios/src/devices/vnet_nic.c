@@ -42,22 +42,24 @@ struct vnet_nic_state {
 
 /* called by frontend device, 
   * tell the VNET can start sending pkt to it */
-static void start_rx(void *private_data){
-    struct vnet_nic_state *vnetnic = (struct vnet_nic_state *)private_data;
+static void start_rx(void * private_data){
+    //struct vnet_nic_state *vnetnic = (struct vnet_nic_state *)private_data;
 
-    v3_vnet_enable_device(vnetnic->vnet_dev_id);
+    //v3_vnet_enable_device(vnetnic->vnet_dev_id);
 }
 
 /* called by frontend device, 
   * tell the VNET stop sending pkt to it */
-static void stop_rx(void *private_data){
-    struct vnet_nic_state *vnetnic = (struct vnet_nic_state *)private_data;
+static void stop_rx(void * private_data){
+    //struct vnet_nic_state *vnetnic = (struct vnet_nic_state *)private_data;
 
-    v3_vnet_disable_device(vnetnic->vnet_dev_id);
+    //v3_vnet_disable_device(vnetnic->vnet_dev_id);
 }
 
 /* called by frontend, send pkt to VNET */
-static int vnet_nic_send(uint8_t * buf, uint32_t len, void * private_data, struct vm_device *dest_dev){
+static int vnet_nic_send(uint8_t * buf, uint32_t len, 
+						void * private_data, 
+						struct vm_device * dest_dev){
     struct vnet_nic_state *vnetnic = (struct vnet_nic_state *)private_data;
 
     struct v3_vnet_pkt pkt;
@@ -79,9 +81,10 @@ static int vnet_nic_send(uint8_t * buf, uint32_t len, void * private_data, struc
 }
 
 
-/* called by VNET, 
-  * send pkt to frontend device */
-static int virtio_input(struct v3_vm_info *info, struct v3_vnet_pkt * pkt, void * private_data){
+/* send pkt to frontend device */
+static int virtio_input(struct v3_vm_info * info, 
+					struct v3_vnet_pkt * pkt, 
+					void * private_data){
     struct vnet_nic_state *vnetnic = (struct vnet_nic_state *)private_data;
 	
     return vnetnic->net_ops.recv(pkt->data, 
@@ -89,33 +92,23 @@ static int virtio_input(struct v3_vm_info *info, struct v3_vnet_pkt * pkt, void 
 							vnetnic->net_ops.frontend_data);
 }
 
-/* called by VNET, 
-  * tell frontend device to poll data from guest */
-static void virtio_poll(struct v3_vm_info *info, void * private_data){
+/* tell frontend device to poll data from guest */
+static void virtio_poll(struct v3_vm_info * info, 
+					void * private_data){
     struct vnet_nic_state *vnetnic = (struct vnet_nic_state *)private_data;
 
     vnetnic->net_ops.poll(info, vnetnic->net_ops.frontend_data);
 }
 
-/* called by VNET, from different processor */
-static void virtio_poll_xcall(void *data){
-    struct v3_vnet_dev_xcall_args *args = (struct v3_vnet_dev_xcall_args *)data;
-    struct vnet_nic_state *vnetnic = (struct vnet_nic_state *)args->private_data;
 
-    if(args->vm == vnetnic->vm) /*only do polling on the same Virtual Machine */
-  	virtio_poll(args->vm, args->private_data);
-}
-
-/* called by VNET, 
-  * tell the frontend to start sending pkt to VNET*/
+/* tell the frontend to start sending pkt to VNET*/
 static void start_tx(void *private_data){
     struct vnet_nic_state *vnetnic = (struct vnet_nic_state *)private_data;
 
     vnetnic->net_ops.start_tx(vnetnic->net_ops.frontend_data);
 }
 
-/* called by VNET 
-  * tell the frontend device to stop sending pkt to VNET*/
+/* tell the frontend device to stop sending pkt to VNET*/
 static void stop_tx(void *private_data){
     struct vnet_nic_state *vnetnic = (struct vnet_nic_state *)private_data;
 
@@ -137,7 +130,6 @@ static struct v3_device_ops dev_ops = {
 static struct v3_vnet_dev_ops vnet_dev_ops = {
     .input = virtio_input,
     .poll = virtio_poll,
-    .poll_xcall = virtio_poll_xcall,
     .start_tx = start_tx,
     .stop_tx = stop_tx,
 };

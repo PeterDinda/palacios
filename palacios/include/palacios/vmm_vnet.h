@@ -26,17 +26,19 @@
 
 #include <palacios/vmm.h>
 
-
-#define V3_VNET_POLLING_VECTOR	50
-
 typedef enum {MAC_ANY=0, MAC_NOT, MAC_NONE, MAC_ADDR} mac_type_t; //for 'src_mac_qual' and 'dst_mac_qual'
 typedef enum {LINK_INTERFACE=0, LINK_EDGE, LINK_ANY} link_type_t; //for 'type' and 'src_type' in struct routing
-
 
 #define VNET_HASH_SIZE 17
 #define ETHERNET_HEADER_LEN 14
 #define ETHERNET_MTU   1500
 #define ETHERNET_PACKET_LEN (ETHERNET_HEADER_LEN + ETHERNET_MTU)
+
+#define VMM_DRIVERN 1
+#define GUEST_DRIVERN 0
+
+#define HOST_LNX_BRIDGE 1
+#define CTL_VM_BRIDGE 2
 
 //routing table entry
 struct v3_vnet_route {
@@ -76,41 +78,11 @@ struct v3_vnet_pkt {
 } __attribute__((packed));
 
 
-#ifdef CONFIG_VNET_PROFILE
-struct v3_vnet_profile{
-    uint64_t  time_copy_from_guest;
-    uint64_t  time_route_lookup;
-    uint64_t  time_mallocfree;
-    uint64_t  time_copy_to_guest;
-    uint64_t  total_handle_time;
-    uint64_t  memcpy_time;
-
-    uint64_t  total_exit_time;
-    bool print;
-
-    uint64_t virtio_handle_start;
-};
-#endif
-
-
-struct v3_vnet_bridge_xcall_args{
-    struct v3_vm_info * vm;
-    struct v3_vnet_pkt *vnet_pkts; 
-    uint16_t pkt_num;
-    void * private_data;
-};
-
-struct v3_vnet_dev_xcall_args{
-    struct v3_vm_info * vm;
-    void * private_data;
-};
-
 struct v3_vnet_dev_ops {
     int (*input)(struct v3_vm_info * vm, 
 		struct v3_vnet_pkt * pkt, 
 		void * dev_data);
     void (*poll) (struct v3_vm_info * vm, void * dev_data);
-    void (*poll_xcall)(void *arg);
 
     void (*start_tx)(void * dev_data);
     void (*stop_tx)(void * dev_data);
@@ -120,31 +92,22 @@ struct v3_vnet_bridge_ops {
     int (*input)(struct v3_vm_info * vm, 
 		struct v3_vnet_pkt * pkt,
 		void * private_data);
-    int (*xcall_input)(void * data);
-    void (*polling_pkt)(struct v3_vm_info * vm,  
+    void (*poll)(struct v3_vm_info * vm,  
 		void * private_data);
 };
-	
 
+int v3_init_vnet();	
 int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void *private_data);
+void v3_vnet_poll(struct v3_vm_info *vm);
 
 int v3_vnet_add_route(struct v3_vnet_route route);
-
-int v3_init_vnet();
-
 int v3_vnet_add_bridge(struct v3_vm_info * vm,
 		struct v3_vnet_bridge_ops *ops,
+		uint8_t type,
 		void * priv_data);
-
 int v3_vnet_add_dev(struct v3_vm_info *info, uint8_t mac[6], 
 		    struct v3_vnet_dev_ops *ops,
 		    void * priv_data);
-
-void v3_vnet_poll(struct v3_vm_info *vm);
-
-int v3_vnet_enable_device(int dev_id);
-
-int v3_vnet_disable_device(int dev_id);
 
 #endif
 

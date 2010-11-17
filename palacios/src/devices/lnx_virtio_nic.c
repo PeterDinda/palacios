@@ -95,10 +95,8 @@ struct virtio_net_state {
 
     int buffed_rx;
     int tx_disabled; 			/* stop TX pkts from guest */
-    uint16_t cur_notify_tx_idx; 	/*for used in update_tx_queue */
 
     uint64_t pkt_sent, pkt_recv, pkt_drop;
-    uint64_t tx_stop_times, rx_stop_times, tx_poll_times, rx_ipi_num;
 
     struct v3_dev_net_ops * net_ops;
     v3_lock_t rx_lock, tx_lock;
@@ -162,7 +160,7 @@ static int virtio_init_state(struct virtio_net_state * virtio)
     return 0;
 }
 
-static int pkt_tx(struct guest_info *core, struct virtio_net_state * virtio, struct vring_desc * buf_desc) 
+static int pkt_tx(struct guest_info * core, struct virtio_net_state * virtio, struct vring_desc * buf_desc) 
 {
     uint8_t * buf = NULL;
     uint32_t len = buf_desc->length;
@@ -176,7 +174,7 @@ static int pkt_tx(struct guest_info *core, struct virtio_net_state * virtio, str
 }
 
 
-static int copy_data_to_desc(struct guest_info *core, 
+static int copy_data_to_desc(struct guest_info * core, 
 					struct virtio_net_state * virtio_state, 
 					struct vring_desc * desc, 
 					uchar_t * buf, 
@@ -217,6 +215,7 @@ static inline void disable_cb(struct virtio_queue *queue) {
     queue->used->flags |= VRING_NO_NOTIFY_FLAG;
 }
 
+
 /* interrupt the guest, so the guest core get EXIT to Palacios
  * this happens when there are either incoming pkts for the guest
  * or the guest can start TX pkts again */
@@ -240,20 +239,6 @@ static int handle_rx_kick(struct guest_info *core, struct virtio_net_state * vir
     return 0;
 }
 
-#ifdef CONFIG_VNET_PROFILE
-static void print_profile_info(struct virtio_net_state *virtio){
-    PrintError("Virtio NIC: %p,  sent: %lld, rxed: %lld, dropped: %lld, \
-			tx_stop: %lld, rx_stop: %lld, poll_time: %lld, rx_ipi: %lld\n",
-			virtio,
-			virtio->pkt_sent,
-			virtio->pkt_recv,
-			virtio->pkt_drop, 
-			virtio->tx_stop_times,
-			virtio->rx_stop_times,
-			virtio->tx_poll_times,
-			virtio->rx_ipi_num);
-}
-#endif
 
 static int handle_ctrl(struct guest_info *core, struct virtio_net_state * virtio) {
 	
@@ -326,24 +311,6 @@ static int handle_pkt_tx(struct guest_info *core, struct virtio_net_state * virt
 	v3_pci_raise_irq(virtio_state->virtio_dev->pci_bus, 0, virtio_state->pci_dev);
 	virtio_state->virtio_cfg.pci_isr = 0x1;
     }
-
-
-#ifdef CONFIG_VNET_PROFILE
-	static long min = 1024, max = 0, total=0;
-	static int i=0;
-	total += recved;
-	i ++;
-	if(recved > max) max = recved;
-	if(recved < min) min = recved;
-	if(total > 100000) {
-		PrintError("VNIC: TX polling: %ld, min %ld, max %ld, avg: %ld pkts\n", total, min, max, total/i);
-		min = 1024;
-		max = 0;
-		i = 1; 
-		total = 0;
-	}
-#endif
-
 
     return 0;
 
@@ -642,7 +609,6 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
 	    (q->avail->flags & VIRTIO_NO_IRQ_FLAG)) {
 	    if(virtio->virtio_dev->vm->cores[0].cpu_id != V3_Get_CPU()){
 		  notify_guest(virtio);
-		  virtio->rx_ipi_num ++;
 	    }
 	    virtio->buffed_rx = 0;
 	}
@@ -651,8 +617,6 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
 	/* RX queue is full,  tell backend to stop RX on this device */
 	virtio->net_ops->stop_rx(virtio->backend_data);
 	enable_cb(&virtio->rx_vq);
-
-	virtio->rx_stop_times ++;
 	
 	ret_val = -ERR_VIRTIO_RXQ_FULL;
 	goto exit;
@@ -683,48 +647,39 @@ static struct v3_device_ops dev_ops = {
 
 
 /* TODO: Issue here: which vm info it needs? calling VM or the device's own VM? */
-static void virtio_nic_poll(struct v3_vm_info *vm, void *data){
-    struct virtio_net_state *virtio = (struct virtio_net_state *)data;
+static void virtio_nic_poll(struct v3_vm_info * vm, void * data){
+    struct virtio_net_state * virtio = (struct virtio_net_state *)data;
 	
     handle_pkt_tx(&(vm->cores[0]), virtio);
-
-    virtio->tx_poll_times ++;
-
-#ifdef CONFIG_VNET_PROFILE
-    static uint64_t last_time = 0;
-    uint64_t time;
-    rdtscll(time);
-    if((time - last_time) > 5000000000){
-	last_time = time;
-       print_profile_info(virtio);
-    }
-#endif
 }
 
-static void virtio_start_tx(void *data){
+static void virtio_start_tx(void * data){
     struct virtio_net_state * virtio = (struct virtio_net_state *)data;
+    unsigned long flags;
 
-    /* do we need a lock here? */
+    flags = v3_lock_irqsave(virtio->tx_lock);
     virtio->tx_disabled = 0;
 
-    /* notify the device's guest it can start sending pkt */
+    /* notify the device's guest to start sending pkt */
     if(virtio->virtio_dev->vm->cores[0].cpu_id != V3_Get_CPU()){
 	notify_guest(virtio);
     }
+    v3_unlock_irqrestore(virtio->tx_lock, flags);	
 }
 
-static void virtio_stop_tx(void *data){
+static void virtio_stop_tx(void * data){
     struct virtio_net_state * virtio = (struct virtio_net_state *)data;
+    unsigned long flags;
 
-    /* do we need a lock here? */
+    flags = v3_lock_irqsave(virtio->tx_lock);
     virtio->tx_disabled = 1;
 
-    /* how do we stop the guest to exit to palacios for sending pkt? */
+    /* stop the guest to exit to palacios for sending pkt? */
     if(virtio->virtio_dev->vm->cores[0].cpu_id != V3_Get_CPU()){
        disable_cb(&virtio->tx_vq);
     }
 
-    virtio->tx_stop_times ++;
+    v3_unlock_irqrestore(virtio->tx_lock, flags);
 }
 
 	
@@ -796,11 +751,6 @@ static int register_dev(struct virtio_dev_state * virtio, struct virtio_net_stat
     memcpy(pci_dev->config_data, net_state->net_cfg.mac, ETH_ALEN);
     
     virtio_init_state(net_state);
-
-#if 0 //temporary hacking LX
-    vnic_states[num_vnic ++] = net_state;
-    PrintError("VNIC: num of vnic %d\n", num_vnic);
-#endif
 
     return 0;
 }
