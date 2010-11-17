@@ -6,4 +6,4 @@
 # from aligning stack to 16 bytes. (Which is gcc's way of supporting SSE).
 CFLAGS += $(call cc-option,-m64,) -D__V3_64BIT__
 AFLAGS += $(call cc-option,-m64,) -D__V3_64BIT__
-LDFLAGS += -melf_x86_64
+LDFLAGS += -melf_x86_64 -dp
