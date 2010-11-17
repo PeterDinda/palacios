@@ -298,9 +298,9 @@ V3_INCLUDE      := -Ipalacios/include \
 
 CPPFLAGS        := $(V3_INCLUDE) -D__V3VEE__
 
-CFLAGS 		:=  -fno-stack-protector -Wall -O -Werror -fPIC -mno-red-zone
+CFLAGS 		:=  -fno-stack-protector -Wall -O -Werror -fPIC -mno-red-zone -fno-common
 
-LDFLAGS         := --whole-archive
+LDFLAGS         := --whole-archive 
 
 ifeq ($(call cc-option-yn, -fgnu89-inline),y)
 CFLAGS		+= -fgnu89-inline
