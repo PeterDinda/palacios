@@ -169,11 +169,11 @@ config LINUX_VIRTIO_VNET
           Enable the Virtio VNET interface
 
 config DEBUG_LINUX_VIRTIO_VNET
-        bool "VNET Virtio Device Debugging"
+        bool "Virtio VNET Interface Debugging"
         default n
         depends on LINUX_VIRTIO_VNET && DEBUG_ON
         help
-          Enable debugging for the VNET Virtio Device
+          Enable debugging for the VNET Virtio interface
 
 endmenu
 
