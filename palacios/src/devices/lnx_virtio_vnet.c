@@ -125,7 +125,8 @@ static int get_desc_count(struct virtio_queue * q, int index) {
 
 
 
-static int handle_cmd_kick(struct guest_info * core, struct virtio_vnet_state * vnet_state) {
+static int handle_cmd_kick(struct guest_info * core, 
+			   struct virtio_vnet_state * vnet_state) {
     struct virtio_queue * q = &(vnet_state->queue[0]);
     
     PrintDebug("VNET Bridge: Handling command  queue\n");
@@ -223,8 +224,8 @@ static int handle_cmd_kick(struct guest_info * core, struct virtio_vnet_state * 
 
 
 static int vnet_pkt_input_cb(struct v3_vm_info * vm,  
-							struct v3_vnet_pkt * pkt, 
-							void * private_data){
+			     struct v3_vnet_pkt * pkt, 
+			     void * private_data){
     struct virtio_vnet_state * vnet_state = (struct virtio_vnet_state *)private_data;
     struct virtio_queue * q = &(vnet_state->queue[RECV_QUEUE]);
     int ret_val = -1;
@@ -281,7 +282,8 @@ exit:
     return ret_val;
 }
 
-static int handle_pkt_kick(struct guest_info *core, struct virtio_vnet_state * vnet_state) 
+static int handle_pkt_kick(struct guest_info * core, 
+			   struct virtio_vnet_state * vnet_state) 
 {
     struct virtio_queue * q = &(vnet_state->queue[XMIT_QUEUE]);
     int recvd = 0;
@@ -337,7 +339,7 @@ static int handle_pkt_kick(struct guest_info *core, struct virtio_vnet_state * v
     return 0;
 }
 
-static void vnet_virtio_poll(struct v3_vm_info * vm, void *private_data){
+static void vnet_virtio_poll(struct v3_vm_info * vm, void * private_data){
     struct virtio_vnet_state * vnet_state = (struct virtio_vnet_state *)private_data;
 
     if(vm == vnet_state->vm){	
@@ -345,14 +347,17 @@ static void vnet_virtio_poll(struct v3_vm_info * vm, void *private_data){
     }
 }
 
-static int handle_rx_kick(struct guest_info *core, struct virtio_vnet_state * vnet_state) 
+static int handle_rx_kick(struct guest_info *core, 
+			  struct virtio_vnet_state * vnet_state) 
 {
     //v3_vnet_enable_bridge();
 	
     return 0;
 }
 
-static int vnet_virtio_io_write(struct guest_info * core, uint16_t port, void * src, uint_t length, void * private_data) {
+static int vnet_virtio_io_write(struct guest_info * core, 
+				uint16_t port, void * src, 
+				uint_t length, void * private_data) {
     struct virtio_vnet_state * vnet_state = (struct virtio_vnet_state *)private_data;
     int port_idx = port % vnet_state->io_range_size;
 
@@ -486,7 +491,9 @@ static int vnet_virtio_io_write(struct guest_info * core, uint16_t port, void * 
 }
 
 
-static int vnet_virtio_io_read(struct guest_info * core, uint16_t port, void * dst, uint_t length, void * private_data) {
+static int vnet_virtio_io_read(struct guest_info * core, 
+			       uint16_t port, void * dst, 
+			       uint_t length, void * private_data) {
 
     struct virtio_vnet_state * vnet_state = (struct virtio_vnet_state *)private_data;
     int port_idx = port % vnet_state->io_range_size;

@@ -150,7 +150,7 @@ static int virtio_init_state(struct virtio_net_state * virtio)
     virtio->virtio_cfg.host_features = 0; // (1 << VIRTIO_NET_F_MAC);
 
     if ((v3_lock_init(&(virtio->rx_lock)) == -1) ||
-	  (v3_lock_init(&(virtio->tx_lock)) == -1)){
+	(v3_lock_init(&(virtio->tx_lock)) == -1)){
         PrintError("Virtio NIC: Failure to init locks for net_state\n");
     }
 
@@ -160,7 +160,10 @@ static int virtio_init_state(struct virtio_net_state * virtio)
     return 0;
 }
 
-static int pkt_tx(struct guest_info * core, struct virtio_net_state * virtio, struct vring_desc * buf_desc) 
+static int 
+pkt_tx(struct guest_info * core, 
+       struct virtio_net_state * virtio, 
+       struct vring_desc * buf_desc) 
 {
     uint8_t * buf = NULL;
     uint32_t len = buf_desc->length;
@@ -174,12 +177,13 @@ static int pkt_tx(struct guest_info * core, struct virtio_net_state * virtio, st
 }
 
 
-static int copy_data_to_desc(struct guest_info * core, 
-					struct virtio_net_state * virtio_state, 
-					struct vring_desc * desc, 
-					uchar_t * buf, 
-					uint_t buf_len,
-					uint_t offset)
+static int 
+copy_data_to_desc(struct guest_info * core, 
+		  struct virtio_net_state * virtio_state, 
+		  struct vring_desc * desc, 
+		  uchar_t * buf, 
+		  uint_t buf_len,
+		  uint_t offset)
 {
     uint32_t len;
     uint8_t * desc_buf = NULL;
@@ -225,7 +229,8 @@ static inline void notify_guest(struct virtio_net_state * virtio){
 
 
 /* guest free some pkts from rx queue */
-static int handle_rx_kick(struct guest_info *core, struct virtio_net_state * virtio) 
+static int handle_rx_kick(struct guest_info *core, 
+			  struct virtio_net_state * virtio) 
 {
     unsigned long flags;
 
@@ -240,12 +245,14 @@ static int handle_rx_kick(struct guest_info *core, struct virtio_net_state * vir
 }
 
 
-static int handle_ctrl(struct guest_info *core, struct virtio_net_state * virtio) {
+static int handle_ctrl(struct guest_info *core, 
+		       struct virtio_net_state * virtio) {
 	
     return 0;
 }
 
-static int handle_pkt_tx(struct guest_info *core, struct virtio_net_state * virtio_state) 
+static int handle_pkt_tx(struct guest_info *core, 
+			 struct virtio_net_state * virtio_state) 
 {
     struct virtio_queue * q = &(virtio_state->tx_vq);
     struct virtio_net_hdr * hdr = NULL;
@@ -322,10 +329,9 @@ exit_error:
 
 
 static int virtio_setup_queue(struct guest_info *core, 
-				struct virtio_net_state * virtio_state, 
-				struct virtio_queue * queue, 
-							addr_t pfn, 
-							addr_t page_addr) {
+			      struct virtio_net_state * virtio_state, 
+			      struct virtio_queue * queue, 
+			      addr_t pfn, addr_t page_addr) {
     queue->pfn = pfn;
 		
     queue->ring_desc_addr = page_addr;
@@ -362,7 +368,9 @@ static int virtio_setup_queue(struct guest_info *core,
     return 0;
 }
 
-static int virtio_io_write(struct guest_info *core, uint16_t port, void * src, uint_t length, void * private_data) 
+static int virtio_io_write(struct guest_info *core, 
+			   uint16_t port, void * src, 
+			   uint_t length, void * private_data) 
 {
     struct virtio_net_state * virtio = (struct virtio_net_state *)private_data;
     int port_idx = port % virtio->io_range_size;
@@ -457,7 +465,9 @@ static int virtio_io_write(struct guest_info *core, uint16_t port, void * src, u
     return length;
 }
 
-static int virtio_io_read(struct guest_info *core, uint16_t port, void * dst, uint_t length, void * private_data) 
+static int virtio_io_read(struct guest_info *core, 
+			  uint16_t port, void * dst, 
+			  uint_t length, void * private_data) 
 {
     struct virtio_net_state * virtio = (struct virtio_net_state *)private_data;
     int port_idx = port % virtio->io_range_size;
@@ -685,7 +695,8 @@ static void virtio_stop_tx(void * data){
 	
 
 
-static int register_dev(struct virtio_dev_state * virtio, struct virtio_net_state * net_state) 
+static int register_dev(struct virtio_dev_state * virtio, 
+			struct virtio_net_state * net_state) 
 {
     struct pci_device * pci_dev = NULL;
     struct v3_pci_bar bars[6];

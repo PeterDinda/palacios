@@ -105,27 +105,27 @@ static inline void mac_to_string(char mac[6], char * buf) {
 	     mac[3], mac[4], mac[5]);
 }
 
-static void print_route(struct vnet_route_info *route){
+static void print_route(struct vnet_route_info * route){
     char str[50];
 
     mac_to_string(route->route_def.src_mac, str);
     PrintDebug("Src Mac (%s),  src_qual (%d)\n", 
-			str, route->route_def.src_mac_qual);
+	       str, route->route_def.src_mac_qual);
     mac_to_string(route->route_def.dst_mac, str);
     PrintDebug("Dst Mac (%s),  dst_qual (%d)\n", 
-			str, route->route_def.dst_mac_qual);
+	       str, route->route_def.dst_mac_qual);
     PrintDebug("Src dev id (%d), src type (%d)", 
-			route->route_def.src_id, 
-			route->route_def.src_type);
+	       route->route_def.src_id, 
+	       route->route_def.src_type);
     PrintDebug("Dst dev id (%d), dst type (%d)\n", 
-			route->route_def.dst_id, 
-			route->route_def.dst_type);
+	       route->route_def.dst_id, 
+	       route->route_def.dst_type);
     if (route->route_def.dst_type == LINK_INTERFACE) {
     	PrintDebug("dst_dev (%p), dst_dev_id (%d), dst_dev_ops(%p), dst_dev_data (%p)\n",
-					route->dst_dev,
-					route->dst_dev->dev_id,
-					(void *)&(route->dst_dev->dev_ops),
-					route->dst_dev->private_data);
+	       route->dst_dev,
+	       route->dst_dev->dev_id,
+	       (void *)&(route->dst_dev->dev_ops),
+	       route->dst_dev->private_data);
     }
 }
 
@@ -135,9 +135,9 @@ static void dump_routes(){
 	int i = 0;
 	PrintDebug("\n========Dump routes starts ============\n");
 	list_for_each_entry(route, &(vnet_state.routes), node) {
-		PrintDebug("\nroute %d:\n", ++i);
+	    PrintDebug("\nroute %d:\n", ++i);
 		
-		print_route(route);
+	    print_route(route);
 	}
 	PrintDebug("\n========Dump routes end ============\n");
 }
@@ -467,7 +467,7 @@ int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data) {
     return 0;
 }
 
-int v3_vnet_add_dev(struct v3_vm_info *vm, uint8_t mac[6], 
+int v3_vnet_add_dev(struct v3_vm_info * vm, uint8_t mac[6], 
 		    struct v3_vnet_dev_ops *ops,
 		    void * priv_data){
     struct vnet_dev * new_dev = NULL;

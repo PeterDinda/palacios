@@ -58,8 +58,8 @@ static void stop_rx(void * private_data){
 
 /* called by frontend, send pkt to VNET */
 static int vnet_nic_send(uint8_t * buf, uint32_t len, 
-						void * private_data, 
-						struct vm_device * dest_dev){
+			 void * private_data, 
+			 struct vm_device * dest_dev){
     struct vnet_nic_state *vnetnic = (struct vnet_nic_state *)private_data;
 
     struct v3_vnet_pkt pkt;
@@ -83,8 +83,8 @@ static int vnet_nic_send(uint8_t * buf, uint32_t len,
 
 /* send pkt to frontend device */
 static int virtio_input(struct v3_vm_info * info, 
-					struct v3_vnet_pkt * pkt, 
-					void * private_data){
+			struct v3_vnet_pkt * pkt, 
+			void * private_data){
     struct vnet_nic_state *vnetnic = (struct vnet_nic_state *)private_data;
 	
     return vnetnic->net_ops.recv(pkt->data, 
@@ -94,7 +94,7 @@ static int virtio_input(struct v3_vm_info * info,
 
 /* tell frontend device to poll data from guest */
 static void virtio_poll(struct v3_vm_info * info, 
-					void * private_data){
+			void * private_data){
     struct vnet_nic_state *vnetnic = (struct vnet_nic_state *)private_data;
 
     vnetnic->net_ops.poll(info, vnetnic->net_ops.frontend_data);
@@ -102,14 +102,14 @@ static void virtio_poll(struct v3_vm_info * info,
 
 
 /* tell the frontend to start sending pkt to VNET*/
-static void start_tx(void *private_data){
+static void start_tx(void * private_data){
     struct vnet_nic_state *vnetnic = (struct vnet_nic_state *)private_data;
 
     vnetnic->net_ops.start_tx(vnetnic->net_ops.frontend_data);
 }
 
 /* tell the frontend device to stop sending pkt to VNET*/
-static void stop_tx(void *private_data){
+static void stop_tx(void * private_data){
     struct vnet_nic_state *vnetnic = (struct vnet_nic_state *)private_data;
 
     vnetnic->net_ops.stop_tx(vnetnic->net_ops.frontend_data);
@@ -136,9 +136,8 @@ static struct v3_vnet_dev_ops vnet_dev_ops = {
 
 
 static int register_to_vnet(struct v3_vm_info * vm,
-		     struct vnet_nic_state *vnet_nic,
-		     char *dev_name,
-		     uchar_t mac[6]) { 
+			    struct vnet_nic_state * vnet_nic,
+			    char * dev_name, uchar_t mac[6]) { 
    
     PrintDebug("Vnet-nic: register Vnet-nic device %s, state %p to VNET\n", dev_name, vnet_nic);
 	
@@ -146,7 +145,7 @@ static int register_to_vnet(struct v3_vm_info * vm,
 }
 
 
-static int str2mac(char *macstr, char mac[6]){
+static int str2mac(char * macstr, char mac[6]){
     char hex[2], *s = macstr;
     int i = 0;
 
@@ -201,7 +200,7 @@ static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     }
 
     PrintDebug("Vnet-nic: Connect %s to frontend %s\n", 
-		   name, v3_cfg_val(frontend_cfg, "tag"));
+	      name, v3_cfg_val(frontend_cfg, "tag"));
 
     if ((vnet_dev_id = register_to_vnet(vm, vnetnic, name, vnetnic->mac)) == -1) {
 	PrintError("Vnet-nic device %s (mac: %s) fails to registered to VNET\n", name, macstr);
@@ -209,7 +208,7 @@ static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     vnetnic->vnet_dev_id = vnet_dev_id;
 
     PrintDebug("Vnet-nic device %s (mac: %s, %ld) registered to VNET\n", 
-		   name, macstr, *((ulong_t *)vnetnic->mac));
+	        name, macstr, *((ulong_t *)vnetnic->mac));
 
 
 //for temporary hack for vnet bridge test
