@@ -22,17 +22,9 @@
 #include <palacios/vmm.h>
 #include <palacios/vmm_debug.h>
 #include <palacios/vmm_types.h>
+#include <palacios/vm_guest.h>
 
-
-struct v3_socket_hooks * sock_hooks = 0;
-
-void V3_Init_Sockets(struct v3_socket_hooks * hooks) {
-    sock_hooks = hooks;
-    PrintDebug("V3 sockets inited\n");
-
-    return;
-}
-
+static struct v3_socket_hooks * sock_hooks = 0;
 
 
 uint32_t v3_inet_addr(const char * ip_str) {
@@ -161,7 +153,7 @@ char * v3_inet_ntoa(uint32_t addr) {
     rp = str;
     ap = (uint8_t *)&addr;
 
-    for(n = 0; n < 4; n++) {
+    for (n = 0; n < 4; n++) {
 	i = 0;
 
 	do {
@@ -209,4 +201,117 @@ uint32_t v3_htonl(uint32_t n) {
 
 uint32_t v3_ntohl(uint32_t n) {
   return v3_htonl(n);
+}
+
+
+v3_sock_t v3_create_udp_socket(struct v3_vm_info * vm) {
+    V3_ASSERT(sock_hooks);
+    V3_ASSERT(sock_hooks->udp_socket);
+    
+    return sock_hooks->udp_socket(0, 0, vm->host_priv_data);
+}
+
+v3_sock_t v3_create_tcp_socket(struct v3_vm_info * vm) {
+    V3_ASSERT(sock_hooks);
+    V3_ASSERT(sock_hooks->tcp_socket);
+    
+    return sock_hooks->tcp_socket(0, 1, 0, vm->host_priv_data);
+}
+
+void v3_socket_close(v3_sock_t sock) {
+    V3_ASSERT(sock_hooks);
+    V3_ASSERT(sock_hooks->close);
+
+    sock_hooks->close(sock);
+}
+
+int v3_socket_bind(const v3_sock_t sock, uint16_t port) {
+    V3_ASSERT(sock_hooks);
+    V3_ASSERT(sock_hooks->bind);
+
+    return sock_hooks->bind(sock, port);
+}
+
+int v3_socket_listen(const v3_sock_t sock, int backlog) {
+    V3_ASSERT(sock_hooks);
+    V3_ASSERT(sock_hooks->listen);
+
+    return sock_hooks->listen(sock, backlog);
+}
+
+v3_sock_t v3_socket_accept(const v3_sock_t sock, uint32_t * remote_ip, uint32_t * port) {
+    V3_ASSERT(sock_hooks);
+    V3_ASSERT(sock_hooks->accept);
+
+    return sock_hooks->accept(sock, remote_ip, port);
+}
+
+int v3_connect_to_ip(const v3_sock_t sock, const uint32_t hostip, const uint16_t port) {
+    V3_ASSERT(sock_hooks);
+    V3_ASSERT(sock_hooks->connect_to_ip);
+    
+    return sock_hooks->connect_to_ip(sock, hostip, port);
+}
+
+int v3_connect_to_host(const v3_sock_t sock, const char * hostname, const uint16_t port) {
+    V3_ASSERT(sock_hooks);
+    V3_ASSERT(sock_hooks->connect_to_host);
+
+    return sock_hooks->connect_to_host(sock, hostname, port);
+}
+
+int v3_socket_send(const v3_sock_t sock, const uint8_t * buf, const uint32_t len) {
+    V3_ASSERT(sock_hooks);
+    V3_ASSERT(sock_hooks->send);
+
+    return sock_hooks->send(sock, buf, len);
+}
+
+int v3_socket_recv(const v3_sock_t sock, uint8_t * buf, const uint32_t len) {
+    V3_ASSERT(sock_hooks);
+    V3_ASSERT(sock_hooks->recv);
+
+    return sock_hooks->recv(sock, buf, len);
+}
+
+int v3_socket_send_to_host(const v3_sock_t sock, const char * hostname, const uint16_t port, 
+			   const uint8_t * buf, const uint32_t len) {
+    V3_ASSERT(sock_hooks);
+    V3_ASSERT(sock_hooks->sendto_host);
+
+    return sock_hooks->sendto_host(sock, hostname, port, buf, len);
+}
+
+int v3_socket_send_to_ip(const v3_sock_t sock, const uint32_t ip, const uint16_t port, 
+			 const uint8_t * buf, const uint32_t len) {
+    V3_ASSERT(sock_hooks);
+    V3_ASSERT(sock_hooks->sendto_ip);
+
+    return sock_hooks->sendto_ip(sock, ip, port, buf, len);
+}
+
+int v3_socket_recv_from_host(const v3_sock_t sock, const char * hostname, const uint16_t port, 
+			     uint8_t * buf, const uint32_t len) {
+    V3_ASSERT(sock_hooks);
+    V3_ASSERT(sock_hooks->recvfrom_host);
+
+    return sock_hooks->recvfrom_host(sock, hostname, port, buf, len);
+}
+
+int v3_socket_recv_from_ip(const v3_sock_t sock, const uint32_t ip, const uint16_t port, 
+			   uint8_t * buf, const uint32_t len) {
+    V3_ASSERT(sock_hooks);
+    V3_ASSERT(sock_hooks->recvfrom_ip);
+
+    return sock_hooks->recvfrom_ip(sock, ip, port, buf, len);
+}
+
+
+
+
+void V3_Init_Sockets(struct v3_socket_hooks * hooks) {
+    sock_hooks = hooks;
+    PrintDebug("V3 sockets inited\n");
+
+    return;
 }

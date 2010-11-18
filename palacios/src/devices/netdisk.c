@@ -38,22 +38,24 @@
 struct disk_state {
     uint64_t capacity; // in bytes
 
-    int socket;
+    v3_sock_t socket;
 
     uint32_t ip_addr;
     uint16_t port;
+
+    struct v3_vm_info * vm;
 
     char disk_name[32];
 
 };
 
 
-static int send_all(int socket, char * buf, int length) {
+static int send_all(v3_sock_t socket, char * buf, int length) {
     int bytes_sent = 0;
     
     PrintDebug("Sending %d bytes\n", length - bytes_sent);
     while (bytes_sent < length) {
-	int tmp_bytes = V3_Send(socket, buf + bytes_sent, length - bytes_sent);
+	int tmp_bytes = v3_socket_send(socket, buf + bytes_sent, length - bytes_sent);
 	PrintDebug("Sent %d bytes\n", tmp_bytes);
 	
 	if (tmp_bytes == 0) {
@@ -68,12 +70,12 @@ static int send_all(int socket, char * buf, int length) {
 }
 
 
-static int recv_all(int socket, char * buf, int length) {
+static int recv_all(v3_sock_t socket, char * buf, int length) {
     int bytes_read = 0;
     
     PrintDebug("Reading %d bytes\n", length - bytes_read);
     while (bytes_read < length) {
-	int tmp_bytes = V3_Recv(socket, buf + bytes_read, length - bytes_read);
+	int tmp_bytes = v3_socket_recv(socket, buf + bytes_read, length - bytes_read);
 	PrintDebug("Received %d bytes\n", tmp_bytes);
 	
 	if (tmp_bytes == 0) {
@@ -225,12 +227,12 @@ static int socket_init(struct disk_state * disk) {
     
     PrintDebug("Intializing Net Disk\n");
 
-    disk->socket = V3_Create_TCP_Socket();
+    disk->socket = v3_create_tcp_socket(disk->vm);
 
     PrintDebug("DISK socket: %d\n", disk->socket);
     PrintDebug("Connecting to: %s:%d\n", v3_inet_ntoa(disk->ip_addr), disk->port);
 
-    V3_Connect_To_IP(disk->socket, v3_ntohl(disk->ip_addr), disk->port);
+    v3_connect_to_ip(disk->socket, v3_ntohl(disk->ip_addr), disk->port);
 
     PrintDebug("Connected to NBD server\n");
 
@@ -285,7 +287,8 @@ static int disk_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     strncpy(disk->disk_name, disk_tag, sizeof(disk->disk_name));
     disk->ip_addr = v3_inet_addr(ip_str);
     disk->port = atoi(port_str);
-	
+    disk->vm = vm;
+
     struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, disk);
 
     if (v3_attach_device(vm, dev) == -1) {
