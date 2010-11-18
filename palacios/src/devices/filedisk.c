@@ -31,17 +31,17 @@
 struct disk_state {
     uint64_t capacity; // in bytes
 
-    void * fd;
+    v3_file_t fd;
 };
 
 
 
-static int write_all(void * fd, char * buf, int offset, int length) {
+static int write_all(v3_file_t fd, char * buf, int offset, int length) {
     int bytes_written = 0;
     
     PrintDebug("Writing %d bytes\n", length - bytes_written);
     while (bytes_written < length) {
-	int tmp_bytes = V3_FileWrite(fd, offset+bytes_written, buf + bytes_written, length - bytes_written);
+	int tmp_bytes = v3_file_write(fd, buf + bytes_written, offset + bytes_written, length - bytes_written);
 	PrintDebug("Wrote %d bytes\n", tmp_bytes);
 	
 	if (tmp_bytes <= 0 ) {
@@ -56,12 +56,12 @@ static int write_all(void * fd, char * buf, int offset, int length) {
 }
 
 
-static int read_all(void * fd, char * buf, int offset, int length) {
+static int read_all(v3_file_t fd, char * buf, int offset, int length) {
     int bytes_read = 0;
     
     PrintDebug("Reading %d bytes\n", length - bytes_read);
     while (bytes_read < length) {
-	int tmp_bytes = V3_FileRead(fd, offset+bytes_read, buf + bytes_read, length - bytes_read);
+	int tmp_bytes = v3_file_read(fd, buf + bytes_read, offset + bytes_read, length - bytes_read);
 	PrintDebug("Read %d bytes\n", tmp_bytes);
 	
 	if (tmp_bytes <= 0) {
@@ -149,18 +149,18 @@ static int disk_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     }
     
     if ( (allowRead == 1) && (allowWrite == 1) ) {
-    	disk->fd = V3_FileOpen(path, FILE_OPEN_MODE_READ | FILE_OPEN_MODE_WRITE, vm->host_priv_data );
+    	disk->fd = v3_file_open(vm, path, FILE_OPEN_MODE_READ | FILE_OPEN_MODE_WRITE );
     } else if ( (allowRead == 1) && (allowWrite == 0) ) {
-    	disk->fd = V3_FileOpen(path, FILE_OPEN_MODE_READ, vm->host_priv_data );
+    	disk->fd = v3_file_open(vm, path, FILE_OPEN_MODE_READ);
     } else if ( (allowRead == 0) && (allowWrite == 1) ) {
-    	disk->fd = V3_FileOpen(path, FILE_OPEN_MODE_WRITE, vm->host_priv_data );
+    	disk->fd = v3_file_open(vm, path, FILE_OPEN_MODE_WRITE);
     } else {
     	PrintError("Error on %s: No file mode specified\n", dev_id );
     	return -1;
 
     }
     
-    disk->capacity = V3_FileSize(disk->fd);
+    disk->capacity = v3_file_size(disk->fd);
 
     PrintDebug("Registering FILEDISK %s (path=%s, fd=%lu, size=%lu)\n",
 	       dev_id, path, file->fd, file->capacity);

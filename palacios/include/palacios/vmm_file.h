@@ -25,57 +25,15 @@
 
 
 #ifdef __V3VEE__
+typedef void * v3_file_t;
 
-#define V3_FileOpen(path, mode, host_data)				\
-    ({									\
-	void * fd = NULL;						\
-	extern struct v3_file_hooks * file_hooks;			\
-	if ((file_hooks) && (file_hooks)->file_open) {			\
-	    fd = (file_hooks)->file_open((path), (mode), (host_data));	\
-	}								\
-	fd;								\
-    })
 
-#define V3_FileClose(fd)						\
-    ({									\
-	int ret = 0;							\
-	extern struct v3_file_hooks * file_hooks;			\
-	if ((file_hooks) && (file_hooks)->file_close) {			\
-	    ret = (file_hooks)->file_close((fd));			\
-	}								\
-	ret;								\
-    })
+v3_file_t v3_file_open(struct v3_vm_info * vm, char * path, uint8_t mode);
+int v3_file_close(v3_file_t file);
+uint64_t v3_file_size(v3_file_t file);
 
-#define V3_FileSize(fd)							\
-    ({									\
-	long long size = -1;						\
-	extern struct v3_file_hooks * file_hooks;			\
-	if ((file_hooks) && (file_hooks)->file_size) {			\
-	    size = (file_hooks)->file_size((fd));			\
-	}								\
-	size;								\
-    })
-
-#define V3_FileRead(fd, start, buf, len)				\
-    ({									\
-	long long ret = -1;						\
-	extern struct v3_file_hooks * file_hooks;			\
-	if ((file_hooks) && (file_hooks)->file_read) {			\
-	    ret = (file_hooks)->file_read((fd), (buf), (len), (start));	\
-	}								\
-	ret;								\
-    })
-
-#define V3_FileWrite(fd,start,buf,len)					\
-    ({									\
-	long long ret = -1;						\
-	extern struct v3_file_hooks * file_hooks;			\
-	if ((file_hooks) && (file_hooks)->file_write) {			\
-	    ret = (file_hooks)->file_write((fd), (buf), (len), (start)); \
-	}								\
-	ret;								\
-    })
-
+uint64_t v3_file_read(v3_file_t file, uint8_t * buf, uint64_t len, uint64_t off);
+uint64_t v3_file_write(v3_file_t file, uint8_t * buf, uint64_t len, uint64_t off);
 
 #endif
 
@@ -84,14 +42,14 @@
 
 struct v3_file_hooks {
 
-    void * (*file_open)(const char * path, int mode, void * host_data);
-    int (*file_close)(void * fd);
+    void * (*open)(const char * path, int mode, void * host_data);
+    int (*close)(void * fd);
 
-    long long (*file_size)(void * fd);
+    long long (*size)(void * fd);
 
     // blocking reads and writes
-    long long (*file_read)(void * fd, void * buffer, long long length, long long offset);
-    long long (*file_write)(void * fd, void * buffer, long long length, long long offset);
+    long long (*read)(void * fd, void * buffer, long long length, long long offset);
+    long long (*write)(void * fd, void * buffer, long long length, long long offset);
 
 };
 

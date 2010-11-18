@@ -207,15 +207,25 @@ uint32_t v3_ntohl(uint32_t n) {
 v3_sock_t v3_create_udp_socket(struct v3_vm_info * vm) {
     V3_ASSERT(sock_hooks);
     V3_ASSERT(sock_hooks->udp_socket);
+    void * priv_data = NULL;
+
+    if (vm) {
+	priv_data = vm->host_priv_data;
+    }
     
-    return sock_hooks->udp_socket(0, 0, vm->host_priv_data);
+    return sock_hooks->udp_socket(0, 0, priv_data);
 }
 
 v3_sock_t v3_create_tcp_socket(struct v3_vm_info * vm) {
     V3_ASSERT(sock_hooks);
     V3_ASSERT(sock_hooks->tcp_socket);
-    
-    return sock_hooks->tcp_socket(0, 1, 0, vm->host_priv_data);
+    void * priv_data = NULL;
+
+    if (vm) {
+	priv_data = vm->host_priv_data;
+    }
+
+    return sock_hooks->tcp_socket(0, 1, 0, priv_data);
 }
 
 void v3_socket_close(v3_sock_t sock) {

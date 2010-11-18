@@ -22,13 +22,55 @@
 #include <palacios/vmm.h>
 #include <palacios/vmm_debug.h>
 #include <palacios/vmm_types.h>
+#include <palacios/vm_guest.h>
 
-
-struct v3_file_hooks * file_hooks = 0;
+static struct v3_file_hooks * file_hooks = NULL;
 
 void V3_Init_File(struct v3_file_hooks * hooks) {
     file_hooks = hooks;
     PrintDebug("V3 file access inited\n");
 
     return;
+}
+
+
+v3_file_t v3_file_open(struct v3_vm_info * vm, char * path, uint8_t mode) {
+    V3_ASSERT(file_hooks);
+    V3_ASSERT(file_hooks->open);
+    void * priv_data = NULL;
+    
+    if (vm) {
+	priv_data = vm->host_priv_data;
+    }
+
+    return file_hooks->open(path, mode, priv_data);
+}
+
+int v3_file_close(v3_file_t file) {
+    V3_ASSERT(file_hooks);
+    V3_ASSERT(file_hooks->open);
+    
+    return file_hooks->close(file);
+}
+
+uint64_t v3_file_size(v3_file_t file) {
+    V3_ASSERT(file_hooks);
+    V3_ASSERT(file_hooks->size);
+    
+    return file_hooks->size(file);
+}
+
+uint64_t v3_file_read(v3_file_t file, uint8_t * buf, uint64_t len, uint64_t off) {
+    V3_ASSERT(file_hooks);
+    V3_ASSERT(file_hooks->read);
+    
+    return file_hooks->read(file, buf, len, off);
+}
+
+
+uint64_t v3_file_write(v3_file_t file, uint8_t * buf, uint64_t len, uint64_t off) {
+    V3_ASSERT(file_hooks);
+    V3_ASSERT(file_hooks->write);
+    
+    return file_hooks->write(file, buf, len, off);
 }
