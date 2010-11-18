@@ -266,7 +266,7 @@ static int push_to_output_queue(struct vm_device * dev, uint8_t value, uint8_t c
 	q = &(state->kbd_queue);
     }
 
-    if (q->count == QUEUE_SIZE) {
+    if (q->count >= QUEUE_SIZE) {
 	return 0;
     }
 
@@ -276,7 +276,14 @@ static int push_to_output_queue(struct vm_device * dev, uint8_t value, uint8_t c
 	state->status.cmd = 0;
     }
 
-    q->queue[q->end++] = value;
+    q->queue[q->end] = value;
+
+    if (q->end >= (QUEUE_SIZE - 1)) {
+	q->end = 0;
+    } else {
+	q->end++;
+    }
+
     q->count++;
 
 
@@ -304,7 +311,14 @@ static int pull_from_output_queue(struct vm_device * dev, uint8_t * value) {
 	return 0;
     }
 
-    *value = q->queue[q->start++];
+    *value = q->queue[q->start];
+
+    if (q->start >= (QUEUE_SIZE - 1)) {
+	q->start = 0;
+    } else {
+	q->start++;
+    }
+
     q->count--;
 
 
@@ -1020,6 +1034,8 @@ static int keyboard_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     PrintDebug("keyboard: init_device\n");
 
     keyboard_state = (struct keyboard_internal *)V3_Malloc(sizeof(struct keyboard_internal));
+
+    memset(keyboard_state, 0, sizeof(struct keyboard_internal));
 
     keyboard_state->mouse_queue.start = 0;
     keyboard_state->mouse_queue.end = 0;
