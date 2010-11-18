@@ -43,6 +43,11 @@ struct v3_console_event {
     unsigned int cmd;
 };
 
+struct v3_packet_event {
+    unsigned char * pkt;
+    unsigned int size;
+};
+
 #ifdef __V3VEE__
 
 #include <palacios/vmm_list.h>
@@ -53,7 +58,8 @@ typedef enum { HOST_KEYBOARD_EVT,
 	       HOST_MOUSE_EVT, 
 	       HOST_TIMER_EVT,
 	       HOST_CONSOLE_EVT,
-	       HOST_SERIAL_EVT } v3_host_evt_type_t;
+	       HOST_SERIAL_EVT,
+	       HOST_PACKET_EVT} v3_host_evt_type_t;
 
 
 union v3_host_event_handler {
@@ -62,6 +68,7 @@ union v3_host_event_handler {
     int (*timer_handler)(struct v3_vm_info * vm, struct v3_timer_event * evt, void * priv_data);
     int (*serial_handler)(struct v3_vm_info * vm, struct v3_serial_event * evt, void * priv_data);
     int (*console_handler)(struct v3_vm_info * vm, struct v3_console_event * evt, void * priv_data);
+    int (*packet_handler)(struct v3_vm_info * vm, struct v3_packet_event * evt, void * priv_data);
 };
 
 
@@ -79,6 +86,7 @@ struct v3_host_events {
     struct list_head timer_events;
     struct list_head serial_events;
     struct list_head console_events;
+    struct list_head packet_events;
 };
 
 
@@ -101,7 +109,7 @@ int v3_deliver_mouse_event(struct v3_vm_info * vm, struct v3_mouse_event * evt);
 int v3_deliver_timer_event(struct v3_vm_info * vm, struct v3_timer_event * evt);
 int v3_deliver_serial_event(struct v3_vm_info * vm, struct v3_serial_event * evt);
 int v3_deliver_console_event(struct v3_vm_info * vm, struct v3_console_event * evt);
-
+int v3_deliver_packet_event(struct v3_vm_info * vm, struct v3_packet_event * evt);
 
 
 #endif
