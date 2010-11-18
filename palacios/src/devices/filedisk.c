@@ -41,7 +41,7 @@ static int write_all(v3_file_t fd, char * buf, int offset, int length) {
     
     PrintDebug("Writing %d bytes\n", length - bytes_written);
     while (bytes_written < length) {
-	int tmp_bytes = v3_file_write(fd, buf + bytes_written, offset + bytes_written, length - bytes_written);
+	int tmp_bytes = v3_file_write(fd, buf + bytes_written, length - bytes_written, offset + bytes_written);
 	PrintDebug("Wrote %d bytes\n", tmp_bytes);
 	
 	if (tmp_bytes <= 0 ) {
@@ -61,7 +61,7 @@ static int read_all(v3_file_t fd, char * buf, int offset, int length) {
     
     PrintDebug("Reading %d bytes\n", length - bytes_read);
     while (bytes_read < length) {
-	int tmp_bytes = v3_file_read(fd, buf + bytes_read, offset + bytes_read, length - bytes_read);
+	int tmp_bytes = v3_file_read(fd, buf + bytes_read, length - bytes_read, offset + bytes_read);
 	PrintDebug("Read %d bytes\n", tmp_bytes);
 	
 	if (tmp_bytes <= 0) {

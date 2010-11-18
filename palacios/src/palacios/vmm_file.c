@@ -35,9 +35,9 @@ void V3_Init_File(struct v3_file_hooks * hooks) {
 
 
 v3_file_t v3_file_open(struct v3_vm_info * vm, char * path, uint8_t mode) {
+    void * priv_data = NULL;
     V3_ASSERT(file_hooks);
     V3_ASSERT(file_hooks->open);
-    void * priv_data = NULL;
     
     if (vm) {
 	priv_data = vm->host_priv_data;
