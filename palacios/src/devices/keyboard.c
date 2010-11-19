@@ -950,6 +950,10 @@ static int keyboard_write_output(struct guest_info * core, ushort_t port, void *
 		    state->state = SET_LEDS;
 		    break;
 
+		case 0xee: // echo, used by FreeBSD to probe controller
+		    push_to_output_queue(dev, 0xee, COMMAND, KEYBOARD);
+		    break;
+
 		case 0xfe: // resend
 		case 0xfd: // set key type make
 		case 0xfc: // set key typ make/break
