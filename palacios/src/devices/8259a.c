@@ -464,7 +464,11 @@ static int write_master_port1(struct guest_info * core, ushort_t port, void * sr
                     }
                 }	
                 PrintDebug("8259 PIC: Post ISR = %x (wr_Master1)\n", state->master_isr);
-            } else {
+            } else if (!(cw2->EOI) && (cw2->R) && (cw2->SL)) {
+                PrintDebug("8259 PIC: Ignoring set-priority, priorities not implemented (level=%d, wr_Master1)\n", cw2->level);
+            } else if (!(cw2->EOI) && !(cw2->R) && (cw2->SL)) {
+                PrintDebug("8259 PIC: Ignoring no-op (level=%d, wr_Master1)\n", cw2->level);
+	    } else {
                 PrintError("8259 PIC: Command not handled, or in error (wr_Master1)\n");
                 return -1;
             }
