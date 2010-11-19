@@ -302,7 +302,12 @@ int v3_cons_get_fb(struct vm_device * frontend_dev, uint8_t * dst, uint_t offset
 
 
 static int free_device(struct vm_device * dev) {
+    struct video_internal * video_state = (struct video_internal *)dev->private_data;
+
     v3_unhook_mem(dev->vm, V3_MEM_CORE_ANY, START_ADDR);
+
+    V3_Free(video_state);
+
     return 0;
 }
 
@@ -310,13 +315,10 @@ static int free_device(struct vm_device * dev) {
 
 static struct v3_device_ops dev_ops = {
     .free = free_device,
-    .reset = NULL,
-    .start = NULL,
-    .stop = NULL,
 };
 
 static int cga_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
-    struct video_internal * video_state = (struct video_internal *)V3_Malloc(sizeof(struct video_internal));
+    struct video_internal * video_state = NULL;
     addr_t frame_buf_pa = 0;
     int enable_passthrough = 0;
     char * dev_id = v3_cfg_val(cfg, "ID");
@@ -325,10 +327,13 @@ static int cga_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     PrintDebug("video: init_device\n");
 
+    video_state = (struct video_internal *)V3_Malloc(sizeof(struct video_internal));
+
     struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, video_state);
 
     if (v3_attach_device(vm, dev) == -1) {
 	PrintError("Could not attach device %s\n", dev_id);
+	V3_Free(video_state);
 	return -1;
     }
 

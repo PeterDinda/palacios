@@ -207,6 +207,8 @@ struct apic_state {
 
     struct guest_info * core;
 
+    struct v3_timer * timer;
+
     uint32_t eoi;
 
     v3_lock_t  lock;
@@ -1463,13 +1465,27 @@ static struct v3_timer_ops timer_ops = {
 
 
 static int apic_free(struct vm_device * dev) {
+    struct apic_dev_state * apic_dev = (struct apic_dev_state *)dev->private_data;
+    int i = 0;
 
-    /* TODO: This should crosscall to force an unhook on each CPU */
+    for (i = 0; i < dev->vm->num_cores; i++) {
+	struct apic_state * apic = &(apic_dev->apics[i]);
+	struct guest_info * core = &(dev->vm->cores[i]);
+	
 
-    //   struct apic_state * apic = (struct apic_state *)dev->private_data;
+	// unregister intr controller
+
+	if (apic->timer) {
+	    v3_remove_timer(core, apic->timer);
+	}
+
+	// unhook memory
+
+    }
 
     v3_unhook_msr(dev->vm, BASE_ADDR_MSR);
 
+    V3_Free(apic_dev);
     return 0;
 }
 
@@ -1501,6 +1517,7 @@ static int apic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     if (v3_attach_device(vm, dev) == -1) {
 	PrintError("apic: Could not attach device %s\n", dev_id);
+	V3_Free(apic_dev);
 	return -1;
     }
 
@@ -1515,7 +1532,13 @@ static int apic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     	v3_register_intr_controller(core, &intr_ops, apic_dev);
 
-    	v3_add_timer(core, &timer_ops, apic_dev);
+    	apic->timer = v3_add_timer(core, &timer_ops, apic_dev);
+
+	if (apic->timer == NULL) {
+	    PrintError("APIC: Failed to attach timer to core %d\n", i);
+	    v3_detach_device(dev);
+	    return -1;
+	}
 
 	v3_hook_full_mem(vm, core->cpu_id, apic->base_addr, apic->base_addr + PAGE_SIZE_4KB, apic_read, apic_write, apic_dev);
 

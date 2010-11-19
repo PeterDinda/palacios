@@ -680,7 +680,8 @@ static int pit_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct pit * pit_state = NULL;
     struct vm_device * dev = NULL;
     char * dev_id = v3_cfg_val(cfg, "ID");
-    
+    int ret = 0;
+
     // PIT is only usable in non-multicore environments
     // just hardcode the core context
     struct guest_info * info = &(vm->cores[0]);
@@ -696,14 +697,21 @@ static int pit_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     if (v3_attach_device(vm, dev) == -1) {
 	PrintError("Could not attach device %s\n", dev_id);
+	V3_Free(pit_state);
 	return -1;
     }
 
-    v3_hook_io_port(vm, CHANNEL0_PORT, &pit_read_channel, &pit_write_channel, dev);
-    v3_hook_io_port(vm, CHANNEL1_PORT, &pit_read_channel, &pit_write_channel, dev);
-    v3_hook_io_port(vm, CHANNEL2_PORT, &pit_read_channel, &pit_write_channel, dev);
-    v3_hook_io_port(vm, COMMAND_PORT, NULL, &pit_write_command, dev);
-    v3_hook_io_port(vm, SPEAKER_PORT, &pit_read_channel, &pit_write_channel, dev);
+    ret |= v3_hook_io_port(vm, CHANNEL0_PORT, &pit_read_channel, &pit_write_channel, dev);
+    ret |= v3_hook_io_port(vm, CHANNEL1_PORT, &pit_read_channel, &pit_write_channel, dev);
+    ret |= v3_hook_io_port(vm, CHANNEL2_PORT, &pit_read_channel, &pit_write_channel, dev);
+    ret |= v3_hook_io_port(vm, COMMAND_PORT, NULL, &pit_write_command, dev);
+    ret |= v3_hook_io_port(vm, SPEAKER_PORT, &pit_read_channel, &pit_write_channel, dev);
+
+    if (ret != 0) {
+	PrintError("8254 PIT: Failed to hook IO ports\n");
+	v3_detach_device(dev);
+	return -1;
+    }
 
 #ifdef CONFIG_DEBUG_PIT
     PrintDebug("8254 PIT: OSC_HZ=%d, reload_val=", OSC_HZ);
@@ -725,7 +733,6 @@ static int pit_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     do_divll(reload_val, OSC_HZ);
     pit_state->pit_counter = reload_val;
     pit_state->pit_reload = reload_val;
-
 
 
     init_channel(&(pit_state->ch_0));

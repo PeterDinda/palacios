@@ -21,6 +21,7 @@
 
 #include <palacios/vmm.h>
 #include <palacios/vmm_dev_mgr.h>
+#include <palacios/vmm_io.h>
 
 #define BUF_SIZE 1024
 
@@ -43,7 +44,8 @@ struct debug_state {
     uint_t cons_offset;
 };
 
-static int handle_info_write(struct guest_info * core, ushort_t port, void * src, uint_t length, struct vm_device * dev) {
+static int handle_info_write(struct guest_info * core, ushort_t port, void * src, uint_t length, void * priv_data) {
+    struct vm_device * dev = priv_data;
     struct debug_state * state = (struct debug_state *)dev->private_data;
 
     state->info_buf[state->info_offset++] = *(char*)src;
@@ -58,7 +60,8 @@ static int handle_info_write(struct guest_info * core, ushort_t port, void * src
 }
 
 
-static int handle_debug_write(struct guest_info * core, ushort_t port, void * src, uint_t length, struct vm_device * dev) {
+static int handle_debug_write(struct guest_info * core, ushort_t port, void * src, uint_t length, void * priv_data) {
+    struct vm_device * dev = priv_data;
     struct debug_state * state = (struct debug_state *)dev->private_data;
 
     state->debug_buf[state->debug_offset++] = *(char*)src;
@@ -73,7 +76,8 @@ static int handle_debug_write(struct guest_info * core, ushort_t port, void * sr
 }
 
 
-static int handle_console_write(struct guest_info * core, ushort_t port, void * src, uint_t length, struct vm_device * dev) {
+static int handle_console_write(struct guest_info * core, ushort_t port, void * src, uint_t length, void * priv_data) {
+    struct vm_device * dev = priv_data;
     struct debug_state * state = (struct debug_state *)dev->private_data;
 
     state->cons_buf[state->cons_offset++] = *(char *)src;
@@ -88,8 +92,9 @@ static int handle_console_write(struct guest_info * core, ushort_t port, void * 
 }
 
 
-static int handle_gen_write(struct guest_info * core, ushort_t port, void * src, uint_t length, struct vm_device * dev) {
-
+static int handle_gen_write(struct guest_info * core, ushort_t port, void * src, uint_t length, void * priv_data)  {
+    //struct vm_device * dev = priv_data;
+    
     switch (length) {
 	case 1:
 	    PrintDebug(">0x%.2x\n", *(uchar_t*)src);
@@ -113,10 +118,14 @@ static int handle_gen_write(struct guest_info * core, ushort_t port, void * src,
 
 
 static int debug_free(struct vm_device * dev) {
-    v3_dev_unhook_io(dev, BOCHS_PORT1);
-    v3_dev_unhook_io(dev, BOCHS_PORT2);
-    v3_dev_unhook_io(dev, BOCHS_INFO_PORT);
-    v3_dev_unhook_io(dev, BOCHS_DEBUG_PORT);
+    struct debug_state * state = dev->private_data;
+
+    v3_unhook_io_port(dev->vm, BOCHS_PORT1);
+    v3_unhook_io_port(dev->vm, BOCHS_PORT2);
+    v3_unhook_io_port(dev->vm, BOCHS_INFO_PORT);
+    v3_unhook_io_port(dev->vm, BOCHS_DEBUG_PORT);
+
+    V3_Free(state);
 
     return 0;
 };
@@ -137,6 +146,7 @@ static struct v3_device_ops dev_ops = {
 static int debug_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct debug_state * state = NULL;
     char * dev_id = v3_cfg_val(cfg, "ID");
+    int ret = 0;
 
     state = (struct debug_state *)V3_Malloc(sizeof(struct debug_state));
 
@@ -147,6 +157,7 @@ static int debug_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     if (v3_attach_device(vm, dev) == -1) {
 	PrintError("Could not attach device %s\n", dev_id);
+	V3_Free(state);
 	return -1;
     }
 
@@ -158,12 +169,17 @@ static int debug_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     memset(state->cons_buf, 0, BUF_SIZE);
 
 
-    v3_dev_hook_io(dev, BOCHS_PORT1,  NULL, &handle_gen_write);
-    v3_dev_hook_io(dev, BOCHS_PORT2, NULL, &handle_gen_write);
-    v3_dev_hook_io(dev, BOCHS_INFO_PORT, NULL, &handle_info_write);
-    v3_dev_hook_io(dev, BOCHS_DEBUG_PORT, NULL, &handle_debug_write);
-    v3_dev_hook_io(dev, BOCHS_CONSOLE_PORT, NULL, &handle_console_write);
+    ret |= v3_hook_io_port(vm, BOCHS_PORT1,  NULL, &handle_gen_write, dev);
+    ret |= v3_hook_io_port(vm, BOCHS_PORT2, NULL, &handle_gen_write, dev);
+    ret |= v3_hook_io_port(vm, BOCHS_INFO_PORT, NULL, &handle_info_write, dev);
+    ret |= v3_hook_io_port(vm, BOCHS_DEBUG_PORT, NULL, &handle_debug_write, dev);
+    ret |= v3_hook_io_port(vm, BOCHS_CONSOLE_PORT, NULL, &handle_console_write, dev);
     
+    if (ret != 0) {
+	PrintError("Could not hook Bochs Debug IO Ports\n");
+	v3_detach_device(dev);
+	return -1;
+    }
   
     return 0;
 }
