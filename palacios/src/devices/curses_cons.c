@@ -51,8 +51,13 @@ static int cursor_update(uint_t x, uint_t y, void *private_data)
 {
     struct vm_device *dev = (struct vm_device *) private_data;
     struct cons_state *state = (struct cons_state *) dev->private_data;
-    uint_t offset = (x * BYTES_PER_COL) + (y * BYTES_PER_ROW);
+    uint_t offset;
     uint_t last_x, last_y;
+
+    /* avoid out-of-range coordinates */
+    if (x >= NUM_COLS) x = NUM_COLS - 1;
+    if (y >= NUM_ROWS) y = NUM_ROWS - 1;
+    offset = (x * BYTES_PER_COL) + (y * BYTES_PER_ROW);
 
     /* unfortunately Palacios sometimes misses some writes, 
      * but if they are accompanied by a cursor move we may be able to 

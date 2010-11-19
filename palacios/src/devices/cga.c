@@ -300,6 +300,10 @@ int v3_cons_get_fb(struct vm_device * frontend_dev, uint8_t * dst, uint_t offset
     PrintDebug("Getting framebuffer for screen; framebuf=%p, screen_offset=%d, offset=%d, length=%d\n", 
 	       state->framebuf, screen_byte_offset, offset, length);
 
+    V3_ASSERT(screen_byte_offset <= FRAMEBUF_SIZE - SCREEN_SIZE);
+    V3_ASSERT(offset < SCREEN_SIZE);
+    V3_ASSERT(length <= SCREEN_SIZE);
+    V3_ASSERT(offset + length <= SCREEN_SIZE);
     memcpy(dst, state->framebuf + screen_byte_offset + offset, length);
 
     return 0;
