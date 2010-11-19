@@ -90,11 +90,11 @@ struct guest_info;
     })
 
 
-#define V3_FreePage(page)				\
+#define V3_FreePages(page, num_pages)			\
     do {						\
 	extern struct v3_os_hooks * os_hooks;		\
-	if ((os_hooks) && (os_hooks)->free_page) {	\
-	    (os_hooks)->free_page(page);		\
+	if ((os_hooks) && (os_hooks)->free_pages) {	\
+	    (os_hooks)->free_pages(page, num_pages);	\
 	}						\
     } while(0)
 
@@ -270,14 +270,14 @@ struct v3_os_hooks {
     void (*print)(const char * format, ...)
   	__attribute__ ((format (printf, 1, 2)));
   
-    void *(*allocate_pages)(int numPages, unsigned int alignment);
-    void (*free_page)(void * page);
+    void *(*allocate_pages)(int num_pages, unsigned int alignment);
+    void (*free_pages)(void * page, int num_pages);
 
     void *(*malloc)(unsigned int size);
     void (*free)(void * addr);
 
-    void *(*paddr_to_vaddr)(void *addr);
-    void *(*vaddr_to_paddr)(void *addr);
+    void *(*paddr_to_vaddr)(void * addr);
+    void *(*vaddr_to_paddr)(void * addr);
 
     int (*hook_interrupt)(struct v3_vm_info * vm, unsigned int irq);
     int (*ack_irq)(int irq);

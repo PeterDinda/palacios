@@ -96,6 +96,7 @@ void v3_delete_mem_map(struct v3_vm_info * vm) {
     struct rb_node * node = v3_rb_first(&(vm->mem_map.mem_regions));
     struct v3_mem_region * reg;
     struct rb_node * tmp_node = NULL;
+    addr_t mem_pages = vm->mem_size >> 12;
   
     while (node) {
 	reg = rb_entry(node, struct v3_mem_region, tree_node);
@@ -105,7 +106,7 @@ void v3_delete_mem_map(struct v3_vm_info * vm) {
 	v3_delete_mem_region(vm, reg);
     }
 
-    V3_FreePage((void *)(vm->mem_map.base_region.host_addr));
+    V3_FreePages((void *)(vm->mem_map.base_region.host_addr), mem_pages);
 }
 
 

@@ -67,11 +67,11 @@ void delete_page_tables_32(pde32_t * pde) {
 	    // We double cast, first to an addr_t to handle 64 bit issues, then to the pointer
       
 	    PrintDebug("Deleting PT Page %d (%p)\n", i, (void *)(addr_t)BASE_TO_PAGE_ADDR_4KB(pde[i].pt_base_addr));
-	    V3_FreePage((void *)(addr_t)BASE_TO_PAGE_ADDR_4KB(pde[i].pt_base_addr));
+	    V3_FreePages((void *)(addr_t)BASE_TO_PAGE_ADDR_4KB(pde[i].pt_base_addr), 1);
 	}
     }
 
-    V3_FreePage(V3_PAddr(pde));
+    V3_FreePages(V3_PAddr(pde), 1);
 }
 
 void delete_page_tables_32pae(pdpe32pae_t * pdpe) {
@@ -96,13 +96,13 @@ void delete_page_tables_32pae(pdpe32pae_t * pdpe) {
 		continue;
 	    }
 
-	    V3_FreePage((void *)(addr_t)BASE_TO_PAGE_ADDR_4KB(pde[j].pt_base_addr));
+	    V3_FreePages((void *)(addr_t)BASE_TO_PAGE_ADDR_4KB(pde[j].pt_base_addr), 1);
 	}
 
-	V3_FreePage(V3_PAddr(pde));
+	V3_FreePages(V3_PAddr(pde), 1);
     }
 
-    V3_FreePage(V3_PAddr(pdpe));
+    V3_FreePages(V3_PAddr(pdpe), 1);
 }
 
 void delete_page_tables_64(pml4e64_t * pml4) {
@@ -133,16 +133,16 @@ void delete_page_tables_64(pml4e64_t * pml4) {
 		    continue;
 		}
 
-		V3_FreePage((void *)(addr_t)BASE_TO_PAGE_ADDR_4KB(pde[k].pt_base_addr));
+		V3_FreePages((void *)(addr_t)BASE_TO_PAGE_ADDR_4KB(pde[k].pt_base_addr), 1);
 	    }
 	    
-	    V3_FreePage(V3_PAddr(pde));
+	    V3_FreePages(V3_PAddr(pde), 1);
 	}
 
-	V3_FreePage(V3_PAddr(pdpe));
+	V3_FreePages(V3_PAddr(pdpe), 1);
     }
 
-    V3_FreePage(V3_PAddr(pml4));
+    V3_FreePages(V3_PAddr(pml4), 1);
 }
 
 

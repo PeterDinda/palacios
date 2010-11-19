@@ -116,7 +116,7 @@ static void shadow_free_page (struct guest_info * core, struct shadow_page_cache
 {
     list_del(&page->link);
 
-    V3_FreePage((void *)page->page_pa);
+    V3_FreePages((void *)page->page_pa, 1);
     page->page_pa=(addr_t)V3_AllocPages(1);
 	
     list_add(&page->link,&core->free_pages);
@@ -163,7 +163,7 @@ static void free_shadow_pages(struct guest_info * core)
     while (!list_empty(&core->free_pages)) {
 	page = list_entry(core->free_pages.next, struct shadow_page_cache_data, link);
 	list_del(&page->link);
-	V3_FreePage((void *)page->page_pa);
+	V3_FreePages((void *)page->page_pa, 1);
 	page->page_pa = ~(addr_t)0; //invalid address
     }
 }
