@@ -112,6 +112,11 @@ static struct v3_dev_blk_ops blk_ops = {
 
 
 static int disk_free(struct vm_device * dev) {
+    struct disk_state * disk = dev->private_data;
+
+    v3_file_close(disk->fd);
+    
+    V3_Free(disk);
     return 0;
 }
 
@@ -129,37 +134,36 @@ static int disk_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct disk_state * disk = NULL;
     char * path = v3_cfg_val(cfg, "path");
     char * dev_id = v3_cfg_val(cfg, "ID");
-
     char * writable = v3_cfg_val(cfg, "writable");
-    char * readable = v3_cfg_val(cfg, "readable");
-    
-    int allowWrite = ( writable && writable[0] == '1' );
-    int allowRead = ( !readable || readable[0] == '1' );
-
     v3_cfg_tree_t * frontend_cfg = v3_cfg_subtree(cfg, "frontend");
+    int flags = FILE_OPEN_MODE_READ;
 
-    disk = (struct disk_state *)V3_Malloc(sizeof(struct disk_state));
-    memset(disk, 0, sizeof(struct disk_state));
-
+    if ( (writable) && (writable[0] == '1') ) {
+	flags |= FILE_OPEN_MODE_WRITE;
+    }
 
     if (path == NULL) {
 	PrintError("Missing path (%s) for %s\n", path, dev_id);
 	return -1;
-
     }
-    
-    if ( (allowRead == 1) && (allowWrite == 1) ) {
-    	disk->fd = v3_file_open(vm, path, FILE_OPEN_MODE_READ | FILE_OPEN_MODE_WRITE );
-    } else if ( (allowRead == 1) && (allowWrite == 0) ) {
-    	disk->fd = v3_file_open(vm, path, FILE_OPEN_MODE_READ);
-    } else if ( (allowRead == 0) && (allowWrite == 1) ) {
-    	disk->fd = v3_file_open(vm, path, FILE_OPEN_MODE_WRITE);
-    } else {
-    	PrintError("Error on %s: No file mode specified\n", dev_id );
-    	return -1;
 
+    disk = (struct disk_state *)V3_Malloc(sizeof(struct disk_state));
+
+    if (disk == NULL) {
+	PrintError("Could not allocate disk\n");
+	return -1;
     }
-    
+
+    memset(disk, 0, sizeof(struct disk_state));
+
+    disk->fd = v3_file_open(vm, path, flags);
+
+    if (disk->fd == NULL) {
+	PrintError("Could not open file disk:%s\n", path);
+	V3_Free(disk);
+	return -1;
+    }
+
     disk->capacity = v3_file_size(disk->fd);
 
     PrintDebug("Registering FILEDISK %s (path=%s, fd=%lu, size=%lu)\n",
@@ -168,19 +172,19 @@ static int disk_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, disk);
 
     if (v3_attach_device(vm, dev) == -1) {
-
 	PrintError("Could not attach device %s\n", dev_id);
+	v3_file_close(disk->fd);
+	V3_Free(disk);
 	return -1;
-
     }
 
     if (v3_dev_connect_blk(vm, v3_cfg_val(frontend_cfg, "tag"), 
 			   &blk_ops, frontend_cfg, disk) == -1) {
-
 	PrintError("Could not connect %s to frontend %s\n", 
 		   dev_id, v3_cfg_val(frontend_cfg, "tag"));
+	v3_file_close(disk->fd);
+	V3_Free(disk);
 	return -1;
-
     }
     
 

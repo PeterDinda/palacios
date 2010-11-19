@@ -35,6 +35,12 @@ v3_console_t v3_console_open(struct v3_vm_info * vm, uint32_t width, uint32_t he
     return console_hooks->open(vm->host_priv_data, width, height);
 }
 
+void v3_console_close(v3_console_t cons) {
+    V3_ASSERT(console_hooks);
+    V3_ASSERT(console_hooks->close);
+
+    console_hooks->close(cons);
+}
 
 int v3_console_set_cursor(v3_console_t cons, int x, int y) {
     V3_ASSERT(console_hooks != NULL);

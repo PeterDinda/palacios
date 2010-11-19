@@ -1433,16 +1433,19 @@ static int init_ide_state(struct vm_device * dev) {
 
 static int ide_free(struct vm_device * dev) {
     // unhook io ports....
+
+
     // deregister from PCI?
+
+
+
     return 0;
 }
 
 
 static struct v3_device_ops dev_ops = {
     .free = ide_free,
-    .reset = NULL,
-    .start = NULL,
-    .stop = NULL,
+
 };
 
 
@@ -1520,10 +1523,18 @@ static int connect_fn(struct v3_vm_info * vm,
 
 
 static int ide_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
-    struct ide_internal * ide  = (struct ide_internal *)V3_Malloc(sizeof(struct ide_internal));  
+    struct ide_internal * ide  = NULL;
     char * dev_id = v3_cfg_val(cfg, "ID");
 
     PrintDebug("IDE: Initializing IDE\n");
+
+    ide = (struct ide_internal *)V3_Malloc(sizeof(struct ide_internal));
+
+    if (ide == NULL) {
+	PrintError("Error allocating IDE state\n");
+	return -1;
+    }
+
     memset(ide, 0, sizeof(struct ide_internal));
 
 
@@ -1534,6 +1545,7 @@ static int ide_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
 	if (!southbridge) {
 	    PrintError("Could not find southbridge\n");
+	    V3_Free(ide);
 	    return -1;
 	}
 
@@ -1546,11 +1558,14 @@ static int ide_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     if (v3_attach_device(vm, dev) == -1) {
 	PrintError("Could not attach device %s\n", dev_id);
+	v3_free_device(dev);
+	V3_Free(ide);
 	return -1;
     }
 
     if (init_ide_state(dev) == -1) {
 	PrintError("Failed to initialize IDE state\n");
+	v3_detach_device(dev);
 	return -1;
     }
 
@@ -1662,6 +1677,7 @@ static int ide_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     if (v3_dev_add_blk_frontend(vm, dev_id, connect_fn, (void *)ide) == -1) {
 	PrintError("Could not register %s as frontend\n", dev_id);
+	v3_detach_device(dev);
 	return -1;
     }
     

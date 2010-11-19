@@ -53,54 +53,32 @@ struct port_range {
 
 
 
-static int generic_reset_device(struct vm_device * dev) {
-    PrintDebug("generic: reset device\n");
-    return 0;
-}
-
-
-
-
-
-static int generic_start_device(struct vm_device * dev) {
-    PrintDebug("generic: start device\n");
-    return 0;
-}
-
-
-static int generic_stop_device(struct vm_device * dev) {
-    PrintDebug("generic: stop device\n");
-    return 0;
-}
-
-
-
 
 static int generic_write_port_passthrough(struct guest_info * core, uint16_t port, void * src, 
-					  uint_t length, struct vm_device * dev) {
+					  uint_t length, void * priv_data) {
     uint_t i;
 
     PrintDebug("generic: writing 0x");
 
     for (i = 0; i < length; i++) { 
-	PrintDebug("%x", ((uchar_t*)src)[i]);
+	PrintDebug("%x", ((uint8_t *)src)[i]);
     }
   
     PrintDebug(" to port 0x%x ... ", port);
 
     switch (length) {
 	case 1:
-	    v3_outb(port,((uchar_t*)src)[0]);
+	    v3_outb(port, ((uint8_t *)src)[0]);
 	    break;
 	case 2:
-	    v3_outw(port,((uint16_t*)src)[0]);
+	    v3_outw(port, ((uint16_t *)src)[0]);
 	    break;
 	case 4:
-	    v3_outdw(port,((uint32_t *)src)[0]);
+	    v3_outdw(port, ((uint32_t *)src)[0]);
 	    break;
 	default:
 	    for (i = 0; i < length; i++) { 
-		v3_outb(port, ((uchar_t *)src)[i]);
+		v3_outb(port, ((uint8_t *)src)[i]);
 	    }
     }
 
@@ -110,7 +88,7 @@ static int generic_write_port_passthrough(struct guest_info * core, uint16_t por
 }
 
 static int generic_read_port_passthrough(struct guest_info * core, uint16_t port, void * src, 
-					 uint_t length, struct vm_device * dev) {
+					 uint_t length, void * priv_data) {
     uint_t i;
 
     PrintDebug("generic: reading 0x%x bytes from port 0x%x ...", length, port);
@@ -118,24 +96,24 @@ static int generic_read_port_passthrough(struct guest_info * core, uint16_t port
 
     switch (length) {
 	case 1:
-	    ((uchar_t*)src)[0] = v3_inb(port);
+	    ((uint8_t *)src)[0] = v3_inb(port);
 	    break;
 	case 2:
-	    ((uint16_t*)src)[0] = v3_inw(port);
+	    ((uint16_t *)src)[0] = v3_inw(port);
 	    break;
 	case 4:
-	    ((uint_t*)src)[0] = v3_indw(port);
+	    ((uint32_t *)src)[0] = v3_indw(port);
 	    break;
 	default:
 	    for (i = 0; i < length; i++) { 
-		((uchar_t*)src)[i] = v3_inb(port);
+		((uint8_t *)src)[i] = v3_inb(port);
 	    }
     }
 
     PrintDebug(" done ... read 0x");
 
     for (i = 0; i < length; i++) { 
-	PrintDebug("%x", ((uchar_t*)src)[i]);
+	PrintDebug("%x", ((uint8_t *)src)[i]);
     }
 
     PrintDebug("\n");
@@ -144,13 +122,13 @@ static int generic_read_port_passthrough(struct guest_info * core, uint16_t port
 }
 
 static int generic_write_port_ignore(struct guest_info * core, uint16_t port, void * src, 
-				     uint_t length, struct vm_device * dev) {
-    uint_t i;
+				     uint_t length, void * priv_data) {
+    int i;
 
     PrintDebug("generic: writing 0x");
 
     for (i = 0; i < length; i++) { 
-	PrintDebug("%x", ((uchar_t*)src)[i]);
+	PrintDebug("%x", ((uint8_t *)src)[i]);
     }
   
     PrintDebug(" to port 0x%x ... ignored\n", port);
@@ -159,11 +137,11 @@ static int generic_write_port_ignore(struct guest_info * core, uint16_t port, vo
 }
 
 static int generic_read_port_ignore(struct guest_info * core, uint16_t port, void * src, 
-				    uint_t length, struct vm_device * dev) {
+				    uint_t length, void * priv_data) {
 
     PrintDebug("generic: reading 0x%x bytes from port 0x%x ...", length, port);
 
-    memset((char*)src, 0, length);
+    memset((uint8_t *)src, 0, length);
     PrintDebug(" ignored (return zeroed buffer)\n");
 
     return length;
@@ -187,7 +165,7 @@ static int generic_free(struct vm_device * dev) {
 		   cur->start, cur->end);
 	
 	for (i = cur->start; i <= cur->end; i++) {
-	    if (v3_dev_unhook_io(dev, i)) {
+	    if (v3_unhook_io_port(dev->vm, i)) {
 		PrintDebug("generic: can't unhook port 0x%x (already unhooked?)\n", i);
 	    }
 	}
@@ -197,7 +175,7 @@ static int generic_free(struct vm_device * dev) {
 	V3_Free(cur);
     }
 
-    generic_reset_device(dev);
+    V3_Free(state);
     return 0;
 }
 
@@ -207,9 +185,6 @@ static int generic_free(struct vm_device * dev) {
 
 static struct v3_device_ops dev_ops = { 
     .free = generic_free, 
-    .reset = generic_reset_device,
-    .start = generic_start_device,
-    .stop = generic_stop_device,
 };
 
 
@@ -230,12 +205,16 @@ static int add_port_range(struct vm_device * dev, uint_t start, uint_t end, gene
     
     for (i = start; i <= end; i++) { 
 	if (mode == GENERIC_PRINT_AND_PASSTHROUGH) { 
-	    if (v3_dev_hook_io(dev, i, &generic_read_port_passthrough, &generic_write_port_passthrough) == -1) { 
+	    if (v3_hook_io_port(dev->vm, i, 
+				&generic_read_port_passthrough, 
+				&generic_write_port_passthrough, dev) == -1) { 
 		PrintError("generic: can't hook port 0x%x (already hooked?)\n", i);
 		return -1;
 	    }
 	} else if (mode == GENERIC_PRINT_AND_IGNORE) { 
-	    if (v3_dev_hook_io(dev, i, &generic_read_port_ignore, &generic_write_port_ignore) == -1) { 
+	    if (v3_hook_io_port(dev->vm, i, 
+				&generic_read_port_ignore, 
+				&generic_write_port_ignore, dev) == -1) { 
 		PrintError("generic: can't hook port 0x%x (already hooked?)\n", i);
 		return -1;
 	    }
@@ -253,25 +232,32 @@ static int add_port_range(struct vm_device * dev, uint_t start, uint_t end, gene
 
 
 static int generic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
-    struct generic_internal * state = (struct generic_internal *)V3_Malloc(sizeof(struct generic_internal));
+    struct generic_internal * state = NULL;
     char * dev_id = v3_cfg_val(cfg, "ID");
-
     v3_cfg_tree_t * port_cfg = v3_cfg_subtree(cfg, "ports");
 
 
+    state = (struct generic_internal *)V3_Malloc(sizeof(struct generic_internal));
+
+    if (state == NULL) {
+	PrintError("Could not allocate generic state\n");
+	return -1;
+    }
+    
+    memset(state, 0, sizeof(struct generic_internal));
+
     INIT_LIST_HEAD(&(state->port_list));
     state->num_port_ranges = 0;
-
     
     struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, state);
 
     if (v3_attach_device(vm, dev) == -1) {
 	PrintError("Could not attach device %s\n", dev_id);
+	V3_Free(state);
 	return -1;
     }
 
     PrintDebug("generic: init_device\n");
-    generic_reset_device(dev);
 
     // scan port list....
     while (port_cfg) {
@@ -286,11 +272,13 @@ static int generic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	    mode = GENERIC_PRINT_AND_PASSTHROUGH;
 	} else {
 	    PrintError("Invalid Mode %s\n", mode_str);
+	    v3_detach_device(dev);
 	    return -1;
 	}
 	
 	if (add_port_range(dev, start, end, mode) == -1) {
 	    PrintError("Could not add port range %d-%d\n", start, end);
+	    v3_detach_device(dev);
 	    return -1;
 	}
 

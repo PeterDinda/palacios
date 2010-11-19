@@ -82,8 +82,8 @@ static int cursor_update(uint_t x, uint_t y, void *private_data)
 }
 
 static int screen_update(uint_t x, uint_t y, uint_t length, void * private_data) {
-    struct vm_device *dev = (struct vm_device *)private_data;
-    struct cons_state *state = (struct cons_state *)dev->private_data;
+    struct vm_device * dev = (struct vm_device *)private_data;
+    struct cons_state * state = (struct cons_state *)dev->private_data;
     uint_t offset = (x * BYTES_PER_COL) + (y * BYTES_PER_ROW);
     uint8_t fb_buf[length];
     int i;
@@ -156,6 +156,18 @@ static int scroll(int rows, void * private_data) {
 }
 
 
+static int cons_free(struct vm_device * dev) {
+    struct cons_state * state = (struct cons_state *)dev->private_data;
+
+    v3_console_close(state->cons);
+
+    // remove host event
+
+    V3_Free(state);
+
+    return 0;
+}
+
 static int console_event_handler(struct v3_vm_info * vm, 
 				 struct v3_console_event * evt, 
 				 void * priv_data) {
@@ -171,10 +183,7 @@ static struct v3_console_ops cons_ops = {
 };
 
 static struct v3_device_ops dev_ops = {
-    .free = NULL,
-    .reset = NULL,
-    .start = NULL,
-    .stop = NULL,
+    .free = cons_free,
 };
 
 static int cons_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) 

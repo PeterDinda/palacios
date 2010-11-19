@@ -31,6 +31,7 @@
 typedef void * v3_console_t;
 
 v3_console_t v3_console_open(struct v3_vm_info * vm, uint32_t width, uint32_t height);
+void v3_console_close(v3_console_t cons);
 
 int v3_console_set_cursor(v3_console_t cons, int x, int y);
 int v3_console_set_char(v3_console_t cons, int x, int y, char c, uint8_t style);
@@ -44,6 +45,8 @@ int v3_console_update(v3_console_t cons);
 struct v3_console_hooks {
     /* open console device, mode is a combination of TTY_OPEN_MODE_* flags */
     void *(*open)(void * priv_data, unsigned int width, unsigned int height);
+    
+    void (*close)(void * tty);
 
     /* set cursor position */
     int (*set_cursor)(void * tty, int x, int y);

@@ -115,7 +115,6 @@ int v3_dev_mgr_deinit(struct v3_vm_info * vm) {
 
     list_for_each_entry_safe(dev, tmp, &(mgr->dev_list), dev_link) {
 	v3_detach_device(dev);
-	v3_free_device(dev);
     }
 
     v3_free_htable(mgr->blk_table, 0, 0);
@@ -145,7 +144,6 @@ int v3_core_dev_mgr_deinit(struct v3_vm_info * vm) {
 
     list_for_each_entry_safe(dev, tmp, &(mgr->dev_list), dev_link) {
 	v3_detach_device(dev);
-	v3_free_device(dev);
     }
 
     // TODO: Clear hash tables 
@@ -226,6 +224,7 @@ int v3_detach_device(struct vm_device * dev) {
 
     dev->vm = NULL;
 
+    v3_free_device(dev);
     return -1;
 }
 

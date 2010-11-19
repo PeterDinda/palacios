@@ -21,6 +21,8 @@
 #include <palacios/vmm_dev_mgr.h>
 #include <devices/pci.h>
 
+#include <palacios/vmm_io.h>
+
 
 // We Have to setup some sort of PIC interrupt mapping here....
 
@@ -29,12 +31,14 @@ struct i440_state {
 };
 
 
-static int io_read(struct guest_info * core, ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
+static int io_read(struct guest_info * core, ushort_t port, void * dst, uint_t length, void * priv_data) {
+    //    struct vm_device * dev = priv_data;
     PrintError("Unhandled read on port %x\n", port);
     return -1;
 }
 
-static int io_write(struct guest_info * core, ushort_t port, void * src, uint_t length, struct vm_device * dev) {
+static int io_write(struct guest_info * core, ushort_t port, void * src, uint_t length, void * priv_data) {
+    //    struct vm_device * dev = priv_data;
     PrintError("Unhandled write on port %x\n", port);
     return -1;
 }
@@ -44,6 +48,18 @@ static int io_write(struct guest_info * core, ushort_t port, void * src, uint_t 
 
 
 static int i440_free(struct vm_device * dev) {
+    struct i440_state * state = dev->private_data;
+    int i;
+
+    for (i = 0; i < 4; i++) {
+	v3_unhook_io_port(dev->vm, 0x0cf8 + i);
+	v3_unhook_io_port(dev->vm, 0x0cfc + i);
+    }
+
+    // unregister from PCI
+
+    V3_Free(state);
+
     return 0;
 }
 
@@ -78,15 +94,13 @@ static int i440_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     if (v3_attach_device(vm, dev) == -1) {
 	PrintError("Could not attach device %s\n", dev_id);
+	V3_Free(state);
 	return -1;
     }
 
-
     for (i = 0; i < 4; i++) {
-	v3_dev_hook_io(dev, 0x0cf8 + i,
-		       &io_read, &io_write);
-	v3_dev_hook_io(dev, 0x0cfc + i,
-		       &io_read, &io_write);
+	v3_hook_io_port(vm, 0x0cf8 + i, &io_read, &io_write, dev);
+	v3_hook_io_port(vm, 0x0cfc + i, &io_read, &io_write, dev);
     }
 
     for (i = 0; i < 6; i++) {
@@ -98,6 +112,7 @@ static int i440_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 				     NULL, NULL, NULL, dev);
 
     if (!pci_dev) {
+	v3_detach_device(dev);
  	return -1;
     }
 
@@ -112,4 +127,4 @@ static int i440_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     return 0;
 }
 
-device_register("i440FX", i440_init)
+device_register("i440FX", i440_init);

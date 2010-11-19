@@ -37,40 +37,45 @@ struct stream_state {
 
 static int serial_event_handler(struct v3_vm_info * vm, 
 				struct v3_serial_event * evt, 
-			     void * private_data) {
-    struct stream_state *state = (struct stream_state *)private_data;
+				void * private_data) {
+    struct stream_state * state = (struct stream_state *)private_data;
 
-    if(state->char_ops.push != NULL){
+    if (state->char_ops.push != NULL){
     	state->char_ops.push(vm, evt->data, evt->len, state->push_fn_arg);
     }
 
     return 0;
 }
 
-static int stream_write(uint8_t * buf, uint64_t length, void * private_data) 
-{
-    struct stream_state *state = (struct stream_state *)private_data;
+static int stream_write(uint8_t * buf, uint64_t length, void * private_data) {
+    struct stream_state * state = (struct stream_state *)private_data;
     
     return v3_stream_write(state->stream, buf, length);
 }
 
+static int stream_free(struct vm_device * dev) {
+    struct stream_state * state = (struct stream_state *)(dev->private_data);
+
+    v3_stream_close(state->stream);
+
+    // detach host event
+
+    V3_Free(state);
+
+    return 0;
+}
 
 
 static struct v3_device_ops dev_ops = {
-    .free = NULL,
-    .reset = NULL,
-    .start = NULL,
-    .stop = NULL,
+    .free = stream_free,
 };
 
-static int stream_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) 
-{
+static int stream_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     char * dev_id = v3_cfg_val(cfg, "ID");
     char * stream_name = v3_cfg_val(cfg, "name");
     struct stream_state * state = NULL;
 
     v3_cfg_tree_t * frontend_cfg = v3_cfg_subtree(cfg, "frontend");
-
 
     state = (struct stream_state *)V3_Malloc(sizeof(struct stream_state));
 
@@ -81,20 +86,11 @@ static int stream_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg)
 
     memset(state, 0, sizeof(struct stream_state));
 
-    state->stream = v3_stream_open(vm, stream_name);
-
-    if (state->stream == NULL) {
-	PrintError("Could not open stream %s\n", stream_name);
-	V3_Free(state);
-	return -1;
-    }
-    
-    state->char_ops.write = stream_write;
-	
     struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, state);
 
     if (dev == NULL) {
 	PrintError("Could not allocate device %s\n", dev_id);
+	V3_Free(state);
 	return -1;
     }
 
@@ -104,20 +100,28 @@ static int stream_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg)
 	return -1;
     }
 
+    state->stream = v3_stream_open(vm, stream_name);
+
+    if (state->stream == NULL) {
+	PrintError("Could not open stream %s\n", stream_name);
+	v3_detach_device(dev);
+	return -1;
+    }
+
+    state->char_ops.write = stream_write;
+
     if (v3_dev_connect_char(vm, v3_cfg_val(frontend_cfg, "tag"), 
 			    &(state->char_ops), frontend_cfg, 
 			    state, &(state->push_fn_arg)) == -1) {
 	PrintError("Could not connect %s to frontend %s\n", 
 		   dev_id, v3_cfg_val(frontend_cfg, "tag"));
+	v3_detach_device(dev);
 	return -1;
     }
-    
 
     v3_hook_host_event(vm, HOST_SERIAL_EVT, V3_HOST_EVENT_HANDLER(serial_event_handler), state);
-
 
     return 0;
 }
 
-device_register("CHAR_STREAM", stream_init)
-
+device_register("CHAR_STREAM", stream_init);

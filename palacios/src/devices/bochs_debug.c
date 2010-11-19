@@ -135,9 +135,7 @@ static int debug_free(struct vm_device * dev) {
 
 static struct v3_device_ops dev_ops = {
     .free = debug_free,
-    .reset = NULL,
-    .start = NULL,
-    .stop = NULL,
+
 };
 
 
