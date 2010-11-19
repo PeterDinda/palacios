@@ -1455,7 +1455,7 @@ static struct intr_ctrl_ops intr_ops = {
 };
 
 
-static struct vm_timer_ops timer_ops = {
+static struct v3_timer_ops timer_ops = {
     .update_timer = apic_update_time,
 };
 

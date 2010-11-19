@@ -24,6 +24,7 @@
 #include <palacios/vmm_util.h>
 #include <palacios/vmm_intr.h>
 #include <palacios/vmm_config.h>
+#include <palacios/vmm_io.h>
 
 
 #ifndef CONFIG_DEBUG_PIT
@@ -86,6 +87,7 @@ struct pit {
     ullong_t pit_counter;
     ullong_t pit_reload;
 
+    struct v3_timer * timer;
 
     struct channel ch_0;
     struct channel ch_1;
@@ -475,7 +477,8 @@ static int handle_channel_cmd(struct channel * ch, struct pit_cmd_word cmd) {
 
 
 
-static int pit_read_channel(struct guest_info * core, ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
+static int pit_read_channel(struct guest_info * core, ushort_t port, void * dst, uint_t length, void * priv_data) {
+    struct vm_device * dev = (struct vm_device *)priv_data;
     struct pit * state = (struct pit *)dev->private_data;
     char * val = (char *)dst;
 
@@ -521,7 +524,8 @@ static int pit_read_channel(struct guest_info * core, ushort_t port, void * dst,
 
 
 
-static int pit_write_channel(struct guest_info * core, ushort_t port, void * src, uint_t length, struct vm_device * dev) {
+static int pit_write_channel(struct guest_info * core, ushort_t port, void * src, uint_t length, void * priv_data) {
+    struct vm_device * dev = (struct vm_device *)priv_data;
     struct pit * state = (struct pit *)dev->private_data;
     char val = *(char *)src;
 
@@ -569,7 +573,8 @@ static int pit_write_channel(struct guest_info * core, ushort_t port, void * src
 
 
 
-static int pit_write_command(struct guest_info * core, ushort_t port, void * src, uint_t length, struct vm_device * dev) {
+static int pit_write_command(struct guest_info * core, ushort_t port, void * src, uint_t length, void * priv_data) {
+    struct vm_device * dev = (struct vm_device *)priv_data;
     struct pit * state = (struct pit *)dev->private_data;
     struct pit_cmd_word * cmd = (struct pit_cmd_word *)src;
 
@@ -615,7 +620,7 @@ static int pit_write_command(struct guest_info * core, ushort_t port, void * src
 
 
 
-static struct vm_timer_ops timer_ops = {
+static struct v3_timer_ops timer_ops = {
     .update_timer = pit_update_timer,
 };
 
@@ -642,7 +647,21 @@ static void init_channel(struct channel * ch) {
 
 
 static int pit_free(struct vm_device * dev) {
+    struct pit * state = (struct pit *)dev->private_data;
+    struct guest_info * info = &(dev->vm->cores[0]);
 
+
+    if (state->timer) {
+	v3_remove_timer(info, state->timer);
+    }
+
+    v3_unhook_io_port(dev->vm, CHANNEL0_PORT);
+    v3_unhook_io_port(dev->vm, CHANNEL1_PORT);
+    v3_unhook_io_port(dev->vm, CHANNEL2_PORT);
+    v3_unhook_io_port(dev->vm, COMMAND_PORT);
+    v3_unhook_io_port(dev->vm, SPEAKER_PORT);
+    
+    V3_Free(state);
     return 0;
 }
 
@@ -680,11 +699,11 @@ static int pit_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	return -1;
     }
 
-    v3_dev_hook_io(dev, CHANNEL0_PORT, &pit_read_channel, &pit_write_channel);
-    v3_dev_hook_io(dev, CHANNEL1_PORT, &pit_read_channel, &pit_write_channel);
-    v3_dev_hook_io(dev, CHANNEL2_PORT, &pit_read_channel, &pit_write_channel);
-    v3_dev_hook_io(dev, COMMAND_PORT, NULL, &pit_write_command);
-    v3_dev_hook_io(dev, SPEAKER_PORT, &pit_read_channel, &pit_write_channel);
+    v3_hook_io_port(vm, CHANNEL0_PORT, &pit_read_channel, &pit_write_channel, dev);
+    v3_hook_io_port(vm, CHANNEL1_PORT, &pit_read_channel, &pit_write_channel, dev);
+    v3_hook_io_port(vm, CHANNEL2_PORT, &pit_read_channel, &pit_write_channel, dev);
+    v3_hook_io_port(vm, COMMAND_PORT, NULL, &pit_write_command, dev);
+    v3_hook_io_port(vm, SPEAKER_PORT, &pit_read_channel, &pit_write_channel, dev);
 
 #ifdef CONFIG_DEBUG_PIT
     PrintDebug("8254 PIT: OSC_HZ=%d, reload_val=", OSC_HZ);
@@ -693,7 +712,13 @@ static int pit_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 #endif
 
     
-    v3_add_timer(info, &timer_ops, dev);
+
+    pit_state->timer = v3_add_timer(info, &timer_ops, dev);
+
+    if (pit_state->timer == NULL) {
+	v3_detach_device(dev);
+	return -1;
+    }
 
     // Get cpu frequency and calculate the global pit oscilattor counter/cycle
 

@@ -118,8 +118,12 @@ int v3_dev_mgr_deinit(struct v3_vm_info * vm) {
 	v3_free_device(dev);
     }
 
+    v3_free_htable(mgr->blk_table, 0, 0);
+    v3_free_htable(mgr->net_table, 0, 0);
+    v3_free_htable(mgr->char_table, 0, 0);
+    v3_free_htable(mgr->console_table, 0, 0);
 
-    /* TODO: Clear hash tables */
+    v3_free_htable(mgr->dev_table, 0, 0);
 
     return 0;
 }
@@ -211,7 +215,11 @@ int v3_dev_unhook_io(struct vm_device * dev, uint16_t port) {
 int v3_detach_device(struct vm_device * dev) {
     struct vmm_dev_mgr * mgr = &(dev->vm->dev_mgr);
 
-    dev->ops->free(dev);
+    if (dev->ops->free) {
+	dev->ops->free(dev);
+    } else {
+	PrintError("Error: %s free() not implemented\n",  dev->name);
+    }
 
     list_del(&(dev->dev_link));
     mgr->num_devs--;

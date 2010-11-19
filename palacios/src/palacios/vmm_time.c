@@ -122,10 +122,11 @@ int v3_adjust_time(struct guest_info * info) {
     return 0;
 }
 
-int v3_add_timer(struct guest_info * info, struct vm_timer_ops * ops, 
-	     void * private_data) {
-    struct vm_timer * timer = NULL;
-    timer = (struct vm_timer *)V3_Malloc(sizeof(struct vm_timer));
+struct v3_timer * v3_add_timer(struct guest_info * info, 
+			       struct v3_timer_ops * ops, 
+			       void * private_data) {
+    struct v3_timer * timer = NULL;
+    timer = (struct v3_timer *)V3_Malloc(sizeof(struct v3_timer));
     V3_ASSERT(timer != NULL);
 
     timer->ops = ops;
@@ -134,10 +135,10 @@ int v3_add_timer(struct guest_info * info, struct vm_timer_ops * ops,
     list_add(&(timer->timer_link), &(info->time_state.timers));
     info->time_state.num_timers++;
 
-    return 0;
+    return timer;
 }
 
-int v3_remove_timer(struct guest_info * info, struct vm_timer * timer) {
+int v3_remove_timer(struct guest_info * info, struct v3_timer * timer) {
     list_del(&(timer->timer_link));
     info->time_state.num_timers--;
 
@@ -146,7 +147,7 @@ int v3_remove_timer(struct guest_info * info, struct vm_timer * timer) {
 }
 
 void v3_update_timers(struct guest_info * info) {
-    struct vm_timer * tmp_timer;
+    struct v3_timer * tmp_timer;
     uint64_t old_time = info->time_state.last_update;
     uint64_t cycles;
 

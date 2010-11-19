@@ -48,14 +48,14 @@ struct vm_time {
     struct list_head timers;
 };
 
-struct vm_timer_ops {
+struct v3_timer_ops {
     void (*update_timer)(struct guest_info * info, ullong_t cpu_cycles, ullong_t cpu_freq, void * priv_data);
     void (*advance_timer)(struct guest_info * info, void * private_data);
 };
 
-struct vm_timer {
+struct v3_timer {
     void * private_data;
-    struct vm_timer_ops * ops;
+    struct v3_timer_ops * ops;
 
     struct list_head timer_link;
 };
@@ -66,8 +66,8 @@ int v3_start_time(struct guest_info * info);
 int v3_adjust_time(struct guest_info * info);
 
 // Basic functions for attaching timers to the passage of time
-int v3_add_timer(struct guest_info * info, struct vm_timer_ops * ops, void * private_data);
-int v3_remove_timer(struct guest_info * info, struct vm_timer * timer);
+struct v3_timer * v3_add_timer(struct guest_info * info, struct v3_timer_ops * ops, void * private_data);
+int v3_remove_timer(struct guest_info * info, struct v3_timer * timer);
 void v3_update_timers(struct guest_info * info);
 
 // Functions to return the different notions of time in Palacios.
