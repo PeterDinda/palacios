@@ -95,12 +95,20 @@ config CONSOLE
 	help 
 	  Select this if you want to forward a guest console interface to some host OS service
 
-
 config SOCKET
-	bool "Host support for Network Sockets"
-	default y
+        bool "Host support for Network Sockets"
+        default y
+        help
+          Select this if you host OS implements a socket API that is available to Palacios. This is required
+          to support the internal networking features of Palacios.
+
+
+config PACKET
+	bool "Host support for Raw Packet Transmision"
+	depends on EXPERIMENTAL
+	default n
 	help 
-	  Select this if you host OS implements a socket API that is available to Palacios. This is required 
+	  Select this if you host OS implements a raw packet network API that is available to Palacios. This is required 
 	  to support the internal networking features of Palacios.
 
 endmenu

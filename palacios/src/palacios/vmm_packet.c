@@ -7,34 +7,34 @@
  * and the University of New Mexico.  You can find out more at 
  * http://www.v3vee.org
  *
- * Copyright (c) 2010, Lei Xia <lxia@northwestern.edu> 
+ * Copyright (c) 2010, Lei Xia <lxia@cs.northwestern.edu> 
  * Copyright (c) 2010, The V3VEE Project <http://www.v3vee.org> 
  * All rights reserved.
  *
- * Author: Lei Xia <lxia@northwestern.edu> 
+ * Author: Lei Xia <lxia@cs.northwestern.edu>
  *
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
-
-
-#ifndef __VMM_PACKET_H__
-#define __VMM_PACKET_H__
-
 #include <palacios/vmm.h>
+#include <palacios/vmm_debug.h>
+#include <palacios/vmm_types.h>
+#include <palacios/vm_guest.h>
+#include <palacios/vmm_packet.h>
 
-#ifdef __V3VEE__
+static struct v3_packet_hooks * packet_hooks = 0;
 
-int V3_send_raw(const char * pkt, const int len);
+int V3_send_raw(const char * pkt, const int len) {
+    V3_ASSERT(packet_hooks);
+    V3_ASSERT(packet_hooks->send);
 
-#endif
+    return packet_hooks->send(pkt, len, NULL);
+}
 
-struct v3_packet_hooks {
 
-    int (*send)(const char * pkt, const int size, void * private_data);
+void V3_Init_Packet(struct v3_packet_hooks * hooks) {
+    packet_hooks = hooks;
+    PrintDebug("V3 raw packet interface inited\n");
 
-};
-
-extern void V3_Init_Packet(struct v3_packet_hooks * hooks);
-
-#endif
+    return;
+}
