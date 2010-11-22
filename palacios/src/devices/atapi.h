@@ -27,7 +27,7 @@
  * however the device can change that value 
  * 
  */
-static int atapi_update_req_len(struct vm_device * dev, struct ide_channel * channel, uint_t xfer_len) {
+static int atapi_update_req_len(struct ide_internal * ide, struct ide_channel * channel, uint_t xfer_len) {
     struct ide_drive * drive = get_selected_drive(channel);
 
     //   PrintDebug("Updating request length (pre=%d)\n", drive->req_len);
@@ -63,7 +63,7 @@ static int atapi_update_req_len(struct vm_device * dev, struct ide_channel * cha
 
 
 // This is for simple commands that don't need to sanity check the req_len
-static void atapi_setup_cmd_resp(struct vm_device * dev, struct ide_channel * channel, uint_t xfer_len) {
+static void atapi_setup_cmd_resp(struct ide_internal * ide, struct ide_channel * channel, uint_t xfer_len) {
     struct ide_drive * drive = get_selected_drive(channel);
 
     drive->transfer_length = xfer_len;
@@ -77,10 +77,10 @@ static void atapi_setup_cmd_resp(struct vm_device * dev, struct ide_channel * ch
     channel->status.data_req = 1;
     channel->status.error = 0;
 
-    ide_raise_irq(dev, channel);
+    ide_raise_irq(ide, channel);
 }
 
-static void atapi_cmd_error(struct vm_device * dev, struct ide_channel * channel, 
+static void atapi_cmd_error(struct ide_internal * ide, struct ide_channel * channel, 
 		     atapi_sense_key_t  sense_key, atapi_add_sense_code_t asc) {
     struct ide_drive * drive = get_selected_drive(channel);
 
@@ -104,11 +104,11 @@ static void atapi_cmd_error(struct vm_device * dev, struct ide_channel * channel
     drive->irq_flags.c_d = 1;
     drive->irq_flags.rel = 0;
 
-    ide_raise_irq(dev, channel);
+    ide_raise_irq(ide, channel);
 }
 
 
-static void atapi_cmd_nop(struct vm_device * dev, struct ide_channel * channel) {
+static void atapi_cmd_nop(struct ide_internal * ide, struct ide_channel * channel) {
     struct ide_drive * drive = get_selected_drive(channel);
 
     channel->status.busy = 0;
@@ -120,12 +120,12 @@ static void atapi_cmd_nop(struct vm_device * dev, struct ide_channel * channel) 
     drive->irq_flags.c_d = 1;
     drive->irq_flags.rel = 0;
 
-    ide_raise_irq(dev, channel);
+    ide_raise_irq(ide, channel);
 }
 
 
 
-static int atapi_read_chunk(struct vm_device * dev, struct ide_channel * channel) {
+static int atapi_read_chunk(struct ide_internal * ide, struct ide_channel * channel) {
     struct ide_drive * drive = get_selected_drive(channel);
 
     int ret = drive->ops->read(drive->data_buf, drive->current_lba * ATAPI_BLOCK_SIZE, ATAPI_BLOCK_SIZE, 
@@ -140,7 +140,7 @@ drive->private_data);
 }
 
 
-static int atapi_update_data_buf(struct vm_device * dev, struct ide_channel * channel) {
+static int atapi_update_data_buf(struct ide_internal * ide, struct ide_channel * channel) {
     struct ide_drive * drive = get_selected_drive(channel);    
     
     switch (drive->cd_state.atapi_cmd) {
@@ -151,7 +151,7 @@ static int atapi_update_data_buf(struct vm_device * dev, struct ide_channel * ch
 	    drive->current_lba++;
 
 	    // read the next block
-	    return atapi_read_chunk(dev, channel);
+	    return atapi_read_chunk(ide, channel);
 
 	default:
 	    PrintError("Unhandled ATAPI command in update buffer %x\n", drive->cd_state.atapi_cmd);
@@ -162,7 +162,7 @@ static int atapi_update_data_buf(struct vm_device * dev, struct ide_channel * ch
 }
 
 static int atapi_read10(struct guest_info * core, 
-			struct vm_device * dev, 
+			struct ide_internal * ide,
 			struct ide_channel * channel) {
     struct ide_drive * drive = get_selected_drive(channel);
     struct atapi_read10_cmd * cmd = (struct atapi_read10_cmd *)(drive->data_buf);
@@ -176,7 +176,7 @@ static int atapi_read10(struct guest_info * core,
      */
     
     if (xfer_len == 0) {
-	atapi_cmd_nop(dev, channel);
+	atapi_cmd_nop(ide, channel);
 	return 0;
     }
     
@@ -184,8 +184,8 @@ static int atapi_read10(struct guest_info * core,
 	PrintError("IDE: xfer len exceeded capacity (lba=%d) (xfer_len=%d) (ReadEnd=%d) (capacity=%d)\n", 
 		   lba, xfer_len, lba + xfer_len, 
 		   (uint32_t)drive->ops->get_capacity(drive->private_data));
-	atapi_cmd_error(dev, channel, ATAPI_SEN_ILL_REQ, ASC_LOG_BLK_OOR);
-	ide_raise_irq(dev, channel);
+	atapi_cmd_error(ide, channel, ATAPI_SEN_ILL_REQ, ASC_LOG_BLK_OOR);
+	ide_raise_irq(ide, channel);
 	return 0;
     }
 	
@@ -200,7 +200,7 @@ static int atapi_read10(struct guest_info * core,
     if (channel->features.dma) {
 
 	if (channel->dma_status.active == 1) {
-	    if (dma_read(core, dev, channel) == -1) {
+	    if (dma_read(core, ide, channel) == -1) {
 		PrintError("Error in DMA read for CD Read10 command\n");
 		return -1;
 	    }
@@ -208,7 +208,7 @@ static int atapi_read10(struct guest_info * core,
 	return 0;
     }
 
-    if (atapi_read_chunk(dev, channel) == -1) {
+    if (atapi_read_chunk(ide, channel) == -1) {
 	PrintError("IDE: Could not read initial chunk from CD\n");
 	return -1;
     }
@@ -216,29 +216,29 @@ static int atapi_read10(struct guest_info * core,
     // Length of ATAPI buffer sits in cylinder registers
     // This is weird... The host sets this value to say what it would like to transfer, 
     // if it is larger than the correct size, the device shrinks it to the correct size
-    if (atapi_update_req_len(dev, channel, ATAPI_BLOCK_SIZE) == -1) {
+    if (atapi_update_req_len(ide, channel, ATAPI_BLOCK_SIZE) == -1) {
 	PrintError("Could not update initial request length\n");
 	return -1;
     }
     
-    ide_raise_irq(dev, channel);
+    ide_raise_irq(ide, channel);
 
     return 0;
 }
 
 
 
-static void atapi_req_sense(struct vm_device * dev, struct ide_channel * channel) {
+static void atapi_req_sense(struct ide_internal * ide, struct ide_channel * channel) {
     struct ide_drive * drive = get_selected_drive(channel);
 
     memcpy(drive->data_buf, drive->cd_state.sense.buf, sizeof(drive->cd_state.sense.buf));
    
-    atapi_setup_cmd_resp(dev, channel, 18);
+    atapi_setup_cmd_resp(ide, channel, 18);
 }
 
 
 
-static int atapi_get_capacity(struct vm_device * dev, struct ide_channel * channel) {
+static int atapi_get_capacity(struct ide_internal * ide, struct ide_channel * channel) {
     struct ide_drive * drive = get_selected_drive(channel);
     struct atapi_rd_capacity_resp * resp = (struct atapi_rd_capacity_resp *)(drive->data_buf);
     uint32_t capacity = drive->ops->get_capacity(drive->private_data);
@@ -246,12 +246,12 @@ static int atapi_get_capacity(struct vm_device * dev, struct ide_channel * chann
     resp->lba = le_to_be_32(capacity);
     resp->block_len = le_to_be_32(ATAPI_BLOCK_SIZE);
 
-    atapi_setup_cmd_resp(dev, channel, sizeof(struct atapi_rd_capacity_resp));
+    atapi_setup_cmd_resp(ide, channel, sizeof(struct atapi_rd_capacity_resp));
 
     return 0;
 }
 
-static int atapi_get_config(struct vm_device * dev, struct ide_channel * channel) {
+static int atapi_get_config(struct ide_internal * ide, struct ide_channel * channel) {
     struct ide_drive * drive = get_selected_drive(channel);
     struct atapi_config_cmd * cmd = (struct atapi_config_cmd *)(drive->data_buf);
     uint16_t alloc_len = be_to_le_16(cmd->alloc_len);
@@ -266,13 +266,13 @@ static int atapi_get_config(struct vm_device * dev, struct ide_channel * channel
 	xfer_len = alloc_len;
     }
     
-    atapi_setup_cmd_resp(dev, channel, xfer_len);
+    atapi_setup_cmd_resp(ide, channel, xfer_len);
     
     return 0;
 }
 
 
-static int atapi_read_toc(struct vm_device * dev, struct ide_channel * channel) {
+static int atapi_read_toc(struct ide_internal * ide, struct ide_channel * channel) {
     struct ide_drive * drive = get_selected_drive(channel);
     struct atapi_rd_toc_cmd * cmd = (struct atapi_rd_toc_cmd *)(drive->data_buf);
     uint16_t alloc_len = be_to_le_16(cmd->alloc_len);
@@ -295,7 +295,7 @@ static int atapi_read_toc(struct vm_device * dev, struct ide_channel * channel) 
 	    xfer_len = alloc_len;
 	}
 
-	atapi_setup_cmd_resp(dev, channel, xfer_len);
+	atapi_setup_cmd_resp(ide, channel, xfer_len);
     } else {
 	PrintError("Unhandled Format (%d)\n", cmd->format);
 	return -1;
@@ -305,7 +305,7 @@ static int atapi_read_toc(struct vm_device * dev, struct ide_channel * channel) 
 }
 
 
-static int atapi_mode_sense_cur_values(struct vm_device * dev, struct ide_channel * channel, 
+static int atapi_mode_sense_cur_values(struct ide_internal * ide, struct ide_channel * channel, 
 				       struct atapi_mode_sense_cmd * sense_cmd) {
     struct ide_drive * drive = get_selected_drive(channel);
     struct atapi_mode_sense_hdr * hdr = (struct atapi_mode_sense_hdr *)(drive->data_buf);
@@ -367,8 +367,8 @@ static int atapi_mode_sense_cur_values(struct vm_device * dev, struct ide_channe
 	case 0x3f:
 	default:
 	    PrintError("ATAPI: Mode sense Page Code not supported (%x)\n", sense_cmd->page_code);
-	    atapi_cmd_error(dev, channel, ATAPI_SEN_ILL_REQ, ASC_INV_CMD_FIELD);
-	    ide_raise_irq(dev, channel);
+	    atapi_cmd_error(ide, channel, ATAPI_SEN_ILL_REQ, ASC_INV_CMD_FIELD);
+	    ide_raise_irq(ide, channel);
 	    return 0;
     }
 
@@ -381,21 +381,21 @@ static int atapi_mode_sense_cur_values(struct vm_device * dev, struct ide_channe
 
     drive->transfer_length = (resp_len > alloc_len) ? alloc_len : resp_len;
     drive->transfer_index = 0;
-    atapi_update_req_len(dev, channel, drive->transfer_length);
+    atapi_update_req_len(ide, channel, drive->transfer_length);
 
-    ide_raise_irq(dev, channel);
+    ide_raise_irq(ide, channel);
 
     return 0;
 }
 
 
-static int atapi_mode_sense(struct vm_device * dev, struct ide_channel * channel) {
+static int atapi_mode_sense(struct ide_internal * ide, struct ide_channel * channel) {
     struct ide_drive * drive = get_selected_drive(channel);
     struct atapi_mode_sense_cmd * sense_cmd = (struct atapi_mode_sense_cmd *)(drive->data_buf);
 
     switch (sense_cmd->page_ctrl) {
 	case 0x00: // Current values
-	    return atapi_mode_sense_cur_values(dev, channel, sense_cmd);
+	    return atapi_mode_sense_cur_values(ide, channel, sense_cmd);
 	case 0x01: // Changeable values
 	case 0x02: // default values
 	case 0x03: // saved values
@@ -407,7 +407,7 @@ static int atapi_mode_sense(struct vm_device * dev, struct ide_channel * channel
 }
 
 
-static int atapi_inquiry(struct vm_device * dev, struct ide_channel * channel) {
+static int atapi_inquiry(struct ide_internal * ide, struct ide_channel * channel) {
     struct ide_drive * drive = get_selected_drive(channel);
     struct atapi_inquiry_cmd * inquiry_cmd = (struct atapi_inquiry_cmd *)(drive->data_buf);
     uint16_t alloc_len = be_to_le_16(inquiry_cmd->alloc_len);
@@ -433,7 +433,7 @@ static int atapi_inquiry(struct vm_device * dev, struct ide_channel * channel) {
 	xfer_len = alloc_len;
     }
 
-    atapi_setup_cmd_resp(dev, channel, xfer_len);
+    atapi_setup_cmd_resp(ide, channel, xfer_len);
 
     return 0;
 }
@@ -452,7 +452,7 @@ static int atapi_cmd_is_data_op(uint8_t cmd) {
 }
 
 
-static int atapi_handle_packet(struct guest_info * core, struct vm_device * dev, struct ide_channel * channel) {
+static int atapi_handle_packet(struct guest_info * core, struct ide_internal * ide, struct ide_channel * channel) {
    struct ide_drive * drive = get_selected_drive(channel);
    uint8_t cmd = drive->data_buf[0];
 
@@ -462,29 +462,29 @@ static int atapi_handle_packet(struct guest_info * core, struct vm_device * dev,
 
    switch (cmd) {
        case 0x00: // test unit ready
-	   atapi_cmd_nop(dev, channel);
+	   atapi_cmd_nop(ide, channel);
 
 	   /* if drive not ready: 
 	      atapi_cmd_error(... ATAPI_SEN_NOT_RDY, ASC_MEDIA_NOT_PRESENT)
  	   */
 	   break;
        case 0x03: // request sense
-	   atapi_req_sense(dev, channel);
+	   atapi_req_sense(ide, channel);
 	   break;
 
        case 0x1e: // lock door
-	   atapi_cmd_nop(dev, channel);
+	   atapi_cmd_nop(ide, channel);
 	   break;
 
        case 0x28: // read(10)
-	   if (atapi_read10(core, dev, channel) == -1) {
+	   if (atapi_read10(core, ide, channel) == -1) {
 	       PrintError("IDE: Error in ATAPI read (%x)\n", cmd);
 	       return -1;
 	   }
 	   break;
 
        case 0x5a: // mode sense
-	   if (atapi_mode_sense(dev, channel) == -1) {
+	   if (atapi_mode_sense(ide, channel) == -1) {
 	       PrintError("IDE: Error in ATAPI mode sense (%x)\n", cmd);
 	       return -1;
 	   }
@@ -492,7 +492,7 @@ static int atapi_handle_packet(struct guest_info * core, struct vm_device * dev,
 
 
        case 0x25: // read cdrom capacity
-	   if (atapi_get_capacity(dev, channel) == -1) {
+	   if (atapi_get_capacity(ide, channel) == -1) {
 	       PrintError("IDE: Error getting CDROM capacity (%x)\n", cmd);
 	       return -1;
 	   }
@@ -500,14 +500,14 @@ static int atapi_handle_packet(struct guest_info * core, struct vm_device * dev,
 
 
        case 0x43: // read TOC
-	   if (atapi_read_toc(dev, channel) == -1) {
+	   if (atapi_read_toc(ide, channel) == -1) {
 	       PrintError("IDE: Error getting CDROM TOC (%x)\n", cmd);
 	       return -1;
 	   }
 	   break;
 
        case 0x46: // get configuration
-	   if (atapi_get_config(dev, channel) == -1) {
+	   if (atapi_get_config(ide, channel) == -1) {
 	       PrintError("IDE: Error getting CDROM Configuration (%x)\n", cmd);
 	       return -1;
 	   }
@@ -518,12 +518,12 @@ static int atapi_handle_packet(struct guest_info * core, struct vm_device * dev,
        case 0x51: // read disk info
 	   // no-op to keep the Linux CD-ROM driver happy
 	   PrintDebug("Error: Read disk info no-op to keep the Linux CD-ROM driver happy\n");
-	   atapi_cmd_error(dev, channel, ATAPI_SEN_ILL_REQ, ASC_INV_CMD_FIELD);
-	   ide_raise_irq(dev, channel);
+	   atapi_cmd_error(ide, channel, ATAPI_SEN_ILL_REQ, ASC_INV_CMD_FIELD);
+	   ide_raise_irq(ide, channel);
 	   break;
 
        case 0x12: // inquiry
-	   if (atapi_inquiry(dev, channel) == -1) {
+	   if (atapi_inquiry(ide, channel) == -1) {
 	       PrintError("IDE: Error in ATAPI inquiry (%x)\n", cmd);
 	       return -1;
 	   }
@@ -559,8 +559,8 @@ static int atapi_handle_packet(struct guest_info * core, struct vm_device * dev,
 
        default:
 	   PrintError("Unhandled ATAPI command %x\n", cmd);
-	   atapi_cmd_error(dev, channel, ATAPI_SEN_ILL_REQ, ASC_INV_CMD_FIELD);
-	   ide_raise_irq(dev, channel);
+	   atapi_cmd_error(ide, channel, ATAPI_SEN_ILL_REQ, ASC_INV_CMD_FIELD);
+	   ide_raise_irq(ide, channel);
 	   return -1;
    }
    

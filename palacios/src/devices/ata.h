@@ -106,7 +106,7 @@ static void ata_identify_device(struct ide_drive * drive) {
 }
 
 
-static int ata_read(struct vm_device * dev, struct ide_channel * channel, uint8_t * dst, uint_t sect_cnt) {
+static int ata_read(struct ide_internal * ide, struct ide_channel * channel, uint8_t * dst, uint_t sect_cnt) {
     struct ide_drive * drive = get_selected_drive(channel);
 
     if (drive->hd_state.accessed == 0) {
@@ -130,7 +130,7 @@ static int ata_read(struct vm_device * dev, struct ide_channel * channel, uint8_
 }
 
 
-static int ata_write(struct vm_device * dev, struct ide_channel * channel, uint8_t * src, uint_t sect_cnt) {
+static int ata_write(struct ide_internal * ide, struct ide_channel * channel, uint8_t * src, uint_t sect_cnt) {
     struct ide_drive * drive = get_selected_drive(channel);
 
     PrintDebug("Writing Drive LBA=%d (count=%d)\n", (uint32_t)(drive->current_lba), sect_cnt);
@@ -147,7 +147,7 @@ static int ata_write(struct vm_device * dev, struct ide_channel * channel, uint8
 
 
 
-static int ata_get_lba(struct vm_device * dev, struct ide_channel * channel, uint64_t * lba) {
+static int ata_get_lba(struct ide_internal * ide, struct ide_channel * channel, uint64_t * lba) {
     struct ide_drive * drive = get_selected_drive(channel);
     // The if the sector count == 0 then read 256 sectors (cast up to handle that value)
     uint32_t sect_cnt = (drive->sector_count == 0) ? 256 : drive->sector_count;
@@ -185,18 +185,18 @@ static int ata_get_lba(struct vm_device * dev, struct ide_channel * channel, uin
 
 
 // 28 bit LBA
-static int ata_read_sectors(struct vm_device * dev, struct ide_channel * channel) {
+static int ata_read_sectors(struct ide_internal * ide,  struct ide_channel * channel) {
     struct ide_drive * drive = get_selected_drive(channel);
     // The if the sector count == 0 then read 256 sectors (cast up to handle that value)
     uint32_t sect_cnt = (drive->sector_count == 0) ? 256 : drive->sector_count;
 
-    if (ata_get_lba(dev, channel, &(drive->current_lba)) == -1) {
-	ide_abort_command(dev, channel);
+    if (ata_get_lba(ide, channel, &(drive->current_lba)) == -1) {
+	ide_abort_command(ide, channel);
 	return 0;
     }
 
     
-    if (ata_read(dev, channel, drive->data_buf, 1) == -1) {
+    if (ata_read(ide, channel, drive->data_buf, 1) == -1) {
 	PrintError("Could not read disk sector\n");
 	return -1;
     }
@@ -215,7 +215,7 @@ static int ata_read_sectors(struct vm_device * dev, struct ide_channel * channel
     drive->irq_flags.rel = 0;
 
 
-    ide_raise_irq(dev, channel);
+    ide_raise_irq(ide, channel);
 
     PrintDebug("Returning from read sectors\n");
 
@@ -224,7 +224,7 @@ static int ata_read_sectors(struct vm_device * dev, struct ide_channel * channel
 
 
 // 48 bit LBA
-static int ata_read_sectors_ext(struct vm_device * dev, struct ide_channel * channel) {
+static int ata_read_sectors_ext(struct ide_internal * ide, struct ide_channel * channel) {
     //struct ide_drive * drive = get_selected_drive(channel);
     // The if the sector count == 0 then read 256 sectors (cast up to handle that value)
     //uint32_t sector_count = (drive->sector_count == 0) ? 256 : drive->sector_count;

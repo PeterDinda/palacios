@@ -151,8 +151,7 @@ static int video_write_mem(struct guest_info * core, addr_t guest_addr, void * d
 }
 
 static int video_read_port(struct guest_info * core, uint16_t port, void * dest, uint_t length, void * priv_data) {
-    struct vm_device * dev = (struct vm_device *)priv_data;
-    struct video_internal * video_state = (struct video_internal *)dev->private_data;
+    struct video_internal * video_state = priv_data;
 
 
     PrintDebug("Video: Read port 0x%x\n", port);
@@ -167,8 +166,7 @@ static int video_read_port(struct guest_info * core, uint16_t port, void * dest,
 
 
 static int video_write_port(struct guest_info * core, uint16_t port, void * src, uint_t length, void * priv_data) {
-    struct vm_device * dev = (struct vm_device *)priv_data;
-    struct video_internal * video_state = (struct video_internal *)dev->private_data;
+    struct video_internal * video_state = priv_data;
 
 
     PrintDebug("Video: write port 0x%x...\n", port);
@@ -183,8 +181,7 @@ static int video_write_port(struct guest_info * core, uint16_t port, void * src,
 
 
 static int crtc_data_write(struct guest_info * core, uint16_t port, void * src, uint_t length, void * priv_data) {
-    struct vm_device * dev = (struct vm_device *)priv_data;
-    struct video_internal * video_state = (struct video_internal *)dev->private_data;
+    struct video_internal * video_state = priv_data;
     uint8_t val = *(uint8_t *)src;
     uint_t index = video_state->crtc_index_reg;
 
@@ -263,8 +260,7 @@ static int crtc_data_write(struct guest_info * core, uint16_t port, void * src, 
 
 
 static int crtc_index_write(struct guest_info * core, uint16_t port, void * src, uint_t length, void * priv_data) {
-    struct vm_device * dev = (struct vm_device *)priv_data;
-    struct video_internal * video_state = (struct video_internal *)dev->private_data;
+    struct video_internal * video_state = priv_data;
     
     if (length > 2) {
 	PrintError("Invalid write length for crtc index register port: %d (0x%x)\n",
@@ -282,7 +278,7 @@ static int crtc_index_write(struct guest_info * core, uint16_t port, void * src,
     }
 
     if (length == 2) {
-	if (crtc_data_write(core, port + 1, src + 1, length - 1, dev) != (length - 1)) {
+	if (crtc_data_write(core, port + 1, src + 1, length - 1, video_state) != (length - 1)) {
 	    PrintError("could not handle implicit crtc data write\n");
 	    return -1;
 	}
@@ -313,7 +309,6 @@ int v3_cons_get_fb(struct vm_device * frontend_dev, uint8_t * dst, uint_t offset
 
 static int free_device(struct vm_device * dev) {
     struct video_internal * video_state = (struct video_internal *)dev->private_data;
-    struct v3_vm_info * vm = dev->vm;
 
     if (video_state->framebuf_pa) {
 	V3_FreePages((void *)(video_state->framebuf_pa), (FRAMEBUF_SIZE / 4096));
@@ -321,50 +316,6 @@ static int free_device(struct vm_device * dev) {
 
     v3_unhook_mem(dev->vm, V3_MEM_CORE_ANY, START_ADDR);
 
-    v3_unhook_io_port(vm, 0x3b0);
-    v3_unhook_io_port(vm, 0x3b1);
-    v3_unhook_io_port(vm, 0x3b2);
-    v3_unhook_io_port(vm, 0x3b3);
-    v3_unhook_io_port(vm, 0x3b4);
-    v3_unhook_io_port(vm, 0x3b5);
-    v3_unhook_io_port(vm, 0x3b6);
-    v3_unhook_io_port(vm, 0x3b7);
-    v3_unhook_io_port(vm, 0x3b8);
-    v3_unhook_io_port(vm, 0x3b9);
-    v3_unhook_io_port(vm, 0x3ba);
-    v3_unhook_io_port(vm, 0x3bb);
-    v3_unhook_io_port(vm, 0x3c0);
-    v3_unhook_io_port(vm, 0x3c1);
-    v3_unhook_io_port(vm, 0x3c2);
-    v3_unhook_io_port(vm, 0x3c3);
-    v3_unhook_io_port(vm, 0x3c4);
-    v3_unhook_io_port(vm, 0x3c5);
-    v3_unhook_io_port(vm, 0x3c6);
-    v3_unhook_io_port(vm, 0x3c7);
-    v3_unhook_io_port(vm, 0x3c8);
-    v3_unhook_io_port(vm, 0x3c9);
-    v3_unhook_io_port(vm, 0x3ca);
-    v3_unhook_io_port(vm, 0x3cb);
-    v3_unhook_io_port(vm, 0x3cc);
-    v3_unhook_io_port(vm, 0x3cd);
-    v3_unhook_io_port(vm, 0x3ce);
-    v3_unhook_io_port(vm, 0x3cf);
-    v3_unhook_io_port(vm, 0x3d0);
-    v3_unhook_io_port(vm, 0x3d1);
-    v3_unhook_io_port(vm, 0x3d2);
-    v3_unhook_io_port(vm, 0x3d3);
-    v3_unhook_io_port(vm, 0x3d4);
-    v3_unhook_io_port(vm, 0x3d5);
-    v3_unhook_io_port(vm, 0x3d6);
-    v3_unhook_io_port(vm, 0x3d7);
-    v3_unhook_io_port(vm, 0x3d8);
-    v3_unhook_io_port(vm, 0x3d9);
-    v3_unhook_io_port(vm, 0x3da);
-    v3_unhook_io_port(vm, 0x3db);
-    v3_unhook_io_port(vm, 0x3dc);
-    v3_unhook_io_port(vm, 0x3dd);
-    v3_unhook_io_port(vm, 0x3de);
-    v3_unhook_io_port(vm, 0x3df);
 
     V3_Free(video_state);
 
@@ -420,50 +371,50 @@ static int cga_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     }
 
 
-    v3_hook_io_port(vm, 0x3b0, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3b1, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3b2, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3b3, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3b4, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3b5, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3b6, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3b7, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3b8, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3b9, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3ba, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3bb, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3c0, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3c1, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3c2, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3c3, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3c4, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3c5, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3c6, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3c7, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3c8, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3c9, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3ca, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3cb, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3cc, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3cd, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3ce, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3cf, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3d0, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3d1, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3d2, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3d3, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3d4, &video_read_port, &crtc_index_write, dev);
-    v3_hook_io_port(vm, 0x3d5, &video_read_port, &crtc_data_write, dev);
-    v3_hook_io_port(vm, 0x3d6, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3d7, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3d8, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3d9, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3da, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3db, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3dc, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3dd, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3de, &video_read_port, &video_write_port, dev);
-    v3_hook_io_port(vm, 0x3df, &video_read_port, &video_write_port, dev);
+    v3_dev_hook_io(dev, 0x3b0, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3b1, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3b2, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3b3, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3b4, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3b5, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3b6, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3b7, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3b8, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3b9, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3ba, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3bb, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3c0, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3c1, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3c2, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3c3, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3c4, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3c5, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3c6, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3c7, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3c8, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3c9, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3ca, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3cb, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3cc, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3cd, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3ce, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3cf, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3d0, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3d1, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3d2, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3d3, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3d4, &video_read_port, &crtc_index_write);
+    v3_dev_hook_io(dev, 0x3d5, &video_read_port, &crtc_data_write);
+    v3_dev_hook_io(dev, 0x3d6, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3d7, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3d8, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3d9, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3da, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3db, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3dc, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3dd, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3de, &video_read_port, &video_write_port);
+    v3_dev_hook_io(dev, 0x3df, &video_read_port, &video_write_port);
 
 
     return 0;

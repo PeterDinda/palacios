@@ -228,8 +228,8 @@ static struct pci_device * get_device(struct pci_bus * bus, uint8_t dev_num, uin
 
 
 
-static int addr_port_read(struct guest_info * core, ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
-    struct pci_internal * pci_state = (struct pci_internal *)dev->private_data;
+static int addr_port_read(struct guest_info * core, ushort_t port, void * dst, uint_t length, void * priv_data) {
+    struct pci_internal * pci_state = priv_data;
     int reg_offset = port & 0x3;
     uint8_t * reg_addr = ((uint8_t *)&(pci_state->addr_reg.val)) + reg_offset;
 
@@ -259,8 +259,8 @@ static int addr_port_read(struct guest_info * core, ushort_t port, void * dst, u
 }
 
 
-static int addr_port_write(struct guest_info * core, ushort_t port, void * src, uint_t length, struct vm_device * dev) {
-    struct pci_internal * pci_state = (struct pci_internal *)dev->private_data;
+static int addr_port_write(struct guest_info * core, ushort_t port, void * src, uint_t length, void * priv_data) {
+    struct pci_internal * pci_state = priv_data;
     int reg_offset = port & 0x3; 
     uint8_t * reg_addr = ((uint8_t *)&(pci_state->addr_reg.val)) + reg_offset;
 
@@ -297,8 +297,8 @@ static int addr_port_write(struct guest_info * core, ushort_t port, void * src, 
 }
 
 
-static int data_port_read(struct guest_info * core, ushort_t port, void * dst, uint_t length, struct vm_device * vmdev) {
-    struct pci_internal * pci_state =  (struct pci_internal *)(vmdev->private_data);
+static int data_port_read(struct guest_info * core, ushort_t port, void * dst, uint_t length, void * priv_data) {
+    struct pci_internal * pci_state =  priv_data;
     struct pci_device * pci_dev = NULL;
     uint_t reg_num = (pci_state->addr_reg.reg_num << 2) + (port & 0x3);
     int i;
@@ -466,8 +466,8 @@ static int bar_update(struct guest_info * info, struct pci_device * pci, int bar
 }
 
 
-static int data_port_write(struct guest_info * core, ushort_t port, void * src, uint_t length, struct vm_device * vmdev) {
-    struct pci_internal * pci_state = (struct pci_internal *)vmdev->private_data;
+static int data_port_write(struct guest_info * core, ushort_t port, void * src, uint_t length, void * priv_data) {
+    struct pci_internal * pci_state = priv_data;
     struct pci_device * pci_dev = NULL;
     uint_t reg_num = (pci_state->addr_reg.reg_num << 2) + (port & 0x3);
     int i;
@@ -597,32 +597,7 @@ static int data_port_write(struct guest_info * core, ushort_t port, void * src, 
 
 
 
-static int pci_reset_device(struct vm_device * dev) {
-    PrintDebug("pci: reset device\n");    
-    return 0;
-}
-
-
-static int pci_start_device(struct vm_device * dev) {
-    PrintDebug("pci: start device\n");
-    return 0;
-}
-
-
-static int pci_stop_device(struct vm_device * dev) {
-    PrintDebug("pci: stop device\n");  
-    return 0;
-}
-
-
-
 static int pci_free(struct vm_device * dev) {
-    int i = 0;
-    
-    for (i = 0; i < 4; i++){
-	v3_dev_unhook_io(dev, CONFIG_ADDR_PORT + i);
-	v3_dev_unhook_io(dev, CONFIG_DATA_PORT + i);
-    }
     
     return 0;
 }
@@ -644,9 +619,7 @@ static void init_pci_busses(struct pci_internal * pci_state) {
 
 static struct v3_device_ops dev_ops = {
     .free = pci_free,
-    .reset = pci_reset_device,
-    .start = pci_start_device,
-    .stop = pci_stop_device,
+
 };
 
 

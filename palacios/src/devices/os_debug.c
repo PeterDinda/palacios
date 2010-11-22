@@ -34,8 +34,8 @@ struct debug_state {
 };
 
 
-static int handle_gen_write(struct guest_info * core, ushort_t port, void * src, uint_t length, struct vm_device * dev) {
-    struct debug_state * state = (struct debug_state *)dev->private_data;
+static int handle_gen_write(struct guest_info * core, ushort_t port, void * src, uint_t length, void * priv_data) {
+    struct debug_state * state = priv_data;
 
     state->debug_buf[state->debug_offset++] = *(char*)src;
 
@@ -49,8 +49,7 @@ static int handle_gen_write(struct guest_info * core, ushort_t port, void * src,
 }
 
 static int handle_hcall(struct guest_info * info, uint_t hcall_id, void * priv_data) {
-    struct vm_device * dev = (struct vm_device *)priv_data;
-    struct debug_state * state = (struct debug_state *)dev->private_data;
+    struct debug_state * state = (struct debug_state *)priv_data;
 
     int msg_len = info->vm_regs.rcx;
     addr_t msg_gpa = info->vm_regs.rbx;
@@ -83,8 +82,6 @@ static int handle_hcall(struct guest_info * info, uint_t hcall_id, void * priv_d
 
 
 static int debug_free(struct vm_device * dev) {
-    v3_dev_unhook_io(dev, DEBUG_PORT1);
-
 
     return 0;
 };
@@ -94,9 +91,6 @@ static int debug_free(struct vm_device * dev) {
 
 static struct v3_device_ops dev_ops = {
     .free = debug_free,
-    .reset = NULL,
-    .start = NULL,
-    .stop = NULL,
 };
 
 
@@ -119,7 +113,7 @@ static int debug_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     }
 
     v3_dev_hook_io(dev, DEBUG_PORT1,  NULL, &handle_gen_write);
-    v3_register_hypercall(vm, OS_DEBUG_HCALL, handle_hcall, dev);
+    v3_register_hypercall(vm, OS_DEBUG_HCALL, handle_hcall, state);
 
     state->debug_offset = 0;
     memset(state->debug_buf, 0, BUF_SIZE);

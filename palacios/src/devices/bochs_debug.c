@@ -45,8 +45,7 @@ struct debug_state {
 };
 
 static int handle_info_write(struct guest_info * core, ushort_t port, void * src, uint_t length, void * priv_data) {
-    struct vm_device * dev = priv_data;
-    struct debug_state * state = (struct debug_state *)dev->private_data;
+    struct debug_state * state = (struct debug_state *)priv_data;
 
     state->info_buf[state->info_offset++] = *(char*)src;
 
@@ -61,8 +60,7 @@ static int handle_info_write(struct guest_info * core, ushort_t port, void * src
 
 
 static int handle_debug_write(struct guest_info * core, ushort_t port, void * src, uint_t length, void * priv_data) {
-    struct vm_device * dev = priv_data;
-    struct debug_state * state = (struct debug_state *)dev->private_data;
+    struct debug_state * state = (struct debug_state *)priv_data;
 
     state->debug_buf[state->debug_offset++] = *(char*)src;
 
@@ -77,8 +75,7 @@ static int handle_debug_write(struct guest_info * core, ushort_t port, void * sr
 
 
 static int handle_console_write(struct guest_info * core, ushort_t port, void * src, uint_t length, void * priv_data) {
-    struct vm_device * dev = priv_data;
-    struct debug_state * state = (struct debug_state *)dev->private_data;
+    struct debug_state * state = (struct debug_state *)priv_data;
 
     state->cons_buf[state->cons_offset++] = *(char *)src;
 
@@ -93,7 +90,6 @@ static int handle_console_write(struct guest_info * core, ushort_t port, void * 
 
 
 static int handle_gen_write(struct guest_info * core, ushort_t port, void * src, uint_t length, void * priv_data)  {
-    //struct vm_device * dev = priv_data;
     
     switch (length) {
 	case 1:
@@ -119,11 +115,6 @@ static int handle_gen_write(struct guest_info * core, ushort_t port, void * src,
 
 static int debug_free(struct vm_device * dev) {
     struct debug_state * state = dev->private_data;
-
-    v3_unhook_io_port(dev->vm, BOCHS_PORT1);
-    v3_unhook_io_port(dev->vm, BOCHS_PORT2);
-    v3_unhook_io_port(dev->vm, BOCHS_INFO_PORT);
-    v3_unhook_io_port(dev->vm, BOCHS_DEBUG_PORT);
 
     V3_Free(state);
 
@@ -167,11 +158,11 @@ static int debug_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     memset(state->cons_buf, 0, BUF_SIZE);
 
 
-    ret |= v3_hook_io_port(vm, BOCHS_PORT1,  NULL, &handle_gen_write, dev);
-    ret |= v3_hook_io_port(vm, BOCHS_PORT2, NULL, &handle_gen_write, dev);
-    ret |= v3_hook_io_port(vm, BOCHS_INFO_PORT, NULL, &handle_info_write, dev);
-    ret |= v3_hook_io_port(vm, BOCHS_DEBUG_PORT, NULL, &handle_debug_write, dev);
-    ret |= v3_hook_io_port(vm, BOCHS_CONSOLE_PORT, NULL, &handle_console_write, dev);
+    ret |= v3_dev_hook_io(dev, BOCHS_PORT1,  NULL, &handle_gen_write);
+    ret |= v3_dev_hook_io(dev, BOCHS_PORT2, NULL, &handle_gen_write);
+    ret |= v3_dev_hook_io(dev, BOCHS_INFO_PORT, NULL, &handle_info_write);
+    ret |= v3_dev_hook_io(dev, BOCHS_DEBUG_PORT, NULL, &handle_debug_write);
+    ret |= v3_dev_hook_io(dev, BOCHS_CONSOLE_PORT, NULL, &handle_console_write);
     
     if (ret != 0) {
 	PrintError("Could not hook Bochs Debug IO Ports\n");
