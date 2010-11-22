@@ -25,13 +25,13 @@
 
 #ifdef __V3VEE__
 
-int V3_send_raw(const char * pkt, const int len);
+int V3_send_raw(const char * pkt, uint32_t len);
 
 #endif
 
 struct v3_packet_hooks {
 
-    int (*send)(const char * pkt, const int size, void * private_data);
+    int (*send)(const char * pkt, unsigned int size, void * private_data);
 
 };
 

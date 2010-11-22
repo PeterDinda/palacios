@@ -181,6 +181,20 @@ config DEBUG_NE2k
 	  Enable debugging for the NE2K
 
 
+config NIC_BRIDGE
+        bool "Enable Direct Bridge to Host network"
+        default n
+        depends on EXPERIMENTAL && PACKET
+        help
+          Enable Host Direct Network Bridge backend device for all network front devices
+
+config DEBUG_NIC_BRIDGE
+        bool "Debugging Direct Bridge to Host network"
+        default n
+        depends on NIC_BRIDGE && DEBUG_ON
+        help
+          Enable Debugging on Host Direct Network Bridge backend device
+
 
 
 

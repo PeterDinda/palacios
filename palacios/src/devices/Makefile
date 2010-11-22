@@ -22,6 +22,7 @@ obj-$(CONFIG_PIIX3) += piix3.o
 obj-$(CONFIG_SWAPBYPASS_DISK_CACHE) += swapbypass_cache.o
 obj-$(CONFIG_SWAPBYPASS_DISK_CACHE2) += swapbypass_cache2.o
 obj-$(CONFIG_DISK_MODEL) += disk_model.o
+obj-$(CONFIG_NIC_BRIDGE) += nic_bridge.o
 
 obj-$(CONFIG_NE2K) += ne2k.o
 

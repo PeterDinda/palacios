@@ -24,7 +24,7 @@
 
 static struct v3_packet_hooks * packet_hooks = 0;
 
-int V3_send_raw(const char * pkt, const int len) {
+int V3_send_raw(const char * pkt, uint32_t len) {
     V3_ASSERT(packet_hooks);
     V3_ASSERT(packet_hooks->send);
 
