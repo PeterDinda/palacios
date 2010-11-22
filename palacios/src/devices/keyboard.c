@@ -441,41 +441,7 @@ static int mouse_event_handler(struct v3_vm_info * vm,
 }
 
 
-static int keyboard_reset_device(struct keyboard_internal * kbd) {
-  
-    memset(kbd, 0, sizeof(struct keyboard_internal));
 
-    kbd->state = NORMAL;
-    kbd->mouse_state = STREAM;
-
-
-    // PS2, keyboard+mouse enabled, generic translation    
-    kbd->cmd.val = 0;
-
-    kbd->cmd.irq_en = 1;
-    kbd->cmd.mouse_irq_en = 1;
-    kbd->cmd.self_test_ok = 1;
-    /** **/
-
-
-    // buffers empty, no errors
-    kbd->status.val = 0; 
-
-    kbd->status.self_test_ok = 1; // self-tests passed
-    kbd->status.enabled = 1;// keyboard ready
-    /** **/
-
-    
-    kbd->output_byte = 0;  //  ?
-
-    kbd->input_byte = INPUT_RAM;  // we have some
-    // also display=color, jumper 0, keyboard enabled 
-
-    PrintDebug("keyboard: reset device\n");
- 
-    return 0;
-
-}
 
 
 
@@ -999,6 +965,49 @@ static int keyboard_free(struct vm_device * dev) {
 
 
 
+static int keyboard_reset_device(struct keyboard_internal * kbd) {
+  
+
+    kbd->mouse_queue.start = 0;
+    kbd->mouse_queue.end = 0;
+    kbd->mouse_queue.count = 0;
+
+    kbd->kbd_queue.start = 0;
+    kbd->kbd_queue.end = 0;
+    kbd->kbd_queue.count = 0;
+
+    kbd->mouse_enabled = 0;
+
+    kbd->state = NORMAL;
+    kbd->mouse_state = STREAM;
+
+    // PS2, keyboard+mouse enabled, generic translation    
+    kbd->cmd.val = 0;
+
+    kbd->cmd.irq_en = 1;
+    kbd->cmd.mouse_irq_en = 1;
+    kbd->cmd.self_test_ok = 1;
+    /** **/
+
+
+    // buffers empty, no errors
+    kbd->status.val = 0; 
+
+    kbd->status.self_test_ok = 1; // self-tests passed
+    kbd->status.enabled = 1;// keyboard ready
+    /** **/
+
+    
+    kbd->output_byte = 0;  //  ?
+
+    kbd->input_byte = INPUT_RAM;  // we have some
+    // also display=color, jumper 0, keyboard enabled 
+
+    PrintDebug("keyboard: reset device\n");
+ 
+    return 0;
+
+}
 
 static struct v3_device_ops dev_ops = { 
     .free = keyboard_free,
@@ -1020,16 +1029,6 @@ static int keyboard_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     kbd->vm = vm;
 
-    kbd->mouse_queue.start = 0;
-    kbd->mouse_queue.end = 0;
-    kbd->mouse_queue.count = 0;
-
-    kbd->kbd_queue.start = 0;
-    kbd->kbd_queue.end = 0;
-    kbd->kbd_queue.count = 0;
-
-    kbd->mouse_enabled = 0;
-
     struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, kbd);
 
     if (v3_attach_device(vm, dev) == -1) {
@@ -1047,8 +1046,8 @@ static int keyboard_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     v3_dev_hook_io(dev, KEYBOARD_64H, &keyboard_read_status, &keyboard_write_command);
     v3_dev_hook_io(dev, KEYBOARD_60H, &keyboard_read_input, &keyboard_write_output);
 
-    v3_hook_host_event(vm, HOST_KEYBOARD_EVT, V3_HOST_EVENT_HANDLER(key_event_handler), dev);
-    v3_hook_host_event(vm, HOST_MOUSE_EVT, V3_HOST_EVENT_HANDLER(mouse_event_handler), dev);
+    v3_hook_host_event(vm, HOST_KEYBOARD_EVT, V3_HOST_EVENT_HANDLER(key_event_handler), kbd);
+    v3_hook_host_event(vm, HOST_MOUSE_EVT, V3_HOST_EVENT_HANDLER(mouse_event_handler), kbd);
 
 
 #if KEYBOARD_DEBUG_80H
