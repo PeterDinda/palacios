@@ -135,7 +135,7 @@ static void dump_routes(){
 	int i = 0;
 	PrintDebug("\n========Dump routes starts ============\n");
 	list_for_each_entry(route, &(vnet_state.routes), node) {
-	    PrintDebug("\nroute %d:\n", ++i);
+	    PrintDebug("\nroute %d:\n", i++);
 		
 	    print_route(route);
 	}
@@ -229,7 +229,7 @@ int v3_vnet_add_route(struct v3_vnet_route route) {
     memset(new_route, 0, sizeof(struct vnet_route_info));
 
     PrintDebug("Vnet: vnet_add_route_entry: dst_id: %d, dst_type: %d\n",
-			route.dst_id, route.dst_type);	
+	       route.dst_id, route.dst_type);	
     
     memcpy(new_route->route_def.src_mac, route.src_mac, 6);
     memcpy(new_route->route_def.dst_mac, route.dst_mac, 6);
@@ -400,14 +400,11 @@ int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data) {
 
 #ifdef CONFIG_DEBUG_VNET
    {
-	struct eth_hdr * hdr = (struct eth_hdr *)(pkt->header);
-	char dest_str[100];
-	char src_str[100];
-
-	mac_to_string(hdr->src_mac, src_str);  
-	mac_to_string(hdr->dst_mac, dest_str);
 	int cpu = V3_Get_CPU();
-	PrintDebug("Vnet: on cpu %d, HandleDataOverLink. SRC(%s), DEST(%s), pkt size: %d\n", cpu, src_str, dest_str, pkt->size);
+       PrintDebug("VNET-core: cpu %d: pkt (size %d, src_id:%d, src_type: %d, dst_id: %d, dst_type: %d)\n",
+		  cpu, pkt->size, pkt->src_id, 
+		  pkt->src_type, pkt->dst_id, pkt->dst_type);
+       //v3_hexdump(pkt->data, pkt->size, NULL, 0);
    }
 #endif
 
@@ -416,7 +413,7 @@ int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data) {
     look_into_cache(pkt, &matched_routes);
 	
     if (matched_routes == NULL) {  
-	PrintError("Vnet: send pkt Looking into routing table\n");
+	PrintDebug("Vnet: send pkt Looking into routing table\n");
 	
 	matched_routes = match_route(pkt);
 	
@@ -434,34 +431,35 @@ int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data) {
     PrintDebug("Vnet: send pkt route matches %d\n", matched_routes->num_routes);
 
     for (i = 0; i < matched_routes->num_routes; i++) {
-	 struct vnet_route_info * route = matched_routes->routes[i];
+	struct vnet_route_info * route = matched_routes->routes[i];
 	
         if (route->route_def.dst_type == LINK_EDGE) {
-	     struct vnet_brg_dev *bridge = vnet_state.bridge;
+	    struct vnet_brg_dev *bridge = vnet_state.bridge;
             pkt->dst_type = LINK_EDGE;
             pkt->dst_id = route->route_def.dst_id;
 
-    	     if (bridge == NULL || (bridge->active == 0)) {
-	     	PrintError("VNET: No active bridge to sent data to links\n");
+    	    if (bridge == NULL || (bridge->active == 0)) {
+	        PrintDebug("VNET: No active bridge to sent data to\n");
 		continue;
-    	     }
+    	    }
 
-    	     if(bridge->brg_ops.input(bridge->vm, pkt, bridge->private_data) == -1){
+    	    if(bridge->brg_ops.input(bridge->vm, pkt, bridge->private_data) < 0){
                 PrintDebug("VNET: Packet not sent properly to bridge\n");
                 continue;
-	     }         
+	    }         
         } else if (route->route_def.dst_type == LINK_INTERFACE) {
-            if (route->dst_dev && route->dst_dev->active){ 
-		  if(route->dst_dev->dev_ops.input(route->dst_dev->vm, pkt, route->dst_dev->private_data) == -1) {
-                	PrintDebug("VNET: Packet not sent properly\n");
-                	continue;
-		  }
-	     }
+            if (route->dst_dev == NULL || route->dst_dev->active == 0){
+	 	PrintDebug("VNET: No active device to sent data to\n");
+	        continue;
+            }
+
+	    if(route->dst_dev->dev_ops.input(route->dst_dev->vm, pkt, route->dst_dev->private_data) < 0) {
+                PrintDebug("VNET: Packet not sent properly\n");
+                continue;
+	    }
         } else {
             PrintError("VNET: Wrong dst type\n");
         }
-
-        PrintDebug("VNET: Forward one packet according to Route %d\n", i);
     }
     
     return 0;
@@ -485,7 +483,9 @@ int v3_vnet_add_dev(struct v3_vm_info * vm, uint8_t mac[6],
     new_dev->dev_ops.poll = ops->poll;
     new_dev->private_data = priv_data;
     new_dev->vm = vm;
-    new_dev->dev_id = 0;	
+    new_dev->dev_id = 0;
+    new_dev->active = 1;
+    new_dev->mode = GUEST_DRIVERN;
 
     flags = v3_lock_irqsave(vnet_state.lock);
 

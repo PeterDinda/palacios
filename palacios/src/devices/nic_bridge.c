@@ -36,13 +36,13 @@ struct nic_bridge_state {
 };
 
 static int bridge_send(uint8_t * buf, uint32_t len, 
-		       void * private_data, struct vm_device *dev){
+			 void * private_data, struct vm_device *dev){
     //struct nic_bridge_state *bridge = (struct nic_bridge_state *)private_data;
 
 #ifdef CONFIG_DEBUG_NIC_BRIDGE
     {
     	PrintDebug("NIC Bridge: send pkt size: %d\n", len);
-    	v3_hexdump(buf, len, NULL, 0);
+    	//v3_hexdump(buf, len, NULL, 0);
     }
 #endif
 
@@ -50,9 +50,9 @@ static int bridge_send(uint8_t * buf, uint32_t len,
 }
 
 
-static int packet_input(struct v3_vm_info * vm,
-			struct v3_packet_event * evt, 
-			void * private_data) {
+static int packet_input(struct v3_vm_info * vm, 
+			     struct v3_packet_event * evt, 
+			     void * private_data) {
     struct nic_bridge_state *bridge = (struct nic_bridge_state *)private_data;
 
     PrintDebug("NIC_BRIDGE: Incoming packet size: %d\n", evt->size);

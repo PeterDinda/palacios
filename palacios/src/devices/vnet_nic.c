@@ -71,9 +71,9 @@ static int vnet_nic_send(uint8_t * buf, uint32_t len,
 
 #ifdef CONFIG_DEBUG_VNET_NIC
     {
-    	PrintDebug("Virtio VNET-NIC: send pkt size: %d, pkt src_id: %d\n", 
-			len,  vnetnic->vnet_dev_id);
-    	v3_hexdump(buf, len, NULL, 0);
+    	PrintDebug("VNET-NIC: send pkt (size: %d, src_id: %d, src_type: %d)\n", 
+		   pkt.size, pkt.src_id, pkt.src_type);
+    	//v3_hexdump(buf, len, NULL, 0);
     }
 #endif
 
@@ -86,10 +86,12 @@ static int virtio_input(struct v3_vm_info * info,
 			struct v3_vnet_pkt * pkt, 
 			void * private_data){
     struct vnet_nic_state *vnetnic = (struct vnet_nic_state *)private_data;
+
+    PrintDebug("VNET-NIC: receive pkt (size %d, src_id:%d, src_type: %d, dst_id: %d, dst_type: %d)\n", 
+		pkt->size, pkt->src_id, pkt->src_type, pkt->dst_id, pkt->dst_type);
 	
-    return vnetnic->net_ops.recv(pkt->data, 
-							pkt->size, 
-							vnetnic->net_ops.frontend_data);
+    return vnetnic->net_ops.recv(pkt->data, pkt->size,
+				 vnetnic->net_ops.frontend_data);
 }
 
 /* tell frontend device to poll data from guest */
@@ -212,7 +214,7 @@ static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
 
 //for temporary hack for vnet bridge test
-#if 0
+#if 1
     {
     	uchar_t zeromac[6] = {0,0,0,0,0,0};
 		
@@ -245,7 +247,7 @@ static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 #endif
 
 //for temporary hack for Linux bridge (w/o encapuslation) test
-#if 1
+#if 0
     {
  	static int vnet_nic_guestid = -1;
 	static int vnet_nic_dom0 = -1;
