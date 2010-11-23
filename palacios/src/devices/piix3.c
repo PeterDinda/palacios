@@ -370,7 +370,7 @@ static int raise_pci_irq(struct pci_device * pci_dev, void * dev_data) {
     int intr_pin = pci_dev->config_header.intr_pin - 1;
     int irq_index = (intr_pin + pci_dev->dev_num - 1) & 0x3;
     
-    //        PrintError("Raising PCI IRQ %d\n", piix3_cfg->pirq_rc[irq_index]);
+    //PrintError("Raising PCI IRQ %d, %p\n", piix3_cfg->pirq_rc[irq_index], piix3->vm);
     
     v3_raise_irq(piix3->vm, piix3_cfg->pirq_rc[irq_index]);
 
@@ -453,6 +453,7 @@ static int piix3_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     piix3->pci_bus = pci;
     piix3->type = V3_SB_PIIX3;
+    piix3->vm = vm;
     
     dev = v3_add_device(vm, dev_id, &dev_ops, piix3);
 

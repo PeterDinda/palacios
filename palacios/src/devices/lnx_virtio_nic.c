@@ -780,6 +780,8 @@ static int connect_fn(struct v3_vm_info * info,
 
     net_state->net_ops = ops;
     net_state->backend_data = private_data;
+    net_state->virtio_dev = virtio;
+	
 
     ops->recv = virtio_rx;
     ops->poll = virtio_nic_poll;
