@@ -269,16 +269,25 @@ int v3_stop_vm(struct v3_vm_info * vm) {
 
     vm->run_state = VM_STOPPED;
 
-    while (vm->cores[0].core_run_state != CORE_STOPPED) {
-	v3_yield(NULL);
-    }
-
-
     // force exit all cores via a cross call/IPI
 
-    // Wait for all cores to enter CORE_STOPPED state
 
+    while (1) {
+	int i = 0;
+	int still_running = 0;
 
+	for (i = 0; i < vm->num_cores; i++) {
+	    if (vm->cores[i].core_run_state != CORE_STOPPED) {
+		still_running = 1;
+	    }
+	}
+
+	if (still_running == 0) {
+	    break;
+	}
+	
+	v3_yield(NULL);
+    }
 
     return 0;
 }
