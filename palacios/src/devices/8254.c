@@ -681,9 +681,9 @@ static int pit_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     V3_ASSERT(pit_state != NULL);
     pit_state->speaker = 0;
 
-    dev = v3_allocate_device(dev_id, &dev_ops, pit_state);
+    dev = v3_add_device(vm, dev_id, &dev_ops, pit_state);
 
-    if (v3_attach_device(vm, dev) == -1) {
+    if (dev == NULL) {
 	PrintError("Could not attach device %s\n", dev_id);
 	V3_Free(pit_state);
 	return -1;
@@ -697,7 +697,7 @@ static int pit_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     if (ret != 0) {
 	PrintError("8254 PIT: Failed to hook IO ports\n");
-	v3_detach_device(dev);
+	v3_remove_device(dev);
 	return -1;
     }
 
@@ -712,7 +712,7 @@ static int pit_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     pit_state->timer = v3_add_timer(info, &timer_ops, pit_state);
 
     if (pit_state->timer == NULL) {
-	v3_detach_device(dev);
+	v3_remove_device(dev);
 	return -1;
     }
 

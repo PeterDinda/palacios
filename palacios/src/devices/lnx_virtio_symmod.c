@@ -629,10 +629,11 @@ static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
 
 
-    struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, virtio_state);
+    struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, virtio_state);
 
-    if (v3_attach_device(vm, dev) == -1) {
+    if (dev == NULL) {
 	PrintError("Could not attach device %s\n", dev_id);
+	V3_Free(virtio_state);
 	return -1;
     }
 
@@ -679,6 +680,7 @@ static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
 	if (!pci_dev) {
 	    PrintError("Could not register PCI Device\n");
+	    v3_remove_device(dev);
 	    return -1;
 	}
 	
@@ -702,7 +704,6 @@ static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	virtio_state->pci_bus = pci_bus;
     }
     
-
 
     V3_Print("SYMMOD: %d available sym modules\n", virtio_state->sym_cfg.avail_mods);
 

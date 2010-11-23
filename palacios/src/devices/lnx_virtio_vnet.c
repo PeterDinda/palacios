@@ -588,10 +588,11 @@ static int dev_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	
     vnet_state->vm = vm;
 
-    struct vm_device * dev = v3_allocate_device(name, &dev_ops, vnet_state);
+    struct vm_device * dev = v3_add_device(vm, name, &dev_ops, vnet_state);
 
-    if (v3_attach_device(vm, dev) == -1) {
+    if (dev == NULL) {
 	PrintError("Could not attach device %s\n", name);
+	V3_Free(vnet_state);
 	return -1;
     }
 
@@ -635,6 +636,7 @@ static int dev_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
 	if (!pci_dev) {
 	    PrintError("Could not register PCI Device\n");
+	    v3_remove_device(dev);
 	    return -1;
 	}
 	
@@ -659,6 +661,7 @@ static int dev_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     brg_ops.poll = vnet_virtio_poll;
 
     V3_Print("Registering Virtio device as vnet bridge\n");
+
     v3_vnet_add_bridge(vm, &brg_ops, CTL_VM_BRIDGE, (void *)vnet_state);
 
     return 0;

@@ -1508,9 +1508,9 @@ static int apic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     apic_dev->num_apics = vm->num_cores;
 
-    struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, apic_dev);
+    struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, apic_dev);
 
-    if (v3_attach_device(vm, dev) == -1) {
+    if (dev == NULL) {
 	PrintError("apic: Could not attach device %s\n", dev_id);
 	V3_Free(apic_dev);
 	return -1;
@@ -1531,7 +1531,7 @@ static int apic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
 	if (apic->timer == NULL) {
 	    PrintError("APIC: Failed to attach timer to core %d\n", i);
-	    v3_detach_device(dev);
+	    v3_remove_device(dev);
 	    return -1;
 	}
 

@@ -1524,6 +1524,7 @@ static int connect_fn(struct v3_vm_info * vm,
 static int ide_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct ide_internal * ide  = NULL;
     char * dev_id = v3_cfg_val(cfg, "ID");
+    int ret = 0;
 
     PrintDebug("IDE: Initializing IDE\n");
 
@@ -1537,7 +1538,6 @@ static int ide_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     memset(ide, 0, sizeof(struct ide_internal));
 
     ide->vm = vm;
-
     ide->pci_bus = v3_find_dev(vm, v3_cfg_val(cfg, "bus"));
 
     if (ide->pci_bus != NULL) {
@@ -1554,72 +1554,76 @@ static int ide_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     PrintDebug("IDE: Creating IDE bus x 2\n");
 
-    struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, ide);
+    struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, ide);
 
-    if (v3_attach_device(vm, dev) == -1) {
+    if (dev == NULL) {
 	PrintError("Could not attach device %s\n", dev_id);
-	v3_free_device(dev);
 	V3_Free(ide);
 	return -1;
     }
 
     if (init_ide_state(ide) == -1) {
 	PrintError("Failed to initialize IDE state\n");
-	v3_detach_device(dev);
+	v3_remove_device(dev);
 	return -1;
     }
 
     PrintDebug("Connecting to IDE IO ports\n");
 
-    v3_dev_hook_io(dev, PRI_DATA_PORT, 
-		   &ide_read_data_port, &write_data_port);
-    v3_dev_hook_io(dev, PRI_FEATURES_PORT, 
-		   &read_port_std, &write_port_std);
-    v3_dev_hook_io(dev, PRI_SECT_CNT_PORT, 
-		   &read_port_std, &write_port_std);
-    v3_dev_hook_io(dev, PRI_SECT_NUM_PORT, 
-		   &read_port_std, &write_port_std);
-    v3_dev_hook_io(dev, PRI_CYL_LOW_PORT, 
-		   &read_port_std, &write_port_std);
-    v3_dev_hook_io(dev, PRI_CYL_HIGH_PORT, 
-		   &read_port_std, &write_port_std);
-    v3_dev_hook_io(dev, PRI_DRV_SEL_PORT, 
-		   &read_port_std, &write_port_std);
-    v3_dev_hook_io(dev, PRI_CMD_PORT, 
-		   &read_port_std, &write_cmd_port);
+    ret |= v3_dev_hook_io(dev, PRI_DATA_PORT, 
+			  &ide_read_data_port, &write_data_port);
+    ret |= v3_dev_hook_io(dev, PRI_FEATURES_PORT, 
+			  &read_port_std, &write_port_std);
+    ret |= v3_dev_hook_io(dev, PRI_SECT_CNT_PORT, 
+			  &read_port_std, &write_port_std);
+    ret |= v3_dev_hook_io(dev, PRI_SECT_NUM_PORT, 
+			  &read_port_std, &write_port_std);
+    ret |= v3_dev_hook_io(dev, PRI_CYL_LOW_PORT, 
+			  &read_port_std, &write_port_std);
+    ret |= v3_dev_hook_io(dev, PRI_CYL_HIGH_PORT, 
+			  &read_port_std, &write_port_std);
+    ret |= v3_dev_hook_io(dev, PRI_DRV_SEL_PORT, 
+			  &read_port_std, &write_port_std);
+    ret |= v3_dev_hook_io(dev, PRI_CMD_PORT, 
+			  &read_port_std, &write_cmd_port);
 
-    v3_dev_hook_io(dev, SEC_DATA_PORT, 
-		   &ide_read_data_port, &write_data_port);
-    v3_dev_hook_io(dev, SEC_FEATURES_PORT, 
-		   &read_port_std, &write_port_std);
-    v3_dev_hook_io(dev, SEC_SECT_CNT_PORT, 
-		   &read_port_std, &write_port_std);
-    v3_dev_hook_io(dev, SEC_SECT_NUM_PORT, 
-		   &read_port_std, &write_port_std);
-    v3_dev_hook_io(dev, SEC_CYL_LOW_PORT, 
-		   &read_port_std, &write_port_std);
-    v3_dev_hook_io(dev, SEC_CYL_HIGH_PORT, 
-		   &read_port_std, &write_port_std);
-    v3_dev_hook_io(dev, SEC_DRV_SEL_PORT, 
-		   &read_port_std, &write_port_std);
-    v3_dev_hook_io(dev, SEC_CMD_PORT, 
-		   &read_port_std, &write_cmd_port);
+    ret |= v3_dev_hook_io(dev, SEC_DATA_PORT, 
+			  &ide_read_data_port, &write_data_port);
+    ret |= v3_dev_hook_io(dev, SEC_FEATURES_PORT, 
+			  &read_port_std, &write_port_std);
+    ret |= v3_dev_hook_io(dev, SEC_SECT_CNT_PORT, 
+			  &read_port_std, &write_port_std);
+    ret |= v3_dev_hook_io(dev, SEC_SECT_NUM_PORT, 
+			  &read_port_std, &write_port_std);
+    ret |= v3_dev_hook_io(dev, SEC_CYL_LOW_PORT, 
+			  &read_port_std, &write_port_std);
+    ret |= v3_dev_hook_io(dev, SEC_CYL_HIGH_PORT, 
+			  &read_port_std, &write_port_std);
+    ret |= v3_dev_hook_io(dev, SEC_DRV_SEL_PORT, 
+			  &read_port_std, &write_port_std);
+    ret |= v3_dev_hook_io(dev, SEC_CMD_PORT, 
+			  &read_port_std, &write_cmd_port);
   
 
-    v3_dev_hook_io(dev, PRI_CTRL_PORT, 
-		   &read_port_std, &write_port_std);
+    ret |= v3_dev_hook_io(dev, PRI_CTRL_PORT, 
+			  &read_port_std, &write_port_std);
 
-    v3_dev_hook_io(dev, SEC_CTRL_PORT, 
-		   &read_port_std, &write_port_std);
+    ret |= v3_dev_hook_io(dev, SEC_CTRL_PORT, 
+			  &read_port_std, &write_port_std);
   
 
-    v3_dev_hook_io(dev, SEC_ADDR_REG_PORT, 
-		   &read_port_std, &write_port_std);
+    ret |= v3_dev_hook_io(dev, SEC_ADDR_REG_PORT, 
+			  &read_port_std, &write_port_std);
 
-    v3_dev_hook_io(dev, PRI_ADDR_REG_PORT, 
-		   &read_port_std, &write_port_std);
+    ret |= v3_dev_hook_io(dev, PRI_ADDR_REG_PORT, 
+			  &read_port_std, &write_port_std);
 
 
+    if (ret != 0) {
+	PrintError("Error hooking IDE IO port\n");
+	v3_remove_device(dev);
+	return -1;
+    }
 
 
     if (ide->pci_bus) {
@@ -1650,6 +1654,7 @@ static int ide_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
 	if (pci_dev == NULL) {
 	    PrintError("Failed to register IDE BUS %d with PCI\n", i); 
+	    v3_remove_device(dev);
 	    return -1;
 	}
 
@@ -1677,7 +1682,7 @@ static int ide_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     if (v3_dev_add_blk_frontend(vm, dev_id, connect_fn, (void *)ide) == -1) {
 	PrintError("Could not register %s as frontend\n", dev_id);
-	v3_detach_device(dev);
+	v3_remove_device(dev);
 	return -1;
     }
     

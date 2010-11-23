@@ -454,16 +454,22 @@ static int piix3_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     piix3->pci_bus = pci;
     piix3->type = V3_SB_PIIX3;
     
-    dev = v3_allocate_device(dev_id, &dev_ops, piix3);
+    dev = v3_add_device(vm, dev_id, &dev_ops, piix3);
 
-    if (v3_attach_device(vm, dev) == -1) {
+    if (dev == NULL) {
 	PrintError("Could not attach device %s\n", dev_id);
+	V3_Free(piix3);
 	return -1;
     }
 
     PrintDebug("Created PIIX3\n");
 
-    return setup_pci(piix3);
+    if (setup_pci(piix3) == -1) {
+	v3_remove_device(dev);
+	return -1;
+    }
+
+    return 0;
 }
 
 

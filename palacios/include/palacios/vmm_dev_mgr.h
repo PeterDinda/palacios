@@ -75,10 +75,6 @@ struct vmm_dev_mgr {
 
 int v3_create_device(struct v3_vm_info * vm, const char * dev_name, v3_cfg_tree_t * cfg);
 
-
-void v3_free_device(struct vm_device * dev);
-
-
 struct vm_device * v3_find_dev(struct v3_vm_info * info, const char * dev_name);
 
 
@@ -123,9 +119,14 @@ int v3_dev_unhook_io(struct vm_device   * dev,
 		     ushort_t            port);
 
 
+
+struct vm_device * v3_add_device(struct v3_vm_info * vm, char * name, 
+				 struct v3_device_ops * ops, void * private_data);
+int v3_remove_device(struct vm_device * dev);
+
+
 int v3_attach_device(struct v3_vm_info * vm, struct vm_device * dev);
 int v3_detach_device(struct vm_device * dev);
-
 struct vm_device * v3_allocate_device(char * name, struct v3_device_ops * ops, void * private_data);
 
 

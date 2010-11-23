@@ -805,14 +805,17 @@ static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     virtio_state->pci_bus = pci_bus;
     virtio_state->vm = vm;
 
-    struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, virtio_state);
-    if (v3_attach_device(vm, dev) == -1) {
+    struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, virtio_state);
+
+    if (dev == NULL) {
 	PrintError("Virtio NIC: Could not attach device %s\n", dev_id);
+	V3_Free(virtio_state);
 	return -1;
     }
 
     if (v3_dev_add_net_frontend(vm, dev_id, connect_fn, (void *)virtio_state) == -1) {
 	PrintError("Virtio NIC: Could not register %s as net frontend\n", dev_id);
+	v3_remove_device(dev);
 	return -1;
     }
 	

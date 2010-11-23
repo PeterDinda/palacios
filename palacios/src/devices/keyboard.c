@@ -1020,6 +1020,7 @@ static struct v3_device_ops dev_ops = {
 static int keyboard_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct keyboard_internal * kbd = NULL;
     char * dev_id = v3_cfg_val(cfg, "ID");
+    int ret = 0;
 
     PrintDebug("keyboard: init_device\n");
 
@@ -1029,10 +1030,11 @@ static int keyboard_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     kbd->vm = vm;
 
-    struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, kbd);
+    struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, kbd);
 
-    if (v3_attach_device(vm, dev) == -1) {
+    if (dev == NULL) {
 	PrintError("Could not attach device %s\n", dev_id);
+	V3_Free(kbd);
 	return -1;
     }
 
@@ -1043,8 +1045,14 @@ static int keyboard_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
 
     // hook ports
-    v3_dev_hook_io(dev, KEYBOARD_64H, &keyboard_read_status, &keyboard_write_command);
-    v3_dev_hook_io(dev, KEYBOARD_60H, &keyboard_read_input, &keyboard_write_output);
+    ret |= v3_dev_hook_io(dev, KEYBOARD_64H, &keyboard_read_status, &keyboard_write_command);
+    ret |= v3_dev_hook_io(dev, KEYBOARD_60H, &keyboard_read_input, &keyboard_write_output);
+
+    if (ret != 0) {
+	PrintError("Error hooking keyboard IO ports\n");
+	v3_remove_device(dev);
+	return -1;
+    }
 
     v3_hook_host_event(vm, HOST_KEYBOARD_EVT, V3_HOST_EVENT_HANDLER(key_event_handler), kbd);
     v3_hook_host_event(vm, HOST_MOUSE_EVT, V3_HOST_EVENT_HANDLER(mouse_event_handler), kbd);

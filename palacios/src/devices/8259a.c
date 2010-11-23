@@ -743,19 +743,23 @@ static struct v3_device_ops dev_ops = {
 
 static int pic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct pic_internal * state = NULL;
-    state = (struct pic_internal *)V3_Malloc(sizeof(struct pic_internal));
     char * dev_id = v3_cfg_val(cfg, "ID");
+    int ret = 0;
 
     // PIC is only usable in non-multicore environments
     // just hardcode the core context
     struct guest_info * core = &(vm->cores[0]);
 
     V3_ASSERT(state != NULL);
+    
+    state = (struct pic_internal *)V3_Malloc(sizeof(struct pic_internal));
+ 
 
-    struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, state);
+    struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, state);
 
-    if (v3_attach_device(vm, dev) == -1) {
-	PrintError("Could not attach device %s\n", dev_id);
+    if (dev == NULL) {
+	PrintError("Could not add device %s\n", dev_id);
+	V3_Free(state);
 	return -1;
     }
 
@@ -791,14 +795,20 @@ static int pic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     state->slave_state = ICW1;
 
 
-    v3_dev_hook_io(dev, MASTER_PORT1, &read_master_port1, &write_master_port1);
-    v3_dev_hook_io(dev, MASTER_PORT2, &read_master_port2, &write_master_port2);
-    v3_dev_hook_io(dev, SLAVE_PORT1, &read_slave_port1, &write_slave_port1);
-    v3_dev_hook_io(dev, SLAVE_PORT2, &read_slave_port2, &write_slave_port2);
+    ret |= v3_dev_hook_io(dev, MASTER_PORT1, &read_master_port1, &write_master_port1);
+    ret |= v3_dev_hook_io(dev, MASTER_PORT2, &read_master_port2, &write_master_port2);
+    ret |= v3_dev_hook_io(dev, SLAVE_PORT1, &read_slave_port1, &write_slave_port1);
+    ret |= v3_dev_hook_io(dev, SLAVE_PORT2, &read_slave_port2, &write_slave_port2);
 
 
-    v3_dev_hook_io(dev, ELCR1_PORT, &read_elcr_port, &write_elcr_port);
-    v3_dev_hook_io(dev, ELCR2_PORT, &read_elcr_port, &write_elcr_port);
+    ret |= v3_dev_hook_io(dev, ELCR1_PORT, &read_elcr_port, &write_elcr_port);
+    ret |= v3_dev_hook_io(dev, ELCR2_PORT, &read_elcr_port, &write_elcr_port);
+
+    if (ret != 0) {
+	PrintError("Error hooking io ports\n");
+	v3_remove_device(dev);
+	return -1;
+    }
 
     return 0;
 }

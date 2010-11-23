@@ -139,12 +139,15 @@ static int debug_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     state = (struct debug_state *)V3_Malloc(sizeof(struct debug_state));
 
-    V3_ASSERT(state != NULL);
+    if (state == NULL) {
+	PrintError("Could not allocate bochs debug state\n");
+	return -1;
+    }
 
     PrintDebug("Creating Bochs Debug Device\n");
-    struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, state);
+    struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, state);
 
-    if (v3_attach_device(vm, dev) == -1) {
+    if (dev == NULL) {
 	PrintError("Could not attach device %s\n", dev_id);
 	V3_Free(state);
 	return -1;
@@ -166,7 +169,7 @@ static int debug_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     
     if (ret != 0) {
 	PrintError("Could not hook Bochs Debug IO Ports\n");
-	v3_detach_device(dev);
+	v3_remove_device(dev);
 	return -1;
     }
   

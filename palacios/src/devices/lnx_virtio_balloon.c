@@ -419,18 +419,17 @@ static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     }
 
     
-    virtio_state  = (struct virtio_balloon_state *)V3_Malloc(sizeof(struct virtio_balloon_state));
+    virtio_state = (struct virtio_balloon_state *)V3_Malloc(sizeof(struct virtio_balloon_state));
     memset(virtio_state, 0, sizeof(struct virtio_balloon_state));
 
 
-    struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, virtio_state);
-    if (v3_attach_device(vm, dev) == -1) {
+    struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, virtio_state);
+
+    if (dev == NULL) {
 	PrintError("Could not attach device %s\n", dev_id);
+	V3_Free(virtio_state);
 	return -1;
     }
-
-
-
 
     // PCI initialization
     {
@@ -476,6 +475,7 @@ static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
 	if (!pci_dev) {
 	    PrintError("Could not register PCI Device\n");
+	    v3_remove_device(dev);
 	    return -1;
 	}
 	

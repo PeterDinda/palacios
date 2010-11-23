@@ -104,15 +104,20 @@ static int debug_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     PrintDebug("Creating OS Debug Device\n");
 
-    struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, state);
+    struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, state);
 
-
-    if (v3_attach_device(vm, dev) == -1) {
+    if (dev == NULL) {
 	PrintError("Could not attach device %s\n", dev_id);
+	V3_Free(state);
 	return -1;
     }
 
-    v3_dev_hook_io(dev, DEBUG_PORT1,  NULL, &handle_gen_write);
+    if (v3_dev_hook_io(dev, DEBUG_PORT1,  NULL, &handle_gen_write) == -1) {
+	PrintError("Error hooking OS debug IO port\n");
+	v3_remove_device(dev);
+	return -1;
+    }
+
     v3_register_hypercall(vm, OS_DEBUG_HCALL, handle_hcall, state);
 
     state->debug_offset = 0;

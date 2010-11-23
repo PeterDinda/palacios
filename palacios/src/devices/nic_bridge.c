@@ -87,10 +87,11 @@ static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     bridge = (struct nic_bridge_state *)V3_Malloc(sizeof(struct nic_bridge_state));
     memset(bridge, 0, sizeof(struct nic_bridge_state));
 
-    struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, bridge);
+    struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, bridge);
 
-    if (v3_attach_device(vm, dev) == -1) {
+    if (dev == NULL) {
 	PrintError("Could not attach device %s\n", dev_id);
+	V3_Free(bridge);
 	return -1;
     }
 
@@ -101,6 +102,7 @@ static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 			   &(bridge->net_ops), frontend_cfg, bridge) == -1) {
 	PrintError("Could not connect %s to frontend %s\n", 
 		   dev_id, v3_cfg_val(frontend_cfg, "tag"));
+	v3_remove_device(dev);
 	return -1;
     }
 

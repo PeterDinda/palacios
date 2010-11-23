@@ -332,14 +332,13 @@ static int ioapic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     ioapic->apic_dev_data = apic_dev;
 
-    struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, ioapic);
+    struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, ioapic);
 
-
-    if (v3_attach_device(vm, dev) == -1) {
+    if (dev == NULL) {
 	PrintError("ioapic: Could not attach device %s\n", dev_id);
+	V3_Free(ioapic);
 	return -1;
     }
-
 
     v3_register_intr_router(vm, &router_ops, ioapic);
 

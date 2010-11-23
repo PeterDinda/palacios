@@ -629,13 +629,15 @@ static int pci_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct pci_internal * pci_state = V3_Malloc(sizeof(struct pci_internal));
     int i = 0;
     char * dev_id = v3_cfg_val(cfg, "ID");
+    int ret = 0;
     
     PrintDebug("PCI internal at %p\n",(void *)pci_state);
     
-    struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, pci_state);
+    struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, pci_state);
     
-    if (v3_attach_device(vm, dev) == -1) {
+    if (dev == NULL) {
 	PrintError("Could not attach device %s\n", dev_id);
+	V3_Free(pci_state);
 	return -1;
     }
 
@@ -648,8 +650,14 @@ static int pci_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     PrintDebug("Sizeof config header=%d\n", (int)sizeof(struct pci_config_header));
     
     for (i = 0; i < 4; i++) {
-	v3_dev_hook_io(dev, CONFIG_ADDR_PORT + i, &addr_port_read, &addr_port_write);
-	v3_dev_hook_io(dev, CONFIG_DATA_PORT + i, &data_port_read, &data_port_write);
+	ret |= v3_dev_hook_io(dev, CONFIG_ADDR_PORT + i, &addr_port_read, &addr_port_write);
+	ret |= v3_dev_hook_io(dev, CONFIG_DATA_PORT + i, &data_port_read, &data_port_write);
+    }
+    
+    if (ret != 0) {
+	PrintError("Error hooking PCI IO ports\n");
+	v3_remove_device(dev);
+	return -1;
     }
 
     return 0;
@@ -764,14 +772,14 @@ int v3_pci_raise_irq(struct vm_device * pci_bus, int bus_num, struct pci_device 
    struct pci_internal * pci_state = (struct pci_internal *)pci_bus->private_data;
    struct pci_bus * bus = &(pci_state->bus_list[bus_num]);
 
-   return bus->raise_pci_irq(bus->irq_dev_data, dev);
+   return bus->raise_pci_irq(dev, bus->irq_dev_data);
 }
 
 int v3_pci_lower_irq(struct vm_device * pci_bus, int bus_num, struct pci_device * dev) {
    struct pci_internal * pci_state = (struct pci_internal *)pci_bus->private_data;
    struct pci_bus * bus = &(pci_state->bus_list[bus_num]);
 
-   return bus->lower_pci_irq(bus->irq_dev_data, dev);
+   return bus->lower_pci_irq(dev, bus->irq_dev_data);
 }
 
 // if dev_num == -1, auto assign 

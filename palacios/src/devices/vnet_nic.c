@@ -176,10 +176,11 @@ static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     vnetnic = (struct vnet_nic_state *)V3_Malloc(sizeof(struct vnet_nic_state));
     memset(vnetnic, 0, sizeof(struct vnet_nic_state));
 
-    struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, vnetnic);
+    struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, vnetnic);
 
-    if (v3_attach_device(vm, dev) == -1) {
+    if (dev == NULL) {
 	PrintError("Could not attach device %s\n", dev_id);
+	V3_Free(vnetnic);
 	return -1;
     }
 
@@ -193,6 +194,7 @@ static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 			   &(vnetnic->net_ops), frontend_cfg, vnetnic) == -1) {
 	PrintError("Could not connect %s to frontend %s\n", 
 		   dev_id, v3_cfg_val(frontend_cfg, "tag"));
+	v3_remove_device(vnetnic);
 	return -1;
     }
 
@@ -201,7 +203,10 @@ static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     if ((vnet_dev_id = register_to_vnet(vm, vnetnic, dev_id, vnetnic->mac)) == -1) {
 	PrintError("Vnet-nic device %s (mac: %s) fails to registered to VNET\n", dev_id, macstr);
+	v3_remove_device(vnetnic);
+	return 0;
     }
+
     vnetnic->vnet_dev_id = vnet_dev_id;
 
     PrintDebug("Vnet-nic device %s (mac: %s, %ld) registered to VNET\n", 

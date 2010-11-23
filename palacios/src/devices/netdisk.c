@@ -286,15 +286,17 @@ static int disk_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     disk->port = atoi(port_str);
     disk->vm = vm;
 
-    struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, disk);
+    struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, disk);
 
-    if (v3_attach_device(vm, dev) == -1) {
+    if (dev == NULL) {
 	PrintError("Could not attach device %s\n", dev_id);
+	V3_Free(disk);
 	return -1;
     }
 
     if (socket_init(disk) == -1) {
 	PrintError("could not initialize network connection\n");
+	v3_remove_device(dev);
 	return -1;
     }
 
@@ -303,6 +305,7 @@ static int disk_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     if (v3_dev_connect_blk(vm, v3_cfg_val(frontend_cfg, "tag"), 
 			   &blk_ops, frontend_cfg, disk) == -1) {
 	PrintError("Could not connect %s to frontend\n", dev_id);
+	v3_remove_device(dev);
 	return -1;
     }
 

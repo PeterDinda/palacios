@@ -331,15 +331,16 @@ static int cga_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct video_internal * video_state = NULL;
     char * dev_id = v3_cfg_val(cfg, "ID");
     char * passthrough_str = v3_cfg_val(cfg, "passthrough");
+    int ret = 0;
     
     PrintDebug("video: init_device\n");
 
     video_state = (struct video_internal *)V3_Malloc(sizeof(struct video_internal));
     memset(video_state, 0, sizeof(struct video_internal));
 
-    struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, video_state);
+    struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, video_state);
 
-    if (v3_attach_device(vm, dev) == -1) {
+    if (dev == NULL) {
 	PrintError("Could not attach device %s\n", dev_id);
 	V3_Free(video_state);
 	return -1;
@@ -371,51 +372,56 @@ static int cga_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     }
 
 
-    v3_dev_hook_io(dev, 0x3b0, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3b1, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3b2, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3b3, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3b4, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3b5, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3b6, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3b7, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3b8, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3b9, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3ba, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3bb, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3c0, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3c1, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3c2, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3c3, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3c4, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3c5, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3c6, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3c7, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3c8, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3c9, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3ca, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3cb, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3cc, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3cd, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3ce, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3cf, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3d0, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3d1, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3d2, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3d3, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3d4, &video_read_port, &crtc_index_write);
-    v3_dev_hook_io(dev, 0x3d5, &video_read_port, &crtc_data_write);
-    v3_dev_hook_io(dev, 0x3d6, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3d7, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3d8, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3d9, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3da, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3db, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3dc, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3dd, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3de, &video_read_port, &video_write_port);
-    v3_dev_hook_io(dev, 0x3df, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3b0, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3b1, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3b2, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3b3, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3b4, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3b5, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3b6, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3b7, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3b8, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3b9, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3ba, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3bb, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3c0, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3c1, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3c2, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3c3, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3c4, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3c5, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3c6, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3c7, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3c8, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3c9, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3ca, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3cb, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3cc, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3cd, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3ce, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3cf, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3d0, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3d1, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3d2, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3d3, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3d4, &video_read_port, &crtc_index_write);
+    ret |= v3_dev_hook_io(dev, 0x3d5, &video_read_port, &crtc_data_write);
+    ret |= v3_dev_hook_io(dev, 0x3d6, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3d7, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3d8, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3d9, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3da, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3db, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3dc, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3dd, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3de, &video_read_port, &video_write_port);
+    ret |= v3_dev_hook_io(dev, 0x3df, &video_read_port, &video_write_port);
 
+    if (ret != 0) {
+	PrintError("Error allocating cga io port\n");
+	v3_remove_device(dev);
+	return -1;
+    }
 
     return 0;
 }

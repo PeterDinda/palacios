@@ -763,6 +763,7 @@ static int nvram_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct nvram_internal * nvram_state = NULL;
     struct vm_device * ide = v3_find_dev(vm, v3_cfg_val(cfg, "storage"));
     char * dev_id = v3_cfg_val(cfg, "ID");
+    int ret = 0;
 
     if (!ide) {
 	PrintError("Could not find IDE device\n");
@@ -777,20 +778,26 @@ static int nvram_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     nvram_state->ide = ide;
     nvram_state->vm = vm;
 
-    struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, nvram_state);
+    struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, nvram_state);
 
-
-    if (v3_attach_device(vm, dev) == -1) {
+    if (dev == NULL) {
 	PrintError("Could not attach device %s\n", dev_id);
+	V3_Free(nvram_state);
 	return -1;
     }
 
     init_nvram_state(vm, nvram_state);
 
     // hook ports
-    v3_dev_hook_io(dev, NVRAM_REG_PORT, NULL, &nvram_write_reg_port);
-    v3_dev_hook_io(dev, NVRAM_DATA_PORT, &nvram_read_data_port, &nvram_write_data_port);
+    ret |= v3_dev_hook_io(dev, NVRAM_REG_PORT, NULL, &nvram_write_reg_port);
+    ret |= v3_dev_hook_io(dev, NVRAM_DATA_PORT, &nvram_read_data_port, &nvram_write_data_port);
   
+    if (ret != 0) {
+	PrintError("Error hooking NVRAM IO ports\n");
+	v3_remove_device(dev);
+	return -1;
+    }
+
     v3_hook_host_event(vm, HOST_TIMER_EVT, V3_HOST_EVENT_HANDLER(handle_timer_event), nvram_state);
 
     return 0;

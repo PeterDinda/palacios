@@ -114,7 +114,7 @@ int v3_dev_mgr_deinit(struct v3_vm_info * vm) {
     struct vm_device * tmp;
 
     list_for_each_entry_safe(dev, tmp, &(mgr->dev_list), dev_link) {
-	v3_detach_device(dev);
+	v3_remove_device(dev);
     }
 
     v3_free_htable(mgr->blk_table, 0, 0);
@@ -148,10 +148,6 @@ int v3_create_device(struct v3_vm_info * vm, const char * dev_name, v3_cfg_tree_
     return 0;
 }
 
-
-void v3_free_device(struct vm_device * dev) {
-    V3_Free(dev);
-}
 
 
 
@@ -226,8 +222,16 @@ int v3_dev_unhook_io(struct vm_device * dev, uint16_t port) {
 
 
 
-int v3_detach_device(struct vm_device * dev) {
+int v3_remove_device(struct vm_device * dev) {
     struct vmm_dev_mgr * mgr = &(dev->vm->dev_mgr);
+    struct dev_io_hook * io_hook = NULL;
+    struct dev_io_hook * tmp;
+
+    list_for_each_entry_safe(io_hook, tmp, &(dev->io_hooks), node) {
+	v3_unhook_io_port(dev->vm, io_hook->port);	    
+	list_del(&(io_hook->node));
+	V3_Free(io_hook);    
+    }
 
     if (dev->ops->free) {
 	dev->ops->free(dev);
@@ -240,17 +244,23 @@ int v3_detach_device(struct vm_device * dev) {
 
     dev->vm = NULL;
 
-    v3_free_device(dev);
+    V3_Free(dev);
     return -1;
 }
 
 
-struct vm_device * v3_allocate_device(char * name, 
-				      struct v3_device_ops * ops, 
-				      void * private_data) {
+struct vm_device * v3_add_device(struct v3_vm_info * vm,
+				 char * name, 
+				 struct v3_device_ops * ops, 
+				 void * private_data) {
+    struct vmm_dev_mgr * mgr = &(vm->dev_mgr);
     struct vm_device * dev = NULL;
 
-    dev = (struct vm_device*)V3_Malloc(sizeof(struct vm_device));
+    dev = (struct vm_device *)V3_Malloc(sizeof(struct vm_device));
+
+    if (dev == NULL) {
+	return NULL;
+    }
 
     INIT_LIST_HEAD(&(dev->io_hooks));
 
@@ -258,26 +268,15 @@ struct vm_device * v3_allocate_device(char * name,
     dev->ops = ops;
     dev->private_data = private_data;
 
-    dev->vm = NULL;
-
-    return dev;
-}
-
-
-int v3_attach_device(struct v3_vm_info * vm, struct vm_device * dev ) {
-    struct vmm_dev_mgr * mgr = &(vm->dev_mgr);
-
     dev->vm = vm;
 
     list_add(&(dev->dev_link), &(mgr->dev_list));
     mgr->num_devs++;
 
-
     v3_htable_insert(mgr->dev_table, (addr_t)(dev->name), (addr_t)dev);
 
-    return 0;
+    return dev;
 }
-
 
 
 void v3_print_dev_mgr(struct v3_vm_info * vm) {

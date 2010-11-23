@@ -70,6 +70,7 @@ static int i440_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct i440_state * state = NULL;
     struct vm_device * pci = v3_find_dev(vm, v3_cfg_val(cfg, "bus"));
     char * dev_id = v3_cfg_val(cfg, "ID");
+    int ret = 0;
 
     if (!pci) {
 	PrintError("could not find PCI Device\n");
@@ -80,17 +81,23 @@ static int i440_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     state->pci = pci;
 	
-    struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, state);
+    struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, state);
 
-    if (v3_attach_device(vm, dev) == -1) {
+    if (dev == NULL) {
 	PrintError("Could not attach device %s\n", dev_id);
 	V3_Free(state);
 	return -1;
     }
 
     for (i = 0; i < 4; i++) {
-	v3_dev_hook_io(dev, 0x0cf8 + i, &io_read, &io_write);
-	v3_dev_hook_io(dev, 0x0cfc + i, &io_read, &io_write);
+	ret |= v3_dev_hook_io(dev, 0x0cf8 + i, &io_read, &io_write);
+	ret |= v3_dev_hook_io(dev, 0x0cfc + i, &io_read, &io_write);
+    }
+
+    if (ret != 0) {
+	PrintError("Error hooking i440FX io ports\n");
+	v3_remove_device(dev);
+	return -1;
     }
 
     for (i = 0; i < 6; i++) {
@@ -102,7 +109,7 @@ static int i440_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 				     NULL, NULL, NULL, state);
 
     if (!pci_dev) {
-	v3_detach_device(dev);
+	v3_remove_device(dev);
  	return -1;
     }
 

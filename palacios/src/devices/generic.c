@@ -215,9 +215,9 @@ static int generic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     
     memset(state, 0, sizeof(struct generic_internal));
     
-    struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, state);
+    struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, state);
 
-    if (v3_attach_device(vm, dev) == -1) {
+    if (dev == NULL) {
 	PrintError("Could not attach device %s\n", dev_id);
 	V3_Free(state);
 	return -1;
@@ -238,13 +238,13 @@ static int generic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	    mode = GENERIC_PRINT_AND_PASSTHROUGH;
 	} else {
 	    PrintError("Invalid Mode %s\n", mode_str);
-	    v3_detach_device(dev);
+	    v3_remove_device(dev);
 	    return -1;
 	}
 	
 	if (add_port_range(dev, start, end, mode) == -1) {
 	    PrintError("Could not add port range %d-%d\n", start, end);
-	    v3_detach_device(dev);
+	    v3_remove_device(dev);
 	    return -1;
 	}
 

@@ -790,10 +790,11 @@ static int passthrough_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     strncpy(state->name, dev_id, 32);
 
 
-    dev = v3_allocate_device(dev_id, &dev_ops, state);
+    dev = v3_add_device(vm, dev_id, &dev_ops, state);
 
-    if (v3_attach_device(vm, dev) == -1) {
+    if (dev == NULL) {
 	PrintError("Could not attach device %s\n", dev_id);
+	V3_Free(state);
 	return -1;
     }
 
@@ -804,6 +805,7 @@ static int passthrough_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	PrintError("Could not find PCI Device %s:%s\n", 
 		   v3_cfg_val(cfg, "vendor_id"), 
 		   v3_cfg_val(cfg, "device_id"));
+	v3_remove_device(dev);
 	return 0;
     }
 

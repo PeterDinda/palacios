@@ -531,10 +531,11 @@ static int cons_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     v3_lock_init(&(state->cons_lock));
 
 
-    struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, state);
+    struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, state);
 
-    if (v3_attach_device(vm, dev) == -1) {
+    if (dev == NULL) {
 	PrintError("Could not attach device %s\n", dev_id);
+	V3_Free(state);
 	return -1;
     }
 
