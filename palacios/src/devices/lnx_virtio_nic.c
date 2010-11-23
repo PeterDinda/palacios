@@ -237,7 +237,7 @@ static int handle_rx_kick(struct guest_info *core,
     flags = v3_lock_irqsave(virtio->rx_lock);
 
     virtio->net_ops->start_rx(virtio->backend_data);
-    disable_cb(&virtio->rx_vq);
+    //disable_cb(&virtio->rx_vq);
 
     v3_unlock_irqrestore(virtio->rx_lock, flags);
 	
@@ -375,7 +375,6 @@ static int virtio_io_write(struct guest_info *core,
     struct virtio_net_state * virtio = (struct virtio_net_state *)private_data;
     int port_idx = port % virtio->io_range_size;
 
-
     PrintDebug("VIRTIO NIC %p Write for port %d (index=%d) len=%d, value=%x\n", private_data,
 	       port, port_idx,  length, *(uint32_t *)src);
 
@@ -399,11 +398,11 @@ static int virtio_io_write(struct guest_info *core,
 	    switch (queue_idx) {
 		case 0:
 		    virtio_setup_queue(core, virtio, &virtio->rx_vq, pfn, page_addr);
-		    disable_cb(&virtio->rx_vq);
+		    //disable_cb(&virtio->rx_vq);
 		    break;
 		case 1:
 		    virtio_setup_queue(core, virtio, &virtio->tx_vq, pfn, page_addr);
-		    disable_cb(&virtio->tx_vq);
+		    //disable_cb(&virtio->tx_vq);
 		    break;
 		case 2:
 		    virtio_setup_queue(core, virtio, &virtio->ctrl_vq, pfn, page_addr);
@@ -427,9 +426,7 @@ static int virtio_io_write(struct guest_info *core,
 		uint16_t queue_idx = *(uint16_t *)src;	   		
 		if (queue_idx == 0){
 		    handle_rx_kick(core, virtio);
-		    PrintError("rx kick\n");
 		} else if (queue_idx == 1){
-		    PrintError("tx kick\n");
 		    if (handle_pkt_tx(core, virtio) == -1) {
 			PrintError("Could not handle NIC Notification\n");
 			return -1;
@@ -558,6 +555,13 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
     unsigned long flags;
     int ret_val = -ERR_VIRTIO_OTHER;
     int raw = 1;
+
+#ifndef CONFIG_DEBUG_VIRTIO_NET
+   {
+    	PrintDebug("Virtio-NIC: virtio_rx: size: %d\n", size);	
+    	//v3_hexdump(buf, size, NULL, 0);
+   }
+#endif
 
     flags = v3_lock_irqsave(virtio->rx_lock);
 
