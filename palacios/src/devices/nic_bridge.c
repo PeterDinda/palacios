@@ -62,8 +62,7 @@ static int packet_input(struct v3_vm_info * vm,
 }
 
 
-static int vnet_nic_free(struct vm_device * dev) {
-    struct nic_bridge_state * bridge = dev->private_data;
+static int vnet_nic_free(struct nic_bridge_state * bridge) {
 
     /*detach from front device */
 
@@ -73,7 +72,7 @@ static int vnet_nic_free(struct vm_device * dev) {
 }
 
 static struct v3_device_ops dev_ops = {
-    .free = vnet_nic_free,
+    .free = (int (*)(void *))vnet_nic_free,
 
 };
 

@@ -957,8 +957,12 @@ static int keyboard_read_input(struct guest_info * core, ushort_t port, void * d
 
 
 
-static int keyboard_free(struct vm_device * dev) {
+static int keyboard_free(struct keyboard_internal * kbd) {
     
+
+    // unhook host events
+
+    V3_Free(kbd);
     return 0;
 }
 
@@ -1010,7 +1014,7 @@ static int keyboard_reset_device(struct keyboard_internal * kbd) {
 }
 
 static struct v3_device_ops dev_ops = { 
-    .free = keyboard_free,
+    .free = (int (*)(void *))keyboard_free,
 
 };
 

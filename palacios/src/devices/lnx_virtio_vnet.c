@@ -562,12 +562,17 @@ static int vnet_virtio_io_read(struct guest_info * core,
 }
 
 
+static int virtio_free(struct virtio_vnet_state * vnet_state) {
+
+    // unregister from PCI
+
+    V3_Free(vnet_state);
+    return 0;
+}
+
 
 static struct v3_device_ops dev_ops = {
-    .free = NULL,
-    .reset = NULL,
-    .start = NULL,
-    .stop = NULL,
+    .free = (int (*)(void *))virtio_free,
 };
 
 static int dev_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {

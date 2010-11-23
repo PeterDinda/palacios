@@ -721,8 +721,13 @@ static int write_elcr_port(struct guest_info * core, ushort_t port, void * src, 
 
 
 
-static int pic_free(struct vm_device * dev) {
+static int pic_free(struct pic_internal * state) {
 
+
+    // unregister intr_controller
+    // unregister intr router
+
+    V3_Free(state);
     return 0;
 }
 
@@ -733,7 +738,7 @@ static int pic_free(struct vm_device * dev) {
 
 
 static struct v3_device_ops dev_ops = {
-    .free = pic_free,
+    .free = (int (*)(void *))pic_free,
 
 };
 

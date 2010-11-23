@@ -117,12 +117,15 @@ static void stop_tx(void * private_data){
 }
 
 
-static int vnet_nic_free(struct vm_device * dev) {
+static int vnet_nic_free(struct vnet_nic_state * vnetnic) {
+    
+
+    V3_Free(vnetnic);
     return 0;
 }
 
 static struct v3_device_ops dev_ops = {
-    .free = vnet_nic_free,
+    .free = (int (*)(void *))vnet_nic_free,
 
 };
 

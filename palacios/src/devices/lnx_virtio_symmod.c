@@ -588,15 +588,16 @@ static int virtio_load_capsule(struct v3_vm_info * vm, struct v3_sym_capsule * m
 }
 
 
-static int virtio_free(struct vm_device * dev) 
-{
-	
+static int virtio_free(struct virtio_sym_state * virtio_state) {
+    // unregister from PCI
+
+    V3_Free(virtio_state);
     return 0;
 }
 
 
 static struct v3_device_ops dev_ops = {
-    .free = virtio_free,
+    .free = (int (*)(void *))virtio_free,
 };
 
 

@@ -234,7 +234,7 @@ int v3_remove_device(struct vm_device * dev) {
     }
 
     if (dev->ops->free) {
-	dev->ops->free(dev);
+	dev->ops->free(dev->private_data);
     } else {
 	PrintError("Error: %s free() not implemented\n",  dev->name);
     }

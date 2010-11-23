@@ -70,6 +70,8 @@ struct video_internal {
     // so we need a temp variable to hold the partial update
     uint16_t tmp_screen_offset; 
     
+    struct vm_device * dev;
+
 
     uint8_t passthrough;
 
@@ -307,14 +309,13 @@ int v3_cons_get_fb(struct vm_device * frontend_dev, uint8_t * dst, uint_t offset
 
 
 
-static int free_device(struct vm_device * dev) {
-    struct video_internal * video_state = (struct video_internal *)dev->private_data;
+static int free_device(struct video_internal * video_state) {
 
     if (video_state->framebuf_pa) {
 	V3_FreePages((void *)(video_state->framebuf_pa), (FRAMEBUF_SIZE / 4096));
     }
 
-    v3_unhook_mem(dev->vm, V3_MEM_CORE_ANY, START_ADDR);
+    v3_unhook_mem(video_state->dev->vm, V3_MEM_CORE_ANY, START_ADDR);
 
 
     V3_Free(video_state);
@@ -324,7 +325,7 @@ static int free_device(struct vm_device * dev) {
 
 
 static struct v3_device_ops dev_ops = {
-    .free = free_device,
+    .free = (int (*)(void *))free_device,
 };
 
 static int cga_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
@@ -345,6 +346,8 @@ static int cga_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	V3_Free(video_state);
 	return -1;
     }
+  
+    video_state->dev = dev;
 
     video_state->framebuf_pa = (addr_t)V3_AllocPages(FRAMEBUF_SIZE / 4096);
     video_state->framebuf = V3_VAddr((void *)(video_state->framebuf_pa));

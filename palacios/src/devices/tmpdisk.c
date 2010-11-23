@@ -73,8 +73,11 @@ static int blk_write(uint8_t * buf,  uint64_t lba, uint64_t num_bytes, void * pr
 }
 
 
-static int blk_free(struct vm_device * dev) {
-    return -1;
+static int blk_free(struct blk_state * blk) {
+    V3_FreePages((void *)blk->blk_base_addr, blk->capacity / 4096);
+
+    V3_Free(blk);
+    return 0;
 }
 
 
@@ -87,7 +90,7 @@ static struct v3_dev_blk_ops blk_ops = {
 
 
 static struct v3_device_ops dev_ops = {
-    .free = blk_free,
+    .free = (int (*)(void *))blk_free,
 
 };
 

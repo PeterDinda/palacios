@@ -99,7 +99,7 @@ int v3_init_devices();
 
 
 struct v3_device_ops {
-    int (*free)(struct vm_device * dev);
+    int (*free)(void * private_data);
 
     //int (*save)(struct vm_device *dev, struct *iostream);
     //int (*restore)(struct vm_device *dev, struct *iostream);

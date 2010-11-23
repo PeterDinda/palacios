@@ -111,9 +111,7 @@ static struct v3_dev_blk_ops blk_ops = {
 
 
 
-static int disk_free(struct vm_device * dev) {
-    struct disk_state * disk = dev->private_data;
-
+static int disk_free(struct disk_state * disk) {
     v3_file_close(disk->fd);
     
     V3_Free(disk);
@@ -121,7 +119,7 @@ static int disk_free(struct vm_device * dev) {
 }
 
 static struct v3_device_ops dev_ops = {
-    .free = disk_free,
+    .free = (int (*)(void *))disk_free,
 };
 
 

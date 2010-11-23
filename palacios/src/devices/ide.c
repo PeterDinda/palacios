@@ -1430,20 +1430,18 @@ static int init_ide_state(struct ide_internal * ide) {
 
 
 
-static int ide_free(struct vm_device * dev) {
-    // unhook io ports....
-
+static int ide_free(struct ide_internal * ide) {
 
     // deregister from PCI?
 
-
+    V3_Free(ide);
 
     return 0;
 }
 
 
 static struct v3_device_ops dev_ops = {
-    .free = ide_free,
+    .free = (int (*)(void *))ide_free,
 
 };
 

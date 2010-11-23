@@ -395,13 +395,17 @@ static int lower_pci_irq(struct pci_device * pci_dev, void * dev_data) {
 
 
 
-static int piix_free(struct vm_device * dev) {
+static int piix_free(struct v3_southbridge * piix3) {
+
+    // unregister pci
+
+    V3_Free(piix3);
     return 0;
 }
 
 
 static struct v3_device_ops dev_ops = {
-    .free = piix_free,
+    .free = (int (*)(void *))piix_free,
 };
 
 

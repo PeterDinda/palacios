@@ -307,15 +307,20 @@ static struct intr_router_ops router_ops = {
 
 
 
-static int io_apic_free(struct vm_device * dev) {
-    //  struct guest_info * info = dev->vm;
+static int io_apic_free(struct io_apic_state * ioapic) {
+
+    // unregister intr router
+
+    // unhook memory
+
+    V3_Free(ioapic);
 
     return 0;
 }
 
 
 static struct v3_device_ops dev_ops = {
-    .free = io_apic_free,
+    .free = (int (*)(void *))io_apic_free,
 
 };
 

@@ -72,12 +72,14 @@ static struct v3_dev_blk_ops blk_ops = {
 
 
 
-static int disk_free(struct vm_device * dev) {
+static int disk_free(struct disk_state * state) {
+
+    V3_Free(state);
     return 0;
 }
 
 static struct v3_device_ops dev_ops = {
-    .free = disk_free,
+    .free = (int (*)(void *))disk_free,
 };
 
 

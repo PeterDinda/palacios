@@ -45,8 +45,7 @@ static int io_write(struct guest_info * core, ushort_t port, void * src, uint_t 
 
 
 
-static int i440_free(struct vm_device * dev) {
-    struct i440_state * state = dev->private_data;
+static int i440_free(struct i440_state * state) {
 
     // unregister from PCI
 
@@ -56,7 +55,7 @@ static int i440_free(struct vm_device * dev) {
 }
 
 static struct v3_device_ops dev_ops = {
-    .free = i440_free,
+    .free = (int (*)(void *))i440_free,
 
 };
 

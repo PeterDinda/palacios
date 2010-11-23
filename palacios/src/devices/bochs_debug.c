@@ -113,11 +113,9 @@ static int handle_gen_write(struct guest_info * core, ushort_t port, void * src,
 
 
 
-static int debug_free(struct vm_device * dev) {
-    struct debug_state * state = dev->private_data;
+static int debug_free(struct debug_state * state) {
 
     V3_Free(state);
-
     return 0;
 };
 
@@ -125,7 +123,7 @@ static int debug_free(struct vm_device * dev) {
 
 
 static struct v3_device_ops dev_ops = {
-    .free = debug_free,
+    .free = (int (*)(void *))debug_free,
 
 };
 

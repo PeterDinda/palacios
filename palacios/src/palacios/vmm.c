@@ -274,7 +274,16 @@ int v3_stop_vm(struct v3_vm_info * vm) {
 
     // Wait for all cores to enter CORE_STOPPED state
 
+
+
+    return 0;
+}
+
+
+int v3_free_vm(struct v3_vm_info * vm) {
     // deinitialize guest (free memory, etc...)
+
+    v3_dev_mgr_deinit(vm);
 
     return 0;
 }

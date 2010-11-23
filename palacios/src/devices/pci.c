@@ -597,11 +597,6 @@ static int data_port_write(struct guest_info * core, ushort_t port, void * src, 
 
 
 
-static int pci_free(struct vm_device * dev) {
-    
-    return 0;
-}
-
 
 
 static void init_pci_busses(struct pci_internal * pci_state) {
@@ -615,10 +610,17 @@ static void init_pci_busses(struct pci_internal * pci_state) {
 }
 
 
+static int pci_free(struct pci_internal * pci_state) {
+
+    // cleanup devices (?)
+    
+    V3_Free(pci_state);
+    return 0;
+}
 
 
 static struct v3_device_ops dev_ops = {
-    .free = pci_free,
+    .free = (int (*)(void *))pci_free,
 
 };
 

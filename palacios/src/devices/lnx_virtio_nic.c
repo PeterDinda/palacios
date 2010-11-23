@@ -115,11 +115,7 @@ struct virtio_net_state {
 #define ERR_VIRTIO_TXQ_DISABLED 6
 
 
-static int virtio_free(struct vm_device * dev) 
-{
-	
-    return 0;
-}
+
 
 static int virtio_init_state(struct virtio_net_state * virtio) 
 {
@@ -651,9 +647,17 @@ exit:
     return ret_val;
 }
 
+static int virtio_free(struct virtio_net_state * virtio) {
+	
+    // unregister from PCI
+
+    V3_Free(virtio);
+    return 0;
+}
+
 
 static struct v3_device_ops dev_ops = {
-    .free = virtio_free,
+    .free = (int (*)(void *))virtio_free,
 };
 
 

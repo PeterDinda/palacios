@@ -148,9 +148,7 @@ static int generic_read_port_ignore(struct guest_info * core, uint16_t port, voi
 
 
 
-static int generic_free(struct vm_device * dev) {
-    struct generic_internal * state = (struct generic_internal *)(dev->private_data);
-
+static int generic_free(struct generic_internal * state) {
     PrintDebug("generic: deinit_device\n");
 
     V3_Free(state);
@@ -162,7 +160,7 @@ static int generic_free(struct vm_device * dev) {
 
 
 static struct v3_device_ops dev_ops = { 
-    .free = generic_free, 
+    .free = (int (*)(void *))generic_free, 
 };
 
 

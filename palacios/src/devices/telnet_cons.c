@@ -392,13 +392,17 @@ static struct v3_console_ops cons_ops = {
     .scroll = scroll,
 };
 
-static int cons_free(struct vm_device * dev) {
-    return -1;
+static int cons_free(struct cons_state * state) {
+
+    // kill thread... ?
+
+    V3_Free(state);
+    return 0;
 }
 
 
 static struct v3_device_ops dev_ops = {
-    .free = cons_free,
+    .free = (int (*)(void *))cons_free,
 };
 
 

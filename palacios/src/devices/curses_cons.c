@@ -161,9 +161,7 @@ static int scroll(int rows, void * private_data) {
 }
 
 
-static int cons_free(struct vm_device * dev) {
-    struct cons_state * state = (struct cons_state *)dev->private_data;
-
+static int cons_free(struct cons_state * state) {
     v3_console_close(state->cons);
 
     // remove host event
@@ -188,7 +186,7 @@ static struct v3_console_ops cons_ops = {
 };
 
 static struct v3_device_ops dev_ops = {
-    .free = cons_free,
+    .free = (int (*)(void *))cons_free,
 };
 
 static int cons_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) 

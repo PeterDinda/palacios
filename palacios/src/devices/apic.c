@@ -1462,14 +1462,15 @@ static struct v3_timer_ops timer_ops = {
 
 
 
-static int apic_free(struct vm_device * dev) {
-    struct apic_dev_state * apic_dev = (struct apic_dev_state *)dev->private_data;
+static int apic_free(struct apic_dev_state * apic_dev) {
     int i = 0;
+    struct v3_vm_info * vm = NULL;
 
-    for (i = 0; i < dev->vm->num_cores; i++) {
+    for (i = 0; i < apic_dev->num_apics; i++) {
 	struct apic_state * apic = &(apic_dev->apics[i]);
-	struct guest_info * core = &(dev->vm->cores[i]);
+	struct guest_info * core = apic->core;
 	
+	vm = core->vm_info;
 
 	// unregister intr controller
 
@@ -1481,7 +1482,7 @@ static int apic_free(struct vm_device * dev) {
 
     }
 
-    v3_unhook_msr(dev->vm, BASE_ADDR_MSR);
+    v3_unhook_msr(vm, BASE_ADDR_MSR);
 
     V3_Free(apic_dev);
     return 0;
@@ -1489,7 +1490,7 @@ static int apic_free(struct vm_device * dev) {
 
 
 static struct v3_device_ops dev_ops = {
-    .free = apic_free,
+    .free = (int (*)(void *))apic_free,
 };
 
 

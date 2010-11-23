@@ -89,6 +89,8 @@ struct pit {
 
     struct v3_timer * timer;
 
+    struct v3_vm_info * vm;
+
     struct channel ch_0;
     struct channel ch_1;
     struct channel ch_2;
@@ -642,9 +644,9 @@ static void init_channel(struct channel * ch) {
 
 
 
-static int pit_free(struct vm_device * dev) {
-    struct pit * state = (struct pit *)dev->private_data;
-    struct guest_info * info = &(dev->vm->cores[0]);
+static int pit_free(void * private_data) {
+    struct pit * state = (struct pit *)private_data;
+    struct guest_info * info = &(state->vm->cores[0]);
 
 
     if (state->timer) {
@@ -657,7 +659,7 @@ static int pit_free(struct vm_device * dev) {
 
 
 static struct v3_device_ops dev_ops = {
-    .free = pit_free,
+    .free = (int (*)(void *))pit_free,
 
 
 };

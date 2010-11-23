@@ -81,8 +81,11 @@ static int handle_hcall(struct guest_info * info, uint_t hcall_id, void * priv_d
 
 
 
-static int debug_free(struct vm_device * dev) {
+static int debug_free(struct debug_state * state) {
 
+    // unregister hypercall
+
+    V3_Free(state);
     return 0;
 };
 
@@ -90,7 +93,7 @@ static int debug_free(struct vm_device * dev) {
 
 
 static struct v3_device_ops dev_ops = {
-    .free = debug_free,
+    .free = (int (*)(void *))debug_free,
 };
 
 

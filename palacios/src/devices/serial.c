@@ -834,7 +834,9 @@ static int read_status_port(struct guest_info * core, uint16_t port, void * dst,
     return length;
 }
 
-static int serial_free(struct vm_device * dev) {
+static int serial_free(struct serial_state * state) {
+
+    V3_Free(state);
     return 0;
 }
 
@@ -842,7 +844,7 @@ static int serial_free(struct vm_device * dev) {
 
 
 static struct v3_device_ops dev_ops = {
-    .free = serial_free,
+    .free = (int (*)(void *))serial_free,
 };
 
 

@@ -77,9 +77,7 @@ struct virtio_balloon_state {
 };
 
 
-static int virtio_free(struct vm_device * dev) {
-    return -1;
-}
+
 
 static int virtio_reset(struct virtio_balloon_state * virtio) {
 
@@ -361,10 +359,17 @@ static int virtio_io_read(struct guest_info * core, uint16_t port, void * dst, u
 }
 
 
+static int virtio_free(struct virtio_balloon_state * virtio) {
+
+    // unregister from PCI
+
+    V3_Free(virtio);
+    return 0;
+}
 
 
 static struct v3_device_ops dev_ops = {
-    .free = virtio_free,
+    .free = (int (*)(void *))virtio_free,
 
 };
 

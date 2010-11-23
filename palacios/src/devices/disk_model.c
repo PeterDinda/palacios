@@ -58,8 +58,12 @@ static uint64_t model_get_capacity(void * private_data) {
     return model->ops->get_capacity(model->private_data);
 }
 
-static int model_free(struct vm_device * dev) {
-    return -1;
+static int model_free(struct disk_state * model) {
+
+    // unhook from frontend
+
+    V3_Free(model);
+    return 0;
 }
 
 
@@ -73,7 +77,7 @@ static struct v3_dev_blk_ops blk_ops = {
 
 
 static struct v3_device_ops dev_ops = {
-    .free = model_free,
+    .free = (int (*)(void *))model_free,
 };
 
 

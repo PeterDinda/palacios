@@ -743,7 +743,11 @@ static int nvram_write_data_port(struct guest_info * core, ushort_t port,
 
 
 
-static int nvram_free(struct vm_device * dev) {
+static int nvram_free(struct nvram_internal * nvram_state) {
+
+    // unregister host events
+
+    V3_Free(nvram_state);
     return 0;
 }
 
@@ -752,7 +756,7 @@ static int nvram_free(struct vm_device * dev) {
 
 
 static struct v3_device_ops dev_ops = {  
-    .free = nvram_free,
+    .free = (int (*)(void *))nvram_free,
 };
 
 

@@ -53,9 +53,7 @@ static int stream_write(uint8_t * buf, uint64_t length, void * private_data) {
     return v3_stream_write(state->stream, buf, length);
 }
 
-static int stream_free(struct vm_device * dev) {
-    struct stream_state * state = (struct stream_state *)(dev->private_data);
-
+static int stream_free(struct stream_state * state) {
     v3_stream_close(state->stream);
 
     // detach host event
@@ -67,7 +65,7 @@ static int stream_free(struct vm_device * dev) {
 
 
 static struct v3_device_ops dev_ops = {
-    .free = stream_free,
+    .free = (int (*)(void *))stream_free,
 };
 
 static int stream_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
