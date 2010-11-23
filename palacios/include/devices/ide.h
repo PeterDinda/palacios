@@ -24,7 +24,7 @@
 
 
 
-int v3_ide_get_geometry(struct vm_device * ide_dev, int channel_num, int drive_num, 
+int v3_ide_get_geometry(void * ide_data, int channel_num, int drive_num, 
 			uint32_t * cylinders, uint32_t * heads, uint32_t * sectors);
 
 

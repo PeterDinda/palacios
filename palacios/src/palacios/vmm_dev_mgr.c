@@ -97,12 +97,12 @@ int v3_init_dev_mgr(struct v3_vm_info * vm) {
     INIT_LIST_HEAD(&(mgr->blk_list));
     INIT_LIST_HEAD(&(mgr->net_list));
     INIT_LIST_HEAD(&(mgr->char_list));
-    INIT_LIST_HEAD(&(mgr->console_list));
+    INIT_LIST_HEAD(&(mgr->cons_list));
 
     mgr->blk_table = v3_create_htable(0, dev_hash_fn, dev_eq_fn);
     mgr->net_table = v3_create_htable(0, dev_hash_fn, dev_eq_fn);
     mgr->char_table = v3_create_htable(0, dev_hash_fn, dev_eq_fn);
-    mgr->console_table = v3_create_htable(0, dev_hash_fn, dev_eq_fn);
+    mgr->cons_table = v3_create_htable(0, dev_hash_fn, dev_eq_fn);
     
     return 0;
 }
@@ -120,7 +120,7 @@ int v3_dev_mgr_deinit(struct v3_vm_info * vm) {
     v3_free_htable(mgr->blk_table, 0, 0);
     v3_free_htable(mgr->net_table, 0, 0);
     v3_free_htable(mgr->char_table, 0, 0);
-    v3_free_htable(mgr->console_table, 0, 0);
+    v3_free_htable(mgr->cons_table, 0, 0);
 
     v3_free_htable(mgr->dev_table, 0, 0);
 
@@ -423,6 +423,67 @@ int v3_dev_connect_net(struct v3_vm_info * vm,
 }
 
 
+struct cons_frontend {
+    int (*connect)(struct v3_vm_info * vm, 
+		   void * frontend_data, 
+		   struct v3_dev_console_ops * ops, 
+		   v3_cfg_tree_t * cfg, 
+		   void * priv_data);
+    
+
+    struct list_head cons_node;
+
+    void * priv_data;
+};
+
+int v3_dev_add_console_frontend(struct v3_vm_info * vm, 
+				char * name, 
+				int (*connect)(struct v3_vm_info * vm, 
+					       void * frontend_data, 
+					       struct v3_dev_console_ops * ops, 
+					       v3_cfg_tree_t * cfg, 
+					       void * private_data), 
+				void * priv_data)
+{
+    struct cons_frontend * frontend = NULL;
+
+    frontend = (struct cons_frontend *)V3_Malloc(sizeof(struct cons_frontend));
+    memset(frontend, 0, sizeof(struct cons_frontend));
+    
+    frontend->connect = connect;
+    frontend->priv_data = priv_data;
+	
+    list_add(&(frontend->cons_node), &(vm->dev_mgr.cons_list));
+    v3_htable_insert(vm->dev_mgr.cons_table, (addr_t)(name), (addr_t)frontend);
+
+    return 0;
+}
+
+
+int v3_dev_connect_console(struct v3_vm_info * vm, 
+			   char * frontend_name, 
+			   struct v3_dev_console_ops * ops, 
+			   v3_cfg_tree_t * cfg, 
+			   void * private_data)
+{
+    struct cons_frontend * frontend = NULL;
+
+    frontend = (struct cons_frontend *)v3_htable_search(vm->dev_mgr.cons_table,
+							(addr_t)frontend_name);
+    
+    if (frontend == NULL) {
+	PrintError("Could not find frontend console device %s\n", frontend_name);
+	return 0;
+    }
+    
+    if (frontend->connect(vm, frontend->priv_data, ops, cfg, private_data) == -1) {
+	PrintError("Error connecting to console frontend %s\n", frontend_name);
+	return -1;
+    }
+
+    return 0;
+}
+
 struct char_frontend {
     int (*connect)(struct v3_vm_info * vm, 
 		   void * frontend_data, 
@@ -436,8 +497,6 @@ struct char_frontend {
 
     void * priv_data;
 };
-
-
 
 int v3_dev_add_char_frontend(struct v3_vm_info * vm, 
 			     char * name, 

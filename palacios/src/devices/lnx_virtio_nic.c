@@ -173,7 +173,7 @@ pkt_tx(struct guest_info * core,
 	return -ERR_VIRTIO_OTHER;
     }
 
-    return virtio->net_ops->send(buf, len, virtio->backend_data, NULL);
+    return virtio->net_ops->send(buf, len, virtio->backend_data);
 }
 
 
@@ -650,9 +650,6 @@ exit:
 
 static struct v3_device_ops dev_ops = {
     .free = virtio_free,
-    .reset = NULL,
-    .start = NULL,
-    .stop = NULL,
 };
 
 

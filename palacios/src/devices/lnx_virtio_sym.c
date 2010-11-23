@@ -342,9 +342,6 @@ static int virtio_io_read(struct guest_info * core, uint16_t port, void * dst, u
 
 static struct v3_device_ops dev_ops = {
     .free = NULL,
-    .reset = NULL,
-    .start = NULL,
-    .stop = NULL,
 };
 
 
@@ -409,12 +406,12 @@ static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
 	bars[0].io_read = virtio_io_read;
 	bars[0].io_write = virtio_io_write;
-	bars[0].private_data = dev;
+	bars[0].private_data = virtio_state;
 
 	pci_dev = v3_pci_register_device(pci_bus, PCI_STD_DEVICE, 
 					 0, PCI_AUTO_DEV_NUM, 0,
 					 "LNX_VIRTIO_SYM", bars,
-					 NULL, NULL, NULL, dev);
+					 NULL, NULL, NULL, virtio_state);
 
 	if (!pci_dev) {
 	    PrintError("Could not register PCI Device\n");

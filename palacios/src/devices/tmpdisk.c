@@ -88,9 +88,7 @@ static struct v3_dev_blk_ops blk_ops = {
 
 static struct v3_device_ops dev_ops = {
     .free = blk_free,
-    .reset = NULL,
-    .start = NULL,
-    .stop = NULL,
+
 };
 
 

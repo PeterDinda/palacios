@@ -588,13 +588,15 @@ static int virtio_load_capsule(struct v3_vm_info * vm, struct v3_sym_capsule * m
 }
 
 
+static int virtio_free(struct vm_device * dev) 
+{
+	
+    return 0;
+}
 
 
 static struct v3_device_ops dev_ops = {
-    .free = NULL,
-    .reset = NULL,
-    .start = NULL,
-    .stop = NULL,
+    .free = virtio_free,
 };
 
 

@@ -44,11 +44,11 @@ struct v3_gen_ipi {
     uint8_t dst;
 } __attribute__((packed));
 
-int v3_apic_send_ipi(struct v3_vm_info * vm, struct vm_device * dev, 
-		     struct v3_gen_ipi * ipi);
+int v3_apic_send_ipi(struct v3_vm_info * vm, struct v3_gen_ipi * ipi, void * dev_data);
 
-int v3_apic_raise_intr(struct v3_vm_info * vm, struct vm_device * apic_dev, 
-		       uint32_t irq, uint32_t dst);
+int v3_apic_raise_intr(struct v3_vm_info * vm, 
+		       uint32_t irq, uint32_t dst,
+		       void * dev_data);
 
 
 

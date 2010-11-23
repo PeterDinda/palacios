@@ -33,14 +33,14 @@
 #endif
 
 #ifdef CONFIG_DEBUG_APIC
-static char *shorthand_str[] = { 
+static char * shorthand_str[] = { 
     "(no shorthand)",
     "(self)",
     "(all)",
     "(all-but-me)",
 };
 
-static char *deliverymode_str[] = { 
+static char * deliverymode_str[] = { 
     "(fixed)",
     "(lowest priority)",
     "(SMI)",
@@ -1290,9 +1290,8 @@ static int apic_get_intr_number(struct guest_info * core, void * private_data) {
 }
 
 
-int v3_apic_send_ipi(struct v3_vm_info * vm, struct vm_device * dev, 
-		     struct v3_gen_ipi * ipi) {
-    struct apic_dev_state * apic_dev = (struct apic_dev_state *)(dev->private_data);
+int v3_apic_send_ipi(struct v3_vm_info * vm, struct v3_gen_ipi * ipi, void * dev_data) {
+    struct apic_dev_state * apic_dev = (struct apic_dev_state *)dev_data;
     struct int_cmd_reg tmp_icr;
 
     // zero out all the fields
@@ -1311,9 +1310,8 @@ int v3_apic_send_ipi(struct v3_vm_info * vm, struct vm_device * dev,
 }
 
 
-int v3_apic_raise_intr(struct v3_vm_info * vm, struct vm_device * dev, 
-		       uint32_t irq, uint32_t dst) {
-    struct apic_dev_state * apic_dev = (struct apic_dev_state *)(dev->private_data);
+int v3_apic_raise_intr(struct v3_vm_info * vm, uint32_t irq, uint32_t dst, void * dev_data) {
+    struct apic_dev_state * apic_dev = (struct apic_dev_state *)(dev_data);
     struct apic_state * apic = &(apic_dev->apics[dst]); 
 
     PrintDebug("apic %u core ?: raising interrupt IRQ %u (dst = %u).\n", apic->lapic_id.val, irq, dst); 
@@ -1492,9 +1490,6 @@ static int apic_free(struct vm_device * dev) {
 
 static struct v3_device_ops dev_ops = {
     .free = apic_free,
-    .reset = NULL,
-    .start = NULL,
-    .stop = NULL,
 };
 
 

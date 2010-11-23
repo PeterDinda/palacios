@@ -722,10 +722,6 @@ static int write_elcr_port(struct guest_info * core, ushort_t port, void * src, 
 
 
 static int pic_free(struct vm_device * dev) {
-    v3_dev_unhook_io(dev, MASTER_PORT1);
-    v3_dev_unhook_io(dev, MASTER_PORT2);
-    v3_dev_unhook_io(dev, SLAVE_PORT1);
-    v3_dev_unhook_io(dev, SLAVE_PORT2);
 
     return 0;
 }
@@ -738,9 +734,7 @@ static int pic_free(struct vm_device * dev) {
 
 static struct v3_device_ops dev_ops = {
     .free = pic_free,
-    .reset = NULL,
-    .start = NULL,
-    .stop = NULL,
+
 };
 
 

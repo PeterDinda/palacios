@@ -122,16 +122,7 @@ static int blk_reset(struct virtio_blk_state * virtio) {
 }
 
 
-static int virtio_reset(struct vm_device * dev) {
-    struct virtio_dev_state * dev_state = (struct virtio_dev_state *)(dev->private_data);
-    struct virtio_blk_state * blk_state = NULL;
 
-    list_for_each_entry(blk_state, &(dev_state->dev_list), dev_link) {
-	blk_reset(blk_state);
-    }
-
-    return 0;
-}
 
 static int handle_read_op(struct virtio_blk_state * blk_state, uint8_t * buf, uint64_t * sector, uint64_t len) {
     int ret = -1;
@@ -486,9 +477,7 @@ static int virtio_io_read(struct guest_info * core, uint16_t port, void * dst, u
 
 static struct v3_device_ops dev_ops = {
     .free = virtio_free,
-    .reset = virtio_reset,
-    .start = NULL,
-    .stop = NULL,
+
 };
 
 

@@ -36,7 +36,7 @@ struct nic_bridge_state {
 };
 
 static int bridge_send(uint8_t * buf, uint32_t len, 
-		       void * private_data, struct vm_device *dev){
+		       void * private_data) {
     //struct nic_bridge_state *bridge = (struct nic_bridge_state *)private_data;
 
 #ifdef CONFIG_DEBUG_NIC_BRIDGE
@@ -53,13 +53,13 @@ static int bridge_send(uint8_t * buf, uint32_t len,
 static int packet_input(struct v3_vm_info * vm,
 			struct v3_packet_event * evt, 
 			void * private_data) {
-    struct nic_bridge_state *bridge = (struct nic_bridge_state *)private_data;
+    struct nic_bridge_state * bridge = (struct nic_bridge_state *)private_data;
 
     PrintDebug("NIC_BRIDGE: Incoming packet size: %d\n", evt->size);
 
     return bridge->net_ops.recv(evt->pkt, 
-	evt->size, 
-	bridge->net_ops.frontend_data);
+				evt->size, 
+				bridge->net_ops.frontend_data);
 }
 
 
@@ -75,9 +75,7 @@ static int vnet_nic_free(struct vm_device * dev) {
 
 static struct v3_device_ops dev_ops = {
     .free = vnet_nic_free,
-    .reset = NULL,
-    .start = NULL,
-    .stop = NULL,
+
 };
 
 static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
@@ -109,7 +107,7 @@ static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     PrintDebug("NIC-Bridge: Connect %s to frontend %s\n", 
 	      dev_id, v3_cfg_val(frontend_cfg, "tag"));
 
-    v3_hook_host_event(vm, HOST_PACKET_EVT, V3_HOST_EVENT_HANDLER(packet_input), dev);
+    v3_hook_host_event(vm, HOST_PACKET_EVT, V3_HOST_EVENT_HANDLER(packet_input), bridge);
 
     return 0;
 }

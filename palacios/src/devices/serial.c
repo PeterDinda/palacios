@@ -834,7 +834,7 @@ static int read_status_port(struct guest_info * core, uint16_t port, void * dst,
     return length;
 }
 
-static int serial_deinit(struct vm_device * dev) {
+static int serial_free(struct vm_device * dev) {
     return 0;
 }
 
@@ -842,9 +842,7 @@ static int serial_deinit(struct vm_device * dev) {
 
 
 static struct v3_device_ops dev_ops = {
-    //.init = serial_init,
-    .free = serial_deinit,
-    .reset = NULL,
+    .free = serial_free,
 };
 
 

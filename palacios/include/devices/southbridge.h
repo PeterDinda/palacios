@@ -28,10 +28,14 @@
 
 typedef enum {V3_SB_INVALID, V3_SB_PIIX3, V3_SB_PIIX4, V3_SB_CMD646} v3_southbridge_type_t;
 
+struct v3_vm_info;
+
 struct v3_southbridge {
     struct vm_device * pci_bus;
     struct pci_device * southbridge_pci;
 
+    struct v3_vm_info * vm;
+    
     v3_southbridge_type_t type;
 };
 

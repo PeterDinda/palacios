@@ -127,7 +127,7 @@ struct pit_rdb_status_word {
  * This should call out to handle_SQR_WAVE_tics, etc... 
  */
 // Returns true if the the output signal changed state
-static int handle_crystal_tics(struct vm_device * dev, struct channel * ch, uint_t oscillations) {
+static int handle_crystal_tics(struct pit * pit, struct channel * ch, uint_t oscillations) {
     uint_t channel_cycles = 0;
     uint_t output_changed = 0;
   
@@ -239,8 +239,7 @@ static int handle_crystal_tics(struct vm_device * dev, struct channel * ch, uint
 #include <palacios/vm_guest.h>
 
 static void pit_update_timer(struct guest_info * info, ullong_t cpu_cycles, ullong_t cpu_freq, void * private_data) {
-    struct vm_device * dev = (struct vm_device *)private_data;
-    struct pit * state = (struct pit *)dev->private_data;
+    struct pit * state = (struct pit *)private_data;
     //  ullong_t tmp_ctr = state->pit_counter;
     ullong_t tmp_cycles;
     uint_t oscillations = 0;
@@ -299,14 +298,14 @@ static void pit_update_timer(struct guest_info * info, ullong_t cpu_cycles, ullo
 	state->pit_counter = state->pit_reload - cpu_cycles;    
 
 	//PrintDebug("8254 PIT: Handling %d crystal tics\n", oscillations);
-	if (handle_crystal_tics(dev, &(state->ch_0), oscillations) == 1) {
+	if (handle_crystal_tics(state, &(state->ch_0), oscillations) == 1) {
 	    // raise interrupt
 	    PrintDebug("8254 PIT: Injecting Timer interrupt to guest\n");
 	    v3_raise_irq(info->vm_info, 0);
 	}
 
-	//handle_crystal_tics(dev, &(state->ch_1), oscillations);
-	handle_crystal_tics(dev, &(state->ch_2), oscillations);
+	//handle_crystal_tics(state, &(state->ch_1), oscillations);
+	handle_crystal_tics(state, &(state->ch_2), oscillations);
     }
   
 
@@ -659,9 +658,7 @@ static int pit_free(struct vm_device * dev) {
 
 static struct v3_device_ops dev_ops = {
     .free = pit_free,
-    .reset = NULL,
-    .start = NULL,
-    .stop = NULL,
+
 
 };
 
@@ -712,7 +709,7 @@ static int pit_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     
 
-    pit_state->timer = v3_add_timer(info, &timer_ops, dev);
+    pit_state->timer = v3_add_timer(info, &timer_ops, pit_state);
 
     if (pit_state->timer == NULL) {
 	v3_detach_device(dev);

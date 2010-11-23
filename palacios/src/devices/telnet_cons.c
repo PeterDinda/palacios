@@ -30,9 +30,7 @@
 #include <palacios/vmm_socket.h>
 
 #include <devices/console.h>
-#if 0
-#include <devices/telnet_cons.h>
-#endif
+
 
 #define NUM_ROWS 25
 #define NUM_COLS 80
@@ -58,6 +56,8 @@ struct cons_state {
     int connected;
 
     v3_lock_t cons_lock;
+
+    v3_vm_info * vm;
 
     struct vm_device * frontend_dev;
 };
@@ -105,7 +105,7 @@ static const struct key_code ascii_to_key_code[] = {             // ASCII Value 
 
 
 
-static int deliver_scan_code(struct vm_device * dev, struct key_code * key) {
+static int deliver_scan_code(struct cons_state * state, struct key_code * key) {
     struct v3_keyboard_event key_event;
     struct v3_keyboard_event key_shift;
     uint_t cap = key->capital;
@@ -120,14 +120,14 @@ static int deliver_scan_code(struct vm_device * dev, struct key_code * key) {
 	key_shift.status = 0;
 	key_shift.scan_code = (uint8_t)0x2A;
 
-	if (v3_deliver_keyboard_event(dev->vm, &key_shift) == -1) {
+	if (v3_deliver_keyboard_event(state->vm, &key_shift) == -1) {
 	    PrintError("Video: Error delivering key event\n");
 	    return -1;
 	}
     }
 
     // Press
-    if (v3_deliver_keyboard_event(dev->vm, &key_event) == -1) {
+    if (v3_deliver_keyboard_event(state->vm, &key_event) == -1) {
 	PrintError("Video: Error delivering key event\n");
 	return -1;
     }
@@ -135,7 +135,7 @@ static int deliver_scan_code(struct vm_device * dev, struct key_code * key) {
     // Release
     key_event.scan_code = key_event.scan_code | 0x80;
   
-    if (v3_deliver_keyboard_event(dev->vm, &key_event) == -1) {
+    if (v3_deliver_keyboard_event(state->vm, &key_event) == -1) {
 	PrintError("Video: Error delivering key event\n");
 	return -1;
     }
@@ -144,7 +144,7 @@ static int deliver_scan_code(struct vm_device * dev, struct key_code * key) {
     if (cap) {
         key_shift.scan_code = 0x2A | 0x80;
 
-	if (v3_deliver_keyboard_event(dev->vm, &key_shift) == -1) {
+	if (v3_deliver_keyboard_event(state->vm, &key_shift) == -1) {
 	    PrintError("Video: Error delivering key event\n");
 	    return -1;
 	}
@@ -214,8 +214,7 @@ static const uint8_t bg_color_map[] = {
     } while (0)
 
 
-static int send_update(struct vm_device * dev, uint8_t  x, uint8_t  y, uint8_t attrib, uint8_t val) {
-    struct cons_state * state = (struct cons_state *)dev->private_data;
+static int send_update(struct cons_state * state, uint8_t  x, uint8_t  y, uint8_t attrib, uint8_t val) {
     uint8_t fg_color = fg_color_map[(attrib & 0x0f) % 16];
     uint8_t bg_color = bg_color_map[(attrib & 0xf0) % 16];
     uint8_t buf[32];
@@ -277,8 +276,7 @@ static int send_update(struct vm_device * dev, uint8_t  x, uint8_t  y, uint8_t a
 
 
 static int cursor_update(uint_t x, uint_t y, void * private_data) {
-    struct vm_device * dev = (struct vm_device *)private_data;
-    struct cons_state * state = (struct cons_state *)dev->private_data;
+    struct cons_state * state = (struct cons_state *)private_data;
     uint8_t buf[16];
     int ret = 0;
     addr_t irq_state = 0;
@@ -307,8 +305,7 @@ static int cursor_update(uint_t x, uint_t y, void * private_data) {
 
 
 static int screen_update(uint_t x, uint_t y, uint_t length, void * private_data) {
-    struct vm_device * dev = (struct vm_device *)private_data;
-    struct cons_state * state = (struct cons_state *)dev->private_data;
+    struct cons_state * state = (struct cons_state *)private_data;
     uint_t offset = (x * BYTES_PER_COL) + (y * BYTES_PER_ROW);
     uint8_t fb_buf[length];
     int i = 0;
@@ -337,7 +334,7 @@ static int screen_update(uint_t x, uint_t y, uint_t length, void * private_data)
 
 	irq_state = v3_lock_irqsave(state->cons_lock);
 
-	if (send_update(dev, cur_x, cur_y, col[1], col[0]) == -1) {
+	if (send_update(state, cur_x, cur_y, col[1], col[0]) == -1) {
 	    PrintError("Could not send attribute to telnet session\n");
 	    ret = -1;
 	    break;
@@ -357,8 +354,7 @@ static int screen_update(uint_t x, uint_t y, uint_t length, void * private_data)
 }
 
 static int scroll(int rows, void * private_data) {
-    struct vm_device * dev = (struct vm_device *)private_data;
-    struct cons_state * state = (struct cons_state *)dev->private_data;
+    struct cons_state * state = (struct cons_state *)private_data;
     addr_t irq_state = 0;
     int ret = 0;
 
@@ -396,26 +392,25 @@ static struct v3_console_ops cons_ops = {
     .scroll = scroll,
 };
 
+static int cons_free(struct vm_device * dev) {
+    return -1;
+}
+
 
 static struct v3_device_ops dev_ops = {
-    .free = NULL,
-    .reset = NULL,
-    .start = NULL,
-    .stop = NULL,
+    .free = cons_free,
 };
 
 
 
-static int key_handler(struct vm_device * dev, uint8_t ascii) {
-    struct cons_state * state = (struct cons_state *)dev->private_data;
-
+static int key_handler( struct cons_state * state, uint8_t ascii) {
     PrintDebug("Character recieved: 0x%x\n", ascii);
 
     // printable
     if (ascii < 0x80) {
 	const struct key_code * key = &(ascii_to_key_code[ascii]);
 
-	if (deliver_scan_code(dev, (struct key_code *)key) == -1) {
+	if (deliver_scan_code(state, (struct key_code *)key) == -1) {
 	    PrintError("Could not deliver scan code to vm\n");
 	    return -1;
 	}
@@ -445,16 +440,16 @@ static int key_handler(struct vm_device * dev, uint8_t ascii) {
 
 	if (esc_seq[1] == 'A') {	        // UP ARROW
 	    struct key_code up = { 0x48, 0 };
-	    deliver_scan_code(dev, &up);
+	    deliver_scan_code(state, &up);
 	} else if (esc_seq[1] == 'B') { 	// DOWN ARROW
 	    struct key_code down = { 0x50, 0 };
-	    deliver_scan_code(dev, &down);
+	    deliver_scan_code(state, &down);
 	} else if (esc_seq[1] == 'C') {  	// RIGHT ARROW
 	    struct key_code right = { 0x4D, 0 };
-	    deliver_scan_code(dev, &right);
+	    deliver_scan_code(state, &right);
 	} else if (esc_seq[1] == 'D') {	        // LEFT ARROW
 	    struct key_code left = { 0x4B, 0 };
-	    deliver_scan_code(dev, &left);
+	    deliver_scan_code(state, &left);
 	}
     } else {
 	PrintError("Invalid character received from network (%c) (code=%d)\n",
@@ -466,8 +461,7 @@ static int key_handler(struct vm_device * dev, uint8_t ascii) {
 }
 
 static int cons_server(void * arg) {
-    struct vm_device * dev = (struct vm_device *)arg;
-    struct cons_state * state = (struct cons_state *)dev->private_data;
+    struct cons_state * state = (struct cons_state *)arg;
     
     state->server_fd = V3_Create_TCP_Socket();
 
@@ -494,7 +488,7 @@ static int cons_server(void * arg) {
 	PrintDebug("Accepted Telnet Console connection\n");
 	state->connected = 1;
 
-	screen_update(0, 0, SCREEN_SIZE, dev);
+	screen_update(0, 0, SCREEN_SIZE, state);
 
 	while (1) {
 	    recv = recv_all(state->client_fd, &ascii_code, sizeof(ascii_code));
@@ -509,7 +503,7 @@ static int cons_server(void * arg) {
 		break;
 	    }
 
-	    if (key_handler(dev, ascii_code) == -1) {
+	    if (key_handler(state, ascii_code) == -1) {
 		PrintError("Error in key handler\n");
 		break;
 	    }
@@ -529,7 +523,7 @@ static int cons_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vm_device * frontend = v3_find_dev(vm, v3_cfg_val(frontend_cfg, "tag"));
     char * dev_id = v3_cfg_val(cfg, "ID");
 
-
+    state->vm = vm;
     state->server_fd = 0;
     state->client_fd = 0;
     state->frontend_dev = frontend;
@@ -545,9 +539,9 @@ static int cons_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     }
 
 
-    v3_console_register_cga(frontend, &cons_ops, dev);
+    v3_console_register_cga(frontend, &cons_ops, state);
 
-    V3_CREATE_THREAD(cons_server, dev, "Telnet Console Network Server");
+    V3_CREATE_THREAD(cons_server, state, "Telnet Console Network Server");
 
     return 0;
 }

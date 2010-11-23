@@ -357,7 +357,7 @@ static int dma_write(struct guest_info * core, struct ide_internal * ide, struct
 
 
 #ifdef CONFIG_DEBUG_IDE
-static void print_prd_table(struct vm_device * dev, struct ide_channel * channel) {
+static void print_prd_table(struct ide_internal * ide, struct ide_channel * channel) {
     struct ide_dma_prd prd_entry;
     int index = 0;
 
@@ -367,7 +367,7 @@ static void print_prd_table(struct vm_device * dev, struct ide_channel * channel
 	uint32_t prd_entry_addr = channel->dma_prd_addr + (sizeof(struct ide_dma_prd) * index);
 	int ret;
 
-	ret = v3_read_gpa_memory(&(dev->vm->cores[0]), prd_entry_addr, sizeof(struct ide_dma_prd), (void *)&prd_entry);
+	ret = v3_read_gpa_memory(&(ide->vm->cores[0]), prd_entry_addr, sizeof(struct ide_dma_prd), (void *)&prd_entry);
 	
 	if (ret != sizeof(struct ide_dma_prd)) {
 	    PrintError("Could not read PRD\n");
@@ -1400,8 +1400,8 @@ static void init_channel(struct ide_channel * channel) {
 
 static int pci_config_update(uint_t reg_num, void * src, uint_t length, void * private_data) {
     PrintDebug("PCI Config Update\n");
-    /*    struct vm_device * dev = (struct vm_device *)private_data;
-    struct ide_internal * ide = (struct ide_internal *)(dev->private_data);
+    /*
+    struct ide_internal * ide = (struct ide_internal *)(private_data);
 
     PrintDebug("\t\tInterupt register (Dev=%s), irq=%d\n", ide->ide_pci->name, ide->ide_pci->config_header.intr_line);
     */
@@ -1642,11 +1642,11 @@ static int ide_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
 	bars[4].io_read = read_dma_port;
 	bars[4].io_write = write_dma_port;
-	bars[4].private_data = dev;
+	bars[4].private_data = ide;
 
 	pci_dev = v3_pci_register_device(ide->pci_bus, PCI_STD_DEVICE, 0, sb_pci->dev_num, 1, 
 					 "PIIX3_IDE", bars,
-					 pci_config_update, NULL, NULL, dev);
+					 pci_config_update, NULL, NULL, ide);
 
 	if (pci_dev == NULL) {
 	    PrintError("Failed to register IDE BUS %d with PCI\n", i); 
@@ -1693,10 +1693,10 @@ device_register("IDE", ide_init)
 
 
 
-int v3_ide_get_geometry(struct vm_device * ide_dev, int channel_num, int drive_num, 
+int v3_ide_get_geometry(void * ide_data, int channel_num, int drive_num, 
 			uint32_t * cylinders, uint32_t * heads, uint32_t * sectors) {
 
-    struct ide_internal * ide  = (struct ide_internal *)(ide_dev->private_data);  
+    struct ide_internal * ide  = ide_data;  
     struct ide_channel * channel = &(ide->channels[channel_num]);
     struct ide_drive * drive = &(channel->drives[drive_num]);
     

@@ -57,9 +57,7 @@ static int i440_free(struct vm_device * dev) {
 
 static struct v3_device_ops dev_ops = {
     .free = i440_free,
-    .reset = NULL,
-    .start = NULL,
-    .stop = NULL,
+
 };
 
 
@@ -101,7 +99,7 @@ static int i440_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     pci_dev = v3_pci_register_device(state->pci, PCI_STD_DEVICE, 
 				     0, 0, 0, "i440FX", bars,
-				     NULL, NULL, NULL, dev);
+				     NULL, NULL, NULL, state);
 
     if (!pci_dev) {
 	v3_detach_device(dev);
