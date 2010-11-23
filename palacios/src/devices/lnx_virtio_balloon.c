@@ -81,8 +81,7 @@ static int virtio_free(struct vm_device * dev) {
     return -1;
 }
 
-static int virtio_reset(struct vm_device * dev) {
-    struct virtio_balloon_state * virtio = (struct virtio_balloon_state *)dev->private_data;
+static int virtio_reset(struct virtio_balloon_state * virtio) {
 
     memset(virtio->queue, 0, sizeof(struct virtio_queue) * 2);
 
@@ -119,8 +118,7 @@ static int get_desc_count(struct virtio_queue * q, int index) {
 }
 
 
-static int handle_kick(struct guest_info * core, struct vm_device * dev) {
-    struct virtio_balloon_state * virtio = (struct virtio_balloon_state *)dev->private_data;    
+static int handle_kick(struct guest_info * core, struct virtio_balloon_state * virtio) {
     struct virtio_queue * q = virtio->cur_queue;
 
     PrintDebug("VIRTIO BALLOON KICK: cur_index=%d (mod=%d), avail_index=%d\n", 
@@ -152,7 +150,7 @@ static int handle_kick(struct guest_info * core, struct vm_device * dev) {
 	    }
 
 	    /* 	    
-	       if (handle_balloon_op(dev, tmp_desc, buf_desc, status_desc) == -1) {
+	       if (handle_balloon_op(virtio, tmp_desc, buf_desc, status_desc) == -1) {
 	       PrintError("Error handling balloon operation\n");
 	       return -1;
 	       }
@@ -184,8 +182,7 @@ static int handle_kick(struct guest_info * core, struct vm_device * dev) {
 }
 
 static int virtio_io_write(struct guest_info * core, uint16_t port, void * src, uint_t length, void * private_data) {
-    struct vm_device * dev = (struct vm_device *)private_data;
-    struct virtio_balloon_state * virtio = (struct virtio_balloon_state *)dev->private_data;
+    struct virtio_balloon_state * virtio = (struct virtio_balloon_state *)private_data;
     int port_idx = port % virtio->io_range_size;
 
 
@@ -265,7 +262,7 @@ static int virtio_io_write(struct guest_info * core, uint16_t port, void * src, 
 	    break;
 	case VRING_Q_NOTIFY_PORT:
 	    PrintDebug("Handling Kick\n");
-	    if (handle_kick(core, dev) == -1) {
+	    if (handle_kick(core, virtio) == -1) {
 		PrintError("Could not handle Balloon Notification\n");
 		return -1;
 	    }
@@ -275,7 +272,7 @@ static int virtio_io_write(struct guest_info * core, uint16_t port, void * src, 
 
 	    if (virtio->virtio_cfg.status == 0) {
 		PrintDebug("Resetting device\n");
-		virtio_reset(dev);
+		virtio_reset(virtio);
 	    }
 
 	    break;
@@ -293,8 +290,7 @@ static int virtio_io_write(struct guest_info * core, uint16_t port, void * src, 
 
 
 static int virtio_io_read(struct guest_info * core, uint16_t port, void * dst, uint_t length, void * private_data) {
-    struct vm_device * dev = (struct vm_device *)private_data;
-    struct virtio_balloon_state * virtio = (struct virtio_balloon_state *)dev->private_data;
+    struct virtio_balloon_state * virtio = (struct virtio_balloon_state *)private_data;
     int port_idx = port % virtio->io_range_size;
 
 
@@ -369,15 +365,11 @@ static int virtio_io_read(struct guest_info * core, uint16_t port, void * dst, u
 
 static struct v3_device_ops dev_ops = {
     .free = virtio_free,
-    .reset = NULL,
-    .start = NULL,
-    .stop = NULL,
+
 };
 
 
-static int set_size(struct vm_device * dev, addr_t size) {
-    struct virtio_balloon_state * virtio = (struct virtio_balloon_state *)dev->private_data;
-
+static int set_size(struct virtio_balloon_state * virtio, addr_t size) {
     virtio->balloon_cfg.requested_pages = size / PAGE_SIZE; // number of pages
 
     PrintDebug("Requesting %d pages\n", virtio->balloon_cfg.requested_pages);
@@ -390,18 +382,17 @@ static int set_size(struct vm_device * dev, addr_t size) {
 
 
 static int handle_hcall(struct guest_info * info, uint_t hcall_id, void * priv_data) {
-    struct vm_device * dev = (struct vm_device *)priv_data;
+    struct virtio_balloon_state * virtio = (struct virtio_balloon_state *)priv_data;
     int tgt_size = info->vm_regs.rcx;
 
     
-    return set_size(dev, tgt_size);
+    return set_size(virtio, tgt_size);
 }
 
 
 
 static int handle_query_hcall(struct guest_info * info, uint_t hcall_id, void * priv_data) {
-    struct vm_device * dev = (struct vm_device *)priv_data;
-    struct virtio_balloon_state * virtio = (struct virtio_balloon_state *)dev->private_data;
+    struct virtio_balloon_state * virtio = (struct virtio_balloon_state *)priv_data;
     
     info->vm_regs.rcx = virtio->balloon_cfg.requested_pages;
     info->vm_regs.rdx = virtio->balloon_cfg.allocated_pages;
@@ -475,13 +466,13 @@ static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
 	bars[0].io_read = virtio_io_read;
 	bars[0].io_write = virtio_io_write;
-	bars[0].private_data = dev;
+	bars[0].private_data = virtio_state;
 	
 
 	pci_dev = v3_pci_register_device(pci_bus, PCI_STD_DEVICE, 
 					 0, PCI_AUTO_DEV_NUM, 0,
 					 "LNX_VIRTIO_BALLOON", bars,
-					 NULL, NULL, NULL, dev);
+					 NULL, NULL, NULL, virtio_state);
 
 	if (!pci_dev) {
 	    PrintError("Could not register PCI Device\n");
@@ -508,10 +499,10 @@ static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	virtio_state->pci_bus = pci_bus;
     }
 
-    virtio_reset(dev);
+    virtio_reset(virtio_state);
 
-    v3_register_hypercall(vm, BALLOON_START_HCALL, handle_hcall, dev);
-    v3_register_hypercall(vm, BALLOON_QUERY_HCALL, handle_query_hcall, dev);
+    v3_register_hypercall(vm, BALLOON_START_HCALL, handle_hcall, virtio_state);
+    v3_register_hypercall(vm, BALLOON_QUERY_HCALL, handle_query_hcall, virtio_state);
 
     return 0;
 }

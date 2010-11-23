@@ -753,9 +753,6 @@ static int setup_virt_pci_dev(struct v3_vm_info * vm_info, struct vm_device * de
 
 static struct v3_device_ops dev_ops = {
     .free = NULL,
-    .reset = NULL,
-    .start = NULL,
-    .stop = NULL,
 };
 
 

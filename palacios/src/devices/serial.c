@@ -452,8 +452,8 @@ static int dequeue_data(struct v3_vm_info * vm, struct serial_port * com,
 }
 
 static int write_data_port(struct guest_info * core, uint16_t port, 
-			   void * src, uint_t length, struct vm_device * dev) {
-    struct serial_state * state = (struct serial_state *)dev->private_data;
+			   void * src, uint_t length, void * priv_data) {
+    struct serial_state * state = priv_data;
     uint8_t * val = (uint8_t *)src;
     struct serial_port * com_port = NULL;
 
@@ -498,8 +498,8 @@ static int write_data_port(struct guest_info * core, uint16_t port,
 
 
 static int read_data_port(struct guest_info * core, uint16_t port, 
-			  void * dst, uint_t length, struct vm_device * dev) {
-    struct serial_state * state = (struct serial_state *)dev->private_data;
+			  void * dst, uint_t length, void * priv_data) {
+    struct serial_state * state = priv_data;
     uint8_t * val = (uint8_t *)dst;
     struct serial_port * com_port = NULL;
 
@@ -581,8 +581,8 @@ static int handle_fcr_write(struct serial_port * com, uint8_t value) {
 
 
 static int write_ctrl_port(struct guest_info * core, uint16_t port, void * src, 
-			   uint_t length, struct vm_device * dev) {
-    struct serial_state * state = (struct serial_state *)dev->private_data;
+			   uint_t length, void * priv_data) {
+    struct serial_state * state = priv_data;
     uint8_t val = *(uint8_t *)src;
     struct serial_port * com_port = NULL;
 
@@ -665,8 +665,8 @@ static int write_ctrl_port(struct guest_info * core, uint16_t port, void * src,
 
 
 static int read_ctrl_port(struct guest_info * core, uint16_t port, void * dst, 
-			  uint_t length, struct vm_device * dev) {
-    struct serial_state * state = (struct serial_state *)dev->private_data;
+			  uint_t length, void * priv_data) {
+    struct serial_state * state = priv_data;
     uint8_t * val = (uint8_t *)dst;
     struct serial_port * com_port = NULL;
 
@@ -742,8 +742,8 @@ static int read_ctrl_port(struct guest_info * core, uint16_t port, void * dst,
 
 
 static int write_status_port(struct guest_info * core, uint16_t port, void * src, 
-			     uint_t length, struct vm_device * dev) {
-    struct serial_state * state = (struct serial_state *)dev->private_data;
+			     uint_t length, void * priv_data) {
+    struct serial_state * state = priv_data;
     uint8_t val = *(uint8_t *)src;
     struct serial_port * com_port = NULL;
 
@@ -787,8 +787,8 @@ static int write_status_port(struct guest_info * core, uint16_t port, void * src
 }
 
 static int read_status_port(struct guest_info * core, uint16_t port, void * dst, 
-			    uint_t length, struct vm_device * dev) {
-    struct serial_state * state = (struct serial_state *)dev->private_data;
+			    uint_t length, void * priv_data) {
+    struct serial_state * state = priv_data;
     uint8_t * val = (uint8_t *)dst;
     struct serial_port * com_port = NULL;
 
@@ -834,45 +834,7 @@ static int read_status_port(struct guest_info * core, uint16_t port, void * dst,
     return length;
 }
 
-static int serial_deinit(struct vm_device * dev) {
-
-
-    v3_dev_unhook_io(dev, COM1_DATA_PORT);
-    v3_dev_unhook_io(dev, COM1_IRQ_ENABLE_PORT);
-    v3_dev_unhook_io(dev, COM1_FIFO_CTRL_PORT);
-    v3_dev_unhook_io(dev, COM1_LINE_CTRL_PORT);
-    v3_dev_unhook_io(dev, COM1_MODEM_CTRL_PORT);
-    v3_dev_unhook_io(dev, COM1_LINE_STATUS_PORT);
-    v3_dev_unhook_io(dev, COM1_MODEM_STATUS_PORT);
-    v3_dev_unhook_io(dev, COM1_SCRATCH_PORT);
-
-    v3_dev_unhook_io(dev, COM2_DATA_PORT);
-    v3_dev_unhook_io(dev, COM2_IRQ_ENABLE_PORT);
-    v3_dev_unhook_io(dev, COM2_FIFO_CTRL_PORT);
-    v3_dev_unhook_io(dev, COM2_LINE_CTRL_PORT);
-    v3_dev_unhook_io(dev, COM2_MODEM_CTRL_PORT);
-    v3_dev_unhook_io(dev, COM2_LINE_STATUS_PORT);
-    v3_dev_unhook_io(dev, COM2_MODEM_STATUS_PORT);
-    v3_dev_unhook_io(dev, COM2_SCRATCH_PORT);
-
-    v3_dev_unhook_io(dev, COM3_DATA_PORT);
-    v3_dev_unhook_io(dev, COM3_IRQ_ENABLE_PORT);
-    v3_dev_unhook_io(dev, COM3_FIFO_CTRL_PORT);
-    v3_dev_unhook_io(dev, COM3_LINE_CTRL_PORT);
-    v3_dev_unhook_io(dev, COM3_MODEM_CTRL_PORT);
-    v3_dev_unhook_io(dev, COM3_LINE_STATUS_PORT);
-    v3_dev_unhook_io(dev, COM3_MODEM_STATUS_PORT);
-    v3_dev_unhook_io(dev, COM3_SCRATCH_PORT);
-
-    v3_dev_unhook_io(dev, COM4_DATA_PORT);
-    v3_dev_unhook_io(dev, COM4_IRQ_ENABLE_PORT);
-    v3_dev_unhook_io(dev, COM4_FIFO_CTRL_PORT);
-    v3_dev_unhook_io(dev, COM4_LINE_CTRL_PORT);
-    v3_dev_unhook_io(dev, COM4_MODEM_CTRL_PORT);
-    v3_dev_unhook_io(dev, COM4_LINE_STATUS_PORT);
-    v3_dev_unhook_io(dev, COM4_MODEM_STATUS_PORT);
-    v3_dev_unhook_io(dev, COM4_SCRATCH_PORT);
-
+static int serial_free(struct vm_device * dev) {
     return 0;
 }
 
@@ -880,11 +842,7 @@ static int serial_deinit(struct vm_device * dev) {
 
 
 static struct v3_device_ops dev_ops = {
-    //.init = serial_init,
-    .free = serial_deinit,
-    .reset = NULL,
-    .start = NULL,
-    .stop = NULL,
+    .free = serial_free,
 };
 
 

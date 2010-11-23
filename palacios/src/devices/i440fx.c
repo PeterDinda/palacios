@@ -32,13 +32,11 @@ struct i440_state {
 
 
 static int io_read(struct guest_info * core, ushort_t port, void * dst, uint_t length, void * priv_data) {
-    //    struct vm_device * dev = priv_data;
     PrintError("Unhandled read on port %x\n", port);
     return -1;
 }
 
 static int io_write(struct guest_info * core, ushort_t port, void * src, uint_t length, void * priv_data) {
-    //    struct vm_device * dev = priv_data;
     PrintError("Unhandled write on port %x\n", port);
     return -1;
 }
@@ -49,12 +47,6 @@ static int io_write(struct guest_info * core, ushort_t port, void * src, uint_t 
 
 static int i440_free(struct vm_device * dev) {
     struct i440_state * state = dev->private_data;
-    int i;
-
-    for (i = 0; i < 4; i++) {
-	v3_unhook_io_port(dev->vm, 0x0cf8 + i);
-	v3_unhook_io_port(dev->vm, 0x0cfc + i);
-    }
 
     // unregister from PCI
 
@@ -65,9 +57,7 @@ static int i440_free(struct vm_device * dev) {
 
 static struct v3_device_ops dev_ops = {
     .free = i440_free,
-    .reset = NULL,
-    .start = NULL,
-    .stop = NULL,
+
 };
 
 
@@ -99,8 +89,8 @@ static int i440_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     }
 
     for (i = 0; i < 4; i++) {
-	v3_hook_io_port(vm, 0x0cf8 + i, &io_read, &io_write, dev);
-	v3_hook_io_port(vm, 0x0cfc + i, &io_read, &io_write, dev);
+	v3_dev_hook_io(dev, 0x0cf8 + i, &io_read, &io_write);
+	v3_dev_hook_io(dev, 0x0cfc + i, &io_read, &io_write);
     }
 
     for (i = 0; i < 6; i++) {
@@ -109,7 +99,7 @@ static int i440_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     pci_dev = v3_pci_register_device(state->pci, PCI_STD_DEVICE, 
 				     0, 0, 0, "i440FX", bars,
-				     NULL, NULL, NULL, dev);
+				     NULL, NULL, NULL, state);
 
     if (!pci_dev) {
 	v3_detach_device(dev);

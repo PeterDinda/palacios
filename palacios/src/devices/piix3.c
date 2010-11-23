@@ -329,8 +329,7 @@ struct piix3_config_space {
 
 
 
-static int reset_piix3(struct vm_device * dev) {
-    struct v3_southbridge * piix3 = (struct v3_southbridge *)(dev->private_data);
+static int reset_piix3(struct v3_southbridge * piix3) {
     struct pci_device * pci_dev = piix3->southbridge_pci;
     struct piix3_config_space * piix3_cfg = (struct piix3_config_space *)(pci_dev->config_data);
 
@@ -364,8 +363,8 @@ static int reset_piix3(struct vm_device * dev) {
 
 //irq is pirq_rc[intr_pin + pci_dev_num - 1] & 0x3
 
-static int raise_pci_irq(struct vm_device * dev, struct pci_device * pci_dev) {
-    struct v3_southbridge * piix3 = (struct v3_southbridge *)(dev->private_data);
+static int raise_pci_irq(struct pci_device * pci_dev, void * dev_data) {
+    struct v3_southbridge * piix3 = dev_data;
     struct pci_device * piix3_pci = piix3->southbridge_pci;
     struct piix3_config_space * piix3_cfg = (struct piix3_config_space *)(piix3_pci->config_data);
     int intr_pin = pci_dev->config_header.intr_pin - 1;
@@ -373,15 +372,15 @@ static int raise_pci_irq(struct vm_device * dev, struct pci_device * pci_dev) {
     
     //        PrintError("Raising PCI IRQ %d\n", piix3_cfg->pirq_rc[irq_index]);
     
-    v3_raise_irq(dev->vm, piix3_cfg->pirq_rc[irq_index]);
+    v3_raise_irq(piix3->vm, piix3_cfg->pirq_rc[irq_index]);
 
     return 0;
 }
 
 
 
-static int lower_pci_irq(struct vm_device * dev, struct pci_device * pci_dev) {
-    struct v3_southbridge * piix3 = (struct v3_southbridge *)(dev->private_data);
+static int lower_pci_irq(struct pci_device * pci_dev, void * dev_data) {
+    struct v3_southbridge * piix3 = dev_data;
     struct pci_device * piix3_pci = piix3->southbridge_pci;
     struct piix3_config_space * piix3_cfg = (struct piix3_config_space *)(piix3_pci->config_data);
     int intr_pin = pci_dev->config_header.intr_pin - 1;
@@ -389,7 +388,7 @@ static int lower_pci_irq(struct vm_device * dev, struct pci_device * pci_dev) {
     
     //    PrintError("Lowering PCI IRQ %d\n", piix3_cfg->pirq_rc[irq_index]);
     
-    v3_lower_irq(dev->vm, piix3_cfg->pirq_rc[irq_index]);
+    v3_lower_irq(piix3->vm, piix3_cfg->pirq_rc[irq_index]);
 
     return 0;
 }
@@ -403,16 +402,12 @@ static int piix_free(struct vm_device * dev) {
 
 static struct v3_device_ops dev_ops = {
     .free = piix_free,
-    .reset = reset_piix3,
-    .start = NULL,
-    .stop = NULL,
 };
 
 
 
 
-static int setup_pci(struct vm_device * dev) {
-    struct v3_southbridge * piix3 = (struct v3_southbridge *)(dev->private_data);
+static int setup_pci(struct v3_southbridge * piix3) {
     struct pci_device * pci_dev = NULL;
     struct v3_pci_bar bars[6];
     int i;
@@ -425,7 +420,7 @@ static int setup_pci(struct vm_device * dev) {
     pci_dev = v3_pci_register_device(piix3->pci_bus, PCI_MULTIFUNCTION, 
 				     bus_num, -1, 0, 
 				     "PIIX3", bars, 
-				     NULL, NULL, NULL, dev);
+				     NULL, NULL, NULL, piix3);
     if (pci_dev == NULL) {
 	PrintError("Could not register PCI Device for PIIX3\n");
 	return -1;
@@ -438,9 +433,9 @@ static int setup_pci(struct vm_device * dev) {
 
     piix3->southbridge_pci = pci_dev;
 
-    v3_pci_set_irq_bridge(piix3->pci_bus, bus_num, raise_pci_irq, lower_pci_irq, dev);
+    v3_pci_set_irq_bridge(piix3->pci_bus, bus_num, raise_pci_irq, lower_pci_irq, piix3);
 
-    reset_piix3(dev);
+    reset_piix3(piix3);
 
     return 0;
 }
@@ -468,7 +463,7 @@ static int piix3_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     PrintDebug("Created PIIX3\n");
 
-    return setup_pci(dev);
+    return setup_pci(piix3);
 }
 
 

@@ -58,9 +58,8 @@ static void stop_rx(void * private_data){
 
 /* called by frontend, send pkt to VNET */
 static int vnet_nic_send(uint8_t * buf, uint32_t len, 
-			 void * private_data, 
-			 struct vm_device * dest_dev){
-    struct vnet_nic_state *vnetnic = (struct vnet_nic_state *)private_data;
+			 void * private_data) {
+    struct vnet_nic_state * vnetnic = (struct vnet_nic_state *)private_data;
 
     struct v3_vnet_pkt pkt;
     pkt.size = len;
@@ -124,9 +123,7 @@ static int vnet_nic_free(struct vm_device * dev) {
 
 static struct v3_device_ops dev_ops = {
     .free = vnet_nic_free,
-    .reset = NULL,
-    .start = NULL,
-    .stop = NULL,
+
 };
 
 static struct v3_vnet_dev_ops vnet_dev_ops = {

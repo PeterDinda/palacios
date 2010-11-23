@@ -357,8 +357,8 @@ static struct intr_router_ops router_ops = {
 };
 
 
-static int read_master_port1(struct guest_info * core, ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
-    struct pic_internal * state = (struct pic_internal*)dev->private_data;
+static int read_master_port1(struct guest_info * core, ushort_t port, void * dst, uint_t length, void * priv_data) {
+    struct pic_internal * state = (struct pic_internal *)priv_data;
 
     if (length != 1) {
 	PrintError("8259 PIC: Invalid Read length (rd_Master1)\n");
@@ -376,8 +376,8 @@ static int read_master_port1(struct guest_info * core, ushort_t port, void * dst
     return 1;
 }
 
-static int read_master_port2(struct guest_info * core, ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
-    struct pic_internal * state = (struct pic_internal*)dev->private_data;
+static int read_master_port2(struct guest_info * core, ushort_t port, void * dst, uint_t length, void * priv_data) {
+    struct pic_internal * state = (struct pic_internal *)priv_data;
 
     if (length != 1) {
 	PrintError("8259 PIC: Invalid Read length (rd_Master2)\n");
@@ -390,8 +390,8 @@ static int read_master_port2(struct guest_info * core, ushort_t port, void * dst
   
 }
 
-static int read_slave_port1(struct guest_info * core, ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
-    struct pic_internal * state = (struct pic_internal*)dev->private_data;
+static int read_slave_port1(struct guest_info * core, ushort_t port, void * dst, uint_t length, void * priv_data) {
+    struct pic_internal * state = (struct pic_internal *)priv_data;
 
     if (length != 1) {
 	PrintError("8259 PIC: Invalid Read length (rd_Slave1)\n");
@@ -409,8 +409,8 @@ static int read_slave_port1(struct guest_info * core, ushort_t port, void * dst,
     return 1;
 }
 
-static int read_slave_port2(struct guest_info * core, ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
-    struct pic_internal * state = (struct pic_internal*)dev->private_data;
+static int read_slave_port2(struct guest_info * core, ushort_t port, void * dst, uint_t length, void * priv_data) {
+    struct pic_internal * state = (struct pic_internal *)priv_data;
 
     if (length != 1) {
 	PrintError("8259 PIC: Invalid Read length  (rd_Slave2)\n");
@@ -423,8 +423,8 @@ static int read_slave_port2(struct guest_info * core, ushort_t port, void * dst,
 }
 
 
-static int write_master_port1(struct guest_info * core, ushort_t port, void * src, uint_t length, struct vm_device * dev) {
-    struct pic_internal * state = (struct pic_internal*)dev->private_data;
+static int write_master_port1(struct guest_info * core, ushort_t port, void * src, uint_t length, void * priv_data) {
+    struct pic_internal * state = (struct pic_internal *)priv_data;
     uchar_t cw = *(uchar_t *)src;
 
     PrintDebug("8259 PIC: Write master port 1 with 0x%x\n",cw);
@@ -491,8 +491,8 @@ static int write_master_port1(struct guest_info * core, ushort_t port, void * sr
     return 1;
 }
 
-static int write_master_port2(struct guest_info * core, ushort_t port, void * src, uint_t length, struct vm_device * dev) {
-    struct pic_internal * state = (struct pic_internal*)dev->private_data;
+static int write_master_port2(struct guest_info * core, ushort_t port, void * src, uint_t length, void * priv_data) {
+    struct pic_internal * state = (struct pic_internal *)priv_data;
     uchar_t cw = *(uchar_t *)src;    
 
     PrintDebug("8259 PIC: Write master port 2 with 0x%x\n",cw);
@@ -552,8 +552,8 @@ static int write_master_port2(struct guest_info * core, ushort_t port, void * sr
     return 1;
 }
 
-static int write_slave_port1(struct guest_info * core, ushort_t port, void * src, uint_t length, struct vm_device * dev) {
-    struct pic_internal * state = (struct pic_internal*)dev->private_data;
+static int write_slave_port1(struct guest_info * core, ushort_t port, void * src, uint_t length, void * priv_data) {
+    struct pic_internal * state = (struct pic_internal *)priv_data;
     uchar_t cw = *(uchar_t *)src;
 
     PrintDebug("8259 PIC: Write slave port 1 with 0x%x\n",cw);
@@ -613,8 +613,8 @@ static int write_slave_port1(struct guest_info * core, ushort_t port, void * src
     return 1;
 }
 
-static int write_slave_port2(struct guest_info * core, ushort_t port, void * src, uint_t length, struct vm_device * dev) {
-    struct pic_internal * state = (struct pic_internal*)dev->private_data;
+static int write_slave_port2(struct guest_info * core, ushort_t port, void * src, uint_t length, void * priv_data) {
+    struct pic_internal * state = (struct pic_internal *)priv_data;
     uchar_t cw = *(uchar_t *)src;    
 
     PrintDebug("8259 PIC: Write slave port 2 with 0x%x\n",cw);
@@ -673,8 +673,8 @@ static int write_slave_port2(struct guest_info * core, ushort_t port, void * src
 
 
 
-static int read_elcr_port(struct guest_info * core, ushort_t port, void * dst, uint_t length, struct vm_device * dev) {
-    struct pic_internal * state = (struct pic_internal*)dev->private_data;
+static int read_elcr_port(struct guest_info * core, ushort_t port, void * dst, uint_t length, void * priv_data) {
+    struct pic_internal * state = (struct pic_internal *)priv_data;
     
     if (length != 1) {
 	PrintError("ELCR read of invalid length %d\n", length);
@@ -695,8 +695,8 @@ static int read_elcr_port(struct guest_info * core, ushort_t port, void * dst, u
 }
 
 
-static int write_elcr_port(struct guest_info * core, ushort_t port, void * src, uint_t length, struct vm_device * dev) {
-    struct pic_internal * state = (struct pic_internal*)dev->private_data;
+static int write_elcr_port(struct guest_info * core, ushort_t port, void * src, uint_t length, void * priv_data) {
+    struct pic_internal * state = (struct pic_internal *)priv_data;
     
     if (length != 1) {
 	PrintError("ELCR read of invalid length %d\n", length);
@@ -722,10 +722,6 @@ static int write_elcr_port(struct guest_info * core, ushort_t port, void * src, 
 
 
 static int pic_free(struct vm_device * dev) {
-    v3_dev_unhook_io(dev, MASTER_PORT1);
-    v3_dev_unhook_io(dev, MASTER_PORT2);
-    v3_dev_unhook_io(dev, SLAVE_PORT1);
-    v3_dev_unhook_io(dev, SLAVE_PORT2);
 
     return 0;
 }
@@ -738,9 +734,7 @@ static int pic_free(struct vm_device * dev) {
 
 static struct v3_device_ops dev_ops = {
     .free = pic_free,
-    .reset = NULL,
-    .start = NULL,
-    .stop = NULL,
+
 };
 
 

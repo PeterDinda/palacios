@@ -216,9 +216,6 @@ static int disk_free(struct vm_device * dev) {
 
 static struct v3_device_ops dev_ops = {
     .free = disk_free,
-    .reset = NULL,
-    .start = NULL,
-    .stop = NULL,
 };
 
 

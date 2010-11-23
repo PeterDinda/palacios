@@ -97,12 +97,12 @@ int v3_init_dev_mgr(struct v3_vm_info * vm) {
     INIT_LIST_HEAD(&(mgr->blk_list));
     INIT_LIST_HEAD(&(mgr->net_list));
     INIT_LIST_HEAD(&(mgr->char_list));
-    INIT_LIST_HEAD(&(mgr->console_list));
+    INIT_LIST_HEAD(&(mgr->cons_list));
 
     mgr->blk_table = v3_create_htable(0, dev_hash_fn, dev_eq_fn);
     mgr->net_table = v3_create_htable(0, dev_hash_fn, dev_eq_fn);
     mgr->char_table = v3_create_htable(0, dev_hash_fn, dev_eq_fn);
-    mgr->console_table = v3_create_htable(0, dev_hash_fn, dev_eq_fn);
+    mgr->cons_table = v3_create_htable(0, dev_hash_fn, dev_eq_fn);
     
     return 0;
 }
@@ -120,36 +120,13 @@ int v3_dev_mgr_deinit(struct v3_vm_info * vm) {
     v3_free_htable(mgr->blk_table, 0, 0);
     v3_free_htable(mgr->net_table, 0, 0);
     v3_free_htable(mgr->char_table, 0, 0);
-    v3_free_htable(mgr->console_table, 0, 0);
+    v3_free_htable(mgr->cons_table, 0, 0);
 
     v3_free_htable(mgr->dev_table, 0, 0);
 
     return 0;
 }
 
-/*
-int v3_init_core_dev_mgr(struct v3_vm_info * vm) {
-    struct v3_core_dev_mgr * mgr = &(vm->core_dev_mgr);
-
-    INIT_LIST_HEAD(&(mgr->dev_list));
-    mgr->dev_table = v3_create_htable(0, dev_hash_fn, dev_eq_fn);
-
-    return 0;
-}
-
-int v3_core_dev_mgr_deinit(struct v3_vm_info * vm) {
-    struct vm_device * dev;
-    struct v3_core_dev_mgr * mgr = &(vm->core_dev_mgr);
-    struct vm_device * tmp;
-
-    list_for_each_entry_safe(dev, tmp, &(mgr->dev_list), dev_link) {
-	v3_detach_device(dev);
-    }
-
-    // TODO: Clear hash tables 
-
-}
-*/
 
 
 int v3_create_device(struct v3_vm_info * vm, const char * dev_name, v3_cfg_tree_t * cfg) {
@@ -193,19 +170,58 @@ struct vm_device * v3_find_dev(struct v3_vm_info * vm, const char * dev_name) {
 /* The remaining functions are called by the devices themselves */
 /****************************************************************/
 
+struct dev_io_hook {
+    uint16_t port;
+
+    struct list_head node;
+
+};
+
 /* IO HOOKS */
 int v3_dev_hook_io(struct vm_device * dev, uint16_t port,
-		   int (*read)(struct guest_info * core, uint16_t port, void * dst, uint_t length, struct vm_device * dev),
-		   int (*write)(struct guest_info * core, uint16_t port, void * src, uint_t length, struct vm_device * dev)) {
-    return v3_hook_io_port(dev->vm, port, 
-			   (int (*)(struct guest_info * core, ushort_t, void *, uint_t, void *))read, 
-			   (int (*)(struct guest_info * core, ushort_t, void *, uint_t, void *))write, 
-			   (void *)dev);
+		   int (*read)(struct guest_info * core, uint16_t port, void * dst, uint_t length, void * priv_data),
+		   int (*write)(struct guest_info * core, uint16_t port, void * src, uint_t length, void * priv_data)) {
+    struct dev_io_hook * io_hook = NULL;
+    int ret = 0;
+    
+   ret = v3_hook_io_port(dev->vm, port, 
+			 (int (*)(struct guest_info * core, ushort_t, void *, uint_t, void *))read, 
+			 (int (*)(struct guest_info * core, ushort_t, void *, uint_t, void *))write, 
+			 (void *)dev->private_data);
+
+   if (ret == -1) {
+       return -1;
+   }
+
+   io_hook = V3_Malloc(sizeof(struct dev_io_hook));
+
+   if (io_hook == NULL) {
+       PrintError("Could not allocate io hook dev state\n");
+       return -1;
+   }
+
+   io_hook->port = port;
+   list_add(&(io_hook->node), &(dev->io_hooks));
+
+   return 0;
 }
 
 
 int v3_dev_unhook_io(struct vm_device * dev, uint16_t port) {
-    return v3_unhook_io_port(dev->vm, port);
+    struct dev_io_hook * io_hook = NULL;
+    struct dev_io_hook * tmp;
+
+    list_for_each_entry_safe(io_hook, tmp, &(dev->io_hooks), node) {
+	if (io_hook->port == port) {
+
+	    list_del(&(io_hook->node));
+	    V3_Free(io_hook);
+	    
+	    return v3_unhook_io_port(dev->vm, port);	    
+	}
+    }
+
+    return -1;
 }
 
 
@@ -235,6 +251,8 @@ struct vm_device * v3_allocate_device(char * name,
     struct vm_device * dev = NULL;
 
     dev = (struct vm_device*)V3_Malloc(sizeof(struct vm_device));
+
+    INIT_LIST_HEAD(&(dev->io_hooks));
 
     strncpy(dev->name, name, 32);
     dev->ops = ops;
@@ -405,6 +423,67 @@ int v3_dev_connect_net(struct v3_vm_info * vm,
 }
 
 
+struct cons_frontend {
+    int (*connect)(struct v3_vm_info * vm, 
+		   void * frontend_data, 
+		   struct v3_dev_console_ops * ops, 
+		   v3_cfg_tree_t * cfg, 
+		   void * priv_data);
+    
+
+    struct list_head cons_node;
+
+    void * priv_data;
+};
+
+int v3_dev_add_console_frontend(struct v3_vm_info * vm, 
+				char * name, 
+				int (*connect)(struct v3_vm_info * vm, 
+					       void * frontend_data, 
+					       struct v3_dev_console_ops * ops, 
+					       v3_cfg_tree_t * cfg, 
+					       void * private_data), 
+				void * priv_data)
+{
+    struct cons_frontend * frontend = NULL;
+
+    frontend = (struct cons_frontend *)V3_Malloc(sizeof(struct cons_frontend));
+    memset(frontend, 0, sizeof(struct cons_frontend));
+    
+    frontend->connect = connect;
+    frontend->priv_data = priv_data;
+	
+    list_add(&(frontend->cons_node), &(vm->dev_mgr.cons_list));
+    v3_htable_insert(vm->dev_mgr.cons_table, (addr_t)(name), (addr_t)frontend);
+
+    return 0;
+}
+
+
+int v3_dev_connect_console(struct v3_vm_info * vm, 
+			   char * frontend_name, 
+			   struct v3_dev_console_ops * ops, 
+			   v3_cfg_tree_t * cfg, 
+			   void * private_data)
+{
+    struct cons_frontend * frontend = NULL;
+
+    frontend = (struct cons_frontend *)v3_htable_search(vm->dev_mgr.cons_table,
+							(addr_t)frontend_name);
+    
+    if (frontend == NULL) {
+	PrintError("Could not find frontend console device %s\n", frontend_name);
+	return 0;
+    }
+    
+    if (frontend->connect(vm, frontend->priv_data, ops, cfg, private_data) == -1) {
+	PrintError("Error connecting to console frontend %s\n", frontend_name);
+	return -1;
+    }
+
+    return 0;
+}
+
 struct char_frontend {
     int (*connect)(struct v3_vm_info * vm, 
 		   void * frontend_data, 
@@ -418,8 +497,6 @@ struct char_frontend {
 
     void * priv_data;
 };
-
-
 
 int v3_dev_add_char_frontend(struct v3_vm_info * vm, 
 			     char * name, 

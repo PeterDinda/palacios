@@ -127,7 +127,7 @@ struct pit_rdb_status_word {
  * This should call out to handle_SQR_WAVE_tics, etc... 
  */
 // Returns true if the the output signal changed state
-static int handle_crystal_tics(struct vm_device * dev, struct channel * ch, uint_t oscillations) {
+static int handle_crystal_tics(struct pit * pit, struct channel * ch, uint_t oscillations) {
     uint_t channel_cycles = 0;
     uint_t output_changed = 0;
   
@@ -239,8 +239,7 @@ static int handle_crystal_tics(struct vm_device * dev, struct channel * ch, uint
 #include <palacios/vm_guest.h>
 
 static void pit_update_timer(struct guest_info * info, ullong_t cpu_cycles, ullong_t cpu_freq, void * private_data) {
-    struct vm_device * dev = (struct vm_device *)private_data;
-    struct pit * state = (struct pit *)dev->private_data;
+    struct pit * state = (struct pit *)private_data;
     //  ullong_t tmp_ctr = state->pit_counter;
     ullong_t tmp_cycles;
     uint_t oscillations = 0;
@@ -299,14 +298,14 @@ static void pit_update_timer(struct guest_info * info, ullong_t cpu_cycles, ullo
 	state->pit_counter = state->pit_reload - cpu_cycles;    
 
 	//PrintDebug("8254 PIT: Handling %d crystal tics\n", oscillations);
-	if (handle_crystal_tics(dev, &(state->ch_0), oscillations) == 1) {
+	if (handle_crystal_tics(state, &(state->ch_0), oscillations) == 1) {
 	    // raise interrupt
 	    PrintDebug("8254 PIT: Injecting Timer interrupt to guest\n");
 	    v3_raise_irq(info->vm_info, 0);
 	}
 
-	//handle_crystal_tics(dev, &(state->ch_1), oscillations);
-	handle_crystal_tics(dev, &(state->ch_2), oscillations);
+	//handle_crystal_tics(state, &(state->ch_1), oscillations);
+	handle_crystal_tics(state, &(state->ch_2), oscillations);
     }
   
 
@@ -478,8 +477,7 @@ static int handle_channel_cmd(struct channel * ch, struct pit_cmd_word cmd) {
 
 
 static int pit_read_channel(struct guest_info * core, ushort_t port, void * dst, uint_t length, void * priv_data) {
-    struct vm_device * dev = (struct vm_device *)priv_data;
-    struct pit * state = (struct pit *)dev->private_data;
+    struct pit * state = (struct pit *)priv_data;
     char * val = (char *)dst;
 
     if (length != 1) {
@@ -525,8 +523,7 @@ static int pit_read_channel(struct guest_info * core, ushort_t port, void * dst,
 
 
 static int pit_write_channel(struct guest_info * core, ushort_t port, void * src, uint_t length, void * priv_data) {
-    struct vm_device * dev = (struct vm_device *)priv_data;
-    struct pit * state = (struct pit *)dev->private_data;
+    struct pit * state = (struct pit *)priv_data;
     char val = *(char *)src;
 
     if (length != 1) {
@@ -574,8 +571,7 @@ static int pit_write_channel(struct guest_info * core, ushort_t port, void * src
 
 
 static int pit_write_command(struct guest_info * core, ushort_t port, void * src, uint_t length, void * priv_data) {
-    struct vm_device * dev = (struct vm_device *)priv_data;
-    struct pit * state = (struct pit *)dev->private_data;
+    struct pit * state = (struct pit *)priv_data;
     struct pit_cmd_word * cmd = (struct pit_cmd_word *)src;
 
     PrintDebug("8254 PIT: Write to PIT Command port\n");
@@ -654,13 +650,7 @@ static int pit_free(struct vm_device * dev) {
     if (state->timer) {
 	v3_remove_timer(info, state->timer);
     }
-
-    v3_unhook_io_port(dev->vm, CHANNEL0_PORT);
-    v3_unhook_io_port(dev->vm, CHANNEL1_PORT);
-    v3_unhook_io_port(dev->vm, CHANNEL2_PORT);
-    v3_unhook_io_port(dev->vm, COMMAND_PORT);
-    v3_unhook_io_port(dev->vm, SPEAKER_PORT);
-    
+ 
     V3_Free(state);
     return 0;
 }
@@ -668,9 +658,7 @@ static int pit_free(struct vm_device * dev) {
 
 static struct v3_device_ops dev_ops = {
     .free = pit_free,
-    .reset = NULL,
-    .start = NULL,
-    .stop = NULL,
+
 
 };
 
@@ -701,11 +689,11 @@ static int pit_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	return -1;
     }
 
-    ret |= v3_hook_io_port(vm, CHANNEL0_PORT, &pit_read_channel, &pit_write_channel, dev);
-    ret |= v3_hook_io_port(vm, CHANNEL1_PORT, &pit_read_channel, &pit_write_channel, dev);
-    ret |= v3_hook_io_port(vm, CHANNEL2_PORT, &pit_read_channel, &pit_write_channel, dev);
-    ret |= v3_hook_io_port(vm, COMMAND_PORT, NULL, &pit_write_command, dev);
-    ret |= v3_hook_io_port(vm, SPEAKER_PORT, &pit_read_channel, &pit_write_channel, dev);
+    ret |= v3_dev_hook_io(dev, CHANNEL0_PORT, &pit_read_channel, &pit_write_channel);
+    ret |= v3_dev_hook_io(dev, CHANNEL1_PORT, &pit_read_channel, &pit_write_channel);
+    ret |= v3_dev_hook_io(dev, CHANNEL2_PORT, &pit_read_channel, &pit_write_channel);
+    ret |= v3_dev_hook_io(dev, COMMAND_PORT, NULL, &pit_write_command);
+    ret |= v3_dev_hook_io(dev, SPEAKER_PORT, &pit_read_channel, &pit_write_channel);
 
     if (ret != 0) {
 	PrintError("8254 PIT: Failed to hook IO ports\n");
@@ -721,7 +709,7 @@ static int pit_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     
 
-    pit_state->timer = v3_add_timer(info, &timer_ops, dev);
+    pit_state->timer = v3_add_timer(info, &timer_ops, pit_state);
 
     if (pit_state->timer == NULL) {
 	v3_detach_device(dev);

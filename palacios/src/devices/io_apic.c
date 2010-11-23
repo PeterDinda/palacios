@@ -135,7 +135,7 @@ struct io_apic_state {
   
     struct redir_tbl_entry redir_tbl[24];
 
-    struct vm_device * apic_dev;
+    void * apic_dev_data;
   
 };
 
@@ -162,8 +162,7 @@ static void init_ioapic_state(struct io_apic_state * ioapic, uint32_t id) {
 
 
 static int ioapic_read(struct guest_info * core, addr_t guest_addr, void * dst, uint_t length, void * priv_data) {
-    struct vm_device * dev = (struct vm_device *)priv_data;
-    struct io_apic_state * ioapic = (struct io_apic_state *)(dev->private_data);
+    struct io_apic_state * ioapic = (struct io_apic_state *)(priv_data);
     uint32_t reg_tgt = guest_addr - ioapic->base_addr;
     uint32_t * op_val = (uint32_t *)dst;
 
@@ -208,8 +207,7 @@ static int ioapic_read(struct guest_info * core, addr_t guest_addr, void * dst, 
 
 
 static int ioapic_write(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data) {
-    struct vm_device * dev = (struct vm_device *)priv_data;
-    struct io_apic_state * ioapic = (struct io_apic_state *)(dev->private_data);
+    struct io_apic_state * ioapic = (struct io_apic_state *)(priv_data);
     uint32_t reg_tgt = guest_addr - ioapic->base_addr;
     uint32_t op_val = *(uint32_t *)src;
 
@@ -262,8 +260,7 @@ static int ioapic_write(struct guest_info * core, addr_t guest_addr, void * src,
 
 
 static int ioapic_raise_irq(struct v3_vm_info * vm, void * private_data, int irq) {
-    struct vm_device * dev = (struct vm_device *)private_data;
-    struct io_apic_state * ioapic = (struct io_apic_state *)(dev->private_data);  
+    struct io_apic_state * ioapic = (struct io_apic_state *)(private_data);  
     struct redir_tbl_entry * irq_entry = NULL;
 
     if (irq > 24) {
@@ -288,7 +285,7 @@ static int ioapic_raise_irq(struct v3_vm_info * vm, void * private_data, int irq
 	ipi.dst_shorthand = 0;
 
 	// Need to add destination argument here...
-	if (v3_apic_send_ipi(vm, ioapic->apic_dev, &ipi) == -1) {
+	if (v3_apic_send_ipi(vm, &ipi, ioapic->apic_dev_data) == -1) {
 	    PrintError("Error sending IPI to apic %d\n", ipi.dst);
 	    return -1;
 	}
@@ -319,9 +316,7 @@ static int io_apic_free(struct vm_device * dev) {
 
 static struct v3_device_ops dev_ops = {
     .free = io_apic_free,
-    .reset = NULL,
-    .start = NULL,
-    .stop = NULL,
+
 };
 
 
@@ -335,7 +330,7 @@ static int ioapic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     struct io_apic_state * ioapic = (struct io_apic_state *)V3_Malloc(sizeof(struct io_apic_state));
 
-    ioapic->apic_dev = apic_dev;
+    ioapic->apic_dev_data = apic_dev;
 
     struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, ioapic);
 
@@ -346,12 +341,12 @@ static int ioapic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     }
 
 
-    v3_register_intr_router(vm, &router_ops, dev);
+    v3_register_intr_router(vm, &router_ops, ioapic);
 
-    init_ioapic_state(ioapic,vm->num_cores);
+    init_ioapic_state(ioapic, vm->num_cores);
 
     v3_hook_full_mem(vm, V3_MEM_CORE_ANY, ioapic->base_addr, ioapic->base_addr + PAGE_SIZE_4KB, 
-		     ioapic_read, ioapic_write, dev);
+		     ioapic_read, ioapic_write, ioapic);
   
     return 0;
 }

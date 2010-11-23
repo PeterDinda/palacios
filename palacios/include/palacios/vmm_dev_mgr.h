@@ -33,6 +33,9 @@ struct v3_vm_info;
 
 struct v3_device_ops;
 
+typedef void * v3_dev_data_t;
+
+struct vm_device;
 
 struct vm_device {
     char name[32];
@@ -65,8 +68,8 @@ struct vmm_dev_mgr {
     struct list_head char_list;
     struct hashtable * char_table;
 
-    struct list_head console_list;
-    struct hashtable * console_table;
+    struct list_head cons_list;
+    struct hashtable * cons_table;
 
 };
 
@@ -100,14 +103,7 @@ int v3_init_devices();
 
 
 struct v3_device_ops {
-    int (*free)(struct vm_device *dev);
-
-
-    int (*reset)(struct vm_device *dev);
-
-    int (*start)(struct vm_device *dev);
-    int (*stop)(struct vm_device *dev);
-
+    int (*free)(struct vm_device * dev);
 
     //int (*save)(struct vm_device *dev, struct *iostream);
     //int (*restore)(struct vm_device *dev, struct *iostream);
@@ -118,12 +114,12 @@ struct v3_device_ops {
 
 
 
-int v3_dev_hook_io(struct vm_device   *dev,
+int v3_dev_hook_io(struct vm_device   * dev,
 		   ushort_t            port,
-		   int (*read)(struct guest_info * core, ushort_t port, void * dst, uint_t length, struct vm_device * dev),
-		   int (*write)(struct guest_info * core, ushort_t port, void * src, uint_t length, struct vm_device * dev));
+		   int (*read)(struct guest_info * core, ushort_t port, void * dst, uint_t length, void * priv_data),
+		   int (*write)(struct guest_info * core, ushort_t port, void * src, uint_t length, void * priv_data));
 
-int v3_dev_unhook_io(struct vm_device   *dev,
+int v3_dev_unhook_io(struct vm_device   * dev,
 		     ushort_t            port);
 
 
@@ -162,9 +158,9 @@ struct v3_dev_blk_ops {
 
 struct v3_dev_net_ops {
     /* Backend implemented functions */
-    int (*send)(uint8_t * buf, uint32_t count, void * private_data, struct vm_device *dest_dev);
-    void (*start_rx)(void *back_data);
-    void (*stop_rx)(void *back_data);
+    int (*send)(uint8_t * buf, uint32_t count, void * private_data);
+    void (*start_rx)(void * back_data);
+    void (*stop_rx)(void * back_data);
 
     /* Frontend implemented functions */
     int (*recv)(uint8_t * buf, uint32_t count, void * frnt_data);
@@ -177,7 +173,13 @@ struct v3_dev_net_ops {
 };
 
 struct v3_dev_console_ops {
+    int (*update_screen)(uint_t x, uint_t y, uint_t length, uint8_t * fb_data, void * private_data);
+    int (*update_cursor)(uint_t x, uint_t y, void * private_data);
+    int (*scroll)(int rows, void * private_data);
 
+    /* frontend implemented functions */
+    int (*get_screen)(uint_t x, uint_t y, uint_t length, void * frontend_data);
+    void * push_fn_arg;
 };
 
 struct v3_dev_char_ops {
@@ -219,6 +221,25 @@ int v3_dev_connect_net(struct v3_vm_info * vm,
 		       struct v3_dev_net_ops * ops, 
 		       v3_cfg_tree_t * cfg, 
 		       void * private_data);
+
+
+
+
+int v3_dev_add_console_frontend(struct v3_vm_info * vm, 
+				char * name, 
+				int (*connect)(struct v3_vm_info * vm, 
+					       void * frontend_data, 
+					       struct v3_dev_console_ops * ops, 
+					       v3_cfg_tree_t * cfg, 
+					       void * private_data), 
+				void * priv_data);
+
+int v3_dev_connect_console(struct v3_vm_info * vm, 
+			   char * frontend_name, 
+			   struct v3_dev_console_ops * ops, 
+			   v3_cfg_tree_t * cfg, 
+			   void * private_data);
+
 
 
 int v3_dev_add_char_frontend(struct v3_vm_info * vm, 

@@ -37,9 +37,6 @@ typedef enum {GENERIC_IGNORE,
 	      GENERIC_PRINT_AND_IGNORE} generic_mode_t;
 
 struct generic_internal {
-    struct list_head port_list;
-    uint_t num_port_ranges;
-
 };
 
 
@@ -153,27 +150,8 @@ static int generic_read_port_ignore(struct guest_info * core, uint16_t port, voi
 
 static int generic_free(struct vm_device * dev) {
     struct generic_internal * state = (struct generic_internal *)(dev->private_data);
-    struct port_range * tmp;
-    struct port_range * cur;
 
     PrintDebug("generic: deinit_device\n");
-
-    list_for_each_entry_safe(cur, tmp, &(state->port_list), range_link) {
-	uint_t i;
-
-	PrintDebug("generic: unhooking ports 0x%x to 0x%x\n",
-		   cur->start, cur->end);
-	
-	for (i = cur->start; i <= cur->end; i++) {
-	    if (v3_unhook_io_port(dev->vm, i)) {
-		PrintDebug("generic: can't unhook port 0x%x (already unhooked?)\n", i);
-	    }
-	}
-
-	list_del(&(cur->range_link));
-	state->num_port_ranges--;
-	V3_Free(cur);
-    }
 
     V3_Free(state);
     return 0;
@@ -191,38 +169,29 @@ static struct v3_device_ops dev_ops = {
 
 
 static int add_port_range(struct vm_device * dev, uint_t start, uint_t end, generic_mode_t mode) {
-    struct generic_internal * state = (struct generic_internal *)(dev->private_data);
-    struct port_range * range = (struct port_range *)V3_Malloc(sizeof(struct port_range));
     uint_t i = 0;
 
-    range->start = start;
-    range->end = end;
-    range->mode = mode;
-      
     PrintDebug("generic: Adding Port Range: 0x%x to 0x%x as %s\n", 
 	       start, end, 
 	       (mode == GENERIC_PRINT_AND_PASSTHROUGH) ? "print-and-passthrough" : "print-and-ignore");
     
     for (i = start; i <= end; i++) { 
 	if (mode == GENERIC_PRINT_AND_PASSTHROUGH) { 
-	    if (v3_hook_io_port(dev->vm, i, 
+	    if (v3_dev_hook_io(dev, i, 
 				&generic_read_port_passthrough, 
-				&generic_write_port_passthrough, dev) == -1) { 
+				&generic_write_port_passthrough) == -1) { 
 		PrintError("generic: can't hook port 0x%x (already hooked?)\n", i);
 		return -1;
 	    }
 	} else if (mode == GENERIC_PRINT_AND_IGNORE) { 
-	    if (v3_hook_io_port(dev->vm, i, 
+	    if (v3_dev_hook_io(dev, i, 
 				&generic_read_port_ignore, 
-				&generic_write_port_ignore, dev) == -1) { 
+				&generic_write_port_ignore) == -1) { 
 		PrintError("generic: can't hook port 0x%x (already hooked?)\n", i);
 		return -1;
 	    }
 	} 
     }
-
-    list_add(&(range->range_link), &(state->port_list));
-    state->num_port_ranges++;
     
     return 0;
 }
@@ -245,9 +214,6 @@ static int generic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     }
     
     memset(state, 0, sizeof(struct generic_internal));
-
-    INIT_LIST_HEAD(&(state->port_list));
-    state->num_port_ranges = 0;
     
     struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, state);
 
