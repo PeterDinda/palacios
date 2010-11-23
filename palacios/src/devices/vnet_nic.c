@@ -196,7 +196,7 @@ static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 			   &(vnetnic->net_ops), frontend_cfg, vnetnic) == -1) {
 	PrintError("Could not connect %s to frontend %s\n", 
 		   dev_id, v3_cfg_val(frontend_cfg, "tag"));
-	v3_remove_device(vnetnic);
+	v3_remove_device(dev);
 	return -1;
     }
 
@@ -205,7 +205,7 @@ static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     if ((vnet_dev_id = register_to_vnet(vm, vnetnic, dev_id, vnetnic->mac)) == -1) {
 	PrintError("Vnet-nic device %s (mac: %s) fails to registered to VNET\n", dev_id, macstr);
-	v3_remove_device(vnetnic);
+	v3_remove_device(dev);
 	return 0;
     }
 

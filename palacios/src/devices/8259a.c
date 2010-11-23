@@ -749,11 +749,10 @@ static int pic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     // PIC is only usable in non-multicore environments
     // just hardcode the core context
     struct guest_info * core = &(vm->cores[0]);
+	
+    state = (struct pic_internal *)V3_Malloc(sizeof(struct pic_internal));
 
     V3_ASSERT(state != NULL);
-    
-    state = (struct pic_internal *)V3_Malloc(sizeof(struct pic_internal));
- 
 
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, state);
 
