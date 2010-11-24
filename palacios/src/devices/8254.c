@@ -680,8 +680,10 @@ static int pit_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     ullong_t reload_val = (ullong_t)cpu_khz * 1000;
 
     pit_state = (struct pit *)V3_Malloc(sizeof(struct pit));
+
     V3_ASSERT(pit_state != NULL);
     pit_state->speaker = 0;
+    pit_state->vm = vm;
 
     dev = v3_add_device(vm, dev_id, &dev_ops, pit_state);
 

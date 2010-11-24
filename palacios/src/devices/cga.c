@@ -269,8 +269,7 @@ static int crtc_index_write(struct guest_info * core, uint16_t port, void * src,
 		   port, port);
 	return -1;
     }
-		   
-
+    
     video_state->crtc_index_reg = *(uint8_t *)src;
 
     // Only do the passthrough IO for the first byte
@@ -302,6 +301,7 @@ int v3_cons_get_fb(struct vm_device * frontend_dev, uint8_t * dst, uint_t offset
     V3_ASSERT(offset < SCREEN_SIZE);
     V3_ASSERT(length <= SCREEN_SIZE);
     V3_ASSERT(offset + length <= SCREEN_SIZE);
+
     memcpy(dst, state->framebuf + screen_byte_offset + offset, length);
 
     return 0;
@@ -309,14 +309,14 @@ int v3_cons_get_fb(struct vm_device * frontend_dev, uint8_t * dst, uint_t offset
 
 
 
-static int free_device(struct video_internal * video_state) {
+static int free_cga(struct video_internal * video_state) {
 
     if (video_state->framebuf_pa) {
+	PrintError("Freeing framebuffer PA %p\n", (void *)(video_state->framebuf_pa));
 	V3_FreePages((void *)(video_state->framebuf_pa), (FRAMEBUF_SIZE / 4096));
     }
 
     v3_unhook_mem(video_state->dev->vm, V3_MEM_CORE_ANY, START_ADDR);
-
 
     V3_Free(video_state);
 
@@ -325,7 +325,7 @@ static int free_device(struct video_internal * video_state) {
 
 
 static struct v3_device_ops dev_ops = {
-    .free = (int (*)(void *))free_device,
+    .free = (int (*)(void *))free_cga,
 };
 
 static int cga_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {

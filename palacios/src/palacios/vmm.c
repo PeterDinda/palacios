@@ -283,11 +283,15 @@ int v3_stop_vm(struct v3_vm_info * vm) {
 	}
 
 	if (still_running == 0) {
-	    break;
+ 	    break;
 	}
-	
+
+ 	V3_Print("Yielding\n");
+
 	v3_yield(NULL);
     }
+    
+    V3_Print("VM stopped. Returning\n");
 
     return 0;
 }
