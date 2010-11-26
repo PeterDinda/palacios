@@ -700,12 +700,12 @@ static int read_ctrl_port(struct guest_info * core, uint16_t port, void * dst,
 	    break;
 	}
 
-	case COM1_FIFO_CTRL_PORT:
-	case COM2_FIFO_CTRL_PORT:
-	case COM3_FIFO_CTRL_PORT:
-	case COM4_FIFO_CTRL_PORT:
-	    PrintDebug("UART:read from FCR");
-	    *val = com_port->fcr.val;
+	case COM1_IIR_PORT:
+	case COM2_IIR_PORT:
+	case COM3_IIR_PORT:
+	case COM4_IIR_PORT:
+	    PrintDebug("UART:read from IIR");
+	    *val = com_port->iir.val;
 	    break;
 
 	case COM1_LINE_CTRL_PORT:
