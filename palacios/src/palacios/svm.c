@@ -279,6 +279,12 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
 
 	guest_state->g_pat = 0x7040600070406ULL;
     }
+    
+    /* tell the guest that we don't support SVM */
+    v3_hook_msr(core->vm_info, SVM_VM_CR_MSR, 
+	&v3_handle_vm_cr_read,
+	&v3_handle_vm_cr_write, 
+	core);
 }
 
 

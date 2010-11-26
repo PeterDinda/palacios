@@ -24,6 +24,7 @@
 #include <palacios/vm_guest_mem.h>
 #include <palacios/vmm_ctrl_regs.h>
 #include <palacios/vmm_direct_paging.h>
+#include <palacios/svm.h>
 
 #ifndef CONFIG_DEBUG_CTRL_REGS
 #undef PrintDebug
@@ -568,6 +569,32 @@ int v3_handle_efer_write(struct guest_info * core, uint_t msr, struct v3_msr src
     
     // Enable/Disable Syscall
     shadow_efer->sce = src.value & 0x1;
+    
+    return 0;
+}
+
+int v3_handle_vm_cr_read(struct guest_info * core, uint_t msr, struct v3_msr * dst, void * priv_data) {
+    /* tell the guest that the BIOS disabled SVM, that way it doesn't get 
+     * confused by the fact that CPUID reports SVM as available but it still
+     * cannot be used 
+     */
+    dst->value = SVM_VM_CR_MSR_lock | SVM_VM_CR_MSR_svmdis;
+    PrintDebug("VM_CR Read HI=%x LO=%x\n", dst->hi, dst->lo);
+    return 0;
+}
+
+int v3_handle_vm_cr_write(struct guest_info * core, uint_t msr, struct v3_msr src, void * priv_data) {
+    PrintDebug("VM_CR Write\n");
+    PrintDebug("VM_CR Write Values: HI=%x LO=%x\n", src.hi, src.lo);
+
+    /* writes to LOCK and SVMDIS are silently ignored (according to the spec), 
+     * other writes indicate the guest wants to use some feature we haven't
+     * implemented
+     */
+    if (src.value & ~(SVM_VM_CR_MSR_lock | SVM_VM_CR_MSR_svmdis)) {
+	PrintDebug("VM_CR write sets unsupported bits: HI=%x LO=%x\n", src.hi, src.lo);
+	return -1;
+    }
     
     return 0;
 }
