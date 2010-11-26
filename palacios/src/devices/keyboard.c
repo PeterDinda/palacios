@@ -185,6 +185,9 @@ struct keyboard_internal {
 	// After the Keyboard SET_RATE is called
 	// we wait for the output byte on 64?
 	SET_RATE,
+        // after having a f0 sent to 60
+	// we wait for a new output byte on 60
+    	GETSET_SCANCODES,
     } state;
 
 
@@ -209,6 +212,7 @@ struct keyboard_internal {
     uint8_t wrap;     
 
     int mouse_enabled;
+    int scancode_set;
 
     struct queue kbd_queue;
     struct queue mouse_queue;
@@ -866,6 +870,29 @@ static int keyboard_write_output(struct guest_info * core, ushort_t port, void *
 	    kbd->state = NORMAL;
 	    break;
 
+	case GETSET_SCANCODES:
+    	    switch (data) {
+    	    	case 0:
+	    	    PrintDebug("Keyboard: scancode set being read\n");
+    	    	    push_to_output_queue(kbd, 0x45 - 2 * kbd->scancode_set, COMMAND, KEYBOARD);
+    	    	    break;
+    	    	case 2:
+	    	    PrintDebug("Keyboard: scancode set being set to %d\n", data);
+	    	    kbd->scancode_set = data;
+	    	    push_to_output_queue(kbd, 0xfa, COMMAND, KEYBOARD);
+    	    	    break;
+    	    	case 1:
+    	    	case 3:
+	    	    PrintError("keyboard: unsupported scancode set %d selected\n", data);
+	    	    return -1;
+    	    	default:
+	    	    PrintError("keyboard: unknown scancode set %d selected\n", data);
+	    	    return -1;
+  
+    	    }
+	    kbd->state = NORMAL;
+	    break;
+
 	default:
 	case NORMAL: {
 	    // command is being sent to keyboard controller
@@ -903,6 +930,11 @@ static int keyboard_write_output(struct guest_info * core, ushort_t port, void *
 
 		case 0xee: // echo, used by FreeBSD to probe controller
 		    push_to_output_queue(kbd, 0xee, COMMAND, KEYBOARD);
+		    break;
+
+		case 0xf0: // get/set scancode set
+		    push_to_output_queue(kbd, 0xfa, COMMAND, KEYBOARD);
+		    kbd->state = GETSET_SCANCODES;
 		    break;
 
 		case 0xfe: // resend
@@ -981,6 +1013,7 @@ static int keyboard_reset_device(struct keyboard_internal * kbd) {
     kbd->kbd_queue.count = 0;
 
     kbd->mouse_enabled = 0;
+    kbd->scancode_set = 2;
 
     kbd->state = NORMAL;
     kbd->mouse_state = STREAM;
