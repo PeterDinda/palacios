@@ -542,7 +542,7 @@ static void init_harddrives(struct nvram_internal * nvram) {
 
     // It looks like the BIOS only tracks the disks on the first channel at 0x12?
     for (i = 0; i < 2; i++) {
-	if (v3_ide_get_geometry(nvram->ide, 0, i, &cyls, &heads, &sects) == 0) {
+	if (v3_ide_get_geometry(nvram->ide->private_data, 0, i, &cyls, &heads, &sects) == 0) {
 
 	    int info_reg = info_base_reg + (i * 9);
 
@@ -583,7 +583,7 @@ static void init_harddrives(struct nvram_internal * nvram) {
 	    int drive_num = i % 2;
 	    uint32_t tmp[3];
 
-	    if (v3_ide_get_geometry(nvram->ide, chan_num, drive_num, &tmp[0], &tmp[1], &tmp[2]) == 0) {
+	    if (v3_ide_get_geometry(nvram->ide->private_data, chan_num, drive_num, &tmp[0], &tmp[1], &tmp[2]) == 0) {
 		trans |= TRANSLATE_LBA << (i * 2);
 	    }
 	}
