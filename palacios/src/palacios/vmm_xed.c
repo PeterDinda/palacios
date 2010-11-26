@@ -294,6 +294,55 @@ static int decode_string_op(struct guest_info * info,
 
 
 
+int v3_disasm(struct guest_info * info, void *instr_ptr, addr_t * rip, int mark) {
+    char buffer[256];
+    int i;
+    unsigned length;
+    xed_decoded_inst_t xed_instr;
+    xed_error_enum_t xed_error;
+
+    /* disassemble the specified instruction */
+    if (set_decoder_mode(info, info->decoder_state) == -1) {
+	PrintError("Could not set decoder mode\n");
+	return -1;
+    }
+
+    xed_decoded_inst_zero_set_mode(&xed_instr, info->decoder_state);
+
+    xed_error = xed_decode(&xed_instr, 
+			   REINTERPRET_CAST(const xed_uint8_t *, instr_ptr), 
+			   XED_MAX_INSTRUCTION_BYTES);
+
+    if (xed_error != XED_ERROR_NONE) {
+	PrintError("Xed error: %s\n", xed_error_enum_t2str(xed_error));
+	return -1;
+    }
+
+    /* obtain string representation in AT&T syntax */
+    if (!xed_format_att(&xed_instr, buffer, sizeof(buffer), *rip)) {
+	PrintError("Xed error: cannot disaaemble\n");
+	return -1;
+    }
+
+    /* print address, opcode bytes and the disassembled instruction */
+    length = xed_decoded_inst_get_length(&xed_instr);
+    V3_Print("0x%p %c ", (void *) *rip, mark ? '*' : ' ');
+    for (i = 0; i < length; i++) {
+    	unsigned char b = ((unsigned char *) instr_ptr)[i];
+    	V3_Print("%x%x ", b >> 4, b & 0xf);
+    }
+    while (i++ < 8) {
+    	V3_Print("   ");
+    }
+    V3_Print("%s\n", buffer);
+
+    /* move on to next instruction */
+    *rip += length;
+    return 0;
+}
+
+
+
 int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * instr) {
     xed_decoded_inst_t xed_instr;
     xed_error_enum_t xed_error;
