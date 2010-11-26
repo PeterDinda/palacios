@@ -664,6 +664,7 @@ static int init_nvram_state(struct v3_vm_info * vm, struct nvram_internal * nvra
     set_memory(nvram, NVRAM_REG_MONTH_DAY, 0x1);
     set_memory(nvram, NVRAM_REG_WEEK_DAY, 0x1);
     set_memory(nvram, NVRAM_REG_YEAR, 0x08);
+    set_memory(nvram, NVRAM_REG_IBM_CENTURY_BYTE, 0x20);
 
     set_memory(nvram, NVRAM_REG_DIAGNOSTIC_STATUS, 0x00);
     
