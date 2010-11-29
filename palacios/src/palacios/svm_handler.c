@@ -264,6 +264,14 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 		return -1;
 	    }
 	    break;
+	case VMEXIT_SHUTDOWN:
+	    PrintDebug("Guest-initiated shutdown\n");
+
+	    info->vm_info->run_state = VM_STOPPED;
+
+	    // Force exit on other cores
+
+	    break;
 
 
 	    /* Exits Following this line are NOT HANDLED */
