@@ -42,7 +42,7 @@ static int bridge_send(uint8_t * buf, uint32_t len,
 #ifdef CONFIG_DEBUG_NIC_BRIDGE
     {
     	PrintDebug("NIC Bridge: send pkt size: %d\n", len);
-    	//v3_hexdump(buf, len, NULL, 0);
+    	v3_hexdump(buf, len, NULL, 0);
     }
 #endif
 
@@ -54,7 +54,12 @@ static int packet_input(struct v3_vm_info * vm,
 			void * private_data) {
     struct nic_bridge_state * bridge = (struct nic_bridge_state *)private_data;
  
-    PrintDebug("NIC_BRIDGE: Incoming packet size: %d\n", evt->size);
+#ifdef CONFIG_DEBUG_NIC_BRIDGE
+    {
+    	PrintDebug("NIC Bridge: recv pkt size: %d\n", evt->size);
+    	v3_hexdump(evt->pkt, evt->size, NULL, 0);
+    }
+#endif
 
     return bridge->net_ops.recv(evt->pkt, 
 				evt->size, 
@@ -62,7 +67,7 @@ static int packet_input(struct v3_vm_info * vm,
 }
 
 
-static int vnet_nic_free(struct nic_bridge_state * bridge) {
+static int nic_bridge_free(struct nic_bridge_state * bridge) {
 
     /*detach from front device */
 
@@ -72,11 +77,11 @@ static int vnet_nic_free(struct nic_bridge_state * bridge) {
 }
 
 static struct v3_device_ops dev_ops = {
-    .free = (int (*)(void *))vnet_nic_free,
+    .free = (int (*)(void *))nic_bridge_free,
 
 };
 
-static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
+static int nic_bridge_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct nic_bridge_state * bridge = NULL;
     char * dev_id = v3_cfg_val(cfg, "ID");
 
@@ -112,4 +117,4 @@ static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     return 0;
 }
 
-device_register("NIC_BRIDGE", vnet_nic_init)
+device_register("NIC_BRIDGE", nic_bridge_init)

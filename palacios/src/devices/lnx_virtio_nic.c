@@ -232,8 +232,10 @@ static int handle_rx_kick(struct guest_info *core,
 
     flags = v3_lock_irqsave(virtio->rx_lock);
 
-    virtio->net_ops->start_rx(virtio->backend_data);
-    //disable_cb(&virtio->rx_vq);
+    if(virtio->net_ops->start_rx != NULL){
+	virtio->net_ops->start_rx(virtio->backend_data);
+    }
+    	//disable_cb(&virtio->rx_vq);
 
     v3_unlock_irqrestore(virtio->rx_lock, flags);
 	
