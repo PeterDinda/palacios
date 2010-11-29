@@ -956,6 +956,26 @@ static int write_cmd_port(struct guest_info * core, ushort_t port, void * src, u
 
 	    break;
 	}
+
+	case 0x08: // Reset Device
+	    drive_reset(drive);
+    	    channel->error_reg.val = 0x01;
+    	    channel->status.busy = 0;
+    	    channel->status.ready = 1;
+    	    channel->status.seek_complete = 1;
+    	    channel->status.write_fault = 0;
+    	    channel->status.error = 0;
+    	    break;
+
+	case 0xe5: // Check power mode
+    	    drive->sector_count = 0xff; /* 0x00=standby, 0x80=idle, 0xff=active or idle */
+    	    channel->status.busy = 0;
+    	    channel->status.ready = 1;
+    	    channel->status.write_fault = 0;
+    	    channel->status.data_req = 0;
+    	    channel->status.error = 0;
+    	    break;
+
 	case 0xc4:  // read multiple sectors
 	    drive->hd_state.cur_sector_num = drive->hd_state.mult_sector_num;
 	default:

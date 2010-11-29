@@ -29,6 +29,7 @@
 #include <palacios/vmm_lowlevel.h>
 #include <palacios/vmm_sprintf.h>
 #include <palacios/vmm_muxer.h>
+#include <palacios/vmm_xed.h>
 
 
 v3_cpu_mode_t v3_get_vm_cpu_mode(struct guest_info * info) {
@@ -257,6 +258,55 @@ void v3_print_ctrl_regs(struct guest_info * info) {
 }
 
 
+static int safe_gva_to_hva(struct guest_info * info, addr_t linear_addr, addr_t * host_addr) {
+    /* select the proper translation based on guest mode */
+    if (info->mem_mode == PHYSICAL_MEM) {
+    	if (v3_gpa_to_hva(info, linear_addr, host_addr) == -1) return -1;
+    } else if (info->mem_mode == VIRTUAL_MEM) {
+	if (v3_gva_to_hva(info, linear_addr, host_addr) == -1) return -1;
+    }
+    return 0;
+}
+
+static int v3_print_disassembly(struct guest_info * info) {
+    int passed_rip = 0;
+    addr_t rip, rip_linear, rip_host;
+
+    /* we don't know where the instructions preceding RIP start, so we just take
+     * a guess and hope the instruction stream synced up with our disassembly
+     * some time before RIP; if it has not we correct RIP at that point
+     */
+
+    /* start disassembly 64 bytes before current RIP, continue 32 bytes after */
+    rip = (addr_t) info->rip - 64;
+    while ((int) (rip - info->rip) < 32) {
+    	/* always print RIP, even if the instructions before were bad */
+    	if (!passed_rip && rip >= info->rip) {
+    	    if (rip != info->rip) {
+    	    	V3_Print("***** bad disassembly up to this point *****\n");
+    	    	rip = info->rip;
+    	    }
+    	    passed_rip = 1;
+    	}
+
+    	/* look up host virtual address for this instruction */
+    	rip_linear = get_addr_linear(info, rip, &(info->segments.cs));
+    	if (safe_gva_to_hva(info, rip_linear, &rip_host) < 0) {
+    	    rip++;
+    	    continue;
+    	}
+
+    	/* print disassembled instrcution (updates rip) */
+    	if (v3_disasm(info, (void *) rip_host, &rip, rip == info->rip) < 0) {
+    	    rip++;
+    	    continue;
+    	}
+    }
+
+    return 0;
+}
+
+
 void v3_print_guest_state(struct guest_info * info) {
     addr_t linear_addr = 0; 
 
@@ -281,6 +331,8 @@ void v3_print_guest_state(struct guest_info * info) {
     v3_print_mem_map(info->vm_info);
 
     v3_print_stack(info);
+
+    v3_print_disassembly(info);
 }
 
 
