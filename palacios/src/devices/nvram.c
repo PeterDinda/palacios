@@ -94,12 +94,15 @@ typedef enum {NVRAM_READY, NVRAM_REG_POSTED} nvram_state_t;
 #define NVRAM_REG_BOOTSEQ_NEW_FIRST       0x3D
 #define NVRAM_REG_BOOTSEQ_NEW_SECOND      0x38
 
+#define CHECKSUM_REGION_FIRST_BYTE        0x10
+#define CHECKSUM_REGION_LAST_BYTE         0x2d
+
 
 struct nvram_internal {
     nvram_state_t dev_state;
-    uchar_t       thereg;
-    uchar_t       mem_state[NVRAM_REG_MAX];
-    uchar_t       reg_map[NVRAM_REG_MAX / 8];
+    uint8_t       thereg;
+    uint8_t       mem_state[NVRAM_REG_MAX];
+    uint8_t       reg_map[NVRAM_REG_MAX / 8];
 
     struct vm_device * ide;
 
@@ -107,48 +110,48 @@ struct nvram_internal {
 
     v3_lock_t nvram_lock;
 
-    uint_t        us;   //microseconds - for clock update - zeroed every second
-    uint_t        pus;  //microseconds - for periodic interrupt - cleared every period
+    uint32_t        us;   //microseconds - for clock update - zeroed every second
+    uint32_t        pus;  //microseconds - for periodic interrupt - cleared every period
 };
 
 
 struct rtc_stata {
-    uint_t        rate: 4;  // clock rate = 65536Hz / 2 rate (0110=1024 Hz)
-    uint_t        basis: 3; // time base, 010 = 32,768 Hz
-    uint_t        uip: 1;   // 1=update in progress
+    uint8_t        rate   : 4;  // clock rate = 65536Hz / 2 rate (0110=1024 Hz)
+    uint8_t        basis  : 3;  // time base, 010 = 32,768 Hz
+    uint8_t        uip    : 1;  // 1=update in progress
 } __attribute__((__packed__)) __attribute__((__aligned__ (1)))  ;
 
 struct rtc_statb {
-    uint_t        sum: 1;  // 1=summer (daylight savings)
-    uint_t        h24: 1;  // 1=24h clock
-    uint_t        dm: 1;   // 1=date/time is in bcd, 0=binary
-    uint_t        rec: 1;  // 1=rectangular signal
-    uint_t        ui: 1;   // 1=update interrupt
-    uint_t        ai: 1;   // 1=alarm interrupt
-    uint_t        pi: 1;   // 1=periodic interrupt
-    uint_t        set: 1;  // 1=blocked update
+    uint8_t        sum    : 1;  // 1=summer (daylight savings)
+    uint8_t        h24    : 1;  // 1=24h clock
+    uint8_t        dm     : 1;  // 1=date/time is in bcd, 0=binary
+    uint8_t        rec    : 1;  // 1=rectangular signal
+    uint8_t        ui     : 1;  // 1=update interrupt
+    uint8_t        ai     : 1;  // 1=alarm interrupt
+    uint8_t        pi     : 1;  // 1=periodic interrupt
+    uint8_t        set    : 1;  // 1=blocked update
 } __attribute__((__packed__))  __attribute__((__aligned__ (1))) ;
 
 struct rtc_statc {
-    uint_t        res: 4;   // reserved
-    uint_t        uf: 1;    // 1=source of interrupt is update
-    uint_t        af: 1;    // 1=source of interrupt is alarm interrupt
-    uint_t        pf: 1;    // 1=source of interrupt is periodic interrupt
-    uint_t        irq: 1;   // 1=interrupt requested
+    uint8_t        res    : 4;  // reserved
+    uint8_t        uf     : 1;  // 1=source of interrupt is update
+    uint8_t        af     : 1;  // 1=source of interrupt is alarm interrupt
+    uint8_t        pf     : 1;  // 1=source of interrupt is periodic interrupt
+    uint8_t        irq    : 1;  // 1=interrupt requested
 }  __attribute__((__packed__))  __attribute__((__aligned__ (1))) ;
 
 struct rtc_statd {
-    uint_t        res: 7;   // reserved
-    uint_t        val: 1;   // 1=cmos ram data is OK
+    uint8_t        res    : 7;  // reserved
+    uint8_t        val    : 1;  // 1=cmos ram data is OK
 }  __attribute__((__packed__))  __attribute__((__aligned__ (1))) ;
 
 
 
 
 struct bcd_num {
-    uchar_t bot : 4;
-    uchar_t top : 4;
-};
+    uint8_t bot : 4;
+    uint8_t top : 4;
+} __attribute__((packed));;
 
 
 
@@ -184,13 +187,13 @@ static int get_memory(struct nvram_internal * nvram, uint8_t reg, uint8_t * val)
 }
 
 
-static uchar_t add_to(uchar_t * left, uchar_t * right, uchar_t bcd) {
-    uchar_t temp;
+static uint8_t add_to(uint8_t * left, uint8_t * right, uint8_t bcd) {
+    uint8_t temp;
 
     if (bcd) { 
 	struct bcd_num * bl = (struct bcd_num *)left;
 	struct bcd_num * br = (struct bcd_num *)right;
-	uchar_t carry = 0;
+	uint8_t carry = 0;
 
 	bl->bot += br->bot;
 	carry = bl->bot / 0xa;
@@ -214,7 +217,7 @@ static uchar_t add_to(uchar_t * left, uchar_t * right, uchar_t bcd) {
 }
 
 
-static uchar_t days_in_month(uchar_t month, uchar_t bcd) {
+static uint8_t days_in_month(uint8_t month, uint8_t bcd) {
     // This completely ignores Julian / Gregorian stuff right now
 
     if (bcd) { 
@@ -272,28 +275,28 @@ static uchar_t days_in_month(uchar_t month, uchar_t bcd) {
 }
 
 
-static void update_time(struct nvram_internal * data, uint_t period_us) {
-    struct rtc_stata * stata = (struct rtc_stata *) &((data->mem_state[NVRAM_REG_STAT_A]));
-    struct rtc_statb * statb = (struct rtc_statb *) &((data->mem_state[NVRAM_REG_STAT_B]));
-    struct rtc_statc * statc = (struct rtc_statc *) &((data->mem_state[NVRAM_REG_STAT_C]));
+static void update_time(struct nvram_internal * data, uint32_t period_us) {
+    struct rtc_stata * stata = (struct rtc_stata *)&((data->mem_state[NVRAM_REG_STAT_A]));
+    struct rtc_statb * statb = (struct rtc_statb *)&((data->mem_state[NVRAM_REG_STAT_B]));
+    struct rtc_statc * statc = (struct rtc_statc *)&((data->mem_state[NVRAM_REG_STAT_C]));
     //struct rtc_statd *statd = (struct rtc_statd *) &((data->mem_state[NVRAM_REG_STAT_D]));
-    uchar_t * sec = (uchar_t *) &(data->mem_state[NVRAM_REG_SEC]);
-    uchar_t * min = (uchar_t *) &(data->mem_state[NVRAM_REG_MIN]);
-    uchar_t * hour = (uchar_t *) &(data->mem_state[NVRAM_REG_HOUR]);
-    uchar_t * weekday = (uchar_t *) &(data->mem_state[NVRAM_REG_WEEK_DAY]);
-    uchar_t * monthday = (uchar_t *) &(data->mem_state[NVRAM_REG_MONTH_DAY]);
-    uchar_t * month = (uchar_t *) &(data->mem_state[NVRAM_REG_MONTH]);
-    uchar_t * year = (uchar_t *) &(data->mem_state[NVRAM_REG_YEAR]);
-    uchar_t * cent = (uchar_t *) &(data->mem_state[NVRAM_REG_IBM_CENTURY_BYTE]);
-    uchar_t * seca = (uchar_t *) &(data->mem_state[NVRAM_REG_SEC_ALARM]);
-    uchar_t * mina = (uchar_t *) &(data->mem_state[NVRAM_REG_MIN_ALARM]);
-    uchar_t * houra = (uchar_t *) &(data->mem_state[NVRAM_REG_HOUR_ALARM]);
-    uchar_t hour24;
+    uint8_t * sec      = (uint8_t *)&(data->mem_state[NVRAM_REG_SEC]);
+    uint8_t * min      = (uint8_t *)&(data->mem_state[NVRAM_REG_MIN]);
+    uint8_t * hour     = (uint8_t *)&(data->mem_state[NVRAM_REG_HOUR]);
+    uint8_t * weekday  = (uint8_t *)&(data->mem_state[NVRAM_REG_WEEK_DAY]);
+    uint8_t * monthday = (uint8_t *)&(data->mem_state[NVRAM_REG_MONTH_DAY]);
+    uint8_t * month    = (uint8_t *)&(data->mem_state[NVRAM_REG_MONTH]);
+    uint8_t * year     = (uint8_t *)&(data->mem_state[NVRAM_REG_YEAR]);
+    uint8_t * cent     = (uint8_t *)&(data->mem_state[NVRAM_REG_IBM_CENTURY_BYTE]);
+    uint8_t * seca     = (uint8_t *)&(data->mem_state[NVRAM_REG_SEC_ALARM]);
+    uint8_t * mina     = (uint8_t *)&(data->mem_state[NVRAM_REG_MIN_ALARM]);
+    uint8_t * houra    = (uint8_t *)&(data->mem_state[NVRAM_REG_HOUR_ALARM]);
+    uint8_t hour24;
 
-    uchar_t bcd = (statb->dm == 1);
-    uchar_t carry = 0;
-    uchar_t nextday = 0;
-    uint_t  periodic_period;
+    uint8_t bcd = (statb->dm == 1);
+    uint8_t carry = 0;
+    uint8_t nextday = 0;
+    uint32_t  periodic_period;
 
     //PrintDebug("nvram: sizeof(struct rtc_stata)=%d\n", sizeof(struct rtc_stata));
 
@@ -340,7 +343,7 @@ static void update_time(struct nvram_internal * data, uint_t period_us) {
 
 		    if (hour24 & 0x80) { 
 			hour24 &= 0x8f;
-			uchar_t temp = ((bcd) ? 0x12 : 12);
+			uint8_t temp = ((bcd) ? 0x12 : 12);
 			add_to(&hour24, &temp, bcd);
 		    }
 		}
@@ -592,7 +595,23 @@ static void init_harddrives(struct nvram_internal * nvram) {
     }
 }
 
+static uint16_t compute_checksum(struct nvram_internal * nvram) {
+    uint16_t checksum = 0;
+    uint8_t reg = 0;
+    uint8_t val = 0;
+    
+    /* add all fields between the RTC and the checksum fields */
+    for (reg = CHECKSUM_REGION_FIRST_BYTE; reg < CHECKSUM_REGION_LAST_BYTE; reg++) {
+        /* unset fields are considered zero so get_memory can be ignored */
+        get_memory(nvram, reg, &val);
+	checksum += val;
+    }
+		
+    return checksum;
+}
+
 static int init_nvram_state(struct v3_vm_info * vm, struct nvram_internal * nvram) {
+    uint16_t checksum = 0;
 
     memset(nvram->mem_state, 0, NVRAM_REG_MAX);
     memset(nvram->reg_map, 0, NVRAM_REG_MAX / 8);
@@ -674,6 +693,13 @@ static int init_nvram_state(struct v3_vm_info * vm, struct nvram_internal * nvra
     set_memory_size(nvram, vm->mem_size);
     init_harddrives(nvram);
     
+    /* compute checksum (must follow all assignments here) */
+    checksum = compute_checksum(nvram);
+    set_memory(nvram, NVRAM_REG_CSUM_HIGH, (checksum >> 8) & 0xff);
+    set_memory(nvram, NVRAM_REG_CSUM_LOW, checksum & 0xff);
+
+    
+    
     nvram->dev_state = NVRAM_READY;
     nvram->thereg = 0;
 
@@ -685,7 +711,7 @@ static int init_nvram_state(struct v3_vm_info * vm, struct nvram_internal * nvra
 
 
 
-static int nvram_write_reg_port(struct guest_info * core, ushort_t port,
+static int nvram_write_reg_port(struct guest_info * core, uint16_t port,
 				void * src, uint_t length, void * priv_data) {
 
     struct nvram_internal * data = priv_data;
@@ -696,7 +722,7 @@ static int nvram_write_reg_port(struct guest_info * core, ushort_t port,
     return 1;
 }
 
-static int nvram_read_data_port(struct guest_info * core, ushort_t port,
+static int nvram_read_data_port(struct guest_info * core, uint16_t port,
 				void * dst, uint_t length, void * priv_data) {
 
     struct nvram_internal * data = priv_data;
@@ -708,7 +734,12 @@ static int nvram_read_data_port(struct guest_info * core, ushort_t port,
 
 	v3_unlock_irqrestore(data->nvram_lock, irq_state);
 
-	return -1;
+	/* allow guest to query checksummed bytes; warn but read zero rather than fail in this case */
+	if ((data->thereg >= CHECKSUM_REGION_FIRST_BYTE) && (data->thereg <= CHECKSUM_REGION_LAST_BYTE)) {
+	    return 1;
+	} else {	
+	    return -1;
+	}
     }
 
     PrintDebug("nvram_read_data_port(0x%x)  =  0x%x\n", data->thereg, *(uint8_t *)dst);
@@ -724,7 +755,7 @@ static int nvram_read_data_port(struct guest_info * core, ushort_t port,
 }
 
 
-static int nvram_write_data_port(struct guest_info * core, ushort_t port,
+static int nvram_write_data_port(struct guest_info * core, uint16_t port,
 				 void * src, uint_t length, void * priv_data) {
 
     struct nvram_internal * data = priv_data;
