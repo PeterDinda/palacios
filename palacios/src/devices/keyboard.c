@@ -876,15 +876,20 @@ static int keyboard_write_output(struct guest_info * core, ushort_t port, void *
 	    	    PrintDebug("Keyboard: scancode set being read\n");
     	    	    push_to_output_queue(kbd, 0x45 - 2 * kbd->scancode_set, COMMAND, KEYBOARD);
     	    	    break;
+    	    	case 1:
+	    	    PrintError("keyboard: unsupported scancode set %d selected\n", data);
+	    	    return -1;
     	    	case 2:
 	    	    PrintDebug("Keyboard: scancode set being set to %d\n", data);
 	    	    kbd->scancode_set = data;
 	    	    push_to_output_queue(kbd, 0xfa, COMMAND, KEYBOARD);
     	    	    break;
-    	    	case 1:
     	    	case 3:
-	    	    PrintError("keyboard: unsupported scancode set %d selected\n", data);
-	    	    return -1;
+    	    	    /* OpenBSD wants scancode set 3, but falls back to 2 if a
+    	    	     * subsequent read reveals that the request was ignored
+    	    	     */
+	    	    PrintError("keyboard: ignoring request for scancode set %d\n", data);
+	    	    break;
     	    	default:
 	    	    PrintError("keyboard: unknown scancode set %d selected\n", data);
 	    	    return -1;
