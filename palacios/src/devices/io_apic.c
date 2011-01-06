@@ -136,6 +136,10 @@ struct io_apic_state {
     struct redir_tbl_entry redir_tbl[24];
 
     void * apic_dev_data;
+
+    void * router_handle;
+
+    struct v3_vm_info * vm;
   
 };
 
@@ -309,7 +313,7 @@ static struct intr_router_ops router_ops = {
 
 static int io_apic_free(struct io_apic_state * ioapic) {
 
-    // unregister intr router
+    v3_remove_intr_router(ioapic->vm, ioapic->router_handle);
 
     // unhook memory
 
@@ -345,7 +349,8 @@ static int ioapic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	return -1;
     }
 
-    v3_register_intr_router(vm, &router_ops, ioapic);
+    ioapic->router_handle = v3_register_intr_router(vm, &router_ops, ioapic);
+    ioapic->vm = vm;
 
     init_ioapic_state(ioapic, vm->num_cores);
 

@@ -207,6 +207,8 @@ struct apic_state {
 
     struct guest_info * core;
 
+    void * controller_handle;
+
     struct v3_timer * timer;
 
     uint32_t eoi;
@@ -1472,7 +1474,7 @@ static int apic_free(struct apic_dev_state * apic_dev) {
 	
 	vm = core->vm_info;
 
-	// unregister intr controller
+	v3_remove_intr_controller(core, apic->controller_handle);
 
 	if (apic->timer) {
 	    v3_remove_timer(core, apic->timer);
@@ -1526,7 +1528,7 @@ static int apic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
 	init_apic_state(apic, i);
 
-    	v3_register_intr_controller(core, &intr_ops, apic_dev);
+    	apic->controller_handle = v3_register_intr_controller(core, &intr_ops, apic_dev);
 
     	apic->timer = v3_add_timer(core, &timer_ops, apic_dev);
 

@@ -23,6 +23,7 @@
 #include <palacios/vmm_types.h>
 #include <palacios/vmm.h>
 #include <palacios/vmm_dev_mgr.h>
+#include <palacios/vm_guest.h>
 
 #ifndef CONFIG_DEBUG_PIC
 #undef PrintDebug
@@ -155,6 +156,12 @@ struct pic_internal {
 
     pic_state_t master_state;
     pic_state_t slave_state;
+
+    struct guest_info * core;
+
+
+    void * router_handle;
+    void * controller_handle;
 };
 
 
@@ -718,23 +725,15 @@ static int write_elcr_port(struct guest_info * core, ushort_t port, void * src, 
 
 
 
-
-
-
 static int pic_free(struct pic_internal * state) {
+    struct guest_info * core = state->core;
 
-
-    // unregister intr_controller
-    // unregister intr router
+    v3_remove_intr_controller(core, state->controller_handle);
+    v3_remove_intr_router(core->vm_info, state->router_handle);
 
     V3_Free(state);
     return 0;
 }
-
-
-
-
-
 
 
 static struct v3_device_ops dev_ops = {
@@ -744,7 +743,7 @@ static struct v3_device_ops dev_ops = {
 
 
 
-#include <palacios/vm_guest.h>
+
 
 static int pic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct pic_internal * state = NULL;
@@ -767,9 +766,10 @@ static int pic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	return -1;
     }
 
+    state->core = core;
 
-    v3_register_intr_controller(core, &intr_ops, state);
-    v3_register_intr_router(vm, &router_ops, state);
+    state->controller_handle = v3_register_intr_controller(core, &intr_ops, state);
+    state->router_handle = v3_register_intr_router(vm, &router_ops, state);
 
     state->master_irr = 0;
     state->master_isr = 0;
