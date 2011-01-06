@@ -587,6 +587,15 @@ int v3_init_core(struct guest_info * core) {
 int v3_free_core(struct guest_info * core) {
     v3_cpu_arch_t cpu_type = v3_get_cpu_type(V3_Get_CPU());
 
+    
+#ifdef CONFIG_SYMBIOTIC
+    //v3_deinit_symbiotic_core(core);
+#endif
+
+    v3_deinit_decoder(core);
+
+    v3_deinit_intr_controllers(core);
+
     switch (cpu_type) {
 #ifdef CONFIG_SVM
 	case V3_SVM_CPU:

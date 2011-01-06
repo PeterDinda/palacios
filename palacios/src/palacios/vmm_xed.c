@@ -180,6 +180,13 @@ int v3_init_decoder(struct guest_info * info) {
 
 
 
+int v3_deinit_decoder(struct guest_info * core) {
+    V3_Free(core->decoder_state);
+
+    return 0;
+}
+
+
 int v3_basic_mem_decode(struct guest_info * info, addr_t instr_ptr, struct basic_instr_info * instr_info) {
     xed_decoded_inst_t xed_instr;
     xed_error_enum_t xed_error;

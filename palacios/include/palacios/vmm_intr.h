@@ -67,8 +67,11 @@ struct v3_intr_core_state {
 
 
 
-void v3_init_intr_controllers(struct guest_info * info);
+void v3_init_intr_controllers(struct guest_info * core);
 void v3_init_intr_routers(struct v3_vm_info * vm);
+
+void v3_deinit_intr_controllers(struct guest_info * core);
+void v3_deinit_intr_routers(struct v3_vm_info * vm);
 
 int v3_raise_virq(struct guest_info * info, int irq);
 int v3_lower_virq(struct guest_info * info, int irq);
@@ -92,8 +95,11 @@ struct intr_router_ops {
 void v3_clear_pending_intr(struct guest_info * core);
 
 
-int v3_register_intr_controller(struct guest_info * info, struct intr_ctrl_ops * ops, void * priv_data);
-int v3_register_intr_router(struct v3_vm_info * vm, struct intr_router_ops * ops, void * priv_data);
+void * v3_register_intr_controller(struct guest_info * info, struct intr_ctrl_ops * ops, void * priv_data);
+void * v3_register_intr_router(struct v3_vm_info * vm, struct intr_router_ops * ops, void * priv_data);
+
+void v3_remove_intr_controller(struct guest_info * core, void * handle);
+void v3_remove_intr_router(struct v3_vm_info * vm, void * handle);
 
 v3_intr_type_t v3_intr_pending(struct guest_info * info);
 uint32_t v3_get_intr(struct guest_info * info);

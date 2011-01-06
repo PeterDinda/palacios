@@ -62,6 +62,19 @@ void v3_init_intr_controllers(struct guest_info * info) {
     INIT_LIST_HEAD(&(intr_state->controller_list));
 }
 
+
+void v3_deinit_intr_controllers(struct guest_info * core) {
+    struct v3_intr_core_state * intr_state = &(core->intr_core_state);
+    struct intr_controller * ctrlr;
+    struct intr_controller * tmp;
+
+    // clear out any controllers that were left around
+    list_for_each_entry_safe(ctrlr, tmp, &(intr_state->controller_list), ctrl_node) {
+	v3_remove_intr_controller(core, ctrlr);
+    }
+}
+
+
 void v3_init_intr_routers(struct v3_vm_info * vm) {
     
     INIT_LIST_HEAD(&(vm->intr_routers.router_list));
@@ -72,7 +85,17 @@ void v3_init_intr_routers(struct v3_vm_info * vm) {
 }
 
 
-int v3_register_intr_controller(struct guest_info * info, struct intr_ctrl_ops * ops, void * priv_data) {
+void v3_deinit_intr_routers(struct v3_vm_info * vm) {
+    struct intr_router * rtr = NULL;
+    struct intr_router * tmp = NULL;
+
+    // clear out any controllers that were left around
+    list_for_each_entry_safe(rtr, tmp, &(vm->intr_routers.router_list), router_node) {
+	v3_remove_intr_router(vm, rtr);
+    }  
+}
+
+void * v3_register_intr_controller(struct guest_info * info, struct intr_ctrl_ops * ops, void * priv_data) {
     struct intr_controller * ctrlr = (struct intr_controller *)V3_Malloc(sizeof(struct intr_controller));
 
     ctrlr->priv_data = priv_data;
@@ -80,10 +103,32 @@ int v3_register_intr_controller(struct guest_info * info, struct intr_ctrl_ops *
 
     list_add(&(ctrlr->ctrl_node), &(info->intr_core_state.controller_list));
     
-    return 0;
+    return (void *)ctrlr;
 }
 
-int v3_register_intr_router(struct v3_vm_info * vm, struct intr_router_ops * ops, void * priv_data) {
+void v3_remove_intr_controller(struct guest_info * core, void * handle) {
+    struct v3_intr_core_state * intr_state = &(core->intr_core_state);
+    struct intr_controller * ctrlr = handle;
+    struct intr_controller * tmp = NULL;
+    int found = 0;
+
+    // search for the entry in the router list
+    list_for_each_entry(tmp, &(intr_state->controller_list), ctrl_node) {
+	if (tmp == ctrlr) {
+	    found = 1;
+	}
+    }
+
+    if (found == 0) {
+	PrintError("Attempted to remove invalid interrupt controller handle\n");
+	return;
+    }
+
+    list_del(&(ctrlr->ctrl_node));
+    V3_Free(ctrlr);
+}
+
+void * v3_register_intr_router(struct v3_vm_info * vm, struct intr_router_ops * ops, void * priv_data) {
     struct intr_router * router = (struct intr_router *)V3_Malloc(sizeof(struct intr_router));
 
     router->priv_data = priv_data;
@@ -91,7 +136,28 @@ int v3_register_intr_router(struct v3_vm_info * vm, struct intr_router_ops * ops
 
     list_add(&(router->router_node), &(vm->intr_routers.router_list));
     
-    return 0;
+    return (void *)router;
+}
+
+void v3_remove_intr_router(struct v3_vm_info * vm, void * handle) {
+    struct intr_router * router = handle;
+    struct intr_router * tmp = NULL;
+    int found = 0;
+
+    // search for the entry in the router list
+    list_for_each_entry(tmp, &(vm->intr_routers.router_list), router_node) {
+	if (tmp == router) {
+	    found = 1;
+	}
+    }
+
+    if (found == 0) {
+	PrintError("Attempted to remove invalid interrupt router\n");
+	return;
+    }
+
+    list_del(&(router->router_node));
+    V3_Free(router);
 }
 
 

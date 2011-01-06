@@ -99,7 +99,8 @@ struct basic_instr_info {
 /* 
  * Initializes a decoder
  */
-int v3_init_decoder();
+int v3_init_decoder(struct guest_info * core);
+int v3_deinit_decoder(struct guest_info * core);
 
 /* 
  * Decodes an instruction 
