@@ -262,43 +262,61 @@ static int tsc_msr_write_hook(struct guest_info *info, uint_t msr_num,
 }
 
 
-static int init_vm_time(struct v3_vm_info *vm_info) {
+int v3_init_time_vm(struct v3_vm_info * vm) {
     int ret;
 
     PrintDebug("Installing TSC MSR hook.\n");
-    ret = v3_hook_msr(vm_info, TSC_MSR, 
+    ret = v3_hook_msr(vm, TSC_MSR, 
 		      tsc_msr_read_hook, tsc_msr_write_hook, NULL);
 
+    if (ret != 0) {
+	return ret;
+    }
+
     PrintDebug("Installing TSC_AUX MSR hook.\n");
-    if (ret) return ret;
-    ret = v3_hook_msr(vm_info, TSC_AUX_MSR, tsc_aux_msr_read_hook, 
+    ret = v3_hook_msr(vm, TSC_AUX_MSR, tsc_aux_msr_read_hook, 
 		      tsc_aux_msr_write_hook, NULL);
-    if (ret) return ret;
+
+    if (ret != 0) {
+	return ret;
+    }
 
     PrintDebug("Registering TIME_CPUFREQ hypercall.\n");
-    ret = v3_register_hypercall(vm_info, TIME_CPUFREQ_HCALL, 
+    ret = v3_register_hypercall(vm, TIME_CPUFREQ_HCALL, 
 				handle_cpufreq_hcall, NULL);
+
     return ret;
 }
 
-void v3_init_time(struct guest_info * info) {
+void v3_deinit_time_vm(struct v3_vm_info * vm) {
+    v3_unhook_msr(vm, TSC_MSR);
+    v3_unhook_msr(vm, TSC_AUX_MSR);
+
+    //    v3_remove_hypercall(vm, TIME_CPUFREQ_HCALL);
+}
+
+void v3_init_time_core(struct guest_info * info) {
     struct vm_time * time_state = &(info->time_state);
     v3_cfg_tree_t * cfg_tree = info->core_cfg_data;
-    static int one_time = 0;
-    char *khz;
+    char * khz = NULL;
 
     time_state->host_cpu_freq = V3_CPU_KHZ();
     khz = v3_cfg_val(cfg_tree, "khz");
+
     if (khz) {
 	time_state->guest_cpu_freq = atoi(khz);
 	PrintDebug("Core %d CPU frequency requested at %d khz.\n", 
 		   info->cpu_id, time_state->guest_cpu_freq);
     }
     
-    if (!khz || time_state->guest_cpu_freq > time_state->host_cpu_freq) {
+    if ((khz == NULL) || (time_state->guest_cpu_freq > time_state->host_cpu_freq)) {
 	time_state->guest_cpu_freq = time_state->host_cpu_freq;
     }
-    PrintDebug("Core %d CPU frequency set to %d KHz (host CPU frequency = %d KHz).\n", info->cpu_id, time_state->guest_cpu_freq, time_state->host_cpu_freq);
+
+    PrintDebug("Core %d CPU frequency set to %d KHz (host CPU frequency = %d KHz).\n", 
+	       info->cpu_id, 
+	       time_state->guest_cpu_freq, 
+	       time_state->host_cpu_freq);
 
     time_state->initial_time = 0;
     time_state->last_update = 0;
@@ -311,14 +329,20 @@ void v3_init_time(struct guest_info * info) {
     time_state->tsc_aux.lo = 0;
     time_state->tsc_aux.hi = 0;
 
-    if (!one_time) {
-	init_vm_time(info->vm_info);
-	one_time = 1;
-    }
+
 }
 
 
+void v3_deinit_time_core(struct guest_info * core) {
+    struct vm_time * time_state = &(core->time_state);
+    struct v3_timer * tmr = NULL;
+    struct v3_timer * tmp = NULL;
 
+    list_for_each_entry_safe(tmr, tmp, &(time_state->timers), timer_link) {
+	v3_remove_timer(core, tmr);
+    }
+
+}
 
 
 

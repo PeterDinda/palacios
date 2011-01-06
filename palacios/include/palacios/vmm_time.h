@@ -61,9 +61,15 @@ struct v3_timer {
 };
 
 // Basic functions for handling passage of time in palacios
-void v3_init_time(struct guest_info * info);
-int v3_start_time(struct guest_info * info);
-int v3_adjust_time(struct guest_info * info);
+void v3_init_time_core(struct guest_info * core);
+int v3_init_time_vm(struct v3_vm_info * vm);
+
+void v3_deinit_time_core(struct guest_info * core);
+void v3_deinit_time_vm(struct v3_vm_info * vm);
+
+
+int v3_start_time(struct guest_info * core);
+int v3_adjust_time(struct guest_info * core);
 
 // Basic functions for attaching timers to the passage of time
 struct v3_timer * v3_add_timer(struct guest_info * info, struct v3_timer_ops * ops, void * private_data);

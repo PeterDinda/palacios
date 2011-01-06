@@ -491,6 +491,8 @@ int v3_init_vm(struct v3_vm_info * vm) {
     }
 
 
+    v3_init_time_vm(vm);
+
 
 #ifdef CONFIG_SYMBIOTIC
     v3_init_symbiotic_vm(vm);
@@ -541,7 +543,7 @@ int v3_init_core(struct guest_info * core) {
 	v3_init_shdw_pg_state(core);
     }
 
-    v3_init_time(core);
+    v3_init_time_core(core);
     v3_init_intr_controllers(core);
     v3_init_exception_state(core);
 
@@ -595,6 +597,7 @@ int v3_free_core(struct guest_info * core) {
     v3_deinit_decoder(core);
 
     v3_deinit_intr_controllers(core);
+    v3_deinit_time_core(core);
 
     switch (cpu_type) {
 #ifdef CONFIG_SVM
