@@ -463,6 +463,18 @@ int v3_init_vmx_vmcs(struct guest_info * info, v3_vm_class_t vm_class) {
     return 0;
 }
 
+
+int v3_deinit_vmx_vmcs(struct guest_info * core) {
+    struct vmx_data * vmx_state = core->vmm_data;
+
+    V3_FreePages((void *)(vmx_state->vmcs_ptr_phys), 1);
+
+    V3_Free(vmx_state);
+
+    return 0;
+}
+
+
 static int update_irq_exit_state(struct guest_info * info) {
     struct vmx_exit_idt_vec_info idt_vec_info;
 

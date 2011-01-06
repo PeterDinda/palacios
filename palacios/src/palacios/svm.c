@@ -288,19 +288,19 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
 }
 
 
-int v3_init_svm_vmcb(struct guest_info * info, v3_vm_class_t vm_class) {
+int v3_init_svm_vmcb(struct guest_info * core, v3_vm_class_t vm_class) {
 
     PrintDebug("Allocating VMCB\n");
-    info->vmm_data = (void*)Allocate_VMCB();
+    core->vmm_data = (void*)Allocate_VMCB();
     
-    if (info->vmm_data == NULL) {
+    if (core->vmm_data == NULL) {
 	PrintError("Could not allocate VMCB, Exiting...\n");
 	return -1;
     }
 
     if (vm_class == V3_PC_VM) {
-	PrintDebug("Initializing VMCB (addr=%p)\n", (void *)info->vmm_data);
-	Init_VMCB_BIOS((vmcb_t*)(info->vmm_data), info);
+	PrintDebug("Initializing VMCB (addr=%p)\n", (void *)core->vmm_data);
+	Init_VMCB_BIOS((vmcb_t*)(core->vmm_data), core);
     } else {
 	PrintError("Invalid VM class\n");
 	return -1;
@@ -309,6 +309,11 @@ int v3_init_svm_vmcb(struct guest_info * info, v3_vm_class_t vm_class) {
     return 0;
 }
 
+
+int v3_deinit_svm_vmcb(struct guest_info * core) {
+    V3_FreePages(core->vmm_data, 1);
+    return 0;
+}
 
 
 static int update_irq_exit_state(struct guest_info * info) {

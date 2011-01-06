@@ -383,7 +383,7 @@ void v3_print_GPRs(struct guest_info * info) {
     v3_reg_t * reg_ptr;
     char * reg_names[] = { "RDI", "RSI", "RBP", "RSP", "RBX", "RDX", "RCX", "RAX", NULL};
 
-    reg_ptr= (v3_reg_t *)regs;
+    reg_ptr = (v3_reg_t *)regs;
 
     V3_Print("32 bit GPRs:\n");
 
@@ -579,5 +579,45 @@ int v3_init_core(struct guest_info * core) {
 	    return -1;
     }
 
+    return 0;
+}
+
+
+
+int v3_free_core(struct guest_info * core) {
+    v3_cpu_arch_t cpu_type = v3_get_cpu_type(V3_Get_CPU());
+
+    switch (cpu_type) {
+#ifdef CONFIG_SVM
+	case V3_SVM_CPU:
+	case V3_SVM_REV3_CPU:
+	    if (v3_deinit_svm_vmcb(core) == -1) {
+		PrintError("Error in SVM initialization\n");
+		return -1;
+	    }
+	    break;
+#endif
+#ifdef CONFIG_VMX
+	case V3_VMX_CPU:
+	case V3_VMX_EPT_CPU:
+	    if (v3_deinit_vmx_vmcs(core) == -1) {
+		PrintError("Error in VMX initialization\n");
+		return -1;
+	    }
+	    break;
+#endif
+	default:
+	    PrintError("Invalid CPU Type 0x%x\n", cpu_type);
+	    return -1;
+    }
+
+    return 0;
+}
+
+
+
+int v3_free_vm_internal(struct v3_vm_info * vm) {
+
+    
     return 0;
 }

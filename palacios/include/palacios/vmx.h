@@ -244,6 +244,7 @@ int v3_start_vmx_guest(struct guest_info* info);
 int v3_vmx_enter(struct guest_info * info);
 
 int v3_init_vmx_vmcs(struct guest_info * info, v3_vm_class_t vm_class);
+int v3_deinit_vmx_vmcs(struct guest_info * core);
 
 #endif // ! __V3VEE__
 

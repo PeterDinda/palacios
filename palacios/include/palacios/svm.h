@@ -80,7 +80,8 @@
 void v3_init_svm_cpu(int cpu_id);
 int v3_is_svm_capable();
 
-int v3_init_svm_vmcb(struct guest_info * info, v3_vm_class_t vm_class);
+int v3_init_svm_vmcb(struct guest_info * core, v3_vm_class_t vm_class);
+int v3_deinit_svm_vmcb(struct guest_info * core);
 
 int v3_svm_enter(struct guest_info * info);
 int v3_start_svm_guest(struct guest_info *info);

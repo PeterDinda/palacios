@@ -271,7 +271,6 @@ int v3_stop_vm(struct v3_vm_info * vm) {
 
     // force exit all cores via a cross call/IPI
 
-
     while (1) {
 	int i = 0;
 	int still_running = 0;
@@ -298,9 +297,21 @@ int v3_stop_vm(struct v3_vm_info * vm) {
 
 
 int v3_free_vm(struct v3_vm_info * vm) {
+    int i = 0;
     // deinitialize guest (free memory, etc...)
 
     v3_dev_mgr_deinit(vm);
+
+    for (i = 0; i < vm->num_cores; i++) {
+	// free cores
+
+	v3_free_core(&(vm->cores[i]));
+
+    }
+
+    v3_free_vm_internal(vm);
+
+    // free vm
 
     return 0;
 }
