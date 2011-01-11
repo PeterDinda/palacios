@@ -348,7 +348,7 @@ static int updateIRQ(struct v3_vm_info * vm, struct serial_port * com) {
     if ( (com->ier.erbfi == 0x1) && 
 	 (receive_buffer_trigger( getNumber(&(com->rx_buffer)), com->fcr.rx_trigger)) ) {
 
-	PrintDebug("UART: receive buffer interrupt(trigger level reached)");
+	PrintDebug("UART: receive buffer interrupt(trigger level reached)\n");
 
 	com->iir.iid = RX_IRQ_TRIGGER_LEVEL;
 	v3_raise_irq(vm, com->irq_number);
@@ -370,7 +370,7 @@ static int updateIRQ(struct v3_vm_info * vm, struct serial_port * com) {
     } else if ( (com->ier.etbei == 0x1) && 
 		(getNumber(&(com->tx_buffer)) != SERIAL_BUF_LEN )) {
 	
-	PrintDebug("UART: transmit buffer interrupt(buffer not full)");
+	PrintDebug("UART: transmit buffer interrupt(buffer not full)\n");
 
 	com->iir.iid = TX_IRQ_THRE;
 	com->iir.pending = 0;
@@ -460,7 +460,7 @@ static int write_data_port(struct guest_info * core, uint16_t port,
     PrintDebug("Write to Data Port 0x%x (val=%x)\n", port, *val);
     
     if (length != 1) {
-	PrintDebug("Invalid length(%d) in write to 0x%x\n", length, port);
+	PrintError("Invalid length(%d) in write to 0x%x\n", length, port);
 	return -1;
     }
 
@@ -473,7 +473,7 @@ static int write_data_port(struct guest_info * core, uint16_t port,
     com_port = get_com_from_port(state, port);
 
     if (com_port == NULL) {
-	PrintDebug("UART:read from NOBODY");
+	PrintError("UART:read from NOBODY\n");
 	return -1;
     }
     
@@ -506,7 +506,7 @@ static int read_data_port(struct guest_info * core, uint16_t port,
     PrintDebug("Read from Data Port 0x%x\n", port);
     
     if (length != 1) {
-	PrintDebug("Invalid length(%d) in write to 0x%x\n", length, port);
+	PrintError("Invalid length(%d) in write to 0x%x\n", length, port);
 	return -1;
     }
     
@@ -519,7 +519,7 @@ static int read_data_port(struct guest_info * core, uint16_t port,
     com_port = get_com_from_port(state, port);
 
     if (com_port == NULL) {
-	PrintDebug("UART:read from NOBODY");
+	PrintError("UART:read from NOBODY\n");
 	return -1;
     }
     
@@ -589,7 +589,7 @@ static int write_ctrl_port(struct guest_info * core, uint16_t port, void * src,
     PrintDebug("UART:Write to Control Port (val=%x)\n", val);
     
     if (length != 1) {
-	PrintDebug("UART:Invalid Write length to control port%d\n", port);
+	PrintError("UART:Invalid Write length to control port%d\n", port);
 	return -1;
     }
 
@@ -620,7 +620,7 @@ static int write_ctrl_port(struct guest_info * core, uint16_t port, void * src,
 	case COM2_FIFO_CTRL_PORT:
 	case COM3_FIFO_CTRL_PORT:
 	case COM4_FIFO_CTRL_PORT: {
-	    PrintDebug("UART:Write to FCR");
+	    PrintDebug("UART:Write to FCR\n");
 
 	    if (handle_fcr_write(com_port, val) == -1) {
 		return -1;
@@ -632,7 +632,7 @@ static int write_ctrl_port(struct guest_info * core, uint16_t port, void * src,
 	case COM2_LINE_CTRL_PORT:
 	case COM3_LINE_CTRL_PORT:
 	case COM4_LINE_CTRL_PORT: {
-	    PrintDebug("UART:Write to LCR");
+	    PrintDebug("UART:Write to LCR\n");
 	    com_port->lcr.val = val;
 	    break;
 	}
@@ -640,7 +640,7 @@ static int write_ctrl_port(struct guest_info * core, uint16_t port, void * src,
 	case COM2_MODEM_CTRL_PORT:
 	case COM3_MODEM_CTRL_PORT:
 	case COM4_MODEM_CTRL_PORT: {
-	    PrintDebug("UART:Write to MCR");
+	    PrintDebug("UART:Write to MCR\n");
 	    com_port->mcr.val = val;
 	    break;
 	}
@@ -648,12 +648,12 @@ static int write_ctrl_port(struct guest_info * core, uint16_t port, void * src,
 	case COM2_SCRATCH_PORT:
 	case COM3_SCRATCH_PORT:
 	case COM4_SCRATCH_PORT: {
-	    PrintDebug("UART:Write to SCRATCH");
+	    PrintDebug("UART:Write to SCRATCH\n");
 	    com_port->scr.data = val;
 	    break;
 	}
 	default:
-	    PrintDebug("UART:Write to NOBODY, ERROR");
+	    PrintError("UART:Write to NOBODY, ERROR\n");
 	    return -1;
     }
     
@@ -673,7 +673,7 @@ static int read_ctrl_port(struct guest_info * core, uint16_t port, void * dst,
     PrintDebug("Read from Control Port\n");
     
     if (length != 1) {
-	PrintDebug("Invalid Read length to control port\n");
+	PrintError("Invalid Read length to control port\n");
 	return -1;
     }
 
@@ -690,7 +690,7 @@ static int read_ctrl_port(struct guest_info * core, uint16_t port, void * dst,
 	case COM2_IRQ_ENABLE_PORT:
 	case COM3_IRQ_ENABLE_PORT:
 	case COM4_IRQ_ENABLE_PORT: {
-	    PrintDebug("UART:read from IER");
+	    PrintDebug("UART:read from IER\n");
 
 	    if (com_port->lcr.dlab == 1) {
 		*val = com_port->dlm.data;
@@ -704,7 +704,7 @@ static int read_ctrl_port(struct guest_info * core, uint16_t port, void * dst,
 	case COM2_IIR_PORT:
 	case COM3_IIR_PORT:
 	case COM4_IIR_PORT:
-	    PrintDebug("UART:read from IIR");
+	    PrintDebug("UART:read from IIR\n");
 	    *val = com_port->iir.val;
 	    break;
 
@@ -712,7 +712,7 @@ static int read_ctrl_port(struct guest_info * core, uint16_t port, void * dst,
 	case COM2_LINE_CTRL_PORT:
 	case COM3_LINE_CTRL_PORT:
 	case COM4_LINE_CTRL_PORT:
-	    PrintDebug("UART:read from LCR");
+	    PrintDebug("UART:read from LCR\n");
 	    *val = com_port->lcr.val;
 	    break;
 
@@ -720,7 +720,7 @@ static int read_ctrl_port(struct guest_info * core, uint16_t port, void * dst,
 	case COM2_MODEM_CTRL_PORT:
 	case COM3_MODEM_CTRL_PORT:
 	case COM4_MODEM_CTRL_PORT:
-	    PrintDebug("UART:read from MCR");
+	    PrintDebug("UART:read from MCR\n");
 	    *val = com_port->mcr.val;
 	    break;
 
@@ -728,12 +728,12 @@ static int read_ctrl_port(struct guest_info * core, uint16_t port, void * dst,
 	case COM2_SCRATCH_PORT:
 	case COM3_SCRATCH_PORT:
 	case COM4_SCRATCH_PORT:
-	    PrintDebug("UART:read from SCRATCH");
+	    PrintDebug("UART:read from SCRATCH\n");
 	    *val = com_port->scr.data;
 	    break;
 
 	default:
-	    PrintDebug("UART:read from NOBODY");
+	    PrintError("UART:read from NOBODY\n");
 	    return -1;
     }
 
@@ -750,7 +750,7 @@ static int write_status_port(struct guest_info * core, uint16_t port, void * src
     PrintDebug("Write to Status Port (val=%x)\n", val);
 
     if (length != 1) {
-	PrintDebug("Invalid Write length to status port %d\n", port);
+	PrintError("Invalid Write length to status port %d\n", port);
 	return -1;
     }
 
@@ -766,7 +766,7 @@ static int write_status_port(struct guest_info * core, uint16_t port, void * src
 	case COM2_LINE_STATUS_PORT:
 	case COM3_LINE_STATUS_PORT:
 	case COM4_LINE_STATUS_PORT:
-	    PrintDebug("UART:write to LSR");
+	    PrintDebug("UART:write to LSR\n");
 	    com_port->lsr.val = val;
 	    break;
 
@@ -774,12 +774,12 @@ static int write_status_port(struct guest_info * core, uint16_t port, void * src
 	case COM2_MODEM_STATUS_PORT:
 	case COM3_MODEM_STATUS_PORT:
 	case COM4_MODEM_STATUS_PORT:
-	    PrintDebug("UART:write to MSR");
+	    PrintDebug("UART:write to MSR\n");
 	    com_port->msr.val = val;
 	    break;
 
 	default:
-	    PrintDebug("UART:write to NOBODY");
+	    PrintError("UART:write to NOBODY\n");
 	    return -1;
     }
 
@@ -794,11 +794,6 @@ static int read_status_port(struct guest_info * core, uint16_t port, void * dst,
 
     PrintDebug("Read from Status Port 0x%x\n", port);
 
-    if (length != 1) {
-	PrintDebug("Invalid Read length to control port\n");
-	return -1;
-    }
-
     com_port = get_com_from_port(state, port);
 
     if (com_port == NULL) {
@@ -811,7 +806,13 @@ static int read_status_port(struct guest_info * core, uint16_t port, void * dst,
 	case COM2_LINE_STATUS_PORT:
 	case COM3_LINE_STATUS_PORT:
 	case COM4_LINE_STATUS_PORT:
-	    PrintDebug("UART:read from LSR");
+
+	    if (length != 1) {
+		PrintError("Invalid Read length to control port\n");
+		return -1;
+	    }
+
+	    PrintDebug("UART:read from LSR\n");
 
 	    *val = com_port->lsr.val;
 	    com_port->lsr.oe = 0;     // Why do we clear this??
@@ -822,12 +823,29 @@ static int read_status_port(struct guest_info * core, uint16_t port, void * dst,
 	case COM2_MODEM_STATUS_PORT:
 	case COM3_MODEM_STATUS_PORT:
 	case COM4_MODEM_STATUS_PORT:
-	    PrintDebug("UART:read from COM4 MSR");
+	    PrintDebug("UART:read from COM4 MSR (length = %d)\n", length);
+
+	    if (length > 2) {
+		PrintError("Invalid Read length to MSR port\n");
+		return -1;
+	    }
+
+	    if (length == 2) {
+		/* Windows XP expects to be able to read this register and the next in one go */
+
+		if (read_ctrl_port(core, port + 1, val + 1, 1, priv_data) < 0) {
+		    PrintError("Error reading control port for word size read of Status register\n");
+		    return -1;
+		}
+	    }
+
+	    // always read low byte...
+	    
 	    *val = com_port->msr.val;
 	    break;
 
 	default:
-	    PrintDebug("UART:read from NOBODY");
+	    PrintError("UART:read from NOBODY (length = %d)\n", length);
 	    return -1;
     }
 
