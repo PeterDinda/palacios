@@ -27,6 +27,8 @@
 #include <palacios/vmm_paging.h>
 
 int v3_init_passthrough_pts(struct guest_info * guest_info);
+int v3_free_passthrough_pts(struct guest_info * core);
+
 int v3_reset_passthrough_pts(struct guest_info * guest_info);
 
 int v3_handle_passthrough_pagefault(struct guest_info * info, addr_t fault_addr, pf_error_t error_code);

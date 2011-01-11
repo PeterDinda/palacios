@@ -30,6 +30,7 @@
 #include <palacios/vmm_sprintf.h>
 #include <palacios/vmm_muxer.h>
 #include <palacios/vmm_xed.h>
+#include <palacios/vmm_direct_paging.h>
 
 
 v3_cpu_mode_t v3_get_vm_cpu_mode(struct guest_info * info) {
@@ -598,6 +599,12 @@ int v3_free_core(struct guest_info * core) {
 
     v3_deinit_intr_controllers(core);
     v3_deinit_time_core(core);
+
+    if (core->shdw_pg_mode == SHADOW_PAGING) {
+	v3_deinit_shdw_pg_state(core);
+    }
+
+    v3_free_passthrough_pts(core);
 
     switch (cpu_type) {
 #ifdef CONFIG_SVM

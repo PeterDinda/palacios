@@ -39,6 +39,7 @@ struct v3_shdw_pg_impl {
     int (*init)(struct v3_vm_info * vm, v3_cfg_tree_t * cfg);
     int (*deinit)(struct v3_vm_info * vm);
     int (*local_init)(struct guest_info * core);
+    int (*local_deinit)(struct guest_info * core);
     int (*handle_pagefault)(struct guest_info * core, addr_t fault_addr, pf_error_t error_code);
     int (*handle_invlpg)(struct guest_info * core, addr_t vaddr);
     int (*activate_shdw_pt)(struct guest_info * core);
@@ -74,7 +75,10 @@ struct v3_shdw_pg_state {
 
 
 int v3_init_shdw_impl(struct v3_vm_info * vm);
-int v3_init_shdw_pg_state(struct guest_info * info);
+int v3_deinit_shdw_impl(struct v3_vm_info * vm);
+
+int v3_init_shdw_pg_state(struct guest_info * core);
+int v3_deinit_shdw_pg_state(struct guest_info * core);
 
 
 /* Handler implementations */

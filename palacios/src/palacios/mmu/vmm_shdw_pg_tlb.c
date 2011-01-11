@@ -106,7 +106,7 @@ static int vtlb_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 }
 
 static int vtlb_deinit(struct v3_vm_info * vm) {
-    return -1;
+    return 0;
 }
 
 static int vtlb_local_init(struct guest_info * core) {
@@ -115,12 +115,32 @@ static int vtlb_local_init(struct guest_info * core) {
 
     V3_Print("VTLB local initialization\n");
 
-
     vtlb_state = (struct vtlb_local_state *)V3_Malloc(sizeof(struct vtlb_local_state));
 
     INIT_LIST_HEAD(&(vtlb_state->page_list));
 
     state->local_impl_data = vtlb_state;
+
+    return 0;
+}
+
+
+static int vtlb_local_deinit(struct guest_info * core) {
+    struct v3_shdw_pg_state * state = &(core->shdw_pg_state);
+    struct vtlb_local_state * vtlb_state = state->local_impl_data;
+
+    struct shadow_page_data * shdw_pg = NULL;
+    struct shadow_page_data * tmp = NULL;
+
+    // free page list...
+    list_for_each_entry_safe(shdw_pg, tmp, &(vtlb_state->page_list), page_list_node) {
+	list_del(&(shdw_pg->page_list_node));
+	V3_FreePages((void *)shdw_pg->page_pa, 1);
+	V3_Free(shdw_pg);
+    }
+
+
+    V3_Free(vtlb_state);
 
     return 0;
 }
@@ -192,6 +212,7 @@ static struct v3_shdw_pg_impl vtlb_impl =  {
     .init = vtlb_init,
     .deinit = vtlb_deinit,
     .local_init = vtlb_local_init,
+    .local_deinit = vtlb_local_deinit,
     .handle_pagefault = vtlb_handle_pf,
     .handle_invlpg = vtlb_handle_invlpg,
     .activate_shdw_pt = vtlb_activate_shdw_pt,

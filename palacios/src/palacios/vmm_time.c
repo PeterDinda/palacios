@@ -112,6 +112,7 @@ int v3_adjust_time(struct guest_info * info) {
 
 	/* Yield until that host time is reached */
 	host_time = v3_get_host_time(time_state);
+
 	while (host_time < target_host_time) {
 	    v3_yield(info);
 	    host_time = v3_get_host_time(time_state);
@@ -119,6 +120,7 @@ int v3_adjust_time(struct guest_info * info) {
 
 	time_state->guest_host_offset = (sint64_t)guest_time - (sint64_t)host_time;
     }
+
     return 0;
 }
 
@@ -192,13 +194,20 @@ int v3_rdtscp(struct guest_info * info) {
      * ra/c/dx here since they're modified by this instruction anyway. */
     info->vm_regs.rcx = TSC_AUX_MSR; 
     ret = v3_handle_msr_read(info);
-    if (ret) return ret;
+
+    if (ret != 0) {
+	return ret;
+    }
+
     info->vm_regs.rcx = info->vm_regs.rax;
 
     /* Now do the TSC half of the instruction */
     ret = v3_rdtsc(info);
-    if (ret) return ret;
-    
+
+    if (ret != 0) {
+	return ret;
+    }
+
     return 0;
 }
 
@@ -221,6 +230,7 @@ static int tsc_aux_msr_read_hook(struct guest_info *info, uint_t msr_num,
     struct vm_time * time_state = &(info->time_state);
 
     V3_ASSERT(msr_num == TSC_AUX_MSR);
+
     msr_val->lo = time_state->tsc_aux.lo;
     msr_val->hi = time_state->tsc_aux.hi;
 
@@ -232,6 +242,7 @@ static int tsc_aux_msr_write_hook(struct guest_info *info, uint_t msr_num,
     struct vm_time * time_state = &(info->time_state);
 
     V3_ASSERT(msr_num == TSC_AUX_MSR);
+
     time_state->tsc_aux.lo = msr_val.lo;
     time_state->tsc_aux.hi = msr_val.hi;
 
@@ -243,6 +254,7 @@ static int tsc_msr_read_hook(struct guest_info *info, uint_t msr_num,
     uint64_t time = v3_get_guest_tsc(&info->time_state);
 
     V3_ASSERT(msr_num == TSC_MSR);
+
     msr_val->hi = time >> 32;
     msr_val->lo = time & 0xffffffffLL;
     
@@ -253,7 +265,9 @@ static int tsc_msr_write_hook(struct guest_info *info, uint_t msr_num,
 			     struct v3_msr msr_val, void *priv) {
     struct vm_time * time_state = &(info->time_state);
     uint64_t guest_time, new_tsc;
+
     V3_ASSERT(msr_num == TSC_MSR);
+
     new_tsc = (((uint64_t)msr_val.hi) << 32) | (uint64_t)msr_val.lo;
     guest_time = v3_get_guest_time(time_state);
     time_state->tsc_guest_offset = (sint64_t)new_tsc - (sint64_t)guest_time; 

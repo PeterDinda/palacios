@@ -139,6 +139,22 @@ int v3_init_shdw_pg_state(struct guest_info * core) {
 }
 
 
+int v3_deinit_shdw_pg_state(struct guest_info * core) {
+    struct v3_shdw_pg_impl * impl = core->vm_info->shdw_impl.current_impl;
+
+    if (impl->local_deinit(core) == -1) {
+	PrintError("Error deinitializing shadow paging state\n");
+	return -1;
+    }
+
+#ifdef CONFIG_SHADOW_PAGING_TELEMETRY
+    v3_remove_telemetry_cb(core->vm_info, telemetry_cb, NULL);
+#endif
+
+    return 0;
+}
+
+
 
 int v3_init_shdw_impl(struct v3_vm_info * vm) {
     struct v3_shdw_impl_state * impl_state = &(vm->shdw_impl);
@@ -173,8 +189,16 @@ int v3_init_shdw_impl(struct v3_vm_info * vm) {
 	return -1;
     }
 
-    
+    return 0;
+}
 
+int v3_deinit_shdw_impl(struct v3_vm_info * vm) {
+    struct v3_shdw_pg_impl * impl = vm->shdw_impl.current_impl;
+
+    if (impl->deinit(vm) == -1) {
+	PrintError("Error deinitializing shadow paging implementation\n");
+	return -1;
+    }
 
     return 0;
 }
