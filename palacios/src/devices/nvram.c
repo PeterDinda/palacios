@@ -288,6 +288,7 @@ static void update_time(struct nvram_internal * data, uint32_t period_us) {
     uint8_t * month    = (uint8_t *)&(data->mem_state[NVRAM_REG_MONTH]);
     uint8_t * year     = (uint8_t *)&(data->mem_state[NVRAM_REG_YEAR]);
     uint8_t * cent     = (uint8_t *)&(data->mem_state[NVRAM_REG_IBM_CENTURY_BYTE]);
+    uint8_t * cent_ps2 = (uint8_t *)&(data->mem_state[NVRAM_REG_IBM_PS2_CENTURY_BYTE]);
     uint8_t * seca     = (uint8_t *)&(data->mem_state[NVRAM_REG_SEC_ALARM]);
     uint8_t * mina     = (uint8_t *)&(data->mem_state[NVRAM_REG_MIN_ALARM]);
     uint8_t * houra    = (uint8_t *)&(data->mem_state[NVRAM_REG_HOUR_ALARM]);
@@ -417,6 +418,7 @@ static void update_time(struct nvram_internal * data, uint32_t period_us) {
 				*year = 0;
 				carry = 1;
 				add_to(cent, &carry, bcd);
+				*cent_ps2 = *cent;
 			    }
 			}
 		    }
@@ -684,6 +686,7 @@ static int init_nvram_state(struct v3_vm_info * vm, struct nvram_internal * nvra
     set_memory(nvram, NVRAM_REG_WEEK_DAY, 0x1);
     set_memory(nvram, NVRAM_REG_YEAR, 0x08);
     set_memory(nvram, NVRAM_REG_IBM_CENTURY_BYTE, 0x20);
+    set_memory(nvram, NVRAM_REG_IBM_PS2_CENTURY_BYTE, 0x20);
 
     set_memory(nvram, NVRAM_REG_DIAGNOSTIC_STATUS, 0x00);
     
