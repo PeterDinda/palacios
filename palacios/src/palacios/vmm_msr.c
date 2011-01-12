@@ -125,8 +125,22 @@ int v3_hook_msr(struct v3_vm_info * vm, uint_t msr,
 
 
 int v3_unhook_msr(struct v3_vm_info * vm, uint_t msr) {
-    PrintError("Unhooking MSRs currently not supported\n");
-    return -1;
+    struct v3_msr_hook * hook = v3_get_msr_hook(vm, msr);
+
+    if (hook == NULL) {
+	PrintError("Could not find MSR to unhook %u (0x%x)\n", msr, msr);
+	return -1;
+    }
+
+    list_del(&(hook->link));
+
+    if (vm->msr_map.update_map) {
+	vm->msr_map.update_map(vm, msr, 0, 0);
+    }
+
+    V3_Free(hook);
+
+    return 0;
 }
 
 
