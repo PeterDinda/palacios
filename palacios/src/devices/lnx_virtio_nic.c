@@ -649,9 +649,18 @@ exit:
     return ret_val;
 }
 
-static int virtio_free(struct virtio_net_state * virtio) {
-	
-    // unregister from PCI
+static int virtio_free(struct virtio_dev_state * virtio) {
+    struct virtio_net_state * backend = NULL;
+    struct virtio_net_state * tmp = NULL;
+
+
+    list_for_each_entry_safe(backend, tmp, &(virtio->dev_list), dev_link) {
+
+	// unregister from PCI
+
+	list_del(&(backend->dev_link));
+	V3_Free(backend);
+    }
 
     V3_Free(virtio);
     return 0;
@@ -769,6 +778,10 @@ static int register_dev(struct virtio_dev_state * virtio,
     memcpy(pci_dev->config_data, net_state->net_cfg.mac, ETH_ALEN);
     
     virtio_init_state(net_state);
+
+
+    /* Add backend to list of devices */
+    list_add(&(net_state->dev_link), &(virtio->dev_list));
 
     return 0;
 }

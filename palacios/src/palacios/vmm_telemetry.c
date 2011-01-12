@@ -50,6 +50,10 @@ struct exit_event {
 };
 
 
+static int free_callback(struct v3_vm_info * vm, struct telemetry_cb * cb);
+static int free_exit(struct guest_info * core, struct exit_event * event);
+
+
 void v3_init_telemetry(struct v3_vm_info * vm) {
     struct v3_telemetry_state * telemetry = &(vm->telemetry);
 
@@ -61,6 +65,16 @@ void v3_init_telemetry(struct v3_vm_info * vm) {
     INIT_LIST_HEAD(&(telemetry->cb_list));
 }
 
+void v3_deinit_telemetry(struct v3_vm_info * vm) {
+    struct telemetry_cb * cb = NULL;
+    struct telemetry_cb * tmp = NULL;
+
+    list_for_each_entry_safe(cb, tmp, &(vm->telemetry.cb_list), cb_node) {
+	free_callback(vm, cb);
+    }
+}
+
+
 void v3_init_core_telemetry(struct guest_info * core) {
     struct v3_core_telemetry * telemetry = &(core->core_telem);
 
@@ -70,6 +84,18 @@ void v3_init_core_telemetry(struct guest_info * core) {
     telemetry->vm_telem = &(core->vm_info->telemetry);
 
     telemetry->exit_root.rb_node = NULL;
+}
+
+void v3_deinit_core_telemetry(struct guest_info * core) {
+    struct rb_node * node = v3_rb_first(&(core->core_telem.exit_root));
+    struct exit_event * evt = NULL;
+
+    while (node) {
+	evt = rb_entry(node, struct exit_event, tree_node);
+	node = v3_rb_next(node);
+
+	free_exit(core, evt);
+    }
 }
 
 
@@ -141,6 +167,15 @@ static inline struct exit_event * create_exit(uint_t exit_code) {
     return evt;
 }
 
+
+
+static int free_exit(struct guest_info * core, struct exit_event * evt) {
+    v3_rb_erase(&(evt->tree_node), &(core->core_telem.exit_root));
+    V3_Free(evt);
+    return 0;
+}
+
+
 void v3_telemetry_start_exit(struct guest_info * info) {
     rdtscll(info->core_telem.vmm_start_tsc);
 }
@@ -188,6 +223,14 @@ void v3_add_telemetry_cb(struct v3_vm_info * vm,
     list_add(&(cb->cb_node), &(telemetry->cb_list));
 }
 
+
+
+static int free_callback(struct v3_vm_info * vm, struct telemetry_cb * cb) {
+    list_del(&(cb->cb_node));
+    V3_Free(cb);
+
+    return 0;
+}
 
 
 void v3_print_telemetry(struct v3_vm_info * vm) {

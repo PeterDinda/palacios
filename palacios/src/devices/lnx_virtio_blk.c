@@ -472,7 +472,18 @@ static int virtio_io_read(struct guest_info * core, uint16_t port, void * dst, u
 
 
 static int virtio_free(struct virtio_dev_state * virtio) {
+    struct virtio_blk_state * blk_state = NULL;
+    struct virtio_blk_state * tmp = NULL;
+
+    list_for_each_entry_safe(blk_state, tmp, &(virtio->dev_list), dev_link) {
+
+	// unregister from PCI
+
+	list_del(&(blk_state->dev_link));
+	V3_Free(blk_state);
+    }
     
+
     V3_Free(virtio);
 
     return 0;
@@ -555,6 +566,10 @@ static int register_dev(struct virtio_dev_state * virtio, struct virtio_blk_stat
     
     
     blk_state->pci_dev = pci_dev;
+
+
+    /* Add backend to list of devices */
+    list_add(&(blk_state->dev_link), &(virtio->dev_list));
     
     /* Block configuration */
     blk_state->virtio_cfg.host_features = VIRTIO_SEG_MAX;
