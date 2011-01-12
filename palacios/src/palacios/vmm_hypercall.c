@@ -32,14 +32,6 @@ static int hcall_test(struct guest_info * info, hcall_id_t hcall_id, void * priv
 }
 
 
-
-void v3_init_hypercall_map(struct v3_vm_info * vm) {
-    vm->hcall_map.rb_node = NULL;
-
-    v3_register_hypercall(vm, TEST_HCALL, hcall_test, NULL);
-}
-
-
 struct hypercall {
     uint_t id;
   
@@ -48,6 +40,36 @@ struct hypercall {
   
     struct rb_node tree_node;
 };
+
+static int free_hypercall(struct v3_vm_info * vm, struct hypercall * hcall);
+
+void v3_init_hypercall_map(struct v3_vm_info * vm) {
+    vm->hcall_map.rb_node = NULL;
+
+    v3_register_hypercall(vm, TEST_HCALL, hcall_test, NULL);
+}
+
+int v3_deinit_hypercall_map(struct v3_vm_info * vm) {
+    struct rb_node * node = NULL;
+    struct hypercall * hcall = NULL;
+    struct rb_node * tmp_node = NULL;
+
+    v3_remove_hypercall(vm, TEST_HCALL);
+
+    node = v3_rb_first(&(vm->hcall_map));
+
+    while (node) {
+	hcall = rb_entry(node, struct hypercall, tree_node);
+	tmp_node = node;
+	node = v3_rb_next(node);
+
+	free_hypercall(vm, hcall);
+    }
+    
+    return 0;
+}
+
+
 
 
 
@@ -127,6 +149,14 @@ int v3_register_hypercall(struct v3_vm_info * vm, hcall_id_t hypercall_id,
 }
 
 
+
+static int free_hypercall(struct v3_vm_info * vm, struct hypercall * hcall) {
+    v3_rb_erase(&(hcall->tree_node), &(vm->hcall_map));
+    V3_Free(hcall);
+
+    return 0;
+}
+
 int v3_remove_hypercall(struct v3_vm_info * vm, hcall_id_t hypercall_id) {
     struct hypercall * hcall = get_hypercall(vm, hypercall_id);
 
@@ -135,9 +165,7 @@ int v3_remove_hypercall(struct v3_vm_info * vm, hcall_id_t hypercall_id) {
 	return -1;
     }
 
-    v3_rb_erase(&(hcall->tree_node), &(vm->hcall_map));
-
-    V3_Free(hcall);
+    free_hypercall(vm, hcall);
 
     return 0;
 }

@@ -22,6 +22,7 @@
 #include <palacios/vmm.h>
 #include <palacios/vm_guest.h>
 
+static int free_hook(struct v3_vm_info * vm, struct v3_msr_hook * hook);
 
 void v3_init_msr_map(struct v3_vm_info * vm) {
     struct v3_msr_map * msr_map  = &(vm->msr_map);
@@ -33,6 +34,17 @@ void v3_init_msr_map(struct v3_vm_info * vm) {
 
     msr_map->arch_data = NULL;
     msr_map->update_map = NULL;
+}
+
+int v3_deinit_msr_map(struct v3_vm_info * vm) {
+    struct v3_msr_hook * hook = NULL;
+    struct v3_msr_hook * tmp = NULL;
+
+    list_for_each_entry_safe(hook, tmp, &(vm->msr_map.hook_list), link) {
+	free_hook(vm, hook);
+    }
+
+    return 0;
 }
 
 int v3_handle_msr_write(struct guest_info * info) {
@@ -123,6 +135,18 @@ int v3_hook_msr(struct v3_vm_info * vm, uint_t msr,
     return 0;
 }
 
+static int free_hook(struct v3_vm_info * vm, struct v3_msr_hook * hook) {
+    list_del(&(hook->link));
+
+    if (vm->msr_map.update_map) {
+	vm->msr_map.update_map(vm, hook->msr, 0, 0);
+    }
+
+    V3_Free(hook);
+
+    return 0;
+}
+
 
 int v3_unhook_msr(struct v3_vm_info * vm, uint_t msr) {
     struct v3_msr_hook * hook = v3_get_msr_hook(vm, msr);
@@ -132,13 +156,7 @@ int v3_unhook_msr(struct v3_vm_info * vm, uint_t msr) {
 	return -1;
     }
 
-    list_del(&(hook->link));
-
-    if (vm->msr_map.update_map) {
-	vm->msr_map.update_map(vm, msr, 0, 0);
-    }
-
-    V3_Free(hook);
+    free_hook(vm, hook);
 
     return 0;
 }

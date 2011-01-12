@@ -569,6 +569,15 @@ int v3_free_vm_internal(struct v3_vm_info * vm) {
     v3_deinit_intr_routers(vm);
     v3_deinit_host_events(vm);
 
+    v3_deinit_cpuid_map(vm);
+    v3_deinit_msr_map(vm);
+    v3_deinit_io_map(vm);
+    v3_deinit_hypercall_map(vm);
+
+#ifdef CONFIG_TELEMETRY
+    v3_deinit_telemetry(vm);
+#endif
+
     return 0;
 }
 

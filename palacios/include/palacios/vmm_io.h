@@ -34,7 +34,7 @@ struct v3_vm_info;
 struct guest_info;
 
 void v3_init_io_map(struct v3_vm_info * vm);
-
+int v3_deinit_io_map(struct v3_vm_info * vm);
 
 
 

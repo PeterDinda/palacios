@@ -70,6 +70,7 @@ struct v3_msr_map {
 
 
 void v3_init_msr_map(struct v3_vm_info * vm);
+int v3_deinit_msr_map(struct v3_vm_info * vm);
 
 int v3_unhook_msr(struct v3_vm_info * vm, uint_t msr);
 

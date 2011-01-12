@@ -29,6 +29,7 @@
 #define PrintDebug(fmt, args...)
 #endif
 
+static int free_hook(struct v3_vm_info * vm, struct v3_io_hook * hook);
 
 static int default_write(struct guest_info * core, uint16_t port, void *src, uint_t length, void * priv_data);
 static int default_read(struct guest_info * core, uint16_t port, void * dst, uint_t length, void * priv_data);
@@ -40,6 +41,22 @@ void v3_init_io_map(struct v3_vm_info * vm) {
   vm->io_map.arch_data = NULL;
   vm->io_map.update_map = NULL;
 
+}
+
+int v3_deinit_io_map(struct v3_vm_info * vm) {
+    struct rb_node * node = v3_rb_first(&(vm->io_map.map));
+    struct v3_io_hook * hook = NULL;
+    struct rb_node * tmp_node = NULL;
+
+    while (node) {
+	hook = rb_entry(node, struct v3_io_hook, tree_node);
+	tmp_node = node;
+	node = v3_rb_next(node);
+
+	free_hook(vm, hook);
+    }
+
+    return 0;
 }
 
 
@@ -62,6 +79,7 @@ static inline struct v3_io_hook * __insert_io_hook(struct v3_vm_info * vm, struc
       return tmp_hook;
     }
   }
+
   rb_link_node(&(hook->tree_node), parent, p);
 
   return NULL;
@@ -145,6 +163,20 @@ int v3_hook_io_port(struct v3_vm_info * vm, uint16_t port,
   return 0;
 }
 
+
+static int free_hook(struct v3_vm_info * vm, struct v3_io_hook * hook) {
+    v3_rb_erase(&(hook->tree_node), &(vm->io_map.map));
+
+    if (vm->io_map.update_map) {
+	// set the arch map to default (this should be 1, 1)
+	vm->io_map.update_map(vm, hook->port, 0, 0);
+    }
+
+    V3_Free(hook);
+
+    return 0;
+}
+
 int v3_unhook_io_port(struct v3_vm_info * vm, uint16_t port) {
     struct v3_io_hook * hook = v3_get_io_hook(vm, port);
 
@@ -153,14 +185,7 @@ int v3_unhook_io_port(struct v3_vm_info * vm, uint16_t port) {
 	return -1;
     }
 
-    v3_rb_erase(&(hook->tree_node), &(vm->io_map.map));
-
-    if (vm->io_map.update_map) {
-	// set the arch map to default (this should be 1, 1)
-	vm->io_map.update_map(vm, port, 0, 0);
-    }
-
-    V3_Free(hook);
+    free_hook(vm, hook);
 
     return 0;
 }

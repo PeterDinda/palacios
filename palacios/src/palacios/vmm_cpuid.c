@@ -27,6 +27,25 @@ void v3_init_cpuid_map(struct v3_vm_info * vm) {
     vm->cpuid_map.map.rb_node = NULL;
 }
 
+int v3_deinit_cpuid_map(struct v3_vm_info * vm) {
+    struct rb_node * node = v3_rb_first(&(vm->cpuid_map.map));
+    struct v3_cpuid_hook * hook = NULL;
+    struct rb_node * tmp_node = NULL;
+    
+
+    while (node) {
+	hook = rb_entry(node, struct v3_cpuid_hook, tree_node);
+	tmp_node = node;
+	node = v3_rb_next(node);
+
+	v3_rb_erase(&(hook->tree_node), &(vm->cpuid_map.map));
+	V3_Free(hook);
+	
+    }
+
+    return 0;
+}
+
 
 static inline struct v3_cpuid_hook * __insert_cpuid_hook(struct v3_vm_info * vm, struct v3_cpuid_hook * hook) {
   struct rb_node ** p = &(vm->cpuid_map.map.rb_node);

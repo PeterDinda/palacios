@@ -58,7 +58,7 @@ typedef enum {
 
 
 void v3_init_hypercall_map(struct v3_vm_info * vm);
-
+int v3_deinit_hypercall_map(struct v3_vm_info * vm);
 
 int v3_register_hypercall(struct v3_vm_info * vm, hcall_id_t hypercall_id, 
 			  int (*hypercall)(struct guest_info * info , hcall_id_t hcall_id, void * priv_data),

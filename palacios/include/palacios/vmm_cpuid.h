@@ -32,7 +32,7 @@
 struct guest_info;
 
 void v3_init_cpuid_map(struct v3_vm_info * vm);
-
+int v3_deinit_cpuid_map(struct v3_vm_info * vm);
 
 struct v3_cpuid_hook {
     uint32_t cpuid;
