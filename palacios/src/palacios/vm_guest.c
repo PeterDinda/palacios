@@ -507,15 +507,15 @@ int v3_init_vm(struct v3_vm_info * vm) {
 #ifdef CONFIG_SVM
 	case V3_SVM_CPU:
 	case V3_SVM_REV3_CPU:
-	    v3_deinit_svm_io_map(vm);
-	    v3_deinit_svm_msr_map(vm);
+	    v3_init_svm_io_map(vm);
+	    v3_init_svm_msr_map(vm);
 	    break;
 #endif
 #ifdef CONFIG_VMX
 	case V3_VMX_CPU:
 	case V3_VMX_EPT_CPU:
-	    v3_deinit_vmx_io_map(vm);
-	    v3_deinit_vmx_msr_map(vm);
+	    v3_init_vmx_io_map(vm);
+	    v3_init_vmx_msr_map(vm);
 	    break;
 #endif
 	default:
