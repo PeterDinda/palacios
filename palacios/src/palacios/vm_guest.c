@@ -529,6 +529,14 @@ int v3_init_vm(struct v3_vm_info * vm) {
     return 0;
 }
 
+
+int v3_free_vm_internal(struct v3_vm_info * vm) {
+
+    
+    return 0;
+}
+
+
 int v3_init_core(struct guest_info * core) {
     v3_cpu_arch_t cpu_type = v3_get_cpu_type(V3_Get_CPU());
     struct v3_vm_info * vm = core->vm_info;
@@ -635,8 +643,3 @@ int v3_free_core(struct guest_info * core) {
 
 
 
-int v3_free_vm_internal(struct v3_vm_info * vm) {
-
-    
-    return 0;
-}

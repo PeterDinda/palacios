@@ -291,7 +291,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
 int v3_init_svm_vmcb(struct guest_info * core, v3_vm_class_t vm_class) {
 
     PrintDebug("Allocating VMCB\n");
-    core->vmm_data = (void*)Allocate_VMCB();
+    core->vmm_data = (void *)Allocate_VMCB();
     
     if (core->vmm_data == NULL) {
 	PrintError("Could not allocate VMCB, Exiting...\n");
@@ -311,7 +311,7 @@ int v3_init_svm_vmcb(struct guest_info * core, v3_vm_class_t vm_class) {
 
 
 int v3_deinit_svm_vmcb(struct guest_info * core) {
-    V3_FreePages(core->vmm_data, 1);
+    V3_FreePages(V3_PAddr(core->vmm_data), 1);
     return 0;
 }
 
