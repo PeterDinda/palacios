@@ -57,6 +57,12 @@ int v3_init_vmx_io_map(struct v3_vm_info * vm) {
     return 0;
 }
 
+int v3_deinit_vmx_io_map(struct v3_vm_info * vm) {
+    V3_FreePages(V3_PAddr(vm->io_map.arch_data), 2);
+    return 0;
+}
+
+
 int v3_handle_vmx_io_in(struct guest_info * core, struct vmx_exit_info * exit_info) {
     struct vmx_exit_io_qual io_qual = *(struct vmx_exit_io_qual *)&(exit_info->exit_qual);;
     struct v3_io_hook * hook = NULL;

@@ -26,6 +26,7 @@
 #include <palacios/vmm.h>
 
 int v3_init_svm_msr_map(struct v3_vm_info * vm);
+int v3_deinit_svm_msr_map(struct v3_vm_info * vm);
 
 
 #endif // ! __V3VEE__

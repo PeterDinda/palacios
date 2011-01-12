@@ -75,3 +75,8 @@ int v3_init_vmx_msr_map(struct v3_vm_info * vm) {
     
     return 0;
 }
+
+int v3_deinit_vmx_msr_map(struct v3_vm_info * vm) {
+    V3_FreePages(V3_PAddr(vm->msr_map.arch_data), 1);
+    return 0;
+}

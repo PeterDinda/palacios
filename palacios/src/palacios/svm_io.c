@@ -57,6 +57,11 @@ int v3_init_svm_io_map(struct v3_vm_info * vm) {
     return 0;
 }
 
+int v3_deinit_svm_io_map(struct v3_vm_info * vm) {
+    V3_FreePages(V3_PAddr(vm->io_map.arch_data), 3);
+    return 0;
+}
+
 
 
 // This should package up an IO request and call vmm_handle_io

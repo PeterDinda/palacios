@@ -127,6 +127,22 @@ int v3_register_hypercall(struct v3_vm_info * vm, hcall_id_t hypercall_id,
 }
 
 
+int v3_remove_hypercall(struct v3_vm_info * vm, hcall_id_t hypercall_id) {
+    struct hypercall * hcall = get_hypercall(vm, hypercall_id);
+
+    if (hcall == NULL) {
+	PrintError("Attempted to remove non existant hypercall\n");
+	return -1;
+    }
+
+    v3_rb_erase(&(hcall->tree_node), &(vm->hcall_map));
+
+    V3_Free(hcall);
+
+    return 0;
+}
+
+
 int v3_handle_hypercall(struct guest_info * info) {
     hcall_id_t hypercall_id = *(uint_t *)&info->vm_regs.rax;
     struct hypercall * hcall = get_hypercall(info->vm_info, hypercall_id);
