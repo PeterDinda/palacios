@@ -575,7 +575,7 @@ int v3_free_vm_internal(struct v3_vm_info * vm) {
     v3_deinit_hypercall_map(vm);
 
 #ifdef CONFIG_TELEMETRY
-    v3_deinit_telemetry(vm);
+    //v3_deinit_telemetry(vm);
 #endif
 
     return 0;

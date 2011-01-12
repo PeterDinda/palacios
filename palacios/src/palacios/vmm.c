@@ -310,6 +310,8 @@ int v3_free_vm(struct v3_vm_info * vm) {
     // free vm
     v3_free_vm_internal(vm);
 
+    v3_free_config(vm);
+
     V3_Free(vm);
 
     return 0;

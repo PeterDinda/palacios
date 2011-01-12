@@ -531,6 +531,16 @@ struct v3_vm_info * v3_config_guest(void * cfg_blob, void * priv_data) {
 
 
 
+int v3_free_config(struct v3_vm_info * vm) {
+   
+    v3_free_htable(vm->cfg_data->file_table, 1, 0);
+
+    v3_xml_free(vm->cfg_data->cfg);
+
+    V3_Free(vm->cfg_data);
+    return 0;
+}
+
 
 
 static int setup_memory_map(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
