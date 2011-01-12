@@ -44,7 +44,7 @@ static int dev_eq_fn(addr_t key1, addr_t key2) {
 }
 
 
-int v3_init_devices() {
+int V3_init_devices() {
     extern struct v3_device_info __start__v3_devices[];
     extern struct v3_device_info __stop__v3_devices[];
     struct v3_device_info * tmp_dev =  __start__v3_devices;
@@ -108,14 +108,20 @@ int v3_init_dev_mgr(struct v3_vm_info * vm) {
 }
 
 
-int v3_dev_mgr_deinit(struct v3_vm_info * vm) {
-    struct vm_device * dev;
+int v3_free_vm_devices(struct v3_vm_info * vm) {
     struct vmm_dev_mgr * mgr = &(vm->dev_mgr);
+    struct vm_device * dev;
     struct vm_device * tmp;
 
     list_for_each_entry_safe(dev, tmp, &(mgr->dev_list), dev_link) {
 	v3_remove_device(dev);
     }
+
+    return 0;
+}
+
+int v3_deinit_dev_mgr(struct v3_vm_info * vm) {
+    struct vmm_dev_mgr * mgr = &(vm->dev_mgr);
 
     v3_free_htable(mgr->blk_table, 0, 0);
     v3_free_htable(mgr->net_table, 0, 0);

@@ -88,14 +88,18 @@ struct vm_device * v3_find_dev(struct v3_vm_info * info, const char * dev_name);
 
 
 int v3_init_dev_mgr(struct v3_vm_info * vm);
-int v3_dev_mgr_deinit(struct v3_vm_info * vm);
+int v3_deinit_dev_mgr(struct v3_vm_info * vm);
+
+int v3_free_vm_devices(struct v3_vm_info * vm);
 
 
 
 
 
 
-int v3_init_devices();
+
+int V3_init_devices();
+
 
 
 struct v3_device_ops {
