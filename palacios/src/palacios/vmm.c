@@ -302,16 +302,14 @@ int v3_free_vm(struct v3_vm_info * vm) {
 
     v3_free_vm_devices(vm);
 
+    // free cores
     for (i = 0; i < vm->num_cores; i++) {
-	// free cores
-
 	v3_free_core(&(vm->cores[i]));
-
     }
 
+    // free vm
     v3_free_vm_internal(vm);
 
-    // free vm
 
     return 0;
 }

@@ -35,6 +35,48 @@ int v3_init_host_events(struct v3_vm_info * vm) {
     return 0;
 }
 
+int v3_deinit_host_events(struct v3_vm_info * vm) {
+    struct v3_host_events * host_evts = &(vm->host_event_hooks);
+    struct v3_host_event_hook * hook = NULL;
+    struct v3_host_event_hook * tmp = NULL;
+
+    list_for_each_entry_safe(hook, tmp, &(host_evts->keyboard_events), link) {
+	list_del(&(hook->link));
+	V3_Free(hook);
+    }
+
+    list_for_each_entry_safe(hook, tmp, &(host_evts->mouse_events), link) {
+	list_del(&(hook->link));
+	V3_Free(hook);
+    }
+
+
+    list_for_each_entry_safe(hook, tmp, &(host_evts->timer_events), link) {
+	list_del(&(hook->link));
+	V3_Free(hook);
+    }
+
+
+    list_for_each_entry_safe(hook, tmp, &(host_evts->serial_events), link) {
+	list_del(&(hook->link));
+	V3_Free(hook);
+    }
+
+
+    list_for_each_entry_safe(hook, tmp, &(host_evts->console_events), link) {
+	list_del(&(hook->link));
+	V3_Free(hook);
+    }
+
+
+    list_for_each_entry_safe(hook, tmp, &(host_evts->packet_events), link) {
+	list_del(&(hook->link));
+	V3_Free(hook);
+    }
+
+    return 0;
+}
+
 
 int v3_hook_host_event(struct v3_vm_info * vm, 
 		       v3_host_evt_type_t event_type, 

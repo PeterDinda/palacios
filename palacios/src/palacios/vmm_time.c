@@ -306,7 +306,7 @@ void v3_deinit_time_vm(struct v3_vm_info * vm) {
     v3_unhook_msr(vm, TSC_MSR);
     v3_unhook_msr(vm, TSC_AUX_MSR);
 
-    //    v3_remove_hypercall(vm, TIME_CPUFREQ_HCALL);
+    v3_remove_hypercall(vm, TIME_CPUFREQ_HCALL);
 }
 
 void v3_init_time_core(struct guest_info * info) {

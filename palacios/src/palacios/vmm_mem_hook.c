@@ -32,10 +32,14 @@ struct mem_hook {
 
     void * priv_data;
     addr_t hook_hva;
-    
+    struct v3_mem_region * region;
 
+    struct list_head hook_node;
 };
 
+
+
+static int free_hook(struct v3_vm_info * vm, struct mem_hook * hook);
 
 
 int v3_init_mem_hooks(struct v3_vm_info * vm) {
@@ -44,6 +48,29 @@ int v3_init_mem_hooks(struct v3_vm_info * vm) {
     hooks->hook_hvas = V3_VAddr(V3_AllocPages(vm->num_cores));
 
     INIT_LIST_HEAD(&(hooks->hook_list));
+
+    return 0;
+}
+
+
+// We'll assume the actual hooks were either already cleared,
+// or will be cleared by the memory map
+int v3_deinit_mem_hooks(struct v3_vm_info * vm) {
+    struct v3_mem_hooks * hooks = &(vm->mem_hooks);
+    struct mem_hook * hook = NULL;
+    struct mem_hook * tmp = NULL;
+
+
+    // This is nasty...
+    // We delete the hook info but leave its memory region intact
+    // We rely on the memory map to clean up any orphaned regions as a result of this
+    // This needs to be fixed at some point...
+    list_for_each_entry_safe(hook, tmp, &(hooks->hook_list), hook_node) {
+	free_hook(vm, hook);
+    }
+
+
+    V3_FreePages(V3_PAddr(hooks->hook_hvas), vm->num_cores);
 
     return 0;
 }
@@ -108,7 +135,7 @@ int v3_hook_write_mem(struct v3_vm_info * vm, uint16_t core_id,
 		      void * priv_data) {
     struct v3_mem_region * entry = NULL;
     struct mem_hook * hook = V3_Malloc(sizeof(struct mem_hook));
-    //    struct v3_mem_hooks * hooks = &(vm->mem_hooks);
+    struct v3_mem_hooks * hooks = &(vm->mem_hooks);
 
     memset(hook, 0, sizeof(struct mem_hook));
 
@@ -119,6 +146,8 @@ int v3_hook_write_mem(struct v3_vm_info * vm, uint16_t core_id,
 
     entry = v3_create_mem_region(vm, core_id, guest_addr_start, guest_addr_end);
     
+    hook->region = entry;
+
     entry->host_addr = host_addr;
     entry->unhandled = handle_mem_hook;
     entry->priv_data = hook;
@@ -133,6 +162,8 @@ int v3_hook_write_mem(struct v3_vm_info * vm, uint16_t core_id,
 	return -1;
     }
 
+    list_add(&(hook->hook_node), &(hooks->hook_list));
+
     return 0;  
 }
 
@@ -146,7 +177,7 @@ int v3_hook_full_mem(struct v3_vm_info * vm, uint16_t core_id,
   
     struct v3_mem_region * entry = NULL;
     struct mem_hook * hook = V3_Malloc(sizeof(struct mem_hook));
-    //    struct v3_mem_hooks * hooks = &(vm->mem_hooks);
+    struct v3_mem_hooks * hooks = &(vm->mem_hooks);
 
     memset(hook, 0, sizeof(struct mem_hook));
 
@@ -156,6 +187,7 @@ int v3_hook_full_mem(struct v3_vm_info * vm, uint16_t core_id,
     hook->hook_hva = (addr_t)0xfff;
 
     entry = v3_create_mem_region(vm, core_id, guest_addr_start, guest_addr_end);
+    hook->region = entry;
 
     entry->unhandled = handle_mem_hook;
     entry->priv_data = hook;
@@ -166,9 +198,21 @@ int v3_hook_full_mem(struct v3_vm_info * vm, uint16_t core_id,
 	return -1;
     }
 
+    list_add(&(hook->hook_node), &(hooks->hook_list));
+
+
     return 0;
 }
 
+
+static int free_hook(struct v3_vm_info * vm, struct mem_hook * hook) {  
+    v3_delete_mem_region(vm, hook->region);
+    list_del(&(hook->hook_node));
+
+    V3_Free(hook);
+
+    return 0;
+}
 
 
 // This will unhook the memory hook registered at start address
@@ -177,11 +221,10 @@ int v3_unhook_mem(struct v3_vm_info * vm, uint16_t core_id, addr_t guest_addr_st
     struct v3_mem_region * reg = v3_get_mem_region(vm, core_id, guest_addr_start);
     struct mem_hook * hook = reg->priv_data;
 
-    V3_Free(hook);
-  
-    v3_delete_mem_region(vm, reg);
+    free_hook(vm, hook);
 
     return 0;
 }
+
 
 

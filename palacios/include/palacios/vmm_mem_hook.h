@@ -30,12 +30,11 @@ struct v3_mem_hooks {
     void * hook_hvas; // this is an array of pages, equal to the number of cores
 
     struct list_head hook_list;
-
 };
 
 
 int v3_init_mem_hooks(struct v3_vm_info * vm);
-
+int v3_deinit_mem_hooks(struct v3_vm_info * vm);
 
 int v3_hook_full_mem(struct v3_vm_info * vm, uint16_t core_id,
 		     addr_t guest_addr_start, addr_t guest_addr_end,

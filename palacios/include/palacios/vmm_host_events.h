@@ -92,6 +92,7 @@ struct v3_host_events {
 
 
 int v3_init_host_events(struct v3_vm_info * vm);
+int v3_deinit_host_events(struct v3_vm_info * vm);
 
 #define V3_HOST_EVENT_HANDLER(cb) ((union v3_host_event_handler)cb)
 
