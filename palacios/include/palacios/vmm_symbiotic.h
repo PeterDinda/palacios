@@ -57,7 +57,10 @@ struct v3_sym_core_state {
 
 
 int v3_init_symbiotic_vm(struct v3_vm_info * vm);
+int v3_deinit_symbiotic_vm(struct v3_vm_info * vm);
+
 int v3_init_symbiotic_core(struct guest_info * core);
+int v3_deinit_symbiotic_core(struct guest_info * core);
 
 
 #endif

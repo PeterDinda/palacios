@@ -215,6 +215,22 @@ int v3_init_symmod_vm(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     return 0;
 }
 
+int v3_deinit_symmod_vm(struct v3_vm_info * vm) {
+    struct v3_symmod_state * symmod_state = &(vm->sym_vm_state.symmod_state);
+    struct v3_symbol * sym = NULL;
+    struct v3_symbol * tmp_sym = NULL;
+
+    v3_remove_hypercall(vm, SYMMOD_SYMS_HCALL);
+
+    v3_free_htable(symmod_state->capsule_table, 0, 0);
+
+    list_for_each_entry_safe(sym, tmp_sym, &(symmod_state->v3_sym_list), sym_node) {
+	list_del(&(sym->sym_node));
+	V3_Free(sym);
+    }
+
+    return 0;
+}
 
 
 int v3_set_symmod_loader(struct v3_vm_info * vm, struct v3_symmod_loader_ops * ops, void * priv_data) {

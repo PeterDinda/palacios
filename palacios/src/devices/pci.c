@@ -611,8 +611,24 @@ static void init_pci_busses(struct pci_internal * pci_state) {
 
 
 static int pci_free(struct pci_internal * pci_state) {
+    int i;
 
-    // cleanup devices (?)
+
+    // cleanup devices
+    for (i = 0; i < PCI_BUS_COUNT; i++) {
+	struct pci_bus * bus = &(pci_state->bus_list[i]);
+	struct rb_node * node = v3_rb_first(&(bus->devices));
+	struct pci_device * dev = NULL;
+
+	while (node) {
+	    dev = rb_entry(node, struct pci_device, dev_tree_node);
+	    node = v3_rb_next(node);
+	    
+	    v3_rb_erase(&(dev->dev_tree_node), &(bus->devices));
+	    V3_Free(dev);
+	}
+
+    }
     
     V3_Free(pci_state);
     return 0;

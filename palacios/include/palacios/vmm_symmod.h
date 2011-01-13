@@ -88,6 +88,7 @@ int v3_set_symmod_loader(struct v3_vm_info * vm, struct v3_symmod_loader_ops * o
 int v3_load_sym_capsule(struct v3_vm_info * vm, char * mod_name);
 
 int v3_init_symmod_vm(struct v3_vm_info * vm, v3_cfg_tree_t * cfg);
+int v3_deinit_symmod_vm(struct v3_vm_info * vm);
 
 struct v3_sym_capsule * v3_get_sym_capsule(struct v3_vm_info * vm, char * name);
 

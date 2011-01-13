@@ -120,13 +120,16 @@ int v3_free_vm_devices(struct v3_vm_info * vm) {
     return 0;
 }
 
+static int free_frontends(struct v3_vm_info * vm, struct vmm_dev_mgr * mgr);
+
 int v3_deinit_dev_mgr(struct v3_vm_info * vm) {
     struct vmm_dev_mgr * mgr = &(vm->dev_mgr);
+    
+    // clear frontend lists
 
-    v3_free_htable(mgr->blk_table, 0, 0);
-    v3_free_htable(mgr->net_table, 0, 0);
-    v3_free_htable(mgr->char_table, 0, 0);
-    v3_free_htable(mgr->cons_table, 0, 0);
+    free_frontends(vm, mgr);
+
+
 
     v3_free_htable(mgr->dev_table, 0, 0);
 
@@ -553,3 +556,45 @@ int v3_dev_connect_char(struct v3_vm_info * vm,
     return 0;
 }
 
+
+
+static int free_frontends(struct v3_vm_info * vm, struct vmm_dev_mgr * mgr) {
+    struct char_frontend * chr = NULL;
+    struct char_frontend * tmp_chr = NULL;
+    struct cons_frontend * cons = NULL;
+    struct cons_frontend * tmp_cons = NULL;
+    struct net_frontend * net = NULL;
+    struct net_frontend * tmp_net = NULL;
+    struct blk_frontend * blk = NULL;
+    struct blk_frontend * tmp_blk = NULL;
+
+
+
+    list_for_each_entry_safe(chr, tmp_chr, &(mgr->char_list), char_node) {
+	list_del(&(chr->char_node));
+	V3_Free(chr);
+    }
+
+    list_for_each_entry_safe(cons, tmp_cons, &(mgr->cons_list), cons_node) {
+	list_del(&(cons->cons_node));
+	V3_Free(cons);
+    }
+
+    list_for_each_entry_safe(net, tmp_net, &(mgr->net_list), net_node) {
+	list_del(&(net->net_node));
+	V3_Free(net);
+    }
+
+    list_for_each_entry_safe(blk, tmp_blk, &(mgr->blk_list), blk_node) {
+	list_del(&(blk->blk_node));
+	V3_Free(blk);
+    }
+
+    v3_free_htable(mgr->blk_table, 0, 0);
+    v3_free_htable(mgr->net_table, 0, 0);
+    v3_free_htable(mgr->char_table, 0, 0);
+    v3_free_htable(mgr->cons_table, 0, 0);
+
+
+    return 0;
+}

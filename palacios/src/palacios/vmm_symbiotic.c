@@ -75,6 +75,22 @@ int v3_init_symbiotic_vm(struct v3_vm_info * vm) {
 }
 
 
+int v3_deinit_symbiotic_vm(struct v3_vm_info * vm) {
+
+#ifdef CONFIG_SYMMOD
+    if (v3_deinit_symmod_vm(vm) == -1) {
+	PrintError("Error deinitializing global SymMod state\n");
+	return -1;
+    }
+#endif
+
+    v3_unhook_cpuid(vm, SYM_CPUID_NUM);
+
+    
+    return 0;
+}
+
+
 
 int v3_init_symbiotic_core(struct guest_info * core) {
     struct v3_sym_core_state * core_state = &(core->sym_core_state);
@@ -85,6 +101,12 @@ int v3_init_symbiotic_core(struct guest_info * core) {
 	PrintError("Error intializing local SymSpy state\n");
 	return -1;
     }
+
+    return 0;
+}
+
+
+int v3_deinit_symbiotic_core(struct guest_info * core) {
 
     return 0;
 }
