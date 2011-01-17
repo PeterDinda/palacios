@@ -375,7 +375,9 @@ static void print_prd_table(struct ide_internal * ide, struct ide_channel * chan
 	}
 
 	PrintDebug("\tPRD Addr: %x, PRD Len: %d, EOT: %d\n", 
-		   prd_entry.base_addr, prd_entry.size, prd_entry.end_of_table);
+		   prd_entry.base_addr, 
+		   (prd_entry.size == 0) ? 0x10000 : prd_entry.size, 
+		   prd_entry.end_of_table);
 
 	if (prd_entry.end_of_table) {
 	    break;
@@ -425,7 +427,12 @@ static int dma_read(struct guest_info * core, struct ide_internal * ide, struct 
 
 	// loop through the PRD data....
 
-	prd_bytes_left = prd_entry.size;
+	if (prd_entry.size == 0) {
+	    // a size of 0 means 64k
+	    prd_bytes_left = 0x10000;
+	} else {
+	    prd_bytes_left = prd_entry.size;
+	}
 
 
 	while (prd_bytes_left > 0) {
@@ -448,11 +455,38 @@ static int dma_read(struct guest_info * core, struct ide_internal * ide, struct 
 			return -1;
 		    }
 		} else {
-		    PrintDebug("DMA of command packet\n");
-		    PrintError("How does this work???\n");
+		    /*
+		    PrintError("DMA of command packet\n");
+		    PrintError("How does this work (ATAPI CMD=%x)???\n", drive->cd_state.atapi_cmd);
 		    return -1;
+		    */
+		    int cmd_ret = 0;
+
 		    bytes_to_write = (prd_bytes_left > bytes_left) ? bytes_left : prd_bytes_left;
 		    prd_bytes_left = bytes_to_write;
+
+		    cmd_ret = v3_write_gpa_memory(core, prd_entry.base_addr + prd_offset, 
+						  bytes_to_write, drive->data_buf); 
+
+		    // check cmd_ret
+
+
+		    bytes_to_write = 0;
+		    prd_bytes_left = 0;
+		    drive->transfer_index += bytes_to_write;
+
+		    channel->status.busy = 0;
+		    channel->status.ready = 1;
+		    channel->status.data_req = 0;
+		    channel->status.error = 0;
+		    channel->status.seek_complete = 1;
+
+		    channel->dma_status.active = 0;
+		    channel->dma_status.err = 0;
+
+		    ide_raise_irq(ide, channel);
+		    
+		    return 0;
 		}
 	    }
 
@@ -1094,11 +1128,14 @@ static int read_hd_data(uint8_t * dst, uint_t length, struct ide_internal * ide,
 static int read_cd_data(uint8_t * dst, uint_t length, struct ide_internal * ide, struct ide_channel * channel) {
     struct ide_drive * drive = get_selected_drive(channel);
     int data_offset = drive->transfer_index % ATAPI_BLOCK_SIZE;
-    int req_offset = drive->transfer_index % drive->req_len;
+    //  int req_offset = drive->transfer_index % drive->req_len;
     
     if (drive->cd_state.atapi_cmd != 0x28) {
         PrintDebug("IDE: Reading CD Data (len=%d) (req_len=%d)\n", length, drive->req_len);
+	PrintDebug("IDE: transfer len=%d, transfer idx=%d\n", drive->transfer_length, drive->transfer_index);
     }
+
+    
 
     if (drive->transfer_index >= drive->transfer_length) {
 	PrintError("Buffer Overrun... (xfer_len=%d) (cur_idx=%d) (post_idx=%d)\n", 
@@ -1121,7 +1158,7 @@ static int read_cd_data(uint8_t * dst, uint_t length, struct ide_internal * ide,
 
 
     // Should the req_offset be recalculated here?????
-    if ((req_offset == 0) && (drive->transfer_index > 0)) {
+    if (/*(req_offset == 0) &&*/ (drive->transfer_index > 0)) {
 	if (drive->transfer_index < drive->transfer_length) {
 	    // An increment is complete, but there is still more data to be transferred...
 	    
@@ -1180,7 +1217,7 @@ static int ide_read_data_port(struct guest_info * core, ushort_t port, void * ds
     struct ide_channel * channel = get_selected_channel(ide, port);
     struct ide_drive * drive = get_selected_drive(channel);
 
-       PrintDebug("IDE: Reading Data Port %x (len=%d)\n", port, length);
+    //       PrintDebug("IDE: Reading Data Port %x (len=%d)\n", port, length);
 
     if ((channel->cmd_reg == 0xec) ||
 	(channel->cmd_reg == 0xa1)) {
@@ -1189,7 +1226,7 @@ static int ide_read_data_port(struct guest_info * core, ushort_t port, void * ds
 
     if (drive->drive_type == BLOCK_CDROM) {
 	if (read_cd_data((uint8_t *)dst, length, ide, channel) == -1) {
-	    PrintError("IDE: Could not read CD Data\n");
+	    PrintError("IDE: Could not read CD Data (atapi cmd=%x)\n", drive->cd_state.atapi_cmd);
 	    return -1;
 	}
     } else if (drive->drive_type == BLOCK_DISK) {

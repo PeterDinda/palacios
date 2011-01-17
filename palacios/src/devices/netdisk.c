@@ -230,7 +230,7 @@ static int socket_init(struct disk_state * disk) {
 
     disk->socket = v3_create_tcp_socket(disk->vm);
 
-    PrintDebug("DISK socket: %d\n", disk->socket);
+    PrintDebug("DISK socket: %p\n", disk->socket);
     PrintDebug("Connecting to: %s:%d\n", v3_inet_ntoa(disk->ip_addr), disk->port);
 
     v3_connect_to_ip(disk->socket, v3_ntohl(disk->ip_addr), disk->port);

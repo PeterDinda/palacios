@@ -30,7 +30,7 @@
 static int atapi_update_req_len(struct ide_internal * ide, struct ide_channel * channel, uint_t xfer_len) {
     struct ide_drive * drive = get_selected_drive(channel);
 
-    //   PrintDebug("Updating request length (pre=%d)\n", drive->req_len);
+    //PrintDebug("\tUpdating request length (pre=%d)\n", drive->req_len);
 
     if (drive->req_len == 0) {
 	PrintError("ATAPI Error: request of length 0\n");
@@ -51,11 +51,12 @@ static int atapi_update_req_len(struct ide_internal * ide, struct ide_channel * 
     }
 
     // if the device can't return as much as the OS requested
+    // this is actually a decrement of the req_len by the amount requested by the OS
     if (drive->req_len > xfer_len) {
 	drive->req_len = xfer_len;
     }
 
-    //    PrintDebug("Updating request length (post=%d)\n", drive->req_len);
+    //    PrintDebug("\tUpdating request length (post=%d)\n", drive->req_len);
 
     return 0;
 }
@@ -321,24 +322,74 @@ static int atapi_mode_sense_cur_values(struct ide_internal * ide, struct ide_cha
 	    err = (struct atapi_error_recovery *)(drive->data_buf + 
 						  sizeof(struct atapi_mode_sense_hdr));
 
+
 	    memcpy(err, &(drive->cd_state.err_recovery), sizeof(struct atapi_error_recovery));
 
 	    resp_len += sizeof(struct atapi_error_recovery);
+
+	    PrintError("mode sense (error recovery) resp_len=%d\n", resp_len);
+
 
 	    hdr->mode_data_len = le_to_be_16(resp_len - 2);
 	    
 	    break;
 	}
 	case 0x2a: { // CDROM caps and mech. status
+
+	    uint8_t * buf = drive->data_buf;
+
+
+
+	    PrintError("mode sense (caps/mechs v2) resp_len=%d\n", resp_len);
+
+	    *((uint16_t *)buf) = le_to_be_16(28 + 6);
+	    buf[2] = 0x70;
+	    buf[3] = 0;
+	    buf[4] = 0;
+	    buf[5] = 0;
+	    buf[6] = 0;
+	    buf[7] = 0;
+
+	    buf[8] = 0x2a;
+	    buf[9] = 0x12;
+	    buf[10] = 0x00;
+	    buf[11] = 0x00;
+
+	    /* Claim PLAY_AUDIO capability (0x01) since some Linux
+	       code checks for this to automount media. */
+	    buf[12] = 0x71;
+	    buf[13] = 3 << 5;
+	    buf[14] = (1 << 0) | (1 << 3) | (1 << 5);
+
+	    buf[6] |= 1 << 1;
+	    buf[15] = 0x00;
+	    *((uint16_t *)&(buf[16])) = le_to_be_16(706);
+	    buf[18] = 0;
+	    buf[19] = 2;
+	    *((uint16_t *)&(buf[20])) = le_to_be_16(512);
+	    *((uint16_t *)&(buf[22])) = le_to_be_16(706);
+	    buf[24] = 0;
+	    buf[25] = 0;
+	    buf[26] = 0;
+	    buf[27] = 0;
+
+	    resp_len = 28;
+
+#if 0
 	    struct atapi_cdrom_caps * caps = NULL;
 	    caps = (struct atapi_cdrom_caps *)(drive->data_buf + sizeof(struct atapi_mode_sense_hdr));
 	    
+
+
 
 	    memset(caps, 0, sizeof(struct atapi_cdrom_caps));
 
 	    resp_len += sizeof(struct atapi_cdrom_caps);
 
 	    hdr->mode_data_len = le_to_be_16(resp_len - 2);
+
+
+	    PrintError("mode sense (caps/mechs v2) resp_len=%d\n", resp_len);
 
 	    caps->page_code = 0x2a;
 	    caps->page_len = 0x12;
@@ -360,6 +411,8 @@ static int atapi_mode_sense_cur_values(struct ide_internal * ide, struct ide_cha
 	    caps->lun_buf_size = le_to_be_16(512);
 	    caps->obsolete2 = le_to_be_16(0x2c2);
 
+#endif
+
 	    break;
 	}
 	case 0x0d:
@@ -374,8 +427,8 @@ static int atapi_mode_sense_cur_values(struct ide_internal * ide, struct ide_cha
 
 
     // We do this after error checking, because its only valid if everything worked
-    memset(hdr, 0, sizeof(struct atapi_mode_sense_hdr));
-    hdr->media_type_code = 0x70;
+    //    memset(hdr, 0, sizeof(struct atapi_mode_sense_hdr));
+    // hdr->media_type_code = 0x70;
 
     PrintDebug("resp_len=%d\n", resp_len);
 
@@ -469,6 +522,7 @@ static int atapi_handle_packet(struct guest_info * core, struct ide_internal * i
  	   */
 	   break;
        case 0x03: // request sense
+	   PrintError("IDE: Requesting Sense (0x3)\n");
 	   atapi_req_sense(ide, channel);
 	   break;
 
@@ -597,6 +651,7 @@ static void atapi_identify_device(struct ide_drive * drive) {
     drive_id->dword_io = 1;
 
     // enable DMA access
+    /* Disabled until command packet DMA is fixed */
     drive_id->dma_enable = 1;
 
     // enable LBA access
@@ -605,13 +660,18 @@ static void atapi_identify_device(struct ide_drive * drive) {
     drive_id->rw_multiples = 0x80ff;
 
     // words 64-70, 54-58 valid
-    drive_id->field_valid = 0x0007; // DMA + pkg cmd valid
+    /* Disabled until command packet DMA is fixed */
+        drive_id->field_valid = 0x0007; // DMA + pkg cmd valid
 
     // copied from CFA540A
-    drive_id->buf[63] = 0x0103; // variable (DMA stuff)
-    //drive_id->buf[63] = 0x0000; // variable (DMA stuff)
-    
-    //    drive_id->buf[64] = 0x0001; // PIO
+    /* Disabled until command packet DMA is fixed */
+     drive_id->buf[63] = 0x0103; // variable (DMA stuff)
+       
+
+    /* uncommented to disable dma(?) */
+     // drive_id->buf[64] = 0x0001; // PIO
+
+
     drive_id->buf[65] = 0x00b4;
     drive_id->buf[66] = 0x00b4;
     drive_id->buf[67] = 0x012c;
@@ -623,5 +683,6 @@ static void atapi_identify_device(struct ide_drive * drive) {
     //    drive_id->buf[80] = 0x1e; // supports up to ATA/ATAPI-4
     drive_id->major_rev_num = 0x0040; // supports up to ATA/ATAPI-6
 
+    /* Disabled until command packet DMA is fixed */
     drive_id->dma_ultra = 0x2020; // Ultra_DMA_Mode_5_Selected | Ultra_DMA_Mode_5_Supported;
 }
