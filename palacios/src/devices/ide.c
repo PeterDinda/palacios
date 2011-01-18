@@ -1173,6 +1173,8 @@ static int read_cd_data(uint8_t * dst, uint_t length, struct ide_internal * ide,
 	    }
 	} else {
 	    // This was the final read of the request
+
+	    drive->req_len = 0;
 	    channel->status.data_req = 0;
 	    channel->status.ready = 1;
 	    
