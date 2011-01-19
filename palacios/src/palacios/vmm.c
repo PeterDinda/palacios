@@ -63,7 +63,7 @@ static void init_cpu(void * arg) {
     } else 
 #endif
     {
-       PrintError("CPU has no virtualizationExtensions\n");
+       PrintError("CPU has no virtualization Extensions\n");
     }
 }
 
@@ -114,6 +114,12 @@ void Init_V3(struct v3_os_hooks * hooks, int num_cpus) {
 #else 
     init_cpu(0);
 #endif
+
+}
+
+
+void Deinit_V3() {
+    
 
 }
 
