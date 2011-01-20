@@ -99,7 +99,7 @@ int v3_free_vm_devices(struct v3_vm_info * vm);
 
 
 int V3_init_devices();
-
+int V3_deinit_devices();
 
 
 struct v3_device_ops {

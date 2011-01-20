@@ -95,6 +95,11 @@ int V3_init_shdw_paging() {
     return 0;
 }
 
+int V3_deinit_shdw_paging() {
+    v3_free_htable(master_shdw_pg_table, 0, 0);
+    return 0;
+}
+
 
 
 /*** 

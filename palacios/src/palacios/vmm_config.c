@@ -166,7 +166,6 @@ static struct v3_config * parse_config(void * cfg_blob) {
 	    return NULL;
 	}
 
-
 	V3_Print("File index=%d id=%s\n", idx, id);
 
 	strncpy(file->tag, id, 256);
@@ -212,9 +211,9 @@ static inline uint32_t get_alignment(char * align_str) {
 
     return alignment;
 }
+
+
 static int pre_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * vm_cfg) {
-
-
     char * memory_str = v3_cfg_val(vm_cfg, "memory");
     char * schedule_hz_str = v3_cfg_val(vm_cfg, "schedule_hz");
     char * vm_class = v3_cfg_val(vm_cfg, "class");
@@ -279,8 +278,8 @@ static int pre_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * vm_cfg) {
     return 0;
 }
 
-static int determine_paging_mode(struct guest_info *info, v3_cfg_tree_t * core_cfg)
-{
+
+static int determine_paging_mode(struct guest_info * info, v3_cfg_tree_t * core_cfg) {
     extern v3_cpu_arch_t v3_cpu_types[];
 
     v3_cfg_tree_t * vm_tree = info->vm_info->cfg_data->cfg;

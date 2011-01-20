@@ -86,6 +86,12 @@ int V3_init_devices() {
 }
 
 
+int V3_deinit_devices() {    
+    v3_free_htable(master_dev_table, 0, 0);
+    return 0;
+}
+
+
 int v3_init_dev_mgr(struct v3_vm_info * vm) {
     struct vmm_dev_mgr * mgr = &(vm->dev_mgr);
 

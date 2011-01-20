@@ -99,6 +99,7 @@ int v3_is_guest_pf(pt_access_status_t guest_access, pt_access_status_t shadow_ac
 
 
 int V3_init_shdw_paging();
+int V3_deinit_shdw_paging();
 
 #define register_shdw_pg_impl(impl)					\
     static struct v3_shdw_pg_impl * _v3_shdw_pg_impl			\
