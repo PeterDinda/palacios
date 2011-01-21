@@ -64,6 +64,12 @@ int v3_console_scroll(v3_console_t cons, int lines) {
     return console_hooks->scroll(cons, lines);
 }
 
+int v3_console_set_text_resolution(v3_console_t cons, int cols, int rows) {
+    V3_ASSERT(console_hooks != NULL);
+    V3_ASSERT(console_hooks->set_text_resolution != NULL);
+    
+    return console_hooks->set_text_resolution(cons, cols, rows);
+}
 
 int v3_console_update(v3_console_t cons) {
     V3_ASSERT(console_hooks != NULL);

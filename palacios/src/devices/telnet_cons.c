@@ -390,6 +390,7 @@ static struct v3_console_ops cons_ops = {
     .update_screen = screen_update, 
     .update_cursor = cursor_update,
     .scroll = scroll,
+    .set_text_resolution = NULL,
 };
 
 static int cons_free(struct cons_state * state) {

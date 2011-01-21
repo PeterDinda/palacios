@@ -37,6 +37,7 @@ int v3_console_set_cursor(v3_console_t cons, int x, int y);
 int v3_console_set_char(v3_console_t cons, int x, int y, char c, uint8_t style);
 int v3_console_scroll(v3_console_t cons, int lines);
 int v3_console_update(v3_console_t cons);
+int v3_console_set_text_resolution(v3_console_t cons, int cols, int rows);
 
 #endif
 
@@ -56,6 +57,9 @@ struct v3_console_hooks {
 
     /* scroll the console down the specified number of lines */
     int (*scroll)(void * tty, int lines);
+
+    /* change the text resolution (always followed by a full screen update) */
+    int (*set_text_resolution)(void * tty, int cols, int rows);
 
     /* force update of console display; all updates by above functions
      * may be defferred until the next tty_update call 

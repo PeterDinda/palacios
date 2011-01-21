@@ -29,6 +29,7 @@ struct v3_console_ops {
     int (*update_screen)(uint_t x, uint_t y, uint_t length, void * private_data);
     int (*update_cursor)(uint_t x, uint_t y, void * private_data);
     int (*scroll)(int rows, void * private_data);
+    int (*set_text_resolution)(int cols, int rows, void * private_data);
 };
 
 
