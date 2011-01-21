@@ -181,7 +181,7 @@ CONFIG_SHELL := $(shell if [ -x "$$BASH" ]; then echo $$BASH; \
 
 HOSTCC  	= gcc
 HOSTCXX  	= g++
-HOSTCFLAGS	= -Wall -Wstrict-prototypes -O2 -fomit-frame-pointer \
+HOSTCFLAGS	= -Wall -Wstrict-prototypes  -fomit-frame-pointer \
 			-Wno-unused -Wno-format-security -U_FORTIFY_SOURCE
 HOSTCXXFLAGS	= -O2
 
@@ -298,7 +298,7 @@ V3_INCLUDE      := -Ipalacios/include \
 
 CPPFLAGS        := $(V3_INCLUDE) -D__V3VEE__
 
-CFLAGS 		:=  -fno-stack-protector -Wall -O -Werror -fPIC -mno-red-zone -fno-common
+CFLAGS 		:=  -fno-stack-protector -Wall -Werror -fPIC -mno-red-zone -fno-common
 
 LDFLAGS         := --whole-archive 
 
@@ -479,6 +479,8 @@ endif
 
 ifdef CONFIG_DEBUG_INFO
 CFLAGS		+= -g
+else 
+CFLAGS          += -O2
 endif
 
 

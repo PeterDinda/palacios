@@ -57,6 +57,13 @@ config VMX
 	  Compile with support for Intel VMX
 
 
+config DEBUG_INFO
+	bool "Compile with Debug Information"
+	default n
+	help
+	  Compiles the Palacios library with debugging symbols
+
+
 menu "Supported host OS features"
       
 config MULTITHREAD_OS
