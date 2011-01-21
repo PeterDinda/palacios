@@ -108,13 +108,18 @@ static int handle_mov_to_cr0(struct guest_info * info, struct x86_instr * dec_in
     *guest_cr0 = *new_cr0;
     
     // This value must always be set to 1 
-    guest_cr0->et = 1;    
+    guest_cr0->et = 1;
     
     // Set the shadow register to catch non-virtualized flags
     *shadow_cr0 = *guest_cr0;
     
     // Paging is always enabled
-    shadow_cr0->pg = 1;  
+    shadow_cr0->pg = 1;
+
+    if (guest_cr0->pg == 0) {
+	// If paging is not enabled by the guest, then we always enable write-protect to catch memory hooks
+	shadow_cr0->wp = 1;
+    }
     
     // Was there a paging transition
     // Meaning we need to change the page tables
