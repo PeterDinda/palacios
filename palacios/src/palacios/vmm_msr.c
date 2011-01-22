@@ -84,7 +84,7 @@ int v3_handle_msr_read(struct guest_info * info) {
     hook = v3_get_msr_hook(info->vm_info, msr_num);
 
     if (!hook) {
-        PrintError("Hook for MSR read %d not found\n", msr_num);
+        PrintError("Hook for MSR read 0x%x not found\n", msr_num);
         return -1;
     }
 
@@ -113,7 +113,7 @@ int v3_hook_msr(struct v3_vm_info * vm, uint_t msr,
     hook = (struct v3_msr_hook *)V3_Malloc(sizeof(struct v3_msr_hook));
 
     if (hook == NULL) {
-	PrintError("Could not allocate msr hook for MSR %d\n", msr);
+	PrintError("Could not allocate msr hook for MSR 0x%x\n", msr);
 	return -1;
     }
 
@@ -187,7 +187,7 @@ void v3_refresh_msr_map(struct v3_vm_info * vm) {
     }
 
     list_for_each_entry(hook, &(msr_map->hook_list), link) {
-	PrintDebug("updating MSR map for msr %d\n", hook->msr);
+	PrintDebug("updating MSR map for msr 0x%x\n", hook->msr);
 	msr_map->update_map(vm, hook->msr, 	
 			    (hook->read == NULL) ? 0 : 1,
 			    (hook->write == NULL) ? 0 : 1);
