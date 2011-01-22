@@ -250,7 +250,9 @@ void v3_yield_cond(struct guest_info * info);
 void v3_print_cond(const char * fmt, ...);
 
 
+#ifdef CONFIG_MULTITHREAD_OS
 void v3_interrupt_cpu(struct v3_vm_info * vm, int logical_cpu, int vector);
+#endif
 
 
 v3_cpu_arch_t v3_get_cpu_type(int cpu_id);

@@ -599,7 +599,11 @@ static int deliver_ipi(struct apic_state * src_apic,
 		//     host maitains logical proc->phsysical proc
 		PrintDebug(" non-local core, forcing it to exit\n"); 
 
+#ifdef CONFIG_MULTITHREAD_OS
 		v3_interrupt_cpu(dst_core->vm_info, dst_core->cpu_id, 0);
+#else
+		V3_ASSERT(0);
+#endif
 	    }
 
 	    break;
@@ -1321,7 +1325,11 @@ int v3_apic_raise_intr(struct v3_vm_info * vm, uint32_t irq, uint32_t dst, void 
     activate_apic_irq(apic, irq);
 
     if (V3_Get_CPU() != dst) {
+#ifdef CONFIG_MULTITHREAD_OS
 	v3_interrupt_cpu(vm, dst, 0);
+#else
+	V3_ASSERT(0);
+#endif
     }
 
     return 0;

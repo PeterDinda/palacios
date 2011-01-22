@@ -240,12 +240,18 @@ static int start_core(void * p)
 
 
 // For the moment very ugly. Eventually we will shift the cpu_mask to an arbitrary sized type...
+#ifdef CONFIG_MULTITHREAD_OS
 #define MAX_CORES 32
+#else
+#define MAX_CORES 1
+#endif
 
 
 int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
     uint32_t i;
+#ifdef CONFIG_MULTITHREAD_OS
     int vcore_id = 0;
+#endif
     uint8_t * core_mask = (uint8_t *)&cpu_mask; // This is to make future expansion easier
     uint32_t avail_cores = 0;
 
@@ -273,6 +279,7 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
     }
 
 
+#ifdef CONFIG_MULTITHREAD_OS
     // spawn off new threads, for other cores
     for (i = 0, vcore_id = 1; (i < MAX_CORES) && (vcore_id < vm->num_cores); i++) {
 	int major = i / 8;
@@ -309,6 +316,7 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
 
 	vcore_id++;
     }
+#endif
 
     sprintf(vm->cores[0].exec_name, "%s", vm->name);
 
