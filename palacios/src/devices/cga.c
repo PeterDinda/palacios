@@ -36,7 +36,7 @@
 #else
 #define PrintVerbose(fmt, args...)
 #endif
-#ifndef CONFIG_DEBUG_CGA
+#if CONFIG_DEBUG_CGA == 0
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
