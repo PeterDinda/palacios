@@ -337,6 +337,26 @@ void v3_print_guest_state(struct guest_info * info) {
     v3_print_disassembly(info);
 }
 
+void v3_print_guest_state_all(struct v3_vm_info * vm) {
+    int i = 0;
+    
+    V3_Print("VM Core states for %s\n", vm->name);
+
+    for (i = 0; i < 80; i++) {
+	V3_Print("-");
+    }
+
+    for (i = 0; i < vm->num_cores; i++) {
+	v3_print_guest_state(&vm->cores[i]);  
+    }
+    
+    for (i = 0; i < 80; i++) {
+	V3_Print("-");
+    }
+
+    V3_Print("\n");    
+}
+
 
 void v3_print_stack(struct guest_info * info) {
     addr_t linear_addr = 0;

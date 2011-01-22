@@ -214,4 +214,6 @@ void v3_print_stack(struct guest_info * info);
 
 #endif /* ! __V3VEE__ */
 
+void v3_print_guest_state_all(struct v3_vm_info * vm);
+
 #endif
