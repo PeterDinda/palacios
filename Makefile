@@ -183,7 +183,7 @@ HOSTCC  	= gcc
 HOSTCXX  	= g++
 HOSTCFLAGS	= -Wall -Wstrict-prototypes  -fomit-frame-pointer \
 			-Wno-unused -Wno-format-security -U_FORTIFY_SOURCE
-HOSTCXXFLAGS	= -O2
+HOSTCXXFLAGS	= -O
 
 # 	Decide whether to build built-in, modular, or both.
 #	Normally, just do built-in.
@@ -480,7 +480,7 @@ endif
 ifdef CONFIG_DEBUG_INFO
 CFLAGS		+= -g
 else 
-CFLAGS          += -O2
+CFLAGS          += -O
 endif
 
 
