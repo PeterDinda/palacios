@@ -13,7 +13,7 @@
  * All rights reserved.
  *
  * Author: Lei Xia <lxia@northwestern.edu>
- *		  Yuan Tang <ytang@northwestern.edu>
+ *	   Yuan Tang <ytang@northwestern.edu>
  *
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
@@ -101,7 +101,10 @@ struct v3_vnet_bridge_ops {
 };
 
 int v3_init_vnet(void);	
+void v3_deinit_vnet(void);
+
 int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data);
+
 void v3_vnet_poll(struct v3_vm_info * vm);
 
 int v3_vnet_add_route(struct v3_vnet_route route);
@@ -109,9 +112,12 @@ int v3_vnet_add_bridge(struct v3_vm_info * vm,
 		struct v3_vnet_bridge_ops * ops,
 		uint8_t type,
 		void * priv_data);
+
+
 int v3_vnet_add_dev(struct v3_vm_info * info, uint8_t mac[6], 
 		    struct v3_vnet_dev_ops * ops,
 		    void * priv_data);
+int v3_vnet_del_dev(int dev_id);
 
 
 #endif

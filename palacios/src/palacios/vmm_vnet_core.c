@@ -498,13 +498,55 @@ int v3_vnet_add_dev(struct v3_vm_info * vm, uint8_t mac[6],
 
     /* if the device was found previosly the id should still be 0 */
     if (new_dev->dev_id == 0) {
-	PrintError("Device Alrady exists\n");
+	PrintError("Device Already exists\n");
 	return -1;
     }
 
     PrintDebug("Vnet: Add Device: dev_id %d\n", new_dev->dev_id);
 
     return new_dev->dev_id;
+}
+
+
+
+int v3_vnet_del_dev(int dev_id){
+    struct vnet_dev * dev = NULL;
+    unsigned long flags;
+
+    flags = v3_lock_irqsave(vnet_state.lock);
+	
+    dev = find_dev_by_id(dev_id);
+    if (dev != NULL){
+    	list_del(&(dev->node));
+    }
+	
+    v3_unlock_irqrestore(vnet_state.lock, flags);
+
+    V3_Free(dev);
+
+    PrintDebug("Vnet: Remove Device: dev_id %d\n", dev_id);
+
+    return 0;
+}
+
+
+static void free_devices(){
+    struct vnet_dev * dev = NULL; 
+
+    list_for_each_entry(dev, &(vnet_state.devs), node) {
+	list_del(&(dev->node));
+	V3_Free(dev);
+    }
+}
+
+static void free_routes(){
+    struct vnet_route_info * route = NULL; 
+
+    list_for_each_entry(route, &(vnet_state.routes), node) {
+	list_del(&(route->node));
+	list_del(&(route->match_node));
+	V3_Free(route);
+    }
 }
 
 
@@ -604,3 +646,17 @@ int v3_init_vnet() {
 
     return 0;
 }
+
+
+void v3_deinit_vnet(){
+
+    v3_lock_deinit(&(vnet_state.lock));
+
+    free_devices();
+    free_routes();
+
+    v3_free_htable(vnet_state.route_cache, 1, 1);
+    V3_Free(vnet_state.bridge);
+}
+
+

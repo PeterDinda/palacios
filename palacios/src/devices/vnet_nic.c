@@ -72,7 +72,7 @@ static int vnet_nic_send(uint8_t * buf, uint32_t len,
     {
     	PrintDebug("VNET-NIC: send pkt (size: %d, src_id: %d, src_type: %d)\n", 
 		   pkt.size, pkt.src_id, pkt.src_type);
-    	//v3_hexdump(buf, len, NULL, 0);
+    	v3_hexdump(buf, len, NULL, 0);
     }
 #endif
 
@@ -118,9 +118,10 @@ static void stop_tx(void * private_data){
 
 
 static int vnet_nic_free(struct vnet_nic_state * vnetnic) {
-    
 
+    v3_vnet_del_dev(vnetnic->vnet_dev_id);
     V3_Free(vnetnic);
+	
     return 0;
 }
 
@@ -135,17 +136,6 @@ static struct v3_vnet_dev_ops vnet_dev_ops = {
     .start_tx = start_tx,
     .stop_tx = stop_tx,
 };
-
-
-static int register_to_vnet(struct v3_vm_info * vm,
-			    struct vnet_nic_state * vnet_nic,
-			    char * dev_name, uchar_t mac[6]) { 
-   
-    PrintDebug("Vnet-nic: register Vnet-nic device %s, state %p to VNET\n", dev_name, vnet_nic);
-	
-    return v3_vnet_add_dev(vm, mac, &vnet_dev_ops, (void *)vnet_nic);
-}
-
 
 static int str2mac(char * macstr, char mac[6]){
     char hex[2], *s = macstr;
@@ -172,9 +162,8 @@ static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     v3_cfg_tree_t * frontend_cfg = v3_cfg_subtree(cfg, "frontend");
     macstr = v3_cfg_val(frontend_cfg, "mac");
 
-    if (macstr == NULL) {
-	PrintDebug("Vnet-nic: No Mac specified\n");
-    } else {
+    if (macstr != NULL) {
+	PrintDebug("Vnet-nic: Mac specified %s\n", macstr);
     	str2mac(macstr, mac);
     }
 
@@ -182,7 +171,6 @@ static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     memset(vnetnic, 0, sizeof(struct vnet_nic_state));
 
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, vnetnic);
-
     if (dev == NULL) {
 	PrintError("Could not attach device %s\n", dev_id);
 	V3_Free(vnetnic);
@@ -206,12 +194,11 @@ static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     PrintDebug("Vnet-nic: Connect %s to frontend %s\n", 
 	      dev_id, v3_cfg_val(frontend_cfg, "tag"));
 
-    if ((vnet_dev_id = register_to_vnet(vm, vnetnic, dev_id, vnetnic->mac)) == -1) {
+    if ((vnet_dev_id = v3_vnet_add_dev(vm, vnetnic->mac, &vnet_dev_ops, (void *)vnetnic)) == -1) {
 	PrintError("Vnet-nic device %s (mac: %s) fails to registered to VNET\n", dev_id, macstr);
 	v3_remove_device(dev);
 	return 0;
     }
-
     vnetnic->vnet_dev_id = vnet_dev_id;
 
     PrintDebug("Vnet-nic device %s (mac: %s, %ld) registered to VNET\n", 
@@ -219,7 +206,7 @@ static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
 
 //for temporary hack for vnet bridge test
-#if 1
+#if 0
     {
     	uchar_t zeromac[6] = {0,0,0,0,0,0};
 		
