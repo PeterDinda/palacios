@@ -264,6 +264,27 @@ int v3_vnet_add_route(struct v3_vnet_route route) {
 }
 
 
+/* delete all route entries with specfied src or dst device id */ 
+static void inline del_routes(int dev_id){
+    struct vnet_route_info * route = NULL;
+    unsigned long flags; 
+
+    flags = v3_lock_irqsave(vnet_state.lock);
+
+    list_for_each_entry(route, &(vnet_state.routes), node) {
+	if((route->route_def.dst_type == LINK_INTERFACE &&
+	     route->route_def.dst_id == dev_id) ||
+	     (route->route_def.src_type == LINK_INTERFACE &&
+	      route->route_def.src_id == dev_id)){
+	      
+	    list_del(&(route->node));
+	    list_del(&(route->match_node));
+	    V3_Free(route);    
+	}
+    }
+
+    v3_unlock_irqrestore(vnet_state.lock, flags);
+}
 
 /* At the end allocate a route_list
  * This list will be inserted into the cache so we don't need to free it
@@ -518,6 +539,7 @@ int v3_vnet_del_dev(int dev_id){
     dev = find_dev_by_id(dev_id);
     if (dev != NULL){
     	list_del(&(dev->node));
+	del_routes(dev_id);
     }
 	
     v3_unlock_irqrestore(vnet_state.lock, flags);
