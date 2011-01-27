@@ -142,13 +142,6 @@ config SHADOW_PAGING_TELEMETRY
 	  Enable telemetry information for shadow paging 
 
 
-config INSTRUMENT_VMM
-	bool "Enable VMM instrumentation"
-	default n
-	help 
-	  Enable the instrumentation framework
-	  --------
-	  This is much heavier weight than profiling
 
 config EXPERIMENTAL
 	bool "Enable Experimental options"

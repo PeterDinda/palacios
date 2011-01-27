@@ -22,13 +22,13 @@
 
 
 /*#include <palacios/vm_guest.h>*/
-#include <palacios/vmm_mem.h>
-#include <palacios/vmm_types.h>
 
 struct guest_info;
 
 
 #ifdef __V3VEE__
+#include <palacios/vmm_mem.h>
+#include <palacios/vmm_types.h>
 
 //#include <palacios/vmm_types.h>
 #include <palacios/vmm_string.h>

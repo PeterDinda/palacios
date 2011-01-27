@@ -106,11 +106,18 @@ int V3_init_symmod() {
 	    PrintError("Could not insert module %s to master list\n", tmp_def->name);
 	    return -1;
 	}
+
 	list_add(&(capsule->node), &capsule_list);
 
 	tmp_def = &(__start__v3_capsules[++i]);
     }
     
+    return 0;
+}
+
+int V3_deinit_symmod() {
+    v3_free_htable(capsule_table, 1, 0);    
+
     return 0;
 }
 

@@ -21,7 +21,6 @@
 #include <palacios/vmm_intr.h>
 #include <palacios/vmm_config.h>
 #include <palacios/vm_guest.h>
-#include <palacios/vmm_instrument.h>
 #include <palacios/vmm_ctrl_regs.h>
 #include <palacios/vmm_lowlevel.h>
 #include <palacios/vmm_sprintf.h>
@@ -67,29 +66,33 @@ static void init_cpu(void * arg) {
     }
 }
 
-#if 0
+
 static void deinit_cpu(void * arg) {
-//    uint32_t cpu_id = (uint32_t)(addr_t)arg;
+    uint32_t cpu_id = (uint32_t)(addr_t)arg;
 
+
+    switch (v3_cpu_types[cpu_id]) {
  #ifdef CONFIG_SVM
-    if (v3_is_svm_capable()) {
-        PrintDebug("Machine is SVM Capable\n");
-        //v3_deinit_svm_cpu(cpu_id);
-
-    } else 
+	case V3_VMX_CPU:
+	case V3_VMX_EPT_CPU:
+	    PrintDebug("Machine is SVM Capable\n");
+	    v3_deinit_svm_cpu(cpu_id);
+	    break;
 #endif
 #ifdef CONFIG_VMX
-    if (v3_is_vmx_capable()) {
-	PrintDebug("Machine is VMX Capable\n");
-	//v3_deinit_vmx_cpu(cpu_id);
-
-    } else 
+	case V3_SVM_CPU:
+	case V3_SVM_REV3_CPU:
+	    PrintDebug("Machine is VMX Capable\n");
+	    v3_deinit_vmx_cpu(cpu_id);
+	    break;
 #endif
-    {
-       PrintError("CPU has no virtualization Extensions\n");
+	case V3_INVALID_CPU:
+	default:
+	    PrintError("CPU has no virtualization Extensions\n");
+	    break;
     }
 }
-#endif
+
 
 
 void Init_V3(struct v3_os_hooks * hooks, int num_cpus) {
@@ -115,10 +118,6 @@ void Init_V3(struct v3_os_hooks * hooks, int num_cpus) {
     V3_init_symmod();
 #endif
 
-#ifdef CONFIG_INSTRUMENT_VMM
-    v3_init_instrumentation();
-#endif
-
 
 #ifdef CONFIG_VNET
     v3_init_vnet();
@@ -142,37 +141,30 @@ void Init_V3(struct v3_os_hooks * hooks, int num_cpus) {
 
 
 void Shutdown_V3() {
-    //  int i;
+    int i;
 
     V3_deinit_devices();
     V3_deinit_shdw_paging();
-
-#if 0
 
 #ifdef CONFIG_SYMMOD
     V3_deinit_symmod();
 #endif
 
-#ifdef CONFIG_INSTRUMENT_VMM
-    v3_deinit_instrumentation();
-#endif
 
 #ifdef CONFIG_VNET
     v3_deinit_vnet();
 #endif
 
 #ifdef CONFIG_MULTITHREAD_OS
-    if ((hooks) && (hooks->call_on_cpu)) {
+    if ((os_hooks) && (os_hooks->call_on_cpu)) {
 	for (i = 0; i < CONFIG_MAX_CPUS; i++) {
 	    if (v3_cpu_types[i] != V3_INVALID_CPU) {
-		deinit_cpu(i);
+		deinit_cpu((void *)(addr_t)i);
 	    }
 	}
     }
 #else 
     deinit_cpu(0);
-#endif
-
 #endif
 
 }

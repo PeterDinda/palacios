@@ -769,7 +769,27 @@ void v3_init_svm_cpu(int cpu_id) {
 
 
 
+void v3_deinit_svm_cpu(int cpu_id) {
+    reg_ex_t msr;
+    extern v3_cpu_arch_t v3_cpu_types[];
 
+    // reset SVM_VM_HSAVE_PA_MSR
+    // Does setting it to NULL disable??
+    msr.r_reg = 0;
+    v3_set_msr(SVM_VM_HSAVE_PA_MSR, msr.e_reg.high, msr.e_reg.low);
+
+    // Disable SVM?
+    v3_get_msr(EFER_MSR, &(msr.e_reg.high), &(msr.e_reg.low));
+    msr.e_reg.low &= ~EFER_MSR_svm_enable;
+    v3_set_msr(EFER_MSR, 0, msr.e_reg.low);
+
+    v3_cpu_types[cpu_id] = V3_INVALID_CPU;
+
+    V3_FreePages((void *)host_vmcbs[cpu_id], 4);
+
+    V3_Print("Host CPU %d host area freed, and SVM disabled\n", cpu_id);
+    return;
+}
 
 
 

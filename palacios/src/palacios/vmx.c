@@ -857,7 +857,8 @@ void v3_init_vmx_cpu(int cpu_id) {
     struct v3_msr tmp_msr;
     uint64_t ret = 0;
 
-    v3_get_msr(VMX_CR4_FIXED0_MSR,&(tmp_msr.hi),&(tmp_msr.lo));
+    v3_get_msr(VMX_CR4_FIXED0_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
+
 #ifdef __V3_64BIT__
     __asm__ __volatile__ (
 			  "movq %%cr4, %%rbx;"
@@ -944,3 +945,9 @@ void v3_init_vmx_cpu(int cpu_id) {
 
 }
 
+
+void v3_deinit_vmx_cpu(int cpu_id) {
+    extern v3_cpu_arch_t v3_cpu_types[];
+    v3_cpu_types[cpu_id] = V3_INVALID_CPU;
+    V3_FreePages((void *)host_vmcs_ptrs[cpu_id], 1);
+}

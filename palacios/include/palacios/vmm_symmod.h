@@ -95,7 +95,7 @@ struct v3_sym_capsule * v3_get_sym_capsule(struct v3_vm_info * vm, char * name);
 
 
 int V3_init_symmod();
-
+int V3_deinit_symmod();
 
 
 

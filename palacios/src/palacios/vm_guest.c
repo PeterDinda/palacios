@@ -339,7 +339,7 @@ void v3_print_guest_state(struct guest_info * info) {
 
 void v3_print_guest_state_all(struct v3_vm_info * vm) {
     int i = 0;
-    
+
     V3_Print("VM Core states for %s\n", vm->name);
 
     for (i = 0; i < 80; i++) {

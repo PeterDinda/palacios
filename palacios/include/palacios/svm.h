@@ -76,9 +76,11 @@
 #define SVM_HANDLER_ERROR     0x1
 #define SVM_HANDLER_HALT      0x2
 
+int v3_is_svm_capable();
 
 void v3_init_svm_cpu(int cpu_id);
-int v3_is_svm_capable();
+void v3_deinit_svm_cpu(int cpu_id);
+
 
 int v3_init_svm_vmcb(struct guest_info * core, v3_vm_class_t vm_class);
 int v3_deinit_svm_vmcb(struct guest_info * core);
