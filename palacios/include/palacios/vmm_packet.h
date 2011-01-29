@@ -26,13 +26,14 @@
 #ifdef __V3VEE__
 
 int V3_send_raw(const char * pkt, uint32_t len);
+int V3_register_mac(const char mac[6], struct v3_vm_info * vm);
 
 #endif
 
 struct v3_packet_hooks {
 
     int (*send)(const char * pkt, unsigned int size, void * private_data);
-
+    int (*register_mac)(const char * mac, struct v3_vm_info * vm);
 };
 
 extern void V3_Init_Packet(struct v3_packet_hooks * hooks);

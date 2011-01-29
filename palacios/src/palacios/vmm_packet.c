@@ -32,6 +32,11 @@ int V3_send_raw(const char * pkt, uint32_t len) {
 }
 
 
+int V3_register_mac(const char mac[6], struct v3_vm_info * vm){
+
+    return packet_hooks->register_mac(mac, vm);
+}
+
 void V3_Init_Packet(struct v3_packet_hooks * hooks) {
     packet_hooks = hooks;
     PrintDebug("V3 raw packet interface inited\n");
