@@ -10,6 +10,12 @@
  * Copyright (c) 2008, The V3VEE Project <http://www.v3vee.org>
  * All rights reserved.
  *
+ * Copyright (c) 2008, Philip Soltero <psoltero@cs.unm.edu> 
+ * Copyright (c) 2008, The V3VEE Project <http://www.v3vee.org> 
+ * All rights reserved.
+ *
+ * Author: Philip Soltero <psoltero@cs.unm.edu>
+ *
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
