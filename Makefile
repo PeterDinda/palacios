@@ -298,7 +298,7 @@ V3_INCLUDE      := -Ipalacios/include \
 
 CPPFLAGS        := $(V3_INCLUDE) -D__V3VEE__
 
-CFLAGS 		:=  -fno-stack-protector -Wall -Werror -mno-red-zone -fno-common
+CFLAGS 		:=  -fno-stack-protector -Wall -Werror -fPIC -mno-red-zone -fno-common
 #-fPIC
 #-ffreestanding
 
