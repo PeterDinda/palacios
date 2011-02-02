@@ -139,6 +139,12 @@
 		</device>
 -->
 
+	<!-- Machine-check device -->
+<!--
+        <device class="MCHECK" id="MCHECK" />
+-->
+
+
 		<device class="NVRAM" id="nvram">
 			<storage>ide</storage>
 		</device>
