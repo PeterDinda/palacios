@@ -181,54 +181,46 @@ struct vm_device * v3_find_dev(struct v3_vm_info * vm, const char * dev_name) {
 /* The remaining functions are called by the devices themselves */
 /****************************************************************/
 
-struct dev_io_hook {
-    uint16_t port;
+typedef enum {DEV_IO_HOOK, DEV_MSR_HOOK, DEV_CPUID_HOOK, DEV_MEM_HOOK, DEV_HCALL_HOOK} dev_rsrc_type_t;
+
+struct dev_rsrc {
+    dev_rsrc_type_t type;
+    uint64_t rsrc;
 
     struct list_head node;
-
 };
 
-/* IO HOOKS */
-int v3_dev_hook_io(struct vm_device * dev, uint16_t port,
-		   int (*read)(struct guest_info * core, uint16_t port, void * dst, uint_t length, void * priv_data),
-		   int (*write)(struct guest_info * core, uint16_t port, void * src, uint_t length, void * priv_data)) {
-    struct dev_io_hook * io_hook = NULL;
-    int ret = 0;
-    
-   ret = v3_hook_io_port(dev->vm, port, 
-			 (int (*)(struct guest_info * core, ushort_t, void *, uint_t, void *))read, 
-			 (int (*)(struct guest_info * core, ushort_t, void *, uint_t, void *))write, 
-			 (void *)dev->private_data);
 
-   if (ret == -1) {
-       return -1;
-   }
 
-   io_hook = V3_Malloc(sizeof(struct dev_io_hook));
+static int add_resource(struct vm_device * dev, dev_rsrc_type_t type, uint64_t rsrc_id) {
+    struct dev_rsrc * resource = NULL;
 
-   if (io_hook == NULL) {
-       PrintError("Could not allocate io hook dev state\n");
-       return -1;
-   }
+    resource = V3_Malloc(sizeof(struct dev_rsrc));
 
-   io_hook->port = port;
-   list_add(&(io_hook->node), &(dev->io_hooks));
+    if (resource == NULL) {
+	PrintError("Error: Could not allocate device resource\n");
+	return -1;
+    }
 
-   return 0;
+    resource->rsrc = rsrc_id;
+    resource->type = type;
+
+    list_add(&(resource->node), &(dev->res_hooks));
+    return 0;
 }
 
+static int free_resource(struct vm_device * dev, dev_rsrc_type_t type, uint64_t rsrc_id) {
+    struct dev_rsrc * resource = NULL;
+    struct dev_rsrc * tmp;
 
-int v3_dev_unhook_io(struct vm_device * dev, uint16_t port) {
-    struct dev_io_hook * io_hook = NULL;
-    struct dev_io_hook * tmp;
+    list_for_each_entry_safe(resource, tmp, &(dev->res_hooks), node) {
+	if ((resource->type == type) && 
+	    (resource->rsrc == rsrc_id)) {
 
-    list_for_each_entry_safe(io_hook, tmp, &(dev->io_hooks), node) {
-	if (io_hook->port == port) {
-
-	    list_del(&(io_hook->node));
-	    V3_Free(io_hook);
+	    list_del(&(resource->node));
+	    V3_Free(resource);
 	    
-	    return v3_unhook_io_port(dev->vm, port);	    
+	    return 0;
 	}
     }
 
@@ -236,16 +228,83 @@ int v3_dev_unhook_io(struct vm_device * dev, uint16_t port) {
 }
 
 
+int v3_dev_hook_io(struct vm_device * dev, uint16_t port,
+		   int (*read)(struct guest_info * core, uint16_t port, void * dst, uint_t length, void * priv_data),
+		   int (*write)(struct guest_info * core, uint16_t port, void * src, uint_t length, void * priv_data)) {
+    int ret = 0;
+    
+    ret = v3_hook_io_port(dev->vm, port, 
+			  (int (*)(struct guest_info * core, uint16_t, void *, uint_t, void *))read, 
+			  (int (*)(struct guest_info * core, uint16_t, void *, uint_t, void *))write, 
+			  (void *)dev->private_data);
+
+    if (ret == -1) {
+	return -1;
+    }
+
+    if (add_resource(dev, DEV_IO_HOOK, port) == -1) {
+	v3_unhook_io_port(dev->vm, port);
+	PrintError("Could not allocate io hook dev state\n");
+	return -1;
+    }
+    
+    return 0;
+}
+
+
+int v3_dev_unhook_io(struct vm_device * dev, uint16_t port) {
+    if (free_resource(dev, DEV_IO_HOOK, port) == 0) {
+	return v3_unhook_io_port(dev->vm, port);	   
+    } 
+
+    return -1;
+}
+
+
+int v3_dev_hook_msr(struct vm_device * dev, uint32_t msr,
+		    int (*read)(struct guest_info * core, uint32_t msr, struct v3_msr * dst, void * priv_data),
+		    int (*write)(struct guest_info * core, uint32_t msr, struct v3_msr src, void * priv_data)) {
+    int ret = 0;
+
+    ret = v3_hook_msr(dev->vm, msr, read, write, dev->private_data);
+
+    if (ret == -1) {
+	return -1;
+    }
+
+    if (add_resource(dev, DEV_MSR_HOOK, msr) == -1) {
+	v3_unhook_msr(dev->vm, msr);
+	return -1;
+    }
+
+    return 0;
+}
+		  
+int v3_dev_unhook_msr(struct vm_device * dev, uint32_t msr) {
+    if (free_resource(dev, DEV_MSR_HOOK, msr) == 0) {
+	return v3_unhook_msr(dev->vm, msr);
+    }
+
+    return -1;
+}
+
+
+
 
 int v3_remove_device(struct vm_device * dev) {
     struct vmm_dev_mgr * mgr = &(dev->vm->dev_mgr);
-    struct dev_io_hook * io_hook = NULL;
-    struct dev_io_hook * tmp;
+    struct dev_rsrc * resource = NULL;
+    struct dev_rsrc * tmp;
 
-    list_for_each_entry_safe(io_hook, tmp, &(dev->io_hooks), node) {
-	v3_unhook_io_port(dev->vm, io_hook->port);	    
-	list_del(&(io_hook->node));
-	V3_Free(io_hook);    
+    list_for_each_entry_safe(resource, tmp, &(dev->res_hooks), node) {
+	if (resource->type == DEV_IO_HOOK) {
+	    v3_unhook_io_port(dev->vm, (uint16_t)(resource->rsrc));
+	} else if (resource->type == DEV_MSR_HOOK) {
+	    v3_unhook_msr(dev->vm, (uint32_t)(resource->rsrc));
+	}
+
+	list_del(&(resource->node));
+	V3_Free(resource);    
     }
 
     if (dev->ops->free) {
@@ -277,7 +336,7 @@ struct vm_device * v3_add_device(struct v3_vm_info * vm,
 	return NULL;
     }
 
-    INIT_LIST_HEAD(&(dev->io_hooks));
+    INIT_LIST_HEAD(&(dev->res_hooks));
 
     strncpy(dev->name, name, 32);
     dev->ops = ops;

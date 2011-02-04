@@ -39,3 +39,5 @@ obj-$(CONFIG_PASSTHROUGH_PCI) += pci_passthrough.o
 
 obj-$(CONFIG_SYMMOD) += lnx_virtio_symmod.o
 obj-$(CONFIG_CHAR_STREAM) += char_stream.o
+
+obj-$(CONFIG_MCHECK) += mcheck.o

@@ -48,7 +48,7 @@ int v3_deinit_msr_map(struct v3_vm_info * vm) {
 }
 
 int v3_handle_msr_write(struct guest_info * info) {
-    uint_t msr_num = info->vm_regs.rcx;
+    uint32_t msr_num = info->vm_regs.rcx;
     struct v3_msr msr_val;
     struct v3_msr_hook * hook = NULL;
 
@@ -77,7 +77,7 @@ int v3_handle_msr_write(struct guest_info * info) {
 
 
 int v3_handle_msr_read(struct guest_info * info) {
-    uint_t msr_num = info->vm_regs.rcx;
+    uint32_t msr_num = info->vm_regs.rcx;
     struct v3_msr msr_val;
     struct v3_msr_hook * hook = NULL;
 
@@ -102,9 +102,9 @@ int v3_handle_msr_read(struct guest_info * info) {
     return 0;
 }
 
-int v3_hook_msr(struct v3_vm_info * vm, uint_t msr, 
-		int (*read)(struct guest_info * core, uint_t msr, struct v3_msr * dst, void * priv_data),
-		int (*write)(struct guest_info * core, uint_t msr, struct v3_msr src, void * priv_data),
+int v3_hook_msr(struct v3_vm_info * vm, uint32_t msr, 
+		int (*read)(struct guest_info * core, uint32_t msr, struct v3_msr * dst, void * priv_data),
+		int (*write)(struct guest_info * core, uint32_t msr, struct v3_msr src, void * priv_data),
 		void * priv_data) {
 
     struct v3_msr_map * msr_map = &(vm->msr_map);
@@ -148,7 +148,7 @@ static int free_hook(struct v3_vm_info * vm, struct v3_msr_hook * hook) {
 }
 
 
-int v3_unhook_msr(struct v3_vm_info * vm, uint_t msr) {
+int v3_unhook_msr(struct v3_vm_info * vm, uint32_t msr) {
     struct v3_msr_hook * hook = v3_get_msr_hook(vm, msr);
 
     if (hook == NULL) {
@@ -163,7 +163,7 @@ int v3_unhook_msr(struct v3_vm_info * vm, uint_t msr) {
 
 
 
-struct v3_msr_hook * v3_get_msr_hook(struct v3_vm_info * vm, uint_t msr) {
+struct v3_msr_hook * v3_get_msr_hook(struct v3_vm_info * vm, uint32_t msr) {
     struct v3_msr_map * msr_map = &(vm->msr_map);
     struct v3_msr_hook * hook = NULL;
 
