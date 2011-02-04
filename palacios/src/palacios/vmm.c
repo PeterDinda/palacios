@@ -279,6 +279,7 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
 	void * core_thread = NULL;
 	struct guest_info * core = &(vm->cores[vcore_id]);
 
+	/* This assumes that the core 0 thread has been mapped to physical core 0 */
 	if (i == V3_Get_CPU()) {
 	    // We skip the local CPU, because it is reserved for vcore 0
 	    continue;

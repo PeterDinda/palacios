@@ -277,7 +277,7 @@ static int ioapic_raise_irq(struct v3_vm_info * vm, void * private_data, int irq
     if (irq_entry->mask == 0) {
 	struct v3_gen_ipi ipi;
 
-	PrintDebug("ioapic %u: IOAPIC Signalling APIC to raise INTR %d\n", 
+	PrintDebug("ioapic %u: IOAPIC Signaling APIC to raise INTR %d\n", 
 		   ioapic->ioapic_id.id, irq_entry->vec);
 
 
