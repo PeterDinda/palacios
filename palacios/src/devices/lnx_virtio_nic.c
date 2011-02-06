@@ -29,6 +29,7 @@
 #include <palacios/vmm_lock.h>
 #include <palacios/vmm_util.h>
 #include <devices/pci.h>
+#include <palacios/vmm_ethernet.h>
 
 
 #ifndef CONFIG_DEBUG_VIRTIO_NET
@@ -38,6 +39,7 @@
 
 #define VIRTIO_NET_S_LINK_UP	1	/* Link is up */
 #define VIRTIO_NET_MAX_BUFSIZE (sizeof(struct virtio_net_hdr) + (64 << 10))
+
 
 struct virtio_net_hdr {
 	uint8_t flags;
@@ -62,12 +64,19 @@ struct virtio_net_hdr_mrg_rxbuf {
 #define TX_QUEUE_SIZE 64
 #define RX_QUEUE_SIZE 1024
 #define CTRL_QUEUE_SIZE 64
-#define ETH_ALEN 6
 
 #define VIRTIO_NET_F_MRG_RXBUF	15	/* Host can merge receive buffers. */
 #define VIRTIO_NET_F_MAC	5	/* Host has given MAC address. */
 #define VIRTIO_NET_F_GSO	6	/* Host handles pkts w/ any GSO type */
 #define VIRTIO_NET_F_HOST_TSO4	11	/* Host can handle TSOv4 in. */
+
+/* this is not how virtio supposed to be,
+ * we may need a separately implemented virtio_pci
+ * In order to make guest to get virtio MAC from host
+ * I added it here  -- Lei
+ */
+ #define VIRTIO_NET_CONFIG 20  
+
 
 struct virtio_net_config
 {
@@ -79,6 +88,8 @@ struct virtio_dev_state {
     struct vm_device * pci_bus;
     struct list_head dev_list;
     struct v3_vm_info *vm;
+
+    char mac[ETH_ALEN];
 };
 
 struct virtio_net_state {
@@ -143,7 +154,7 @@ static int virtio_init_state(struct virtio_net_state * virtio)
 
     virtio->virtio_cfg.pci_isr = 0;
 	
-    virtio->virtio_cfg.host_features = 0; // (1 << VIRTIO_NET_F_MAC);
+    virtio->virtio_cfg.host_features = 0 | (1 << VIRTIO_NET_F_MAC);
 
     if ((v3_lock_init(&(virtio->rx_lock)) == -1) ||
 	(v3_lock_init(&(virtio->tx_lock)) == -1)){
@@ -468,7 +479,7 @@ static int virtio_io_read(struct guest_info *core,
     int port_idx = port % virtio->io_range_size;
     uint16_t queue_idx = virtio->virtio_cfg.vring_queue_selector;
 
-    PrintDebug("Virtio NIC %p: Read  for port %d (index =%d), length=%d\n", private_data,
+    PrintDebug("Virtio NIC %p: Read  for port 0x%x (index =%d), length=%d\n", private_data,
 	       port, port_idx, length);
 	
     switch (port_idx) {
@@ -532,6 +543,10 @@ static int virtio_io_read(struct guest_info *core,
 	    *(uint8_t *)dst = virtio->virtio_cfg.pci_isr;
 	    virtio->virtio_cfg.pci_isr = 0;
 	    v3_pci_lower_irq(virtio->virtio_dev->pci_bus, 0, virtio->pci_dev);
+	    break;
+
+	case VIRTIO_NET_CONFIG ... VIRTIO_NET_CONFIG + ETH_ALEN:
+	    *(uint8_t *)dst = virtio->net_cfg.mac[port_idx-VIRTIO_NET_CONFIG];
 	    break;
 
 	default:
@@ -772,13 +787,9 @@ static int register_dev(struct virtio_dev_state * virtio,
     net_state->pci_dev = pci_dev;
     net_state->virtio_dev = virtio;
 
-    uchar_t mac[6] = {0x11,0x11,0x11,0x11,0x11,0x11};
-    memcpy(net_state->net_cfg.mac, mac, 6);
-	                                                                                                   
-    memcpy(pci_dev->config_data, net_state->net_cfg.mac, ETH_ALEN);
-    
+    memcpy(net_state->net_cfg.mac, virtio->mac, 6);                           
+	
     virtio_init_state(net_state);
-
 
     /* Add backend to list of devices */
     list_add(&(net_state->dev_link), &(virtio->dev_list));
@@ -807,16 +818,45 @@ static int connect_fn(struct v3_vm_info * info,
     ops->start_tx = virtio_start_tx;
     ops->stop_tx = virtio_stop_tx;
     ops->frontend_data = net_state;
+    memcpy(ops->fnt_mac, virtio->mac, ETH_ALEN);
 
     return 0;
 }
+
+
+static int str2mac(char * macstr, char * mac){
+    char hex[2], *s = macstr;
+    int i = 0;
+
+    while(s){
+	memcpy(hex, s, 2);
+	mac[i++] = (char)atox(hex);	
+	if (i == ETH_ALEN) return 0;
+	s=strchr(s, ':');
+	if(s) s++;
+    }
+
+    return -1;
+}
+
+static inline void random_ethaddr(uchar_t * addr)
+{
+    uint64_t val;
+
+    /* using current rdtsc as random number */
+    rdtscll(val);
+    *(uint64_t *)addr = val;
+	
+    addr [0] &= 0xfe;	/* clear multicast bit */
+    addr [0] |= 0x02;	/* set local assignment bit (IEEE802) */
+}
+
 
 static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vm_device * pci_bus = v3_find_dev(vm, v3_cfg_val(cfg, "bus"));
     struct virtio_dev_state * virtio_state = NULL;
     char * dev_id = v3_cfg_val(cfg, "ID");
-
-    PrintDebug("Virtio NIC: Initializing VIRTIO Network device: %s\n", dev_id);
+    char * macstr = v3_cfg_val(cfg, "mac");
 
     if (pci_bus == NULL) {
 	PrintError("Virtio NIC: VirtIO devices require a PCI Bus");
@@ -829,6 +869,13 @@ static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     INIT_LIST_HEAD(&(virtio_state->dev_list));
     virtio_state->pci_bus = pci_bus;
     virtio_state->vm = vm;
+
+    if (macstr != NULL && !str2mac(macstr, virtio_state->mac)) {
+	PrintDebug("Virtio NIC: Mac specified %s\n", macstr);
+    }else {
+    	PrintDebug("Virtio NIC: MAC not specified\n");
+	random_ethaddr(virtio_state->mac);
+    }
 
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, virtio_state);
 

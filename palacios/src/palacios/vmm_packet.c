@@ -32,7 +32,7 @@ int V3_send_raw(const char * pkt, uint32_t len) {
 }
 
 
-int V3_register_mac(const char mac[6], struct v3_vm_info * vm){
+int V3_register_mac(const char * mac, struct v3_vm_info * vm){
 
     return packet_hooks->register_mac(mac, vm);
 }

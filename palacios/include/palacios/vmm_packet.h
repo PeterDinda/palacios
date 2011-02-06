@@ -22,11 +22,12 @@
 #define __VMM_PACKET_H__
 
 #include <palacios/vmm.h>
+#include <palacios/vmm_ethernet.h>
 
 #ifdef __V3VEE__
 
 int V3_send_raw(const char * pkt, uint32_t len);
-int V3_register_mac(const char mac[6], struct v3_vm_info * vm);
+int V3_packet_register_mac(const char * mac, struct v3_vm_info * vm);
 
 #endif
 

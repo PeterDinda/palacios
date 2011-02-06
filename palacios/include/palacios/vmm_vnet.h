@@ -13,7 +13,7 @@
  * All rights reserved.
  *
  * Author: Lei Xia <lxia@northwestern.edu>
- *	   Yuan Tang <ytang@northwestern.edu>
+ *		  Yuan Tang <ytang@northwestern.edu>
  *
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
@@ -23,6 +23,7 @@
 #define __VNET_H__
 
 #include <palacios/vmm.h>
+#include <palacios/vmm_ethernet.h>
 
 #define MAC_ANY 0
 #define MAC_NOT 1
@@ -34,10 +35,6 @@
 #define LINK_ANY 2
 
 #define VNET_HASH_SIZE 17
-#define ETHERNET_HEADER_LEN 14
-#define ETHERNET_MTU   1500
-#define ETHERNET_PACKET_LEN (ETHERNET_HEADER_LEN + ETHERNET_MTU)
-
 #define VMM_DRIVERN 1
 #define GUEST_DRIVERN 0
 

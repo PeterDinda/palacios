@@ -26,6 +26,7 @@
 #include <palacios/vm_guest_mem.h>
 #include <devices/pci.h>
 #include <palacios/vmm_sprintf.h>
+#include <palacios/vmm_ethernet.h>
 
 #ifndef CONFIG_DEBUG_VNET_NIC
 #undef PrintDebug
@@ -34,7 +35,6 @@
 
 
 struct vnet_nic_state {
-    char mac[6];
     struct v3_vm_info * vm;
     struct v3_dev_net_ops net_ops;
     int vnet_dev_id;
@@ -102,14 +102,14 @@ static void virtio_poll(struct v3_vm_info * info,
 }
 
 
-/* tell the frontend to start sending pkt to VNET*/
+/* notify the frontend to start sending pkt to VNET*/
 static void start_tx(void * private_data){
     struct vnet_nic_state *vnetnic = (struct vnet_nic_state *)private_data;
 
     vnetnic->net_ops.start_tx(vnetnic->net_ops.frontend_data);
 }
 
-/* tell the frontend device to stop sending pkt to VNET*/
+/* notify the frontend device to stop sending pkt to VNET*/
 static void stop_tx(void * private_data){
     struct vnet_nic_state *vnetnic = (struct vnet_nic_state *)private_data;
 
@@ -137,35 +137,13 @@ static struct v3_vnet_dev_ops vnet_dev_ops = {
     .stop_tx = stop_tx,
 };
 
-static int str2mac(char * macstr, char mac[6]){
-    char hex[2], *s = macstr;
-    int i = 0;
-
-    while(s){
-	memcpy(hex, s, 2);
-	mac[i++] = (char)atox(hex);
-	if (i == 6) return 0;
-	s=strchr(s, ':');
-	if(s) s++;
-    }
-
-    return -1;
-}
 
 static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vnet_nic_state * vnetnic = NULL;
     char * dev_id = v3_cfg_val(cfg, "ID");
-    char * macstr = NULL;
-    char mac[6];
     int vnet_dev_id;
 
     v3_cfg_tree_t * frontend_cfg = v3_cfg_subtree(cfg, "frontend");
-    macstr = v3_cfg_val(frontend_cfg, "mac");
-
-    if (macstr != NULL) {
-	PrintDebug("Vnet-nic: Mac specified %s\n", macstr);
-    	str2mac(macstr, mac);
-    }
 
     vnetnic = (struct vnet_nic_state *)V3_Malloc(sizeof(struct vnet_nic_state));
     memset(vnetnic, 0, sizeof(struct vnet_nic_state));
@@ -180,7 +158,6 @@ static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     vnetnic->net_ops.send = vnet_nic_send;
     vnetnic->net_ops.start_rx = start_rx;
     vnetnic->net_ops.stop_rx = stop_rx;
-    memcpy(vnetnic->mac, mac, 6);
     vnetnic->vm = vm;
 	
     if (v3_dev_connect_net(vm, v3_cfg_val(frontend_cfg, "tag"), 
@@ -194,91 +171,14 @@ static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     PrintDebug("Vnet-nic: Connect %s to frontend %s\n", 
 	      dev_id, v3_cfg_val(frontend_cfg, "tag"));
 
-    if ((vnet_dev_id = v3_vnet_add_dev(vm, vnetnic->mac, &vnet_dev_ops, (void *)vnetnic)) == -1) {
-	PrintError("Vnet-nic device %s (mac: %s) fails to registered to VNET\n", dev_id, macstr);
+    if ((vnet_dev_id = v3_vnet_add_dev(vm, vnetnic->net_ops.fnt_mac, &vnet_dev_ops, (void *)vnetnic)) == -1) {
+	PrintError("Vnet-nic device %s fails to registered to VNET\n", dev_id);
 	v3_remove_device(dev);
 	return 0;
     }
     vnetnic->vnet_dev_id = vnet_dev_id;
 
-    PrintDebug("Vnet-nic device %s (mac: %s, %ld) registered to VNET\n", 
-	        dev_id, macstr, *((ulong_t *)vnetnic->mac));
-
-
-//for temporary hack for vnet bridge test
-#if 0
-    {
-    	uchar_t zeromac[6] = {0,0,0,0,0,0};
-		
-	if(!strcmp(dev_id, "vnet_nic")){
-	    struct v3_vnet_route route;
-		
-	    route.dst_id = vnet_dev_id;
-	    route.dst_type = LINK_INTERFACE;
-	    route.src_id = 0;
-	    route.src_type = LINK_EDGE;
-	    memcpy(route.dst_mac, zeromac, 6);
-	    route.dst_mac_qual = MAC_ANY;
-	    memcpy(route.src_mac, zeromac, 6);
-	    route.src_mac_qual = MAC_ANY;  
-	    v3_vnet_add_route(route);
-
-
-	    route.dst_id = 0;
-	    route.dst_type = LINK_EDGE;
-	    route.src_id = vnet_dev_id;
-	    route.src_type = LINK_INTERFACE;
-	    memcpy(route.dst_mac, zeromac, 6);
-	    route.dst_mac_qual = MAC_ANY;
-	    memcpy(route.src_mac, zeromac, 6);
-	    route.src_mac_qual = MAC_ANY;
-
-	    v3_vnet_add_route(route);
-	}
-    }
-#endif
-
-//for temporary hack for Linux bridge (w/o encapuslation) test
-#if 0
-    {
- 	static int vnet_nic_guestid = -1;
-	static int vnet_nic_dom0 = -1;
-    	uchar_t zeromac[6] = {0,0,0,0,0,0};
-		
-	if(!strcmp(dev_id, "vnet_nic")){ //domu
-	    vnet_nic_guestid = vnet_dev_id;
-	}
-	if (!strcmp(dev_id, "vnet_nic_dom0")){
-	    vnet_nic_dom0 = vnet_dev_id;
-	}
-
-	if(vnet_nic_guestid != -1 && vnet_nic_dom0 !=-1){
-	    struct v3_vnet_route route;
-		
-	    route.src_id = vnet_nic_guestid;
-	    route.src_type = LINK_INTERFACE;
-	    route.dst_id = vnet_nic_dom0;
-	    route.dst_type = LINK_INTERFACE;
-	    memcpy(route.dst_mac, zeromac, 6);
-	    route.dst_mac_qual = MAC_ANY;
-	    memcpy(route.src_mac, zeromac, 6);
-	    route.src_mac_qual = MAC_ANY;  
-	    v3_vnet_add_route(route);
-
-
-	    route.src_id = vnet_nic_dom0;
-	    route.src_type = LINK_INTERFACE;
-	    route.dst_id = vnet_nic_guestid;
-	    route.dst_type = LINK_INTERFACE;
-	    memcpy(route.dst_mac, zeromac, 6);
-	    route.dst_mac_qual = MAC_ANY;
-	    memcpy(route.src_mac, zeromac, 6);
-	    route.src_mac_qual = MAC_ANY;
-
-	    v3_vnet_add_route(route);
-	}
-    }
-#endif
+    PrintDebug("Vnet-nic device %s registered to VNET\n", dev_id);
 
     return 0;
 }

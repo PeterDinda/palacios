@@ -27,6 +27,7 @@
 #include <palacios/vmm_string.h>
 #include <palacios/vmm_hashtable.h>
 #include <palacios/vmm_config.h>
+#include <palacios/vmm_ethernet.h>
 
 
 struct v3_vm_info;
@@ -175,6 +176,7 @@ struct v3_dev_net_ops {
 
     /* This is ugly... */
     void * frontend_data; 
+    char fnt_mac[ETH_ALEN];
 };
 
 struct v3_dev_console_ops {
