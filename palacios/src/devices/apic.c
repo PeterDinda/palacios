@@ -227,6 +227,8 @@ struct apic_dev_state {
 
 
 
+
+
 static int apic_read(struct guest_info * core, addr_t guest_addr, void * dst, uint_t length, void * priv_data);
 static int apic_write(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data);
 
@@ -704,14 +706,15 @@ static int route_ipi(struct apic_dev_state * apic_dev,
     dest_apic =  &(apic_dev->apics[icr->dst]);
 
 
-    PrintDebug("route_ipi: IPI %s %u from apic %p to %s %s %u (icr=0x%llx)\n",
+    PrintDebug("route_ipi: IPI %s %u from apic %p to %s %s %u (icr=0x%llx) (destapic=%p\n",
 	       deliverymode_str[icr->del_mode], 
 	       icr->vec, 
 	       src_apic, 	       
 	       (icr->dst_mode == 0) ? "(physical)" : "(logical)", 
 	       shorthand_str[icr->dst_shorthand], 
 	       icr->dst,
-	       icr->val);
+	       icr->val,
+	       dest_apic);
 
     switch (icr->dst_shorthand) {
 
@@ -729,7 +732,6 @@ static int route_ipi(struct apic_dev_state * apic_dev,
 		// logical delivery
 		int i;
 		uint8_t mda = icr->dst;
-
 		for (i = 0; i < apic_dev->num_apics; i++) { 
 		     dest_apic = &(apic_dev->apics[i]);
 		     int del_flag = should_deliver_ipi(dest_apic->core, dest_apic, mda);
@@ -1297,12 +1299,12 @@ static int apic_get_intr_number(struct guest_info * core, void * private_data) {
 
 
 int v3_apic_send_ipi(struct v3_vm_info * vm, struct v3_gen_ipi * ipi, void * dev_data) {
-    struct apic_dev_state * apic_dev = (struct apic_dev_state *)dev_data;
+    struct apic_dev_state * apic_dev = (struct apic_dev_state *)
+	(((struct vm_device *)dev_data)->private_data);
     struct int_cmd_reg tmp_icr;
 
     // zero out all the fields
     tmp_icr.val = 0;
-
 
     tmp_icr.vec = ipi->vector;
     tmp_icr.del_mode = ipi->mode;
@@ -1317,7 +1319,8 @@ int v3_apic_send_ipi(struct v3_vm_info * vm, struct v3_gen_ipi * ipi, void * dev
 
 
 int v3_apic_raise_intr(struct v3_vm_info * vm, uint32_t irq, uint32_t dst, void * dev_data) {
-    struct apic_dev_state * apic_dev = (struct apic_dev_state *)(dev_data);
+    struct apic_dev_state * apic_dev = (struct apic_dev_state *)
+	(((struct vm_device*)dev_data)->private_data);
     struct apic_state * apic = &(apic_dev->apics[dst]); 
 
     PrintDebug("apic %u core ?: raising interrupt IRQ %u (dst = %u).\n", apic->lapic_id.val, irq, dst); 
@@ -1554,8 +1557,8 @@ static int apic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 #ifdef CONFIG_DEBUG_APIC
     for (i = 0; i < vm->num_cores; i++) {
 	struct apic_state * apic = &(apic_dev->apics[i]);
-	PrintDebug("apic: sanity check: apic %u (at %p) has id %u and msr value %llx\n",
-		   i, apic, apic->lapic_id.val, apic->base_addr_msr.value);
+	PrintDebug("apic: sanity check: apic %u (at %p) has id %u and msr value %llx and core at %p\n",
+		   i, apic, apic->lapic_id.val, apic->base_addr_msr.value,apic->core);
     }
 #endif
 

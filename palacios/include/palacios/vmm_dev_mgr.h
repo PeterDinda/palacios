@@ -26,6 +26,7 @@
 #include <palacios/vmm_list.h>
 #include <palacios/vmm_string.h>
 #include <palacios/vmm_hashtable.h>
+#include <palacios/vmm_msr.h>
 #include <palacios/vmm_config.h>
 #include <palacios/vmm_ethernet.h>
 
@@ -49,9 +50,8 @@ struct vm_device {
 
     struct list_head dev_link;
 
-
-    uint_t num_io_hooks;
-    struct list_head io_hooks;
+    uint_t num_res_hooks;
+    struct list_head res_hooks;
 };
 
 
@@ -116,12 +116,22 @@ struct v3_device_ops {
 
 
 int v3_dev_hook_io(struct vm_device   * dev,
-		   ushort_t            port,
-		   int (*read)(struct guest_info * core, ushort_t port, void * dst, uint_t length, void * priv_data),
-		   int (*write)(struct guest_info * core, ushort_t port, void * src, uint_t length, void * priv_data));
+		   uint16_t            port,
+		   int (*read)(struct guest_info * core, uint16_t port, void * dst, uint_t length, void * priv_data),
+		   int (*write)(struct guest_info * core, uint16_t port, void * src, uint_t length, void * priv_data));
 
 int v3_dev_unhook_io(struct vm_device   * dev,
-		     ushort_t            port);
+		     uint16_t            port);
+
+
+int v3_dev_hook_msr(struct vm_device * dev, 
+		    uint32_t           msr,
+		    int (*read)(struct guest_info * core, uint32_t msr, struct v3_msr * dst, void * priv_data), 
+		    int (*write)(struct guest_info * core, uint32_t msr, struct v3_msr src, void * priv_data));
+
+int v3_dev_unhook_msr(struct vm_device * dev, 
+		      uint32_t msr);
+	    
 
 
 
