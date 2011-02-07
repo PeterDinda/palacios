@@ -174,9 +174,10 @@ config NE2K
 	help
 	  Includes the Virtual NE2K network card
 
-config DEBUG_NE2k
+config DEBUG_NE2K
 	bool "NE2K debugging"
-	depends on NE2k && DEBUG_ON
+	default n
+	depends on NE2K && DEBUG_ON
 	help 
 	  Enable debugging for the NE2K
 

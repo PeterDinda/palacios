@@ -89,7 +89,7 @@ struct virtio_dev_state {
     struct list_head dev_list;
     struct v3_vm_info *vm;
 
-    char mac[ETH_ALEN];
+    uint8_t mac[ETH_ALEN];
 };
 
 struct virtio_net_state {
@@ -822,35 +822,6 @@ static int connect_fn(struct v3_vm_info * info,
 
     return 0;
 }
-
-
-static int str2mac(char * macstr, char * mac){
-    char hex[2], *s = macstr;
-    int i = 0;
-
-    while(s){
-	memcpy(hex, s, 2);
-	mac[i++] = (char)atox(hex);	
-	if (i == ETH_ALEN) return 0;
-	s=strchr(s, ':');
-	if(s) s++;
-    }
-
-    return -1;
-}
-
-static inline void random_ethaddr(uchar_t * addr)
-{
-    uint64_t val;
-
-    /* using current rdtsc as random number */
-    rdtscll(val);
-    *(uint64_t *)addr = val;
-	
-    addr [0] &= 0xfe;	/* clear multicast bit */
-    addr [0] |= 0x02;	/* set local assignment bit (IEEE802) */
-}
-
 
 static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vm_device * pci_bus = v3_find_dev(vm, v3_cfg_val(cfg, "bus"));

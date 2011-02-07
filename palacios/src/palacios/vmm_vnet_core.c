@@ -100,7 +100,7 @@ static struct {
 
 
 #ifdef CONFIG_DEBUG_VNET
-static inline void mac_to_string(char * mac, char * buf) {
+static inline void mac_to_string(uint8_t * mac, char * buf) {
     snprintf(buf, 100, "%d:%d:%d:%d:%d:%d", 
 	     mac[0], mac[1], mac[2],
 	     mac[3], mac[4], mac[5]);
@@ -207,15 +207,6 @@ static struct vnet_dev * dev_by_mac(uint8_t * mac) {
     }
 
     return NULL;
-}
-
-int v3_vnet_id_by_mac(char * mac){
-    struct vnet_dev *dev = dev_by_mac(mac);
-
-    if (dev == NULL)
-	return -1;
-
-    return dev->dev_id;
 }
 
 
@@ -582,7 +573,7 @@ static void free_routes(){
     }
 }
 
-
+/* TODO: Round-bin or ?? */
 void  v3_vnet_poll(struct v3_vm_info * vm){
     struct vnet_dev * dev = NULL; 
     struct vnet_brg_dev *bridge = vnet_state.bridge;

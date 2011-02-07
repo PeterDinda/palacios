@@ -25,26 +25,21 @@
 #include <palacios/vmm.h>
 #include <palacios/vmm_ethernet.h>
 
-#define MAC_ANY 0
-#define MAC_NOT 1
-#define MAC_NONE 2 
-#define MAC_ADDR 3
+#define MAC_ANY 	0
+#define MAC_NOT 	1
+#define MAC_NONE 	2 
+#define MAC_ADDR 	3
 
-#define LINK_INTERFACE 0
-#define LINK_EDGE 1 
-#define LINK_ANY 2
+#define LINK_INTERFACE 	0
+#define LINK_EDGE 	1 
+#define LINK_ANY 	2
 
-#define VNET_HASH_SIZE 17
-#define VMM_DRIVERN 1
-#define GUEST_DRIVERN 0
-
-#define HOST_LNX_BRIDGE 1
-#define CTL_VM_BRIDGE 2
+#define VNET_HASH_SIZE 	17
 
 //routing table entry
 struct v3_vnet_route {
-    uint8_t src_mac[6];
-    uint8_t dst_mac[6];
+    uint8_t src_mac[ETH_ALEN];
+    uint8_t dst_mac[ETH_ALEN];
 
     uint8_t src_mac_qual;
     uint8_t dst_mac_qual;
@@ -78,6 +73,28 @@ struct v3_vnet_pkt {
     } __attribute__((packed));
 } __attribute__((packed));
 
+struct v3_vnet_bridge_ops {
+    int (*input)(struct v3_vm_info * vm, 
+		struct v3_vnet_pkt * pkt,
+		void * private_data);
+    void (*poll)(struct v3_vm_info * vm,  
+		void * private_data);
+};
+
+#define HOST_LNX_BRIDGE 1
+#define CTL_VM_BRIDGE 	2
+
+int v3_vnet_add_bridge(struct v3_vm_info * vm,
+		struct v3_vnet_bridge_ops * ops,
+		uint8_t type,
+		void * priv_data);
+int v3_vnet_add_route(struct v3_vnet_route route);
+int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data);
+
+#ifdef __V3VEE__
+
+#define VMM_DRIVERN 	1
+#define GUEST_DRIVERN 	0
 
 struct v3_vnet_dev_ops {
     int (*input)(struct v3_vm_info * vm, 
@@ -89,33 +106,17 @@ struct v3_vnet_dev_ops {
     void (*stop_tx)(void * dev_data);
 };
 
-struct v3_vnet_bridge_ops {
-    int (*input)(struct v3_vm_info * vm, 
-		struct v3_vnet_pkt * pkt,
-		void * private_data);
-    void (*poll)(struct v3_vm_info * vm,  
-		void * private_data);
-};
-
 int v3_init_vnet(void);	
 void v3_deinit_vnet(void);
 
-int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data);
-
 void v3_vnet_poll(struct v3_vm_info * vm);
 
-int v3_vnet_add_route(struct v3_vnet_route route);
-int v3_vnet_add_bridge(struct v3_vm_info * vm,
-		struct v3_vnet_bridge_ops * ops,
-		uint8_t type,
-		void * priv_data);
-
-
-int v3_vnet_add_dev(struct v3_vm_info * info, uint8_t mac[6], 
+int v3_vnet_add_dev(struct v3_vm_info * info, uint8_t * mac, 
 		    struct v3_vnet_dev_ops * ops,
 		    void * priv_data);
 int v3_vnet_del_dev(int dev_id);
 
+#endif
 
 #endif
 

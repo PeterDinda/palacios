@@ -66,6 +66,37 @@ static inline int compare_ether_hdr(const uint8_t * hdr1, const uint8_t * hdr2)
              (a32[1] ^ b32[1]) | (a32[2] ^ b32[2]);
 }
 
+/* AA:BB:CC:DD:EE:FF */
+static inline int str2mac(char * macstr, uint8_t * mac){
+    char hex[2], *s = macstr;
+    int i = 0;
+
+    while(s){
+	memcpy(hex, s, 2);
+	mac[i++] = (char)atox(hex);	
+	if (i == ETH_ALEN) return 0;
+	s=strchr(s, ':');
+	if(s) s++;
+    }
+
+    return -1;
+}
+
+
+/* generate random ethernet address */
+static inline void random_ethaddr(uint8_t * addr)
+{
+    uint64_t val;
+
+    /* using current rdtsc as random number */
+    rdtscll(val);
+    *(uint64_t *)addr = val;
+	
+    addr [0] &= 0xfe;	/* clear multicast bit */
+    addr [0] |= 0x02;	/* set local assignment bit (IEEE802) */
+}
+
+
 #endif
 
 #endif
