@@ -1198,8 +1198,6 @@ static int ne2k_free(struct ne2k_state * nic_state) {
     }else {
        /* unregistered from PCI? */
     }
-  
-    return 0;
 
     V3_Free(nic_state);
 	
