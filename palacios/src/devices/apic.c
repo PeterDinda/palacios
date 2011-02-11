@@ -11,7 +11,8 @@
  * Copyright (c) 2008, The V3VEE Project <http://www.v3vee.org> 
  * All rights reserved.
  *
- * Author: Jack Lange <jarusl@cs.northwestern.edu>
+ * Authors: Jack Lange <jarusl@cs.northwestern.edu>
+ *          Peter Dinda <pdinda@northwestern.edu> (SMP)
  *
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
@@ -214,6 +215,9 @@ struct apic_state {
     uint32_t eoi;
 
     v3_lock_t  lock;
+
+    // debug
+    uint8_t in_icr;   
 };
 
 
@@ -221,6 +225,7 @@ struct apic_state {
 
 struct apic_dev_state {
     int num_apics;
+    v3_lock_t ipi_lock;   // acquired by route_ipi - only one IPI active at a time
 
     struct apic_state apics[0];
 } __attribute__((packed));
@@ -232,6 +237,7 @@ struct apic_dev_state {
 static int apic_read(struct guest_info * core, addr_t guest_addr, void * dst, uint_t length, void * priv_data);
 static int apic_write(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data);
 
+// No lcoking done
 static void init_apic_state(struct apic_state * apic, uint32_t id) {
     apic->base_addr = DEFAULT_BASE_ADDR;
 
@@ -289,11 +295,16 @@ static void init_apic_state(struct apic_state * apic, uint32_t id) {
     apic->spec_eoi.val = 0x00000000;
 
     v3_lock_init(&(apic->lock));
+
+    apic->in_ipi=0;
+
+    apic->in_icr=0;
 }
 
 
 
 
+// MSR handler - locks apic itself
 static int read_apic_msr(struct guest_info * core, uint_t msr, v3_msr_t * dst, void * priv_data) {
     struct apic_dev_state * apic_dev = (struct apic_dev_state *)priv_data;
     struct apic_state * apic = &(apic_dev->apics[core->cpu_id]);
@@ -305,7 +316,7 @@ static int read_apic_msr(struct guest_info * core, uint_t msr, v3_msr_t * dst, v
     return 0;
 }
 
-
+// MSR handler - locks apic itself
 static int write_apic_msr(struct guest_info * core, uint_t msr, v3_msr_t src, void * priv_data) {
     struct apic_dev_state * apic_dev = (struct apic_dev_state *)priv_data;
     struct apic_state * apic = &(apic_dev->apics[core->cpu_id]);
@@ -342,7 +353,12 @@ static int write_apic_msr(struct guest_info * core, uint_t msr, v3_msr_t src, vo
 
 
 // irq_num is the bit offset into a 256 bit buffer...
-static int activate_apic_irq(struct apic_state * apic, uint32_t irq_num) {
+// return values
+//    -1 = error
+//     0 = OK, no interrupt needed now
+//     1 = OK, interrupt needed now
+// the caller is expeced to have locked the apic
+static int activate_apic_irq_nolock(struct apic_state * apic, uint32_t irq_num) {
     int major_offset = (irq_num & ~0x00000007) >> 3;
     int minor_offset = irq_num & 0x00000007;
     uint8_t * req_location = apic->int_req_reg + major_offset;
@@ -350,8 +366,7 @@ static int activate_apic_irq(struct apic_state * apic, uint32_t irq_num) {
     uint8_t flag = 0x1 << minor_offset;
 
 
-
-    if (irq_num <= 15) {
+    if (irq_num <= 15 || irq_num>255) {
 	PrintError("apic %u: core %d: Attempting to raise an invalid interrupt: %d\n", 
 		   apic->lapic_id.val, apic->core->cpu_id, irq_num);
 	return -1;
@@ -362,21 +377,28 @@ static int activate_apic_irq(struct apic_state * apic, uint32_t irq_num) {
 
     if (*req_location & flag) {
 	PrintDebug("Interrupt %d  coallescing\n", irq_num);
+	return 0;
     }
 
     if (*en_location & flag) {
 	*req_location |= flag;
+
+	if (apic->in_icr) { 
+	    PrintError("apic %u: core %d: activate_apic_irq_nolock to deliver irq 0x%x when in_icr=1\n",  apic->lapic_id.val, apic->core->cpu_id, irq_num);
+	    //	    return 0;
+	}
+
+	return 1;
     } else {
 	PrintDebug("apic %u: core %d: Interrupt  not enabled... %.2x\n", 
 		   apic->lapic_id.val, apic->core->cpu_id,*en_location);
 	return 0;
     }
 
-    return 0;
 }
 
 
-
+// Caller is expected to have locked the apic
 static int get_highest_isr(struct apic_state * apic) {
     int i = 0, j = 0;
 
@@ -398,7 +420,7 @@ static int get_highest_isr(struct apic_state * apic) {
 }
  
 
-
+// Caller is expected to have locked the apic
 static int get_highest_irr(struct apic_state * apic) {
     int i = 0, j = 0;
 
@@ -421,7 +443,7 @@ static int get_highest_irr(struct apic_state * apic) {
  
 
 
-
+// Caller is expected to have locked the apic
 static int apic_do_eoi(struct apic_state * apic) {
     int isr_irq = get_highest_isr(apic);
 
@@ -453,8 +475,8 @@ static int apic_do_eoi(struct apic_state * apic) {
     return 0;
 }
  
-
-static int activate_internal_irq(struct apic_state * apic, apic_irq_type_t int_type) {
+// Caller is expected to have locked the apic
+static int activate_internal_irq_nolock(struct apic_state * apic, apic_irq_type_t int_type) {
     uint32_t vec_num = 0;
     uint32_t del_mode = 0;
     int masked = 0;
@@ -504,7 +526,7 @@ static int activate_internal_irq(struct apic_state * apic, apic_irq_type_t int_t
 
     if (del_mode == APIC_FIXED_DELIVERY) {
 	//PrintDebug("Activating internal APIC IRQ %d\n", vec_num);
-	return activate_apic_irq(apic, vec_num);
+	return activate_apic_irq_nolock(apic, vec_num);
     } else {
 	PrintError("apic %u: core ?: Unhandled Delivery Mode\n", apic->lapic_id.val);
 	return -1;
@@ -512,12 +534,12 @@ static int activate_internal_irq(struct apic_state * apic, apic_irq_type_t int_t
 }
 
 
-
+// Caller is expected to have locked the destination apic
 static inline int should_deliver_cluster_ipi(struct guest_info * dst_core, 
 					     struct apic_state * dst_apic, uint8_t mda) {
 
-    if 	( ((mda & 0xf0) == (dst_apic->log_dst.dst_log_id & 0xf0)) &&     // (I am in the cluster and
-	  ((mda & 0x0f) & (dst_apic->log_dst.dst_log_id & 0x0f)) ) {  //  I am in the set)
+    if 	( ((mda & 0xf0) == (dst_apic->log_dst.dst_log_id & 0xf0)) &&  /* (I am in the cluster and */
+	  ((mda & 0x0f) & (dst_apic->log_dst.dst_log_id & 0x0f)) ) {  /*  I am in the set)        */
 
 	PrintDebug("apic %u core %u: accepting clustered IRQ (mda 0x%x == log_dst 0x%x)\n",
 		   dst_apic->lapic_id.val, dst_core->cpu_id, mda, 
@@ -532,6 +554,7 @@ static inline int should_deliver_cluster_ipi(struct guest_info * dst_core,
     }
 }
 
+// Caller is expected to have locked the destiation apic
 static inline int should_deliver_flat_ipi(struct guest_info * dst_core,
 					  struct apic_state * dst_apic, uint8_t mda) {
 
@@ -540,17 +563,20 @@ static inline int should_deliver_flat_ipi(struct guest_info * dst_core,
 	PrintDebug("apic %u core %u: accepting flat IRQ (mda 0x%x == log_dst 0x%x)\n",
 		   dst_apic->lapic_id.val, dst_core->cpu_id, mda, 
 		   dst_apic->log_dst.dst_log_id);
-      return 1;
+
+	return 1;
+
   } else {
+
 	PrintDebug("apic %u core %u: rejecting flat IRQ (mda 0x%x != log_dst 0x%x)\n",
 		   dst_apic->lapic_id.val, dst_core->cpu_id, mda, 
 		   dst_apic->log_dst.dst_log_id);
-      return 0;
+	return 0;
   }
 }
 
 
-
+// Caller is expected to have locked the destiation apic
 static int should_deliver_ipi(struct guest_info * dst_core, 
 			      struct apic_state * dst_apic, uint8_t mda) {
 
@@ -558,19 +584,21 @@ static int should_deliver_ipi(struct guest_info * dst_core,
     if (dst_apic->dst_fmt.model == 0xf) {
 
 	if (mda == 0xff) {
-	    // always deliver broadcast
+	    /* always deliver broadcast */
 	    return 1;
 	}
 
 	return should_deliver_flat_ipi(dst_core, dst_apic, mda);
+
     } else if (dst_apic->dst_fmt.model == 0x0) {
 
 	if (mda == 0xff) {
-	    // always deliver broadcast
+	    /*  always deliver broadcast */
 	    return 1;
 	}
 
 	return should_deliver_cluster_ipi(dst_core, dst_apic, mda);
+
     } else {
 	PrintError("apic %u core %u: invalid destination format register value 0x%x for logical mode delivery.\n", 
 		   dst_apic->lapic_id.val, dst_core->cpu_id, dst_apic->dst_fmt.model);
@@ -578,28 +606,35 @@ static int should_deliver_ipi(struct guest_info * dst_core,
     }
 }
 
-
+// Caller is expected to have locked the source apic (if any) and destination apic
 static int deliver_ipi(struct apic_state * src_apic, 
 		       struct apic_state * dst_apic, 
 		       uint32_t vector, uint8_t del_mode) {
 
+
     struct guest_info * dst_core = dst_apic->core;
+    int do_xcall;
 
     switch (del_mode) {
 
 	case 0:  //fixed
-	case 1: // lowest priority
+	case 1: // lowest priority - caller needs to have decided which apic to deliver to!
 	    PrintDebug("delivering IRQ %d to core %u\n", vector, dst_core->cpu_id); 
 
-	    activate_apic_irq(dst_apic, vector);
+	    do_xcall=activate_apic_irq_nolock(dst_apic, vector);
+	    
+	    if (do_xcall<0) { 
+		PrintError("Failed to activate apic irq!\n");
+		return -1;
+	    }
 
-	    if (dst_apic != src_apic) { 
+	    if (do_xcall && (dst_apic != src_apic)) { 
 		// Assume core # is same as logical processor for now
 		// TODO FIX THIS FIX THIS
 		// THERE SHOULD BE:  guestapicid->virtualapicid map,
 		//                   cpu_id->logical processor map
 		//     host maitains logical proc->phsysical proc
-		PrintDebug(" non-local core, forcing it to exit\n"); 
+		PrintDebug(" non-local core with new interrupt, forcing it to exit now\n"); 
 
 #ifdef CONFIG_MULTITHREAD_OS
 		v3_interrupt_cpu(dst_core->vm_info, dst_core->cpu_id, 0);
@@ -617,7 +652,7 @@ static int deliver_ipi(struct apic_state * src_apic,
 
 	    // Sanity check
 	    if (dst_apic->ipi_state != INIT_ST) { 
-		PrintError(" Warning: core %u is not in INIT state (mode = %d), ignored\n",
+		PrintError(" Warning: core %u is not in INIT state (mode = %d), ignored (assuming this is the deassert)\n",
 			   dst_core->cpu_id, dst_apic->ipi_state);
 		// Only a warning, since INIT INIT SIPI is common
 		break;
@@ -687,102 +722,264 @@ static int deliver_ipi(struct apic_state * src_apic,
 
 }
 
+// Caller is expected to have locked the source apic, if any
+// route_ipi will lock the destination apics
+/*
 
+   Note that this model introduces a potential deadlock:
+
+     APIC A-> APIC B   while APIC B -> APIC A
+
+       lock(A)               lock(B)
+       lock(B)               lock(A)
+
+   This deadlock condition is not currently handled.    
+   A good way of handling it might be to check to see if the 
+   destination apic is currently sending an IPI, and, 
+   if so, back out   and ask the caller to drop the sender lock
+   reacquire it, and then try route_ipi again.  However, 
+   logical delivery complicates this considerably since
+   we can hit the above situation in the middle of sending
+   the ipi to a group of destination apics.   
+
+
+*/
 static int route_ipi(struct apic_dev_state * apic_dev,
 		     struct apic_state * src_apic, 
 		     struct int_cmd_reg * icr) {
     struct apic_state * dest_apic = NULL;
 
-    PrintDebug("route_ipi: src_apic=%p, icr_data=%p\n", 
-	       src_apic, (void *)(addr_t)icr->val);
+
+    v3_lock(apic_dev->ipi_lock);  
+    // now I know only one IPI is being routed, this one
+    // also, I do not have any apic locks
+    // I need to acquire locks on pairs of src/dest apics
+    // and I will do that using the total order
+    // given by their cores
 
 
-    if ((icr->dst_mode == 0) && (icr->dst >= apic_dev->num_apics)) { 
-	PrintError("route_ipi: Attempted send to unregistered apic id=%u\n", 
-		   icr->dst);
-	return -1;
-    }
-
-    dest_apic =  &(apic_dev->apics[icr->dst]);
-
-
-    PrintDebug("route_ipi: IPI %s %u from apic %p to %s %s %u (icr=0x%llx) (destapic=%p\n",
+    PrintDebug("apic: IPI %s %u from apic %p to %s %s %u (icr=0x%llx)\n",
 	       deliverymode_str[icr->del_mode], 
 	       icr->vec, 
 	       src_apic, 	       
 	       (icr->dst_mode == 0) ? "(physical)" : "(logical)", 
 	       shorthand_str[icr->dst_shorthand], 
 	       icr->dst,
-	       icr->val,
-	       dest_apic);
+	       icr->val);
 
+#if 1
+    if (icr->vec!=48) { 
+	V3_Print("apic: IPI %u from apic %p to %s %u (icr=0x%llx)\n",
+		 icr->vec, 
+		 src_apic, 	       
+		 (icr->dst_mode == 0) ? "(physical)" : "(logical)", 
+		 icr->dst,
+		 icr->val);
+    }
+
+#endif
+
+    /* Locking issue:  we hold src_apic already.  We will acquire dest_apic if needed */
+    /* But this could lead to deadlock - we really need to have a total ordering */
+	
     switch (icr->dst_shorthand) {
 
 	case 0:  // no shorthand
 	    if (icr->dst_mode == 0) { 
 		// physical delivery
 
-		if (deliver_ipi(src_apic, dest_apic, 
-				icr->vec, icr->del_mode) == -1) {
-		    PrintError("Error: Could not deliver IPI\n");
+		if (icr->dst >= apic_dev->num_apics) { 
+		    PrintError("apic: Attempted send to unregistered apic id=%u\n", icr->dst);
 		    return -1;
 		}
 
+
+		dest_apic =  &(apic_dev->apics[icr->dst]);
+
+		v3_lock(dest_apic->lock);
+
+		if (deliver_ipi(src_apic, dest_apic, 
+				icr->vec, icr->del_mode) == -1) {
+		    PrintError("apic: Could not deliver IPI\n");
+		    v3_unlock(dest_apic->lock);
+		    return -1;
+		}
+
+		v3_unlock(dest_apic->lock);
+
 	    } else {
 		// logical delivery
-		int i;
-		uint8_t mda = icr->dst;
-		for (i = 0; i < apic_dev->num_apics; i++) { 
-		     dest_apic = &(apic_dev->apics[i]);
-		     int del_flag = should_deliver_ipi(dest_apic->core, dest_apic, mda);
-		     
-		     if (del_flag == -1) {
-			 PrintError("Error checking delivery mode\n");
-			 return -1;
-		     } else if (del_flag == 1) {
-			if (deliver_ipi(src_apic, dest_apic, 
-					icr->vec, icr->del_mode) == -1) {
-			    PrintError("Error: Could not deliver IPI\n");
+		if (icr->del_mode!=1) { 
+		    // logical, but not lowest priority
+		    // we immediately trigger
+		    // fixed, smi, reserved, nmi, init, sipi, etc
+		    int i;
+		    int have_lock;
+		    
+		    uint8_t mda = icr->dst;
+		    
+		    for (i = 0; i < apic_dev->num_apics; i++) { 
+			
+			dest_apic = &(apic_dev->apics[i]);
+			
+			
+			if (src_apic==0 || dest_apic!=src_apic) { 
+			    v3_lock(dest_apic->lock);
+			    have_lock=1;
+			} else {
+			    have_lock=0;
+			}
+			
+			int del_flag = should_deliver_ipi(dest_apic->core, dest_apic, mda);
+			
+			if (del_flag == -1) {
+			    PrintError("apic: Error checking delivery mode\n");
+			    if (have_lock) { 
+				v3_unlock(dest_apic->lock);
+			    }
 			    return -1;
+			} else if (del_flag == 1) {
+			    if (deliver_ipi(src_apic, dest_apic, 
+					    icr->vec, icr->del_mode) == -1) {
+				PrintError("apic: Error: Could not deliver IPI\n");
+				if (have_lock) { 
+				    v3_unlock(dest_apic->lock);
+				}
+				return -1;
+			    }
+			}
+			
+			if (have_lock) {
+			    v3_unlock(dest_apic->lock);
+			}
+		    }
+		} else {
+		    // logical, lowest priority
+		    // scan, then trigger
+		    int i;
+		    int have_cur_lock;    // do we have a lock on the one we are now considering?
+		    struct apic_state * cur_best_apic = NULL;
+		    
+		    uint8_t mda = icr->dst;
+
+		    for (i = 0; i < apic_dev->num_apics; i++) { 
+			
+			dest_apic = &(apic_dev->apics[i]);
+			
+			
+			if (src_apic==0 || dest_apic!=src_apic) { 
+			    v3_lock(dest_apic->lock);
+			    have_cur_lock=1;
+			} else {
+			    have_cur_lock=0;
+			}
+			
+			int del_flag = should_deliver_ipi(dest_apic->core, dest_apic, mda);
+			
+			if (del_flag == -1) {
+			    PrintError("apic: Error checking delivery mode\n");
+			    if (have_cur_lock) { 
+				v3_unlock(dest_apic->lock);
+			    }
+			    if (cur_best_apic && cur_best_apic!=src_apic) { 
+				v3_unlock(cur_best_apic->lock);
+			    }
+			    
+			    return -1;
+			} else if (del_flag == 1) {
+			    // update priority for lowest priority scan
+			    if (!cur_best_apic) {
+				cur_best_apic=dest_apic;
+				have_cur_lock=0;   // will unlock as cur_best_apic
+			    } else if (dest_apic->task_prio.val < cur_best_apic->task_prio.val) {
+				// we now unlock the current best one and then switch
+				// so in the end we have a lock on the new cur_best_apic
+				if (cur_best_apic!=src_apic) { 
+				    v3_unlock(cur_best_apic->lock);
+				}
+				cur_best_apic=dest_apic;
+				have_cur_lock=0;
+			    } 
+			}
+			if (have_cur_lock) {
+			    v3_unlock(dest_apic->lock);
+			}
+			
+		    }
+		    // now we will deliver to the best one if it exists
+		    if (!cur_best_apic) { 
+			PrintDebug("apic: lowest priority deliver, but no destinations!\n");
+		    } else {
+			if (deliver_ipi(src_apic, cur_best_apic, 
+					icr->vec, icr->del_mode) == -1) {
+			    PrintError("apic: Error: Could not deliver IPI\n");
+			    if (cur_best_apic!=src_apic) { 
+				v3_unlock(cur_best_apic->lock);
+			    } 
+			    return -1;
+			} else {
+			    if (cur_best_apic!=src_apic) { 
+				v3_unlock(cur_best_apic->lock);
+			    }
+			    //V3_Print("apic: logical, lowest priority delivery to apic %u\n",cur_best_apic->lapic_id.val);
 			}
 		    }
 		}
 	    }
-	    
+
 	    break;
 	    
 	case 1:  // self
 
-	    if (src_apic == NULL) {
-		PrintError("Sending IPI to self from generic IPI sender\n");
+	    /* I assume I am already locked! */
+
+	    if (src_apic == NULL) {    /* this is not an apic, but it's trying to send to itself??? */
+		PrintError("apic: Sending IPI to self from generic IPI sender\n");
 		break;
 	    }
 
-	    if (icr->dst_mode == 0) { 
+	    if (icr->dst_mode == 0) {  /* physical delivery */
 		if (deliver_ipi(src_apic, src_apic, icr->vec, icr->del_mode) == -1) {
-		    PrintError("Could not deliver IPI\n");
+		    PrintError("apic: Could not deliver IPI to self (physical)\n");
 		    return -1;
 		}
-	    } else {
-		// logical delivery
-		PrintError("use of logical delivery in self is not yet supported.\n");
-		return -1;
+	    } else { /* logical delivery */
+		PrintError("apic: use of logical delivery in self (untested)\n");
+		if (deliver_ipi(src_apic, src_apic, icr->vec, icr->del_mode) == -1) {
+		    PrintError("apic: Could not deliver IPI to self (logical)\n");
+		    return -1;
+		}
 	    }
 	    break;
 	    
 	case 2: 
-	case 3: { // all and all-but-me
-	    // assuming that logical verus physical doesn't matter
-	    // although it is odd that both are used
+	case 3: { /* all and all-but-me */
+	    /* assuming that logical verus physical doesn't matter
+	       although it is odd that both are used */
+
+	    int have_lock;
 	    int i;
 
 	    for (i = 0; i < apic_dev->num_apics; i++) { 
 		dest_apic = &(apic_dev->apics[i]);
 
+		
 		if ((dest_apic != src_apic) || (icr->dst_shorthand == 2)) { 
+		    if (src_apic==0 || dest_apic!=src_apic) { 
+			v3_lock(dest_apic->lock);
+			have_lock=1;
+		    } else {
+			have_lock=0;
+		    }
 		    if (deliver_ipi(src_apic, dest_apic, icr->vec, icr->del_mode) == -1) {
-			PrintError("Error: Could not deliver IPI\n");
+			PrintError("apic: Error: Could not deliver IPI\n");
+			if (have_lock) { 
+			    v3_unlock(dest_apic->lock);
+			}
 			return -1;
+		    }
+		    if (have_lock) { 
+			v3_unlock(dest_apic->lock);
 		    }
 		}
 	    }	
@@ -790,7 +987,7 @@ static int route_ipi(struct apic_dev_state * apic_dev,
 	    break;
 	}
 	default:
-	    PrintError("Error routing IPI, invalid Mode (%d)\n", icr->dst_shorthand);
+	    PrintError("apic: Error routing IPI, invalid Mode (%d)\n", icr->dst_shorthand);
 	    return -1;
     }
     
@@ -799,7 +996,7 @@ static int route_ipi(struct apic_dev_state * apic_dev,
 }
 
 
-
+// External function, expected to acquire lock on apic
 static int apic_read(struct guest_info * core, addr_t guest_addr, void * dst, uint_t length, void * priv_data) {
     struct apic_dev_state * apic_dev = (struct apic_dev_state *)(priv_data);
     struct apic_state * apic = &(apic_dev->apics[core->cpu_id]);
@@ -807,6 +1004,7 @@ static int apic_read(struct guest_info * core, addr_t guest_addr, void * dst, ui
     struct apic_msr * msr = (struct apic_msr *)&(apic->base_addr_msr.value);
     uint32_t val = 0;
 
+    v3_lock(apic->lock);
 
     PrintDebug("apic %u: core %u: at %p: Read apic address space (%p)\n",
 	       apic->lapic_id.val, core->cpu_id, apic, (void *)guest_addr);
@@ -815,7 +1013,7 @@ static int apic_read(struct guest_info * core, addr_t guest_addr, void * dst, ui
 	PrintError("apic %u: core %u: Read from APIC address space with disabled APIC, apic msr=0x%llx\n",
 		   apic->lapic_id.val, core->cpu_id, apic->base_addr_msr.value);
 
-	return -1;
+	goto apic_read_out_bad;
     }
 
 
@@ -1028,7 +1226,7 @@ static int apic_read(struct guest_info * core, addr_t guest_addr, void * dst, ui
 	default:
 	    PrintError("apic %u: core %u: Read from Unhandled APIC Register: %x (getting zero)\n", 
 		       apic->lapic_id.val, core->cpu_id, (uint32_t)reg_addr);
-	    return -1;
+	    goto apic_read_out_bad;
     }
 
 
@@ -1051,13 +1249,20 @@ static int apic_read(struct guest_info * core, addr_t guest_addr, void * dst, ui
     } else {
 	PrintError("apic %u: core %u: Invalid apic read length (%d)\n", 
 		   apic->lapic_id.val, core->cpu_id, length);
-	return -1;
+	goto apic_read_out_bad;
     }
 
     PrintDebug("apic %u: core %u: Read finished (val=%x)\n", 
 	       apic->lapic_id.val, core->cpu_id, *(uint32_t *)dst);
 
+
+    // apic_read_out_good:
+    v3_unlock(apic->lock);
     return length;
+
+ apic_read_out_bad:
+    v3_unlock(apic->lock);
+    return -1;
 }
 
 
@@ -1071,6 +1276,9 @@ static int apic_write(struct guest_info * core, addr_t guest_addr, void * src, u
     struct apic_msr * msr = (struct apic_msr *)&(apic->base_addr_msr.value);
     uint32_t op_val = *(uint32_t *)src;
 
+
+    v3_lock(apic->lock);
+
     PrintDebug("apic %u: core %u: at %p and priv_data is at %p\n",
 	       apic->lapic_id.val, core->cpu_id, apic, priv_data);
 
@@ -1080,14 +1288,14 @@ static int apic_write(struct guest_info * core, addr_t guest_addr, void * src, u
     if (msr->apic_enable == 0) {
 	PrintError("apic %u: core %u: Write to APIC address space with disabled APIC, apic msr=0x%llx\n",
 		   apic->lapic_id.val, core->cpu_id, apic->base_addr_msr.value);
-	return -1;
+	goto apic_write_out_bad;
     }
 
 
     if (length != 4) {
 	PrintError("apic %u: core %u: Invalid apic write length (%d)\n", 
 		   apic->lapic_id.val, length, core->cpu_id);
-	return -1;
+	goto apic_write_out_bad;
     }
 
     switch (reg_addr) {
@@ -1123,13 +1331,13 @@ static int apic_write(struct guest_info * core, addr_t guest_addr, void * src, u
 
 	    PrintError("apic %u: core %u: Attempting to write to read only register %p (error)\n", 
 		       apic->lapic_id.val, core->cpu_id, (void *)reg_addr);
-	    //  return -1;
+	    //  goto apic_write_out_bad;
 
 	    break;
 
 	    // Data registers
 	case APIC_ID_OFFSET:
-	    PrintDebug("apic %u: core %u: my id is being changed to %u\n", 
+	    V3_Print("apic %u: core %u: my id is being changed to %u\n", 
 		       apic->lapic_id.val, core->cpu_id, op_val);
 
 	    apic->lapic_id.val = op_val;
@@ -1223,26 +1431,49 @@ static int apic_write(struct guest_info * core, addr_t guest_addr, void * src, u
 
 	    // Action Registers
 	case EOI_OFFSET:
-	    // do eoi
+	    // do eoi (we already have the lock)
 	    apic_do_eoi(apic);
 	    break;
 
-	case INT_CMD_LO_OFFSET:
+	case INT_CMD_LO_OFFSET: {
+	    // execute command (we already have the lock)
+
+	    struct int_cmd_reg tmp_icr;
+
 	    apic->int_cmd.lo = op_val;
 
-	    PrintDebug("apic %u: core %u: sending cmd 0x%llx to apic %u\n", 
-		       apic->lapic_id.val, core->cpu_id,
-		       apic->int_cmd.val, apic->int_cmd.dst);
+	    tmp_icr=apic->int_cmd;
 
-	    if (route_ipi(apic_dev, apic, &(apic->int_cmd)) == -1) { 
+	    //	    V3_Print("apic %u: core %u: sending cmd 0x%llx to apic %u\n", 
+	    //       apic->lapic_id.val, core->cpu_id,
+	    //       apic->int_cmd.val, apic->int_cmd.dst);
+
+	    apic->in_icr=0;
+	    apic->in_ipi=1;
+
+	    v3_unlock(apic->lock);
+
+	    // route_ipi is responsible for locking both source and destiation(s)
+	    if (route_ipi(apic_dev, apic, &tmp_icr) == -1) { 
 		PrintError("IPI Routing failure\n");
-		return -1;
+		goto apic_write_out_bad;
 	    }
+	    v3_lock(apic->lock);
+	    apic->in_ipi=0;
 
+	}
 	    break;
 
-	case INT_CMD_HI_OFFSET:
+	case INT_CMD_HI_OFFSET: {
+	    // already have the lock
+	    if (apic->in_icr) { 
+		PrintError("apic %u: core %u: writing command high=0x%x while in_icr=1\n", apic->lapic_id.val, core->cpu_id,apic->int_cmd.hi);
+	    }
+
 	    apic->int_cmd.hi = op_val;
+	    //V3_Print("apic %u: core %u: writing command high=0x%x\n", apic->lapic_id.val, core->cpu_id,apic->int_cmd.hi);
+	    apic->in_icr=1;
+	}
 	    break;
 
 
@@ -1253,20 +1484,26 @@ static int apic_write(struct guest_info * core, addr_t guest_addr, void * src, u
 	    PrintError("apic %u: core %u: Write to Unhandled APIC Register: %x (ignored)\n", 
 		       apic->lapic_id.val, core->cpu_id, (uint32_t)reg_addr);
 
-	    return -1;
+	    goto apic_write_out_bad;
     }
 
     PrintDebug("apic %u: core %u: Write finished\n", apic->lapic_id.val, core->cpu_id);
 
+    // apic_write_out_good:
+    v3_unlock(apic->lock);
     return length;
+
+ apic_write_out_bad:
+    v3_unlock(apic->lock);
+    return -1;
 }
 
 
 
 /* Interrupt Controller Functions */
 
-// returns 1 if an interrupt is pending, 0 otherwise
-static int apic_intr_pending(struct guest_info * core, void * private_data) {
+// internally used, expects caller to lock
+static int apic_intr_pending_nolock(struct guest_info * core, void * private_data) {
     struct apic_dev_state * apic_dev = (struct apic_dev_state *)(private_data);
     struct apic_state * apic = &(apic_dev->apics[core->cpu_id]); 
     int req_irq = get_highest_irr(apic);
@@ -1282,7 +1519,23 @@ static int apic_intr_pending(struct guest_info * core, void * private_data) {
     return 0;
 }
 
-static int apic_get_intr_number(struct guest_info * core, void * private_data) {
+// externally visible, so must lock itself
+static int apic_intr_pending(struct guest_info * core, void * private_data) {
+    struct apic_dev_state * apic_dev = (struct apic_dev_state *)(private_data);
+    struct apic_state * apic = &(apic_dev->apics[core->cpu_id]); 
+    int rc;
+
+    v3_lock(apic->lock);
+    
+    rc=apic_intr_pending_nolock(core,private_data);
+    
+    v3_unlock(apic->lock);
+
+    return rc;
+}
+
+// Internal - no lock
+static int apic_get_intr_number_nolock(struct guest_info * core, void * private_data) {
     struct apic_dev_state * apic_dev = (struct apic_dev_state *)(private_data);
     struct apic_state * apic = &(apic_dev->apics[core->cpu_id]); 
     int req_irq = get_highest_irr(apic);
@@ -1298,6 +1551,25 @@ static int apic_get_intr_number(struct guest_info * core, void * private_data) {
 }
 
 
+// Externally visible, so must lock itself
+static int apic_get_intr_number(struct guest_info * core, void * private_data) {
+    struct apic_dev_state * apic_dev = (struct apic_dev_state *)(private_data);
+    struct apic_state * apic = &(apic_dev->apics[core->cpu_id]); 
+    int rc;
+
+    v3_lock(apic->lock);
+    
+    rc=apic_get_intr_number_nolock(core,private_data);
+
+    v3_unlock(apic->lock);
+
+    return rc;
+}
+
+
+//
+// Here there is no source APIC, so there is no need to lock it
+// Furthermore, the expectation is that route_ipi will lock the destiation apic
 int v3_apic_send_ipi(struct v3_vm_info * vm, struct v3_gen_ipi * ipi, void * dev_data) {
     struct apic_dev_state * apic_dev = (struct apic_dev_state *)
 	(((struct vm_device *)dev_data)->private_data);
@@ -1312,8 +1584,8 @@ int v3_apic_send_ipi(struct v3_vm_info * vm, struct v3_gen_ipi * ipi, void * dev
     tmp_icr.trig_mode = ipi->trigger_mode;
     tmp_icr.dst_shorthand = ipi->dst_shorthand;
     tmp_icr.dst = ipi->dst;
-    
 
+    // route_ipi is responsible for locking the destination apic
     return route_ipi(apic_dev, NULL, &tmp_icr);
 }
 
@@ -1322,31 +1594,41 @@ int v3_apic_raise_intr(struct v3_vm_info * vm, uint32_t irq, uint32_t dst, void 
     struct apic_dev_state * apic_dev = (struct apic_dev_state *)
 	(((struct vm_device*)dev_data)->private_data);
     struct apic_state * apic = &(apic_dev->apics[dst]); 
+    int do_xcall;
 
     PrintDebug("apic %u core ?: raising interrupt IRQ %u (dst = %u).\n", apic->lapic_id.val, irq, dst); 
 
-    activate_apic_irq(apic, irq);
+    v3_lock(apic->lock);
 
-    if (V3_Get_CPU() != dst) {
+    do_xcall=activate_apic_irq_nolock(apic, irq);
+
+    if (do_xcall<0) { 
+	PrintError("Failed to activate apic irq\n");
+	v3_unlock(apic->lock);
+	return -1;
+    }
+    
+    if (do_xcall && (V3_Get_CPU() != dst)) {
 #ifdef CONFIG_MULTITHREAD_OS
 	v3_interrupt_cpu(vm, dst, 0);
 #else
 	V3_ASSERT(0);
 #endif
-    }
 
+    }
+    v3_unlock(apic->lock);
     return 0;
 }
 
 
-
-static int apic_begin_irq(struct guest_info * core, void * private_data, int irq) {
+// internal - caller must lock
+static int apic_begin_irq_nolock(struct guest_info * core, void * private_data, int irq) {
     struct apic_dev_state * apic_dev = (struct apic_dev_state *)(private_data);
     struct apic_state * apic = &(apic_dev->apics[core->cpu_id]); 
     int major_offset = (irq & ~0x00000007) >> 3;
     int minor_offset = irq & 0x00000007;
-    uint8_t * req_location = apic->int_req_reg + major_offset;
-    uint8_t * svc_location = apic->int_svc_reg + major_offset;
+    uint8_t *req_location = apic->int_req_reg + major_offset;
+    uint8_t *svc_location = apic->int_svc_reg + major_offset;
     uint8_t flag = 0x01 << minor_offset;
 
     if (*req_location & flag) {
@@ -1363,11 +1645,26 @@ static int apic_begin_irq(struct guest_info * core, void * private_data, int irq
     return 0;
 }
 
+// Since this is called, externally, it should lock the apic
+static int apic_begin_irq(struct guest_info * core, void * private_data, int irq) {
+    struct apic_dev_state * apic_dev = (struct apic_dev_state *)(private_data);
+    struct apic_state * apic = &(apic_dev->apics[core->cpu_id]); 
+    int rc;
+
+    v3_lock(apic->lock);
+
+    rc=apic_begin_irq_nolock(core,private_data,irq);
+
+    v3_unlock(apic->lock);
+
+    return rc;
+}
 
 
 
 /* Timer Functions */
-static void apic_update_time(struct guest_info * core, 
+// Caller will lock the apic
+static void apic_update_time_nolock(struct guest_info * core, 
 			     uint64_t cpu_cycles, uint64_t cpu_freq, 
 			     void * priv_data) {
     struct apic_dev_state * apic_dev = (struct apic_dev_state *)(priv_data);
@@ -1440,13 +1737,13 @@ static void apic_update_time(struct guest_info * core,
 		   apic->lapic_id.val, core->cpu_id,
 		   apic->tmr_vec_tbl.tmr_mode, apic->tmr_init_cnt, shift_num);
 
-	if (apic_intr_pending(core, priv_data)) {
+	if (apic_intr_pending_nolock(core, priv_data)) {
 	    PrintDebug("apic %u: core %u: Overriding pending IRQ %d\n", 
 		       apic->lapic_id.val, core->cpu_id, 
 		       apic_get_intr_number(core, priv_data));
 	}
 
-	if (activate_internal_irq(apic, APIC_TMR_INT) == -1) {
+	if (activate_internal_irq_nolock(apic, APIC_TMR_INT) == -1) {
 	    PrintError("apic %u: core %u: Could not raise Timer interrupt\n",
 		       apic->lapic_id.val, core->cpu_id);
 	}
@@ -1457,9 +1754,24 @@ static void apic_update_time(struct guest_info * core,
 	}
     }
 
-
+    return;
 }
 
+
+static void apic_update_time(struct guest_info * core, 
+			     uint64_t cpu_cycles, uint64_t cpu_freq, 
+			     void * priv_data) {
+    struct apic_dev_state * apic_dev = (struct apic_dev_state *)(priv_data);
+    struct apic_state * apic = &(apic_dev->apics[core->cpu_id]); 
+
+    v3_lock(apic->lock);
+
+    apic_update_time_nolock(core,cpu_cycles,cpu_freq,priv_data);
+
+    v3_unlock(apic->lock);
+    
+    return;
+}
 
 static struct intr_ctrl_ops intr_ops = {
     .intr_pending = apic_intr_pending,
@@ -1508,8 +1820,6 @@ static struct v3_device_ops dev_ops = {
 
 
 
-
-
 static int apic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     char * dev_id = v3_cfg_val(cfg, "ID");
     struct apic_dev_state * apic_dev = NULL;
@@ -1521,6 +1831,8 @@ static int apic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 						  sizeof(struct apic_state) * vm->num_cores);
 
     apic_dev->num_apics = vm->num_cores;
+
+    v3_lock_init(&(apic_dev->ipi_lock));
 
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, apic_dev);
 
