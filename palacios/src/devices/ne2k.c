@@ -319,6 +319,8 @@ struct ne2k_state {
     uint8_t mcast_addr[8];
     uint8_t mac[ETH_ALEN];
 
+    struct nic_statistics statistics;
+
     struct v3_dev_net_ops *net_ops;
     void * backend_data;
 };
@@ -333,20 +335,31 @@ static int ne2k_update_irq(struct ne2k_state * nic_state) {
 	    v3_pci_raise_irq(nic_state->pci_bus, 0, nic_state->pci_dev);
        }
 
+       nic_state->statistics.interrupts ++;
+
        PrintDebug("NE2000: Raise IRQ\n");
     }
 
     return 0;
 }
 
-static int ne2k_send_packet(struct ne2k_state * nic_state, uchar_t *pkt, uint32_t length) {
+static int tx_one_pkt(struct ne2k_state * nic_state, uchar_t *pkt, uint32_t length) {
 	
 #ifdef CONFIG_DEBUG_NE2K
     PrintDebug("NE2000: Send Packet:\n");
     v3_hexdump(pkt, length, NULL, 0);
 #endif    
 
-    return nic_state->net_ops->send(pkt, length, nic_state->backend_data);
+    if(nic_state->net_ops->send(pkt, length, nic_state->backend_data) >= 0){
+	nic_state->statistics.tx_pkts ++;
+	nic_state->statistics.tx_bytes += length;
+
+	return 0;
+    }
+	
+    nic_state->statistics.tx_dropped ++;
+
+    return -1;
 }
 
 static int ne2k_rxbuf_full(struct ne2k_registers * regs) {
@@ -475,9 +488,14 @@ static int ne2k_rx(uint8_t * buf, uint32_t size, void * private_data){
 #endif    
 
     if(!rx_one_pkt(nic_state, buf, size)){
+	nic_state->statistics.rx_pkts ++;
+	nic_state->statistics.rx_bytes += size;
+	
 	return 0;
     }
-    
+
+    nic_state->statistics.rx_dropped ++;
+	
     return -1;
 }
 
@@ -717,7 +735,7 @@ static int ne2k_cmd_write(struct guest_info * core,
 	    }
 
 	    if (offset + regs->tbcr <= NE2K_PMEM_END) {
-		ne2k_send_packet(nic_state, nic_state->mem + offset, regs->tbcr);
+		tx_one_pkt(nic_state, nic_state->mem + offset, regs->tbcr);
 	    }
 
 	    regs->tsr.val = 0;        /* clear the tx status reg */

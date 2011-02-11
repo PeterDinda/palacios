@@ -107,7 +107,7 @@ struct virtio_net_state {
     int buffed_rx;
     int tx_disabled; 			/* stop TX pkts from guest */
 
-    uint64_t pkt_sent, pkt_recv, pkt_drop;
+    struct nic_statistics statistics;
 
     struct v3_dev_net_ops * net_ops;
     v3_lock_t rx_lock, tx_lock;
@@ -161,7 +161,6 @@ static int virtio_init_state(struct virtio_net_state * virtio)
         PrintError("Virtio NIC: Failure to init locks for net_state\n");
     }
 
-    virtio->pkt_sent = virtio->pkt_recv = virtio->pkt_drop = 0;
     virtio->buffed_rx = 0;
 
     return 0;
@@ -180,7 +179,16 @@ pkt_tx(struct guest_info * core,
 	return -ERR_VIRTIO_OTHER;
     }
 
-    return virtio->net_ops->send(buf, len, virtio->backend_data);
+    if(virtio->net_ops->send(buf, len, virtio->backend_data) >= 0){
+	virtio->statistics.tx_pkts ++;
+	virtio->statistics.tx_bytes += len;
+
+	return 0;
+    }
+
+    virtio->statistics.tx_dropped ++;
+
+    return -1;
 }
 
 
@@ -246,7 +254,7 @@ static int handle_rx_kick(struct guest_info *core,
     if(virtio->net_ops->start_rx != NULL){
 	virtio->net_ops->start_rx(virtio->backend_data);
     }
-    	//disable_cb(&virtio->rx_vq);
+    //disable_cb(&virtio->rx_vq);
 
     v3_unlock_irqrestore(virtio->rx_lock, flags);
 	
@@ -308,8 +316,6 @@ static int handle_pkt_tx(struct guest_info *core,
 	    req_len += buf_desc->length;
 	    desc_idx = buf_desc->next;
 	}
-	virtio_state->pkt_sent ++;
-	recved ++;
 
 	q->used->ring[q->used->index % q->queue_size].id = q->avail->ring[q->cur_avail_idx % q->queue_size];
 	q->used->ring[q->used->index % q->queue_size].length = req_len; // What do we set this to????
@@ -326,6 +332,8 @@ static int handle_pkt_tx(struct guest_info *core,
     if (!(q->avail->flags & VIRTIO_NO_IRQ_FLAG)) {
 	v3_pci_raise_irq(virtio_state->virtio_dev->pci_bus, 0, virtio_state->pci_dev);
 	virtio_state->virtio_cfg.pci_isr = 0x1;
+
+	virtio_state->statistics.interrupts ++;
     }
 
     return 0;
@@ -578,7 +586,6 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
 
     flags = v3_lock_irqsave(virtio->rx_lock);
 
-    virtio->pkt_recv ++;
     if (!raw)
     	data_len -= hdr_len;
 
@@ -639,8 +646,12 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
 	    }
 	    virtio->buffed_rx = 0;
 	}
+
+ 	virtio->statistics.rx_pkts ++;
+	virtio->statistics.rx_bytes += size;
     } else {
-	virtio->pkt_drop++;
+	virtio->statistics.rx_dropped ++;
+	
 	/* RX queue is full,  tell backend to stop RX on this device */
 	virtio->net_ops->stop_rx(virtio->backend_data);
 	enable_cb(&virtio->rx_vq);
@@ -653,6 +664,8 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
 	PrintDebug("Raising IRQ %d\n",  virtio->pci_dev->config_header.intr_line);
 	v3_pci_raise_irq(virtio->virtio_dev->pci_bus, 0, virtio->pci_dev);
 	virtio->virtio_cfg.pci_isr = 0x1;
+
+	virtio->statistics.interrupts ++;
     }
 
     ret_val = offset;

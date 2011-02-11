@@ -30,6 +30,19 @@
 
 #include <palacios/vmm.h>
 
+
+struct nic_statistics {
+    uint64_t tx_pkts;
+    uint64_t tx_bytes;
+    uint64_t tx_dropped;
+	
+    uint64_t rx_pkts;
+    uint64_t rx_bytes;
+    uint64_t rx_dropped;
+
+    uint32_t interrupts;
+};
+    
 static inline int is_multicast_ethaddr(const uint8_t * addr)
 {
     V3_ASSERT(ETH_ALEN == 6);
