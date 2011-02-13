@@ -33,12 +33,16 @@ int V3_send_raw(const char * pkt, uint32_t len) {
 
 
 int V3_packet_add_recver(const char * mac, struct v3_vm_info * vm){
+    V3_ASSERT(packet_hooks);
+    V3_ASSERT(packet_hooks->add_recver);
 
     return packet_hooks->add_recver(mac, vm);
 }
 
 
 int V3_packet_del_recver(const char * mac, struct v3_vm_info * vm){
+    V3_ASSERT(packet_hooks);
+    V3_ASSERT(packet_hooks->del_recver);
 
     return packet_hooks->del_recver(mac, vm);
 }
