@@ -37,14 +37,12 @@
 #define PrintDebug(fmt, args...)
 #endif
 
-#define VIRTIO_NET_S_LINK_UP	1	/* Link is up */
 #define VIRTIO_NET_MAX_BUFSIZE (sizeof(struct virtio_net_hdr) + (64 << 10))
 
 
 struct virtio_net_hdr {
 	uint8_t flags;
-
-#define VIRTIO_NET_HDR_GSO_NONE		0	/* Not a GSO frame */
+	
 	uint8_t gso_type;
 	uint16_t hdr_len;		/* Ethernet + IP + tcp/udp hdrs */
 	uint16_t gso_size;		/* Bytes to append to hdr_len per frame */
@@ -53,8 +51,6 @@ struct virtio_net_hdr {
 }__attribute__((packed));
 
 
-/* This is the version of the header to use when the MRG_RXBUF
- * feature has been negotiated. */
 struct virtio_net_hdr_mrg_rxbuf {
 	struct virtio_net_hdr hdr;
 	uint16_t num_buffers;	/* Number of merged rx buffers */
@@ -70,13 +66,8 @@ struct virtio_net_hdr_mrg_rxbuf {
 #define VIRTIO_NET_F_GSO	6	/* Host handles pkts w/ any GSO type */
 #define VIRTIO_NET_F_HOST_TSO4	11	/* Host can handle TSOv4 in. */
 
-/* this is not how virtio supposed to be,
- * we may need a separately implemented virtio_pci
- * In order to make guest to get virtio MAC from host
- * I added it here  -- Lei
- */
- #define VIRTIO_NET_CONFIG 20  
-
+/* Port to get virtio config */
+#define VIRTIO_NET_CONFIG 20  
 
 struct virtio_net_config
 {
@@ -100,12 +91,9 @@ struct virtio_net_state {
     struct pci_device * pci_dev; 
     int io_range_size;
     
-    struct virtio_queue rx_vq;   	/* idx 0, pkts to guest */
-    struct virtio_queue tx_vq;   	/* idx 1, pkts from guest */
-    struct virtio_queue ctrl_vq;  	/* idx 2 */
-
-    int buffed_rx;
-    int tx_disabled; 			/* stop TX pkts from guest */
+    struct virtio_queue rx_vq;   	/* idx 0*/
+    struct virtio_queue tx_vq;   	/* idx 1*/
+    struct virtio_queue ctrl_vq;  	/* idx 2*/
 
     struct nic_statistics statistics;
 
@@ -116,16 +104,6 @@ struct virtio_net_state {
     struct virtio_dev_state * virtio_dev;
     struct list_head dev_link;
 };
-
-/* virtio nic error type */
-#define ERR_VIRTIO_OTHER  1
-#define ERR_VIRTIO_RXQ_FULL  2
-#define ERR_VIRTIO_RXQ_NOSET  3
-#define ERR_VIRTIO_TXQ_NOSET 4
-#define ERR_VIRTIO_TXQ_FULL 5
-#define ERR_VIRTIO_TXQ_DISABLED 6
-
-
 
 
 static int virtio_init_state(struct virtio_net_state * virtio) 
@@ -161,13 +139,10 @@ static int virtio_init_state(struct virtio_net_state * virtio)
         PrintError("Virtio NIC: Failure to init locks for net_state\n");
     }
 
-    virtio->buffed_rx = 0;
-
     return 0;
 }
 
-static int 
-pkt_tx(struct guest_info * core, 
+static int tx_one_pkt(struct guest_info * core, 
        struct virtio_net_state * virtio, 
        struct vring_desc * buf_desc) 
 {
@@ -175,8 +150,8 @@ pkt_tx(struct guest_info * core,
     uint32_t len = buf_desc->length;
 
     if (v3_gpa_to_hva(core, buf_desc->addr_gpa, (addr_t *)&(buf)) == -1) {
-	PrintError("Could not translate buffer address\n");
-	return -ERR_VIRTIO_OTHER;
+	PrintDebug("Could not translate buffer address\n");
+	return -1;
     }
 
     if(virtio->net_ops->send(buf, len, virtio->backend_data) >= 0){
@@ -235,52 +210,37 @@ static inline void disable_cb(struct virtio_queue *queue) {
 }
 
 
-/* interrupt the guest, so the guest core get EXIT to Palacios
- * this happens when there are either incoming pkts for the guest
- * or the guest can start TX pkts again */
+/* interrupt the guest, so the guest core get EXIT to Palacios */
 static inline void notify_guest(struct virtio_net_state * virtio){
     v3_interrupt_cpu(virtio->virtio_dev->vm, virtio->virtio_dev->vm->cores[0].cpu_id, 0);
 }
 
 
-/* guest free some pkts from rx queue */
-static int handle_rx_kick(struct guest_info *core, 
+/* guest free some pkts for rx queue */
+static int handle_rx_queue_kick(struct guest_info * core, 
 			  struct virtio_net_state * virtio) 
 {
-    unsigned long flags;
-
-    flags = v3_lock_irqsave(virtio->rx_lock);
-
-    if(virtio->net_ops->start_rx != NULL){
-	virtio->net_ops->start_rx(virtio->backend_data);
-    }
-    //disable_cb(&virtio->rx_vq);
-
-    v3_unlock_irqrestore(virtio->rx_lock, flags);
-	
     return 0;
 }
 
 
-static int handle_ctrl(struct guest_info *core, 
+static int handle_ctrl(struct guest_info * core, 
 		       struct virtio_net_state * virtio) {
 	
     return 0;
 }
 
-static int handle_pkt_tx(struct guest_info *core, 
+static int handle_pkt_tx(struct guest_info * core, 
 			 struct virtio_net_state * virtio_state) 
 {
-    struct virtio_queue * q = &(virtio_state->tx_vq);
-    struct virtio_net_hdr * hdr = NULL;
-    int recved = 0;
+    struct virtio_queue *q = &(virtio_state->tx_vq);
+    struct virtio_net_hdr *hdr = NULL;
+    int txed = 0;
     unsigned long flags;
 
-    if (!q->ring_avail_addr) 
-	return -ERR_VIRTIO_TXQ_NOSET;
-
-    if(virtio_state->tx_disabled)
-	return -ERR_VIRTIO_TXQ_DISABLED;
+    if (!q->ring_avail_addr) {
+	return -1;
+    }
 
     flags = v3_lock_irqsave(virtio_state->tx_lock);
     while (q->cur_avail_idx != q->avail->index) {
@@ -297,7 +257,7 @@ static int handle_pkt_tx(struct guest_info *core,
 	    goto exit_error;
 	}
 
-	hdr = (struct virtio_net_hdr*)hdr_addr;
+	hdr = (struct virtio_net_hdr *)hdr_addr;
 	desc_idx = hdr_desc->next;
 
 	if(desc_cnt > 2){
@@ -308,7 +268,7 @@ static int handle_pkt_tx(struct guest_info *core,
 	/* here we assumed that one ethernet pkt is not splitted into multiple virtio buffer */
 	for (i = 0; i < desc_cnt - 1; i++) {	
 	    struct vring_desc * buf_desc = &(q->desc[desc_idx]);
-	    if (pkt_tx(core, virtio_state, buf_desc) == -1) {
+	    if (tx_one_pkt(core, virtio_state, buf_desc) == -1) {
 		PrintError("Error handling nic operation\n");
 		goto exit_error;
 	    }
@@ -318,18 +278,17 @@ static int handle_pkt_tx(struct guest_info *core,
 	}
 
 	q->used->ring[q->used->index % q->queue_size].id = q->avail->ring[q->cur_avail_idx % q->queue_size];
-	q->used->ring[q->used->index % q->queue_size].length = req_len; // What do we set this to????
+	q->used->ring[q->used->index % q->queue_size].length = req_len; /* What do we set this to???? */
 	q->used->index ++;
 	
 	q->cur_avail_idx ++;
+
+	txed ++;
     }
 
     v3_unlock_irqrestore(virtio_state->tx_lock, flags);
-
-    if(!recved)
-	return 0;
 	
-    if (!(q->avail->flags & VIRTIO_NO_IRQ_FLAG)) {
+    if (txed && !(q->avail->flags & VIRTIO_NO_IRQ_FLAG)) {
 	v3_pci_raise_irq(virtio_state->virtio_dev->pci_bus, 0, virtio_state->pci_dev);
 	virtio_state->virtio_cfg.pci_isr = 0x1;
 
@@ -341,7 +300,7 @@ static int handle_pkt_tx(struct guest_info *core,
 exit_error:
 	
     v3_unlock_irqrestore(virtio_state->tx_lock, flags);
-    return -ERR_VIRTIO_OTHER;
+    return -1;
 }
 
 
@@ -415,11 +374,9 @@ static int virtio_io_write(struct guest_info *core,
 	    switch (queue_idx) {
 		case 0:
 		    virtio_setup_queue(core, virtio, &virtio->rx_vq, pfn, page_addr);
-		    //disable_cb(&virtio->rx_vq);
 		    break;
 		case 1:
 		    virtio_setup_queue(core, virtio, &virtio->tx_vq, pfn, page_addr);
-		    //disable_cb(&virtio->tx_vq);
 		    break;
 		case 2:
 		    virtio_setup_queue(core, virtio, &virtio->ctrl_vq, pfn, page_addr);
@@ -442,15 +399,18 @@ static int virtio_io_write(struct guest_info *core,
 	    {
 		uint16_t queue_idx = *(uint16_t *)src;	   		
 		if (queue_idx == 0){
-		    handle_rx_kick(core, virtio);
+		    if(handle_rx_queue_kick(core, virtio) == -1){
+			PrintError("Could not handle Virtio NIC rx kick\n");
+			return -1;
+		    }
 		} else if (queue_idx == 1){
 		    if (handle_pkt_tx(core, virtio) == -1) {
-			PrintError("Could not handle NIC Notification\n");
+			PrintError("Could not handle Virtio NIC tx kick\n");
 			return -1;
 		    }
 		} else if (queue_idx == 2){
 		    if (handle_ctrl(core, virtio) == -1) {
-			PrintError("Could not handle NIC Notification\n");
+			PrintError("Could not handle Virtio NIC ctrl kick\n");
 			return -1;
 		    }
 		} else {
@@ -462,7 +422,6 @@ static int virtio_io_write(struct guest_info *core,
 	case VIRTIO_STATUS_PORT:
 	    virtio->virtio_cfg.status = *(uint8_t *)src;
 	    if (virtio->virtio_cfg.status == 0) {
-		PrintDebug("Resetting device\n");
 		virtio_init_state(virtio);
 	    }
 	    break;
@@ -566,38 +525,29 @@ static int virtio_io_read(struct guest_info *core,
 }
 
 
+/* receiving raw ethernet pkt from backend */
 static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
     struct virtio_net_state * virtio = (struct virtio_net_state *)private_data;
     struct virtio_queue * q = &(virtio->rx_vq);
     struct virtio_net_hdr_mrg_rxbuf hdr;
     uint32_t hdr_len = sizeof(struct virtio_net_hdr_mrg_rxbuf);
-    uint32_t data_len = size;
+    uint32_t data_len;
     uint32_t offset = 0;
     unsigned long flags;
-    int ret_val = -ERR_VIRTIO_OTHER;
-    int raw = 1;
 
 #ifndef CONFIG_DEBUG_VIRTIO_NET
-   {
-    	PrintDebug("Virtio-NIC: virtio_rx: size: %d\n", size);	
-    	//v3_hexdump(buf, size, NULL, 0);
-   }
+    PrintDebug("Virtio-NIC: virtio_rx: size: %d\n", size);	
+    v3_hexdump(buf, size, NULL, 0);
 #endif
 
     flags = v3_lock_irqsave(virtio->rx_lock);
 
-    if (!raw)
-    	data_len -= hdr_len;
-
-    if (!raw)
-        memcpy(&hdr, buf, sizeof(struct virtio_net_hdr_mrg_rxbuf));
-    else
-        memset(&hdr, 0, sizeof(struct virtio_net_hdr_mrg_rxbuf));
+    data_len = size;
+    memset(&hdr, 0, sizeof(struct virtio_net_hdr_mrg_rxbuf));
 
     if (q->ring_avail_addr == 0) {
-	PrintError("Queue is not set\n");
-	ret_val = -ERR_VIRTIO_RXQ_NOSET;
-	goto exit;
+	PrintDebug("Queue is not set\n");
+	goto err_exit;
     }
 
     if (q->cur_avail_idx != q->avail->index){
@@ -608,8 +558,8 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
 
 	hdr_desc = &(q->desc[hdr_idx]);
 	if (v3_gpa_to_hva(&(virtio->virtio_dev->vm->cores[0]), hdr_desc->addr_gpa, &(hdr_addr)) == -1) {
-	    PrintError("Could not translate receive buffer address\n");
-	    goto exit;
+	    PrintDebug("Could not translate receive buffer address\n");
+	    goto err_exit;
 	}
 	hdr.num_buffers = 1;
 	memcpy((void *)hdr_addr, &hdr, sizeof(struct virtio_net_hdr_mrg_rxbuf));
@@ -636,45 +586,31 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
 	q->used->index++;
 	q->cur_avail_idx++;
 
-	/* if there are certain num of pkts in the RX queue, notify guest 
-	  * so guest will exit to palacios
-         * when it returns, guest gets the virtio rx interrupt */
-	if((++virtio->buffed_rx > q->queue_size/5) &&
-	    (q->avail->flags & VIRTIO_NO_IRQ_FLAG)) {
-	    if(virtio->virtio_dev->vm->cores[0].cpu_id != V3_Get_CPU()){
-		  notify_guest(virtio);
-	    }
-	    virtio->buffed_rx = 0;
-	}
-
  	virtio->statistics.rx_pkts ++;
 	virtio->statistics.rx_bytes += size;
     } else {
 	virtio->statistics.rx_dropped ++;
 	
-	/* RX queue is full,  tell backend to stop RX on this device */
-	virtio->net_ops->stop_rx(virtio->backend_data);
-	enable_cb(&virtio->rx_vq);
-	
-	ret_val = -ERR_VIRTIO_RXQ_FULL;
-	goto exit;
+	goto err_exit;
     }
 
     if (!(q->avail->flags & VIRTIO_NO_IRQ_FLAG)) {
 	PrintDebug("Raising IRQ %d\n",  virtio->pci_dev->config_header.intr_line);
+	
 	v3_pci_raise_irq(virtio->virtio_dev->pci_bus, 0, virtio->pci_dev);
 	virtio->virtio_cfg.pci_isr = 0x1;
-
 	virtio->statistics.interrupts ++;
     }
 
-    ret_val = offset;
+    v3_unlock_irqrestore(virtio->rx_lock, flags);
 
-exit:
+    return 0;
+
+err_exit:
 
     v3_unlock_irqrestore(virtio->rx_lock, flags);
  
-    return ret_val;
+    return -1;
 }
 
 static int virtio_free(struct virtio_dev_state * virtio) {
@@ -700,44 +636,11 @@ static struct v3_device_ops dev_ops = {
 };
 
 
-/* TODO: Issue here: which vm info it needs? calling VM or the device's own VM? */
 static void virtio_nic_poll(struct v3_vm_info * vm, void * data){
     struct virtio_net_state * virtio = (struct virtio_net_state *)data;
 	
     handle_pkt_tx(&(vm->cores[0]), virtio);
 }
-
-static void virtio_start_tx(void * data){
-    struct virtio_net_state * virtio = (struct virtio_net_state *)data;
-    unsigned long flags;
-
-    flags = v3_lock_irqsave(virtio->tx_lock);
-    virtio->tx_disabled = 0;
-
-    /* notify the device's guest to start sending pkt */
-    if(virtio->virtio_dev->vm->cores[0].cpu_id != V3_Get_CPU()){
-	notify_guest(virtio);
-    }
-    v3_unlock_irqrestore(virtio->tx_lock, flags);	
-}
-
-static void virtio_stop_tx(void * data){
-    struct virtio_net_state * virtio = (struct virtio_net_state *)data;
-    unsigned long flags;
-
-    flags = v3_lock_irqsave(virtio->tx_lock);
-    virtio->tx_disabled = 1;
-
-    /* stop the guest to exit to palacios for sending pkt? */
-    if(virtio->virtio_dev->vm->cores[0].cpu_id != V3_Get_CPU()){
-       disable_cb(&virtio->tx_vq);
-    }
-
-    v3_unlock_irqrestore(virtio->tx_lock, flags);
-}
-
-	
-
 
 static int register_dev(struct virtio_dev_state * virtio, 
 			struct virtio_net_state * net_state) 
@@ -755,8 +658,9 @@ static int register_dev(struct virtio_dev_state * virtio,
 	net_state->io_range_size <<= 1;
     }
 	
-    // this is to account for any low order bits being set in num_ports
-    // if there are none, then num_ports was already a power of 2 so we shift right to reset it
+    /* this is to account for any low order bits being set in num_ports
+      * if there are none, then num_ports was already a power of 2 so we shift right to reset it
+      */
     if ((num_ports & ((net_state->io_range_size >> 1) - 1)) == 0) {
 	net_state->io_range_size >>= 1;
     }
@@ -828,8 +732,6 @@ static int connect_fn(struct v3_vm_info * info,
 
     ops->recv = virtio_rx;
     ops->poll = virtio_nic_poll;
-    ops->start_tx = virtio_start_tx;
-    ops->stop_tx = virtio_stop_tx;
     ops->frontend_data = net_state;
     memcpy(ops->fnt_mac, virtio->mac, ETH_ALEN);
 

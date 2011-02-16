@@ -101,9 +101,6 @@ struct v3_vnet_dev_ops {
 		struct v3_vnet_pkt * pkt, 
 		void * dev_data);
     void (*poll) (struct v3_vm_info * vm, void * dev_data);
-
-    void (*start_tx)(void * dev_data);
-    void (*stop_tx)(void * dev_data);
 };
 
 int v3_init_vnet(void);	

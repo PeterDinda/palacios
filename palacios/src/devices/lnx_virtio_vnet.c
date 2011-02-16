@@ -75,7 +75,6 @@ struct virtio_vnet_state {
 #define VNET_ADD_LINK 21
 #define VNET_DEL_LINK 22
 
-// structure of the vnet command header
 struct vnet_ctrl_hdr {
     uint8_t cmd_type;
     uint32_t num_cmds;
@@ -123,8 +122,6 @@ static int get_desc_count(struct virtio_queue * q, int index) {
 }
 
 
-
-
 static int handle_cmd_kick(struct guest_info * core, 
 			   struct virtio_vnet_state * vnet_state) {
     struct virtio_queue * q = &(vnet_state->queue[0]);
@@ -143,7 +140,6 @@ static int handle_cmd_kick(struct guest_info * core,
 	uint8_t * status_ptr = NULL;
 	uint8_t status = 0;
 
-
 	PrintDebug("VNET Bridge: CMD: Descriptor Count=%d, index=%d, desc_idx=%d\n", desc_cnt, q->cur_avail_idx % QUEUE_SIZE, desc_idx);
 
 	if (desc_cnt < 3) {
@@ -160,8 +156,7 @@ static int handle_cmd_kick(struct guest_info * core,
 
 	desc_idx = hdr_desc->next;
 	
-	if (hdr->cmd_type == VNET_ADD_ROUTE) {
-	    
+	if (hdr->cmd_type == VNET_ADD_ROUTE) {   
 	    for (i = 0; i < hdr->num_cmds; i++) {
 		uint8_t tmp_status = 0;
 		struct v3_vnet_route * route = NULL;
@@ -173,25 +168,20 @@ static int handle_cmd_kick(struct guest_info * core,
 		    return -1;
 		}
 
-		// add route
-		PrintDebug("VNET Bridge: Adding VNET Route\n");
-
 		tmp_status = v3_vnet_add_route(*route);
-
-		PrintDebug("VNET Route Added\n");
-
 		if (tmp_status != 0) {
 		    PrintError("Error adding VNET ROUTE\n");
+			
 		    status = tmp_status;
 		}
+
+		PrintDebug("VNET Route Added\n");
 
 		xfer_len += buf_desc->length;
 		desc_idx = buf_desc->next;
 	    }
 
 	} 
-
-
 
 	status_desc = &(q->desc[desc_idx]);
 
@@ -235,6 +225,7 @@ static int vnet_pkt_input_cb(struct v3_vm_info * vm,
 	
     if (q->ring_avail_addr == 0) {
 	PrintError("Queue is not set\n");
+	
 	goto exit;
     }
 
@@ -244,7 +235,6 @@ static int vnet_pkt_input_cb(struct v3_vm_info * vm,
 	struct vnet_bridge_pkt * virtio_pkt = NULL;
 
 	pkt_desc = &(q->desc[pkt_idx]);
-	PrintDebug("VNET Bridge RX: buffer desc len: %d\n", pkt_desc->length);
 
 	if (v3_gpa_to_hva(&(vm->cores[0]), pkt_desc->addr_gpa, (addr_t *)&(virtio_pkt)) == -1) {
 	    PrintError("Could not translate buffer address\n");
@@ -282,7 +272,7 @@ exit:
     return ret_val;
 }
 
-static int handle_pkt_kick(struct guest_info * core, 
+static int do_tx_pkts(struct guest_info * core, 
 			   struct virtio_vnet_state * vnet_state) 
 {
     struct virtio_queue * q = &(vnet_state->queue[XMIT_QUEUE]);
@@ -298,8 +288,6 @@ static int handle_pkt_kick(struct guest_info * core,
 	struct vnet_bridge_pkt * virtio_pkt = NULL;
 
 	pkt_desc = &(q->desc[desc_idx]);
-
-	PrintDebug("VNET Bridge: Handle TX desc buf_len: %d\n", pkt_desc->length);
 	
 	if (v3_gpa_to_hva(core, pkt_desc->addr_gpa, (addr_t *)&(virtio_pkt)) == -1) {
 	    PrintError("Could not translate buffer address\n");
@@ -343,15 +331,13 @@ static void vnet_virtio_poll(struct v3_vm_info * vm, void * private_data){
     struct virtio_vnet_state * vnet_state = (struct virtio_vnet_state *)private_data;
 
     if(vm == vnet_state->vm){	
-    	handle_pkt_kick(&(vm->cores[0]), vnet_state);
+    	do_tx_pkts(&(vm->cores[0]), vnet_state);
     }
 }
 
-static int handle_rx_kick(struct guest_info *core, 
+static int handle_rx_queue_kick(struct guest_info *core, 
 			  struct virtio_vnet_state * vnet_state) 
-{
-    //v3_vnet_enable_bridge();
-	
+{	
     return 0;
 }
 
@@ -451,13 +437,13 @@ static int vnet_virtio_io_write(struct guest_info * core,
 		    return -1;
 		}
 	    } else if (queue_idx == 1) {
-		if (handle_pkt_kick(core, vnet_state) == -1){
+		if (do_tx_pkts(core, vnet_state) == -1){
 		    PrintError("Could not handle Virtio VNET TX\n");
 		    return -1;
 		}
 		PrintError("Notify on TX\n");
 	    } else if (queue_idx == 2) {
-		if (handle_rx_kick(core, vnet_state) == -1){
+		if (handle_rx_queue_kick(core, vnet_state) == -1){
 		    PrintError("Could not handle Virtio RX buffer refills Kick\n");
 		    return -1;
 		}

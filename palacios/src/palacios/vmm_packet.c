@@ -25,26 +25,29 @@
 static struct v3_packet_hooks * packet_hooks = 0;
 
 int V3_send_raw(const char * pkt, uint32_t len) {
-    V3_ASSERT(packet_hooks);
-    V3_ASSERT(packet_hooks->send);
+    if(packet_hooks != NULL && packet_hooks->send != NULL){
+    	return packet_hooks->send(pkt, len, NULL);
+    }
 
-    return packet_hooks->send(pkt, len, NULL);
+    return -1;
 }
 
 
 int V3_packet_add_recver(const char * mac, struct v3_vm_info * vm){
-    V3_ASSERT(packet_hooks);
-    V3_ASSERT(packet_hooks->add_recver);
+    if(packet_hooks != NULL && packet_hooks->add_recver != NULL){
+        return packet_hooks->add_recver(mac, vm);
+    }
 
-    return packet_hooks->add_recver(mac, vm);
+    return -1;
 }
 
 
 int V3_packet_del_recver(const char * mac, struct v3_vm_info * vm){
-    V3_ASSERT(packet_hooks);
-    V3_ASSERT(packet_hooks->del_recver);
+    if(packet_hooks != NULL && packet_hooks->del_recver != NULL){
+        return packet_hooks->del_recver(mac, vm);
+    }
 
-    return packet_hooks->del_recver(mac, vm);
+    return -1;
 }
 
 void V3_Init_Packet(struct v3_packet_hooks * hooks) {
