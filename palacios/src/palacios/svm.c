@@ -451,10 +451,10 @@ int v3_svm_enter(struct guest_info * info) {
     vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data)); 
     addr_t exit_code = 0, exit_info1 = 0, exit_info2 = 0;
 
-    v3_adjust_time(info);
-
     // Conditionally yield the CPU if the timeslice has expired
     v3_yield_cond(info);
+
+    v3_adjust_time(info);
 
     // disable global interrupts for vm state transition
     v3_clgi();
@@ -504,6 +504,9 @@ int v3_svm_enter(struct guest_info * info) {
 #endif
 
     v3_update_timers(info);
+#ifdef CONFIG_TIME_HIDE_VM_COST
+    v3_restart_time(info);
+#endif
     guest_ctrl->TSC_OFFSET = v3_tsc_host_offset(&info->time_state);
 
     //V3_Print("Calling v3_svm_launch\n");
@@ -513,6 +516,13 @@ int v3_svm_enter(struct guest_info * info) {
     //V3_Print("SVM Returned: Exit Code: %x, guest_rip=%lx\n", (uint32_t)(guest_ctrl->exit_code), (unsigned long)guest_state->rip);
 
     v3_last_exit = (uint32_t)(guest_ctrl->exit_code);
+
+#ifdef CONFIG_TIME_HIDE_VM_COST
+    v3_pause_time(info);
+#ifdef CONFIG_TIME_HIDE_EXIT_COST
+    v3_offset_time(info, -CONFIG_TIME_EXIT_COST_ADJUST);
+#endif
+#endif
 
     //PrintDebug("SVM Returned\n");
     

@@ -7,11 +7,13 @@
  * and the University of New Mexico.  You can find out more at 
  * http://www.v3vee.org
  *
+ * Copyright (c) 2010, Patrick Bridges <bridges@cs.unm.edu>
  * Copyright (c) 2008, Jack Lange <jarusl@cs.northwestern.edu> 
  * Copyright (c) 2008, The V3VEE Project <http://www.v3vee.org> 
  * All rights reserved.
  *
  * Author: Jack Lange <jarusl@cs.northwestern.edu>
+ *         Patrick Bridges <bridges@cs.unm.edu>
  *
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
@@ -32,15 +34,15 @@ struct guest_info;
 struct vm_time {
     uint32_t host_cpu_freq;    // in kHZ 
     uint32_t guest_cpu_freq;   // can be lower than host CPU freq!
-         
+
     sint64_t guest_host_offset;// Offset of monotonic guest time from host time
     sint64_t tsc_guest_offset; // Offset of guest TSC from monotonic guest time
-    
+
     uint64_t last_update;      // Last time (in monotonic guest time) the 
                                // timers were updated
 
     uint64_t initial_time;     // Time when VMM started. 
-    
+    uint64_t pause_time;       // Host time when VM entered and paused.
     struct v3_msr tsc_aux;     // Auxilliary MSR for RDTSCP
 
     // Installed Timers slaved off of the guest monotonic TSC
@@ -67,9 +69,12 @@ int v3_init_time_vm(struct v3_vm_info * vm);
 void v3_deinit_time_core(struct guest_info * core);
 void v3_deinit_time_vm(struct v3_vm_info * vm);
 
-
 int v3_start_time(struct guest_info * core);
+
 int v3_adjust_time(struct guest_info * core);
+int v3_pause_time(struct guest_info * core);
+int v3_offset_time(struct guest_info * core, sint64_t offset);
+int v3_restart_time(struct guest_info * core);
 
 // Basic functions for attaching timers to the passage of time
 struct v3_timer * v3_add_timer(struct guest_info * info, struct v3_timer_ops * ops, void * private_data);
@@ -85,7 +90,11 @@ static inline uint64_t v3_get_host_time(struct vm_time *t) {
 
 // Returns *monotonic* guest time.
 static inline uint64_t v3_get_guest_time(struct vm_time *t) {
-    return v3_get_host_time(t) + t->guest_host_offset;
+    if (t->pause_time) {
+        return t->pause_time + t->guest_host_offset;
+    } else {
+        return v3_get_host_time(t) + t->guest_host_offset;
+    }
 }
 
 // Returns the TSC value seen by the guest
