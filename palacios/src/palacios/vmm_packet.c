@@ -32,6 +32,17 @@ int V3_send_raw(const char * pkt, uint32_t len) {
 }
 
 
+int V3_packet_add_recver(const char * mac, struct v3_vm_info * vm){
+
+    return packet_hooks->add_recver(mac, vm);
+}
+
+
+int V3_packet_del_recver(const char * mac, struct v3_vm_info * vm){
+
+    return packet_hooks->del_recver(mac, vm);
+}
+
 void V3_Init_Packet(struct v3_packet_hooks * hooks) {
     packet_hooks = hooks;
     PrintDebug("V3 raw packet interface inited\n");

@@ -111,6 +111,8 @@ static int nic_bridge_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     PrintDebug("NIC-Bridge: Connect %s to frontend %s\n", 
 	      dev_id, v3_cfg_val(frontend_cfg, "tag"));
 
+
+    V3_packet_add_recver(bridge->net_ops.fnt_mac, vm);
     v3_hook_host_event(vm, HOST_PACKET_EVT, V3_HOST_EVENT_HANDLER(packet_input), bridge);
 
     return 0;

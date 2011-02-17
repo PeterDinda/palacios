@@ -22,17 +22,21 @@
 #define __VMM_PACKET_H__
 
 #include <palacios/vmm.h>
+#include <palacios/vmm_ethernet.h>
 
 #ifdef __V3VEE__
 
 int V3_send_raw(const char * pkt, uint32_t len);
+int V3_packet_add_recver(const char * mac, struct v3_vm_info * vm);
+int V3_packet_del_recver(const char * mac, struct v3_vm_info * vm);
 
 #endif
 
 struct v3_packet_hooks {
 
     int (*send)(const char * pkt, unsigned int size, void * private_data);
-
+    int (*add_recver)(const char * mac, struct v3_vm_info * vm);
+    int (*del_recver)(const char * mac, struct v3_vm_info * vm);
 };
 
 extern void V3_Init_Packet(struct v3_packet_hooks * hooks);
