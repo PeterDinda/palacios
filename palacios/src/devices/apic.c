@@ -28,12 +28,17 @@
 #include <palacios/vmm_types.h>
 
 
+//
+//   MUST DO APIC SCAN FOR PHYSICAL DELIVERY
+//
+
+
+
 #ifndef CONFIG_DEBUG_APIC
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
 
-#ifdef CONFIG_DEBUG_APIC
 static char * shorthand_str[] = { 
     "(no shorthand)",
     "(self)",
@@ -51,16 +56,33 @@ static char * deliverymode_str[] = {
     "(Start Up)",
     "(ExtInt)",
 };
+#ifdef CONFIG_DEBUG_APIC
 #endif
+
+
+#define v3_lock(p) p=p
+#define v3_unlock(p) p=p
+
 
 typedef enum { APIC_TMR_INT, APIC_THERM_INT, APIC_PERF_INT, 
 	       APIC_LINT0_INT, APIC_LINT1_INT, APIC_ERR_INT } apic_irq_type_t;
 
 #define APIC_FIXED_DELIVERY  0x0
+#define APIC_LOWEST_DELIVERY 0x1
 #define APIC_SMI_DELIVERY    0x2
+#define APIC_RES1_DELIVERY   0x3
 #define APIC_NMI_DELIVERY    0x4
 #define APIC_INIT_DELIVERY   0x5
+#define APIC_SIPI_DELIVERY   0x6
 #define APIC_EXTINT_DELIVERY 0x7
+
+#define APIC_SHORTHAND_NONE        0x0
+#define APIC_SHORTHAND_SELF        0x1
+#define APIC_SHORTHAND_ALL         0x2
+#define APIC_SHORTHAND_ALL_BUT_ME  0x3
+
+#define APIC_DEST_PHYSICAL    0x0
+#define APIC_DEST_LOGICAL     0x1
 
 
 #define BASE_ADDR_MSR     0x0000001B
@@ -225,7 +247,7 @@ struct apic_state {
 
 struct apic_dev_state {
     int num_apics;
-    v3_lock_t ipi_lock;   // acquired by route_ipi - only one IPI active at a time
+    //    v3_lock_t ipi_lock;   // acquired by route_ipi - only one IPI active at a time
 
     struct apic_state apics[0];
 } __attribute__((packed));
@@ -296,8 +318,7 @@ static void init_apic_state(struct apic_state * apic, uint32_t id) {
 
     v3_lock_init(&(apic->lock));
 
-    apic->in_ipi=0;
-
+    //debug
     apic->in_icr=0;
 }
 
@@ -606,7 +627,8 @@ static int should_deliver_ipi(struct guest_info * dst_core,
     }
 }
 
-// Caller is expected to have locked the source apic (if any) and destination apic
+// Caller is expected to have locked the destination apic
+// Only the src_apic pointer is used
 static int deliver_ipi(struct apic_state * src_apic, 
 		       struct apic_state * dst_apic, 
 		       uint32_t vector, uint8_t del_mode) {
@@ -617,8 +639,11 @@ static int deliver_ipi(struct apic_state * src_apic,
 
     switch (del_mode) {
 
-	case 0:  //fixed
-	case 1: // lowest priority - caller needs to have decided which apic to deliver to!
+	case APIC_FIXED_DELIVERY:  
+	case APIC_LOWEST_DELIVERY:
+	    // lowest priority - 
+	    // caller needs to have decided which apic to deliver to!
+
 	    PrintDebug("delivering IRQ %d to core %u\n", vector, dst_core->cpu_id); 
 
 	    do_xcall=activate_apic_irq_nolock(dst_apic, vector);
@@ -644,7 +669,8 @@ static int deliver_ipi(struct apic_state * src_apic,
 	    }
 
 	    break;
-	case 5: { //INIT
+
+	case APIC_INIT_DELIVERY: { 
 
 	    PrintDebug(" INIT delivery to core %u\n", dst_core->cpu_id);
 
@@ -671,7 +697,7 @@ static int deliver_ipi(struct apic_state * src_apic,
 
 	    break;							
 	}
-	case 6: { //SIPI
+	case APIC_SIPI_DELIVERY: { 
 
 	    // Sanity check
 	    if (dst_apic->ipi_state != SIPI) { 
@@ -709,10 +735,10 @@ static int deliver_ipi(struct apic_state * src_apic,
 
 	    break;							
 	}
-	case 2: // SMI			
-	case 3: // reserved						
-	case 4: // NMI					
-	case 7: // ExtInt
+	case APIC_SMI_DELIVERY: 
+	case APIC_RES1_DELIVERY: // reserved						
+	case APIC_NMI_DELIVERY:
+	case APIC_EXTINT_DELIVERY: // ExtInt
 	default:
 	    PrintError("IPI %d delivery is unsupported\n", del_mode); 
 	    return -1;
@@ -722,35 +748,21 @@ static int deliver_ipi(struct apic_state * src_apic,
 
 }
 
-// Caller is expected to have locked the source apic, if any
-// route_ipi will lock the destination apics
-/*
-
-   Note that this model introduces a potential deadlock:
-
-     APIC A-> APIC B   while APIC B -> APIC A
-
-       lock(A)               lock(B)
-       lock(B)               lock(A)
-
-   This deadlock condition is not currently handled.    
-   A good way of handling it might be to check to see if the 
-   destination apic is currently sending an IPI, and, 
-   if so, back out   and ask the caller to drop the sender lock
-   reacquire it, and then try route_ipi again.  However, 
-   logical delivery complicates this considerably since
-   we can hit the above situation in the middle of sending
-   the ipi to a group of destination apics.   
-
-
-*/
+// route_ipi is responsible for all locking
+// the assumption is that you enter with no locks
+// there is a global lock for the icc bus, so only
+// one route_ipi progresses at any time
+// destination apics are locked as needed
+// if multiple apic locks are acquired at any point,
+// this is done in the order of the array, so no
+// deadlock should be possible
 static int route_ipi(struct apic_dev_state * apic_dev,
 		     struct apic_state * src_apic, 
 		     struct int_cmd_reg * icr) {
     struct apic_state * dest_apic = NULL;
 
 
-    v3_lock(apic_dev->ipi_lock);  
+    //v3_lock(apic_dev->ipi_lock);  // this may not be needed
     // now I know only one IPI is being routed, this one
     // also, I do not have any apic locks
     // I need to acquire locks on pairs of src/dest apics
@@ -768,33 +780,34 @@ static int route_ipi(struct apic_dev_state * apic_dev,
 	       icr->val);
 
 #if 1
-    if (icr->vec!=48) { 
-	V3_Print("apic: IPI %u from apic %p to %s %u (icr=0x%llx)\n",
-		 icr->vec, 
-		 src_apic, 	       
-		 (icr->dst_mode == 0) ? "(physical)" : "(logical)", 
-		 icr->dst,
-		 icr->val);
-    }
+        if (icr->vec!=48) { 
+	    V3_Print("apic: IPI %s %u from apic %p to %s %s %u (icr=0x%llx)\n",
+		    deliverymode_str[icr->del_mode], 
+		    icr->vec, 
+		    src_apic, 	       
+		    (icr->dst_mode == 0) ? "(physical)" : "(logical)", 
+		    shorthand_str[icr->dst_shorthand], 
+		    icr->dst,
+		    icr->val);
+	}
 
 #endif
 
-    /* Locking issue:  we hold src_apic already.  We will acquire dest_apic if needed */
-    /* But this could lead to deadlock - we really need to have a total ordering */
-	
+
     switch (icr->dst_shorthand) {
 
-	case 0:  // no shorthand
-	    if (icr->dst_mode == 0) { 
-		// physical delivery
+	case APIC_SHORTHAND_NONE:  // no shorthand
+	    if (icr->dst_mode == APIC_DEST_PHYSICAL) { 
 
 		if (icr->dst >= apic_dev->num_apics) { 
 		    PrintError("apic: Attempted send to unregistered apic id=%u\n", icr->dst);
-		    return -1;
+		    goto route_ipi_out_bad;
 		}
 
 
 		dest_apic =  &(apic_dev->apics[icr->dst]);
+		
+		V3_Print("apic: phsyical destination of %u (apic %u at 0x%p)\n", icr->dst,dest_apic->lapic_id.val,dest_apic);
 
 		v3_lock(dest_apic->lock);
 
@@ -802,19 +815,20 @@ static int route_ipi(struct apic_dev_state * apic_dev,
 				icr->vec, icr->del_mode) == -1) {
 		    PrintError("apic: Could not deliver IPI\n");
 		    v3_unlock(dest_apic->lock);
-		    return -1;
+		    goto route_ipi_out_bad;
 		}
 
 		v3_unlock(dest_apic->lock);
 
-	    } else {
-		// logical delivery
-		if (icr->del_mode!=1) { 
+		V3_Print("apic: done\n");
+
+	    } else if (icr->dst_mode == APIC_DEST_LOGICAL) {
+		
+		if (icr->del_mode!=APIC_LOWEST_DELIVERY ) { 
 		    // logical, but not lowest priority
 		    // we immediately trigger
 		    // fixed, smi, reserved, nmi, init, sipi, etc
 		    int i;
-		    int have_lock;
 		    
 		    uint8_t mda = icr->dst;
 		    
@@ -822,83 +836,68 @@ static int route_ipi(struct apic_dev_state * apic_dev,
 			
 			dest_apic = &(apic_dev->apics[i]);
 			
-			
-			if (src_apic==0 || dest_apic!=src_apic) { 
-			    v3_lock(dest_apic->lock);
-			    have_lock=1;
-			} else {
-			    have_lock=0;
-			}
+			v3_lock(dest_apic->lock);
 			
 			int del_flag = should_deliver_ipi(dest_apic->core, dest_apic, mda);
 			
 			if (del_flag == -1) {
 			    PrintError("apic: Error checking delivery mode\n");
-			    if (have_lock) { 
-				v3_unlock(dest_apic->lock);
-			    }
-			    return -1;
+			    v3_unlock(dest_apic->lock);
+			    goto route_ipi_out_bad;
 			} else if (del_flag == 1) {
 			    if (deliver_ipi(src_apic, dest_apic, 
 					    icr->vec, icr->del_mode) == -1) {
 				PrintError("apic: Error: Could not deliver IPI\n");
-				if (have_lock) { 
-				    v3_unlock(dest_apic->lock);
-				}
-				return -1;
+				v3_unlock(dest_apic->lock);
+				goto route_ipi_out_bad;
 			    }
 			}
 			
-			if (have_lock) {
-			    v3_unlock(dest_apic->lock);
-			}
+			v3_unlock(dest_apic->lock);
 		    }
-		} else {
+		} else {  //APIC_LOWEST_DELIVERY
 		    // logical, lowest priority
-		    // scan, then trigger
+		    // scan, keeping a lock on the current best, then trigger
 		    int i;
-		    int have_cur_lock;    // do we have a lock on the one we are now considering?
+		    int have_cur_lock;
 		    struct apic_state * cur_best_apic = NULL;
 		    
 		    uint8_t mda = icr->dst;
+		    
+		    have_cur_lock=0;
+
+
+		    // Note that even if there are multiple concurrent 
+		    // copies of this loop executing, they are all 
+		    // locking in the same order
 
 		    for (i = 0; i < apic_dev->num_apics; i++) { 
 			
 			dest_apic = &(apic_dev->apics[i]);
 			
-			
-			if (src_apic==0 || dest_apic!=src_apic) { 
-			    v3_lock(dest_apic->lock);
-			    have_cur_lock=1;
-			} else {
-			    have_cur_lock=0;
-			}
+			v3_lock(dest_apic->lock);
+			have_cur_lock=1;
 			
 			int del_flag = should_deliver_ipi(dest_apic->core, dest_apic, mda);
 			
 			if (del_flag == -1) {
 			    PrintError("apic: Error checking delivery mode\n");
-			    if (have_cur_lock) { 
-				v3_unlock(dest_apic->lock);
-			    }
-			    if (cur_best_apic && cur_best_apic!=src_apic) { 
+			    v3_unlock(dest_apic->lock);
+			    if (cur_best_apic && cur_best_apic!=dest_apic) { 
 				v3_unlock(cur_best_apic->lock);
 			    }
-			    
-			    return -1;
+			    goto route_ipi_out_bad;
 			} else if (del_flag == 1) {
 			    // update priority for lowest priority scan
 			    if (!cur_best_apic) {
-				cur_best_apic=dest_apic;
-				have_cur_lock=0;   // will unlock as cur_best_apic
+				cur_best_apic=dest_apic;  // note we leave it locked
+				have_cur_lock=0;          // we will unlock as cur_best_apic
 			    } else if (dest_apic->task_prio.val < cur_best_apic->task_prio.val) {
 				// we now unlock the current best one and then switch
 				// so in the end we have a lock on the new cur_best_apic
-				if (cur_best_apic!=src_apic) { 
-				    v3_unlock(cur_best_apic->lock);
-				}
+				v3_unlock(cur_best_apic->lock);
 				cur_best_apic=dest_apic;
-				have_cur_lock=0;
+				have_cur_lock=0; // will unlock as cur_best_apic
 			    } 
 			}
 			if (have_cur_lock) {
@@ -907,29 +906,26 @@ static int route_ipi(struct apic_dev_state * apic_dev,
 			
 		    }
 		    // now we will deliver to the best one if it exists
+		    // and it is locked
 		    if (!cur_best_apic) { 
 			PrintDebug("apic: lowest priority deliver, but no destinations!\n");
 		    } else {
 			if (deliver_ipi(src_apic, cur_best_apic, 
 					icr->vec, icr->del_mode) == -1) {
 			    PrintError("apic: Error: Could not deliver IPI\n");
-			    if (cur_best_apic!=src_apic) { 
-				v3_unlock(cur_best_apic->lock);
-			    } 
-			    return -1;
+			    v3_unlock(cur_best_apic->lock);
+			    goto route_ipi_out_bad;
 			} else {
-			    if (cur_best_apic!=src_apic) { 
-				v3_unlock(cur_best_apic->lock);
-			    }
-			    //V3_Print("apic: logical, lowest priority delivery to apic %u\n",cur_best_apic->lapic_id.val);
+			    v3_unlock(cur_best_apic->lock);
 			}
+			    //V3_Print("apic: logical, lowest priority delivery to apic %u\n",cur_best_apic->lapic_id.val);
 		    }
 		}
 	    }
 
 	    break;
 	    
-	case 1:  // self
+	case APIC_SHORTHAND_SELF:  // self
 
 	    /* I assume I am already locked! */
 
@@ -938,61 +934,62 @@ static int route_ipi(struct apic_dev_state * apic_dev,
 		break;
 	    }
 
-	    if (icr->dst_mode == 0) {  /* physical delivery */
+	    v3_lock(src_apic->lock);
+
+	    if (icr->dst_mode == APIC_DEST_PHYSICAL)  {  /* physical delivery */
 		if (deliver_ipi(src_apic, src_apic, icr->vec, icr->del_mode) == -1) {
 		    PrintError("apic: Could not deliver IPI to self (physical)\n");
-		    return -1;
+		    v3_unlock(src_apic->lock);
+		    goto route_ipi_out_bad;
 		}
-	    } else { /* logical delivery */
+	    } else if (icr->dst_mode == APIC_DEST_LOGICAL) {  /* logical delivery */
 		PrintError("apic: use of logical delivery in self (untested)\n");
 		if (deliver_ipi(src_apic, src_apic, icr->vec, icr->del_mode) == -1) {
 		    PrintError("apic: Could not deliver IPI to self (logical)\n");
-		    return -1;
+		    v3_unlock(src_apic->lock);
+		    goto route_ipi_out_bad;
 		}
 	    }
+	    v3_unlock(src_apic->lock);
 	    break;
 	    
-	case 2: 
-	case 3: { /* all and all-but-me */
+	case APIC_SHORTHAND_ALL: 
+	case APIC_SHORTHAND_ALL_BUT_ME: { /* all and all-but-me */
 	    /* assuming that logical verus physical doesn't matter
 	       although it is odd that both are used */
 
-	    int have_lock;
 	    int i;
 
 	    for (i = 0; i < apic_dev->num_apics; i++) { 
 		dest_apic = &(apic_dev->apics[i]);
-
 		
-		if ((dest_apic != src_apic) || (icr->dst_shorthand == 2)) { 
-		    if (src_apic==0 || dest_apic!=src_apic) { 
-			v3_lock(dest_apic->lock);
-			have_lock=1;
-		    } else {
-			have_lock=0;
-		    }
+		
+		if ((dest_apic != src_apic) || (icr->dst_shorthand == APIC_SHORTHAND_ALL)) { 
+		    v3_lock(dest_apic->lock);
 		    if (deliver_ipi(src_apic, dest_apic, icr->vec, icr->del_mode) == -1) {
 			PrintError("apic: Error: Could not deliver IPI\n");
-			if (have_lock) { 
-			    v3_unlock(dest_apic->lock);
-			}
-			return -1;
-		    }
-		    if (have_lock) { 
 			v3_unlock(dest_apic->lock);
+			goto route_ipi_out_bad;
 		    }
+		    v3_unlock(dest_apic->lock);
 		}
-	    }	
-
-	    break;
+		
+	    }
 	}
+	    break;
 	default:
 	    PrintError("apic: Error routing IPI, invalid Mode (%d)\n", icr->dst_shorthand);
-	    return -1;
+	    goto route_ipi_out_bad;
     }
-    
 
+
+    // route_ipi_out_good:
+    //v3_unlock(apic_dev->ipi_lock);  
     return 0;
+
+ route_ipi_out_bad:
+    //v3_unlock(apic_dev->ipi_lock);  
+    return -1;
 }
 
 
@@ -1449,17 +1446,16 @@ static int apic_write(struct guest_info * core, addr_t guest_addr, void * src, u
 	    //       apic->int_cmd.val, apic->int_cmd.dst);
 
 	    apic->in_icr=0;
-	    apic->in_ipi=1;
 
 	    v3_unlock(apic->lock);
 
-	    // route_ipi is responsible for locking both source and destiation(s)
+	    // route_ipi is responsible for locking apics, so we go in unlocked)
 	    if (route_ipi(apic_dev, apic, &tmp_icr) == -1) { 
 		PrintError("IPI Routing failure\n");
 		goto apic_write_out_bad;
 	    }
-	    v3_lock(apic->lock);
-	    apic->in_ipi=0;
+
+	    //	    v3_lock(apic->lock);  // expected for leaving this function
 
 	}
 	    break;
@@ -1608,7 +1604,7 @@ int v3_apic_raise_intr(struct v3_vm_info * vm, uint32_t irq, uint32_t dst, void 
 	return -1;
     }
     
-    if (do_xcall && (V3_Get_CPU() != dst)) {
+    if (do_xcall>0 && (V3_Get_CPU() != dst)) {
 #ifdef CONFIG_MULTITHREAD_OS
 	v3_interrupt_cpu(vm, dst, 0);
 #else
@@ -1832,7 +1828,7 @@ static int apic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     apic_dev->num_apics = vm->num_cores;
 
-    v3_lock_init(&(apic_dev->ipi_lock));
+    //v3_lock_init(&(apic_dev->ipi_lock));
 
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, apic_dev);
 
