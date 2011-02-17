@@ -41,6 +41,8 @@
 #define V3_XML_DUP     0x20 // attribute name and value are strduped
 //
 
+static char * V3_XML_NIL[] = { NULL }; // empty, null terminated array of strings
+
 
 #define V3_XML_WS   "\t\r\n "  // whitespace
 #define V3_XML_ERRL 128        // maximum error string length
@@ -201,7 +203,9 @@ struct v3_xml * v3_xml_get(struct v3_xml * xml, ...) {
 // sets a flag for the given tag and returns the tag
 static struct v3_xml * v3_xml_set_flag(struct v3_xml * xml, short flag)
 {
-    if (xml) xml->flags |= flag;
+    if (xml) {
+	xml->flags |= flag;
+    }
     return xml;
 }
 
@@ -454,7 +458,7 @@ static struct v3_xml * v3_xml_new(const char * name) {
 }
 
 // inserts an existing tag into an v3_xml structure
-static struct v3_xml * v3_xml_insert(struct v3_xml * xml, struct v3_xml * dest, size_t off) {
+struct v3_xml * v3_xml_insert(struct v3_xml * xml, struct v3_xml * dest, size_t off) {
     struct v3_xml * cur, * prev, * head;
 
     xml->next = NULL;
@@ -900,3 +904,294 @@ void v3_xml_free(struct v3_xml * xml) {
     V3_Free(xml);
 }
 
+
+
+
+
+
+
+// sets the character content for the given tag and returns the tag
+struct v3_xml *  v3_xml_set_txt(struct v3_xml * xml, const char *txt) {
+    if (! xml) {
+	return NULL;
+    }
+
+    if (xml->flags & V3_XML_TXTM) {
+	// existing txt was malloced
+	V3_Free(xml->txt); 
+    }
+
+    xml->flags &= ~V3_XML_TXTM;
+    xml->txt = (char *)txt;
+    return xml;
+}
+
+// Sets the given tag attribute or adds a new attribute if not found. A value
+// of NULL will remove the specified attribute. Returns the tag given.
+struct v3_xml * v3_xml_set_attr(struct v3_xml * xml, const char * name, const char * value) {
+    int l = 0;
+    int c;
+
+    if (! xml) {
+	return NULL;
+    }
+
+    while (xml->attr[l] && strcmp(xml->attr[l], name)) {
+	l += 2;
+    }
+
+    if (! xml->attr[l]) { 
+	// not found, add as new attribute
+        
+	if (! value) {
+	    // nothing to do
+	    return xml;
+	}
+       
+	if (xml->attr == V3_XML_NIL) { 
+	    // first attribute
+            xml->attr = V3_Malloc(4 * sizeof(char *));
+
+	    // empty list of malloced names/vals
+            xml->attr[1] = strdup(""); 
+        } else {
+	    xml->attr = tmp_realloc(xml->attr, l * sizeof(char *), (l + 4) * sizeof(char *));
+	}
+
+	// set attribute name
+        xml->attr[l] = (char *)name; 
+
+	// null terminate attribute list
+        xml->attr[l + 2] = NULL; 
+
+        xml->attr[l + 3] = tmp_realloc(xml->attr[l + 1],
+				       strlen(xml->attr[l + 1]),
+				       (c = strlen(xml->attr[l + 1])) + 2);
+
+	// set name/value as not malloced
+        strcpy(xml->attr[l + 3] + c, " "); 
+
+        if (xml->flags & V3_XML_DUP) {
+	    xml->attr[l + 3][c] = V3_XML_NAMEM;
+	}
+    } else if (xml->flags & V3_XML_DUP) {
+	// name was strduped
+	V3_Free((char *)name); 
+    }
+
+
+    // find end of attribute list
+    for (c = l; xml->attr[c]; c += 2); 
+
+    if (xml->attr[c + 1][l / 2] & V3_XML_TXTM) {
+	//old val
+	V3_Free(xml->attr[l + 1]); 
+    }
+
+    if (xml->flags & V3_XML_DUP) {
+	xml->attr[c + 1][l / 2] |= V3_XML_TXTM;
+    } else {
+	xml->attr[c + 1][l / 2] &= ~V3_XML_TXTM;
+    }
+
+
+    if (value) {
+	// set attribute value
+	xml->attr[l + 1] = (char *)value; 
+    } else { 
+	// remove attribute
+        
+	if (xml->attr[c + 1][l / 2] & V3_XML_NAMEM) {
+	    V3_Free(xml->attr[l]);
+	}
+
+        memmove(xml->attr + l, xml->attr + l + 2, (c - l + 2) * sizeof(char*));
+
+        xml->attr = tmp_realloc(xml->attr, c * sizeof(char *), (c + 2) * sizeof(char *));
+
+	// fix list of which name/vals are malloced
+        memmove(xml->attr[c + 1] + (l / 2), xml->attr[c + 1] + (l / 2) + 1,
+                (c / 2) - (l / 2)); 
+    }
+
+    // clear strdup() flag
+    xml->flags &= ~V3_XML_DUP; 
+
+    return xml;
+}
+
+// removes a tag along with its subtags without freeing its memory
+struct v3_xml * v3_xml_cut(struct v3_xml * xml) {
+    struct v3_xml * cur;
+
+    if (! xml) {
+	// nothing to do
+	return NULL; 
+    }
+
+    if (xml->next) {
+	// patch sibling list
+	xml->next->sibling = xml->sibling; 
+    }
+
+
+    if (xml->parent) { 
+	// not root tag
+
+	// find head of subtag list
+        cur = xml->parent->child; 
+
+        if (cur == xml) {
+	    // first subtag
+	    xml->parent->child = xml->ordered; 
+	} else { 
+	// not first subtag
+
+            while (cur->ordered != xml) {
+		cur = cur->ordered;
+	    }
+
+	    // patch ordered list
+            cur->ordered = cur->ordered->ordered; 
+
+	    // go back to head of subtag list
+            cur = xml->parent->child; 
+
+            if (strcmp(cur->name, xml->name)) {
+		// not in first sibling list
+
+                while (strcmp(cur->sibling->name, xml->name)) {
+                    cur = cur->sibling;
+		}
+
+                if (cur->sibling == xml) { 
+		    // first of a sibling list
+                    cur->sibling = (xml->next) ? xml->next
+                                               : cur->sibling->sibling;
+                } else {
+		    // not first of a sibling list
+		    cur = cur->sibling;
+		}
+            }
+
+            while (cur->next && cur->next != xml) {
+		cur = cur->next;
+	    }
+
+            if (cur->next) {
+		// patch next list
+		cur->next = cur->next->next; 
+	    }
+        } 
+   }
+    xml->ordered = xml->sibling = xml->next = NULL;
+    return xml;
+}
+
+
+
+
+/* ************************** */
+/* *** XML ENCODING       *** */
+/* ************************** */
+
+// Encodes ampersand sequences appending the results to *dst, reallocating *dst
+// if length excedes max. a is non-zero for attribute encoding. Returns *dst
+static char *ampencode(const char *s, size_t len, char **dst, size_t *dlen,
+                      size_t * max, short a)
+{
+    const char * e;
+    
+    for (e = s + len; s != e; s++) {
+        while (*dlen + 10 > *max) *dst = tmp_realloc(*dst, *max, *max += V3_XML_BUFSIZE);
+
+        switch (*s) {
+        case '\0': return *dst;
+        case '&': *dlen += sprintf(*dst + *dlen, "&amp;"); break;
+        case '<': *dlen += sprintf(*dst + *dlen, "&lt;"); break;
+        case '>': *dlen += sprintf(*dst + *dlen, "&gt;"); break;
+        case '"': *dlen += sprintf(*dst + *dlen, (a) ? "&quot;" : "\""); break;
+        case '\n': *dlen += sprintf(*dst + *dlen, (a) ? "&#xA;" : "\n"); break;
+        case '\t': *dlen += sprintf(*dst + *dlen, (a) ? "&#x9;" : "\t"); break;
+        case '\r': *dlen += sprintf(*dst + *dlen, "&#xD;"); break;
+        default: (*dst)[(*dlen)++] = *s;
+        }
+    }
+    return *dst;
+}
+
+
+
+// Recursively converts each tag to xml appending it to *s. Reallocates *s if
+// its length excedes max. start is the location of the previous tag in the
+// parent tag's character content. Returns *s.
+static char *toxml_r(struct v3_xml * xml, char **s, size_t *len, size_t *max,
+                    size_t start, char ***attr) {
+    int i, j;
+    char *txt = (xml->parent) ? xml->parent->txt : "";
+    size_t off = 0;
+
+    // parent character content up to this tag
+    *s = ampencode(txt + start, xml->off - start, s, len, max, 0);
+
+    while (*len + strlen(xml->name) + 4 > *max) // reallocate s
+        *s = tmp_realloc(*s, *max, *max += V3_XML_BUFSIZE);
+
+    *len += sprintf(*s + *len, "<%s", xml->name); // open tag
+    for (i = 0; xml->attr[i]; i += 2) { // tag attributes
+        if (v3_xml_attr(xml, xml->attr[i]) != xml->attr[i + 1]) continue;
+        while (*len + strlen(xml->attr[i]) + 7 > *max) // reallocate s
+            *s = tmp_realloc(*s, *max, *max += V3_XML_BUFSIZE);
+
+        *len += sprintf(*s + *len, " %s=\"", xml->attr[i]);
+        ampencode(xml->attr[i + 1], -1, s, len, max, 1);
+        *len += sprintf(*s + *len, "\"");
+    }
+
+    for (i = 0; attr[i] && strcmp(attr[i][0], xml->name); i++);
+    for (j = 1; attr[i] && attr[i][j]; j += 3) { // default attributes
+        if (! attr[i][j + 1] || v3_xml_attr(xml, attr[i][j]) != attr[i][j + 1])
+            continue; // skip duplicates and non-values
+        while (*len + strlen(attr[i][j]) + 7 > *max) // reallocate s
+            *s = tmp_realloc(*s, *max, *max += V3_XML_BUFSIZE);
+
+        *len += sprintf(*s + *len, " %s=\"", attr[i][j]);
+        ampencode(attr[i][j + 1], -1, s, len, max, 1);
+        *len += sprintf(*s + *len, "\"");
+    }
+    *len += sprintf(*s + *len, ">");
+
+    *s = (xml->child) ? toxml_r(xml->child, s, len, max, 0, attr) //child
+                      : ampencode(xml->txt, -1, s, len, max, 0);  //data
+    
+    while (*len + strlen(xml->name) + 4 > *max) // reallocate s
+        *s = tmp_realloc(*s, *max, *max += V3_XML_BUFSIZE);
+
+    *len += sprintf(*s + *len, "</%s>", xml->name); // close tag
+
+    while (txt[off] && off < xml->off) off++; // make sure off is within bounds
+    return (xml->ordered) ? toxml_r(xml->ordered, s, len, max, off, attr)
+                          : ampencode(txt + off, -1, s, len, max, 0);
+}
+
+// Converts an xml structure back to xml. Returns a string of xml data that
+// must be freed.
+char * v3_xml_tostr(struct v3_xml * xml) {
+    struct v3_xml * p = (xml) ? xml->parent : NULL;
+    struct v3_xml * o = (xml) ? xml->ordered : NULL;
+    struct v3_xml_root * root = (struct v3_xml_root *)xml;
+    size_t len = 0, max = V3_XML_BUFSIZE;
+    char *s = strcpy(V3_Malloc(max), "");
+
+    if (! xml || ! xml->name) return tmp_realloc(s, max, len + 1);
+    while (root->xml.parent) root = (struct v3_xml_root *)root->xml.parent; // root tag
+
+
+    xml->parent = xml->ordered = NULL;
+    s = toxml_r(xml, &s, &len, &max, 0, root->attr);
+    xml->parent = p;
+    xml->ordered = o;
+
+
+    return tmp_realloc(s, max, len + 1);
+}

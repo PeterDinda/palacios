@@ -76,6 +76,8 @@ struct v3_xml * v3_xml_idx(struct v3_xml * xml, int idx);
 const char *v3_xml_attr(struct v3_xml * xml, const char * attr);
 
 
+
+
 // Traverses the v3_xml sturcture to retrieve a specific subtag. Takes a
 // variable length list of tag names and indexes. The argument list must be
 // terminated by either an index of -1 or an empty string tag name. Example: 
@@ -88,4 +90,18 @@ struct v3_xml * v3_xml_get(struct v3_xml * xml, ...);
 // frees the memory allocated for an v3_xml structure
 void v3_xml_free(struct v3_xml * xml);
     
+
+
+
+
+
+char * v3_xml_tostr(struct v3_xml * xml);
+
+struct v3_xml * v3_xml_insert(struct v3_xml * xml, struct v3_xml * dest, size_t off) 
+struct v3_xml *  v3_xml_set_txt(struct v3_xml * xml, const char *txt);
+
+
+struct v3_xml * v3_xml_set_attr(struct v3_xml * xml, const char * name, const char * value);
+
+
 #endif // __VMM_XML_H
