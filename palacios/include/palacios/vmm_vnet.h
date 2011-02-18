@@ -25,14 +25,16 @@
 #include <palacios/vmm.h>
 #include <palacios/vmm_ethernet.h>
 
-#define MAC_ANY 	0
-#define MAC_NOT 	1
-#define MAC_NONE 	2 
-#define MAC_ADDR 	3
+#define MAC_NOSET 	0
+#define MAC_ANY 	11
+#define MAC_NOT 	12
+#define MAC_NONE 	13 
+#define MAC_ADDR 	14
 
-#define LINK_INTERFACE 	0
-#define LINK_EDGE 	1 
-#define LINK_ANY 	2
+#define LINK_NOSET	0
+#define LINK_INTERFACE 	11
+#define LINK_EDGE 	12 
+#define LINK_ANY 	13
 
 #define VNET_HASH_SIZE 	17
 
@@ -44,10 +46,10 @@ struct v3_vnet_route {
     uint8_t src_mac_qual;
     uint8_t dst_mac_qual;
 
-    uint32_t dst_id;
+    int dst_id;
     uint8_t dst_type;
  
-    uint32_t src_id;
+    int src_id;
     uint8_t src_type;
 } __attribute__((packed));
 
@@ -90,6 +92,7 @@ int v3_vnet_add_bridge(struct v3_vm_info * vm,
 		void * priv_data);
 int v3_vnet_add_route(struct v3_vnet_route route);
 int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data);
+int v3_vnet_find_dev(uint8_t  * mac);
 
 #ifdef __V3VEE__
 

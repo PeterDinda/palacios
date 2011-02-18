@@ -101,46 +101,47 @@ static struct {
 
 #ifdef CONFIG_DEBUG_VNET
 static inline void mac_to_string(uint8_t * mac, char * buf) {
-    snprintf(buf, 100, "%d:%d:%d:%d:%d:%d", 
+    snprintf(buf, 100, "%2x:%2x:%2x:%2x:%2x:%2x", 
 	     mac[0], mac[1], mac[2],
 	     mac[3], mac[4], mac[5]);
 }
 
-static void print_route(struct vnet_route_info * route){
+static void print_route(struct v3_vnet_route * route){
     char str[50];
 
-    mac_to_string(route->route_def.src_mac, str);
+    mac_to_string(route->src_mac, str);
     PrintDebug("Src Mac (%s),  src_qual (%d)\n", 
-	       str, route->route_def.src_mac_qual);
-    mac_to_string(route->route_def.dst_mac, str);
+	       str, route->src_mac_qual);
+    mac_to_string(route->dst_mac, str);
     PrintDebug("Dst Mac (%s),  dst_qual (%d)\n", 
-	       str, route->route_def.dst_mac_qual);
+	       str, route->dst_mac_qual);
     PrintDebug("Src dev id (%d), src type (%d)", 
-	       route->route_def.src_id, 
-	       route->route_def.src_type);
+	       route->src_id, 
+	       route->src_type);
     PrintDebug("Dst dev id (%d), dst type (%d)\n", 
-	       route->route_def.dst_id, 
-	       route->route_def.dst_type);
-    if (route->route_def.dst_type == LINK_INTERFACE) {
-    	PrintDebug("dst_dev (%p), dst_dev_id (%d), dst_dev_ops(%p), dst_dev_data (%p)\n",
-	       route->dst_dev,
-	       route->dst_dev->dev_id,
-	       (void *)&(route->dst_dev->dev_ops),
-	       route->dst_dev->private_data);
-    }
+	       route->dst_id, 
+	       route->dst_type);
 }
 
 static void dump_routes(){
-	struct vnet_route_info *route;
+    struct vnet_route_info *route;
 
-	int i = 0;
-	PrintDebug("\n========Dump routes starts ============\n");
-	list_for_each_entry(route, &(vnet_state.routes), node) {
-	    PrintDebug("\nroute %d:\n", i++);
+    int i = 0;
+    PrintDebug("\n========Dump routes starts ============\n");
+    list_for_each_entry(route, &(vnet_state.routes), node) {
+    	PrintDebug("\nroute %d:\n", i++);
 		
-	    print_route(route);
+	print_route(&(route->route_def));
+	if (route->route_def.dst_type == LINK_INTERFACE) {
+	    PrintDebug("dst_dev (%p), dst_dev_id (%d), dst_dev_ops(%p), dst_dev_data (%p)\n",
+	       	route->dst_dev,
+	       	route->dst_dev->dev_id,
+	       	(void *)&(route->dst_dev->dev_ops),
+	       	route->dst_dev->private_data);
 	}
-	PrintDebug("\n========Dump routes end ============\n");
+    }
+
+    PrintDebug("\n========Dump routes end ============\n");
 }
 
 #endif
@@ -202,11 +203,30 @@ static struct vnet_dev * dev_by_mac(uint8_t * mac) {
     struct vnet_dev * dev = NULL; 
     
     list_for_each_entry(dev, &(vnet_state.devs), node) {
-	if (!memcmp(dev->mac_addr, mac, ETH_ALEN))
+	if (!compare_ethaddr(dev->mac_addr, mac)){
 	    return dev;
+	}
+
+	char *dmac = dev->mac_addr;
+    	PrintDebug("device %d: %2x:%2x:%2x:%2x:%2x:%2x\n", dev->dev_id, dmac[0], dmac[1], dmac[2], dmac[3], dmac[4], dmac[5]);
     }
 
     return NULL;
+}
+
+
+int v3_vnet_find_dev(uint8_t  * mac) {
+    struct vnet_dev * dev = NULL;
+
+    PrintDebug("find_dev: %2x:%2x:%2x:%2x:%2x:%2x\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+
+    dev = dev_by_mac(mac);
+
+    if(dev != NULL) {
+	return dev->dev_id;
+    }
+
+    return -1;
 }
 
 
@@ -217,8 +237,8 @@ int v3_vnet_add_route(struct v3_vnet_route route) {
     new_route = (struct vnet_route_info *)V3_Malloc(sizeof(struct vnet_route_info));
     memset(new_route, 0, sizeof(struct vnet_route_info));
 
-    PrintDebug("VNET/P Core: add_route_entry: dst_id: %d, dst_type: %d\n",
-	       route.dst_id, route.dst_type);	
+    PrintDebug("VNET/P Core: add_route_entry:\n");
+    print_route(&route);
     
     memcpy(new_route->route_def.src_mac, route.src_mac, ETH_ALEN);
     memcpy(new_route->route_def.dst_mac, route.dst_mac, ETH_ALEN);
@@ -226,30 +246,17 @@ int v3_vnet_add_route(struct v3_vnet_route route) {
     new_route->route_def.dst_mac_qual = route.dst_mac_qual;
     new_route->route_def.dst_type = route.dst_type;
     new_route->route_def.src_type = route.src_type;
-	
-    if(route.dst_id == -1){
-    	if (new_route->route_def.dst_type == LINK_INTERFACE) {
-	    new_route->dst_dev = dev_by_mac(route.dst_mac);
-    	}
-	new_route->route_def.dst_id = new_route->dst_dev->dev_id;
-    } else {
-    	new_route->route_def.dst_id = route.dst_id;
-    	if (new_route->route_def.dst_type == LINK_INTERFACE) {
-	    new_route->dst_dev = dev_by_id(new_route->route_def.dst_id);
-    	}
+    new_route->route_def.src_id = route.src_id;
+    new_route->route_def.dst_id = route.dst_id;
+
+    if (new_route->route_def.dst_type == LINK_INTERFACE) {
+	new_route->dst_dev = dev_by_id(new_route->route_def.dst_id);
     }
 
-    if(route.src_id == -1){
-    	if (new_route->route_def.src_type == LINK_INTERFACE) {
-	    new_route->src_dev = dev_by_mac(route.src_mac);
-    	}
-	new_route->route_def.src_id = new_route->src_dev->dev_id;
-    } else {
-    	new_route->route_def.src_id = route.src_id;
-    	if (new_route->route_def.src_type == LINK_INTERFACE) {
-	    new_route->src_dev = dev_by_id(new_route->route_def.src_id);
-    	}
+    if (new_route->route_def.src_type == LINK_INTERFACE) {
+	new_route->src_dev = dev_by_id(new_route->route_def.src_id);
     }
+
 
     flags = v3_lock_irqsave(vnet_state.lock);
 
@@ -299,8 +306,8 @@ static struct route_list * match_route(const struct v3_vnet_pkt * pkt) {
     int max_rank = 0;
     struct list_head match_list;
     struct eth_hdr * hdr = (struct eth_hdr *)(pkt->data);
-    uint8_t src_type = pkt->src_type;
-    uint32_t src_link = pkt->src_id;
+ //   uint8_t src_type = pkt->src_type;
+ //   uint32_t src_link = pkt->src_id;
 
 #ifdef CONFIG_DEBUG_VNET
     {
@@ -332,14 +339,15 @@ static struct route_list * match_route(const struct v3_vnet_pkt * pkt) {
     list_for_each_entry(route, &(vnet_state.routes), node) {
 	struct v3_vnet_route * route_def = &(route->route_def);
 
+/*
 	// CHECK SOURCE TYPE HERE
 	if ( (route_def->src_type != LINK_ANY) && 
 	     ( (route_def->src_type != src_type) || 
 	       ( (route_def->src_id != src_link) &&
-		 (route_def->src_id != (uint32_t)-1)))) {
+		 (route_def->src_id != -1)))) {
 	    continue;
 	}
-
+*/
 
 	if ((route_def->dst_mac_qual == MAC_ANY) &&
 	    (route_def->src_mac_qual == MAC_ANY)) {      
@@ -571,29 +579,6 @@ static void free_routes(){
 	list_del(&(route->match_node));
 	V3_Free(route);
     }
-}
-
-/* TODO: Round-bin or ?? */
-void  v3_vnet_poll(struct v3_vm_info * vm){
-    struct vnet_dev * dev = NULL; 
-    struct vnet_brg_dev *bridge = vnet_state.bridge;
-
-    list_for_each_entry(dev, &(vnet_state.devs), node) {
-	if(dev->mode == VMM_DRIVERN && 
-	    dev->active && 
-	    dev->vm == vm){
-	    
-    	    dev->dev_ops.poll(vm, dev->private_data);
-	}
-    }
-
-    if (bridge != NULL && 
- 	  bridge->active && 
- 	  bridge->mode == VMM_DRIVERN) {
-	
-    	bridge->brg_ops.poll(bridge->vm, bridge->private_data);
-    }
-	
 }
 
 int v3_vnet_add_bridge(struct v3_vm_info * vm,
