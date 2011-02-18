@@ -25,6 +25,7 @@ obj-$(CONFIG_DISK_MODEL) += disk_model.o
 obj-$(CONFIG_NIC_BRIDGE) += nic_bridge.o
 
 obj-$(CONFIG_NE2K) += ne2k.o
+obj-$(CONFIG_RTL8139) += rtl8139.o
 
 obj-$(CONFIG_TMPDISK) += tmpdisk.o
 obj-$(CONFIG_RAMDISK) += ramdisk.o 
