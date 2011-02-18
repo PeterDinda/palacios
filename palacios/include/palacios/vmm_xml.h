@@ -97,7 +97,7 @@ void v3_xml_free(struct v3_xml * xml);
 
 char * v3_xml_tostr(struct v3_xml * xml);
 
-struct v3_xml * v3_xml_insert(struct v3_xml * xml, struct v3_xml * dest, size_t off) 
+struct v3_xml * v3_xml_insert(struct v3_xml * xml, struct v3_xml * dest, size_t off);
 struct v3_xml *  v3_xml_set_txt(struct v3_xml * xml, const char *txt);
 
 
