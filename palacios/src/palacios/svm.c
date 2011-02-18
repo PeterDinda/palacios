@@ -218,6 +218,11 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
     ctrl_area->instrs.INTR = 1;
 
 
+    v3_hook_msr(core->vm_info, EFER_MSR, 
+		&v3_handle_efer_read,
+		&v3_handle_efer_write, 
+		core);
+
     if (core->shdw_pg_mode == SHADOW_PAGING) {
 	PrintDebug("Creating initial shadow page table\n");
 	
@@ -246,10 +251,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
 	ctrl_area->cr_reads.cr3 = 1;
 	ctrl_area->cr_writes.cr3 = 1;
 
-	v3_hook_msr(core->vm_info, EFER_MSR, 
-		    &v3_handle_efer_read,
-		    &v3_handle_efer_write, 
-		    core);
+
 
 	ctrl_area->instrs.INVLPG = 1;
 
