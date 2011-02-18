@@ -3,7 +3,6 @@ menu "Virtual Devices"
 config APIC
 	bool "APIC" 
 	default y
-	depends on EXPERIMENTAL
 	help 
 	  Includes the Virtual APIC device
 
@@ -19,7 +18,6 @@ config DEBUG_APIC
 
 config IO_APIC
 	bool "IOAPIC"
-	depends on EXPERIMENTAL
 	default y
 	help 
 	  Includes the Virtual IO APIC

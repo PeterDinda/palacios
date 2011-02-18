@@ -288,6 +288,9 @@ static int ioapic_raise_irq(struct v3_vm_info * vm, void * private_data, int irq
 	ipi.dst = irq_entry->dst_field;
 	ipi.dst_shorthand = 0;
 
+
+	PrintDebug("ioapic %u: IPI: vector 0x%x, mode 0x%x, logical 0x%x, trigger 0x%x, dst 0x%x, shorthand 0x%x\n",
+		   ioapic->ioapic_id.id, ipi.vector, ipi.mode, ipi.logical, ipi.trigger_mode, ipi.dst, ipi.dst_shorthand);
 	// Need to add destination argument here...
 	if (v3_apic_send_ipi(vm, &ipi, ioapic->apic_dev_data) == -1) {
 	    PrintError("Error sending IPI to apic %d\n", ipi.dst);

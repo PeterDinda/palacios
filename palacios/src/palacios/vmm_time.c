@@ -86,6 +86,11 @@ int v3_start_time(struct guest_info * info) {
     uint64_t t = v3_get_host_time(&info->time_state); 
 
     PrintDebug("Starting initial guest time as %llu\n", t);
+#ifdef CONFIG_TIME_HIDE_VM_COST
+    info->time_state.pause_time = t; 
+#else
+    info->time_state.pause_time = 0; 
+#endif
     info->time_state.last_update = t;
     info->time_state.initial_time = t;
     info->yield_start_cycle = t;
@@ -97,9 +102,7 @@ int v3_start_time(struct guest_info * info) {
 int v3_adjust_time(struct guest_info * info) {
     struct vm_time * time_state = &(info->time_state);
 
-    if (time_state->host_cpu_freq == time_state->guest_cpu_freq) {
-	time_state->guest_host_offset = 0;
-    } else {
+    if (time_state->host_cpu_freq != time_state->guest_cpu_freq) {
 	uint64_t guest_time, guest_elapsed, desired_elapsed;
 	uint64_t host_time, target_host_time;
 
@@ -118,12 +121,52 @@ int v3_adjust_time(struct guest_info * info) {
 	    host_time = v3_get_host_time(time_state);
 	}
 
+	// This overrides any pause/unpause times because the difference 
+	// is going to be too big for any pause/unpause the notice.
 	time_state->guest_host_offset = (sint64_t)guest_time - (sint64_t)host_time;
     }
 
     return 0;
 }
 
+int 
+v3_pause_time( struct guest_info * info ) 
+{
+    struct vm_time * time_state = &(info->time_state);
+    if (time_state->pause_time == 0) {
+        time_state->pause_time = v3_get_host_time(time_state);
+//	PrintDebug("Pausing at host time %llu.\n", time_state->pause_time);
+    } else {
+        PrintError("Palacios timekeeping paused when already paused.\n");
+    }
+    return 0;
+}
+
+int 
+v3_restart_time( struct guest_info * info )
+{
+    struct vm_time * time_state = &(info->time_state);
+
+    if (time_state->pause_time) {
+        sint64_t pause_diff = (v3_get_host_time(time_state) - time_state->pause_time);
+        time_state->guest_host_offset -= pause_diff;
+        time_state->pause_time = 0;
+//	PrintDebug("Resuming time after %lld cycles with offset %lld.\n", pause_diff, time_state->guest_host_offset);
+    } else {
+        PrintError( "Palacios time keeping restarted when not paused.");
+    }
+
+    return 0;
+}
+	
+int v3_offset_time( struct guest_info * info, sint64_t offset )
+{
+    struct vm_time * time_state = &(info->time_state);
+//    PrintDebug("Adding additional offset of %lld to guest time.\n", offset);
+    time_state->guest_host_offset += offset;
+    return 0;
+}
+	   
 struct v3_timer * v3_add_timer(struct guest_info * info, 
 			       struct v3_timer_ops * ops, 
 			       void * private_data) {
@@ -149,15 +192,19 @@ int v3_remove_timer(struct guest_info * info, struct v3_timer * timer) {
 }
 
 void v3_update_timers(struct guest_info * info) {
+    struct vm_time *time_state = &info->time_state;
     struct v3_timer * tmp_timer;
     uint64_t old_time = info->time_state.last_update;
-    uint64_t cycles;
+    sint64_t cycles;
 
-    info->time_state.last_update = v3_get_guest_time(&info->time_state);
-    cycles = info->time_state.last_update - old_time;
+    time_state->last_update = v3_get_guest_time(time_state);
+    cycles = time_state->last_update - old_time;
 
-    list_for_each_entry(tmp_timer, &(info->time_state.timers), timer_link) {
-	tmp_timer->ops->update_timer(info, cycles, info->time_state.guest_cpu_freq, tmp_timer->private_data);
+    //    PrintDebug("Updating timer for %lld elapsed cycles (pt=%llu, offset=%lld).\n", 
+    //	       cycles, time_state->pause_time, time_state->guest_host_offset);
+
+    list_for_each_entry(tmp_timer, &(time_state->timers), timer_link) {
+	tmp_timer->ops->update_timer(info, cycles, time_state->guest_cpu_freq, tmp_timer->private_data);
     }
 }
 
@@ -172,12 +219,14 @@ void v3_update_timers(struct guest_info * info) {
 
 int v3_rdtsc(struct guest_info * info) {
     uint64_t tscval = v3_get_guest_tsc(&info->time_state);
+    PrintDebug("Returning %llu as TSC.\n", tscval);
     info->vm_regs.rdx = tscval >> 32;
     info->vm_regs.rax = tscval & 0xffffffffLL;
     return 0;
 }
 
 int v3_handle_rdtsc(struct guest_info * info) {
+  PrintDebug("Handling virtual RDTSC call.\n");
     v3_rdtsc(info);
     
     info->vm_regs.rax &= 0x00000000ffffffffLL;
@@ -213,9 +262,10 @@ int v3_rdtscp(struct guest_info * info) {
 
 
 int v3_handle_rdtscp(struct guest_info * info) {
+  PrintDebug("Handling virtual RDTSCP call.\n");
 
     v3_rdtscp(info);
-    
+
     info->vm_regs.rax &= 0x00000000ffffffffLL;
     info->vm_regs.rcx &= 0x00000000ffffffffLL;
     info->vm_regs.rdx &= 0x00000000ffffffffLL;
