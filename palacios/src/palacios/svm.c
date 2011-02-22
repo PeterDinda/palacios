@@ -456,7 +456,11 @@ int v3_svm_enter(struct guest_info * info) {
     // Conditionally yield the CPU if the timeslice has expired
     v3_yield_cond(info);
 
+    // Perform any additional yielding needed for time adjustment
     v3_adjust_time(info);
+
+    // Update timer devices prior to entering VM.
+    v3_update_timers(info);
 
     // disable global interrupts for vm state transition
     v3_clgi();
@@ -505,7 +509,6 @@ int v3_svm_enter(struct guest_info * info) {
     }
 #endif
 
-    v3_update_timers(info);
 #ifdef CONFIG_TIME_HIDE_VM_COST
     v3_restart_time(info);
 #endif
@@ -513,7 +516,7 @@ int v3_svm_enter(struct guest_info * info) {
 
     //V3_Print("Calling v3_svm_launch\n");
 
-    v3_svm_launch((vmcb_t *)V3_PAddr(info->vmm_data), &(info->vm_regs), (vmcb_t *)host_vmcbs[info->cpu_id]);
+    v3_svm_launch((vmcb_t *)V3_PAddr(info->vmm_data), &(info->vm_regs), (vmcb_t *)host_vmcbs[info->host_cpu_id]);
 
     //V3_Print("SVM Returned: Exit Code: %x, guest_rip=%lx\n", (uint32_t)(guest_ctrl->exit_code), (unsigned long)guest_state->rip);
 

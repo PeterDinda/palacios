@@ -125,6 +125,9 @@ struct guest_info {
 
     /* the logical cpu on which this core runs */
     uint32_t cpu_id;
+    /* the physical cpu on which this core runs */
+    uint32_t host_cpu_id;
+       
 };
 
 

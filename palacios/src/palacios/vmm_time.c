@@ -103,8 +103,8 @@ int v3_adjust_time(struct guest_info * info) {
     struct vm_time * time_state = &(info->time_state);
 
     if (time_state->host_cpu_freq != time_state->guest_cpu_freq) {
-	uint64_t guest_time, guest_elapsed, desired_elapsed;
-	uint64_t host_time, target_host_time;
+	uint64_t guest_time, host_time, target_host_time;
+	sint64_t guest_elapsed, desired_elapsed;
 
 	guest_time = v3_get_guest_time(time_state);
 
@@ -116,14 +116,20 @@ int v3_adjust_time(struct guest_info * info) {
 	/* Yield until that host time is reached */
 	host_time = v3_get_host_time(time_state);
 
+	if (host_time < target_host_time) {
+	    PrintDebug("Yielding until host time (%llu) greater than target (%llu).\n", host_time, target_host_time);
+	}
+
 	while (host_time < target_host_time) {
 	    v3_yield(info);
 	    host_time = v3_get_host_time(time_state);
 	}
 
-	// This overrides any pause/unpause times because the difference 
-	// is going to be too big for any pause/unpause the notice.
-	time_state->guest_host_offset = (sint64_t)guest_time - (sint64_t)host_time;
+#ifndef CONFIG_TIME_HIDE_VM_COST
+        // XXX This should turn into a target offset we want to move towards XXX
+	time_state->guest_host_offset = 
+		(sint64_t)guest_time - (sint64_t)host_time;
+#endif
     }
 
     return 0;
@@ -219,14 +225,12 @@ void v3_update_timers(struct guest_info * info) {
 
 int v3_rdtsc(struct guest_info * info) {
     uint64_t tscval = v3_get_guest_tsc(&info->time_state);
-    PrintDebug("Returning %llu as TSC.\n", tscval);
     info->vm_regs.rdx = tscval >> 32;
     info->vm_regs.rax = tscval & 0xffffffffLL;
     return 0;
 }
 
 int v3_handle_rdtsc(struct guest_info * info) {
-  PrintDebug("Handling virtual RDTSC call.\n");
     v3_rdtsc(info);
     
     info->vm_regs.rax &= 0x00000000ffffffffLL;
@@ -371,9 +375,10 @@ void v3_init_time_core(struct guest_info * info) {
 	time_state->guest_cpu_freq = atoi(khz);
 	PrintDebug("Core %d CPU frequency requested at %d khz.\n", 
 		   info->cpu_id, time_state->guest_cpu_freq);
-    }
+    } 
     
-    if ((khz == NULL) || (time_state->guest_cpu_freq > time_state->host_cpu_freq)) {
+    if ((khz == NULL) || (time_state->guest_cpu_freq <= 0) 
+	|| (time_state->guest_cpu_freq > time_state->host_cpu_freq)) {
 	time_state->guest_cpu_freq = time_state->host_cpu_freq;
     }
 
