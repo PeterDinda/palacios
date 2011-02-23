@@ -349,7 +349,7 @@ static int pre_config_core(struct guest_info * info, v3_cfg_tree_t * core_cfg) {
 	    PrintError("Invalid host core %d requested by"
 		       " virtual cpu %d - ignored.\n", req_id, info->cpu_id);
 	} else {
-		PrintDebug("Assigned host core %d to virtual core %d.\n", info->cpu_id, req_id, hcpu);
+		PrintDebug("Assigned host core %d to virtual core %d.\n", info->cpu_id, req_id);
 	    info->host_cpu_id = req_id;
 	}
     } 

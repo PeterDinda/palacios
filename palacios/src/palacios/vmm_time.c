@@ -86,11 +86,8 @@ int v3_start_time(struct guest_info * info) {
     uint64_t t = v3_get_host_time(&info->time_state); 
 
     PrintDebug("Starting initial guest time as %llu\n", t);
-#ifdef CONFIG_TIME_HIDE_VM_COST
-    info->time_state.pause_time = t; 
-#else
-    info->time_state.pause_time = 0; 
-#endif
+    info->time_state.enter_time = 0;
+    info->time_state.exit_time = t; 
     info->time_state.last_update = t;
     info->time_state.initial_time = t;
     info->yield_start_cycle = t;
@@ -135,32 +132,38 @@ int v3_adjust_time(struct guest_info * info) {
     return 0;
 }
 
+/* Called immediately upon entry in the the VMM */
 int 
-v3_pause_time( struct guest_info * info ) 
+v3_time_exit_vm( struct guest_info * info ) 
 {
     struct vm_time * time_state = &(info->time_state);
-    if (time_state->pause_time == 0) {
-        time_state->pause_time = v3_get_host_time(time_state);
-//	PrintDebug("Pausing at host time %llu.\n", time_state->pause_time);
-    } else {
-        PrintError("Palacios timekeeping paused when already paused.\n");
-    }
+    
+    time_state->exit_time = v3_get_host_time(time_state);
+
+#ifdef CONFIG_TIME_HIDE_EXIT_COST
+    // XXX should make the cost adjustment a runtime parameter
+    // so it can be set by the config file and/or tuned dynamically
+    v3_offset_time(info, -CONFIG_TIME_EXIT_COST_ADJUST);
+#endif
     return 0;
 }
 
+/* Called immediately prior to entry to the VM */
 int 
-v3_restart_time( struct guest_info * info )
+v3_time_enter_vm( struct guest_info * info )
 {
     struct vm_time * time_state = &(info->time_state);
 
-    if (time_state->pause_time) {
-        sint64_t pause_diff = (v3_get_host_time(time_state) - time_state->pause_time);
+    time_state->enter_time = v3_get_host_time(time_state);
+#ifdef CONFIG_TIME_HIDE_VM_COST
+    if (time_state->exit_time) {
+        sint64_t pause_diff = time_state->enter_time - time_state->exit_time;
         time_state->guest_host_offset -= pause_diff;
-        time_state->pause_time = 0;
-//	PrintDebug("Resuming time after %lld cycles with offset %lld.\n", pause_diff, time_state->guest_host_offset);
     } else {
-        PrintError( "Palacios time keeping restarted when not paused.");
+        PrintError( "Time at which guest exited to VM not recorded!\n" );
     }
+#endif
+    time_state->exit_time = 0;
 
     return 0;
 }
@@ -205,9 +208,6 @@ void v3_update_timers(struct guest_info * info) {
 
     time_state->last_update = v3_get_guest_time(time_state);
     cycles = time_state->last_update - old_time;
-
-    //    PrintDebug("Updating timer for %lld elapsed cycles (pt=%llu, offset=%lld).\n", 
-    //	       cycles, time_state->pause_time, time_state->guest_host_offset);
 
     list_for_each_entry(tmp_timer, &(time_state->timers), timer_link) {
 	tmp_timer->ops->update_timer(info, cycles, time_state->guest_cpu_freq, tmp_timer->private_data);

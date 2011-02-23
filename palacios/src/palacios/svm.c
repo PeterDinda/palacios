@@ -509,9 +509,7 @@ int v3_svm_enter(struct guest_info * info) {
     }
 #endif
 
-#ifdef CONFIG_TIME_HIDE_VM_COST
-    v3_restart_time(info);
-#endif
+    v3_time_enter_vm(info);
     guest_ctrl->TSC_OFFSET = v3_tsc_host_offset(&info->time_state);
 
     //V3_Print("Calling v3_svm_launch\n");
@@ -522,15 +520,9 @@ int v3_svm_enter(struct guest_info * info) {
 
     v3_last_exit = (uint32_t)(guest_ctrl->exit_code);
 
-#ifdef CONFIG_TIME_HIDE_VM_COST
-    v3_pause_time(info);
-#ifdef CONFIG_TIME_HIDE_EXIT_COST
-    v3_offset_time(info, -CONFIG_TIME_EXIT_COST_ADJUST);
-#endif
-#endif
+    // Immediate exit from VM time bookkeeping
+    v3_time_exit_vm(info);
 
-    //PrintDebug("SVM Returned\n");
-    
     info->num_exits++;
 
     // Save Guest state from VMCB
