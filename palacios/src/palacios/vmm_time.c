@@ -18,8 +18,8 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#include <palacios/vmm_time.h>
 #include <palacios/vmm.h>
+#include <palacios/vmm_time.h>
 #include <palacios/vm_guest.h>
 
 #ifndef CONFIG_DEBUG_TIME
@@ -94,41 +94,62 @@ int v3_start_time(struct guest_info * info) {
     return 0;
 }
 
-// If the guest is supposed to run slower than the host, yield out until
-// the host time is appropriately far along;
+// Control guest time in relation to host time so that the two stay 
+// appropriately synchronized to the extent possible. 
 int v3_adjust_time(struct guest_info * info) {
     struct vm_time * time_state = &(info->time_state);
+    uint64_t host_time, target_host_time;
+    uint64_t guest_time, target_guest_time, old_guest_time;
+    uint64_t guest_elapsed, host_elapsed, desired_elapsed;
 
-    if (time_state->host_cpu_freq != time_state->guest_cpu_freq) {
-	uint64_t guest_time, host_time, target_host_time;
-	sint64_t guest_elapsed, desired_elapsed;
+    /* Compute the target host time given how much time has *already*
+     * passed in the guest */
+    guest_time = v3_get_guest_time(time_state);
+    guest_elapsed = (guest_time - time_state->initial_time);
+    desired_elapsed = (guest_elapsed * time_state->host_cpu_freq) / time_state->guest_cpu_freq;
+    target_host_time = time_state->initial_time + desired_elapsed;
 
-	guest_time = v3_get_guest_time(time_state);
-
-	/* Compute what host time this guest time should correspond to. */
-	guest_elapsed = (guest_time - time_state->initial_time);
-	desired_elapsed = (guest_elapsed * time_state->host_cpu_freq) / time_state->guest_cpu_freq;
-	target_host_time = time_state->initial_time + desired_elapsed;
-
-	/* Yield until that host time is reached */
+    /* Now, let the host run while the guest is stopped to make the two
+     * sync up. */
+    host_time = v3_get_host_time(time_state);
+    old_guest_time = v3_get_guest_time(time_state);
+    while (target_host_time > host_time) {
+	v3_yield(info);
 	host_time = v3_get_host_time(time_state);
-
-	if (host_time < target_host_time) {
-	    PrintDebug("Yielding until host time (%llu) greater than target (%llu).\n", host_time, target_host_time);
-	}
-
-	while (host_time < target_host_time) {
-	    v3_yield(info);
-	    host_time = v3_get_host_time(time_state);
-	}
-
-#ifndef CONFIG_TIME_HIDE_VM_COST
-        // XXX This should turn into a target offset we want to move towards XXX
-	time_state->guest_host_offset = 
-		(sint64_t)guest_time - (sint64_t)host_time;
-#endif
     }
+    guest_time = v3_get_guest_time(time_state);
+    // We do *not* assume the guest timer was paused in the VM. If it was
+    // this offseting is 0. If it wasn't we need this.
+    v3_offset_time(info, (sint64_t)old_guest_time - (sint64_t)guest_time);
 
+    /* Now the host may have gotten ahead of the guest because
+     * yielding is a coarse grained thing. Figure out what guest time
+     * we want to be at, and use the use the offsetting mechanism in 
+     * the VMM to make the guest run forward. We limit *how* much we skew 
+     * it forward to prevent the guest time making large jumps, 
+     * however. */
+    host_elapsed = host_time - time_state->initial_time;
+    desired_elapsed = (host_elapsed * time_state->guest_cpu_freq) / time_state->host_cpu_freq;
+    target_guest_time = time_state->initial_time + desired_elapsed;
+
+    if (guest_time < target_guest_time) {
+	uint64_t max_skew, desired_skew, skew;
+
+	if (time_state->enter_time) {
+	    max_skew = (time_state->exit_time - time_state->enter_time)/10;
+	} else {
+	    max_skew = 0;
+	}
+	desired_skew = target_guest_time - guest_time;
+	skew = desired_skew > max_skew ? max_skew : desired_skew;
+/*	PrintDebug("Guest %llu cycles behind where it should be.\n",
+		   desired_skew);
+	PrintDebug("Limit on forward skew is %llu. Skewing forward %llu.\n",
+	           max_skew, skew); */
+	
+	v3_offset_time(info, skew);
+    }
+    
     return 0;
 }
 
@@ -140,11 +161,6 @@ v3_time_exit_vm( struct guest_info * info )
     
     time_state->exit_time = v3_get_host_time(time_state);
 
-#ifdef CONFIG_TIME_HIDE_EXIT_COST
-    // XXX should make the cost adjustment a runtime parameter
-    // so it can be set by the config file and/or tuned dynamically
-    v3_offset_time(info, -CONFIG_TIME_EXIT_COST_ADJUST);
-#endif
     return 0;
 }
 
@@ -153,17 +169,17 @@ int
 v3_time_enter_vm( struct guest_info * info )
 {
     struct vm_time * time_state = &(info->time_state);
+    uint64_t guest_time, host_time;
 
-    time_state->enter_time = v3_get_host_time(time_state);
-#ifdef CONFIG_TIME_HIDE_VM_COST
-    if (time_state->exit_time) {
-        sint64_t pause_diff = time_state->enter_time - time_state->exit_time;
-        time_state->guest_host_offset -= pause_diff;
-    } else {
-        PrintError( "Time at which guest exited to VM not recorded!\n" );
-    }
-#endif
-    time_state->exit_time = 0;
+    guest_time = v3_get_guest_time(time_state);
+    host_time = v3_get_host_time(time_state);
+    time_state->enter_time = host_time;
+    time_state->guest_host_offset = guest_time - host_time;
+
+    // Because we just modified the offset - shouldn't matter as this should be 
+    // the last time-related call prior to entering the VMM, but worth it 
+    // just in case.
+    time_state->exit_time = host_time; 
 
     return 0;
 }

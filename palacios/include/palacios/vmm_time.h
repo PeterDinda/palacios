@@ -93,11 +93,8 @@ static inline uint64_t v3_get_host_time(struct vm_time *t) {
 // Returns *monotonic* guest time.
 static inline uint64_t v3_get_guest_time(struct vm_time *t) {
 #ifdef CONFIG_TIME_HIDE_VM_COST
-    if (t->exit_time) {
-        return t->exit_time + t->guest_host_offset;
-    } else {
-        return v3_get_host_time(t) + t->guest_host_offset;
-    }
+    V3_ASSERT(t->exit_time);
+    return t->exit_time + t->guest_host_offset;
 #else
     return v3_get_host_time(t) + t->guest_host_offset;
 #endif
