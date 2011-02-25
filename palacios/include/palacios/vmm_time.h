@@ -42,7 +42,8 @@ struct vm_time {
                                // timers were updated
 
     uint64_t initial_time;     // Time when VMM started. 
-    uint64_t pause_time;       // Host time when VM entered and paused.
+    uint64_t enter_time;       // Host time the guest was last entered
+    uint64_t exit_time;        // Host time the the VM was exited to
     struct v3_msr tsc_aux;     // Auxilliary MSR for RDTSCP
 
     // Installed Timers slaved off of the guest monotonic TSC
@@ -71,10 +72,11 @@ void v3_deinit_time_vm(struct v3_vm_info * vm);
 
 int v3_start_time(struct guest_info * core);
 
+int v3_time_enter_vm(struct guest_info * core);
+int v3_time_exit_vm(struct guest_info * core);
+
 int v3_adjust_time(struct guest_info * core);
-int v3_pause_time(struct guest_info * core);
 int v3_offset_time(struct guest_info * core, sint64_t offset);
-int v3_restart_time(struct guest_info * core);
 
 // Basic functions for attaching timers to the passage of time
 struct v3_timer * v3_add_timer(struct guest_info * info, struct v3_timer_ops * ops, void * private_data);
@@ -90,11 +92,15 @@ static inline uint64_t v3_get_host_time(struct vm_time *t) {
 
 // Returns *monotonic* guest time.
 static inline uint64_t v3_get_guest_time(struct vm_time *t) {
-    if (t->pause_time) {
-        return t->pause_time + t->guest_host_offset;
+#ifdef CONFIG_TIME_HIDE_VM_COST
+    if (t->exit_time) {
+        return t->exit_time + t->guest_host_offset;
     } else {
         return v3_get_host_time(t) + t->guest_host_offset;
     }
+#else
+    return v3_get_host_time(t) + t->guest_host_offset;
+#endif
 }
 
 // Returns the TSC value seen by the guest

@@ -218,6 +218,11 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
     ctrl_area->instrs.INTR = 1;
 
 
+    v3_hook_msr(core->vm_info, EFER_MSR, 
+		&v3_handle_efer_read,
+		&v3_handle_efer_write, 
+		core);
+
     if (core->shdw_pg_mode == SHADOW_PAGING) {
 	PrintDebug("Creating initial shadow page table\n");
 	
@@ -246,10 +251,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
 	ctrl_area->cr_reads.cr3 = 1;
 	ctrl_area->cr_writes.cr3 = 1;
 
-	v3_hook_msr(core->vm_info, EFER_MSR, 
-		    &v3_handle_efer_read,
-		    &v3_handle_efer_write, 
-		    core);
+
 
 	ctrl_area->instrs.INVLPG = 1;
 
@@ -454,7 +456,11 @@ int v3_svm_enter(struct guest_info * info) {
     // Conditionally yield the CPU if the timeslice has expired
     v3_yield_cond(info);
 
+    // Perform any additional yielding needed for time adjustment
     v3_adjust_time(info);
+
+    // Update timer devices prior to entering VM.
+    v3_update_timers(info);
 
     // disable global interrupts for vm state transition
     v3_clgi();
@@ -503,29 +509,20 @@ int v3_svm_enter(struct guest_info * info) {
     }
 #endif
 
-    v3_update_timers(info);
-#ifdef CONFIG_TIME_HIDE_VM_COST
-    v3_restart_time(info);
-#endif
+    v3_time_enter_vm(info);
     guest_ctrl->TSC_OFFSET = v3_tsc_host_offset(&info->time_state);
 
     //V3_Print("Calling v3_svm_launch\n");
 
-    v3_svm_launch((vmcb_t *)V3_PAddr(info->vmm_data), &(info->vm_regs), (vmcb_t *)host_vmcbs[info->cpu_id]);
+    v3_svm_launch((vmcb_t *)V3_PAddr(info->vmm_data), &(info->vm_regs), (vmcb_t *)host_vmcbs[info->host_cpu_id]);
 
     //V3_Print("SVM Returned: Exit Code: %x, guest_rip=%lx\n", (uint32_t)(guest_ctrl->exit_code), (unsigned long)guest_state->rip);
 
     v3_last_exit = (uint32_t)(guest_ctrl->exit_code);
 
-#ifdef CONFIG_TIME_HIDE_VM_COST
-    v3_pause_time(info);
-#ifdef CONFIG_TIME_HIDE_EXIT_COST
-    v3_offset_time(info, -CONFIG_TIME_EXIT_COST_ADJUST);
-#endif
-#endif
+    // Immediate exit from VM time bookkeeping
+    v3_time_exit_vm(info);
 
-    //PrintDebug("SVM Returned\n");
-    
     info->num_exits++;
 
     // Save Guest state from VMCB

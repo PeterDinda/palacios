@@ -109,7 +109,6 @@ config BUILT_IN_STRNCPY
 
 config BUILT_IN_STRDUP
 	bool "strdup()"
-	default n
 	depends on BUILT_IN_STDLIB
 	help 
 	  This enables Palacios' internal implementation of strdup
