@@ -225,10 +225,16 @@ endmenu
 
 
 menu "Time Management"
-
+config VIRTUALIZE_TIME
+	bool "Enable Time virtualization"
+	default n
+	help
+	   Enables the timer virtualization extensions
+ 
 config TIME_HIDE_VM_COST
         bool "Hide VMM Run Cost"
 	default n
+	depends on VIRTUALIZE_TIME
 	help
 	    Offset guest time from host time sufficiently to hide the cost of
 	    running in the virtual machine. This can aid the consistency of
@@ -238,6 +244,7 @@ config TIME_HIDE_VM_COST
 config TIME_VIRTUALIZE_TSC
 	bool "Fully virtualize guest TSC"
 	default n
+	depends on VIRTUALIZE_TIME
 	help
 	    Virtualize the processor time stamp counter in the guest, 
 	    generally increasing consistency between various time sources 

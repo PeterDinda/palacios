@@ -86,11 +86,13 @@ int v3_start_time(struct guest_info * info) {
     uint64_t t = v3_get_host_time(&info->time_state); 
 
     PrintDebug("Starting initial guest time as %llu\n", t);
+
     info->time_state.enter_time = 0;
     info->time_state.exit_time = t; 
     info->time_state.last_update = t;
     info->time_state.initial_time = t;
     info->yield_start_cycle = t;
+
     return 0;
 }
 
@@ -113,11 +115,14 @@ int v3_adjust_time(struct guest_info * info) {
      * sync up. */
     host_time = v3_get_host_time(time_state);
     old_guest_time = v3_get_guest_time(time_state);
+
     while (target_host_time > host_time) {
 	v3_yield(info);
 	host_time = v3_get_host_time(time_state);
     }
+
     guest_time = v3_get_guest_time(time_state);
+
     // We do *not* assume the guest timer was paused in the VM. If it was
     // this offseting is 0. If it wasn't we need this.
     v3_offset_time(info, (sint64_t)old_guest_time - (sint64_t)guest_time);
@@ -136,10 +141,11 @@ int v3_adjust_time(struct guest_info * info) {
 	uint64_t max_skew, desired_skew, skew;
 
 	if (time_state->enter_time) {
-	    max_skew = (time_state->exit_time - time_state->enter_time)/10;
+	    max_skew = (time_state->exit_time - time_state->enter_time) / 10;
 	} else {
 	    max_skew = 0;
 	}
+
 	desired_skew = target_guest_time - guest_time;
 	skew = desired_skew > max_skew ? max_skew : desired_skew;
 /*	PrintDebug("Guest %llu cycles behind where it should be.\n",
@@ -241,8 +247,10 @@ void v3_update_timers(struct guest_info * info) {
 
 int v3_rdtsc(struct guest_info * info) {
     uint64_t tscval = v3_get_guest_tsc(&info->time_state);
+
     info->vm_regs.rdx = tscval >> 32;
     info->vm_regs.rax = tscval & 0xffffffffLL;
+
     return 0;
 }
 
@@ -393,8 +401,10 @@ void v3_init_time_core(struct guest_info * info) {
 		   info->cpu_id, time_state->guest_cpu_freq);
     } 
     
-    if ((khz == NULL) || (time_state->guest_cpu_freq <= 0) 
-	|| (time_state->guest_cpu_freq > time_state->host_cpu_freq)) {
+    if ( (khz == NULL) || 
+	 (time_state->guest_cpu_freq <= 0)  || 
+	 (time_state->guest_cpu_freq > time_state->host_cpu_freq) ) {
+
 	time_state->guest_cpu_freq = time_state->host_cpu_freq;
     }
 
@@ -413,8 +423,6 @@ void v3_init_time_core(struct guest_info * info) {
     
     time_state->tsc_aux.lo = 0;
     time_state->tsc_aux.hi = 0;
-
-
 }
 
 
@@ -428,9 +436,3 @@ void v3_deinit_time_core(struct guest_info * core) {
     }
 
 }
-
-
-
-
-
-

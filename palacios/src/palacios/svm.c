@@ -459,11 +459,11 @@ int v3_svm_enter(struct guest_info * info) {
     // Perform any additional yielding needed for time adjustment
     v3_adjust_time(info);
 
-    // Update timer devices prior to entering VM.
-    v3_update_timers(info);
-
     // disable global interrupts for vm state transition
     v3_clgi();
+
+    // Update timer devices prior to entering VM.
+    v3_update_timers(info);
 
     // Synchronize the guest state to the VMCB
     guest_state->cr0 = info->ctrl_regs.cr0;
