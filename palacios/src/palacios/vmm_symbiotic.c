@@ -32,11 +32,11 @@ static int cpuid_fn(struct guest_info * core, uint32_t cpuid,
 
     *eax = *(uint32_t *)"V3V";
 
-    if ((v3_cpu_types[core->host_cpu_id] == V3_SVM_CPU) || 
-	(v3_cpu_types[core->host_cpu_id] == V3_SVM_REV3_CPU)) {
+    if ((v3_cpu_types[0] == V3_SVM_CPU) || 
+	(v3_cpu_types[0] == V3_SVM_REV3_CPU)) {
 	*ebx = *(uint32_t *)"SVM";
-    } else if ((v3_cpu_types[core->host_cpu_id] == V3_VMX_CPU) || 
-	       (v3_cpu_types[core->host_cpu_id] == V3_VMX_EPT_CPU)) {
+    } else if ((v3_cpu_types[0] == V3_VMX_CPU) || 
+	       (v3_cpu_types[0] == V3_VMX_EPT_CPU)) {
 	*ebx = *(uint32_t *)"VMX";
     }
 

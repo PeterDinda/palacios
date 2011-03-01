@@ -39,7 +39,6 @@
 
 v3_cpu_arch_t v3_cpu_types[CONFIG_MAX_CPUS];
 struct v3_os_hooks * os_hooks = NULL;
-
 int v3_dbg_enable = 0;
 
 
@@ -204,12 +203,10 @@ static int start_core(void * p)
     struct guest_info * core = (struct guest_info *)p;
 
 
-    PrintDebug("virtual core %u/physical core %u: in start_core (RIP=%p)\n", 
-	       core->cpu_id, core->host_cpu_id, (void *)(addr_t)core->rip);
+    PrintDebug("virtual core %u: in start_core (RIP=%p)\n", 
+	       core->cpu_id, (void *)(addr_t)core->rip);
 
-
-    // JRL: Whoa WTF? cpu_types are tied to the vcoreID????
-    switch (v3_cpu_types[core->host_cpu_id]) {
+    switch (v3_cpu_types[0]) {
 #ifdef CONFIG_SVM
 	case V3_SVM_CPU:
 	case V3_SVM_REV3_CPU:
@@ -243,52 +240,67 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
     uint32_t i;
     uint8_t * core_mask = (uint8_t *)&cpu_mask; // This is to make future expansion easier
     uint32_t avail_cores = 0;
+    int vcore_id = 0;
 
     /// CHECK IF WE ARE MULTICORE ENABLED....
 
     V3_Print("V3 --  Starting VM (%u cores)\n", vm->num_cores);
     V3_Print("CORE 0 RIP=%p\n", (void *)(addr_t)(vm->cores[0].rip));
 
-    if (vm->num_cores > MAX_CORES ) {
-	PrintError("Attempted to start a VM with too many cores (vm->num_cores = %d, avail_cores = %d, MAX=%d)\n", vm->num_cores, avail_cores, MAX_CORES);
-	return -1;
+
+    // Check that enough cores are present in the mask to handle vcores
+    for (i = 0; i < MAX_CORES; i++) {
+	int major = i / 8;
+	int minor = i % 8;
+	
+	if (core_mask[major] & (0x1 << minor)) {
+	    avail_cores++;
+	}
     }
 
-    if (vm->cores[0].host_cpu_id != 0) {
-	PrintError("First virtual core must run on host core 0.\n");
+
+    if (vm->num_cores > avail_cores) {
+	PrintError("Attempted to start a VM with too many cores (vm->num_cores = %d, avail_cores = %d, MAX=%d)\n", vm->num_cores, avail_cores, MAX_CORES);
 	return -1;
     }
 
 #ifdef CONFIG_MULTITHREAD_OS
     // spawn off new threads, for other cores
-    for (i = 1; i < vm->num_cores; i++) {
-	struct guest_info *core = &(vm->cores[i]);
-	int major = core->host_cpu_id / 8;
-	int minor = core->host_cpu_id % 8;
+    for (i = 0, vcore_id = 1; (i < MAX_CORES) && (vcore_id < vm->num_cores); i++) {
+	int major = i / 8;
+	int minor = i % 8;
 	void * core_thread = NULL;
+	struct guest_info * core = &(vm->cores[vcore_id]);
+
+	/* This assumes that the core 0 thread has been mapped to physical core 0 */
+	if (i == V3_Get_CPU()) {
+	    // We skip the local CPU because it is reserved for vcore 0
+	    continue;
+	}
 
 	if ((core_mask[major] & (0x1 << minor)) == 0) {
-	    PrintError("Host CPU %d not available for virtual core %d; not started\n",
-		       core->host_cpu_id, i);
+	    PrintError("Logical CPU %d not available for virtual core %d; not started\n",
+		       i, vcore_id);
 	    continue;
 	} 
 
 	PrintDebug("Starting virtual core %u on logical core %u\n", 
-		   i, core->host_cpu_id);
+		   vcore_id, i);
 	
-	sprintf(core->exec_name, "%s-%u", vm->name, i);
+	sprintf(core->exec_name, "%s-%u", vm->name, vcore_id);
 
 	PrintDebug("run: core=%u, func=0x%p, arg=0x%p, name=%s\n",
-		   core->host_cpu_id, start_core, core, core->exec_name);
+		   i, start_core, core, core->exec_name);
 
 	// TODO: actually manage these threads instead of just launching them
-	core_thread = V3_CREATE_THREAD_ON_CPU(core->host_cpu_id, start_core,
-					      core, core->exec_name);
+	core_thread = V3_CREATE_THREAD_ON_CPU(i, start_core, core, core->exec_name);
 
 	if (core_thread == NULL) {
 	    PrintError("Thread launch failed\n");
 	    return -1;
 	}
+
+	vcore_id++;
     }
 #endif
 
@@ -460,7 +472,7 @@ void v3_interrupt_cpu(struct v3_vm_info * vm, int logical_cpu, int vector) {
 
 
 int v3_vm_enter(struct guest_info * info) {
-    switch (v3_cpu_types[info->host_cpu_id]) {
+    switch (v3_cpu_types[0]) {
 #ifdef CONFIG_SVM
 	case V3_SVM_CPU:
 	case V3_SVM_REV3_CPU:

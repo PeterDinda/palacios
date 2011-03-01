@@ -292,7 +292,8 @@ static int determine_paging_mode(struct guest_info * info, v3_cfg_tree_t * core_
 
     if (pg_mode) {
 	if ((strcasecmp(pg_mode, "nested") == 0)) {
-	    if (v3_cpu_types[info->host_cpu_id] == V3_SVM_REV3_CPU) {
+	    // we assume symmetric cores, so if core 0 has nested paging they all do
+	    if (v3_cpu_types[0] == V3_SVM_REV3_CPU) {
 	    	info->shdw_pg_mode = NESTED_PAGING;
 	    } else {
 		PrintError("Nested paging not supported on this hardware. Defaulting to shadow paging\n");
@@ -338,21 +339,9 @@ static int determine_paging_mode(struct guest_info * info, v3_cfg_tree_t * core_
 }
 
 static int pre_config_core(struct guest_info * info, v3_cfg_tree_t * core_cfg) {
-    char *hcpu;
-    if (determine_paging_mode(info, core_cfg))
+    if (determine_paging_mode(info, core_cfg) != 0) {
 	return -1;
-
-    hcpu = v3_cfg_val(core_cfg, "hostcpu");
-    if (hcpu) {
-	int req_id = atoi(hcpu);
-	if (req_id < 0) {
-	    PrintError("Invalid host core %d requested by"
-		       " virtual cpu %d - ignored.\n", req_id, info->cpu_id);
-	} else {
-		PrintDebug("Assigned host core %d to virtual core %d.\n", info->cpu_id, req_id);
-	    info->host_cpu_id = req_id;
-	}
-    } 
+    }
 
     v3_init_core(info);
 
@@ -505,7 +494,6 @@ struct v3_vm_info * v3_config_guest(void * cfg_blob, void * priv_data) {
 	info->cpu_id = i;
 	info->vm_info = vm;
 	info->core_cfg_data = per_core_cfg;
-	info->host_cpu_id = i; // may be overriden by core config
 
 	if (pre_config_core(info, per_core_cfg) == -1) {
 	    PrintError("Error in core %d preconfiguration\n", i);
