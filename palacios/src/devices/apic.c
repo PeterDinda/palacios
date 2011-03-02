@@ -28,10 +28,6 @@
 #include <palacios/vmm_types.h>
 
 
-//
-//   MUST DO APIC SCAN FOR PHYSICAL DELIVERY
-//
-
 
 
 #ifndef CONFIG_DEBUG_APIC
@@ -39,6 +35,8 @@
 #define PrintDebug(fmt, args...)
 #endif
 
+
+#ifdef CONFIG_DEBUG_APIC
 static char * shorthand_str[] = { 
     "(no shorthand)",
     "(self)",
@@ -56,10 +54,9 @@ static char * deliverymode_str[] = {
     "(Start Up)",
     "(ExtInt)",
 };
-#ifdef CONFIG_DEBUG_APIC
 #endif
 
-
+// Temporary removal of locking
 #define v3_lock(p) p=p
 #define v3_unlock(p) p=p
 
@@ -728,11 +725,11 @@ static int deliver_ipi(struct apic_state * src_apic,
 	    // We transition the target core to SIPI state
 	    dst_core->core_run_state = CORE_RUNNING;  // note: locking should not be needed here
 	    dst_apic->ipi_state = STARTED;
-
+	    
 	    // As with INIT, we should not need to do anything else
-
+	    
 	    PrintDebug(" SIPI delivery done\n");
-
+	    
 	    break;							
 	}
 	case APIC_SMI_DELIVERY: 
@@ -743,8 +740,29 @@ static int deliver_ipi(struct apic_state * src_apic,
 	    PrintError("IPI %d delivery is unsupported\n", del_mode); 
 	    return -1;
     }
-
+    
     return 0;
+    
+}
+
+static struct apic_state * find_physical_apic(struct apic_dev_state *apic_dev, struct int_cmd_reg *icr)
+{
+    int i;
+    
+    if (icr->dst >0 && icr->dst < apic_dev->num_apics) { 
+	// see if it simply is the core id
+	if (apic_dev->apics[icr->dst].lapic_id.val == icr->dst) { 
+	    return &(apic_dev->apics[icr->dst]);
+	}
+    }
+
+    for (i=0;i<apic_dev->num_apics;i++) { 
+	if (apic_dev->apics[i].lapic_id.val == icr->dst) { 
+	    return &(apic_dev->apics[i]);
+	}
+    }
+    
+    return NULL;
 
 }
 
@@ -779,7 +797,7 @@ static int route_ipi(struct apic_dev_state * apic_dev,
 	       icr->dst,
 	       icr->val);
 
-#if 1
+#if 0
         if (icr->vec!=48) { 
 	    V3_Print("apic: IPI %s %u from apic %p to %s %s %u (icr=0x%llx)\n",
 		    deliverymode_str[icr->del_mode], 
@@ -799,15 +817,16 @@ static int route_ipi(struct apic_dev_state * apic_dev,
 	case APIC_SHORTHAND_NONE:  // no shorthand
 	    if (icr->dst_mode == APIC_DEST_PHYSICAL) { 
 
-		if (icr->dst >= apic_dev->num_apics) { 
+		dest_apic=find_physical_apic(apic_dev,icr);
+		
+		if (dest_apic==NULL) { 
 		    PrintError("apic: Attempted send to unregistered apic id=%u\n", icr->dst);
 		    goto route_ipi_out_bad;
 		}
 
 
-		dest_apic =  &(apic_dev->apics[icr->dst]);
-		
-		V3_Print("apic: phsyical destination of %u (apic %u at 0x%p)\n", icr->dst,dest_apic->lapic_id.val,dest_apic);
+	
+		//V3_Print("apic: phsyical destination of %u (apic %u at 0x%p)\n", icr->dst,dest_apic->lapic_id.val,dest_apic);
 
 		v3_lock(dest_apic->lock);
 
@@ -820,7 +839,7 @@ static int route_ipi(struct apic_dev_state * apic_dev,
 
 		v3_unlock(dest_apic->lock);
 
-		V3_Print("apic: done\n");
+		//V3_Print("apic: done\n");
 
 	    } else if (icr->dst_mode == APIC_DEST_LOGICAL) {
 		
@@ -1334,8 +1353,8 @@ static int apic_write(struct guest_info * core, addr_t guest_addr, void * src, u
 
 	    // Data registers
 	case APIC_ID_OFFSET:
-	    V3_Print("apic %u: core %u: my id is being changed to %u\n", 
-		       apic->lapic_id.val, core->cpu_id, op_val);
+	    //V3_Print("apic %u: core %u: my id is being changed to %u\n", 
+	    //       apic->lapic_id.val, core->cpu_id, op_val);
 
 	    apic->lapic_id.val = op_val;
 	    break;
