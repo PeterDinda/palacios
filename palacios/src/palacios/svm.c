@@ -574,6 +574,7 @@ int v3_svm_enter(struct guest_info * info) {
 
     if (v3_handle_svm_exit(info, exit_code, exit_info1, exit_info2) != 0) {
 	PrintError("Error in SVM exit handler\n");
+	PrintError("  last exit was %d\n", v3_last_exit);
 	return -1;
     }
 
