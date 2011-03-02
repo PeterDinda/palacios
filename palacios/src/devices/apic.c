@@ -776,11 +776,6 @@ static int route_ipi(struct apic_dev_state * apic_dev,
 		    return -1;
 		}
 
-
-		dest_apic =  &(apic_dev->apics[icr->dst]);
-		
-
-
 		if (deliver_ipi(src_apic, dest_apic, 
 				icr->vec, icr->del_mode) == -1) {
 		    PrintError("apic: Could not deliver IPI\n");
