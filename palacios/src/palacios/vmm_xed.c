@@ -700,13 +700,15 @@ static int get_memory_operand(struct guest_info * info,  xed_decoded_inst_t * xe
     index = MASK(mem_op.index, mem_op.index_size);
     scale = mem_op.scale;
 
-    // This is a horrendous hack...
-    // XED really screwed the pooch in calculating the displacement
-    if (cpu_mode == LONG) {
-	displacement = mem_op.displacement;
-    } else {
-	displacement = MASK(mem_op.displacement, mem_op.displacement_size);
-    }
+    // XED returns the displacement as a 2s complement signed number, but it can
+    // have different sizes, depending on the instruction encoding.
+    // we put that into a 64 bit unsigned (the unsigned doesn't matter since
+    // we only ever do 2s complement arithmetic on it.   However, this means we
+    // need to sign-extend what XED provides through 64 bits.
+    displacement = mem_op.displacement;
+    displacement <<= 64 - mem_op.displacement_size * 8;
+    displacement = ((sllong_t)displacement) >> (64 - mem_op.displacement_size * 8);
+    
 
     PrintDebug("Seg=%p, base=%p, index=%p, scale=%p, displacement=%p\n", 
 	       (void *)seg, (void *)base, (void *)index, (void *)scale, (void *)(addr_t)displacement);
