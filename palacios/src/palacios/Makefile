@@ -35,6 +35,9 @@ obj-y := \
 	vmm_muxer.o \
 	vmm_mem_hook.o \
 	vmm_mptable.o \
+	vmm_extensions.o \
+	vmm_mtrr.o \
+
 
 obj-$(CONFIG_SVM) +=    svm.o \
 			svm_io.o \

@@ -24,6 +24,7 @@
 #include <palacios/vmm_ctrl_regs.h>
 #include <palacios/vmm_lowlevel.h>
 #include <palacios/vmm_sprintf.h>
+#include <palacios/vmm_extensions.h>
 
 #ifdef CONFIG_SVM
 #include <palacios/svm.h>
@@ -112,6 +113,9 @@ void Init_V3(struct v3_os_hooks * hooks, int num_cpus) {
     // Register all shadow paging handlers
     V3_init_shdw_paging();
 
+    // Register all extensions
+    V3_init_extensions();
+
 
 #ifdef CONFIG_SYMMOD
     V3_init_symmod();
@@ -144,6 +148,8 @@ void Shutdown_V3() {
 
     V3_deinit_devices();
     V3_deinit_shdw_paging();
+
+    V3_deinit_extensions();
 
 #ifdef CONFIG_SYMMOD
     V3_deinit_symmod();
