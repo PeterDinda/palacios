@@ -566,15 +566,19 @@ int v3_handle_efer_write(struct guest_info * core, uint_t msr, struct v3_msr src
     
     PrintDebug("EFER Write\n");
     PrintDebug("EFER Write Values: HI=%x LO=%x\n", src.hi, src.lo);
+
     //PrintDebug("Old EFER=%p\n", (void *)*(addr_t*)(shadow_efer));
     
     // We virtualize the guests efer to hide the SVME and LMA bits
     guest_efer->value = src.value;
     
-    
-    // Enable/Disable Syscall
-    shadow_efer->sce = src.value & 0x1;
-    
+    if (core->shdw_pg_mode == SHADOW_PAGING) {
+	// Enable/Disable Syscall
+	shadow_efer->sce = src.value & 0x1;
+    } else if (core->shdw_pg_mode == NESTED_PAGING) {
+	*(uint64_t *)shadow_efer = src.value;
+	shadow_efer->svme = 1;
+    }
     return 0;
 }
 

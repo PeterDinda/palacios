@@ -43,8 +43,10 @@
 #define NE2K_MEM_SIZE           NE2K_PMEM_END
 
 #define NIC_REG_BASE_PORT       0xc100  	/* Command register (for all pages) */
-#define NIC_DATA_PORT 	        0xc110  	/* Data read/write port */
-#define NIC_RESET_PORT 	        0xc11f  	/* Reset port */
+
+#define NE2K_CMD_OFFSET	0x00
+#define NE2K_DATA_OFFSET	0x10
+#define NE2K_RESET_OFFSET	0x1f
 
 /* Page 0 registers */
 #define EN0_CLDALO		0x01	/* Low byte of current local dma addr  RD */
@@ -319,6 +321,8 @@ struct ne2k_state {
     uint8_t mcast_addr[8];
     uint8_t mac[ETH_ALEN];
 
+    struct nic_statistics statistics;
+
     struct v3_dev_net_ops *net_ops;
     void * backend_data;
 };
@@ -333,20 +337,31 @@ static int ne2k_update_irq(struct ne2k_state * nic_state) {
 	    v3_pci_raise_irq(nic_state->pci_bus, 0, nic_state->pci_dev);
        }
 
+       nic_state->statistics.interrupts ++;
+
        PrintDebug("NE2000: Raise IRQ\n");
     }
 
     return 0;
 }
 
-static int ne2k_send_packet(struct ne2k_state * nic_state, uchar_t *pkt, uint32_t length) {
+static int tx_one_pkt(struct ne2k_state * nic_state, uchar_t *pkt, uint32_t length) {
 	
 #ifdef CONFIG_DEBUG_NE2K
     PrintDebug("NE2000: Send Packet:\n");
     v3_hexdump(pkt, length, NULL, 0);
 #endif    
 
-    return nic_state->net_ops->send(pkt, length, nic_state->backend_data);
+    if(nic_state->net_ops->send(pkt, length, nic_state->backend_data) >= 0){
+	nic_state->statistics.tx_pkts ++;
+	nic_state->statistics.tx_bytes += length;
+
+	return 0;
+    }
+	
+    nic_state->statistics.tx_dropped ++;
+
+    return -1;
 }
 
 static int ne2k_rxbuf_full(struct ne2k_registers * regs) {
@@ -475,9 +490,14 @@ static int ne2k_rx(uint8_t * buf, uint32_t size, void * private_data){
 #endif    
 
     if(!rx_one_pkt(nic_state, buf, size)){
+	nic_state->statistics.rx_pkts ++;
+	nic_state->statistics.rx_bytes += size;
+	
 	return 0;
     }
-    
+
+    nic_state->statistics.rx_dropped ++;
+	
     return -1;
 }
 
@@ -717,7 +737,7 @@ static int ne2k_cmd_write(struct guest_info * core,
 	    }
 
 	    if (offset + regs->tbcr <= NE2K_PMEM_END) {
-		ne2k_send_packet(nic_state, nic_state->mem + offset, regs->tbcr);
+		tx_one_pkt(nic_state, nic_state->mem + offset, regs->tbcr);
 	    }
 
 	    regs->tsr.val = 0;        /* clear the tx status reg */
@@ -1015,16 +1035,16 @@ static int ne2k_pci_write(struct guest_info * core,
     int ret;
 
     switch (idx) {
-	case NIC_REG_BASE_PORT:
+	case NE2K_CMD_OFFSET:
 	    ret =  ne2k_cmd_write(core, port, src, length, private_data);
 	    break;
-	case NIC_REG_BASE_PORT+1 ... NIC_REG_BASE_PORT+15:
+	case NE2K_CMD_OFFSET+1 ... NE2K_CMD_OFFSET+15:
 	    ret = ne2k_std_write(core, port, src, length, private_data);
 	    break;
-	case NIC_DATA_PORT:
+	case NE2K_DATA_OFFSET:
 	    ret = ne2k_data_write(core, port, src, length, private_data);
 	    break;
-	case NIC_RESET_PORT:
+	case NE2K_RESET_OFFSET:
 	    ret = ne2k_reset_port_write(core, port, src, length, private_data);
 	    break;
 
@@ -1045,16 +1065,16 @@ static int ne2k_pci_read(struct guest_info * core,
     int ret;
 
     switch (idx) {
-	case NIC_REG_BASE_PORT:
+	case NE2K_CMD_OFFSET:
 	    ret =  ne2k_cmd_read(core, port, dst, length, private_data);
 	    break;
-	case NIC_REG_BASE_PORT+1 ... NIC_REG_BASE_PORT+15:
+	case NE2K_CMD_OFFSET+1 ... NE2K_CMD_OFFSET+15:
 	    ret = ne2k_std_read(core, port, dst, length, private_data);
 	    break;
-	case NIC_DATA_PORT:
+	case NE2K_DATA_OFFSET:
 	    ret = ne2k_data_read(core, port, dst, length, private_data);
 	    break;
-	case NIC_RESET_PORT:
+	case NE2K_RESET_OFFSET:
 	    ret = ne2k_reset_port_read(core, port, dst, length, private_data);
 	    break;
 
@@ -1133,8 +1153,8 @@ static int register_dev(struct ne2k_state * nic_state)
 	    v3_dev_hook_io(nic_state->dev, NIC_REG_BASE_PORT + i, &ne2k_std_read, &ne2k_std_write);
 	}
 
-	v3_dev_hook_io(nic_state->dev, NIC_DATA_PORT, &ne2k_data_read, &ne2k_data_write);
-	v3_dev_hook_io(nic_state->dev, NIC_RESET_PORT, &ne2k_reset_port_read, &ne2k_reset_port_write);
+	v3_dev_hook_io(nic_state->dev, NIC_REG_BASE_PORT + NE2K_DATA_OFFSET, &ne2k_data_read, &ne2k_data_write);
+	v3_dev_hook_io(nic_state->dev, NIC_REG_BASE_PORT + NE2K_RESET_OFFSET, &ne2k_reset_port_read, &ne2k_reset_port_write);
     }
 
 
@@ -1175,13 +1195,11 @@ static int ne2k_free(struct ne2k_state * nic_state) {
   	    v3_dev_unhook_io(nic_state->dev, NIC_REG_BASE_PORT + i);
     	}
     
-       v3_dev_unhook_io(nic_state->dev, NIC_DATA_PORT);
-       v3_dev_unhook_io(nic_state->dev, NIC_RESET_PORT);
+       v3_dev_unhook_io(nic_state->dev, NIC_REG_BASE_PORT + NE2K_DATA_OFFSET);
+       v3_dev_unhook_io(nic_state->dev, NIC_REG_BASE_PORT + NE2K_RESET_OFFSET);
     }else {
        /* unregistered from PCI? */
     }
-  
-    return 0;
 
     V3_Free(nic_state);
 	

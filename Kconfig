@@ -226,14 +226,23 @@ endmenu
 
 menu "Time Management"
 
+config TIME_HIDE_VM_COST
+        bool "Hide VMM Run Cost"
+	default n
+	help
+	    Offset guest time from host time sufficiently to hide the cost of
+	    running in the virtual machine. This can aid the consistency of
+	    time between multiple timers, but can cause the guest to run 
+	    a good bit slower than the host in VM-intensive parts of the code.
+
 config TIME_VIRTUALIZE_TSC
-	bool "Virtualize guest TSC"
+	bool "Fully virtualize guest TSC"
 	default n
 	help
 	    Virtualize the processor time stamp counter in the guest, 
 	    generally increasing consistency between various time sources 
 	    but also potentially making guest time run slower than real time.
-
+	 
 endmenu
 
 menu "Symbiotic Functions"

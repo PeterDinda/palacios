@@ -18,8 +18,8 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#include <palacios/vmm_time.h>
 #include <palacios/vmm.h>
+#include <palacios/vmm_time.h>
 #include <palacios/vm_guest.h>
 
 #ifndef CONFIG_DEBUG_TIME
@@ -86,44 +86,112 @@ int v3_start_time(struct guest_info * info) {
     uint64_t t = v3_get_host_time(&info->time_state); 
 
     PrintDebug("Starting initial guest time as %llu\n", t);
+    info->time_state.enter_time = 0;
+    info->time_state.exit_time = t; 
     info->time_state.last_update = t;
     info->time_state.initial_time = t;
     info->yield_start_cycle = t;
     return 0;
 }
 
-// If the guest is supposed to run slower than the host, yield out until
-// the host time is appropriately far along;
+// Control guest time in relation to host time so that the two stay 
+// appropriately synchronized to the extent possible. 
 int v3_adjust_time(struct guest_info * info) {
     struct vm_time * time_state = &(info->time_state);
+    uint64_t host_time, target_host_time;
+    uint64_t guest_time, target_guest_time, old_guest_time;
+    uint64_t guest_elapsed, host_elapsed, desired_elapsed;
 
-    if (time_state->host_cpu_freq == time_state->guest_cpu_freq) {
-	time_state->guest_host_offset = 0;
-    } else {
-	uint64_t guest_time, guest_elapsed, desired_elapsed;
-	uint64_t host_time, target_host_time;
+    /* Compute the target host time given how much time has *already*
+     * passed in the guest */
+    guest_time = v3_get_guest_time(time_state);
+    guest_elapsed = (guest_time - time_state->initial_time);
+    desired_elapsed = (guest_elapsed * time_state->host_cpu_freq) / time_state->guest_cpu_freq;
+    target_host_time = time_state->initial_time + desired_elapsed;
 
-	guest_time = v3_get_guest_time(time_state);
-
-	/* Compute what host time this guest time should correspond to. */
-	guest_elapsed = (guest_time - time_state->initial_time);
-	desired_elapsed = (guest_elapsed * time_state->host_cpu_freq) / time_state->guest_cpu_freq;
-	target_host_time = time_state->initial_time + desired_elapsed;
-
-	/* Yield until that host time is reached */
+    /* Now, let the host run while the guest is stopped to make the two
+     * sync up. */
+    host_time = v3_get_host_time(time_state);
+    old_guest_time = v3_get_guest_time(time_state);
+    while (target_host_time > host_time) {
+	v3_yield(info);
 	host_time = v3_get_host_time(time_state);
-
-	while (host_time < target_host_time) {
-	    v3_yield(info);
-	    host_time = v3_get_host_time(time_state);
-	}
-
-	time_state->guest_host_offset = (sint64_t)guest_time - (sint64_t)host_time;
     }
+    guest_time = v3_get_guest_time(time_state);
+    // We do *not* assume the guest timer was paused in the VM. If it was
+    // this offseting is 0. If it wasn't we need this.
+    v3_offset_time(info, (sint64_t)old_guest_time - (sint64_t)guest_time);
+
+    /* Now the host may have gotten ahead of the guest because
+     * yielding is a coarse grained thing. Figure out what guest time
+     * we want to be at, and use the use the offsetting mechanism in 
+     * the VMM to make the guest run forward. We limit *how* much we skew 
+     * it forward to prevent the guest time making large jumps, 
+     * however. */
+    host_elapsed = host_time - time_state->initial_time;
+    desired_elapsed = (host_elapsed * time_state->guest_cpu_freq) / time_state->host_cpu_freq;
+    target_guest_time = time_state->initial_time + desired_elapsed;
+
+    if (guest_time < target_guest_time) {
+	uint64_t max_skew, desired_skew, skew;
+
+	if (time_state->enter_time) {
+	    max_skew = (time_state->exit_time - time_state->enter_time)/10;
+	} else {
+	    max_skew = 0;
+	}
+	desired_skew = target_guest_time - guest_time;
+	skew = desired_skew > max_skew ? max_skew : desired_skew;
+/*	PrintDebug("Guest %llu cycles behind where it should be.\n",
+		   desired_skew);
+	PrintDebug("Limit on forward skew is %llu. Skewing forward %llu.\n",
+	           max_skew, skew); */
+	
+	v3_offset_time(info, skew);
+    }
+    
+    return 0;
+}
+
+/* Called immediately upon entry in the the VMM */
+int 
+v3_time_exit_vm( struct guest_info * info ) 
+{
+    struct vm_time * time_state = &(info->time_state);
+    
+    time_state->exit_time = v3_get_host_time(time_state);
 
     return 0;
 }
 
+/* Called immediately prior to entry to the VM */
+int 
+v3_time_enter_vm( struct guest_info * info )
+{
+    struct vm_time * time_state = &(info->time_state);
+    uint64_t guest_time, host_time;
+
+    guest_time = v3_get_guest_time(time_state);
+    host_time = v3_get_host_time(time_state);
+    time_state->enter_time = host_time;
+    time_state->guest_host_offset = guest_time - host_time;
+
+    // Because we just modified the offset - shouldn't matter as this should be 
+    // the last time-related call prior to entering the VMM, but worth it 
+    // just in case.
+    time_state->exit_time = host_time; 
+
+    return 0;
+}
+	
+int v3_offset_time( struct guest_info * info, sint64_t offset )
+{
+    struct vm_time * time_state = &(info->time_state);
+//    PrintDebug("Adding additional offset of %lld to guest time.\n", offset);
+    time_state->guest_host_offset += offset;
+    return 0;
+}
+	   
 struct v3_timer * v3_add_timer(struct guest_info * info, 
 			       struct v3_timer_ops * ops, 
 			       void * private_data) {
@@ -149,15 +217,16 @@ int v3_remove_timer(struct guest_info * info, struct v3_timer * timer) {
 }
 
 void v3_update_timers(struct guest_info * info) {
+    struct vm_time *time_state = &info->time_state;
     struct v3_timer * tmp_timer;
     uint64_t old_time = info->time_state.last_update;
-    uint64_t cycles;
+    sint64_t cycles;
 
-    info->time_state.last_update = v3_get_guest_time(&info->time_state);
-    cycles = info->time_state.last_update - old_time;
+    time_state->last_update = v3_get_guest_time(time_state);
+    cycles = time_state->last_update - old_time;
 
-    list_for_each_entry(tmp_timer, &(info->time_state.timers), timer_link) {
-	tmp_timer->ops->update_timer(info, cycles, info->time_state.guest_cpu_freq, tmp_timer->private_data);
+    list_for_each_entry(tmp_timer, &(time_state->timers), timer_link) {
+	tmp_timer->ops->update_timer(info, cycles, time_state->guest_cpu_freq, tmp_timer->private_data);
     }
 }
 
@@ -213,9 +282,10 @@ int v3_rdtscp(struct guest_info * info) {
 
 
 int v3_handle_rdtscp(struct guest_info * info) {
+  PrintDebug("Handling virtual RDTSCP call.\n");
 
     v3_rdtscp(info);
-    
+
     info->vm_regs.rax &= 0x00000000ffffffffLL;
     info->vm_regs.rcx &= 0x00000000ffffffffLL;
     info->vm_regs.rdx &= 0x00000000ffffffffLL;
@@ -321,9 +391,10 @@ void v3_init_time_core(struct guest_info * info) {
 	time_state->guest_cpu_freq = atoi(khz);
 	PrintDebug("Core %d CPU frequency requested at %d khz.\n", 
 		   info->cpu_id, time_state->guest_cpu_freq);
-    }
+    } 
     
-    if ((khz == NULL) || (time_state->guest_cpu_freq > time_state->host_cpu_freq)) {
+    if ((khz == NULL) || (time_state->guest_cpu_freq <= 0) 
+	|| (time_state->guest_cpu_freq > time_state->host_cpu_freq)) {
 	time_state->guest_cpu_freq = time_state->host_cpu_freq;
     }
 

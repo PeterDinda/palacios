@@ -3,7 +3,6 @@ menu "Virtual Devices"
 config APIC
 	bool "APIC" 
 	default y
-	depends on EXPERIMENTAL
 	help 
 	  Includes the Virtual APIC device
 
@@ -19,7 +18,6 @@ config DEBUG_APIC
 
 config IO_APIC
 	bool "IOAPIC"
-	depends on EXPERIMENTAL
 	default y
 	help 
 	  Includes the Virtual IO APIC
@@ -181,6 +179,19 @@ config DEBUG_NE2K
 	help 
 	  Enable debugging for the NE2K
 
+config RTL8139
+        bool "RTL8139"
+        depends on EXPERIMENTAL
+        default n
+        help
+          Includes the Virtual RTL8139 network card
+
+config DEBUG_RTL8139
+        bool "RTL8139 debugging"
+        default n
+        depends on RTL8139 && DEBUG_ON
+        help
+          Enable debugging for the RTL8139
 
 config NIC_BRIDGE
         bool "Enable Direct Bridge to Host network"

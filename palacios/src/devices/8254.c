@@ -299,10 +299,13 @@ static void pit_update_timer(struct guest_info * info, ullong_t cpu_cycles, ullo
 	// update counter with remainder (mod reload)
 	state->pit_counter = state->pit_reload - cpu_cycles;    
 
-	//PrintDebug("8254 PIT: Handling %d crystal tics\n", oscillations);
+	if (oscillations) {
+	    PrintDebug("8254 PIT: Handling %d crystal tics\n", oscillations);
+	}
+
 	if (handle_crystal_tics(state, &(state->ch_0), oscillations) == 1) {
 	    // raise interrupt
-	    PrintDebug("8254 PIT: Injecting Timer interrupt to guest\n");
+	    // PrintDebug("8254 PIT: Injecting Timer interrupt to guest\n");
 	    v3_raise_irq(info->vm_info, 0);
 	}
 
@@ -676,7 +679,7 @@ static int pit_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     // just hardcode the core context
     struct guest_info * info = &(vm->cores[0]);
 
-    uint_t cpu_khz = V3_CPU_KHZ();
+    uint_t cpu_khz = info->time_state.guest_cpu_freq;
     ullong_t reload_val = (ullong_t)cpu_khz * 1000;
 
     pit_state = (struct pit *)V3_Malloc(sizeof(struct pit));

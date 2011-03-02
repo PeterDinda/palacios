@@ -237,6 +237,7 @@ static int pre_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * vm_cfg) {
     vm->mem_size = (addr_t)atoi(memory_str) * 1024 * 1024;
     vm->mem_align = get_alignment(align_str);
 
+
     PrintDebug("Alignment for %lu bytes of memory computed as 0x%x\n", vm->mem_size, vm->mem_align);
 
     if (strcasecmp(vm_class, "PC") == 0) {
@@ -291,7 +292,7 @@ static int determine_paging_mode(struct guest_info * info, v3_cfg_tree_t * core_
 
     if (pg_mode) {
 	if ((strcasecmp(pg_mode, "nested") == 0)) {
-	    if (v3_cpu_types[info->cpu_id] == V3_SVM_REV3_CPU) {
+	    if (v3_cpu_types[info->host_cpu_id] == V3_SVM_REV3_CPU) {
 	    	info->shdw_pg_mode = NESTED_PAGING;
 	    } else {
 		PrintError("Nested paging not supported on this hardware. Defaulting to shadow paging\n");
@@ -337,9 +338,21 @@ static int determine_paging_mode(struct guest_info * info, v3_cfg_tree_t * core_
 }
 
 static int pre_config_core(struct guest_info * info, v3_cfg_tree_t * core_cfg) {
-
+    char *hcpu;
     if (determine_paging_mode(info, core_cfg))
 	return -1;
+
+    hcpu = v3_cfg_val(core_cfg, "hostcpu");
+    if (hcpu) {
+	int req_id = atoi(hcpu);
+	if (req_id < 0) {
+	    PrintError("Invalid host core %d requested by"
+		       " virtual cpu %d - ignored.\n", req_id, info->cpu_id);
+	} else {
+		PrintDebug("Assigned host core %d to virtual core %d.\n", info->cpu_id, req_id);
+	    info->host_cpu_id = req_id;
+	}
+    } 
 
     v3_init_core(info);
 
@@ -457,7 +470,6 @@ struct v3_vm_info * v3_config_guest(void * cfg_blob, void * priv_data) {
     }
 
     num_cores = atoi(v3_cfg_val(cores_cfg, "count"));
-
     if (num_cores == 0) {
 	PrintError("No cores specified in configuration\n");
 	return NULL;
@@ -483,7 +495,6 @@ struct v3_vm_info * v3_config_guest(void * cfg_blob, void * priv_data) {
 	return NULL;
     }
 
-
     V3_Print("Per core configuration\n");
     per_core_cfg = v3_cfg_subtree(cores_cfg, "core");
 
@@ -494,11 +505,13 @@ struct v3_vm_info * v3_config_guest(void * cfg_blob, void * priv_data) {
 	info->cpu_id = i;
 	info->vm_info = vm;
 	info->core_cfg_data = per_core_cfg;
+	info->host_cpu_id = i; // may be overriden by core config
 
 	if (pre_config_core(info, per_core_cfg) == -1) {
 	    PrintError("Error in core %d preconfiguration\n", i);
 	    return NULL;
 	}
+
 
 	per_core_cfg = v3_cfg_next_branch(per_core_cfg);
     }

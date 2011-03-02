@@ -33,28 +33,12 @@
 #define PrintDebug(fmt, args...)
 #endif
 
-
 struct vnet_nic_state {
     struct v3_vm_info * vm;
     struct v3_dev_net_ops net_ops;
     int vnet_dev_id;
 };
 
-/* called by frontend device, 
-  * tell the VNET can start sending pkt to it */
-static void start_rx(void * private_data){
-    //struct vnet_nic_state *vnetnic = (struct vnet_nic_state *)private_data;
-
-    //v3_vnet_enable_device(vnetnic->vnet_dev_id);
-}
-
-/* called by frontend device, 
-  * tell the VNET stop sending pkt to it */
-static void stop_rx(void * private_data){
-    //struct vnet_nic_state *vnetnic = (struct vnet_nic_state *)private_data;
-
-    //v3_vnet_disable_device(vnetnic->vnet_dev_id);
-}
 
 /* called by frontend, send pkt to VNET */
 static int vnet_nic_send(uint8_t * buf, uint32_t len, 
@@ -93,27 +77,12 @@ static int virtio_input(struct v3_vm_info * info,
 				 vnetnic->net_ops.frontend_data);
 }
 
-/* tell frontend device to poll data from guest */
+/* poll data from front-end */
 static void virtio_poll(struct v3_vm_info * info, 
 			void * private_data){
     struct vnet_nic_state *vnetnic = (struct vnet_nic_state *)private_data;
 
     vnetnic->net_ops.poll(info, vnetnic->net_ops.frontend_data);
-}
-
-
-/* notify the frontend to start sending pkt to VNET*/
-static void start_tx(void * private_data){
-    struct vnet_nic_state *vnetnic = (struct vnet_nic_state *)private_data;
-
-    vnetnic->net_ops.start_tx(vnetnic->net_ops.frontend_data);
-}
-
-/* notify the frontend device to stop sending pkt to VNET*/
-static void stop_tx(void * private_data){
-    struct vnet_nic_state *vnetnic = (struct vnet_nic_state *)private_data;
-
-    vnetnic->net_ops.stop_tx(vnetnic->net_ops.frontend_data);
 }
 
 
@@ -133,8 +102,6 @@ static struct v3_device_ops dev_ops = {
 static struct v3_vnet_dev_ops vnet_dev_ops = {
     .input = virtio_input,
     .poll = virtio_poll,
-    .start_tx = start_tx,
-    .stop_tx = stop_tx,
 };
 
 
@@ -156,8 +123,6 @@ static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     }
 
     vnetnic->net_ops.send = vnet_nic_send;
-    vnetnic->net_ops.start_rx = start_rx;
-    vnetnic->net_ops.stop_rx = stop_rx;
     vnetnic->vm = vm;
 	
     if (v3_dev_connect_net(vm, v3_cfg_val(frontend_cfg, "tag"), 
@@ -173,12 +138,11 @@ static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     if ((vnet_dev_id = v3_vnet_add_dev(vm, vnetnic->net_ops.fnt_mac, &vnet_dev_ops, (void *)vnetnic)) == -1) {
 	PrintError("Vnet-nic device %s fails to registered to VNET\n", dev_id);
+	
 	v3_remove_device(dev);
 	return 0;
     }
     vnetnic->vnet_dev_id = vnet_dev_id;
-
-    PrintDebug("Vnet-nic device %s registered to VNET\n", dev_id);
 
     return 0;
 }

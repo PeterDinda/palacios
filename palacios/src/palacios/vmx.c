@@ -28,6 +28,7 @@
 #include <palacios/vmm_lowlevel.h>
 #include <palacios/vmm_ctrl_regs.h>
 #include <palacios/vmm_config.h>
+#include <palacios/vmm_time.h>
 #include <palacios/vm_guest_mem.h>
 #include <palacios/vmm_direct_paging.h>
 #include <palacios/vmx_io.h>
@@ -662,11 +663,11 @@ int v3_vmx_enter(struct guest_info * info) {
     // Conditionally yield the CPU if the timeslice has expired
     v3_yield_cond(info);
 
-    /* If this guest is frequency-lagged behind host time, wait 
-     * for the appropriate host time before resuming the guest. */
+    // Perform any additional yielding needed for time adjustment
     v3_adjust_time(info);
 
-    // v3_print_guest_state(info);
+    // Update timer devices prior to entering VM.
+    v3_update_timers(info);
 
     // disable global interrupts for vm state transition
     v3_disable_ints();
@@ -688,7 +689,8 @@ int v3_vmx_enter(struct guest_info * info) {
 	vmcs_write(VMCS_GUEST_CR3, guest_cr3);
     }
 
-    v3_update_timers(info);
+    // Perform last-minute time bookkeeping prior to entering the VM
+    v3_time_enter_vm(info);
 
     tsc_offset_high = (uint32_t)((v3_tsc_host_offset(&info->time_state) >> 32) & 0xffffffff);
     tsc_offset_low = (uint32_t)(v3_tsc_host_offset(&info->time_state) & 0xffffffff);
@@ -712,6 +714,9 @@ int v3_vmx_enter(struct guest_info * info) {
 
 	return -1;
     }
+
+    // Immediate exit from VM time bookkeeping
+    v3_time_exit_vm(info);
 
     info->num_exits++;
 
