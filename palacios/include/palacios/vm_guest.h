@@ -36,6 +36,7 @@
 #include <palacios/vmm_hypercall.h>
 #include <palacios/vmm_cpuid.h>
 #include <palacios/vmm_regs.h>
+#include <palacios/vmm_extensions.h>
 
 #ifdef CONFIG_TELEMETRY
 #include <palacios/vmm_telemetry.h>
@@ -164,12 +165,15 @@ struct v3_vm_info {
 
     v3_vm_operating_mode_t run_state;
 
+
+
+
+    struct v3_extensions extensions;
+
 #ifdef CONFIG_SYMBIOTIC
     /* Symbiotic state */
     struct v3_sym_vm_state sym_vm_state;
 #endif
-
-
 
 #ifdef CONFIG_TELEMETRY
     uint_t enable_telemetry;

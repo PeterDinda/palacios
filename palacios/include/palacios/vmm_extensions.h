@@ -24,23 +24,36 @@
 
 #include <palacios/vmm.h>
 #include <palacios/vmm_list.h>
-#include <palacios/vm_guest.h>
+#include <palacios/vmm_config.h>
 
-struct v3_extension_impl {
-    char * name;
-    int (*init)(struct v3_vm_info * vm, v3_cfg_tree_t * cfg);
-    int (*deinit)(struct v3_vm_info * vm, void * priv_data);
-    int (*core_init)(struct guest_info * core);
-    int (*core_deinit)(struct guest_info * core);
+
+struct v3_vm_info;
+struct guest_info;
+
+struct v3_extensions {
+    struct list_head extensions;
+    struct list_head on_exits;
+    struct list_head on_entries;
 };
 
 
+struct v3_extension_impl {
+    char * name;
+    int (*init)(struct v3_vm_info * vm, v3_cfg_tree_t * cfg, void ** priv_data);
+    int (*deinit)(struct v3_vm_info * vm, void * priv_data);
+    int (*core_init)(struct guest_info * core);
+    int (*core_deinit)(struct guest_info * core);
+    int (*on_entry)(struct guest_info * core);
+    int (*on_exit)(struct guest_info * core);
+};
 
 struct v3_extension {
     struct v3_extension_impl * impl;
     void * priv_data;
 
     struct list_head node;
+    struct list_head exit_node;
+    struct list_head entry_node;
 };
 
 
@@ -48,6 +61,9 @@ struct v3_extension {
 int V3_init_extensions();
 int V3_deinit_extensions();
 
+
+int v3_init_ext_manager(struct v3_vm_info * vm);
+int v3_add_extension(struct v3_vm_info * vm, const char * name, v3_cfg_tree_t * cfg);
 
 
 #define register_extension(ext)					\

@@ -20,7 +20,7 @@
 #include <palacios/vmm.h>
 
 #include <palacios/vmm_extensions.h>
-
+#include <palacios/vm_guest.h>
 #include <palacios/vmm_hashtable.h>
 
 
@@ -75,3 +75,53 @@ int V3_deinit_extensions() {
 }
 
 
+int v3_init_ext_manager(struct v3_vm_info * vm) {
+    struct v3_extensions * ext_state = &(vm->extensions);
+
+    INIT_LIST_HEAD(&(ext_state->extensions));
+    INIT_LIST_HEAD(&(ext_state->on_exits));
+    INIT_LIST_HEAD(&(ext_state->on_entries));
+    
+    return 0;
+}
+
+int v3_add_extension(struct v3_vm_info * vm, const char * name, v3_cfg_tree_t * cfg) {
+    struct v3_extension_impl * impl = NULL;
+    struct v3_extension * ext = NULL;
+
+    impl = (void *)v3_htable_search(ext_table, (addr_t)name);
+
+    if (impl == NULL) {
+	PrintError("Could not find requested extension (%s)\n", name);
+	return -1;
+    }
+    
+    V3_ASSERT(impl->init);
+
+    ext = V3_Malloc(sizeof(struct v3_extension));
+    
+    if (!ext) {
+	PrintError("Could not allocate extension\n");
+	return -1;
+    }
+
+    ext->impl = impl;
+
+    if (impl->init(vm, cfg, &(ext->priv_data)) == -1) {
+	PrintError("Error initializing Extension (%s)\n", name);
+	V3_Free(ext);
+	return -1;
+    }
+
+    list_add(&(ext->node), &(vm->extensions.extensions));
+
+    if (impl->on_exit) {
+	list_add(&(ext->exit_node), &(vm->extensions.on_exits));
+    }
+
+    if (impl->on_entry) {
+	list_add(&(ext->entry_node), &(vm->extensions.on_entries));
+    }
+    
+    return 0;
+}

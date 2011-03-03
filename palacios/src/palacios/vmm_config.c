@@ -58,6 +58,7 @@ struct file_idx_table {
 
 
 static int setup_memory_map(struct v3_vm_info * vm, v3_cfg_tree_t * cfg);
+static int setup_extensions(struct v3_vm_info * vm, v3_cfg_tree_t * cfg);
 static int setup_devices(struct v3_vm_info * vm, v3_cfg_tree_t * cfg);
 
 
@@ -369,9 +370,18 @@ static int post_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	PrintError("Setting up guest memory map failed...\n");
 	return -1;
     }
-    
-    //v3_hook_io_port(info, 1234, &IO_Read, NULL, info);
-  
+
+    /* 
+     * Initialize configured extensions 
+     */
+    if (setup_extensions(vm, cfg) == -1) {
+	PrintError("Failed to setup extensions\n");
+	return -1;
+    }
+
+    /* 
+     * Initialize configured devices
+     */
     if (setup_devices(vm, cfg) == -1) {
 	PrintError("Failed to setup devices\n");
 	return -1;
@@ -565,6 +575,24 @@ static int setup_memory_map(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 }
 
 
+static int setup_extensions(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
+    v3_cfg_tree_t * extension = v3_cfg_subtree(v3_cfg_subtree(cfg, "extensions"), "extension");
+
+    while (extension) {
+	char * ext_name = v3_cfg_val(extension, "name");
+
+	V3_Print("Configuring extension %s\n", ext_name);
+
+	if (v3_add_extension(vm, ext_name, extension) == -1) {
+	    PrintError("Error adding extension %s\n", ext_name);
+	    return -1;
+	}
+
+	extension = v3_cfg_next_branch(extension);
+    }
+
+    return 0;
+}
 
 
 static int setup_devices(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
@@ -588,7 +616,6 @@ static int setup_devices(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     return 0;
 }
-
 
 
 

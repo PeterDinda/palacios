@@ -77,9 +77,10 @@ static int mtrr_cap_write(struct guest_info * core, uint32_t msr, struct v3_msr 
 
 
 
-static int init_mtrrs(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
+static int init_mtrrs(struct v3_vm_info * vm, v3_cfg_tree_t * cfg, void ** priv_data) {
 
 
+    V3_Print("Intializing MTRR extension\n");
 
     v3_hook_msr(vm, MTRR_CAP_MSR, mtrr_cap_read, mtrr_cap_write, NULL);
         
@@ -88,7 +89,7 @@ static int init_mtrrs(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 }
 
 
-struct v3_extension_impl mtrr_ext = {
+static struct v3_extension_impl mtrr_ext = {
     .name = "MTRRS",
     .init = init_mtrrs,
     .deinit = NULL,

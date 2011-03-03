@@ -96,6 +96,14 @@ int v3_start_time(struct guest_info * info) {
     return 0;
 }
 
+int v3_offset_time( struct guest_info * info, sint64_t offset )
+{
+    struct vm_time * time_state = &(info->time_state);
+//    PrintDebug("Adding additional offset of %lld to guest time.\n", offset);
+    time_state->guest_host_offset += offset;
+    return 0;
+}
+
 // Control guest time in relation to host time so that the two stay 
 // appropriately synchronized to the extent possible. 
 int v3_adjust_time(struct guest_info * info) {
@@ -190,13 +198,7 @@ v3_time_enter_vm( struct guest_info * info )
     return 0;
 }
 	
-int v3_offset_time( struct guest_info * info, sint64_t offset )
-{
-    struct vm_time * time_state = &(info->time_state);
-//    PrintDebug("Adding additional offset of %lld to guest time.\n", offset);
-    time_state->guest_host_offset += offset;
-    return 0;
-}
+
 	   
 struct v3_timer * v3_add_timer(struct guest_info * info, 
 			       struct v3_timer_ops * ops, 
