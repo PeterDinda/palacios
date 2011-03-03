@@ -48,7 +48,7 @@ v3_file_t v3_file_open(struct v3_vm_info * vm, char * path, uint8_t mode) {
 
 int v3_file_close(v3_file_t file) {
     V3_ASSERT(file_hooks);
-    V3_ASSERT(file_hooks->open);
+    V3_ASSERT(file_hooks->close);
     
     return file_hooks->close(file);
 }
