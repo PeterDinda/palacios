@@ -290,17 +290,19 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
 
 	    i--; // We reset the logical core idx. Not strictly necessary I guess... 
 	} else {
+
+	    /* This assumes that the core 0 thread has been mapped to physical core 0 */
+	    if (i == V3_Get_CPU()) {
+		// We skip the local CPU because it is reserved for vcore 0
+		continue;
+	    }
+	    
 	    core_idx = i;
 	}
 
 	major = core_idx / 8;
 	minor = core_idx % 8;
 
-	/* This assumes that the core 0 thread has been mapped to physical core 0 */
-	if (core_idx == V3_Get_CPU()) {
-	    // We skip the local CPU because it is reserved for vcore 0
-	    continue;
-	}
 
 
 	if ((core_mask[major] & (0x1 << minor)) == 0) {
