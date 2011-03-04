@@ -274,36 +274,62 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
 #ifdef CONFIG_MULTITHREAD_OS
     // spawn off new threads, for other cores
     for (i = 0, vcore_id = 1; (i < MAX_CORES) && (vcore_id < vm->num_cores); i++) {
-	int major = i / 8;
-	int minor = i % 8;
+	int major = 0;
+ 	int minor = 0;
 	void * core_thread = NULL;
 	struct guest_info * core = &(vm->cores[vcore_id]);
+	char * specified_cpu = v3_cfg_val(core->core_cfg_data, "target_cpu");
+	uint32_t core_idx = 0;
+
+	if (specified_cpu != NULL) {
+	    core_idx = atoi(specified_cpu);
+	    
+	    if ((core_idx < 0) || (core_idx >= MAX_CORES)) {
+		PrintError("Target CPU out of bounds (%d) (MAX_CORES=%d)\n", core_idx, MAX_CORES);
+	    }
+
+	    i--; // We reset the logical core idx. Not strictly necessary I guess... 
+	} else {
+	    core_idx = i;
+	}
+
+	major = core_idx / 8;
+	minor = core_idx % 8;
 
 	/* This assumes that the core 0 thread has been mapped to physical core 0 */
-	if (i == V3_Get_CPU()) {
+	if (core_idx == V3_Get_CPU()) {
 	    // We skip the local CPU because it is reserved for vcore 0
 	    continue;
 	}
 
+
 	if ((core_mask[major] & (0x1 << minor)) == 0) {
 	    PrintError("Logical CPU %d not available for virtual core %d; not started\n",
-		       i, vcore_id);
+		       core_idx, vcore_id);
+
+	    if (specified_cpu != NULL) {
+		PrintError("CPU was specified explicitly (%d). HARD ERROR\n", core_idx);
+		v3_stop_vm(vm);
+		return -1;
+	    }
+
 	    continue;
-	} 
+	}
 
 	PrintDebug("Starting virtual core %u on logical core %u\n", 
-		   vcore_id, i);
+		   vcore_id, core_idx);
 	
 	sprintf(core->exec_name, "%s-%u", vm->name, vcore_id);
 
 	PrintDebug("run: core=%u, func=0x%p, arg=0x%p, name=%s\n",
-		   i, start_core, core, core->exec_name);
+		   core_idx, start_core, core, core->exec_name);
 
 	// TODO: actually manage these threads instead of just launching them
-	core_thread = V3_CREATE_THREAD_ON_CPU(i, start_core, core, core->exec_name);
+	core_thread = V3_CREATE_THREAD_ON_CPU(core_idx, start_core, core, core->exec_name);
 
 	if (core_thread == NULL) {
 	    PrintError("Thread launch failed\n");
+	    v3_stop_vm(vm);
 	    return -1;
 	}
 
@@ -315,6 +341,7 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
 
     if (start_core(&(vm->cores[0])) != 0) {
 	PrintError("Error starting VM core 0\n");
+	v3_stop_vm(vm);
 	return -1;
     }
 
