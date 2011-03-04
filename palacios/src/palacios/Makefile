@@ -28,7 +28,6 @@ obj-y := \
 	vmm_string.o \
 	vmm_time.o \
 	vmm_util.o \
-	vmm_xed.o \
 	vmm_binaries.o \
 	vmm_cpuid.o \
 	vmm_xml.o \
@@ -38,6 +37,10 @@ obj-y := \
 	vmm_extensions.o \
 	vmm_mtrr.o \
 
+
+
+obj-$(CONFIG_XED) +=	vmm_xed.o
+obj-$(CONFIG_V3_DECODER) += vmm_v3dec.o
 
 obj-$(CONFIG_SVM) +=    svm.o \
 			svm_io.o \

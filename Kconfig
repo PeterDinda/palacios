@@ -63,6 +63,22 @@ config DEBUG_INFO
 	help
 	  Compiles the Palacios library with debugging symbols
 
+choice 
+	prompt "X86 decoder"
+	default XED
+
+config XED
+	bool "XED decoder library"
+	help
+	   This uses the XED decoder library from pintools 
+
+config V3_DECODER
+	bool "Internal Palacios decoder"
+	help
+	    This selects the internal V3Vee x86 decoder
+
+
+endchoice
 
 menu "Supported host OS features"
       

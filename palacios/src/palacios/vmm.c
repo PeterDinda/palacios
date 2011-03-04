@@ -266,7 +266,8 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
 
 
     if (vm->num_cores > avail_cores) {
-	PrintError("Attempted to start a VM with too many cores (vm->num_cores = %d, avail_cores = %d, MAX=%d)\n", vm->num_cores, avail_cores, MAX_CORES);
+	PrintError("Attempted to start a VM with too many cores (vm->num_cores = %d, avail_cores = %d, MAX=%d)\n", 
+		   vm->num_cores, avail_cores, MAX_CORES);
 	return -1;
     }
 
