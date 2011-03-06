@@ -304,7 +304,6 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
 	minor = core_idx % 8;
 
 
-
 	if ((core_mask[major] & (0x1 << minor)) == 0) {
 	    PrintError("Logical CPU %d not available for virtual core %d; not started\n",
 		       core_idx, vcore_id);

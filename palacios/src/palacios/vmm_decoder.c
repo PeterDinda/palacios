@@ -24,9 +24,11 @@
 
 
 
-void v3_get_prefixes(uchar_t * instr, struct x86_prefixes * prefixes) {
+uint8_t v3_get_prefixes(uint8_t * instr, struct x86_prefixes * prefixes) {
+    uint8_t * instr_cursor = instr;
+
     while (1) {
-	switch (*instr) {
+	switch (*instr_cursor) {
 	    case 0xF0:      // lock
 		prefixes->lock = 1;
 		break;
@@ -42,7 +44,7 @@ void v3_get_prefixes(uchar_t * instr, struct x86_prefixes * prefixes) {
 		prefixes->repz = 1; 
 		break;
 
-	    case 0x2E:      // CS override or Branch hint not taken (with Jcc instrs)
+	    case 0x2E:      // CS override or Branch hint not taken (with Jcc instr_cursors)
 		prefixes->cs_override = 1;
 		prefixes->br_not_taken = 1;
 		break;
@@ -51,7 +53,7 @@ void v3_get_prefixes(uchar_t * instr, struct x86_prefixes * prefixes) {
 		prefixes->ss_override = 1;
 		break;
 
-	    case 0x3E:      // DS override or Branch hint taken (with Jcc instrs)
+	    case 0x3E:      // DS override or Branch hint taken (with Jcc instr_cursors)
 		prefixes->ds_override = 1;
 		prefixes->br_taken = 1;
 		break;
@@ -77,12 +79,11 @@ void v3_get_prefixes(uchar_t * instr, struct x86_prefixes * prefixes) {
 		break;
 
 	    default:
-		return;
+		return (instr_cursor - instr);
 	}
 
-	instr++;
+	instr_cursor++;
     }
-
 }
 
 void v3_strip_rep_prefix(uchar_t * instr, int length) {

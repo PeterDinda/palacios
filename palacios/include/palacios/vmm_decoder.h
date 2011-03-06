@@ -62,7 +62,7 @@ struct x86_prefixes {
     uint_t br_taken   : 1;  // 0x3E
     uint_t op_size     : 1;  // 0x66
     uint_t addr_size   : 1;  // 0x67
-};
+} __attribute__((packed));
 
 
 struct x86_instr {
@@ -110,13 +110,13 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
  * any unused bytes at the end of instr_buf will be filled with nops
  * IMPORTANT: instr_buf must be allocated and 15 bytes long
  */
-int v3_encode(struct guest_info * info, struct x86_instr * instr, char * instr_buf);
+int v3_encode(struct guest_info * info, struct x86_instr * instr, uint8_t * instr_buf);
 
 
 
 /* Removes a rep prefix in place */
-void v3_strip_rep_prefix(uchar_t * instr, int length);
-void v3_get_prefixes(uchar_t * instr, struct x86_prefixes * prefixes);
+void v3_strip_rep_prefix(uint8_t * instr, int length);
+uint8_t v3_get_prefixes(uint8_t * instr, struct x86_prefixes * prefixes);
 
 
 
