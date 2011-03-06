@@ -58,6 +58,7 @@ struct file_idx_table {
 
 
 static int setup_memory_map(struct v3_vm_info * vm, v3_cfg_tree_t * cfg);
+static int setup_extensions(struct v3_vm_info * vm, v3_cfg_tree_t * cfg);
 static int setup_devices(struct v3_vm_info * vm, v3_cfg_tree_t * cfg);
 
 
@@ -237,6 +238,7 @@ static int pre_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * vm_cfg) {
     vm->mem_size = (addr_t)atoi(memory_str) * 1024 * 1024;
     vm->mem_align = get_alignment(align_str);
 
+
     PrintDebug("Alignment for %lu bytes of memory computed as 0x%x\n", vm->mem_size, vm->mem_align);
 
     if (strcasecmp(vm_class, "PC") == 0) {
@@ -291,7 +293,8 @@ static int determine_paging_mode(struct guest_info * info, v3_cfg_tree_t * core_
 
     if (pg_mode) {
 	if ((strcasecmp(pg_mode, "nested") == 0)) {
-	    if (v3_cpu_types[info->cpu_id] == V3_SVM_REV3_CPU) {
+	    // we assume symmetric cores, so if core 0 has nested paging they all do
+	    if (v3_cpu_types[0] == V3_SVM_REV3_CPU) {
 	    	info->shdw_pg_mode = NESTED_PAGING;
 	    } else {
 		PrintError("Nested paging not supported on this hardware. Defaulting to shadow paging\n");
@@ -337,9 +340,9 @@ static int determine_paging_mode(struct guest_info * info, v3_cfg_tree_t * core_
 }
 
 static int pre_config_core(struct guest_info * info, v3_cfg_tree_t * core_cfg) {
-
-    if (determine_paging_mode(info, core_cfg))
+    if (determine_paging_mode(info, core_cfg) != 0) {
 	return -1;
+    }
 
     v3_init_core(info);
 
@@ -367,9 +370,18 @@ static int post_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	PrintError("Setting up guest memory map failed...\n");
 	return -1;
     }
-    
-    //v3_hook_io_port(info, 1234, &IO_Read, NULL, info);
-  
+
+    /* 
+     * Initialize configured extensions 
+     */
+    if (setup_extensions(vm, cfg) == -1) {
+	PrintError("Failed to setup extensions\n");
+	return -1;
+    }
+
+    /* 
+     * Initialize configured devices
+     */
     if (setup_devices(vm, cfg) == -1) {
 	PrintError("Failed to setup devices\n");
 	return -1;
@@ -457,7 +469,6 @@ struct v3_vm_info * v3_config_guest(void * cfg_blob, void * priv_data) {
     }
 
     num_cores = atoi(v3_cfg_val(cores_cfg, "count"));
-
     if (num_cores == 0) {
 	PrintError("No cores specified in configuration\n");
 	return NULL;
@@ -483,7 +494,6 @@ struct v3_vm_info * v3_config_guest(void * cfg_blob, void * priv_data) {
 	return NULL;
     }
 
-
     V3_Print("Per core configuration\n");
     per_core_cfg = v3_cfg_subtree(cores_cfg, "core");
 
@@ -499,6 +509,7 @@ struct v3_vm_info * v3_config_guest(void * cfg_blob, void * priv_data) {
 	    PrintError("Error in core %d preconfiguration\n", i);
 	    return NULL;
 	}
+
 
 	per_core_cfg = v3_cfg_next_branch(per_core_cfg);
     }
@@ -564,6 +575,24 @@ static int setup_memory_map(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 }
 
 
+static int setup_extensions(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
+    v3_cfg_tree_t * extension = v3_cfg_subtree(v3_cfg_subtree(cfg, "extensions"), "extension");
+
+    while (extension) {
+	char * ext_name = v3_cfg_val(extension, "name");
+
+	V3_Print("Configuring extension %s\n", ext_name);
+
+	if (v3_add_extension(vm, ext_name, extension) == -1) {
+	    PrintError("Error adding extension %s\n", ext_name);
+	    return -1;
+	}
+
+	extension = v3_cfg_next_branch(extension);
+    }
+
+    return 0;
+}
 
 
 static int setup_devices(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
@@ -587,7 +616,6 @@ static int setup_devices(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     return 0;
 }
-
 
 
 

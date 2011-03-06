@@ -63,6 +63,22 @@ config DEBUG_INFO
 	help
 	  Compiles the Palacios library with debugging symbols
 
+choice 
+	prompt "X86 decoder"
+	default XED
+
+config XED
+	bool "XED decoder library"
+	help
+	   This uses the XED decoder library from pintools 
+
+config V3_DECODER
+	bool "Internal Palacios decoder"
+	help
+	    This selects the internal V3Vee x86 decoder
+
+
+endchoice
 
 menu "Supported host OS features"
       
@@ -225,36 +241,26 @@ endmenu
 
 
 menu "Time Management"
-
+config VIRTUALIZE_TIME
+	bool "Enable Time virtualization"
+	default n
+	help
+	   Enables the timer virtualization extensions
+ 
 config TIME_HIDE_VM_COST
         bool "Hide VMM Run Cost"
 	default n
+	depends on VIRTUALIZE_TIME
 	help
 	    Offset guest time from host time sufficiently to hide the cost of
 	    running in the virtual machine. This can aid the consistency of
 	    time between multiple timers, but can cause the guest to run 
-	    slightly slower than the host.
-
-config TIME_HIDE_EXIT_COST
-        bool "Hide VMM Exit Cost"
-	default n
-	depends on TIME_HIDE_VM_COST
-	help
-	    Add additional TSC offset to hide VMM exit costs from the guest.
-
-config TIME_EXIT_COST_ADJUST
-       int "Exit cost adjustment for hiding VM exits"
-       default 2000
-       depends on TIME_HIDE_EXIT_COST
-       help
-           Amount to adjust the time to hide the exit cost of fully virtualizing
-	   the timestamp counter. Used to hide the cost of fully virtualizing 
-	   the TSC for OSes that assume that reading the TSC is inexpensive 
-	   (e.g. Linux TSC-based timer calibration).
+	    a good bit slower than the host in VM-intensive parts of the code.
 
 config TIME_VIRTUALIZE_TSC
 	bool "Fully virtualize guest TSC"
 	default n
+	depends on VIRTUALIZE_TIME
 	help
 	    Virtualize the processor time stamp counter in the guest, 
 	    generally increasing consistency between various time sources 

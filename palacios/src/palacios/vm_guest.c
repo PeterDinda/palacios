@@ -497,6 +497,7 @@ int v3_init_vm(struct v3_vm_info * vm) {
     v3_init_cpuid_map(vm);
     v3_init_host_events(vm);
     v3_init_intr_routers(vm);
+    v3_init_ext_manager(vm);
 
     // Initialize the memory map
     if (v3_init_mem_map(vm) == -1) {
