@@ -217,7 +217,7 @@ struct vmx_exit_info {
 
 
 
-
+int v3_handle_atomic_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_info);
 int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_info);
 const char * v3_vmx_exit_code_to_str(vmx_exit_t exit);
 

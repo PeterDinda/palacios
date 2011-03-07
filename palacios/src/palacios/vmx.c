@@ -42,8 +42,7 @@
 
 
 static addr_t host_vmcs_ptrs[CONFIG_MAX_CPUS] = { [0 ... CONFIG_MAX_CPUS - 1] = 0};
-
-
+static addr_t active_vmcs_ptrs[CONFIG_MAX_CPUS] = { [0 ... CONFIG_MAX_CPUS - 1] = 0};
 
 extern int v3_vmx_launch(struct v3_gprs * vm_regs, struct guest_info * info, struct v3_ctrl_regs * ctrl_regs);
 extern int v3_vmx_resume(struct v3_gprs * vm_regs, struct guest_info * info, struct v3_ctrl_regs * ctrl_regs);
@@ -141,9 +140,15 @@ static addr_t allocate_vmcs() {
 
 static int init_vmcs_bios(struct guest_info * info, struct vmx_data * vmx_state) {
     int vmx_ret = 0;
+    struct vmx_data * vmx_info = (struct vmx_data *)(info->vmm_data);
+
+    // disable global interrupts for vm state initialization
+    v3_disable_ints();
 
     PrintDebug("Loading VMCS\n");
     vmx_ret = vmcs_load(vmx_state->vmcs_ptr_phys);
+    active_vmcs_ptrs[V3_Get_CPU()] = vmx_info->vmcs_ptr_phys;
+    vmx_state->state = VMX_UNLAUNCHED;
 
     if (vmx_ret != VMX_SUCCESS) {
         PrintError("VMPTRLD failed\n");
@@ -421,7 +426,12 @@ static int init_vmcs_bios(struct guest_info * info, struct vmx_data * vmx_state)
     }
 
 
-    vmx_state->state = VMXASSIST_DISABLED;
+    vmx_state->assist_state = VMXASSIST_DISABLED;
+
+    // reenable global interrupts for vm state initialization now
+    // that the vm state is initialized. If another VM kicks us off, 
+    // it'll update our vmx state so that we know to reload ourself
+    v3_disable_ints();
 
     return 0;
 }
@@ -440,6 +450,7 @@ int v3_init_vmx_vmcs(struct guest_info * info, v3_vm_class_t vm_class) {
     PrintDebug("VMCS pointer: %p\n", (void *)(vmx_state->vmcs_ptr_phys));
 
     info->vmm_data = vmx_state;
+    vmx_state->state = VMX_UNLAUNCHED;
 
     PrintDebug("Initializing VMCS (addr=%p)\n", info->vmm_data);
     
@@ -659,6 +670,7 @@ int v3_vmx_enter(struct guest_info * info) {
     int ret = 0;
     uint32_t tsc_offset_low, tsc_offset_high;
     struct vmx_exit_info exit_info;
+    struct vmx_data * vmx_info = (struct vmx_data *)(info->vmm_data);
 
     // Conditionally yield the CPU if the timeslice has expired
     v3_yield_cond(info);
@@ -697,13 +709,20 @@ int v3_vmx_enter(struct guest_info * info) {
     check_vmcs_write(VMCS_TSC_OFFSET_HIGH, tsc_offset_high);
     check_vmcs_write(VMCS_TSC_OFFSET, tsc_offset_low);
 
-    if (info->vm_info->run_state == VM_STOPPED) {
+    if (active_vmcs_ptrs[V3_Get_CPU()] != vmx_info->vmcs_ptr_phys) {
+	vmcs_load(vmx_info->vmcs_ptr_phys);
+	active_vmcs_ptrs[V3_Get_CPU()] = vmx_info->vmcs_ptr_phys;
+    }
+
+    if (vmx_info->state == VMX_UNLAUNCHED) {
+	vmx_info->state = VMX_LAUNCHED;
 	info->vm_info->run_state = VM_RUNNING;
 	ret = v3_vmx_launch(&(info->vm_regs), info, &(info->ctrl_regs));
     } else {
+	V3_ASSERT(vmx_info->state != VMX_UNLAUNCHED);
 	ret = v3_vmx_resume(&(info->vm_regs), info, &(info->ctrl_regs));
     }
-
+    
     //  PrintDebug("VMX Exit: ret=%d\n", ret);
 
     if (ret != VMX_SUCCESS) {
@@ -749,6 +768,12 @@ int v3_vmx_enter(struct guest_info * info) {
 #else
     update_irq_exit_state(info);
 #endif
+
+    // Handle any exits needed still in the atomic section
+    if (v3_handle_vmx_exit(info, &exit_info) == -1) {
+	PrintError("Error in atomic VMX exit handler\n");
+	return -1;
+    }
 
     // reenable global interrupts after vm exit
     v3_enable_ints();
