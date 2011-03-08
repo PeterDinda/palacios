@@ -281,11 +281,11 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 
 	    instr->src_operand.type = MEM_OPERAND;
 	    instr->src_operand.size = operand_width;
-	    instr->src_operand.operand = core->segments.ds.base + MASK(core->vm_regs.rsi, addr_width);
+	    instr->src_operand.operand = get_addr_linear(core,  MASK(core->vm_regs.rsi, addr_width), &(core->segments.ds));
 
 	    instr->src_operand.type = MEM_OPERAND;
 	    instr->src_operand.size = operand_width;
-	    instr->src_operand.operand = core->segments.es.base + MASK(core->vm_regs.rdi, addr_width);
+	    instr->src_operand.operand = get_addr_linear(core, MASK(core->vm_regs.rdi, addr_width), &(core->segments.es));
 
 	    instr->num_operands = 2;
 
