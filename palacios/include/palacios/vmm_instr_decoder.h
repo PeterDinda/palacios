@@ -418,16 +418,17 @@ static inline int decode_gpr(struct v3_gprs * gprs,
 	    val;							\
 	})
 
-static  int decode_rm_operand16(struct v3_gprs * gprs, 
-				      char * modrm_instr, 
-				      struct x86_operand * operand, 
-				      uint8_t * reg_code) { 
+static  int decode_rm_operand16(struct guest_info * core,
+				uint8_t * modrm_instr, 
+				struct x86_instr * instr,
+				struct x86_operand * operand, 
+				uint8_t * reg_code) { 
 
-    
+    struct v3_gprs * gprs = &(core->vm_regs);
     struct modrm_byte * modrm = (struct modrm_byte *)modrm_instr;
     addr_t base_addr = 0;
     modrm_mode_t mod_mode = 0;
-    char * instr_cursor = modrm_instr;
+    uint8_t * instr_cursor = modrm_instr;
 
     //  PrintDebug("ModRM mod=%d\n", modrm->mod);
     
@@ -442,6 +443,7 @@ static  int decode_rm_operand16(struct v3_gprs * gprs,
 	decode_gpr(gprs, modrm->rm, operand);
 
     } else {
+	struct v3_segment * seg = NULL;
 
 	operand->type = MEM_OPERAND;
 
@@ -495,7 +497,23 @@ static  int decode_rm_operand16(struct v3_gprs * gprs,
 	    instr_cursor += 2;
 	}
     
-	operand->operand = base_addr;
+	
+	// get appropriate segment
+	if (instr->prefixes.cs_override) {
+	    seg = &(core->segments.cs);
+	} else if (instr->prefixes.es_override) {
+	    seg = &(core->segments.es);
+	} else if (instr->prefixes.ss_override) {
+	    seg = &(core->segments.ss);
+	} else if (instr->prefixes.fs_override) {
+	    seg = &(core->segments.fs);
+	} else if (instr->prefixes.gs_override) {
+	    seg = &(core->segments.gs);
+	} else {
+	    seg = &(core->segments.ds);
+	}
+	
+	operand->operand = get_addr_linear(core, base_addr, seg);
     }
 
 
@@ -504,12 +522,14 @@ static  int decode_rm_operand16(struct v3_gprs * gprs,
 
 
 // returns num_bytes parsed
-static int decode_rm_operand32(struct v3_gprs * gprs,      // input/output
-			       uint8_t * modrm_instr,        // input
+static int decode_rm_operand32(struct guest_info * core, 
+			       uint8_t * modrm_instr,  
+			       struct x86_instr * instr,
 			       struct x86_operand * operand, 
 			       uint8_t * reg_code) {
-    
-    uchar_t * instr_cursor = modrm_instr;
+
+    struct v3_gprs * gprs = &(core->vm_regs);
+    uint8_t * instr_cursor = modrm_instr;
     struct modrm_byte * modrm = (struct modrm_byte *)modrm_instr;
     addr_t base_addr = 0;
     modrm_mode_t mod_mode = 0;
@@ -527,6 +547,7 @@ static int decode_rm_operand32(struct v3_gprs * gprs,      // input/output
 	decode_gpr(gprs, modrm->rm, operand);
 
     } else {
+	struct v3_segment * seg = NULL;
 
 	operand->type = MEM_OPERAND;
 
@@ -647,8 +668,22 @@ static int decode_rm_operand32(struct v3_gprs * gprs,      // input/output
 	    instr_cursor += 4;
 	}
     
-
-	operand->operand = base_addr;
+	// get appropriate segment
+	if (instr->prefixes.cs_override) {
+	    seg = &(core->segments.cs);
+	} else if (instr->prefixes.es_override) {
+	    seg = &(core->segments.es);
+	} else if (instr->prefixes.ss_override) {
+	    seg = &(core->segments.ss);
+	} else if (instr->prefixes.fs_override) {
+	    seg = &(core->segments.fs);
+	} else if (instr->prefixes.gs_override) {
+	    seg = &(core->segments.gs);
+	} else {
+	    seg = &(core->segments.ds);
+	}
+	
+	operand->operand = get_addr_linear(core, base_addr, seg);
     }
 
 
@@ -661,15 +696,16 @@ static int decode_rm_operand32(struct v3_gprs * gprs,      // input/output
 
 static int decode_rm_operand(struct guest_info * core, 
 			     uint8_t * instr_ptr,        // input
+			     struct x86_instr * instr,
 			     struct x86_operand * operand, 
 			     uint8_t * reg_code) {
     
     v3_cpu_mode_t mode = v3_get_vm_cpu_mode(core);
 
     if (mode == REAL) {
-	return decode_rm_operand16(&(core->vm_regs), instr_ptr, operand, reg_code);
+	return decode_rm_operand16(core, instr_ptr, instr, operand, reg_code);
     } else if ((mode == PROTECTED) || (mode == PROTECTED_PAE)) {
-	return decode_rm_operand32(&(core->vm_regs), instr_ptr, operand, reg_code);
+	return decode_rm_operand32(core, instr_ptr, instr, operand, reg_code);
     } else {
 	PrintError("Invalid CPU_MODE (%d)\n", mode);
 	return -1;

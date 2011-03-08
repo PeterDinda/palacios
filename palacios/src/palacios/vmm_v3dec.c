@@ -140,7 +140,7 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 
 	    instr->dst_operand.size = operand_width;
 
-	    ret = decode_rm_operand(core, instr_ptr, &(instr->dst_operand), &reg_code);
+	    ret = decode_rm_operand(core, instr_ptr, instr, &(instr->dst_operand), &reg_code);
 
 	    if (ret == -1) {
 		PrintError("Error decoding operand\n");
@@ -187,7 +187,7 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 
 	    instr->dst_operand.size = operand_width;
 
-	    ret = decode_rm_operand(core, instr_ptr, &(instr->dst_operand), &reg_code);
+	    ret = decode_rm_operand(core, instr_ptr, instr, &(instr->dst_operand), &reg_code);
 
 	    if (ret == -1) {
 		PrintError("Error decoding operand\n");
@@ -221,7 +221,7 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	    uint8_t reg_code = 0;
 	    instr->src_operand.size = operand_width;
 
-	    ret = decode_rm_operand(core, instr_ptr, &(instr->src_operand), &reg_code);
+	    ret = decode_rm_operand(core, instr_ptr, instr, &(instr->src_operand), &reg_code);
 
 	    if (ret == -1) {
 		PrintError("Error decoding operand\n");
@@ -247,7 +247,7 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	    uint8_t reg_code = 0;
 	    instr->src_operand.size = operand_width;
 
-	    ret = decode_rm_operand(core, instr_ptr, &(instr->src_operand), &reg_code);
+	    ret = decode_rm_operand(core, instr_ptr, instr, &(instr->src_operand), &reg_code);
 
 	    if (ret == -1) {
 		PrintError("Error decoding operand\n");
