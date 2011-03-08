@@ -23,11 +23,6 @@
 /* .... Giant fucking switch tables */
 
 
-
-
-
-
-
 typedef enum {
     INVALID_INSTR,
     LMSW,
@@ -140,15 +135,30 @@ typedef enum {
 } op_form_t;
 
 
+static int get_addr_width(struct guest_info * info, struct x86_instr * instr,
+			  op_form_t form) {
 
+    switch (v3_get_vm_cpu_mode(info)) {
+	case REAL:
+	    return (instr->prefixes.addr_size) ? 4 : 2;
+	case PROTECTED:
+	case PROTECTED_PAE:
+	    return (instr->prefixes.addr_size) ? 2 : 4;
+	case LONG_32_COMPAT:
+	case LONG:
+	default:
+	    PrintError("Unsupported CPU mode: %d\n", info->cpu_mode);
+	    return -1;
+    }
+}
 
-static int get_operand_width(struct guest_info * info, struct x86_instr * instr, op_form_t form) {
+static int get_operand_width(struct guest_info * info, struct x86_instr * instr, 
+			     op_form_t form) {
     switch (form) {
 
 	case CLTS:
 	case HLT:
 	    return 0;
-
 
 	case MOV_MEM2_8:
 	case MOV_2MEM_8:
@@ -199,7 +209,6 @@ static int get_operand_width(struct guest_info * info, struct x86_instr * instr,
 	case SETZ:
 	case SETO:
 	    return 1;
-
 
 	case LMSW:
 	case SMSW:
@@ -256,7 +265,6 @@ static int get_operand_width(struct guest_info * info, struct x86_instr * instr,
 		    return -1;
 	    }
 
-
 	case INVLPG:
 	    switch (v3_get_vm_cpu_mode(info)) {
 		case REAL:
@@ -271,7 +279,6 @@ static int get_operand_width(struct guest_info * info, struct x86_instr * instr,
 		    PrintError("Unsupported CPU mode: %d\n", info->cpu_mode);
 		    return -1;
 	    }
-
 
 	case PUSHF:
 	case POPF:
@@ -303,7 +310,6 @@ static int get_operand_width(struct guest_info * info, struct x86_instr * instr,
 		    PrintError("Unsupported CPU mode: %d\n", info->cpu_mode);
 		    return -1;
 	    }
-
 
 	case MOV_SR2:
 	case MOV_2SR:
@@ -672,7 +678,9 @@ static int decode_rm_operand(struct guest_info * core,
 			     
 
 
-static inline op_form_t op_code_to_form_0f(uint8_t * instr) {
+static inline op_form_t op_code_to_form_0f(uint8_t * instr, int * length) {
+    *length += 1;
+
     switch (instr[1]) {
 	case 0x01: {
 	    struct modrm_byte * modrm = (struct modrm_byte *)&(instr[2]);
@@ -751,7 +759,9 @@ static inline op_form_t op_code_to_form_0f(uint8_t * instr) {
 }
 
 
-static op_form_t op_code_to_form(uint8_t * instr) {
+static op_form_t op_code_to_form(uint8_t * instr, int * length) {
+    *length += 1;
+
     switch (instr[0]) {
 	case 0x00:
 	    return ADD_2MEM_8;
@@ -773,7 +783,7 @@ static op_form_t op_code_to_form(uint8_t * instr) {
 
 
 	case 0x0f:
-	    return op_code_to_form_0f(instr);
+	    return op_code_to_form_0f(instr, length);
 
 	case 0x10:
 	    return ADC_2MEM_8;

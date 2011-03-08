@@ -21,6 +21,34 @@
 #include <palacios/vmm_instr_decoder.h>
 
 
+/* Disgusting mask hack...
+   I can't think right now, so we'll do it this way...
+*/
+static const ullong_t mask_1 = 0x00000000000000ffLL;
+static const ullong_t mask_2 = 0x000000000000ffffLL;
+static const ullong_t mask_4 = 0x00000000ffffffffLL;
+static const ullong_t mask_8 = 0xffffffffffffffffLL;
+
+
+#define MASK(val, length) ({			\
+	    ullong_t mask = 0x0LL;		\
+	    switch (length) {			\
+		case 1:				\
+		    mask = mask_1;		\
+		    break;			\
+		case 2:				\
+		    mask = mask_2;		\
+		    break;			\
+		case 4:				\
+		    mask = mask_4;		\
+		    break;			\
+		case 8:				\
+		    mask = mask_8;		\
+		    break;			\
+	    }					\
+	    val & mask;				\
+	})
+
 static v3_op_type_t op_form_to_type(op_form_t form);
 static int parse_operands(struct guest_info * core, uint8_t * instr_ptr, struct x86_instr * instr, op_form_t form);
 
@@ -28,7 +56,6 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr, struct 
 int v3_disasm(struct guest_info * info, void *instr_ptr, addr_t * rip, int mark) {
     return 0;
 }
-
 
 
 int v3_init_decoder(struct guest_info * core) { 
@@ -45,39 +72,56 @@ int v3_encode(struct guest_info * info, struct x86_instr * instr, uint8_t * inst
     return 0;
 }
 
+
 int v3_decode(struct guest_info * core, addr_t instr_ptr, struct x86_instr * instr) {
-    op_form_t form;
+    op_form_t form = INVALID_INSTR; 
+    int ret = 0;
+    int length = 0;
 
     memset(instr, 0, sizeof(struct x86_instr));
 
     // scan for prefixes
-    instr_ptr += v3_get_prefixes((uint8_t *)instr_ptr, &(instr->prefixes));
+    length = v3_get_prefixes((uint8_t *)instr_ptr, &(instr->prefixes));
 
 
     // check for REX prefix
 
 
-    form = op_code_to_form((uint8_t *)instr_ptr);
+    form = op_code_to_form((uint8_t *)(instr_ptr + length), &length);
+
+    if (form == INVALID_INSTR) {
+	PrintError("Could not find instruction form (%x)\n", *(uint32_t *)(instr_ptr + length));
+	return -1;
+    }
+
     instr->op_type = op_form_to_type(form);
 
-    parse_operands(core, (uint8_t *)instr_ptr, instr, form);
+    ret = parse_operands(core, (uint8_t *)(instr_ptr + length), instr, form);
+
+    if (ret == -1) {
+	PrintError("Could not parse instruction operands\n");
+	return -1;
+    }
+    length += ret;
+    
+
+    instr->instr_length += length;
 
 
     return 0;
 }
 
 
-
-
-
-static int parse_operands(struct guest_info * core, uint8_t * instr_ptr, struct x86_instr * instr, op_form_t form) {
+static int parse_operands(struct guest_info * core, uint8_t * instr_ptr, 
+			  struct x86_instr * instr, op_form_t form) {
     // get operational mode of the guest for operand width
-    int operand_width = get_operand_width(core, instr, form);
+    uint8_t operand_width = get_operand_width(core, instr, form);
+    uint8_t addr_width = get_addr_width(core, instr, form);;
     int ret = 0;
-	    
+    uint8_t * instr_start = instr_ptr;
     
-    switch (form) {
 
+    switch (form) {
 	case ADC_IMM2_8:
 	case ADD_IMM2_8:
 	case AND_IMM2_8:
@@ -92,7 +136,8 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr, struct 
   	case SUB_IMM2:
 	case XOR_IMM2: 
 	case MOV_IMM2:{
-	    uint8_t reg_code = 0;;
+	    uint8_t reg_code = 0;
+
 	    instr->dst_operand.size = operand_width;
 
 	    ret = decode_rm_operand(core, instr_ptr, &(instr->dst_operand), &reg_code);
@@ -117,6 +162,10 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr, struct 
 		PrintError("Illegal operand width (%d)\n", operand_width);
 		return -1;
 	    }
+
+	    instr_ptr += operand_width;
+
+	    instr->num_operands = 2;
 
 	    break;
 	}
@@ -151,9 +200,10 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr, struct 
 	    instr->src_operand.size = operand_width;
 
 	    decode_gpr(&(core->vm_regs), reg_code, &(instr->src_operand));
+
+	    instr->num_operands = 2;
 	    break;
 	}
-
 	case ADC_MEM2_8:
 	case ADD_MEM2_8:
 	case AND_MEM2_8:
@@ -184,10 +234,10 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr, struct 
 	    instr->dst_operand.type = REG_OPERAND;
 	    decode_gpr(&(core->vm_regs), reg_code, &(instr->dst_operand));
 
+	    instr->num_operands = 2;
+
 	    break;
 	}
-
-
 	case ADC_IMM2SX_8:
 	case ADD_IMM2SX_8:
 	case AND_IMM2SX_8:
@@ -210,17 +260,45 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr, struct 
 	    instr->src_operand.size = operand_width;
 	    instr->src_operand.operand = *(sint8_t *)instr_ptr;  // sign extend.
 
+	    instr_ptr += 1;
 
+	    instr->num_operands = 2;
+
+	    break;
 	}
+	case MOVS:
+	case MOVS_8: {
+	    instr->is_str_op = 1;
+	    
+	    if (instr->prefixes.rep == 1) {
+		instr->str_op_length = MASK(core->vm_regs.rcx, operand_width);
+	    } else {
+		instr->str_op_length = 1;
+	    }
 
+	    // Source: DS:(E)SI
+	    // Source: ES:(E)DI
+
+	    instr->src_operand.type = MEM_OPERAND;
+	    instr->src_operand.size = operand_width;
+	    instr->src_operand.operand = core->segments.ds.base + MASK(core->vm_regs.rsi, addr_width);
+
+	    instr->src_operand.type = MEM_OPERAND;
+	    instr->src_operand.size = operand_width;
+	    instr->src_operand.operand = core->segments.es.base + MASK(core->vm_regs.rdi, addr_width);
+
+	    instr->num_operands = 2;
+
+	    break;
+	}
 	default:
 	    PrintError("Invalid Instruction form: %d\n", form);
 	    return -1;
-	    
     }
 
-    return 0;
+    return (instr_ptr - instr_start);
 }
+
 
 static v3_op_type_t op_form_to_type(op_form_t form) { 
     switch (form) {

@@ -236,7 +236,8 @@ static int decode_string_op(struct guest_info * info,
 	    addr_t reg_addr = 0;
 	    uint_t reg_length = 0;
 
-	    xed_reg_to_v3_reg(info, xed_decoded_inst_get_reg(xed_instr, XED_OPERAND_REG1), &reg_addr, &reg_length);
+	    xed_reg_to_v3_reg(info, xed_decoded_inst_get_reg(xed_instr, XED_OPERAND_REG1), 
+			      &reg_addr, &reg_length);
 	    instr->str_op_length = MASK(*(addr_t *)reg_addr, reg_length);
 	} else {
 	    instr->str_op_length = 1;
@@ -674,7 +675,8 @@ static int get_memory_operand(struct guest_info * info,  xed_decoded_inst_t * xe
 }
 
 
-static int xed_reg_to_v3_reg(struct guest_info * info, xed_reg_enum_t xed_reg, addr_t * v3_reg, uint_t * reg_len) {
+static int xed_reg_to_v3_reg(struct guest_info * info, xed_reg_enum_t xed_reg, 
+			     addr_t * v3_reg, uint_t * reg_len) {
 
     PrintDebug("Xed Register: %s\n", xed_reg_enum_t2str(xed_reg));
 

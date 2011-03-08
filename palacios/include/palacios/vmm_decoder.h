@@ -67,7 +67,7 @@ struct x86_prefixes {
 
 struct x86_instr {
     struct x86_prefixes prefixes;
-    uint_t instr_length;
+    uint8_t instr_length;
     v3_op_type_t op_type;
     uint_t num_operands;
     struct x86_operand dst_operand;
@@ -75,7 +75,7 @@ struct x86_instr {
     struct x86_operand third_operand;
     addr_t str_op_length;
     addr_t is_str_op;
-    void * decoder_data;
+    //  void * decoder_data;
 };
 
 
