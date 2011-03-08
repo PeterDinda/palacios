@@ -345,9 +345,11 @@ struct sib_byte {
 
 struct v3_gprs;
 
-static inline int decode_gpr(struct v3_gprs * gprs, 			
+static inline int decode_gpr(struct guest_info * core,
 			     uint8_t reg_code,
 			     struct x86_operand * reg) {
+
+    struct v3_gprs * gprs = &(core->vm_regs);
 
     switch (reg_code) {
 	case 0:
@@ -391,13 +393,46 @@ static inline int decode_gpr(struct v3_gprs * gprs,
 	    }
 	    break;
 	default:
+	    PrintError("Invalid Reg Code (%d)\n", reg_code);
 	    reg->operand = 0;
-	    break;
+	    return -1;
     }
 
     return 0;
 }
 
+
+
+
+static inline int decode_cr(struct guest_info * core, 			
+			     uint8_t reg_code,
+			     struct x86_operand * reg) {
+
+    struct v3_ctrl_regs * crs = &(core->ctrl_regs);
+
+    PrintDebug("\t Ctrl regs %d\n", reg_code);
+
+    switch (reg_code) {
+	case 0:
+	    reg->operand = (addr_t)&(crs->cr0);
+	    break;
+	case 2:
+	    reg->operand = (addr_t)&(crs->cr2);
+	    break;
+	case 3:
+	    reg->operand = (addr_t)&(crs->cr3);
+	    break;
+	case 4:
+	    reg->operand = (addr_t)&(crs->cr4);
+	    break;
+	default:
+	    reg->operand = 0;
+	    PrintError("Invalid Reg Code (%d)\n", reg_code);
+	    return -1;
+    }
+
+    return 0;
+}
 
 // This converts the displacement into the appropriate masked value
 /* 
@@ -413,7 +448,7 @@ static inline int decode_gpr(struct v3_gprs * gprs,
 		val = (sint32_t)(reg & 0xffffffff);			\
 	    } else {							\
 		PrintError("Error invalid displacement size (%d)\n", mode); \
-		V3_ASSERT(0);						\
+		/*V3_ASSERT(0);*/					\
 	    }								\
 	    val;							\
 	})
@@ -440,7 +475,7 @@ static  int decode_rm_operand16(struct guest_info * core,
 	//PrintDebug("first operand = Register (RM=%d)\n",modrm->rm);
 	operand->type = REG_OPERAND;
 
-	decode_gpr(gprs, modrm->rm, operand);
+	decode_gpr(core, modrm->rm, operand);
 
     } else {
 	struct v3_segment * seg = NULL;
@@ -544,7 +579,7 @@ static int decode_rm_operand32(struct guest_info * core,
     	operand->type = REG_OPERAND;
 	//    PrintDebug("first operand = Register (RM=%d)\n",modrm->rm);
 
-	decode_gpr(gprs, modrm->rm, operand);
+	decode_gpr(core, modrm->rm, operand);
 
     } else {
 	struct v3_segment * seg = NULL;
@@ -1025,5 +1060,116 @@ static op_form_t op_code_to_form(uint8_t * instr, int * length) {
 
 	default:
 	    return INVALID_INSTR;
+    }
+}
+
+
+
+static char * op_form_to_str(op_form_t form) {
+
+    switch (form) {
+	case LMSW: return "LMSW";
+	case SMSW: return "SMSW";
+	case CLTS: return "CLTS";
+	case INVLPG: return "INVLPG";
+	case MOV_CR2: return "MOV_CR2";
+	case MOV_2CR: return "MOV_2CR";
+	case MOV_DR2: return "MOV_DR2";
+	case MOV_2DR: return "MOV_2DR";
+	case MOV_SR2: return "MOV_SR2";
+	case MOV_2SR: return "MOV_2SR";
+	case MOV_MEM2_8: return "MOV_MEM2_8";
+	case MOV_MEM2: return "MOV_MEM2";
+	case MOV_2MEM_8: return "MOV_2MEM_8";
+	case MOV_2MEM: return "MOV_2MEM";
+	case MOV_MEM2AL_8: return "MOV_MEM2AL_8";
+	case MOV_MEM2AX: return "MOV_MEM2AX";
+	case MOV_AL2MEM_8: return "MOV_AL2MEM_8";
+	case MOV_AX2MEM: return "MOV_AX2MEM";
+	case MOV_IMM2_8: return "MOV_IMM2_8";
+	case MOV_IMM2: return "MOV_IMM2";
+	case MOVS_8: return "MOVS_8";
+	case MOVS: return "MOVS";
+	case MOVSX_8: return "MOVSX_8";
+	case MOVSX: return "MOVSX";
+	case MOVZX_8: return "MOVZX_8";
+	case MOVZX: return "MOVZX";
+	case HLT: return "HLT";
+	case PUSHF: return "PUSHF";
+	case POPF: return "POPF";
+	case ADC_2MEM_8: return "ADC_2MEM_8";
+	case ADC_2MEM: return "ADC_2MEM";
+	case ADC_MEM2_8: return "ADC_MEM2_8";
+	case ADC_MEM2: return "ADC_MEM2";
+	case ADC_IMM2_8: return "ADC_IMM2_8";
+	case ADC_IMM2: return "ADC_IMM2";
+	case ADC_IMM2SX_8: return "ADC_IMM2SX_8";
+	case ADD_IMM2_8: return "ADD_IMM2_8";
+	case ADD_IMM2: return "ADD_IMM2";
+	case ADD_IMM2SX_8: return "ADD_IMM2SX_8";
+	case ADD_2MEM_8: return "ADD_2MEM_8";
+	case ADD_2MEM: return "ADD_2MEM";
+	case ADD_MEM2_8: return "ADD_MEM2_8";
+	case ADD_MEM2: return "ADD_MEM2";
+	case AND_MEM2_8: return "AND_MEM2_8";
+	case AND_MEM2: return "AND_MEM2";
+	case AND_2MEM_8: return "AND_2MEM_8";
+	case AND_2MEM: return "AND_2MEM";
+	case AND_IMM2_8: return "AND_IMM2_8";
+	case AND_IMM2: return "AND_IMM2";
+	case AND_IMM2SX_8: return "AND_IMM2SX_8";
+	case OR_2MEM_8: return "OR_2MEM_8";
+	case OR_2MEM: return "OR_2MEM";
+	case OR_MEM2_8: return "OR_MEM2_8";
+	case OR_MEM2: return "OR_MEM2";
+	case OR_IMM2_8: return "OR_IMM2_8";
+	case OR_IMM2: return "OR_IMM2";
+	case OR_IMM2SX_8: return "OR_IMM2SX_8";
+	case SUB_2MEM_8: return "SUB_2MEM_8";
+	case SUB_2MEM: return "SUB_2MEM";
+	case SUB_MEM2_8: return "SUB_MEM2_8";
+	case SUB_MEM2: return "SUB_MEM2";
+	case SUB_IMM2_8: return "SUB_IMM2_8";
+	case SUB_IMM2: return "SUB_IMM2";
+	case SUB_IMM2SX_8: return "SUB_IMM2SX_8";
+	case XOR_2MEM_8: return "XOR_2MEM_8";
+	case XOR_2MEM: return "XOR_2MEM";
+	case XOR_MEM2_8: return "XOR_MEM2_8";
+	case XOR_MEM2: return "XOR_MEM2";
+	case XOR_IMM2_8: return "XOR_IMM2_8";
+	case XOR_IMM2: return "XOR_IMM2";
+	case XOR_IMM2SX_8: return "XOR_IMM2SX_8";
+	case INC_8: return "INC_8";
+	case INC: return "INC";
+	case DEC_8: return "DEC_8";
+	case DEC: return "DEC";
+	case NEG_8: return "NEG_8";
+	case NEG: return "NEG"; 
+	case NOT_8: return "NOT_8";
+	case NOT: return "NOT";
+	case XCHG_8: return "XCHG_8";
+	case XCHG: return "XCHG";
+	case SETB: return "SETB";
+	case SETBE: return "SETBE";
+	case SETL: return "SETL";
+	case SETLE: return "SETLE";
+	case SETNB: return "SETNB";
+	case SETNBE: return "SETNBE";
+	case SETNL: return "SETNL";
+	case SETNLE: return "SETNLE";
+	case SETNO: return "SETNO";
+	case SETNP: return "SETNP";
+	case SETNS: return "SETNS";
+	case SETNZ: return "SETNZ";
+	case SETP: return "SETP";
+	case SETS: return "SETS";
+	case SETZ: return "SETZ";
+	case SETO: return "SETO";
+	case STOS_8: return "STOS_8";
+	case STOS: return "STOS";
+
+	case INVALID_INSTR:
+	default:
+	    return "INVALID_INSTR";
     }
 }

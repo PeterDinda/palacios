@@ -252,14 +252,14 @@ void v3_print_ctrl_regs(struct guest_info * info) {
     V3_Print("32 bit Ctrl Regs:\n");
 
     for (i = 0; reg_names[i] != NULL; i++) {
-	V3_Print("\t%s=0x%p\n", reg_names[i], (void *)(addr_t)reg_ptr[i]);  
+	V3_Print("\t%s=0x%p (at %p)\n", reg_names[i], (void *)(addr_t)reg_ptr[i], &(reg_ptr[i]));  
     }
 
     V3_Print("\tEFER=0x%p\n", (void*)(addr_t)(guest_state->efer));
 
 }
 
-
+#if 0
 static int safe_gva_to_hva(struct guest_info * info, addr_t linear_addr, addr_t * host_addr) {
     /* select the proper translation based on guest mode */
     if (info->mem_mode == PHYSICAL_MEM) {
@@ -282,6 +282,8 @@ static int v3_print_disassembly(struct guest_info * info) {
     /* start disassembly 64 bytes before current RIP, continue 32 bytes after */
     rip = (addr_t) info->rip - 64;
     while ((int) (rip - info->rip) < 32) {
+	V3_Print("disassembly step\n");
+
     	/* always print RIP, even if the instructions before were bad */
     	if (!passed_rip && rip >= info->rip) {
     	    if (rip != info->rip) {
@@ -303,11 +305,13 @@ static int v3_print_disassembly(struct guest_info * info) {
     	    rip++;
     	    continue;
     	}
+
     }
 
     return 0;
 }
 
+#endif
 
 void v3_print_guest_state(struct guest_info * info) {
     addr_t linear_addr = 0; 
@@ -334,7 +338,7 @@ void v3_print_guest_state(struct guest_info * info) {
 
     v3_print_stack(info);
 
-    v3_print_disassembly(info);
+    //  v3_print_disassembly(info);
 }
 
 void v3_print_guest_state_all(struct v3_vm_info * vm) {
@@ -410,7 +414,7 @@ void v3_print_GPRs(struct guest_info * info) {
     V3_Print("32 bit GPRs:\n");
 
     for (i = 0; reg_names[i] != NULL; i++) {
-	V3_Print("\t%s=0x%p\n", reg_names[i], (void *)(addr_t)reg_ptr[i]);  
+	V3_Print("\t%s=0x%p (at %p)\n", reg_names[i], (void *)(addr_t)reg_ptr[i], &(reg_ptr[i]));  
     }
 }
 
@@ -428,7 +432,7 @@ void v3_print_GPRs(struct guest_info * info) {
     V3_Print("64 bit GPRs:\n");
 
     for (i = 0; reg_names[i] != NULL; i++) {
-	V3_Print("\t%s=0x%p\n", reg_names[i], (void *)(addr_t)reg_ptr[i]);  
+	V3_Print("\t%s=0x%p (at %p)\n", reg_names[i], (void *)(addr_t)reg_ptr[i], &(reg_ptr[i]));  
     }
 }
 

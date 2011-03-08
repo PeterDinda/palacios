@@ -120,6 +120,8 @@ uint8_t v3_get_prefixes(uint8_t * instr, struct x86_prefixes * prefixes);
 
 
 
+void v3_print_instr(struct x86_instr * instr);
+
 
 #define PREFIX_LOCK         0xF0
 #define PREFIX_REPNE        0xF2
