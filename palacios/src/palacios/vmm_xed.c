@@ -556,7 +556,7 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 }
 
 
-int v3_encode(struct guest_info * info, struct x86_instr * instr, char * instr_buf) {
+int v3_encode(struct guest_info * info, struct x86_instr * instr, uint8_t * instr_buf) {
 
     return -1;
 }

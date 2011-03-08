@@ -41,12 +41,27 @@
 #include <palacios/vmm_telemetry.h>
 #endif
 
+/* At this point the GPRs are already copied into the guest_info state */
+int v3_handle_atomic_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_info) {
+    struct vmx_data * vmx_info = (struct vmx_data *)(info->vmm_data);
 
+    switch (exit_info->exit_reason) {
+        case VMEXIT_INTR_WINDOW:
+	    // This is here because we touch the VMCS 
+	    vmcs_read(VMCS_PROC_CTRLS, &(vmx_info->pri_proc_ctrls.value));
+            vmx_info->pri_proc_ctrls.int_wndw_exit = 0;
+            vmcs_write(VMCS_PROC_CTRLS, vmx_info->pri_proc_ctrls.value);
+
+#ifdef CONFIG_DEBUG_INTERRUPTS
+            PrintDebug("Interrupts available again! (RIP=%llx)\n", info->rip);
+#endif
+            break;
+    }
+    return 0;
+}
 
 /* At this point the GPRs are already copied into the guest_info state */
 int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_info) {
-    struct vmx_data * vmx_info = (struct vmx_data *)(info->vmm_data);
-
     /*
       PrintError("Handling VMEXIT: %s (%u), %lu (0x%lx)\n", 
       v3_vmx_exit_code_to_str(exit_info->exit_reason),
@@ -221,15 +236,8 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
             // Interrupts are handled outside switch
             break;
         case VMEXIT_INTR_WINDOW:
-
-	    vmcs_read(VMCS_PROC_CTRLS, &(vmx_info->pri_proc_ctrls.value));
-            vmx_info->pri_proc_ctrls.int_wndw_exit = 0;
-            vmcs_write(VMCS_PROC_CTRLS, vmx_info->pri_proc_ctrls.value);
-
-#ifdef CONFIG_DEBUG_INTERRUPTS
-            PrintDebug("Interrupts available again! (RIP=%llx)\n", info->rip);
-#endif
-
+	    // This is handled in the atomic part of the vmx code,
+	    // not in the generic (interruptable) vmx handler
             break;
         default:
             PrintError("Unhandled VMEXIT: %s (%u), %lu (0x%lx)\n", 

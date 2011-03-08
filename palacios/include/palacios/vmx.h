@@ -181,6 +181,11 @@ struct vmx_basic_msr {
 typedef enum { 
     VMXASSIST_DISABLED,
     VMXASSIST_ENABLED
+} vmxassist_state_t;
+
+typedef enum {
+    VMX_UNLAUNCHED,
+    VMX_LAUNCHED
 } vmx_state_t;
 
 struct tss_descriptor {
@@ -218,6 +223,7 @@ struct vmcs_host_state {
 
 struct vmx_data {
     vmx_state_t state;
+    vmxassist_state_t assist_state;
     struct vmcs_host_state host_state;
 
     addr_t vmcs_ptr_phys;
