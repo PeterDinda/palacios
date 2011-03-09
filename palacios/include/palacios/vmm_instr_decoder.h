@@ -135,8 +135,7 @@ typedef enum {
 } op_form_t;
 
 
-static int get_addr_width(struct guest_info * info, struct x86_instr * instr,
-			  op_form_t form) {
+static int get_addr_width(struct guest_info * info, struct x86_instr * instr) {
 
     switch (v3_get_vm_cpu_mode(info)) {
 	case REAL:
@@ -453,6 +452,25 @@ static inline int decode_cr(struct guest_info * core,
 	    val;							\
 	})
 
+
+#define ADDR_MASK(val, length) ({			      \
+            ullong_t mask = 0x0LL;			      \
+            switch (length) {				      \
+                case 2:					      \
+                    mask = 0x00000000000fffffLL;	      \
+                    break;				      \
+                case 4:					      \
+                    mask = 0x00000000ffffffffLL;	      \
+                    break;				      \
+                case 8:					      \
+                    mask = 0xffffffffffffffffLL;              \
+                    break;				      \
+            }						      \
+            val & mask;					      \
+        })
+
+
+
 static  int decode_rm_operand16(struct guest_info * core,
 				uint8_t * modrm_instr, 
 				struct x86_instr * instr,
@@ -548,7 +566,8 @@ static  int decode_rm_operand16(struct guest_info * core,
 	    seg = &(core->segments.ds);
 	}
 	
-	operand->operand = get_addr_linear(core, base_addr, seg);
+	operand->operand = ADDR_MASK(get_addr_linear(core, base_addr, seg), 
+				     get_addr_width(core, instr));
     }
 
 
@@ -718,7 +737,8 @@ static int decode_rm_operand32(struct guest_info * core,
 	    seg = &(core->segments.ds);
 	}
 	
-	operand->operand = get_addr_linear(core, base_addr, seg);
+	operand->operand = ADDR_MASK(get_addr_linear(core, base_addr, seg), 
+				get_addr_width(core, instr));
     }
 
 

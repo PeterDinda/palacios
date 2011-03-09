@@ -21,33 +21,24 @@
 #include <palacios/vmm_instr_decoder.h>
 
 
-/* Disgusting mask hack...
-   I can't think right now, so we'll do it this way...
-*/
-static const ullong_t mask_1 = 0x00000000000000ffLL;
-static const ullong_t mask_2 = 0x000000000000ffffLL;
-static const ullong_t mask_4 = 0x00000000ffffffffLL;
-static const ullong_t mask_8 = 0xffffffffffffffffLL;
-
-
-#define MASK(val, length) ({			\
-	    ullong_t mask = 0x0LL;		\
-	    switch (length) {			\
-		case 1:				\
-		    mask = mask_1;		\
-		    break;			\
-		case 2:				\
-		    mask = mask_2;		\
-		    break;			\
-		case 4:				\
-		    mask = mask_4;		\
-		    break;			\
-		case 8:				\
-		    mask = mask_8;		\
-		    break;			\
-	    }					\
-	    val & mask;				\
-	})
+#define MASK(val, length) ({						\
+            ullong_t mask = 0x0LL;					\
+            switch (length) {						\
+		case 1:							\
+		    mask = 0x00000000000000ffLL;			\
+                    break;						\
+                case 2:							\
+                    mask = 0x000000000000ffffLL;			\
+                    break;						\
+                case 4:							\
+                    mask = 0x00000000ffffffffLL;			\
+                    break;						\
+                case 8:							\
+                    mask = 0xffffffffffffffffLL;			\
+                    break;						\
+            }								\
+            val & mask;							\
+        })
 
 static v3_op_type_t op_form_to_type(op_form_t form);
 static int parse_operands(struct guest_info * core, uint8_t * instr_ptr, struct x86_instr * instr, op_form_t form);
@@ -124,7 +115,7 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 			  struct x86_instr * instr, op_form_t form) {
     // get operational mode of the guest for operand width
     uint8_t operand_width = get_operand_width(core, instr, form);
-    uint8_t addr_width = get_addr_width(core, instr, form);
+    uint8_t addr_width = get_addr_width(core, instr);
     int ret = 0;
     uint8_t * instr_start = instr_ptr;
     
