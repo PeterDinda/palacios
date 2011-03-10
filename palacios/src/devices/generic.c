@@ -40,28 +40,11 @@ struct generic_internal {
 };
 
 
-struct port_range {
-    uint_t start;
-    uint_t end;
-    generic_mode_t mode;
-    struct list_head range_link;
-};
-
-
-
 
 
 static int generic_write_port_passthrough(struct guest_info * core, uint16_t port, void * src, 
 					  uint_t length, void * priv_data) {
     uint_t i;
-
-    PrintDebug("generic: writing 0x");
-
-    for (i = 0; i < length; i++) { 
-	PrintDebug("%x", ((uint8_t *)src)[i]);
-    }
-  
-    PrintDebug(" to port 0x%x ... ", port);
 
     switch (length) {
 	case 1:
@@ -79,17 +62,32 @@ static int generic_write_port_passthrough(struct guest_info * core, uint16_t por
 	    }
     }
 
+    return length;
+}
+
+static int generic_write_port_print_and_passthrough(struct guest_info * core, uint16_t port, void * src, 
+						    uint_t length, void * priv_data) {
+    uint_t i;
+    int rc;
+
+    PrintDebug("generic: writing 0x");
+
+    for (i = 0; i < length; i++) { 
+	PrintDebug("%x", ((uint8_t *)src)[i]);
+    }
+  
+    PrintDebug(" to port 0x%x ... ", port);
+
+    rc=generic_write_port_passthrough(core,port,src,length,priv_data);
+
     PrintDebug(" done\n");
   
-    return length;
+    return rc;
 }
 
 static int generic_read_port_passthrough(struct guest_info * core, uint16_t port, void * src, 
 					 uint_t length, void * priv_data) {
     uint_t i;
-
-    PrintDebug("generic: reading 0x%x bytes from port 0x%x ...", length, port);
-
 
     switch (length) {
 	case 1:
@@ -107,35 +105,42 @@ static int generic_read_port_passthrough(struct guest_info * core, uint16_t port
 	    }
     }
 
+    return length;
+}
+
+static int generic_read_port_print_and_passthrough(struct guest_info * core, uint16_t port, void * src, 
+						   uint_t length, void * priv_data) {
+    uint_t i;
+    int rc;
+    
+    PrintDebug("generic: reading 0x%x bytes from port 0x%x ...", length, port);
+
+
+    rc=generic_read_port_passthrough(core,port,src,length,priv_data);
+
     PrintDebug(" done ... read 0x");
 
-    for (i = 0; i < length; i++) { 
+    for (i = 0; i < rc; i++) { 
 	PrintDebug("%x", ((uint8_t *)src)[i]);
     }
 
     PrintDebug("\n");
 
-    return length;
+    return rc;
 }
 
-static int generic_write_port_ignore(struct guest_info * core, uint16_t port, void * src, 
-				     uint_t length, void * priv_data) {
-    int i;
-
-    PrintDebug("generic: writing 0x");
-
-    for (i = 0; i < length; i++) { 
-	PrintDebug("%x", ((uint8_t *)src)[i]);
-    }
-  
-    PrintDebug(" to port 0x%x ... ignored\n", port);
- 
-    return length;
-}
 
 static int generic_read_port_ignore(struct guest_info * core, uint16_t port, void * src, 
 				    uint_t length, void * priv_data) {
 
+    memset((uint8_t *)src, 0, length);
+
+    return length;
+}
+
+static int generic_read_port_print_and_ignore(struct guest_info * core, uint16_t port, void * src, 
+					      uint_t length, void * priv_data) {
+   
     PrintDebug("generic: reading 0x%x bytes from port 0x%x ...", length, port);
 
     memset((uint8_t *)src, 0, length);
@@ -144,6 +149,29 @@ static int generic_read_port_ignore(struct guest_info * core, uint16_t port, voi
     return length;
 }
 
+static int generic_write_port_ignore(struct guest_info * core, uint16_t port, void * src, 
+				     uint_t length, void * priv_data) {
+
+    return length;
+}
+
+static int generic_write_port_print_and_ignore(struct guest_info * core, uint16_t port, void * src, 
+					      uint_t length, void * priv_data) {
+    int i;
+
+    PrintDebug("generic: writing 0x%x bytes to port 0x%x ", length, port);
+
+    memset((uint8_t *)src, 0, length);
+    PrintDebug(" ignored - data was: 0x");
+
+    for (i = 0; i < length; i++) { 
+	PrintDebug("%x", ((uint8_t *)src)[i]);
+    }
+    
+    PrintDebug("\n");
+
+    return length;
+}
 
 
 
@@ -176,12 +204,26 @@ static int add_port_range(struct vm_device * dev, uint_t start, uint_t end, gene
     for (i = start; i <= end; i++) { 
 	if (mode == GENERIC_PRINT_AND_PASSTHROUGH) { 
 	    if (v3_dev_hook_io(dev, i, 
+				&generic_read_port_print_and_passthrough, 
+				&generic_write_port_print_and_passthrough) == -1) { 
+		PrintError("generic: can't hook port 0x%x (already hooked?)\n", i);
+		return -1;
+	    }
+	} else if (mode == GENERIC_PRINT_AND_IGNORE) { 
+	    if (v3_dev_hook_io(dev, i, 
+				&generic_read_port_print_and_ignore, 
+				&generic_write_port_print_and_ignore) == -1) { 
+		PrintError("generic: can't hook port 0x%x (already hooked?)\n", i);
+		return -1;
+	    }
+	} else if (mode == GENERIC_PASSTHROUGH) { 
+	    if (v3_dev_hook_io(dev, i, 
 				&generic_read_port_passthrough, 
 				&generic_write_port_passthrough) == -1) { 
 		PrintError("generic: can't hook port 0x%x (already hooked?)\n", i);
 		return -1;
 	    }
-	} else if (mode == GENERIC_PRINT_AND_IGNORE) { 
+	} else if (mode == GENERIC_IGNORE) { 
 	    if (v3_dev_hook_io(dev, i, 
 				&generic_read_port_ignore, 
 				&generic_write_port_ignore) == -1) { 
@@ -234,6 +276,10 @@ static int generic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	    mode = GENERIC_PRINT_AND_IGNORE;
 	} else if (strcasecmp(mode_str, "print_and_passthrough") == 0) {
 	    mode = GENERIC_PRINT_AND_PASSTHROUGH;
+	} else if (strcasecmp(mode_str, "passthrough") == 0) {
+	    mode = GENERIC_PASSTHROUGH;
+	} else if (strcasecmp(mode_str, "ignore") == 0) {
+	    mode = GENERIC_IGNORE;
 	} else {
 	    PrintError("Invalid Mode %s\n", mode_str);
 	    v3_remove_device(dev);
