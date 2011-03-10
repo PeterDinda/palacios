@@ -140,11 +140,16 @@ static int get_addr_width(struct guest_info * info, struct x86_instr * instr) {
     switch (v3_get_vm_cpu_mode(info)) {
 	case REAL:
 	    return (instr->prefixes.addr_size) ? 4 : 2;
+	case LONG:
+		return 8;
 	case PROTECTED:
 	case PROTECTED_PAE:
-	    return (instr->prefixes.addr_size) ? 2 : 4;
 	case LONG_32_COMPAT:
-	case LONG:
+		if (info->segments.cs.db) {
+			return (instr->prefixes.addr_size) ? 2 : 4;
+		} else {
+			return (instr->prefixes.addr_size) ? 4 : 2;
+		}			
 	default:
 	    PrintError("Unsupported CPU mode: %d\n", info->cpu_mode);
 	    return -1;
@@ -251,14 +256,22 @@ static int get_operand_width(struct guest_info * info, struct x86_instr * instr,
 	case OR_IMM2SX_8:
 	case SUB_IMM2SX_8:
 	case XOR_IMM2SX_8:
-	    switch (v3_get_vm_cpu_mode(info)) {
+	switch (v3_get_vm_cpu_mode(info)) {
 		case REAL:
 		    return (instr->prefixes.op_size) ? 4 : 2;
+		case LONG:
+			if (instr->prefixes.rex.op_size) {
+				return 8;
+			}
 		case PROTECTED:
 		case PROTECTED_PAE:
-		    return (instr->prefixes.op_size) ? 2 : 4;
 		case LONG_32_COMPAT:
-		case LONG:
+			if (info->segments.cs.db) {
+				// default is 32
+				return (instr->prefixes.op_size) ? 2 : 4;
+			} else {
+				return (instr->prefixes.op_size) ? 4 : 2;
+			}
 		default:
 		    PrintError("Unsupported CPU mode: %d\n", info->cpu_mode);
 		    return -1;
@@ -271,9 +284,11 @@ static int get_operand_width(struct guest_info * info, struct x86_instr * instr,
 		    return 0;
 		case PROTECTED:
 		case PROTECTED_PAE:
-		    return 4;
 		case LONG_32_COMPAT:
+
+			return 4;
 		case LONG:
+			return 8;
 		default:
 		    PrintError("Unsupported CPU mode: %d\n", info->cpu_mode);
 		    return -1;
@@ -286,9 +301,10 @@ static int get_operand_width(struct guest_info * info, struct x86_instr * instr,
 		    return 2;
 		case PROTECTED:
 		case PROTECTED_PAE:
-		    return 4;
 		case LONG_32_COMPAT:
+			return 4;
 		case LONG:
+			return 8;
 		default:
 		    PrintError("Unsupported CPU mode: %d\n", info->cpu_mode);
 		    return -1;
@@ -302,9 +318,11 @@ static int get_operand_width(struct guest_info * info, struct x86_instr * instr,
 		case REAL:
 		case PROTECTED:
 		case PROTECTED_PAE:
-		    return 4;
 		case LONG_32_COMPAT:
+
+			return 4;
 		case LONG:
+			return 8;
 		default:
 		    PrintError("Unsupported CPU mode: %d\n", info->cpu_mode);
 		    return -1;
@@ -746,7 +764,13 @@ static int decode_rm_operand32(struct guest_info * core,
 }
 
 
-
+int decode_rm_operand64(struct guest_info * core, uint8_t * instr_ptr, 
+					struct x86_instr * instr, struct x86_operand * operand, 
+					uint8_t * reg_code) {
+					
+					
+	return 0;
+}
 
 
 static int decode_rm_operand(struct guest_info * core, 
@@ -759,8 +783,10 @@ static int decode_rm_operand(struct guest_info * core,
 
     if (mode == REAL) {
 	return decode_rm_operand16(core, instr_ptr, instr, operand, reg_code);
-    } else if ((mode == PROTECTED) || (mode == PROTECTED_PAE)) {
+    } else if ((mode == PROTECTED) || (mode == PROTECTED_PAE) || (mode == LONG_32_COMPAT)) {
 	return decode_rm_operand32(core, instr_ptr, instr, operand, reg_code);
+	} else if (mode == LONG) {
+		return decode_rm_operand64(core, instr_ptr, instr, operand, reg_code);
     } else {
 	PrintError("Invalid CPU_MODE (%d)\n", mode);
 	return -1;
