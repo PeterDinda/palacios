@@ -1,0 +1,376 @@
+/* 
+ * VM Console 
+ * (c) Jack Lange, 2010
+ */
+
+#include <linux/device.h>
+#include <linux/cdev.h>
+#include <linux/errno.h>
+#include <linux/fs.h>
+#include <linux/uaccess.h>
+#include <linux/poll.h>
+#include <linux/anon_inodes.h>
+#include <linux/file.h>
+#include <linux/sched.h>
+
+#include <palacios/vmm_console.h>
+#include <palacios/vmm_host_events.h>
+
+#include "palacios.h"
+#include "palacios-console.h"
+#include "palacios-queue.h"
+
+typedef enum { CONSOLE_CURS_SET = 1,
+	       CONSOLE_CHAR_SET = 2,
+	       CONSOLE_SCROLL = 3,
+	       CONSOLE_UPDATE = 4,
+               CONSOLE_RESOLUTION = 5} console_op_t;
+
+
+
+struct cursor_msg {
+    int x;
+    int y;
+} __attribute__((packed));
+
+struct character_msg {
+    int x;
+    int y;
+    char c;
+    unsigned char style;
+} __attribute__((packed));
+
+struct scroll_msg {
+    int lines;
+} __attribute__((packed));
+
+
+struct resolution_msg {
+    int cols;
+    int rows;
+} __attribute__((packed));
+
+struct cons_msg {
+    unsigned char op;
+    union {
+	struct cursor_msg cursor;
+	struct character_msg  character;
+	struct scroll_msg scroll;
+	struct resolution_msg resolution;
+    };
+} __attribute__((packed)); 
+
+
+/* This is overkill...*/
+#define CONSOLE_QUEUE_LEN 8096
+
+
+static ssize_t 
+console_read(struct file * filp, char __user * buf, size_t size, loff_t * offset) {
+    struct palacios_console * cons = filp->private_data;
+    struct cons_msg * msg = NULL;
+    unsigned long flags;
+    int entries = 0;
+
+    if (cons->open == 0) {
+	return 0;
+    }
+
+
+    if (size < sizeof(struct cons_msg)) {
+	printk("Invalid Read operation size: %lu\n", size);
+	return -EFAULT;
+    }
+    
+    msg = dequeue(cons->queue);
+    
+    if (msg == NULL) {
+	printk("ERROR: Null console message\n");
+	return -EFAULT;
+    }
+    
+    if (copy_to_user(buf, msg, size)) {
+	printk("Read Fault\n");
+	return -EFAULT;
+    }
+
+
+    kfree(msg);
+
+    spin_lock_irqsave(&(cons->queue->lock), flags);
+    entries =  cons->queue->num_entries;
+    spin_unlock_irqrestore(&(cons->queue->lock), flags);
+    
+    if (entries > 0) {
+	wake_up_interruptible(&(cons->intr_queue));
+    }
+
+    //    printk("Read from console\n");
+    return size;
+}
+
+
+static ssize_t 
+console_write(struct file * filp, const char __user * buf, size_t size, loff_t * offset) {
+    struct palacios_console * cons = filp->private_data;
+    int i = 0;
+    struct v3_keyboard_event event = {0, 0};
+    
+    if (cons->open == 0) {
+	return 0;
+    }
+
+
+    for (i = 0; i < size; i++) {
+	if (copy_from_user(&(event.scan_code), buf, 1)) {
+	    printk("Console Write fault\n");
+	    return -EFAULT;
+	}
+
+	v3_deliver_keyboard_event(cons->guest->v3_ctx, &event);
+    }
+    
+    return size;
+}
+
+static unsigned int 
+console_poll(struct file * filp, struct poll_table_struct * poll_tb) {
+    struct palacios_console * cons = filp->private_data;
+    unsigned int mask = POLLIN | POLLRDNORM;
+    unsigned long flags;
+    int entries = 0;
+
+    //    printk("Console=%p (guest=%s)\n", cons, cons->guest->name);
+
+
+    poll_wait(filp, &(cons->intr_queue), poll_tb);
+
+    spin_lock_irqsave(&(cons->queue->lock), flags);
+    entries = cons->queue->num_entries;
+    spin_unlock_irqrestore(&(cons->queue->lock), flags);
+
+    if (entries > 0) {
+	//	printk("Returning from POLL\n");
+	return mask;
+    }
+    
+    return 0;
+}
+
+
+static int console_release(struct inode * i, struct file * filp) {
+    struct palacios_console * cons = filp->private_data;
+    struct cons_msg * msg = NULL;
+    unsigned long flags;
+
+    printk("Releasing the Console File desc\n");
+    
+    spin_lock_irqsave(&(cons->queue->lock), flags);
+    cons->connected = 0;
+    spin_unlock_irqrestore(&(cons->queue->lock), flags);
+
+    while ((msg = dequeue(cons->queue))) {
+	kfree(msg);
+    }
+
+    return 0;
+}
+
+
+static struct file_operations cons_fops = {
+    .read     = console_read,
+    .write    = console_write,
+    .poll     = console_poll,
+    .release  = console_release,
+};
+
+
+
+int connect_console(struct v3_guest * guest) {
+    struct palacios_console * cons = &(guest->console);
+    int cons_fd = 0;
+    unsigned long flags;
+
+    if (cons->open == 0) {
+	printk("Attempted to connect to unopened console\n");
+	return -1;
+    }
+
+    spin_lock_irqsave(&(cons->lock), flags);
+
+    cons_fd = anon_inode_getfd("v3-cons", &cons_fops, cons, 0);
+
+    if (cons_fd < 0) {
+	printk("Error creating console inode\n");
+	return cons_fd;
+    }
+
+    cons->connected = 1;
+    
+    v3_deliver_console_event(guest->v3_ctx, NULL);
+    spin_unlock_irqrestore(&(cons->lock), flags);
+
+    printk("Console connected\n");
+
+    return cons_fd;
+}
+
+
+
+static void * palacios_tty_open(void * private_data, unsigned int width, unsigned int height) {
+    struct v3_guest * guest = (struct v3_guest *)private_data;
+    struct palacios_console * cons = &(guest->console);
+
+    printk("Guest initialized virtual console (Guest=%s)\n", guest->name);
+
+    if (guest == NULL) {
+	printk("ERROR: Cannot open a console on a NULL guest\n");
+	return NULL;
+    }
+
+    if (cons->open == 1) {
+	printk("Console already open\n");
+	return NULL;
+    }
+
+
+    cons->width = width;
+    cons->height = height;
+
+    cons->queue = create_queue(CONSOLE_QUEUE_LEN);
+    spin_lock_init(&(cons->lock));
+    init_waitqueue_head(&(cons->intr_queue));
+
+    cons->guest = guest;
+
+    cons->open = 1;
+    cons->connected = 0;
+
+
+    return cons;
+}
+
+static int post_msg(struct palacios_console * cons, struct cons_msg * msg) {
+    //    printk("Posting Console message\n");
+
+    while (enqueue(cons->queue, msg) == -1) {	
+	wake_up_interruptible(&(cons->intr_queue));
+	schedule();
+    }
+
+    wake_up_interruptible(&(cons->intr_queue));
+
+    return 0;
+}
+
+
+static int palacios_tty_cursor_set(void * console, int x, int y) {
+    struct palacios_console * cons = (struct palacios_console *)console;
+    struct cons_msg * msg = NULL;
+
+    if (cons->connected == 0) {
+	return 0;
+    }
+
+    msg = kmalloc(sizeof(struct cons_msg), GFP_KERNEL);
+
+    msg->op = CONSOLE_CURS_SET;
+    msg->cursor.x = x;
+    msg->cursor.y = y;
+
+    return post_msg(cons, msg);
+}
+
+static int palacios_tty_character_set(void * console, int x, int y, char c, unsigned char style) {
+    struct palacios_console * cons = (struct palacios_console *) console;
+    struct cons_msg * msg = NULL;
+
+    if (cons->connected == 0) {
+	return 0;
+    }
+
+    msg = kmalloc(sizeof(struct cons_msg), GFP_KERNEL);
+
+    msg->op = CONSOLE_CHAR_SET;
+    msg->character.x = x;
+    msg->character.y = y;
+    msg->character.c = c;
+    msg->character.style = style;
+
+    return post_msg(cons, msg);
+}
+
+static int palacios_tty_scroll(void * console, int lines) {
+    struct palacios_console * cons = (struct palacios_console *) console;
+    struct cons_msg * msg = NULL;
+
+
+    if (cons->connected == 0) {
+	return 0;
+    }
+
+    msg = kmalloc(sizeof(struct cons_msg), GFP_KERNEL);
+
+    msg->op = CONSOLE_SCROLL;
+    msg->scroll.lines = lines;
+
+    return post_msg(cons, msg);
+}
+
+static int palacios_set_text_resolution(void * console, int cols, int rows) {
+    struct palacios_console * cons = (struct palacios_console *)console;
+    struct cons_msg * msg = NULL;
+
+    if (cons->connected == 0) {
+	return 0;
+    }
+
+    msg = kmalloc(sizeof(struct cons_msg), GFP_KERNEL);
+    
+    msg->op = CONSOLE_RESOLUTION;
+    msg->resolution.cols = cols;
+    msg->resolution.rows = rows;
+
+    return post_msg(cons, msg);
+}
+
+static int palacios_tty_update(void * console) {
+    struct palacios_console * cons = (struct palacios_console *) console;
+    struct cons_msg * msg = NULL;
+
+    if (cons->connected == 0) {
+	return 0;
+    }
+
+    msg = kmalloc(sizeof(struct cons_msg), GFP_KERNEL);
+
+    msg->op = CONSOLE_UPDATE;
+
+    return post_msg(cons, msg);
+}
+
+static void palacios_tty_close(void * console) {
+    struct palacios_console * cons = (struct palacios_console *) console;
+
+    cons->open = 0;
+}
+
+
+
+static struct v3_console_hooks palacios_console_hooks = {
+    .open			= palacios_tty_open,
+    .set_cursor	                = palacios_tty_cursor_set,
+    .set_character	        = palacios_tty_character_set,
+    .scroll			= palacios_tty_scroll,
+    .set_text_resolution        = palacios_set_text_resolution,
+    .update			= palacios_tty_update,
+    .close                      = palacios_tty_close,
+};
+
+
+
+int palacios_init_console( void ) {
+    V3_Init_Console(&palacios_console_hooks);
+    
+    return 0;
+}
