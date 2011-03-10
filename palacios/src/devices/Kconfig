@@ -345,6 +345,22 @@ config DISK_MODEL
 	help 
 	  Includes Performance model filter for disk operations
 
+config VGA
+	bool "VGA"
+	default n
+	depends on !PASSTHROUGH_VIDEO
+	help
+	  Includes the Virtual VGA video support, and will 
+          eventually also include SVGA
+
+
+config DEBUG_VGA
+	bool "DEBUG_VGA"
+	default n
+	depends on VGA
+	help
+	  Enables debugging output for the VGA device 
+
 config CGA
 	bool "CGA"
 	default n
