@@ -113,8 +113,8 @@ struct nvram_internal {
 
     v3_lock_t nvram_lock;
 
-    uint32_t        us;   //microseconds - for clock update - zeroed every second
-    uint32_t        pus;  //microseconds - for periodic interrupt - cleared every period
+    uint64_t        us;   //microseconds - for clock update - zeroed every second
+    uint64_t        pus;  //microseconds - for periodic interrupt - cleared every period
 };
 
 
@@ -278,7 +278,7 @@ static uint8_t days_in_month(uint8_t month, uint8_t bcd) {
 }
 
 
-static void update_time(struct nvram_internal * data, uint32_t period_us) {
+static void update_time(struct nvram_internal * data, uint64_t period_us) {
     struct rtc_stata * stata = (struct rtc_stata *)&((data->mem_state[NVRAM_REG_STAT_A]));
     struct rtc_statb * statb = (struct rtc_statb *)&((data->mem_state[NVRAM_REG_STAT_B]));
     struct rtc_statc * statc = (struct rtc_statc *)&((data->mem_state[NVRAM_REG_STAT_C]));
@@ -302,10 +302,7 @@ static void update_time(struct nvram_internal * data, uint32_t period_us) {
     uint8_t nextday = 0;
     uint32_t  periodic_period;
 
-    //PrintDebug("nvram: sizeof(struct rtc_stata)=%d\n", sizeof(struct rtc_stata));
-
-
-    //PrintDebug("nvram: update_time\n",statb->pi);
+    PrintDebug("nvram: update_time by %llu microseocnds\n",period_us);
   
     // We will set these flags on exit
     statc->irq = 0;
@@ -323,7 +320,7 @@ static void update_time(struct nvram_internal * data, uint32_t period_us) {
 	carry = add_to(sec, &carry, bcd);
 
 	if (carry) { 
-	    PrintDebug("nvram: somehow managed to get a carry in second update\n"); 
+	    PrintError("nvram: somehow managed to get a carry in second update\n"); 
 	}
 
 	if ( (bcd && (*sec == 0x60)) || 
@@ -334,7 +331,7 @@ static void update_time(struct nvram_internal * data, uint32_t period_us) {
 	    carry = 1;
 	    carry = add_to(min, &carry, bcd);
 	    if (carry) { 
-		PrintDebug("nvram: somehow managed to get a carry in minute update\n"); 
+		PrintError("nvram: somehow managed to get a carry in minute update\n"); 
 	    }
 
 	    if ( (bcd && (*min == 0x60)) || 
@@ -355,7 +352,7 @@ static void update_time(struct nvram_internal * data, uint32_t period_us) {
 		carry = 1;
 		carry = add_to(&hour24, &carry, bcd);
 		if (carry) { 
-		    PrintDebug("nvram: somehow managed to get a carry in hour update\n"); 
+		    PrintError("nvram: somehow managed to get a carry in hour update\n"); 
 		}
 
 		if ( (bcd && (hour24 == 0x24)) || 
@@ -456,7 +453,7 @@ static void update_time(struct nvram_internal * data, uint32_t period_us) {
 
     statc->irq = (statc->pf || statc->af || statc->uf);
   
-    //PrintDebug("nvram: time is now: YMDHMS: 0x%x:0x%x:0x%x:0x%x:0x%x,0x%x bcd=%d\n", *year, *month, *monthday, *hour, *min, *sec,bcd);
+    PrintDebug("nvram: time is now: YMDHMS: 0x%x:0x%x:0x%x:0x%x:0x%x,0x%x bcd=%d\n", *year, *month, *monthday, *hour, *min, *sec,bcd);
   
     // Interrupt associated VM, if needed
     if (statc->irq) { 
@@ -465,23 +462,6 @@ static void update_time(struct nvram_internal * data, uint32_t period_us) {
     }
 }
 
-/*
-static int handle_timer_event(struct v3_vm_info * vm, 
-			      struct v3_timer_event * evt, 
-			      void * priv_data) {
-
-
-    struct nvram_internal * data = priv_data;
-
-    if (data) {
-	addr_t irq_state = v3_lock_irqsave(data->nvram_lock);
-	update_time(data, evt->period_us);
-	v3_unlock_irqrestore(data->nvram_lock, irq_state);
-    }
-  
-    return 0;
-}
-*/
 
 static void nvram_update_timer(struct guest_info *vm,
 			       ullong_t           cpu_cycles,
@@ -489,10 +469,10 @@ static void nvram_update_timer(struct guest_info *vm,
 			       void              *priv_data)
 {
     struct nvram_internal *nvram_state = (struct nvram_internal *)priv_data;
-    uint32_t period_us;
+    uint64_t period_us;
 
     
-    period_us = (uint32_t) (1000000*cpu_cycles/cpu_freq);
+    period_us = (1000000*cpu_cycles/cpu_freq);
 
     update_time(nvram_state,period_us);
 
@@ -738,7 +718,7 @@ static int nvram_write_reg_port(struct guest_info * core, uint16_t port,
     struct nvram_internal * data = priv_data;
     
     memcpy(&(data->thereg), src, 1);
-    PrintDebug("Writing To NVRAM reg: 0x%x\n", data->thereg);
+    PrintDebug("nvram: Writing To NVRAM reg: 0x%x\n", data->thereg);
 
     return 1;
 }
@@ -751,7 +731,7 @@ static int nvram_read_data_port(struct guest_info * core, uint16_t port,
     addr_t irq_state = v3_lock_irqsave(data->nvram_lock);
 
     if (get_memory(data, data->thereg, (uint8_t *)dst) == -1) {
-	PrintError("Register %d (0x%x) Not set\n", data->thereg, data->thereg);
+	PrintError("nvram: Register %d (0x%x) Not set\n", data->thereg, data->thereg);
 
 	v3_unlock_irqrestore(data->nvram_lock, irq_state);
 
@@ -763,7 +743,7 @@ static int nvram_read_data_port(struct guest_info * core, uint16_t port,
 	}
     }
 
-    PrintDebug("nvram_read_data_port(0x%x)  =  0x%x\n", data->thereg, *(uint8_t *)dst);
+    PrintDebug("nvram: nvram_read_data_port(0x%x)  =  0x%x\n", data->thereg, *(uint8_t *)dst);
 
     // hack
     if (data->thereg == NVRAM_REG_STAT_A) { 
@@ -787,7 +767,7 @@ static int nvram_write_data_port(struct guest_info * core, uint16_t port,
 
     v3_unlock_irqrestore(data->nvram_lock, irq_state);
 
-    PrintDebug("nvram_write_data_port(0x%x) = 0x%x\n", 
+    PrintDebug("nvram: nvram_write_data_port(0x%x) = 0x%x\n", 
 	       data->thereg, data->mem_state[data->thereg]);
 
     return 1;
@@ -831,7 +811,7 @@ static int nvram_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     int ret = 0;
 
     if (!ide) {
-	PrintError("Could not find IDE device\n");
+	PrintError("nvram: Could not find IDE device\n");
 	return -1;
     }
 
@@ -846,7 +826,7 @@ static int nvram_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, nvram_state);
 
     if (dev == NULL) {
-	PrintError("Could not attach device %s\n", dev_id);
+	PrintError("nvram: Could not attach device %s\n", dev_id);
 	V3_Free(nvram_state);
 	return -1;
     }
@@ -858,12 +838,11 @@ static int nvram_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     ret |= v3_dev_hook_io(dev, NVRAM_DATA_PORT, &nvram_read_data_port, &nvram_write_data_port);
   
     if (ret != 0) {
-	PrintError("Error hooking NVRAM IO ports\n");
+	PrintError("nvram: Error hooking NVRAM IO ports\n");
 	v3_remove_device(dev);
 	return -1;
     }
 
-    //    v3_hook_host_event(vm, HOST_TIMER_EVT, V3_HOST_EVENT_HANDLER(handle_timer_event), nvram_state);
     nvram_state->timer = v3_add_timer(&(vm->cores[0]),&timer_ops,nvram_state);
 
     if (nvram_state->timer == NULL ) { 
