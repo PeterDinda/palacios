@@ -29,6 +29,7 @@
 #include <palacios/vmm_host_events.h>
 #include <palacios/vm_guest.h>
 
+
 #ifndef CONFIG_DEBUG_NVRAM
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
@@ -107,6 +108,8 @@ struct nvram_internal {
     struct vm_device * ide;
 
     struct v3_vm_info * vm;
+    
+    struct v3_timer   *timer;
 
     v3_lock_t nvram_lock;
 
@@ -462,7 +465,7 @@ static void update_time(struct nvram_internal * data, uint32_t period_us) {
     }
 }
 
-
+/*
 static int handle_timer_event(struct v3_vm_info * vm, 
 			      struct v3_timer_event * evt, 
 			      void * priv_data) {
@@ -478,7 +481,22 @@ static int handle_timer_event(struct v3_vm_info * vm,
   
     return 0;
 }
+*/
 
+static void nvram_update_timer(struct guest_info *vm,
+			       ullong_t           cpu_cycles,
+			       ullong_t           cpu_freq,
+			       void              *priv_data)
+{
+    struct nvram_internal *nvram_state = (struct nvram_internal *)priv_data;
+    uint32_t period_us;
+
+    
+    period_us = (uint32_t) (1000000*cpu_cycles/cpu_freq);
+
+    update_time(nvram_state,period_us);
+
+}
 
 
 static void set_memory_size(struct nvram_internal * nvram, addr_t bytes) {
@@ -779,8 +797,13 @@ static int nvram_write_data_port(struct guest_info * core, uint16_t port,
 
 
 static int nvram_free(struct nvram_internal * nvram_state) {
-
+    
     // unregister host events
+    struct guest_info *info = &(nvram_state->vm->cores[0]);
+
+    if (nvram_state->timer) { 
+	v3_remove_timer(info,nvram_state->timer);
+    }
 
     V3_Free(nvram_state);
     return 0;
@@ -788,6 +811,9 @@ static int nvram_free(struct nvram_internal * nvram_state) {
 
 
 
+static struct v3_timer_ops timer_ops = {
+    .update_timer = nvram_update_timer,
+};
 
 
 static struct v3_device_ops dev_ops = {  
@@ -837,7 +863,13 @@ static int nvram_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	return -1;
     }
 
-    v3_hook_host_event(vm, HOST_TIMER_EVT, V3_HOST_EVENT_HANDLER(handle_timer_event), nvram_state);
+    //    v3_hook_host_event(vm, HOST_TIMER_EVT, V3_HOST_EVENT_HANDLER(handle_timer_event), nvram_state);
+    nvram_state->timer = v3_add_timer(&(vm->cores[0]),&timer_ops,nvram_state);
+
+    if (nvram_state->timer == NULL ) { 
+	v3_remove_device(dev);
+	return -1;
+    }
 
     return 0;
 }
