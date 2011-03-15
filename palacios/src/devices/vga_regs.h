@@ -817,4 +817,45 @@ struct vga_color_select_reg {
 } __attribute__((packed))
     ;
 
+/*
+  DAC registers
+
+  Used to derive the ultimate pixel colors that are rendered on the display
+  
+  There are 256 palette registers
+  We can change any one or read any one
+*/
+
+//
+// The palette register that will returned on a data write
+// 0x3c8
+typedef uint8_t vga_dac_write_addr_reg;
+
+//
+// The palette register that will returned on a data read
+// 0x3c7
+typedef uint8_t vga_dac_read_addr_reg;
+
+//
+// Read or write of a palette register
+// 0x3c9
+// Successive references to this register increment
+// the palette register index (for reads and writes separately)
+// Three SUCCESSIVE WRITES ARE EXPECTED to set the 18 bit register
+// Three SUCCESSIVE READS ARE EXPECTED to read out the register
+// reads or writes are in order RED GREEN BLUE
+// ADDRESS REG WRITE always resets
+typedef uint8_t vga_dac_data_reg;
+
+//
+// Pixel Mask
+// 0x3c6
+typedef uint8_t vga_dac_pixel_mask_reg;
+
+// Palette register (256 of these)
+// strictly speaking, each of these is 18 bits wide, 6 bits per channel
+// We will provide reg&0x3f, reg>>8 & 0x3f, etc
+// This is red, green, blue
+typedef uint32_t vga_palette_reg; 
+
 #endif
