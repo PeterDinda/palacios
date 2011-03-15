@@ -667,7 +667,7 @@ struct vga_misc_reg {
 
 /* Index 7 */
 // Color don't care
-struct vga_color_dont_care__reg {
+struct vga_color_dont_care_reg {
     union {
 	uint8_t val;
 	struct {

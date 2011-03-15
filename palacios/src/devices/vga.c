@@ -202,7 +202,7 @@ struct vga_graphics_controller_regs {
     /* Index 6 */
     struct vga_misc_reg vga_misc;
     /* Index 7 */
-    struct vga_color_dont_care__reg vga_color_dont_care;
+    struct vga_color_dont_care_reg vga_color_dont_care;
     /* Index 8 */
     vga_bit_mask_reg vga_bit_mask;
 } __attribute__((packed));
@@ -263,12 +263,16 @@ struct vga_dac_regs {
 
 struct vga_internal {
     struct vm_device *dev;  
+    
+    bool passthrough;
 
     struct frame_buf *framebuf; // we render to this
     
     //    void *mem_store;     // This is the region where the memory hooks will go
 
     vga_map  map[MAP_NUM];  // the maps that the host writes to
+
+    uint8_t  latch[MAP_NUM];  // written to in any read, used during writes
 
     /* Range of I/O ports here for backward compat with MDA and CGA */
     struct vga_misc_regs  vga_misc;
@@ -307,9 +311,261 @@ static int vga_write(struct guest_info * core,
 		     uint_t length, 
 		     void * priv_data)
 {
+    struct vga_internal *vga = (struct vga_internal *) priv_data;
+
+    PrintDebug("vga: memory write: guest_addr=0x%p len=%u\n",(void*)guest_addr, length);
+
+    if (vga->passthrough) { 
+	memcpy(V3_VAddr((void*)guest_addr),src,length);
+    }
+    
+    /* Write mode determine by Graphics Mode Register (Index 05h).writemode */
+    
+    switch (vga->vga_graphics_controller.vga_graphics_mode.write_mode) {
+	case 0: {
+	    
+	    /* 
+	       00b -- Write Mode 0: In this mode, the host data is first rotated 
+	       as per the Rotate Count field, then the Enable Set/Reset mechanism 
+	       selects data from this or the Set/Reset field. Then the selected 
+	       Logical Operation is performed on the resulting data and the data 
+	       in the latch register. Then the Bit Mask field is used to select 
+	       which bits come from the resulting data and which come 
+	       from the latch register. Finally, only the bit planes enabled by 
+	       the Memory Plane Write Enable field are written to memory.
+	    */
+
+	    int i;
+
+	    uint8_t  mapnum;
+	    uint64_t offset;
+
+	    uint8_t ror = vga->vga_graphics_controller.vga_data_rotate.rotate_count;
+	    uint8_t func = vga->vga_graphics_controller.vga_data_rotate.function;
+	    
+	    offset =(uint64_t) guest_addr - (uint64_t) MEM_REGION_START;
+
+	    for (i=0;i<length;i++,offset++) { 
+		// now for each map
+		uint8_t sr = vga->vga_graphics_controller.vga_set_reset.val & 0xf;
+		uint8_t esr = vga->vga_graphics_controller.vga_enable_set_reset.val &0xf;
+		uint8_t bm = vga->vga_graphics_controller.vga_bit_mask;
+		uint8_t mm = vga->vga_sequencer.vga_map_mask.val;
+
+		for (mapnum=0;mapnum<4;mapnum++, sr>>=1, esr>>=1, bm>>=1, mm>>=1) { 
+		    vga_map map = vga->map[mapnum];
+		    uint8_t data = ((uint8_t *)src)[i];
+		    uint8_t latchval = vga->latch[mapnum];
+			
+		    // rotate data right
+		    data = (data>>ror) | data<<(8-ror);
+
+		    // use SR bit if ESR is on for this map
+		    if (esr & 0x1) { 
+			data = (uint8_t)((((sint8_t)(sr&0x1))<<7)>>7);  // expand sr bit
+		    }
+		    
+		    // Apply function
+		    switch (func) { 
+			case 0: // NOP
+			    break;
+			case 1: // AND
+			    data &= latchval;
+			    break;
+			case 2: // OR
+			    data |= latchval;
+			    break;
+			case 3: // XOR
+			    data ^= latchval;
+			    break;
+		    }
+			    
+		    // mux between latch and alu output
+		    if (bm & 0x1) { 
+			// use alu output, which is in data
+		    } else {
+			// use latch value
+			data=latchval;
+		    }
+		    
+		    // selective write
+		    if (mm & 0x1) { 
+			// write to this map
+			map[offset] = data;
+		    } else {
+			// skip this map
+		    }
+		}
+	    }
+	}
+	    break;
 
 
-    PrintError("vga: vga_write UNIMPLEMENTED\n");
+	    
+	case 1: {
+	    /* 
+	       01b -- Write Mode 1: In this mode, data is transferred directly 
+	       from the 32 bit latch register to display memory, affected only by 
+	       the Memory Plane Write Enable field. The host data is not used in this mode.
+	    */
+
+	    int i;
+
+	    uint64_t offset =(uint64_t) guest_addr - (uint64_t) MEM_REGION_START;
+
+	    for (i=0;i<length;i++,offset++) { 
+
+		uint8_t mapnum;
+		uint8_t mm = vga->vga_sequencer.vga_map_mask.val;
+
+		for (mapnum=0;mapnum<4;mapnum++,  mm>>=1) { 
+		    vga_map map = vga->map[mapnum];
+		    uint8_t latchval = vga->latch[mapnum];
+			
+		    // selective write
+		    if (mm & 0x1) { 
+			// write to this map
+			map[offset] = latchval;
+		    } else {
+			// skip this map
+		    }
+		}
+	    }
+	}
+	    break;
+
+	case 2: {
+	    /*
+	      10b -- Write Mode 2: In this mode, the bits 3-0 of the host data 
+	      are replicated across all 8 bits of their respective planes. 
+	      Then the selected Logical Operation is performed on the resulting 
+	      data and the data in the latch register. Then the Bit Mask field is used to 
+	      select which bits come from the resulting data and which come from 
+	      the latch register. Finally, only the bit planes enabled by the 
+	      Memory Plane Write Enable field are written to memory.
+	    */
+	    int i;
+	    uint8_t  mapnum;
+	    uint64_t offset;
+
+	    uint8_t func = vga->vga_graphics_controller.vga_data_rotate.function;
+	    
+	    offset =(uint64_t) guest_addr - (uint64_t) MEM_REGION_START;
+
+	    for (i=0;i<length;i++,offset++) { 
+		// now for each map
+		uint8_t bm = vga->vga_graphics_controller.vga_bit_mask;
+		uint8_t mm = vga->vga_sequencer.vga_map_mask.val;
+
+		for (mapnum=0;mapnum<4;mapnum++,  bm>>=1, mm>>=1) { 
+		    vga_map map = vga->map[mapnum];
+		    uint8_t data = ((uint8_t *)src)[i];
+		    uint8_t latchval = vga->latch[mapnum];
+			
+		    // expand relevant bit to 8 bit
+		    // it's basically esr=1, sr=bit from write
+		    data = (uint8_t)(((sint8_t)(((data>>mapnum)&0x1)<<7))>>7);
+		    
+		    // Apply function
+		    switch (func) { 
+			case 0: // NOP
+			    break;
+			case 1: // AND
+			    data &= latchval;
+			    break;
+			case 2: // OR
+			    data |= latchval;
+			    break;
+			case 3: // XOR
+			    data ^= latchval;
+			    break;
+		    }
+			    
+		    // mux between latch and alu output
+		    if (bm & 0x1) { 
+			// use alu output, which is in data
+		    } else {
+			// use latch value
+			data=latchval;
+		    }
+		    
+		    // selective write
+		    if (mm & 0x1) { 
+			// write to this map
+			map[offset] = data;
+		    } else {
+			// skip this map
+		    }
+		}
+	    }
+	}
+	    break;
+
+	case 3: {
+	    /* 11b -- Write Mode 3: In this mode, the data in the Set/Reset field is used 
+	       as if the Enable Set/Reset field were set to 1111b. Then the host data is 
+	       first rotated as per the Rotate Count field, then logical ANDed with the 
+	       value of the Bit Mask field. The resulting value is used on the data 
+	       obtained from the Set/Reset field in the same way that the Bit Mask field 
+	       would ordinarily be used. to select which bits come from the expansion 
+	       of the Set/Reset field and which come from the latch register. Finally, 
+	       only the bit planes enabled by the Memory Plane Write Enable field 
+	       are written to memory.
+	    */
+	    int i;
+
+	    uint8_t  mapnum;
+	    uint64_t offset;
+
+	    uint8_t ror = vga->vga_graphics_controller.vga_data_rotate.rotate_count;
+	    
+	    offset =(uint64_t) guest_addr - (uint64_t) MEM_REGION_START;
+
+	    for (i=0;i<length;i++,offset++) { 
+		// now for each map
+		uint8_t data = ((uint8_t *)src)[i];
+
+		data = (data>>ror) | data<<(8-ror);
+
+		uint8_t bm = vga->vga_graphics_controller.vga_bit_mask & data;
+		uint8_t sr = vga->vga_graphics_controller.vga_set_reset.val & 0xf;
+		uint8_t mm = vga->vga_sequencer.vga_map_mask.val;
+
+		for (mapnum=0;mapnum<4;mapnum++, sr>>=1, bm>>=1, mm>>=1) { 
+		    vga_map map = vga->map[mapnum];
+		    uint8_t latchval = vga->latch[mapnum];
+			
+		    data = (uint8_t)((((sint8_t)(sr&0x1))<<7)>>7);  // expand sr bit
+		    
+		    
+		    // mux between latch and alu output
+		    if (bm & 0x1) { 
+			// use alu output, which is in data
+		    } else {
+			// use latch value
+			data=latchval;
+		    }
+		    
+		    // selective write
+		    if (mm & 0x1) { 
+			// write to this map
+			map[offset] = data;
+		    } else {
+			// skip this map
+		    }
+		}
+	    }
+
+	}
+	    break;
+
+	    // There is no default
+    }
+    
+    return length;
+}
+
+    //    PrintError("vga: vga_write UNIMPLEMENTED\n");
 
 /*
 up to 256K mapped through a window of 128K
@@ -341,66 +597,6 @@ Chain 4: This mode is used for MCGA emulation in the 320x200 256-color mode. The
 
 Memory model: 64K 32 bit locations; divided into 4 64K bit planes
 
-Write Modes - set via Graphics Mode Register (Index 05h).writemode
-
-00b -- Write Mode 0: In this mode, the host data is first rotated as per the Rotate Count field, then the Enable Set/Reset mechanism selects data from this or the Set/Reset field. Then the selected Logical Operation is performed on the resulting data and the data in the latch register. Then the Bit Mask field is used to select which bits come from the resulting data and which come from the latch register. Finally, only the bit planes enabled by the Memory Plane Write Enable field are written to memory.
-
-01b -- Write Mode 1: In this mode, data is transferred directly from the 32 bit latch register to display memory, affected only by the Memory Plane Write Enable field. The host data is not used in this mode.
-
-10b -- Write Mode 2: In this mode, the bits 3-0 of the host data are replicated across all 8 bits of their respective planes. Then the selected Logical Operation is performed on the resulting data and the data in the latch register. Then the Bit Mask field is used to select which bits come from the resulting data and which come from the latch register. Finally, only the bit planes enabled by the Memory Plane Write Enable field are written to memory.
-
-11b -- Write Mode 3: In this mode, the data in the Set/Reset field is used as if the Enable Set/Reset field were set to 1111b. Then the host data is first rotated as per the Rotate Count field, then logical ANDed with the value of the Bit Mask field. The resulting value is used on the data obtained from the Set/Reset field in the same way that the Bit Mask field would ordinarily be used. to select which bits come from the expansion of the Set/Reset field and which come from the latch register. Finally, only the bit planes enabled by the Memory Plane Write Enable field are written to memory.
-
-five stages of a write:
-
-write(void *adx, uint8_t x)  // or 4 byte?!
-  
-uint8_t rx[4];
-
-switch (Write Mode) { 
-case 0:
-// 1. Rotate
-   x = ROR(x,Rotate Count)
-
-// 2. Clone from Host Data or Set/Reset Reg
-   for (i=0;i<4;i++) { 
-      if (Enable Set/Reset[i]) {
-          rx[i]=Set/Reset (expanded to 8 bits)
-       } else { 
-          rx[i]=x;
-       }
-   }    
-
-// 3. Logical Operator 
-   for (i=0;i<4;i++) {
-      rx[i] = rx[i] LOP LATCH_REG[i]
-//    LOP = NOP, AND, OR, XOR
-   }
-
-// 4. Select
-   for (i=0;i<4;i++) { 
-      rx[i] = BITWISE_MUX(rx[i], LATCH_REG[i], Bit Mask Reg);
-   }
-
-// 5. Selective Write
-   for (i=0;i<4;i++) { 
-     if (Map Mask Reg.Memory Plane Write Enable[i])
-      BUF[TRANSLATE(adx,i)] = rx[i];
-   }
-break;
-
-case 1:
-// 4. Select latch register directly
-   for (i=0;i<4;i++) { 
-      rx[i] = LATCH_REG[i];
-   }
-// 5. Selective Write
-   for (i=0;i<4;i++) { 
-     if (Map Mask Reg.Memory Plane Write Enable[i])
-      BUF[TRANSLATE(adx,i)] = rx[i];
-   }
-
-
 
    
 
@@ -408,8 +604,7 @@ case 1:
 Assume linear framebuffer, starting at address buf:
 
 */
-    return -1;
-}
+
 
 
 static int vga_read(struct guest_info * core, 
@@ -419,15 +614,94 @@ static int vga_read(struct guest_info * core,
 		    void * priv_data)
 {
 
-    PrintError("vga: vga_read UNIMPLEMENTED\n");
+    struct vga_internal *vga = (struct vga_internal *) priv_data;
 
+    PrintDebug("vga: memory read: guest_addr=0x%p len=%u\n",(void*)guest_addr, length);
+
+    if (vga->passthrough) { 
+	memcpy(dst,V3_VAddr((void*)guest_addr),length);
+    }
+    
     /*
       Reading, 2 modes, set via Graphics Mode Register (index 05h).Read Mode:
-      0 - a byte from ONE of the 4 planes is returned; which plane is determined by Read Map Select (Read Map Select Register (Index 04h))
-      1 - Compare video memory and reference color (in Color Compare, except those not set in Color Don't Care), each bit in returned result is one comparison between the reference color, and is set to one if true (plane by plane, I assume)
     */
-    
-    return -1;
+    switch (vga->vga_graphics_controller.vga_graphics_mode.read_mode) { 
+	case 0: {
+	    /*      0 - a byte from ONE of the 4 planes is returned; 
+		    which plane is determined by Read Map Select (Read Map Select Register (Index 04h)) */
+	    uint8_t  mapnum;
+	    uint64_t offset;
+	    
+	    mapnum = vga->vga_graphics_controller.vga_read_map_select.map_select;
+	    offset =(uint64_t) guest_addr - (uint64_t) MEM_REGION_START;
+	    
+	    if (offset>=65536) { 
+		PrintError("vga: read to offset=%llu map=%u (%u bytes)\n",offset,mapnum,length);
+	    }
+
+	    memcpy(dst,(vga->map[mapnum])+offset,length);
+
+	    // load the latches with the last item read
+	    for (mapnum=0;mapnum<4;mapnum++) { 
+		vga->latch[mapnum] = vga->map[mapnum][offset+length-1];
+	    }
+	    
+	
+	}
+	    break;
+	case 1: {
+	    /*      1 - Compare video memory and reference color 
+		    (in Color Compare, except those not set in Color Don't Care), 
+		    each bit in returned result is one comparison between the reference color 
+
+		    Ref color is *4* bits, and thus a one byte read returns a comparison 
+		    with 8 pixels
+
+	    */
+	    int i;
+
+	    uint8_t cc=vga->vga_graphics_controller.vga_color_compare.val & 0xf ;
+	    uint8_t dc=vga->vga_graphics_controller.vga_color_dont_care.val & 0xf;
+
+	    uint8_t  mapnum;
+	    uint64_t offset;
+	    uint8_t  byte;
+	    uint8_t  bits;
+	    
+	    offset =(uint64_t) guest_addr - (uint64_t) MEM_REGION_START;
+	    
+	    for (i=0;i<length;i++,offset++) { 
+		vga_map map;
+		byte=0;
+		for (mapnum=0;mapnum<4;mapnum++) { 
+		    map = vga->map[mapnum];
+		    if ( (dc>>mapnum)&0x1 ) { // don't care
+			bits=0;
+		    } else {
+			// lower 4 bits
+			bits = (map[offset]&0xf) == cc;
+			bits <<= 1;
+			// upper 4 bits
+			bits |= (((map[offset]>>4))&0xf) == cc;
+		    }
+		    // not clear whether it is 0..k or k..0
+		    byte<<=2;
+		    byte|=bits;
+		}
+	    }
+
+	    // load the latches with the last item read
+	    for (mapnum=0;mapnum<4;mapnum++) { 
+		vga->latch[mapnum] = vga->map[mapnum][offset+length-1];
+	    }
+
+	}
+	    break;
+	    // there is no default
+    }
+
+    return length;
+
 }
 
 
@@ -445,6 +719,47 @@ static int render(struct vga_internal *vga)
 	return -1; \
 }
 	
+static inline void passthrough_io_in(uint16_t port, void * dest, uint_t length) {
+    switch (length) {
+	case 1:
+	    *(uint8_t *)dest = v3_inb(port);
+	    break;
+	case 2:
+	    *(uint16_t *)dest = v3_inw(port);
+	    break;
+	case 4:
+	    *(uint32_t *)dest = v3_indw(port);
+	    break;
+	default:
+	    PrintError("vga: unsupported passthrough io in size %u\n",length);
+	    break;
+    }
+}
+
+
+static inline void passthrough_io_out(uint16_t port, const void * src, uint_t length) {
+    switch (length) {
+	case 1:
+	    v3_outb(port, *(uint8_t *)src);
+	    break;
+	case 2:
+	    v3_outw(port, *(uint16_t *)src);
+	    break;
+	case 4:
+	    v3_outdw(port, *(uint32_t *)src);
+	    break;
+	default:
+	    PrintError("vga: unsupported passthrough io out size %u\n",length);
+	    break;
+    }
+}
+
+#define PASSTHROUGH_IO_IN(vga,port,dest,len)				\
+    do { if ((vga)->passthrough) { passthrough_io_in(port,dest,len); } } while (0)
+
+#define PASSTHROUGH_IO_OUT(vga,port,src,len)				\
+    do { if ((vga)->passthrough) { passthrough_io_in(port,src,len); } } while (0)
+		
 
 
 static int misc_out_read(struct guest_info *core, 
@@ -458,6 +773,8 @@ static int misc_out_read(struct guest_info *core,
     PrintDebug("vga: misc out read data=0x%x\n", vga->vga_misc.vga_misc_out.val);
 
     ERR_WRONG_SIZE("read","misc out",len,1,1);
+    
+    PASSTHROUGH_IO_IN(vga,port,dest,len);
 
     *((uint8_t*)dest) = vga->vga_misc.vga_misc_out.val;
 
@@ -475,7 +792,9 @@ static int misc_out_write(struct guest_info *core,
     PrintDebug("vga: misc out write data=0x%x\n", *((uint8_t*)src));
 	
     ERR_WRONG_SIZE("write","misc out",len,1,1);
-    
+
+    PASSTHROUGH_IO_OUT(vga,port,src,len);
+
     vga->vga_misc.vga_misc_out.val =  *((uint8_t*)src) ;
     
     render(vga);
@@ -495,7 +814,9 @@ static int input_stat0_read(struct guest_info *core,
 
     PrintDebug("vga: input stat0  read data=0x%x\n", vga->vga_misc.vga_input_stat0.val);
 
-    ERR_WRONG_SIZE("read","inpust stat0",len,1,1);
+    ERR_WRONG_SIZE("read","input stat0",len,1,1);
+
+    PASSTHROUGH_IO_IN(vga,port,dest,len);
 
     *((uint8_t*)dest) = vga->vga_misc.vga_input_stat0.val;
 
@@ -515,7 +836,9 @@ static int input_stat1_read(struct guest_info *core,
 	       port==0x3ba ? "mono" : "color",
 	       vga->vga_misc.vga_input_stat1.val);
 
-    ERR_WRONG_SIZE("read","inpust stat1",len,1,1);
+    ERR_WRONG_SIZE("read","input stat1",len,1,1);
+
+    PASSTHROUGH_IO_IN(vga,port,dest,len);
 
     *((uint8_t*)dest) = vga->vga_misc.vga_input_stat1.val;
 
@@ -542,6 +865,8 @@ static int feature_control_read(struct guest_info *core,
 
     ERR_WRONG_SIZE("read","feature control",len,1,1);
 
+    PASSTHROUGH_IO_IN(vga,port,dest,len);
+
     *((uint8_t*)dest) = vga->vga_misc.vga_feature_control.val;
 
     return len;
@@ -561,6 +886,8 @@ static int feature_control_write(struct guest_info *core,
 	
     ERR_WRONG_SIZE("write","feature control",len,1,1);
     
+    PASSTHROUGH_IO_OUT(vga,port,src,len);
+
     vga->vga_misc.vga_feature_control.val =  *((uint8_t*)src) ;
     
     render(vga);
@@ -582,6 +909,8 @@ static int video_subsys_enable_read(struct guest_info *core,
 
     ERR_WRONG_SIZE("read","video subsys enable",len,1,1);
 
+    PASSTHROUGH_IO_IN(vga,port,dest,len);
+
     *((uint8_t*)dest) = vga->vga_misc.vga_video_subsys_enable.val;
 
     return len;
@@ -599,6 +928,8 @@ static int video_subsys_enable_write(struct guest_info *core,
 	
     ERR_WRONG_SIZE("write","video subsys enable",len,1,1);
     
+    PASSTHROUGH_IO_OUT(vga,port,src,len);
+
     vga->vga_misc.vga_video_subsys_enable.val =  *((uint8_t*)src) ;
     
     render(vga);
@@ -617,7 +948,9 @@ static int sequencer_address_read(struct guest_info *core,
     PrintDebug("vga: sequencer address read data=0x%x\n", 
 	       vga->vga_sequencer.vga_sequencer_addr.val);
 
-    ERR_WRONG_SIZE("read","vga sequenver addr",len,1,1);
+    ERR_WRONG_SIZE("read","vga sequencer addr",len,1,1);
+
+    PASSTHROUGH_IO_IN(vga,port,dest,len);
 
     *((uint8_t*)dest) = vga->vga_sequencer.vga_sequencer_addr.val;
 
@@ -638,6 +971,8 @@ static int sequencer_address_write(struct guest_info *core,
     PrintDebug("vga: sequencer address write data=0x%x\n", new_addr);
 
     ERR_WRONG_SIZE("write","vga sequenver addr",len,1,1);
+
+    PASSTHROUGH_IO_OUT(vga,port,src,len);
 
     if (new_addr>VGA_SEQUENCER_NUM) {
 	PrintError("vga: ignoring change of sequencer address to %u (>%u)\n",
@@ -668,6 +1003,8 @@ static int sequencer_data_read(struct guest_info *core,
 
     ERR_WRONG_SIZE("read","vga sequenver data",len,1,1);
 
+    PASSTHROUGH_IO_IN(vga,port,dest,len);
+
     *((uint8_t*)dest) = data;
 
     return len;
@@ -689,8 +1026,10 @@ static int sequencer_data_write(struct guest_info *core,
     PrintDebug("vga: sequencer write data (index=%d) with 0x%x\n", 
 	       index, data);
     
-    ERR_WRONG_SIZE("read","vga sequenver data",len,1,1);
+    ERR_WRONG_SIZE("write","vga sequencer data",len,1,1);
     
+    PASSTHROUGH_IO_OUT(vga,port,src,len);
+
     vga->vga_sequencer.vga_sequencer_regs[index] = data;
 
     render(vga);
@@ -715,6 +1054,8 @@ static int crt_controller_address_read(struct guest_info *core,
 
     ERR_WRONG_SIZE("read","vga crt controller addr",len,1,1);
 
+    PASSTHROUGH_IO_IN(vga,port,dest,len);
+
     *((uint8_t*)dest) = vga->vga_crt_controller.vga_crt_addr.val;
 
     return len;
@@ -736,6 +1077,8 @@ static int crt_controller_address_write(struct guest_info *core,
 	       new_addr);
 
     ERR_WRONG_SIZE("write","vga crt controller addr",len,1,1);
+
+    PASSTHROUGH_IO_OUT(vga,port,src,len);
 
     if (new_addr>VGA_CRT_CONTROLLER_NUM) {
 	PrintError("vga: ignoring change of crt controller address to %u (>%u)\n",
@@ -767,6 +1110,8 @@ static int crt_controller_data_read(struct guest_info *core,
 
     ERR_WRONG_SIZE("read","vga crt controller data",len,1,1);
 
+    PASSTHROUGH_IO_IN(vga,port,dest,len);
+
     *((uint8_t*)dest) = data;
 
     return len;
@@ -790,7 +1135,9 @@ static int crt_controller_data_write(struct guest_info *core,
 	       port==0x3b5 ? "mono" : "color",
 	       index, data);
 
-    ERR_WRONG_SIZE("read","vga crt controlle data",len,1,1);
+    ERR_WRONG_SIZE("write","vga crt controller data",len,1,1);
+
+    PASSTHROUGH_IO_OUT(vga,port,src,len);
 
     vga->vga_crt_controller.vga_crt_controller_regs[index] = data;
 
@@ -813,6 +1160,8 @@ static int graphics_controller_address_read(struct guest_info *core,
 
     ERR_WRONG_SIZE("read","vga graphics controller addr",len,1,1);
 
+    PASSTHROUGH_IO_IN(vga,port,dest,len);
+
     *((uint8_t*)dest) = vga->vga_graphics_controller.vga_graphics_ctrl_addr.val;
 
     return len;
@@ -832,6 +1181,8 @@ static int graphics_controller_address_write(struct guest_info *core,
     PrintDebug("vga: graphics controller address write data=0x%x\n", new_addr);
 
     ERR_WRONG_SIZE("write","vga graphics controller addr",len,1,1);
+
+    PASSTHROUGH_IO_OUT(vga,port,src,len);
 
     if (new_addr>VGA_GRAPHICS_CONTROLLER_NUM) {
 	PrintError("vga: ignoring change of graphics controller address to %u (>%u)\n",
@@ -862,6 +1213,8 @@ static int graphics_controller_data_read(struct guest_info *core,
 
     ERR_WRONG_SIZE("read","vga graphics controller data",len,1,1);
 
+    PASSTHROUGH_IO_IN(vga,port,dest,len);
+
     *((uint8_t*)dest) = data;
 
     return len;
@@ -883,8 +1236,10 @@ static int graphics_controller_data_write(struct guest_info *core,
     PrintDebug("vga: graphics_controller write data (index=%d) with 0x%x\n", 
 	       index, data);
     
-    ERR_WRONG_SIZE("read","vga sequenver data",len,1,1);
+    ERR_WRONG_SIZE("write","vga graphics controller data",len,1,1);
     
+    PASSTHROUGH_IO_OUT(vga,port,src,len);
+
     vga->vga_graphics_controller.vga_graphics_controller_regs[index] = data;
 
     render(vga);
@@ -909,6 +1264,8 @@ static int attribute_controller_address_read(struct guest_info *core,
 
     ERR_WRONG_SIZE("read","vga attribute  controller addr",len,1,1);
 
+    PASSTHROUGH_IO_IN(vga,port,dest,len);
+
     *((uint8_t*)dest) = vga->vga_attribute_controller.vga_attribute_controller_addr.val;
 
     // Reading the attribute controller does not change the state
@@ -929,9 +1286,11 @@ static int attribute_controller_address_and_data_write(struct guest_info *core,
 	uint8_t new_addr = *((uint8_t*)src);
 	// We are to treat this as an address write, and flip state
 	// to expect data ON THIS SAME PORT
-	PrintDebug("vga: graphics controller address write data=0x%x\n", new_addr);
+	PrintDebug("vga: attribute controller address write data=0x%x\n", new_addr);
 	
-	ERR_WRONG_SIZE("write","vga graphics controller addr",len,1,1);
+	ERR_WRONG_SIZE("write","vga attribute controller addr",len,1,1);
+
+	PASSTHROUGH_IO_OUT(vga,port,src,len);
 
 	if (new_addr>VGA_ATTRIBUTE_CONTROLLER_NUM) {
 	    PrintError("vga: ignoring change of attribute controller address to %u (>%u)\n",
@@ -948,10 +1307,12 @@ static int attribute_controller_address_and_data_write(struct guest_info *core,
 	uint8_t data = *((uint8_t*)src);
 	uint8_t index=vga->vga_attribute_controller.vga_attribute_controller_addr.val;  // should mask probably
 
-	PrintDebug("vga: graphics controller data write index %d with data=0x%x\n", index,data);
+	PrintDebug("vga: attribute controller data write index %d with data=0x%x\n", index,data);
 	
-	ERR_WRONG_SIZE("write","vga graphics controller data",len,1,1);
+	ERR_WRONG_SIZE("write","vga attribute controller data",len,1,1);
 
+	PASSTHROUGH_IO_OUT(vga,port,src,len);
+	
 	vga->vga_attribute_controller.vga_attribute_controller_regs[index] = data;
 	
 	vga->vga_attribute_controller.state=ATTR_ADDR;
@@ -981,6 +1342,8 @@ static int attribute_controller_data_read(struct guest_info *core,
 
     ERR_WRONG_SIZE("read","vga attribute controller data",len,1,1);
 
+    PASSTHROUGH_IO_IN(vga,port,dest,len);
+
     *((uint8_t*)dest) = data;
 
     return len;
@@ -1005,6 +1368,8 @@ static int dac_write_address_read(struct guest_info *core,
 
     ERR_WRONG_SIZE("read","vga dac write addr",len,1,1);
 
+    PASSTHROUGH_IO_IN(vga,port,dest,len);
+
     *((uint8_t*)dest) = vga->vga_dac.vga_dac_write_addr;
 
     // This read does not reset the state machine
@@ -1026,6 +1391,8 @@ static int dac_write_address_write(struct guest_info *core,
     PrintDebug("vga: dac write address write data=0x%x\n", new_addr);
 
     ERR_WRONG_SIZE("write","vga dac write addr",len,1,1);
+
+    PASSTHROUGH_IO_OUT(vga,port,src,len);
 
     // cannot be out of bounds since there are 256 regs
 
@@ -1053,6 +1420,8 @@ static int dac_read_address_read(struct guest_info *core,
 
     ERR_WRONG_SIZE("read","vga dac read addr",len,1,1);
 
+    PASSTHROUGH_IO_IN(vga,port,dest,len);
+
     *((uint8_t*)dest) = vga->vga_dac.vga_dac_read_addr;
 
     // This read does not reset the state machine
@@ -1074,6 +1443,8 @@ static int dac_read_address_write(struct guest_info *core,
     PrintDebug("vga: dac read address write data=0x%x\n", new_addr);
 
     ERR_WRONG_SIZE("write","vga dac read addr",len,1,1);
+
+    PASSTHROUGH_IO_OUT(vga,port,src,len);
 
     // cannot be out of bounds since there are 256 regs
 
@@ -1105,6 +1476,8 @@ static int dac_data_read(struct guest_info *core,
     }
 
     ERR_WRONG_SIZE("read","vga dac read data",len,1,1);
+
+    PASSTHROUGH_IO_IN(vga,port,dest,len);
 
     curreg = vga->vga_dac.vga_dac_read_addr;
     curchannel = vga->vga_dac.channel;
@@ -1151,6 +1524,8 @@ static int dac_data_write(struct guest_info *core,
 
     ERR_WRONG_SIZE("read","vga dac write data",len,1,1);
 
+    PASSTHROUGH_IO_OUT(vga,port,src,len);
+
     curreg = vga->vga_dac.vga_dac_write_addr;
     curchannel = vga->vga_dac.channel;
     data = *((uint8_t *)src);
@@ -1196,6 +1571,8 @@ static int dac_pixel_mask_read(struct guest_info *core,
 
     ERR_WRONG_SIZE("read","vga pixel mask",len,1,1);
 
+    PASSTHROUGH_IO_IN(vga,port,dest,len);
+
     *((uint8_t*)dest) = vga->vga_dac.vga_pixel_mask;
 
     return len;
@@ -1215,6 +1592,8 @@ static int dac_pixel_mask_write(struct guest_info *core,
     PrintDebug("vga: dac pixel mask write data=0x%x\n", new_data);
 
     ERR_WRONG_SIZE("write","pixel mask",len,1,1);
+
+    PASSTHROUGH_IO_OUT(vga,port,src,len);
 
     vga->vga_dac.vga_pixel_mask =  new_data;
 
@@ -1304,6 +1683,7 @@ static int vga_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     int ret;
 
     char * dev_id = v3_cfg_val(cfg, "ID");
+    char * passthrough = v3_cfg_val(cfg, "passthrough");
 
     // DETERMINE THE FRAMEBUFFER AND SET IT EARLY
     // FRAMEBUFFER IS SUPPLIED BY THE BACKEND
@@ -1318,6 +1698,11 @@ static int vga_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     }
 
     memset(vga, 0, sizeof(struct vga_internal));
+
+    if (passthrough && strcasecmp(passthrough,"enable")==0) {
+	PrintDebug("vga: enabling passthrough\n");
+	vga->passthrough=true;
+    }
 
     // No memory store is allocated since we will use a full memory hook
     // The VGA maps can be read as well as written
