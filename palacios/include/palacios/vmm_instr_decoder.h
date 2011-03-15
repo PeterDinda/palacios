@@ -256,27 +256,27 @@ static int get_operand_width(struct guest_info * info, struct x86_instr * instr,
 	case OR_IMM2SX_8:
 	case SUB_IMM2SX_8:
 	case XOR_IMM2SX_8:
-	switch (v3_get_vm_cpu_mode(info)) {
+	    switch (v3_get_vm_cpu_mode(info)) {
 		case REAL:
 		    return (instr->prefixes.op_size) ? 4 : 2;
 		case LONG:
-			if (instr->prefixes.rex.op_size) {
-				return 8;
-			}
+		    if (instr->prefixes.rex.op_size) {
+			return 8;
+		    }
 		case PROTECTED:
 		case PROTECTED_PAE:
 		case LONG_32_COMPAT:
-			if (info->segments.cs.db) {
-				// default is 32
-				return (instr->prefixes.op_size) ? 2 : 4;
-			} else {
-				return (instr->prefixes.op_size) ? 4 : 2;
-			}
+		    if (info->segments.cs.db) {
+			// default is 32
+			return (instr->prefixes.op_size) ? 2 : 4;
+		    } else {
+			return (instr->prefixes.op_size) ? 4 : 2;
+		    }
 		default:
 		    PrintError("Unsupported CPU mode: %d\n", info->cpu_mode);
 		    return -1;
 	    }
-
+	    
 	case INVLPG:
 	    switch (v3_get_vm_cpu_mode(info)) {
 		case REAL:
@@ -285,7 +285,6 @@ static int get_operand_width(struct guest_info * info, struct x86_instr * instr,
 		case PROTECTED:
 		case PROTECTED_PAE:
 		case LONG_32_COMPAT:
-
 			return 4;
 		case LONG:
 			return 8;
@@ -765,31 +764,40 @@ static int decode_rm_operand32(struct guest_info * core,
 
 
 int decode_rm_operand64(struct guest_info * core, uint8_t * instr_ptr, 
-					struct x86_instr * instr, struct x86_operand * operand, 
-					uint8_t * reg_code) {
+			struct x86_instr * instr, struct x86_operand * operand, 
+			uint8_t * reg_code) {
+    
+    
 					
-					
-	return 0;
+    return 0;
 }
 
 
 static int decode_rm_operand(struct guest_info * core, 
 			     uint8_t * instr_ptr,        // input
+			     op_form_t form, 
 			     struct x86_instr * instr,
 			     struct x86_operand * operand, 
 			     uint8_t * reg_code) {
     
     v3_cpu_mode_t mode = v3_get_vm_cpu_mode(core);
 
-    if (mode == REAL) {
-	return decode_rm_operand16(core, instr_ptr, instr, operand, reg_code);
-    } else if ((mode == PROTECTED) || (mode == PROTECTED_PAE) || (mode == LONG_32_COMPAT)) {
-	return decode_rm_operand32(core, instr_ptr, instr, operand, reg_code);
-	} else if (mode == LONG) {
+    operand->size = get_operand_width(core, instr, form);
+
+    switch (mode) {
+	case REAL:
+	    return decode_rm_operand16(core, instr_ptr, instr, operand, reg_code);
+	case LONG:
+	    if (instr->prefixes.rex.op_size) {
 		return decode_rm_operand64(core, instr_ptr, instr, operand, reg_code);
-    } else {
-	PrintError("Invalid CPU_MODE (%d)\n", mode);
-	return -1;
+	    }
+	case PROTECTED:
+	case PROTECTED_PAE:
+	case LONG_32_COMPAT:
+	    return decode_rm_operand32(core, instr_ptr, instr, operand, reg_code);
+	default:
+	    PrintError("Invalid CPU_MODE (%d)\n", mode);
+	    return -1;
     }
 }
 			     

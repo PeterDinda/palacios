@@ -145,9 +145,7 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	case MOV_IMM2:{
 	    uint8_t reg_code = 0;
 
-	    instr->dst_operand.size = operand_width;
-
-	    ret = decode_rm_operand(core, instr_ptr, instr, &(instr->dst_operand), &reg_code);
+	    ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->dst_operand), &reg_code);
 
 	    if (ret == -1) {
 		PrintError("Error decoding operand\n");
@@ -192,9 +190,7 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	case MOV_2MEM: {
 	    uint8_t reg_code = 0;
 
-	    instr->dst_operand.size = operand_width;
-
-	    ret = decode_rm_operand(core, instr_ptr, instr, &(instr->dst_operand), &reg_code);
+	    ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->dst_operand), &reg_code);
 
 	    if (ret == -1) {
 		PrintError("Error decoding operand\n");
@@ -226,9 +222,8 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	case XOR_MEM2:
 	case MOV_MEM2: {
 	    uint8_t reg_code = 0;
-	    instr->src_operand.size = operand_width;
 
-	    ret = decode_rm_operand(core, instr_ptr, instr, &(instr->src_operand), &reg_code);
+	    ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->src_operand), &reg_code);
 
 	    if (ret == -1) {
 		PrintError("Error decoding operand\n");
@@ -252,9 +247,8 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	case SUB_IMM2SX_8:
 	case XOR_IMM2SX_8: {
 	    uint8_t reg_code = 0;
-	    instr->src_operand.size = operand_width;
 
-	    ret = decode_rm_operand(core, instr_ptr, instr, &(instr->src_operand), &reg_code);
+	    ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->src_operand), &reg_code);
 
 	    if (ret == -1) {
 		PrintError("Error decoding operand\n");
@@ -301,9 +295,7 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	    case MOV_2CR: {
 		uint8_t reg_code = 0;
 
-		instr->src_operand.size = operand_width;
-
-		ret = decode_rm_operand(core, instr_ptr, instr, &(instr->src_operand),
+		ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->src_operand),
 					&reg_code);
 
 		if (ret == -1) {
@@ -323,9 +315,7 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	    case MOV_CR2: {
 		uint8_t reg_code = 0;
 
-		instr->dst_operand.size = operand_width;
-
-		ret = decode_rm_operand(core, instr_ptr, instr, &(instr->dst_operand),
+		ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->dst_operand),
 					&reg_code);
 
 		if (ret == -1) {
@@ -369,9 +359,7 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 
 		// We use the dst operand here to maintain bug-for-bug compatibility with XED
 
-		instr->dst_operand.size = operand_width;
-
-		ret = decode_rm_operand(core, instr_ptr, instr, &(instr->dst_operand), &reg_code);
+		ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->dst_operand), &reg_code);
 
 		if (ret == -1) {
 		    PrintError("Error decoding operand for (%s)\n", op_form_to_str(form));
