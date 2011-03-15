@@ -414,13 +414,13 @@ void v3_delete_mem_region(struct v3_vm_info * vm, struct v3_mem_region * reg) {
 
     v3_rb_erase(&(reg->tree_node), &(vm->mem_map.mem_regions));
 
-    V3_Free(reg);
 
 
     // If the guest isn't running then there shouldn't be anything to invalidate. 
     // Page tables should __always__ be created on demand during execution
     // NOTE: This is a sanity check, and can be removed if that assumption changes
     if (vm->run_state != VM_RUNNING) {
+	V3_Free(reg);
 	return;
     }
 
@@ -456,6 +456,8 @@ void v3_delete_mem_region(struct v3_vm_info * vm, struct v3_mem_region * reg) {
 	    }
 	}
     }
+
+    V3_Free(reg);
 
     // flush virtual page tables 
     // 3 cases shadow, shadow passthrough, and nested

@@ -78,7 +78,13 @@ int v3_decode(struct guest_info * core, addr_t instr_ptr, struct x86_instr * ins
     length = v3_get_prefixes((uint8_t *)instr_ptr, &(instr->prefixes));
 
 
-    // check for REX prefix
+    // REX prefix
+    if (v3_get_vm_cpu_mode(core) == LONG) {
+	if ((*(uint8_t *)(instr_ptr + length) & 0xf0) == 0x40) {
+	    *(uint8_t *)&(instr->prefixes.rex) = *(uint8_t *)(instr_ptr + length);
+	    length += 1;
+	}
+    }
 
 
     form = op_code_to_form((uint8_t *)(instr_ptr + length), &length);

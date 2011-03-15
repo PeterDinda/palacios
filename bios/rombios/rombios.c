@@ -9399,7 +9399,7 @@ pci_real_f0c: ;; write configuration word
   jmp pci_real_ok
 pci_real_f0d: ;; write configuration dword
   cmp al, #0x0d
-  jne pci_real_unknown
+  jne pci_real_f0e
   call pci_real_select_reg
   push dx
   mov dx, #0x0cfc
@@ -9407,6 +9407,46 @@ pci_real_f0d: ;; write configuration dword
   out dx, eax
   pop dx
   jmp pci_real_ok
+pci_real_f0e: ;; get irq routing options
+  cmp al, #0x0e
+  jne pci_real_unknown
+  SEG ES
+  cmp word ptr [di], #pci_routing_table_structure_end - pci_routing_table_structure_start
+  jb pci_real_too_small
+  SEG ES
+  mov word ptr [di], #pci_routing_table_structure_end - pci_routing_table_structure_start
+  pushf
+  push ds
+  push es
+  push cx
+  push si
+  push di
+  cld
+  mov si, #pci_routing_table_structure_start
+  push cs
+  pop ds
+  SEG ES
+  mov cx, [di+2]
+  SEG ES
+  mov es, [di+4]
+  mov di, cx
+  mov cx, #pci_routing_table_structure_end - pci_routing_table_structure_start
+  rep
+      movsb
+  pop di
+  pop si
+  pop cx
+  pop es
+  pop ds
+  popf
+  mov bx, #(1 << 9) | (1 << 11)   ;; irq 9 and 11 are used
+  jmp pci_real_ok
+pci_real_too_small:
+  SEG ES
+  mov word ptr [di], #pci_routing_table_structure_end - pci_routing_table_structure_start
+  mov ah, #0x89
+  jmp pci_real_fail
+
 pci_real_unknown:
   mov ah, #0x81
 pci_real_fail:
@@ -9443,10 +9483,11 @@ pci_routing_table_structure:
   db 0x08 ;; PCI interrupt router DevFunc
   dw 0x0000 ;; PCI exclusive IRQs 
   dw 0x8086 ;; compatible PCI interrupt router vendor ID
-  dw 0x7000 ;; compatible PCI interrupt router device ID
+  dw 0x122e ;; compatible PCI interrupt router device ID
   dw 0,0 ;; Miniport data
   db 0,0,0,0,0,0,0,0,0,0,0 ;; reserved
-  db 0x07 ;; checksum
+  db 0x37 ;; checksum
+pci_routing_table_structure_start:
   ;; first slot entry PCI-to-ISA (embedded)
   db 0 ;; pci bus number
   db 0x08 ;; pci device number (bit 7-3)
@@ -9525,6 +9566,7 @@ pci_routing_table_structure:
   dw 0xdef8 ;; IRQ bitmap INTD#
   db 5 ;; physical slot (0 = embedded)
   db 0 ;; reserved
+pci_routing_table_structure_end:
 
 pci_irq_list:
   db 11, 10, 9, 5;

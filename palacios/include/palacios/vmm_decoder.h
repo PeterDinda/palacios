@@ -62,6 +62,13 @@ struct x86_prefixes {
     uint_t br_taken   : 1;  // 0x3E
     uint_t op_size     : 1;  // 0x66
     uint_t addr_size   : 1;  // 0x67
+	struct  {
+		uint_t rm        : 1;  // REX.B
+		uint_t sib_idx   : 1;  // REX.X
+		uint_t reg       : 1;  // REX.R
+		uint_t op_size   : 1;  // REX.W
+		uint8_t rsvd     : 4;
+	} __attribute__((packed)) rex;
 } __attribute__((packed));
 
 
@@ -117,7 +124,6 @@ int v3_encode(struct guest_info * info, struct x86_instr * instr, uint8_t * inst
 /* Removes a rep prefix in place */
 void v3_strip_rep_prefix(uint8_t * instr, int length);
 uint8_t v3_get_prefixes(uint8_t * instr, struct x86_prefixes * prefixes);
-
 
 
 void v3_print_instr(struct x86_instr * instr);
