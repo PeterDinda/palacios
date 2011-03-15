@@ -62,13 +62,14 @@ struct x86_prefixes {
     uint_t br_taken   : 1;  // 0x3E
     uint_t op_size     : 1;  // 0x66
     uint_t addr_size   : 1;  // 0x67
-	struct  {
-		uint_t rm        : 1;  // REX.B
-		uint_t sib_idx   : 1;  // REX.X
-		uint_t reg       : 1;  // REX.R
-		uint_t op_size   : 1;  // REX.W
-		uint8_t rsvd     : 4;
-	} __attribute__((packed)) rex;
+
+    uint_t rex   : 1;
+    
+    uint_t rex_rm        : 1;  // REX.B
+    uint_t rex_sib_idx   : 1;  // REX.X
+    uint_t rex_reg       : 1;  // REX.R
+    uint_t rex_op_size   : 1;  // REX.W
+
 } __attribute__((packed));
 
 

@@ -260,7 +260,7 @@ static int get_operand_width(struct guest_info * info, struct x86_instr * instr,
 		case REAL:
 		    return (instr->prefixes.op_size) ? 4 : 2;
 		case LONG:
-		    if (instr->prefixes.rex.op_size) {
+		    if (instr->prefixes.rex_op_size) {
 			return 8;
 		    }
 		case PROTECTED:
@@ -407,6 +407,30 @@ static inline int decode_gpr(struct guest_info * core,
 	    } else {
 		reg->operand = (addr_t)&(gprs->rdi);
 	    }
+	    break;
+	case 8:
+	    reg->operand = (addr_t)&(gprs->r8);
+	    break;
+	case 9:
+	    reg->operand = (addr_t)&(gprs->r9);
+	    break;
+	case 10:
+	    reg->operand = (addr_t)&(gprs->r10);
+	    break;
+	case 11:
+	    reg->operand = (addr_t)&(gprs->r11);
+	    break;
+	case 12:
+	    reg->operand = (addr_t)&(gprs->r12);
+	    break;
+	case 13:
+	    reg->operand = (addr_t)&(gprs->r13);
+	    break;
+	case 14:
+	    reg->operand = (addr_t)&(gprs->r14);
+	    break;
+	case 15:
+	    reg->operand = (addr_t)&(gprs->r15);
 	    break;
 	default:
 	    PrintError("Invalid Reg Code (%d)\n", reg_code);
@@ -763,13 +787,265 @@ static int decode_rm_operand32(struct guest_info * core,
 }
 
 
-int decode_rm_operand64(struct guest_info * core, uint8_t * instr_ptr, 
+int decode_rm_operand64(struct guest_info * core, uint8_t * modrm_instr, 
 			struct x86_instr * instr, struct x86_operand * operand, 
 			uint8_t * reg_code) {
     
+    struct v3_gprs * gprs = &(core->vm_regs);
+    uint8_t * instr_cursor = modrm_instr;
+    struct modrm_byte * modrm = (struct modrm_byte *)modrm_instr;
+    addr_t base_addr = 0;
+    modrm_mode_t mod_mode = 0;
+    uint_t has_sib_byte = 0;
+
+
+    instr_cursor += 1;
+
+    *reg_code = modrm->reg;
+    *reg_code |= (instr->prefixes.rex_reg << 3);
+
+    if (modrm->mod == 3) {
+	uint8_t rm_val = modrm->rm;
+	
+	rm_val |= (instr->prefixes.rex_rm << 3);
+	
+	operand->type = REG_OPERAND;
+	//    PrintDebug("first operand = Register (RM=%d)\n",modrm->rm);
+	
+	decode_gpr(core, rm_val, operand);
+    } else {
+	struct v3_segment * seg = NULL;
+	uint8_t rm_val = modrm->rm;
+
+	operand->type = MEM_OPERAND;
+
+
+	if (modrm->mod == 0) {
+	    mod_mode = DISP0;
+	} else if (modrm->mod == 1) {
+	    mod_mode = DISP8;
+	} else if (modrm->mod == 2) {
+	    mod_mode = DISP32;
+	}
     
-					
-    return 0;
+	if (rm_val == 4) {
+	    has_sib_byte = 1;
+	} else {
+	    rm_val |= (instr->prefixes.rex_rm << 3);
+	    
+	    switch (rm_val) {
+		case 0:
+		    base_addr = gprs->rax;
+		    break;
+		case 1:
+		    base_addr = gprs->rcx;
+		    break;
+		case 2:
+		    base_addr = gprs->rdx;
+		    break;
+		case 3:
+		    base_addr = gprs->rbx;
+		    break;
+		case 5:
+		    if (modrm->mod == 0) {
+			base_addr = 0;
+			mod_mode = DISP32;
+		    } else {
+			base_addr = gprs->rbp;
+		    }
+		    break;
+		case 6:
+		    base_addr = gprs->rsi;
+		    break;
+		case 7:
+		    base_addr = gprs->rdi;
+		    break;
+		case 8:
+		    base_addr = gprs->r8;
+		    break;
+		case 9:
+		    base_addr = gprs->r9;
+		    break;
+		case 10:
+		    base_addr = gprs->r10;
+		    break;
+		case 11:
+		    base_addr = gprs->r11;
+		    break;
+		case 12:
+		    base_addr = gprs->r12;
+		    break;
+		case 13:
+		    base_addr = gprs->r13;
+		    break;
+		case 14:
+		    base_addr = gprs->r14;
+		    break;
+		case 15:
+		    base_addr = gprs->r15;
+		    break;
+		default:
+		    return -1;
+	    }
+	}
+
+	if (has_sib_byte) {
+	    instr_cursor += 1;
+	    struct sib_byte * sib = (struct sib_byte *)(instr_cursor);
+	    int scale = 0x1 << sib->scale;
+	    uint8_t index_val = sib->index;
+	    uint8_t base_val = sib->base;
+
+	    index_val |= (instr->prefixes.rex_sib_idx << 3);
+	    base_val |= (instr->prefixes.rex_rm << 3);
+
+	    instr_cursor += 1;
+
+	    switch (index_val) {
+		case 0:
+		    base_addr = gprs->rax;
+		    break;
+		case 1:
+		    base_addr = gprs->rcx;
+		    break;
+		case 2:
+		    base_addr = gprs->rdx;
+		    break;
+		case 3:
+		    base_addr = gprs->rbx;
+		    break;
+		case 4:
+		    base_addr = 0;
+		    break;
+		case 5:
+		    base_addr = gprs->rbp;
+		    break;
+		case 6:
+		    base_addr = gprs->rsi;
+		    break;
+		case 7:
+		    base_addr = gprs->rdi;
+		    break;
+		case 8:
+		    base_addr = gprs->r8;
+		    break;
+		case 9:
+		    base_addr = gprs->r9;
+		    break;
+		case 10:
+		    base_addr = gprs->r10;
+		    break;
+		case 11:
+		    base_addr = gprs->r11;
+		    break;
+		case 12:
+		    base_addr = gprs->r12;
+		    break;
+		case 13:
+		    base_addr = gprs->r13;
+		    break;
+		case 14:
+		    base_addr = gprs->r14;
+		    break;
+		case 15:
+		    base_addr = gprs->r15;
+		    break;
+	    }
+
+	    base_addr *= scale;
+
+
+	    switch (base_val) {
+		case 0:
+		    base_addr += MASK_DISPLACEMENT(gprs->rax, mod_mode);
+		    break;
+		case 1:
+		    base_addr += MASK_DISPLACEMENT(gprs->rcx, mod_mode);
+		    break;
+		case 2:
+		    base_addr += MASK_DISPLACEMENT(gprs->rdx, mod_mode);
+		    break;
+		case 3:
+		    base_addr += MASK_DISPLACEMENT(gprs->rbx, mod_mode);
+		    break;
+		case 4:
+		    base_addr += MASK_DISPLACEMENT(gprs->rsp, mod_mode);
+		    break;
+		case 5:
+		    if (modrm->mod != 0) {
+			base_addr += MASK_DISPLACEMENT(gprs->rbp, mod_mode);
+		    }
+		    break;
+		case 6:
+		    base_addr += MASK_DISPLACEMENT(gprs->rsi, mod_mode);
+		    break;
+		case 7:
+		    base_addr += MASK_DISPLACEMENT(gprs->rdi, mod_mode);
+		    break;
+		case 8:
+		    base_addr += MASK_DISPLACEMENT(gprs->r8, mod_mode);
+		    break;
+		case 9:
+		    base_addr += MASK_DISPLACEMENT(gprs->r9, mod_mode);
+		    break;
+		case 10:
+		    base_addr += MASK_DISPLACEMENT(gprs->r10, mod_mode);
+		    break;
+		case 11:
+		    base_addr += MASK_DISPLACEMENT(gprs->r11, mod_mode);
+		    break;
+		case 12:
+		    base_addr += MASK_DISPLACEMENT(gprs->r12, mod_mode);
+		    break;
+		case 13:
+		    base_addr += MASK_DISPLACEMENT(gprs->r13, mod_mode);
+		    break;
+		case 14:
+		    base_addr += MASK_DISPLACEMENT(gprs->r14, mod_mode);
+		    break;
+		case 15:
+		    base_addr += MASK_DISPLACEMENT(gprs->r15, mod_mode);
+		    break;
+	    }
+
+	} 
+
+
+	if (mod_mode == DISP8) {
+	    base_addr += *(sint8_t *)instr_cursor;
+	    instr_cursor += 1;
+	} else if (mod_mode == DISP32) {
+	    base_addr += *(sint32_t *)instr_cursor;
+	    instr_cursor += 4;
+	}
+    
+
+	/* 
+	   Segments should be ignored 
+	   // get appropriate segment
+	   if (instr->prefixes.cs_override) {
+	   seg = &(core->segments.cs);
+	   } else if (instr->prefixes.es_override) {
+	   seg = &(core->segments.es);
+	   } else if (instr->prefixes.ss_override) {
+	   seg = &(core->segments.ss);
+	   } else if (instr->prefixes.fs_override) {
+	   seg = &(core->segments.fs);
+	   } else if (instr->prefixes.gs_override) {
+	   seg = &(core->segments.gs);
+	   } else {
+	   seg = &(core->segments.ds);
+	   }
+	*/
+
+	operand->operand = ADDR_MASK(get_addr_linear(core, base_addr, seg), 
+				get_addr_width(core, instr));
+    }
+
+
+    return (instr_cursor - modrm_instr);
+
+
 }
 
 
@@ -788,7 +1064,7 @@ static int decode_rm_operand(struct guest_info * core,
 	case REAL:
 	    return decode_rm_operand16(core, instr_ptr, instr, operand, reg_code);
 	case LONG:
-	    if (instr->prefixes.rex.op_size) {
+	    if (instr->prefixes.rex_op_size) {
 		return decode_rm_operand64(core, instr_ptr, instr, operand, reg_code);
 	    }
 	case PROTECTED:

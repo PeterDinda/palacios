@@ -80,8 +80,16 @@ int v3_decode(struct guest_info * core, addr_t instr_ptr, struct x86_instr * ins
 
     // REX prefix
     if (v3_get_vm_cpu_mode(core) == LONG) {
-	if ((*(uint8_t *)(instr_ptr + length) & 0xf0) == 0x40) {
-	    *(uint8_t *)&(instr->prefixes.rex) = *(uint8_t *)(instr_ptr + length);
+	uint8_t prefix = *(uint8_t *)(instr_ptr + length);
+
+	if ((prefix & 0xf0) == 0x40) {
+	    instr->prefixes.rex = 1;
+
+	    instr->prefixes.rex_rm = (prefix & 0x01);
+	    instr->prefixes.rex_sib_idx = ((prefix & 0x02) >> 1);
+	    instr->prefixes.rex_reg = ((prefix & 0x04) >> 2);
+	    instr->prefixes.rex_op_size = ((prefix & 0x08) >> 3);
+
 	    length += 1;
 	}
     }
