@@ -779,7 +779,7 @@ static int decode_rm_operand32(struct guest_info * core,
 	}
 	
 	operand->operand = ADDR_MASK(get_addr_linear(core, base_addr, seg), 
-				get_addr_width(core, instr));
+				     get_addr_width(core, instr));
     }
 
 
@@ -1039,7 +1039,7 @@ int decode_rm_operand64(struct guest_info * core, uint8_t * modrm_instr,
 	*/
 
 	operand->operand = ADDR_MASK(get_addr_linear(core, base_addr, seg), 
-				get_addr_width(core, instr));
+				     get_addr_width(core, instr));
     }
 
 
