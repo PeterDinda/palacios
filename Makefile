@@ -298,8 +298,10 @@ V3_INCLUDE      := -Ipalacios/include \
 
 CPPFLAGS        := $(V3_INCLUDE) -D__V3VEE__
 
-CFLAGS 		:=  -fno-stack-protector -Wall -Werror -fPIC -mno-red-zone -fno-common
-#-fPIC
+CFLAGS 		:=  -fno-stack-protector -Wall -Werror  -mno-red-zone -fno-common 
+
+
+
 #-ffreestanding
 
 
@@ -434,6 +436,9 @@ libs-y		:= palacios/lib/$(ARCH)/
 devices-y       := palacios/src/devices/
 modules-y       := modules/
 
+
+
+
 ifeq ($(dot-config),1)
 # In this section, we need .config
 
@@ -460,7 +465,12 @@ else
 palacios/include/autoconf.h: ;
 endif
 
+
+ifdef CONFIG_LINUX
+DEFAULT_EXTRA_TARGETS=linux_module
+else
 DEFAULT_EXTRA_TARGETS=
+endif
 
 # The all: target is the default when no target is given on the
 # command line.
@@ -468,6 +478,12 @@ DEFAULT_EXTRA_TARGETS=
 # Defaults palacios but it is usually overriden in the arch makefile
 all: palacios $(DEFAULT_EXTRA_TARGETS)
 
+
+ifdef CONFIG_LINUX
+CFLAGS          += -mcmodel=kernel 
+else
+CFLAGS          += -fPIC
+endif
 
 ifdef CONFIG_FRAME_POINTER
 CFLAGS		+= -fno-omit-frame-pointer $(call cc-option,-fno-optimize-sibling-calls,)
@@ -529,6 +545,7 @@ core-y		:= $(patsubst %/, %/built-in.o, $(core-y))
 devices-y	:= $(patsubst %/, %/built-in.o, $(devices-y))
 libs-y		:= $(patsubst %/, %/built-in.o, $(libs-y))
 modules-y       := $(patsubst %/, %/built-in.o, $(modules-y))
+
 #core-y		:= $(patsubst %/, %/lib.a, $(core-y))
 #devices-y	:= $(patsubst %/, %/lib.a, $(devices-y))
 
@@ -553,7 +570,8 @@ modules-y       := $(patsubst %/, %/built-in.o, $(modules-y))
 
 palacios := $(core-y) $(devices-y) $(libs-y) $(modules-y)
 
-# Rule to link palacios - also used during CONFIG_KALLSYMS
+
+# Rule to link palacios - also used during CONFIG_CONFIGKALLSYMS
 # May be overridden by /Makefile.$(ARCH)
 quiet_cmd_palacios__ ?= AR $@ 
       cmd_palacios__ ?= $(AR) rcs $@ $^
@@ -591,6 +609,14 @@ libv3vee.a: $(palacios)
 	$(call if_changed_rule,palacios__)
 
 palacios: libv3vee.a
+
+
+linux_module/v3vee.ko:
+	cd linux_module/ && make CONFIG_LINUX_KERN=$(CONFIG_LINUX_KERN)
+	cp linux_module/v3vee.ko v3vee.ko
+
+
+linux_module: linux_module/v3vee.ko
 
 palacios.asm: palacios
 	$(OBJDUMP) --disassemble $< > $@
@@ -707,7 +733,7 @@ clean: archclean $(clean-dirs)
 	@find . $(RCS_FIND_IGNORE) \
 		\( -name 'lib' \) -prune -o \
 	 	\( -name '*.[oas]' -o -name '.*.cmd' \
-		-o -name '.*.d' -o -name '.*.tmp' -o -name '*.mod.c' \) \
+		-o -name '.*.d' -o -name '.*.tmp' -o -name '*.mod.c' -o -name '*.ko' \) \
 		-type f -print | xargs rm -f
 
 # mrproper - Delete all generated files, including .config

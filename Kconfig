@@ -17,14 +17,31 @@ config KITTEN
 	help
 	  This enables the necesary options to compile Palacios with Kitten
 
-config LINUX
-	bool "Linux 2.6"
+config LINUX_BUILTIN
+	bool "OLD Linux (Built in) -- to be deprecated"
 	select BUILT_IN_STDLIB
 	select BUILT_IN_ATOI
 	select FILE
 	help
 	  This enables the necessary options to compile Palacios with Linux 2.6
           Currently, this is in development, and only 2.6.32 is verified to work
+
+
+config LINUX
+	bool "Linux Module"
+	select BUILT_IN_STDLIB
+	select BUILT_IN_ATOI
+	select FILE
+	help
+	  This enables the necessary options to compile Palacios as a Linux module
+ 
+
+config LINUX_KERN
+	depends on LINUX
+	string "Linux Kernel Source directory" 
+	default "/usr/src/linux"
+	help 
+	  This is the directory containing the linux source for the kernel module to be built
 
 config MINIX
 	bool "MINIX 3"
