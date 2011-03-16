@@ -438,7 +438,6 @@ modules-y       := modules/
 
 
 
-
 ifeq ($(dot-config),1)
 # In this section, we need .config
 
@@ -531,6 +530,8 @@ export	INSTALL_PATH ?= /build
 palacios-dirs	:= $(patsubst %/,%,$(filter %/,  \
 		     $(core-y) $(devices-y) $(libs-y)) $(modules-y))
 
+
+
 #palacios-alldirs	:= $(sort $(palacios-dirs) $(patsubst %/,%,$(filter %/, \
 #		     $(core-n) $(core-) $(devices-n) $(devices-) \
 #		     $(libs-n)    $(libs-))))
@@ -545,6 +546,7 @@ core-y		:= $(patsubst %/, %/built-in.o, $(core-y))
 devices-y	:= $(patsubst %/, %/built-in.o, $(devices-y))
 libs-y		:= $(patsubst %/, %/built-in.o, $(libs-y))
 modules-y       := $(patsubst %/, %/built-in.o, $(modules-y))
+#lnxmod-y        := $(patsubst %/, %/built-in.o, $(lnxmod-y))
 
 #core-y		:= $(patsubst %/, %/lib.a, $(core-y))
 #devices-y	:= $(patsubst %/, %/lib.a, $(devices-y))
@@ -611,12 +613,16 @@ libv3vee.a: $(palacios)
 palacios: libv3vee.a
 
 
-linux_module/v3vee.ko:
+
+
+linux_module/v3vee.ko: linux_module/*.c
 	cd linux_module/ && make CONFIG_LINUX_KERN=$(CONFIG_LINUX_KERN)
 	cp linux_module/v3vee.ko v3vee.ko
 
 
-linux_module: linux_module/v3vee.ko
+linux_module: linux_module/v3vee.ko 
+
+
 
 palacios.asm: palacios
 	$(OBJDUMP) --disassemble $< > $@
