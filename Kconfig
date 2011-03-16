@@ -32,6 +32,7 @@ config LINUX
 	select BUILT_IN_STDLIB
 	select BUILT_IN_ATOI
 	select FILE
+	select V3_DECODER
 	help
 	  This enables the necessary options to compile Palacios as a Linux module
  
@@ -86,6 +87,7 @@ choice
 
 config XED
 	bool "XED decoder library"
+	depends on !LINUX
 	help
 	   This uses the XED decoder library from pintools 
 
