@@ -34,6 +34,24 @@
 
 typedef uint8_t *vga_map; // points to MAP_SIZE data
 
+/* HACK HACK HACK */
+
+struct fb_info {
+    uint32_t rows;
+    uint32_t cols;
+    uint32_t bitsperpixel;
+};
+
+struct fb {
+    struct fb_info *info;
+    uint8_t * data;
+};
+
+//extern
+struct fb *palacios_linux_fb_hack_pointer;
+
+/* HACK HACK HACK */
+
 
 #define VGA_MISC_OUT_READ 0x3cc
 #define VGA_MISC_OUT_WRITE 0x3c2
@@ -71,7 +89,7 @@ typedef uint8_t *vga_map; // points to MAP_SIZE data
 
 #define VGA_DAC_WRITE_ADDR 0x3c8
 #define VGA_DAC_READ_ADDR 0x3c7
-#define VGA_DAC_DATA 0x3c8
+#define VGA_DAC_DATA 0x3c9
 #define VGA_DAC_PIXEL_MASK 0x3c6
 
 #define VGA_DAC_NUM_ENTRIES 256
@@ -304,6 +322,42 @@ struct vga_internal {
 };
 
 
+static void get_mem_region(struct vga_internal *vga, uint64_t *mem_start, uint64_t *mem_end) 
+{
+    switch (vga->vga_graphics_controller.vga_misc.memory_map) { 
+	case 0: 
+	    *mem_start=0xa0000;
+	    *mem_end=0xc0000;
+	    break;
+	case 1:
+	    *mem_start=0xa0000;
+	    *mem_end=0xb0000;
+	    break;
+	case 2:
+	    *mem_start=0xb0000;
+	    *mem_end=0xb8000;
+	    break;
+	case 3:
+	    *mem_start=0xb8000;
+	    *mem_end=0xc0000;
+	    break;
+    }
+}
+
+static uint64_t find_offset(struct vga_internal *vga, addr_t guest_addr)
+{
+    uint64_t mem_start, mem_end;
+    
+    mem_start=mem_end=0;
+    
+    get_mem_region(vga, &mem_start, &mem_end);
+
+    return (guest_addr-mem_start) % (mem_end-mem_start > 65536 ? 65536 : (mem_end-mem_start)); 
+
+}
+
+    
+
 
 static int vga_write(struct guest_info * core, 
 		     addr_t guest_addr, 
@@ -311,7 +365,8 @@ static int vga_write(struct guest_info * core,
 		     uint_t length, 
 		     void * priv_data)
 {
-    struct vga_internal *vga = (struct vga_internal *) priv_data;
+    struct vm_device *dev = (struct vm_device *)priv_data;
+    struct vga_internal *vga = (struct vga_internal *) dev->private_data;
 
     PrintDebug("vga: memory write: guest_addr=0x%p len=%u\n",(void*)guest_addr, length);
 
@@ -343,7 +398,9 @@ static int vga_write(struct guest_info * core,
 	    uint8_t ror = vga->vga_graphics_controller.vga_data_rotate.rotate_count;
 	    uint8_t func = vga->vga_graphics_controller.vga_data_rotate.function;
 	    
-	    offset =(uint64_t) guest_addr - (uint64_t) MEM_REGION_START;
+	    offset = find_offset(vga, guest_addr);
+
+	    PrintDebug("vga: mode 0 write, offset=0x%llx, ror=%u, func=%u\n", offset,ror,func);
 
 	    for (i=0;i<length;i++,offset++) { 
 		// now for each map
@@ -391,6 +448,7 @@ static int vga_write(struct guest_info * core,
 		    // selective write
 		    if (mm & 0x1) { 
 			// write to this map
+			PrintDebug("vga: write map %u offset 0x%p map=0x%p pointer=0x%p\n",mapnum,(void*)offset,map,&(map[offset]));
 			map[offset] = data;
 		    } else {
 			// skip this map
@@ -411,7 +469,9 @@ static int vga_write(struct guest_info * core,
 
 	    int i;
 
-	    uint64_t offset =(uint64_t) guest_addr - (uint64_t) MEM_REGION_START;
+	    uint64_t offset = find_offset(vga,guest_addr);
+
+	    PrintDebug("vga: mode 1 write, offset=0x%llx\n", offset);
 
 	    for (i=0;i<length;i++,offset++) { 
 
@@ -450,7 +510,9 @@ static int vga_write(struct guest_info * core,
 
 	    uint8_t func = vga->vga_graphics_controller.vga_data_rotate.function;
 	    
-	    offset =(uint64_t) guest_addr - (uint64_t) MEM_REGION_START;
+	    offset = find_offset(vga, guest_addr);
+
+	    PrintDebug("vga: mode 2 write, offset=0x%llx, func=%u\n", offset,func);
 
 	    for (i=0;i<length;i++,offset++) { 
 		// now for each map
@@ -519,7 +581,9 @@ static int vga_write(struct guest_info * core,
 
 	    uint8_t ror = vga->vga_graphics_controller.vga_data_rotate.rotate_count;
 	    
-	    offset =(uint64_t) guest_addr - (uint64_t) MEM_REGION_START;
+	    offset = find_offset(vga, guest_addr);
+
+	    PrintDebug("vga: mode 3 write, offset=0x%llx, ror=%u\n", offset,ror);
 
 	    for (i=0;i<length;i++,offset++) { 
 		// now for each map
@@ -613,15 +677,18 @@ static int vga_read(struct guest_info * core,
 		    uint_t length, 
 		    void * priv_data)
 {
-
-    struct vga_internal *vga = (struct vga_internal *) priv_data;
+    struct vm_device *dev = (struct vm_device *)priv_data;
+    struct vga_internal *vga = (struct vga_internal *) dev->private_data;
 
     PrintDebug("vga: memory read: guest_addr=0x%p len=%u\n",(void*)guest_addr, length);
+
 
     if (vga->passthrough) { 
 	memcpy(dst,V3_VAddr((void*)guest_addr),length);
     }
-    
+
+	        
+   
     /*
       Reading, 2 modes, set via Graphics Mode Register (index 05h).Read Mode:
     */
@@ -633,7 +700,7 @@ static int vga_read(struct guest_info * core,
 	    uint64_t offset;
 	    
 	    mapnum = vga->vga_graphics_controller.vga_read_map_select.map_select;
-	    offset =(uint64_t) guest_addr - (uint64_t) MEM_REGION_START;
+	    offset = find_offset(vga,guest_addr);
 	    
 	    if (offset>=65536) { 
 		PrintError("vga: read to offset=%llu map=%u (%u bytes)\n",offset,mapnum,length);
@@ -668,7 +735,7 @@ static int vga_read(struct guest_info * core,
 	    uint8_t  byte;
 	    uint8_t  bits;
 	    
-	    offset =(uint64_t) guest_addr - (uint64_t) MEM_REGION_START;
+	    offset = find_offset(vga,guest_addr);
 	    
 	    for (i=0;i<length;i++,offset++) { 
 		vga_map map;
@@ -709,6 +776,13 @@ static int vga_read(struct guest_info * core,
 static int render(struct vga_internal *vga)
 {
     PrintError("vga: render UNIMPLEMENTED\n");
+
+    if (!palacios_linux_fb_hack_pointer) { 
+	return 0;
+    }
+
+
+
     return 0;
 }
 
@@ -957,6 +1031,33 @@ static int sequencer_address_read(struct guest_info *core,
     return len;
 }
 
+static int sequencer_data_write(struct guest_info *core, 
+			       uint16_t port, 
+			       void *src,
+			       uint_t len,
+			       void *priv_data)
+{
+    struct vga_internal *vga = (struct vga_internal *) priv_data;
+    uint8_t index;
+    uint8_t data;
+    
+    data=*((uint8_t*)src);
+    index=vga->vga_sequencer.vga_sequencer_addr.val;  // should mask probably
+    
+    PrintDebug("vga: sequencer write data (index=%d) with 0x%x\n", 
+	       index, data);
+    
+    ERR_WRONG_SIZE("write","vga sequencer data",len,1,1);
+    
+    PASSTHROUGH_IO_OUT(vga,port,src,len);
+
+    vga->vga_sequencer.vga_sequencer_regs[index] = data;
+
+    render(vga);
+    
+    return len;
+}
+
 static int sequencer_address_write(struct guest_info *core, 
 				  uint16_t port, 
 				  void *src,
@@ -968,11 +1069,11 @@ static int sequencer_address_write(struct guest_info *core,
 
     new_addr=*((uint8_t*)src);
 
-    PrintDebug("vga: sequencer address write data=0x%x\n", new_addr);
+    PrintDebug("vga: sequencer address write data=0x%x len=%u\n", new_addr,len);
 
-    ERR_WRONG_SIZE("write","vga sequenver addr",len,1,1);
+    ERR_WRONG_SIZE("write","vga sequencer addr",len,1,2);
 
-    PASSTHROUGH_IO_OUT(vga,port,src,len);
+    PASSTHROUGH_IO_OUT(vga,port,src,1);
 
     if (new_addr>VGA_SEQUENCER_NUM) {
 	PrintError("vga: ignoring change of sequencer address to %u (>%u)\n",
@@ -980,7 +1081,15 @@ static int sequencer_address_write(struct guest_info *core,
 	//return -1;
     } else {
 	vga->vga_sequencer.vga_sequencer_addr.val =  *((uint8_t*)src) ;
+	if (len==2) { 
+	    // second byte is the data
+	    if (sequencer_data_write(core,port,src+1,1,vga)!=1) { 
+		PrintError("vga: write of data failed\n");
+		return -1;
+	    }
+	}
     }
+
 
     return len;
 }
@@ -1010,32 +1119,6 @@ static int sequencer_data_read(struct guest_info *core,
     return len;
 }
 
-static int sequencer_data_write(struct guest_info *core, 
-			       uint16_t port, 
-			       void *src,
-			       uint_t len,
-			       void *priv_data)
-{
-    struct vga_internal *vga = (struct vga_internal *) priv_data;
-    uint8_t index;
-    uint8_t data;
-    
-    data=*((uint8_t*)src);
-    index=vga->vga_sequencer.vga_sequencer_addr.val;  // should mask probably
-    
-    PrintDebug("vga: sequencer write data (index=%d) with 0x%x\n", 
-	       index, data);
-    
-    ERR_WRONG_SIZE("write","vga sequencer data",len,1,1);
-    
-    PASSTHROUGH_IO_OUT(vga,port,src,len);
-
-    vga->vga_sequencer.vga_sequencer_regs[index] = data;
-
-    render(vga);
-    
-    return len;
-}
  
  
 
@@ -1057,62 +1140,6 @@ static int crt_controller_address_read(struct guest_info *core,
     PASSTHROUGH_IO_IN(vga,port,dest,len);
 
     *((uint8_t*)dest) = vga->vga_crt_controller.vga_crt_addr.val;
-
-    return len;
-}
-
-static int crt_controller_address_write(struct guest_info *core, 
-					uint16_t port, 
-					void *src,
-					uint_t len,
-					void *priv_data)
-{
-    struct vga_internal *vga = (struct vga_internal *) priv_data;
-    uint8_t new_addr;
-
-    new_addr=*((uint8_t*)src);
-
-    PrintDebug("vga: crt controller (%s) address write data=0x%x\n", 
-	       port==0x3b4 ? "mono" : "color",
-	       new_addr);
-
-    ERR_WRONG_SIZE("write","vga crt controller addr",len,1,1);
-
-    PASSTHROUGH_IO_OUT(vga,port,src,len);
-
-    if (new_addr>VGA_CRT_CONTROLLER_NUM) {
-	PrintError("vga: ignoring change of crt controller address to %u (>%u)\n",
-		   new_addr, VGA_CRT_CONTROLLER_NUM);
-	//return -1;
-    } else {
-	vga->vga_crt_controller.vga_crt_addr.val =  *((uint8_t*)src) ;
-    }
-
-    return len;
-}
-
-static int crt_controller_data_read(struct guest_info *core, 
-				    uint16_t port, 
-				    void *dest,
-				    uint_t len,
-				    void *priv_data)
-{
-    struct vga_internal *vga = (struct vga_internal *) priv_data;
-    uint8_t index;
-    uint8_t data;
-
-    index=vga->vga_crt_controller.vga_crt_addr.val;  // should mask probably
-    data=vga->vga_crt_controller.vga_crt_controller_regs[index];
-    
-    PrintDebug("vga: crt controller data (%s) read data (index=%d) = 0x%x\n", 
-	       port==0x3b5 ? "mono" : "color",
-	       index, data);
-
-    ERR_WRONG_SIZE("read","vga crt controller data",len,1,1);
-
-    PASSTHROUGH_IO_IN(vga,port,dest,len);
-
-    *((uint8_t*)dest) = data;
 
     return len;
 }
@@ -1146,6 +1173,71 @@ static int crt_controller_data_write(struct guest_info *core,
     return len;
 }
 
+static int crt_controller_address_write(struct guest_info *core, 
+					uint16_t port, 
+					void *src,
+					uint_t len,
+					void *priv_data)
+{
+    struct vga_internal *vga = (struct vga_internal *) priv_data;
+    uint8_t new_addr;
+
+    new_addr=*((uint8_t*)src);
+
+    PrintDebug("vga: crt controller (%s) address write data=0x%x len=%u\n", 
+	       port==0x3b4 ? "mono" : "color",
+	       new_addr,len);
+
+    ERR_WRONG_SIZE("write","vga crt controller addr",len,1,2);
+
+    PASSTHROUGH_IO_OUT(vga,port,src,1);
+
+    if (new_addr>VGA_CRT_CONTROLLER_NUM) {
+	PrintError("vga: ignoring change of crt controller address to %u (>%u)\n",
+		   new_addr, VGA_CRT_CONTROLLER_NUM);
+	//return -1;
+    } else {
+	vga->vga_crt_controller.vga_crt_addr.val =  *((uint8_t*)src) ;
+	if (len==2) { 
+	    // second byte is the data
+	    if (crt_controller_data_write(core,port,src+1,1,vga)!=1) { 
+		PrintError("vga: write of data failed\n");
+		return -1;
+	    }
+	}
+
+    }
+
+    return len;
+}
+
+static int crt_controller_data_read(struct guest_info *core, 
+				    uint16_t port, 
+				    void *dest,
+				    uint_t len,
+				    void *priv_data)
+{
+    struct vga_internal *vga = (struct vga_internal *) priv_data;
+    uint8_t index;
+    uint8_t data;
+
+    index=vga->vga_crt_controller.vga_crt_addr.val;  // should mask probably
+    data=vga->vga_crt_controller.vga_crt_controller_regs[index];
+    
+    PrintDebug("vga: crt controller data (%s) read data (index=%d) = 0x%x\n", 
+	       port==0x3b5 ? "mono" : "color",
+	       index, data);
+
+    ERR_WRONG_SIZE("read","vga crt controller data",len,1,1);
+
+    PASSTHROUGH_IO_IN(vga,port,dest,len);
+
+    *((uint8_t*)dest) = data;
+
+    return len;
+}
+
+
 
 static int graphics_controller_address_read(struct guest_info *core, 
 					    uint16_t port, 
@@ -1163,59 +1255,6 @@ static int graphics_controller_address_read(struct guest_info *core,
     PASSTHROUGH_IO_IN(vga,port,dest,len);
 
     *((uint8_t*)dest) = vga->vga_graphics_controller.vga_graphics_ctrl_addr.val;
-
-    return len;
-}
-
-static int graphics_controller_address_write(struct guest_info *core, 
-					     uint16_t port, 
-					     void *src,
-					     uint_t len,
-					     void *priv_data)
-{
-    struct vga_internal *vga = (struct vga_internal *) priv_data;
-    uint8_t new_addr;
-
-    new_addr=*((uint8_t*)src);
-
-    PrintDebug("vga: graphics controller address write data=0x%x\n", new_addr);
-
-    ERR_WRONG_SIZE("write","vga graphics controller addr",len,1,1);
-
-    PASSTHROUGH_IO_OUT(vga,port,src,len);
-
-    if (new_addr>VGA_GRAPHICS_CONTROLLER_NUM) {
-	PrintError("vga: ignoring change of graphics controller address to %u (>%u)\n",
-		   new_addr, VGA_GRAPHICS_CONTROLLER_NUM);
-	//return -1;
-    } else {
-	vga->vga_graphics_controller.vga_graphics_ctrl_addr.val =  *((uint8_t*)src) ;
-    }
-
-    return len;
-}
-
-static int graphics_controller_data_read(struct guest_info *core, 
-					 uint16_t port, 
-					 void *dest,
-					 uint_t len,
-					 void *priv_data)
-{
-    struct vga_internal *vga = (struct vga_internal *) priv_data;
-    uint8_t index;
-    uint8_t data;
-
-    index=vga->vga_graphics_controller.vga_graphics_ctrl_addr.val;  // should mask probably
-    data=vga->vga_graphics_controller.vga_graphics_controller_regs[index];
-    
-    PrintDebug("vga: graphics controller data read data (index=%d) = 0x%x\n", 
-	       index, data);
-
-    ERR_WRONG_SIZE("read","vga graphics controller data",len,1,1);
-
-    PASSTHROUGH_IO_IN(vga,port,dest,len);
-
-    *((uint8_t*)dest) = data;
 
     return len;
 }
@@ -1246,6 +1285,66 @@ static int graphics_controller_data_write(struct guest_info *core,
     
     return len;
 }
+
+static int graphics_controller_address_write(struct guest_info *core, 
+					     uint16_t port, 
+					     void *src,
+					     uint_t len,
+					     void *priv_data)
+{
+    struct vga_internal *vga = (struct vga_internal *) priv_data;
+    uint8_t new_addr;
+
+    new_addr=*((uint8_t*)src);
+
+    PrintDebug("vga: graphics controller address write data=0x%x len=%u\n", new_addr,len);
+
+    ERR_WRONG_SIZE("write","vga graphics controller addr",len,1,2);
+
+    PASSTHROUGH_IO_OUT(vga,port,src,1);
+
+    if (new_addr>VGA_GRAPHICS_CONTROLLER_NUM) {
+	PrintError("vga: ignoring change of graphics controller address to %u (>%u)\n",
+		   new_addr, VGA_GRAPHICS_CONTROLLER_NUM);
+	//return -1;
+    } else {
+	vga->vga_graphics_controller.vga_graphics_ctrl_addr.val =  *((uint8_t*)src) ;
+	if (len==2) { 
+	    // second byte is the data
+	    if (graphics_controller_data_write(core,port,src+1,1,vga)!=1) { 
+		PrintError("vga: write of data failed\n");
+		return -1;
+	    }
+	}
+    }
+    return len;
+}
+
+static int graphics_controller_data_read(struct guest_info *core, 
+					 uint16_t port, 
+					 void *dest,
+					 uint_t len,
+					 void *priv_data)
+{
+    struct vga_internal *vga = (struct vga_internal *) priv_data;
+    uint8_t index;
+    uint8_t data;
+
+    index=vga->vga_graphics_controller.vga_graphics_ctrl_addr.val;  // should mask probably
+    data=vga->vga_graphics_controller.vga_graphics_controller_regs[index];
+    
+    PrintDebug("vga: graphics controller data read data (index=%d) = 0x%x\n", 
+	       index, data);
+
+    ERR_WRONG_SIZE("read","vga graphics controller data",len,1,1);
+
+    PASSTHROUGH_IO_IN(vga,port,dest,len);
+
+    *((uint8_t*)dest) = data;
+
+    return len;
+}
+
 
 
 
@@ -1706,12 +1805,15 @@ static int vga_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     // No memory store is allocated since we will use a full memory hook
     // The VGA maps can be read as well as written
+    // Reads also affect writes, since they are how you fill the latches
 
     // Now allocate the maps
     for (i=0;i<MAP_NUM;i++) { 
 	vga->map[i] = (vga_map) V3_VAddr((void*)V3_AllocPages(MAP_SIZE/4096));
 	if (!(vga->map[i])) {
+	    PrintError("vga: cannot allocate maps\n");
 	    free_vga(vga);
+	    return -1;
 	}
 	memset(vga->map[i],0,MAP_SIZE);
     }
