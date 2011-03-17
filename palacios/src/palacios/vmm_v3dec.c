@@ -80,8 +80,16 @@ int v3_decode(struct guest_info * core, addr_t instr_ptr, struct x86_instr * ins
 
     // REX prefix
     if (v3_get_vm_cpu_mode(core) == LONG) {
-	if ((*(uint8_t *)(instr_ptr + length) & 0xf0) == 0x40) {
-	    *(uint8_t *)&(instr->prefixes.rex) = *(uint8_t *)(instr_ptr + length);
+	uint8_t prefix = *(uint8_t *)(instr_ptr + length);
+
+	if ((prefix & 0xf0) == 0x40) {
+	    instr->prefixes.rex = 1;
+
+	    instr->prefixes.rex_rm = (prefix & 0x01);
+	    instr->prefixes.rex_sib_idx = ((prefix & 0x02) >> 1);
+	    instr->prefixes.rex_reg = ((prefix & 0x04) >> 2);
+	    instr->prefixes.rex_op_size = ((prefix & 0x08) >> 3);
+
 	    length += 1;
 	}
     }
@@ -145,9 +153,7 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	case MOV_IMM2:{
 	    uint8_t reg_code = 0;
 
-	    instr->dst_operand.size = operand_width;
-
-	    ret = decode_rm_operand(core, instr_ptr, instr, &(instr->dst_operand), &reg_code);
+	    ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->dst_operand), &reg_code);
 
 	    if (ret == -1) {
 		PrintError("Error decoding operand\n");
@@ -192,9 +198,7 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	case MOV_2MEM: {
 	    uint8_t reg_code = 0;
 
-	    instr->dst_operand.size = operand_width;
-
-	    ret = decode_rm_operand(core, instr_ptr, instr, &(instr->dst_operand), &reg_code);
+	    ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->dst_operand), &reg_code);
 
 	    if (ret == -1) {
 		PrintError("Error decoding operand\n");
@@ -226,9 +230,8 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	case XOR_MEM2:
 	case MOV_MEM2: {
 	    uint8_t reg_code = 0;
-	    instr->src_operand.size = operand_width;
 
-	    ret = decode_rm_operand(core, instr_ptr, instr, &(instr->src_operand), &reg_code);
+	    ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->src_operand), &reg_code);
 
 	    if (ret == -1) {
 		PrintError("Error decoding operand\n");
@@ -252,9 +255,8 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	case SUB_IMM2SX_8:
 	case XOR_IMM2SX_8: {
 	    uint8_t reg_code = 0;
-	    instr->src_operand.size = operand_width;
 
-	    ret = decode_rm_operand(core, instr_ptr, instr, &(instr->src_operand), &reg_code);
+	    ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->src_operand), &reg_code);
 
 	    if (ret == -1) {
 		PrintError("Error decoding operand\n");
@@ -301,9 +303,7 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	    case MOV_2CR: {
 		uint8_t reg_code = 0;
 
-		instr->src_operand.size = operand_width;
-
-		ret = decode_rm_operand(core, instr_ptr, instr, &(instr->src_operand),
+		ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->src_operand),
 					&reg_code);
 
 		if (ret == -1) {
@@ -323,9 +323,7 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	    case MOV_CR2: {
 		uint8_t reg_code = 0;
 
-		instr->dst_operand.size = operand_width;
-
-		ret = decode_rm_operand(core, instr_ptr, instr, &(instr->dst_operand),
+		ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->dst_operand),
 					&reg_code);
 
 		if (ret == -1) {
@@ -369,9 +367,7 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 
 		// We use the dst operand here to maintain bug-for-bug compatibility with XED
 
-		instr->dst_operand.size = operand_width;
-
-		ret = decode_rm_operand(core, instr_ptr, instr, &(instr->dst_operand), &reg_code);
+		ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->dst_operand), &reg_code);
 
 		if (ret == -1) {
 		    PrintError("Error decoding operand for (%s)\n", op_form_to_str(form));
