@@ -125,11 +125,12 @@ static long v3_dev_ioctl(struct file * filp,
 	    INIT_LIST_HEAD(&(guest->streams));
 	    INIT_LIST_HEAD(&(guest->files));
 	    INIT_LIST_HEAD(&(guest->sockets));
+	    init_completion(&(guest->start_done));
 	    init_completion(&(guest->thread_done));
 
 	    kthread_run(start_palacios_vm, guest, guest->name);
 
-	    wait_for_completion(&(guest->thread_done));
+	    wait_for_completion(&(guest->start_done));
 
 	    return guest->vm_dev;
 	    break;
@@ -232,8 +233,6 @@ static int __init v3_init(void) {
     palacios_init_stream();
     palacios_file_init();
     palacios_init_console();
-    
-
 
     return 0;
 
@@ -245,22 +244,29 @@ static int __init v3_init(void) {
     return ret;
 }
 
+
 static void __exit v3_exit(void) {
     extern u32 pg_allocs;
     extern u32 pg_frees;
     extern u32 mallocs;
     extern u32 frees;
 
+    dev_t dev = MKDEV(v3_major_num, MAX_VMS + 1);
+
     printk("Removing V3 Control device\n");
 
-    palacios_vmm_exit();
 
+    palacios_vmm_exit();
 
     printk("Palacios Mallocs = %d, Frees = %d\n", mallocs, frees);
     printk("Palacios Page Allocs = %d, Page Frees = %d\n", pg_allocs, pg_frees);
 
-
     unregister_chrdev_region(MKDEV(v3_major_num, 0), MAX_VMS + 1);
+
+    cdev_del(&ctrl_dev);
+
+    device_destroy(v3_class, dev);
+    class_destroy(v3_class);
 }
 
 

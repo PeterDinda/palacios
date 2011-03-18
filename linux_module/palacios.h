@@ -44,6 +44,7 @@ struct v3_guest {
 
     struct palacios_console console;
 
+    struct completion start_done;
     struct completion thread_done;
 
     dev_t vm_dev; 
