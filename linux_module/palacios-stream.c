@@ -120,3 +120,8 @@ void palacios_init_stream() {
 }
 
 
+void palacios_deinit_stream() {
+    if (!list_empty(&(global_streams))) {
+	printk("Error removing module with open streams\n");
+    }
+}

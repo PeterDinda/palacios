@@ -192,3 +192,9 @@ int palacios_init_mm( void ) {
 
     return 0;
 }
+
+int palacios_deinit_mm( void ) {
+    kfree(pool.bitmap);
+    
+    return 0;
+}

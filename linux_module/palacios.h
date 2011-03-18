@@ -30,6 +30,11 @@ struct v3_mem_region {
 
 
 
+
+void * trace_malloc(size_t size, gfp_t flags);
+void trace_free(const void * objp);
+
+
 struct v3_guest {
     void * v3_ctx;
 
