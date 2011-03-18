@@ -4,6 +4,7 @@
 #include <linux/cdev.h>
 #include <linux/list.h>
 #include <linux/sched.h>
+#include <linux/slab.h>
 
 #include "palacios-console.h"
 
