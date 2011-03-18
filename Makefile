@@ -615,7 +615,7 @@ palacios: libv3vee.a
 
 
 
-linux_module/v3vee.ko: linux_module/*.c
+linux_module/v3vee.ko: linux_module/*.c libv3vee.a
 	cd linux_module/ && make CONFIG_LINUX_KERN=$(CONFIG_LINUX_KERN)
 	cp linux_module/v3vee.ko v3vee.ko
 

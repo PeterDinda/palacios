@@ -30,6 +30,7 @@ config LINUX_BUILTIN
 config LINUX
 	bool "Linux Module"
 	select BUILT_IN_STDLIB
+	select BUILT_IN_STRDUP
 	select BUILT_IN_ATOI
 	select FILE
 	select V3_DECODER
