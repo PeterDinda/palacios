@@ -27,6 +27,9 @@
 
 MODULE_LICENSE("GPL");
 
+int mod_allocs = 0;
+int mod_frees = 0;
+
 
 static int v3_major_num = 0;
 
@@ -76,9 +79,9 @@ static long v3_dev_ioctl(struct file * filp,
 
     switch (ioctl) {
 	case V3_START_GUEST:{
+	    int vm_minor = 0;
 	    struct v3_guest_img user_image;
 	    struct v3_guest * guest = kmalloc(sizeof(struct v3_guest), GFP_KERNEL);
-	    int vm_minor = 0;
 
 	    if (IS_ERR(guest)) {
 		printk("Error allocating Kernel guest_image\n");
@@ -125,11 +128,12 @@ static long v3_dev_ioctl(struct file * filp,
 	    INIT_LIST_HEAD(&(guest->streams));
 	    INIT_LIST_HEAD(&(guest->files));
 	    INIT_LIST_HEAD(&(guest->sockets));
+	    init_completion(&(guest->start_done));
 	    init_completion(&(guest->thread_done));
 
 	    kthread_run(start_palacios_vm, guest, guest->name);
 
-	    wait_for_completion(&(guest->thread_done));
+	    wait_for_completion(&(guest->start_done));
 
 	    return guest->vm_dev;
 	    break;
@@ -232,8 +236,6 @@ static int __init v3_init(void) {
     palacios_init_stream();
     palacios_file_init();
     palacios_init_console();
-    
-
 
     return 0;
 
@@ -245,25 +247,62 @@ static int __init v3_init(void) {
     return ret;
 }
 
+
 static void __exit v3_exit(void) {
     extern u32 pg_allocs;
     extern u32 pg_frees;
     extern u32 mallocs;
     extern u32 frees;
 
+
+    // should probably try to stop any guests
+
+
+
+    dev_t dev = MKDEV(v3_major_num, MAX_VMS + 1);
+
     printk("Removing V3 Control device\n");
 
-    palacios_vmm_exit();
 
+    palacios_vmm_exit();
 
     printk("Palacios Mallocs = %d, Frees = %d\n", mallocs, frees);
     printk("Palacios Page Allocs = %d, Page Frees = %d\n", pg_allocs, pg_frees);
 
-
     unregister_chrdev_region(MKDEV(v3_major_num, 0), MAX_VMS + 1);
+
+    cdev_del(&ctrl_dev);
+
+    device_destroy(v3_class, dev);
+    class_destroy(v3_class);
+
+
+    palacios_file_deinit();
+    palacios_deinit_stream();
+
+    palacios_deinit_mm();
+
+    printk("Palacios Module Mallocs = %d, Frees = %d\n", mod_allocs, mod_frees);
 }
 
 
 
 module_init(v3_init);
 module_exit(v3_exit);
+
+
+
+void * trace_malloc(size_t size, gfp_t flags) {
+    void * addr = NULL;
+
+    mod_allocs++;
+    addr = kmalloc(size, flags);
+
+    return addr;
+}
+
+
+void trace_free(const void * objp) {
+    mod_frees++;
+    kfree(objp);
+}

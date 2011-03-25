@@ -27,6 +27,7 @@ struct stream_buffer {
 
 
 void palacios_init_stream(void);
+void palacios_deinit_stream(void);
 int stream_enqueue(struct stream_buffer * stream, char * buf, int len);
 int stream_dequeue(struct stream_buffer * stream, char * buf, int len);
 int stream_datalen(struct stream_buffer * stream);

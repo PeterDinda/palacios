@@ -15,6 +15,7 @@ void free_palacios_pgs(uintptr_t base_addr, u64 num_pages);
 int add_palacios_memory(uintptr_t base_addr, u64 num_pages);
 int remove_palacios_memory(uintptr_t base_addr, u64 num_pages);
 int palacios_init_mm( void );
+int palacios_deinit_mm( void );
 
 
 

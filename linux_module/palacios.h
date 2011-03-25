@@ -4,6 +4,7 @@
 #include <linux/cdev.h>
 #include <linux/list.h>
 #include <linux/sched.h>
+#include <linux/slab.h>
 
 #include "palacios-console.h"
 
@@ -29,6 +30,11 @@ struct v3_mem_region {
 
 
 
+
+void * trace_malloc(size_t size, gfp_t flags);
+void trace_free(const void * objp);
+
+
 struct v3_guest {
     void * v3_ctx;
 
@@ -43,6 +49,7 @@ struct v3_guest {
 
     struct palacios_console console;
 
+    struct completion start_done;
     struct completion thread_done;
 
     dev_t vm_dev; 

@@ -72,17 +72,17 @@ static void deinit_cpu(void * arg) {
 
 
     switch (v3_cpu_types[cpu_id]) {
- #ifdef CONFIG_SVM
-	case V3_VMX_CPU:
-	case V3_VMX_EPT_CPU:
-	    PrintDebug("Machine is SVM Capable\n");
+#ifdef CONFIG_SVM
+	case V3_SVM_CPU:
+	case V3_SVM_REV3_CPU:
+	    PrintDebug("Deinitializing SVM CPU %d\n", cpu_id);
 	    v3_deinit_svm_cpu(cpu_id);
 	    break;
 #endif
 #ifdef CONFIG_VMX
-	case V3_SVM_CPU:
-	case V3_SVM_REV3_CPU:
-	    PrintDebug("Machine is VMX Capable\n");
+	case V3_VMX_CPU:
+	case V3_VMX_EPT_CPU:
+	    PrintDebug("Deinitializing VMX CPU %d\n", cpu_id);
 	    v3_deinit_vmx_cpu(cpu_id);
 	    break;
 #endif

@@ -113,8 +113,6 @@ int start_palacios_vm(void * arg)  {
     unlock_kernel();
     
 
-
-
     guest->v3_ctx = v3_create_vm(guest->img, (void *)guest, guest->name);
 
     if (guest->v3_ctx == NULL) { 
@@ -143,18 +141,16 @@ int start_palacios_vm(void * arg)  {
 	return -1;
     }
 
-    complete(&(guest->thread_done));
-
+    complete(&(guest->start_done));
 
     printk("palacios: launching vm\n");   
 
     if (v3_start_vm(guest->v3_ctx, 0xffffffff) < 0) { 
 	printk("palacios: launch of vm failed\n");
 	return -1;
-    } 
+    }
     
     complete(&(guest->thread_done));
-
 
     printk("palacios: vm completed.  returning.\n");
 
@@ -165,13 +161,19 @@ int start_palacios_vm(void * arg)  {
 
 
 int stop_palacios_vm(struct v3_guest * guest) {
-    
+
     v3_stop_vm(guest->v3_ctx);
 
     wait_for_completion(&(guest->thread_done));
 
     v3_free_vm(guest->v3_ctx);
     
+    device_destroy(v3_class, guest->vm_dev);
+
+    cdev_del(&(guest->cdev));
+
+    kfree(guest->img);
+    kfree(guest);
 
     return 0;
 }

@@ -76,6 +76,7 @@ static int palacios_file_close(void * file_ptr) {
     
     list_del(&(pfile->file_node));
 
+    kfree(pfile->path);    
     kfree(pfile);
 
     return 0;
@@ -153,6 +154,15 @@ int palacios_file_init( void ) {
     INIT_LIST_HEAD(&(global_files));
 
     V3_Init_File(&palacios_file_hooks);
+
+    return 0;
+}
+
+
+int palacios_file_deinit( void ) {
+    if (!list_empty(&(global_files))) {
+	printk("Error removing module with open files\n");
+    }
 
     return 0;
 }
