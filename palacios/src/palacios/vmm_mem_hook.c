@@ -106,7 +106,7 @@ static int handle_mem_hook(struct guest_info * info, addr_t guest_va, addr_t gue
 	    return -1;
 	}
     } else {
-	// Read Operation
+	// Read Operation or a read->write (e.g., string ops)
 	
 	if (reg->flags.read == 1) {
 	    PrintError("Tried to emulate read for a guest Readable page\n");
@@ -226,5 +226,43 @@ int v3_unhook_mem(struct v3_vm_info * vm, uint16_t core_id, addr_t guest_addr_st
     return 0;
 }
 
+// Return the read and/or write hook functions of the region associated
+// with the address, if any.   
+// 
+int v3_find_mem_hook(struct v3_vm_info *vm, uint16_t core_id, addr_t guest_addr,
+		     int (**read)(struct guest_info * core, addr_t guest_addr, void * dst, uint_t length, void * priv_data),
+		     void **read_priv_data,
+		     int (**write)(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data),
+		     void **write_priv_data)
+{
+    struct v3_mem_region * reg = v3_get_mem_region(vm, core_id, guest_addr);
+
+    if (!reg) { 
+	return -1;
+    }
+
+    // Should probably sanity-check the region smarter than the following
+
+    struct mem_hook * hook = reg->priv_data;
+
+    if (!hook) {
+	// This must be a simple memory region without hooks
+	if (read) { *read=0;}
+	if (read_priv_data) { *read_priv_data=0;}
+	if (write) { *write=0;}
+	if (write_priv_data) { *write_priv_data=0;}
+	return 0;
+    }
+
+    // There is some form of hook here - copy it out for the caller
+    
+    if (read) { *read=hook->read;}
+    if (read_priv_data) { *read_priv_data=hook->priv_data;}
+    if (write) { *write=hook->write;}
+    if (write_priv_data) { *write_priv_data=hook->priv_data;}
+
+    return 0;
+    
+}
 
 

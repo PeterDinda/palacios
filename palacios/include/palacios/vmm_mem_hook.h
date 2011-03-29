@@ -50,7 +50,12 @@ int v3_hook_write_mem(struct v3_vm_info * vm, uint16_t core_id,
 
 int v3_unhook_mem(struct v3_vm_info * vm, uint16_t core_id, addr_t guest_addr_start);
 
-
+int v3_find_mem_hook(struct v3_vm_info *vm, uint16_t core_id, addr_t guest_addr,
+		     int (**read)(struct guest_info * core, addr_t guest_addr, void * dst, uint_t length, void * priv_data),
+		     void **read_priv_data,
+		     int (**write)(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data),
+		     void **write_priv_data);
+		     
 
 
 #endif /* ! __V3VEE__ */

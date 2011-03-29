@@ -44,6 +44,9 @@ typedef struct {
     union {
 	uint16_t value;
 	struct {
+	    // These reflect the VMM's intent for the shadow or nested pts 
+	    // that will implement the region.   The guest's intent is in
+	    // its own page tables.
 	    uint8_t read   : 1;
 	    uint8_t write  : 1;
 	    uint8_t exec   : 1;
