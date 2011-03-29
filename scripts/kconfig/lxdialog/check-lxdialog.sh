@@ -19,6 +19,21 @@ ldflags()
 		echo '-lcurses'
 		exit
 	fi
+	$cc -print-file-name=libncursesw.dylib | grep -q /
+	if [ $? -eq 0 ]; then
+		echo '-lncursesw'
+		exit
+	fi
+	$cc -print-file-name=libncurses.dylib | grep -q /
+	if [ $? -eq 0 ]; then
+		echo '-lncurses'
+		exit
+	fi
+	$cc -print-file-name=libcurses.dylib | grep -q /
+	if [ $? -eq 0 ]; then
+		echo '-lcurses'
+		exit
+	fi
 	exit 1
 }
 
