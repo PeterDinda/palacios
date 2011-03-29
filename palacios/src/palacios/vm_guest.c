@@ -361,6 +361,40 @@ void v3_print_guest_state_all(struct v3_vm_info * vm) {
     V3_Print("\n");    
 }
 
+static void print_real_mode_stack(struct guest_info *info)
+{
+    uint16_t ss;
+    uint16_t sp;
+    addr_t   addr;
+    addr_t   host_addr;
+    int      i;
+
+
+    ss = info->segments.ss.selector & 0xffff;
+    sp = info->vm_regs.rsp & 0xffff;
+    addr = (((uint32_t)ss)<<4) + sp;
+
+   
+    V3_Print("Real Mode Stack starting at 0x%x:0x%x (0x%p):\n",ss,sp,(void*)addr);
+
+    if (info->mem_mode!=PHYSICAL_MEM) {
+	PrintError("Cannot print real mode stack when virtual memory active\n");
+	return;
+    }
+	
+    for (i=0;i<=24;i++,sp+=2) { 
+	// note that it's correct for this to wrap around
+	addr = (((uint32_t)ss)<<4) + sp;
+	if (v3_gpa_to_hva(info,addr,&host_addr)) { 
+	    PrintError("Could not translate physical stack address 0x%p\n",(void*)addr);
+	    return;
+	}
+	V3_Print("\t0x%.4x\n",*((uint16_t*)host_addr));
+    }
+}
+	
+
+
 
 void v3_print_stack(struct guest_info * info) {
     addr_t linear_addr = 0;
@@ -369,9 +403,16 @@ void v3_print_stack(struct guest_info * info) {
     v3_cpu_mode_t cpu_mode = v3_get_vm_cpu_mode(info);
 
 
+    if (cpu_mode==REAL) { 
+	print_real_mode_stack(info);
+	return;
+    }
+
+    // protected mode, 32 or 64 bit
+
     linear_addr = get_addr_linear(info, info->vm_regs.rsp, &(info->segments.ss));
  
-    V3_Print("Stack  at %p:\n", (void *)linear_addr);
+    V3_Print("Stack at %p:\n", (void *)linear_addr);
    
     if (info->mem_mode == PHYSICAL_MEM) {
 	if (v3_gpa_to_hva(info, linear_addr, &host_addr) == -1) {
@@ -391,8 +432,6 @@ void v3_print_stack(struct guest_info * info) {
     for (i = 0; i <= 24; i++) {
 	if (cpu_mode == LONG) {
 	    V3_Print("\t%p\n", (void *)*(addr_t *)(host_addr + (i * 8)));
-	} else if (cpu_mode == REAL) {
-	    V3_Print("Don't currently handle 16 bit stacks... \n");
 	} else {
 	    // 32 bit stacks...
 	    V3_Print("\t%.8x\n", *(uint32_t *)(host_addr + (i * 4)));

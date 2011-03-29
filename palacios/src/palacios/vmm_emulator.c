@@ -55,9 +55,14 @@ static int emulate_string_write_op(struct guest_info * info, struct x86_instr * 
     /*emulation_length = ( (dec_instr->str_op_length  < (0x1000 - PAGE_OFFSET_4KB(write_gva))) ? 
 			 dec_instr->str_op_length :
 			 (0x1000 - PAGE_OFFSET_4KB(write_gva)));*/
-     emulation_length = ( (dec_instr->str_op_length * (dec_instr->dst_operand.size)  < (0x1000 - PAGE_OFFSET_4KB(write_gva))) ? 
-			 dec_instr->str_op_length * dec_instr->dst_operand.size :
-			 (0x1000 - PAGE_OFFSET_4KB(write_gva)));
+
+    if ((dec_instr->str_op_length * (dec_instr->dst_operand.size))  < (0x1000 - PAGE_OFFSET_4KB(write_gva))) { 
+	emulation_length = dec_instr->str_op_length * dec_instr->dst_operand.size;
+    } else {
+	emulation_length = (0x1000 - PAGE_OFFSET_4KB(write_gva));
+	PrintError("Warning: emulate_string_write_op emulating %u length operation, but request is for %u length\n", 
+		   emulation_length, (uint32_t)(dec_instr->str_op_length*(dec_instr->dst_operand.size)));
+    }
   
     /* ** Fix emulation length so that it doesn't overrun over the src page either ** */
     emulation_iter_cnt = emulation_length / dec_instr->dst_operand.size;
@@ -141,6 +146,266 @@ static int emulate_string_write_op(struct guest_info * info, struct x86_instr * 
 
     return emulation_length;
 }
+
+
+
+/*
+  This function is intended to handle pure read hooks, pure write hook, and full hooks, 
+  with and without backing memory for writes
+  
+  read_fn == NULL  
+      orig_src_addr == NULL => data at read_gpa is read
+      orig_src_addr != NULL => data at orig_src_addr is read
+  read_fn != NULL  data is collected using read_fn
+
+  write_fn == NULL 
+      orig_dst_addr == NULL => data is written to write_gpa
+      orig_dst_addr != NULL => data is written to orig_dst_addr
+  write_fn != NULL 
+      orig_dst_addr == NULL => data is sent to write_fn
+      orig_dst_addr != NULL => data is written to orig_dst_addr, then via write_fn
+
+
+*/
+static int emulate_string_op(struct guest_info * info, struct x86_instr * dec_instr, 
+			     addr_t read_gva, addr_t read_gpa, addr_t orig_src_addr,
+			     addr_t write_gva, addr_t write_gpa, addr_t orig_dst_addr,
+			     int (*read_fn)(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data), 
+			     int (*write_fn)(struct guest_info * core, addr_t guest_addr, void * dst, uint_t length, void * priv_data), 
+			     void * priv_data) 
+{
+    uint_t src_emulation_length = 0;
+    uint_t dst_emulation_length = 0;
+    uint_t emulation_length = 0;
+    uint_t emulation_iter_cnt = 0;
+    addr_t tmp_rcx = 0;
+    addr_t src_addr, dst_addr;
+
+    
+    // Sanity check the decoded instruction
+    
+    if (info->shdw_pg_mode == SHADOW_PAGING) {
+	if (!read_fn && (dec_instr->src_operand.operand != read_gva)) { 
+	    PrintError("Inconsistency between Pagefault and Instruction Decode XED_ADDR=%p, PF_ADDR=%p (Read)\n",
+		       (void *)dec_instr->src_operand.operand, (void *)read_gva);
+		return -1;
+	}
+	if (!write_fn && (dec_instr->dst_operand.operand != write_gva)) {
+	    PrintError("Inconsistency between Pagefault and Instruction Decode XED_ADDR=%p, PF_ADDR=%p (Write)\n",
+		       (void *)dec_instr->dst_operand.operand, (void *)write_gva);
+	    return -1;
+	}
+    } else {
+	// Nested paging (Need check??) 
+    }
+    
+
+    if (dec_instr->src_operand.size != dec_instr->dst_operand.size) { 
+	PrintError("Source and Destination Operands are of different sizes\n");
+	return -1;
+    }
+    
+
+    // We will only read up to the next page boundary
+
+    if ((dec_instr->str_op_length * (dec_instr->src_operand.size))  < (0x1000 - PAGE_OFFSET_4KB(read_gva))) { 
+	src_emulation_length = dec_instr->str_op_length * dec_instr->src_operand.size;
+    } else {
+	src_emulation_length = (0x1000 - PAGE_OFFSET_4KB(read_gva));
+	PrintError("Warning: emulate_string_op emulating src of %u length operation, but request is for %u length\n", 
+		   src_emulation_length, (uint32_t) (dec_instr->str_op_length*(dec_instr->src_operand.size)));
+    }
+
+    // We will only write up to the next page boundary
+
+    if ((dec_instr->str_op_length * (dec_instr->dst_operand.size))  < (0x1000 - PAGE_OFFSET_4KB(write_gva))) { 
+	dst_emulation_length = dec_instr->str_op_length * dec_instr->dst_operand.size;
+    } else {
+	dst_emulation_length = (0x1000 - PAGE_OFFSET_4KB(write_gva));
+	PrintError("Warning: emulate_string_op emulating dst of %u length operation, but request is for %u length\n", 
+		   dst_emulation_length, (uint32_t) (dec_instr->str_op_length*(dec_instr->dst_operand.size)));
+    }
+
+    // We will only copy the minimum of what is available to be read or written
+
+    if (src_emulation_length<dst_emulation_length) { 
+	emulation_length=src_emulation_length;
+	PrintError("Warning: emulate_string_op has src length %u but dst length %u\n", src_emulation_length, dst_emulation_length);
+    } else if (src_emulation_length>dst_emulation_length) { 
+	emulation_length=dst_emulation_length;
+	PrintError("Warning: emulate_string_op has src length %u but dst length %u\n", src_emulation_length, dst_emulation_length);
+    } else {
+	// equal
+	emulation_length=src_emulation_length;
+    }
+	
+
+    // Fetch the data
+
+    if (read_fn) { 
+	src_addr = (addr_t) V3_Malloc(emulation_length);  // hideous - should reuse memory
+	if (!src_addr) { 
+	    PrintError("Unable to allocate space for read operation in emulate_string_read_op\n");
+	    return -1;
+	}
+	if (read_fn(info, read_gpa, (void *)src_addr, emulation_length, priv_data) != emulation_length) {
+	    PrintError("Did not fully read hooked data in emulate_string_op\n");
+	    return -1;
+	}
+    } else {
+	if (orig_src_addr) { 
+	    src_addr=orig_src_addr;
+	} else {
+	    if (info->mem_mode == PHYSICAL_MEM) {
+		if (v3_gpa_to_hva(info, dec_instr->src_operand.operand, &src_addr) == -1) {
+		    PrintError("Could not translate write Source (Physical) to host VA\n");
+		    return -1;
+		}
+	    } else {
+		if (v3_gva_to_hva(info, dec_instr->src_operand.operand, &src_addr) == -1) {
+		    PrintError("Could not translate write Source (Virtual) to host VA\n");
+		    return -1;
+	    }
+	    }
+	}
+    }
+
+    // Now src_addr points to the fetched data in HVA
+
+    // Allocate space for the write, in case we need to copy out later
+    if (write_fn) { 
+	if (orig_dst_addr) { 
+	    dst_addr=orig_dst_addr;
+	} else {
+	    dst_addr = (addr_t) V3_Malloc(emulation_length);  // yuck
+	    if (!dst_addr) { 
+		PrintError("Unable to allocate space for write operation in emulate_string_op\n");
+		if (read_fn) { 
+		    V3_Free((void*)src_addr); 
+		}
+		return -1;
+	    }
+	}
+    } else {
+	if (orig_dst_addr) { 
+	    dst_addr=orig_dst_addr;
+	} else {
+	    if (info->mem_mode == PHYSICAL_MEM) {
+		if (v3_gpa_to_hva(info, dec_instr->dst_operand.operand, &dst_addr) == -1) {
+		    PrintError("Could not translate write Dest (Physical) to host VA\n");
+		    return -1;
+		}
+	    } else {
+		if (v3_gva_to_hva(info, dec_instr->dst_operand.operand, &dst_addr) == -1) {
+		    PrintError("Could not translate write Dest (Virtual) to host VA\n");
+		    return -1;
+		}
+	    }
+	}
+    }
+
+    // Now dst_addr points to where we will copy the data
+
+    // How many items to copy 
+    emulation_iter_cnt = emulation_length / dec_instr->dst_operand.size;
+    tmp_rcx = emulation_iter_cnt;
+
+
+    switch (dec_instr->op_type) { 
+
+	case V3_OP_MOVS: {
+	    
+	    if (dec_instr->dst_operand.size == 1) {
+		movs8((addr_t *)&dst_addr, &src_addr, &tmp_rcx, (addr_t *)&(info->ctrl_regs.rflags));
+	    } else if (dec_instr->dst_operand.size == 2) {
+		movs16((addr_t *)&dst_addr, &src_addr, &tmp_rcx, (addr_t *)&(info->ctrl_regs.rflags));
+	    } else if (dec_instr->dst_operand.size == 4) {
+		movs32((addr_t *)&dst_addr, &src_addr, &tmp_rcx, (addr_t *)&(info->ctrl_regs.rflags));
+#ifdef __V3_64BIT__
+	    } else if (dec_instr->dst_operand.size == 8) {
+		movs64((addr_t *)&dst_addr, &src_addr, &tmp_rcx, (addr_t *)&(info->ctrl_regs.rflags));
+#endif
+	    } else {
+		PrintError("Invalid operand length\n");
+		return -1;
+	    }
+
+	    // Can't these count down too? - PAD
+
+	    info->vm_regs.rdi += emulation_length;
+	    info->vm_regs.rsi += emulation_length;
+	    
+	    // RCX is only modified if the rep prefix is present
+	    if (dec_instr->prefixes.rep == 1) {
+		info->vm_regs.rcx -= emulation_iter_cnt;
+	    }
+	    
+	} 
+	    break;
+
+	case V3_OP_STOS: {
+	    
+	    if (dec_instr->dst_operand.size == 1) {
+		stos8((addr_t *)&dst_addr, (addr_t  *)&(info->vm_regs.rax), &tmp_rcx, (addr_t *)&(info->ctrl_regs.rflags));
+	    } else if (dec_instr->dst_operand.size == 2) {
+		stos16((addr_t *)&dst_addr, (addr_t  *)&(info->vm_regs.rax), &tmp_rcx, (addr_t *)&(info->ctrl_regs.rflags));
+	    } else if (dec_instr->dst_operand.size == 4) {
+		stos32((addr_t *)&dst_addr, (addr_t  *)&(info->vm_regs.rax), &tmp_rcx, (addr_t *)&(info->ctrl_regs.rflags));
+#ifdef __V3_64BIT__
+	    } else if (dec_instr->dst_operand.size == 8) {
+		stos64((addr_t *)&dst_addr, (addr_t  *)&(info->vm_regs.rax), &tmp_rcx, (addr_t *)&(info->ctrl_regs.rflags));
+#endif
+	    } else {
+		PrintError("Invalid operand length\n");
+		return -1;
+	    }
+	    
+	    info->vm_regs.rdi += emulation_length;
+	    
+	    // RCX is only modified if the rep prefix is present
+	    if (dec_instr->prefixes.rep == 1) {
+		info->vm_regs.rcx -= emulation_iter_cnt;
+	    }
+	    
+	} 
+	    break;
+	    
+	default:  {
+	    PrintError("Unimplemented String operation\n");
+	    return -1;
+	}
+	    break;
+    }
+
+    // At this point, the data has been written over dst_addr, which 
+    // is either our temporary buffer, or it's the requested target in orig_dst_addr
+
+    if (write_fn) { 
+	if (write_fn(info, write_gpa, (void *)dst_addr, emulation_length, priv_data) != emulation_length) {
+	    PrintError("Did not fully write hooked data\n");
+	    return -1;
+	}
+    }
+
+    if (emulation_length == dec_instr->str_op_length) {
+	info->rip += dec_instr->instr_length;
+    }
+    
+
+    // Delete temporary buffers
+    if (read_fn) { 
+	V3_Free((void*)src_addr); 
+    }
+    if (write_fn && !orig_dst_addr) { 
+	V3_Free((void*)dst_addr);
+    }
+	
+
+    return emulation_length;
+}
+
+
+
 
 
 static int emulate_xchg_write_op(struct guest_info * info, struct x86_instr * dec_instr, 
@@ -414,8 +679,11 @@ int v3_emulate_read_op(struct guest_info * info, addr_t read_gva, addr_t read_gp
     }
   
     if (dec_instr.is_str_op) {
-	PrintError("String operations not implemented on fully hooked regions\n");
-	return -1;
+	return emulate_string_op(info,&dec_instr,
+				 read_gva,read_gpa,0,
+				 0, 0, 0,
+				 read_fn,write_fn,
+				 priv_data);
     } else if (dec_instr.op_type == V3_OP_XCHG) {
 	return emulate_xchg_read_op(info, &dec_instr, read_gva, read_gpa, src_addr, read_fn, write_fn, priv_data);
     }
