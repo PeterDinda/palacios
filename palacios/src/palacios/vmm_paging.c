@@ -971,9 +971,7 @@ int v3_drill_guest_pt_32(struct guest_info * info, v3_reg_t guest_cr3, addr_t va
 		addr_t large_page_va = 0;
       
 		if (v3_gpa_to_hva(info, large_page_pa, &large_page_va) == -1) {
-		    PrintError("Could not get virtual address of Guest Page 4MB (PA=%p)\n", 
-			       (void *)large_page_va);
-		    return -1;
+		    large_page_va = 0 ;
 		}
 
 
@@ -1003,9 +1001,7 @@ int v3_drill_guest_pt_32(struct guest_info * info, v3_reg_t guest_cr3, addr_t va
 		    addr_t page_va;
 
 		    if (v3_gpa_to_hva(info, page_pa, &page_va) == -1) {
-			PrintError("Could not get virtual address of Guest Page 4KB (PA=%p)\n", 
-				   (void *)page_pa);
-			return -1;
+			page_va = 0;
 		    }
 
 		    if ((ret = callback(info, PAGE_4KB, vaddr, page_va, page_pa, private_data)) != 0) {
@@ -1070,9 +1066,7 @@ int v3_drill_guest_pt_32pae(struct guest_info * info, v3_reg_t guest_cr3, addr_t
 				    addr_t large_page_va = 0;
 	      
 				    if (v3_gpa_to_hva(info, large_page_pa, &large_page_va) == -1) {
-					PrintDebug("Could not get virtual address of Guest Page 2MB (PA=%p)\n", 
-						   (void *)large_page_va);
-
+					large_page_va = 0;
 				    }
 	      
 				    if ((ret == callback(info, PAGE_2MB, vaddr, large_page_va, large_page_pa, private_data)) != 0) {
@@ -1101,9 +1095,7 @@ int v3_drill_guest_pt_32pae(struct guest_info * info, v3_reg_t guest_cr3, addr_t
 					addr_t page_va;
 		
 					if (v3_gpa_to_hva(info, page_pa, &page_va) == -1) {
-					    PrintError("Could not get virtual address of Guest Page 4KB (PA=%p)\n", 
-						       (void *)page_pa);
-					    return -1;
+					    page_va = 0;
 					}
 		
 					if ((ret = callback(info, PAGE_4KB, vaddr, page_va, page_pa, private_data)) != 0) {
@@ -1169,9 +1161,7 @@ int v3_drill_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t va
 			    addr_t large_page_va = 0;
 	  
 			    if (v3_gpa_to_hva(info, large_page_pa, &large_page_va) == -1) {
-				PrintDebug("Could not get virtual address of Guest Page 1GB (PA=%p)\n", 
-					   (void *)large_page_va);
-	    
+				large_page_va = 0;
 			    }
 	  
 			    if ((ret == callback(info, PAGE_1GB, vaddr, large_page_va, large_page_pa, private_data)) != 0) {
@@ -1204,9 +1194,7 @@ int v3_drill_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t va
 					addr_t large_page_va = 0;
 	      
 					if (v3_gpa_to_hva(info, large_page_pa, &large_page_va) == -1) {
-					    PrintDebug("Could not get virtual address of Guest Page 2MB (PA=%p)\n", 
-						       (void *)large_page_va);
-
+					    large_page_va = 0;
 					}
 	      
 					if ((ret == callback(info, PAGE_2MB, vaddr, large_page_va, large_page_pa, private_data)) != 0) {
@@ -1235,9 +1223,7 @@ int v3_drill_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t va
 					    addr_t page_va;
 		
 					    if (v3_gpa_to_hva(info, page_pa, &page_va) == -1) {
-						PrintError("Could not get virtual address of Guest Page 4KB (PA=%p)\n", 
-							   (void *)page_pa);
-						return -1;
+						page_va = 0;
 					    }
 		
 					    if ((ret = callback(info, PAGE_4KB, vaddr, page_va, page_pa, private_data)) != 0) {
