@@ -285,6 +285,7 @@ struct vga_internal {
     struct vm_device *dev;  
     
     bool passthrough;
+    bool skip_next_passthrough_out; // for word access 
 
     uint32_t updates_since_render;
 
@@ -869,7 +870,10 @@ static inline void passthrough_io_out(uint16_t port, const void * src, uint_t le
     do { if ((vga)->passthrough) { passthrough_io_in(port,dest,len); } } while (0)
 
 #define PASSTHROUGH_IO_OUT(vga,port,src,len)				\
-    do { if ((vga)->passthrough) { passthrough_io_out(port,src,len); } } while (0)
+    do { if ((vga)->passthrough && (!(vga)->skip_next_passthrough_out)) { passthrough_io_out(port,src,len); } (vga)->skip_next_passthrough_out=false; } while (0)
+
+#define PASSTHROUGH_IO_SKIP_NEXT_OUT(vga)					\
+    do { if ((vga)->passthrough) { (vga)->skip_next_passthrough_out=true; } } while (0)
 		
 #define PASSTHROUGH_READ_CHECK(vga,inter,pass) \
     do { if ((vga)->passthrough) { if ((inter)!=(pass)) { PrintError("vga: passthrough error: passthrough value read is 0x%x, but internal value read is 0x%x\n",(pass),(inter)); } } } while (0)
@@ -1130,11 +1134,12 @@ static int sequencer_address_write(struct guest_info *core,
 
     ERR_WRONG_SIZE("write","vga sequencer addr",len,1,2);
 
-    PASSTHROUGH_IO_OUT(vga,port,src,1);
-
+    PASSTHROUGH_IO_OUT(vga,port,src,len);
+    
     vga->vga_sequencer.vga_sequencer_addr.val =  *((uint8_t*)src) ;
-
+    
     if (len==2) { 
+	PASSTHROUGH_IO_SKIP_NEXT_OUT(vga);
 	// second byte is the data
 	if (sequencer_data_write(core,port,src+1,1,vga)!=1) { 
 	    PrintError("vga: write of data failed\n");
@@ -1255,11 +1260,12 @@ static int crt_controller_address_write(struct guest_info *core,
 
     ERR_WRONG_SIZE("write","vga crt controller addr",len,1,2);
 
-    PASSTHROUGH_IO_OUT(vga,port,src,1);
+    PASSTHROUGH_IO_OUT(vga,port,src,len);
 
     vga->vga_crt_controller.vga_crt_addr.val =  *((uint8_t*)src) ;
 	
     if (len==2) { 
+	PASSTHROUGH_IO_SKIP_NEXT_OUT(vga);
 	// second byte is the data
 	if (crt_controller_data_write(core,port,src+1,1,vga)!=1) { 
 	    PrintError("vga: write of data failed\n");
@@ -1374,11 +1380,12 @@ static int graphics_controller_address_write(struct guest_info *core,
 
     ERR_WRONG_SIZE("write","vga graphics controller addr",len,1,2);
 
-    PASSTHROUGH_IO_OUT(vga,port,src,1);
+    PASSTHROUGH_IO_OUT(vga,port,src,len);
 
     vga->vga_graphics_controller.vga_graphics_ctrl_addr.val =  *((uint8_t*)src) ;
 
     if (len==2) { 
+	PASSTHROUGH_IO_SKIP_NEXT_OUT(vga);
 	// second byte is the data
 	if (graphics_controller_data_write(core,port,src+1,1,vga)!=1) { 
 	    PrintError("vga: write of data failed\n");
@@ -1897,6 +1904,7 @@ static int vga_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     if (passthrough && strcasecmp(passthrough,"enable")==0) {
 	PrintDebug("vga: enabling passthrough\n");
 	vga->passthrough=true;
+	vga->skip_next_passthrough_out=false;
     }
 
     // No memory store is allocated since we will use a full memory hook
