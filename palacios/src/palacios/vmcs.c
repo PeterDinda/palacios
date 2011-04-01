@@ -851,6 +851,7 @@ int v3_vmcs_get_field_len(vmcs_field_t field) {
         case VMCS_GUEST_DBG_CTL_HIGH:
         case VMCS_GUEST_PERF_GLOBAL_CTRL_HIGH:
 	case VMCS_HOST_PERF_GLOBAL_CTRL_HIGH:
+	case VMCS_GUEST_EFER_HIGH:
             return 4;
 
             /* Natural Width Control Fields */
@@ -914,10 +915,11 @@ int v3_vmcs_get_field_len(vmcs_field_t field) {
         case VMCS_HOST_SYSENTER_EIP:
         case VMCS_HOST_RSP:
         case VMCS_HOST_RIP:
+	case VMCS_GUEST_EFER:
             return sizeof(addr_t);
 
         default:
-	    PrintError("Invalid VMCS field\n");
+	    PrintError("Invalid VMCS field: 0x%x\n", field);
             return -1;
     }
 }

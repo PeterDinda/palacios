@@ -155,6 +155,8 @@ static inline int vmcs_read(vmcs_field_t vmcs_field, void * dst) {
         case 8:
             *((uint64_t*)dst) = (uint64_t)val;
             break;
+	default:
+	     return -1;
     }
 
 

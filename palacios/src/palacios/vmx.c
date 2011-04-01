@@ -770,7 +770,7 @@ int v3_vmx_enter(struct guest_info * info) {
 #endif
 
     // Handle any exits needed still in the atomic section
-    if (v3_handle_vmx_exit(info, &exit_info) == -1) {
+    if (v3_handle_atomic_vmx_exit(info, &exit_info) == -1) {
 	PrintError("Error in atomic VMX exit handler\n");
 	return -1;
     }
