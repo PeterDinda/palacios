@@ -22,6 +22,7 @@
 #include <palacios/vmm_types.h>
 #include <palacios/vm_guest_mem.h>
 #include <palacios/vmm_io.h>
+#include <palacios/vmm_graphics_console.h>
 
 #include "vga_regs.h"
 
@@ -36,23 +37,8 @@
 
 typedef uint8_t *vga_map; // points to MAP_SIZE data
 
-/* HACK HACK HACK */
-
-struct fb_info {
-    uint32_t rows;
-    uint32_t cols;
-    uint32_t bitsperpixel;
-};
-
-struct fb {
-    struct fb_info *info;
-    uint8_t * data;
-};
-
-//extern
-struct fb *palacios_linux_fb_hack_pointer;
-
-/* HACK HACK HACK */
+#define VGA_MAXX 1024
+#define VGA_MAXY 768
 
 
 #define VGA_MISC_OUT_READ 0x3cc
@@ -287,6 +273,9 @@ struct vga_internal {
     bool passthrough;
     bool skip_next_passthrough_out; // for word access 
 
+    struct v3_frame_buffer_spec  target_spec;
+    v3_graphics_console_t host_cons;
+
     uint32_t updates_since_render;
 
     struct frame_buf *framebuf; // we render to this
@@ -332,20 +321,47 @@ static int render(struct vga_internal *vga)
 {
     vga->updates_since_render++;
 
-    if (vga->updates_since_render<UPDATES_PER_RENDER) {
-	return 0;
+    if (vga->host_cons && v3_graphics_console_inform_update(vga->host_cons)>0) { 
+	// Draw some crap for testing for now
+
+	void *fb;
+	struct v3_frame_buffer_spec *s;
+
+	fb = v3_graphics_console_get_frame_buffer_data_rw(vga->host_cons,&(vga->target_spec));
+
+	s=&(vga->target_spec);
+
+	if (fb && s->height>=480 && s->width>=640 ) { 
+	    uint8_t color = (uint8_t)(vga->updates_since_render);
+
+	    uint32_t x, y;
+
+	    for (y=0;y<480;y++) {
+		for (x=0;x<640;x++) { 
+		    void *pixel = fb + (x + y*s->width) *s->bytes_per_pixel;
+		    uint8_t *red = pixel + s->red_offset;
+		    uint8_t *green = pixel + s->green_offset;
+		    uint8_t *blue = pixel + s->blue_offset;
+
+		    if (y<480/4) { 
+			*red=color+x;
+			*green=0;
+			*blue=0;
+		    } else if (y<480/2) { 
+			*red=0;
+			*green=color+x;
+			*blue=0;
+		    } else if (y<3*480/4) { 
+			*red=0;
+			*green=0;
+			*blue=color+x;
+		    } else {
+			*red=*green=*blue=color+x;
+		    }
+		}
+	    }
+	}
     }
-
-    //    PrintError("vga: render UNIMPLEMENTED\n");
-
-    vga->updates_since_render=0;
-
-    if (!palacios_linux_fb_hack_pointer) { 
-	return 0;
-    }
-
-    
-
 
     return 0;
 }
@@ -1869,6 +1885,10 @@ static int free_vga(struct vga_internal *vga)
     ret |= v3_dev_unhook_io(dev, VGA_DAC_PIXEL_MASK);
 
 
+    if (vga->host_cons) { 
+	v3_graphics_console_close(vga->host_cons);
+    }
+
     V3_Free(vga);
 
     return 0;
@@ -1886,9 +1906,7 @@ static int vga_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     char * dev_id = v3_cfg_val(cfg, "ID");
     char * passthrough = v3_cfg_val(cfg, "passthrough");
-
-    // DETERMINE THE FRAMEBUFFER AND SET IT EARLY
-    // FRAMEBUFFER IS SUPPLIED BY THE BACKEND
+    char * hostframebuf = v3_cfg_val(cfg, "hostframebuf");
 
     PrintDebug("vga: init_device\n");
 
@@ -1906,6 +1924,45 @@ static int vga_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	vga->passthrough=true;
 	vga->skip_next_passthrough_out=false;
     }
+
+
+    if (hostframebuf && strcasecmp(hostframebuf,"enable")==0) { 
+	struct v3_frame_buffer_spec req;
+
+	PrintDebug("vga: enabling host frame buffer console (GRAPHICS_CONSOLE)\n");
+
+	memset(&req,0,sizeof(struct v3_frame_buffer_spec));
+	memset(&(vga->target_spec),0,sizeof(struct v3_frame_buffer_spec));
+
+	req.height=VGA_MAXY;
+	req.width=VGA_MAXX;
+	req.bytes_per_pixel=4;
+	req.bits_per_channel=8;
+	req.red_offset=0;
+	req.green_offset=1;
+	req.blue_offset=2;
+	
+
+	vga->host_cons = v3_graphics_console_open(vm,&req,&(vga->target_spec));
+
+	if (!vga->host_cons) { 
+	    PrintError("vga: unable to open host OS's graphics console\n");
+	    free_vga(vga);
+	    return -1;
+	}
+
+	if (memcmp(&req,&(vga->target_spec),sizeof(req))) {
+	    PrintDebug("vga: warning: target spec differs from requested spec\n");
+	    PrintDebug("vga: request: %u by %u by %u with %u bpc and r,g,b at %u, %u, %u\n", req.width, req.height, req.bytes_per_pixel, req.bits_per_channel, req.red_offset, req.green_offset, req.blue_offset);
+	    PrintDebug("vga: response: %u by %u by %u with %u bpc and r,g,b at %u, %u, %u\n", vga->target_spec.width, vga->target_spec.height, vga->target_spec.bytes_per_pixel, vga->target_spec.bits_per_channel, vga->target_spec.red_offset, vga->target_spec.green_offset, vga->target_spec.blue_offset);
+
+	}
+    }
+
+    if (!vga->passthrough && !vga->host_cons) { 
+	V3_Print("vga: neither passthrough nor host console are enabled - no way to display anything!\n");
+    }
+
 
     // No memory store is allocated since we will use a full memory hook
     // The VGA maps can be read as well as written
@@ -1988,7 +2045,7 @@ static int vga_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     init_vga(vga);
 
-    PrintDebug("vga: successfully added and initialized, waiting for framebuffer attach\n");
+    PrintDebug("vga: successfully added and initialized.\n");
 
     return 0;
 

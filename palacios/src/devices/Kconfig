@@ -348,10 +348,12 @@ config DISK_MODEL
 config VGA
 	bool "VGA"
 	default n
-	depends on !PASSTHROUGH_VIDEO
+	depends on !PASSTHROUGH_VIDEO && GRAPHICS_CONSOLE
 	help
 	  Includes the Virtual VGA video support, and will 
           eventually also include SVGA
+          Host frame buffer support (GRAPHICS_CONSOLE) is needed
+          for the hostframebuf option to work
 
 
 config DEBUG_VGA
