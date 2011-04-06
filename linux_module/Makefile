@@ -19,7 +19,7 @@ ifdef CONFIG_PALACIOS_VNET
 		v3vee-objs += palacios-vnet.o		
 endif
 ifdef CONFIG_PALACIOS_PACKET
-		v3vee-objs += palacios-packet.o palacios-hashtable.o
+		v3vee-objs += palacios-packet.o
 endif
 ifdef CONFIG_PALACIOS_SOCKET
 		v3vee-objs += palacios-socket.o
