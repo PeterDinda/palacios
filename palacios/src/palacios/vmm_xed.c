@@ -203,10 +203,14 @@ static int decode_string_op(struct guest_info * info,
 	    return -1;
 	}
 
+
 	if (get_memory_operand(info, xed_instr, 1, &(instr->src_operand)) == -1) {
 	    PrintError("Could not get Source memory operand\n");
 	    return -1;
 	}
+
+	instr->dst_operand.write = 1;
+	instr->src_operand.read = 1;
 
 	if (instr->prefixes.rep == 1) {
 	    addr_t reg_addr = 0;
@@ -232,6 +236,9 @@ static int decode_string_op(struct guest_info * info,
 			  &(instr->src_operand.size));
 	instr->src_operand.type = REG_OPERAND;
     
+	instr->src_operand.read = 1;
+	instr->dst_operand.write = 1;
+
 	if (instr->prefixes.rep == 1) {
 	    addr_t reg_addr = 0;
 	    uint_t reg_length = 0;
@@ -395,6 +402,18 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 
 	v3_op = &(instr->dst_operand);
 
+	if ((op->_rw == XED_OPERAND_ACTION_RW) || 
+	    (op->_rw == XED_OPERAND_ACTION_R)|| 
+	    (op->_rw == XED_OPERAND_ACTION_RCW)) {
+	    v3_op->read = 1;
+	}
+
+	if ((op->_rw == XED_OPERAND_ACTION_RW) || 
+	    (op->_rw == XED_OPERAND_ACTION_W) || 
+	    (op->_rw == XED_OPERAND_ACTION_CRW)) {
+	    v3_op->write = 1;
+	}
+
 	if (xed_operand_is_register(op_enum)) {
 	    xed_reg_enum_t xed_reg =  xed_decoded_inst_get_reg(&xed_instr, op_enum);
 	    int v3_reg_type = xed_reg_to_v3_reg(info, 
@@ -461,6 +480,18 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 	*/
 	v3_op = &(instr->src_operand);
 
+	if ((op->_rw == XED_OPERAND_ACTION_RW) || 
+	    (op->_rw == XED_OPERAND_ACTION_R)|| 
+	    (op->_rw == XED_OPERAND_ACTION_RCW)) {
+	    v3_op->read = 1;
+	}
+
+	if ((op->_rw == XED_OPERAND_ACTION_RW) || 
+	    (op->_rw == XED_OPERAND_ACTION_W) || 
+	    (op->_rw == XED_OPERAND_ACTION_CRW)) {
+	    v3_op->write = 1;
+	}
+
 	if (xed_operand_is_register(op_enum)) {
 	    xed_reg_enum_t xed_reg =  xed_decoded_inst_get_reg(&xed_instr, op_enum);
 	    int v3_reg_type = xed_reg_to_v3_reg(info, 
@@ -526,6 +557,18 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 	const xed_operand_t * op = xed_inst_operand(xi, 2);
 	xed_operand_type_enum_t op_type = xed_operand_type(op);
 	xed_operand_enum_t op_enum = xed_operand_name(op);
+
+	if ((op->_rw == XED_OPERAND_ACTION_RW) || 
+	    (op->_rw == XED_OPERAND_ACTION_R)|| 
+	    (op->_rw == XED_OPERAND_ACTION_RCW)) {
+	    instr->third_operand.read = 1;
+	}
+
+	if ((op->_rw == XED_OPERAND_ACTION_RW) || 
+	    (op->_rw == XED_OPERAND_ACTION_W) || 
+	    (op->_rw == XED_OPERAND_ACTION_CRW)) {
+	    instr->third_operand.write = 1;
+	}
 
 	if (xed_operand_is_register(op_enum)) {
 	    xed_reg_enum_t xed_reg =  xed_decoded_inst_get_reg(&xed_instr, op_enum);

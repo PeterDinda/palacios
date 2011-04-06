@@ -24,12 +24,24 @@
 
 #ifdef __V3VEE__ 
 
+struct hashtable;
+
 
 struct v3_mem_hooks {
 
-    void * hook_hvas; // this is an array of pages, equal to the number of cores
+    /* Scratch memory pages for full hooks (1 per core) */
+    void * hook_hvas_1; 
+
+    /* A second set of scratch memory pages */
+    /* The ONLY reason this exists is because of 'rep cmps'... */
+    void * hook_hvas_2; 
+
 
     struct list_head hook_list;
+
+    /* We track memory hooks via a hash table */
+    /* keyed to the memory region pointer */
+    struct hashtable * reg_table; 
 };
 
 
@@ -50,11 +62,7 @@ int v3_hook_write_mem(struct v3_vm_info * vm, uint16_t core_id,
 
 int v3_unhook_mem(struct v3_vm_info * vm, uint16_t core_id, addr_t guest_addr_start);
 
-int v3_find_mem_hook(struct v3_vm_info *vm, uint16_t core_id, addr_t guest_addr,
-		     int (**read)(struct guest_info * core, addr_t guest_addr, void * dst, uint_t length, void * priv_data),
-		     void **read_priv_data,
-		     int (**write)(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data),
-		     void **write_priv_data);
+
 		     
 
 

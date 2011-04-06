@@ -22,6 +22,8 @@
 #include <palacios/vmm_mem_hook.h>
 #include <palacios/vmm_emulator.h>
 #include <palacios/vm_guest_mem.h>
+#include <palacios/vmm_hashtable.h>
+#include <palacios/vmm_decoder.h>
 
 struct mem_hook {
   
@@ -31,8 +33,8 @@ struct mem_hook {
     int (*write)(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data);
 
     void * priv_data;
-    addr_t hook_hva;
     struct v3_mem_region * region;
+
 
     struct list_head hook_node;
 };
@@ -41,13 +43,23 @@ struct mem_hook {
 
 static int free_hook(struct v3_vm_info * vm, struct mem_hook * hook);
 
+static uint_t mem_hash_fn(addr_t key) {
+    return v3_hash_long(key, sizeof(void *) * 8);
+}
+
+static int mem_eq_fn(addr_t key1, addr_t key2) {
+    return (key1 == key2);
+}
 
 int v3_init_mem_hooks(struct v3_vm_info * vm) {
     struct v3_mem_hooks * hooks = &(vm->mem_hooks);
 
-    hooks->hook_hvas = V3_VAddr(V3_AllocPages(vm->num_cores));
+    hooks->hook_hvas_1 = V3_VAddr(V3_AllocPages(vm->num_cores));
+    hooks->hook_hvas_2 = V3_VAddr(V3_AllocPages(vm->num_cores));
 
     INIT_LIST_HEAD(&(hooks->hook_list));
+
+    hooks->reg_table = v3_create_htable(0, mem_hash_fn, mem_eq_fn);
 
     return 0;
 }
@@ -70,56 +82,218 @@ int v3_deinit_mem_hooks(struct v3_vm_info * vm) {
     }
 
 
-    V3_FreePages(V3_PAddr(hooks->hook_hvas), vm->num_cores);
+    v3_free_htable(hooks->reg_table, 0, 0);
+
+    V3_FreePages(V3_PAddr(hooks->hook_hvas_1), vm->num_cores);
+    V3_FreePages(V3_PAddr(hooks->hook_hvas_2), vm->num_cores);
 
     return 0;
 }
 
 
 
+static inline int get_op_length(struct x86_instr * instr, struct x86_operand * operand, addr_t tgt_addr) {
 
-static int handle_mem_hook(struct guest_info * info, addr_t guest_va, addr_t guest_pa, 
-			   struct v3_mem_region * reg, pf_error_t access_info) {
-    struct mem_hook * hook = reg->priv_data;
-    struct v3_mem_hooks * hooks = &(info->vm_info->mem_hooks);
-    addr_t op_addr = 0;
-
-    if (reg->flags.alloced == 0) {
-	if (hook->hook_hva & 0xfff) {
-	    op_addr = (addr_t)(hooks->hook_hvas + (PAGE_SIZE * info->cpu_id));
+    if (instr->is_str_op) {
+	if ((instr->str_op_length * operand->size)  < (0x1000 - PAGE_OFFSET_4KB(tgt_addr))) {
+	    return (instr->str_op_length * operand->size);
 	} else {
-	    op_addr = hook->hook_hva;
+	    return (0x1000 - PAGE_OFFSET_4KB(tgt_addr));
 	}
     } else {
-	if (v3_gpa_to_hva(info, guest_pa, &op_addr) == -1) {
-	    PrintError("Could not translate hook address (%p)\n", (void *)guest_pa);
+	return instr->src_operand.size;
+    }
+
+}
+
+
+
+static int handle_mem_hook(struct guest_info * core, addr_t guest_va, addr_t guest_pa, 
+			   struct v3_mem_region * reg, pf_error_t access_info) {
+    struct v3_mem_hooks * hooks = &(core->vm_info->mem_hooks);
+    struct x86_instr instr;
+    void * instr_ptr = NULL;
+    int bytes_emulated = 0;
+    int mem_op_size = 0;
+    int ret = 0;
+
+    struct mem_hook * src_hook = NULL;
+    addr_t src_mem_op_hva = 0;
+    addr_t src_mem_op_gpa = 0;
+    int src_req_size = -1;
+
+    struct mem_hook * dst_hook = NULL;
+    addr_t dst_mem_op_hva = 0;
+    addr_t dst_mem_op_gpa = 0;
+    int dst_req_size = -1;
+
+    /* Find and decode hooked instruction */
+    if (core->mem_mode == PHYSICAL_MEM) { 
+	ret = v3_gpa_to_hva(core, get_addr_linear(core, core->rip, &(core->segments.cs)), (addr_t *)&instr_ptr);
+    } else { 
+	ret = v3_gva_to_hva(core, get_addr_linear(core, core->rip, &(core->segments.cs)), (addr_t *)&instr_ptr);
+    }
+
+    if (ret == -1) {
+	PrintError("Could not translate Instruction Address (%p)\n", (void *)core->rip);
+	return -1;
+    }
+
+    if (v3_decode(core, (addr_t)instr_ptr, &instr) == -1) {
+	PrintError("Decoding Error\n");
+	return -1;
+    }
+
+
+    // Test source operand, if it's memory we need to do some translations, and handle a possible hook
+    if (instr.src_operand.type == MEM_OPERAND) {
+	struct v3_mem_region * src_reg = NULL;
+
+	if (core->mem_mode == PHYSICAL_MEM) { 
+	    src_mem_op_gpa = instr.src_operand.operand;
+	} else { 
+	    if (v3_gva_to_gpa(core, instr.src_operand.operand, &src_mem_op_gpa) == -1) {
+		pf_error_t error = access_info;
+
+		error.present = 0;
+		v3_inject_guest_pf(core, instr.src_operand.operand, error);
+
+		return 0;
+	    }
+	}
+
+	if ((guest_pa >= reg->guest_start) && 
+	    (guest_pa <= reg->guest_end)) {
+	    // Src address corresponds to faulted region
+	    src_reg = reg;
+	} else {
+	    // Note that this should only trigger for string operations
+	    src_reg = v3_get_mem_region(core->vm_info, core->cpu_id, src_mem_op_gpa);
+	}
+
+	if (src_reg == NULL) {
+	    PrintError("Error finding Source region (addr=%p)\n", (void *)src_mem_op_gpa);
+	    return -1;
+	}
+
+	src_hook = (struct mem_hook *)v3_htable_search(hooks->reg_table, (addr_t)src_reg);
+
+	// We don't check whether the region is a hook here because it doesn't yet matter.
+	// These hva calculations will be true regardless
+	if (src_reg->flags.alloced == 0) {
+	    src_mem_op_hva = (addr_t)(hooks->hook_hvas_1 + (PAGE_SIZE * core->cpu_id));
+	} else {
+	    // We already have the region so we can do the conversion ourselves
+	    src_mem_op_hva = (addr_t)V3_VAddr((void *)((src_mem_op_gpa - src_reg->guest_start) + src_reg->host_addr));
+	}
+
+	src_req_size = get_op_length(&instr, &(instr.src_operand), src_mem_op_hva);
+    }
+
+    // Now do the same translation / hook handling for the second operand
+    if (instr.dst_operand.type == MEM_OPERAND) {
+	struct v3_mem_region * dst_reg = NULL;
+
+
+	if (core->mem_mode == PHYSICAL_MEM) { 
+	    dst_mem_op_gpa = instr.dst_operand.operand;
+	} else { 
+	    if (v3_gva_to_gpa(core, instr.dst_operand.operand, &dst_mem_op_gpa) == -1) {
+		pf_error_t error = access_info;
+
+		error.present = 0;
+		v3_inject_guest_pf(core, instr.dst_operand.operand, error);
+
+		return 0;
+	    }
+	}
+
+	if ((guest_pa >= reg->guest_start) && 
+	    (guest_pa <= reg->guest_end)) {
+	    // Dst address corresponds to faulted region
+	    dst_reg = reg;
+	} else {
+	    // Note that this should only trigger for string operations
+	    dst_reg = v3_get_mem_region(core->vm_info, core->cpu_id, dst_mem_op_gpa);
+	}
+
+	if (dst_reg == NULL) {
+	    PrintError("Error finding Source region (addr=%p)\n", (void *)dst_mem_op_gpa);
+	    return -1;
+	}
+	
+	dst_hook = (struct mem_hook *)v3_htable_search(hooks->reg_table, (addr_t)dst_reg);
+
+	// We don't check whether the region is a hook here because it doesn't yet matter.
+	// These hva calculations will be true regardless
+	if (dst_reg->flags.alloced == 0) {
+	    dst_mem_op_hva = (addr_t)(hooks->hook_hvas_2 + (PAGE_SIZE * core->cpu_id));
+	} else {
+	    // We already have the region so we can do the conversion ourselves
+	    dst_mem_op_hva = (addr_t)V3_VAddr((void *)((dst_mem_op_gpa - dst_reg->guest_start) + dst_reg->host_addr));
+	}
+
+	dst_req_size = get_op_length(&instr, &(instr.dst_operand), dst_mem_op_hva);
+    }
+
+
+    mem_op_size = ((uint_t)src_req_size < (uint_t)dst_req_size) ? src_req_size : dst_req_size;
+
+
+    /* Now handle the hooks if necessary */    
+    if ( (src_hook != NULL)  && (src_hook->read != NULL) &&
+	 (instr.src_operand.read == 1) ) {
+	
+	// Read in data from hook
+	
+	if (src_hook->read(core, src_mem_op_gpa, (void *)src_mem_op_hva, mem_op_size, src_hook->priv_data) == -1) {
+	    PrintError("Read hook error at src_mem_op_gpa=%p\n", (void *)src_mem_op_gpa);
 	    return -1;
 	}
     }
 
-    
-    if (access_info.write == 1) { 
-	// Write Operation 
-	if (v3_emulate_write_op(info, guest_va, guest_pa, op_addr, 
-				hook->write, hook->priv_data) == -1) {
-	    PrintError("Write Full Hook emulation failed\n");
-	    return -1;
-	}
-    } else {
-	// Read Operation or a read->write (e.g., string ops)
+    if ( (dst_hook != NULL)  && (dst_hook->read != NULL) &&
+	 (instr.dst_operand.read == 1) ) {
 	
-	if (reg->flags.read == 1) {
-	    PrintError("Tried to emulate read for a guest Readable page\n");
+	// Read in data from hook
+	
+	if (dst_hook->read(core, dst_mem_op_gpa, (void *)dst_mem_op_hva, mem_op_size, dst_hook->priv_data) == -1) {
+	    PrintError("Read hook error at dst_mem_op_gpa=%p\n", (void *)dst_mem_op_gpa);
+	    return -1;
+	}
+    }
+    
+    bytes_emulated = v3_emulate(core, &instr, mem_op_size, src_mem_op_hva, dst_mem_op_hva);
+
+    if (bytes_emulated == -1) {
+	PrintError("Error emulating instruction\n");
+	return -1;
+    }
+
+
+    if ( (src_hook != NULL) && (src_hook->write != NULL) &&
+	 (instr.src_operand.write == 1) ) {
+
+	if (src_hook->write(core, src_mem_op_gpa, (void *)src_mem_op_hva, bytes_emulated, src_hook->priv_data) == -1) {
+	    PrintError("Write hook error at src_mem_op_gpa=%p\n", (void *)src_mem_op_gpa);
 	    return -1;
 	}
 
-	if (v3_emulate_read_op(info, guest_va, guest_pa, op_addr, 
-			       hook->read, hook->write, 
-			       hook->priv_data) == -1) {
-	    PrintError("Read Full Hook emulation failed\n");
+    }
+
+
+    if ( (dst_hook != NULL) && (dst_hook->write != NULL) &&
+	 (instr.dst_operand.write == 1) ) {
+
+	if (dst_hook->write(core, dst_mem_op_gpa, (void *)dst_mem_op_hva, bytes_emulated, dst_hook->priv_data) == -1) {
+	    PrintError("Write hook error at dst_mem_op_gpa=%p\n", (void *)dst_mem_op_gpa);
 	    return -1;
 	}
+    }
 
+
+    if (instr.is_str_op == 0) {
+	core->rip += instr.instr_length;
     }
 
 
@@ -142,10 +316,9 @@ int v3_hook_write_mem(struct v3_vm_info * vm, uint16_t core_id,
     hook->write = write;
     hook->read = NULL;
     hook->priv_data = priv_data;
-    hook->hook_hva = (addr_t)V3_VAddr((void *)host_addr);
 
     entry = v3_create_mem_region(vm, core_id, guest_addr_start, guest_addr_end);
-    
+
     hook->region = entry;
 
     entry->host_addr = host_addr;
@@ -162,6 +335,7 @@ int v3_hook_write_mem(struct v3_vm_info * vm, uint16_t core_id,
 	return -1;
     }
 
+    v3_htable_insert(hooks->reg_table, (addr_t)entry, (addr_t)hook);
     list_add(&(hook->hook_node), &(hooks->hook_list));
 
     return 0;  
@@ -184,7 +358,6 @@ int v3_hook_full_mem(struct v3_vm_info * vm, uint16_t core_id,
     hook->write = write;
     hook->read = read;
     hook->priv_data = priv_data;
-    hook->hook_hva = (addr_t)0xfff;
 
     entry = v3_create_mem_region(vm, core_id, guest_addr_start, guest_addr_end);
     hook->region = entry;
@@ -199,6 +372,7 @@ int v3_hook_full_mem(struct v3_vm_info * vm, uint16_t core_id,
     }
 
     list_add(&(hook->hook_node), &(hooks->hook_list));
+    v3_htable_insert(hooks->reg_table, (addr_t)entry, (addr_t)hook);
 
 
     return 0;
@@ -224,45 +398,6 @@ int v3_unhook_mem(struct v3_vm_info * vm, uint16_t core_id, addr_t guest_addr_st
     free_hook(vm, hook);
 
     return 0;
-}
-
-// Return the read and/or write hook functions of the region associated
-// with the address, if any.   
-// 
-int v3_find_mem_hook(struct v3_vm_info *vm, uint16_t core_id, addr_t guest_addr,
-		     int (**read)(struct guest_info * core, addr_t guest_addr, void * dst, uint_t length, void * priv_data),
-		     void **read_priv_data,
-		     int (**write)(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data),
-		     void **write_priv_data)
-{
-    struct v3_mem_region * reg = v3_get_mem_region(vm, core_id, guest_addr);
-
-    if (!reg) { 
-	return -1;
-    }
-
-    // Should probably sanity-check the region smarter than the following
-
-    struct mem_hook * hook = reg->priv_data;
-
-    if (!hook) {
-	// This must be a simple memory region without hooks
-	if (read) { *read=0;}
-	if (read_priv_data) { *read_priv_data=0;}
-	if (write) { *write=0;}
-	if (write_priv_data) { *write_priv_data=0;}
-	return 0;
-    }
-
-    // There is some form of hook here - copy it out for the caller
-    
-    if (read) { *read=hook->read;}
-    if (read_priv_data) { *read_priv_data=hook->priv_data;}
-    if (write) { *write=hook->write;}
-    if (write_priv_data) { *write_priv_data=hook->priv_data;}
-
-    return 0;
-    
 }
 
 
