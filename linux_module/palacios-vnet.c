@@ -24,7 +24,7 @@
 
 #define VNET_UDP_PORT 9000
 
-struct vnet_route {
+struct palacios_vnet_route {
     struct v3_vnet_route route;
 
     int route_idx;
@@ -66,7 +66,7 @@ struct palacios_vnet_state {
 static struct palacios_vnet_state vnet_state;
 
 
-struct vnet_link * find_link_by_ip(uint32_t ip) {
+struct vnet_link * link_by_ip(uint32_t ip) {
     struct vnet_link * link = NULL;
 
     list_for_each_entry(link, &(vnet_state.link_list), node) {
@@ -79,7 +79,7 @@ struct vnet_link * find_link_by_ip(uint32_t ip) {
     return NULL;
 }
 
-struct vnet_link * find_link_by_idx(int idx) {
+struct vnet_link * link_by_idx(int idx) {
     struct vnet_link * link = NULL;
 
     list_for_each_entry(link, &(vnet_state.link_list), node) {
@@ -91,8 +91,8 @@ struct vnet_link * find_link_by_idx(int idx) {
     return NULL;
 }
 
-struct vnet_route * find_route_by_idx(int idx) {
-    struct vnet_route * route = NULL;
+struct palacios_vnet_route * route_by_idx(int idx) {
+    struct palacios_vnet_route * route = NULL;
 
     list_for_each_entry(route, &(vnet_state.route_list), node) {
 
@@ -109,98 +109,125 @@ static int parse_mac_str(char * str, uint8_t * qual, uint8_t * mac) {
     char * token;
 
     printk("Parsing MAC (%s)\n", str);
+	
+    *qual = MAC_NOSET;
+    if(strnicmp("any", str, strlen(str)) == 0){
+	*qual = MAC_ANY;
+	return 0;
+    }else if(strnicmp("none", str, strlen(str)) == 0){
+       *qual = MAC_NONE;
+	return 0;
+    }else{
+    	if (strstr(str, "-")) {
+	    token = strsep(&str, "-");
 
-    if (strstr(str, "-")) {
-	token = strsep(&str, "-");
+	    if (strnicmp("not", token, strlen("not")) == 0) {
+	    	*qual = MAC_NOT;
+	    } else {
+	    	printk("Invalid MAC String token (%s)\n", token);
+	    	return -1;
+	    }
+    	}
 
-	if (strnicmp("not", token, strlen("not")) == 0) {
-	    *qual = MAC_NOT;
-	} else {
+    	if (strstr(str, ":")) {
+	    int i = 0;
+
+	    if(*qual == MAC_NOSET){
+	   	*qual = MAC_ADDR;
+	    }
+
+	    for (i = 0; i < 6; i++) {
+	    	token = strsep(&str, ":");
+	    	if (!token) {
+		    printk("Invalid MAC String token (%s)\n", token);
+		    return -1;
+   		}
+	    	mac[i] = simple_strtol(token, &token, 16);
+	    }
+           printk("MAC: %2x:%2x:%2x:%2x:%2x:%2x\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+		
+    	}else {
 	    printk("Invalid MAC String token (%s)\n", token);
 	    return -1;
 	}
-    }
-
-    if (!strstr(str, ":")) {
-	if (strnicmp("any", str, strlen("any")) == 0) {
-	    printk("qual = any\n");
-	    *qual = MAC_ANY;
-	} else if (strnicmp("none", str, strlen("none")) == 0) {
-	    printk("qual = None\n");
-	    *qual = MAC_NONE;
-	} else {
-	    printk("Invalid MAC Qual token (%s)\n", str);
-	    return -1;
-	}
-
-    } else {
-	int i = 0;
-
-	*qual = MAC_ADDR;
-
-	for (i = 0; i < 6; i++) {
-	    token = strsep(&str, ":");
-	    mac[i] = simple_strtol(token, &token, 16);
-	}
+    		
     }
 
     return 0;
 }
 
+
+static int str2mac(char * str, uint8_t * mac){
+    int i = 0;
+    char *hex = NULL;
+	
+    for (i = 0; i < ETH_ALEN; i++) {		
+	hex = strsep(&str, ":");
+	if (!hex) {
+	    printk("Invalid MAC String token (%s)\n", str);
+	    return -1;
+	}
+	mac[i] = simple_strtol(hex, &hex, 16);
+    }
+	
+    return 0;
+}
+
+
+/* Format:
+  * add src-MAC dst-MAC dst-TYPE [dst-ID] src-TYPE [src-ID]
+  *
+  * src-MAC = dst-MAC = not-MAC|any|none|MAC 
+  * dst-TYPE = edge|interface 
+  * src-TYPE = edge|interface|any
+  * dst-ID = src-ID = IP|MAC
+  * MAC=xx:xx:xx:xx:xx:xx
+  * IP = xxx.xxx.xxx.xxx
+  */
 static int parse_route_str(char * str, struct v3_vnet_route * route) {
     char * token = NULL;
     struct vnet_link *link = NULL;
 
     // src MAC
     token = strsep(&str, " ");
-
     if (!token) {
 	return -1;
     }
-
     parse_mac_str(token, &(route->src_mac_qual), route->src_mac);
 
     // dst MAC
     token = strsep(&str, " ");
-
     if (!token) {
 	return -1;
     }
-
     parse_mac_str(token, &(route->dst_mac_qual), route->dst_mac);
 
     // dst LINK type
     token = strsep(&str, " ");
-
     if (!token) {
 	return -1;
     }
+    printk("dst type =(%s)\n", token);
     
     if (strnicmp("interface", token, strlen("interface")) == 0) {
 	route->dst_type = LINK_INTERFACE;
-	printk("DST type = INTERFACE\n");
     } else if (strnicmp("edge", token, strlen("edge")) == 0) {
 	route->dst_type = LINK_EDGE;
-	printk("DST type = EDGE\n");
     } else {
 	printk("Invalid Destination Link Type (%s)\n", token);
 	return -1;
     }
 
-
-    // dst link ID
+    // dst link
     token = strsep(&str, " ");
-
     if (!token) {
 	return -1;
     }
+    printk("dst link ID=(%s)\n", token);
 
-    printk("dst link ID=%s\n", token);
-
-    // Figure out link ID here
+    // Figure out link here
     if (route->dst_type == LINK_EDGE) {
 	uint32_t link_ip;
-
 
 	// Figure out Link Here
 	if (in4_pton(token, strlen(token), (uint8_t *)&(link_ip), '\0', NULL) != 1) {
@@ -208,19 +235,35 @@ static int parse_route_str(char * str, struct v3_vnet_route * route) {
 	    return -EFAULT;
 	}
 
-
-	printk("link_ip = %d\n", link_ip);
-	link = find_link_by_ip(link_ip);
+	link = link_by_ip(link_ip);
 	if (link != NULL){
 	    route->dst_id = link->link_idx;
 	}else{
 	    printk("can not find dst link %s\n", token);
 	    return -1;
 	}
+
+	printk("link_ip = %d, link_id = %d\n", link_ip, link->link_idx);	
+    } else if (route->dst_type == LINK_INTERFACE) {
+	uint8_t mac[ETH_ALEN];
+	
+       if(str2mac(token, mac) == -1){
+	   printk("wrong MAC format (%s)\n", token);
+	   return -1;
+       }
+	   
+	route->dst_id = v3_vnet_find_dev(mac);
+	if (route->dst_id == -1){
+	    printk("can not find dst device %s\n", token);
+	    return -1;
+	}		
     } else {
 	printk("Unsupported dst link type\n");
 	return -1;
     }
+
+    route->src_id = -1;
+    route->src_type = -1;
 
     // src LINK
     token = strsep(&str, " ");
@@ -233,13 +276,10 @@ static int parse_route_str(char * str, struct v3_vnet_route * route) {
 
     if (strnicmp("interface", token, strlen("interface")) == 0) {
 	route->src_type = LINK_INTERFACE;
-	printk("SRC type = INTERFACE\n");
     } else if (strnicmp("edge", token, strlen("edge")) == 0) {
 	route->src_type = LINK_EDGE;
-	printk("SRC type = EDGE\n");
     } else if (strnicmp("any", token, strlen("any")) == 0) {
 	route->src_type = LINK_ANY;
-	printk("SRC type = ANY\n");
     } else {
 	printk("Invalid Src link type (%s)\n", token);
 	return -1;
@@ -247,7 +287,7 @@ static int parse_route_str(char * str, struct v3_vnet_route * route) {
 
 
     if (route->src_type == LINK_ANY) {
-	route->src_id = (uint32_t)-1;
+	route->src_id = -1;
     } else if (route->src_type == LINK_EDGE) {
 	uint32_t src_ip;
 	token = strsep(&str, " ");
@@ -262,18 +302,30 @@ static int parse_route_str(char * str, struct v3_vnet_route * route) {
 	    return -EFAULT;
 	}
 
-	link = find_link_by_ip(src_ip);
+	link = link_by_ip(src_ip);
 	if (link != NULL){
 	    route->src_id = link->link_idx;
 	}else{
 	    printk("can not find src link %s\n", token);
 	    return -1;
 	}
+    } else if(route->src_type == LINK_INTERFACE){
+       uint8_t mac[ETH_ALEN];
+	
+       if(str2mac(token, mac) == -1){
+	   printk("wrong MAC format (%s)\n", token);
+	   return -1;
+       }
+	   
+	route->src_id = v3_vnet_find_dev(mac);
+	if (route->src_id == -1){
+	    printk("can not find dst device %s\n", token);
+	    return -1;
+	}		
     } else {
 	printk("Invalid link type\n");
 	return -1;
     }
-
 
     return 0;
 }
@@ -282,7 +334,7 @@ static int parse_route_str(char * str, struct v3_vnet_route * route) {
 
 
 static void * route_seq_start(struct seq_file * s, loff_t * pos) {
-    struct vnet_route * route_iter = NULL;
+    struct palacios_vnet_route * route_iter = NULL;
     loff_t i = 0;
 
 
@@ -307,7 +359,6 @@ static void * link_seq_start(struct seq_file * s, loff_t * pos) {
     struct vnet_link * link_iter = NULL;
     loff_t i = 0;
 
-
     if (*pos >= vnet_state.num_links) {
 	return NULL;
     }
@@ -327,9 +378,9 @@ static void * link_seq_start(struct seq_file * s, loff_t * pos) {
 
 
 static void * route_seq_next(struct seq_file * s, void * v, loff_t * pos) {
-    struct vnet_route * route_iter = NULL;
+    struct palacios_vnet_route * route_iter = NULL;
 
-    route_iter = list_entry(((struct vnet_route *)v)->node.next, struct vnet_route, node);
+    route_iter = list_entry(((struct palacios_vnet_route *)v)->node.next, struct palacios_vnet_route, node);
 
     // Check if the list has looped
     if (&(route_iter->node) == &(vnet_state.route_list)) {
@@ -373,12 +424,12 @@ static void link_seq_stop(struct seq_file * s, void * v) {
 }
 
 static int route_seq_show(struct seq_file * s, void * v) {
-    struct vnet_route * route_iter = v;
+    struct palacios_vnet_route * route_iter = v;
     struct v3_vnet_route * route = &(route_iter->route);
-
 
     seq_printf(s, "%d:\t", route_iter->route_idx);
 
+    seq_printf(s, "\nSrc:\t");
     switch (route->src_mac_qual) {
 	case MAC_ANY:
 	    seq_printf(s, "any ");
@@ -387,7 +438,7 @@ static int route_seq_show(struct seq_file * s, void * v) {
 	    seq_printf(s, "none ");
 	    break;
 	case MAC_NOT:
-	    seq_printf(s, "not-%x:%x:%x:%x:%x:%x ", 
+	    seq_printf(s, "not-%2x:%2x:%2x:%2x:%2x:%2x ", 
 		       route->src_mac[0], route->src_mac[1], route->src_mac[2],
 		       route->src_mac[3], route->src_mac[4], route->src_mac[5]);
 	    break;
@@ -398,6 +449,7 @@ static int route_seq_show(struct seq_file * s, void * v) {
 	    break;
     }
 
+    seq_printf(s, "\nDst:\t");
     switch (route->dst_mac_qual) {
 	case MAC_ANY:
 	    seq_printf(s, "any ");
@@ -417,10 +469,10 @@ static int route_seq_show(struct seq_file * s, void * v) {
 	    break;
     }
 
-
+    seq_printf(s, "\nDst-Type:\t");
     switch (route->dst_type) {
 	case LINK_EDGE: {
-	    struct vnet_link * link = (struct vnet_link *)find_link_by_idx(route->dst_id);
+	    struct vnet_link * link = (struct vnet_link *)link_by_idx(route->dst_id);
 	    seq_printf(s, "EDGE %pI4", &link->dst_ip);
 	    break;
 	}
@@ -434,13 +486,10 @@ static int route_seq_show(struct seq_file * s, void * v) {
 	    break;
     }
 
-
-
-
-
+    seq_printf(s, "\nSrc-Type:\t");
     switch (route->src_type) {
 	case LINK_EDGE: {
-	    struct vnet_link * link = (struct vnet_link *)find_link_by_idx(route->src_id);
+	    struct vnet_link * link = (struct vnet_link *)link_by_idx(route->src_id);
 	    seq_printf(s, "EDGE %pI4", &link->dst_ip);
 	    break;
 	}
@@ -500,8 +549,15 @@ static int link_open(struct inode * inode, struct file * file) {
     return seq_open(file, &link_seq_ops);
 }
 
-static int inject_route(struct vnet_route * route) {
+static int inject_route(struct palacios_vnet_route * route) {
+    unsigned long flags;
+
     v3_vnet_add_route(route->route);
+
+    spin_lock_irqsave(&(vnet_state.lock), flags);
+    list_add(&(route->node), &(vnet_state.route_list));
+    route->route_idx = vnet_state.num_routes++;
+    spin_unlock_irqrestore(&(vnet_state.lock), flags);
 
     printk("Palacios-vnet: One route added to VNET core\n");
 
@@ -536,14 +592,14 @@ route_write(struct file * file,
 	}
 	
 	if (strnicmp("ADD", token, strlen("ADD")) == 0) {
-	    struct vnet_route * new_route = NULL;
-	    new_route = kmalloc(sizeof(struct vnet_route), GFP_KERNEL);
+	    struct palacios_vnet_route * new_route = NULL;
+	    new_route = kmalloc(sizeof(struct palacios_vnet_route), GFP_KERNEL);
 	    
 	    if (!new_route) {
 		return -ENOMEM;
 	    }
 	    
-	    memset(new_route, 0, sizeof(struct vnet_route));
+	    memset(new_route, 0, sizeof(struct palacios_vnet_route));
 	    
 	    if (parse_route_str(buf_iter, &(new_route->route)) == -1) {
 		kfree(new_route);
@@ -602,6 +658,8 @@ static int create_link(struct vnet_link * link) {
     return 0;
 }
 
+
+/* ADD dst-ip 9000 */
 static ssize_t 
 link_write(struct file * file, const char * buf, size_t size, loff_t * ppos) {
     char link_buf[256];
@@ -810,7 +868,7 @@ send_to_palacios(unsigned char * buf,
     memcpy(pkt.header, buf, ETHERNET_HEADER_LEN);
     pkt.data = buf;
 
-#ifdef DEBUG_VNET_BRIGE
+#ifdef CONFIG_PALACIOS_VNET_DEBUG
     {
     	printk("VNET Lnx Bridge: send pkt to VNET core (size: %d, src_id: %d, src_type: %d)\n", 
 			pkt.size,  pkt.src_id, pkt.src_type);
@@ -830,7 +888,7 @@ bridge_send_pkt(struct v3_vm_info * vm,
 		void * private_data) {
     struct vnet_link * link;
 
-    #ifdef DEBUG_VNET_BRIGE
+    #ifdef CONFIG_PALACIOS_VNET_DEBUG
     	   {
     	    	printk("VNET Lnx Host Bridge: packet received from VNET Core ... len: %d, pkt size: %d, link: %d\n",
     	    		len,
@@ -843,7 +901,7 @@ bridge_send_pkt(struct v3_vm_info * vm,
 
     vnet_state.pkt_recv ++;
 
-    link = find_link_by_idx(pkt->dst_id);
+    link = link_by_idx(pkt->dst_id);
     if (link != NULL) {
  	udp_send(link->sock, &(link->sock_addr), pkt->data, pkt->size);
 	vnet_state.pkt_udp_send ++;
@@ -905,7 +963,7 @@ static int vnet_server(void * arg) {
 	    continue;
 	}
 
-	link = find_link_by_ip(ntohl(pkt_addr.sin_addr.s_addr));
+	link = link_by_ip(ntohl(pkt_addr.sin_addr.s_addr));
 	if (link != NULL){
 	    link_id= link->link_idx;
 	}
@@ -921,29 +979,6 @@ static int vnet_server(void * arg) {
     return 0;
 }
 
-#if 0
-static int profiling(void *args) {
-   static unsigned long long last_time=0;
-   unsigned long long cur_time=0;
-   set_user_nice(current, MAX_PRIO-1);
-
-   while (!kthread_should_stop()) {
-	rdtscll(cur_time);
-	if((cur_time - last_time) > 50000000000) {
-	    last_time = cur_time;
-    	    printk("Palacios Linux VNET Bridge - profiling: sent: %ld, rxed: %ld, dropped: %ld, upd send: %ld, udp recv: %ld\n",
-		   vnet_state.pkt_sent,
-		   vnet_state.pkt_recv,
-		   vnet_state.pkt_drop,
-		   vnet_state.pkt_udp_send,
-		   vnet_state.pkt_udp_recv);
-	}
-	schedule();
-    }
-
-    return 0;
-}
-#endif
 
 int  palacios_init_vnet(void) {
     struct v3_vnet_bridge_ops bridge_ops;

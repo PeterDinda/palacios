@@ -14,11 +14,13 @@ v3vee-objs:= 	palacios.o \
 		palacios-serial.o \
 		palacios-queue.o \
 		palacios-ringbuffer.o 
-
-#palacios-socket.o 
-#palacios-vnet.o palacios-packet.o 
+#		palacios-socket.o \
+#		palacios-vnet.o \
+#		palacios-packet.o \
+#		palacios-hashtable.o 
 
 v3vee-objs += ../libv3vee.a 
+
 
 
 obj-m := v3vee.o
