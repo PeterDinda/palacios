@@ -18,7 +18,7 @@
  */
 
 
-#include <palacios/vmm_graphics_console.h>
+#include <palacios/vmm_keyed_stream.h>
 #include <palacios/vmm.h>
 #include <palacios/vmm_debug.h>
 #include <palacios/vmm_types.h>
