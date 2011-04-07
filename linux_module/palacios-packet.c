@@ -20,17 +20,26 @@
 #include <palacios/vmm_vnet.h>
 #include <palacios/vmm_ethernet.h>
 
+/* We should be able to use type define from Palacios header files */
+typedef unsigned char uchar_t;
+typedef unsigned int uint_t;
+typedef unsigned long long ullong_t;
+typedef unsigned long ulong_t;
+typedef ulong_t addr_t;
+
+#define __V3VEE__
+#include <palacios/vmm_hashtable.h>
+#undef __V3VEE__
+
 #include "palacios.h"
 #include "palacios-packet.h"
-#include "palacios-hashtable.h"
-
 
 struct palacios_packet_state {
-	struct socket * raw_sock;
-	uint8_t inited;
+    struct socket * raw_sock;
+    uint8_t inited;
 	
-	struct hashtable * mac_vm_cache;
-	struct task_struct * server_thread;
+    struct hashtable * mac_vm_cache;
+    struct task_struct * server_thread;
 };
 
 static struct palacios_packet_state packet_state;
@@ -38,7 +47,7 @@ static struct palacios_packet_state packet_state;
 static inline uint_t hash_fn(addr_t hdr_ptr) {    
     uint8_t * hdr_buf = (uint8_t *)hdr_ptr;
 
-    return palacios_hash_buffer(hdr_buf, ETH_ALEN);
+    return v3_hash_buffer(hdr_buf, ETH_ALEN);
 }
 
 static inline int hash_eq(addr_t key1, addr_t key2) {	
@@ -53,7 +62,7 @@ static int palacios_packet_add_recver(const char * mac,
     key = (char *)kmalloc(ETH_ALEN, GFP_KERNEL);					
     memcpy(key, mac, ETH_ALEN);    
 
-    if (palacios_htable_insert(packet_state.mac_vm_cache, (addr_t)key, (addr_t)vm) == 0) {
+    if (v3_htable_insert(packet_state.mac_vm_cache, (addr_t)key, (addr_t)vm) == 0) {
 	printk("Palacios Packet: Failed to insert new mac entry to the hash table\n");
 	return -1;
     }
@@ -235,7 +244,7 @@ static int packet_server(void * arg) {
 	// ...
 
 
-       vm = (struct v3_vm_info *)palacios_htable_search(packet_state.mac_vm_cache, (addr_t)pkt);
+       vm = (struct v3_vm_info *)v3_htable_search(packet_state.mac_vm_cache, (addr_t)pkt);
 	if(vm != NULL){
 	    printk("Find destinated VM 0x%p\n", vm);
    	    send_raw_packet_to_palacios(pkt, size, vm);
@@ -258,7 +267,7 @@ int palacios_init_packet(const char * eth_dev) {
 	
 	V3_Init_Packet(&palacios_packet_hooks);
 
-	packet_state.mac_vm_cache = palacios_create_htable(0, &hash_fn, &hash_eq);
+	packet_state.mac_vm_cache = v3_create_htable(0, &hash_fn, &hash_eq);
 
 	packet_state.server_thread = kthread_run(packet_server, NULL, "raw-packet-server");
     }
@@ -270,7 +279,7 @@ void palacios_deinit_packet(const char * eth_dev) {
 
     kthread_stop(packet_state.server_thread);
     packet_state.raw_sock->ops->release(packet_state.raw_sock);
-    palacios_free_htable(packet_state.mac_vm_cache, 0, 1);
+    v3_free_htable(packet_state.mac_vm_cache, 0, 1);
     packet_state.inited = 0;
 }
 
