@@ -1,5 +1,5 @@
 /* 
- * VM Raw Packet 
+ * Palacios Raw Packet 
  * (c) Lei Xia, 2010
  */
 #include <asm/uaccess.h>
@@ -18,15 +18,65 @@
 #include <palacios/vmm_packet.h>
 #include <palacios/vmm_host_events.h>
 #include <palacios/vmm_vnet.h>
+#include <palacios/vmm_ethernet.h>
+
+/* We should be able to use type define from Palacios header files */
+typedef unsigned char uchar_t;
+typedef unsigned int uint_t;
+typedef unsigned long long ullong_t;
+typedef unsigned long ulong_t;
+typedef ulong_t addr_t;
+
+#define __V3VEE__
+#include <palacios/vmm_hashtable.h>
+#undef __V3VEE__
 
 #include "palacios.h"
 #include "palacios-packet.h"
 
-//#define DEBUG_PALACIOS_PACKET
+struct palacios_packet_state {
+    struct socket * raw_sock;
+    uint8_t inited;
+	
+    struct hashtable * mac_vm_cache;
+    struct task_struct * server_thread;
+};
 
-static struct socket * raw_sock;
+static struct palacios_packet_state packet_state;
 
-static int packet_inited = 0;
+static inline uint_t hash_fn(addr_t hdr_ptr) {    
+    uint8_t * hdr_buf = (uint8_t *)hdr_ptr;
+
+    return v3_hash_buffer(hdr_buf, ETH_ALEN);
+}
+
+static inline int hash_eq(addr_t key1, addr_t key2) {	
+    return (memcmp((uint8_t *)key1, (uint8_t *)key2, ETH_ALEN) == 0);
+}
+
+
+static int palacios_packet_add_recver(const char * mac, 
+					struct v3_vm_info * vm){
+    char * key;
+
+    key = (char *)kmalloc(ETH_ALEN, GFP_KERNEL);					
+    memcpy(key, mac, ETH_ALEN);    
+
+    if (v3_htable_insert(packet_state.mac_vm_cache, (addr_t)key, (addr_t)vm) == 0) {
+	printk("Palacios Packet: Failed to insert new mac entry to the hash table\n");
+	return -1;
+    }
+
+    printk("Packet: Add MAC: %2x:%2x:%2x:%2x:%2x:%2x\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    
+    return 0;
+}
+
+static int palacios_packet_del_recver(const char * mac,
+                                        struct v3_vm_info * vm){
+
+    return 0;
+}
 
 static int init_raw_socket (const char * eth_dev){
     int err;
@@ -34,23 +84,22 @@ static int init_raw_socket (const char * eth_dev){
     struct ifreq if_req;
     int dev_idx;
 
-    err = sock_create(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL), &raw_sock); 
+    err = sock_create(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL), &(packet_state.raw_sock)); 
     if (err < 0) {
 	printk(KERN_WARNING "Could not create a PF_PACKET Socket, err %d\n", err);
 	return -1;
     }
 
     if(eth_dev == NULL){
-	return 0;
+	eth_dev = "eth0"; /* default "eth0" */
     }
 
     memset(&if_req, 0, sizeof(if_req));
-    strncpy(if_req.ifr_name, eth_dev, sizeof(if_req.ifr_name));
-
-    err = raw_sock->ops->ioctl(raw_sock, SIOCGIFINDEX, (long)&if_req);
+    strncpy(if_req.ifr_name, eth_dev, IFNAMSIZ);  //sizeof(if_req.ifr_name));
+    err = packet_state.raw_sock->ops->ioctl(packet_state.raw_sock, SIOCGIFINDEX, (long)&if_req);
     if(err < 0){
 	printk(KERN_WARNING "Palacios Packet: Unable to get index for device %s, error %d\n", if_req.ifr_name, err);
-	dev_idx = 2; /* default "eth0" */
+	dev_idx = 2; /* match ALL  2:"eth0" */
     }
     else{
 	dev_idx = if_req.ifr_ifindex;
@@ -63,7 +112,7 @@ static int init_raw_socket (const char * eth_dev){
     sock_addr.sll_protocol = htons(ETH_P_ALL);
     sock_addr.sll_ifindex = dev_idx;
 
-    err = raw_sock->ops->bind(raw_sock, (struct sockaddr *)&sock_addr, sizeof(sock_addr));
+    err = packet_state.raw_sock->ops->bind(packet_state.raw_sock, (struct sockaddr *)&sock_addr, sizeof(sock_addr));
     if (err < 0){
 	printk(KERN_WARNING "Error binding raw packet to device %s, %d\n", eth_dev, err);
 	return -1;
@@ -80,17 +129,8 @@ palacios_packet_send(const char * pkt, unsigned int len, void * private_data) {
     struct msghdr msg;
     struct iovec iov;
     mm_segment_t oldfs;
-    int size = 0;
-
-#ifdef DEBUG_PALACIOS_PACKET
-    {
-    	printk("Palacios Packet: send pkt to NIC (size: %d)\n", 
-			len);
-	//print_hex_dump(NULL, "pkt_data: ", 0, 20, 20, pkt, len, 0);
-    }
-#endif
+    int size = 0;	
 	
-
     iov.iov_base = (void *)pkt;
     iov.iov_len = (__kernel_size_t)len;
 
@@ -104,8 +144,17 @@ palacios_packet_send(const char * pkt, unsigned int len, void * private_data) {
 
     oldfs = get_fs();
     set_fs(KERNEL_DS);
-    size = sock_sendmsg(raw_sock, &msg, len);
+    size = sock_sendmsg(packet_state.raw_sock, &msg, len);
     set_fs(oldfs);
+
+#if 1
+    {
+    	printk("Palacios Packet: send pkt to NIC (size: %d)\n", 
+			len);
+	print_hex_dump(NULL, "pkt_header: ", 0, 20, 20, pkt, 20, 0);
+	printk("palacios_packet_send return: %d\n", size);
+    }
+#endif
 
     return size;
 }
@@ -113,6 +162,8 @@ palacios_packet_send(const char * pkt, unsigned int len, void * private_data) {
 
 static struct v3_packet_hooks palacios_packet_hooks = {
     .send	= palacios_packet_send,
+    .add_recver = palacios_packet_add_recver,
+    .del_recver = palacios_packet_del_recver,
 };
 
 
@@ -123,7 +174,7 @@ recv_pkt(char * pkt, int len) {
     mm_segment_t oldfs;
     int size = 0;
     
-    if (raw_sock == NULL) {
+    if (packet_state.raw_sock == NULL) {
 	return -1;
     }
 
@@ -141,7 +192,7 @@ recv_pkt(char * pkt, int len) {
     
     oldfs = get_fs();
     set_fs(KERNEL_DS);
-    size = sock_recvmsg(raw_sock, &msg, len, msg.msg_flags);
+    size = sock_recvmsg(packet_state.raw_sock, &msg, len, msg.msg_flags);
     set_fs(oldfs);
     
     return size;
@@ -153,9 +204,11 @@ send_raw_packet_to_palacios(char * pkt,
 			       int len,
 			       struct v3_vm_info * vm) {
     struct v3_packet_event event;
+    char data[ETHERNET_PACKET_LEN];
 
-    event.pkt = kmalloc(len, GFP_KERNEL);
-    memcpy(event.pkt, pkt, len);
+    /* one memory copy */
+    memcpy(data, pkt, len);
+    event.pkt = data;
     event.size = len;
 	
     v3_deliver_packet_event(vm, &event);
@@ -164,25 +217,38 @@ send_raw_packet_to_palacios(char * pkt,
 static int packet_server(void * arg) {
     char pkt[ETHERNET_PACKET_LEN];
     int size;
+    struct v3_vm_info *vm;
 
     printk("Palacios Raw Packet Bridge: Staring receiving server\n");
 
     while (!kthread_should_stop()) {
 	size = recv_pkt(pkt, ETHERNET_PACKET_LEN);
 	if (size < 0) {
-	    printk(KERN_WARNING "Palacios Packet Socket receive error\n");
+	    printk(KERN_WARNING "Palacios raw packet receive error, Server terminated\n");
 	    break;
 	}
 
-#ifdef DEBUG_PALACIOS_PACKET
+#if 1
     {
     	printk("Palacios Packet: receive pkt from NIC (size: %d)\n", 
 			size);
-	//print_hex_dump(NULL, "pkt_data: ", 0, 20, 20, pkt, size, 0);
+	print_hex_dump(NULL, "pkt_header: ", 0, 10, 10, pkt, 20, 0);
     }
 #endif
 
-	send_raw_packet_to_palacios(pkt, size, NULL);
+	/* if VNET is enabled, send to VNET */
+	// ...
+
+
+	/* if it is broadcast or multicase packet */
+	// ...
+
+
+       vm = (struct v3_vm_info *)v3_htable_search(packet_state.mac_vm_cache, (addr_t)pkt);
+	if(vm != NULL){
+	    printk("Find destinated VM 0x%p\n", vm);
+   	    send_raw_packet_to_palacios(pkt, size, vm);
+	}
     }
 
     return 0;
@@ -191,14 +257,29 @@ static int packet_server(void * arg) {
 
 int palacios_init_packet(const char * eth_dev) {
 
-    if(packet_inited == 0){
-	packet_inited = 1;
-	init_raw_socket(eth_dev);
+    if(packet_state.inited == 0){
+	packet_state.inited = 1;
+
+	if(init_raw_socket(eth_dev) == -1){
+	    printk("Error to initiate palacios packet interface\n");
+	    return -1;
+	}
+	
 	V3_Init_Packet(&palacios_packet_hooks);
 
-	kthread_run(packet_server, NULL, "raw-packet-server");
+	packet_state.mac_vm_cache = v3_create_htable(0, &hash_fn, &hash_eq);
+
+	packet_state.server_thread = kthread_run(packet_server, NULL, "raw-packet-server");
     }
 	
     return 0;
+}
+
+void palacios_deinit_packet(const char * eth_dev) {
+
+    kthread_stop(packet_state.server_thread);
+    packet_state.raw_sock->ops->release(packet_state.raw_sock);
+    v3_free_htable(packet_state.mac_vm_cache, 0, 1);
+    packet_state.inited = 0;
 }
 

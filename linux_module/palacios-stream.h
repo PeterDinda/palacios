@@ -11,6 +11,10 @@
 #include "palacios.h"
 #include "palacios-ringbuffer.h"
 
+#define _V3VEE_
+//#include <palacios/vmm_ringbuffer.h>
+#undef _V3VEE_
+
 #define STREAM_BUF_SIZE 1024
 #define STREAM_NAME_LEN 128
 

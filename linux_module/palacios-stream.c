@@ -9,7 +9,6 @@
 
 #include <palacios/vmm_stream.h>
 #include "palacios-stream.h"
-#include "palacios-ringbuf.h"
 
 static struct list_head global_streams;
 

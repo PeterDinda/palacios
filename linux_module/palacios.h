@@ -11,6 +11,7 @@
 /* Global Control IOCTLs */
 #define V3_START_GUEST 10
 #define V3_ADD_MEMORY 50
+#define V3_START_NETWORK 60
 
 /* VM Specific IOCTLs */
 #define V3_VM_CONSOLE_CONNECT 20
@@ -28,8 +29,11 @@ struct v3_mem_region {
     unsigned long long num_pages;
 };
 
-
-
+struct v3_network {
+    unsigned char socket;
+    unsigned char packet;
+    unsigned char vnet;
+};
 
 void * trace_malloc(size_t size, gfp_t flags);
 void trace_free(const void * objp);

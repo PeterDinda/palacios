@@ -24,6 +24,9 @@
 #include "palacios-stream.h"
 #include "palacios-file.h"
 #include "palacios-serial.h"
+#include "palacios-socket.h"
+#include "palacios-vnet.h"
+#include "palacios-packet.h"
 
 MODULE_LICENSE("GPL");
 
@@ -165,6 +168,37 @@ static long v3_dev_ioctl(struct file * filp,
 
 	    break;
 	}
+
+	case V3_START_NETWORK: {
+            struct v3_network net;
+            memset(&net, 0, sizeof(struct v3_network));
+   
+            if(copy_from_user(&net, argp, sizeof(struct v3_network))){
+                printk("copy from user error getting network service requests ... \n");
+                return -EFAULT;
+            }
+ 
+        #ifdef CONFIG_PALACIOS_SOCKET
+            if(net.socket == 1){
+                palacios_socket_init();
+		printk("Started Palacios Socket\n");
+            }
+        #endif
+        #ifdef CONFIG_PALACIOS_PACKET
+            if(net.packet == 1){
+                palacios_init_packet(NULL);
+		printk("Started Palacios Direct Network Bridge\n");
+            }
+        #endif
+        #ifdef CONFIG_PALACIOS_VNET
+            if(net.vnet == 1){
+                palacios_init_vnet();
+		printk("Started Palacios VNET Service\n");
+            }
+        #endif
+ 
+            break;
+        }
 	default: 
 	    printk("\tUnhandled\n");
 	    return -EINVAL;

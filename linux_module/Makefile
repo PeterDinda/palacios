@@ -15,10 +15,18 @@ v3vee-objs:= 	palacios.o \
 		palacios-queue.o \
 		palacios-ringbuffer.o 
 
-#palacios-socket.o 
-#palacios-vnet.o palacios-packet.o 
+ifdef CONFIG_PALACIOS_VNET
+		v3vee-objs += palacios-vnet.o		
+endif
+ifdef CONFIG_PALACIOS_PACKET
+		v3vee-objs += palacios-packet.o
+endif
+ifdef CONFIG_PALACIOS_SOCKET
+		v3vee-objs += palacios-socket.o
+endif
 
 v3vee-objs += ../libv3vee.a 
+
 
 
 obj-m := v3vee.o
