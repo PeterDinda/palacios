@@ -131,12 +131,27 @@ config FILE
 	help
 	  Select this if your host OS supports file operatoins and you want Palacios to be able to use them.
 
+config KEYED_STREAMS
+	bool "Host support for keyed streams"
+	default n
+	help
+	  Select this if your host OS supports keyed streams
+          Palacios Checkpoint/Restore and Migration depends on this feature
 
 config CONSOLE
-	bool "Host Support for VM console"
+	bool "Host Support for VM text-mode console"
 	default n
 	help 
 	  Select this if you want to forward a guest console interface to some host OS service
+          This is for a TEXT MODE console.   Select the framebuffer console for graphics and text
+
+config GRAPHICS_CONSOLE
+	bool "Host Support for VM graphics and text-mode console based on a frame buffer"
+	default n
+	help 
+	  Select this if you want to forward a guest graphics-mode (and text-mode) console 
+          interface to some host OS service.  This is for a GRAPHICS console based on a shared frame buffer.
+          Text mode output is RENDERED onto the framebuffer
 
 config SOCKET
         bool "Host support for Network Sockets"
@@ -418,12 +433,12 @@ config DEBUG_EMULATOR
 	  This turns on debugging for the Instruction Emulator
 
 
-config DEBUG_XED
-	bool "XED"
+config DEBUG_DECODER
+	bool "Instruction Decoder"
 	default n
 	depends on DEBUG_ON
 	help 
-	  This turns on debugging for the Xed Decoder
+	  This turns on debugging for the selected instruction decoder
 
 config DEBUG_HALT
 	bool "Halt"

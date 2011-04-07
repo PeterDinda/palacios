@@ -206,9 +206,6 @@ static struct vnet_dev * dev_by_mac(uint8_t * mac) {
 	if (!compare_ethaddr(dev->mac_addr, mac)){
 	    return dev;
 	}
-
-	char *dmac = dev->mac_addr;
-    	PrintDebug("device %d: %2x:%2x:%2x:%2x:%2x:%2x\n", dev->dev_id, dmac[0], dmac[1], dmac[2], dmac[3], dmac[4], dmac[5]);
     }
 
     return NULL;
@@ -217,8 +214,6 @@ static struct vnet_dev * dev_by_mac(uint8_t * mac) {
 
 int v3_vnet_find_dev(uint8_t  * mac) {
     struct vnet_dev * dev = NULL;
-
-    PrintDebug("find_dev: %2x:%2x:%2x:%2x:%2x:%2x\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
     dev = dev_by_mac(mac);
 
@@ -237,8 +232,10 @@ int v3_vnet_add_route(struct v3_vnet_route route) {
     new_route = (struct vnet_route_info *)V3_Malloc(sizeof(struct vnet_route_info));
     memset(new_route, 0, sizeof(struct vnet_route_info));
 
+#ifdef CONFIG_DEBUG_VNET
     PrintDebug("VNET/P Core: add_route_entry:\n");
     print_route(&route);
+#endif
     
     memcpy(new_route->route_def.src_mac, route.src_mac, ETH_ALEN);
     memcpy(new_route->route_def.dst_mac, route.dst_mac, ETH_ALEN);

@@ -20,6 +20,11 @@
 #include <palacios/vmm_decoder.h>
 #include <palacios/vmm_instr_decoder.h>
 
+#ifndef CONFIG_DEBUG_DECODER
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
+#endif
+
 
 #define MASK(val, length) ({						\
             ullong_t mask = 0x0LL;					\
@@ -165,6 +170,7 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	    instr->src_operand.type = IMM_OPERAND;
 	    instr->src_operand.size = operand_width;
 
+
 	    if (operand_width == 1) {
 		instr->src_operand.operand = *(uint8_t *)instr_ptr;
 	    } else if (operand_width == 2) {
@@ -175,6 +181,9 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 		PrintError("Illegal operand width (%d)\n", operand_width);
 		return -1;
 	    }
+
+	    instr->src_operand.read = 1;
+	    instr->dst_operand.write = 1;
 
 	    instr_ptr += operand_width;
 
@@ -210,6 +219,10 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	    instr->src_operand.type = REG_OPERAND;
 	    instr->src_operand.size = operand_width;
 
+	    instr->src_operand.read = 1;
+	    instr->dst_operand.write = 1;
+
+
 	    decode_gpr(core, reg_code, &(instr->src_operand));
 
 	    instr->num_operands = 2;
@@ -244,6 +257,9 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	    instr->dst_operand.type = REG_OPERAND;
 	    decode_gpr(core, reg_code, &(instr->dst_operand));
 
+	    instr->src_operand.read = 1;
+	    instr->dst_operand.write = 1;
+
 	    instr->num_operands = 2;
 
 	    break;
@@ -256,7 +272,8 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	case XOR_IMM2SX_8: {
 	    uint8_t reg_code = 0;
 
-	    ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->src_operand), &reg_code);
+	    ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->dst_operand), &reg_code);
+
 
 	    if (ret == -1) {
 		PrintError("Error decoding operand\n");
@@ -268,6 +285,9 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	    instr->src_operand.type = IMM_OPERAND;
 	    instr->src_operand.size = operand_width;
 	    instr->src_operand.operand = *(sint8_t *)instr_ptr;  // sign extend.
+
+	    instr->src_operand.read = 1;
+	    instr->dst_operand.write = 1;
 
 	    instr_ptr += 1;
 
@@ -292,9 +312,14 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	    instr->src_operand.size = operand_width;
 	    instr->src_operand.operand = get_addr_linear(core,  MASK(core->vm_regs.rsi, addr_width), &(core->segments.ds));
 
+
 	    instr->dst_operand.type = MEM_OPERAND;
 	    instr->dst_operand.size = operand_width;
 	    instr->dst_operand.operand = get_addr_linear(core, MASK(core->vm_regs.rdi, addr_width), &(core->segments.es));
+
+
+	    instr->src_operand.read = 1;
+	    instr->dst_operand.write = 1;
 
 	    instr->num_operands = 2;
 
@@ -317,6 +342,9 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 		instr->dst_operand.size = operand_width;
 		decode_cr(core, reg_code, &(instr->dst_operand));
 
+		instr->src_operand.read = 1;
+		instr->dst_operand.write = 1;
+
 		instr->num_operands = 2;
 		break;
 	    }
@@ -325,6 +353,7 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 
 		ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->dst_operand),
 					&reg_code);
+
 
 		if (ret == -1) {
 		    PrintError("Error decoding operand for (%s)\n", op_form_to_str(form));
@@ -336,6 +365,9 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 		instr->src_operand.type = REG_OPERAND;
 		instr->src_operand.size = operand_width;
 		decode_cr(core, reg_code, &(instr->src_operand));
+
+		instr->src_operand.read = 1;
+		instr->dst_operand.write = 1;
 
 		instr->num_operands = 2;
 		break;
@@ -358,14 +390,15 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 		instr->dst_operand.size = operand_width;
 		instr->dst_operand.operand = get_addr_linear(core, MASK(core->vm_regs.rdi, addr_width), &(core->segments.es));
 
+		instr->src_operand.read = 1;
+		instr->dst_operand.write = 1;
+
 		instr->num_operands = 2;
 
 		break;
 	    }
 	    case INVLPG: {
 		uint8_t reg_code = 0;
-
-		// We use the dst operand here to maintain bug-for-bug compatibility with XED
 
 		ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->dst_operand), &reg_code);
 

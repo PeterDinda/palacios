@@ -660,11 +660,63 @@ static int pit_free(void * private_data) {
     return 0;
 }
 
+static int pit_checkpoint(struct vm_device *dev, v3_keyed_stream_t stream)
+{
+    struct pit *p = (struct pit *) (dev->private_data);
+
+    v3_keyed_stream_key_t ks;
+
+    ks = v3_keyed_stream_open_key(stream,dev->name);
+
+    if (!ks) { 
+	return -1;
+    }
+
+    STD_SAVE(stream,ks,p->pit_counter);
+    STD_SAVE(stream,ks,p->pit_reload);
+    STD_SAVE(stream,ks,p->ch_0);
+    STD_SAVE(stream,ks,p->ch_1);
+    STD_SAVE(stream,ks,p->ch_2);
+    STD_SAVE(stream,ks,p->speaker);
+
+    v3_keyed_stream_close_key(stream,ks);
+    
+    return 0;
+
+
+}
+
+static int pit_restore(struct vm_device *dev, v3_keyed_stream_t stream)
+{
+    struct pit *p = (struct pit *) (dev->private_data);
+
+    v3_keyed_stream_key_t ks;
+
+    ks = v3_keyed_stream_open_key(stream,dev->name);
+
+    if (!ks) { 
+	return -1;
+    }
+
+    STD_LOAD(stream,ks,p->pit_counter);
+    STD_LOAD(stream,ks,p->pit_reload);
+    STD_LOAD(stream,ks,p->ch_0);
+    STD_LOAD(stream,ks,p->ch_1);
+    STD_LOAD(stream,ks,p->ch_2);
+    STD_LOAD(stream,ks,p->speaker);
+
+    v3_keyed_stream_close_key(stream,ks);
+    
+    return 0;
+
+
+}
+
 
 static struct v3_device_ops dev_ops = {
     .free = (int (*)(void *))pit_free,
-
-
+    .checkpoint = pit_checkpoint,
+    .restore = pit_restore,
 };
 
 #include <palacios/vm_guest.h>

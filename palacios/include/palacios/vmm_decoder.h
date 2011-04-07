@@ -34,7 +34,7 @@ typedef enum { V3_INVALID_OP,
 	       V3_OP_SETB, V3_OP_SETBE, V3_OP_SETL, V3_OP_SETLE, V3_OP_SETNB, 
 	       V3_OP_SETNBE, V3_OP_SETNL, V3_OP_SETNLE, V3_OP_SETNO, V3_OP_SETNP,
 	       V3_OP_SETNS, V3_OP_SETNZ, V3_OP_SETO, V3_OP_SETP, V3_OP_SETS, 
-	       V3_OP_SETZ, V3_OP_MOVS, V3_OP_STOS, V3_OP_MOVZX, V3_OP_MOVSX} v3_op_type_t;
+	       V3_OP_SETZ, V3_OP_MOVS, V3_OP_STOS, V3_OP_MOVZX, V3_OP_MOVSX } v3_op_type_t;
 
 
 typedef enum {INVALID_OPERAND, REG_OPERAND, MEM_OPERAND, IMM_OPERAND} v3_operand_type_t;
@@ -43,6 +43,8 @@ struct x86_operand {
     addr_t operand;
     uint_t size;
     v3_operand_type_t type;
+    uint8_t read : 1;
+    uint8_t write : 1;
 };
 
 struct x86_prefixes {
@@ -83,7 +85,6 @@ struct x86_instr {
     struct x86_operand third_operand;
     addr_t str_op_length;
     addr_t is_str_op;
-    //  void * decoder_data;
 };
 
 

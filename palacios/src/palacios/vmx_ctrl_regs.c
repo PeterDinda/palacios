@@ -161,7 +161,7 @@ static int handle_mov_to_cr0(struct guest_info * info, v3_reg_t * new_cr0, struc
             return -1;
         }
 	
-        if (vmx_info->state == VMXASSIST_ENABLED) {
+        if (vmx_info->assist_state == VMXASSIST_ENABLED) {
             PrintDebug("Loading VMXASSIST at RIP: %p\n", (void *)(addr_t)info->rip);
         } else {
             PrintDebug("Leaving VMXASSIST and entering protected mode at RIP: %p\n",

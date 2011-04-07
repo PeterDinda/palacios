@@ -72,50 +72,7 @@ static int inline check_vmcs_read(vmcs_field_t field, void * val) {
     return ret;
 }
 
-#if 0
-// For the 32 bit reserved bit fields 
-// MB1s are in the low 32 bits, MBZs are in the high 32 bits of the MSR
-static uint32_t sanitize_bits1(uint32_t msr_num, uint32_t val) {
-    v3_msr_t mask_msr;
 
-    PrintDebug("sanitize_bits1 (MSR:%x)\n", msr_num);
-
-    v3_get_msr(msr_num, &mask_msr.hi, &mask_msr.lo);
-
-    PrintDebug("MSR %x = %x : %x \n", msr_num, mask_msr.hi, mask_msr.lo);
-
-    val |= mask_msr.lo;
-    val |= mask_msr.hi;
-  
-    return val;
-}
-
-
-
-static addr_t sanitize_bits2(uint32_t msr_num0, uint32_t msr_num1, addr_t val) {
-    v3_msr_t msr0, msr1;
-    addr_t msr0_val, msr1_val;
-
-    PrintDebug("sanitize_bits2 (MSR0=%x, MSR1=%x)\n", msr_num0, msr_num1);
-
-    v3_get_msr(msr_num0, &msr0.hi, &msr0.lo);
-    v3_get_msr(msr_num1, &msr1.hi, &msr1.lo);
-  
-    // This generates a mask that is the natural bit width of the CPU
-    msr0_val = msr0.value;
-    msr1_val = msr1.value;
-
-    PrintDebug("MSR %x = %p, %x = %p \n", msr_num0, (void*)msr0_val, msr_num1, (void*)msr1_val);
-
-    val |= msr0_val;
-    val |= msr1_val;
-
-    return val;
-}
-
-
-
-#endif
 
 
 static addr_t allocate_vmcs() {
@@ -770,7 +727,7 @@ int v3_vmx_enter(struct guest_info * info) {
 #endif
 
     // Handle any exits needed still in the atomic section
-    if (v3_handle_vmx_exit(info, &exit_info) == -1) {
+    if (v3_handle_atomic_vmx_exit(info, &exit_info) == -1) {
 	PrintError("Error in atomic VMX exit handler\n");
 	return -1;
     }

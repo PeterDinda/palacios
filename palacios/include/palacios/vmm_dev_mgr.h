@@ -29,7 +29,7 @@
 #include <palacios/vmm_msr.h>
 #include <palacios/vmm_config.h>
 #include <palacios/vmm_ethernet.h>
-
+#include <palacios/vmm_keyed_stream.h>
 
 struct v3_vm_info;
 
@@ -106,8 +106,8 @@ int V3_deinit_devices();
 struct v3_device_ops {
     int (*free)(void * private_data);
 
-    //int (*save)(struct vm_device *dev, struct *iostream);
-    //int (*restore)(struct vm_device *dev, struct *iostream);
+    int (*checkpoint)(struct vm_device *dev, v3_keyed_stream_t stream);
+    int (*restore)(struct vm_device *dev, v3_keyed_stream_t stream);
 };
 
 
