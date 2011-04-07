@@ -35,7 +35,7 @@
 
 
 
-#ifndef CONFIG_DEBUG_XED
+#ifndef CONFIG_DEBUG_DECODER
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif

@@ -427,12 +427,12 @@ config DEBUG_EMULATOR
 	  This turns on debugging for the Instruction Emulator
 
 
-config DEBUG_XED
-	bool "XED"
+config DEBUG_DECODER
+	bool "Instruction Decoder"
 	default n
 	depends on DEBUG_ON
 	help 
-	  This turns on debugging for the Xed Decoder
+	  This turns on debugging for the selected instruction decoder
 
 config DEBUG_HALT
 	bool "Halt"

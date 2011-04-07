@@ -20,6 +20,11 @@
 #include <palacios/vmm_decoder.h>
 #include <palacios/vmm_instr_decoder.h>
 
+#ifndef CONFIG_DEBUG_DECODER
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
+#endif
+
 
 #define MASK(val, length) ({						\
             ullong_t mask = 0x0LL;					\
