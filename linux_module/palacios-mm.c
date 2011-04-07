@@ -103,7 +103,7 @@ uintptr_t alloc_palacios_pgs(u64 num_pages, u32 alignment) {
 	struct page * pgs = NULL;
 	int order = get_order(num_pages * PAGE_SIZE);
 	 
-	pgs = alloc_pages(GFP_KERNEL, order);
+	pgs = alloc_pages(GFP_DMA, order);
     
 	WARN(!pgs, "Could not allocate pages\n");
        
