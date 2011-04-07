@@ -131,6 +131,12 @@ config FILE
 	help
 	  Select this if your host OS supports file operatoins and you want Palacios to be able to use them.
 
+config KEYED_STREAMS
+	bool "Host support for keyed streams"
+	default n
+	help
+	  Select this if your host OS supports keyed streams
+          Palacios Checkpoint/Restore and Migration depends on this feature
 
 config CONSOLE
 	bool "Host Support for VM text-mode console"
