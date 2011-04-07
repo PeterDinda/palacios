@@ -71,7 +71,7 @@ obj-$(CONFIG_VNET) += vmm_vnet_core.o
 obj-$(CONFIG_FILE) += vmm_file.o
 obj-$(CONFIG_CONSOLE) += vmm_console.o vmm_stream.o
 obj-$(CONFIG_GRAPHICS_CONSOLE) += vmm_graphics_console.o
-obj-$(CONFIG_KEYED_STREAM) += vmm_keyed_stream.o
+obj-$(CONFIG_KEYED_STREAMS) += vmm_keyed_stream.o
 
 
 obj-$(CONFIG_SYMBIOTIC) += vmm_symbiotic.o vmm_symspy.o

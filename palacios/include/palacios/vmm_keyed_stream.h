@@ -88,14 +88,15 @@ struct v3_keyed_stream_hooks {
     v3_keyed_stream_key_t (*open_key)(v3_keyed_stream_t stream,
 				      char *key);
 
-    void (*close_key)(v3_keyed_stream_t stream,
-		      char *key);
+    void (*close_key)(v3_keyed_stream_t stream, 
+		      v3_keyed_stream_key_t key);
     
 
     sint64_t (*write_key)(v3_keyed_stream_t stream,
 			  v3_keyed_stream_key_t key,
 			  void *buf, 
 			  sint64_t len);
+
     sint64_t (*read_key)(v3_keyed_stream_t stream,
 			 v3_keyed_stream_key_t key,
 			 void *buf, 
