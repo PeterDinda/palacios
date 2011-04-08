@@ -17,6 +17,9 @@
 #include <linux/file.h>
 #include <linux/spinlock.h>
 
+#ifdef CONFIG_DEBUG_FS
+#include <linux/debugfs.h>
+#endif
 
 #include <palacios/vmm.h>
 
@@ -24,6 +27,7 @@
 #include "palacios-console.h"
 #include "palacios-serial.h"
 #include "palacios-vm.h"
+
 
 extern struct class * v3_class;
 #define STREAM_NAME_LEN 128
@@ -102,6 +106,7 @@ extern u32 pg_frees;
 extern u32 mallocs;
 extern u32 frees;
 
+#include <palacios/vmm_inspector.h>
 
 int start_palacios_vm(void * arg)  {
     struct v3_guest * guest = (struct v3_guest *)arg;
@@ -144,6 +149,37 @@ int start_palacios_vm(void * arg)  {
     complete(&(guest->start_done));
 
     printk("palacios: launching vm\n");   
+
+
+
+#if 0
+    // Inspection Test
+    {
+	struct v3_inspection_value rax;
+	v3_inspect_node_t * core = NULL;
+	v3_inspect_node_t * gprs = NULL;
+	v3_inspect_node_t * root = v3_get_inspection_root(guest->v3_ctx);
+	
+	if (!root) {
+	    printk("NULL root inspection tree\n");
+	}
+
+	core = v3_get_inspection_subtree(root, "core.0");
+	if (!core) {
+	    printk("NULL core inspection tree\n");
+	}
+
+	gprs = v3_get_inspection_subtree(core, "GPRS");
+	if (!gprs) {
+	    printk("NULL gprs inspection tree\n");
+	}
+	
+	v3_get_inspection_value(gprs, "RAX", &rax);
+
+	debugfs_create_u64("RAX", 0644, NULL, (u64 *)rax.value);
+    }
+#endif
+
 
     if (v3_start_vm(guest->v3_ctx, 0xffffffff) < 0) { 
 	printk("palacios: launch of vm failed\n");

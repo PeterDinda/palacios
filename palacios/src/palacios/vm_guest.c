@@ -530,6 +530,10 @@ int v3_init_vm(struct v3_vm_info * vm) {
 	v3_set_foreground_vm(vm);
     }
 
+#ifdef CONFIG_INSPECTOR
+    v3_init_inspector(vm);
+#endif
+
 #ifdef CONFIG_TELEMETRY
     v3_init_telemetry(vm);
 #endif
@@ -656,6 +660,10 @@ int v3_free_vm_internal(struct v3_vm_info * vm) {
 int v3_init_core(struct guest_info * core) {
     v3_cpu_arch_t cpu_type = v3_get_cpu_type(V3_Get_CPU());
     struct v3_vm_info * vm = core->vm_info;
+
+#ifdef CONFIG_INSPECTOR
+    v3_init_inspector_core(core);
+#endif
 
     /*
      * Initialize the subsystem data strutures

@@ -38,6 +38,8 @@
 #include <palacios/vmm_regs.h>
 #include <palacios/vmm_extensions.h>
 
+
+
 #ifdef CONFIG_TELEMETRY
 #include <palacios/vmm_telemetry.h>
 #endif
@@ -47,6 +49,11 @@
 #include <palacios/vmm_symbiotic.h>
 struct v3_sym_core_state;
 #endif
+
+#ifdef CONFIG_INSPECTOR
+#include  <palacios/vmm_inspector.h>
+#endif
+
 
 #include <palacios/vmm_config.h>
 
@@ -178,6 +185,10 @@ struct v3_vm_info {
 #ifdef CONFIG_TELEMETRY
     uint_t enable_telemetry;
     struct v3_telemetry_state telemetry;
+#endif
+
+#ifdef CONFIG_INSPECTOR
+    struct v3_inspector_state inspector;
 #endif
 
     uint64_t yield_cycle_period;  
