@@ -32,12 +32,11 @@
 struct v3_mtree {
     char name[50];
 
-    struct rb_node tree_node;
-
     union {
 	uint8_t flags;
 	struct {
 	    uint8_t subtree        : 1;
+	    uint8_t rsvd           : 7;
 	} __attribute__((packed));
     } __attribute__((packed));
 
@@ -50,7 +49,8 @@ struct v3_mtree {
 	void * value;
     } __attribute__((packed));
 
-} __attribute__((packed));
+    struct rb_node tree_node;
+};
 
 
 
@@ -65,8 +65,13 @@ struct v3_mtree * v3_mtree_find_node(struct v3_mtree * root, char * name);
 struct v3_mtree * v3_mtree_find_subtree(struct v3_mtree * root, char * name);
 struct v3_mtree * v3_mtree_find_value(struct v3_mtree * root, char * name);
 
+
+struct v3_mtree * v3_mtree_first_child(struct v3_mtree * root);
+struct v3_mtree * v3_mtree_next_node(struct v3_mtree * node);
+
 void v3_mtree_free_tree(struct v3_mtree * root);
 void v3_mtree_free_node(struct v3_mtree * root, char * name);
+
 
 
 

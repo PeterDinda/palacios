@@ -21,6 +21,7 @@
 #ifndef __VMM_INSPECTOR_H__
 #define __VMM_INSPECTOR_H__
 
+#include <palacios/vmm.h>
 
 typedef void v3_inspect_node_t;
 
@@ -65,18 +66,24 @@ v3_inspect_node_t * v3_inspect_add_subtree(v3_inspect_node_t * root, char * name
 struct v3_inspection_value {
     char * name;
     unsigned char * value;
-    unsigned long long size;
+    unsigned long long size; // Size of 0 means this is a subtree root
     unsigned char flags;
 };
 
 
 
 
-int v3_get_inspection_value(v3_inspect_node_t * node, char * name, 
+int v3_find_inspection_value(v3_inspect_node_t * node, char * name, 
 			    struct v3_inspection_value * value);
+
+struct v3_inspection_value v3_inspection_value(v3_inspect_node_t * node);
+
+
 
 v3_inspect_node_t * v3_get_inspection_root(struct v3_vm_info * vm);
 v3_inspect_node_t * v3_get_inspection_subtree(v3_inspect_node_t * root, char * name);
+
 v3_inspect_node_t * v3_inspection_node_next(v3_inspect_node_t * node);
+v3_inspect_node_t * v3_inspection_first_child(v3_inspect_node_t * root);
 
 #endif

@@ -57,25 +57,32 @@ struct v3_mtree * v3_mtree_create_node(struct v3_mtree * root, char * name) {
     struct v3_mtree * ret = NULL;
 
 
+    PrintDebug("Creating Node %s\n", name);
+
     memset(node, 0, sizeof(struct v3_mtree));
     strncpy(node->name, name, 50);
 
     if ((ret = __insert_mtree_node(root, node))) {
+	PrintError("Insertion failure\n");
 	V3_Free(node);
 	return NULL;
     }
 
+    PrintDebug("Node (%s)=%p, root=%p, root->child=%p\n", node->name, node, root, root->child.rb_node);
 
     v3_rb_insert_color(&(node->tree_node), &(root->child));
+
+    PrintDebug("balanced\n");
 
     return node;
 }
 
 
 struct v3_mtree * v3_mtree_create_subtree(struct v3_mtree * root, char * name) {
-    struct v3_mtree * node = v3_mtree_create_node(root, name);
+    struct v3_mtree * node = NULL;
 
     PrintDebug("Creating Subtree %s\n", name);
+    node = v3_mtree_create_node(root, name);
 
     if (node == NULL) {
 	return NULL;
@@ -89,10 +96,10 @@ struct v3_mtree * v3_mtree_create_subtree(struct v3_mtree * root, char * name) {
 
 struct v3_mtree * v3_mtree_create_value(struct v3_mtree * root, char * name, 
 					uint64_t size, void * value) {
-    struct v3_mtree * node = v3_mtree_create_node(root, name);
+    struct v3_mtree * node  = NULL;
 
-    PrintDebug("Creating value %s\n", name);
-
+    PrintDebug("Creating value %s\n", name);    
+    node = v3_mtree_create_node(root, name);
 
     if (node == NULL) {
 	return NULL;
@@ -152,4 +159,25 @@ struct v3_mtree * v3_mtree_find_value(struct v3_mtree * root, char * name) {
     }
 
     return node;
+}
+
+
+struct v3_mtree * v3_mtree_first_child(struct v3_mtree * root) {
+    struct rb_node * node = v3_rb_first(&(root->child));
+
+    if (node == NULL) {
+	return NULL;
+    }
+
+    return rb_entry(node, struct v3_mtree, tree_node);
+}
+
+
+struct v3_mtree * v3_mtree_next_node(struct v3_mtree * node) {
+    struct rb_node * next_node = v3_rb_next(&(node->tree_node));
+
+    if (next_node == NULL) {
+	return NULL;
+    }
+    return rb_entry(next_node, struct v3_mtree, tree_node);
 }

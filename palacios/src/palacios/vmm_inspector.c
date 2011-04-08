@@ -30,6 +30,8 @@
 int v3_init_inspector(struct v3_vm_info * vm) {
     struct v3_inspector_state * state = (struct v3_inspector_state *)&(vm->inspector);
 
+    memset(state, 0, sizeof(struct v3_inspector_state));
+
     strncpy(state->state_tree.name, "vm->name", 50);
     state->state_tree.subtree = 1;
 
@@ -45,9 +47,35 @@ int  v3_init_inspector_core(struct guest_info * core) {
 
     {
 	struct v3_mtree * core_node = v3_mtree_create_subtree(&(vm_state->state_tree), core_name);
-	struct v3_mtree * gpr_node = v3_mtree_create_subtree(core_node, "GPRS");
+	v3_inspect_64(core_node, "RIP", (uint64_t *)&(core->rip));
+	v3_inspect_64(core_node, "NUM_EXITS", (uint64_t *)&(core->num_exits));
+	//	v3_inspect_buf(core_node, "EXEC_NAME", core->exec_name, sizeof(core->exec_name));
 
+
+	struct v3_mtree * gpr_node = v3_mtree_create_subtree(core_node, "GPRS");
 	v3_inspect_64(gpr_node, "RAX", (uint64_t *)&(core->vm_regs.rax));    
+	v3_inspect_64(gpr_node, "RBX", (uint64_t *)&(core->vm_regs.rbx));    
+	v3_inspect_64(gpr_node, "RCX", (uint64_t *)&(core->vm_regs.rcx));    
+	v3_inspect_64(gpr_node, "RDX", (uint64_t *)&(core->vm_regs.rdx));    
+	v3_inspect_64(gpr_node, "RSP", (uint64_t *)&(core->vm_regs.rsp));    
+	v3_inspect_64(gpr_node, "RBP", (uint64_t *)&(core->vm_regs.rbp));    
+	v3_inspect_64(gpr_node, "RSI", (uint64_t *)&(core->vm_regs.rsi));    
+	v3_inspect_64(gpr_node, "RDI", (uint64_t *)&(core->vm_regs.rdi));    
+
+
+	struct v3_mtree * cr_node = v3_mtree_create_subtree(core_node, "CTRL_REGS");
+	v3_inspect_64(cr_node, "CR0", (uint64_t *)&(core->ctrl_regs.cr0));    
+	v3_inspect_64(cr_node, "CR2", (uint64_t *)&(core->ctrl_regs.cr2));    
+	v3_inspect_64(cr_node, "CR3", (uint64_t *)&(core->ctrl_regs.cr3));    
+	v3_inspect_64(cr_node, "CR4", (uint64_t *)&(core->ctrl_regs.cr4));    
+	v3_inspect_64(cr_node, "RFLAGS", (uint64_t *)&(core->ctrl_regs.rflags));    
+	v3_inspect_64(cr_node, "EFER", (uint64_t *)&(core->ctrl_regs.efer));    
+
+
+	//	struct v3_mtree * seg_node = v3_mtree_create_subtree(core_node, "SEGMENTS");
+	
+
+
     }
 
     return 0;
@@ -96,7 +124,7 @@ int v3_inspect_buf(v3_inspect_node_t * node, char * name,
 
 
 
-int v3_get_inspection_value(v3_inspect_node_t * node, char * name, 
+int v3_find_inspection_value(v3_inspect_node_t * node, char * name, 
 			   struct v3_inspection_value * value) {
     struct v3_mtree * mt_node = v3_mtree_find_node(node, name);
     
@@ -104,14 +132,23 @@ int v3_get_inspection_value(v3_inspect_node_t * node, char * name,
 	return -1;
     }
     
-    value->value = mt_node->value;
-    value->size = mt_node->size;
-    value->flags = mt_node->user_flags;
-    value->name = mt_node->name;
-
+    *value = v3_inspection_value(mt_node);
 
     return 0;
 }
+
+struct v3_inspection_value v3_inspection_value(v3_inspect_node_t * node) {
+    struct v3_mtree * mt_node = node;
+    struct v3_inspection_value value;
+
+    value.value = mt_node->value;
+    value.size = mt_node->size;
+    value.flags = mt_node->user_flags;
+    value.name = mt_node->name;
+
+    return value;
+}
+
 
 
 v3_inspect_node_t * v3_get_inspection_root(struct v3_vm_info * vm) {
@@ -123,3 +160,10 @@ v3_inspect_node_t * v3_get_inspection_subtree(v3_inspect_node_t * root, char * n
 }
 
 
+v3_inspect_node_t * v3_inspection_node_next(v3_inspect_node_t * node) {
+    return v3_mtree_next_node(node);
+}
+
+v3_inspect_node_t * v3_inspection_first_child(v3_inspect_node_t * root) {
+    return v3_mtree_first_child(root);
+}

@@ -13,7 +13,8 @@ v3vee-objs:= 	palacios.o \
 		palacios-mm.o \
 		palacios-serial.o \
 		palacios-queue.o \
-		palacios-ringbuffer.o 
+		palacios-ringbuffer.o \
+		palacios-debugfs.o
 
 ifdef CONFIG_PALACIOS_VNET
 		v3vee-objs += palacios-vnet.o		

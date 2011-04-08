@@ -28,6 +28,10 @@
 #include "palacios-vnet.h"
 #include "palacios-packet.h"
 
+#ifdef CONFIG_DEBUG_FS
+#include "palacios-debugfs.h"
+#endif
+
 MODULE_LICENSE("GPL");
 
 int mod_allocs = 0;
@@ -271,6 +275,11 @@ static int __init v3_init(void) {
     palacios_file_init();
     palacios_init_console();
 
+
+#ifdef CONFIG_DEBUG_FS
+    palacios_init_debugfs();
+#endif
+
     return 0;
 
  failure1:
@@ -310,6 +319,11 @@ static void __exit v3_exit(void) {
     device_destroy(v3_class, dev);
     class_destroy(v3_class);
 
+
+
+#ifdef CONFIG_DEBUG_FS
+    palacios_deinit_debugfs();
+#endif
 
     palacios_file_deinit();
     palacios_deinit_stream();
