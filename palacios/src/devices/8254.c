@@ -660,6 +660,7 @@ static int pit_free(void * private_data) {
     return 0;
 }
 
+#ifdef CONFIG_KEYED_STREAMS
 static int pit_checkpoint(struct vm_device *dev, v3_keyed_stream_t stream)
 {
     struct pit *p = (struct pit *) (dev->private_data);
@@ -711,12 +712,14 @@ static int pit_restore(struct vm_device *dev, v3_keyed_stream_t stream)
 
 
 }
-
+#endif
 
 static struct v3_device_ops dev_ops = {
     .free = (int (*)(void *))pit_free,
+#ifdef CONFIG_KEYED_STREAMS
     .checkpoint = pit_checkpoint,
     .restore = pit_restore,
+#endif
 };
 
 #include <palacios/vm_guest.h>
