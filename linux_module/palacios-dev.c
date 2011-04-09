@@ -173,36 +173,6 @@ static long v3_dev_ioctl(struct file * filp,
 	    break;
 	}
 
-	case V3_START_NETWORK: {
-            struct v3_network net;
-            memset(&net, 0, sizeof(struct v3_network));
-   
-            if(copy_from_user(&net, argp, sizeof(struct v3_network))){
-                printk("copy from user error getting network service requests ... \n");
-                return -EFAULT;
-            }
- 
-        #ifdef CONFIG_PALACIOS_SOCKET
-            if(net.socket == 1){
-                palacios_socket_init();
-		printk("Started Palacios Socket\n");
-            }
-        #endif
-        #ifdef CONFIG_PALACIOS_PACKET
-            if(net.packet == 1){
-                palacios_init_packet(NULL);
-		printk("Started Palacios Direct Network Bridge\n");
-            }
-        #endif
-        #ifdef CONFIG_PALACIOS_VNET
-            if(net.vnet == 1){
-                palacios_init_vnet();
-		printk("Started Palacios VNET Service\n");
-            }
-        #endif
- 
-            break;
-        }
 	default: 
 	    printk("\tUnhandled\n");
 	    return -EINVAL;
@@ -278,6 +248,18 @@ static int __init v3_init(void) {
 
 #ifdef CONFIG_DEBUG_FS
     palacios_init_debugfs();
+#endif
+
+#ifdef CONFIG_PALACIOS_SOCKET
+    palacios_socket_init();
+#endif
+
+#ifdef CONFIG_PALACIOS_PACKET
+    palacios_init_packet(NULL);
+#endif
+
+#ifdef CONFIG_PALACIOS_VNET
+    palacios_init_vnet();
 #endif
 
     return 0;
