@@ -75,6 +75,15 @@ struct v3_vnet_pkt {
     } __attribute__((packed));
 } __attribute__((packed));
 
+
+struct vnet_stat{
+    uint64_t tx_bytes;
+    uint32_t tx_pkts;
+    uint64_t rx_bytes;
+    uint32_t rx_pkts;
+};
+
+
 struct v3_vnet_bridge_ops {
     int (*input)(struct v3_vm_info * vm, 
 		struct v3_vnet_pkt * pkt,
@@ -93,11 +102,11 @@ int v3_vnet_add_bridge(struct v3_vm_info * vm,
 int v3_vnet_add_route(struct v3_vnet_route route);
 int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data);
 int v3_vnet_find_dev(uint8_t  * mac);
+int v3_vnet_stat(struct vnet_stat * stats);
 
 #ifdef __V3VEE__
 
-#define VMM_DRIVERN 	1
-#define GUEST_DRIVERN 	0
+typedef enum {VMM_DRIVERN = 1, GUEST_DRIVERN} vnet_poll_type_t;
 
 struct v3_vnet_dev_ops {
     int (*input)(struct v3_vm_info * vm, 

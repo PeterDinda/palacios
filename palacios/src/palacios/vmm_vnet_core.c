@@ -46,7 +46,7 @@ struct vnet_dev {
     void * private_data;
 
     int active;
-    uint8_t mode;  //vmm_drivern or guest_drivern
+    vnet_poll_type_t mode;  //vmm_drivern or guest_drivern
     
     struct list_head node;
 } __attribute__((packed));
@@ -57,7 +57,7 @@ struct vnet_brg_dev {
     struct v3_vnet_bridge_ops brg_ops;
 
     uint8_t type;
-    uint8_t mode;
+    vnet_poll_type_t mode;
     int active;
     void * private_data;
 } __attribute__((packed));
@@ -93,6 +93,7 @@ static struct {
     struct vnet_brg_dev *bridge;
 
     v3_lock_t lock;
+    struct vnet_stat stats;
 
     struct hashtable * route_cache;
 } vnet_state;
@@ -439,6 +440,9 @@ int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data) {
 
     flags = v3_lock_irqsave(vnet_state.lock);
 
+    vnet_state.stats.rx_bytes += pkt->size;
+    vnet_state.stats.rx_pkts++;
+
     look_into_cache(pkt, &matched_routes);
     if (matched_routes == NULL) {  
 	PrintDebug("VNET/P Core: send pkt Looking into routing table\n");
@@ -475,6 +479,8 @@ int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data) {
                 PrintDebug("VNET/P Core: Packet not sent properly to bridge\n");
                 continue;
 	    }         
+	    vnet_state.stats.tx_bytes += pkt->size;
+	    vnet_state.stats.tx_pkts ++;
         } else if (route->route_def.dst_type == LINK_INTERFACE) {
             if (route->dst_dev == NULL || route->dst_dev->active == 0){
 	 	PrintDebug("VNET/P Core: No active device to sent data to\n");
@@ -485,6 +491,8 @@ int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data) {
                 PrintDebug("VNET/P Core: Packet not sent properly\n");
                 continue;
 	    }
+	    vnet_state.stats.tx_bytes += pkt->size;
+	    vnet_state.stats.tx_pkts ++;
         } else {
             PrintError("VNET/P Core: Wrong dst type\n");
         }
@@ -558,6 +566,15 @@ int v3_vnet_del_dev(int dev_id){
     return 0;
 }
 
+int v3_vnet_stat(struct vnet_stat * stats){
+	
+    stats->rx_bytes = vnet_state.stats.rx_bytes;
+    stats->rx_pkts = vnet_state.stats.rx_pkts;
+    stats->tx_bytes = vnet_state.stats.tx_bytes;
+    stats->tx_pkts = vnet_state.stats.tx_pkts;
+
+    return 0;
+}
 
 static void free_devices(){
     struct vnet_dev * dev = NULL; 
