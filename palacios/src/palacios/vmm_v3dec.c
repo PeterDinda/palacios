@@ -27,7 +27,7 @@
 
 
 #define MASK(val, length) ({						\
-            ullong_t mask = 0x0LL;					\
+            uint64_t mask = 0x0LL;					\
             switch (length) {						\
 		case 1:							\
 		    mask = 0x00000000000000ffLL;			\
@@ -195,13 +195,17 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	case SUB_2MEM_8:
 	case XOR_2MEM_8:
 	case MOV_2MEM_8:
+	case MOVSX_8:
+	case MOVZX_8:
 	case ADC_2MEM:
 	case ADD_2MEM:
 	case AND_2MEM:
 	case OR_2MEM:
 	case SUB_2MEM:
 	case XOR_2MEM:
-	case MOV_2MEM: {
+	case MOV_2MEM:
+	case MOVSX:
+	case MOVZX: {
 	    uint8_t reg_code = 0;
 
 	    ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->dst_operand), &reg_code);
@@ -280,7 +284,7 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 
 	    instr->src_operand.type = IMM_OPERAND;
 	    instr->src_operand.size = operand_width;
-	    instr->src_operand.operand = *(sint8_t *)instr_ptr;  // sign extend.
+	    instr->src_operand.operand = (addr_t)MASK((sint64_t)*(sint8_t *)instr_ptr, operand_width);  // sign extend.
 
 	    instr->src_operand.read = 1;
 	    instr->dst_operand.write = 1;
@@ -371,26 +375,26 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	case STOS:
 	case STOS_8: {
 	    instr->is_str_op = 1;
-	    
+
 	    if (instr->prefixes.rep == 1) {
 		instr->str_op_length = MASK(core->vm_regs.rcx, operand_width);
 	    } else {
 		instr->str_op_length = 1;
 	    }
-	    
+
 	    instr->src_operand.size = operand_width;
 	    instr->src_operand.type = REG_OPERAND;
 	    instr->src_operand.operand = (addr_t)&(core->vm_regs.rax);
-	    
+
 	    instr->dst_operand.type = MEM_OPERAND;
 	    instr->dst_operand.size = operand_width;
 	    instr->dst_operand.operand = get_addr_linear(core, MASK(core->vm_regs.rdi, addr_width), &(core->segments.es));
-	    
+
 	    instr->src_operand.read = 1;
 	    instr->dst_operand.write = 1;
-	    
+
 	    instr->num_operands = 2;
-	    
+
 	    break;
 	}
 	case INVLPG: {
