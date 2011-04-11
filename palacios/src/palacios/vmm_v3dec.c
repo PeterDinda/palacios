@@ -232,20 +232,66 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	case SUB_MEM2_8:
 	case XOR_MEM2_8:
 	case MOV_MEM2_8:
-	case MOVSX_8:
-	case MOVZX_8:
 	case ADC_MEM2:
 	case ADD_MEM2:
 	case AND_MEM2:
 	case OR_MEM2:
 	case SUB_MEM2:
 	case XOR_MEM2:
-	case MOV_MEM2:
+	case MOV_MEM2: {
+	    uint8_t reg_code = 0;
+
+	    ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->src_operand), &reg_code);
+
+	    if (ret == -1) {
+		PrintError("Error decoding operand\n");
+		return -1;
+	    }
+
+	    instr_ptr += ret;
+
+	    instr->dst_operand.size = operand_width;
+	    instr->dst_operand.type = REG_OPERAND;
+	    decode_gpr(core, reg_code, &(instr->dst_operand));
+
+	    instr->src_operand.read = 1;
+	    instr->dst_operand.write = 1;
+
+	    instr->num_operands = 2;
+
+	    break;
+	}
+	case MOVSX_8:
+	case MOVZX_8: {
+	    uint8_t reg_code = 0;
+
+	    ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->src_operand), &reg_code);
+	    instr->src_operand.size = 1;
+
+	    if (ret == -1) {
+		PrintError("Error decoding operand\n");
+		return -1;
+	    }
+
+	    instr_ptr += ret;
+
+	    instr->dst_operand.size = operand_width;
+	    instr->dst_operand.type = REG_OPERAND;
+	    decode_gpr(core, reg_code, &(instr->dst_operand));
+
+	    instr->src_operand.read = 1;
+	    instr->dst_operand.write = 1;
+
+	    instr->num_operands = 2;
+
+	    break;
+	}
 	case MOVSX:
 	case MOVZX: {
 	    uint8_t reg_code = 0;
 
 	    ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->src_operand), &reg_code);
+	    instr->src_operand.size = 2;
 
 	    if (ret == -1) {
 		PrintError("Error decoding operand\n");
@@ -354,14 +400,13 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	    ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->dst_operand),
 				    &reg_code);
 	    
-
 	    if (ret == -1) {
 		PrintError("Error decoding operand for (%s)\n", op_form_to_str(form));
 		return -1;
 	    }
 
 	    instr_ptr += ret;
-		
+	    
 	    instr->src_operand.type = REG_OPERAND;
 	    instr->src_operand.size = operand_width;
 	    decode_cr(core, reg_code, &(instr->src_operand));
