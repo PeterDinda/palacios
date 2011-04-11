@@ -45,7 +45,7 @@ struct x86_operand {
     v3_operand_type_t type;
     uint8_t read : 1;
     uint8_t write : 1;
-};
+} __attribute__((packed));
 
 struct x86_prefixes {
     uint_t lock   : 1;  // 0xF0

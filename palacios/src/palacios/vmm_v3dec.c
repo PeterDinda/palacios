@@ -195,17 +195,13 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	case SUB_2MEM_8:
 	case XOR_2MEM_8:
 	case MOV_2MEM_8:
-	case MOVSX_8:
-	case MOVZX_8:
 	case ADC_2MEM:
 	case ADD_2MEM:
 	case AND_2MEM:
 	case OR_2MEM:
 	case SUB_2MEM:
 	case XOR_2MEM:
-	case MOV_2MEM:
-	case MOVSX:
-	case MOVZX: {
+	case MOV_2MEM: {
 	    uint8_t reg_code = 0;
 
 	    ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->dst_operand), &reg_code);
@@ -236,13 +232,17 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	case SUB_MEM2_8:
 	case XOR_MEM2_8:
 	case MOV_MEM2_8:
+	case MOVSX_8:
+	case MOVZX_8:
 	case ADC_MEM2:
 	case ADD_MEM2:
 	case AND_MEM2:
 	case OR_MEM2:
 	case SUB_MEM2:
 	case XOR_MEM2:
-	case MOV_MEM2: {
+	case MOV_MEM2:
+	case MOVSX:
+	case MOVZX: {
 	    uint8_t reg_code = 0;
 
 	    ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->src_operand), &reg_code);
