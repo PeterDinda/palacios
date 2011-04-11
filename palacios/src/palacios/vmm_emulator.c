@@ -313,6 +313,10 @@ static int run_str_op(struct guest_info * core, struct x86_instr * instr,
     int emulation_length = op_size * rep_cnt;
     struct rflags * flags_reg = (struct rflags *)&(core->ctrl_regs.rflags);
 
+
+    PrintError("Emulation_len=%d, tmp_rcx=%d\n", emulation_length, (uint_t)tmp_rcx);
+
+
     if (instr->op_type == V3_OP_MOVS) {
 	if (op_size== 1) {
 	    movs8((addr_t *)&dst_addr, &src_addr, &tmp_rcx, (addr_t *)&(core->ctrl_regs.rflags));
@@ -358,6 +362,8 @@ static int run_str_op(struct guest_info * core, struct x86_instr * instr,
 	    return -1;
 	}
 
+
+
 	if (flags_reg->df == 0) {
 	    core->vm_regs.rdi += emulation_length;
 	} else {
@@ -383,8 +389,7 @@ int v3_emulate(struct guest_info * core, struct x86_instr * instr,
 
     addr_t src_hva = 0;
     addr_t dst_hva = 0;
-    
-    PrintError("USING THE NEW EMULATOR\n");
+
 
     if (instr->src_operand.type == MEM_OPERAND) {
 	src_hva = mem_hva_src;
@@ -393,7 +398,7 @@ int v3_emulate(struct guest_info * core, struct x86_instr * instr,
     } else {
 	src_hva = (addr_t)&(instr->src_operand.operand);
     }
-	
+
     if (instr->dst_operand.type == MEM_OPERAND) {
 	dst_hva = mem_hva_dst;
     } else if (instr->dst_operand.type == REG_OPERAND) {
@@ -401,7 +406,7 @@ int v3_emulate(struct guest_info * core, struct x86_instr * instr,
     } else {
 	dst_hva = (addr_t)&(instr->dst_operand.operand);
     }
-    
+ 
 
     if (instr->is_str_op == 0) {
 	int src_op_len = instr->src_operand.size;
@@ -419,7 +424,6 @@ int v3_emulate(struct guest_info * core, struct x86_instr * instr,
 
 	return run_str_op(core, instr, src_hva, dst_hva, instr->src_operand.size, rep_cnt);
     }
-
 
 
     return -1;
