@@ -145,6 +145,7 @@ static int handle_mem_hook(struct guest_info * core, addr_t guest_va, addr_t gue
     }
 
 
+
     // Test source operand, if it's memory we need to do some translations, and handle a possible hook
     if (instr.src_operand.type == MEM_OPERAND) {
 	struct v3_mem_region * src_reg = NULL;
@@ -162,8 +163,8 @@ static int handle_mem_hook(struct guest_info * core, addr_t guest_va, addr_t gue
 	    }
 	}
 
-	if ((guest_pa >= reg->guest_start) && 
-	    (guest_pa <= reg->guest_end)) {
+	if ((src_mem_op_gpa >= reg->guest_start) && 
+	    (src_mem_op_gpa < reg->guest_end)) {   
 	    // Src address corresponds to faulted region
 	    src_reg = reg;
 	} else {
@@ -208,8 +209,8 @@ static int handle_mem_hook(struct guest_info * core, addr_t guest_va, addr_t gue
 	    }
 	}
 
-	if ((guest_pa >= reg->guest_start) && 
-	    (guest_pa <= reg->guest_end)) {
+	if ((dst_mem_op_gpa >= reg->guest_start) && 
+	    (dst_mem_op_gpa < reg->guest_end)) {
 	    // Dst address corresponds to faulted region
 	    dst_reg = reg;
 	} else {
