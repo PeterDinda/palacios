@@ -13,7 +13,7 @@
 #include <linux/file.h>
 #include <linux/sched.h>
 
-#include <palacios/vmm_console.h>
+#include <interfaces/vmm_console.h>
 #include <palacios/vmm_host_events.h>
 
 #include "palacios.h"

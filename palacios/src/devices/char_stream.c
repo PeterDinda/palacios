@@ -18,7 +18,7 @@
  */
 
 #include <palacios/vmm.h>
-#include <palacios/vmm_stream.h>
+#include <interfaces/vmm_stream.h>
 #include <palacios/vmm_dev_mgr.h>
 #include <palacios/vmm_sprintf.h>
 #include <palacios/vmm_host_events.h>

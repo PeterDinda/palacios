@@ -7,7 +7,7 @@
 #include <linux/percpu.h>
 #include <linux/sched.h>
 
-#include <palacios/vmm_stream.h>
+#include <interfaces/vmm_stream.h>
 #include "palacios-stream.h"
 
 static struct list_head global_streams;

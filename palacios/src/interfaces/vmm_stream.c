@@ -22,7 +22,7 @@
 #include <palacios/vmm_debug.h>
 #include <palacios/vmm_types.h>
 
-#include <palacios/vmm_stream.h>
+#include <interfaces/vmm_stream.h>
 #include <palacios/vm_guest.h>
 
 static struct v3_stream_hooks * stream_hooks = NULL;

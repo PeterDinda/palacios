@@ -434,6 +434,7 @@ scripts_basic: palacios/include/autoconf.h
 core-y          := palacios/src/palacios/
 libs-y		:= palacios/lib/$(ARCH)/
 devices-y       := palacios/src/devices/
+interfaces-y    := palacios/src/interfaces/
 modules-y       := modules/
 
 
@@ -528,7 +529,7 @@ export	INSTALL_PATH ?= /build
 
 
 palacios-dirs	:= $(patsubst %/,%,$(filter %/,  \
-		     $(core-y) $(devices-y) $(libs-y)) $(modules-y))
+		     $(core-y) $(devices-y) $(interfaces-y) $(libs-y)) $(modules-y))
 
 
 
@@ -538,12 +539,14 @@ palacios-dirs	:= $(patsubst %/,%,$(filter %/,  \
 
 
 palacios-cleandirs := $(sort $(palacios-dirs) $(patsubst %/,%,$(filter %/, \
-		     	$(core-n) $(core-) $(devices-n) $(devices-) $(modules-n) $(modules-))))
+		     	$(core-n) $(core-) $(devices-n) $(devices-) \
+			$(interfaces-n) $(interfaces-) $(modules-n) $(modules-))))
 
 
 
 core-y		:= $(patsubst %/, %/built-in.o, $(core-y))
 devices-y	:= $(patsubst %/, %/built-in.o, $(devices-y))
+interfaces-y    := $(patsubst %/, %/built-in.o, $(interfaces-y))
 libs-y		:= $(patsubst %/, %/built-in.o, $(libs-y))
 modules-y       := $(patsubst %/, %/built-in.o, $(modules-y))
 #lnxmod-y        := $(patsubst %/, %/built-in.o, $(lnxmod-y))
@@ -570,7 +573,7 @@ modules-y       := $(patsubst %/, %/built-in.o, $(modules-y))
 
 
 
-palacios := $(core-y) $(devices-y) $(libs-y) $(modules-y)
+palacios := $(core-y) $(devices-y) $(interfaces-y) $(libs-y) $(modules-y)
 
 
 # Rule to link palacios - also used during CONFIG_CONFIGKALLSYMS

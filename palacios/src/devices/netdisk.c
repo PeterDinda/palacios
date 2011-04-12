@@ -19,7 +19,7 @@
 
 #include <palacios/vmm.h>
 #include <palacios/vmm_dev_mgr.h>
-#include <palacios/vmm_socket.h>
+#include <interfaces/vmm_socket.h>
 
 #ifndef CONFIG_DEBUG_IDE
 #undef PrintDebug

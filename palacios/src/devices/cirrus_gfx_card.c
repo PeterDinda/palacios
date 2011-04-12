@@ -28,7 +28,7 @@
 #include <palacios/vmm_paging.h>
 #include <palacios/vmm_instr_emulator.h>
 #include <palacios/vm_guest_mem.h>
-#include <palacios/vmm_socket.h>
+#include <interfaces/vmm_socket.h>
 #include <palacios/vmm_host_events.h>
 #include <devices/pci.h>
 #include <devices/pci_types.h>

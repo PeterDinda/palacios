@@ -17,7 +17,7 @@
  * full text of the license.
  */
 
-#include <palacios/vmm_socket.h>
+#include <interfaces/vmm_socket.h>
 
 #include <linux/spinlock.h>
 #include <asm/uaccess.h>
