@@ -313,6 +313,8 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
     xed_decoded_inst_t xed_instr;
     xed_error_enum_t xed_error;
 
+    memset(instr, 0, sizeof(struct x86_instr));
+
 
     v3_get_prefixes((uchar_t *)instr_ptr, &(instr->prefixes));
 
