@@ -402,6 +402,9 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 
 	v3_op = &(instr->dst_operand);
 
+	V3_Print("Operand 0 mode: %s\n", xed_operand_action_enum_t2str(op->_rw));
+
+
 	if ((op->_rw == XED_OPERAND_ACTION_RW) || 
 	    (op->_rw == XED_OPERAND_ACTION_R)|| 
 	    (op->_rw == XED_OPERAND_ACTION_RCW)) {
@@ -480,6 +483,8 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 	*/
 	v3_op = &(instr->src_operand);
 
+	V3_Print("Operand 1 mode: %s\n", xed_operand_action_enum_t2str(op->_rw));
+
 	if ((op->_rw == XED_OPERAND_ACTION_RW) || 
 	    (op->_rw == XED_OPERAND_ACTION_R)|| 
 	    (op->_rw == XED_OPERAND_ACTION_RCW)) {
@@ -557,6 +562,9 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 	const xed_operand_t * op = xed_inst_operand(xi, 2);
 	xed_operand_type_enum_t op_type = xed_operand_type(op);
 	xed_operand_enum_t op_enum = xed_operand_name(op);
+
+	V3_Print("Operand 3 mode: %s\n", xed_operand_action_enum_t2str(op->_rw));
+
 
 	if ((op->_rw == XED_OPERAND_ACTION_RW) || 
 	    (op->_rw == XED_OPERAND_ACTION_R)|| 
