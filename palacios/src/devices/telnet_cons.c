@@ -27,7 +27,7 @@
 #include <palacios/vmm_host_events.h>
 #include <palacios/vmm_lock.h>
 #include <palacios/vmm_string.h>
-#include <palacios/vmm_socket.h>
+#include <interfaces/vmm_socket.h>
 
 #include <devices/console.h>
 

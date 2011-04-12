@@ -18,7 +18,7 @@
  */
 
 
-#include <palacios/vmm_socket.h>
+#include <interfaces/vmm_socket.h>
 #include <palacios/vmm.h>
 #include <palacios/vmm_debug.h>
 #include <palacios/vmm_types.h>

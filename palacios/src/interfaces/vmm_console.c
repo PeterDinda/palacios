@@ -20,7 +20,7 @@
  */
 
 
-#include <palacios/vmm_console.h>
+#include <interfaces/vmm_console.h>
 #include <palacios/vmm.h>
 #include <palacios/vmm_debug.h>
 #include <palacios/vmm_types.h>

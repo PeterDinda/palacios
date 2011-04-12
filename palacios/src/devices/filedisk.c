@@ -20,7 +20,7 @@
 #include <palacios/vmm.h>
 #include <palacios/vmm_dev_mgr.h>
 
-#include <palacios/vmm_file.h>
+#include <interfaces/vmm_file.h>
 #include <palacios/vm_guest.h>
 
 #ifndef CONFIG_DEBUG_FILEDISK

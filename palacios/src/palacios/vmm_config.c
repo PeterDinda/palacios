@@ -38,7 +38,6 @@
 
 
 #include <palacios/vmm_host_events.h>
-#include <palacios/vmm_socket.h>
 
 #include "vmm_config_class.h"
 
