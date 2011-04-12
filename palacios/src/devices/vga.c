@@ -331,27 +331,27 @@ static int render(struct vga_internal *vga)
 
 	s=&(vga->target_spec);
 
-	if (fb && s->height>=480 && s->width>=640 ) { 
+	if (0 && fb && s->height>=480 && s->width>=640 ) { 
 	    uint8_t color = (uint8_t)(vga->updates_since_render);
 
 	    uint32_t x, y;
 
 	    for (y=0;y<480;y++) {
 		for (x=0;x<640;x++) { 
-		    void *pixel = fb + (x + y*s->width) *s->bytes_per_pixel;
+		    void *pixel = fb + ((x + (y*s->width)) * s->bytes_per_pixel);
 		    uint8_t *red = pixel + s->red_offset;
 		    uint8_t *green = pixel + s->green_offset;
 		    uint8_t *blue = pixel + s->blue_offset;
 
-		    if (y<480/4) { 
+		    if (y<(480/4)) { 
 			*red=color+x;
 			*green=0;
 			*blue=0;
-		    } else if (y<480/2) { 
+		    } else if (y<(480/2)) { 
 			*red=0;
 			*green=color+x;
 			*blue=0;
-		    } else if (y<3*480/4) { 
+		    } else if (y<(3*(480/4))) { 
 			*red=0;
 			*green=0;
 			*blue=color+x;
@@ -361,6 +361,28 @@ static int render(struct vga_internal *vga)
 		}
 	    }
 	}
+
+	if (1 && fb && s->height>=768 && s->width>=1024 && !(vga->updates_since_render % 100)) { 
+	    // we draw the maps next, each being a 256x256 block appearing 32 pixels below the display block
+	    uint8_t m;
+	    uint32_t x,y;
+	    uint8_t *b;
+
+	    for (m=0;m<4;m++) { 
+		b=(vga->map[m]);
+		for (y=480+32;y<768;y++) { 
+		    for (x=m*256;x<(m+1)*256;x++,b++) { 
+			void *pixel = fb + ((x + (y*s->width)) * s->bytes_per_pixel);
+			uint8_t *red = pixel + s->red_offset;
+			uint8_t *green = pixel + s->green_offset;
+			uint8_t *blue = pixel + s->blue_offset;
+
+			*red=*green=*blue=*b;
+		    }
+		}
+	    }
+	}
+	v3_graphics_console_release_frame_buffer_data_rw(vga->host_cons);
     }
 
     return 0;
@@ -410,7 +432,6 @@ static int vga_write(struct guest_info * core,
 		     uint_t length, 
 		     void * priv_data)
 {
-    int i;
     struct vm_device *dev = (struct vm_device *)priv_data;
     struct vga_internal *vga = (struct vga_internal *) dev->private_data;
 
@@ -421,12 +442,20 @@ static int vga_write(struct guest_info * core,
 	memcpy(V3_VAddr((void*)guest_addr),src,length);
     }
     
-    PrintDebug("vga: data written was \"");
+#if 0
+    int i;
+    PrintDebug("vga: data written was 0x");
+    for (i=0;i<length;i++) {
+	uint8_t c= ((char*)src)[i];
+	PrintDebug("%.2x", c);
+    }
+    PrintDebug(" \"");
     for (i=0;i<length;i++) {
 	char c= ((char*)src)[i];
-	PrintDebug("%c", (c>='a' && c<='z') || (c>='A' && c<='Z') || (c>='0' && c<='9') ? c : '.');
+	PrintDebug("%c", (c>='a' && c<='z') || (c>='A' && c<='Z') || (c>='0' && c<='9') || (c==' ') ? c : '.');
     }
     PrintDebug("\"\n");
+#endif
 
     /* Write mode determine by Graphics Mode Register (Index 05h).writemode */
     
@@ -732,7 +761,6 @@ static int vga_read(struct guest_info * core,
 		    uint_t length, 
 		    void * priv_data)
 {
-    int i;
     struct vm_device *dev = (struct vm_device *)priv_data;
     struct vga_internal *vga = (struct vga_internal *) dev->private_data;
     
@@ -826,12 +854,20 @@ static int vga_read(struct guest_info * core,
     }
 
 
-    PrintDebug("vga: data read is \"");
+#if 0
+    int i;
+    PrintDebug("vga: data read is 0x");
+    for (i=0;i<length;i++) {
+	uint8_t c= ((char*)dst)[i];
+	PrintDebug("%.2x", c);
+    }
+    PrintDebug(" \"");
     for (i=0;i<length;i++) {
 	char c= ((char*)dst)[i];
-	PrintDebug("%c", (c>='a' && c<='z') || (c>='A' && c<='Z') || (c>='0' && c<='9') ? c : '.');
+	PrintDebug("%c", (c>='a' && c<='z') || (c>='A' && c<='Z') || (c>='0' && c<='9') || (c==' ') ? c : '.');
     }
     PrintDebug("\"\n");
+#endif
 
     return length;
 
