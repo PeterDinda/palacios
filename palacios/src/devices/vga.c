@@ -22,7 +22,7 @@
 #include <palacios/vmm_types.h>
 #include <palacios/vm_guest_mem.h>
 #include <palacios/vmm_io.h>
-#include <palacios/vmm_graphics_console.h>
+#include <interfaces/vmm_graphics_console.h>
 
 #include "vga_regs.h"
 

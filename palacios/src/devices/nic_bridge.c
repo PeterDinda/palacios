@@ -23,7 +23,7 @@
 #include <palacios/vmm_dev_mgr.h>
 #include <palacios/vm_guest_mem.h>
 #include <palacios/vmm_sprintf.h>
-#include <palacios/vmm_packet.h>
+#include <interfaces/vmm_packet.h>
 
 #ifndef CONFIG_DEBUG_NIC_BRIDGE
 #undef PrintDebug
