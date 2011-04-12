@@ -106,19 +106,17 @@ int v3_vnet_stat(struct vnet_stat * stats);
 
 #ifdef __V3VEE__
 
-typedef enum {VMM_DRIVERN = 1, GUEST_DRIVERN} vnet_poll_type_t;
-
 struct v3_vnet_dev_ops {
     int (*input)(struct v3_vm_info * vm, 
 		struct v3_vnet_pkt * pkt, 
 		void * dev_data);
-    void (*poll) (struct v3_vm_info * vm, void * dev_data);
+    void (*poll) (struct v3_vm_info * vm, int budget, void * dev_data);
 };
 
 int v3_init_vnet(void);	
 void v3_deinit_vnet(void);
 
-void v3_vnet_poll(struct v3_vm_info * vm);
+void v3_vnet_do_poll(struct v3_vm_info * vm);
 
 int v3_vnet_add_dev(struct v3_vm_info * info, uint8_t * mac, 
 		    struct v3_vnet_dev_ops * ops,

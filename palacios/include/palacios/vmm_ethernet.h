@@ -41,6 +41,8 @@ struct nic_statistics {
 
     uint32_t interrupts;
 };
+
+typedef enum {VMM_DRIVERN = 1, GUEST_DRIVERN} nic_poll_type_t;
     
 static inline int is_multicast_ethaddr(const uint8_t * addr)
 {

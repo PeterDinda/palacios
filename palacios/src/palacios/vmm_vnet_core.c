@@ -46,7 +46,10 @@ struct vnet_dev {
     void * private_data;
 
     int active;
-    vnet_poll_type_t mode;  //vmm_drivern or guest_drivern
+    nic_poll_type_t mode;  /*vmm_drivern or guest_drivern */
+
+    uint64_t bytes_tx, bytes_rx;
+    uint32_t pkts_tx, pkt_rx;
     
     struct list_head node;
 } __attribute__((packed));
@@ -57,7 +60,7 @@ struct vnet_brg_dev {
     struct v3_vnet_bridge_ops brg_ops;
 
     uint8_t type;
-    vnet_poll_type_t mode;
+    nic_poll_type_t mode;
     int active;
     void * private_data;
 } __attribute__((packed));
@@ -90,7 +93,7 @@ static struct {
     int num_routes;
     int num_devs;
 
-    struct vnet_brg_dev *bridge;
+    struct vnet_brg_dev * bridge;
 
     v3_lock_t lock;
     struct vnet_stat stats;
@@ -639,6 +642,20 @@ int v3_vnet_add_bridge(struct v3_vm_info * vm,
     v3_unlock_irqrestore(vnet_state.lock, flags);
 
     return 0;
+}
+
+
+void v3_vnet_do_poll(struct v3_vm_info * vm){
+    struct vnet_dev * dev = NULL; 
+
+    /* TODO: run this on separate threads
+      * round-robin schedule, with maximal budget for each poll
+      */
+    list_for_each_entry(dev, &(vnet_state.devs), node) {
+	if(dev->mode == VMM_DRIVERN){
+    	    dev->dev_ops.poll(vm, -1, dev->private_data);
+       }
+    }
 }
 
 

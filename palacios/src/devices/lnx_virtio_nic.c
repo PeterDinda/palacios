@@ -30,6 +30,7 @@
 #include <palacios/vmm_util.h>
 #include <devices/pci.h>
 #include <palacios/vmm_ethernet.h>
+#include <palacios/vmm_time.h>
 
 
 #ifndef CONFIG_DEBUG_VIRTIO_NET
@@ -65,6 +66,7 @@ struct virtio_net_hdr_mrg_rxbuf {
 #define VIRTIO_NET_F_MAC	5	/* Host has given MAC address. */
 #define VIRTIO_NET_F_GSO	6	/* Host handles pkts w/ any GSO type */
 #define VIRTIO_NET_F_HOST_TSO4	11	/* Host can handle TSOv4 in. */
+#define VIRTIO_NET_F_HOST_UFO	14	/* Host can handle UFO in. */
 
 /* Port to get virtio config */
 #define VIRTIO_NET_CONFIG 20  
@@ -95,10 +97,15 @@ struct virtio_net_state {
     struct virtio_queue tx_vq;   	/* idx 1*/
     struct virtio_queue ctrl_vq;  	/* idx 2*/
 
+    struct v3_timer * timer;
+
     struct nic_statistics statistics;
 
     struct v3_dev_net_ops * net_ops;
     v3_lock_t rx_lock, tx_lock;
+
+    nic_poll_type_t mode;
+    uint32_t tx_pkts, rx_pkts;
 
     void * backend_data;
     struct virtio_dev_state * virtio_dev;
@@ -132,7 +139,9 @@ static int virtio_init_state(struct virtio_net_state * virtio)
 
     virtio->virtio_cfg.pci_isr = 0;
 	
-    virtio->virtio_cfg.host_features = 0 | (1 << VIRTIO_NET_F_MAC);
+    virtio->virtio_cfg.host_features = 0 | (1 << VIRTIO_NET_F_MAC) | 
+								(1 << VIRTIO_NET_F_HOST_UFO) | 
+								(1 << VIRTIO_NET_F_HOST_TSO4);
 
     if ((v3_lock_init(&(virtio->rx_lock)) == -1) ||
 	(v3_lock_init(&(virtio->tx_lock)) == -1)){
@@ -261,7 +270,7 @@ static int handle_pkt_tx(struct guest_info * core,
 	desc_idx = hdr_desc->next;
 
 	if(desc_cnt > 2){
-	    PrintError("VNIC: merged rx buffer not supported\n");
+	    PrintError("VNIC: merged rx buffer not supported, desc_cnt %d\n", desc_cnt);
 	    goto exit_error;
 	}
 
@@ -535,7 +544,7 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
     uint32_t offset = 0;
     unsigned long flags;
 
-#ifndef CONFIG_DEBUG_VIRTIO_NET
+#ifdef CONFIG_DEBUG_VIRTIO_NET
     PrintDebug("Virtio-NIC: virtio_rx: size: %d\n", size);	
     v3_hexdump(buf, size, NULL, 0);
 #endif
@@ -604,6 +613,11 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
 
     v3_unlock_irqrestore(virtio->rx_lock, flags);
 
+    /* notify guest if guest is running */
+    if(virtio->mode == GUEST_DRIVERN){
+	v3_interrupt_cpu(virtio->virtio_dev->vm, virtio->virtio_dev->vm->cores[0].cpu_id, 0);
+    }
+
     return 0;
 
 err_exit:
@@ -636,7 +650,7 @@ static struct v3_device_ops dev_ops = {
 };
 
 
-static void virtio_nic_poll(struct v3_vm_info * vm, void * data){
+static void virtio_nic_poll(struct v3_vm_info * vm, int budget, void * data){
     struct virtio_net_state * virtio = (struct virtio_net_state *)data;
 	
     handle_pkt_tx(&(vm->cores[0]), virtio);
@@ -714,6 +728,49 @@ static int register_dev(struct virtio_dev_state * virtio,
     return 0;
 }
 
+/* Timer Functions */
+static void virtio_nic_timer(struct guest_info * core, 
+			     uint64_t cpu_cycles, uint64_t cpu_freq, 
+			     void * priv_data) {
+    struct virtio_net_state * net_state = (struct virtio_net_state *)priv_data;
+    uint64_t period_ms;
+    uint32_t pkts_tx=0, pkts_rx=0;
+    uint32_t tx_rate, rx_rate;
+
+    period_ms = (1000*cpu_cycles/cpu_freq);
+
+    if(period_ms > 100){
+	V3_Print("Virtio NIC timer: last tx %d, last rx: %d\n", pkts_tx, pkts_rx);
+
+	pkts_tx = net_state->statistics.tx_pkts - net_state->tx_pkts;
+	pkts_rx = net_state->statistics.rx_pkts - net_state->rx_pkts;
+	net_state->tx_pkts = net_state->statistics.tx_pkts;
+	net_state->rx_pkts = net_state->statistics.rx_pkts;
+
+       tx_rate = pkts_tx/period_ms;  /* pkts/per ms */
+	rx_rate = pkts_rx/period_ms;
+
+	if(tx_rate > 100 && net_state->mode == GUEST_DRIVERN){
+	    V3_Print("Virtio NIC: Switch to VMM driven mode\n");
+	    disable_cb(&(net_state->tx_vq));
+	    net_state->mode = VMM_DRIVERN;
+	}
+
+	if(tx_rate < 10 && net_state->mode == VMM_DRIVERN){
+	    V3_Print("Virtio NIC: Switch to Guest  driven mode\n");
+	    enable_cb(&(net_state->tx_vq));
+	    net_state->mode = GUEST_DRIVERN;
+	}
+    }
+	
+    return;
+}
+
+static struct v3_timer_ops timer_ops = {
+    .update_timer = virtio_nic_timer,
+};
+
+
 static int connect_fn(struct v3_vm_info * info, 
 		      void * frontend_data, 
 		      struct v3_dev_net_ops * ops, 
@@ -728,7 +785,8 @@ static int connect_fn(struct v3_vm_info * info,
     net_state->net_ops = ops;
     net_state->backend_data = private_data;
     net_state->virtio_dev = virtio;
-	
+
+    net_state->timer = v3_add_timer(&(info->cores[0]),&timer_ops,net_state);
 
     ops->recv = virtio_rx;
     ops->poll = virtio_nic_poll;
@@ -758,6 +816,12 @@ static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     if (macstr != NULL && !str2mac(macstr, virtio_state->mac)) {
 	PrintDebug("Virtio NIC: Mac specified %s\n", macstr);
+	PrintDebug("MAC: %x:%x:%x:%x:%x:%x\n", virtio_state->mac[0],
+				virtio_state->mac[1],
+				virtio_state->mac[2],
+				virtio_state->mac[3],
+				virtio_state->mac[4],
+				virtio_state->mac[5]);
     }else {
     	PrintDebug("Virtio NIC: MAC not specified\n");
 	random_ethaddr(virtio_state->mac);

@@ -79,10 +79,11 @@ static int virtio_input(struct v3_vm_info * info,
 
 /* poll data from front-end */
 static void virtio_poll(struct v3_vm_info * info, 
+			int budget,
 			void * private_data){
     struct vnet_nic_state *vnetnic = (struct vnet_nic_state *)private_data;
 
-    vnetnic->net_ops.poll(info, vnetnic->net_ops.frontend_data);
+    vnetnic->net_ops.poll(info, budget, vnetnic->net_ops.frontend_data);
 }
 
 
