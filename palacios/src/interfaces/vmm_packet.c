@@ -17,11 +17,11 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#include <interfaces/vmm.h>
+#include <palacios/vmm.h>
 #include <palacios/vmm_debug.h>
 #include <palacios/vmm_types.h>
 #include <palacios/vm_guest.h>
-#include <palacios/vmm_packet.h>
+#include <interfaces/vmm_packet.h>
 
 static struct v3_packet_hooks * packet_hooks = 0;
 
