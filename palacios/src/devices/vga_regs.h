@@ -858,4 +858,40 @@ typedef uint8_t vga_dac_pixel_mask_reg;
 // This is red, green, blue
 typedef uint32_t vga_palette_reg; 
 
+
+//
+//  What attribute bytes mean in text mode
+//
+struct vga_attribute_byte {
+    union {
+	uint8_t val;
+	struct {
+	    union {
+		uint8_t fore:3;
+		struct { 
+		    uint8_t fore_red:1;
+		    uint8_t fore_green:1;
+		    uint8_t fore_blue:1;
+		} __attribute__((packed));
+	    } __attribute__((packed));
+	    uint8_t foreground_intensity_or_font_select:1; // depends on char map select reg
+	    // character map selection is effected
+	    // when memory_mode.extended meomory=1
+	    // and the two character map enteries on character_map_select are 
+	    // different
+	    union {
+		uint8_t back:3;
+		struct { 
+		    uint8_t back_red:1;
+		    uint8_t back_green:1;
+		    uint8_t back_blue:1;
+		} __attribute__((packed));
+	    } __attribute__((packed));
+	    uint8_t blinking_or_bg_intensity:1; 
+	    // attribute mode control.enableblink = 1 => blink
+	    // =0 => intensity (16 colors of bg)
+	} __attribute__((packed));
+    } __attribute__((packed));
+} __attribute__((packed));
+
 #endif
