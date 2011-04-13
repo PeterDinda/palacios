@@ -374,8 +374,6 @@ int v3_stop_vm(struct v3_vm_info * vm) {
  	    break;
 	}
 
- 	V3_Print("Yielding\n");
-
 	v3_yield(NULL);
     }
     
