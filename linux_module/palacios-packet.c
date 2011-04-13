@@ -15,7 +15,7 @@
 #include <linux/errno.h>
 #include <asm/msr.h>
  
-#include <palacios/vmm_packet.h>
+#include <interfaces/vmm_packet.h>
 #include <palacios/vmm_host_events.h>
 #include <palacios/vmm_vnet.h>
 #include <palacios/vmm_ethernet.h>

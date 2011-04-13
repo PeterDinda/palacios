@@ -1,0 +1,53 @@
+menu "Host Interfaces"
+
+config FILE
+        bool "Host Support for file operations"
+        default n
+        help
+          Select this if your host OS supports file operatoins and you want Palacios to be able to use them.
+	
+config KEYED_STREAMS
+        bool "Host support for keyed streams"
+        default n
+        help
+          Select this if your host OS supports keyed streams
+          Palacios Checkpoint/Restore and Migration depends on this feature
+
+config STREAM
+	bool "Stream support"
+	default n
+
+          
+config CONSOLE
+	bool "Host Support for VM text-mode console"
+        default n
+        help
+          Select this if you want to forward a guest console interface to some host OS service
+          This is for a TEXT MODE console.   Select the framebuffer console for graphics and text
+            
+config GRAPHICS_CONSOLE
+        bool "Host Support for VM graphics and text-mode console based on a frame buffer"
+        default n
+	help
+          Select this if you want to forward a guest graphics-mode (and text-mode) console
+          interface to some host OS service.  This is for a GRAPHICS console based on a shared frame buffer.
+          Text mode output is RENDERED onto the framebuffer
+
+config SOCKET
+        bool "Host support for Network Sockets"
+        default y
+        help
+          Select this if you host OS implements a socket API that is available to Palacios. This is required
+          to support the internal networking features of Palacios.
+
+
+config PACKET
+        bool "Host support for Raw Packet Transmision"
+        depends on EXPERIMENTAL
+        default n
+        help
+      	  Select this if you host OS implements a raw packet network API that is available to Palacios. This is required
+          to support the internal networking features of Palacios.
+
+
+endmenu

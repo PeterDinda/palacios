@@ -21,7 +21,7 @@
 /* Interface between virtual video card and console */
 
 #include <palacios/vmm.h>
-#include <palacios/vmm_console.h>
+#include <interfaces/vmm_console.h>
 #include <palacios/vmm_dev_mgr.h>
 #include <palacios/vmm_sprintf.h>
 #include <palacios/vmm_host_events.h>

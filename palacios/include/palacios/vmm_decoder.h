@@ -43,9 +43,9 @@ struct x86_operand {
     addr_t operand;
     uint_t size;
     v3_operand_type_t type;
-    uint8_t read : 1;
-    uint8_t write : 1;
-};
+    uint8_t read : 1;   // This operand value will be read by the instruction
+    uint8_t write : 1;  // This operand value will be written to by the instruction
+} __attribute__((packed));
 
 struct x86_prefixes {
     uint_t lock   : 1;  // 0xF0

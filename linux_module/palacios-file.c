@@ -11,7 +11,7 @@
 
 #include "palacios.h"
 
-#include <palacios/vmm_file.h>
+#include <interfaces/vmm_file.h>
 
 static struct list_head global_files;
 

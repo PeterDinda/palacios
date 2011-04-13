@@ -313,6 +313,8 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
     xed_decoded_inst_t xed_instr;
     xed_error_enum_t xed_error;
 
+    memset(instr, 0, sizeof(struct x86_instr));
+
 
     v3_get_prefixes((uchar_t *)instr_ptr, &(instr->prefixes));
 
@@ -402,18 +404,6 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 
 	v3_op = &(instr->dst_operand);
 
-	if ((op->_rw == XED_OPERAND_ACTION_RW) || 
-	    (op->_rw == XED_OPERAND_ACTION_R)|| 
-	    (op->_rw == XED_OPERAND_ACTION_RCW)) {
-	    v3_op->read = 1;
-	}
-
-	if ((op->_rw == XED_OPERAND_ACTION_RW) || 
-	    (op->_rw == XED_OPERAND_ACTION_W) || 
-	    (op->_rw == XED_OPERAND_ACTION_CRW)) {
-	    v3_op->write = 1;
-	}
-
 	if (xed_operand_is_register(op_enum)) {
 	    xed_reg_enum_t xed_reg =  xed_decoded_inst_get_reg(&xed_instr, op_enum);
 	    int v3_reg_type = xed_reg_to_v3_reg(info, 
@@ -461,6 +451,18 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 		    return -1;
 	    }
 	}
+
+	V3_Print("Operand 0 mode: %s\n", xed_operand_action_enum_t2str(xed_operand_rw(op)));
+
+
+	if (xed_operand_read(op)) {
+	    v3_op->read = 1;
+	}
+
+	if (xed_operand_written(op)) {
+	    v3_op->write = 1;
+	}
+
     }
 
     // set second operand
@@ -480,17 +482,6 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 	*/
 	v3_op = &(instr->src_operand);
 
-	if ((op->_rw == XED_OPERAND_ACTION_RW) || 
-	    (op->_rw == XED_OPERAND_ACTION_R)|| 
-	    (op->_rw == XED_OPERAND_ACTION_RCW)) {
-	    v3_op->read = 1;
-	}
-
-	if ((op->_rw == XED_OPERAND_ACTION_RW) || 
-	    (op->_rw == XED_OPERAND_ACTION_W) || 
-	    (op->_rw == XED_OPERAND_ACTION_CRW)) {
-	    v3_op->write = 1;
-	}
 
 	if (xed_operand_is_register(op_enum)) {
 	    xed_reg_enum_t xed_reg =  xed_decoded_inst_get_reg(&xed_instr, op_enum);
@@ -550,6 +541,17 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 		    return -1;
 	    }
 	}
+
+	V3_Print("Operand 1 mode: %s\n", xed_operand_action_enum_t2str(xed_operand_rw(op)));
+
+	if (xed_operand_read(op)) {
+	    v3_op->read = 1;
+	}
+
+	if (xed_operand_written(op)) {
+	    v3_op->write = 1;
+	}
+
     }
 
     // set third operand
@@ -558,17 +560,7 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 	xed_operand_type_enum_t op_type = xed_operand_type(op);
 	xed_operand_enum_t op_enum = xed_operand_name(op);
 
-	if ((op->_rw == XED_OPERAND_ACTION_RW) || 
-	    (op->_rw == XED_OPERAND_ACTION_R)|| 
-	    (op->_rw == XED_OPERAND_ACTION_RCW)) {
-	    instr->third_operand.read = 1;
-	}
 
-	if ((op->_rw == XED_OPERAND_ACTION_RW) || 
-	    (op->_rw == XED_OPERAND_ACTION_W) || 
-	    (op->_rw == XED_OPERAND_ACTION_CRW)) {
-	    instr->third_operand.write = 1;
-	}
 
 	if (xed_operand_is_register(op_enum)) {
 	    xed_reg_enum_t xed_reg =  xed_decoded_inst_get_reg(&xed_instr, op_enum);
@@ -588,6 +580,17 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 
 
 	    instr->third_operand.type = REG_OPERAND;
+
+	    PrintDebug("Operand 3 mode: %s\n", xed_operand_action_enum_t2str(xed_operand_rw(op)));
+
+
+	    if (xed_operand_read(op)) {
+		instr->third_operand.read = 1;
+	    }
+
+	    if (xed_operand_written(op)) {
+		instr->third_operand.write = 1;
+	    }
 
 	} else {
 	    PrintError("Unhandled third operand type %s\n", xed_operand_type_enum_t2str(op_type));

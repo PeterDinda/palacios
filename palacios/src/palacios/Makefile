@@ -68,13 +68,8 @@ obj-$(CONFIG_VMX) +=  	vmx.o \
 
 obj-$(CONFIG_INSTRUMENT_VMM) += vmm_instrument.o
 obj-$(CONFIG_TELEMETRY) += vmm_telemetry.o 
-obj-$(CONFIG_SOCKET) +=  vmm_socket.o
-obj-$(CONFIG_PACKET) +=  vmm_packet.o
+
 obj-$(CONFIG_VNET) += vmm_vnet_core.o
-obj-$(CONFIG_FILE) += vmm_file.o
-obj-$(CONFIG_CONSOLE) += vmm_console.o vmm_stream.o
-obj-$(CONFIG_GRAPHICS_CONSOLE) += vmm_graphics_console.o
-obj-$(CONFIG_KEYED_STREAMS) += vmm_keyed_stream.o
 
 
 obj-$(CONFIG_SYMBIOTIC) += vmm_symbiotic.o vmm_symspy.o

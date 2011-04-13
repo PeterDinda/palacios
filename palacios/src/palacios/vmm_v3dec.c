@@ -27,7 +27,7 @@
 
 
 #define MASK(val, length) ({						\
-            ullong_t mask = 0x0LL;					\
+            uint64_t mask = 0x0LL;					\
             switch (length) {						\
 		case 1:							\
 		    mask = 0x00000000000000ffLL;			\
@@ -102,7 +102,6 @@ int v3_decode(struct guest_info * core, addr_t instr_ptr, struct x86_instr * ins
 
     form = op_code_to_form((uint8_t *)(instr_ptr + length), &length);
 
-
     V3_Print("\t decoded as (%s)\n", op_form_to_str(form));
 
     if (form == INVALID_INSTR) {
@@ -119,10 +118,8 @@ int v3_decode(struct guest_info * core, addr_t instr_ptr, struct x86_instr * ins
 	return -1;
     }
     length += ret;
-    
 
     instr->instr_length += length;
-
 
     v3_print_instr(instr);
 
@@ -264,6 +261,56 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 
 	    break;
 	}
+	case MOVSX_8:
+	case MOVZX_8: {
+	    uint8_t reg_code = 0;
+
+	    ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->src_operand), &reg_code);
+	    instr->src_operand.size = 1;
+
+	    if (ret == -1) {
+		PrintError("Error decoding operand\n");
+		return -1;
+	    }
+
+	    instr_ptr += ret;
+
+	    instr->dst_operand.size = operand_width;
+	    instr->dst_operand.type = REG_OPERAND;
+	    decode_gpr(core, reg_code, &(instr->dst_operand));
+
+	    instr->src_operand.read = 1;
+	    instr->dst_operand.write = 1;
+
+	    instr->num_operands = 2;
+
+	    break;
+	}
+	case MOVSX:
+	case MOVZX: {
+	    uint8_t reg_code = 0;
+
+	    ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->src_operand), &reg_code);
+	    instr->src_operand.size = 2;
+
+	    if (ret == -1) {
+		PrintError("Error decoding operand\n");
+		return -1;
+	    }
+
+	    instr_ptr += ret;
+
+	    instr->dst_operand.size = operand_width;
+	    instr->dst_operand.type = REG_OPERAND;
+	    decode_gpr(core, reg_code, &(instr->dst_operand));
+
+	    instr->src_operand.read = 1;
+	    instr->dst_operand.write = 1;
+
+	    instr->num_operands = 2;
+
+	    break;
+	}
 	case ADC_IMM2SX_8:
 	case ADD_IMM2SX_8:
 	case AND_IMM2SX_8:
@@ -274,7 +321,6 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 
 	    ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->dst_operand), &reg_code);
 
-
 	    if (ret == -1) {
 		PrintError("Error decoding operand\n");
 		return -1;
@@ -284,7 +330,7 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 
 	    instr->src_operand.type = IMM_OPERAND;
 	    instr->src_operand.size = operand_width;
-	    instr->src_operand.operand = *(sint8_t *)instr_ptr;  // sign extend.
+	    instr->src_operand.operand = (addr_t)MASK((sint64_t)*(sint8_t *)instr_ptr, operand_width);  // sign extend.
 
 	    instr->src_operand.read = 1;
 	    instr->dst_operand.write = 1;
@@ -324,99 +370,97 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	    instr->num_operands = 2;
 
 	    break;
+	}
+	case MOV_2CR: {
+	    uint8_t reg_code = 0;
+	    
+	    ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->src_operand),
+				    &reg_code);
 
-	    case MOV_2CR: {
-		uint8_t reg_code = 0;
-
-		ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->src_operand),
-					&reg_code);
-
-		if (ret == -1) {
-		    PrintError("Error decoding operand for (%s)\n", op_form_to_str(form));
-		    return -1;
-		}
+	    if (ret == -1) {
+		PrintError("Error decoding operand for (%s)\n", op_form_to_str(form));
+		return -1;
+	    }
 		
-		instr_ptr += ret;
+	    instr_ptr += ret;
 
-		instr->dst_operand.type = REG_OPERAND;
-		instr->dst_operand.size = operand_width;
-		decode_cr(core, reg_code, &(instr->dst_operand));
+	    instr->dst_operand.type = REG_OPERAND;
+	    instr->dst_operand.size = operand_width;
+	    decode_cr(core, reg_code, &(instr->dst_operand));
+	    
+	    instr->src_operand.read = 1;
+	    instr->dst_operand.write = 1;
 
-		instr->src_operand.read = 1;
-		instr->dst_operand.write = 1;
-
-		instr->num_operands = 2;
-		break;
+	    instr->num_operands = 2;
+	    break;
+	}
+	case MOV_CR2: {
+	    uint8_t reg_code = 0;
+	    
+	    ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->dst_operand),
+				    &reg_code);
+	    
+	    if (ret == -1) {
+		PrintError("Error decoding operand for (%s)\n", op_form_to_str(form));
+		return -1;
 	    }
-	    case MOV_CR2: {
-		uint8_t reg_code = 0;
 
-		ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->dst_operand),
-					&reg_code);
+	    instr_ptr += ret;
+	    
+	    instr->src_operand.type = REG_OPERAND;
+	    instr->src_operand.size = operand_width;
+	    decode_cr(core, reg_code, &(instr->src_operand));
 
+	    instr->src_operand.read = 1;
+	    instr->dst_operand.write = 1;
 
-		if (ret == -1) {
-		    PrintError("Error decoding operand for (%s)\n", op_form_to_str(form));
-		    return -1;
-		}
+	    instr->num_operands = 2;
+	    break;
+	}
+	case STOS:
+	case STOS_8: {
+	    instr->is_str_op = 1;
 
-		instr_ptr += ret;
-		
-		instr->src_operand.type = REG_OPERAND;
-		instr->src_operand.size = operand_width;
-		decode_cr(core, reg_code, &(instr->src_operand));
-
-		instr->src_operand.read = 1;
-		instr->dst_operand.write = 1;
-
-		instr->num_operands = 2;
-		break;
+	    if (instr->prefixes.rep == 1) {
+		instr->str_op_length = MASK(core->vm_regs.rcx, operand_width);
+	    } else {
+		instr->str_op_length = 1;
 	    }
-	    case STOS:
-	    case STOS_8: {
-		instr->is_str_op = 1;
-		
-		if (instr->prefixes.rep == 1) {
-		    instr->str_op_length = MASK(core->vm_regs.rcx, operand_width);
-		} else {
-		    instr->str_op_length = 1;
-		}
-		
-		instr->src_operand.size = operand_width;
-		instr->src_operand.type = REG_OPERAND;
-		instr->src_operand.operand = (addr_t)&(core->vm_regs.rax);
 
-		instr->dst_operand.type = MEM_OPERAND;
-		instr->dst_operand.size = operand_width;
-		instr->dst_operand.operand = get_addr_linear(core, MASK(core->vm_regs.rdi, addr_width), &(core->segments.es));
+	    instr->src_operand.size = operand_width;
+	    instr->src_operand.type = REG_OPERAND;
+	    instr->src_operand.operand = (addr_t)&(core->vm_regs.rax);
 
-		instr->src_operand.read = 1;
-		instr->dst_operand.write = 1;
+	    instr->dst_operand.type = MEM_OPERAND;
+	    instr->dst_operand.size = operand_width;
+	    instr->dst_operand.operand = get_addr_linear(core, MASK(core->vm_regs.rdi, addr_width), &(core->segments.es));
 
-		instr->num_operands = 2;
+	    instr->src_operand.read = 1;
+	    instr->dst_operand.write = 1;
 
-		break;
+	    instr->num_operands = 2;
+
+	    break;
+	}
+	case INVLPG: {
+	    uint8_t reg_code = 0;
+	    
+	    ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->dst_operand), &reg_code);
+	    
+	    if (ret == -1) {
+		PrintError("Error decoding operand for (%s)\n", op_form_to_str(form));
+		return -1;
 	    }
-	    case INVLPG: {
-		uint8_t reg_code = 0;
-
-		ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->dst_operand), &reg_code);
-
-		if (ret == -1) {
-		    PrintError("Error decoding operand for (%s)\n", op_form_to_str(form));
-		    return -1;
-		}
-
-		instr_ptr += ret;
-
-		instr->num_operands = 1;
-		break;
-	    }
-	    case CLTS: {
-		// no operands. 
-		break;
-
-	    }
+	    
+	    instr_ptr += ret;
+	    
+	    instr->num_operands = 1;
+	    break;
+	}
+	case CLTS: {
+	    // no operands. 
+	    break;
+	    
 	}
 	default:
 	    PrintError("Invalid Instruction form: %s\n", op_form_to_str(form));

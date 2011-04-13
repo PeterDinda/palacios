@@ -16,7 +16,8 @@
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
-#include <palacios/vmm.h>
+
+#include <interfaces/vmm.h>
 #include <palacios/vmm_debug.h>
 #include <palacios/vmm_types.h>
 #include <palacios/vm_guest.h>
