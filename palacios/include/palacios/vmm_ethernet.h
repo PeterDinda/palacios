@@ -31,18 +31,16 @@
 #include <palacios/vmm.h>
 
 struct nic_statistics {
-    uint64_t tx_pkts;
+    uint32_t tx_pkts;
     uint64_t tx_bytes;
-    uint64_t tx_dropped;
+    uint32_t tx_dropped;
 	
-    uint64_t rx_pkts;
+    uint32_t rx_pkts;
     uint64_t rx_bytes;
-    uint64_t rx_dropped;
+    uint32_t rx_dropped;
 
     uint32_t interrupts;
 };
-
-typedef enum {VMM_DRIVERN = 1, GUEST_DRIVERN} nic_poll_type_t;
     
 static inline int is_multicast_ethaddr(const uint8_t * addr)
 {

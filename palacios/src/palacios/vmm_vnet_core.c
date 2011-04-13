@@ -46,7 +46,6 @@ struct vnet_dev {
     void * private_data;
 
     int active;
-    nic_poll_type_t mode;  /*vmm_drivern or guest_drivern */
 
     uint64_t bytes_tx, bytes_rx;
     uint32_t pkts_tx, pkt_rx;
@@ -60,7 +59,7 @@ struct vnet_brg_dev {
     struct v3_vnet_bridge_ops brg_ops;
 
     uint8_t type;
-    nic_poll_type_t mode;
+
     int active;
     void * private_data;
 } __attribute__((packed));
@@ -307,8 +306,8 @@ static struct route_list * match_route(const struct v3_vnet_pkt * pkt) {
     int max_rank = 0;
     struct list_head match_list;
     struct eth_hdr * hdr = (struct eth_hdr *)(pkt->data);
- //   uint8_t src_type = pkt->src_type;
- //   uint32_t src_link = pkt->src_id;
+//    uint8_t src_type = pkt->src_type;
+  //  uint32_t src_link = pkt->src_id;
 
 #ifdef CONFIG_DEBUG_VNET
     {
@@ -437,7 +436,6 @@ int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data) {
        PrintDebug("VNET/P Core: cpu %d: pkt (size %d, src_id:%d, src_type: %d, dst_id: %d, dst_type: %d)\n",
 		  cpu, pkt->size, pkt->src_id, 
 		  pkt->src_type, pkt->dst_id, pkt->dst_type);
-       //v3_hexdump(pkt->data, pkt->size, NULL, 0);
    }
 #endif
 
@@ -524,7 +522,6 @@ int v3_vnet_add_dev(struct v3_vm_info * vm, uint8_t * mac,
     new_dev->vm = vm;
     new_dev->dev_id = 0;
     new_dev->active = 1;
-    new_dev->mode = GUEST_DRIVERN;
 
     flags = v3_lock_irqsave(vnet_state.lock);
 
@@ -633,7 +630,6 @@ int v3_vnet_add_bridge(struct v3_vm_info * vm,
     tmp_bridge->brg_ops.poll = ops->poll;
     tmp_bridge->private_data = priv_data;
     tmp_bridge->active = 1;
-    tmp_bridge->mode = GUEST_DRIVERN;
     tmp_bridge->type = type;
 	
     /* make this atomic to avoid possible race conditions */
@@ -646,15 +642,15 @@ int v3_vnet_add_bridge(struct v3_vm_info * vm,
 
 
 void v3_vnet_do_poll(struct v3_vm_info * vm){
-    struct vnet_dev * dev = NULL; 
+    struct vnet_dev * dev = NULL;
 
     /* TODO: run this on separate threads
       * round-robin schedule, with maximal budget for each poll
       */
     list_for_each_entry(dev, &(vnet_state.devs), node) {
-	if(dev->mode == VMM_DRIVERN){
-    	    dev->dev_ops.poll(vm, -1, dev->private_data);
-       }
+    	    if(dev->dev_ops.poll != NULL){
+		dev->dev_ops.poll(vm, -1, dev->private_data);
+    	    }
     }
 }
 

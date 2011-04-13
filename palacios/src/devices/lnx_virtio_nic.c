@@ -58,8 +58,8 @@ struct virtio_net_hdr_mrg_rxbuf {
 };
 
 	
-#define TX_QUEUE_SIZE 64
-#define RX_QUEUE_SIZE 1024
+#define TX_QUEUE_SIZE 256
+#define RX_QUEUE_SIZE 4096
 #define CTRL_QUEUE_SIZE 64
 
 #define VIRTIO_NET_F_MRG_RXBUF	15	/* Host can merge receive buffers. */
@@ -104,14 +104,14 @@ struct virtio_net_state {
     struct v3_dev_net_ops * net_ops;
     v3_lock_t rx_lock, tx_lock;
 
-    nic_poll_type_t mode;
+    uint8_t tx_notify, rx_notify;
     uint32_t tx_pkts, rx_pkts;
+    uint64_t past_ms;
 
     void * backend_data;
     struct virtio_dev_state * virtio_dev;
     struct list_head dev_link;
 };
-
 
 static int virtio_init_state(struct virtio_net_state * virtio) 
 {
@@ -614,7 +614,7 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
     v3_unlock_irqrestore(virtio->rx_lock, flags);
 
     /* notify guest if guest is running */
-    if(virtio->mode == GUEST_DRIVERN){
+    if(virtio->rx_notify == 1){
 	v3_interrupt_cpu(virtio->virtio_dev->vm, virtio->virtio_dev->vm->cores[0].cpu_id, 0);
     }
 
@@ -652,8 +652,10 @@ static struct v3_device_ops dev_ops = {
 
 static void virtio_nic_poll(struct v3_vm_info * vm, int budget, void * data){
     struct virtio_net_state * virtio = (struct virtio_net_state *)data;
-	
-    handle_pkt_tx(&(vm->cores[0]), virtio);
+
+    if(virtio->tx_notify == 0){
+    	handle_pkt_tx(&(vm->cores[0]), virtio);
+    }
 }
 
 static int register_dev(struct virtio_dev_state * virtio, 
@@ -728,43 +730,55 @@ static int register_dev(struct virtio_dev_state * virtio,
     return 0;
 }
 
+#define RATE_UPPER_THRESHOLD 10  /* 10000 pkts per second, around 100Mbits */
+#define RATE_LOWER_THRESHOLD 1
+#define PROFILE_PERIOD 50 /*50ms*/
+
 /* Timer Functions */
 static void virtio_nic_timer(struct guest_info * core, 
 			     uint64_t cpu_cycles, uint64_t cpu_freq, 
 			     void * priv_data) {
     struct virtio_net_state * net_state = (struct virtio_net_state *)priv_data;
     uint64_t period_ms;
-    uint32_t pkts_tx=0, pkts_rx=0;
-    uint32_t tx_rate, rx_rate;
 
-    period_ms = (1000*cpu_cycles/cpu_freq);
+    period_ms = cpu_cycles/cpu_freq;
+    net_state->past_ms += period_ms;
 
-    if(period_ms > 100){
-	V3_Print("Virtio NIC timer: last tx %d, last rx: %d\n", pkts_tx, pkts_rx);
+    if(net_state->past_ms >  PROFILE_PERIOD){ 
+	uint32_t tx_rate, rx_rate;
+	
+	tx_rate = (net_state->statistics.tx_pkts - net_state->tx_pkts)/net_state->past_ms; /* pkts/per ms */
+	rx_rate = (net_state->statistics.rx_pkts - net_state->rx_pkts)/net_state->past_ms;
 
-	pkts_tx = net_state->statistics.tx_pkts - net_state->tx_pkts;
-	pkts_rx = net_state->statistics.rx_pkts - net_state->rx_pkts;
 	net_state->tx_pkts = net_state->statistics.tx_pkts;
 	net_state->rx_pkts = net_state->statistics.rx_pkts;
 
-       tx_rate = pkts_tx/period_ms;  /* pkts/per ms */
-	rx_rate = pkts_rx/period_ms;
-
-	if(tx_rate > 100 && net_state->mode == GUEST_DRIVERN){
-	    V3_Print("Virtio NIC: Switch to VMM driven mode\n");
+	if(tx_rate > RATE_UPPER_THRESHOLD && net_state->tx_notify == 1){
+	    V3_Print("Virtio NIC: Switch TX to VMM driven mode\n");
 	    disable_cb(&(net_state->tx_vq));
-	    net_state->mode = VMM_DRIVERN;
+	    net_state->tx_notify = 0;
 	}
 
-	if(tx_rate < 10 && net_state->mode == VMM_DRIVERN){
-	    V3_Print("Virtio NIC: Switch to Guest  driven mode\n");
+	if(tx_rate < RATE_LOWER_THRESHOLD && net_state->tx_notify == 0){
+	    V3_Print("Virtio NIC: Switch TX to Guest  driven mode\n");
 	    enable_cb(&(net_state->tx_vq));
-	    net_state->mode = GUEST_DRIVERN;
+	    net_state->tx_notify = 1;
 	}
+
+	if(rx_rate > RATE_UPPER_THRESHOLD && net_state->rx_notify == 1){
+	    PrintDebug("Virtio NIC: Switch RX to VMM None notify mode\n");
+	    net_state->rx_notify = 0;
+	}
+
+	if(rx_rate < RATE_LOWER_THRESHOLD && net_state->rx_notify == 0){
+	    PrintDebug("Virtio NIC: Switch RX to VMM notify mode\n");
+	    net_state->rx_notify = 1;
+	}
+
+	net_state->past_ms = 0;
     }
-	
-    return;
 }
+
 
 static struct v3_timer_ops timer_ops = {
     .update_timer = virtio_nic_timer,
@@ -785,6 +799,8 @@ static int connect_fn(struct v3_vm_info * info,
     net_state->net_ops = ops;
     net_state->backend_data = private_data;
     net_state->virtio_dev = virtio;
+    net_state->tx_notify = 1;
+    net_state->rx_notify = 1;
 
     net_state->timer = v3_add_timer(&(info->cores[0]),&timer_ops,net_state);
 
@@ -800,7 +816,9 @@ static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vm_device * pci_bus = v3_find_dev(vm, v3_cfg_val(cfg, "bus"));
     struct virtio_dev_state * virtio_state = NULL;
     char * dev_id = v3_cfg_val(cfg, "ID");
-    char * macstr = v3_cfg_val(cfg, "mac");
+    char macstr[128];
+    char * str = v3_cfg_val(cfg, "mac");
+    memcpy(macstr, str, strlen(str));
 
     if (pci_bus == NULL) {
 	PrintError("Virtio NIC: VirtIO devices require a PCI Bus");
