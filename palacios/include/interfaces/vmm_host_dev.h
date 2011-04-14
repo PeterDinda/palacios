@@ -74,7 +74,7 @@ typedef void * v3_guest_dev_t;
 
 
 /* There is a notion of a bus class to which the device is attached */
-typedef enum { DIRECT, PCI } v3_bus_class_t;
+typedef enum { V3_BUS_CLASS_DIRECT, V3_BUS_CLASS_PCI } v3_bus_class_t;
 
 #ifdef __V3VEE__
 
@@ -82,10 +82,12 @@ v3_host_dev_t v3_host_dev_open(char *impl,
 			       v3_bus_class_t bus,
 			       v3_guest_dev_t gdev); 
 
-uin64_t v3_host_dev_read_io(v3_host_dev_t hostdev, 
-			    uint16_t      port,
-			    void          *dest
-			    uint64_t      len);
+int v3_host_dev_close(v3_host_dev_t hdev);
+    
+uint64_t v3_host_dev_read_io(v3_host_dev_t hostdev,  
+			     uint16_t      port,
+			     void          *dest,
+			     uint64_t      len);
 
 uint64_t v3_host_dev_write_io(v3_host_dev_t hostdev, 
 			      uint16_t      port,
@@ -102,13 +104,15 @@ uint64_t v3_host_dev_write_mem(v3_host_dev_t hostdev,
 			       void          *src,
 			       uint64_t      len);
 
-int v3_host_dev_ack_irq(v3_host_dev_t hostdev, uint32_t irq);
+int v3_host_dev_ack_irq(v3_host_dev_t hostdev, uint8_t irq);
 
 uint64_t v3_host_dev_config_read(v3_host_dev_t hostdev, 
+				 uint64_t      offset,
 				 void          *dest,
 				 uint64_t      len);
 
 uint64_t v3_host_dev_config_write(v3_host_dev_t hostdev, 
+				 uint64_t      offset,
 				  void          *src,
 				  uint64_t      len);
  
@@ -124,6 +128,8 @@ struct v3_host_dev_hooks {
     v3_host_dev_t (*open)(char *impl, 
 			  v3_bus_class_t bus,
 			  v3_guest_dev_t gdev);
+
+    int (*close)(v3_host_dev_t hdev);
     
     // Read/Write from/to an IO port. The read must either
     // completely succeed, returning len or completely
@@ -131,7 +137,7 @@ struct v3_host_dev_hooks {
     // Callee gets the host dev id and the port in the guest
     uint64_t (*read_io)(v3_host_dev_t hostdev, 
 			uint16_t      port,
-			void          *dest
+			void          *dest,
 			uint64_t      len);
 
     uint64_t (*write_io)(v3_host_dev_t hostdev, 
@@ -153,15 +159,11 @@ struct v3_host_dev_hooks {
 			  void          *src,
 			  uint64_t      len);
     
-    // Palacis will call this when it has taken posession of the 
-    // IRQ ad wants the host device to lower it
-    // This interface is unclear 
+    //
+    // Palacios or the guest device will call this
+    // function when it has injected the irq
+    // requested by the guest
     // 
-    // One potential use would be to allow for a palacios
-    // side device to raise the irq asynchronously from
-    // the host device.  If this is permitted, then we
-    // need a way of informing the host device that the
-    // irq has actually been signalled.
     int (*ack_irq)(v3_host_dev_t hostdev, uint8_t irq);
 
     // Configuration space reads/writes for devices that
@@ -175,11 +177,17 @@ struct v3_host_dev_hooks {
     // config space info.   However, a read will return
     // the host device's config, while a write will affect
     // both the palacios-internal config and the hsot device's config
-    uint64_t (*config_read)(v3_host_dev_t hostdev, 
+    //
+    // for V3_BUS_CLASS_PCI they correspond to PCI config space (e.g., BARS, etc)
+    // reads and writes
+    //
+    uint64_t (*read_config)(v3_host_dev_t hostdev, 
+			    uint64_t      offset,
 			    void          *dest,
 			    uint64_t      len);
-
-    uint64_t (*config_write)(v3_host_dev_t hostdev, 
+    
+    uint64_t (*write_config)(v3_host_dev_t hostdev,
+			     uint64_t      offset,
 			     void          *src,
 			     uint64_t      len);
  
