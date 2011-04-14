@@ -472,7 +472,8 @@ static void nvram_update_timer(struct guest_info *vm,
     uint64_t period_us;
 
     
-    period_us = (1000000*cpu_cycles/cpu_freq);
+    // cpu_freq is in kHz
+    period_us = (1000000*cpu_cycles/(cpu_freq*1000));
 
     update_time(nvram_state,period_us);
 
