@@ -7,11 +7,10 @@
  * and the University of New Mexico.  You can find out more at 
  * http://www.v3vee.org
  *
- * Copyright (c) 2008, Jack Lange <jarusl@cs.northwestern.edu> 
- * Copyright (c) 2008, The V3VEE Project <http://www.v3vee.org> 
+ * Copyright (c) 2011, Jack Lange <jacklange@cs.pitt.edu> 
  * All rights reserved.
  *
- * Author: Jack Lange <jarusl@cs.northwestern.edu>
+ * Author: Jack Lange <jacklange@cs.pitt.edu>
  *
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
@@ -22,10 +21,28 @@
 #include <palacios/vmm_lowlevel.h>
 #include <palacios/vm_guest.h>
 
+struct masked_cpuid {
+    uint32_t rax_mask;
+    uint32_t rbx_mask;
+    uint32_t rcx_mask;
+    uint32_t rdx_mask;
+
+    uint32_t rax;
+    uint32_t rbx;
+    uint32_t rcx;
+    uint32_t rdx;
+};
+
 
 void v3_init_cpuid_map(struct v3_vm_info * vm) {
     vm->cpuid_map.map.rb_node = NULL;
+
+    // Setup default cpuid entries
+
 }
+
+
+
 
 int v3_deinit_cpuid_map(struct v3_vm_info * vm) {
     struct rb_node * node = v3_rb_first(&(vm->cpuid_map.map));
@@ -103,6 +120,105 @@ static struct v3_cpuid_hook * get_cpuid_hook(struct v3_vm_info * vm, uint32_t cp
   return NULL;
 }
 
+
+
+static int mask_hook(struct guest_info * core, uint32_t cpuid, 
+	      uint32_t * eax, uint32_t * ebx, 
+	      uint32_t * ecx, uint32_t * edx,
+	      void * priv_data) {
+    struct masked_cpuid * mask = (struct masked_cpuid *)priv_data;
+
+    v3_cpuid(cpuid, eax, ebx, ecx, edx);
+
+    *eax &= ~(mask->rax_mask);
+    *eax |= mask->rax;
+
+    *ebx &= ~(mask->rbx_mask);
+    *ebx |= mask->rbx;
+
+    *ecx &= ~(mask->rcx_mask);
+    *ecx |= mask->rcx;
+
+    *edx &= ~(mask->rdx_mask);
+    *edx |= mask->rdx;
+
+    return 0;
+}
+
+int v3_cpuid_add_fields(struct v3_vm_info * vm, uint32_t cpuid, 
+			uint32_t rax_mask, uint32_t rax,
+			uint32_t rbx_mask, uint32_t rbx, 
+			uint32_t rcx_mask, uint32_t rcx, 
+			uint32_t rdx_mask, uint32_t rdx) {
+    struct v3_cpuid_hook * hook = get_cpuid_hook(vm, cpuid);
+
+    if (hook == NULL) {
+	struct masked_cpuid * mask = V3_Malloc(sizeof(struct masked_cpuid));
+	memset(mask, 0, sizeof(struct masked_cpuid));
+	
+	mask->rax_mask = rax_mask;
+	mask->rax = rax;
+	mask->rbx_mask = rbx_mask;
+	mask->rbx = rbx;
+	mask->rcx_mask = rcx_mask;
+	mask->rcx = rcx;
+	mask->rdx_mask = rdx_mask;
+	mask->rdx = rdx;
+
+	if (v3_hook_cpuid(vm, cpuid, mask_hook, mask) == -1) {
+	    PrintError("Error hooking cpuid %d\n", cpuid);
+	    return -1;
+	}
+    } else {
+	struct masked_cpuid * mask = NULL;
+	uint32_t tmp_val = 0;
+
+	if (hook->hook_fn != mask_hook) {
+	    PrintError("trying to add fields to a fully hooked cpuid (%d)\n", cpuid);
+	    return -1;
+	}
+	
+	mask = (struct masked_cpuid *)(hook->private_data);
+
+	if ((mask->rax_mask & rax_mask) ||
+	    (mask->rbx_mask & rbx_mask) || 
+	    (mask->rcx_mask & rcx_mask) || 
+	    (mask->rdx_mask & rdx_mask)) {
+	    PrintError("Trying to add fields that have already been masked\n");
+	    return -1;
+	}
+
+	if ((~rax_mask & rax) || (~rbx_mask & rbx) ||
+	    (~rcx_mask & rcx) || (~rdx_mask & rdx)) {
+	    PrintError("Invalid cpuid reg value (mask overrun)\n");
+	    return -1;
+	}
+
+	mask->rax_mask |= rax_mask;
+	mask->rbx_mask |= rbx_mask;
+	mask->rcx_mask |= rcx_mask;
+	mask->rdx_mask |= rdx_mask;
+	
+	mask->rax |= rax;
+	tmp_val = (~rax_mask | rax);
+	mask->rax &= tmp_val;
+
+	mask->rbx |= rbx;
+	tmp_val = (~rbx_mask | rbx);
+	mask->rbx &= tmp_val;
+
+	mask->rcx |= rcx;
+	tmp_val = (~rcx_mask | rcx);
+	mask->rcx &= tmp_val;
+
+	mask->rdx |= rdx;
+	tmp_val = (~rdx_mask | rdx);
+	mask->rdx &= tmp_val;
+
+    }
+
+    return 0;
+}
 
 int v3_unhook_cpuid(struct v3_vm_info * vm, uint32_t cpuid) {
     struct v3_cpuid_hook * hook = get_cpuid_hook(vm, cpuid);
@@ -185,3 +301,8 @@ int v3_handle_cpuid(struct guest_info * info) {
 
     return 0;
 }
+
+
+
+
+
