@@ -88,7 +88,13 @@ int v3_init_ext_manager(struct v3_vm_info * vm) {
 }
 
 
-int v3_deinit_ext_manager(struct v3_vm_info * vm);
+int v3_deinit_ext_manager(struct v3_vm_info * vm)  {
+
+	PrintError("I should really do something here... \n");
+	return -1;
+}
+
+
 
 int v3_add_extension(struct v3_vm_info * vm, const char * name, v3_cfg_tree_t * cfg) {
     struct v3_extension_impl * impl = NULL;
