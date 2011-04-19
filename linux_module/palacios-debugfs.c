@@ -8,7 +8,7 @@
 #include <linux/debugfs.h>
 #include <linux/uaccess.h>
 
-#include <palacios/vmm_inspector.h>
+#include <interfaces/inspector.h>
 
 #include "palacios.h"
 
