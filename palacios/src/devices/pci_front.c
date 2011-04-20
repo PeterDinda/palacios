@@ -791,7 +791,7 @@ static int pci_front_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg)
 	return -1;
     }
     
-    if (!(state->host_dev=v3_host_dev_open(url,V3_BUS_CLASS_PCI,dev))) { 
+    if (!(state->host_dev=v3_host_dev_open(url,V3_BUS_CLASS_PCI,dev,vm))) { 
 	PrintError("pci_front (%s): unable to attach to host device %s\n",state->name, url);
 	v3_remove_device(dev);
 	return -1;
