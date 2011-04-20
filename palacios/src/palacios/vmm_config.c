@@ -410,6 +410,11 @@ static int post_config_core(struct guest_info * info, v3_cfg_tree_t * cfg) {
 
     info->core_run_state = CORE_STOPPED;
  
+    if (v3_init_core_extensions(info) == -1) {
+        PrintError("Error intializing extension core states\n");
+        return -1;
+    }
+
     if (info->vm_info->vm_class == V3_PC_VM) {
 	if (post_config_pc_core(info, cfg) == -1) {
 	    PrintError("PC Post configuration failure\n");
@@ -549,6 +554,7 @@ int v3_free_config(struct v3_vm_info * vm) {
     V3_Free(vm->cfg_data);
     return 0;
 }
+
 
 
 

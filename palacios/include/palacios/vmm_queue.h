@@ -28,30 +28,26 @@
 #include <palacios/vmm_lock.h>
 
 
-/* IMPORTANT:
- * This implementation currently does no locking, and as such is not 
- * SMP/thread/interrupt safe
- */
 
 
-struct queue_entry {
+struct v3_queue_entry {
     addr_t entry;
     struct list_head entry_list;
 };
 
 
-struct gen_queue {
+struct v3_queue {
     uint_t num_entries;
     struct list_head entries;
     v3_lock_t lock;
 };
 
 
-struct gen_queue * v3_create_queue();
-void v3_init_queue(struct gen_queue * queue);
+struct v3_queue * v3_create_queue();
+void v3_init_queue(struct v3_queue * queue);
 
-void v3_enqueue(struct gen_queue * queue, addr_t entry);
-addr_t v3_dequeue(struct gen_queue * queue);
+void v3_enqueue(struct v3_queue * queue, addr_t entry);
+addr_t v3_dequeue(struct v3_queue * queue);
 
 
 
