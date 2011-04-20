@@ -39,7 +39,6 @@ obj-y := \
 	vmm_multitree.o \
 
 
-obj-$(CONFIG_INSPECTOR) += vmm_inspector.o
 
 
 obj-$(CONFIG_XED) +=	vmm_xed.o

@@ -23,7 +23,7 @@
 
 #define MAKE_1OP_8FLAGS_INST(iname) static inline void iname##8(addr_t * dst,  addr_t * flags) { \
 	/* Some of the flags values are not copied out in a pushf, we save them here */ \
-	addr_t flags_rsvd = *flags & ~0xfffe7fff;			\
+	addr_t flags_rsvd = *flags & ~0xfffc7fff;			\
 									\
 	asm volatile (							\
 		      "pushf; "						\
@@ -42,7 +42,7 @@
 
 #define MAKE_1OP_16FLAGS_INST(iname) static inline void iname##16(addr_t * dst,  addr_t * flags) { \
 	/* Some of the flags values are not copied out in a pushf, we save them here */ \
-	addr_t flags_rsvd = *flags & ~0xfffe7fff;			\
+	addr_t flags_rsvd = *flags & ~0xfffc7fff;			\
 									\
 	asm volatile (							\
 		      "pushf; "						\
@@ -61,7 +61,7 @@
 
 #define MAKE_1OP_32FLAGS_INST(iname) static inline void iname##32(addr_t * dst,  addr_t * flags) { \
 	/* Some of the flags values are not copied out in a pushf, we save them here */ \
-	addr_t flags_rsvd = *flags & ~0xfffe7fff;			\
+	addr_t flags_rsvd = *flags & ~0xfffc7fff;			\
 									\
 	asm volatile (							\
 		      "pushf; "						\
@@ -80,7 +80,7 @@
 
 #define MAKE_1OP_64FLAGS_INST(iname) static inline void iname##64(addr_t * dst,  addr_t * flags) { \
 	/* Some of the flags values are not copied out in a pushf, we save them here */ \
-	addr_t flags_rsvd = *flags & ~0xfffe7fff;			\
+	addr_t flags_rsvd = *flags & ~0xfffc7fff;			\
 									\
 	asm volatile (							\
 		      "pushfq; "					\
@@ -134,7 +134,7 @@
 
 #define MAKE_2OP_64FLAGS_INST(iname) static inline void iname##64(addr_t * dst, addr_t * src, addr_t * flags) { \
 	/* Some of the flags values are not copied out in a pushf, we save them here */ \
-	addr_t flags_rsvd = *flags & ~0xfffe7fff;			\
+	addr_t flags_rsvd = *flags & ~0xfffc7fff;			\
 									\
 	asm volatile (							\
 		      "pushfq\r\n"					\
@@ -156,7 +156,7 @@
 
 #define MAKE_2OP_32FLAGS_INST(iname) static inline void iname##32(addr_t * dst, addr_t * src, addr_t * flags) { \
 	/* Some of the flags values are not copied out in a pushf, we save them here */ \
-	addr_t flags_rsvd = *flags & ~0xfffe7fff;			\
+	addr_t flags_rsvd = *flags & ~0xfffc7fff;			\
 									\
 	asm volatile (							\
 		      "pushf; "						\
@@ -175,7 +175,7 @@
 
 #define MAKE_2OP_16FLAGS_INST(iname) static inline void iname##16(addr_t * dst, addr_t * src, addr_t * flags) { \
 	/* Some of the flags values are not copied out in a pushf, we save them here */ \
-	addr_t flags_rsvd = *flags & ~0xfffe7fff;			\
+	addr_t flags_rsvd = *flags & ~0xfffc7fff;			\
 									\
 	asm volatile (							\
 		      "pushf; "						\
@@ -193,7 +193,7 @@
 
 #define MAKE_2OP_8FLAGS_INST(iname) static inline void iname##8(addr_t * dst, addr_t * src, addr_t * flags) { \
 	/* Some of the flags values are not copied out in a pushf, we save them here */ \
-	addr_t flags_rsvd = *flags & ~0xfffe7fff;			\
+	addr_t flags_rsvd = *flags & ~0xfffc7fff;			\
 									\
 	asm volatile (							\
 		      "pushf; "						\
@@ -217,7 +217,7 @@
 								addr_t * src, \
 								addr_t * ecx, addr_t * flags) { \
 	/* Some of the flags values are not copied out in a pushf, we save them here */ \
-	addr_t flags_rsvd = *flags & ~0xfffe7fff;			\
+	addr_t flags_rsvd = *flags & ~0xfffc7fff;			\
 									\
 	asm volatile (							\
 		      "pushfq; "					\
@@ -239,7 +239,7 @@
 								addr_t * src, \
 								addr_t * ecx, addr_t * flags) { \
 	/* Some of the flags values are not copied out in a pushf, we save them here */ \
-	addr_t flags_rsvd = *flags & ~0xfffe7fff;			\
+	addr_t flags_rsvd = *flags & ~0xfffc7fff;			\
 									\
 	asm volatile (							\
 		      "pushf; "						\
@@ -260,7 +260,7 @@
 								addr_t * src, \
 								addr_t * ecx, addr_t * flags) { \
 	/* Some of the flags values are not copied out in a pushf, we save them here */ \
-	addr_t flags_rsvd = *flags & ~0xfffe7fff;			\
+	addr_t flags_rsvd = *flags & ~0xfffc7fff;			\
 									\
 	asm volatile (							\
 		      "pushf; "						\
@@ -283,7 +283,7 @@
 							      addr_t * src, \
 							      addr_t * ecx, addr_t * flags) { \
 	/* Some of the flags values are not copied out in a pushf, we save them here */ \
-	addr_t flags_rsvd = *flags & ~0xfffe7fff;			\
+	addr_t flags_rsvd = *flags & ~0xfffc7fff;			\
 									\
 	asm volatile (							\
 		      "pushf; "						\
@@ -307,7 +307,7 @@
 								addr_t * src, \
 								addr_t * ecx, addr_t * flags) { \
 	/* Some of the flags values are not copied out in a pushf, we save them here */ \
-	addr_t flags_rsvd = *flags & ~0xfffe7fff;			\
+	addr_t flags_rsvd = *flags & ~0xfffc7fff;			\
 									\
 	asm volatile (							\
 		      "pushfq; "					\
@@ -330,7 +330,7 @@
 								addr_t * src, \
 								addr_t * ecx, addr_t * flags) { \
 	/* Some of the flags values are not copied out in a pushf, we save them here */ \
-	addr_t flags_rsvd = *flags & ~0xfffe7fff;			\
+	addr_t flags_rsvd = *flags & ~0xfffc7fff;			\
 									\
 	asm volatile (							\
 		      "pushf; "						\
@@ -351,7 +351,7 @@
 								addr_t * src, \
 								addr_t * ecx, addr_t * flags) { \
 	/* Some of the flags values are not copied out in a pushf, we save them here */ \
-	addr_t flags_rsvd = *flags & ~0xfffe7fff;			\
+	addr_t flags_rsvd = *flags & ~0xfffc7fff;			\
 									\
 	asm volatile (							\
 		      "pushf; "						\
@@ -374,7 +374,7 @@
 							      addr_t * src, \
 							      addr_t * ecx, addr_t * flags) { \
 	/* Some of the flags values are not copied out in a pushf, we save them here */ \
-	addr_t flags_rsvd = *flags & ~0xfffe7fff;			\
+	addr_t flags_rsvd = *flags & ~0xfffc7fff;			\
 									\
 	asm volatile (							\
 		      "pushf; "						\
