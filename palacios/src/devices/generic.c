@@ -677,7 +677,7 @@ static int generic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	    v3_remove_device(dev);
 	    return -1;
 	} else {
-	    state->host_dev = v3_host_dev_open(host_dev,V3_BUS_CLASS_DIRECT,dev);
+	    state->host_dev = v3_host_dev_open(host_dev,V3_BUS_CLASS_DIRECT,dev,vm);
 	    if (!(state->host_dev)) { 
 		PrintError("generic (%s): unable to open host device \"%s\"\n", state->name,host_dev);
 		v3_remove_device(dev);

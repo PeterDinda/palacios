@@ -29,12 +29,13 @@ struct v3_host_dev_hooks * host_dev_hooks = 0;
 
 v3_host_dev_t v3_host_dev_open(char *impl,
 			       v3_bus_class_t bus,
-			       v3_guest_dev_t gdev)
+			       v3_guest_dev_t gdev,
+			       struct v3_vm_info *vm)
 {					       
     V3_ASSERT(host_dev_hooks != NULL);
     V3_ASSERT(host_dev_hooks->open != NULL);
 
-    return host_dev_hooks->open(impl,bus,gdev);
+    return host_dev_hooks->open(impl,bus,gdev,vm->host_priv_data);
 }
 
 int v3_host_dev_close(v3_host_dev_t hdev) 
