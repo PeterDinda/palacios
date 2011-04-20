@@ -23,7 +23,6 @@
 
 #include <palacios/vmm.h>
 
-
 /*
 
   The purpose of this interface is to make it possible to implement
@@ -109,13 +108,13 @@ uint64_t v3_host_dev_write_mem(v3_host_dev_t hostdev,
 
 int v3_host_dev_ack_irq(v3_host_dev_t hostdev, uint8_t irq);
 
-uint64_t v3_host_dev_config_read(v3_host_dev_t hostdev, 
+uint64_t v3_host_dev_read_config(v3_host_dev_t hostdev, 
 				 uint64_t      offset,
 				 void          *dest,
 				 uint64_t      len);
 
-uint64_t v3_host_dev_config_write(v3_host_dev_t hostdev, 
-				 uint64_t      offset,
+uint64_t v3_host_dev_write_config(v3_host_dev_t hostdev, 
+				  uint64_t      offset,
 				  void          *src,
 				  uint64_t      len);
  
@@ -155,12 +154,12 @@ struct v3_host_dev_hooks {
     // fail, returning != len
     // Callee gets the host dev id, and the guest physical address
     uint64_t (*read_mem)(v3_host_dev_t hostdev, 
-			 addr_t        gpa,
+			 void *        gpa,
 			 void          *dest,
 			 uint64_t      len);
     
     uint64_t (*write_mem)(v3_host_dev_t hostdev, 
-			  addr_t        gpa,
+			  void *        gpa,
 			  void          *src,
 			  uint64_t      len);
     
@@ -210,13 +209,13 @@ int v3_host_dev_raise_irq(v3_host_dev_t hostdev,
 */
 uint64_t v3_host_dev_read_guest_mem(v3_host_dev_t  hostdev,
 				    v3_guest_dev_t guest_dev,
-				    addr_t         gpa,
+				    void *         gpa,
 				    void           *dest,
 				    uint64_t       len);
 
 uint64_t v3_host_dev_write_guest_mem(v3_host_dev_t  hostdev,
 				     v3_guest_dev_t guest_dev,
-				     addr_t         gpa,
+				     void *         gpa,
 				     void           *src,
 				     uint64_t       len);
 			      

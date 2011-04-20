@@ -151,7 +151,7 @@ static int push_config(struct pci_front_internal *state, uint8_t *config)
 
 static int pull_config(struct pci_front_internal *state, uint8_t *config)
 {
-    if (v3_host_dev_config_read(state->host_dev, 0, config, 256) != 256) { 
+    if (v3_host_dev_read_config(state->host_dev, 0, config, 256) != 256) { 
 	return -1;
     } else {
 	return 0;
@@ -625,7 +625,7 @@ static int pci_front_config_update(uint_t reg_num, void * src, uint_t length, vo
 
     PrintDebug("\n");
 
-    if (v3_host_dev_config_write(state->host_dev,
+    if (v3_host_dev_write_config(state->host_dev,
 				 pci_addr.value,
 				 src,
 				 length) != length) { 
