@@ -39,6 +39,15 @@
 
 
 
+struct vmcs_field_encoding {
+    uint8_t access_type    : 1; /*  0 = full, 1 = high, (for accessing 64 bit fields on 32bit CPU) */
+    uint16_t index         : 9;
+    uint8_t type           : 2; /* 0=ctrl, 1=read-only, 2 = guest state, 3 = host state */
+    uint8_t rsvd1          : 1; /* MBZ */
+    uint8_t width          : 2; /* 0 = 16bit, 1 = 64bit, 2 = 32bit, 3 = natural width */
+    uint32_t rsvd2         : 17;
+} __attribute__((packed));
+
 
 typedef enum {
     VMCS_GUEST_ES_SELECTOR       = 0x00000800,

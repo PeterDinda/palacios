@@ -183,13 +183,12 @@ v3_cpu_arch_t v3_get_cpu_type(int cpu_id) {
 struct v3_vm_info * v3_create_vm(void * cfg, void * priv_data, char * name) {
     struct v3_vm_info * vm = v3_config_guest(cfg, priv_data);
 
-    V3_Print("CORE 0 RIP=%p\n", (void *)(addr_t)(vm->cores[0].rip));
-
-
     if (vm == NULL) {
 	PrintError("Could not configure guest\n");
 	return NULL;
     }
+
+    V3_Print("CORE 0 RIP=%p\n", (void *)(addr_t)(vm->cores[0].rip));
 
     if (name == NULL) {
 	name = "[V3_VM]";

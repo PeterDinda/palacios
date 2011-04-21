@@ -34,6 +34,7 @@
 #include <palacios/vmx_io.h>
 #include <palacios/vmx_msr.h>
 
+#include <palacios/vmx_hw_info.h>
 
 #ifndef CONFIG_DEBUG_VMX
 #undef PrintDebug
@@ -41,8 +42,12 @@
 #endif
 
 
-static addr_t host_vmcs_ptrs[CONFIG_MAX_CPUS] = { [0 ... CONFIG_MAX_CPUS - 1] = 0};
+/* These fields contain the hardware feature sets supported by the local CPU */
+static struct vmx_hw_info hw_info;
+
+
 static addr_t active_vmcs_ptrs[CONFIG_MAX_CPUS] = { [0 ... CONFIG_MAX_CPUS - 1] = 0};
+static addr_t host_vmcs_ptrs[CONFIG_MAX_CPUS] = { [0 ... CONFIG_MAX_CPUS - 1] = 0};
 
 extern int v3_vmx_launch(struct v3_gprs * vm_regs, struct guest_info * info, struct v3_ctrl_regs * ctrl_regs);
 extern int v3_vmx_resume(struct v3_gprs * vm_regs, struct guest_info * info, struct v3_ctrl_regs * ctrl_regs);
@@ -76,7 +81,6 @@ static int inline check_vmcs_read(vmcs_field_t field, void * val) {
 
 
 static addr_t allocate_vmcs() {
-    reg_ex_t msr;
     struct vmcs_data * vmcs_page = NULL;
 
     PrintDebug("Allocating page\n");
@@ -84,10 +88,8 @@ static addr_t allocate_vmcs() {
     vmcs_page = (struct vmcs_data *)V3_VAddr(V3_AllocPages(1));
     memset(vmcs_page, 0, 4096);
 
-    v3_get_msr(VMX_BASIC_MSR, &(msr.e_reg.high), &(msr.e_reg.low));
-    
-    vmcs_page->revision = ((struct vmx_basic_msr*)&msr)->revision;
-    PrintDebug("VMX Revision: 0x%x\n",vmcs_page->revision);
+    vmcs_page->revision = hw_info.basic_info.revision;
+    PrintDebug("VMX Revision: 0x%x\n", vmcs_page->revision);
 
     return (addr_t)V3_PAddr((void *)vmcs_page);
 }
@@ -815,6 +817,12 @@ int v3_start_vmx_guest(struct guest_info * info) {
 }
 
 
+
+
+#define VMX_FEATURE_CONTROL_MSR     0x0000003a
+#define CPUID_VMX_FEATURES 0x00000005  /* LOCK and VMXON */
+#define CPUID_1_ECX_VTXFLAG 0x00000020
+
 int v3_is_vmx_capable() {
     v3_msr_t feature_msr;
     uint32_t eax = 0, ebx = 0, ecx = 0, edx = 0;
@@ -828,7 +836,7 @@ int v3_is_vmx_capable() {
 	
         PrintDebug("MSRREGlow: 0x%.8x\n", feature_msr.lo);
 
-        if ((feature_msr.lo & FEATURE_CONTROL_VALID) != FEATURE_CONTROL_VALID) {
+        if ((feature_msr.lo & CPUID_VMX_FEATURES) != CPUID_VMX_FEATURES) {
             PrintDebug("VMX is locked -- enable in the BIOS\n");
             return 0;
         }
@@ -841,88 +849,23 @@ int v3_is_vmx_capable() {
     return 1;
 }
 
-static int has_vmx_nested_paging() {
-    /* We assume that both EPT and unrestricted guest mode (Intel's Virtual Real Mode) 
-     * are mutually assured. i.e. We have either both or neither.
-     */
 
-    
 
-    return 0;
-}
 
 
 
 void v3_init_vmx_cpu(int cpu_id) {
     extern v3_cpu_arch_t v3_cpu_types[];
-    struct v3_msr tmp_msr;
-    uint64_t ret = 0;
 
-    v3_get_msr(VMX_CR4_FIXED0_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
-
-#ifdef __V3_64BIT__
-    __asm__ __volatile__ (
-			  "movq %%cr4, %%rbx;"
-			  "orq  $0x00002000, %%rbx;"
-			  "movq %%rbx, %0;"
-			  : "=m"(ret) 
-			  :
-			  : "%rbx"
-			  );
-
-    if ((~ret & tmp_msr.value) == 0) {
-        __asm__ __volatile__ (
-			      "movq %0, %%cr4;"
-			      :
-			      : "q"(ret)
-			      );
-    } else {
-        PrintError("Invalid CR4 Settings!\n");
-        return;
+    if (cpu_id == 0) {
+	if (v3_init_vmx_hw(&hw_info) == -1) {
+	    PrintError("Could not initialize VMX hardware features on cpu %d\n", cpu_id);
+	    return;
+	}
     }
 
-    __asm__ __volatile__ (
-			  "movq %%cr0, %%rbx; "
-			  "orq  $0x00000020,%%rbx; "
-			  "movq %%rbx, %%cr0;"
-			  :
-			  :
-			  : "%rbx"
-			  );
-#elif __V3_32BIT__
-    __asm__ __volatile__ (
-			  "movl %%cr4, %%ecx;"
-			  "orl  $0x00002000, %%ecx;"
-			  "movl %%ecx, %0;"
-			  : "=m"(ret) 
-			  :
-			  : "%ecx"
-			  );
 
-    if ((~ret & tmp_msr.value) == 0) {
-        __asm__ __volatile__ (
-			      "movl %0, %%cr4;"
-			      :
-			      : "q"(ret)
-			      );
-    } else {
-        PrintError("Invalid CR4 Settings!\n");
-        return;
-    }
-
-    __asm__ __volatile__ (
-			  "movl %%cr0, %%ecx; "
-			  "orl  $0x00000020,%%ecx; "
-			  "movl %%ecx, %%cr0;"
-			  :
-			  :
-			  : "%ecx"
-			  );
-
-#endif
-
-    //
-    // Should check and return Error here.... 
+    enable_vmx();
 
 
     // Setup VMXON Region
@@ -930,7 +873,7 @@ void v3_init_vmx_cpu(int cpu_id) {
 
     PrintDebug("VMXON pointer: 0x%p\n", (void *)host_vmcs_ptrs[cpu_id]);
 
-    if (v3_enable_vmx(host_vmcs_ptrs[cpu_id]) == VMX_SUCCESS) {
+    if (vmx_on(host_vmcs_ptrs[cpu_id]) == VMX_SUCCESS) {
         PrintDebug("VMX Enabled\n");
     } else {
         PrintError("VMX initialization failure\n");
@@ -938,11 +881,8 @@ void v3_init_vmx_cpu(int cpu_id) {
     }
     
 
-    if (has_vmx_nested_paging() == 1) {
-        v3_cpu_types[cpu_id] = V3_VMX_EPT_CPU;
-    } else {
-        v3_cpu_types[cpu_id] = V3_VMX_CPU;
-    }
+    v3_cpu_types[cpu_id] = V3_VMX_CPU;
+
 
 }
 

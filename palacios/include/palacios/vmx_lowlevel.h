@@ -57,24 +57,7 @@
 
 
 
-static inline int v3_enable_vmx(addr_t vmxon_ptr) {
-    uint64_t vmxon_ptr_64 __attribute__((aligned(8))) = (uint64_t)vmxon_ptr;
-    uint8_t ret_invalid = 0;
 
-    __asm__ __volatile__ (
-                VMXON_OPCODE
-                EAX_06_MODRM
-                "setnaeb %0;" // fail invalid (CF=1)
-                : "=q"(ret_invalid)
-                : "a"(&vmxon_ptr_64),"0"(ret_invalid)
-                : "memory");
-
-    if (ret_invalid) {
-        return VMX_FAIL_INVALID;
-    } else {
-        return VMX_SUCCESS;
-    }
-}
 
 static inline int vmcs_clear(addr_t vmcs_ptr) {
     uint64_t vmcs_ptr_64 __attribute__ ((aligned(8))) = (uint64_t)vmcs_ptr;
@@ -181,6 +164,26 @@ static inline int vmcs_write(vmcs_field_t vmcs_field, addr_t value) {
     return VMX_SUCCESS;
 }
 
+
+static inline int vmx_on(addr_t vmxon_ptr) {
+    uint64_t vmxon_ptr_64 __attribute__((aligned(8))) = (uint64_t)vmxon_ptr;
+    uint8_t ret_invalid = 0;
+
+    __asm__ __volatile__ (
+                VMXON_OPCODE
+                EAX_06_MODRM
+                "setnaeb %0;" // fail invalid (CF=1)
+                : "=q"(ret_invalid)
+                : "a"(&vmxon_ptr_64),"0"(ret_invalid)
+                : "memory");
+
+    if (ret_invalid) {
+        return VMX_FAIL_INVALID;
+    } else {
+        return VMX_SUCCESS;
+    }
+}
+
 static inline int vmx_off() {
     uint8_t ret_valid = 0;
     uint8_t ret_invalid = 0;
@@ -197,6 +200,57 @@ static inline int vmx_off() {
 
     return VMX_SUCCESS;
 }
+
+
+static inline int enable_vmx() {
+#ifdef __V3_64BIT__
+    __asm__ __volatile__ (
+			  "movq %%cr4, %%rbx;"
+			  "orq  $0x00002000, %%rbx;"
+			  "movq %%rbx, %%cr4;"
+			  : 
+			  :
+			  : "%rbx"
+			  );
+
+
+    __asm__ __volatile__ (
+			  "movq %%cr0, %%rbx; "
+			  "orq  $0x00000020,%%rbx; "
+			  "movq %%rbx, %%cr0;"
+			  :
+			  :
+			  : "%rbx"
+			  );
+#elif __V3_32BIT__
+    __asm__ __volatile__ (
+			  "movl %%cr4, %%ecx;"
+			  "orl  $0x00002000, %%ecx;"
+			  "movl %%ecx, %%cr4;"
+			  : 
+			  :
+			  : "%ecx"
+			  );
+
+
+
+    __asm__ __volatile__ (
+			  "movl %%cr0, %%ecx; "
+			  "orl  $0x00000020,%%ecx; "
+			  "movl %%ecx, %%cr0;"
+			  :
+			  :
+			  : "%ecx"
+			  );
+    
+#endif
+
+    return 0;
+}
+
+
+
+
 
 #endif
 
