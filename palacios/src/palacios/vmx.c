@@ -50,7 +50,7 @@ extern int v3_vmx_resume(struct v3_gprs * vm_regs, struct guest_info * info, str
 static int inline check_vmcs_write(vmcs_field_t field, addr_t val) {
     int ret = 0;
 
-    ret = vmcs_write(field,val);
+    ret = vmcs_write(field, val);
 
     if (ret != VMX_SUCCESS) {
         PrintError("VMWRITE error on %s!: %d\n", v3_vmcs_field_to_str(field), ret);
@@ -388,7 +388,7 @@ static int init_vmcs_bios(struct guest_info * info, struct vmx_data * vmx_state)
     // reenable global interrupts for vm state initialization now
     // that the vm state is initialized. If another VM kicks us off, 
     // it'll update our vmx state so that we know to reload ourself
-    v3_disable_ints();
+    v3_enable_ints();
 
     return 0;
 }
