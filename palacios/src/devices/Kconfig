@@ -43,7 +43,16 @@ config GENERIC
 	bool "Generic Device"
 	default y
 	help 
-	  Includes the Virtual Generic device
+	  Includes the virtual generic device.  This device allows you
+          to see guest I/O port and memory region interaction with a physical
+          device on the underlying hardware, as well as to ignore such
+          interaction.  The generic device also serves as a front-end
+          device for non-PCI host-based virtual device implementations.  If
+          you want to handle either host-based virtual or physical devices
+          that are not PCI devices, this is what you want.  If you want
+          to handle a host-based virtual device that is a PCI device, you  
+          want to use the PCI front-end device.  If you want to handle
+          a physical PCI device, you want the passthrough PCI device.  
 
 config DEBUG_GENERIC
 	bool "Generic device Debugging"
@@ -267,12 +276,33 @@ config PASSTHROUGH_PCI
 	help 
 	  Enables hardware devices to be passed through to the VM
 
+
 config DEBUG_PCI
 	bool "PCI debugging"
 	depends on PCI && DEBUG_ON
 	help 
 	  Enable debugging for the PCI 	
 
+
+config PCI_FRONT
+	bool "PCI front-end device"
+	default y 
+	depends on PCI && HOST_DEVICE
+	help 
+	  PCI front-end device for a host-based PCI device implementation
+          This device allows you to project a host-based *virtual* device 
+          into the guest as a PCI device.   If you want to project a 
+          physical PCI device, use Passthrough PCI instead.  If you want
+          to project a non-PCI virtual or physical device, 
+          use the generic device.
+          
+
+config DEBUG_PCI_FRONT
+	bool "PCI front-end debugging"
+	depends on PCI_FRONT && DEBUG_ON
+	help 
+	  Enable debugging for the PCI front-end device 
+          
 
 
 config PIC

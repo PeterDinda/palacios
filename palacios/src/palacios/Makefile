@@ -31,7 +31,6 @@ obj-y := \
 	vmm_binaries.o \
 	vmm_cpuid.o \
 	vmm_xml.o \
-	vmm_muxer.o \
 	vmm_mem_hook.o \
 	vmm_mptable.o \
 	vmm_extensions.o \
@@ -39,7 +38,6 @@ obj-y := \
 	vmm_multitree.o \
 
 
-obj-$(CONFIG_INSPECTOR) += vmm_inspector.o
 
 
 obj-$(CONFIG_XED) +=	vmm_xed.o

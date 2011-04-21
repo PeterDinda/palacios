@@ -45,3 +45,5 @@ obj-$(CONFIG_MCHECK) += mcheck.o
 
 obj-$(CONFIG_VGA) += vga.o
 
+obj-$(CONFIG_PCI_FRONT) += pci_front.o
+

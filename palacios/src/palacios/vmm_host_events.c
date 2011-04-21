@@ -20,7 +20,6 @@
 #include <palacios/vmm.h>
 #include <palacios/vmm_host_events.h>
 #include <palacios/vm_guest.h>
-#include <palacios/vmm_muxer.h>
 
 int v3_init_host_events(struct v3_vm_info * vm) {
     struct v3_host_events * host_evts = &(vm->host_event_hooks);
@@ -125,9 +124,6 @@ int v3_deliver_keyboard_event(struct v3_vm_info * vm,
     struct v3_host_events * host_evts = NULL;
     struct v3_host_event_hook * hook = NULL;
 
-    if (vm == NULL) {
-	vm = v3_get_foreground_vm();
-    }
 
     host_evts = &(vm->host_event_hooks);
 
@@ -150,9 +146,6 @@ int v3_deliver_mouse_event(struct v3_vm_info * vm,
     struct v3_host_events * host_evts = NULL;
     struct v3_host_event_hook * hook = NULL;
 
-    if (vm == NULL) {
-	vm = v3_get_foreground_vm();
-    }
 
     host_evts = &(vm->host_event_hooks);
 
@@ -175,9 +168,6 @@ int v3_deliver_timer_event(struct v3_vm_info * vm,
     struct v3_host_events * host_evts = NULL;
     struct v3_host_event_hook * hook = NULL;
 
-    if (vm == NULL) {
-	vm = v3_get_foreground_vm();
-    }
 
     host_evts = &(vm->host_event_hooks);
 
@@ -199,9 +189,6 @@ int v3_deliver_serial_event(struct v3_vm_info * vm,
     struct v3_host_events * host_evts = NULL;
     struct v3_host_event_hook * hook = NULL;
 
-    if (vm == NULL) {
-	vm = v3_get_foreground_vm();
-    }
 
     host_evts = &(vm->host_event_hooks);
 
@@ -225,9 +212,6 @@ int v3_deliver_console_event(struct v3_vm_info * vm,
     struct v3_host_events * host_evts = NULL;
     struct v3_host_event_hook * hook = NULL;
 
-    if (vm == NULL) {
-	vm = v3_get_foreground_vm();
-    }
 
     host_evts = &(vm->host_event_hooks);
 
@@ -250,9 +234,6 @@ int v3_deliver_packet_event(struct v3_vm_info * vm,
     struct v3_host_events * host_evts = NULL;
     struct v3_host_event_hook * hook = NULL;
 
-    if (vm == NULL) {
-	vm = v3_get_foreground_vm();
-    }
 
     host_evts = &(vm->host_event_hooks);
 

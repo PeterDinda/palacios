@@ -50,4 +50,13 @@ config PACKET
           to support the internal networking features of Palacios.
 
 
+config HOST_DEVICE
+        bool "Host device support"
+        default n
+	help
+          Select this if you want to forward a guest device to a host-based decice implementation
+          This makes it possible for virtual devices such as the generic device and the pci_front
+          device to make host-based device implementations appear within the guest
+          
+
 endmenu

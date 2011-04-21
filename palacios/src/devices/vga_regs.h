@@ -632,8 +632,7 @@ page 2-88).
 	    // 1 = odd/even addressing as in CGMA
 	    uint8_t shift_reg_mode:1;
 	    // 1 = shift regs get odd bits from odd maps and even/even
-	    uint8_t c256:1;         
-	    // 1 = 256 color mode
+	    uint8_t c256:1;         	    // 1 = 256 color mode
 	    // 0 = shift_reg_mode controls shift regs
 	    uint8_t reserved2:1; 
 	} __attribute__((packed));
@@ -713,7 +712,7 @@ struct vga_attribute_controller_address_reg {
 	uint8_t val;
 	struct {
 	    uint8_t index:5;    // actual address
-	    uint8_t internal_palette_address_srouce:1; 
+	    uint8_t internal_palette_address_source:1; 
 	    // 0 => use the internal color palette (load the regs)
 	    // 1 => use the external color palette
 	    uint8_t reserved:2; 
@@ -866,27 +865,13 @@ struct vga_attribute_byte {
     union {
 	uint8_t val;
 	struct {
-	    union {
-		uint8_t fore:3;
-		struct { 
-		    uint8_t fore_red:1;
-		    uint8_t fore_green:1;
-		    uint8_t fore_blue:1;
-		} __attribute__((packed));
-	    } __attribute__((packed));
+	    uint8_t fore:3;   //foreground color
 	    uint8_t foreground_intensity_or_font_select:1; // depends on char map select reg
 	    // character map selection is effected
 	    // when memory_mode.extended meomory=1
 	    // and the two character map enteries on character_map_select are 
 	    // different
-	    union {
-		uint8_t back:3;
-		struct { 
-		    uint8_t back_red:1;
-		    uint8_t back_green:1;
-		    uint8_t back_blue:1;
-		} __attribute__((packed));
-	    } __attribute__((packed));
+	    uint8_t back:3;   //background color
 	    uint8_t blinking_or_bg_intensity:1; 
 	    // attribute mode control.enableblink = 1 => blink
 	    // =0 => intensity (16 colors of bg)

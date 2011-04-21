@@ -18,29 +18,39 @@
  */
 
 
-#include <palacios/vmm_inspector.h>
+//#include <palacios/vmm_inspector.h>
 #include <palacios/vmm.h>
 #include <palacios/vm_guest.h>
 #include <palacios/vmm_sprintf.h>
+#include <palacios/vmm_extensions.h>
+
+#include <palacios/vmm_multitree.h>
+#include <interfaces/inspector.h>
 
 // Note that v3_inspect_node_t is actuall a struct v3_mtree
 // Its set as void for opaque portability
 
+struct v3_inspector_state {
+    struct v3_mtree state_tree;
 
-int v3_init_inspector(struct v3_vm_info * vm) {
-    struct v3_inspector_state * state = (struct v3_inspector_state *)&(vm->inspector);
+};
 
+
+static int init_inspector(struct v3_vm_info * vm, v3_cfg_tree_t * cfg, void ** priv_data) {
+    struct v3_inspector_state * state = V3_Malloc(sizeof(struct v3_inspector_state));
     memset(state, 0, sizeof(struct v3_inspector_state));
 
     strncpy(state->state_tree.name, "vm->name", 50);
     state->state_tree.subtree = 1;
 
+    *priv_data = state;
+
     return 0;
 }
 
 
-int  v3_init_inspector_core(struct guest_info * core) {
-    struct v3_inspector_state * vm_state = &(core->vm_info->inspector);
+static int init_inspector_core(struct guest_info * core, void * priv_data) {
+    struct v3_inspector_state * vm_state = priv_data;
     char core_name[50];
 
     snprintf(core_name, 50, "core.%d", core->cpu_id);
@@ -72,7 +82,7 @@ int  v3_init_inspector_core(struct guest_info * core) {
 	v3_inspect_64(cr_node, "EFER", (uint64_t *)&(core->ctrl_regs.efer));    
 
 
-	//	struct v3_mtree * seg_node = v3_mtree_create_subtree(core_node, "SEGMENTS");
+	//struct v3_mtree * seg_node = v3_mtree_create_subtree(core_node, "SEGMENTS");
 	
 
 
@@ -80,6 +90,23 @@ int  v3_init_inspector_core(struct guest_info * core) {
 
     return 0;
 }
+
+
+
+
+
+static struct v3_extension_impl inspector_impl = {
+    .name = "inspector",
+    .init = init_inspector,
+    .deinit = NULL,
+    .core_init = init_inspector_core,
+    .core_deinit = NULL,
+    .on_entry = NULL,
+    .on_exit = NULL
+};
+
+
+register_extension(&inspector_impl);
 
 
 v3_inspect_node_t * v3_inspect_add_subtree(v3_inspect_node_t * root, char * name) {
@@ -122,8 +149,6 @@ int v3_inspect_buf(v3_inspect_node_t * node, char * name,
 
 
 
-
-
 int v3_find_inspection_value(v3_inspect_node_t * node, char * name, 
 			   struct v3_inspection_value * value) {
     struct v3_mtree * mt_node = v3_mtree_find_node(node, name);
@@ -152,7 +177,13 @@ struct v3_inspection_value v3_inspection_value(v3_inspect_node_t * node) {
 
 
 v3_inspect_node_t * v3_get_inspection_root(struct v3_vm_info * vm) {
-    return &(vm->inspector.state_tree);
+    struct v3_inspector_state * inspector = v3_get_extension_state(vm, inspector_impl.name);
+
+    if (inspector == NULL) {
+	return NULL;
+    }
+
+    return &(inspector->state_tree);
 }
 
 v3_inspect_node_t * v3_get_inspection_subtree(v3_inspect_node_t * root, char * name) {
@@ -167,3 +198,7 @@ v3_inspect_node_t * v3_inspection_node_next(v3_inspect_node_t * node) {
 v3_inspect_node_t * v3_inspection_first_child(v3_inspect_node_t * root) {
     return v3_mtree_first_child(root);
 }
+
+
+
+
