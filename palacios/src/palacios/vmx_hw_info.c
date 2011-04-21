@@ -20,23 +20,64 @@
 #include <palacios/vmm.h>
 #include <palacios/vmm_lowlevel.h>
 #include <palacios/vmx_hw_info.h>
-
+#include <palacios/vmm_msr.h>
 
 // Intel VMX Feature MSRs
 
-#define VMX_BASIC_MSR               0x00000480
-#define VMX_PINBASED_CTLS_MSR       0x00000481
-#define VMX_PROCBASED_CTLS_MSR      0x00000482
-#define VMX_EXIT_CTLS_MSR           0x00000483
-#define VMX_ENTRY_CTLS_MSR          0x00000484
-#define VMX_MISC_MSR                0x00000485
-#define VMX_CR0_FIXED0_MSR          0x00000486
-#define VMX_CR0_FIXED1_MSR          0x00000487
-#define VMX_CR4_FIXED0_MSR          0x00000488
-#define VMX_CR4_FIXED1_MSR          0x00000489
-#define VMX_VMCS_ENUM_MSR           0x0000048A
 
 
+static int get_ex_ctrl_caps(struct vmx_hw_info * hw_info, struct vmx_ctrl_field * field, 
+		  uint32_t old_msr, uint32_t true_msr) {
+    uint32_t old_0;  /* Bit is 1 => MB1 */
+    uint32_t old_1;  /* Bit is 0 => MBZ */
+    uint32_t true_0; /* Bit is 1 => MB1 */
+    uint32_t true_1; /* Bit is 0 => MBZ */
+
+    v3_get_msr(old_msr, &old_1, &old_0);
+    field->def_val = old_0;
+
+    if (hw_info->basic_info.def1_maybe_0) {
+	v3_get_msr(true_msr, &true_1, &true_0);
+    } else {
+	true_0 = old_0;
+	true_1 = old_1;
+    }
+    
+    field->req_val = true_0;
+    field->req_mask = ~(true_1 ^ true_0);
+
+    return 0;
+}
+
+
+static int get_ctrl_caps(struct vmx_ctrl_field * field, uint32_t msr) {
+    uint32_t mbz = 0; /* Bit is 0 => MBZ */
+    uint32_t mb1 = 0; /* Bit is 1 => MB1 */
+    
+    v3_get_msr(msr, &mbz, &mb1);
+    
+    field->def_val = mb1;
+    field->req_val = mb1;
+    field->req_mask = ~(mbz ^ mb1);
+
+    return 0;
+}
+
+
+
+static int get_cr_fields(struct vmx_cr_field * field, uint32_t fixed_1_msr, uint32_t fixed_0_msr) {
+    struct v3_msr mbz; /* Bit is 0 => MBZ */
+    struct v3_msr mb1; /* Bit is 0 => MBZ */
+
+    v3_get_msr(fixed_1_msr, &(mbz.hi), &(mbz.lo));
+    v3_get_msr(fixed_0_msr, &(mb1.hi), &(mb1.lo));
+     
+    field->def_val = mb1.value;
+    field->req_val = mb1.value;
+    field->req_mask = ~(mbz.value ^ mb1.value);
+
+    return 0;
+}
 
 
 
@@ -48,15 +89,25 @@ int v3_init_vmx_hw(struct vmx_hw_info * hw_info) {
     memset(hw_info, 0, sizeof(struct vmx_hw_info));
 
     v3_get_msr(VMX_BASIC_MSR, &(hw_info->basic_info.hi), &(hw_info->basic_info.lo));
-    
+    v3_get_msr(VMX_MISC_MSR, &(hw_info->misc_info.hi), &(hw_info->misc_info.lo));
+    v3_get_msr(VMX_EPT_VPID_CAP_MSR, &(hw_info->ept_info.hi), &(hw_info->ept_info.lo));
 
+    PrintError("BASIC_MSR: Lo: %x, Hi: %x\n", hw_info->basic_info.lo, hw_info->basic_info.hi);
 
-    /*
-    if (has_vmx_nested_paging() == 1) {
-        v3_cpu_types[cpu_id] = V3_VMX_EPT_CPU;
-    } else {
-        v3_cpu_types[cpu_id] = V3_VMX_CPU;
+    get_ex_ctrl_caps(hw_info, &(hw_info->pin_ctrls), VMX_PINBASED_CTLS_MSR, VMX_TRUE_PINBASED_CTLS_MSR);
+    get_ex_ctrl_caps(hw_info, &(hw_info->proc_ctrls), VMX_PROCBASED_CTLS_MSR, VMX_TRUE_PROCBASED_CTLS_MSR);
+    get_ex_ctrl_caps(hw_info, &(hw_info->exit_ctrls), VMX_EXIT_CTLS_MSR, VMX_TRUE_EXIT_CTLS_MSR);
+    get_ex_ctrl_caps(hw_info, &(hw_info->entry_ctrls), VMX_ENTRY_CTLS_MSR, VMX_TRUE_ENTRY_CTLS_MSR);
+
+    /* Get secondary PROCBASED controls if secondary controls are available (optional or required) */
+    /* Intel Manual 3B. Sect. G.3.3 */
+    if ( ((hw_info->proc_ctrls.req_mask & 0x80000000) == 0) || 
+	 ((hw_info->proc_ctrls.req_val & 0x80000000) == 1) ) {
+	get_ctrl_caps(&(hw_info->proc_ctrls_2), VMX_PROCBASED_CTLS2_MSR);
     }
-    */
+    
+    get_cr_fields(&(hw_info->cr0), VMX_CR0_FIXED1_MSR, VMX_CR0_FIXED0_MSR);
+    get_cr_fields(&(hw_info->cr4), VMX_CR4_FIXED1_MSR, VMX_CR4_FIXED0_MSR);
+
     return 0;
 }
