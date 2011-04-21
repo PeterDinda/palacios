@@ -641,6 +641,13 @@ int v3_vmx_enter(struct guest_info * info) {
     // disable global interrupts for vm state transition
     v3_disable_ints();
 
+
+    if (active_vmcs_ptrs[V3_Get_CPU()] != vmx_info->vmcs_ptr_phys) {
+	vmcs_load(vmx_info->vmcs_ptr_phys);
+	active_vmcs_ptrs[V3_Get_CPU()] = vmx_info->vmcs_ptr_phys;
+    }
+
+
     v3_vmx_restore_vmcs(info);
 
 
@@ -666,10 +673,6 @@ int v3_vmx_enter(struct guest_info * info) {
     check_vmcs_write(VMCS_TSC_OFFSET_HIGH, tsc_offset_high);
     check_vmcs_write(VMCS_TSC_OFFSET, tsc_offset_low);
 
-    if (active_vmcs_ptrs[V3_Get_CPU()] != vmx_info->vmcs_ptr_phys) {
-	vmcs_load(vmx_info->vmcs_ptr_phys);
-	active_vmcs_ptrs[V3_Get_CPU()] = vmx_info->vmcs_ptr_phys;
-    }
 
     if (vmx_info->state == VMX_UNLAUNCHED) {
 	vmx_info->state = VMX_LAUNCHED;
@@ -839,6 +842,12 @@ int v3_is_vmx_capable() {
 }
 
 static int has_vmx_nested_paging() {
+    /* We assume that both EPT and unrestricted guest mode (Intel's Virtual Real Mode) 
+     * are mutually assured. i.e. We have either both or neither.
+     */
+
+    
+
     return 0;
 }
 
