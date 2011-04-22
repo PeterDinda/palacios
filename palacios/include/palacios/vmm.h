@@ -184,32 +184,14 @@ struct guest_info;
 
 #ifdef CONFIG_MULTITHREAD_OS
 
-#define V3_CREATE_THREAD(fn, arg, name)	({			\
-	void * thread = NULL;							\
-	extern struct v3_os_hooks * os_hooks;			\
-	if ((os_hooks) && (os_hooks)->start_kernel_thread) {	\
-	    thread = (os_hooks)->start_kernel_thread(fn, arg, name);	\
-	}							\
-	thread;						\
-    })
+#define V3_CREATE_THREAD(fn, arg, name)					\
+    do {								\
+	extern struct v3_os_hooks * os_hooks;				\
+	if ((os_hooks) && (os_hooks)->start_kernel_thread) {		\
+	    (os_hooks)->start_kernel_thread(fn, arg, name);		\
+	}								\
+    }
 
-
-#define V3_THREAD_SLEEP()		\
-    do{							\
-	extern struct v3_os_hooks * os_hooks;			\
-	if ((os_hooks) && (os_hooks)->kernel_thread_sleep) {	\
-	    (os_hooks)->kernel_thread_sleep();	\
-	}							\
-    }while(0)
-
-
-#define V3_THREAD_WAKEUP(thread)		\
-    do{							\
-	extern struct v3_os_hooks * os_hooks;			\
-	if ((os_hooks) && (os_hooks)->kernel_thread_wakeup) {	\
-	    (os_hooks)->kernel_thread_wakeup(thread);	\
-	}							\
-    }while(0)
 
 
 
@@ -318,9 +300,7 @@ struct v3_os_hooks {
 
 
 
-    void * (*start_kernel_thread)(int (*fn)(void * arg), void * arg, char * thread_name); 
-    void (*kernel_thread_sleep)(void);
-    void (*kernel_thread_wakeup)(void * thread);
+    void (*start_kernel_thread)(int (*fn)(void * arg), void * arg, char * thread_name); 
     void (*interrupt_cpu)(struct v3_vm_info * vm, int logical_cpu, int vector);
     void (*call_on_cpu)(int logical_cpu, void (*fn)(void * arg), void * arg);
     void * (*start_thread_on_cpu)(int cpu_id, int (*fn)(void * arg), void * arg, char * thread_name);
