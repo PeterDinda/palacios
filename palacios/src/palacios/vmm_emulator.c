@@ -314,7 +314,7 @@ static int run_str_op(struct guest_info * core, struct x86_instr * instr,
     struct rflags * flags_reg = (struct rflags *)&(core->ctrl_regs.rflags);
 
 
-    PrintError("Emulation_len=%d, tmp_rcx=%d\n", emulation_length, (uint_t)tmp_rcx);
+    PrintDebug("Emulation_len=%d, tmp_rcx=%d\n", emulation_length, (uint_t)tmp_rcx);
 
 
     if (instr->op_type == V3_OP_MOVS) {
