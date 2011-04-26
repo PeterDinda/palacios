@@ -541,6 +541,12 @@ static void print_guest_state()
     print_vmcs_field(VMCS_GUEST_CR4);
     print_vmcs_field(VMCS_GUEST_DR7);
 
+    // if save IA32_EFER
+    print_vmcs_field(VMCS_GUEST_EFER);
+#ifdef __V3_32BIT__
+    print_vmcs_field(VMCS_GUEST_EFER_HIGH);
+#endif
+
 
     PrintDebug("\n");
 
@@ -556,6 +562,14 @@ static void print_guest_state()
     print_vmcs_field(VMCS_GUEST_SYSENTER_ESP);
     print_vmcs_field(VMCS_GUEST_SYSENTER_EIP);
 
+
+    // if save IA32_PAT
+    print_vmcs_field(VMCS_GUEST_PAT);
+#ifdef __V3_32BIT__
+    print_vmcs_field(VMCS_GUEST_PAT_HIGH);
+#endif
+
+    //if load  IA32_PERF_GLOBAL_CTRL
     print_vmcs_field(VMCS_GUEST_PERF_GLOBAL_CTRL);
 #ifdef __V3_32BIT__
     print_vmcs_field(VMCS_GUEST_PERF_GLOBAL_CTRL_HIGH);
@@ -564,11 +578,16 @@ static void print_guest_state()
     print_vmcs_field(VMCS_GUEST_SMBASE);
 
 
+
+
     PrintDebug("GUEST_NON_REGISTER_STATE\n");
 
     print_vmcs_field(VMCS_GUEST_ACTIVITY_STATE);
     print_vmcs_field(VMCS_GUEST_INT_STATE);
     print_vmcs_field(VMCS_GUEST_PENDING_DBG_EXCP);
+
+    // if VMX preempt timer
+    print_vmcs_field(VMCS_PREEMPT_TIMER);
 
 }
        
@@ -582,6 +601,15 @@ static void print_host_state()
     print_vmcs_field(VMCS_HOST_CR3);
     print_vmcs_field(VMCS_HOST_CR4);
     
+
+
+    // if load IA32_EFER
+    print_vmcs_field(VMCS_HOST_EFER);
+#ifdef __V3_32BIT__
+    print_vmcs_field(VMCS_HOST_EFER_HIGH);
+#endif
+
+
     PrintDebug("\n");
     print_vmcs_field(VMCS_HOST_CS_SELECTOR);
     print_vmcs_field(VMCS_HOST_SS_SELECTOR);
@@ -603,6 +631,14 @@ static void print_host_state()
     print_vmcs_field(VMCS_HOST_SYSENTER_ESP);
     print_vmcs_field(VMCS_HOST_SYSENTER_EIP);
 
+
+    // if load IA32_PAT
+    print_vmcs_field(VMCS_HOST_PAT);
+#ifdef __V3_32BIT__
+    print_vmcs_field(VMCS_HOST_PAT_HIGH);
+#endif
+
+    // if load IA32_PERF_GLOBAL_CTRL
     print_vmcs_field(VMCS_HOST_PERF_GLOBAL_CTRL);
 #ifdef __V3_32BIT__
     print_vmcs_field(VMCS_HOST_PERF_GLOBAL_CTRL_HIGH);
@@ -614,6 +650,8 @@ static void print_exec_ctrls() {
     PrintDebug("VMCS_EXEC_CTRL_FIELDS\n");
     print_vmcs_field(VMCS_PIN_CTRLS);
     print_vmcs_field(VMCS_PROC_CTRLS);
+    
+    // if activate secondary controls
     print_vmcs_field(VMCS_SEC_PROC_CTRLS);
     
     print_vmcs_field(VMCS_EXCP_BITMAP);
@@ -648,20 +686,28 @@ static void print_exec_ctrls() {
     print_vmcs_field(VMCS_CR3_TGT_VAL_2);
     print_vmcs_field(VMCS_CR3_TGT_VAL_3);
 
+    // Check max number of CR3 targets... may continue...
+
+
     PrintDebug("\n");
 
+    // if virtualize apic accesses
     print_vmcs_field(VMCS_APIC_ACCESS_ADDR);    
 #ifdef __V3_32BIT__
     print_vmcs_field(VMCS_APIC_ACCESS_ADDR_HIGH);
 #endif
 
+    // if use tpr shadow
     print_vmcs_field(VMCS_VAPIC_ADDR);    
 #ifdef __V3_32BIT__
     print_vmcs_field(VMCS_VAPIC_ADDR_HIGH);
 #endif
 
+    // if use tpr shadow
     print_vmcs_field(VMCS_TPR_THRESHOLD);
 
+
+    // if use MSR bitmaps
     print_vmcs_field(VMCS_MSR_BITMAP);
 #ifdef __V3_32BIT__
     print_vmcs_field(VMCS_MSR_BITMAP_HIGH);
@@ -671,6 +717,50 @@ static void print_exec_ctrls() {
 #ifdef __V3_32BIT__
     print_vmcs_field(VMCS_EXEC_PTR_HIGH);
 #endif
+
+
+}
+
+static void print_ept_state() {
+    V3_Print("VMCS EPT INFO\n");
+
+    // if enable vpid
+    print_vmcs_field(VMCS_VPID);
+
+    print_vmcs_field(VMCS_EPT_PTR);
+#ifdef __V3_32BIT__
+    print_vmcs_field(VMCS_EPT_PTR_HIGH);
+#endif
+
+    print_vmcs_field(VMCS_GUEST_PHYS_ADDR);
+#ifdef __V3_32BIT__
+    print_vmcs_field(VMCS_GUEST_PHYS_ADDR_HIGH);
+#endif
+
+
+
+    print_vmcs_field(VMCS_GUEST_PDPTE0);
+#ifdef __V3_32BIT__
+    print_vmcs_field(VMCS_GUEST_PDPTE0_HIGH);
+#endif
+
+    print_vmcs_field(VMCS_GUEST_PDPTE1);
+#ifdef __V3_32BIT__
+    print_vmcs_field(VMCS_GUEST_PDPTE1_HIGH);
+#endif
+
+    print_vmcs_field(VMCS_GUEST_PDPTE2);
+#ifdef __V3_32BIT__
+    print_vmcs_field(VMCS_GUEST_PDPTE2_HIGH);
+#endif
+
+    print_vmcs_field(VMCS_GUEST_PDPTE3);
+#ifdef __V3_32BIT__
+    print_vmcs_field(VMCS_GUEST_PDPTE3_HIGH);
+#endif
+
+
+
 }
 
 
@@ -691,6 +781,11 @@ static void print_exit_ctrls() {
 #ifdef __V3_32BIT__
     print_vmcs_field(VMCS_EXIT_MSR_LOAD_ADDR_HIGH);
 #endif
+
+
+    // if pause loop exiting
+    print_vmcs_field(VMCS_PLE_GAP);
+    print_vmcs_field(VMCS_PLE_WINDOW);
 
 }
 
@@ -749,6 +844,8 @@ void v3_print_vmcs() {
 
     print_guest_state();
     print_host_state();
+
+    print_ept_state();
 
     print_exec_ctrls();
     print_exit_ctrls();
