@@ -75,7 +75,7 @@ int v3_decode(struct guest_info * core, addr_t instr_ptr, struct x86_instr * ins
     int length = 0;
 
 
-    V3_Print("Decoding Instruction at %p\n", (void *)instr_ptr);
+    PrintDebug("Decoding Instruction at %p\n", (void *)instr_ptr);
 
     memset(instr, 0, sizeof(struct x86_instr));
 
@@ -102,7 +102,7 @@ int v3_decode(struct guest_info * core, addr_t instr_ptr, struct x86_instr * ins
 
     form = op_code_to_form((uint8_t *)(instr_ptr + length), &length);
 
-    V3_Print("\t decoded as (%s)\n", op_form_to_str(form));
+    PrintDebug("\t decoded as (%s)\n", op_form_to_str(form));
 
     if (form == INVALID_INSTR) {
 	PrintError("Could not find instruction form (%x)\n", *(uint32_t *)(instr_ptr + length));
@@ -121,7 +121,9 @@ int v3_decode(struct guest_info * core, addr_t instr_ptr, struct x86_instr * ins
 
     instr->instr_length += length;
 
+#ifdef CONFIG_DEBUG_DECODER
     v3_print_instr(instr);
+#endif
 
     return 0;
 }
