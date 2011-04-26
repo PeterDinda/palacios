@@ -50,6 +50,9 @@ struct vmcs_field_encoding {
 
 
 typedef enum {
+    /* 16 bit control field */
+    VMCS_VPID                    = 0x00000000,
+    /* 16 bit guest state */
     VMCS_GUEST_ES_SELECTOR       = 0x00000800,
     VMCS_GUEST_CS_SELECTOR       = 0x00000802,
     VMCS_GUEST_SS_SELECTOR       = 0x00000804,
@@ -87,16 +90,35 @@ typedef enum {
     VMCS_VAPIC_ADDR_HIGH              = 0x00002013,
     VMCS_APIC_ACCESS_ADDR             = 0x00002014,
     VMCS_APIC_ACCESS_ADDR_HIGH        = 0x00002015,
+    VMCS_EPT_PTR                      = 0x0000201A,
+    VMCS_EPT_PTR_HIGH                 = 0x0000201B,
+    /* 64 bit read only data field */
+    VMCS_GUEST_PHYS_ADDR              = 0x00002400,
+    VMCS_GUEST_PHYS_ADDR_HIGH         = 0x00002401,
     /* 64 bit guest state fields */
     VMCS_LINK_PTR                     = 0x00002800,
     VMCS_LINK_PTR_HIGH                = 0x00002801,
-    VMCS_GUEST_DBG_CTL               = 0x00002802,
-    VMCS_GUEST_DBG_CTL_HIGH          = 0x00002803,
+    VMCS_GUEST_DBG_CTL                = 0x00002802,
+    VMCS_GUEST_DBG_CTL_HIGH           = 0x00002803,
+    VMCS_GUEST_PAT                    = 0x00002804,
+    VMCS_GUEST_PAT_HIGH               = 0x00002805,
     VMCS_GUEST_EFER                   = 0x00002806,
     VMCS_GUEST_EFER_HIGH              = 0x00002807,
     VMCS_GUEST_PERF_GLOBAL_CTRL       = 0x00002808,
     VMCS_GUEST_PERF_GLOBAL_CTRL_HIGH  = 0x00002809,
-
+    VMCS_GUEST_PDPTE0                 = 0x0000280A,
+    VMCS_GUEST_PDPTE0_HIGH            = 0x0000280B,
+    VMCS_GUEST_PDPTE1                 = 0x0000280C,
+    VMCS_GUEST_PDPTE1_HIGH            = 0x0000280D,
+    VMCS_GUEST_PDPTE2                 = 0x0000280E,
+    VMCS_GUEST_PDPTE2_HIGH            = 0x0000280F,
+    VMCS_GUEST_PDPTE3                 = 0x00002810,
+    VMCS_GUEST_PDPTE3_HIGH            = 0x00002811,
+    /* 64 bit host state fields */
+    VMCS_HOST_PAT                     = 0x00002c00,
+    VMCS_HOST_PAT_HIGH                = 0x00002c01,
+    VMCS_HOST_EFER                    = 0x00002c02,
+    VMCS_HOST_EFER_HIGH               = 0x00002c03,
     VMCS_HOST_PERF_GLOBAL_CTRL        = 0x00002c04,
     VMCS_HOST_PERF_GLOBAL_CTRL_HIGH   = 0x00002c05,
     /* 32 bit control fields */
@@ -116,6 +138,8 @@ typedef enum {
     VMCS_ENTRY_INSTR_LEN              = 0x0000401A,
     VMCS_TPR_THRESHOLD                = 0x0000401C,
     VMCS_SEC_PROC_CTRLS               = 0x0000401e,
+    VMCS_PLE_GAP                      = 0x00004020,
+    VMCS_PLE_WINDOW                   = 0x00004022,
     /* 32 bit Read Only data fields */
     VMCS_INSTR_ERR                    = 0x00004400,
     VMCS_EXIT_REASON                  = 0x00004402,
@@ -124,7 +148,7 @@ typedef enum {
     VMCS_IDT_VECTOR_INFO              = 0x00004408,
     VMCS_IDT_VECTOR_ERR               = 0x0000440A,
     VMCS_EXIT_INSTR_LEN               = 0x0000440C,
-    VMCS_EXIT_INSTR_INFO               = 0x0000440E,
+    VMCS_EXIT_INSTR_INFO              = 0x0000440E,
     /* 32 bit Guest state fields */
     VMCS_GUEST_ES_LIMIT               = 0x00004800,
     VMCS_GUEST_CS_LIMIT               = 0x00004802,
@@ -148,6 +172,7 @@ typedef enum {
     VMCS_GUEST_ACTIVITY_STATE         = 0x00004826,
     VMCS_GUEST_SMBASE                 = 0x00004828,
     VMCS_GUEST_SYSENTER_CS            = 0x0000482A,
+    VMCS_PREEMPT_TIMER                = 0x0000482E,
     /* 32 bit host state field */
     VMCS_HOST_SYSENTER_CS             = 0x00004C00,
     /* Natural Width Control Fields */
