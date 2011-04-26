@@ -26,8 +26,7 @@
 #include <util/vmm_lock.h>
 
 struct v3_barrier {
-    
-
+    uint64_t cpus;
     int active;     // If 1, barrier is active, everyone must wait 
                     // If 0, barrier is clear, can proceed
 
@@ -35,6 +34,10 @@ struct v3_barrier {
 };
 
 
+int v3_init_barrier(struct v3_barrier * barrier);
+
+int v3_activate_barrier(struct guest_info * core);
+int v3_check_barrier(struct guest_info * core);
 
 
 #endif
