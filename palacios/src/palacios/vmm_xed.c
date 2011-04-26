@@ -452,7 +452,7 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 	    }
 	}
 
-	V3_Print("Operand 0 mode: %s\n", xed_operand_action_enum_t2str(xed_operand_rw(op)));
+//	V3_Print("Operand 0 mode: %s\n", xed_operand_action_enum_t2str(xed_operand_rw(op)));
 
 
 	if (xed_operand_read(op)) {
@@ -542,7 +542,7 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 	    }
 	}
 
-	V3_Print("Operand 1 mode: %s\n", xed_operand_action_enum_t2str(xed_operand_rw(op)));
+//	V3_Print("Operand 1 mode: %s\n", xed_operand_action_enum_t2str(xed_operand_rw(op)));
 
 	if (xed_operand_read(op)) {
 	    v3_op->read = 1;
