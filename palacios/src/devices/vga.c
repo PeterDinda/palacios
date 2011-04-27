@@ -26,6 +26,16 @@
 
 #include "vga_regs.h"
 
+#ifndef CONFIG_DEBUG_VGA
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
+#endif
+
+#define DEBUG_MEM_DATA    0
+#define DEBUG_DEEP_MEM    0
+#define DEBUG_DEEP_RENDER 0
+
+
 #define MEM_REGION_START 0xa0000
 #define MEM_REGION_END   0xc0000
 #define MEM_REGION_NUM_PAGES (((MEM_REGION_END)-(MEM_REGION_START))/4096)
@@ -365,6 +375,7 @@ static void find_text_data_start(struct vga_internal *vga, void **data)
 
 }
 
+
 static void find_text_attr_start(struct vga_internal *vga, void **data)
 {
     uint32_t offset;
@@ -446,28 +457,12 @@ static int blinking(struct vga_internal *vga)
 }
 
 
-static void find_graphics_res(struct vga_internal *vga, uint32_t *width, uint32_t *height)
+static void find_graphics_data_starting_offset(struct vga_internal *vga, uint32_t *offset)
 {
-    uint32_t vert_lsb, vert_msb;
 
-    *width = ((vga->vga_crt_controller.vga_horizontal_display_enable_end + 1) 
-	      - vga->vga_crt_controller.vga_end_horizontal_blanking.display_enable_skew);
-
-    *width *= (vga->vga_sequencer.vga_clocking_mode.dot8 ? 8 : 9);
-
-    vert_lsb = vga->vga_crt_controller.vga_vertical_display_enable_end; // 8 bits here
-    vert_msb = (vga->vga_crt_controller.vga_overflow.vertical_disp_enable_end9 << 1)  // 2 bits here
-	+ (vga->vga_crt_controller.vga_overflow.vertical_disp_enable_end8);
-	       
-    *height  = ( (vert_msb << 8) + vert_lsb + 1) ; // pixels high (scanlines)
-    
-}
-
-
-static void find_graphics_cursor_pos(struct vga_internal *vga, uint32_t *x, uint32_t *y)
-{
-    // todo
-    *x=*y=0;
+    *offset = vga->vga_crt_controller.vga_start_address_high;
+    *offset <<= 8;
+    *offset += vga->vga_crt_controller.vga_start_address_low;
 }
 
 
@@ -483,6 +478,57 @@ static void find_shift_mode(struct vga_internal *vga, shift_mode_t *mode)
 	}
     }
 }
+
+
+static void find_graphics_res(struct vga_internal *vga, uint32_t *width, uint32_t *height)
+{
+    uint32_t vert_lsb, vert_msb;
+
+    *width = ((vga->vga_crt_controller.vga_horizontal_display_enable_end + 1) 
+	      - vga->vga_crt_controller.vga_end_horizontal_blanking.display_enable_skew);
+
+    *width *= (vga->vga_sequencer.vga_clocking_mode.dot8 ? 8 : 9);
+
+    vert_lsb = vga->vga_crt_controller.vga_vertical_display_enable_end; // 8 bits here
+    vert_msb = (vga->vga_crt_controller.vga_overflow.vertical_disp_enable_end9 << 1)  // 2 bits here
+	+ (vga->vga_crt_controller.vga_overflow.vertical_disp_enable_end8);
+	       
+    *height  = ( (vert_msb << 8) + vert_lsb + 1) ; // pixels high (scanlines)
+
+    // At this point we have the resolution in dot clocks across and scanlines top-to-bottom
+    // This is usually the resolution in pixels, but it can be monkeyed with
+    // at least in the following ways
+
+    // vga sequencer dot clock divide by two 
+    if (vga->vga_sequencer.vga_clocking_mode.dot_clock) { 
+	*width/=2;
+	*height/=2;
+    }
+
+    // crt_controller.max_row_scan.double_scan => each row twice for 200=>400
+    if (vga->vga_crt_controller.vga_max_row_scan.double_scan) { 
+	*height/=2;
+    }
+    
+    // crt_controller.crt_mode_control.count_by_two => pixels twice as wide as normal
+    if (vga->vga_crt_controller.vga_crt_mode_control.count_by_two) { 
+	*width /= 2;
+    }
+
+    // crt_controller.crt_mode_control.horizontal_retrace_select => pixels twice as tall as normal
+    if (vga->vga_crt_controller.vga_crt_mode_control.horizontal_retrace_select) { 
+	*height /= 2;
+    }
+    
+}
+
+
+static void find_graphics_cursor_pos(struct vga_internal *vga, uint32_t *x, uint32_t *y)
+{
+    // todo
+    *x=*y=0;
+}
+
 
 static void dac_lookup_24bit_color(struct vga_internal *vga,
 				   uint8_t entry,
@@ -589,26 +635,28 @@ static void render_graphics(struct vga_internal *vga, void *fb)
 
     find_graphics_cursor_pos(vga,&cur_x,&cur_y);
 
+    find_graphics_data_starting_offset(vga,&offset);
+
     fw = spec->width;
     fh = spec->height;
 
 
     PrintDebug("vga: attempting graphics render (%s): graphics_res=(%u,%u), fb_res=(%u,%u), "
-               "fb=0x%p (16 color mode)\n",
+               "fb=0x%p offset=0x%x\n",
 	       sm == PLANAR_SHIFT ? "planar shift" : 
 	       sm == PACKED_SHIFT ? "packed shift" : 
 	       sm == C256_SHIFT ? "color256 shift" : "UNKNOWN",
-	       gw,gh,fw,fh, fb);
+	       gw,gh,fw,fh,fb,offset);
 
     // First we need to clip to what we can actually show
     rgw = gw < fw ? gw : fw;
-    rgh = gh < fh ? gh : gw;
+    rgh = gh < fh ? gh : fh;
 
     if (gw%8) { 
 	PrintError("vga: warning: graphics width is not a multiple of 8\n");
     }
 
-    offset=0;  // do we always start at zero in the map?
+
 
     // Now we scan across by row
     for (fy=0;fy<gh;fy++) { 
@@ -616,7 +664,7 @@ static void render_graphics(struct vga_internal *vga, void *fb)
 	for (fx=0;fx<gw;
 	     fx += (sm==C256_SHIFT ? 4 : 8) , offset++ ) { 
 
-	    // if any of these pixels are in the renger region
+	    // if any of these pixels are in the rendger region
 	    if (fy < rgh && fx < rgw) {
 		// assemble all 4 or 8 pixels
 		
@@ -630,10 +678,10 @@ static void render_graphics(struct vga_internal *vga, void *fb)
 		    case PLANAR_SHIFT:
 			for (p=0;p<8;p++) { 
 			    pb[p]= 
-				( db[0] >> 7)  |
-				( db[1] >> 6)  |
-				( db[2] >> 5)  |
-				( db[3] >> 4) ;
+				(( db[0] >> 7) & 0x1) |
+				(( db[1] >> 6) & 0x2) |
+				(( db[2] >> 5) & 0x4) |
+				(( db[3] >> 4) & 0x8) ;
 			    
 			    for (m=0;m<4;m++) { 
 				db[m] <<= 1;
@@ -645,8 +693,8 @@ static void render_graphics(struct vga_internal *vga, void *fb)
 			// first 4 pixels use planes 0 and 2
 			for (p=0;p<4;p++) { 
 			    pb[p] = 
-				( db[2] >> 4) |
-				( db[0] >> 6) ;
+				((db[2] >> 4) & 0xc) |
+				((db[0] >> 6) & 0x3) ;
 			    db[2] <<= 2;
 			    db[0] <<= 2;
 			}
@@ -655,8 +703,8 @@ static void render_graphics(struct vga_internal *vga, void *fb)
 			// next 4 pixels use planes 1 and 3
 			for (p=4;p<8;p++) { 
 			    pb[p] = 
-				( db[3] >> 4) |
-				( db[1] >> 6) ;
+				((db[3] >> 4) & 0xc) |
+				((db[1] >> 6) & 0x3) ;
 			    db[3] <<= 2;
 			    db[1] <<= 2;
 			}
@@ -674,7 +722,7 @@ static void render_graphics(struct vga_internal *vga, void *fb)
 		for (p=0;p< (sm==C256_SHIFT ? 4 : 8);p++) { 
 		    
 		    // find its color
-		    find_24bit_color(vga,db[p],&r,&g,&b);
+		    find_24bit_color(vga,pb[p],&r,&g,&b);
 		
 		    // find its position in the framebuffer;
 		    pixel =  fb + (((fx + p) + (fy*spec->width)) * spec->bytes_per_pixel);
@@ -909,6 +957,15 @@ static void render_test(struct vga_internal *vga, void *fb)
     }
 }
 
+static void render_black(struct vga_internal *vga, void *fb)
+{
+    struct v3_frame_buffer_spec *s;
+
+    s=&(vga->target_spec);
+
+    memset(fb,0,s->height*s->width*s->bytes_per_pixel);
+}
+
 static void render_maps(struct vga_internal *vga, void *fb)
 {
 
@@ -956,15 +1013,20 @@ static int render(struct vga_internal *vga)
 
 	fb = v3_graphics_console_get_frame_buffer_data_rw(vga->host_cons,&(vga->target_spec));
 
-	if (vga->vga_graphics_controller.vga_misc.graphics_mode) { 
-	    render_graphics(vga,fb);
+	if (!(vga->vga_sequencer.vga_clocking_mode.screen_off)) {
+	    if (vga->vga_attribute_controller.vga_attribute_mode_control.graphics) { 
+		render_graphics(vga,fb);
+	    } else {
+		render_text(vga,fb);
+		render_text_cursor(vga,fb);
+	    }
 	} else {
-	    render_text(vga,fb);
-	    render_text_cursor(vga,fb);
+	    render_black(vga,fb);
 	}
 
 	if (0) { render_test(vga,fb); }
 
+	// always render maps for now 
 	render_maps(vga,fb);
 
 	v3_graphics_console_release_frame_buffer_data_rw(vga->host_cons);
@@ -1065,7 +1127,7 @@ static int vga_write(struct guest_info * core,
 	memcpy(V3_VAddr((void*)guest_addr),src,length);
     }
     
-#if 0
+#if DEBUG_MEM_DATA
     int i;
     PrintDebug("vga: data written was 0x");
     for (i=0;i<length;i++) {
@@ -1107,7 +1169,9 @@ static int vga_write(struct guest_info * core,
 	    
 	    offset = find_offset_write(vga, guest_addr);
 
+#if DEBUG_DEEP_MEM
 	    PrintDebug("vga: mode 0 write, offset=0x%llx, ror=%u, func=%u\n", offset,ror,func);
+#endif
 
 	    for (i=0;i<length;i++,offset+=find_increment_write(vga,guest_addr+i)) { 
 		// now for each map
@@ -1116,20 +1180,35 @@ static int vga_write(struct guest_info * core,
 		uint8_t bm = vga->vga_graphics_controller.vga_bit_mask;
 		uint8_t mm = find_map_write(vga,guest_addr+i);
 
-		//PrintDebug("vga: write i=%u, mm=0x%x, offset=0x%x\n",i,(unsigned int)mm,(unsigned int)offset);
+#if DEBUG_DEEP_MEM
+		PrintDebug("vga: write i=%u, mm=0x%x, bm=0x%x sr=0x%x esr=0x%x offset=0x%x\n",i,(unsigned int)mm,(unsigned int)bm, (unsigned int)sr, (unsigned int)esr,(unsigned int)offset);
+#endif
 
-		for (mapnum=0;mapnum<4;mapnum++, sr>>=1, esr>>=1, bm>>=1, mm>>=1) { 
+		for (mapnum=0;mapnum<4;mapnum++, sr>>=1, esr>>=1, mm>>=1) { 
 		    vga_map map = vga->map[mapnum];
 		    uint8_t data = ((uint8_t *)src)[i];
 		    uint8_t latchval = vga->latch[mapnum];
-			
+		    
+#if DEBUG_DEEP_MEM
+		    PrintDebug("vga: raw data=0x%x\n",data);
+#endif
 		    // rotate data right
-		    data = (data>>ror) | data<<(8-ror);
-
-		    // use SR bit if ESR is on for this map
-		    if (esr & 0x1) { 
-			data = (uint8_t)((((sint8_t)(sr&0x1))<<7)>>7);  // expand sr bit
+		    if (ror) { 
+			data = (data>>ror) | data<<(8-ror);
 		    }
+		    
+#if DEBUG_DEEP_MEM
+		    PrintDebug("vga: data after ror=0x%x\n",data);
+#endif
+		    // use SR bit if ESR is on for this map
+		    if (esr & 0x1) {
+			data = (sr&0x1) * -1;
+			
+		    }
+		    
+#if DEBUG_DEEP_MEM
+		    PrintDebug("vga: data after esrr=0x%x\n",data);
+#endif
 		    
 		    // Apply function
 		    switch (func) { 
@@ -1145,19 +1224,26 @@ static int vga_write(struct guest_info * core,
 			    data ^= latchval;
 			    break;
 		    }
-			    
-		    // mux between latch and alu output
-		    if (bm & 0x1) { 
-			// use alu output, which is in data
-		    } else {
-			// use latch value
-			data=latchval;
-		    }
+		    
+#if DEBUG_DEEP_MEM
+		    PrintDebug("vga: data after func=0x%x\n",data);
+#endif
+		    
+		    // mux between the data byte and the latch byte on
+		    // a per-bit basis
+		    data = (bm & data) | ((~bm) & latchval);
+		    
+
+#if DEBUG_DEEP_MEM
+		    PrintDebug("vga: data after bm mux=0x%x\n",data);
+#endif
 		    
 		    // selective write
 		    if (mm & 0x1) { 
 			// write to this map
-			//PrintDebug("vga: write map %u offset 0x%p map=0x%p pointer=0x%p\n",mapnum,(void*)offset,map,&(map[offset]));
+#if DEBUG_DEEP_MEM
+			PrintDebug("vga: write map %u offset 0x%p map=0x%p pointer=0x%p\n",mapnum,(void*)offset,map,&(map[offset]));
+#endif
 			map[offset] = data;
 		    } else {
 			// skip this map
@@ -1180,7 +1266,9 @@ static int vga_write(struct guest_info * core,
 
 	    uint64_t offset = find_offset_write(vga,guest_addr);
 
+#if DEBUG_DEEP_MEM
 	    PrintDebug("vga: mode 1 write, offset=0x%llx\n", offset);
+#endif
 
 	    for (i=0;i<length;i++,offset+=find_increment_write(vga,guest_addr+i)) { 
 
@@ -1221,7 +1309,9 @@ static int vga_write(struct guest_info * core,
 	    
 	    offset = find_offset_write(vga, guest_addr);
 
+#if DEBUG_DEEP_MEM
 	    PrintDebug("vga: mode 2 write, offset=0x%llx, func=%u\n", offset,func);
+#endif
 
 	    for (i=0;i<length;i++,offset+=find_increment_write(vga,guest_addr+i)) { 
 		// now for each map
@@ -1234,9 +1324,9 @@ static int vga_write(struct guest_info * core,
 		    uint8_t latchval = vga->latch[mapnum];
 			
 		    // expand relevant bit to 8 bit
-		    // it's basically esr=1, sr=bit from write
-		    data = (uint8_t)(((sint8_t)(((data>>mapnum)&0x1)<<7))>>7);
-		    
+		    // it's basically esr=1, sr=bit from mode 0 write
+		    data = ((data>>mapnum)&0x1) * -1;
+			
 		    // Apply function
 		    switch (func) { 
 			case 0: // NOP
@@ -1251,14 +1341,9 @@ static int vga_write(struct guest_info * core,
 			    data ^= latchval;
 			    break;
 		    }
-			    
+
 		    // mux between latch and alu output
-		    if (bm & 0x1) { 
-			// use alu output, which is in data
-		    } else {
-			// use latch value
-			data=latchval;
-		    }
+		    data = (bm & data) | ((~bm) & latchval);
 		    
 		    // selective write
 		    if (mm & 0x1) { 
@@ -1298,7 +1383,9 @@ static int vga_write(struct guest_info * core,
 		// now for each map
 		uint8_t data = ((uint8_t *)src)[i];
 
-		data = (data>>ror) | data<<(8-ror);
+		if (ror) {
+		    data = (data>>ror) | data<<(8-ror);
+		}
 
 		uint8_t bm = vga->vga_graphics_controller.vga_bit_mask & data;
 		uint8_t sr = vga->vga_graphics_controller.vga_set_reset.val & 0xf;
@@ -1308,16 +1395,11 @@ static int vga_write(struct guest_info * core,
 		    vga_map map = vga->map[mapnum];
 		    uint8_t latchval = vga->latch[mapnum];
 			
-		    data = (uint8_t)((((sint8_t)(sr&0x1))<<7)>>7);  // expand sr bit
-		    
-		    
+		    // expand SR bit
+		    data = (sr&0x1) * -1;
+
 		    // mux between latch and alu output
-		    if (bm & 0x1) { 
-			// use alu output, which is in data
-		    } else {
-			// use latch value
-			data=latchval;
-		    }
+		    data = (bm & data) | ((~bm) & latchval);
 		    
 		    // selective write
 		    if (mm & 0x1) { 
@@ -1403,7 +1485,15 @@ static int vga_read(struct guest_info * core,
 		// address bytes select the map
 		for (i=0;i<length;i++,offset+=find_increment_read(vga,guest_addr+i)) { 
 		    mapnum = (guest_addr+i) % 4;
-		    ((uint8_t*)dst)[i] = vga->latch[mapnum] = *(vga->map[mapnum]+offset);
+#if DEBUG_DEEP_MEM
+		    PrintDebug("vga: mode 0 read, chain4, offset=0x%llx, mapnum=%u\n",offset,mapnum);
+#endif
+		    ((uint8_t*)dst)[i] = *(vga->map[mapnum]+offset);
+
+		    // presumably all the latches are to be reloaded, not just the selected one?
+		    for (mapnum=0;mapnum<4;mapnum++) { 
+			vga->latch[mapnum] = *(vga->map[mapnum]+offset);
+		    }
 		}
 	    } else {
 		mapnum = vga->vga_graphics_controller.vga_read_map_select.map_select;
@@ -1413,6 +1503,10 @@ static int vga_read(struct guest_info * core,
 		    PrintError("vga: read to offset=%llu map=%u (%u bytes)\n",offset,mapnum,length);
 		}
 		
+#if DEBUG_DEEP_MEM
+		PrintDebug("vga: mode 0 read, not-chain4, offset=0x%llx, mapnum=%u\n",offset,mapnum);
+#endif
+
 		memcpy(dst,(vga->map[mapnum])+offset,length);
 		
 		// load the latches with the last item read
@@ -1443,6 +1537,11 @@ static int vga_read(struct guest_info * core,
 	    uint8_t  bits;
 	    
 	    offset = find_offset_read(vga,guest_addr);
+
+#if DEBUG_DEEP_MEM
+	    PrintDebug("vga: mode 1 read, offset=0x%llx, cc=0x%x, dc-0x%x\n",offset,cc,dc);
+#endif
+		
 	    
 	    for (i=0;i<length;i++,offset++) { 
 		vga_map map;
@@ -1480,7 +1579,7 @@ static int vga_read(struct guest_info * core,
     }
 
 
-#if 0
+#if DEBUG_MEM_DATA
     int i;
     PrintDebug("vga: data read is 0x");
     for (i=0;i<length;i++) {

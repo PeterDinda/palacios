@@ -73,9 +73,9 @@ int v3_gpa_to_hpa(struct guest_info * info, addr_t gpa, addr_t * hpa) {
     }
     
     if (reg->flags.alloced == 0) {
-	PrintError("In GPA->HPA: Tried to translate physical address of non allocated page (addr=%p)\n", 
-		   (void *)gpa);
-	v3_print_mem_map(info->vm_info);
+	//PrintError("In GPA->HPA: Tried to translate physical address of non allocated page (addr=%p)\n", 
+	//	   (void *)gpa);
+    //v3_print_mem_map(info->vm_info);
 	return -1;
     }
 	
@@ -133,8 +133,8 @@ int v3_gpa_to_hva(struct guest_info * guest_info, addr_t gpa, addr_t * hva) {
     *hva = 0;
 
     if (v3_gpa_to_hpa(guest_info, gpa, &hpa) != 0) {
-	PrintError("In GPA->HVA: Invalid GPA(%p)->HPA lookup\n", 
-		   (void *)gpa);
+	//	PrintError("In GPA->HVA: Invalid GPA(%p)->HPA lookup\n", 
+	//	   (void *)gpa);
 	return -1;
     }
   
