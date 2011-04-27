@@ -213,6 +213,8 @@ struct vmx_data {
     struct vmx_sec_proc_ctrls sec_proc_ctrls;
     struct vmx_exit_ctrls exit_ctrls;
     struct vmx_entry_ctrls entry_ctrls;
+
+    struct vmx_exception_bitmap excp_bmap;
 };
 
 int v3_is_vmx_capable();

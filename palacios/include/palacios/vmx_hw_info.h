@@ -152,7 +152,7 @@ struct vmx_hw_info {
     struct vmx_ctrl_field proc_ctrls;
     struct vmx_ctrl_field exit_ctrls;
     struct vmx_ctrl_field entry_ctrls;
-    struct vmx_ctrl_field proc_ctrls_2;
+    struct vmx_ctrl_field sec_proc_ctrls;
 
     struct vmx_cr_field cr0;
     struct vmx_cr_field cr4;

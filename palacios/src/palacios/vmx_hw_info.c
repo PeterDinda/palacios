@@ -103,7 +103,7 @@ int v3_init_vmx_hw(struct vmx_hw_info * hw_info) {
     /* Intel Manual 3B. Sect. G.3.3 */
     if ( ((hw_info->proc_ctrls.req_mask & 0x80000000) == 0) || 
 	 ((hw_info->proc_ctrls.req_val & 0x80000000) == 1) ) {
-	get_ctrl_caps(&(hw_info->proc_ctrls_2), VMX_PROCBASED_CTLS2_MSR);
+	get_ctrl_caps(&(hw_info->sec_proc_ctrls), VMX_PROCBASED_CTLS2_MSR);
     }
     
     get_cr_fields(&(hw_info->cr0), VMX_CR0_FIXED1_MSR, VMX_CR0_FIXED0_MSR);

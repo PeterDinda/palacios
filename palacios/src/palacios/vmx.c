@@ -99,7 +99,6 @@ static addr_t allocate_vmcs() {
 
 static int init_vmcs_bios(struct guest_info * info, struct vmx_data * vmx_state) {
     int vmx_ret = 0;
-    struct vmx_data * vmx_info = (struct vmx_data *)(info->vmm_data);
 
     // disable global interrupts for vm state initialization
     v3_disable_ints();
@@ -113,6 +112,18 @@ static int init_vmcs_bios(struct guest_info * info, struct vmx_data * vmx_state)
         PrintError("VMPTRLD failed\n");
         return -1;
     }
+
+
+    /*** Setup default state from HW ***/
+
+    vmx_state->pin_ctrls.value = hw_info.pin_ctrls.def_val;
+    vmx_state->pri_proc_ctrls.value = hw_info.proc_ctrls.def_val;
+    vmx_state->exit_ctrls.value = hw_info.exit_ctrls.def_val;
+    vmx_state->entry_ctrls.value = hw_info.entry_ctrls.def_val;;
+
+    /* Print Control MSRs */
+    PrintDebug("CR0 MSR: %p\n", (void *)(addr_t)hw_info.cr0.value);
+    PrintDebug("CR4 MSR: %p\n", (void *)(addr_t)hw_info.cr4.value);
 
 
 
@@ -170,21 +181,12 @@ static int init_vmcs_bios(struct guest_info * info, struct vmx_data * vmx_state)
   
 
     /********** Setup and VMX Control Fields from MSR ***********/
-    /* Setup IO map */
 
-
-    struct v3_msr tmp_msr;
-
-    v3_get_msr(VMX_PINBASED_CTLS_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
 
     /* Add external interrupts, NMI exiting, and virtual NMI */
-    vmx_state->pin_ctrls.value =  tmp_msr.lo;
     vmx_state->pin_ctrls.nmi_exit = 1;
     vmx_state->pin_ctrls.ext_int_exit = 1;
 
-    v3_get_msr(VMX_PROCBASED_CTLS_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
-
-    vmx_state->pri_proc_ctrls.value = tmp_msr.lo;
     vmx_state->pri_proc_ctrls.use_io_bitmap = 1;
     vmx_state->pri_proc_ctrls.hlt_exit = 1;
     vmx_state->pri_proc_ctrls.invlpg_exit = 1;
@@ -195,6 +197,7 @@ static int init_vmcs_bios(struct guest_info * info, struct vmx_data * vmx_state)
     vmx_state->pri_proc_ctrls.rdtsc_exit = 1;
 #endif
 
+    /* Setup IO map */
     vmx_ret |= check_vmcs_write(VMCS_IO_BITMAP_A_ADDR, (addr_t)V3_PAddr(info->vm_info->io_map.arch_data));
     vmx_ret |= check_vmcs_write(VMCS_IO_BITMAP_B_ADDR, 
             (addr_t)V3_PAddr(info->vm_info->io_map.arch_data) + PAGE_SIZE_4KB);
@@ -202,40 +205,19 @@ static int init_vmcs_bios(struct guest_info * info, struct vmx_data * vmx_state)
 
     vmx_ret |= check_vmcs_write(VMCS_MSR_BITMAP, (addr_t)V3_PAddr(info->vm_info->msr_map.arch_data));
 
-    v3_get_msr(VMX_EXIT_CTLS_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
-    vmx_state->exit_ctrls.value = tmp_msr.lo;
+
     vmx_state->exit_ctrls.host_64_on = 1;
 
     if ((vmx_state->exit_ctrls.save_efer == 1) || (vmx_state->exit_ctrls.ld_efer == 1)) {
         vmx_state->ia32e_avail = 1;
     }
 
-    v3_get_msr(VMX_ENTRY_CTLS_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
-    vmx_state->entry_ctrls.value = tmp_msr.lo;
 
-    {
-	struct vmx_exception_bitmap excp_bmap;
-	excp_bmap.value = 0;
-	
-	excp_bmap.pf = 1;
-    
-	vmx_ret |= check_vmcs_write(VMCS_EXCP_BITMAP, excp_bmap.value);
-    }
     /******* Setup VMXAssist guest state ***********/
 
     info->rip = 0xd0000;
     info->vm_regs.rsp = 0x80000;
-
-    struct rflags * flags = (struct rflags *)&(info->ctrl_regs.rflags);
-    flags->rsvd1 = 1;
-
-    /* Print Control MSRs */
-    v3_get_msr(VMX_CR0_FIXED0_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
-    PrintDebug("CR0 MSR: %p\n", (void *)(addr_t)tmp_msr.value);
-
-    v3_get_msr(VMX_CR4_FIXED0_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
-    PrintDebug("CR4 MSR: %p\n", (void *)(addr_t)tmp_msr.value);
-
+    info->ctrl_regs.rflags->rsvd1 = 1;
 
 #define GUEST_CR0 0x80000031
 #define GUEST_CR4 0x00002000
@@ -267,6 +249,9 @@ static int init_vmcs_bios(struct guest_info * info, struct vmx_data * vmx_state)
         /* Add CR exits */
         vmx_state->pri_proc_ctrls.cr3_ld_exit = 1;
         vmx_state->pri_proc_ctrls.cr3_str_exit = 1;
+	
+	/* Add page fault exits */
+	vmx_state->excp_bmap.pf = 1;
     }
 
     // Setup segment registers
@@ -357,15 +342,28 @@ static int init_vmcs_bios(struct guest_info * info, struct vmx_data * vmx_state)
 	}
 
 	memcpy((void *)vmxassist_dst, v3_vmxassist_start, v3_vmxassist_end - v3_vmxassist_start);
+
+
+	vmx_state->assist_state = VMXASSIST_DISABLED;
     }    
 
+
+
+
+    /* Sanity check ctrl/reg fields against hw_defaults */
+
+
+
     /*** Write all the info to the VMCS ***/
-
+  
+    {
 #define DEBUGCTL_MSR 0x1d9
-    v3_get_msr(DEBUGCTL_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_DBG_CTL, tmp_msr.value);
+	struct v3_msr tmp_msr;
+	v3_get_msr(DEBUGCTL_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
+	vmx_ret |= check_vmcs_write(VMCS_GUEST_DBG_CTL, tmp_msr.value);
+	info->dbg_regs.dr7 = 0x400;
+    }
 
-    info->dbg_regs.dr7 = 0x400;
 
 #ifdef __V3_64BIT__
     vmx_ret |= check_vmcs_write(VMCS_LINK_PTR, (addr_t)0xffffffffffffffffULL);
@@ -373,6 +371,9 @@ static int init_vmcs_bios(struct guest_info * info, struct vmx_data * vmx_state)
     vmx_ret |= check_vmcs_write(VMCS_LINK_PTR, (addr_t)0xffffffffUL);
     vmx_ret |= check_vmcs_write(VMCS_LINK_PTR_HIGH, (addr_t)0xffffffffUL);
 #endif
+
+
+ 
 
     if (v3_update_vmcs_ctrl_fields(info)) {
         PrintError("Could not write control fields!\n");
@@ -385,7 +386,6 @@ static int init_vmcs_bios(struct guest_info * info, struct vmx_data * vmx_state)
     }
 
 
-    vmx_state->assist_state = VMXASSIST_DISABLED;
 
     // reenable global interrupts for vm state initialization now
     // that the vm state is initialized. If another VM kicks us off, 
@@ -400,6 +400,7 @@ int v3_init_vmx_vmcs(struct guest_info * info, v3_vm_class_t vm_class) {
     int vmx_ret = 0;
     
     vmx_state = (struct vmx_data *)V3_Malloc(sizeof(struct vmx_data));
+    memset(vmx_state, 0, sizeof(struct vmx_data));
 
     PrintDebug("vmx_data pointer: %p\n", (void *)vmx_state);
 

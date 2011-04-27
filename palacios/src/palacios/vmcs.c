@@ -202,6 +202,7 @@ int v3_update_vmcs_ctrl_fields(struct guest_info * info) {
 
     vmx_ret |= check_vmcs_write(VMCS_EXIT_CTRLS, arch_data->exit_ctrls.value);
     vmx_ret |= check_vmcs_write(VMCS_ENTRY_CTRLS, arch_data->entry_ctrls.value);
+    vmx_ret |= check_vmcs_write(VMCS_EXCP_BITMAP, arch_data->excp_bmap.value);
 
     return vmx_ret;
 }
