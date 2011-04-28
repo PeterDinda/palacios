@@ -550,7 +550,7 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
     struct virtio_net_hdr_mrg_rxbuf hdr;
     uint32_t hdr_len = sizeof(struct virtio_net_hdr_mrg_rxbuf);
     uint32_t data_len;
-    uint32_t offset = 0;
+    //uint32_t offset = 0;
     unsigned long flags;
 
     V3_Net_Print(2, "Virtio-NIC: virtio_rx: size: %d\n", size);

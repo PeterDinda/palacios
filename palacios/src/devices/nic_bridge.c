@@ -36,6 +36,7 @@ struct nic_bridge_state {
 };
 
 static int bridge_send(uint8_t * buf, uint32_t len, 
+		       int synchronize,
 		       void * private_data) {
 
 #ifdef CONFIG_DEBUG_NIC_BRIDGE
