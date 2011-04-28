@@ -25,21 +25,40 @@
 #define ETHERNET_PACKET_LEN (ETHERNET_HEADER_LEN + ETHERNET_MTU)
 #define ETH_ALEN 6
 
+#define MIN_MTU 68
+//#define MAX_MTU 65535
+#define MAX_MTU 9000
+
+#define MAX_PACKET_LEN (ETHERNET_HEADER_LEN + MAX_MTU)
+
+
+extern int v3_net_debug;
 
 #ifdef __V3VEE__
 
 #include <palacios/vmm.h>
 
-struct nic_statistics {
-    uint32_t tx_pkts;
-    uint64_t tx_bytes;
-    uint32_t tx_dropped;
-	
-    uint32_t rx_pkts;
-    uint64_t rx_bytes;
-    uint32_t rx_dropped;
+#define V3_Net_Print(level, fmt, args...)					\
+    do {								\
+	if(level <= v3_net_debug) {   \
+	    extern struct v3_os_hooks * os_hooks;			\
+	    if ((os_hooks) && (os_hooks)->print) {			\
+	    	(os_hooks)->print((fmt), ##args);			\
+	    }							\
+	}							\
+    } while (0)	
 
-    uint32_t interrupts;
+struct nic_statistics {
+    uint64_t tx_pkts;
+    uint64_t tx_bytes;
+    uint64_t tx_dropped;
+	
+    uint64_t rx_pkts;
+    uint64_t rx_bytes;
+    uint64_t rx_dropped;
+
+    uint32_t tx_interrupts;
+    uint32_t rx_interrupts;
 };
     
 static inline int is_multicast_ethaddr(const uint8_t * addr)
