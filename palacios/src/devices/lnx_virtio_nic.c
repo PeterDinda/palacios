@@ -300,9 +300,9 @@ static int handle_pkt_tx(struct guest_info * core,
     }
 
     v3_unlock_irqrestore(virtio_state->tx_lock, flags);
-	
-    if (virtio_state->virtio_cfg.pci_isr == 0 && 
-	  txed && !(q->avail->flags & VIRTIO_NO_IRQ_FLAG)) {
+
+    //virtio_state->virtio_cfg.pci_isr == 0 && 
+    if (txed && !(q->avail->flags & VIRTIO_NO_IRQ_FLAG)) {
 	v3_pci_raise_irq(virtio_state->virtio_dev->pci_bus, 0, virtio_state->pci_dev);
 	virtio_state->virtio_cfg.pci_isr = 0x1;
 
@@ -550,7 +550,7 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
     struct virtio_net_hdr_mrg_rxbuf hdr;
     uint32_t hdr_len = sizeof(struct virtio_net_hdr_mrg_rxbuf);
     uint32_t data_len;
-    uint32_t offset = 0;
+    //uint32_t offset = 0;
     unsigned long flags;
 
     V3_Net_Print(2, "Virtio-NIC: virtio_rx: size: %d\n", size);
@@ -638,9 +638,11 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
 	goto err_exit;
     }
 
-    if (virtio->virtio_cfg.pci_isr == 0 && 
-	!(q->avail->flags & VIRTIO_NO_IRQ_FLAG)) {
-	PrintDebug("Raising IRQ %d\n",  virtio->pci_dev->config_header.intr_line);
+    V3_Net_Print(2, "pci_isr %d, virtio flags %d\n",  virtio->virtio_cfg.pci_isr, q->avail->flags);
+    //virtio->virtio_cfg.pci_isr == 0 && 
+
+    if (!(q->avail->flags & VIRTIO_NO_IRQ_FLAG)) {
+	V3_Net_Print(2, "Raising IRQ %d\n",  virtio->pci_dev->config_header.intr_line);
 
 	virtio->virtio_cfg.pci_isr = 0x1;	
 	v3_pci_raise_irq(virtio->virtio_dev->pci_bus, 0, virtio->pci_dev);
