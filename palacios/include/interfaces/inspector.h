@@ -36,12 +36,6 @@ typedef void v3_inspect_node_t;
 #define READ_ONLY 2
 #define HOOKED 4
 
-struct v3_inspector_state {
-    struct v3_mtree state_tree;
-
-};
-
-
 
 int v3_init_inspector(struct v3_vm_info * vm);
 int v3_init_inspector_core(struct guest_info * core);

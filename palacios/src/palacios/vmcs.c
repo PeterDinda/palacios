@@ -624,6 +624,7 @@ static void print_exec_ctrls() {
 #ifdef __V3_32BIT__
     print_vmcs_field(VMCS_IO_BITMAP_A_ADDR_HIGH);
 #endif
+
     print_vmcs_field(VMCS_IO_BITMAP_B_ADDR);
 #ifdef __V3_32BIT__
     print_vmcs_field(VMCS_IO_BITMAP_B_ADDR_HIGH);
@@ -762,162 +763,29 @@ void v3_print_vmcs() {
 
 /*
  * Returns the field length in bytes
+ *   It doesn't get much uglier than this... Thanks Intel
  */
 int v3_vmcs_get_field_len(vmcs_field_t field) {
-    switch(field)  {
-	/* 16 bit Control Fields */
-        case VMCS_GUEST_ES_SELECTOR:
-        case VMCS_GUEST_CS_SELECTOR:
-        case VMCS_GUEST_SS_SELECTOR:
-        case VMCS_GUEST_DS_SELECTOR:
-        case VMCS_GUEST_FS_SELECTOR:
-        case VMCS_GUEST_GS_SELECTOR:
-        case VMCS_GUEST_LDTR_SELECTOR:
-        case VMCS_GUEST_TR_SELECTOR:
-        case VMCS_HOST_ES_SELECTOR:
-        case VMCS_HOST_CS_SELECTOR:
-        case VMCS_HOST_SS_SELECTOR:
-        case VMCS_HOST_DS_SELECTOR:
-        case VMCS_HOST_FS_SELECTOR:
-        case VMCS_HOST_GS_SELECTOR:
-        case VMCS_HOST_TR_SELECTOR:
+    struct vmcs_field_encoding * enc = (struct vmcs_field_encoding *)&field;
+
+    switch (enc->width)  {
+	case 0:
             return 2;
-
-	/* 32 bit Control Fields */
-        case VMCS_PIN_CTRLS:
-        case VMCS_PROC_CTRLS:
-	case VMCS_SEC_PROC_CTRLS:
-        case VMCS_EXCP_BITMAP:
-        case VMCS_PG_FAULT_ERR_MASK:
-        case VMCS_PG_FAULT_ERR_MATCH:
-        case VMCS_CR3_TGT_CNT:
-        case VMCS_EXIT_CTRLS:
-        case VMCS_EXIT_MSR_STORE_CNT:
-        case VMCS_EXIT_MSR_LOAD_CNT:
-        case VMCS_ENTRY_CTRLS:
-        case VMCS_ENTRY_MSR_LOAD_CNT:
-        case VMCS_ENTRY_INT_INFO:
-        case VMCS_ENTRY_EXCP_ERR:
-        case VMCS_ENTRY_INSTR_LEN:
-        case VMCS_TPR_THRESHOLD:
-        case VMCS_INSTR_ERR:
-        case VMCS_EXIT_REASON:
-        case VMCS_EXIT_INT_INFO:
-        case VMCS_EXIT_INT_ERR:
-        case VMCS_IDT_VECTOR_INFO:
-        case VMCS_IDT_VECTOR_ERR:
-        case VMCS_EXIT_INSTR_LEN:
-        case VMCS_EXIT_INSTR_INFO:
-        case VMCS_GUEST_ES_LIMIT:
-        case VMCS_GUEST_CS_LIMIT:
-        case VMCS_GUEST_SS_LIMIT:
-        case VMCS_GUEST_DS_LIMIT:
-        case VMCS_GUEST_FS_LIMIT:
-        case VMCS_GUEST_GS_LIMIT:
-        case VMCS_GUEST_LDTR_LIMIT:
-        case VMCS_GUEST_TR_LIMIT:
-        case VMCS_GUEST_GDTR_LIMIT:
-        case VMCS_GUEST_IDTR_LIMIT:
-        case VMCS_GUEST_ES_ACCESS:
-        case VMCS_GUEST_CS_ACCESS:
-        case VMCS_GUEST_SS_ACCESS:
-        case VMCS_GUEST_DS_ACCESS:
-        case VMCS_GUEST_FS_ACCESS:
-        case VMCS_GUEST_GS_ACCESS:
-        case VMCS_GUEST_LDTR_ACCESS:
-        case VMCS_GUEST_TR_ACCESS:
-        case VMCS_GUEST_INT_STATE:
-        case VMCS_GUEST_ACTIVITY_STATE:
-        case VMCS_GUEST_SMBASE:
-        case VMCS_GUEST_SYSENTER_CS:
-        case VMCS_HOST_SYSENTER_CS:
+	case 1: {
+	    if (enc->access_type == 1) {
+		return 4;
+	    } else {
+#ifdef __V3_64BIT__
+		return 8;
+#else
+		return 4;
+#endif
+	    }
+	}
+	case 2:
             return 4;
-
-
-	/* high bits of variable width fields
-	 * We can probably just delete most of these....
-	 */
-        case VMCS_IO_BITMAP_A_ADDR_HIGH:
-        case VMCS_IO_BITMAP_B_ADDR_HIGH:
-        case VMCS_MSR_BITMAP_HIGH:
-        case VMCS_EXIT_MSR_STORE_ADDR_HIGH:
-        case VMCS_EXIT_MSR_LOAD_ADDR_HIGH:
-        case VMCS_ENTRY_MSR_LOAD_ADDR_HIGH:
-        case VMCS_EXEC_PTR_HIGH:
-        case VMCS_TSC_OFFSET_HIGH:
-        case VMCS_VAPIC_ADDR_HIGH:
-	case VMCS_APIC_ACCESS_ADDR_HIGH:
-        case VMCS_LINK_PTR_HIGH:
-        case VMCS_GUEST_DBG_CTL_HIGH:
-        case VMCS_GUEST_PERF_GLOBAL_CTRL_HIGH:
-	case VMCS_HOST_PERF_GLOBAL_CTRL_HIGH:
-	case VMCS_GUEST_EFER_HIGH:
-            return 4;
-
-            /* Natural Width Control Fields */
-        case VMCS_IO_BITMAP_A_ADDR:
-        case VMCS_IO_BITMAP_B_ADDR:
-        case VMCS_MSR_BITMAP:
-        case VMCS_EXIT_MSR_STORE_ADDR:
-        case VMCS_EXIT_MSR_LOAD_ADDR:
-        case VMCS_ENTRY_MSR_LOAD_ADDR:
-        case VMCS_EXEC_PTR:
-        case VMCS_TSC_OFFSET:
-        case VMCS_VAPIC_ADDR:
-	case VMCS_APIC_ACCESS_ADDR:
-        case VMCS_LINK_PTR:
-        case VMCS_GUEST_DBG_CTL:
-        case VMCS_GUEST_PERF_GLOBAL_CTRL:
-	case VMCS_HOST_PERF_GLOBAL_CTRL:
-        case VMCS_CR0_MASK:
-        case VMCS_CR4_MASK:
-        case VMCS_CR0_READ_SHDW:
-        case VMCS_CR4_READ_SHDW:
-        case VMCS_CR3_TGT_VAL_0:
-        case VMCS_CR3_TGT_VAL_1:
-        case VMCS_CR3_TGT_VAL_2:
-        case VMCS_CR3_TGT_VAL_3:
-        case VMCS_EXIT_QUAL:
-        case VMCS_IO_RCX:
-        case VMCS_IO_RSI:
-        case VMCS_IO_RDI:
-        case VMCS_IO_RIP:
-        case VMCS_GUEST_LINEAR_ADDR:
-        case VMCS_GUEST_CR0:
-        case VMCS_GUEST_CR3:
-        case VMCS_GUEST_CR4:
-        case VMCS_GUEST_ES_BASE:
-        case VMCS_GUEST_CS_BASE:
-        case VMCS_GUEST_SS_BASE:
-        case VMCS_GUEST_DS_BASE:
-        case VMCS_GUEST_FS_BASE:
-        case VMCS_GUEST_GS_BASE:
-        case VMCS_GUEST_LDTR_BASE:
-        case VMCS_GUEST_TR_BASE:
-        case VMCS_GUEST_GDTR_BASE:
-        case VMCS_GUEST_IDTR_BASE:
-        case VMCS_GUEST_DR7:
-        case VMCS_GUEST_RSP:
-        case VMCS_GUEST_RIP:
-        case VMCS_GUEST_RFLAGS:
-        case VMCS_GUEST_PENDING_DBG_EXCP:
-        case VMCS_GUEST_SYSENTER_ESP:
-        case VMCS_GUEST_SYSENTER_EIP:
-        case VMCS_HOST_CR0:
-        case VMCS_HOST_CR3:
-        case VMCS_HOST_CR4:
-        case VMCS_HOST_FS_BASE:
-        case VMCS_HOST_GS_BASE:
-        case VMCS_HOST_TR_BASE:
-        case VMCS_HOST_GDTR_BASE:
-        case VMCS_HOST_IDTR_BASE:
-        case VMCS_HOST_SYSENTER_ESP:
-        case VMCS_HOST_SYSENTER_EIP:
-        case VMCS_HOST_RSP:
-        case VMCS_HOST_RIP:
-	case VMCS_GUEST_EFER:
+	case 3:
             return sizeof(addr_t);
-
         default:
 	    PrintError("Invalid VMCS field: 0x%x\n", field);
             return -1;

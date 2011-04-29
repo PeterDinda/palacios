@@ -128,7 +128,7 @@ config MAX_CPUS
 endmenu
 
 source "palacios/src/interfaces/Kconfig"
-
+source "palacios/src/extensions/Kconfig"
 
 config TELEMETRY
 	bool "Enable VMM telemetry support"

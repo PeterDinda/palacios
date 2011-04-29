@@ -23,7 +23,6 @@
 
 #include <palacios/vmm.h>
 
-
 /*
 
   The purpose of this interface is to make it possible to implement
@@ -78,9 +77,12 @@ typedef enum { V3_BUS_CLASS_DIRECT, V3_BUS_CLASS_PCI } v3_bus_class_t;
 
 #ifdef __V3VEE__
 
+struct v3_vm_info;
+
 v3_host_dev_t v3_host_dev_open(char *impl, 
 			       v3_bus_class_t bus,
-			       v3_guest_dev_t gdev); 
+			       v3_guest_dev_t gdev,
+			       struct v3_vm_info *vm); 
 
 int v3_host_dev_close(v3_host_dev_t hdev);
     
@@ -106,13 +108,13 @@ uint64_t v3_host_dev_write_mem(v3_host_dev_t hostdev,
 
 int v3_host_dev_ack_irq(v3_host_dev_t hostdev, uint8_t irq);
 
-uint64_t v3_host_dev_config_read(v3_host_dev_t hostdev, 
+uint64_t v3_host_dev_read_config(v3_host_dev_t hostdev, 
 				 uint64_t      offset,
 				 void          *dest,
 				 uint64_t      len);
 
-uint64_t v3_host_dev_config_write(v3_host_dev_t hostdev, 
-				 uint64_t      offset,
+uint64_t v3_host_dev_write_config(v3_host_dev_t hostdev, 
+				  uint64_t      offset,
 				  void          *src,
 				  uint64_t      len);
  
@@ -124,10 +126,12 @@ struct v3_host_dev_hooks {
     // this device is attached to and an opaque pointer back to the
     // guest device.  It returns an opaque representation of 
     // the host device it has attached to, with zero indicating
-    // failure
+    // failure.  The host_priv_data arguement supplies to the 
+    // host the pointer that the VM was originally registered with
     v3_host_dev_t (*open)(char *impl, 
 			  v3_bus_class_t bus,
-			  v3_guest_dev_t gdev);
+			  v3_guest_dev_t gdev,
+			  void *host_priv_data);
 
     int (*close)(v3_host_dev_t hdev);
     
@@ -150,12 +154,12 @@ struct v3_host_dev_hooks {
     // fail, returning != len
     // Callee gets the host dev id, and the guest physical address
     uint64_t (*read_mem)(v3_host_dev_t hostdev, 
-			 addr_t        gpa,
+			 void *        gpa,
 			 void          *dest,
 			 uint64_t      len);
     
     uint64_t (*write_mem)(v3_host_dev_t hostdev, 
-			  addr_t        gpa,
+			  void *        gpa,
 			  void          *src,
 			  uint64_t      len);
     
@@ -202,19 +206,16 @@ int v3_host_dev_raise_irq(v3_host_dev_t hostdev,
 
 /* These functions allow the host to read and write the guest
    memory by physical address, for example to implement DMA 
-
-   These functions are incremental - that is, they can return
-   a smaller amount than requested
 */
 uint64_t v3_host_dev_read_guest_mem(v3_host_dev_t  hostdev,
 				    v3_guest_dev_t guest_dev,
-				    addr_t         gpa,
+				    void *         gpa,
 				    void           *dest,
 				    uint64_t       len);
 
 uint64_t v3_host_dev_write_guest_mem(v3_host_dev_t  hostdev,
 				     v3_guest_dev_t guest_dev,
-				     addr_t         gpa,
+				     void *         gpa,
 				     void           *src,
 				     uint64_t       len);
 			      

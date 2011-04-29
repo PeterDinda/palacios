@@ -179,11 +179,10 @@ struct v3_dev_blk_ops {
 
 struct v3_dev_net_ops {
     /* Backend implemented functions */
-    int (*send)(uint8_t * buf, uint32_t count, void * private_data);
+    int (*send)(uint8_t * buf, uint32_t len, int synchronize, void * private_data);
 
     /* Frontend implemented functions */
-    int (*recv)(uint8_t * buf, uint32_t count, void * frnt_data);
-    void (*poll)(struct v3_vm_info * vm, int budget, void * frnt_data);
+    int (*recv)(uint8_t * buf, uint32_t len, void * frnt_data);
 
     /* This is ugly... */
     void * frontend_data; 

@@ -1,4 +1,4 @@
-/* 
+/*
  * This file is part of the Palacios Virtual Machine Monitor developed
  * by the V3VEE Project with funding from the United States National 
  * Science Foundation and the Department of Energy.  
@@ -7,33 +7,15 @@
  * and the University of New Mexico.  You can find out more at 
  * http://www.v3vee.org
  *
- * Copyright (c) 2008, Jack Lange <jarusl@cs.northwestern.edu> 
- * Copyright (c) 2008, The V3VEE Project <http://www.v3vee.org> 
+ * Copyright (c) 2011, Jack Lange <jacklange@cs.pitt.edu> 
+ * Copyright (c) 2011, The V3VEE Project <http://www.v3vee.org> 
  * All rights reserved.
  *
- * Author: Jack Lange <jarusl@cs.northwestern.edu>
+ * Author: Jack Lange <jacklangel@cs.pitt.edu>
  *
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#ifndef __VMM_MUXER_H__
-#define __VMM_MUXER_H__
 
-#ifdef __V3VEE__
-
-
-struct v3_vm_info;
-
-
-
-struct v3_vm_info * v3_get_foreground_vm();
-void v3_set_foreground_vm(struct v3_vm_info * vm);
-
-
-int v3_add_mux_notification(int (*focus_change)(struct v3_vm_info * old_vm, struct v3_vm_info * new_vm));
-
-
-#endif
-
-#endif
+#include <util/vmm_barrier.h>

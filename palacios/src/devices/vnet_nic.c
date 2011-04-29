@@ -42,7 +42,7 @@ struct vnet_nic_state {
 
 /* called by frontend, send pkt to VNET */
 static int vnet_nic_send(uint8_t * buf, uint32_t len, 
-			 void * private_data) {
+			 int synchronize, void * private_data) {
     struct vnet_nic_state * vnetnic = (struct vnet_nic_state *)private_data;
 
     struct v3_vnet_pkt pkt;
@@ -52,15 +52,13 @@ static int vnet_nic_send(uint8_t * buf, uint32_t len,
     memcpy(pkt.header, buf, ETHERNET_HEADER_LEN);
     pkt.data = buf;
 
-#ifdef CONFIG_DEBUG_VNET_NIC
-    {
-    	PrintDebug("VNET-NIC: send pkt (size: %d, src_id: %d, src_type: %d)\n", 
+    V3_Net_Print(2, "VNET-NIC: send pkt (size: %d, src_id: %d, src_type: %d)\n", 
 		   pkt.size, pkt.src_id, pkt.src_type);
-    	v3_hexdump(buf, len, NULL, 0);
+    if(v3_net_debug >= 4){
+	v3_hexdump(buf, len, NULL, 0);
     }
-#endif
 
-    return v3_vnet_send_pkt(&pkt, NULL);;
+    return v3_vnet_send_pkt(&pkt, NULL, synchronize);
 }
 
 
@@ -70,20 +68,11 @@ static int virtio_input(struct v3_vm_info * info,
 			void * private_data){
     struct vnet_nic_state *vnetnic = (struct vnet_nic_state *)private_data;
 
-    PrintDebug("VNET-NIC: receive pkt (size %d, src_id:%d, src_type: %d, dst_id: %d, dst_type: %d)\n", 
+    V3_Net_Print(2, "VNET-NIC: receive pkt (size %d, src_id:%d, src_type: %d, dst_id: %d, dst_type: %d)\n", 
 		pkt->size, pkt->src_id, pkt->src_type, pkt->dst_id, pkt->dst_type);
 	
     return vnetnic->net_ops.recv(pkt->data, pkt->size,
 				 vnetnic->net_ops.frontend_data);
-}
-
-/* poll data from front-end */
-static void virtio_poll(struct v3_vm_info * info, 
-			int budget,
-			void * private_data){
-    struct vnet_nic_state *vnetnic = (struct vnet_nic_state *)private_data;
-
-    vnetnic->net_ops.poll(info, budget, vnetnic->net_ops.frontend_data);
 }
 
 
@@ -102,7 +91,6 @@ static struct v3_device_ops dev_ops = {
 
 static struct v3_vnet_dev_ops vnet_dev_ops = {
     .input = virtio_input,
-    .poll = virtio_poll,
 };
 
 

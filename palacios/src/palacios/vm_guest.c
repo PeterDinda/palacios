@@ -28,7 +28,6 @@
 #include <palacios/vm_guest_mem.h>
 #include <palacios/vmm_lowlevel.h>
 #include <palacios/vmm_sprintf.h>
-#include <palacios/vmm_muxer.h>
 #include <palacios/vmm_xed.h>
 #include <palacios/vmm_direct_paging.h>
 
@@ -526,13 +525,7 @@ static int info_hcall(struct guest_info * core, uint_t hcall_id, void * priv_dat
 int v3_init_vm(struct v3_vm_info * vm) {
     v3_cpu_arch_t cpu_type = v3_get_cpu_type(V3_Get_CPU());
 
-    if (v3_get_foreground_vm() == NULL) {
-	v3_set_foreground_vm(vm);
-    }
 
-#ifdef CONFIG_INSPECTOR
-    v3_init_inspector(vm);
-#endif
 
 #ifdef CONFIG_TELEMETRY
     v3_init_telemetry(vm);
@@ -661,9 +654,7 @@ int v3_init_core(struct guest_info * core) {
     v3_cpu_arch_t cpu_type = v3_get_cpu_type(V3_Get_CPU());
     struct v3_vm_info * vm = core->vm_info;
 
-#ifdef CONFIG_INSPECTOR
-    v3_init_inspector_core(core);
-#endif
+
 
     /*
      * Initialize the subsystem data strutures

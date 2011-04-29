@@ -19,8 +19,8 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#ifndef __VNET_H__
-#define __VNET_H__
+#ifndef __VNET_CORE_H__
+#define __VNET_CORE_H__
 
 #include <palacios/vmm.h>
 #include <palacios/vmm_ethernet.h>
@@ -38,7 +38,8 @@
 
 #define VNET_HASH_SIZE 	17
 
-//routing table entry
+extern int v3_vnet_debug;
+
 struct v3_vnet_route {
     uint8_t src_mac[ETH_ALEN];
     uint8_t dst_mac[ETH_ALEN];
@@ -100,7 +101,7 @@ int v3_vnet_add_bridge(struct v3_vm_info * vm,
 		uint8_t type,
 		void * priv_data);
 int v3_vnet_add_route(struct v3_vnet_route route);
-int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data);
+int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data, int synchronize);
 int v3_vnet_find_dev(uint8_t  * mac);
 int v3_vnet_stat(struct vnet_stat * stats);
 
@@ -110,18 +111,16 @@ struct v3_vnet_dev_ops {
     int (*input)(struct v3_vm_info * vm, 
 		struct v3_vnet_pkt * pkt, 
 		void * dev_data);
-    void (*poll) (struct v3_vm_info * vm, int budget, void * dev_data);
 };
 
 int v3_init_vnet(void);	
 void v3_deinit_vnet(void);
 
-void v3_vnet_do_poll(struct v3_vm_info * vm);
-
 int v3_vnet_add_dev(struct v3_vm_info * info, uint8_t * mac, 
 		    struct v3_vnet_dev_ops * ops,
 		    void * priv_data);
 int v3_vnet_del_dev(int dev_id);
+
 
 #endif
 

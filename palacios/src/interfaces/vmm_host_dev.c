@@ -29,12 +29,13 @@ struct v3_host_dev_hooks * host_dev_hooks = 0;
 
 v3_host_dev_t v3_host_dev_open(char *impl,
 			       v3_bus_class_t bus,
-			       v3_guest_dev_t gdev)
+			       v3_guest_dev_t gdev,
+			       struct v3_vm_info *vm)
 {					       
     V3_ASSERT(host_dev_hooks != NULL);
     V3_ASSERT(host_dev_hooks->open != NULL);
 
-    return host_dev_hooks->open(impl,bus,gdev);
+    return host_dev_hooks->open(impl,bus,gdev,vm->host_priv_data);
 }
 
 int v3_host_dev_close(v3_host_dev_t hdev) 
@@ -75,7 +76,7 @@ uint64_t v3_host_dev_read_mem(v3_host_dev_t hdev,
     V3_ASSERT(host_dev_hooks != NULL);
     V3_ASSERT(host_dev_hooks->read_mem != NULL);
     
-    return host_dev_hooks->read_mem(hdev,gpa,dst,len);
+    return host_dev_hooks->read_mem(hdev,(void*)gpa,dst,len);
 }
 
 uint64_t v3_host_dev_write_mem(v3_host_dev_t hdev,
@@ -86,7 +87,7 @@ uint64_t v3_host_dev_write_mem(v3_host_dev_t hdev,
     V3_ASSERT(host_dev_hooks != NULL);
     V3_ASSERT(host_dev_hooks->write_mem != NULL);
     
-    return host_dev_hooks->write_mem(hdev,gpa,src,len);
+    return host_dev_hooks->write_mem(hdev,(void*)gpa,src,len);
 }
 
 uint64_t v3_host_dev_read_config(v3_host_dev_t hdev,
@@ -140,7 +141,7 @@ int v3_host_dev_raise_irq(v3_host_dev_t hostdev,
 
 uint64_t v3_host_dev_read_guest_mem(v3_host_dev_t  hostdev,
 				    v3_guest_dev_t guest_dev,
-				    addr_t         gpa,
+				    void *         gpa,
 				    void           *dst,
 				    uint64_t       len)
 {
@@ -154,14 +155,14 @@ uint64_t v3_host_dev_read_guest_mem(v3_host_dev_t  hostdev,
 	if (!vm) { 
 	    return 0;
 	} else {
-	    return v3_read_gpa_memory(&(vm->cores[0]), gpa, len, dst);
+	    return v3_read_gpa_memory(&(vm->cores[0]), (addr_t)gpa, len, dst);
 	}
     }
 }
 
 uint64_t v3_host_dev_write_guest_mem(v3_host_dev_t  hostdev,
 				     v3_guest_dev_t guest_dev,
-				     addr_t         gpa,
+				     void *         gpa,
 				     void           *src,
 				     uint64_t       len)
 {
@@ -175,7 +176,7 @@ uint64_t v3_host_dev_write_guest_mem(v3_host_dev_t  hostdev,
 	if (!vm) { 
 	    return 0;
 	} else {
-	    return v3_write_gpa_memory(&(vm->cores[0]), gpa, len, src);
+	    return v3_write_gpa_memory(&(vm->cores[0]), (addr_t)gpa, len, src);
 	}
     }
 }

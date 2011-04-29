@@ -30,31 +30,14 @@
 #include <palacios/vmm.h>
 #include <palacios/vm_guest.h>
 
-// Intel VMX Specific MSRs
-#define VMX_FEATURE_CONTROL_MSR     0x0000003a
-#define VMX_BASIC_MSR               0x00000480
-#define VMX_PINBASED_CTLS_MSR       0x00000481
-#define VMX_PROCBASED_CTLS_MSR      0x00000482
-#define VMX_EXIT_CTLS_MSR           0x00000483
-#define VMX_ENTRY_CTLS_MSR          0x00000484
-#define VMX_MISC_MSR                0x00000485
-#define VMX_CR0_FIXED0_MSR          0x00000486
-#define VMX_CR0_FIXED1_MSR          0x00000487
-#define VMX_CR4_FIXED0_MSR          0x00000488
-#define VMX_CR4_FIXED1_MSR          0x00000489
-#define VMX_VMCS_ENUM_MSR           0x0000048A
 
 #define VMX_SUCCESS        0
 #define VMX_FAIL_INVALID   1
 #define VMX_FAIL_VALID     2
 #define VMM_ERROR          3
 
-#define FEATURE_CONTROL_LOCK  0x00000001
-#define FEATURE_CONTROL_VMXON 0x00000004
-#define FEATURE_CONTROL_VALID ( FEATURE_CONTROL_LOCK | FEATURE_CONTROL_VMXON )
 
 
-#define CPUID_1_ECX_VTXFLAG 0x00000020
 
 
 struct vmx_pin_ctrls {
@@ -168,15 +151,6 @@ struct vmx_entry_ctrls {
     } __attribute__((packed));
 } __attribute__((packed));
 
-struct vmx_basic_msr {
-    uint32_t revision;
-    uint_t regionSize   : 13;
-    uint_t rsvd1        : 4; // Always 0
-    uint_t physWidth    : 1;
-    uint_t smm          : 1; // Always 1
-    uint_t memType      : 4;
-    uint_t rsvd2        : 10; // Always 0
-}  __attribute__((packed));
 
 typedef enum { 
     VMXASSIST_DISABLED,

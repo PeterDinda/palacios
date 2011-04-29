@@ -69,6 +69,8 @@ int V3_init_extensions() {
 }
 
 
+
+
 int V3_deinit_extensions() {
     v3_free_htable(ext_table, 0, 0);
     return 0;
@@ -84,6 +86,15 @@ int v3_init_ext_manager(struct v3_vm_info * vm) {
     
     return 0;
 }
+
+
+int v3_deinit_ext_manager(struct v3_vm_info * vm)  {
+
+	PrintError("I should really do something here... \n");
+	return -1;
+}
+
+
 
 int v3_add_extension(struct v3_vm_info * vm, const char * name, v3_cfg_tree_t * cfg) {
     struct v3_extension_impl * impl = NULL;
@@ -124,4 +135,35 @@ int v3_add_extension(struct v3_vm_info * vm, const char * name, v3_cfg_tree_t * 
     }
     
     return 0;
+}
+
+int v3_init_core_extensions(struct guest_info * core) {
+    struct v3_extension * ext = NULL;
+
+    list_for_each_entry(ext, &(core->vm_info->extensions.extensions), node) {
+	if ((ext->impl) && (ext->impl->core_init)) {
+	    if (ext->impl->core_init(core, ext->priv_data) == -1) {
+		PrintError("Error configuring per core extension %s on core %d\n", 
+			   ext->impl->name, core->cpu_id);
+		return -1;
+	    }
+	}
+    }
+
+    return 0;
+}
+
+
+
+
+void * v3_get_extension_state(struct v3_vm_info * vm, const char * name) {
+    struct v3_extension * ext = NULL;
+
+    list_for_each_entry(ext, &(vm->extensions.extensions), node) {
+	if (strncmp(ext->impl->name, name, strlen(ext->impl->name)) == 0) {
+	    return ext->priv_data;
+	}
+    }
+
+    return NULL;
 }

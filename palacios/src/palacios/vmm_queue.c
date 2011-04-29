@@ -19,20 +19,20 @@
 
 #include <palacios/vmm_queue.h>
 
-void v3_init_queue(struct gen_queue * queue) {
+void v3_init_queue(struct v3_queue * queue) {
     queue->num_entries = 0;
     INIT_LIST_HEAD(&(queue->entries));
     v3_lock_init(&queue->lock);
 }
 
-struct gen_queue * v3_create_queue() {
-    struct gen_queue * tmp_queue = V3_Malloc(sizeof(struct gen_queue));
+struct v3_queue * v3_create_queue() {
+    struct v3_queue * tmp_queue = V3_Malloc(sizeof(struct v3_queue));
     v3_init_queue(tmp_queue);
     return tmp_queue;
 }
 
-void v3_enqueue(struct gen_queue * queue, addr_t entry) {
-    struct queue_entry * q_entry = V3_Malloc(sizeof(struct queue_entry));
+void v3_enqueue(struct v3_queue * queue, addr_t entry) {
+    struct v3_queue_entry * q_entry = V3_Malloc(sizeof(struct v3_queue_entry));
 
     v3_lock(queue->lock);
     q_entry->entry = entry;
@@ -42,13 +42,13 @@ void v3_enqueue(struct gen_queue * queue, addr_t entry) {
 }
 
 
-addr_t v3_dequeue(struct gen_queue * queue) {
+addr_t v3_dequeue(struct v3_queue * queue) {
     addr_t entry_val = 0;
 
     v3_lock(queue->lock);
     if (!list_empty(&(queue->entries))) {
 	struct list_head * q_entry = queue->entries.next;
-	struct queue_entry * tmp_entry = list_entry(q_entry, struct queue_entry, entry_list);
+	struct v3_queue_entry * tmp_entry = list_entry(q_entry, struct v3_queue_entry, entry_list);
 
 	entry_val = tmp_entry->entry;
 	list_del(q_entry);

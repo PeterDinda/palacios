@@ -54,6 +54,12 @@ struct v3_cpuid_map {
 
 void v3_print_cpuid_map(struct v3_vm_info * vm);
 
+int v3_cpuid_add_fields(struct v3_vm_info * vm, uint32_t cpuid, 
+			uint32_t rax_mask, uint32_t rax,
+			uint32_t rbx_mask, uint32_t rbx, 
+			uint32_t rcx_mask, uint32_t rcx, 
+			uint32_t rdx_mask, uint32_t rdx);
+
 int v3_hook_cpuid(struct v3_vm_info * vm, uint32_t cpuid, 
 		  int (*hook_fn)(struct guest_info * info, uint32_t cpuid, \
 				 uint32_t * eax, uint32_t * ebx, \
