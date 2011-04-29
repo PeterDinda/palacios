@@ -27,9 +27,11 @@
 #include <palacios/vmm_direct_paging.h>
 #include <palacios/vmm_ctrl_regs.h>
 
+#if 0
 #ifndef CONFIG_DEBUG_VMX
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
+#endif
 #endif
 
 static v3_reg_t * get_reg_ptr(struct guest_info * info, struct vmx_exit_cr_qual * cr_qual);
@@ -192,7 +194,7 @@ static int handle_mov_to_cr0(struct guest_info * info, v3_reg_t * new_cr0, struc
 	guest_cr0->pg = 1;
 	guest_cr0->ne = 1;
 	
-	if (paging_transition) {
+	if ((paging_transition)) {
 	    // Paging transition
 	    
 	    if (v3_get_vm_mem_mode(info) == VIRTUAL_MEM) {
@@ -209,14 +211,24 @@ static int handle_mov_to_cr0(struct guest_info * info, v3_reg_t * new_cr0, struc
 		
 		//            PrintDebug("Activating Shadow Page tables\n");
 		
-		if (v3_activate_shadow_pt(info) == -1) {
-		    PrintError("Failed to activate shadow page tables\n");
-		    return -1;
+		if (info->shdw_pg_mode == SHADOW_PAGING) {
+		    if (v3_activate_shadow_pt(info) == -1) {
+			PrintError("Failed to activate shadow page tables\n");
+			return -1;
+		    }
 		}
 		
-	    } else if (v3_activate_passthrough_pt(info) == -1) {
-		PrintError("Failed to activate passthrough page tables\n");
-		return -1;
+	    } else {
+
+		if (info->shdw_pg_mode == SHADOW_PAGING) {
+		    if (v3_activate_passthrough_pt(info) == -1) {
+			PrintError("Failed to activate passthrough page tables\n");
+			return -1;
+		    }
+		} else {
+		    // This is hideous... Let's hope that the 1to1 page table has not been nuked...
+		    info->ctrl_regs.cr3 = VMXASSIST_1to1_PT;
+		}
 	    }
 	}
     }

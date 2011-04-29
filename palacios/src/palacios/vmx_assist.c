@@ -28,10 +28,7 @@
 #define PrintDebug(fmt, args...)
 #endif
 
-#define VMXASSIST_GDT     0x10000
-#define VMXASSIST_TSS     0x40000
-#define VMXASSIST_START   0xd0000
-#define VMXASSIST_1to1_PT 0xde000 // We'll shove this at the end, and pray to god VMXASSIST doesn't mess with it
+
 
 
 #define VMXASSIST_MAGIC        0x17101966

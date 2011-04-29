@@ -129,12 +129,16 @@ static inline int invalidate_addr_32(struct guest_info * info, addr_t inv_addr) 
 	return 0;
     } else if (pde[pde_index].large_page) {
 	pde[pde_index].present = 0;
+	pde[pde_index].writable = 0;
+	pde[pde_index].user_page = 0;
 	return 0;
     }
 
     pte = V3_VAddr((void*)BASE_TO_PAGE_ADDR(pde[pde_index].pt_base_addr));
 
     pte[pte_index].present = 0;
+    pte[pte_index].writable = 0;
+    pte[pte_index].user_page = 0;
 
     return 0;
 }

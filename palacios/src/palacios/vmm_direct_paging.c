@@ -169,7 +169,12 @@ int v3_invalidate_passthrough_addr(struct guest_info * info, addr_t inv_addr) {
 
 
 int v3_invalidate_nested_addr(struct guest_info * info, addr_t inv_addr) {
+
+#ifdef __V3_64BIT__
     v3_cpu_mode_t mode = LONG;
+#else 
+    v3_cpu_mode_t mode = PROTECTED;
+#endif
 
     switch(mode) {
 	case REAL:

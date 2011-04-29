@@ -189,9 +189,9 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 
 
     vmx_state->pri_proc_ctrls.hlt_exit = 1;
-    vmx_state->pri_proc_ctrls.invlpg_exit = 1;
 
-    vmx_state->pri_proc_ctrls.pause_exit = 1;
+
+    vmx_state->pri_proc_ctrls.pause_exit = 0;
     vmx_state->pri_proc_ctrls.tsc_offset = 1;
 #ifdef CONFIG_TIME_VIRTUALIZE_TSC
     vmx_state->pri_proc_ctrls.rdtsc_exit = 1;
@@ -249,6 +249,8 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
         vmx_state->pri_proc_ctrls.cr3_ld_exit = 1;
         vmx_state->pri_proc_ctrls.cr3_str_exit = 1;
 	
+	vmx_state->pri_proc_ctrls.invlpg_exit = 1;
+	
 	/* Add page fault exits */
 	vmx_state->excp_bmap.pf = 1;
 
@@ -267,12 +269,14 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 
         // vmx_state->pinbased_ctrls |= NMI_EXIT;
 
-        /* Add CR exits */
-	//vmx_state->pri_proc_ctrls.cr3_ld_exit = 1;
-	//vmx_state->pri_proc_ctrls.cr3_str_exit = 1;
+        /* Disable CR exits */
+	vmx_state->pri_proc_ctrls.cr3_ld_exit = 0;
+	vmx_state->pri_proc_ctrls.cr3_str_exit = 0;
+
+	vmx_state->pri_proc_ctrls.invlpg_exit = 0;
 
 	/* Add page fault exits */
-	vmx_state->excp_bmap.pf = 1; // This should never happen..., enabled to catch bugs
+	//	vmx_state->excp_bmap.pf = 1; // This should never happen..., enabled to catch bugs
 	
 	// Setup VMX Assist
 	v3_vmxassist_init(core, vmx_state);
@@ -296,6 +300,7 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 	       (v3_cpu_types[core->cpu_id] == V3_VMX_EPT_UG_CPU)) {
 	int i = 0;
 	// For now we will assume that unrestricted guest mode is assured w/ EPT
+
 
 	core->vm_regs.rsp = 0x00;
 	core->rip = 0xfff0;
@@ -367,6 +372,12 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 	vmx_state->entry_ctrls.ld_efer = 1;
 	vmx_state->exit_ctrls.ld_efer = 1;
 	vmx_state->exit_ctrls.save_efer = 1;
+
+	/* Disable shadow paging stuff */
+	vmx_state->pri_proc_ctrls.cr3_ld_exit = 0;
+	vmx_state->pri_proc_ctrls.cr3_str_exit = 0;
+
+	vmx_state->pri_proc_ctrls.invlpg_exit = 0;
 
 
 	if (v3_init_ept(core, &hw_info) == -1) {
