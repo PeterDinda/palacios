@@ -410,9 +410,9 @@ void PrintPTEntry(struct guest_info * info, page_type_t type, addr_t vaddr, void
 }
 
 
-void PrintHostPageTables(struct guest_info * info, addr_t cr3) {
+void PrintHostPageTables(struct guest_info * info, v3_cpu_mode_t cpu_mode, addr_t cr3) {
     PrintDebug("CR3: %p\n", (void *)cr3);
-    switch (info->cpu_mode) {
+    switch (cpu_mode) {
 	case PROTECTED:
 	    v3_walk_host_pt_32(info, cr3, print_page_walk_cb, NULL);
 	    break;
@@ -434,6 +434,7 @@ void PrintHostPageTables(struct guest_info * info, addr_t cr3) {
 void PrintGuestPageTables(struct guest_info * info, addr_t cr3) {
     PrintDebug("CR3: %p\n", (void *)cr3);
     switch (info->cpu_mode) {
+	case REAL:
 	case PROTECTED:
 	    v3_walk_guest_pt_32(info, cr3, print_page_walk_cb, NULL);
 	    break;

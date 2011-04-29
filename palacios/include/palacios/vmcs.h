@@ -271,6 +271,42 @@ struct vmx_exception_bitmap {
 
 
 
+struct vmx_intr_state {
+    union {
+	uint32_t value;
+	struct {
+	    uint8_t block_sti    : 1;
+	    uint8_t block_mov_ss : 1;
+	    uint8_t block_smi    : 1;
+	    uint8_t block_nmi    : 1;
+	    uint32_t rsvd        : 28;
+	} __attribute__((packed));
+    } __attribute__((packed));
+} __attribute__((packed));
+
+
+struct vmx_pending_dbg_excps {
+    union {
+	uint64_t value;
+
+	struct {
+	    uint32_t lo;
+	    uint32_t hi;
+	} __attribute__((packed));
+
+	struct {
+	    uint8_t b0       : 1;
+	    uint8_t b1       : 1;
+	    uint8_t b2       : 1;
+	    uint8_t b3       : 1;
+	    uint8_t rsvd1    : 8;
+	    uint8_t bp_set   : 1;
+	    uint8_t rsvd2    : 1;
+	    uint8_t bp_ss    : 1;
+	    uint64_t rsvd3   : 49;
+	} __attribute__((packed));
+    } __attribute__((packed));
+} __attribute__((packed));
 
 /* Segment Selector Access Rights (32 bits) */
 /* INTEL Manual: 20-4 vol 3B */

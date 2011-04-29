@@ -242,7 +242,7 @@ typedef enum v3_vm_class {V3_INVALID_VM, V3_PC_VM, V3_CRAY_VM} v3_vm_class_t;
 
 
 // Maybe make this a define....
-typedef enum v3_cpu_arch {V3_INVALID_CPU, V3_SVM_CPU, V3_SVM_REV3_CPU, V3_VMX_CPU, V3_VMX_EPT_CPU} v3_cpu_arch_t;
+typedef enum v3_cpu_arch {V3_INVALID_CPU, V3_SVM_CPU, V3_SVM_REV3_CPU, V3_VMX_CPU, V3_VMX_EPT_CPU, V3_VMX_EPT_UG_CPU} v3_cpu_arch_t;
 
 
 v3_cpu_mode_t v3_get_host_cpu_mode();

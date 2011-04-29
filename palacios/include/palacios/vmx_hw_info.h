@@ -159,8 +159,11 @@ struct vmx_hw_info {
 };
 
 
+
+
 int v3_init_vmx_hw(struct vmx_hw_info * hw_info);
 
+uint32_t v3_vmx_get_ctrl_features(struct vmx_ctrl_field * fields);
 
 
 

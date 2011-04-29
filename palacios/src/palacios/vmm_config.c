@@ -293,7 +293,9 @@ static int determine_paging_mode(struct guest_info * info, v3_cfg_tree_t * core_
     if (pg_mode) {
 	if ((strcasecmp(pg_mode, "nested") == 0)) {
 	    // we assume symmetric cores, so if core 0 has nested paging they all do
-	    if (v3_cpu_types[0] == V3_SVM_REV3_CPU) {
+	    if ((v3_cpu_types[0] == V3_SVM_REV3_CPU) || 
+		(v3_cpu_types[0] == V3_VMX_EPT_CPU) ||
+		(v3_cpu_types[0] == V3_VMX_EPT_UG_CPU)) {
 	    	info->shdw_pg_mode = NESTED_PAGING;
 	    } else {
 		PrintError("Nested paging not supported on this hardware. Defaulting to shadow paging\n");

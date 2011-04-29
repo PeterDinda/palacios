@@ -41,7 +41,8 @@ static int mem_offset_hypercall(struct guest_info * info, uint_t hcall_id, void 
 static int unhandled_err(struct guest_info * core, addr_t guest_va, addr_t guest_pa, 
 			 struct v3_mem_region * reg, pf_error_t access_info) {
 
-    PrintError("Unhandled memory access error\n");
+    PrintError("Unhandled memory access error (gpa=%p, gva=%p, error_code=%d)\n",
+	       (void *)guest_pa, (void *)guest_va, *(uint32_t *)&access_info);
 
     v3_print_mem_map(core->vm_info);
 

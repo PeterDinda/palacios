@@ -60,7 +60,8 @@ obj-$(CONFIG_VMX) +=  	vmx.o \
 			vmx_hw_info.o \
 			vmcs.o \
 			vmx_ctrl_regs.o \
-			vmx_assist.o
+			vmx_assist.o \
+			vmx_ept.o 
 
 
 

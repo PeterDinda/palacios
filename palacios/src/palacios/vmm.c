@@ -82,6 +82,7 @@ static void deinit_cpu(void * arg) {
 #ifdef CONFIG_VMX
 	case V3_VMX_CPU:
 	case V3_VMX_EPT_CPU:
+	case V3_VMX_EPT_UG_CPU:
 	    PrintDebug("Deinitializing VMX CPU %d\n", cpu_id);
 	    v3_deinit_vmx_cpu(cpu_id);
 	    break;
@@ -221,6 +222,7 @@ static int start_core(void * p)
 #if CONFIG_VMX
 	case V3_VMX_CPU:
 	case V3_VMX_EPT_CPU:
+	case V3_VMX_EPT_UG_CPU:
 	    return v3_start_vmx_guest(core);
 	    break;
 #endif
@@ -514,6 +516,7 @@ int v3_vm_enter(struct guest_info * info) {
 #if CONFIG_VMX
 	case V3_VMX_CPU:
 	case V3_VMX_EPT_CPU:
+	case V3_VMX_EPT_UG_CPU:
 	    return v3_vmx_enter(info);
 	    break;
 #endif

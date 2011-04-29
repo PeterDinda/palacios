@@ -204,6 +204,10 @@ int v3_update_vmcs_ctrl_fields(struct guest_info * info) {
     vmx_ret |= check_vmcs_write(VMCS_ENTRY_CTRLS, arch_data->entry_ctrls.value);
     vmx_ret |= check_vmcs_write(VMCS_EXCP_BITMAP, arch_data->excp_bmap.value);
 
+    if (info->shdw_pg_mode == NESTED_PAGING) {
+	vmx_ret |= check_vmcs_write(VMCS_EPT_PTR, info->direct_map_pt);
+    }
+
     return vmx_ret;
 }
 
@@ -227,17 +231,11 @@ int v3_vmx_save_vmcs(struct guest_info * info) {
     check_vmcs_read(VMCS_GUEST_DR7, &(info->dbg_regs.dr7));
 
     check_vmcs_read(VMCS_GUEST_RFLAGS, &(info->ctrl_regs.rflags));
-    if (((struct vmx_data *)info->vmm_data)->ia32e_avail) {
-#ifdef __V3_64BIT__
-        check_vmcs_read(VMCS_GUEST_EFER, &(info->ctrl_regs.efer));
-#else
-	uint32_t hi, lo;
-        check_vmcs_read(VMCS_GUEST_EFER, &hi);
-        check_vmcs_read(VMCS_GUEST_EFER_HIGH, &lo);
-        info->ctrl_regs.efer = ((uint64_t) hi << 32) | lo;
-#endif
-    }
 
+#ifdef __V3_64BIT__
+    check_vmcs_read(VMCS_GUEST_EFER, &(info->ctrl_regs.efer));
+#endif
+    
     error =  v3_read_vmcs_segments(&(info->segments));
 
     return error;
@@ -260,9 +258,12 @@ int v3_vmx_restore_vmcs(struct guest_info * info) {
 
     check_vmcs_write(VMCS_GUEST_RFLAGS, info->ctrl_regs.rflags);
 
-    if (((struct vmx_data *)info->vmm_data)->ia32e_avail) {
-        check_vmcs_write(VMCS_GUEST_EFER, info->ctrl_regs.efer);
-    }
+#ifdef __V3_64BIT__
+    check_vmcs_write(VMCS_GUEST_EFER, info->ctrl_regs.efer);
+#endif
+
+
+
 
     error = v3_write_vmcs_segments(&(info->segments));
 
@@ -422,6 +423,7 @@ int v3_update_vmcs_host_state(struct guest_info * info) {
 #define SYSENTER_CS_MSR 0x00000174
 #define SYSENTER_ESP_MSR 0x00000175
 #define SYSENTER_EIP_MSR 0x00000176
+#define EFER_MSR 0xc0000080
 
     // SYSENTER CS MSR
     v3_get_msr(SYSENTER_CS_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
@@ -434,6 +436,10 @@ int v3_update_vmcs_host_state(struct guest_info * info) {
     // SYSENTER_EIP MSR
     v3_get_msr(SYSENTER_EIP_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
     vmx_ret |= check_vmcs_write(VMCS_HOST_SYSENTER_EIP, tmp_msr.value);
+
+    // EFER
+    v3_get_msr(EFER_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
+    vmx_ret |= check_vmcs_write(VMCS_HOST_EFER, tmp_msr.value);
 
     return vmx_ret;
 }

@@ -31,6 +31,7 @@
 #include <palacios/vmx_ctrl_regs.h>
 #include <palacios/vmx_assist.h>
 #include <palacios/vmm_halt.h>
+#include <palacios/vmx_ept.h>
 
 #ifndef CONFIG_DEBUG_VMX
 #undef PrintDebug
@@ -43,6 +44,8 @@
 
 /* At this point the GPRs are already copied into the guest_info state */
 int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_info) {
+    struct vmx_basic_exit_info * basic_info = (struct vmx_basic_exit_info *)&(exit_info->exit_reason);
+
     /*
       PrintError("Handling VMEXIT: %s (%u), %lu (0x%lx)\n", 
       v3_vmx_exit_code_to_str(exit_info->exit_reason),
@@ -52,19 +55,39 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
       v3_print_vmcs();
     */
 
+
+    if (basic_info->entry_error == 1) {
+	switch (basic_info->reason) {
+	    case VMEXIT_INVALID_GUEST_STATE:
+		PrintError("VM Entry failed due to invalid guest state\n");
+		PrintError("Printing VMCS: (NOTE: This VMCS may not belong to the correct guest)\n");
+		v3_print_vmcs();
+		break;
+	    case VMEXIT_INVALID_MSR_LOAD:
+		PrintError("VM Entry failed due to error loading MSRs\n");
+		break;
+	    default:
+		PrintError("Entry failed for unknown reason (%d)\n", basic_info->reason);
+		break;
+	}
+	
+	return -1;
+    }
+
+
 #ifdef CONFIG_TELEMETRY
     if (info->vm_info->enable_telemetry) {
 	v3_telemetry_start_exit(info);
     }
 #endif
 
-    switch (exit_info->exit_reason) {
+    switch (basic_info->reason) {
         case VMEXIT_INFO_EXCEPTION_OR_NMI: {
             pf_error_t error_code = *(pf_error_t *)&(exit_info->int_err);
 
 
             // JRL: Change "0x0e" to a macro value
-            if ((uint8_t)exit_info->int_info == 0x0e) {
+            if ((uint8_t)exit_info->int_info == 14) {
 #ifdef CONFIG_DEBUG_SHADOW_PAGING
                 PrintDebug("Page Fault at %p error_code=%x\n", (void *)exit_info->exit_qual, *(uint32_t *)&error_code);
 #endif
@@ -74,6 +97,7 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
                         PrintError("Error handling shadow page fault\n");
                         return -1;
                     }
+	    
                 } else {
                     PrintError("Page fault in unimplemented paging mode\n");
                     return -1;
@@ -86,6 +110,16 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
             break;
         }
 
+	case VMEXIT_EPT_VIOLATION: {
+	    struct ept_exit_qual * ept_qual = (struct ept_exit_qual *)&(exit_info->exit_qual);
+
+	    if (v3_handle_ept_fault(info, exit_info->ept_fault_addr, ept_qual) == -1) {
+		PrintError("Error handling EPT fault\n");
+		return -1;
+	    }
+
+	    break;
+	}
         case VMEXIT_INVLPG:
             if (info->shdw_pg_mode == SHADOW_PAGING) {
                 if (v3_handle_shadow_invlpg(info) == -1) {
@@ -208,6 +242,9 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
             }
 
             break;
+
+
+
         case VMEXIT_PAUSE:
             // Handled as NOP
             info->rip += 2;
@@ -220,10 +257,12 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
 	    // This is handled in the atomic part of the vmx code,
 	    // not in the generic (interruptable) vmx handler
             break;
+
+	    
         default:
             PrintError("Unhandled VMEXIT: %s (%u), %lu (0x%lx)\n", 
-		       v3_vmx_exit_code_to_str(exit_info->exit_reason),
-		       exit_info->exit_reason, 
+		       v3_vmx_exit_code_to_str(basic_info->reason),
+		       basic_info->reason, 
 		       exit_info->exit_qual, exit_info->exit_qual);
             return -1;
     }
@@ -271,12 +310,12 @@ static const char VMEXIT_MOV_DR_STR[] = "VMEXIT_MOV_DR";
 static const char VMEXIT_IO_INSTR_STR[] = "VMEXIT_IO_INSTR";
 static const char VMEXIT_RDMSR_STR[] = "VMEXIT_RDMSR";
 static const char VMEXIT_WRMSR_STR[] = "VMEXIT_WRMSR";
-static const char VMEXIT_ENTRY_FAIL_INVALID_GUEST_STATE_STR[] = "VMEXIT_ENTRY_FAIL_INVALID_GUEST_STATE";
-static const char VMEXIT_ENTRY_FAIL_MSR_LOAD_STR[] = "VMEXIT_ENTRY_FAIL_MSR_LOAD";
+static const char VMEXIT_INVALID_GUEST_STATE_STR[] = "VMEXIT_INVALID_GUEST_STATE";
+static const char VMEXIT_INVALID_MSR_LOAD_STR[] = "VMEXIT_INVALID_MSR_LOAD";
 static const char VMEXIT_MWAIT_STR[] = "VMEXIT_MWAIT";
 static const char VMEXIT_MONITOR_STR[] = "VMEXIT_MONITOR";
 static const char VMEXIT_PAUSE_STR[] = "VMEXIT_PAUSE";
-static const char VMEXIT_ENTRY_FAILURE_MACHINE_CHECK_STR[] = "VMEXIT_ENTRY_FAILURE_MACHINE_CHECK";
+static const char VMEXIT_INVALID_MACHINE_CHECK_STR[] = "VMEXIT_INVALIDE_MACHINE_CHECK";
 static const char VMEXIT_TPR_BELOW_THRESHOLD_STR[] = "VMEXIT_TPR_BELOW_THRESHOLD";
 static const char VMEXIT_APIC_STR[] = "VMEXIT_APIC";
 static const char VMEXIT_GDTR_IDTR_STR[] = "VMEXIT_GDTR_IDTR";
@@ -357,18 +396,18 @@ const char * v3_vmx_exit_code_to_str(vmx_exit_t exit)
             return VMEXIT_RDMSR_STR;
         case VMEXIT_WRMSR:
             return VMEXIT_WRMSR_STR;
-        case VMEXIT_ENTRY_FAIL_INVALID_GUEST_STATE:
-            return VMEXIT_ENTRY_FAIL_INVALID_GUEST_STATE_STR;
-        case VMEXIT_ENTRY_FAIL_MSR_LOAD:
-            return VMEXIT_ENTRY_FAIL_MSR_LOAD_STR;
+        case VMEXIT_INVALID_GUEST_STATE:
+            return VMEXIT_INVALID_GUEST_STATE_STR;
+        case VMEXIT_INVALID_MSR_LOAD:
+            return VMEXIT_INVALID_MSR_LOAD_STR;
         case VMEXIT_MWAIT:
             return VMEXIT_MWAIT_STR;
         case VMEXIT_MONITOR:
             return VMEXIT_MONITOR_STR;
         case VMEXIT_PAUSE:
             return VMEXIT_PAUSE_STR;
-        case VMEXIT_ENTRY_FAILURE_MACHINE_CHECK:
-            return VMEXIT_ENTRY_FAILURE_MACHINE_CHECK_STR;
+        case VMEXIT_INVALID_MACHINE_CHECK:
+            return VMEXIT_INVALID_MACHINE_CHECK_STR;
         case VMEXIT_TPR_BELOW_THRESHOLD:
             return VMEXIT_TPR_BELOW_THRESHOLD_STR;
         case VMEXIT_APIC:

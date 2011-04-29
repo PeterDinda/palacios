@@ -494,7 +494,7 @@ static int info_hcall(struct guest_info * core, uint_t hcall_id, void * priv_dat
     }
 #endif
 #ifdef CONFIG_VMX
-    if ((cpu_type == V3_VMX_CPU) || (cpu_type == V3_VMX_EPT_CPU)) {
+    if ((cpu_type == V3_VMX_CPU) || (cpu_type == V3_VMX_EPT_CPU) || (cpu_type == V3_VMX_EPT_UG_CPU)) {
 	cpu_valid = 1;
 	v3_print_vmcs();
     }
@@ -575,6 +575,7 @@ int v3_init_vm(struct v3_vm_info * vm) {
 #ifdef CONFIG_VMX
 	case V3_VMX_CPU:
 	case V3_VMX_EPT_CPU:
+	case V3_VMX_EPT_UG_CPU:
 	    v3_init_vmx_io_map(vm);
 	    v3_init_vmx_msr_map(vm);
 	    break;
@@ -615,6 +616,7 @@ int v3_free_vm_internal(struct v3_vm_info * vm) {
 #ifdef CONFIG_VMX
 	case V3_VMX_CPU:
 	case V3_VMX_EPT_CPU:
+	case V3_VMX_EPT_UG_CPU:
 	    v3_deinit_vmx_io_map(vm);
 	    v3_deinit_vmx_msr_map(vm);
 	    break;
@@ -694,6 +696,7 @@ int v3_init_core(struct guest_info * core) {
 #ifdef CONFIG_VMX
 	case V3_VMX_CPU:
 	case V3_VMX_EPT_CPU:
+	case V3_VMX_EPT_UG_CPU:
 	    if (v3_init_vmx_vmcs(core, vm->vm_class) == -1) {
 		PrintError("Error in VMX initialization\n");
 		return -1;
@@ -746,6 +749,7 @@ int v3_free_core(struct guest_info * core) {
 #ifdef CONFIG_VMX
 	case V3_VMX_CPU:
 	case V3_VMX_EPT_CPU:
+	case V3_VMX_EPT_UG_CPU:
 	    if (v3_deinit_vmx_vmcs(core) == -1) {
 		PrintError("Error in VMX initialization\n");
 		return -1;
