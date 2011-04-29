@@ -27,6 +27,15 @@
 
 #define EFER_MSR                 0xc0000080
 
+// KCH: for system-call interposition
+#define STAR_MSR                 0xc0000081
+#define LSTAR_MSR                0xc0000082
+#define CSTAR_MSR                0xc0000083
+#define SF_MASK_MSR              0xc0000084
+#define FS_BASE_MSR              0xc0000100
+#define GS_BASE_MSR              0xc0000101
+#define KERN_GS_BASE_MSR         0xc0000102
+
 struct cr0_real {
     uint_t pe    : 1;
     uint_t mp    : 1;
@@ -214,6 +223,13 @@ int v3_handle_cr4_read(struct guest_info * info);
 
 int v3_handle_efer_write(struct guest_info * core, uint_t msr, struct v3_msr src, void * priv_data);
 int v3_handle_efer_read(struct guest_info * core, uint_t msr, struct v3_msr * dst, void * priv_data);
+
+int v3_handle_star_write(struct guest_info * core, uint_t msr, struct v3_msr src, void * priv_data);
+int v3_handle_star_read(struct guest_info * core, uint_t msr, struct v3_msr * dst, void * priv_data);
+int v3_handle_lstar_write(struct guest_info * core, uint_t msr, struct v3_msr src, void * priv_data);
+int v3_handle_lstar_read(struct guest_info * core, uint_t msr, struct v3_msr * dst, void * priv_data);
+int v3_handle_cstar_write(struct guest_info * core, uint_t msr, struct v3_msr src, void * priv_data);
+int v3_handle_cstar_read(struct guest_info * core, uint_t msr, struct v3_msr * dst, void * priv_data);
 
 int v3_handle_vm_cr_write(struct guest_info * core, uint_t msr, struct v3_msr src, void * priv_data);
 int v3_handle_vm_cr_read(struct guest_info * core, uint_t msr, struct v3_msr * dst, void * priv_data);

@@ -135,6 +135,12 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
     ctrl_area->instrs.PAUSE = 1;
     ctrl_area->instrs.shutdown_evts = 1;
 
+    /* KCH: intercept writes to IDTR and SW Interrupts (INT) */
+#ifdef CONFIG_SYSCALL_HIJACK
+    ctrl_area->instrs.WR_IDTR = 0;
+    ctrl_area->instrs.INTn = 1;
+#endif
+
 
     /* DEBUG FOR RETURN CODE */
     ctrl_area->exit_code = 1;
@@ -222,6 +228,22 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
 		&v3_handle_efer_read,
 		&v3_handle_efer_write, 
 		core);
+
+#ifdef CONFIG_HIJACK_MSR
+    /* KCH: for syscall interposition */
+    v3_hook_msr(core->vm_info, STAR_MSR,
+        &v3_handle_star_read,
+        &v3_handle_star_write,
+        core);
+    v3_hook_msr(core->vm_info, LSTAR_MSR,
+        &v3_handle_lstar_read,
+        &v3_handle_lstar_write,
+        core);
+    v3_hook_msr(core->vm_info, CSTAR_MSR,
+        &v3_handle_cstar_read,
+        &v3_handle_cstar_write,
+        core);
+#endif
 
     if (core->shdw_pg_mode == SHADOW_PAGING) {
 	PrintDebug("Creating initial shadow page table\n");
@@ -422,9 +444,18 @@ static int update_irq_entry_state(struct guest_info * info) {
 	    case V3_NMI:
 		guest_ctrl->EVENTINJ.type = SVM_INJECTION_NMI;
 		break;
-	    case V3_SOFTWARE_INTR:
-		guest_ctrl->EVENTINJ.type = SVM_INJECTION_SOFT_INTR;
-		break;
+	    case V3_SOFTWARE_INTR: {
+            PrintDebug("KCH: Caught an injected software interrupt\n");
+            PrintDebug("\ttype: %d, vector: %d\n", SVM_INJECTION_SOFT_INTR, info->intr_core_state.sw_intr_vector);
+            guest_ctrl->EVENTINJ.type = SVM_INJECTION_SOFT_INTR;
+            guest_ctrl->EVENTINJ.vector = info->intr_core_state.sw_intr_vector;
+            guest_ctrl->EVENTINJ.valid = 1;
+            
+            // clear out stuff?
+            info->intr_core_state.sw_intr_pending = 0;
+            info->intr_core_state.sw_intr_vector = 0;
+            break;
+        }
 	    case V3_VIRTUAL_IRQ:
 		guest_ctrl->EVENTINJ.type = SVM_INJECTION_IRQ;
 		break;

@@ -58,6 +58,10 @@ struct v3_intr_core_state {
     uint_t irq_started;
     uint_t irq_vector;
 
+    // KCH
+    uint_t sw_intr_pending;
+    uint_t sw_intr_vector;
+
     uint8_t virq_map[MAX_IRQ / 8];
 
     v3_lock_t irq_lock;
@@ -79,6 +83,7 @@ int v3_lower_virq(struct guest_info * info, int irq);
 int v3_raise_irq(struct v3_vm_info * vm, int irq);
 int v3_lower_irq(struct v3_vm_info * vm, int irq);
 
+int v3_signal_sw_intr(struct guest_info * core, int vec);
 
 
 struct intr_ctrl_ops {

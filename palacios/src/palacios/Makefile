@@ -76,5 +76,6 @@ obj-$(CONFIG_SYMBIOTIC) += vmm_symbiotic.o vmm_symspy.o
 obj-$(CONFIG_SYMCALL) += vmm_symcall.o
 obj-$(CONFIG_SYMMOD) += vmm_symmod.o
 
+obj-$(CONFIG_SYSCALL_HIJACK) += vmm_syscall_hijack.o
 
 obj-y += mmu/

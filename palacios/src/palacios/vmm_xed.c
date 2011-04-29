@@ -443,6 +443,19 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 
 
 		case XED_OPERAND_IMM0:
+		    {
+                v3_op->size = xed_decoded_inst_get_immediate_width(&xed_instr);
+
+                if (v3_op->size > 4) {
+                    PrintError("Unhandled 64 bit immediates\n");
+                    return -1;
+                }
+                v3_op->operand = xed_decoded_inst_get_unsigned_immediate(&xed_instr);
+
+                v3_op->type = IMM_OPERAND;
+
+		    }
+		    break;
 		case XED_OPERAND_AGEN:
 		case XED_OPERAND_PTR:
 		case XED_OPERAND_RELBR:
@@ -581,7 +594,7 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 
 	    instr->third_operand.type = REG_OPERAND;
 
-	    PrintDebug("Operand 3 mode: %s\n", xed_operand_action_enum_t2str(xed_operand_rw(op)));
+	    PrintDebug("Operand 2 mode: %s\n", xed_operand_action_enum_t2str(xed_operand_rw(op)));
 
 
 	    if (xed_operand_read(op)) {
@@ -1269,6 +1282,10 @@ static v3_op_type_t get_opcode(xed_iform_enum_t iform) {
 
 	case XED_IFORM_INVLPG_MEMb:
 	    return V3_OP_INVLPG;
+
+    // KCH
+    case XED_IFORM_INT_IMM:
+        return V3_OP_INT;
 
 
 	    /* Data Instructions */

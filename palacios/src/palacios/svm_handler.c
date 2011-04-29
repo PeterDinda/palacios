@@ -33,6 +33,7 @@
 #include <palacios/vmm_hypercall.h>
 #include <palacios/vmm_cpuid.h>
 #include <palacios/vmm_direct_paging.h>
+#include <palacios/vmm_syscall_hijack.h>
 
 #ifndef CONFIG_DEBUG_SVM
 #undef PrintDebug
@@ -193,6 +194,26 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 		    }
 	    break;
 	    }
+#ifdef CONFIG_SYSCALL_HIJACK
+    case VMEXIT_IDTR_WRITE: // KCH: syscall interposition
+#ifdef CONFIG_DEBUG_SYSCALL_HIJACK
+        PrintDebug("IDTR Write\n");
+#endif
+        if (v3_handle_idtr_write(info) == -1) {
+            PrintError("Error handling IDTR write\n");
+            return -1;
+        }
+        break;
+    case VMEXIT_SWINT:
+#ifdef CONFIG_DEBUG_SYSCALL_HIJACK
+        PrintDebug("Intercepting SW Interrupt\n");
+#endif
+        if (v3_handle_swint(info) == -1) {
+            PrintError("Error handling software interrupt\n");
+            return -1;
+        }
+        break;
+#endif
 	case VMEXIT_INVLPG: 
 	    if (info->shdw_pg_mode == SHADOW_PAGING) {
 #ifdef CONFIG_DEBUG_SHADOW_PAGING

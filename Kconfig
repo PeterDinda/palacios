@@ -178,6 +178,24 @@ config INSPECTOR
 	help 
 	  Enable inspection framework for vm internal state
 
+config SYSCALL_HIJACK
+    bool "Enable System Call Interposition"
+    depends on EXPERIMENTAL
+    default n
+    help
+      Enable the VMM to hijack system calls executed by the guest.
+      If enabled, the VMM will intercept software interrupt (INT) instructions,
+      Fast-System Call instructions (SYSENTER, SYSCALL), and the LIDT instruction
+
+config HIJACK_SYSCALL_MSR
+    bool "Intercept Syscall-related MSR reads & writes"
+    depends on SYSCALL_HIJACK 
+    default n
+    help
+      Allow the VMM to intercept reads and writes to MSRs
+      related to SYSCALL and SYSENTER instructions. Specifically,
+      it will intercept R/W to STAR, CSTAR, and LSTAR.
+
 endmenu
 
 
@@ -407,6 +425,14 @@ config DEBUG_VNET
         default n
         help
           Enable the Vnet debug in Palacios
+
+config DEBUG_SYSCALL_HIJACK
+        bool "Enable Syscall hijack Debug in Palacios"
+        default n
+        depends on EXPERIMENTAL && SYSCALL_HIJACK && DEBUG_ON
+        help
+          Enable Debugging printouts for syscall hijacking
+          code in Palacios
 
 endmenu
 

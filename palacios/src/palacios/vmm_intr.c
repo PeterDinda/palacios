@@ -33,7 +33,6 @@
 
 
 
-
 struct intr_controller {
     struct intr_ctrl_ops * ctrl_ops;
     
@@ -49,6 +48,8 @@ struct intr_router {
     struct list_head router_node;
 
 };
+
+
 
 void v3_init_intr_controllers(struct guest_info * info) {
     struct v3_intr_core_state * intr_state = &(info->intr_core_state);
@@ -95,6 +96,7 @@ void v3_deinit_intr_routers(struct v3_vm_info * vm) {
     }  
 }
 
+
 void * v3_register_intr_controller(struct guest_info * info, struct intr_ctrl_ops * ops, void * priv_data) {
     struct intr_controller * ctrlr = (struct intr_controller *)V3_Malloc(sizeof(struct intr_controller));
 
@@ -105,6 +107,7 @@ void * v3_register_intr_controller(struct guest_info * info, struct intr_ctrl_op
     
     return (void *)ctrlr;
 }
+
 
 void v3_remove_intr_controller(struct guest_info * core, void * handle) {
     struct v3_intr_core_state * intr_state = &(core->intr_core_state);
@@ -128,6 +131,7 @@ void v3_remove_intr_controller(struct guest_info * core, void * handle) {
     V3_Free(ctrlr);
 }
 
+
 void * v3_register_intr_router(struct v3_vm_info * vm, struct intr_router_ops * ops, void * priv_data) {
     struct intr_router * router = (struct intr_router *)V3_Malloc(sizeof(struct intr_router));
 
@@ -138,6 +142,7 @@ void * v3_register_intr_router(struct v3_vm_info * vm, struct intr_router_ops * 
     
     return (void *)router;
 }
+
 
 void v3_remove_intr_router(struct v3_vm_info * vm, void * handle) {
     struct intr_router * router = handle;
@@ -159,7 +164,6 @@ void v3_remove_intr_router(struct v3_vm_info * vm, void * handle) {
     list_del(&(router->router_node));
     V3_Free(router);
 }
-
 
 
 static inline struct v3_irq_hook * get_irq_hook(struct v3_vm_info * vm, uint_t irq) {
@@ -199,13 +203,13 @@ int v3_hook_irq(struct v3_vm_info * vm,
 }
 
 
-
 static int passthrough_irq_handler(struct v3_vm_info * vm, struct v3_interrupt * intr, void * priv_data) {
     PrintDebug("[passthrough_irq_handler] raise_irq=%d (guest=0x%p)\n", 
 	       intr->irq, (void *)vm);
 
     return v3_raise_irq(vm, intr->irq);
 }
+
 
 int v3_hook_passthrough_irq(struct v3_vm_info * vm, uint_t irq) {
     int rc = v3_hook_irq(vm, irq, passthrough_irq_handler, NULL);
@@ -218,9 +222,6 @@ int v3_hook_passthrough_irq(struct v3_vm_info * vm, uint_t irq) {
 	return 0;
     }
 }
-
-
-
 
 
 int v3_deliver_irq(struct v3_vm_info * vm, struct v3_interrupt * intr) {
@@ -237,9 +238,6 @@ int v3_deliver_irq(struct v3_vm_info * vm, struct v3_interrupt * intr) {
 }
 
 
-
-
-
 int v3_raise_virq(struct guest_info * info, int irq) {
     struct v3_intr_core_state * intr_state = &(info->intr_core_state);
     int major = irq / 8;
@@ -249,6 +247,7 @@ int v3_raise_virq(struct guest_info * info, int irq) {
    
     return 0;
 }
+
 
 int v3_lower_virq(struct guest_info * info, int irq) {
     struct v3_intr_core_state * intr_state = &(info->intr_core_state);
@@ -277,6 +276,7 @@ int v3_lower_irq(struct v3_vm_info * vm, int irq) {
     return 0;
 }
 
+
 int v3_raise_irq(struct v3_vm_info * vm, int irq) {
     struct intr_router * router = NULL;
     struct v3_intr_routers * routers = &(vm->intr_routers);
@@ -294,11 +294,22 @@ int v3_raise_irq(struct v3_vm_info * vm, int irq) {
 }
 
 
+int v3_signal_sw_intr(struct guest_info * core, int vec) {
+    struct v3_intr_core_state * intr_state = &(core->intr_core_state);
+
+    PrintDebug("KCH: Signalling a software interrupt in vmm_intr.c\n");
+    PrintDebug("\tINT vector: %d\n", vec);
+    
+    intr_state->sw_intr_pending = 1;
+    intr_state->sw_intr_vector = vec;
+    return 0;
+}
+
+
 void v3_clear_pending_intr(struct guest_info * core) {
     struct v3_intr_core_state * intr_state = &(core->intr_core_state);
 
     intr_state->irq_pending = 0;
-
 }
 
 
@@ -327,6 +338,12 @@ v3_intr_type_t v3_intr_pending(struct guest_info * info) {
 	    }
 	}
     }
+
+    // KCH: not sure about this
+    if (intr_state->sw_intr_pending == 1) {
+        ret = V3_SOFTWARE_INTR;
+    }
+        
 
     v3_unlock_irqrestore(intr_state->irq_lock, irq_state);
 
@@ -400,9 +417,6 @@ intr_type_t v3_get_intr_type(struct guest_info * info) {
     return type;
 }
 */
-
-
-
 
 
 int v3_injecting_intr(struct guest_info * info, uint_t intr_num, v3_intr_type_t type) {
