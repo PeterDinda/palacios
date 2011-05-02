@@ -17,16 +17,24 @@
 #include <linux/file.h>
 #include <linux/spinlock.h>
 
-#ifdef CONFIG_DEBUG_FS
-#include "palacios-debugfs.h"
-#endif
 
 #include <palacios/vmm.h>
 
 #include "palacios.h"
-#include "palacios-console.h"
-#include "palacios-serial.h"
 #include "palacios-vm.h"
+
+#ifdef V3_CONFIG_STREAM
+#include "palacios-stream.h"
+#endif
+
+#ifdef V3_CONFIG_CONSOLE
+#include "palacios-console.h"
+#endif
+
+#ifdef V3_CONFIG_EXT_INSPECTOR
+#include "palacios-debugfs.h"
+#endif
+
 
 
 extern struct class * v3_class;
@@ -34,8 +42,6 @@ extern struct class * v3_class;
 
 static long v3_vm_ioctl(struct file * filp,
 			unsigned int ioctl, unsigned long arg) {
-    void __user * argp = (void __user *)arg;
-    char path_name[STREAM_NAME_LEN];
 
     struct v3_guest * guest = filp->private_data;
 
@@ -43,24 +49,39 @@ static long v3_vm_ioctl(struct file * filp,
 
     switch (ioctl) {
 
-	case V3_VM_CONSOLE_CONNECT: {
-	    return connect_console(guest);
-	    break;
-	}
-	case V3_VM_SERIAL_CONNECT: {
-	    if (copy_from_user(path_name, argp, STREAM_NAME_LEN)) {
-		printk("copy from user error getting guest image...\n");
-		return -EFAULT;
-	    }
-
-	    return open_serial(path_name);
-	    break;
-	}
 	case V3_VM_STOP: {
 	    printk("Stopping VM\n");
 	    stop_palacios_vm(guest);
 	    break;
 	}
+
+	case V3_VM_CONSOLE_CONNECT: {
+#ifdef V3_CONFIG_CONSOLE
+	    return connect_console(guest);
+#else
+	    printk("Console support not available\n");
+	    return -EFAULT;
+#endif
+	    break;
+	}
+	case V3_VM_STREAM_CONNECT: {
+#ifdef V3_CONFIG_STREAM
+	    void __user * argp = (void __user *)arg;
+	    char path_name[STREAM_NAME_LEN];
+
+	    if (copy_from_user(path_name, argp, STREAM_NAME_LEN)) {
+		printk("%s(%d): copy from user error...\n", __FILE__, __LINE__);
+		return -EFAULT;
+	    }
+
+	    return open_stream(path_name);
+#else
+	    printk("Stream support Not available\n");
+	    return -EFAULT;
+#endif
+	    break;
+	}
+
 	default: 
 	    printk("\tUnhandled\n");
 	    return -EINVAL;
@@ -150,7 +171,7 @@ int start_palacios_vm(void * arg)  {
 
 
 
-#if CONFIG_DEBUG_FS
+#if V3_CONFIG_EXT_INSPECTOR
     dfs_register_vm(guest);
 #endif
 

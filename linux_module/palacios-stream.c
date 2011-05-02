@@ -12,7 +12,7 @@
 
 static struct list_head global_streams;
 
-int stream_enqueue(struct stream_buffer * stream, char * buf, int len) {
+static int stream_enqueue(struct stream_buffer * stream, char * buf, int len) {
     int bytes = 0;
 
     bytes = ringbuf_write(stream->buf, buf, len);
@@ -32,6 +32,12 @@ int stream_dequeue(struct stream_buffer * stream, char * buf, int len) {
 int stream_datalen(struct stream_buffer * stream){
     return ringbuf_data_len(stream->buf);
 }
+
+
+int open_stream(const char * name) {
+    return -1;
+}
+
 
 
 struct stream_buffer * find_stream_by_name(struct v3_guest * guest, const char * name) {

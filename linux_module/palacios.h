@@ -6,7 +6,9 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 
+#ifdef V3_CONFIG_CONSOLE
 #include "palacios-console.h"
+#endif
 
 /* Global Control IOCTLs */
 #define V3_START_GUEST 10
@@ -15,7 +17,7 @@
 
 /* VM Specific IOCTLs */
 #define V3_VM_CONSOLE_CONNECT 20
-#define V3_VM_SERIAL_CONNECT 21
+#define V3_VM_STREAM_CONNECT 21
 #define V3_VM_STOP 22
 
 struct v3_guest_img {
@@ -51,7 +53,9 @@ struct v3_guest {
     struct list_head streams;
     struct list_head sockets;
 
+#ifdef V3_CONFIG_CONSOLE
     struct palacios_console console;
+#endif
 
     struct completion start_done;
     struct completion thread_done;

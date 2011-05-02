@@ -19,7 +19,6 @@
 
 #include <palacios/vmm_types.h>
 
-
 /* .... Giant fucking switch tables */
 
 
@@ -450,7 +449,7 @@ static inline int decode_cr(struct guest_info * core,
 
     struct v3_ctrl_regs * crs = &(core->ctrl_regs);
 
-    PrintDebug("\t Ctrl regs %d\n", reg_code);
+//    PrintDebug("\t Ctrl regs %d\n", reg_code);
 
     switch (reg_code) {
 	case 0:

@@ -28,7 +28,7 @@
 #include "palacios-vnet.h"
 #include "palacios-packet.h"
 
-#ifdef CONFIG_DEBUG_FS
+#ifdef V3_CONFIG_EXT_INSPECTOR
 #include "palacios-debugfs.h"
 #endif
 
@@ -241,24 +241,31 @@ static int __init v3_init(void) {
     
     palacios_vmm_init();
 
+#ifdef V3_CONFIG_STREAM
     palacios_init_stream();
+#endif
+
+#ifdef V3_CONFIG_FILE
     palacios_file_init();
+#endif
+
+#ifdef V3_CONFIG_CONSOLE
     palacios_init_console();
+#endif
 
-
-#ifdef CONFIG_DEBUG_FS
+#ifdef V3_CONFIG_INSPECTOR
     palacios_init_debugfs();
 #endif
 
-#ifdef CONFIG_PALACIOS_SOCKET
+#ifdef V3_CONFIG_SOCKET
     palacios_socket_init();
 #endif
 
-#ifdef CONFIG_PALACIOS_PACKET
+#ifdef V3_CONFIG_PACKET
     palacios_init_packet(NULL);
 #endif
 
-#ifdef CONFIG_PALACIOS_VNET
+#ifdef V3_CONFIG_VNET
     palacios_init_vnet();
 #endif
 
@@ -303,12 +310,17 @@ static void __exit v3_exit(void) {
 
 
 
-#ifdef CONFIG_DEBUG_FS
+#ifdef V3_CONFIG_EXT_INSPECTOR
     palacios_deinit_debugfs();
 #endif
 
+#ifdef V3_CONFIG_FILE
     palacios_file_deinit();
+#endif
+
+#ifdef V3_CONFIG_STREAM
     palacios_deinit_stream();
+#endif
 
     palacios_deinit_mm();
 
