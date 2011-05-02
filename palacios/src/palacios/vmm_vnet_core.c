@@ -84,10 +84,11 @@ struct route_list {
 struct queue_entry{
     uint8_t use;
     struct v3_vnet_pkt pkt;
-    uint8_t data[ETHERNET_PACKET_LEN];
+    uint8_t * data;
+    uint32_t size_alloc;
 };
 
-#define VNET_QUEUE_SIZE 10240
+#define VNET_QUEUE_SIZE 1024
 struct vnet_queue {
 	struct queue_entry buf[VNET_QUEUE_SIZE];
 	int head, tail;
@@ -520,6 +521,7 @@ static int vnet_pkt_enqueue(struct v3_vnet_pkt * pkt){
     unsigned long flags;
     struct queue_entry * entry;
     struct vnet_queue * q = &(vnet_state.pkt_q);
+    uint16_t num_pages;
 
     flags = v3_lock_irqsave(q->lock);
 
@@ -537,6 +539,20 @@ static int vnet_pkt_enqueue(struct v3_vnet_pkt * pkt){
 
     /* this is ugly, but should happen very unlikely */
     while(entry->use);
+
+    if(entry->size_alloc < pkt->size){
+    	if(entry->data != NULL){
+	    V3_FreePages(V3_PAddr(entry->data), (entry->size_alloc / PAGE_SIZE));
+	    entry->data = NULL;
+    	}
+
+	num_pages = 1 + (pkt->size / PAGE_SIZE);
+	entry->data = V3_VAddr(V3_AllocPages(num_pages));
+	if(entry->data == NULL){
+	    return -1;
+	}
+	entry->size_alloc = PAGE_SIZE * num_pages;
+    }
 
     entry->pkt.data = entry->data;
     memcpy(&(entry->pkt), pkt, sizeof(struct v3_vnet_pkt));
@@ -719,6 +735,8 @@ static int vnet_tx_flush(void *args){
    	    /* this is ugly, but should happen very unlikely */
     	    while(!entry->use);
 	    vnet_tx_one_pkt(&(entry->pkt), NULL);
+
+	    /* asynchronizely release allocated memory for buffer entry here */	    
 	    entry->use = 0;
 
 	    V3_Net_Print(2, "vnet_tx_flush: pkt (size %d)\n", entry->pkt.size);   
