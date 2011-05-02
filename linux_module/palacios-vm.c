@@ -32,7 +32,7 @@
 #endif
 
 #ifdef V3_CONFIG_EXT_INSPECTOR
-#include "palacios-debugfs.h"
+#include "palacios-inspector.h"
 #endif
 
 
@@ -172,7 +172,7 @@ int start_palacios_vm(void * arg)  {
 
 
 #if V3_CONFIG_EXT_INSPECTOR
-    dfs_register_vm(guest);
+    inspect_vm(guest);
 #endif
 
 

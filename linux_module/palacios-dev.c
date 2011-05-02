@@ -29,7 +29,7 @@
 #include "palacios-packet.h"
 
 #ifdef V3_CONFIG_EXT_INSPECTOR
-#include "palacios-debugfs.h"
+#include "palacios-inspector.h"
 #endif
 
 MODULE_LICENSE("GPL");
@@ -253,8 +253,8 @@ static int __init v3_init(void) {
     palacios_init_console();
 #endif
 
-#ifdef V3_CONFIG_INSPECTOR
-    palacios_init_debugfs();
+#ifdef V3_CONFIG_EXT_INSPECTOR
+    palacios_init_inspector();
 #endif
 
 #ifdef V3_CONFIG_SOCKET
@@ -311,7 +311,7 @@ static void __exit v3_exit(void) {
 
 
 #ifdef V3_CONFIG_EXT_INSPECTOR
-    palacios_deinit_debugfs();
+    palacios_deinit_inspector();
 #endif
 
 #ifdef V3_CONFIG_FILE

@@ -29,7 +29,7 @@ ifdef V3_CONFIG_STREAM
 endif
 
 ifdef V3_CONFIG_EXT_INSPECTOR
-	v3vee-objs += palacios-debugfs.o
+	v3vee-objs += palacios-inspector.o
 endif
 
 ifdef V3_CONFIG_VNET
