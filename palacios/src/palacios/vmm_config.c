@@ -286,7 +286,6 @@ static int determine_paging_mode(struct guest_info * info, v3_cfg_tree_t * core_
     v3_cfg_tree_t * vm_tree = info->vm_info->cfg_data->cfg;
     v3_cfg_tree_t * pg_tree = v3_cfg_subtree(vm_tree, "paging");
     char * pg_mode          = v3_cfg_val(pg_tree, "mode");
-    char * page_size        = v3_cfg_val(pg_tree, "page_size");
     
     PrintDebug("Paging mode specified as %s\n", pg_mode);
 
@@ -312,24 +311,6 @@ static int determine_paging_mode(struct guest_info * info, v3_cfg_tree_t * core_
 	info->shdw_pg_mode = SHADOW_PAGING;
     }
 
-
-    if (info->shdw_pg_mode == NESTED_PAGING) {
-    	PrintDebug("Guest Paging Mode: NESTED_PAGING\n");
-	if (strcasecmp(page_size, "4kb") == 0) { /* TODO: this may not be an ideal place for this */
-	    info->vm_info->paging_size = PAGING_4KB;
-	} else if (strcasecmp(page_size, "2mb") == 0) {
-	    info->vm_info->paging_size = PAGING_2MB;
-	} else {
-	    PrintError("Invalid VM paging size: '%s'\n", page_size);
-	    return -1;
-	}
-	PrintDebug("VM page size=%s\n", page_size);
-    } else if (info->shdw_pg_mode == SHADOW_PAGING) {
-        PrintDebug("Guest Paging Mode: SHADOW_PAGING\n");
-    } else {
-	PrintError("Guest paging mode incorrectly set.\n");
-	return -1;
-    }
 
     if (v3_cfg_val(pg_tree, "large_pages") != NULL) {
 	if (strcasecmp(v3_cfg_val(pg_tree, "large_pages"), "true") == 0) {

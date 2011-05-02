@@ -326,16 +326,6 @@ int v3_update_vmcs_host_state(struct guest_info * info) {
     vmx_ret |= check_vmcs_write(VMCS_HOST_IDTR_BASE, arch_data->host_state.idtr.base);
     vmx_ret |= check_vmcs_write(VMCS_HOST_TR_BASE, arch_data->host_state.tr.base);
 
-#define FS_BASE_MSR 0xc0000100
-#define GS_BASE_MSR 0xc0000101
-
-    // FS.BASE MSR
-    v3_get_msr(FS_BASE_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
-    vmx_ret |= check_vmcs_write(VMCS_HOST_FS_BASE, tmp_msr.value);    
-
-    // GS.BASE MSR
-    v3_get_msr(GS_BASE_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
-    vmx_ret |= check_vmcs_write(VMCS_HOST_GS_BASE, tmp_msr.value);    
 
 
 
@@ -423,7 +413,10 @@ int v3_update_vmcs_host_state(struct guest_info * info) {
 #define SYSENTER_CS_MSR 0x00000174
 #define SYSENTER_ESP_MSR 0x00000175
 #define SYSENTER_EIP_MSR 0x00000176
+#define FS_BASE_MSR 0xc0000100
+#define GS_BASE_MSR 0xc0000101
 #define EFER_MSR 0xc0000080
+
 
     // SYSENTER CS MSR
     v3_get_msr(SYSENTER_CS_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
@@ -437,9 +430,32 @@ int v3_update_vmcs_host_state(struct guest_info * info) {
     v3_get_msr(SYSENTER_EIP_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
     vmx_ret |= check_vmcs_write(VMCS_HOST_SYSENTER_EIP, tmp_msr.value);
 
+
+    // FS.BASE MSR
+    v3_get_msr(FS_BASE_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
+    vmx_ret |= check_vmcs_write(VMCS_HOST_FS_BASE, tmp_msr.value);    
+
+    // GS.BASE MSR
+    v3_get_msr(GS_BASE_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
+    vmx_ret |= check_vmcs_write(VMCS_HOST_GS_BASE, tmp_msr.value);    
+
+
     // EFER
     v3_get_msr(EFER_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
     vmx_ret |= check_vmcs_write(VMCS_HOST_EFER, tmp_msr.value);
+
+    // PERF GLOBAL CONTROL
+
+    // PAT
+
+
+    // save STAR, LSTAR, FMASK, KERNEL_GS_BASE MSRs in MSR load/store area
+
+    
+
+    
+
+
 
     return vmx_ret;
 }

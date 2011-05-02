@@ -275,10 +275,10 @@ struct vmx_intr_state {
     union {
 	uint32_t value;
 	struct {
-	    uint8_t block_sti    : 1;
-	    uint8_t block_mov_ss : 1;
-	    uint8_t block_smi    : 1;
-	    uint8_t block_nmi    : 1;
+	    uint32_t block_sti    : 1;
+	    uint32_t block_mov_ss : 1;
+	    uint32_t block_smi    : 1;
+	    uint32_t block_nmi    : 1;
 	    uint32_t rsvd        : 28;
 	} __attribute__((packed));
     } __attribute__((packed));
@@ -295,14 +295,14 @@ struct vmx_pending_dbg_excps {
 	} __attribute__((packed));
 
 	struct {
-	    uint8_t b0       : 1;
-	    uint8_t b1       : 1;
-	    uint8_t b2       : 1;
-	    uint8_t b3       : 1;
-	    uint8_t rsvd1    : 8;
-	    uint8_t bp_set   : 1;
-	    uint8_t rsvd2    : 1;
-	    uint8_t bp_ss    : 1;
+	    uint64_t b0       : 1;
+	    uint64_t b1       : 1;
+	    uint64_t b2       : 1;
+	    uint64_t b3       : 1;
+	    uint64_t rsvd1    : 8;
+	    uint64_t bp_set   : 1;
+	    uint64_t rsvd2    : 1;
+	    uint64_t bp_ss    : 1;
 	    uint64_t rsvd3   : 49;
 	} __attribute__((packed));
     } __attribute__((packed));
@@ -332,6 +332,14 @@ struct vmcs_segment {
 	} __attribute__((packed));
     } __attribute__((packed)) access;
 };
+
+
+struct vmcs_msr_entry {
+    uint32_t index;
+    uint32_t rsvd;
+    uint32_t lo;
+    uint32_t hi;
+} __attribute__((packed));
 
 
 struct vmcs_interrupt_state {

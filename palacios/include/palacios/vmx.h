@@ -209,6 +209,8 @@ struct vmx_data {
     struct vmx_entry_ctrls entry_ctrls;
 
     struct vmx_exception_bitmap excp_bmap;
+
+    void * msr_area;
 };
 
 int v3_is_vmx_capable();
