@@ -30,7 +30,6 @@
 #include <palacios/vmm_xml.h>
 #include <palacios/vmm_io.h>
 #include <palacios/vmm_msr.h>
-#include <palacios/vmm_mptable.h>
 #include <palacios/vmm_sprintf.h>
 
 
@@ -353,13 +352,6 @@ static int post_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	return -1;
     }
 
-    /* 
-     * Initialize configured extensions 
-     */
-    if (setup_extensions(vm, cfg) == -1) {
-	PrintError("Failed to setup extensions\n");
-	return -1;
-    }
 
     /* 
      * Initialize configured devices
@@ -383,6 +375,15 @@ static int post_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	PrintError("Invalid VM Class\n");
 	return -1;
     }
+
+    /* 
+     * Initialize configured extensions 
+     */
+    if (setup_extensions(vm, cfg) == -1) {
+	PrintError("Failed to setup extensions\n");
+	return -1;
+    }
+
 
     return 0;
 }

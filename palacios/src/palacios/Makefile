@@ -32,7 +32,6 @@ obj-y := \
 	vmm_cpuid.o \
 	vmm_xml.o \
 	vmm_mem_hook.o \
-	vmm_mptable.o \
 	vmm_extensions.o \
 	vmm_mtrr.o \
 	vmm_multitree.o \

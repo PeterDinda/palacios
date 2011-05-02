@@ -1,5 +1,6 @@
 obj-$(V3_CONFIG_APIC) += apic.o
 obj-$(V3_CONFIG_IO_APIC) += io_apic.o
+obj-$(V3_CONFIG_MPTABLE) += mptable.o
 obj-$(V3_CONFIG_PIT) += 8254.o
 obj-$(V3_CONFIG_PIC) += 8259a.o
 obj-$(V3_CONFIG_BOCHS_DEBUG) += bochs_debug.o

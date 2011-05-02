@@ -77,12 +77,6 @@ static int post_config_pc(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     }
 
 
-    if (vm->num_cores > 1) {
-	if (v3_inject_mptable(vm) == -1) { 
-	    PrintError("Failed to inject mptable during configuration\n");
-	    return -1;
-    	}
-    }
     return 0;
 }
 
