@@ -36,7 +36,7 @@
 #include <palacios/vmx_assist.h>
 #include <palacios/vmx_hw_info.h>
 
-#ifndef CONFIG_DEBUG_VMX
+#ifndef V3_CONFIG_DEBUG_VMX
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
@@ -47,8 +47,8 @@ static struct vmx_hw_info hw_info;
 
 extern v3_cpu_arch_t v3_cpu_types[];
 
-static addr_t active_vmcs_ptrs[CONFIG_MAX_CPUS] = { [0 ... CONFIG_MAX_CPUS - 1] = 0};
-static addr_t host_vmcs_ptrs[CONFIG_MAX_CPUS] = { [0 ... CONFIG_MAX_CPUS - 1] = 0};
+static addr_t active_vmcs_ptrs[V3_CONFIG_MAX_CPUS] = { [0 ... V3_CONFIG_MAX_CPUS - 1] = 0};
+static addr_t host_vmcs_ptrs[V3_CONFIG_MAX_CPUS] = { [0 ... V3_CONFIG_MAX_CPUS - 1] = 0};
 
 extern int v3_vmx_launch(struct v3_gprs * vm_regs, struct guest_info * info, struct v3_ctrl_regs * ctrl_regs);
 extern int v3_vmx_resume(struct v3_gprs * vm_regs, struct guest_info * info, struct v3_ctrl_regs * ctrl_regs);
@@ -193,7 +193,7 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 
     vmx_state->pri_proc_ctrls.pause_exit = 0;
     vmx_state->pri_proc_ctrls.tsc_offset = 1;
-#ifdef CONFIG_TIME_VIRTUALIZE_TSC
+#ifdef V3_CONFIG_TIME_VIRTUALIZE_TSC
     vmx_state->pri_proc_ctrls.rdtsc_exit = 1;
 #endif
 
@@ -560,7 +560,7 @@ static int update_irq_exit_state(struct guest_info * info) {
     check_vmcs_read(VMCS_IDT_VECTOR_INFO, &(idt_vec_info.value));
 
     if ((info->intr_core_state.irq_started == 1) && (idt_vec_info.valid == 0)) {
-#ifdef CONFIG_DEBUG_INTERRUPTS
+#ifdef V3_CONFIG_DEBUG_INTERRUPTS
         V3_Print("Calling v3_injecting_intr\n");
 #endif
         info->intr_core_state.irq_started = 0;
@@ -592,14 +592,14 @@ static int update_irq_entry_state(struct guest_info * info) {
             check_vmcs_write(VMCS_ENTRY_EXCP_ERR, info->excp_state.excp_error_code);
             int_info.error_code = 1;
 
-#ifdef CONFIG_DEBUG_INTERRUPTS
+#ifdef V3_CONFIG_DEBUG_INTERRUPTS
             V3_Print("Injecting exception %d with error code %x\n", 
                     int_info.vector, info->excp_state.excp_error_code);
 #endif
         }
 
         int_info.valid = 1;
-#ifdef CONFIG_DEBUG_INTERRUPTS
+#ifdef V3_CONFIG_DEBUG_INTERRUPTS
         V3_Print("Injecting exception %d (EIP=%p)\n", int_info.vector, (void *)(addr_t)info->rip);
 #endif
         check_vmcs_write(VMCS_ENTRY_INT_INFO, int_info.value);
@@ -611,7 +611,7 @@ static int update_irq_entry_state(struct guest_info * info) {
        
         if ((info->intr_core_state.irq_started == 1) && (idt_vec_info.valid == 1)) {
 
-#ifdef CONFIG_DEBUG_INTERRUPTS
+#ifdef V3_CONFIG_DEBUG_INTERRUPTS
             V3_Print("IRQ pending from previous injection\n");
 #endif
 
@@ -638,7 +638,7 @@ static int update_irq_entry_state(struct guest_info * info) {
                     ent_int.error_code = 0;
                     ent_int.valid = 1;
 
-#ifdef CONFIG_DEBUG_INTERRUPTS
+#ifdef V3_CONFIG_DEBUG_INTERRUPTS
                     V3_Print("Injecting Interrupt %d at exit %u(EIP=%p)\n", 
 			       info->intr_core_state.irq_vector, 
 			       (uint32_t)info->num_exits, 
@@ -683,7 +683,7 @@ static int update_irq_entry_state(struct guest_info * info) {
 
         check_vmcs_read(VMCS_EXIT_INSTR_LEN, &instr_len);
 
-#ifdef CONFIG_DEBUG_INTERRUPTS
+#ifdef V3_CONFIG_DEBUG_INTERRUPTS
         V3_Print("Enabling Interrupt-Window exiting: %d\n", instr_len);
 #endif
 
@@ -761,7 +761,7 @@ int v3_vmx_enter(struct guest_info * info) {
     v3_vmx_restore_vmcs(info);
 
 
-#ifdef CONFIG_SYMCALL
+#ifdef V3_CONFIG_SYMCALL
     if (info->sym_core_state.symcall_state.sym_call_active == 0) {
 	update_irq_entry_state(info);
     }
@@ -843,7 +843,7 @@ int v3_vmx_enter(struct guest_info * info) {
     exit_log[info->num_exits % 10] = exit_info;
 
 
-#ifdef CONFIG_SYMCALL
+#ifdef V3_CONFIG_SYMCALL
     if (info->sym_core_state.symcall_state.sym_call_active == 0) {
 	update_irq_exit_state(info);
     }
@@ -857,7 +857,7 @@ int v3_vmx_enter(struct guest_info * info) {
         vmx_info->pri_proc_ctrls.int_wndw_exit = 0;
         vmcs_write(VMCS_PROC_CTRLS, vmx_info->pri_proc_ctrls.value);
 
-#ifdef CONFIG_DEBUG_INTERRUPTS
+#ifdef V3_CONFIG_DEBUG_INTERRUPTS
        V3_Print("Interrupts available again! (RIP=%llx)\n", info->rip);
 #endif
     }

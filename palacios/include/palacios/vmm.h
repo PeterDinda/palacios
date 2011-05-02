@@ -182,7 +182,7 @@ struct guest_info;
         })
 
 
-#ifdef CONFIG_MULTITHREAD_OS
+#ifdef V3_CONFIG_MULTITHREAD_OS
 
 #define V3_CREATE_THREAD(fn, arg, name)					\
     do {								\
@@ -252,7 +252,7 @@ void v3_yield_cond(struct guest_info * info);
 void v3_print_cond(const char * fmt, ...);
 
 
-#ifdef CONFIG_MULTITHREAD_OS
+#ifdef V3_CONFIG_MULTITHREAD_OS
 void v3_interrupt_cpu(struct v3_vm_info * vm, int logical_cpu, int vector);
 #endif
 

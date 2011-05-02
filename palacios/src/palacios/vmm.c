@@ -26,19 +26,19 @@
 #include <palacios/vmm_sprintf.h>
 #include <palacios/vmm_extensions.h>
 
-#ifdef CONFIG_SVM
+#ifdef V3_CONFIG_SVM
 #include <palacios/svm.h>
 #endif
-#ifdef CONFIG_VMX
+#ifdef V3_CONFIG_VMX
 #include <palacios/vmx.h>
 #endif
 
-#ifdef CONFIG_VNET
+#ifdef V3_CONFIG_VNET
 #include <palacios/vmm_vnet.h>
 #endif
 
 
-v3_cpu_arch_t v3_cpu_types[CONFIG_MAX_CPUS];
+v3_cpu_arch_t v3_cpu_types[V3_CONFIG_MAX_CPUS];
 struct v3_os_hooks * os_hooks = NULL;
 int v3_dbg_enable = 0;
 
@@ -47,14 +47,14 @@ int v3_dbg_enable = 0;
 static void init_cpu(void * arg) {
     uint32_t cpu_id = (uint32_t)(addr_t)arg;
 
-#ifdef CONFIG_SVM
+#ifdef V3_CONFIG_SVM
     if (v3_is_svm_capable()) {
         PrintDebug("Machine is SVM Capable\n");
         v3_init_svm_cpu(cpu_id);
 	
     } else 
 #endif
-#ifdef CONFIG_VMX
+#ifdef V3_CONFIG_VMX
     if (v3_is_vmx_capable()) {
 	PrintDebug("Machine is VMX Capable\n");
 	v3_init_vmx_cpu(cpu_id);
@@ -72,14 +72,14 @@ static void deinit_cpu(void * arg) {
 
 
     switch (v3_cpu_types[cpu_id]) {
-#ifdef CONFIG_SVM
+#ifdef V3_CONFIG_SVM
 	case V3_SVM_CPU:
 	case V3_SVM_REV3_CPU:
 	    PrintDebug("Deinitializing SVM CPU %d\n", cpu_id);
 	    v3_deinit_svm_cpu(cpu_id);
 	    break;
 #endif
-#ifdef CONFIG_VMX
+#ifdef V3_CONFIG_VMX
 	case V3_VMX_CPU:
 	case V3_VMX_EPT_CPU:
 	case V3_VMX_EPT_UG_CPU:
@@ -104,7 +104,7 @@ void Init_V3(struct v3_os_hooks * hooks, int num_cpus) {
     // Set global variables. 
     os_hooks = hooks;
 
-    for (i = 0; i < CONFIG_MAX_CPUS; i++) {
+    for (i = 0; i < V3_CONFIG_MAX_CPUS; i++) {
 	v3_cpu_types[i] = V3_INVALID_CPU;
     }
 
@@ -118,17 +118,17 @@ void Init_V3(struct v3_os_hooks * hooks, int num_cpus) {
     V3_init_extensions();
 
 
-#ifdef CONFIG_SYMMOD
+#ifdef V3_CONFIG_SYMMOD
     V3_init_symmod();
 #endif
 
 
-#ifdef CONFIG_VNET
+#ifdef V3_CONFIG_VNET
     v3_init_vnet();
 #endif
 
 
-#ifdef CONFIG_MULTITHREAD_OS
+#ifdef V3_CONFIG_MULTITHREAD_OS
     if ((hooks) && (hooks->call_on_cpu)) {
 
 	for (i = 0; i < num_cpus; i++) {
@@ -152,18 +152,18 @@ void Shutdown_V3() {
 
     V3_deinit_extensions();
 
-#ifdef CONFIG_SYMMOD
+#ifdef V3_CONFIG_SYMMOD
     V3_deinit_symmod();
 #endif
 
 
-#ifdef CONFIG_VNET
+#ifdef V3_CONFIG_VNET
     v3_deinit_vnet();
 #endif
 
-#ifdef CONFIG_MULTITHREAD_OS
+#ifdef V3_CONFIG_MULTITHREAD_OS
     if ((os_hooks) && (os_hooks->call_on_cpu)) {
-	for (i = 0; i < CONFIG_MAX_CPUS; i++) {
+	for (i = 0; i < V3_CONFIG_MAX_CPUS; i++) {
 	    if (v3_cpu_types[i] != V3_INVALID_CPU) {
 		deinit_cpu((void *)(addr_t)i);
 	    }
@@ -213,13 +213,13 @@ static int start_core(void * p)
 	       core->cpu_id, (void *)(addr_t)core->rip);
 
     switch (v3_cpu_types[0]) {
-#ifdef CONFIG_SVM
+#ifdef V3_CONFIG_SVM
 	case V3_SVM_CPU:
 	case V3_SVM_REV3_CPU:
 	    return v3_start_svm_guest(core);
 	    break;
 #endif
-#if CONFIG_VMX
+#if V3_CONFIG_VMX
 	case V3_VMX_CPU:
 	case V3_VMX_EPT_CPU:
 	case V3_VMX_EPT_UG_CPU:
@@ -236,7 +236,7 @@ static int start_core(void * p)
 
 
 // For the moment very ugly. Eventually we will shift the cpu_mask to an arbitrary sized type...
-#ifdef CONFIG_MULTITHREAD_OS
+#ifdef V3_CONFIG_MULTITHREAD_OS
 #define MAX_CORES 32
 #else
 #define MAX_CORES 1
@@ -272,7 +272,7 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
 	return -1;
     }
 
-#ifdef CONFIG_MULTITHREAD_OS
+#ifdef V3_CONFIG_MULTITHREAD_OS
     // spawn off new threads, for other cores
     for (i = 0, vcore_id = 1; (i < MAX_CORES) && (vcore_id < vm->num_cores); i++) {
 	int major = 0;
@@ -492,7 +492,7 @@ void v3_print_cond(const char * fmt, ...) {
 }
 
 
-#ifdef CONFIG_MULTITHREAD_OS
+#ifdef V3_CONFIG_MULTITHREAD_OS
 
 void v3_interrupt_cpu(struct v3_vm_info * vm, int logical_cpu, int vector) {
     extern struct v3_os_hooks * os_hooks;
@@ -507,13 +507,13 @@ void v3_interrupt_cpu(struct v3_vm_info * vm, int logical_cpu, int vector) {
 
 int v3_vm_enter(struct guest_info * info) {
     switch (v3_cpu_types[0]) {
-#ifdef CONFIG_SVM
+#ifdef V3_CONFIG_SVM
 	case V3_SVM_CPU:
 	case V3_SVM_REV3_CPU:
 	    return v3_svm_enter(info);
 	    break;
 #endif
-#if CONFIG_VMX
+#if V3_CONFIG_VMX
 	case V3_VMX_CPU:
 	case V3_VMX_EPT_CPU:
 	case V3_VMX_EPT_UG_CPU:

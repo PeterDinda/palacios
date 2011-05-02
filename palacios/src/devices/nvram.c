@@ -30,7 +30,7 @@
 #include <palacios/vm_guest.h>
 
 
-#ifndef CONFIG_DEBUG_NVRAM
+#ifndef V3_CONFIG_DEBUG_NVRAM
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif

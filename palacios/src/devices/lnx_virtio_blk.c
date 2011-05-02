@@ -26,7 +26,7 @@
 
 
 
-#ifndef CONFIG_DEBUG_VIRTIO_BLK
+#ifndef V3_CONFIG_DEBUG_VIRTIO_BLK
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif

@@ -467,7 +467,7 @@ palacios/include/autoconf.h: ;
 endif
 
 
-ifdef CONFIG_LINUX
+ifdef V3_CONFIG_LINUX
 DEFAULT_EXTRA_TARGETS=linux_module
 else
 DEFAULT_EXTRA_TARGETS=
@@ -480,24 +480,24 @@ endif
 all: palacios $(DEFAULT_EXTRA_TARGETS)
 
 
-ifdef CONFIG_LINUX
+ifdef V3_CONFIG_LINUX
 CFLAGS          += -mcmodel=kernel 
 else
 CFLAGS          += -fPIC
 endif
 
-ifdef CONFIG_FRAME_POINTER
+ifdef V3_CONFIG_FRAME_POINTER
 CFLAGS		+= -fno-omit-frame-pointer $(call cc-option,-fno-optimize-sibling-calls,)
 else
 CFLAGS		+= -fomit-frame-pointer
 endif
 
 
-ifdef CONFIG_UNWIND_INFO
+ifdef V3_CONFIG_UNWIND_INFO
 CFLAGS		+= -fasynchronous-unwind-tables
 endif
 
-ifdef CONFIG_DEBUG_INFO
+ifdef V3_CONFIG_DEBUG_INFO
 CFLAGS		+= -g
 else 
 CFLAGS          += -O
@@ -621,7 +621,7 @@ palacios: libv3vee.a
 
 
 linux_module/v3vee.ko: linux_module/*.c linux_module/*.h libv3vee.a
-	cd linux_module/ && make CONFIG_LINUX_KERN=$(CONFIG_LINUX_KERN)
+	cd linux_module/ && make V3_CONFIG_LINUX_KERN=$(V3_CONFIG_LINUX_KERN)
 	cp linux_module/v3vee.ko v3vee.ko
 
 
@@ -941,10 +941,10 @@ target-dir = $(dir $@)
 
 # Modules
 / %/: prepare scripts FORCE
-	$(Q)$(MAKE) KBUILD_MODULES=$(if $(CONFIG_MODULES),1) \
+	$(Q)$(MAKE) KBUILD_MODULES=$(if $(V3_CONFIG_MODULES),1) \
 	$(build)=$(build-dir)
 %.ko: prepare scripts FORCE
-	$(Q)$(MAKE) KBUILD_MODULES=$(if $(CONFIG_MODULES),1)   \
+	$(Q)$(MAKE) KBUILD_MODULES=$(if $(V3_CONFIG_MODULES),1)   \
 	$(build)=$(build-dir) $(@:.ko=.o)
 	$(Q)$(MAKE) -rR -f $(srctree)/scripts/Makefile.modpost
 

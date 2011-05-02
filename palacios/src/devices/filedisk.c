@@ -23,7 +23,7 @@
 #include <interfaces/vmm_file.h>
 #include <palacios/vm_guest.h>
 
-#ifndef CONFIG_DEBUG_FILEDISK
+#ifndef V3_CONFIG_DEBUG_FILEDISK
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif

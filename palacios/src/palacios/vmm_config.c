@@ -202,7 +202,7 @@ static inline uint32_t get_alignment(char * align_str) {
 	}
     }
     
-#ifndef CONFIG_ALIGNED_PG_ALLOC
+#ifndef V3_CONFIG_ALIGNED_PG_ALLOC
     if (alignment != PAGE_SIZE_4KB) {
 	PrintError("Aligned page allocations are not supported in this host (requested alignment=%d)\n", alignment);
 	PrintError("Ignoring alignment request\n");
@@ -247,7 +247,7 @@ static int pre_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * vm_cfg) {
 	return -1;
     }
 
-#ifdef CONFIG_TELEMETRY
+#ifdef V3_CONFIG_TELEMETRY
     {
 	char * telemetry = v3_cfg_val(vm_cfg, "telemetry");
 

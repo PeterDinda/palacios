@@ -21,10 +21,10 @@
 
 .data
 
-#ifdef CONFIG_VMX
+#ifdef V3_CONFIG_VMX
 .globl v3_vmxassist_start
 v3_vmxassist_start:
-.incbin CONFIG_VMXASSIST_PATH
+.incbin V3_CONFIG_VMXASSIST_PATH
 .globl v3_vmxassist_end
 v3_vmxassist_end:
 #endif
@@ -32,21 +32,21 @@ v3_vmxassist_end:
 
 .globl v3_vgabios_start
 v3_vgabios_start:
-.incbin CONFIG_VGABIOS_PATH
+.incbin V3_CONFIG_VGABIOS_PATH
 .global v3_vgabios_end
 v3_vgabios_end:
 
 .globl v3_rombios_start
 v3_rombios_start:
-.incbin CONFIG_ROMBIOS_PATH
+.incbin V3_CONFIG_ROMBIOS_PATH
 .globl v3_rombios_end
 v3_rombios_end:
 
 
-#ifdef CONFIG_USE_PXE_BIOS
+#ifdef V3_CONFIG_USE_PXE_BIOS
 .globl pxebios_start
 pxebios_start:
-.incbin CONFIG_PXEBIOS_PATH
+.incbin V3_CONFIG_PXEBIOS_PATH
 .globl pxebios_end
 pxebios_end:
 #endif

@@ -33,12 +33,12 @@
 #include <palacios/vmm_halt.h>
 #include <palacios/vmx_ept.h>
 
-#ifndef CONFIG_DEBUG_VMX
+#ifndef V3_CONFIG_DEBUG_VMX
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
 
-#ifdef CONFIG_TELEMETRY
+#ifdef V3_CONFIG_TELEMETRY
 #include <palacios/vmm_telemetry.h>
 #endif
 
@@ -75,7 +75,7 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
     }
 
 
-#ifdef CONFIG_TELEMETRY
+#ifdef V3_CONFIG_TELEMETRY
     if (info->vm_info->enable_telemetry) {
 	v3_telemetry_start_exit(info);
     }
@@ -88,7 +88,7 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
 
             // JRL: Change "0x0e" to a macro value
             if ((uint8_t)exit_info->int_info == 14) {
-#ifdef CONFIG_DEBUG_SHADOW_PAGING
+#ifdef V3_CONFIG_DEBUG_SHADOW_PAGING
                 PrintDebug("Page Fault at %p error_code=%x\n", (void *)exit_info->exit_qual, *(uint32_t *)&error_code);
 #endif
 
@@ -131,7 +131,7 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
             break;
 
         case VMEXIT_RDTSC:
-#ifdef CONFIG_DEBUG_TIME
+#ifdef V3_CONFIG_DEBUG_TIME
 	    PrintDebug("RDTSC\n");
 #endif 
 	    if (v3_handle_rdtsc(info) == -1) {
@@ -268,7 +268,7 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
     }
 
 
-#ifdef CONFIG_TELEMETRY
+#ifdef V3_CONFIG_TELEMETRY
     if (info->vm_info->enable_telemetry) {
         v3_telemetry_end_exit(info, exit_info->exit_reason);
     }

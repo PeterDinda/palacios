@@ -23,7 +23,7 @@
 #include <palacios/vmx.h>
 #include <palacios/vmm_ctrl_regs.h>
 
-#ifndef CONFIG_DEBUG_VMX
+#ifndef V3_CONFIG_DEBUG_VMX
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif

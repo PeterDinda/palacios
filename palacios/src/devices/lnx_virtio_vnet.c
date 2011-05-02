@@ -28,7 +28,7 @@
 #include <devices/pci.h>
 
 
-#ifndef CONFIG_DEBUG_LINUX_VIRTIO_VNET
+#ifndef V3_CONFIG_DEBUG_LINUX_VIRTIO_VNET
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif

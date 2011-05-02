@@ -241,7 +241,7 @@ static int handle_pte_shadow_pagefault_32(struct guest_info * info, addr_t fault
 
 
 
-#ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
+#ifdef V3_CONFIG_SYMBIOTIC_SWAP_TELEMETRY
 	    if (error_code.write == 0) {
 		info->vm_info->swap_state.read_faults++;
 	    } else {
@@ -301,7 +301,7 @@ static int handle_pte_shadow_pagefault_32(struct guest_info * info, addr_t fault
 			
 			shadow_pte->page_base_addr = swp_pg_pa;
 			
-#ifdef CONFIG_SYMBIOTIC_SWAP_TELEMETRY
+#ifdef V3_CONFIG_SYMBIOTIC_SWAP_TELEMETRY
 			info->vm_info->swap_state.mapped_pages++;
 #endif
 			//		PrintError("Swap fault handled\n");

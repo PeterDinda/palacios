@@ -20,7 +20,7 @@
 #include <palacios/vmm_decoder.h>
 #include <palacios/vmm_instr_decoder.h>
 
-#ifndef CONFIG_DEBUG_DECODER
+#ifndef V3_CONFIG_DEBUG_DECODER
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
@@ -121,7 +121,7 @@ int v3_decode(struct guest_info * core, addr_t instr_ptr, struct x86_instr * ins
 
     instr->instr_length += length;
 
-#ifdef CONFIG_DEBUG_DECODER
+#ifdef V3_CONFIG_DEBUG_DECODER
     v3_print_instr(instr);
 #endif
 

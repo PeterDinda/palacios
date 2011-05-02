@@ -66,7 +66,7 @@ int v3_init_mem_map(struct v3_vm_info * vm) {
     map->base_region.guest_start = 0;
     map->base_region.guest_end = mem_pages * PAGE_SIZE_4KB;
 
-#ifdef CONFIG_ALIGNED_PG_ALLOC
+#ifdef V3_CONFIG_ALIGNED_PG_ALLOC
     map->base_region.host_addr = (addr_t)V3_AllocAlignedPages(mem_pages, vm->mem_align);
 #else
     map->base_region.host_addr = (addr_t)V3_AllocPages(mem_pages);

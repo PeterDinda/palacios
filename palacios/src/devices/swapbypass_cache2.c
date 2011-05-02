@@ -24,7 +24,7 @@
 #include <palacios/vmm_hashtable.h>
 
 
-#ifdef CONFIG_SWAPBYPASS_TELEMETRY
+#ifdef V3_CONFIG_SWAPBYPASS_TELEMETRY
 #include <palacios/vmm_telemetry.h>
 #endif
 
@@ -83,7 +83,7 @@ struct swap_state {
     struct v3_dev_blk_ops * ops;
     void * private_data;
 
-#ifdef CONFIG_SWAPBYPASS_TELEMETRY
+#ifdef V3_CONFIG_SWAPBYPASS_TELEMETRY
     uint32_t pages_in;
     uint32_t pages_out;
 #endif
@@ -235,7 +235,7 @@ static int buf_read(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * priv
 	swap->unswapped_pages += (length / 4096);
 
 
-#ifdef CONFIG_SWAPBYPASS_TELEMETRY
+#ifdef V3_CONFIG_SWAPBYPASS_TELEMETRY
 	swap->pages_in += length / 4096;
 #endif
 
@@ -384,7 +384,7 @@ static int buf_write(uint8_t * buf,  uint64_t lba, uint64_t num_bytes, void * pr
 
 	swap->swapped_pages += written_pages;
 	
-#ifdef CONFIG_SWAPBYPASS_TELEMETRY
+#ifdef V3_CONFIG_SWAPBYPASS_TELEMETRY
 	swap->pages_out += length / 4096;
 #endif
 
@@ -506,7 +506,7 @@ static struct v3_device_ops dev_ops = {
 };
 
 
-#ifdef CONFIG_SWAPBYPASS_TELEMETRY
+#ifdef V3_CONFIG_SWAPBYPASS_TELEMETRY
 static void telemetry_cb(struct v3_vm_info * vm, void * private_data, char * hdr) {
     struct swap_state * swap = (struct swap_state *)private_data;
 
@@ -583,7 +583,7 @@ static int connect_fn(struct v3_vm_info * vm,
     }
 
 
-#ifdef CONFIG_SWAPBYPASS_TELEMETRY
+#ifdef V3_CONFIG_SWAPBYPASS_TELEMETRY
 
     if (vm->enable_telemetry == 1) {
 	v3_add_telemetry_cb(vm, telemetry_cb, swap);

@@ -1,5 +1,10 @@
+include $(PWD)/../.config
 
-LDFLAGS += --whole-archive  --script=$(PWD)/link.cmd
+LDFLAGS += --whole-archive  --script=$(PWD)/ld.cmd
+
+ifdef V3_CONFIG_SYMMOD
+LDFLAGS += --script=$(PWD)/ld.symmod.cmd
+endif
 
 EXTRA_CFLAGS  += -I$(PWD)/../palacios/include/ -DMODULE=1 -D__KERNEL__=1
 
@@ -17,13 +22,13 @@ v3vee-objs:= 	palacios.o \
 		palacios-debugfs.o
 
 
-ifdef CONFIG_PALACIOS_VNET
+ifdef V3_CONFIG_PALACIOS_VNET
 		v3vee-objs += palacios-vnet.o		
 endif
-ifdef CONFIG_PALACIOS_PACKET
+ifdef V3_CONFIG_PALACIOS_PACKET
 		v3vee-objs += palacios-packet.o
 endif
-ifdef CONFIG_PALACIOS_SOCKET
+ifdef V3_CONFIG_PALACIOS_SOCKET
 		v3vee-objs += palacios-socket.o
 endif
 
@@ -36,10 +41,10 @@ obj-m := v3vee.o
 
 
 all:
-	$(MAKE) -C $(CONFIG_LINUX_KERN) M=$(PWD) modules
+	$(MAKE) -C $(V3_CONFIG_LINUX_KERN) M=$(PWD) modules
 
 
 
 clean:
-	$(MAKE) -C $(CONFIG_LINUX_KERN) M=$(PWD) clean
+	$(MAKE) -C $(V3_CONFIG_LINUX_KERN) M=$(PWD) clean
 

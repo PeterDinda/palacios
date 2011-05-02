@@ -23,7 +23,7 @@
 #include <devices/apic.h>
 #include <palacios/vm_guest.h>
 
-#ifndef CONFIG_DEBUG_IO_APIC
+#ifndef V3_CONFIG_DEBUG_IO_APIC
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif

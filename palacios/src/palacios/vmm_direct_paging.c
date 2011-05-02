@@ -25,7 +25,7 @@
 #include <palacios/vm_guest.h>
 
 
-#ifndef CONFIG_DEBUG_NESTED_PAGING
+#ifndef V3_CONFIG_DEBUG_NESTED_PAGING
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif

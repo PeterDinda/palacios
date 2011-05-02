@@ -33,7 +33,7 @@
 #include <palacios/vmm_time.h>
 
 
-#ifndef CONFIG_DEBUG_VIRTIO_NET
+#ifndef V3_CONFIG_DEBUG_VIRTIO_NET
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif

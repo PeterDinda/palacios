@@ -40,41 +40,41 @@ obj-y := \
 
 
 
-obj-$(CONFIG_XED) +=	vmm_xed.o
-obj-$(CONFIG_V3_DECODER) += vmm_v3dec.o
+obj-$(V3_CONFIG_XED) +=	vmm_xed.o
+obj-$(V3_CONFIG_V3_DECODER) += vmm_v3dec.o
 
-obj-$(CONFIG_SVM) +=    svm.o \
-			svm_io.o \
-			svm_lowlevel.o \
-			svm_msr.o \
-			svm_pause.o \
-			svm_wbinvd.o \
-			svm_handler.o \
-			vmcb.o
+obj-$(V3_CONFIG_SVM) +=    svm.o \
+			   svm_io.o \
+			   svm_lowlevel.o \
+			   svm_msr.o \
+			   svm_pause.o \
+			   svm_wbinvd.o \
+			   svm_handler.o \
+			   vmcb.o
 
-obj-$(CONFIG_VMX) +=  	vmx.o \
-			vmx_handler.o \
-			vmx_io.o \
-			vmx_lowlevel.o \
-			vmx_msr.o \
-			vmx_hw_info.o \
-			vmcs.o \
-			vmx_ctrl_regs.o \
-			vmx_assist.o \
-			vmx_ept.o 
-
-
+obj-$(V3_CONFIG_VMX) +=  	vmx.o \
+				vmx_handler.o \
+				vmx_io.o \
+				vmx_lowlevel.o \
+				vmx_msr.o \
+				vmx_hw_info.o \
+				vmcs.o \
+				vmx_ctrl_regs.o \
+				vmx_assist.o \
+				vmx_ept.o 
 
 
-obj-$(CONFIG_INSTRUMENT_VMM) += vmm_instrument.o
-obj-$(CONFIG_TELEMETRY) += vmm_telemetry.o 
-
-obj-$(CONFIG_VNET) += vmm_vnet_core.o
 
 
-obj-$(CONFIG_SYMBIOTIC) += vmm_symbiotic.o vmm_symspy.o
-obj-$(CONFIG_SYMCALL) += vmm_symcall.o
-obj-$(CONFIG_SYMMOD) += vmm_symmod.o
+obj-$(V3_CONFIG_INSTRUMENT_VMM) += vmm_instrument.o
+obj-$(V3_CONFIG_TELEMETRY) += vmm_telemetry.o 
+
+obj-$(V3_CONFIG_VNET) += vmm_vnet_core.o
+
+
+obj-$(V3_CONFIG_SYMBIOTIC) += vmm_symbiotic.o vmm_symspy.o
+obj-$(V3_CONFIG_SYMCALL) += vmm_symcall.o
+obj-$(V3_CONFIG_SYMMOD) += vmm_symmod.o
 
 
 obj-y += mmu/
