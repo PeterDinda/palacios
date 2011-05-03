@@ -665,11 +665,12 @@ int v3_start_svm_guest(struct guest_info * info) {
 	}
 
 	
-/*
+
 	if ((info->num_exits % 5000) == 0) {
 	    V3_Print("SVM Exit number %d\n", (uint32_t)info->num_exits);
+	    v3_print_guest_state(info);
 	}
-*/
+
 	
     }
 
