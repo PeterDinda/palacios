@@ -87,18 +87,18 @@ struct snprintf_arg {
 
 
 
-#if defined(CONFIG_BUILT_IN_STDIO) &&		      \
-    ( defined(CONFIG_BUILT_IN_SPRINTF) ||	      \
-      defined(CONFIG_BUILT_IN_SNPRINTF) ||	      \
-      defined(CONFIG_BUILT_IN_VSPRINTF) ||	      \
-      defined(CONFIG_BUILT_IN_VSNRPRINTF ))
+#if defined(V3_CONFIG_BUILT_IN_STDIO) &&		      \
+    ( defined(V3_CONFIG_BUILT_IN_SPRINTF) ||	      \
+      defined(V3_CONFIG_BUILT_IN_SNPRINTF) ||	      \
+      defined(V3_CONFIG_BUILT_IN_VSPRINTF) ||	      \
+      defined(V3_CONFIG_BUILT_IN_VSNRPRINTF ))
 
 static char * ksprintn(char * nbuf, uint64_t num, int base, int *len, int upper);
 static void snprintf_func(int ch, void * arg);
 static int kvprintf(char const * fmt, void (*func)(int, void *), void * arg, int radix, va_list ap);
 
 
-#ifdef CONFIG_BUILT_IN_SPRINTF
+#ifdef V3_CONFIG_BUILT_IN_SPRINTF
 /*
  * Scaled down version of sprintf(3).
  */
@@ -115,7 +115,7 @@ int sprintf(char * buf, const char * cfmt, ...) {
 #endif 
 
 
-#ifdef CONFIG_BUILT_IN_VSPRINTF
+#ifdef V3_CONFIG_BUILT_IN_VSPRINTF
 /*
  * Scaled down version of vsprintf(3).
  */
@@ -129,7 +129,7 @@ int vsprintf(char * buf, const char * cfmt, va_list ap) {
 #endif
 
 
-#ifdef CONFIG_BUILT_IN_SNPRINTF
+#ifdef V3_CONFIG_BUILT_IN_SNPRINTF
 /*
  * Scaled down version of snprintf(3).
  */
@@ -164,7 +164,7 @@ int vsnprintf(char * str, size_t size, const char * format, va_list ap) {
 
 
 
-#ifdef CONFIG_BUILT_IN_VSNRPRINTF
+#ifdef V3_CONFIG_BUILT_IN_VSNRPRINTF
 /*
  * Kernel version which takes radix argument vsnprintf(3).
  */
@@ -552,7 +552,7 @@ number:
 }
 
 
-#endif // CONFIG_BUILT_IN_STDIO
+#endif // V3_CONFIG_BUILT_IN_STDIO
 
 
 

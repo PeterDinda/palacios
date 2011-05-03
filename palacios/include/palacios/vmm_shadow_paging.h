@@ -63,7 +63,7 @@ struct v3_shdw_pg_state {
 
     void * local_impl_data;
 
-#ifdef CONFIG_SHADOW_PAGING_TELEMETRY
+#ifdef V3_CONFIG_SHADOW_PAGING_TELEMETRY
     uint_t guest_faults;
 #endif
 

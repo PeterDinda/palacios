@@ -23,7 +23,7 @@
 #include <palacios/vmm_decoder.h>
 
 
-#ifndef CONFIG_DEBUG_DEV_MGR
+#ifndef V3_CONFIG_DEBUG_DEV_MGR
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
@@ -50,7 +50,7 @@ int V3_init_devices() {
     struct v3_device_info * tmp_dev =  __start__v3_devices;
     int i = 0;
 
-#ifdef CONFIG_DEBUG_DEV_MGR
+#ifdef V3_CONFIG_DEBUG_DEV_MGR
     {
 	int num_devices = (__stop__v3_devices - __start__v3_devices) / sizeof(struct v3_device_info);
 	PrintDebug("%d Virtual devices registered with Palacios\n", num_devices);

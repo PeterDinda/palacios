@@ -34,7 +34,7 @@
 #include <palacios/vmm_string.h>
 #include <palacios/vmm_cpuid.h>
 
-#ifndef CONFIG_DEBUG_MCHECK
+#ifndef V3_CONFIG_DEBUG_MCHECK
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif

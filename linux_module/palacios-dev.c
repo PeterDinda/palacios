@@ -28,8 +28,8 @@
 #include "palacios-vnet.h"
 #include "palacios-packet.h"
 
-#ifdef CONFIG_DEBUG_FS
-#include "palacios-debugfs.h"
+#ifdef V3_CONFIG_EXT_INSPECTOR
+#include "palacios-inspector.h"
 #endif
 
 MODULE_LICENSE("GPL");
@@ -241,24 +241,31 @@ static int __init v3_init(void) {
     
     palacios_vmm_init();
 
+#ifdef V3_CONFIG_STREAM
     palacios_init_stream();
-    palacios_file_init();
-    palacios_init_console();
-
-
-#ifdef CONFIG_DEBUG_FS
-    palacios_init_debugfs();
 #endif
 
-#ifdef CONFIG_PALACIOS_SOCKET
+#ifdef V3_CONFIG_FILE
+    palacios_file_init();
+#endif
+
+#ifdef V3_CONFIG_CONSOLE
+    palacios_init_console();
+#endif
+
+#ifdef V3_CONFIG_EXT_INSPECTOR
+    palacios_init_inspector();
+#endif
+
+#ifdef V3_CONFIG_SOCKET
     palacios_socket_init();
 #endif
 
-#ifdef CONFIG_PALACIOS_PACKET
+#ifdef V3_CONFIG_PACKET
     palacios_init_packet(NULL);
 #endif
 
-#ifdef CONFIG_PALACIOS_VNET
+#ifdef V3_CONFIG_VNET
     palacios_init_vnet();
 #endif
 
@@ -303,12 +310,17 @@ static void __exit v3_exit(void) {
 
 
 
-#ifdef CONFIG_DEBUG_FS
-    palacios_deinit_debugfs();
+#ifdef V3_CONFIG_EXT_INSPECTOR
+    palacios_deinit_inspector();
 #endif
 
+#ifdef V3_CONFIG_FILE
     palacios_file_deinit();
+#endif
+
+#ifdef V3_CONFIG_STREAM
     palacios_deinit_stream();
+#endif
 
     palacios_deinit_mm();
 

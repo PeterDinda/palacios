@@ -44,7 +44,7 @@
 #include <palacios/vmm_sprintf.h>
 
 
-#ifndef CONFIG_DEBUG_SVM
+#ifndef V3_CONFIG_DEBUG_SVM
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
@@ -53,7 +53,7 @@
 uint32_t v3_last_exit;
 
 // This is a global pointer to the host's VMCB
-static addr_t host_vmcbs[CONFIG_MAX_CPUS] = { [0 ... CONFIG_MAX_CPUS - 1] = 0};
+static addr_t host_vmcbs[V3_CONFIG_MAX_CPUS] = { [0 ... V3_CONFIG_MAX_CPUS - 1] = 0};
 
 
 
@@ -105,7 +105,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
 
     ctrl_area->instrs.HLT = 1;
 
-#ifdef CONFIG_TIME_VIRTUALIZE_TSC
+#ifdef V3_CONFIG_TIME_VIRTUALIZE_TSC
     ctrl_area->instrs.RDTSC = 1;
     ctrl_area->svm_instrs.RDTSCP = 1;
 #endif
@@ -326,7 +326,7 @@ static int update_irq_exit_state(struct guest_info * info) {
 
     if ((info->intr_core_state.irq_pending == 1) && (guest_ctrl->guest_ctrl.V_IRQ == 0)) {
 	
-#ifdef CONFIG_DEBUG_INTERRUPTS
+#ifdef V3_CONFIG_DEBUG_INTERRUPTS
 	PrintDebug("INTAK cycle completed for irq %d\n", info->intr_core_state.irq_vector);
 #endif
 
@@ -337,7 +337,7 @@ static int update_irq_exit_state(struct guest_info * info) {
     }
 
     if ((info->intr_core_state.irq_started == 1) && (guest_ctrl->exit_int_info.valid == 0)) {
-#ifdef CONFIG_DEBUG_INTERRUPTS
+#ifdef V3_CONFIG_DEBUG_INTERRUPTS
 	PrintDebug("Interrupt %d taken by guest\n", info->intr_core_state.irq_vector);
 #endif
 
@@ -345,7 +345,7 @@ static int update_irq_exit_state(struct guest_info * info) {
 	info->intr_core_state.irq_started = 0;
 
     } else if ((info->intr_core_state.irq_started == 1) && (guest_ctrl->exit_int_info.valid == 1)) {
-#ifdef CONFIG_DEBUG_INTERRUPTS
+#ifdef V3_CONFIG_DEBUG_INTERRUPTS
 	PrintDebug("EXIT INT INFO is set (vec=%d)\n", guest_ctrl->exit_int_info.vector);
 #endif
     }
@@ -371,7 +371,7 @@ static int update_irq_entry_state(struct guest_info * info) {
 	if (info->excp_state.excp_error_code_valid) {
 	    guest_ctrl->EVENTINJ.error_code = info->excp_state.excp_error_code;
 	    guest_ctrl->EVENTINJ.ev = 1;
-#ifdef CONFIG_DEBUG_INTERRUPTS
+#ifdef V3_CONFIG_DEBUG_INTERRUPTS
 	    PrintDebug("Injecting exception %d with error code %x\n", excp, guest_ctrl->EVENTINJ.error_code);
 #endif
 	}
@@ -380,7 +380,7 @@ static int update_irq_entry_state(struct guest_info * info) {
 	
 	guest_ctrl->EVENTINJ.valid = 1;
 
-#ifdef CONFIG_DEBUG_INTERRUPTS
+#ifdef V3_CONFIG_DEBUG_INTERRUPTS
 	PrintDebug("<%d> Injecting Exception %d (CR2=%p) (EIP=%p)\n", 
 		   (int)info->num_exits, 
 		   guest_ctrl->EVENTINJ.vector, 
@@ -390,7 +390,7 @@ static int update_irq_entry_state(struct guest_info * info) {
 
 	v3_injecting_excp(info, excp);
     } else if (info->intr_core_state.irq_started == 1) {
-#ifdef CONFIG_DEBUG_INTERRUPTS
+#ifdef V3_CONFIG_DEBUG_INTERRUPTS
 	PrintDebug("IRQ pending from previous injection\n");
 #endif
 	guest_ctrl->guest_ctrl.V_IRQ = 1;
@@ -408,7 +408,7 @@ static int update_irq_entry_state(struct guest_info * info) {
 		guest_ctrl->guest_ctrl.V_IGN_TPR = 1;
 		guest_ctrl->guest_ctrl.V_INTR_PRIO = 0xf;
 
-#ifdef CONFIG_DEBUG_INTERRUPTS
+#ifdef V3_CONFIG_DEBUG_INTERRUPTS
 		PrintDebug("Injecting Interrupt %d (EIP=%p)\n", 
 			   guest_ctrl->guest_ctrl.V_INTR_VECTOR, 
 			   (void *)(addr_t)info->rip);
@@ -484,7 +484,7 @@ int v3_svm_enter(struct guest_info * info) {
     guest_state->rip = info->rip;
     guest_state->rsp = info->vm_regs.rsp;
 
-#ifdef CONFIG_SYMCALL
+#ifdef V3_CONFIG_SYMCALL
     if (info->sym_core_state.symcall_state.sym_call_active == 0) {
 	update_irq_entry_state(info);
     }
@@ -501,7 +501,7 @@ int v3_svm_enter(struct guest_info * info) {
       (void *)(addr_t)info->rip);
     */
 
-#ifdef CONFIG_SYMCALL
+#ifdef V3_CONFIG_SYMCALL
     if (info->sym_core_state.symcall_state.sym_call_active == 1) {
 	if (guest_ctrl->guest_ctrl.V_IRQ == 1) {
 	    V3_Print("!!! Injecting Interrupt during Sym call !!!\n");
@@ -554,7 +554,7 @@ int v3_svm_enter(struct guest_info * info) {
     exit_info2 = guest_ctrl->exit_info2;
 
 
-#ifdef CONFIG_SYMCALL
+#ifdef V3_CONFIG_SYMCALL
     if (info->sym_core_state.symcall_state.sym_call_active == 0) {
 	update_irq_exit_state(info);
     }

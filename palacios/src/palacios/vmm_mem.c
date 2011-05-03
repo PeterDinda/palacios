@@ -41,7 +41,8 @@ static int mem_offset_hypercall(struct guest_info * info, uint_t hcall_id, void 
 static int unhandled_err(struct guest_info * core, addr_t guest_va, addr_t guest_pa, 
 			 struct v3_mem_region * reg, pf_error_t access_info) {
 
-    PrintError("Unhandled memory access error\n");
+    PrintError("Unhandled memory access error (gpa=%p, gva=%p, error_code=%d)\n",
+	       (void *)guest_pa, (void *)guest_va, *(uint32_t *)&access_info);
 
     v3_print_mem_map(core->vm_info);
 
@@ -65,7 +66,7 @@ int v3_init_mem_map(struct v3_vm_info * vm) {
     map->base_region.guest_start = 0;
     map->base_region.guest_end = mem_pages * PAGE_SIZE_4KB;
 
-#ifdef CONFIG_ALIGNED_PG_ALLOC
+#ifdef V3_CONFIG_ALIGNED_PG_ALLOC
     map->base_region.host_addr = (addr_t)V3_AllocAlignedPages(mem_pages, vm->mem_align);
 #else
     map->base_region.host_addr = (addr_t)V3_AllocPages(mem_pages);

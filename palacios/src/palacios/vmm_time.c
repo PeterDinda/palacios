@@ -22,7 +22,7 @@
 #include <palacios/vmm_time.h>
 #include <palacios/vm_guest.h>
 
-#ifndef CONFIG_DEBUG_TIME
+#ifndef V3_CONFIG_DEBUG_TIME
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif

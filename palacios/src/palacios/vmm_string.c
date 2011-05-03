@@ -41,7 +41,7 @@
 #include <palacios/vmm.h>
 
 
-#ifdef CONFIG_BUILT_IN_MEMSET
+#ifdef V3_CONFIG_BUILT_IN_MEMSET
 void * memset(void * s, int c, size_t n) {
     uchar_t * p = (uchar_t *) s;
 
@@ -54,7 +54,7 @@ void * memset(void * s, int c, size_t n) {
 }
 #endif
 
-#ifdef CONFIG_BUILT_IN_MEMCPY
+#ifdef V3_CONFIG_BUILT_IN_MEMCPY
 void * memcpy(void * dst, const void * src, size_t n) {
     uchar_t * d = (uchar_t *) dst;
     const uchar_t * s = (const uchar_t *)src;
@@ -68,7 +68,7 @@ void * memcpy(void * dst, const void * src, size_t n) {
 }
 #endif
 
-#ifdef CONFIG_BUILT_IN_MEMMOVE
+#ifdef V3_CONFIG_BUILT_IN_MEMMOVE
 void * memmove(void * dst, const void * src, size_t n) {
     uint8_t * tmp = (uint8_t *)V3_Malloc(n);
     
@@ -81,7 +81,7 @@ void * memmove(void * dst, const void * src, size_t n) {
 #endif
 
 
-#ifdef CONFIG_BUILT_IN_MEMCMP
+#ifdef V3_CONFIG_BUILT_IN_MEMCMP
 int memcmp(const void * s1_, const void * s2_, size_t n) {
     const char * s1 = s1_;
     const char * s2 = s2_;
@@ -102,7 +102,7 @@ int memcmp(const void * s1_, const void * s2_, size_t n) {
 #endif
 
 
-#ifdef CONFIG_BUILT_IN_STRLEN
+#ifdef V3_CONFIG_BUILT_IN_STRLEN
 size_t strlen(const char * s) {
     size_t len = 0;
 
@@ -116,7 +116,7 @@ size_t strlen(const char * s) {
 
 
 
-#ifdef CONFIG_BUILT_IN_STRNLEN
+#ifdef V3_CONFIG_BUILT_IN_STRNLEN
 /*
  * This it a GNU extension.
  * It is like strlen(), but it will check at most maxlen
@@ -137,7 +137,7 @@ size_t strnlen(const char * s, size_t maxlen) {
 #endif
 
 
-#ifdef CONFIG_BUILT_IN_STRCMP
+#ifdef V3_CONFIG_BUILT_IN_STRCMP
 int strcmp(const char * s1, const char * s2) {
     while (1) {
 	int cmp = (*s1 - *s2);
@@ -152,7 +152,7 @@ int strcmp(const char * s1, const char * s2) {
 }
 #endif
 
-#ifdef CONFIG_BUILT_IN_STRCASECMP
+#ifdef V3_CONFIG_BUILT_IN_STRCASECMP
 int strcasecmp(const char * s1, const char * s2) {
     while (1) {
 	int cmp = (tolower(*s1) - tolower(*s2));
@@ -169,7 +169,7 @@ int strcasecmp(const char * s1, const char * s2) {
 #endif
 
 
-#ifdef CONFIG_BUILT_IN_STRNCMP
+#ifdef V3_CONFIG_BUILT_IN_STRNCMP
 int strncmp(const char * s1, const char * s2, size_t limit) {
     size_t i = 0;
 
@@ -190,7 +190,7 @@ int strncmp(const char * s1, const char * s2, size_t limit) {
 }
 #endif
 
-#ifdef CONFIG_BUILT_IN_STRNCASECMP
+#ifdef V3_CONFIG_BUILT_IN_STRNCASECMP
 int strncasecmp(const char * s1, const char * s2, size_t limit) {
     size_t i = 0;
 
@@ -211,7 +211,7 @@ int strncasecmp(const char * s1, const char * s2, size_t limit) {
 #endif
 
 
-#ifdef CONFIG_BUILT_IN_STRCAT
+#ifdef V3_CONFIG_BUILT_IN_STRCAT
 char * strcat(char * s1, const char * s2) {
     char * t1 = s1;
 
@@ -225,7 +225,7 @@ char * strcat(char * s1, const char * s2) {
 #endif
 
 
-#ifdef CONFIG_BUILT_IN_STRNCAT
+#ifdef V3_CONFIG_BUILT_IN_STRNCAT
 char * strncat(char * s1, const char * s2, size_t limit) {
     size_t i = 0;
     char * t1;
@@ -247,7 +247,7 @@ char * strncat(char * s1, const char * s2, size_t limit) {
 
 
 
-#ifdef CONFIG_BUILT_IN_STRCPY
+#ifdef V3_CONFIG_BUILT_IN_STRCPY
 char * strcpy(char * dest, const char * src)
 {
     char *ret = dest;
@@ -262,7 +262,7 @@ char * strcpy(char * dest, const char * src)
 #endif
 
 
-#ifdef CONFIG_BUILT_IN_STRNCPY
+#ifdef V3_CONFIG_BUILT_IN_STRNCPY
 char * strncpy(char * dest, const char * src, size_t limit) {
     char * ret = dest;
 
@@ -280,7 +280,7 @@ char * strncpy(char * dest, const char * src, size_t limit) {
 
 
 
-#ifdef  CONFIG_BUILT_IN_STRDUP
+#ifdef  V3_CONFIG_BUILT_IN_STRDUP
 char * strdup(const char * s1) {
     char *ret;
 
@@ -294,7 +294,7 @@ char * strdup(const char * s1) {
 
 
 
-#ifdef CONFIG_BUILT_IN_ATOI
+#ifdef V3_CONFIG_BUILT_IN_ATOI
 int atoi(const char * buf) {
     int ret = 0;
 
@@ -379,7 +379,7 @@ uint64_t strtox(const char * nptr, char ** endptr) {
 
 
 
-#ifdef CONFIG_BUILT_IN_STRCHR
+#ifdef V3_CONFIG_BUILT_IN_STRCHR
 char * strchr(const char * s, int c) {
     while (*s != '\0') {
 	if (*s == c)
@@ -391,7 +391,7 @@ char * strchr(const char * s, int c) {
 #endif
 
 
-#ifdef CONFIG_BUILT_IN_STRRCHR
+#ifdef V3_CONFIG_BUILT_IN_STRRCHR
 char * strrchr(const char * s, int c) {
     size_t len = strlen(s);
     const char * p = s + len;
@@ -407,7 +407,7 @@ char * strrchr(const char * s, int c) {
 }
 #endif
 
-#ifdef CONFIG_BUILT_IN_STRPBRK
+#ifdef V3_CONFIG_BUILT_IN_STRPBRK
 char * strpbrk(const char * s, const char * accept) {
     size_t setLen = strlen(accept);
 
@@ -425,7 +425,7 @@ char * strpbrk(const char * s, const char * accept) {
 }
 #endif
 
-#ifdef CONFIG_BUILT_IN_STRSPN
+#ifdef V3_CONFIG_BUILT_IN_STRSPN
 size_t strspn(const char * s, const char * accept) {
     int match = 1;
     int cnt = 0;
@@ -449,7 +449,7 @@ size_t strspn(const char * s, const char * accept) {
 #endif
 
 
-#ifdef CONFIG_BUILT_IN_STRCSPN
+#ifdef V3_CONFIG_BUILT_IN_STRCSPN
 size_t strcspn(const char * s, const char * reject) {
     int match = 0;
     int cnt = 0;
@@ -471,7 +471,7 @@ size_t strcspn(const char * s, const char * reject) {
 #endif
 
 
-#ifdef CONFIG_BUILT_IN_STRSTR
+#ifdef V3_CONFIG_BUILT_IN_STRSTR
 char *strstr(const char *haystack, const char *needle)
 {
         int l1, l2;

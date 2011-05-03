@@ -581,7 +581,7 @@ const uchar_t * v3_page_type_to_str(page_type_t type);
 
 
 void PrintPTEntry(struct guest_info * info, page_type_t type, addr_t vaddr, void * entry);
-void PrintHostPageTables(struct guest_info * info,  addr_t cr3);
+void PrintHostPageTables(struct guest_info * info,  v3_cpu_mode_t cpu_mode, addr_t cr3);
 void PrintGuestPageTables(struct guest_info * info, addr_t cr3);
 void PrintHostPageTree(struct guest_info * info, addr_t virtual_addr, addr_t cr3);
 void PrintGuestPageTree(struct guest_info * info, addr_t virtual_addr, addr_t cr3);

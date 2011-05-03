@@ -28,7 +28,7 @@
 #include <devices/pci.h>
 
 
-#ifndef CONFIG_DEBUG_LINUX_VIRTIO_VNET
+#ifndef V3_CONFIG_DEBUG_LINUX_VIRTIO_VNET
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
@@ -303,7 +303,7 @@ static int do_tx_pkts(struct guest_info * core,
     	memcpy(pkt.header, virtio_pkt->pkt, ETHERNET_HEADER_LEN);
    	pkt.data = virtio_pkt->pkt;
 
-	v3_vnet_send_pkt(&pkt, NULL);
+	v3_vnet_send_pkt(&pkt, NULL, 1);
 	
 	q->used->ring[q->used->index % q->queue_size].id = q->avail->ring[q->cur_avail_idx % q->queue_size];
 	q->used->ring[q->used->index % q->queue_size].length = pkt_desc->length; // What do we set this to????

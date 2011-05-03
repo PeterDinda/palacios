@@ -1,6 +1,6 @@
 
 
-#ifdef CONFIG_SHADOW_CACHE
+#ifdef V3_CONFIG_SHADOW_CACHE
 
 #define PT64_NX_MASK (1ULL << 63)
 //#define SHOW_ALL 

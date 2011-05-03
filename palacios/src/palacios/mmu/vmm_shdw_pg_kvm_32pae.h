@@ -1,6 +1,6 @@
 
 
-#ifdef CONFIG_SHADOW_CACHE
+#ifdef V3_CONFIG_SHADOW_CACHE
 
 static inline int activate_shadow_pt_32pae(struct guest_info * info) {
     PrintError("Activating 32 bit PAE page tables not implemented\n");

@@ -25,7 +25,7 @@
 #include <palacios/vmm_sprintf.h>
 #include <interfaces/vmm_packet.h>
 
-#ifndef CONFIG_DEBUG_NIC_BRIDGE
+#ifndef V3_CONFIG_DEBUG_NIC_BRIDGE
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
@@ -36,9 +36,10 @@ struct nic_bridge_state {
 };
 
 static int bridge_send(uint8_t * buf, uint32_t len, 
+		       int synchronize,
 		       void * private_data) {
 
-#ifdef CONFIG_DEBUG_NIC_BRIDGE
+#ifdef V3_CONFIG_DEBUG_NIC_BRIDGE
     {
     	PrintDebug("NIC Bridge: send pkt size: %d\n", len);
     	v3_hexdump(buf, len, NULL, 0);
@@ -53,7 +54,7 @@ static int packet_input(struct v3_vm_info * vm,
 			void * private_data) {
     struct nic_bridge_state * bridge = (struct nic_bridge_state *)private_data;
  
-#ifdef CONFIG_DEBUG_NIC_BRIDGE
+#ifdef V3_CONFIG_DEBUG_NIC_BRIDGE
     {
     	PrintDebug("NIC Bridge: recv pkt size: %d\n", evt->size);
     	v3_hexdump(evt->pkt, evt->size, NULL, 0);

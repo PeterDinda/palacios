@@ -18,6 +18,7 @@ config DEBUG_APIC
 
 config IO_APIC
 	bool "IOAPIC"
+	depends on APIC
 	default y
 	help 
 	  Includes the Virtual IO APIC
@@ -29,6 +30,13 @@ config DEBUG_IO_APIC
 	help 
 	  Enable debugging for the IO APIC
 
+
+config MPTABLE
+	bool "MPTABLE"
+	default y
+	depends on APIC
+	help 
+	  Includes the MPTABLE to map the APICs and IO-APIC
 
 
 config BOCHS_DEBUG

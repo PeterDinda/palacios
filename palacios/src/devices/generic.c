@@ -26,11 +26,11 @@
 #include <palacios/vmm_dev_mgr.h>
 #include <palacios/vm_guest_mem.h>
 
-#ifdef CONFIG_HOST_DEVICE
+#ifdef V3_CONFIG_HOST_DEVICE
 #include <interfaces/vmm_host_dev.h>
 #endif
 
-#ifndef CONFIG_DEBUG_GENERIC
+#ifndef V3_CONFIG_DEBUG_GENERIC
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
@@ -45,7 +45,7 @@ typedef enum {GENERIC_IGNORE,
 
 struct generic_internal {
     enum {GENERIC_PHYSICAL, GENERIC_HOST} forward_type;
-#ifdef CONFIG_HOST_DEVICE
+#ifdef V3_CONFIG_HOST_DEVICE
     v3_host_dev_t                         host_dev;
 #endif
     struct vm_device                      *dev; // me
@@ -88,7 +88,7 @@ static int generic_write_port_passthrough(struct guest_info * core,
 	    }
 	    return length;
 	    break;
-#ifdef CONFIG_HOST_DEVICE
+#ifdef V3_CONFIG_HOST_DEVICE
 	case GENERIC_HOST:
 	    if (state->host_dev) { 
 		return v3_host_dev_write_io(state->host_dev,port,src,length);
@@ -109,7 +109,7 @@ static int generic_write_port_print_and_passthrough(struct guest_info * core, ui
     uint_t i;
     int rc;
 
-#ifdef CONFIG_DEBUG_GENERIC
+#ifdef V3_CONFIG_DEBUG_GENERIC
     struct generic_internal *state = (struct generic_internal *) priv_data;
 #endif
 
@@ -162,7 +162,7 @@ static int generic_read_port_passthrough(struct guest_info * core,
 	    }
 	    return length;
 	    break;
-#ifdef CONFIG_HOST_DEVICE
+#ifdef V3_CONFIG_HOST_DEVICE
 	case GENERIC_HOST:
 	    if (state->host_dev) { 
 		return v3_host_dev_read_io(state->host_dev,port,dst,length);
@@ -183,7 +183,7 @@ static int generic_read_port_print_and_passthrough(struct guest_info * core, uin
     uint_t i;
     int rc;
 
-#ifdef CONFIG_DEBUG_GENERIC
+#ifdef V3_CONFIG_DEBUG_GENERIC
     struct generic_internal *state = (struct generic_internal *) priv_data;
 #endif
 
@@ -217,7 +217,7 @@ static int generic_read_port_ignore(struct guest_info * core, uint16_t port, voi
 static int generic_read_port_print_and_ignore(struct guest_info * core, uint16_t port, void * src, 
 					      uint_t length, void * priv_data) {
    
-#ifdef CONFIG_DEBUG_GENERIC
+#ifdef V3_CONFIG_DEBUG_GENERIC
     struct generic_internal *state = (struct generic_internal *) priv_data;
 #endif
 
@@ -242,7 +242,7 @@ static int generic_write_port_print_and_ignore(struct guest_info * core, uint16_
 					      uint_t length, void * priv_data) {
     int i;
 
-#ifdef CONFIG_DEBUG_GENERIC
+#ifdef V3_CONFIG_DEBUG_GENERIC
     struct generic_internal *state = (struct generic_internal *) priv_data;
 #endif
 
@@ -278,7 +278,7 @@ static int generic_write_mem_passthrough(struct guest_info * core,
 	    memcpy(V3_VAddr((void*)gpa),src,len);
 	    return len;
 	    break;
-#ifdef CONFIG_HOST_DEVICE
+#ifdef V3_CONFIG_HOST_DEVICE
 	case GENERIC_HOST:
 	    if (state->host_dev) { 
 		return v3_host_dev_write_mem(state->host_dev,gpa,src,len);
@@ -300,7 +300,7 @@ static int generic_write_mem_print_and_passthrough(struct guest_info * core,
 						   uint_t              len,
 						   void              * priv)
 {
-#ifdef CONFIG_DEBUG_GENERIC
+#ifdef V3_CONFIG_DEBUG_GENERIC
     struct vm_device *dev = (struct vm_device *) priv;
     struct generic_internal *state = (struct generic_internal *) dev->private_data;
 #endif
@@ -332,7 +332,7 @@ static int generic_write_mem_print_and_ignore(struct guest_info * core,
 					      uint_t              len,
 					      void              * priv)
 {
-#ifdef CONFIG_DEBUG_GENERIC
+#ifdef V3_CONFIG_DEBUG_GENERIC
     struct vm_device *dev = (struct vm_device *) priv;
     struct generic_internal *state = (struct generic_internal *) dev->private_data;
 #endif
@@ -359,7 +359,7 @@ static int generic_read_mem_passthrough(struct guest_info * core,
 	    memcpy(dst,V3_VAddr((void*)gpa),len);
 	    return len;
 	    break;
-#ifdef CONFIG_HOST_DEVICE
+#ifdef V3_CONFIG_HOST_DEVICE
 	case GENERIC_HOST:
 	    if (state->host_dev) { 
 		return v3_host_dev_read_mem(state->host_dev,gpa,dst,len);
@@ -382,7 +382,7 @@ static int generic_read_mem_print_and_passthrough(struct guest_info * core,
 						  uint_t              len,
 						  void              * priv)
 {
-#ifdef CONFIG_DEBUG_GENERIC
+#ifdef V3_CONFIG_DEBUG_GENERIC
     struct vm_device *dev = (struct vm_device *) priv;
     struct generic_internal *state = (struct generic_internal *) dev->private_data;
 #endif
@@ -405,7 +405,7 @@ static int generic_read_mem_ignore(struct guest_info * core,
 				   uint_t              len,
 				   void              * priv)
 {
-#ifdef CONFIG_DEBUG_GENERIC
+#ifdef V3_CONFIG_DEBUG_GENERIC
     struct vm_device *dev = (struct vm_device *) priv;
     struct generic_internal *state = (struct generic_internal *) dev->private_data;
 #endif
@@ -439,7 +439,7 @@ static int generic_free(struct generic_internal * state) {
     
     PrintDebug("generic (%s): deinit_device\n", state->name);
     
-#ifdef CONFIG_HOST_DEVICE
+#ifdef V3_CONFIG_HOST_DEVICE
     if (state->host_dev) { 
 	v3_host_dev_close(state->host_dev);
 	state->host_dev=0;
@@ -622,7 +622,7 @@ static int generic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct generic_internal * state = NULL;
     char * dev_id = v3_cfg_val(cfg, "ID");
     char * forward = v3_cfg_val(cfg, "forward");
-#ifdef CONFIG_HOST_DEVICE
+#ifdef V3_CONFIG_HOST_DEVICE
     char * host_dev = v3_cfg_val(cfg, "hostdev");
 #endif
     v3_cfg_tree_t * port_cfg = v3_cfg_subtree(cfg, "ports");
@@ -645,7 +645,7 @@ static int generic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	if (!strcasecmp(forward,"physical_device")) { 
 	    state->forward_type=GENERIC_PHYSICAL;
 	} else if (!strcasecmp(forward,"host_device")) { 
-#ifdef CONFIG_HOST_DEVICE
+#ifdef V3_CONFIG_HOST_DEVICE
 	    state->forward_type=GENERIC_HOST;
 #else
 	    PrintError("generic (%s): cannot configure host device since host device support is not built in\n", state->name);
@@ -670,7 +670,7 @@ static int generic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     state->dev=dev;
 
 
-#ifdef CONFIG_HOST_DEVICE
+#ifdef V3_CONFIG_HOST_DEVICE
     if (state->forward_type==GENERIC_HOST) { 
 	if (!host_dev) { 
 	    PrintError("generic (%s): host forwarding requested, but no host device given\n", state->name);

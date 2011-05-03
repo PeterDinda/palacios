@@ -26,10 +26,12 @@
 #include <palacios/vmm_sprintf.h>
 #include <palacios/vmm_ethernet.h>
 
-#ifndef CONFIG_DEBUG_VNET
+#ifndef V3_CONFIG_DEBUG_VNET
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
+
+int v3_net_debug = 0;
 
 struct eth_hdr {
     uint8_t dst_mac[ETH_ALEN];
@@ -45,11 +47,6 @@ struct vnet_dev {
     struct v3_vnet_dev_ops dev_ops;
     void * private_data;
 
-    int active;
-
-    uint64_t bytes_tx, bytes_rx;
-    uint32_t pkts_tx, pkt_rx;
-    
     struct list_head node;
 } __attribute__((packed));
 
@@ -60,7 +57,6 @@ struct vnet_brg_dev {
 
     uint8_t type;
 
-    int active;
     void * private_data;
 } __attribute__((packed));
 
@@ -85,6 +81,21 @@ struct route_list {
 } __attribute__((packed));
 
 
+struct queue_entry{
+    uint8_t use;
+    struct v3_vnet_pkt pkt;
+    uint8_t * data;
+    uint32_t size_alloc;
+};
+
+#define VNET_QUEUE_SIZE 1024
+struct vnet_queue {
+	struct queue_entry buf[VNET_QUEUE_SIZE];
+	int head, tail;
+	int count;
+	v3_lock_t lock;
+};
+
 static struct {
     struct list_head routes;
     struct list_head devs;
@@ -97,12 +108,15 @@ static struct {
     v3_lock_t lock;
     struct vnet_stat stats;
 
+    void * pkt_flush_thread;
+
+    struct vnet_queue pkt_q;
+
     struct hashtable * route_cache;
 } vnet_state;
+	
 
-
-
-#ifdef CONFIG_DEBUG_VNET
+#ifdef V3_CONFIG_DEBUG_VNET
 static inline void mac_to_string(uint8_t * mac, char * buf) {
     snprintf(buf, 100, "%2x:%2x:%2x:%2x:%2x:%2x", 
 	     mac[0], mac[1], mac[2],
@@ -182,7 +196,8 @@ static int clear_hash_cache() {
     return 0;
 }
 
-static int look_into_cache(const struct v3_vnet_pkt * pkt, struct route_list ** routes) {
+static int look_into_cache(const struct v3_vnet_pkt * pkt, 
+			   struct route_list ** routes) {
     *routes = (struct route_list *)v3_htable_search(vnet_state.route_cache, (addr_t)(pkt->hash_buf));
    
     return 0;
@@ -235,7 +250,7 @@ int v3_vnet_add_route(struct v3_vnet_route route) {
     new_route = (struct vnet_route_info *)V3_Malloc(sizeof(struct vnet_route_info));
     memset(new_route, 0, sizeof(struct vnet_route_info));
 
-#ifdef CONFIG_DEBUG_VNET
+#ifdef V3_CONFIG_DEBUG_VNET
     PrintDebug("VNET/P Core: add_route_entry:\n");
     print_route(&route);
 #endif
@@ -266,7 +281,7 @@ int v3_vnet_add_route(struct v3_vnet_route route) {
     v3_unlock_irqrestore(vnet_state.lock, flags);
    
 
-#ifdef CONFIG_DEBUG_VNET
+#ifdef V3_CONFIG_DEBUG_VNET
     dump_routes();
 #endif
 
@@ -306,10 +321,10 @@ static struct route_list * match_route(const struct v3_vnet_pkt * pkt) {
     int max_rank = 0;
     struct list_head match_list;
     struct eth_hdr * hdr = (struct eth_hdr *)(pkt->data);
-//    uint8_t src_type = pkt->src_type;
-  //  uint32_t src_link = pkt->src_id;
+    //    uint8_t src_type = pkt->src_type;
+    //  uint32_t src_link = pkt->src_id;
 
-#ifdef CONFIG_DEBUG_VNET
+#ifdef V3_CONFIG_DEBUG_VNET
     {
 	char dst_str[100];
 	char src_str[100];
@@ -425,19 +440,18 @@ static struct route_list * match_route(const struct v3_vnet_pkt * pkt) {
 }
 
 
-int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data) {
+int vnet_tx_one_pkt(struct v3_vnet_pkt * pkt, void * private_data) {
     struct route_list * matched_routes = NULL;
     unsigned long flags;
     int i;
 
-#ifdef CONFIG_DEBUG_VNET
-   {
-	int cpu = V3_Get_CPU();
-       PrintDebug("VNET/P Core: cpu %d: pkt (size %d, src_id:%d, src_type: %d, dst_id: %d, dst_type: %d)\n",
+    int cpu = V3_Get_CPU();
+    V3_Net_Print(2, "VNET/P Core: cpu %d: pkt (size %d, src_id:%d, src_type: %d, dst_id: %d, dst_type: %d)\n",
 		  cpu, pkt->size, pkt->src_id, 
 		  pkt->src_type, pkt->dst_id, pkt->dst_type);
-   }
-#endif
+    if(v3_net_debug >= 4){
+	    v3_hexdump(pkt->data, pkt->size, NULL, 0);
+    }
 
     flags = v3_lock_irqsave(vnet_state.lock);
 
@@ -466,30 +480,30 @@ int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data) {
     for (i = 0; i < matched_routes->num_routes; i++) {
 	struct vnet_route_info * route = matched_routes->routes[i];
 	
-        if (route->route_def.dst_type == LINK_EDGE) {
-	    struct vnet_brg_dev *bridge = vnet_state.bridge;
-            pkt->dst_type = LINK_EDGE;
-            pkt->dst_id = route->route_def.dst_id;
+	if (route->route_def.dst_type == LINK_EDGE) {
+	    struct vnet_brg_dev * bridge = vnet_state.bridge;
+	    pkt->dst_type = LINK_EDGE;
+	    pkt->dst_id = route->route_def.dst_id;
 
-    	    if (bridge == NULL || (bridge->active == 0)) {
-	        PrintDebug("VNET/P Core: No active bridge to sent data to\n");
+    	    if (bridge == NULL) {
+	        V3_Net_Print(2, "VNET/P Core: No active bridge to sent data to\n");
 		 continue;
     	    }
 
     	    if(bridge->brg_ops.input(bridge->vm, pkt, bridge->private_data) < 0){
-                PrintDebug("VNET/P Core: Packet not sent properly to bridge\n");
+                V3_Net_Print(2, "VNET/P Core: Packet not sent properly to bridge\n");
                 continue;
 	    }         
 	    vnet_state.stats.tx_bytes += pkt->size;
 	    vnet_state.stats.tx_pkts ++;
         } else if (route->route_def.dst_type == LINK_INTERFACE) {
-            if (route->dst_dev == NULL || route->dst_dev->active == 0){
-	 	PrintDebug("VNET/P Core: No active device to sent data to\n");
+            if (route->dst_dev == NULL){
+	 	  V3_Net_Print(2, "VNET/P Core: No active device to sent data to\n");
 	        continue;
             }
 
 	    if(route->dst_dev->dev_ops.input(route->dst_dev->vm, pkt, route->dst_dev->private_data) < 0) {
-                PrintDebug("VNET/P Core: Packet not sent properly\n");
+                V3_Net_Print(2, "VNET/P Core: Packet not sent properly\n");
                 continue;
 	    }
 	    vnet_state.stats.tx_bytes += pkt->size;
@@ -499,6 +513,65 @@ int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data) {
         }
     }
     
+    return 0;
+}
+
+
+static int vnet_pkt_enqueue(struct v3_vnet_pkt * pkt){
+    unsigned long flags;
+    struct queue_entry * entry;
+    struct vnet_queue * q = &(vnet_state.pkt_q);
+    uint16_t num_pages;
+
+    flags = v3_lock_irqsave(q->lock);
+
+    if (q->count >= VNET_QUEUE_SIZE){
+	V3_Net_Print(1, "VNET Queue overflow!\n");
+	v3_unlock_irqrestore(q->lock, flags);
+	return -1;
+    }
+	
+    q->count ++;
+    entry = &(q->buf[q->tail++]);
+    q->tail %= VNET_QUEUE_SIZE;
+	
+    v3_unlock_irqrestore(q->lock, flags);
+
+    /* this is ugly, but should happen very unlikely */
+    while(entry->use);
+
+    if(entry->size_alloc < pkt->size){
+    	if(entry->data != NULL){
+	    V3_FreePages(V3_PAddr(entry->data), (entry->size_alloc / PAGE_SIZE));
+	    entry->data = NULL;
+    	}
+
+	num_pages = 1 + (pkt->size / PAGE_SIZE);
+	entry->data = V3_VAddr(V3_AllocPages(num_pages));
+	if(entry->data == NULL){
+	    return -1;
+	}
+	entry->size_alloc = PAGE_SIZE * num_pages;
+    }
+
+    entry->pkt.data = entry->data;
+    memcpy(&(entry->pkt), pkt, sizeof(struct v3_vnet_pkt));
+    memcpy(entry->data, pkt->data, pkt->size);
+
+    entry->use = 1;
+
+    return 0;
+}
+
+
+int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data, int synchronize) {
+    if(synchronize){
+	vnet_tx_one_pkt(pkt, NULL);
+    }else {
+       vnet_pkt_enqueue(pkt);
+    	V3_Net_Print(2, "VNET/P Core: Put pkt into Queue: pkt size %d\n", pkt->size);
+    }
+	
     return 0;
 }
 
@@ -517,11 +590,9 @@ int v3_vnet_add_dev(struct v3_vm_info * vm, uint8_t * mac,
    
     memcpy(new_dev->mac_addr, mac, 6);
     new_dev->dev_ops.input = ops->input;
-    new_dev->dev_ops.poll = ops->poll;
     new_dev->private_data = priv_data;
     new_dev->vm = vm;
     new_dev->dev_id = 0;
-    new_dev->active = 1;
 
     flags = v3_lock_irqsave(vnet_state.lock);
 
@@ -544,7 +615,6 @@ int v3_vnet_add_dev(struct v3_vm_info * vm, uint8_t * mac,
 }
 
 
-
 int v3_vnet_del_dev(int dev_id){
     struct vnet_dev * dev = NULL;
     unsigned long flags;
@@ -565,6 +635,7 @@ int v3_vnet_del_dev(int dev_id){
 
     return 0;
 }
+
 
 int v3_vnet_stat(struct vnet_stat * stats){
 	
@@ -604,12 +675,10 @@ int v3_vnet_add_bridge(struct v3_vm_info * vm,
     struct vnet_brg_dev * tmp_bridge = NULL;    
     
     flags = v3_lock_irqsave(vnet_state.lock);
-
     if (vnet_state.bridge == NULL) {
 	bridge_free = 1;
 	vnet_state.bridge = (void *)1;
     }
-
     v3_unlock_irqrestore(vnet_state.lock, flags);
 
     if (bridge_free == 0) {
@@ -629,7 +698,6 @@ int v3_vnet_add_bridge(struct v3_vm_info * vm,
     tmp_bridge->brg_ops.input = ops->input;
     tmp_bridge->brg_ops.poll = ops->poll;
     tmp_bridge->private_data = priv_data;
-    tmp_bridge->active = 1;
     tmp_bridge->type = type;
 	
     /* make this atomic to avoid possible race conditions */
@@ -641,19 +709,40 @@ int v3_vnet_add_bridge(struct v3_vm_info * vm,
 }
 
 
-void v3_vnet_do_poll(struct v3_vm_info * vm){
-    struct vnet_dev * dev = NULL;
+static int vnet_tx_flush(void *args){
+    unsigned long flags;
+    struct queue_entry * entry;
+    struct vnet_queue * q = &(vnet_state.pkt_q);
 
-    /* TODO: run this on separate threads
-      * round-robin schedule, with maximal budget for each poll
-      */
-    list_for_each_entry(dev, &(vnet_state.devs), node) {
-    	    if(dev->dev_ops.poll != NULL){
-		dev->dev_ops.poll(vm, -1, dev->private_data);
-    	    }
+    V3_Print("VNET/P Handing Pkt Thread Starting ....\n");
+
+    //V3_THREAD_SLEEP();
+    /* we need thread sleep/wakeup in Palacios */
+    while(1){
+    	flags = v3_lock_irqsave(q->lock);
+
+    	if (q->count <= 0){
+	    v3_unlock_irqrestore(q->lock, flags);
+	    v3_yield(NULL);
+	    //V3_THREAD_SLEEP();
+    	}else {
+    	    q->count --;
+    	    entry = &(q->buf[q->head++]);
+    	    q->head %= VNET_QUEUE_SIZE;
+
+    	    v3_unlock_irqrestore(q->lock, flags);
+
+   	    /* this is ugly, but should happen very unlikely */
+    	    while(!entry->use);
+	    vnet_tx_one_pkt(&(entry->pkt), NULL);
+
+	    /* asynchronizely release allocated memory for buffer entry here */	    
+	    entry->use = 0;
+
+	    V3_Net_Print(2, "vnet_tx_flush: pkt (size %d)\n", entry->pkt.size);   
+	}
     }
 }
-
 
 int v3_init_vnet() {
     memset(&vnet_state, 0, sizeof(vnet_state));
@@ -669,11 +758,14 @@ int v3_init_vnet() {
     }
 
     vnet_state.route_cache = v3_create_htable(0, &hash_fn, &hash_eq);
-
     if (vnet_state.route_cache == NULL) {
         PrintError("VNET/P Core: Fails to initiate route cache\n");
         return -1;
     }
+
+    v3_lock_init(&(vnet_state.pkt_q.lock));
+
+    vnet_state.pkt_flush_thread = V3_CREATE_THREAD(vnet_tx_flush, NULL, "VNET_Pkts");
 
     PrintDebug("VNET/P Core is initiated\n");
 

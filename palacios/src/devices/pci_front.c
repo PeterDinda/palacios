@@ -57,7 +57,7 @@
 #include <interfaces/vmm_host_dev.h>
 
 
-#ifndef CONFIG_DEBUG_PCI_FRONT
+#ifndef V3_CONFIG_DEBUG_PCI_FRONT
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif

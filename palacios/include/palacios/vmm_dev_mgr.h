@@ -102,14 +102,14 @@ int V3_init_devices();
 int V3_deinit_devices();
 
 
-#ifdef CONFIG_KEYED_STREAMS
+#ifdef V3_CONFIG_KEYED_STREAMS
 #include <interfaces/vmm_keyed_stream.h>
 #endif 
 
 struct v3_device_ops {
     int (*free)(void * private_data);
 
-#ifdef CONFIG_KEYED_STREAMS
+#ifdef V3_CONFIG_KEYED_STREAMS
     int (*checkpoint)(struct vm_device *dev, v3_keyed_stream_t stream);
     int (*restore)(struct vm_device *dev, v3_keyed_stream_t stream);
 #endif
@@ -179,11 +179,10 @@ struct v3_dev_blk_ops {
 
 struct v3_dev_net_ops {
     /* Backend implemented functions */
-    int (*send)(uint8_t * buf, uint32_t count, void * private_data);
+    int (*send)(uint8_t * buf, uint32_t len, int synchronize, void * private_data);
 
     /* Frontend implemented functions */
-    int (*recv)(uint8_t * buf, uint32_t count, void * frnt_data);
-    void (*poll)(struct v3_vm_info * vm, int budget, void * frnt_data);
+    int (*recv)(uint8_t * buf, uint32_t len, void * frnt_data);
 
     /* This is ugly... */
     void * frontend_data; 

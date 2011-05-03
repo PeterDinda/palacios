@@ -40,12 +40,12 @@
 
 
 
-#ifdef CONFIG_TELEMETRY
+#ifdef V3_CONFIG_TELEMETRY
 #include <palacios/vmm_telemetry.h>
 #endif
 
 
-#ifdef CONFIG_SYMBIOTIC
+#ifdef V3_CONFIG_SYMBIOTIC
 #include <palacios/vmm_symbiotic.h>
 struct v3_sym_core_state;
 #endif
@@ -107,7 +107,7 @@ struct guest_info {
     
     uint64_t num_exits;
 
-#ifdef CONFIG_TELEMETRY
+#ifdef V3_CONFIG_TELEMETRY
     struct v3_core_telemetry core_telem;
 #endif
 
@@ -116,7 +116,7 @@ struct guest_info {
 
     void * decoder_state;
 
-#ifdef CONFIG_SYMBIOTIC
+#ifdef V3_CONFIG_SYMBIOTIC
     /* Symbiotic state */
     struct v3_sym_core_state sym_core_state;
 #endif
@@ -145,8 +145,6 @@ struct v3_vm_info {
     uint32_t mem_align;
     struct v3_mem_map mem_map;
 
-    v3_paging_size_t paging_size; // for nested paging
-
     struct v3_mem_hooks mem_hooks;
 
     struct v3_shdw_impl_state shdw_impl;
@@ -174,12 +172,12 @@ struct v3_vm_info {
 
     struct v3_extensions extensions;
 
-#ifdef CONFIG_SYMBIOTIC
+#ifdef V3_CONFIG_SYMBIOTIC
     /* Symbiotic state */
     struct v3_sym_vm_state sym_vm_state;
 #endif
 
-#ifdef CONFIG_TELEMETRY
+#ifdef V3_CONFIG_TELEMETRY
     uint_t enable_telemetry;
     struct v3_telemetry_state telemetry;
 #endif

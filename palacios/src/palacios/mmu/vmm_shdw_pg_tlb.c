@@ -24,7 +24,7 @@
 #include <palacios/vm_guest_mem.h>
 
 
-#ifndef CONFIG_DEBUG_SHDW_PG_VTLB
+#ifndef V3_CONFIG_DEBUG_SHDW_PG_VTLB
 #undef PrintDebug
 #define PrintDebug(fmt, ...)
 #endif

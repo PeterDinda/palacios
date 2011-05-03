@@ -26,7 +26,7 @@
 
 #include "vga_regs.h"
 
-#ifndef CONFIG_DEBUG_VGA
+#ifndef V3_CONFIG_DEBUG_VGA
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif

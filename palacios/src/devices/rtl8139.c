@@ -28,7 +28,7 @@
 
 
 
-#ifndef CONFIG_DEBUG_RTL8139
+#ifndef V3_CONFIG_DEBUG_RTL8139
 #undef PrintDebug
 #define PrintDebug(fmts, args...)
 #endif
@@ -1174,7 +1174,7 @@ static int tx_one_packet(struct rtl8139_state * nic_state, int descriptor){
     v3_gpa_to_hva(&(nic_state->vm->cores[0]), (addr_t)pkt_gpa, &hostva);
     pkt = (uchar_t *)hostva;
 
-#ifdef CONFIG_DEBUG_RTL8139
+#ifdef V3_CONFIG_DEBUG_RTL8139
     v3_hexdump(pkt, txsize, NULL, 0);
 #endif
 
