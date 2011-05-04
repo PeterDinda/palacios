@@ -162,14 +162,6 @@ static long v3_dev_ioctl(struct file * filp,
 		return -EFAULT;
 	    }
 
-	    // Mem test...
-	    /*
-	      {
-	      void * vaddr = __va(alloc_palacios_pgs(131072, 4096));
-	      memset(vaddr, 0xfe492fe2, mem.num_pages * 4096);
-	      }
-	    */
-
 	    break;
 	}
 
