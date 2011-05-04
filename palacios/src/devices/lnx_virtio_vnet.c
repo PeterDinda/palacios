@@ -23,7 +23,7 @@
 #include <palacios/vmm_dev_mgr.h>
 #include <palacios/vm_guest_mem.h>
 #include <devices/lnx_virtio_pci.h>
-#include <palacios/vmm_vnet.h>
+#include <vnet/vnet.h>
 #include <palacios/vmm_sprintf.h>
 #include <devices/pci.h>
 

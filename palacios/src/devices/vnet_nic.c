@@ -19,7 +19,7 @@
  */
 //backend device for Virtio NIC
 
-#include <palacios/vmm_vnet.h>
+#include <vnet/vnet.h>
 #include <palacios/vmm.h>
 #include <palacios/vmm_dev_mgr.h>
 #include <devices/lnx_virtio_pci.h>
