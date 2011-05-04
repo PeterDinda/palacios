@@ -30,6 +30,7 @@ void v3_thread_kill(v3_thread *);
 void v3_thread_stop(v3_thread *);
 void v3_thread_continue(v3_thread *);
 
+void udelay(unsigned long usecs);
 
 // I know there is timer in palacios, but it has to be binded to specific VM, and the granularity is not
 // guaranteed
