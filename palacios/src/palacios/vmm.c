@@ -34,7 +34,7 @@
 #endif
 
 #ifdef V3_CONFIG_VNET
-#include <palacios/vmm_vnet.h>
+#include <vnet/vnet.h>
 #endif
 
 
