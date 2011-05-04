@@ -7,13 +7,11 @@
  * and the University of New Mexico.  You can find out more at 
  * http://www.v3vee.org
  *
- * Copyright (c) 2008, Peter Dinda <pdinda@northwestern.edu> 
- * Copyright (c) 2008, Jack Lange <jarusl@cs.northwestern.edu>
- * Copyright (c) 2008, The V3VEE Project <http://www.v3vee.org> 
+ * Copyright (c) 2011, Jack Lange <jarusl@cs.northwestern.edu>
+ * Copyright (c) 2011, The V3VEE Project <http://www.v3vee.org> 
  * All rights reserved.
  *
- * Author: Peter Dinda <pdinda@northwestern.edu>
- *         Jack Lange <jarusl@cs.northwestern.edu>
+ * Author: Jack Lange <jarusl@cs.northwestern.edu>
  *
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
@@ -34,9 +32,11 @@
 #include <palacios/vmx_io.h>
 #include <palacios/vmx_msr.h>
 
+#include <palacios/vmx_ept.h>
+#include <palacios/vmx_assist.h>
 #include <palacios/vmx_hw_info.h>
 
-#ifndef CONFIG_DEBUG_VMX
+#ifndef V3_CONFIG_DEBUG_VMX
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
@@ -45,9 +45,10 @@
 /* These fields contain the hardware feature sets supported by the local CPU */
 static struct vmx_hw_info hw_info;
 
+extern v3_cpu_arch_t v3_cpu_types[];
 
-static addr_t active_vmcs_ptrs[CONFIG_MAX_CPUS] = { [0 ... CONFIG_MAX_CPUS - 1] = 0};
-static addr_t host_vmcs_ptrs[CONFIG_MAX_CPUS] = { [0 ... CONFIG_MAX_CPUS - 1] = 0};
+static addr_t active_vmcs_ptrs[V3_CONFIG_MAX_CPUS] = { [0 ... V3_CONFIG_MAX_CPUS - 1] = 0};
+static addr_t host_vmcs_ptrs[V3_CONFIG_MAX_CPUS] = { [0 ... V3_CONFIG_MAX_CPUS - 1] = 0};
 
 extern int v3_vmx_launch(struct v3_gprs * vm_regs, struct guest_info * info, struct v3_ctrl_regs * ctrl_regs);
 extern int v3_vmx_resume(struct v3_gprs * vm_regs, struct guest_info * info, struct v3_ctrl_regs * ctrl_regs);
@@ -97,22 +98,34 @@ static addr_t allocate_vmcs() {
 
 
 
-static int init_vmcs_bios(struct guest_info * info, struct vmx_data * vmx_state) {
+static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state) {
     int vmx_ret = 0;
-    struct vmx_data * vmx_info = (struct vmx_data *)(info->vmm_data);
 
     // disable global interrupts for vm state initialization
     v3_disable_ints();
 
     PrintDebug("Loading VMCS\n");
     vmx_ret = vmcs_load(vmx_state->vmcs_ptr_phys);
-    active_vmcs_ptrs[V3_Get_CPU()] = vmx_info->vmcs_ptr_phys;
+    active_vmcs_ptrs[V3_Get_CPU()] = vmx_state->vmcs_ptr_phys;
     vmx_state->state = VMX_UNLAUNCHED;
 
     if (vmx_ret != VMX_SUCCESS) {
         PrintError("VMPTRLD failed\n");
         return -1;
     }
+
+
+    /*** Setup default state from HW ***/
+
+    vmx_state->pin_ctrls.value = hw_info.pin_ctrls.def_val;
+    vmx_state->pri_proc_ctrls.value = hw_info.proc_ctrls.def_val;
+    vmx_state->exit_ctrls.value = hw_info.exit_ctrls.def_val;
+    vmx_state->entry_ctrls.value = hw_info.entry_ctrls.def_val;
+    vmx_state->sec_proc_ctrls.value = hw_info.sec_proc_ctrls.def_val;
+
+    /* Print Control MSRs */
+    PrintDebug("CR0 MSR: %p\n", (void *)(addr_t)hw_info.cr0.value);
+    PrintDebug("CR4 MSR: %p\n", (void *)(addr_t)hw_info.cr4.value);
 
 
 
@@ -167,205 +180,295 @@ static int init_vmcs_bios(struct guest_info * info, struct vmx_data * vmx_state)
 
     vmx_state->host_state.tr.base = tmp_seg.base;
 
-  
 
-    /********** Setup and VMX Control Fields from MSR ***********/
-    /* Setup IO map */
-
-
-    struct v3_msr tmp_msr;
-
-    v3_get_msr(VMX_PINBASED_CTLS_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
+    /********** Setup VMX Control Fields ***********/
 
     /* Add external interrupts, NMI exiting, and virtual NMI */
-    vmx_state->pin_ctrls.value =  tmp_msr.lo;
     vmx_state->pin_ctrls.nmi_exit = 1;
     vmx_state->pin_ctrls.ext_int_exit = 1;
 
-    v3_get_msr(VMX_PROCBASED_CTLS_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
 
-    vmx_state->pri_proc_ctrls.value = tmp_msr.lo;
-    vmx_state->pri_proc_ctrls.use_io_bitmap = 1;
     vmx_state->pri_proc_ctrls.hlt_exit = 1;
-    vmx_state->pri_proc_ctrls.invlpg_exit = 1;
-    vmx_state->pri_proc_ctrls.use_msr_bitmap = 1;
-    vmx_state->pri_proc_ctrls.pause_exit = 1;
+
+
+    vmx_state->pri_proc_ctrls.pause_exit = 0;
     vmx_state->pri_proc_ctrls.tsc_offset = 1;
-#ifdef CONFIG_TIME_VIRTUALIZE_TSC
+#ifdef V3_CONFIG_TIME_VIRTUALIZE_TSC
     vmx_state->pri_proc_ctrls.rdtsc_exit = 1;
 #endif
 
-    vmx_ret |= check_vmcs_write(VMCS_IO_BITMAP_A_ADDR, (addr_t)V3_PAddr(info->vm_info->io_map.arch_data));
+    /* Setup IO map */
+    vmx_state->pri_proc_ctrls.use_io_bitmap = 1;
+    vmx_ret |= check_vmcs_write(VMCS_IO_BITMAP_A_ADDR, (addr_t)V3_PAddr(core->vm_info->io_map.arch_data));
     vmx_ret |= check_vmcs_write(VMCS_IO_BITMAP_B_ADDR, 
-            (addr_t)V3_PAddr(info->vm_info->io_map.arch_data) + PAGE_SIZE_4KB);
+            (addr_t)V3_PAddr(core->vm_info->io_map.arch_data) + PAGE_SIZE_4KB);
 
 
-    vmx_ret |= check_vmcs_write(VMCS_MSR_BITMAP, (addr_t)V3_PAddr(info->vm_info->msr_map.arch_data));
+    vmx_state->pri_proc_ctrls.use_msr_bitmap = 1;
+    vmx_ret |= check_vmcs_write(VMCS_MSR_BITMAP, (addr_t)V3_PAddr(core->vm_info->msr_map.arch_data));
 
-    v3_get_msr(VMX_EXIT_CTLS_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
-    vmx_state->exit_ctrls.value = tmp_msr.lo;
-    vmx_state->exit_ctrls.host_64_on = 1;
 
-    if ((vmx_state->exit_ctrls.save_efer == 1) || (vmx_state->exit_ctrls.ld_efer == 1)) {
-        vmx_state->ia32e_avail = 1;
-    }
 
-    v3_get_msr(VMX_ENTRY_CTLS_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
-    vmx_state->entry_ctrls.value = tmp_msr.lo;
-
-    {
-	struct vmx_exception_bitmap excp_bmap;
-	excp_bmap.value = 0;
-	
-	excp_bmap.pf = 1;
     
-	vmx_ret |= check_vmcs_write(VMCS_EXCP_BITMAP, excp_bmap.value);
-    }
-    /******* Setup VMXAssist guest state ***********/
-
-    info->rip = 0xd0000;
-    info->vm_regs.rsp = 0x80000;
-
-    struct rflags * flags = (struct rflags *)&(info->ctrl_regs.rflags);
-    flags->rsvd1 = 1;
-
-    /* Print Control MSRs */
-    v3_get_msr(VMX_CR0_FIXED0_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
-    PrintDebug("CR0 MSR: %p\n", (void *)(addr_t)tmp_msr.value);
-
-    v3_get_msr(VMX_CR4_FIXED0_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
-    PrintDebug("CR4 MSR: %p\n", (void *)(addr_t)tmp_msr.value);
 
 
-#define GUEST_CR0 0x80000031
-#define GUEST_CR4 0x00002000
-    info->ctrl_regs.cr0 = GUEST_CR0;
-    info->ctrl_regs.cr4 = GUEST_CR4;
 
-    ((struct cr0_32 *)&(info->shdw_pg_state.guest_cr0))->pe = 1;
-   
+#ifdef __V3_64BIT__
+    vmx_state->exit_ctrls.host_64_on = 1;
+#endif
+
+
+    /* Not sure how exactly to handle this... */
+    v3_hook_msr(core->vm_info, EFER_MSR, 
+		&v3_handle_efer_read,
+		&v3_handle_efer_write, 
+		core);
+
+    // Or is it this??? 
+    vmx_state->entry_ctrls.ld_efer = 1;
+    vmx_state->exit_ctrls.ld_efer = 1;
+    vmx_state->exit_ctrls.save_efer = 1;
+    /*   ***   */
+
+    vmx_ret |= check_vmcs_write(VMCS_CR4_MASK, CR4_VMXE);
+
+
     /* Setup paging */
-    if (info->shdw_pg_mode == SHADOW_PAGING) {
+    if (core->shdw_pg_mode == SHADOW_PAGING) {
         PrintDebug("Creating initial shadow page table\n");
 
-        if (v3_init_passthrough_pts(info) == -1) {
+        if (v3_init_passthrough_pts(core) == -1) {
             PrintError("Could not initialize passthrough page tables\n");
             return -1;
         }
         
 #define CR0_PE 0x00000001
 #define CR0_PG 0x80000000
+#define CR0_WP 0x00010000 // To ensure mem hooks work
+        vmx_ret |= check_vmcs_write(VMCS_CR0_MASK, (CR0_PE | CR0_PG | CR0_WP));
 
-
-        vmx_ret |= check_vmcs_write(VMCS_CR0_MASK, (CR0_PE | CR0_PG) );
-        vmx_ret |= check_vmcs_write(VMCS_CR4_MASK, CR4_VMXE);
-
-        info->ctrl_regs.cr3 = info->direct_map_pt;
+        core->ctrl_regs.cr3 = core->direct_map_pt;
 
         // vmx_state->pinbased_ctrls |= NMI_EXIT;
 
         /* Add CR exits */
         vmx_state->pri_proc_ctrls.cr3_ld_exit = 1;
         vmx_state->pri_proc_ctrls.cr3_str_exit = 1;
+	
+	vmx_state->pri_proc_ctrls.invlpg_exit = 1;
+	
+	/* Add page fault exits */
+	vmx_state->excp_bmap.pf = 1;
+
+	// Setup VMX Assist
+	v3_vmxassist_init(core, vmx_state);
+
+    } else if ((core->shdw_pg_mode == NESTED_PAGING) && 
+	       (v3_cpu_types[core->cpu_id] == V3_VMX_EPT_CPU)) {
+
+#define CR0_PE 0x00000001
+#define CR0_PG 0x80000000
+#define CR0_WP 0x00010000 // To ensure mem hooks work
+        vmx_ret |= check_vmcs_write(VMCS_CR0_MASK, (CR0_PE | CR0_PG | CR0_WP));
+
+        // vmx_state->pinbased_ctrls |= NMI_EXIT;
+
+        /* Disable CR exits */
+	vmx_state->pri_proc_ctrls.cr3_ld_exit = 0;
+	vmx_state->pri_proc_ctrls.cr3_str_exit = 0;
+
+	vmx_state->pri_proc_ctrls.invlpg_exit = 0;
+
+	/* Add page fault exits */
+	//	vmx_state->excp_bmap.pf = 1; // This should never happen..., enabled to catch bugs
+	
+	// Setup VMX Assist
+	v3_vmxassist_init(core, vmx_state);
+
+	/* Enable EPT */
+	vmx_state->pri_proc_ctrls.sec_ctrls = 1; // Enable secondary proc controls
+	vmx_state->sec_proc_ctrls.enable_ept = 1; // enable EPT paging
+
+
+
+	if (v3_init_ept(core, &hw_info) == -1) {
+	    PrintError("Error initializing EPT\n");
+	    return -1;
+	}
+
+    } else if ((core->shdw_pg_mode == NESTED_PAGING) && 
+	       (v3_cpu_types[core->cpu_id] == V3_VMX_EPT_UG_CPU)) {
+	int i = 0;
+	// For now we will assume that unrestricted guest mode is assured w/ EPT
+
+
+	core->vm_regs.rsp = 0x00;
+	core->rip = 0xfff0;
+	core->vm_regs.rdx = 0x00000f00;
+	core->ctrl_regs.rflags = 0x00000002; // The reserved bit is always 1
+	core->ctrl_regs.cr0 = 0x60010010; // Set the WP flag so the memory hooks work in real-mode
+
+
+	core->segments.cs.selector = 0xf000;
+	core->segments.cs.limit = 0xffff;
+	core->segments.cs.base = 0x0000000f0000LL;
+
+	// (raw attributes = 0xf3)
+	core->segments.cs.type = 0xb;
+	core->segments.cs.system = 0x1;
+	core->segments.cs.dpl = 0x0;
+	core->segments.cs.present = 1;
+
+
+
+	struct v3_segment * segregs [] = {&(core->segments.ss), &(core->segments.ds), 
+					  &(core->segments.es), &(core->segments.fs), 
+					  &(core->segments.gs), NULL};
+
+	for ( i = 0; segregs[i] != NULL; i++) {
+	    struct v3_segment * seg = segregs[i];
+	
+	    seg->selector = 0x0000;
+	    //    seg->base = seg->selector << 4;
+	    seg->base = 0x00000000;
+	    seg->limit = 0xffff;
+
+
+	    seg->type = 0x3;
+	    seg->system = 0x1;
+	    seg->dpl = 0x0;
+	    seg->present = 1;
+	    //    seg->granularity = 1;
+
+	}
+
+
+	core->segments.gdtr.limit = 0x0000ffff;
+	core->segments.gdtr.base = 0x0000000000000000LL;
+
+	core->segments.idtr.limit = 0x0000ffff;
+	core->segments.idtr.base = 0x0000000000000000LL;
+
+	core->segments.ldtr.selector = 0x0000;
+	core->segments.ldtr.limit = 0x0000ffff;
+	core->segments.ldtr.base = 0x0000000000000000LL;
+	core->segments.ldtr.type = 2;
+	core->segments.ldtr.present = 1;
+
+	core->segments.tr.selector = 0x0000;
+	core->segments.tr.limit = 0x0000ffff;
+	core->segments.tr.base = 0x0000000000000000LL;
+	core->segments.tr.type = 0xb;
+	core->segments.tr.present = 1;
+
+	//	core->dbg_regs.dr6 = 0x00000000ffff0ff0LL;
+	core->dbg_regs.dr7 = 0x0000000000000400LL;
+
+	/* Enable EPT */
+	vmx_state->pri_proc_ctrls.sec_ctrls = 1; // Enable secondary proc controls
+	vmx_state->sec_proc_ctrls.enable_ept = 1; // enable EPT paging
+	vmx_state->sec_proc_ctrls.unrstrct_guest = 1; // enable unrestricted guest operation
+
+
+	/* Disable shadow paging stuff */
+	vmx_state->pri_proc_ctrls.cr3_ld_exit = 0;
+	vmx_state->pri_proc_ctrls.cr3_str_exit = 0;
+
+	vmx_state->pri_proc_ctrls.invlpg_exit = 0;
+
+
+	if (v3_init_ept(core, &hw_info) == -1) {
+	    PrintError("Error initializing EPT\n");
+	    return -1;
+	}
+
+    } else {
+	PrintError("Invalid Virtual paging mode\n");
+	return -1;
     }
 
-    // Setup segment registers
-    {
-	struct v3_segment * seg_reg = (struct v3_segment *)&(info->segments);
 
-	int i;
+    // hook vmx msrs
 
-	for (i = 0; i < 10; i++) {
-	    seg_reg[i].selector = 3 << 3;
-	    seg_reg[i].limit = 0xffff;
-	    seg_reg[i].base = 0x0;
-	}
-
-	info->segments.cs.selector = 2<<3;
-
-	/* Set only the segment registers */
-	for (i = 0; i < 6; i++) {
-	    seg_reg[i].limit = 0xfffff;
-	    seg_reg[i].granularity = 1;
-	    seg_reg[i].type = 3;
-	    seg_reg[i].system = 1;
-	    seg_reg[i].dpl = 0;
-	    seg_reg[i].present = 1;
-	    seg_reg[i].db = 1;
-	}
-
-	info->segments.cs.type = 0xb;
-
-	info->segments.ldtr.selector = 0x20;
-	info->segments.ldtr.type = 2;
-	info->segments.ldtr.system = 0;
-	info->segments.ldtr.present = 1;
-	info->segments.ldtr.granularity = 0;
-
+    // Setup SYSCALL/SYSENTER MSRs in load/store area
     
-	/************* Map in GDT and vmxassist *************/
+    // save STAR, LSTAR, FMASK, KERNEL_GS_BASE MSRs in MSR load/store area
+    {
+#define IA32_STAR 0xc0000081
+#define IA32_LSTAR 0xc0000082
+#define IA32_FMASK 0xc0000084
+#define IA32_KERN_GS_BASE 0xc0000102
 
-	uint64_t  gdt[] __attribute__ ((aligned(32))) = {
-	    0x0000000000000000ULL,		/* 0x00: reserved */
-	    0x0000830000000000ULL,		/* 0x08: 32-bit TSS */
-	    //0x0000890000000000ULL,		/* 0x08: 32-bit TSS */
-	    0x00CF9b000000FFFFULL,		/* 0x10: CS 32-bit */
-	    0x00CF93000000FFFFULL,		/* 0x18: DS 32-bit */
-	    0x000082000000FFFFULL,		/* 0x20: LDTR 32-bit */
-	};
+#define IA32_CSTAR 0xc0000083 // Compatibility mode STAR (ignored for now... hopefully its not that important...)
 
-#define VMXASSIST_GDT   0x10000
-	addr_t vmxassist_gdt = 0;
+	int msr_ret = 0;
 
-	if (v3_gpa_to_hva(info, VMXASSIST_GDT, &vmxassist_gdt) == -1) {
-	    PrintError("Could not find VMXASSIST GDT destination\n");
+	struct vmcs_msr_entry * exit_store_msrs = NULL;
+	struct vmcs_msr_entry * exit_load_msrs = NULL;
+	struct vmcs_msr_entry * entry_load_msrs = NULL;;
+	int max_msrs = (hw_info.misc_info.max_msr_cache_size + 1) * 4;
+
+	V3_Print("Setting up MSR load/store areas (max_msr_count=%d)\n", max_msrs);
+
+	if (max_msrs < 4) {
+	    PrintError("Max MSR cache size is too small (%d)\n", max_msrs);
 	    return -1;
 	}
 
-	memcpy((void *)vmxassist_gdt, gdt, sizeof(uint64_t) * 5);
-        
-	info->segments.gdtr.base = VMXASSIST_GDT;
+	vmx_state->msr_area = V3_VAddr(V3_AllocPages(1));
 
-#define VMXASSIST_TSS   0x40000
-	uint64_t vmxassist_tss = VMXASSIST_TSS;
-	gdt[0x08 / sizeof(gdt[0])] |=
-	    ((vmxassist_tss & 0xFF000000) << (56 - 24)) |
-	    ((vmxassist_tss & 0x00FF0000) << (32 - 16)) |
-	    ((vmxassist_tss & 0x0000FFFF) << (16)) |
-	    (8392 - 1);
-
-	info->segments.tr.selector = 0x08;
-	info->segments.tr.base = vmxassist_tss;
-
-	//info->segments.tr.type = 0x9; 
-	info->segments.tr.type = 0x3;
-	info->segments.tr.system = 0;
-	info->segments.tr.present = 1;
-	info->segments.tr.granularity = 0;
-    }
- 
-    // setup VMXASSIST
-    { 
-#define VMXASSIST_START 0x000d0000
-	extern uint8_t v3_vmxassist_start[];
-	extern uint8_t v3_vmxassist_end[];
-	addr_t vmxassist_dst = 0;
-
-	if (v3_gpa_to_hva(info, VMXASSIST_START, &vmxassist_dst) == -1) {
-	    PrintError("Could not find VMXASSIST destination\n");
+	if (vmx_state->msr_area == NULL) {
+	    PrintError("could not allocate msr load/store area\n");
 	    return -1;
 	}
 
-	memcpy((void *)vmxassist_dst, v3_vmxassist_start, v3_vmxassist_end - v3_vmxassist_start);
+	msr_ret |= check_vmcs_write(VMCS_EXIT_MSR_STORE_CNT, 4);
+	msr_ret |= check_vmcs_write(VMCS_EXIT_MSR_LOAD_CNT, 4);
+	msr_ret |= check_vmcs_write(VMCS_ENTRY_MSR_LOAD_CNT, 4);
+	
+	
+	exit_store_msrs = (struct vmcs_msr_entry *)(vmx_state->msr_area);
+	exit_load_msrs = (struct vmcs_msr_entry *)(vmx_state->msr_area + (sizeof(struct vmcs_msr_entry) * 4));
+	entry_load_msrs = (struct vmcs_msr_entry *)(vmx_state->msr_area + (sizeof(struct vmcs_msr_entry) * 8));
+
+
+	exit_store_msrs[0].index = IA32_STAR;
+	exit_store_msrs[1].index = IA32_LSTAR;
+	exit_store_msrs[2].index = IA32_FMASK;
+	exit_store_msrs[3].index = IA32_KERN_GS_BASE;
+	
+	memcpy(exit_store_msrs, exit_load_msrs, sizeof(struct vmcs_msr_entry) * 4);
+	memcpy(exit_store_msrs, entry_load_msrs, sizeof(struct vmcs_msr_entry) * 4);
+
+	
+	v3_get_msr(IA32_STAR, &(exit_load_msrs[0].hi), &(exit_load_msrs[0].lo));
+	v3_get_msr(IA32_LSTAR, &(exit_load_msrs[1].hi), &(exit_load_msrs[1].lo));
+	v3_get_msr(IA32_FMASK, &(exit_load_msrs[2].hi), &(exit_load_msrs[2].lo));
+	v3_get_msr(IA32_KERN_GS_BASE, &(exit_load_msrs[3].hi), &(exit_load_msrs[3].lo));
+
+	msr_ret |= check_vmcs_write(VMCS_EXIT_MSR_STORE_ADDR, (addr_t)V3_PAddr(exit_store_msrs));
+	msr_ret |= check_vmcs_write(VMCS_EXIT_MSR_LOAD_ADDR, (addr_t)V3_PAddr(exit_load_msrs));
+	msr_ret |= check_vmcs_write(VMCS_ENTRY_MSR_LOAD_ADDR, (addr_t)V3_PAddr(entry_load_msrs));
+
     }    
 
+    /* Sanity check ctrl/reg fields against hw_defaults */
+
+
+
+
     /*** Write all the info to the VMCS ***/
-
+  
+    /*
+    {
+	// IS THIS NECESSARY???
 #define DEBUGCTL_MSR 0x1d9
-    v3_get_msr(DEBUGCTL_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
-    vmx_ret |= check_vmcs_write(VMCS_GUEST_DBG_CTL, tmp_msr.value);
-
-    info->dbg_regs.dr7 = 0x400;
+	struct v3_msr tmp_msr;
+	v3_get_msr(DEBUGCTL_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
+	vmx_ret |= check_vmcs_write(VMCS_GUEST_DBG_CTL, tmp_msr.value);
+	core->dbg_regs.dr7 = 0x400;
+    }
+    */
 
 #ifdef __V3_64BIT__
     vmx_ret |= check_vmcs_write(VMCS_LINK_PTR, (addr_t)0xffffffffffffffffULL);
@@ -374,18 +477,18 @@ static int init_vmcs_bios(struct guest_info * info, struct vmx_data * vmx_state)
     vmx_ret |= check_vmcs_write(VMCS_LINK_PTR_HIGH, (addr_t)0xffffffffUL);
 #endif
 
-    if (v3_update_vmcs_ctrl_fields(info)) {
+
+ 
+
+    if (v3_update_vmcs_ctrl_fields(core)) {
         PrintError("Could not write control fields!\n");
         return -1;
     }
     
-    if (v3_update_vmcs_host_state(info)) {
+    if (v3_update_vmcs_host_state(core)) {
         PrintError("Could not write host state\n");
         return -1;
     }
-
-
-    vmx_state->assist_state = VMXASSIST_DISABLED;
 
     // reenable global interrupts for vm state initialization now
     // that the vm state is initialized. If another VM kicks us off, 
@@ -395,11 +498,12 @@ static int init_vmcs_bios(struct guest_info * info, struct vmx_data * vmx_state)
     return 0;
 }
 
-int v3_init_vmx_vmcs(struct guest_info * info, v3_vm_class_t vm_class) {
+int v3_init_vmx_vmcs(struct guest_info * core, v3_vm_class_t vm_class) {
     struct vmx_data * vmx_state = NULL;
     int vmx_ret = 0;
     
     vmx_state = (struct vmx_data *)V3_Malloc(sizeof(struct vmx_data));
+    memset(vmx_state, 0, sizeof(struct vmx_data));
 
     PrintDebug("vmx_data pointer: %p\n", (void *)vmx_state);
 
@@ -408,10 +512,10 @@ int v3_init_vmx_vmcs(struct guest_info * info, v3_vm_class_t vm_class) {
 
     PrintDebug("VMCS pointer: %p\n", (void *)(vmx_state->vmcs_ptr_phys));
 
-    info->vmm_data = vmx_state;
+    core->vmm_data = vmx_state;
     vmx_state->state = VMX_UNLAUNCHED;
 
-    PrintDebug("Initializing VMCS (addr=%p)\n", info->vmm_data);
+    PrintDebug("Initializing VMCS (addr=%p)\n", core->vmm_data);
     
     // TODO: Fix vmcs fields so they're 32-bit
 
@@ -425,7 +529,10 @@ int v3_init_vmx_vmcs(struct guest_info * info, v3_vm_class_t vm_class) {
 
     if (vm_class == V3_PC_VM) {
 	PrintDebug("Initializing VMCS\n");
-	init_vmcs_bios(info, vmx_state);
+	if (init_vmcs_bios(core, vmx_state) == -1) {
+	    PrintError("Error initializing VMCS to BIOS state\n");
+	    return -1;
+	}
     } else {
 	PrintError("Invalid VM Class\n");
 	return -1;
@@ -439,6 +546,7 @@ int v3_deinit_vmx_vmcs(struct guest_info * core) {
     struct vmx_data * vmx_state = core->vmm_data;
 
     V3_FreePages((void *)(vmx_state->vmcs_ptr_phys), 1);
+    V3_FreePages(vmx_state->msr_area, 1);
 
     V3_Free(vmx_state);
 
@@ -452,8 +560,8 @@ static int update_irq_exit_state(struct guest_info * info) {
     check_vmcs_read(VMCS_IDT_VECTOR_INFO, &(idt_vec_info.value));
 
     if ((info->intr_core_state.irq_started == 1) && (idt_vec_info.valid == 0)) {
-#ifdef CONFIG_DEBUG_INTERRUPTS
-        PrintDebug("Calling v3_injecting_intr\n");
+#ifdef V3_CONFIG_DEBUG_INTERRUPTS
+        V3_Print("Calling v3_injecting_intr\n");
 #endif
         info->intr_core_state.irq_started = 0;
         v3_injecting_intr(info, info->intr_core_state.irq_vector, V3_EXTERNAL_IRQ);
@@ -484,15 +592,15 @@ static int update_irq_entry_state(struct guest_info * info) {
             check_vmcs_write(VMCS_ENTRY_EXCP_ERR, info->excp_state.excp_error_code);
             int_info.error_code = 1;
 
-#ifdef CONFIG_DEBUG_INTERRUPTS
-            PrintDebug("Injecting exception %d with error code %x\n", 
+#ifdef V3_CONFIG_DEBUG_INTERRUPTS
+            V3_Print("Injecting exception %d with error code %x\n", 
                     int_info.vector, info->excp_state.excp_error_code);
 #endif
         }
 
         int_info.valid = 1;
-#ifdef CONFIG_DEBUG_INTERRUPTS
-        PrintDebug("Injecting exception %d (EIP=%p)\n", int_info.vector, (void *)(addr_t)info->rip);
+#ifdef V3_CONFIG_DEBUG_INTERRUPTS
+        V3_Print("Injecting exception %d (EIP=%p)\n", int_info.vector, (void *)(addr_t)info->rip);
 #endif
         check_vmcs_write(VMCS_ENTRY_INT_INFO, int_info.value);
 
@@ -503,8 +611,8 @@ static int update_irq_entry_state(struct guest_info * info) {
        
         if ((info->intr_core_state.irq_started == 1) && (idt_vec_info.valid == 1)) {
 
-#ifdef CONFIG_DEBUG_INTERRUPTS
-            PrintDebug("IRQ pending from previous injection\n");
+#ifdef V3_CONFIG_DEBUG_INTERRUPTS
+            V3_Print("IRQ pending from previous injection\n");
 #endif
 
             // Copy the IDT vectoring info over to reinject the old interrupt
@@ -530,8 +638,8 @@ static int update_irq_entry_state(struct guest_info * info) {
                     ent_int.error_code = 0;
                     ent_int.valid = 1;
 
-#ifdef CONFIG_DEBUG_INTERRUPTS
-                    PrintDebug("Injecting Interrupt %d at exit %u(EIP=%p)\n", 
+#ifdef V3_CONFIG_DEBUG_INTERRUPTS
+                    V3_Print("Injecting Interrupt %d at exit %u(EIP=%p)\n", 
 			       info->intr_core_state.irq_vector, 
 			       (uint32_t)info->num_exits, 
 			       (void *)(addr_t)info->rip);
@@ -575,8 +683,8 @@ static int update_irq_entry_state(struct guest_info * info) {
 
         check_vmcs_read(VMCS_EXIT_INSTR_LEN, &instr_len);
 
-#ifdef CONFIG_DEBUG_INTERRUPTS
-        PrintDebug("Enabling Interrupt-Window exiting: %d\n", instr_len);
+#ifdef V3_CONFIG_DEBUG_INTERRUPTS
+        V3_Print("Enabling Interrupt-Window exiting: %d\n", instr_len);
 #endif
 
         vmx_info->pri_proc_ctrls.int_wndw_exit = 1;
@@ -653,7 +761,7 @@ int v3_vmx_enter(struct guest_info * info) {
     v3_vmx_restore_vmcs(info);
 
 
-#ifdef CONFIG_SYMCALL
+#ifdef V3_CONFIG_SYMCALL
     if (info->sym_core_state.symcall_state.sym_call_active == 0) {
 	update_irq_entry_state(info);
     }
@@ -675,6 +783,12 @@ int v3_vmx_enter(struct guest_info * info) {
     check_vmcs_write(VMCS_TSC_OFFSET_HIGH, tsc_offset_high);
     check_vmcs_write(VMCS_TSC_OFFSET, tsc_offset_low);
 
+    if (v3_update_vmcs_host_state(info)) {
+	v3_enable_ints();
+        PrintError("Could not write host state\n");
+        return -1;
+    }
+
 
     if (vmx_info->state == VMX_UNLAUNCHED) {
 	vmx_info->state = VMX_LAUNCHED;
@@ -691,8 +805,10 @@ int v3_vmx_enter(struct guest_info * info) {
 	uint32_t error = 0;
 
         vmcs_read(VMCS_INSTR_ERR, &error);
-        PrintError("VMENTRY Error: %d\n", error);
 
+	v3_enable_ints();
+
+        PrintError("VMENTRY Error: %d\n", error);
 	return -1;
     }
 
@@ -718,12 +834,16 @@ int v3_vmx_enter(struct guest_info * info) {
     check_vmcs_read(VMCS_EXIT_INT_ERR, &(exit_info.int_err));
     check_vmcs_read(VMCS_GUEST_LINEAR_ADDR, &(exit_info.guest_linear_addr));
 
+    if (info->shdw_pg_mode == NESTED_PAGING) {
+	check_vmcs_read(VMCS_GUEST_PHYS_ADDR, &(exit_info.ept_fault_addr));
+    }
+
     //PrintDebug("VMX Exit taken, id-qual: %u-%lu\n", exit_info.exit_reason, exit_info.exit_qual);
 
     exit_log[info->num_exits % 10] = exit_info;
 
 
-#ifdef CONFIG_SYMCALL
+#ifdef V3_CONFIG_SYMCALL
     if (info->sym_core_state.symcall_state.sym_call_active == 0) {
 	update_irq_exit_state(info);
     }
@@ -737,8 +857,8 @@ int v3_vmx_enter(struct guest_info * info) {
         vmx_info->pri_proc_ctrls.int_wndw_exit = 0;
         vmcs_write(VMCS_PROC_CTRLS, vmx_info->pri_proc_ctrls.value);
 
-#ifdef CONFIG_DEBUG_INTERRUPTS
-        PrintDebug("Interrupts available again! (RIP=%llx)\n", info->rip);
+#ifdef V3_CONFIG_DEBUG_INTERRUPTS
+       V3_Print("Interrupts available again! (RIP=%llx)\n", info->rip);
 #endif
     }
 
@@ -855,7 +975,6 @@ int v3_is_vmx_capable() {
 
 
 void v3_init_vmx_cpu(int cpu_id) {
-    extern v3_cpu_arch_t v3_cpu_types[];
 
     if (cpu_id == 0) {
 	if (v3_init_vmx_hw(&hw_info) == -1) {
@@ -863,7 +982,6 @@ void v3_init_vmx_cpu(int cpu_id) {
 	    return;
 	}
     }
-
 
     enable_vmx();
 
@@ -881,9 +999,21 @@ void v3_init_vmx_cpu(int cpu_id) {
     }
     
 
-    v3_cpu_types[cpu_id] = V3_VMX_CPU;
-
-
+    {
+	struct vmx_sec_proc_ctrls sec_proc_ctrls;
+	sec_proc_ctrls.value = v3_vmx_get_ctrl_features(&(hw_info.sec_proc_ctrls));
+	
+	if (sec_proc_ctrls.enable_ept == 0) {
+	    V3_Print("VMX EPT (Nested) Paging not supported\n");
+	    v3_cpu_types[cpu_id] = V3_VMX_CPU;
+	} else if (sec_proc_ctrls.unrstrct_guest == 0) {
+	    V3_Print("VMX EPT (Nested) Paging supported\n");
+	    v3_cpu_types[cpu_id] = V3_VMX_EPT_CPU;
+	} else {
+	    V3_Print("VMX EPT (Nested) Paging + Unrestricted guest supported\n");
+	    v3_cpu_types[cpu_id] = V3_VMX_EPT_UG_CPU;
+	}
+    }
 }
 
 

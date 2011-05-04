@@ -30,7 +30,7 @@
 
 
 
-#ifndef CONFIG_DEBUG_APIC
+#ifndef V3_CONFIG_DEBUG_APIC
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #else
@@ -455,7 +455,7 @@ static int apic_do_eoi(struct apic_state * apic) {
 	
 	*svc_location &= ~flag;
 
-#ifdef CONFIG_CRAY_XT
+#ifdef V3_CONFIG_CRAY_XT
 	
 	if ((isr_irq == 238) || 
 	    (isr_irq == 239)) {
@@ -639,7 +639,7 @@ static int deliver_ipi(struct apic_state * src_apic,
 		//     host maitains logical proc->phsysical proc
 		PrintDebug(" non-local core with new interrupt, forcing it to exit now\n"); 
 
-#ifdef CONFIG_MULTITHREAD_OS
+#ifdef V3_CONFIG_MULTITHREAD_OS
 		v3_interrupt_cpu(dst_core->vm_info, dst_core->cpu_id, 0);
 #else
 		V3_ASSERT(0);
@@ -1451,7 +1451,7 @@ int v3_apic_raise_intr(struct v3_vm_info * vm, uint32_t irq, uint32_t dst, void 
     }
     
     if (do_xcall > 0 && (V3_Get_CPU() != dst)) {
-#ifdef CONFIG_MULTITHREAD_OS
+#ifdef V3_CONFIG_MULTITHREAD_OS
 	v3_interrupt_cpu(vm, dst, 0);
 #else
 	V3_ASSERT(0);
@@ -1678,7 +1678,7 @@ static int apic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	PrintDebug("apic %u: (setup device): done, my id is %u\n", i, apic->lapic_id.val);
     }
 
-#ifdef CONFIG_DEBUG_APIC
+#ifdef V3_CONFIG_DEBUG_APIC
     for (i = 0; i < vm->num_cores; i++) {
 	struct apic_state * apic = &(apic_dev->apics[i]);
 	PrintDebug("apic: sanity check: apic %u (at %p) has id %u and msr value %llx and core at %p\n",

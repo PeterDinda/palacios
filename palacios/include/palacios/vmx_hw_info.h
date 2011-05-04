@@ -53,15 +53,15 @@ struct vmx_basic_msr {
 	} __attribute__((packed));
 
 	struct {    uint32_t revision;
-	    uint32_t regionSize   : 13;
-	    uint8_t rsvd1         : 3; /* Always 0 */
-	    uint8_t physWidth     : 1; /* VMCS address field widths 
+	    uint64_t regionSize   : 13;
+	    uint64_t rsvd1         : 3; /* Always 0 */
+	    uint64_t physWidth     : 1; /* VMCS address field widths 
 					  (1=32bits, 0=natural width) */
-	    uint8_t smm           : 1;
-	    uint8_t memType       : 4; /* 0 = UC, 6 = WriteBack */
-	    uint8_t io_str_info   : 1;
-	    uint8_t def1_maybe_0  : 1; /* 1="Any VMX ctrls that default to 1 may be cleared to 0" */
-	    uint32_t rsvd2        : 8; /* Always 0 */
+	    uint64_t smm           : 1;
+	    uint64_t memType       : 4; /* 0 = UC, 6 = WriteBack */
+	    uint64_t io_str_info   : 1;
+	    uint64_t def1_maybe_0  : 1; /* 1="Any VMX ctrls that default to 1 may be cleared to 0" */
+	    uint64_t rsvd2        : 8; /* Always 0 */
 	}  __attribute__((packed));
     }  __attribute__((packed));
 }  __attribute__((packed));
@@ -75,17 +75,17 @@ struct vmx_misc_msr {
 	} __attribute__((packed));
 
 	struct {
-	    uint8_t tsc_multiple       : 5; /* Bit position in TSC field that drives vmx timer step */
-	    uint8_t exits_store_LMA    : 1;
-	    uint8_t can_halt           : 1;
-	    uint8_t can_shtdown        : 1;
-	    uint8_t can_wait_for_sipi  : 1;
-	    uint8_t rsvd1              : 7;
-	    uint16_t num_cr3_targets   : 9;
-	    uint8_t max_msr_cache_size : 3; /* (512 * (max_msr_cache_size + 1)) == max msr load/store list size */
-	    uint8_t SMM_ctrl_avail     : 1;
-	    uint8_t rsvd2              : 3; 
-	    uint32_t MSEG_rev_id;
+	    uint64_t tsc_multiple       : 5; /* Bit position in TSC field that drives vmx timer step */
+	    uint64_t exits_store_LMA    : 1;
+	    uint64_t can_halt           : 1;
+	    uint64_t can_shtdown        : 1;
+	    uint64_t can_wait_for_sipi  : 1;
+	    uint64_t rsvd1              : 7;
+	    uint64_t num_cr3_targets    : 9;
+	    uint64_t max_msr_cache_size : 3; /* (512 * (max_msr_cache_size + 1)) == max msr load/store list size */
+	    uint64_t SMM_ctrl_avail     : 1;
+	    uint64_t rsvd2              : 3; 
+	    uint64_t MSEG_rev_id;
 	}  __attribute__((packed));
     }  __attribute__((packed));
 } __attribute__((packed));
@@ -99,29 +99,29 @@ struct vmx_ept_msr {
 	} __attribute__((packed));
 
 	struct {
-	    uint8_t exec_only_ok             : 1;
-	    uint8_t rsvd1                    : 5;
-	    uint8_t pg_walk_len4             : 1; /* support for a page walk of length 4 */
-	    uint8_t rsvd2                    : 1;
-	    uint8_t ept_uc_ok                : 1; /* EPT page tables can be uncacheable */
-	    uint8_t rsvd3                    : 5;
-	    uint8_t ept_wb_ok                : 1; /* EPT page tables can be writeback */
-	    uint8_t rsvd4                    : 1;
-	    uint8_t ept_2MB_ok               : 1; /* 2MB EPT pages supported */
-	    uint8_t ept_1GB_ok               : 1; /* 1GB EPT pages supported */
-	    uint8_t rsvd5                    : 2;
-	    uint8_t INVEPT_avail             : 1; /* INVEPT instruction is available */
-	    uint8_t rsvd6                    : 4;
-	    uint8_t INVEPT_single_ctx_avail  : 1;
-	    uint8_t INVEPT_all_ctx_avail     : 1;
-	    uint8_t rsvd7                    : 5;
-	    uint8_t INVVPID_avail            : 1;
-	    uint8_t rsvd8                    : 7;
-	    uint8_t INVVPID_1addr_avail      : 1;
-	    uint8_t INVVPID_single_ctx_avail : 1;
-	    uint8_t INVVPID_all_ctx_avail    : 1;
-	    uint8_t INVVPID_single_ctx_w_glbls_avail : 1;
-	    uint32_t rsvd9                   : 20;
+	    uint64_t exec_only_ok             : 1;
+	    uint64_t rsvd1                    : 5;
+	    uint64_t pg_walk_len4             : 1; /* support for a page walk of length 4 */
+	    uint64_t rsvd2                    : 1;
+	    uint64_t ept_uc_ok                : 1; /* EPT page tables can be uncacheable */
+	    uint64_t rsvd3                    : 5;
+	    uint64_t ept_wb_ok                : 1; /* EPT page tables can be writeback */
+	    uint64_t rsvd4                    : 1;
+	    uint64_t ept_2MB_ok               : 1; /* 2MB EPT pages supported */
+	    uint64_t ept_1GB_ok               : 1; /* 1GB EPT pages supported */
+	    uint64_t rsvd5                    : 2;
+	    uint64_t INVEPT_avail             : 1; /* INVEPT instruction is available */
+	    uint64_t rsvd6                    : 4;
+	    uint64_t INVEPT_single_ctx_avail  : 1;
+	    uint64_t INVEPT_all_ctx_avail     : 1;
+	    uint64_t rsvd7                    : 5;
+	    uint64_t INVVPID_avail            : 1;
+	    uint64_t rsvd8                    : 7;
+	    uint64_t INVVPID_1addr_avail      : 1;
+	    uint64_t INVVPID_single_ctx_avail : 1;
+	    uint64_t INVVPID_all_ctx_avail    : 1;
+	    uint64_t INVVPID_single_ctx_w_glbls_avail : 1;
+	    uint64_t rsvd9                   : 20;
 	}  __attribute__((packed));
     }  __attribute__((packed));
 }__attribute__((packed));
@@ -152,15 +152,19 @@ struct vmx_hw_info {
     struct vmx_ctrl_field proc_ctrls;
     struct vmx_ctrl_field exit_ctrls;
     struct vmx_ctrl_field entry_ctrls;
-    struct vmx_ctrl_field proc_ctrls_2;
+    struct vmx_ctrl_field sec_proc_ctrls;
 
     struct vmx_cr_field cr0;
     struct vmx_cr_field cr4;
+
 };
+
+
 
 
 int v3_init_vmx_hw(struct vmx_hw_info * hw_info);
 
+uint32_t v3_vmx_get_ctrl_features(struct vmx_ctrl_field * fields);
 
 
 

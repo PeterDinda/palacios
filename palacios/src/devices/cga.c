@@ -31,12 +31,12 @@
 #include <devices/console.h>
 
 
-#if CONFIG_DEBUG_CGA >= 2
+#if V3_CONFIG_DEBUG_CGA >= 2
 #define PrintVerbose PrintDebug
 #else
 #define PrintVerbose(fmt, args...)
 #endif
-#if CONFIG_DEBUG_CGA == 0
+#if V3_CONFIG_DEBUG_CGA == 0
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
@@ -443,7 +443,7 @@ static void passthrough_out(uint16_t port, const void * src, uint_t length) {
     }
 }
 
-#if CONFIG_DEBUG_CGA >= 2
+#if V3_CONFIG_DEBUG_CGA >= 2
 static unsigned long get_value(const void *ptr, int len) {
   unsigned long value = 0;
 

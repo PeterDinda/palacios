@@ -25,7 +25,7 @@
 #include <palacios/vmm_dev_mgr.h>
 #include <palacios/vm_guest.h>
 
-#ifndef CONFIG_DEBUG_PIC
+#ifndef V3_CONFIG_DEBUG_PIC
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
@@ -216,7 +216,7 @@ static int pic_raise_intr(struct v3_vm_info * vm, void * private_data, int irq) 
 	return -1;
     }
 
-#ifdef CONFIG_MULTITHREAD_OS
+#ifdef V3_CONFIG_MULTITHREAD_OS
     v3_interrupt_cpu(vm, 0, 0);
 #endif
 

@@ -19,3 +19,57 @@
 
 
 #include <util/vmm_barrier.h>
+
+
+
+int v3_init_barrier(struct v3_barrier * barrier) {
+    memset(barrier, 0, sizeof(struct v3_barrier));
+    v3_lock_init(&(barrier->lock));
+
+    return 0;
+}
+
+
+int v3_activate_barrier(struct guest_info * core, struct v3_barrier * barrier) {
+    addr_t flag;
+    int acquired = 0;
+    
+    flag = v3_lock_irqsave(barrier->lock);
+
+    if (barrier->active == 0) {
+	barrier->active = 1;
+	acquired = 1;
+    }
+
+    v3_unlock_irqrestore(barrier->lock, flag);
+
+    if (acquired == 0) {
+	return -1;
+    }
+
+
+    // wait for barrier catch
+
+
+    return 0;
+}
+
+
+
+
+int v3_deactivate_barrier(struct v3_barrier * barrier) {
+
+}
+
+
+int v3_check_barrier(struct guest_info * core, struct v3_barrier * barrier) {
+
+    if (barrier->activated == 0) {
+	return 0;
+    }
+    
+    // set cpu bit
+
+    // wait for cpu bit to clear
+
+}

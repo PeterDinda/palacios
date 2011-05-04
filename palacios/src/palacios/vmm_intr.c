@@ -26,7 +26,7 @@
 
 #include <palacios/vmm_lock.h>
 
-#ifndef CONFIG_DEBUG_INTERRUPTS
+#ifndef V3_CONFIG_DEBUG_INTERRUPTS
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
@@ -389,7 +389,7 @@ intr_type_t v3_get_intr_type(struct guest_info * info) {
 	}
     }
 
-#ifdef CONFIG_DEBUG_INTERRUPTS
+#ifdef V3_CONFIG_DEBUG_INTERRUPTS
     if (type == V3_INVALID_INTR) {
 	PrintError("[get_intr_type] Invalid_Intr\n");
     }

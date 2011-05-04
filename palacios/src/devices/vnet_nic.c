@@ -28,7 +28,7 @@
 #include <palacios/vmm_sprintf.h>
 #include <palacios/vmm_ethernet.h>
 
-#ifndef CONFIG_DEBUG_VNET_NIC
+#ifndef V3_CONFIG_DEBUG_VNET_NIC
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif

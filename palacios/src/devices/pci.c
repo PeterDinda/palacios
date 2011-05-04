@@ -37,7 +37,7 @@
 
 
 
-#ifndef CONFIG_DEBUG_PCI
+#ifndef V3_CONFIG_DEBUG_PCI
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
@@ -104,7 +104,7 @@ struct pci_internal {
 
 
 
-#ifdef CONFIG_DEBUG_PCI
+#ifdef V3_CONFIG_DEBUG_PCI
 
 static void pci_dump_state(struct pci_internal * pci_state) {
     struct rb_node * node = v3_rb_first(&(pci_state->bus_list[0].devices));
@@ -922,7 +922,7 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
     // add the device
     add_device_to_bus(bus, pci_dev);
 
-#ifdef CONFIG_DEBUG_PCI
+#ifdef V3_CONFIG_DEBUG_PCI
     pci_dump_state(pci_state);
 #endif
 
@@ -990,7 +990,7 @@ struct pci_device * v3_pci_register_passthrough_device(struct vm_device * pci,
     // add the device
     add_device_to_bus(bus, pci_dev);
 
-#ifdef CONFIG_DEBUG_PCI
+#ifdef V3_CONFIG_DEBUG_PCI
     pci_dump_state(pci_state);
 #endif
 

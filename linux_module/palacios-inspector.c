@@ -15,7 +15,7 @@
 struct dentry * v3_dir = NULL;
 
 
-int palacios_init_debugfs( void ) {
+int palacios_init_inspector( void ) {
 
     v3_dir = debugfs_create_dir("v3vee", NULL);
 
@@ -28,7 +28,7 @@ int palacios_init_debugfs( void ) {
 }
 
 
-int palacios_deinit_debugfs( void ) {
+int palacios_deinit_inspector( void ) {
     debugfs_remove(v3_dir);
     return 0;
 }
@@ -66,14 +66,23 @@ static int dfs_register_tree(struct dentry * dir, v3_inspect_node_t * root) {
 }
 
 
-int dfs_register_vm(struct v3_guest * guest) {
+int inspect_vm(struct v3_guest * guest) {
     v3_inspect_node_t * root = v3_get_inspection_root(guest->v3_ctx);
+    struct dentry * guest_dir = NULL;
+
 
     if (root == NULL) {
 	printk("No inspection root found\n");
     	return -1;
     }
 
-    dfs_register_tree(v3_dir, root);
+    guest_dir = debugfs_create_dir(guest->name, v3_dir);
+
+    if (IS_ERR(guest_dir)) {
+	printk("Error Creating inspector tree for VM \"%s\"\n", guest->name);
+	return -1;
+    }
+
+    dfs_register_tree(guest_dir, root);
     return 0;
 }

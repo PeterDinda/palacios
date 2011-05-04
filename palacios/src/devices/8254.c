@@ -27,7 +27,7 @@
 #include <palacios/vmm_io.h>
 
 
-#ifndef CONFIG_DEBUG_PIT
+#ifndef V3_CONFIG_DEBUG_PIT
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
@@ -660,7 +660,7 @@ static int pit_free(void * private_data) {
     return 0;
 }
 
-#ifdef CONFIG_KEYED_STREAMS
+#ifdef V3_CONFIG_KEYED_STREAMS
 static int pit_checkpoint(struct vm_device *dev, v3_keyed_stream_t stream)
 {
     struct pit *p = (struct pit *) (dev->private_data);
@@ -716,7 +716,7 @@ static int pit_restore(struct vm_device *dev, v3_keyed_stream_t stream)
 
 static struct v3_device_ops dev_ops = {
     .free = (int (*)(void *))pit_free,
-#ifdef CONFIG_KEYED_STREAMS
+#ifdef V3_CONFIG_KEYED_STREAMS
     .checkpoint = pit_checkpoint,
     .restore = pit_restore,
 #endif
@@ -763,7 +763,7 @@ static int pit_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	return -1;
     }
 
-#ifdef CONFIG_DEBUG_PIT
+#ifdef V3_CONFIG_DEBUG_PIT
     PrintDebug("8254 PIT: OSC_HZ=%d, reload_val=", OSC_HZ);
     //PrintTrace(reload_val);
     PrintDebug("\n");
@@ -789,7 +789,7 @@ static int pit_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     init_channel(&(pit_state->ch_1));
     init_channel(&(pit_state->ch_2));
 
-#ifdef CONFIG_DEBUG_PIT
+#ifdef V3_CONFIG_DEBUG_PIT
     PrintDebug("8254 PIT: CPU MHZ=%d -- pit count=", cpu_khz / 1000);
     //PrintTraceLL(pit_state->pit_counter);
     PrintDebug("\n");

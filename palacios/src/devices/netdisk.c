@@ -21,7 +21,7 @@
 #include <palacios/vmm_dev_mgr.h>
 #include <interfaces/vmm_socket.h>
 
-#ifndef CONFIG_DEBUG_IDE
+#ifndef V3_CONFIG_DEBUG_IDE
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif

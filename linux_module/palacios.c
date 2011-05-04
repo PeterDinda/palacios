@@ -13,6 +13,7 @@
 #include <linux/module.h>
 #include <linux/kthread.h>
 #include <asm/uaccess.h>
+#include <linux/smp.h>
 #include <linux/smp_lock.h>
 
 #include <palacios/vmm.h>
@@ -139,9 +140,12 @@ palacios_xcall(
 	void *			arg
 )
 {
-  printk("palacios_xcall: Doing 'xcall' to local cpu\n");
-  fn(arg);
-  return;
+
+
+    // We set wait to 1, but I'm not sure this is necessary
+    smp_call_function_single(cpu_id, fn, arg, 1);
+    
+    return;
 }
 
 struct lnx_thread_arg {
@@ -206,12 +210,16 @@ palacios_start_thread_on_cpu(int cpu_id,
     thread_info->arg = arg;
     thread_info->name = thread_name;
 
-    thread = kthread_run( lnx_thread_target, thread_info, thread_name );
+
+    thread = kthread_create( lnx_thread_target, thread_info, thread_name );
 
     if (IS_ERR(thread)) {
 	printk("Palacios error creating thread: %s\n", thread_name);
 	return NULL;
     }
+
+    kthread_bind(thread, cpu_id);
+    wake_up_process(thread);
 
     return thread;
 }
@@ -222,23 +230,15 @@ palacios_start_thread_on_cpu(int cpu_id,
 static unsigned int 
 palacios_get_cpu(void) 
 {
-#if 1
-    return 0;
-    // return smp_processor_id();
-    // id = get_cpu(); put_cpu(id);
-    // return this_cpu;
-#else
-		struct cpumask mask; 	
-		unsigned int set;
 
-		if(sched_getaffinity(0,&mask)<0){
-			panic("sched_getaffinity failed");
-			return -1;
-		}
-		set = cpumask_first(&mask);
-		printk("***mask.bits: %d",set);
-		return set;
-#endif
+    /* We want to call smp_processor_id()
+     * But this is not safe if kernel preemption is possible 
+     * We need to ensure that the palacios threads are bound to a give cpu
+     */
+
+    unsigned int cpu_id = get_cpu(); 
+    put_cpu();
+    return cpu_id;
 }
 
 /**
@@ -252,6 +252,9 @@ palacios_get_cpu(void)
  * If it ever changes to induce side effects, we'll need to figure something
  * else out...
  */
+
+#include <asm/apic.h>
+
 static void
 palacios_interrupt_cpu(
 	struct v3_vm_info *	vm, 
@@ -259,9 +262,12 @@ palacios_interrupt_cpu(
 	int                     vector
 )
 {
-    // panic("palacios_interrupt_cpu");
-	//  printk("Faking interruption of target CPU by not doing anything since there is only one CPU\n");
-  return;
+    if (vector == 0) {
+	smp_send_reschedule(cpu_id);
+    } else {
+	apic->send_IPI_mask(cpumask_of(cpu_id), vector);
+    }
+    return;
 }
 
 /**
@@ -342,6 +348,8 @@ palacios_hook_interrupt(struct v3_vm_info *	vm,
     return 0;
 }
 
+
+
 /**
  * Acknowledges an interrupt.
  */
@@ -362,7 +370,8 @@ static unsigned int
 palacios_get_cpu_khz(void) 
 {
     printk("cpu_khz is %u\n",cpu_khz);
-    if (cpu_khz==0) { 
+
+    if (cpu_khz == 0) { 
 	printk("faking cpu_khz to 1000000\n");
 	return 1000000;
     } else {
@@ -390,33 +399,29 @@ palacios_yield_cpu(void)
 static void *
 palacios_mutex_alloc(void)
 {
-  spinlock_t *lock = kmalloc(sizeof(spinlock_t), GFP_KERNEL);
-  if (lock)
-       spin_lock_init(lock);
-  return lock;
+    spinlock_t *lock = kmalloc(sizeof(spinlock_t), GFP_KERNEL);
+
+    if (lock) {
+	spin_lock_init(lock);
+    }
+    
+    return lock;
 }
 
 /**
  * Frees a mutex.
  */
 static void
-palacios_mutex_free(
-	void *			mutex
-) 
-{
-  kfree(mutex);
+palacios_mutex_free(void * mutex) {
+    kfree(mutex);
 }
 
 /**
  * Locks a mutex.
  */
 static void 
-palacios_mutex_lock(
-	void *			mutex, 
-	int			must_spin
-)
-{
-  spin_lock((spinlock_t*)mutex);
+palacios_mutex_lock(void * mutex, int must_spin) {
+    spin_lock((spinlock_t *)mutex);
 }
 
 /**
@@ -427,7 +432,7 @@ palacios_mutex_unlock(
 	void *			mutex
 ) 
 {
-  spin_unlock((spinlock_t*)mutex);
+    spin_unlock((spinlock_t *)mutex);
 }
 
 /**
@@ -466,8 +471,7 @@ int palacios_vmm_init( void )
     
     printk("palacios_init starting - calling init_v3\n");
     
-    Init_V3(&palacios_os_hooks, 1);
-        
+    Init_V3(&palacios_os_hooks, nr_cpu_ids);
 
     return 0;
 

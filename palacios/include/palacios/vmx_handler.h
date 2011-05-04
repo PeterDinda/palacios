@@ -61,12 +61,12 @@ typedef enum {
     VMEXIT_IO_INSTR                         = 30,
     VMEXIT_RDMSR                            = 31,
     VMEXIT_WRMSR                            = 32,
-    VMEXIT_ENTRY_FAIL_INVALID_GUEST_STATE   = 33,
-    VMEXIT_ENTRY_FAIL_MSR_LOAD              = 34,
+    VMEXIT_INVALID_GUEST_STATE              = 33,
+    VMEXIT_INVALID_MSR_LOAD                 = 34,
     VMEXIT_MWAIT                            = 36,
     VMEXIT_MONITOR                          = 39,
     VMEXIT_PAUSE                            = 40,
-    VMEXIT_ENTRY_FAILURE_MACHINE_CHECK      = 41,
+    VMEXIT_INVALID_MACHINE_CHECK            = 41,
     VMEXIT_TPR_BELOW_THRESHOLD              = 43,
     VMEXIT_APIC                             = 44,
     VMEXIT_GDTR_IDTR                        = 46,
@@ -153,7 +153,7 @@ struct VMExitDBGQual {
 } __attribute__((packed));
 
 
-struct VMExitTSQual {
+ struct VMExitTSQual {
     uint32_t selector   : 16; // selector of destination TSS 
     uint32_t rsvd       : 14; // reserved to 0
     uint32_t src        : 2; // (0: CALL ; 1: IRET ; 2: JMP ; 3: Task gate in IDT)
@@ -200,6 +200,20 @@ struct vmx_exit_idt_vec_info {
 
 
 
+struct vmx_basic_exit_info {
+    union {
+	uint32_t value;
+	struct {
+	    uint16_t reason;
+	    uint16_t rsvd1         :12;
+	    uint8_t  mtf_pending   : 1;
+	    uint8_t  vmx_root_op   : 1;
+	    uint8_t  rsvd2         : 1;
+	    uint8_t  entry_error   : 1;
+	} __attribute__((packed));
+    } __attribute__((packed));
+} __attribute__((packed));
+
 
 struct vmx_exit_info {
     uint32_t instr_len;
@@ -212,6 +226,10 @@ struct vmx_exit_info {
     uint32_t int_err;
 
     addr_t guest_linear_addr;
+
+    /* EPT INFO */
+    addr_t ept_fault_addr;
+
 };
 
 

@@ -17,16 +17,23 @@
 #include <linux/file.h>
 #include <linux/spinlock.h>
 
-#ifdef CONFIG_DEBUG_FS
-#include "palacios-debugfs.h"
-#endif
 
 #include <palacios/vmm.h>
 
 #include "palacios.h"
-#include "palacios-console.h"
-#include "palacios-serial.h"
 #include "palacios-vm.h"
+
+#ifdef V3_CONFIG_STREAM
+#include "palacios-stream.h"
+#endif
+
+#ifdef V3_CONFIG_CONSOLE
+#include "palacios-console.h"
+#endif
+
+#ifdef V3_CONFIG_EXT_INSPECTOR
+#include "palacios-inspector.h"
+#endif
 
 
 extern struct class * v3_class;
@@ -34,8 +41,6 @@ extern struct class * v3_class;
 
 static long v3_vm_ioctl(struct file * filp,
 			unsigned int ioctl, unsigned long arg) {
-    void __user * argp = (void __user *)arg;
-    char path_name[STREAM_NAME_LEN];
 
     struct v3_guest * guest = filp->private_data;
 
@@ -43,24 +48,40 @@ static long v3_vm_ioctl(struct file * filp,
 
     switch (ioctl) {
 
-	case V3_VM_CONSOLE_CONNECT: {
-	    return connect_console(guest);
-	    break;
-	}
-	case V3_VM_SERIAL_CONNECT: {
-	    if (copy_from_user(path_name, argp, STREAM_NAME_LEN)) {
-		printk("copy from user error getting guest image...\n");
-		return -EFAULT;
-	    }
-
-	    return open_serial(path_name);
-	    break;
-	}
 	case V3_VM_STOP: {
 	    printk("Stopping VM\n");
 	    stop_palacios_vm(guest);
 	    break;
 	}
+
+	case V3_VM_CONSOLE_CONNECT: {
+#ifdef V3_CONFIG_CONSOLE
+	    return connect_console(guest);
+#else
+	    printk("Console support not available\n");
+	    return -EFAULT;
+#endif
+	    break;
+	}
+
+	case V3_VM_STREAM_CONNECT: {
+#ifdef V3_CONFIG_STREAM
+	    void __user * argp = (void __user *)arg;
+	    char path_name[STREAM_NAME_LEN];
+
+	    if (copy_from_user(path_name, argp, STREAM_NAME_LEN)) {
+		printk("%s(%d): copy from user error...\n", __FILE__, __LINE__);
+		return -EFAULT;
+	    }
+
+	    return open_stream(path_name);
+#else
+	    printk("Stream support Not available\n");
+	    return -EFAULT;
+#endif
+	    break;
+	}
+
 	default: 
 	    printk("\tUnhandled\n");
 	    return -EINVAL;
@@ -83,7 +104,6 @@ static ssize_t v3_vm_read(struct file * filp, char __user * buf, size_t size, lo
 
 
 static ssize_t v3_vm_write(struct file * filp, const char __user * buf, size_t size, loff_t * offset) {
-    
 
     return 0;
 }
@@ -99,7 +119,6 @@ static struct file_operations v3_vm_fops = {
 };
 
 
-
 extern int vm_running;
 extern u32 pg_allocs;
 extern u32 pg_frees;
@@ -112,7 +131,7 @@ int start_palacios_vm(void * arg)  {
 
     lock_kernel();
     daemonize(guest->name);
-//    allow_signal(SIGKILL);
+    // allow_signal(SIGKILL);
     unlock_kernel();
     
 
@@ -120,12 +139,13 @@ int start_palacios_vm(void * arg)  {
 
     if (guest->v3_ctx == NULL) { 
 	printk("palacios: failed to create vm\n");
+	complete(&(guest->start_done));
 	return -1;
     }
 
     printk("Creating VM device: Major %d, Minor %d\n", MAJOR(guest->vm_dev), MINOR(guest->vm_dev));
 
-    cdev_init(&(guest->cdev), &v3_vm_fops);	
+    cdev_init(&(guest->cdev), &v3_vm_fops);
 
     guest->cdev.owner = THIS_MODULE;
     guest->cdev.ops = &v3_vm_fops;
@@ -136,27 +156,34 @@ int start_palacios_vm(void * arg)  {
 
     if (err) {
 	printk("Fails to add cdev\n");
+	v3_free_vm(guest->v3_ctx);
+	complete(&(guest->start_done));
 	return -1;
     }
 
     if (device_create(v3_class, NULL, guest->vm_dev, guest, "v3-vm%d", MINOR(guest->vm_dev)) == NULL){
 	printk("Fails to create device\n");
+	cdev_del(&(guest->cdev));
+	v3_free_vm(guest->v3_ctx);
+	complete(&(guest->start_done));
 	return -1;
     }
 
     complete(&(guest->start_done));
 
-    printk("palacios: launching vm\n");   
+    printk("palacios: launching vm\n");
 
 
-
-#if CONFIG_DEBUG_FS
-    dfs_register_vm(guest);
+#if V3_CONFIG_EXT_INSPECTOR
+    inspect_vm(guest);
 #endif
 
 
     if (v3_start_vm(guest->v3_ctx, 0xffffffff) < 0) { 
 	printk("palacios: launch of vm failed\n");
+	device_destroy(v3_class, guest->vm_dev);
+	cdev_del(&(guest->cdev));
+	v3_free_vm(guest->v3_ctx);
 	return -1;
     }
     

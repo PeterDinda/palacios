@@ -18,7 +18,6 @@
  */
 
 #include <palacios/vmm.h>
-#include <palacios/vmm_mptable.h>
 #include <palacios/vmm_string.h>
 #include <palacios/vm_guest_mem.h>
 
@@ -397,8 +396,7 @@ static int write_mptable(void * target, uint32_t numcores) {
     return 0;
 }
 
-
-int v3_inject_mptable(struct v3_vm_info * vm) {
+static int mptable_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     void * target = NULL;
 
     if (v3_gpa_to_hva(&(vm->cores[0]), BIOS_MP_TABLE_DEFAULT_LOCATION, (addr_t *)&target) == -1) { 
@@ -441,3 +439,7 @@ int v3_inject_mptable(struct v3_vm_info * vm) {
 
     return 0;
 }
+
+
+
+device_register("MPTABLE", mptable_init)

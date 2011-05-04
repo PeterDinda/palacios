@@ -28,7 +28,7 @@
 #include <palacios/vm_guest.h>
 #include <palacios/vmm_sprintf.h>
 
-#ifndef CONFIG_DEBUG_NE2K
+#ifndef V3_CONFIG_DEBUG_NE2K
 #undef PrintDebug
 #define PrintDebug(fmts, args...)
 #endif
@@ -347,7 +347,7 @@ static int ne2k_update_irq(struct ne2k_state * nic_state) {
 
 static int tx_one_pkt(struct ne2k_state * nic_state, uchar_t *pkt, uint32_t length) {
 	
-#ifdef CONFIG_DEBUG_NE2K
+#ifdef V3_CONFIG_DEBUG_NE2K
     PrintDebug("NE2000: Send Packet:\n");
     v3_hexdump(pkt, length, NULL, 0);
 #endif    
@@ -484,7 +484,7 @@ static int rx_one_pkt(struct ne2k_state * nic_state, const uchar_t * pkt,  uint3
 static int ne2k_rx(uint8_t * buf, uint32_t size, void * private_data){
     struct ne2k_state * nic_state = (struct ne2k_state *)private_data;
   
-#ifdef CONFIG_DEBUG_NE2K
+#ifdef V3_CONFIG_DEBUG_NE2K
     PrintDebug("\nNe2k: Packet Received:\n");
     v3_hexdump(buf, size, NULL, 0);
 #endif    

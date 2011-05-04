@@ -28,7 +28,7 @@
 #include <palacios/vm_guest.h>
 
 
-#ifndef CONFIG_DEBUG_KEYBOARD
+#ifndef V3_CONFIG_DEBUG_KEYBOARD
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
@@ -335,7 +335,7 @@ static int pull_from_output_queue(struct keyboard_internal * state, uint8_t * va
 
 
 #include <palacios/vmm_telemetry.h>
-#ifdef CONFIG_SYMMOD
+#ifdef V3_CONFIG_SYMMOD
 #include <palacios/vmm_symmod.h>
 #endif
 
@@ -353,7 +353,7 @@ static int key_event_handler(struct v3_vm_info * vm,
 	}
 	//	PrintGuestPageTables(info, info->shdw_pg_state.guest_cr3);
     } 
-#ifdef CONFIG_SYMCALL
+#ifdef V3_CONFIG_SYMCALL
     else if (evt->scan_code == 0x43) { // F9 Sym test
 	struct guest_info * core = &(vm->cores[0]);
 	PrintDebug("Testing sym call\n");
@@ -385,13 +385,13 @@ static int key_event_handler(struct v3_vm_info * vm,
 	v3_dbg_enable ^= 1;
 
     } 
-#ifdef CONFIG_TELEMETRY
+#ifdef V3_CONFIG_TELEMETRY
 
     else if (evt->scan_code == 0x41) { // F7 telemetry dump
 	v3_print_telemetry(vm);
     } 
 #endif
-#ifdef CONFIG_SYMMOD
+#ifdef V3_CONFIG_SYMMOD
     else if (evt->scan_code == 0x40) { // F6 Test symmod load
 	v3_load_sym_capsule(vm, "lnx_test");
     }

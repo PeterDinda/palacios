@@ -26,7 +26,7 @@
 #include <palacios/vmm_sprintf.h>
 #include <palacios/vmm_ethernet.h>
 
-#ifndef CONFIG_DEBUG_VNET
+#ifndef V3_CONFIG_DEBUG_VNET
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
@@ -116,7 +116,7 @@ static struct {
 } vnet_state;
 	
 
-#ifdef CONFIG_DEBUG_VNET
+#ifdef V3_CONFIG_DEBUG_VNET
 static inline void mac_to_string(uint8_t * mac, char * buf) {
     snprintf(buf, 100, "%2x:%2x:%2x:%2x:%2x:%2x", 
 	     mac[0], mac[1], mac[2],
@@ -250,7 +250,7 @@ int v3_vnet_add_route(struct v3_vnet_route route) {
     new_route = (struct vnet_route_info *)V3_Malloc(sizeof(struct vnet_route_info));
     memset(new_route, 0, sizeof(struct vnet_route_info));
 
-#ifdef CONFIG_DEBUG_VNET
+#ifdef V3_CONFIG_DEBUG_VNET
     PrintDebug("VNET/P Core: add_route_entry:\n");
     print_route(&route);
 #endif
@@ -281,7 +281,7 @@ int v3_vnet_add_route(struct v3_vnet_route route) {
     v3_unlock_irqrestore(vnet_state.lock, flags);
    
 
-#ifdef CONFIG_DEBUG_VNET
+#ifdef V3_CONFIG_DEBUG_VNET
     dump_routes();
 #endif
 
@@ -324,7 +324,7 @@ static struct route_list * match_route(const struct v3_vnet_pkt * pkt) {
     //    uint8_t src_type = pkt->src_type;
     //  uint32_t src_link = pkt->src_id;
 
-#ifdef CONFIG_DEBUG_VNET
+#ifdef V3_CONFIG_DEBUG_VNET
     {
 	char dst_str[100];
 	char src_str[100];

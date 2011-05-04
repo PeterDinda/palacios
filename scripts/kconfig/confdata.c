@@ -136,17 +136,17 @@ int conf_read_simple(const char *name)
 		sym = NULL;
 		switch (line[0]) {
 		case '#':
-			if (memcmp(line + 2, "CONFIG_", 7))
+			if (memcmp(line + 2, "V3_CONFIG_", 10))
 				continue;
-			p = strchr(line + 9, ' ');
+			p = strchr(line + 12, ' ');
 			if (!p)
 				continue;
 			*p++ = 0;
 			if (strncmp(p, "is not set", 10))
 				continue;
-			sym = sym_find(line + 9);
+			sym = sym_find(line + 12);
 			if (!sym) {
-				conf_warning("trying to assign nonexistent symbol %s", line + 9);
+				conf_warning("trying to assign nonexistent symbol %s", line + 12);
 				break;
 			} else if (!(sym->flags & SYMBOL_NEW)) {
 				conf_warning("trying to reassign symbol %s", sym->name);
@@ -162,21 +162,21 @@ int conf_read_simple(const char *name)
 				;
 			}
 			break;
-		case 'C':
-			if (memcmp(line, "CONFIG_", 7)) {
-				conf_warning("unexpected data");
+		case 'V':
+			if (memcmp(line, "V3_CONFIG_", 10)) {
+				conf_warning("unexpected data (1)");
 				continue;
 			}
-			p = strchr(line + 7, '=');
+			p = strchr(line + 10, '=');
 			if (!p)
 				continue;
 			*p++ = 0;
 			p2 = strchr(p, '\n');
 			if (p2)
 				*p2 = 0;
-			sym = sym_find(line + 7);
+			sym = sym_find(line + 10);
 			if (!sym) {
-				conf_warning("trying to assign nonexistent symbol %s", line + 7);
+				conf_warning("trying to assign nonexistent symbol %s", line + 10);
 				break;
 			} else if (!(sym->flags & SYMBOL_NEW)) {
 				conf_warning("trying to reassign symbol %s", sym->name);
@@ -233,7 +233,7 @@ int conf_read_simple(const char *name)
 		case '\n':
 			break;
 		default:
-			conf_warning("unexpected data");
+			conf_warning("unexpected data (2)");
 			continue;
 		}
 		if (sym && sym_is_choice_value(sym)) {
@@ -434,28 +434,28 @@ int conf_write(const char *name)
 			case S_TRISTATE:
 				switch (sym_get_tristate_value(sym)) {
 				case no:
-					fprintf(out, "# CONFIG_%s is not set\n", sym->name);
+					fprintf(out, "# V3_CONFIG_%s is not set\n", sym->name);
 					if (out_h)
-						fprintf(out_h, "#undef CONFIG_%s\n", sym->name);
+						fprintf(out_h, "#undef V3_CONFIG_%s\n", sym->name);
 					break;
 				case mod:
-					fprintf(out, "CONFIG_%s=m\n", sym->name);
+					fprintf(out, "V3_CONFIG_%s=m\n", sym->name);
 					if (out_h)
-						fprintf(out_h, "#define CONFIG_%s_MODULE 1\n", sym->name);
+						fprintf(out_h, "#define V3_CONFIG_%s_MODULE 1\n", sym->name);
 					break;
 				case yes:
-					fprintf(out, "CONFIG_%s=y\n", sym->name);
+					fprintf(out, "V3_CONFIG_%s=y\n", sym->name);
 					if (out_h)
-						fprintf(out_h, "#define CONFIG_%s 1\n", sym->name);
+						fprintf(out_h, "#define V3_CONFIG_%s 1\n", sym->name);
 					break;
 				}
 				break;
 			case S_STRING:
 				// fix me
 				str = sym_get_string_value(sym);
-				fprintf(out, "CONFIG_%s=\"", sym->name);
+				fprintf(out, "V3_CONFIG_%s=\"", sym->name);
 				if (out_h)
-					fprintf(out_h, "#define CONFIG_%s \"", sym->name);
+					fprintf(out_h, "#define V3_CONFIG_%s \"", sym->name);
 				do {
 					l = strcspn(str, "\"\\");
 					if (l) {
@@ -478,16 +478,16 @@ int conf_write(const char *name)
 			case S_HEX:
 				str = sym_get_string_value(sym);
 				if (str[0] != '0' || (str[1] != 'x' && str[1] != 'X')) {
-					fprintf(out, "CONFIG_%s=%s\n", sym->name, str);
+					fprintf(out, "V3_CONFIG_%s=%s\n", sym->name, str);
 					if (out_h)
-						fprintf(out_h, "#define CONFIG_%s 0x%s\n", sym->name, str);
+						fprintf(out_h, "#define V3_CONFIG_%s 0x%s\n", sym->name, str);
 					break;
 				}
 			case S_INT:
 				str = sym_get_string_value(sym);
-				fprintf(out, "CONFIG_%s=%s\n", sym->name, str);
+				fprintf(out, "V3_CONFIG_%s=%s\n", sym->name, str);
 				if (out_h)
-					fprintf(out_h, "#define CONFIG_%s %s\n", sym->name, str);
+					fprintf(out_h, "#define V3_CONFIG_%s %s\n", sym->name, str);
 				break;
 			}
 		}

@@ -26,7 +26,7 @@
 #include <palacios/vmm_direct_paging.h>
 #include <palacios/svm.h>
 
-#ifndef CONFIG_DEBUG_CTRL_REGS
+#ifndef V3_CONFIG_DEBUG_CTRL_REGS
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif

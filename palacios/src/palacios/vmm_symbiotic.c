@@ -56,14 +56,14 @@ int v3_init_symbiotic_vm(struct v3_vm_info * vm) {
 	return -1;
     }
 
-#ifdef CONFIG_SYMCALL
+#ifdef V3_CONFIG_SYMCALL
     if (v3_init_symcall_vm(vm) == -1) {
 	PrintError("Error intializing global SymCall state\n");
 	return -1;
     }
 #endif
 
-#ifdef CONFIG_SYMMOD
+#ifdef V3_CONFIG_SYMMOD
     if (v3_init_symmod_vm(vm, vm->cfg_data->cfg) == -1) {
 	PrintError("Error initializing global SymMod state\n");
 	return -1;
@@ -77,7 +77,7 @@ int v3_init_symbiotic_vm(struct v3_vm_info * vm) {
 
 int v3_deinit_symbiotic_vm(struct v3_vm_info * vm) {
 
-#ifdef CONFIG_SYMMOD
+#ifdef V3_CONFIG_SYMMOD
     if (v3_deinit_symmod_vm(vm) == -1) {
 	PrintError("Error deinitializing global SymMod state\n");
 	return -1;

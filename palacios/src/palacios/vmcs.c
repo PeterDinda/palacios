@@ -202,6 +202,11 @@ int v3_update_vmcs_ctrl_fields(struct guest_info * info) {
 
     vmx_ret |= check_vmcs_write(VMCS_EXIT_CTRLS, arch_data->exit_ctrls.value);
     vmx_ret |= check_vmcs_write(VMCS_ENTRY_CTRLS, arch_data->entry_ctrls.value);
+    vmx_ret |= check_vmcs_write(VMCS_EXCP_BITMAP, arch_data->excp_bmap.value);
+
+    if (info->shdw_pg_mode == NESTED_PAGING) {
+	vmx_ret |= check_vmcs_write(VMCS_EPT_PTR, info->direct_map_pt);
+    }
 
     return vmx_ret;
 }
@@ -226,17 +231,11 @@ int v3_vmx_save_vmcs(struct guest_info * info) {
     check_vmcs_read(VMCS_GUEST_DR7, &(info->dbg_regs.dr7));
 
     check_vmcs_read(VMCS_GUEST_RFLAGS, &(info->ctrl_regs.rflags));
-    if (((struct vmx_data *)info->vmm_data)->ia32e_avail) {
-#ifdef __V3_64BIT__
-        check_vmcs_read(VMCS_GUEST_EFER, &(info->ctrl_regs.efer));
-#else
-	uint32_t hi, lo;
-        check_vmcs_read(VMCS_GUEST_EFER, &hi);
-        check_vmcs_read(VMCS_GUEST_EFER_HIGH, &lo);
-        info->ctrl_regs.efer = ((uint64_t) hi << 32) | lo;
-#endif
-    }
 
+#ifdef __V3_64BIT__
+    check_vmcs_read(VMCS_GUEST_EFER, &(info->ctrl_regs.efer));
+#endif
+    
     error =  v3_read_vmcs_segments(&(info->segments));
 
     return error;
@@ -259,9 +258,12 @@ int v3_vmx_restore_vmcs(struct guest_info * info) {
 
     check_vmcs_write(VMCS_GUEST_RFLAGS, info->ctrl_regs.rflags);
 
-    if (((struct vmx_data *)info->vmm_data)->ia32e_avail) {
-        check_vmcs_write(VMCS_GUEST_EFER, info->ctrl_regs.efer);
-    }
+#ifdef __V3_64BIT__
+    check_vmcs_write(VMCS_GUEST_EFER, info->ctrl_regs.efer);
+#endif
+
+
+
 
     error = v3_write_vmcs_segments(&(info->segments));
 
@@ -324,16 +326,6 @@ int v3_update_vmcs_host_state(struct guest_info * info) {
     vmx_ret |= check_vmcs_write(VMCS_HOST_IDTR_BASE, arch_data->host_state.idtr.base);
     vmx_ret |= check_vmcs_write(VMCS_HOST_TR_BASE, arch_data->host_state.tr.base);
 
-#define FS_BASE_MSR 0xc0000100
-#define GS_BASE_MSR 0xc0000101
-
-    // FS.BASE MSR
-    v3_get_msr(FS_BASE_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
-    vmx_ret |= check_vmcs_write(VMCS_HOST_FS_BASE, tmp_msr.value);    
-
-    // GS.BASE MSR
-    v3_get_msr(GS_BASE_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
-    vmx_ret |= check_vmcs_write(VMCS_HOST_GS_BASE, tmp_msr.value);    
 
 
 
@@ -421,8 +413,12 @@ int v3_update_vmcs_host_state(struct guest_info * info) {
 #define SYSENTER_CS_MSR 0x00000174
 #define SYSENTER_ESP_MSR 0x00000175
 #define SYSENTER_EIP_MSR 0x00000176
+#define FS_BASE_MSR 0xc0000100
+#define GS_BASE_MSR 0xc0000101
+#define EFER_MSR 0xc0000080
 
-   // SYSENTER CS MSR
+
+    // SYSENTER CS MSR
     v3_get_msr(SYSENTER_CS_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
     vmx_ret |= check_vmcs_write(VMCS_HOST_SYSENTER_CS, tmp_msr.lo);
 
@@ -433,6 +429,33 @@ int v3_update_vmcs_host_state(struct guest_info * info) {
     // SYSENTER_EIP MSR
     v3_get_msr(SYSENTER_EIP_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
     vmx_ret |= check_vmcs_write(VMCS_HOST_SYSENTER_EIP, tmp_msr.value);
+
+
+    // FS.BASE MSR
+    v3_get_msr(FS_BASE_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
+    vmx_ret |= check_vmcs_write(VMCS_HOST_FS_BASE, tmp_msr.value);    
+
+    // GS.BASE MSR
+    v3_get_msr(GS_BASE_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
+    vmx_ret |= check_vmcs_write(VMCS_HOST_GS_BASE, tmp_msr.value);    
+
+
+    // EFER
+    v3_get_msr(EFER_MSR, &(tmp_msr.hi), &(tmp_msr.lo));
+    vmx_ret |= check_vmcs_write(VMCS_HOST_EFER, tmp_msr.value);
+
+    // PERF GLOBAL CONTROL
+
+    // PAT
+
+
+    // save STAR, LSTAR, FMASK, KERNEL_GS_BASE MSRs in MSR load/store area
+
+    
+
+    
+
+
 
     return vmx_ret;
 }
@@ -541,6 +564,12 @@ static void print_guest_state()
     print_vmcs_field(VMCS_GUEST_CR4);
     print_vmcs_field(VMCS_GUEST_DR7);
 
+    // if save IA32_EFER
+    print_vmcs_field(VMCS_GUEST_EFER);
+#ifdef __V3_32BIT__
+    print_vmcs_field(VMCS_GUEST_EFER_HIGH);
+#endif
+
 
     PrintDebug("\n");
 
@@ -556,6 +585,14 @@ static void print_guest_state()
     print_vmcs_field(VMCS_GUEST_SYSENTER_ESP);
     print_vmcs_field(VMCS_GUEST_SYSENTER_EIP);
 
+
+    // if save IA32_PAT
+    print_vmcs_field(VMCS_GUEST_PAT);
+#ifdef __V3_32BIT__
+    print_vmcs_field(VMCS_GUEST_PAT_HIGH);
+#endif
+
+    //if load  IA32_PERF_GLOBAL_CTRL
     print_vmcs_field(VMCS_GUEST_PERF_GLOBAL_CTRL);
 #ifdef __V3_32BIT__
     print_vmcs_field(VMCS_GUEST_PERF_GLOBAL_CTRL_HIGH);
@@ -564,11 +601,16 @@ static void print_guest_state()
     print_vmcs_field(VMCS_GUEST_SMBASE);
 
 
+
+
     PrintDebug("GUEST_NON_REGISTER_STATE\n");
 
     print_vmcs_field(VMCS_GUEST_ACTIVITY_STATE);
     print_vmcs_field(VMCS_GUEST_INT_STATE);
     print_vmcs_field(VMCS_GUEST_PENDING_DBG_EXCP);
+
+    // if VMX preempt timer
+    print_vmcs_field(VMCS_PREEMPT_TIMER);
 
 }
        
@@ -582,6 +624,15 @@ static void print_host_state()
     print_vmcs_field(VMCS_HOST_CR3);
     print_vmcs_field(VMCS_HOST_CR4);
     
+
+
+    // if load IA32_EFER
+    print_vmcs_field(VMCS_HOST_EFER);
+#ifdef __V3_32BIT__
+    print_vmcs_field(VMCS_HOST_EFER_HIGH);
+#endif
+
+
     PrintDebug("\n");
     print_vmcs_field(VMCS_HOST_CS_SELECTOR);
     print_vmcs_field(VMCS_HOST_SS_SELECTOR);
@@ -603,6 +654,14 @@ static void print_host_state()
     print_vmcs_field(VMCS_HOST_SYSENTER_ESP);
     print_vmcs_field(VMCS_HOST_SYSENTER_EIP);
 
+
+    // if load IA32_PAT
+    print_vmcs_field(VMCS_HOST_PAT);
+#ifdef __V3_32BIT__
+    print_vmcs_field(VMCS_HOST_PAT_HIGH);
+#endif
+
+    // if load IA32_PERF_GLOBAL_CTRL
     print_vmcs_field(VMCS_HOST_PERF_GLOBAL_CTRL);
 #ifdef __V3_32BIT__
     print_vmcs_field(VMCS_HOST_PERF_GLOBAL_CTRL_HIGH);
@@ -614,6 +673,8 @@ static void print_exec_ctrls() {
     PrintDebug("VMCS_EXEC_CTRL_FIELDS\n");
     print_vmcs_field(VMCS_PIN_CTRLS);
     print_vmcs_field(VMCS_PROC_CTRLS);
+    
+    // if activate secondary controls
     print_vmcs_field(VMCS_SEC_PROC_CTRLS);
     
     print_vmcs_field(VMCS_EXCP_BITMAP);
@@ -648,20 +709,28 @@ static void print_exec_ctrls() {
     print_vmcs_field(VMCS_CR3_TGT_VAL_2);
     print_vmcs_field(VMCS_CR3_TGT_VAL_3);
 
+    // Check max number of CR3 targets... may continue...
+
+
     PrintDebug("\n");
 
+    // if virtualize apic accesses
     print_vmcs_field(VMCS_APIC_ACCESS_ADDR);    
 #ifdef __V3_32BIT__
     print_vmcs_field(VMCS_APIC_ACCESS_ADDR_HIGH);
 #endif
 
+    // if use tpr shadow
     print_vmcs_field(VMCS_VAPIC_ADDR);    
 #ifdef __V3_32BIT__
     print_vmcs_field(VMCS_VAPIC_ADDR_HIGH);
 #endif
 
+    // if use tpr shadow
     print_vmcs_field(VMCS_TPR_THRESHOLD);
 
+
+    // if use MSR bitmaps
     print_vmcs_field(VMCS_MSR_BITMAP);
 #ifdef __V3_32BIT__
     print_vmcs_field(VMCS_MSR_BITMAP_HIGH);
@@ -671,6 +740,50 @@ static void print_exec_ctrls() {
 #ifdef __V3_32BIT__
     print_vmcs_field(VMCS_EXEC_PTR_HIGH);
 #endif
+
+
+}
+
+static void print_ept_state() {
+    V3_Print("VMCS EPT INFO\n");
+
+    // if enable vpid
+    print_vmcs_field(VMCS_VPID);
+
+    print_vmcs_field(VMCS_EPT_PTR);
+#ifdef __V3_32BIT__
+    print_vmcs_field(VMCS_EPT_PTR_HIGH);
+#endif
+
+    print_vmcs_field(VMCS_GUEST_PHYS_ADDR);
+#ifdef __V3_32BIT__
+    print_vmcs_field(VMCS_GUEST_PHYS_ADDR_HIGH);
+#endif
+
+
+
+    print_vmcs_field(VMCS_GUEST_PDPTE0);
+#ifdef __V3_32BIT__
+    print_vmcs_field(VMCS_GUEST_PDPTE0_HIGH);
+#endif
+
+    print_vmcs_field(VMCS_GUEST_PDPTE1);
+#ifdef __V3_32BIT__
+    print_vmcs_field(VMCS_GUEST_PDPTE1_HIGH);
+#endif
+
+    print_vmcs_field(VMCS_GUEST_PDPTE2);
+#ifdef __V3_32BIT__
+    print_vmcs_field(VMCS_GUEST_PDPTE2_HIGH);
+#endif
+
+    print_vmcs_field(VMCS_GUEST_PDPTE3);
+#ifdef __V3_32BIT__
+    print_vmcs_field(VMCS_GUEST_PDPTE3_HIGH);
+#endif
+
+
+
 }
 
 
@@ -691,6 +804,11 @@ static void print_exit_ctrls() {
 #ifdef __V3_32BIT__
     print_vmcs_field(VMCS_EXIT_MSR_LOAD_ADDR_HIGH);
 #endif
+
+
+    // if pause loop exiting
+    print_vmcs_field(VMCS_PLE_GAP);
+    print_vmcs_field(VMCS_PLE_WINDOW);
 
 }
 
@@ -750,13 +868,12 @@ void v3_print_vmcs() {
     print_guest_state();
     print_host_state();
 
+    print_ept_state();
+
     print_exec_ctrls();
     print_exit_ctrls();
     print_entry_ctrls();
     print_exit_info();
-
-
-
 
 }
 
@@ -775,11 +892,7 @@ int v3_vmcs_get_field_len(vmcs_field_t field) {
 	    if (enc->access_type == 1) {
 		return 4;
 	    } else {
-#ifdef __V3_64BIT__
-		return 8;
-#else
-		return 4;
-#endif
+		return sizeof(addr_t);
 	    }
 	}
 	case 2:
@@ -802,7 +915,7 @@ int v3_vmcs_get_field_len(vmcs_field_t field) {
 
 
 
-
+static const char VMCS_VPID_STR[] = "VPID";
 static const char VMCS_GUEST_ES_SELECTOR_STR[] = "GUEST_ES_SELECTOR";
 static const char VMCS_GUEST_CS_SELECTOR_STR[] = "GUEST_CS_SELECTOR";
 static const char VMCS_GUEST_SS_SELECTOR_STR[] = "GUEST_SS_SELECTOR";
@@ -838,12 +951,32 @@ static const char VMCS_VAPIC_ADDR_STR[] = "VAPIC_PAGE_ADDR";
 static const char VMCS_VAPIC_ADDR_HIGH_STR[] = "VAPIC_PAGE_ADDR_HIGH";
 static const char VMCS_APIC_ACCESS_ADDR_STR[] = "APIC_ACCESS_ADDR";
 static const char VMCS_APIC_ACCESS_ADDR_HIGH_STR[] = "APIC_ACCESS_ADDR_HIGH";
+static const char VMCS_EPT_PTR_STR[] = "VMCS_EPT_PTR";
+static const char VMCS_EPT_PTR_HIGH_STR[] = "VMCS_EPT_PTR_HIGH";
+static const char VMCS_GUEST_PHYS_ADDR_STR[] = "VMCS_GUEST_PHYS_ADDR";
+static const char VMCS_GUEST_PHYS_ADDR_HIGH_STR[] = "VMCS_GUEST_PHYS_ADDR_HIGH";
 static const char VMCS_LINK_PTR_STR[] = "VMCS_LINK_PTR";
 static const char VMCS_LINK_PTR_HIGH_STR[] = "VMCS_LINK_PTR_HIGH";
 static const char VMCS_GUEST_DBG_CTL_STR[] = "GUEST_DEBUG_CTL";
 static const char VMCS_GUEST_DBG_CTL_HIGH_STR[] = "GUEST_DEBUG_CTL_HIGH";
+static const char VMCS_GUEST_PAT_STR[] = "GUEST_PAT";
+static const char VMCS_GUEST_PAT_HIGH_STR[] = "GUEST_PAT_HIGH";
+static const char VMCS_GUEST_EFER_STR[] = "GUEST_EFER";
+static const char VMCS_GUEST_EFER_HIGH_STR[] = "GUEST_EFER_HIGH";
 static const char VMCS_GUEST_PERF_GLOBAL_CTRL_STR[] = "GUEST_PERF_GLOBAL_CTRL";
 static const char VMCS_GUEST_PERF_GLOBAL_CTRL_HIGH_STR[] = "GUEST_PERF_GLOBAL_CTRL_HIGH";
+static const char VMCS_GUEST_PDPTE0_STR[] = "GUEST_PDPTE0";
+static const char VMCS_GUEST_PDPTE0_HIGH_STR[] = "GUEST_PDPTE0_HIGH";
+static const char VMCS_GUEST_PDPTE1_STR[] = "GUEST_PDPTE1";
+static const char VMCS_GUEST_PDPTE1_HIGH_STR[] = "GUEST_PDPTE1_HIGH";
+static const char VMCS_GUEST_PDPTE2_STR[] = "GUEST_PDPTE2";
+static const char VMCS_GUEST_PDPTE2_HIGH_STR[] = "GUEST_PDPTE2_HIGH";
+static const char VMCS_GUEST_PDPTE3_STR[] = "GUEST_PDPTE3";
+static const char VMCS_GUEST_PDPTE3_HIGH_STR[] = "GUEST_PDPTE3_HIGH";
+static const char VMCS_HOST_PAT_STR[] = "HOST_PAT";
+static const char VMCS_HOST_PAT_HIGH_STR[] = "HOST_PAT_HIGH";
+static const char VMCS_HOST_EFER_STR[] = "VMCS_HOST_EFER";
+static const char VMCS_HOST_EFER_HIGH_STR[] = "VMCS_HOST_EFER_HIGH";
 static const char VMCS_HOST_PERF_GLOBAL_CTRL_STR[] = "HOST_PERF_GLOBAL_CTRL";
 static const char VMCS_HOST_PERF_GLOBAL_CTRL_HIGH_STR[] = "HOST_PERF_GLOBAL_CTRL_HIGH";
 static const char VMCS_PIN_CTRLS_STR[] = "PIN_VM_EXEC_CTRLS";
@@ -862,6 +995,8 @@ static const char VMCS_ENTRY_EXCP_ERR_STR[] = "VM_ENTRY_EXCEPTION_ERROR";
 static const char VMCS_ENTRY_INSTR_LEN_STR[] = "VM_ENTRY_INSTR_LENGTH";
 static const char VMCS_TPR_THRESHOLD_STR[] = "TPR_THRESHOLD";
 static const char VMCS_SEC_PROC_CTRLS_STR[] = "VMCS_SEC_PROC_CTRLS";
+static const char VMCS_PLE_GAP_STR[] = "PLE_GAP";
+static const char VMCS_PLE_WINDOW_STR[] = "PLE_WINDOW";
 static const char VMCS_INSTR_ERR_STR[] = "VM_INSTR_ERROR";
 static const char VMCS_EXIT_REASON_STR[] = "EXIT_REASON";
 static const char VMCS_EXIT_INT_INFO_STR[] = "VM_EXIT_INT_INFO";
@@ -892,6 +1027,7 @@ static const char VMCS_GUEST_INT_STATE_STR[] = "GUEST_INT_STATE";
 static const char VMCS_GUEST_ACTIVITY_STATE_STR[] = "GUEST_ACTIVITY_STATE";
 static const char VMCS_GUEST_SMBASE_STR[] = "GUEST_SMBASE";
 static const char VMCS_GUEST_SYSENTER_CS_STR[] = "GUEST_SYSENTER_CS";
+static const char VMCS_PREEMPT_TIMER_STR[] = "PREEMPT_TIMER";
 static const char VMCS_HOST_SYSENTER_CS_STR[] = "HOST_SYSENTER_CS";
 static const char VMCS_CR0_MASK_STR[] = "CR0_GUEST_HOST_MASK";
 static const char VMCS_CR4_MASK_STR[] = "CR4_GUEST_HOST_MASK";
@@ -944,6 +1080,8 @@ static const char VMCS_HOST_RIP_STR[] = "HOST_RIP";
 
 const char * v3_vmcs_field_to_str(vmcs_field_t field) {   
     switch (field) {
+	case VMCS_VPID:
+	    return VMCS_VPID_STR;
         case VMCS_GUEST_ES_SELECTOR:
             return VMCS_GUEST_ES_SELECTOR_STR;
         case VMCS_GUEST_CS_SELECTOR:
@@ -1014,6 +1152,14 @@ const char * v3_vmcs_field_to_str(vmcs_field_t field) {
             return VMCS_APIC_ACCESS_ADDR_STR;
         case VMCS_APIC_ACCESS_ADDR_HIGH:
             return VMCS_APIC_ACCESS_ADDR_HIGH_STR;
+	case VMCS_EPT_PTR:
+	    return VMCS_EPT_PTR_STR;
+	case VMCS_EPT_PTR_HIGH:
+	    return VMCS_EPT_PTR_HIGH_STR;
+	case VMCS_GUEST_PHYS_ADDR:
+	    return VMCS_GUEST_PHYS_ADDR_STR;
+	case VMCS_GUEST_PHYS_ADDR_HIGH:
+	    return VMCS_GUEST_PHYS_ADDR_HIGH_STR;
         case VMCS_LINK_PTR:
             return VMCS_LINK_PTR_STR;
         case VMCS_LINK_PTR_HIGH:
@@ -1022,10 +1168,42 @@ const char * v3_vmcs_field_to_str(vmcs_field_t field) {
             return VMCS_GUEST_DBG_CTL_STR;
         case VMCS_GUEST_DBG_CTL_HIGH:
             return VMCS_GUEST_DBG_CTL_HIGH_STR;
-        case VMCS_GUEST_PERF_GLOBAL_CTRL:
+	case VMCS_GUEST_PAT:
+	    return VMCS_GUEST_PAT_STR;
+	case VMCS_GUEST_PAT_HIGH:
+	    return VMCS_GUEST_PAT_HIGH_STR;
+	case VMCS_GUEST_EFER:
+	    return VMCS_GUEST_EFER_STR;
+	case VMCS_GUEST_EFER_HIGH:
+	    return VMCS_GUEST_EFER_HIGH_STR;
+	case VMCS_GUEST_PERF_GLOBAL_CTRL:
             return VMCS_GUEST_PERF_GLOBAL_CTRL_STR;
         case VMCS_GUEST_PERF_GLOBAL_CTRL_HIGH:
             return VMCS_GUEST_PERF_GLOBAL_CTRL_HIGH_STR;
+	case VMCS_GUEST_PDPTE0:
+	    return VMCS_GUEST_PDPTE0_STR;
+	case VMCS_GUEST_PDPTE0_HIGH:
+	    return VMCS_GUEST_PDPTE0_HIGH_STR;
+	case VMCS_GUEST_PDPTE1:
+	    return VMCS_GUEST_PDPTE1_STR;
+	case VMCS_GUEST_PDPTE1_HIGH:
+	    return VMCS_GUEST_PDPTE1_HIGH_STR;
+	case VMCS_GUEST_PDPTE2:
+	    return VMCS_GUEST_PDPTE2_STR;
+	case VMCS_GUEST_PDPTE2_HIGH:
+	    return VMCS_GUEST_PDPTE2_HIGH_STR;
+	case VMCS_GUEST_PDPTE3:
+	    return VMCS_GUEST_PDPTE3_STR;
+	case VMCS_GUEST_PDPTE3_HIGH:
+	    return VMCS_GUEST_PDPTE3_HIGH_STR;
+	case VMCS_HOST_PAT:
+	    return VMCS_HOST_PAT_STR;
+	case VMCS_HOST_PAT_HIGH:
+	    return VMCS_HOST_PAT_HIGH_STR;
+	case VMCS_HOST_EFER:
+	    return VMCS_HOST_EFER_STR;
+	case VMCS_HOST_EFER_HIGH:
+	    return VMCS_HOST_EFER_HIGH_STR;
         case VMCS_HOST_PERF_GLOBAL_CTRL:
             return VMCS_HOST_PERF_GLOBAL_CTRL_STR;
         case VMCS_HOST_PERF_GLOBAL_CTRL_HIGH:
@@ -1062,6 +1240,10 @@ const char * v3_vmcs_field_to_str(vmcs_field_t field) {
             return VMCS_TPR_THRESHOLD_STR;
 	case VMCS_SEC_PROC_CTRLS:
 	    return VMCS_SEC_PROC_CTRLS_STR;
+	case VMCS_PLE_GAP:
+	    return VMCS_PLE_GAP_STR;
+	case VMCS_PLE_WINDOW:
+	    return VMCS_PLE_WINDOW_STR;
         case VMCS_INSTR_ERR:
             return VMCS_INSTR_ERR_STR;
         case VMCS_EXIT_REASON:
@@ -1122,7 +1304,9 @@ const char * v3_vmcs_field_to_str(vmcs_field_t field) {
             return VMCS_GUEST_SMBASE_STR;
         case VMCS_GUEST_SYSENTER_CS:
             return VMCS_GUEST_SYSENTER_CS_STR;
-        case VMCS_HOST_SYSENTER_CS:
+	case VMCS_PREEMPT_TIMER:
+	    return VMCS_PREEMPT_TIMER_STR;
+        case VMCS_HOST_SYSENTER_CS:	    
             return VMCS_HOST_SYSENTER_CS_STR;
         case VMCS_CR0_MASK:
             return VMCS_CR0_MASK_STR;

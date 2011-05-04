@@ -1,6 +1,6 @@
 
 
-#ifdef CONFIG_SHADOW_CACHE
+#ifdef V3_CONFIG_SHADOW_CACHE
 
 static inline int activate_shadow_pt_32(struct guest_info * core) {
     struct cr3_32 * shadow_cr3 = (struct cr3_32 *)&(core->ctrl_regs.cr3);

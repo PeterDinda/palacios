@@ -25,9 +25,19 @@
 // Intel VMX Feature MSRs
 
 
+uint32_t v3_vmx_get_ctrl_features(struct vmx_ctrl_field * fields) {
+    // features are available if they are hardwired to 1, or the mask is 0 (they can be changed)
+    uint32_t features = 0;
+   
+    features = fields->req_val;
+    features |= ~(fields->req_mask);
+
+    return features;
+}
+
 
 static int get_ex_ctrl_caps(struct vmx_hw_info * hw_info, struct vmx_ctrl_field * field, 
-		  uint32_t old_msr, uint32_t true_msr) {
+			    uint32_t old_msr, uint32_t true_msr) {
     uint32_t old_0;  /* Bit is 1 => MB1 */
     uint32_t old_1;  /* Bit is 0 => MBZ */
     uint32_t true_0; /* Bit is 1 => MB1 */
@@ -103,7 +113,7 @@ int v3_init_vmx_hw(struct vmx_hw_info * hw_info) {
     /* Intel Manual 3B. Sect. G.3.3 */
     if ( ((hw_info->proc_ctrls.req_mask & 0x80000000) == 0) || 
 	 ((hw_info->proc_ctrls.req_val & 0x80000000) == 1) ) {
-	get_ctrl_caps(&(hw_info->proc_ctrls_2), VMX_PROCBASED_CTLS2_MSR);
+	get_ctrl_caps(&(hw_info->sec_proc_ctrls), VMX_PROCBASED_CTLS2_MSR);
     }
     
     get_cr_fields(&(hw_info->cr0), VMX_CR0_FIXED1_MSR, VMX_CR0_FIXED0_MSR);
