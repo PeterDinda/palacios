@@ -77,7 +77,7 @@ int v3_handle_ept_fault(struct guest_info * core, addr_t fault_addr, struct ept_
     int pde_index  = PDE64_INDEX(fault_addr);
     int pte_index  = PTE64_INDEX(fault_addr);
 
-    struct v3_mem_region * region = v3_get_mem_region(core->vm_info, core->cpu_id, fault_addr);
+    struct v3_mem_region * region = v3_get_mem_region(core->vm_info, core->vcpu_id, fault_addr);
     int page_size = PAGE_SIZE_4KB;
 
 

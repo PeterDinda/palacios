@@ -56,7 +56,7 @@ static int symspy_msr_write(struct guest_info * core, uint_t msr, struct v3_msr 
 
 	if (global_state->active == 1) {
 	    // unmap page
-	    struct v3_mem_region * old_reg = v3_get_mem_region(core->vm_info, core->cpu_id, 
+	    struct v3_mem_region * old_reg = v3_get_mem_region(core->vm_info, core->vcpu_id, 
 								     (addr_t)global_state->global_guest_pa);
 
 	    if (old_reg == NULL) {
@@ -84,7 +84,7 @@ static int symspy_msr_write(struct guest_info * core, uint_t msr, struct v3_msr 
 
 	if (local_state->active == 1) {
 	    // unmap page
-	    struct v3_mem_region * old_reg = v3_get_mem_region(core->vm_info, core->cpu_id,
+	    struct v3_mem_region * old_reg = v3_get_mem_region(core->vm_info, core->vcpu_id,
 								     (addr_t)local_state->local_guest_pa);
 
 	    if (old_reg == NULL) {
@@ -102,7 +102,7 @@ static int symspy_msr_write(struct guest_info * core, uint_t msr, struct v3_msr 
 	local_state->active = 1;
 
 	// map page
-	v3_add_shadow_mem(core->vm_info, core->cpu_id, (addr_t)local_state->local_guest_pa, 
+	v3_add_shadow_mem(core->vm_info, core->vcpu_id, (addr_t)local_state->local_guest_pa, 
 			  (addr_t)(local_state->local_guest_pa + PAGE_SIZE_4KB - 1), 
 			  local_state->local_page_pa);
     } else {
@@ -136,7 +136,7 @@ int v3_init_symspy_core(struct guest_info * core, struct v3_symspy_local_state *
     state->local_page = (struct v3_symspy_local_page *)V3_VAddr((void *)state->local_page_pa);
     memset(state->local_page, 0, PAGE_SIZE_4KB);
 
-    snprintf((uint8_t *)&(state->local_page->magic), 8, "V3V.%d", core->cpu_id);
+    snprintf((uint8_t *)&(state->local_page->magic), 8, "V3V.%d", core->vcpu_id);
 
     return 0;
 }

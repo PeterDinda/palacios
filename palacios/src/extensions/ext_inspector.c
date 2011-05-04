@@ -53,7 +53,7 @@ static int init_inspector_core(struct guest_info * core, void * priv_data) {
     struct v3_inspector_state * vm_state = priv_data;
     char core_name[50];
 
-    snprintf(core_name, 50, "core.%d", core->cpu_id);
+    snprintf(core_name, 50, "core.%d", core->vcpu_id);
 
     {
 	struct v3_mtree * core_node = v3_mtree_create_subtree(&(vm_state->state_tree), core_name);

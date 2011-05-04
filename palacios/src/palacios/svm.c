@@ -587,29 +587,31 @@ int v3_start_svm_guest(struct guest_info * info) {
     //    vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
     //  vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
 
-    PrintDebug("Starting SVM core %u\n", info->cpu_id);
+    PrintDebug("Starting SVM core %u (on logical core %u)\n", info->vcpu_id, info->pcpu_id);
 
-    if (info->cpu_id == 0) {
+    if (info->vcpu_id == 0) {
 	info->core_run_state = CORE_RUNNING;
 	info->vm_info->run_state = VM_RUNNING;
     } else  { 
-	PrintDebug("SVM core %u: Waiting for core initialization\n", info->cpu_id);
+	PrintDebug("SVM core %u (on %u): Waiting for core initialization\n", info->vcpu_id, info->pcpu_id);
 
 	while (info->core_run_state == CORE_STOPPED) {
 	    v3_yield(info);
-	    //PrintDebug("SVM core %u: still waiting for INIT\n",info->cpu_id);
+	    //PrintDebug("SVM core %u: still waiting for INIT\n", info->vcpu_id);
 	}
 
-	PrintDebug("SVM core %u initialized\n", info->cpu_id);
+	PrintDebug("SVM core %u(on %u) initialized\n", info->vcpu_id, info->pcpu_id);
     } 
 
-    PrintDebug("SVM core %u: I am starting at CS=0x%x (base=0x%p, limit=0x%x),  RIP=0x%p\n", 
-	       info->cpu_id, info->segments.cs.selector, (void *)(info->segments.cs.base), 
+    PrintDebug("SVM core %u(on %u): I am starting at CS=0x%x (base=0x%p, limit=0x%x),  RIP=0x%p\n", 
+	       info->vcpu_id, info->pcpu_id, 
+	       info->segments.cs.selector, (void *)(info->segments.cs.base), 
 	       info->segments.cs.limit, (void *)(info->rip));
 
 
 
-    PrintDebug("SVM core %u: Launching SVM VM (vmcb=%p)\n", info->cpu_id, (void *)info->vmm_data);
+    PrintDebug("SVM core %u: Launching SVM VM (vmcb=%p) (on cpu %u)\n", 
+	       info->vcpu_id, (void *)info->vmm_data, info->pcpu_id);
     //PrintDebugVMCB((vmcb_t*)(info->vmm_data));
     
     v3_start_time(info);
@@ -628,17 +630,17 @@ int v3_start_svm_guest(struct guest_info * info) {
 	    
 	    info->vm_info->run_state = VM_ERROR;
 	    
-	    V3_Print("SVM core %u: SVM ERROR!!\n", info->cpu_id); 
+	    V3_Print("SVM core %u: SVM ERROR!!\n", info->vcpu_id); 
 	    
 	    v3_print_guest_state(info);
 	    
-	    V3_Print("SVM core %u: SVM Exit Code: %p\n", info->cpu_id, (void *)(addr_t)guest_ctrl->exit_code); 
+	    V3_Print("SVM core %u: SVM Exit Code: %p\n", info->vcpu_id, (void *)(addr_t)guest_ctrl->exit_code); 
 	    
-	    V3_Print("SVM core %u: exit_info1 low = 0x%.8x\n", info->cpu_id, *(uint_t*)&(guest_ctrl->exit_info1));
-	    V3_Print("SVM core %u: exit_info1 high = 0x%.8x\n", info->cpu_id, *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info1)) + 4));
+	    V3_Print("SVM core %u: exit_info1 low = 0x%.8x\n", info->vcpu_id, *(uint_t*)&(guest_ctrl->exit_info1));
+	    V3_Print("SVM core %u: exit_info1 high = 0x%.8x\n", info->vcpu_id, *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info1)) + 4));
 	    
-	    V3_Print("SVM core %u: exit_info2 low = 0x%.8x\n", info->cpu_id, *(uint_t*)&(guest_ctrl->exit_info2));
-	    V3_Print("SVM core %u: exit_info2 high = 0x%.8x\n", info->cpu_id, *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info2)) + 4));
+	    V3_Print("SVM core %u: exit_info2 low = 0x%.8x\n", info->vcpu_id, *(uint_t*)&(guest_ctrl->exit_info2));
+	    V3_Print("SVM core %u: exit_info2 high = 0x%.8x\n", info->vcpu_id, *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info2)) + 4));
 	    
 	    linear_addr = get_addr_linear(info, info->rip, &(info->segments.cs));
 	    
@@ -648,9 +650,9 @@ int v3_start_svm_guest(struct guest_info * info) {
 		v3_gva_to_hva(info, linear_addr, &host_addr);
 	    }
 	    
-	    V3_Print("SVM core %u: Host Address of rip = 0x%p\n", info->cpu_id, (void *)host_addr);
+	    V3_Print("SVM core %u: Host Address of rip = 0x%p\n", info->vcpu_id, (void *)host_addr);
 	    
-	    V3_Print("SVM core %u: Instr (15 bytes) at %p:\n", info->cpu_id, (void *)host_addr);
+	    V3_Print("SVM core %u: Instr (15 bytes) at %p:\n", info->vcpu_id, (void *)host_addr);
 	    v3_dump_mem((uint8_t *)host_addr, 15);
 	    
 	    v3_print_stack(info);

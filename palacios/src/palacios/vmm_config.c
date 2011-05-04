@@ -492,7 +492,7 @@ struct v3_vm_info * v3_config_guest(void * cfg_blob, void * priv_data) {
     for (i = 0; i < vm->num_cores; i++) {
 	struct guest_info * info = &(vm->cores[i]);
 
-	info->cpu_id = i;
+	info->vcpu_id = i;
 	info->vm_info = vm;
 	info->core_cfg_data = per_core_cfg;
 
