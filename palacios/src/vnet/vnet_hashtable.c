@@ -177,8 +177,8 @@ static const uint_t load_factors[] = {
 const uint_t prime_table_length = sizeof(primes) / sizeof(primes[0]);
 
 struct hashtable * vnet_create_htable(uint_t min_size,
-				    uint_t (*hash_fn) (addr_t),
-				    int (*eq_fn) (addr_t, addr_t)) {
+				      uint_t (*hash_fn) (addr_t),
+				      int (*eq_fn) (addr_t, addr_t)) {
     struct hashtable * htable;
     uint_t prime_index;
     uint_t size = primes[0];

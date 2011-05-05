@@ -88,10 +88,10 @@ struct queue_entry{
 
 #define VNET_QUEUE_SIZE 1024
 struct vnet_queue {
-	struct queue_entry buf[VNET_QUEUE_SIZE];
-	int head, tail;
-	int count;
-	vnet_lock_t lock;
+    struct queue_entry buf[VNET_QUEUE_SIZE];
+    int head, tail;
+    int count;
+    vnet_lock_t lock;
 };
 
 static struct {
@@ -423,7 +423,7 @@ static struct route_list * match_route(const struct v3_vnet_pkt * pkt) {
     }
 
     matches = (struct route_list *)Vnet_Malloc(sizeof(struct route_list) + 
-				(sizeof(struct vnet_route_info *) * num_matches));
+					       (sizeof(struct vnet_route_info *) * num_matches));
 
     matches->num_routes = num_matches;
 
@@ -485,7 +485,7 @@ int vnet_tx_one_pkt(struct v3_vnet_pkt * pkt, void * private_data) {
 
     	    if (bridge == NULL) {
 	        Vnet_Print(2, "VNET/P Core: No active bridge to sent data to\n");
-		 continue;
+		continue;
     	    }
 
     	    if(bridge->brg_ops.input(bridge->vm, pkt, bridge->private_data) < 0){
@@ -567,7 +567,7 @@ int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data, int synchron
 	vnet_tx_one_pkt(pkt, NULL);
     }else {
        vnet_pkt_enqueue(pkt);
-    	Vnet_Print(2, "VNET/P Core: Put pkt into Queue: pkt size %d\n", pkt->size);
+       Vnet_Print(2, "VNET/P Core: Put pkt into Queue: pkt size %d\n", pkt->size);
     }
 	
     return 0;

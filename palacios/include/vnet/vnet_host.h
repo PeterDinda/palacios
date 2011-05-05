@@ -131,7 +131,8 @@ static inline void Vnet_Yield(){
 }
 
 /* THREAD FUNCTIONS */
-struct vnet_thread * vnet_start_thread(int (*func)(void *), void *arg, char * name);
+struct vnet_thread * vnet_start_thread(int (*func)(void *), 
+				       void *arg, char * name);
 
 static inline void vnet_thread_sleep(long timeout){
     if((host_hooks) && host_hooks->thread_sleep){
@@ -168,7 +169,9 @@ static inline void  vnet_udelay(unsigned long usecs){
 
 /* TIMER FUNCTIONS */
 /* interval, in jittes */
-struct vnet_timer * vnet_create_timer(unsigned long interval, void (* timer_fun)(void * priv_data), void * pri_data);
+struct vnet_timer * vnet_create_timer(unsigned long interval, 
+				      void (* timer_fun)(void * priv_data), 
+				      void * pri_data);
 
 static inline void vnet_del_timer(struct vnet_timer * timer){
     if((host_hooks) && host_hooks->timer_del){
@@ -202,25 +205,24 @@ static inline void vnet_reset_timer(struct vnet_timer * timer, unsigned long new
 
 
 #define Vnet_Print(level, fmt, args...)					\
-    do {	\
-	extern int vnet_debug;  \
-	if(level <= vnet_debug) {   \
+    do {								\
+	extern int vnet_debug;						\
+	if(level <= vnet_debug) {					\
 	    extern struct vnet_host_hooks * host_hooks;			\
 	    if ((host_hooks) && (host_hooks)->print) {			\
 	    	(host_hooks)->print((fmt), ##args);			\
-	    }							\
-	}							\
+	    }								\
+	}								\
     } while (0)	
 
 
 #define Vnet_Debug(fmt, args...)					\
-    do {	\
-	    extern struct vnet_host_hooks * host_hooks;			\
-	    if ((host_hooks) && (host_hooks)->print) {			\
-	    	(host_hooks)->print((fmt), ##args);			\
-	    }												\
+    do {								\
+	extern struct vnet_host_hooks * host_hooks;			\
+	if ((host_hooks) && (host_hooks)->print) {			\
+	    (host_hooks)->print((fmt), ##args);				\
+	}								\
     } while (0)	
-
 
 
 
@@ -251,8 +253,6 @@ static inline void vnet_unlock_irqrestore(vnet_lock_t lock, addr_t irq_state) {
     host_hooks->mutex_unlock((void *)lock);
     v3_irq_restore(irq_state);
 }
-
-
 
 
 

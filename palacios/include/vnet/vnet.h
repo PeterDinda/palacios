@@ -86,19 +86,19 @@ struct vnet_stat{
 
 struct v3_vnet_bridge_ops {
     int (*input)(struct v3_vm_info * vm, 
-		struct v3_vnet_pkt * pkt,
-		void * private_data);
+		 struct v3_vnet_pkt * pkt,
+		 void * private_data);
     void (*poll)(struct v3_vm_info * vm,  
-		void * private_data);
+		 void * private_data);
 };
 
 #define HOST_LNX_BRIDGE 1
 #define CTL_VM_BRIDGE 	2
 
 int v3_vnet_add_bridge(struct v3_vm_info * vm,
-		struct v3_vnet_bridge_ops * ops,
-		uint8_t type,
-		void * priv_data);
+		       struct v3_vnet_bridge_ops * ops,
+		       uint8_t type,
+		       void * priv_data);
 int v3_vnet_add_route(struct v3_vnet_route route);
 int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data, int synchronize);
 int v3_vnet_find_dev(uint8_t  * mac);
@@ -108,8 +108,8 @@ int v3_vnet_stat(struct vnet_stat * stats);
 
 struct v3_vnet_dev_ops {
     int (*input)(struct v3_vm_info * vm, 
-		struct v3_vnet_pkt * pkt, 
-		void * dev_data);
+		 struct v3_vnet_pkt * pkt, 
+		 void * dev_data);
 };
 
 int v3_init_vnet(void);	

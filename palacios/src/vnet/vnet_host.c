@@ -52,7 +52,8 @@ struct vnet_thread * vnet_start_thread(int (*func)(void *), void *arg, char * na
 
 
 struct vnet_timer * vnet_create_timer(unsigned long interval, 
-	void (* timer_fun)(void * priv_data), void * priv_data){
+				      void (* timer_fun)(void * priv_data), 
+				      void * priv_data){
     struct vnet_timer * timer = NULL; 
 
     if((host_hooks) && host_hooks->timer_create){
