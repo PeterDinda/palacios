@@ -22,9 +22,9 @@
 #ifndef __VNET_CORE_H__
 #define __VNET_CORE_H__
 
-#include <palacios/vmm.h>
 #include <palacios/vmm_ethernet.h>
-#include <vnet/vnet_host_interface.h>
+#include <vnet/vnet_host.h>
+#include <vnet/vnet_vmm.h>
 
 #define MAC_NOSET 	0
 #define MAC_ANY 	11
@@ -38,8 +38,6 @@
 #define LINK_ANY 	13
 
 #define VNET_HASH_SIZE 	17
-
-extern int v3_vnet_debug;
 
 struct v3_vnet_route {
     uint8_t src_mac[ETH_ALEN];

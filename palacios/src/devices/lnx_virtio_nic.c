@@ -725,7 +725,7 @@ static int virtio_tx_flush(void * args){
     	    handle_pkt_tx(&(virtio->vm->cores[0]), virtio);
 	    v3_yield(NULL);
     	}else {
-	    vnet_thread_sleep(0);
+	    vnet_thread_sleep(-1);
     	}
     }
 
@@ -894,7 +894,7 @@ static int connect_fn(struct v3_vm_info * info,
     ops->frontend_data = net_state;
     memcpy(ops->fnt_mac, virtio->mac, ETH_ALEN);
 
-    net_state->poll_thread = vnet_thread_create(virtio_tx_flush, (void *)net_state, "Virtio_Poll");
+    net_state->poll_thread = vnet_start_thread(virtio_tx_flush, (void *)net_state, "Virtio_Poll");
 
     return 0;
 }
