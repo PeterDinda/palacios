@@ -446,23 +446,40 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	}
 	case INVLPG: {
 	    uint8_t reg_code = 0;
-	    
+
 	    ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->dst_operand), &reg_code);
-	    
+
 	    if (ret == -1) {
 		PrintError("Error decoding operand for (%s)\n", op_form_to_str(form));
 		return -1;
 	    }
-	    
+
 	    instr_ptr += ret;
-	    
+
+	    instr->num_operands = 1;
+	    break;
+	}
+	case LMSW: 
+	case SMSW: {
+	    uint8_t reg_code = 0;
+
+	    ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->dst_operand), &reg_code);
+
+	    if (ret == -1) {
+		PrintError("Error decoding operand for (%s)\n", op_form_to_str(form));
+		return -1;
+	    }
+
+	    instr_ptr += ret;
+
+	    instr->dst_operand.read = 1;
+
 	    instr->num_operands = 1;
 	    break;
 	}
 	case CLTS: {
 	    // no operands. 
 	    break;
-	    
 	}
 	default:
 	    PrintError("Invalid Instruction form: %s\n", op_form_to_str(form));
@@ -515,7 +532,6 @@ static v3_op_type_t op_form_to_type(op_form_t form) {
 	    return V3_OP_MOVZX;
 
 
-	    
 	case ADC_2MEM_8:
 	case ADC_2MEM:
 	case ADC_MEM2_8:

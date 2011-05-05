@@ -4,19 +4,19 @@
 /* Standard I/O predefined streams
 */
 static FILE   _streams = {0, 0, 0, 0, 0, NULL, NULL, 0, 0};
-#ifdef CONFIG_BUILT_IN_STDIN
+#ifdef V3_CONFIG_BUILT_IN_STDIN
 FILE  *stdin = (&_streams);
 #endif
 
-#ifdef CONFIG_BUILT_IN_STDOUT
+#ifdef V3_CONFIG_BUILT_IN_STDOUT
 FILE  *stdout = (&_streams);
 #endif
 
-#ifdef CONFIG_BUILT_IN_STDERR
+#ifdef V3_CONFIG_BUILT_IN_STDERR
 FILE  *stderr = (&_streams);
 #endif
 
-#ifdef CONFIG_BUILT_IN_FPRINTF
+#ifdef V3_CONFIG_BUILT_IN_FPRINTF
 int fprintf(FILE *file, char *fmt, ...) {
    // PrintDebug("In fprintf!!\n");
    return 0;
@@ -24,21 +24,21 @@ int fprintf(FILE *file, char *fmt, ...) {
 }
 #endif
 
-#ifdef CONFIG_BUILT_IN_PRINTF
+#ifdef V3_CONFIG_BUILT_IN_PRINTF
 int printf(char *fmt, ...) {
    // PrintDebug("In fprintf!!\n");
    return 0;
 }
 #endif
 
-#ifdef CONFIG_BUILT_IN_FFLUSH
+#ifdef V3_CONFIG_BUILT_IN_FFLUSH
 int fflush(FILE *stream) {
     //PrintDebug("In fflush!!\n");
     return 0;
 }
 #endif
 
-#ifdef CONFIG_BUILT_IN_ABORT
+#ifdef V3_CONFIG_BUILT_IN_ABORT
 void abort(void)
 {
    //PrintDebug("Abort!!\n");

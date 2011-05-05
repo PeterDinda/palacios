@@ -155,7 +155,7 @@ static int init() {
     if (khz) {
 	time_state->guest_cpu_freq = atoi(khz);
 	PrintDebug("Core %d CPU frequency requested at %d khz.\n", 
-		   info->cpu_id, time_state->guest_cpu_freq);
+		   info->pcpu_id, time_state->guest_cpu_freq);
     } 
     
     if ( (khz == NULL) || 

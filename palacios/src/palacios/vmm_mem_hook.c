@@ -169,7 +169,7 @@ static int handle_mem_hook(struct guest_info * core, addr_t guest_va, addr_t gue
 	    src_reg = reg;
 	} else {
 	    // Note that this should only trigger for string operations
-	    src_reg = v3_get_mem_region(core->vm_info, core->cpu_id, src_mem_op_gpa);
+	    src_reg = v3_get_mem_region(core->vm_info, core->vcpu_id, src_mem_op_gpa);
 	}
 
 	if (src_reg == NULL) {
@@ -182,7 +182,7 @@ static int handle_mem_hook(struct guest_info * core, addr_t guest_va, addr_t gue
 	// We don't check whether the region is a hook here because it doesn't yet matter.
 	// These hva calculations will be true regardless
 	if (src_reg->flags.alloced == 0) {
-	    src_mem_op_hva = (addr_t)(hooks->hook_hvas_1 + (PAGE_SIZE * core->cpu_id));
+	    src_mem_op_hva = (addr_t)(hooks->hook_hvas_1 + (PAGE_SIZE * core->vcpu_id));
 	} else {
 	    // We already have the region so we can do the conversion ourselves
 	    src_mem_op_hva = (addr_t)V3_VAddr((void *)((src_mem_op_gpa - src_reg->guest_start) + src_reg->host_addr));
@@ -215,7 +215,7 @@ static int handle_mem_hook(struct guest_info * core, addr_t guest_va, addr_t gue
 	    dst_reg = reg;
 	} else {
 	    // Note that this should only trigger for string operations
-	    dst_reg = v3_get_mem_region(core->vm_info, core->cpu_id, dst_mem_op_gpa);
+	    dst_reg = v3_get_mem_region(core->vm_info, core->vcpu_id, dst_mem_op_gpa);
 	}
 
 	if (dst_reg == NULL) {
@@ -228,7 +228,7 @@ static int handle_mem_hook(struct guest_info * core, addr_t guest_va, addr_t gue
 	// We don't check whether the region is a hook here because it doesn't yet matter.
 	// These hva calculations will be true regardless
 	if (dst_reg->flags.alloced == 0) {
-	    dst_mem_op_hva = (addr_t)(hooks->hook_hvas_2 + (PAGE_SIZE * core->cpu_id));
+	    dst_mem_op_hva = (addr_t)(hooks->hook_hvas_2 + (PAGE_SIZE * core->vcpu_id));
 	} else {
 	    // We already have the region so we can do the conversion ourselves
 	    dst_mem_op_hva = (addr_t)V3_VAddr((void *)((dst_mem_op_gpa - dst_reg->guest_start) + dst_reg->host_addr));

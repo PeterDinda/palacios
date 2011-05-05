@@ -264,7 +264,7 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 	v3_vmxassist_init(core, vmx_state);
 
     } else if ((core->shdw_pg_mode == NESTED_PAGING) && 
-	       (v3_cpu_types[core->cpu_id] == V3_VMX_EPT_CPU)) {
+	       (v3_cpu_types[core->pcpu_id] == V3_VMX_EPT_CPU)) {
 
 #define CR0_PE 0x00000001
 #define CR0_PG 0x80000000
@@ -297,7 +297,7 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 	}
 
     } else if ((core->shdw_pg_mode == NESTED_PAGING) && 
-	       (v3_cpu_types[core->cpu_id] == V3_VMX_EPT_UG_CPU)) {
+	       (v3_cpu_types[core->pcpu_id] == V3_VMX_EPT_UG_CPU)) {
 	int i = 0;
 	// For now we will assume that unrestricted guest mode is assured w/ EPT
 
@@ -879,30 +879,30 @@ int v3_vmx_enter(struct guest_info * info) {
 
 int v3_start_vmx_guest(struct guest_info * info) {
 
-    PrintDebug("Starting VMX core %u\n", info->cpu_id);
+    PrintDebug("Starting VMX core %u\n", info->vcpu_id);
 
-    if (info->cpu_id == 0) {
+    if (info->vcpu_id == 0) {
 	info->core_run_state = CORE_RUNNING;
 	info->vm_info->run_state = VM_RUNNING;
     } else {
 
-        PrintDebug("VMX core %u: Waiting for core initialization\n", info->cpu_id);
+        PrintDebug("VMX core %u: Waiting for core initialization\n", info->vcpu_id);
 
         while (info->core_run_state == CORE_STOPPED) {
             v3_yield(info);
-            //PrintDebug("VMX core %u: still waiting for INIT\n",info->cpu_id);
+            //PrintDebug("VMX core %u: still waiting for INIT\n",info->vcpu_id);
         }
 	
-	PrintDebug("VMX core %u initialized\n", info->cpu_id);
+	PrintDebug("VMX core %u initialized\n", info->vcpu_id);
     }
 
 
     PrintDebug("VMX core %u: I am starting at CS=0x%x (base=0x%p, limit=0x%x),  RIP=0x%p\n",
-               info->cpu_id, info->segments.cs.selector, (void *)(info->segments.cs.base),
+               info->vcpu_id, info->segments.cs.selector, (void *)(info->segments.cs.base),
                info->segments.cs.limit, (void *)(info->rip));
 
 
-    PrintDebug("VMX core %u: Launching VMX VM\n", info->cpu_id);
+    PrintDebug("VMX core %u: Launching VMX VM on logical core %u\n", info->vcpu_id, info->pcpu_id);
 
     v3_start_time(info);
 
@@ -992,7 +992,7 @@ void v3_init_vmx_cpu(int cpu_id) {
     PrintDebug("VMXON pointer: 0x%p\n", (void *)host_vmcs_ptrs[cpu_id]);
 
     if (vmx_on(host_vmcs_ptrs[cpu_id]) == VMX_SUCCESS) {
-        PrintDebug("VMX Enabled\n");
+        V3_Print("VMX Enabled\n");
     } else {
         PrintError("VMX initialization failure\n");
         return;

@@ -252,7 +252,7 @@ void v3_print_telemetry(struct v3_vm_info * vm) {
 	struct exit_event * evt = NULL;
 	struct rb_node * node = v3_rb_first(&(core->core_telem.exit_root));
 	
-	V3_Print("Exit information for Core %d\n", core->cpu_id);
+	V3_Print("Exit information for Core %d\n", core->vcpu_id);
 
 	if (!node) { 
 	    V3_Print("No information yet for this core\n");

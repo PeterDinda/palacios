@@ -17,7 +17,6 @@
 #include <linux/sched.h>
 #include <asm/msr.h>
 
-#include <palacios/vmm_vnet.h>
 #include "palacios-vnet.h"
 
 //#define DEBUG_VNET_BRIGE
@@ -877,7 +876,7 @@ send_to_palacios(unsigned char * buf,
     }
 #endif
 
-    return v3_vnet_send_pkt(&pkt, NULL);;
+    return v3_vnet_send_pkt(&pkt, NULL, 1);
 }
 
 

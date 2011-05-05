@@ -138,7 +138,25 @@ static long v3_dev_ioctl(struct file * filp,
 	    init_completion(&(guest->start_done));
 	    init_completion(&(guest->thread_done));
 
-	    kthread_run(start_palacios_vm, guest, guest->name);
+	    { 
+		struct task_struct * launch_thread = NULL;
+		// At some point we're going to want to allow the user to specify a CPU mask
+		// But for now, well just launch from the local core, and rely on the global cpu mask
+
+		preempt_disable();
+		launch_thread = kthread_create(start_palacios_vm, guest, guest->name);
+		
+		if (IS_ERR(launch_thread)) {
+		    preempt_enable();
+		    printk("Palacios error creating launch thread for vm (%s)\n", guest->name);
+		    return -EFAULT;
+		}
+
+		kthread_bind(launch_thread, smp_processor_id());
+		preempt_enable();
+
+		wake_up_process(launch_thread);
+	    }
 
 	    wait_for_completion(&(guest->start_done));
 
@@ -161,14 +179,6 @@ static long v3_dev_ioctl(struct file * filp,
 		printk("Error adding memory to Palacios\n");
 		return -EFAULT;
 	    }
-
-	    // Mem test...
-	    /*
-	      {
-	      void * vaddr = __va(alloc_palacios_pgs(131072, 4096));
-	      memset(vaddr, 0xfe492fe2, mem.num_pages * 4096);
-	      }
-	    */
 
 	    break;
 	}

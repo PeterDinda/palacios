@@ -25,7 +25,7 @@
 #include <devices/lnx_virtio_pci.h>
 #include <palacios/vm_guest_mem.h>
 #include <palacios/vmm_sprintf.h>
-#include <palacios/vmm_vnet.h>
+#include <vnet/vnet.h>
 #include <palacios/vmm_lock.h>
 #include <palacios/vmm_util.h>
 #include <devices/pci.h>
@@ -127,7 +127,7 @@ struct virtio_net_state {
     uint8_t mergeable_rx_bufs;
 
     struct v3_timer * timer;
-    void * poll_thread;
+    struct vnet_thread * poll_thread;
 
     struct nic_statistics stats;
 
@@ -406,7 +406,7 @@ static int virtio_io_write(struct guest_info *core,
 		    virtio_setup_queue(core, virtio, &virtio->tx_vq, pfn, page_addr);
 		    if(virtio->tx_notify == 0){
 	 		disable_cb(&virtio->tx_vq);
-			V3_THREAD_WAKEUP(virtio->poll_thread);
+			vnet_thread_wakeup(virtio->poll_thread);
     		    }
 		    break;
 		case 2:
@@ -725,7 +725,7 @@ static int virtio_tx_flush(void * args){
     	    handle_pkt_tx(&(virtio->vm->cores[0]), virtio);
 	    v3_yield(NULL);
     	}else {
-	    V3_THREAD_SLEEP();
+	    vnet_thread_sleep(0);
     	}
     }
 
@@ -831,7 +831,7 @@ static void virtio_nic_timer(struct guest_info * core,
 	    V3_Print("Virtio NIC: Switch TX to VMM driven mode\n");
 	    disable_cb(&(net_state->tx_vq));
 	    net_state->tx_notify = 0;
-	    V3_THREAD_WAKEUP(net_state->poll_thread);
+	    vnet_thread_wakeup(net_state->poll_thread);
 	}
 
 	if(tx_rate < RATE_LOWER_THRESHOLD && net_state->tx_notify == 0){
@@ -894,7 +894,7 @@ static int connect_fn(struct v3_vm_info * info,
     ops->frontend_data = net_state;
     memcpy(ops->fnt_mac, virtio->mac, ETH_ALEN);
 
-    net_state->poll_thread = V3_CREATE_THREAD(virtio_tx_flush, (void *)net_state, "Virtio_Poll");
+    net_state->poll_thread = vnet_thread_create(virtio_tx_flush, (void *)net_state, "Virtio_Poll");
 
     return 0;
 }

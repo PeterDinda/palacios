@@ -17,27 +17,35 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#ifndef __VNET_INTERFACE_H__
-#define __VNET_INTERFACE_H__
+#ifndef __VNET_HOST_INTERFACE_H__
+#define __VNET_HOST_INTERFACE_H__
 
-struct v3_thread {
+struct vnet_thread {
+    void * host_thread;
+    void * data;
 };
 
-v3_thread * v3_thread_create(int (*func)(void *), void *arg, char * name);
-void v3_thread_sleep(int cond);
-void v3_thread_wakeup(v3_thread *);
-void v3_thread_kill(v3_thread *);
-void v3_thread_stop(v3_thread *);
-void v3_thread_continue(v3_thread *);
+struct vnet_timer {
+    void * host_timer;
+    void * data;
+};
 
+struct vnet_thread * vnet_thread_create(int (*func)(void *), void *arg, char * name);
+void vnet_thread_sleep(int cond);
+void vnet_thread_wakeup(struct vnet_thread *);
+void vnet_thread_kill(struct vnet_thread *);
+void vnet_thread_stop(struct vnet_thread *);
+void vnet_thread_continue(struct vnet_thread *);
+
+void vnet_udelay(unsigned long usecs);
 
 // I know there is timer in palacios, but it has to be binded to specific VM, and the granularity is not
 // guaranteed
 // I need a timer that is global, not related to any specific VM, and also fine-granularity
-v3_timer * v3_create_timer(int interval /*in us*/, void (*timer_fun)(uint64_t eclipsed_cycles, void * priv_data), void * pri_data);
-int v3_del_timer(v3_timer *);
-int v3_start_timer(v3_timer *);
-int v3_stop_timer(v3_timer *);
+struct vnet_timer * vnet_create_timer(int interval /*in us*/, void (*timer_fun)(uint64_t eclipsed_cycles, void * priv_data), void * pri_data);
+int vnet_del_timer(struct vnet_timer *);
+int vnet_start_timer(struct vnet_timer *);
+int vnet_stop_timer(struct vnet_timer *);
 
 
 #endif

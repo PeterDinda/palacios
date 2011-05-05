@@ -19,7 +19,7 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
  
-#include <palacios/vmm_vnet.h>
+#include <vnet/vnet.h>
 #include <palacios/vm_guest_mem.h>
 #include <palacios/vmm_lock.h>
 #include <palacios/vmm_queue.h>
@@ -108,7 +108,7 @@ static struct {
     v3_lock_t lock;
     struct vnet_stat stats;
 
-    void * pkt_flush_thread;
+    struct vnet_thread * pkt_flush_thread;
 
     struct vnet_queue pkt_q;
 
@@ -708,7 +708,6 @@ int v3_vnet_add_bridge(struct v3_vm_info * vm,
     return 0;
 }
 
-
 static int vnet_tx_flush(void *args){
     unsigned long flags;
     struct queue_entry * entry;
@@ -765,7 +764,7 @@ int v3_init_vnet() {
 
     v3_lock_init(&(vnet_state.pkt_q.lock));
 
-    vnet_state.pkt_flush_thread = V3_CREATE_THREAD(vnet_tx_flush, NULL, "VNET_Pkts");
+    vnet_state.pkt_flush_thread = vnet_thread_create(vnet_tx_flush, NULL, "VNET_Pkts");
 
     PrintDebug("VNET/P Core is initiated\n");
 

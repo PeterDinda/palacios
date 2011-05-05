@@ -67,9 +67,6 @@ obj-$(V3_CONFIG_VMX) +=  	vmx.o \
 
 obj-$(V3_CONFIG_TELEMETRY) += vmm_telemetry.o 
 
-obj-$(V3_CONFIG_VNET) += vmm_vnet_core.o
-
-
 obj-$(V3_CONFIG_SYMBIOTIC) += vmm_symbiotic.o vmm_symspy.o
 obj-$(V3_CONFIG_SYMCALL) += vmm_symcall.o
 obj-$(V3_CONFIG_SYMMOD) += vmm_symmod.o

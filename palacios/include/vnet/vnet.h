@@ -24,6 +24,7 @@
 
 #include <palacios/vmm.h>
 #include <palacios/vmm_ethernet.h>
+#include <vnet/vnet_host_interface.h>
 
 #define MAC_NOSET 	0
 #define MAC_ANY 	11

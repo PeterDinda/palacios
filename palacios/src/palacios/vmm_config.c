@@ -353,6 +353,17 @@ static int post_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     }
 
 
+    if (vm->vm_class == V3_PC_VM) {
+	if (post_config_pc(vm, cfg) == -1) {
+	    PrintError("PC Post configuration failure\n");
+	    return -1;
+	}
+    } else {
+	PrintError("Invalid VM Class\n");
+	return -1;
+    }
+
+
     /* 
      * Initialize configured devices
      */
@@ -366,15 +377,7 @@ static int post_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     v3_print_msr_map(vm);
 
 
-    if (vm->vm_class == V3_PC_VM) {
-	if (post_config_pc(vm, cfg) == -1) {
-	    PrintError("PC Post configuration failure\n");
-	    return -1;
-	}
-    } else {
-	PrintError("Invalid VM Class\n");
-	return -1;
-    }
+
 
     /* 
      * Initialize configured extensions 
@@ -489,7 +492,7 @@ struct v3_vm_info * v3_config_guest(void * cfg_blob, void * priv_data) {
     for (i = 0; i < vm->num_cores; i++) {
 	struct guest_info * info = &(vm->cores[i]);
 
-	info->cpu_id = i;
+	info->vcpu_id = i;
 	info->vm_info = vm;
 	info->core_cfg_data = per_core_cfg;
 

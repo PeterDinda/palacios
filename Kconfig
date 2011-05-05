@@ -163,14 +163,6 @@ config EXPERIMENTAL
 	  The purpose of this option is to allow features under development to be committed to the mainline
 	  to more easily track changes and provide access to multiple developers
 
-config VNET
-        depends on EXPERIMENTAL
-        bool "Enable Vnet in Palacios"
-        default n
-        help
-          Enable the Vnet in Palacios
-
-
 endmenu
 
 
@@ -284,7 +276,23 @@ menuconfig SYMMOD
 
 endmenu
 
+menu "VNET"
 
+config VNET
+        bool "Enable Vnet in Palacios"
+        default n
+        help
+          Enable the Vnet in Palacios
+
+config DEBUG_VNET
+        depends on VNET
+        bool "Enable Vnet Debug in Palacios"
+        default n
+        help
+          Enable the Vnet debug in Palacios
+
+
+endmenu
 
 menu "Debug configuration"
 
@@ -393,13 +401,6 @@ config DEBUG_DEV_MGR
 	depends on DEBUG_ON
 	help 
 	  This turns on debugging for the device manager
-
-config DEBUG_VNET
-        depends on EXPERIMENTAL && VNET
-        bool "Enable Vnet Debug in Palacios"
-        default n
-        help
-          Enable the Vnet debug in Palacios
 
 endmenu
 

@@ -478,7 +478,7 @@ uint32_t v3_get_max_page_size(struct guest_info * core, addr_t page_addr, v3_cpu
 		pg_start = PAGE_ADDR_4MB(page_addr);
 		pg_end = (pg_start + PAGE_SIZE_4MB);
 
-		reg = get_overlapping_region(core->vm_info, core->cpu_id, pg_start, pg_end); 
+		reg = get_overlapping_region(core->vm_info, core->vcpu_id, pg_start, pg_end); 
 
 		if ((reg) && ((reg->host_addr % PAGE_SIZE_4MB) == 0)) {
 		    page_size = PAGE_SIZE_4MB;
@@ -490,7 +490,7 @@ uint32_t v3_get_max_page_size(struct guest_info * core, addr_t page_addr, v3_cpu
 		pg_start = PAGE_ADDR_2MB(page_addr);
 		pg_end = (pg_start + PAGE_SIZE_2MB);
 
-		reg = get_overlapping_region(core->vm_info, core->cpu_id, pg_start, pg_end);
+		reg = get_overlapping_region(core->vm_info, core->vcpu_id, pg_start, pg_end);
 
 		if ((reg) && ((reg->host_addr % PAGE_SIZE_2MB) == 0)) {
 		    page_size = PAGE_SIZE_2MB;
@@ -504,7 +504,7 @@ uint32_t v3_get_max_page_size(struct guest_info * core, addr_t page_addr, v3_cpu
 		pg_start = PAGE_ADDR_1GB(page_addr);
 		pg_end = (pg_start + PAGE_SIZE_1GB);
 		
-		reg = get_overlapping_region(core->vm_info, core->cpu_id, pg_start, pg_end);
+		reg = get_overlapping_region(core->vm_info, core->vcpu_id, pg_start, pg_end);
 		
 		if ((reg) && ((reg->host_addr % PAGE_SIZE_1GB) == 0)) {
 		    page_size = PAGE_SIZE_1GB;
@@ -516,7 +516,7 @@ uint32_t v3_get_max_page_size(struct guest_info * core, addr_t page_addr, v3_cpu
 		pg_start = PAGE_ADDR_2MB(page_addr);
 		pg_end = (pg_start + PAGE_SIZE_2MB);
 
-		reg = get_overlapping_region(core->vm_info, core->cpu_id, pg_start, pg_end);
+		reg = get_overlapping_region(core->vm_info, core->vcpu_id, pg_start, pg_end);
 		
 		if ((reg) && ((reg->host_addr % PAGE_SIZE_2MB) == 0)) {
 		    page_size = PAGE_SIZE_2MB;
