@@ -32,6 +32,11 @@
 #include "palacios-inspector.h"
 #endif
 
+#ifdef V3_CONFIG_KEYED_STREAMS
+#include "palacios-keyed-stream.h"
+#endif
+
+
 MODULE_LICENSE("GPL");
 
 int mod_allocs = 0;
@@ -135,6 +140,9 @@ static long v3_dev_ioctl(struct file * filp,
 	    INIT_LIST_HEAD(&(guest->streams));
 	    INIT_LIST_HEAD(&(guest->files));
 	    INIT_LIST_HEAD(&(guest->sockets));
+#ifdef V3_CONFIG_HOST_DEVICE
+	    INIT_LIST_HEAD(&(guest->hostdev.devs));
+#endif
 	    init_completion(&(guest->start_done));
 	    init_completion(&(guest->thread_done));
 
@@ -259,8 +267,16 @@ static int __init v3_init(void) {
     palacios_file_init();
 #endif
 
+#ifdef V3_CONFIG_KEYED_STREAMS
+    palacios_init_keyed_streams();
+#endif
+
 #ifdef V3_CONFIG_CONSOLE
     palacios_init_console();
+#endif
+
+#ifdef V3_CONFIG_GRAPHICS_CONSOLE
+    palacios_init_graphics_console();
 #endif
 
 #ifdef V3_CONFIG_EXT_INSPECTOR
@@ -277,6 +293,10 @@ static int __init v3_init(void) {
 
 #ifdef V3_CONFIG_VNET
     palacios_init_vnet();
+#endif
+
+#ifdef V3_CONFIG_HOST_DEVICE
+    palacios_init_host_dev();
 #endif
 
     return 0;
