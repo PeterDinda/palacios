@@ -23,7 +23,6 @@
 #include <palacios/vmm.h>
 #include <palacios/vmm_string.h>
 #include <palacios/vmm_sprintf.h>
-#include <palacios/vmm_lowlevel.h>
 
 
 
