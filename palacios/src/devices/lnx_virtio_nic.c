@@ -660,7 +660,7 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
  	/* kick guest to refill the queue */
 	virtio->virtio_cfg.pci_isr = 0x1;	
 	v3_pci_raise_irq(virtio->virtio_dev->pci_bus, 0, virtio->pci_dev);
-	v3_interrupt_cpu(virtio->virtio_dev->vm, virtio->virtio_dev->vm->cores[0].cpu_id, 0);
+	v3_interrupt_cpu(virtio->virtio_dev->vm, virtio->virtio_dev->vm->cores[0].pcpu_id, 0);
 	virtio->stats.rx_interrupts ++;
 	
 	goto err_exit;
@@ -679,8 +679,8 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
 
     /* notify guest if it is in guest mode */
     if(virtio->rx_notify == 1 && 
-	V3_Get_CPU() != virtio->virtio_dev->vm->cores[0].cpu_id){
-	v3_interrupt_cpu(virtio->virtio_dev->vm, virtio->virtio_dev->vm->cores[0].cpu_id, 0);
+	V3_Get_CPU() != virtio->virtio_dev->vm->cores[0].pcpu_id){
+	v3_interrupt_cpu(virtio->virtio_dev->vm, virtio->virtio_dev->vm->cores[0].pcpu_id, 0);
     }
 
     return 0;
