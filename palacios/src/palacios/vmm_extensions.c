@@ -144,7 +144,7 @@ int v3_init_core_extensions(struct guest_info * core) {
 	if ((ext->impl) && (ext->impl->core_init)) {
 	    if (ext->impl->core_init(core, ext->priv_data) == -1) {
 		PrintError("Error configuring per core extension %s on core %d\n", 
-			   ext->impl->name, core->cpu_id);
+			   ext->impl->name, core->vcpu_id);
 		return -1;
 	    }
 	}

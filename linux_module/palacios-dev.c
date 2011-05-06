@@ -32,6 +32,11 @@
 #include "palacios-inspector.h"
 #endif
 
+#ifdef V3_CONFIG_KEYED_STREAMS
+#include "palacios-keyed-stream.h"
+#endif
+
+
 MODULE_LICENSE("GPL");
 
 int mod_allocs = 0;
@@ -135,10 +140,31 @@ static long v3_dev_ioctl(struct file * filp,
 	    INIT_LIST_HEAD(&(guest->streams));
 	    INIT_LIST_HEAD(&(guest->files));
 	    INIT_LIST_HEAD(&(guest->sockets));
+#ifdef V3_CONFIG_HOST_DEVICE
+	    INIT_LIST_HEAD(&(guest->hostdev.devs));
+#endif
 	    init_completion(&(guest->start_done));
 	    init_completion(&(guest->thread_done));
 
-	    kthread_run(start_palacios_vm, guest, guest->name);
+	    { 
+		struct task_struct * launch_thread = NULL;
+		// At some point we're going to want to allow the user to specify a CPU mask
+		// But for now, well just launch from the local core, and rely on the global cpu mask
+
+		preempt_disable();
+		launch_thread = kthread_create(start_palacios_vm, guest, guest->name);
+		
+		if (IS_ERR(launch_thread)) {
+		    preempt_enable();
+		    printk("Palacios error creating launch thread for vm (%s)\n", guest->name);
+		    return -EFAULT;
+		}
+
+		kthread_bind(launch_thread, smp_processor_id());
+		preempt_enable();
+
+		wake_up_process(launch_thread);
+	    }
 
 	    wait_for_completion(&(guest->start_done));
 
@@ -241,8 +267,16 @@ static int __init v3_init(void) {
     palacios_file_init();
 #endif
 
+#ifdef V3_CONFIG_KEYED_STREAMS
+    palacios_init_keyed_streams();
+#endif
+
 #ifdef V3_CONFIG_CONSOLE
     palacios_init_console();
+#endif
+
+#ifdef V3_CONFIG_GRAPHICS_CONSOLE
+    palacios_init_graphics_console();
 #endif
 
 #ifdef V3_CONFIG_EXT_INSPECTOR
@@ -259,6 +293,10 @@ static int __init v3_init(void) {
 
 #ifdef V3_CONFIG_VNET
     palacios_init_vnet();
+#endif
+
+#ifdef V3_CONFIG_HOST_DEVICE
+    palacios_init_host_dev();
 #endif
 
     return 0;

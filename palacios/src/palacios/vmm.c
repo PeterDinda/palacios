@@ -197,8 +197,8 @@ static int start_core(void * p)
     struct guest_info * core = (struct guest_info *)p;
 
 
-    PrintDebug("virtual core %u: in start_core (RIP=%p)\n", 
-	       core->cpu_id, (void *)(addr_t)core->rip);
+    PrintDebug("virtual core %u (on logical core %u): in start_core (RIP=%p)\n", 
+	       core->vcpu_id, core->pcpu_id, (void *)(addr_t)core->rip);
 
     switch (v3_cpu_types[0]) {
 #ifdef V3_CONFIG_SVM
@@ -280,7 +280,6 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
 	    i--; // We reset the logical core idx. Not strictly necessary I guess... 
 	} else {
 
-	    /* This assumes that the core 0 thread has been mapped to physical core 0 */
 	    if (i == V3_Get_CPU()) {
 		// We skip the local CPU because it is reserved for vcore 0
 		continue;
@@ -315,6 +314,7 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
 		   core_idx, start_core, core, core->exec_name);
 
 	// TODO: actually manage these threads instead of just launching them
+	core->pcpu_id = core_idx;
 	core_thread = V3_CREATE_THREAD_ON_CPU(core_idx, start_core, core, core->exec_name);
 
 	if (core_thread == NULL) {
@@ -328,6 +328,8 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
 #endif
 
     sprintf(vm->cores[0].exec_name, "%s", vm->name);
+
+    vm->cores[0].pcpu_id = V3_Get_CPU();
 
     if (start_core(&(vm->cores[0])) != 0) {
 	PrintError("Error starting VM core 0\n");

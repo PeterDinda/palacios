@@ -35,6 +35,13 @@
 #include "palacios-inspector.h"
 #endif
 
+#ifdef V3_CONFIG_GRAPHICS_CONSOLE
+#include "palacios-graphics-console.h"
+#endif
+
+#ifdef V3_CONFIG_HOST_DEVICE
+#include "palacios-host-dev.h"
+#endif
 
 extern struct class * v3_class;
 #define STREAM_NAME_LEN 128
@@ -81,6 +88,40 @@ static long v3_vm_ioctl(struct file * filp,
 #endif
 	    break;
 	}
+
+	case V3_VM_HOST_DEV_CONNECT: {
+#ifdef V3_CONFIG_HOST_DEV
+	    if (copy_from_user(host_dev_url, argp, HOST_DEV_URL_LEN)) {
+		printk("copy from user error getting url for host device connect...\n");
+		return -EFAULT;
+	    }
+
+	    return connect_host_dev(guest,host_dev_url);
+#else
+	    printk("palacios: Host device support not available\n");
+	    return -EFAULT;
+#endif
+	    break;
+	}
+
+	case V3_VM_FB_INPUT: 
+#ifdef V3_CONFIG_GRAPHICS_CONSOLE
+	    return palacios_graphics_console_user_input(&(guest->graphics_console),
+							(struct v3_fb_input __user *) arg) ;
+#else
+	    return -EFAULT;
+#endif
+	    break;
+	    
+	case V3_VM_FB_QUERY: 
+#ifdef V3_CONFIG_GRAPHICS_CONSOLE
+	    return palacios_graphics_console_user_query(&(guest->graphics_console),
+							(struct v3_fb_query_response __user *) arg);
+#else
+	    return -EFAULT;
+#endif
+	    break;
+
 
 	default: 
 	    printk("\tUnhandled\n");

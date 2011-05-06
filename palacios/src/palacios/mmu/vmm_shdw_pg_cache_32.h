@@ -277,7 +277,7 @@ static int handle_pte_shadow_pagefault_32(struct guest_info * core, addr_t fault
     pte32_t * shadow_pte = (pte32_t *)&(shadow_pt[PTE32_INDEX(fault_addr)]);
     addr_t guest_pa = BASE_TO_PAGE_ADDR((addr_t)(guest_pte->page_base_addr)) +  PAGE_OFFSET(fault_addr);
 
-    struct v3_mem_region * shdw_reg =  v3_get_mem_region(core->vm_info, core->cpu_id, guest_pa);
+    struct v3_mem_region * shdw_reg =  v3_get_mem_region(core->vm_info, core->vcpu_id, guest_pa);
 
     if (shdw_reg == NULL) {
 	// Inject a machine check in the guest
@@ -459,7 +459,7 @@ static int handle_4MB_shadow_pagefault_pte_32(struct guest_info * core,
     PrintDebug("Handling 4MB fault (guest_fault_pa=%p) (error_code=%x)\n", (void *)guest_fault_pa, *(uint_t*)&error_code);
     PrintDebug("ShadowPT=%p, LargeGuestPDE=%p\n", shadow_pt, large_guest_pde);
 
-    struct v3_mem_region * shdw_reg = v3_get_mem_region(core->vm_info, core->cpu_id, guest_fault_pa);
+    struct v3_mem_region * shdw_reg = v3_get_mem_region(core->vm_info, core->vcpu_id, guest_fault_pa);
 
  
     if (shdw_reg == NULL) {

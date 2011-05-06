@@ -13,7 +13,8 @@ v3vee-objs := 	palacios.o \
 		palacios-dev.o \
 		palacios-vm.o \
 		palacios-mm.o \
-		palacios-queue.o 
+		palacios-queue.o \
+	        palacios-hashtable.o
 
 ifdef V3_CONFIG_CONSOLE
 	v3vee-objs += 	palacios-console.o
@@ -43,6 +44,20 @@ endif
 ifdef V3_CONFIG_SOCKET
 	v3vee-objs += palacios-socket.o
 endif
+
+ifdef V3_CONFIG_KEYED_STREAMS
+	v3vee-objs += palacios-keyed-stream.o
+endif
+
+ifdef V3_CONFIG_HOST_DEVICE
+	v3vee-objs += palacios-host-dev.o
+endif
+
+ifdef V3_CONFIG_GRAPHICS_CONSOLE
+	v3vee-objs += palacios-graphics-console.o
+endif
+
+
 
 v3vee-objs += ../libv3vee.a 
 

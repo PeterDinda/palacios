@@ -42,7 +42,7 @@ static inline int handle_passthrough_pagefault_64(struct guest_info * core, addr
     int pde_index  = PDE64_INDEX(fault_addr);
     int pte_index  = PTE64_INDEX(fault_addr);
 
-    struct v3_mem_region * region =  v3_get_mem_region(core->vm_info, core->cpu_id, fault_addr);
+    struct v3_mem_region * region =  v3_get_mem_region(core->vm_info, core->vcpu_id, fault_addr);
     int page_size = PAGE_SIZE_4KB;
 
     if (region == NULL) {
