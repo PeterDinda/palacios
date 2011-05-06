@@ -35,13 +35,19 @@ typedef unsigned long vnet_lock_t;
 
 
 struct vnet_host_hooks {
-    void *(*thread_start)(int (*fn)(void * arg), void * arg, char * thread_name);
+    void *(*thread_start)(int (*fn)(void * arg), 
+			  void * arg, 
+			  char * thread_name);
+
     void (*thread_sleep)(long timeout);
     void (*thread_wakeup)(void * thread);
     void (*thread_stop)(void * thread);
     int (*thread_should_stop)(void);
 
-    void *(*timer_create)(unsigned long interval, void (* timer_fun)(void * priv_data), void * data);
+    void *(*timer_create)(unsigned long interval, 
+			  void (* timer_fun)(void * priv_data), 
+			  void * data);
+
     void (*timer_del)(void * timer);
     void (*timer_start)(void * timer);
     void (*timer_stop)(void * timer);
@@ -133,7 +139,8 @@ static inline void Vnet_Yield(void){
 }
 
 /* THREAD FUNCTIONS */
-struct vnet_thread * vnet_start_thread(int (*func)(void *), void * arg, char * name);
+struct vnet_thread * vnet_start_thread(int (*func)(void *), 
+				       void * arg, char * name);
 
 static inline void vnet_thread_sleep(long timeout){
     if((host_hooks) && host_hooks->thread_sleep){
@@ -170,7 +177,9 @@ static inline void  vnet_udelay(unsigned long usecs){
 
 /* TIMER FUNCTIONS */
 /* interval, in jittes */
-struct vnet_timer * vnet_create_timer(unsigned long interval, void (* timer_fun)(void * priv_data), void * pri_data);
+struct vnet_timer * vnet_create_timer(unsigned long interval, 
+				      void (* timer_fun)(void * priv_data), 
+				      void * pri_data);
 
 static inline void vnet_del_timer(struct vnet_timer * timer){
     if((host_hooks) && host_hooks->timer_del){
@@ -191,7 +200,8 @@ static inline void vnet_stop_timer(struct vnet_timer * timer){
     }
 }
 
-static inline void vnet_reset_timer(struct vnet_timer * timer, unsigned long new_interval){
+static inline void vnet_reset_timer(struct vnet_timer * timer, 
+				    unsigned long new_interval){
     if((host_hooks) && host_hooks->timer_reset){
 	host_hooks->timer_reset(timer->host_timer, new_interval);
     }
@@ -200,23 +210,23 @@ static inline void vnet_reset_timer(struct vnet_timer * timer, unsigned long new
 
 
 #define Vnet_Print(level, fmt, args...)					\
-    do {	\
-	extern int vnet_debug;  \
-	if(level <= vnet_debug) {   \
+    do {								\
+	extern int vnet_debug;						\
+	if(level <= vnet_debug) {					\
 	    extern struct vnet_host_hooks * host_hooks;			\
 	    if ((host_hooks) && (host_hooks)->print) {			\
 	    	(host_hooks)->print((fmt), ##args);			\
-	    }							\
-	}							\
+	    }								\
+	}								\
     } while (0)	
 
 
 #define Vnet_Debug(fmt, args...)					\
-    do {	\
+    do {								\
 	    extern struct vnet_host_hooks * host_hooks;			\
 	    if ((host_hooks) && (host_hooks)->print) {			\
 	    	(host_hooks)->print((fmt), ##args);			\
-	    }												\
+	    }			       					\
     } while (0)	
 
 
