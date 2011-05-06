@@ -35,6 +35,7 @@
 
 #ifndef __VNET_HASHTABLE_H__
 #define __VNET_HASHTABLE_H__
+#include <vnet/vnet_base.h>
 
 struct hashtable;
 
@@ -95,11 +96,11 @@ struct hashtable;
  */
 
 /* These cannot be inlined because they are referenced as fn ptrs */
-ulong_t vnet_hash_long(ulong_t val, uint_t bits);
-ulong_t vnet_hash_buffer(uchar_t * msg, uint_t length);
+unsigned long vnet_hash_long(unsigned long val, unsigned int bits);
+unsigned long vnet_hash_buffer(unsigned char * msg, unsigned int length);
 
-struct hashtable * vnet_create_htable(uint_t min_size,
-				    uint_t (*hashfunction) (addr_t key),
+struct hashtable * vnet_create_htable(unsigned int min_size,
+				    unsigned int (*hashfunction) (addr_t key),
 				    int (*key_eq_fn) (addr_t key1, addr_t key2));
 
 void vnet_free_htable(struct hashtable * htable, int free_values, int free_keys);
@@ -124,7 +125,7 @@ addr_t vnet_htable_search(struct hashtable * htable, addr_t key);
 // returns the value associated with the key, or NULL if none found
 addr_t vnet_htable_remove(struct hashtable * htable, addr_t key, int free_key);
 
-uint_t vnet_htable_count(struct hashtable * htable);
+unsigned int vnet_htable_count(struct hashtable * htable);
 
 
 #endif

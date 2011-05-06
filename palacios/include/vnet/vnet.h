@@ -20,10 +20,11 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#ifndef __VNET_CORE_H__
-#define __VNET_CORE_H__
+#ifndef __VNET_H__
+#define __VNET_H__
 
 #include <palacios/vmm_ethernet.h>
+#include <vnet/vnet_base.h>
 #include <vnet/vnet_host.h>
 #include <vnet/vnet_vmm.h>
 

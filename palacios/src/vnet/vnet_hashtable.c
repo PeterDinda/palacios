@@ -83,7 +83,7 @@ static inline uint_t do_hash(struct hashtable * htable, addr_t key) {
 #error Define GOLDEN_RATIO_PRIME for your wordsize.
 #endif
 
-ulong_t v3_hash_long(ulong_t val, uint_t bits) {
+ulong_t vnet_hash_long(ulong_t val, uint_t bits) {
     ulong_t hash = val;
 
 #ifdef __V3_64BIT__
@@ -112,7 +112,7 @@ ulong_t v3_hash_long(ulong_t val, uint_t bits) {
 
 /* HASH GENERIC MEMORY BUFFER */
 /* ELF HEADER HASH FUNCTION */
-ulong_t v3_hash_buffer(uchar_t * msg, uint_t length) {
+ulong_t vnet_hash_buffer(uchar_t * msg, uint_t length) {
     ulong_t hash = 0;
     ulong_t temp = 0;
     uint_t i;
@@ -174,7 +174,7 @@ static const uint_t load_factors[] = {
     32715575, 65431158, 130862298, 261724573,
     523449198, 1046898282 };
 
-const uint_t prime_table_length = sizeof(primes) / sizeof(primes[0]);
+static const uint_t prime_table_length = sizeof(primes) / sizeof(primes[0]);
 
 struct hashtable * vnet_create_htable(uint_t min_size,
 				      uint_t (*hash_fn) (addr_t),

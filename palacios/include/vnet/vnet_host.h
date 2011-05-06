@@ -20,6 +20,7 @@
 #ifndef __VNET_HOST_H__
 #define __VNET_HOST_H__
 
+#include <vnet/vnet_base.h>
 #include <vnet/vnet_vmm.h>
 
 struct vnet_thread {

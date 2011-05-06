@@ -199,7 +199,7 @@ static int tx_one_pkt(struct guest_info * core,
     }
 
     V3_Net_Print(2, "Virtio-NIC: virtio_tx: size: %d\n", len);
-    if(v3_net_debug >= 4){
+    if(vnet_debug >= 4){
 	v3_hexdump(buf, len, NULL, 0);
     }
 
@@ -561,7 +561,7 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
     unsigned long flags;
 
     V3_Net_Print(2, "Virtio-NIC: virtio_rx: size: %d\n", size);
-    if(v3_net_debug >= 4){
+    if(vnet_debug >= 4){
 	v3_hexdump(buf, size, NULL, 0);
     }
 
