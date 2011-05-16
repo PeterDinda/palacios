@@ -36,7 +36,7 @@
  * 1. Queue locks. Actual irq insertions are done via queueing irq ops at the dest apic. 
  *    The destination apic's core is responsible for draining the queue, and actually 
  *    setting the vector table. 
- * 2. State locks. This is a standard lock taken when internal apic state is read/written. 
+ * 2. State lock. This is a standard lock taken when internal apic state is read/written. 
  *    When an irq's destination is determined this lock is taken to examine the apic's 
  *    addressability. 
  * 3. VM barrier lock. This is taken when actual VM core state is changed (via SIPI). 
@@ -179,6 +179,7 @@ struct apic_msr {
 
 
 
+
 typedef enum {INIT_ST, 
 	      SIPI, 
 	      STARTED} ipi_state_t; 
@@ -239,7 +240,7 @@ struct apic_state {
 
     struct v3_timer * timer;
 
-    v3_lock_t state_lock;
+
     struct v3_queue irq_queue;
 
     uint32_t eoi;
@@ -253,6 +254,8 @@ struct apic_state {
 struct apic_dev_state {
     int num_apics;
   
+    v3_lock_t state_lock;
+
     struct apic_state apics[0];
 } __attribute__((packed));
 
@@ -377,6 +380,9 @@ static int write_apic_msr(struct guest_info * core, uint_t msr, v3_msr_t src, vo
 }
 
 
+
+
+
 // irq_num is the bit offset into a 256 bit buffer...
 static int activate_apic_irq(struct apic_state * apic, uint32_t irq_num) {
     int major_offset = (irq_num & ~0x00000007) >> 3;
@@ -384,13 +390,6 @@ static int activate_apic_irq(struct apic_state * apic, uint32_t irq_num) {
     uint8_t * req_location = apic->int_req_reg + major_offset;
     uint8_t * en_location = apic->int_en_reg + major_offset;
     uint8_t flag = 0x1 << minor_offset;
-
-
-    if (irq_num <= 15 || irq_num > 255) {
-	PrintError("apic %u: core %d: Attempting to raise an invalid interrupt: %d\n", 
-		   apic->lapic_id.val, apic->core->vcpu_id, irq_num);
-	return -1;
-    }
 
 
     PrintDebug("apic %u: core %d: Raising APIC IRQ %d\n", apic->lapic_id.val, apic->core->vcpu_id, irq_num);
@@ -410,6 +409,30 @@ static int activate_apic_irq(struct apic_state * apic, uint32_t irq_num) {
 
     return 0;
 }
+
+
+static int add_apic_irq_entry(struct apic_state * apic, uint8_t irq_num) {
+
+    if (irq_num <= 15) {
+	PrintError("core %d: Attempting to raise an invalid interrupt: %d\n", 
+		    apic->core->vcpu_id, irq_num);
+	return -1;
+    }
+
+    v3_enqueue(&(apic->irq_queue), (addr_t)irq_num);
+
+    return 0;
+}
+
+static void drain_irq_entries(struct apic_state * apic) {
+    uint32_t irq = 0;
+
+    while ((irq = (uint32_t)v3_dequeue(&(apic->irq_queue))) != 0) {
+	activate_apic_irq(apic, irq);
+    }
+
+}
+
 
 
 
@@ -540,7 +563,7 @@ static int activate_internal_irq(struct apic_state * apic, apic_irq_type_t int_t
 
     if (del_mode == APIC_FIXED_DELIVERY) {
 	//PrintDebug("Activating internal APIC IRQ %d\n", vec_num);
-	return activate_apic_irq(apic, vec_num);
+	return add_apic_irq_entry(apic, vec_num);
     } else {
 	PrintError("apic %u: core ?: Unhandled Delivery Mode\n", apic->lapic_id.val);
 	return -1;
@@ -549,75 +572,106 @@ static int activate_internal_irq(struct apic_state * apic, apic_irq_type_t int_t
 
 
 
-static inline int should_deliver_cluster_ipi(struct guest_info * dst_core, 
+static inline int should_deliver_cluster_ipi(struct apic_dev_state * apic_dev,
+					     struct guest_info * dst_core, 
 					     struct apic_state * dst_apic, uint8_t mda) {
+
+    int ret = 0;
+
 
     if 	( ((mda & 0xf0) == (dst_apic->log_dst.dst_log_id & 0xf0)) &&  /* (I am in the cluster and */
 	  ((mda & 0x0f) & (dst_apic->log_dst.dst_log_id & 0x0f)) ) {  /*  I am in the set)        */
+	ret = 1;
+    } else {
+	ret = 0;
+    }
 
+
+    if (ret == 1) {
 	PrintDebug("apic %u core %u: accepting clustered IRQ (mda 0x%x == log_dst 0x%x)\n",
 		   dst_apic->lapic_id.val, dst_core->vcpu_id, mda, 
 		   dst_apic->log_dst.dst_log_id);
-	
-	return 1;
     } else {
 	PrintDebug("apic %u core %u: rejecting clustered IRQ (mda 0x%x != log_dst 0x%x)\n",
 		   dst_apic->lapic_id.val, dst_core->vcpu_id, mda, 
 		   dst_apic->log_dst.dst_log_id);
-	return 0;
     }
+
+    return ret;
+
 }
 
-static inline int should_deliver_flat_ipi(struct guest_info * dst_core,
+static inline int should_deliver_flat_ipi(struct apic_dev_state * apic_dev,
+					  struct guest_info * dst_core,
 					  struct apic_state * dst_apic, uint8_t mda) {
 
-    if (dst_apic->log_dst.dst_log_id & mda) {  // I am in the set 
+    int ret = 0;
 
+
+    if ((dst_apic->log_dst.dst_log_id & mda) != 0) {  // I am in the set 
+	ret = 1;
+    } else {
+	ret = 0;
+    }
+
+
+    if (ret == 1) {
 	PrintDebug("apic %u core %u: accepting flat IRQ (mda 0x%x == log_dst 0x%x)\n",
 		   dst_apic->lapic_id.val, dst_core->vcpu_id, mda, 
 		   dst_apic->log_dst.dst_log_id);
-
-	return 1;
-
-  } else {
-
+    } else {
 	PrintDebug("apic %u core %u: rejecting flat IRQ (mda 0x%x != log_dst 0x%x)\n",
 		   dst_apic->lapic_id.val, dst_core->vcpu_id, mda, 
 		   dst_apic->log_dst.dst_log_id);
-	return 0;
-  }
+    }
+
+
+    return ret;
 }
 
 
 
-static int should_deliver_ipi(struct guest_info * dst_core, 
+static int should_deliver_ipi(struct apic_dev_state * apic_dev, 
+			      struct guest_info * dst_core, 
 			      struct apic_state * dst_apic, uint8_t mda) {
+    addr_t flags = 0;
+    int ret = 0;
 
+    flags = v3_lock_irqsave(apic_dev->state_lock);
 
     if (dst_apic->dst_fmt.model == 0xf) {
 
 	if (mda == 0xff) {
 	    /* always deliver broadcast */
-	    return 1;
+	    ret = 1;
+	} else {
+	    ret = should_deliver_flat_ipi(apic_dev, dst_core, dst_apic, mda);
 	}
-
-	return should_deliver_flat_ipi(dst_core, dst_apic, mda);
-
     } else if (dst_apic->dst_fmt.model == 0x0) {
 
 	if (mda == 0xff) {
 	    /*  always deliver broadcast */
-	    return 1;
+	    ret = 1;
+	} else {
+	    ret = should_deliver_cluster_ipi(apic_dev, dst_core, dst_apic, mda);
 	}
 
-	return should_deliver_cluster_ipi(dst_core, dst_apic, mda);
-
     } else {
+	ret = -1;
+    }
+    
+    v3_unlock_irqrestore(apic_dev->state_lock, flags);
+
+
+    if (ret == -1) {
 	PrintError("apic %u core %u: invalid destination format register value 0x%x for logical mode delivery.\n", 
 		   dst_apic->lapic_id.val, dst_core->vcpu_id, dst_apic->dst_fmt.model);
-	return -1;
     }
+
+    return ret;
 }
+
+
 
 
 // Only the src_apic pointer is used
@@ -636,21 +690,17 @@ static int deliver_ipi(struct apic_state * src_apic,
 	    // lowest priority - 
 	    // caller needs to have decided which apic to deliver to!
 
-	    int do_xcall;
-
 	    PrintDebug("delivering IRQ %d to core %u\n", vector, dst_core->vcpu_id); 
 
-	    do_xcall = activate_apic_irq(dst_apic, vector);
+	    add_apic_irq_entry(dst_apic, vector);
 	    
-
-
+#ifdef V3_CONFIG_MULTITHREAD_OS
 	    if (dst_apic != src_apic) { 
 		PrintDebug(" non-local core with new interrupt, forcing it to exit now\n"); 
-
-#ifdef V3_CONFIG_MULTITHREAD_OS
 		v3_interrupt_cpu(dst_core->vm_info, dst_core->pcpu_id, 0);
-#endif
 	    }
+#endif
+
 
 	    break;
 	}
@@ -732,24 +782,29 @@ static int deliver_ipi(struct apic_state * src_apic,
     
 }
 
-static struct apic_state * find_physical_apic(struct apic_dev_state *apic_dev, struct int_cmd_reg *icr)
-{
+static struct apic_state * find_physical_apic(struct apic_dev_state * apic_dev, uint32_t dst_idx) {
+    struct apic_state * dst_apic = NULL;
+    addr_t flags;
     int i;
-    
-    if ( (icr->dst > 0) && (icr->dst < apic_dev->num_apics) ) { 
+
+    flags = v3_lock_irqsave(apic_dev->state_lock);
+
+    if ( (dst_idx > 0) && (dst_idx < apic_dev->num_apics) ) { 
 	// see if it simply is the core id
-	if (apic_dev->apics[icr->dst].lapic_id.val == icr->dst) { 
-	    return &(apic_dev->apics[icr->dst]);
+	if (apic_dev->apics[dst_idx].lapic_id.val == dst_idx) { 
+	     dst_apic = &(apic_dev->apics[dst_idx]);
 	}
     }
 
     for (i = 0; i < apic_dev->num_apics; i++) { 
-	if (apic_dev->apics[i].lapic_id.val == icr->dst) { 
-	    return &(apic_dev->apics[i]);
+	if (apic_dev->apics[i].lapic_id.val == dst_idx) { 
+	    dst_apic =  &(apic_dev->apics[i]);
 	}
     }
-    
-    return NULL;
+
+    v3_unlock_irqrestore(apic_dev->state_lock, flags);
+
+    return dst_apic;
 
 }
 
@@ -775,7 +830,7 @@ static int route_ipi(struct apic_dev_state * apic_dev,
 	case APIC_SHORTHAND_NONE:  // no shorthand
 	    if (icr->dst_mode == APIC_DEST_PHYSICAL) { 
 
-		dest_apic = find_physical_apic(apic_dev, icr);
+		dest_apic = find_physical_apic(apic_dev, icr->dst);
 		
 		if (dest_apic == NULL) { 
 		    PrintError("apic: Attempted send to unregistered apic id=%u\n", icr->dst);
@@ -807,7 +862,7 @@ static int route_ipi(struct apic_dev_state * apic_dev,
 			
 			dest_apic = &(apic_dev->apics[i]);
 			
-			del_flag = should_deliver_ipi(dest_apic->core, dest_apic, mda);
+			del_flag = should_deliver_ipi(apic_dev, dest_apic->core, dest_apic, mda);
 			
 			if (del_flag == -1) {
 
@@ -822,11 +877,11 @@ static int route_ipi(struct apic_dev_state * apic_dev,
 			    }
 			}
 		    }
-		} else {  //APIC_LOWEST_DELIVERY
-		    int i;
+		} else {  // APIC_LOWEST_DELIVERY
 		    struct apic_state * cur_best_apic = NULL;
 		    uint8_t mda = icr->dst;
-		   
+		    int i;
+
 		    // logical, lowest priority
 
 		    for (i = 0; i < apic_dev->num_apics; i++) { 
@@ -834,7 +889,7 @@ static int route_ipi(struct apic_dev_state * apic_dev,
 
 			dest_apic = &(apic_dev->apics[i]);
 			
-			del_flag = should_deliver_ipi(dest_apic->core, dest_apic, mda);
+			del_flag = should_deliver_ipi(apic_dev, dest_apic->core, dest_apic, mda);
 			
 			if (del_flag == -1) {
 			    PrintError("apic: Error checking delivery mode\n");
@@ -842,11 +897,18 @@ static int route_ipi(struct apic_dev_state * apic_dev,
 			    return -1;
 			} else if (del_flag == 1) {
 			    // update priority for lowest priority scan
+			    addr_t flags = 0;
+
+			    flags = v3_lock_irqsave(apic_dev->state_lock);
+
 			    if (cur_best_apic == 0) {
 				cur_best_apic = dest_apic;  
 			    } else if (dest_apic->task_prio.val < cur_best_apic->task_prio.val) {
 				cur_best_apic = dest_apic;
 			    } 
+
+			    v3_unlock_irqrestore(apic_dev->state_lock, flags);
+
 			}			
 		    }
 
@@ -1189,6 +1251,7 @@ static int apic_write(struct guest_info * core, addr_t guest_addr, void * src, u
     addr_t reg_addr  = guest_addr - apic->base_addr;
     struct apic_msr * msr = (struct apic_msr *)&(apic->base_addr_msr.value);
     uint32_t op_val = *(uint32_t *)src;
+    addr_t flags = 0;
 
     PrintDebug("apic %u: core %u: at %p and priv_data is at %p\n",
 	       apic->lapic_id.val, core->vcpu_id, apic, priv_data);
@@ -1258,10 +1321,14 @@ static int apic_write(struct guest_info * core, addr_t guest_addr, void * src, u
 	case LDR_OFFSET:
 	    PrintDebug("apic %u: core %u: setting log_dst.val to 0x%x\n",
 		       apic->lapic_id.val, core->vcpu_id, op_val);
+	    flags = v3_lock_irqsave(apic_dev->state_lock);
 	    apic->log_dst.val = op_val;
+	    v3_unlock_irqrestore(apic_dev->state_lock, flags);
 	    break;
 	case DFR_OFFSET:
+	    flags = v3_lock_irqsave(apic_dev->state_lock);
 	    apic->dst_fmt.val = op_val;
+	    v3_unlock_irqrestore(apic_dev->state_lock, flags);
 	    break;
 	case SPURIOUS_INT_VEC_OFFSET:
 	    apic->spurious_int.val = op_val;
@@ -1395,11 +1462,15 @@ static int apic_write(struct guest_info * core, addr_t guest_addr, void * src, u
 static int apic_intr_pending(struct guest_info * core, void * private_data) {
     struct apic_dev_state * apic_dev = (struct apic_dev_state *)(private_data);
     struct apic_state * apic = &(apic_dev->apics[core->vcpu_id]); 
+    int req_irq = 0;    
+    int svc_irq = 0;
 
-    // drain irq QUEUE
+    // Activate all queued IRQ entries
+    drain_irq_entries(apic);
 
-    int req_irq = get_highest_irr(apic);
-    int svc_irq = get_highest_isr(apic);
+    // Check for newly activated entries
+    req_irq = get_highest_irr(apic);
+    svc_irq = get_highest_isr(apic);
 
     //    PrintDebug("apic %u: core %u: req_irq=%d, svc_irq=%d\n",apic->lapic_id.val,info->vcpu_id,req_irq,svc_irq);
 
@@ -1454,25 +1525,16 @@ int v3_apic_raise_intr(struct v3_vm_info * vm, uint32_t irq, uint32_t dst, void 
     struct apic_dev_state * apic_dev = (struct apic_dev_state *)
 	(((struct vm_device*)dev_data)->private_data);
     struct apic_state * apic = &(apic_dev->apics[dst]); 
-    int do_xcall;
 
     PrintDebug("apic %u core ?: raising interrupt IRQ %u (dst = %u).\n", apic->lapic_id.val, irq, dst); 
 
-    do_xcall = activate_apic_irq(apic, irq);
+    add_apic_irq_entry(apic, irq);
 
-    if (do_xcall < 0) { 
-	PrintError("Failed to activate apic irq\n");
-	return -1;
-    }
-    
-    if (do_xcall > 0 && (V3_Get_CPU() != dst)) {
-#ifdef V3_CONFIG_MULTITHREAD_OS
+#ifdef V3_CONFIG_MULTITHREAD_OS   
+    if ((V3_Get_CPU() != dst)) {
 	v3_interrupt_cpu(vm, dst, 0);
-#else
-	V3_ASSERT(0);
-#endif
-
     }
+#endif
 
     return 0;
 }
@@ -1660,6 +1722,7 @@ static int apic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 						  sizeof(struct apic_state) * vm->num_cores);
 
     apic_dev->num_apics = vm->num_cores;
+    v3_lock_init(&(apic_dev->state_lock));
 
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, apic_dev);
 
