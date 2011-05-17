@@ -17,18 +17,11 @@
  
 #include <interfaces/vmm_packet.h>
 #include <palacios/vmm_host_events.h>
-#include <palacios/vmm_vnet.h>
-#include <palacios/vmm_ethernet.h>
-
-/* We should be able to use type define from Palacios header files */
-typedef unsigned char uchar_t;
-typedef unsigned int uint_t;
-typedef unsigned long long ullong_t;
-typedef unsigned long ulong_t;
-typedef ulong_t addr_t;
+#include <vnet/vnet.h>
 
 #define __V3VEE__
 #include <palacios/vmm_hashtable.h>
+#include <palacios/vmm_ethernet.h>
 #undef __V3VEE__
 
 #include "palacios.h"
@@ -147,14 +140,11 @@ palacios_packet_send(const char * pkt, unsigned int len, void * private_data) {
     size = sock_sendmsg(packet_state.raw_sock, &msg, len);
     set_fs(oldfs);
 
-#if 1
-    {
-    	printk("Palacios Packet: send pkt to NIC (size: %d)\n", 
-			len);
+    if(vnet_debug >= 4){
+	printk("Palacios Packet: send pkt to NIC (size: %d)\n", len);
 	print_hex_dump(NULL, "pkt_header: ", 0, 20, 20, pkt, 20, 0);
 	printk("palacios_packet_send return: %d\n", size);
     }
-#endif
 
     return size;
 }
@@ -228,13 +218,10 @@ static int packet_server(void * arg) {
 	    break;
 	}
 
-#if 1
-    {
-    	printk("Palacios Packet: receive pkt from NIC (size: %d)\n", 
-			size);
-	print_hex_dump(NULL, "pkt_header: ", 0, 10, 10, pkt, 20, 0);
-    }
-#endif
+	if(vnet_debug >= 4){
+	    printk("Palacios Packet: receive pkt from NIC (size: %d)\n",size);
+	    print_hex_dump(NULL, "pkt_header: ", 0, 10, 10, pkt, 20, 0);
+	}
 
 	/* if VNET is enabled, send to VNET */
 	// ...
@@ -244,7 +231,7 @@ static int packet_server(void * arg) {
 	// ...
 
 
-       vm = (struct v3_vm_info *)v3_htable_search(packet_state.mac_vm_cache, (addr_t)pkt);
+	vm = (struct v3_vm_info *)v3_htable_search(packet_state.mac_vm_cache, (addr_t)pkt);
 	if(vm != NULL){
 	    printk("Find destinated VM 0x%p\n", vm);
    	    send_raw_packet_to_palacios(pkt, size, vm);

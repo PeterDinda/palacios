@@ -33,10 +33,6 @@
 #include <palacios/vmx.h>
 #endif
 
-#ifdef V3_CONFIG_VNET
-#include <vnet/vnet.h>
-#endif
-
 
 v3_cpu_arch_t v3_cpu_types[V3_CONFIG_MAX_CPUS];
 struct v3_os_hooks * os_hooks = NULL;
@@ -123,10 +119,6 @@ void Init_V3(struct v3_os_hooks * hooks, int num_cpus) {
 #endif
 
 
-#ifdef V3_CONFIG_VNET
-    v3_init_vnet();
-#endif
-
 
 #ifdef V3_CONFIG_MULTITHREAD_OS
     if ((hooks) && (hooks->call_on_cpu)) {
@@ -156,10 +148,6 @@ void Shutdown_V3() {
     V3_deinit_symmod();
 #endif
 
-
-#ifdef V3_CONFIG_VNET
-    v3_deinit_vnet();
-#endif
 
 #ifdef V3_CONFIG_MULTITHREAD_OS
     if ((os_hooks) && (os_hooks->call_on_cpu)) {

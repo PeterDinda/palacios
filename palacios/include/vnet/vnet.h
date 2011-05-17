@@ -1,3 +1,4 @@
+
 /* 
  * This file is part of the Palacios Virtual Machine Monitor developed
  * by the V3VEE Project with funding from the United States National 
@@ -19,12 +20,13 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#ifndef __VNET_CORE_H__
-#define __VNET_CORE_H__
+#ifndef __VNET_H__
+#define __VNET_H__
 
-#include <palacios/vmm.h>
 #include <palacios/vmm_ethernet.h>
-#include <vnet/vnet_host_interface.h>
+#include <vnet/vnet_base.h>
+#include <vnet/vnet_host.h>
+#include <vnet/vnet_vmm.h>
 
 #define MAC_NOSET 	0
 #define MAC_ANY 	11
@@ -38,8 +40,6 @@
 #define LINK_ANY 	13
 
 #define VNET_HASH_SIZE 	17
-
-extern int v3_vnet_debug;
 
 struct v3_vnet_route {
     uint8_t src_mac[ETH_ALEN];
@@ -88,19 +88,19 @@ struct vnet_stat{
 
 struct v3_vnet_bridge_ops {
     int (*input)(struct v3_vm_info * vm, 
-		struct v3_vnet_pkt * pkt,
-		void * private_data);
+		 struct v3_vnet_pkt * pkt,
+		 void * private_data);
     void (*poll)(struct v3_vm_info * vm,  
-		void * private_data);
+		 void * private_data);
 };
 
 #define HOST_LNX_BRIDGE 1
 #define CTL_VM_BRIDGE 	2
 
 int v3_vnet_add_bridge(struct v3_vm_info * vm,
-		struct v3_vnet_bridge_ops * ops,
-		uint8_t type,
-		void * priv_data);
+		       struct v3_vnet_bridge_ops * ops,
+		       uint8_t type,
+		       void * priv_data);
 int v3_vnet_add_route(struct v3_vnet_route route);
 int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data, int synchronize);
 int v3_vnet_find_dev(uint8_t  * mac);
@@ -110,8 +110,8 @@ int v3_vnet_stat(struct vnet_stat * stats);
 
 struct v3_vnet_dev_ops {
     int (*input)(struct v3_vm_info * vm, 
-		struct v3_vnet_pkt * pkt, 
-		void * dev_data);
+		 struct v3_vnet_pkt * pkt, 
+		 void * dev_data);
 };
 
 int v3_init_vnet(void);	

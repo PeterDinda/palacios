@@ -199,7 +199,7 @@ static int tx_one_pkt(struct guest_info * core,
     }
 
     V3_Net_Print(2, "Virtio-NIC: virtio_tx: size: %d\n", len);
-    if(v3_net_debug >= 4){
+    if(vnet_debug >= 4){
 	v3_hexdump(buf, len, NULL, 0);
     }
 
@@ -561,7 +561,7 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
     unsigned long flags;
 
     V3_Net_Print(2, "Virtio-NIC: virtio_rx: size: %d\n", size);
-    if(v3_net_debug >= 4){
+    if(vnet_debug >= 4){
 	v3_hexdump(buf, size, NULL, 0);
     }
 
@@ -660,7 +660,7 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
  	/* kick guest to refill the queue */
 	virtio->virtio_cfg.pci_isr = 0x1;	
 	v3_pci_raise_irq(virtio->virtio_dev->pci_bus, 0, virtio->pci_dev);
-	v3_interrupt_cpu(virtio->virtio_dev->vm, virtio->virtio_dev->vm->cores[0].cpu_id, 0);
+	v3_interrupt_cpu(virtio->virtio_dev->vm, virtio->virtio_dev->vm->cores[0].pcpu_id, 0);
 	virtio->stats.rx_interrupts ++;
 	
 	goto err_exit;
@@ -679,8 +679,8 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
 
     /* notify guest if it is in guest mode */
     if(virtio->rx_notify == 1 && 
-	V3_Get_CPU() != virtio->virtio_dev->vm->cores[0].cpu_id){
-	v3_interrupt_cpu(virtio->virtio_dev->vm, virtio->virtio_dev->vm->cores[0].cpu_id, 0);
+	V3_Get_CPU() != virtio->virtio_dev->vm->cores[0].pcpu_id){
+	v3_interrupt_cpu(virtio->virtio_dev->vm, virtio->virtio_dev->vm->cores[0].pcpu_id, 0);
     }
 
     return 0;
@@ -725,7 +725,7 @@ static int virtio_tx_flush(void * args){
     	    handle_pkt_tx(&(virtio->vm->cores[0]), virtio);
 	    v3_yield(NULL);
     	}else {
-	    vnet_thread_sleep(0);
+	    vnet_thread_sleep(-1);
     	}
     }
 
@@ -894,7 +894,7 @@ static int connect_fn(struct v3_vm_info * info,
     ops->frontend_data = net_state;
     memcpy(ops->fnt_mac, virtio->mac, ETH_ALEN);
 
-    net_state->poll_thread = vnet_thread_create(virtio_tx_flush, (void *)net_state, "Virtio_Poll");
+    net_state->poll_thread = vnet_start_thread(virtio_tx_flush, (void *)net_state, "Virtio_Poll");
 
     return 0;
 }
