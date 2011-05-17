@@ -72,7 +72,7 @@ struct v3_guest {
     struct palacios_console console;
 #endif
 
-#ifdef V3_CONFIG_CONSOLE
+#ifdef V3_CONFIG_GRAPHICS_CONSOLE
     struct palacios_graphics_console graphics_console;
 #endif
 
