@@ -266,11 +266,13 @@ static int host_dev_release(struct inode * i, struct file * filp)
     return 0;
 }
 
+
 static int host_dev_ioctl(struct inode *ip, struct file *fp, unsigned int val, unsigned long arg)
 {
     void __user *argp = (void __user *)arg;
 
     struct palacios_host_device_user *dev = fp->private_data;
+
 
     if (!dev->connected) { 
 	return -EFAULT;
@@ -381,7 +383,7 @@ static int host_dev_ioctl(struct inode *ip, struct file *fp, unsigned int val, u
 	    }
 	    
 	    spin_unlock_irqrestore(&(dev->lock),f);
-	    
+
 	    return 1; // have request for you
 	    
 	}
@@ -460,6 +462,8 @@ static int host_dev_ioctl(struct inode *ip, struct file *fp, unsigned int val, u
     }
     
 }
+
+
 
 
 static struct file_operations host_dev_fops = {
@@ -846,7 +850,7 @@ static uint64_t palacios_host_dev_write_io(v3_host_dev_t hostdev,
 	spin_unlock_irqrestore(&(dev->lock),f);
 	return 0;
     }
-    
+
     // resize request and response in case they will need it
     palacios_resize_reqresp(&(dev->req),len,0); // make room for data
 

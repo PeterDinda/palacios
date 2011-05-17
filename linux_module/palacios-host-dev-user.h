@@ -7,32 +7,32 @@
  */
 
 
-#define V3_VM_HOST_DEV_CONNECT 512+1
+#define V3_VM_HOST_DEV_CONNECT (10244+1)
 
 /* to detemine whether a host request is available, poll the fd for read */
 
 /* make a request for reading/writing guest or injecting irq */
 /* the arguemnt is a pointer to a palacios_host_dev_user_op struct */
 /* return is negative on error, positive to indicate bytes read/written or irq injected*/
-#define V3_HOST_DEV_USER_REQUEST_PUSH_IOCTL  1
+#define V3_HOST_DEV_USER_REQUEST_PUSH_IOCTL  (10244+2)
 
 /* find out the size of the current host request, if one is pending */
 /* you find out if one is pending by read poll/select on the fd */
 /* the argument is a pointer to a uint64_t that will give the total size */
 /* ioctl returns 1 if a request is ready, 0 if there is no request */
 /* -EFAULT if there is a an error */
-#define V3_HOST_DEV_HOST_REQUEST_SIZE_IOCTL  2
+#define V3_HOST_DEV_HOST_REQUEST_SIZE_IOCTL  (10244+3)
 
 /* get the current host request, if one is available */
 /* the argument is a pointer to a palacios_host_dev_host_request_response */
 /* of the needed size */
 /* ioctl returns 1 if a request is ready+copied, 0 if there is no request */
 /* -EFAULT if there is a an error */
-#define V3_HOST_DEV_HOST_REQUEST_PULL_IOCTL  3
+#define V3_HOST_DEV_HOST_REQUEST_PULL_IOCTL  (10244+4)
 
 /* write back the response to the previously pulled host request */
 /* the argument is a pointer to a palacios_host_dev_host_request_response */
-#define V3_HOST_DEV_USER_RESPONSE_PUSH_IOCTL 4
+#define V3_HOST_DEV_USER_RESPONSE_PUSH_IOCTL (10244+5)
 
 
 #ifdef __KERNEL__
