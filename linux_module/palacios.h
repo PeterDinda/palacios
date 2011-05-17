@@ -29,10 +29,10 @@
 #define V3_VM_STREAM_CONNECT 21
 #define V3_VM_STOP 22
 
-#define V3_VM_FB_INPUT 256+1
-#define V3_VM_FB_QUERY 256+2
+#define V3_VM_FB_INPUT (256+1)
+#define V3_VM_FB_QUERY (256+2)
 
-#define V3_VM_HOST_DEV_CONNECT 512+1
+#define V3_VM_HOST_DEV_CONNECT (10244+1)
 
 
 struct v3_guest_img {
