@@ -41,6 +41,13 @@ struct v3_irq_hook {
     void * priv_data;
 };
 
+// KCH
+struct v3_swintr_hook {
+    int (*handler)(struct guest_info * core, uint8_t vector, void * priv_data);
+    void * priv_data;
+};
+
+
 #define MAX_IRQ 256
 
 
@@ -58,9 +65,10 @@ struct v3_intr_core_state {
     uint_t irq_started;
     uint_t irq_vector;
 
-    // KCH
-    uint_t sw_intr_pending;
-    uint_t sw_intr_vector;
+    // KCH: for injecting SW Interrupts
+    uint_t swintr_posted;
+    uint_t swintr_vector;
+    struct v3_swintr_hook * swintr_hooks[256];
 
     uint8_t virq_map[MAX_IRQ / 8];
 
@@ -83,7 +91,6 @@ int v3_lower_virq(struct guest_info * info, int irq);
 int v3_raise_irq(struct v3_vm_info * vm, int irq);
 int v3_lower_irq(struct v3_vm_info * vm, int irq);
 
-int v3_signal_sw_intr(struct guest_info * core, int vec);
 
 
 struct intr_ctrl_ops {
@@ -98,7 +105,6 @@ struct intr_router_ops {
 };
 
 void v3_clear_pending_intr(struct guest_info * core);
-
 
 void * v3_register_intr_controller(struct guest_info * info, struct intr_ctrl_ops * ops, void * priv_data);
 void * v3_register_intr_router(struct v3_vm_info * vm, struct intr_router_ops * ops, void * priv_data);
@@ -118,7 +124,6 @@ int v3_injecting_intr(struct guest_info * info, uint_t intr_num, v3_intr_type_t 
 */
 
 
-
 int v3_hook_irq(struct v3_vm_info * vm, 
 		uint_t irq,
 		int (*handler)(struct v3_vm_info * vm, struct v3_interrupt * intr, void * priv_data),
@@ -127,6 +132,16 @@ int v3_hook_irq(struct v3_vm_info * vm,
 int v3_hook_passthrough_irq(struct v3_vm_info * vm, uint_t irq);
 
 
+int v3_hook_swintr(struct guest_info * core,
+        uint8_t vector,
+        int (*handler)(struct guest_info * core, uint8_t vector, void * priv_data),
+        void * priv_data);
+
+int v3_hook_passthrough_swintr(struct guest_info * core, uint8_t vector);
+
+
+int v3_signal_swintr(struct guest_info * core, int vec);
+int v3_handle_swintr(struct guest_info * core);
 
 #endif // !__V3VEE__
 

@@ -31,6 +31,10 @@
 #include <palacios/vmm_xed.h>
 #include <palacios/vmm_direct_paging.h>
 
+#ifdef CONFIG_SYSCALL_HIJACK
+#include <palacios/vmm_syscall_hijack.h>
+#endif
+
 
 
 v3_cpu_mode_t v3_get_vm_cpu_mode(struct guest_info * info) {
@@ -677,6 +681,16 @@ int v3_init_core(struct guest_info * core) {
 #ifdef CONFIG_SYMBIOTIC
     v3_init_symbiotic_core(core);
 #endif
+
+/* KCH: Hook INT 80
+      not sure about this location though...*/
+#ifdef CONFIG_SYSCALL_HIJACK
+    v3_hook_swintr(core, 0x80, v3_syscall_handler, NULL);
+    /* hook a poll syscall */
+    //v3_hook_syscall(core, 5, v3_sysopen_handler, NULL);
+    //v3_hook_syscall(core, 21, v3_sysmount_handler, NULL);
+    v3_hook_syscall(core, 11, v3_sysexecve_handler, NULL);
+#endif  
 
     // init SVM/VMX
 

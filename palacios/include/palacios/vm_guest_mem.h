@@ -99,6 +99,9 @@ int v3_hva_to_gva(struct guest_info * guest_info, addr_t host_va, addr_t  * gues
 
 
 
+// KCH
+// Check if pte for this gva has certain permissions
+int v3_gva_can_access(struct guest_info * core, addr_t gva);
 
 
 

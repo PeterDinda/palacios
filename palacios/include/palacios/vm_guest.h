@@ -50,6 +50,10 @@
 struct v3_sym_core_state;
 #endif
 
+#ifdef CONFIG_SYSCALL_HIJACK
+#include <palacios/vmm_syscall_hijack.h>
+#endif
+
 
 
 #include <palacios/vmm_config.h>
@@ -89,6 +93,11 @@ struct guest_info {
 
     /* This structure is how we get exceptions for the guest */
     struct v3_excp_state excp_state;
+
+#ifdef CONFIG_SYSCALL_HIJACK
+    struct v3_syscall_hook_map sc_hook_map;
+    struct v3_execve_varchunk var_dump;
+#endif
 
 
     v3_cpu_mode_t cpu_mode;

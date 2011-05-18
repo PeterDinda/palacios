@@ -135,9 +135,8 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
     ctrl_area->instrs.PAUSE = 1;
     ctrl_area->instrs.shutdown_evts = 1;
 
-    /* KCH: intercept writes to IDTR and SW Interrupts (INT) */
-#ifdef CONFIG_SYSCALL_HIJACK
-    ctrl_area->instrs.WR_IDTR = 0;
+    /* KCH: intercept SW Interrupts (INT instr) */
+#ifdef CONFIG_SW_INTERRUPTS
     ctrl_area->instrs.INTn = 1;
 #endif
 
@@ -230,7 +229,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
 		core);
 
 #ifdef CONFIG_HIJACK_MSR
-    /* KCH: for syscall interposition */
+    /* KCH: for syscall hijacking */
     v3_hook_msr(core->vm_info, STAR_MSR,
         &v3_handle_star_read,
         &v3_handle_star_write,
@@ -445,15 +444,20 @@ static int update_irq_entry_state(struct guest_info * info) {
 		guest_ctrl->EVENTINJ.type = SVM_INJECTION_NMI;
 		break;
 	    case V3_SOFTWARE_INTR: {
-            PrintDebug("KCH: Caught an injected software interrupt\n");
-            PrintDebug("\ttype: %d, vector: %d\n", SVM_INJECTION_SOFT_INTR, info->intr_core_state.sw_intr_vector);
+#ifdef CONFIG_DEBUG_INTERRUPTS
+            PrintDebug("Caught an injected software interrupt\n");
+            PrintDebug("\ttype: %d, vector: %d\n", SVM_INJECTION_SOFT_INTR, info->intr_core_state.swintr_vector);
+#endif
             guest_ctrl->EVENTINJ.type = SVM_INJECTION_SOFT_INTR;
-            guest_ctrl->EVENTINJ.vector = info->intr_core_state.sw_intr_vector;
+            guest_ctrl->EVENTINJ.vector = info->intr_core_state.swintr_vector;
             guest_ctrl->EVENTINJ.valid = 1;
             
-            // clear out stuff?
-            info->intr_core_state.sw_intr_pending = 0;
-            info->intr_core_state.sw_intr_vector = 0;
+            /* reset the software interrupt state. 
+                we can do this because we know only one
+                sw int can be posted at a time on a given 
+                core, unlike irqs */
+            info->intr_core_state.swintr_posted = 0;
+            info->intr_core_state.swintr_vector = 0;
             break;
         }
 	    case V3_VIRTUAL_IRQ:

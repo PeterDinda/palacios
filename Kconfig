@@ -178,14 +178,41 @@ config INSPECTOR
 	help 
 	  Enable inspection framework for vm internal state
 
-config SYSCALL_HIJACK
-    bool "Enable System Call Interposition"
+config SW_INTERRUPTS
+    bool "Enable interception and hooking of software interrupts"
     depends on EXPERIMENTAL
     default n
     help
+      This feature will cause the VMM to intercept the execution
+      of software interrupts (i.e. the INTn instruction) and enable
+      any INT vector to be hooked
+
+config SWINTR_PASSTHROUGH
+    bool "Hook all unhandled sofware interrupts for passthrough"
+    depends on SW_INTERRUPTS
+    default n
+    help
+      If enabled, this will cause all software interrupts 
+      (INT instruction vectors) to be hooked for passthrough.
+      May reduce performance but useful for debugging.
+
+config SYSCALL_HIJACK
+    bool "Enable System Call Hijacking"
+    depends on SW_INTERRUPTS
+    default n
+    help
       Enable the VMM to hijack system calls executed by the guest.
-      If enabled, the VMM will intercept software interrupt (INT) instructions,
-      Fast-System Call instructions (SYSENTER, SYSCALL), and the LIDT instruction
+      If enabled, the VMM will hook execution of INT 80
+      (support for Fast-System Calls coming soon)
+
+config SYSCALL_PASSTHROUGH
+    bool "Hook all unhandled system calls for passthrough"
+    depends on SYSCALL_HIJACK
+    default n
+    help
+      If enabled, this option will cause all system calls
+      that are not explicitly hooked to be hooked for 
+      passthrough. This is useful for debugging.
 
 config HIJACK_SYSCALL_MSR
     bool "Intercept Syscall-related MSR reads & writes"
@@ -427,12 +454,13 @@ config DEBUG_VNET
           Enable the Vnet debug in Palacios
 
 config DEBUG_SYSCALL_HIJACK
-        bool "Enable Syscall hijack Debug in Palacios"
+        bool "Enable Syscall Hijack Debug in Palacios"
         default n
-        depends on EXPERIMENTAL && SYSCALL_HIJACK && DEBUG_ON
+        depends on DEBUG_ON && SYSCALL_HIJACK
         help
           Enable Debugging printouts for syscall hijacking
           code in Palacios
+
 
 endmenu
 

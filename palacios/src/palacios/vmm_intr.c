@@ -25,6 +25,8 @@
 #include <palacios/vmm_ctrl_regs.h>
 
 #include <palacios/vmm_lock.h>
+#include <palacios/vm_guest_mem.h>
+#include <palacios/vmm_decoder.h>
 
 #ifndef CONFIG_DEBUG_INTERRUPTS
 #undef PrintDebug
@@ -167,7 +169,7 @@ void v3_remove_intr_router(struct v3_vm_info * vm, void * handle) {
 
 
 static inline struct v3_irq_hook * get_irq_hook(struct v3_vm_info * vm, uint_t irq) {
-    V3_ASSERT(irq <= 256);
+    V3_ASSERT(irq <= 255);
     return vm->intr_routers.hooks[irq];
 }
 
@@ -294,14 +296,138 @@ int v3_raise_irq(struct v3_vm_info * vm, int irq) {
 }
 
 
-int v3_signal_sw_intr(struct guest_info * core, int vec) {
+int v3_signal_swintr(struct guest_info * core, int vector) {
     struct v3_intr_core_state * intr_state = &(core->intr_core_state);
 
-    PrintDebug("KCH: Signalling a software interrupt in vmm_intr.c\n");
-    PrintDebug("\tINT vector: %d\n", vec);
+    PrintDebug("Signaling software interrupt in vmm_intr.c\n");
+    PrintDebug("\tINT vector: %d\n", vector);
     
-    intr_state->sw_intr_pending = 1;
-    intr_state->sw_intr_vector = vec;
+    intr_state->swintr_posted = 1;
+    intr_state->swintr_vector = vector;
+    return 0;
+}
+
+
+int v3_handle_swintr(struct guest_info * core) {
+
+    int ret = 0;
+    void * instr_ptr = NULL;
+    struct x86_instr instr;
+
+    if (core->mem_mode == PHYSICAL_MEM) { 
+        ret = v3_gpa_to_hva(core, get_addr_linear(core, core->rip, &(core->segments.cs)), (addr_t *)&instr_ptr);
+    } else { 
+        ret = v3_gva_to_hva(core, get_addr_linear(core, core->rip, &(core->segments.cs)), (addr_t *)&instr_ptr);
+    }
+    
+    if (ret == -1) {
+        PrintError("V3 Syscall Hijack: Could not translate Instruction Address (%p)\n", (void *)core->rip);
+        return -1;
+    }
+
+    if (v3_decode(core, (addr_t)instr_ptr, &instr) == -1) {
+        PrintError("V3 Syscall Hijack: Decoding Error\n");
+        return -1;
+    }
+
+    uint8_t vector = instr.dst_operand.operand;
+
+    //PrintDebug("KCH: SWINT\n");
+    //PrintDebug("KCH: Data - %x\n",*((uint32_t*)instr_ptr));
+    //PrintDebug("\t RIP: %llx CS: %x\n", core->rip, core->segments.cs.selector);
+    //PrintDebug("KCH: Disassembling\n\t");
+    //addr_t rip = (addr_t) core->rip;
+    //v3_disasm(core, instr_ptr, &rip, 1); 
+    
+    //v3_print_instr(&instr);
+    // only consider system calls
+
+    /*
+    if (vector == 0x80) {
+        print_syscall(0, core);
+    }
+    */
+
+    struct v3_swintr_hook * hook = core->intr_core_state.swintr_hooks[vector];
+    if (hook == NULL) {
+#ifdef CONFIG_SWINTR_PASSTHROUGH
+        if (v3_hook_passthrough_swintr(core, vector) == -1) {
+            PrintDebug("Error hooking passthrough swintr\n");
+            return -1;
+        }
+        hook = core->intr_core_state.swintr_hooks[vector];
+#else
+        core->rip += instr.instr_length;
+        return v3_signal_swintr(core, vector);
+#endif
+    }
+
+    ret = hook->handler(core, vector, NULL);
+    if (ret == -1) {
+        PrintDebug("V3 SWINT Handler: Error in swint hook\n");
+        return -1;
+    }
+
+    /* make software interrupts prioritized so they finish in time for the next
+        instruction?? */
+    core->rip += instr.instr_length;
+    return v3_signal_swintr(core, vector);
+}
+
+
+static inline struct v3_swintr_hook * get_swintr_hook(struct guest_info * core, uint8_t vector) {
+    return core->intr_core_state.swintr_hooks[vector];
+}
+
+
+int v3_hook_swintr(struct guest_info * core,
+        uint8_t vector,
+        int (*handler)(struct guest_info * core, uint8_t vector, void * priv_data),
+        void * priv_data) 
+{
+
+    struct v3_swintr_hook * hook = (struct v3_swintr_hook *)V3_Malloc(sizeof(struct v3_swintr_hook));
+
+    if (hook == NULL) { 
+        return -1; 
+    }
+
+    if (get_swintr_hook(core, vector) != NULL) {
+        PrintError("SWINT %d already hooked\n", vector);
+        return -1;
+    }
+
+    hook->handler = handler;
+    hook->priv_data = priv_data;
+  
+    core->intr_core_state.swintr_hooks[vector] = hook;
+
+    return 0;
+}
+    
+
+static int passthrough_swintr_handler(struct guest_info * core, uint8_t vector, void * priv_data) {
+
+    PrintDebug("[passthrough_swint_handler] INT vector=%d (guest=0x%p)\n", 
+	       vector, (void *)core);
+
+    return 0;
+}
+
+
+int v3_hook_passthrough_swintr(struct guest_info * core, uint8_t vector) {
+
+    int rc = v3_hook_swintr(core, vector, passthrough_swintr_handler, NULL);
+
+    if (rc) { 
+        PrintError("guest_swintr_injection: failed to hook swint 0x%x (guest=0x%p)\n", vector, (void *)core);
+        return -1;
+    } else {
+        PrintDebug("guest_swintr_injection: hooked swint 0x%x (guest=0x%p)\n", vector, (void *)core);
+        return 0;
+    }
+
+    /* shouldn't get here */
     return 0;
 }
 
@@ -339,12 +465,11 @@ v3_intr_type_t v3_intr_pending(struct guest_info * info) {
 	}
     }
 
-    // KCH: not sure about this
-    if (intr_state->sw_intr_pending == 1) {
+    // KCH
+    if (intr_state->swintr_posted == 1) {
         ret = V3_SOFTWARE_INTR;
     }
         
-
     v3_unlock_irqrestore(intr_state->irq_lock, irq_state);
 
     return ret;
