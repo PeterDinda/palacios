@@ -61,7 +61,7 @@ static int register_vm( void ) {
     for (i = 0; i < sizeof(v3_minor_map); i++) {
 	if (v3_minor_map[i] != 0xff) {
 	    for (j = 0; j < 8; j++) {
-		if (!v3_minor_map[i] & (0x1 << j)) {
+		if (!(v3_minor_map[i] & (0x1 << j))) {
 		    avail = 1;
 		    v3_minor_map[i] |= (0x1 << j);
 		    break;
@@ -121,7 +121,7 @@ static long v3_dev_ioctl(struct file * filp,
 	    guest->img_size = user_image.size;
 
 	    printk("Allocating kernel memory for guest image (%llu bytes)\n", user_image.size);
-	    guest->img = kmalloc(guest->img_size, GFP_KERNEL);
+	    guest->img = vmalloc(guest->img_size);
 
 	    if (IS_ERR(guest->img)) {
 		printk("Error: Could not allocate space for guest image\n");
