@@ -54,8 +54,8 @@
  */
 typedef enum {NOT_RUNNING, PENDING, RUNNING} channel_run_state_t;
 typedef enum {NOT_WAITING, WAITING_LOBYTE, WAITING_HIBYTE} channel_access_state_t;
-typedef enum {LATCH_COUNT, LOBYTE_ONLY, HIBYTE_ONLY, LOBYTE_HIBYTE} channel_access_mode_t;
-typedef enum {IRQ_ON_TERM_CNT, ONE_SHOT, RATE_GEN, SQR_WAVE, SW_STROBE, HW_STROBE} channel_op_mode_t;
+typedef enum {LATCH_COUNT = 0, LOBYTE_ONLY = 1, HIBYTE_ONLY = 2, LOBYTE_HIBYTE = 3} channel_access_mode_t;
+typedef enum {IRQ_ON_TERM_CNT = 0, ONE_SHOT = 1, RATE_GEN = 2, SQR_WAVE = 3, SW_STROBE = 4, HW_STROBE = 5} channel_op_mode_t;
 
 
 struct channel {
@@ -430,10 +430,12 @@ static int handle_speaker_write(uint8_t *speaker, struct channel * ch, char val)
 }
 
 static int handle_channel_cmd(struct channel * ch, struct pit_cmd_word cmd) {
-    ch->op_mode = cmd.op_mode;
+
     ch->access_mode = cmd.access_mode;
 
-
+    if (ch->access_mode != 0) {
+	ch->op_mode = cmd.op_mode;
+    }
 
 
     switch (cmd.access_mode) {
