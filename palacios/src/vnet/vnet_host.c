@@ -70,3 +70,8 @@ void init_vnet(struct vnet_host_hooks * hooks){
 }
 
 
+void deinit_vnet(){
+    host_hooks = NULL;
+    v3_deinit_vnet();
+}
+

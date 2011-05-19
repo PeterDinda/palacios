@@ -352,6 +352,18 @@ static void __exit v3_exit(void) {
     palacios_deinit_stream();
 #endif
 
+#ifdef V3_CONFIG_SOCKET
+    palacios_socket_deinit();
+#endif
+
+#ifdef V3_CONFIG_PACKET
+    palacios_deinit_packet(NULL);
+#endif
+
+#ifdef V3_CONFIG_VNET
+    palacios_vnet_deinit();
+#endif
+
     palacios_deinit_mm();
 
     printk("Palacios Module Mallocs = %d, Frees = %d\n", mod_allocs, mod_frees);

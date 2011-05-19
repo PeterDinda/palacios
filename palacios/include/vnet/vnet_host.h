@@ -265,6 +265,7 @@ static inline void vnet_unlock_irqrestore(vnet_lock_t lock, addr_t irq_state) {
 
 
 void init_vnet(struct vnet_host_hooks * hooks);
+void deinit_vnet(void);
 
 
 #endif

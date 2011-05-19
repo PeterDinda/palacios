@@ -285,3 +285,12 @@ int palacios_vnet_init( void ) {
         
     return 0;
 }
+
+
+void palacios_vnet_deinit( void ) {
+    deinit_vnet();
+
+    palacios_deinit_vnet_bridge();
+    printk("V3 VNET Deinited\n");
+}
+

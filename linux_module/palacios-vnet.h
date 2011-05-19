@@ -9,5 +9,8 @@
 int  palacios_vnet_init(void);
 int  palacios_init_vnet_bridge(void);
 
+void palacios_vnet_deinit(void);
+void palacios_deinit_vnet_bridge(void);
+
 #endif
 

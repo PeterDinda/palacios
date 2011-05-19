@@ -27,7 +27,7 @@
 struct palacios_vnet_route {
     struct v3_vnet_route route;
 
-    int route_idx;
+    int idx;
 
     struct list_head node;
 };
@@ -45,7 +45,7 @@ struct vnet_link {
     unsigned int pkt_rx, pkt_tx;
     uint64_t bytes_rx, bytes_tx;
 
-    int link_idx;
+    int idx;
 
     struct list_head node;
 };
@@ -53,7 +53,9 @@ struct vnet_link {
 
 struct palacios_vnet_state {
     uint32_t num_routes;
-    uint32_t num_links; 
+    uint32_t num_links;
+    uint32_t route_idx;
+    uint32_t link_idx;
 
     uint8_t status;
 
@@ -70,6 +72,8 @@ struct palacios_vnet_state {
 
     /* Socket Receiving Thread */
     struct task_struct * serv_thread;
+
+    struct proc_dir_entry * vnet_proc_root;
 
     unsigned int pkt_from_vmm, pkt_to_vmm, pkt_drop_vmm;
     unsigned int pkt_from_phy, pkt_to_phy, pkt_drop_phy;
@@ -88,7 +92,7 @@ static inline struct vnet_link * link_by_idx(int idx) {
 
     list_for_each_entry(link, &(vnet_state.link_list), node) {
 
-	if (link->link_idx == idx) {
+	if (link->idx == idx) {
 	    return link;
 	}
     }
@@ -100,7 +104,7 @@ static inline struct palacios_vnet_route * route_by_idx(int idx) {
 
     list_for_each_entry(route, &(vnet_state.route_list), node) {
 
-	if (route->route_idx == idx) {
+	if (route->idx == idx) {
 	    return route;
 	}
     }
@@ -241,13 +245,13 @@ static int parse_route_str(char * str, struct v3_vnet_route * route) {
 
 	link = link_by_ip(link_ip);
 	if (link != NULL){
-	    route->dst_id = link->link_idx;
+	    route->dst_id = link->idx;
 	}else{
 	    printk("can not find dst link %s\n", token);
 	    return -1;
 	}
 
-	printk("link_ip = %d, link_id = %d\n", link_ip, link->link_idx);	
+	printk("link_ip = %d, link_id = %d\n", link_ip, link->idx);	
     } else if (route->dst_type == LINK_INTERFACE) {
 	uint8_t mac[ETH_ALEN];
 	
@@ -308,7 +312,7 @@ static int parse_route_str(char * str, struct v3_vnet_route * route) {
 
 	link = link_by_ip(src_ip);
 	if (link != NULL){
-	    route->src_id = link->link_idx;
+	    route->src_id = link->idx;
 	}else{
 	    printk("can not find src link %s\n", token);
 	    return -1;
@@ -429,7 +433,7 @@ static int route_seq_show(struct seq_file * s, void * v) {
     struct palacios_vnet_route * route_iter = v;
     struct v3_vnet_route * route = &(route_iter->route);
 
-    seq_printf(s, "%d:\t", route_iter->route_idx);
+    seq_printf(s, "%d:\t", route_iter->idx);
 
     seq_printf(s, "\nSrc:\t");
     switch (route->src_mac_qual) {
@@ -518,7 +522,7 @@ static int link_seq_show(struct seq_file * s, void * v) {
     struct vnet_link * link_iter = v;
 
     seq_printf(s, "%d:\t%pI4\t%d\n\t\tReceived Pkts: %d, Received Bytes %lld\n\t\tSent Pkts: %d, Sent Bytes: %lld\n\n", 
-	       link_iter->link_idx,
+	       link_iter->idx,
 	       &link_iter->dst_ip,
 	       link_iter->dst_port,
 	       link_iter->pkt_rx,
@@ -562,10 +566,29 @@ static int inject_route(struct palacios_vnet_route * route) {
 
     spin_lock_irqsave(&(vnet_state.lock), flags);
     list_add(&(route->node), &(vnet_state.route_list));
-    route->route_idx = vnet_state.num_routes++;
+    vnet_state.num_routes++;
+    route->idx = vnet_state.route_idx ++;
     spin_unlock_irqrestore(&(vnet_state.lock), flags);
 
     printk("Palacios-vnet: One route added to VNET core\n");
+
+    return 0;
+}
+
+
+static int delete_route(struct palacios_vnet_route * route) {
+    unsigned long flags;
+
+    //v3_vnet_del_route(route->route);
+
+    spin_lock_irqsave(&(vnet_state.lock), flags);
+    list_del(&(route->node));
+    vnet_state.num_routes --;
+    spin_unlock_irqrestore(&(vnet_state.lock), flags);
+
+    printk("Palacios-vnet: Route %d deleted from VNET\n", route->idx);
+
+    kfree(route);
 
     return 0;
 }
@@ -614,6 +637,7 @@ route_write(struct file * file,
 	    }
 	    
 	    if (inject_route(new_route) != 0) {
+		kfree(new_route);
 		return -EFAULT;
 	    }
 	} else if (strnicmp("DEL", token, strlen("DEL")) == 0) {
@@ -625,6 +649,46 @@ route_write(struct file * file,
 
     return size;
 }
+
+
+static void delete_link(struct vnet_link * link){
+    unsigned long flags;
+
+    link->sock->ops->release(link->sock);
+
+    spin_lock_irqsave(&(vnet_state.lock), flags);
+    list_del(&(link->node));
+    vnet_htable_remove(vnet_state.ip2link, (addr_t)&(link->dst_ip), 0);
+    vnet_state.num_links --;
+    spin_unlock_irqrestore(&(vnet_state.lock), flags);
+
+    printk("VNET Bridge: Link deleted, ip 0x%x, port: %d, idx: %d\n", 
+	   link->dst_ip, 
+	   link->dst_port, 
+	   link->idx);
+
+    kfree(link);
+    link = NULL;
+}
+
+
+static void deinit_links_list(void){
+    struct vnet_link * link;
+
+    list_for_each_entry(link, &(vnet_state.link_list), node) {
+     	delete_link(link);
+    }
+}
+
+static void deinit_routes_list(void){
+   struct palacios_vnet_route * route;
+
+   list_for_each_entry(route, &(vnet_state.route_list), node) {
+   	delete_route(route);
+   }
+}
+
+
 
 static int create_link(struct vnet_link * link) {
     int err;
@@ -660,20 +724,17 @@ static int create_link(struct vnet_link * link) {
 	return -1;
     }
 
-    // We use the file pointer because we are in the kernel
-    // This is only used to assigned File Descriptors for user space, so it is available here
-    // link->sock->file = link;
-
     spin_lock_irqsave(&(vnet_state.lock), flags);
     list_add(&(link->node), &(vnet_state.link_list));
-    link->link_idx = vnet_state.num_links++;
+    vnet_state.num_links ++;
+    link->idx = vnet_state.link_idx ++;
     vnet_htable_insert(vnet_state.ip2link, (addr_t)&(link->dst_ip), (addr_t)link);
     spin_unlock_irqrestore(&(vnet_state.lock), flags);
 
     printk("VNET Bridge: Link created, ip 0x%x, port: %d, idx: %d, link: %p, protocol: %s\n", 
 	   link->dst_ip, 
 	   link->dst_port, 
-	   link->link_idx, 
+	   link->idx, 
 	   link,
 	   ((link->sock_proto==UDP)?"UDP":"TCP"));
 
@@ -904,11 +965,22 @@ static int init_proc_files(void) {
 	return -1;
     }
     debug_entry->proc_fops = &debug_fops;
-	
+
+    vnet_state.vnet_proc_root = vnet_root;
 
     return 0;
 }
 
+
+static void destroy_proc_files(void) {
+    struct proc_dir_entry * vnet_root = vnet_state.vnet_proc_root;
+
+    remove_proc_entry("debug", vnet_root);
+    remove_proc_entry("links", vnet_root);
+    remove_proc_entry("routes", vnet_root);
+    remove_proc_entry("stats", vnet_root);
+    remove_proc_entry("vnet", NULL);	
+}
 
 
 static int 
@@ -1124,7 +1196,7 @@ static int vnet_udp_server(void * arg) {
 	link->bytes_rx += len;
 	link->pkt_rx ++;
 
-	send_to_palacios(pkt, len, link->link_idx);
+	send_to_palacios(pkt, len, link->idx);
     }
 
     kfree(pkt);
@@ -1200,4 +1272,22 @@ int  palacios_init_vnet_bridge(void) {
 
     return 0;
 }
+
+
+void palacios_deinit_vnet_bridge(void){
+
+    destroy_proc_files();
+
+    //v3_vnet_delete_bridge(NULL, &bridge_ops, HOST_LNX_BRIDGE, NULL);
+    kthread_stop(vnet_state.serv_thread);
+    vnet_state.serv_sock->ops->release(vnet_state.serv_sock);
+
+    deinit_links_list();
+    deinit_routes_list();
+
+    vnet_free_htable(vnet_state.ip2link, 0, 0);
+
+    vnet_state.status = 0;
+}
+
 
