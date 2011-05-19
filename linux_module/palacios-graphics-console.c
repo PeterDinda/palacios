@@ -19,6 +19,7 @@
 #include "palacios.h"
 #include "palacios-graphics-console.h"
 
+#include <linux/vmalloc.h>
 
 /*
 
