@@ -162,7 +162,7 @@ static int handle_crystal_tics(struct pit * pit, struct channel * ch, uint_t osc
     } else {
 	ushort_t reload_val = ch->reload_value; 
 
-	if (ch->op_mode == SW_STROBE) {
+	if ((ch->op_mode == SW_STROBE) || (ch->op_mode == IRQ_ON_TERM_CNT)) {
 	    reload_val = 0xffff;
 	}
 
