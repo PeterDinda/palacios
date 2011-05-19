@@ -121,7 +121,7 @@ static long v3_dev_ioctl(struct file * filp,
 	    guest->img_size = user_image.size;
 
 	    printk("Allocating kernel memory for guest image (%llu bytes)\n", user_image.size);
-	    guest->img = kmalloc(guest->img_size, GFP_KERNEL);
+	    guest->img = vmalloc(guest->img_size);
 
 	    if (IS_ERR(guest->img)) {
 		printk("Error: Could not allocate space for guest image\n");
