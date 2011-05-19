@@ -57,7 +57,7 @@ static v3_graphics_console_t g_open(void * priv_data,
     printk("palacios: allocating %u bytes for %u by %u by %u buffer\n",
 	   mem, desired_spec->width, desired_spec->height, desired_spec->bytes_per_pixel);
 
-    gc->data = kmalloc(mem,GFP_KERNEL);
+    gc->data = vmalloc(mem);
 
     if (!(gc->data)) { 
 	printk("palacios: unable to allocate memory for frame buffer\n");
