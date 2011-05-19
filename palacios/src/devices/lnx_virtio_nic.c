@@ -38,6 +38,10 @@
 #define PrintDebug(fmt, args...)
 #endif
 
+#ifndef V3_CONFIG_VNET
+static int net_debug = 0;
+#endif
+
 #define TX_QUEUE_SIZE 4096
 #define RX_QUEUE_SIZE 4096
 #define CTRL_QUEUE_SIZE 64
@@ -199,7 +203,7 @@ static int tx_one_pkt(struct guest_info * core,
     }
 
     V3_Net_Print(2, "Virtio-NIC: virtio_tx: size: %d\n", len);
-    if(vnet_debug >= 4){
+    if(net_debug >= 4){
 	v3_hexdump(buf, len, NULL, 0);
     }
 
@@ -248,11 +252,15 @@ static inline int get_desc_count(struct virtio_queue * q, int index) {
 }
 
 static inline void enable_cb(struct virtio_queue *queue){
-    queue->used->flags &= ~ VRING_NO_NOTIFY_FLAG;
+    if(queue->used){
+	queue->used->flags &= ~ VRING_NO_NOTIFY_FLAG;
+    }
 }
 
 static inline void disable_cb(struct virtio_queue *queue) {
-    queue->used->flags |= VRING_NO_NOTIFY_FLAG;
+    if(queue->used){
+	queue->used->flags |= VRING_NO_NOTIFY_FLAG;
+    }
 }
 
 static int handle_pkt_tx(struct guest_info * core, 
@@ -561,7 +569,7 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
     unsigned long flags;
 
     V3_Net_Print(2, "Virtio-NIC: virtio_rx: size: %d\n", size);
-    if(vnet_debug >= 4){
+    if(net_debug >= 4){
 	v3_hexdump(buf, size, NULL, 0);
     }
 
@@ -804,6 +812,7 @@ static int register_dev(struct virtio_dev_state * virtio,
     return 0;
 }
 
+
 #define RATE_UPPER_THRESHOLD 10  /* 10000 pkts per second, around 100Mbits */
 #define RATE_LOWER_THRESHOLD 1
 #define PROFILE_PERIOD 10000 /*us*/
@@ -814,6 +823,10 @@ static void virtio_nic_timer(struct guest_info * core,
     struct virtio_net_state * net_state = (struct virtio_net_state *)priv_data;
     uint64_t period_us;
     static int profile_ms = 0;
+
+    if(!net_state->status){ /* VNIC is not in working status */
+	return;
+    }
 
     period_us = (1000*cpu_cycles)/cpu_freq;
     net_state->past_us += period_us;
@@ -890,11 +903,15 @@ static int connect_fn(struct v3_vm_info * info,
 	
     net_state->timer = v3_add_timer(&(info->cores[0]),&timer_ops,net_state);
 
+    PrintError("net_state 0x%p\n", (void *)net_state);
+
     ops->recv = virtio_rx;
     ops->frontend_data = net_state;
     memcpy(ops->fnt_mac, virtio->mac, ETH_ALEN);
 
     net_state->poll_thread = vnet_start_thread(virtio_tx_flush, (void *)net_state, "Virtio_Poll");
+
+    net_state->status = 1;
 
     return 0;
 }

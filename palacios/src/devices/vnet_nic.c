@@ -54,7 +54,7 @@ static int vnet_nic_send(uint8_t * buf, uint32_t len,
 
     V3_Net_Print(2, "VNET-NIC: send pkt (size: %d, src_id: %d, src_type: %d)\n", 
 		   pkt.size, pkt.src_id, pkt.src_type);
-    if(vnet_debug >= 4){
+    if(net_debug >= 4){
 	v3_hexdump(buf, len, NULL, 0);
     }
 

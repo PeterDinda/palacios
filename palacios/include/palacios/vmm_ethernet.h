@@ -31,8 +31,9 @@
 
 #define MAX_PACKET_LEN (ETHERNET_HEADER_LEN + MAX_MTU)
 
-
-extern int vnet_debug;
+#ifdef V3_CONFIG_VNET
+extern int net_debug;
+#endif
 
 #ifdef __V3VEE__
 
@@ -40,7 +41,7 @@ extern int vnet_debug;
 
 #define V3_Net_Print(level, fmt, args...)					\
     do {								\
-	if(level <= vnet_debug) {   \
+	if(level <= net_debug) {   \
 	    extern struct v3_os_hooks * os_hooks;			\
 	    if ((os_hooks) && (os_hooks)->print) {			\
 	    	(os_hooks)->print((fmt), ##args);			\

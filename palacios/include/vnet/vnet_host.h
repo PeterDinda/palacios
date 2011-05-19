@@ -212,8 +212,8 @@ static inline void vnet_reset_timer(struct vnet_timer * timer,
 
 #define Vnet_Print(level, fmt, args...)					\
     do {								\
-	extern int vnet_debug;						\
-	if(level <= vnet_debug) {					\
+	extern int net_debug;						\
+	if(level <= net_debug) {					\
 	    extern struct vnet_host_hooks * host_hooks;			\
 	    if ((host_hooks) && (host_hooks)->print) {			\
 	    	(host_hooks)->print((fmt), ##args);			\

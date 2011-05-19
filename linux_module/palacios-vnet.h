@@ -6,7 +6,8 @@
 #ifndef __PALACIOS_VNET_BRIDGE_H__
 #define __PALACIOS_VNET_BRIDGE_H__
 
-int  palacios_init_vnet(void);
+int  palacios_vnet_init(void);
+int  palacios_init_vnet_bridge(void);
 
 #endif
 

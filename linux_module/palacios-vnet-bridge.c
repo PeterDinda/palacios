@@ -794,7 +794,7 @@ debug_write(struct file * file, const char * buf, size_t size, loff_t * ppos) {
     printk("Set VNET Debug level to %d\n", level);
 
     if(level >= 0){
-	vnet_debug = level;
+	net_debug = level;
     }
 
     return size;
@@ -802,7 +802,7 @@ debug_write(struct file * file, const char * buf, size_t size, loff_t * ppos) {
 
 
 static int debug_show(struct seq_file * file, void * v){
-    seq_printf(file, "Current VNET Debug Level: %d\n", vnet_debug);
+    seq_printf(file, "Current VNET Debug Level: %d\n", net_debug);
 	
     return 0;
 }
@@ -993,10 +993,10 @@ send_to_palacios(unsigned char * buf,
     memcpy(pkt.header, buf, ETHERNET_HEADER_LEN);
     pkt.data = buf;
 
-    if(vnet_debug >= 2){
+    if(net_debug >= 2){
     	printk("VNET Lnx Bridge: send pkt to VNET core (size: %d, src_id: %d, src_type: %d)\n", 
 			pkt.size,  pkt.src_id, pkt.src_type);
-    	if(vnet_debug >= 4){
+    	if(net_debug >= 4){
 	    print_hex_dump(NULL, "pkt_data: ", 0, 20, 20, pkt.data, pkt.size, 0);
     	}
     }
@@ -1014,11 +1014,11 @@ bridge_send_pkt(struct v3_vm_info * vm,
 		void * private_data) {
     struct vnet_link * link;
 
-    if(vnet_debug >= 2){
+    if(net_debug >= 2){
 	printk("VNET Lnx Host Bridge: packet received from VNET Core ... pkt size: %d, link: %d\n",
 			pkt->size,
 			pkt->dst_id);
-    	if(vnet_debug >= 4){
+    	if(net_debug >= 4){
 	    print_hex_dump(NULL, "pkt_data: ", 0, 20, 20, pkt->data, pkt->size, 0);
     	}
     }
@@ -1159,7 +1159,7 @@ static inline int hash_eq(addr_t key1, addr_t key2) {
 }
 
 
-int  palacios_init_vnet(void) {
+int  palacios_init_vnet_bridge(void) {
     struct v3_vnet_bridge_ops bridge_ops;
 
 

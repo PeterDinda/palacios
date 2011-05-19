@@ -29,7 +29,7 @@
 #define Vnet_Debug(fmt, args...)
 #endif
 
-int vnet_debug = 0;
+int net_debug = 0;
 
 struct eth_hdr {
     uint8_t dst_mac[ETH_ALEN];
@@ -447,7 +447,7 @@ int vnet_tx_one_pkt(struct v3_vnet_pkt * pkt, void * private_data) {
     Vnet_Print(2, "VNET/P Core: cpu %d: pkt (size %d, src_id:%d, src_type: %d, dst_id: %d, dst_type: %d)\n",
 		  cpu, pkt->size, pkt->src_id, 
 		  pkt->src_type, pkt->dst_id, pkt->dst_type);
-    if(vnet_debug >= 4){
+    if(net_debug >= 4){
 	    v3_hexdump(pkt->data, pkt->size, NULL, 0);
     }
 

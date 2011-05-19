@@ -292,7 +292,7 @@ static int __init v3_init(void) {
 #endif
 
 #ifdef V3_CONFIG_VNET
-    palacios_init_vnet();
+    palacios_vnet_init();
 #endif
 
 #ifdef V3_CONFIG_HOST_DEVICE
