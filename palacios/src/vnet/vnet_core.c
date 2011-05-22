@@ -66,6 +66,8 @@ struct vnet_route_info {
     struct vnet_dev * dst_dev;
     struct vnet_dev * src_dev;
 
+    uint32_t idx;
+
     struct list_head node;
     struct list_head match_node; // used for route matching
 };
@@ -98,8 +100,10 @@ static struct {
     struct list_head routes;
     struct list_head devs;
     
-    int num_routes;
-    int num_devs;
+    uint32_t num_routes;
+    uint32_t route_idx;
+    uint32_t num_devs;
+    uint32_t dev_idx;
 
     struct vnet_brg_dev * bridge;
 
@@ -115,7 +119,7 @@ static struct {
 	
 
 #ifdef V3_CONFIG_DEBUG_VNET
-static inline void mac_to_string(uint8_t * mac, char * buf) {
+static inline void mac2str(uint8_t * mac, char * buf) {
     snprintf(buf, 100, "%2x:%2x:%2x:%2x:%2x:%2x", 
 	     mac[0], mac[1], mac[2],
 	     mac[3], mac[4], mac[5]);
@@ -124,10 +128,10 @@ static inline void mac_to_string(uint8_t * mac, char * buf) {
 static void print_route(struct v3_vnet_route * route){
     char str[50];
 
-    mac_to_string(route->src_mac, str);
+    mac2str(route->src_mac, str);
     Vnet_Debug("Src Mac (%s),  src_qual (%d)\n", 
 	       str, route->src_mac_qual);
-    mac_to_string(route->dst_mac, str);
+    mac2str(route->dst_mac, str);
     Vnet_Debug("Dst Mac (%s),  dst_qual (%d)\n", 
 	       str, route->dst_mac_qual);
     Vnet_Debug("Src dev id (%d), src type (%d)", 
@@ -274,16 +278,36 @@ int v3_vnet_add_route(struct v3_vnet_route route) {
     flags = vnet_lock_irqsave(vnet_state.lock);
 
     list_add(&(new_route->node), &(vnet_state.routes));
-    clear_hash_cache();
-
+    new_route->idx = ++ vnet_state.route_idx;
+    vnet_state.num_routes ++;
+	
     vnet_unlock_irqrestore(vnet_state.lock, flags);
-   
+
+    clear_hash_cache();
 
 #ifdef V3_CONFIG_DEBUG_VNET
     dump_routes();
 #endif
 
-    return 0;
+    return new_route->idx;
+}
+
+
+void v3_vnet_del_route(uint32_t route_idx){
+    struct vnet_route_info * route = NULL;
+    unsigned long flags; 
+
+    flags = vnet_lock_irqsave(vnet_state.lock);
+
+    list_for_each_entry(route, &(vnet_state.routes), node) {
+	if(route->idx == route_idx){
+	    list_del(&(route->node));
+	    list_del(&(route->match_node));
+	    Vnet_Free(route);    
+	}
+    }
+
+    vnet_unlock_irqrestore(vnet_state.lock, flags);
 }
 
 
@@ -319,7 +343,7 @@ static struct route_list * match_route(const struct v3_vnet_pkt * pkt) {
     int max_rank = 0;
     struct list_head match_list;
     struct eth_hdr * hdr = (struct eth_hdr *)(pkt->data);
-    //    uint8_t src_type = pkt->src_type;
+    //  uint8_t src_type = pkt->src_type;
     //  uint32_t src_link = pkt->src_id;
 
 #ifdef V3_CONFIG_DEBUG_VNET
@@ -327,8 +351,8 @@ static struct route_list * match_route(const struct v3_vnet_pkt * pkt) {
 	char dst_str[100];
 	char src_str[100];
 
-	mac_to_string(hdr->src_mac, src_str);  
-	mac_to_string(hdr->dst_mac, dst_str);
+	mac2str(hdr->src_mac, src_str);  
+	mac2str(hdr->dst_mac, dst_str);
 	Vnet_Debug("VNET/P Core: match_route. pkt: SRC(%s), DEST(%s)\n", src_str, dst_str);
     }
 #endif
@@ -596,7 +620,8 @@ int v3_vnet_add_dev(struct v3_vm_info * vm, uint8_t * mac,
 
     if (dev_by_mac(mac) == NULL) {
 	list_add(&(new_dev->node), &(vnet_state.devs));
-	new_dev->dev_id = ++vnet_state.num_devs;
+	new_dev->dev_id = ++ vnet_state.dev_idx;
+	vnet_state.num_devs ++;
     }
 
     vnet_unlock_irqrestore(vnet_state.lock, flags);
@@ -622,7 +647,8 @@ int v3_vnet_del_dev(int dev_id){
     dev = dev_by_id(dev_id);
     if (dev != NULL){
     	list_del(&(dev->node));
-	del_routes_by_dev(dev_id);
+	//del_routes_by_dev(dev_id);
+	vnet_state.num_devs --;
     }
 	
     vnet_unlock_irqrestore(vnet_state.lock, flags);
@@ -636,7 +662,6 @@ int v3_vnet_del_dev(int dev_id){
 
 
 int v3_vnet_stat(struct vnet_stat * stats){
-	
     stats->rx_bytes = vnet_state.stats.rx_bytes;
     stats->rx_pkts = vnet_state.stats.rx_pkts;
     stats->tx_bytes = vnet_state.stats.tx_bytes;
@@ -645,7 +670,7 @@ int v3_vnet_stat(struct vnet_stat * stats){
     return 0;
 }
 
-static void free_devices(){
+static void deinit_devices_list(){
     struct vnet_dev * dev = NULL; 
 
     list_for_each_entry(dev, &(vnet_state.devs), node) {
@@ -654,7 +679,7 @@ static void free_devices(){
     }
 }
 
-static void free_routes(){
+static void deinit_routes_list(){
     struct vnet_route_info * route = NULL; 
 
     list_for_each_entry(route, &(vnet_state.routes), node) {
@@ -705,6 +730,26 @@ int v3_vnet_add_bridge(struct v3_vm_info * vm,
 
     return 0;
 }
+
+
+void v3_vnet_del_bridge(uint8_t type) {
+    unsigned long flags;
+    struct vnet_brg_dev * tmp_bridge = NULL;    
+    
+    flags = vnet_lock_irqsave(vnet_state.lock);
+	
+    if (vnet_state.bridge != NULL && vnet_state.bridge->type == type) {
+	tmp_bridge = vnet_state.bridge;
+       vnet_state.bridge = NULL;
+    }
+	
+    vnet_unlock_irqrestore(vnet_state.lock, flags);
+
+    if (tmp_bridge) {
+	Vnet_Free(tmp_bridge);
+    }
+}
+
 
 static int vnet_tx_flush(void *args){
     unsigned long flags;
@@ -774,8 +819,8 @@ void v3_deinit_vnet(){
 
     vnet_lock_deinit(&(vnet_state.lock));
 
-    free_devices();
-    free_routes();
+    deinit_devices_list();
+    deinit_routes_list();
 
     vnet_free_htable(vnet_state.route_cache, 1, 1);
     Vnet_Free(vnet_state.bridge);

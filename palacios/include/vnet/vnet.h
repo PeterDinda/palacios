@@ -101,7 +101,12 @@ int v3_vnet_add_bridge(struct v3_vm_info * vm,
 		       struct v3_vnet_bridge_ops * ops,
 		       uint8_t type,
 		       void * priv_data);
+
+void v3_vnet_del_bridge(uint8_t type);
+
 int v3_vnet_add_route(struct v3_vnet_route route);
+void v3_vnet_del_route(uint32_t route_idx);
+
 int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data, int synchronize);
 int v3_vnet_find_dev(uint8_t  * mac);
 int v3_vnet_stat(struct vnet_stat * stats);

@@ -437,7 +437,7 @@ int palacios_socket_init( void ) {
 	return 0;
 }
 
-void palacios_socket_deinit() {
+void palacios_socket_deinit( void ) {
     if (!list_empty(&(global_sockets))) {
 	printk("Error removing module with open sockets\n");
     }

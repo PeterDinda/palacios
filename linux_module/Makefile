@@ -34,7 +34,9 @@ ifdef V3_CONFIG_EXT_INSPECTOR
 endif
 
 ifdef V3_CONFIG_VNET
-	v3vee-objs += palacios-vnet.o palacios-vnet-bridge.o
+	v3vee-objs += 	palacios-vnet.o \
+			palacios-vnet-ctrl.o   \
+			palacios-vnet-brg.o
 endif
 
 ifdef V3_CONFIG_PACKET

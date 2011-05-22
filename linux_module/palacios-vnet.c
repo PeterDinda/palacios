@@ -279,8 +279,10 @@ static struct vnet_host_hooks vnet_host_hooks = {
 
 int palacios_vnet_init( void ) {
     init_vnet(&vnet_host_hooks);
+	
+    vnet_bridge_init();
+    vnet_ctrl_init();
 
-    palacios_init_vnet_bridge();
     printk("V3 VNET Inited\n");
         
     return 0;
@@ -290,7 +292,9 @@ int palacios_vnet_init( void ) {
 void palacios_vnet_deinit( void ) {
     deinit_vnet();
 
-    palacios_deinit_vnet_bridge();
+    vnet_bridge_deinit();
+    vnet_ctrl_deinit();
+
     printk("V3 VNET Deinited\n");
 }
 

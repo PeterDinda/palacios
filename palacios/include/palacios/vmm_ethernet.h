@@ -20,6 +20,8 @@
 #ifndef __ETHERNET_H__
 #define __ETHERNET_H__
 
+#include <palacios/vmm.h>
+
 #define ETHERNET_HEADER_LEN 14
 #define ETHERNET_MTU   1500
 #define ETHERNET_PACKET_LEN (ETHERNET_HEADER_LEN + ETHERNET_MTU)
@@ -35,6 +37,19 @@
 extern int net_debug;
 #endif
 
+struct nic_statistics {
+    uint64_t tx_pkts;
+    uint64_t tx_bytes;
+    uint64_t tx_dropped;
+
+    uint64_t rx_pkts;
+    uint64_t rx_bytes;
+    uint64_t rx_dropped;
+
+    uint32_t tx_interrupts;
+    uint32_t rx_interrupts;
+};
+
 #ifdef __V3VEE__
 
 #include <palacios/vmm.h>
@@ -49,19 +64,7 @@ extern int net_debug;
 	}							\
     } while (0)	
 
-struct nic_statistics {
-    uint64_t tx_pkts;
-    uint64_t tx_bytes;
-    uint64_t tx_dropped;
-	
-    uint64_t rx_pkts;
-    uint64_t rx_bytes;
-    uint64_t rx_dropped;
 
-    uint32_t tx_interrupts;
-    uint32_t rx_interrupts;
-};
-    
 static inline int is_multicast_ethaddr(const uint8_t * addr)
 {
     V3_ASSERT(ETH_ALEN == 6);
