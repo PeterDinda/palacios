@@ -215,7 +215,7 @@ int start_palacios_vm(void * arg)  {
     printk("palacios: launching vm\n");
 
 
-#if V3_CONFIG_EXT_INSPECTOR
+#ifdef V3_CONFIG_EXT_INSPECTOR
     inspect_vm(guest);
 #endif
 

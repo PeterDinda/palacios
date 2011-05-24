@@ -217,7 +217,10 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 		return -1;
 	    }
 
-	    break;	    
+	    break;	
+	case VMEXIT_NMI:
+	    // handled by interrupt dispatcher
+	    break;
 	case VMEXIT_INTR:
 	    // handled by interrupt dispatch earlier
 	    break;

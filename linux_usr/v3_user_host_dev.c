@@ -2,6 +2,8 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <malloc.h>
+#include <string.h>
+#include <stdio.h>
 
 #include "v3_user_host_dev.h"
 
@@ -10,12 +12,17 @@ int v3_user_host_dev_rendezvous(char *vmdev, char *url)
 {
     int vmfd;
     int devfd;
+    char buf[256];
+
+
+    strcpy(buf,url);
+    buf[255]=0;
 
     if ((vmfd=open(vmdev,O_RDWR))<0) { 
 	return -1;
     }
 
-    devfd = ioctl(vmfd,V3_VM_HOST_DEV_CONNECT,url);
+    devfd = ioctl(vmfd,V3_VM_HOST_DEV_CONNECT,buf);
     
     close(vmfd);
 
@@ -32,7 +39,9 @@ int v3_user_host_dev_have_request(int devfd)
 {
     uint64_t len;
 
-    return ioctl(devfd,V3_HOST_DEV_HOST_REQUEST_SIZE_IOCTL,&len)==1;
+    int rc=ioctl(devfd,V3_HOST_DEV_HOST_REQUEST_SIZE_IOCTL,&len);
+
+    return rc==1;
 }
 
 int v3_user_host_dev_pull_request(int devfd, struct palacios_host_dev_host_request_response **req)

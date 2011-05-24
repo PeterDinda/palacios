@@ -454,6 +454,7 @@ config SERIAL_UART
 
 config CHAR_STREAM
 	bool "Stream based character frontend"
+	depends on STREAM
 	default n
 	help
 	  Include Stream based character device frontend

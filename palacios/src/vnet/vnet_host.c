@@ -22,31 +22,31 @@
 
 struct vnet_host_hooks * host_hooks;
 
-
 int vnet_lock_init(vnet_lock_t * lock) {
-    *lock = (addr_t)(host_hooks->mutex_alloc());
-
-    if (!(*lock)) {
-	return -1;
+    if((host_hooks) && host_hooks->mutex_alloc){
+	*lock = (addr_t)(host_hooks->mutex_alloc());
+	
+    	if (*lock) {
+	    return 0;
+    	}
     }
 
-    return 0;
+    return -1;
 }
 
 
 struct vnet_thread * vnet_start_thread(int (*func)(void *), void *arg, char * name){
-    struct vnet_thread * thread;
+    if((host_hooks) && host_hooks->thread_start){
+    	struct vnet_thread * thread = Vnet_Malloc(sizeof(struct vnet_thread));
+    	thread->host_thread = host_hooks->thread_start(func, arg, name);
 
-    thread = Vnet_Malloc(sizeof(struct vnet_thread));
-	
-    thread->host_thread = host_hooks->thread_start(func, arg, name);
-
-    if(thread->host_thread == NULL){
+    	if(thread->host_thread){
+	    return thread;
+     	}
 	Vnet_Free(thread);
-	return NULL;
     }
 
-    return thread;
+    return NULL;
 }
 
 
@@ -54,15 +54,13 @@ struct vnet_thread * vnet_start_thread(int (*func)(void *), void *arg, char * na
 struct vnet_timer * vnet_create_timer(unsigned long interval, 
 				      void (* timer_fun)(void * priv_data), 
 				      void * priv_data){
-    struct vnet_timer * timer = NULL; 
-
     if((host_hooks) && host_hooks->timer_create){
-	timer = Vnet_Malloc(sizeof(struct vnet_timer));
-
+	struct vnet_timer * timer = Vnet_Malloc(sizeof(struct vnet_timer));
 	timer->host_timer = host_hooks->timer_create(interval, timer_fun, priv_data);
+	return timer;
     }
 
-    return timer;
+    return NULL;
  }
 
 
@@ -71,4 +69,9 @@ void init_vnet(struct vnet_host_hooks * hooks){
     v3_init_vnet();
 }
 
+
+void deinit_vnet(){
+    host_hooks = NULL;
+    v3_deinit_vnet();
+}
 

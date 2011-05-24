@@ -15,6 +15,7 @@
 
 #include <vnet/vnet.h>
 #include "palacios-mm.h"
+#include "palacios-vnet.h"
 
 static void host_print(const char *	fmt, ...) {
 
@@ -276,10 +277,24 @@ static struct vnet_host_hooks vnet_host_hooks = {
 
 
 
-int vnet_init( void ) {
-    printk("Host init VNET\n");
-
+int palacios_vnet_init( void ) {
     init_vnet(&vnet_host_hooks);
+	
+    vnet_bridge_init();
+    vnet_ctrl_init();
+
+    printk("V3 VNET Inited\n");
         
     return 0;
 }
+
+
+void palacios_vnet_deinit( void ) {
+    deinit_vnet();
+
+    vnet_bridge_deinit();
+    vnet_ctrl_deinit();
+
+    printk("V3 VNET Deinited\n");
+}
+
