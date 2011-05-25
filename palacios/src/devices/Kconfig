@@ -402,7 +402,7 @@ config DISK_MODEL
 config VGA
 	bool "VGA"
 	default n
-	depends on !PASSTHROUGH_VIDEO && GRAPHICS_CONSOLE
+	depends GRAPHICS_CONSOLE
 	help
 	  Includes the Virtual VGA video support, and will 
           eventually also include SVGA
@@ -420,7 +420,6 @@ config DEBUG_VGA
 config CGA
 	bool "CGA"
 	default n
-	depends on !PASSTHROUGH_VIDEO
 	help
 	  Includes the Virtual CGA video support
 
@@ -435,14 +434,14 @@ config DEBUG_CGA
 config TELNET_CONSOLE
 	bool "Telnet Virtual Console"
 	default n
-	depends on CGA && !PASSTHROUGH_VIDEO
+	depends on CGA
 	help
 	  Includes the virtual telnet console 
 
 config CURSES_CONSOLE
 	bool "Curses Virtual Console"
 	default n
-	depends on CGA && !PASSTHROUGH_VIDEO
+	depends on CGA && CONSOLE
 	help
 	  Includes the virtual curses console 
 
