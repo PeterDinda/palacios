@@ -363,7 +363,20 @@ static int write_mptable(void * target, uint32_t numcores) {
     ioapic->ioapic_flags.en = 1;
     ioapic->ioapic_address = IOAPIC_ADDR;
 
+
+    // The MPTABLE IRQ mappings are kind of odd. 
+    // We don't include a bus IRQ 2, and instead remap Bus IRQ 0 to dest irq 2
+
+
     for (irq = 0; irq < 16; irq++) { 
+	uint8_t dst_irq = irq;
+
+	if (irq == 0) {
+	    dst_irq = 2;
+	} else if (irq == 2) {
+	    continue;
+	}
+
 	interrupt = (struct mp_table_io_interrupt_assignment *)cur;
 	memset((void *)interrupt, 0, sizeof(struct mp_table_io_interrupt_assignment));
 
@@ -374,7 +387,7 @@ static int write_mptable(void * target, uint32_t numcores) {
 	interrupt->source_bus_id = 0;
 	interrupt->source_bus_irq = irq;
 	interrupt->dest_ioapic_id = numcores;
-	interrupt->dest_ioapic_intn = irq;
+	interrupt->dest_ioapic_intn = dst_irq;
 
 	cur += sizeof(struct mp_table_io_interrupt_assignment);
     }
