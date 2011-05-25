@@ -292,7 +292,7 @@ static int __init v3_init(void) {
 #endif
 
 #ifdef V3_CONFIG_VNET
-    palacios_init_vnet();
+    palacios_vnet_init();
 #endif
 
 #ifdef V3_CONFIG_HOST_DEVICE
@@ -350,6 +350,18 @@ static void __exit v3_exit(void) {
 
 #ifdef V3_CONFIG_STREAM
     palacios_deinit_stream();
+#endif
+
+#ifdef V3_CONFIG_SOCKET
+    palacios_socket_deinit();
+#endif
+
+#ifdef V3_CONFIG_PACKET
+    palacios_deinit_packet(NULL);
+#endif
+
+#ifdef V3_CONFIG_VNET
+    palacios_vnet_deinit();
 #endif
 
     palacios_deinit_mm();

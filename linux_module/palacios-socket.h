@@ -7,5 +7,6 @@
 #define __PALACIOS_SOCKET_H__
 
 int palacios_socket_init(void);
+int palacios_socket_deinit(void);
 
 #endif
