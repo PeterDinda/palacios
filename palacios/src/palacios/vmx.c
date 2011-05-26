@@ -970,7 +970,7 @@ int v3_is_vmx_capable() {
 }
 
 
-int v3_reset_vmx_cpu(struct guest_info * core, addr_t rip) {
+int v3_reset_vmx_vm_core(struct guest_info * core, addr_t rip) {
     // init vmcs bios
     
     if ((core->shdw_pg_mode == NESTED_PAGING) && 
