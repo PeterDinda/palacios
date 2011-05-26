@@ -219,6 +219,7 @@ void v3_init_vmx_cpu(int cpu_id);
 void v3_deinit_vmx_cpu(int cpu_id);
 
 int v3_start_vmx_guest(struct guest_info* info);
+int v3_reset_vmx_vm_core(struct guest_info * core, addr_t rip);
 int v3_vmx_enter(struct guest_info * info);
 
 int v3_init_vmx_vmcs(struct guest_info * info, v3_vm_class_t vm_class);

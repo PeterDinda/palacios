@@ -740,20 +740,7 @@ static int deliver_ipi(struct apic_state * src_apic,
 		break;
 	    }
 
-	    // Write the RIP, CS, and descriptor
-	    // assume the rest is already good to go
-	    //
-	    // vector VV -> rip at 0
-	    //              CS = VV00
-	    //  This means we start executing at linear address VV000
-	    //
-	    // So the selector needs to be VV00
-	    // and the base needs to be VV000
-	    //
-	    dst_core->rip = 0;
-	    dst_core->segments.cs.selector = vector << 8;
-	    dst_core->segments.cs.limit = 0xffff;
-	    dst_core->segments.cs.base = vector << 12;
+	    v3_reset_vm_core(dst_core, vector);
 
 	    PrintDebug(" SIPI delivery (0x%x -> 0x%x:0x0) to core %u\n",
 		       vector, dst_core->segments.cs.selector, dst_core->vcpu_id);
@@ -769,10 +756,18 @@ static int deliver_ipi(struct apic_state * src_apic,
 	    
 	    break;							
 	}
+
+	case APIC_EXTINT_DELIVERY: // EXTINT
+	    /* Two possible things to do here: 
+	     * 1. Ignore the IPI and assume the 8259a (PIC) will handle it
+	     * 2. Add 32 to the vector and inject it...
+	     * We probably just want to do 1 here, and assume the raise_irq() will hit the 8259a.
+	     */
+	    return 0;
+
 	case APIC_SMI_DELIVERY: 
 	case APIC_RES1_DELIVERY: // reserved						
 	case APIC_NMI_DELIVERY:
-	case APIC_EXTINT_DELIVERY: // ExtInt
 	default:
 	    PrintError("IPI %d delivery is unsupported\n", del_mode); 
 	    return -1;
