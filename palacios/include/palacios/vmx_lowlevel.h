@@ -97,17 +97,17 @@ static inline int vmcs_load(addr_t vmcs_ptr) {
     return VMX_SUCCESS;
 }
 
-static inline int vmcs_store(addr_t vmcs_ptr) {
-    uint64_t vmcs_ptr_64 = (uint64_t)vmcs_ptr;
+static inline addr_t vmcs_store() {
+    uint64_t vmcs_ptr = 0;
 
     __asm__ __volatile__ (
                VMPTRST_OPCODE
                EAX_07_MODRM
                :
-               : "a"(&vmcs_ptr_64)
+               : "a"(&vmcs_ptr)
                : "memory");
 
-    return VMX_SUCCESS;
+    return vmcs_ptr;
 }
 
 static inline int vmcs_read(vmcs_field_t vmcs_field, void * dst) {
