@@ -62,7 +62,7 @@ struct v3_xml_root {       // additional data for the root tag
 static char * empty_attrib_list[] = { NULL }; // empty, null terminated array of strings
 
 
-static void * tmp_realloc(void * old_ptr, uint_t old_size, uint_t new_size) {
+static void * tmp_realloc(void * old_ptr, size_t old_size, size_t new_size) {
     void * new_buf = V3_Malloc(new_size);
 
     if (new_buf == NULL) {
