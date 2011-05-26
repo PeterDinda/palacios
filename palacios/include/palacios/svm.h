@@ -82,11 +82,16 @@ void v3_init_svm_cpu(int cpu_id);
 void v3_deinit_svm_cpu(int cpu_id);
 
 
+
 int v3_init_svm_vmcb(struct guest_info * core, v3_vm_class_t vm_class);
 int v3_deinit_svm_vmcb(struct guest_info * core);
 
 int v3_svm_enter(struct guest_info * info);
 int v3_start_svm_guest(struct guest_info *info);
+int v3_reset_svm_vm_core(struct guest_info * core, addr_t rip);
+
+
+
 
 #endif
 

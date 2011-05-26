@@ -970,7 +970,23 @@ int v3_is_vmx_capable() {
 }
 
 
+int v3_reset_vmx_vm_core(struct guest_info * core, addr_t rip) {
+    // init vmcs bios
+    
+    if ((core->shdw_pg_mode == NESTED_PAGING) && 
+	(v3_cpu_types[core->pcpu_id] == V3_VMX_EPT_UG_CPU)) {
+	// easy 
+        core->rip = 0;
+	core->segments.cs.selector = rip << 8;
+	core->segments.cs.limit = 0xffff;
+	core->segments.cs.base = rip << 12;
+    } else {
+	core->vm_regs.rdx = core->vcpu_id;
+	core->vm_regs.rbx = rip;
+    }
 
+    return 0;
+}
 
 
 

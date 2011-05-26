@@ -40,6 +40,7 @@ int v3_dbg_enable = 0;
 
 
 
+
 static void init_cpu(void * arg) {
     uint32_t cpu_id = (uint32_t)(addr_t)arg;
 
@@ -192,6 +193,8 @@ struct v3_vm_info * v3_create_vm(void * cfg, void * priv_data, char * name) {
 }
 
 
+
+
 static int start_core(void * p)
 {
     struct guest_info * core = (struct guest_info *)p;
@@ -341,6 +344,33 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
     return 0;
 
 }
+
+
+int v3_reset_vm_core(struct guest_info * core, addr_t rip) {
+    
+    switch (v3_cpu_types[core->pcpu_id]) {
+#ifdef V3_CONFIG_SVM
+	case V3_SVM_CPU:
+	case V3_SVM_REV3_CPU:
+	    PrintDebug("Resetting SVM Guest CPU %d\n", core->vcpu_id);
+	    return v3_reset_svm_vm_core(core, rip);
+#endif
+#ifdef V3_CONFIG_VMX
+	case V3_VMX_CPU:
+	case V3_VMX_EPT_CPU:
+	case V3_VMX_EPT_UG_CPU:
+	    PrintDebug("Resetting VMX Guest CPU %d\n", core->vcpu_id);
+	    return v3_reset_vmx_vm_core(core, rip);
+#endif
+	case V3_INVALID_CPU:
+	default:
+	    PrintError("CPU has no virtualization Extensions\n");
+	    break;
+    }
+
+    return -1;
+}
+
 
 
 
