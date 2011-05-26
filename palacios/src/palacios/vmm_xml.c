@@ -1103,7 +1103,10 @@ static char *ampencode(const char *s, size_t len, char **dst, size_t *dlen,
     const char * e;
     
     for (e = s + len; s != e; s++) {
-        while (*dlen + 10 > *max) *dst = tmp_realloc(*dst, *max, *max += V3_XML_BUFSIZE);
+        while (*dlen + 10 > *max) {
+	    *dst = tmp_realloc(*dst, *max, *max + V3_XML_BUFSIZE);
+	    *max += V3_XML_BUFSIZE;
+	}
 
         switch (*s) {
         case '\0': return *dst;
@@ -1134,14 +1137,21 @@ static char *toxml_r(struct v3_xml * xml, char **s, size_t *len, size_t *max,
     // parent character content up to this tag
     *s = ampencode(txt + start, xml->off - start, s, len, max, 0);
 
-    while (*len + strlen(xml->name) + 4 > *max) // reallocate s
-        *s = tmp_realloc(*s, *max, *max += V3_XML_BUFSIZE);
+    while (*len + strlen(xml->name) + 4 > *max) {
+	// reallocate s
+        *s = tmp_realloc(*s, *max, *max + V3_XML_BUFSIZE);
+	*max += V3_XML_BUFSIZE;
+    }
+
 
     *len += sprintf(*s + *len, "<%s", xml->name); // open tag
     for (i = 0; xml->attr[i]; i += 2) { // tag attributes
         if (v3_xml_attr(xml, xml->attr[i]) != xml->attr[i + 1]) continue;
-        while (*len + strlen(xml->attr[i]) + 7 > *max) // reallocate s
-            *s = tmp_realloc(*s, *max, *max += V3_XML_BUFSIZE);
+        while (*len + strlen(xml->attr[i]) + 7 > *max) {
+	    // reallocate s
+            *s = tmp_realloc(*s, *max, *max + V3_XML_BUFSIZE);
+	    *max += V3_XML_BUFSIZE;
+	}
 
         *len += sprintf(*s + *len, " %s=\"", xml->attr[i]);
         ampencode(xml->attr[i + 1], -1, s, len, max, 1);
@@ -1152,8 +1162,11 @@ static char *toxml_r(struct v3_xml * xml, char **s, size_t *len, size_t *max,
     for (j = 1; attr[i] && attr[i][j]; j += 3) { // default attributes
         if (! attr[i][j + 1] || v3_xml_attr(xml, attr[i][j]) != attr[i][j + 1])
             continue; // skip duplicates and non-values
-        while (*len + strlen(attr[i][j]) + 7 > *max) // reallocate s
-            *s = tmp_realloc(*s, *max, *max += V3_XML_BUFSIZE);
+        while (*len + strlen(attr[i][j]) + 7 > *max) {
+	    // reallocate s
+            *s = tmp_realloc(*s, *max, *max + V3_XML_BUFSIZE);
+	    *max += V3_XML_BUFSIZE;
+	}
 
         *len += sprintf(*s + *len, " %s=\"", attr[i][j]);
         ampencode(attr[i][j + 1], -1, s, len, max, 1);
@@ -1164,8 +1177,11 @@ static char *toxml_r(struct v3_xml * xml, char **s, size_t *len, size_t *max,
     *s = (xml->child) ? toxml_r(xml->child, s, len, max, 0, attr) //child
                       : ampencode(xml->txt, -1, s, len, max, 0);  //data
     
-    while (*len + strlen(xml->name) + 4 > *max) // reallocate s
-        *s = tmp_realloc(*s, *max, *max += V3_XML_BUFSIZE);
+    while (*len + strlen(xml->name) + 4 > *max) {
+	// reallocate s
+        *s = tmp_realloc(*s, *max, *max + V3_XML_BUFSIZE);
+	*max += V3_XML_BUFSIZE;
+    }
 
     *len += sprintf(*s + *len, "</%s>", xml->name); // close tag
 
