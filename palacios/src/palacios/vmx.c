@@ -538,6 +538,9 @@ int v3_init_vmx_vmcs(struct guest_info * core, v3_vm_class_t vm_class) {
 	return -1;
     }
 
+    PrintDebug("Serializing VMCS: %p\n", (void *)vmx_state->vmcs_ptr_phys);
+    vmx_ret = vmcs_clear(vmx_state->vmcs_ptr_phys);
+
     return 0;
 }
 
