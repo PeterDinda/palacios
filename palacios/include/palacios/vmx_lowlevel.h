@@ -97,7 +97,7 @@ static inline int vmcs_load(addr_t vmcs_ptr) {
     return VMX_SUCCESS;
 }
 
-static inline addr_t vmcs_store() {
+static inline uint64_t vmcs_store() {
     uint64_t vmcs_ptr = 0;
 
     __asm__ __volatile__ (
