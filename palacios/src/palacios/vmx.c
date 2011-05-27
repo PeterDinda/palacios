@@ -47,7 +47,6 @@ static struct vmx_hw_info hw_info;
 
 extern v3_cpu_arch_t v3_cpu_types[];
 
-static addr_t active_vmcs_ptrs[V3_CONFIG_MAX_CPUS] = { [0 ... V3_CONFIG_MAX_CPUS - 1] = 0};
 static addr_t host_vmcs_ptrs[V3_CONFIG_MAX_CPUS] = { [0 ... V3_CONFIG_MAX_CPUS - 1] = 0};
 
 extern int v3_vmx_launch(struct v3_gprs * vm_regs, struct guest_info * info, struct v3_ctrl_regs * ctrl_regs);
@@ -106,7 +105,6 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 
     PrintDebug("Loading VMCS\n");
     vmx_ret = vmcs_load(vmx_state->vmcs_ptr_phys);
-    active_vmcs_ptrs[V3_Get_CPU()] = vmx_state->vmcs_ptr_phys;
     vmx_state->state = VMX_UNLAUNCHED;
 
     if (vmx_ret != VMX_SUCCESS) {
@@ -755,9 +753,8 @@ int v3_vmx_enter(struct guest_info * info) {
     v3_disable_ints();
 
 
-    if (active_vmcs_ptrs[V3_Get_CPU()] != vmx_info->vmcs_ptr_phys) {
+    if (vmcs_store() != vmx_info->vmcs_ptr_phys) {
 	vmcs_load(vmx_info->vmcs_ptr_phys);
-	active_vmcs_ptrs[V3_Get_CPU()] = vmx_info->vmcs_ptr_phys;
     }
 
 
