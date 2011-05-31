@@ -52,6 +52,7 @@ struct v3_sym_core_state;
 
 #ifdef CONFIG_SYSCALL_HIJACK
 #include <palacios/vmm_syscall_hijack.h>
+#include <palacios/vmm_execve_hook.h>
 #endif
 
 
@@ -97,6 +98,7 @@ struct guest_info {
 #ifdef CONFIG_SYSCALL_HIJACK
     struct v3_syscall_hook_map sc_hook_map;
     struct v3_execve_varchunk var_dump;
+    struct v3_exec_hooks exec_hooks;
 #endif
 
 

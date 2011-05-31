@@ -168,8 +168,7 @@ void v3_remove_intr_router(struct v3_vm_info * vm, void * handle) {
 }
 
 
-static inline struct v3_irq_hook * get_irq_hook(struct v3_vm_info * vm, uint_t irq) {
-    V3_ASSERT(irq <= 255);
+static inline struct v3_irq_hook * get_irq_hook(struct v3_vm_info * vm, uint8_t irq) {
     return vm->intr_routers.hooks[irq];
 }
 
@@ -321,38 +320,22 @@ int v3_handle_swintr(struct guest_info * core) {
     }
     
     if (ret == -1) {
-        PrintError("V3 Syscall Hijack: Could not translate Instruction Address (%p)\n", (void *)core->rip);
+        PrintError("V3 SWintr Handler: Could not translate Instruction Address (%p)\n", (void *)core->rip);
         return -1;
     }
 
     if (v3_decode(core, (addr_t)instr_ptr, &instr) == -1) {
-        PrintError("V3 Syscall Hijack: Decoding Error\n");
+        PrintError("V3 SWintr Handler: Decoding Error\n");
         return -1;
     }
 
     uint8_t vector = instr.dst_operand.operand;
 
-    //PrintDebug("KCH: SWINT\n");
-    //PrintDebug("KCH: Data - %x\n",*((uint32_t*)instr_ptr));
-    //PrintDebug("\t RIP: %llx CS: %x\n", core->rip, core->segments.cs.selector);
-    //PrintDebug("KCH: Disassembling\n\t");
-    //addr_t rip = (addr_t) core->rip;
-    //v3_disasm(core, instr_ptr, &rip, 1); 
-    
-    //v3_print_instr(&instr);
-    // only consider system calls
-
-    /*
-    if (vector == 0x80) {
-        print_syscall(0, core);
-    }
-    */
-
     struct v3_swintr_hook * hook = core->intr_core_state.swintr_hooks[vector];
     if (hook == NULL) {
 #ifdef CONFIG_SWINTR_PASSTHROUGH
         if (v3_hook_passthrough_swintr(core, vector) == -1) {
-            PrintDebug("Error hooking passthrough swintr\n");
+            PrintDebug("V3 SWintr Handler: Error hooking passthrough swintr\n");
             return -1;
         }
         hook = core->intr_core_state.swintr_hooks[vector];
@@ -364,12 +347,13 @@ int v3_handle_swintr(struct guest_info * core) {
 
     ret = hook->handler(core, vector, NULL);
     if (ret == -1) {
-        PrintDebug("V3 SWINT Handler: Error in swint hook\n");
+        PrintDebug("V3 SWintr Handler: Error in swintr hook\n");
         return -1;
     }
 
-    /* make software interrupts prioritized so they finish in time for the next
-        instruction?? */
+    /* at some point we may need to prioritize swints 
+       so that they finish in time for the next
+       instruction */
     core->rip += instr.instr_length;
     return v3_signal_swintr(core, vector);
 }
@@ -465,7 +449,7 @@ v3_intr_type_t v3_intr_pending(struct guest_info * info) {
 	}
     }
 
-    // KCH
+    // KCH: added for SWintr injection
     if (intr_state->swintr_posted == 1) {
         ret = V3_SOFTWARE_INTR;
     }

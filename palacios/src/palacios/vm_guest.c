@@ -33,6 +33,7 @@
 
 #ifdef CONFIG_SYSCALL_HIJACK
 #include <palacios/vmm_syscall_hijack.h>
+#include <palacios/vmm_mpi_accel.h>
 #endif
 
 
@@ -682,14 +683,18 @@ int v3_init_core(struct guest_info * core) {
     v3_init_symbiotic_core(core);
 #endif
 
-/* KCH: Hook INT 80
-      not sure about this location though...*/
+// KCH
 #ifdef CONFIG_SYSCALL_HIJACK
-    v3_hook_swintr(core, 0x80, v3_syscall_handler, NULL);
+    v3_init_exec_hooks(core);
+    v3_init_mpi_accel(core);
+    //v3_hook_swintr(core, 0x80, v3_syscall_handler, NULL);
     /* hook a poll syscall */
     //v3_hook_syscall(core, 5, v3_sysopen_handler, NULL);
     //v3_hook_syscall(core, 21, v3_sysmount_handler, NULL);
-    v3_hook_syscall(core, 11, v3_sysexecve_handler, NULL);
+    //char * args[2];
+    //args[0] = "./envtest";
+    //args[1] = "LD_PRELOAD=./libcwrap.so";
+    //v3_hook_syscall(core, 11, v3_sysexecve_handler, (void*)args);
 #endif  
 
     // init SVM/VMX

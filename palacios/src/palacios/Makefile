@@ -76,7 +76,9 @@ obj-$(CONFIG_SYMCALL) += vmm_symcall.o
 obj-$(CONFIG_SYMMOD) += vmm_symmod.o
 
 obj-$(CONFIG_SYSCALL_HIJACK) += vmm_syscall_hijack.o 
-obj-$(CONFIG_SYSCALL_HIJACK) += linux_32_syscalls.o
-obj-$(CONFIG_SYSCALL_HIJACK) += linux_64_syscalls.o
+obj-$(CONFIG_SYSCALL_HIJACK) += vmm_linux_syscall_map.o
+obj-$(CONFIG_SYSCALL_HIJACK) += vmm_mpi_accel.o
+obj-$(CONFIG_SYSCALL_HIJACK) += vmm_process_environment.o
+obj-$(CONFIG_SYSCALL_HIJACK) += vmm_execve_hook.o
 
 obj-y += mmu/
