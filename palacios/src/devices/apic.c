@@ -1215,7 +1215,7 @@ static int apic_read(struct guest_info * core, addr_t guest_addr, void * dst, ui
 	*val_ptr = *(((uint8_t *)&val) + byte_addr);
 
     } else if ((length == 2) && 
-	       ((reg_addr & 0x3) == 0x3)) {
+	       ((reg_addr & 0x3) != 0x3)) {
 	uint_t byte_addr = reg_addr & 0x3;
 	uint16_t * val_ptr = (uint16_t *)dst;
 	*val_ptr = *(((uint16_t *)&val) + byte_addr);
