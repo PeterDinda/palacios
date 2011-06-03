@@ -20,6 +20,8 @@
 #ifndef __VMM_PROCESS_ENVIRONMENT_H__
 #define __VMM_PROCESS_ENVIRONMENT_H__
 
+#ifdef __V3VEE__
+
 
 #include <palacios/vmm.h>
 #include <palacios/vmm_types.h>
@@ -32,6 +34,8 @@ int v3_replace_env (struct guest_info * core, const char * envname, const char *
 int v3_inject_strings (struct guest_info * core, const char ** argstrs, const char ** envstrs, uint_t argcnt, uint_t envcnt);
 
 addr_t v3_prepare_guest_stack (struct guest_info * core, uint_t bytes_needed);
+
+#endif
 
 #endif 
 

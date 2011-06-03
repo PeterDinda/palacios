@@ -229,7 +229,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
 		core);
 
 #ifdef CONFIG_HIJACK_MSR
-    /* KCH: for syscall hijacking */
+    /* KCH: for SYSCALL and SYSENTER interception */
     v3_hook_msr(core->vm_info, STAR_MSR,
         &v3_handle_star_read,
         &v3_handle_star_write,

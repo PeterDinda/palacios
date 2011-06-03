@@ -21,6 +21,8 @@
 #ifndef __VMM_EXECVE_HOOK_H__
 #define __VMM_EXECVE_HOOK_H__
 
+#ifdef __V3VEE__
+
 
 struct v3_exec_hooks {
     struct list_head hook_list;
@@ -41,6 +43,9 @@ int v3_hook_executable (struct guest_info * core,
     const uchar_t * binfile,
     int (*handler)(struct guest_info * core, void * priv_data),
     void * priv_data);
+
+
+#endif
 
 
 #endif

@@ -20,10 +20,13 @@
 #ifndef __VMM_LINUX_SYSCALL_MAP_H__
 #define __VMM_LINUX_SYSCALL_MAP_H__
 
+#ifdef __V3VEE__
+
 #include <palacios/vmm_types.h>
 
-char * get_linux_syscall_name32(uint_t syscall_nr);
-char * get_linux_syscall_name64(uint_t syscall_nr);
+char * get_linux_syscall_name32 (uint_t syscall_nr);
+char * get_linux_syscall_name64 (uint_t syscall_nr);
 
+#endif
 
 #endif

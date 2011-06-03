@@ -124,6 +124,8 @@ int v3_hook_syscall (struct guest_info * core,
     void * priv_data) 
 {
     struct v3_syscall_hook * hook = (struct v3_syscall_hook *)V3_Malloc(sizeof(struct v3_syscall_hook));
+
+    // TODO: ensure that software interrupts & SYSENTER are hooked
     
     if (hook == NULL) {
         return -1;
