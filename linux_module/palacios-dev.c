@@ -28,6 +28,8 @@
 #include "palacios-vnet.h"
 #include "palacios-packet.h"
 
+#include "linux-exts.h"
+
 #ifdef V3_CONFIG_EXT_INSPECTOR
 #include "palacios-inspector.h"
 #endif
@@ -50,9 +52,6 @@ static u8 v3_minor_map[MAX_VMS / 8] = {[0 ... (MAX_VMS / 8) - 1] = 0};
 
 struct class * v3_class = NULL;
 static struct cdev ctrl_dev;
-
-void * v3_base_addr = NULL;
-unsigned int v3_pages = 0;
 
 static int register_vm( void ) {
     int i, j = 0;
@@ -137,6 +136,9 @@ static long v3_dev_ioctl(struct file * filp,
 
 	    printk("Launching VM\n");
 
+	    INIT_LIST_HEAD(&(guest->exts));
+
+
 	    INIT_LIST_HEAD(&(guest->streams));
 	    INIT_LIST_HEAD(&(guest->files));
 	    INIT_LIST_HEAD(&(guest->sockets));
@@ -208,8 +210,6 @@ static struct file_operations v3_ctrl_fops = {
 };
 
 
-extern unsigned int v3_pages;
-extern void * v3_base_addr;
 
 static int __init v3_init(void) {
     dev_t dev = MKDEV(0, 0); // We dynamicallly assign the major number
@@ -217,6 +217,16 @@ static int __init v3_init(void) {
 
 
     palacios_init_mm();
+
+
+    // Initialize Palacios
+    
+    palacios_vmm_init();
+
+
+    // initialize extensions
+    init_lnx_extensions();
+
 
     v3_class = class_create(THIS_MODULE, "vms");
     if (IS_ERR(v3_class)) {
@@ -251,13 +261,7 @@ static int __init v3_init(void) {
 	goto failure1;
     }
 
-    if ((v3_pages > 0) && (v3_base_addr != NULL)) {
-	add_palacios_memory(__pa(v3_base_addr), v3_pages);
-    }
 
-    // Initialize Palacios
-    
-    palacios_vmm_init();
 
 #ifdef V3_CONFIG_STREAM
     palacios_init_stream();
@@ -269,10 +273,6 @@ static int __init v3_init(void) {
 
 #ifdef V3_CONFIG_KEYED_STREAMS
     palacios_init_keyed_streams();
-#endif
-
-#ifdef V3_CONFIG_CONSOLE
-    palacios_init_console();
 #endif
 
 #ifdef V3_CONFIG_GRAPHICS_CONSOLE

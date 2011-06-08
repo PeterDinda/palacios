@@ -115,9 +115,6 @@ static struct vm_ctrl * get_ctrl(struct v3_guest * guest, unsigned int cmd) {
 #include "palacios-stream.h"
 #endif
 
-#ifdef V3_CONFIG_CONSOLE
-#include "palacios-console.h"
-#endif
 
 #ifdef V3_CONFIG_EXT_INSPECTOR
 #include "palacios-inspector.h"
@@ -150,15 +147,6 @@ static long v3_vm_ioctl(struct file * filp,
 	    break;
 	}
 
-	case V3_VM_CONSOLE_CONNECT: {
-#ifdef V3_CONFIG_CONSOLE
-	    return connect_console(guest);
-#else
-	    printk("Console support not available\n");
-	    return -EFAULT;
-#endif
-	    break;
-	}
 
 	case V3_VM_STREAM_CONNECT: {
 #ifdef V3_CONFIG_STREAM
@@ -284,6 +272,8 @@ int start_palacios_vm(void * arg)  {
     }
 
     // init linux extensions
+    
+
 #ifdef V3_CONFIG_EXT_INSPECTOR
     inspect_vm(guest);
 #endif

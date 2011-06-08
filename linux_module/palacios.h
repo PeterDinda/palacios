@@ -6,9 +6,6 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 
-#ifdef V3_CONFIG_CONSOLE
-#include "palacios-console.h"
-#endif
 
 #ifdef V3_CONFIG_GRAPHICS_CONSOLE
 #include "palacios-graphics-console.h"
@@ -72,9 +69,6 @@ struct v3_guest {
     struct list_head streams;
     struct list_head sockets;
 
-#ifdef V3_CONFIG_CONSOLE
-    struct palacios_console console;
-#endif
 
 #ifdef V3_CONFIG_GRAPHICS_CONSOLE
     struct palacios_graphics_console graphics_console;

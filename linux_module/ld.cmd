@@ -1,5 +1,12 @@
 SECTIONS
 {
+
+	_lnx_exts :
+	{
+		__start__lnx_exts = .;
+		*(_lnx_exts);
+		__stop__lnx_exts = .;	
+	}
 	_v3_devices :
 	{
 		__start__v3_devices = .;
@@ -22,11 +29,6 @@ SECTIONS
 		__stop__v3_extensions = .;
 
 	}
-	_lnx_exts :
-	{
-		__start__lnx_exts = .;
-		*(_lnx_exts);
-		__stop__lnx_exts = .;
-	}
+
 }
 

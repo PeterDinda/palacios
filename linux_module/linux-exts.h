@@ -12,7 +12,7 @@ struct linux_ext {
     int (*deinit)( void );
     int (*guest_init)(struct v3_guest * guest, void ** priv_data);
     int (*guest_deinit)(struct v3_guest * guest, void * priv_data);
-} __attribute__((packed));
+};
 
 
 
@@ -24,6 +24,6 @@ int deinit_lnx_extensions( void );
 #define register_extension(ext)					\
     static struct linux_ext * _lnx_ext				\
     __attribute__((used))					\
-	__attribute__((unused, __section("_lnx_exts"),	\
+	__attribute__((unused, __section__("_lnx_exts"),		\
 		       aligned(sizeof(void *))))		\
 	= ext;
