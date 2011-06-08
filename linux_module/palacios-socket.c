@@ -472,11 +472,13 @@ static int socket_deinit( void ) {
     if (!list_empty(&(global_sockets))) {
 	printk("Error removing module with open sockets\n");
     }
+
+    return 0;
 }
 
 
 static struct linux_ext socket_ext = {
-    .name "SOCKET_INTERFACE",
+    .name = "SOCKET_INTERFACE",
     .init = socket_init,
     .deinit = socket_deinit,
     .guest_init = NULL,

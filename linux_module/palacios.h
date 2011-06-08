@@ -45,11 +45,6 @@ struct v3_mem_region {
     unsigned long long num_pages;
 };
 
-struct v3_network {
-    unsigned char socket;
-    unsigned char packet;
-    unsigned char vnet;
-};
 
 void * trace_malloc(size_t size, gfp_t flags);
 void trace_free(const void * objp);

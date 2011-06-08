@@ -23,7 +23,6 @@
 #include "palacios-vm.h"
 #include "palacios-serial.h"
 #include "palacios-vnet.h"
-#include "palacios-packet.h"
 
 #include "linux-exts.h"
 
@@ -261,12 +260,6 @@ static int __init v3_init(void) {
 
 #ifdef V3_CONFIG_GRAPHICS_CONSOLE
     palacios_init_graphics_console();
-#endif
-
-
-
-#ifdef V3_CONFIG_PACKET
-    palacios_init_packet(NULL);
 #endif
 
 #ifdef V3_CONFIG_VNET
