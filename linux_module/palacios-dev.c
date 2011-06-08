@@ -22,7 +22,6 @@
 #include "palacios-mm.h"
 #include "palacios-vm.h"
 #include "palacios-serial.h"
-#include "palacios-socket.h"
 #include "palacios-vnet.h"
 #include "palacios-packet.h"
 
@@ -134,7 +133,6 @@ static long v3_dev_ioctl(struct file * filp,
 	    INIT_LIST_HEAD(&(guest->exts));
 
 
-	    INIT_LIST_HEAD(&(guest->sockets));
 #ifdef V3_CONFIG_HOST_DEVICE
 	    INIT_LIST_HEAD(&(guest->hostdev.devs));
 #endif
@@ -266,9 +264,6 @@ static int __init v3_init(void) {
 #endif
 
 
-#ifdef V3_CONFIG_SOCKET
-    palacios_socket_init();
-#endif
 
 #ifdef V3_CONFIG_PACKET
     palacios_init_packet(NULL);
@@ -325,16 +320,6 @@ static void __exit v3_exit(void) {
     deinit_lnx_extensions();
 
 
-
-
-
-#ifdef V3_CONFIG_SOCKET
-    palacios_socket_deinit();
-#endif
-
-#ifdef V3_CONFIG_PACKET
-    palacios_deinit_packet(NULL);
-#endif
 
 #ifdef V3_CONFIG_VNET
     palacios_vnet_deinit();

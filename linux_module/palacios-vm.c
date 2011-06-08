@@ -249,9 +249,6 @@ int start_palacios_vm(void * arg)  {
 	return -1;
     }
 
-    // init linux extensions
-    
-
 
     printk("Creating VM device: Major %d, Minor %d\n", MAJOR(guest->vm_dev), MINOR(guest->vm_dev));
 

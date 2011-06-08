@@ -67,9 +67,6 @@ struct v3_guest {
     struct rb_root vm_ctrls;
     struct list_head exts;
 
-    struct list_head streams;
-    struct list_head sockets;
-
 
 #ifdef V3_CONFIG_GRAPHICS_CONSOLE
     struct palacios_graphics_console graphics_console;
