@@ -22,5 +22,11 @@ SECTIONS
 		__stop__v3_extensions = .;
 
 	}
+	_lnx_exts :
+	{
+		__start__lnx_exts = .;
+		*(_lnx_exts);
+		__stop__lnx_exts = .;
+	}
 }
 

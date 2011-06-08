@@ -14,8 +14,9 @@ v3vee-objs := 	palacios.o \
 		palacios-vm.o \
 		palacios-mm.o \
 		palacios-queue.o \
-	        palacios-hashtable.o
-
+	        palacios-hashtable.o \
+		linux-exts.o
+	
 ifdef V3_CONFIG_CONSOLE
 	v3vee-objs += 	palacios-console.o
 endif

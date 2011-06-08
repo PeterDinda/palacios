@@ -16,12 +16,100 @@
 #include <linux/smp_lock.h>
 #include <linux/file.h>
 #include <linux/spinlock.h>
-
+#include <linux/rbtree.h>
 
 #include <palacios/vmm.h>
 
 #include "palacios.h"
 #include "palacios-vm.h"
+
+
+struct vm_ctrl {
+    unsigned int cmd;
+
+    int (*handler)(struct v3_guest * guest, 
+		   unsigned int cmd, unsigned long arg, 
+		   void * priv_data);
+
+    void * priv_data;
+
+    struct rb_node tree_node;
+};
+
+
+static inline struct vm_ctrl * __insert_ctrl(struct v3_guest * vm, 
+					     struct vm_ctrl * ctrl) {
+    struct rb_node ** p = &(vm->vm_ctrls.rb_node);
+    struct rb_node * parent = NULL;
+    struct vm_ctrl * tmp_ctrl = NULL;
+
+    while (*p) {
+	parent = *p;
+	tmp_ctrl = rb_entry(parent, struct vm_ctrl, tree_node);
+
+	if (ctrl->cmd < tmp_ctrl->cmd) {
+	    p = &(*p)->rb_left;
+	} else if (ctrl->cmd > tmp_ctrl->cmd) {
+	    p = &(*p)->rb_right;
+	} else {
+	    return tmp_ctrl;
+	}
+    }
+
+    rb_link_node(&(ctrl->tree_node), parent, p);
+
+    return NULL;
+}
+
+
+
+int add_guest_ctrl(struct v3_guest * guest, unsigned int cmd, 
+		   int (*handler)(struct v3_guest * guest, 
+				  unsigned int cmd, unsigned long arg, 
+				  void * priv_data),
+		   void * priv_data) {
+    struct vm_ctrl * ctrl = kmalloc(sizeof(struct vm_ctrl), GFP_KERNEL);
+
+    if (ctrl == NULL) {
+	printk("Error: Could not allocate vm ctrl %d\n", cmd);
+	return -1;
+    }
+
+    ctrl->cmd = cmd;
+    ctrl->handler = handler;
+    ctrl->priv_data = priv_data;
+
+    if (__insert_ctrl(guest, ctrl) != NULL) {
+	printk("Could not insert guest ctrl %d\n", cmd);
+	kfree(ctrl);
+	return -1;
+    }
+    
+    rb_insert_color(&(ctrl->tree_node), &(guest->vm_ctrls));
+
+    return 0;
+}
+
+
+static struct vm_ctrl * get_ctrl(struct v3_guest * guest, unsigned int cmd) {
+    struct rb_node * n = guest->vm_ctrls.rb_node;
+    struct vm_ctrl * ctrl = NULL;
+
+    while (n) {
+	ctrl = rb_entry(n, struct vm_ctrl, tree_node);
+
+	if (cmd < ctrl->cmd) {
+	    n = n->rb_left;
+	} else if (cmd > ctrl->cmd) {
+	    n = n->rb_right;
+	} else {
+	    return ctrl;
+	}
+    }
+
+    return NULL;
+}
+
 
 #ifdef V3_CONFIG_STREAM
 #include "palacios-stream.h"
@@ -123,9 +211,17 @@ static long v3_vm_ioctl(struct file * filp,
 	    break;
 
 
-	default: 
-	    printk("\tUnhandled\n");
+	default: {
+	    struct vm_ctrl * ctrl = get_ctrl(guest, ioctl);
+
+	    if (ctrl) {
+		return ctrl->handler(guest, ioctl, arg, ctrl->priv_data);
+	    }
+	    
+	    
+	    printk("\tUnhandled ctrl cmd: %d\n", ioctl);
 	    return -EINVAL;
+	}
     }
 
     return 0;
@@ -184,6 +280,11 @@ int start_palacios_vm(void * arg)  {
 	return -1;
     }
 
+    // init linux extensions
+#ifdef V3_CONFIG_EXT_INSPECTOR
+    inspect_vm(guest);
+#endif
+
     printk("Creating VM device: Major %d, Minor %d\n", MAJOR(guest->vm_dev), MINOR(guest->vm_dev));
 
     cdev_init(&(guest->cdev), &v3_vm_fops);
@@ -215,9 +316,7 @@ int start_palacios_vm(void * arg)  {
     printk("palacios: launching vm\n");
 
 
-#ifdef V3_CONFIG_EXT_INSPECTOR
-    inspect_vm(guest);
-#endif
+
 
 
     if (v3_start_vm(guest->v3_ctx, 0xffffffff) < 0) { 

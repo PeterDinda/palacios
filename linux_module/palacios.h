@@ -64,6 +64,10 @@ struct v3_guest {
 
     char name[128];
 
+
+    struct rb_root vm_ctrls;
+
+
     struct list_head files;
     struct list_head streams;
     struct list_head sockets;
