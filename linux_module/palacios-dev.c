@@ -21,7 +21,6 @@
 #include "palacios.h"
 #include "palacios-mm.h"
 #include "palacios-vm.h"
-#include "palacios-stream.h"
 #include "palacios-serial.h"
 #include "palacios-socket.h"
 #include "palacios-vnet.h"
@@ -138,7 +137,6 @@ static long v3_dev_ioctl(struct file * filp,
 	    INIT_LIST_HEAD(&(guest->exts));
 
 
-	    INIT_LIST_HEAD(&(guest->streams));
 	    INIT_LIST_HEAD(&(guest->sockets));
 #ifdef V3_CONFIG_HOST_DEVICE
 	    INIT_LIST_HEAD(&(guest->hostdev.devs));
@@ -261,9 +259,6 @@ static int __init v3_init(void) {
 
 
 
-#ifdef V3_CONFIG_STREAM
-    palacios_init_stream();
-#endif
 
 #ifdef V3_CONFIG_KEYED_STREAMS
     palacios_init_keyed_streams();
@@ -341,9 +336,6 @@ static void __exit v3_exit(void) {
 #endif
 
 
-#ifdef V3_CONFIG_STREAM
-    palacios_deinit_stream();
-#endif
 
 #ifdef V3_CONFIG_SOCKET
     palacios_socket_deinit();

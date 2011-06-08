@@ -112,10 +112,6 @@ static struct vm_ctrl * get_ctrl(struct v3_guest * guest, unsigned int cmd) {
 }
 
 
-#ifdef V3_CONFIG_STREAM
-#include "palacios-stream.h"
-#endif
-
 
 #ifdef V3_CONFIG_EXT_INSPECTOR
 #include "palacios-inspector.h"
@@ -131,7 +127,7 @@ static struct vm_ctrl * get_ctrl(struct v3_guest * guest, unsigned int cmd) {
 #endif
 
 extern struct class * v3_class;
-#define STREAM_NAME_LEN 128
+
 
 static long v3_vm_ioctl(struct file * filp,
 			unsigned int ioctl, unsigned long arg) {
@@ -149,23 +145,6 @@ static long v3_vm_ioctl(struct file * filp,
 	}
 
 
-	case V3_VM_STREAM_CONNECT: {
-#ifdef V3_CONFIG_STREAM
-	    void __user * argp = (void __user *)arg;
-	    char path_name[STREAM_NAME_LEN];
-
-	    if (copy_from_user(path_name, argp, STREAM_NAME_LEN)) {
-		printk("%s(%d): copy from user error...\n", __FILE__, __LINE__);
-		return -EFAULT;
-	    }
-
-	    return open_stream(path_name);
-#else
-	    printk("Stream support Not available\n");
-	    return -EFAULT;
-#endif
-	    break;
-	}
 
 	case V3_VM_HOST_DEV_CONNECT: {
 #ifdef V3_CONFIG_HOST_DEVICE
