@@ -114,9 +114,6 @@ static struct vm_ctrl * get_ctrl(struct v3_guest * guest, unsigned int cmd) {
 
 
 
-#ifdef V3_CONFIG_GRAPHICS_CONSOLE
-#include "palacios-graphics-console.h"
-#endif
 
 #ifdef V3_CONFIG_HOST_DEVICE
 #include "palacios-host-dev.h"
@@ -161,23 +158,6 @@ static long v3_vm_ioctl(struct file * filp,
 	    break;
 	}
 
-	case V3_VM_FB_INPUT: 
-#ifdef V3_CONFIG_GRAPHICS_CONSOLE
-	    return palacios_graphics_console_user_input(&(guest->graphics_console),
-							(struct v3_fb_input __user *) arg) ;
-#else
-	    return -EFAULT;
-#endif
-	    break;
-	    
-	case V3_VM_FB_QUERY: 
-#ifdef V3_CONFIG_GRAPHICS_CONSOLE
-	    return palacios_graphics_console_user_query(&(guest->graphics_console),
-							(struct v3_fb_query_response __user *) arg);
-#else
-	    return -EFAULT;
-#endif
-	    break;
 
 
 	default: {

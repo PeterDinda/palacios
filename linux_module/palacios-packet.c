@@ -260,7 +260,6 @@ static int packet_init( void ) {
 
 static int packet_deinit( void ) {
 
-    const char * eth_dev = NULL;
 
     kthread_stop(packet_state.server_thread);
     packet_state.raw_sock->ops->release(packet_state.raw_sock);

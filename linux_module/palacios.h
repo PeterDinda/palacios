@@ -7,9 +7,7 @@
 #include <linux/slab.h>
 
 
-#ifdef V3_CONFIG_GRAPHICS_CONSOLE
-#include "palacios-graphics-console.h"
-#endif
+
 
 #ifdef V3_CONFIG_HOST_DEVICE
 #include "palacios-host-dev.h"
@@ -62,10 +60,6 @@ struct v3_guest {
     struct rb_root vm_ctrls;
     struct list_head exts;
 
-
-#ifdef V3_CONFIG_GRAPHICS_CONSOLE
-    struct palacios_graphics_console graphics_console;
-#endif
 
 #ifdef V3_CONFIG_HOST_DEVICE
     struct palacios_host_dev hostdev;

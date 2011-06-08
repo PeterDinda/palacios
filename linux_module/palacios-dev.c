@@ -27,10 +27,6 @@
 #include "linux-exts.h"
 
 
-#ifdef V3_CONFIG_KEYED_STREAMS
-#include "palacios-keyed-stream.h"
-#endif
-
 
 MODULE_LICENSE("GPL");
 
@@ -254,13 +250,7 @@ static int __init v3_init(void) {
 
 
 
-#ifdef V3_CONFIG_KEYED_STREAMS
-    palacios_init_keyed_streams();
-#endif
 
-#ifdef V3_CONFIG_GRAPHICS_CONSOLE
-    palacios_init_graphics_console();
-#endif
 
 #ifdef V3_CONFIG_VNET
     palacios_vnet_init();
