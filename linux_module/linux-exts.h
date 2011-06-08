@@ -19,6 +19,11 @@ struct linux_ext {
 int init_lnx_extensions( void );
 int deinit_lnx_extensions( void );
 
+int init_vm_extensions(struct v3_guest * guest);
+int deinit_vm_extensions(struct v3_guest * guest);
+
+void * get_vm_ext_data(struct v3_guest * guest, char * ext_name);
+
 
 
 #define register_extension(ext)					\

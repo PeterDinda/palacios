@@ -22,6 +22,7 @@
 
 #include "palacios.h"
 #include "palacios-vm.h"
+#include "linux-exts.h"
 
 
 struct vm_ctrl {
@@ -262,6 +263,7 @@ int start_palacios_vm(void * arg)  {
     // allow_signal(SIGKILL);
     unlock_kernel();
     
+    init_vm_extensions(guest);
 
     guest->v3_ctx = v3_create_vm(guest->img, (void *)guest, guest->name);
 

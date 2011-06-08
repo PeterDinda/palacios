@@ -10,10 +10,12 @@
 #include <linux/module.h>
 
 #include "palacios.h"
+#include "linux-exts.h"
 
 #include <interfaces/vmm_file.h>
 
 static struct list_head global_files;
+
 
 struct palacios_file {
     struct file * filp;
@@ -30,10 +32,26 @@ struct palacios_file {
 };
 
 
+// Currently this just holds the list of open files
+struct vm_file_state {
+    struct list_head open_files;
+};
+
+
 
 static void * palacios_file_open(const char * path, int mode, void * private_data) {
     struct v3_guest * guest = (struct v3_guest *)private_data;
-    struct palacios_file * pfile = NULL;
+    struct palacios_file * pfile = NULL;	
+    struct vm_file_state * vm_state = NULL;
+
+    if (guest != NULL) {
+	vm_state = get_vm_ext_data(guest, "FILE_INTERFACE");
+	
+	if (vm_state == NULL) {
+	    printk("ERROR: Could not locate vm file state for extension FILE_INTERFACE\n");
+	    return NULL;
+	}
+    }
     
     pfile = kmalloc(sizeof(struct palacios_file), GFP_KERNEL);
     memset(pfile, 0, sizeof(struct palacios_file));
@@ -62,7 +80,7 @@ static void * palacios_file_open(const char * path, int mode, void * private_dat
     if (guest == NULL) {
 	list_add(&(pfile->file_node), &(global_files));
     } else {
-	list_add(&(pfile->file_node), &(guest->files));
+	list_add(&(pfile->file_node), &(vm_state->open_files));
     } 
 
 
@@ -150,7 +168,8 @@ static struct v3_file_hooks palacios_file_hooks = {
 };
 
 
-int palacios_file_init( void ) {
+
+static int file_init( void ) {
     INIT_LIST_HEAD(&(global_files));
 
     V3_Init_File(&palacios_file_hooks);
@@ -159,10 +178,38 @@ int palacios_file_init( void ) {
 }
 
 
-int palacios_file_deinit( void ) {
+static int file_deinit( void ) {
     if (!list_empty(&(global_files))) {
 	printk("Error removing module with open files\n");
     }
 
     return 0;
 }
+
+static int guest_file_init(struct v3_guest * guest, void ** vm_data) {
+    struct vm_file_state * state = kmalloc(sizeof(struct vm_file_state), GFP_KERNEL);
+    
+    INIT_LIST_HEAD(&(state->open_files));
+
+    *vm_data = state;
+
+    return 0;
+}
+
+
+static int guest_file_deinit(struct v3_guest * guest, void * vm_data) {
+    
+    return 0;
+}
+
+
+static struct linux_ext file_ext = {
+    .name = "FILE_INTERFACE",
+    .init = file_init, 
+    .deinit = file_deinit,
+    .guest_init = guest_file_init,
+    .guest_deinit = guest_file_deinit
+};
+
+
+register_extension(&file_ext);

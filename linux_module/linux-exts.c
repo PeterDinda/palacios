@@ -17,6 +17,18 @@ struct vm_ext {
 };
 
 
+void * get_vm_ext_data(struct v3_guest * guest, char * ext_name) {
+    struct vm_ext * ext = NULL;
+
+    list_for_each_entry(ext, &(guest->exts), node) {
+	if (strncmp(ext->impl->name, ext_name, strlen(ext->impl->name)) == 0) {
+	    return ext->vm_data;
+	}
+    }
+
+    return NULL;
+}
+
 
 int init_vm_extensions(struct v3_guest * guest) {
     extern struct linux_ext * __start__lnx_exts[];
@@ -29,6 +41,7 @@ int init_vm_extensions(struct v3_guest * guest) {
 
 	if (ext_impl->guest_init == NULL) {
 	    // We can have global extensions without per guest state
+	    ext_impl = __start__lnx_exts[++i];
 	    continue;
 	}
 	
@@ -52,6 +65,7 @@ int init_vm_extensions(struct v3_guest * guest) {
     
     return 0;
 }
+
 
 
 int deinit_vm_extensions(struct v3_guest * guest) {
