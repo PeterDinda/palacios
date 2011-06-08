@@ -366,7 +366,7 @@ config RAMDISK
 	  Includes the RAM based disk backend
 
 config DEBUG_RAMDISK
-	bool "RAMDISK baskend debugging"
+	bool "RAMDISK backend debugging"
 	depends on RAMDISK && DEBUG_ON
 	help 
 	  Enable debugging for the ram based disk backend 	
