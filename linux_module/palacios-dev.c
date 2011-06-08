@@ -28,9 +28,6 @@
 
 #include "linux-exts.h"
 
-#ifdef V3_CONFIG_EXT_INSPECTOR
-#include "palacios-inspector.h"
-#endif
 
 #ifdef V3_CONFIG_KEYED_STREAMS
 #include "palacios-keyed-stream.h"
@@ -268,9 +265,6 @@ static int __init v3_init(void) {
     palacios_init_graphics_console();
 #endif
 
-#ifdef V3_CONFIG_EXT_INSPECTOR
-    palacios_init_inspector();
-#endif
 
 #ifdef V3_CONFIG_SOCKET
     palacios_socket_init();
@@ -331,9 +325,6 @@ static void __exit v3_exit(void) {
     deinit_lnx_extensions();
 
 
-#ifdef V3_CONFIG_EXT_INSPECTOR
-    palacios_deinit_inspector();
-#endif
 
 
 

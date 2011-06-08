@@ -113,9 +113,6 @@ static struct vm_ctrl * get_ctrl(struct v3_guest * guest, unsigned int cmd) {
 
 
 
-#ifdef V3_CONFIG_EXT_INSPECTOR
-#include "palacios-inspector.h"
-#endif
 
 #ifdef V3_CONFIG_GRAPHICS_CONSOLE
 #include "palacios-graphics-console.h"
@@ -255,9 +252,6 @@ int start_palacios_vm(void * arg)  {
     // init linux extensions
     
 
-#ifdef V3_CONFIG_EXT_INSPECTOR
-    inspect_vm(guest);
-#endif
 
     printk("Creating VM device: Major %d, Minor %d\n", MAJOR(guest->vm_dev), MINOR(guest->vm_dev));
 

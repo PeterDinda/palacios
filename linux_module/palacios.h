@@ -26,6 +26,8 @@
 #define V3_VM_STREAM_CONNECT 21
 #define V3_VM_STOP 22
 
+#define V3_VM_INSPECT 30
+
 #define V3_VM_FB_INPUT (256+1)
 #define V3_VM_FB_QUERY (256+2)
 
