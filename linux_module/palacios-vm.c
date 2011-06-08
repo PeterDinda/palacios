@@ -301,6 +301,7 @@ int start_palacios_vm(void * arg)  {
 
     if (err) {
 	printk("Fails to add cdev\n");
+	v3_free_vm(guest->v3_ctx);
 	complete(&(guest->start_done));
 	return -1;
     }
@@ -308,15 +309,7 @@ int start_palacios_vm(void * arg)  {
     if (device_create(v3_class, NULL, guest->vm_dev, guest, "v3-vm%d", MINOR(guest->vm_dev)) == NULL){
 	printk("Fails to create device\n");
 	cdev_del(&(guest->cdev));
-	complete(&(guest->start_done));
-	return -1;
-    }
-
-    guest->v3_ctx = v3_create_vm(guest->img, (void *)guest, guest->name);
-
-    if (guest->v3_ctx == NULL) { 
-	printk("palacios: failed to create vm\n");
-	cdev_del(&(guest->cdev));
+	v3_free_vm(guest->v3_ctx);
 	complete(&(guest->start_done));
 	return -1;
     }
@@ -324,10 +317,6 @@ int start_palacios_vm(void * arg)  {
     complete(&(guest->start_done));
 
     printk("palacios: launching vm\n");
-
-
-
-
 
     if (v3_start_vm(guest->v3_ctx, 0xffffffff) < 0) { 
 	printk("palacios: launch of vm failed\n");
