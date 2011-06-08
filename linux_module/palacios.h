@@ -66,7 +66,7 @@ struct v3_guest {
 
 
     struct rb_root vm_ctrls;
-
+    struct list_head exts;
 
     struct list_head files;
     struct list_head streams;

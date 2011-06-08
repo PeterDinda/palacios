@@ -129,6 +129,7 @@ static struct vm_ctrl * get_ctrl(struct v3_guest * guest, unsigned int cmd) {
 
 #ifdef V3_CONFIG_HOST_DEVICE
 #include "palacios-host-dev.h"
+#define HOST_DEV_URL_LEN 256
 #endif
 
 extern struct class * v3_class;
@@ -178,7 +179,10 @@ static long v3_vm_ioctl(struct file * filp,
 	}
 
 	case V3_VM_HOST_DEV_CONNECT: {
-#ifdef V3_CONFIG_HOST_DEV
+#ifdef V3_CONFIG_HOST_DEVICE
+	    void __user * argp = (void __user *)arg;
+	    char host_dev_url[HOST_DEV_URL_LEN];
+
 	    if (copy_from_user(host_dev_url, argp, HOST_DEV_URL_LEN)) {
 		printk("copy from user error getting url for host device connect...\n");
 		return -EFAULT;
@@ -256,7 +260,6 @@ static struct file_operations v3_vm_fops = {
 };
 
 
-extern int vm_running;
 extern u32 pg_allocs;
 extern u32 pg_frees;
 extern u32 mallocs;
@@ -298,7 +301,6 @@ int start_palacios_vm(void * arg)  {
 
     if (err) {
 	printk("Fails to add cdev\n");
-	v3_free_vm(guest->v3_ctx);
 	complete(&(guest->start_done));
 	return -1;
     }
@@ -306,7 +308,15 @@ int start_palacios_vm(void * arg)  {
     if (device_create(v3_class, NULL, guest->vm_dev, guest, "v3-vm%d", MINOR(guest->vm_dev)) == NULL){
 	printk("Fails to create device\n");
 	cdev_del(&(guest->cdev));
-	v3_free_vm(guest->v3_ctx);
+	complete(&(guest->start_done));
+	return -1;
+    }
+
+    guest->v3_ctx = v3_create_vm(guest->img, (void *)guest, guest->name);
+
+    if (guest->v3_ctx == NULL) { 
+	printk("palacios: failed to create vm\n");
+	cdev_del(&(guest->cdev));
 	complete(&(guest->start_done));
 	return -1;
     }

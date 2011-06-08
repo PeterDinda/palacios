@@ -99,7 +99,9 @@ struct vnet_queue {
 static struct {
     struct list_head routes;
     struct list_head devs;
-    
+
+    uint8_t status; 
+   
     uint32_t num_routes;
     uint32_t route_idx;
     uint32_t num_devs;
