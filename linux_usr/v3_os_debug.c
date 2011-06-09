@@ -29,6 +29,10 @@ int do_work(struct palacios_host_dev_host_request_response *req,
 	  putchar(req->data[i]);
 	}
 	*resp = malloc(sizeof(struct palacios_host_dev_host_request_response));
+	if (!*resp) { 
+	    printf("Cannot allocate response\n");
+	    return -1;
+	}
 	**resp=*req;
 	(*resp)->len = (*resp)->data_len = sizeof(struct palacios_host_dev_host_request_response);
 	(*resp)->op_len = numchars;

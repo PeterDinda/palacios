@@ -19,14 +19,14 @@
 #include <palacios/vmm_host_events.h>
 #include <vnet/vnet.h>
 
+
 #define __V3VEE__
 #include <palacios/vmm_hashtable.h>
 #include <palacios/vmm_ethernet.h>
 #undef __V3VEE__
 
 #include "palacios.h"
-#include "palacios-packet.h"
-
+#include "linux-exts.h"
 struct palacios_packet_state {
     struct socket * raw_sock;
     uint8_t inited;
@@ -140,11 +140,6 @@ palacios_packet_send(const char * pkt, unsigned int len, void * private_data) {
     size = sock_sendmsg(packet_state.raw_sock, &msg, len);
     set_fs(oldfs);
 
-    if(vnet_debug >= 4){
-	printk("Palacios Packet: send pkt to NIC (size: %d)\n", len);
-	print_hex_dump(NULL, "pkt_header: ", 0, 20, 20, pkt, 20, 0);
-	printk("palacios_packet_send return: %d\n", size);
-    }
 
     return size;
 }
@@ -189,7 +184,7 @@ recv_pkt(char * pkt, int len) {
 }
 
 
-void
+static void
 send_raw_packet_to_palacios(char * pkt,
 			       int len,
 			       struct v3_vm_info * vm) {
@@ -218,10 +213,6 @@ static int packet_server(void * arg) {
 	    break;
 	}
 
-	if(vnet_debug >= 4){
-	    printk("Palacios Packet: receive pkt from NIC (size: %d)\n",size);
-	    print_hex_dump(NULL, "pkt_header: ", 0, 10, 10, pkt, 20, 0);
-	}
 
 	/* if VNET is enabled, send to VNET */
 	// ...
@@ -242,7 +233,9 @@ static int packet_server(void * arg) {
 }
 
 
-int palacios_init_packet(const char * eth_dev) {
+static int packet_init( void ) {
+
+    const char * eth_dev = NULL;
 
     if(packet_state.inited == 0){
 	packet_state.inited = 1;
@@ -259,14 +252,32 @@ int palacios_init_packet(const char * eth_dev) {
 	packet_state.server_thread = kthread_run(packet_server, NULL, "raw-packet-server");
     }
 	
+
+    // REGISTER GLOBAL CONTROL to add devices...
+
     return 0;
 }
 
-void palacios_deinit_packet(const char * eth_dev) {
+static int packet_deinit( void ) {
+
 
     kthread_stop(packet_state.server_thread);
     packet_state.raw_sock->ops->release(packet_state.raw_sock);
     v3_free_htable(packet_state.mac_vm_cache, 0, 1);
     packet_state.inited = 0;
+
+    return 0;
 }
 
+
+
+static struct linux_ext pkt_ext = {
+    .name = "PACKET_INTERFACE",
+    .init = packet_init,
+    .deinit = packet_deinit,
+    .guest_init = NULL,
+    .guest_deinit = NULL
+};
+
+
+register_extension(&pkt_ext);

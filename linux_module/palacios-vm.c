@@ -16,35 +16,109 @@
 #include <linux/smp_lock.h>
 #include <linux/file.h>
 #include <linux/spinlock.h>
-
+#include <linux/rbtree.h>
 
 #include <palacios/vmm.h>
 
 #include "palacios.h"
 #include "palacios-vm.h"
+#include "linux-exts.h"
 
-#ifdef V3_CONFIG_STREAM
-#include "palacios-stream.h"
-#endif
 
-#ifdef V3_CONFIG_CONSOLE
-#include "palacios-console.h"
-#endif
+struct vm_ctrl {
+    unsigned int cmd;
 
-#ifdef V3_CONFIG_EXT_INSPECTOR
-#include "palacios-inspector.h"
-#endif
+    int (*handler)(struct v3_guest * guest, 
+		   unsigned int cmd, unsigned long arg, 
+		   void * priv_data);
 
-#ifdef V3_CONFIG_GRAPHICS_CONSOLE
-#include "palacios-graphics-console.h"
-#endif
+    void * priv_data;
 
-#ifdef V3_CONFIG_HOST_DEVICE
-#include "palacios-host-dev.h"
-#endif
+    struct rb_node tree_node;
+};
+
+
+static inline struct vm_ctrl * __insert_ctrl(struct v3_guest * vm, 
+					     struct vm_ctrl * ctrl) {
+    struct rb_node ** p = &(vm->vm_ctrls.rb_node);
+    struct rb_node * parent = NULL;
+    struct vm_ctrl * tmp_ctrl = NULL;
+
+    while (*p) {
+	parent = *p;
+	tmp_ctrl = rb_entry(parent, struct vm_ctrl, tree_node);
+
+	if (ctrl->cmd < tmp_ctrl->cmd) {
+	    p = &(*p)->rb_left;
+	} else if (ctrl->cmd > tmp_ctrl->cmd) {
+	    p = &(*p)->rb_right;
+	} else {
+	    return tmp_ctrl;
+	}
+    }
+
+    rb_link_node(&(ctrl->tree_node), parent, p);
+
+    return NULL;
+}
+
+
+
+int add_guest_ctrl(struct v3_guest * guest, unsigned int cmd, 
+		   int (*handler)(struct v3_guest * guest, 
+				  unsigned int cmd, unsigned long arg, 
+				  void * priv_data),
+		   void * priv_data) {
+    struct vm_ctrl * ctrl = kmalloc(sizeof(struct vm_ctrl), GFP_KERNEL);
+
+    if (ctrl == NULL) {
+	printk("Error: Could not allocate vm ctrl %d\n", cmd);
+	return -1;
+    }
+
+    ctrl->cmd = cmd;
+    ctrl->handler = handler;
+    ctrl->priv_data = priv_data;
+
+    if (__insert_ctrl(guest, ctrl) != NULL) {
+	printk("Could not insert guest ctrl %d\n", cmd);
+	kfree(ctrl);
+	return -1;
+    }
+    
+    rb_insert_color(&(ctrl->tree_node), &(guest->vm_ctrls));
+
+    return 0;
+}
+
+
+static struct vm_ctrl * get_ctrl(struct v3_guest * guest, unsigned int cmd) {
+    struct rb_node * n = guest->vm_ctrls.rb_node;
+    struct vm_ctrl * ctrl = NULL;
+
+    while (n) {
+	ctrl = rb_entry(n, struct vm_ctrl, tree_node);
+
+	if (cmd < ctrl->cmd) {
+	    n = n->rb_left;
+	} else if (cmd > ctrl->cmd) {
+	    n = n->rb_right;
+	} else {
+	    return ctrl;
+	}
+    }
+
+    return NULL;
+}
+
+
+
+
+
+
 
 extern struct class * v3_class;
-#define STREAM_NAME_LEN 128
+
 
 static long v3_vm_ioctl(struct file * filp,
 			unsigned int ioctl, unsigned long arg) {
@@ -61,71 +135,17 @@ static long v3_vm_ioctl(struct file * filp,
 	    break;
 	}
 
-	case V3_VM_CONSOLE_CONNECT: {
-#ifdef V3_CONFIG_CONSOLE
-	    return connect_console(guest);
-#else
-	    printk("Console support not available\n");
-	    return -EFAULT;
-#endif
-	    break;
-	}
+	default: {
+	    struct vm_ctrl * ctrl = get_ctrl(guest, ioctl);
 
-	case V3_VM_STREAM_CONNECT: {
-#ifdef V3_CONFIG_STREAM
-	    void __user * argp = (void __user *)arg;
-	    char path_name[STREAM_NAME_LEN];
-
-	    if (copy_from_user(path_name, argp, STREAM_NAME_LEN)) {
-		printk("%s(%d): copy from user error...\n", __FILE__, __LINE__);
-		return -EFAULT;
+	    if (ctrl) {
+		return ctrl->handler(guest, ioctl, arg, ctrl->priv_data);
 	    }
-
-	    return open_stream(path_name);
-#else
-	    printk("Stream support Not available\n");
-	    return -EFAULT;
-#endif
-	    break;
-	}
-
-	case V3_VM_HOST_DEV_CONNECT: {
-#ifdef V3_CONFIG_HOST_DEV
-	    if (copy_from_user(host_dev_url, argp, HOST_DEV_URL_LEN)) {
-		printk("copy from user error getting url for host device connect...\n");
-		return -EFAULT;
-	    }
-
-	    return connect_host_dev(guest,host_dev_url);
-#else
-	    printk("palacios: Host device support not available\n");
-	    return -EFAULT;
-#endif
-	    break;
-	}
-
-	case V3_VM_FB_INPUT: 
-#ifdef V3_CONFIG_GRAPHICS_CONSOLE
-	    return palacios_graphics_console_user_input(&(guest->graphics_console),
-							(struct v3_fb_input __user *) arg) ;
-#else
-	    return -EFAULT;
-#endif
-	    break;
 	    
-	case V3_VM_FB_QUERY: 
-#ifdef V3_CONFIG_GRAPHICS_CONSOLE
-	    return palacios_graphics_console_user_query(&(guest->graphics_console),
-							(struct v3_fb_query_response __user *) arg);
-#else
-	    return -EFAULT;
-#endif
-	    break;
-
-
-	default: 
-	    printk("\tUnhandled\n");
+	    
+	    printk("\tUnhandled ctrl cmd: %d\n", ioctl);
 	    return -EINVAL;
+	}
     }
 
     return 0;
@@ -160,7 +180,6 @@ static struct file_operations v3_vm_fops = {
 };
 
 
-extern int vm_running;
 extern u32 pg_allocs;
 extern u32 pg_frees;
 extern u32 mallocs;
@@ -175,6 +194,7 @@ int start_palacios_vm(void * arg)  {
     // allow_signal(SIGKILL);
     unlock_kernel();
     
+    init_vm_extensions(guest);
 
     guest->v3_ctx = v3_create_vm(guest->img, (void *)guest, guest->name);
 
@@ -183,6 +203,7 @@ int start_palacios_vm(void * arg)  {
 	complete(&(guest->start_done));
 	return -1;
     }
+
 
     printk("Creating VM device: Major %d, Minor %d\n", MAJOR(guest->vm_dev), MINOR(guest->vm_dev));
 
@@ -213,12 +234,6 @@ int start_palacios_vm(void * arg)  {
     complete(&(guest->start_done));
 
     printk("palacios: launching vm\n");
-
-
-#ifdef V3_CONFIG_EXT_INSPECTOR
-    inspect_vm(guest);
-#endif
-
 
     if (v3_start_vm(guest->v3_ctx, 0xffffffff) < 0) { 
 	printk("palacios: launch of vm failed\n");
