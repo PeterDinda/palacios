@@ -45,10 +45,11 @@
 struct palacios_graphics_console {
     // descriptor for the data in the shared frame buffer
     struct v3_frame_buffer_spec spec;
+
     // the actual shared frame buffer
     // Note that "shared" here means shared between palacios and us
     // This data could of course also be shared with userland
-    void *data;
+    void * data;
 
     int cons_refcount;
     int data_refcount;
@@ -123,17 +124,17 @@ static  void g_close(v3_graphics_console_t cons)
     gc->cons_refcount--;
     gc->data_refcount--;
 
-    if (gc->data_refcount<gc->cons_refcount) { 
+    if (gc->data_refcount < gc->cons_refcount) { 
 	printk("palacios: error!   data refcount is less than console refcount for graphics console\n");
     }
 
-    if (gc->cons_refcount>0) { 
+    if (gc->cons_refcount > 0) { 
 	return;
     } else {
-	if (gc->cons_refcount<0) { 
+	if (gc->cons_refcount < 0) { 
 	    printk("palacios: error!  refcount for graphics console is negative on close!\n");
 	}
-	if (gc->data_refcount>0) { 
+	if (gc->data_refcount > 0) { 
 	    printk("palacios: error!  refcount for graphics console data is positive on close - LEAKING MEMORY\n");
 	    return;
 	}
@@ -255,13 +256,12 @@ static int gfx_console_init( void ) {
 
 static int fb_query(struct v3_guest * guest, unsigned int cmd, unsigned long arg, 
 		    void * priv_data) {
-
-    struct v3_fb_query_response __user * u = (struct v3_fb_query_response __user *)arg;
+    
     struct palacios_graphics_console * cons = priv_data;
     struct v3_fb_query_response q;
     
     
-    if (copy_from_user(&q,(void __user *) u, sizeof(struct v3_fb_query_response))) { 
+    if (copy_from_user(&q, (void __user *) arg, sizeof(struct v3_fb_query_response))) { 
 	printk("palacios: copy from user in getting query in fb\n");
 	return -EFAULT;
     }
@@ -301,7 +301,7 @@ static int fb_query(struct v3_guest * guest, unsigned int cmd, unsigned long arg
 		printk("palacios: unable to copy fb content to user\n");
 		return -EFAULT;
 	    }
-	    q.updated=1;
+	    q.updated = 1;
 	}
 	    break;
 	    
@@ -310,7 +310,7 @@ static int fb_query(struct v3_guest * guest, unsigned int cmd, unsigned long arg
     }
 
     // now we'll copy back any changes we made to the query/response structure
-    if (copy_to_user((void __user *) u, (void*)&q, sizeof(struct v3_fb_query_response))) { 
+    if (copy_to_user((void __user *) arg, (void*)&q, sizeof(struct v3_fb_query_response))) { 
 	printk("palacios: unable to copy fb response to user\n");
 	return -EFAULT;
     }
@@ -324,13 +324,12 @@ static int fb_input(struct v3_guest * guest,
 		    unsigned long arg, 
 		    void * priv_data) {
 
-    struct v3_fb_input __user * u = (struct v3_fb_input __user *)arg;
     struct palacios_graphics_console * cons = priv_data;
     struct v3_fb_input inp;
     int rc = 0;
 
 
-    if (copy_from_user(&inp,(void __user *) u, sizeof(struct v3_fb_input))) { 
+    if (copy_from_user(&inp, (void __user *) arg, sizeof(struct v3_fb_input))) { 
 	printk("palacios: copy from user in getting input in fb\n");
 	return -EFAULT;
     }

@@ -17,10 +17,9 @@
 #include <interfaces/vmm_host_dev.h>
 
 #include "palacios.h"
-#include "palacios-host-dev.h"
 #include "palacios-host-dev-user.h"
-
-
+#include "linux-exts.h"
+#include "palacios-vm.h"
 
 /*
   There are two things in this file:
@@ -105,6 +104,12 @@
     
 
 */
+
+
+struct palacios_host_dev {
+    spinlock_t      lock;
+    struct list_head devs;
+};
 
 
 #define MAX_URL 256
@@ -596,12 +601,21 @@ static struct file_operations host_dev_fops = {
 
 
 
-    
-int connect_host_dev(struct v3_guest * guest, char *url) 
+static int host_dev_connect(struct v3_guest * guest, unsigned int cmd, unsigned long arg, void * priv_data) 
 {
+    void __user * argp = (void __user *)arg;
+    char url[MAX_URL];
+    struct palacios_host_dev * host_dev = priv_data;
     struct palacios_host_device_user *dev;
     unsigned long f1, f2;
     int i;
+
+
+
+    if (copy_from_user(url, argp, MAX_URL)) {
+	printk("copy from user error getting url for host device connect...\n");
+	return -EFAULT;
+    }
 
     // currently only support user: types:
     if (strncasecmp(url,"user:",5)) { 
@@ -615,22 +629,22 @@ int connect_host_dev(struct v3_guest * guest, char *url)
     // URL.  If we don't find it after a while, we give up
     
     for (i=0;i<RENDEZVOUS_WAIT_SECS/RENDEZVOUS_RETRY_SECS;i++) { 
-	spin_lock_irqsave(&(guest->hostdev.lock),f1);
-	list_for_each_entry(dev,&(guest->hostdev.devs), node) {
+	spin_lock_irqsave(&(host_dev->lock),f1);
+	list_for_each_entry(dev,&(host_dev->devs), node) {
 	    if (!strncasecmp(url,dev->url,MAX_URL)) { 
 		// found it
 		spin_lock_irqsave(&(dev->lock),f2);
 		if (dev->connected) { 
 		    ERROR("palacios: device for \"%s\" is already connected!\n",url);
 		    spin_unlock_irqrestore(&(dev->lock),f2);
-		    spin_unlock_irqrestore(&(guest->hostdev.lock),f1);
+		    spin_unlock_irqrestore(&(host_dev->lock),f1);
 		    return -1;
 		} else {
 		    dev->fd = anon_inode_getfd("v3-hostdev", &host_dev_fops, dev, 0);
 		    if (dev->fd<0) { 
 			ERROR("palacios: cannot create fd for device \"%s\"\n",url);
 			spin_unlock_irqrestore(&(dev->lock),f2);
-			spin_unlock_irqrestore(&(guest->hostdev.lock),f1);
+			spin_unlock_irqrestore(&(host_dev->lock),f1);
 			return -1;
 		    }
 		    dev->connected=1;
@@ -645,13 +659,13 @@ int connect_host_dev(struct v3_guest * guest, char *url)
 		    }
 		    INFO("palacios: connected fd for device \"%s\"\n",url);
 		    spin_unlock_irqrestore(&(dev->lock),f2);
-		    spin_unlock_irqrestore(&(guest->hostdev.lock),f1);
+		    spin_unlock_irqrestore(&(host_dev->lock),f1);
 		    return dev->fd;
 		}
 		spin_unlock_irqrestore(&(dev->lock),f2);
 	    }
 	}
-	spin_unlock_irqrestore(&(guest->hostdev.lock),f1);
+	spin_unlock_irqrestore(&(host_dev->lock),f1);
 	
 	ssleep(RENDEZVOUS_RETRY_SECS);
     }
@@ -684,11 +698,24 @@ static v3_host_dev_t palacios_host_dev_open(char *url,
     struct palacios_host_device_user *dev;
     unsigned long f1,f2;
     int i;
+    struct palacios_host_dev * host_dev = NULL;
 
     /*
       I will create the device in the list and then wait
       for the user side to attach
     */
+
+    if (guest == NULL) {
+	return 0;
+    }
+    
+
+    host_dev = get_vm_ext_data(guest, "HOST_DEV_INTERFACE");
+
+    if (host_dev == NULL) {
+	printk("Error locating vm host data for HOST_DEV_INTERFACE\n");
+	return 0;
+    }
 
 
     if (strncasecmp(url,"user:",5)) { 
@@ -697,16 +724,16 @@ static v3_host_dev_t palacios_host_dev_open(char *url,
     }
 
     // Check to see if a device of this url already exists, which would be ugly
-    spin_lock_irqsave(&(guest->hostdev.lock),f1);
-    list_for_each_entry(dev,&(guest->hostdev.devs), node) {
+    spin_lock_irqsave(&(host_dev->lock),f1);
+    list_for_each_entry(dev,&(host_dev->devs), node) {
 	if (!strncasecmp(url,dev->url,MAX_URL)) { 
 	    // found it
-	    spin_unlock_irqrestore(&(guest->hostdev.lock),f1);
+	    spin_unlock_irqrestore(&(host_dev->lock),f1);
 	    ERROR("palacios: a host device with url \"%s\" already exists in the guest!\n",url);
 	    return NULL;
 	}
     }
-    spin_unlock_irqrestore(&(guest->hostdev.lock),f1);
+    spin_unlock_irqrestore(&(host_dev->lock),f1);
 
 
     INFO("palacios: creating host device \"%s\"\n",url);
@@ -734,9 +761,9 @@ static v3_host_dev_t palacios_host_dev_open(char *url,
     INFO("palacios: attempting to rendezvous with user side of host device \"%s\"\n",url);
     
     // Insert ourselves into the list
-    spin_lock_irqsave(&(guest->hostdev.lock),f1);
-    list_add(&(dev->node),&(guest->hostdev.devs));
-    spin_unlock_irqrestore(&(guest->hostdev.lock),f1);
+    spin_lock_irqsave(&(host_dev->lock),f1);
+    list_add(&(dev->node),&(host_dev->devs));
+    spin_unlock_irqrestore(&(host_dev->lock),f1);
 
     
     // Now wait until we are noticed!
@@ -754,9 +781,9 @@ static v3_host_dev_t palacios_host_dev_open(char *url,
     ERROR("palacios: timeout waiting for user side to connect to host device \"%s\"",url);
     
     // get us out of the list
-    spin_lock_irqsave(&(guest->hostdev.lock),f1);
+    spin_lock_irqsave(&(host_dev->lock),f1);
     list_del(&(dev->node));
-    spin_unlock_irqrestore(&(guest->hostdev.lock),f1);
+    spin_unlock_irqrestore(&(host_dev->lock),f1);
     
     palacios_host_dev_user_free(dev);
     
@@ -768,10 +795,22 @@ static int palacios_host_dev_close(v3_host_dev_t hostdev)
     unsigned long f1, f2;
 
     struct palacios_host_device_user *dev = (struct palacios_host_device_user *) hostdev;
-    
+    struct palacios_host_dev * host_dev = NULL;
+
     INFO("palacios: closing host device \"%s\"\n",dev->url);
 
-    spin_lock_irqsave(&(dev->guest->hostdev.lock),f1);
+    if ((dev == NULL) || (dev->guest == NULL)) {
+	return -1;
+    }
+
+    host_dev = get_vm_ext_data(dev->guest, "HOST_DEV_INTERFACE");
+
+    
+    if (host_dev == NULL) {
+	return -1;
+    }
+
+    spin_lock_irqsave(&(host_dev->lock),f1);
 
     spin_lock_irqsave(&(dev->lock),f2);
 
@@ -783,7 +822,7 @@ static int palacios_host_dev_close(v3_host_dev_t hostdev)
     list_del(&(dev->node));
     
     spin_unlock_irqrestore(&(dev->lock),f2);
-    spin_unlock_irqrestore(&(dev->guest->hostdev.lock),f1);
+    spin_unlock_irqrestore(&(host_dev->lock),f1);
     
     palacios_host_dev_user_free(dev);
 
@@ -1253,9 +1292,39 @@ static struct v3_host_dev_hooks palacios_host_dev_hooks = {
 
 
 
-int palacios_init_host_dev( void ) 
-{
+static int host_dev_init( void ) {
     V3_Init_Host_Device_Support(&palacios_host_dev_hooks);
     
     return 0;
 }
+
+
+static int host_dev_guest_init(struct v3_guest * guest, void ** vm_data ) {
+    struct palacios_host_dev * host_dev = kmalloc(sizeof(struct palacios_host_dev), GFP_KERNEL);
+    
+    
+    INIT_LIST_HEAD(&(host_dev->devs));
+    spin_lock_init(&(host_dev->lock));
+
+    *vm_data = host_dev;
+
+
+    add_guest_ctrl(guest, V3_VM_HOST_DEV_CONNECT, host_dev_connect, host_dev);
+
+    return 0;
+}
+
+
+
+
+
+static struct linux_ext host_dev_ext = {
+    .name = "HOST_DEV_INTERFACE",
+    .init = host_dev_init,
+    .deinit = NULL,
+    .guest_init = host_dev_guest_init,
+    .guest_deinit = NULL
+};
+
+
+register_extension(&host_dev_ext);

@@ -7,13 +7,6 @@
 #include <linux/slab.h>
 
 
-
-
-#ifdef V3_CONFIG_HOST_DEVICE
-#include "palacios-host-dev.h"
-#endif
-
-
 /* Global Control IOCTLs */
 #define V3_START_GUEST 10
 #define V3_ADD_MEMORY 50
@@ -60,12 +53,6 @@ struct v3_guest {
     struct rb_root vm_ctrls;
     struct list_head exts;
 
-
-#ifdef V3_CONFIG_HOST_DEVICE
-    struct palacios_host_dev hostdev;
-#endif
-
-
     struct completion start_done;
     struct completion thread_done;
 
@@ -77,11 +64,6 @@ struct v3_guest {
 // This is due to the minor number bitmap
 #define MAX_VMS 32
 
-
-
-
-
-extern void send_key_to_palacios(unsigned char status, unsigned char scan_code);
 
 
 int palacios_vmm_init( void );

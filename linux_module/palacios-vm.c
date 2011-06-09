@@ -115,10 +115,7 @@ static struct vm_ctrl * get_ctrl(struct v3_guest * guest, unsigned int cmd) {
 
 
 
-#ifdef V3_CONFIG_HOST_DEVICE
-#include "palacios-host-dev.h"
-#define HOST_DEV_URL_LEN 256
-#endif
+
 
 extern struct class * v3_class;
 
@@ -137,28 +134,6 @@ static long v3_vm_ioctl(struct file * filp,
 	    stop_palacios_vm(guest);
 	    break;
 	}
-
-
-
-	case V3_VM_HOST_DEV_CONNECT: {
-#ifdef V3_CONFIG_HOST_DEVICE
-	    void __user * argp = (void __user *)arg;
-	    char host_dev_url[HOST_DEV_URL_LEN];
-
-	    if (copy_from_user(host_dev_url, argp, HOST_DEV_URL_LEN)) {
-		printk("copy from user error getting url for host device connect...\n");
-		return -EFAULT;
-	    }
-
-	    return connect_host_dev(guest,host_dev_url);
-#else
-	    printk("palacios: Host device support not available\n");
-	    return -EFAULT;
-#endif
-	    break;
-	}
-
-
 
 	default: {
 	    struct vm_ctrl * ctrl = get_ctrl(guest, ioctl);
