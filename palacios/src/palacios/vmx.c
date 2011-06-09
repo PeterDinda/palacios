@@ -47,7 +47,6 @@ static struct vmx_hw_info hw_info;
 
 extern v3_cpu_arch_t v3_cpu_types[];
 
-static addr_t active_vmcs_ptrs[V3_CONFIG_MAX_CPUS] = { [0 ... V3_CONFIG_MAX_CPUS - 1] = 0};
 static addr_t host_vmcs_ptrs[V3_CONFIG_MAX_CPUS] = { [0 ... V3_CONFIG_MAX_CPUS - 1] = 0};
 
 extern int v3_vmx_launch(struct v3_gprs * vm_regs, struct guest_info * info, struct v3_ctrl_regs * ctrl_regs);
@@ -106,7 +105,6 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 
     PrintDebug("Loading VMCS\n");
     vmx_ret = vmcs_load(vmx_state->vmcs_ptr_phys);
-    active_vmcs_ptrs[V3_Get_CPU()] = vmx_state->vmcs_ptr_phys;
     vmx_state->state = VMX_UNLAUNCHED;
 
     if (vmx_ret != VMX_SUCCESS) {
@@ -538,6 +536,9 @@ int v3_init_vmx_vmcs(struct guest_info * core, v3_vm_class_t vm_class) {
 	return -1;
     }
 
+    PrintDebug("Serializing VMCS: %p\n", (void *)vmx_state->vmcs_ptr_phys);
+    vmx_ret = vmcs_clear(vmx_state->vmcs_ptr_phys);
+
     return 0;
 }
 
@@ -753,9 +754,8 @@ int v3_vmx_enter(struct guest_info * info) {
     // was in the VMM
     v3_update_timers(info);
 
-    if (active_vmcs_ptrs[V3_Get_CPU()] != vmx_info->vmcs_ptr_phys) {
+    if (vmcs_store() != vmx_info->vmcs_ptr_phys) {
 	vmcs_load(vmx_info->vmcs_ptr_phys);
-	active_vmcs_ptrs[V3_Get_CPU()] = vmx_info->vmcs_ptr_phys;
     }
 
     v3_vmx_restore_vmcs(info);
@@ -970,7 +970,23 @@ int v3_is_vmx_capable() {
 }
 
 
+int v3_reset_vmx_vm_core(struct guest_info * core, addr_t rip) {
+    // init vmcs bios
+    
+    if ((core->shdw_pg_mode == NESTED_PAGING) && 
+	(v3_cpu_types[core->pcpu_id] == V3_VMX_EPT_UG_CPU)) {
+	// easy 
+        core->rip = 0;
+	core->segments.cs.selector = rip << 8;
+	core->segments.cs.limit = 0xffff;
+	core->segments.cs.base = rip << 12;
+    } else {
+	core->vm_regs.rdx = core->vcpu_id;
+	core->vm_regs.rbx = rip;
+    }
 
+    return 0;
+}
 
 
 

@@ -152,9 +152,6 @@ int v3_deinit_shdw_pg_state(struct guest_info * core) {
 	return -1;
     }
 
-#ifdef V3_CONFIG_SHADOW_PAGING_TELEMETRY
-    v3_remove_telemetry_cb(core->vm_info, telemetry_cb, NULL);
-#endif
 
     return 0;
 }

@@ -261,6 +261,8 @@ static int get_operand_width(struct guest_info * info, struct x86_instr * instr,
 		case LONG:
 		    if (instr->prefixes.rex_op_size) {
 			return 8;
+		    } else {
+			return 4;
 		    }
 		case PROTECTED:
 		case PROTECTED_PAE:
@@ -333,6 +335,7 @@ static int get_operand_width(struct guest_info * info, struct x86_instr * instr,
 	    return -1;
 	
     }
+
     return 0;
 }
 

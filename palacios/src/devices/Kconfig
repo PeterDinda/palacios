@@ -156,7 +156,7 @@ config DEBUG_VIRTIO_SYM
 config LINUX_VIRTIO_NET
         bool "Enable Virtio Network Device"
         default n
-	depends on PCI
+	depends on PCI && VNET
         help
           Enable the Virtio Net
 
@@ -366,7 +366,7 @@ config RAMDISK
 	  Includes the RAM based disk backend
 
 config DEBUG_RAMDISK
-	bool "RAMDISK baskend debugging"
+	bool "RAMDISK backend debugging"
 	depends on RAMDISK && DEBUG_ON
 	help 
 	  Enable debugging for the ram based disk backend 	
@@ -402,7 +402,7 @@ config DISK_MODEL
 config VGA
 	bool "VGA"
 	default n
-	depends on !PASSTHROUGH_VIDEO && GRAPHICS_CONSOLE
+	depends GRAPHICS_CONSOLE
 	help
 	  Includes the Virtual VGA video support, and will 
           eventually also include SVGA
@@ -420,7 +420,6 @@ config DEBUG_VGA
 config CGA
 	bool "CGA"
 	default n
-	depends on !PASSTHROUGH_VIDEO
 	help
 	  Includes the Virtual CGA video support
 
@@ -435,14 +434,14 @@ config DEBUG_CGA
 config TELNET_CONSOLE
 	bool "Telnet Virtual Console"
 	default n
-	depends on CGA && !PASSTHROUGH_VIDEO
+	depends on CGA
 	help
 	  Includes the virtual telnet console 
 
 config CURSES_CONSOLE
 	bool "Curses Virtual Console"
 	default n
-	depends on CGA && !PASSTHROUGH_VIDEO
+	depends on CGA && CONSOLE
 	help
 	  Includes the virtual curses console 
 

@@ -150,10 +150,11 @@ static void g_release_data_rw(v3_graphics_console_t cons)
 
 static int g_changed(v3_graphics_console_t cons)
 {
+
+#if 0
     struct palacios_graphics_console *gc = 
 	(struct palacios_graphics_console *) cons;
 
-#if 0
     int rc =  !(gc->num_updates % 1000);
     
     gc->num_updates++;

@@ -135,26 +135,41 @@ static int mask_hook(struct guest_info * core, uint32_t cpuid,
     v3_cpuid(cpuid, eax, ebx, ecx, edx);
 
     *eax &= ~(mask->rax_mask);
-    *eax |= mask->rax;
+    *eax |= (mask->rax & mask->rax_mask);
 
     *ebx &= ~(mask->rbx_mask);
-    *ebx |= mask->rbx;
+    *ebx |= (mask->rbx & mask->rbx_mask);
 
     *ecx &= ~(mask->rcx_mask);
-    *ecx |= mask->rcx;
+    *ecx |= (mask->rcx & mask->rcx_mask);
 
     *edx &= ~(mask->rdx_mask);
-    *edx |= mask->rdx;
+    *edx |= (mask->rdx & mask->rdx_mask);
 
     return 0;
 }
 
+
+
+/* This function allows you to reserve a set of bits in a given cpuid value 
+ * For each cpuid return register you specify which bits you want to reserve in the mask.
+ * The value of those bits is set in the reg param.
+ * The values of the reserved bits are  returned to the guest, when it reads the cpuid
+ */ 
 int v3_cpuid_add_fields(struct v3_vm_info * vm, uint32_t cpuid, 
 			uint32_t rax_mask, uint32_t rax,
 			uint32_t rbx_mask, uint32_t rbx, 
 			uint32_t rcx_mask, uint32_t rcx, 
 			uint32_t rdx_mask, uint32_t rdx) {
     struct v3_cpuid_hook * hook = get_cpuid_hook(vm, cpuid);
+
+
+    if ((~rax_mask & rax) || (~rbx_mask & rbx) ||
+	(~rcx_mask & rcx) || (~rdx_mask & rdx)) {
+	PrintError("Invalid cpuid reg value (mask overrun)\n");
+	return -1;
+    }
+
 
     if (hook == NULL) {
 	struct masked_cpuid * mask = V3_Malloc(sizeof(struct masked_cpuid));
@@ -189,12 +204,6 @@ int v3_cpuid_add_fields(struct v3_vm_info * vm, uint32_t cpuid,
 	    (mask->rcx_mask & rcx_mask) || 
 	    (mask->rdx_mask & rdx_mask)) {
 	    PrintError("Trying to add fields that have already been masked\n");
-	    return -1;
-	}
-
-	if ((~rax_mask & rax) || (~rbx_mask & rbx) ||
-	    (~rcx_mask & rcx) || (~rdx_mask & rdx)) {
-	    PrintError("Invalid cpuid reg value (mask overrun)\n");
 	    return -1;
 	}
 

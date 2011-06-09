@@ -55,7 +55,11 @@ int v3_user_host_dev_pull_request(int devfd, struct palacios_host_dev_host_reque
 	return -1;
     } else {
 	struct palacios_host_dev_host_request_response *r = malloc(len);
-	
+
+	if (!r) { 
+	    return -1;
+	}
+
 	rc=ioctl(devfd, V3_HOST_DEV_HOST_REQUEST_PULL_IOCTL,r);
 	
 	if (rc<=0) { 

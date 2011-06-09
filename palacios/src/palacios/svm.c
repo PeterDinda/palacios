@@ -1,3 +1,4 @@
+
 /* 
  * This file is part of the Palacios Virtual Machine Monitor developed
  * by the V3VEE Project with funding from the United States National 
@@ -670,11 +671,12 @@ int v3_start_svm_guest(struct guest_info * info) {
 
 	
 
-	if ((info->num_exits % 5000) == 0) {
+/*
+	if ((info->num_exits % 50000) == 0) {
 	    V3_Print("SVM Exit number %d\n", (uint32_t)info->num_exits);
 	    v3_print_guest_state(info);
 	}
-
+*/
 	
     }
 
@@ -682,6 +684,31 @@ int v3_start_svm_guest(struct guest_info * info) {
 
     return 0;
 }
+
+
+
+
+int v3_reset_svm_vm_core(struct guest_info * core, addr_t rip) {
+    // init vmcb_bios
+
+    // Write the RIP, CS, and descriptor
+    // assume the rest is already good to go
+    //
+    // vector VV -> rip at 0
+    //              CS = VV00
+    //  This means we start executing at linear address VV000
+    //
+    // So the selector needs to be VV00
+    // and the base needs to be VV000
+    //
+    core->rip = 0;
+    core->segments.cs.selector = rip << 8;
+    core->segments.cs.limit = 0xffff;
+    core->segments.cs.base = rip << 12;
+
+    return 0;
+}
+
 
 
 
@@ -748,6 +775,7 @@ static int has_svm_nested_paging() {
 	return 1;
     }
 }
+
 
 
 void v3_init_svm_cpu(int cpu_id) {

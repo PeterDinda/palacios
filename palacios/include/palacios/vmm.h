@@ -261,6 +261,7 @@ v3_cpu_arch_t v3_get_cpu_type(int cpu_id);
 
 
 int v3_vm_enter(struct guest_info * info);
+int v3_reset_vm_core(struct guest_info * core, addr_t rip);
 
 
 #endif /*!__V3VEE__ */
