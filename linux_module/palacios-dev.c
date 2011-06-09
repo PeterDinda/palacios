@@ -21,7 +21,6 @@
 #include "palacios.h"
 #include "palacios-mm.h"
 #include "palacios-vm.h"
-#include "palacios-vnet.h"
 
 #include "linux-exts.h"
 
@@ -244,13 +243,6 @@ static int __init v3_init(void) {
 
 
 
-
-
-
-#ifdef V3_CONFIG_VNET
-    palacios_vnet_init();
-#endif
-
     return 0;
 
  failure1:
@@ -292,12 +284,6 @@ static void __exit v3_exit(void) {
 
 
     deinit_lnx_extensions();
-
-
-
-#ifdef V3_CONFIG_VNET
-    palacios_vnet_deinit();
-#endif
 
     palacios_deinit_mm();
 
