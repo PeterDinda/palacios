@@ -289,13 +289,15 @@ static int vnet_init( void ) {
 }
 
 
-static void vnet_deinit( void ) {
+static int vnet_deinit( void ) {
     deinit_vnet();
 
     vnet_bridge_deinit();
     vnet_ctrl_deinit();
 
     printk("V3 VNET Deinited\n");
+
+    return 0;
 }
 
 static struct linux_ext vnet_ext = {
