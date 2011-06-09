@@ -745,18 +745,18 @@ int v3_vmx_enter(struct guest_info * info) {
     // Perform any additional yielding needed for time adjustment
     v3_adjust_time(info);
 
-    // Update timer devices prior to entering VM.
-    v3_update_timers(info);
-
     // disable global interrupts for vm state transition
     v3_disable_ints();
 
+    // Update timer devices prior to entering VM.  Doing it here 
+    // makes sure the guest sees any timers that fired while it 
+    // was in the VMM
+    v3_update_timers(info);
 
     if (active_vmcs_ptrs[V3_Get_CPU()] != vmx_info->vmcs_ptr_phys) {
 	vmcs_load(vmx_info->vmcs_ptr_phys);
 	active_vmcs_ptrs[V3_Get_CPU()] = vmx_info->vmcs_ptr_phys;
     }
-
 
     v3_vmx_restore_vmcs(info);
 

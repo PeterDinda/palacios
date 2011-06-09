@@ -462,7 +462,9 @@ int v3_svm_enter(struct guest_info * info) {
     // disable global interrupts for vm state transition
     v3_clgi();
 
-    // Update timer devices prior to entering VM.
+    // Update timer devices right before entering the VM. Doing it 
+    // here makes sure the guest sees any timers that fired while 
+    // it was in the VMM
     v3_update_timers(info);
 
     // Synchronize the guest state to the VMCB

@@ -608,11 +608,6 @@ static int pit_write_command(struct guest_info * core, ushort_t port, void * src
 	return -1;
     }
 
-    if (cmd->op_mode == 0) {
-      V3_Print("SETTING PIT MODE TO 0!!!!!\n");
-      v3_print_guest_state(core);
-    }
-
     switch (cmd->channel) {
 	case 0:
 	    if (handle_channel_cmd(&(state->ch_0), *cmd) == -1) {
