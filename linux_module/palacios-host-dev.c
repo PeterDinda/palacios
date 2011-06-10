@@ -1328,6 +1328,11 @@ static int host_dev_init( void ) {
 
 static int host_dev_guest_init(struct v3_guest * guest, void ** vm_data ) {
     struct palacios_host_dev * host_dev = kmalloc(sizeof(struct palacios_host_dev), GFP_KERNEL);
+
+    if (!host_dev) { 
+	ERROR("palacios: failed to do guest_init for host device\n");
+	return -1;
+    }
     
     
     INIT_LIST_HEAD(&(host_dev->devs));
