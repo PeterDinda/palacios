@@ -482,7 +482,9 @@ static inline int decode_cr(struct guest_info * core,
  */
 #define MASK_DISPLACEMENT(reg, mode) ({					\
 	    sint64_t val = 0;						\
-	    if (mode == DISP8) {					\
+	    if (mode == DISP0) {					\
+		val = reg;						\
+	    } else if (mode == DISP8) {					\
 		val = (sint8_t)(reg & 0xff);				\
 	    } else if (mode == DISP16) {				\
 		val = (sint16_t)(reg & 0xffff);				\
@@ -499,6 +501,9 @@ static inline int decode_cr(struct guest_info * core,
 #define ADDR_MASK(val, length) ({			      \
             ullong_t mask = 0x0LL;			      \
             switch (length) {				      \
+		case 1:					      \
+		    mask = 0x0000000000000ffLL;		      \
+		    break;				      \
                 case 2:					      \
                     mask = 0x00000000000fffffLL;	      \
                     break;				      \
@@ -549,37 +554,41 @@ static  int decode_rm_operand16(struct guest_info * core,
 	    mod_mode = DISP8;
 	} else if (modrm->mod == 2) {
 	    mod_mode = DISP16;
+	} else {
+	    PrintError("Instruction format error: Invalid mod_rm mode (%d)\n", modrm->mod);
+	    v3_print_instr(instr);
+	    return -1;
 	}
 
 	switch (modrm->rm) {
 	    case 0:
-		base_addr = gprs->rbx + MASK_DISPLACEMENT(gprs->rsi, mod_mode);
+		base_addr = gprs->rbx + ADDR_MASK(gprs->rsi, 2);
 		break;
 	    case 1:
-		base_addr = gprs->rbx + MASK_DISPLACEMENT(gprs->rdi, mod_mode);
+		base_addr = gprs->rbx + ADDR_MASK(gprs->rdi, 2);
 		break;
 	    case 2:
-		base_addr = gprs->rbp + MASK_DISPLACEMENT(gprs->rsi, mod_mode);
+		base_addr = gprs->rbp + ADDR_MASK(gprs->rsi, 2);
 		break;
 	    case 3:
-		base_addr = gprs->rbp + MASK_DISPLACEMENT(gprs->rdi, mod_mode);
+		base_addr = gprs->rbp + ADDR_MASK(gprs->rdi, 2);
 		break;
 	    case 4:
-		base_addr = gprs->rsi;
+		base_addr = ADDR_MASK(gprs->rsi, 2);
 		break;
 	    case 5:
-		base_addr = gprs->rdi;
+		base_addr = ADDR_MASK(gprs->rdi, 2);
 		break;
 	    case 6:
 		if (modrm->mod == 0) {
 		    base_addr = 0;
 		    mod_mode = DISP16;
 		} else {
-		    base_addr = gprs->rbp;
+		    base_addr = ADDR_MASK(gprs->rbp, 2);
 		}
 		break;
 	    case 7:
-		base_addr = gprs->rbx;
+		base_addr = ADDR_MASK(gprs->rbx, 2);
 		break;
 	}
 
@@ -654,6 +663,10 @@ static int decode_rm_operand32(struct guest_info * core,
 	    mod_mode = DISP8;
 	} else if (modrm->mod == 2) {
 	    mod_mode = DISP32;
+	} else {
+	    PrintError("Instruction format error: Invalid mod_rm mode (%d)\n", modrm->mod);
+	    v3_print_instr(instr);
+	    return -1;
 	}
     
 	switch (modrm->rm) {
@@ -828,6 +841,10 @@ int decode_rm_operand64(struct guest_info * core, uint8_t * modrm_instr,
 	    mod_mode = DISP8;
 	} else if (modrm->mod == 2) {
 	    mod_mode = DISP32;
+	} else {
+	    PrintError("Instruction format error: Invalid mod_rm mode (%d)\n", modrm->mod);
+	    v3_print_instr(instr);
+	    return -1;
 	}
     
 	if (rm_val == 4) {
