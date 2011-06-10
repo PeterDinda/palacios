@@ -75,10 +75,10 @@ static v3_graphics_console_t g_open(void * priv_data,
 	return 0;
     }
 
-    gc = get_vm_ext_data(guest, "GFX_CONSOLE_INTERFACE");
+    gc = get_vm_ext_data(guest, "GRAPHICS_CONSOLE_INTERFACE");
     
     if (gc == NULL) {
-	printk("ERROR: Could not locate gfx console data for extension GFX_CONSOLE_INTERFACE\n");
+	printk("ERROR: Could not locate gfx console data for extension GRAPHICS_CONSOLE_INTERFACE\n");
 	return 0;
     }
 
@@ -366,7 +366,7 @@ static int gfx_console_guest_init(struct v3_guest * guest, void ** vm_data) {
 
 
 static struct linux_ext gfx_cons_ext = {
-    .name = "GFX_CONSOLE_INTERFACE",
+    .name = "GRAPHICS_CONSOLE_INTERFACE",
     .init = gfx_console_init,
     .deinit = NULL,
     .guest_init = gfx_console_guest_init,
