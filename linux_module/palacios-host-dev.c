@@ -17,10 +17,9 @@
 #include <interfaces/vmm_host_dev.h>
 
 #include "palacios.h"
-#include "palacios-host-dev.h"
 #include "palacios-host-dev-user.h"
-
-
+#include "linux-exts.h"
+#include "palacios-vm.h"
 
 /*
   There are two things in this file:
@@ -103,8 +102,20 @@
 	 // 1 on success, negative on error
      }
     
+     Note that the current model has deferred rendezvous and allows
+     for user-side device disconnection and reconnection.  It is important
+     to note that this implementation does NOT deal with state discrepency
+     between the palacios-side and the user-side.   For example, a user-side
+     device can disconnect, a palacios-side request can then fail, and 
+     when the user-side device reconnects, it is unaware of this failure.  
 
 */
+
+
+struct palacios_host_dev {
+    spinlock_t      lock;
+    struct list_head devs;
+};
 
 
 #define MAX_URL 256
@@ -596,12 +607,21 @@ static struct file_operations host_dev_fops = {
 
 
 
-    
-int connect_host_dev(struct v3_guest * guest, char *url) 
+static int host_dev_connect(struct v3_guest * guest, unsigned int cmd, unsigned long arg, void * priv_data) 
 {
+    void __user * argp = (void __user *)arg;
+    char url[MAX_URL];
+    struct palacios_host_dev * host_dev = priv_data;
     struct palacios_host_device_user *dev;
     unsigned long f1, f2;
     int i;
+
+
+
+    if (copy_from_user(url, argp, MAX_URL)) {
+	printk("copy from user error getting url for host device connect...\n");
+	return -EFAULT;
+    }
 
     // currently only support user: types:
     if (strncasecmp(url,"user:",5)) { 
@@ -615,22 +635,22 @@ int connect_host_dev(struct v3_guest * guest, char *url)
     // URL.  If we don't find it after a while, we give up
     
     for (i=0;i<RENDEZVOUS_WAIT_SECS/RENDEZVOUS_RETRY_SECS;i++) { 
-	spin_lock_irqsave(&(guest->hostdev.lock),f1);
-	list_for_each_entry(dev,&(guest->hostdev.devs), node) {
+	spin_lock_irqsave(&(host_dev->lock),f1);
+	list_for_each_entry(dev,&(host_dev->devs), node) {
 	    if (!strncasecmp(url,dev->url,MAX_URL)) { 
 		// found it
 		spin_lock_irqsave(&(dev->lock),f2);
 		if (dev->connected) { 
 		    ERROR("palacios: device for \"%s\" is already connected!\n",url);
 		    spin_unlock_irqrestore(&(dev->lock),f2);
-		    spin_unlock_irqrestore(&(guest->hostdev.lock),f1);
+		    spin_unlock_irqrestore(&(host_dev->lock),f1);
 		    return -1;
 		} else {
 		    dev->fd = anon_inode_getfd("v3-hostdev", &host_dev_fops, dev, 0);
 		    if (dev->fd<0) { 
 			ERROR("palacios: cannot create fd for device \"%s\"\n",url);
 			spin_unlock_irqrestore(&(dev->lock),f2);
-			spin_unlock_irqrestore(&(guest->hostdev.lock),f1);
+			spin_unlock_irqrestore(&(host_dev->lock),f1);
 			return -1;
 		    }
 		    dev->connected=1;
@@ -645,13 +665,13 @@ int connect_host_dev(struct v3_guest * guest, char *url)
 		    }
 		    INFO("palacios: connected fd for device \"%s\"\n",url);
 		    spin_unlock_irqrestore(&(dev->lock),f2);
-		    spin_unlock_irqrestore(&(guest->hostdev.lock),f1);
+		    spin_unlock_irqrestore(&(host_dev->lock),f1);
 		    return dev->fd;
 		}
 		spin_unlock_irqrestore(&(dev->lock),f2);
 	    }
 	}
-	spin_unlock_irqrestore(&(guest->hostdev.lock),f1);
+	spin_unlock_irqrestore(&(host_dev->lock),f1);
 	
 	ssleep(RENDEZVOUS_RETRY_SECS);
     }
@@ -675,20 +695,67 @@ int connect_host_dev(struct v3_guest * guest, char *url)
 
 **************************************************************************************/
 
-static v3_host_dev_t palacios_host_dev_open(char *url,
-					    v3_bus_class_t bus,
-					    v3_guest_dev_t gdev,
-					    void *host_priv_data)
+
+/* Attempt to rendezvous with the user device if no device is currently connected */
+static int palacios_host_dev_rendezvous(struct palacios_host_device_user *dev)
+{
+    unsigned long f;
+    int i;
+
+    if (dev->connected) { 
+	return 0;
+    }
+
+   
+    INFO("palacios: attempting new rendezvous for host device \"%s\"\n",dev->url);
+
+    // Now wait until we are noticed!
+    for (i=0;i<RENDEZVOUS_WAIT_SECS/RENDEZVOUS_RETRY_SECS;i++) { 
+	spin_lock_irqsave(&(dev->lock),f);
+	if (dev->connected) { 
+	    INFO("palacios: connection with user side established for host device \"%s\" fd=%d\n",dev->url,dev->fd);
+	    spin_unlock_irqrestore(&(dev->lock),f);
+	    return 0;
+	}
+	spin_unlock_irqrestore(&(dev->lock),f);
+	ssleep(RENDEZVOUS_RETRY_SECS);
+    }
+    
+    ERROR("palacios: timeout waiting for user side to connect to host device \"%s\"",dev->url);
+
+    // We stay in the list because a future rendezvous might happen
+    
+    return -1;
+}
+
+
+/* Creates the device without rendezvous */
+static v3_host_dev_t palacios_host_dev_open_deferred(char *url,
+						     v3_bus_class_t bus,
+						     v3_guest_dev_t gdev,
+						     void *host_priv_data)
 {
     struct v3_guest *guest= (struct v3_guest*)host_priv_data;
     struct palacios_host_device_user *dev;
-    unsigned long f1,f2;
-    int i;
+    struct palacios_host_dev * host_dev = NULL;
+    unsigned long f;
 
     /*
       I will create the device in the list and then wait
       for the user side to attach
     */
+
+    if (guest == NULL) {
+	return 0;
+    }
+    
+
+    host_dev = get_vm_ext_data(guest, "HOST_DEVICE_INTERFACE");
+
+    if (host_dev == NULL) {
+	printk("Error locating vm host data for HOST_DEVICE_INTERFACE\n");
+	return 0;
+    }
 
 
     if (strncasecmp(url,"user:",5)) { 
@@ -697,16 +764,16 @@ static v3_host_dev_t palacios_host_dev_open(char *url,
     }
 
     // Check to see if a device of this url already exists, which would be ugly
-    spin_lock_irqsave(&(guest->hostdev.lock),f1);
-    list_for_each_entry(dev,&(guest->hostdev.devs), node) {
+    spin_lock_irqsave(&(host_dev->lock),f);
+    list_for_each_entry(dev,&(host_dev->devs), node) {
 	if (!strncasecmp(url,dev->url,MAX_URL)) { 
 	    // found it
-	    spin_unlock_irqrestore(&(guest->hostdev.lock),f1);
+	    spin_unlock_irqrestore(&(host_dev->lock),f);
 	    ERROR("palacios: a host device with url \"%s\" already exists in the guest!\n",url);
 	    return NULL;
 	}
     }
-    spin_unlock_irqrestore(&(guest->hostdev.lock),f1);
+    spin_unlock_irqrestore(&(host_dev->lock),f);
 
 
     INFO("palacios: creating host device \"%s\"\n",url);
@@ -731,47 +798,40 @@ static v3_host_dev_t palacios_host_dev_open(char *url,
     init_waitqueue_head(&(dev->user_wait_queue));
     init_waitqueue_head(&(dev->host_wait_queue));
 
-    INFO("palacios: attempting to rendezvous with user side of host device \"%s\"\n",url);
-    
     // Insert ourselves into the list
-    spin_lock_irqsave(&(guest->hostdev.lock),f1);
-    list_add(&(dev->node),&(guest->hostdev.devs));
-    spin_unlock_irqrestore(&(guest->hostdev.lock),f1);
+    spin_lock_irqsave(&(host_dev->lock),f);
+    list_add(&(dev->node),&(host_dev->devs));
+    spin_unlock_irqrestore(&(host_dev->lock),f);
 
-    
-    // Now wait until we are noticed!
-    for (i=0;i<RENDEZVOUS_WAIT_SECS/RENDEZVOUS_RETRY_SECS;i++) { 
-	spin_lock_irqsave(&(dev->lock),f2);
-	if (dev->connected){ 
-	    INFO("palacios: connection with user side established for host device \"%s\" fd=%d\n",dev->url,dev->fd);
-	    spin_unlock_irqrestore(&(dev->lock),f2);
-	    return dev;
-	}
-	spin_unlock_irqrestore(&(dev->lock),f2);
-	ssleep(RENDEZVOUS_RETRY_SECS);
-    }
-    
-    ERROR("palacios: timeout waiting for user side to connect to host device \"%s\"",url);
-    
-    // get us out of the list
-    spin_lock_irqsave(&(guest->hostdev.lock),f1);
-    list_del(&(dev->node));
-    spin_unlock_irqrestore(&(guest->hostdev.lock),f1);
-    
-    palacios_host_dev_user_free(dev);
-    
-    return NULL;
+    INFO("palacios: host device \"%s\" created with deferred rendezvous\n",url);
+
+    return dev;
+
 }
+
+
 
 static int palacios_host_dev_close(v3_host_dev_t hostdev)
 {
     unsigned long f1, f2;
 
     struct palacios_host_device_user *dev = (struct palacios_host_device_user *) hostdev;
-    
+    struct palacios_host_dev * host_dev = NULL;
+
     INFO("palacios: closing host device \"%s\"\n",dev->url);
 
-    spin_lock_irqsave(&(dev->guest->hostdev.lock),f1);
+    if ((dev == NULL) || (dev->guest == NULL)) {
+	return -1;
+    }
+
+    host_dev = get_vm_ext_data(dev->guest, "HOST_DEVICE_INTERFACE");
+
+    
+    if (host_dev == NULL) {
+	return -1;
+    }
+
+    spin_lock_irqsave(&(host_dev->lock),f1);
 
     spin_lock_irqsave(&(dev->lock),f2);
 
@@ -783,7 +843,7 @@ static int palacios_host_dev_close(v3_host_dev_t hostdev)
     list_del(&(dev->node));
     
     spin_unlock_irqrestore(&(dev->lock),f2);
-    spin_unlock_irqrestore(&(dev->guest->hostdev.lock),f1);
+    spin_unlock_irqrestore(&(host_dev->lock),f1);
     
     palacios_host_dev_user_free(dev);
 
@@ -807,17 +867,18 @@ static uint64_t palacios_host_dev_read_io(v3_host_dev_t hostdev,
 
     spin_lock_irqsave(&(dev->lock),f);
     
+    if (palacios_host_dev_rendezvous(dev)) {
+	spin_unlock_irqrestore(&(dev->lock),f);
+	ERROR("palacios: ignoring request as user side is not connected (and did not rendezvous) for host device \"%s\"\n",dev->url);
+	return 0;
+    }
+
     if (dev->waiting) { 
 	spin_unlock_irqrestore(&(dev->lock),f);
 	ERROR("palacios: guest issued i/o read request with host device \"%s\" in wrong state (waiting=%d, connected=%d)\n",dev->url,dev->waiting,dev->connected);
 	return 0;
     }
 
-    if (!dev->connected) {
-	spin_unlock_irqrestore(&(dev->lock),f);
-	ERROR("palacios: ignoring request as user side is not connected for host device \"%s\"\n",dev->url);
-	return 0;
-    }
     
     
     // resize request (no data)
@@ -881,14 +942,15 @@ static uint64_t palacios_host_dev_read_mem(v3_host_dev_t hostdev,
 
     spin_lock_irqsave(&(dev->lock),f);
     
+    if (palacios_host_dev_rendezvous(dev)) {
+	spin_unlock_irqrestore(&(dev->lock),f);
+	ERROR("palacios: ignoring request as user side is not connected (and did not rendezvous) for host device \"%s\"\n",dev->url);
+	return 0;
+    }
+
     if (dev->waiting) { 
 	spin_unlock_irqrestore(&(dev->lock),f);
 	ERROR("palacios: guest issued memory read request with host device \"%s\" in wrong state (waiting=%d, connected=%d)\n",dev->url,dev->waiting,dev->connected);
-	return 0;
-    }
-    if (!dev->connected) {
-	spin_unlock_irqrestore(&(dev->lock),f);
-	ERROR("palacios: ignoring request as user side is not connected for host device \"%s\"\n",dev->url);
 	return 0;
     }
     
@@ -952,14 +1014,15 @@ static uint64_t palacios_host_dev_read_conf(v3_host_dev_t hostdev,
 
     spin_lock_irqsave(&(dev->lock),f);
     
+    if (palacios_host_dev_rendezvous(dev)) {
+	spin_unlock_irqrestore(&(dev->lock),f);
+	ERROR("palacios: ignoring request as user side is not connected (and did not rendezvous) for host device \"%s\"\n",dev->url);
+	return 0;
+    }
+
     if (dev->waiting) { 
 	spin_unlock_irqrestore(&(dev->lock),f);
 	ERROR("palacios: guest issued config read request with host device \"%s\" in wrong state (waiting=%d, connected=%d)\n",dev->url,dev->waiting,dev->connected);
-	return 0;
-    }
-    if (!dev->connected) {
-	spin_unlock_irqrestore(&(dev->lock),f);
-	ERROR("palacios: ignoring request as user side is not connected for host device \"%s\"\n",dev->url);
 	return 0;
     }
     
@@ -1024,14 +1087,15 @@ static uint64_t palacios_host_dev_write_io(v3_host_dev_t hostdev,
 
     spin_lock_irqsave(&(dev->lock),f);
     
+    if (palacios_host_dev_rendezvous(dev)) {
+	spin_unlock_irqrestore(&(dev->lock),f);
+	ERROR("palacios: ignoring request as user side is not connected (and did not rendezvous) for host device \"%s\"\n",dev->url);
+	return 0;
+    }
+
     if (dev->waiting) { 
 	spin_unlock_irqrestore(&(dev->lock),f);
 	ERROR("palacios: guest issued i/o write request with host device \"%s\" in wrong state (waiting=%d, connected=%d)\n",dev->url,dev->waiting,dev->connected);
-	return 0;
-    }
-    if (!dev->connected) {
-	spin_unlock_irqrestore(&(dev->lock),f);
-	ERROR("palacios: ignoring request as user side is not connected for host device \"%s\"\n",dev->url);
 	return 0;
     }
 
@@ -1096,14 +1160,15 @@ static uint64_t palacios_host_dev_write_mem(v3_host_dev_t hostdev,
 
     spin_lock_irqsave(&(dev->lock),f);
     
+    if (palacios_host_dev_rendezvous(dev)) {
+	spin_unlock_irqrestore(&(dev->lock),f);
+	ERROR("palacios: ignoring request as user side is not connected (and did not rendezvous) for host device \"%s\"\n",dev->url);
+	return 0;
+    }
+
     if (dev->waiting) { 
 	spin_unlock_irqrestore(&(dev->lock),f);
 	ERROR("palacios: guest issued memory write request with host device \"%s\" in wrong state (waiting=%d, connected=%d)\n",dev->url,dev->waiting,dev->connected);
-	return 0;
-    }
-    if (!dev->connected) {
-	spin_unlock_irqrestore(&(dev->lock),f);
-	ERROR("palacios: ignoring request as user side is not connected for host device \"%s\"\n",dev->url);
 	return 0;
     }
     
@@ -1170,14 +1235,15 @@ static uint64_t palacios_host_dev_write_conf(v3_host_dev_t hostdev,
 
     spin_lock_irqsave(&(dev->lock),f);
     
+    if (palacios_host_dev_rendezvous(dev)) {
+	spin_unlock_irqrestore(&(dev->lock),f);
+	ERROR("palacios: ignoring request as user side is not connected (and did not rendezvous) for host device \"%s\"\n",dev->url);
+	return 0;
+    }
+
     if (dev->waiting) { 
 	spin_unlock_irqrestore(&(dev->lock),f);
 	ERROR("palacios: guest issued config write request with host device \"%s\" in wrong state (waiting=%d, connected=%d)\n",dev->url,dev->waiting,dev->connected);
-	return 0;
-    }
-    if (!dev->connected) {
-	spin_unlock_irqrestore(&(dev->lock),f);
-	ERROR("palacios: ignoring request as user side is not connected for host device \"%s\"\n",dev->url);
 	return 0;
     }
     
@@ -1240,7 +1306,7 @@ static int palacios_host_dev_ack_irq(v3_host_dev_t hostdev, uint8_t irq)
 
 
 static struct v3_host_dev_hooks palacios_host_dev_hooks = {
-    .open			= palacios_host_dev_open,
+    .open			= palacios_host_dev_open_deferred,
     .close                      = palacios_host_dev_close,
     .read_io                    = palacios_host_dev_read_io,
     .write_io                   = palacios_host_dev_write_io,
@@ -1253,9 +1319,44 @@ static struct v3_host_dev_hooks palacios_host_dev_hooks = {
 
 
 
-int palacios_init_host_dev( void ) 
-{
+static int host_dev_init( void ) {
     V3_Init_Host_Device_Support(&palacios_host_dev_hooks);
     
     return 0;
 }
+
+
+static int host_dev_guest_init(struct v3_guest * guest, void ** vm_data ) {
+    struct palacios_host_dev * host_dev = kmalloc(sizeof(struct palacios_host_dev), GFP_KERNEL);
+
+    if (!host_dev) { 
+	ERROR("palacios: failed to do guest_init for host device\n");
+	return -1;
+    }
+    
+    
+    INIT_LIST_HEAD(&(host_dev->devs));
+    spin_lock_init(&(host_dev->lock));
+
+    *vm_data = host_dev;
+
+
+    add_guest_ctrl(guest, V3_VM_HOST_DEV_CONNECT, host_dev_connect, host_dev);
+
+    return 0;
+}
+
+
+
+
+
+static struct linux_ext host_dev_ext = {
+    .name = "HOST_DEVICE_INTERFACE",
+    .init = host_dev_init,
+    .deinit = NULL,
+    .guest_init = host_dev_guest_init,
+    .guest_deinit = NULL
+};
+
+
+register_extension(&host_dev_ext);

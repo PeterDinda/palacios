@@ -32,6 +32,7 @@
 #include <linux/list.h>
 
 #include "palacios.h"
+#include "linux-exts.h"
 
 
 struct palacios_socket {
@@ -43,18 +44,31 @@ struct palacios_socket {
 
 static struct list_head global_sockets;
 
+
+// currently just the list of created sockets
+struct vm_socket_state {
+    struct list_head socket_list;
+};
+
+
 //ignore the arguments given here currently
 static void * 
-palacios_tcp_socket(
-	const int bufsize,
-	const int nodelay,
-	const int nonblocking,
- 	void * private_data
-)
-{
+palacios_tcp_socket(const int bufsize, const int nodelay, 
+		    const int nonblocking, void * private_data) {
     struct v3_guest * guest = (struct v3_guest *)private_data;
     struct palacios_socket * sock = NULL;
+    struct vm_socket_state * vm_state = NULL;
     int err;
+
+    if (guest != NULL) {
+        vm_state = get_vm_ext_data(guest, "SOCKET_INTERFACE");
+        
+        if (vm_state == NULL) {
+            printk("ERROR: Could not locate vm socket state for extension SOCKET_INTERFACE\n");
+            return NULL;
+        }
+    }
+
 
     sock = kmalloc(sizeof(struct palacios_socket), GFP_KERNEL);
     memset(sock, 0, sizeof(struct palacios_socket));
@@ -71,7 +85,7 @@ palacios_tcp_socket(
     if (guest == NULL) {
 	list_add(&(sock->sock_node), &global_sockets);
     } else {
-	list_add(&(sock->sock_node), &(guest->sockets));
+	list_add(&(sock->sock_node), &(vm_state->socket_list));
     }
     
     return sock;
@@ -87,7 +101,18 @@ palacios_udp_socket(
 {
     struct v3_guest * guest = (struct v3_guest *)private_data;
     struct palacios_socket * sock = NULL;
+    struct vm_socket_state * vm_state = NULL;
     int err;
+
+    if (guest != NULL) {
+        vm_state = get_vm_ext_data(guest, "SOCKET_INTERFACE");
+        
+        if (vm_state == NULL) {
+            printk("ERROR: Could not locate vm socket state for extension SOCKET_INTERFACE\n");
+            return NULL;
+        }
+    }
+
 
     sock = kmalloc(sizeof(struct palacios_socket), GFP_KERNEL);
     memset(sock, 0, sizeof(struct palacios_socket));
@@ -105,7 +130,7 @@ palacios_udp_socket(
     if (guest == NULL) {
 	list_add(&(sock->sock_node), &global_sockets);
     } else {
-	list_add(&(sock->sock_node), &(guest->sockets));
+	list_add(&(sock->sock_node), &(vm_state->socket_list));
     }
 
     return sock;
@@ -160,21 +185,27 @@ palacios_listen(
 	return sock->sock->ops->listen(sock->sock, backlog);
 }
 
-static void * 
-palacios_accept(
-	const void * sock_ptr,
-	unsigned int * remote_ip,
-	unsigned int * port
-)
-{
+static void * palacios_accept(const void * sock_ptr, unsigned int * remote_ip, unsigned int * port) {
+
     struct palacios_socket * sock = (struct palacios_socket *)sock_ptr;
     struct palacios_socket * newsock = NULL;
+    struct vm_socket_state * vm_state = NULL;
     int err;
 
     if (sock == NULL) {
 	return NULL;
     }
     
+    if (sock->guest != NULL) {
+        vm_state = get_vm_ext_data(sock->guest, "SOCKET_INTERFACE");
+        
+        if (vm_state == NULL) {
+            printk("ERROR: Could not locate vm socket state for extension SOCKET_INTERFACE\n");
+            return NULL;
+        }
+    }
+
+
     newsock = kmalloc(sizeof(struct palacios_socket), GFP_KERNEL);
 
     err = sock_create(PF_INET, SOCK_STREAM, IPPROTO_TCP, &(newsock->sock));
@@ -202,7 +233,7 @@ palacios_accept(
     if (sock->guest == NULL) {
 	list_add(&(newsock->sock_node), &global_sockets);
     } else {
-	list_add(&(newsock->sock_node), &(sock->guest->sockets));
+	list_add(&(newsock->sock_node), &(vm_state->socket_list));
     }
 
     return newsock;
@@ -413,7 +444,7 @@ palacios_recvfrom_ip(
 	return err;
 }
 
-struct v3_socket_hooks palacios_sock_hooks = {
+static struct v3_socket_hooks palacios_sock_hooks = {
   	.tcp_socket = palacios_tcp_socket,
   	.udp_socket = palacios_udp_socket,
   	.close = palacios_close,
@@ -431,15 +462,27 @@ struct v3_socket_hooks palacios_sock_hooks = {
   	.recvfrom_ip = palacios_recvfrom_ip,
 };
 
-int palacios_socket_init( void ) {
+static int socket_init( void ) {
   	V3_Init_Sockets(&palacios_sock_hooks);
 	INIT_LIST_HEAD(&global_sockets);
 	return 0;
 }
 
-void palacios_socket_deinit( void ) {
+static int socket_deinit( void ) {
     if (!list_empty(&(global_sockets))) {
 	printk("Error removing module with open sockets\n");
     }
+
+    return 0;
 }
 
+
+static struct linux_ext socket_ext = {
+    .name = "SOCKET_INTERFACE",
+    .init = socket_init,
+    .deinit = socket_deinit,
+    .guest_init = NULL,
+    .guest_deinit = NULL
+};
+
+register_extension(&socket_ext);

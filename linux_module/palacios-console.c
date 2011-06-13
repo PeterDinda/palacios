@@ -16,15 +16,33 @@
 #include <interfaces/vmm_console.h>
 #include <palacios/vmm_host_events.h>
 
+#include "palacios-vm.h"
 #include "palacios.h"
-#include "palacios-console.h"
 #include "palacios-queue.h"
+#include "linux-exts.h"
 
 typedef enum { CONSOLE_CURS_SET = 1,
 	       CONSOLE_CHAR_SET = 2,
 	       CONSOLE_SCROLL = 3,
 	       CONSOLE_UPDATE = 4,
                CONSOLE_RESOLUTION = 5} console_op_t;
+
+
+
+struct palacios_console {
+    struct gen_queue * queue;
+    spinlock_t lock;
+
+    int open;
+    int connected;
+
+    wait_queue_head_t intr_queue;
+
+    unsigned int width;
+    unsigned int height;
+
+    struct v3_guest * guest;
+};
 
 
 
@@ -186,8 +204,9 @@ static struct file_operations cons_fops = {
 
 
 
-int connect_console(struct v3_guest * guest) {
-    struct palacios_console * cons = &(guest->console);
+static int console_connect(struct v3_guest * guest, unsigned int cmd, 
+			   unsigned long arg, void * priv_data) {
+    struct palacios_console * cons = priv_data;
     int cons_fd = 0;
     unsigned long flags;
 
@@ -219,7 +238,7 @@ int connect_console(struct v3_guest * guest) {
 
 static void * palacios_tty_open(void * private_data, unsigned int width, unsigned int height) {
     struct v3_guest * guest = (struct v3_guest *)private_data;
-    struct palacios_console * cons = &(guest->console);
+    struct palacios_console * cons = kmalloc(sizeof(struct palacios_console), GFP_KERNEL);
 
     printk("Guest initialized virtual console (Guest=%s)\n", guest->name);
 
@@ -234,18 +253,19 @@ static void * palacios_tty_open(void * private_data, unsigned int width, unsigne
     }
 
 
-    cons->width = width;
-    cons->height = height;
-
     cons->queue = create_queue(CONSOLE_QUEUE_LEN);
     spin_lock_init(&(cons->lock));
     init_waitqueue_head(&(cons->intr_queue));
 
     cons->guest = guest;
 
-    cons->open = 1;
     cons->connected = 0;
+    cons->width = width;
+    cons->height = height;
+    cons->open = 1;
 
+
+    add_guest_ctrl(guest, V3_VM_CONSOLE_CONNECT, console_connect, cons);
 
     return cons;
 }
@@ -369,8 +389,25 @@ static struct v3_console_hooks palacios_console_hooks = {
 
 
 
-int palacios_init_console( void ) {
+
+
+
+static int console_init( void ) {
     V3_Init_Console(&palacios_console_hooks);
     
     return 0;
 }
+
+
+
+
+static struct linux_ext console_ext = {
+    .name = "CONSOLE",
+    .init = console_init,
+    .deinit = NULL,
+    .guest_init = NULL,
+    .guest_deinit = NULL
+};
+
+
+register_extension(&console_ext);

@@ -1,6 +1,6 @@
 #include "palacios.h"
-#include "palacios-keyed-stream.h"
 #include "palacios-hashtable.h"
+#include "linux-exts.h"
 
 #define sint64_t int64_t
 #include <interfaces/vmm_keyed_stream.h>
@@ -275,7 +275,7 @@ static struct v3_keyed_stream_hooks hooks = {
 };
 
 
-int palacios_init_keyed_streams()
+static int init_keyed_streams( void )
 {
     streams = palacios_create_htable(DEF_NUM_STREAMS,hash_func,hash_comp);
 
@@ -290,8 +290,20 @@ int palacios_init_keyed_streams()
 
 }
 
-int palacios_deinit_keyed_streams()
+static int deinit_keyed_streams( void )
 {
     printk("DEINIT OF PALACIOS KEYED STREAMS NOT IMPLEMENTED - WE HAVE JUST LEAKED MEMORY!\n");
     return -1;
 }
+
+
+static struct linux_ext key_stream_ext = {
+    .name = "KEYED_STREAM_INTERFACE",
+    .init = init_keyed_streams,
+    .deinit = deinit_keyed_streams,
+    .guest_init = NULL,
+    .guest_deinit = NULL
+};
+
+
+register_extension(&key_stream_ext);
