@@ -60,7 +60,7 @@ int v3_handle_halt(struct guest_info * info) {
 	    }
 	}
 
-	V3_Print("palacios: done with halt\n");
+	/* V3_Print("palacios: done with halt\n"); */
 	
 	info->rip += 1;
     }
