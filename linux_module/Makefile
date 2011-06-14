@@ -9,7 +9,7 @@ endif
 EXTRA_CFLAGS  += -I$(PWD)/../palacios/include/ -include autoconf.h -DMODULE=1 -D__KERNEL__=1
 
 
-v3vee-y := 	os_stubs.o \
+v3vee-y := 	palacios-stubs.o \
 		main.o \
 		vm.o \
 		mm.o \
