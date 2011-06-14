@@ -13,9 +13,10 @@
 #include "linux-exts.h"
 #include "util-ringbuffer.h"
 #include "vm.h"
+#include "iface-stream.h"
 
 #define STREAM_BUF_SIZE 1024
-#define STREAM_NAME_LEN 128
+
 
 
 
