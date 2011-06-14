@@ -27,6 +27,7 @@
 
 #include "palacios.h"
 #include "linux-exts.h"
+
 struct palacios_packet_state {
     struct socket * raw_sock;
     uint8_t inited;

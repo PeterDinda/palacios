@@ -14,7 +14,7 @@
 #include <linux/timer.h>
 
 #include <vnet/vnet.h>
-#include "palacios-mm.h"
+#include "mm.h"
 #include "palacios-vnet.h"
 
 static void host_print(const char *	fmt, ...) {

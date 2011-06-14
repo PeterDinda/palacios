@@ -11,10 +11,10 @@
 #include <interfaces/inspector.h>
 
 #include "palacios.h"
-#include "palacios-vm.h"
+#include "vm.h"
 #include "linux-exts.h"
 
-struct dentry * v3_dir = NULL;
+static struct dentry * v3_dir = NULL;
 
 
 

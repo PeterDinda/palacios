@@ -1,5 +1,5 @@
 #include "palacios.h"
-#include "palacios-hashtable.h"
+#include "util-hashtable.h"
 #include "linux-exts.h"
 
 #define sint64_t int64_t

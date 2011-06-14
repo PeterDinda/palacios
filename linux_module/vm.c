@@ -20,7 +20,7 @@
 #include <palacios/vmm.h>
 
 #include "palacios.h"
-#include "palacios-vm.h"
+#include "vm.h"
 #include "linux-exts.h"
 
 

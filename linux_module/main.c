@@ -19,8 +19,8 @@
 #include <linux/kthread.h>
 
 #include "palacios.h"
-#include "palacios-mm.h"
-#include "palacios-vm.h"
+#include "mm.h"
+#include "vm.h"
 
 #include "linux-exts.h"
 

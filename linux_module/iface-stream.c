@@ -11,8 +11,8 @@
 
 #include <interfaces/vmm_stream.h>
 #include "linux-exts.h"
-#include "palacios-ringbuffer.h"
-#include "palacios-vm.h"
+#include "util-ringbuffer.h"
+#include "vm.h"
 
 #define STREAM_BUF_SIZE 1024
 #define STREAM_NAME_LEN 128
@@ -186,6 +186,8 @@ static int stream_connect(struct v3_guest * guest, unsigned int cmd, unsigned lo
 	return -EFAULT;
     }
     
+
+
     printk("ERROR: Opening Streams is currently not implemented...\n");
 
     return -EFAULT;
