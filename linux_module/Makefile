@@ -33,19 +33,12 @@ v3vee-$(V3_CONFIG_VNET) += 	palacios-vnet.o \
 				palacios-vnet-brg.o
 
 
-
-
-
 v3vee-objs := $(v3vee-y) ../libv3vee.a
-
 obj-m := v3vee.o
-
 
 
 all:
 	$(MAKE) -C $(V3_CONFIG_LINUX_KERN) M=$(PWD) modules
-
-
 
 clean:
 	$(MAKE) -C $(V3_CONFIG_LINUX_KERN) M=$(PWD) clean
