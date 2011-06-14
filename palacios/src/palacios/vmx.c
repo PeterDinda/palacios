@@ -749,9 +749,10 @@ int v3_vmx_enter(struct guest_info * info) {
     // disable global interrupts for vm state transition
     v3_disable_ints();
 
-    // Update timer devices prior to entering VM.  Doing it here 
-    // makes sure the guest sees any timers that fired while it 
-    // was in the VMM
+    // Update timer devices late after being in the VM so that as much 
+    // of hte time in the VM is accounted for as possible. Also do it before
+    // updating IRQ entry state so that any interrupts the timers raise get 
+    // handled on the next VM entry. Must be done with interrupts disabled.
     v3_update_timers(info);
 
     if (vmcs_store() != vmx_info->vmcs_ptr_phys) {
@@ -841,7 +842,6 @@ int v3_vmx_enter(struct guest_info * info) {
     //PrintDebug("VMX Exit taken, id-qual: %u-%lu\n", exit_info.exit_reason, exit_info.exit_qual);
 
     exit_log[info->num_exits % 10] = exit_info;
-
 
 #ifdef V3_CONFIG_SYMCALL
     if (info->sym_core_state.symcall_state.sym_call_active == 0) {

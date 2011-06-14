@@ -1357,6 +1357,8 @@ static int apic_write(struct guest_info * core, addr_t guest_addr, void * src, u
 	    apic->tmr_cur_cnt = op_val;
 	    break;
 	case TMR_DIV_CFG_OFFSET:
+	    PrintDebug("apic %u: core %u: setting tmr_div_cfg to 0x%x\n",
+		       apic->lapic_id.val, core->vcpu_id, op_val);
 	    apic->tmr_div_cfg.val = op_val;
 	    break;
 
@@ -1650,6 +1652,19 @@ static void apic_update_time(struct guest_info * core,
 	}
     
 	if (apic->tmr_vec_tbl.tmr_mode == APIC_TMR_PERIODIC) {
+	    static unsigned int nexits = 0;
+	    static unsigned int missed_ints = 0;
+
+	    nexits++;
+	    missed_ints += tmr_ticks / apic->tmr_init_cnt;
+
+	    if ((missed_ints > 0) && (nexits >= 5000)) {
+	        V3_Print("apic %u: core %u: missed %u timer interrupts total in last %u exits.\n",
+		         apic->lapic_id.val, core->vcpu_id, missed_ints, nexits); 
+		missed_ints = 0;
+		nexits = 0;
+	    }
+
 	    tmr_ticks = tmr_ticks % apic->tmr_init_cnt;
 	    apic->tmr_cur_cnt = apic->tmr_init_cnt - tmr_ticks;
 	}
