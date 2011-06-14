@@ -75,10 +75,10 @@ static v3_graphics_console_t g_open(void * priv_data,
 	return 0;
     }
 
-    gc = get_vm_ext_data(guest, "GFX_CONSOLE_INTERFACE");
+    gc = get_vm_ext_data(guest, "GRAPHICS_CONSOLE_INTERFACE");
     
     if (gc == NULL) {
-	printk("ERROR: Could not locate gfx console data for extension GFX_CONSOLE_INTERFACE\n");
+	printk("palacios: Could not locate graphics console data for extension GRAPHICS_CONSOLE_INTERFACE\n");
 	return 0;
     }
 
@@ -246,7 +246,7 @@ static struct v3_graphics_console_hooks palacios_graphics_console_hooks =
 };
 
 
-static int gfx_console_init( void ) {
+static int graphics_console_init( void ) {
 
     V3_Init_Graphics_Console(&palacios_graphics_console_hooks);
     
@@ -351,27 +351,33 @@ static int fb_input(struct v3_guest * guest,
 }
 
 
-static int gfx_console_guest_init(struct v3_guest * guest, void ** vm_data) {
-    struct palacios_graphics_console * gfx_cons = kmalloc(sizeof(struct palacios_graphics_console), GFP_KERNEL);
+static int graphics_console_guest_init(struct v3_guest * guest, void ** vm_data) {
+    struct palacios_graphics_console * graphics_cons = kmalloc(sizeof(struct palacios_graphics_console), GFP_KERNEL);
 
-    memset(gfx_cons, 0, sizeof(struct palacios_graphics_console));
+    if (!graphics_cons) { 
+	printk("palacios: filed to do guest_init for graphics console\n");
+	return -1;
+    }
 
+    memset(graphics_cons, 0, sizeof(struct palacios_graphics_console));
 
-    add_guest_ctrl(guest, V3_VM_FB_INPUT, fb_input, gfx_cons);
-    add_guest_ctrl(guest, V3_VM_FB_QUERY, fb_query, gfx_cons);
+    *vm_data = graphics_cons;
+
+    add_guest_ctrl(guest, V3_VM_FB_INPUT, fb_input, graphics_cons);
+    add_guest_ctrl(guest, V3_VM_FB_QUERY, fb_query, graphics_cons);
 
     return 0;
 }
 
 
 
-static struct linux_ext gfx_cons_ext = {
-    .name = "GFX_CONSOLE_INTERFACE",
-    .init = gfx_console_init,
+static struct linux_ext graphics_cons_ext = {
+    .name = "GRAPHICS_CONSOLE_INTERFACE",
+    .init = graphics_console_init,
     .deinit = NULL,
-    .guest_init = gfx_console_guest_init,
+    .guest_init = graphics_console_guest_init,
     .guest_deinit = NULL
 };
 
 
-register_extension(&gfx_cons_ext);
+register_extension(&graphics_cons_ext);

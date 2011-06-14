@@ -8,8 +8,6 @@
 
 #include <vnet/vnet.h>
 
-int  palacios_vnet_init(void);
-void palacios_vnet_deinit(void);
 
 typedef enum {UDP, TCP, RAW, NONE} vnet_brg_proto_t;
 
@@ -26,6 +24,8 @@ void vnet_brg_delete_link(uint32_t idx);
 uint32_t vnet_brg_add_link(uint32_t ip, uint16_t port, vnet_brg_proto_t proto);
 int vnet_brg_link_stats(uint32_t link_idx, struct nic_statistics * stats);
 int vnet_brg_stats(struct vnet_brg_stats * stats);
+
+
 int  vnet_bridge_init(void);
 void vnet_bridge_deinit(void);
 
