@@ -953,51 +953,51 @@ int decode_rm_operand64(struct guest_info * core, uint8_t * modrm_instr,
 
 	    switch (base_val) {
 		case 0:
-		    base_addr += gprs->rax
+		    base_addr += gprs->rax;
 		    break;
 		case 1:
-		    base_addr += gprs->rcx
+		    base_addr += gprs->rcx;
 		    break;
 		case 2:
-		    base_addr += gprs->rdx
+		    base_addr += gprs->rdx;
 		    break;
 		case 3:
-		    base_addr += gprs->rbx
+		    base_addr += gprs->rbx;
 		    break;
 		case 4:
-		    base_addr += gprs->rsp
+		    base_addr += gprs->rsp;
 		    break;
 		case 5:
 		    if (modrm->mod != 0) {
-			base_addr += gprs->rbp
+			base_addr += gprs->rbp;
 		    }
 		    break;
 		case 6:
-		    base_addr += gprs->rsi
+		    base_addr += gprs->rsi;
 		    break;
 		case 7:
-		    base_addr += gprs->rdi
+		    base_addr += gprs->rdi;
 		    break;
 		case 8:
-		    base_addr += gprs->r8
+		    base_addr += gprs->r8;
 		    break;
 		case 9:
-		    base_addr += gprs->r9
+		    base_addr += gprs->r9;
 		    break;
 		case 10:
-		    base_addr += gprs->r10
+		    base_addr += gprs->r10;
 		    break;
 		case 11:
-		    base_addr += gprs->r11
+		    base_addr += gprs->r11;
 		    break;
 		case 12:
-		    base_addr += gprs->r12
+		    base_addr += gprs->r12;
 		    break;
 		case 13:
-		    base_addr += gprs->r13
+		    base_addr += gprs->r13;
 		    break;
 		case 14:
-		    base_addr += gprs->r14
+		    base_addr += gprs->r14;
 		    break;
 		case 15:
 		    base_addr += gprs->r15;
