@@ -565,7 +565,7 @@ static int add_mem_range(struct vm_device * dev, addr_t start, addr_t end, gener
 		return -1;
 	    }
 	    break;
-
+	    
 	case  GENERIC_IGNORE:
 	    if (v3_hook_full_mem(dev->vm, V3_MEM_CORE_ANY, start, end+1, 
 				 &generic_read_mem_ignore, 
@@ -578,10 +578,51 @@ static int add_mem_range(struct vm_device * dev, addr_t start, addr_t end, gener
 	    PrintError("generic (%s): huh?\n",state->name);
 	    break;
     }
+    
+    return 0;
+}
+
+
+#if 1
+
+//This is a hack for host device testing and will be removed
+
+static int osdebug_hcall(struct guest_info *core, uint_t hcall_id, void * priv_data) 
+{
+    struct generic_internal * state = (struct generic_internal *)priv_data;
+
+    int msg_len = core->vm_regs.rcx;
+    addr_t msg_gpa = core->vm_regs.rbx;
+    int buf_is_va = core->vm_regs.rdx;
+    int i;
+    uint8_t c;
+
+    PrintDebug("generic (%s): handling hypercall (len=%d) as sequence of port writes\n",
+	       state->name, msg_len);
+
+
+    for (i=0;i<msg_len;i++) { 
+	if (buf_is_va == 1) {
+	    if (v3_read_gva_memory(core, msg_gpa+i, 1, &c) != 1) {
+		PrintError("generic (%s): could not read debug message\n",state->name);
+		return -1;
+	    }
+	} else {
+	    if (v3_read_gpa_memory(core, msg_gpa+i, 1, &c) != 1) { 
+		PrintError("generic (%s): Could not read debug message\n",state->name);
+		return -1;
+	    }
+	}
+	if (generic_write_port_print_and_passthrough(core,0xc0c0,&c,1,priv_data)!=1) { 
+	    PrintError("generic (%s): write port passthrough failed\n",state->name);
+	    return -1;
+	}
+    }	
 
     return 0;
 }
 
+#endif
 
 
 /*
@@ -759,6 +800,14 @@ static int generic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
 	mem_cfg = v3_cfg_next_branch(port_cfg);
     }
+
+#if 1
+    // hack for os debug testing
+    if (strcasecmp(state->name,"os debug")==0) { 
+	PrintDebug("generic (%s): adding hypercall for os debug device\n", state->name);
+	v3_register_hypercall(vm,0xc0c0,osdebug_hcall,state);
+    }
+#endif
     
     PrintDebug("generic (%s): initialization complete\n", state->name);
 
