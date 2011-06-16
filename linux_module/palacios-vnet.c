@@ -16,6 +16,7 @@
 #include <vnet/vnet.h>
 #include "mm.h"
 #include "palacios-vnet.h"
+#include "linux-exts.h"
 
 static void host_print(const char *	fmt, ...) {
 
