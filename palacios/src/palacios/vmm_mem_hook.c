@@ -135,7 +135,7 @@ static int handle_mem_hook(struct guest_info * core, addr_t guest_va, addr_t gue
     }
 
     if (ret == -1) {
-	PrintError("Could not translate Instruction Address (%p)\n", (void *)core->rip);
+      PrintError("Could not translate Instruction Address (%p)\n", (void *)(addr_t)core->rip);
 	return -1;
     }
 
