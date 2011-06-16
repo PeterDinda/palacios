@@ -476,24 +476,6 @@ static inline int decode_cr(struct guest_info * core,
     return 0;
 }
 
-// This converts the displacement into the appropriate masked value
-/* 
-   QUESTION: Are the register Values signed ?????
- */
-#define MASK_DISPLACEMENT(reg, mode) ({					\
-	    sint64_t val = 0;						\
-	    if (mode == DISP8) {					\
-		val = (sint8_t)(reg & 0xff);				\
-	    } else if (mode == DISP16) {				\
-		val = (sint16_t)(reg & 0xffff);				\
-	    } else if (mode == DISP32) {				\
-		val = (sint32_t)(reg & 0xffffffff);			\
-	    } else {							\
-		PrintError("Error invalid displacement size (%d)\n", mode); \
-		/*V3_ASSERT(0);*/					\
-	    }								\
-	    val;							\
-	})
 
 
 #define ADDR_MASK(val, length) ({			      \
@@ -735,30 +717,30 @@ static int decode_rm_operand32(struct guest_info * core,
 
 	    switch (sib->base) {
 		case 0:
-		    base_addr += MASK_DISPLACEMENT(gprs->rax, mod_mode);
+		    base_addr += ADDR_MASK(gprs->rax, 4);
 		    break;
 		case 1:
-		    base_addr += MASK_DISPLACEMENT(gprs->rcx, mod_mode);
+		    base_addr += ADDR_MASK(gprs->rcx, 4);
 		    break;
 		case 2:
-		    base_addr += MASK_DISPLACEMENT(gprs->rdx, mod_mode);
+		    base_addr += ADDR_MASK(gprs->rdx, 4);
 		    break;
 		case 3:
-		    base_addr += MASK_DISPLACEMENT(gprs->rbx, mod_mode);
+		    base_addr += ADDR_MASK(gprs->rbx, 4);
 		    break;
 		case 4:
-		    base_addr += MASK_DISPLACEMENT(gprs->rsp, mod_mode);
+		    base_addr += ADDR_MASK(gprs->rsp, 4);
 		    break;
 		case 5:
 		    if (modrm->mod != 0) {
-			base_addr += MASK_DISPLACEMENT(gprs->rbp, mod_mode);
+			base_addr += ADDR_MASK(gprs->rbp, 4);
 		    }
 		    break;
 		case 6:
-		    base_addr += MASK_DISPLACEMENT(gprs->rsi, mod_mode);
+		    base_addr += ADDR_MASK(gprs->rsi, 4);
 		    break;
 		case 7:
-		    base_addr += MASK_DISPLACEMENT(gprs->rdi, mod_mode);
+		    base_addr += ADDR_MASK(gprs->rdi, 4);
 		    break;
 	    }
 
@@ -971,54 +953,54 @@ int decode_rm_operand64(struct guest_info * core, uint8_t * modrm_instr,
 
 	    switch (base_val) {
 		case 0:
-		    base_addr += MASK_DISPLACEMENT(gprs->rax, mod_mode);
+		    base_addr += gprs->rax
 		    break;
 		case 1:
-		    base_addr += MASK_DISPLACEMENT(gprs->rcx, mod_mode);
+		    base_addr += gprs->rcx
 		    break;
 		case 2:
-		    base_addr += MASK_DISPLACEMENT(gprs->rdx, mod_mode);
+		    base_addr += gprs->rdx
 		    break;
 		case 3:
-		    base_addr += MASK_DISPLACEMENT(gprs->rbx, mod_mode);
+		    base_addr += gprs->rbx
 		    break;
 		case 4:
-		    base_addr += MASK_DISPLACEMENT(gprs->rsp, mod_mode);
+		    base_addr += gprs->rsp
 		    break;
 		case 5:
 		    if (modrm->mod != 0) {
-			base_addr += MASK_DISPLACEMENT(gprs->rbp, mod_mode);
+			base_addr += gprs->rbp
 		    }
 		    break;
 		case 6:
-		    base_addr += MASK_DISPLACEMENT(gprs->rsi, mod_mode);
+		    base_addr += gprs->rsi
 		    break;
 		case 7:
-		    base_addr += MASK_DISPLACEMENT(gprs->rdi, mod_mode);
+		    base_addr += gprs->rdi
 		    break;
 		case 8:
-		    base_addr += MASK_DISPLACEMENT(gprs->r8, mod_mode);
+		    base_addr += gprs->r8
 		    break;
 		case 9:
-		    base_addr += MASK_DISPLACEMENT(gprs->r9, mod_mode);
+		    base_addr += gprs->r9
 		    break;
 		case 10:
-		    base_addr += MASK_DISPLACEMENT(gprs->r10, mod_mode);
+		    base_addr += gprs->r10
 		    break;
 		case 11:
-		    base_addr += MASK_DISPLACEMENT(gprs->r11, mod_mode);
+		    base_addr += gprs->r11
 		    break;
 		case 12:
-		    base_addr += MASK_DISPLACEMENT(gprs->r12, mod_mode);
+		    base_addr += gprs->r12
 		    break;
 		case 13:
-		    base_addr += MASK_DISPLACEMENT(gprs->r13, mod_mode);
+		    base_addr += gprs->r13
 		    break;
 		case 14:
-		    base_addr += MASK_DISPLACEMENT(gprs->r14, mod_mode);
+		    base_addr += gprs->r14
 		    break;
 		case 15:
-		    base_addr += MASK_DISPLACEMENT(gprs->r15, mod_mode);
+		    base_addr += gprs->r15;
 		    break;
 	    }
 
