@@ -572,11 +572,14 @@ int v3_svm_enter(struct guest_info * info) {
     v3_yield_cond(info);
 
 
-
-    if (v3_handle_svm_exit(info, exit_code, exit_info1, exit_info2) != 0) {
-	PrintError("Error in SVM exit handler\n");
-	PrintError("  last exit was %d\n", v3_last_exit);
-	return -1;
+    {
+	int ret = v3_handle_svm_exit(info, exit_code, exit_info1, exit_info2);
+	
+	if (ret != 0) {
+	    PrintError("Error in SVM exit handler (ret=%d)\n", ret);
+	    PrintError("  last Exit was %d (exit code=0x%llx)\n", v3_last_exit, (uint64_t) exit_code);
+	    return -1;
+	}
     }
 
 
