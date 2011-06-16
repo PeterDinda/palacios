@@ -20,7 +20,7 @@
 
 #include <palacios/vmm_halt.h>
 #include <palacios/vmm_intr.h>
-
+#include <palacios/vmm_lowlevel.h> 
 
 #ifndef V3_CONFIG_DEBUG_HALT
 #undef PrintDebug
@@ -42,18 +42,25 @@ int v3_handle_halt(struct guest_info * info) {
 
 	while (!v3_intr_pending(info)) {
 	    /* Since we're in an exit, time is already paused here, so no need to pause again. */
+	  // 	    V3_Print("palacios: halt->yield\n");
+
 	    v3_yield(info);
-	    v3_update_timers(info);
 	    
+	    v3_disable_ints();
+	    v3_update_timers(info);
+	    v3_enable_ints();
+    	    
 	    /* At this point, we either have some combination of 
 	       interrupts, including perhaps a timer interrupt, or 
 	       no interrupt.
 	    */
 	    if (!v3_intr_pending(info)) {
 		/* if no interrupt, then we do halt */
-		asm("hlt");
+		/* asm("hlt"); */
 	    }
 	}
+
+	/* V3_Print("palacios: done with halt\n"); */
 	
 	info->rip += 1;
     }
