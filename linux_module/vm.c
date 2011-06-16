@@ -13,7 +13,6 @@
 #include <linux/anon_inodes.h>
 #include <linux/sched.h>
 
-#include <linux/smp_lock.h>
 #include <linux/file.h>
 #include <linux/spinlock.h>
 #include <linux/rbtree.h>
@@ -21,7 +20,7 @@
 #include <palacios/vmm.h>
 
 #include "palacios.h"
-#include "palacios-vm.h"
+#include "vm.h"
 #include "linux-exts.h"
 
 
@@ -189,10 +188,10 @@ int start_palacios_vm(void * arg)  {
     struct v3_guest * guest = (struct v3_guest *)arg;
     int err;
 
-    lock_kernel();
+
     daemonize(guest->name);
     // allow_signal(SIGKILL);
-    unlock_kernel();
+
     
     init_vm_extensions(guest);
 

@@ -15,12 +15,12 @@
 
 #include <interfaces/vmm_console.h>
 #include <palacios/vmm_host_events.h>
-#include "palacios-graphics-console.h"
+#include "iface-graphics-console.h"
 
 
 #include "palacios.h"
 #include "linux-exts.h"
-#include "palacios-vm.h"
+#include "vm.h"
 
 #include <linux/vmalloc.h>
 

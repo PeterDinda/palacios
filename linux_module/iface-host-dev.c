@@ -17,9 +17,9 @@
 #include <interfaces/vmm_host_dev.h>
 
 #include "palacios.h"
-#include "palacios-host-dev-user.h"
+#include "iface-host-dev.h"
 #include "linux-exts.h"
-#include "palacios-vm.h"
+#include "vm.h"
 
 /*
   There are two things in this file:

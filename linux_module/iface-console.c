@@ -16,9 +16,9 @@
 #include <interfaces/vmm_console.h>
 #include <palacios/vmm_host_events.h>
 
-#include "palacios-vm.h"
+#include "vm.h"
 #include "palacios.h"
-#include "palacios-queue.h"
+#include "util-queue.h"
 #include "linux-exts.h"
 
 typedef enum { CONSOLE_CURS_SET = 1,

@@ -482,9 +482,7 @@ static inline int decode_cr(struct guest_info * core,
  */
 #define MASK_DISPLACEMENT(reg, mode) ({					\
 	    sint64_t val = 0;						\
-	    if (mode == DISP0) {					\
-		val = reg;						\
-	    } else if (mode == DISP8) {					\
+	    if (mode == DISP8) {					\
 		val = (sint8_t)(reg & 0xff);				\
 	    } else if (mode == DISP16) {				\
 		val = (sint16_t)(reg & 0xffff);				\
@@ -501,9 +499,6 @@ static inline int decode_cr(struct guest_info * core,
 #define ADDR_MASK(val, length) ({			      \
             ullong_t mask = 0x0LL;			      \
             switch (length) {				      \
-		case 1:					      \
-		    mask = 0x0000000000000ffLL;		      \
-		    break;				      \
                 case 2:					      \
                     mask = 0x00000000000fffffLL;	      \
                     break;				      \
