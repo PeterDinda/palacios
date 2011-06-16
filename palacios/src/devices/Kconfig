@@ -458,13 +458,5 @@ config CHAR_STREAM
 	help
 	  Include Stream based character device frontend
 
-
-config MCHECK
-	bool "Machine Check architecture"
-	default n
-	depends on EXPERIMENTAL
-	help 
-	  Include Machine Check injection architecture
-
 endmenu
 
