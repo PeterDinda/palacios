@@ -577,10 +577,6 @@ int v3_svm_enter(struct guest_info * info) {
 	    PrintError("  last Exit was %d (exit code=0x%llx)\n", v3_last_exit, (uint64_t) exit_code);
 	    return -1;
 	}
-    if (v3_handle_svm_exit(info, exit_code, exit_info1, exit_info2) != 0) {
-	PrintError("Error in SVM exit handler\n");
-	PrintError("  last exit was %d\n", v3_last_exit);
-	return -1;
     }
 
 
@@ -764,11 +760,11 @@ int v3_is_svm_capable() {
 
 static int has_svm_nested_paging() {
     uint32_t eax = 0, ebx = 0, ecx = 0, edx = 0;
-
+    
     v3_cpuid(CPUID_SVM_REV_AND_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
-
+    
     //PrintDebug("CPUID_EXT_FEATURE_IDS_edx=0x%x\n", edx);
-
+    
     if ((edx & CPUID_SVM_REV_AND_FEATURE_IDS_edx_np) == 0) {
 	V3_Print("SVM Nested Paging not supported\n");
 	return 0;
@@ -776,8 +772,8 @@ static int has_svm_nested_paging() {
 	V3_Print("SVM Nested Paging supported\n");
 	return 1;
     }
-}
-
+ }
+ 
 
 
 void v3_init_svm_cpu(int cpu_id) {
