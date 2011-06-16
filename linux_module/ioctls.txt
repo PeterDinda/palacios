@@ -1,0 +1,23 @@
+Registry of ioctl numbers currently in use
+To add a new ioctl find an available number and add it to this list.
+
+Global commands (/dev/v3vee)
+
+10 -- (VMM) Start guest
+
+50 -- (VMM) Add physical memory to VMM manager
+
+
+
+VM Commands (/dev/v3-vm*)
+
+20 -- (IFACE) Connect CGA Console
+21 -- (IFACE) Connect Stream
+22 -- (VMM) Stop Guest
+
+30 -- (EXT) Activate Inspector
+
+257 -- (IFACE) VGA Console Framebuf Input
+258 -- (IFACE) VGA Console Framebuf Query
+
+10245 -- (IFACE) Connect Host Device

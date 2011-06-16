@@ -11,27 +11,12 @@
 #include <interfaces/inspector.h>
 
 #include "palacios.h"
+#include "vm.h"
+#include "linux-exts.h"
 
-struct dentry * v3_dir = NULL;
-
-
-int palacios_init_inspector( void ) {
-
-    v3_dir = debugfs_create_dir("v3vee", NULL);
-
-    if (IS_ERR(v3_dir)) {
-	printk("Error creating v3vee debugfs directory\n");
-	return -1;
-    }
-
-    return 0;
-}
+static struct dentry * v3_dir = NULL;
 
 
-int palacios_deinit_inspector( void ) {
-    debugfs_remove(v3_dir);
-    return 0;
-}
 
 
 
@@ -66,7 +51,8 @@ static int dfs_register_tree(struct dentry * dir, v3_inspect_node_t * root) {
 }
 
 
-int inspect_vm(struct v3_guest * guest) {
+static int inspect_vm(struct v3_guest * guest, unsigned int cmd, unsigned long arg,
+		      void * priv_data) {
     v3_inspect_node_t * root = v3_get_inspection_root(guest->v3_ctx);
     struct dentry * guest_dir = NULL;
 
@@ -86,3 +72,47 @@ int inspect_vm(struct v3_guest * guest) {
     dfs_register_tree(guest_dir, root);
     return 0;
 }
+
+
+
+static int init_inspector( void ) {
+
+    v3_dir = debugfs_create_dir("v3vee", NULL);
+
+    if (IS_ERR(v3_dir)) {
+	printk("Error creating v3vee debugfs directory\n");
+	return -1;
+    }
+
+    return 0;
+}
+
+
+static int deinit_inspector( void ) {
+    debugfs_remove(v3_dir);
+    return 0;
+}
+
+
+static int guest_init(struct v3_guest * guest, void ** vm_data) {
+
+    add_guest_ctrl(guest, V3_VM_INSPECT, inspect_vm, NULL);
+    return 0;
+}
+
+static int guest_deinit(struct v3_guest * guest, void * vm_data) {
+    
+    return 0;
+}
+
+
+struct linux_ext inspector_ext = {
+    .name = "INSPECTOR",
+    .init = init_inspector, 
+    .deinit = deinit_inspector,
+    .guest_init = guest_init, 
+    .guest_deinit = guest_deinit
+};
+
+
+register_extension(&inspector_ext);

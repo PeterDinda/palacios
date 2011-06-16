@@ -42,8 +42,6 @@ obj-$(V3_CONFIG_PASSTHROUGH_PCI) += pci_passthrough.o
 obj-$(V3_CONFIG_SYMMOD) += lnx_virtio_symmod.o
 obj-$(V3_CONFIG_CHAR_STREAM) += char_stream.o
 
-obj-$(V3_CONFIG_MCHECK) += mcheck.o
-
 obj-$(V3_CONFIG_VGA) += vga.o
 
 obj-$(V3_CONFIG_PCI_FRONT) += pci_front.o
