@@ -26,11 +26,17 @@ config EXT_MTRRS
 	   Provides a virtualized set of MTTR registers
 
 config EXT_MACH_CHECK
-	bool "Support Machine Check functionality"
+	bool "Support machine-check functionality"
 	default n
 	help 
-	   Provides a virtualized machine check architecture
+	   Provides a virtualized machine-check architecture
 
+config DEGUB_EXT_MACH_CHECK
+    bool "Debug machine-check functionality"
+    default n
+    depends on EXT_MACH_CHECK
+    help
+        Enable virtual machine-check architecture debugging
 
 config EXT_INSPECTOR
 	bool "VM Inspector"

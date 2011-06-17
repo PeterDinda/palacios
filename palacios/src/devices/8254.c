@@ -133,7 +133,8 @@ static int handle_crystal_tics(struct pit * pit, struct channel * ch, uint_t osc
     uint_t channel_cycles = 0;
     uint_t output_changed = 0;
   
-    // PrintDebug("8254 PIT: %d crystal tics\n", oscillations);
+    //    PrintDebug("8254 PIT (channel %d): %d crystal tics\n", 
+    //	       ch - pit->ch0, oscillations);
     if (ch->run_state == PENDING) {
 	oscillations--;
 	ch->counter = ch->reload_value;
@@ -158,6 +159,8 @@ static int handle_crystal_tics(struct pit * pit, struct channel * ch, uint_t osc
 
     if (ch->counter > oscillations) {
 	ch->counter -= oscillations;
+	//PrintDebug("8254 PIT: Counter at %u after %u oscillations.\n", 
+	//   (unsigned int)ch->counter, oscillations);
 	return output_changed;
     } else {
 	ushort_t reload_val = ch->reload_value; 
@@ -184,23 +187,33 @@ static int handle_crystal_tics(struct pit * pit, struct channel * ch, uint_t osc
 	oscillations = oscillations % reload_val;
 
 	ch->counter = reload_val - oscillations;
+	//	PrintDebug("8254 PIT: Counter reset to %u.\n", 
+	//   (unsigned int)ch->counter);
+
     }
 
-    //  PrintDebug("8254 PIT: Channel Cycles: %d\n", channel_cycles);
+    //PrintDebug("8254 PIT: Channel %ld (mode = %u) Cycles: %d\n", 
+	       //(ch - &pit->ch_0), ch->op_mode, channel_cycles);
   
-
-
     switch (ch->op_mode) {
 	case IRQ_ON_TERM_CNT:
-	    if ((channel_cycles > 0) && (ch->output_pin == 0)) {
-		ch->output_pin = 1; 
-		output_changed = 1;
+	    if (channel_cycles > 0) {
+	        if (ch->output_pin == 0) {
+		    ch->output_pin = 1; 
+		    output_changed = 1;
+	        } else {
+		   // PrintDebug("8254: Output not changed in TERM_CNT mode.\n");
+	        }
 	    }
 	    break;
 	case ONE_SHOT:
-	    if ((channel_cycles > 0) && (ch->output_pin == 0)) {
-		ch->output_pin = 1; 
-		output_changed = 1;
+	    if (channel_cycles > 0) {
+	        if ((ch->output_pin == 0)) {
+		    ch->output_pin = 1; 
+		    output_changed = 1;
+		} else {
+		    // PrintDebug("8254: Output not changed in ONE_SHOT mode.\n");
+		}
 	    }
 	    break;
 	case RATE_GEN:
@@ -215,6 +228,7 @@ static int handle_crystal_tics(struct pit * pit, struct channel * ch, uint_t osc
 	    if (ch->output_pin == 1) {
 		output_changed = 1;
 	    }
+
 
 	    break;
 	case SW_STROBE:
@@ -300,21 +314,19 @@ static void pit_update_timer(struct guest_info * info, ullong_t cpu_cycles, ullo
 	state->pit_counter = state->pit_reload - cpu_cycles;    
 
 	if (oscillations) {
-	    PrintDebug("8254 PIT: Handling %d crystal tics\n", oscillations);
-	}
+	    //    PrintDebug("8254 PIT: Handling %d crystal tics\n", oscillations);
 
-	if (handle_crystal_tics(state, &(state->ch_0), oscillations) == 1) {
-	    // raise interrupt
-	    // PrintDebug("8254 PIT: Injecting Timer interrupt to guest\n");
-	    v3_raise_irq(info->vm_info, 0);
-	}
+	    if (handle_crystal_tics(state, &(state->ch_0), oscillations) == 1) {
+	        // raise interrupt
+	        PrintDebug("8254 PIT: Injecting Timer interrupt to guest (run_state = %d)\n",
+			   state->ch_0.run_state);
+	        v3_raise_irq(info->vm_info, 0);
+	    }
 
-	//handle_crystal_tics(state, &(state->ch_1), oscillations);
-	handle_crystal_tics(state, &(state->ch_2), oscillations);
+	    //handle_crystal_tics(state, &(state->ch_1), oscillations);
+	    handle_crystal_tics(state, &(state->ch_2), oscillations);
+	}
     }
-  
-
-
  
     return;
 }
@@ -431,12 +443,20 @@ static int handle_speaker_write(uint8_t *speaker, struct channel * ch, char val)
 
 static int handle_channel_cmd(struct channel * ch, struct pit_cmd_word cmd) {
 
-    ch->access_mode = cmd.access_mode;
-
-    if (ch->access_mode != 0) {
-	ch->op_mode = cmd.op_mode;
+    if (cmd.op_mode != ch->op_mode) {
+	PrintDebug("8254 PIT: Changing channel from op mode %d to op mode %d.\n", 
+	 	   ch->op_mode, cmd.op_mode);
     }
 
+    if (cmd.access_mode != 0) {
+      ch->op_mode = cmd.op_mode;
+    }
+
+    if (cmd.access_mode != ch->access_mode) {
+	PrintDebug("8254 PIT: Changing channel from access mode %d to access mode %d.\n", 
+		   ch->access_mode, cmd.access_mode);
+    }
+    ch->access_mode = cmd.access_mode;
 
     switch (cmd.access_mode) {
 	case LATCH_COUNT:

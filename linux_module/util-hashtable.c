@@ -8,7 +8,7 @@
 #include <linux/preempt.h>
 #include <linux/sched.h>
  
-#include "palacios-hashtable.h"
+#include "util-hashtable.h"
 
 
 struct hash_entry {

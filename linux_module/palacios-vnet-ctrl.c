@@ -611,7 +611,8 @@ route_write(struct file * file,
 	} else if (strnicmp("DEL", token, strlen("DEL")) == 0) {
 	    char * idx_str = NULL;
 	    uint32_t d_idx;
-	    
+	    struct vnet_route_iter * route = NULL;
+
 	    idx_str = strsep(&buf_iter, " ");
 	    
 	    if (!idx_str) {
@@ -621,10 +622,14 @@ route_write(struct file * file,
 
 	    d_idx = simple_strtoul(idx_str, &idx_str, 10);
 
-	    v3_vnet_del_route(d_idx);
-		
-	    printk("VNET Control: One route deleted\n");		
+	    printk("VNET: deleting route %d\n", d_idx);
 
+	    list_for_each_entry(route, &(vnet_ctrl_s.route_list), node) {
+		if (route->idx == d_idx) {
+		    delete_route(route);
+	    	    break;
+		}
+    	    }
 	} else {
 	    printk("Invalid Route command string\n");
 	}

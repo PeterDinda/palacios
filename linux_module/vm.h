@@ -11,4 +11,13 @@
 int start_palacios_vm(void * arg);
 int stop_palacios_vm(struct v3_guest * guest);
 
+
+int add_guest_ctrl(struct v3_guest * guest,  unsigned int cmd, 
+		  int (*handler)(struct v3_guest * guest, 
+				 unsigned int cmd, unsigned long arg,
+				 void * priv_data),
+		  void * priv_data);
+
+
+
 #endif

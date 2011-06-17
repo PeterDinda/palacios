@@ -8,26 +8,6 @@
 
 #include <interfaces/vmm_graphics_console.h>
 
-struct palacios_graphics_console {
-    // descriptor for the data in the shared frame buffer
-    struct v3_frame_buffer_spec spec;
-    // the actual shared frame buffer
-    // Note that "shared" here means shared between palacios and us
-    // This data could of course also be shared with userland
-    void *data;
-
-    struct v3_guest * guest;
-
-    int cons_refcount;
-    int data_refcount;
-
-    uint32_t num_updates;
-
-    // Currently keystrokes and mouse movements are ignored
-
-    // currently, we will not worry about locking this
-    // lock_t ...
-};
 
 
 // This is the data structure that is passed back and forth with user-land
@@ -48,13 +28,6 @@ struct v3_fb_input {
 };
 
 
-int palacios_init_graphics_console(void);
-
-int palacios_graphics_console_user_query(struct palacios_graphics_console *cons, 
-					 struct v3_fb_query_response __user *fb);
-
-int palacios_graphics_console_user_input(struct palacios_graphics_console *cons,
-					 struct v3_fb_input __user  *in);
 
 
 #endif

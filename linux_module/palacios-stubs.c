@@ -14,7 +14,6 @@
 #include <linux/kthread.h>
 #include <asm/uaccess.h>
 #include <linux/smp.h>
-#include <linux/smp_lock.h>
 
 #include <palacios/vmm.h>
 #include <palacios/vmm_host_events.h>
@@ -23,7 +22,7 @@
 
 
 
-#include "palacios-mm.h"
+#include "mm.h"
 
 
 u32 pg_allocs = 0;
@@ -158,11 +157,9 @@ static int lnx_thread_target(void * arg) {
     struct lnx_thread_arg * thread_info = (struct lnx_thread_arg *)arg;
 
     /*
-      lock_kernel();
       printk("Daemonizing new Palacios thread (name=%s)\n", thread_info->name);
 
       daemonize(thread_info->name);
-      unlock_kernel();
       allow_signal(SIGKILL);
     */
 

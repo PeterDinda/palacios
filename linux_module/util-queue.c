@@ -19,7 +19,7 @@
 
 #include <linux/slab.h>
 
-#include "palacios-queue.h"
+#include "util-queue.h"
 
 void init_queue(struct gen_queue * queue, unsigned int max_entries) {
     queue->num_entries = 0;

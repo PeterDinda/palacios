@@ -15,9 +15,12 @@
 
 #include <interfaces/vmm_console.h>
 #include <palacios/vmm_host_events.h>
+#include "iface-graphics-console.h"
+
 
 #include "palacios.h"
-#include "palacios-graphics-console.h"
+#include "linux-exts.h"
+#include "vm.h"
 
 #include <linux/vmalloc.h>
 
@@ -37,19 +40,55 @@
 
 */
 
+
+
+struct palacios_graphics_console {
+    // descriptor for the data in the shared frame buffer
+    struct v3_frame_buffer_spec spec;
+
+    // the actual shared frame buffer
+    // Note that "shared" here means shared between palacios and us
+    // This data could of course also be shared with userland
+    void * data;
+
+    int cons_refcount;
+    int data_refcount;
+
+    uint32_t num_updates;
+
+    // Currently keystrokes and mouse movements are ignored
+
+    // currently, we will not worry about locking this
+    // lock_t ...
+};
+
+
 static v3_graphics_console_t g_open(void * priv_data, 
 				    struct v3_frame_buffer_spec *desired_spec,
 				    struct v3_frame_buffer_spec *actual_spec)
 {
     struct v3_guest * guest = (struct v3_guest *)priv_data;
-    struct palacios_graphics_console *gc = (struct palacios_graphics_console *) &(guest->graphics_console);
+    struct palacios_graphics_console * gc = NULL;
     uint32_t mem;
 
-    if(gc->data) { 
+    if (guest == NULL) {
+	return 0;
+    }
+
+    gc = get_vm_ext_data(guest, "GRAPHICS_CONSOLE_INTERFACE");
+    
+    if (gc == NULL) {
+	printk("palacios: Could not locate graphics console data for extension GRAPHICS_CONSOLE_INTERFACE\n");
+	return 0;
+    }
+
+    if (gc->data != NULL) { 
 	printk("palacios: framebuffer already allocated - returning it\n");
-	*actual_spec=gc->spec;
+
+	*actual_spec = gc->spec;
 	gc->cons_refcount++;
 	gc->data_refcount++;
+
 	return gc;
     }
 
@@ -69,7 +108,6 @@ static v3_graphics_console_t g_open(void * priv_data,
 
     *actual_spec = gc->spec;
 
-    gc->guest=guest;
     
     gc->cons_refcount++;
     gc->data_refcount++;
@@ -86,17 +124,17 @@ static  void g_close(v3_graphics_console_t cons)
     gc->cons_refcount--;
     gc->data_refcount--;
 
-    if (gc->data_refcount<gc->cons_refcount) { 
+    if (gc->data_refcount < gc->cons_refcount) { 
 	printk("palacios: error!   data refcount is less than console refcount for graphics console\n");
     }
 
-    if (gc->cons_refcount>0) { 
+    if (gc->cons_refcount > 0) { 
 	return;
     } else {
-	if (gc->cons_refcount<0) { 
+	if (gc->cons_refcount < 0) { 
 	    printk("palacios: error!  refcount for graphics console is negative on close!\n");
 	}
-	if (gc->data_refcount>0) { 
+	if (gc->data_refcount > 0) { 
 	    printk("palacios: error!  refcount for graphics console data is positive on close - LEAKING MEMORY\n");
 	    return;
 	}
@@ -150,10 +188,11 @@ static void g_release_data_rw(v3_graphics_console_t cons)
 
 static int g_changed(v3_graphics_console_t cons)
 {
+
+#if 0
     struct palacios_graphics_console *gc = 
 	(struct palacios_graphics_console *) cons;
 
-#if 0
     int rc =  !(gc->num_updates % 1000);
     
     gc->num_updates++;
@@ -166,25 +205,29 @@ static int g_changed(v3_graphics_console_t cons)
 
 
 
-static int palacios_graphics_console_key(struct palacios_graphics_console *cons, uint8_t scancode)
+static int palacios_graphics_console_key(struct v3_guest * guest, 
+					 struct palacios_graphics_console *cons, 
+					 uint8_t scancode)
 {
     struct v3_keyboard_event e;
-    e.status=0;
-    e.scan_code=scancode;
+    e.status = 0;
+    e.scan_code = scancode;
 
-    v3_deliver_keyboard_event(cons->guest->v3_ctx,&e);
+    v3_deliver_keyboard_event(guest->v3_ctx, &e);
     
     return 0;
 }
 
-static int palacios_graphics_console_mouse(struct palacios_graphics_console *cons, uint8_t x, uint8_t y, uint8_t buttons)
+static int palacios_graphics_console_mouse(struct v3_guest * guest, 
+					   struct palacios_graphics_console *cons, 
+					   uint8_t x, uint8_t y, uint8_t buttons)
 {
     struct v3_mouse_event e;
     e.data[0]=x;
     e.data[1]=y;
     e.data[2]=buttons;   // These three are completely wrong, of course - ignoring mouse for now
 
-    v3_deliver_mouse_event(cons->guest->v3_ctx,&e);
+    v3_deliver_mouse_event(guest->v3_ctx,&e);
 
     return 0;
 }
@@ -203,7 +246,7 @@ static struct v3_graphics_console_hooks palacios_graphics_console_hooks =
 };
 
 
-int palacios_init_graphics_console( void ) {
+static int graphics_console_init( void ) {
 
     V3_Init_Graphics_Console(&palacios_graphics_console_hooks);
     
@@ -211,13 +254,14 @@ int palacios_init_graphics_console( void ) {
 }
 
 
-int palacios_graphics_console_user_query(struct palacios_graphics_console *cons, 
-					 struct v3_fb_query_response __user *u)
-{
+static int fb_query(struct v3_guest * guest, unsigned int cmd, unsigned long arg, 
+		    void * priv_data) {
+    
+    struct palacios_graphics_console * cons = priv_data;
     struct v3_fb_query_response q;
     
     
-    if (copy_from_user(&q,(void __user *) u, sizeof(struct v3_fb_query_response))) { 
+    if (copy_from_user(&q, (void __user *) arg, sizeof(struct v3_fb_query_response))) { 
 	printk("palacios: copy from user in getting query in fb\n");
 	return -EFAULT;
     }
@@ -257,7 +301,7 @@ int palacios_graphics_console_user_query(struct palacios_graphics_console *cons,
 		printk("palacios: unable to copy fb content to user\n");
 		return -EFAULT;
 	    }
-	    q.updated=1;
+	    q.updated = 1;
 	}
 	    break;
 	    
@@ -266,7 +310,7 @@ int palacios_graphics_console_user_query(struct palacios_graphics_console *cons,
     }
 
     // now we'll copy back any changes we made to the query/response structure
-    if (copy_to_user((void __user *) u, (void*)&q, sizeof(struct v3_fb_query_response))) { 
+    if (copy_to_user((void __user *) arg, (void*)&q, sizeof(struct v3_fb_query_response))) { 
 	printk("palacios: unable to copy fb response to user\n");
 	return -EFAULT;
     }
@@ -275,24 +319,28 @@ int palacios_graphics_console_user_query(struct palacios_graphics_console *cons,
 
 }
 
-int palacios_graphics_console_user_input(struct palacios_graphics_console *cons,
-					 struct v3_fb_input __user  *u)
-{
+static int fb_input(struct v3_guest * guest, 
+		    unsigned int cmd, 
+		    unsigned long arg, 
+		    void * priv_data) {
+
+    struct palacios_graphics_console * cons = priv_data;
     struct v3_fb_input inp;
-    int rc=0;
+    int rc = 0;
 
 
-    if (copy_from_user(&inp,(void __user *) u, sizeof(struct v3_fb_input))) { 
+    if (copy_from_user(&inp, (void __user *) arg, sizeof(struct v3_fb_input))) { 
 	printk("palacios: copy from user in getting input in fb\n");
 	return -EFAULT;
     }
 	
-    if (inp.data_type==V3_FB_KEY || inp.data_type==V3_FB_BOTH) { 
-	rc = palacios_graphics_console_key(cons,inp.scan_code);
+    if ((inp.data_type == V3_FB_KEY) || (inp.data_type == V3_FB_BOTH)) { 
+	rc = palacios_graphics_console_key(guest, cons, inp.scan_code);
     }
 
-    if (inp.data_type==V3_FB_MOUSE || inp.data_type==V3_FB_BOTH) { 
-	rc |= palacios_graphics_console_mouse(cons,inp.mouse_data[0],inp.mouse_data[1],inp.mouse_data[2]);
+    if ((inp.data_type == V3_FB_MOUSE) || (inp.data_type == V3_FB_BOTH)) { 
+	rc |= palacios_graphics_console_mouse(guest, cons, inp.mouse_data[0],
+					      inp.mouse_data[1], inp.mouse_data[2]);
     }
 
     if (rc) { 
@@ -301,3 +349,35 @@ int palacios_graphics_console_user_input(struct palacios_graphics_console *cons,
 	return 0;
     }
 }
+
+
+static int graphics_console_guest_init(struct v3_guest * guest, void ** vm_data) {
+    struct palacios_graphics_console * graphics_cons = kmalloc(sizeof(struct palacios_graphics_console), GFP_KERNEL);
+
+    if (!graphics_cons) { 
+	printk("palacios: filed to do guest_init for graphics console\n");
+	return -1;
+    }
+
+    memset(graphics_cons, 0, sizeof(struct palacios_graphics_console));
+
+    *vm_data = graphics_cons;
+
+    add_guest_ctrl(guest, V3_VM_FB_INPUT, fb_input, graphics_cons);
+    add_guest_ctrl(guest, V3_VM_FB_QUERY, fb_query, graphics_cons);
+
+    return 0;
+}
+
+
+
+static struct linux_ext graphics_cons_ext = {
+    .name = "GRAPHICS_CONSOLE_INTERFACE",
+    .init = graphics_console_init,
+    .deinit = NULL,
+    .guest_init = graphics_console_guest_init,
+    .guest_deinit = NULL
+};
+
+
+register_extension(&graphics_cons_ext);

@@ -99,7 +99,9 @@ struct vnet_queue {
 static struct {
     struct list_head routes;
     struct list_head devs;
-    
+
+    uint8_t status; 
+   
     uint32_t num_routes;
     uint32_t route_idx;
     uint32_t num_devs;
@@ -145,10 +147,9 @@ static void print_route(struct v3_vnet_route * route){
 static void dump_routes(){
     struct vnet_route_info *route;
 
-    int i = 0;
     Vnet_Debug("\n========Dump routes starts ============\n");
     list_for_each_entry(route, &(vnet_state.routes), node) {
-    	Vnet_Debug("\nroute %d:\n", i++);
+    	Vnet_Debug("\nroute %d:\n", route->idx);
 		
 	print_route(&(route->route_def));
 	if (route->route_def.dst_type == LINK_INTERFACE) {
@@ -300,14 +301,20 @@ void v3_vnet_del_route(uint32_t route_idx){
     flags = vnet_lock_irqsave(vnet_state.lock);
 
     list_for_each_entry(route, &(vnet_state.routes), node) {
+	V3_Print("v3_vnet_del_route, route idx: %d\n", route->idx);
 	if(route->idx == route_idx){
 	    list_del(&(route->node));
-	    list_del(&(route->match_node));
-	    Vnet_Free(route);    
+	    Vnet_Free(route);
+	    break;    
 	}
     }
 
     vnet_unlock_irqrestore(vnet_state.lock, flags);
+    clear_hash_cache();
+
+#ifdef V3_CONFIG_DEBUG_VNET
+    dump_routes();
+#endif	
 }
 
 
