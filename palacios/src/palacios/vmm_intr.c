@@ -28,7 +28,7 @@
 #include <palacios/vm_guest_mem.h>
 #include <palacios/vmm_decoder.h>
 
-#ifndef CONFIG_DEBUG_INTERRUPTS
+#ifndef V3_CONFIG_DEBUG_INTERRUPTS
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
@@ -333,7 +333,7 @@ int v3_handle_swintr(struct guest_info * core) {
 
     struct v3_swintr_hook * hook = core->intr_core_state.swintr_hooks[vector];
     if (hook == NULL) {
-#ifdef CONFIG_SWINTR_PASSTHROUGH
+#ifdef V3_CONFIG_SWINTR_PASSTHROUGH
         if (v3_hook_passthrough_swintr(core, vector) == -1) {
             PrintDebug("V3 SWintr Handler: Error hooking passthrough swintr\n");
             return -1;
@@ -351,9 +351,9 @@ int v3_handle_swintr(struct guest_info * core) {
         return -1;
     }
 
-    /* at some point we may need to prioritize swints 
+    /* KCH: at some point we may need to prioritize swints 
        so that they finish in time for the next
-       instruction */
+       instruction... */
     core->rip += instr.instr_length;
     return v3_signal_swintr(core, vector);
 }
@@ -515,7 +515,7 @@ intr_type_t v3_get_intr_type(struct guest_info * info) {
 	}
     }
 
-#ifdef CONFIG_DEBUG_INTERRUPTS
+#ifdef V3_CONFIG_DEBUG_INTERRUPTS
     if (type == V3_INVALID_INTR) {
 	PrintError("[get_intr_type] Invalid_Intr\n");
     }

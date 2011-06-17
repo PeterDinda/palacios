@@ -436,6 +436,7 @@ libs-y		:= palacios/lib/$(ARCH)/
 devices-y       := palacios/src/devices/
 interfaces-y    := palacios/src/interfaces/
 extensions-y    := palacios/src/extensions/
+vnet-y          := palacios/src/vnet/
 modules-y       := modules/
 
 
@@ -467,7 +468,7 @@ palacios/include/autoconf.h: ;
 endif
 
 
-ifdef CONFIG_LINUX
+ifdef V3_CONFIG_LINUX
 DEFAULT_EXTRA_TARGETS=linux_module
 else
 DEFAULT_EXTRA_TARGETS=
@@ -480,24 +481,24 @@ endif
 all: palacios $(DEFAULT_EXTRA_TARGETS)
 
 
-ifdef CONFIG_LINUX
+ifdef V3_CONFIG_LINUX
 CFLAGS          += -mcmodel=kernel 
 else
 CFLAGS          += -fPIC
 endif
 
-ifdef CONFIG_FRAME_POINTER
+ifdef V3_CONFIG_FRAME_POINTER
 CFLAGS		+= -fno-omit-frame-pointer $(call cc-option,-fno-optimize-sibling-calls,)
 else
 CFLAGS		+= -fomit-frame-pointer
 endif
 
 
-ifdef CONFIG_UNWIND_INFO
+ifdef V3_CONFIG_UNWIND_INFO
 CFLAGS		+= -fasynchronous-unwind-tables
 endif
 
-ifdef CONFIG_DEBUG_INFO
+ifdef V3_CONFIG_DEBUG_INFO
 CFLAGS		+= -g
 else 
 CFLAGS          += -O
@@ -530,7 +531,7 @@ export	INSTALL_PATH ?= /build
 
 
 palacios-dirs	:= $(patsubst %/,%,$(filter %/,  \
-		     $(core-y) $(devices-y) $(interfaces-y) $(extensions-y) $(libs-y)) $(modules-y))
+		     $(core-y) $(devices-y) $(interfaces-y) $(extensions-y) $(vnet-y) $(libs-y)) $(modules-y))
 
 
 
@@ -541,7 +542,7 @@ palacios-dirs	:= $(patsubst %/,%,$(filter %/,  \
 
 palacios-cleandirs := $(sort $(palacios-dirs) $(patsubst %/,%,$(filter %/, \
 		     	$(core-n) $(core-) $(devices-n) $(devices-) \
-			$(interfaces-n) $(interfaces-) $(extensions-n) $(extensions-) $(modules-n) $(modules-))))
+			$(interfaces-n) $(interfaces-) $(extensions-n) $(extensions-) $(vnet-n) $(vnet-) $(modules-n) $(modules-))))
 
 
 
@@ -550,6 +551,7 @@ devices-y	:= $(patsubst %/, %/built-in.o, $(devices-y))
 interfaces-y    := $(patsubst %/, %/built-in.o, $(interfaces-y))
 extensions-y    := $(patsubst %/, %/built-in.o, $(extensions-y))
 libs-y		:= $(patsubst %/, %/built-in.o, $(libs-y))
+vnet-y          := $(patsubst %/, %/built-in.o, $(vnet-y))
 modules-y       := $(patsubst %/, %/built-in.o, $(modules-y))
 #lnxmod-y        := $(patsubst %/, %/built-in.o, $(lnxmod-y))
 
@@ -575,7 +577,7 @@ modules-y       := $(patsubst %/, %/built-in.o, $(modules-y))
 
 
 
-palacios := $(core-y) $(devices-y) $(interfaces-y) $(extensions-y) $(libs-y) $(modules-y)
+palacios := $(core-y) $(devices-y) $(interfaces-y) $(extensions-y) $(vnet-y) $(libs-y) $(modules-y)
 
 
 # Rule to link palacios - also used during CONFIG_CONFIGKALLSYMS
@@ -621,7 +623,7 @@ palacios: libv3vee.a
 
 
 linux_module/v3vee.ko: linux_module/*.c linux_module/*.h libv3vee.a
-	cd linux_module/ && make CONFIG_LINUX_KERN=$(CONFIG_LINUX_KERN)
+	cd linux_module/ && make
 	cp linux_module/v3vee.ko v3vee.ko
 
 
@@ -941,10 +943,10 @@ target-dir = $(dir $@)
 
 # Modules
 / %/: prepare scripts FORCE
-	$(Q)$(MAKE) KBUILD_MODULES=$(if $(CONFIG_MODULES),1) \
+	$(Q)$(MAKE) KBUILD_MODULES=$(if $(V3_CONFIG_MODULES),1) \
 	$(build)=$(build-dir)
 %.ko: prepare scripts FORCE
-	$(Q)$(MAKE) KBUILD_MODULES=$(if $(CONFIG_MODULES),1)   \
+	$(Q)$(MAKE) KBUILD_MODULES=$(if $(V3_CONFIG_MODULES),1)   \
 	$(build)=$(build-dir) $(@:.ko=.o)
 	$(Q)$(MAKE) -rR -f $(srctree)/scripts/Makefile.modpost
 

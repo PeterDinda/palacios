@@ -12,12 +12,12 @@
 #include <palacios/vmm_paging.h>
 
 
-#ifndef CONFIG_DEBUG_SHDW_CACHE
+#ifndef V3_CONFIG_DEBUG_SHDW_CACHE
 #undef PrintDebug
 #define PrintDebug(fmt, ...)
 #endif
 
-#ifdef CONFIG_SHADOW_CACHE
+#ifdef V3_CONFIG_SHADOW_CACHE
 
 struct pde_chain {
     addr_t shadow_pdes[NR_PTE_CHAIN_ENTRIES];

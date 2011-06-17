@@ -26,7 +26,7 @@
 
 #include "vga_regs.h"
 
-#ifndef CONFIG_DEBUG_VGA
+#ifndef V3_CONFIG_DEBUG_VGA
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
@@ -1194,7 +1194,7 @@ static int vga_write(struct guest_info * core,
 #endif
 		    // rotate data right
 		    if (ror) { 
-			data = (data>>ror) | data<<(8-ror);
+			data = (data>>ror) | (data<<(8-ror));
 		    }
 		    
 #if DEBUG_DEEP_MEM
@@ -1384,7 +1384,7 @@ static int vga_write(struct guest_info * core,
 		uint8_t data = ((uint8_t *)src)[i];
 
 		if (ror) {
-		    data = (data>>ror) | data<<(8-ror);
+		    data = (data>>ror) | (data<<(8-ror));
 		}
 
 		uint8_t bm = vga->vga_graphics_controller.vga_bit_mask & data;

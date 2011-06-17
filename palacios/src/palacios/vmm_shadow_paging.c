@@ -33,15 +33,15 @@
 
 
 
-#ifdef CONFIG_SHADOW_PAGING_TELEMETRY
+#ifdef V3_CONFIG_SHADOW_PAGING_TELEMETRY
 #include <palacios/vmm_telemetry.h>
 #endif
 
-#ifdef CONFIG_SYMBIOTIC_SWAP
+#ifdef V3_CONFIG_SYMBIOTIC_SWAP
 #include <palacios/vmm_sym_swap.h>
 #endif
 
-#ifndef CONFIG_DEBUG_SHADOW_PAGING
+#ifndef V3_CONFIG_DEBUG_SHADOW_PAGING
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
@@ -107,7 +107,7 @@ int V3_deinit_shdw_paging() {
  ***/
 
 
-#ifdef CONFIG_SHADOW_PAGING_TELEMETRY
+#ifdef V3_CONFIG_SHADOW_PAGING_TELEMETRY
 static void telemetry_cb(struct v3_vm_info * vm, void * private_data, char * hdr) {
     int i = 0;
     for (i = 0; i < vm->num_cores; i++) {
@@ -136,7 +136,7 @@ int v3_init_shdw_pg_state(struct guest_info * core) {
     }
 
 
-#ifdef CONFIG_SHADOW_PAGING_TELEMETRY
+#ifdef V3_CONFIG_SHADOW_PAGING_TELEMETRY
     v3_add_telemetry_cb(core->vm_info, telemetry_cb, NULL);
 #endif
   
@@ -152,9 +152,6 @@ int v3_deinit_shdw_pg_state(struct guest_info * core) {
 	return -1;
     }
 
-#ifdef CONFIG_SHADOW_PAGING_TELEMETRY
-    v3_remove_telemetry_cb(core->vm_info, telemetry_cb, NULL);
-#endif
 
     return 0;
 }
@@ -302,7 +299,7 @@ int v3_handle_shadow_invlpg(struct guest_info * core) {
 int v3_inject_guest_pf(struct guest_info * core, addr_t fault_addr, pf_error_t error_code) {
     core->ctrl_regs.cr2 = fault_addr;
 
-#ifdef CONFIG_SHADOW_PAGING_TELEMETRY
+#ifdef V3_CONFIG_SHADOW_PAGING_TELEMETRY
     core->shdw_pg_state.guest_faults++;
 #endif
 

@@ -19,7 +19,7 @@
  */
 //backend device for Virtio NIC
 
-#include <palacios/vmm_vnet.h>
+#include <vnet/vnet.h>
 #include <palacios/vmm.h>
 #include <palacios/vmm_dev_mgr.h>
 #include <devices/lnx_virtio_pci.h>
@@ -28,7 +28,7 @@
 #include <palacios/vmm_sprintf.h>
 #include <palacios/vmm_ethernet.h>
 
-#ifndef CONFIG_DEBUG_VNET_NIC
+#ifndef V3_CONFIG_DEBUG_VNET_NIC
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
@@ -54,7 +54,7 @@ static int vnet_nic_send(uint8_t * buf, uint32_t len,
 
     V3_Net_Print(2, "VNET-NIC: send pkt (size: %d, src_id: %d, src_type: %d)\n", 
 		   pkt.size, pkt.src_id, pkt.src_type);
-    if(v3_net_debug >= 4){
+    if(net_debug >= 4){
 	v3_hexdump(buf, len, NULL, 0);
     }
 

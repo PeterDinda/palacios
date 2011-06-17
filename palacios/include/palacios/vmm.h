@@ -182,34 +182,16 @@ struct guest_info;
         })
 
 
-#ifdef CONFIG_MULTITHREAD_OS
+#ifdef V3_CONFIG_MULTITHREAD_OS
 
-#define V3_CREATE_THREAD(fn, arg, name)	({			\
-	void * thread = NULL;							\
-	extern struct v3_os_hooks * os_hooks;			\
-	if ((os_hooks) && (os_hooks)->start_kernel_thread) {	\
-	    thread = (os_hooks)->start_kernel_thread(fn, arg, name);	\
-	}							\
-	thread;						\
-    })
+#define V3_CREATE_THREAD(fn, arg, name)					\
+    do {								\
+	extern struct v3_os_hooks * os_hooks;				\
+	if ((os_hooks) && (os_hooks)->start_kernel_thread) {		\
+	    (os_hooks)->start_kernel_thread(fn, arg, name);		\
+	}								\
+    }
 
-
-#define V3_THREAD_SLEEP()		\
-    do{							\
-	extern struct v3_os_hooks * os_hooks;			\
-	if ((os_hooks) && (os_hooks)->kernel_thread_sleep) {	\
-	    (os_hooks)->kernel_thread_sleep();	\
-	}							\
-    }while(0)
-
-
-#define V3_THREAD_WAKEUP(thread)		\
-    do{							\
-	extern struct v3_os_hooks * os_hooks;			\
-	if ((os_hooks) && (os_hooks)->kernel_thread_wakeup) {	\
-	    (os_hooks)->kernel_thread_wakeup(thread);	\
-	}							\
-    }while(0)
 
 
 
@@ -260,7 +242,7 @@ typedef enum v3_vm_class {V3_INVALID_VM, V3_PC_VM, V3_CRAY_VM} v3_vm_class_t;
 
 
 // Maybe make this a define....
-typedef enum v3_cpu_arch {V3_INVALID_CPU, V3_SVM_CPU, V3_SVM_REV3_CPU, V3_VMX_CPU, V3_VMX_EPT_CPU} v3_cpu_arch_t;
+typedef enum v3_cpu_arch {V3_INVALID_CPU, V3_SVM_CPU, V3_SVM_REV3_CPU, V3_VMX_CPU, V3_VMX_EPT_CPU, V3_VMX_EPT_UG_CPU} v3_cpu_arch_t;
 
 
 v3_cpu_mode_t v3_get_host_cpu_mode();
@@ -270,7 +252,7 @@ void v3_yield_cond(struct guest_info * info);
 void v3_print_cond(const char * fmt, ...);
 
 
-#ifdef CONFIG_MULTITHREAD_OS
+#ifdef V3_CONFIG_MULTITHREAD_OS
 void v3_interrupt_cpu(struct v3_vm_info * vm, int logical_cpu, int vector);
 #endif
 
@@ -279,6 +261,7 @@ v3_cpu_arch_t v3_get_cpu_type(int cpu_id);
 
 
 int v3_vm_enter(struct guest_info * info);
+int v3_reset_vm_core(struct guest_info * core, addr_t rip);
 
 
 #endif /*!__V3VEE__ */
@@ -318,9 +301,7 @@ struct v3_os_hooks {
 
 
 
-    void * (*start_kernel_thread)(int (*fn)(void * arg), void * arg, char * thread_name); 
-    void (*kernel_thread_sleep)(void);
-    void (*kernel_thread_wakeup)(void * thread);
+    void (*start_kernel_thread)(int (*fn)(void * arg), void * arg, char * thread_name); 
     void (*interrupt_cpu)(struct v3_vm_info * vm, int logical_cpu, int vector);
     void (*call_on_cpu)(int logical_cpu, void (*fn)(void * arg), void * arg);
     void * (*start_thread_on_cpu)(int cpu_id, int (*fn)(void * arg), void * arg, char * thread_name);

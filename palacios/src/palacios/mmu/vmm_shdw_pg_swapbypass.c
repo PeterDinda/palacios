@@ -27,7 +27,7 @@
 #include <palacios/vmm_hashtable.h>
 
 
-#ifdef CONFIG_SWAPBYPASS_TELEMETRY
+#ifdef V3_CONFIG_SWAPBYPASS_TELEMETRY
 #include <palacios/vmm_telemetry.h>
 #endif
 
@@ -86,7 +86,7 @@ struct v3_swap_dev {
 struct swapbypass_vm_state {
     struct v3_swap_dev devs[256];
 
-#ifdef CONFIG_SWAPBYPASS_TELEMETRY
+#ifdef V3_CONFIG_SWAPBYPASS_TELEMETRY
     uint32_t read_faults;
     uint32_t write_faults;
     uint32_t flushes;
@@ -135,7 +135,7 @@ static struct shadow_page_data * create_new_shadow_pt(struct guest_info * core);
 
 
 
-#ifdef CONFIG_SWAPBYPASS_TELEMETRY
+#ifdef V3_CONFIG_SWAPBYPASS_TELEMETRY
 static void telemetry_cb(struct v3_vm_info * vm, void * private_data, char * hdr) {
     struct swapbypass_vm_state * swap_state = (struct swapbypass_vm_state *)(vm->shdw_impl.impl_data);
 
@@ -206,7 +206,7 @@ static addr_t map_swp_page(struct v3_vm_info * vm, pte32_t * shadow_pte, pte32_t
 
     if (shdw_ptr_list == NULL) {
 	shdw_ptr_list = (struct list_head *)V3_Malloc(sizeof(struct list_head));
-#ifdef CONFIG_SWAPBYPASS_TELEMETRY
+#ifdef V3_CONFIG_SWAPBYPASS_TELEMETRY
 	swap_state->list_size++;
 #endif
 	INIT_LIST_HEAD(shdw_ptr_list);
@@ -217,7 +217,7 @@ static addr_t map_swp_page(struct v3_vm_info * vm, pte32_t * shadow_pte, pte32_t
 
     if (shdw_ptr == NULL) {
 	PrintError("MEMORY LEAK\n");
-#ifdef CONFIG_SWAPBYPASS_TELEMETRY
+#ifdef V3_CONFIG_SWAPBYPASS_TELEMETRY
 	telemetry_cb(vm, NULL, "");
 #endif
 	return 0;
@@ -343,7 +343,7 @@ int v3_swap_flush(struct v3_vm_info * vm) {
 
     //    PrintDebug("Flushing Symbiotic Swap table\n");
 
-#ifdef CONFIG_SWAPBYPASS_TELEMETRY
+#ifdef V3_CONFIG_SWAPBYPASS_TELEMETRY
     swap_state->flushes++;
 #endif
 
@@ -393,7 +393,7 @@ static int sb_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     memset(sb_state, 0, sizeof(struct swapbypass_vm_state));
     sb_state->shdw_ptr_ht = v3_create_htable(0, swap_hash_fn, swap_eq_fn);
 
-#ifdef CONFIG_SWAPBYPASS_TELEMETRY
+#ifdef V3_CONFIG_SWAPBYPASS_TELEMETRY
     if (vm->enable_telemetry) {
 	v3_add_telemetry_cb(vm, telemetry_cb, NULL);
     }

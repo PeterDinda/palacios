@@ -27,7 +27,7 @@
 #include <palacios/vmm_io.h>
 
 
-#ifndef CONFIG_DEBUG_PIT
+#ifndef V3_CONFIG_DEBUG_PIT
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
@@ -54,8 +54,8 @@
  */
 typedef enum {NOT_RUNNING, PENDING, RUNNING} channel_run_state_t;
 typedef enum {NOT_WAITING, WAITING_LOBYTE, WAITING_HIBYTE} channel_access_state_t;
-typedef enum {LATCH_COUNT, LOBYTE_ONLY, HIBYTE_ONLY, LOBYTE_HIBYTE} channel_access_mode_t;
-typedef enum {IRQ_ON_TERM_CNT, ONE_SHOT, RATE_GEN, SQR_WAVE, SW_STROBE, HW_STROBE} channel_op_mode_t;
+typedef enum {LATCH_COUNT = 0, LOBYTE_ONLY = 1, HIBYTE_ONLY = 2, LOBYTE_HIBYTE = 3} channel_access_mode_t;
+typedef enum {IRQ_ON_TERM_CNT = 0, ONE_SHOT = 1, RATE_GEN = 2, SQR_WAVE = 3, SW_STROBE = 4, HW_STROBE = 5} channel_op_mode_t;
 
 
 struct channel {
@@ -162,7 +162,7 @@ static int handle_crystal_tics(struct pit * pit, struct channel * ch, uint_t osc
     } else {
 	ushort_t reload_val = ch->reload_value; 
 
-	if (ch->op_mode == SW_STROBE) {
+	if ((ch->op_mode == SW_STROBE) || (ch->op_mode == IRQ_ON_TERM_CNT)) {
 	    reload_val = 0xffff;
 	}
 
@@ -430,10 +430,12 @@ static int handle_speaker_write(uint8_t *speaker, struct channel * ch, char val)
 }
 
 static int handle_channel_cmd(struct channel * ch, struct pit_cmd_word cmd) {
-    ch->op_mode = cmd.op_mode;
+
     ch->access_mode = cmd.access_mode;
 
-
+    if (ch->access_mode != 0) {
+	ch->op_mode = cmd.op_mode;
+    }
 
 
     switch (cmd.access_mode) {
@@ -660,7 +662,7 @@ static int pit_free(void * private_data) {
     return 0;
 }
 
-#ifdef CONFIG_KEYED_STREAMS
+#ifdef V3_CONFIG_KEYED_STREAMS
 static int pit_checkpoint(struct vm_device *dev, v3_keyed_stream_t stream)
 {
     struct pit *p = (struct pit *) (dev->private_data);
@@ -716,7 +718,7 @@ static int pit_restore(struct vm_device *dev, v3_keyed_stream_t stream)
 
 static struct v3_device_ops dev_ops = {
     .free = (int (*)(void *))pit_free,
-#ifdef CONFIG_KEYED_STREAMS
+#ifdef V3_CONFIG_KEYED_STREAMS
     .checkpoint = pit_checkpoint,
     .restore = pit_restore,
 #endif
@@ -763,7 +765,7 @@ static int pit_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	return -1;
     }
 
-#ifdef CONFIG_DEBUG_PIT
+#ifdef V3_CONFIG_DEBUG_PIT
     PrintDebug("8254 PIT: OSC_HZ=%d, reload_val=", OSC_HZ);
     //PrintTrace(reload_val);
     PrintDebug("\n");
@@ -789,7 +791,7 @@ static int pit_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     init_channel(&(pit_state->ch_1));
     init_channel(&(pit_state->ch_2));
 
-#ifdef CONFIG_DEBUG_PIT
+#ifdef V3_CONFIG_DEBUG_PIT
     PrintDebug("8254 PIT: CPU MHZ=%d -- pit count=", cpu_khz / 1000);
     //PrintTraceLL(pit_state->pit_counter);
     PrintDebug("\n");

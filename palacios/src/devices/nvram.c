@@ -30,7 +30,7 @@
 #include <palacios/vm_guest.h>
 
 
-#ifndef CONFIG_DEBUG_NVRAM
+#ifndef V3_CONFIG_DEBUG_NVRAM
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
@@ -127,7 +127,7 @@ struct rtc_stata {
 struct rtc_statb {
     uint8_t        sum    : 1;  // 1=summer (daylight savings)
     uint8_t        h24    : 1;  // 1=24h clock
-    uint8_t        dm     : 1;  // 1=date/time is in bcd, 0=binary
+    uint8_t        dm     : 1;  // 0=date/time is in bcd, 1=binary
     uint8_t        rec    : 1;  // 1=rectangular signal
     uint8_t        ui     : 1;  // 1=update interrupt
     uint8_t        ai     : 1;  // 1=alarm interrupt
@@ -297,7 +297,7 @@ static void update_time(struct nvram_internal * data, uint64_t period_us) {
     uint8_t * houra    = (uint8_t *)&(data->mem_state[NVRAM_REG_HOUR_ALARM]);
     uint8_t hour24;
 
-    uint8_t bcd = (statb->dm == 1);
+    uint8_t bcd = (statb->dm == 0);
     uint8_t carry = 0;
     uint8_t nextday = 0;
     uint32_t  periodic_period;
@@ -659,8 +659,8 @@ static int init_nvram_state(struct v3_vm_info * vm, struct nvram_internal * nvra
     set_memory(nvram, NVRAM_REG_STAT_A, 0x26); 
 
     // RTC status B
-    // 00000100 = not setting, no interrupts, blocked rect signal, bcd mode, 24 hour, normal time
-    set_memory(nvram, NVRAM_REG_STAT_B, 0x06); 
+    // 00000010 = not setting, no interrupts, blocked rect signal, bcd mode (bit 3 = 0), 24 hour, normal time
+    set_memory(nvram, NVRAM_REG_STAT_B, 0x02); 
 
 
     // RTC status C

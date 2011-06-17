@@ -23,12 +23,12 @@
 #include <palacios/vmm_dev_mgr.h>
 #include <palacios/vm_guest_mem.h>
 #include <devices/lnx_virtio_pci.h>
-#include <palacios/vmm_vnet.h>
+#include <vnet/vnet.h>
 #include <palacios/vmm_sprintf.h>
 #include <devices/pci.h>
 
 
-#ifndef CONFIG_DEBUG_LINUX_VIRTIO_VNET
+#ifndef V3_CONFIG_DEBUG_LINUX_VIRTIO_VNET
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif

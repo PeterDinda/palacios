@@ -31,7 +31,7 @@
 #include <devices/serial.h>
 
 
-#ifndef CONFIG_DEBUG_SERIAL
+#ifndef V3_CONFIG_DEBUG_SERIAL
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif

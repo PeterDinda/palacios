@@ -1,3 +1,4 @@
+
 /* 
  * This file is part of the Palacios Virtual Machine Monitor developed
  * by the V3VEE Project with funding from the United States National 
@@ -44,7 +45,7 @@
 #include <palacios/vmm_sprintf.h>
 
 
-#ifndef CONFIG_DEBUG_SVM
+#ifndef V3_CONFIG_DEBUG_SVM
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
@@ -53,7 +54,7 @@
 uint32_t v3_last_exit;
 
 // This is a global pointer to the host's VMCB
-static addr_t host_vmcbs[CONFIG_MAX_CPUS] = { [0 ... CONFIG_MAX_CPUS - 1] = 0};
+static addr_t host_vmcbs[V3_CONFIG_MAX_CPUS] = { [0 ... V3_CONFIG_MAX_CPUS - 1] = 0};
 
 
 
@@ -105,7 +106,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
 
     ctrl_area->instrs.HLT = 1;
 
-#ifdef CONFIG_TIME_VIRTUALIZE_TSC
+#ifdef V3_CONFIG_TIME_VIRTUALIZE_TSC
     ctrl_area->instrs.RDTSC = 1;
     ctrl_area->svm_instrs.RDTSCP = 1;
 #endif
@@ -136,7 +137,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
     ctrl_area->instrs.shutdown_evts = 1;
 
     /* KCH: intercept SW Interrupts (INT instr) */
-#ifdef CONFIG_SW_INTERRUPTS
+#ifdef V3_CONFIG_SW_INTERRUPTS
     ctrl_area->instrs.INTn = 1;
 #endif
 
@@ -228,8 +229,14 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
 		&v3_handle_efer_write, 
 		core);
 
-#ifdef CONFIG_HIJACK_MSR
-    /* KCH: for SYSCALL and SYSENTER interception */
+#ifdef V3_CONFIG_HIJACK_SYSCALL_MSR
+    /* KCH: we're not hooking these to TRAP them,
+            instead, we're going to catch the target EIP.
+            Hopefully this EIP is the entry point in the ELF located in the 
+            vsyscall page. We can inject checks into the code segment such that
+            we don't have to exit on uninteresting system calls. This should
+            give us much better performance than INT 80, and should even obviate
+            the need to deal with software interrupts at all */
     v3_hook_msr(core->vm_info, STAR_MSR,
         &v3_handle_star_read,
         &v3_handle_star_write,
@@ -241,6 +248,15 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
     v3_hook_msr(core->vm_info, CSTAR_MSR,
         &v3_handle_cstar_read,
         &v3_handle_cstar_write,
+        core);
+    
+    /* KCH: this probably isn't necessary, as
+        SYSENTER is only used in legacy mode. In fact,
+        in long mode it results in an illegal instruction
+        exception */
+    v3_hook_msr(core->vm_info, IA32_SYSENTER_EIP_MSR,
+        &v3_handle_seeip_read,
+        &v3_handle_seeip_write,
         core);
 #endif
 
@@ -347,7 +363,7 @@ static int update_irq_exit_state(struct guest_info * info) {
 
     if ((info->intr_core_state.irq_pending == 1) && (guest_ctrl->guest_ctrl.V_IRQ == 0)) {
 	
-#ifdef CONFIG_DEBUG_INTERRUPTS
+#ifdef V3_CONFIG_DEBUG_INTERRUPTS
 	PrintDebug("INTAK cycle completed for irq %d\n", info->intr_core_state.irq_vector);
 #endif
 
@@ -358,7 +374,7 @@ static int update_irq_exit_state(struct guest_info * info) {
     }
 
     if ((info->intr_core_state.irq_started == 1) && (guest_ctrl->exit_int_info.valid == 0)) {
-#ifdef CONFIG_DEBUG_INTERRUPTS
+#ifdef V3_CONFIG_DEBUG_INTERRUPTS
 	PrintDebug("Interrupt %d taken by guest\n", info->intr_core_state.irq_vector);
 #endif
 
@@ -366,7 +382,7 @@ static int update_irq_exit_state(struct guest_info * info) {
 	info->intr_core_state.irq_started = 0;
 
     } else if ((info->intr_core_state.irq_started == 1) && (guest_ctrl->exit_int_info.valid == 1)) {
-#ifdef CONFIG_DEBUG_INTERRUPTS
+#ifdef V3_CONFIG_DEBUG_INTERRUPTS
 	PrintDebug("EXIT INT INFO is set (vec=%d)\n", guest_ctrl->exit_int_info.vector);
 #endif
     }
@@ -392,7 +408,7 @@ static int update_irq_entry_state(struct guest_info * info) {
 	if (info->excp_state.excp_error_code_valid) {
 	    guest_ctrl->EVENTINJ.error_code = info->excp_state.excp_error_code;
 	    guest_ctrl->EVENTINJ.ev = 1;
-#ifdef CONFIG_DEBUG_INTERRUPTS
+#ifdef V3_CONFIG_DEBUG_INTERRUPTS
 	    PrintDebug("Injecting exception %d with error code %x\n", excp, guest_ctrl->EVENTINJ.error_code);
 #endif
 	}
@@ -401,7 +417,7 @@ static int update_irq_entry_state(struct guest_info * info) {
 	
 	guest_ctrl->EVENTINJ.valid = 1;
 
-#ifdef CONFIG_DEBUG_INTERRUPTS
+#ifdef V3_CONFIG_DEBUG_INTERRUPTS
 	PrintDebug("<%d> Injecting Exception %d (CR2=%p) (EIP=%p)\n", 
 		   (int)info->num_exits, 
 		   guest_ctrl->EVENTINJ.vector, 
@@ -411,7 +427,7 @@ static int update_irq_entry_state(struct guest_info * info) {
 
 	v3_injecting_excp(info, excp);
     } else if (info->intr_core_state.irq_started == 1) {
-#ifdef CONFIG_DEBUG_INTERRUPTS
+#ifdef V3_CONFIG_DEBUG_INTERRUPTS
 	PrintDebug("IRQ pending from previous injection\n");
 #endif
 	guest_ctrl->guest_ctrl.V_IRQ = 1;
@@ -429,7 +445,7 @@ static int update_irq_entry_state(struct guest_info * info) {
 		guest_ctrl->guest_ctrl.V_IGN_TPR = 1;
 		guest_ctrl->guest_ctrl.V_INTR_PRIO = 0xf;
 
-#ifdef CONFIG_DEBUG_INTERRUPTS
+#ifdef V3_CONFIG_DEBUG_INTERRUPTS
 		PrintDebug("Injecting Interrupt %d (EIP=%p)\n", 
 			   guest_ctrl->guest_ctrl.V_INTR_VECTOR, 
 			   (void *)(addr_t)info->rip);
@@ -519,7 +535,7 @@ int v3_svm_enter(struct guest_info * info) {
     guest_state->rip = info->rip;
     guest_state->rsp = info->vm_regs.rsp;
 
-#ifdef CONFIG_SYMCALL
+#ifdef V3_CONFIG_SYMCALL
     if (info->sym_core_state.symcall_state.sym_call_active == 0) {
 	update_irq_entry_state(info);
     }
@@ -536,7 +552,7 @@ int v3_svm_enter(struct guest_info * info) {
       (void *)(addr_t)info->rip);
     */
 
-#ifdef CONFIG_SYMCALL
+#ifdef V3_CONFIG_SYMCALL
     if (info->sym_core_state.symcall_state.sym_call_active == 1) {
 	if (guest_ctrl->guest_ctrl.V_IRQ == 1) {
 	    V3_Print("!!! Injecting Interrupt during Sym call !!!\n");
@@ -589,7 +605,7 @@ int v3_svm_enter(struct guest_info * info) {
     exit_info2 = guest_ctrl->exit_info2;
 
 
-#ifdef CONFIG_SYMCALL
+#ifdef V3_CONFIG_SYMCALL
     if (info->sym_core_state.symcall_state.sym_call_active == 0) {
 	update_irq_exit_state(info);
     }
@@ -622,29 +638,31 @@ int v3_start_svm_guest(struct guest_info * info) {
     //    vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
     //  vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
 
-    PrintDebug("Starting SVM core %u\n", info->cpu_id);
+    PrintDebug("Starting SVM core %u (on logical core %u)\n", info->vcpu_id, info->pcpu_id);
 
-    if (info->cpu_id == 0) {
+    if (info->vcpu_id == 0) {
 	info->core_run_state = CORE_RUNNING;
 	info->vm_info->run_state = VM_RUNNING;
     } else  { 
-	PrintDebug("SVM core %u: Waiting for core initialization\n", info->cpu_id);
+	PrintDebug("SVM core %u (on %u): Waiting for core initialization\n", info->vcpu_id, info->pcpu_id);
 
 	while (info->core_run_state == CORE_STOPPED) {
 	    v3_yield(info);
-	    //PrintDebug("SVM core %u: still waiting for INIT\n",info->cpu_id);
+	    //PrintDebug("SVM core %u: still waiting for INIT\n", info->vcpu_id);
 	}
 
-	PrintDebug("SVM core %u initialized\n", info->cpu_id);
+	PrintDebug("SVM core %u(on %u) initialized\n", info->vcpu_id, info->pcpu_id);
     } 
 
-    PrintDebug("SVM core %u: I am starting at CS=0x%x (base=0x%p, limit=0x%x),  RIP=0x%p\n", 
-	       info->cpu_id, info->segments.cs.selector, (void *)(info->segments.cs.base), 
+    PrintDebug("SVM core %u(on %u): I am starting at CS=0x%x (base=0x%p, limit=0x%x),  RIP=0x%p\n", 
+	       info->vcpu_id, info->pcpu_id, 
+	       info->segments.cs.selector, (void *)(info->segments.cs.base), 
 	       info->segments.cs.limit, (void *)(info->rip));
 
 
 
-    PrintDebug("SVM core %u: Launching SVM VM (vmcb=%p)\n", info->cpu_id, (void *)info->vmm_data);
+    PrintDebug("SVM core %u: Launching SVM VM (vmcb=%p) (on cpu %u)\n", 
+	       info->vcpu_id, (void *)info->vmm_data, info->pcpu_id);
     //PrintDebugVMCB((vmcb_t*)(info->vmm_data));
     
     v3_start_time(info);
@@ -663,17 +681,17 @@ int v3_start_svm_guest(struct guest_info * info) {
 	    
 	    info->vm_info->run_state = VM_ERROR;
 	    
-	    V3_Print("SVM core %u: SVM ERROR!!\n", info->cpu_id); 
+	    V3_Print("SVM core %u: SVM ERROR!!\n", info->vcpu_id); 
 	    
 	    v3_print_guest_state(info);
 	    
-	    V3_Print("SVM core %u: SVM Exit Code: %p\n", info->cpu_id, (void *)(addr_t)guest_ctrl->exit_code); 
+	    V3_Print("SVM core %u: SVM Exit Code: %p\n", info->vcpu_id, (void *)(addr_t)guest_ctrl->exit_code); 
 	    
-	    V3_Print("SVM core %u: exit_info1 low = 0x%.8x\n", info->cpu_id, *(uint_t*)&(guest_ctrl->exit_info1));
-	    V3_Print("SVM core %u: exit_info1 high = 0x%.8x\n", info->cpu_id, *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info1)) + 4));
+	    V3_Print("SVM core %u: exit_info1 low = 0x%.8x\n", info->vcpu_id, *(uint_t*)&(guest_ctrl->exit_info1));
+	    V3_Print("SVM core %u: exit_info1 high = 0x%.8x\n", info->vcpu_id, *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info1)) + 4));
 	    
-	    V3_Print("SVM core %u: exit_info2 low = 0x%.8x\n", info->cpu_id, *(uint_t*)&(guest_ctrl->exit_info2));
-	    V3_Print("SVM core %u: exit_info2 high = 0x%.8x\n", info->cpu_id, *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info2)) + 4));
+	    V3_Print("SVM core %u: exit_info2 low = 0x%.8x\n", info->vcpu_id, *(uint_t*)&(guest_ctrl->exit_info2));
+	    V3_Print("SVM core %u: exit_info2 high = 0x%.8x\n", info->vcpu_id, *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info2)) + 4));
 	    
 	    linear_addr = get_addr_linear(info, info->rip, &(info->segments.cs));
 	    
@@ -683,9 +701,9 @@ int v3_start_svm_guest(struct guest_info * info) {
 		v3_gva_to_hva(info, linear_addr, &host_addr);
 	    }
 	    
-	    V3_Print("SVM core %u: Host Address of rip = 0x%p\n", info->cpu_id, (void *)host_addr);
+	    V3_Print("SVM core %u: Host Address of rip = 0x%p\n", info->vcpu_id, (void *)host_addr);
 	    
-	    V3_Print("SVM core %u: Instr (15 bytes) at %p:\n", info->cpu_id, (void *)host_addr);
+	    V3_Print("SVM core %u: Instr (15 bytes) at %p:\n", info->vcpu_id, (void *)host_addr);
 	    v3_dump_mem((uint8_t *)host_addr, 15);
 	    
 	    v3_print_stack(info);
@@ -700,9 +718,11 @@ int v3_start_svm_guest(struct guest_info * info) {
 	}
 
 	
+
 /*
-	if ((info->num_exits % 5000) == 0) {
+	if ((info->num_exits % 50000) == 0) {
 	    V3_Print("SVM Exit number %d\n", (uint32_t)info->num_exits);
+	    v3_print_guest_state(info);
 	}
 */
 	
@@ -712,6 +732,31 @@ int v3_start_svm_guest(struct guest_info * info) {
 
     return 0;
 }
+
+
+
+
+int v3_reset_svm_vm_core(struct guest_info * core, addr_t rip) {
+    // init vmcb_bios
+
+    // Write the RIP, CS, and descriptor
+    // assume the rest is already good to go
+    //
+    // vector VV -> rip at 0
+    //              CS = VV00
+    //  This means we start executing at linear address VV000
+    //
+    // So the selector needs to be VV00
+    // and the base needs to be VV000
+    //
+    core->rip = 0;
+    core->segments.cs.selector = rip << 8;
+    core->segments.cs.limit = 0xffff;
+    core->segments.cs.base = rip << 12;
+
+    return 0;
+}
+
 
 
 
@@ -778,6 +823,7 @@ static int has_svm_nested_paging() {
 	return 1;
     }
 }
+
 
 
 void v3_init_svm_cpu(int cpu_id) {

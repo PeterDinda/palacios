@@ -31,7 +31,7 @@
 #include <palacios/vmm_xed.h>
 #include <palacios/vmm_direct_paging.h>
 
-#ifdef CONFIG_SYSCALL_HIJACK
+#ifdef V3_CONFIG_SYSCALL_HIJACK
 #include <palacios/vmm_syscall_hijack.h>
 #include <palacios/vmm_mpi_accel.h>
 #endif
@@ -492,14 +492,14 @@ static int info_hcall(struct guest_info * core, uint_t hcall_id, void * priv_dat
     v3_print_guest_state(core);
     
     // init SVM/VMX
-#ifdef CONFIG_SVM
+#ifdef V3_CONFIG_SVM
     if ((cpu_type == V3_SVM_CPU) || (cpu_type == V3_SVM_REV3_CPU)) {
 	cpu_valid = 1;
 	PrintDebugVMCB((vmcb_t *)(core->vmm_data));
     }
 #endif
-#ifdef CONFIG_VMX
-    if ((cpu_type == V3_VMX_CPU) || (cpu_type == V3_VMX_EPT_CPU)) {
+#ifdef V3_CONFIG_VMX
+    if ((cpu_type == V3_VMX_CPU) || (cpu_type == V3_VMX_EPT_CPU) || (cpu_type == V3_VMX_EPT_UG_CPU)) {
 	cpu_valid = 1;
 	v3_print_vmcs();
     }
@@ -514,13 +514,13 @@ static int info_hcall(struct guest_info * core, uint_t hcall_id, void * priv_dat
 }
 
 
-#ifdef CONFIG_SVM
+#ifdef V3_CONFIG_SVM
 #include <palacios/svm.h>
 #include <palacios/svm_io.h>
 #include <palacios/svm_msr.h>
 #endif
 
-#ifdef CONFIG_VMX
+#ifdef V3_CONFIG_VMX
 #include <palacios/vmx.h>
 #include <palacios/vmx_io.h>
 #include <palacios/vmx_msr.h>
@@ -532,7 +532,7 @@ int v3_init_vm(struct v3_vm_info * vm) {
 
 
 
-#ifdef CONFIG_TELEMETRY
+#ifdef V3_CONFIG_TELEMETRY
     v3_init_telemetry(vm);
 #endif
 
@@ -561,7 +561,7 @@ int v3_init_vm(struct v3_vm_info * vm) {
     v3_init_time_vm(vm);
 
 
-#ifdef CONFIG_SYMBIOTIC
+#ifdef V3_CONFIG_SYMBIOTIC
     v3_init_symbiotic_vm(vm);
 #endif
 
@@ -570,16 +570,17 @@ int v3_init_vm(struct v3_vm_info * vm) {
 
     // init SVM/VMX
     switch (cpu_type) {
-#ifdef CONFIG_SVM
+#ifdef V3_CONFIG_SVM
 	case V3_SVM_CPU:
 	case V3_SVM_REV3_CPU:
 	    v3_init_svm_io_map(vm);
 	    v3_init_svm_msr_map(vm);
 	    break;
 #endif
-#ifdef CONFIG_VMX
+#ifdef V3_CONFIG_VMX
 	case V3_VMX_CPU:
 	case V3_VMX_EPT_CPU:
+	case V3_VMX_EPT_UG_CPU:
 	    v3_init_vmx_io_map(vm);
 	    v3_init_vmx_msr_map(vm);
 	    break;
@@ -604,22 +605,23 @@ int v3_free_vm_internal(struct v3_vm_info * vm) {
 
 
 
-#ifdef CONFIG_SYMBIOTIC
+#ifdef V3_CONFIG_SYMBIOTIC
     v3_deinit_symbiotic_vm(vm);
 #endif
 
     // init SVM/VMX
     switch (cpu_type) {
-#ifdef CONFIG_SVM
+#ifdef V3_CONFIG_SVM
 	case V3_SVM_CPU:
 	case V3_SVM_REV3_CPU:
 	    v3_deinit_svm_io_map(vm);
 	    v3_deinit_svm_msr_map(vm);
 	    break;
 #endif
-#ifdef CONFIG_VMX
+#ifdef V3_CONFIG_VMX
 	case V3_VMX_CPU:
 	case V3_VMX_EPT_CPU:
+	case V3_VMX_EPT_UG_CPU:
 	    v3_deinit_vmx_io_map(vm);
 	    v3_deinit_vmx_msr_map(vm);
 	    break;
@@ -645,7 +647,7 @@ int v3_free_vm_internal(struct v3_vm_info * vm) {
     v3_deinit_io_map(vm);
     v3_deinit_hypercall_map(vm);
 
-#ifdef CONFIG_TELEMETRY
+#ifdef V3_CONFIG_TELEMETRY
     v3_deinit_telemetry(vm);
 #endif
 
@@ -664,7 +666,7 @@ int v3_init_core(struct guest_info * core) {
     /*
      * Initialize the subsystem data strutures
      */
-#ifdef CONFIG_TELEMETRY
+#ifdef V3_CONFIG_TELEMETRY
     v3_init_core_telemetry(core);
 #endif
 
@@ -679,29 +681,21 @@ int v3_init_core(struct guest_info * core) {
     v3_init_decoder(core);
 
 
-#ifdef CONFIG_SYMBIOTIC
+#ifdef V3_CONFIG_SYMBIOTIC
     v3_init_symbiotic_core(core);
 #endif
 
 // KCH
-#ifdef CONFIG_SYSCALL_HIJACK
+#ifdef V3_CONFIG_SYSCALL_HIJACK
     v3_init_exec_hooks(core);
     v3_init_mpi_accel(core);
-    //v3_hook_swintr(core, 0x80, v3_syscall_handler, NULL);
-    /* hook a poll syscall */
-    //v3_hook_syscall(core, 5, v3_sysopen_handler, NULL);
-    //v3_hook_syscall(core, 21, v3_sysmount_handler, NULL);
-    //char * args[2];
-    //args[0] = "./envtest";
-    //args[1] = "LD_PRELOAD=./libcwrap.so";
-    //v3_hook_syscall(core, 11, v3_sysexecve_handler, (void*)args);
 #endif  
 
     // init SVM/VMX
 
 
     switch (cpu_type) {
-#ifdef CONFIG_SVM
+#ifdef V3_CONFIG_SVM
 	case V3_SVM_CPU:
 	case V3_SVM_REV3_CPU:
 	    if (v3_init_svm_vmcb(core, vm->vm_class) == -1) {
@@ -710,9 +704,10 @@ int v3_init_core(struct guest_info * core) {
 	    }
 	    break;
 #endif
-#ifdef CONFIG_VMX
+#ifdef V3_CONFIG_VMX
 	case V3_VMX_CPU:
 	case V3_VMX_EPT_CPU:
+	case V3_VMX_EPT_UG_CPU:
 	    if (v3_init_vmx_vmcs(core, vm->vm_class) == -1) {
 		PrintError("Error in VMX initialization\n");
 		return -1;
@@ -733,7 +728,7 @@ int v3_free_core(struct guest_info * core) {
     v3_cpu_arch_t cpu_type = v3_get_cpu_type(V3_Get_CPU());
 
     
-#ifdef CONFIG_SYMBIOTIC
+#ifdef V3_CONFIG_SYMBIOTIC
     v3_deinit_symbiotic_core(core);
 #endif
 
@@ -748,12 +743,12 @@ int v3_free_core(struct guest_info * core) {
 
     v3_free_passthrough_pts(core);
 
-#ifdef CONFIG_TELEMETRY
+#ifdef V3_CONFIG_TELEMETRY
     v3_deinit_core_telemetry(core);
 #endif
 
     switch (cpu_type) {
-#ifdef CONFIG_SVM
+#ifdef V3_CONFIG_SVM
 	case V3_SVM_CPU:
 	case V3_SVM_REV3_CPU:
 	    if (v3_deinit_svm_vmcb(core) == -1) {
@@ -762,9 +757,10 @@ int v3_free_core(struct guest_info * core) {
 	    }
 	    break;
 #endif
-#ifdef CONFIG_VMX
+#ifdef V3_CONFIG_VMX
 	case V3_VMX_CPU:
 	case V3_VMX_EPT_CPU:
+	case V3_VMX_EPT_UG_CPU:
 	    if (v3_deinit_vmx_vmcs(core) == -1) {
 		PrintError("Error in VMX initialization\n");
 		return -1;

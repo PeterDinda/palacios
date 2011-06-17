@@ -24,7 +24,7 @@
 #include <palacios/vmm_instr_emulator.h>
 #include <palacios/vmm_ctrl_regs.h>
 
-#ifndef CONFIG_DEBUG_EMULATOR
+#ifndef V3_CONFIG_DEBUG_EMULATOR
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif

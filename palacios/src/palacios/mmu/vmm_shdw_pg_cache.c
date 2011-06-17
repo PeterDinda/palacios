@@ -31,7 +31,7 @@
 
 #define V3_CACHED_PG 0x1
 
-#ifndef CONFIG_DEBUG_SHDW_PG_CACHE
+#ifndef V3_CONFIG_DEBUG_SHDW_PG_CACHE
 #undef PrintDebug
 #define PrintDebug(fmt, ...)
 #endif

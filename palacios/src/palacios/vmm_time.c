@@ -22,7 +22,7 @@
 #include <palacios/vmm_time.h>
 #include <palacios/vm_guest.h>
 
-#ifndef CONFIG_DEBUG_TIME
+#ifndef V3_CONFIG_DEBUG_TIME
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
@@ -399,8 +399,8 @@ void v3_init_time_core(struct guest_info * info) {
 
     if (khz) {
 	time_state->guest_cpu_freq = atoi(khz);
-	PrintDebug("Core %d CPU frequency requested at %d khz.\n", 
-		   info->cpu_id, time_state->guest_cpu_freq);
+	PrintDebug("Logical Core %d (vcpu=%d) CPU frequency requested at %d khz.\n", 
+		   info->pcpu_id, info->vcpu_id, time_state->guest_cpu_freq);
     } 
     
     if ( (khz == NULL) || 
@@ -410,8 +410,8 @@ void v3_init_time_core(struct guest_info * info) {
 	time_state->guest_cpu_freq = time_state->host_cpu_freq;
     }
 
-    PrintDebug("Core %d CPU frequency set to %d KHz (host CPU frequency = %d KHz).\n", 
-	       info->cpu_id, 
+    PrintDebug("Logical Core %d (vcpu=%d) CPU frequency set to %d KHz (host CPU frequency = %d KHz).\n", 
+	       info->pcpu_id, info->vcpu_id,
 	       time_state->guest_cpu_freq, 
 	       time_state->host_cpu_freq);
 

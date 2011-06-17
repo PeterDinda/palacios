@@ -39,7 +39,7 @@ static inline int handle_passthrough_pagefault_32(struct guest_info * info,
     int pde_index = PDE32_INDEX(fault_addr);
     int pte_index = PTE32_INDEX(fault_addr);
     
-    struct v3_mem_region * region = v3_get_mem_region(info->vm_info, info->cpu_id, fault_addr);
+    struct v3_mem_region * region = v3_get_mem_region(info->vm_info, info->vcpu_id, fault_addr);
 
     if (region == NULL) {
 	PrintError("Invalid region in passthrough page fault 32, addr=%p\n", 
@@ -129,12 +129,16 @@ static inline int invalidate_addr_32(struct guest_info * info, addr_t inv_addr) 
 	return 0;
     } else if (pde[pde_index].large_page) {
 	pde[pde_index].present = 0;
+	pde[pde_index].writable = 0;
+	pde[pde_index].user_page = 0;
 	return 0;
     }
 
     pte = V3_VAddr((void*)BASE_TO_PAGE_ADDR(pde[pde_index].pt_base_addr));
 
     pte[pte_index].present = 0;
+    pte[pte_index].writable = 0;
+    pte[pte_index].user_page = 0;
 
     return 0;
 }

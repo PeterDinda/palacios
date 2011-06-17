@@ -6,7 +6,18 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 
+#ifdef V3_CONFIG_CONSOLE
 #include "palacios-console.h"
+#endif
+
+#ifdef V3_CONFIG_GRAPHICS_CONSOLE
+#include "palacios-graphics-console.h"
+#endif
+
+#ifdef V3_CONFIG_HOST_DEVICE
+#include "palacios-host-dev.h"
+#endif
+
 
 /* Global Control IOCTLs */
 #define V3_START_GUEST 10
@@ -15,8 +26,14 @@
 
 /* VM Specific IOCTLs */
 #define V3_VM_CONSOLE_CONNECT 20
-#define V3_VM_SERIAL_CONNECT 21
+#define V3_VM_STREAM_CONNECT 21
 #define V3_VM_STOP 22
+
+#define V3_VM_FB_INPUT (256+1)
+#define V3_VM_FB_QUERY (256+2)
+
+#define V3_VM_HOST_DEV_CONNECT (10244+1)
+
 
 struct v3_guest_img {
     unsigned long long size;
@@ -51,7 +68,18 @@ struct v3_guest {
     struct list_head streams;
     struct list_head sockets;
 
+#ifdef V3_CONFIG_CONSOLE
     struct palacios_console console;
+#endif
+
+#ifdef V3_CONFIG_GRAPHICS_CONSOLE
+    struct palacios_graphics_console graphics_console;
+#endif
+
+#ifdef V3_CONFIG_HOST_DEVICE
+    struct palacios_host_dev hostdev;
+#endif
+
 
     struct completion start_done;
     struct completion thread_done;

@@ -163,13 +163,6 @@ config EXPERIMENTAL
 	  The purpose of this option is to allow features under development to be committed to the mainline
 	  to more easily track changes and provide access to multiple developers
 
-config VNET
-        depends on EXPERIMENTAL
-        bool "Enable Vnet in Palacios"
-        default n
-        help
-          Enable the Vnet in Palacios
-
 
 config INSPECTOR
 	bool "Enable VM inspection"
@@ -178,50 +171,6 @@ config INSPECTOR
 	help 
 	  Enable inspection framework for vm internal state
 
-config SW_INTERRUPTS
-    bool "Enable interception and hooking of software interrupts"
-    depends on EXPERIMENTAL
-    default n
-    help
-      This feature will cause the VMM to intercept the execution
-      of software interrupts (i.e. the INTn instruction) and enable
-      any INT vector to be hooked
-
-config SWINTR_PASSTHROUGH
-    bool "Hook all unhandled sofware interrupts for passthrough"
-    depends on SW_INTERRUPTS
-    default n
-    help
-      If enabled, this will cause all software interrupts 
-      (INT instruction vectors) to be hooked for passthrough.
-      May reduce performance but useful for debugging.
-
-config SYSCALL_HIJACK
-    bool "Enable System Call Hijacking"
-    depends on SW_INTERRUPTS
-    default n
-    help
-      Enable the VMM to hijack system calls executed by the guest.
-      If enabled, the VMM will hook execution of INT 80
-      (support for Fast-System Calls coming soon)
-
-config SYSCALL_PASSTHROUGH
-    bool "Hook all unhandled system calls for passthrough"
-    depends on SYSCALL_HIJACK
-    default n
-    help
-      If enabled, this option will cause all system calls
-      that are not explicitly hooked to be hooked for 
-      passthrough. This is useful for debugging.
-
-config HIJACK_SYSCALL_MSR
-    bool "Intercept Syscall-related MSR reads & writes"
-    depends on SYSCALL_HIJACK 
-    default n
-    help
-      Allow the VMM to intercept reads and writes to MSRs
-      related to SYSCALL and SYSENTER instructions. Specifically,
-      it will intercept R/W to STAR, CSTAR, and LSTAR.
 
 endmenu
 
@@ -336,7 +285,23 @@ menuconfig SYMMOD
 
 endmenu
 
+menu "VNET"
 
+config VNET
+        bool "Enable Vnet in Palacios"
+        default n
+        help
+          Enable the Vnet in Palacios
+
+config DEBUG_VNET
+        depends on VNET
+        bool "Enable Vnet Debug in Palacios"
+        default n
+        help
+          Enable the Vnet debug in Palacios
+
+
+endmenu
 
 menu "Debug configuration"
 
@@ -446,12 +411,6 @@ config DEBUG_DEV_MGR
 	help 
 	  This turns on debugging for the device manager
 
-config DEBUG_VNET
-        depends on EXPERIMENTAL && VNET
-        bool "Enable Vnet Debug in Palacios"
-        default n
-        help
-          Enable the Vnet debug in Palacios
 
 config DEBUG_SYSCALL_HIJACK
         bool "Enable Syscall Hijack Debug in Palacios"

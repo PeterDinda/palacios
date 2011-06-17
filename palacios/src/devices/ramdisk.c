@@ -21,7 +21,7 @@
 #include <palacios/vmm_dev_mgr.h>
 
 
-#ifndef CONFIG_DEBUG_RAMDISK
+#ifndef V3_CONFIG_DEBUG_RAMDISK
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif

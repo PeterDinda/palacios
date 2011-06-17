@@ -35,12 +35,12 @@
 #include <palacios/vmm_direct_paging.h>
 #include <palacios/vmm_syscall_hijack.h>
 
-#ifndef CONFIG_DEBUG_SVM
+#ifndef V3_CONFIG_DEBUG_SVM
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
 
-#ifdef CONFIG_TELEMETRY
+#ifdef V3_CONFIG_TELEMETRY
 #include <palacios/vmm_telemetry.h>
 #endif
 
@@ -48,7 +48,7 @@
 
 int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_info1, addr_t exit_info2) {
 
-#ifdef CONFIG_TELEMETRY
+#ifdef V3_CONFIG_TELEMETRY
     if (info->vm_info->enable_telemetry) {
 	v3_telemetry_start_exit(info);
     }
@@ -115,7 +115,7 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 
 	    break;
 	case VMEXIT_CR0_WRITE: 
-#ifdef CONFIG_DEBUG_CTRL_REGS
+#ifdef V3_CONFIG_DEBUG_CTRL_REGS
 	    PrintDebug("CR0 Write\n");
 #endif
 	    if (v3_handle_cr0_write(info) == -1) {
@@ -123,7 +123,7 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 	    }
 	    break;
 	case VMEXIT_CR0_READ: 
-#ifdef CONFIG_DEBUG_CTRL_REGS
+#ifdef V3_CONFIG_DEBUG_CTRL_REGS
 	    PrintDebug("CR0 Read\n");
 #endif
 	    if (v3_handle_cr0_read(info) == -1) {
@@ -131,7 +131,7 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 	    }
 	    break;
 	case VMEXIT_CR3_WRITE: 
-#ifdef CONFIG_DEBUG_CTRL_REGS
+#ifdef V3_CONFIG_DEBUG_CTRL_REGS
 	    PrintDebug("CR3 Write\n");
 #endif
 	    if (v3_handle_cr3_write(info) == -1) {
@@ -140,7 +140,7 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 
 	    break;
 	case  VMEXIT_CR3_READ: 
-#ifdef CONFIG_DEBUG_CTRL_REGS
+#ifdef V3_CONFIG_DEBUG_CTRL_REGS
 	    PrintDebug("CR3 Read\n");
 #endif
 	    if (v3_handle_cr3_read(info) == -1) {
@@ -148,7 +148,7 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 	    }
 	    break;
 	case VMEXIT_CR4_WRITE: 
-#ifdef CONFIG_DEBUG_CTRL_REGS
+#ifdef V3_CONFIG_DEBUG_CTRL_REGS
 	    PrintDebug("CR4 Write\n");
 #endif
 	    if (v3_handle_cr4_write(info) == -1) {
@@ -156,7 +156,7 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 	    }    
 	    break;
 	case  VMEXIT_CR4_READ: 
-#ifdef CONFIG_DEBUG_CTRL_REGS
+#ifdef V3_CONFIG_DEBUG_CTRL_REGS
 	    PrintDebug("CR4 Read\n");
 #endif
 	    if (v3_handle_cr4_read(info) == -1) {
@@ -166,7 +166,7 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 	case VMEXIT_EXCP14: {
 	    addr_t fault_addr = exit_info2;
 	    pf_error_t * error_code = (pf_error_t *)&(exit_info1);
-#ifdef CONFIG_DEBUG_SHADOW_PAGING
+#ifdef V3_CONFIG_DEBUG_SHADOW_PAGING
 	    PrintDebug("PageFault at %p (error=%d)\n", 
 		       (void *)fault_addr, *(uint_t *)error_code);
 #endif
@@ -205,7 +205,7 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
         break;
 	case VMEXIT_INVLPG: 
 	    if (info->shdw_pg_mode == SHADOW_PAGING) {
-#ifdef CONFIG_DEBUG_SHADOW_PAGING
+#ifdef V3_CONFIG_DEBUG_SHADOW_PAGING
 		PrintDebug("Invlpg\n");
 #endif
 		if (v3_handle_shadow_invlpg(info) == -1) {
@@ -227,7 +227,10 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 		return -1;
 	    }
 
-	    break;	    
+	    break;	
+	case VMEXIT_NMI:
+	    // handled by interrupt dispatcher
+	    break;
 	case VMEXIT_INTR:
 	    // handled by interrupt dispatch earlier
 	    break;
@@ -235,7 +238,7 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 	    //   handle_svm_smi(info); // ignored for now
 	    break;
 	case VMEXIT_HLT:
-#ifdef CONFIG_DEBUG_HALT
+#ifdef V3_CONFIG_DEBUG_HALT
 	    PrintDebug("Guest halted\n");
 #endif
 	    if (v3_handle_halt(info) == -1) {
@@ -249,7 +252,7 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 	    }
 	    break;
 	case VMEXIT_WBINVD:   
-#ifdef CONFIG_DEBUG_EMULATOR
+#ifdef V3_CONFIG_DEBUG_EMULATOR
 	    PrintDebug("WBINVD\n");
 #endif
 	    if (v3_handle_svm_wbinvd(info) == -1) { 
@@ -257,7 +260,7 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 	    }
 	    break;
         case VMEXIT_RDTSC:
-#ifdef CONFIG_DEBUG_TIME
+#ifdef V3_CONFIG_DEBUG_TIME
 	    PrintDebug("RDTSC/RDTSCP\n");
 #endif 
 	    if (v3_handle_rdtsc(info) == -1) {
@@ -266,7 +269,7 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 	    }
 	    break;
         case VMEXIT_RDTSCP:
-#ifdef CONFIG_DEBUG_TIME
+#ifdef V3_CONFIG_DEBUG_TIME
 	    PrintDebug("RDTSCP\n");
 #endif 
 	    if (v3_handle_rdtscp(info) == -1) {
@@ -319,7 +322,7 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
     }
     // END OF SWITCH (EXIT_CODE)
 
-#ifdef CONFIG_TELEMETRY
+#ifdef V3_CONFIG_TELEMETRY
     if (info->vm_info->enable_telemetry) {
 	v3_telemetry_end_exit(info, exit_code);
     }

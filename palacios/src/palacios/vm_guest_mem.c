@@ -64,7 +64,7 @@ int v3_hpa_to_hva(addr_t hpa, addr_t * hva) {
 }
 
 int v3_gpa_to_hpa(struct guest_info * info, addr_t gpa, addr_t * hpa) {
-    struct v3_mem_region * reg = v3_get_mem_region(info->vm_info, info->cpu_id, gpa);
+    struct v3_mem_region * reg = v3_get_mem_region(info->vm_info, info->vcpu_id, gpa);
 
     if (reg == NULL) {
 	PrintError("In GPA->HPA: Could not find address in shadow map (addr=%p) (NULL REGION)\n", 

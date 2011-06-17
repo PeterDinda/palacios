@@ -22,7 +22,7 @@
 
 #ifdef __V3VEE__
 
-#ifdef CONFIG_TELEMETRY
+#ifdef V3_CONFIG_TELEMETRY
 
 #include <palacios/vmm_rbtree.h>
 #include <palacios/vmm_list.h>

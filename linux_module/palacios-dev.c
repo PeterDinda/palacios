@@ -28,9 +28,14 @@
 #include "palacios-vnet.h"
 #include "palacios-packet.h"
 
-#ifdef CONFIG_DEBUG_FS
-#include "palacios-debugfs.h"
+#ifdef V3_CONFIG_EXT_INSPECTOR
+#include "palacios-inspector.h"
 #endif
+
+#ifdef V3_CONFIG_KEYED_STREAMS
+#include "palacios-keyed-stream.h"
+#endif
+
 
 MODULE_LICENSE("GPL");
 
@@ -56,7 +61,7 @@ static int register_vm( void ) {
     for (i = 0; i < sizeof(v3_minor_map); i++) {
 	if (v3_minor_map[i] != 0xff) {
 	    for (j = 0; j < 8; j++) {
-		if (!v3_minor_map[i] & (0x1 << j)) {
+		if (!(v3_minor_map[i] & (0x1 << j))) {
 		    avail = 1;
 		    v3_minor_map[i] |= (0x1 << j);
 		    break;
@@ -116,7 +121,7 @@ static long v3_dev_ioctl(struct file * filp,
 	    guest->img_size = user_image.size;
 
 	    printk("Allocating kernel memory for guest image (%llu bytes)\n", user_image.size);
-	    guest->img = kmalloc(guest->img_size, GFP_KERNEL);
+	    guest->img = vmalloc(guest->img_size);
 
 	    if (IS_ERR(guest->img)) {
 		printk("Error: Could not allocate space for guest image\n");
@@ -135,10 +140,31 @@ static long v3_dev_ioctl(struct file * filp,
 	    INIT_LIST_HEAD(&(guest->streams));
 	    INIT_LIST_HEAD(&(guest->files));
 	    INIT_LIST_HEAD(&(guest->sockets));
+#ifdef V3_CONFIG_HOST_DEVICE
+	    INIT_LIST_HEAD(&(guest->hostdev.devs));
+#endif
 	    init_completion(&(guest->start_done));
 	    init_completion(&(guest->thread_done));
 
-	    kthread_run(start_palacios_vm, guest, guest->name);
+	    { 
+		struct task_struct * launch_thread = NULL;
+		// At some point we're going to want to allow the user to specify a CPU mask
+		// But for now, well just launch from the local core, and rely on the global cpu mask
+
+		preempt_disable();
+		launch_thread = kthread_create(start_palacios_vm, guest, guest->name);
+		
+		if (IS_ERR(launch_thread)) {
+		    preempt_enable();
+		    printk("Palacios error creating launch thread for vm (%s)\n", guest->name);
+		    return -EFAULT;
+		}
+
+		kthread_bind(launch_thread, smp_processor_id());
+		preempt_enable();
+
+		wake_up_process(launch_thread);
+	    }
 
 	    wait_for_completion(&(guest->start_done));
 
@@ -161,14 +187,6 @@ static long v3_dev_ioctl(struct file * filp,
 		printk("Error adding memory to Palacios\n");
 		return -EFAULT;
 	    }
-
-	    // Mem test...
-	    /*
-	      {
-	      void * vaddr = __va(alloc_palacios_pgs(131072, 4096));
-	      memset(vaddr, 0xfe492fe2, mem.num_pages * 4096);
-	      }
-	    */
 
 	    break;
 	}
@@ -241,25 +259,44 @@ static int __init v3_init(void) {
     
     palacios_vmm_init();
 
+#ifdef V3_CONFIG_STREAM
     palacios_init_stream();
-    palacios_file_init();
-    palacios_init_console();
-
-
-#ifdef CONFIG_DEBUG_FS
-    palacios_init_debugfs();
 #endif
 
-#ifdef CONFIG_PALACIOS_SOCKET
+#ifdef V3_CONFIG_FILE
+    palacios_file_init();
+#endif
+
+#ifdef V3_CONFIG_KEYED_STREAMS
+    palacios_init_keyed_streams();
+#endif
+
+#ifdef V3_CONFIG_CONSOLE
+    palacios_init_console();
+#endif
+
+#ifdef V3_CONFIG_GRAPHICS_CONSOLE
+    palacios_init_graphics_console();
+#endif
+
+#ifdef V3_CONFIG_EXT_INSPECTOR
+    palacios_init_inspector();
+#endif
+
+#ifdef V3_CONFIG_SOCKET
     palacios_socket_init();
 #endif
 
-#ifdef CONFIG_PALACIOS_PACKET
+#ifdef V3_CONFIG_PACKET
     palacios_init_packet(NULL);
 #endif
 
-#ifdef CONFIG_PALACIOS_VNET
-    palacios_init_vnet();
+#ifdef V3_CONFIG_VNET
+    palacios_vnet_init();
+#endif
+
+#ifdef V3_CONFIG_HOST_DEVICE
+    palacios_init_host_dev();
 #endif
 
     return 0;
@@ -303,12 +340,29 @@ static void __exit v3_exit(void) {
 
 
 
-#ifdef CONFIG_DEBUG_FS
-    palacios_deinit_debugfs();
+#ifdef V3_CONFIG_EXT_INSPECTOR
+    palacios_deinit_inspector();
 #endif
 
+#ifdef V3_CONFIG_FILE
     palacios_file_deinit();
+#endif
+
+#ifdef V3_CONFIG_STREAM
     palacios_deinit_stream();
+#endif
+
+#ifdef V3_CONFIG_SOCKET
+    palacios_socket_deinit();
+#endif
+
+#ifdef V3_CONFIG_PACKET
+    palacios_deinit_packet(NULL);
+#endif
+
+#ifdef V3_CONFIG_VNET
+    palacios_vnet_deinit();
+#endif
 
     palacios_deinit_mm();
 

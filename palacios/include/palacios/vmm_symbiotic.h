@@ -27,11 +27,11 @@
 
 #include <palacios/vmm_symspy.h>
 
-#ifdef CONFIG_SYMCALL
+#ifdef V3_CONFIG_SYMCALL
 #include <palacios/vmm_symcall.h>
 #endif
 
-#ifdef CONFIG_SYMMOD
+#ifdef V3_CONFIG_SYMMOD
 #include <palacios/vmm_symmod.h>
 #endif
 
@@ -40,7 +40,7 @@
 struct v3_sym_vm_state {
     struct v3_symspy_global_state symspy_state;
 
-#ifdef CONFIG_SYMMOD
+#ifdef V3_CONFIG_SYMMOD
     struct v3_symmod_state symmod_state;
 #endif
 };
@@ -49,7 +49,7 @@ struct v3_sym_vm_state {
 struct v3_sym_core_state {
     struct v3_symspy_local_state symspy_state;
     
-#ifdef CONFIG_SYMCALL
+#ifdef V3_CONFIG_SYMCALL
     struct v3_symcall_state symcall_state;
 #endif
 

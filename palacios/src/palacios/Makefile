@@ -32,7 +32,6 @@ obj-y := \
 	vmm_cpuid.o \
 	vmm_xml.o \
 	vmm_mem_hook.o \
-	vmm_mptable.o \
 	vmm_extensions.o \
 	vmm_mtrr.o \
 	vmm_multitree.o \
@@ -40,45 +39,36 @@ obj-y := \
 
 
 
-obj-$(CONFIG_XED) +=	vmm_xed.o
-obj-$(CONFIG_V3_DECODER) += vmm_v3dec.o
+obj-$(V3_CONFIG_XED) +=	vmm_xed.o
+obj-$(V3_CONFIG_V3_DECODER) += vmm_v3dec.o
 
-obj-$(CONFIG_SVM) +=    svm.o \
-			svm_io.o \
-			svm_lowlevel.o \
-			svm_msr.o \
-			svm_pause.o \
-			svm_wbinvd.o \
-			svm_handler.o \
-			vmcb.o
+obj-$(V3_CONFIG_SVM) +=    svm.o \
+			   svm_io.o \
+			   svm_lowlevel.o \
+			   svm_msr.o \
+			   svm_pause.o \
+			   svm_wbinvd.o \
+			   svm_handler.o \
+			   vmcb.o
 
-obj-$(CONFIG_VMX) +=  	vmx.o \
-			vmx_handler.o \
-			vmx_io.o \
-			vmx_lowlevel.o \
-			vmx_msr.o \
-			vmx_hw_info.o \
-			vmcs.o \
-			vmx_ctrl_regs.o \
-			vmx_assist.o
-
-
-
-
-obj-$(CONFIG_INSTRUMENT_VMM) += vmm_instrument.o
-obj-$(CONFIG_TELEMETRY) += vmm_telemetry.o 
-
-obj-$(CONFIG_VNET) += vmm_vnet_core.o
+obj-$(V3_CONFIG_VMX) +=  	vmx.o \
+				vmx_handler.o \
+				vmx_io.o \
+				vmx_lowlevel.o \
+				vmx_msr.o \
+				vmx_hw_info.o \
+				vmcs.o \
+				vmx_ctrl_regs.o \
+				vmx_assist.o \
+				vmx_ept.o 
 
 
-obj-$(CONFIG_SYMBIOTIC) += vmm_symbiotic.o vmm_symspy.o
-obj-$(CONFIG_SYMCALL) += vmm_symcall.o
-obj-$(CONFIG_SYMMOD) += vmm_symmod.o
 
-obj-$(CONFIG_SYSCALL_HIJACK) += vmm_syscall_hijack.o 
-obj-$(CONFIG_SYSCALL_HIJACK) += vmm_linux_syscall_map.o
-obj-$(CONFIG_SYSCALL_HIJACK) += vmm_mpi_accel.o
-obj-$(CONFIG_SYSCALL_HIJACK) += vmm_process_environment.o
-obj-$(CONFIG_SYSCALL_HIJACK) += vmm_execve_hook.o
+
+obj-$(V3_CONFIG_TELEMETRY) += vmm_telemetry.o 
+
+obj-$(V3_CONFIG_SYMBIOTIC) += vmm_symbiotic.o vmm_symspy.o
+obj-$(V3_CONFIG_SYMCALL) += vmm_symcall.o
+obj-$(V3_CONFIG_SYMMOD) += vmm_symmod.o
 
 obj-y += mmu/

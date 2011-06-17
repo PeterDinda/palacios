@@ -42,7 +42,7 @@ static inline int handle_passthrough_pagefault_64(struct guest_info * core, addr
     int pde_index  = PDE64_INDEX(fault_addr);
     int pte_index  = PTE64_INDEX(fault_addr);
 
-    struct v3_mem_region * region =  v3_get_mem_region(core->vm_info, core->cpu_id, fault_addr);
+    struct v3_mem_region * region =  v3_get_mem_region(core->vm_info, core->vcpu_id, fault_addr);
     int page_size = PAGE_SIZE_4KB;
 
     if (region == NULL) {
@@ -218,6 +218,8 @@ static inline int invalidate_addr_64(struct guest_info * core, addr_t inv_addr) 
 	return 0;
     } else if (pdpe[pdpe_index].large_page == 1) { // 1GiB
 	pdpe[pdpe_index].present = 0;
+	pdpe[pdpe_index].writable = 0;
+	pdpe[pdpe_index].user_page = 0;
 	return 0;
     }
 
@@ -227,12 +229,16 @@ static inline int invalidate_addr_64(struct guest_info * core, addr_t inv_addr) 
 	return 0;
     } else if (pde[pde_index].large_page == 1) { // 2MiB
 	pde[pde_index].present = 0;
+	pde[pde_index].writable = 0;
+	pde[pde_index].user_page = 0;
 	return 0;
     }
 
     pte = V3_VAddr((void*)BASE_TO_PAGE_ADDR(pde[pde_index].pt_base_addr));
 
     pte[pte_index].present = 0; // 4KiB
+    pte[pte_index].writable = 0;
+    pte[pte_index].user_page = 0;
 
     return 0;
 }

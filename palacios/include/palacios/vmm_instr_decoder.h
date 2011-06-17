@@ -19,7 +19,6 @@
 
 #include <palacios/vmm_types.h>
 
-
 /* .... Giant fucking switch tables */
 
 
@@ -263,6 +262,8 @@ static int get_operand_width(struct guest_info * info, struct x86_instr * instr,
 		case LONG:
 		    if (instr->prefixes.rex_op_size) {
 			return 8;
+		    } else {
+			return 4;
 		    }
 		case PROTECTED:
 		case PROTECTED_PAE:
@@ -336,6 +337,7 @@ static int get_operand_width(struct guest_info * info, struct x86_instr * instr,
 	    return -1;
 	
     }
+
     return 0;
 }
 
@@ -452,7 +454,7 @@ static inline int decode_cr(struct guest_info * core,
 
     struct v3_ctrl_regs * crs = &(core->ctrl_regs);
 
-    PrintDebug("\t Ctrl regs %d\n", reg_code);
+//    PrintDebug("\t Ctrl regs %d\n", reg_code);
 
     switch (reg_code) {
 	case 0:

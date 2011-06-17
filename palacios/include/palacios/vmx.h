@@ -7,12 +7,10 @@
  * and the University of New Mexico.  You can find out more at 
  * http://www.v3vee.org
  *
- * Copyright (c) 2008, Peter Dinda <pdinda@northwestern.edu> 
- * Copyright (c) 2008, Jack Lange <jarusl@cs.northwestern.edu> 
- * Copyright (c) 2008, The V3VEE Project <http://www.v3vee.org> 
+ * Copyright (c) 2011, Jack Lange <jarusl@cs.northwestern.edu> 
+ * Copyright (c) 2011, The V3VEE Project <http://www.v3vee.org> 
  * All rights reserved.
  *
- * Author: Peter Dinda <pdinda@northwestern.edu>
  * Author: Jack Lange <jarusl@cs.northwestern.edu>
  *
  * This is free software.  You are permitted to use,
@@ -35,9 +33,6 @@
 #define VMX_FAIL_INVALID   1
 #define VMX_FAIL_VALID     2
 #define VMM_ERROR          3
-
-
-
 
 
 struct vmx_pin_ctrls {
@@ -101,7 +96,8 @@ struct vmx_sec_proc_ctrls {
 	    uint_t enable_rdtscp   : 1;
 	    uint_t virt_x2apic     : 1;
 	    uint_t enable_vpid     : 1;
-	    uint_t unrstrct_guest  : 1;
+	    uint_t wbinvd_exit     : 1;
+	    uint_t unrstrct_guest  : 1; /* un restricted guest (CAN RUN IN REAL MODE) */
 	    uint_t rsvd1           : 2;
 	    uint_t pause_loop_exit : 1;
 	    uint_t rsvd2           : 21;
@@ -183,7 +179,7 @@ struct tss_descriptor {
     uint_t      zero4       : 5;
     uint_t      rsvd2       : 19;
 #endif
-}__attribute__((packed));
+} __attribute__((packed));
 
 struct vmcs_host_state {
     struct v3_segment  gdtr;
@@ -193,16 +189,14 @@ struct vmcs_host_state {
 
 
 
-
-
 struct vmx_data {
     vmx_state_t state;
     vmxassist_state_t assist_state;
     struct vmcs_host_state host_state;
 
-    addr_t vmcs_ptr_phys;
 
-    uint8_t ia32e_avail;
+
+    addr_t vmcs_ptr_phys;
 
     v3_reg_t guest_cr4; /// corresponds to the CR4 Read shadow
 
@@ -213,6 +207,10 @@ struct vmx_data {
     struct vmx_sec_proc_ctrls sec_proc_ctrls;
     struct vmx_exit_ctrls exit_ctrls;
     struct vmx_entry_ctrls entry_ctrls;
+
+    struct vmx_exception_bitmap excp_bmap;
+
+    void * msr_area;
 };
 
 int v3_is_vmx_capable();
@@ -221,6 +219,7 @@ void v3_init_vmx_cpu(int cpu_id);
 void v3_deinit_vmx_cpu(int cpu_id);
 
 int v3_start_vmx_guest(struct guest_info* info);
+int v3_reset_vmx_vm_core(struct guest_info * core, addr_t rip);
 int v3_vmx_enter(struct guest_info * info);
 
 int v3_init_vmx_vmcs(struct guest_info * info, v3_vm_class_t vm_class);

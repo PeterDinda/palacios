@@ -193,7 +193,7 @@ static const ullong_t mask_8 = 0xffffffffffffffffLL;
 void v3_print_instr(struct x86_instr * instr) {
     V3_Print("Instr: %s (Len: %d)\n", op_type_to_str(instr->op_type), instr->instr_length);
 
-    V3_Print("Prefixes= %x\n", *(uint32_t *)&(instr->prefixes));
+    V3_Print("Prefixes= %x\n", instr->prefixes.val);
 
     if (instr->is_str_op) {
 	V3_Print("String OP (len=%d)\n", (uint32_t)instr->str_op_length);
