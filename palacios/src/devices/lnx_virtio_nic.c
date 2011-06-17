@@ -595,7 +595,7 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
 	uint16_t buf_idx;
 	struct vring_desc * buf_desc;
 	uint32_t hdr_len, len;
-       uint32_t offset = 0;
+	uint32_t offset = 0;
 
 	hdr_len = (virtio->mergeable_rx_bufs)?
 	    sizeof(struct virtio_net_hdr_mrg_rxbuf):
@@ -934,8 +934,6 @@ static int connect_fn(struct v3_vm_info * info,
 	
     net_state->timer = v3_add_timer(&(info->cores[0]),
 				    &timer_ops,net_state);
-
-    PrintError("net_state 0x%p\n", (void *)net_state);
 
     ops->recv = virtio_rx;
     ops->frontend_data = net_state;
