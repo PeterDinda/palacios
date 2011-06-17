@@ -685,11 +685,13 @@ int v3_init_core(struct guest_info * core) {
     v3_init_symbiotic_core(core);
 #endif
 
+    /*  This is test code for exec hook insertion 
 // KCH
 #ifdef V3_CONFIG_SYSCALL_HIJACK
     v3_init_exec_hooks(core);
     v3_init_mpi_accel(core);
-#endif  
+#endif
+    */  
 
     // init SVM/VMX
 
