@@ -31,6 +31,11 @@
 #include <palacios/vmm_xed.h>
 #include <palacios/vmm_direct_paging.h>
 
+#ifdef V3_CONFIG_SYSCALL_HIJACK
+#include <palacios/vmm_syscall_hijack.h>
+#include <palacios/vmm_mpi_accel.h>
+#endif
+
 
 
 v3_cpu_mode_t v3_get_vm_cpu_mode(struct guest_info * info) {
@@ -679,6 +684,14 @@ int v3_init_core(struct guest_info * core) {
 #ifdef V3_CONFIG_SYMBIOTIC
     v3_init_symbiotic_core(core);
 #endif
+
+    /*  This is test code for exec hook insertion 
+// KCH
+#ifdef V3_CONFIG_SYSCALL_HIJACK
+    v3_init_exec_hooks(core);
+    v3_init_mpi_accel(core);
+#endif
+    */  
 
     // init SVM/VMX
 

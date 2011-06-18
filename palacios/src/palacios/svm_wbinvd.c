@@ -35,7 +35,7 @@ int v3_handle_svm_wbinvd(struct guest_info * info) {
 	v3_raise_exception(info, GPF_EXCEPTION);
     } else {
 	info->rip += 2;
-	asm("wbinvd");
+	asm volatile ("wbinvd" ::: "memory");
     }
 
     return 0;

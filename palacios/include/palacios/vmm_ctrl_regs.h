@@ -27,6 +27,20 @@
 
 #define EFER_MSR                 0xc0000080
 
+// KCH: for system-call interposition
+#define STAR_MSR                 0xc0000081 /* Legacy mode SYSCALL target */
+#define LSTAR_MSR                0xc0000082 /* Long mode SYSCALL target */
+#define CSTAR_MSR                0xc0000083 /* compat mode SYSCALL target */
+#define SF_MASK_MSR              0xc0000084 /* EFLAGS mask for syscall */
+#define FS_BASE_MSR              0xc0000100 /* 64-bit FS base */
+#define GS_BASE_MSR              0xc0000101 /* 64-bit GS base */
+#define KERN_GS_BASE_MSR         0xc0000102 /* swapGS GS shadow */
+
+/* Intel specific */
+#define IA32_SYSENTER_CS_MSR     0x00000174
+#define IA32_SYSENTER_ESP_MSR    0x00000175
+#define IA32_SYSENTER_EIP_MSR    0x00000176
+
 struct cr0_real {
     uint_t pe    : 1;
     uint_t mp    : 1;
@@ -214,6 +228,16 @@ int v3_handle_cr4_read(struct guest_info * info);
 
 int v3_handle_efer_write(struct guest_info * core, uint_t msr, struct v3_msr src, void * priv_data);
 int v3_handle_efer_read(struct guest_info * core, uint_t msr, struct v3_msr * dst, void * priv_data);
+
+int v3_handle_star_write(struct guest_info * core, uint_t msr, struct v3_msr src, void * priv_data);
+int v3_handle_star_read(struct guest_info * core, uint_t msr, struct v3_msr * dst, void * priv_data);
+int v3_handle_lstar_write(struct guest_info * core, uint_t msr, struct v3_msr src, void * priv_data);
+int v3_handle_lstar_read(struct guest_info * core, uint_t msr, struct v3_msr * dst, void * priv_data);
+int v3_handle_cstar_write(struct guest_info * core, uint_t msr, struct v3_msr src, void * priv_data);
+int v3_handle_cstar_read(struct guest_info * core, uint_t msr, struct v3_msr * dst, void * priv_data);
+
+int v3_handle_seeip_write(struct guest_info * core, uint_t msr, struct v3_msr src, void * priv_data);
+int v3_handle_seeip_read(struct guest_info * core, uint_t msr, struct v3_msr * dst, void * priv_data);
 
 int v3_handle_vm_cr_write(struct guest_info * core, uint_t msr, struct v3_msr src, void * priv_data);
 int v3_handle_vm_cr_read(struct guest_info * core, uint_t msr, struct v3_msr * dst, void * priv_data);

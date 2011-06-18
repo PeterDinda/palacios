@@ -71,5 +71,4 @@ obj-$(V3_CONFIG_SYMBIOTIC) += vmm_symbiotic.o vmm_symspy.o
 obj-$(V3_CONFIG_SYMCALL) += vmm_symcall.o
 obj-$(V3_CONFIG_SYMMOD) += vmm_symmod.o
 
-
 obj-y += mmu/

@@ -582,6 +582,78 @@ int v3_handle_efer_write(struct guest_info * core, uint_t msr, struct v3_msr src
     return 0;
 }
 
+
+/* KCH: all of the star handlers are for syscall interposition */
+int v3_handle_star_read(struct guest_info * core, uint_t msr, struct v3_msr * dst, void * priv_data) {
+
+#ifdef CONFIG_DEBUG_SYSCALL_HIJACK
+    PrintDebug("STAR Read\n");
+#endif
+
+    return 0;
+}
+
+
+int v3_handle_star_write(struct guest_info * core, uint_t msr, struct v3_msr src, void * priv_data) {
+    
+#ifdef V3_CONFIG_DEBUG_SYSCALL_HIJACK
+    PrintDebug("STAR Write\n");
+#endif
+    return 0;
+}
+
+
+int v3_handle_lstar_read(struct guest_info * core, uint_t msr, struct v3_msr * dst, void * priv_data) {
+
+#ifdef V3_CONFIG_DEBUG_SYSCALL_HIJACK
+    PrintDebug("LSTAR Read\n");
+#endif
+    return 0;
+}
+
+
+int v3_handle_lstar_write(struct guest_info * core, uint_t msr, struct v3_msr src, void * priv_data) {
+    
+#ifdef V3_CONFIG_DEBUG_SYSCALL_HIJACK
+    ulong_t entry = ((ulong_t)src.hi << 32) | (ulong_t)src.lo;
+    PrintDebug("LSTAR Write\n");
+    PrintDebug("\tKernel syscall entry point: 0x%lx\n", entry);
+#endif
+    
+    return 0;
+}
+
+
+int v3_handle_cstar_read(struct guest_info * core, uint_t msr, struct v3_msr * dst, void * priv_data) {
+
+#ifdef V3_CONFIG_DEBUG_SYSCALL_HIJACK
+    PrintDebug("CSTAR Read\n");
+#endif
+    return 0;
+}
+
+
+int v3_handle_cstar_write(struct guest_info * core, uint_t msr, struct v3_msr src, void * priv_data) {
+    
+#ifdef V3_CONFIG_DEBUG_SYSCALL_HIJACK
+    PrintDebug("CSTAR Write\n");
+#endif
+    return 0;
+}
+
+int v3_handle_seeip_read(struct guest_info * core, uint_t msr, struct v3_msr * dst, void * priv_data) {
+    /* we don't care about reads */
+    return 0;
+}
+
+int v3_handle_seeip_write(struct guest_info * core, uint_t msr, struct v3_msr src, void * priv_data) {
+#ifdef V3_CONFIG_DEBUG_SYSALL_HIJACK
+    PrintDebug("SYSENTER_EIP Write\n");
+#endif
+    return 0;
+}
+
+
 int v3_handle_vm_cr_read(struct guest_info * core, uint_t msr, struct v3_msr * dst, void * priv_data) {
     /* tell the guest that the BIOS disabled SVM, that way it doesn't get 
      * confused by the fact that CPUID reports SVM as available but it still

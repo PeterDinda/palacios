@@ -25,12 +25,13 @@
 #include <palacios/vmm_ctrl_regs.h>
 
 #include <palacios/vmm_lock.h>
+#include <palacios/vm_guest_mem.h>
+#include <palacios/vmm_decoder.h>
 
 #ifndef V3_CONFIG_DEBUG_INTERRUPTS
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
-
 
 
 
@@ -49,6 +50,8 @@ struct intr_router {
     struct list_head router_node;
 
 };
+
+
 
 void v3_init_intr_controllers(struct guest_info * info) {
     struct v3_intr_core_state * intr_state = &(info->intr_core_state);
@@ -95,6 +98,7 @@ void v3_deinit_intr_routers(struct v3_vm_info * vm) {
     }  
 }
 
+
 void * v3_register_intr_controller(struct guest_info * info, struct intr_ctrl_ops * ops, void * priv_data) {
     struct intr_controller * ctrlr = (struct intr_controller *)V3_Malloc(sizeof(struct intr_controller));
 
@@ -105,6 +109,7 @@ void * v3_register_intr_controller(struct guest_info * info, struct intr_ctrl_op
     
     return (void *)ctrlr;
 }
+
 
 void v3_remove_intr_controller(struct guest_info * core, void * handle) {
     struct v3_intr_core_state * intr_state = &(core->intr_core_state);
@@ -128,6 +133,7 @@ void v3_remove_intr_controller(struct guest_info * core, void * handle) {
     V3_Free(ctrlr);
 }
 
+
 void * v3_register_intr_router(struct v3_vm_info * vm, struct intr_router_ops * ops, void * priv_data) {
     struct intr_router * router = (struct intr_router *)V3_Malloc(sizeof(struct intr_router));
 
@@ -138,6 +144,7 @@ void * v3_register_intr_router(struct v3_vm_info * vm, struct intr_router_ops * 
     
     return (void *)router;
 }
+
 
 void v3_remove_intr_router(struct v3_vm_info * vm, void * handle) {
     struct intr_router * router = handle;
@@ -161,9 +168,7 @@ void v3_remove_intr_router(struct v3_vm_info * vm, void * handle) {
 }
 
 
-
-static inline struct v3_irq_hook * get_irq_hook(struct v3_vm_info * vm, uint_t irq) {
-    V3_ASSERT(irq <= 256);
+static inline struct v3_irq_hook * get_irq_hook(struct v3_vm_info * vm, uint8_t irq) {
     return vm->intr_routers.hooks[irq];
 }
 
@@ -199,13 +204,13 @@ int v3_hook_irq(struct v3_vm_info * vm,
 }
 
 
-
 static int passthrough_irq_handler(struct v3_vm_info * vm, struct v3_interrupt * intr, void * priv_data) {
     PrintDebug("[passthrough_irq_handler] raise_irq=%d (guest=0x%p)\n", 
 	       intr->irq, (void *)vm);
 
     return v3_raise_irq(vm, intr->irq);
 }
+
 
 int v3_hook_passthrough_irq(struct v3_vm_info * vm, uint_t irq) {
     int rc = v3_hook_irq(vm, irq, passthrough_irq_handler, NULL);
@@ -218,9 +223,6 @@ int v3_hook_passthrough_irq(struct v3_vm_info * vm, uint_t irq) {
 	return 0;
     }
 }
-
-
-
 
 
 int v3_deliver_irq(struct v3_vm_info * vm, struct v3_interrupt * intr) {
@@ -237,9 +239,6 @@ int v3_deliver_irq(struct v3_vm_info * vm, struct v3_interrupt * intr) {
 }
 
 
-
-
-
 int v3_raise_virq(struct guest_info * info, int irq) {
     struct v3_intr_core_state * intr_state = &(info->intr_core_state);
     int major = irq / 8;
@@ -249,6 +248,7 @@ int v3_raise_virq(struct guest_info * info, int irq) {
    
     return 0;
 }
+
 
 int v3_lower_virq(struct guest_info * info, int irq) {
     struct v3_intr_core_state * intr_state = &(info->intr_core_state);
@@ -277,6 +277,7 @@ int v3_lower_irq(struct v3_vm_info * vm, int irq) {
     return 0;
 }
 
+
 int v3_raise_irq(struct v3_vm_info * vm, int irq) {
     struct intr_router * router = NULL;
     struct v3_intr_routers * routers = &(vm->intr_routers);
@@ -294,11 +295,131 @@ int v3_raise_irq(struct v3_vm_info * vm, int irq) {
 }
 
 
+int v3_signal_swintr(struct guest_info * core, int vector) {
+    struct v3_intr_core_state * intr_state = &(core->intr_core_state);
+
+    PrintDebug("Signaling software interrupt in vmm_intr.c\n");
+    PrintDebug("\tINT vector: %d\n", vector);
+    
+    intr_state->swintr_posted = 1;
+    intr_state->swintr_vector = vector;
+    return 0;
+}
+
+
+int v3_handle_swintr(struct guest_info * core) {
+
+    int ret = 0;
+    void * instr_ptr = NULL;
+    struct x86_instr instr;
+
+    if (core->mem_mode == PHYSICAL_MEM) { 
+        ret = v3_gpa_to_hva(core, get_addr_linear(core, core->rip, &(core->segments.cs)), (addr_t *)&instr_ptr);
+    } else { 
+        ret = v3_gva_to_hva(core, get_addr_linear(core, core->rip, &(core->segments.cs)), (addr_t *)&instr_ptr);
+    }
+    
+    if (ret == -1) {
+        PrintError("V3 SWintr Handler: Could not translate Instruction Address (%p)\n", (void *)core->rip);
+        return -1;
+    }
+
+    if (v3_decode(core, (addr_t)instr_ptr, &instr) == -1) {
+        PrintError("V3 SWintr Handler: Decoding Error\n");
+        return -1;
+    }
+
+    uint8_t vector = instr.dst_operand.operand;
+
+    struct v3_swintr_hook * hook = core->intr_core_state.swintr_hooks[vector];
+    if (hook == NULL) {
+#ifdef V3_CONFIG_SWINTR_PASSTHROUGH
+        if (v3_hook_passthrough_swintr(core, vector) == -1) {
+            PrintDebug("V3 SWintr Handler: Error hooking passthrough swintr\n");
+            return -1;
+        }
+        hook = core->intr_core_state.swintr_hooks[vector];
+#else
+        core->rip += instr.instr_length;
+        return v3_signal_swintr(core, vector);
+#endif
+    }
+
+    ret = hook->handler(core, vector, NULL);
+    if (ret == -1) {
+        PrintDebug("V3 SWintr Handler: Error in swintr hook\n");
+        return -1;
+    }
+
+    /* KCH: at some point we may need to prioritize swints 
+       so that they finish in time for the next
+       instruction... */
+    core->rip += instr.instr_length;
+    return v3_signal_swintr(core, vector);
+}
+
+
+static inline struct v3_swintr_hook * get_swintr_hook(struct guest_info * core, uint8_t vector) {
+    return core->intr_core_state.swintr_hooks[vector];
+}
+
+
+int v3_hook_swintr(struct guest_info * core,
+        uint8_t vector,
+        int (*handler)(struct guest_info * core, uint8_t vector, void * priv_data),
+        void * priv_data) 
+{
+
+    struct v3_swintr_hook * hook = (struct v3_swintr_hook *)V3_Malloc(sizeof(struct v3_swintr_hook));
+
+    if (hook == NULL) { 
+        return -1; 
+    }
+
+    if (get_swintr_hook(core, vector) != NULL) {
+        PrintError("SWINT %d already hooked\n", vector);
+        return -1;
+    }
+
+    hook->handler = handler;
+    hook->priv_data = priv_data;
+  
+    core->intr_core_state.swintr_hooks[vector] = hook;
+
+    return 0;
+}
+    
+
+static int passthrough_swintr_handler(struct guest_info * core, uint8_t vector, void * priv_data) {
+
+    PrintDebug("[passthrough_swint_handler] INT vector=%d (guest=0x%p)\n", 
+	       vector, (void *)core);
+
+    return 0;
+}
+
+
+int v3_hook_passthrough_swintr(struct guest_info * core, uint8_t vector) {
+
+    int rc = v3_hook_swintr(core, vector, passthrough_swintr_handler, NULL);
+
+    if (rc) { 
+        PrintError("guest_swintr_injection: failed to hook swint 0x%x (guest=0x%p)\n", vector, (void *)core);
+        return -1;
+    } else {
+        PrintDebug("guest_swintr_injection: hooked swint 0x%x (guest=0x%p)\n", vector, (void *)core);
+        return 0;
+    }
+
+    /* shouldn't get here */
+    return 0;
+}
+
+
 void v3_clear_pending_intr(struct guest_info * core) {
     struct v3_intr_core_state * intr_state = &(core->intr_core_state);
 
     intr_state->irq_pending = 0;
-
 }
 
 
@@ -328,6 +449,11 @@ v3_intr_type_t v3_intr_pending(struct guest_info * info) {
 	}
     }
 
+    // KCH: added for SWintr injection
+    if (intr_state->swintr_posted == 1) {
+        ret = V3_SOFTWARE_INTR;
+    }
+        
     v3_unlock_irqrestore(intr_state->irq_lock, irq_state);
 
     return ret;
@@ -400,9 +526,6 @@ intr_type_t v3_get_intr_type(struct guest_info * info) {
     return type;
 }
 */
-
-
-
 
 
 int v3_injecting_intr(struct guest_info * info, uint_t intr_num, v3_intr_type_t type) {

@@ -136,6 +136,11 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
     ctrl_area->instrs.PAUSE = 1;
     ctrl_area->instrs.shutdown_evts = 1;
 
+    /* KCH: intercept SW Interrupts (INT instr) */
+#ifdef V3_CONFIG_SW_INTERRUPTS
+    ctrl_area->instrs.INTn = 1;
+#endif
+
 
     /* DEBUG FOR RETURN CODE */
     ctrl_area->exit_code = 1;
@@ -223,6 +228,37 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
 		&v3_handle_efer_read,
 		&v3_handle_efer_write, 
 		core);
+
+#ifdef V3_CONFIG_HIJACK_SYSCALL_MSR
+    /* KCH: we're not hooking these to TRAP them,
+            instead, we're going to catch the target EIP.
+            Hopefully this EIP is the entry point in the ELF located in the 
+            vsyscall page. We can inject checks into the code segment such that
+            we don't have to exit on uninteresting system calls. This should
+            give us much better performance than INT 80, and should even obviate
+            the need to deal with software interrupts at all */
+    v3_hook_msr(core->vm_info, STAR_MSR,
+        &v3_handle_star_read,
+        &v3_handle_star_write,
+        core);
+    v3_hook_msr(core->vm_info, LSTAR_MSR,
+        &v3_handle_lstar_read,
+        &v3_handle_lstar_write,
+        core);
+    v3_hook_msr(core->vm_info, CSTAR_MSR,
+        &v3_handle_cstar_read,
+        &v3_handle_cstar_write,
+        core);
+    
+    /* KCH: this probably isn't necessary, as
+        SYSENTER is only used in legacy mode. In fact,
+        in long mode it results in an illegal instruction
+        exception */
+    v3_hook_msr(core->vm_info, IA32_SYSENTER_EIP_MSR,
+        &v3_handle_seeip_read,
+        &v3_handle_seeip_write,
+        core);
+#endif
 
     if (core->shdw_pg_mode == SHADOW_PAGING) {
 	PrintDebug("Creating initial shadow page table\n");
@@ -423,9 +459,23 @@ static int update_irq_entry_state(struct guest_info * info) {
 	    case V3_NMI:
 		guest_ctrl->EVENTINJ.type = SVM_INJECTION_NMI;
 		break;
-	    case V3_SOFTWARE_INTR:
-		guest_ctrl->EVENTINJ.type = SVM_INJECTION_SOFT_INTR;
-		break;
+	    case V3_SOFTWARE_INTR: {
+#ifdef CONFIG_DEBUG_INTERRUPTS
+            PrintDebug("Caught an injected software interrupt\n");
+            PrintDebug("\ttype: %d, vector: %d\n", SVM_INJECTION_SOFT_INTR, info->intr_core_state.swintr_vector);
+#endif
+            guest_ctrl->EVENTINJ.type = SVM_INJECTION_SOFT_INTR;
+            guest_ctrl->EVENTINJ.vector = info->intr_core_state.swintr_vector;
+            guest_ctrl->EVENTINJ.valid = 1;
+            
+            /* reset the software interrupt state. 
+                we can do this because we know only one
+                sw int can be posted at a time on a given 
+                core, unlike irqs */
+            info->intr_core_state.swintr_posted = 0;
+            info->intr_core_state.swintr_vector = 0;
+            break;
+        }
 	    case V3_VIRTUAL_IRQ:
 		guest_ctrl->EVENTINJ.type = SVM_INJECTION_IRQ;
 		break;
@@ -569,10 +619,14 @@ int v3_svm_enter(struct guest_info * info) {
     // Conditionally yield the CPU if the timeslice has expired
     v3_yield_cond(info);
 
-    if (v3_handle_svm_exit(info, exit_code, exit_info1, exit_info2) != 0) {
-	PrintError("Error in SVM exit handler\n");
-	PrintError("  last exit was %d\n", v3_last_exit);
-	return -1;
+    {
+	int ret = v3_handle_svm_exit(info, exit_code, exit_info1, exit_info2);
+	
+	if (ret != 0) {
+	    PrintError("Error in SVM exit handler (ret=%d)\n", ret);
+	    PrintError("  last Exit was %d (exit code=0x%llx)\n", v3_last_exit, (uint64_t) exit_code);
+	    return -1;
+	}
     }
 
 
@@ -756,11 +810,11 @@ int v3_is_svm_capable() {
 
 static int has_svm_nested_paging() {
     uint32_t eax = 0, ebx = 0, ecx = 0, edx = 0;
-
+    
     v3_cpuid(CPUID_SVM_REV_AND_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
-
+    
     //PrintDebug("CPUID_EXT_FEATURE_IDS_edx=0x%x\n", edx);
-
+    
     if ((edx & CPUID_SVM_REV_AND_FEATURE_IDS_edx_np) == 0) {
 	V3_Print("SVM Nested Paging not supported\n");
 	return 0;
@@ -768,8 +822,8 @@ static int has_svm_nested_paging() {
 	V3_Print("SVM Nested Paging supported\n");
 	return 1;
     }
-}
-
+ }
+ 
 
 
 void v3_init_svm_cpu(int cpu_id) {

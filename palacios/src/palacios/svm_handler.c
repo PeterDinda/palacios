@@ -33,6 +33,7 @@
 #include <palacios/vmm_hypercall.h>
 #include <palacios/vmm_cpuid.h>
 #include <palacios/vmm_direct_paging.h>
+#include <palacios/vmm_syscall_hijack.h>
 
 #ifndef V3_CONFIG_DEBUG_SVM
 #undef PrintDebug
@@ -193,6 +194,15 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 		    }
 	    break;
 	    }
+    case VMEXIT_SWINT:
+#ifdef CONFIG_DEBUG_INTERRUPTS
+        PrintDebug("Intercepted SW Interrupt\n");
+#endif
+        if (v3_handle_swintr(info) == -1) {
+            PrintError("Error handling software interrupt\n");
+            return -1;
+        }
+        break;
 	case VMEXIT_INVLPG: 
 	    if (info->shdw_pg_mode == SHADOW_PAGING) {
 #ifdef V3_CONFIG_DEBUG_SHADOW_PAGING

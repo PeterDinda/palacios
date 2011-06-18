@@ -148,7 +148,7 @@ static int atapi_update_data_buf(struct ide_internal * ide, struct ide_channel *
 	case 0x28: // read(10)
 	case 0xa8: // read(12)
 
-	    // Update lba address to point to next block
+	    // Update lba address to point to next block  
 	    drive->current_lba++;
 
 	    // read the next block
@@ -170,7 +170,7 @@ static int atapi_read10(struct guest_info * core,
     uint32_t lba =  be_to_le_32(cmd->lba);
     uint16_t xfer_len = be_to_le_16(cmd->xfer_len);
 
-    PrintDebug("READ10: XferLen=%d\n", xfer_len);
+    PrintDebug("READ10: XferLen=%d ; LBA=%x \n", xfer_len, lba );
 
     /* Check if cd is ready
      * if not: atapi_cmd_error(... ATAPI_SEN_NOT_RDY, ASC_MEDIA_NOT_PRESENT)
