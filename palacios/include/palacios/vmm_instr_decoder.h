@@ -28,7 +28,6 @@ typedef enum {
     SMSW,
     CLTS,
     INVLPG,
-    INT, // KCH: adding software interrupts
 
     MOV_CR2,
     MOV_2CR,
@@ -311,7 +310,6 @@ static int get_operand_width(struct guest_info * info, struct x86_instr * instr,
 		    return -1;
 	    }
 
-    case INT: // KCH
 	case MOV_DR2:
 	case MOV_2DR:
 	case MOV_CR2:
@@ -1332,10 +1330,7 @@ static op_form_t op_code_to_form(uint8_t * instr, int * length) {
 
 	case 0xf4:
 	    return HLT;
-    
-    // KCH
-    case 0xcd:
-        return INT;
+
 
 	case 0xf6: {
 	    struct modrm_byte * modrm = (struct modrm_byte *)&(instr[1]);
@@ -1498,7 +1493,6 @@ static char * op_form_to_str(op_form_t form) {
 	case SETO: return "SETO";
 	case STOS_8: return "STOS_8";
 	case STOS: return "STOS";
-    case INT: return "INT"; // KCH
 
 	case INVALID_INSTR:
 	default:

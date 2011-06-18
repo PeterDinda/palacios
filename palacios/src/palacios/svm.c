@@ -136,11 +136,6 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
     ctrl_area->instrs.PAUSE = 1;
     ctrl_area->instrs.shutdown_evts = 1;
 
-    /* KCH: intercept SW Interrupts (INT instr) */
-#ifdef V3_CONFIG_SW_INTERRUPTS
-    ctrl_area->instrs.INTn = 1;
-#endif
-
 
     /* DEBUG FOR RETURN CODE */
     ctrl_area->exit_code = 1;
@@ -228,37 +223,6 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
 		&v3_handle_efer_read,
 		&v3_handle_efer_write, 
 		core);
-
-#ifdef V3_CONFIG_HIJACK_SYSCALL_MSR
-    /* KCH: we're not hooking these to TRAP them,
-            instead, we're going to catch the target EIP.
-            Hopefully this EIP is the entry point in the ELF located in the 
-            vsyscall page. We can inject checks into the code segment such that
-            we don't have to exit on uninteresting system calls. This should
-            give us much better performance than INT 80, and should even obviate
-            the need to deal with software interrupts at all */
-    v3_hook_msr(core->vm_info, STAR_MSR,
-        &v3_handle_star_read,
-        &v3_handle_star_write,
-        core);
-    v3_hook_msr(core->vm_info, LSTAR_MSR,
-        &v3_handle_lstar_read,
-        &v3_handle_lstar_write,
-        core);
-    v3_hook_msr(core->vm_info, CSTAR_MSR,
-        &v3_handle_cstar_read,
-        &v3_handle_cstar_write,
-        core);
-    
-    /* KCH: this probably isn't necessary, as
-        SYSENTER is only used in legacy mode. In fact,
-        in long mode it results in an illegal instruction
-        exception */
-    v3_hook_msr(core->vm_info, IA32_SYSENTER_EIP_MSR,
-        &v3_handle_seeip_read,
-        &v3_handle_seeip_write,
-        core);
-#endif
 
     if (core->shdw_pg_mode == SHADOW_PAGING) {
 	PrintDebug("Creating initial shadow page table\n");
@@ -459,23 +423,9 @@ static int update_irq_entry_state(struct guest_info * info) {
 	    case V3_NMI:
 		guest_ctrl->EVENTINJ.type = SVM_INJECTION_NMI;
 		break;
-	    case V3_SOFTWARE_INTR: {
-#ifdef CONFIG_DEBUG_INTERRUPTS
-            PrintDebug("Caught an injected software interrupt\n");
-            PrintDebug("\ttype: %d, vector: %d\n", SVM_INJECTION_SOFT_INTR, info->intr_core_state.swintr_vector);
-#endif
-            guest_ctrl->EVENTINJ.type = SVM_INJECTION_SOFT_INTR;
-            guest_ctrl->EVENTINJ.vector = info->intr_core_state.swintr_vector;
-            guest_ctrl->EVENTINJ.valid = 1;
-            
-            /* reset the software interrupt state. 
-                we can do this because we know only one
-                sw int can be posted at a time on a given 
-                core, unlike irqs */
-            info->intr_core_state.swintr_posted = 0;
-            info->intr_core_state.swintr_vector = 0;
-            break;
-        }
+	    case V3_SOFTWARE_INTR:
+		guest_ctrl->EVENTINJ.type = SVM_INJECTION_SOFT_INTR;
+		break;
 	    case V3_VIRTUAL_IRQ:
 		guest_ctrl->EVENTINJ.type = SVM_INJECTION_IRQ;
 		break;
