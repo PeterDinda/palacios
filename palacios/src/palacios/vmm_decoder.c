@@ -146,6 +146,7 @@ static char * op_type_to_str(v3_op_type_t type) {
 	case V3_OP_STOS: return "V3_OP_STOS"; 
 	case V3_OP_MOVZX: return "V3_OP_MOVZX"; 
 	case V3_OP_MOVSX: return "V3_OP_MOVSX";
+ 	case V3_OP_INT: return "V3_OP_INT";
 	case V3_INVALID_OP: 
 	default:
 	    return "V3_INVALID_OP";
