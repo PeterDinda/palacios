@@ -85,12 +85,4 @@ config EXT_SYSCALL_PASSTHROUGH
       that are not explicitly hooked to be hooked for 
       passthrough. This is useful for debugging.
 
-config EXT_HIJACK_SYSCALL_MSR
-    bool "Intercept Syscall-related MSR reads & writes"
-    default n
-    help
-      Allow the VMM to intercept reads and writes to MSRs
-      related to SYSCALL and SYSENTER instructions. Specifically,
-      it will intercept R/W to STAR, CSTAR, and LSTAR, and SYSENTER_EIP.
-
 endmenu
