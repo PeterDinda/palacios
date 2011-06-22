@@ -168,15 +168,15 @@ int v3_gva_to_gpa(struct guest_info * guest_info, addr_t gva, addr_t * gpa) {
     switch (guest_info->cpu_mode) {
 	case PROTECTED:
 	    if (v3_translate_guest_pt_32(guest_info, guest_cr3, gva, gpa) == -1) {
-		/*PrintDebug("Could not translate addr (%p) through 32 bit guest PT at %p\n", 
-			   (void *)gva, (void *)(addr_t)guest_cr3);*/
+		PrintDebug("Could not translate addr (%p) through 32 bit guest PT at %p\n", 
+			   (void *)gva, (void *)(addr_t)guest_cr3);
 		return -1;
 	    }
 	    break;
 	case PROTECTED_PAE:
 	    if (v3_translate_guest_pt_32pae(guest_info, guest_cr3, gva, gpa) == -1) {
-		/*PrintDebug("Could not translate addr (%p) through 32 bitpae guest PT at %p\n", 
-			   (void *)gva, (void *)(addr_t)guest_cr3);*/
+		PrintDebug("Could not translate addr (%p) through 32 bitpae guest PT at %p\n", 
+			   (void *)gva, (void *)(addr_t)guest_cr3);
 		return -1;
 	    }
 	    break;
@@ -184,8 +184,8 @@ int v3_gva_to_gpa(struct guest_info * guest_info, addr_t gva, addr_t * gpa) {
 	case LONG_32_COMPAT:
 	case LONG_16_COMPAT:
 	    if (v3_translate_guest_pt_64(guest_info, guest_cr3, gva, gpa) == -1) {
-		/*PrintDebug("Could not translate addr (%p) through 64 bit guest PT at %p\n", 
-			   (void *)gva, (void *)(addr_t)guest_cr3);*/
+		PrintDebug("Could not translate addr (%p) through 64 bit guest PT at %p\n", 
+			   (void *)gva, (void *)(addr_t)guest_cr3);
 		return -1;
 	    }
 	    break;
@@ -266,8 +266,8 @@ int v3_gva_to_hva(struct guest_info * guest_info, addr_t gva, addr_t * hva) {
     *hva = 0;
 
     if (v3_gva_to_gpa(guest_info, gva, &gpa) != 0) {
-	/*PrintError("In GVA->HVA: Invalid GVA(%p)->GPA lookup\n", 
-		   (void *)gva);*/
+	PrintError("In GVA->HVA: Invalid GVA(%p)->GPA lookup\n", 
+		   (void *)gva);
 	return -1;
     }
 
@@ -317,56 +317,6 @@ int v3_hva_to_gva(struct guest_info * guest_info, addr_t hva, addr_t * gva) {
 
 
 
-/* KCH: currently only checks if we can perform a user-mode write
-   return 1 on success */
-int v3_gva_can_access(struct guest_info * core, addr_t gva) {
-
-    v3_reg_t guest_cr3 = 0;
-    pf_error_t access_type;
-    pt_access_status_t access_status;
-
-    access_type.write = 1;
-    access_type.user = 1;
-    
-    if (core->mem_mode == PHYSICAL_MEM) {
-        return -1;
-    }
-    
-    if (core->shdw_pg_mode == SHADOW_PAGING) {
-        guest_cr3 = core->shdw_pg_state.guest_cr3;
-    } else {
-        guest_cr3 = core->ctrl_regs.cr3;
-    }
-    
-    // guest is in paged mode
-    switch (core->cpu_mode) {
-    case PROTECTED:
-        if (v3_check_guest_pt_32(core, guest_cr3, gva, access_type, &access_status) == -1) {
-            return -1;
-        }
-        break;
-    case PROTECTED_PAE:
-        if (v3_check_guest_pt_32pae(core, guest_cr3, gva, access_type, &access_status) == -1) {
-            return -1;
-        }
-        break;
-    case LONG:
-    case LONG_32_COMPAT:
-    case LONG_16_COMPAT:
-        if (v3_check_guest_pt_64(core, guest_cr3, gva, access_type, &access_status) == -1) {
-            return -1;
-        }
-        break;
-    default:
-        return -1;
-    }
-
-    if (access_status != PT_ACCESS_OK) {
-        return 0;
-    } else {
-        return 1;
-    }
-}
 
 
 

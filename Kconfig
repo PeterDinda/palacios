@@ -163,15 +163,6 @@ config EXPERIMENTAL
 	  The purpose of this option is to allow features under development to be committed to the mainline
 	  to more easily track changes and provide access to multiple developers
 
-
-config INSPECTOR
-	bool "Enable VM inspection"
-	depends on EXPERIMENTAL
-	default n
-	help 
-	  Enable inspection framework for vm internal state
-
-
 endmenu
 
 
@@ -410,16 +401,6 @@ config DEBUG_DEV_MGR
 	depends on DEBUG_ON
 	help 
 	  This turns on debugging for the device manager
-
-
-config DEBUG_SYSCALL_HIJACK
-        bool "Enable Syscall Hijack Debug in Palacios"
-        default n
-        depends on DEBUG_ON && SYSCALL_HIJACK
-        help
-          Enable Debugging printouts for syscall hijacking
-          code in Palacios
-
 
 endmenu
 

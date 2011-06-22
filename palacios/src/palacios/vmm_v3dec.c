@@ -501,15 +501,13 @@ static v3_op_type_t op_form_to_type(op_form_t form) {
 	case INVLPG:
 	    return V3_OP_INVLPG;
 
+        case INT:
+	    return V3_OP_INT;
+	    
 	case MOV_CR2:
 	    return V3_OP_MOVCR2;
 	case MOV_2CR:
 	    return V3_OP_MOV2CR;
-
-    // KCH: for syscall interposition
-    case INT:
-        return V3_OP_INT;
-
 
 	case MOV_MEM2_8:
 	case MOV_MEM2:

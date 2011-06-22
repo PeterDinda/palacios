@@ -1283,7 +1283,6 @@ static v3_op_type_t get_opcode(xed_iform_enum_t iform) {
 	case XED_IFORM_INVLPG_MEMb:
 	    return V3_OP_INVLPG;
 
-    // KCH
     case XED_IFORM_INT_IMM:
         return V3_OP_INT;
 
