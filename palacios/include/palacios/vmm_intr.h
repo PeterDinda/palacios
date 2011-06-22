@@ -58,6 +58,9 @@ struct v3_intr_core_state {
     uint_t irq_started;
     uint_t irq_vector;
 
+    uint_t swintr_posted;
+    uint8_t swintr_vector;
+
     uint8_t virq_map[MAX_IRQ / 8];
 
     v3_lock_t irq_lock;
