@@ -50,7 +50,7 @@ config EXT_SW_INTERRUPTS
     help
       This feature will cause the VMM to intercept the execution
       of software interrupts (i.e. the INTn instruction) and enable
-      any INT vector to be hooked
+      any INT vector to be hooked. Extension name is "swintr_intercept"
 
 config DEBUG_EXT_SW_INTERRUPTS
     bool "Enable debugging of software interrupt interception code"
@@ -79,6 +79,7 @@ config EXT_SYSCALL_HIJACK
 
 config DEBUG_EXT_SYSCALL_HIJACK
     bool "Enable Syscall Hijack Debug in Palacios"
+    depends on EXT_SYSCALL_HIJACK
     default n
     help 
       Enable Debugging printouts for syscall hijacking code

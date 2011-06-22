@@ -26,6 +26,11 @@
 
 #include <interfaces/sw_intr.h>
 
+#ifndef V3_CONFIG_DEBUG_EXT_SW_INTERRUPTS
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
+#endif
+
 
 static int init_swintr_intercept (struct v3_vm_info * vm, v3_cfg_tree_t * cfg, void ** priv_data) {
 
@@ -111,9 +116,7 @@ int v3_handle_swintr (struct guest_info * core) {
 
     ret = hook->handler(core, vector, NULL);
     if (ret == -1) {
-#ifdef V3_CONFIG_DEBUG_EXT_SW_INTERRUPTS
         PrintDebug("V3 SWintr Handler: Error in swintr hook\n");
-#endif
         return -1; 
     }   
 
@@ -127,10 +130,8 @@ int v3_handle_swintr (struct guest_info * core) {
 int v3_signal_swintr (struct guest_info * core, uint8_t vector) {
     struct v3_intr_core_state * intr_state = &(core->intr_core_state);
 
-#ifdef V3_CONFIG_DEBUG_EXT_SW_INTERRUPTS
     PrintDebug("Signaling software interrupt in v3_signal_swintr()\n");
     PrintDebug("\tINT vector: %d\n", vector);
-#endif
     
     intr_state->swintr_posted = 1;
     intr_state->swintr_vector = vector;
@@ -164,10 +165,8 @@ int v3_hook_swintr (struct guest_info * core,
     
 
 static int passthrough_swintr_handler (struct guest_info * core, uint8_t vector, void * priv_data) {
-#ifdef V3_CONFIG_DEBUG_EXT_SW_INTERRUPTS
     PrintDebug("[passthrough_swint_handler] INT vector=%d (guest=0x%p)\n",
         vector, (void*)core);
-#endif
     return 0;
 }
 
@@ -180,21 +179,12 @@ int v3_hook_passthrough_swintr (struct guest_info * core, uint8_t vector) {
         PrintError("guest_swintr_injection: failed to hook swint 0x%x (guest=0x%p)\n", vector, (void*)core);
         return -1;
     } else {
-#ifdef V3_CONFIG_DEBUG_EXT_SW_INTERRUPTS
         PrintDebug("guest_swintr_injection: hooked swint 0x%x (guest=0x%p)\n", vector, (void*)core);
-#endif
         return 0;
     }
     
     /* shouldn't get here */
     return 0;
 }
-
-
-
-
-
-
-
 
 
