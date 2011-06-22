@@ -4,5 +4,5 @@ obj-$(V3_CONFIG_EXT_VTSC) += ext_vtsc.o
 obj-$(V3_CONFIG_EXT_VTIME) += ext_vtime.o
 obj-$(V3_CONFIG_EXT_INSPECTOR) += ext_inspector.o
 obj-$(V3_CONFIG_EXT_MACH_CHECK) += ext_mcheck.o
-obj-$(V3_CONFIG_EXT_SW_INTERRUPTS += ext_sw_intr.o
+obj-$(V3_CONFIG_EXT_SW_INTERRUPTS) += ext_sw_intr.o
 
