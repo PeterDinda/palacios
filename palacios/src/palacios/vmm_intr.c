@@ -327,6 +327,11 @@ v3_intr_type_t v3_intr_pending(struct guest_info * info) {
 	    }
 	}
     }
+    
+    /* for swintr injection */
+    if (intr_state->swintr_posted == 1) {
+        ret = V3_SOFTWARE_INTR;
+    }
 
     v3_unlock_irqrestore(intr_state->irq_lock, irq_state);
 
