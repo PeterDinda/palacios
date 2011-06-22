@@ -52,6 +52,14 @@ config EXT_SW_INTERRUPTS
       of software interrupts (i.e. the INTn instruction) and enable
       any INT vector to be hooked
 
+config DEBUG_EXT_SW_INTERRUPTS
+    bool "Enable debugging of software interrupt interception code"
+    depends on EXT_SW_INTERRUPTS
+    default n
+    help
+      This will enable useful debugging printouts for software
+      intercept code
+
 config EXT_SWINTR_PASSTHROUGH
     bool "Hook all unhandled sofware interrupts for passthrough"
     depends on EXT_SW_INTERRUPTS

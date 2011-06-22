@@ -18,10 +18,11 @@
  */
 
 #include <palacios/vmm.h>
+#include <palacios/vmcb.h>
 #include <palacios/vm_guest.h>
 #include <palacios/vmm_extensions.h>
 
-
+#include <interfaces/sw_intr.h>
 
 static int init_swintr_intercept (struct v3_vm_info * vm, v3_cfg_tree_t * cfg, void ** priv_data);
 
@@ -36,6 +37,10 @@ static int deinit_swintr_intercept (struct v3_vm_info * vm, void * priv_data) {
 
 
 static int init_swintr_intercept_core (struct guest_info * core, void * priv_data) {
+    vmcb_t * vmcb = (vmcb_t*)core->vmm_data;
+    vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA(vmcb);
+
+    ctrl_rea->instrs.INTn = 1;
 
     return 0;
 }
