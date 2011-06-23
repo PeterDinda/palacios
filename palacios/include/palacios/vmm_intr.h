@@ -83,6 +83,8 @@ int v3_raise_irq(struct v3_vm_info * vm, int irq);
 int v3_lower_irq(struct v3_vm_info * vm, int irq);
 
 
+int v3_raise_swintr(struct guest_info * core, uint8_t vector);
+
 
 struct intr_ctrl_ops {
     int (*intr_pending)(struct guest_info * info, void * private_data);

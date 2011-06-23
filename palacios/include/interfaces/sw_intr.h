@@ -25,7 +25,7 @@
 
 
 int v3_handle_swintr (struct guest_info * core);
-int v3_signal_swintr (struct guest_info * core, uint8_t vector);
+
 int v3_hook_swintr (struct guest_info * core,
         uint8_t vector,
         int (*handler)(struct guest_info * core, uint8_t vector, void * priv_data),

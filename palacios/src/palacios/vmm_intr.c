@@ -239,6 +239,18 @@ int v3_deliver_irq(struct v3_vm_info * vm, struct v3_interrupt * intr) {
 
 
 
+int v3_raise_swintr (struct guest_info * core, uint8_t vector) {
+    struct v3_intr_core_state * intr_state = &(core->intr_core_state);
+
+    PrintDebug("Signaling software interrupt in v3_signal_swintr()\n");
+    PrintDebug("\tINT vector: %d\n", vector);
+    
+    intr_state->swintr_posted = 1;
+    intr_state->swintr_vector = vector;
+    return 0;
+}
+
+
 
 int v3_raise_virq(struct guest_info * info, int irq) {
     struct v3_intr_core_state * intr_state = &(info->intr_core_state);
@@ -292,6 +304,8 @@ int v3_raise_irq(struct v3_vm_info * vm, int irq) {
 
     return 0;
 }
+
+
 
 
 void v3_clear_pending_intr(struct guest_info * core) {

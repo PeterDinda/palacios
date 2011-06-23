@@ -23,6 +23,7 @@
 #include <palacios/vm_guest_mem.h>
 #include <palacios/vmm_decoder.h>
 #include <palacios/vmm_extensions.h>
+#include <palacios/vmm_intr.h>
 
 #include <interfaces/sw_intr.h>
 
@@ -110,7 +111,7 @@ int v3_handle_swintr (struct guest_info * core) {
         hook = swintr_hooks[vector];
 #else
         core->rip += instr.instr_length;
-        return v3_signal_swintr(core, vector);
+        return v3_raise_swintr(core, vector);
 #endif
     }   
 
@@ -124,19 +125,9 @@ int v3_handle_swintr (struct guest_info * core) {
        so that they finish in time for the next
        instruction... */
     core->rip += instr.instr_length;
-    return v3_signal_swintr(core, vector);
+    return v3_raise_swintr(core, vector);
 }
 
-int v3_signal_swintr (struct guest_info * core, uint8_t vector) {
-    struct v3_intr_core_state * intr_state = &(core->intr_core_state);
-
-    PrintDebug("Signaling software interrupt in v3_signal_swintr()\n");
-    PrintDebug("\tINT vector: %d\n", vector);
-    
-    intr_state->swintr_posted = 1;
-    intr_state->swintr_vector = vector;
-    return 0;
-}
 
 
 int v3_hook_swintr (struct guest_info * core,

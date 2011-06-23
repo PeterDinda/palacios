@@ -424,20 +424,20 @@ static int update_irq_entry_state(struct guest_info * info) {
 		guest_ctrl->EVENTINJ.type = SVM_INJECTION_NMI;
 		break;
 	    case V3_SOFTWARE_INTR:
-            guest_ctrl->EVENTINJ.type = SVM_INJECTION_SOFT_INTR;
-#ifdef V3_CONFIG_EXT_SW_INTERRUPTS
-#ifdef V3_CONFIG_DEBUG_EXT_SW_INTERRUPTS
-            PrintDebug("Caught an injected software interrupt\n");
-            PrintDebug("\ttype: %d, vector: %d\n", SVM_INJECTION_SOFT_INTR, info->intr_core_state.swintr_vector);
+		guest_ctrl->EVENTINJ.type = SVM_INJECTION_SOFT_INTR;
+
+#ifdef V3_CONFIG_DEBUG_INTERRUPTS
+		PrintDebug("Injecting software interrupt --  type: %d, vector: %d\n", 
+			   SVM_INJECTION_SOFT_INTR, info->intr_core_state.swintr_vector);
 #endif
-            guest_ctrl->EVENTINJ.vector = info->intr_core_state.swintr_vector;
-            guest_ctrl->EVENTINJ.valid = 1;
+		guest_ctrl->EVENTINJ.vector = info->intr_core_state.swintr_vector;
+		guest_ctrl->EVENTINJ.valid = 1;
             
-            /* reset swintr state */
-            info->intr_core_state.swintr_posted = 0;
-            info->intr_core_state.swintr_vector = 0;
-#endif
-            break;
+		/* reset swintr state */
+		info->intr_core_state.swintr_posted = 0;
+		info->intr_core_state.swintr_vector = 0;
+		
+		break;
 	    case V3_VIRTUAL_IRQ:
 		guest_ctrl->EVENTINJ.type = SVM_INJECTION_IRQ;
 		break;

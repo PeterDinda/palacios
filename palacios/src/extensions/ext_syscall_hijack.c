@@ -25,6 +25,7 @@
 #include <palacios/vmm_string.h>
 #include <palacios/vmm_shadow_paging.h>
 #include <palacios/vmm_extensions.h>
+#include <palacios/vmm_intr.h>
 
 #include <interfaces/syscall_hijack.h>
 #include <interfaces/sw_intr.h>
@@ -66,7 +67,7 @@ static int v3_syscall_handler (struct guest_info * core, uint8_t vector, void * 
         }
         hook = syscall_hooks[syscall_nr];
 #else
-        return v3_signal_swintr(core, vector);
+        return v3_raise_swintr(core, vector);
 #endif
     }
     
