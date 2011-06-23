@@ -402,6 +402,13 @@ config DEBUG_DEV_MGR
 	help 
 	  This turns on debugging for the device manager
 
+config DEBUG_MEM_ERRORS
+    bool "Verbose memory errors"
+    default n
+    depends on DEBUG_ON
+    help
+      This turns on debugging for memory translations and lookups
+
 endmenu
 
 
