@@ -1,22 +1,38 @@
 /*
- * This file is part of the Palacios Virtual Machine Monitor developed
- * by the V3VEE Project with funding from the United States National
- * Science Foundation and the Department of Energy.
- *
- * The V3VEE Project is a joint project between Northwestern University
- * and the University of New Mexico.  You can find out more at
- * http://www.v3vee.org
- *
- * Copyright (c) 2011, Lei Xia <lxia@northwestern.edu>
- * Copyright (c) 2011, The V3VEE Project <http://www.v3vee.org>
- * All rights reserved.
- *
- * This is free software.  You are permitted to use, redistribute,
- * and modify it under the terms of the GNU General Public License
- * Version 2 (GPLv2).  The accompanying COPYING file contains the
- * full text of the license.
- */
- 
+  Copyright (c) 2002, 2004, Christopher Clark
+  All rights reserved.
+  
+  Redistribution and use in source and binary forms, with or without
+  modification, are permitted provided that the following conditions
+  are met:
+  
+  * Redistributions of source code must retain the above copyright
+    notice, this list of conditions and the following disclaimer.
+  
+  * Redistributions in binary form must reproduce the above copyright
+    notice, this list of conditions and the following disclaimer in the
+    documentation and/or other materials provided with the distribution.
+  
+  * Neither the name of the original author; nor the names of any contributors
+    may be used to endorse or promote products derived from this software
+    without specific prior written permission.
+  
+  
+  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+  A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+  CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+  EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+  PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+  PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+  LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
+/* Modifications made by Lei Xia */
+
 #include <linux/string.h>
 #include <linux/errno.h>
 #include <linux/preempt.h>
