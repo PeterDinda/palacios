@@ -16,6 +16,9 @@
  * Version 2 (GPLv2).  The accompanying COPYING file contains the
  * full text of the license.
  */
+ /* 
+ * Palacios Socket Interface Implementation
+ */
 
 #include <interfaces/vmm_socket.h>
 

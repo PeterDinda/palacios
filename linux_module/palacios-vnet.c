@@ -1,7 +1,23 @@
-/* 
-   Palacios VNET Host Hooks Implementations
-   (c) Lei Xia, 2011
+/*
+ * This file is part of the Palacios Virtual Machine Monitor developed
+ * by the V3VEE Project with funding from the United States National
+ * Science Foundation and the Department of Energy.
+ *
+ * The V3VEE Project is a joint project between Northwestern University
+ * and the University of New Mexico.  You can find out more at
+ * http://www.v3vee.org
+ *
+ * Copyright (c) 2011, Lei Xia <lxia@northwestern.edu>
+ * Copyright (c) 2011, The V3VEE Project <http://www.v3vee.org>
+ * All rights reserved.
+ *
+ * This is free software.  You are permitted to use, redistribute,
+ * and modify it under the terms of the GNU General Public License
+ * Version 2 (GPLv2).  The accompanying COPYING file contains the
+ * full text of the license.
  */
+/* Palacios VNET Host Hooks Implementations */
+
 #include <linux/kernel.h>
 #include <linux/kthread.h>
 #include <linux/spinlock.h>
