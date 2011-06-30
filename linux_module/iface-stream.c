@@ -1,8 +1,22 @@
-
-/* 
- * VM specific Controls
- * (c) Lei Xia, 2010
+/*
+ * This file is part of the Palacios Virtual Machine Monitor developed
+ * by the V3VEE Project with funding from the United States National
+ * Science Foundation and the Department of Energy.
+ *
+ * The V3VEE Project is a joint project between Northwestern University
+ * and the University of New Mexico.  You can find out more at
+ * http://www.v3vee.org
+ *
+ * Copyright (c) 2010, Lei Xia <lxia@northwestern.edu>
+ * Copyright (c) 2010, The V3VEE Project <http://www.v3vee.org>
+ * All rights reserved.
+ *
+ * This is free software.  You are permitted to use, redistribute,
+ * and modify it under the terms of the GNU General Public License
+ * Version 2 (GPLv2).  The accompanying COPYING file contains the
+ * full text of the license.
  */
+ 
 #include <linux/errno.h>
 #include <linux/percpu.h>
 #include <linux/sched.h>
@@ -47,36 +61,11 @@ struct vm_stream_state {
     struct list_head open_streams;
 };
 
-static int stream_enqueue(struct stream_buffer * stream, char * buf, int len) {
-    int bytes = 0;
-
-    bytes = ringbuf_write(stream->buf, buf, len);
-
-    return bytes;
-}
-
-
-static int stream_dequeue(struct stream_buffer * stream, char * buf, int len) {
-    int bytes = 0;
-
-    bytes = ringbuf_read(stream->buf, buf, len);
-
-    return bytes;
-}
-
-static int stream_datalen(struct stream_buffer * stream){
-    return ringbuf_data_len(stream->buf);
-}
-
-
-
-
 
 static struct stream_buffer * find_stream_by_name(struct v3_guest * guest, const char * name) {
     struct stream_buffer * stream = NULL;
     struct list_head * stream_list = NULL;
     struct vm_stream_state * vm_state = NULL;
-
 
     if (guest == NULL) {
 	stream_list = &global_streams;
@@ -107,8 +96,7 @@ static ssize_t stream_read(struct file * filp, char __user * buf, size_t size, l
     
     wait_event_interruptible(stream->intr_queue, (ringbuf_data_len(stream->buf) != 0));
 
-
-    return 0;
+    return ringbuf_read(stream->buf, buf, size);
 }
 
 
@@ -164,7 +152,7 @@ static int palacios_stream_write(void * stream_ptr, char * buf, int len) {
     struct stream_buffer * stream = (struct stream_buffer *)stream_ptr;
     int ret = 0;
 
-    ret = stream_enqueue(stream, buf, len);
+    ret = ringbuf_write(stream->buf, buf, len);
 
     if (ret > 0) {
 	wake_up_interruptible(&(stream->intr_queue));
