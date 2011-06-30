@@ -1,7 +1,7 @@
 /*
-  * Ringbuffer 
-  * (c) Lei Xia  2010
-  */
+ * Ringbuffer 
+ * (c) Lei Xia  2010
+ */
  
 
 #ifndef __PALACIOS_RING_BUFFER_H__

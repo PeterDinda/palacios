@@ -1,7 +1,7 @@
 /*
-  * Ringbuffer implementation
-  * (c) Lei Xia  2010
-  */
+ * Ringbuffer implementation
+ * (c) Lei Xia  2010
+ */
  
 
 #include <linux/errno.h>

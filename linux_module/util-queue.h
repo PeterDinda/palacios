@@ -1,7 +1,7 @@
 /* 
-  * Queue implementation
-  * Jack Lange 2011
-  */
+ * Queue implementation
+ * Jack Lange 2011
+ */
 
 #ifndef __PALACIOS_QUEUE_H__
 #define __PALACIOS_QUEUE_H__

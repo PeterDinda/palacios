@@ -1,7 +1,7 @@
 /* 
-  * Palacios Raw Packet Interface Implementation
-  * (c) Lei Xia  2010
-  */
+ * Palacios Raw Packet Interface Implementation
+ * (c) Lei Xia  2010
+ */
  
 #include <asm/uaccess.h>
 #include <linux/inet.h>

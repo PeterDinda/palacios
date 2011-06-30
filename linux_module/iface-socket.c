@@ -1,7 +1,7 @@
- /* 
-  * Palacios Socket Interface Implementation
-  * (c) Lei Xia  2010
-  */
+/* 
+ * Palacios Socket Interface Implementation
+ * (c) Lei Xia  2010
+ */
  
 
 #include <interfaces/vmm_socket.h>

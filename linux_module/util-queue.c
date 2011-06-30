@@ -1,7 +1,7 @@
 /* 
-  * Queue implementation
-  * Jack Lange 2011
-  */
+ * Queue implementation
+ * Jack Lange 2011
+ */
 
 #include <linux/slab.h>
 

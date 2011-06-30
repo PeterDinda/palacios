@@ -1,8 +1,7 @@
 /* 
-  * Palacios VNET Host Bridge
-  * (c) Lei Xia  2010
-  */
- 
+ * Palacios VNET Host Bridge
+ * (c) Lei Xia  2010
+ */ 
 
 #include <linux/spinlock.h>
 #include <linux/seq_file.h>

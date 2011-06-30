@@ -1,7 +1,7 @@
 /*
-  * Stream 
-  * (c) Lei Xia  2010
-  */
+ * Stream 
+ * (c) Lei Xia  2010
+ */
  
  
 #ifndef __IFACE_STREAM_H__

@@ -1,7 +1,7 @@
 /* 
-  * Palacios VNET Host Hooks Implementations 
-  * Lei Xia 2010
-  */
+ * Palacios VNET Host Hooks Implementations 
+ * Lei Xia 2010
+ */
 
 #include <linux/kernel.h>
 #include <linux/kthread.h>
