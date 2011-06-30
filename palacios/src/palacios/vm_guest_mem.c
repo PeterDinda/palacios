@@ -21,6 +21,11 @@
 #include <palacios/vmm.h>
 #include <palacios/vmm_paging.h>
 
+#ifndef V3_CONFIG_DEBUG_MEM_ERRORS
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
+#endif
+
 extern struct v3_os_hooks * os_hooks;
 
 
@@ -34,12 +39,12 @@ int v3_hva_to_hpa(addr_t hva, addr_t * hpa) {
 	*hpa = (addr_t)(os_hooks)->vaddr_to_paddr((void *)hva);
   
 	if (*hpa == 0) {
-	    PrintError("In HVA->HPA: Invalid HVA(%p)->HPA lookup\n",  
+	    PrintDebug("In HVA->HPA: Invalid HVA(%p)->HPA lookup\n",  
 		       (void *)hva);
 	    return -1;
 	}
     } else {
-	PrintError("In HVA->HPA: os_hooks not defined\n");
+	PrintDebug("In HVA->HPA: os_hooks not defined\n");
 	return -1;
     }
     return 0;
@@ -52,12 +57,12 @@ int v3_hpa_to_hva(addr_t hpa, addr_t * hva) {
 	*hva = (addr_t)(os_hooks)->paddr_to_vaddr((void *)hpa);
     
 	if (*hva == 0) {
-	    PrintError("In HPA->HVA: Invalid HPA(%p)->HVA lookup\n",  
+	    PrintDebug("In HPA->HVA: Invalid HPA(%p)->HVA lookup\n",  
 		       (void *)hpa);
 	    return -1;
 	}
     } else {
-	PrintError("In HPA->HVA: os_hooks not defined\n");
+	PrintDebug("In HPA->HVA: os_hooks not defined\n");
 	return -1;
     }
     return 0;
@@ -67,13 +72,13 @@ int v3_gpa_to_hpa(struct guest_info * info, addr_t gpa, addr_t * hpa) {
     struct v3_mem_region * reg = v3_get_mem_region(info->vm_info, info->vcpu_id, gpa);
 
     if (reg == NULL) {
-	PrintError("In GPA->HPA: Could not find address in shadow map (addr=%p) (NULL REGION)\n", 
+	PrintDebug("In GPA->HPA: Could not find address in shadow map (addr=%p) (NULL REGION)\n", 
 		   (void *)gpa);
 	return -1;
     }
     
     if (reg->flags.alloced == 0) {
-	//PrintError("In GPA->HPA: Tried to translate physical address of non allocated page (addr=%p)\n", 
+	//PrintDebug("In GPA->HPA: Tried to translate physical address of non allocated page (addr=%p)\n", 
 	//	   (void *)gpa);
     //v3_print_mem_map(info->vm_info);
 	return -1;
@@ -91,7 +96,7 @@ int v3_gpa_to_hpa(struct guest_info * info, addr_t gpa, addr_t * hpa) {
 // 
 int v3_hpa_to_gpa(struct guest_info * guest_info, addr_t hpa, addr_t * gpa) {
     *gpa = 0;
-    PrintError("ERROR!!! HPA->GPA currently not implemented!!!\n");
+    PrintDebug("ERROR!!! HPA->GPA currently not implemented!!!\n");
 
     return -1;
 }
@@ -110,13 +115,13 @@ int v3_hva_to_gpa(struct guest_info * guest_info, addr_t hva, addr_t * gpa) {
     *gpa = 0;
 
     if (v3_hva_to_hpa(hva, &hpa) != 0) {
-	PrintError("In HVA->GPA: Invalid HVA(%p)->HPA lookup\n", 
+	PrintDebug("In HVA->GPA: Invalid HVA(%p)->HPA lookup\n", 
 		   (void *)hva);
 	return -1;
     }
 
     if (v3_hpa_to_gpa(guest_info, hpa, gpa) != 0) {
-	PrintError("In HVA->GPA: Invalid HPA(%p)->GPA lookup\n", 
+	PrintDebug("In HVA->GPA: Invalid HPA(%p)->GPA lookup\n", 
 		   (void *)hpa);
 	return -1;
     }
@@ -133,13 +138,13 @@ int v3_gpa_to_hva(struct guest_info * guest_info, addr_t gpa, addr_t * hva) {
     *hva = 0;
 
     if (v3_gpa_to_hpa(guest_info, gpa, &hpa) != 0) {
-	//	PrintError("In GPA->HVA: Invalid GPA(%p)->HPA lookup\n", 
+	//	PrintDebug("In GPA->HVA: Invalid GPA(%p)->HPA lookup\n", 
 	//	   (void *)gpa);
 	return -1;
     }
   
     if (v3_hpa_to_hva(hpa, hva) != 0) {
-	PrintError("In GPA->HVA: Invalid HPA(%p)->HVA lookup\n", 
+	PrintDebug("In GPA->HVA: Invalid HPA(%p)->HVA lookup\n", 
 		   (void *)hpa);
 	return -1;
     }
@@ -205,7 +210,7 @@ int v3_gva_to_gpa(struct guest_info * guest_info, addr_t gva, addr_t * gpa) {
  */
 int v3_gpa_to_gva(struct guest_info * guest_info, addr_t gpa, addr_t * gva) {
     *gva = 0;
-    PrintError("ERROR!!: GPA->GVA Not Implemented!!\n");
+    PrintDebug("ERROR!!: GPA->GVA Not Implemented!!\n");
     return -1;
 }
 
@@ -221,13 +226,13 @@ int v3_gva_to_hpa(struct guest_info * guest_info, addr_t gva, addr_t * hpa) {
     *hpa = 0;
 
     if (v3_gva_to_gpa(guest_info, gva, &gpa) != 0) {
-	PrintError("In GVA->HPA: Invalid GVA(%p)->GPA lookup\n", 
+	PrintDebug("In GVA->HPA: Invalid GVA(%p)->GPA lookup\n", 
 		   (void *)gva);
 	return -1;
     }
   
     if (v3_gpa_to_hpa(guest_info, gpa, hpa) != 0) {
-	PrintError("In GVA->HPA: Invalid GPA(%p)->HPA lookup\n", 
+	PrintDebug("In GVA->HPA: Invalid GPA(%p)->HPA lookup\n", 
 		   (void *)gpa);
 	return -1;
     }
@@ -242,13 +247,13 @@ int v3_hpa_to_gva(struct guest_info * guest_info, addr_t hpa, addr_t * gva) {
     *gva = 0;
 
     if (v3_hpa_to_gpa(guest_info, hpa, &gpa) != 0) {
-	PrintError("In HPA->GVA: Invalid HPA(%p)->GPA lookup\n", 
+	PrintDebug("In HPA->GVA: Invalid HPA(%p)->GPA lookup\n", 
 		   (void *)hpa);
 	return -1;
     }
 
     if (v3_gpa_to_gva(guest_info, gpa, gva) != 0) {
-	PrintError("In HPA->GVA: Invalid GPA(%p)->GVA lookup\n", 
+	PrintDebug("In HPA->GVA: Invalid GPA(%p)->GVA lookup\n", 
 		   (void *)gpa);
 	return -1;
     }
@@ -266,19 +271,19 @@ int v3_gva_to_hva(struct guest_info * guest_info, addr_t gva, addr_t * hva) {
     *hva = 0;
 
     if (v3_gva_to_gpa(guest_info, gva, &gpa) != 0) {
-	PrintError("In GVA->HVA: Invalid GVA(%p)->GPA lookup\n", 
+	PrintDebug("In GVA->HVA: Invalid GVA(%p)->GPA lookup\n", 
 		   (void *)gva);
 	return -1;
     }
 
     if (v3_gpa_to_hpa(guest_info, gpa, &hpa) != 0) {
-	PrintError("In GVA->HVA: Invalid GPA(%p)->HPA lookup\n", 
+	PrintDebug("In GVA->HVA: Invalid GPA(%p)->HPA lookup\n", 
 		   (void *)gpa);
 	return -1;
     }
 
     if (v3_hpa_to_hva(hpa, hva) != 0) {
-	PrintError("In GVA->HVA: Invalid HPA(%p)->HVA lookup\n", 
+	PrintDebug("In GVA->HVA: Invalid HPA(%p)->HVA lookup\n", 
 		   (void *)hpa);
 	return -1;
     }
@@ -295,19 +300,19 @@ int v3_hva_to_gva(struct guest_info * guest_info, addr_t hva, addr_t * gva) {
     *gva = 0;
 
     if (v3_hva_to_hpa(hva, &hpa) != 0) {
-	PrintError("In HVA->GVA: Invalid HVA(%p)->HPA lookup\n", 
+	PrintDebug("In HVA->GVA: Invalid HVA(%p)->HPA lookup\n", 
 		   (void *)hva);
 	return -1;
     }
 
     if (v3_hpa_to_gpa(guest_info, hpa, &gpa) != 0) {
-	PrintError("In HVA->GVA: Invalid HPA(%p)->GPA lookup\n", 
+	PrintDebug("In HVA->GVA: Invalid HPA(%p)->GPA lookup\n", 
 		   (void *)hva);
 	return -1;
     }
 
     if (v3_gpa_to_gva(guest_info, gpa, gva) != 0) {
-	PrintError("In HVA->GVA: Invalid GPA(%p)->GVA lookup\n", 
+	PrintDebug("In HVA->GVA: Invalid GPA(%p)->GVA lookup\n", 
 		   (void *)gpa);
 	return -1;
     }

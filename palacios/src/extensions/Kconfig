@@ -44,4 +44,54 @@ config EXT_INSPECTOR
 	help
 	  Provides the inspection extension
 
+config EXT_SW_INTERRUPTS
+    bool "Enable interception and hooking of software interrupts"
+    default n
+    help
+      This feature will cause the VMM to intercept the execution
+      of software interrupts (i.e. the INTn instruction) and enable
+      any INT vector to be hooked. Extension name is "swintr_intercept"
+
+config DEBUG_EXT_SW_INTERRUPTS
+    bool "Enable debugging of software interrupt interception code"
+    depends on EXT_SW_INTERRUPTS
+    default n
+    help
+      This will enable useful debugging printouts for software
+      intercept code
+
+config EXT_SWINTR_PASSTHROUGH
+    bool "Hook all unhandled sofware interrupts for passthrough"
+    depends on EXT_SW_INTERRUPTS
+    default n
+    help
+      If enabled, this will cause all software interrupts 
+      (INT instruction vectors) to be hooked for passthrough.
+      May reduce performance but useful for debugging.
+
+config EXT_SYSCALL_HIJACK
+    bool "Enable System Call Hijacking"
+    depends on EXT_SW_INTERRUPTS
+    default n
+    help
+      Enable the VMM to hijack system calls executed by the guest.
+      If enabled, the VMM will hook execution of INT 80
+
+config DEBUG_EXT_SYSCALL_HIJACK
+    bool "Enable Syscall Hijack Debug in Palacios"
+    depends on EXT_SYSCALL_HIJACK
+    default n
+    help 
+      Enable Debugging printouts for syscall hijacking code
+      in Palacios
+
+config EXT_SYSCALL_PASSTHROUGH
+    bool "Hook all unhandled system calls for passthrough"
+    depends on EXT_SYSCALL_HIJACK
+    default n
+    help
+      If enabled, this option will cause all system calls
+      that are not explicitly hooked to be hooked for 
+      passthrough. This is useful for debugging.
+
 endmenu

@@ -58,6 +58,9 @@ struct v3_intr_core_state {
     uint_t irq_started;
     uint_t irq_vector;
 
+    uint_t swintr_posted;
+    uint8_t swintr_vector;
+
     uint8_t virq_map[MAX_IRQ / 8];
 
     v3_lock_t irq_lock;
@@ -79,6 +82,8 @@ int v3_lower_virq(struct guest_info * info, int irq);
 int v3_raise_irq(struct v3_vm_info * vm, int irq);
 int v3_lower_irq(struct v3_vm_info * vm, int irq);
 
+
+int v3_raise_swintr(struct guest_info * core, uint8_t vector);
 
 
 struct intr_ctrl_ops {

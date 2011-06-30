@@ -789,9 +789,9 @@ static v3_host_dev_t palacios_host_dev_open_deferred(char *url,
     
     strncpy(dev->url,url,MAX_URL);
     
-    dev->guestdev=gdev;
+    dev->guestdev = gdev;
     
-    dev->guest=guest;
+    dev->guest = guest;
 
     spin_lock_init(&(dev->lock));
 

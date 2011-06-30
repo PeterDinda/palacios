@@ -43,7 +43,9 @@
 #include <palacios/vmm_telemetry.h>
 #endif
 
-
+#ifdef V3_CONFIG_EXT_SW_INTERRUPTS
+#include <interfaces/sw_intr.h>
+#endif
 
 int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_info1, addr_t exit_info2) {
 
@@ -275,6 +277,17 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 	    // Force exit on other cores
 
 	    break;
+#ifdef V3_CONFIG_EXT_SW_INTERRUPTS
+    case VMEXIT_SWINT:
+#ifdef V3_CONFIG_DEBUG_EXT_SW_INTERRUPTS
+        PrintDebug("Intercepted a software interrupt\n");
+#endif
+        if (v3_handle_swintr(info) == -1) {
+            PrintError("Error handling software interrupt\n");
+            return -1;
+        }
+        break;
+#endif
 
 
 	    /* Exits Following this line are NOT HANDLED */

@@ -7,6 +7,10 @@
 #include <linux/percpu.h>
 #include <linux/sched.h>
 #include <linux/uaccess.h>
+#include <linux/fs.h>
+#include <linux/poll.h>
+#include <linux/anon_inodes.h>
+#include <linux/file.h>
 
 
 #include <interfaces/vmm_stream.h>
@@ -15,6 +19,8 @@
 #include "vm.h"
 #include "iface-stream.h"
 
+
+// This is going to need to be a lot bigger...
 #define STREAM_BUF_SIZE 1024
 
 
@@ -25,6 +31,8 @@ static struct list_head global_streams;
 struct stream_buffer {
     char name[STREAM_NAME_LEN];
     struct ringbuf * buf;
+
+    int connected;
 
     wait_queue_head_t intr_queue;
     spinlock_t lock;
@@ -91,6 +99,26 @@ static struct stream_buffer * find_stream_by_name(struct v3_guest * guest, const
 
     return NULL;
 }
+
+
+
+static ssize_t stream_read(struct file * filp, char __user * buf, size_t size, loff_t * offset) {
+    struct stream_buffer * stream = filp->private_data;
+    
+    wait_event_interruptible(stream->intr_queue, (ringbuf_data_len(stream->buf) != 0));
+
+
+    return 0;
+}
+
+
+
+static struct file_operations stream_fops = {
+    .read = stream_read,
+    //    .release = stream_close,
+    //  .poll = stream_poll,
+};
+
 
 
 static void * palacios_stream_open(const char * name, void * private_data) {
@@ -173,25 +201,61 @@ static int stream_init( void ) {
 static int stream_deinit( void ) {
     if (!list_empty(&(global_streams))) {
 	printk("Error removing module with open streams\n");
+	printk("TODO: free old streams... \n");
     }
 
     return 0;
 }
 
+
+
+
+
 static int stream_connect(struct v3_guest * guest, unsigned int cmd, unsigned long arg, void * priv_data) {
     void __user * argp = (void __user *)arg;
-    char path_name[STREAM_NAME_LEN];
+    struct stream_buffer * stream = NULL;
+    int stream_fd = 0;
+    char name[STREAM_NAME_LEN];
+    unsigned long flags = 0;
+    int ret = -1;
     
-    if (copy_from_user(path_name, argp, STREAM_NAME_LEN)) {
+    
+    if (copy_from_user(name, argp, STREAM_NAME_LEN)) {
 	printk("%s(%d): copy from user error...\n", __FILE__, __LINE__);
 	return -EFAULT;
     }
+
+    stream = find_stream_by_name(guest, name);
+
+    if (stream == NULL) {
+	printk("Could not find stream (%s)\n", name);
+	return -EFAULT;
+    }
+
+    spin_lock_irqsave(&(stream->lock), flags);
+    if (stream->connected == 0) {
+	stream->connected = 1;
+	ret = 1;
+    }
+    spin_unlock_irqrestore(&(stream->lock), flags);
+
+
+    if (ret == -1) {
+	printk("Stream (%s) already connected\n", name);
+	return -EFAULT;
+    }
+
     
+    stream_fd = anon_inode_getfd("v3-stream", &stream_fops, stream, 0);
 
+    if (stream_fd < 0) {
+	printk("Error creating stream inode for (%s)\n", name);
+	return stream_fd;
+    }
 
-    printk("ERROR: Opening Streams is currently not implemented...\n");
+    printk("Stream (%s) connected\n", name);
 
-    return -EFAULT;
+    return stream_fd;
 }
 
 
