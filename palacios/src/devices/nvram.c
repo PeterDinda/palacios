@@ -484,45 +484,43 @@ static void set_memory_size(struct nvram_internal * nvram, addr_t bytes) {
     // 1. Conventional Mem: 0-640k in K
     // 2. Extended Mem: 0-16MB in K
     // 3. Big Mem: 0-4G in 64K
+    uint16_t memk;
+    uint16_t mem_chunks;
 
+    // at most 640K of conventional memory
     if (bytes > 640 * 1024) {
-	set_memory(nvram, NVRAM_REG_BASE_MEMORY_HIGH, 0x02);
-	set_memory(nvram, NVRAM_REG_BASE_MEMORY_LOW, 0x80);
-
-	//	nvram->mem_state[NVRAM_REG_BASE_MEMORY_HIGH] = 0x02;
-	//	nvram->mem_state[NVRAM_REG_BASE_MEMORY_LOW] = 0x80;
+	memk=640;
     } else {
-	uint16_t memk = bytes * 1024;
-	set_memory(nvram, NVRAM_REG_BASE_MEMORY_HIGH, (memk >> 8) & 0x00ff);
-	set_memory(nvram, NVRAM_REG_BASE_MEMORY_LOW, memk & 0x00ff);
-
-	return;
+	memk = bytes/1024;
     }
 
-    if (bytes > (16 * 1024 * 1024)) {
-	// Set extended memory to 15 MB
-	set_memory(nvram, NVRAM_REG_EXT_MEMORY_HIGH, 0x3C);
-	set_memory(nvram, NVRAM_REG_EXT_MEMORY_LOW, 0x00);
-	set_memory(nvram, NVRAM_REG_EXT_MEMORY_2ND_HIGH, 0x3C);
-	set_memory(nvram, NVRAM_REG_EXT_MEMORY_2ND_LOW, 0x00);
+    set_memory(nvram, NVRAM_REG_BASE_MEMORY_HIGH, (memk >> 8) & 0x00ff);
+    set_memory(nvram, NVRAM_REG_BASE_MEMORY_LOW, memk & 0x00ff);
+    
+    // set extended memory - first 1 MB is lost to 640K chunk
+    // extended memory is min(0MB, bytes-1MB)
+    if (bytes < 1024*1024) { 
+	// no extended memory
+	memk = 0;
     } else {
-	uint16_t memk = bytes * 1024;
-
-	set_memory(nvram, NVRAM_REG_EXT_MEMORY_HIGH, (memk >> 8) & 0x00ff);
-	set_memory(nvram, NVRAM_REG_EXT_MEMORY_LOW, memk & 0x00ff);
-	set_memory(nvram, NVRAM_REG_EXT_MEMORY_2ND_HIGH, (memk >> 8) & 0x00ff);
-	set_memory(nvram, NVRAM_REG_EXT_MEMORY_2ND_LOW, memk & 0x00ff);
-
-	return;
+	memk = (bytes - 1024 * 1024 ) / 1024;
     }
 
-    {
-	// Set the extended memory beyond 16 MB in 64k chunks
-	uint16_t mem_chunks = (bytes - (1024 * 1024 * 16)) / (1024 * 64);
-
-	set_memory(nvram, NVRAM_REG_AMI_BIG_MEMORY_HIGH, (mem_chunks >> 8) & 0x00ff);
-	set_memory(nvram, NVRAM_REG_AMI_BIG_MEMORY_LOW, mem_chunks & 0x00ff);
+    set_memory(nvram, NVRAM_REG_EXT_MEMORY_HIGH, (memk >> 8) & 0x00ff);
+    set_memory(nvram, NVRAM_REG_EXT_MEMORY_LOW, memk & 0x00ff);
+    set_memory(nvram, NVRAM_REG_EXT_MEMORY_2ND_HIGH, (memk >> 8) & 0x00ff);
+    set_memory(nvram, NVRAM_REG_EXT_MEMORY_2ND_LOW, memk & 0x00ff);
+    
+    // Set the extended memory beyond 16 MB in 64k chunks
+    // this is min(0, bytes-16MB)
+    if (bytes<(1024*1024*16)) { 
+	mem_chunks=0;
+    } else {
+	mem_chunks = (bytes - (1024 * 1024 * 16)) / (1024 * 64);
     }
+
+    set_memory(nvram, NVRAM_REG_AMI_BIG_MEMORY_HIGH, (mem_chunks >> 8) & 0x00ff);
+    set_memory(nvram, NVRAM_REG_AMI_BIG_MEMORY_LOW, mem_chunks & 0x00ff);
 
     return;
 }
@@ -732,17 +730,9 @@ static int nvram_read_data_port(struct guest_info * core, uint16_t port,
     addr_t irq_state = v3_lock_irqsave(data->nvram_lock);
 
     if (get_memory(data, data->thereg, (uint8_t *)dst) == -1) {
-	PrintError("nvram: Register %d (0x%x) Not set\n", data->thereg, data->thereg);
+	PrintError("nvram: Register %d (0x%x) Not set - POSSIBLE BUG IN MACHINE INIT - CONTINUING\n", data->thereg, data->thereg);
 
-	v3_unlock_irqrestore(data->nvram_lock, irq_state);
-
-	/* allow guest to query checksummed bytes; warn but read zero rather than fail in this case */
-	if ((data->thereg >= CHECKSUM_REGION_FIRST_BYTE) && (data->thereg <= CHECKSUM_REGION_LAST_BYTE)) {
-	    return 1;
-	} else {	
-	    return -1;
-	}
-    }
+    } 
 
     PrintDebug("nvram: nvram_read_data_port(0x%x)  =  0x%x\n", data->thereg, *(uint8_t *)dst);
 

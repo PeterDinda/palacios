@@ -34,7 +34,7 @@ static int get_bitmap_index(uint_t msr)
     if( (msr >= LOW_MSR_START) && msr <= LOW_MSR_END) {
         return LOW_MSR_INDEX + msr;
     } else if (( msr >= HIGH_MSR_START ) && (msr <= HIGH_MSR_END)) {
-        return HIGH_MSR_INDEX + (msr - HIGH_MSR_START);
+        return (HIGH_MSR_INDEX * 8) + (msr - HIGH_MSR_START);
     } else {
         PrintError("MSR out of range: 0x%x\n", msr);
         return -1;
@@ -43,7 +43,6 @@ static int get_bitmap_index(uint_t msr)
 
 /* Same as SVM */
 static int update_map(struct v3_vm_info * vm, uint_t msr, int hook_reads, int hook_writes) {
-
     int index = get_bitmap_index(msr);
     uint_t major = index / 8;
     uint_t minor = (index % 8);
@@ -52,14 +51,12 @@ static int update_map(struct v3_vm_info * vm, uint_t msr, int hook_reads, int ho
     uint8_t write_val = (hook_writes) ? 0x1 : 0x0;
     uint8_t * bitmap = (uint8_t *)(vm->msr_map.arch_data);
 
-
     *(bitmap + major) &= ~(mask << minor);
     *(bitmap + major) |= (read_val << minor);
-    
 
     *(bitmap + 2048 + major) &= ~(mask << minor);
     *(bitmap + 2048 + major) |= (write_val << minor);
-    
+
     return 0;
 }
 
