@@ -557,28 +557,37 @@ int v3_handle_efer_read(struct guest_info * core, uint_t msr, struct v3_msr * ds
 }
 
 
-
-// TODO: this is a disaster we need to clean this up...
 int v3_handle_efer_write(struct guest_info * core, uint_t msr, struct v3_msr src, void * priv_data) {
-    //struct efer_64 * new_efer = (struct efer_64 *)&(src.value);
-    struct efer_64 * shadow_efer = (struct efer_64 *)&(core->ctrl_regs.efer);
-    struct v3_msr * guest_efer = &(core->shdw_pg_state.guest_efer);
+    struct v3_msr *  vm_efer     = &(core->shdw_pg_state.guest_efer);
+    struct efer_64 * hw_efer     = (struct efer_64 *)&(core->ctrl_regs.efer);
+    struct efer_64   old_hw_efer = *((struct efer_64 *)&core->ctrl_regs.efer);
     
-    PrintDebug("EFER Write\n");
-    PrintDebug("EFER Write Values: HI=%x LO=%x\n", src.hi, src.lo);
+    PrintDebug("EFER Write HI=%x LO=%x\n", src.hi, src.lo);
 
-    //PrintDebug("Old EFER=%p\n", (void *)*(addr_t*)(shadow_efer));
-    
-    // We virtualize the guests efer to hide the SVME and LMA bits
-    guest_efer->value = src.value;
-    
-    if (core->shdw_pg_mode == SHADOW_PAGING) {
-	// Enable/Disable Syscall
-	shadow_efer->sce = src.value & 0x1;
-    } else if (core->shdw_pg_mode == NESTED_PAGING) {
-	*(uint64_t *)shadow_efer = src.value;
-	shadow_efer->svme = 1;
+    // Set EFER value seen by guest if it reads EFER
+    vm_efer->value = src.value;
+
+    // Set EFER value seen by hardware while the guest is running
+    *(uint64_t *)hw_efer = src.value;
+
+    // Catch unsupported features
+    if ((old_hw_efer.lme == 1) && (hw_efer->lme == 0)) {
+	PrintError("Disabling long mode once it has been enabled is not supported\n");
+	return -1;
     }
+
+    // Set LME and LMA bits seen by hardware
+    if (old_hw_efer.lme == 0) {
+	// Long mode was not previously enabled, so the lme bit cannot
+	// be set yet. It will be set later when the guest sets CR0.PG
+	// to enable paging.
+    	hw_efer->lme = 0;
+    } else {
+	// Long mode was previously enabled. Ensure LMA bit is set.
+	// VMX does not automatically set LMA, and this should not affect SVM.
+	hw_efer->lma = 1;
+    }
+
     return 0;
 }
 

@@ -31,7 +31,8 @@ int v3_vmx_handle_cr0_access(struct guest_info * info,
 			     struct vmx_exit_info * exit_info);
 int v3_vmx_handle_cr3_access(struct guest_info * info, 
 			     struct vmx_exit_cr_qual * cr_qual);
-
+int v3_vmx_handle_cr4_access(struct guest_info * info, 
+			     struct vmx_exit_cr_qual * cr_qual);
 
 #endif
 

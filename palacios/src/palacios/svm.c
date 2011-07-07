@@ -81,6 +81,24 @@ static vmcb_t * Allocate_VMCB() {
 }
 
 
+static int v3_svm_handle_efer_write(struct guest_info * core, uint_t msr, struct v3_msr src, void * priv_data)
+{
+    int status;
+
+    // Call arch-independent handler
+    if ((status = v3_handle_efer_write(core, msr, src, priv_data)) != 0)
+	return status;
+
+    // SVM-specific code
+    if (core->shdw_pg_mode == NESTED_PAGING) {
+	// Ensure that hardware visible EFER.SVME bit is set (SVM Enable)
+	struct efer_64 * hw_efer = (struct efer_64 *)&(core->ctrl_regs.efer);
+	hw_efer->svme = 1;
+    }
+
+    return 0;
+}
+
 
 static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
     vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA(vmcb);
@@ -221,7 +239,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
 
     v3_hook_msr(core->vm_info, EFER_MSR, 
 		&v3_handle_efer_read,
-		&v3_handle_efer_write, 
+		&v3_svm_handle_efer_write, 
 		core);
 
     if (core->shdw_pg_mode == SHADOW_PAGING) {

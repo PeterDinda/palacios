@@ -36,6 +36,7 @@
 
 /* Control register exit masks */
 #define   CR4_VMXE      0x00002000
+#define   CR4_PAE       0x00000020
 
 
 

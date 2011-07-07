@@ -212,23 +212,25 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 
 
 #ifdef __V3_64BIT__
+    // Ensure host runs in 64-bit mode at each VM EXIT
     vmx_state->exit_ctrls.host_64_on = 1;
 #endif
 
-
-    /* Not sure how exactly to handle this... */
+    // Hook all accesses to EFER register
     v3_hook_msr(core->vm_info, EFER_MSR, 
 		&v3_handle_efer_read,
 		&v3_handle_efer_write, 
 		core);
 
-    // Or is it this??? 
-    vmx_state->entry_ctrls.ld_efer = 1;
+    // Restore host's EFER register on each VM EXIT
     vmx_state->exit_ctrls.ld_efer = 1;
-    vmx_state->exit_ctrls.save_efer = 1;
-    /*   ***   */
 
-    vmx_ret |= check_vmcs_write(VMCS_CR4_MASK, CR4_VMXE);
+    // Save/restore guest's EFER register to/from VMCS on VM EXIT/ENTRY
+    vmx_state->exit_ctrls.save_efer = 1;
+    vmx_state->entry_ctrls.ld_efer  = 1;
+
+    // Cause VM_EXIT whenever CR4.VMXE or CR4.PAE bits are written
+    vmx_ret |= check_vmcs_write(VMCS_CR4_MASK, CR4_VMXE | CR4_PAE);
 
 
     /* Setup paging */
