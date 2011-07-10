@@ -1,3 +1,12 @@
+/*
+ * Palacios keyed stream interface
+ * (c) Peter Dinda, 2011
+ */
+
+#include <linux/fs.h>
+#include <linux/file.h>
+#include <linux/uaccess.h>
+
 #include "palacios.h"
 #include "util-hashtable.h"
 #include "linux-exts.h"
@@ -6,17 +15,58 @@
 #include <interfaces/vmm_keyed_stream.h>
 
 /*
-  Streams are stored in a hash table
-  The values for this hash table are hash tables associted with 
-  each stream.   A keyed stream for a "mem:" stream is 
-  an instance of the structure given here 
+  This is an implementation of the Palacios keyed stream interface
+  that supports two flavors of streams:
+
+  "mem:"   Streams are stored in a hash table
+  The values for this hash table are hash tables associated with 
+  each stream.   
+
+  "file:"  Streams are stored in files.  Each high-level
+  open corresponds to a directory, while  key corresponds to
+  a distinct file in that directory. 
+
 */
+
+#define STREAM_GENERIC 0
+#define STREAM_MEM     1
+#define STREAM_FILE    2
+
+
+/*
+  All keyed streams and streams indicate their implementation type within the first field
+ */
+struct generic_keyed_stream {
+    int stype;
+};
+
+struct generic_stream {
+    int stype;
+};
+  
+
+
+
+/****************************************************************************************
+   Memory-based implementation  ("mem:")
+****************************************************************************************/
 
 #define DEF_NUM_STREAMS 16
 #define DEF_NUM_KEYS    128
 #define DEF_SIZE        128
 
+/*
+  A memory keyed stream is a pointer to the underlying hash table
+  while a memory stream contains an extensible buffer for the stream
+ */
+struct mem_keyed_stream {
+    int stype;
+    v3_keyed_stream_open_t ot;
+    struct hashtable *ht;
+};
+
 struct mem_stream {
+    int       stype;
     char     *data;
     uint32_t  size;
     uint32_t  data_max;
@@ -31,6 +81,7 @@ static struct mem_stream *create_mem_stream(void)
 	return 0;
     }
 
+
     m->data = kmalloc(DEF_SIZE,GFP_KERNEL);
     
     if (!m->data) { 
@@ -38,6 +89,7 @@ static struct mem_stream *create_mem_stream(void)
 	return 0;
     }
 
+    m->stype = STREAM_MEM;
     m->size=DEF_SIZE;
     m->ptr=0;
     m->data_max=0;
@@ -129,60 +181,85 @@ static inline int hash_comp(addr_t k1, addr_t k2)
 }
 
 
-// This stores all the streams
+// This stores all the memory keyed streams streams
 static struct hashtable *streams=0;
 
 
-static v3_keyed_stream_t open_stream(char *url,
-				     v3_keyed_stream_open_t ot)
+static v3_keyed_stream_t open_stream_mem(char *url,
+					 v3_keyed_stream_open_t ot)
 {
+
     if (strncasecmp(url,"mem:",4)) { 
-	printk("Only in-memory streams are currently supported\n");
+	printk("Illegitimate attempt to open memory stream \"%s\"\n",url);
 	return 0;
     }
 
     switch (ot) { 
 	case V3_KS_RD_ONLY:
-	case V3_KS_WR_ONLY:
-	    return (v3_keyed_stream_t) palacios_htable_search(streams,(addr_t)(url+4));
+	case V3_KS_WR_ONLY: {
+	    struct mem_keyed_stream *mks = (struct mem_keyed_stream *) palacios_htable_search(streams,(addr_t)(url+4));
+	    if (mks) { 
+		mks->ot=ot;
+	    }
+	    return (v3_keyed_stream_t) mks;
+	}
 	    break;
-	case V3_KS_WR_ONLY_CREATE: {
-	    struct hashtable *s = (struct hashtable *) palacios_htable_search(streams,(addr_t)(url+4));
 
-	    if (!s) { 
-		 s = palacios_create_htable(DEF_NUM_KEYS,hash_func,hash_comp);
-		 if (!s) { 
-		     printk("Cannot allocate in-memory keyed stream %s\n",url);
-		     return 0;
-		 }
-		 if (!palacios_htable_insert(streams,(addr_t)(url+4),(addr_t)s)) { 
-		     printk("Cannot insert in-memory keyed stream %s\n",url);
-		     return 0;
-		 }
+	case V3_KS_WR_ONLY_CREATE: {
+	    struct mem_keyed_stream *mks = (struct mem_keyed_stream *) palacios_htable_search(streams,(addr_t)(url+4));
+	    if (!mks) { 
+		mks = (struct mem_keyed_stream *) kmalloc(sizeof(struct mem_keyed_stream),GFP_KERNEL);
+		if (!mks) { 
+		    printk("Cannot allocate in-memory keyed stream %s\n",url);
+		    return 0;
+		}
+	    
+		mks->ht = (void*) palacios_create_htable(DEF_NUM_KEYS,hash_func,hash_comp);
+		if (!mks->ht) { 
+		    kfree(mks);
+		    printk("Cannot allocate in-memory keyed stream %s\n",url);
+		    return 0;
+		}
+		
+		if (!palacios_htable_insert(streams,(addr_t)(url+4),(addr_t)mks)) { 
+		    palacios_free_htable(mks->ht,1,1);
+		    kfree(mks);
+		    printk("Cannot insert in-memory keyed stream %s\n",url);
+		    return 0;
+		}
+		mks->stype=STREAM_MEM;
 	    }
 
-	    return s;
+	    mks->ot=V3_KS_WR_ONLY;
+	    
+	    return mks;
 	    
 	}
+	    break;
 
+	default:
+	    printk("unsupported open type in open_stream_mem\n");
 	    break;
     }
     
     return 0;
-    
+	
 }
 
 
-static void close_stream(v3_keyed_stream_t stream)
+
+static void close_stream_mem(v3_keyed_stream_t stream)
 {
     // nothing to do
     return;
 }
 
-static v3_keyed_stream_key_t open_key(v3_keyed_stream_t stream,
-				      char *key)
+
+static v3_keyed_stream_key_t open_key_mem(v3_keyed_stream_t stream,
+					  char *key)
 {
-    struct hashtable *s = (struct hashtable *) stream;
+    struct mem_keyed_stream *mks = (struct mem_keyed_stream *) stream;
+    struct hashtable *s = mks->ht;
 
     struct mem_stream *m;
 
@@ -192,12 +269,12 @@ static v3_keyed_stream_key_t open_key(v3_keyed_stream_t stream,
 	m = create_mem_stream();
 	
 	if (!m) { 
-	    printk("Cannot allocate keyed stream for key %s\n",key);
+	    printk("Cannot allocate mem keyed stream for key %s\n",key);
 	    return 0;
 	}
 
 	if (!palacios_htable_insert(s,(addr_t)key,(addr_t)m)) {
-	    printk("Cannot insert keyed stream for key %s\n",key);
+	    printk("Cannot insert mem keyed stream for key %s\n",key);
 	    destroy_mem_stream(m);
 	    return 0;
 	}
@@ -208,24 +285,29 @@ static v3_keyed_stream_key_t open_key(v3_keyed_stream_t stream,
 
 }
 
-static void close_key(v3_keyed_stream_t stream, 
-		      v3_keyed_stream_key_t key)
+static void close_key_mem(v3_keyed_stream_t stream, 
+			  v3_keyed_stream_key_t key)
 {
     // nothing to do
     return;
 }
 
-static sint64_t write_key(v3_keyed_stream_t stream, 
-			  v3_keyed_stream_key_t key,
-			  void *buf,
-			  sint64_t len)
+static sint64_t write_key_mem(v3_keyed_stream_t stream, 
+			      v3_keyed_stream_key_t key,
+			      void *buf,
+			      sint64_t len)
 {
+    struct mem_keyed_stream *mks = (struct mem_keyed_stream *) stream;
     struct mem_stream *m = (struct mem_stream *) key;
     uint32_t mylen;
     uint32_t writelen;
 
+    if (mks->ot!=V3_KS_WR_ONLY) {
+	return -1;
+    }
+
     if (len<0) { 
-	return len;
+	return -1;
     }
     
     mylen = (uint32_t) len;
@@ -240,23 +322,28 @@ static sint64_t write_key(v3_keyed_stream_t stream,
     }
 }
 
-static sint64_t read_key(v3_keyed_stream_t stream, 
-			 v3_keyed_stream_key_t key,
-			 void *buf,
-			 sint64_t len)
+static sint64_t read_key_mem(v3_keyed_stream_t stream, 
+			     v3_keyed_stream_key_t key,
+			     void *buf,
+			     sint64_t len)
 {
+    struct mem_keyed_stream *mks = (struct mem_keyed_stream *) stream;
     struct mem_stream *m = (struct mem_stream *) key;
     uint32_t mylen;
     uint32_t readlen;
     
+    if (mks->ot!=V3_KS_RD_ONLY) {
+	return -1;
+    }
+
     if (len<0) { 
-	return len;
+	return -1;
     }
     
     mylen = (uint32_t) len;
-
+    
     readlen=read_mem_stream(m,buf,mylen);
-
+    
     if (readlen!=mylen) { 
 	printk("Failed to read all data for key\n");
 	return -1;
@@ -264,6 +351,382 @@ static sint64_t read_key(v3_keyed_stream_t stream,
 	return (sint64_t)readlen;
     }
 }
+
+
+/***************************************************************************************************
+  File-based implementation  ("file:")
+*************************************************************************************************/
+
+/*
+  A file keyed stream contains the fd of the directory
+  and a path
+*/
+
+struct file_keyed_stream {
+    int   stype;
+    v3_keyed_stream_open_t ot;
+    char  *path;
+};
+
+struct file_stream {
+    int   stype;
+    struct file *f;   // the opened file
+};
+
+
+static int directory_ok(char *path, int flags)
+{
+    struct file *d;
+
+    // HACK
+    return 1;
+
+    d = filp_open(path,flags,0);
+
+    if (IS_ERR(d)) { 
+	return 0;
+    } else {
+	filp_close(d,NULL);
+	return 1;
+    }
+
+}
+
+static v3_keyed_stream_t open_stream_file(char *url,
+					  v3_keyed_stream_open_t ot)
+{
+    struct file_keyed_stream *fks;
+
+    if (strncasecmp(url,"file:",5)) { 
+	printk("Illegitimate attempt to open file stream \"%s\"\n",url);
+	return 0;
+    }
+
+    fks = kmalloc(sizeof(struct file_keyed_stream),GFP_KERNEL);
+    
+    if (!fks) { 
+	printk("Cannot allocate space for file stream\n");
+	return 0;
+    }
+
+    fks->path = (char*)kmalloc(strlen(url+5)+1,GFP_KERNEL);
+    
+    if (!(fks->path)) { 
+	printk("Cannot allocate space for file stream\n");
+	kfree(fks);
+	return 0;
+    }
+    
+    strcpy(fks->path,url+5);
+    
+    fks->stype=STREAM_FILE;
+
+    //lookup starts at current->fs->root or current->fs->cwd
+
+    switch (ot) { 
+	case V3_KS_RD_ONLY:
+	case V3_KS_WR_ONLY:
+	    
+	    if (directory_ok(fks->path, ot==V3_KS_RD_ONLY ? O_RDONLY : O_WRONLY)) { 
+		fks->ot=ot;
+		return (v3_keyed_stream_t) fks;
+	    } else {
+		printk("Directory \"%s\" not found\n",fks->path);
+		kfree(fks->path);
+		kfree(fks);
+		return 0;
+	    }
+
+	    break;
+
+	case V3_KS_WR_ONLY_CREATE: {
+	   
+	    if (directory_ok(fks->path, ot==V3_KS_RD_ONLY ? O_RDONLY : O_WRONLY)) { 
+		fks->ot=V3_KS_WR_ONLY;
+		return (v3_keyed_stream_t) fks;
+	    } else {
+		// TODO: Create Directory
+		printk("Directory \"%s\" not found and will not be created\n",fks->path);
+		kfree(fks->path);
+		kfree(fks);
+		return 0;
+	    }
+
+	}
+	    break;
+	    
+	default:
+	    printk("unsupported open type in open_stream_file\n");
+	    break;
+    }
+    
+    return 0;
+	
+}
+
+static void close_stream_file(v3_keyed_stream_t stream)
+{
+    struct file_keyed_stream *fks = (struct file_keyed_stream *) stream;
+    
+    kfree(fks->path);
+    kfree(fks);
+
+}
+
+static v3_keyed_stream_key_t open_key_file(v3_keyed_stream_t stream,
+					   char *key)
+{
+    struct file_keyed_stream *fks = (struct file_keyed_stream *) stream;
+    struct file_stream *fs;
+    char *path;
+
+    // the path is the stream's path plus the key name
+    // file:/home/foo + "regext" => "/home/foo/regext"
+    path = (char *) kmalloc(strlen(fks->path)+strlen(key)+2,GFP_KERNEL);
+    if (!path) {				
+	printk("Cannot allocate file keyed stream for key %s\n",key);
+	return 0;
+    }
+    strcpy(path,fks->path);
+    strcat(path,"/");
+    strcat(path,key);
+    
+    fs = (struct file_stream *) kmalloc(sizeof(struct file_stream *),GFP_KERNEL);
+    
+    if (!fs) { 
+	printk("Cannot allocate file keyed stream for key %s\n",key);
+	kfree(path);
+	return 0;
+    }
+
+    fs->stype=STREAM_FILE;
+
+    fs->f = filp_open(path,O_RDWR|O_CREAT,0600);
+    
+    if (IS_ERR(fs->f)) {
+	printk("Cannot open relevent file \"%s\" for stream \"file:%s\" and key \"%s\"\n",path,fks->path,key);
+	kfree(fs);
+	kfree(path);
+	return 0;
+    }
+
+    kfree(path);
+
+    return fs;
+}
+
+
+static void close_key_file(v3_keyed_stream_t stream, 
+			   v3_keyed_stream_key_t key)
+{
+    struct file_stream *fs = (struct file_stream *) key;
+
+    filp_close(fs->f,NULL);
+
+    kfree(fs);
+}
+
+static sint64_t write_key_file(v3_keyed_stream_t stream, 
+			       v3_keyed_stream_key_t key,
+			       void *buf,
+			       sint64_t len)
+{
+    struct file_keyed_stream *fks = (struct file_keyed_stream *) stream;
+    struct file_stream *fs = (struct file_stream *) key;
+    mm_segment_t old_fs;
+    ssize_t done, left, total;
+    
+    if (fks->ot!=V3_KS_WR_ONLY) { 
+	return -1;
+    }
+    
+    if (len<0) { 
+	return -1;
+    }
+
+    total=len;
+    left=len;
+
+    old_fs = get_fs();
+    set_fs(get_ds());
+
+    while (left>0) {
+	done = fs->f->f_op->write(fs->f, buf+(total-left), left, &(fs->f->f_pos));
+	if (done<=0) {
+	    return -1;
+	} else {
+	    left -= done;
+	}
+    }
+    set_fs(old_fs);
+
+    return len;
+}
+
+
+
+static sint64_t read_key_file(v3_keyed_stream_t stream, 
+			      v3_keyed_stream_key_t key,
+			      void *buf,
+			      sint64_t len)
+{
+    struct file_keyed_stream *fks = (struct file_keyed_stream *) stream;
+    struct file_stream *fs = (struct file_stream *) key;
+    mm_segment_t old_fs;
+    ssize_t done, left, total;
+    
+    if (fks->ot!=V3_KS_RD_ONLY) { 
+	return -1;
+    }
+
+    if (len<0) { 
+	return -1;
+    }
+
+    total=len;
+    left=len;
+
+    old_fs = get_fs();
+    set_fs(get_ds());
+
+    while (left>0) {
+	done = fs->f->f_op->read(fs->f, buf+(total-left), left, &(fs->f->f_pos));
+	if (done<=0) {
+	    return -1;
+	} else {
+	    left -= done;
+	}
+    }
+    set_fs(old_fs);
+
+    return len;
+
+}
+
+
+
+
+/***************************************************************************************************
+  Generic interface
+*************************************************************************************************/
+
+static v3_keyed_stream_t open_stream(char *url,
+				     v3_keyed_stream_open_t ot)
+{
+    if (!strncasecmp(url,"mem:",4)) { 
+	return open_stream_mem(url,ot);
+    } else if (!strncasecmp(url,"file:",5)) { 
+	return open_stream_file(url,ot);
+    } else {
+	printk("Unsupported type in attempt to open keyed stream \"%s\"\n",url);
+	return 0;
+    }
+}
+
+static void close_stream(v3_keyed_stream_t stream)
+{
+    struct generic_keyed_stream *gks = (struct generic_keyed_stream *) stream;
+    switch (gks->stype){ 
+	case STREAM_MEM:
+	    return close_stream_mem(stream);
+	    break;
+	case STREAM_FILE:
+	    return close_stream_file(stream);
+	    break;
+	default:
+	    printk("unknown stream type %d in close\n",gks->stype);
+	    break;
+    }
+}
+
+static v3_keyed_stream_key_t open_key(v3_keyed_stream_t stream,
+				      char *key)
+{
+    struct generic_keyed_stream *gks = (struct generic_keyed_stream *) stream;
+    switch (gks->stype){ 
+	case STREAM_MEM:
+	    return open_key_mem(stream,key);
+	    break;
+	case STREAM_FILE:
+	    return open_key_file(stream,key);
+	    break;
+	default:
+	    printk("unknown stream type %d in open_key\n",gks->stype);
+	    break;
+    }
+    return 0;
+}
+
+
+static void close_key(v3_keyed_stream_t stream, 
+		      v3_keyed_stream_key_t key)
+{
+    struct generic_keyed_stream *gks = (struct generic_keyed_stream *) stream;
+    switch (gks->stype){ 
+	case STREAM_MEM:
+	    return close_key_mem(stream,key);
+	    break;
+	case STREAM_FILE:
+	    return close_key_file(stream,key);
+	    break;
+	default:
+	    printk("unknown stream type %d in close_key\n",gks->stype);
+	    break;
+    }
+    // nothing to do
+    return;
+}
+
+static sint64_t write_key(v3_keyed_stream_t stream, 
+			  v3_keyed_stream_key_t key,
+			  void *buf,
+			  sint64_t len)
+{
+    struct generic_keyed_stream *gks = (struct generic_keyed_stream *) stream;
+    switch (gks->stype){ 
+	case STREAM_MEM:
+	    return write_key_mem(stream,key,buf,len);
+	    break;
+	case STREAM_FILE:
+	    return write_key_file(stream,key,buf,len);
+	    break;
+	default:
+	    printk("unknown stream type %d in write_key\n",gks->stype);
+	    return -1;
+	    break;
+    }
+    return -1;
+}
+
+
+static sint64_t read_key(v3_keyed_stream_t stream, 
+			 v3_keyed_stream_key_t key,
+			 void *buf,
+			 sint64_t len)
+{
+    struct generic_keyed_stream *gks = (struct generic_keyed_stream *) stream;
+    switch (gks->stype){ 
+	case STREAM_MEM:
+	    return read_key_mem(stream,key,buf,len);
+	    break;
+	case STREAM_FILE:
+	    return read_key_file(stream,key,buf,len);
+	    break;
+	default:
+	    printk("unknown stream type %d in write_key\n",gks->stype);
+	    return -1;
+	    break;
+    }
+    return -1;
+}
+
+
+
+
+/***************************************************************************************************
+  Hooks to palacios and inititialization
+*************************************************************************************************/
+
     
 static struct v3_keyed_stream_hooks hooks = {
     .open = open_stream,
@@ -280,19 +743,97 @@ static int init_keyed_streams( void )
     streams = palacios_create_htable(DEF_NUM_STREAMS,hash_func,hash_comp);
 
     if (!streams) { 
-	printk("Failed to allocated stream pool\n");
+	printk("Failed to allocated stream pool for in-memory streams\n");
 	return -1;
     }
 
     V3_Init_Keyed_Streams(&hooks);
+
+    /*
+
+    {
+    v3_keyed_stream_t s;
+    v3_keyed_stream_key_t k;
+    uint8_t buf[256];
+    uint32_t i;
     
+    printk("Testing memory interface\n");
+    s=open_stream("mem:/foo",V3_KS_WR_ONLY_CREATE);
+    k=open_key(s,"bar");
+    write_key(s,k,"hello",5);
+    close_key(s,k);
+    k=open_key(s,"baz");
+    write_key(s,k,"foobar",6);
+    close_key(s,k);
+    for (i=0;i<=256;i++) { 
+	buf[i]=i;
+    }
+    k=open_key(s,"goo");
+    write_key(s,k,buf,256);
+    close_key(s,k);
+    close_stream(s);
+    s=open_stream("mem:/foo",V3_KS_RD_ONLY);
+    k=open_key(s,"bar");
+    read_key(s,k,buf,5);
+    buf[5]=0;
+    printk("wrote 'hello', read '%s'\n",buf);
+    close_key(s,k);
+    k=open_key(s,"baz");
+    read_key(s,k,buf,6);
+    buf[6]=0;
+    printk("wrote 'foobar', read '%s'\n",buf);
+    close_key(s,k);
+    k=open_key(s,"goo");
+    read_key(s,k,buf,256);
+    for (i=0;i<256;i++) { 
+	printk("wrote 0x%x, read 0x%x (%s)\n",i,buf[i],i==buf[i] ? "ok" : "BAD");
+    }
+    close_key(s,k);
+    close_stream(s);
+
+    printk("Testing file interface\n");
+    s=open_stream("file:/foo",V3_KS_WR_ONLY_CREATE);
+    k=open_key(s,"bar");
+    write_key(s,k,"hello",5);
+    close_key(s,k);
+    k=open_key(s,"baz");
+    write_key(s,k,"foobar",6);
+    close_key(s,k);
+    for (i=0;i<=256;i++) { 
+	buf[i]=i;
+    }
+    k=open_key(s,"goo");
+    write_key(s,k,buf,256);
+    close_key(s,k);
+    close_stream(s);
+    s=open_stream("file:/foo",V3_KS_RD_ONLY);
+    k=open_key(s,"bar");
+    read_key(s,k,buf,5);
+    buf[5]=0;
+    printk("wrote 'hello', read '%s'\n",buf);
+    close_key(s,k);
+    k=open_key(s,"baz");
+    read_key(s,k,buf,6);
+    buf[6]=0;
+    printk("wrote 'foobar', read '%s'\n",buf);
+    close_key(s,k);
+    k=open_key(s,"goo");
+    read_key(s,k,buf,256);
+    for (i=0;i<256;i++) { 
+	printk("wrote 0x%x, read 0x%x (%s)\n",i,buf[i],i==buf[i] ? "ok" : "BAD");
+    }
+    close_key(s,k);
+    close_stream(s);
+    }
+    */
+
     return 0;
 
 }
 
 static int deinit_keyed_streams( void )
 {
-    printk("DEINIT OF PALACIOS KEYED STREAMS NOT IMPLEMENTED - WE HAVE JUST LEAKED MEMORY!\n");
+    printk("DEINIT OF PALACIOS KEYED STREAMS NOT IMPLEMENTED - WE HAVE JUST LEAKED MEMORY and/or file handles!\n");
     return -1;
 }
 
