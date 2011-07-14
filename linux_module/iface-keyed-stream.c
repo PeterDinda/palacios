@@ -6,6 +6,7 @@
 #include <linux/fs.h>
 #include <linux/file.h>
 #include <linux/uaccess.h>
+#include <linux/namei.h>
 
 #include "palacios.h"
 #include "util-hashtable.h"
@@ -190,7 +191,7 @@ static v3_keyed_stream_t open_stream_mem(char *url,
 {
 
     if (strncasecmp(url,"mem:",4)) { 
-	printk("Illegitimate attempt to open memory stream \"%s\"\n",url);
+	printk("palacios: illegitimate attempt to open memory stream \"%s\"\n",url);
 	return 0;
     }
 
@@ -210,21 +211,21 @@ static v3_keyed_stream_t open_stream_mem(char *url,
 	    if (!mks) { 
 		mks = (struct mem_keyed_stream *) kmalloc(sizeof(struct mem_keyed_stream),GFP_KERNEL);
 		if (!mks) { 
-		    printk("Cannot allocate in-memory keyed stream %s\n",url);
+		    printk("palacios: cannot allocate in-memory keyed stream %s\n",url);
 		    return 0;
 		}
 	    
 		mks->ht = (void*) palacios_create_htable(DEF_NUM_KEYS,hash_func,hash_comp);
 		if (!mks->ht) { 
 		    kfree(mks);
-		    printk("Cannot allocate in-memory keyed stream %s\n",url);
+		    printk("palacios: cannot allocate in-memory keyed stream %s\n",url);
 		    return 0;
 		}
 		
 		if (!palacios_htable_insert(streams,(addr_t)(url+4),(addr_t)mks)) { 
 		    palacios_free_htable(mks->ht,1,1);
 		    kfree(mks);
-		    printk("Cannot insert in-memory keyed stream %s\n",url);
+		    printk("palacios: cannot insert in-memory keyed stream %s\n",url);
 		    return 0;
 		}
 		mks->stype=STREAM_MEM;
@@ -238,7 +239,7 @@ static v3_keyed_stream_t open_stream_mem(char *url,
 	    break;
 
 	default:
-	    printk("unsupported open type in open_stream_mem\n");
+	    printk("palacios: unsupported open type in open_stream_mem\n");
 	    break;
     }
     
@@ -269,12 +270,12 @@ static v3_keyed_stream_key_t open_key_mem(v3_keyed_stream_t stream,
 	m = create_mem_stream();
 	
 	if (!m) { 
-	    printk("Cannot allocate mem keyed stream for key %s\n",key);
+	    printk("palacios: cannot allocate mem keyed stream for key %s\n",key);
 	    return 0;
 	}
 
 	if (!palacios_htable_insert(s,(addr_t)key,(addr_t)m)) {
-	    printk("Cannot insert mem keyed stream for key %s\n",key);
+	    printk("palacios: cannot insert mem keyed stream for key %s\n",key);
 	    destroy_mem_stream(m);
 	    return 0;
 	}
@@ -315,7 +316,7 @@ static sint64_t write_key_mem(v3_keyed_stream_t stream,
     writelen=write_mem_stream(m,buf,mylen);
 
     if (writelen!=mylen) { 
-	printk("Failed to write all data for key\n");
+	printk("palacios: failed to write all data for key\n");
 	return -1;
     } else {
 	return (sint64_t)writelen;
@@ -345,7 +346,7 @@ static sint64_t read_key_mem(v3_keyed_stream_t stream,
     readlen=read_mem_stream(m,buf,mylen);
     
     if (readlen!=mylen) { 
-	printk("Failed to read all data for key\n");
+	printk("palacios: failed to read all data for key\n");
 	return -1;
     } else {
 	return (sint64_t)readlen;
@@ -374,45 +375,28 @@ struct file_stream {
 };
 
 
-static int directory_ok(char *path, int flags)
-{
-    struct file *d;
-
-    // HACK
-    return 1;
-
-    d = filp_open(path,flags,0);
-
-    if (IS_ERR(d)) { 
-	return 0;
-    } else {
-	filp_close(d,NULL);
-	return 1;
-    }
-
-}
-
 static v3_keyed_stream_t open_stream_file(char *url,
 					  v3_keyed_stream_open_t ot)
 {
     struct file_keyed_stream *fks;
+    struct nameidata nd;
 
     if (strncasecmp(url,"file:",5)) { 
-	printk("Illegitimate attempt to open file stream \"%s\"\n",url);
+	printk("palacios: illegitimate attempt to open file stream \"%s\"\n",url);
 	return 0;
     }
 
     fks = kmalloc(sizeof(struct file_keyed_stream),GFP_KERNEL);
     
     if (!fks) { 
-	printk("Cannot allocate space for file stream\n");
+	printk("palacios: cannot allocate space for file stream\n");
 	return 0;
     }
 
     fks->path = (char*)kmalloc(strlen(url+5)+1,GFP_KERNEL);
     
     if (!(fks->path)) { 
-	printk("Cannot allocate space for file stream\n");
+	printk("palacios: cannot allocate space for file stream\n");
 	kfree(fks);
 	return 0;
     }
@@ -421,47 +405,82 @@ static v3_keyed_stream_t open_stream_file(char *url,
     
     fks->stype=STREAM_FILE;
 
-    //lookup starts at current->fs->root or current->fs->cwd
+    fks->ot= ot==V3_KS_WR_ONLY_CREATE ? V3_KS_WR_ONLY : ot;
 
-    switch (ot) { 
-	case V3_KS_RD_ONLY:
-	case V3_KS_WR_ONLY:
-	    
-	    if (directory_ok(fks->path, ot==V3_KS_RD_ONLY ? O_RDONLY : O_WRONLY)) { 
-		fks->ot=ot;
-		return (v3_keyed_stream_t) fks;
-	    } else {
-		printk("Directory \"%s\" not found\n",fks->path);
-		kfree(fks->path);
-		kfree(fks);
-		return 0;
+    // Does the directory exist, and can we read/write it?
+   
+    if (path_lookup(fks->path,LOOKUP_DIRECTORY|LOOKUP_FOLLOW,&nd)) { 
+
+	// directory does does not exist.  
+
+	if (ot==V3_KS_RD_ONLY || ot==V3_KS_WR_ONLY) { 
+
+	    // we are not being asked to create it
+	    printk("palacios: attempt to open %s, which does not exist\n",fks->path);
+	    goto fail_out;
+
+	} else {
+
+	    // We are being asked to create it
+
+	    struct dentry *de;
+	    int err;
+
+	    // Find its parent
+	    if (path_lookup(fks->path,LOOKUP_PARENT|LOOKUP_FOLLOW,&nd)) { 
+		printk("palacios: attempt to create %s failed because its parent cannot be looked up\n",fks->path);
+		goto fail_out;
 	    }
 
-	    break;
+	    // Can we write to the parent?
 
-	case V3_KS_WR_ONLY_CREATE: {
-	   
-	    if (directory_ok(fks->path, ot==V3_KS_RD_ONLY ? O_RDONLY : O_WRONLY)) { 
-		fks->ot=V3_KS_WR_ONLY;
-		return (v3_keyed_stream_t) fks;
-	    } else {
-		// TODO: Create Directory
-		printk("Directory \"%s\" not found and will not be created\n",fks->path);
-		kfree(fks->path);
-		kfree(fks);
-		return 0;
+	    if (inode_permission(nd.path.dentry->d_inode, MAY_WRITE | MAY_EXEC)) { 
+		printk("palacios: attempt to open %s, which has the wrong permissions for directory creation\n",fks->path);
+		goto fail_out;
 	    }
 
+	    // OK, we can, so let's create it
+
+	    de = lookup_create(&nd,1);
+
+	    if (IS_ERR(de)) { 
+		printk("palacios: cannot allocate dentry\n");
+		goto fail_out;
+	    }
+
+	    err = vfs_mkdir(nd.path.dentry->d_inode, de, 0700);
+
+	    // lookup_create locks this for us!
+
+	    mutex_unlock(&(nd.path.dentry->d_inode->i_mutex));
+
+	    if (err) {
+		printk("palacios: attempt to create %s failed because mkdir failed\n",fks->path);
+		goto fail_out;
+	    }
+
+ 	    // now the directory should exist and have reasonable permissions
+	    return (v3_keyed_stream_t) fks;
 	}
-	    break;
-	    
-	default:
-	    printk("unsupported open type in open_stream_file\n");
-	    break;
-    }
+    } 
+
     
+    // we must be in V3_KS_RD_ONLY or V3_KS_WR_ONLY, 
+    // and the directory exists, so we must check the permissions
+
+    if (inode_permission(nd.path.dentry->d_inode, MAY_EXEC | (ot==V3_KS_RD_ONLY ? MAY_READ : MAY_WRITE))) {
+	printk("palacios: attempt to open %s, which has the wrong permissions\n",fks->path);
+	goto fail_out;
+    } else {
+	return (v3_keyed_stream_t) fks;
+    }
+
+
+ fail_out:
+    kfree(fks->path);
+    kfree(fks);
     return 0;
-	
+
 }
 
 static void close_stream_file(v3_keyed_stream_t stream)
@@ -484,7 +503,7 @@ static v3_keyed_stream_key_t open_key_file(v3_keyed_stream_t stream,
     // file:/home/foo + "regext" => "/home/foo/regext"
     path = (char *) kmalloc(strlen(fks->path)+strlen(key)+2,GFP_KERNEL);
     if (!path) {				
-	printk("Cannot allocate file keyed stream for key %s\n",key);
+	printk("palacios: cannot allocate file keyed stream for key %s\n",key);
 	return 0;
     }
     strcpy(path,fks->path);
@@ -494,7 +513,7 @@ static v3_keyed_stream_key_t open_key_file(v3_keyed_stream_t stream,
     fs = (struct file_stream *) kmalloc(sizeof(struct file_stream *),GFP_KERNEL);
     
     if (!fs) { 
-	printk("Cannot allocate file keyed stream for key %s\n",key);
+	printk("palacios: cannot allocate file keyed stream for key %s\n",key);
 	kfree(path);
 	return 0;
     }
@@ -504,7 +523,7 @@ static v3_keyed_stream_key_t open_key_file(v3_keyed_stream_t stream,
     fs->f = filp_open(path,O_RDWR|O_CREAT,0600);
     
     if (IS_ERR(fs->f)) {
-	printk("Cannot open relevent file \"%s\" for stream \"file:%s\" and key \"%s\"\n",path,fks->path,key);
+	printk("palacios: cannot open relevent file \"%s\" for stream \"file:%s\" and key \"%s\"\n",path,fks->path,key);
 	kfree(fs);
 	kfree(path);
 	return 0;
@@ -618,7 +637,7 @@ static v3_keyed_stream_t open_stream(char *url,
     } else if (!strncasecmp(url,"file:",5)) { 
 	return open_stream_file(url,ot);
     } else {
-	printk("Unsupported type in attempt to open keyed stream \"%s\"\n",url);
+	printk("palacios: unsupported type in attempt to open keyed stream \"%s\"\n",url);
 	return 0;
     }
 }
@@ -634,7 +653,7 @@ static void close_stream(v3_keyed_stream_t stream)
 	    return close_stream_file(stream);
 	    break;
 	default:
-	    printk("unknown stream type %d in close\n",gks->stype);
+	    printk("palacios: unknown stream type %d in close\n",gks->stype);
 	    break;
     }
 }
@@ -651,7 +670,7 @@ static v3_keyed_stream_key_t open_key(v3_keyed_stream_t stream,
 	    return open_key_file(stream,key);
 	    break;
 	default:
-	    printk("unknown stream type %d in open_key\n",gks->stype);
+	    printk("palacios: unknown stream type %d in open_key\n",gks->stype);
 	    break;
     }
     return 0;
@@ -670,7 +689,7 @@ static void close_key(v3_keyed_stream_t stream,
 	    return close_key_file(stream,key);
 	    break;
 	default:
-	    printk("unknown stream type %d in close_key\n",gks->stype);
+	    printk("palacios: unknown stream type %d in close_key\n",gks->stype);
 	    break;
     }
     // nothing to do
@@ -691,7 +710,7 @@ static sint64_t write_key(v3_keyed_stream_t stream,
 	    return write_key_file(stream,key,buf,len);
 	    break;
 	default:
-	    printk("unknown stream type %d in write_key\n",gks->stype);
+	    printk("palacios: unknown stream type %d in write_key\n",gks->stype);
 	    return -1;
 	    break;
     }
@@ -713,7 +732,7 @@ static sint64_t read_key(v3_keyed_stream_t stream,
 	    return read_key_file(stream,key,buf,len);
 	    break;
 	default:
-	    printk("unknown stream type %d in write_key\n",gks->stype);
+	    printk("palacios: unknown stream type %d in write_key\n",gks->stype);
 	    return -1;
 	    break;
     }
@@ -743,89 +762,12 @@ static int init_keyed_streams( void )
     streams = palacios_create_htable(DEF_NUM_STREAMS,hash_func,hash_comp);
 
     if (!streams) { 
-	printk("Failed to allocated stream pool for in-memory streams\n");
+	printk("palacios: failed to allocated stream pool for in-memory streams\n");
 	return -1;
     }
 
     V3_Init_Keyed_Streams(&hooks);
 
-    /*
-
-    {
-    v3_keyed_stream_t s;
-    v3_keyed_stream_key_t k;
-    uint8_t buf[256];
-    uint32_t i;
-    
-    printk("Testing memory interface\n");
-    s=open_stream("mem:/foo",V3_KS_WR_ONLY_CREATE);
-    k=open_key(s,"bar");
-    write_key(s,k,"hello",5);
-    close_key(s,k);
-    k=open_key(s,"baz");
-    write_key(s,k,"foobar",6);
-    close_key(s,k);
-    for (i=0;i<=256;i++) { 
-	buf[i]=i;
-    }
-    k=open_key(s,"goo");
-    write_key(s,k,buf,256);
-    close_key(s,k);
-    close_stream(s);
-    s=open_stream("mem:/foo",V3_KS_RD_ONLY);
-    k=open_key(s,"bar");
-    read_key(s,k,buf,5);
-    buf[5]=0;
-    printk("wrote 'hello', read '%s'\n",buf);
-    close_key(s,k);
-    k=open_key(s,"baz");
-    read_key(s,k,buf,6);
-    buf[6]=0;
-    printk("wrote 'foobar', read '%s'\n",buf);
-    close_key(s,k);
-    k=open_key(s,"goo");
-    read_key(s,k,buf,256);
-    for (i=0;i<256;i++) { 
-	printk("wrote 0x%x, read 0x%x (%s)\n",i,buf[i],i==buf[i] ? "ok" : "BAD");
-    }
-    close_key(s,k);
-    close_stream(s);
-
-    printk("Testing file interface\n");
-    s=open_stream("file:/foo",V3_KS_WR_ONLY_CREATE);
-    k=open_key(s,"bar");
-    write_key(s,k,"hello",5);
-    close_key(s,k);
-    k=open_key(s,"baz");
-    write_key(s,k,"foobar",6);
-    close_key(s,k);
-    for (i=0;i<=256;i++) { 
-	buf[i]=i;
-    }
-    k=open_key(s,"goo");
-    write_key(s,k,buf,256);
-    close_key(s,k);
-    close_stream(s);
-    s=open_stream("file:/foo",V3_KS_RD_ONLY);
-    k=open_key(s,"bar");
-    read_key(s,k,buf,5);
-    buf[5]=0;
-    printk("wrote 'hello', read '%s'\n",buf);
-    close_key(s,k);
-    k=open_key(s,"baz");
-    read_key(s,k,buf,6);
-    buf[6]=0;
-    printk("wrote 'foobar', read '%s'\n",buf);
-    close_key(s,k);
-    k=open_key(s,"goo");
-    read_key(s,k,buf,256);
-    for (i=0;i<256;i++) { 
-	printk("wrote 0x%x, read 0x%x (%s)\n",i,buf[i],i==buf[i] ? "ok" : "BAD");
-    }
-    close_key(s,k);
-    close_stream(s);
-    }
-    */
 
     return 0;
 
