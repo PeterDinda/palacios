@@ -7,6 +7,7 @@
 #include <linux/file.h>
 #include <linux/uaccess.h>
 #include <linux/namei.h>
+#include <linux/vmalloc.h>
 
 #include "palacios.h"
 #include "util-hashtable.h"
@@ -74,7 +75,7 @@ struct mem_stream {
     uint32_t  ptr;
 };
 
-static struct mem_stream *create_mem_stream(void)
+static struct mem_stream *create_mem_stream_internal(uint64_t size)
 {
     struct mem_stream *m = kmalloc(sizeof(struct mem_stream),GFP_KERNEL);
 
@@ -83,7 +84,7 @@ static struct mem_stream *create_mem_stream(void)
     }
 
 
-    m->data = kmalloc(DEF_SIZE,GFP_KERNEL);
+    m->data = vmalloc(size);
     
     if (!m->data) { 
 	kfree(m);
@@ -91,11 +92,17 @@ static struct mem_stream *create_mem_stream(void)
     }
 
     m->stype = STREAM_MEM;
-    m->size=DEF_SIZE;
+    m->size=size;
     m->ptr=0;
     m->data_max=0;
     
     return m;
+}
+
+
+static struct mem_stream *create_mem_stream(void)
+{
+    return create_mem_stream_internal(DEF_SIZE);
 }
 
 static void destroy_mem_stream(struct mem_stream *m)
@@ -111,7 +118,7 @@ static void destroy_mem_stream(struct mem_stream *m)
     
 static int expand_mem_stream(struct mem_stream *m, uint32_t new_size)
 {
-    void *data = kmalloc(new_size,GFP_KERNEL);
+    void *data = vmalloc(new_size);
     uint32_t nc;
 
     if (!data) { 
@@ -209,8 +216,21 @@ static v3_keyed_stream_t open_stream_mem(char *url,
 	case V3_KS_WR_ONLY_CREATE: {
 	    struct mem_keyed_stream *mks = (struct mem_keyed_stream *) palacios_htable_search(streams,(addr_t)(url+4));
 	    if (!mks) { 
+		char *mykey;
+
+		mykey = kmalloc(strlen(url+4)+1,GFP_KERNEL);
+
+		if (!mykey) { 
+		    printk("palacios: cannot allocate space for new in-memory keyed stream %s\n",url);
+		    return 0;
+		}
+
+		strcpy(mykey,url+4);
+		
 		mks = (struct mem_keyed_stream *) kmalloc(sizeof(struct mem_keyed_stream),GFP_KERNEL);
+
 		if (!mks) { 
+		    kfree(mykey);
 		    printk("palacios: cannot allocate in-memory keyed stream %s\n",url);
 		    return 0;
 		}
@@ -218,13 +238,16 @@ static v3_keyed_stream_t open_stream_mem(char *url,
 		mks->ht = (void*) palacios_create_htable(DEF_NUM_KEYS,hash_func,hash_comp);
 		if (!mks->ht) { 
 		    kfree(mks);
+		    kfree(mykey);
 		    printk("palacios: cannot allocate in-memory keyed stream %s\n",url);
 		    return 0;
 		}
+
 		
-		if (!palacios_htable_insert(streams,(addr_t)(url+4),(addr_t)mks)) { 
+		if (!palacios_htable_insert(streams,(addr_t)(mykey),(addr_t)mks)) { 
 		    palacios_free_htable(mks->ht,1,1);
 		    kfree(mks);
+		    kfree(mykey);
 		    printk("palacios: cannot insert in-memory keyed stream %s\n",url);
 		    return 0;
 		}
@@ -267,22 +290,86 @@ static v3_keyed_stream_key_t open_key_mem(v3_keyed_stream_t stream,
     m = (struct mem_stream *) palacios_htable_search(s,(addr_t)key);
 
     if (!m) { 
+	char *mykey = kmalloc(strlen(key)+1,GFP_KERNEL);
+
+	if (!mykey) { 
+	    printk("palacios: cannot allocate copy of key for key %s\n",key);
+	    return 0;
+	}
+
+	strcpy(mykey,key);
+
 	m = create_mem_stream();
 	
 	if (!m) { 
+	    kfree(mykey);
 	    printk("palacios: cannot allocate mem keyed stream for key %s\n",key);
 	    return 0;
 	}
 
-	if (!palacios_htable_insert(s,(addr_t)key,(addr_t)m)) {
-	    printk("palacios: cannot insert mem keyed stream for key %s\n",key);
+	if (!palacios_htable_insert(s,(addr_t)mykey,(addr_t)m)) {
 	    destroy_mem_stream(m);
+	    kfree(mykey);
+	    printk("palacios: cannot insert mem keyed stream for key %s\n",key);
 	    return 0;
 	}
     }
 
     reset_mem_stream(m);
     return m;
+
+}
+
+
+static void preallocate_hint_key_mem(v3_keyed_stream_t stream,
+				     char *key,
+				     uint64_t size)
+{
+    struct mem_keyed_stream *mks = (struct mem_keyed_stream *) stream;
+    struct hashtable *s = mks->ht;
+
+    struct mem_stream *m;
+
+    if (mks->ot != V3_KS_WR_ONLY) { 
+	return;
+    }
+
+    m = (struct mem_stream *) palacios_htable_search(s,(addr_t)key);
+
+    if (!m) {
+	char *mykey;
+	
+	mykey=kmalloc(strlen(key)+1,GFP_KERNEL);
+	
+	if (!mykey) { 
+	    printk("palacios: cannot allocate key spce for preallocte for key %s\n",key);
+	    return;
+	}
+	
+	strcpy(mykey,key);
+       
+	m = create_mem_stream_internal(size);
+	
+	if (!m) { 
+	    printk("palacios: cannot preallocate mem keyed stream for key %s\n",key);
+	    return;
+	}
+
+	if (!palacios_htable_insert(s,(addr_t)mykey,(addr_t)m)) {
+	    printk("palacios: cannot insert preallocated mem keyed stream for key %s\n",key);
+	    destroy_mem_stream(m);
+	    return;
+	}
+    } else {
+	if (m->data_max < size) { 
+	    if (expand_mem_stream(m,size)) { 
+		printk("palacios: cannot expand key for preallocation for key %s\n",key);
+		return;
+	    }
+	}
+    }
+
+    return;
 
 }
 
@@ -492,6 +579,13 @@ static void close_stream_file(v3_keyed_stream_t stream)
 
 }
 
+static void preallocate_hint_key_file(v3_keyed_stream_t stream,
+				      char *key,
+				      uint64_t size)
+{
+    return;
+}
+
 static v3_keyed_stream_key_t open_key_file(v3_keyed_stream_t stream,
 					   char *key)
 {
@@ -658,6 +752,26 @@ static void close_stream(v3_keyed_stream_t stream)
     }
 }
 
+static void preallocate_hint_key(v3_keyed_stream_t stream,
+				 char *key,
+				 uint64_t size)
+{
+    struct generic_keyed_stream *gks = (struct generic_keyed_stream *) stream;
+    switch (gks->stype){ 
+	case STREAM_MEM:
+	    preallocate_hint_key_mem(stream,key,size);
+	    break;
+	case STREAM_FILE:
+	    preallocate_hint_key_file(stream,key,size);
+	    break;
+	default:
+	    printk("palacios: unknown stream type %d in preallocate_hint_key\n",gks->stype);
+	    break;
+    }
+    return;
+}
+
+
 static v3_keyed_stream_key_t open_key(v3_keyed_stream_t stream,
 				      char *key)
 {
@@ -750,6 +864,7 @@ static sint64_t read_key(v3_keyed_stream_t stream,
 static struct v3_keyed_stream_hooks hooks = {
     .open = open_stream,
     .close = close_stream,
+    .preallocate_hint_key = preallocate_hint_key,
     .open_key = open_key,
     .close_key = close_key,
     .read_key = read_key,
