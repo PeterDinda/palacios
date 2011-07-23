@@ -23,6 +23,8 @@
 
 #define V3_VM_HOST_DEV_CONNECT (10244+1)
 
+#define V3_VM_KSTREAM_USER_CONNECT (11244+1)
+
 
 struct v3_guest_img {
     unsigned long long size;
