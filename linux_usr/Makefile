@@ -1,4 +1,4 @@
-all: v3_ctrl v3_stop v3_cons v3_mem v3_monitor v3_serial v3_net v3_user_host_dev_example v3_os_debug
+all: v3_ctrl v3_stop v3_cons v3_mem v3_monitor v3_serial v3_net v3_user_host_dev_example v3_os_debug v3_user_keyed_stream_example v3_user_keyed_stream_file
 
 
 
@@ -30,6 +30,15 @@ v3_user_host_dev_example: v3_user_host_dev_example.c v3_user_host_dev.h v3_user_
 v3_os_debug: v3_os_debug.c v3_user_host_dev.h v3_user_host_dev.c
 	gcc -static -I../linux_module v3_os_debug.c v3_user_host_dev.c -o v3_os_debug
 
+v3_user_keyed_stream_example: v3_user_keyed_stream_example.c v3_user_keyed_stream.h v3_user_keyed_stream.c
+	gcc -static -I../linux_module v3_user_keyed_stream_example.c v3_user_keyed_stream.c -o v3_user_keyed_stream_example
+
+
+v3_user_keyed_stream_file: v3_user_keyed_stream_file.c v3_user_keyed_stream.h v3_user_keyed_stream.c
+	gcc -static -I../linux_module v3_user_keyed_stream_file.c v3_user_keyed_stream.c -o v3_user_keyed_stream_file
+
+
+
 
 clean:
-	rm -f v3_ctrl v3_cons v3_mem v3_monitor v3_serial v3_net v3_user_host_dev_example v3_os_debug
+	rm -f v3_ctrl v3_cons v3_mem v3_monitor v3_serial v3_net v3_user_host_dev_example v3_os_debug v3_user_keyed_stream_example v3_user_keyed_stream_file
