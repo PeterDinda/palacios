@@ -761,6 +761,7 @@ struct user_keyed_stream {
     struct list_head node;
 };
 
+
 //
 // List of all of the user streams
 //
@@ -789,7 +790,7 @@ static int resize_op(struct palacios_user_keyed_stream_op **op, uint64_t buf_len
 	    return 0;
 	} else {
 	    kfree(old);
-	    old=0;
+	    *op = 0 ;
 	    return resize_op(op,buf_len);
 	}
     }
@@ -818,7 +819,7 @@ static int do_request_to_response(struct user_keyed_stream *s, unsigned long *fl
     wake_up_interruptible(&(s->user_wait_queue));
 
     // wait for someone to give us a response
-    wait_event_interruptible(s->host_wait_queue, !(s->waiting));
+    while (wait_event_interruptible(s->host_wait_queue, (s->waiting == 0)) != 0) {}
 
     // reacquire the lock for our called
     spin_lock_irqsave(&(s->lock), *flags);
@@ -832,6 +833,7 @@ static int do_request_to_response(struct user_keyed_stream *s, unsigned long *fl
 // 
 static int do_response_to_request(struct user_keyed_stream *s, unsigned long *flags)
 {
+
     if (!(s->waiting)) {
 	printk("palacios: user keyed stream response while no request is in progress on %s\n",s->url);
         return -1;
@@ -855,21 +857,23 @@ static unsigned int keyed_stream_poll_user(struct file *filp, poll_table *wait)
 {
     struct user_keyed_stream *s = (struct user_keyed_stream *) (filp->private_data);
     unsigned long flags;
-    unsigned int mask = 0;
     
     if (!s) {
         return POLLERR;
     }
+    
+    spin_lock_irqsave(&(s->lock), flags);
+
+    if (s->waiting) {
+	spin_unlock_irqrestore(&(s->lock), flags);
+	return POLLIN | POLLRDNORM;
+    }
 
     poll_wait(filp, &(s->user_wait_queue), wait);
     
-    spin_lock_irqsave(&(s->lock), flags);
-    if (s->waiting) {
-        mask |= POLLIN | POLLRDNORM;
-    }
     spin_unlock_irqrestore(&(s->lock), flags);
-    
-    return mask;
+
+    return 0;
 }
 
 
@@ -896,7 +900,7 @@ static int keyed_stream_ioctl_user(struct inode *inode, struct file *filp, unsig
 
 	    size =  sizeof(struct palacios_user_keyed_stream_op) + s->op->buf_len;
 	    
-	    if (copy_to_user(argp, &size, sizeof(uint64_t))) {
+	    if (copy_to_user((void * __user) argp, &size, sizeof(uint64_t))) {
 		spin_unlock_irqrestore(&(s->lock), flags);
 		printk("palacios: palacios user key size request failed to copy data\n");
 		return -EFAULT;
@@ -923,7 +927,7 @@ static int keyed_stream_ioctl_user(struct inode *inode, struct file *filp, unsig
 	    size =  sizeof(struct palacios_user_keyed_stream_op) + s->op->buf_len;
 
 
-	    if (copy_to_user(argp, s->op, size)) {
+	    if (copy_to_user((void __user *) argp, s->op, size)) {
 		spin_unlock_irqrestore(&(s->lock), flags);
 		printk("palacios: palacios user key pull request failed to copy data\n");
 		return -EFAULT;
@@ -948,7 +952,7 @@ static int keyed_stream_ioctl_user(struct inode *inode, struct file *filp, unsig
             return 0;
         }
 	
-        if (copy_from_user(&size, argp, sizeof(uint64_t))) {
+        if (copy_from_user(&size, (void __user *) argp, sizeof(uint64_t))) {
 	    printk("palacios: palacios user key push response failed to copy size\n");
             spin_unlock_irqrestore(&(s->lock), flags);
             return -EFAULT;
@@ -960,7 +964,7 @@ static int keyed_stream_ioctl_user(struct inode *inode, struct file *filp, unsig
 	    return -EFAULT;
 	}
 
-        if (copy_from_user(&(s->op), argp, size)) {
+        if (copy_from_user(s->op, (void __user *) argp, size)) {
             spin_unlock_irqrestore(&(s->lock), flags);
             return -EFAULT;
         }
@@ -989,8 +993,6 @@ static int keyed_stream_release_user(struct inode *inode, struct file *filp)
 
     spin_lock_irqsave(&(user_streams->lock),f1);
     spin_lock_irqsave(&(s->lock), f2);
-
-    // FIXME Need to handle case of a pending request
 
     list_del(&(s->node));
 
@@ -1140,7 +1142,6 @@ static v3_keyed_stream_t open_stream_user(char *url, v3_keyed_stream_open_t ot)
         return NULL;
     }
     
-    
     s->otype = ot==V3_KS_WR_ONLY_CREATE ? V3_KS_WR_ONLY : ot;
     
     spin_unlock_irqrestore(&(s->lock), flags);
@@ -1171,11 +1172,11 @@ static v3_keyed_stream_key_t open_key_user(v3_keyed_stream_t stream, char *key)
 {
     unsigned long flags;
     struct user_keyed_stream *s = (struct user_keyed_stream *) stream;
-    struct palacios_user_keyed_stream_op *op;
     uint64_t   len = strlen(key)+1;
     void *user_key;
 
     spin_lock_irqsave(&(s->lock), flags);
+
 
     if (resize_op(&(s->op),len)) {
 	spin_unlock_irqrestore(&(s->lock),flags);
@@ -1183,13 +1184,10 @@ static v3_keyed_stream_key_t open_key_user(v3_keyed_stream_t stream, char *key)
 	return NULL;
     }
 
-    op = s->op;
+    s->op->type = PALACIOS_KSTREAM_OPEN_KEY;
+    s->op->buf_len = len;
+    strncpy(s->op->buf,key,len);
 
-    op->type = PALACIOS_KSTREAM_OPEN_KEY;
-    op->buf_len = len;
-    strncpy(op->buf,key,len);
-
-    
     // enter with it locked
     if (do_request_to_response(s,&flags)) { 
 	spin_unlock_irqrestore(&(s->lock),flags);
@@ -1201,14 +1199,13 @@ static v3_keyed_stream_key_t open_key_user(v3_keyed_stream_t stream, char *key)
     user_key=s->op->user_key;
 
     spin_unlock_irqrestore(&(s->lock),flags);
-    
+
     return user_key;
 }
 
 static void close_key_user(v3_keyed_stream_t stream, v3_keyed_stream_key_t key)
 {
     struct user_keyed_stream *s = (struct user_keyed_stream *) stream;
-    struct palacios_user_keyed_stream_op *op;
     uint64_t   len = 0;
     unsigned long flags;
     
@@ -1220,11 +1217,9 @@ static void close_key_user(v3_keyed_stream_t stream, v3_keyed_stream_key_t key)
 	return;
     }
 
-    op = s->op;
-
-    op->type = PALACIOS_KSTREAM_CLOSE_KEY;
-    op->buf_len = len;
-    op->user_key = key;
+    s->op->type = PALACIOS_KSTREAM_CLOSE_KEY;
+    s->op->buf_len = len;
+    s->op->user_key = key;
 
     // enter with it locked
     if (do_request_to_response(s,&flags)) { 
@@ -1235,7 +1230,7 @@ static void close_key_user(v3_keyed_stream_t stream, v3_keyed_stream_key_t key)
     // return with it locked
 
     spin_unlock_irqrestore(&(s->lock),flags);
-    
+
     return;
 }
 
@@ -1246,7 +1241,6 @@ static sint64_t read_key_user(v3_keyed_stream_t stream, v3_keyed_stream_key_t ke
 {
 
     struct user_keyed_stream *s = (struct user_keyed_stream *) stream;
-    struct palacios_user_keyed_stream_op *op;
     uint64_t   len = 0 ;
     sint64_t   xfer;
     unsigned long flags;
@@ -1264,11 +1258,10 @@ static sint64_t read_key_user(v3_keyed_stream_t stream, v3_keyed_stream_key_t ke
 	return -1;
     }
 
-    op = s->op;
-
-    op->type = PALACIOS_KSTREAM_READ_KEY;
-    op->buf_len = len;
-    op->user_key = key;
+    s->op->type = PALACIOS_KSTREAM_READ_KEY;
+    s->op->buf_len = len ;
+    s->op->xfer = rlen;
+    s->op->user_key = key;
 
     // enter with it locked
     if (do_request_to_response(s,&flags)) { 
@@ -1278,11 +1271,12 @@ static sint64_t read_key_user(v3_keyed_stream_t stream, v3_keyed_stream_key_t ke
     }
     // return with it locked
 
-    if (op->xfer>0) { 
-	memcpy(buf,op->buf,op->xfer);
+
+    if (s->op->xfer>0) { 
+	memcpy(buf,s->op->buf,s->op->xfer);
     }
 
-    xfer=op->xfer;
+    xfer=s->op->xfer;
 
     spin_unlock_irqrestore(&(s->lock),flags);
 
@@ -1315,11 +1309,12 @@ static sint64_t write_key_user(v3_keyed_stream_t stream, v3_keyed_stream_key_t k
 
     op = s->op;
 
-    op->type = PALACIOS_KSTREAM_WRITE_KEY;
-    op->buf_len = len;
-    op->user_key = key;
+    s->op->type = PALACIOS_KSTREAM_WRITE_KEY;
+    s->op->buf_len = len;
+    s->op->xfer = wlen;
+    s->op->user_key = key;
 
-    memcpy(op->buf,buf,wlen);
+    memcpy(s->op->buf,buf,wlen);
 
     // enter with it locked
     if (do_request_to_response(s,&flags)) { 
@@ -1329,7 +1324,7 @@ static sint64_t write_key_user(v3_keyed_stream_t stream, v3_keyed_stream_key_t k
     }
     // return with it locked
 
-    xfer=op->xfer;
+    xfer=s->op->xfer;
 
     spin_unlock_irqrestore(&(s->lock),flags);
 

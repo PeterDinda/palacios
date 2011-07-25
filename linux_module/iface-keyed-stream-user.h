@@ -7,7 +7,12 @@
  */
 
 
+// Attach to the VM
+#define V3_VM_KSTREAM_USER_CONNECT     (11244+1)
+
 // get size of pending request
+// Note that this is not the wrong ioctl - the connect ioctl applies to the VM device
+// the following ioctls apply to the FD returned by the connect
 #define V3_KSTREAM_REQUEST_SIZE_IOCTL  (11244+1)
 // get the pending request
 #define V3_KSTREAM_REQUEST_PULL_IOCTL  (11244+2)
@@ -19,6 +24,7 @@
 #else
 #define USER
 #endif
+
 
 struct palacios_user_keyed_stream_url {
     uint64_t len;
