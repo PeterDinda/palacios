@@ -15,6 +15,9 @@
 #define V3_VM_CONSOLE_CONNECT 20
 
 #define V3_VM_STOP 22
+#define V3_VM_PAUSE 23
+#define V3_VM_CONTINUE 24
+
 
 #define V3_VM_INSPECT 30
 

@@ -35,7 +35,8 @@ obj-y := \
 	vmm_extensions.o \
 	vmm_mtrr.o \
 	vmm_multitree.o \
-
+	vmm_bitmap.o \
+	vmm_barrier.o \
 
 
 

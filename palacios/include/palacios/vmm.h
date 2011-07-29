@@ -331,6 +331,10 @@ void Shutdown_V3( void );
 struct v3_vm_info * v3_create_vm(void * cfg, void * priv_data, char * name);
 int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask);
 int v3_stop_vm(struct v3_vm_info * vm);
+int v3_pause_vm(struct v3_vm_info * vm);
+int v3_continue_vm(struct v3_vm_info * vm);
+
+
 int v3_free_vm(struct v3_vm_info * vm);
 
 int v3_deliver_irq(struct v3_vm_info * vm, struct v3_interrupt * intr);

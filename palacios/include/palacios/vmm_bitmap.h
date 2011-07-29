@@ -17,35 +17,30 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#ifndef __VMM_BARRIER_H__
-#define __VMM_BARRIER_H__
+
+
+#ifndef __VMM_BITMAP_H__
+#define __VMM_BITMAP_H__
 
 #ifdef __V3VEE__
-
-#include <palacios/vmm_lock.h>
-#include <palacios/vmm_bitmap.h>
+#include <palacios/vmm_types.h>
 
 
 
-struct v3_barrier {
-    int active;     // If 1, barrier is active, everyone must wait 
-                    // If 0, barrier is clear, can proceed
-
-    struct v3_bitmap cpu_map;
-
-    v3_lock_t lock;
+struct v3_bitmap {
+    int num_bits;      // number of valid bit positions in the bitmap
+    uint8_t * bits;   // actual bitmap. Dynamically allocated... ugly
 };
 
-struct v3_vm_info;
-struct guest_info;
 
-int v3_init_barrier(struct v3_vm_info * vm_info);
-int v3_deinit_barrier(struct v3_vm_info * vm_info);
+int v3_bitmap_init(struct v3_bitmap * bitmap, int num_bits);
+void v3_bitmap_deinit(struct v3_bitmap * bitmap);
+int v3_bitmap_reset(struct v3_bitmap * bitmap);
 
-int v3_raise_barrier(struct v3_vm_info * vm_info, struct guest_info * local_core);
-int v3_lower_barrier(struct v3_vm_info * vm_info);
+int v3_bitmap_set(struct v3_bitmap * bitmap, int index);
+int v3_bitmap_clear(struct v3_bitmap * bitmap, int index);
+int v3_bitmap_check(struct v3_bitmap * bitmap, int index);
 
-int v3_wait_at_barrier(struct guest_info * core);
 
 
 #endif

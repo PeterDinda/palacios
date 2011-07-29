@@ -404,6 +404,32 @@ int v3_stop_vm(struct v3_vm_info * vm) {
 }
 
 
+int v3_pause_vm(struct v3_vm_info * vm) {
+
+    if (vm->run_state != VM_RUNNING) {
+	PrintError("Tried to pause a VM that was not running\n");
+	return -1;
+    }
+
+    while (v3_raise_barrier(vm, NULL) == -1);
+
+    return 0;
+}
+
+
+int v3_continue_vm(struct v3_vm_info * vm) {
+
+    if (vm->run_state != VM_RUNNING) {
+	PrintError("Tried to continue a VM that was not already running\n");
+	return -1;
+    }
+
+    v3_lower_barrier(vm);
+
+    return 0;
+}
+
+
 int v3_free_vm(struct v3_vm_info * vm) {
     int i = 0;
     // deinitialize guest (free memory, etc...)

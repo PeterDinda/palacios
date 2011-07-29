@@ -36,6 +36,8 @@
 #include <palacios/svm_msr.h>
 
 #include <palacios/vmm_rbtree.h>
+#include <palacios/vmm_barrier.h>
+
 
 #include <palacios/vmm_direct_paging.h>
 
@@ -690,6 +692,8 @@ int v3_start_svm_guest(struct guest_info * info) {
 
 	    break;
 	}
+
+	v3_wait_at_barrier(info);
 
 
 	if (info->vm_info->run_state == VM_STOPPED) {
