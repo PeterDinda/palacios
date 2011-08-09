@@ -61,7 +61,9 @@ sint64_t              v3_keyed_stream_read_key(v3_keyed_stream_t stream,
 					       void *buf, 
 					       sint64_t len);
 
-#define STD_SAVE(stream,ks,x)			\
+
+
+#define STD_SAVE_RAW(stream,ks,x)			\
     do { \
 	if (sizeof((x)) != v3_keyed_stream_write_key((stream), (ks), &(x), sizeof((x)))) { \
 	    v3_keyed_stream_close_key((stream),(ks)); \
@@ -69,7 +71,7 @@ sint64_t              v3_keyed_stream_read_key(v3_keyed_stream_t stream,
 	} \
     } while (0)
 
-#define STD_LOAD(stream,ks,x)			\
+#define STD_LOAD_RAW(stream,ks,x)			\
     do {								\
 	if (sizeof((x)) != v3_keyed_stream_read_key((stream), (ks), &(x), sizeof((x)))) { \
 	    v3_keyed_stream_close_key((stream),(ks)); \
@@ -77,6 +79,89 @@ sint64_t              v3_keyed_stream_read_key(v3_keyed_stream_t stream,
 	} \
     } while (0)
 #endif
+
+#define KSTREAM_MAGIC_COOKIE 0xabcd0123
+
+#define STD_SAVE_TAGGED(stream,ks,tag,size,x)				\
+do {		         						\
+uint32_t temp;								\
+temp=KSTREAM_MAGIC_COOKIE;						\
+if (sizeof(temp) != v3_keyed_stream_write_key((stream),(ks),&temp,sizeof(temp))) { \
+    v3_keyed_stream_close_key((stream),(ks));				\
+    return -1;								\
+ }									\
+temp=strlen(tag);							\
+if (sizeof(temp) != v3_keyed_stream_write_key((stream),(ks),&temp,sizeof(temp))) { \
+    v3_keyed_stream_close_key((stream),(ks));				\
+    return -1;								\
+ }									\
+if (temp != v3_keyed_stream_write_key((stream),(ks),tag,temp)) {	\
+    v3_keyed_stream_close_key((stream),(ks));				\
+    return -1;								\
+ }									\
+temp=(size);								\
+if (sizeof(temp) != v3_keyed_stream_write_key((stream),(ks),&temp,sizeof(temp))) { \
+    v3_keyed_stream_close_key((stream),(ks));				\
+    return -1;								\
+ }									\
+if ((size) != v3_keyed_stream_write_key((stream),(ks),&(x),(size))) {	\
+    v3_keyed_stream_close_key((stream),(ks));				\
+    return -1;								\
+ }                                                                      \
+} while (0)
+
+#define STD_LOAD_TAGGED(stream,ks,tag,size,x)	 			\
+do {		         						\
+uint32_t temp;								\
+if (sizeof(temp) != v3_keyed_stream_read_key((stream),(ks),&temp,sizeof(temp))) { \
+    v3_keyed_stream_close_key((stream),(ks));				\
+    return -1;								\
+ }									\
+if (temp!=KSTREAM_MAGIC_COOKIE) {					\
+    v3_keyed_stream_close_key((stream),(ks));				\
+    return -1;								\
+}                                                                       \
+if (sizeof(temp) != v3_keyed_stream_read_key((stream),(ks),&temp,sizeof(temp))) { \
+    v3_keyed_stream_close_key((stream),(ks));				\
+    return -1;								\
+ }									\
+if (strlen((tag))!=temp) {						\
+    v3_keyed_stream_close_key((stream),(ks));				\
+    return -1;								\
+}									\
+{ char buf[temp+1];							\
+    if (temp != v3_keyed_stream_read_key((stream),(ks),buf,temp)) {	\
+        v3_keyed_stream_close_key((stream),(ks));			\
+        return -1;							\
+    }									\
+    buf[temp]=0;							\
+    if (strncasecmp(buf,tag,temp)) {					\
+        v3_keyed_stream_close_key((stream),(ks));			\
+        return -1;							\
+    }									\
+}                                                                       \
+if (sizeof(temp) != v3_keyed_stream_read_key((stream),(ks),&temp,sizeof(temp))) { \
+    v3_keyed_stream_close_key((stream),(ks));				\
+    return -1;								\
+ }									\
+if (temp!=(size)) {							\
+    v3_keyed_stream_close_key((stream),(ks));                           \
+    return -1;                                                          \
+}                                                                       \
+if ((size) != v3_keyed_stream_read_key((stream),(ks),&(x),(size))) {	\
+    v3_keyed_stream_close_key((stream),(ks));				\
+    return -1;								\
+ }                                                                      \
+} while (0)
+
+#ifdef V3_CONFIG_KEYED_STREAMS_WITH_TAGS
+#define STD_SAVE(stream,ks,x) STD_SAVE_TAGGED(stream,ks,#x,sizeof(x),x)
+#define STD_LOAD(stream,ks,x) STD_LOAD_TAGGED(stream,ks,#x,sizeof(x),x)
+#else
+#define STD_SAVE(stream,ks,x) STD_SAVE_RAW(stream,ks,x)
+#define STD_LOAD(stream,ks,x) STD_LOAD_RAW(stream,ks,x)
+#endif
+
 
 
 struct v3_keyed_stream_hooks {
