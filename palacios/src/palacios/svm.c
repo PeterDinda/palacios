@@ -1,4 +1,3 @@
-
 /* 
  * This file is part of the Palacios Virtual Machine Monitor developed
  * by the V3VEE Project with funding from the United States National 
@@ -88,11 +87,12 @@ static int v3_svm_handle_efer_write(struct guest_info * core, uint_t msr, struct
     int status;
 
     // Call arch-independent handler
-    if ((status = v3_handle_efer_write(core, msr, src, priv_data)) != 0)
+    if ((status = v3_handle_efer_write(core, msr, src, priv_data)) != 0) {
 	return status;
+    }
 
     // SVM-specific code
-    if (core->shdw_pg_mode == NESTED_PAGING) {
+    {
 	// Ensure that hardware visible EFER.SVME bit is set (SVM Enable)
 	struct efer_64 * hw_efer = (struct efer_64 *)&(core->ctrl_regs.efer);
 	hw_efer->svme = 1;
