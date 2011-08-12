@@ -413,18 +413,22 @@ int v3_pause_vm(struct v3_vm_info * vm) {
 
     while (v3_raise_barrier(vm, NULL) == -1);
 
+    vm->run_state = VM_PAUSED;
+
     return 0;
 }
 
 
 int v3_continue_vm(struct v3_vm_info * vm) {
 
-    if (vm->run_state != VM_RUNNING) {
-	PrintError("Tried to continue a VM that was not already running\n");
+    if (vm->run_state != VM_PAUSED) {
+	PrintError("Tried to continue a VM that was not paused\n");
 	return -1;
     }
 
     v3_lower_barrier(vm);
+
+    vm->run_state = VM_RUNNING;
 
     return 0;
 }
