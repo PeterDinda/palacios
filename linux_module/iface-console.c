@@ -217,7 +217,7 @@ static int console_connect(struct v3_guest * guest, unsigned int cmd,
 
     spin_lock_irqsave(&(cons->lock), flags);
 
-    cons_fd = anon_inode_getfd("v3-cons", &cons_fops, cons, 0);
+    cons_fd = anon_inode_getfd("v3-cons", &cons_fops, cons, O_RDWR);
 
     if (cons_fd < 0) {
 	printk("Error creating console inode\n");
