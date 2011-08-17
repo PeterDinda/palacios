@@ -202,11 +202,11 @@ struct v3_dev_console_ops {
 
 struct v3_dev_char_ops {
     /* Backend implemented functions */
-    int (*write)(uint8_t * buf, uint64_t len, void * private_data);
+    uint64_t (*output)(uint8_t * buf, uint64_t len, void * private_data);
     //  int (*read)(uint8_t * buf, uint64_t len, void * private_data);
 
     /* Frontend Implemented functions */
-    int (*push)(struct v3_vm_info * vm, uint8_t * buf, uint64_t len, void * private_data);
+    uint64_t (*input)(struct v3_vm_info * vm, uint8_t * buf, uint64_t len, void * private_data);
 };
 
 

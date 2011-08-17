@@ -140,7 +140,7 @@ console_write(struct file * filp, const char __user * buf, size_t size, loff_t *
 
 
     for (i = 0; i < size; i++) {
-	if (copy_from_user(&(event.scan_code), buf, 1)) {
+	if (copy_from_user(&(event.scan_code), buf + i, 1)) {
 	    printk("Console Write fault\n");
 	    return -EFAULT;
 	}
