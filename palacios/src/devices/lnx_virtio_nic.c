@@ -195,7 +195,6 @@ static int tx_one_pkt(struct guest_info * core,
 {
     uint8_t * buf = NULL;
     uint32_t len = buf_desc->length;
-    int synchronize = virtio->tx_notify;
 
     if (v3_gpa_to_hva(core, buf_desc->addr_gpa, (addr_t *)&(buf)) == -1) {
 	PrintDebug("Could not translate buffer address\n");
@@ -207,7 +206,7 @@ static int tx_one_pkt(struct guest_info * core,
 	v3_hexdump(buf, len, NULL, 0);
     }
 
-    if(virtio->net_ops->send(buf, len, synchronize, virtio->backend_data) < 0){
+    if(virtio->net_ops->send(buf, len, virtio->backend_data) < 0){
 	virtio->stats.tx_dropped ++;
 	return -1;
     }
@@ -265,11 +264,12 @@ static inline void disable_cb(struct virtio_queue *queue) {
 }
 
 static int handle_pkt_tx(struct guest_info * core, 
-			 struct virtio_net_state * virtio_state) 
+			 struct virtio_net_state * virtio_state,
+			 int quote)
 {
     struct virtio_queue *q = &(virtio_state->tx_vq);
-    int txed = 0;
-    unsigned long flags; 
+    int txed = 0, left = 0;
+    unsigned long flags;
 
     if (!q->ring_avail_addr) {
 	return -1;
@@ -314,8 +314,11 @@ static int handle_pkt_tx(struct guest_info * core,
 	q->used->index ++;
 	
 	q->cur_avail_idx ++;
-
-	txed ++;
+	
+	if(++txed >= quote && quote > 0){
+	    left = (q->cur_avail_idx != q->avail->index);
+	    break;
+	}
     }
 
     v3_unlock_irqrestore(virtio_state->tx_lock, flags);
@@ -327,11 +330,13 @@ static int handle_pkt_tx(struct guest_info * core,
 	virtio_state->stats.rx_interrupts ++;
     }
 
+    V3_Print("Virtio Intr Line %d\n", virtio_state->pci_dev->config_header.intr_line);
+
     if(txed > 0) {
-	V3_Net_Print(2, "Virtio Handle TX: txed pkts: %d\n", txed);
+	V3_Net_Print(2, "Virtio Handle TX: txed pkts: %d, left %d\n", txed, left);
     }
 
-    return 0;
+    return left;
 
 exit_error:
 	
@@ -449,15 +454,15 @@ static int virtio_io_write(struct guest_info *core,
 		    /* receive queue refill */
 		    virtio->stats.tx_interrupts ++;
 		} else if (queue_idx == 1){
-		    if (handle_pkt_tx(core, virtio) == -1) {
-			PrintError("Could not handle Virtio NIC tx kick\n");
+		    if (handle_pkt_tx(core, virtio, 0) < 0) {
+			PrintError("Virtio NIC: Error to handle packet TX\n");
 			return -1;
 		    }
 		    virtio->stats.tx_interrupts ++;
 		} else if (queue_idx == 2){
 		    /* ctrl */
 		} else {
-		    PrintError("Wrong queue index %d\n", queue_idx);
+		    PrintError("Virtio NIC: Wrong queue index %d\n", queue_idx);
 		}	
 		break;		
 	    }
@@ -495,7 +500,7 @@ static int virtio_io_read(struct guest_info *core,
     switch (port_idx) {
 	case HOST_FEATURES_PORT:
 	    if (length != 4) {
-		PrintError("Illegal read length for host features\n");
+		PrintError("Virtio NIC: Illegal read length for host features\n");
 		//return -1;
 	    }
 	    *(uint32_t *)dst = virtio->virtio_cfg.host_features;
@@ -503,7 +508,7 @@ static int virtio_io_read(struct guest_info *core,
 
 	case VRING_PG_NUM_PORT:
 	    if (length != 4) {
-		PrintError("Illegal read length for page frame number\n");
+		PrintError("Virtio NIC: Illegal read length for page frame number\n");
 		return -1;
 	    }
  	    switch (queue_idx) {
@@ -523,7 +528,7 @@ static int virtio_io_read(struct guest_info *core,
 
 	case VRING_SIZE_PORT:
 	    if (length != 2) {
-		PrintError("Illegal read length for vring size\n");
+		PrintError("Virtio NIC: Illegal read length for vring size\n");
 		return -1;
 	    }
 	    switch (queue_idx) {
@@ -543,7 +548,7 @@ static int virtio_io_read(struct guest_info *core,
 
 	case VIRTIO_STATUS_PORT:
 	    if (length != 1) {
-		PrintError("Illegal read length for status\n");
+		PrintError("Virtio NIC: Illegal read length for status\n");
 		return -1;
 	    }
 	    *(uint8_t *)dst = virtio->virtio_cfg.status;
@@ -578,7 +583,7 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
     unsigned long flags;
     uint8_t kick_guest = 0;
 
-    V3_Net_Print(2, "Virtio-NIC: virtio_rx: size: %d\n", size);
+    V3_Net_Print(2, "Virtio NIC: virtio_rx: size: %d\n", size);
 
     if (!q->ring_avail_addr) {
 	V3_Net_Print(2, "Virtio NIC: RX Queue not set\n");
@@ -627,7 +632,7 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
 		len = copy_data_to_desc(&(virtio->virtio_dev->vm->cores[0]), 
 					virtio, buf_desc, buf+offset, size-offset, 0);	
 		if (len < 0){
-		    V3_Net_Print(2, "Virtio NIC:merged buffer, %d buffer size %d\n", 
+		    V3_Net_Print(2, "Virtio NIC: merged buffer, %d buffer size %d\n", 
 				 hdr.num_buffers, len);
 		    q->cur_avail_idx = old_idx;
 	      	    goto err_exit;
@@ -752,22 +757,10 @@ static struct v3_device_ops dev_ops = {
 };
 
 
-static int virtio_tx_flush(void * args){
-    struct virtio_net_state *virtio  = (struct virtio_net_state *)args;
+static int virtio_poll(int quote, void * data){
+    struct virtio_net_state * virtio  = (struct virtio_net_state *)data;
 
-    V3_Print("Virtio TX Poll Thread Starting for %s\n", 
-	     virtio->vm->name);
-
-    while(1){
-    	if(virtio->tx_notify == 0){
-    	    handle_pkt_tx(&(virtio->vm->cores[0]), virtio);
-	    v3_yield(NULL);
-    	}else {
-	    vnet_thread_sleep(-1);
-    	}
-    }
-
-    return 0;
+    return handle_pkt_tx(&(virtio->vm->cores[0]), virtio, quote);
 }
 
 static int register_dev(struct virtio_dev_state * virtio, 
@@ -780,7 +773,7 @@ static int register_dev(struct virtio_dev_state * virtio,
     int i;
 
     /* This gets the number of ports, rounded up to a power of 2 */
-    net_state->io_range_size = 1; // must be a power of 2
+    net_state->io_range_size = 1;
     while (tmp_ports > 0) {
 	tmp_ports >>= 1;
 	net_state->io_range_size <<= 1;
@@ -797,7 +790,7 @@ static int register_dev(struct virtio_dev_state * virtio,
 	bars[i].type = PCI_BAR_NONE;
     }
     
-    PrintDebug("Virtio-NIC io_range_size = %d\n", 
+    PrintDebug("Virtio NIC: io_range_size = %d\n", 
 	       net_state->io_range_size);
     
     bars[0].type = PCI_BAR_IO;
@@ -808,7 +801,7 @@ static int register_dev(struct virtio_dev_state * virtio,
     bars[0].private_data = net_state;
     
     pci_dev = v3_pci_register_device(virtio->pci_bus, PCI_STD_DEVICE, 
-				     0, 4/*PCI_AUTO_DEV_NUM*/, 0,
+				     0, PCI_AUTO_DEV_NUM, 0,
 				     "LNX_VIRTIO_NIC", bars,
 				     NULL, NULL, NULL, net_state);
     
@@ -836,6 +829,8 @@ static int register_dev(struct virtio_dev_state * virtio,
     memcpy(net_state->net_cfg.mac, virtio->mac, 6);                           
 	
     virtio_init_state(net_state);
+
+    V3_Print("Virtio NIC: Registered Intr Line %d\n", pci_dev->config_header.intr_line);
 
     /* Add backend to list of devices */
     list_add(&(net_state->dev_link), &(virtio->dev_list));
@@ -936,11 +931,12 @@ static int connect_fn(struct v3_vm_info * info,
 				    &timer_ops,net_state);
 
     ops->recv = virtio_rx;
-    ops->frontend_data = net_state;
-    memcpy(ops->fnt_mac, virtio->mac, ETH_ALEN);
-
-    net_state->poll_thread = vnet_start_thread(virtio_tx_flush, 
-					       (void *)net_state, "Virtio_Poll");
+    ops->poll = virtio_poll;
+    ops->config.frontend_data = net_state;
+    ops->config.poll = 1;
+    ops->config.quote = 64;
+    ops->config.fnt_mac = V3_Malloc(ETH_ALEN);  
+    memcpy(ops->config.fnt_mac, virtio->mac, ETH_ALEN);
 
     net_state->status = 1;
 
@@ -956,7 +952,7 @@ static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     memcpy(macstr, str, strlen(str));
 
     if (pci_bus == NULL) {
-	PrintError("Virtio NIC: VirtIO devices require a PCI Bus");
+	PrintError("Virtio NIC: Virtio device require a PCI Bus");
 	return -1;
     }
 
