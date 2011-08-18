@@ -49,6 +49,7 @@ typedef enum {V3_KS_RD_ONLY,V3_KS_WR_ONLY,V3_KS_WR_ONLY_CREATE} v3_keyed_stream_
 
 v3_keyed_stream_t     v3_keyed_stream_open(char *url, v3_keyed_stream_open_t open_type);
 void                  v3_keyed_stream_close(v3_keyed_stream_t stream);
+void                  v3_keyed_stream_preallocate_hint_key(v3_keyed_stream_t stream, char *key, uint64_t size);
 v3_keyed_stream_key_t v3_keyed_stream_open_key(v3_keyed_stream_t stream, char *key);
 void                  v3_keyed_stream_close_key(v3_keyed_stream_t stream,  char *key);
 sint64_t              v3_keyed_stream_write_key(v3_keyed_stream_t stream,  
@@ -84,6 +85,10 @@ struct v3_keyed_stream_hooks {
 			      v3_keyed_stream_open_t open_type);
 			      
     void (*close)(v3_keyed_stream_t stream);
+
+    void (*preallocate_hint_key)(v3_keyed_stream_t stream,
+				 char *key,
+				 uint64_t size);
 
     v3_keyed_stream_key_t (*open_key)(v3_keyed_stream_t stream,
 				      char *key);

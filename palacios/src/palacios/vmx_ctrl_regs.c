@@ -77,6 +77,29 @@ int v3_vmx_handle_cr3_access(struct guest_info * info, struct vmx_exit_cr_qual *
     return -1;
 }
 
+int v3_vmx_handle_cr4_access(struct guest_info * info, struct vmx_exit_cr_qual * cr_qual) {
+    if (cr_qual->access_type < 2) {
+
+	if (cr_qual->access_type == 0) {
+	    if (v3_handle_cr4_write(info) != 0) {
+		PrintError("Could not handle CR4 write\n");
+		return -1;
+	    }
+	    info->ctrl_regs.cr4 |= 0x2000; // no VMX allowed in guest, so mask CR4.VMXE
+	} else {
+	    if (v3_handle_cr4_read(info) != 0) {
+		PrintError("Could not handle CR4 read\n");
+		return -1;
+	    }
+	}
+
+	return 0;
+    }
+
+    PrintError("Invalid CR4 Access type?? (type=%d)\n", cr_qual->access_type);
+    return -1;
+}
+
 static int handle_mov_to_cr3(struct guest_info * info, v3_reg_t * cr3_reg) {
 
     if (info->shdw_pg_mode == SHADOW_PAGING) {
@@ -196,13 +219,14 @@ static int handle_mov_to_cr0(struct guest_info * info, v3_reg_t * new_cr0, struc
 	    // Paging transition
 	    
 	    if (v3_get_vm_mem_mode(info) == VIRTUAL_MEM) {
-		struct efer_64 * guest_efer = (struct efer_64 *)&(info->ctrl_regs.efer);
+		struct efer_64 * vm_efer = (struct efer_64 *)&(info->shdw_pg_state.guest_efer);
+		struct efer_64 * hw_efer = (struct efer_64 *)&(info->ctrl_regs.efer);
 		
-		if (guest_efer->lme == 1) {
+		if (vm_efer->lme) {
 		    //     PrintDebug("Enabling long mode\n");
 		    
-		    guest_efer->lma = 1;
-		    guest_efer->lme = 1;
+		    hw_efer->lma = 1;
+		    hw_efer->lme = 1;
 		    
 		    vmx_info->entry_ctrls.guest_ia32e = 1;
 		}

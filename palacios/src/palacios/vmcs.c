@@ -260,6 +260,7 @@ int v3_vmx_restore_vmcs(struct guest_info * info) {
 
 #ifdef __V3_64BIT__
     check_vmcs_write(VMCS_GUEST_EFER, info->ctrl_regs.efer);
+    check_vmcs_write(VMCS_ENTRY_CTRLS, vmx_info->entry_ctrls.value);
 #endif
 
 

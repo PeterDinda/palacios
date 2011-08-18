@@ -100,7 +100,7 @@ int v3_init_vmx_hw(struct vmx_hw_info * hw_info) {
 
     v3_get_msr(VMX_BASIC_MSR, &(hw_info->basic_info.hi), &(hw_info->basic_info.lo));
     v3_get_msr(VMX_MISC_MSR, &(hw_info->misc_info.hi), &(hw_info->misc_info.lo));
-    v3_get_msr(VMX_EPT_VPID_CAP_MSR, &(hw_info->ept_info.hi), &(hw_info->ept_info.lo));
+
 
     PrintError("BASIC_MSR: Lo: %x, Hi: %x\n", hw_info->basic_info.lo, hw_info->basic_info.hi);
 
@@ -109,13 +109,27 @@ int v3_init_vmx_hw(struct vmx_hw_info * hw_info) {
     get_ex_ctrl_caps(hw_info, &(hw_info->exit_ctrls), VMX_EXIT_CTLS_MSR, VMX_TRUE_EXIT_CTLS_MSR);
     get_ex_ctrl_caps(hw_info, &(hw_info->entry_ctrls), VMX_ENTRY_CTLS_MSR, VMX_TRUE_ENTRY_CTLS_MSR);
 
+
     /* Get secondary PROCBASED controls if secondary controls are available (optional or required) */
     /* Intel Manual 3B. Sect. G.3.3 */
     if ( ((hw_info->proc_ctrls.req_mask & 0x80000000) == 0) || 
 	 ((hw_info->proc_ctrls.req_val & 0x80000000) == 1) ) {
+      
 	get_ctrl_caps(&(hw_info->sec_proc_ctrls), VMX_PROCBASED_CTLS2_MSR);
+
+        /* Get EPT data only if available - Intel 3B, G.10 */
+        /* EPT is available if processor has secondary controls (already tested) */
+        /* and if procbased_ctls2[33]==1  or procbased_ctrls2[37]==1 */
+
+        struct v3_msr proc2;
+
+        v3_get_msr(VMX_PROCBASED_CTLS2_MSR,&(proc2.hi),&(proc2.lo));
+	
+	if ( (proc2.hi & 0x2) || (proc2.hi & 0x20) ) {
+	  v3_get_msr(VMX_EPT_VPID_CAP_MSR, &(hw_info->ept_info.hi), &(hw_info->ept_info.lo));
+	}
     }
-    
+
     get_cr_fields(&(hw_info->cr0), VMX_CR0_FIXED1_MSR, VMX_CR0_FIXED0_MSR);
     get_cr_fields(&(hw_info->cr4), VMX_CR4_FIXED1_MSR, VMX_CR4_FIXED0_MSR);
 

@@ -1153,12 +1153,14 @@ static int cga_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	PrintDebug("Enabling CGA Passthrough\n");
 	if (v3_hook_write_mem(vm, V3_MEM_CORE_ANY, START_ADDR, END_ADDR, 
 			      START_ADDR, &video_write_mem, dev) == -1) {
-	    PrintDebug("\n\nVideo Hook failed.\n\n");
+	    PrintError("\n\nVideo Hook failed.\n\n");
+	    return -1;
 	}
     } else {
 	if (v3_hook_write_mem(vm, V3_MEM_CORE_ANY, START_ADDR, END_ADDR, 
 			      video_state->framebuf_pa, &video_write_mem, dev) == -1) {
-	    PrintDebug("\n\nVideo Hook failed.\n\n");
+	    PrintError("\n\nVideo Hook failed.\n\n");
+	    return -1;
 	}
     }
 

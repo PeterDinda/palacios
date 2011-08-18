@@ -394,7 +394,20 @@ static int free_hook(struct v3_vm_info * vm, struct mem_hook * hook) {
 // We do not support unhooking subregions
 int v3_unhook_mem(struct v3_vm_info * vm, uint16_t core_id, addr_t guest_addr_start) {
     struct v3_mem_region * reg = v3_get_mem_region(vm, core_id, guest_addr_start);
-    struct mem_hook * hook = reg->priv_data;
+    struct mem_hook * hook = NULL;
+
+    if (reg == NULL) {
+	PrintError("Could not find region at %p\n", (void *)guest_addr_start);
+	return -1;
+    }
+
+    hook = reg->priv_data;
+
+    if (hook == NULL) {
+	PrintError("Trying to unhook region that is not a hook at %p\n", (void *)guest_addr_start);
+	return -1;
+    }
+
 
     free_hook(vm, hook);
 

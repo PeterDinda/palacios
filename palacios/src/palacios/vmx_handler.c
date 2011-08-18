@@ -224,12 +224,22 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
 			return -1;
 		    }
 		    break;
+		case 4:
+		    //PrintDebug("Handling CR4 Access\n");
+		    if (v3_vmx_handle_cr4_access(info, cr_qual) == -1) {
+			PrintError("Error in CR4 access handler\n");
+			return -1;
+		    }
+		    break;
 		default:
 		    PrintError("Unhandled CR access: %d\n", cr_qual->cr_id);
 		    return -1;
 	    }
 	    
-	    info->rip += exit_info->instr_len;
+	    // TODO: move RIP increment into all of the above individual CR
+	    //       handlers, not just v3_vmx_handle_cr4_access()
+	    if (cr_qual->cr_id != 4)
+		info->rip += exit_info->instr_len;
 
 	    break;
 	}

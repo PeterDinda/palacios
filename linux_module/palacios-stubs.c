@@ -85,7 +85,11 @@ static void *
 palacios_alloc(unsigned int size) {
     void * addr = NULL;
 
-    addr = kmalloc(size, GFP_KERNEL);
+    if (irqs_disabled()) {
+    	addr = kmalloc(size, GFP_ATOMIC);
+    } else {
+    	addr = kmalloc(size, GFP_KERNEL);
+    }
     mallocs++;
  
     return addr;

@@ -30,7 +30,7 @@
 #include <palacios/vmm_sprintf.h>
 #include <palacios/vmm_xed.h>
 #include <palacios/vmm_direct_paging.h>
-
+#include <palacios/vmm_barrier.h>
 
 
 v3_cpu_mode_t v3_get_vm_cpu_mode(struct guest_info * info) {
@@ -539,6 +539,8 @@ int v3_init_vm(struct v3_vm_info * vm) {
     v3_init_intr_routers(vm);
     v3_init_ext_manager(vm);
 
+    v3_init_barrier(vm);
+
     // Initialize the memory map
     if (v3_init_mem_map(vm) == -1) {
 	PrintError("Could not initialize shadow map\n");
@@ -636,6 +638,8 @@ int v3_free_vm_internal(struct v3_vm_info * vm) {
 
     v3_deinit_intr_routers(vm);
     v3_deinit_host_events(vm);
+
+    v3_deinit_barrier(vm);
 
     v3_deinit_cpuid_map(vm);
     v3_deinit_msr_map(vm);

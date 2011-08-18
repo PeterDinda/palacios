@@ -23,24 +23,34 @@
 
 
 
+struct v3_stream {
+    void * host_stream_data;
+    void * guest_stream_data;
+    uint64_t (*input)(struct v3_stream * stream, uint8_t * buf, uint64_t len);
+};
+
+
 #ifdef __V3VEE__
 #include <palacios/vmm.h>
 
-typedef void * v3_stream_t;
+
 
 /* VM Can be NULL */
-v3_stream_t v3_stream_open(struct v3_vm_info * vm, const char * name);
-int v3_stream_write(v3_stream_t stream, uint8_t * buf, uint32_t len);
+struct v3_stream * v3_stream_open(struct v3_vm_info * vm, const char * name,
+				  uint64_t (*input)(struct v3_stream * stream, uint8_t * buf, uint64_t len),
+				  void * guest_stream_data);
 
-void v3_stream_close(v3_stream_t stream);
+uint64_t  v3_stream_output(struct v3_stream * stream, uint8_t * buf, uint32_t len);
+
+void v3_stream_close(struct v3_stream * stream);
 
 #endif
 
 
 struct v3_stream_hooks {
-    void *(*open)(const char * name, void * private_data);
-    int (*write)(void * stream, char * buf, int len);
-    void (*close)(void * stream);
+    void *(*open)(struct v3_stream * stream, const char * name, void * host_vm_data);
+    uint64_t (*output)(struct v3_stream * stream, char * buf, int len);
+    void (*close)(struct v3_stream * stream);
 };
 
 

@@ -37,7 +37,7 @@
 #include <palacios/vmm_cpuid.h>
 #include <palacios/vmm_regs.h>
 #include <palacios/vmm_extensions.h>
-
+#include <palacios/vmm_barrier.h>
 
 
 #ifdef V3_CONFIG_TELEMETRY
@@ -170,7 +170,7 @@ struct v3_vm_info {
 
     v3_vm_operating_mode_t run_state;
 
-
+    struct v3_barrier barrier;
 
 
     struct v3_extensions extensions;

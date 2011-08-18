@@ -27,30 +27,27 @@
 
 
 struct stream_state {
-    v3_stream_t stream;
+    struct v3_stream * stream;
 
     struct v3_dev_char_ops char_ops;
+
+    struct v3_vm_info * vm;
 
     void * push_fn_arg;
 };
 
 
-static int serial_event_handler(struct v3_vm_info * vm, 
-				struct v3_serial_event * evt, 
-				void * private_data) {
-    struct stream_state * state = (struct stream_state *)private_data;
+static uint64_t  stream_input(struct v3_stream * stream, uint8_t * buf, uint64_t len) {
+    struct stream_state * state = stream->guest_stream_data;
 
-    if (state->char_ops.push != NULL){
-    	state->char_ops.push(vm, evt->data, evt->len, state->push_fn_arg);
-    }
+    return state->char_ops.input(state->vm, buf, len, state->push_fn_arg);
 
-    return 0;
 }
 
-static int stream_write(uint8_t * buf, uint64_t length, void * private_data) {
+static uint64_t  stream_output(uint8_t * buf, uint64_t length, void * private_data) {
     struct stream_state * state = (struct stream_state *)private_data;
-    
-    return v3_stream_write(state->stream, buf, length);
+   
+    return v3_stream_output(state->stream, buf, length);
 }
 
 static int stream_free(struct stream_state * state) {
@@ -93,8 +90,7 @@ static int stream_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     }
 
 
-
-    state->stream = v3_stream_open(vm, stream_name);
+    state->stream = v3_stream_open(vm, stream_name, stream_input, state);
 
     if (state->stream == NULL) {
 	PrintError("Could not open stream %s\n", stream_name);
@@ -102,7 +98,8 @@ static int stream_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	return -1;
     }
 
-    state->char_ops.write = stream_write;
+    state->vm = vm;
+    state->char_ops.output = stream_output;
 
     if (v3_dev_connect_char(vm, v3_cfg_val(frontend_cfg, "tag"), 
 			    &(state->char_ops), frontend_cfg, 
@@ -113,7 +110,7 @@ static int stream_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	return -1;
     }
 
-    v3_hook_host_event(vm, HOST_SERIAL_EVT, V3_HOST_EVENT_HANDLER(serial_event_handler), state);
+
 
     return 0;
 }

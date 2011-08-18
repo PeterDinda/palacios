@@ -46,6 +46,14 @@ void                  v3_keyed_stream_close(v3_keyed_stream_t stream)
 }
 
 
+void v3_keyed_stream_preallocate_hint_key(v3_keyed_stream_t stream, char *key, uint64_t size)
+{
+    V3_ASSERT(keyed_stream_hooks != NULL);
+    V3_ASSERT(keyed_stream_hooks->preallocate_hint_key != NULL);
+
+    return keyed_stream_hooks->preallocate_hint_key(stream,key,size);
+}
+
 v3_keyed_stream_key_t v3_keyed_stream_open_key(v3_keyed_stream_t stream, char *key)
 {
     V3_ASSERT(keyed_stream_hooks != NULL);

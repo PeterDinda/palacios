@@ -28,28 +28,38 @@
 static struct v3_stream_hooks * stream_hooks = NULL;
 
 // VM can be NULL
-v3_stream_t v3_stream_open(struct v3_vm_info * vm, const char * name) {
+struct v3_stream * v3_stream_open(struct v3_vm_info * vm, const char * name, 
+				  uint64_t (*input)(struct v3_stream * stream, uint8_t * buf, uint64_t len),
+				  void * guest_stream_data) {
+    struct v3_stream * stream = NULL;
+
     V3_ASSERT(stream_hooks != NULL);
     V3_ASSERT(stream_hooks->open != NULL);
 
-    return stream_hooks->open(name, vm->host_priv_data);
+    stream = V3_Malloc(sizeof(struct v3_stream *));
+
+    stream->input = input;
+    stream->guest_stream_data = guest_stream_data;
+    stream->host_stream_data = stream_hooks->open(stream, name, vm->host_priv_data);
+
+    return stream;
 }
 
-int v3_stream_write(v3_stream_t stream, uint8_t * buf, uint32_t len) {
+uint64_t v3_stream_output(struct v3_stream * stream, uint8_t * buf, uint32_t len) {
     V3_ASSERT(stream_hooks != NULL);
-    V3_ASSERT(stream_hooks->write != NULL);
+    V3_ASSERT(stream_hooks->output != NULL);
 
-    return stream_hooks->write(stream, buf, len);
+    return stream_hooks->output(stream, buf, len);
 }
 
-void v3_stream_close(v3_stream_t stream) {
+void v3_stream_close(struct v3_stream * stream) {
     V3_ASSERT(stream_hooks != NULL);
     V3_ASSERT(stream_hooks->close != NULL);
 
-    return stream_hooks->close(stream);
+    stream_hooks->close(stream);
+
+    V3_Free(stream);
 }
-
-
 
 
 

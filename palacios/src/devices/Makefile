@@ -15,6 +15,7 @@ obj-$(V3_CONFIG_LINUX_VIRTIO_BLOCK) += lnx_virtio_blk.o
 obj-$(V3_CONFIG_LINUX_VIRTIO_SYM) += lnx_virtio_sym.o
 obj-$(V3_CONFIG_LINUX_VIRTIO_NET) += lnx_virtio_nic.o
 obj-$(V3_CONFIG_LINUX_VIRTIO_VNET) += lnx_virtio_vnet.o
+obj-$(V3_CONFIG_LINUX_VIRTIO_CONSOLE) += lnx_virtio_console.o
 obj-$(V3_CONFIG_VNET_NIC) += vnet_nic.o
 obj-$(V3_CONFIG_NVRAM) += nvram.o
 obj-$(V3_CONFIG_OS_DEBUG) += os_debug.o

@@ -393,6 +393,8 @@ static int queue_data(struct v3_vm_info * vm, struct serial_port * com,
 	    com->lsr.oe = 1; //overrun error bit set
 	}
 
+	updateIRQ(vm, com);
+
 	return 0;
     }
     
@@ -411,9 +413,7 @@ static int queue_data(struct v3_vm_info * vm, struct serial_port * com,
 	com->lsr.thre = 0; //reset thre and temt bits.
 	com->lsr.temt = 0;
     }
-    
-    updateIRQ(vm, com);
-    
+        
     return 0;
 }
 
@@ -486,9 +486,10 @@ static int write_data_port(struct guest_info * core, uint16_t port,
 
 	/* JRL: Some buffering would probably be a good idea here.... */
 	if (com_port->ops) {
-	    com_port->ops->write(val, 1, com_port->backend_data);
+	    com_port->ops->output(val, 1, com_port->backend_data);
 	} else {
 	    queue_data(core->vm_info, com_port, &(com_port->tx_buffer), *val);
+	    updateIRQ(core->vm_info, com_port);
 	}
     }
     
@@ -896,13 +897,15 @@ static int init_serial_port(struct serial_port * com) {
     return 0;
 }
 
-static int serial_input(struct v3_vm_info * vm, uint8_t * buf, uint64_t len, void * priv_data){
+static uint64_t serial_input(struct v3_vm_info * vm, uint8_t * buf, uint64_t len, void * priv_data){
     struct serial_port * com_port = (struct serial_port *)priv_data;
     int i;
 
     for(i = 0; i < len; i++){
     	queue_data(vm, com_port, &(com_port->rx_buffer), buf[i]);
     }
+
+    updateIRQ(vm, com_port);
 
     return len;
 }
@@ -937,7 +940,7 @@ static int connect_fn(struct v3_vm_info * vm,
     com->ops = ops;
     com->backend_data = private_data;
 
-    com->ops->push = serial_input;
+    com->ops->input = serial_input;
     *push_fn_arg = com;
 
     return 0;
