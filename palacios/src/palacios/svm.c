@@ -547,6 +547,30 @@ int v3_svm_enter(struct guest_info * info) {
     v3_time_enter_vm(info);
     guest_ctrl->TSC_OFFSET = v3_tsc_host_offset(&info->time_state);
 
+    if(info->core_move_state == CORE_MOVE_PENDING) {
+	v3_stgi();
+
+	if(V3_MOVE_THREAD_TO_CPU(info->target_pcpu_id, info->core_thread) != 0){
+	    PrintError("Failed to move Vcore %d to CPU %d\n", 
+		     info->vcpu_id, 
+		     info->target_pcpu_id);
+	} else {
+	    info->pcpu_id = info->target_pcpu_id;
+	    V3_Print("Core move done, vcore %d is running on CPU %d now\n", 
+		     info->vcpu_id, 
+		     V3_Get_CPU());
+	}
+	
+	info->core_move_state = CORE_MOVE_DONE;
+
+	/* disable global interrupts, 
+	 *  NOTE now it is being running on a different CPU 
+	 */
+	v3_clgi();
+    }
+
+	
+
     //V3_Print("Calling v3_svm_launch\n");
 
     v3_svm_launch((vmcb_t *)V3_PAddr(info->vmm_data), &(info->vm_regs), (vmcb_t *)host_vmcbs[V3_Get_CPU()]);

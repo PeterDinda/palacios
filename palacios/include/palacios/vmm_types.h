@@ -29,6 +29,7 @@
 typedef enum {SHADOW_PAGING, NESTED_PAGING} v3_paging_mode_t;
 typedef enum {VM_RUNNING, VM_STOPPED, VM_PAUSED, VM_ERROR} v3_vm_operating_mode_t;
 typedef enum {CORE_RUNNING, CORE_STOPPED} v3_core_operating_mode_t;
+typedef enum {CORE_MOVE_DONE, CORE_MOVE_PENDING} v3_core_moving_state_t;
 
 typedef enum {REAL, /*UNREAL,*/ PROTECTED, PROTECTED_PAE, LONG, LONG_32_COMPAT, LONG_16_COMPAT} v3_cpu_mode_t;
 typedef enum {PHYSICAL_MEM, VIRTUAL_MEM} v3_mem_mode_t;

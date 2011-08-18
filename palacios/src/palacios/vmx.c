@@ -786,6 +786,31 @@ int v3_vmx_enter(struct guest_info * info) {
     check_vmcs_write(VMCS_TSC_OFFSET_HIGH, tsc_offset_high);
     check_vmcs_write(VMCS_TSC_OFFSET, tsc_offset_low);
 
+
+    /* determine if we need to move to a different physical core */
+    if(info->core_move_state == CORE_MOVE_PENDING) {
+	vmcs_clear(vmx_info->vmcs_ptr_phys);
+	
+	v3_enable_ints();
+
+	if(V3_MOVE_THREAD_TO_CPU(info->target_pcpu_id, info->core_thread) != 0){
+	    PrintError("Failed to move vcore %d to CPU %d\n", info->vcpu_id, info->target_pcpu_id);
+	} else {
+	    info->pcpu_id = info->target_pcpu_id;
+	    PrintDebug("Core move done, vcore %d is running on CPU %d now\n", info->vcpu_id, V3_Get_CPU());
+	}
+
+	/* disable global interrupts, 
+	 *  NOTE now it is being running on a different CPU 
+	 */
+	v3_disable_ints();
+
+	vmcs_load(vmx_info->vmcs_ptr_phys);
+	vmx_info->state = VMX_UNLAUNCHED;
+	info->core_move_state= CORE_MOVE_DONE;
+    }
+	
+
     if (v3_update_vmcs_host_state(info)) {
 	v3_enable_ints();
         PrintError("Could not write host state\n");

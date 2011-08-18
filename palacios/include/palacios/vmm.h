@@ -207,13 +207,22 @@ struct guest_info;
 
 #define V3_CREATE_THREAD_ON_CPU(cpu, fn, arg, name) ({			\
 	    void * thread = NULL;					\
-	    extern struct v3_os_hooks * os_hooks;			\
-	    if ((os_hooks) && (os_hooks)->start_thread_on_cpu) {	\
-		thread = (os_hooks)->start_thread_on_cpu(cpu, fn, arg, name); \
-	    }								\
-	    thread;							\
-	})
+	extern struct v3_os_hooks * os_hooks;				\
+	if ((os_hooks) && (os_hooks)->start_thread_on_cpu) {		\
+	    thread = (os_hooks)->start_thread_on_cpu(cpu, fn, arg, name); \
+	}								\
+	thread;								\
+    })
 
+#define V3_MOVE_THREAD_TO_CPU(pcpu, thread) ({				\
+	int ret = -1;							\
+	extern struct v3_os_hooks * os_hooks;				\
+	if((os_hooks) && (os_hooks)->move_thread_to_cpu) {		\
+	    ret = (os_hooks)->move_thread_to_cpu(pcpu, thread);		\
+	}								\
+	ret;								\
+    })
+    
 #endif
 
 /* ** */
@@ -305,7 +314,7 @@ struct v3_os_hooks {
     void (*interrupt_cpu)(struct v3_vm_info * vm, int logical_cpu, int vector);
     void (*call_on_cpu)(int logical_cpu, void (*fn)(void * arg), void * arg);
     void * (*start_thread_on_cpu)(int cpu_id, int (*fn)(void * arg), void * arg, char * thread_name);
-
+    int (*move_thread_to_cpu)(int cpu_id,  void * thread);
 };
 
 
@@ -334,6 +343,7 @@ int v3_stop_vm(struct v3_vm_info * vm);
 int v3_pause_vm(struct v3_vm_info * vm);
 int v3_continue_vm(struct v3_vm_info * vm);
 
+int v3_move_vm_core(struct v3_vm_info * vm, int vcore_id, int target_cpu);
 
 int v3_free_vm(struct v3_vm_info * vm);
 

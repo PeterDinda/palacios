@@ -268,7 +268,6 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
     for (i = 0, vcore_id = 1; (i < MAX_CORES) && (vcore_id < vm->num_cores); i++) {
 	int major = 0;
  	int minor = 0;
-	void * core_thread = NULL;
 	struct guest_info * core = &(vm->cores[vcore_id]);
 	char * specified_cpu = v3_cfg_val(core->core_cfg_data, "target_cpu");
 	uint32_t core_idx = 0;
@@ -318,9 +317,9 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
 
 	// TODO: actually manage these threads instead of just launching them
 	core->pcpu_id = core_idx;
-	core_thread = V3_CREATE_THREAD_ON_CPU(core_idx, start_core, core, core->exec_name);
+	core->core_thread = V3_CREATE_THREAD_ON_CPU(core_idx, start_core, core, core->exec_name);
 
-	if (core_thread == NULL) {
+	if (core->core_thread == NULL) {
 	    PrintError("Thread launch failed\n");
 	    v3_stop_vm(vm);
 	    return -1;
@@ -372,6 +371,31 @@ int v3_reset_vm_core(struct guest_info * core, addr_t rip) {
 }
 
 
+
+/* move a virtual core to different physical core */
+int v3_move_vm_core(struct v3_vm_info * vm, int vcore_id, int target_cpu) {
+    struct guest_info * core = NULL;
+
+    if(vcore_id < 0 || vcore_id > vm->num_cores) {
+	return -1;
+    }
+
+    core = &(vm->cores[vcore_id]);
+
+    if(target_cpu != core->pcpu_id &&
+	core->core_move_state != CORE_MOVE_PENDING){
+	core->core_move_state = CORE_MOVE_PENDING;
+    	core->target_pcpu_id = target_cpu;
+	v3_interrupt_cpu(vm, core->pcpu_id, 0);
+
+	while(core->core_move_state != CORE_MOVE_DONE){
+	    v3_yield(NULL);
+	}
+    }
+
+	
+    return 0;
+}
 
 
 

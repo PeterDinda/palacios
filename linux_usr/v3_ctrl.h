@@ -14,6 +14,8 @@
 #define V3_VM_SERIAL_CONNECT 21
 #define V3_VM_STOP 22
 
+#define V3_VM_MOVE_CORE 33
+
 static const char * v3_dev = "/dev/v3vee";
 
 struct v3_guest_img {
