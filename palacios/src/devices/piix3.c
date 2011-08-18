@@ -361,7 +361,15 @@ static int reset_piix3(struct v3_southbridge * piix3) {
 }
 
 
-//irq is pirq_rc[intr_pin + pci_dev_num - 1] & 0x3
+//irq is pirq_rc[intr_pin + pci_dev_num - 1] & 0xf
+/*
+struct pirq_rc_reg {
+       uint8_t irq         : 4;
+       uint8_t rsvd        : 3;
+       uint8_t disabled    : 1; // (1=disabled, 0=enabled)
+}
+*/
+
 
 static int raise_pci_irq(struct pci_device * pci_dev, void * dev_data) {
     struct v3_southbridge * piix3 = dev_data;
@@ -372,7 +380,15 @@ static int raise_pci_irq(struct pci_device * pci_dev, void * dev_data) {
     
     //PrintError("Raising PCI IRQ %d, %p\n", piix3_cfg->pirq_rc[irq_index], piix3->vm);
     
-    v3_raise_irq(piix3->vm, piix3_cfg->pirq_rc[irq_index]);
+    if (piix3_cfg->pirq_rc[irq_index] < 16) {
+	v3_raise_irq(piix3->vm, piix3_cfg->pirq_rc[irq_index] & 0xf);
+    } else {
+	PrintError("Tried to raise interrupt on disabled PIRQ entry (%d)\n", irq_index);
+	PrintError("\tpirq_rc values: 0=0x%x, 1=0x%x, 2=0x%x, 3=0x%x\n", 
+		   piix3_cfg->pirq_rc[0], piix3_cfg->pirq_rc[1],
+		   piix3_cfg->pirq_rc[2], piix3_cfg->pirq_rc[3]);
+	return -1;
+    }
 
     return 0;
 }
@@ -388,7 +404,15 @@ static int lower_pci_irq(struct pci_device * pci_dev, void * dev_data) {
     
     //    PrintError("Lowering PCI IRQ %d\n", piix3_cfg->pirq_rc[irq_index]);
     
-    v3_lower_irq(piix3->vm, piix3_cfg->pirq_rc[irq_index]);
+    if (piix3_cfg->pirq_rc[irq_index] < 16) {
+	v3_lower_irq(piix3->vm, piix3_cfg->pirq_rc[irq_index] & 0xf);
+    } else {
+	PrintError("Tried to lower interrupt on disabled PIRQ entry (%d)\n", irq_index);
+	PrintError("\tpirq_rc values: 0=0x%x, 1=0x%x, 2=0x%x, 3=0x%x\n", 
+		   piix3_cfg->pirq_rc[0], piix3_cfg->pirq_rc[1],
+		   piix3_cfg->pirq_rc[2], piix3_cfg->pirq_rc[3]);
+	return -1;
+    }
 
     return 0;
 }
