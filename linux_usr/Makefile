@@ -1,4 +1,4 @@
-all: v3_ctrl v3_stop v3_cons v3_mem v3_monitor v3_stream v3_net v3_user_host_dev_example v3_os_debug v3_user_keyed_stream_example v3_user_keyed_stream_file
+all: v3_ctrl v3_stop v3_cons v3_mem v3_monitor v3_stream v3_user_host_dev_example v3_os_debug v3_user_keyed_stream_example v3_user_keyed_stream_file
 
 
 
