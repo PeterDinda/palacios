@@ -190,7 +190,7 @@ struct guest_info;
 	if ((os_hooks) && (os_hooks)->start_kernel_thread) {		\
 	    (os_hooks)->start_kernel_thread(fn, arg, name);		\
 	}								\
-    }
+    } while (0)
 
 
 

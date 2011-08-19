@@ -308,7 +308,7 @@ send_to_palacios(unsigned char * buf,
 
     vnet_brg_s.stats.pkt_to_vmm ++;
 
-    return v3_vnet_send_pkt(&pkt, NULL, 1);
+    return v3_vnet_send_pkt(&pkt, NULL);
 }
 
 
@@ -489,7 +489,7 @@ int vnet_bridge_init(void) {
 	return -1;
     }
 
-    vnet_brg_s.serv_thread = kthread_run(_rx_server, NULL, "vnet-server");
+    vnet_brg_s.serv_thread = kthread_run(_rx_server, NULL, "vnet_brgd");
 
     bridge_ops.input = bridge_send_pkt;
     bridge_ops.poll = NULL;

@@ -459,6 +459,13 @@ config SERIAL_UART
 	help 
 	  Include virtual serial port
 
+config DEBUG_SERIAL
+        bool "Debug Serial Port"
+        default n
+        depends on SERIAL_UART
+        help
+          Debugging virtual serial port
+
 config CHAR_STREAM
 	bool "Stream based character frontend"
 	depends on STREAM

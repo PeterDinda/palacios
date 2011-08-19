@@ -42,7 +42,7 @@ struct vnet_nic_state {
 
 /* called by frontend, send pkt to VNET */
 static int vnet_nic_send(uint8_t * buf, uint32_t len, 
-			 int synchronize, void * private_data) {
+			 void * private_data) {
     struct vnet_nic_state * vnetnic = (struct vnet_nic_state *)private_data;
 
     struct v3_vnet_pkt pkt;
@@ -58,12 +58,12 @@ static int vnet_nic_send(uint8_t * buf, uint32_t len,
 	v3_hexdump(buf, len, NULL, 0);
     }
 
-    return v3_vnet_send_pkt(&pkt, NULL, synchronize);
+    return v3_vnet_send_pkt(&pkt, NULL);
 }
 
 
 /* send pkt to frontend device */
-static int virtio_input(struct v3_vm_info * info, 
+static int fnt_input(struct v3_vm_info * info, 
 			struct v3_vnet_pkt * pkt, 
 			void * private_data){
     struct vnet_nic_state *vnetnic = (struct vnet_nic_state *)private_data;
@@ -72,7 +72,16 @@ static int virtio_input(struct v3_vm_info * info,
 		pkt->size, pkt->src_id, pkt->src_type, pkt->dst_id, pkt->dst_type);
 	
     return vnetnic->net_ops.recv(pkt->data, pkt->size,
-				 vnetnic->net_ops.frontend_data);
+				 vnetnic->net_ops.config.frontend_data);
+}
+
+
+/* poll pkt from frontend device */
+static int fnt_poll(struct v3_vm_info * info,
+			int quote, void * private_data){
+    struct vnet_nic_state *vnetnic = (struct vnet_nic_state *)private_data;
+
+    return vnetnic->net_ops.poll(quote, vnetnic->net_ops.config.frontend_data);
 }
 
 
@@ -90,7 +99,8 @@ static struct v3_device_ops dev_ops = {
 };
 
 static struct v3_vnet_dev_ops vnet_dev_ops = {
-    .input = virtio_input,
+    .input = fnt_input,
+    .poll = fnt_poll,
 };
 
 
@@ -123,9 +133,11 @@ static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     }
 
     PrintDebug("Vnet-nic: Connect %s to frontend %s\n", 
-	      dev_id, v3_cfg_val(frontend_cfg, "tag"));
+	       dev_id, v3_cfg_val(frontend_cfg, "tag"));
 
-    if ((vnet_dev_id = v3_vnet_add_dev(vm, vnetnic->net_ops.fnt_mac, &vnet_dev_ops, (void *)vnetnic)) == -1) {
+    if ((vnet_dev_id = v3_vnet_add_dev(vm, vnetnic->net_ops.config.fnt_mac, 
+				       &vnet_dev_ops, vnetnic->net_ops.config.quote, 
+				       vnetnic->net_ops.config.poll, (void *)vnetnic)) == -1) {
 	PrintError("Vnet-nic device %s fails to registered to VNET\n", dev_id);
 	
 	v3_remove_device(dev);
