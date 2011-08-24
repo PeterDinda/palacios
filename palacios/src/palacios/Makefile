@@ -33,7 +33,6 @@ obj-y := \
 	vmm_xml.o \
 	vmm_mem_hook.o \
 	vmm_extensions.o \
-	vmm_mtrr.o \
 	vmm_multitree.o \
 	vmm_bitmap.o \
 	vmm_barrier.o \
