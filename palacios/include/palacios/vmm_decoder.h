@@ -52,29 +52,31 @@ struct x86_prefixes {
 	uint32_t val;
 	
 	struct {
-	    uint_t lock   : 1;  // 0xF0
-	    uint_t repne  : 1;  // 0xF2
-	    uint_t repnz  : 1;  // 0xF2
-	    uint_t rep    : 1;  // 0xF3
-	    uint_t repe   : 1;  // 0xF3
-	    uint_t repz   : 1;  // 0xF3
-	    uint_t cs_override : 1;  // 0x2E
-	    uint_t ss_override : 1;  // 0x36
-	    uint_t ds_override : 1;  // 0x3E
-	    uint_t es_override : 1;  // 0x26
-	    uint_t fs_override : 1;  // 0x64
-	    uint_t gs_override : 1;  // 0x65
-	    uint_t br_not_taken : 1;  // 0x2E
-	    uint_t br_taken   : 1;  // 0x3E
-	    uint_t op_size     : 1;  // 0x66
-	    uint_t addr_size   : 1;  // 0x67
+	    uint32_t lock   : 1;  // 0xF0
+	    uint32_t repne  : 1;  // 0xF2
+	    uint32_t repnz  : 1;  // 0xF2
+	    uint32_t rep    : 1;  // 0xF3
+	    uint32_t repe   : 1;  // 0xF3
+	    uint32_t repz   : 1;  // 0xF3
+	    uint32_t cs_override : 1;  // 0x2E
+	    uint32_t ss_override : 1;  // 0x36
+	    uint32_t ds_override : 1;  // 0x3E
+	    uint32_t es_override : 1;  // 0x26
+	    uint32_t fs_override : 1;  // 0x64
+	    uint32_t gs_override : 1;  // 0x65
+	    uint32_t br_not_taken : 1;  // 0x2E
+	    uint32_t br_taken   : 1;  // 0x3E
+	    uint32_t op_size     : 1;  // 0x66
+	    uint32_t addr_size   : 1;  // 0x67
 
-	    uint_t rex   : 1;
+	    uint32_t rex   : 1;
     
-	    uint_t rex_rm        : 1;  // REX.B
-	    uint_t rex_sib_idx   : 1;  // REX.X
-	    uint_t rex_reg       : 1;  // REX.R
-	    uint_t rex_op_size   : 1;  // REX.W
+	    uint32_t rex_rm        : 1;  // REX.B
+	    uint32_t rex_sib_idx   : 1;  // REX.X
+	    uint32_t rex_reg       : 1;  // REX.R
+	    uint32_t rex_op_size   : 1;  // REX.W
+
+	    uint32_t rsvd          : 11;
 	} __attribute__((packed));
     } __attribute__((packed));
 } __attribute__((packed));
