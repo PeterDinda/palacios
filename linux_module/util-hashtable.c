@@ -37,6 +37,7 @@
 #include <linux/errno.h>
 #include <linux/preempt.h>
 #include <linux/sched.h>
+#include <linux/slab.h>
  
 #include "util-hashtable.h"
 
