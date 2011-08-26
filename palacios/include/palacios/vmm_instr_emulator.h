@@ -19,11 +19,13 @@
 
 #include <palacios/vmm_types.h>
 
+#define FLAGS_MASK 0x00000cff
+
 
 
 #define MAKE_1OP_8FLAGS_INST(iname) static inline void iname##8(addr_t * dst,  addr_t * flags) { \
-	/* Some of the flags values are not copied out in a pushf, we save them here */ \
-	addr_t flags_rsvd = *flags & ~0xfffc7fff;			\
+	addr_t guest_flags = *flags & FLAGS_MASK;			\
+	uint8_t tmp_dst = *(uint8_t *)dst;				\
 									\
 	asm volatile (							\
 		      "pushf; "						\
@@ -33,16 +35,19 @@
 		      "pushf; "						\
 		      "pop %1; "					\
 		      "popf; "						\
-		      : "=q"(*(uint8_t *)dst),"=q"(*flags)		\
-		      : "q"(*flags), "0"(*(uint8_t *)dst)		\
+		      : "=&q"(tmp_dst),"=q"(guest_flags)		\
+		      : "1"(guest_flags), "0"(tmp_dst)			\
+		      : "memory"					\
 		      );						\
-	*flags |= flags_rsvd;						\
+	*flags &= ~FLAGS_MASK;						\
+	*flags |= (guest_flags & FLAGS_MASK);				\
+	*(uint8_t *)dst = tmp_dst;					\
 									\
     }
 
 #define MAKE_1OP_16FLAGS_INST(iname) static inline void iname##16(addr_t * dst,  addr_t * flags) { \
-	/* Some of the flags values are not copied out in a pushf, we save them here */ \
-	addr_t flags_rsvd = *flags & ~0xfffc7fff;			\
+	addr_t guest_flags = *flags & FLAGS_MASK;			\
+	uint16_t tmp_dst = *(uint16_t *)dst;				\
 									\
 	asm volatile (							\
 		      "pushf; "						\
@@ -52,16 +57,18 @@
 		      "pushf; "						\
 		      "pop %1; "					\
 		      "popf; "						\
-		      : "=q"(*(uint16_t *)dst),"=q"(*flags)		\
-		      : "q"(*flags), "0"(*(uint16_t *)dst)		\
+		      : "=&q"(tmp_dst),"=q"(guest_flags)		\
+		      : "1"(guest_flags), "0"(tmp_dst)			\
+		      : "memory"					\
 		      );						\
-	*flags |= flags_rsvd;						\
-									\
+	*flags &= ~FLAGS_MASK;						\
+	*flags |= (guest_flags & FLAGS_MASK);				\
+	*(uint16_t *)dst = tmp_dst;					\
     }
 
 #define MAKE_1OP_32FLAGS_INST(iname) static inline void iname##32(addr_t * dst,  addr_t * flags) { \
-	/* Some of the flags values are not copied out in a pushf, we save them here */ \
-	addr_t flags_rsvd = *flags & ~0xfffc7fff;			\
+	addr_t guest_flags = *flags & FLAGS_MASK;			\
+	uint32_t tmp_dst = *(uint32_t *)dst;				\
 									\
 	asm volatile (							\
 		      "pushf; "						\
@@ -71,16 +78,19 @@
 		      "pushf; "						\
 		      "pop %1; "					\
 		      "popf; "						\
-		      : "=q"(*(uint32_t *)dst),"=q"(*flags)		\
-		      : "q"(*flags), "0"(*(uint32_t *)dst)		\
+		      : "=&q"(tmp_dst),"=q"(guest_flags)		\
+		      : "1"(guest_flags), "0"(tmp_dst)			\
+		      : "memory"					\
 		      );						\
-	*flags |= flags_rsvd;						\
 									\
+	*flags &= ~FLAGS_MASK;						\
+	*flags |= (guest_flags & FLAGS_MASK);				\
+	*(uint32_t *)dst = tmp_dst;					\
     }
 
 #define MAKE_1OP_64FLAGS_INST(iname) static inline void iname##64(addr_t * dst,  addr_t * flags) { \
-	/* Some of the flags values are not copied out in a pushf, we save them here */ \
-	addr_t flags_rsvd = *flags & ~0xfffc7fff;			\
+	addr_t guest_flags = *flags & FLAGS_MASK;			\
+	uint64_t tmp_dst = *(uint64_t *)dst;				\
 									\
 	asm volatile (							\
 		      "pushfq; "					\
@@ -90,51 +100,66 @@
 		      "pushfq; "					\
 		      "pop %1; "					\
 		      "popfq; "						\
-		      : "=q"(*(uint64_t *)dst),"=q"(*flags)		\
-		      : "q"(*flags), "0"(*(uint64_t *)dst)		\
+		      : "=q"(tmp_dst),"=q"(guest_flags)			\
+		      : "q"(guest_flags), "0"(tmp_dst)			\
+		      : "memory"					\
 		      );						\
-	*flags |= flags_rsvd;						\
 									\
+	*flags &= ~FLAGS_MASK;						\
+	*flags |= (guest_flags & FLAGS_MASK);				\
+	*(uint64_t *)dst = tmp_dst;					\
     }
 
 
 
 #define MAKE_1OP_8_INST(iname) static inline void iname##8(addr_t * dst) { \
+	uint8_t tmp_dst = *(uint8_t *)dst;				\
 	asm volatile (							\
 		      #iname"b %0; "					\
-		      : "=q"(*(uint8_t *)dst)				\
-		      : "0"(*(uint8_t *)dst)				\
+		      : "=q"(tmp_dst)					\
+		      : "0"(tmp_dst)					\
+		      : "memory"					\
 		      );						\
+	*(uint8_t *)dst = tmp_dst;					\
     }
 
 #define MAKE_1OP_16_INST(iname) static inline void iname##16(addr_t * dst) { \
+	uint16_t tmp_dst = *(uint16_t *)dst;				\
 	asm volatile (							\
 		      #iname"w %0; "					\
-		      : "=q"(*(uint16_t *)dst)				\
-		      :  "0"(*(uint16_t *)dst)				\
+		      : "=q"(tmp_dst)					\
+		      :  "0"(tmp_dst)					\
+		      : "memory"					\
 		      );						\
+	*(uint16_t *)dst = tmp_dst;					\
     }
 
 #define MAKE_1OP_32_INST(iname) static inline void iname##32(addr_t * dst) { \
+	uint32_t tmp_dst = *(uint32_t *)dst;				\
 	asm volatile (							\
 		      #iname"l %0; "					\
-		      : "=q"(*(uint32_t *)dst)				\
-		      : "0"(*(uint32_t *)dst)				\
+		      : "=q"(tmp_dst)					\
+		      : "0"(tmp_dst)					\
+		      : "memory"					\
 		      );						\
+	*(uint32_t *)dst = tmp_dst;					\
     }
 
 #define MAKE_1OP_64_INST(iname) static inline void iname##64(addr_t * dst) { \
+	uint64_t tmp_dst = *(uint64_t *)dst;				\
 	asm volatile (							\
 		      #iname"q %0; "					\
-		      : "=q"(*(uint64_t *)dst)				\
-		      : "0"(*(uint64_t *)dst)				\
+		      : "=q"(tmp_dst)					\
+		      : "0"(tmp_dst)					\
+		      : "memory"					\
 		      );						\
+	*(uint64_t *)dst = tmp_dst;					\
     }
 
 
 #define MAKE_2OP_64FLAGS_INST(iname) static inline void iname##64(addr_t * dst, addr_t * src, addr_t * flags) { \
-	/* Some of the flags values are not copied out in a pushf, we save them here */ \
-	addr_t flags_rsvd = *flags & ~0xfffc7fff;			\
+	addr_t guest_flags = *flags & FLAGS_MASK;			\
+	uint64_t tmp_dst = *(uint64_t *)dst;				\
 									\
 	asm volatile (							\
 		      "pushfq\r\n"					\
@@ -144,19 +169,21 @@
 		      "pushfq\r\n"					\
 		      "pop %1\r\n"					\
 		      "popfq\r\n"					\
-		      : "=q"(*(uint64_t *)dst),"=q"(*flags)		\
-		      : "q"(*(uint64_t *)src),"q"(*flags), "0"(*(uint64_t *)dst) \
+		      : "=&q"(tmp_dst),"=q"(guest_flags)			\
+		      : "q"(*(uint64_t *)src),"1"(guest_flags), "0"(tmp_dst) \
+		      : "memory"					\
 		      );						\
-	*flags |= flags_rsvd;						\
-									\
+	*flags &= ~FLAGS_MASK;						\
+	*flags |= (guest_flags & FLAGS_MASK);				\
+	*(uint64_t *)dst = tmp_dst;					\
     }
 
 
 
 
 #define MAKE_2OP_32FLAGS_INST(iname) static inline void iname##32(addr_t * dst, addr_t * src, addr_t * flags) { \
-	/* Some of the flags values are not copied out in a pushf, we save them here */ \
-	addr_t flags_rsvd = *flags & ~0xfffc7fff;			\
+	addr_t guest_flags = *flags & FLAGS_MASK;			\
+	uint32_t tmp_dst = *(uint32_t *)dst;				\
 									\
 	asm volatile (							\
 		      "pushf; "						\
@@ -166,16 +193,19 @@
 		      "pushf; "						\
 		      "pop %1; "					\
 		      "popf; "						\
-		      : "=q"(*(uint32_t *)dst),"=q"(*flags)		\
-		      : "q"(*(uint32_t *)src),"q"(*flags), "0"(*(uint32_t *)dst) \
+		      : "=&q"(tmp_dst),"=q"(guest_flags)		\
+		      : "q"(*(uint32_t *)src),"1"(guest_flags), "0"(tmp_dst) \
+		      : "memory"					\
 		      );						\
-	*flags |= flags_rsvd;						\
+	*flags &= ~FLAGS_MASK;						\
+	*flags |= (guest_flags & FLAGS_MASK);				\
+	*(uint32_t *)dst = tmp_dst;					\
     }
 
 
 #define MAKE_2OP_16FLAGS_INST(iname) static inline void iname##16(addr_t * dst, addr_t * src, addr_t * flags) { \
-	/* Some of the flags values are not copied out in a pushf, we save them here */ \
-	addr_t flags_rsvd = *flags & ~0xfffc7fff;			\
+	addr_t guest_flags = *flags & FLAGS_MASK;			\
+	uint16_t tmp_dst = *(uint16_t *)dst;				\
 									\
 	asm volatile (							\
 		      "pushf; "						\
@@ -185,15 +215,18 @@
 		      "pushf; "						\
 		      "pop %1; "					\
 		      "popf; "						\
-		      : "=q"(*(uint16_t *)dst),"=q"(*flags)		\
-		      : "q"(*(uint16_t *)src),"q"(*flags), "0"(*(uint16_t *)dst) \
+		      : "=&q"(tmp_dst),"=q"(guest_flags)		\
+		      : "q"(*(uint16_t *)src),"1"(guest_flags), "0"(tmp_dst) \
+		      : "memory"					\
 		      );						\
-	*flags |= flags_rsvd;						\
+	*flags &= ~FLAGS_MASK;						\
+	*flags |= (guest_flags & FLAGS_MASK);				\
+	*(uint16_t *)dst = tmp_dst;					\
     }
 
 #define MAKE_2OP_8FLAGS_INST(iname) static inline void iname##8(addr_t * dst, addr_t * src, addr_t * flags) { \
-	/* Some of the flags values are not copied out in a pushf, we save them here */ \
-	addr_t flags_rsvd = *flags & ~0xfffc7fff;			\
+	addr_t guest_flags = *flags & FLAGS_MASK;			\
+	uint8_t tmp_dst = *(uint8_t *)dst;				\
 									\
 	asm volatile (							\
 		      "pushf; "						\
@@ -203,10 +236,13 @@
 		      "pushf; "						\
 		      "pop %1; "					\
 		      "popf; "						\
-		      : "=q"(*(uint8_t *)dst),"=q"(*flags)		\
-		      : "q"(*(uint8_t *)src),"q"(*flags), "0"(*(uint8_t *)dst) \
+		      : "=q"(tmp_dst),"=q"(guest_flags)			\
+		      : "q"(*(uint8_t *)src),"1"(guest_flags), "0"(tmp_dst) \
+		      : "memory"					\
 		      );						\
-	*flags |= flags_rsvd;						\
+	*flags &= ~FLAGS_MASK;						\
+	*flags |= (guest_flags & FLAGS_MASK);				\
+	*(uint8_t *)dst = tmp_dst;					\
     }
 
 
@@ -216,65 +252,71 @@
 #define MAKE_2OP_64STR_INST(iname) static inline void iname##64(addr_t * dst, \
 								addr_t * src, \
 								addr_t * ecx, addr_t * flags) { \
-	/* Some of the flags values are not copied out in a pushf, we save them here */ \
-	addr_t flags_rsvd = *flags & ~0xfffc7fff;			\
+	addr_t guest_flags = *flags & FLAGS_MASK;			\
+	uint64_t tmp_dst = 0, tmp_ecx = 0, tmp_src = 0;			\
 									\
 	asm volatile (							\
 		      "pushfq; "					\
-		      "pushq %4; "					\
+		      "pushq %7; "					\
 		      "popfq; "						\
 		      "rep; "						\
 		      #iname"q; "					\
 		      "pushfq; "					\
 		      "popq %0; "					\
 		      "popfq; "						\
-		      : "=q"(*flags)					\
-		      : "D"(*dst),"S"(*src),"c"(*ecx),"q"(*flags)	\
+		      : "=q"(guest_flags), "=&D"(tmp_dst), "=&S"(tmp_src), "=&c"(tmp_ecx) \
+		      : "1"(*dst),"2"(*src),"3"(*ecx),"0"(guest_flags)	\
+		      : "memory"					\
 		      );						\
-	*flags |= flags_rsvd;						\
+	*flags &= ~FLAGS_MASK;						\
+	*flags |= (guest_flags & FLAGS_MASK);				\
     }
 
 
 #define MAKE_2OP_32STR_INST(iname) static inline void iname##32(addr_t * dst, \
 								addr_t * src, \
 								addr_t * ecx, addr_t * flags) { \
-	/* Some of the flags values are not copied out in a pushf, we save them here */ \
-	addr_t flags_rsvd = *flags & ~0xfffc7fff;			\
+	addr_t guest_flags = *flags & FLAGS_MASK;			\
+	uint32_t tmp_dst = 0, tmp_ecx = 0, tmp_src = 0;			\
 									\
 	asm volatile (							\
 		      "pushf; "						\
-		      "push %4; "					\
+		      "push %7; "					\
 		      "popf; "						\
 		      "rep; "						\
 		      #iname"l; "					\
 		      "pushf; "						\
 		      "pop %0; "					\
 		      "popf; "						\
-		      : "=q"(*flags)					\
-		      : "D"(*dst),"S"(*src),"c"(*ecx),"q"(*flags)	\
+		      : "=q"(guest_flags), "=&D"(tmp_dst), "=&S"(tmp_src), "=&c"(tmp_ecx) \
+		      : "1"(*dst),"2"(*src),"3"(*ecx),"0"(guest_flags)	\
+		      : "memory"					\
 		      );						\
-	*flags |= flags_rsvd;						\
+	*flags &= ~FLAGS_MASK;						\
+	*flags |= (guest_flags & FLAGS_MASK);				\
     }
 
 #define MAKE_2OP_16STR_INST(iname) static inline void iname##16(addr_t * dst, \
 								addr_t * src, \
 								addr_t * ecx, addr_t * flags) { \
-	/* Some of the flags values are not copied out in a pushf, we save them here */ \
-	addr_t flags_rsvd = *flags & ~0xfffc7fff;			\
+	addr_t guest_flags = *flags & FLAGS_MASK;			\
+	uint16_t tmp_dst = 0, tmp_ecx = 0, tmp_src = 0;			\
 									\
 	asm volatile (							\
 		      "pushf; "						\
-		      "push %4; "					\
+		      "push %7; "					\
 		      "popf; "						\
 		      "rep; "						\
 		      #iname"w; "					\
 		      "pushf; "						\
 		      "pop %0; "					\
 		      "popf; "						\
-		      : "=q"(*flags)					\
-		      : "D"(*dst),"S"(*src),"c"(*ecx),"q"(*flags)	\
+		      : "=q"(guest_flags), "=&D"(tmp_dst), "=&S"(tmp_src), "=&c"(tmp_ecx) \
+		      : "1"(*dst),"2"(*src),"3"(*ecx),"0"(guest_flags)	\
+		      : "memory"					\
 		      );						\
-	*flags |= flags_rsvd;						\
+	*flags &= ~FLAGS_MASK;						\
+	*flags |= (guest_flags & FLAGS_MASK);				\
     }
 
 
@@ -282,22 +324,24 @@
 #define MAKE_2OP_8STR_INST(iname) static inline void iname##8(addr_t * dst, \
 							      addr_t * src, \
 							      addr_t * ecx, addr_t * flags) { \
-	/* Some of the flags values are not copied out in a pushf, we save them here */ \
-	addr_t flags_rsvd = *flags & ~0xfffc7fff;			\
+	addr_t guest_flags = *flags & FLAGS_MASK;			\
+	uint8_t tmp_dst = 0, tmp_ecx = 0, tmp_src = 0;			\
 									\
 	asm volatile (							\
 		      "pushf; "						\
-		      "push %4; "					\
+		      "push %7; "					\
 		      "popf; "						\
 		      "rep; "						\
 		      #iname"b; "					\
 		      "pushf; "						\
 		      "pop %0; "					\
 		      "popf; "						\
-		      : "=q"(*flags)					\
-		      : "D"(*dst),"S"(*src),"c"(*ecx),"q"(*flags)	\
+		      : "=q"(guest_flags), "=&D"(tmp_dst), "=&S"(tmp_src), "=&c"(tmp_ecx) \
+		      : "1"(*dst),"2"(*src),"3"(*ecx),"0"(guest_flags)	\
+		      : "memory"					\
 		      );						\
-	*flags |= flags_rsvd;						\
+	*flags &= ~FLAGS_MASK;						\
+	*flags |= (guest_flags & FLAGS_MASK);				\
     }
 
 
@@ -306,66 +350,73 @@
 #define MAKE_1OP_64STR_INST(iname) static inline void iname##64(addr_t * dst, \
 								addr_t * src, \
 								addr_t * ecx, addr_t * flags) { \
-	/* Some of the flags values are not copied out in a pushf, we save them here */ \
-	addr_t flags_rsvd = *flags & ~0xfffc7fff;			\
+	addr_t guest_flags = *flags & FLAGS_MASK;			\
+	uint64_t tmp_dst = 0, tmp_ecx = 0;				\
 									\
 	asm volatile (							\
 		      "pushfq; "					\
-		      "pushq %4; "					\
+		      "pushq %6; "					\
 		      "popfq; "						\
 		      "rep; "						\
 		      #iname"q; "					\
 		      "pushfq; "					\
 		      "popq %0; "					\
 		      "popfq; "						\
-		      : "=q"(*flags)					\
-		      : "D"(*dst),"a"(*src),"c"(*ecx),"q"(*flags)	\
+		      : "=&q"(guest_flags), "=&D"(tmp_dst), "=&c"(tmp_ecx) \
+		      : "1"(*dst),"a"(*src),"2"(*ecx),"0"(guest_flags)	\
+		      : "memory"					\
 		      );						\
 									\
-	*flags |= flags_rsvd;						\
+	*flags &= ~FLAGS_MASK;						\
+	*flags |= (guest_flags & FLAGS_MASK);				\
     }
 
 
 #define MAKE_1OP_32STR_INST(iname) static inline void iname##32(addr_t * dst, \
 								addr_t * src, \
 								addr_t * ecx, addr_t * flags) { \
-	/* Some of the flags values are not copied out in a pushf, we save them here */ \
-	addr_t flags_rsvd = *flags & ~0xfffc7fff;			\
+	addr_t guest_flags = *flags & FLAGS_MASK;			\
+	uint32_t tmp_dst = 0, tmp_ecx = 0;				\
 									\
 	asm volatile (							\
 		      "pushf; "						\
-		      "push %4; "					\
+		      "push %6; "					\
 		      "popf; "						\
 		      "rep; "						\
 		      #iname"l; "					\
 		      "pushf; "						\
 		      "pop %0; "					\
 		      "popf; "						\
-		      : "=q"(*flags)					\
-		      : "D"(*dst),"a"(*src),"c"(*ecx),"q"(*flags)	\
+		      : "=&q"(guest_flags), "=&D"(tmp_dst), "=&c"(tmp_ecx) \
+		      : "1"(*dst),"a"(*src),"2"(*ecx),"0"(guest_flags)	\
+		      : "memory"					\
 		      );						\
-	*flags |= flags_rsvd;						\
+									\
+	*flags &= ~FLAGS_MASK;						\
+	*flags |= (guest_flags & FLAGS_MASK);				\
     }
 
 #define MAKE_1OP_16STR_INST(iname) static inline void iname##16(addr_t * dst, \
 								addr_t * src, \
 								addr_t * ecx, addr_t * flags) { \
-	/* Some of the flags values are not copied out in a pushf, we save them here */ \
-	addr_t flags_rsvd = *flags & ~0xfffc7fff;			\
+	addr_t guest_flags = *flags & FLAGS_MASK;			\
+	uint16_t tmp_dst = 0, tmp_ecx = 0;				\
 									\
 	asm volatile (							\
 		      "pushf; "						\
-		      "push %4; "					\
+		      "push %6; "					\
 		      "popf; "						\
 		      "rep; "						\
 		      #iname"w; "					\
 		      "pushf; "						\
 		      "pop %0; "					\
 		      "popf; "						\
-		      : "=q"(*flags)					\
-		      : "D"(*dst),"a"(*src),"c"(*ecx),"q"(*flags)	\
+		      : "=q"(guest_flags), "=&D"(tmp_dst), "=&c"(tmp_ecx) \
+		      : "1"(*dst),"a"(*src),"2"(*ecx),"0"(guest_flags)	\
+		      : "memory"					\
 		      );						\
-	*flags |= flags_rsvd;						\
+	*flags &= ~FLAGS_MASK;						\
+	*flags |= (guest_flags & FLAGS_MASK);				\
     }
 
 
@@ -374,56 +425,71 @@
 							      addr_t * src, \
 							      addr_t * ecx, addr_t * flags) { \
 	/* Some of the flags values are not copied out in a pushf, we save them here */ \
-	addr_t flags_rsvd = *flags & ~0xfffc7fff;			\
+	addr_t guest_flags = *flags & 0x00000cff;			\
+	uint8_t tmp_dst = 0, tmp_ecx = 0;				\
 									\
 	asm volatile (							\
 		      "pushf; "						\
-		      "push %4; "					\
+		      "push %6; "					\
 		      "popf; "						\
 		      "rep; "						\
 		      #iname"b; "					\
 		      "pushf; "						\
 		      "pop %0; "					\
 		      "popf; "						\
-		      : "=q"(*flags)					\
-		      : "D"(*dst),"a"(*src),"c"(*ecx),"q"(*flags)	\
+		      : "=&q"(guest_flags), "=&D"(tmp_dst), "=&c"(tmp_ecx) \
+		      : "1"(*dst),"a"(*src),"2"(*ecx),"0"(guest_flags)	\
+		      : "memory"					\
 		      );						\
-	*flags |= flags_rsvd;						\
+	*flags &= ~FLAGS_MASK;						\
+	*flags |= (guest_flags & FLAGS_MASK);				\
     }
 
 
 
 
 #define MAKE_2OP_64_INST(iname) static inline void iname##64(addr_t * dst, addr_t * src) { \
+	uint64_t tmp_dst = *(uint64_t *)dst;				\
 	asm volatile (							\
 		      #iname"q %1, %0; "				\
-		      : "=q"(*(uint64_t *)dst)				\
-		      : "q"(*(uint64_t *)src), "0"(*(uint64_t *)dst)	\
+		      : "=&q"(tmp_dst)					\
+		      : "q"(*(uint64_t *)src), "0"(tmp_dst)		\
+		      : "memory"					\
 		      );						\
+	*(uint64_t *)dst = tmp_dst;					\
     }
 
 #define MAKE_2OP_32_INST(iname) static inline void iname##32(addr_t * dst, addr_t * src) { \
+	uint32_t tmp_dst = *(uint32_t *)dst;				\
 	asm volatile (							\
 		      #iname"l %1, %0; "				\
-		      : "=q"(*(uint32_t *)dst)				\
-		      : "q"(*(uint32_t *)src), "0"(*(uint32_t *)dst)	\
+		      : "=&q"(tmp_dst)					\
+		      : "q"(*(uint32_t *)src), "0"(tmp_dst)		\
+		      : "memory"					\
 		      );						\
-    }
+ 	*(uint32_t *)dst = tmp_dst;					\
+   }
 
 #define MAKE_2OP_16_INST(iname) static inline void iname##16(addr_t * dst, addr_t * src) { \
+	uint16_t tmp_dst = *(uint16_t *)dst;				\
 	asm volatile (							\
 		      #iname"w %1, %0; "				\
-		      : "=q"(*(uint16_t *)dst)				\
-		      : "q"(*(uint16_t *)src), "0"(*(uint16_t *)dst)	\
+		      : "=&q"(tmp_dst)					\
+		      : "q"(*(uint16_t *)src), "0"(tmp_dst)		\
+		      : "memory"					\
 		      );						\
+	*(uint16_t *)dst = tmp_dst;					\
     }
 
 #define MAKE_2OP_8_INST(iname) static inline void iname##8(addr_t * dst, addr_t * src) { \
+	uint8_t tmp_dst = *(uint8_t *)dst;				\
 	asm volatile (							\
 		      #iname"b %1, %0; "				\
-		      : "=q"(*(uint8_t *)dst)				\
-		      : "q"(*(uint8_t *)src), "0"(*(uint8_t *)dst)	\
+		      : "=&q"(tmp_dst)					\
+		      : "q"(*(uint8_t *)src), "0"(tmp_dst)		\
+		      : "memory"					\
 		      );						\
+	*(uint8_t *)dst = tmp_dst;					\
     }
 
 
@@ -432,39 +498,54 @@
 
 #define MAKE_2OP_8EXT_INST(iname) static inline void iname##8(addr_t * dst, addr_t * src, uint_t dst_len) { \
 	if (dst_len == 2) {						\
+	    uint16_t tmp_dst = *(uint16_t *)dst;			\
 	    asm volatile (						\
 			  #iname" %1, %0; "				\
-			  : "=q"(*(uint16_t *)dst)			\
-			  : "q"(*(uint8_t *)src), "0"(*(uint16_t *)dst)	\
+			  : "=&q"(tmp_dst)				\
+			  : "q"(*(uint8_t *)src), "0"(tmp_dst)		\
+			  : "memory"					\
 			  );						\
+	    *(uint16_t *)dst = tmp_dst;					\
 	} else if (dst_len == 4) {					\
+	    uint32_t tmp_dst = *(uint32_t *)dst;			\
 	    asm volatile (						\
 			  #iname" %1, %0; "				\
-			  : "=q"(*(uint32_t *)dst)			\
-			  : "q"(*(uint8_t *)src), "0"(*(uint32_t *)dst)	\
+			  : "=&q"(tmp_dst)				\
+			  : "q"(*(uint8_t *)src), "0"(tmp_dst)		\
+			  : "memory"					\
 			  );						\
+	    *(uint32_t *)dst = tmp_dst;					\
 	} else if (dst_len == 8) {					\
+	    uint64_t tmp_dst = *(uint64_t *)dst;			\
 	    asm volatile (						\
 			  #iname" %1, %0; "				\
-			  : "=q"(*(uint64_t *)dst)			\
-			  : "q"(*(uint8_t *)src), "0"(*(uint64_t *)dst)	\
+			  : "=&q"(tmp_dst)				\
+			  : "q"(*(uint8_t *)src), "0"(tmp_dst)		\
+			  : "memory"					\
 			  );						\
+	    *(uint64_t *)dst = tmp_dst;					\
 	}								\
     }
 
 #define MAKE_2OP_16EXT_INST(iname) static inline void iname##16(addr_t * dst, addr_t * src, uint_t dst_len) { \
 	if (dst_len == 4) {						\
+	    uint32_t tmp_dst = *(uint32_t *)dst;			\
 	    asm volatile (						\
 			  #iname" %1, %0; "				\
-			  : "=q"(*(uint32_t *)dst)			\
-			  : "q"(*(uint16_t *)src), "0"(*(uint32_t *)dst) \
+			  : "=&q"(tmp_dst)				\
+			  : "q"(*(uint16_t *)src), "0"(tmp_dst)		\
+			  : "memory"					\
 			  );						\
+	    *(uint32_t *)dst = tmp_dst;					\
 	} else if (dst_len == 8) {					\
+	    uint64_t tmp_dst = *(uint64_t *)dst;			\
 	    asm volatile (						\
 			  #iname" %1, %0; "				\
-			  : "=q"(*(uint64_t *)dst)			\
-			  : "q"(*(uint16_t *)src), "0"(*(uint64_t *)dst) \
+			  : "=&q"(tmp_dst)				\
+			  : "q"(*(uint16_t *)src), "0"(tmp_dst)		\
+			  : "memory"					\
 			  );						\
+	    *(uint64_t *)dst = tmp_dst;					\
 	}								\
     }
 
@@ -472,35 +553,59 @@
 
 
 #define MAKE_2OUT_64_INST(iname) static inline void iname##64(addr_t * dst, addr_t * src) { \
+	uint64_t tmp_dst = *(uint64_t *)dst;				\
+	uint64_t tmp_src = *(uint64_t *)src;				\
+									\
 	asm volatile (							\
 		      #iname"q %1, %0; "				\
-		      : "=q"(*(uint64_t *)dst), "=q"(*(uint64_t *)src)	\
-		      : "0"(*(uint64_t *)dst), "1"(*(uint64_t *)src)	\
+		      : "=&q"(tmp_dst), "=&q"(tmp_src)			\
+		      : "0"(tmp_dst), "1"(tmp_src)			\
+		      : "memory"					\
 		      );						\
+	*(uint64_t *)src = tmp_src;					\
+	*(uint64_t *)dst = tmp_dst;					\
     }
 
 #define MAKE_2OUT_32_INST(iname) static inline void iname##32(addr_t * dst, addr_t * src) { \
+	uint32_t tmp_dst = *(uint32_t *)dst;				\
+	uint32_t tmp_src = *(uint32_t *)src;				\
+									\
 	asm volatile (							\
 		      #iname"l %1, %0; "				\
-		      : "=q"(*(uint32_t *)dst), "=q"(*(uint32_t *)src)	\
-		      :  "0"(*(uint32_t *)dst), "1"(*(uint32_t *)src)	\
+		      : "=&q"(tmp_dst), "=&q"(tmp_src)			\
+		      :  "0"(tmp_dst), "1"(tmp_src)			\
+		      : "memory"					\
 		      );						\
+	*(uint32_t *)src = tmp_src;					\
+	*(uint32_t *)dst = tmp_dst;					\
     }
 
 #define MAKE_2OUT_16_INST(iname) static inline void iname##16(addr_t * dst, addr_t * src) { \
+	uint16_t tmp_dst = *(uint16_t *)dst;				\
+	uint16_t tmp_src = *(uint16_t *)src;				\
+									\
 	asm volatile (							\
 		      #iname"w %1, %0; "				\
-		      : "=q"(*(uint16_t *)dst), "=q"(*(uint16_t *)src)	\
-		      : "0"(*(uint16_t *)dst), "1"(*(uint16_t *)src)	\
+		      : "=&q"(tmp_dst), "=&q"(tmp_src)			\
+		      : "0"(tmp_dst), "1"(tmp_src)			\
+		      : "memory"					\
 		      );						\
+	*(uint16_t *)src = tmp_src;					\
+	*(uint16_t *)dst = tmp_dst;					\
     }
 
 #define MAKE_2OUT_8_INST(iname) static inline void iname##8(addr_t * dst, addr_t * src) { \
+	uint8_t tmp_dst = *(uint8_t *)dst;				\
+	uint8_t tmp_src = *(uint8_t *)src;				\
+									\
 	asm volatile (							\
 		      #iname"b %1, %0; "				\
-		      : "=q"(*(uint8_t *)dst), "=q"(*(uint8_t *)src)	\
-		      : "0"(*(uint8_t *)dst), "1"(*(uint8_t *)src)	\
+		      : "=&q"(tmp_dst), "=&q"(tmp_src)			\
+		      : "0"(tmp_dst), "1"(tmp_src)			\
+		      : "memory"					\
 		      );						\
+	*(uint8_t *)src = tmp_src;					\
+	*(uint8_t *)dst = tmp_dst;					\
     }
 
 

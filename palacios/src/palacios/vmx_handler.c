@@ -102,6 +102,9 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
                     PrintError("Page fault in unimplemented paging mode\n");
                     return -1;
                 }
+	    } else if ((uint8_t)exit_info->int_info == 2) {
+		// NMI. Don't do anything
+		V3_Print("NMI Exception Received\n");
             } else {
                 PrintError("Unknown exception: 0x%x\n", (uint8_t)exit_info->int_info);
                 v3_print_GPRs(info);

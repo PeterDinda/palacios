@@ -37,6 +37,8 @@ v3_user_keyed_stream_file: v3_user_keyed_stream_file.c v3_user_keyed_stream.h v3
 v3_core_move : v3_core_move.c v3_ctrl.h
 	gcc -static v3_core_move.c -o v3_core_move
 
+v3_inject_ecc_scrubber_mce: v3_inject_ecc_scrubber_mce.c
+	gcc -static -I../linux_module v3_inject_ecc_scrubber_mce.c -o v3_inject_ecc_scrubber_mce
 
 clean:
 	rm -f v3_ctrl v3_cons v3_mem v3_monitor v3_stream v3_user_host_dev_example v3_os_debug v3_user_keyed_stream_example v3_user_keyed_stream_file v3_core_migrate
