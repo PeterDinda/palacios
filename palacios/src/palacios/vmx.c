@@ -549,7 +549,7 @@ int v3_deinit_vmx_vmcs(struct guest_info * core) {
     struct vmx_data * vmx_state = core->vmm_data;
 
     V3_FreePages((void *)(vmx_state->vmcs_ptr_phys), 1);
-    V3_FreePages(vmx_state->msr_area, 1);
+    V3_FreePages(V3_PAddr(vmx_state->msr_area), 1);
 
     V3_Free(vmx_state);
 

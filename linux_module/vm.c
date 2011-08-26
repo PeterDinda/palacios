@@ -274,7 +274,7 @@ int stop_palacios_vm(struct v3_guest * guest) {
 
     cdev_del(&(guest->cdev));
 
-    kfree(guest->img);
+    vfree(guest->img);
     kfree(guest);
 
     return 0;
