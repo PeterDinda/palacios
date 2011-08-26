@@ -500,8 +500,6 @@ endif
 
 ifdef V3_CONFIG_DEBUG_INFO
 CFLAGS		+= -g
-else 
-CFLAGS          += -O
 endif
 
 
