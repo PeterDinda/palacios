@@ -545,6 +545,25 @@ int v3_mcheck_inject_nb_mce(struct v3_vm_info * const vm, const uint32_t cpu,
     return 0;
 }
 
+int v3_mcheck_inject_scrubber_mce(struct v3_vm_info *info, int cpu, uint64_t dst)
+{
+    struct mc4_stat_msr stat;
+    struct mc4_addr_msr addr;
+
+    stat.value = 0;
+    stat.error_code = 0x810;
+    stat.error_code_ext = 0x8;
+    stat.uecc = 1;
+    stat.addr_v = 1;
+    stat.en = 1;
+    stat.uc = 1;
+    stat.val = 1;
+
+    addr.addr64 = dst;
+
+    return v3_mcheck_inject_nb_mce(info, cpu, stat, addr);
+}
+
 static struct v3_extension_impl mcheck_impl = {
     .name = MCHECK,
     .init = init_mcheck,
