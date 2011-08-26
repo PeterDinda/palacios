@@ -53,8 +53,6 @@ struct v3_xml_root {       // additional data for the root tag
     char *str_ptr;         // original xml string
     char *tmp_start;              // start of work area
     char *tmp_end;              // end of work area
-    char **ent;           // general entities (ampersand sequences)
-    char ***attr;         // default attributes
     short standalone;     // non-zero if <?xml standalone="yes"?>
     char err[V3_XML_ERRL]; // error string
 };
@@ -62,22 +60,23 @@ struct v3_xml_root {       // additional data for the root tag
 static char * empty_attrib_list[] = { NULL }; // empty, null terminated array of strings
 
 
-static void * tmp_realloc(void * old_ptr, size_t old_size, size_t new_size) {
-    void * new_buf = V3_Malloc(new_size);
 
+static void * tmp_realloc(void * old_ptr, size_t old_size, size_t new_size) {
+    void * new_buf = NULL; 
+
+    new_buf = V3_Malloc(new_size);
+    
     if (new_buf == NULL) {
         return NULL;
     }
+
+    memset(new_buf, 0, new_size);
 
     memcpy(new_buf, old_ptr, old_size);
     V3_Free(old_ptr);
 
     return new_buf;
 }
-
-
-
-
 
 // set an error string and return root
 static void v3_xml_err(struct v3_xml_root * root, char * xml_str, const char * err, ...) {
@@ -136,8 +135,6 @@ struct v3_xml * v3_xml_idx(struct v3_xml * xml, int idx) {
 // returns the value of the requested tag attribute or NULL if not found
 const char * v3_xml_attr(struct v3_xml * xml, const char * attr) {
     int i = 0;
-    int j = 1;
-    struct v3_xml_root * root = (struct v3_xml_root *)xml;
 
     if ((!xml) || (!xml->attr)) {
 	return NULL;
@@ -151,24 +148,7 @@ const char * v3_xml_attr(struct v3_xml * xml, const char * attr) {
 	return xml->attr[i + 1]; // found attribute
     }
 
-    while (root->xml.parent != NULL) {
-	root = (struct v3_xml_root *)root->xml.parent; // root tag
-    }
-
-    for (i = 0; 
-	 ( (root->attr[i] != NULL) && 
-	   (strcasecmp(xml->name, root->attr[i][0]) != 0) ); 
-	 i++);
-
-    if (! root->attr[i]) {
-	return NULL; // no matching default attributes
-    }
-
-    while ((root->attr[i][j] != NULL) && (strcasecmp(attr, root->attr[i][j]) != 0)) {
-	j += 3;
-    }
-
-    return (root->attr[i][j] != NULL) ? root->attr[i][j + 1] : NULL; // found default
+    return NULL; // found default
 }
 
 // same as v3_xml_get but takes an already initialized va_list
@@ -219,11 +199,10 @@ static struct v3_xml * v3_xml_set_flag(struct v3_xml * xml, short flag)
 // for cdata sections, ' ' for attribute normalization, or '*' for non-cdata
 // attribute normalization. Returns s, or if the decoded string is longer than
 // s, returns a malloced string that must be freed.
-static char * v3_xml_decode(char * s, char ** ent, char t) {
+static char * v3_xml_decode(char * s, char t) {
     char * e;
     char * r = s;
-    char * m = s;
-    long b, c, d, l;
+    long c, l;
 
     // normalize line endings
     for (; *s; s++) { 
@@ -266,28 +245,6 @@ static char * v3_xml_decode(char * s, char ** ent, char t) {
 	    *(s++) = c; 
 
             memmove(s, strchr(s, ';') + 1, strlen(strchr(s, ';')));
-        } else if ( ( (*s == '&') && 
-		      ((t == '&') || (t == ' ') || (t == '*'))) ||
-		    ( (*s == '%') && (t == '%'))) { 
-	    // entity reference`
-
-            for ( (b = 0); 
-		  (ent[b]) && (strncmp(s + 1, ent[b], strlen(ent[b])) != 0);
-		  (b += 2)); // find entity in entity list
-
-            if (ent[b++]) { // found a match
-                if (((c = strlen(ent[b])) - 1) > ((e = strchr(s, ';')) - s)) {
-                    l = (d = (s - r)) + c + strlen(e); // new length
-                    r = ((r == m) ? strcpy(V3_Malloc(l), r) : tmp_realloc(r, strlen(r), l));
-                    e = strchr((s = r + d), ';'); // fix up pointers
-                }
-
-                memmove(s + c, e + 1, strlen(e)); // shift rest of string
-                strncpy(s, ent[b], c); // copy in replacement text
-            } else {
-		// not a known entity
-		s++;
-	    }
         } else if ( ( (t == ' ') || (t == '*')) && 
 		    (isspace(*s))) {
 	    *(s++) = ' ';
@@ -331,16 +288,23 @@ static void v3_xml_char_content(struct v3_xml_root * root, char * s, size_t len,
     }
 
     s[len] = '\0'; // null terminate text (calling functions anticipate this)
-    len = strlen(s = v3_xml_decode(s, root->ent, t)) + 1;
+    len = strlen(s = v3_xml_decode(s, t)) + 1;
 
-    if (! *(xml->txt)) {
+    if (xml->txt[0] == '\0') { // empty string
 	// initial character content
 	xml->txt = s;
     } else { 
+
 	// allocate our own memory and make a copy
-        xml->txt = (xml->flags & V3_XML_TXTM) ? 
-	    (tmp_realloc(xml->txt, strlen(xml->txt), (l = strlen(xml->txt)) + len)) : 
-	    (strcpy(V3_Malloc((l = strlen(xml->txt)) + len), xml->txt));
+	if (xml->flags & V3_XML_TXTM) {
+	    xml->txt = (tmp_realloc(xml->txt, strlen(xml->txt), (l = strlen(xml->txt)) + len));
+	} else {
+	    char * tmp = NULL;
+
+	    tmp = V3_Malloc((l = strlen(xml->txt)) + len);
+	    strcpy(tmp, xml->txt);
+	    xml->txt = tmp;
+	}
 
         strcpy(xml->txt + l, s); // add new char content
 	
@@ -367,37 +331,6 @@ static int v3_xml_close_tag(struct v3_xml_root * root, char * name, char * s) {
     return 0;
 }
 
-#if 0
-// checks for circular entity references, returns non-zero if no circular
-// references are found, zero otherwise
-static int v3_xml_ent_ok(char * name, char * s, char ** ent) {
-    int i;
-
-    for (; ; s++) {
-        while ((*s != '\0') && (*s != '&')) {
-	    // find next entity reference
-	    s++; 
-	}
-
-        if (*s == '\0') {
-	    return 1;
-	}
-
-        if (strncmp(s + 1, name, strlen(name)) == 0) {
-	    // circular ref.
-	    return 0;
-	}
-
-        for (i = 0; (ent[i]) && (strncmp(ent[i], s + 1, strlen(ent[i]))); i += 2);
-
-        if ((ent[i] != NULL) && (v3_xml_ent_ok(name, ent[i + 1], ent) == 0)) {
-	    return 0;
-	}
-    }
-}
-#endif
-
-
 
 // frees a tag attribute list
 static void v3_xml_free_attr(char **attr) {
@@ -416,16 +349,6 @@ static void v3_xml_free_attr(char **attr) {
 
     m = attr[i + 1]; // list of which names and values are malloced
 
-    for (i = 0; m[i]; i++) {
-        if (m[i] & V3_XML_NAMEM) {
-	    V3_Free(attr[i * 2]);
-	}
-
-        if (m[i] & V3_XML_TXTM) {
-	    V3_Free(attr[(i * 2) + 1]);
-	}
-    }
-
     V3_Free(m);
     V3_Free(attr);
 }
@@ -437,8 +360,6 @@ static void v3_xml_free_attr(char **attr) {
 
 // returns a new empty v3_xml structure with the given root tag name
 static struct v3_xml * v3_xml_new(const char * name) {
-    static char * ent[] = { "lt;", "&#60;", "gt;", "&#62;", "quot;", "&#34;",
-                           "apos;", "&#39;", "amp;", "&#38;", NULL };
 
     struct v3_xml_root * root = (struct v3_xml_root *)V3_Malloc(sizeof(struct v3_xml_root));
     memset(root, 0, sizeof(struct v3_xml_root));
@@ -448,11 +369,6 @@ static struct v3_xml * v3_xml_new(const char * name) {
     root->xml.txt = "";
     memset(root->err, 0, V3_XML_ERRL);
 
-    root->ent = V3_Malloc(sizeof(ent));
-    memcpy(root->ent, ent, sizeof(ent));
-
-    root->xml.attr = empty_attrib_list;
-    root->attr = (char ***)(empty_attrib_list);
 
     return &root->xml;
 }
@@ -579,9 +495,7 @@ static struct v3_xml * parse_str(char * buf, size_t len) {
     char last_char; 
     char * tag_ptr;
     char ** attr; 
-    char ** tmp_attr = NULL; // initialize a to avoid compile warning
     int attr_idx;
-    int i, j;
 
     root->str_ptr = buf;
 
@@ -626,17 +540,7 @@ static struct v3_xml * parse_str(char * buf, size_t len) {
 		*(buf++) = '\0';
 	    }
 
-	    // check if attribute follows tag
-            if ((*buf) && (*buf != '/') && (*buf != '>')) {
-		// there is an attribute
-		// find attributes for correct tag
-                for ((i = 0); 
-		     ((tmp_attr = root->attr[i]) && 
-		      (strcasecmp(tmp_attr[0], tag_ptr) != 0)); 
-		     (i++)) ;
-		
-		// 'tmp_attr' now points to the attribute list associated with 'tag_ptr'
-	    }
+	
 
 	    // attributes are name value pairs, 
 	    //     2nd to last entry is null  (end of list)
@@ -660,7 +564,7 @@ static struct v3_xml * parse_str(char * buf, size_t len) {
 					(2 * sizeof(char *))), 
 				       ((attr_cnt * (2 * sizeof(char *))) + 
 					(2 * sizeof(char *))));
-		
+
 		    attr[last_idx] = tmp_realloc(attr[last_idx - 2], 
 						 attr_cnt,
 						 (attr_cnt + 1)); 
@@ -668,7 +572,6 @@ static struct v3_xml * parse_str(char * buf, size_t len) {
 		    attr = V3_Malloc(4 * sizeof(char *)); 
 		    attr[last_idx] = V3_Malloc(2);
 		}
-		
 
                 attr[attr_idx] = buf; // set attribute name
                 attr[val_idx] = ""; // temporary attribute value
@@ -678,9 +581,9 @@ static struct v3_xml * parse_str(char * buf, size_t len) {
                 buf += strcspn(buf, V3_XML_WS "=/>");
 
                 if ((*buf == '=') || isspace(*buf)) {
-                    
+
 		    *(buf++) = '\0'; // null terminate tag attribute name
-		    
+
 		    // eat whitespace (and more multiple '=' ?)
 		    buf += strspn(buf, V3_XML_WS "=");
 
@@ -702,20 +605,7 @@ static struct v3_xml * parse_str(char * buf, size_t len) {
 			    return NULL;
                         }
 
-                        for (j = 1; 
-			     ( (tmp_attr) && (tmp_attr[j]) && 
-			       (strcasecmp(tmp_attr[j], attr[attr_idx]) != 0)); 
-			     j += 3);
-
-                        attr[val_idx] = v3_xml_decode(attr[val_idx], root->ent, 
-						      ((tmp_attr && tmp_attr[j]) ? 
-						       *tmp_attr[j + 2] : 
-						       ' '));
-			
-                        if ( (attr[val_idx] < tag_ptr) || 
-			     (attr[val_idx] > buf) ) {
-                            attr[last_idx][attr_cnt - 1] = V3_XML_TXTM; // value malloced
-			}
+                        attr[val_idx] = v3_xml_decode(attr[val_idx], ' ');
                     }
                 }
 
@@ -801,6 +691,11 @@ static struct v3_xml * parse_str(char * buf, size_t len) {
         *buf = '\0';
         tag_ptr = ++buf;
 
+	/* Eat leading whitespace */
+	while (*buf && isspace(*buf)) {
+	    buf++;
+	}
+
         if (*buf && (*buf != '<')) { 
 	    // tag character content
             while (*buf && (*buf != '<')) {
@@ -849,8 +744,6 @@ struct v3_xml * v3_xml_parse(char * buf) {
 // free the memory allocated for the v3_xml structure
 void v3_xml_free(struct v3_xml * xml) {
     struct v3_xml_root * root = (struct v3_xml_root *)xml;
-    int i, j;
-    char **a, *s;
 
     if (xml == NULL) {
         return;
@@ -861,35 +754,12 @@ void v3_xml_free(struct v3_xml * xml) {
 
     if (xml->parent == NULL) { 
 	// free root tag allocations
-        
-	for (i = 10; root->ent[i]; i += 2) {
-	    // 0 - 9 are default entites (<>&"')
-            if ((s = root->ent[i + 1]) < root->tmp_start || s > root->tmp_end) {
-		V3_Free(s);
-	    }
-	}
-
-	V3_Free(root->ent); // free list of general entities
-
-        for (i = 0; (a = root->attr[i]); i++) {
-            for (j = 1; a[j++]; j += 2) {
-		// free malloced attribute values
-                if (a[j] && (a[j] < root->tmp_start || a[j] > root->tmp_end)) {
-		    V3_Free(a[j]);
-		}
-	    }
-            V3_Free(a);
-        }
-
-        if (root->attr[0]) {
-	    // free default attribute list
-	    V3_Free(root->attr);
-	}
-
 	V3_Free(root->str_ptr); // malloced xml data
     }
 
     v3_xml_free_attr(xml->attr); // tag attributes
+
+
 
     if ((xml->flags & V3_XML_TXTM)) {
 	// character content
@@ -906,6 +776,9 @@ void v3_xml_free(struct v3_xml * xml) {
 
 
 
+
+
+/* Adding XML data */
 
 
 
@@ -1129,8 +1002,8 @@ static char *ampencode(const char *s, size_t len, char **dst, size_t *dlen,
 // its length excedes max. start is the location of the previous tag in the
 // parent tag's character content. Returns *s.
 static char *toxml_r(struct v3_xml * xml, char **s, size_t *len, size_t *max,
-                    size_t start, char ***attr) {
-    int i, j;
+                    size_t start) {
+    int i;
     char *txt = (xml->parent) ? xml->parent->txt : "";
     size_t off = 0;
 
@@ -1158,23 +1031,10 @@ static char *toxml_r(struct v3_xml * xml, char **s, size_t *len, size_t *max,
         *len += sprintf(*s + *len, "\"");
     }
 
-    for (i = 0; attr[i] && strcmp(attr[i][0], xml->name); i++);
-    for (j = 1; attr[i] && attr[i][j]; j += 3) { // default attributes
-        if (! attr[i][j + 1] || v3_xml_attr(xml, attr[i][j]) != attr[i][j + 1])
-            continue; // skip duplicates and non-values
-        while (*len + strlen(attr[i][j]) + 7 > *max) {
-	    // reallocate s
-            *s = tmp_realloc(*s, *max, *max + V3_XML_BUFSIZE);
-	    *max += V3_XML_BUFSIZE;
-	}
-
-        *len += sprintf(*s + *len, " %s=\"", attr[i][j]);
-        ampencode(attr[i][j + 1], -1, s, len, max, 1);
-        *len += sprintf(*s + *len, "\"");
-    }
+  
     *len += sprintf(*s + *len, ">");
 
-    *s = (xml->child) ? toxml_r(xml->child, s, len, max, 0, attr) //child
+    *s = (xml->child) ? toxml_r(xml->child, s, len, max, 0) //child
                       : ampencode(xml->txt, -1, s, len, max, 0);  //data
     
     while (*len + strlen(xml->name) + 4 > *max) {
@@ -1186,7 +1046,7 @@ static char *toxml_r(struct v3_xml * xml, char **s, size_t *len, size_t *max,
     *len += sprintf(*s + *len, "</%s>", xml->name); // close tag
 
     while (txt[off] && off < xml->off) off++; // make sure off is within bounds
-    return (xml->ordered) ? toxml_r(xml->ordered, s, len, max, off, attr)
+    return (xml->ordered) ? toxml_r(xml->ordered, s, len, max, off)
                           : ampencode(txt + off, -1, s, len, max, 0);
 }
 
@@ -1204,7 +1064,7 @@ char * v3_xml_tostr(struct v3_xml * xml) {
 
 
     xml->parent = xml->ordered = NULL;
-    s = toxml_r(xml, &s, &len, &max, 0, root->attr);
+    s = toxml_r(xml, &s, &len, &max, 0);
     xml->parent = p;
     xml->ordered = o;
 
