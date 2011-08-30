@@ -48,7 +48,7 @@ int main(int argc, char * argv[]) {
     unsigned char * bitmap = NULL;
     int num_blocks = 0;    
     int reg_start = 0;
-
+    int mem_ready = 0;
 
     if (argc != 2) {
 	printf("Usage: v3_mem <memory size (MB)>\n");
@@ -146,71 +146,155 @@ int main(int argc, char * argv[]) {
 
     }
     
-
-    /* Scan bitmap for enough consecutive space */
-    {
-	// num_blocks: The number of blocks we need to find
-	// bitmap: bitmap of blocks (1 == allocatable)
-	// bitmap_entries: number of blocks in the system/number of bits in bitmap
-	// reg_start: The block index where our allocation will start
-
-	int i = 0;
-	int run_len = 0;
-
-	for (i = 0; i < bitmap_entries; i++) {
-	    int i_major = i / 8;
-	    int i_minor = i % 8;
+    while (!mem_ready) {
 
 
-	    if (!(bitmap[i_major] & (0x1 << i_minor))) {
-		reg_start = i + 1; // skip the region start to next entry
-		run_len = 0;
-		continue;
-	    }
-
-	    run_len++;
-
-	    if (run_len >= num_blocks) {
-		break;
-	    }
-	}
-
-	free(bitmap);
-	
-	if (run_len < num_blocks) {
-	    fprintf(stderr, "Could not find enough consecutive memory blocks... (found %d)\n", run_len);
-	    return -1;
-	}
-    }
-    
-
-    /* Offline memory blocks starting at reg_start */
-    {
-	int i = 0;
-
-	for (i = 0; i < num_blocks; i++) {	
-	    FILE * block_file = NULL;
-	    char fname[256];
-
-	    memset(fname, 0, 256);
-
-	    snprintf(fname, 256, "%smemory%d/state", SYS_PATH, i + reg_start);
+	/* Scan bitmap for enough consecutive space */
+	{
+	    // num_blocks: The number of blocks we need to find
+	    // bitmap: bitmap of blocks (1 == allocatable)
+	    // bitmap_entries: number of blocks in the system/number of bits in bitmap
+	    // reg_start: The block index where our allocation will start
 	    
-	    block_file = fopen(fname, "r+");
+	    int i = 0;
+	    int run_len = 0;
+	    
+	    for (i = 0; i < bitmap_entries; i++) {
+		int i_major = i / 8;
+		int i_minor = i % 8;
+		
+		
+		if (!(bitmap[i_major] & (0x1 << i_minor))) {
+		    reg_start = i + 1; // skip the region start to next entry
+		    run_len = 0;
+		    continue;
+		}
+		
+		run_len++;
 
-	    if (block_file == NULL) {
-		perror("Could not open block file");
+		if (run_len >= num_blocks) {
+		    break;
+		}
+	    }
+
+	
+	    if (run_len < num_blocks) {
+		fprintf(stderr, "Could not find enough consecutive memory blocks... (found %d)\n", run_len);
 		return -1;
 	    }
+	}
+    
+
+	/* Offline memory blocks starting at reg_start */
+	{
+	    int i = 0;
+
+	    for (i = 0; i < num_blocks; i++) {	
+		FILE * block_file = NULL;
+		char fname[256];
+
+		memset(fname, 0, 256);
+
+		snprintf(fname, 256, "%smemory%d/state", SYS_PATH, i + reg_start);
+	    
+		block_file = fopen(fname, "r+");
+
+		if (block_file == NULL) {
+		    perror("Could not open block file");
+		    return -1;
+		}
 
 
-	    printf("Offlining block %d (%s)\n", i + reg_start, fname);
-	    fprintf(block_file, "offline\n");
+		printf("Offlining block %d (%s)\n", i + reg_start, fname);
+		fprintf(block_file, "offline\n");
 
-	    fclose(block_file);
+		fclose(block_file);
+	    }
+	}
+
+
+	/*  We asked to offline set of blocks, but Linux could have lied. 
+	 *  To be safe, check whether blocks were offlined and start again if not 
+	 */
+
+	{
+	    int i = 0;
+
+	    mem_ready = 1; // Hopefully we are ok...
+
+
+	    for (i = 0; i < num_blocks; i++) {
+		int block_fd = NULL;
+		char fname[BUF_SIZE];
+		char status_buf[BUF_SIZE];
+
+
+		memset(fname, 0, BUF_SIZE);
+		memset(status_buf, 0, BUF_SIZE);
+
+		snprintf(fname, BUF_SIZE, "%smemory%d/state", SYS_PATH, i + reg_start);
+
+	
+		block_fd = open(fname, O_RDONLY);
+		
+		if (block_fd == -1) {
+		    perror("Could not open block file");
+		    return -1;
+		}
+		    
+		if (read(block_fd, status_buf, BUF_SIZE) <= 0) {
+		    perror("Could not read block status");
+		    return -1;
+		}
+
+		printf("Checking offlined block %d (%s)...", i + reg_start, fname);
+
+		int ret = strncmp(status_buf, "offline", strlen("offline"));
+
+		if (ret != 0) {
+		    int j = 0;
+		    int major = (i + reg_start) / 8;
+		    int minor = (i + reg_start) % 8;
+
+		    bitmap[major] &= ~(0x1 << minor); // mark the block as not removable in bitmap
+
+		    mem_ready = 0; // Keep searching
+
+		    printf("ERROR (%d)\n", ret);
+
+		    for (j = 0; j < i; j++) {
+			FILE * block_file = NULL;
+			char fname[256];
+			
+			memset(fname, 0, 256);
+			
+			snprintf(fname, 256, "%smemory%d/state", SYS_PATH, j + reg_start);
+			
+			block_file = fopen(fname, "r+");
+			
+			if (block_file == NULL) {
+			    perror("Could not open block file");
+			    return -1;
+			}
+
+			fprintf(block_file, "online\n");
+			
+			fclose(block_file);
+		    }
+		       
+
+		    break;
+		} 
+		
+		printf("OK\n");
+		
+	    }
+	    
+	    
 	}
     }
 
+    free(bitmap);
 
     /* Memory is offlined. Calculate size and phys start addr to send to Palacios */
 
