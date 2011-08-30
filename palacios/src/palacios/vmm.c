@@ -154,7 +154,8 @@ void Shutdown_V3() {
     if ((os_hooks) && (os_hooks->call_on_cpu)) {
 	for (i = 0; i < V3_CONFIG_MAX_CPUS; i++) {
 	    if (v3_cpu_types[i] != V3_INVALID_CPU) {
-		deinit_cpu((void *)(addr_t)i);
+		V3_Call_On_CPU(i, deinit_cpu, (void *)(addr_t)i);
+		//deinit_cpu((void *)(addr_t)i);
 	    }
 	}
     }
