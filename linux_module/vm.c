@@ -12,7 +12,7 @@
 #include <linux/poll.h>
 #include <linux/anon_inodes.h>
 #include <linux/sched.h>
-
+#include <linux/vmalloc.h>
 #include <linux/file.h>
 #include <linux/spinlock.h>
 #include <linux/rbtree.h>
