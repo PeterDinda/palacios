@@ -91,6 +91,7 @@ palacios_alloc(unsigned int size) {
     	addr = kmalloc(size, GFP_KERNEL);
     }
     mallocs++;
+
  
     return addr;
 }
@@ -496,7 +497,7 @@ int palacios_vmm_init( void )
     
     printk("palacios_init starting - calling init_v3\n");
     
-    Init_V3(&palacios_os_hooks, nr_cpu_ids);
+    Init_V3(&palacios_os_hooks, num_online_cpus());
 
     return 0;
 

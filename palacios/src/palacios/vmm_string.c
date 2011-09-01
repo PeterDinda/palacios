@@ -460,10 +460,14 @@ size_t strcspn(const char * s, const char * reject) {
 	for (i = 0; i < reject_len; i++) {
 	    if (s[cnt] == reject[i]) {
 		match = 1;
-		cnt++;
 		break;
 	    }
 	}
+
+	if (!match) {
+	    cnt++;
+	}
+
     }
 
     return cnt;

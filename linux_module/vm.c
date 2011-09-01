@@ -12,7 +12,7 @@
 #include <linux/poll.h>
 #include <linux/anon_inodes.h>
 #include <linux/sched.h>
-
+#include <linux/vmalloc.h>
 #include <linux/file.h>
 #include <linux/spinlock.h>
 #include <linux/rbtree.h>
@@ -290,7 +290,7 @@ int stop_palacios_vm(struct v3_guest * guest) {
 
     cdev_del(&(guest->cdev));
 
-    kfree(guest->img);
+    vfree(guest->img);
     kfree(guest);
 
     return 0;

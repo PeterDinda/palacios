@@ -65,7 +65,7 @@ static uintptr_t alloc_contig_pgs(u64 num_pages, u32 alignment) {
 	start = ((alignment - (pool.base_addr % alignment)) >> 12);
     }
 
-    printk("\t Start idx %d (base_addr=%llu)\n", start, (u64)pool.base_addr);
+    printk("\t Start idx %d (base_addr=%p)\n", start, (void *)(u64)pool.base_addr);
 
     for (i = start; i < (pool.num_pages - num_pages); i += step) {
 	if (get_page_bit(i) == 0) {

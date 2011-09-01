@@ -549,7 +549,7 @@ int v3_deinit_vmx_vmcs(struct guest_info * core) {
     struct vmx_data * vmx_state = core->vmm_data;
 
     V3_FreePages((void *)(vmx_state->vmcs_ptr_phys), 1);
-    V3_FreePages(vmx_state->msr_area, 1);
+    V3_FreePages(V3_PAddr(vmx_state->msr_area), 1);
 
     V3_Free(vmx_state);
 
@@ -1018,6 +1018,7 @@ int v3_reset_vmx_vm_core(struct guest_info * core, addr_t rip) {
 
 
 void v3_init_vmx_cpu(int cpu_id) {
+    addr_t vmx_on_region = 0;
 
     if (cpu_id == 0) {
 	if (v3_init_vmx_hw(&hw_info) == -1) {
@@ -1030,17 +1031,18 @@ void v3_init_vmx_cpu(int cpu_id) {
 
 
     // Setup VMXON Region
-    host_vmcs_ptrs[cpu_id] = allocate_vmcs();
+    vmx_on_region = allocate_vmcs();
 
-    PrintDebug("VMXON pointer: 0x%p\n", (void *)host_vmcs_ptrs[cpu_id]);
 
-    if (vmx_on(host_vmcs_ptrs[cpu_id]) == VMX_SUCCESS) {
+    if (vmx_on(vmx_on_region) == VMX_SUCCESS) {
         V3_Print("VMX Enabled\n");
+	host_vmcs_ptrs[cpu_id] = vmx_on_region;
     } else {
-        PrintError("VMX initialization failure\n");
-        return;
+        V3_Print("VMX already enabled\n");
+	V3_FreePages((void *)vmx_on_region, 1);
     }
-    
+
+    PrintDebug("VMXON pointer: 0x%p\n", (void *)host_vmcs_ptrs[cpu_id]);    
 
     {
 	struct vmx_sec_proc_ctrls sec_proc_ctrls;
@@ -1063,5 +1065,16 @@ void v3_init_vmx_cpu(int cpu_id) {
 void v3_deinit_vmx_cpu(int cpu_id) {
     extern v3_cpu_arch_t v3_cpu_types[];
     v3_cpu_types[cpu_id] = V3_INVALID_CPU;
-    V3_FreePages((void *)host_vmcs_ptrs[cpu_id], 1);
+
+    if (host_vmcs_ptrs[cpu_id] != 0) {
+	V3_Print("Disabling VMX\n");
+
+	if (vmx_off() != VMX_SUCCESS) {
+	    PrintError("Error executing VMXOFF\n");
+	}
+
+	V3_FreePages((void *)host_vmcs_ptrs[cpu_id], 1);
+
+	host_vmcs_ptrs[cpu_id] = 0;
+    }
 }
