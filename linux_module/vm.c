@@ -12,7 +12,7 @@
 #include <linux/poll.h>
 #include <linux/anon_inodes.h>
 #include <linux/sched.h>
-
+#include <linux/vmalloc.h>
 #include <linux/file.h>
 #include <linux/spinlock.h>
 #include <linux/rbtree.h>
@@ -129,8 +129,18 @@ static long v3_vm_ioctl(struct file * filp,
     switch (ioctl) {
 
 	case V3_VM_STOP: {
-	    printk("Stopping VM\n");
+	    printk("Stopping VM (%s)\n", guest->name);
 	    stop_palacios_vm(guest);
+	    break;
+	}
+	case V3_VM_PAUSE: {
+	    printk("Pausing VM (%s)\n", guest->name);
+	    v3_pause_vm(guest->v3_ctx);
+	    break;
+	}
+	case V3_VM_CONTINUE: {
+	    printk("Continuing VM (%s)\n", guest->name);
+	    v3_continue_vm(guest->v3_ctx);
 	    break;
 	}
 
@@ -264,7 +274,7 @@ int stop_palacios_vm(struct v3_guest * guest) {
 
     cdev_del(&(guest->cdev));
 
-    kfree(guest->img);
+    vfree(guest->img);
     kfree(guest);
 
     return 0;

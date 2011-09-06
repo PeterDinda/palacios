@@ -154,7 +154,8 @@ void Shutdown_V3() {
     if ((os_hooks) && (os_hooks->call_on_cpu)) {
 	for (i = 0; i < V3_CONFIG_MAX_CPUS; i++) {
 	    if (v3_cpu_types[i] != V3_INVALID_CPU) {
-		deinit_cpu((void *)(addr_t)i);
+		V3_Call_On_CPU(i, deinit_cpu, (void *)(addr_t)i);
+		//deinit_cpu((void *)(addr_t)i);
 	    }
 	}
     }
@@ -399,6 +400,36 @@ int v3_stop_vm(struct v3_vm_info * vm) {
     }
     
     V3_Print("VM stopped. Returning\n");
+
+    return 0;
+}
+
+
+int v3_pause_vm(struct v3_vm_info * vm) {
+
+    if (vm->run_state != VM_RUNNING) {
+	PrintError("Tried to pause a VM that was not running\n");
+	return -1;
+    }
+
+    while (v3_raise_barrier(vm, NULL) == -1);
+
+    vm->run_state = VM_PAUSED;
+
+    return 0;
+}
+
+
+int v3_continue_vm(struct v3_vm_info * vm) {
+
+    if (vm->run_state != VM_PAUSED) {
+	PrintError("Tried to continue a VM that was not paused\n");
+	return -1;
+    }
+
+    v3_lower_barrier(vm);
+
+    vm->run_state = VM_RUNNING;
 
     return 0;
 }

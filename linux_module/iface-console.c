@@ -140,7 +140,7 @@ console_write(struct file * filp, const char __user * buf, size_t size, loff_t *
 
 
     for (i = 0; i < size; i++) {
-	if (copy_from_user(&(event.scan_code), buf, 1)) {
+	if (copy_from_user(&(event.scan_code), buf + i, 1)) {
 	    printk("Console Write fault\n");
 	    return -EFAULT;
 	}
@@ -217,7 +217,7 @@ static int console_connect(struct v3_guest * guest, unsigned int cmd,
 
     spin_lock_irqsave(&(cons->lock), flags);
 
-    cons_fd = anon_inode_getfd("v3-cons", &cons_fops, cons, 0);
+    cons_fd = anon_inode_getfd("v3-cons", &cons_fops, cons, O_RDWR);
 
     if (cons_fd < 0) {
 	printk("Error creating console inode\n");

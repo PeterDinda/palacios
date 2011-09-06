@@ -76,6 +76,12 @@ config VMX
 	  Compile with support for Intel VMX
 
 
+config FRAME_POINTER
+	bool "Compile with Frame pointers"
+	default n
+	help
+	  Compiles the Palacios library with Frame pointers
+
 config DEBUG_INFO
 	bool "Compile with Debug Information"
 	default n
@@ -295,12 +301,6 @@ config DEBUG_VNET
 endmenu
 
 menu "Debug configuration"
-
-config CONFIG_DEBUG_INFO
-	bool "Compile with Debug information"
-	default n
-	help 
-	 This adds the -g flag to the compilation flags
 
 
 ## Is unwind information useful

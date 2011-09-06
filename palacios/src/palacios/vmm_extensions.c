@@ -26,6 +26,14 @@
 
 static struct hashtable * ext_table = NULL;
 
+/*
+ * This is a place holder to ensure that the _v3_extensions section gets created by gcc
+ */
+static struct {} null_ext  __attribute__((__used__))                    \
+    __attribute__((unused, __section__ ("_v3_extensions"),                \
+                   aligned(sizeof(addr_t))));
+
+
 
 static uint_t ext_hash_fn(addr_t key) {
     char * name = (char *)key;

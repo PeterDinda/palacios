@@ -298,7 +298,8 @@ V3_INCLUDE      := -Ipalacios/include \
 
 CPPFLAGS        := $(V3_INCLUDE) -D__V3VEE__
 
-CFLAGS 		:=  -fno-stack-protector -Wall -Werror  -mno-red-zone -fno-common 
+CFLAGS 		:=  -fno-stack-protector -Wall -Werror  -mno-red-zone -fno-common \
+		    $(call cc-option, -Wno-unused-but-set-variable,)
 
 
 
@@ -379,9 +380,9 @@ ifneq ($(filter $(no-dot-config-targets), $(MAKECMDGOALS)),)
 endif
 
 ifeq ($(KBUILD_EXTMOD),)
-        ifneq ($(filter config %config,$(MAKECMDGOALS)),)
+        ifneq ($(filter %config,$(MAKECMDGOALS)),)
                 config-targets := 1
-                ifneq ($(filter-out config %config,$(MAKECMDGOALS)),)
+                ifneq ($(filter-out %config,$(MAKECMDGOALS)),)
                         mixed-targets := 1
                 endif
         endif
@@ -407,7 +408,7 @@ ifeq ($(config-targets),1)
 include $(srctree)/Makefile.$(ARCH)
 export KBUILD_DEFCONFIG
 
-config %config: scripts_basic outputmakefile FORCE
+%config: scripts_basic outputmakefile FORCE
 	$(Q)mkdir -p palacios/include/config
 	$(Q)$(MAKE) $(build)=scripts/kconfig $@
 #	$(Q)$(MAKE) -C $(srctree) KBUILD_SRC= .kernelrelease
@@ -500,8 +501,6 @@ endif
 
 ifdef V3_CONFIG_DEBUG_INFO
 CFLAGS		+= -g
-else 
-CFLAGS          += -O
 endif
 
 
@@ -942,7 +941,7 @@ target-dir = $(dir $@)
 	$(Q)$(MAKE) $(build)=$(build-dir) $(target-dir)$(notdir $@)
 
 # Modules
-/ %/: prepare scripts FORCE
+%/: prepare scripts FORCE
 	$(Q)$(MAKE) KBUILD_MODULES=$(if $(V3_CONFIG_MODULES),1) \
 	$(build)=$(build-dir)
 %.ko: prepare scripts FORCE

@@ -153,6 +153,14 @@ config DEBUG_VIRTIO_SYM
 	help 
 	  Enable debugging for the Linux Virtio Symbiotic Device
 
+config LINUX_VIRTIO_CONSOLE
+        bool "Enable Virtio Console Device"
+        default n
+	depends on PCI
+        help
+          Enable the Virtio Console
+
+
 config LINUX_VIRTIO_NET
         bool "Enable Virtio Network Device"
         default n
@@ -450,6 +458,13 @@ config SERIAL_UART
 	default y
 	help 
 	  Include virtual serial port
+
+config DEBUG_SERIAL
+        bool "Debug Serial Port"
+        default n
+        depends on SERIAL_UART
+        help
+          Debugging virtual serial port
 
 config CHAR_STREAM
 	bool "Stream based character frontend"

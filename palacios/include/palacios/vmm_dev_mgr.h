@@ -177,16 +177,24 @@ struct v3_dev_blk_ops {
     int (*write)(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * private_data);
 };
 
+
+struct v3_dev_net_ops_cfg{
+    void * frontend_data; 
+    char * fnt_mac;
+    int quote;
+    int poll;  /* need poll? */
+};
+
 struct v3_dev_net_ops {
     /* Backend implemented functions */
-    int (*send)(uint8_t * buf, uint32_t len, int synchronize, void * private_data);
+    int (*send)(uint8_t * buf, uint32_t len, void * private_data);
 
     /* Frontend implemented functions */
     int (*recv)(uint8_t * buf, uint32_t len, void * frnt_data);
+    int (*poll)(int quote, void * frnt_data);
 
     /* This is ugly... */
-    void * frontend_data; 
-    char fnt_mac[ETH_ALEN];
+    struct v3_dev_net_ops_cfg config;
 };
 
 struct v3_dev_console_ops {
@@ -202,11 +210,11 @@ struct v3_dev_console_ops {
 
 struct v3_dev_char_ops {
     /* Backend implemented functions */
-    int (*write)(uint8_t * buf, uint64_t len, void * private_data);
+    uint64_t (*output)(uint8_t * buf, uint64_t len, void * private_data);
     //  int (*read)(uint8_t * buf, uint64_t len, void * private_data);
 
     /* Frontend Implemented functions */
-    int (*push)(struct v3_vm_info * vm, uint8_t * buf, uint64_t len, void * private_data);
+    uint64_t (*input)(struct v3_vm_info * vm, uint8_t * buf, uint64_t len, void * private_data);
 };
 
 
