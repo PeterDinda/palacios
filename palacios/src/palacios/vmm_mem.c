@@ -302,6 +302,10 @@ static struct v3_mem_region * get_next_mem_region( struct v3_vm_info * vm, uint1
     struct v3_mem_region * reg = NULL;
     struct v3_mem_region * parent = NULL;
 
+    if (n == NULL) {
+	return NULL;
+    }
+
     while (n) {
 
 	reg = rb_entry(n, struct v3_mem_region, tree_node);
