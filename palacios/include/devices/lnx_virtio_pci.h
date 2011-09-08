@@ -91,14 +91,19 @@
  * 
  */
 struct virtio_config {
-    uint32_t host_features;
-    uint32_t guest_features;
-    uint32_t vring_page_num;
-    uint16_t vring_ring_size;
-    uint16_t vring_queue_selector;
-    uint16_t vring_queue_notifier;
-    uint8_t status;
-    uint8_t pci_isr;
+    union {
+	uint8_t buf[20];
+	struct {
+	    uint32_t host_features;
+	    uint32_t guest_features;
+	    uint32_t vring_page_num;
+	    uint16_t vring_ring_size;
+	    uint16_t vring_queue_selector;
+	    uint16_t vring_queue_notifier;
+	    uint8_t status;
+	    uint8_t pci_isr;
+	} __attribute__((packed));
+    } __attribute__((packed));
 } __attribute__((packed));
 
 
