@@ -407,38 +407,44 @@ static int virtio_io_read(struct guest_info * core, uint16_t port, void * dst, u
     PrintDebug("VIRTIO BLOCK Read  for port %d (index =%d), length=%d\n", 
 	       port, port_idx, length);
 
+
     switch (port_idx) {
 	case HOST_FEATURES_PORT:
-	    if (length != 4) {
-		PrintError("Illegal read length for host features\n");
+	case HOST_FEATURES_PORT + 1:
+	case HOST_FEATURES_PORT + 2:
+	case HOST_FEATURES_PORT + 3:
+	    if (port_idx + length > HOST_FEATURES_PORT + 4) {
+		PrintError("Illegal read length for host features (len=%d)\n", length);
 		return -1;
 	    }
 
-	    *(uint32_t *)dst = blk_state->virtio_cfg.host_features;
-	
+	    memcpy(dst, &(blk_state->virtio_cfg.host_features), length);
 	    break;
 	case VRING_PG_NUM_PORT:
-	    if (length != 4) {
-		PrintError("Illegal read length for page frame number\n");
+	case VRING_PG_NUM_PORT + 1:
+	case VRING_PG_NUM_PORT + 2:
+	case VRING_PG_NUM_PORT + 3:
+	    if (port_idx + length > VRING_PG_NUM_PORT + 4) {
+		PrintError("Illegal read length for vring pg num (len=%d)\n", length);
 		return -1;
 	    }
 
-	    *(uint32_t *)dst = blk_state->queue.pfn;
-
+	    memcpy(dst, &(blk_state->queue.pfn), length);
 	    break;
 	case VRING_SIZE_PORT:
-	    if (length != 2) {
-		PrintError("Illegal read length for vring size\n");
+	case VRING_SIZE_PORT + 1:
+	    if (length > 2) {
+		PrintError("Illegal read length for vring size (len=%d)\n", length);
 		return -1;
 	    }
-		
-	    *(uint16_t *)dst = blk_state->queue.queue_size;
+	    
+	    memcpy(dst, &(blk_state->queue.queue_size), length);
 
 	    break;
 
 	case VIRTIO_STATUS_PORT:
 	    if (length != 1) {
-		PrintError("Illegal read length for status\n");
+		PrintError("Illegal read length for status (len=%d)\n", length);
 		return -1;
 	    }
 
