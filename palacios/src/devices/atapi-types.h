@@ -188,6 +188,34 @@ struct atapi_rd_toc_resp {
 } __attribute__((packed));
 
 
+struct atapi_mech_status_cmd {
+    uint8_t atapi_cmd;   // 0xbd
+    uint8_t rsvd1        : 5;
+    uint8_t lun          : 3;
+    uint8_t rsvd2[6];
+    uint16_t alloc_len;
+    uint8_t rsvd3;
+    uint8_t link             : 1;
+    uint8_t flag             : 1;
+    uint8_t naca             : 1;
+    uint8_t rsvd5            : 3;
+    uint8_t vendor_specific  : 2;
+} __attribute__((packed));
+
+struct atapi_mech_status_resp {
+    uint8_t cur_slot          : 5;
+    uint8_t changer_state     : 2;
+    uint8_t fault             : 1;
+    uint8_t rsvd1             : 4;
+    uint8_t door_open         : 1;
+    uint8_t cd_dvd_mech_state : 3;
+    uint32_t lba;
+    uint8_t num_slots         : 6;
+    uint8_t rsvd2             : 2;
+    uint16_t slot_table_len;
+} __attribute__((packed));
+
+
 struct atapi_inquiry_cmd {
     uint8_t atapi_cmd;  // 0x12
     uint8_t evpd           : 1; 
