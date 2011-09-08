@@ -1,5 +1,4 @@
-all: v3_ctrl v3_stop v3_cons v3_mem v3_monitor v3_stream v3_user_host_dev_example v3_os_debug v3_user_keyed_stream_example v3_user_keyed_stream_file
-
+all: v3_ctrl v3_stop v3_cons v3_cons_sc v3_mem v3_monitor v3_stream v3_user_host_dev_example v3_os_debug v3_user_keyed_stream_example v3_user_keyed_stream_file
 
 
 v3_ctrl : v3_ctrl.c v3_ctrl.h
@@ -17,6 +16,10 @@ v3_cons : v3_cons.c v3_ctrl.h
 
 v3_stream : v3_stream.c v3_ctrl.h
 	gcc -static v3_stream.c -o v3_stream 
+
+v3_cons_sc : v3_cons_sc.c v3_ctrl.h
+	gcc -static v3_cons_sc.c -o v3_cons_sc -lcurses
+
 
 v3_monitor : v3_cons.c v3_ctrl.h
 	gcc -static v3_monitor.c -o v3_monitor
