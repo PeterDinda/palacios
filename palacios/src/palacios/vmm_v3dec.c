@@ -122,6 +122,7 @@ int v3_decode(struct guest_info * core, addr_t instr_ptr, struct x86_instr * ins
     instr->instr_length += length;
 
 #ifdef V3_CONFIG_DEBUG_DECODER
+    V3_Print("Decoding Instr at %p\n", (void *)core->rip);
     v3_print_instr(instr);
     V3_Print("CS DB FLag=%x\n", core->segments.cs.db);
 #endif
@@ -351,7 +352,7 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	    instr->is_str_op = 1;
 	    
 	    if (instr->prefixes.rep == 1) {
-		instr->str_op_length = MASK(core->vm_regs.rcx, operand_width);
+		instr->str_op_length = MASK(core->vm_regs.rcx, addr_width);
 	    } else {
 		instr->str_op_length = 1;
 	    }
@@ -427,7 +428,7 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	    instr->is_str_op = 1;
 
 	    if (instr->prefixes.rep == 1) {
-		instr->str_op_length = MASK(core->vm_regs.rcx, operand_width);
+		instr->str_op_length = MASK(core->vm_regs.rcx, addr_width);
 	    } else {
 		instr->str_op_length = 1;
 	    }
