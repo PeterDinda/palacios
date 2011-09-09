@@ -123,6 +123,7 @@ int v3_decode(struct guest_info * core, addr_t instr_ptr, struct x86_instr * ins
 
 #ifdef V3_CONFIG_DEBUG_DECODER
     v3_print_instr(instr);
+    V3_Print("CS DB FLag=%x\n", core->segments.cs.db);
 #endif
 
     return 0;
@@ -153,8 +154,8 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	case AND_IMM2:	
 	case OR_IMM2:
   	case SUB_IMM2:
-	case XOR_IMM2: 
-	case MOV_IMM2:{
+	case XOR_IMM2:
+	case MOV_IMM2: {
 	    uint8_t reg_code = 0;
 
 	    ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->dst_operand), &reg_code);
@@ -176,6 +177,8 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 		instr->src_operand.operand = *(uint16_t *)instr_ptr;
 	    } else if (operand_width == 4) {
 		instr->src_operand.operand = *(uint32_t *)instr_ptr;
+	    } else if (operand_width == 8) {
+		instr->src_operand.operand = *(sint32_t *)instr_ptr; // This is a special case for sign extended 64bit ops
 	    } else {
 		PrintError("Illegal operand width (%d)\n", operand_width);
 		return -1;

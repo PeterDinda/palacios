@@ -221,8 +221,7 @@ static int get_operand_width(struct guest_info * info, struct x86_instr * instr,
 	case MOV_MEM2:
 	case MOV_2MEM:
 	case MOV_MEM2AX:
-	case MOV_AX2MEM:
-	case MOV_IMM2:	    
+	case MOV_AX2MEM: 
 	case MOVS:
 	case MOVSX:
 	case MOVZX:
@@ -256,6 +255,7 @@ static int get_operand_width(struct guest_info * info, struct x86_instr * instr,
 	case OR_IMM2SX_8:
 	case SUB_IMM2SX_8:
 	case XOR_IMM2SX_8:
+	case MOV_IMM2:
 	    switch (v3_get_vm_cpu_mode(info)) {
 		case REAL:
 		    return (instr->prefixes.op_size) ? 4 : 2;
@@ -263,7 +263,7 @@ static int get_operand_width(struct guest_info * info, struct x86_instr * instr,
 		    if (instr->prefixes.rex_op_size) {
 			return 8;
 		    } else {
-			return 4;
+			return (instr->prefixes.op_size) ? 2 : 4;
 		    }
 		case PROTECTED:
 		case PROTECTED_PAE:
@@ -278,7 +278,6 @@ static int get_operand_width(struct guest_info * info, struct x86_instr * instr,
 		    PrintError("Unsupported CPU mode: %d\n", info->cpu_mode);
 		    return -1;
 	    }
-	    
 	case INVLPG:
 	    switch (v3_get_vm_cpu_mode(info)) {
 		case REAL:
