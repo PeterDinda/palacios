@@ -122,7 +122,9 @@ int v3_decode(struct guest_info * core, addr_t instr_ptr, struct x86_instr * ins
     instr->instr_length += length;
 
 #ifdef V3_CONFIG_DEBUG_DECODER
+    V3_Print("Decoding Instr at %p\n", (void *)core->rip);
     v3_print_instr(instr);
+    V3_Print("CS DB FLag=%x\n", core->segments.cs.db);
 #endif
 
     return 0;
@@ -153,8 +155,8 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	case AND_IMM2:	
 	case OR_IMM2:
   	case SUB_IMM2:
-	case XOR_IMM2: 
-	case MOV_IMM2:{
+	case XOR_IMM2:
+	case MOV_IMM2: {
 	    uint8_t reg_code = 0;
 
 	    ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->dst_operand), &reg_code);
@@ -176,6 +178,8 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 		instr->src_operand.operand = *(uint16_t *)instr_ptr;
 	    } else if (operand_width == 4) {
 		instr->src_operand.operand = *(uint32_t *)instr_ptr;
+	    } else if (operand_width == 8) {
+		instr->src_operand.operand = *(sint32_t *)instr_ptr; // This is a special case for sign extended 64bit ops
 	    } else {
 		PrintError("Illegal operand width (%d)\n", operand_width);
 		return -1;
@@ -348,7 +352,7 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	    instr->is_str_op = 1;
 	    
 	    if (instr->prefixes.rep == 1) {
-		instr->str_op_length = MASK(core->vm_regs.rcx, operand_width);
+		instr->str_op_length = MASK(core->vm_regs.rcx, addr_width);
 	    } else {
 		instr->str_op_length = 1;
 	    }
@@ -424,7 +428,7 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	    instr->is_str_op = 1;
 
 	    if (instr->prefixes.rep == 1) {
-		instr->str_op_length = MASK(core->vm_regs.rcx, operand_width);
+		instr->str_op_length = MASK(core->vm_regs.rcx, addr_width);
 	    } else {
 		instr->str_op_length = 1;
 	    }
