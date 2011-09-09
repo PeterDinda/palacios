@@ -221,8 +221,7 @@ static int get_operand_width(struct guest_info * info, struct x86_instr * instr,
 	case MOV_MEM2:
 	case MOV_2MEM:
 	case MOV_MEM2AX:
-	case MOV_AX2MEM:
-	case MOV_IMM2:	    
+	case MOV_AX2MEM: 
 	case MOVS:
 	case MOVSX:
 	case MOVZX:
@@ -256,6 +255,7 @@ static int get_operand_width(struct guest_info * info, struct x86_instr * instr,
 	case OR_IMM2SX_8:
 	case SUB_IMM2SX_8:
 	case XOR_IMM2SX_8:
+	case MOV_IMM2:
 	    switch (v3_get_vm_cpu_mode(info)) {
 		case REAL:
 		    return (instr->prefixes.op_size) ? 4 : 2;
@@ -263,7 +263,7 @@ static int get_operand_width(struct guest_info * info, struct x86_instr * instr,
 		    if (instr->prefixes.rex_op_size) {
 			return 8;
 		    } else {
-			return 4;
+			return (instr->prefixes.op_size) ? 2 : 4;
 		    }
 		case PROTECTED:
 		case PROTECTED_PAE:
@@ -278,7 +278,6 @@ static int get_operand_width(struct guest_info * info, struct x86_instr * instr,
 		    PrintError("Unsupported CPU mode: %d\n", info->cpu_mode);
 		    return -1;
 	    }
-	    
 	case INVLPG:
 	    switch (v3_get_vm_cpu_mode(info)) {
 		case REAL:
@@ -1018,23 +1017,24 @@ int decode_rm_operand64(struct guest_info * core, uint8_t * modrm_instr,
 	}
     
 
-	/* 
-	   Segments should be ignored 
-	   // get appropriate segment
-	   if (instr->prefixes.cs_override) {
-	   seg = &(core->segments.cs);
-	   } else if (instr->prefixes.es_override) {
-	   seg = &(core->segments.es);
-	   } else if (instr->prefixes.ss_override) {
-	   seg = &(core->segments.ss);
-	   } else if (instr->prefixes.fs_override) {
-	   seg = &(core->segments.fs);
-	   } else if (instr->prefixes.gs_override) {
-	   seg = &(core->segments.gs);
-	   } else {
-	   seg = &(core->segments.ds);
-	   }
-	*/
+	
+	//Segments should be ignored 
+	// get appropriate segment
+
+	if (instr->prefixes.cs_override) {
+	    seg = &(core->segments.cs);
+	} else if (instr->prefixes.es_override) {
+	    seg = &(core->segments.es);
+	} else if (instr->prefixes.ss_override) {
+	    seg = &(core->segments.ss);
+	} else if (instr->prefixes.fs_override) {
+	    seg = &(core->segments.fs);
+	} else if (instr->prefixes.gs_override) {
+	    seg = &(core->segments.gs);
+	} else {
+	    seg = &(core->segments.ds);
+	}
+	
 
 	operand->operand = ADDR_MASK(get_addr_linear(core, base_addr, seg), 
 				     get_addr_width(core, instr));
@@ -1062,7 +1062,7 @@ static int decode_rm_operand(struct guest_info * core,
 	case REAL:
 	    return decode_rm_operand16(core, instr_ptr, instr, operand, reg_code);
 	case LONG:
-	    if (instr->prefixes.rex_op_size) {
+	    if (instr->prefixes.rex) {
 		return decode_rm_operand64(core, instr_ptr, instr, operand, reg_code);
 	    }
 	case PROTECTED:
