@@ -216,11 +216,18 @@ static inline addr_t get_addr_linear(struct guest_info * info, addr_t addr, stru
 	    return addr + seg->base;
 	    break;
 
-	case LONG:
+	case LONG: {
+	    uint64_t seg_base = 0;
+
 	    // In long mode the segment bases are disregarded (forced to 0), unless using 
 	    // FS or GS, then the base addresses are added
-	    return addr + seg->base;
 
+	    if (seg) {
+		seg_base = seg->base;
+	    }
+
+	    return addr + seg_base;
+	}
 	case LONG_16_COMPAT:
 	default:
 	    PrintError("Unsupported CPU Mode: %d\n", info->cpu_mode);

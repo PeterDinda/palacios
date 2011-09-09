@@ -1017,23 +1017,24 @@ int decode_rm_operand64(struct guest_info * core, uint8_t * modrm_instr,
 	}
     
 
-	/* 
-	   Segments should be ignored 
-	   // get appropriate segment
-	   if (instr->prefixes.cs_override) {
-	   seg = &(core->segments.cs);
-	   } else if (instr->prefixes.es_override) {
-	   seg = &(core->segments.es);
-	   } else if (instr->prefixes.ss_override) {
-	   seg = &(core->segments.ss);
-	   } else if (instr->prefixes.fs_override) {
-	   seg = &(core->segments.fs);
-	   } else if (instr->prefixes.gs_override) {
-	   seg = &(core->segments.gs);
-	   } else {
-	   seg = &(core->segments.ds);
-	   }
-	*/
+	
+	//Segments should be ignored 
+	// get appropriate segment
+
+	if (instr->prefixes.cs_override) {
+	    seg = &(core->segments.cs);
+	} else if (instr->prefixes.es_override) {
+	    seg = &(core->segments.es);
+	} else if (instr->prefixes.ss_override) {
+	    seg = &(core->segments.ss);
+	} else if (instr->prefixes.fs_override) {
+	    seg = &(core->segments.fs);
+	} else if (instr->prefixes.gs_override) {
+	    seg = &(core->segments.gs);
+	} else {
+	    seg = &(core->segments.ds);
+	}
+	
 
 	operand->operand = ADDR_MASK(get_addr_linear(core, base_addr, seg), 
 				     get_addr_width(core, instr));
@@ -1061,7 +1062,7 @@ static int decode_rm_operand(struct guest_info * core,
 	case REAL:
 	    return decode_rm_operand16(core, instr_ptr, instr, operand, reg_code);
 	case LONG:
-	    if (instr->prefixes.rex_op_size) {
+	    if (instr->prefixes.rex) {
 		return decode_rm_operand64(core, instr_ptr, instr, operand, reg_code);
 	    }
 	case PROTECTED:
