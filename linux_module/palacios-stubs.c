@@ -180,7 +180,7 @@ static int lnx_thread_target(void * arg) {
 /**
  * Creates a kernel thread.
  */
-static void 
+static void *
 palacios_start_kernel_thread(
 	int (*fn)		(void * arg),
 	void *			arg,
@@ -192,8 +192,7 @@ palacios_start_kernel_thread(
     thread_info->arg = arg;
     thread_info->name = thread_name;
 
-    kthread_run( lnx_thread_target, thread_info, thread_name );
-    return;
+    return kthread_run( lnx_thread_target, thread_info, thread_name );
 }
 
 
@@ -220,7 +219,7 @@ palacios_start_thread_on_cpu(int cpu_id,
 	return NULL;
     }
 
-    kthread_bind(thread, cpu_id);
+    set_cpus_allowed_ptr(thread, cpumask_of(cpu_id));
     wake_up_process(thread);
 
     return thread;

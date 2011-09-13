@@ -246,22 +246,15 @@ extern u32 pg_frees;
 extern u32 mallocs;
 extern u32 frees;
 
-int start_palacios_vm(void * arg)  {
-    struct v3_guest * guest = (struct v3_guest *)arg;
+int start_palacios_vm(struct v3_guest * guest)  {
     int err;
 
-
-    daemonize(guest->name);
-    // allow_signal(SIGKILL);
-
-    
     init_vm_extensions(guest);
 
     guest->v3_ctx = v3_create_vm(guest->img, (void *)guest, guest->name);
 
     if (guest->v3_ctx == NULL) { 
 	printk("palacios: failed to create vm\n");
-	complete(&(guest->start_done));
 	return -1;
     }
 
@@ -280,7 +273,6 @@ int start_palacios_vm(void * arg)  {
     if (err) {
 	printk("Fails to add cdev\n");
 	v3_free_vm(guest->v3_ctx);
-	complete(&(guest->start_done));
 	return -1;
     }
 
@@ -288,11 +280,8 @@ int start_palacios_vm(void * arg)  {
 	printk("Fails to create device\n");
 	cdev_del(&(guest->cdev));
 	v3_free_vm(guest->v3_ctx);
-	complete(&(guest->start_done));
 	return -1;
     }
-
-    complete(&(guest->start_done));
 
     printk("palacios: launching vm\n");
 
@@ -304,8 +293,6 @@ int start_palacios_vm(void * arg)  {
 	return -1;
     }
     
-    complete(&(guest->thread_done));
-
     printk("palacios: vm completed.  returning.\n");
 
     return 0;
@@ -319,7 +306,6 @@ int stop_palacios_vm(struct v3_guest * guest) {
 
     v3_stop_vm(guest->v3_ctx);
 
-    wait_for_completion(&(guest->thread_done));
 
     v3_free_vm(guest->v3_ctx);
 

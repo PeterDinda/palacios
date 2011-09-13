@@ -67,73 +67,53 @@ static long v3_dev_ioctl(struct file * filp,
 	    struct v3_guest * guest = kmalloc(sizeof(struct v3_guest), GFP_KERNEL);
 
 	    if (IS_ERR(guest)) {
-		printk("Error allocating Kernel guest_image\n");
+		printk("Palacios: Error allocating Kernel guest_image\n");
 		return -EFAULT;
 	    }
 
 	    memset(guest, 0, sizeof(struct v3_guest));
 
-	    printk("Starting V3 Guest... (%p)\n", guest);
+	    printk("Palacios: Starting V3 Guest...\n");
 
 	    vm_minor = register_vm(guest);
 
 	    if (vm_minor == -1) {
-		printk("Too many VMs are currently running\n");
+		printk("Palacios Error: Too many VMs are currently running\n");
 		return -EFAULT;
 	    }
 
 	    guest->vm_dev = MKDEV(v3_major_num, vm_minor);
 
 	    if (copy_from_user(&user_image, argp, sizeof(struct v3_guest_img))) {
-		printk("copy from user error getting guest image...\n");
+		printk("Palacios Error: copy from user error getting guest image...\n");
 		return -EFAULT;
 	    }
 
 	    guest->img_size = user_image.size;
 
-	    printk("Allocating kernel memory for guest image (%llu bytes)\n", user_image.size);
+	    printk("Palacios: Allocating kernel memory for guest image (%llu bytes)\n", user_image.size);
 	    guest->img = vmalloc(guest->img_size);
 
 	    if (IS_ERR(guest->img)) {
-		printk("Error: Could not allocate space for guest image\n");
+		printk("Palacios Error: Could not allocate space for guest image\n");
 		return -EFAULT;
 	    }
 
 	    if (copy_from_user(guest->img, user_image.guest_data, guest->img_size)) {
-		printk("Error loading guest data\n");
+		printk("Palacios: Error loading guest data\n");
 		return -EFAULT;
 	    }	   
 
 	    strncpy(guest->name, user_image.name, 127);
 
-	    printk("Launching VM\n");
+	    printk("Palacios: Launching VM\n");
 
 	    INIT_LIST_HEAD(&(guest->exts));
 
-	    init_completion(&(guest->start_done));
-	    init_completion(&(guest->thread_done));
-
-	    { 
-		struct task_struct * launch_thread = NULL;
-		// At some point we're going to want to allow the user to specify a CPU mask
-		// But for now, well just launch from the local core, and rely on the global cpu mask
-
-		preempt_disable();
-		launch_thread = kthread_create(start_palacios_vm, guest, guest->name);
-		
-		if (IS_ERR(launch_thread)) {
-		    preempt_enable();
-		    printk("Palacios error creating launch thread for vm (%s)\n", guest->name);
-		    return -EFAULT;
-		}
-
-		kthread_bind(launch_thread, smp_processor_id());
-		preempt_enable();
-
-		wake_up_process(launch_thread);
+	    if (start_palacios_vm(guest) == -1) {
+		printk("Palacios: Error starting guest\n");
+		return -EFAULT;
 	    }
-
-	    wait_for_completion(&(guest->start_done));
 
 	    return guest->vm_dev;
 	    break;
