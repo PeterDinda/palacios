@@ -234,10 +234,12 @@ palacios_start_thread_on_cpu(int cpu_id,
  */
 static int
 palacios_move_thread_to_cpu(int new_cpu_id, 
-			     void * thread_ptr) {
+			    void * thread_ptr) {
     struct task_struct * thread = (struct task_struct *)thread_ptr;
 
-    if(thread == NULL){
+    printk("Moving thread (%p) to cpu %d\n", thread, new_cpu_id);
+
+    if (thread == NULL) {
 	thread = current;
     }
 
@@ -245,7 +247,7 @@ palacios_move_thread_to_cpu(int new_cpu_id,
      * Bind to the specified CPU.  When this call returns,
      * the thread should be running on the target CPU.
      */
-    return set_cpus_allowed(thread, cpumask_of_cpu(new_cpu_id));
+    return set_cpus_allowed_ptr(thread, cpumask_of(new_cpu_id));
 }
 
 

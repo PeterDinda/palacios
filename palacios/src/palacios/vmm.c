@@ -377,24 +377,55 @@ int v3_reset_vm_core(struct guest_info * core, addr_t rip) {
 int v3_move_vm_core(struct v3_vm_info * vm, int vcore_id, int target_cpu) {
     struct guest_info * core = NULL;
 
-    if(vcore_id < 0 || vcore_id > vm->num_cores) {
+    if ((vcore_id < 0) || (vcore_id >= vm->num_cores)) {
+	PrintError("Attempted to migrate invalid virtual core (%d)\n", vcore_id);
 	return -1;
     }
 
     core = &(vm->cores[vcore_id]);
 
-    if(target_cpu != core->pcpu_id &&
-	core->core_move_state != CORE_MOVE_PENDING){
-	core->core_move_state = CORE_MOVE_PENDING;
-    	core->target_pcpu_id = target_cpu;
-	v3_interrupt_cpu(vm, core->pcpu_id, 0);
-
-	while(core->core_move_state != CORE_MOVE_DONE){
-	    v3_yield(NULL);
-	}
+    if (target_cpu == core->pcpu_id) {
+	PrintError("Attempted to migrate to local core (%d)\n", target_cpu);
+	// well that was pointless
+	return 0;
     }
 
+    if (core->core_thread == NULL) {
+	PrintError("Attempted to migrate a core without a valid thread context\n");
+	return -1;
+    }
+
+    while (v3_raise_barrier(vm, NULL) == -1);
+
+    V3_Print("Performing Migration from %d to %d\n", core->pcpu_id, target_cpu);
+
+    // Double check that we weren't preemptively migrated
+    if (target_cpu != core->pcpu_id) {    
+
+	V3_Print("Moving Core\n");
+
+	if (V3_MOVE_THREAD_TO_CPU(target_cpu, core->core_thread) != 0) {
+	    PrintError("Failed to move Vcore %d to CPU %d\n", 
+		       core->vcpu_id, target_cpu);
+	    v3_lower_barrier(vm);
+	    return -1;
+	} 
 	
+	/* There will be a benign race window here:
+	   core->pcpu_id will be set to the target core before its fully "migrated"
+	   However the core will NEVER run on the old core again, its just in flight to the new core
+	*/
+	core->pcpu_id = target_cpu;
+
+	V3_Print("core now at %d\n", core->pcpu_id);
+	
+    }
+
+
+
+
+    v3_lower_barrier(vm);
+
     return 0;
 }
 

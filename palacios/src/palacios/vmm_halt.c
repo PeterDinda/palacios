@@ -59,12 +59,6 @@ int v3_handle_halt(struct guest_info * info) {
 		/* asm("hlt"); */
 	    }
 
-	   /* check if there is a core move request pending 
-	     * if there is, resume the guest with RIP on halt instruction again
-	     */
-	    if (info->core_move_state == CORE_MOVE_PENDING){
-		return 0;
-	    }
 	}
 
 	/* V3_Print("palacios: done with halt\n"); */

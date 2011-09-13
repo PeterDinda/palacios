@@ -207,12 +207,12 @@ struct guest_info;
 
 #define V3_CREATE_THREAD_ON_CPU(cpu, fn, arg, name) ({			\
 	    void * thread = NULL;					\
-	extern struct v3_os_hooks * os_hooks;				\
-	if ((os_hooks) && (os_hooks)->start_thread_on_cpu) {		\
-	    thread = (os_hooks)->start_thread_on_cpu(cpu, fn, arg, name); \
-	}								\
-	thread;								\
-    })
+	    extern struct v3_os_hooks * os_hooks;			\
+	    if ((os_hooks) && (os_hooks)->start_thread_on_cpu) {	\
+		thread = (os_hooks)->start_thread_on_cpu(cpu, fn, arg, name); \
+	    }								\
+	    thread;							\
+	})
 
 #define V3_MOVE_THREAD_TO_CPU(pcpu, thread) ({				\
 	int ret = -1;							\

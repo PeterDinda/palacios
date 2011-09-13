@@ -128,9 +128,6 @@ struct guest_info {
 
     v3_core_operating_mode_t core_run_state;
 
-    v3_core_moving_state_t core_move_state;  /* if 1, then it is to be migrated to current pcpu_id */
-    uint32_t target_pcpu_id; /* the target physical CPU id for core moving */
-
     void * core_thread; /* thread struct for virtual core */
 
     /* the logical cpu on which this core runs */
