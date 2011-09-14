@@ -143,6 +143,22 @@ static long v3_vm_ioctl(struct file * filp,
 	    v3_continue_vm(guest->v3_ctx);
 	    break;
 	}
+	case V3_VM_MOVE_CORE: {
+	    struct v3_core_move_cmd cmd;
+	    void __user * argp = (void __user *)arg;
+
+	    memset(&cmd, 0, sizeof(struct v3_core_move_cmd));
+	    
+	    if (copy_from_user(&cmd, argp, sizeof(struct v3_core_move_cmd))) {
+		printk("copy from user error getting migrate command...\n");
+		return -EFAULT;
+	    }
+	
+	    printk("moving guest %s vcore %d to CPU %d\n", guest->name, cmd.vcore_id, cmd.pcore_id);
+
+	    v3_move_vm_core(guest->v3_ctx, cmd.vcore_id, cmd.pcore_id);
+	}
+	break;
 
 	default: {
 	    struct vm_ctrl * ctrl = get_ctrl(guest, ioctl);

@@ -759,7 +759,9 @@ int v3_vmx_enter(struct guest_info * info) {
     v3_update_timers(info);
 
     if (vmcs_store() != vmx_info->vmcs_ptr_phys) {
+	vmcs_clear(vmx_info->vmcs_ptr_phys);
 	vmcs_load(vmx_info->vmcs_ptr_phys);
+	vmx_info->state = VMX_UNLAUNCHED;
     }
 
     v3_vmx_restore_vmcs(info);
@@ -787,6 +789,7 @@ int v3_vmx_enter(struct guest_info * info) {
     check_vmcs_write(VMCS_TSC_OFFSET_HIGH, tsc_offset_high);
     check_vmcs_write(VMCS_TSC_OFFSET, tsc_offset_low);
 
+
     if (v3_update_vmcs_host_state(info)) {
 	v3_enable_ints();
         PrintError("Could not write host state\n");
@@ -796,6 +799,7 @@ int v3_vmx_enter(struct guest_info * info) {
 
     if (vmx_info->state == VMX_UNLAUNCHED) {
 	vmx_info->state = VMX_LAUNCHED;
+
 	info->vm_info->run_state = VM_RUNNING;
 	ret = v3_vmx_launch(&(info->vm_regs), info, &(info->ctrl_regs));
     } else {

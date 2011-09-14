@@ -226,6 +226,31 @@ palacios_start_thread_on_cpu(int cpu_id,
     return thread;
 }
 
+
+/**
+ * Rebind a kernel thread to the specified CPU
+ * The thread will be running on target CPU on return
+ * non-zero return means failure
+ */
+static int
+palacios_move_thread_to_cpu(int new_cpu_id, 
+			    void * thread_ptr) {
+    struct task_struct * thread = (struct task_struct *)thread_ptr;
+
+    printk("Moving thread (%p) to cpu %d\n", thread, new_cpu_id);
+
+    if (thread == NULL) {
+	thread = current;
+    }
+
+    /*
+     * Bind to the specified CPU.  When this call returns,
+     * the thread should be running on the target CPU.
+     */
+    return set_cpus_allowed_ptr(thread, cpumask_of(new_cpu_id));
+}
+
+
 /**
  * Returns the CPU ID that the caller is running on.
  */
@@ -461,6 +486,7 @@ static struct v3_os_hooks palacios_os_hooks = {
 	.interrupt_cpu		= palacios_interrupt_cpu,
 	.call_on_cpu		= palacios_xcall,
 	.start_thread_on_cpu	= palacios_start_thread_on_cpu,
+	.move_thread_to_cpu = palacios_move_thread_to_cpu,
 };
 
 

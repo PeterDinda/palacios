@@ -128,6 +128,8 @@ struct guest_info {
 
     v3_core_operating_mode_t core_run_state;
 
+    void * core_thread; /* thread struct for virtual core */
+
     /* the logical cpu on which this core runs */
     uint32_t pcpu_id;
     
