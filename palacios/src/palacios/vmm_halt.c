@@ -58,6 +58,7 @@ int v3_handle_halt(struct guest_info * info) {
 		/* if no interrupt, then we do halt */
 		/* asm("hlt"); */
 	    }
+
 	}
 
 	/* V3_Print("palacios: done with halt\n"); */

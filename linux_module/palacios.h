@@ -18,8 +18,9 @@
 #define V3_VM_PAUSE 23
 #define V3_VM_CONTINUE 24
 
-
 #define V3_VM_INSPECT 30
+
+#define V3_VM_MOVE_CORE 33
 
 #define V3_VM_FB_INPUT (256+1)
 #define V3_VM_FB_QUERY (256+2)
@@ -38,6 +39,11 @@ struct v3_guest_img {
 struct v3_mem_region {
     unsigned long long base_addr;
     unsigned long long num_pages;
+};
+
+struct v3_core_move_cmd{
+    uint16_t vcore_id;
+    uint16_t pcore_id;
 };
 
 

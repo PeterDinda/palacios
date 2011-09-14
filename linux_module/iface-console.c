@@ -209,6 +209,7 @@ static int console_connect(struct v3_guest * guest, unsigned int cmd,
     struct palacios_console * cons = priv_data;
     int cons_fd = 0;
     unsigned long flags;
+    int acquired = 0;
 
     if (cons->open == 0) {
 	printk("Attempted to connect to unopened console\n");
@@ -216,6 +217,16 @@ static int console_connect(struct v3_guest * guest, unsigned int cmd,
     }
 
     spin_lock_irqsave(&(cons->lock), flags);
+    if (cons->connected == 0) {
+	cons->connected = 1;
+	acquired = 1;
+    }
+    spin_unlock_irqrestore(&(cons->lock), flags);
+
+    if (acquired == 0) {
+	printk("Console already connected\n");
+	return -1;
+    }
 
     cons_fd = anon_inode_getfd("v3-cons", &cons_fops, cons, 0);
 
@@ -224,10 +235,8 @@ static int console_connect(struct v3_guest * guest, unsigned int cmd,
 	return cons_fd;
     }
 
-    cons->connected = 1;
-    
     v3_deliver_console_event(guest->v3_ctx, NULL);
-    spin_unlock_irqrestore(&(cons->lock), flags);
+
 
     printk("Console connected\n");
 
