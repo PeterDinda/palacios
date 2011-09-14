@@ -547,6 +547,7 @@ int v3_svm_enter(struct guest_info * info) {
     v3_time_enter_vm(info);
     guest_ctrl->TSC_OFFSET = v3_tsc_host_offset(&info->time_state);
 
+
     //V3_Print("Calling v3_svm_launch\n");
 
     v3_svm_launch((vmcb_t *)V3_PAddr(info->vmm_data), &(info->vm_regs), (vmcb_t *)host_vmcbs[V3_Get_CPU()]);

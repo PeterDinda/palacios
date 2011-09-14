@@ -37,6 +37,12 @@ static int read(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * private_
 
     PrintDebug("Reading %d bytes from %p to %p\n", (uint32_t)num_bytes, (uint8_t *)(disk->disk_image + lba), buf);
 
+    if (lba + num_bytes > disk->capacity) {
+	PrintError("read out of bounds:  lba=%llu (%p), num_bytes=%llu, capacity=%d (%p)\n", 
+		   lba, (void *)(addr_t)lba, num_bytes, disk->capacity, (void *)(addr_t)disk->capacity);
+	return -1;
+    }
+
     memcpy(buf, (uint8_t *)(disk->disk_image + lba), num_bytes);
 
     return 0;
@@ -47,6 +53,13 @@ static int write(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * private
     struct disk_state * disk = (struct disk_state *)private_data;
 
     PrintDebug("Writing %d bytes from %p to %p\n", (uint32_t)num_bytes,  buf, (uint8_t *)(disk->disk_image + lba));
+
+    if (lba + num_bytes > disk->capacity) {
+	PrintError("write out of bounds: lba=%llu (%p), num_bytes=%llu, capacity=%d (%p)\n", 
+		   lba, (void *)(addr_t)lba, num_bytes, disk->capacity, (void *)(addr_t)disk->capacity);
+	return -1;
+    }
+
 
     memcpy((uint8_t *)(disk->disk_image + lba), buf, num_bytes);
 

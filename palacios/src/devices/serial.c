@@ -258,7 +258,7 @@ struct dll_register {
 struct dlm_register {
     uint8_t data;
 };
-#define SERIAL_BUF_LEN 16
+#define SERIAL_BUF_LEN 128
 
 struct serial_buffer {
     int head; // most recent data
