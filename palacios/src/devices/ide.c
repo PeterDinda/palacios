@@ -1314,6 +1314,15 @@ static int write_port_std(struct guest_info * core, ushort_t port, void * src, u
 		PrintDebug("Attempting to select a non-present drive\n");
 		channel->error_reg.abort = 1;
 		channel->status.error = 1;
+	    } else {
+		channel->status.busy = 0;
+		channel->status.ready = 1;
+		channel->status.data_req = 0;
+		channel->status.error = 0;
+		channel->status.seek_complete = 1;
+		
+		channel->dma_status.active = 0;
+		channel->dma_status.err = 0;
 	    }
 
 	    break;
@@ -1540,8 +1549,10 @@ static int connect_fn(struct v3_vm_info * vm,
 	return -1;
     }
 
-    strncpy(drive->model, model_str, sizeof(drive->model) - 1);
-    
+    if (model_str != NULL) {
+	strncpy(drive->model, model_str, sizeof(drive->model) - 1);
+    }
+
     if (strcasecmp(type_str, "cdrom") == 0) {
 	drive->drive_type = BLOCK_CDROM;
 

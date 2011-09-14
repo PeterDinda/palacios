@@ -31,6 +31,7 @@
 #include <palacios/vmm_direct_paging.h>
 #include <palacios/vmx_io.h>
 #include <palacios/vmx_msr.h>
+#include <palacios/vmm_decoder.h>
 
 #include <palacios/vmx_ept.h>
 #include <palacios/vmx_assist.h>
@@ -871,7 +872,7 @@ int v3_vmx_enter(struct guest_info * info) {
     v3_yield_cond(info);
 
     if (v3_handle_vmx_exit(info, &exit_info) == -1) {
-	PrintError("Error in VMX exit handler\n");
+	PrintError("Error in VMX exit handler (Exit reason=%x)\n", exit_info.exit_reason);
 	return -1;
     }
 
@@ -916,6 +917,36 @@ int v3_start_vmx_guest(struct guest_info * info) {
 	}
 
 	if (v3_vmx_enter(info) == -1) {
+
+  addr_t host_addr;
+            addr_t linear_addr = 0;
+            
+            info->vm_info->run_state = VM_ERROR;
+            
+            V3_Print("VMX core %u: VMX ERROR!!\n", info->vcpu_id); 
+            
+            v3_print_guest_state(info);
+            
+            V3_Print("VMX core %u\n", info->vcpu_id); 
+            
+
+            
+            linear_addr = get_addr_linear(info, info->rip, &(info->segments.cs));
+            
+            if (info->mem_mode == PHYSICAL_MEM) {
+                v3_gpa_to_hva(info, linear_addr, &host_addr);
+            } else if (info->mem_mode == VIRTUAL_MEM) {
+                v3_gva_to_hva(info, linear_addr, &host_addr);
+            }
+            
+            V3_Print("VMX core %u: Host Address of rip = 0x%p\n", info->vcpu_id, (void *)host_addr);
+            
+            V3_Print("VMX core %u: Instr (15 bytes) at %p:\n", info->vcpu_id, (void *)host_addr);
+            v3_dump_mem((uint8_t *)host_addr, 15);
+            
+            v3_print_stack(info);
+
+
 	    v3_print_vmcs();
 	    print_exit_log(info);
 	    return -1;

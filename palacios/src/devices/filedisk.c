@@ -80,6 +80,12 @@ static int read(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * private_
 
     PrintDebug("Reading %d bytes from %p to %p\n", (uint32_t)num_bytes, (uint8_t *)(disk->disk_image + lba), buf);
 
+    if (lba + num_bytes > disk->capacity) {
+	PrintError("Out of bounds read: lba=%llu, num_bytes=%llu, capacity=%llu\n",
+		   lba, num_bytes, disk->capacity);
+	return -1;
+    }
+
     return read_all(disk->fd, buf, lba, num_bytes);
 }
 
@@ -89,6 +95,13 @@ static int write(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * private
 
     PrintDebug("Writing %d bytes from %p to %p\n", (uint32_t)num_bytes,  buf, (uint8_t *)(disk->disk_image + lba));
 
+    if (lba + num_bytes > disk->capacity) {
+	PrintError("Out of bounds read: lba=%llu, num_bytes=%llu, capacity=%llu\n",
+		   lba, num_bytes, disk->capacity);
+	return -1;
+    }
+
+
     return write_all(disk->fd,  buf, lba, num_bytes);
 }
 
@@ -96,7 +109,7 @@ static int write(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * private
 static uint64_t get_capacity(void * private_data) {
     struct disk_state * disk = (struct disk_state *)private_data;
 
-    PrintDebug("Querying RAMDISK capacity %d\n", 
+    PrintDebug("Querying FILEDISK capacity %d\n", 
 	       (uint32_t)(disk->capacity));
 
     return disk->capacity;

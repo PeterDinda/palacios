@@ -124,9 +124,6 @@ static int ata_read(struct ide_internal * ide, struct ide_channel * channel, uin
     }
 
     return 0;
-
-
-
 }
 
 

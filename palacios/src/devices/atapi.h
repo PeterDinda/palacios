@@ -75,8 +75,11 @@ static void atapi_setup_cmd_resp(struct ide_internal * ide, struct ide_channel *
     drive->irq_flags.c_d = 0;
 
     channel->status.busy = 0;
-    channel->status.data_req = 1;
     channel->status.error = 0;
+
+    if (drive->transfer_length > 0) {
+	channel->status.data_req = 1;
+    }
 
     ide_raise_irq(ide, channel);
 }
@@ -129,8 +132,9 @@ static void atapi_cmd_nop(struct ide_internal * ide, struct ide_channel * channe
 static int atapi_read_chunk(struct ide_internal * ide, struct ide_channel * channel) {
     struct ide_drive * drive = get_selected_drive(channel);
 
-    int ret = drive->ops->read(drive->data_buf, drive->current_lba * ATAPI_BLOCK_SIZE, ATAPI_BLOCK_SIZE, 
-drive->private_data);
+    int ret = drive->ops->read(drive->data_buf, 
+			       drive->current_lba * ATAPI_BLOCK_SIZE, 
+			       ATAPI_BLOCK_SIZE, drive->private_data);
     
     if (ret == -1) {
 	PrintError("IDE: Error reading CD block (LBA=%p)\n", (void *)(addr_t)(drive->current_lba));
@@ -181,7 +185,7 @@ static int atapi_read10(struct guest_info * core,
 	return 0;
     }
     
-    if (lba + xfer_len > drive->ops->get_capacity(drive->private_data)) {
+    if ((lba + xfer_len) > (drive->ops->get_capacity(drive->private_data) / ATAPI_BLOCK_SIZE)) {
 	PrintError("IDE: xfer len exceeded capacity (lba=%d) (xfer_len=%d) (ReadEnd=%d) (capacity=%d)\n", 
 		   lba, xfer_len, lba + xfer_len, 
 		   (uint32_t)drive->ops->get_capacity(drive->private_data));
@@ -190,8 +194,7 @@ static int atapi_read10(struct guest_info * core,
 	return 0;
     }
 	
-    //    PrintDebug("Reading %d blocks from LBA 0x%x\n", xfer_len, lba);
-    
+    // PrintDebug("Reading %d blocks from LBA 0x%x\n", xfer_len, lba);
     drive->current_lba = lba;
 	
     // Update the request length value in the cylinder registers
@@ -244,7 +247,7 @@ static int atapi_get_capacity(struct ide_internal * ide, struct ide_channel * ch
     struct atapi_rd_capacity_resp * resp = (struct atapi_rd_capacity_resp *)(drive->data_buf);
     uint32_t capacity = drive->ops->get_capacity(drive->private_data);
 
-    resp->lba = le_to_be_32(capacity);
+    resp->lba = le_to_be_32(capacity / ATAPI_BLOCK_SIZE);
     resp->block_len = le_to_be_32(ATAPI_BLOCK_SIZE);
 
     atapi_setup_cmd_resp(ide, channel, sizeof(struct atapi_rd_capacity_resp));
@@ -267,6 +270,8 @@ static int atapi_get_config(struct ide_internal * ide, struct ide_channel * chan
 	xfer_len = alloc_len;
     }
     
+    V3_Print("ATAPI Get config: xfer_len=%d\b", xfer_len);
+
     atapi_setup_cmd_resp(ide, channel, xfer_len);
     
     return 0;
