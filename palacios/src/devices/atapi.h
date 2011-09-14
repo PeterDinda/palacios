@@ -247,7 +247,7 @@ static int atapi_get_capacity(struct ide_internal * ide, struct ide_channel * ch
     struct atapi_rd_capacity_resp * resp = (struct atapi_rd_capacity_resp *)(drive->data_buf);
     uint32_t capacity = drive->ops->get_capacity(drive->private_data);
 
-    resp->lba = le_to_be_32(capacity / ATAPI_BLOCK_SIZE);
+    resp->lba = le_to_be_32((capacity / ATAPI_BLOCK_SIZE) - 1);
     resp->block_len = le_to_be_32(ATAPI_BLOCK_SIZE);
 
     atapi_setup_cmd_resp(ide, channel, sizeof(struct atapi_rd_capacity_resp));
