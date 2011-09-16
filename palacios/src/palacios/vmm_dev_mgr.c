@@ -22,6 +22,10 @@
 #include <palacios/vmm.h>
 #include <palacios/vmm_decoder.h>
 
+#ifdef V3_CONFIG_CHECKPOINT
+#include <palacios/vmm_checkpoint.h>
+#endif
+
 
 #ifndef V3_CONFIG_DEBUG_DEV_MGR
 #undef PrintDebug
@@ -125,6 +129,72 @@ int v3_free_vm_devices(struct v3_vm_info * vm) {
 
     return 0;
 }
+
+#ifdef V3_CONFIG_CHECKPOINT
+
+int v3_save_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
+    struct vmm_dev_mgr * mgr = &(vm->dev_mgr);
+    struct vm_device * dev;
+    struct v3_chkpt_ctx * dev_mgr_ctx = NULL;
+
+    uint32_t num_saved_devs = 0;
+    uint32_t table_len = mgr->num_devs * 32;
+    char * name_table = NULL;
+    uint32_t tbl_offset = 0;
+    
+    name_table = V3_Malloc(table_len);
+
+    memset(name_table, 0, table_len);
+    
+
+    dev_mgr_ctx = v3_chkpt_open_ctx(chkpt, NULL, "devices");
+
+    list_for_each_entry(dev, &(mgr->dev_list), dev_link) {
+
+	if (dev->ops->save) {
+	    struct v3_chkpt_ctx * dev_ctx = NULL;
+
+	    
+	    dev_ctx = v3_chkpt_open_ctx(chkpt, dev_mgr_ctx, dev->name);
+
+	    dev->ops->save(dev_ctx, dev->private_data);
+
+	    v3_chkpt_close_ctx(dev_ctx);
+
+	    // Error checking?? 
+
+	    strncpy(name_table + tbl_offset, dev->name, 32);
+	    tbl_offset += 32;
+	    num_saved_devs++;
+	} else {
+	    PrintError("Error: %s save() not implemented\n",  dev->name);
+	}
+    }
+
+    
+    // Specify which devices were saved
+    v3_chkpt_save(dev_mgr_ctx, "num_devs", 4, &num_saved_devs); 
+    v3_chkpt_save(dev_mgr_ctx, "names", table_len, name_table);
+    V3_Free(name_table);
+
+    v3_chkpt_close_ctx(dev_mgr_ctx);
+    
+    return 0;
+}
+
+
+int v3_load_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
+
+    PrintError("TODO... \n");
+
+    // Read devices from checkpoint data
+    // selectively load them
+
+    return 0;
+}
+
+
+#endif
 
 static int free_frontends(struct v3_vm_info * vm, struct vmm_dev_mgr * mgr);
 

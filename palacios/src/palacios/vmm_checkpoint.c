@@ -186,9 +186,7 @@ int v3_chkpt_close_ctx(struct v3_chkpt_ctx * ctx) {
 }
 
 
-/* Temporary */
-#define  V3_CHKPT_STD_SAVE(ctx,x) v3_chkpt_save(ctx,#x,sizeof(x),&(x))
-#define  V3_CHKPT_STD_LOAD(ctx,x) v3_chkpt_load(ctx,#x,sizeof(x),&(x))
+
 
 
 int v3_chkpt_save(struct v3_chkpt_ctx * ctx, char * tag, uint64_t len, void * buf) {
@@ -490,12 +488,11 @@ int v3_chkpt_save_vm(struct v3_vm_info * vm, char * store, char * url) {
     }
     
     for (i = 0; i < vm->num_cores; i++){
-	
 	if ((ret = save_core(&(vm->cores[i]), chkpt)) == -1) {
 	    PrintError("chkpt of core %d failed\n", i);
 	    goto out;
 	}
-    }	
+    }
     
  out:
     

@@ -23,7 +23,7 @@
 #ifdef __V3VEE__
 
 #include <palacios/vmm.h>
-#include <palacios/vm_guest.h>
+
 
 struct v3_chkpt;
 
@@ -34,7 +34,9 @@ struct v3_chkpt_ctx {
     void * store_ctx;
 };
 
-
+/* Temporary */
+#define  V3_CHKPT_STD_SAVE(ctx,x) v3_chkpt_save(ctx,#x,sizeof(x),&(x))
+#define  V3_CHKPT_STD_LOAD(ctx,x) v3_chkpt_load(ctx,#x,sizeof(x),&(x))
 
 
 int v3_chkpt_save(struct v3_chkpt_ctx * ctx, char * tag, uint64_t len, void * buf);

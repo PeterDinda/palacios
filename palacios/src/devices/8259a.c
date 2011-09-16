@@ -737,10 +737,96 @@ static int pic_free(struct pic_internal * state) {
     return 0;
 }
 
+#ifdef V3_CONFIG_CHECKPOINT
+static int pic_save(struct v3_chkpt_ctx * ctx, void * private_data) {
+    struct pic_internal * pic = (struct pic_internal *)private_data;
+
+    V3_CHKPT_STD_SAVE(ctx, pic->master_irr);
+    V3_CHKPT_STD_SAVE(ctx, pic->slave_irr);
+  
+    V3_CHKPT_STD_SAVE(ctx, pic->master_isr);
+    V3_CHKPT_STD_SAVE(ctx, pic->slave_isr);
+
+    V3_CHKPT_STD_SAVE(ctx, pic->master_elcr);
+    V3_CHKPT_STD_SAVE(ctx, pic->slave_elcr);
+    V3_CHKPT_STD_SAVE(ctx, pic->master_elcr_mask);
+    V3_CHKPT_STD_SAVE(ctx, pic->slave_elcr_mask);
+
+    V3_CHKPT_STD_SAVE(ctx, pic->master_icw1);
+    V3_CHKPT_STD_SAVE(ctx, pic->master_icw2);
+    V3_CHKPT_STD_SAVE(ctx, pic->master_icw3);
+    V3_CHKPT_STD_SAVE(ctx, pic->master_icw4);
+
+
+    V3_CHKPT_STD_SAVE(ctx, pic->slave_icw1);
+    V3_CHKPT_STD_SAVE(ctx, pic->slave_icw2);
+    V3_CHKPT_STD_SAVE(ctx, pic->slave_icw3);
+    V3_CHKPT_STD_SAVE(ctx, pic->slave_icw4);
+
+
+    V3_CHKPT_STD_SAVE(ctx, pic->master_imr);
+    V3_CHKPT_STD_SAVE(ctx, pic->slave_imr);
+    V3_CHKPT_STD_SAVE(ctx, pic->master_ocw2);
+    V3_CHKPT_STD_SAVE(ctx, pic->master_ocw3);
+    V3_CHKPT_STD_SAVE(ctx, pic->slave_ocw2);
+    V3_CHKPT_STD_SAVE(ctx, pic->slave_ocw3);
+
+    V3_CHKPT_STD_SAVE(ctx, pic->master_state);
+    V3_CHKPT_STD_SAVE(ctx, pic->slave_state);
+
+    
+    return 0;
+
+}
+
+static int pic_load(struct v3_chkpt_ctx * ctx, void * private_data) {
+    struct pic_internal * pic = (struct pic_internal *)private_data;
+
+    V3_CHKPT_STD_LOAD(ctx, pic->master_irr);
+    V3_CHKPT_STD_LOAD(ctx, pic->slave_irr);
+  
+    V3_CHKPT_STD_LOAD(ctx, pic->master_isr);
+    V3_CHKPT_STD_LOAD(ctx, pic->slave_isr);
+
+    V3_CHKPT_STD_LOAD(ctx, pic->master_elcr);
+    V3_CHKPT_STD_LOAD(ctx, pic->slave_elcr);
+    V3_CHKPT_STD_LOAD(ctx, pic->master_elcr_mask);
+    V3_CHKPT_STD_LOAD(ctx, pic->slave_elcr_mask);
+
+    V3_CHKPT_STD_LOAD(ctx, pic->master_icw1);
+    V3_CHKPT_STD_LOAD(ctx, pic->master_icw2);
+    V3_CHKPT_STD_LOAD(ctx, pic->master_icw3);
+    V3_CHKPT_STD_LOAD(ctx, pic->master_icw4);
+
+
+    V3_CHKPT_STD_LOAD(ctx, pic->slave_icw1);
+    V3_CHKPT_STD_LOAD(ctx, pic->slave_icw2);
+    V3_CHKPT_STD_LOAD(ctx, pic->slave_icw3);
+    V3_CHKPT_STD_LOAD(ctx, pic->slave_icw4);
+
+
+    V3_CHKPT_STD_LOAD(ctx, pic->master_imr);
+    V3_CHKPT_STD_LOAD(ctx, pic->slave_imr);
+    V3_CHKPT_STD_LOAD(ctx, pic->master_ocw2);
+    V3_CHKPT_STD_LOAD(ctx, pic->master_ocw3);
+    V3_CHKPT_STD_LOAD(ctx, pic->slave_ocw2);
+    V3_CHKPT_STD_LOAD(ctx, pic->slave_ocw3);
+
+    V3_CHKPT_STD_LOAD(ctx, pic->master_state);
+    V3_CHKPT_STD_LOAD(ctx, pic->slave_state);
+
+    return 0;
+}
+
+#endif
+
 
 static struct v3_device_ops dev_ops = {
     .free = (int (*)(void *))pic_free,
-
+#ifdef V3_CONFIG_CHECKPOINT
+    .save = pic_save,
+    .load = pic_load
+#endif
 };
 
 

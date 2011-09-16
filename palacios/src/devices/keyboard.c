@@ -1051,9 +1051,27 @@ static int keyboard_reset_device(struct keyboard_internal * kbd) {
 
 }
 
+#ifdef V3_CONFIG_CHECKPOINT
+static int keyboard_save(struct v3_chkpt_ctx * ctx, void * private_data) {
+    return 0;
+}
+
+
+static int keyboard_load(struct v3_chkpt_ctx * ctx, void * private_data) {
+    struct keyboard_internal * kbd = (struct keyboard_internal *)private_data;
+    keyboard_reset_device(kbd);
+    return 0;
+}
+
+#endif
+
+
 static struct v3_device_ops dev_ops = { 
     .free = (int (*)(void *))keyboard_free,
-
+#ifdef V3_CONFIG_CHECKPOINT
+    .save = keyboard_save,
+    .load = keyboard_load
+#endif
 };
 
 
