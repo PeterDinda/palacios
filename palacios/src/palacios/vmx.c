@@ -32,6 +32,7 @@
 #include <palacios/vmx_io.h>
 #include <palacios/vmx_msr.h>
 #include <palacios/vmm_decoder.h>
+#include <palacios/vmm_barrier.h>
 
 #include <palacios/vmx_ept.h>
 #include <palacios/vmx_assist.h>
@@ -954,6 +955,7 @@ int v3_start_vmx_guest(struct guest_info * info) {
 	    return -1;
 	}
 
+	v3_wait_at_barrier(info);
 
 
 	if (info->vm_info->run_state == VM_STOPPED) {
