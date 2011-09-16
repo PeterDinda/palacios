@@ -475,12 +475,12 @@ int v3_chkpt_save_vm(struct v3_vm_info * vm, char * store, char * url) {
 	goto out;
     }
     
-    /*
-    if ((ret = v3_chkpt_save_dev(vm)) == -1) {
+    
+    if ((ret = v3_save_vm_devices(vm, chkpt)) == -1) {
 	PrintError("Unable to save devices\n");
 	goto out;
     }
-    */
+    
 
     if ((ret = save_header(vm, chkpt)) == -1) {
 	PrintError("Unable to save header\n");
@@ -530,12 +530,11 @@ int v3_chkpt_load_vm(struct v3_vm_info * vm, char * store, char * url) {
     }
 
 
-    /* Don't handle devices just yet
-    if (v3_chkpt_load_dev(vm) == -1) {
+    if ((ret = v3_load_vm_devices(vm, chkpt)) == -1) {
 	PrintError("Unable to load devies\n");
+	goto out;
     }
 
-    */
 
     if ((ret = load_header(vm, chkpt)) == -1) {
 	PrintError("Unable to load header\n");
@@ -550,7 +549,7 @@ int v3_chkpt_load_vm(struct v3_vm_info * vm, char * store, char * url) {
 	}
     }
 
- out:     
+ out:
 
     /* Resume the guest if it was running and we didn't just trash the state*/
     if (vm->run_state == VM_RUNNING) {

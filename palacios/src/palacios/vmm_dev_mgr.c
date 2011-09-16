@@ -184,11 +184,47 @@ int v3_save_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 
 
 int v3_load_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
+    struct vm_device * dev;
+    struct v3_chkpt_ctx * dev_mgr_ctx = NULL;
+    uint32_t num_devs = 0;
+    char * name_table = NULL;
+    int i = 0;
 
-    PrintError("TODO... \n");
+    dev_mgr_ctx = v3_chkpt_open_ctx(chkpt, NULL, "devices");
 
-    // Read devices from checkpoint data
-    // selectively load them
+    v3_chkpt_load(dev_mgr_ctx, "num_devs", 4, &num_devs);
+
+    V3_Print("Loading State for %d devices\n", num_devs);
+    
+    name_table = V3_Malloc(32 * num_devs);
+
+    v3_chkpt_load(dev_mgr_ctx, "names", 32 * num_devs, name_table);
+
+    for (i = 0; i < num_devs; i++) {
+	char * name = &(name_table[i * 32]);
+	struct v3_chkpt_ctx * dev_ctx = NULL;
+	dev = v3_find_dev(vm, name);
+
+	if (!dev) {
+	    PrintError("Tried to load state into non existant device: %s\n", name);
+	    continue;
+	}
+
+	if (!dev->ops->load) {
+	    PrintError("Error Device (%s) does not support load operation\n", name);
+	    continue;
+	}
+
+	dev_ctx = v3_chkpt_open_ctx(chkpt, dev_mgr_ctx, name);
+
+	if (!dev_ctx) {
+	    PrintError("Error missing device context (%s)\n", name);
+	    continue;
+	}
+
+
+	dev->ops->load(dev_ctx, dev->private_data);
+    }
 
     return 0;
 }
