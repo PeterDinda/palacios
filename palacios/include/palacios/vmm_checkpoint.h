@@ -35,6 +35,8 @@ struct v3_chkpt_ctx {
 };
 
 
+
+
 int v3_chkpt_save(struct v3_chkpt_ctx * ctx, char * tag, uint64_t len, void * buf);
 int v3_chkpt_load(struct v3_chkpt_ctx * ctx, char * tag, uint64_t len, void * buf);
 
@@ -44,7 +46,8 @@ struct v3_chkpt_ctx * v3_chkpt_open_ctx(struct v3_chkpt * chkpt, struct v3_chkpt
 int v3_chkpt_save_vm(struct v3_vm_info * vm, char * store, char * url);
 int v3_chkpt_load_vm(struct v3_vm_info * vm, char * store, char * url);
 
-
+int V3_init_checkpoint();
+int V3_deinit_checkpoint();
 
 #endif
 

@@ -40,6 +40,76 @@ static struct {} null_store __attribute__((__used__))			\
 
 
 
+
+#include <palacios/vmm_util.h>
+
+
+static void * debug_open_chkpt(char * url, chkpt_mode_t mode) {
+   
+    if (mode == LOAD) {
+	V3_Print("Cannot load from debug store\n");
+	return NULL;
+    }
+
+    V3_Print("Opening Checkpoint: %s\n", url);
+
+    return (void *)1;
+}
+
+
+
+static int debug_close_chkpt(void * store_data) {
+    V3_Print("Closing Checkpoint\n");
+    return 0;
+}
+
+static void * debug_open_ctx(void * store_data, 
+			     void * parent_ctx, 
+			     char * name) {
+    V3_Print("[%s]\n", name);
+    return (void *)1;
+}
+
+static int debug_close_ctx(void * store_data, void * ctx) {
+    V3_Print("[CLOSE]\n"); 
+    return 0;
+}
+
+static int debug_save(void * store_data, void * ctx, 
+		      char * tag, uint64_t len, void * buf) {
+    V3_Print("%s:\n", tag);
+
+    if (len > 100) {
+	len = 100;
+    }
+
+    v3_dump_mem(buf, len);
+    
+    return 0;
+}
+
+static int debug_load(void * store_data, void * ctx, 
+				  char * tag, uint64_t len, void * buf) {
+    V3_Print("Loading not supported !!!\n");
+    return 0;
+}
+
+
+static struct chkpt_interface debug_store = {
+    .name = "DEBUG",
+    .open_chkpt = debug_open_chkpt,
+    .close_chkpt = debug_close_chkpt,
+    .open_ctx = debug_open_ctx, 
+    .close_ctx = debug_close_ctx,
+    .save = debug_save,
+    .load = debug_load
+};
+
+register_chkpt_store(debug_store);
+
+
+
+
 #ifdef V3_CONFIG_KEYED_STREAMS
 #include <interfaces/vmm_keyed_stream.h>
 
@@ -106,6 +176,7 @@ register_chkpt_store(keyed_stream_store);
 
 
 #endif
+
 
 
 

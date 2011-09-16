@@ -63,6 +63,11 @@ static void * palacios_file_open(const char * path, int mode, void * private_dat
     } else if (mode & FILE_OPEN_MODE_WRITE) { 
 	pfile->mode = O_WRONLY;
     } 
+    
+    if (mode & FILE_OPEN_MODE_CREATE) {
+	pfile->mode |= O_CREAT;
+    }
+
 
     pfile->filp = filp_open(path, pfile->mode, 0);
     

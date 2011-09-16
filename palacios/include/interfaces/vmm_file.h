@@ -39,6 +39,7 @@ uint64_t v3_file_write(v3_file_t file, uint8_t * buf, uint64_t len, uint64_t off
 
 #define FILE_OPEN_MODE_READ	(1 << 0)
 #define FILE_OPEN_MODE_WRITE	(1 << 1)
+#define FILE_OPEN_MODE_CREATE        (1 << 2)
 
 struct v3_file_hooks {
 

@@ -58,7 +58,56 @@ struct v3_chkpt {
 };
 
 
+
+
+static uint_t store_hash_fn(addr_t key) {
+    char * name = (char *)key;
+    return v3_hash_buffer((uint8_t *)name, strlen(name));
+}
+
+static int store_eq_fn(addr_t key1, addr_t key2) {
+    char * name1 = (char *)key1;
+    char * name2 = (char *)key2;
+
+    return (strcmp(name1, name2) == 0);
+}
+
+
+
 #include "vmm_chkpt_stores.h"
+
+
+int V3_init_checkpoint() {
+    extern struct chkpt_interface * __start__v3_chkpt_stores[];
+    extern struct chkpt_interface * __stop__v3_chkpt_stores[];
+    struct chkpt_interface ** tmp_store = __start__v3_chkpt_stores;
+    int i = 0;
+
+    store_table = v3_create_htable(0, store_hash_fn, store_eq_fn);
+
+    while (tmp_store != __stop__v3_chkpt_stores) {
+	V3_Print("Registering Checkpoint Backing Store (%s)\n", (*tmp_store)->name);
+
+	if (v3_htable_search(store_table, (addr_t)((*tmp_store)->name))) {
+	    PrintError("Multiple instances of Checkpoint backing Store (%s)\n", (*tmp_store)->name);
+	    return -1;
+	}
+
+	if (v3_htable_insert(store_table, (addr_t)((*tmp_store)->name), (addr_t)(*tmp_store)) == 0) {
+	    PrintError("Could not register Checkpoint backing store (%s)\n", (*tmp_store)->name);
+	    return -1;
+	}
+
+	tmp_store = &(__start__v3_chkpt_stores[++i]);
+    }
+
+    return 0;
+}
+
+int V3_deinit_checkpoint() {
+    v3_free_htable(store_table, 0, 0);
+    return 0;
+}
 
 
 static char svm_chkpt_header[] = "v3vee palacios checkpoint version: x.x, SVM x.x";
@@ -73,23 +122,54 @@ static int chkpt_close(struct v3_chkpt * chkpt) {
 }
 
 
-static struct v3_chkpt * chkpt_open(char * store, char * url, chkpt_mode_t mode) {
-    
-    // search for checkpoint interface
+static struct v3_chkpt * chkpt_open(struct v3_vm_info * vm, char * store, char * url, chkpt_mode_t mode) {
+    struct chkpt_interface * iface = NULL;
+    struct v3_chkpt * chkpt = NULL;
+    void * store_data = NULL;
 
-    PrintError("Not yet implemented\n");
-    return NULL;
+    iface = (void *)v3_htable_search(store_table, (addr_t)store);
+    
+    if (iface == NULL) {
+	V3_Print("Error: Could not locate Checkpoint interface for store (%s)\n", store);
+	return NULL;
+    }
+
+    store_data = iface->open_chkpt(url, mode);
+
+    if (store_data == NULL) {
+	PrintError("Could not open url (%s) for backing store (%s)\n", url, store);
+	return NULL;
+    }
+
+
+    chkpt = V3_Malloc(sizeof(struct v3_chkpt));
+
+    if (!chkpt) {
+	PrintError("Could not allocate checkpoint state\n");
+	return NULL;
+    }
+
+    chkpt->interface = iface;
+    chkpt->vm = vm;
+    chkpt->store_data = store_data;
+    
+    return chkpt;
 }
 
 struct v3_chkpt_ctx * v3_chkpt_open_ctx(struct v3_chkpt * chkpt, struct v3_chkpt_ctx * parent, char * name) {
     struct v3_chkpt_ctx * ctx = V3_Malloc(sizeof(struct v3_chkpt_ctx));
+    void * parent_store_ctx = NULL;
 
     memset(ctx, 0, sizeof(struct v3_chkpt_ctx));
 
     ctx->chkpt = chkpt;
     ctx->parent = parent;
 
-    ctx->store_ctx = chkpt->interface->open_ctx(chkpt->store_data, parent->store_ctx, name);
+    if (parent) {
+	parent_store_ctx = parent->store_ctx;
+    }
+
+    ctx->store_ctx = chkpt->interface->open_ctx(chkpt->store_data, parent_store_ctx, name);
 
     return ctx;
 }
@@ -137,12 +217,7 @@ static int load_memory(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
     ret = v3_chkpt_load(ctx, "memory_img", vm->mem_size, guest_mem_base);
     v3_chkpt_close_ctx(ctx);
 
-    if (ret == 0) {
-	PrintError("Error Loading VM Memory\n");
-	return -1;
-    }
-
-    return 0;
+    return ret;
 }
 
 
@@ -153,18 +228,13 @@ static int save_memory(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 
     guest_mem_base = V3_VAddr((void *)vm->mem_map.base_region.host_addr);
 
-    ctx = v3_chkpt_open_ctx(chkpt, NULL,  "memory_img");
+    ctx = v3_chkpt_open_ctx(chkpt, NULL,"memory_img");
 
 
     ret = v3_chkpt_save(ctx, "memory_img", vm->mem_size, guest_mem_base);
     v3_chkpt_close_ctx(ctx);
 
-    if (ret == 0) {
-	PrintError("Error Saving VM Memory\n");
-	return -1;
-    }
-
-    return 0;
+    return ret;
 }
 
 int save_header(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
@@ -390,7 +460,7 @@ int v3_chkpt_save_vm(struct v3_vm_info * vm, char * store, char * url) {
     int ret = 0;;
     int i = 0;
     
-    chkpt = chkpt_open(store, url, SAVE);
+    chkpt = chkpt_open(vm, store, url, SAVE);
 
     if (chkpt == NULL) {
 	PrintError("Error creating checkpoint store\n");
@@ -445,7 +515,7 @@ int v3_chkpt_load_vm(struct v3_vm_info * vm, char * store, char * url) {
     int i = 0;
     int ret = 0;
     
-    chkpt = chkpt_open(store, url, LOAD);
+    chkpt = chkpt_open(vm, store, url, LOAD);
 
     if (chkpt == NULL) {
 	PrintError("Error creating checkpoint store\n");
@@ -505,43 +575,3 @@ int v3_chkpt_load_vm(struct v3_vm_info * vm, char * store, char * url) {
 
 
 
-static uint_t store_hash_fn(addr_t key) {
-    char * name = (char *)key;
-    return v3_hash_buffer((uint8_t *)name, strlen(name));
-}
-
-static int store_eq_fn(addr_t key1, addr_t key2) {
-    char * name1 = (char *)key1;
-    char * name2 = (char *)key2;
-
-    return (strcmp(name1, name2) == 0);
-}
-
-
-
-int V3_init_checkpoint() {
-    extern struct chkpt_interface * __start__v3_chkpt_stores[];
-    extern struct chkpt_interface * __stop__v3_chkpt_stores[];
-    struct chkpt_interface ** tmp_store = __start__v3_chkpt_stores;
-    int i = 0;
-
-    store_table = v3_create_htable(0, store_hash_fn, store_eq_fn);
-
-    while (tmp_store != __stop__v3_chkpt_stores) {
-	V3_Print("Registering Extension (%s)\n", (*tmp_store)->name);
-
-	if (v3_htable_search(store_table, (addr_t)((*tmp_store)->name))) {
-	    PrintError("Multiple instances of Extension (%s)\n", (*tmp_store)->name);
-	    return -1;
-	}
-
-	if (v3_htable_insert(store_table, (addr_t)((*tmp_store)->name), (addr_t)(*tmp_store)) == 0) {
-	    PrintError("Could not register Extension (%s)\n", (*tmp_store)->name);
-	    return -1;
-	}
-
-	tmp_store = &(__start__v3_chkpt_stores[++i]);
-    }
-
-    return 0;
-}
