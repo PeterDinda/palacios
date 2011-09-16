@@ -169,6 +169,14 @@ config EXPERIMENTAL
 	  The purpose of this option is to allow features under development to be committed to the mainline
 	  to more easily track changes and provide access to multiple developers
 
+config CHECKPOINT
+	bool "Enable Checkpointing"
+	default n
+	help 
+	  Temporary option to enable experimental checkpoint code
+
+
+
 endmenu
 
 

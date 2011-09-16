@@ -34,6 +34,10 @@
 #include <palacios/vmm_decoder.h>
 #include <palacios/vmm_barrier.h>
 
+#ifdef V3_CONFIG_CHECKPOINT
+#include <palacios/vmm_checkpoint.h>
+#endif
+
 #include <palacios/vmx_ept.h>
 #include <palacios/vmx_assist.h>
 #include <palacios/vmx_hw_info.h>
@@ -557,6 +561,50 @@ int v3_deinit_vmx_vmcs(struct guest_info * core) {
 
     return 0;
 }
+
+
+
+#ifdef V3_CONFIG_CHECKPOINT
+/* 
+ * JRL: This is broken
+ */
+int v3_vmx_save_core(struct guest_info * core, void * ctx){
+    uint64_t vmcs_ptr = vmcs_store();
+
+    v3_chkpt_save(ctx, "vmcs_data", PAGE_SIZE, (void *)vmcs_ptr);
+
+    return 0;
+}
+
+int v3_vmx_load_core(struct guest_info * core, void * ctx){
+    struct vmx_data * vmx_info = (struct vmx_data *)(core->vmm_data);
+    struct cr0_32 * shadow_cr0;
+    char vmcs[PAGE_SIZE_4KB];
+
+    v3_chkpt_load(ctx, "vmcs_data", PAGE_SIZE_4KB, vmcs);
+
+    vmcs_clear(vmx_info->vmcs_ptr_phys);
+    vmcs_load((addr_t)vmcs);
+
+    v3_vmx_save_vmcs(core);
+
+    shadow_cr0 = (struct cr0_32 *)&(core->ctrl_regs.cr0);
+
+
+    /* Get the CPU mode to set the guest_ia32e entry ctrl */
+
+    if (core->shdw_pg_mode == SHADOW_PAGING) {
+	if (shadow_cr0->pg){
+	    if (v3_activate_passthrough_pt(core) == -1) {
+		PrintError("Failed to activate passthrough page tables\n");
+		return -1;
+	    }
+	}
+    }
+
+    return 0;
+}
+#endif
 
 
 static int update_irq_exit_state(struct guest_info * info) {
