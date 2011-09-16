@@ -18,25 +18,28 @@
 int read_file(int fd, int size, unsigned char * buf);
 
 int main(int argc, char* argv[]) {
-    char * filename = argv[1];
     int vm_fd = 0;
- 
+    unsigned long vm_idx = 0;
+
 
     if (argc <= 1) {
-	printf("Usage: ./v3_stop <vm-dev>\n");
+	printf("Usage: ./v3_stop <vm-dev-idx>\n");
 	return -1;
     }
 
+
+    vm_idx = atoi(argv[1]);
+
     printf("Stopping VM\n");
     
-    vm_fd = open(filename, O_RDONLY);
+    vm_fd = open("/dev/v3vee", O_RDONLY);
 
     if (vm_fd == -1) {
 	printf("Error opening V3Vee VM device\n");
 	return -1;
     }
 
-    ioctl(vm_fd, V3_VM_STOP, NULL); 
+    ioctl(vm_fd, V3_STOP_GUEST, vm_idx); 
 
 
 

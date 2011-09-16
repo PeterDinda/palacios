@@ -922,7 +922,7 @@ int v3_start_vmx_guest(struct guest_info * info) {
 
 	if (v3_vmx_enter(info) == -1) {
 
-  addr_t host_addr;
+	    addr_t host_addr;
             addr_t linear_addr = 0;
             
             info->vm_info->run_state = VM_ERROR;
@@ -932,9 +932,7 @@ int v3_start_vmx_guest(struct guest_info * info) {
             v3_print_guest_state(info);
             
             V3_Print("VMX core %u\n", info->vcpu_id); 
-            
 
-            
             linear_addr = get_addr_linear(info, info->rip, &(info->segments.cs));
             
             if (info->mem_mode == PHYSICAL_MEM) {

@@ -9,12 +9,13 @@
 
 /* Global Control IOCTLs */
 #define V3_START_GUEST 10
+#define V3_STOP_GUEST 11
 #define V3_ADD_MEMORY 50
 
 /* VM Specific IOCTLs */
 #define V3_VM_CONSOLE_CONNECT 20
 
-#define V3_VM_STOP 22
+
 #define V3_VM_PAUSE 23
 #define V3_VM_CONTINUE 24
 
