@@ -145,7 +145,7 @@ static int load_memory(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
     return 0;
 }
 
-/*
+
 static int save_memory(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
     void * guest_mem_base = NULL;
     void * ctx = NULL;
@@ -195,7 +195,7 @@ int save_header(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 	    
     return 0;
 }
-*/
+
 static int load_header(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
     v3_cpu_arch_t cpu_type = v3_get_cpu_type(V3_Get_CPU());
     void * ctx = NULL;
@@ -306,7 +306,7 @@ static int load_core(struct guest_info * info, struct v3_chkpt * chkpt) {
     return 0;
 }
 
-/*
+
 static int save_core(struct guest_info * info, struct v3_chkpt * chkpt) {
     v3_cpu_arch_t cpu_type = v3_get_cpu_type(V3_Get_CPU());
     void * ctx = NULL;
@@ -383,22 +383,85 @@ static int save_core(struct guest_info * info, struct v3_chkpt * chkpt) {
     
     return 0;
 }
-*/
 
-int v3_load_vm(struct v3_vm_info * vm, char * store, char * url) {
-    int i = 0;
+
+int v3_chkpt_save_vm(struct v3_vm_info * vm, char * store, char * url) {
     struct v3_chkpt * chkpt = NULL;
+    int ret = 0;;
+    int i = 0;
     
-    chkpt = chkpt_open(store, url, LOAD);
+    chkpt = chkpt_open(store, url, SAVE);
 
-
-    if (load_memory(vm, chkpt) == -1) {
-	PrintError("Unable to save memory\n");
+    if (chkpt == NULL) {
+	PrintError("Error creating checkpoint store\n");
 	return -1;
     }
 
-    //raising the barrier requires VM to be in VM_RUNNING state
-    vm->run_state = VM_RUNNING;
+    /* If this guest is running we need to block it while the checkpoint occurs */
+    if (vm->run_state == VM_RUNNING) {
+	while (v3_raise_barrier(vm, NULL) == -1);
+    }
+
+    if ((ret = save_memory(vm, chkpt)) == -1) {
+	PrintError("Unable to save memory\n");
+	goto out;
+    }
+    
+    /*
+    if ((ret = v3_chkpt_save_dev(vm)) == -1) {
+	PrintError("Unable to save devices\n");
+	goto out;
+    }
+    */
+
+    if ((ret = save_header(vm, chkpt)) == -1) {
+	PrintError("Unable to save header\n");
+	goto out;
+    }
+    
+    for (i = 0; i < vm->num_cores; i++){
+	
+	if ((ret = save_core(&(vm->cores[i]), chkpt)) == -1) {
+	    PrintError("chkpt of core %d failed\n", i);
+	    goto out;
+	}
+    }	
+    
+ out:
+    
+    /* Resume the guest if it was running */
+    if (vm->run_state == VM_RUNNING) {
+	v3_lower_barrier(vm);
+    }
+
+    chkpt_close(chkpt);
+
+    return ret;
+
+}
+
+int v3_chkpt_load_vm(struct v3_vm_info * vm, char * store, char * url) {
+    struct v3_chkpt * chkpt = NULL;
+    int i = 0;
+    int ret = 0;
+    
+    chkpt = chkpt_open(store, url, LOAD);
+
+    if (chkpt == NULL) {
+	PrintError("Error creating checkpoint store\n");
+	return -1;
+    }
+
+    /* If this guest is running we need to block it while the checkpoint occurs */
+    if (vm->run_state == VM_RUNNING) {
+	while (v3_raise_barrier(vm, NULL) == -1);
+    }
+
+    if ((ret = load_memory(vm, chkpt)) == -1) {
+	PrintError("Unable to save memory\n");
+	goto out;
+    }
+
 
     /* Don't handle devices just yet
     if (v3_chkpt_load_dev(vm) == -1) {
@@ -407,20 +470,37 @@ int v3_load_vm(struct v3_vm_info * vm, char * store, char * url) {
 
     */
 
-    if (load_header(vm, chkpt) == -1) {
+    if ((ret = load_header(vm, chkpt)) == -1) {
 	PrintError("Unable to load header\n");
+	goto out;
     }
 
     //per core cloning
     for (i = 0; i < vm->num_cores; i++) {
-	if (load_core(&(vm->cores[i]), chkpt) == -1) {
-	    return -1;
+	if ((ret = load_core(&(vm->cores[i]), chkpt)) == -1) {
+	    PrintError("Error loading core state (core=%d)\n", i);
+	    goto out;
 	}
+    }
+
+ out:     
+
+    /* Resume the guest if it was running and we didn't just trash the state*/
+    if (vm->run_state == VM_RUNNING) {
+    
+	if (ret == -1) {
+	    vm->run_state = VM_STOPPED;
+	}
+
+	/* We check the run state of the VM after every barrier 
+	   So this will immediately halt the VM 
+	*/
+	v3_lower_barrier(vm);
     }
 
     chkpt_close(chkpt);
 
-    return 0;
+    return ret;
 }
 
 

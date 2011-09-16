@@ -350,7 +350,7 @@ int v3_svm_save_core(struct guest_info * core, void * ctx){
     return 0;
 }
 
-int v3_svm_patch_core(struct guest_info * core, void * chkpt_ctx){
+int v3_svm_load_core(struct guest_info * core, void * chkpt_ctx){
     struct cr0_32 * shadow_cr0;
     vmcb_saved_state_t * guest_state; 
     vmcb_ctrl_t * guest_ctrl;

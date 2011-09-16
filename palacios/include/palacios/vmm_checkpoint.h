@@ -41,8 +41,8 @@ int v3_chkpt_load(struct v3_chkpt_ctx * ctx, char * tag, uint64_t len, void * bu
 int v3_chkpt_close_ctx(struct v3_chkpt_ctx * ctx);
 struct v3_chkpt_ctx * v3_chkpt_open_ctx(struct v3_chkpt * chkpt, struct v3_chkpt_ctx * parent, char * name);
 
-int v3_load_vm(struct v3_vm_info * vm, char * store, char * url);
-int v3_save_vm(struct v3_vm_info * vm);
+int v3_chkpt_save_vm(struct v3_vm_info * vm, char * store, char * url);
+int v3_chkpt_load_vm(struct v3_vm_info * vm, char * store, char * url);
 
 
 

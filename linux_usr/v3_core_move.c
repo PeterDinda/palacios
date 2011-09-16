@@ -15,11 +15,6 @@
 
 #include "v3_ctrl.h"
 
-struct v3_core_move_cmd {
-    unsigned short vcore_id;
-    unsigned short pcore_id;
-};
-
 
 int main(int argc, char* argv[]) {
     int vm_fd;

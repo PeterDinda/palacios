@@ -489,6 +489,19 @@ int v3_continue_vm(struct v3_vm_info * vm) {
     return 0;
 }
 
+#ifdef V3_CONFIG_CHECKPOINT
+#include <palacios/vmm_checkpoint.h>
+
+int v3_save_vm(struct v3_vm_info * vm, char * store, char * url) {
+    return v3_chkpt_save_vm(vm, store, url);
+}
+
+
+int v3_load_vm(struct v3_vm_info * vm, char * store, char * url) {
+    return v3_chkpt_load_vm(vm, store, url);
+}
+#endif
+
 
 int v3_free_vm(struct v3_vm_info * vm) {
     int i = 0;

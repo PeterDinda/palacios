@@ -343,6 +343,9 @@ int v3_stop_vm(struct v3_vm_info * vm);
 int v3_pause_vm(struct v3_vm_info * vm);
 int v3_continue_vm(struct v3_vm_info * vm);
 
+int v3_save_vm(struct v3_vm_info * vm, char * store, char * url);
+int v3_load_vm(struct v3_vm_info * vm, char * store, char * url);
+
 int v3_move_vm_core(struct v3_vm_info * vm, int vcore_id, int target_cpu);
 
 int v3_free_vm(struct v3_vm_info * vm);
