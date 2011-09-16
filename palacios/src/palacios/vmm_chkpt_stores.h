@@ -20,6 +20,7 @@
 #ifndef __VMM_CHKPT_STORES_H__
 #define __VMM_CHKPT_STORES_H__
 
+//#include <palacios/vmm_types.h>
 
 /*
  * This is a place holder to ensure that the _v3_extensions section gets created by gcc
@@ -30,20 +31,27 @@ static struct {} null_store __attribute__((__used__))			\
 
 
 #define register_chkpt_store(store)					\
-    static struct v3_chkpt_interface * _v3_store_#store			\
+    static struct chkpt_interface * _v3_store_##store			\
     __attribute__((used))						\
 	__attribute__((unused, __section__("_v3_chkpt_stores"),		\
 		       aligned(sizeof(addr_t))))			\
-	= store;
+	= &store;
 
 
 
 
 #ifdef V3_CONFIG_KEYED_STREAMS
-#include <palacios/vmm_keyed_stream.h>
+#include <interfaces/vmm_keyed_stream.h>
 
-static void * keyed_stream_open_chkpt(char * url) {
-    return v3_keyed_stream_open(url, V3_KS_WR_ONLY_CREATE);
+static void * keyed_stream_open_chkpt(char * url, chkpt_mode_t mode) {
+    if (mode == SAVE) {
+	return v3_keyed_stream_open(url, V3_KS_WR_ONLY_CREATE);
+    } else if (mode == LOAD) {
+	return v3_keyed_stream_open(url, V3_KS_RD_ONLY);
+    }
+
+    // Shouldn't get here
+    return NULL;
 }
 
 
@@ -72,12 +80,12 @@ static int keyed_stream_close_ctx(void * store_data, void * ctx) {
     return 0;
 }
 
-static uint64_t keyed_stream_save(void * store_data, void * ctx, 
+static int keyed_stream_save(void * store_data, void * ctx, 
 				  char * tag, uint64_t len, void * buf) {
     return v3_keyed_stream_write_key(store_data, ctx, buf, len);
 }
 
-static uint64_t keyed_stream_load(void * store_data, void * ctx, 
+static int keyed_stream_load(void * store_data, void * ctx, 
 				  char * tag, uint64_t len, void * buf) {
     return v3_keyed_stream_read_key(store_data, ctx, buf, len);
 }
@@ -93,7 +101,7 @@ static struct chkpt_interface keyed_stream_store = {
     .load = keyed_stream_load
 };
 
-register_chkpt_store(&keyed_stream_store);
+register_chkpt_store(keyed_stream_store);
 
 
 
