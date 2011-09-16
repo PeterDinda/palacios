@@ -7,12 +7,12 @@
 #define _v3_ctrl_h
 
 #define V3_START_GUEST 10
+#define V3_STOP_GUEST 11
 #define V3_ADD_MEMORY 50
 #define V3_START_NETWORK 60
 
 #define V3_VM_CONSOLE_CONNECT 20
 #define V3_VM_SERIAL_CONNECT 21
-#define V3_VM_STOP 22
 
 #define V3_VM_MOVE_CORE 33
 

@@ -127,12 +127,6 @@ static long v3_vm_ioctl(struct file * filp,
     printk("V3 IOCTL %d\n", ioctl);
 
     switch (ioctl) {
-
-	case V3_VM_STOP: {
-	    printk("Stopping VM (%s)\n", guest->name);
-	    stop_palacios_vm(guest);
-	    break;
-	}
 	case V3_VM_PAUSE: {
 	    printk("Pausing VM (%s)\n", guest->name);
 	    v3_pause_vm(guest->v3_ctx);
@@ -280,12 +274,13 @@ int start_palacios_vm(void * arg)  {
 
 int stop_palacios_vm(struct v3_guest * guest) {
 
+
     v3_stop_vm(guest->v3_ctx);
 
     wait_for_completion(&(guest->thread_done));
 
     v3_free_vm(guest->v3_ctx);
-    
+
     device_destroy(v3_class, guest->vm_dev);
 
     cdev_del(&(guest->cdev));

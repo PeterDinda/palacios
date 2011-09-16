@@ -34,37 +34,22 @@ int mod_frees = 0;
 
 static int v3_major_num = 0;
 
-static u8 v3_minor_map[MAX_VMS / 8] = {[0 ... (MAX_VMS / 8) - 1] = 0}; 
-
+static struct v3_guest * guest_map[MAX_VMS] = {[0 ... MAX_VMS - 1] = 0};
 
 struct class * v3_class = NULL;
 static struct cdev ctrl_dev;
 
-static int register_vm( void ) {
-    int i, j = 0;
-    int avail = 0;
+static int register_vm(struct v3_guest * guest) {
+    int i = 0;
 
-    for (i = 0; i < sizeof(v3_minor_map); i++) {
-	if (v3_minor_map[i] != 0xff) {
-	    for (j = 0; j < 8; j++) {
-		if (!(v3_minor_map[i] & (0x1 << j))) {
-		    avail = 1;
-		    v3_minor_map[i] |= (0x1 << j);
-		    break;
-		}
-	    }
-	
-	    if (avail == 1) {
-		break;
-	    }
+    for (i = 0; i < MAX_VMS; i++) {
+	if (guest_map[i] == NULL) {
+	    guest_map[i] = guest;
+	    return i;
 	}
     }
 
-    if (avail == 0) {
-	return -1;
-    }
-	
-    return (i * 8) + j;
+    return -1;
 }
 
 
@@ -88,9 +73,9 @@ static long v3_dev_ioctl(struct file * filp,
 
 	    memset(guest, 0, sizeof(struct v3_guest));
 
-	    printk("Starting V3 Guest...\n");
+	    printk("Starting V3 Guest... (%p)\n", guest);
 
-	    vm_minor = register_vm();
+	    vm_minor = register_vm(guest);
 
 	    if (vm_minor == -1) {
 		printk("Too many VMs are currently running\n");
@@ -151,6 +136,23 @@ static long v3_dev_ioctl(struct file * filp,
 	    wait_for_completion(&(guest->start_done));
 
 	    return guest->vm_dev;
+	    break;
+	}
+	case V3_STOP_GUEST: {
+	    unsigned long vm_idx = arg;
+	    struct v3_guest * guest = guest_map[vm_idx];
+
+	    printk("Stopping VM idx=%d\n", vm_idx);
+	    printk("Stopping VM (%s) (%p)\n", guest->name, guest);
+
+
+	    if (irqs_disabled()) {
+		printk("WHAT!!?? IRQs are disabled??\n");
+		break;
+	    }
+
+	    stop_palacios_vm(guest);
+	    guest_map[vm_idx] = NULL;
 	    break;
 	}
 	case V3_ADD_MEMORY: {
