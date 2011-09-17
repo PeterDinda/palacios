@@ -573,7 +573,7 @@ static int mouse_write_output(struct keyboard_internal * kbd, uint8_t data) {
 
 
 #if KEYBOARD_DEBUG_80H
-static int keyboard_write_delay(ushort_t port, void * src,  uint_t length, void * priv_data) {
+static int keyboard_write_delay(struct guest_info *core, ushort_t port, void * src,  uint_t length, void * priv_data) {
 
     if (length == 1) { 
 	PrintDebug("keyboard: write of 0x%x to 80h\n", *((uint8_t*)src));
