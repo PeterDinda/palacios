@@ -36,7 +36,7 @@ struct v3_stream * v3_stream_open(struct v3_vm_info * vm, const char * name,
     V3_ASSERT(stream_hooks != NULL);
     V3_ASSERT(stream_hooks->open != NULL);
 
-    stream = V3_Malloc(sizeof(struct v3_stream *));
+    stream = V3_Malloc(sizeof(struct v3_stream));
 
     stream->input = input;
     stream->guest_stream_data = guest_stream_data;
