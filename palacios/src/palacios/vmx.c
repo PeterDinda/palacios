@@ -594,7 +594,12 @@ int v3_vmx_load_core(struct guest_info * core, void * ctx){
     /* Get the CPU mode to set the guest_ia32e entry ctrl */
 
     if (core->shdw_pg_mode == SHADOW_PAGING) {
-	if (shadow_cr0->pg){
+	if (v3_get_vm_mem_mode(core) == VIRTUAL_MEM) {
+	    if (v3_activate_shadow_pt(core) == -1) {
+		PrintError("Failed to activate shadow page tables\n");
+		return -1;
+	    }
+	} else {
 	    if (v3_activate_passthrough_pt(core) == -1) {
 		PrintError("Failed to activate passthrough page tables\n");
 		return -1;

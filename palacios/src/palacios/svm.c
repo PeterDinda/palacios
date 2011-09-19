@@ -385,7 +385,12 @@ int v3_svm_load_core(struct guest_info * core, void * chkpt_ctx){
 
 
     if (core->shdw_pg_mode == SHADOW_PAGING) {
-	if (shadow_cr0->pg){
+	if (v3_get_vm_mem_mode(core) == VIRTUAL_MEM) {
+	    if (v3_activate_shadow_pt(core) == -1) {
+		PrintError("Failed to activate shadow page tables\n");
+		return -1;
+	    }
+	} else {
 	    if (v3_activate_passthrough_pt(core) == -1) {
 		PrintError("Failed to activate passthrough page tables\n");
 		return -1;
@@ -394,7 +399,7 @@ int v3_svm_load_core(struct guest_info * core, void * chkpt_ctx){
     }
 
 
-    v3_get_vmcb_segments((vmcb_t*)(core->vmm_data), &(core->segments));
+    v3_get_vmcb_segments((vmcb_t *)(core->vmm_data), &(core->segments));
     return 0;
 }
 #endif
