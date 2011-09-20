@@ -6,6 +6,10 @@ ifdef V3_CONFIG_SYMMOD
 LDFLAGS += --script=$(PWD)/ld.symmod.cmd
 endif
 
+ifdef V3_CONFIG_CHECKPOINT
+LDFLAGS += --script=$(PWD)/ld.chkpt.cmd
+endif
+
 EXTRA_CFLAGS  += -I$(PWD)/../palacios/include/ -include autoconf.h -DMODULE=1 -D__KERNEL__=1
 
 

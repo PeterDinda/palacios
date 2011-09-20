@@ -1714,9 +1714,109 @@ static int apic_free(struct apic_dev_state * apic_dev) {
     return 0;
 }
 
+#ifdef V3_CONFIG_CHECKPOINT
+static int apic_save(struct v3_chkpt_ctx * ctx, void * private_data) {
+    struct apic_dev_state * apic_state = (struct apic_dev_state *)private_data;
+    int i = 0;
+
+    V3_CHKPT_STD_SAVE(ctx, apic_state->num_apics);
+
+    //V3_CHKPT_STD_SAVE(ctx,apic_state->state_lock);
+    for (i = 0; i < apic_state->num_apics; i++) {
+
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].base_addr);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].base_addr_msr);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].lapic_id);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].apic_ver);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].ext_apic_ctrl);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].local_vec_tbl);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].tmr_vec_tbl);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].tmr_div_cfg);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].lint0_vec_tbl);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].lint1_vec_tbl);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].perf_ctr_loc_vec_tbl);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].therm_loc_vec_tbl);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].err_vec_tbl);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].err_status);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].spurious_int);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].int_cmd);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].log_dst);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].dst_fmt);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].arb_prio);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].task_prio);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].proc_prio);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].ext_apic_feature);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].spec_eoi);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].tmr_cur_cnt);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].tmr_init_cnt);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].ext_intr_vec_tbl);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].rem_rd_data);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].ipi_state);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].int_req_reg);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].int_svc_reg);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].int_en_reg);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].trig_mode_reg);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].eoi);
+
+    }
+
+    return 0;
+}
+
+static int apic_load(struct v3_chkpt_ctx * ctx, void * private_data) {
+    struct apic_dev_state *apic_state = (struct apic_dev_state *)private_data;
+    int i = 0;
+
+    V3_CHKPT_STD_LOAD(ctx,apic_state->num_apics);
+
+    for (i = 0; i < apic_state->num_apics; i++) {
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].base_addr);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].base_addr_msr);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].lapic_id);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].apic_ver);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].ext_apic_ctrl);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].local_vec_tbl);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].tmr_vec_tbl);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].tmr_div_cfg);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].lint0_vec_tbl);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].lint1_vec_tbl);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].perf_ctr_loc_vec_tbl);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].therm_loc_vec_tbl);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].err_vec_tbl);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].err_status);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].spurious_int);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].int_cmd);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].log_dst);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].dst_fmt);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].arb_prio);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].task_prio);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].proc_prio);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].ext_apic_feature);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].spec_eoi);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].tmr_cur_cnt);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].tmr_init_cnt);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].ext_intr_vec_tbl);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].rem_rd_data);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].ipi_state);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].int_req_reg);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].int_svc_reg);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].int_en_reg);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].trig_mode_reg);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].eoi);
+    }
+
+
+    return 0;
+}
+
+#endif
 
 static struct v3_device_ops dev_ops = {
     .free = (int (*)(void *))apic_free,
+#ifdef V3_CONFIG_CHECKPOINT
+    .save = apic_save,
+    .load = apic_load
+#endif
 };
 
 

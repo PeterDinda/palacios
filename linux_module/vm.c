@@ -137,6 +137,48 @@ static long v3_vm_ioctl(struct file * filp,
 	    v3_continue_vm(guest->v3_ctx);
 	    break;
 	}
+#ifdef V3_CONFIG_CHECKPOINT
+	case V3_VM_SAVE: {
+	    struct v3_chkpt_info chkpt;
+	    void __user * argp = (void __user *)arg;
+
+	    memset(&chkpt, 0, sizeof(struct v3_chkpt_info));
+
+	    if (copy_from_user(&chkpt, argp, sizeof(struct v3_chkpt_info))) {
+		printk("Copy from user error getting checkpoint info\n");
+		return -EFAULT;
+	    }
+	    
+	    printk("Saving Guest to %s:%s\n", chkpt.store, chkpt.url);
+
+	    if (v3_save_vm(guest->v3_ctx, chkpt.store, chkpt.url) == -1) {
+		printk("Error checkpointing VM state\n");
+		return -EFAULT;
+	    }
+	    
+	    break;
+	}
+	case V3_VM_LOAD: {
+	    struct v3_chkpt_info chkpt;
+	    void __user * argp = (void __user *)arg;
+
+	    memset(&chkpt, 0, sizeof(struct v3_chkpt_info));
+
+	    if (copy_from_user(&chkpt, argp, sizeof(struct v3_chkpt_info))) {
+		printk("Copy from user error getting checkpoint info\n");
+		return -EFAULT;
+	    }
+	    
+	    printk("Loading Guest to %s:%s\n", chkpt.store, chkpt.url);
+
+	    if (v3_load_vm(guest->v3_ctx, chkpt.store, chkpt.url) == -1) {
+		printk("Error Loading VM state\n");
+		return -EFAULT;
+	    }
+	    
+	    break;
+	}
+#endif
 	case V3_VM_MOVE_CORE: {
 	    struct v3_core_move_cmd cmd;
 	    void __user * argp = (void __user *)arg;
@@ -151,9 +193,9 @@ static long v3_vm_ioctl(struct file * filp,
 	    printk("moving guest %s vcore %d to CPU %d\n", guest->name, cmd.vcore_id, cmd.pcore_id);
 
 	    v3_move_vm_core(guest->v3_ctx, cmd.vcore_id, cmd.pcore_id);
-	}
-	break;
 
+	    break;
+	}
 	default: {
 	    struct vm_ctrl * ctrl = get_ctrl(guest, ioctl);
 

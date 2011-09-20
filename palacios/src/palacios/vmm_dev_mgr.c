@@ -22,6 +22,10 @@
 #include <palacios/vmm.h>
 #include <palacios/vmm_decoder.h>
 
+#ifdef V3_CONFIG_CHECKPOINT
+#include <palacios/vmm_checkpoint.h>
+#endif
+
 
 #ifndef V3_CONFIG_DEBUG_DEV_MGR
 #undef PrintDebug
@@ -125,6 +129,108 @@ int v3_free_vm_devices(struct v3_vm_info * vm) {
 
     return 0;
 }
+
+#ifdef V3_CONFIG_CHECKPOINT
+
+int v3_save_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
+    struct vmm_dev_mgr * mgr = &(vm->dev_mgr);
+    struct vm_device * dev;
+    struct v3_chkpt_ctx * dev_mgr_ctx = NULL;
+
+    uint32_t num_saved_devs = 0;
+    uint32_t table_len = mgr->num_devs * 32;
+    char * name_table = NULL;
+    uint32_t tbl_offset = 0;
+    
+    name_table = V3_Malloc(table_len);
+
+    memset(name_table, 0, table_len);
+    
+
+    dev_mgr_ctx = v3_chkpt_open_ctx(chkpt, NULL, "devices");
+
+    list_for_each_entry(dev, &(mgr->dev_list), dev_link) {
+
+	if (dev->ops->save) {
+	    struct v3_chkpt_ctx * dev_ctx = NULL;
+
+	    
+	    dev_ctx = v3_chkpt_open_ctx(chkpt, dev_mgr_ctx, dev->name);
+
+	    dev->ops->save(dev_ctx, dev->private_data);
+
+	    v3_chkpt_close_ctx(dev_ctx);
+
+	    // Error checking?? 
+
+	    strncpy(name_table + tbl_offset, dev->name, 32);
+	    tbl_offset += 32;
+	    num_saved_devs++;
+	} else {
+	    PrintError("Error: %s save() not implemented\n",  dev->name);
+	}
+    }
+
+    
+    // Specify which devices were saved
+    v3_chkpt_save(dev_mgr_ctx, "num_devs", 4, &num_saved_devs); 
+    v3_chkpt_save(dev_mgr_ctx, "names", table_len, name_table);
+    V3_Free(name_table);
+
+    v3_chkpt_close_ctx(dev_mgr_ctx);
+    
+    return 0;
+}
+
+
+int v3_load_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
+    struct vm_device * dev;
+    struct v3_chkpt_ctx * dev_mgr_ctx = NULL;
+    uint32_t num_devs = 0;
+    char * name_table = NULL;
+    int i = 0;
+
+    dev_mgr_ctx = v3_chkpt_open_ctx(chkpt, NULL, "devices");
+
+    v3_chkpt_load(dev_mgr_ctx, "num_devs", 4, &num_devs);
+
+    V3_Print("Loading State for %d devices\n", num_devs);
+    
+    name_table = V3_Malloc(32 * num_devs);
+
+    v3_chkpt_load(dev_mgr_ctx, "names", 32 * num_devs, name_table);
+
+    for (i = 0; i < num_devs; i++) {
+	char * name = &(name_table[i * 32]);
+	struct v3_chkpt_ctx * dev_ctx = NULL;
+	dev = v3_find_dev(vm, name);
+
+	if (!dev) {
+	    PrintError("Tried to load state into non existant device: %s\n", name);
+	    continue;
+	}
+
+	if (!dev->ops->load) {
+	    PrintError("Error Device (%s) does not support load operation\n", name);
+	    continue;
+	}
+
+	dev_ctx = v3_chkpt_open_ctx(chkpt, dev_mgr_ctx, name);
+
+	if (!dev_ctx) {
+	    PrintError("Error missing device context (%s)\n", name);
+	    continue;
+	}
+
+
+	dev->ops->load(dev_ctx, dev->private_data);
+    }
+
+    return 0;
+}
+
+
+#endif
 
 static int free_frontends(struct v3_vm_info * vm, struct vmm_dev_mgr * mgr);
 

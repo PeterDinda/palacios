@@ -90,7 +90,8 @@ int v3_svm_enter(struct guest_info * info);
 int v3_start_svm_guest(struct guest_info *info);
 int v3_reset_svm_vm_core(struct guest_info * core, addr_t rip);
 
-
+int v3_svm_load_core(struct guest_info * core, void * ctx);
+int v3_svm_save_core(struct guest_info * core, void * ctx);
 
 
 #endif

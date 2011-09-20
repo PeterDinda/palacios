@@ -33,6 +33,10 @@
 #include <palacios/vmx.h>
 #endif
 
+#ifdef V3_CONFIG_CHECKPOINT
+#include <palacios/vmm_checkpoint.h>
+#endif
+
 
 v3_cpu_arch_t v3_cpu_types[V3_CONFIG_MAX_CPUS];
 struct v3_os_hooks * os_hooks = NULL;
@@ -119,6 +123,10 @@ void Init_V3(struct v3_os_hooks * hooks, int num_cpus) {
     V3_init_symmod();
 #endif
 
+#ifdef V3_CONFIG_CHECKPOINT
+    V3_init_checkpoint();
+#endif
+
 
 
 #ifdef V3_CONFIG_MULTITHREAD_OS
@@ -147,6 +155,10 @@ void Shutdown_V3() {
 
 #ifdef V3_CONFIG_SYMMOD
     V3_deinit_symmod();
+#endif
+
+#ifdef V3_CONFIG_CHECKPOINT
+    V3_deinit_checkpoint();
 #endif
 
 
@@ -488,6 +500,19 @@ int v3_continue_vm(struct v3_vm_info * vm) {
 
     return 0;
 }
+
+#ifdef V3_CONFIG_CHECKPOINT
+#include <palacios/vmm_checkpoint.h>
+
+int v3_save_vm(struct v3_vm_info * vm, char * store, char * url) {
+    return v3_chkpt_save_vm(vm, store, url);
+}
+
+
+int v3_load_vm(struct v3_vm_info * vm, char * store, char * url) {
+    return v3_chkpt_load_vm(vm, store, url);
+}
+#endif
 
 
 int v3_free_vm(struct v3_vm_info * vm) {

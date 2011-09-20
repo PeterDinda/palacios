@@ -682,65 +682,39 @@ static int pit_free(void * private_data) {
     return 0;
 }
 
-#ifdef V3_CONFIG_KEYED_STREAMS
-static int pit_checkpoint(struct vm_device *dev, v3_keyed_stream_t stream)
-{
-    struct pit *p = (struct pit *) (dev->private_data);
+#ifdef V3_CONFIG_CHECKPOINT
+static int pit_save(struct v3_chkpt_ctx * ctx, void * private_data) {
+    struct pit * pit_state = (struct pit *)private_data; 
 
-    v3_keyed_stream_key_t ks;
-
-    ks = v3_keyed_stream_open_key(stream,dev->name);
-
-    if (!ks) { 
-	return -1;
-    }
-
-    STD_SAVE(stream,ks,p->pit_counter);
-    STD_SAVE(stream,ks,p->pit_reload);
-    STD_SAVE(stream,ks,p->ch_0);
-    STD_SAVE(stream,ks,p->ch_1);
-    STD_SAVE(stream,ks,p->ch_2);
-    STD_SAVE(stream,ks,p->speaker);
-
-    v3_keyed_stream_close_key(stream,ks);
+    V3_CHKPT_STD_SAVE(ctx, pit_state->pit_counter);
+    V3_CHKPT_STD_SAVE(ctx, pit_state->pit_reload);
+    V3_CHKPT_STD_SAVE(ctx, pit_state->ch_0);
+    V3_CHKPT_STD_SAVE(ctx, pit_state->ch_1);
+    V3_CHKPT_STD_SAVE(ctx, pit_state->ch_2);
+    V3_CHKPT_STD_SAVE(ctx, pit_state->speaker);
     
     return 0;
-
-
 }
 
-static int pit_restore(struct vm_device *dev, v3_keyed_stream_t stream)
-{
-    struct pit *p = (struct pit *) (dev->private_data);
+static int pit_load(struct v3_chkpt_ctx * ctx, void * private_data) {
+    struct pit * pit_state = (struct pit *)private_data;
 
-    v3_keyed_stream_key_t ks;
+    V3_CHKPT_STD_LOAD(ctx, pit_state->pit_counter);
+    V3_CHKPT_STD_LOAD(ctx, pit_state->pit_reload);
+    V3_CHKPT_STD_LOAD(ctx, pit_state->ch_0);
+    V3_CHKPT_STD_LOAD(ctx, pit_state->ch_1);
+    V3_CHKPT_STD_LOAD(ctx, pit_state->ch_2);
+    V3_CHKPT_STD_LOAD(ctx, pit_state->speaker);
 
-    ks = v3_keyed_stream_open_key(stream,dev->name);
-
-    if (!ks) { 
-	return -1;
-    }
-
-    STD_LOAD(stream,ks,p->pit_counter);
-    STD_LOAD(stream,ks,p->pit_reload);
-    STD_LOAD(stream,ks,p->ch_0);
-    STD_LOAD(stream,ks,p->ch_1);
-    STD_LOAD(stream,ks,p->ch_2);
-    STD_LOAD(stream,ks,p->speaker);
-
-    v3_keyed_stream_close_key(stream,ks);
-    
     return 0;
-
-
 }
 #endif
 
 static struct v3_device_ops dev_ops = {
     .free = (int (*)(void *))pit_free,
-#ifdef V3_CONFIG_KEYED_STREAMS
-    .checkpoint = pit_checkpoint,
-    .restore = pit_restore,
+#ifdef V3_CONFIG_CHECKPOINT
+    .save = pit_save,
+    .load = pit_load,
 #endif
 };
 

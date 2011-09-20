@@ -325,10 +325,42 @@ static int io_apic_free(struct io_apic_state * ioapic) {
     return 0;
 }
 
+#ifdef V3_CONFIG_CHECKPOINT
+static int io_apic_save(struct v3_chkpt_ctx * ctx, void * private_data) {
+    struct io_apic_state * io_apic = (struct io_apic_state *)private_data;
+
+    V3_CHKPT_STD_SAVE(ctx, io_apic->base_addr);
+    V3_CHKPT_STD_SAVE(ctx, io_apic->index_reg);
+    V3_CHKPT_STD_SAVE(ctx, io_apic->ioapic_id);
+    V3_CHKPT_STD_SAVE(ctx, io_apic->ioapic_ver);
+    V3_CHKPT_STD_SAVE(ctx, io_apic->ioapic_arb_id);
+    V3_CHKPT_STD_SAVE(ctx, io_apic->redir_tbl);
+
+    return 0;
+}
+
+static int io_apic_load(struct v3_chkpt_ctx * ctx, void * private_data) {
+    struct io_apic_state * io_apic = (struct io_apic_state *)private_data;
+
+    V3_CHKPT_STD_LOAD(ctx, io_apic->base_addr);
+    V3_CHKPT_STD_LOAD(ctx, io_apic->index_reg);
+    V3_CHKPT_STD_LOAD(ctx, io_apic->ioapic_id);
+    V3_CHKPT_STD_LOAD(ctx, io_apic->ioapic_ver);
+    V3_CHKPT_STD_LOAD(ctx, io_apic->ioapic_arb_id);
+    V3_CHKPT_STD_LOAD(ctx, io_apic->redir_tbl);
+
+    return 0;
+}
+#endif
+
+
 
 static struct v3_device_ops dev_ops = {
     .free = (int (*)(void *))io_apic_free,
-
+#ifdef V3_CONFIG_CHECKPOINT
+    .save = io_apic_save, 
+    .load = io_apic_load
+#endif
 };
 
 

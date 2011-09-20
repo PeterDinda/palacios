@@ -37,6 +37,9 @@
 #include <palacios/vmm_rbtree.h>
 #include <palacios/vmm_barrier.h>
 
+#ifdef V3_CONFIG_CHECKPOINT
+#include <palacios/vmm_checkpoint.h>
+#endif
 
 #include <palacios/vmm_direct_paging.h>
 
@@ -339,6 +342,68 @@ int v3_deinit_svm_vmcb(struct guest_info * core) {
 }
 
 
+#ifdef V3_CONFIG_CHECKPOINT
+int v3_svm_save_core(struct guest_info * core, void * ctx){
+
+    v3_chkpt_save(ctx, "vmcb_data", PAGE_SIZE, core->vmm_data);
+
+    return 0;
+}
+
+int v3_svm_load_core(struct guest_info * core, void * chkpt_ctx){
+    struct cr0_32 * shadow_cr0;
+    vmcb_saved_state_t * guest_state; 
+    vmcb_ctrl_t * guest_ctrl;
+
+
+
+    if (v3_chkpt_load(chkpt_ctx, "vmcb_data", PAGE_SIZE, core->vmm_data) == -1){
+	return -1;
+    }
+
+    guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t *)(core->vmm_data));
+    guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t *)(core->vmm_data));
+
+	
+    core->rip = guest_state->rip;
+    core->vm_regs.rsp = guest_state->rsp;
+    core->vm_regs.rax = guest_state->rax;
+
+    core->cpl = guest_state->cpl;
+
+    core->ctrl_regs.cr0 = guest_state->cr0;
+    core->ctrl_regs.cr2 = guest_state->cr2;
+    core->ctrl_regs.cr4 = guest_state->cr4;
+    core->dbg_regs.dr6 = guest_state->dr6;
+    core->dbg_regs.dr7 = guest_state->dr7;
+    core->ctrl_regs.cr8 = guest_ctrl->guest_ctrl.V_TPR;
+    core->ctrl_regs.rflags = guest_state->rflags;
+    core->ctrl_regs.efer = guest_state->efer;
+
+		
+    shadow_cr0 = (struct cr0_32 *)&(core->ctrl_regs.cr0);
+
+
+    if (core->shdw_pg_mode == SHADOW_PAGING) {
+	if (v3_get_vm_mem_mode(core) == VIRTUAL_MEM) {
+	    if (v3_activate_shadow_pt(core) == -1) {
+		PrintError("Failed to activate shadow page tables\n");
+		return -1;
+	    }
+	} else {
+	    if (v3_activate_passthrough_pt(core) == -1) {
+		PrintError("Failed to activate passthrough page tables\n");
+		return -1;
+	    }
+	}
+    }
+
+
+    v3_get_vmcb_segments((vmcb_t *)(core->vmm_data), &(core->segments));
+    return 0;
+}
+#endif
+
 static int update_irq_exit_state(struct guest_info * info) {
     vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
 
@@ -635,6 +700,9 @@ int v3_start_svm_guest(struct guest_info * info) {
 	}
 
 	PrintDebug("SVM core %u(on %u) initialized\n", info->vcpu_id, info->pcpu_id);
+
+	// We'll be paranoid about race conditions here
+	v3_wait_at_barrier(info);
     } 
 
     PrintDebug("SVM core %u(on %u): I am starting at CS=0x%x (base=0x%p, limit=0x%x),  RIP=0x%p\n", 
