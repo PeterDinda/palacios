@@ -1116,6 +1116,8 @@ static int cga_free(struct video_internal * video_state) {
 static int cga_save(struct v3_chkpt_ctx * ctx, void * private_data) {
     struct video_internal * cga = (struct video_internal *)private_data;
 
+    v3_chkpt_save(ctx, "FRAMEBUFFER", FRAMEBUF_SIZE, cga->framebuf);
+
     V3_CHKPT_STD_SAVE(ctx, cga->misc_outp_reg);
     V3_CHKPT_STD_SAVE(ctx, cga->seq_index_reg);		
     V3_CHKPT_STD_SAVE(ctx, cga->seq_data_regs[SEQ_REG_COUNT]);	
@@ -1146,11 +1148,17 @@ static int cga_save(struct v3_chkpt_ctx * ctx, void * private_data) {
 
     V3_CHKPT_STD_SAVE(ctx, cga->passthrough);
 
+    v3_chkpt_save_16(ctx, "SCREEN_OFFSET", &(cga->screen_offset));
+    v3_chkpt_save_16(ctx, "CURSOR_OFFSET", &(cga->cursor_offset));
+
     return 0;
 }
 
 static int cga_load(struct v3_chkpt_ctx * ctx, void * private_data) {
     struct video_internal * cga = (struct video_internal *)private_data;
+
+    v3_chkpt_load(ctx, "FRAMEBUFFER", FRAMEBUF_SIZE, cga->framebuf);
+
 
     V3_CHKPT_STD_LOAD(ctx, cga->misc_outp_reg);
     V3_CHKPT_STD_LOAD(ctx, cga->seq_index_reg);		
@@ -1181,6 +1189,10 @@ static int cga_load(struct v3_chkpt_ctx * ctx, void * private_data) {
     V3_CHKPT_STD_LOAD(ctx, cga->reschanged);
 
     V3_CHKPT_STD_LOAD(ctx, cga->passthrough);
+
+    v3_chkpt_load_16(ctx, "SCREEN_OFFSET", &(cga->screen_offset));
+    v3_chkpt_load_16(ctx, "CURSOR_OFFSET", &(cga->cursor_offset));
+
 
     return 0;
 }

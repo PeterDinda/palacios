@@ -83,7 +83,7 @@ struct v3_pci_bar {
 
     // Internal PCI data
     uint32_t val;
-    int updated;
+    uint8_t updated;
     uint32_t mask;
 };
 

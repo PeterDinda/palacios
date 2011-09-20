@@ -211,8 +211,8 @@ struct keyboard_internal {
     // Data for system
     uint8_t wrap;     
 
-    int mouse_enabled;
-    int scancode_set;
+    uint8_t mouse_enabled;
+    uint8_t scancode_set;
 
     struct queue kbd_queue;
     struct queue mouse_queue;
@@ -1053,6 +1053,18 @@ static int keyboard_reset_device(struct keyboard_internal * kbd) {
 
 #ifdef V3_CONFIG_CHECKPOINT
 static int keyboard_save(struct v3_chkpt_ctx * ctx, void * private_data) {
+    struct keyboard_internal * kbd = (struct keyboard_internal *)private_data;
+
+    v3_chkpt_save_8(ctx, "CMD_REG", &(kbd->cmd.val));
+    v3_chkpt_save_8(ctx, "STATUS_REG", &(kbd->status.val));
+    v3_chkpt_save_8(ctx, "STATE", &(kbd->state));
+    v3_chkpt_save_8(ctx, "MOUSE_STATE", &(kbd->mouse_state));
+    v3_chkpt_save_8(ctx, "OUTPUT", &(kbd->output_byte));
+    v3_chkpt_save_8(ctx, "INPUT", &(kbd->input_byte));
+    v3_chkpt_save_8(ctx, "SCANCODE_SET", &(kbd->scancode_set));
+    v3_chkpt_save_8(ctx, "MOUSE_ENABLED", &(kbd->mouse_enabled));
+
+
     return 0;
 }
 
@@ -1060,6 +1072,17 @@ static int keyboard_save(struct v3_chkpt_ctx * ctx, void * private_data) {
 static int keyboard_load(struct v3_chkpt_ctx * ctx, void * private_data) {
     struct keyboard_internal * kbd = (struct keyboard_internal *)private_data;
     keyboard_reset_device(kbd);
+
+    v3_chkpt_load_8(ctx, "CMD_REG", &(kbd->cmd.val));
+    v3_chkpt_load_8(ctx, "STATUS_REG", &(kbd->status.val));
+    v3_chkpt_load_8(ctx, "STATE", &(kbd->state));
+    v3_chkpt_load_8(ctx, "MOUSE_STATE", &(kbd->mouse_state));
+    v3_chkpt_load_8(ctx, "OUTPUT", &(kbd->output_byte));
+    v3_chkpt_load_8(ctx, "INPUT", &(kbd->input_byte));
+    v3_chkpt_load_8(ctx, "SCANCODE_SET", &(kbd->scancode_set));
+    v3_chkpt_load_8(ctx, "MOUSE_ENABLED", &(kbd->mouse_enabled));
+
+
     return 0;
 }
 

@@ -153,7 +153,8 @@ int v3_save_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 
 	if (dev->ops->save) {
 	    struct v3_chkpt_ctx * dev_ctx = NULL;
-
+	    
+	    V3_Print("Saving state for device (%s)\n", dev->name);
 	    
 	    dev_ctx = v3_chkpt_open_ctx(chkpt, dev_mgr_ctx, dev->name);
 
