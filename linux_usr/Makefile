@@ -2,8 +2,10 @@ all: v3_ctrl v3_stop v3_cons v3_mem v3_monitor v3_stream v3_user_host_dev_exampl
 
 
 
-v3_ctrl : v3_ctrl.c v3_ctrl.h
+v3_ctrl : v3_ctrl.c v3_pause.c v3_continue.c v3_ctrl.h
 	gcc -static v3_ctrl.c -o v3_ctrl 
+	gcc -static v3_pause.c -o v3_pause
+	gcc -static v3_continue.c -o v3_continue
 
 v3_stop : v3_stop.c v3_ctrl.h
 	gcc -static v3_stop.c -o v3_stop 
@@ -15,7 +17,6 @@ v3_load : v3_load.c v3_ctrl.h
 
 v3_mem : v3_mem.c v3_ctrl.h
 	gcc -static v3_mem.c -o v3_mem 
-
 
 v3_cons : v3_cons.c v3_cons_sc.c v3_ctrl.h
 	gcc  v3_cons.c -o v3_cons -lcurses
