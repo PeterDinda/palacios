@@ -700,6 +700,9 @@ int v3_start_svm_guest(struct guest_info * info) {
 	}
 
 	PrintDebug("SVM core %u(on %u) initialized\n", info->vcpu_id, info->pcpu_id);
+
+	// We'll be paranoid about race conditions here
+	v3_wait_at_barrier(info);
     } 
 
     PrintDebug("SVM core %u(on %u): I am starting at CS=0x%x (base=0x%p, limit=0x%x),  RIP=0x%p\n", 

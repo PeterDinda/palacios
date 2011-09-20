@@ -955,6 +955,9 @@ int v3_start_vmx_guest(struct guest_info * info) {
         }
 	
 	PrintDebug("VMX core %u initialized\n", info->vcpu_id);
+
+	// We'll be paranoid about race conditions here
+	v3_wait_at_barrier(info);
     }
 
 
