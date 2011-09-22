@@ -182,15 +182,16 @@ struct guest_info;
         })
 
 
-#ifdef V3_CONFIG_MULTITHREAD_OS
 
-#define V3_CREATE_THREAD(fn, arg, name)					\
-    do {								\
-	extern struct v3_os_hooks * os_hooks;				\
-	if ((os_hooks) && (os_hooks)->start_kernel_thread) {		\
-	    (os_hooks)->start_kernel_thread(fn, arg, name);		\
-	}								\
-    } while (0)
+
+#define V3_CREATE_THREAD(fn, arg, name)	({				\
+	    void * thread = NULL;					\
+	    extern struct v3_os_hooks * os_hooks;			\
+	    if ((os_hooks) && (os_hooks)->start_kernel_thread) {	\
+		thread = (os_hooks)->start_kernel_thread(fn, arg, name); \
+	    }								\
+	    thread;							\
+	})
 
 
 
@@ -223,7 +224,6 @@ struct guest_info;
 	ret;								\
     })
     
-#endif
 
 /* ** */
 
@@ -260,10 +260,8 @@ void v3_yield(struct guest_info * info);
 void v3_yield_cond(struct guest_info * info);
 void v3_print_cond(const char * fmt, ...);
 
-
-#ifdef V3_CONFIG_MULTITHREAD_OS
 void v3_interrupt_cpu(struct v3_vm_info * vm, int logical_cpu, int vector);
-#endif
+
 
 
 v3_cpu_arch_t v3_get_cpu_type(int cpu_id);
@@ -310,7 +308,7 @@ struct v3_os_hooks {
 
 
 
-    void (*start_kernel_thread)(int (*fn)(void * arg), void * arg, char * thread_name); 
+    void * (*start_kernel_thread)(int (*fn)(void * arg), void * arg, char * thread_name); 
     void (*interrupt_cpu)(struct v3_vm_info * vm, int logical_cpu, int vector);
     void (*call_on_cpu)(int logical_cpu, void (*fn)(void * arg), void * arg);
     void * (*start_thread_on_cpu)(int cpu_id, int (*fn)(void * arg), void * arg, char * thread_name);

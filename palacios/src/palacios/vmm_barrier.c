@@ -177,7 +177,7 @@ int v3_wait_at_barrier(struct guest_info * core) {
     V3_Print("Core %d bit set as waiting\n", core->vcpu_id);
 
     // wait for cpu bit to clear
-    while (v3_bitmap_check(&(barrier->cpu_map), core->vcpu_id) == 1) {
+    while (v3_bitmap_check(&(barrier->cpu_map), core->vcpu_id)) {
 	v3_yield(core);
     }
 

@@ -108,13 +108,6 @@ endchoice
 
 menu "Supported host OS features"
       
-config MULTITHREAD_OS
-	bool "Host support for  multiple threads"
-	default y
-	help 
-	  Select this if your OS supports multiple threads of execution. This will enable features in Palacios 
-	  to require the creation of additional execution threads.
-
 
 config ALIGNED_PG_ALLOC
 	bool "Host support for aligned page allocations"

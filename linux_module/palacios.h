@@ -78,9 +78,6 @@ struct v3_guest {
     struct rb_root vm_ctrls;
     struct list_head exts;
 
-    struct completion start_done;
-    struct completion thread_done;
-
     dev_t vm_dev; 
     struct cdev cdev;
 };

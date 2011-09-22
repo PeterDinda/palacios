@@ -8,7 +8,7 @@
 
 #include "palacios.h"
 
-int start_palacios_vm(void * arg);
+int start_palacios_vm(struct v3_guest * guest);
 int stop_palacios_vm(struct v3_guest * guest);
 
 
