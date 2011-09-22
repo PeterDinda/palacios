@@ -13,7 +13,6 @@ config KITTEN
 	select BUILT_IN_STRCASECMP
 	select BUILT_IN_ATOI
 	select ALIGNED_PG_ALLOC
-	select MULTITHREAD_OS
 	help
 	  This enables the necesary options to compile Palacios with Kitten
 
