@@ -387,6 +387,20 @@ int v3_move_vm_core(struct v3_vm_info * vm, int vcore_id, int target_cpu) {
 
 	V3_Print("Moving Core\n");
 
+
+#ifdef V3_CONFIG_VMX
+	switch (v3_cpu_types[core->pcpu_id]) {
+	    case V3_VMX_CPU:
+	    case V3_VMX_EPT_CPU:
+	    case V3_VMX_EPT_UG_CPU:
+		PrintDebug("Flushing VMX Guest CPU %d\n", core->vcpu_id);
+		V3_Call_On_CPU(core->pcpu_id, (void (*)(void *))v3_flush_vmx_vm_core, (void *)core);
+		break;
+	    default:
+		break;
+	}
+#endif
+
 	if (V3_MOVE_THREAD_TO_CPU(target_cpu, core->core_thread) != 0) {
 	    PrintError("Failed to move Vcore %d to CPU %d\n", 
 		       core->vcpu_id, target_cpu);

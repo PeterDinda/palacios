@@ -223,6 +223,8 @@ int v3_deinit_vmx_vmcs(struct guest_info * core);
 
 int v3_start_vmx_guest(struct guest_info* info);
 int v3_reset_vmx_vm_core(struct guest_info * core, addr_t rip);
+void v3_flush_vmx_vm_core(struct guest_info * core);
+
 int v3_vmx_enter(struct guest_info * info);
 
 int v3_vmx_load_core(struct guest_info * core, void * ctx);
