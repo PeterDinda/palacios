@@ -612,6 +612,14 @@ int v3_vmx_load_core(struct guest_info * core, void * ctx){
 #endif
 
 
+void v3_flush_vmx_vm_core(struct guest_info * core) {
+    struct vmx_data * vmx_info = (struct vmx_data *)(core->vmm_data);
+    vmcs_clear(vmx_info->vmcs_ptr_phys);
+    vmx_info->state = VMX_UNLAUNCHED;
+}
+
+
+
 static int update_irq_exit_state(struct guest_info * info) {
     struct vmx_exit_idt_vec_info idt_vec_info;
 
@@ -861,18 +869,21 @@ int v3_vmx_enter(struct guest_info * info) {
 	ret = v3_vmx_resume(&(info->vm_regs), info, &(info->ctrl_regs));
     }
     
+
+
     //  PrintDebug("VMX Exit: ret=%d\n", ret);
 
     if (ret != VMX_SUCCESS) {
 	uint32_t error = 0;
-
         vmcs_read(VMCS_INSTR_ERR, &error);
 
 	v3_enable_ints();
 
-        PrintError("VMENTRY Error: %d\n", error);
+	PrintError("VMENTRY Error: %d (launch_ret = %d)\n", error, ret);
 	return -1;
     }
+
+
 
     // Immediate exit from VM time bookkeeping
     v3_time_exit_vm(info);
