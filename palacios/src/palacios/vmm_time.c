@@ -172,21 +172,21 @@ static int skew_guest_time(struct guest_info * info) {
     guest_time = v3_get_guest_time(time_state);
 
     if (guest_time < target_guest_time) {
-	uint64_t max_skew, desired_skew, skew;
+	sint64_t max_skew, desired_skew, skew;
 
 	if (time_state->enter_time) {
 	    /* Limit forward skew to 10% of the amount the guest has
 	     * run since we last could skew time */
-	    max_skew = (guest_time - time_state->enter_time) / 10;
+	    max_skew = ((sint64_t)guest_time - (sint64_t)time_state->enter_time) / 10;
 	} else {
 	    max_skew = 0;
 	}
 
-	desired_skew = target_guest_time - guest_time;
+	desired_skew = (sint64_t)target_guest_time - (sint64_t)guest_time;
 	skew = desired_skew > max_skew ? max_skew : desired_skew;
-	PrintDebug("Guest %llu cycles behind where it should be.\n",
+	PrintDebug("Guest %lld cycles behind where it should be.\n",
 		   desired_skew);
-	PrintDebug("Limit on forward skew is %llu. Skewing forward %llu.\n",
+	PrintDebug("Limit on forward skew is %lld. Skewing forward %lld.\n",
 	           max_skew, skew); 
 	
 	v3_offset_time(info, skew);
@@ -228,10 +228,10 @@ v3_time_enter_vm( struct guest_info * info )
     struct vm_time * time_state = &(info->time_state);
     uint64_t guest_time, host_time;
 
-    guest_time = v3_get_guest_time(time_state);
     host_time = v3_get_host_time(time_state);
+    guest_time = v3_get_guest_time(time_state);
     time_state->enter_time = host_time;
-    time_state->guest_host_offset = guest_time - host_time;
+    time_state->guest_host_offset = (sint64_t)guest_time - (sint64_t)host_time;
 
     return 0;
 }

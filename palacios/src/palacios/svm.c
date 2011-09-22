@@ -610,7 +610,7 @@ int v3_svm_enter(struct guest_info * info) {
 #endif
 
     v3_time_enter_vm(info);
-    guest_ctrl->TSC_OFFSET = v3_tsc_host_offset(&info->time_state);
+    // guest_ctrl->TSC_OFFSET = v3_tsc_host_offset(&info->time_state);
 
 
     //V3_Print("Calling v3_svm_launch\n");
