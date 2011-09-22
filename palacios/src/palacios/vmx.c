@@ -793,7 +793,7 @@ static void print_exit_log(struct guest_info * info) {
  */
 int v3_vmx_enter(struct guest_info * info) {
     int ret = 0;
-    uint32_t tsc_offset_low, tsc_offset_high;
+    //uint32_t tsc_offset_low, tsc_offset_high;
     struct vmx_exit_info exit_info;
     struct vmx_data * vmx_info = (struct vmx_data *)(info->vmm_data);
 
