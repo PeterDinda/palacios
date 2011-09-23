@@ -89,11 +89,36 @@ static int debug_free(struct debug_state * state) {
     return 0;
 };
 
+#ifdef V3_CONFIG_CHECKPOINT
+static int debug_save(struct v3_chkpt_ctx * ctx, void * private_data) {
+    struct debug_state * dbg = (struct debug_state *)private_data;
+    
+    V3_CHKPT_STD_SAVE(ctx, dbg->debug_buf);
+    V3_CHKPT_STD_SAVE(ctx, dbg->debug_offset);
+    
+    return 0;
+}
+
+
+static int debug_load(struct v3_chkpt_ctx * ctx, void * private_data) {
+    struct debug_state * dbg = (struct debug_state *)private_data;
+    
+    V3_CHKPT_STD_LOAD(ctx, dbg->debug_buf);
+    V3_CHKPT_STD_LOAD(ctx, dbg->debug_offset);
+    
+    return 0;
+}
+
+#endif
 
 
 
 static struct v3_device_ops dev_ops = {
     .free = (int (*)(void *))debug_free,
+#ifdef V3_CONFIG_CHECKPOINT
+    .save = debug_save,
+    .load = debug_load
+#endif 
 };
 
 

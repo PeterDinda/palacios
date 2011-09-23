@@ -32,6 +32,11 @@
 #include <palacios/vmx_io.h>
 #include <palacios/vmx_msr.h>
 #include <palacios/vmm_decoder.h>
+#include <palacios/vmm_barrier.h>
+
+#ifdef V3_CONFIG_CHECKPOINT
+#include <palacios/vmm_checkpoint.h>
+#endif
 
 #include <palacios/vmx_ept.h>
 #include <palacios/vmx_assist.h>
@@ -558,6 +563,63 @@ int v3_deinit_vmx_vmcs(struct guest_info * core) {
 }
 
 
+
+#ifdef V3_CONFIG_CHECKPOINT
+/* 
+ * JRL: This is broken
+ */
+int v3_vmx_save_core(struct guest_info * core, void * ctx){
+    uint64_t vmcs_ptr = vmcs_store();
+
+    v3_chkpt_save(ctx, "vmcs_data", PAGE_SIZE, (void *)vmcs_ptr);
+
+    return 0;
+}
+
+int v3_vmx_load_core(struct guest_info * core, void * ctx){
+    struct vmx_data * vmx_info = (struct vmx_data *)(core->vmm_data);
+    struct cr0_32 * shadow_cr0;
+    char vmcs[PAGE_SIZE_4KB];
+
+    v3_chkpt_load(ctx, "vmcs_data", PAGE_SIZE_4KB, vmcs);
+
+    vmcs_clear(vmx_info->vmcs_ptr_phys);
+    vmcs_load((addr_t)vmcs);
+
+    v3_vmx_save_vmcs(core);
+
+    shadow_cr0 = (struct cr0_32 *)&(core->ctrl_regs.cr0);
+
+
+    /* Get the CPU mode to set the guest_ia32e entry ctrl */
+
+    if (core->shdw_pg_mode == SHADOW_PAGING) {
+	if (v3_get_vm_mem_mode(core) == VIRTUAL_MEM) {
+	    if (v3_activate_shadow_pt(core) == -1) {
+		PrintError("Failed to activate shadow page tables\n");
+		return -1;
+	    }
+	} else {
+	    if (v3_activate_passthrough_pt(core) == -1) {
+		PrintError("Failed to activate passthrough page tables\n");
+		return -1;
+	    }
+	}
+    }
+
+    return 0;
+}
+#endif
+
+
+void v3_flush_vmx_vm_core(struct guest_info * core) {
+    struct vmx_data * vmx_info = (struct vmx_data *)(core->vmm_data);
+    vmcs_clear(vmx_info->vmcs_ptr_phys);
+    vmx_info->state = VMX_UNLAUNCHED;
+}
+
+
+
 static int update_irq_exit_state(struct guest_info * info) {
     struct vmx_exit_idt_vec_info idt_vec_info;
 
@@ -739,7 +801,7 @@ static void print_exit_log(struct guest_info * info) {
  */
 int v3_vmx_enter(struct guest_info * info) {
     int ret = 0;
-    uint32_t tsc_offset_low, tsc_offset_high;
+    //uint32_t tsc_offset_low, tsc_offset_high;
     struct vmx_exit_info exit_info;
     struct vmx_data * vmx_info = (struct vmx_data *)(info->vmm_data);
 
@@ -784,11 +846,10 @@ int v3_vmx_enter(struct guest_info * info) {
     // Perform last-minute time bookkeeping prior to entering the VM
     v3_time_enter_vm(info);
 
-    tsc_offset_high = (uint32_t)((v3_tsc_host_offset(&info->time_state) >> 32) & 0xffffffff);
-    tsc_offset_low = (uint32_t)(v3_tsc_host_offset(&info->time_state) & 0xffffffff);
-    check_vmcs_write(VMCS_TSC_OFFSET_HIGH, tsc_offset_high);
-    check_vmcs_write(VMCS_TSC_OFFSET, tsc_offset_low);
-
+    // tsc_offset_high = (uint32_t)((v3_tsc_host_offset(&info->time_state) >> 32) & 0xffffffff);
+    // tsc_offset_low = (uint32_t)(v3_tsc_host_offset(&info->time_state) & 0xffffffff);
+    // check_vmcs_write(VMCS_TSC_OFFSET_HIGH, tsc_offset_high);
+    // check_vmcs_write(VMCS_TSC_OFFSET, tsc_offset_low);
 
     if (v3_update_vmcs_host_state(info)) {
 	v3_enable_ints();
@@ -807,18 +868,21 @@ int v3_vmx_enter(struct guest_info * info) {
 	ret = v3_vmx_resume(&(info->vm_regs), info, &(info->ctrl_regs));
     }
     
+
+
     //  PrintDebug("VMX Exit: ret=%d\n", ret);
 
     if (ret != VMX_SUCCESS) {
 	uint32_t error = 0;
-
         vmcs_read(VMCS_INSTR_ERR, &error);
 
 	v3_enable_ints();
 
-        PrintError("VMENTRY Error: %d\n", error);
+	PrintError("VMENTRY Error: %d (launch_ret = %d)\n", error, ret);
 	return -1;
     }
+
+
 
     // Immediate exit from VM time bookkeeping
     v3_time_exit_vm(info);
@@ -901,6 +965,9 @@ int v3_start_vmx_guest(struct guest_info * info) {
         }
 	
 	PrintDebug("VMX core %u initialized\n", info->vcpu_id);
+
+	// We'll be paranoid about race conditions here
+	v3_wait_at_barrier(info);
     }
 
 
@@ -954,6 +1021,7 @@ int v3_start_vmx_guest(struct guest_info * info) {
 	    return -1;
 	}
 
+	v3_wait_at_barrier(info);
 
 
 	if (info->vm_info->run_state == VM_STOPPED) {

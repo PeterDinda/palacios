@@ -13,7 +13,6 @@ config KITTEN
 	select BUILT_IN_STRCASECMP
 	select BUILT_IN_ATOI
 	select ALIGNED_PG_ALLOC
-	select MULTITHREAD_OS
 	help
 	  This enables the necesary options to compile Palacios with Kitten
 
@@ -108,13 +107,6 @@ endchoice
 
 menu "Supported host OS features"
       
-config MULTITHREAD_OS
-	bool "Host support for  multiple threads"
-	default y
-	help 
-	  Select this if your OS supports multiple threads of execution. This will enable features in Palacios 
-	  to require the creation of additional execution threads.
-
 
 config ALIGNED_PG_ALLOC
 	bool "Host support for aligned page allocations"
@@ -168,6 +160,14 @@ config EXPERIMENTAL
 	  -- 
 	  The purpose of this option is to allow features under development to be committed to the mainline
 	  to more easily track changes and provide access to multiple developers
+
+config CHECKPOINT
+	bool "Enable Checkpointing"
+	default n
+	help 
+	  Temporary option to enable experimental checkpoint code
+
+
 
 endmenu
 

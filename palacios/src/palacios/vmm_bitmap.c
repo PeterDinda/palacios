@@ -96,6 +96,6 @@ int v3_bitmap_check(struct v3_bitmap * bitmap, int index) {
 	return -1;
     }
 
-    return (bitmap->bits[major] & (0x1 << minor));
+    return ((bitmap->bits[major] & (0x1 << minor)) != 0);
 }
 

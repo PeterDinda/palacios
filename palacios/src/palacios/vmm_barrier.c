@@ -104,6 +104,14 @@ int v3_raise_barrier(struct v3_vm_info * vm_info, struct guest_info * local_core
 	all_blocked = 1;
 
 	for (i = 0; i < vm_info->num_cores; i++) {
+	    
+	    // Tricky: If a core is not running then it is safe to ignore it. 
+	    // Whenever we transition a core to the RUNNING state we MUST immediately wait on the barrier. 
+	    // TODO: Wrap the state transitions in functions that do this automatically
+	    if (vm_info->cores[i].core_run_state != CORE_RUNNING) {
+		continue;
+	    }
+
 	    if (v3_bitmap_check(&(barrier->cpu_map), i) == 0) {
 		// There is still a core that is not waiting at the barrier
 		all_blocked = 0;
@@ -157,6 +165,8 @@ int v3_wait_at_barrier(struct guest_info * core) {
 	return 0;
     }
 
+    V3_Print("Core %d waiting at barrier\n", core->vcpu_id);
+
     /*  Barrier has been activated. 
      *  Wait here until it's lowered
      */
@@ -164,9 +174,10 @@ int v3_wait_at_barrier(struct guest_info * core) {
     
     // set cpu bit in barrier bitmap
     v3_bitmap_set(&(barrier->cpu_map), core->vcpu_id);
+    V3_Print("Core %d bit set as waiting\n", core->vcpu_id);
 
     // wait for cpu bit to clear
-    while (v3_bitmap_check(&(barrier->cpu_map), core->vcpu_id) == 1) {
+    while (v3_bitmap_check(&(barrier->cpu_map), core->vcpu_id)) {
 	v3_yield(core);
     }
 

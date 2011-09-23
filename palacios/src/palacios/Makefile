@@ -64,6 +64,7 @@ obj-$(V3_CONFIG_VMX) +=  	vmx.o \
 
 
 
+obj-$(V3_CONFIG_CHECKPOINT) += vmm_checkpoint.o
 
 obj-$(V3_CONFIG_TELEMETRY) += vmm_telemetry.o 
 

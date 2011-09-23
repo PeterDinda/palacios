@@ -137,6 +137,48 @@ static long v3_vm_ioctl(struct file * filp,
 	    v3_continue_vm(guest->v3_ctx);
 	    break;
 	}
+#ifdef V3_CONFIG_CHECKPOINT
+	case V3_VM_SAVE: {
+	    struct v3_chkpt_info chkpt;
+	    void __user * argp = (void __user *)arg;
+
+	    memset(&chkpt, 0, sizeof(struct v3_chkpt_info));
+
+	    if (copy_from_user(&chkpt, argp, sizeof(struct v3_chkpt_info))) {
+		printk("Copy from user error getting checkpoint info\n");
+		return -EFAULT;
+	    }
+	    
+	    printk("Saving Guest to %s:%s\n", chkpt.store, chkpt.url);
+
+	    if (v3_save_vm(guest->v3_ctx, chkpt.store, chkpt.url) == -1) {
+		printk("Error checkpointing VM state\n");
+		return -EFAULT;
+	    }
+	    
+	    break;
+	}
+	case V3_VM_LOAD: {
+	    struct v3_chkpt_info chkpt;
+	    void __user * argp = (void __user *)arg;
+
+	    memset(&chkpt, 0, sizeof(struct v3_chkpt_info));
+
+	    if (copy_from_user(&chkpt, argp, sizeof(struct v3_chkpt_info))) {
+		printk("Copy from user error getting checkpoint info\n");
+		return -EFAULT;
+	    }
+	    
+	    printk("Loading Guest to %s:%s\n", chkpt.store, chkpt.url);
+
+	    if (v3_load_vm(guest->v3_ctx, chkpt.store, chkpt.url) == -1) {
+		printk("Error Loading VM state\n");
+		return -EFAULT;
+	    }
+	    
+	    break;
+	}
+#endif
 	case V3_VM_MOVE_CORE: {
 	    struct v3_core_move_cmd cmd;
 	    void __user * argp = (void __user *)arg;
@@ -151,9 +193,9 @@ static long v3_vm_ioctl(struct file * filp,
 	    printk("moving guest %s vcore %d to CPU %d\n", guest->name, cmd.vcore_id, cmd.pcore_id);
 
 	    v3_move_vm_core(guest->v3_ctx, cmd.vcore_id, cmd.pcore_id);
-	}
-	break;
 
+	    break;
+	}
 	default: {
 	    struct vm_ctrl * ctrl = get_ctrl(guest, ioctl);
 
@@ -204,22 +246,15 @@ extern u32 pg_frees;
 extern u32 mallocs;
 extern u32 frees;
 
-int start_palacios_vm(void * arg)  {
-    struct v3_guest * guest = (struct v3_guest *)arg;
+int start_palacios_vm(struct v3_guest * guest)  {
     int err;
 
-
-    daemonize(guest->name);
-    // allow_signal(SIGKILL);
-
-    
     init_vm_extensions(guest);
 
     guest->v3_ctx = v3_create_vm(guest->img, (void *)guest, guest->name);
 
     if (guest->v3_ctx == NULL) { 
 	printk("palacios: failed to create vm\n");
-	complete(&(guest->start_done));
 	return -1;
     }
 
@@ -238,7 +273,6 @@ int start_palacios_vm(void * arg)  {
     if (err) {
 	printk("Fails to add cdev\n");
 	v3_free_vm(guest->v3_ctx);
-	complete(&(guest->start_done));
 	return -1;
     }
 
@@ -246,11 +280,8 @@ int start_palacios_vm(void * arg)  {
 	printk("Fails to create device\n");
 	cdev_del(&(guest->cdev));
 	v3_free_vm(guest->v3_ctx);
-	complete(&(guest->start_done));
 	return -1;
     }
-
-    complete(&(guest->start_done));
 
     printk("palacios: launching vm\n");
 
@@ -262,8 +293,6 @@ int start_palacios_vm(void * arg)  {
 	return -1;
     }
     
-    complete(&(guest->thread_done));
-
     printk("palacios: vm completed.  returning.\n");
 
     return 0;
@@ -277,7 +306,6 @@ int stop_palacios_vm(struct v3_guest * guest) {
 
     v3_stop_vm(guest->v3_ctx);
 
-    wait_for_completion(&(guest->thread_done));
 
     v3_free_vm(guest->v3_ctx);
 

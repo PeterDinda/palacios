@@ -33,6 +33,10 @@
 #include <palacios/vmx.h>
 #endif
 
+#ifdef V3_CONFIG_CHECKPOINT
+#include <palacios/vmm_checkpoint.h>
+#endif
+
 
 v3_cpu_arch_t v3_cpu_types[V3_CONFIG_MAX_CPUS];
 struct v3_os_hooks * os_hooks = NULL;
@@ -119,9 +123,13 @@ void Init_V3(struct v3_os_hooks * hooks, int num_cpus) {
     V3_init_symmod();
 #endif
 
+#ifdef V3_CONFIG_CHECKPOINT
+    V3_init_checkpoint();
+#endif
 
 
-#ifdef V3_CONFIG_MULTITHREAD_OS
+
+
     if ((hooks) && (hooks->call_on_cpu)) {
 
 	for (i = 0; i < num_cpus; i++) {
@@ -130,9 +138,7 @@ void Init_V3(struct v3_os_hooks * hooks, int num_cpus) {
 	    hooks->call_on_cpu(i, &init_cpu, (void *)(addr_t)i);
 	}
     }
-#else 
-    init_cpu(0);
-#endif
+
 
 }
 
@@ -149,8 +155,11 @@ void Shutdown_V3() {
     V3_deinit_symmod();
 #endif
 
+#ifdef V3_CONFIG_CHECKPOINT
+    V3_deinit_checkpoint();
+#endif
 
-#ifdef V3_CONFIG_MULTITHREAD_OS
+
     if ((os_hooks) && (os_hooks->call_on_cpu)) {
 	for (i = 0; i < V3_CONFIG_MAX_CPUS; i++) {
 	    if (v3_cpu_types[i] != V3_INVALID_CPU) {
@@ -159,9 +168,6 @@ void Shutdown_V3() {
 	    }
 	}
     }
-#else 
-    deinit_cpu(0);
-#endif
 
 }
 
@@ -228,11 +234,7 @@ static int start_core(void * p)
 
 
 // For the moment very ugly. Eventually we will shift the cpu_mask to an arbitrary sized type...
-#ifdef V3_CONFIG_MULTITHREAD_OS
 #define MAX_CORES 32
-#else
-#define MAX_CORES 1
-#endif
 
 
 int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
@@ -264,9 +266,9 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
 	return -1;
     }
 
-#ifdef V3_CONFIG_MULTITHREAD_OS
-    // spawn off new threads, for other cores
-    for (i = 0, vcore_id = 1; (i < MAX_CORES) && (vcore_id < vm->num_cores); i++) {
+    // Spawn off threads for each core. 
+    // We work backwards, so that core 0 is always started last.
+    for (i = 0, vcore_id = vm->num_cores - 1; (i < MAX_CORES) && (vcore_id >= 0); i++) {
 	int major = 0;
  	int minor = 0;
 	struct guest_info * core = &(vm->cores[vcore_id]);
@@ -282,18 +284,11 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
 
 	    i--; // We reset the logical core idx. Not strictly necessary I guess... 
 	} else {
-
-	    if (i == V3_Get_CPU()) {
-		// We skip the local CPU because it is reserved for vcore 0
-		continue;
-	    }
-	    
 	    core_idx = i;
 	}
 
 	major = core_idx / 8;
 	minor = core_idx % 8;
-
 
 	if ((core_mask[major] & (0x1 << minor)) == 0) {
 	    PrintError("Logical CPU %d not available for virtual core %d; not started\n",
@@ -316,7 +311,6 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
 	PrintDebug("run: core=%u, func=0x%p, arg=0x%p, name=%s\n",
 		   core_idx, start_core, core, core->exec_name);
 
-	// TODO: actually manage these threads instead of just launching them
 	core->pcpu_id = core_idx;
 	core->core_thread = V3_CREATE_THREAD_ON_CPU(core_idx, start_core, core, core->exec_name);
 
@@ -326,18 +320,7 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
 	    return -1;
 	}
 
-	vcore_id++;
-    }
-#endif
-
-    sprintf(vm->cores[0].exec_name, "%s", vm->name);
-
-    vm->cores[0].pcpu_id = V3_Get_CPU();
-
-    if (start_core(&(vm->cores[0])) != 0) {
-	PrintError("Error starting VM core 0\n");
-	v3_stop_vm(vm);
-	return -1;
+	vcore_id--;
     }
 
 
@@ -403,6 +386,20 @@ int v3_move_vm_core(struct v3_vm_info * vm, int vcore_id, int target_cpu) {
     if (target_cpu != core->pcpu_id) {    
 
 	V3_Print("Moving Core\n");
+
+
+#ifdef V3_CONFIG_VMX
+	switch (v3_cpu_types[core->pcpu_id]) {
+	    case V3_VMX_CPU:
+	    case V3_VMX_EPT_CPU:
+	    case V3_VMX_EPT_UG_CPU:
+		PrintDebug("Flushing VMX Guest CPU %d\n", core->vcpu_id);
+		V3_Call_On_CPU(core->pcpu_id, (void (*)(void *))v3_flush_vmx_vm_core, (void *)core);
+		break;
+	    default:
+		break;
+	}
+#endif
 
 	if (V3_MOVE_THREAD_TO_CPU(target_cpu, core->core_thread) != 0) {
 	    PrintError("Failed to move Vcore %d to CPU %d\n", 
@@ -488,6 +485,19 @@ int v3_continue_vm(struct v3_vm_info * vm) {
 
     return 0;
 }
+
+#ifdef V3_CONFIG_CHECKPOINT
+#include <palacios/vmm_checkpoint.h>
+
+int v3_save_vm(struct v3_vm_info * vm, char * store, char * url) {
+    return v3_chkpt_save_vm(vm, store, url);
+}
+
+
+int v3_load_vm(struct v3_vm_info * vm, char * store, char * url) {
+    return v3_chkpt_load_vm(vm, store, url);
+}
+#endif
 
 
 int v3_free_vm(struct v3_vm_info * vm) {
@@ -598,7 +608,6 @@ void v3_print_cond(const char * fmt, ...) {
 }
 
 
-#ifdef V3_CONFIG_MULTITHREAD_OS
 
 void v3_interrupt_cpu(struct v3_vm_info * vm, int logical_cpu, int vector) {
     extern struct v3_os_hooks * os_hooks;
@@ -607,7 +616,6 @@ void v3_interrupt_cpu(struct v3_vm_info * vm, int logical_cpu, int vector) {
 	(os_hooks)->interrupt_cpu(vm, logical_cpu, vector);
     }
 }
-#endif
 
 
 

@@ -30,6 +30,10 @@
 #include <palacios/vmm_config.h>
 #include <palacios/vmm_ethernet.h>
 
+#ifdef V3_CONFIG_CHECKPOINT
+#include <palacios/vmm_checkpoint.h>
+#endif
+
 struct v3_vm_info;
 
 struct v3_device_ops;
@@ -92,9 +96,10 @@ int v3_deinit_dev_mgr(struct v3_vm_info * vm);
 
 int v3_free_vm_devices(struct v3_vm_info * vm);
 
-
-
-
+#ifdef V3_CONFIG_CHECKPOINT
+int v3_save_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt);
+int v3_load_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt);
+#endif
 
 
 
@@ -102,16 +107,12 @@ int V3_init_devices();
 int V3_deinit_devices();
 
 
-#ifdef V3_CONFIG_KEYED_STREAMS
-#include <interfaces/vmm_keyed_stream.h>
-#endif 
-
 struct v3_device_ops {
     int (*free)(void * private_data);
 
-#ifdef V3_CONFIG_KEYED_STREAMS
-    int (*checkpoint)(struct vm_device *dev, v3_keyed_stream_t stream);
-    int (*restore)(struct vm_device *dev, v3_keyed_stream_t stream);
+#ifdef V3_CONFIG_CHECKPOINT
+    int (*save)(struct v3_chkpt_ctx * ctx, void * private_data);
+    int (*load)(struct v3_chkpt_ctx * ctx, void * privata_data);
 #endif
 };
 

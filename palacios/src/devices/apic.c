@@ -220,7 +220,7 @@ struct apic_state {
 
     uint32_t tmr_cur_cnt;
     uint32_t tmr_init_cnt;
-
+    uint32_t missed_ints;
 
     struct local_vec_tbl_reg ext_intr_vec_tbl[4];
 
@@ -295,6 +295,7 @@ static void init_apic_state(struct apic_state * apic, uint32_t id) {
     apic->rem_rd_data = 0x00000000;
     apic->tmr_init_cnt = 0x00000000;
     apic->tmr_cur_cnt = 0x00000000;
+    apic->missed_ints = 0;
 
     apic->lapic_id.val = id;
     
@@ -1562,10 +1563,33 @@ static int apic_begin_irq(struct guest_info * core, void * private_data, int irq
 }
 
 
-
-
-
 /* Timer Functions */
+
+static void apic_inject_timer_intr(struct guest_info *core,
+			           void * priv_data) {
+    struct apic_dev_state * apic_dev = (struct apic_dev_state *)(priv_data);
+    struct apic_state * apic = &(apic_dev->apics[core->vcpu_id]); 
+    // raise irq
+    PrintDebug("apic %u: core %u: Raising APIC Timer interrupt (periodic=%d) (icnt=%d) (div=%d)\n",
+	       apic->lapic_id.val, core->vcpu_id,
+	       apic->tmr_vec_tbl.tmr_mode, apic->tmr_init_cnt, shift_num);
+
+    if (apic_intr_pending(core, priv_data)) {
+        PrintDebug("apic %u: core %u: Overriding pending IRQ %d\n", 
+	           apic->lapic_id.val, core->vcpu_id, 
+	           apic_get_intr_number(core, priv_data));
+    }
+
+    if (activate_internal_irq(apic, APIC_TMR_INT) == -1) {
+	PrintError("apic %u: core %u: Could not raise Timer interrupt\n",
+		   apic->lapic_id.val, core->vcpu_id);
+    }
+
+    return;
+}
+	
+
+
 
 static void apic_update_time(struct guest_info * core, 
 			     uint64_t cpu_cycles, uint64_t cpu_freq, 
@@ -1631,40 +1655,18 @@ static void apic_update_time(struct guest_info * core,
 
     if (tmr_ticks < apic->tmr_cur_cnt) {
 	apic->tmr_cur_cnt -= tmr_ticks;
+	if (apic->missed_ints) {
+	    apic_inject_timer_intr(core, priv_data);
+	    apic->missed_ints--;
+	}
     } else {
 	tmr_ticks -= apic->tmr_cur_cnt;
 	apic->tmr_cur_cnt = 0;
 
-	// raise irq
-	PrintDebug("apic %u: core %u: Raising APIC Timer interrupt (periodic=%d) (icnt=%d) (div=%d)\n",
-		   apic->lapic_id.val, core->vcpu_id,
-		   apic->tmr_vec_tbl.tmr_mode, apic->tmr_init_cnt, shift_num);
+	apic_inject_timer_intr(core, priv_data);
 
-	if (apic_intr_pending(core, priv_data)) {
-	    PrintDebug("apic %u: core %u: Overriding pending IRQ %d\n", 
-		       apic->lapic_id.val, core->vcpu_id, 
-		       apic_get_intr_number(core, priv_data));
-	}
-
-	if (activate_internal_irq(apic, APIC_TMR_INT) == -1) {
-	    PrintError("apic %u: core %u: Could not raise Timer interrupt\n",
-		       apic->lapic_id.val, core->vcpu_id);
-	}
-    
 	if (apic->tmr_vec_tbl.tmr_mode == APIC_TMR_PERIODIC) {
-	    static unsigned int nexits = 0;
-	    static unsigned int missed_ints = 0;
-
-	    nexits++;
-	    missed_ints += tmr_ticks / apic->tmr_init_cnt;
-
-	    if ((missed_ints > 0) && (nexits >= 5000)) {
-	        V3_Print("apic %u: core %u: missed %u timer interrupts total in last %u exits.\n",
-		         apic->lapic_id.val, core->vcpu_id, missed_ints, nexits); 
-		missed_ints = 0;
-		nexits = 0;
-	    }
-
+	    apic->missed_ints += tmr_ticks / apic->tmr_init_cnt;
 	    tmr_ticks = tmr_ticks % apic->tmr_init_cnt;
 	    apic->tmr_cur_cnt = apic->tmr_init_cnt - tmr_ticks;
 	}
@@ -1672,7 +1674,6 @@ static void apic_update_time(struct guest_info * core,
 
     return;
 }
-
 
 static struct intr_ctrl_ops intr_ops = {
     .intr_pending = apic_intr_pending,
@@ -1714,9 +1715,109 @@ static int apic_free(struct apic_dev_state * apic_dev) {
     return 0;
 }
 
+#ifdef V3_CONFIG_CHECKPOINT
+static int apic_save(struct v3_chkpt_ctx * ctx, void * private_data) {
+    struct apic_dev_state * apic_state = (struct apic_dev_state *)private_data;
+    int i = 0;
+
+    V3_CHKPT_STD_SAVE(ctx, apic_state->num_apics);
+
+    //V3_CHKPT_STD_SAVE(ctx,apic_state->state_lock);
+    for (i = 0; i < apic_state->num_apics; i++) {
+
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].base_addr);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].base_addr_msr);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].lapic_id);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].apic_ver);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].ext_apic_ctrl);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].local_vec_tbl);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].tmr_vec_tbl);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].tmr_div_cfg);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].lint0_vec_tbl);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].lint1_vec_tbl);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].perf_ctr_loc_vec_tbl);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].therm_loc_vec_tbl);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].err_vec_tbl);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].err_status);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].spurious_int);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].int_cmd);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].log_dst);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].dst_fmt);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].arb_prio);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].task_prio);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].proc_prio);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].ext_apic_feature);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].spec_eoi);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].tmr_cur_cnt);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].tmr_init_cnt);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].ext_intr_vec_tbl);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].rem_rd_data);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].ipi_state);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].int_req_reg);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].int_svc_reg);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].int_en_reg);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].trig_mode_reg);
+	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].eoi);
+
+    }
+
+    return 0;
+}
+
+static int apic_load(struct v3_chkpt_ctx * ctx, void * private_data) {
+    struct apic_dev_state *apic_state = (struct apic_dev_state *)private_data;
+    int i = 0;
+
+    V3_CHKPT_STD_LOAD(ctx,apic_state->num_apics);
+
+    for (i = 0; i < apic_state->num_apics; i++) {
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].base_addr);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].base_addr_msr);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].lapic_id);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].apic_ver);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].ext_apic_ctrl);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].local_vec_tbl);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].tmr_vec_tbl);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].tmr_div_cfg);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].lint0_vec_tbl);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].lint1_vec_tbl);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].perf_ctr_loc_vec_tbl);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].therm_loc_vec_tbl);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].err_vec_tbl);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].err_status);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].spurious_int);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].int_cmd);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].log_dst);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].dst_fmt);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].arb_prio);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].task_prio);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].proc_prio);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].ext_apic_feature);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].spec_eoi);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].tmr_cur_cnt);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].tmr_init_cnt);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].ext_intr_vec_tbl);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].rem_rd_data);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].ipi_state);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].int_req_reg);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].int_svc_reg);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].int_en_reg);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].trig_mode_reg);
+	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].eoi);
+    }
+
+
+    return 0;
+}
+
+#endif
 
 static struct v3_device_ops dev_ops = {
     .free = (int (*)(void *))apic_free,
+#ifdef V3_CONFIG_CHECKPOINT
+    .save = apic_save,
+    .load = apic_load
+#endif
 };
 
 

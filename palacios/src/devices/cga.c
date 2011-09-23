@@ -1097,7 +1097,7 @@ int v3_cons_get_fb(struct vm_device * frontend_dev, uint8_t * dst, uint_t offset
     }
 }
 
-static int free_cga(struct video_internal * video_state) {
+static int cga_free(struct video_internal * video_state) {
 
     if (video_state->framebuf_pa) {
 	PrintError("Freeing framebuffer PA %p\n", (void *)(video_state->framebuf_pa));
@@ -1112,8 +1112,89 @@ static int free_cga(struct video_internal * video_state) {
 }
 
 
+#ifdef V3_CONFIG_CHECKPOINT
+static int cga_save(struct v3_chkpt_ctx * ctx, void * private_data) {
+    struct video_internal * cga = (struct video_internal *)private_data;
+
+    V3_CHKPT_STD_SAVE(ctx, cga->misc_outp_reg);
+    V3_CHKPT_STD_SAVE(ctx, cga->seq_index_reg);		
+    V3_CHKPT_STD_SAVE(ctx, cga->seq_data_regs[SEQ_REG_COUNT]);	
+    V3_CHKPT_STD_SAVE(ctx, cga->crtc_index_reg);		
+    V3_CHKPT_STD_SAVE(ctx, cga->crtc_data_regs[CRTC_REG_COUNT]);
+    V3_CHKPT_STD_SAVE(ctx, cga->graphc_index_reg);		
+    V3_CHKPT_STD_SAVE(ctx, cga->graphc_data_regs[GRAPHC_REG_COUNT]);
+    V3_CHKPT_STD_SAVE(ctx, cga->attrc_index_flipflop);
+    V3_CHKPT_STD_SAVE(ctx, cga->attrc_index_reg);	
+    V3_CHKPT_STD_SAVE(ctx, cga->attrc_data_regs[ATTRC_REG_COUNT]);	
+    V3_CHKPT_STD_SAVE(ctx, cga->dac_indexr_reg);	
+    V3_CHKPT_STD_SAVE(ctx, cga->dac_indexr_color);
+    V3_CHKPT_STD_SAVE(ctx, cga->dac_indexw_reg);		
+    V3_CHKPT_STD_SAVE(ctx, cga->dac_indexw_color);
+    V3_CHKPT_STD_SAVE(ctx, cga->dac_data_regs[DAC_REG_COUNT]);
+
+    V3_CHKPT_STD_SAVE(ctx, cga->activefb_addr);
+    V3_CHKPT_STD_SAVE(ctx, cga->activefb_len);
+    V3_CHKPT_STD_SAVE(ctx, cga->iorange);
+    V3_CHKPT_STD_SAVE(ctx, cga->vres);
+    V3_CHKPT_STD_SAVE(ctx, cga->hres);
+    V3_CHKPT_STD_SAVE(ctx, cga->vchars);
+    V3_CHKPT_STD_SAVE(ctx, cga->hchars);
+    V3_CHKPT_STD_SAVE(ctx, cga->graphmode);
+
+    V3_CHKPT_STD_SAVE(ctx, cga->dirty);
+    V3_CHKPT_STD_SAVE(ctx, cga->reschanged);
+
+    V3_CHKPT_STD_SAVE(ctx, cga->passthrough);
+
+    return 0;
+}
+
+static int cga_load(struct v3_chkpt_ctx * ctx, void * private_data) {
+    struct video_internal * cga = (struct video_internal *)private_data;
+
+    V3_CHKPT_STD_LOAD(ctx, cga->misc_outp_reg);
+    V3_CHKPT_STD_LOAD(ctx, cga->seq_index_reg);		
+    V3_CHKPT_STD_LOAD(ctx, cga->seq_data_regs[SEQ_REG_COUNT]);	
+    V3_CHKPT_STD_LOAD(ctx, cga->crtc_index_reg);		
+    V3_CHKPT_STD_LOAD(ctx, cga->crtc_data_regs[CRTC_REG_COUNT]);
+    V3_CHKPT_STD_LOAD(ctx, cga->graphc_index_reg);		
+    V3_CHKPT_STD_LOAD(ctx, cga->graphc_data_regs[GRAPHC_REG_COUNT]);
+    V3_CHKPT_STD_LOAD(ctx, cga->attrc_index_flipflop);
+    V3_CHKPT_STD_LOAD(ctx, cga->attrc_index_reg);	
+    V3_CHKPT_STD_LOAD(ctx, cga->attrc_data_regs[ATTRC_REG_COUNT]);	
+    V3_CHKPT_STD_LOAD(ctx, cga->dac_indexr_reg);	
+    V3_CHKPT_STD_LOAD(ctx, cga->dac_indexr_color);
+    V3_CHKPT_STD_LOAD(ctx, cga->dac_indexw_reg);		
+    V3_CHKPT_STD_LOAD(ctx, cga->dac_indexw_color);
+    V3_CHKPT_STD_LOAD(ctx, cga->dac_data_regs[DAC_REG_COUNT]);
+
+    V3_CHKPT_STD_LOAD(ctx, cga->activefb_addr);
+    V3_CHKPT_STD_LOAD(ctx, cga->activefb_len);
+    V3_CHKPT_STD_LOAD(ctx, cga->iorange);
+    V3_CHKPT_STD_LOAD(ctx, cga->vres);
+    V3_CHKPT_STD_LOAD(ctx, cga->hres);
+    V3_CHKPT_STD_LOAD(ctx, cga->vchars);
+    V3_CHKPT_STD_LOAD(ctx, cga->hchars);
+    V3_CHKPT_STD_LOAD(ctx, cga->graphmode);
+
+    V3_CHKPT_STD_LOAD(ctx, cga->dirty);
+    V3_CHKPT_STD_LOAD(ctx, cga->reschanged);
+
+    V3_CHKPT_STD_LOAD(ctx, cga->passthrough);
+
+    return 0;
+}
+
+#endif
+
+
 static struct v3_device_ops dev_ops = {
-    .free = (int (*)(void *))free_cga,
+    .free = (int (*)(void *))cga_free,
+#ifdef V3_CONFIG_CHECKPOINT
+    .save = cga_save, 
+    .load = cga_load
+#endif
+
 };
 
 static int cga_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
