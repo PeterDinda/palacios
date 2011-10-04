@@ -127,6 +127,27 @@ static long v3_vm_ioctl(struct file * filp,
     printk("V3 IOCTL %d\n", ioctl);
 
     switch (ioctl) {
+	case V3_VM_LAUNCH: {
+	    printk("palacios: launching vm\n");
+
+	    if (v3_start_vm(guest->v3_ctx, 0xfffffffe) < 0) { 
+		printk("palacios: launch of vm failed\n");
+		return -1;
+	    }
+    	    
+	    break;
+	}
+	case V3_VM_STOP: {
+	    printk("Stopping VM (%s) (%p)\n", guest->name, guest);
+
+	    if (irqs_disabled()) {
+		printk("WHAT!!?? IRQs are disabled??\n");
+		break;
+	    }
+
+	    v3_stop_vm(guest->v3_ctx);
+	    break;
+	}
 	case V3_VM_PAUSE: {
 	    printk("Pausing VM (%s)\n", guest->name);
 	    v3_pause_vm(guest->v3_ctx);
@@ -246,7 +267,7 @@ extern u32 pg_frees;
 extern u32 mallocs;
 extern u32 frees;
 
-int start_palacios_vm(struct v3_guest * guest)  {
+int create_palacios_vm(struct v3_guest * guest)  {
     int err;
 
     init_vm_extensions(guest);
@@ -283,17 +304,7 @@ int start_palacios_vm(struct v3_guest * guest)  {
 	return -1;
     }
 
-    printk("palacios: launching vm\n");
-
-    if (v3_start_vm(guest->v3_ctx, 0xffffffff) < 0) { 
-	printk("palacios: launch of vm failed\n");
-	device_destroy(v3_class, guest->vm_dev);
-	cdev_del(&(guest->cdev));
-	v3_free_vm(guest->v3_ctx);
-	return -1;
-    }
-    
-    printk("palacios: vm completed.  returning.\n");
+    printk("palacios: vm created at /dev/v3-vm%d\n", MINOR(guest->vm_dev));
 
     return 0;
 }
@@ -301,11 +312,8 @@ int start_palacios_vm(struct v3_guest * guest)  {
 
 
 
-int stop_palacios_vm(struct v3_guest * guest) {
 
-
-    v3_stop_vm(guest->v3_ctx);
-
+int free_palacios_vm(struct v3_guest * guest) {
 
     v3_free_vm(guest->v3_ctx);
 

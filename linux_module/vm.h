@@ -8,8 +8,8 @@
 
 #include "palacios.h"
 
-int start_palacios_vm(struct v3_guest * guest);
-int stop_palacios_vm(struct v3_guest * guest);
+int create_palacios_vm(struct v3_guest * guest);
+int free_palacios_vm(struct v3_guest * guest);
 
 
 int add_guest_ctrl(struct v3_guest * guest,  unsigned int cmd, 
