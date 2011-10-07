@@ -104,6 +104,7 @@ int v3_offset_time( struct guest_info * info, sint64_t offset )
     return 0;
 }
 
+#ifdef V3_CONFIG_TIME_DILATION
 static uint64_t compute_target_host_time(struct guest_info * info)
 {
     struct vm_time * time_state = &(info->time_state);
@@ -194,11 +195,13 @@ static int skew_guest_time(struct guest_info * info) {
 
     return 0;
 }
+#endif /* V3_CONFIG_TIME_DILATION */
 
 // Control guest time in relation to host time so that the two stay 
 // appropriately synchronized to the extent possible. 
 int v3_adjust_time(struct guest_info * info) {
 
+#ifdef V3_CONFIG_TIME_DILATION
     /* First deal with yielding if we want to slow down the guest */
     yield_host_time(info);
 
@@ -206,7 +209,7 @@ int v3_adjust_time(struct guest_info * info) {
      * or because the VMM is doing something that takes a long time to emulate)
      * allow guest time to jump forward a bit */
     skew_guest_time(info);
-    
+#endif
     return 0;
 }
 
@@ -231,7 +234,11 @@ v3_time_enter_vm( struct guest_info * info )
     host_time = v3_get_host_time(time_state);
     guest_time = v3_get_guest_time(time_state);
     time_state->enter_time = host_time;
+#ifdef V3_CONFIG_TIME_DILATION
     time_state->guest_host_offset = (sint64_t)guest_time - (sint64_t)host_time;
+#else
+    time_state->guest_host_offset = 0;
+#endif
 
     return 0;
 }
