@@ -20,11 +20,11 @@ int main(int argc, char* argv[]) {
     char * filename = argv[1];
 
     if (argc <= 1) {
-	printf("Usage: ./v3_stop <vm-device>\n");
+	printf("Usage: ./v3_launch <vm-device>\n");
 	return -1;
     }
 
-    printf("Stopping VM (%s)\n", filename);
+    printf("Launching VM (%s)\n", filename);
     
     vm_fd = open(filename, O_RDONLY);
 
@@ -33,7 +33,7 @@ int main(int argc, char* argv[]) {
 	return -1;
     }
 
-    ioctl(vm_fd, V3_VM_STOP, NULL); 
+    ioctl(vm_fd, V3_VM_LAUNCH, NULL); 
 
 
 

@@ -277,8 +277,12 @@ int v3_vmx_restore_vmcs(struct guest_info * info) {
 int v3_update_vmcs_host_state(struct guest_info * info) {
     int vmx_ret = 0;
     addr_t tmp;
-    struct vmx_data * arch_data = (struct vmx_data *)(info->vmm_data);
     struct v3_msr tmp_msr;
+    addr_t gdtr_base;
+    struct {
+        uint16_t selector;
+        addr_t   base;
+    } __attribute__((packed)) tmp_seg;
 
 #ifdef __V3_64BIT__
     __asm__ __volatile__ ( "movq    %%cr0, %0; "		
@@ -322,12 +326,48 @@ int v3_update_vmcs_host_state(struct guest_info * info) {
     vmx_ret |= check_vmcs_write(VMCS_HOST_CR4, tmp);
 
 
+    __asm__ __volatile__(
+			 "sgdt (%0);"
+			 :
+			 : "q"(&tmp_seg)
+			 : "memory"
+			 );
+    gdtr_base = tmp_seg.base;
+    vmx_ret |= check_vmcs_write(VMCS_HOST_GDTR_BASE, tmp_seg.base);
 
-    vmx_ret |= check_vmcs_write(VMCS_HOST_GDTR_BASE, arch_data->host_state.gdtr.base);
-    vmx_ret |= check_vmcs_write(VMCS_HOST_IDTR_BASE, arch_data->host_state.idtr.base);
-    vmx_ret |= check_vmcs_write(VMCS_HOST_TR_BASE, arch_data->host_state.tr.base);
+    __asm__ __volatile__(
+			 "sidt (%0);"
+			 :
+			 : "q"(&tmp_seg)
+			 : "memory"
+			 );
+    vmx_ret |= check_vmcs_write(VMCS_HOST_IDTR_BASE, tmp_seg.base);
 
+    __asm__ __volatile__(
+			 "str (%0);"
+			 :
+			 : "q"(&tmp_seg)
+			 : "memory"
+			 );
+    vmx_ret |= check_vmcs_write(VMCS_HOST_TR_SELECTOR, tmp_seg.selector);
 
+    /* The GDTR *index* is bits 3-15 of the selector. */
+    {
+	struct tss_descriptor * desc = NULL;
+	desc = (struct tss_descriptor *)(gdtr_base + (8 * (tmp_seg.selector >> 3)));
+
+	tmp_seg.base = ((desc->base1) |
+			(desc->base2 << 16) |
+			(desc->base3 << 24) |
+#ifdef __V3_64BIT__
+			((uint64_t)desc->base4 << 32)
+#else
+			(0)
+#endif
+			);
+
+	vmx_ret |= check_vmcs_write(VMCS_HOST_TR_BASE, tmp_seg.base);
+    }
 
 
 #ifdef __V3_64BIT__
@@ -407,8 +447,6 @@ int v3_update_vmcs_host_state(struct guest_info * info) {
     );
 #endif
     vmx_ret |= check_vmcs_write(VMCS_HOST_GS_SELECTOR, tmp);
-
-    vmx_ret |= check_vmcs_write(VMCS_HOST_TR_SELECTOR, arch_data->host_state.tr.selector);
 
 
 #define SYSENTER_CS_MSR 0x00000174

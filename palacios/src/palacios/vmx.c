@@ -136,53 +136,6 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
     /******* Setup Host State **********/
 
     /* Cache GDTR, IDTR, and TR in host struct */
-    addr_t gdtr_base;
-    struct {
-        uint16_t selector;
-        addr_t   base;
-    } __attribute__((packed)) tmp_seg;
-    
-
-    __asm__ __volatile__(
-			 "sgdt (%0);"
-			 :
-			 : "q"(&tmp_seg)
-			 : "memory"
-			 );
-    gdtr_base = tmp_seg.base;
-    vmx_state->host_state.gdtr.base = gdtr_base;
-
-    __asm__ __volatile__(
-			 "sidt (%0);"
-			 :
-			 : "q"(&tmp_seg)
-			 : "memory"
-			 );
-    vmx_state->host_state.idtr.base = tmp_seg.base;
-
-    __asm__ __volatile__(
-			 "str (%0);"
-			 :
-			 : "q"(&tmp_seg)
-			 : "memory"
-			 );
-    vmx_state->host_state.tr.selector = tmp_seg.selector;
-
-    /* The GDTR *index* is bits 3-15 of the selector. */
-    struct tss_descriptor * desc = NULL;
-    desc = (struct tss_descriptor *)(gdtr_base + (8 * (tmp_seg.selector >> 3)));
-
-    tmp_seg.base = ((desc->base1) |
-		    (desc->base2 << 16) |
-		    (desc->base3 << 24) |
-#ifdef __V3_64BIT__
-		    ((uint64_t)desc->base4 << 32)
-#else 
-		    (0)
-#endif
-		    );
-
-    vmx_state->host_state.tr.base = tmp_seg.base;
 
 
     /********** Setup VMX Control Fields ***********/
@@ -210,10 +163,6 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 
     vmx_state->pri_proc_ctrls.use_msr_bitmap = 1;
     vmx_ret |= check_vmcs_write(VMCS_MSR_BITMAP, (addr_t)V3_PAddr(core->vm_info->msr_map.arch_data));
-
-
-
-    
 
 
 

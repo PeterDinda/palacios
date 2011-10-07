@@ -61,7 +61,7 @@ static long v3_dev_ioctl(struct file * filp,
 
 
     switch (ioctl) {
-	case V3_START_GUEST:{
+	case V3_CREATE_GUEST:{
 	    int vm_minor = 0;
 	    struct v3_guest_img user_image;
 	    struct v3_guest * guest = kmalloc(sizeof(struct v3_guest), GFP_KERNEL);
@@ -73,7 +73,7 @@ static long v3_dev_ioctl(struct file * filp,
 
 	    memset(guest, 0, sizeof(struct v3_guest));
 
-	    printk("Palacios: Starting V3 Guest...\n");
+	    printk("Palacios: Creating V3 Guest...\n");
 
 	    vm_minor = register_vm(guest);
 
@@ -106,32 +106,23 @@ static long v3_dev_ioctl(struct file * filp,
 
 	    strncpy(guest->name, user_image.name, 127);
 
-	    printk("Palacios: Launching VM\n");
-
 	    INIT_LIST_HEAD(&(guest->exts));
 
-	    if (start_palacios_vm(guest) == -1) {
-		printk("Palacios: Error starting guest\n");
+	    if (create_palacios_vm(guest) == -1) {
+		printk("Palacios: Error creating guest\n");
 		return -EFAULT;
 	    }
 
-	    return guest->vm_dev;
+	    return vm_minor;
 	    break;
 	}
-	case V3_STOP_GUEST: {
+	case V3_FREE_GUEST: {
 	    unsigned long vm_idx = arg;
 	    struct v3_guest * guest = guest_map[vm_idx];
 
-	    printk("Stopping VM idx=%d\n", vm_idx);
-	    printk("Stopping VM (%s) (%p)\n", guest->name, guest);
+	    printk("Freeing VM (%s) (%p)\n", guest->name, guest);
 
-
-	    if (irqs_disabled()) {
-		printk("WHAT!!?? IRQs are disabled??\n");
-		break;
-	    }
-
-	    stop_palacios_vm(guest);
+	    free_palacios_vm(guest);
 	    guest_map[vm_idx] = NULL;
 	    break;
 	}
