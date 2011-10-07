@@ -155,12 +155,11 @@ palacios_xcall(
 struct lnx_thread_arg {
     int (*fn)(void * arg);
     void * arg;
-    char * name;
 };
 
 static int lnx_thread_target(void * arg) {
     struct lnx_thread_arg * thread_info = (struct lnx_thread_arg *)arg;
-
+    int ret = 0;
     /*
       printk("Daemonizing new Palacios thread (name=%s)\n", thread_info->name);
 
@@ -169,12 +168,14 @@ static int lnx_thread_target(void * arg) {
     */
 
 
-    thread_info->fn(thread_info->arg);
+    ret = thread_info->fn(thread_info->arg);
 
     kfree(thread_info);
     // handle cleanup 
+
+    do_exit(ret);
     
-    return 0;
+    return 0; // should not get here.
 }
 
 /**
@@ -190,7 +191,6 @@ palacios_start_kernel_thread(
 
     thread_info->fn = fn;
     thread_info->arg = arg;
-    thread_info->name = thread_name;
 
     return kthread_run( lnx_thread_target, thread_info, thread_name );
 }
@@ -209,7 +209,6 @@ palacios_start_thread_on_cpu(int cpu_id,
 
     thread_info->fn = fn;
     thread_info->arg = arg;
-    thread_info->name = thread_name;
 
 
     thread = kthread_create( lnx_thread_target, thread_info, thread_name );
