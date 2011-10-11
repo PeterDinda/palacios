@@ -414,12 +414,8 @@ int v3_move_vm_core(struct v3_vm_info * vm, int vcore_id, int target_cpu) {
 	*/
 	core->pcpu_id = target_cpu;
 
-	V3_Print("core now at %d\n", core->pcpu_id);
-	
+	V3_Print("core now at %d\n", core->pcpu_id);	
     }
-
-
-
 
     v3_lower_barrier(vm);
 

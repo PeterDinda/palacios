@@ -110,16 +110,16 @@ struct ide_cd_state {
 };
 
 struct ide_hd_state {
-    int accessed;
+    uint32_t accessed;
 
     /* this is the multiple sector transfer size as configured for read/write multiple sectors*/
-    uint_t mult_sector_num;
+    uint32_t mult_sector_num;
 
     /* This is the current op sector size:
      * for multiple sector ops this equals mult_sector_num
      * for standard ops this equals 1
      */
-    uint_t cur_sector_num;
+    uint32_t cur_sector_num;
 };
 
 struct ide_drive {
@@ -137,11 +137,11 @@ struct ide_drive {
     char model[41];
 
     // Where we are in the data transfer
-    uint_t transfer_index;
+    uint32_t transfer_index;
 
     // the length of a transfer
     // calculated for easy access
-    uint_t transfer_length;
+    uint32_t transfer_length;
 
     uint64_t current_lba;
 
@@ -209,7 +209,7 @@ struct ide_channel {
     struct ide_dma_cmd_reg dma_cmd;
     struct ide_dma_status_reg dma_status;
     uint32_t dma_prd_addr;
-    uint_t dma_tbl_index;
+    uint32_t dma_tbl_index;
 };
 
 
@@ -1507,9 +1507,146 @@ static int ide_free(struct ide_internal * ide) {
     return 0;
 }
 
+#ifdef V3_CONFIG_CHECKPOINT
+
+#include <palacios/vmm_sprintf.h>
+static int ide_save(struct v3_chkpt_ctx * ctx, void * private_data) {
+    struct ide_internal * ide = (struct ide_internal *)private_data;
+    int ch_num = 0;
+    int drive_num = 0;
+    char buf[128];
+    
+
+    for (ch_num = 0; ch_num < 2; ch_num++) {
+	struct v3_chkpt_ctx * ch_ctx = NULL;
+	struct ide_channel * ch = &(ide->channels[ch_num]);
+
+	snprintf(buf, 128, "channel-%d", ch_num);
+	ch_ctx = v3_chkpt_open_ctx(ctx->chkpt, ctx, buf);
+
+	v3_chkpt_save_8(ch_ctx, "ERROR", &(ch->error_reg.val));
+	v3_chkpt_save_8(ch_ctx, "FEATURES", &(ch->features.val));
+	v3_chkpt_save_8(ch_ctx, "DRIVE_HEAD", &(ch->drive_head.val));
+	v3_chkpt_save_8(ch_ctx, "STATUS", &(ch->status.val));
+	v3_chkpt_save_8(ch_ctx, "CMD_REG", &(ch->cmd_reg));
+	v3_chkpt_save_8(ch_ctx, "CTRL_REG", &(ch->ctrl_reg.val));
+	v3_chkpt_save_8(ch_ctx, "DMA_CMD", &(ch->dma_cmd.val));
+	v3_chkpt_save_8(ch_ctx, "DMA_STATUS", &(ch->dma_status.val));
+	v3_chkpt_save_32(ch_ctx, "PRD_ADDR", &(ch->dma_prd_addr));
+	v3_chkpt_save_32(ch_ctx, "DMA_TBL_IDX", &(ch->dma_tbl_index));
+
+
+	for (drive_num = 0; drive_num < 2; drive_num++) {
+	    struct v3_chkpt_ctx * drive_ctx = NULL;
+	    struct ide_drive * drive = &(ch->drives[drive_num]);
+	    
+	    snprintf(buf, 128, "drive-%d-%d", ch_num, drive_num);
+	    drive_ctx = v3_chkpt_open_ctx(ctx->chkpt, ch_ctx, buf);
+	    
+	    v3_chkpt_save_8(drive_ctx, "DRIVE_TYPE", &(drive->drive_type));
+	    v3_chkpt_save_8(drive_ctx, "SECTOR_COUNT", &(drive->sector_count));
+	    v3_chkpt_save_8(drive_ctx, "SECTOR_NUM", &(drive->sector_num));
+	    v3_chkpt_save_16(drive_ctx, "CYLINDER", &(drive->cylinder));
+
+	    v3_chkpt_save_64(drive_ctx, "CURRENT_LBA", &(drive->current_lba));
+	    v3_chkpt_save_32(drive_ctx, "TRANSFER_LENGTH", &(drive->transfer_length));
+	    v3_chkpt_save_32(drive_ctx, "TRANSFER_INDEX", &(drive->transfer_index));
+
+	    v3_chkpt_save(drive_ctx, "DATA_BUF", DATA_BUFFER_SIZE, drive->data_buf);
+
+
+	    /* For now we'll just pack the type specific data at the end... */
+	    /* We should probably add a new context here in the future... */
+	    if (drive->drive_type == BLOCK_CDROM) {
+		v3_chkpt_save(drive_ctx, "ATAPI_SENSE_DATA", 18, drive->cd_state.sense.buf);
+		v3_chkpt_save_8(drive_ctx, "ATAPI_CMD", &(drive->cd_state.atapi_cmd));
+		v3_chkpt_save(drive_ctx, "ATAPI_ERR_RECOVERY", 12, drive->cd_state.err_recovery.buf);
+	    } else if (drive->drive_type == BLOCK_DISK) {
+		v3_chkpt_save_32(drive_ctx, "ACCESSED", &(drive->hd_state.accessed));
+		v3_chkpt_save_32(drive_ctx, "MULT_SECT_NUM", &(drive->hd_state.mult_sector_num));
+		v3_chkpt_save_32(drive_ctx, "CUR_SECT_NUM", &(drive->hd_state.cur_sector_num));
+	    }
+	}
+    }
+
+    return 0;
+}
+
+
+
+static int ide_load(struct v3_chkpt_ctx * ctx, void * private_data) {
+    struct ide_internal * ide = (struct ide_internal *)private_data;
+    int ch_num = 0;
+    int drive_num = 0;
+    char buf[128];
+    
+
+    for (ch_num = 0; ch_num < 2; ch_num++) {
+	struct v3_chkpt_ctx * ch_ctx = NULL;
+	struct ide_channel * ch = &(ide->channels[ch_num]);
+
+	snprintf(buf, 128, "channel-%d", ch_num);
+	ch_ctx = v3_chkpt_open_ctx(ctx->chkpt, ctx, buf);
+
+	v3_chkpt_load_8(ch_ctx, "ERROR", &(ch->error_reg.val));
+	v3_chkpt_load_8(ch_ctx, "FEATURES", &(ch->features.val));
+	v3_chkpt_load_8(ch_ctx, "DRIVE_HEAD", &(ch->drive_head.val));
+	v3_chkpt_load_8(ch_ctx, "STATUS", &(ch->status.val));
+	v3_chkpt_load_8(ch_ctx, "CMD_REG", &(ch->cmd_reg));
+	v3_chkpt_load_8(ch_ctx, "CTRL_REG", &(ch->ctrl_reg.val));
+	v3_chkpt_load_8(ch_ctx, "DMA_CMD", &(ch->dma_cmd.val));
+	v3_chkpt_load_8(ch_ctx, "DMA_STATUS", &(ch->dma_status.val));
+	v3_chkpt_load_32(ch_ctx, "PRD_ADDR", &(ch->dma_prd_addr));
+	v3_chkpt_load_32(ch_ctx, "DMA_TBL_IDX", &(ch->dma_tbl_index));
+
+
+	for (drive_num = 0; drive_num < 2; drive_num++) {
+	    struct v3_chkpt_ctx * drive_ctx = NULL;
+	    struct ide_drive * drive = &(ch->drives[drive_num]);
+	    
+	    snprintf(buf, 128, "drive-%d-%d", ch_num, drive_num);
+	    drive_ctx = v3_chkpt_open_ctx(ctx->chkpt, ch_ctx, buf);
+	    
+	    v3_chkpt_load_8(drive_ctx, "DRIVE_TYPE", &(drive->drive_type));
+	    v3_chkpt_load_8(drive_ctx, "SECTOR_COUNT", &(drive->sector_count));
+	    v3_chkpt_load_8(drive_ctx, "SECTOR_NUM", &(drive->sector_num));
+	    v3_chkpt_load_16(drive_ctx, "CYLINDER", &(drive->cylinder));
+
+	    v3_chkpt_load_64(drive_ctx, "CURRENT_LBA", &(drive->current_lba));
+	    v3_chkpt_load_32(drive_ctx, "TRANSFER_LENGTH", &(drive->transfer_length));
+	    v3_chkpt_load_32(drive_ctx, "TRANSFER_INDEX", &(drive->transfer_index));
+
+	    v3_chkpt_load(drive_ctx, "DATA_BUF", DATA_BUFFER_SIZE, drive->data_buf);
+
+
+	    /* For now we'll just pack the type specific data at the end... */
+	    /* We should probably add a new context here in the future... */
+	    if (drive->drive_type == BLOCK_CDROM) {
+		v3_chkpt_load(drive_ctx, "ATAPI_SENSE_DATA", 18, drive->cd_state.sense.buf);
+		v3_chkpt_load_8(drive_ctx, "ATAPI_CMD", &(drive->cd_state.atapi_cmd));
+		v3_chkpt_load(drive_ctx, "ATAPI_ERR_RECOVERY", 12, drive->cd_state.err_recovery.buf);
+	    } else if (drive->drive_type == BLOCK_DISK) {
+		v3_chkpt_load_32(drive_ctx, "ACCESSED", &(drive->hd_state.accessed));
+		v3_chkpt_load_32(drive_ctx, "MULT_SECT_NUM", &(drive->hd_state.mult_sector_num));
+		v3_chkpt_load_32(drive_ctx, "CUR_SECT_NUM", &(drive->hd_state.cur_sector_num));
+	    }
+	}
+    }
+
+    return 0;
+}
+
+
+
+#endif
+
 
 static struct v3_device_ops dev_ops = {
     .free = (int (*)(void *))ide_free,
+#ifdef V3_CONFIG_CHECKPOINT
+    .save = ide_save,
+    .load = ide_load
+#endif
 
 };
 

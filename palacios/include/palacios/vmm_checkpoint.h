@@ -39,8 +39,37 @@ struct v3_chkpt_ctx {
 #define  V3_CHKPT_STD_LOAD(ctx,x) v3_chkpt_load(ctx,#x,sizeof(x),&(x))
 
 
+
 int v3_chkpt_save(struct v3_chkpt_ctx * ctx, char * tag, uint64_t len, void * buf);
 int v3_chkpt_load(struct v3_chkpt_ctx * ctx, char * tag, uint64_t len, void * buf);
+
+static inline int v3_chkpt_save_64(struct v3_chkpt_ctx * ctx, char * tag, void * buf) {
+    return v3_chkpt_save(ctx, tag, 8, buf);
+}
+static inline int v3_chkpt_save_32(struct v3_chkpt_ctx * ctx, char * tag, void * buf) {
+    return v3_chkpt_save(ctx, tag, 4, buf);
+}
+static inline int v3_chkpt_save_16(struct v3_chkpt_ctx * ctx, char * tag, void * buf) {
+    return v3_chkpt_save(ctx, tag, 2, buf);
+}
+static inline int v3_chkpt_save_8(struct v3_chkpt_ctx * ctx, char * tag, void * buf) {
+    return v3_chkpt_save(ctx, tag, 1, buf);
+}
+
+static inline int v3_chkpt_load_64(struct v3_chkpt_ctx * ctx, char * tag, void * buf) {
+    return v3_chkpt_load(ctx, tag, 8, buf);
+}
+static inline int v3_chkpt_load_32(struct v3_chkpt_ctx * ctx, char * tag, void * buf) {
+    return v3_chkpt_load(ctx, tag, 4, buf);
+}
+static inline int v3_chkpt_load_16(struct v3_chkpt_ctx * ctx, char * tag, void * buf) {
+    return v3_chkpt_load(ctx, tag, 2, buf);
+}
+static inline int v3_chkpt_load_8(struct v3_chkpt_ctx * ctx, char * tag, void * buf) {
+    return v3_chkpt_load(ctx, tag, 1, buf);
+}
+
+
 
 int v3_chkpt_close_ctx(struct v3_chkpt_ctx * ctx);
 struct v3_chkpt_ctx * v3_chkpt_open_ctx(struct v3_chkpt * chkpt, struct v3_chkpt_ctx * parent, char * name);

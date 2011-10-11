@@ -67,6 +67,36 @@ struct atapi_sense_data {
 } __attribute__((packed));
 
 
+struct atapi_error_recovery {
+    union {
+	uint8_t buf[12];
+	struct {
+	    uint8_t page_code     : 6;
+	    uint8_t rsvd          : 1;
+	    uint8_t page_ctrl     : 1;
+	    uint8_t page_len;
+	    uint8_t dcr           : 1;
+	    uint8_t dte           : 1;
+	    uint8_t per           : 1;
+	    uint8_t rsvd1         : 1;
+	    uint8_t rc            : 1;
+	    uint8_t tb            : 1;
+	    uint8_t arre          : 1;
+	    uint8_t awre          : 1;
+	    uint8_t rd_retry_cnt;
+	    uint8_t correct_spin;
+	    uint8_t head_offset;
+	    uint8_t data_strobe_offset;
+	    uint8_t emcdr         : 2;
+	    uint8_t rsvd2         : 6;
+	    uint8_t wr_retry_cnt;
+	    uint8_t rsvd3;
+	    uint16_t recovery_time_limit;
+	} __attribute__((packed));
+    } __attribute__((packed));
+} __attribute__((packed));
+
+
 
 
 struct atapi_read10_cmd {
@@ -282,29 +312,6 @@ struct atapi_inquiry_resp {
 
 
 
-struct atapi_error_recovery {
-    uint8_t page_code     : 6;
-    uint8_t rsvd          : 1;
-    uint8_t page_ctrl     : 1;
-    uint8_t page_len;
-    uint8_t dcr           : 1;
-    uint8_t dte           : 1;
-    uint8_t per           : 1;
-    uint8_t rsvd1         : 1;
-    uint8_t rc            : 1;
-    uint8_t tb            : 1;
-    uint8_t arre          : 1;
-    uint8_t awre          : 1;
-    uint8_t rd_retry_cnt;
-    uint8_t correct_spin;
-    uint8_t head_offset;
-    uint8_t data_strobe_offset;
-    uint8_t emcdr         : 2;
-    uint8_t rsvd2         : 6;
-    uint8_t wr_retry_cnt;
-    uint8_t rsvd3;
-    uint16_t recovery_time_limit;
-} __attribute__((packed));
 
 
 struct atapi_cdrom_caps {

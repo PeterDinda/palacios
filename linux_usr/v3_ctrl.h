@@ -6,8 +6,6 @@
 #ifndef _v3_ctrl_h
 #define _v3_ctrl_h
 
-#define V3_START_GUEST 10
-#define V3_STOP_GUEST 11
 #define V3_CREATE_GUEST 12
 #define V3_FREE_GUEST 13
 

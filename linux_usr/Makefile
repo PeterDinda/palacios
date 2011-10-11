@@ -2,13 +2,14 @@ all: v3_ctrl v3_stop v3_cons v3_mem v3_monitor v3_stream v3_user_host_dev_exampl
 
 
 
-v3_ctrl : v3_ctrl.c v3_pause.c v3_continue.c v3_ctrl.h
-	gcc -static v3_ctrl.c -o v3_ctrl 
+v3_ctrl : v3_ctrl.c v3_pause.c v3_continue.c v3_launch.c v3_stop.c v3_create.c v3_free.c
+	gcc -static v3_launch.c -o v3_launch
+	gcc -static v3_stop.c -o v3_stop 
 	gcc -static v3_pause.c -o v3_pause
 	gcc -static v3_continue.c -o v3_continue
+	gcc -static v3_create.c -o v3_create
+	gcc -static v3_free.c -o v3_free
 
-v3_stop : v3_stop.c v3_ctrl.h
-	gcc -static v3_stop.c -o v3_stop 
 
 v3_save : v3_save.c v3_ctrl.h
 	gcc -static v3_save.c -o v3_save 
@@ -19,8 +20,8 @@ v3_mem : v3_mem.c v3_ctrl.h
 	gcc -static v3_mem.c -o v3_mem 
 
 v3_cons : v3_cons.c v3_cons_sc.c v3_ctrl.h
-	gcc  v3_cons.c -o v3_cons -lcurses
-	gcc  v3_cons_sc.c -o v3_cons_sc -lcurses
+	gcc  -static v3_cons.c -o v3_cons -lcurses
+	gcc  -static v3_cons_sc.c -o v3_cons_sc -lcurses
 
 v3_stream : v3_stream.c v3_ctrl.h
 	gcc -static v3_stream.c -o v3_stream 

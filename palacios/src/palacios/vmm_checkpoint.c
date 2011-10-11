@@ -26,6 +26,7 @@
 #include <palacios/vmx.h>
 #include <palacios/vmm_checkpoint.h>
 #include <palacios/vmm_hashtable.h>
+#include <palacios/vmm_direct_paging.h>
 
 #include <palacios/vmm_dev_mgr.h>
 
@@ -310,6 +311,8 @@ static int load_core(struct guest_info * info, struct v3_chkpt * chkpt) {
 
     ctx = v3_chkpt_open_ctx(chkpt, NULL, key_name);
 
+    v3_chkpt_load_64(ctx, "RIP", &(info->rip));
+
     V3_CHKPT_STD_LOAD(ctx, info->vm_regs);
 
     V3_CHKPT_STD_LOAD(ctx, info->ctrl_regs.cr0);
@@ -330,6 +333,20 @@ static int load_core(struct guest_info * info, struct v3_chkpt * chkpt) {
 
     info->cpu_mode = v3_get_vm_cpu_mode(info);
     info->mem_mode = v3_get_vm_mem_mode(info);
+
+    if (info->shdw_pg_mode == SHADOW_PAGING) {
+	if (v3_get_vm_mem_mode(info) == VIRTUAL_MEM) {
+	    if (v3_activate_shadow_pt(info) == -1) {
+		PrintError("Failed to activate shadow page tables\n");
+		return -1;
+	    }
+	} else {
+	    if (v3_activate_passthrough_pt(info) == -1) {
+		PrintError("Failed to activate passthrough page tables\n");
+		return -1;
+	    }
+	}
+    }
 
 
     switch (cpu_type) {
@@ -371,6 +388,8 @@ static int load_core(struct guest_info * info, struct v3_chkpt * chkpt) {
 	    return -1;
     }
 
+    v3_print_guest_state(info);
+
     return 0;
 }
 
@@ -382,10 +401,14 @@ static int save_core(struct guest_info * info, struct v3_chkpt * chkpt) {
 
     memset(key_name, 0, 16);
 
+    v3_print_guest_state(info);
+
 
     snprintf(key_name, 16, "guest_info%d", info->vcpu_id);
 
     ctx = v3_chkpt_open_ctx(chkpt, NULL, key_name);
+
+    v3_chkpt_save_64(ctx, "RIP", &(info->rip));
 
     V3_CHKPT_STD_SAVE(ctx, info->vm_regs);
 

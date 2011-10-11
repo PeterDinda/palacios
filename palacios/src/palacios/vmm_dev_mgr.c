@@ -153,7 +153,8 @@ int v3_save_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 
 	if (dev->ops->save) {
 	    struct v3_chkpt_ctx * dev_ctx = NULL;
-
+	    
+	    V3_Print("Saving state for device (%s)\n", dev->name);
 	    
 	    dev_ctx = v3_chkpt_open_ctx(chkpt, dev_mgr_ctx, dev->name);
 
@@ -435,6 +436,13 @@ struct vm_device * v3_add_device(struct v3_vm_info * vm,
 				 void * private_data) {
     struct vmm_dev_mgr * mgr = &(vm->dev_mgr);
     struct vm_device * dev = NULL;
+
+
+    // Check if we already registered a device of the same name
+    if (v3_htable_search(mgr->dev_table, (addr_t)name) != (addr_t)NULL) {
+	PrintError("Device with name (%s) already registered with VM\n", name); 
+	return NULL;
+    }
 
     dev = (struct vm_device *)V3_Malloc(sizeof(struct vm_device));
 

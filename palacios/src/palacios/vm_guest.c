@@ -321,6 +321,14 @@ void v3_print_guest_state(struct guest_info * info) {
 
     V3_Print("NumExits: %u\n", (uint32_t)info->num_exits);
 
+    V3_Print("IRQ STATE: started=%d, pending=%d\n", 
+	     info->intr_core_state.irq_started, 
+	     info->intr_core_state.irq_pending);
+    V3_Print("EXCP STATE: err_code_valid=%d, err_code=%x\n", 
+	     info->excp_state.excp_error_code_valid, 
+	     info->excp_state.excp_error_code);
+
+
     v3_print_segments(&(info->segments));
     v3_print_ctrl_regs(info);
 
