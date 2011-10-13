@@ -303,7 +303,7 @@ void v3_vnet_del_route(uint32_t route_idx){
     flags = vnet_lock_irqsave(vnet_state.lock);
 
     list_for_each_entry(route, &(vnet_state.routes), node) {
-	V3_Print("v3_vnet_del_route, route idx: %d\n", route->idx);
+	Vnet_Print(0, "v3_vnet_del_route, route idx: %d\n", route->idx);
 	if(route->idx == route_idx){
 	    list_del(&(route->node));
 	    Vnet_Free(route);
@@ -549,7 +549,7 @@ int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data) {
 
 
 int v3_vnet_add_dev(struct v3_vm_info * vm, uint8_t * mac, 
-		    struct v3_vnet_dev_ops *ops, int quote, int poll_state,
+		    struct v3_vnet_dev_ops * ops, int quote, int poll_state,
 		    void * priv_data){
     struct vnet_dev * new_dev = NULL;
     unsigned long flags;
@@ -563,6 +563,7 @@ int v3_vnet_add_dev(struct v3_vm_info * vm, uint8_t * mac,
    
     memcpy(new_dev->mac_addr, mac, 6);
     new_dev->dev_ops.input = ops->input;
+    new_dev->dev_ops.poll = ops->poll;
     new_dev->private_data = priv_data;
     new_dev->vm = vm;
     new_dev->dev_id = 0;
@@ -575,6 +576,12 @@ int v3_vnet_add_dev(struct v3_vm_info * vm, uint8_t * mac,
 	list_add(&(new_dev->node), &(vnet_state.devs));
 	new_dev->dev_id = ++ vnet_state.dev_idx;
 	vnet_state.num_devs ++;
+
+	if(new_dev->poll) {
+	    v3_enqueue(vnet_state.poll_devs, (addr_t)new_dev);
+	}
+    } else {
+    	PrintError("VNET/P: Device with the same MAC is already there\n");
     }
 
     vnet_unlock_irqrestore(vnet_state.lock, flags);
@@ -708,25 +715,23 @@ void v3_vnet_del_bridge(uint8_t type) {
   * that runs on multiple cores 
   * or it could be running on a dedicated side core
   */
-static int vnet_tx_flush(void *args){
+static int vnet_tx_flush(void * args){
     struct vnet_dev * dev = NULL;
     int ret;
 
     Vnet_Print(0, "VNET/P Polling Thread Starting ....\n");
 
-    /* we need thread sleep/wakeup in Palacios */
     while(!vnet_thread_should_stop()){
     	dev = (struct vnet_dev *)v3_dequeue(vnet_state.poll_devs);
 	if(dev != NULL){
 	    if(dev->poll && dev->dev_ops.poll != NULL){
 		ret = dev->dev_ops.poll(dev->vm, dev->quote, dev->private_data);
-
+		
 		if (ret < 0){
-		    PrintDebug("VNET/P: poll from device %p error!\n", dev);
+		    Vnet_Print(0, "VNET/P: poll from device %p error!\n", dev);
 		}
-
-		v3_enqueue(vnet_state.poll_devs, (addr_t)dev); 
 	    }
+	    v3_enqueue(vnet_state.poll_devs, (addr_t)dev); 
 	}else { /* no device needs to be polled */
 	   /* sleep here? */
 	    Vnet_Yield();
@@ -735,7 +740,6 @@ static int vnet_tx_flush(void *args){
 
     return 0;
 }
-
 
 int v3_init_vnet() {
     memset(&vnet_state, 0, sizeof(vnet_state));
@@ -758,7 +762,7 @@ int v3_init_vnet() {
 
     vnet_state.poll_devs = v3_create_queue();
 
-    vnet_state.pkt_flush_thread = vnet_start_thread(vnet_tx_flush, NULL, "vnetd");
+    vnet_state.pkt_flush_thread = vnet_start_thread(vnet_tx_flush, NULL, "vnetd-1");
 
     Vnet_Debug("VNET/P is initiated\n");
 
