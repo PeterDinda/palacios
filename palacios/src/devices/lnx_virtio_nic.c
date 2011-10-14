@@ -871,7 +871,6 @@ static void virtio_nic_timer(struct guest_info * core,
 	    V3_Print("Virtio NIC: Switch TX to VMM driven mode\n");
 	    disable_cb(&(net_state->tx_vq));
 	    net_state->tx_notify = 0;
-	    vnet_thread_wakeup(net_state->poll_thread);
 	}
 
 	if(tx_rate < RATE_LOWER_THRESHOLD && net_state->tx_notify == 0){
