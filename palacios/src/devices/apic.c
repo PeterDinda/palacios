@@ -1570,9 +1570,9 @@ static void apic_inject_timer_intr(struct guest_info *core,
     struct apic_dev_state * apic_dev = (struct apic_dev_state *)(priv_data);
     struct apic_state * apic = &(apic_dev->apics[core->vcpu_id]); 
     // raise irq
-    PrintDebug("apic %u: core %u: Raising APIC Timer interrupt (periodic=%d) (icnt=%d) (div=%d)\n",
+    PrintDebug("apic %u: core %u: Raising APIC Timer interrupt (periodic=%d) (icnt=%d)\n",
 	       apic->lapic_id.val, core->vcpu_id,
-	       apic->tmr_vec_tbl.tmr_mode, apic->tmr_init_cnt, shift_num);
+	       apic->tmr_vec_tbl.tmr_mode, apic->tmr_init_cnt);
 
     if (apic_intr_pending(core, priv_data)) {
         PrintDebug("apic %u: core %u: Overriding pending IRQ %d\n", 
@@ -1656,6 +1656,8 @@ static void apic_update_time(struct guest_info * core,
     if (tmr_ticks < apic->tmr_cur_cnt) {
 	apic->tmr_cur_cnt -= tmr_ticks;
 	if (apic->missed_ints) {
+	    PrintDebug("apic %u: core %u: Injecting queued APIC timer interrupt.\n",
+		       apic->lapic_id.val, core->vcpu_id);
 	    apic_inject_timer_intr(core, priv_data);
 	    apic->missed_ints--;
 	}
@@ -1666,7 +1668,11 @@ static void apic_update_time(struct guest_info * core,
 	apic_inject_timer_intr(core, priv_data);
 
 	if (apic->tmr_vec_tbl.tmr_mode == APIC_TMR_PERIODIC) {
-	    apic->missed_ints += tmr_ticks / apic->tmr_init_cnt;
+	    int queued_ints = tmr_ticks / apic->tmr_init_cnt;
+	    if (queued_ints)
+	        PrintDebug("apic %u: core %u: Deferring %u APIC timer interrupts.\n",
+			   apic->lapic_id.val, core->vcpu_id, queued_ints);
+	    apic->missed_ints += queued_ints;
 	    tmr_ticks = tmr_ticks % apic->tmr_init_cnt;
 	    apic->tmr_cur_cnt = apic->tmr_init_cnt - tmr_ticks;
 	}
