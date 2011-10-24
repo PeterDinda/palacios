@@ -107,25 +107,25 @@ uintptr_t alloc_palacios_pgs(u64 num_pages, u32 alignment) {
     
 	WARN(!pgs, "Could not allocate pages\n");
        
-	printk("%llu pages (order=%d) aquired from alloc_pages\n", 
-	       num_pages, order);
+	/* printk("%llu pages (order=%d) aquired from alloc_pages\n", 
+	       num_pages, order); */
 
 	addr = page_to_pfn(pgs) << PAGE_SHIFT; 
     } else {
-	printk("Allocating %llu pages from bitmap allocator\n", num_pages);
+	//printk("Allocating %llu pages from bitmap allocator\n", num_pages);
 	//addr = pool.base_addr;
 	addr = alloc_contig_pgs(num_pages, alignment);
     }
 
 
-    printk("Returning from alloc addr=%p, vaddr=%p\n", (void *)addr, __va(addr));
+    //printk("Returning from alloc addr=%p, vaddr=%p\n", (void *)addr, __va(addr));
     return addr;
 }
 
 
 
 void free_palacios_pgs(uintptr_t pg_addr, int num_pages) {
-    printk("Freeing Memory page %p\n", (void *)pg_addr);
+    //printk("Freeing Memory page %p\n", (void *)pg_addr);
 
     if ((pg_addr >= pool.base_addr) && 
 	(pg_addr < pool.base_addr + (4096 * pool.num_pages))) {

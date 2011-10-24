@@ -1655,12 +1655,14 @@ static void apic_update_time(struct guest_info * core,
 
     if (tmr_ticks < apic->tmr_cur_cnt) {
 	apic->tmr_cur_cnt -= tmr_ticks;
-	if (apic->missed_ints) {
+#ifdef V3_CONFIG_APIC_ENQUEUE_MISSED_TMR_IRQS
+	if (apic->missed_ints && !apic_intr_pending(core, priv_data)) {
 	    PrintDebug("apic %u: core %u: Injecting queued APIC timer interrupt.\n",
 		       apic->lapic_id.val, core->vcpu_id);
 	    apic_inject_timer_intr(core, priv_data);
 	    apic->missed_ints--;
 	}
+#endif /* CONFIG_APIC_ENQUEUE_MISSED_TMR_IRQS */ 
     } else {
 	tmr_ticks -= apic->tmr_cur_cnt;
 	apic->tmr_cur_cnt = 0;
@@ -1669,12 +1671,9 @@ static void apic_update_time(struct guest_info * core,
 
 	if (apic->tmr_vec_tbl.tmr_mode == APIC_TMR_PERIODIC) {
 	    int queued_ints = tmr_ticks / apic->tmr_init_cnt;
-	    if (queued_ints)
-	        PrintDebug("apic %u: core %u: Deferring %u APIC timer interrupts.\n",
-			   apic->lapic_id.val, core->vcpu_id, queued_ints);
-	    apic->missed_ints += queued_ints;
 	    tmr_ticks = tmr_ticks % apic->tmr_init_cnt;
 	    apic->tmr_cur_cnt = apic->tmr_init_cnt - tmr_ticks;
+	    apic->missed_ints += queued_ints;
 	}
     }
 

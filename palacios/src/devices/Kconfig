@@ -6,6 +6,13 @@ config APIC
 	help 
 	  Includes the Virtual APIC device
 
+config APIC_ENQUEUE_MISSED_TMR_IRQS
+	bool "Enqueue missed APIC timer interrpts"
+	default n
+	depends on APIC
+	help
+	  Make up missed APIC periodic timer interrupts on later 
+	  exits into the virtual machine
 
 config DEBUG_APIC
 	bool "APIC Debugging"
@@ -13,8 +20,6 @@ config DEBUG_APIC
 	depends on APIC && DEBUG_ON 
 	help 
 	  Enable debugging for the APIC
-
-
 
 config IO_APIC
 	bool "IOAPIC"
