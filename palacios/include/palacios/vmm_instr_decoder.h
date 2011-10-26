@@ -191,6 +191,7 @@ static int get_operand_width(struct guest_info * info, struct x86_instr * instr,
 	case XOR_MEM2_8:
 	case XOR_IMM2_8:
 	case INC_8:
+	case INT:
 	case DEC_8:
 	case NEG_8:
 	case NOT_8:
@@ -310,7 +311,7 @@ static int get_operand_width(struct guest_info * info, struct x86_instr * instr,
 		    return -1;
 	    }
 
-	case INT:
+	//case INT:
 	case MOV_DR2:
 	case MOV_2DR:
 	case MOV_CR2:
