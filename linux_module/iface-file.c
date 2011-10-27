@@ -81,7 +81,10 @@ static int mkdir_recursive(const char * path, unsigned short perms) {
 
 	// Ignore empty directories
 	if ((tmp_iter - dirname_ptr) > 1) {
-	    palacios_file_mkdir(tmp_str, perms, 0);
+	    if (palacios_file_mkdir(tmp_str, perms, 0) != 0) {
+		printk("Could not create directory (%s)\n", tmp_str);
+		return -1;
+	    }
 	}
 
 	if (done) {
@@ -101,6 +104,7 @@ static int mkdir_recursive(const char * path, unsigned short perms) {
 }
 
 static int palacios_file_mkdir(const char * pathname, unsigned short perms, int recurse) {
+    /* Welcome to the jungle... */
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,1,0)
     /* DO NOT REFERENCE THIS VARIABLE */
@@ -122,7 +126,20 @@ static int palacios_file_mkdir(const char * pathname, unsigned short perms, int 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3,1,0)
     {
 	struct nameidata nd;
+
+	// I'm not 100% sure about the version here, but it was around this time that the API changed
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,35) 
 	ret = kern_path_parent(pathname, &nd);
+#else 
+
+	if (path_lookup(pathname, LOOKUP_DIRECTORY | LOOKUP_FOLLOW, &nd) == 0) {
+	    return 0;
+	}
+
+	if (path_lookup(pathname, LOOKUP_PARENT | LOOKUP_FOLLOW, &nd) != 0) {
+	    return -1;
+	}
+#endif
 
 	if (ret != 0) {
 	    printk("%s:%d - Error: kern_path_parent() returned error for (%s)\n", __FILE__, __LINE__, 
@@ -138,7 +155,7 @@ static int palacios_file_mkdir(const char * pathname, unsigned short perms, int 
 	dentry = kern_path_create(AT_FDCWD, pathname, &tmp_path, 1);
 	
 	if (IS_ERR(dentry)) {
-	    return -1;
+	    return 0;
 	}
 	
 	path_ptr = &tmp_path;
@@ -152,6 +169,7 @@ static int palacios_file_mkdir(const char * pathname, unsigned short perms, int 
 
     mutex_unlock(&(path_ptr->dentry->d_inode->i_mutex));
     path_put(path_ptr);
+
     return ret;
 }
 
@@ -297,6 +315,8 @@ static int file_init( void ) {
 
     V3_Init_File(&palacios_file_hooks);
 
+    palacios_file_mkdir("/test/test/test/qr14/acqwe2",0755, 1);
+
     return 0;
 }
 
@@ -315,6 +335,7 @@ static int guest_file_init(struct v3_guest * guest, void ** vm_data) {
     INIT_LIST_HEAD(&(state->open_files));
 
     *vm_data = state;
+
 
     return 0;
 }
