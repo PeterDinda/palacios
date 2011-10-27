@@ -255,7 +255,11 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
 	int minor = i % 8;
 	
 	if (core_mask[major] & (0x1 << minor)) {
-	    avail_cores++;
+	    if (v3_cpu_types[i] == V3_INVALID_CPU) {
+		core_mask[major] &= ~(0x1 << minor);
+	    } else {
+		avail_cores++;
+	    }
 	}
     }
 
@@ -321,6 +325,12 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
 	}
 
 	vcore_id--;
+    }
+
+    if (vcore_id >= 0) {
+	PrintError("Error starting VM: Not enough available CPU cores\n");
+	v3_stop_vm(vm);
+	return -1;
     }
 
 
