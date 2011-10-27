@@ -13,6 +13,16 @@ config KEYED_STREAMS
           Select this if your host OS supports keyed streams
           Palacios Checkpoint/Restore and Migration depends on this feature
 
+config KEYED_STREAMS_WITH_TAGS
+	bool "Keyed streams will be written in verbose tagged style when std save/load macros are in use"
+    	default n
+        depends on KEYED_STREAMS
+	help
+          Select this if you want the standard save and load macros
+          (STD_SAVE, STD_LOAD) to write to streams in the format:
+          [magic cookie][tag len][tag][data len][data] instead of the
+          default format of [data]
+
 config STREAM
 	bool "Stream support"
 	default n

@@ -26,6 +26,19 @@
 #include <palacios/vmm_types.h>
 #include <palacios/vmm_list.h>
 
+#define SYSENTER_CS_MSR 0x00000174
+#define SYSENTER_ESP_MSR 0x00000175
+#define SYSENTER_EIP_MSR 0x00000176
+#define EFER_MSR 0xc0000080
+#define IA32_STAR_MSR 0xc0000081
+#define IA32_LSTAR_MSR 0xc0000082
+#define IA32_CSTAR_MSR 0xc0000083 
+#define IA32_FMASK_MSR 0xc0000084
+#define FS_BASE_MSR 0xc0000100
+#define GS_BASE_MSR 0xc0000101
+#define IA32_KERN_GS_BASE_MSR 0xc0000102
+
+
 struct guest_info;
 struct v3_vm_info;
 

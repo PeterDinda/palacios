@@ -171,16 +171,16 @@ struct rx_status_reg {
     union {
 	uint16_t val;
 	struct {
-	    uint8_t rx_ok     : 1;
-	    uint8_t rx_bad_align     : 1;
-	    uint8_t rx_crc_err     : 1;
-	    uint8_t rx_too_long     : 1;	
-	    uint8_t rx_runt	: 1;
-	    uint8_t rx_bad_sym	: 1;
-	    uint8_t reserved	: 7;
-	    uint8_t rx_brdcast	: 1;
-	    uint8_t rx_phys	: 1;
-	    uint8_t rx_multi	: 1;
+	    uint16_t rx_ok     : 1;
+	    uint16_t rx_bad_align     : 1;
+	    uint16_t rx_crc_err     : 1;
+	    uint16_t rx_too_long     : 1;	
+	    uint16_t rx_runt	: 1;
+	    uint16_t rx_bad_sym	: 1;
+	    uint16_t reserved	: 7;
+	    uint16_t rx_brdcast	: 1;
+	    uint16_t rx_phys	: 1;
+	    uint16_t rx_multi	: 1;
 	} __attribute__((packed));
     } __attribute__((packed));
 } __attribute__((packed));
@@ -270,17 +270,17 @@ struct isr_imr_reg {
     union {
 	uint16_t val;
 	struct {
-	    uint8_t rx_ok	:1;
-	    uint8_t rx_err     : 1;
-	    uint8_t tx_ok        : 1;
-	    uint8_t tx_err          : 1;
-	    uint8_t rx_ovw          : 1;
-	    uint8_t pun_linkchg          : 1;
-	    uint8_t rx_fifo_ovw  : 1;
-	    uint8_t reservd:     6;
-	    uint8_t lenchg  :1;
-	    uint8_t timeout   :1;
-	    uint8_t syserr  :1;
+	    uint16_t rx_ok	:1;
+	    uint16_t rx_err     : 1;
+	    uint16_t tx_ok        : 1;
+	    uint16_t tx_err          : 1;
+	    uint16_t rx_ovw          : 1;
+	    uint16_t pun_linkchg          : 1;
+	    uint16_t rx_fifo_ovw  : 1;
+	    uint16_t reservd:     6;
+	    uint16_t lenchg  :1;
+	    uint16_t timeout   :1;
+	    uint16_t syserr  :1;
 	} __attribute__((packed));
     } __attribute__((packed));
 } __attribute__((packed));
@@ -583,7 +583,7 @@ static inline void rtl8139_update_irq(struct rtl8139_state * nic_state) {
 
     if(isr & 0xffff){
 	v3_pci_raise_irq(nic_state->pci_bus, 0, nic_state->pci_dev);
-	nic_state->statistic.interrupts ++;
+	nic_state->statistic.tx_interrupts ++;
     }
 }
 
@@ -1774,10 +1774,7 @@ static int connect_fn(struct v3_vm_info * info,
 
     ops->recv = rtl8139_rx;
     ops->poll = NULL;
-    ops->start_tx = NULL;
-    ops->stop_tx = NULL;
-    ops->frontend_data = nic_state;
-    memcpy(ops->fnt_mac, nic_state->mac, ETH_ALEN);
+    memcpy(ops->config.fnt_mac, nic_state->mac, ETH_ALEN);
 
     return 0;
 }

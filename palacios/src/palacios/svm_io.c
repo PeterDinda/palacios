@@ -49,7 +49,7 @@ int v3_init_svm_io_map(struct v3_vm_info * vm) {
     vm->io_map.update_map = update_map;
 
     vm->io_map.arch_data = V3_VAddr(V3_AllocPages(3));
-    memset(vm->io_map.arch_data, 0, PAGE_SIZE_4KB * 3);
+    memset(vm->io_map.arch_data, 0xff, PAGE_SIZE_4KB * 3);
 
 
     v3_refresh_io_map(vm);
@@ -69,13 +69,6 @@ int v3_handle_svm_io_in(struct guest_info * core, struct svm_io_info * io_info) 
     struct v3_io_hook * hook = v3_get_io_hook(core->vm_info, io_info->port);
     int read_size = 0;
 
-    if (hook == NULL) {
-	PrintError("Hook Not present for in on port 0x%x\n", io_info->port);
-	// error, we should not have exited on this port
-	return -1;
-    }
-
-
     if (io_info->sz8) { 
 	read_size = 1;
     } else if (io_info->sz16) {
@@ -86,11 +79,20 @@ int v3_handle_svm_io_in(struct guest_info * core, struct svm_io_info * io_info) 
 
     PrintDebug("IN of %d bytes on port %d (0x%x)\n", read_size, io_info->port, io_info->port);
 
-    if (hook->read(core, io_info->port, &(core->vm_regs.rax), read_size, hook->priv_data) != read_size) {
-	// not sure how we handle errors.....
-	PrintError("Read Failure for in on port 0x%x\n", io_info->port);
-	return -1;
+    if (hook == NULL) {
+	PrintDebug("IN operation on unhooked IO port 0x%x\n", io_info->port);
+
+	/* What are the HW semantics for an IN on an invalid port? 
+	 *  Do we need to clear the register value or leave it untouched??? 
+	 */
+    } else {
+	if (hook->read(core, io_info->port, &(core->vm_regs.rax), read_size, hook->priv_data) != read_size) {
+	    // not sure how we handle errors.....
+	    PrintError("Read Failure for in on port 0x%x\n", io_info->port);
+	    return -1;
+	}
     }
+    
 
     return 0;
 }
@@ -121,15 +123,7 @@ int v3_handle_svm_io_ins(struct guest_info * core, struct svm_io_info * io_info)
     if (flags->df) {
 	direction = -1;
     }
-
-
-    if (hook == NULL) {
-	PrintError("Hook Not present for ins on port 0x%x\n", io_info->port);
-	// error, we should not have exited on this port
-	return -1;
-    }
-
-
+    
 
     if (v3_gva_to_hva(core, get_addr_linear(core, core->rip, &(core->segments.cs)), &inst_ptr) == -1) {
 	PrintError("Can't access instruction\n");
@@ -198,7 +192,6 @@ int v3_handle_svm_io_ins(struct guest_info * core, struct svm_io_info * io_info)
 	//rep_num = info->vm_regs.rcx;
     }
 
-
     PrintDebug("INS size=%d for %d steps\n", read_size, rep_num);
 
     while (rep_num > 0) {
@@ -213,12 +206,19 @@ int v3_handle_svm_io_ins(struct guest_info * core, struct svm_io_info * io_info)
 	    return -1;
 	}
 
-	if (hook->read(core, io_info->port, (char *)host_addr, read_size, hook->priv_data) != read_size) {
-	    // not sure how we handle errors.....
-	    PrintError("Read Failure for ins on port 0x%x\n", io_info->port);
-	    return -1;
+	if (hook == NULL) {
+	    PrintDebug("INS operation on unhooked IO port 0x%x\n", io_info->port);
+	    /* What are the HW semantics for an INS on an invalid port? 
+	     *  Do we need to clear the memory region or leave it untouched??? 
+	     */	    
+	} else {
+	    if (hook->read(core, io_info->port, (char *)host_addr, read_size, hook->priv_data) != read_size) {
+		// not sure how we handle errors.....
+		PrintError("Read Failure for ins on port 0x%x\n", io_info->port);
+		return -1;
+	    }
 	}
-
+    
 	core->vm_regs.rdi += (read_size * direction);
 
 	if (io_info->rep) {
@@ -235,13 +235,6 @@ int v3_handle_svm_io_out(struct guest_info * core, struct svm_io_info * io_info)
     struct v3_io_hook * hook = v3_get_io_hook(core->vm_info, io_info->port);
     int write_size = 0;
 
-    if (hook == NULL) {
-	PrintError("Hook Not present for out on port 0x%x\n", io_info->port);
-	// error, we should not have exited on this port
-	return -1;
-    }
-
-
     if (io_info->sz8) { 
 	write_size = 1;
     } else if (io_info->sz16) {
@@ -252,11 +245,16 @@ int v3_handle_svm_io_out(struct guest_info * core, struct svm_io_info * io_info)
 
     PrintDebug("OUT of %d bytes on  port %d (0x%x)\n", write_size, io_info->port, io_info->port);
 
-    if (hook->write(core, io_info->port, &(core->vm_regs.rax), write_size, hook->priv_data) != write_size) {
-	// not sure how we handle errors.....
-	PrintError("Write Failure for out on port 0x%x\n", io_info->port);
-	return -1;
+    if (hook == NULL) {
+	PrintDebug("OUT operation on unhooked IO port 0x%x\n", io_info->port);
+    } else {
+	if (hook->write(core, io_info->port, &(core->vm_regs.rax), write_size, hook->priv_data) != write_size) {
+	    // not sure how we handle errors.....
+	    PrintError("Write Failure for out on port 0x%x\n", io_info->port);
+	    return -1;
+	}
     }
+    
 
     return 0;
 }
@@ -284,13 +282,6 @@ int v3_handle_svm_io_outs(struct guest_info * core, struct svm_io_info * io_info
 
     if (flags->df) {
 	direction = -1;
-    }
-
-
-    if (hook == NULL) {
-	PrintError("Hook Not present for outs on port 0x%x\n", io_info->port);
-	// error, we should not have exited on this port
-	return -1;
     }
 
     PrintDebug("OUTS on  port %d (0x%x)\n", io_info->port, io_info->port);
@@ -373,11 +364,16 @@ int v3_handle_svm_io_outs(struct guest_info * core, struct svm_io_info * io_info
 	    return -1;
 	}
 
-	if (hook->write(core, io_info->port, (char*)host_addr, write_size, hook->priv_data) != write_size) {
-	    // not sure how we handle errors.....
-	    PrintError("Write Failure for outs on port 0x%x\n", io_info->port);
-	    return -1;
+	if (hook == NULL) {
+	    PrintDebug("OUTS operation on unhooked IO port 0x%x\n", io_info->port);
+	} else {
+	    if (hook->write(core, io_info->port, (char*)host_addr, write_size, hook->priv_data) != write_size) {
+		// not sure how we handle errors.....
+		PrintError("Write Failure for outs on port 0x%x\n", io_info->port);
+		return -1;
+	    }
 	}
+	
 
 	core->vm_regs.rsi += write_size * direction;
 

@@ -311,6 +311,19 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
 	&v3_handle_vm_cr_read,
 	&v3_handle_vm_cr_write, 
 	core);
+
+
+    {
+	v3_hook_msr(core->vm_info, IA32_STAR_MSR, NULL, NULL, NULL);
+	v3_hook_msr(core->vm_info, IA32_LSTAR_MSR, NULL, NULL, NULL);
+	v3_hook_msr(core->vm_info, IA32_FMASK_MSR, NULL, NULL, NULL);
+	v3_hook_msr(core->vm_info, IA32_KERN_GS_BASE_MSR, NULL, NULL, NULL);
+	v3_hook_msr(core->vm_info, IA32_CSTAR_MSR, NULL, NULL, NULL);
+
+	v3_hook_msr(core->vm_info, SYSENTER_CS_MSR, NULL, NULL, NULL);
+	v3_hook_msr(core->vm_info, SYSENTER_ESP_MSR, NULL, NULL, NULL);
+	v3_hook_msr(core->vm_info, SYSENTER_EIP_MSR, NULL, NULL, NULL);
+    }
 }
 
 

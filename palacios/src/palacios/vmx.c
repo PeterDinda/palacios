@@ -349,13 +349,6 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
     
     // save STAR, LSTAR, FMASK, KERNEL_GS_BASE MSRs in MSR load/store area
     {
-#define IA32_STAR 0xc0000081
-#define IA32_LSTAR 0xc0000082
-#define IA32_FMASK 0xc0000084
-#define IA32_KERN_GS_BASE 0xc0000102
-
-#define IA32_CSTAR 0xc0000083 // Compatibility mode STAR (ignored for now... hopefully its not that important...)
-
 	int msr_ret = 0;
 
 	struct vmcs_msr_entry * exit_store_msrs = NULL;
@@ -387,24 +380,37 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 	entry_load_msrs = (struct vmcs_msr_entry *)(vmx_state->msr_area + (sizeof(struct vmcs_msr_entry) * 8));
 
 
-	exit_store_msrs[0].index = IA32_STAR;
-	exit_store_msrs[1].index = IA32_LSTAR;
-	exit_store_msrs[2].index = IA32_FMASK;
-	exit_store_msrs[3].index = IA32_KERN_GS_BASE;
+	exit_store_msrs[0].index = IA32_STAR_MSR;
+	exit_store_msrs[1].index = IA32_LSTAR_MSR;
+	exit_store_msrs[2].index = IA32_FMASK_MSR;
+	exit_store_msrs[3].index = IA32_KERN_GS_BASE_MSR;
 	
 	memcpy(exit_store_msrs, exit_load_msrs, sizeof(struct vmcs_msr_entry) * 4);
 	memcpy(exit_store_msrs, entry_load_msrs, sizeof(struct vmcs_msr_entry) * 4);
 
 	
-	v3_get_msr(IA32_STAR, &(exit_load_msrs[0].hi), &(exit_load_msrs[0].lo));
-	v3_get_msr(IA32_LSTAR, &(exit_load_msrs[1].hi), &(exit_load_msrs[1].lo));
-	v3_get_msr(IA32_FMASK, &(exit_load_msrs[2].hi), &(exit_load_msrs[2].lo));
-	v3_get_msr(IA32_KERN_GS_BASE, &(exit_load_msrs[3].hi), &(exit_load_msrs[3].lo));
+	v3_get_msr(IA32_STAR_MSR, &(exit_load_msrs[0].hi), &(exit_load_msrs[0].lo));
+	v3_get_msr(IA32_LSTAR_MSR, &(exit_load_msrs[1].hi), &(exit_load_msrs[1].lo));
+	v3_get_msr(IA32_FMASK_MSR, &(exit_load_msrs[2].hi), &(exit_load_msrs[2].lo));
+	v3_get_msr(IA32_KERN_GS_BASE_MSR, &(exit_load_msrs[3].hi), &(exit_load_msrs[3].lo));
 
 	msr_ret |= check_vmcs_write(VMCS_EXIT_MSR_STORE_ADDR, (addr_t)V3_PAddr(exit_store_msrs));
 	msr_ret |= check_vmcs_write(VMCS_EXIT_MSR_LOAD_ADDR, (addr_t)V3_PAddr(exit_load_msrs));
 	msr_ret |= check_vmcs_write(VMCS_ENTRY_MSR_LOAD_ADDR, (addr_t)V3_PAddr(entry_load_msrs));
 
+
+	v3_hook_msr(core->vm_info, IA32_STAR_MSR, NULL, NULL, NULL);
+	v3_hook_msr(core->vm_info, IA32_LSTAR_MSR, NULL, NULL, NULL);
+	v3_hook_msr(core->vm_info, IA32_FMASK_MSR, NULL, NULL, NULL);
+	v3_hook_msr(core->vm_info, IA32_KERN_GS_BASE_MSR, NULL, NULL, NULL);
+
+
+	// IMPORTANT: These SYSCALL MSRs are currently not handled by hardware or cached
+	// We should really emulate these ourselves, or ideally include them in the MSR store area if there is room
+	v3_hook_msr(core->vm_info, IA32_CSTAR_MSR, NULL, NULL, NULL);
+	v3_hook_msr(core->vm_info, SYSENTER_CS_MSR, NULL, NULL, NULL);
+	v3_hook_msr(core->vm_info, SYSENTER_ESP_MSR, NULL, NULL, NULL);
+	v3_hook_msr(core->vm_info, SYSENTER_EIP_MSR, NULL, NULL, NULL);
     }    
 
     /* Sanity check ctrl/reg fields against hw_defaults */
