@@ -1,3 +1,4 @@
+
 /* 
  * This file is part of the Palacios Virtual Machine Monitor developed
  * by the V3VEE Project with funding from the United States National 
@@ -131,8 +132,6 @@ struct virtio_net_state {
     uint8_t mergeable_rx_bufs;
 
     struct v3_timer * timer;
-    struct vnet_thread * poll_thread;
-
     struct nic_statistics stats;
 
     struct v3_dev_net_ops * net_ops;
@@ -330,8 +329,6 @@ static int handle_pkt_tx(struct guest_info * core,
 	virtio_state->stats.rx_interrupts ++;
     }
 
-    V3_Print("Virtio Intr Line %d\n", virtio_state->pci_dev->config_header.intr_line);
-
     if(txed > 0) {
 	V3_Net_Print(2, "Virtio Handle TX: txed pkts: %d, left %d\n", txed, left);
     }
@@ -425,8 +422,8 @@ static int virtio_io_write(struct guest_info *core,
 				       pfn, page_addr);
 		    if(virtio->tx_notify == 0){
 	 		disable_cb(&virtio->tx_vq);
-			vnet_thread_wakeup(virtio->poll_thread);
     		    }
+		    virtio->status = 1;
 		    break;
 		case 2:
 		    virtio_setup_queue(core, virtio, 
@@ -760,7 +757,12 @@ static struct v3_device_ops dev_ops = {
 static int virtio_poll(int quote, void * data){
     struct virtio_net_state * virtio  = (struct virtio_net_state *)data;
 
-    return handle_pkt_tx(&(virtio->vm->cores[0]), virtio, quote);
+    if (virtio->status) {
+
+	return handle_pkt_tx(&(virtio->vm->cores[0]), virtio, quote);
+    } 
+
+    return 0;
 }
 
 static int register_dev(struct virtio_dev_state * virtio, 
@@ -838,7 +840,6 @@ static int register_dev(struct virtio_dev_state * virtio,
     return 0;
 }
 
-
 #define RATE_UPPER_THRESHOLD 10  /* 10000 pkts per second, around 100Mbits */
 #define RATE_LOWER_THRESHOLD 1
 #define PROFILE_PERIOD 10000 /*us*/
@@ -870,7 +871,6 @@ static void virtio_nic_timer(struct guest_info * core,
 	    V3_Print("Virtio NIC: Switch TX to VMM driven mode\n");
 	    disable_cb(&(net_state->tx_vq));
 	    net_state->tx_notify = 0;
-	    vnet_thread_wakeup(net_state->poll_thread);
 	}
 
 	if(tx_rate < RATE_LOWER_THRESHOLD && net_state->tx_notify == 0){
@@ -924,11 +924,12 @@ static int connect_fn(struct v3_vm_info * info,
     net_state->net_ops = ops;
     net_state->backend_data = private_data;
     net_state->virtio_dev = virtio;
-    net_state->tx_notify = 0;
-    net_state->rx_notify = 0;
+    
+    net_state->tx_notify = 1;
+    net_state->rx_notify = 1;
 	
     net_state->timer = v3_add_timer(&(info->cores[0]),
-				    &timer_ops,net_state);
+    				 &timer_ops,net_state);
 
     ops->recv = virtio_rx;
     ops->poll = virtio_poll;
@@ -937,8 +938,6 @@ static int connect_fn(struct v3_vm_info * info,
     ops->config.quote = 64;
     ops->config.fnt_mac = V3_Malloc(ETH_ALEN);  
     memcpy(ops->config.fnt_mac, virtio->mac, ETH_ALEN);
-
-    net_state->status = 1;
 
     return 0;
 }

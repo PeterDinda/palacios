@@ -218,7 +218,11 @@ palacios_start_thread_on_cpu(int cpu_id,
 	return NULL;
     }
 
-    set_cpus_allowed_ptr(thread, cpumask_of(cpu_id));
+    if (set_cpus_allowed_ptr(thread, cpumask_of(cpu_id)) != 0) {
+	kthread_stop(thread);
+	return NULL;
+    }
+
     wake_up_process(thread);
 
     return thread;

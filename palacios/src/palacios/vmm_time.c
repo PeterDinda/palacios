@@ -99,17 +99,18 @@ int v3_start_time(struct guest_info * info) {
 int v3_offset_time( struct guest_info * info, sint64_t offset )
 {
     struct vm_time * time_state = &(info->time_state);
-//    PrintDebug("Adding additional offset of %lld to guest time.\n", offset);
+    PrintDebug("Adding additional offset of %lld to guest time.\n", offset);
     time_state->guest_host_offset += offset;
     return 0;
 }
 
-static uint64_t compute_target_host_time(struct guest_info * info)
+#ifdef V3_CONFIG_TIME_DILATION
+static uint64_t compute_target_host_time(struct guest_info * info, uint64_t guest_time)
 {
     struct vm_time * time_state = &(info->time_state);
     uint64_t guest_elapsed, desired_elapsed;
     
-    guest_elapsed = (v3_get_guest_time(time_state) - time_state->initial_time);
+    guest_elapsed = (guest_time - time_state->initial_time);
     desired_elapsed = (guest_elapsed * time_state->host_cpu_freq) / time_state->guest_cpu_freq;
     return time_state->initial_time + desired_elapsed;
 }
@@ -133,28 +134,25 @@ static int yield_host_time(struct guest_info * info) {
     uint64_t host_time, target_host_time;
     uint64_t guest_time, old_guest_time;
 
-    /* Compute the target host time given how much time has *already*
-     * passed in the guest */
-    target_host_time = compute_target_host_time(info);
-    
     /* Now, let the host run while the guest is stopped to make the two
      * sync up. Note that this doesn't assume that guest time is stopped;
      * the offsetting in the next step will change add an offset to guest
      * time to account for the time paused even if the geust isn't 
      * usually paused in the VMM. */
     host_time = v3_get_host_time(time_state);
-    old_guest_time = v3_get_guest_time(time_state);
+    old_guest_time = v3_compute_guest_time(time_state, host_time);
+    target_host_time = compute_target_host_time(info, old_guest_time);
 
     while (target_host_time > host_time) {
 	v3_yield(info);
 	host_time = v3_get_host_time(time_state);
     }
 
-    guest_time = v3_get_guest_time(time_state);
+    guest_time = v3_compute_guest_time(time_state, host_time);
 
     /* We do *not* assume the guest timer was paused in the VM. If it was
      * this offseting is 0. If it wasn't, we need this. */
-    v3_offset_time(info, (sint64_t)old_guest_time - (sint64_t)guest_time);
+    v3_offset_time(info, (sint64_t)(old_guest_time - guest_time));
 
     return 0;
 }
@@ -177,12 +175,12 @@ static int skew_guest_time(struct guest_info * info) {
 	if (time_state->enter_time) {
 	    /* Limit forward skew to 10% of the amount the guest has
 	     * run since we last could skew time */
-	    max_skew = ((sint64_t)guest_time - (sint64_t)time_state->enter_time) / 10;
+	    max_skew = (sint64_t)(guest_time - time_state->enter_time) / 10.0;
 	} else {
 	    max_skew = 0;
 	}
 
-	desired_skew = (sint64_t)target_guest_time - (sint64_t)guest_time;
+	desired_skew = (sint64_t)(target_guest_time - guest_time);
 	skew = desired_skew > max_skew ? max_skew : desired_skew;
 	PrintDebug("Guest %lld cycles behind where it should be.\n",
 		   desired_skew);
@@ -194,11 +192,13 @@ static int skew_guest_time(struct guest_info * info) {
 
     return 0;
 }
+#endif /* V3_CONFIG_TIME_DILATION */
 
 // Control guest time in relation to host time so that the two stay 
 // appropriately synchronized to the extent possible. 
 int v3_adjust_time(struct guest_info * info) {
 
+#ifdef V3_CONFIG_TIME_DILATION
     /* First deal with yielding if we want to slow down the guest */
     yield_host_time(info);
 
@@ -206,7 +206,7 @@ int v3_adjust_time(struct guest_info * info) {
      * or because the VMM is doing something that takes a long time to emulate)
      * allow guest time to jump forward a bit */
     skew_guest_time(info);
-    
+#endif
     return 0;
 }
 
@@ -226,12 +226,24 @@ int
 v3_time_enter_vm( struct guest_info * info )
 {
     struct vm_time * time_state = &(info->time_state);
-    uint64_t guest_time, host_time;
+    uint64_t host_time;
 
     host_time = v3_get_host_time(time_state);
-    guest_time = v3_get_guest_time(time_state);
     time_state->enter_time = host_time;
-    time_state->guest_host_offset = (sint64_t)guest_time - (sint64_t)host_time;
+#ifdef V3_CONFIG_TIME_DILATION
+    { 
+        uint64_t guest_time;
+	sint64_t offset;
+        guest_time = v3_compute_guest_time(time_state, host_time);
+	// XXX we probably want to use an inline function to do these
+        // time differences to deal with sign and overflow carefully
+	offset = (sint64_t)guest_time - (sint64_t)host_time;
+	PrintDebug("v3_time_enter_vm: guest time offset %lld from host time.\n", offset);
+        time_state->guest_host_offset = offset;
+    }
+#else
+    time_state->guest_host_offset = 0;
+#endif
 
     return 0;
 }
@@ -265,11 +277,11 @@ int v3_remove_timer(struct guest_info * info, struct v3_timer * timer) {
 void v3_update_timers(struct guest_info * info) {
     struct vm_time *time_state = &info->time_state;
     struct v3_timer * tmp_timer;
-    uint64_t old_time = info->time_state.last_update;
     sint64_t cycles;
+    uint64_t old_time = info->time_state.last_update;
 
     time_state->last_update = v3_get_guest_time(time_state);
-    cycles = time_state->last_update - old_time;
+    cycles = (sint64_t)(time_state->last_update - old_time);
     V3_ASSERT(cycles >= 0);
 
     //    V3_Print("Updating timers with %lld elapsed cycles.\n", cycles);

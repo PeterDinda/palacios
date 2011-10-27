@@ -311,6 +311,19 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
 	&v3_handle_vm_cr_read,
 	&v3_handle_vm_cr_write, 
 	core);
+
+
+    {
+	v3_hook_msr(core->vm_info, IA32_STAR_MSR, NULL, NULL, NULL);
+	v3_hook_msr(core->vm_info, IA32_LSTAR_MSR, NULL, NULL, NULL);
+	v3_hook_msr(core->vm_info, IA32_FMASK_MSR, NULL, NULL, NULL);
+	v3_hook_msr(core->vm_info, IA32_KERN_GS_BASE_MSR, NULL, NULL, NULL);
+	v3_hook_msr(core->vm_info, IA32_CSTAR_MSR, NULL, NULL, NULL);
+
+	v3_hook_msr(core->vm_info, SYSENTER_CS_MSR, NULL, NULL, NULL);
+	v3_hook_msr(core->vm_info, SYSENTER_ESP_MSR, NULL, NULL, NULL);
+	v3_hook_msr(core->vm_info, SYSENTER_EIP_MSR, NULL, NULL, NULL);
+    }
 }
 
 
@@ -509,6 +522,7 @@ int v3_svm_enter(struct guest_info * info) {
     vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
     vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data)); 
     addr_t exit_code = 0, exit_info1 = 0, exit_info2 = 0;
+    sint64_t tsc_offset;
 
     // Conditionally yield the CPU if the timeslice has expired
     v3_yield_cond(info);
@@ -569,7 +583,8 @@ int v3_svm_enter(struct guest_info * info) {
 #endif
 
     v3_time_enter_vm(info);
-    // guest_ctrl->TSC_OFFSET = v3_tsc_host_offset(&info->time_state);
+    tsc_offset = v3_tsc_host_offset(&info->time_state);
+    guest_ctrl->TSC_OFFSET = tsc_offset;
 
 
     //V3_Print("Calling v3_svm_launch\n");

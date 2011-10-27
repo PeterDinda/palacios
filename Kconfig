@@ -212,16 +212,19 @@ endmenu
 
 
 menu "Time Management"
-config VIRTUALIZE_TIME
-	bool "Enable Time virtualization"
+config TIME_DILATION
+	bool "Control Guest/Host Time Offseting"
 	default n
+	depends on EXPERIMENTAL
 	help
-	   Enables the timer virtualization extensions
- 
+	    Controls the relative speeds of the guest and host processor
+	    to allow the VM to provide the illusion of the guest seeing time
+	    pass at a different rate than the host system does.
+
 config TIME_HIDE_VM_COST
         bool "Hide VMM Run Cost"
 	default n
-	depends on VIRTUALIZE_TIME
+	depends on EXPERIMENTAL 
 	help
 	    Offset guest time from host time sufficiently to hide the cost of
 	    running in the virtual machine. This can aid the consistency of
@@ -231,12 +234,12 @@ config TIME_HIDE_VM_COST
 config TIME_VIRTUALIZE_TSC
 	bool "Fully virtualize guest TSC"
 	default n
-	depends on VIRTUALIZE_TIME
+	depends on EXPERIMENTAL
 	help
 	    Virtualize the processor time stamp counter in the guest, 
 	    generally increasing consistency between various time sources 
 	    but also potentially making guest time run slower than real time.
-	 
+	
 endmenu
 
 

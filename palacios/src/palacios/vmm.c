@@ -255,7 +255,11 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
 	int minor = i % 8;
 	
 	if (core_mask[major] & (0x1 << minor)) {
-	    avail_cores++;
+	    if (v3_cpu_types[i] == V3_INVALID_CPU) {
+		core_mask[major] &= ~(0x1 << minor);
+	    } else {
+		avail_cores++;
+	    }
 	}
     }
 
@@ -321,6 +325,12 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
 	}
 
 	vcore_id--;
+    }
+
+    if (vcore_id >= 0) {
+	PrintError("Error starting VM: Not enough available CPU cores\n");
+	v3_stop_vm(vm);
+	return -1;
     }
 
 
@@ -563,11 +573,10 @@ void v3_yield_cond(struct guest_info * info) {
     cur_cycle = v3_get_host_time(&info->time_state);
 
     if (cur_cycle > (info->yield_start_cycle + info->vm_info->yield_cycle_period)) {
-
-	/*
-	  PrintDebug("Conditional Yield (cur_cyle=%p, start_cycle=%p, period=%p)\n", 
-	  (void *)cur_cycle, (void *)info->yield_start_cycle, (void *)info->yield_cycle_period);
-	*/
+	//PrintDebug("Conditional Yield (cur_cyle=%p, start_cycle=%p, period=%p)\n", 
+	//           (void *)cur_cycle, (void *)info->yield_start_cycle, 
+	//	   (void *)info->yield_cycle_period);
+	
 	V3_Yield();
 	info->yield_start_cycle = v3_get_host_time(&info->time_state);
     }

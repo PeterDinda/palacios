@@ -28,9 +28,9 @@
 #define ETH_ALEN 6
 
 #define MIN_MTU 68
-#define MAX_MTU 65535
+#define MAX_MTU 65536
 
-#define MAX_PACKET_LEN (MAX_MTU)
+#define MAX_PACKET_LEN (MAX_MTU + ETHERNET_HEADER_LEN)
 
 #ifdef V3_CONFIG_VNET
 extern int net_debug;

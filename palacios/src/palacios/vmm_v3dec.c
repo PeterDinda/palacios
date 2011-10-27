@@ -448,6 +448,15 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 
 	    break;
 	}
+	case INT: {
+	    instr->dst_operand.type = IMM_OPERAND;
+	    instr->dst_operand.size = operand_width;
+		instr->dst_operand.operand = *(uint8_t *)instr_ptr;
+	    instr_ptr += operand_width;
+	    instr->num_operands = 1;
+
+	    break;
+	}
 	case INVLPG: {
 	    uint8_t reg_code = 0;
 
@@ -505,7 +514,7 @@ static v3_op_type_t op_form_to_type(op_form_t form) {
 	case INVLPG:
 	    return V3_OP_INVLPG;
 
-        case INT:
+	case INT:
 	    return V3_OP_INT;
 	    
 	case MOV_CR2:

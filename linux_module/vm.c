@@ -130,7 +130,7 @@ static long v3_vm_ioctl(struct file * filp,
 	case V3_VM_LAUNCH: {
 	    printk("palacios: launching vm\n");
 
-	    if (v3_start_vm(guest->v3_ctx, 0xfffffffe) < 0) { 
+	    if (v3_start_vm(guest->v3_ctx, (0x1 << num_online_cpus()) - 1) < 0) { 
 		printk("palacios: launch of vm failed\n");
 		return -1;
 	    }
