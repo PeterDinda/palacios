@@ -34,6 +34,13 @@ void V3_Init_File(struct v3_file_hooks * hooks) {
 }
 
 
+int v3_mkdir(char * path, uint16_t permissions, uint8_t recursive) {
+    V3_ASSERT(file_hooks);
+    V3_ASSERT(file_hooks->mkdir);
+    
+    return file_hooks->mkdir(path, permissions, recursive);
+}
+
 v3_file_t v3_file_open(struct v3_vm_info * vm, char * path, uint8_t mode) {
     void * priv_data = NULL;
     V3_ASSERT(file_hooks);
