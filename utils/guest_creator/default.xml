@@ -52,6 +52,7 @@
 		<device class="8254_PIT" id="PIT" />
 		<device class="BOCHS_DEBUG" id="bochs debug"/>
 		<device class="OS_DEBUG" id="os debug" />
+		<device class="MPTABLE" id="mptable"/>
 		<device class="LAPIC" id="apic"/>
 		<device class="IOAPIC" id="ioapic">
                 	<apic>apic</apic>
