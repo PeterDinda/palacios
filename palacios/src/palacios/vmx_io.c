@@ -50,7 +50,7 @@ int v3_init_vmx_io_map(struct v3_vm_info * vm) {
     vm->io_map.update_map = update_map;
     
     vm->io_map.arch_data = V3_VAddr(V3_AllocPages(2));
-    memset(vm->io_map.arch_data, 0, PAGE_SIZE_4KB * 2);
+    memset(vm->io_map.arch_data, 0xff, PAGE_SIZE_4KB * 2);
 
     v3_refresh_io_map(vm);
 
@@ -68,23 +68,25 @@ int v3_handle_vmx_io_in(struct guest_info * core, struct vmx_exit_info * exit_in
     struct v3_io_hook * hook = NULL;
     int read_size = 0;
 
-
     hook = v3_get_io_hook(core->vm_info, io_qual.port);
-
-    if (hook == NULL) {
-        PrintError("Hook not present for IN on port %x\n", io_qual.port);
-        return -1;
-    }
 
     read_size = io_qual.access_size + 1;
 
     PrintDebug("IN of %d bytes on port %d (0x%x)\n", read_size, io_qual.port, io_qual.port);
 
-    if (hook->read(core, io_qual.port, &(core->vm_regs.rax), read_size, hook->priv_data) != read_size) {
-        PrintError("Read failure for IN on port %x\n", io_qual.port);
-        return -1;
-    }
+    if (hook == NULL) {
+	PrintDebug("IN operation on unhooked IO port 0x%x\n", io_qual.port);
 
+	/* What are the HW semantics for an IN on an invalid port? 
+	 *  Do we need to clear the register value or leave it untouched??? 
+	 */
+    } else {
+	if (hook->read(core, io_qual.port, &(core->vm_regs.rax), read_size, hook->priv_data) != read_size) {
+	    PrintError("Read failure for IN on port %x\n", io_qual.port);
+	    return -1;
+	}
+    }
+    
 
     core->rip += exit_info->instr_len;
 
@@ -103,10 +105,6 @@ int v3_handle_vmx_io_ins(struct guest_info * core, struct vmx_exit_info * exit_i
 
     hook = v3_get_io_hook(core->vm_info, io_qual.port);
 
-    if (hook == NULL) {
-        PrintError("Hook not present for INS on port 0x%x\n", io_qual.port);
-        return -1;
-    }
 
     PrintDebug("INS on port 0x%x\n", io_qual.port);
 
@@ -143,10 +141,20 @@ int v3_handle_vmx_io_ins(struct guest_info * core, struct vmx_exit_info * exit_i
     }
 
     do {
-        if (hook->read(core, io_qual.port, (char *)host_addr, read_size, hook->priv_data) != read_size) {
-            PrintError("Read Failure for INS on port 0x%x\n", io_qual.port);
-            return -1;
-        }
+
+	if (hook == NULL) {
+	    PrintDebug("INS operation on unhooked IO port 0x%x\n", io_qual.port);
+	    
+            /* What are the HW semantics for an INS on an invalid port? 
+	     *  Do we need to clear the memory region or leave it untouched??? 
+	     */	    
+	} else {
+	    if (hook->read(core, io_qual.port, (char *)host_addr, read_size, hook->priv_data) != read_size) {
+		PrintError("Read Failure for INS on port 0x%x\n", io_qual.port);
+		return -1;
+	    }
+	}
+	
 
         host_addr += rdi_change;
         core->vm_regs.rdi += rdi_change;
@@ -172,21 +180,19 @@ int v3_handle_vmx_io_out(struct guest_info * core, struct vmx_exit_info * exit_i
 
     hook =  v3_get_io_hook(core->vm_info, io_qual.port);
 
-    if (hook == NULL) {
-        PrintError("Hook not present for out on port %x\n", io_qual.port);
-        return -1;
-    }
 
     write_size = io_qual.access_size + 1;
     
     PrintDebug("OUT of %d bytes on port %d (0x%x)\n", write_size, io_qual.port, io_qual.port);
 
-    if (hook->write(core, io_qual.port, &(core->vm_regs.rax), write_size, hook->priv_data) != write_size) {
-        PrintError("Write failure for out on port %x\n",io_qual.port);
-        return -1;
+    if (hook == NULL) {
+	PrintDebug("OUT operation on unhooked IO port 0x%x\n", io_qual.port);
+    } else {  
+	if (hook->write(core, io_qual.port, &(core->vm_regs.rax), write_size, hook->priv_data) != write_size) {
+	    PrintError("Write failure for out on port %x\n",io_qual.port);
+	    return -1;
+	}
     }
-
-
 
     core->rip += exit_info->instr_len;
 
@@ -206,11 +212,6 @@ int v3_handle_vmx_io_outs(struct guest_info * core, struct vmx_exit_info * exit_
     struct rflags * flags = (struct rflags *)&(core->ctrl_regs.rflags);
 
     hook = v3_get_io_hook(core->vm_info, io_qual.port);
-
-    if (hook == NULL) {
-        PrintError("Hook not present for OUTS on port 0x%x\n", io_qual.port);
-        return -1;
-    }
 
     PrintDebug("OUTS on port 0x%x\n", io_qual.port);
 
@@ -248,10 +249,16 @@ int v3_handle_vmx_io_outs(struct guest_info * core, struct vmx_exit_info * exit_
     }
 
     do {
-	if (hook->write(core, io_qual.port, (char *)host_addr, write_size, hook->priv_data) != write_size) {
-           PrintError("Read failure for INS on port 0x%x\n", io_qual.port);
-           return -1;
-       }
+
+	if (hook == NULL) {
+	    PrintDebug("OUTS operation on unhooked IO port 0x%x\n", io_qual.port);
+	} else {
+	    if (hook->write(core, io_qual.port, (char *)host_addr, write_size, hook->priv_data) != write_size) {
+		PrintError("Read failure for INS on port 0x%x\n", io_qual.port);
+		return -1;
+	    }
+	}
+	
 
        host_addr += rsi_change;
        core->vm_regs.rsi += rsi_change;
