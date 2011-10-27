@@ -1111,8 +1111,9 @@ int v3_reset_vmx_vm_core(struct guest_info * core, addr_t rip) {
 
 void v3_init_vmx_cpu(int cpu_id) {
     addr_t vmx_on_region = 0;
+    extern v3_cpu_arch_t v3_mach_type;
 
-    if (cpu_id == 0) {
+    if (v3_mach_type == V3_INVALID_CPU) {
 	if (v3_init_vmx_hw(&hw_info) == -1) {
 	    PrintError("Could not initialize VMX hardware features on cpu %d\n", cpu_id);
 	    return;
@@ -1151,6 +1152,7 @@ void v3_init_vmx_cpu(int cpu_id) {
 	    v3_cpu_types[cpu_id] = V3_VMX_EPT_UG_CPU;
 	}
     }
+    
 }
 
 

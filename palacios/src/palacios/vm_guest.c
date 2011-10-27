@@ -488,7 +488,7 @@ void v3_print_GPRs(struct guest_info * info) {
 #include <palacios/vmcs.h>
 #include <palacios/vmcb.h>
 static int info_hcall(struct guest_info * core, uint_t hcall_id, void * priv_data) {
-    v3_cpu_arch_t cpu_type = v3_get_cpu_type(V3_Get_CPU());
+    extern v3_cpu_arch_t v3_mach_type;
     int cpu_valid = 0;
 
     V3_Print("************** Guest State ************\n");
@@ -496,19 +496,19 @@ static int info_hcall(struct guest_info * core, uint_t hcall_id, void * priv_dat
     
     // init SVM/VMX
 #ifdef V3_CONFIG_SVM
-    if ((cpu_type == V3_SVM_CPU) || (cpu_type == V3_SVM_REV3_CPU)) {
+    if ((v3_mach_type == V3_SVM_CPU) || (v3_mach_type == V3_SVM_REV3_CPU)) {
 	cpu_valid = 1;
 	PrintDebugVMCB((vmcb_t *)(core->vmm_data));
     }
 #endif
 #ifdef V3_CONFIG_VMX
-    if ((cpu_type == V3_VMX_CPU) || (cpu_type == V3_VMX_EPT_CPU) || (cpu_type == V3_VMX_EPT_UG_CPU)) {
+    if ((v3_mach_type == V3_VMX_CPU) || (v3_mach_type == V3_VMX_EPT_CPU) || (v3_mach_type == V3_VMX_EPT_UG_CPU)) {
 	cpu_valid = 1;
 	v3_print_vmcs();
     }
 #endif
     if (!cpu_valid) {
-	PrintError("Invalid CPU Type 0x%x\n", cpu_type);
+	PrintError("Invalid CPU Type 0x%x\n", v3_mach_type);
 	return -1;
     }
     
@@ -531,7 +531,7 @@ static int info_hcall(struct guest_info * core, uint_t hcall_id, void * priv_dat
 
 
 int v3_init_vm(struct v3_vm_info * vm) {
-    v3_cpu_arch_t cpu_type = v3_get_cpu_type(V3_Get_CPU());
+    extern v3_cpu_arch_t v3_mach_type;
 
 
 
@@ -574,7 +574,7 @@ int v3_init_vm(struct v3_vm_info * vm) {
 
 
     // init SVM/VMX
-    switch (cpu_type) {
+    switch (v3_mach_type) {
 #ifdef V3_CONFIG_SVM
 	case V3_SVM_CPU:
 	case V3_SVM_REV3_CPU:
@@ -591,7 +591,7 @@ int v3_init_vm(struct v3_vm_info * vm) {
 	    break;
 #endif
 	default:
-	    PrintError("Invalid CPU Type 0x%x\n", cpu_type);
+	    PrintError("Invalid CPU Type 0x%x\n", v3_mach_type);
 	    return -1;
     }
     
@@ -604,7 +604,7 @@ int v3_init_vm(struct v3_vm_info * vm) {
 
 
 int v3_free_vm_internal(struct v3_vm_info * vm) {
-    v3_cpu_arch_t cpu_type = v3_get_cpu_type(V3_Get_CPU());
+    extern v3_cpu_arch_t v3_mach_type;
 
     v3_remove_hypercall(vm, GUEST_INFO_HCALL);
 
@@ -615,7 +615,7 @@ int v3_free_vm_internal(struct v3_vm_info * vm) {
 #endif
 
     // init SVM/VMX
-    switch (cpu_type) {
+    switch (v3_mach_type) {
 #ifdef V3_CONFIG_SVM
 	case V3_SVM_CPU:
 	case V3_SVM_REV3_CPU:
@@ -632,7 +632,7 @@ int v3_free_vm_internal(struct v3_vm_info * vm) {
 	    break;
 #endif
 	default:
-	    PrintError("Invalid CPU Type 0x%x\n", cpu_type);
+	    PrintError("Invalid CPU Type 0x%x\n", v3_mach_type);
 	    return -1;
     }
 
@@ -665,7 +665,7 @@ int v3_free_vm_internal(struct v3_vm_info * vm) {
 
 
 int v3_init_core(struct guest_info * core) {
-    v3_cpu_arch_t cpu_type = v3_get_cpu_type(V3_Get_CPU());
+    extern v3_cpu_arch_t v3_mach_type;
     struct v3_vm_info * vm = core->vm_info;
 
 
@@ -695,7 +695,7 @@ int v3_init_core(struct guest_info * core) {
     // init SVM/VMX
 
 
-    switch (cpu_type) {
+    switch (v3_mach_type) {
 #ifdef V3_CONFIG_SVM
 	case V3_SVM_CPU:
 	case V3_SVM_REV3_CPU:
@@ -716,7 +716,7 @@ int v3_init_core(struct guest_info * core) {
 	    break;
 #endif
 	default:
-	    PrintError("Invalid CPU Type 0x%x\n", cpu_type);
+	    PrintError("Invalid CPU Type 0x%x\n", v3_mach_type);
 	    return -1;
     }
 
@@ -726,7 +726,7 @@ int v3_init_core(struct guest_info * core) {
 
 
 int v3_free_core(struct guest_info * core) {
-    v3_cpu_arch_t cpu_type = v3_get_cpu_type(V3_Get_CPU());
+    extern v3_cpu_arch_t v3_mach_type;
 
     
 #ifdef V3_CONFIG_SYMBIOTIC
@@ -748,7 +748,7 @@ int v3_free_core(struct guest_info * core) {
     v3_deinit_core_telemetry(core);
 #endif
 
-    switch (cpu_type) {
+    switch (v3_mach_type) {
 #ifdef V3_CONFIG_SVM
 	case V3_SVM_CPU:
 	case V3_SVM_REV3_CPU:
@@ -769,7 +769,7 @@ int v3_free_core(struct guest_info * core) {
 	    break;
 #endif
 	default:
-	    PrintError("Invalid CPU Type 0x%x\n", cpu_type);
+	    PrintError("Invalid CPU Type 0x%x\n", v3_mach_type);
 	    return -1;
     }
 

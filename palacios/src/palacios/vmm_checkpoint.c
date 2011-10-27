@@ -237,12 +237,12 @@ static int save_memory(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 }
 
 int save_header(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
-    v3_cpu_arch_t cpu_type = v3_get_cpu_type(V3_Get_CPU());
+    extern v3_cpu_arch_t v3_mach_type;
     void * ctx = NULL;
     
     ctx = v3_chkpt_open_ctx(chkpt, NULL, "header");
 
-    switch (cpu_type) {
+    switch (v3_mach_type) {
 	case V3_SVM_CPU:
 	case V3_SVM_REV3_CPU: {
 	    v3_chkpt_save(ctx, "header", strlen(svm_chkpt_header), svm_chkpt_header);
@@ -266,12 +266,12 @@ int save_header(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 }
 
 static int load_header(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
-    v3_cpu_arch_t cpu_type = v3_get_cpu_type(V3_Get_CPU());
+    extern v3_cpu_arch_t v3_mach_type;
     void * ctx = NULL;
     
     ctx = v3_chkpt_open_ctx(chkpt, NULL, "header");
 
-    switch (cpu_type) {
+    switch (v3_mach_type) {
 	case V3_SVM_CPU:
 	case V3_SVM_REV3_CPU: {
 	    char header[strlen(svm_chkpt_header) + 1];
@@ -302,7 +302,7 @@ static int load_header(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 
 
 static int load_core(struct guest_info * info, struct v3_chkpt * chkpt) {
-    v3_cpu_arch_t cpu_type = v3_get_cpu_type(V3_Get_CPU());
+    extern v3_cpu_arch_t v3_mach_type;
     void * ctx = NULL;
     char key_name[16];
     memset(key_name, 0, 16);
@@ -349,7 +349,7 @@ static int load_core(struct guest_info * info, struct v3_chkpt * chkpt) {
     }
 
 
-    switch (cpu_type) {
+    switch (v3_mach_type) {
 	case V3_SVM_CPU:
 	case V3_SVM_REV3_CPU: {
 	    char key_name[16];
@@ -384,7 +384,7 @@ static int load_core(struct guest_info * info, struct v3_chkpt * chkpt) {
 	    break;
 	}
 	default:
-	    PrintError("Invalid CPU Type (%d)\n", cpu_type);
+	    PrintError("Invalid CPU Type (%d)\n", v3_mach_type);
 	    return -1;
     }
 
@@ -395,7 +395,7 @@ static int load_core(struct guest_info * info, struct v3_chkpt * chkpt) {
 
 
 static int save_core(struct guest_info * info, struct v3_chkpt * chkpt) {
-    v3_cpu_arch_t cpu_type = v3_get_cpu_type(V3_Get_CPU());
+    extern v3_cpu_arch_t v3_mach_type;
     void * ctx = NULL;
     char key_name[16];
 
@@ -428,7 +428,7 @@ static int save_core(struct guest_info * info, struct v3_chkpt * chkpt) {
     v3_chkpt_close_ctx(ctx);
 
     //Architechture specific code
-    switch (cpu_type) {
+    switch (v3_mach_type) {
 	case V3_SVM_CPU:
 	case V3_SVM_REV3_CPU: {
 	    char key_name[16];
@@ -468,7 +468,7 @@ static int save_core(struct guest_info * info, struct v3_chkpt * chkpt) {
 	    break;
 	}
 	default:
-	    PrintError("Invalid CPU Type (%d)\n", cpu_type);
+	    PrintError("Invalid CPU Type (%d)\n", v3_mach_type);
 	    return -1;
     }
     
