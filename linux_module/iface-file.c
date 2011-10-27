@@ -315,8 +315,6 @@ static int file_init( void ) {
 
     V3_Init_File(&palacios_file_hooks);
 
-    palacios_file_mkdir("/test/test/test/qr14/acqwe2",0755, 1);
-
     return 0;
 }
 
