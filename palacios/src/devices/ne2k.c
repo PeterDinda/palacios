@@ -337,7 +337,7 @@ static int ne2k_update_irq(struct ne2k_state * nic_state) {
 	    v3_pci_raise_irq(nic_state->pci_bus, 0, nic_state->pci_dev);
        }
 
-       nic_state->statistics.interrupts ++;
+       nic_state->statistics.rx_interrupts ++;
 
        PrintDebug("NE2000: Raise IRQ\n");
     }
@@ -1176,10 +1176,7 @@ static int connect_fn(struct v3_vm_info * info,
 
     ops->recv = ne2k_rx;
     ops->poll = NULL;
-    ops->start_tx = NULL;
-    ops->stop_tx = NULL;
-    ops->frontend_data = nic_state;
-    memcpy(ops->fnt_mac, nic_state->mac, ETH_ALEN);
+    memcpy(ops->config.fnt_mac, nic_state->mac, ETH_ALEN);
 
     return 0;
 }
