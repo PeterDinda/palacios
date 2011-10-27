@@ -91,7 +91,7 @@ static inline uint64_t v3_get_host_time(struct vm_time *t) {
 }
 
 // Returns *monotonic* guest time.
-static inline uint64_t v3_get_guest_time(struct vm_time *t) {
+static inline uint64_t v3_compute_guest_time(struct vm_time *t, uint64_t ht) {
 #ifdef V3_CONFIG_TIME_HIDE_VM_COST
     V3_ASSERT(t->exit_time);
     return t->exit_time + t->guest_host_offset;
@@ -100,9 +100,17 @@ static inline uint64_t v3_get_guest_time(struct vm_time *t) {
 #endif
 }
 
+static inline uint64_t v3_get_guest_time(struct vm_time *t) {
+    return v3_compute_guest_time(t, v3_get_host_time(t));
+}
+
 // Returns the TSC value seen by the guest
+static inline uint64_t v3_compute_guest_tsc(struct vm_time *t, uint64_t ht) {
+    return v3_compute_guest_time(t, ht) + t->tsc_guest_offset;
+}
+
 static inline uint64_t v3_get_guest_tsc(struct vm_time *t) {
-    return v3_get_guest_time(t) + t->tsc_guest_offset;
+    return v3_compute_guest_tsc(t, v3_get_host_time(t));
 }
 
 // Returns offset of guest TSC from host TSC
