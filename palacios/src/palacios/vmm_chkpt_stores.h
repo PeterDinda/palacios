@@ -179,6 +179,109 @@ register_chkpt_store(keyed_stream_store);
 
 
 
+#ifdef V3_CONFIG_FILE
+#include <interfaces/vmm_file.h>
+
+
+struct file_ctx {
+    v3_file_t file;
+    uint64_t offset;
+    char * filename;
+};
+    
+
+static void * dir_open_chkpt(char * url, chkpt_mode_t mode) {
+    if (mode == SAVE) {
+	if (v3_mkdir(url, 0755, 1) != 0) {
+	    return NULL;
+	}
+    }
+
+    return url;
+}
+
+
+
+static int dir_close_chkpt(void * store_data) {
+    return 0;
+}
+
+static void * dir_open_ctx(void * store_data, 
+			   void * parent_ctx, 
+			   char * name) {
+
+    char * url = store_data;
+    struct file_ctx * ctx = NULL;
+
+
+    ctx = V3_Malloc(sizeof(struct file_ctx));
+    memset(ctx, 0, sizeof(struct file_ctx));
+
+    ctx->filename = V3_Malloc(strlen(url) + strlen(name) + 5);
+    memset(ctx->filename, 0, strlen(url) + strlen(name) + 5);
+
+    snprintf(ctx->filename, strlen(url) + strlen(name) + 5, "%s/%s", url, name);
+
+
+    ctx->file = v3_file_open(NULL, ctx->filename, FILE_OPEN_MODE_READ | FILE_OPEN_MODE_WRITE | FILE_OPEN_MODE_CREATE);
+   
+    return ctx;
+}
+
+static int dir_close_ctx(void * store_data, void * ctx) {
+    struct file_ctx * file_ctx = ctx;
+
+    v3_file_close(file_ctx->file);
+
+    V3_Free(file_ctx->filename);
+    V3_Free(file_ctx);
+
+    return 0;
+}
+
+static int dir_save(void * store_data, void * ctx, 
+		    char * tag, uint64_t len, void * buf) {
+    struct file_ctx * file_ctx = ctx;
+    uint64_t ret = 0;
+   
+    ret = v3_file_write(file_ctx->file, buf, len, file_ctx->offset);
+
+    file_ctx->offset += ret;
+    
+    return 0;
+}
+
+static int dir_load(void * store_data, void * ctx, 
+		    char * tag, uint64_t len, void * buf) {
+    struct file_ctx * file_ctx = ctx;
+    uint64_t ret = 0;
+    
+    ret = v3_file_read(file_ctx->file, buf, len, file_ctx->offset);
+
+    file_ctx->offset += ret;
+
+    return 0;
+}
+
+
+static struct chkpt_interface dir_store = {
+    .name = "DIR",
+    .open_chkpt = dir_open_chkpt,
+    .close_chkpt = dir_close_chkpt,
+    .open_ctx = dir_open_ctx, 
+    .close_ctx = dir_close_ctx,
+    .save = dir_save,
+    .load = dir_load
+};
+
+register_chkpt_store(dir_store);
+
+
+
+#endif
+
+
+
 
 
 

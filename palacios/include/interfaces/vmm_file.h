@@ -27,6 +27,8 @@
 #ifdef __V3VEE__
 typedef void * v3_file_t;
 
+int v3_mkdir(char * path, uint16_t permissions, uint8_t recursive);
+
 
 v3_file_t v3_file_open(struct v3_vm_info * vm, char * path, uint8_t mode);
 int v3_file_close(v3_file_t file);
@@ -42,6 +44,7 @@ uint64_t v3_file_write(v3_file_t file, uint8_t * buf, uint64_t len, uint64_t off
 #define FILE_OPEN_MODE_CREATE        (1 << 2)
 
 struct v3_file_hooks {
+    int (*mkdir)(const char * path, unsigned short perms, int recursive);
 
     void * (*open)(const char * path, int mode, void * host_data);
     int (*close)(void * fd);
