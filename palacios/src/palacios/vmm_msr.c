@@ -59,7 +59,7 @@ int v3_handle_msr_write(struct guest_info * info) {
     hook = v3_get_msr_hook(info->vm_info, msr_num);
 
     if (hook == NULL) {
-        PrintError("Write to unhooked MSR 0x%x\n", msr_num);
+	v3_msr_unhandled_write(info, msr_num, msr_val, NULL);
     } else {
 	msr_val.lo = info->vm_regs.rax;
 	msr_val.hi = info->vm_regs.rdx;
@@ -86,7 +86,7 @@ int v3_handle_msr_read(struct guest_info * info) {
     hook = v3_get_msr_hook(info->vm_info, msr_num);
     
     if (hook == NULL) {
-        PrintError("Read from unhooked MSR 0x%x\n", msr_num);	
+	v3_msr_unhandled_read(info, msr_num, &msr_val, NULL);
     } else {
 	if (hook->read(info, msr_num, &msr_val, hook->priv_data) == -1) {
 	    PrintError("Error in MSR hook Read\n");
@@ -100,6 +100,19 @@ int v3_handle_msr_read(struct guest_info * info) {
     info->rip += 2;
     return 0;
 }
+
+
+
+int v3_msr_unhandled_read(struct guest_info * core, uint32_t msr, struct v3_msr * dst, void * priv_data) {
+    V3_Print("Palacios: Unhandled MSR Read (MSR=0x%x)\n", msr);
+    return 0;
+}
+
+int v3_msr_unhandled_write(struct guest_info * core, uint32_t msr, struct v3_msr src, void * priv_data) {
+    V3_Print("Palacios: Unhandled MSR Write (MSR=0x%x)\n", msr);
+    return 0;
+}
+
 
 int v3_hook_msr(struct v3_vm_info * vm, uint32_t msr, 
 		int (*read)(struct guest_info * core, uint32_t msr, struct v3_msr * dst, void * priv_data),
@@ -133,6 +146,10 @@ int v3_hook_msr(struct v3_vm_info * vm, uint32_t msr,
 
     return 0;
 }
+
+
+
+
 
 static int free_hook(struct v3_vm_info * vm, struct v3_msr_hook * hook) {
     list_del(&(hook->link));
