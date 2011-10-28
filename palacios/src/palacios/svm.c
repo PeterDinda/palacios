@@ -669,6 +669,12 @@ int v3_start_svm_guest(struct guest_info * info) {
 	PrintDebug("SVM core %u (on %u): Waiting for core initialization\n", info->vcpu_id, info->pcpu_id);
 
 	while (info->core_run_state == CORE_STOPPED) {
+	    
+	    if (info->vm_info->run_state == VM_STOPPED) {
+		// The VM was stopped before this core was initialized. 
+		return 0;
+	    }
+
 	    v3_yield(info);
 	    //PrintDebug("SVM core %u: still waiting for INIT\n", info->vcpu_id);
 	}

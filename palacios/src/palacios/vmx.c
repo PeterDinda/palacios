@@ -915,6 +915,12 @@ int v3_start_vmx_guest(struct guest_info * info) {
         PrintDebug("VMX core %u: Waiting for core initialization\n", info->vcpu_id);
 
         while (info->core_run_state == CORE_STOPPED) {
+
+	    if (info->vm_info->run_state == VM_STOPPED) {
+		// The VM was stopped before this core was initialized. 
+		return 0;
+	    }
+
             v3_yield(info);
             //PrintDebug("VMX core %u: still waiting for INIT\n",info->vcpu_id);
         }
