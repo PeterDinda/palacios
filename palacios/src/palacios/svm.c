@@ -326,6 +326,10 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
 	v3_hook_msr(core->vm_info, SYSENTER_ESP_MSR, NULL, NULL, NULL);
 	v3_hook_msr(core->vm_info, SYSENTER_EIP_MSR, NULL, NULL, NULL);
 
+
+	v3_hook_msr(core->vm_info, FS_BASE_MSR, NULL, NULL, NULL);
+	v3_hook_msr(core->vm_info, GS_BASE_MSR, NULL, NULL, NULL);
+
 	// Passthrough read operations are ok.
 	v3_hook_msr(core->vm_info, INT_PENDING_AMD_MSR, NULL, v3_msr_unhandled_write, NULL);
     }

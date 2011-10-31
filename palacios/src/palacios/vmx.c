@@ -411,6 +411,11 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 	v3_hook_msr(core->vm_info, SYSENTER_CS_MSR, NULL, NULL, NULL);
 	v3_hook_msr(core->vm_info, SYSENTER_ESP_MSR, NULL, NULL, NULL);
 	v3_hook_msr(core->vm_info, SYSENTER_EIP_MSR, NULL, NULL, NULL);
+	
+	v3_hook_msr(core->vm_info, FS_BASE_MSR, NULL, NULL, NULL);
+	v3_hook_msr(core->vm_info, GS_BASE_MSR, NULL, NULL, NULL);
+	
+
     }    
 
     /* Sanity check ctrl/reg fields against hw_defaults */
