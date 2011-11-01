@@ -199,7 +199,7 @@ static int tx_one_pkt(struct guest_info * core,
 	PrintDebug("Could not translate buffer address\n");
 	return -1;
     }
-
+    
     V3_Net_Print(2, "Virtio-NIC: virtio_tx: size: %d\n", len);
     if(net_debug >= 4){
 	v3_hexdump(buf, len, NULL, 0);
@@ -209,10 +209,10 @@ static int tx_one_pkt(struct guest_info * core,
 	virtio->stats.tx_dropped ++;
 	return -1;
     }
-
+    
     virtio->stats.tx_pkts ++;
     virtio->stats.tx_bytes += len;
-
+    
     return 0;
 }
 
@@ -226,7 +226,7 @@ static inline int copy_data_to_desc(struct guest_info * core,
 				    uint_t dst_offset){
     uint32_t len;
     uint8_t * desc_buf = NULL;
-
+    
     if (v3_gpa_to_hva(core, desc->addr_gpa, (addr_t *)&(desc_buf)) == -1) {
 	PrintDebug("Could not translate buffer address\n");
 	return -1;
@@ -301,17 +301,19 @@ static int handle_pkt_tx(struct guest_info * core,
 	/* here we assumed that one ethernet pkt is not splitted into multiple buffer */	
 	struct vring_desc * buf_desc = &(q->desc[desc_idx]);
 	if (tx_one_pkt(core, virtio_state, buf_desc) == -1) {
-	    PrintError("Virtio NIC: Error handling nic operation\n");
-	    goto exit_error;
+	    PrintError("Virtio NIC: Fails to send packet\n");
 	}
 	if(buf_desc->next & VIRTIO_NEXT_FLAG){
 	    PrintError("Virtio NIC: TX more buffer need to read\n");
 	}
-	    
-	q->used->ring[q->used->index % q->queue_size].id = q->avail->ring[q->cur_avail_idx % q->queue_size];
-	q->used->ring[q->used->index % q->queue_size].length = buf_desc->length; /* What do we set this to???? */
-	q->used->index ++;
 	
+	q->used->ring[q->used->index % q->queue_size].id = 
+	    q->avail->ring[q->cur_avail_idx % q->queue_size];
+	
+	q->used->ring[q->used->index % q->queue_size].length = 
+	    buf_desc->length; /* What do we set this to???? */
+	
+	q->used->index ++;
 	q->cur_avail_idx ++;
 	
 	if(++txed >= quote && quote > 0){
@@ -319,9 +321,9 @@ static int handle_pkt_tx(struct guest_info * core,
 	    break;
 	}
     }
-
+    
     v3_unlock_irqrestore(virtio_state->tx_lock, flags);
-
+    
     if (txed && !(q->avail->flags & VIRTIO_NO_IRQ_FLAG)) {
 	v3_pci_raise_irq(virtio_state->virtio_dev->pci_bus, 
 			 0, virtio_state->pci_dev);
@@ -334,9 +336,9 @@ static int handle_pkt_tx(struct guest_info * core,
     }
 
     return left;
-
-exit_error:
-	
+    
+ exit_error:
+    
     v3_unlock_irqrestore(virtio_state->tx_lock, flags);
     return -1;
 }

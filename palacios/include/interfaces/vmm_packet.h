@@ -24,19 +24,35 @@
 #include <palacios/vmm.h>
 #include <palacios/vmm_ethernet.h>
 
-#ifdef __V3VEE__
+#define V3_ETHINT_NAMELEN 126
 
-int V3_send_raw(const char * pkt, uint32_t len);
-int V3_packet_add_recver(const char * mac, struct v3_vm_info * vm);
-int V3_packet_del_recver(const char * mac, struct v3_vm_info * vm);
+struct v3_packet {
+    void * host_packet_data;
+    void * guest_packet_data;
+
+    char dev_mac[ETH_ALEN];
+    int (*input)(struct v3_packet * packet, uint8_t * buf, uint32_t len);
+
+    struct list_head node;
+};
+
+#ifdef __V3VEE__
+#include <palacios/vmm.h>
+
+struct v3_packet * v3_packet_connect(struct v3_vm_info * vm, const char * host_nic,
+				     const char * mac,
+				     int (*input)(struct v3_packet * packet, uint8_t * buf, uint32_t len),
+				     void * guest_packet_data);
+
+int v3_packet_send(struct v3_packet * packet, uint8_t * buf, uint32_t len);
+void v3_packet_close(struct v3_packet * packet);
 
 #endif
 
 struct v3_packet_hooks {
-
-    int (*send)(const char * pkt, unsigned int size, void * private_data);
-    int (*add_recver)(const char * mac, struct v3_vm_info * vm);
-    int (*del_recver)(const char * mac, struct v3_vm_info * vm);
+    int (*connect)(struct v3_packet * packet, const char * host_nic, void * host_vm_data);
+    int (*send)(struct v3_packet * packet, uint8_t * buf, uint32_t len);
+    void (*close)(struct v3_packet * packet);
 };
 
 extern void V3_Init_Packet(struct v3_packet_hooks * hooks);
