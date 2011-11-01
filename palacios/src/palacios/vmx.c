@@ -411,6 +411,11 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 	v3_hook_msr(core->vm_info, SYSENTER_CS_MSR, NULL, NULL, NULL);
 	v3_hook_msr(core->vm_info, SYSENTER_ESP_MSR, NULL, NULL, NULL);
 	v3_hook_msr(core->vm_info, SYSENTER_EIP_MSR, NULL, NULL, NULL);
+	
+	v3_hook_msr(core->vm_info, FS_BASE_MSR, NULL, NULL, NULL);
+	v3_hook_msr(core->vm_info, GS_BASE_MSR, NULL, NULL, NULL);
+	
+
     }    
 
     /* Sanity check ctrl/reg fields against hw_defaults */
@@ -915,6 +920,12 @@ int v3_start_vmx_guest(struct guest_info * info) {
         PrintDebug("VMX core %u: Waiting for core initialization\n", info->vcpu_id);
 
         while (info->core_run_state == CORE_STOPPED) {
+
+	    if (info->vm_info->run_state == VM_STOPPED) {
+		// The VM was stopped before this core was initialized. 
+		return 0;
+	    }
+
             v3_yield(info);
             //PrintDebug("VMX core %u: still waiting for INIT\n",info->vcpu_id);
         }

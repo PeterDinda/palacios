@@ -33,44 +33,43 @@
 struct nic_bridge_state {
     struct v3_vm_info * vm;
     struct v3_dev_net_ops net_ops;
+    struct v3_packet * packet_state;
 };
 
 static int bridge_send(uint8_t * buf, uint32_t len, 
-		       int synchronize,
 		       void * private_data) {
-
+    struct nic_bridge_state * bridge = (struct nic_bridge_state *)private_data;
+    
 #ifdef V3_CONFIG_DEBUG_NIC_BRIDGE
     {
     	PrintDebug("NIC Bridge: send pkt size: %d\n", len);
     	v3_hexdump(buf, len, NULL, 0);
     }
 #endif
-
-    return V3_send_raw(buf, len);
+    
+    return v3_packet_send(bridge->packet_state, buf, len);
 }
 
-static int packet_input(struct v3_vm_info * vm,
-			struct v3_packet_event * evt, 
-			void * private_data) {
-    struct nic_bridge_state * bridge = (struct nic_bridge_state *)private_data;
- 
+static int packet_input(struct v3_packet * packet_state, uint8_t * pkt, uint32_t size) {
+    struct nic_bridge_state * bridge = (struct nic_bridge_state *)packet_state->guest_packet_data;
+    
 #ifdef V3_CONFIG_DEBUG_NIC_BRIDGE
     {
-    	PrintDebug("NIC Bridge: recv pkt size: %d\n", evt->size);
-    	v3_hexdump(evt->pkt, evt->size, NULL, 0);
+    	PrintDebug("NIC Bridge: recv pkt size: %d\n", size);
+    	v3_hexdump(pkt, size, NULL, 0);
     }
 #endif
-
-    return bridge->net_ops.recv(evt->pkt, 
-				evt->size, 
-				bridge->net_ops.frontend_data);
+    
+    return bridge->net_ops.recv(pkt, 
+				size, 
+				bridge->net_ops.config.frontend_data);
 }
 
 
 static int nic_bridge_free(struct nic_bridge_state * bridge) {
-
-    /*detach from front device */
-
+    /*TODO: detach from front device */
+    
+    v3_packet_close(bridge->packet_state);
     V3_Free(bridge);
 	
     return 0;
@@ -78,29 +77,36 @@ static int nic_bridge_free(struct nic_bridge_state * bridge) {
 
 static struct v3_device_ops dev_ops = {
     .free = (int (*)(void *))nic_bridge_free,
-
+    
 };
 
 static int nic_bridge_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct nic_bridge_state * bridge = NULL;
     char * dev_id = v3_cfg_val(cfg, "ID");
-
+    char * host_nic;
+    
     v3_cfg_tree_t * frontend_cfg = v3_cfg_subtree(cfg, "frontend");
-	
+    
+    v3_cfg_tree_t * hostnic_cfg = v3_cfg_subtree(cfg, "hostnic");
+    host_nic = v3_cfg_val(hostnic_cfg, "name"); 
+    if(host_nic == NULL) {
+	host_nic = "eth0";
+    }
+    
     bridge = (struct nic_bridge_state *)V3_Malloc(sizeof(struct nic_bridge_state));
     memset(bridge, 0, sizeof(struct nic_bridge_state));
-
+    
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, bridge);
-
+    
     if (dev == NULL) {
 	PrintError("Could not attach device %s\n", dev_id);
 	V3_Free(bridge);
 	return -1;
     }
-
+    
     bridge->net_ops.send = bridge_send;
     bridge->vm = vm;
-	
+    
     if (v3_dev_connect_net(vm, v3_cfg_val(frontend_cfg, "tag"), 
 			   &(bridge->net_ops), frontend_cfg, bridge) == -1) {
 	PrintError("Could not connect %s to frontend %s\n", 
@@ -108,14 +114,20 @@ static int nic_bridge_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	v3_remove_device(dev);
 	return -1;
     }
-
+    
     PrintDebug("NIC-Bridge: Connect %s to frontend %s\n", 
-	      dev_id, v3_cfg_val(frontend_cfg, "tag"));
-
-
-    V3_packet_add_recver(bridge->net_ops.fnt_mac, vm);
-    v3_hook_host_event(vm, HOST_PACKET_EVT, V3_HOST_EVENT_HANDLER(packet_input), bridge);
-
+	       dev_id, v3_cfg_val(frontend_cfg, "tag"));
+    
+    bridge->packet_state = v3_packet_connect(vm, host_nic, 
+					     bridge->net_ops.config.fnt_mac, 
+					     packet_input, 
+					     (void *)bridge);
+    
+    if(bridge->packet_state == NULL){
+	PrintError("NIC-Bridge: Error to connect to host ethernet device\n");
+	return -1;
+    }
+    
     return 0;
 }
 

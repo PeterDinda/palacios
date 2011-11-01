@@ -314,6 +314,8 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
 
 
     {
+#define INT_PENDING_AMD_MSR		0xc0010055
+
 	v3_hook_msr(core->vm_info, IA32_STAR_MSR, NULL, NULL, NULL);
 	v3_hook_msr(core->vm_info, IA32_LSTAR_MSR, NULL, NULL, NULL);
 	v3_hook_msr(core->vm_info, IA32_FMASK_MSR, NULL, NULL, NULL);
@@ -323,6 +325,13 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
 	v3_hook_msr(core->vm_info, SYSENTER_CS_MSR, NULL, NULL, NULL);
 	v3_hook_msr(core->vm_info, SYSENTER_ESP_MSR, NULL, NULL, NULL);
 	v3_hook_msr(core->vm_info, SYSENTER_EIP_MSR, NULL, NULL, NULL);
+
+
+	v3_hook_msr(core->vm_info, FS_BASE_MSR, NULL, NULL, NULL);
+	v3_hook_msr(core->vm_info, GS_BASE_MSR, NULL, NULL, NULL);
+
+	// Passthrough read operations are ok.
+	v3_hook_msr(core->vm_info, INT_PENDING_AMD_MSR, NULL, v3_msr_unhandled_write, NULL);
     }
 }
 
@@ -669,6 +678,12 @@ int v3_start_svm_guest(struct guest_info * info) {
 	PrintDebug("SVM core %u (on %u): Waiting for core initialization\n", info->vcpu_id, info->pcpu_id);
 
 	while (info->core_run_state == CORE_STOPPED) {
+	    
+	    if (info->vm_info->run_state == VM_STOPPED) {
+		// The VM was stopped before this core was initialized. 
+		return 0;
+	    }
+
 	    v3_yield(info);
 	    //PrintDebug("SVM core %u: still waiting for INIT\n", info->vcpu_id);
 	}

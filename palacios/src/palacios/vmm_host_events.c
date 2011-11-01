@@ -29,7 +29,6 @@ int v3_init_host_events(struct v3_vm_info * vm) {
     INIT_LIST_HEAD(&(host_evts->timer_events));
     INIT_LIST_HEAD(&(host_evts->serial_events));
     INIT_LIST_HEAD(&(host_evts->console_events));
-    INIT_LIST_HEAD(&(host_evts->packet_events));
 
     return 0;
 }
@@ -63,12 +62,6 @@ int v3_deinit_host_events(struct v3_vm_info * vm) {
 
 
     list_for_each_entry_safe(hook, tmp, &(host_evts->console_events), link) {
-	list_del(&(hook->link));
-	V3_Free(hook);
-    }
-
-
-    list_for_each_entry_safe(hook, tmp, &(host_evts->packet_events), link) {
 	list_del(&(hook->link));
 	V3_Free(hook);
     }
@@ -109,9 +102,6 @@ int v3_hook_host_event(struct v3_vm_info * vm,
 	    break;
 	case HOST_CONSOLE_EVT:
 	    list_add(&(hook->link), &(host_evts->console_events));
-	    break;
-	case HOST_PACKET_EVT:
-	    list_add(&(hook->link), &(host_evts->packet_events));
 	    break;
     }
 
@@ -227,28 +217,4 @@ int v3_deliver_console_event(struct v3_vm_info * vm,
 
     return 0;
 }
-
-
-int v3_deliver_packet_event(struct v3_vm_info * vm, 
-			     struct v3_packet_event * evt) {
-    struct v3_host_events * host_evts = NULL;
-    struct v3_host_event_hook * hook = NULL;
-
-
-    host_evts = &(vm->host_event_hooks);
-
-    if (vm->run_state != VM_RUNNING) {
-	return -1;
-    }
-
-    list_for_each_entry(hook, &(host_evts->packet_events), link) {
-	if (hook->cb.packet_handler(vm, evt, hook->private_data) == -1) {
-	    return -1;
-	}
-    }
-
-    return 0;
-}
-
-
 
