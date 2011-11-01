@@ -158,6 +158,7 @@ palacios_xcall(
 struct lnx_thread_arg {
     int (*fn)(void * arg);
     void * arg;
+    char * name;
 };
 
 static int lnx_thread_target(void * arg) {
@@ -175,6 +176,9 @@ static int lnx_thread_target(void * arg) {
 
     kfree(thread_info);
     // handle cleanup 
+
+    
+    printk("Palacios Thread (%s) EXITTING\n", thread_info->name);
 
     do_exit(ret);
     
@@ -194,6 +198,7 @@ palacios_start_kernel_thread(
 
     thread_info->fn = fn;
     thread_info->arg = arg;
+    thread_info->name = thread_name;
 
     return kthread_run( lnx_thread_target, thread_info, thread_name );
 }
@@ -212,6 +217,7 @@ palacios_start_thread_on_cpu(int cpu_id,
 
     thread_info->fn = fn;
     thread_info->arg = arg;
+    thread_info->name = thread_name;
 
 
     thread = kthread_create( lnx_thread_target, thread_info, thread_name );
