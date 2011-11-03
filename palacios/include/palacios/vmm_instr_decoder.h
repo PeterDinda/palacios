@@ -681,7 +681,6 @@ static int decode_rm_operand32(struct guest_info * core,
 	}
 
 	if (has_sib_byte) {
-	    instr_cursor += 1;
 	    struct sib_byte * sib = (struct sib_byte *)(instr_cursor);
 	    int scale = 0x1 << sib->scale;
 
@@ -736,6 +735,9 @@ static int decode_rm_operand32(struct guest_info * core,
 		case 5:
 		    if (modrm->mod != 0) {
 			base_addr += ADDR_MASK(gprs->rbp, 4);
+		    } else {
+			mod_mode = DISP32;
+			base_addr = 0;
 		    }
 		    break;
 		case 6:
@@ -888,7 +890,6 @@ int decode_rm_operand64(struct guest_info * core, uint8_t * modrm_instr,
 	}
 
 	if (has_sib_byte) {
-	    instr_cursor += 1;
 	    struct sib_byte * sib = (struct sib_byte *)(instr_cursor);
 	    int scale = 0x1 << sib->scale;
 	    uint8_t index_val = sib->index;
@@ -972,6 +973,9 @@ int decode_rm_operand64(struct guest_info * core, uint8_t * modrm_instr,
 		case 5:
 		    if (modrm->mod != 0) {
 			base_addr += gprs->rbp;
+		    } else {
+			mod_mode = DISP32;
+			base_addr = 0;
 		    }
 		    break;
 		case 6:

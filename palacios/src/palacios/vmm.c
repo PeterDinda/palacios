@@ -270,6 +270,8 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
 	return -1;
     }
 
+    vm->run_state = VM_RUNNING;
+
     // Spawn off threads for each core. 
     // We work backwards, so that core 0 is always started last.
     for (i = 0, vcore_id = vm->num_cores - 1; (i < MAX_CORES) && (vcore_id >= 0); i++) {
