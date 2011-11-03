@@ -673,7 +673,6 @@ int v3_start_svm_guest(struct guest_info * info) {
 
     if (info->vcpu_id == 0) {
 	info->core_run_state = CORE_RUNNING;
-	info->vm_info->run_state = VM_RUNNING;
     } else  { 
 	PrintDebug("SVM core %u (on %u): Waiting for core initialization\n", info->vcpu_id, info->pcpu_id);
 

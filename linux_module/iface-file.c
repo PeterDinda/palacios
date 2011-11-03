@@ -204,9 +204,12 @@ static void * palacios_file_open(const char * path, int mode, void * private_dat
     }
 
 
+    pfile->mode |= O_LARGEFILE;
+
+
     pfile->filp = filp_open(path, pfile->mode, 0);
     
-    if (pfile->filp == NULL) {
+    if (IS_ERR(pfile->filp)) {
 	printk("Cannot open file: %s\n", path);
 	return NULL;
     }

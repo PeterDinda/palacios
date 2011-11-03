@@ -820,8 +820,6 @@ int v3_vmx_enter(struct guest_info * info) {
 
     if (vmx_info->state == VMX_UNLAUNCHED) {
 	vmx_info->state = VMX_LAUNCHED;
-
-	info->vm_info->run_state = VM_RUNNING;
 	ret = v3_vmx_launch(&(info->vm_regs), info, &(info->ctrl_regs));
     } else {
 	V3_ASSERT(vmx_info->state != VMX_UNLAUNCHED);
@@ -914,7 +912,6 @@ int v3_start_vmx_guest(struct guest_info * info) {
 
     if (info->vcpu_id == 0) {
 	info->core_run_state = CORE_RUNNING;
-	info->vm_info->run_state = VM_RUNNING;
     } else {
 
         PrintDebug("VMX core %u: Waiting for core initialization\n", info->vcpu_id);
