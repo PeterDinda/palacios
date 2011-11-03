@@ -42,6 +42,7 @@ struct cons_state {
     v3_console_t cons;
     int rows;
     int cols;
+    uint8_t * framebuf;
     struct vm_device * frontend_dev;
 };
 
@@ -90,23 +91,27 @@ static int screen_update(uint_t x, uint_t y, uint_t length, void * private_data)
     struct vm_device * dev = (struct vm_device *)private_data;
     struct cons_state * state = (struct cons_state *)dev->private_data;
     uint_t offset = (x + y * state->cols) * BYTES_PER_COL;
-    uint8_t fb_buf[length];
     int i;
     uint_t cur_x = x;
     uint_t cur_y = y;
     
+    if (length > (state->rows * state->cols * BYTES_PER_COL)) {
+	PrintError("Screen update larger than curses framebuffer\n");
+	return 0;
+    }
+
     PrintDebug("screen_update(%d, %d, %d, %p)\n", x, y, length, private_data);
 
     /* grab frame buffer */
-    v3_cons_get_fb(state->frontend_dev, fb_buf, offset, length);
+    v3_cons_get_fb(state->frontend_dev, state->framebuf, offset, length);
     
     /* update the screen */
     for (i = 0; i < length; i += 2) {
 	uint_t col_index = i;
 	uint8_t col[2];
 	
-	col[0] = fb_buf[col_index];     // Character
-	col[1] = fb_buf[col_index + 1]; // Attribute
+	col[0] = state->framebuf[col_index];     // Character
+	col[1] = state->framebuf[col_index + 1]; // Attribute
 	
 	/* update current character */
 	if (v3_console_set_char(state->cons, cur_x, cur_y, col[0], col[1]) < 0) {
@@ -228,6 +233,8 @@ static int cons_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg)
     state->frontend_dev = frontend;
     state->cols = 80;
     state->rows = 25;
+    state->framebuf = V3_Malloc(state->cols * state->rows * BYTES_PER_COL);
+
 
     /* open tty for screen display */
     state->cons = v3_console_open(vm, state->cols, state->rows);
