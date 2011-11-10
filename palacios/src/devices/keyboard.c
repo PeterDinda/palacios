@@ -388,7 +388,7 @@ static int key_event_handler(struct v3_vm_info * vm,
 #ifdef V3_CONFIG_TELEMETRY
 
     else if (evt->scan_code == 0x41) { // F7 telemetry dump
-	v3_print_telemetry(vm);
+	v3_print_global_telemetry(vm);
     } 
 #endif
 #ifdef V3_CONFIG_SYMMOD

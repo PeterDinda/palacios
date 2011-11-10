@@ -204,7 +204,8 @@ void v3_telemetry_end_exit(struct guest_info * info, uint_t exit_code) {
 
     // check if the exit count has expired
     if ((telemetry->exit_cnt % telemetry->vm_telem->granularity) == 0) {
-	v3_print_telemetry(info->vm_info);
+	v3_print_global_telemetry(info->vm_info);
+	v3_print_core_telemetry(info);
     }
 }
 
@@ -233,46 +234,41 @@ static int free_callback(struct v3_vm_info * vm, struct telemetry_cb * cb) {
 }
 
 
-void v3_print_telemetry(struct v3_vm_info * vm) {
+void v3_print_core_telemetry(struct guest_info * core ) {
+    struct exit_event * evt = NULL;
+    struct rb_node * node = v3_rb_first(&(core->core_telem.exit_root));
+    
+    V3_Print("Exit information for Core %d\n", core->vcpu_id);
+    
+    if (!node) { 
+    	V3_Print("No information yet for this core\n");
+    	return;
+    }
+
+    do {
+	 evt = rb_entry(node, struct exit_event, tree_node);
+	 const char * code_str = vmexit_code_to_str(evt->exit_code);
+	    
+	 V3_Print("%s:%sCnt=%u,%sAvg. Time=%u\n", 
+		  code_str,
+		  (strlen(code_str) > 13) ? "\t" : "\t\t",
+		  evt->cnt,
+		  (evt->cnt >= 100) ? "\t" : "\t\t",
+		  (uint32_t)(evt->handler_time / evt->cnt));
+    } while ((node = v3_rb_next(node)));
+    return;
+}
+
+void v3_print_global_telemetry(struct v3_vm_info * vm) {
     struct v3_telemetry_state * telemetry = &(vm->telemetry);
     uint64_t invoke_tsc = 0;
     char hdr_buf[32];
-    int i;
 
     rdtscll(invoke_tsc);
 
     snprintf(hdr_buf, 32, "telem.%d>", telemetry->invoke_cnt++);
 
     V3_Print("%stelemetry window tsc cnt: %d\n", hdr_buf, (uint32_t)(invoke_tsc - telemetry->prev_tsc));
-
-
-    // Exit Telemetry
-    for (i = 0; i < vm->num_cores; i++) {
-	struct guest_info * core = &(vm->cores[i]);
-	struct exit_event * evt = NULL;
-	struct rb_node * node = v3_rb_first(&(core->core_telem.exit_root));
-	
-	V3_Print("Exit information for Core %d\n", core->vcpu_id);
-
-	if (!node) { 
-	    V3_Print("No information yet for this core\n");
-	    continue;
-	}
-
-	do {
-	    evt = rb_entry(node, struct exit_event, tree_node);
-	    const char * code_str = vmexit_code_to_str(evt->exit_code);
-	    
-	    V3_Print("%s%s:%sCnt=%u,%sAvg. Time=%u\n", 
-		     hdr_buf,
-		     code_str,
-		     (strlen(code_str) > 13) ? "\t" : "\t\t",
-		     evt->cnt,
-		     (evt->cnt >= 100) ? "\t" : "\t\t",
-		     (uint32_t)(evt->handler_time / evt->cnt));
-	} while ((node = v3_rb_next(node)));
-    }
-
 
     // Registered callbacks
     {
@@ -286,5 +282,4 @@ void v3_print_telemetry(struct v3_vm_info * vm) {
     telemetry->prev_tsc = invoke_tsc;
 
     V3_Print("%s Telemetry done\n", hdr_buf);
-
 }

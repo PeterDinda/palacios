@@ -59,7 +59,8 @@ void v3_deinit_core_telemetry(struct guest_info * core);
 void v3_telemetry_start_exit(struct guest_info * info);
 void v3_telemetry_end_exit(struct guest_info * info, uint_t exit_code);
 
-void v3_print_telemetry(struct v3_vm_info * vm);
+void v3_print_global_telemetry(struct v3_vm_info * vm);
+void v3_print_core_telemetry(struct guest_info * vm);
 
 
 void v3_add_telemetry_cb(struct v3_vm_info * vm, 
