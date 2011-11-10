@@ -74,7 +74,7 @@ struct top_of_mem_reg {
 	uint8_t value;
 	struct {
 	    uint8_t rsvd1                    : 1;
-	    uint8_t isadma_reg_fwd_en        : 1;
+    uint8_t isadma_reg_fwd_en        : 1;
 	    uint8_t piix_rsvd                : 1;
 	    uint8_t isadma_lo_bios_fwd_en    : 1;
 	    uint8_t top_of_mem               : 4;
@@ -377,18 +377,27 @@ static int raise_pci_irq(struct pci_device * pci_dev, void * dev_data) {
     struct piix3_config_space * piix3_cfg = (struct piix3_config_space *)(piix3_pci->config_data);
     int intr_pin = pci_dev->config_header.intr_pin - 1;
     int irq_index = (intr_pin + pci_dev->dev_num - 1) & 0x3;
-    
-    //PrintError("Raising PCI IRQ %d, %p\n", piix3_cfg->pirq_rc[irq_index], piix3->vm);
-    
+
+    /*
+    PrintError("Raising PCI dev %d intr %d via IOAPIC as IRQ %d and via PIRQ as IRQ %d on VM %p\n", 
+	       pci_dev->dev_num, pci_dev->config_header.intr_pin, 
+	       16+irq_index,
+	       piix3_cfg->pirq_rc[irq_index], piix3->vm);
+    */
+
+    // deliver first by PIRQ, if it exists
+    //
     if (piix3_cfg->pirq_rc[irq_index] < 16) {
 	v3_raise_irq(piix3->vm, piix3_cfg->pirq_rc[irq_index] & 0xf);
     } else {
-	PrintError("Tried to raise interrupt on disabled PIRQ entry (%d)\n", irq_index);
-	PrintError("\tpirq_rc values: 0=0x%x, 1=0x%x, 2=0x%x, 3=0x%x\n", 
-		   piix3_cfg->pirq_rc[0], piix3_cfg->pirq_rc[1],
-		   piix3_cfg->pirq_rc[2], piix3_cfg->pirq_rc[3]);
-	return -1;
+      // not an error
     }
+
+    // deliver next via the PCI0 to ioapic mapping defined in the 
+    // mptable (ioapic, pins 16->19 are used for PCI0)
+    // ideally this would check to verify that an ioapic is actually available
+    v3_raise_irq(piix3->vm, 16+irq_index);
+    
 
     return 0;
 }
@@ -403,15 +412,15 @@ static int lower_pci_irq(struct pci_device * pci_dev, void * dev_data) {
     int irq_index = (intr_pin + pci_dev->dev_num - 1) & 0x3;
     
     //    PrintError("Lowering PCI IRQ %d\n", piix3_cfg->pirq_rc[irq_index]);
+
+    // First, lower the pin on the ioapic
+    v3_lower_irq(piix3->vm, irq_index+16);
     
+    // Next, lower whatever we asserted by the PIRQs
     if (piix3_cfg->pirq_rc[irq_index] < 16) {
 	v3_lower_irq(piix3->vm, piix3_cfg->pirq_rc[irq_index] & 0xf);
     } else {
-	PrintError("Tried to lower interrupt on disabled PIRQ entry (%d)\n", irq_index);
-	PrintError("\tpirq_rc values: 0=0x%x, 1=0x%x, 2=0x%x, 3=0x%x\n", 
-		   piix3_cfg->pirq_rc[0], piix3_cfg->pirq_rc[1],
-		   piix3_cfg->pirq_rc[2], piix3_cfg->pirq_rc[3]);
-	return -1;
+      // not an error
     }
 
     return 0;
