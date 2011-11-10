@@ -1432,7 +1432,7 @@ static int apic_write(struct guest_info * core, addr_t guest_addr, void * src, u
 	}
 	case INT_CMD_HI_OFFSET: {
 	    apic->int_cmd.hi = op_val;
-	    V3_Print("apic %u: core %u: writing command high=0x%x\n", apic->lapic_id.val, core->vcpu_id,apic->int_cmd.hi);
+	    //V3_Print("apic %u: core %u: writing command high=0x%x\n", apic->lapic_id.val, core->vcpu_id,apic->int_cmd.hi);
 
 	    break;
 	}
