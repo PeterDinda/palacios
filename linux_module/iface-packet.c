@@ -252,7 +252,11 @@ palacios_packet_connect(struct v3_packet * packet,
     
     iface = find_interface(host_nic);
     if(iface == NULL){
-	iface = (struct raw_interface *)kmalloc(sizeof(struct raw_interface), GFP_KERNEL);
+	iface = (struct raw_interface *)kmalloc(sizeof(struct raw_interface), GFP_ATOMIC);
+	if (!iface) { 
+	    printk("Palacios Packet Interface: Fails to allocate interface\n");
+	    return -1;
+	}
 	if(init_raw_interface(iface, host_nic) != 0) {
 	    printk("Palacios Packet Interface: Fails to initiate an raw interface on device %s\n", host_nic);
 	    kfree(iface);
