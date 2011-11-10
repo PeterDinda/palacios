@@ -1774,7 +1774,8 @@ static int connect_fn(struct v3_vm_info * info,
 
     ops->recv = rtl8139_rx;
     ops->poll = NULL;
-    memcpy(ops->config.fnt_mac, nic_state->mac, ETH_ALEN);
+    ops->config.frontend_data = nic_state;
+    ops->config.fnt_mac = nic_state->mac;
 
     return 0;
 }

@@ -30,7 +30,10 @@
 
   Currently, we set up n identical processors (based on
   number of cores in guest info), with apics 0..n-1, and
-  ioapic as n.
+  ioapic as n.  The ISA interrupt lines map to pins 0..15
+  of the first ioapic.  PCI bus lines map to pins 16..19
+  of the first ioapic.  The system supports virtual wire
+  compability mode and symmetric mode.   PIC mode is not supported. 
 
   The expectation is that the target will have 
   8 bytes (for ___HVMMP signature) followed by 896 bytes of space
@@ -72,6 +75,7 @@
 
 
 #define BUS_ISA "ISA   "
+#define BUS_PCI "PCI   "
 
 #define INT_TYPE_INT 0
 #define INT_TYPE_NMI 1
@@ -214,6 +218,7 @@ struct mp_table_local_interrupt_assignment {
 
 
 
+#define NUM_PCI_SLOTS 8
 
 
 static inline int check_for_cookie(void * target) {
@@ -275,6 +280,11 @@ static int write_pointer(void * target, uint32_t mptable_gpa) {
     p->pointer = mptable_gpa;
     p->length = 1;             // length in 16 byte chunks
     p->spec_rev = SPEC_REV;
+
+    // The remaining zeros indicate that an MP config table is present
+    // and that virtual wire mode is implemented (not PIC mode)
+    // Either virtual wire or PIC must be implemented in addition to
+    // symmetric I/O mode
     
     // checksum calculation
     p->checksum = 0;
@@ -292,7 +302,7 @@ static int write_pointer(void * target, uint32_t mptable_gpa) {
 
     
 
-static int write_mptable(void * target, uint32_t numcores) {
+static int write_mptable(void * target, uint32_t numcores, int have_ioapic, int have_pci) {
     uint32_t i = 0;
     uint8_t sum = 0;
     uint8_t core = 0;
@@ -315,12 +325,16 @@ static int write_mptable(void * target, uint32_t numcores) {
     memcpy(header->oem_id, OEM_ID, 8);
     memcpy(header->prod_id, PROD_ID, 12);
 
-    // n processors, 1 ioapic, 1 isa bus, 16 IRQs = 18+n
-    header->entry_count = numcores + 18;
+    // numcores entries for apics, one entry for ioapic (if it exists)
+    // one entry for isa bus (if ioapic exists), one entry for pci bus (if exists),
+    // 16 entries for isa irqs (if ioapic exists) + num_slots*num_intr pci irqs
+    // (if ioapic and pci exist)
+    header->entry_count = numcores + !!have_ioapic + !!have_ioapic + !!have_pci +
+      16*(!!have_ioapic) + NUM_PCI_SLOTS * 4 * (!!have_pci) * (!!have_ioapic);
+
     header->lapic_addr = LAPIC_ADDR;
     
     // now we arrange the processors;
-    
     for (core = 0; core < numcores; core++) { 
 	proc = (struct mp_table_processor *)cur;
 	memset((void *)proc, 0, sizeof(struct mp_table_processor));
@@ -343,58 +357,125 @@ static int write_mptable(void * target, uint32_t numcores) {
 	cur += sizeof(struct mp_table_processor);
     }
 
-    // next comes the ISA bas
+    // PCI bus is always zero
+    if (have_pci) { 
+      bus = (struct mp_table_bus *)cur;
+      cur += sizeof(struct mp_table_bus);
+      
+      memset((void *)bus, 0, sizeof(struct mp_table_bus));
+      bus->entry_type = ENTRY_BUS;
+      bus->bus_id = 0;
+      memcpy(bus->bus_type, BUS_PCI, 6);
+    }
+
+    // next comes the ISA bus  (bus one)
     bus = (struct mp_table_bus *)cur;
     cur += sizeof(struct mp_table_bus);
 
     memset((void *)bus, 0, sizeof(struct mp_table_bus));
     bus->entry_type = ENTRY_BUS;
-    bus->bus_id = 0;
+    bus->bus_id = 1;
     memcpy(bus->bus_type, BUS_ISA, 6);
 
+
     // next comes the IOAPIC
-    ioapic = (struct mp_table_ioapic *)cur;
-    cur += sizeof(struct mp_table_ioapic);
-    
-    memset((void *)ioapic, 0, sizeof(struct mp_table_ioapic));
-    ioapic->entry_type = ENTRY_IOAPIC;
-    ioapic->ioapic_id = numcores;
-    ioapic->ioapic_version = IOAPIC_VERSION;
-    ioapic->ioapic_flags.en = 1;
-    ioapic->ioapic_address = IOAPIC_ADDR;
+    if (have_ioapic) { 
+      ioapic = (struct mp_table_ioapic *)cur;
+      cur += sizeof(struct mp_table_ioapic);
+      
+      memset((void *)ioapic, 0, sizeof(struct mp_table_ioapic));
+      ioapic->entry_type = ENTRY_IOAPIC;
+      ioapic->ioapic_id = numcores;
+      ioapic->ioapic_version = IOAPIC_VERSION;
+      ioapic->ioapic_flags.en = 1;
+      ioapic->ioapic_address = IOAPIC_ADDR;
+    }
 
 
+    // LEGACY ISA IRQ mappings
     // The MPTABLE IRQ mappings are kind of odd. 
     // We don't include a bus IRQ 2, and instead remap Bus IRQ 0 to dest irq 2
-
-
-    for (irq = 0; irq < 16; irq++) { 
+    // The idea here is that the timer hooks to 2, while the PIC hooks
+    // to zero in ExtInt mode.  This makes it possible to do virtual wire
+    // mode via the ioapic.
+    //
+    // Note that the timer connects to pin 2 of the IOAPIC.  Sadly,
+    // the timer is unaware of this and just raises irq 0.  The ioapic
+    // transforms this to a pin 2 interrupt.   If we want the PIC
+    // to be able to channel interrupts via pin 0, we need a separate
+    // path. 
+    if (have_ioapic) {
+      for (irq = 0; irq < 16; irq++) { 
 	uint8_t dst_irq = irq;
-
+	
 	if (irq == 0) {
-	    dst_irq = 2;
+	  dst_irq = 2;
 	} else if (irq == 2) {
-	    continue;
+	  continue;
 	}
-
+	
 	interrupt = (struct mp_table_io_interrupt_assignment *)cur;
 	memset((void *)interrupt, 0, sizeof(struct mp_table_io_interrupt_assignment));
-
+	
 	interrupt->entry_type = ENTRY_IOINT;
 	interrupt->interrupt_type = INT_TYPE_INT;
 	interrupt->flags.po = INT_POLARITY_DEFAULT;
 	interrupt->flags.el = INT_TRIGGER_DEFAULT;
-	interrupt->source_bus_id = 0;
+	interrupt->source_bus_id = 1;
 	interrupt->source_bus_irq = irq;
 	interrupt->dest_ioapic_id = numcores;
 	interrupt->dest_ioapic_intn = dst_irq;
-
+	
 	cur += sizeof(struct mp_table_io_interrupt_assignment);
+      }
     }
+      
+    if (have_pci && have_ioapic)     {
+      // Interrupt redirection entries for PCI bus
+      // 
+      // We need an entry for each slot+pci interrupt
+      // There can be 32 slots, each of which can use 4 interrupts
+      // Thus there are 128 entries
+      //
+      // In this simple setup, we map
+      // slot i, intr j (both zero based)  to  pci_irq[(i+j)%4]
+      
+      int slot, intr;
+      static uint8_t pci_irq[4] = {16,17,18,19};
+      
+      for (slot=0;slot<NUM_PCI_SLOTS;slot++) { 
+	for (intr=0;intr<4;intr++) { 
+	  
+	  uint8_t dst_irq = pci_irq[(slot+intr)%4];
+	  
+	  interrupt = (struct mp_table_io_interrupt_assignment *)cur;
+	  memset((void *)interrupt, 0, sizeof(struct mp_table_io_interrupt_assignment));
 
+	  interrupt->entry_type = ENTRY_IOINT;
+	  interrupt->interrupt_type = INT_TYPE_INT;
+	  interrupt->flags.po = INT_POLARITY_DEFAULT;
+	  interrupt->flags.el = INT_TRIGGER_DEFAULT;
+	  interrupt->source_bus_id = 0;
+          // Yes, this is how you encode the slot and pin of a PCI device
+          // As we all know, bits are expensive
+          // We can have as many as 32 slots, but to get that large,
+          // we would need to tweak the bios's landing zone for the mptable
+	  interrupt->source_bus_irq = (slot<<2) | intr ;
+	  interrupt->dest_ioapic_id = numcores;
+	  interrupt->dest_ioapic_intn = dst_irq;
+	  
+	  cur += sizeof(struct mp_table_io_interrupt_assignment);
+	  
+	  //V3_Print("PCI0, slot %d, irq %d maps to irq %d\n",slot,intr,dst_irq);
+	}
+      }
+    }
+    
     // now we can set the length;
 
     header->base_table_length = (cur - (uint8_t *)header);
+
+    V3_Print("MPtable size: %u\n",header->base_table_length);
 
     // checksum calculation
     header->checksum = 0;
@@ -403,15 +484,54 @@ static int write_mptable(void * target, uint32_t numcores) {
 	sum += ((uint8_t *)target)[i];
     }
     header->checksum = (255 - sum) + 1;
-
-
 	
     return 0;
 }
 
+
+static v3_cfg_tree_t *find_first_peer_device_of_class(v3_cfg_tree_t *themptablenode, char *theclass)
+{
+  v3_cfg_tree_t *p=themptablenode->parent;
+  v3_cfg_tree_t *c;
+
+
+  if (p==NULL) { 
+    return NULL;
+  }
+
+  for (c=v3_xml_child(p,"device"); 
+       c && strcasecmp(v3_cfg_val(c,"class"),theclass); 
+       c=v3_xml_next(c)) {
+  }
+
+  return c;
+}
+
+  
+
+
 static int mptable_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     void * target = NULL;
 
+    int have_pci = find_first_peer_device_of_class(cfg,"pci")!=NULL;
+    int have_piix3 = find_first_peer_device_of_class(cfg,"piix3")!=NULL;
+    int have_apic = find_first_peer_device_of_class(cfg,"lapic")!=NULL;
+    int have_ioapic = find_first_peer_device_of_class(cfg,"ioapic")!=NULL;
+
+    if (!have_apic) { 
+      PrintError("Attempt to instantiate MPTABLE but machine has no apics!\n");
+      return -1;
+    }
+
+    if (!have_ioapic) { 
+      PrintError("Attempt to instantiate MPTABLE without ioapic - will try, but this won't end well\n");
+    }
+
+    if (have_pci && (!have_piix3 || !have_ioapic)) { 
+      PrintError("Attempt to instantiate MPTABLE with a PCI Bus, but without either a piix3 or an ioapic\n");
+      return -1;
+    }
+      
     if (v3_gpa_to_hva(&(vm->cores[0]), BIOS_MP_TABLE_DEFAULT_LOCATION, (addr_t *)&target) == -1) { 
 	PrintError("Cannot inject mptable due to unmapped bios!\n");
 	return -1;
@@ -439,7 +559,7 @@ static int mptable_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	return -1;
     }
 
-    if (write_mptable(target + sizeof(struct mp_floating_pointer), vm->num_cores) == -1) {
+    if (write_mptable(target + sizeof(struct mp_floating_pointer), vm->num_cores, have_ioapic, have_pci)) {
 	PrintError("Cannot inject mptable configuration header and entries\n");
 	return -1;
     }

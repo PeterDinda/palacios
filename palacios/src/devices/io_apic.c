@@ -267,6 +267,17 @@ static int ioapic_raise_irq(struct v3_vm_info * vm, void * private_data, int irq
     struct io_apic_state * ioapic = (struct io_apic_state *)(private_data);  
     struct redir_tbl_entry * irq_entry = NULL;
 
+    if (irq==0) { 
+      // IRQ 0 being raised, in the Palacios context, means the PIT
+      // However, the convention is that it is the PIC that is connected
+      // to PIN 0 of the IOAPIC and the PIT is connected to pin 2
+      // Hence we convert this to the relvant pin.  In the future,
+      // the PIC may signal to the IOAPIC in a different path.
+      // Yes, this is kind of hideous, but it is needed to have the
+      // PIT correctly show up via the IOAPIC
+      irq=2;
+    }
+
     if (irq > 24) {
 	PrintDebug("ioapic %u: IRQ out of range of IO APIC\n", ioapic->ioapic_id.id);
 	return -1;

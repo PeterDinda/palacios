@@ -1175,8 +1175,9 @@ static int connect_fn(struct v3_vm_info * info,
     nic_state->backend_data = private_data;	
 
     ops->recv = ne2k_rx;
-    ops->poll = NULL;
-    memcpy(ops->config.fnt_mac, nic_state->mac, ETH_ALEN);
+    ops->poll = NULL;   
+    ops->config.frontend_data = nic_state;
+    ops->config.fnt_mac = nic_state->mac;
 
     return 0;
 }

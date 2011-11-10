@@ -95,7 +95,7 @@ static int
 init_socket(struct raw_interface * iface, const char * eth_dev){
     int err;
     struct sockaddr_ll sock_addr;
-    struct ifreq if_req;
+    struct net_device * net_dev;
 
     err = sock_create(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL), &(iface->raw_sock)); 
     if (err < 0) {
@@ -103,14 +103,9 @@ init_socket(struct raw_interface * iface, const char * eth_dev){
 	return -1;
     }
 
-    memset(&if_req, 0, sizeof(if_req));
-    strncpy(if_req.ifr_name, eth_dev, sizeof(if_req.ifr_name));
-
-    err = iface->raw_sock->ops->ioctl(iface->raw_sock, SIOCGIFINDEX, (long)&if_req);
-    if (err < 0){
-	printk(KERN_WARNING "Palacios Packet: Unable to get index for device %s, error %d\n", 
-	       if_req.ifr_name, err);
-
+    net_dev = dev_get_by_name(&init_net, eth_dev);
+    if(net_dev == NULL) {
+	printk(KERN_WARNING "Palacios Packet: Unable to get index for device %s\n", eth_dev);
 	sock_release(iface->raw_sock);
 	return -1;
     }
@@ -118,7 +113,7 @@ init_socket(struct raw_interface * iface, const char * eth_dev){
     memset(&sock_addr, 0, sizeof(sock_addr));
     sock_addr.sll_family = PF_PACKET;
     sock_addr.sll_protocol = htons(ETH_P_ALL);
-    sock_addr.sll_ifindex = if_req.ifr_ifindex;
+    sock_addr.sll_ifindex = net_dev->ifindex;
 
     err = iface->raw_sock->ops->bind(iface->raw_sock, 
 				     (struct sockaddr *)&sock_addr, 
@@ -132,7 +127,7 @@ init_socket(struct raw_interface * iface, const char * eth_dev){
     }
 
     printk(KERN_INFO "Bind a palacios raw packet interface to device %s, device index %d\n",
-	   if_req.ifr_name, if_req.ifr_ifindex);
+	   eth_dev, net_dev->ifindex);
 
     return 0;
 }
