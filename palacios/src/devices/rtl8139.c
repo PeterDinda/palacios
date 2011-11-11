@@ -1713,7 +1713,7 @@ static int register_dev(struct rtl8139_state * nic_state)  {
     }
 
     bars[0].type = PCI_BAR_IO;
-    bars[0].default_base_port = 0xc100;
+    bars[0].default_base_port = -1;
     bars[0].num_ports = 0x100;
 
     bars[0].io_read = rtl8139_ioport_read;
