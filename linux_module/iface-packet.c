@@ -249,22 +249,24 @@ palacios_packet_connect(struct v3_packet * packet,
     unsigned long flags;
     
     spin_lock_irqsave(&(packet_state.lock), flags);
-    
     iface = find_interface(host_nic);
+    spin_unlock_irqrestore(&(packet_state.lock),flags);
+
     if(iface == NULL){
 	iface = (struct raw_interface *)kmalloc(sizeof(struct raw_interface), GFP_KERNEL);
+	if (!iface) { 
+	    printk("Palacios Packet Interface: Fails to allocate interface\n");
+	    return -1;
+	}
 	if(init_raw_interface(iface, host_nic) != 0) {
 	    printk("Palacios Packet Interface: Fails to initiate an raw interface on device %s\n", host_nic);
 	    kfree(iface);
-	    spin_unlock_irqrestore(&(packet_state.lock), flags);
-	    
 	    return -1;
 	}
-	
+	spin_lock_irqsave(&(packet_state.lock), flags);	
 	list_add(&(iface->node), &(packet_state.open_interfaces));
+	spin_unlock_irqrestore(&(packet_state.lock),flags);
     }
-    
-    spin_unlock_irqrestore(&(packet_state.lock), flags);
     
     packet->host_packet_data = iface;
     
