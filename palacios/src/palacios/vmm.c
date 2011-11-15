@@ -317,6 +317,7 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
 	PrintDebug("run: core=%u, func=0x%p, arg=0x%p, name=%s\n",
 		   core_idx, start_core, core, core->exec_name);
 
+	core->core_run_state = CORE_STOPPED;  // core zero will turn itself on
 	core->pcpu_id = core_idx;
 	core->core_thread = V3_CREATE_THREAD_ON_CPU(core_idx, start_core, core, core->exec_name);
 
