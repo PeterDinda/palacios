@@ -109,7 +109,7 @@ uintptr_t alloc_palacios_pgs(u64 num_pages, u32 alignment) {
     
 	WARN(!pgs, "Could not allocate pages\n");
  
-        /* if (!pgs) { printk("PALACIOS BAD: SMALL PAGE ALLOCATION FAILED\n"); A */}
+        /* if (!pgs) { printk("PALACIOS BAD: SMALL PAGE ALLOCATION FAILED\n");  } */
        
 	/* printk("%llu pages (order=%d) aquired from alloc_pages\n", 
 	       num_pages, order); */
