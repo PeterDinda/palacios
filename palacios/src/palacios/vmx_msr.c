@@ -51,6 +51,12 @@ static int update_map(struct v3_vm_info * vm, uint_t msr, int hook_reads, int ho
     uint8_t write_val = (hook_writes) ? 0x1 : 0x0;
     uint8_t * bitmap = (uint8_t *)(vm->msr_map.arch_data);
 
+    if (index == -1) {
+	//	0rintError("Error updating MSR Map failed bitmap index for (0x%x)\n", msr);
+	// MSRs not in the bitmap covered range will always trigger exits, so we don't need to worry about them here.
+	return 0;
+    }
+
     *(bitmap + major) &= ~(mask << minor);
     *(bitmap + major) |= (read_val << minor);
 

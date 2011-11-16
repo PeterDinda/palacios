@@ -1115,7 +1115,7 @@ static int register_dev(struct ne2k_state * nic_state)
 	}
 
 	bars[0].type = PCI_BAR_IO;
-	bars[0].default_base_port = NIC_REG_BASE_PORT;
+	bars[0].default_base_port = -1;
 	bars[0].num_ports = 256;
 
 	bars[0].io_read = ne2k_pci_read;

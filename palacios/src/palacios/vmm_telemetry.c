@@ -204,8 +204,7 @@ void v3_telemetry_end_exit(struct guest_info * info, uint_t exit_code) {
 
     // check if the exit count has expired
     if ((telemetry->exit_cnt % telemetry->vm_telem->granularity) == 0) {
-	v3_print_global_telemetry(info->vm_info);
-	v3_print_core_telemetry(info);
+	v3_print_telemetry(info->vm_info, info);
     }
 }
 
@@ -234,10 +233,31 @@ static int free_callback(struct v3_vm_info * vm, struct telemetry_cb * cb) {
 }
 
 
-void v3_print_core_telemetry(struct guest_info * core ) {
+static void telemetry_header(struct v3_vm_info *vm, char *hdr_buf, int len)
+{
+    struct v3_telemetry_state * telemetry = &(vm->telemetry);
+    snprintf(hdr_buf, len, "telem.%d>", telemetry->invoke_cnt);
+}
+
+static void print_telemetry_start(struct v3_vm_info *vm, char *hdr_buf)
+{
+    struct v3_telemetry_state * telemetry = &(vm->telemetry);
+    uint64_t invoke_tsc = 0;
+    rdtscll(invoke_tsc);
+    V3_Print("%stelemetry window tsc cnt: %d\n", hdr_buf, (uint32_t)(invoke_tsc - telemetry->prev_tsc));
+    telemetry->prev_tsc = invoke_tsc;
+}
+
+static void print_telemetry_end(struct v3_vm_info *vm, char *hdr_buf)
+{
+    V3_Print("%s Telemetry done\n", hdr_buf);
+}
+
+static void print_core_telemetry(struct guest_info * core, char *hdr_buf)
+{
     struct exit_event * evt = NULL;
     struct rb_node * node = v3_rb_first(&(core->core_telem.exit_root));
-    
+
     V3_Print("Exit information for Core %d\n", core->vcpu_id);
     
     if (!node) { 
@@ -249,8 +269,8 @@ void v3_print_core_telemetry(struct guest_info * core ) {
 	 evt = rb_entry(node, struct exit_event, tree_node);
 	 const char * code_str = vmexit_code_to_str(evt->exit_code);
 	    
-	 V3_Print("%s:%sCnt=%u,%sAvg. Time=%u\n", 
-		  code_str,
+	 V3_Print("%s%s:%sCnt=%u,%sAvg. Time=%u\n", 
+		  hdr_buf, code_str,
 		  (strlen(code_str) > 13) ? "\t" : "\t\t",
 		  evt->cnt,
 		  (evt->cnt >= 100) ? "\t" : "\t\t",
@@ -259,17 +279,24 @@ void v3_print_core_telemetry(struct guest_info * core ) {
     return;
 }
 
-void v3_print_global_telemetry(struct v3_vm_info * vm) {
+void v3_print_core_telemetry(struct guest_info * core ) {
+    struct v3_vm_info *vm = core->vm_info;
     struct v3_telemetry_state * telemetry = &(vm->telemetry);
-    uint64_t invoke_tsc = 0;
     char hdr_buf[32];
+    
+    telemetry_header(vm, hdr_buf, 32);
+    telemetry->invoke_cnt++; // XXX this increment isn't atomic and probably should be
 
-    rdtscll(invoke_tsc);
+    print_telemetry_start(vm, hdr_buf);
+    print_core_telemetry(core, hdr_buf);
+    print_telemetry_end(vm, hdr_buf);
 
-    snprintf(hdr_buf, 32, "telem.%d>", telemetry->invoke_cnt++);
+    return;
+}
 
-    V3_Print("%stelemetry window tsc cnt: %d\n", hdr_buf, (uint32_t)(invoke_tsc - telemetry->prev_tsc));
-
+static void telemetry_callbacks(struct v3_vm_info * vm, char *hdr_buf)
+{
+    struct v3_telemetry_state * telemetry = &(vm->telemetry);
     // Registered callbacks
     {
 	struct telemetry_cb * cb = NULL;
@@ -278,8 +305,32 @@ void v3_print_global_telemetry(struct v3_vm_info * vm) {
 	    cb->telemetry_fn(vm, cb->private_data, hdr_buf);
 	}
     }
+}
 
-    telemetry->prev_tsc = invoke_tsc;
+void v3_print_global_telemetry(struct v3_vm_info * vm) {
+    struct v3_telemetry_state * telemetry = &(vm->telemetry);
+    char hdr_buf[32];
 
-    V3_Print("%s Telemetry done\n", hdr_buf);
+    telemetry_header(vm, hdr_buf, 32);
+    telemetry->invoke_cnt++; // XXX this increment isn't atomic and probably should be
+
+    print_telemetry_start( vm, hdr_buf );
+    telemetry_callbacks( vm, hdr_buf );
+    print_telemetry_end( vm, hdr_buf );
+}
+
+void v3_print_telemetry(struct v3_vm_info * vm, struct guest_info * core )
+{
+    struct v3_telemetry_state * telemetry = &(vm->telemetry);
+    char hdr_buf[32];
+    
+    telemetry_header(vm, hdr_buf, 32);
+    telemetry->invoke_cnt++; // XXX this increment isn't atomic and probably should be
+
+    print_telemetry_start(vm, hdr_buf);
+    print_core_telemetry(core, hdr_buf);
+    telemetry_callbacks(vm, hdr_buf);
+    print_telemetry_end(vm, hdr_buf);
+
+    return;
 }

@@ -128,7 +128,7 @@ static int palacios_file_mkdir(const char * pathname, unsigned short perms, int 
 	struct nameidata nd;
 
 	// I'm not 100% sure about the version here, but it was around this time that the API changed
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,35) 
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,37) 
 	ret = kern_path_parent(pathname, &nd);
 #else 
 
