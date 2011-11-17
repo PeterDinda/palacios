@@ -188,6 +188,9 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
     vmx_ret |= check_vmcs_write(VMCS_CR4_MASK, CR4_VMXE | CR4_PAE);
 
 
+    // Setup Guests initial PAT field
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_PAT, 0x0007040600070406LL);
+
     /* Setup paging */
     if (core->shdw_pg_mode == SHADOW_PAGING) {
         PrintDebug("Creating initial shadow page table\n");
@@ -261,8 +264,9 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 	core->rip = 0xfff0;
 	core->vm_regs.rdx = 0x00000f00;
 	core->ctrl_regs.rflags = 0x00000002; // The reserved bit is always 1
-	core->ctrl_regs.cr0 = 0x60010010; // Set the WP flag so the memory hooks work in real-mode
-
+	core->ctrl_regs.cr0 = 0x00000030; 
+	core->ctrl_regs.cr4 = 0x00002010; // Enable VMX and PSE flag
+	
 
 	core->segments.cs.selector = 0xf000;
 	core->segments.cs.limit = 0xffff;
@@ -307,7 +311,7 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 	core->segments.ldtr.selector = 0x0000;
 	core->segments.ldtr.limit = 0x0000ffff;
 	core->segments.ldtr.base = 0x0000000000000000LL;
-	core->segments.ldtr.type = 2;
+	core->segments.ldtr.type = 0x2;
 	core->segments.ldtr.present = 1;
 
 	core->segments.tr.selector = 0x0000;
