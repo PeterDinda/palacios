@@ -730,6 +730,9 @@ static int update_irq_entry_state(struct guest_info * info) {
 
 
 static struct vmx_exit_info exit_log[10];
+static uint64_t rip_log[10];
+
+
 
 static void print_exit_log(struct guest_info * info) {
     int cnt = info->num_exits % 10;
@@ -746,6 +749,9 @@ static void print_exit_log(struct guest_info * info) {
 	V3_Print("\tint_info = %p\n", (void *)(addr_t)tmp->int_info);
 	V3_Print("\tint_err = %p\n", (void *)(addr_t)tmp->int_err);
 	V3_Print("\tinstr_info = %p\n", (void *)(addr_t)tmp->instr_info);
+	V3_Print("\tguest_linear_addr= %p\n", (void *)(addr_t)tmp->guest_linear_addr);
+	V3_Print("\tRIP = %p\n", (void *)rip_log[cnt]);
+
 
 	cnt--;
 
@@ -924,6 +930,7 @@ int v3_vmx_enter(struct guest_info * info) {
     //PrintDebug("VMX Exit taken, id-qual: %u-%lu\n", exit_info.exit_reason, exit_info.exit_qual);
 
     exit_log[info->num_exits % 10] = exit_info;
+    rip_log[info->num_exits % 10] = get_addr_linear(info, info->rip, &(info->segments.cs));
 
 #ifdef V3_CONFIG_SYMCALL
     if (info->sym_core_state.symcall_state.sym_call_active == 0) {
