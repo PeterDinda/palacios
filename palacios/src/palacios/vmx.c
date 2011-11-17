@@ -349,12 +349,10 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
     
     // save STAR, LSTAR, FMASK, KERNEL_GS_BASE MSRs in MSR load/store area
     {
-	int msr_ret = 0;
 
-	struct vmcs_msr_entry * exit_store_msrs = NULL;
-	struct vmcs_msr_entry * exit_load_msrs = NULL;
-	struct vmcs_msr_entry * entry_load_msrs = NULL;;
+	struct vmcs_msr_save_area * msr_entries = NULL;
 	int max_msrs = (hw_info.misc_info.max_msr_cache_size + 1) * 4;
+	int msr_ret = 0;
 
 	V3_Print("Setting up MSR load/store areas (max_msr_count=%d)\n", max_msrs);
 
@@ -363,58 +361,60 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 	    return -1;
 	}
 
-	vmx_state->msr_area = V3_VAddr(V3_AllocPages(1));
-
-	if (vmx_state->msr_area == NULL) {
+	vmx_state->msr_area_paddr = (addr_t)V3_AllocPages(1);
+	
+	if (vmx_state->msr_area_paddr == (addr_t)NULL) {
 	    PrintError("could not allocate msr load/store area\n");
 	    return -1;
 	}
 
+	msr_entries = (struct vmcs_msr_save_area *)V3_VAddr((void *)(vmx_state->msr_area_paddr));
+	vmx_state->msr_area = msr_entries; // cache in vmx_info
+
+	memset(msr_entries, 0, PAGE_SIZE);
+
+	msr_entries->guest_star.index = IA32_STAR_MSR;
+	msr_entries->guest_lstar.index = IA32_LSTAR_MSR;
+	msr_entries->guest_fmask.index = IA32_FMASK_MSR;
+	msr_entries->guest_kern_gs.index = IA32_KERN_GS_BASE_MSR;
+
+	msr_entries->host_star.index = IA32_STAR_MSR;
+	msr_entries->host_lstar.index = IA32_LSTAR_MSR;
+	msr_entries->host_fmask.index = IA32_FMASK_MSR;
+	msr_entries->host_kern_gs.index = IA32_KERN_GS_BASE_MSR;
+
 	msr_ret |= check_vmcs_write(VMCS_EXIT_MSR_STORE_CNT, 4);
 	msr_ret |= check_vmcs_write(VMCS_EXIT_MSR_LOAD_CNT, 4);
 	msr_ret |= check_vmcs_write(VMCS_ENTRY_MSR_LOAD_CNT, 4);
-	
-	
-	exit_store_msrs = (struct vmcs_msr_entry *)(vmx_state->msr_area);
-	exit_load_msrs = (struct vmcs_msr_entry *)(vmx_state->msr_area + (sizeof(struct vmcs_msr_entry) * 4));
-	entry_load_msrs = (struct vmcs_msr_entry *)(vmx_state->msr_area + (sizeof(struct vmcs_msr_entry) * 8));
+
+	msr_ret |= check_vmcs_write(VMCS_EXIT_MSR_STORE_ADDR, (addr_t)V3_PAddr(msr_entries->guest_msrs));
+	msr_ret |= check_vmcs_write(VMCS_ENTRY_MSR_LOAD_ADDR, (addr_t)V3_PAddr(msr_entries->guest_msrs));
+	msr_ret |= check_vmcs_write(VMCS_EXIT_MSR_LOAD_ADDR, (addr_t)V3_PAddr(msr_entries->host_msrs));
 
 
-	exit_store_msrs[0].index = IA32_STAR_MSR;
-	exit_store_msrs[1].index = IA32_LSTAR_MSR;
-	exit_store_msrs[2].index = IA32_FMASK_MSR;
-	exit_store_msrs[3].index = IA32_KERN_GS_BASE_MSR;
-	
-	memcpy(exit_store_msrs, exit_load_msrs, sizeof(struct vmcs_msr_entry) * 4);
-	memcpy(exit_store_msrs, entry_load_msrs, sizeof(struct vmcs_msr_entry) * 4);
-
-	
-	v3_get_msr(IA32_STAR_MSR, &(exit_load_msrs[0].hi), &(exit_load_msrs[0].lo));
-	v3_get_msr(IA32_LSTAR_MSR, &(exit_load_msrs[1].hi), &(exit_load_msrs[1].lo));
-	v3_get_msr(IA32_FMASK_MSR, &(exit_load_msrs[2].hi), &(exit_load_msrs[2].lo));
-	v3_get_msr(IA32_KERN_GS_BASE_MSR, &(exit_load_msrs[3].hi), &(exit_load_msrs[3].lo));
-
-	msr_ret |= check_vmcs_write(VMCS_EXIT_MSR_STORE_ADDR, (addr_t)V3_PAddr(exit_store_msrs));
-	msr_ret |= check_vmcs_write(VMCS_EXIT_MSR_LOAD_ADDR, (addr_t)V3_PAddr(exit_load_msrs));
-	msr_ret |= check_vmcs_write(VMCS_ENTRY_MSR_LOAD_ADDR, (addr_t)V3_PAddr(entry_load_msrs));
+	msr_ret |= v3_hook_msr(core->vm_info, IA32_STAR_MSR, NULL, NULL, NULL);
+	msr_ret |= v3_hook_msr(core->vm_info, IA32_LSTAR_MSR, NULL, NULL, NULL);
+	msr_ret |= v3_hook_msr(core->vm_info, IA32_FMASK_MSR, NULL, NULL, NULL);
+	msr_ret |= v3_hook_msr(core->vm_info, IA32_KERN_GS_BASE_MSR, NULL, NULL, NULL);
 
 
-	v3_hook_msr(core->vm_info, IA32_STAR_MSR, NULL, NULL, NULL);
-	v3_hook_msr(core->vm_info, IA32_LSTAR_MSR, NULL, NULL, NULL);
-	v3_hook_msr(core->vm_info, IA32_FMASK_MSR, NULL, NULL, NULL);
-	v3_hook_msr(core->vm_info, IA32_KERN_GS_BASE_MSR, NULL, NULL, NULL);
+	// IMPORTANT: These MSRs appear to be cached by the hardware....
+	msr_ret |= v3_hook_msr(core->vm_info, SYSENTER_CS_MSR, NULL, NULL, NULL);
+	msr_ret |= v3_hook_msr(core->vm_info, SYSENTER_ESP_MSR, NULL, NULL, NULL);
+	msr_ret |= v3_hook_msr(core->vm_info, SYSENTER_EIP_MSR, NULL, NULL, NULL);
+
+	msr_ret |= v3_hook_msr(core->vm_info, FS_BASE_MSR, NULL, NULL, NULL);
+	msr_ret |= v3_hook_msr(core->vm_info, GS_BASE_MSR, NULL, NULL, NULL);
 
 
-	// IMPORTANT: These SYSCALL MSRs are currently not handled by hardware or cached
-	// We should really emulate these ourselves, or ideally include them in the MSR store area if there is room
-	v3_hook_msr(core->vm_info, IA32_CSTAR_MSR, NULL, NULL, NULL);
-	v3_hook_msr(core->vm_info, SYSENTER_CS_MSR, NULL, NULL, NULL);
-	v3_hook_msr(core->vm_info, SYSENTER_ESP_MSR, NULL, NULL, NULL);
-	v3_hook_msr(core->vm_info, SYSENTER_EIP_MSR, NULL, NULL, NULL);
-	
-	v3_hook_msr(core->vm_info, FS_BASE_MSR, NULL, NULL, NULL);
-	v3_hook_msr(core->vm_info, GS_BASE_MSR, NULL, NULL, NULL);
-	
+	// Not sure what to do about this... Does not appear to be an explicit hardware cache version...
+	msr_ret |= v3_hook_msr(core->vm_info, IA32_CSTAR_MSR, NULL, NULL, NULL);
+
+	if (msr_ret != 0) {
+	    PrintError("Error configuring MSR save/restore area\n");
+	    return -1;
+	}
+
 
     }    
 
@@ -451,10 +451,12 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
         return -1;
     }
     
+    /*
     if (v3_update_vmcs_host_state(core)) {
         PrintError("Could not write host state\n");
         return -1;
     }
+    */
 
     // reenable global interrupts for vm state initialization now
     // that the vm state is initialized. If another VM kicks us off, 
