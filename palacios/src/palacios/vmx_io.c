@@ -33,7 +33,7 @@
 
 /* Same as SVM */
 static int update_map(struct v3_vm_info * vm, uint16_t port, int hook_read, int hook_write) {
-    uchar_t * bitmap = (uint8_t *)(vm->io_map.arch_data);
+    uint8_t * bitmap = (uint8_t *)(vm->io_map.arch_data);
     int major = port / 8;
     int minor = port % 8;
 
@@ -99,7 +99,7 @@ int v3_handle_vmx_io_ins(struct guest_info * core, struct vmx_exit_info * exit_i
     addr_t guest_va = exit_info->guest_linear_addr;
     addr_t host_addr = 0;
     int rdi_change = 0;
-    ulong_t rep_num = 1;
+    uint32_t rep_num = 1;
     struct rflags * flags = (struct rflags *)&(core->ctrl_regs.rflags);
 
     hook = v3_get_io_hook(core->vm_info, io_qual.port);
@@ -206,7 +206,7 @@ int v3_handle_vmx_io_outs(struct guest_info * core, struct vmx_exit_info * exit_
     addr_t guest_va = exit_info->guest_linear_addr;
     addr_t host_addr;
     int rsi_change;
-    ulong_t rep_num = 1;
+    uint32_t rep_num = 1;
     struct rflags * flags = (struct rflags *)&(core->ctrl_regs.rflags);
 
     hook = v3_get_io_hook(core->vm_info, io_qual.port);
