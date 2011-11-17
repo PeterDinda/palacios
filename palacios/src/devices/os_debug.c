@@ -26,6 +26,7 @@
 #define BUF_SIZE 1024
 
 #define DEBUG_PORT1 0xc0c0
+#define HEARTBEAT_PORT 0x99
 
 struct debug_state {
     char debug_buf[BUF_SIZE];
@@ -44,6 +45,22 @@ static int handle_gen_write(struct guest_info * core, ushort_t port, void * src,
 	memset(state->debug_buf, 0, BUF_SIZE);
 	state->debug_offset = 0;
     }
+
+    return length;
+}
+
+static int handle_hb_write(struct guest_info * core, ushort_t port, void * src, uint_t length, void * priv_data) {
+    uint32_t val = 0;
+
+    if (length == 1) {
+	val = *(uint8_t *)src;
+    } else if (length == 2) {
+	val = *(uint16_t *)src;
+    } else {
+	val = *(uint32_t *)src;
+    }
+
+    V3_Print("HEARTBEAT> %x (%d)\n", val, val);
 
     return length;
 }
@@ -142,6 +159,13 @@ static int debug_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     if (v3_dev_hook_io(dev, DEBUG_PORT1,  NULL, &handle_gen_write) == -1) {
 	PrintError("Error hooking OS debug IO port\n");
+	v3_remove_device(dev);
+	return -1;
+    }
+
+
+    if (v3_dev_hook_io(dev, HEARTBEAT_PORT, NULL, &handle_hb_write) == -1) {
+	PrintError("error hooking OS heartbeat port\n");
 	v3_remove_device(dev);
 	return -1;
     }
