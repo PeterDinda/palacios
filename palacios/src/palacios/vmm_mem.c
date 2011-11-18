@@ -72,6 +72,10 @@ int v3_init_mem_map(struct v3_vm_info * vm) {
     map->base_region.host_addr = (addr_t)V3_AllocPages(mem_pages);
 #endif
 
+    // Clear the memory...
+    memset(V3_VAddr((void *)map->base_region.host_addr), 0, mem_pages * PAGE_SIZE_4KB);
+
+
     map->base_region.flags.read = 1;
     map->base_region.flags.write = 1;
     map->base_region.flags.exec = 1;
