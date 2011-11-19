@@ -106,7 +106,7 @@ static int mkdir_recursive(const char * path, unsigned short perms) {
 static int palacios_file_mkdir(const char * pathname, unsigned short perms, int recurse) {
     /* Welcome to the jungle... */
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,1,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,41)
     /* DO NOT REFERENCE THIS VARIABLE */
     /* It only exists to provide version compatibility */
     struct path tmp_path; 
@@ -123,7 +123,7 @@ static int palacios_file_mkdir(const char * pathname, unsigned short perms, int 
     } 
 
     /* Before Linux 3.1 this was somewhat more difficult */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,1,0)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,41)
     {
 	struct nameidata nd;
 
