@@ -656,17 +656,17 @@ static void delete_link(struct vnet_link_iter * link){
 
 
 static void deinit_links_list(void){
-    struct vnet_link_iter * link;
+    struct vnet_link_iter * link, * tmp_link;
 
-    list_for_each_entry(link, &(vnet_ctrl_s.link_iter_list), node) {
+    list_for_each_entry_safe(link, tmp_link, &(vnet_ctrl_s.link_iter_list), node) {
      	delete_link(link);
     }
 }
 
 static void deinit_routes_list(void){
-   struct vnet_route_iter * route;
+   struct vnet_route_iter * route, * tmp_route;
 
-   list_for_each_entry(route, &(vnet_ctrl_s.route_list), node) {
+   list_for_each_entry_safe(route, tmp_route, &(vnet_ctrl_s.route_list), node) {
    	delete_route(route);
    }
 }

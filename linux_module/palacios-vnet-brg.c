@@ -118,9 +118,9 @@ void vnet_brg_delete_link(uint32_t idx){
 }
 
 static void deinit_links_list(void){
-    struct vnet_link * link;
+    struct vnet_link * link, * tmp_link;
 
-    list_for_each_entry(link, &(vnet_brg_s.link_list), node) {
+    list_for_each_entry_safe(link, tmp_link, &(vnet_brg_s.link_list), node) {
      	_delete_link(link);
     }
 }

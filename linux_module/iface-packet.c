@@ -215,13 +215,13 @@ init_raw_interface(struct raw_interface * iface, const char * eth_dev){
 
 static void inline 
 deinit_raw_interface(struct raw_interface * iface){
-    struct v3_packet * recver_state;
+    struct v3_packet * recver_state, * tmp_state;
 
     kthread_stop(iface->recv_thread);
     sock_release(iface->raw_sock);
     palacios_free_htable(iface->mac_to_recver,  0,  0);
     
-    list_for_each_entry(recver_state, &(iface->brdcast_recvers), node) {
+    list_for_each_entry_safe(recver_state, tmp_state, &(iface->brdcast_recvers), node) {
 	kfree(recver_state);
     }
 }
@@ -351,9 +351,9 @@ static int packet_init( void ) {
 }
 
 static int packet_deinit( void ) {
-    struct raw_interface * iface;
+    struct raw_interface * iface, * tmp;
     
-    list_for_each_entry(iface, &(packet_state.open_interfaces), node) {
+    list_for_each_entry_safe(iface, tmp, &(packet_state.open_interfaces), node) {
 	deinit_raw_interface(iface);
 	kfree(iface);
     }

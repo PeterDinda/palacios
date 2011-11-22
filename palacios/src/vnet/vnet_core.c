@@ -213,10 +213,9 @@ static struct vnet_dev * dev_by_id(int idx) {
     struct vnet_dev * dev = NULL; 
 
     list_for_each_entry(dev, &(vnet_state.devs), node) {
-	int dev_id = dev->dev_id;
-
-	if (dev_id == idx)
+	if (dev->dev_id == idx) {
 	    return dev;
+	}
     }
 
     return NULL;
@@ -322,12 +321,12 @@ void v3_vnet_del_route(uint32_t route_idx){
 
 /* delete all route entries with specfied src or dst device id */ 
 static void inline del_routes_by_dev(int dev_id){
-    struct vnet_route_info * route = NULL;
+    struct vnet_route_info * route, *tmp_route;
     unsigned long flags; 
 
     flags = vnet_lock_irqsave(vnet_state.lock);
 
-    list_for_each_entry(route, &(vnet_state.routes), node) {
+    list_for_each_entry_safe(route, tmp_route, &(vnet_state.routes), node) {
 	if((route->route_def.dst_type == LINK_INTERFACE &&
 	     route->route_def.dst_id == dev_id) ||
 	     (route->route_def.src_type == LINK_INTERFACE &&
@@ -631,18 +630,18 @@ int v3_vnet_stat(struct vnet_stat * stats){
 }
 
 static void deinit_devices_list(){
-    struct vnet_dev * dev = NULL; 
+    struct vnet_dev * dev, * tmp; 
 
-    list_for_each_entry(dev, &(vnet_state.devs), node) {
+    list_for_each_entry_safe(dev, tmp, &(vnet_state.devs), node) {
 	list_del(&(dev->node));
 	Vnet_Free(dev);
     }
 }
 
 static void deinit_routes_list(){
-    struct vnet_route_info * route = NULL; 
+    struct vnet_route_info * route, * tmp; 
 
-    list_for_each_entry(route, &(vnet_state.routes), node) {
+    list_for_each_entry_safe(route, tmp, &(vnet_state.routes), node) {
 	list_del(&(route->node));
 	list_del(&(route->match_node));
 	Vnet_Free(route);
