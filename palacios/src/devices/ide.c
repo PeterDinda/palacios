@@ -737,8 +737,8 @@ static int write_dma_port(struct guest_info * core, ushort_t port, void * src, u
 	    break;
 	}
 	default:
-	    PrintError("IDE: Invalid DMA Port (%s)\n", dma_port_to_str(port_offset));
-	    return -1;
+	    PrintError("IDE: Invalid DMA Port (%d) (%s)\n", port, dma_port_to_str(port_offset));
+	    break;
     }
 
     return length;
@@ -787,8 +787,8 @@ static int read_dma_port(struct guest_info * core, ushort_t port, void * dst, ui
 	    break;
 	}
 	default:
-	    PrintError("IDE: Invalid DMA Port (%s)\n", dma_port_to_str(port_offset));
-	    return -1;
+	    PrintError("IDE: Invalid DMA Port (%d) (%s)\n", port, dma_port_to_str(port_offset));
+	    break;
     }
 
     PrintDebug("\tval=%x (len=%d)\n", *(uint32_t *)dst, length);
