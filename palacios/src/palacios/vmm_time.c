@@ -58,7 +58,7 @@
  * (1) Add support for temporarily skewing guest time off of where it should
  *     be to support slack simulation of guests. The idea is that simulators
  *     set this skew to be the difference between how much time passed for a 
- *     simulated feature and a real implementation of that feature, making 
+ *     simulated feature and a real implementation of that feature, making time
  *     pass at a different rate from real time on this core. The VMM will then
  *     attempt to move this skew back towards 0 subject to resolution/accuracy
  *     constraints from various system timers.
@@ -66,6 +66,12 @@
  *     The main effort in doing this will be to get accuracy/resolution 
  *     information from each local timer and to use this to bound how much skew
  *     is removed on each exit.
+ *
+ * (2) Look more into sychronizing the offsets *across* virtual and physical 
+ *     cores so that multicore guests stay mostly in sync.
+ *
+ * (3) Look into using the AMD TSC multiplier feature and adding explicit time
+ *     dilation support to time handling.
  */
 
 
