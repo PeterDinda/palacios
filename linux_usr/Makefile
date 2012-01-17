@@ -20,8 +20,8 @@ v3_mem : v3_mem.c v3_ctrl.h
 	gcc -static v3_mem.c -o v3_mem 
 
 v3_cons : v3_cons.c v3_cons_sc.c v3_ctrl.h
-	gcc  -static v3_cons.c -o v3_cons -lcurses
-	gcc  -static v3_cons_sc.c -o v3_cons_sc -lcurses
+	gcc  -static -DNCURSES_STATIC v3_cons.c -o v3_cons -lcurses
+	gcc  -static -DNCURSES_STATIC v3_cons_sc.c -o v3_cons_sc -lcurses
 
 v3_stream : v3_stream.c v3_ctrl.h
 	gcc -static v3_stream.c -o v3_stream 
