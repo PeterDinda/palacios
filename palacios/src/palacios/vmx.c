@@ -757,6 +757,34 @@ static void print_exit_log(struct guest_info * info) {
 
 }
 
+int
+v3_vmx_schedule_timeout(struct guest_info * info)
+{
+    struct vmx_data * vmx_state = (struct vmx_data *)(info->vmm_data);
+    sint64_t cycles;
+    uint32_t timeout;
+
+    /* Check if the hardware supports an active timeout */
+#define VMX_ACTIVE_PREEMPT_TIMER_PIN 0x40
+    if (hw_info.pin_ctrls.req_mask & VMX_ACTIVE_PREEMPT_TIMER_PIN) {
+	return 0;
+    }
+
+    /* Check if we have one to schedule */
+    cycles = (sint64_t)info->time_state.next_timeout - (sint64_t)v3_get_guest_time(&info->time_state);
+    if ((info->time_state.next_timeout == (ullong_t) -1) || (cycles < 0)) {
+        vmx_state->pin_ctrls.active_preempt_timer = 0;
+    } else {
+        /* The hardware supports scheduling a timeout, and we have one to 
+         * schedule */
+        timeout = (uint32_t)cycles >> hw_info.misc_info.tsc_multiple;
+        vmx_state->pin_ctrls.active_preempt_timer = 1;
+        check_vmcs_write(VMCS_PREEMPT_TIMER, timeout);
+    }
+    check_vmcs_write(VMCS_PIN_CTRLS, vmx_state->pin_ctrls.value);
+    return 0;
+}
+
 /* 
  * CAUTION and DANGER!!! 
  * 
@@ -777,11 +805,16 @@ int v3_vmx_enter(struct guest_info * info) {
     // Perform any additional yielding needed for time adjustment
     v3_adjust_time(info);
 
+    // Check for timeout - since this calls generic hooks in devices
+    // that may do things like pause the VM, it cannot be with interrupts
+    // disabled.
+    v3_check_timeout(info);
+
     // disable global interrupts for vm state transition
     v3_disable_ints();
 
     // Update timer devices late after being in the VM so that as much 
-    // of hte time in the VM is accounted for as possible. Also do it before
+    // of the time in the VM is accounted for as possible. Also do it before
     // updating IRQ entry state so that any interrupts the timers raise get 
     // handled on the next VM entry. Must be done with interrupts disabled.
     v3_update_timers(info);
@@ -808,6 +841,10 @@ int v3_vmx_enter(struct guest_info * info) {
 	vmcs_read(VMCS_GUEST_CR3, &guest_cr3);
 	vmcs_write(VMCS_GUEST_CR3, guest_cr3);
     }
+
+    // Update vmx active preemption timer to exit at the next timeout if 
+    // the hardware supports it.
+    v3_vmx_schedule_timeout(info);
 
     // Perform last-minute time bookkeeping prior to entering the VM
     v3_time_enter_vm(info);
