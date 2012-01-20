@@ -380,8 +380,8 @@ static int host_dev_ioctl(struct inode *ip, struct file *fp, unsigned int val, u
 			return -EFAULT;
 		    }
 		    
-		    if (v3_host_dev_read_guest_mem(dev->guestdev,
-						   dev,
+		    if (v3_host_dev_read_guest_mem(dev,
+						   dev->guestdev,
 						   op.gpa,
 						   temp,
 						   op.len) != op.len) {
@@ -421,8 +421,8 @@ static int host_dev_ioctl(struct inode *ip, struct file *fp, unsigned int val, u
 			return -EFAULT;
 		    }
 		    
-		    if (v3_host_dev_write_guest_mem(dev->guestdev,
-						    dev,
+		    if (v3_host_dev_write_guest_mem(dev,
+						    dev->guestdev,
 						    op.gpa,
 						    temp,
 						    op.len) != op.len) {
@@ -441,7 +441,7 @@ static int host_dev_ioctl(struct inode *ip, struct file *fp, unsigned int val, u
 
 		    DEEP_DEBUG_PRINT("palacios: hostdev: irq guest\n");
 
-		    return  v3_host_dev_raise_irq(dev->guestdev, dev, op.irq);
+		    return  v3_host_dev_raise_irq(dev, dev->guestdev, op.irq);
 		}
 		    break;
 
