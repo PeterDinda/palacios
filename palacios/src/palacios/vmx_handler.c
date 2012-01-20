@@ -270,7 +270,10 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
 	    // This is handled in the atomic part of the vmx code,
 	    // not in the generic (interruptable) vmx handler
             break;
-
+        case VMEXIT_EXPIRED_PREEMPT_TIMER:
+	    V3_Print("VMX Preempt Timer Expired.\n");
+	    // This just forces an exit and is handled outside the switch
+	    break;
 	    
         default:
             PrintError("Unhandled VMEXIT: %s (%u), %lu (0x%lx)\n", 
