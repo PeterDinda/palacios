@@ -91,6 +91,8 @@ static uintptr_t alloc_contig_pgs(u64 num_pages, u32 alignment) {
 	}
     }
 
+    /* printk("PALACIOS BAD: LARGE PAGE ALLOCATION FAILED\n"); */
+
     return 0;
 }
 
@@ -103,9 +105,11 @@ uintptr_t alloc_palacios_pgs(u64 num_pages, u32 alignment) {
 	struct page * pgs = NULL;
 	int order = get_order(num_pages * PAGE_SIZE);
 	 
-	pgs = alloc_pages(GFP_DMA, order);
+	pgs = alloc_pages(GFP_DMA32, order);
     
 	WARN(!pgs, "Could not allocate pages\n");
+ 
+        /* if (!pgs) { printk("PALACIOS BAD: SMALL PAGE ALLOCATION FAILED\n");  } */
        
 	/* printk("%llu pages (order=%d) aquired from alloc_pages\n", 
 	       num_pages, order); */

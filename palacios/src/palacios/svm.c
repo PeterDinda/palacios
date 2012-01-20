@@ -539,6 +539,11 @@ int v3_svm_enter(struct guest_info * info) {
     // Perform any additional yielding needed for time adjustment
     v3_adjust_time(info);
 
+    // Check for timeout - since this calls generic hooks in devices
+    // that may do things like pause the VM, it cannot be with interrupts
+    // disabled.
+    v3_check_timeout(info);
+
     // disable global interrupts for vm state transition
     v3_clgi();
 

@@ -49,6 +49,11 @@ struct vm_time {
     // Installed Timers slaved off of the guest monotonic TSC
     uint_t num_timers;
     struct list_head timers;
+
+    // Installed timeout handlers, and the time (in monotonic guest time) of hte 
+    // next timeout.
+    uint64_t next_timeout; 
+    struct list_head timeout_hooks;
 };
 
 struct v3_timer_ops {
@@ -60,7 +65,17 @@ struct v3_timer {
     void * private_data;
     struct v3_timer_ops * ops;
 
+    // Need to add accuracy/resolution fields later.
+
     struct list_head timer_link;
+};
+
+typedef void (*v3_timeout_callback_t)(struct guest_info * info, void * priv_data);
+struct v3_timeout_hook {
+    void * private_data;
+    v3_timeout_callback_t callback;
+    
+    struct list_head hook_link;
 };
 
 // Basic functions for handling passage of time in palacios
@@ -78,10 +93,20 @@ int v3_time_exit_vm(struct guest_info * core);
 int v3_adjust_time(struct guest_info * core);
 int v3_offset_time(struct guest_info * core, sint64_t offset);
 
-// Basic functions for attaching timers to the passage of time
+// Basic functions for attaching timers to the passage of time - these timers 
+// should eventually specify their accuracy and resolution.
 struct v3_timer * v3_add_timer(struct guest_info * info, struct v3_timer_ops * ops, void * private_data);
 int v3_remove_timer(struct guest_info * info, struct v3_timer * timer);
 void v3_update_timers(struct guest_info * info);
+
+// Functions for handling one-shot timeouts in Palacios. Note that only one
+// timeout is every currently outstanding (the soonest scheduled one!), and that
+// all hooks are called on any timeout. If a hook gets called before the desired
+// timeout time, that hook should reschedule its own timeout if desired.
+struct v3_timeout_hook * v3_add_timeout_hook(struct guest_info * info, v3_timeout_callback_t callback, void * priv_data);
+int v3_remove_timeout_hook(struct guest_info * info, struct v3_timeout_hook * hook);
+int v3_schedule_timeout(struct guest_info * info, ullong_t cycles);
+int v3_check_timeout(struct guest_info * info);
 
 // Functions to return the different notions of time in Palacios.
 static inline uint64_t v3_get_host_time(struct vm_time *t) {

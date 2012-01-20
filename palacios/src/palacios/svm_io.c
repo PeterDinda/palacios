@@ -80,11 +80,10 @@ int v3_handle_svm_io_in(struct guest_info * core, struct svm_io_info * io_info) 
     PrintDebug("IN of %d bytes on port %d (0x%x)\n", read_size, io_info->port, io_info->port);
 
     if (hook == NULL) {
-	PrintDebug("IN operation on unhooked IO port 0x%x\n", io_info->port);
+	PrintDebug("IN operation on unhooked IO port 0x%x - returning zero\n", io_info->port);
+	core->vm_regs.rax >>= 8*read_size;
+	core->vm_regs.rax <<= 8*read_size;
 
-	/* What are the HW semantics for an IN on an invalid port? 
-	 *  Do we need to clear the register value or leave it untouched??? 
-	 */
     } else {
 	if (hook->read(core, io_info->port, &(core->vm_regs.rax), read_size, hook->priv_data) != read_size) {
 	    // not sure how we handle errors.....
@@ -207,10 +206,9 @@ int v3_handle_svm_io_ins(struct guest_info * core, struct svm_io_info * io_info)
 	}
 
 	if (hook == NULL) {
-	    PrintDebug("INS operation on unhooked IO port 0x%x\n", io_info->port);
-	    /* What are the HW semantics for an INS on an invalid port? 
-	     *  Do we need to clear the memory region or leave it untouched??? 
-	     */	    
+	    PrintDebug("INS operation on unhooked IO port 0x%x - returning zeros\n", io_info->port);
+	    memset((char*)host_addr,0,read_size);
+	    
 	} else {
 	    if (hook->read(core, io_info->port, (char *)host_addr, read_size, hook->priv_data) != read_size) {
 		// not sure how we handle errors.....
@@ -246,7 +244,7 @@ int v3_handle_svm_io_out(struct guest_info * core, struct svm_io_info * io_info)
     PrintDebug("OUT of %d bytes on  port %d (0x%x)\n", write_size, io_info->port, io_info->port);
 
     if (hook == NULL) {
-	PrintDebug("OUT operation on unhooked IO port 0x%x\n", io_info->port);
+	PrintDebug("OUT operation on unhooked IO port 0x%x - ignored\n", io_info->port);
     } else {
 	if (hook->write(core, io_info->port, &(core->vm_regs.rax), write_size, hook->priv_data) != write_size) {
 	    // not sure how we handle errors.....
@@ -365,7 +363,7 @@ int v3_handle_svm_io_outs(struct guest_info * core, struct svm_io_info * io_info
 	}
 
 	if (hook == NULL) {
-	    PrintDebug("OUTS operation on unhooked IO port 0x%x\n", io_info->port);
+	    PrintDebug("OUTS operation on unhooked IO port 0x%x - ignored\n", io_info->port);
 	} else {
 	    if (hook->write(core, io_info->port, (char*)host_addr, write_size, hook->priv_data) != write_size) {
 		// not sure how we handle errors.....

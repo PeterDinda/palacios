@@ -108,12 +108,15 @@ int v3_handle_msr_read(struct guest_info * info) {
 
 
 int v3_msr_unhandled_read(struct guest_info * core, uint32_t msr, struct v3_msr * dst, void * priv_data) {
-    V3_Print("Palacios: Unhandled MSR Read (MSR=0x%x)\n", msr);
+    V3_Print("Palacios: Unhandled MSR Read (MSR=0x%x) - returning zero\n", msr);
+    dst->lo=dst->hi=0;
+    // should produce GPF for unsupported msr
     return 0;
 }
 
 int v3_msr_unhandled_write(struct guest_info * core, uint32_t msr, struct v3_msr src, void * priv_data) {
-    V3_Print("Palacios: Unhandled MSR Write (MSR=0x%x)\n", msr);
+    V3_Print("Palacios: Unhandled MSR Write (MSR=0x%x) - ignored\n", msr);
+    // should produce GPF for unsupported msr
     return 0;
 }
 

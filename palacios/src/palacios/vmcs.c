@@ -489,8 +489,16 @@ int v3_update_vmcs_host_state(struct guest_info * info) {
 
 
     // save STAR, LSTAR, FMASK, KERNEL_GS_BASE MSRs in MSR load/store area
+    {
+	struct vmx_data * vmx_state = (struct vmx_data *)info->vmm_data;
+	struct vmcs_msr_save_area * msr_entries = vmx_state->msr_area;
 
     
+	v3_get_msr(IA32_STAR_MSR, &(msr_entries->host_star.hi), &(msr_entries->host_star.lo));
+	v3_get_msr(IA32_LSTAR_MSR, &(msr_entries->host_lstar.hi), &(msr_entries->host_lstar.lo));
+	v3_get_msr(IA32_FMASK_MSR, &(msr_entries->host_fmask.hi), &(msr_entries->host_fmask.lo));
+	v3_get_msr(IA32_KERN_GS_BASE_MSR, &(msr_entries->host_kern_gs.hi), &(msr_entries->host_kern_gs.lo));
+    }
 
     
 

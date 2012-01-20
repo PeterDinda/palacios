@@ -188,6 +188,9 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
     vmx_ret |= check_vmcs_write(VMCS_CR4_MASK, CR4_VMXE | CR4_PAE);
 
 
+    // Setup Guests initial PAT field
+    vmx_ret |= check_vmcs_write(VMCS_GUEST_PAT, 0x0007040600070406LL);
+
     /* Setup paging */
     if (core->shdw_pg_mode == SHADOW_PAGING) {
         PrintDebug("Creating initial shadow page table\n");
@@ -261,8 +264,9 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 	core->rip = 0xfff0;
 	core->vm_regs.rdx = 0x00000f00;
 	core->ctrl_regs.rflags = 0x00000002; // The reserved bit is always 1
-	core->ctrl_regs.cr0 = 0x60010010; // Set the WP flag so the memory hooks work in real-mode
-
+	core->ctrl_regs.cr0 = 0x00000030; 
+	core->ctrl_regs.cr4 = 0x00002010; // Enable VMX and PSE flag
+	
 
 	core->segments.cs.selector = 0xf000;
 	core->segments.cs.limit = 0xffff;
@@ -307,7 +311,7 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 	core->segments.ldtr.selector = 0x0000;
 	core->segments.ldtr.limit = 0x0000ffff;
 	core->segments.ldtr.base = 0x0000000000000000LL;
-	core->segments.ldtr.type = 2;
+	core->segments.ldtr.type = 0x2;
 	core->segments.ldtr.present = 1;
 
 	core->segments.tr.selector = 0x0000;
@@ -349,12 +353,10 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
     
     // save STAR, LSTAR, FMASK, KERNEL_GS_BASE MSRs in MSR load/store area
     {
-	int msr_ret = 0;
 
-	struct vmcs_msr_entry * exit_store_msrs = NULL;
-	struct vmcs_msr_entry * exit_load_msrs = NULL;
-	struct vmcs_msr_entry * entry_load_msrs = NULL;;
+	struct vmcs_msr_save_area * msr_entries = NULL;
 	int max_msrs = (hw_info.misc_info.max_msr_cache_size + 1) * 4;
+	int msr_ret = 0;
 
 	V3_Print("Setting up MSR load/store areas (max_msr_count=%d)\n", max_msrs);
 
@@ -363,58 +365,60 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 	    return -1;
 	}
 
-	vmx_state->msr_area = V3_VAddr(V3_AllocPages(1));
-
-	if (vmx_state->msr_area == NULL) {
+	vmx_state->msr_area_paddr = (addr_t)V3_AllocPages(1);
+	
+	if (vmx_state->msr_area_paddr == (addr_t)NULL) {
 	    PrintError("could not allocate msr load/store area\n");
 	    return -1;
 	}
 
+	msr_entries = (struct vmcs_msr_save_area *)V3_VAddr((void *)(vmx_state->msr_area_paddr));
+	vmx_state->msr_area = msr_entries; // cache in vmx_info
+
+	memset(msr_entries, 0, PAGE_SIZE);
+
+	msr_entries->guest_star.index = IA32_STAR_MSR;
+	msr_entries->guest_lstar.index = IA32_LSTAR_MSR;
+	msr_entries->guest_fmask.index = IA32_FMASK_MSR;
+	msr_entries->guest_kern_gs.index = IA32_KERN_GS_BASE_MSR;
+
+	msr_entries->host_star.index = IA32_STAR_MSR;
+	msr_entries->host_lstar.index = IA32_LSTAR_MSR;
+	msr_entries->host_fmask.index = IA32_FMASK_MSR;
+	msr_entries->host_kern_gs.index = IA32_KERN_GS_BASE_MSR;
+
 	msr_ret |= check_vmcs_write(VMCS_EXIT_MSR_STORE_CNT, 4);
 	msr_ret |= check_vmcs_write(VMCS_EXIT_MSR_LOAD_CNT, 4);
 	msr_ret |= check_vmcs_write(VMCS_ENTRY_MSR_LOAD_CNT, 4);
-	
-	
-	exit_store_msrs = (struct vmcs_msr_entry *)(vmx_state->msr_area);
-	exit_load_msrs = (struct vmcs_msr_entry *)(vmx_state->msr_area + (sizeof(struct vmcs_msr_entry) * 4));
-	entry_load_msrs = (struct vmcs_msr_entry *)(vmx_state->msr_area + (sizeof(struct vmcs_msr_entry) * 8));
+
+	msr_ret |= check_vmcs_write(VMCS_EXIT_MSR_STORE_ADDR, (addr_t)V3_PAddr(msr_entries->guest_msrs));
+	msr_ret |= check_vmcs_write(VMCS_ENTRY_MSR_LOAD_ADDR, (addr_t)V3_PAddr(msr_entries->guest_msrs));
+	msr_ret |= check_vmcs_write(VMCS_EXIT_MSR_LOAD_ADDR, (addr_t)V3_PAddr(msr_entries->host_msrs));
 
 
-	exit_store_msrs[0].index = IA32_STAR_MSR;
-	exit_store_msrs[1].index = IA32_LSTAR_MSR;
-	exit_store_msrs[2].index = IA32_FMASK_MSR;
-	exit_store_msrs[3].index = IA32_KERN_GS_BASE_MSR;
-	
-	memcpy(exit_store_msrs, exit_load_msrs, sizeof(struct vmcs_msr_entry) * 4);
-	memcpy(exit_store_msrs, entry_load_msrs, sizeof(struct vmcs_msr_entry) * 4);
-
-	
-	v3_get_msr(IA32_STAR_MSR, &(exit_load_msrs[0].hi), &(exit_load_msrs[0].lo));
-	v3_get_msr(IA32_LSTAR_MSR, &(exit_load_msrs[1].hi), &(exit_load_msrs[1].lo));
-	v3_get_msr(IA32_FMASK_MSR, &(exit_load_msrs[2].hi), &(exit_load_msrs[2].lo));
-	v3_get_msr(IA32_KERN_GS_BASE_MSR, &(exit_load_msrs[3].hi), &(exit_load_msrs[3].lo));
-
-	msr_ret |= check_vmcs_write(VMCS_EXIT_MSR_STORE_ADDR, (addr_t)V3_PAddr(exit_store_msrs));
-	msr_ret |= check_vmcs_write(VMCS_EXIT_MSR_LOAD_ADDR, (addr_t)V3_PAddr(exit_load_msrs));
-	msr_ret |= check_vmcs_write(VMCS_ENTRY_MSR_LOAD_ADDR, (addr_t)V3_PAddr(entry_load_msrs));
+	msr_ret |= v3_hook_msr(core->vm_info, IA32_STAR_MSR, NULL, NULL, NULL);
+	msr_ret |= v3_hook_msr(core->vm_info, IA32_LSTAR_MSR, NULL, NULL, NULL);
+	msr_ret |= v3_hook_msr(core->vm_info, IA32_FMASK_MSR, NULL, NULL, NULL);
+	msr_ret |= v3_hook_msr(core->vm_info, IA32_KERN_GS_BASE_MSR, NULL, NULL, NULL);
 
 
-	v3_hook_msr(core->vm_info, IA32_STAR_MSR, NULL, NULL, NULL);
-	v3_hook_msr(core->vm_info, IA32_LSTAR_MSR, NULL, NULL, NULL);
-	v3_hook_msr(core->vm_info, IA32_FMASK_MSR, NULL, NULL, NULL);
-	v3_hook_msr(core->vm_info, IA32_KERN_GS_BASE_MSR, NULL, NULL, NULL);
+	// IMPORTANT: These MSRs appear to be cached by the hardware....
+	msr_ret |= v3_hook_msr(core->vm_info, SYSENTER_CS_MSR, NULL, NULL, NULL);
+	msr_ret |= v3_hook_msr(core->vm_info, SYSENTER_ESP_MSR, NULL, NULL, NULL);
+	msr_ret |= v3_hook_msr(core->vm_info, SYSENTER_EIP_MSR, NULL, NULL, NULL);
+
+	msr_ret |= v3_hook_msr(core->vm_info, FS_BASE_MSR, NULL, NULL, NULL);
+	msr_ret |= v3_hook_msr(core->vm_info, GS_BASE_MSR, NULL, NULL, NULL);
 
 
-	// IMPORTANT: These SYSCALL MSRs are currently not handled by hardware or cached
-	// We should really emulate these ourselves, or ideally include them in the MSR store area if there is room
-	v3_hook_msr(core->vm_info, IA32_CSTAR_MSR, NULL, NULL, NULL);
-	v3_hook_msr(core->vm_info, SYSENTER_CS_MSR, NULL, NULL, NULL);
-	v3_hook_msr(core->vm_info, SYSENTER_ESP_MSR, NULL, NULL, NULL);
-	v3_hook_msr(core->vm_info, SYSENTER_EIP_MSR, NULL, NULL, NULL);
-	
-	v3_hook_msr(core->vm_info, FS_BASE_MSR, NULL, NULL, NULL);
-	v3_hook_msr(core->vm_info, GS_BASE_MSR, NULL, NULL, NULL);
-	
+	// Not sure what to do about this... Does not appear to be an explicit hardware cache version...
+	msr_ret |= v3_hook_msr(core->vm_info, IA32_CSTAR_MSR, NULL, NULL, NULL);
+
+	if (msr_ret != 0) {
+	    PrintError("Error configuring MSR save/restore area\n");
+	    return -1;
+	}
+
 
     }    
 
@@ -451,10 +455,12 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
         return -1;
     }
     
+    /*
     if (v3_update_vmcs_host_state(core)) {
         PrintError("Could not write host state\n");
         return -1;
     }
+    */
 
     // reenable global interrupts for vm state initialization now
     // that the vm state is initialized. If another VM kicks us off, 
@@ -751,6 +757,44 @@ static void print_exit_log(struct guest_info * info) {
 
 }
 
+int
+v3_vmx_schedule_timeout(struct guest_info * info)
+{
+    struct vmx_data * vmx_state = (struct vmx_data *)(info->vmm_data);
+    sint64_t cycles;
+    uint32_t timeout;
+
+    /* Check if the hardware supports an active timeout */
+#define VMX_ACTIVE_PREEMPT_TIMER_PIN 0x40
+    if (hw_info.pin_ctrls.req_mask & VMX_ACTIVE_PREEMPT_TIMER_PIN) {
+	/* The hardware doesn't support us modifying this pin control */
+	return 0;
+    }
+
+    /* Check if we have one to schedule and schedule it if we do */
+    cycles = (sint64_t)info->time_state.next_timeout - (sint64_t)v3_get_guest_time(&info->time_state);
+    if (info->time_state.next_timeout == (ullong_t) -1)  {
+	timeout = 0;
+        vmx_state->pin_ctrls.active_preempt_timer = 0;
+    } else if (cycles < 0) {
+	/* set the timeout to 0 to force an immediate re-exit since it expired between
+	 * when we checked a timeout and now. IF SOMEONE CONTINAULLY SETS A SHORT TIMEOUT,
+	 * THIS CAN LOCK US OUT OF THE GUEST! */
+	timeout = 0;
+        vmx_state->pin_ctrls.active_preempt_timer = 1;
+    } else {
+        /* The hardware supports scheduling a timeout, and we have one to 
+         * schedule */
+        timeout = (uint32_t)cycles >> hw_info.misc_info.tsc_multiple;
+        vmx_state->pin_ctrls.active_preempt_timer = 1;
+    }
+
+    /* Actually program the timer based on the settings above. */
+    check_vmcs_write(VMCS_PREEMPT_TIMER, timeout);
+    check_vmcs_write(VMCS_PIN_CTRLS, vmx_state->pin_ctrls.value);
+    return 0;
+}
+
 /* 
  * CAUTION and DANGER!!! 
  * 
@@ -771,11 +815,16 @@ int v3_vmx_enter(struct guest_info * info) {
     // Perform any additional yielding needed for time adjustment
     v3_adjust_time(info);
 
+    // Check for timeout - since this calls generic hooks in devices
+    // that may do things like pause the VM, it cannot be with interrupts
+    // disabled.
+    v3_check_timeout(info);
+
     // disable global interrupts for vm state transition
     v3_disable_ints();
 
     // Update timer devices late after being in the VM so that as much 
-    // of hte time in the VM is accounted for as possible. Also do it before
+    // of the time in the VM is accounted for as possible. Also do it before
     // updating IRQ entry state so that any interrupts the timers raise get 
     // handled on the next VM entry. Must be done with interrupts disabled.
     v3_update_timers(info);
@@ -802,6 +851,10 @@ int v3_vmx_enter(struct guest_info * info) {
 	vmcs_read(VMCS_GUEST_CR3, &guest_cr3);
 	vmcs_write(VMCS_GUEST_CR3, guest_cr3);
     }
+
+    // Update vmx active preemption timer to exit at the next timeout if 
+    // the hardware supports it.
+    v3_vmx_schedule_timeout(info);
 
     // Perform last-minute time bookkeeping prior to entering the VM
     v3_time_enter_vm(info);

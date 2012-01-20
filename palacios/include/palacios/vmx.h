@@ -188,6 +188,29 @@ struct vmcs_host_state {
 };
 
 
+struct vmcs_msr_save_area {
+    union {
+	struct vmcs_msr_entry guest_msrs[4];
+	struct {
+	    struct vmcs_msr_entry guest_star;
+	    struct vmcs_msr_entry guest_lstar;
+	    struct vmcs_msr_entry guest_fmask;
+	    struct vmcs_msr_entry guest_kern_gs;
+	} __attribute__((packed));
+    } __attribute__((packed));
+
+    union {
+	struct vmcs_msr_entry host_msrs[4];
+	struct {
+	    struct vmcs_msr_entry host_star;
+	    struct vmcs_msr_entry host_lstar;
+	    struct vmcs_msr_entry host_fmask;
+	    struct vmcs_msr_entry host_kern_gs;
+	} __attribute__((packed));
+    } __attribute__((packed)); 
+
+} __attribute__((packed)); 
+
 
 struct vmx_data {
     vmx_state_t state;
@@ -210,7 +233,8 @@ struct vmx_data {
 
     struct vmx_exception_bitmap excp_bmap;
 
-    void * msr_area;
+    addr_t msr_area_paddr;
+    struct vmcs_msr_save_area * msr_area;
 };
 
 int v3_is_vmx_capable();
