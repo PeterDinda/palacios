@@ -767,20 +767,30 @@ v3_vmx_schedule_timeout(struct guest_info * info)
     /* Check if the hardware supports an active timeout */
 #define VMX_ACTIVE_PREEMPT_TIMER_PIN 0x40
     if (hw_info.pin_ctrls.req_mask & VMX_ACTIVE_PREEMPT_TIMER_PIN) {
+	/* The hardware doesn't support us modifying this pin control */
 	return 0;
     }
 
-    /* Check if we have one to schedule */
+    /* Check if we have one to schedule and schedule it if we do */
     cycles = (sint64_t)info->time_state.next_timeout - (sint64_t)v3_get_guest_time(&info->time_state);
-    if ((info->time_state.next_timeout == (ullong_t) -1) || (cycles < 0)) {
+    if (info->time_state.next_timeout == (ullong_t) -1)  {
+	timeout = 0;
         vmx_state->pin_ctrls.active_preempt_timer = 0;
+    } else if (cycles < 0) {
+	/* set the timeout to 0 to force an immediate re-exit since it expired between
+	 * when we checked a timeout and now. IF SOMEONE CONTINAULLY SETS A SHORT TIMEOUT,
+	 * THIS CAN LOCK US OUT OF THE GUEST! */
+	timeout = 0;
+        vmx_state->pin_ctrls.active_preempt_timer = 1;
     } else {
         /* The hardware supports scheduling a timeout, and we have one to 
          * schedule */
         timeout = (uint32_t)cycles >> hw_info.misc_info.tsc_multiple;
         vmx_state->pin_ctrls.active_preempt_timer = 1;
-        check_vmcs_write(VMCS_PREEMPT_TIMER, timeout);
     }
+
+    /* Actually program the timer based on the settings above. */
+    check_vmcs_write(VMCS_PREEMPT_TIMER, timeout);
     check_vmcs_write(VMCS_PIN_CTRLS, vmx_state->pin_ctrls.value);
     return 0;
 }
