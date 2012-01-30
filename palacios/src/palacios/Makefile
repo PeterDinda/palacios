@@ -41,6 +41,9 @@ obj-y := \
 
 obj-$(V3_CONFIG_XED) +=	vmm_xed.o
 obj-$(V3_CONFIG_V3_DECODER) += vmm_v3dec.o
+obj-$(V3_CONFIG_QUIX86) += vmm_quix86.o
+obj-$(V3_CONFIG_QUIX86_DEBUG) += vmm_quix86.o
+
 
 obj-$(V3_CONFIG_SVM) +=    svm.o \
 			   svm_io.o \
