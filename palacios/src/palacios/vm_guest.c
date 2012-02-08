@@ -38,14 +38,14 @@ v3_cpu_mode_t v3_get_vm_cpu_mode(struct guest_info * info) {
     struct efer_64 * efer;
     struct cr4_32 * cr4 = (struct cr4_32 *)&(info->ctrl_regs.cr4);
     struct v3_segment * cs = &(info->segments.cs);
-    vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
+
 
     if (info->shdw_pg_mode == SHADOW_PAGING) {
 	cr0 = (struct cr0_32 *)&(info->shdw_pg_state.guest_cr0);
 	efer = (struct efer_64 *)&(info->shdw_pg_state.guest_efer);
     } else if (info->shdw_pg_mode == NESTED_PAGING) {
 	cr0 = (struct cr0_32 *)&(info->ctrl_regs.cr0);
-	efer = (struct efer_64 *)&(guest_state->efer);
+	efer = (struct efer_64 *)&(info->ctrl_regs.efer);
     } else {
 	PrintError("Invalid Paging Mode...\n");
 	V3_ASSERT(0);
@@ -72,14 +72,14 @@ uint_t v3_get_addr_width(struct guest_info * info) {
     struct cr4_32 * cr4 = (struct cr4_32 *)&(info->ctrl_regs.cr4);
     struct efer_64 * efer;
     struct v3_segment * cs = &(info->segments.cs);
-    vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
+
 
     if (info->shdw_pg_mode == SHADOW_PAGING) {
 	cr0 = (struct cr0_32 *)&(info->shdw_pg_state.guest_cr0);
 	efer = (struct efer_64 *)&(info->shdw_pg_state.guest_efer);
     } else if (info->shdw_pg_mode == NESTED_PAGING) {
 	cr0 = (struct cr0_32 *)&(info->ctrl_regs.cr0);
-	efer = (struct efer_64 *)&(guest_state->efer);
+	efer = (struct efer_64 *)&(info->ctrl_regs.efer);
     } else {
 	PrintError("Invalid Paging Mode...\n");
 	V3_ASSERT(0);
@@ -243,18 +243,17 @@ void v3_print_ctrl_regs(struct guest_info * info) {
     struct v3_ctrl_regs * regs = &(info->ctrl_regs);
     int i = 0;
     v3_reg_t * reg_ptr;
-    char * reg_names[] = {"CR0", "CR2", "CR3", "CR4", "CR8", "FLAGS", NULL};
-    vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA(info->vmm_data);
+    char * reg_names[] = {"CR0", "CR2", "CR3", "CR4", "CR8", "FLAGS", "EFER", NULL};
+   
 
     reg_ptr = (v3_reg_t *)regs;
 
-    V3_Print("32 bit Ctrl Regs:\n");
+    V3_Print("Ctrl Regs:\n");
 
     for (i = 0; reg_names[i] != NULL; i++) {
 	V3_Print("\t%s=0x%p (at %p)\n", reg_names[i], (void *)(addr_t)reg_ptr[i], &(reg_ptr[i]));  
     }
 
-    V3_Print("\tEFER=0x%p\n", (void*)(addr_t)(guest_state->efer));
 
 }
 

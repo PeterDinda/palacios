@@ -344,6 +344,7 @@ static int guest_file_init(struct v3_guest * guest, void ** vm_data) {
 
 static int guest_file_deinit(struct v3_guest * guest, void * vm_data) {
     
+    kfree(vm_data);
     return 0;
 }
 
