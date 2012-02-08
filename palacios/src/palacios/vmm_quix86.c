@@ -49,7 +49,7 @@ static int get_opcode(qx86_insn *inst);
 static int qx86_register_to_v3_reg(struct guest_info * info, int qx86_reg,
                  addr_t * v3_reg, uint_t * reg_len);
 
-static int decode_string_op(struct guest_info * info,
+static int decode_string_op(struct guest_info * core,
                 const qx86_insn * qx86_inst, struct x86_instr * instr)
 {
     int status = 0;
@@ -59,10 +59,11 @@ static int decode_string_op(struct guest_info * info,
         uint64_t a_mask = ~(~0ULL <<
                 (QX86_SIZE_OCTETS(qx86_inst->attributes.addressSize) * 8));
 
-        instr->str_op_length = info->vm_regs.rcx & a_mask;
+        instr->str_op_length = core->vm_regs.rcx & a_mask;
     } else {
         instr->str_op_length = 1;
     }
+
 
 
     if (instr->op_type == V3_OP_MOVS) {
@@ -75,6 +76,10 @@ static int decode_string_op(struct guest_info * info,
             return -1;
         }
 
+	instr->dst_operand.type = MEM_OPERAND;
+	instr->dst_operand.size = qx86_inst->operands[0].size;
+
+
         if((status = qx86_calculate_linear_address(qx86_inst, 1,
                 (qx86_uint64*)&instr->src_operand.operand)) != QX86_SUCCESS) {
             PrintError("Could not get source memory operand: "
@@ -82,8 +87,12 @@ static int decode_string_op(struct guest_info * info,
             return -1;
         }
 
+	instr->src_operand.type = MEM_OPERAND;
+	instr->src_operand.size = qx86_inst->operands[1].size;
+
         instr->dst_operand.write = 1;
         instr->src_operand.read = 1;
+
 
     } else if (instr->op_type == V3_OP_STOS) {
         instr->num_operands = 2;
@@ -95,8 +104,11 @@ static int decode_string_op(struct guest_info * info,
             return -1;
         }
 
+	instr->dst_operand.type = MEM_OPERAND;
+	instr->dst_operand.size = qx86_inst->operands[0].size;
+
         // STOS reads from rax
-        qx86_register_to_v3_reg(info,
+        qx86_register_to_v3_reg(core,
             qx86_inst->operands[1].u.r.rindex,
             &(instr->src_operand.operand), &(instr->src_operand.size));
         instr->src_operand.type = REG_OPERAND;
@@ -104,10 +116,20 @@ static int decode_string_op(struct guest_info * info,
         instr->src_operand.read = 1;
         instr->dst_operand.write = 1;
 
+
+
     } else {
         PrintError("Unhandled String OP\n");
         return -1;
     }
+
+
+#ifdef V3_CONFIG_DEBUG_DECODER
+    V3_Print("Decoding Instr at %p\n", (void *)core->rip);
+    v3_print_instr(instr);
+    V3_Print("CS DB FLag=%x\n", core->segments.cs.db);
+#endif
+
 
     return 0;
 }
