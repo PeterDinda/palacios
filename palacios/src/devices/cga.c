@@ -612,8 +612,10 @@ static int inp_status1_read(struct guest_info * core, uint16_t port, void * dest
 
     /* next write to attrc selects the index rather than data */
     video_state->attrc_index_flipflop = 0;
+    memset(dest, 0x0, length);
 
-    return notimpl_port_read(priv_data, __FUNCTION__, port, dest, length);
+    handle_port_read(priv_data, __FUNCTION__, port, dest, length, 1);
+    return length;
 }
 
 static int feat_ctrl_read(struct guest_info * core, uint16_t port, void * dest, uint_t length, void * priv_data) {

@@ -430,7 +430,7 @@ int v3_handle_cr3_read(struct guest_info * info) {
 
 // We don't need to virtualize CR4, all we need is to detect the activation of PAE
 int v3_handle_cr4_read(struct guest_info * info) {
-    //  PrintError("CR4 Read not handled\n");
+    PrintError("CR4 Read not handled\n");
     // Do nothing...
     return 0;
 }
@@ -460,6 +460,7 @@ int v3_handle_cr4_write(struct guest_info * info) {
     
     // Check to see if we need to flush the tlb
     
+
     if (v3_get_vm_mem_mode(info) == VIRTUAL_MEM) { 
 	struct cr4_32 * new_cr4 = (struct cr4_32 *)(dec_instr.src_operand.operand);
 	struct cr4_32 * cr4 = (struct cr4_32 *)&(info->ctrl_regs.cr4);
@@ -533,15 +534,15 @@ int v3_handle_cr4_write(struct guest_info * info) {
 	return -1;
     }
     
-    
-    if (flush_tlb) {
-	PrintDebug("Handling PSE/PGE/PAE -> TLBFlush (doing flush now!)\n");
-	if (v3_activate_shadow_pt(info) == -1) {
-	    PrintError("Failed to activate shadow page tables when emulating TLB flush in handling cr4 write\n");
-	    return -1;
+    if (info->shdw_pg_mode == SHADOW_PAGING) {
+	if (flush_tlb) {
+	    PrintDebug("Handling PSE/PGE/PAE -> TLBFlush (doing flush now!)\n");
+	    if (v3_activate_shadow_pt(info) == -1) {
+		PrintError("Failed to activate shadow page tables when emulating TLB flush in handling cr4 write\n");
+		return -1;
+	    }
 	}
     }
-    
     
     info->rip += dec_instr.instr_length;
     return 0;
@@ -587,6 +588,11 @@ int v3_handle_efer_write(struct guest_info * core, uint_t msr, struct v3_msr src
 	// VMX does not automatically set LMA, and this should not affect SVM.
 	hw_efer->lma = 1;
     }
+
+
+    PrintDebug("RIP=%p\n", (void *)core->rip);
+    PrintDebug("New EFER value HW(hi=%p), VM(hi=%p)\n", (void *)*(uint64_t *)hw_efer, (void *)vm_efer->value); 
+
 
     return 0;
 }

@@ -102,6 +102,16 @@ config V3_DECODER
 	help
 	    This selects the internal V3Vee x86 decoder
 
+config QUIX86
+    bool "QUIX86 decoder"
+    help
+        This selects the QUIX86 decoder library
+
+config QUIX86_DEBUG
+    bool "QUIX86 decoder debug version"
+    help
+        This selects the QUIX86 decoder library compiled w/o optimization
+        and with debug info
 
 endchoice
 

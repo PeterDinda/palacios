@@ -117,8 +117,14 @@ void v3_delete_mem_map(struct v3_vm_info * vm) {
 
 struct v3_mem_region * v3_create_mem_region(struct v3_vm_info * vm, uint16_t core_id, 
 					       addr_t guest_addr_start, addr_t guest_addr_end) {
-    
-    struct v3_mem_region * entry = (struct v3_mem_region *)V3_Malloc(sizeof(struct v3_mem_region));
+    struct v3_mem_region * entry = NULL;
+
+    if (guest_addr_start >= guest_addr_end) {
+	PrintError("Region start is after region end\n");
+	return NULL;
+    }
+
+    entry = (struct v3_mem_region *)V3_Malloc(sizeof(struct v3_mem_region));
     memset(entry, 0, sizeof(struct v3_mem_region));
 
     entry->guest_start = guest_addr_start;

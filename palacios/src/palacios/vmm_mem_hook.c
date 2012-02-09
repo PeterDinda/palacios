@@ -240,6 +240,11 @@ static int handle_mem_hook(struct guest_info * core, addr_t guest_va, addr_t gue
 
     mem_op_size = ((uint_t)src_req_size < (uint_t)dst_req_size) ? src_req_size : dst_req_size;
 
+    if (mem_op_size == -1) {
+	PrintError("Error: Did not detect any memory operands...\n");
+	return -1;
+    }
+
 
     /* Now handle the hooks if necessary */    
     if ( (src_hook != NULL)  && (src_hook->read != NULL) &&

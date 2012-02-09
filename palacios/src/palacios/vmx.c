@@ -68,6 +68,9 @@ static int inline check_vmcs_write(vmcs_field_t field, addr_t val) {
         return 1;
     }
 
+
+    
+
     return 0;
 }
 
@@ -100,7 +103,39 @@ static addr_t allocate_vmcs() {
     return (addr_t)V3_PAddr((void *)vmcs_page);
 }
 
+/*
 
+static int debug_efer_read(struct guest_info * core, uint_t msr, struct v3_msr * src, void * priv_data) {
+    struct v3_msr * efer = (struct v3_msr *)&(core->ctrl_regs.efer);
+    V3_Print("\n\nEFER READ\n");
+    
+    v3_print_guest_state(core);
+
+    src->value = efer->value;
+    return 0;
+}
+
+static int debug_efer_write(struct guest_info * core, uint_t msr, struct v3_msr src, void * priv_data) {
+    struct v3_msr * efer = (struct v3_msr *)&(core->ctrl_regs.efer);
+    V3_Print("\n\nEFER WRITE\n");
+    
+    v3_print_guest_state(core);
+
+    efer->value = src.value;
+
+    {
+	struct vmx_data * vmx_state = core->vmm_data;
+
+	V3_Print("Trapping page faults and GPFs\n");
+	vmx_state->excp_bmap.pf = 1;
+	vmx_state->excp_bmap.gp = 1;
+	
+	 check_vmcs_write(VMCS_EXCP_BITMAP, vmx_state->excp_bmap.value);
+    }
+
+    return 0;
+}
+*/
 
 
 static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state) {
@@ -171,11 +206,7 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
     vmx_state->exit_ctrls.host_64_on = 1;
 #endif
 
-    // Hook all accesses to EFER register
-    v3_hook_msr(core->vm_info, EFER_MSR, 
-		&v3_handle_efer_read,
-		&v3_handle_efer_write, 
-		core);
+
 
     // Restore host's EFER register on each VM EXIT
     vmx_state->exit_ctrls.ld_efer = 1;
@@ -184,9 +215,12 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
     vmx_state->exit_ctrls.save_efer = 1;
     vmx_state->entry_ctrls.ld_efer  = 1;
 
-    // Cause VM_EXIT whenever CR4.VMXE or CR4.PAE bits are written
-    vmx_ret |= check_vmcs_write(VMCS_CR4_MASK, CR4_VMXE | CR4_PAE);
+    vmx_state->exit_ctrls.save_pat = 1;
+    vmx_state->exit_ctrls.ld_pat = 1;
+    vmx_state->entry_ctrls.ld_pat = 1;
 
+    /* Temporary GPF trap */
+    vmx_state->excp_bmap.gp = 1;
 
     // Setup Guests initial PAT field
     vmx_ret |= check_vmcs_write(VMCS_GUEST_PAT, 0x0007040600070406LL);
@@ -205,6 +239,10 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 #define CR0_WP 0x00010000 // To ensure mem hooks work
         vmx_ret |= check_vmcs_write(VMCS_CR0_MASK, (CR0_PE | CR0_PG | CR0_WP));
 
+
+	// Cause VM_EXIT whenever CR4.VMXE or CR4.PAE bits are written
+	vmx_ret |= check_vmcs_write(VMCS_CR4_MASK, CR4_VMXE | CR4_PAE);
+
         core->ctrl_regs.cr3 = core->direct_map_pt;
 
         // vmx_state->pinbased_ctrls |= NMI_EXIT;
@@ -221,6 +259,12 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 	// Setup VMX Assist
 	v3_vmxassist_init(core, vmx_state);
 
+	// Hook all accesses to EFER register
+	v3_hook_msr(core->vm_info, EFER_MSR, 
+		    &v3_handle_efer_read,
+		    &v3_handle_efer_write, 
+		    core);
+
     } else if ((core->shdw_pg_mode == NESTED_PAGING) && 
 	       (v3_cpu_types[core->pcpu_id] == V3_VMX_EPT_CPU)) {
 
@@ -231,6 +275,9 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 
         // vmx_state->pinbased_ctrls |= NMI_EXIT;
 
+	// Cause VM_EXIT whenever CR4.VMXE or CR4.PAE bits are written
+	vmx_ret |= check_vmcs_write(VMCS_CR4_MASK, CR4_VMXE | CR4_PAE);
+	
         /* Disable CR exits */
 	vmx_state->pri_proc_ctrls.cr3_ld_exit = 0;
 	vmx_state->pri_proc_ctrls.cr3_str_exit = 0;
@@ -253,6 +300,9 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 	    PrintError("Error initializing EPT\n");
 	    return -1;
 	}
+
+	// Hook all accesses to EFER register
+	v3_hook_msr(core->vm_info, EFER_MSR, NULL, NULL, NULL);
 
     } else if ((core->shdw_pg_mode == NESTED_PAGING) && 
 	       (v3_cpu_types[core->pcpu_id] == V3_VMX_EPT_UG_CPU)) {
@@ -336,11 +386,18 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 	vmx_state->pri_proc_ctrls.invlpg_exit = 0;
 
 
+	// Cause VM_EXIT whenever the CR4.VMXE bit is set
+	vmx_ret |= check_vmcs_write(VMCS_CR4_MASK, CR4_VMXE);
+
+
 	if (v3_init_ept(core, &hw_info) == -1) {
 	    PrintError("Error initializing EPT\n");
 	    return -1;
 	}
 
+	// Hook all accesses to EFER register
+	//v3_hook_msr(core->vm_info, EFER_MSR, &debug_efer_read, &debug_efer_write, core);
+	v3_hook_msr(core->vm_info, EFER_MSR, NULL, NULL, NULL);
     } else {
 	PrintError("Invalid Virtual paging mode\n");
 	return -1;
@@ -410,6 +467,7 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 	msr_ret |= v3_hook_msr(core->vm_info, FS_BASE_MSR, NULL, NULL, NULL);
 	msr_ret |= v3_hook_msr(core->vm_info, GS_BASE_MSR, NULL, NULL, NULL);
 
+	msr_ret |= v3_hook_msr(core->vm_info, IA32_PAT_MSR, NULL, NULL, NULL);
 
 	// Not sure what to do about this... Does not appear to be an explicit hardware cache version...
 	msr_ret |= v3_hook_msr(core->vm_info, IA32_CSTAR_MSR, NULL, NULL, NULL);
@@ -730,6 +788,9 @@ static int update_irq_entry_state(struct guest_info * info) {
 
 
 static struct vmx_exit_info exit_log[10];
+static uint64_t rip_log[10];
+
+
 
 static void print_exit_log(struct guest_info * info) {
     int cnt = info->num_exits % 10;
@@ -746,6 +807,9 @@ static void print_exit_log(struct guest_info * info) {
 	V3_Print("\tint_info = %p\n", (void *)(addr_t)tmp->int_info);
 	V3_Print("\tint_err = %p\n", (void *)(addr_t)tmp->int_err);
 	V3_Print("\tinstr_info = %p\n", (void *)(addr_t)tmp->instr_info);
+	V3_Print("\tguest_linear_addr= %p\n", (void *)(addr_t)tmp->guest_linear_addr);
+	V3_Print("\tRIP = %p\n", (void *)rip_log[cnt]);
+
 
 	cnt--;
 
@@ -927,6 +991,7 @@ int v3_vmx_enter(struct guest_info * info) {
     //PrintDebug("VMX Exit taken, id-qual: %u-%lu\n", exit_info.exit_reason, exit_info.exit_qual);
 
     exit_log[info->num_exits % 10] = exit_info;
+    rip_log[info->num_exits % 10] = get_addr_linear(info, info->rip, &(info->segments.cs));
 
 #ifdef V3_CONFIG_SYMCALL
     if (info->sym_core_state.symcall_state.sym_call_active == 0) {
@@ -1114,8 +1179,9 @@ int v3_reset_vmx_vm_core(struct guest_info * core, addr_t rip) {
 
 void v3_init_vmx_cpu(int cpu_id) {
     addr_t vmx_on_region = 0;
+    extern v3_cpu_arch_t v3_mach_type;
 
-    if (cpu_id == 0) {
+    if (v3_mach_type == V3_INVALID_CPU) {
 	if (v3_init_vmx_hw(&hw_info) == -1) {
 	    PrintError("Could not initialize VMX hardware features on cpu %d\n", cpu_id);
 	    return;
@@ -1154,6 +1220,7 @@ void v3_init_vmx_cpu(int cpu_id) {
 	    v3_cpu_types[cpu_id] = V3_VMX_EPT_UG_CPU;
 	}
     }
+    
 }
 
 

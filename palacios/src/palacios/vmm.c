@@ -39,6 +39,8 @@
 
 
 v3_cpu_arch_t v3_cpu_types[V3_CONFIG_MAX_CPUS];
+v3_cpu_arch_t v3_mach_type = V3_INVALID_CPU;
+
 struct v3_os_hooks * os_hooks = NULL;
 int v3_dbg_enable = 0;
 
@@ -105,6 +107,9 @@ void Init_V3(struct v3_os_hooks * hooks, int num_cpus) {
     // Set global variables. 
     os_hooks = hooks;
 
+    // Determine the global machine type
+    v3_mach_type = V3_INVALID_CPU;
+
     for (i = 0; i < V3_CONFIG_MAX_CPUS; i++) {
 	v3_cpu_types[i] = V3_INVALID_CPU;
     }
@@ -131,11 +136,15 @@ void Init_V3(struct v3_os_hooks * hooks, int num_cpus) {
 
 
     if ((hooks) && (hooks->call_on_cpu)) {
-
 	for (i = 0; i < num_cpus; i++) {
 
 	    V3_Print("Initializing VMM extensions on cpu %d\n", i);
 	    hooks->call_on_cpu(i, &init_cpu, (void *)(addr_t)i);
+
+	    if (v3_mach_type == V3_INVALID_CPU) {
+		v3_mach_type = v3_cpu_types[i];
+	    }
+
 	}
     }
 
@@ -210,7 +219,7 @@ static int start_core(void * p)
     PrintDebug("virtual core %u (on logical core %u): in start_core (RIP=%p)\n", 
 	       core->vcpu_id, core->pcpu_id, (void *)(addr_t)core->rip);
 
-    switch (v3_cpu_types[0]) {
+    switch (v3_mach_type) {
 #ifdef V3_CONFIG_SVM
 	case V3_SVM_CPU:
 	case V3_SVM_REV3_CPU:
@@ -628,7 +637,7 @@ void v3_interrupt_cpu(struct v3_vm_info * vm, int logical_cpu, int vector) {
 
 
 int v3_vm_enter(struct guest_info * info) {
-    switch (v3_cpu_types[0]) {
+    switch (v3_mach_type) {
 #ifdef V3_CONFIG_SVM
 	case V3_SVM_CPU:
 	case V3_SVM_REV3_CPU:

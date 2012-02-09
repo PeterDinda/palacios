@@ -57,15 +57,20 @@ static int update_map(struct v3_vm_info * vm, uint_t msr, int hook_reads, int ho
     int index = get_bitmap_index(msr);
     uint_t major = index / 4;
     uint_t minor = (index % 4) * 2;
-    uchar_t val = 0;
-    uchar_t mask = 0x3;
+    uint8_t val = 0;
+    uint8_t mask = 0x3;
     uint8_t * bitmap = (uint8_t *)(vm->msr_map.arch_data);
 
-    if (hook_reads) {
+    if (index == -1) {
+	PrintError("MSR (0x%x) out of bitmap range\n", msr);
+	return 0;
+    }
+
+    if (hook_reads != 0) {
 	val |= 0x1;
     } 
     
-    if (hook_writes) {
+    if (hook_writes != 0) {
 	val |= 0x2;
     }
 

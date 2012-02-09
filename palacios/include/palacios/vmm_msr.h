@@ -26,6 +26,7 @@
 #include <palacios/vmm_types.h>
 #include <palacios/vmm_list.h>
 
+#define IA32_PAT_MSR    0x277
 #define SYSENTER_CS_MSR 0x00000174
 #define SYSENTER_ESP_MSR 0x00000175
 #define SYSENTER_EIP_MSR 0x00000176
