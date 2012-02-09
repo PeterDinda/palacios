@@ -121,7 +121,7 @@ static inline uint64_t v3_compute_guest_time(struct vm_time *t, uint64_t ht) {
     V3_ASSERT(t->exit_time);
     return t->exit_time + t->guest_host_offset;
 #else
-    return v3_get_host_time(t) + t->guest_host_offset;
+    return ht + t->guest_host_offset;
 #endif
 }
 

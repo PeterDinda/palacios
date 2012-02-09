@@ -441,7 +441,7 @@ int v3_stop_vm(struct v3_vm_info * vm) {
 
     vm->run_state = VM_STOPPED;
 
-    // force exit all cores via a cross call/IPI
+    // XXX force exit all cores via a cross call/IPI XXX
 
     while (1) {
 	int i = 0;
