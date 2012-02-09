@@ -76,7 +76,7 @@
 
 
 static int handle_cpufreq_hcall(struct guest_info * info, uint_t hcall_id, void * priv_data) {
-    struct vm_time * time_state = &(info->time_state);
+    struct vm_core_time * time_state = &(info->time_state);
 
     info->vm_regs.rbx = time_state->guest_cpu_freq;
 
@@ -102,9 +102,41 @@ int v3_start_time(struct guest_info * info) {
     return 0;
 }
 
+int v3_pause_time( struct guest_info * info )
+{
+    struct vm_core_time * time_state = &(info->time_state);
+    if (time_state->pause_time != 0) {
+	PrintError("Attempted to pause time when time already paused.\n");
+	return -1;
+    }
+    time_state->pause_time = v3_get_host_time( time_state );
+
+    return 0;
+}
+
+int v3_resume_time( struct guest_info * info )
+{
+    struct vm_core_time * time_state = &(info->time_state);
+    uint64_t host_time, guest_time;
+    sint64_t offset;
+
+    if (time_state->pause_time == 0) {
+	PrintError("Attempted to resume time when time not paused.\n");
+	return -1;
+    }
+
+    host_time = v3_get_host_time(time_state);
+    guest_time = v3_compute_guest_time(time_state, host_time);
+    offset = (sint64_t)guest_time - (sint64_t)host_time;
+    time_state->guest_host_offset = offset;
+    time_state->pause_time = 0;
+
+    return 0;
+}
+
 int v3_offset_time( struct guest_info * info, sint64_t offset )
 {
-    struct vm_time * time_state = &(info->time_state);
+    struct vm_core_time * time_state = &(info->time_state);
     PrintDebug("Adding additional offset of %lld to guest time.\n", offset);
     time_state->guest_host_offset += offset;
     return 0;
@@ -113,7 +145,7 @@ int v3_offset_time( struct guest_info * info, sint64_t offset )
 #ifdef V3_CONFIG_TIME_DILATION
 static uint64_t compute_target_host_time(struct guest_info * info, uint64_t guest_time)
 {
-    struct vm_time * time_state = &(info->time_state);
+    struct vm_core_time * time_state = &(info->time_state);
     uint64_t guest_elapsed, desired_elapsed;
     
     guest_elapsed = (guest_time - time_state->initial_time);
@@ -123,7 +155,7 @@ static uint64_t compute_target_host_time(struct guest_info * info, uint64_t gues
 
 static uint64_t compute_target_guest_time(struct guest_info *info)
 {
-    struct vm_time * time_state = &(info->time_state);
+    struct vm_core_time * time_state = &(info->time_state);
     uint64_t host_elapsed, desired_elapsed;
 
     host_elapsed = v3_get_host_time(time_state) - time_state->initial_time;
@@ -136,7 +168,7 @@ static uint64_t compute_target_guest_time(struct guest_info *info)
 /* Yield time in the host to deal with a guest that wants to run slower than 
  * the native host cycle frequency */
 static int yield_host_time(struct guest_info * info) {
-    struct vm_time * time_state = &(info->time_state);
+    struct vm_core_time * time_state = &(info->time_state);
     uint64_t host_time, target_host_time;
     uint64_t guest_time, old_guest_time;
 
@@ -164,7 +196,7 @@ static int yield_host_time(struct guest_info * info) {
 }
 
 static int skew_guest_time(struct guest_info * info) {
-    struct vm_time * time_state = &(info->time_state);
+    struct vm_core_time * time_state = &(info->time_state);
     uint64_t target_guest_time, guest_time;
     /* Now the host may have gotten ahead of the guest because
      * yielding is a coarse grained thing. Figure out what guest time
@@ -220,9 +252,13 @@ int v3_adjust_time(struct guest_info * info) {
 int 
 v3_time_exit_vm( struct guest_info * info ) 
 {
-    struct vm_time * time_state = &(info->time_state);
+    struct vm_core_time * time_state = &(info->time_state);
     
     time_state->exit_time = v3_get_host_time(time_state);
+
+#ifdef V3_CONFIG_TIME_DILATION
+    v3_pause_time( info );
+#endif
 
     return 0;
 }
@@ -231,22 +267,13 @@ v3_time_exit_vm( struct guest_info * info )
 int 
 v3_time_enter_vm( struct guest_info * info )
 {
-    struct vm_time * time_state = &(info->time_state);
+    struct vm_core_time * time_state = &(info->time_state);
     uint64_t host_time;
 
     host_time = v3_get_host_time(time_state);
     time_state->enter_time = host_time;
 #ifdef V3_CONFIG_TIME_DILATION
-    { 
-        uint64_t guest_time;
-	sint64_t offset;
-        guest_time = v3_compute_guest_time(time_state, host_time);
-	// XXX we probably want to use an inline function to do these
-        // time differences to deal with sign and overflow carefully
-	offset = (sint64_t)guest_time - (sint64_t)host_time;
-	PrintDebug("v3_time_enter_vm: guest time offset %lld from host time.\n", offset);
-        time_state->guest_host_offset = offset;
-    }
+    v3_resume_time( info );
 #else
     time_state->guest_host_offset = 0;
 #endif
@@ -281,7 +308,7 @@ int v3_remove_timer(struct guest_info * info, struct v3_timer * timer) {
 }
 
 void v3_update_timers(struct guest_info * info) {
-    struct vm_time *time_state = &info->time_state;
+    struct vm_core_time *time_state = &info->time_state;
     struct v3_timer * tmp_timer;
     sint64_t cycles;
     uint64_t old_time = info->time_state.last_update;
@@ -319,7 +346,7 @@ v3_remove_timeout_hook(struct guest_info * info, struct v3_timeout_hook * hook) 
 }
 
 int v3_schedule_timeout(struct guest_info * info, ullong_t guest_timeout) {
-    struct vm_time *time_state = &info->time_state;
+    struct vm_core_time *time_state = &info->time_state;
     /* Note that virtualization architectures that support it (like newer
      * VMX systems) will turn on an active preemption timeout if 
      * available to get this timeout as closely as possible. Other systems
@@ -331,7 +358,7 @@ int v3_schedule_timeout(struct guest_info * info, ullong_t guest_timeout) {
 }
 
 int v3_check_timeout( struct guest_info * info ) {
-    struct vm_time *time_state = &info->time_state;
+    struct vm_core_time *time_state = &info->time_state;
     if (time_state->next_timeout <= v3_get_guest_time(time_state)) {
 	struct v3_timeout_hook * tmp_timeout;
         time_state->next_timeout = (ullong_t)-1;
@@ -411,7 +438,7 @@ int v3_handle_rdtscp(struct guest_info * info) {
 
 static int tsc_aux_msr_read_hook(struct guest_info *info, uint_t msr_num, 
 				 struct v3_msr *msr_val, void *priv) {
-    struct vm_time * time_state = &(info->time_state);
+    struct vm_core_time * time_state = &(info->time_state);
 
     V3_ASSERT(msr_num == TSC_AUX_MSR);
 
@@ -423,7 +450,7 @@ static int tsc_aux_msr_read_hook(struct guest_info *info, uint_t msr_num,
 
 static int tsc_aux_msr_write_hook(struct guest_info *info, uint_t msr_num, 
 			      struct v3_msr msr_val, void *priv) {
-    struct vm_time * time_state = &(info->time_state);
+    struct vm_core_time * time_state = &(info->time_state);
 
     V3_ASSERT(msr_num == TSC_AUX_MSR);
 
@@ -447,7 +474,7 @@ static int tsc_msr_read_hook(struct guest_info *info, uint_t msr_num,
 
 static int tsc_msr_write_hook(struct guest_info *info, uint_t msr_num,
 			     struct v3_msr msr_val, void *priv) {
-    struct vm_time * time_state = &(info->time_state);
+    struct vm_core_time * time_state = &(info->time_state);
     uint64_t guest_time, new_tsc;
 
     V3_ASSERT(msr_num == TSC_MSR);
@@ -483,6 +510,9 @@ int v3_init_time_vm(struct v3_vm_info * vm) {
     ret = v3_register_hypercall(vm, TIME_CPUFREQ_HCALL, 
 				handle_cpufreq_hcall, NULL);
 
+    PrintDebug("Setting base time dilation factor.\n");
+    vm->time_state.td_mult = 1;
+
     return ret;
 }
 
@@ -494,7 +524,7 @@ void v3_deinit_time_vm(struct v3_vm_info * vm) {
 }
 
 void v3_init_time_core(struct guest_info * info) {
-    struct vm_time * time_state = &(info->time_state);
+    struct vm_core_time * time_state = &(info->time_state);
     v3_cfg_tree_t * cfg_tree = info->core_cfg_data;
     char * khz = NULL;
 
@@ -523,6 +553,9 @@ void v3_init_time_core(struct guest_info * info) {
     time_state->last_update = 0;
     time_state->guest_host_offset = 0;
     time_state->tsc_guest_offset = 0;
+    time_state->enter_time = 0;
+    time_state->exit_time = 0;
+    time_state->pause_time = 0;
 
     INIT_LIST_HEAD(&(time_state->timeout_hooks));
     time_state->next_timeout = (ullong_t)-1;
@@ -536,7 +569,7 @@ void v3_init_time_core(struct guest_info * info) {
 
 
 void v3_deinit_time_core(struct guest_info * core) {
-    struct vm_time * time_state = &(core->time_state);
+    struct vm_core_time * time_state = &(core->time_state);
     struct v3_timer * tmr = NULL;
     struct v3_timer * tmp = NULL;
 

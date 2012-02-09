@@ -67,7 +67,7 @@ struct guest_info {
 
     uint_t cpl;
 
-    struct vm_time time_state;
+    struct vm_core_time time_state;
 
     v3_paging_mode_t shdw_pg_mode;
     struct v3_shdw_pg_state shdw_pg_state;
@@ -165,6 +165,8 @@ struct v3_vm_info {
 
     /* device_map */
     struct vmm_dev_mgr  dev_mgr;
+
+    struct v3_time time_state;
 
     struct v3_host_events host_event_hooks;
 
