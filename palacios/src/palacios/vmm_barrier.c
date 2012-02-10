@@ -93,6 +93,10 @@ int v3_wait_for_barrier(struct v3_vm_info * vm_info, struct guest_info * local_c
     int all_blocked = 0;
     int i = 0;
 
+    if (barrier->active == 0) {
+	return -1;
+    }
+
     // wait for barrier catch on all cores
     while (all_blocked == 0) {
 	all_blocked = 1;

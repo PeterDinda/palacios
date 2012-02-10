@@ -452,6 +452,11 @@ int v3_stop_vm(struct v3_vm_info * vm) {
 
     vm->run_state = VM_STOPPED;
 
+    // Sanity check to catch any weird execution states
+    if (v3_wait_for_barrier(vm, NULL) == 0) {
+	v3_lower_barrier(vm);
+    }
+    
     // XXX force exit all cores via a cross call/IPI XXX
 
     while (1) {
