@@ -25,6 +25,8 @@
 #include <palacios/vmm_lowlevel.h>
 #include <palacios/vmm_sprintf.h>
 #include <palacios/vmm_extensions.h>
+#include <palacios/vmm_timeout.h>
+
 
 #ifdef V3_CONFIG_SVM
 #include <palacios/svm.h>
@@ -497,11 +499,112 @@ int v3_continue_vm(struct v3_vm_info * vm) {
 	return -1;
     }
 
-    v3_lower_barrier(vm);
-
     vm->run_state = VM_RUNNING;
 
+    v3_lower_barrier(vm);
+
     return 0;
+}
+
+
+
+static int sim_callback(struct guest_info * core, void * private_data) {
+    struct v3_bitmap * timeout_map = private_data;
+
+    v3_bitmap_set(timeout_map, core->vcpu_id);
+    
+    V3_Print("Simulation callback activated (guest_rip=%p)\n", (void *)core->rip);
+
+    while (v3_bitmap_check(timeout_map, core->vcpu_id) == 1) {
+	v3_yield(NULL);
+    }
+
+    return 0;
+}
+
+
+
+
+int v3_simulate_vm(struct v3_vm_info * vm, unsigned int msecs) {
+    struct v3_bitmap timeout_map;
+    int i = 0;
+    int all_blocked = 0;
+    uint64_t cycles = 0;
+    uint64_t cpu_khz = V3_CPU_KHZ();
+
+    if (vm->run_state != VM_PAUSED) {
+	PrintError("VM must be paused before simulation begins\n");
+	return -1;
+    }
+
+    /* AT this point VM is paused */
+    
+    // initialize bitmap
+    v3_bitmap_init(&timeout_map, vm->num_cores);
+
+
+
+
+    // calculate cycles from msecs...
+    // IMPORTANT: Floating point not allowed.
+    cycles = (msecs * cpu_khz);
+    
+
+
+    V3_Print("Simulating %u msecs (%llu cycles) [CPU_KHZ=%llu]\n", msecs, cycles, cpu_khz);
+
+    // set timeout
+    
+    for (i = 0; i < vm->num_cores; i++) {
+	if (v3_add_core_timeout(&(vm->cores[i]), cycles, sim_callback, &timeout_map) == -1) {
+	    PrintError("Could not register simulation timeout for core %d\n", i);
+	    return -1;
+	}
+    }
+
+    V3_Print("timeouts set on all cores\n ");
+
+    
+    // Run the simulation
+//    vm->run_state = VM_SIMULATING;
+    vm->run_state = VM_RUNNING;
+    v3_lower_barrier(vm);
+
+
+    V3_Print("Barrier lowered: We are now Simulating!!\n");
+
+    // block until simulation is complete    
+    while (all_blocked == 0) {
+	all_blocked = 1;
+
+	for (i = 0; i < vm->num_cores; i++) {
+	    if (v3_bitmap_check(&timeout_map, i)  == 0) {
+		all_blocked = 0;
+	    }
+	}
+
+	if (all_blocked == 1) {
+	    break;
+	}
+
+	v3_yield(NULL);
+    }
+
+
+    V3_Print("Simulation is complete\n");
+
+    // Simulation is complete
+    // Reset back to PAUSED state
+
+    v3_raise_barrier_nowait(vm, NULL);
+    vm->run_state = VM_PAUSED;
+    
+    v3_bitmap_reset(&timeout_map);
+
+    v3_wait_for_barrier(vm, NULL);
+
+    return 0;
+
 }
 
 #ifdef V3_CONFIG_CHECKPOINT

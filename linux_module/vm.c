@@ -158,6 +158,13 @@ static long v3_vm_ioctl(struct file * filp,
 	    v3_continue_vm(guest->v3_ctx);
 	    break;
 	}
+	case V3_VM_SIMULATE: {
+	    printk("Simulating VM (%s) for %lu msecs\n", guest->name, arg);
+	    v3_simulate_vm(guest->v3_ctx, arg);
+	    break;
+	}
+
+
 #ifdef V3_CONFIG_CHECKPOINT
 	case V3_VM_SAVE: {
 	    struct v3_chkpt_info chkpt;

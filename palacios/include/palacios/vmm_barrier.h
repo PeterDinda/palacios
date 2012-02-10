@@ -42,10 +42,20 @@ struct guest_info;
 int v3_init_barrier(struct v3_vm_info * vm_info);
 int v3_deinit_barrier(struct v3_vm_info * vm_info);
 
+
 int v3_raise_barrier(struct v3_vm_info * vm_info, struct guest_info * local_core);
 int v3_lower_barrier(struct v3_vm_info * vm_info);
 
 int v3_wait_at_barrier(struct guest_info * core);
+
+
+/* Special Barrier activation functions. 
+ *  DO NOT USE THESE UNLESS YOU KNOW WHAT YOU ARE DOING
+ */
+int v3_raise_barrier_nowait(struct v3_vm_info * vm_info, struct guest_info * local_core);
+int v3_wait_for_barrier(struct v3_vm_info * vm_info, struct guest_info * local_core);
+/* ** */
+
 
 
 #endif

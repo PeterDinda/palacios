@@ -33,6 +33,7 @@
 #include <palacios/vmx_msr.h>
 #include <palacios/vmm_decoder.h>
 #include <palacios/vmm_barrier.h>
+#include <palacios/vmm_timeout.h>
 
 #ifdef V3_CONFIG_CHECKPOINT
 #include <palacios/vmm_checkpoint.h>
@@ -141,6 +142,12 @@ static int debug_efer_write(struct guest_info * core, uint_t msr, struct v3_msr 
 static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state) {
     int vmx_ret = 0;
 
+    /* Get Available features */
+    struct vmx_pin_ctrls avail_pin_ctrls;
+    avail_pin_ctrls.value = v3_vmx_get_ctrl_features(&(hw_info.pin_ctrls));
+    /* ** */
+
+
     // disable global interrupts for vm state initialization
     v3_disable_ints();
 
@@ -179,6 +186,13 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
     vmx_state->pin_ctrls.nmi_exit = 1;
     vmx_state->pin_ctrls.ext_int_exit = 1;
 
+
+    /* We enable the preemption timer by default to measure accurate guest time */
+    if (avail_pin_ctrls.active_preempt_timer) {
+	V3_Print("VMX Preemption Timer is available\n");
+	vmx_state->pin_ctrls.active_preempt_timer = 1;
+	vmx_state->exit_ctrls.save_preempt_timer = 1;
+    }
 
     vmx_state->pri_proc_ctrls.hlt_exit = 1;
 
@@ -220,7 +234,7 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
     vmx_state->entry_ctrls.ld_pat = 1;
 
     /* Temporary GPF trap */
-    vmx_state->excp_bmap.gp = 1;
+    //    vmx_state->excp_bmap.gp = 1;
 
     // Setup Guests initial PAT field
     vmx_ret |= check_vmcs_write(VMCS_GUEST_PAT, 0x0007040600070406LL);
@@ -821,43 +835,7 @@ static void print_exit_log(struct guest_info * info) {
 
 }
 
-int
-v3_vmx_schedule_timeout(struct guest_info * info)
-{
-    struct vmx_data * vmx_state = (struct vmx_data *)(info->vmm_data);
-    sint64_t cycles;
-    uint32_t timeout;
 
-    /* Check if the hardware supports an active timeout */
-#define VMX_ACTIVE_PREEMPT_TIMER_PIN 0x40
-    if (hw_info.pin_ctrls.req_mask & VMX_ACTIVE_PREEMPT_TIMER_PIN) {
-	/* The hardware doesn't support us modifying this pin control */
-	return 0;
-    }
-
-    /* Check if we have one to schedule and schedule it if we do */
-    cycles = (sint64_t)info->time_state.next_timeout - (sint64_t)v3_get_guest_time(&info->time_state);
-    if (info->time_state.next_timeout == (ullong_t) -1)  {
-	timeout = 0;
-        vmx_state->pin_ctrls.active_preempt_timer = 0;
-    } else if (cycles < 0) {
-	/* set the timeout to 0 to force an immediate re-exit since it expired between
-	 * when we checked a timeout and now. IF SOMEONE CONTINAULLY SETS A SHORT TIMEOUT,
-	 * THIS CAN LOCK US OUT OF THE GUEST! */
-	timeout = 0;
-        vmx_state->pin_ctrls.active_preempt_timer = 1;
-    } else {
-        /* The hardware supports scheduling a timeout, and we have one to 
-         * schedule */
-        timeout = (uint32_t)cycles >> hw_info.misc_info.tsc_multiple;
-        vmx_state->pin_ctrls.active_preempt_timer = 1;
-    }
-
-    /* Actually program the timer based on the settings above. */
-    check_vmcs_write(VMCS_PREEMPT_TIMER, timeout);
-    check_vmcs_write(VMCS_PIN_CTRLS, vmx_state->pin_ctrls.value);
-    return 0;
-}
 
 /* 
  * CAUTION and DANGER!!! 
@@ -873,17 +851,13 @@ int v3_vmx_enter(struct guest_info * info) {
     uint32_t tsc_offset_low, tsc_offset_high;
     struct vmx_exit_info exit_info;
     struct vmx_data * vmx_info = (struct vmx_data *)(info->vmm_data);
+    uint64_t guest_cycles = 0;
 
     // Conditionally yield the CPU if the timeslice has expired
     v3_yield_cond(info);
 
     // Perform any additional yielding needed for time adjustment
     v3_adjust_time(info);
-
-    // Check for timeout - since this calls generic hooks in devices
-    // that may do things like pause the VM, it cannot be with interrupts
-    // disabled.
-    v3_check_timeout(info);
 
     // disable global interrupts for vm state transition
     v3_disable_ints();
@@ -917,9 +891,6 @@ int v3_vmx_enter(struct guest_info * info) {
 	vmcs_write(VMCS_GUEST_CR3, guest_cr3);
     }
 
-    // Update vmx active preemption timer to exit at the next timeout if 
-    // the hardware supports it.
-    v3_vmx_schedule_timeout(info);
 
     // Perform last-minute time bookkeeping prior to entering the VM
     v3_time_enter_vm(info);
@@ -931,22 +902,45 @@ int v3_vmx_enter(struct guest_info * info) {
     check_vmcs_write(VMCS_TSC_OFFSET_HIGH, tsc_offset_high);
     check_vmcs_write(VMCS_TSC_OFFSET, tsc_offset_low);
 
+    
+
     if (v3_update_vmcs_host_state(info)) {
 	v3_enable_ints();
         PrintError("Could not write host state\n");
         return -1;
     }
-
-
-    if (vmx_info->state == VMX_UNLAUNCHED) {
-	vmx_info->state = VMX_LAUNCHED;
-	ret = v3_vmx_launch(&(info->vm_regs), info, &(info->ctrl_regs));
-    } else {
-	V3_ASSERT(vmx_info->state != VMX_UNLAUNCHED);
-	ret = v3_vmx_resume(&(info->vm_regs), info, &(info->ctrl_regs));
-    }
     
+    if (vmx_info->pin_ctrls.active_preempt_timer) {
+	/* Preemption timer is active */
+	uint32_t preempt_window = 0xffffffff;
 
+	if (info->timeouts.timeout_active) {
+	    preempt_window = info->timeouts.next_timeout;
+	}
+	
+	check_vmcs_write(VMCS_PREEMPT_TIMER, preempt_window);
+    }
+   
+
+    {	
+	uint64_t entry_tsc = 0;
+	uint64_t exit_tsc = 0;
+
+	if (vmx_info->state == VMX_UNLAUNCHED) {
+	    vmx_info->state = VMX_LAUNCHED;
+	    rdtscll(entry_tsc);
+	    ret = v3_vmx_launch(&(info->vm_regs), info, &(info->ctrl_regs));
+	    rdtscll(exit_tsc);
+
+	} else {
+	    V3_ASSERT(vmx_info->state != VMX_UNLAUNCHED);
+	    rdtscll(entry_tsc);
+	    ret = v3_vmx_resume(&(info->vm_regs), info, &(info->ctrl_regs));
+	    rdtscll(exit_tsc);
+	}
+
+	guest_cycles = exit_tsc - entry_tsc;	
+    }
 
     //  PrintDebug("VMX Exit: ret=%d\n", ret);
 
@@ -961,11 +955,23 @@ int v3_vmx_enter(struct guest_info * info) {
     }
 
 
+    info->num_exits++;
+
+    /* If we have the preemption time, then use it to get more accurate guest time */
+    if (vmx_info->pin_ctrls.active_preempt_timer) {
+	uint32_t cycles_left = 0;
+	check_vmcs_read(VMCS_PREEMPT_TIMER, &(cycles_left));
+
+	if (info->timeouts.timeout_active) {
+	    guest_cycles = info->timeouts.next_timeout - cycles_left;
+	} else {
+	    guest_cycles = 0xffffffff - cycles_left;
+	}
+    }
 
     // Immediate exit from VM time bookkeeping
-    v3_time_exit_vm(info);
+    v3_time_exit_vm(info, &guest_cycles);
 
-    info->num_exits++;
 
     /* Update guest state */
     v3_vmx_save_vmcs(info);
@@ -974,6 +980,7 @@ int v3_vmx_enter(struct guest_info * info) {
 
     info->mem_mode = v3_get_vm_mem_mode(info);
     info->cpu_mode = v3_get_vm_cpu_mode(info);
+
 
 
     check_vmcs_read(VMCS_EXIT_INSTR_LEN, &(exit_info.instr_len));
@@ -1021,6 +1028,11 @@ int v3_vmx_enter(struct guest_info * info) {
     if (v3_handle_vmx_exit(info, &exit_info) == -1) {
 	PrintError("Error in VMX exit handler (Exit reason=%x)\n", exit_info.exit_reason);
 	return -1;
+    }
+
+    if (info->timeouts.timeout_active) {
+	/* Check to see if any timeouts have expired */
+	v3_handle_timeouts(info, guest_cycles);
     }
 
     return 0;

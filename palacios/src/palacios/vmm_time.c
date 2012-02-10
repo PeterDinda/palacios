@@ -213,7 +213,7 @@ static int skew_guest_time(struct guest_info * info) {
 	if (time_state->enter_time) {
 	    /* Limit forward skew to 10% of the amount the guest has
 	     * run since we last could skew time */
-	    max_skew = (sint64_t)(guest_time - time_state->enter_time) / 10.0;
+	    max_skew = (sint64_t)(guest_time - time_state->enter_time) / 10;
 	} else {
 	    max_skew = 0;
 	}
@@ -250,7 +250,7 @@ int v3_adjust_time(struct guest_info * info) {
 
 /* Called immediately upon entry in the the VMM */
 int 
-v3_time_exit_vm( struct guest_info * info ) 
+v3_time_exit_vm( struct guest_info * info, uint64_t * guest_cycles ) 
 {
     struct vm_core_time * time_state = &(info->time_state);
     
@@ -323,51 +323,6 @@ void v3_update_timers(struct guest_info * info) {
     }
 }
 
-/* Handle TSC timeout hooks */
-struct v3_timeout_hook * 
-v3_add_timeout_hook(struct guest_info * info, v3_timeout_callback_t callback, 
-		    void * priv_data) {
-    struct v3_timeout_hook * timeout = NULL;
-    timeout = (struct v3_timeout_hook *)V3_Malloc(sizeof(struct v3_timeout_hook));
-    V3_ASSERT(timeout != NULL);
-
-    timeout->callback = callback;
-    timeout->private_data = priv_data;
-
-    list_add(&(timeout->hook_link), &(info->time_state.timeout_hooks));
-    return timeout;
-}
-
-int 
-v3_remove_timeout_hook(struct guest_info * info, struct v3_timeout_hook * hook) {
-    list_del(&(hook->hook_link));
-    V3_Free(hook);
-    return 0;
-}
-
-int v3_schedule_timeout(struct guest_info * info, ullong_t guest_timeout) {
-    struct vm_core_time *time_state = &info->time_state;
-    /* Note that virtualization architectures that support it (like newer
-     * VMX systems) will turn on an active preemption timeout if 
-     * available to get this timeout as closely as possible. Other systems
-     * only catch it in the periodic interrupt and so are less precise */
-    if (guest_timeout < time_state->next_timeout) {
-	time_state->next_timeout = guest_timeout;
-    }
-    return 0;
-}
-
-int v3_check_timeout( struct guest_info * info ) {
-    struct vm_core_time *time_state = &info->time_state;
-    if (time_state->next_timeout <= v3_get_guest_time(time_state)) {
-	struct v3_timeout_hook * tmp_timeout;
-        time_state->next_timeout = (ullong_t)-1;
-    	list_for_each_entry(tmp_timeout, &(time_state->timeout_hooks), hook_link) {
-		tmp_timeout->callback(info, tmp_timeout->private_data);
-    	}
-    }
-    return 0;
-}
 
 /* 
  * Handle full virtualization of the time stamp counter.  As noted
@@ -557,8 +512,6 @@ void v3_init_time_core(struct guest_info * info) {
     time_state->exit_time = 0;
     time_state->pause_time = 0;
 
-    INIT_LIST_HEAD(&(time_state->timeout_hooks));
-    time_state->next_timeout = (ullong_t)-1;
 
     INIT_LIST_HEAD(&(time_state->timers));
     time_state->num_timers = 0;

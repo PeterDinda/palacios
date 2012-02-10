@@ -41,27 +41,13 @@ int v3_deinit_barrier(struct v3_vm_info * vm_info) {
     return 0;
 }
 
-
-/* Barrier synchronization primitive
- *   -- This call will block until all the guest cores are waiting at a common synchronization point
- *      in a yield loop. The core will block at the sync point until the barrier is lowered.
- * 
- *   ARGUMENTS: 
- *       vm_info -- The VM for which the barrier is being activated
- *       local_core -- The core whose thread this function is being called from, or NULL 
- *                     if the calling thread is not associated with a VM's core context
- */
-
-int v3_raise_barrier(struct v3_vm_info * vm_info, struct guest_info * local_core) {
+int v3_raise_barrier_nowait(struct v3_vm_info * vm_info, struct guest_info * local_core) {
     struct v3_barrier * barrier = &(vm_info->barrier);
     addr_t flag;
     int acquired = 0;
-    int all_blocked = 0;
 
     int local_vcpu = -1;
     int i = 0;
-
-
 
     flag = v3_lock_irqsave(barrier->lock);
 
@@ -99,6 +85,14 @@ int v3_raise_barrier(struct v3_vm_info * vm_info, struct guest_info * local_core
 	}
     }
 
+    return 0;
+}
+
+int v3_wait_for_barrier(struct v3_vm_info * vm_info, struct guest_info * local_core) {
+    struct v3_barrier * barrier = &(vm_info->barrier);
+    int all_blocked = 0;
+    int i = 0;
+
     // wait for barrier catch on all cores
     while (all_blocked == 0) {
 	all_blocked = 1;
@@ -125,8 +119,31 @@ int v3_raise_barrier(struct v3_vm_info * vm_info, struct guest_info * local_core
 	v3_yield(local_core);
     }
 
-
     return 0;
+}
+
+
+
+/* Barrier synchronization primitive
+ *   -- This call will block until all the guest cores are waiting at a common synchronization point
+ *      in a yield loop. The core will block at the sync point until the barrier is lowered.
+ * 
+ *   ARGUMENTS: 
+ *       vm_info -- The VM for which the barrier is being activated
+ *       local_core -- The core whose thread this function is being called from, or NULL 
+ *                     if the calling thread is not associated with a VM's core context
+ */
+
+int v3_raise_barrier(struct v3_vm_info * vm_info, struct guest_info * local_core) {
+    int ret = 0;
+
+    ret = v3_raise_barrier_nowait(vm_info, local_core);
+
+    if (ret != 0) {
+	return ret;
+    }
+
+    return v3_wait_for_barrier(vm_info, local_core);
 }
 
 

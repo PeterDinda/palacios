@@ -24,6 +24,7 @@
 #define V3_VM_STOP 26
 #define V3_VM_LOAD 27
 #define V3_VM_SAVE 28
+#define V3_VM_SIMULATE 29
 
 #define V3_VM_INSPECT 30
 

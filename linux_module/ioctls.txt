@@ -15,6 +15,7 @@ VM Commands (/dev/v3-vm*)
 21 -- (IFACE) Connect Stream
 22 -- (VMM) Stop Guest
 
+29 -- (VMM) Simulate guest
 30 -- (EXT) Activate Inspector
 
 257 -- (IFACE) VGA Console Framebuf Input

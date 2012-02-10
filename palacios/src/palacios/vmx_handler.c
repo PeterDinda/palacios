@@ -75,6 +75,7 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
     }
 
 
+
 #ifdef V3_CONFIG_TELEMETRY
     if (info->vm_info->enable_telemetry) {
 	v3_telemetry_start_exit(info);

@@ -532,6 +532,7 @@ int v3_svm_enter(struct guest_info * info) {
     vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data)); 
     addr_t exit_code = 0, exit_info1 = 0, exit_info2 = 0;
     sint64_t tsc_offset;
+    uint64_t guest_cycles = 0;
 
     // Conditionally yield the CPU if the timeslice has expired
     v3_yield_cond(info);
@@ -539,10 +540,7 @@ int v3_svm_enter(struct guest_info * info) {
     // Perform any additional yielding needed for time adjustment
     v3_adjust_time(info);
 
-    // Check for timeout - since this calls generic hooks in devices
-    // that may do things like pause the VM, it cannot be with interrupts
-    // disabled.
-    v3_check_timeout(info);
+
 
     // disable global interrupts for vm state transition
     v3_clgi();
@@ -602,15 +600,26 @@ int v3_svm_enter(struct guest_info * info) {
 
 
     //V3_Print("Calling v3_svm_launch\n");
+    {	
+	uint64_t entry_tsc = 0;
+	uint64_t exit_tsc = 0;
+	
+	rdtscll(entry_tsc);
 
-    v3_svm_launch((vmcb_t *)V3_PAddr(info->vmm_data), &(info->vm_regs), (vmcb_t *)host_vmcbs[V3_Get_CPU()]);
+	v3_svm_launch((vmcb_t *)V3_PAddr(info->vmm_data), &(info->vm_regs), (vmcb_t *)host_vmcbs[V3_Get_CPU()]);
+
+	rdtscll(exit_tsc);
+
+	guest_cycles = exit_tsc - entry_tsc;
+    }
+
 
     //V3_Print("SVM Returned: Exit Code: %x, guest_rip=%lx\n", (uint32_t)(guest_ctrl->exit_code), (unsigned long)guest_state->rip);
 
     v3_last_exit = (uint32_t)(guest_ctrl->exit_code);
 
     // Immediate exit from VM time bookkeeping
-    v3_time_exit_vm(info);
+    v3_time_exit_vm(info, &guest_cycles);
 
     info->num_exits++;
 
@@ -663,6 +672,11 @@ int v3_svm_enter(struct guest_info * info) {
 	    PrintError("  last Exit was %d (exit code=0x%llx)\n", v3_last_exit, (uint64_t) exit_code);
 	    return -1;
 	}
+    }
+
+    if (info->timeouts.timeout_active) {
+	/* Check to see if any timeouts have expired */
+	v3_handle_timeouts(info, guest_cycles);
     }
 
 

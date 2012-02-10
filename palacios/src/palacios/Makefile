@@ -36,7 +36,7 @@ obj-y := \
 	vmm_multitree.o \
 	vmm_bitmap.o \
 	vmm_barrier.o \
-
+	vmm_timeout.o \
 
 
 obj-$(V3_CONFIG_XED) +=	vmm_xed.o

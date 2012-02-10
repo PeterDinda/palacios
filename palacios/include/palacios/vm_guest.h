@@ -38,6 +38,7 @@
 #include <palacios/vmm_regs.h>
 #include <palacios/vmm_extensions.h>
 #include <palacios/vmm_barrier.h>
+#include <palacios/vmm_timeout.h>
 
 
 #ifdef V3_CONFIG_TELEMETRY
@@ -68,6 +69,7 @@ struct guest_info {
     uint_t cpl;
 
     struct vm_core_time time_state;
+    struct v3_core_timeouts timeouts;
 
     v3_paging_mode_t shdw_pg_mode;
     struct v3_shdw_pg_state shdw_pg_state;
