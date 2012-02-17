@@ -894,7 +894,7 @@ int v3_vmx_enter(struct guest_info * info) {
 
     // Perform last-minute time bookkeeping prior to entering the VM
     v3_time_enter_vm(info);
-
+    
     tsc_offset = v3_tsc_host_offset(&info->time_state);
     tsc_offset_high = (uint32_t)(( tsc_offset >> 32) & 0xffffffff);
     tsc_offset_low = (uint32_t)(tsc_offset & 0xffffffff);

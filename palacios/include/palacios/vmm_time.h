@@ -41,16 +41,15 @@ struct vm_core_time {
     uint32_t host_cpu_freq;    // in kHZ 
     uint32_t guest_cpu_freq;   // can be lower than host CPU freq!
 
-    sint64_t guest_host_offset;// Offset of monotonic guest time from host time
-    sint64_t tsc_guest_offset; // Offset of guest TSC from monotonic guest time
+    uint64_t guest_cycles;
+    sint64_t tsc_guest_offset; // Offset of guest TSC from guest cycles
 
-    uint64_t last_update;      // Last time (in monotonic guest time) the 
+    uint64_t last_update;      // Last time (in guest cycles) the 
                                // timers were updated
 
-    uint64_t initial_time;     // Time when VMM started. 
+    uint64_t initial_time;     // Host time when VMM started. 
     uint64_t enter_time;       // Host time the guest was last entered
     uint64_t exit_time;        // Host time the the VM was exited to
-    uint64_t pause_time;       // Time at which the VM core was paused
     struct v3_msr tsc_aux;     // Auxilliary MSR for RDTSCP
 
     // Installed Timers slaved off of the guest monotonic TSC
@@ -99,8 +98,6 @@ struct v3_timer * v3_add_timer(struct guest_info * info, struct v3_timer_ops * o
 int v3_remove_timer(struct guest_info * info, struct v3_timer * timer);
 void v3_update_timers(struct guest_info * info);
 
-
-
 // Functions to return the different notions of time in Palacios.
 static inline uint64_t v3_get_host_time(struct vm_core_time *t) {
     uint64_t tmp;
@@ -109,29 +106,18 @@ static inline uint64_t v3_get_host_time(struct vm_core_time *t) {
 }
 
 // Returns *monotonic* guest time.
-static inline uint64_t v3_compute_guest_time(struct vm_core_time *t, uint64_t ht) {
-    if (t->pause_time)
-    	return t->pause_time + t->guest_host_offset;
-    else
-    	return ht + t->guest_host_offset;
-}
-
 static inline uint64_t v3_get_guest_time(struct vm_core_time *t) {
-    return v3_compute_guest_time(t, v3_get_host_time(t));
-}
-
-// Returns the TSC value seen by the guest
-static inline uint64_t v3_compute_guest_tsc(struct vm_core_time *t, uint64_t ht) {
-    return v3_compute_guest_time(t, ht) + t->tsc_guest_offset;
+    return t->guest_cycles;
 }
 
 static inline uint64_t v3_get_guest_tsc(struct vm_core_time *t) {
-    return v3_compute_guest_tsc(t, v3_get_host_time(t));
+    return v3_get_guest_time(t) + t->tsc_guest_offset;
 }
 
 // Returns offset of guest TSC from host TSC
 static inline sint64_t v3_tsc_host_offset(struct vm_core_time *time_state) {
-    return time_state->guest_host_offset + time_state->tsc_guest_offset;
+    uint64_t host_time = v3_get_host_time(time_state);
+    return ((sint64_t)host_time - (sint64_t)time_state->guest_cycles) + time_state->tsc_guest_offset;
 }
 
 // Functions for handling exits on the TSC when fully virtualizing 

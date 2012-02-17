@@ -91,46 +91,16 @@ int v3_start_time(struct guest_info * info) {
     /* We start running with guest_time == host_time */
     uint64_t t = v3_get_host_time(&info->time_state); 
 
-    PrintDebug("Starting initial guest time as %llu\n", t);
-
     info->time_state.enter_time = 0;
     info->time_state.exit_time = t; 
-    info->time_state.last_update = t;
     info->time_state.initial_time = t;
     info->yield_start_cycle = t;
 
-    return 0;
-}
-
-int v3_pause_time( struct guest_info * info )
-{
-    struct vm_core_time * time_state = &(info->time_state);
-    if (time_state->pause_time != 0) {
-	PrintError("Attempted to pause time when time already paused.\n");
-	return -1;
-    }
-    time_state->pause_time = v3_get_host_time( time_state );
-
-    return 0;
-}
-
-int v3_resume_time( struct guest_info * info )
-{
-    struct vm_core_time * time_state = &(info->time_state);
-    uint64_t host_time, guest_time;
-    sint64_t offset;
-
-    if (time_state->pause_time == 0) {
-	PrintError("Attempted to resume time when time not paused.\n");
-	return -1;
-    }
-
-    host_time = v3_get_host_time(time_state);
-    guest_time = v3_compute_guest_time(time_state, host_time);
-    offset = (sint64_t)guest_time - (sint64_t)host_time;
-    time_state->guest_host_offset = offset;
-    time_state->pause_time = 0;
-
+    info->time_state.last_update = 0;
+    info->time_state.guest_cycles = 0;
+    PrintDebug("Starting time for core %d at host time %llu/guest time %llu.\n",
+	       info->vcpu_id, t, info->time_state.guest_cycles); 
+    v3_yield(info);
     return 0;
 }
 
@@ -138,7 +108,7 @@ int v3_offset_time( struct guest_info * info, sint64_t offset )
 {
     struct vm_core_time * time_state = &(info->time_state);
     PrintDebug("Adding additional offset of %lld to guest time.\n", offset);
-    time_state->guest_host_offset += offset;
+    time_state->guest_cycles += offset;
     return 0;
 }
 
@@ -178,7 +148,7 @@ static int yield_host_time(struct guest_info * info) {
      * time to account for the time paused even if the geust isn't 
      * usually paused in the VMM. */
     host_time = v3_get_host_time(time_state);
-    old_guest_time = v3_compute_guest_time(time_state, host_time);
+    old_guest_time = v3_get_guest_time(time_state);
     target_host_time = compute_target_host_time(info, old_guest_time);
 
     while (target_host_time > host_time) {
@@ -186,7 +156,7 @@ static int yield_host_time(struct guest_info * info) {
 	host_time = v3_get_host_time(time_state);
     }
 
-    guest_time = v3_compute_guest_time(time_state, host_time);
+    guest_time = v3_get_guest_time(time_state);
 
     /* We do *not* assume the guest timer was paused in the VM. If it was
      * this offseting is 0. If it wasn't, we need this. */
@@ -255,11 +225,13 @@ v3_time_exit_vm( struct guest_info * info, uint64_t * guest_cycles )
     struct vm_core_time * time_state = &(info->time_state);
     
     time_state->exit_time = v3_get_host_time(time_state);
-
-#ifdef V3_CONFIG_TIME_DILATION
-    v3_pause_time( info );
-#endif
-
+    if (guest_cycles) {
+    	time_state->guest_cycles += *guest_cycles;
+    } else {
+	uint64_t cycles_exec;
+	cycles_exec = time_state->exit_time - time_state->enter_time;
+	time_state->guest_cycles += cycles_exec;
+    }
     return 0;
 }
 
@@ -268,16 +240,15 @@ int
 v3_time_enter_vm( struct guest_info * info )
 {
     struct vm_core_time * time_state = &(info->time_state);
-    uint64_t host_time;
+    uint64_t host_time, vmm_cycles;
 
     host_time = v3_get_host_time(time_state);
     time_state->enter_time = host_time;
-#ifdef V3_CONFIG_TIME_DILATION
-    v3_resume_time( info );
-#else
-    time_state->guest_host_offset = 0;
-#endif
-
+    vmm_cycles = host_time - time_state->exit_time;
+    /* XXX How do we want to take into account host/guest CPU speed differences
+     * and time dilation here? Probably time just won't advance in the VMM in that
+     * case so its irrelvant XXX */
+    time_state->guest_cycles += vmm_cycles; 
     return 0;
 }
 	
@@ -465,8 +436,8 @@ int v3_init_time_vm(struct v3_vm_info * vm) {
     ret = v3_register_hypercall(vm, TIME_CPUFREQ_HCALL, 
 				handle_cpufreq_hcall, NULL);
 
-    PrintDebug("Setting base time dilation factor.\n");
     vm->time_state.td_mult = 1;
+    PrintDebug("Setting base time dilation factor to %d.\n", vm->time_state.td_mult);
 
     return ret;
 }
@@ -506,12 +477,10 @@ void v3_init_time_core(struct guest_info * info) {
 
     time_state->initial_time = 0;
     time_state->last_update = 0;
-    time_state->guest_host_offset = 0;
     time_state->tsc_guest_offset = 0;
     time_state->enter_time = 0;
     time_state->exit_time = 0;
-    time_state->pause_time = 0;
-
+    time_state->guest_cycles = 0;
 
     INIT_LIST_HEAD(&(time_state->timers));
     time_state->num_timers = 0;
