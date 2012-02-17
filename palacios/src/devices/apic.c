@@ -297,7 +297,10 @@ static void init_apic_state(struct apic_state * apic, uint32_t id) {
     apic->tmr_cur_cnt = 0x00000000;
     apic->missed_ints = 0;
 
-    apic->lapic_id.val = id;
+    // note that it's the *lower* 24 bits that are
+    // reserved, not the upper 24.  
+    apic->lapic_id.val = 0;
+    apic->lapic_id.apic_id = id;
     
     apic->ipi_state = INIT_ST;
 
@@ -787,13 +790,13 @@ static struct apic_state * find_physical_apic(struct apic_dev_state * apic_dev, 
 
     if ( (dst_idx > 0) && (dst_idx < apic_dev->num_apics) ) { 
 	// see if it simply is the core id
-	if (apic_dev->apics[dst_idx].lapic_id.val == dst_idx) { 
+	if (apic_dev->apics[dst_idx].lapic_id.apic_id == dst_idx) { 
 	     dst_apic = &(apic_dev->apics[dst_idx]);
 	}
     }
 
     for (i = 0; i < apic_dev->num_apics; i++) { 
-	if (apic_dev->apics[i].lapic_id.val == dst_idx) { 
+	if (apic_dev->apics[i].lapic_id.apic_id == dst_idx) { 
 	    dst_apic =  &(apic_dev->apics[i]);
 	}
     }
