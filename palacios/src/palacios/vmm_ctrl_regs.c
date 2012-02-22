@@ -571,25 +571,31 @@ int v3_handle_efer_write(struct guest_info * core, uint_t msr, struct v3_msr src
     // Set EFER value seen by hardware while the guest is running
     *(uint64_t *)hw_efer = src.value;
 
-    // Catch unsupported features
-    if ((old_hw_efer.lme == 1) && (hw_efer->lme == 0)) {
+    // We have gotten here either because we are using
+    // shadow paging, or we are using nested paging on SVM
+    // In the latter case, we don't need to do anything
+    // like the following
+    if (core->shdw_pg_mode == SHADOW_PAGING) { 
+      // Catch unsupported features
+      if ((old_hw_efer.lme == 1) && (hw_efer->lme == 0)) {
 	PrintError("Disabling long mode once it has been enabled is not supported\n");
 	return -1;
-    }
-
-    // Set LME and LMA bits seen by hardware
-    if (old_hw_efer.lme == 0) {
+      }
+      
+      // Set LME and LMA bits seen by hardware
+      if (old_hw_efer.lme == 0) {
 	// Long mode was not previously enabled, so the lme bit cannot
 	// be set yet. It will be set later when the guest sets CR0.PG
 	// to enable paging.
     	hw_efer->lme = 0;
-    } else {
+      } else {
 	// Long mode was previously enabled. Ensure LMA bit is set.
 	// VMX does not automatically set LMA, and this should not affect SVM.
 	hw_efer->lma = 1;
+      }
     }
-
-
+      
+      
     PrintDebug("RIP=%p\n", (void *)core->rip);
     PrintDebug("New EFER value HW(hi=%p), VM(hi=%p)\n", (void *)*(uint64_t *)hw_efer, (void *)vm_efer->value); 
 
