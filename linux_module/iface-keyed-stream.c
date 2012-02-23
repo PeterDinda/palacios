@@ -1013,9 +1013,8 @@ static struct file_operations user_keyed_stream_fops = {
     .poll = keyed_stream_poll_user,
 #ifdef HAVE_COMPAT_IOCTL
     .compat_ioctl = keyed_stream_compat_ioctl_user,
-#else
-    .ioctl = keyed_stream_ioctl_user,
 #endif
+    .ioctl = keyed_stream_ioctl_user,
     .release = keyed_stream_release_user,
 };
 

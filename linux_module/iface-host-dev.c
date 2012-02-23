@@ -605,9 +605,8 @@ static struct file_operations host_dev_fops = {
     .release  = host_dev_release,
 #ifdef HAVE_COMPAT_IOCTL
     .compat_ioctl = host_dev_compat_ioctl,
-#else
-    .ioctl = host_dev_ioctl,
 #endif
+    .ioctl = host_dev_ioctl,
 };
 
 

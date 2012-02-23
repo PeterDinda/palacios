@@ -713,11 +713,14 @@ static int init_nvram_state(struct v3_vm_info * vm, struct nvram_internal * nvra
 
 static int nvram_write_reg_port(struct guest_info * core, uint16_t port,
 				void * src, uint_t length, void * priv_data) {
-
+    uint8_t reg;
     struct nvram_internal * data = priv_data;
+
+    memcpy(&reg,src,1);
+
+    data->thereg = reg & 0x7f;  //discard NMI bit if it's there
     
-    memcpy(&(data->thereg), src, 1);
-    PrintDebug("nvram: Writing To NVRAM reg: 0x%x\n", data->thereg);
+    PrintDebug("nvram: Writing To NVRAM reg: 0x%x (NMI_disable=%d)\n", data->thereg,reg>>7);
 
     return 1;
 }
