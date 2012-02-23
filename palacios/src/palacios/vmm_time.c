@@ -41,15 +41,14 @@
  * the passage of time:
  * (1) The host timestamp counter - read directly from HW and never written
  * (2) A monotonic guest timestamp counter used to measure the progression of
- *     time in the guest. This is computed using an offsets from (1) above.
+ *     time in the guest. This is stored as an absolute number of cycles elapsed
+ *     and is updated on guest entry and exit; it can also be updated explicitly
+ *     in the monitor at times
  * (3) The actual guest timestamp counter (which can be written by
  *     writing to the guest TSC MSR - MSR 0x10) from the monotonic guest TSC.
  *     This is also computed as an offset from (2) above when the TSC and
  *     this offset is updated when the TSC MSR is written.
  *
- * The value used to offset the guest TSC from the host TSC is the *sum* of all
- * of these offsets (2 and 3) above
- * 
  * Because all other devices are slaved off of the passage of time in the guest,
  * it is (2) above that drives the firing of other timers in the guest, 
  * including timer devices such as the Programmable Interrupt Timer (PIT).
