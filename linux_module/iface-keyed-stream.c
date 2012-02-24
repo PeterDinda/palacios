@@ -876,7 +876,7 @@ static unsigned int keyed_stream_poll_user(struct file *filp, poll_table *wait)
     return 0;
 }
 
-static int keyed_stream_ioctl_user(struct inode *inode, struct file *filp, unsigned int ioctl, unsigned long arg)
+static long keyed_stream_ioctl_user(struct file * filp, unsigned int ioctl, unsigned long arg)
 {
     void __user *argp = (void __user *)arg;
     unsigned long flags;
@@ -985,10 +985,6 @@ static int keyed_stream_ioctl_user(struct inode *inode, struct file *filp, unsig
     }
 }
 
-static long keyed_stream_compat_ioctl_user(struct file * filp, unsigned int ioctl, unsigned long arg)
-{
-	return keyed_stream_ioctl_user(NULL, filp, ioctl, arg);
-}
 
 static int keyed_stream_release_user(struct inode *inode, struct file *filp)
 {
@@ -1011,10 +1007,8 @@ static int keyed_stream_release_user(struct inode *inode, struct file *filp)
 
 static struct file_operations user_keyed_stream_fops = {
     .poll = keyed_stream_poll_user,
-#ifdef HAVE_COMPAT_IOCTL
-    .compat_ioctl = keyed_stream_compat_ioctl_user,
-#endif
-    .ioctl = keyed_stream_ioctl_user,
+    .compat_ioctl = keyed_stream_ioctl_user,
+    .unlocked_ioctl = keyed_stream_ioctl_user,
     .release = keyed_stream_release_user,
 };
 

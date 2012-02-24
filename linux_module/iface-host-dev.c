@@ -342,7 +342,7 @@ static int host_dev_release(struct inode * i, struct file * filp)
     return 0;
 }
 
-static int host_dev_ioctl(struct inode *ip, struct file *fp, unsigned int val, unsigned long arg)
+static long host_dev_ioctl(struct file * fp, unsigned int val, unsigned long arg)
 {
     void __user *argp = (void __user *)arg;
 
@@ -595,18 +595,11 @@ static int host_dev_ioctl(struct inode *ip, struct file *fp, unsigned int val, u
     
 }
 
-static long host_dev_compat_ioctl(struct file * filp, unsigned int ioctl, unsigned long arg)
-{
-	return host_dev_ioctl(NULL, filp, ioctl, arg);
-}
-
 static struct file_operations host_dev_fops = {
     .poll     = host_dev_poll,
     .release  = host_dev_release,
-#ifdef HAVE_COMPAT_IOCTL
-    .compat_ioctl = host_dev_compat_ioctl,
-#endif
-    .ioctl = host_dev_ioctl,
+    .compat_ioctl = host_dev_ioctl,
+    .unlocked_ioctl = host_dev_ioctl,
 };
 
 
