@@ -33,7 +33,8 @@ struct guest_info;
 
 /* Per-VM time information */
 struct v3_time {
-    uint32_t td_mult; 
+    uint32_t td_mult; /* Currently unused! */
+    char follow_host_time;
 };
 
 /* Per-core time information */
@@ -49,7 +50,7 @@ struct vm_core_time {
 
     uint64_t initial_time;     // Host time when VMM started. 
     uint64_t enter_time;       // Host time the guest was last entered
-    uint64_t exit_time;        // Host time the the VM was exited to
+    uint64_t pause_time;       // Host time when we went into the VMM
     struct v3_msr tsc_aux;     // Auxilliary MSR for RDTSCP
 
     // Installed Timers slaved off of the guest monotonic TSC
@@ -86,11 +87,9 @@ int v3_start_time(struct guest_info * core);
 int v3_time_enter_vm(struct guest_info * core);
 int v3_time_exit_vm(struct guest_info * core, uint64_t * guest_cycles);
 
-int v3_pause_time(struct guest_info * core);
-int v3_resume_time(struct guest_info * core);
 int v3_offset_time(struct guest_info * core, sint64_t offset);
-
-int v3_adjust_time(struct guest_info * core);
+int v3_skip_time(struct guest_info * core);
+int v3_advance_time(struct guest_info * core);
 
 // Basic functions for attaching timers to the passage of time - these timers 
 // should eventually specify their accuracy and resolution.

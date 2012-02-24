@@ -42,10 +42,11 @@ int v3_handle_halt(struct guest_info * info) {
 
 	while (!v3_intr_pending(info)) {
 	    /* Since we're in an exit, time is already paused here, so no need to pause again. */
-	  // 	    V3_Print("palacios: halt->yield\n");
-
-	    v3_yield(info);
 	    
+	    /* Yield, allowing time to pass while yielded */
+	    v3_yield(info);
+	    v3_advance_time(info);
+
 	    v3_disable_ints();
 	    v3_update_timers(info);
 	    v3_enable_ints();

@@ -856,9 +856,6 @@ int v3_vmx_enter(struct guest_info * info) {
     // Conditionally yield the CPU if the timeslice has expired
     v3_yield_cond(info);
 
-    // Perform any additional yielding needed for time adjustment
-    v3_adjust_time(info);
-
     // disable global interrupts for vm state transition
     v3_disable_ints();
 
@@ -866,6 +863,7 @@ int v3_vmx_enter(struct guest_info * info) {
     // of the time in the VM is accounted for as possible. Also do it before
     // updating IRQ entry state so that any interrupts the timers raise get 
     // handled on the next VM entry. Must be done with interrupts disabled.
+    v3_advance_time(info);
     v3_update_timers(info);
 
     if (vmcs_store() != vmx_info->vmcs_ptr_phys) {

@@ -91,7 +91,7 @@ int v3_start_time(struct guest_info * info) {
     uint64_t t = v3_get_host_time(&info->time_state); 
 
     info->time_state.enter_time = 0;
-    info->time_state.exit_time = t; 
+    info->time_state.pause_time = t; 
     info->time_state.initial_time = t;
     info->yield_start_cycle = t;
 
@@ -106,114 +106,33 @@ int v3_start_time(struct guest_info * info) {
 int v3_offset_time( struct guest_info * info, sint64_t offset )
 {
     struct vm_core_time * time_state = &(info->time_state);
-    PrintDebug("Adding additional offset of %lld to guest time.\n", offset);
     time_state->guest_cycles += offset;
     return 0;
 }
 
-#ifdef V3_CONFIG_TIME_DILATION
-static uint64_t compute_target_host_time(struct guest_info * info, uint64_t guest_time)
-{
-    struct vm_core_time * time_state = &(info->time_state);
-    uint64_t guest_elapsed, desired_elapsed;
-    
-    guest_elapsed = (guest_time - time_state->initial_time);
-    desired_elapsed = (guest_elapsed * time_state->host_cpu_freq) / time_state->guest_cpu_freq;
-    return time_state->initial_time + desired_elapsed;
-}
-
-static uint64_t compute_target_guest_time(struct guest_info *info)
-{
-    struct vm_core_time * time_state = &(info->time_state);
-    uint64_t host_elapsed, desired_elapsed;
-
-    host_elapsed = v3_get_host_time(time_state) - time_state->initial_time;
-    desired_elapsed = (host_elapsed * time_state->guest_cpu_freq) / time_state->host_cpu_freq;
-
-    return time_state->initial_time + desired_elapsed;
-
-} 
-
-/* Yield time in the host to deal with a guest that wants to run slower than 
- * the native host cycle frequency */
-static int yield_host_time(struct guest_info * info) {
-    struct vm_core_time * time_state = &(info->time_state);
-    uint64_t host_time, target_host_time;
-    uint64_t guest_time, old_guest_time;
-
-    /* Now, let the host run while the guest is stopped to make the two
-     * sync up. Note that this doesn't assume that guest time is stopped;
-     * the offsetting in the next step will change add an offset to guest
-     * time to account for the time paused even if the geust isn't 
-     * usually paused in the VMM. */
-    host_time = v3_get_host_time(time_state);
-    old_guest_time = v3_get_guest_time(time_state);
-    target_host_time = compute_target_host_time(info, old_guest_time);
-
-    while (target_host_time > host_time) {
-	v3_yield(info);
-	host_time = v3_get_host_time(time_state);
+int v3_skip_time(struct guest_info * info) {
+    if (info->vm_info->time_state.follow_host_time) {
+	PrintError("Cannot skip host time passage while slaved to host clock.\n");
+	return 1;
+    } else {
+        info->time_state.pause_time = v3_get_host_time(&info->time_state);
     }
-
-    guest_time = v3_get_guest_time(time_state);
-
-    /* We do *not* assume the guest timer was paused in the VM. If it was
-     * this offseting is 0. If it wasn't, we need this. */
-    v3_offset_time(info, (sint64_t)(old_guest_time - guest_time));
-
     return 0;
 }
 
-static int skew_guest_time(struct guest_info * info) {
-    struct vm_core_time * time_state = &(info->time_state);
-    uint64_t target_guest_time, guest_time;
-    /* Now the host may have gotten ahead of the guest because
-     * yielding is a coarse grained thing. Figure out what guest time
-     * we want to be at, and use the use the offsetting mechanism in 
-     * the VMM to make the guest run forward. We limit *how* much we skew 
-     * it forward to prevent the guest time making large jumps, 
-     * however. */
-    target_guest_time = compute_target_guest_time(info);
-    guest_time = v3_get_guest_time(time_state);
-
-    if (guest_time < target_guest_time) {
-	sint64_t max_skew, desired_skew, skew;
-
-	if (time_state->enter_time) {
-	    /* Limit forward skew to 10% of the amount the guest has
-	     * run since we last could skew time */
-	    max_skew = (sint64_t)(guest_time - time_state->enter_time) / 10;
-	} else {
-	    max_skew = 0;
-	}
-
-	desired_skew = (sint64_t)(target_guest_time - guest_time);
-	skew = desired_skew > max_skew ? max_skew : desired_skew;
-	PrintDebug("Guest %lld cycles behind where it should be.\n",
-		   desired_skew);
-	PrintDebug("Limit on forward skew is %lld. Skewing forward %lld.\n",
-	           max_skew, skew); 
-	
-	v3_offset_time(info, skew);
+int v3_advance_time(struct guest_info * info) {
+    uint64_t t = v3_get_host_time(&info->time_state);
+    if (info->vm_info->time_state.follow_host_time) {
+	/* How many guest cycles should have elapsed? */
+	sint64_t host_elapsed = t - info->time_state.initial_time;
+	sint64_t guest_target = (host_elapsed * info->time_state.guest_cpu_freq) / info->time_state.host_cpu_freq;
+	sint64_t cycle_lag = guest_target - info->time_state.guest_cycles;
+	v3_offset_time(info, cycle_lag);
+    } else {
+        v3_offset_time(info, (sint64_t)(t - info->time_state.pause_time));
     }
+    info->time_state.pause_time = t;
 
-    return 0;
-}
-#endif /* V3_CONFIG_TIME_DILATION */
-
-// Control guest time in relation to host time so that the two stay 
-// appropriately synchronized to the extent possible. 
-int v3_adjust_time(struct guest_info * info) {
-
-#ifdef V3_CONFIG_TIME_DILATION
-    /* First deal with yielding if we want to slow down the guest */
-    yield_host_time(info);
-
-    /* Now, if the guest is too slow, (either from excess yielding above,
-     * or because the VMM is doing something that takes a long time to emulate)
-     * allow guest time to jump forward a bit */
-    skew_guest_time(info);
-#endif
     return 0;
 }
 
@@ -223,12 +142,12 @@ v3_time_exit_vm( struct guest_info * info, uint64_t * guest_cycles )
 {
     struct vm_core_time * time_state = &(info->time_state);
     
-    time_state->exit_time = v3_get_host_time(time_state);
+    time_state->pause_time = v3_get_host_time(time_state);
     if (guest_cycles) {
     	time_state->guest_cycles += *guest_cycles;
     } else {
-	uint64_t cycles_exec;
-	cycles_exec = time_state->exit_time - time_state->enter_time;
+	sint64_t cycles_exec;
+	cycles_exec = (sint64_t)(time_state->pause_time - time_state->enter_time);
 	time_state->guest_cycles += cycles_exec;
     }
     return 0;
@@ -239,15 +158,10 @@ int
 v3_time_enter_vm( struct guest_info * info )
 {
     struct vm_core_time * time_state = &(info->time_state);
-    uint64_t host_time, vmm_cycles;
+    uint64_t host_time = v3_get_host_time(&info->time_state);
 
-    host_time = v3_get_host_time(time_state);
+    v3_advance_time(info);
     time_state->enter_time = host_time;
-    vmm_cycles = host_time - time_state->exit_time;
-    /* XXX How do we want to take into account host/guest CPU speed differences
-     * and time dilation here? Probably time just won't advance in the VMM in that
-     * case so its irrelvant XXX */
-    time_state->guest_cycles += vmm_cycles; 
     return 0;
 }
 	
@@ -406,7 +320,7 @@ static int tsc_msr_write_hook(struct guest_info *info, uint_t msr_num,
 
     new_tsc = (((uint64_t)msr_val.hi) << 32) | (uint64_t)msr_val.lo;
     guest_time = v3_get_guest_time(time_state);
-    time_state->tsc_guest_offset = (sint64_t)new_tsc - (sint64_t)guest_time; 
+    time_state->tsc_guest_offset = (sint64_t)(new_tsc - guest_time); 
 
     return 0;
 }
@@ -438,6 +352,8 @@ int v3_init_time_vm(struct v3_vm_info * vm) {
     vm->time_state.td_mult = 1;
     PrintDebug("Setting base time dilation factor to %d.\n", vm->time_state.td_mult);
 
+    vm->time_state.follow_host_time = 1;
+    PrintDebug("Locking guest time to host time.\n");
     return ret;
 }
 
@@ -478,7 +394,7 @@ void v3_init_time_core(struct guest_info * info) {
     time_state->last_update = 0;
     time_state->tsc_guest_offset = 0;
     time_state->enter_time = 0;
-    time_state->exit_time = 0;
+    time_state->pause_time = 0;
     time_state->guest_cycles = 0;
 
     INIT_LIST_HEAD(&(time_state->timers));

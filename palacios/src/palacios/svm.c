@@ -537,17 +537,13 @@ int v3_svm_enter(struct guest_info * info) {
     // Conditionally yield the CPU if the timeslice has expired
     v3_yield_cond(info);
 
-    // Perform any additional yielding needed for time adjustment
-    v3_adjust_time(info);
-
-
-
     // disable global interrupts for vm state transition
     v3_clgi();
 
     // Update timer devices after being in the VM, with interupts
     // disabled, but before doing IRQ updates, so that any interrupts they 
     //raise get seen immediately.
+    v3_advance_time(info);
     v3_update_timers(info);
 
     // Synchronize the guest state to the VMCB
