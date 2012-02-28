@@ -267,7 +267,7 @@ static int ioapic_raise_irq(struct v3_vm_info * vm, void * private_data, int irq
     struct io_apic_state * ioapic = (struct io_apic_state *)(private_data);  
     struct redir_tbl_entry * irq_entry = NULL;
 
-    if (irq==0) { 
+    if (irq == 0) { 
       // IRQ 0 being raised, in the Palacios context, means the PIT
       // However, the convention is that it is the PIC that is connected
       // to PIN 0 of the IOAPIC and the PIT is connected to pin 2
@@ -275,7 +275,7 @@ static int ioapic_raise_irq(struct v3_vm_info * vm, void * private_data, int irq
       // the PIC may signal to the IOAPIC in a different path.
       // Yes, this is kind of hideous, but it is needed to have the
       // PIT correctly show up via the IOAPIC
-      irq=2;
+      irq = 2;
     }
 
     if (irq > 24) {
@@ -299,6 +299,8 @@ static int ioapic_raise_irq(struct v3_vm_info * vm, void * private_data, int irq
 	ipi.dst = irq_entry->dst_field;
 	ipi.dst_shorthand = 0;
 
+	ipi.ack = NULL;
+	ipi.private_data = NULL;
 
 	PrintDebug("ioapic %u: IPI: vector 0x%x, mode 0x%x, logical 0x%x, trigger 0x%x, dst 0x%x, shorthand 0x%x\n",
 		   ioapic->ioapic_id.id, ipi.vector, ipi.mode, ipi.logical, ipi.trigger_mode, ipi.dst, ipi.dst_shorthand);
