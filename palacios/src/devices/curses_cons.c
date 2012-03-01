@@ -215,16 +215,30 @@ static struct v3_device_ops dev_ops = {
 static int cons_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) 
 {
     struct cons_state * state = NULL;
-    v3_cfg_tree_t * frontend_cfg = v3_cfg_subtree(cfg, "frontend");
-    const char * frontend_tag = v3_cfg_val(frontend_cfg, "tag");
-    struct vm_device * frontend = v3_find_dev(vm, frontend_tag);
+    v3_cfg_tree_t * frontend_cfg;
+    const char * frontend_tag;
+    struct vm_device * frontend;
     char * dev_id = v3_cfg_val(cfg, "ID");
 
     /* read configuration */
-    V3_ASSERT(frontend_cfg);
-    V3_ASSERT(frontend_tag);
-    V3_ASSERT(frontend);
+    frontend_cfg = v3_cfg_subtree(cfg, "frontend");
+    if (!frontend_cfg) {
+	PrintError("No frontend specification for curses console.\n");
+	return -1;
+    }
 
+    frontend_tag = v3_cfg_val(frontend_cfg, "tag");
+    if (!frontend_tag) {
+	PrintError("No frontend device tag specified for curses console.\n");
+	return -1;
+    }
+
+    frontend = v3_find_dev(vm, frontend_tag);
+    if (!frontend) {
+	PrintError("Could not find frontend device %s for curses console.\n",
+		  frontend_tag);
+	return -1;
+    } 
 
     /* allocate state */
     state = (struct cons_state *)V3_Malloc(sizeof(struct cons_state));
