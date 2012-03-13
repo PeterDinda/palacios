@@ -102,9 +102,10 @@ static inline int compare_ether_hdr(const uint8_t * hdr1, const uint8_t * hdr2)
 
 /* AA:BB:CC:DD:EE:FF */
 static inline int str2mac(char * macstr, uint8_t * mac){
-    char hex[2], *s = macstr;
+    char hex[3], *s = macstr;
     int i = 0;
 
+    hex[2] = 0;
     while(s){
 	memcpy(hex, s, 2);
 	mac[i++] = (char)atox(hex);	
