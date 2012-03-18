@@ -347,7 +347,15 @@ v3_intr_type_t v3_intr_pending(struct guest_info * info) {
     //  PrintDebug("[intr_pending]\n");
     addr_t irq_state = v3_lock_irqsave(intr_state->irq_lock);
 
-    // VIRQs have priority
+    // External IRQs have lowest priority
+    list_for_each_entry(ctrl, &(intr_state->controller_list), ctrl_node) {
+	if (ctrl->ctrl_ops->intr_pending(info, ctrl->priv_data) == 1) {
+	    ret = V3_EXTERNAL_IRQ;
+	    break;
+	}
+    }   
+
+    // VIRQs have 2nd priority
     for (i = 0; i < MAX_IRQ / 8; i++) {
 	if (intr_state->virq_map[i] != 0) {   
 	    ret = V3_VIRTUAL_IRQ;
@@ -355,16 +363,7 @@ v3_intr_type_t v3_intr_pending(struct guest_info * info) {
 	}
     }
 
-    if (ret == V3_INVALID_INTR) {
-	list_for_each_entry(ctrl, &(intr_state->controller_list), ctrl_node) {
-	    if (ctrl->ctrl_ops->intr_pending(info, ctrl->priv_data) == 1) {
-		ret = V3_EXTERNAL_IRQ;
-		break;
-	    }
-	}
-    }
-    
-    /* for swintr injection */
+    /* SWINTRs have highest */
     if (intr_state->swintr_posted == 1) {
         ret = V3_SOFTWARE_INTR;
     }
