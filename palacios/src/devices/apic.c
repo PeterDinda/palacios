@@ -239,7 +239,7 @@ struct apic_state {
     uint8_t trig_mode_reg[32];
 
     struct {
-	int (*ack)(struct guest_info * core, uint8_t irq, void * private_data);
+	int (*ack)(struct guest_info * core, uint32_t irq, void * private_data);
 	void * private_data;
     } irq_ack_cbs[256];
 
@@ -424,6 +424,7 @@ static int activate_apic_irq(struct apic_state * apic, uint32_t irq_num,
 	*req_location |= flag;
 	apic->irq_ack_cbs[irq_num].ack = ack;
 	apic->irq_ack_cbs[irq_num].private_data = private_data;
+
 	return 1;
     } else {
 	PrintDebug("apic %u: core %d: Interrupt  not enabled... %.2x\n", 
@@ -764,13 +765,10 @@ static int deliver_ipi(struct apic_state * src_apic,
 
 	    add_apic_irq_entry(dst_apic, ipi->vector, ipi->ack, ipi->private_data);
 	    
-#ifdef V3_CONFIG_MULTITHREAD_OS
 	    if (dst_apic != src_apic) { 
 		PrintDebug(" non-local core with new interrupt, forcing it to exit now\n"); 
 		v3_interrupt_cpu(dst_core->vm_info, dst_core->pcpu_id, 0);
 	    }
-#endif
-
 
 	    break;
 	}
