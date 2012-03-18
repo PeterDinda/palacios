@@ -422,6 +422,8 @@ static int activate_apic_irq(struct apic_state * apic, uint32_t irq_num,
 
     if (*en_location & flag) {
 	*req_location |= flag;
+	apic->irq_ack_cbs[irq_num].ack = ack;
+	apic->irq_ack_cbs[irq_num].private_data = private_data;
 	return 1;
     } else {
 	PrintDebug("apic %u: core %d: Interrupt  not enabled... %.2x\n", 
@@ -545,7 +547,7 @@ static int get_highest_irr(struct apic_state * apic) {
 
 
 
-static int apic_do_eoi(struct apic_state * apic) {
+static int apic_do_eoi(struct guest_info * core, struct apic_state * apic) {
     int isr_irq = get_highest_isr(apic);
 
     if (isr_irq != -1) {
@@ -557,6 +559,10 @@ static int apic_do_eoi(struct apic_state * apic) {
 	PrintDebug("apic %u: core ?: Received APIC EOI for IRQ %d\n", apic->lapic_id.val,isr_irq);
 	
 	*svc_location &= ~flag;
+
+	if (apic->irq_ack_cbs[isr_irq].ack) {
+	    apic->irq_ack_cbs[isr_irq].ack(core, isr_irq, apic->irq_ack_cbs[isr_irq].private_data);
+	}
 
 #ifdef V3_CONFIG_CRAY_XT
 	
@@ -1466,7 +1472,7 @@ static int apic_write(struct guest_info * core, addr_t guest_addr, void * src, u
 	    // Action Registers
 	case EOI_OFFSET:
 	    // do eoi 
-	    apic_do_eoi(apic);
+	    apic_do_eoi(core, apic);
 	    break;
 
 	case INT_CMD_LO_OFFSET: {
