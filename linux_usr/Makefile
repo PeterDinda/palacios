@@ -1,57 +1,141 @@
-all: v3_ctrl v3_stop v3_cons v3_mem v3_monitor v3_stream v3_user_host_dev_example v3_os_debug v3_user_keyed_stream_example v3_user_keyed_stream_file v3_core_move v3_save v3_load v3_simulate
+#
+# Build Static or Dynamic versions of the control utilities
+#
+#
+
+# define this at the command-line or here
+# to get dynamically linked versions
+STATIC = 1
+
+#
+# Executables that implement core functionality
+#
+BASE_EXECS = 	v3_mem \
+		v3_create \
+		v3_free  \
+	  	v3_launch \
+		v3_stop   \
+		v3_pause  \
+		v3_continue \
+		v3_core_move \
+		v3_load \
+		v3_save \
+		v3_cons \
+		v3_cons_sc \
+		v3_stream \
+		v3_monitor \
+
+#
+# Examples
+#
+EXAMPLE_EXECS = v3_user_host_dev_example \
+		v3_os_debug \
+		v3_user_keyed_stream_example \
+		v3_user_keyed_stream_file \
+
+#
+# Currently experimental things
+#
+EXPERIMENTAL_EXECS = 	v3_simulate  \
+			v3_inject_ecc_scrubber_mce
+
+#
+# Things that have been built elsewhere - just for reference here
+#
+PRECOMPILED_EXECS = x0vncserver
+
+COPIED_EXECS = v3_vncserver
+
+#
+# Libraries that we need to build
+#
+LIBS = libv3_user_host_dev.a libv3_user_keyed_stream.a
+
+BUILD_EXECS = $(BASE_EXECS) $(EXAMPLE_EXECS) $(EXPERIMENTAL_EXECS) 
+BUILD_LIBS = $(LIBS)
+
+
+CFILES = $(BUILD_EXECS:%=%.c) $(BUILD_LIBS:lib%.a=%.c) 
+
+ifeq ($(STATIC),1)
+  CFLAGS += -static 
+endif
+
+CC = gcc
+AR = ar
+
+all: $(BUILD_EXECS) $(BUILD_LIBS) $(COPIED_EXECS)
+
+
+#
+# Most tools compile in a straightforward way
+#
+% :: %.c v3_ctrl.h
+	$(CC) $(CFLAGS) $< -o $@
+
+
+#
+# Console support requires curses
+#
+ifeq ($(STATIC),1)
+  CURSES_CFLAGS = -DNCURSES_STATIC
+endif
+
+v3_cons: v3_cons.c
+	$(CC) $(CFLAGS) $(CURSES_CFLAGS) $< -lcurses -o $@
+
+v3_cons_sc: v3_cons_sc.c
+	$(CC) $(CFLAGS) $(CURSES_CFLAGS) $< -lcurses -o $@
 
 
 
-v3_ctrl : v3_ctrl.c v3_pause.c v3_continue.c v3_launch.c v3_stop.c v3_create.c v3_free.c
-	gcc -static v3_launch.c -o v3_launch
-	gcc -static v3_stop.c -o v3_stop 
-	gcc -static v3_pause.c -o v3_pause
-	gcc -static v3_continue.c -o v3_continue
-	gcc -static v3_simulate.c -o v3_simulate
-	gcc -static v3_create.c -o v3_create
-	gcc -static v3_free.c -o v3_free
+#
+# User host devices include a library and some examples
+#
+libv3_user_host_dev.a : v3_user_host_dev.c v3_user_host_dev.h v3_ctrl.h
+	$(CC) $(CFLAGS) -I../linux_module -c v3_user_host_dev.c 
+	$(AR) ruv libv3_user_host_dev.a v3_user_host_dev.o
+	rm -f v3_user_host_dev.o
+
+v3_user_host_dev_example : v3_user_host_dev_example.c libv3_user_host_dev.a
+	$(CC) $(CFLAGS) $< -I../linux_module -L. -lv3_user_host_dev -o $@
+
+v3_os_debug : v3_os_debug.c libv3_user_host_dev.a
+	$(CC) $(CFLAGS) $< -I../linux_module -L. -lv3_user_host_dev -o $@
 
 
-v3_save : v3_save.c v3_ctrl.h
-	gcc -static v3_save.c -o v3_save 
-v3_load : v3_load.c v3_ctrl.h
-	gcc -static v3_load.c -o v3_load 
-
-v3_mem : v3_mem.c v3_ctrl.h
-	gcc -static v3_mem.c -o v3_mem 
-
-v3_cons_s: v3_cons.c v3_cons_sc.c v3_ctrl.h
-	-gcc  -static -DNCURSES_STATIC v3_cons.c -o v3_cons_s -lcurses # -ltinfo needed on fedora
-	-gcc  -static -DNCURSES_STATIC v3_cons_sc.c -o v3_cons_sc_s -lcurses # -ltinfo needed on fedora
-
-v3_cons: v3_cons.c v3_cons_sc.c v3_ctrl.h
-	-gcc  v3_cons.c -o v3_cons_s -lcurses
-	-gcc  v3_cons_sc.c -o v3_cons_sc_s -lcurses
-
-v3_stream : v3_stream.c v3_ctrl.h
-	gcc -static v3_stream.c -o v3_stream 
-
-v3_monitor : v3_cons.c v3_ctrl.h
-	gcc -static v3_monitor.c -o v3_monitor
-
-v3_user_host_dev_example: v3_user_host_dev_example.c v3_user_host_dev.h v3_user_host_dev.c
-	gcc -static -I../linux_module v3_user_host_dev_example.c v3_user_host_dev.c -o v3_user_host_dev_example
-
-v3_os_debug: v3_os_debug.c v3_user_host_dev.h v3_user_host_dev.c
-	gcc -static -I../linux_module v3_os_debug.c v3_user_host_dev.c -o v3_os_debug
-
-v3_user_keyed_stream_example: v3_user_keyed_stream_example.c v3_user_keyed_stream.h v3_user_keyed_stream.c
-	gcc -static -I../linux_module v3_user_keyed_stream_example.c v3_user_keyed_stream.c -o v3_user_keyed_stream_example
+#
+# User keyed stream support includes a library and examples
+#
+#
+libv3_user_keyed_stream.a :: v3_user_keyed_stream.c v3_user_keyed_stream.h v3_ctrl.h
+	$(CC) $(CFLAGS) -I../linux_module -c v3_user_keyed_stream.c 
+	$(AR) ruv libv3_user_keyed_stream.a v3_user_keyed_stream.o
+	rm -f v3_user_keyed_stream.o
 
 
-v3_user_keyed_stream_file: v3_user_keyed_stream_file.c v3_user_keyed_stream.h v3_user_keyed_stream.c
-	gcc -static -I../linux_module v3_user_keyed_stream_file.c v3_user_keyed_stream.c -o v3_user_keyed_stream_file
+v3_user_keyed_stream_example : v3_user_keyed_stream_example.c libv3_user_keyed_stream.a
+	$(CC) $(CFLAGS) $< -I../linux_module -L. -lv3_user_keyed_stream -o $@
 
-v3_core_move : v3_core_move.c v3_ctrl.h
-	gcc -static v3_core_move.c -o v3_core_move
+v3_user_keyed_stream_file : v3_user_keyed_stream_file.c libv3_user_keyed_stream.a
+	$(CC) $(CFLAGS) $< -I../linux_module -L. -lv3_user_keyed_stream -o $@
 
-v3_inject_ecc_scrubber_mce: v3_inject_ecc_scrubber_mce.c
-	gcc -static -I../linux_module v3_inject_ecc_scrubber_mce.c -o v3_inject_ecc_scrubber_mce
 
+
+#
+# VNC support is compiled separately
+#
+v3_vncserver : x0vncserver
+	cp x0vncserver v3_vncserver
+
+
+#
+# Cleanup and dependency builds are automated
+#
 clean:
-	rm -f v3_ctrl v3_cons v3_mem v3_monitor v3_stream v3_user_host_dev_example v3_os_debug v3_user_keyed_stream_example v3_user_keyed_stream_file v3_core_migrate
+	rm -f $(BUILD_EXECS) $(BUILD_LIBS) $(COPIED_EXECS)
+
+depend:
+	$(CC) -MM $(CFILES) -I../linux_module > .dependencies
+
+include .dependencies
