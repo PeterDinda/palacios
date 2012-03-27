@@ -33,7 +33,7 @@ struct guest_info;
 
 /* Per-VM time information */
 struct v3_time {
-    uint32_t td_mult; /* Currently unused! */
+    uint32_t td_num, td_denom; /* Currently unused! */
     char follow_host_time;
 };
 
@@ -42,15 +42,18 @@ struct vm_core_time {
     uint32_t host_cpu_freq;    // in kHZ 
     uint32_t guest_cpu_freq;   // can be lower than host CPU freq!
 
+    uint32_t clock_ratio_num;  // Multipliers for converting from host
+    uint32_t clock_ratio_denom;// cycles to guest cycles.
+
     uint64_t guest_cycles;
     sint64_t tsc_guest_offset; // Offset of guest TSC from guest cycles
 
     uint64_t last_update;      // Last time (in guest cycles) the 
                                // timers were updated
 
-    uint64_t initial_time;     // Host time when VMM started. 
-    uint64_t enter_time;       // Host time the guest was last entered
-    uint64_t pause_time;       // Host time when we went into the VMM
+    uint64_t initial_host_time;// Host time when VMM started. 
+    uint64_t vm_enter_host_time;  // Host time the guest was last entered
+    uint64_t vm_pause_host_time;   // Host time when we went into the VMM
     struct v3_msr tsc_aux;     // Auxilliary MSR for RDTSCP
 
     // Installed Timers slaved off of the guest monotonic TSC

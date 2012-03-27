@@ -41,8 +41,6 @@ int v3_handle_halt(struct guest_info * info) {
 	PrintDebug("CPU Yield\n");
 
 	while (!v3_intr_pending(info)) {
-	    /* Since we're in an exit, time is already paused here, so no need to pause again. */
-	    
 	    /* Yield, allowing time to pass while yielded */
 	    v3_yield(info);
 	    v3_advance_time(info);

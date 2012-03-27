@@ -90,9 +90,9 @@ int v3_start_time(struct guest_info * info) {
     /* We start running with guest_time == host_time */
     uint64_t t = v3_get_host_time(&info->time_state); 
 
-    info->time_state.enter_time = 0;
-    info->time_state.pause_time = t; 
-    info->time_state.initial_time = t;
+    info->time_state.vm_enter_host_time = 0;
+    info->time_state.vm_pause_host_time = t; 
+    info->time_state.initial_host_time = t;
     info->yield_start_cycle = t;
 
     info->time_state.last_update = 0;
@@ -106,51 +106,63 @@ int v3_start_time(struct guest_info * info) {
 int v3_offset_time( struct guest_info * info, sint64_t offset )
 {
     struct vm_core_time * time_state = &(info->time_state);
-    time_state->guest_cycles += offset;
+    if (info->vm_info->time_state.follow_host_time) {
+	PrintError("Cannot offset guest time passage while slaved to host clock.\n");
+	return 1;
+    } else {
+        time_state->guest_cycles += offset;
+    }
     return 0;
 }
 
 int v3_skip_time(struct guest_info * info) {
     if (info->vm_info->time_state.follow_host_time) {
-	PrintError("Cannot skip host time passage while slaved to host clock.\n");
+	PrintError("Cannot skip guest time passage while slaved to host clock.\n");
 	return 1;
     } else {
-        info->time_state.pause_time = v3_get_host_time(&info->time_state);
+        info->time_state.vm_pause_host_time = v3_get_host_time(&info->time_state);
     }
+    return 0;
+}
+
+static sint64_t host_to_guest_cycles(struct guest_info * info, sint64_t host_cycles) {
+    return (host_cycles * info->time_state.clock_ratio_num) / info->time_state.clock_ratio_denom;
+}
+
+int v3_time_advance_cycles(struct guest_info * info, uint64_t *host_cycles)
+{
+    uint64_t t = v3_get_host_time(&info->time_state);
+
+    info->time_state.vm_pause_host_time = t;
+
+    if (info->vm_info->time_state.follow_host_time) {
+	/* How many guest cycles should have elapsed? */
+	sint64_t host_elapsed = t - info->time_state.initial_host_time;
+	sint64_t guest_elapsed = host_to_guest_cycles(info, host_elapsed);
+
+	info->time_state.guest_cycles = guest_elapsed;
+    } else {
+        uint64_t guest_cycles;
+	if (*host_cycles) {
+	    guest_cycles = host_to_guest_cycles(info, *host_cycles);
+	} else {
+	    guest_cycles = host_to_guest_cycles(info, (sint64_t)(t - info->time_state.vm_pause_host_time));
+	}
+        info->time_state.guest_cycles += guest_cycles;
+    } 
+
     return 0;
 }
 
 int v3_advance_time(struct guest_info * info) {
-    uint64_t t = v3_get_host_time(&info->time_state);
-    if (info->vm_info->time_state.follow_host_time) {
-	/* How many guest cycles should have elapsed? */
-	sint64_t host_elapsed = t - info->time_state.initial_time;
-	sint64_t guest_target = (host_elapsed * info->time_state.guest_cpu_freq) / info->time_state.host_cpu_freq;
-	sint64_t cycle_lag = guest_target - info->time_state.guest_cycles;
-	v3_offset_time(info, cycle_lag);
-    } else {
-        v3_offset_time(info, (sint64_t)(t - info->time_state.pause_time));
-    }
-    info->time_state.pause_time = t;
-
-    return 0;
+    return v3_time_advance_cycles(info, NULL);
 }
 
 /* Called immediately upon entry in the the VMM */
 int 
-v3_time_exit_vm( struct guest_info * info, uint64_t * guest_cycles ) 
+v3_time_exit_vm( struct guest_info * info, uint64_t * host_cycles ) 
 {
-    struct vm_core_time * time_state = &(info->time_state);
-    
-    time_state->pause_time = v3_get_host_time(time_state);
-    if (guest_cycles) {
-    	time_state->guest_cycles += *guest_cycles;
-    } else {
-	sint64_t cycles_exec;
-	cycles_exec = (sint64_t)(time_state->pause_time - time_state->enter_time);
-	time_state->guest_cycles += cycles_exec;
-    }
-    return 0;
+    return v3_time_advance_cycles(info, host_cycles);
 }
 
 /* Called immediately prior to entry to the VM */
@@ -160,8 +172,7 @@ v3_time_enter_vm( struct guest_info * info )
     struct vm_core_time * time_state = &(info->time_state);
     uint64_t host_time = v3_get_host_time(&info->time_state);
 
-    v3_advance_time(info);
-    time_state->enter_time = host_time;
+    time_state->vm_enter_host_time = host_time;
     return 0;
 }
 	
@@ -195,13 +206,17 @@ void v3_update_timers(struct guest_info * info) {
     struct vm_core_time *time_state = &info->time_state;
     struct v3_timer * tmp_timer;
     sint64_t cycles;
-    uint64_t old_time = info->time_state.last_update;
+    uint64_t old_time = time_state->last_update;
 
     time_state->last_update = v3_get_guest_time(time_state);
     cycles = (sint64_t)(time_state->last_update - old_time);
-    V3_ASSERT(cycles >= 0);
+    if (cycles < 0) {
+	PrintError("Cycles appears to have rolled over - old time %lld, current time %lld.\n",
+		   old_time, time_state->last_update);
+	return;
+    }
 
-    //    V3_Print("Updating timers with %lld elapsed cycles.\n", cycles);
+    PrintDebug("Updating timers with %lld elapsed cycles.\n", cycles);
     list_for_each_entry(tmp_timer, &(time_state->timers), timer_link) {
 	tmp_timer->ops->update_timer(info, cycles, time_state->guest_cpu_freq, tmp_timer->private_data);
     }
@@ -349,8 +364,10 @@ int v3_init_time_vm(struct v3_vm_info * vm) {
     ret = v3_register_hypercall(vm, TIME_CPUFREQ_HCALL, 
 				handle_cpufreq_hcall, NULL);
 
-    vm->time_state.td_mult = 1;
-    PrintDebug("Setting base time dilation factor to %d.\n", vm->time_state.td_mult);
+    vm->time_state.td_num = 1;
+    vm->time_state.td_denom = 1;
+    PrintDebug("Setting base time dilation factor to %d/%d.\n", 
+	       vm->time_state.td_num, vm->time_state.td_denom);
 
     vm->time_state.follow_host_time = 1;
     PrintDebug("Locking guest time to host time.\n");
@@ -385,17 +402,23 @@ void v3_init_time_core(struct guest_info * info) {
 	time_state->guest_cpu_freq = time_state->host_cpu_freq;
     }
 
+    /* Compute these using the GCD() of the guest and host CPU freq.
+     * If the GCD is too small, make it "big enough" */
+    time_state->clock_ratio_num = 1;
+    time_state->clock_ratio_denom = 1;
+
     PrintDebug("Logical Core %d (vcpu=%d) CPU frequency set to %d KHz (host CPU frequency = %d KHz).\n", 
 	       info->pcpu_id, info->vcpu_id,
 	       time_state->guest_cpu_freq, 
 	       time_state->host_cpu_freq);
 
-    time_state->initial_time = 0;
-    time_state->last_update = 0;
-    time_state->tsc_guest_offset = 0;
-    time_state->enter_time = 0;
-    time_state->pause_time = 0;
     time_state->guest_cycles = 0;
+    time_state->tsc_guest_offset = 0;
+    time_state->last_update = 0;
+
+    time_state->initial_host_time = 0;
+    time_state->vm_enter_host_time = 0;
+    time_state->vm_pause_host_time = 0;
 
     INIT_LIST_HEAD(&(time_state->timers));
     time_state->num_timers = 0;
