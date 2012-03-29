@@ -697,8 +697,8 @@ void v3_yield_cond(struct guest_info * info) {
 	//           (void *)cur_cycle, (void *)info->yield_start_cycle, 
 	//	   (void *)info->yield_cycle_period);
 	
+	info->yield_start_cycle += info->vm_info->yield_cycle_period;
 	V3_Yield();
-	info->yield_start_cycle = v3_get_host_time(&info->time_state);
     }
 }
 

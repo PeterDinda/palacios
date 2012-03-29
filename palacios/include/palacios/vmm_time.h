@@ -37,6 +37,8 @@ struct v3_time {
     char follow_host_time;
 };
 
+#define V3_TIME_TRAP_RDTSC 0x1
+
 /* Per-core time information */
 struct vm_core_time {
     uint32_t host_cpu_freq;    // in kHZ 
@@ -56,6 +58,8 @@ struct vm_core_time {
     uint64_t vm_pause_host_time;   // Host time when we went into the VMM
     struct v3_msr tsc_aux;     // Auxilliary MSR for RDTSCP
 
+    int time_flags;
+	
     // Installed Timers slaved off of the guest monotonic TSC
     uint_t num_timers;
     struct list_head timers;

@@ -129,10 +129,9 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
 
     ctrl_area->instrs.HLT = 1;
 
-#ifdef V3_CONFIG_TIME_VIRTUALIZE_TSC
-    ctrl_area->instrs.RDTSC = 1;
-    ctrl_area->svm_instrs.RDTSCP = 1;
-#endif
+    /* Set at VMM launch as needed */
+    ctrl_area->instrs.RDTSC = 0;
+    ctrl_area->svm_instrs.RDTSCP = 0;
 
     // guest_state->cr0 = 0x00000001;    // PE 
   
@@ -518,6 +517,20 @@ static int update_irq_entry_state(struct guest_info * info) {
     return 0;
 }
 
+int 
+v3_svm_config_tsc_virtualization(struct guest_info * info) {
+    vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
+
+    if (info->time_state.time_flags & V3_TIME_TRAP_RDTSC) {
+	ctrl_area->instrs.RDTSC = 1;
+	ctrl_area->svm_instrs.RDTSCP = 1;
+    } else {
+	ctrl_area->instrs.RDTSC = 0;
+	ctrl_area->svm_instrs.RDTSCP = 0;
+        ctrl_area->TSC_OFFSET = v3_tsc_host_offset(&info->time_state);
+    }
+    return 0;
+}
 
 /* 
  * CAUTION and DANGER!!! 
@@ -531,7 +544,6 @@ int v3_svm_enter(struct guest_info * info) {
     vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
     vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data)); 
     addr_t exit_code = 0, exit_info1 = 0, exit_info2 = 0;
-    sint64_t tsc_offset;
     uint64_t guest_cycles = 0;
 
     // Conditionally yield the CPU if the timeslice has expired
@@ -591,9 +603,7 @@ int v3_svm_enter(struct guest_info * info) {
 #endif
 
     v3_time_enter_vm(info);
-    tsc_offset = v3_tsc_host_offset(&info->time_state);
-    guest_ctrl->TSC_OFFSET = tsc_offset;
-
+    v3_svm_config_tsc_virtualization(info);
 
     //V3_Print("Calling v3_svm_launch\n");
     {	

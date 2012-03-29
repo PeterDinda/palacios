@@ -835,7 +835,33 @@ static void print_exit_log(struct guest_info * info) {
 
 }
 
+int 
+v3_vmx_config_tsc_virtualization(struct guest_info * info) {
+    struct vmx_data * vmx_info = (struct vmx_data *)(info->vmm_data);
 
+    if (info->time_state.time_flags & V3_TIME_TRAP_RDTSC) {
+	if  (!vmx_info->pri_proc_ctrls.rdtsc_exit) {
+	    vmx_info->pri_proc_ctrls.rdtsc_exit = 1;
+	    check_vmcs_write(VMCS_PROC_CTRLS, vmx_info->pri_proc_ctrls.value);
+	}
+    } else {
+        sint64_t tsc_offset;
+        uint32_t tsc_offset_low, tsc_offset_high;
+
+	if  (vmx_info->pri_proc_ctrls.rdtsc_exit) {
+	    vmx_info->pri_proc_ctrls.rdtsc_exit = 0;
+	    check_vmcs_write(VMCS_PROC_CTRLS, vmx_info->pri_proc_ctrls.value);
+	}
+
+        tsc_offset = v3_tsc_host_offset(&info->time_state);
+        tsc_offset_high = (uint32_t)(( tsc_offset >> 32) & 0xffffffff);
+        tsc_offset_low = (uint32_t)(tsc_offset & 0xffffffff);
+
+        check_vmcs_write(VMCS_TSC_OFFSET_HIGH, tsc_offset_high);
+        check_vmcs_write(VMCS_TSC_OFFSET, tsc_offset_low);
+    }
+    return 0;
+}
 
 /* 
  * CAUTION and DANGER!!! 
@@ -847,8 +873,6 @@ static void print_exit_log(struct guest_info * info) {
  */
 int v3_vmx_enter(struct guest_info * info) {
     int ret = 0;
-    sint64_t tsc_offset;
-    uint32_t tsc_offset_low, tsc_offset_high;
     struct vmx_exit_info exit_info;
     struct vmx_data * vmx_info = (struct vmx_data *)(info->vmm_data);
     uint64_t guest_cycles = 0;
@@ -892,13 +916,7 @@ int v3_vmx_enter(struct guest_info * info) {
 
     // Perform last-minute time bookkeeping prior to entering the VM
     v3_time_enter_vm(info);
-    
-    tsc_offset = v3_tsc_host_offset(&info->time_state);
-    tsc_offset_high = (uint32_t)(( tsc_offset >> 32) & 0xffffffff);
-    tsc_offset_low = (uint32_t)(tsc_offset & 0xffffffff);
-
-    check_vmcs_write(VMCS_TSC_OFFSET_HIGH, tsc_offset_high);
-    check_vmcs_write(VMCS_TSC_OFFSET, tsc_offset_low);
+    v3_vmx_config_tsc_virtualization(info);
 
     
 
