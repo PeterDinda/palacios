@@ -420,7 +420,7 @@ void v3_init_time_core(struct guest_info * info) {
     time_state->vm_enter_host_time = 0;
     time_state->vm_pause_host_time = 0;
 
-    time_state->time_flags = 0; // XXX need to set virtualize TSC flag or not...
+    time_state->time_flags = 0; // XXX need to set trap TSC flag or not wisely
 
     INIT_LIST_HEAD(&(time_state->timers));
     time_state->num_timers = 0;
