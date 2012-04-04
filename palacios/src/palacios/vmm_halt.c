@@ -41,13 +41,14 @@ int v3_handle_halt(struct guest_info * info) {
 	PrintDebug("CPU Yield\n");
 
 	while (!v3_intr_pending(info)) {
+            uint64_t t, cycles;
 	    /* Yield, allowing time to pass while yielded */
+	    t = v3_get_host_time(&info->time_state);
 	    v3_yield(info);
-	    v3_advance_time(info);
+	    cycles = v3_get_host_time(&info->time_state) - t;
+	    v3_advance_time(info, &cycles);
 
-	    v3_disable_ints();
 	    v3_update_timers(info);
-	    v3_enable_ints();
     	    
 	    /* At this point, we either have some combination of 
 	       interrupts, including perhaps a timer interrupt, or 
