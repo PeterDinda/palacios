@@ -136,7 +136,7 @@ int v3_advance_time(struct guest_info * info, uint64_t *host_cycles)
 	uint64_t dilated_elapsed = (host_elapsed * vm_ts->td_num) / vm_ts->td_denom;
 	uint64_t guest_elapsed = host_to_guest_cycles(info, dilated_elapsed);
 	guest_cycles = guest_elapsed - v3_get_guest_time(&info->time_state);
-    } else if (*host_cycles) {
+    } else if (host_cycles) {
 	guest_cycles = host_to_guest_cycles(info, *host_cycles);
     } else {
 	guest_cycles = 0;
@@ -414,7 +414,7 @@ static int compute_core_ratios(struct guest_info * info,
      * If the GCD is too small, make it "big enough" */
     khzGCD = gcd(hostKhz, guestKhz);
     if (khzGCD < 1024)
-	khzGCD = 1000;
+	khzGCD = 1024;
 
     time_state->clock_ratio_num = guestKhz / khzGCD;
     time_state->clock_ratio_denom = hostKhz / khzGCD;
