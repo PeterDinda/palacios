@@ -185,7 +185,7 @@ static int v3_handle_lstar_write (struct guest_info * core, uint_t msr, struct v
     syscall_info.target_addr = (uint64_t) ((((uint64_t)src.hi) << 32) | src.lo);
     
     PrintDebug("LSTAR Write: %p\n", (void*)syscall_info.target_addr); 
-    core->ctrl_regs.lstar = syscall_info.target_addr;
+    core->msrs.lstar = syscall_info.target_addr;
     return 0;
 }
 
@@ -217,14 +217,14 @@ static int syscall_setup (struct guest_info * core, unsigned int hcall_id, void 
 	core->vm_regs.rax = syscall_info.target_addr;
 
 	/* redirect syscalls henceforth */
-	core->ctrl_regs.lstar = syscall_stub;
+	core->msrs.lstar = syscall_stub;
 	return 0;
 }
 
 
 static int syscall_cleanup (struct guest_info * core, unsigned int hcall_id, void * priv_data) {
 
-    core->ctrl_regs.lstar = syscall_info.target_addr;
+    core->msrs.lstar = syscall_info.target_addr;
     PrintDebug("original syscall entry point restored\n");
     return 0;
 }
@@ -278,7 +278,7 @@ static int v3_handle_lstar_write (struct guest_info * core, uint_t msr, struct v
     
     // Set LSTAR value seen by hardware while the guest is running
     PrintDebug("replacing with %lx\n", SYSCALL_MAGIC_ADDR);
-    core->ctrl_regs.lstar = SYSCALL_MAGIC_ADDR;
+    core->msrs.lstar = SYSCALL_MAGIC_ADDR;
     return 0;
 }
 
