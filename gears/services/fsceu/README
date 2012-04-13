@@ -1,0 +1,4 @@
+This is a module that should be injected into the guest to 
+allow selective system call exiting. FSCEU stands for Fast System-Call Exiting 
+Utility. Once enabled, only the system call vectors enabled in an in-memory byte array
+will cause VM exits.
