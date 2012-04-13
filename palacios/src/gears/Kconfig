@@ -1,0 +1,104 @@
+menu GEARS
+
+config GEARS
+    bool "Enable GEARS in Palacios"
+    default n
+    help
+      This is the Guest Examination and Revision Services, an extension used
+      to modify guest code and implement guest-context VMM services in Palacios
+
+config EXT_SW_INTERRUPTS
+    bool "Enable interception and hooking of software interrupts"
+    depends on GEARS
+    default n
+    help
+      This feature will cause the VMM to intercept the execution
+      of software interrupts (i.e. the INTn instruction) and enable
+      any INT vector to be hooked. Extension name is "swintr_intercept"
+
+config DEBUG_EXT_SW_INTERRUPTS
+    bool "Enable debugging of software interrupt interception code"
+    depends on GEARS
+    depends on EXT_SW_INTERRUPTS
+    default n
+    help
+      This will enable useful debugging printouts for software
+      intercept code
+
+config EXT_SWINTR_PASSTHROUGH
+    bool "Hook all unhandled sofware interrupts for passthrough"
+    depends on GEARS
+    depends on EXT_SW_INTERRUPTS
+    default n
+    help
+      If enabled, this will cause all software interrupts 
+      (INT instruction vectors) to be hooked for passthrough.
+      May reduce performance but useful for debugging.
+
+config EXT_SYSCALL_HIJACK
+    bool "Enable System Call Hijacking"
+    default n
+    depends on GEARS
+    depends on EXT_SW_INTERRUPTS
+    help
+      Enable the VMM to hijack system calls executed by the guest.
+      If enabled, the VMM will hook execution of INT 80
+
+
+config EXT_SELECTIVE_SYSCALL_EXIT
+    bool "Enable dynamic selective exiting of system calls"
+    default n
+    depends on GEARS
+    depends on EXT_SYSCALL_HIJACK
+    help
+      If enabled, this option will allow the VMM to selectively
+      enable and disable exiting on specific system calls.
+
+config DEBUG_EXT_SYSCALL_HIJACK
+    bool "Enable Syscall Hijack Debug in Palacios"
+    depends on GEARS
+    depends on EXT_SYSCALL_HIJACK
+    default n
+    help 
+      Enable Debugging printouts for syscall hijacking code
+      in Palacios
+
+
+config EXT_SYSCALL_PASSTHROUGH
+    bool "Hook all unhandled system calls for passthrough"
+    depends on GEARS
+    depends on EXT_SYSCALL_HIJACK
+    default n
+    help
+      If enabled, this option will cause all system calls
+      that are not explicitly hooked to be hooked for 
+      passthrough. This is useful for debugging.
+
+config EXT_EXECVE_HOOK
+    bool "Hook calls to execve"
+    depends on GEARS
+    depends on EXT_SYSCALL_HIJACK
+    default n
+    help
+      This option will cause the interception of all calls
+      to the execve system call
+
+config EXT_ENV_INJECT
+	bool "Enable environment variable injection"
+    depends on GEARS
+	depends on EXT_EXECVE_HOOK
+	default n
+	help
+	  Enables development extension for overriding env vars 
+	  for certain executables
+
+config EXT_CODE_INJECT
+	bool "Allow code injection"
+    depends on GEARS
+	depends on EXT_SYSCALL_HIJACK
+	default n
+	help
+	  This option will allow code to be injected and run in the
+	  guest context
+
+endmenu
