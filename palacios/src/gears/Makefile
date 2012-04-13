@@ -5,3 +5,6 @@ obj-$(V3_CONFIG_EXT_EXECVE_HOOK) += ext_process_environment.o
 obj-$(V3_CONFIG_EXT_CODE_INJECT) += ext_code_inject.o
 obj-$(V3_CONFIG_EXT_ENV_INJECT) += ext_env_inject.o
 
+obj-y += null.o
+
+
