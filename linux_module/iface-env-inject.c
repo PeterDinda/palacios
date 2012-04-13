@@ -1,0 +1,148 @@
+/* 
+ * Linux interface for guest-context environment variable injection
+ *
+ * (c) Kyle C. Hale 2012
+ *
+ */
+
+#include <linux/uaccess.h>
+#include <linux/vmalloc.h>
+
+#include <gears/env_inject.h>
+
+#include "palacios.h"
+#include "vm.h"
+#include "linux-exts.h"
+#include "iface-env-inject.h"
+
+
+static struct env_data * env_map[MAX_ENV_INJECT] = {[0 ... MAX_ENV_INJECT - 1] = 0};
+
+
+static int register_env(struct env_data * env) {
+    int i;
+
+    for (i = 0; i < MAX_ENV_INJECT; i++) {
+        if (!env_map[i]) {
+            env_map[i] = env;
+            return i;
+        }
+    }
+    return -1;
+}
+
+
+static void free_inject_data (void) {
+    int i, j;
+
+    for(i = 0; i < MAX_ENV_INJECT; i++) {
+        if (env_map[i]) {
+            for (j = 0; j < env_map[i]->num_strings; j++) 
+                kfree(env_map[i]->strings[j]);
+
+            kfree(env_map[i]->strings);
+            kfree(env_map[i]);
+        }
+    }
+}
+
+
+
+static int vm_env_inject (struct v3_guest * guest, unsigned int cmd, unsigned long arg, void * priv_data) {
+    struct env_data env_arg;
+    struct env_data * env;
+    int i;
+
+    printk("Palacios: Loading environment data...\n");
+    if (copy_from_user(&env_arg, (void __user *)arg, sizeof(struct env_data))) {
+        printk("palacios: error copying environment data from userspace\n");
+        return -EFAULT;
+    }
+
+    env = kmalloc(sizeof(struct env_data), GFP_KERNEL);
+    if (IS_ERR(env)) {
+        printk("Palacios Error: could not allocate space for environment data\n");
+        return -EFAULT;
+    }
+
+    memset(env, 0, sizeof(struct env_data));
+
+    env->num_strings = env_arg.num_strings;
+    
+    strcpy(env->bin_name, env_arg.bin_name);
+    printk("Binary hooked on: %s\n", env->bin_name);
+
+    //printk("Palacios: Allocating space for %u env var string ptrs...\n", env->num_strings);
+    env->strings = kmalloc(env->num_strings*sizeof(char*), GFP_KERNEL);
+    if (IS_ERR(env->strings)) {
+        printk("Palacios Error: could not allocate space for env var strings\n");
+        return -EFAULT;
+    }
+    memset(env->strings, 0, env->num_strings*sizeof(char*));
+
+    //printk("Palacios: copying env var string pointers\n");
+    if (copy_from_user(env->strings, (void __user *)env_arg.strings, env->num_strings*sizeof(char*))) {
+        printk("Palacios: Error copying string pointers\n");
+        return -EFAULT;
+    }
+
+    for (i = 0; i < env->num_strings; i++) {
+        char * tmp  = kmalloc(MAX_STRING_LEN, GFP_KERNEL);
+        if (IS_ERR(tmp)) {
+            printk("Palacios Error: could not allocate space for env var string #%d\n", i);
+            return -EFAULT;
+        }
+
+        if (copy_from_user(tmp, (void __user *)env->strings[i], MAX_STRING_LEN)) {
+            printk("Palacios: Error copying string #%d\n", i);
+            return -EFAULT;
+        }
+        env->strings[i] = tmp;
+    }
+
+    printk("Palacios: registering environment data...\n");
+    if (register_env(env) < 0) 
+        return -1;
+    
+    printk("Palacios: passing data off to palacios...\n");
+    if (v3_insert_env_inject(guest->v3_ctx, env->strings, env->num_strings, env->bin_name) < 0) {
+        printk("Palacios: Error passing off environment data\n");
+        return -1;
+    }
+
+    printk("Palacios: environment injection registration complete\n");
+    return 0;
+}
+
+
+static int init_env_inject (void) {
+    return 0;
+}
+
+
+static int deinit_env_inject (void) {
+    return 0;
+}
+
+
+static int guest_init_env_inject (struct v3_guest * guest, void ** vm_data) {
+    add_guest_ctrl(guest, V3_VM_ENV_INJECT, vm_env_inject, NULL);
+    return 0;
+}
+
+
+static int guest_deinit_env_inject (struct v3_guest * guest, void * vm_data) {
+    free_inject_data();
+    return 0;
+}
+
+
+static struct linux_ext env_inject_ext = {
+    .name = "ENV_INJECT",
+    .init = init_env_inject,
+    .deinit = deinit_env_inject,
+    .guest_init = guest_init_env_inject,
+    .guest_deinit = guest_deinit_env_inject 
+};
+
+register_extension(&env_inject_ext);
