@@ -1,0 +1,6 @@
+This is the MPI accelerator service.  For co-located
+VMs running an MPI application, this redirects mpi_send
+and mpi_receive through the VMM.
+
+mpi_preload.c  - the code injected into the guest
+mpi.c          - the acclerator implemention as host hypercalls
