@@ -68,5 +68,12 @@ config HOST_DEVICE
           This makes it possible for virtual devices such as the generic device and the pci_front
           device to make host-based device implementations appear within the guest
           
+config HOST_HYPERCALL
+       bool "Host hypercall support"
+       default n
+       help
+          Select this if you would like to make it possible
+          to register host-based implementations of hypercalls,
+          for example, implemented in Linux kernel modules
 
 endmenu
