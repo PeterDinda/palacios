@@ -105,10 +105,10 @@ int v3_hva_to_gva(struct guest_info * guest_info, addr_t host_va, addr_t  * gues
 
 
 
-int v3_read_gva_memory(struct guest_info * guest_info, addr_t guest_va, int count, uchar_t * dest);
-int v3_read_gpa_memory(struct guest_info * guest_info, addr_t guest_pa, int count, uchar_t * dest);
-int v3_write_gpa_memory(struct guest_info * guest_info, addr_t guest_pa, int count, uchar_t * src);
-// TODO int write_guest_va_memory(struct guest_info * guest_info, addr_t guest_va, int count, char * src);
+int v3_read_gva_memory(struct guest_info * guest_info, addr_t guest_va, int count, uint8_t * dest);
+int v3_read_gpa_memory(struct guest_info * guest_info, addr_t guest_pa, int count, uint8_t * dest);
+int v3_write_gpa_memory(struct guest_info * guest_info, addr_t guest_pa, int count, uint8_t * src);
+int v3_write_gva_memory(struct guest_info * guest_info, addr_t guest_va, int count, uint8_t * src);
 
 
 #endif // ! __V3VEE__
