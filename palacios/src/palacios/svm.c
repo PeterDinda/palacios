@@ -569,6 +569,12 @@ int v3_svm_enter(struct guest_info * info) {
     guest_state->rflags = info->ctrl_regs.rflags;
     guest_state->efer = info->ctrl_regs.efer;
     
+    /* Synchronize MSRs */
+    guest_state->star = info->msrs.star;
+    guest_state->lstar = info->msrs.lstar;
+    guest_state->sfmask = info->msrs.sfmask;
+    guest_state->KernelGsBase = info->msrs.kern_gs_base;
+
     guest_state->cpl = info->cpl;
 
     v3_set_vmcb_segments((vmcb_t*)(info->vmm_data), &(info->segments));
@@ -646,6 +652,12 @@ int v3_svm_enter(struct guest_info * info) {
     info->ctrl_regs.rflags = guest_state->rflags;
     info->ctrl_regs.efer = guest_state->efer;
     
+    /* Synchronize MSRs */
+    info->msrs.star =  guest_state->star;
+    info->msrs.lstar = guest_state->lstar;
+    info->msrs.sfmask = guest_state->sfmask;
+    info->msrs.kern_gs_base = guest_state->KernelGsBase;
+
     v3_get_vmcb_segments((vmcb_t*)(info->vmm_data), &(info->segments));
     info->cpu_mode = v3_get_vm_cpu_mode(info);
     info->mem_mode = v3_get_vm_mem_mode(info);

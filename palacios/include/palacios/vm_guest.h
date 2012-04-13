@@ -101,6 +101,7 @@ struct guest_info {
     struct v3_ctrl_regs ctrl_regs;
     struct v3_dbg_regs dbg_regs;
     struct v3_segments segments;
+    struct v3_msrs     msrs;
 
 
     void * vmm_data;
