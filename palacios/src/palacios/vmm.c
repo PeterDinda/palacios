@@ -100,9 +100,10 @@ static void deinit_cpu(void * arg) {
 }
 
 
-
-void Init_V3(struct v3_os_hooks * hooks, int num_cpus) {
-    int i;
+void Init_V3(struct v3_os_hooks * hooks, char * cpu_mask, int num_cpus) {
+    int i = 0;
+    int minor = 0;
+    int major = 0;
 
     V3_Print("V3 Print statement to fix a Kitten page fault bug\n");
 
@@ -134,24 +135,24 @@ void Init_V3(struct v3_os_hooks * hooks, int num_cpus) {
     V3_init_checkpoint();
 #endif
 
-
-
-
     if ((hooks) && (hooks->call_on_cpu)) {
-	for (i = 0; i < num_cpus; i++) {
 
-	    V3_Print("Initializing VMM extensions on cpu %d\n", i);
-	    hooks->call_on_cpu(i, &init_cpu, (void *)(addr_t)i);
+        for (i = 0; i < num_cpus; i++) {
+            major = i / 8;
+            minor = i % 8;
 
-	    if (v3_mach_type == V3_INVALID_CPU) {
-		v3_mach_type = v3_cpu_types[i];
-	    }
+            if ((cpu_mask == NULL) || (*(cpu_mask + major) & (0x1 << minor))) {
+                V3_Print("Initializing VMM extensions on cpu %d\n", i);
+                hooks->call_on_cpu(i, &init_cpu, (void *)(addr_t)i);
 
-	}
+		if (v3_mach_type == V3_INVALID_CPU) {
+		    v3_mach_type = v3_cpu_types[i];
+		}   
+            }
+        }
     }
-
-
 }
+
 
 
 void Shutdown_V3() {
