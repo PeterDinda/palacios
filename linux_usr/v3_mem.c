@@ -71,12 +71,12 @@ int main(int argc, char * argv[]) {
 	    perror("Could not open block size file: " SYS_PATH "block_size_bytes");
 	    return -1;
 	}
-	
+        
 	if (read(tmp_fd, tmp_buf, BUF_SIZE) <= 0) {
 	    perror("Could not read block size file: " SYS_PATH "block_size_bytes");
 	    return -1;
 	}
-	
+        
 	close(tmp_fd);
 
 	block_size_bytes = strtoll(tmp_buf, NULL, 16);
@@ -86,7 +86,7 @@ int main(int argc, char * argv[]) {
     
 
     num_blocks =  mem_size_bytes / block_size_bytes;
-    if (block_size_bytes % mem_size_bytes) num_blocks++;
+    if (mem_size_bytes % block_size_bytes) num_blocks++;
 
     printf("Looking for %d blocks of memory\n", num_blocks);
 
@@ -98,8 +98,11 @@ int main(int argc, char * argv[]) {
 	struct dirent ** namelist = NULL;
 	int size = 0;
 	int i = 0;
+	int j = 0;
+	int last_block = 0;
 
-	bitmap_entries = scandir(SYS_PATH, &namelist, dir_filter, dir_cmp);
+	last_block = scandir(SYS_PATH, &namelist, dir_filter, dir_cmp);
+	bitmap_entries = atoi(namelist[last_block - 1]->d_name + 6) + 1;
 
 	size = bitmap_entries / 8;
 	if (bitmap_entries % 8) size++;
@@ -107,10 +110,8 @@ int main(int argc, char * argv[]) {
 	bitmap = malloc(size);
 	memset(bitmap, 0, size);
 
-	for (i = 0; i < bitmap_entries; i++) {
+	for (i = 0; j < bitmap_entries - 1; i++) {
 	    struct dirent * tmp_dir = namelist[i];
-	    int major = i / 8;
-	    int minor = i % 8;
 	    int block_fd = 0;	    
 	    char status_str[BUF_SIZE];
 	    char fname[BUF_SIZE];
@@ -120,10 +121,14 @@ int main(int argc, char * argv[]) {
 
 	    snprintf(fname, BUF_SIZE, "%s%s/removable", SYS_PATH, tmp_dir->d_name);
 
+	    j = atoi(tmp_dir->d_name + 6);
+	    int major = j / 8;
+	    int minor = j % 8;
+
 	    printf("Checking %s...", fname);
 
 	    block_fd = open(fname, O_RDONLY);
-	    
+            
 	    if (block_fd == -1) {
 		printf("Hotpluggable memory not supported...\n");
 		return -1;
@@ -135,7 +140,7 @@ int main(int argc, char * argv[]) {
 	    }
 
 	    close(block_fd);
-	    
+            
 	    if (atoi(status_str) == 1) {
 		printf("Removable\n");
 		bitmap[major] |= (0x1 << minor);
@@ -155,21 +160,20 @@ int main(int argc, char * argv[]) {
 	    // bitmap: bitmap of blocks (1 == allocatable)
 	    // bitmap_entries: number of blocks in the system/number of bits in bitmap
 	    // reg_start: The block index where our allocation will start
-	    
+            
 	    int i = 0;
 	    int run_len = 0;
-	    
+            
 	    for (i = 0; i < bitmap_entries; i++) {
 		int i_major = i / 8;
 		int i_minor = i % 8;
-		
-		
+            
 		if (!(bitmap[i_major] & (0x1 << i_minor))) {
 		    reg_start = i + 1; // skip the region start to next entry
 		    run_len = 0;
 		    continue;
 		}
-		
+            
 		run_len++;
 
 		if (run_len >= num_blocks) {
@@ -177,7 +181,7 @@ int main(int argc, char * argv[]) {
 		}
 	    }
 
-	
+	    
 	    if (run_len < num_blocks) {
 		fprintf(stderr, "Could not find enough consecutive memory blocks... (found %d)\n", run_len);
 		return -1;
@@ -196,7 +200,7 @@ int main(int argc, char * argv[]) {
 		memset(fname, 0, 256);
 
 		snprintf(fname, 256, "%smemory%d/state", SYS_PATH, i + reg_start);
-	    
+		
 		block_file = fopen(fname, "r+");
 
 		if (block_file == NULL) {
@@ -224,7 +228,7 @@ int main(int argc, char * argv[]) {
 
 
 	    for (i = 0; i < num_blocks; i++) {
-		int block_fd = NULL;
+		int block_fd = 0;
 		char fname[BUF_SIZE];
 		char status_buf[BUF_SIZE];
 
@@ -234,14 +238,14 @@ int main(int argc, char * argv[]) {
 
 		snprintf(fname, BUF_SIZE, "%smemory%d/state", SYS_PATH, i + reg_start);
 
-	
+		
 		block_fd = open(fname, O_RDONLY);
 		
 		if (block_fd == -1) {
 		    perror("Could not open block file");
 		    return -1;
 		}
-		    
+		
 		if (read(block_fd, status_buf, BUF_SIZE) <= 0) {
 		    perror("Could not read block status");
 		    return -1;
@@ -281,7 +285,6 @@ int main(int argc, char * argv[]) {
 			
 			fclose(block_file);
 		    }
-		       
 
 		    break;
 		} 
@@ -301,10 +304,10 @@ int main(int argc, char * argv[]) {
     {
 	int v3_fd = 0;
 	struct v3_mem_region mem;
-	unsigned long long num_bytes = num_blocks * block_size_bytes;
-	unsigned long long base_addr = reg_start * block_size_bytes;
+	unsigned long long num_bytes = (unsigned long long)(num_blocks) * (unsigned long long)(block_size_bytes);
+	unsigned long long base_addr = (unsigned long long)(reg_start) * (unsigned long long)(block_size_bytes);
 
-	printf("Giving Palacios %dMB of memory at (%p) \n", 
+	printf("Giving Palacios %lluMB of memory at (%p) \n", 
 	       num_bytes / (1024 * 1024), base_addr);
 
 	mem.base_addr = base_addr;

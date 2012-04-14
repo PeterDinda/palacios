@@ -146,4 +146,3 @@ clean:
 depend:
 	$(CC) -MM $(CFILES) -I../linux_module > .dependencies
 
-include .dependencies
