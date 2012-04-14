@@ -17,7 +17,7 @@ test_static: test_static.c libmpi_hcall.a
 	gcc   $(EXTRA) -static test_static.c -L. -lmpi_hcall -o test_static
 
 
-EXTRA_CFLAGS += -I$(PWD)/../palacios/include
+EXTRA_CFLAGS += -I$(PWD)/../../../palacios/include
 
 obj-m += mpi.o 
 
