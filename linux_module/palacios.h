@@ -12,6 +12,8 @@
 #define V3_FREE_GUEST 13
 
 #define V3_ADD_MEMORY 50
+#define V3_ADD_PCI_HW_DEV 55
+#define V3_ADD_PCI_USER_DEV 56
 
 /* VM Specific IOCTLs */
 #define V3_VM_CONSOLE_CONNECT 20
@@ -68,6 +70,19 @@ struct v3_chkpt_info {
     char url[256]; /* This might need to be bigger... */
 } __attribute__((packed));
 
+
+struct v3_hw_pci_dev {
+    char name[128];
+    unsigned int bus;
+    unsigned int dev;
+    unsigned int func;
+} __attribute__((packed));
+
+struct v3_user_pci_dev {
+    char name[128];
+    unsigned short vendor_id;
+    unsigned short dev_id;
+} __attribute__((packed));
 
 
 

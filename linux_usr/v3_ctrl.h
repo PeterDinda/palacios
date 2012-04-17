@@ -6,9 +6,16 @@
 #ifndef _v3_ctrl_h
 #define _v3_ctrl_h
 
+
+/* Global Control IOCTLs */
 #define V3_CREATE_GUEST 12
 #define V3_FREE_GUEST 13
 
+#define V3_ADD_MEMORY 50
+#define V3_ADD_PCI_HW_DEV 55
+#define V3_ADD_PCI_USER_DEV 56
+
+/* VM Specific IOCTLs */
 
 /* VM Specific ioctls */
 #define V3_VM_CONSOLE_CONNECT 20
@@ -24,7 +31,6 @@
 #define V3_VM_INSPECT 30
 #define V3_VM_DEBUG 31
 
-#define V3_ADD_MEMORY 50
 
 #define V3_VM_MOVE_CORE 33
 
@@ -68,5 +74,15 @@ struct v3_chkpt_info {
     char store[128];
     char url[256]; /* This might need to be bigger... */
 } __attribute__((packed));
+
+
+
+struct v3_hw_pci_dev {
+    char url[128];
+    unsigned int bus;
+    unsigned int dev;
+    unsigned int func;
+} __attribute__((packed));
+
 
 #endif

@@ -174,9 +174,18 @@ out_err:
 	    break;
 	}
 
-	default: 
-	    ERROR("\tUnhandled\n");
+
+	default: {
+	    struct global_ctrl * ctrl = get_global_ctrl(ioctl);
+	    
+	    if (ctrl) {
+		return ctrl->handler(ioctl, arg);
+	    }
+
+	    WARNING("\tUnhandled global ctrl cmd: %d\n", ioctl);
+
 	    return -EINVAL;
+	}
     }
 
     return 0;

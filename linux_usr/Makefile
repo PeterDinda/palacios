@@ -30,6 +30,8 @@ BASE_EXECS = 	v3_mem \
 		v3_debug \
 		v3_send \
 		v3_receive \
+		v3_pci
+
 
 #
 # Examples

@@ -43,6 +43,8 @@ v3vee-$(V3_CONFIG_EXT_ENV_INJECT) += iface-env-inject.o
 v3vee-$(V3_CONFIG_EXT_SELECTIVE_SYSCALL_EXIT) += iface-syscall.o
 
 
+v3vee-$(V3_CONFIG_HOST_PCI) += iface-host-pci.o
+
 v3vee-objs := $(v3vee-y) ../libv3vee.a
 obj-m := v3vee.o
 
