@@ -472,7 +472,6 @@ static int add_apic_irq_entry(struct apic_state * apic, uint32_t irq_num,
 
 static void drain_irq_entries(struct apic_state * apic) {
 
-
     while (1) {
 	unsigned int flags = 0;
 	struct irq_queue_entry * entry = NULL;

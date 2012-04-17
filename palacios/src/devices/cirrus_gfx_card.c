@@ -539,8 +539,8 @@ static int cirrus_gfx_card_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg){
 	//                                                     Not sure if STD
 	pci_dev = v3_pci_register_device(video_state->pci_bus, PCI_STD_DEVICE, 0,
 					 //or0  1st null could be pci_config_update
-					 -1, 0, "CIRRUS_GFX_CARD", bars, NULL, NULL,
-					 NULL, dev);
+					 -1, 0, "CIRRUS_GFX_CARD", bars, NULL, NULL, 
+					 NULL, NULL, dev);
 
 	if (pci_dev == NULL) {
 	    PrintError("Failed to register VIDEO %d with PCI\n", i);

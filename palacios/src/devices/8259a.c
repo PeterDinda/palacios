@@ -159,6 +159,11 @@ struct pic_internal {
 
     struct guest_info * core;
 
+    struct {
+	int (*ack)(struct guest_info * core, uint32_t irq, void * private_data);
+	void * private_data;
+    } irq_ack_cbs[15];
+
 
     void * router_handle;
     void * controller_handle;
@@ -216,6 +221,9 @@ static int pic_raise_intr(struct v3_vm_info * vm, void * private_data, struct v3
 	PrintDebug("8259 PIC: Invalid IRQ raised (%d)\n", irq_num);
 	return -1;
     }
+
+    state->irq_ack_cbs[irq_num].ack = irq->ack;
+    state->irq_ack_cbs[irq_num].private_data = irq->private_data;
 
     if (V3_Get_CPU() != vm->cores[0].pcpu_id) {
 	// guest is running on another core, interrupt it to deliver irq
@@ -329,7 +337,7 @@ static int pic_begin_irq(struct guest_info * info, void * private_data, int irq)
                state->master_irr &= ~(0x1 << irq);
            }
        } else {
-	   PrintDebug("8259 PIC: (master) Ignoring begin_irq for %d since I don't own it\n",irq);
+	   PrintDebug("8259 PIC: (master) Ignoring begin_irq for %d since I don't own it\n", irq);
        }
 
     } else {
@@ -341,10 +349,11 @@ static int pic_begin_irq(struct guest_info * info, void * private_data, int irq)
 	       state->slave_irr &= ~(0x1 << (irq - 8));
 	   }
 	} else {
-	   PrintDebug("8259 PIC: (slave) Ignoring begin_irq for %d since I don't own it\n",irq);
+	   PrintDebug("8259 PIC: (slave) Ignoring begin_irq for %d since I don't own it\n", irq);
 	}
-
     }
+
+
 
     return 0;
 }
@@ -466,6 +475,15 @@ static int write_master_port1(struct guest_info * core, ushort_t port, void * sr
             if ((cw2->EOI) && (!cw2->R) && (cw2->SL)) {
                 // specific EOI;
                 state->master_isr &= ~(0x01 << cw2->level);
+
+
+		/*
+		// ack the irq if requested
+		if (state->irq_ack_cbs[irq].ack) {
+		    state->irq_ack_cbs[irq].ack(info, irq, state->irq_ack_cbs[irq].private_data);
+		}
+		*/
+
             } else if ((cw2->EOI) & (!cw2->R) && (!cw2->SL)) {
                 int i;
                 // Non-specific EOI

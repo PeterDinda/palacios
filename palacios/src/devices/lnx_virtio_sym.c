@@ -147,7 +147,7 @@ static int handle_kick(struct guest_info * core, struct virtio_sym_state * sym_s
 
     if (!(q->avail->flags & VIRTIO_NO_IRQ_FLAG)) {
 	PrintDebug("Raising IRQ %d\n",  sym_state->pci_dev->config_header.intr_line);
-	v3_pci_raise_irq(sym_state->pci_bus, 0, sym_state->pci_dev);
+	v3_pci_raise_irq(sym_state->pci_bus, sym_state->pci_dev, 0);
 	sym_state->virtio_cfg.pci_isr = VIRTIO_ISR_ACTIVE;
     }
 
@@ -314,7 +314,7 @@ static int virtio_io_read(struct guest_info * core, uint16_t port, void * dst, u
 	case VIRTIO_ISR_PORT:
 	    *(uint8_t *)dst = sym_state->virtio_cfg.pci_isr;
 	    sym_state->virtio_cfg.pci_isr = 0;
-	    v3_pci_lower_irq(sym_state->pci_bus, 0, sym_state->pci_dev);
+	    v3_pci_lower_irq(sym_state->pci_bus, sym_state->pci_dev, 0);
 	    break;
 
 	default:
@@ -420,7 +420,7 @@ static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	pci_dev = v3_pci_register_device(pci_bus, PCI_STD_DEVICE, 
 					 0, PCI_AUTO_DEV_NUM, 0,
 					 "LNX_VIRTIO_SYM", bars,
-					 NULL, NULL, NULL, virtio_state);
+					 NULL, NULL, NULL, NULL, virtio_state);
 
 	if (!pci_dev) {
 	    PrintError("Could not register PCI Device\n");
