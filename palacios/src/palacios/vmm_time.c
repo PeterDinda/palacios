@@ -211,6 +211,7 @@ int v3_rdtsc(struct guest_info * info) {
 }
 
 int v3_handle_rdtsc(struct guest_info * info) {
+    PrintDebug("Handling virtual RDTSC call.\n");
     v3_rdtsc(info);
     
     info->vm_regs.rax &= 0x00000000ffffffffLL;
@@ -246,7 +247,7 @@ int v3_rdtscp(struct guest_info * info) {
 
 
 int v3_handle_rdtscp(struct guest_info * info) {
-  PrintDebug("Handling virtual RDTSCP call.\n");
+    PrintDebug("Handling virtual RDTSCP call.\n");
 
     v3_rdtscp(info);
 
@@ -287,6 +288,7 @@ static int tsc_msr_read_hook(struct guest_info *info, uint_t msr_num,
 			     struct v3_msr *msr_val, void *priv) {
     uint64_t time = v3_get_guest_tsc(&info->time_state);
 
+    PrintDebug("Handling virtual TSC MSR read call.\n");
     V3_ASSERT(msr_num == TSC_MSR);
 
     msr_val->hi = time >> 32;
@@ -300,14 +302,15 @@ static int tsc_msr_write_hook(struct guest_info *info, uint_t msr_num,
     struct vm_core_time * time_state = &(info->time_state);
     uint64_t guest_time, new_tsc;
 
-	    V3_ASSERT(msr_num == TSC_MSR);
+    PrintDebug("Handling virtual TSC MSR write call.\n");
+    V3_ASSERT(msr_num == TSC_MSR);
 
-	    new_tsc = (((uint64_t)msr_val.hi) << 32) | (uint64_t)msr_val.lo;
-	    guest_time = v3_get_guest_time(time_state);
-	    time_state->tsc_guest_offset = (sint64_t)(new_tsc - guest_time); 
+    new_tsc = (((uint64_t)msr_val.hi) << 32) | (uint64_t)msr_val.lo;
+    guest_time = v3_get_guest_time(time_state);
+    time_state->tsc_guest_offset = (sint64_t)(new_tsc - guest_time); 
 
-	    return 0;
-	}
+    return 0;
+}
 
 static int
 handle_time_configuration(struct v3_vm_info * vm, v3_cfg_tree_t *cfg) {

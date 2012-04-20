@@ -120,7 +120,7 @@ static inline uint64_t v3_get_guest_tsc(struct vm_core_time *t) {
 // Returns offset of guest TSC from host TSC
 static inline sint64_t v3_tsc_host_offset(struct vm_core_time *time_state) {
     uint64_t host_time = v3_get_host_time(time_state);
-    return ((sint64_t)host_time - (sint64_t)time_state->guest_cycles) + time_state->tsc_guest_offset;
+    return ((sint64_t)time_state->guest_cycles - (sint64_t)host_time) + time_state->tsc_guest_offset;
 }
 
 // Functions for handling exits on the TSC when fully virtualizing 
