@@ -25,7 +25,11 @@
 #include <palacios/vmm_extensions.h>
 #include <palacios/vmm_intr.h>
 
-#include <interfaces/sw_intr.h>
+#include <gears/sw_intr.h>
+
+#ifdef V3_CONFIG_EXT_CODE_INJECT
+#include <gears/code_inject.h>
+#endif
 
 #ifndef V3_CONFIG_DEBUG_EXT_SW_INTERRUPTS
 #undef PrintDebug
@@ -34,17 +38,50 @@
 
 
 static int init_swintr_intercept (struct v3_vm_info * vm, v3_cfg_tree_t * cfg, void ** priv_data) {
-
     return 0;
 }
 
 
-static int init_swintr_intercept_core (struct guest_info * core, void * priv_data) {
+static int init_swintr_core_svm (struct guest_info * core, void * priv_data) {
     vmcb_t * vmcb = (vmcb_t*)core->vmm_data;
     vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA(vmcb);
 
     ctrl_area->instrs.INTn = 1;
+    return 0;
+}
 
+
+static int init_swintr_core_vmx (struct guest_info * core, void * priv_data) {
+    PrintError("Not implemented!\n");
+    return -1;
+}
+
+
+static int init_swintr_intercept_core (struct guest_info * core, void * priv_data) {
+    v3_cpu_arch_t cpu_type = v3_get_cpu_type(V3_Get_CPU());
+
+    switch (cpu_type) {
+        case V3_SVM_CPU:
+        case V3_SVM_REV3_CPU: {
+            if (init_swintr_core_svm(core, priv_data) == -1) {
+                PrintError("Problem initializing svm software interrupt intercept\n");
+                return -1;
+            }
+            break;
+        }
+        case V3_VMX_CPU:
+        case V3_VMX_EPT_CPU:
+        case V3_VMX_EPT_UG_CPU: {
+            if (init_swintr_core_vmx(core, priv_data) == -1) {
+                PrintError("Problem initializing vmx software interrupt intercept\n");
+                return -1;
+            }
+            break;
+        }
+        default:
+            PrintError("software interrupt interception not supported on this architecture\n");
+            return -1;
+    }
     return 0;
 }
 
@@ -56,7 +93,6 @@ struct v3_swintr_hook {
 
 
 static struct v3_swintr_hook * swintr_hooks[256];
-
 
 static inline struct v3_swintr_hook * get_swintr_hook (struct guest_info * core, uint8_t vector) {
     return swintr_hooks[vector];
@@ -121,6 +157,14 @@ int v3_handle_swintr (struct guest_info * core) {
         return -1; 
     }   
 
+#ifdef V3_CONFIG_EXT_CODE_INJECT
+// this is for injecting page faults
+// we don't want to increment rip or inject
+// the swint if we need to fault a page in
+    if (ret == E_NEED_PF) {
+        return 0;
+    }
+#endif
     /* at some point we _may_ need to prioritize swints 
        so that they finish in time for the next
        instruction... */
@@ -150,6 +194,8 @@ int v3_hook_swintr (struct guest_info * core,
     hook->priv_data = priv_data;
 
     swintr_hooks[vector] = hook;
+
+    PrintDebug("Hooked Swintr #%d\n", vector);
 
     return 0;
 }

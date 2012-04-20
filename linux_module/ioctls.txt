@@ -22,3 +22,11 @@ VM Commands (/dev/v3-vm*)
 258 -- (IFACE) VGA Console Framebuf Query
 
 10245 -- (IFACE) Connect Host Device
+
+12123 -- (EXT) Inject Top Half Code into Guest
+
+12124 -- (EXT) Register host hypercall (remember to insmod first)
+12124 -- (EXT) Unregister host hypercall 
+
+13125 -- (EXT) Inject Environment Variables into Guest Process
+

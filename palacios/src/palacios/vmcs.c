@@ -239,6 +239,25 @@ int v3_vmx_save_vmcs(struct guest_info * info) {
     
     error =  v3_read_vmcs_segments(&(info->segments));
 
+    /* Save MSRs from MSR SAVE Area (whereever that is...)*/
+
+    info->msrs.star = vmx_info->msr_area->guest_star.hi;
+    info->msrs.star <<= 32;
+    info->msrs.star |= vmx_info->msr_area->guest_star.lo;
+
+    info->msrs.lstar = vmx_info->msr_area->guest_lstar.hi;
+    info->msrs.lstar <<= 32;
+    info->msrs.lstar |= vmx_info->msr_area->guest_lstar.lo;
+
+    info->msrs.sfmask = vmx_info->msr_area->guest_fmask.hi;
+    info->msrs.sfmask <<= 32;
+    info->msrs.sfmask |= vmx_info->msr_area->guest_fmask.lo;
+
+    info->msrs.kern_gs_base = vmx_info->msr_area->guest_kern_gs.hi;
+    info->msrs.kern_gs_base <<= 32;
+    info->msrs.kern_gs_base |= vmx_info->msr_area->guest_kern_gs.lo;
+
+
     return error;
 }
 
@@ -265,6 +284,20 @@ int v3_vmx_restore_vmcs(struct guest_info * info) {
 #endif
 
     error = v3_write_vmcs_segments(&(info->segments));
+
+    /* Restore MSRs from MSR SAVE Area (whereever that is...)*/
+
+    vmx_info->msr_area->guest_star.hi = (info->msrs.star >> 32);
+    vmx_info->msr_area->guest_star.lo = (info->msrs.star & 0xffffffff);
+
+    vmx_info->msr_area->guest_lstar.hi = (info->msrs.lstar >> 32);
+    vmx_info->msr_area->guest_lstar.lo = (info->msrs.lstar & 0xffffffff);
+
+    vmx_info->msr_area->guest_fmask.hi = (info->msrs.sfmask >> 32);
+    vmx_info->msr_area->guest_fmask.lo = (info->msrs.sfmask & 0xffffffff);
+
+    vmx_info->msr_area->guest_kern_gs.hi = (info->msrs.kern_gs_base >> 32);
+    vmx_info->msr_area->guest_kern_gs.lo = (info->msrs.kern_gs_base & 0xffffffff);
 
     return error;
 

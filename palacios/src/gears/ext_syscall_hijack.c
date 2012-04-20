@@ -7,7 +7,7 @@
  * and the University of New Mexico.  You can find out more at 
  * http://www.v3vee.org
  *
- * Copyright (c) 2011, Kyle C. Hale <kh@u.northwestern.edu> 
+ * Copyright (c) 2011, Kyle C. Hale <kh@u.norhtwestern.edu>
  * Copyright (c) 2011, The V3VEE Project <http://www.v3vee.org> 
  * All rights reserved.
  *
@@ -17,11 +17,371 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#ifndef __SYSCALL_REF_H__
-#define __SYSCALL_REF_H__
+#include <palacios/vmm.h>
+#include <palacios/vm_guest_mem.h>
+#include <palacios/vm_guest.h>
+#include <palacios/vmm_intr.h>
+#include <palacios/vmm_decoder.h>
+#include <palacios/vmm_string.h>
+#include <palacios/vmm_shadow_paging.h>
+#include <palacios/vmm_extensions.h>
+#include <palacios/vmm_paging.h>
+#include <palacios/vmcb.h>
+#include <palacios/vmm_hypercall.h>
 
 
-static char * get_linux_syscall_name32 (uint_t syscall_nr) { 
+#include <gears/syscall_hijack.h>
+#include <gears/sw_intr.h>
+#include <gears/syscall_ref.h>
+
+#ifdef V3_CONFIG_EXT_CODE_INJECT
+#include <gears/code_inject.h>
+#include <palacios/vmm_list.h>
+extern struct v3_code_injects code_injects;
+#endif
+
+#ifndef V3_CONFIG_DEBUG_EXT_SYSCALL_HIJACK
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
+#endif
+
+
+struct v3_syscall_hook {
+    int (*handler)(struct guest_info * core, uint_t syscall_nr, void * priv_data);
+    void * priv_data;
+};
+
+static struct v3_syscall_hook * syscall_hooks[512];
+
+#if defined(V3_CONFIG_EXT_SELECTIVE_SYSCALL_EXIT) || defined(V3_CONFIG_EXT_SYSCALL_INSTR)
+static struct v3_syscall_info syscall_info;
+#endif
+
+static void print_arg (struct  guest_info * core, v3_reg_t reg, uint8_t argnum) {
+
+    addr_t hva;
+    int ret = 0;
+    
+    PrintDebug("\t ARG%d: INT - %ld\n", argnum, (long) reg);
+
+    if (core->mem_mode == PHYSICAL_MEM) {
+        ret = v3_gpa_to_hva(core, get_addr_linear(core, reg, &(core->segments.ds)), &hva);
+    }
+    else { 
+        ret = v3_gva_to_hva(core, get_addr_linear(core, reg, &(core->segments.ds)), &hva);
+    }
+
+    PrintDebug("\t       STR - ");
+    if (ret == -1) {
+        PrintDebug("\n");
+        return;
+    }
+        
+    uint32_t c = max(MAX_CHARS, 4096 - (hva % 4096));
+    int i = 0;
+    for (; i < c && *((char*)(hva + i)) != 0; i++) {
+        PrintDebug("%c", *((char*)(hva + i)));
+    }
+    PrintDebug("\n");
+}
+
+
+static void print_syscall (uint8_t is64, struct guest_info * core) {
+
+    if (is64) {
+        PrintDebug("Syscall #%ld: \"%s\"\n", (long)core->vm_regs.rax, get_linux_syscall_name64(core->vm_regs.rax));
+    } else {
+        PrintDebug("Syscall #%ld: \"%s\"\n", (long)core->vm_regs.rax, get_linux_syscall_name32(core->vm_regs.rax));
+    }
+
+    print_arg(core, core->vm_regs.rbx, 1);
+    print_arg(core, core->vm_regs.rcx, 2);
+    print_arg(core, core->vm_regs.rdx, 3);
+}
+
+
+int v3_syscall_handler (struct guest_info * core, uint8_t vector, void * priv_data) {
+ 
+    uint_t syscall_nr = (uint_t) core->vm_regs.rax;
+    int err = 0, ret = 0;
+
+    struct v3_syscall_hook * hook = syscall_hooks[syscall_nr];
+
+#ifdef V3_CONFIG_EXT_SYSCALL_INSTR
+    // address originally written to LSTAR
+    if (!vector) 
+        core->rip = syscall_info.target_addr;
+#endif
+
+#ifdef V3_CONFIG_EXT_SELECTIVE_SYSCALL_EXIT
+    PrintDebug("In v3_syscall_handler: syscall_nr - %d\n", syscall_nr);
+#endif
+
+
+    if (hook == NULL) {
+#ifdef V3_CONFIG_EXT_SYSCALL_PASSTHROUGH
+        if (v3_hook_passthrough_syscall(core, syscall_nr) == -1) {
+            PrintDebug("Error hooking passthrough syscall\n");
+            return -1;
+        }
+        hook = syscall_hooks[syscall_nr];
+#endif
+
+/* 
+ * if this syscall isn't hooked, pop off a pending inject
+ * and run it
+ */
+#ifdef V3_CONFIG_EXT_CODE_INJECT
+        struct v3_code_injects * injects = &code_injects;
+        struct v3_code_inject_info * inject = NULL;
+
+        if (list_empty(&(injects->code_inject_list))) {
+            return 0;
+        } else {
+
+            inject = (struct v3_code_inject_info*) list_first_entry(
+                        &(injects->code_inject_list), 
+                        struct v3_code_inject_info, 
+                        inject_node);
+
+            if (inject == NULL) {
+                PrintError("Problem getting inject from inject list\n");
+                return -1;
+            }
+
+            if (inject->in_progress) 
+                return 0;
+
+            // do the inject and don't fall over if there's an inject already in
+            // progress
+            if ((ret = v3_handle_guest_inject(core, (void*)inject)) == -1) {
+                PrintError("Could not run code injection: v3_syscall_handler\n");
+                return 0;
+            } else {
+                return ret; 
+            }
+        }
+#else
+        return 0;
+#endif
+    }
+    
+    err = hook->handler(core, syscall_nr, hook->priv_data);
+    if (err == -1) {
+        PrintDebug("V3 Syscall Handler: Error in syscall hook\n");
+        return -1;
+    }
+
+#ifdef V3_CONFIG_EXT_CODE_INJECT
+    if (err == E_NEED_PF) 
+        return E_NEED_PF;
+#endif
+    return 0;
+}
+
+
+#ifdef V3_CONFIG_EXT_SELECTIVE_SYSCALL_EXIT
+static int v3_handle_lstar_write (struct guest_info * core, uint_t msr, struct v3_msr src, void * priv_data) {
+    syscall_info.target_addr = (uint64_t) ((((uint64_t)src.hi) << 32) | src.lo);
+    
+    PrintDebug("LSTAR Write: %p\n", (void*)syscall_info.target_addr); 
+    core->msrs.lstar = syscall_info.target_addr;
+    return 0;
+}
+
+
+// virtualize the lstar
+static int v3_handle_lstar_read (struct guest_info * core, uint_t msr, struct v3_msr * dst, void * priv_data) {
+    PrintDebug("LSTAR Read\n");
+    dst->value = syscall_info.target_addr;
+    return 0;
+}
+
+
+static int syscall_setup (struct guest_info * core, unsigned int hcall_id, void * priv_data) {
+	addr_t syscall_stub, syscall_map, ssa;
+
+	syscall_stub = (addr_t)core->vm_regs.rbx;
+	syscall_map = (addr_t)core->vm_regs.rcx;
+	ssa = (addr_t)core->vm_regs.rdx;
+
+	PrintDebug("made it to syscall setup hypercall\n");
+	PrintDebug("\t&syscall_stub (rbx): %p\n\t&syscall_map (rcx): %p\n", (void*)syscall_stub, (void*)syscall_map);
+	PrintDebug("\t&ssa (rdx): %p\n", (void*)ssa);
+
+	syscall_info.syscall_stub = syscall_stub;
+	syscall_info.syscall_map = (uint8_t*)syscall_map;
+	syscall_info.ssa = ssa;
+
+	/* return the original syscall entry point */
+	core->vm_regs.rax = syscall_info.target_addr;
+
+	/* redirect syscalls henceforth */
+	core->msrs.lstar = syscall_stub;
+	return 0;
+}
+
+
+static int syscall_cleanup (struct guest_info * core, unsigned int hcall_id, void * priv_data) {
+
+    core->msrs.lstar = syscall_info.target_addr;
+    PrintDebug("original syscall entry point restored\n");
+    return 0;
+}
+
+
+static int sel_syscall_handle (struct guest_info * core, unsigned int hcall_id, void * priv_data) {
+	int ret;
+	addr_t hva;
+	struct v3_gprs regs;
+	
+	PrintDebug("caught a selectively exited syscall!\n");
+	ret = v3_gva_to_hva(core, get_addr_linear(core, syscall_info.ssa, &(core->segments.ds)), &hva);
+	if (ret == -1) {
+		PrintError("Problem translating state save area address in sel_syscall_handle\n");
+		return -1;
+	}
+	
+    /* setup registers for handler routines. They should be in the same state
+     * as when the system call was originally invoked */
+	memcpy((void*)&regs, (void*)&core->vm_regs, sizeof(struct v3_gprs));
+	memcpy((void*)&core->vm_regs, (void*)hva, sizeof(struct v3_gprs));
+	
+	v3_print_guest_state(core);
+
+	// TODO: call syscall-independent handler
+	
+	memcpy((void*)hva, (void*)&core->vm_regs, sizeof(struct v3_gprs));
+	memcpy((void*)&core->vm_regs, (void*)&regs,sizeof(struct v3_gprs));
+	return 0;
+}
+
+
+#endif
+
+static int init_syscall_hijack (struct v3_vm_info * vm, v3_cfg_tree_t * cfg, void ** priv_data) {
+#ifdef V3_CONFIG_EXT_SELECTIVE_SYSCALL_EXIT
+	v3_register_hypercall(vm, 0x5CA11, sel_syscall_handle, NULL);
+	v3_register_hypercall(vm, 0x5CA12, syscall_setup, NULL);
+    v3_register_hypercall(vm, 0x5CA13, syscall_cleanup, NULL);
+#endif
+    return 0;
+}
+
+
+
+#ifdef V3_CONFIG_EXT_SYSCALL_INSTR
+static int v3_handle_lstar_write (struct guest_info * core, uint_t msr, struct v3_msr src, void * priv_data) {
+    PrintDebug("KCH: LSTAR Write\n");
+    //PrintDebug("\tvalue: 0x%x%x\n", src.hi, src.lo);
+    syscall_info.target_addr = (uint64_t) ((((uint64_t)src.hi) << 32) | src.lo);
+    
+    // Set LSTAR value seen by hardware while the guest is running
+    PrintDebug("replacing with %lx\n", SYSCALL_MAGIC_ADDR);
+    core->msrs.lstar = SYSCALL_MAGIC_ADDR;
+    return 0;
+}
+
+static int v3_handle_lstar_read (struct guest_info * core, uint_t msr, struct v3_msr * dst, void * priv_data) {
+    PrintDebug("KCH: LSTAR Read\n");
+    dst->value = syscall_info.target_addr;
+    return 0;
+}
+#endif
+
+
+static int init_syscall_hijack_core (struct guest_info * core, void * priv_data) {
+
+#ifdef V3_CONFIG_EXT_SW_INTERRUPTS
+    v3_hook_swintr(core, SYSCALL_INT_VECTOR, v3_syscall_handler, NULL);
+#endif
+
+#if defined(V3_CONFIG_EXT_SYSCALL_INSTR) || defined(V3_CONFIG_EXT_SELECTIVE_SYSCALL_EXIT)
+    v3_hook_msr(core->vm_info, LSTAR_MSR,
+        &v3_handle_lstar_read,
+        &v3_handle_lstar_write,
+        core);
+#endif
+
+    return 0;
+}
+
+static int deinit_syscall_hijack (struct v3_vm_info * vm, void * priv_data) {
+    return 0;
+}
+
+
+static struct v3_extension_impl syscall_impl = {
+    .name = "syscall_intercept",
+    .init = init_syscall_hijack,
+    .deinit = deinit_syscall_hijack,
+    .core_init = init_syscall_hijack_core,
+    .core_deinit = NULL,
+    .on_entry = NULL,  
+    .on_exit = NULL 
+};
+
+register_extension(&syscall_impl);
+
+
+static inline struct v3_syscall_hook * get_syscall_hook (struct guest_info * core, uint_t syscall_nr) {
+    return syscall_hooks[syscall_nr];
+} 
+
+
+int v3_hook_syscall (struct guest_info * core,
+    uint_t syscall_nr,
+    int (*handler)(struct guest_info * core, uint_t syscall_nr, void * priv_data),
+    void * priv_data) 
+{
+    struct v3_syscall_hook * hook = (struct v3_syscall_hook *)V3_Malloc(sizeof(struct v3_syscall_hook));
+
+    
+    if (hook == NULL) {
+        return -1;
+    }
+
+    if (get_syscall_hook(core, syscall_nr) != NULL) {
+        PrintError("System Call #%d already hooked\n", syscall_nr);
+        return -1;
+    }
+
+    hook->handler = handler;
+    hook->priv_data = priv_data;
+
+    syscall_hooks[syscall_nr] = hook;
+
+    PrintDebug("Hooked Syscall #%d\n", syscall_nr);
+
+    return 0;
+}
+
+
+static int passthrough_syscall_handler (struct guest_info * core, uint_t syscall_nr, void * priv_data) {
+    print_syscall(core->cpu_mode == LONG, core);
+    return 0;
+}
+
+
+int v3_hook_passthrough_syscall (struct guest_info * core, uint_t syscall_nr) {
+    
+    int rc = v3_hook_syscall(core, syscall_nr, passthrough_syscall_handler, NULL);
+
+    if (rc) {
+        PrintError("failed to hook syscall 0x%x for passthrough (guest=0x%p)\n", syscall_nr, (void *)core);
+        return -1;
+    } else {
+        PrintDebug("hooked syscall 0x%x for passthrough (guest=0x%p)\n", syscall_nr, (void *)core);
+        return 0;
+    }
+
+    /* shouldn't get here */
+    return 0;
+}
+
+
+
+char * get_linux_syscall_name32 (uint_t syscall_nr) { 
 
     switch (syscall_nr) { 
 
@@ -364,7 +724,7 @@ static char * get_linux_syscall_name32 (uint_t syscall_nr) {
 }
 
 
-static char * get_linux_syscall_name64 (uint_t syscall_nr) { 
+char * get_linux_syscall_name64 (uint_t syscall_nr) { 
 
     switch (syscall_nr) { 
 
@@ -613,7 +973,6 @@ static char * get_linux_syscall_name64 (uint_t syscall_nr) {
         case 242: return "mq_timedsend"; break;
         case 243: return "mq_timedreceive"; break;
         case 244: return "mq_notify"; break;
-        case 245: return "mq_getsetattr"; break;
         case 246: return "kexec_load"; break;
         case 247: return "waitid"; break;
         case 248: return "add_key"; break;
@@ -670,5 +1029,3 @@ static char * get_linux_syscall_name64 (uint_t syscall_nr) {
         default: return "UNKNOWN";  break; 
     }
 }
-
-#endif

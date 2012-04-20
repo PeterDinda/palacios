@@ -44,7 +44,7 @@
 #endif
 
 #ifdef V3_CONFIG_EXT_SW_INTERRUPTS
-#include <interfaces/sw_intr.h>
+#include <gears/sw_intr.h>
 #endif
 
 int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_info1, addr_t exit_info2) {

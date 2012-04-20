@@ -1,4 +1,4 @@
-/* 
+/*
  * This file is part of the Palacios Virtual Machine Monitor developed
  * by the V3VEE Project with funding from the United States National 
  * Science Foundation and the Department of Energy.  
@@ -17,16 +17,21 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
-#ifndef __SYSCALL_HIJACK_H__
-#define __SYSCALL_HIJACK_H__
 
+#ifndef __SW_INTR_H__
+#define __SW_INTR_H__
 
-int v3_hook_syscall (struct guest_info * core,
-    uint_t syscall_nr,
-    int (*handler)(struct guest_info * core, uint_t syscall_nr, void * priv_data), 
-    void * priv_data);
+#include <palacios/vmm.h>
 
-int v3_hook_passthrough_syscall (struct guest_info * core, uint_t syscall_nr);
+#define SW_INTR_SYSCALL_VEC 0x80
+
+int v3_handle_swintr (struct guest_info * core);
+
+int v3_hook_swintr (struct guest_info * core,
+        uint8_t vector,
+        int (*handler)(struct guest_info * core, uint8_t vector, void * priv_data),
+        void * priv_data);
+int v3_hook_passthrough_swintr (struct guest_info * core, uint8_t vector);
 
 
 #endif

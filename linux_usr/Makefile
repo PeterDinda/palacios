@@ -24,6 +24,7 @@ BASE_EXECS = 	v3_mem \
 		v3_cons_sc \
 		v3_stream \
 		v3_monitor \
+                v3_hypercall 
 
 #
 # Examples
@@ -31,13 +32,18 @@ BASE_EXECS = 	v3_mem \
 EXAMPLE_EXECS = v3_user_host_dev_example \
 		v3_os_debug \
 		v3_user_keyed_stream_example \
-		v3_user_keyed_stream_file \
+		v3_user_keyed_stream_file 
 
 #
 # Currently experimental things
 #
 EXPERIMENTAL_EXECS = 	v3_simulate  \
-			v3_inject_ecc_scrubber_mce
+			v3_inject_ecc_scrubber_mce  \
+                        v3_top_inject \
+                        v3_env_inject 
+
+
+
 
 #
 # Things that have been built elsewhere - just for reference here
@@ -60,6 +66,8 @@ CFILES = $(BUILD_EXECS:%=%.c) $(BUILD_LIBS:lib%.a=%.c)
 ifeq ($(STATIC),1)
   CFLAGS += -static 
 endif
+
+CFLAGS += -I../linux_module
 
 CC = gcc
 AR = ar
@@ -138,4 +146,3 @@ clean:
 depend:
 	$(CC) -MM $(CFILES) -I../linux_module > .dependencies
 
-include .dependencies

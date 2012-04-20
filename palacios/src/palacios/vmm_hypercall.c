@@ -181,10 +181,9 @@ int v3_handle_hypercall(struct guest_info * info) {
 	return -1;
     }
 
-    if (hcall->hcall_fn(info, hypercall_id, hcall->priv_data) == 0) {
-	info->vm_regs.rax = 0;
-    } else {
-	info->vm_regs.rax = -1;
+    if (hcall->hcall_fn(info, hypercall_id, hcall->priv_data) != 0) {
+	PrintError("Error handling hypercall\n");
+	return -1;
     }
 
     return 0;

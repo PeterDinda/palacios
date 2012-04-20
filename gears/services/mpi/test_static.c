@@ -1,0 +1,42 @@
+#include <stdio.h>
+#include "mpi_hc.h"
+
+int main()
+{
+  int rc;
+
+  printf("Now trying hypercalls to MPI backend\n");
+
+  printf("mpi_init_hcall(0xdeadbeef,0xbad) = ");
+  
+  rc=mpi_init_hcall(0xdeadbeef,0xbad);
+
+  printf("0x%x\n",rc);
+
+  printf("mpi_comm_rank_hcall(0xabc,0xdef) = ");
+  
+  rc=mpi_comm_rank_hcall(0xabc,0xdef);
+
+  printf("0x%x\n",rc);
+
+  printf("mpi_send_hcall(0x100,0x101,0x102,0x103,0x104,0x105) = ");
+  
+  rc=mpi_send_hcall(0x100,0x101,0x102,0x103,0x104,0x105);
+
+  printf("0x%x\n",rc);
+
+  printf("mpi_recv_hcall(0x99,0x98,0x97,0x96,0x95,0x94,0x93) = ");
+  
+  rc=mpi_recv_hcall(0x99,0x98,0x97,0x96,0x95,0x94,0x93);
+
+  printf("0x%x\n",rc);
+
+  printf("mpi_deinit_hcall() = ");
+  
+  rc=mpi_deinit_hcall();
+
+  printf("0x%x\n",rc);
+
+  printf("Done.\n");
+
+}

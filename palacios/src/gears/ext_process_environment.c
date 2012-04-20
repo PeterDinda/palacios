@@ -19,16 +19,71 @@
 
 #include <palacios/vmm.h>
 #include <palacios/vmm_decoder.h>
-#include <palacios/vmm_process_environment.h>
 #include <palacios/vm_guest.h>
 #include <palacios/vm_guest_mem.h>
+
+#include <gears/process_environment.h>
+
+static struct v3_execve_varchunk var_dump;
+
+
+/* KCH: currently only checks if we can perform a user-mode write
+   return 1 on success */
+static int v3_gva_can_access(struct guest_info * core, addr_t gva) {
+
+    v3_reg_t guest_cr3 = 0;
+    pf_error_t access_type;
+    pt_access_status_t access_status;
+
+    access_type.write = 1;
+    access_type.user = 1;
+
+    if (core->mem_mode == PHYSICAL_MEM) {
+        return -1;
+    }
+
+    if (core->shdw_pg_mode == SHADOW_PAGING) {
+        guest_cr3 = core->shdw_pg_state.guest_cr3;
+    } else {
+        guest_cr3 = core->ctrl_regs.cr3;
+    }
+
+    // guest is in paged mode
+    switch (core->cpu_mode) {
+    case PROTECTED:
+        if (v3_check_guest_pt_32(core, guest_cr3, gva, access_type, &access_status) == -1) {
+            return -1;
+        }
+        break;
+    case PROTECTED_PAE:
+        if (v3_check_guest_pt_32pae(core, guest_cr3, gva, access_type, &access_status) == -1) {
+            return -1;
+        }
+        break;
+    case LONG:
+    case LONG_32_COMPAT:
+    case LONG_16_COMPAT:
+        if (v3_check_guest_pt_64(core, guest_cr3, gva, access_type, &access_status) == -1) {
+            return -1;
+        }
+        break;
+    default:
+        return -1;
+    }
+
+    if (access_status != PT_ACCESS_OK) {
+        return 0;
+    } else {
+        return 1;
+    }
+}
 
 static int v3_copy_chunk_guest32(struct guest_info * core, addr_t gva, uint_t argcnt, uint_t envcnt) {
 
     int ret = 0, i = 0;
     addr_t hva;
-    uint32_t tmp_args[core->var_dump.argc];
-    uint32_t tmp_envs[core->var_dump.envc];
+    uint32_t tmp_args[var_dump.argc];
+    uint32_t tmp_envs[var_dump.envc];
 
     PrintDebug("Initiating copy into guest (32bit)\n");
     
@@ -41,31 +96,31 @@ static int v3_copy_chunk_guest32(struct guest_info * core, addr_t gva, uint_t ar
     // copy the env strings (we're moving top-down through the stack)
     char * host_cursor = (char*) hva;
     uint32_t guest_cursor = (uint32_t) gva;
-    host_cursor -= strlen(core->var_dump.envp[i]) + 1;
-    guest_cursor -= strlen(core->var_dump.envp[i]) + 1;
-    while (i < core->var_dump.envc) {
-        //PrintDebug("Copying envvar#%d: %s\n", i, core->var_dump.envp[i]);
-        strcpy(host_cursor, core->var_dump.envp[i]);
+    host_cursor -= strlen(var_dump.envp[i]) + 1;
+    guest_cursor -= strlen(var_dump.envp[i]) + 1;
+    while (i < var_dump.envc) {
+        //PrintDebug("Copying envvar#%d: %s\n", i, var_dump.envp[i]);
+        strcpy(host_cursor, var_dump.envp[i]);
         tmp_envs[i] = guest_cursor;
         i++;
-        if (i != core->var_dump.envc) { 
-            host_cursor -= strlen(core->var_dump.envp[i]) + 1;
-            guest_cursor -= strlen(core->var_dump.envp[i]) + 1;
+        if (i != var_dump.envc) { 
+            host_cursor -= strlen(var_dump.envp[i]) + 1;
+            guest_cursor -= strlen(var_dump.envp[i]) + 1;
         }
     }
         
     // then the arg strings
     i = 0;
-    host_cursor -= strlen(core->var_dump.argv[i]) + 1;
-    guest_cursor -= strlen(core->var_dump.argv[i]) + 1;
-    while (i < core->var_dump.argc) {
-        //PrintDebug("Copying arg #%d: %s\n", i, core->var_dump.argv[i]);
-        strcpy(host_cursor, core->var_dump.argv[i]);
+    host_cursor -= strlen(var_dump.argv[i]) + 1;
+    guest_cursor -= strlen(var_dump.argv[i]) + 1;
+    while (i < var_dump.argc) {
+        //PrintDebug("Copying arg #%d: %s\n", i, var_dump.argv[i]);
+        strcpy(host_cursor, var_dump.argv[i]);
         tmp_args[i] = guest_cursor;
         i++;
-        if (i != core->var_dump.argc) {
-            host_cursor -= strlen(core->var_dump.argv[i]) + 1;
-            guest_cursor -= strlen(core->var_dump.argv[i]) + 1;
+        if (i != var_dump.argc) {
+            host_cursor -= strlen(var_dump.argv[i]) + 1;
+            guest_cursor -= strlen(var_dump.argv[i]) + 1;
         }
     }
 
@@ -86,7 +141,7 @@ static int v3_copy_chunk_guest32(struct guest_info * core, addr_t gva, uint_t ar
 
     host_cursor -= 4;
     guest_cursor -= 4;
-    for (i = 0; i < core->var_dump.envc; i++) {
+    for (i = 0; i < var_dump.envc; i++) {
        *((uint32_t*)host_cursor) = tmp_envs[i];
         host_cursor -= 4;
         guest_cursor -= 4;
@@ -97,7 +152,7 @@ static int v3_copy_chunk_guest32(struct guest_info * core, addr_t gva, uint_t ar
     *((uint32_t*)host_cursor) = 0;
     host_cursor -= 4;
     guest_cursor -= 4;
-    for (i = 0; i < core->var_dump.argc; i++) {
+    for (i = 0; i < var_dump.argc; i++) {
         *((uint32_t*)host_cursor) = tmp_args[i];
         host_cursor -= 4;
         guest_cursor -= 4;
@@ -106,15 +161,15 @@ static int v3_copy_chunk_guest32(struct guest_info * core, addr_t gva, uint_t ar
     core->vm_regs.rcx = guest_cursor + 4;
 
     // free up our temporary storage in the VMM
-    for (i = 0; i < core->var_dump.argc; i++) {
-        V3_Free(core->var_dump.argv[i]);
+    for (i = 0; i < var_dump.argc; i++) {
+        V3_Free(var_dump.argv[i]);
     }
-    for (i = 0; i < core->var_dump.envc; i++) {
-        V3_Free(core->var_dump.envp[i]);
+    for (i = 0; i < var_dump.envc; i++) {
+        V3_Free(var_dump.envp[i]);
     }
     
-    V3_Free(core->var_dump.envp);
-    V3_Free(core->var_dump.argv);
+    V3_Free(var_dump.envp);
+    V3_Free(var_dump.argv);
     return 0;
 }
 
@@ -152,8 +207,8 @@ static int v3_copy_chunk_vmm32(struct guest_info * core, const char ** argstrs, 
 
     /* account for new args */
     argc += argcnt;
-    core->var_dump.argv = (char**)V3_Malloc(sizeof(char*)*argc);
-    core->var_dump.argc = argc;
+    var_dump.argv = (char**)V3_Malloc(sizeof(char*)*argc);
+    var_dump.argc = argc;
     bytes += sizeof(uint32_t)*argc;
 
     cursor = (char*)argv;
@@ -169,7 +224,7 @@ static int v3_copy_chunk_vmm32(struct guest_info * core, const char ** argstrs, 
         char * tmpstr = (char*)V3_Malloc(strlen((char*)argvn) + 1);
 
         /* copy the pointer */
-        core->var_dump.argv[i] = tmpstr; 
+        var_dump.argv[i] = tmpstr; 
 
         /* copy the string */
         strncpy(tmpstr, (char*)argvn, strlen((char*)argvn) + 1);
@@ -183,7 +238,7 @@ static int v3_copy_chunk_vmm32(struct guest_info * core, const char ** argstrs, 
     while (j < argcnt) {
         char * tmpstr = (char*)V3_Malloc(strlen(argstrs[j]) + 1);
         strncpy(tmpstr, argstrs[i], strlen(argstrs[j]) + 1);
-        core->var_dump.argv[i] = tmpstr;
+        var_dump.argv[i] = tmpstr;
         bytes += strlen(argstrs[j]) + 1;
         i++; j++;
     }
@@ -201,8 +256,8 @@ static int v3_copy_chunk_vmm32(struct guest_info * core, const char ** argstrs, 
     } 
 
     envc += envcnt;
-    core->var_dump.envp = (char**)V3_Malloc(sizeof(char*)*envc);
-    core->var_dump.envc = envc;
+    var_dump.envp = (char**)V3_Malloc(sizeof(char*)*envc);
+    var_dump.envc = envc;
     bytes += sizeof(uint32_t)*envc;
 
     cursor = (char*)envp;
@@ -218,7 +273,7 @@ static int v3_copy_chunk_vmm32(struct guest_info * core, const char ** argstrs, 
         char * tmpstr = (char*)V3_Malloc(strlen((char*)envpn) + 1);
         
         /* copy the pointer */
-        core->var_dump.envp[i] = tmpstr;
+        var_dump.envp[i] = tmpstr;
 
         /* deepcopy the string */
         strncpy(tmpstr, (char*)envpn, strlen((char*)envpn) + 1);
@@ -232,7 +287,7 @@ static int v3_copy_chunk_vmm32(struct guest_info * core, const char ** argstrs, 
     while (j < envcnt) {
         char * tmpstr = (char*)V3_Malloc(strlen(envstrs[j]) + 1);
         strncpy(tmpstr, envstrs[j], strlen(envstrs[j]) + 1);
-        core->var_dump.envp[i] = tmpstr;
+        var_dump.envp[i] = tmpstr;
         bytes += strlen(envstrs[j]) + 1;
         i++; j++;
     }
@@ -241,7 +296,7 @@ static int v3_copy_chunk_vmm32(struct guest_info * core, const char ** argstrs, 
     /* account for padding for strings
        and 2 null pointers */
     bytes += (bytes % 4) + 8;
-    core->var_dump.bytes = bytes;
+    var_dump.bytes = bytes;
     return bytes;
 }
 
@@ -275,8 +330,8 @@ static int v3_copy_chunk_guest64(struct guest_info * core, addr_t gva, uint_t ar
 
     int ret = 0, i = 0;
     addr_t hva;
-    uint64_t tmp_args[core->var_dump.argc];
-    uint64_t tmp_envs[core->var_dump.envc];
+    uint64_t tmp_args[var_dump.argc];
+    uint64_t tmp_envs[var_dump.envc];
 
     PrintDebug("Initiating copy into guest (64bit)\n");
     
@@ -288,30 +343,30 @@ static int v3_copy_chunk_guest64(struct guest_info * core, addr_t gva, uint_t ar
     
     char * host_cursor = (char*) hva;
     uint64_t guest_cursor = (uint64_t) gva;
-    host_cursor -= strlen(core->var_dump.envp[i]) + 1;
-    guest_cursor -= strlen(core->var_dump.envp[i]) + 1;
-    while (i < core->var_dump.envc) {
-        //PrintDebug("Copying envvar#%d: %s\n", i, core->var_dump.envp[i]);
-        strcpy(host_cursor, core->var_dump.envp[i]);
+    host_cursor -= strlen(var_dump.envp[i]) + 1;
+    guest_cursor -= strlen(var_dump.envp[i]) + 1;
+    while (i < var_dump.envc) {
+        //PrintDebug("Copying envvar#%d: %s\n", i, var_dump.envp[i]);
+        strcpy(host_cursor, var_dump.envp[i]);
         tmp_envs[i] = guest_cursor;
         i++;
-        if (i != core->var_dump.envc) { 
-            host_cursor -= strlen(core->var_dump.envp[i]) + 1;
-            guest_cursor -= strlen(core->var_dump.envp[i]) + 1;
+        if (i != var_dump.envc) { 
+            host_cursor -= strlen(var_dump.envp[i]) + 1;
+            guest_cursor -= strlen(var_dump.envp[i]) + 1;
         }
     }
         
     i = 0;
-    host_cursor -= strlen(core->var_dump.argv[i]) + 1;
-    guest_cursor -= strlen(core->var_dump.argv[i]) + 1;
-    while (i < core->var_dump.argc) {
-        //PrintDebug("Copying arg #%d: %s\n", i, core->var_dump.argv[i]);
-        strcpy(host_cursor, core->var_dump.argv[i]);
+    host_cursor -= strlen(var_dump.argv[i]) + 1;
+    guest_cursor -= strlen(var_dump.argv[i]) + 1;
+    while (i < var_dump.argc) {
+        //PrintDebug("Copying arg #%d: %s\n", i, var_dump.argv[i]);
+        strcpy(host_cursor, var_dump.argv[i]);
         tmp_args[i] = guest_cursor;
         i++;
-        if (i != core->var_dump.argc) {
-            host_cursor -= strlen(core->var_dump.argv[i]) + 1;
-            guest_cursor -= strlen(core->var_dump.argv[i]) + 1;
+        if (i != var_dump.argc) {
+            host_cursor -= strlen(var_dump.argv[i]) + 1;
+            guest_cursor -= strlen(var_dump.argv[i]) + 1;
         }
     }
 
@@ -331,7 +386,7 @@ static int v3_copy_chunk_guest64(struct guest_info * core, addr_t gva, uint_t ar
 
     host_cursor -= 8;
     guest_cursor -= 8;
-    for (i = 0; i < core->var_dump.envc; i++) {
+    for (i = 0; i < var_dump.envc; i++) {
        *((uint64_t*)host_cursor) = tmp_envs[i];
         host_cursor -= 8;
         guest_cursor -= 8;
@@ -342,7 +397,7 @@ static int v3_copy_chunk_guest64(struct guest_info * core, addr_t gva, uint_t ar
     *((uint64_t*)host_cursor) = 0;
     host_cursor -= 8;
     guest_cursor -= 8;
-    for (i = 0; i < core->var_dump.argc; i++) {
+    for (i = 0; i < var_dump.argc; i++) {
         *((uint64_t*)host_cursor) = tmp_args[i];
         host_cursor -= 8;
         guest_cursor -= 8;
@@ -350,15 +405,15 @@ static int v3_copy_chunk_guest64(struct guest_info * core, addr_t gva, uint_t ar
 
     core->vm_regs.rcx = guest_cursor + 8;
 
-    for (i = 0; i < core->var_dump.argc; i++) {
-        V3_Free(core->var_dump.argv[i]);
+    for (i = 0; i < var_dump.argc; i++) {
+        V3_Free(var_dump.argv[i]);
     }
-    for (i = 0; i < core->var_dump.envc; i++) {
-        V3_Free(core->var_dump.envp[i]);
+    for (i = 0; i < var_dump.envc; i++) {
+        V3_Free(var_dump.envp[i]);
     }
     
-    V3_Free(core->var_dump.envp);
-    V3_Free(core->var_dump.argv);
+    V3_Free(var_dump.envp);
+    V3_Free(var_dump.argv);
     return 0;
 }
 
@@ -396,8 +451,8 @@ static int v3_copy_chunk_vmm64(struct guest_info * core, const char ** argstrs, 
     
     /* account for new strings */
     argc += argcnt;
-    core->var_dump.argv = (char**)V3_Malloc(sizeof(char*)*argc);
-    core->var_dump.argc = argc;
+    var_dump.argv = (char**)V3_Malloc(sizeof(char*)*argc);
+    var_dump.argc = argc;
     bytes += sizeof(char*)*argc;
 
     cursor = (char*)argv;
@@ -413,7 +468,7 @@ static int v3_copy_chunk_vmm64(struct guest_info * core, const char ** argstrs, 
         char * tmpstr = (char*)V3_Malloc(strlen((char*)argvn) + 1);
 
         /* copy the pointer */
-        core->var_dump.argv[i] = tmpstr; 
+        var_dump.argv[i] = tmpstr; 
 
         /* copy the string */
         strncpy(tmpstr, (char*)argvn, strlen((char*)argvn) + 1);
@@ -427,7 +482,7 @@ static int v3_copy_chunk_vmm64(struct guest_info * core, const char ** argstrs, 
     while (j < argcnt) {
         char * tmpstr = (char*)V3_Malloc(strlen(argstrs[j]) + 1);
         strncpy(tmpstr, argstrs[j], strlen(argstrs[j]) + 1);
-        core->var_dump.argv[i] = tmpstr;
+        var_dump.argv[i] = tmpstr;
         bytes += strlen(argstrs[j]) + 1;
         i++; j++;
     }
@@ -445,8 +500,8 @@ static int v3_copy_chunk_vmm64(struct guest_info * core, const char ** argstrs, 
     } 
 
     envc += envcnt;
-    core->var_dump.envp = (char**)V3_Malloc(sizeof(char*)*envc);
-    core->var_dump.envc = envc;
+    var_dump.envp = (char**)V3_Malloc(sizeof(char*)*envc);
+    var_dump.envc = envc;
     bytes += sizeof(uint64_t)*(envc);
 
 
@@ -463,7 +518,7 @@ static int v3_copy_chunk_vmm64(struct guest_info * core, const char ** argstrs, 
         char * tmpstr = (char*)V3_Malloc(strlen((char*)envpn) + 1);
         
         /* copy the pointer */
-        core->var_dump.envp[i] = tmpstr;
+        var_dump.envp[i] = tmpstr;
 
         /* deepcopy the string */
         strncpy(tmpstr, (char*)envpn, strlen((char*)envpn) + 1);
@@ -477,7 +532,7 @@ static int v3_copy_chunk_vmm64(struct guest_info * core, const char ** argstrs, 
     while (j < envcnt) {
         char * tmpstr = (char*)V3_Malloc(strlen(envstrs[j]) + 1);
         strncpy(tmpstr, envstrs[i], strlen(envstrs[j]) + 1);
-        core->var_dump.envp[i] = tmpstr;
+        var_dump.envp[i] = tmpstr;
         bytes += strlen(envstrs[j]) + 1;
         i++; j++;
     } 
@@ -486,7 +541,7 @@ static int v3_copy_chunk_vmm64(struct guest_info * core, const char ** argstrs, 
     /* account for padding for strings
        and 2 null pointers */
     bytes += (bytes % 8) + 16;
-    core->var_dump.bytes = bytes;
+    var_dump.bytes = bytes;
     return bytes;
 }
 
@@ -573,7 +628,7 @@ int v3_replace_env (struct guest_info * core, const char * envname, const char *
 
 int v3_inject_strings (struct guest_info * core, const char ** argstrs, const char ** envstrs, uint_t argcnt, uint_t envcnt) {
     
-    if (core->cpu_mode == LONG || core->cpu_mode == LONG_32_COMPAT) {
+    if (core->cpu_mode == LONG) {
         if (v3_inject_strings64(core, argstrs, envstrs, argcnt, envcnt) == -1) {
             PrintDebug("Error injecting strings into environment (64)\n");
             return -1;

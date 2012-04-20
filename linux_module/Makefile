@@ -37,6 +37,9 @@ v3vee-$(V3_CONFIG_VNET) += 	palacios-vnet.o \
 				palacios-vnet-ctrl.o   \
 				palacios-vnet-brg.o
 
+v3vee-$(V3_CONFIG_HOST_HYPERCALL) += iface-host-hypercall.o
+v3vee-$(V3_CONFIG_EXT_CODE_INJECT) += iface-code-inject.o
+v3vee-$(V3_CONFIG_EXT_ENV_INJECT) += iface-env-inject.o
 
 v3vee-objs := $(v3vee-y) ../libv3vee.a
 obj-m := v3vee.o

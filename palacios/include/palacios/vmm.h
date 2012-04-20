@@ -331,7 +331,7 @@ struct v3_interrupt {
 
 
 
-void Init_V3(struct v3_os_hooks * hooks,  int num_cpus);
+void Init_V3(struct v3_os_hooks * hooks, char * cpus, int num_cpus);
 void Shutdown_V3( void );
 
 

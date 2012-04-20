@@ -57,6 +57,13 @@ struct v3_ctrl_regs {
 };
 
 
+struct v3_msrs {
+    v3_reg_t star;
+    v3_reg_t lstar;
+    v3_reg_t sfmask;
+    v3_reg_t kern_gs_base;
+};
+
 
 struct v3_dbg_regs {
     v3_reg_t dr0;

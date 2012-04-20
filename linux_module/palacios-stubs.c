@@ -36,6 +36,9 @@ static struct v3_vm_info * irq_to_guest_map[256];
 
 extern unsigned int cpu_khz;
 
+extern int cpu_list[NR_CPUS];
+extern int cpu_list_len;
+
 
 /**
  * Prints a message to the console.
@@ -496,12 +499,35 @@ static struct v3_os_hooks palacios_os_hooks = {
 
 int palacios_vmm_init( void )
 {
+    int num_cpus = num_online_cpus();
+    char * cpu_mask = NULL;
+
+    if (cpu_list_len > 0) {
+	int major = 0;
+	int minor = 0;
+	int i = 0;
+
+        cpu_mask = kmalloc((num_cpus / 8) + 1, GFP_KERNEL);
+	memset(cpu_mask, 0, (num_cpus / 8) + 1);
+        
+        for (i = 0; i < cpu_list_len; i++) {
+	    if (cpu_list[i] >= num_cpus) {
+		printk("CPU (%d) exceeds number of available CPUs. Ignoring...\n", cpu_list[i]);
+		continue;
+	    }
+
+            major = cpu_list[i] / 8;
+            minor = cpu_list[i] % 8;
     
+            *(cpu_mask + major) |= (0x1 << minor);
+        }
+    }
+
     memset(irq_to_guest_map, 0, sizeof(struct v3_vm_info *) * 256);
-    
+
     printk("palacios_init starting - calling init_v3\n");
     
-    Init_V3(&palacios_os_hooks, num_online_cpus());
+    Init_V3(&palacios_os_hooks, cpu_mask, num_cpus);
 
     return 0;
 

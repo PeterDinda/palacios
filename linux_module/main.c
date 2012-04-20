@@ -5,6 +5,7 @@
 
 
 #include <linux/module.h>
+#include <linux/moduleparam.h>
 #include <linux/errno.h>
 #include <linux/percpu.h>
 #include <linux/fs.h>
@@ -27,6 +28,12 @@
 
 
 MODULE_LICENSE("GPL");
+
+// Module parameter
+int cpu_list[NR_CPUS] = {};
+int cpu_list_len = 0;
+module_param_array(cpu_list, int, &cpu_list_len, 0644);
+MODULE_PARM_DESC(cpu_list, "Comma-delimited list of CPUs that Palacios will run on");
 
 int mod_allocs = 0;
 int mod_frees = 0;
@@ -171,9 +178,7 @@ static int __init v3_init(void) {
 
     palacios_init_mm();
 
-
     // Initialize Palacios
-    
     palacios_vmm_init();
 
 
