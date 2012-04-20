@@ -300,59 +300,55 @@ static int tsc_msr_write_hook(struct guest_info *info, uint_t msr_num,
     struct vm_core_time * time_state = &(info->time_state);
     uint64_t guest_time, new_tsc;
 
-    V3_ASSERT(msr_num == TSC_MSR);
+	    V3_ASSERT(msr_num == TSC_MSR);
 
-    new_tsc = (((uint64_t)msr_val.hi) << 32) | (uint64_t)msr_val.lo;
-    guest_time = v3_get_guest_time(time_state);
-    time_state->tsc_guest_offset = (sint64_t)(new_tsc - guest_time); 
+	    new_tsc = (((uint64_t)msr_val.hi) << 32) | (uint64_t)msr_val.lo;
+	    guest_time = v3_get_guest_time(time_state);
+	    time_state->tsc_guest_offset = (sint64_t)(new_tsc - guest_time); 
 
-    return 0;
-}
+	    return 0;
+	}
 
 static int
 handle_time_configuration(struct v3_vm_info * vm, v3_cfg_tree_t *cfg) {
-    v3_cfg_tree_t * slave;
+    char *source, *dilation;
 
-    vm->time_state.flags = 0;
+    vm->time_state.flags = V3_TIME_SLAVE_HOST;
     vm->time_state.td_num = vm->time_state.td_denom = 1;
 
     if (!cfg) return 0;
 
-    slave = v3_cfg_subtree(cfg, "slave");
-    
-    if (slave) {
-        char *source = v3_cfg_val(slave, "source");
-	v3_cfg_tree_t *dilation = v3_cfg_subtree(slave, "dilation");
-	if (source) {
-	    if (strcasecmp(source, "host")  == 0) {
-		PrintDebug("Slaving VM guest time to host time.\n");
-	        vm->time_state.flags |= V3_TIME_SLAVE_HOST;
-	    } else { 
-		PrintError("Unknown time source for slaving.\n");
-	    }
-	} 
-        if (dilation && (vm->time_state.flags & V3_TIME_SLAVE_HOST)) {
-	    char *str1, *str2;
+    source = v3_cfg_val(cfg, "source");
+    if (source) {
+	if (strcasecmp(source, "none") == 0) {
+	    vm->time_state.flags &= ~V3_TIME_SLAVE_HOST;
+	} else if (strcasecmp(source, "host") != 0) {
+	    PrintError("Unknown time source for VM core time management.\n");
+	} else {
+	    PrintDebug("VM time slaved to host TSC.\n");
+	}
+    }
+
+    dilation = v3_cfg_val(cfg, "dilation");
+    if (dilation) {
+        if (!(vm->time_state.flags & VM_TIME_SLAVE_HOST)) {
+	    PrintError("Time dilation only valid when slaved to host time.\n");
+	} else {
 	    uint32_t num = 1, denom = 1;
-	    if ((str1 = v3_cfg_val(dilation, "value"))) {
-		denom = atoi(str1);
-	    } else if ((str1 = v3_cfg_val(dilation, "num"))
-		       && (str2 = v3_cfg_val(dilation, "denom"))) {
-		num = atoi(str1);
-		denom = atoi(str2);
-	    }
+	    denom = atoi(dilation);
 	    if ((num > 0) && (denom > 0)) {
 		vm->time_state.td_num = num;
 		vm->time_state.td_denom = denom;
 	    }
-	    if ((vm->time_state.td_num != 1) 
-		|| (vm->time_state.td_denom != 1)) {
-		V3_Print("Time dilated from host time by a factor of %d/%d"
-			 " in guest.\n", denom, num);
-	    } else {
-		PrintError("Time dilation specifier in configuration did not"
-			   " result in actual time dilation in VM.\n");
-	    }
+	}
+	if ((vm->time_state.td_num != 1) 
+	    || (vm->time_state.td_denom != 1)) {
+	    V3_Print("Time dilated from host time by a factor of %d/%d"
+		     " in guest.\n", vm->time_state.td_denom, 
+		     vm->time_state.td_num);
+	} else {
+	    PrintError("Time dilation specifier in configuration did not"
+		       " result in actual time dilation in VM.\n");
 	}
     }
     return 0;
@@ -397,11 +393,11 @@ void v3_deinit_time_vm(struct v3_vm_info * vm) {
 static uint32_t
 gcd ( uint32_t a, uint32_t b )
 {
-  uint32_t c;
-  while ( a != 0 ) {
-     c = a; a = b%a;  b = c;
-  }
-  return b;
+    uint32_t c;
+    while ( a != 0 ) {
+        c = a; a = b%a;  b = c;
+    }
+    return b;
 }
 
 static int compute_core_ratios(struct guest_info * info, 
@@ -440,42 +436,43 @@ void v3_init_time_core(struct guest_info * info) {
     } 
     
     if ( (khz == NULL) || 
-	 (time_state->guest_cpu_freq <= 0)  || 
-	 (time_state->guest_cpu_freq > time_state->host_cpu_freq) ) {
-
+	 (time_state->guest_cpu_freq <= 0)) {
+/*  || (time_state->guest_cpu_freq > time_state->host_cpu_freq) ) { */
 	time_state->guest_cpu_freq = time_state->host_cpu_freq;
     }
+    compute_core_ratios(info, time_state->host_cpu_freq, 
+			time_state->guest_cpu_freq);
+    
+    time_state->flags = 0;
+    if (info->vm_info->time_state.flags & V3_TIME_SLAVE_HOST) {
+	time_state->flags |= VM_TIME_SLAVE_HOST;
+    }
+    if ((time_state->clock_ratio_denom != 1) ||
+	(time_state->clock_ratio_num != 1)) {
+	time_state->flags |= VM_TIME_TRAP_RDTSC;
+    }
+
     PrintDebug("Logical Core %d (vcpu=%d) CPU frequency set to %d KHz (host CPU frequency = %d KHz).\n", 
 	       info->pcpu_id, info->vcpu_id,
 	       time_state->guest_cpu_freq, 
 	       time_state->host_cpu_freq);
-
-    compute_core_ratios(info, time_state->host_cpu_freq, 
-			time_state->guest_cpu_freq);
-    
     PrintDebug("    td_mult = %d/%d, cl_mult = %u/%u, ipc_mult = %u/%u.\n",
 	       info->vm_info->time_state.td_num, 
 	       info->vm_info->time_state.td_denom, 
 	       time_state->clock_ratio_num, time_state->clock_ratio_denom,
 	       time_state->ipc_ratio_num, time_state->ipc_ratio_denom);
+    PrintDebug("    source = %s, rdtsc trapping = %s\n", 
+	       (time_state->flags & VM_TIME_SLAVE_HOST) ? "host" : "none",
+	       (time_state->flags & VM_TIME_TRAP_RDTSC) ? "true" : "false");
+
     time_state->guest_cycles = 0;
     time_state->tsc_guest_offset = 0;
     time_state->last_update = 0;
-
     time_state->initial_host_time = 0;
-
-    time_state->flags = 0;
-    if (info->vm_info->time_state.flags & V3_TIME_SLAVE_HOST) {
-        time_state->flags |= VM_TIME_SLAVE_HOST;
-    }
-    if ((time_state->clock_ratio_denom != 1) ||
-	(time_state->clock_ratio_num != 1)) {
-        time_state->flags |= VM_TIME_TRAP_RDTSC;
-    }
 
     INIT_LIST_HEAD(&(time_state->timers));
     time_state->num_timers = 0;
-    
+	    
     time_state->tsc_aux.lo = 0;
     time_state->tsc_aux.hi = 0;
 }
@@ -489,5 +486,4 @@ void v3_deinit_time_core(struct guest_info * core) {
     list_for_each_entry_safe(tmr, tmp, &(time_state->timers), timer_link) {
 	v3_remove_timer(core, tmr);
     }
-
 }
