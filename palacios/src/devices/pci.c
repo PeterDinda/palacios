@@ -632,7 +632,7 @@ static int scan_pci_caps(struct pci_device * pci) {
 
 }
 
-int v3_pci_enable_capability(struct pci_device * pci, pci_cap_type_t cap_type, int mask) {
+int v3_pci_enable_capability(struct pci_device * pci, pci_cap_type_t cap_type) {
     uint32_t size = 0;
     struct pci_cap * tmp_cap = NULL;
     struct pci_cap * cap = NULL;
@@ -697,16 +697,16 @@ int v3_pci_enable_capability(struct pci_device * pci, pci_cap_type_t cap_type, i
 	size = 8;
     }
 
-    if (mask) {
-	V3_Print("Hooking capability range (offset=%d, size=%d)\n", cap->offset, size);
 
-	if (v3_pci_hook_config_range(pci, cap->offset, size + 2, 
-				     cap_write, NULL, cap) == -1) {
-	    PrintError("Could not hook config range (start=%d, size=%d)\n", 
-		       cap->offset + 2, size);
-	    return -1;
-	}
+    V3_Print("Hooking capability range (offset=%d, size=%d)\n", cap->offset, size);
+
+    if (v3_pci_hook_config_range(pci, cap->offset, size + 2, 
+				 cap_write, NULL, cap) == -1) {
+	PrintError("Could not hook config range (start=%d, size=%d)\n", 
+		   cap->offset + 2, size);
+	return -1;
     }
+
 
 
     // link it to the active capabilities list

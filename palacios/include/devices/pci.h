@@ -178,6 +178,12 @@ int v3_pci_set_irq_bridge(struct vm_device * pci_bus, int bus_num,
 			  void * dev_data);
 
 
+/* Raising a PCI IRQ requires the specification of a vector index. 
+ *  If you are not sure, set vec_index to 0. 
+ * For IntX IRQs, the index is the interrupt line the device is using (INTA=0, INTB=1, ...) - only used in multi-function devices
+ * For MSI and MSIX, the index is the vector index if multi-vectors are enabled  
+ */
+
 int v3_pci_raise_irq(struct vm_device * pci_bus, struct pci_device * dev, uint32_t vec_index);
 int v3_pci_lower_irq(struct vm_device * pci_bus, struct pci_device * dev, uint32_t vec_index);
 
@@ -215,11 +221,11 @@ int v3_pci_hook_config_range(struct pci_device * pci,
 
 typedef enum { PCI_CAP_INVALID = 0, 
 	       PCI_CAP_PM = 0x1,
-	       PCI_CAP_MSI = 0x5,
+ 	       PCI_CAP_MSI = 0x5,
 	       PCI_CAP_MSIX = 0x11,
                PCI_CAP_PCIE = 0x10 } pci_cap_type_t;
 
-int v3_pci_enable_capability(struct pci_device * pci, pci_cap_type_t cap_type, int mask);
+int v3_pci_enable_capability(struct pci_device * pci, pci_cap_type_t cap_type);
 
 
 #endif
