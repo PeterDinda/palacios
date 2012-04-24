@@ -266,64 +266,70 @@ static int handle_pkt_tx(struct guest_info * core,
 			 struct virtio_net_state * virtio_state,
 			 int quote)
 {
-    struct virtio_queue *q = &(virtio_state->tx_vq);
+    struct virtio_queue * q;
     int txed = 0, left = 0;
     unsigned long flags;
 
+    q = &(virtio_state->tx_vq);
     if (!q->ring_avail_addr) {
 	return -1;
     }
 
-    flags = v3_lock_irqsave(virtio_state->tx_lock);
-    while (q->cur_avail_idx != q->avail->index) {
-	struct virtio_net_hdr_mrg_rxbuf * hdr = NULL;
+    while (1) {
 	struct vring_desc * hdr_desc = NULL;
 	addr_t hdr_addr = 0;
-	uint16_t desc_idx = q->avail->ring[q->cur_avail_idx % q->queue_size];
-	int desc_cnt = get_desc_count(q, desc_idx);
-
-	if(desc_cnt != 2){
-	    PrintError("VNIC: merged rx buffer not supported, desc_cnt %d\n", desc_cnt);
-	    goto exit_error;
-	}
-
-	hdr_desc = &(q->desc[desc_idx]);
-	if (v3_gpa_to_hva(core, hdr_desc->addr_gpa, &(hdr_addr)) == -1) {
-	    PrintError("Could not translate block header address\n");
-	    goto exit_error;
-	}
-
-	hdr = (struct virtio_net_hdr_mrg_rxbuf *)hdr_addr;
-	desc_idx = hdr_desc->next;
-
-	V3_Net_Print(2, "Virtio NIC: TX hdr count : %d\n", hdr->num_buffers);
-
-	/* here we assumed that one ethernet pkt is not splitted into multiple buffer */	
-	struct vring_desc * buf_desc = &(q->desc[desc_idx]);
-	if (tx_one_pkt(core, virtio_state, buf_desc) == -1) {
-	    PrintError("Virtio NIC: Fails to send packet\n");
-	}
-	if(buf_desc->next & VIRTIO_NEXT_FLAG){
-	    PrintError("Virtio NIC: TX more buffer need to read\n");
-	}
+	uint16_t desc_idx, tmp_idx;
+	int desc_cnt;
 	
-	q->used->ring[q->used->index % q->queue_size].id = 
-	    q->avail->ring[q->cur_avail_idx % q->queue_size];
-	
-	q->used->ring[q->used->index % q->queue_size].length = 
-	    buf_desc->length; /* What do we set this to???? */
-	
-	q->used->index ++;
-	q->cur_avail_idx ++;
-	
-	if(++txed >= quote && quote > 0){
+	flags = v3_lock_irqsave(virtio_state->tx_lock);
+
+	if(q->cur_avail_idx == q->avail->index ||
+	    (quote > 0 && txed >= quote)) {
 	    left = (q->cur_avail_idx != q->avail->index);
 	    break;
 	}
+	
+	desc_idx = q->avail->ring[q->cur_avail_idx % q->queue_size];
+	tmp_idx = q->cur_avail_idx ++;
+	
+	v3_unlock_irqrestore(virtio_state->tx_lock, flags);
+
+	desc_cnt = get_desc_count(q, desc_idx);
+	if(desc_cnt != 2){
+	    PrintError("VNIC: merged rx buffer not supported, desc_cnt %d\n", desc_cnt);
+	}
+
+	hdr_desc = &(q->desc[desc_idx]);
+	if (v3_gpa_to_hva(core, hdr_desc->addr_gpa, &(hdr_addr)) != -1) {
+	    struct virtio_net_hdr_mrg_rxbuf * hdr;
+	    struct vring_desc * buf_desc;
+
+	    hdr = (struct virtio_net_hdr_mrg_rxbuf *)hdr_addr;
+	    desc_idx = hdr_desc->next;
+
+	    /* here we assumed that one ethernet pkt is not splitted into multiple buffer */	
+	    buf_desc = &(q->desc[desc_idx]);
+	    if (tx_one_pkt(core, virtio_state, buf_desc) == -1) {
+	    	PrintError("Virtio NIC: Fails to send packet\n");
+	    }
+	} else {
+	    PrintError("Could not translate block header address\n");
+	}
+
+	flags = v3_lock_irqsave(virtio_state->tx_lock);
+	
+	q->used->ring[q->used->index % q->queue_size].id = 
+	    q->avail->ring[tmp_idx % q->queue_size];
+	
+	//q->used->ring[q->used->index % q->queue_size].length = buf_desc->length; /* What do we set this to???? */
+	
+	q->used->index ++;
+	
+	v3_unlock_irqrestore(virtio_state->tx_lock, flags);
+
+	txed ++;
     }
-    
-    v3_unlock_irqrestore(virtio_state->tx_lock, flags);
-    
+        
     if (txed && !(q->avail->flags & VIRTIO_NO_IRQ_FLAG)) {
 	v3_pci_raise_irq(virtio_state->virtio_dev->pci_bus, 
 			 0, virtio_state->pci_dev);
@@ -331,16 +337,7 @@ static int handle_pkt_tx(struct guest_info * core,
 	virtio_state->stats.rx_interrupts ++;
     }
 
-    if(txed > 0) {
-	V3_Net_Print(2, "Virtio Handle TX: txed pkts: %d, left %d\n", txed, left);
-    }
-
     return left;
-    
- exit_error:
-    
-    v3_unlock_irqrestore(virtio_state->tx_lock, flags);
-    return -1;
 }
 
 
@@ -842,6 +839,7 @@ static int register_dev(struct virtio_dev_state * virtio,
     return 0;
 }
 
+#if 0
 #define RATE_UPPER_THRESHOLD 10  /* 10000 pkts per second, around 100Mbits */
 #define RATE_LOWER_THRESHOLD 1
 #define PROFILE_PERIOD 10000 /*us*/
@@ -909,7 +907,7 @@ static void virtio_nic_timer(struct guest_info * core,
 static struct v3_timer_ops timer_ops = {
     .update_timer = virtio_nic_timer,
 };
-
+#endif
 
 static int connect_fn(struct v3_vm_info * info, 
 		      void * frontend_data, 
@@ -930,8 +928,7 @@ static int connect_fn(struct v3_vm_info * info,
     net_state->tx_notify = 1;
     net_state->rx_notify = 1;
 	
-    net_state->timer = v3_add_timer(&(info->cores[0]),
-    				 &timer_ops,net_state);
+    //net_state->timer = v3_add_timer(&(info->cores[0]), &timer_ops,net_state);
 
     ops->recv = virtio_rx;
     ops->poll = virtio_poll;
