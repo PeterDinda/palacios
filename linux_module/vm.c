@@ -16,6 +16,7 @@
 #include <linux/file.h>
 #include <linux/spinlock.h>
 #include <linux/rbtree.h>
+#include <linux/module.h>
 
 #include <palacios/vmm.h>
 
