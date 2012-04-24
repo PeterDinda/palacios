@@ -588,7 +588,7 @@ static int pci_bar_write(int bar_num, uint32_t * src, void * private_data) {
 }
 
 
-static int pt_config_update(uint_t reg_num, void * src, uint_t length, void * private_data) {
+static int pt_config_update(struct pci_device * pci_dev, uint_t reg_num, void * src, uint_t length, void * private_data) {
     struct vm_device * dev = (struct vm_device *)private_data;
     struct pt_dev_state * state = (struct pt_dev_state *)dev->private_data;
     union pci_addr_reg pci_addr = {state->phys_pci_addr.value};
@@ -732,6 +732,7 @@ static int setup_virt_pci_dev(struct v3_vm_info * vm_info, struct vm_device * de
 				     bus_num, -1, 0, 
 				     state->name, bars,
 				     pt_config_update,
+				     NULL, 
 				     NULL,
 				     pt_exp_rom_write,               
 				     dev);
@@ -762,7 +763,7 @@ static int irq_handler(struct v3_vm_info * vm, struct v3_interrupt * intr, void 
     struct pt_dev_state * state = (struct pt_dev_state *)dev->private_data;
 
 
-    v3_pci_raise_irq(state->pci_bus, 0, state->pci_dev);
+    v3_pci_raise_irq(state->pci_bus, state->pci_dev, 0);
 
     V3_ACK_IRQ(intr->irq);
 

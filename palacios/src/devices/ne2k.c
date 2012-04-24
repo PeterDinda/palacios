@@ -334,7 +334,7 @@ static int ne2k_update_irq(struct ne2k_state * nic_state) {
        if (pci_dev == NULL){
 	    v3_raise_virq(&(nic_state->vm->cores[0]), NE2K_DEFAULT_IRQ);
        } else {	    
-	    v3_pci_raise_irq(nic_state->pci_bus, 0, nic_state->pci_dev);
+	   v3_pci_raise_irq(nic_state->pci_bus, nic_state->pci_dev, 0);
        }
 
        nic_state->statistics.rx_interrupts ++;
@@ -1124,7 +1124,7 @@ static int register_dev(struct ne2k_state * nic_state)
 
 	pci_dev = v3_pci_register_device(nic_state->pci_bus, PCI_STD_DEVICE, 0, -1, 0, 
 					 "NE2000", bars,
-					 pci_config_update, NULL, NULL, nic_state);
+					 pci_config_update, NULL, NULL, NULL, nic_state);
 
 
     	if (pci_dev == NULL) {

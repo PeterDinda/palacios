@@ -35,6 +35,14 @@ struct v3_vm_info;
 struct v3_interrupt;
 
 
+struct v3_irq {
+    uint32_t irq;
+
+    int (*ack)(struct guest_info * core, uint32_t irq, void * private_data);
+    void * private_data;
+};
+
+
 
 struct v3_irq_hook {
     int (*handler)(struct v3_vm_info * vm, struct v3_interrupt * intr, void * priv_data);
@@ -82,6 +90,12 @@ int v3_lower_virq(struct guest_info * info, int irq);
 int v3_raise_irq(struct v3_vm_info * vm, int irq);
 int v3_lower_irq(struct v3_vm_info * vm, int irq);
 
+/* The irq structure is passed by value to avoid confusion and 
+ * the possibility that people will dynamically allocate memory for it 
+ */
+int v3_raise_acked_irq(struct v3_vm_info * vm, struct v3_irq irq);
+int v3_lower_acked_irq(struct v3_vm_info * vm, struct v3_irq irq);
+
 
 int v3_raise_swintr(struct guest_info * core, uint8_t vector);
 
@@ -93,8 +107,8 @@ struct intr_ctrl_ops {
 };
 
 struct intr_router_ops {
-    int (*raise_intr)(struct v3_vm_info * vm, void * private_data, int irq);
-    int (*lower_intr)(struct v3_vm_info * vm, void * private_data, int irq);
+    int (*raise_intr)(struct v3_vm_info * vm, void * private_data, struct v3_irq * irq);
+    int (*lower_intr)(struct v3_vm_info * vm, void * private_data, struct v3_irq * irq);
 };
 
 void v3_clear_pending_intr(struct guest_info * core);

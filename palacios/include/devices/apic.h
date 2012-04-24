@@ -24,13 +24,14 @@
 
 #include <palacios/vmm_dev_mgr.h>
 
-
 typedef enum {IPI_FIXED = 0,
 	      IPI_LOWEST_PRIO = 1,
 	      IPI_SMI = 2,
+	      IPI_RES1 = 3,
 	      IPI_NMI = 4,
 	      IPI_INIT = 5,
-	      IPI_EXINT = 7 } ipi_mode_t; 
+	      IPI_SIPI = 6,
+	      IPI_EXTINT = 7 } ipi_mode_t; 
 
 
 struct v3_gen_ipi {
@@ -42,13 +43,14 @@ struct v3_gen_ipi {
     uint8_t dst_shorthand : 2;
 
     uint8_t dst;
+
+
+    int (*ack)(struct guest_info * core, uint32_t irq, void * private_data);
+    void * private_data;
 } __attribute__((packed));
 
 int v3_apic_send_ipi(struct v3_vm_info * vm, struct v3_gen_ipi * ipi, void * dev_data);
 
-int v3_apic_raise_intr(struct v3_vm_info * vm, 
-		       uint32_t irq, uint32_t dst,
-		       void * dev_data);
 
 
 

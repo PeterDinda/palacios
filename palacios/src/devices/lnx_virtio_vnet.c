@@ -204,7 +204,7 @@ static int handle_cmd_kick(struct guest_info * core,
 
     if (!(q->avail->flags & VIRTIO_NO_IRQ_FLAG)) {
 	PrintDebug("Raising IRQ %d\n",  vnet_state->pci_dev->config_header.intr_line);
-	v3_pci_raise_irq(vnet_state->pci_bus, 0, vnet_state->pci_dev);
+	v3_pci_raise_irq(vnet_state->pci_bus, vnet_state->pci_dev, 0);
 	vnet_state->virtio_cfg.pci_isr = 1;
     }
 
@@ -258,7 +258,7 @@ static int vnet_pkt_input_cb(struct v3_vm_info * vm,
     }
 
     if (!(q->avail->flags & VIRTIO_NO_IRQ_FLAG)) {
-	v3_pci_raise_irq(vnet_state->pci_bus, 0, vnet_state->pci_dev);
+	v3_pci_raise_irq(vnet_state->pci_bus, vnet_state->pci_dev, 0);
 	vnet_state->virtio_cfg.pci_isr = 0x1;
 	PrintDebug("Raising IRQ %d\n",  vnet_state->pci_dev->config_header.intr_line);
     }
@@ -320,8 +320,8 @@ static int do_tx_pkts(struct guest_info * core,
     }
 
     if (!(q->avail->flags & VIRTIO_NO_IRQ_FLAG)) {
-	    v3_pci_raise_irq(vnet_state->pci_bus, 0, vnet_state->pci_dev);
-	    vnet_state->virtio_cfg.pci_isr = 0x1;
+	v3_pci_raise_irq(vnet_state->pci_bus,  vnet_state->pci_dev, 0);
+	vnet_state->virtio_cfg.pci_isr = 0x1;
     }
 	
     return 0;
@@ -525,7 +525,7 @@ static int vnet_virtio_io_read(struct guest_info * core,
 	case VIRTIO_ISR_PORT:
 	    *(uint8_t *)dst = vnet_state->virtio_cfg.pci_isr;
 	    vnet_state->virtio_cfg.pci_isr = 0;
-	    v3_pci_lower_irq(vnet_state->pci_bus, 0, vnet_state->pci_dev);
+	    v3_pci_lower_irq(vnet_state->pci_bus, vnet_state->pci_dev, 0);
 	    break;
 
 	default:
@@ -623,7 +623,7 @@ static int dev_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	pci_dev = v3_pci_register_device(pci_bus, PCI_STD_DEVICE, 
 					 0, 5 /*PCI_AUTO_DEV_NUM*/, 0,
 					 "LNX_VIRTIO_VNET", bars,
-					 NULL, NULL, NULL, vnet_state);
+					 NULL, NULL, NULL, NULL, vnet_state);
 
 	if (!pci_dev) {
 	    PrintError("Could not register PCI Device\n");

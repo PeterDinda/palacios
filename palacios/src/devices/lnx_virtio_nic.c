@@ -332,7 +332,7 @@ static int handle_pkt_tx(struct guest_info * core,
         
     if (txed && !(q->avail->flags & VIRTIO_NO_IRQ_FLAG)) {
 	v3_pci_raise_irq(virtio_state->virtio_dev->pci_bus, 
-			 0, virtio_state->pci_dev);
+			 virtio_state->pci_dev, 0);
 	virtio_state->virtio_cfg.pci_isr = 0x1;
 	virtio_state->stats.rx_interrupts ++;
     }
@@ -554,7 +554,7 @@ static int virtio_io_read(struct guest_info *core,
 	    *(uint8_t *)dst = virtio->virtio_cfg.pci_isr;
 	    virtio->virtio_cfg.pci_isr = 0;
 	    v3_pci_lower_irq(virtio->virtio_dev->pci_bus, 
-			     0, virtio->pci_dev);
+			     virtio->pci_dev, 0);
 	    break;
 
 	case VIRTIO_NET_CONFIG ... VIRTIO_NET_CONFIG + ETH_ALEN:
@@ -709,7 +709,7 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
 		     virtio->pci_dev->config_header.intr_line);
 
 	virtio->virtio_cfg.pci_isr = 0x1;	
-	v3_pci_raise_irq(virtio->virtio_dev->pci_bus, 0, virtio->pci_dev);
+	v3_pci_raise_irq(virtio->virtio_dev->pci_bus, virtio->pci_dev, 0);
 	virtio->stats.rx_interrupts ++;
     }
 
@@ -804,7 +804,7 @@ static int register_dev(struct virtio_dev_state * virtio,
     pci_dev = v3_pci_register_device(virtio->pci_bus, PCI_STD_DEVICE, 
 				     0, PCI_AUTO_DEV_NUM, 0,
 				     "LNX_VIRTIO_NIC", bars,
-				     NULL, NULL, NULL, net_state);
+				     NULL, NULL, NULL, NULL, net_state);
     
     if (!pci_dev) {
 	PrintError("Virtio NIC: Could not register PCI Device\n");

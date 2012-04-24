@@ -28,8 +28,7 @@ static struct v3_file_hooks * file_hooks = NULL;
 
 void V3_Init_File(struct v3_file_hooks * hooks) {
     file_hooks = hooks;
-    PrintDebug("V3 file access inited\n");
-
+    V3_Print("V3 file interface intialized\n");
     return;
 }
 

@@ -371,12 +371,16 @@ struct pirq_rc_reg {
 */
 
 
-static int raise_pci_irq(struct pci_device * pci_dev, void * dev_data) {
+static int raise_pci_irq(struct pci_device * pci_dev, void * dev_data, struct v3_irq * vec) {
     struct v3_southbridge * piix3 = dev_data;
     struct pci_device * piix3_pci = piix3->southbridge_pci;
     struct piix3_config_space * piix3_cfg = (struct piix3_config_space *)(piix3_pci->config_data);
     int intr_pin = pci_dev->config_header.intr_pin - 1;
     int irq_index = (intr_pin + pci_dev->dev_num - 1) & 0x3;
+    struct v3_irq irq; // Make a copy of the irq state because we will switch the irq number
+
+    irq.ack = vec->ack;
+    irq.private_data = vec->private_data;
 
     /*
     PrintError("Raising PCI dev %d intr %d via IOAPIC as IRQ %d and via PIRQ as IRQ %d on VM %p\n", 
@@ -388,7 +392,10 @@ static int raise_pci_irq(struct pci_device * pci_dev, void * dev_data) {
     // deliver first by PIRQ, if it exists
     //
     if (piix3_cfg->pirq_rc[irq_index] < 16) {
-	v3_raise_irq(piix3->vm, piix3_cfg->pirq_rc[irq_index] & 0xf);
+	irq.irq = piix3_cfg->pirq_rc[irq_index] & 0xf;
+
+	//	V3_Print("Raising PIIX IRQ %d\n", irq.irq);
+	v3_raise_acked_irq(piix3->vm, irq);
     } else {
       // not an error
     }
@@ -396,7 +403,9 @@ static int raise_pci_irq(struct pci_device * pci_dev, void * dev_data) {
     // deliver next via the PCI0 to ioapic mapping defined in the 
     // mptable (ioapic, pins 16->19 are used for PCI0)
     // ideally this would check to verify that an ioapic is actually available
-    v3_raise_irq(piix3->vm, 16+irq_index);
+    irq.irq = (irq_index + 1) + 16;
+    //    V3_Print("Raising PIIX IRQ (#2) %d\n", irq.irq);
+    v3_raise_acked_irq(piix3->vm, irq);
     
 
     return 0;
@@ -404,21 +413,26 @@ static int raise_pci_irq(struct pci_device * pci_dev, void * dev_data) {
 
 
 
-static int lower_pci_irq(struct pci_device * pci_dev, void * dev_data) {
+static int lower_pci_irq(struct pci_device * pci_dev, void * dev_data, struct v3_irq * vec) {
     struct v3_southbridge * piix3 = dev_data;
     struct pci_device * piix3_pci = piix3->southbridge_pci;
     struct piix3_config_space * piix3_cfg = (struct piix3_config_space *)(piix3_pci->config_data);
     int intr_pin = pci_dev->config_header.intr_pin - 1;
     int irq_index = (intr_pin + pci_dev->dev_num - 1) & 0x3;
-    
+    struct v3_irq irq; // Make a copy of the irq state because we will switch the irq number
+
+    irq.ack = vec->ack;
+    irq.private_data = vec->private_data;
     //    PrintError("Lowering PCI IRQ %d\n", piix3_cfg->pirq_rc[irq_index]);
 
     // First, lower the pin on the ioapic
-    v3_lower_irq(piix3->vm, irq_index+16);
+    irq.irq = (irq_index + 1) + 16;
+    v3_lower_acked_irq(piix3->vm, irq);
     
     // Next, lower whatever we asserted by the PIRQs
     if (piix3_cfg->pirq_rc[irq_index] < 16) {
-	v3_lower_irq(piix3->vm, piix3_cfg->pirq_rc[irq_index] & 0xf);
+	irq.irq = piix3_cfg->pirq_rc[irq_index] & 0xf;
+	v3_lower_acked_irq(piix3->vm, irq);
     } else {
       // not an error
     }
@@ -457,7 +471,7 @@ static int setup_pci(struct v3_southbridge * piix3) {
     pci_dev = v3_pci_register_device(piix3->pci_bus, PCI_MULTIFUNCTION, 
 				     bus_num, -1, 0, 
 				     "PIIX3", bars, 
-				     NULL, NULL, NULL, piix3);
+				     NULL, NULL, NULL, NULL, piix3);
     if (pci_dev == NULL) {
 	PrintError("Could not register PCI Device for PIIX3\n");
 	return -1;

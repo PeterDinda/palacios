@@ -263,11 +263,12 @@ static int ioapic_write(struct guest_info * core, addr_t guest_addr, void * src,
 }
 
 
-static int ioapic_raise_irq(struct v3_vm_info * vm, void * private_data, int irq) {
+static int ioapic_raise_irq(struct v3_vm_info * vm, void * private_data, struct v3_irq * irq) {
     struct io_apic_state * ioapic = (struct io_apic_state *)(private_data);  
     struct redir_tbl_entry * irq_entry = NULL;
+    uint8_t irq_num = irq->irq;
 
-    if (irq==0) { 
+    if (irq_num == 0) { 
       // IRQ 0 being raised, in the Palacios context, means the PIT
       // However, the convention is that it is the PIC that is connected
       // to PIN 0 of the IOAPIC and the PIT is connected to pin 2
@@ -275,15 +276,15 @@ static int ioapic_raise_irq(struct v3_vm_info * vm, void * private_data, int irq
       // the PIC may signal to the IOAPIC in a different path.
       // Yes, this is kind of hideous, but it is needed to have the
       // PIT correctly show up via the IOAPIC
-      irq=2;
+      irq_num = 2;
     }
 
-    if (irq > 24) {
+    if (irq_num > 24) {
 	PrintDebug("ioapic %u: IRQ out of range of IO APIC\n", ioapic->ioapic_id.id);
 	return -1;
     }
 
-    irq_entry = &(ioapic->redir_tbl[irq]);
+    irq_entry = &(ioapic->redir_tbl[irq_num]);
 
     if (irq_entry->mask == 0) {
 	struct v3_gen_ipi ipi;
@@ -299,6 +300,8 @@ static int ioapic_raise_irq(struct v3_vm_info * vm, void * private_data, int irq
 	ipi.dst = irq_entry->dst_field;
 	ipi.dst_shorthand = 0;
 
+	ipi.ack = irq->ack;
+	ipi.private_data = irq->private_data;
 
 	PrintDebug("ioapic %u: IPI: vector 0x%x, mode 0x%x, logical 0x%x, trigger 0x%x, dst 0x%x, shorthand 0x%x\n",
 		   ioapic->ioapic_id.id, ipi.vector, ipi.mode, ipi.logical, ipi.trigger_mode, ipi.dst, ipi.dst_shorthand);
@@ -313,7 +316,7 @@ static int ioapic_raise_irq(struct v3_vm_info * vm, void * private_data, int irq
 }
 
 /* I don't know if we can do anything here.... */
-static int ioapic_lower_irq(struct v3_vm_info * vm, void * private_data, int irq) {
+static int ioapic_lower_irq(struct v3_vm_info * vm, void * private_data, struct v3_irq * irq) {
     return 0;
 }
 

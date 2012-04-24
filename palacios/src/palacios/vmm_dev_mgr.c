@@ -68,7 +68,7 @@ int V3_init_devices() {
 
 
     while (tmp_dev != __stop__v3_devices) {
-	PrintDebug("Device: %s\n", tmp_dev->name);
+	V3_Print("Registering Device: %s\n", tmp_dev->name);
 
 	if (v3_htable_search(master_dev_table, (addr_t)(tmp_dev->name))) {
 	    PrintError("Multiple instance of device (%s)\n", tmp_dev->name);
