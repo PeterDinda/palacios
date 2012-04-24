@@ -243,7 +243,7 @@ static int palacios_file_close(void * file_ptr) {
     return 0;
 }
 
-static long long palacios_file_size(void * file_ptr) {
+static unsigned long long palacios_file_size(void * file_ptr) {
     struct palacios_file * pfile = (struct palacios_file *)file_ptr;
     struct file * filp = pfile->filp;
     struct kstat s;
@@ -259,7 +259,7 @@ static long long palacios_file_size(void * file_ptr) {
     return s.size;
 }
 
-static long long palacios_file_read(void * file_ptr, void * buffer, long long length, long long offset){
+static unsigned long long palacios_file_read(void * file_ptr, void * buffer, unsigned long long length, unsigned long long offset){
     struct palacios_file * pfile = (struct palacios_file *)file_ptr;
     struct file * filp = pfile->filp;
     ssize_t ret;
@@ -273,14 +273,14 @@ static long long palacios_file_read(void * file_ptr, void * buffer, long long le
     set_fs(old_fs);
 	
     if (ret <= 0) {
-	printk("sys_read of %p for %lld bytes failed\n", filp, length);		
+	printk("sys_read of %p for %lld bytes at offset %llu failed (ret=%ld)\n", filp, length, offset, ret);
     }
 	
     return ret;
 }
 
 
-static long long palacios_file_write(void * file_ptr, void * buffer, long long length, long long offset) {
+static unsigned long long palacios_file_write(void * file_ptr, void * buffer, unsigned long long length, unsigned long long offset) {
     struct palacios_file * pfile = (struct palacios_file *)file_ptr;
     struct file * filp = pfile->filp;
     mm_segment_t old_fs;
@@ -295,7 +295,7 @@ static long long palacios_file_write(void * file_ptr, void * buffer, long long l
 
  
     if (ret <= 0) {
-	printk("sys_write failed\n");		
+	printk("sys_write for %llu bytes at offset %llu failed (ret=%ld)\n", length, offset, ret);		
     }
 	
     return ret;

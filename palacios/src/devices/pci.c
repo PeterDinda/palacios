@@ -1396,6 +1396,8 @@ int v3_pci_raise_acked_irq(struct vm_device * pci_bus, struct pci_device * dev, 
 
        memset(&ipi, 0, sizeof(struct v3_gen_ipi));
 
+       // decode MSI fields into IPI
+
        ipi.vector = data->vector + vec.irq;
        ipi.mode = data->del_mode;
        ipi.logical = addr->dst_mode;
@@ -1403,9 +1405,6 @@ int v3_pci_raise_acked_irq(struct vm_device * pci_bus, struct pci_device * dev, 
        ipi.dst_shorthand = 0;
        ipi.dst = addr->dst_id;
        
-       // decode MSI fields into IPI
-
-       V3_Print("Decode MSI\n");
 
        v3_apic_send_ipi(dev->vm, &ipi, dev->apic_dev);
 
@@ -1436,6 +1435,7 @@ int v3_pci_raise_acked_irq(struct vm_device * pci_bus, struct pci_device * dev, 
        data = &(msix_table->entries[vec.irq].data);
        addr = &(msix_table->entries[vec.irq].addr);;
        
+       // decode MSIX fields into IPI
        ipi.vector = data->vector + vec.irq;
        ipi.mode = data->del_mode;
        ipi.logical = addr->dst_mode;
@@ -1443,7 +1443,7 @@ int v3_pci_raise_acked_irq(struct vm_device * pci_bus, struct pci_device * dev, 
        ipi.dst_shorthand = 0;
        ipi.dst = addr->dst_id;
        
-       // decode MSIX fields into IPI
+
 
        V3_Print("Decode MSIX\n");
 

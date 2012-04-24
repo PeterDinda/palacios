@@ -49,11 +49,11 @@ struct v3_file_hooks {
     void * (*open)(const char * path, int mode, void * host_data);
     int (*close)(void * fd);
 
-    long long (*size)(void * fd);
+    unsigned long long (*size)(void * fd);
 
     // blocking reads and writes
-    long long (*read)(void * fd, void * buffer, long long length, long long offset);
-    long long (*write)(void * fd, void * buffer, long long length, long long offset);
+    unsigned long long (*read)(void * fd, void * buffer, unsigned long long length, unsigned long long offset);
+    unsigned long long (*write)(void * fd, void * buffer, unsigned long long length, unsigned long long offset);
 
 };
 

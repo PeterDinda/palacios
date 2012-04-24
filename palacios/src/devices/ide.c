@@ -366,12 +366,12 @@ static int dma_write(struct guest_info * core, struct ide_internal * ide, struct
 #include "ata.h"
 
 
-#ifdef V3_CONFIG_DEBUG_IDE
+
 static void print_prd_table(struct ide_internal * ide, struct ide_channel * channel) {
     struct ide_dma_prd prd_entry;
     int index = 0;
 
-    PrintDebug("Dumping PRD table\n");
+    V3_Print("Dumping PRD table\n");
 
     while (1) {
 	uint32_t prd_entry_addr = channel->dma_prd_addr + (sizeof(struct ide_dma_prd) * index);
@@ -384,7 +384,7 @@ static void print_prd_table(struct ide_internal * ide, struct ide_channel * chan
 	    return;
 	}
 
-	PrintDebug("\tPRD Addr: %x, PRD Len: %d, EOT: %d\n", 
+	V3_Print("\tPRD Addr: %x, PRD Len: %d, EOT: %d\n", 
 		   prd_entry.base_addr, 
 		   (prd_entry.size == 0) ? 0x10000 : prd_entry.size, 
 		   prd_entry.end_of_table);
@@ -398,7 +398,7 @@ static void print_prd_table(struct ide_internal * ide, struct ide_channel * chan
 
     return;
 }
-#endif
+
 
 /* IO Operations */
 static int dma_read(struct guest_info * core, struct ide_internal * ide, struct ide_channel * channel) {
@@ -604,7 +604,13 @@ static int dma_write(struct guest_info * core, struct ide_internal * ide, struct
 	PrintDebug("PRD Addr: %x, PRD Len: %d, EOT: %d\n", 
 		   prd_entry.base_addr, prd_entry.size, prd_entry.end_of_table);
 
-	prd_bytes_left = prd_entry.size;
+
+	if (prd_entry.size == 0) {
+	    // a size of 0 means 64k
+	    prd_bytes_left = 0x10000;
+	} else {
+	    prd_bytes_left = prd_entry.size;
+	}
 
 	while (prd_bytes_left > 0) {
 	    uint_t bytes_to_write = 0;
@@ -645,6 +651,12 @@ static int dma_write(struct guest_info * core, struct ide_internal * ide, struct
 
 	if ((prd_entry.end_of_table == 1) && (bytes_left > 0)) {
 	    PrintError("DMA table not large enough for data transfer...\n");
+	    PrintError("\t(bytes_left=%u) (transfer_length=%u)...\n", 
+		       bytes_left, drive->transfer_length);
+	    PrintError("PRD Addr: %x, PRD Len: %d, EOT: %d\n", 
+		       prd_entry.base_addr, prd_entry.size, prd_entry.end_of_table);
+
+	    print_prd_table(ide, channel);
 	    return -1;
 	}
     }
