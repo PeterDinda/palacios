@@ -293,20 +293,23 @@ static int determine_paging_mode(struct guest_info * info, v3_cfg_tree_t * core_
 	    // we assume symmetric cores, so if core 0 has nested paging they all do
 	    if ((v3_mach_type == V3_SVM_REV3_CPU) || 
 		(v3_mach_type == V3_VMX_EPT_CPU) ||
-		(v3_mach_type  == V3_VMX_EPT_UG_CPU)) {
+		(v3_mach_type == V3_VMX_EPT_UG_CPU)) {
+		
+		V3_Print("Setting paging mode to NESTED\n");
 	    	info->shdw_pg_mode = NESTED_PAGING;
 	    } else {
 		PrintError("Nested paging not supported on this hardware. Defaulting to shadow paging\n");
 	    	info->shdw_pg_mode = SHADOW_PAGING;
 	    }
 	} else if ((strcasecmp(pg_mode, "shadow") == 0)) {
+	    V3_Print("Setting paging mode to SHADOW\n");
 	    info->shdw_pg_mode = SHADOW_PAGING;
 	} else {
 	    PrintError("Invalid paging mode (%s) specified in configuration. Defaulting to shadow paging\n", pg_mode);
 	    info->shdw_pg_mode = SHADOW_PAGING;
 	}
     } else {
-	PrintDebug("No paging type specified in configuration. Defaulting to shadow paging\n");
+	V3_Print("No paging type specified in configuration. Defaulting to shadow paging\n");
 	info->shdw_pg_mode = SHADOW_PAGING;
     }
 
@@ -325,7 +328,10 @@ static int pre_config_core(struct guest_info * info, v3_cfg_tree_t * core_cfg) {
 	return -1;
     }
 
-    v3_init_core(info);
+    if (v3_init_core(info) == -1) {
+	PrintError("Error Initializing Core\n");
+	return -1;
+    }
 
     if (info->vm_info->vm_class == V3_PC_VM) {
 	if (pre_config_pc_core(info, core_cfg) == -1) {
@@ -344,7 +350,7 @@ static int pre_config_core(struct guest_info * info, v3_cfg_tree_t * core_cfg) {
 
 static int post_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     
-    vm->run_state = VM_STOPPED;
+
 
     // Configure the memory map for the guest
     if (setup_memory_map(vm, cfg) == -1) {
@@ -388,6 +394,8 @@ static int post_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     }
 
 
+    vm->run_state = VM_STOPPED;
+
     return 0;
 }
 
@@ -395,7 +403,6 @@ static int post_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
 static int post_config_core(struct guest_info * info, v3_cfg_tree_t * cfg) {
 
-    info->core_run_state = CORE_STOPPED;
  
     if (v3_init_core_extensions(info) == -1) {
         PrintError("Error intializing extension core states\n");
@@ -421,10 +428,17 @@ static int post_config_core(struct guest_info * info, v3_cfg_tree_t * cfg) {
 static struct v3_vm_info * allocate_guest(int num_cores) {
     int guest_state_size = sizeof(struct v3_vm_info) + (sizeof(struct guest_info) * num_cores);
     struct v3_vm_info * vm = V3_Malloc(guest_state_size);
+    int i = 0;
 
     memset(vm, 0, guest_state_size);
 
     vm->num_cores = num_cores;
+
+    for (i = 0; i < num_cores; i++) {
+	vm->cores[i].core_run_state = CORE_INVALID;
+    }
+
+    vm->run_state = VM_INVALID;
 
     return vm;
 }
