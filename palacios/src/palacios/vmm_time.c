@@ -129,7 +129,7 @@ int v3_advance_time(struct guest_info * info, uint64_t *host_cycles)
 {
     uint64_t guest_cycles;
 
-    if (info->flags & VM_TIME_SLAVE_HOST) {
+    if (info->time_state.flags & VM_TIME_SLAVE_HOST) {
 	struct v3_time *vm_ts = &(info->vm_info->time_state);
         uint64_t ht = v3_get_host_time(&info->time_state);
         uint64_t host_elapsed = ht - info->time_state.initial_host_time;
