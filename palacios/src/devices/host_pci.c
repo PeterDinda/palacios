@@ -178,9 +178,14 @@ static int pci_bar_init(int bar_num, uint32_t * dst, void * private_data) {
 			  hbar->addr, hbar->addr + hbar->size - 1,
 			  hbar->addr);
     } else if (hbar->type == PT_BAR_MEM64_LO) {
-	PrintError("Don't currently handle 64 bit bars...\n");
+	struct v3_host_pci_bar * hi_hbar = &(state->host_dev->bars[bar_num + 1]);
+	bar_val = PCI_MEM64_LO_BAR_VAL(hi_hbar->addr, hbar->prefetchable);
     } else if (hbar->type == PT_BAR_MEM64_HI) {
-	PrintError("Don't currently handle 64 bit bars...\n");
+	bar_val = PCI_MEM64_HI_BAR_VAL(hbar->addr, hbar->prefetchable);
+
+	v3_add_shadow_mem(dev->vm, V3_MEM_CORE_ANY, 
+			  hbar->addr, hbar->addr + hbar->size - 1,
+			  hbar->addr);	
     }
 
 

@@ -78,8 +78,17 @@ static int setup_hw_pci_dev(struct host_pci_device * host_dev) {
 		bar->type = PT_BAR_IO;
 	    } else if (flags & IORESOURCE_MEM) {
 		if (flags & IORESOURCE_MEM_64) {
-		    printk("ERROR: 64 Bit BARS not yet supported\n");
-		    bar->type = PT_BAR_NONE;
+		    struct v3_host_pci_bar * hi_bar = &(v3_dev->bars[i + 1]); 
+	    
+		    bar->type = PT_BAR_MEM64_LO;
+
+		    hi_bar->type = PT_BAR_MEM64_HI;
+		    hi_bar->size = bar->size;
+		    hi_bar->addr = bar->addr;
+		    hi_bar->cacheable = ((flags & IORESOURCE_CACHEABLE) != 0);
+		    hi_bar->prefetchable = ((flags & IORESOURCE_PREFETCH) != 0);
+		    
+		    i++;
 		} else if (flags & IORESOURCE_DMA) {
 		    bar->type = PT_BAR_MEM24;
 		} else {
