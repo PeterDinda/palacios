@@ -155,7 +155,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
     ctrl_area->instrs.NMI = 1;
     ctrl_area->instrs.SMI = 0; // allow SMIs to run in guest
     ctrl_area->instrs.INIT = 1;
-    ctrl_area->instrs.PAUSE = 1;
+    //    ctrl_area->instrs.PAUSE = 1;
     ctrl_area->instrs.shutdown_evts = 1;
 
 

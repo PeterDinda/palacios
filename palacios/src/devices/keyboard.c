@@ -188,6 +188,9 @@ struct keyboard_internal {
         // after having a f0 sent to 60
 	// we wait for a new output byte on 60
     	GETSET_SCANCODES,
+	// first send ACK (0xfa)
+	// then wait for reception, and reset kb state
+	SET_DEFAULTS,
     } state;
 
 
@@ -221,6 +224,9 @@ struct keyboard_internal {
 
     v3_lock_t kb_lock;
 };
+
+
+static int keyboard_reset_device(struct keyboard_internal * kbd);
 
 
 static int update_kb_irq(struct keyboard_internal * state) {
@@ -898,6 +904,11 @@ static int keyboard_write_output(struct guest_info * core, ushort_t port, void *
 	    kbd->state = NORMAL;
 	    break;
 
+	case SET_DEFAULTS:
+	    keyboard_reset_device(kbd);
+	    kbd->state = NORMAL;
+	    break;
+
 	default:
 	case NORMAL: {
 	    // command is being sent to keyboard controller
@@ -942,6 +953,15 @@ static int keyboard_write_output(struct guest_info * core, ushort_t port, void *
 		    kbd->state = GETSET_SCANCODES;
 		    break;
 
+
+		case 0xf6: // set defaults
+		    // ACK command
+		    // clear output buffer
+		    // reset to init state
+		    push_to_output_queue(kbd, 0xfa, COMMAND, KEYBOARD);
+		    kbd->state = SET_DEFAULTS;
+		    break;
+
 		case 0xfe: // resend
 		case 0xfd: // set key type make
 		case 0xfc: // set key typ make/break
@@ -950,7 +970,7 @@ static int keyboard_write_output(struct guest_info * core, ushort_t port, void *
 		case 0xf9: // set all make
 		case 0xf8: // set all make/break
 		case 0xf7: // set all typemaktic
-		case 0xf6: // set defaults
+
 		    PrintError("keyboard: unhandled known command 0x%x on output buffer (60h)\n", data);
 		    ret = -1;
 		    break;

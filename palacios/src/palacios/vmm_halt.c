@@ -40,7 +40,7 @@ int v3_handle_halt(struct guest_info * info) {
     } else {
 	PrintDebug("CPU Yield\n");
 
-	while (!v3_intr_pending(info)) {
+	while (!v3_intr_pending(info) && (info->vm_info->run_state == VM_RUNNING)) {
             uint64_t t, cycles;
 	    /* Yield, allowing time to pass while yielded */
 	    t = v3_get_host_time(&info->time_state);

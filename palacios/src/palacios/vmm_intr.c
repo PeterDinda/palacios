@@ -274,22 +274,27 @@ int v3_lower_virq(struct guest_info * info, int irq) {
 
 
 int v3_lower_irq(struct v3_vm_info * vm, int irq) {
-    struct intr_router * router = NULL;
-    struct v3_intr_routers * routers = &(vm->intr_routers);
+    struct v3_irq irq_state;
 
-    //    PrintDebug("[v3_lower_irq]\n");
-    addr_t irq_state = v3_lock_irqsave(routers->irq_lock);
+    irq_state.irq = irq;
+    irq_state.ack = NULL;
+    irq_state.private_data = NULL;
 
-    list_for_each_entry(router, &(routers->router_list), router_node) {
-	router->router_ops->lower_intr(vm, router->priv_data, irq);
-    }
- 
-    v3_unlock_irqrestore(routers->irq_lock, irq_state);
-
-    return 0;
+    return v3_lower_acked_irq(vm, irq_state);
 }
 
 int v3_raise_irq(struct v3_vm_info * vm, int irq) {
+    struct v3_irq irq_state;
+
+    irq_state.irq = irq;
+    irq_state.ack = NULL;
+    irq_state.private_data = NULL;
+
+    return v3_raise_acked_irq(vm, irq_state);
+}
+
+
+int v3_raise_acked_irq(struct v3_vm_info * vm, struct v3_irq irq) {
     struct intr_router * router = NULL;
     struct v3_intr_routers * routers = &(vm->intr_routers);
 
@@ -297,7 +302,7 @@ int v3_raise_irq(struct v3_vm_info * vm, int irq) {
     addr_t irq_state = v3_lock_irqsave(routers->irq_lock);
 
     list_for_each_entry(router, &(routers->router_list), router_node) {
-	router->router_ops->raise_intr(vm, router->priv_data, irq);
+	router->router_ops->raise_intr(vm, router->priv_data, &irq);
     }
 
     v3_unlock_irqrestore(routers->irq_lock, irq_state);
@@ -305,6 +310,23 @@ int v3_raise_irq(struct v3_vm_info * vm, int irq) {
     return 0;
 }
 
+
+int v3_lower_acked_irq(struct v3_vm_info * vm, struct v3_irq irq) {
+    struct intr_router * router = NULL;
+    struct v3_intr_routers * routers = &(vm->intr_routers);
+
+    //    PrintDebug("[v3_lower_irq]\n");
+    addr_t irq_state = v3_lock_irqsave(routers->irq_lock);
+
+    list_for_each_entry(router, &(routers->router_list), router_node) {
+	router->router_ops->lower_intr(vm, router->priv_data, &irq);
+    }
+ 
+    v3_unlock_irqrestore(routers->irq_lock, irq_state);
+
+    return 0;
+
+}
 
 
 
@@ -325,7 +347,15 @@ v3_intr_type_t v3_intr_pending(struct guest_info * info) {
     //  PrintDebug("[intr_pending]\n");
     addr_t irq_state = v3_lock_irqsave(intr_state->irq_lock);
 
-    // VIRQs have priority
+    // External IRQs have lowest priority
+    list_for_each_entry(ctrl, &(intr_state->controller_list), ctrl_node) {
+	if (ctrl->ctrl_ops->intr_pending(info, ctrl->priv_data) == 1) {
+	    ret = V3_EXTERNAL_IRQ;
+	    break;
+	}
+    }   
+
+    // VIRQs have 2nd priority
     for (i = 0; i < MAX_IRQ / 8; i++) {
 	if (intr_state->virq_map[i] != 0) {   
 	    ret = V3_VIRTUAL_IRQ;
@@ -333,16 +363,7 @@ v3_intr_type_t v3_intr_pending(struct guest_info * info) {
 	}
     }
 
-    if (ret == V3_INVALID_INTR) {
-	list_for_each_entry(ctrl, &(intr_state->controller_list), ctrl_node) {
-	    if (ctrl->ctrl_ops->intr_pending(info, ctrl->priv_data) == 1) {
-		ret = V3_EXTERNAL_IRQ;
-		break;
-	    }
-	}
-    }
-    
-    /* for swintr injection */
+    /* SWINTRs have highest */
     if (intr_state->swintr_posted == 1) {
         ret = V3_SOFTWARE_INTR;
     }

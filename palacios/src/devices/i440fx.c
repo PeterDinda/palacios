@@ -107,7 +107,7 @@ static int i440_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     pci_dev = v3_pci_register_device(state->pci, PCI_STD_DEVICE, 
 				     0, 0, 0, "i440FX", bars,
-				     NULL, NULL, NULL, state);
+				     NULL, NULL, NULL, NULL, state);
 
     if (!pci_dev) {
 	v3_remove_device(dev);

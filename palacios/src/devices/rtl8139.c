@@ -582,7 +582,7 @@ static inline void rtl8139_update_irq(struct rtl8139_state * nic_state) {
     int isr = ((nic_state->regs.isr & nic_state->regs.imr) & 0xffff);
 
     if(isr & 0xffff){
-	v3_pci_raise_irq(nic_state->pci_bus, 0, nic_state->pci_dev);
+	v3_pci_raise_irq(nic_state->pci_bus, nic_state->pci_dev, 0);
 	nic_state->statistic.tx_interrupts ++;
     }
 }
@@ -1732,7 +1732,7 @@ static int register_dev(struct rtl8139_state * nic_state)  {
 
     pci_dev = v3_pci_register_device(nic_state->pci_bus, PCI_STD_DEVICE, 0, -1, 0, 
 					 "RTL8139", bars,
-					 NULL, NULL, NULL, nic_state);
+				     NULL, NULL, NULL, NULL, nic_state);
 
 
     if (pci_dev == NULL) {

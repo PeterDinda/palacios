@@ -197,6 +197,11 @@ int v3_init_shdw_impl(struct v3_vm_info * vm) {
 int v3_deinit_shdw_impl(struct v3_vm_info * vm) {
     struct v3_shdw_pg_impl * impl = vm->shdw_impl.current_impl;
 
+    if (impl == NULL) {
+	// Shadow paging not implemented
+	return 0;
+    }
+
     if (impl->deinit(vm) == -1) {
 	PrintError("Error deinitializing shadow paging implementation\n");
 	return -1;

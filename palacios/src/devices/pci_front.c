@@ -607,7 +607,7 @@ static int pci_bar_write(int bar_num, uint32_t * src, void * private_data) {
 }
 
 
-static int pci_front_config_update(uint_t reg_num, void * src, uint_t length, void * private_data) 
+static int pci_front_config_update(struct pci_device *pci_dev, uint_t reg_num, void * src, uint_t length, void * private_data) 
 {
     int i;
     struct vm_device * dev = (struct vm_device *)private_data;
@@ -690,6 +690,7 @@ static int setup_virt_pci_dev(struct v3_vm_info * vm_info, struct vm_device * de
 				     bus_num, -1, 0, 
 				     state->name, bars,
 				     pci_front_config_update,
+				     NULL,      // no suport for config reads
 				     NULL,      // no support for command updates
 				     NULL,      // no support for expansion roms              
 				     dev);

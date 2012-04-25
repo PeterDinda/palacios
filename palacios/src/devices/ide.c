@@ -206,9 +206,17 @@ struct ide_channel {
     // Control Registers
     struct ide_ctrl_reg ctrl_reg; // [write] 0x3f6,0x376
 
-    struct ide_dma_cmd_reg dma_cmd;
-    struct ide_dma_status_reg dma_status;
-    uint32_t dma_prd_addr;
+    union {
+	uint8_t dma_ports[8];
+	struct {
+	    struct ide_dma_cmd_reg dma_cmd;
+	    uint8_t rsvd1;
+	    struct ide_dma_status_reg dma_status;
+	    uint8_t rsvd2;
+	    uint32_t dma_prd_addr;
+	} __attribute__((packed));
+    } __attribute__((packed));
+
     uint32_t dma_tbl_index;
 };
 
@@ -283,7 +291,9 @@ static inline int is_lba_enabled(struct ide_channel * channel) {
 /* Drive Commands */
 static void ide_raise_irq(struct ide_internal * ide, struct ide_channel * channel) {
     if (channel->ctrl_reg.irq_disable == 0) {
-	//        PrintError("Raising IDE Interrupt %d\n", channel->irq);
+
+	//PrintError("Raising IDE Interrupt %d\n", channel->irq);
+
         channel->dma_status.int_gen = 1;
         v3_raise_irq(ide->vm, channel->irq);
     }
@@ -356,12 +366,12 @@ static int dma_write(struct guest_info * core, struct ide_internal * ide, struct
 #include "ata.h"
 
 
-#ifdef V3_CONFIG_DEBUG_IDE
+
 static void print_prd_table(struct ide_internal * ide, struct ide_channel * channel) {
     struct ide_dma_prd prd_entry;
     int index = 0;
 
-    PrintDebug("Dumping PRD table\n");
+    V3_Print("Dumping PRD table\n");
 
     while (1) {
 	uint32_t prd_entry_addr = channel->dma_prd_addr + (sizeof(struct ide_dma_prd) * index);
@@ -374,7 +384,7 @@ static void print_prd_table(struct ide_internal * ide, struct ide_channel * chan
 	    return;
 	}
 
-	PrintDebug("\tPRD Addr: %x, PRD Len: %d, EOT: %d\n", 
+	V3_Print("\tPRD Addr: %x, PRD Len: %d, EOT: %d\n", 
 		   prd_entry.base_addr, 
 		   (prd_entry.size == 0) ? 0x10000 : prd_entry.size, 
 		   prd_entry.end_of_table);
@@ -388,7 +398,7 @@ static void print_prd_table(struct ide_internal * ide, struct ide_channel * chan
 
     return;
 }
-#endif
+
 
 /* IO Operations */
 static int dma_read(struct guest_info * core, struct ide_internal * ide, struct ide_channel * channel) {
@@ -456,15 +466,18 @@ static int dma_read(struct guest_info * core, struct ide_internal * ide, struct 
 		    }
 		} else {
 		    /*
-		    PrintError("DMA of command packet\n");
 		    PrintError("How does this work (ATAPI CMD=%x)???\n", drive->cd_state.atapi_cmd);
 		    return -1;
 		    */
 		    int cmd_ret = 0;
 
+		    //V3_Print("DMA of command packet\n");
+
 		    bytes_to_write = (prd_bytes_left > bytes_left) ? bytes_left : prd_bytes_left;
 		    prd_bytes_left = bytes_to_write;
 
+
+		    // V3_Print("Writing ATAPI cmd OP DMA (cmd=%x) (len=%d)\n", drive->cd_state.atapi_cmd, prd_bytes_left);
 		    cmd_ret = v3_write_gpa_memory(core, prd_entry.base_addr + prd_offset, 
 						  bytes_to_write, drive->data_buf); 
 
@@ -591,7 +604,13 @@ static int dma_write(struct guest_info * core, struct ide_internal * ide, struct
 	PrintDebug("PRD Addr: %x, PRD Len: %d, EOT: %d\n", 
 		   prd_entry.base_addr, prd_entry.size, prd_entry.end_of_table);
 
-	prd_bytes_left = prd_entry.size;
+
+	if (prd_entry.size == 0) {
+	    // a size of 0 means 64k
+	    prd_bytes_left = 0x10000;
+	} else {
+	    prd_bytes_left = prd_entry.size;
+	}
 
 	while (prd_bytes_left > 0) {
 	    uint_t bytes_to_write = 0;
@@ -632,6 +651,12 @@ static int dma_write(struct guest_info * core, struct ide_internal * ide, struct
 
 	if ((prd_entry.end_of_table == 1) && (bytes_left > 0)) {
 	    PrintError("DMA table not large enough for data transfer...\n");
+	    PrintError("\t(bytes_left=%u) (transfer_length=%u)...\n", 
+		       bytes_left, drive->transfer_length);
+	    PrintError("PRD Addr: %x, PRD Len: %d, EOT: %d\n", 
+		       prd_entry.base_addr, prd_entry.size, prd_entry.end_of_table);
+
+	    print_prd_table(ide, channel);
 	    return -1;
 	}
     }
@@ -745,7 +770,7 @@ static int write_dma_port(struct guest_info * core, ushort_t port, void * src, u
 }
 
 
-static int read_dma_port(struct guest_info * core, ushort_t port, void * dst, uint_t length, void * private_data) {
+static int read_dma_port(struct guest_info * core, uint16_t port, void * dst, uint_t length, void * private_data) {
     struct ide_internal * ide = (struct ide_internal *)private_data;
     uint16_t port_offset = port & (DMA_CHANNEL_FLAG - 1);
     uint_t channel_flag = (port & DMA_CHANNEL_FLAG) >> 3;
@@ -753,44 +778,13 @@ static int read_dma_port(struct guest_info * core, ushort_t port, void * dst, ui
 
     PrintDebug("Reading DMA port %d (%x) (channel=%d)\n", port, port, channel_flag);
 
-    switch (port_offset) {
-	case DMA_CMD_PORT:
-	    *(uint8_t *)dst = channel->dma_cmd.val;
-	    break;
-
-	case DMA_STATUS_PORT:
-	    if (length != 1) {
-		PrintError("Invalid read length for DMA status port\n");
-		return -1;
-	    }
-
-	    *(uint8_t *)dst = channel->dma_status.val;
-	    break;
-
-	case DMA_PRD_PORT0:
-	case DMA_PRD_PORT1:
-	case DMA_PRD_PORT2:
-	case DMA_PRD_PORT3: {
-  	    uint_t addr_index = port_offset & 0x3;
-	    uint8_t * addr_buf = (uint8_t *)&(channel->dma_prd_addr);
-	    int i = 0;
-
-	    if (addr_index + length > 4) {
-		PrintError("DMA Port space overrun port=%x len=%d\n", port_offset, length);
-		return -1;
-	    }
-
-	    for (i = 0; i < length; i++) {
-		*((uint8_t *)dst + i) = addr_buf[addr_index + i];
-	    }
-
-	    break;
-	}
-	default:
-	    PrintError("IDE: Invalid DMA Port (%d) (%s)\n", port, dma_port_to_str(port_offset));
-	    break;
+    if (port_offset + length > 16) {
+	PrintError("DMA Port Read: Port overrun (port_offset=%d, length=%d)\n", port_offset, length);
+	return -1;
     }
 
+    memcpy(dst, channel->dma_ports + port_offset, length);
+    
     PrintDebug("\tval=%x (len=%d)\n", *(uint32_t *)dst, length);
 
     return length;
@@ -1453,7 +1447,6 @@ static void init_channel(struct ide_channel * channel) {
     channel->cmd_reg = 0x00;
     channel->ctrl_reg.val = 0x08;
 
-
     channel->dma_cmd.val = 0;
     channel->dma_status.val = 0;
     channel->dma_prd_addr = 0;
@@ -1466,7 +1459,7 @@ static void init_channel(struct ide_channel * channel) {
 }
 
 
-static int pci_config_update(uint_t reg_num, void * src, uint_t length, void * private_data) {
+static int pci_config_update(struct pci_device * pci_dev, uint32_t reg_num, void * src, uint_t length, void * private_data) {
     PrintDebug("PCI Config Update\n");
     /*
     struct ide_internal * ide = (struct ide_internal *)(private_data);
@@ -1855,7 +1848,7 @@ static int ide_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
 	pci_dev = v3_pci_register_device(ide->pci_bus, PCI_STD_DEVICE, 0, sb_pci->dev_num, 1, 
 					 "PIIX3_IDE", bars,
-					 pci_config_update, NULL, NULL, ide);
+					 pci_config_update, NULL, NULL, NULL, ide);
 
 	if (pci_dev == NULL) {
 	    PrintError("Failed to register IDE BUS %d with PCI\n", i); 

@@ -600,6 +600,16 @@ int main(int argc, char* argv[]) {
 		writeit(cons_fd,sc);
 		sc |= 0x80;
 		writeit(cons_fd,sc);
+            } else if (key == '~') {  // CTRL-C 
+                unsigned char sc;
+                sc = 0x1d;  // left ctrl down
+                writeit(cons_fd,sc);
+                sc = 0x2e; // c down
+		writeit(cons_fd,sc);
+		sc = 0x2e | 0x80;   // c up
+                writeit(cons_fd,sc);
+                sc = 0x1d | 0x80;   // left ctrl up
+                writeit(cons_fd,sc);
             }else {
 		if (send_char_to_palacios_as_scancodes(cons_fd,key)) {
 		    fprintf(stderr, "Error sendign key to console\n");

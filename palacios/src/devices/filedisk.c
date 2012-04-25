@@ -36,10 +36,10 @@ struct disk_state {
 
 
 
-static int write_all(v3_file_t fd, char * buf, int offset, int length) {
-    int bytes_written = 0;
+static int write_all(v3_file_t fd, char * buf, uint64_t offset, uint64_t length) {
+    uint64_t bytes_written = 0;
     
-    PrintDebug("Writing %d bytes\n", length - bytes_written);
+    PrintDebug("Writing %llu bytes\n", length - bytes_written);
     while (bytes_written < length) {
 	int tmp_bytes = v3_file_write(fd, buf + bytes_written, length - bytes_written, offset + bytes_written);
 	PrintDebug("Wrote %d bytes\n", tmp_bytes);
@@ -56,10 +56,10 @@ static int write_all(v3_file_t fd, char * buf, int offset, int length) {
 }
 
 
-static int read_all(v3_file_t fd, char * buf, int offset, int length) {
-    int bytes_read = 0;
+static int read_all(v3_file_t fd, char * buf, uint64_t offset, uint64_t length) {
+    uint64_t bytes_read = 0;
     
-    PrintDebug("Reading %d bytes\n", length - bytes_read);
+    PrintDebug("Reading %llu bytes\n", length - bytes_read);
     while (bytes_read < length) {
 	int tmp_bytes = v3_file_read(fd, buf + bytes_read, length - bytes_read, offset + bytes_read);
 	PrintDebug("Read %d bytes\n", tmp_bytes);
@@ -78,7 +78,7 @@ static int read_all(v3_file_t fd, char * buf, int offset, int length) {
 static int read(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * private_data) {
     struct disk_state * disk = (struct disk_state *)private_data;
 
-    PrintDebug("Reading %d bytes from %p to %p\n", (uint32_t)num_bytes, (uint8_t *)(disk->disk_image + lba), buf);
+    PrintDebug("Reading %llu bytes from %p to %p\n", num_bytes, (uint8_t *)(disk->disk_image + lba), buf);
 
     if (lba + num_bytes > disk->capacity) {
 	PrintError("Out of bounds read: lba=%llu, num_bytes=%llu, capacity=%llu\n",
@@ -93,7 +93,7 @@ static int read(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * private_
 static int write(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * private_data) {
     struct disk_state * disk = (struct disk_state *)private_data;
 
-    PrintDebug("Writing %d bytes from %p to %p\n", (uint32_t)num_bytes,  buf, (uint8_t *)(disk->disk_image + lba));
+    PrintDebug("Writing %llu bytes from %p to %p\n", num_bytes,  buf, (uint8_t *)(disk->disk_image + lba));
 
     if (lba + num_bytes > disk->capacity) {
 	PrintError("Out of bounds read: lba=%llu, num_bytes=%llu, capacity=%llu\n",
@@ -109,8 +109,7 @@ static int write(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * private
 static uint64_t get_capacity(void * private_data) {
     struct disk_state * disk = (struct disk_state *)private_data;
 
-    PrintDebug("Querying FILEDISK capacity %d\n", 
-	       (uint32_t)(disk->capacity));
+    PrintDebug("Querying FILEDISK capacity %llu\n", disk->capacity);
 
     return disk->capacity;
 }
@@ -183,8 +182,8 @@ static int disk_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     disk->capacity = v3_file_size(disk->fd);
 
-    PrintDebug("Registering FILEDISK %s (path=%s, fd=%lu, size=%lu)\n",
-	       dev_id, path, file->fd, file->capacity);
+    V3_Print("Registering FILEDISK %s (path=%s, fd=%lu, size=%llu)\n",
+	     dev_id, path, (addr_t)disk->fd, disk->capacity);
 
 
     if (v3_dev_connect_blk(vm, v3_cfg_val(frontend_cfg, "tag"), 

@@ -63,6 +63,28 @@ struct pci_config_header {
 } __attribute__((packed));
 
 
+struct pci_cmd_reg {
+    union {
+	uint16_t val;
+	struct {
+	    uint16_t io_enable         : 1;
+	    uint16_t mem_enable        : 1;
+	    uint16_t dma_enable        : 1;
+	    uint16_t special_cycles    : 1;
+	    uint16_t mem_wr_inv_enable : 1;
+	    uint16_t vga_snoop         : 1;
+	    uint16_t parity_err_resp   : 1;
+	    uint16_t rsvd1             : 1;
+	    uint16_t serr_enable       : 1;
+	    uint16_t fast_b2b_enable   : 1;
+	    uint16_t intx_disable      : 1;
+	    uint16_t rsvd2             : 5;
+	} __attribute__((packed));
+    } __attribute__((packed));
+
+} __attribute__((packed));
+
+
 typedef enum { PCI_CLASS_PRE2 = 0x00, 
 	       PCI_CLASS_STORAGE = 0x01, 
 	       PCI_CLASS_NETWORK = 0x02,
@@ -164,6 +186,358 @@ typedef enum { PCI_BRIDGE_SUBCLASS_HOST_PCI = 0x00,
   { 0, NULL}
   };
 */
+
+
+
+struct msi_addr {
+    union {
+	uint32_t val;
+	struct {
+	    uint32_t rsvd1        : 2;
+	    uint32_t dst_mode     : 1;
+	    uint32_t redir_hint   : 1;
+	    uint32_t rsvd2        : 8;
+	    uint32_t dst_id       : 8;
+	    uint32_t fixaddr      : 12;
+	} __attribute__((packed));
+    } __attribute__((packed));
+} __attribute__((packed));
+
+
+struct msi_data {
+    union {
+	uint16_t val;
+	struct {
+	    uint16_t vector       : 8;
+	    uint16_t del_mode     : 3;
+	    uint16_t rsvd1        : 3;
+	    uint16_t level        : 1;
+	    uint16_t trig_mode    : 1;
+	} __attribute__((packed));;
+    } __attribute__((packed));
+} __attribute__((packed));
+
+
+struct msi_msg_ctrl {
+    union {
+	uint16_t val;
+	struct {
+	    uint16_t msi_enable       : 1;
+	    uint16_t mult_msg_capable : 3;
+	    uint16_t mult_msg_enable  : 3;
+	    uint16_t cap_64bit        : 1;
+	    uint16_t per_vect_mask    : 1;
+	    uint16_t rsvd             : 7;
+	} __attribute__((packed));
+    } __attribute__((packed));
+} __attribute__((packed));
+
+
+struct msi32_msg_addr {
+    struct msi_msg_ctrl msg_ctrl;
+    struct msi_addr addr;
+    struct msi_data data;
+} __attribute__((packed));
+
+
+struct msi64_msg_addr {
+    struct msi_msg_ctrl msg_ctrl;
+    struct msi_addr addr;
+    uint32_t hi_addr;
+    struct msi_data data;
+} __attribute__((packed));
+
+
+struct msi64_pervec_msg_addr {
+    struct msi_msg_ctrl msg_ctrl;
+    struct msi_addr addr;
+    uint32_t hi_addr;
+    struct msi_data data;
+    uint16_t rsvd;
+    uint32_t mask;
+    uint32_t pending;
+} __attribute__((packed));
+
+
+struct msix_msg_ctrl {
+    uint16_t table_size   : 11;
+    uint16_t rsvd         : 4;
+    uint16_t msix_enable  : 1;
+} __attribute__((packed));
+
+struct msix_cap {
+    struct msix_msg_ctrl msg_ctrl;
+    uint32_t hi_addr;
+    uint32_t bir      : 3;
+    uint32_t table_offset : 29;
+} __attribute__((packed));
+
+
+struct msix_table {
+    struct {
+	struct msi_data data;
+	struct msi_addr addr;
+    } __attribute__((packed)) entries[0];
+} __attribute__((packed));
+
+
+
+// See PCI power management specification (1.2)
+struct pmc_cap {
+    struct {
+	uint16_t version        : 3;
+	uint16_t pme_clock      : 1;
+	uint16_t rsvd1          : 1;
+	uint16_t dsi            : 1;
+	uint16_t aux_current    : 3;
+	uint16_t d1_support     : 1;
+	uint16_t d2_support     : 1;
+	uint16_t pme_support    : 5;
+    } __attribute__((packed)) pmc;
+
+    struct {
+	uint16_t power_state    : 2;
+	uint16_t rsvd1          : 1;
+	uint16_t no_soft_reset  : 1;
+	uint16_t rsvd2          : 4;
+	uint16_t pme_en         : 1;
+	uint16_t data_select    : 4;
+	uint16_t data_scale     : 2;
+	uint16_t pme_status     : 1;
+    } __attribute__((packed)) pmcsr;
+
+    struct {
+	uint8_t rsvd1           : 6;
+	uint8_t b2_b3           : 1;
+	uint8_t bpcc_en         : 1;
+    } __attribute__((packed)) pmcsr_bse;
+
+    uint8_t data;
+} __attribute__((packed));
+
+
+struct pcie_cap_reg {
+    uint16_t version     : 4;
+    uint16_t type        : 4;
+    uint16_t slot_impl   : 1;
+    uint16_t irq_msg_num : 5;
+    uint16_t rsvd        : 2;
+} __attribute__((packed));
+
+struct pcie_cap_v1 {
+    struct pcie_cap_reg pcie_cap;
+
+    union {
+	uint32_t val;
+	struct {
+	    uint32_t max_payload          : 3;
+	    uint32_t phantom_fns          : 2;
+	    uint32_t ext_tag_support      : 1;
+	    uint32_t endpt_L0_latency     : 3;
+	    uint32_t endpt_L1_latency     : 3;
+	    uint32_t maybe_rsvd1          : 3;
+	    uint32_t role_err_reporting   : 1;
+	    uint32_t rsvd2                : 2;
+	    uint32_t slot_pwr_lim_val     : 8;
+	    uint32_t slot_pwr_lim_scale   : 2;
+	    uint32_t rsvd3                : 4;
+	} __attribute__((packed));
+    } __attribute__((packed)) dev_cap;
+
+    union {
+	uint16_t val;
+	struct {
+	    uint16_t correctable_err_enable  : 1;
+	    uint16_t non_fatal_err_enable    : 1;
+	    uint16_t fatal_err_enable        : 1;
+	    uint16_t unsupp_req_enable       : 1;
+	    uint16_t relaxed_order_enable    : 1;
+	    uint16_t max_payload_size        : 3;
+	    uint16_t ext_tag_field_enable    : 1;
+	    uint16_t phantom_fn_enable       : 1;
+	    uint16_t aux_pwr_enable          : 1;
+	    uint16_t no_snoop_enable         : 1;
+	    uint16_t max_read_req_size       : 3;
+	    uint16_t bridge_cfg_retry_enable : 1;
+	} __attribute__((packed));
+    } __attribute__((packed)) dev_ctrl;
+
+    union {
+	uint16_t val;
+	struct {
+	    uint16_t correctable_err         : 1;
+	    uint16_t non_fatal_err           : 1;
+	    uint16_t fatal_err               : 1;
+	    uint16_t unsupp_req              : 1;
+	    uint16_t aux_pwr                 : 1;
+	    uint16_t transaction_pending     : 1;
+	    uint16_t rsvd                    : 10;
+	} __attribute__((packed));
+    } __attribute__((packed)) dev_status;
+
+    union {
+	uint32_t val;
+	struct {
+	    uint32_t max_link_speed            : 4;
+	    uint32_t max_link_width            : 6;
+	    uint32_t aspm_support              : 2; /* Active State Power Management Support */
+	    uint32_t L0_exit_latency           : 3;
+	    uint32_t L1_exit_latency           : 3;
+	    uint32_t clk_pwr_mngmt             : 1;
+	    uint32_t surprise_pwr_down_capable : 1;
+	    uint32_t data_link_active_capable  : 1;
+	    uint32_t rsvd1                     : 3;
+	    uint32_t port_number               : 8;
+	} __attribute__((packed));
+    } __attribute__((packed)) link_cap;
+
+
+    union {
+	uint16_t val;
+	struct {
+	    uint16_t aspm_ctrl                 : 2;
+	    uint16_t rsvd1                     : 1;
+	    uint16_t rd_cmpl_bndry             : 1;
+	    uint16_t link_disable              : 1;
+	    uint16_t retrain_link              : 1;
+	    uint16_t common_clk_cfg            : 1;
+	    uint16_t ext_synch                 : 1;
+	    uint16_t clk_pwr_mngmt_enable      : 1;
+	    uint16_t rsvd2                     : 7;
+	} __attribute__((packed));
+    } __attribute__((packed)) link_ctrl;
+
+
+    union {
+	uint16_t val;
+	struct {
+	    uint16_t link_speed               : 4;
+	    uint16_t negotiate_link_width     : 6;
+	    uint16_t undef                    : 1;
+	    uint16_t link_training            : 1;
+	    uint16_t slot_clk_cfg             : 1;
+	    uint16_t data_link_layer_active   : 1;
+	    uint16_t rsvd                     : 2;
+	} __attribute__((packed));
+    } __attribute__((packed)) link_status;
+
+} __attribute__((packed));
+
+
+
+
+struct pcie_cap_v2 {
+   struct pcie_cap_reg pcie_cap;
+
+    union {
+	uint32_t val;
+	struct {
+	    uint32_t max_payload          : 3;
+	    uint32_t phantom_fns          : 2;
+	    uint32_t ext_tag_support      : 1;
+	    uint32_t endpt_L0_latency     : 3;
+	    uint32_t endpt_L1_latency     : 3;
+	    uint32_t maybe_rsvd1          : 3;
+	    uint32_t role_err_reporting   : 1;
+	    uint32_t rsvd2                : 2;
+	    uint32_t slot_pwr_lim_val     : 8;
+	    uint32_t slot_pwr_lim_scale   : 2;
+	    uint32_t fn_level_reset       : 1;
+	    uint32_t rsvd3                : 3;
+	} __attribute__((packed));
+    } __attribute__((packed)) dev_cap;
+
+    union {
+	uint16_t val;
+	struct {
+	    uint16_t correctable_err_enable  : 1;
+	    uint16_t non_fatal_err_enable    : 1;
+	    uint16_t fatal_err_enable        : 1;
+	    uint16_t unsupp_req_enable       : 1;
+	    uint16_t relaxed_order_enable    : 1;
+	    uint16_t max_payload_size        : 3;
+	    uint16_t ext_tag_field_enable    : 1;
+	    uint16_t phantom_fn_enable       : 1;
+	    uint16_t aux_pwr_enable          : 1;
+	    uint16_t no_snoop_enable         : 1;
+	    uint16_t max_read_req_size       : 3;
+	    uint16_t bridge_cfg_retry_enable : 1;
+	} __attribute__((packed));
+    } __attribute__((packed)) dev_ctrl;
+
+    union {
+	uint16_t val;
+	struct {
+	    uint16_t correctable_err         : 1;
+	    uint16_t non_fatal_err           : 1;
+	    uint16_t fatal_err               : 1;
+	    uint16_t unsupp_req              : 1;
+	    uint16_t aux_pwr                 : 1;
+	    uint16_t transaction_pending     : 1;
+	    uint16_t rsvd                    : 10;
+	} __attribute__((packed));
+    } __attribute__((packed)) dev_status;
+
+    union {
+	uint32_t val;
+	struct {
+	    uint32_t max_link_speed            : 4;
+	    uint32_t max_link_width            : 6;
+	    uint32_t aspm_support              : 2; /* Active State Power Management Support */
+	    uint32_t L0_exit_latency           : 3;
+	    uint32_t L1_exit_latency           : 3;
+	    uint32_t clk_pwr_mngmt             : 1;
+	    uint32_t surprise_pwr_down_capable : 1;
+	    uint32_t data_link_active_capable  : 1;
+	    uint32_t rsvd1                     : 3;
+	    uint32_t port_number               : 8;
+	} __attribute__((packed));
+    } __attribute__((packed)) link_cap;
+
+
+    union {
+	uint16_t val;
+	struct {
+	    uint16_t aspm_ctrl                 : 2;
+	    uint16_t rsvd1                     : 1;
+	    uint16_t rd_cmpl_bndry             : 1;
+	    uint16_t link_disable              : 1;
+	    uint16_t retrain_link              : 1;
+	    uint16_t common_clk_cfg            : 1;
+	    uint16_t ext_synch                 : 1;
+	    uint16_t clk_pwr_mngmt_enable      : 1;
+	    uint16_t rsvd2                     : 7;
+	} __attribute__((packed));
+    } __attribute__((packed)) link_ctrl;
+
+
+    union {
+	uint16_t val;
+	struct {
+	    uint16_t link_speed               : 4;
+	    uint16_t negotiate_link_width     : 6;
+	    uint16_t undef                    : 1;
+	    uint16_t link_training            : 1;
+	    uint16_t slot_clk_cfg             : 1;
+	    uint16_t data_link_layer_active   : 1;
+	    uint16_t rsvd                     : 2;
+	} __attribute__((packed));
+    } __attribute__((packed)) link_status;
+
+
+    /* Some crap whose format we don't know because the PCI-SIG sucks */
+    
+    uint32_t slot_cap;
+    uint16_t slot_ctrl;
+    uint16_t slot_status;
+
+    uint16_t root_ctrl;
+    uint16_t root_cap;
+    uint32_t root_status;
+
+} __attribute__((packed));
+
+
 
 #endif
 

@@ -56,7 +56,8 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 #endif
 
 
-    //PrintDebug("SVM Returned: Exit Code: %x\n",exit_code); 
+
+    //    PrintDebug("SVM Returned: Exit Code: %p\n", (void *)exit_code); 
 
     switch (exit_code) {
 	case VMEXIT_IOIO: {
@@ -309,10 +310,10 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 	    PrintError("SVM Returned: Exit Code: %p\n", (void *)(addr_t)exit_code); 
 	    
 	    PrintError("io_info1 low = 0x%.8x\n", *(uint_t*)&(exit_info1));
-	    PrintError("io_info1 high = 0x%.8x\n", *(uint_t *)(((uchar_t *)&(exit_info1)) + 4));
+	    PrintError("io_info1 high = 0x%.8x\n", *(uint_t *)(((uint8_t *)&(exit_info1)) + 4));
 	    
 	    PrintError("io_info2 low = 0x%.8x\n", *(uint_t*)&(exit_info2));
-	    PrintError("io_info2 high = 0x%.8x\n", *(uint_t *)(((uchar_t *)&(exit_info2)) + 4));
+	    PrintError("io_info2 high = 0x%.8x\n", *(uint_t *)(((uint8_t *)&(exit_info2)) + 4));
 	    
 	    
 	    if (info->shdw_pg_mode == SHADOW_PAGING) {
