@@ -47,7 +47,7 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
     struct vmx_basic_exit_info * basic_info = (struct vmx_basic_exit_info *)&(exit_info->exit_reason);
 
     /*
-      PrintError("Handling VMEXIT: %s (%u), %lu (0x%lx)\n", 
+      PrintError("Handling VMX_EXIT: %s (%u), %lu (0x%lx)\n", 
       v3_vmx_exit_code_to_str(exit_info->exit_reason),
       exit_info->exit_reason, 
       exit_info->exit_qual, exit_info->exit_qual);
@@ -58,12 +58,12 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
 
     if (basic_info->entry_error == 1) {
 	switch (basic_info->reason) {
-	    case VMEXIT_INVALID_GUEST_STATE:
+	    case VMX_EXIT_INVALID_GUEST_STATE:
 		PrintError("VM Entry failed due to invalid guest state\n");
 		PrintError("Printing VMCS: (NOTE: This VMCS may not belong to the correct guest)\n");
 		v3_print_vmcs();
 		break;
-	    case VMEXIT_INVALID_MSR_LOAD:
+	    case VMX_EXIT_INVALID_MSR_LOAD:
 		PrintError("VM Entry failed due to error loading MSRs\n");
 		break;
 	    default:
@@ -83,7 +83,7 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
 #endif
 
     switch (basic_info->reason) {
-        case VMEXIT_INFO_EXCEPTION_OR_NMI: {
+        case VMX_EXIT_INFO_EXCEPTION_OR_NMI: {
             pf_error_t error_code = *(pf_error_t *)&(exit_info->int_err);
 
 
@@ -114,7 +114,7 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
             break;
         }
 
-	case VMEXIT_EPT_VIOLATION: {
+	case VMX_EXIT_EPT_VIOLATION: {
 	    struct ept_exit_qual * ept_qual = (struct ept_exit_qual *)&(exit_info->exit_qual);
 
 	    if (v3_handle_ept_fault(info, exit_info->ept_fault_addr, ept_qual) == -1) {
@@ -124,7 +124,7 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
 
 	    break;
 	}
-        case VMEXIT_INVLPG:
+        case VMX_EXIT_INVLPG:
             if (info->shdw_pg_mode == SHADOW_PAGING) {
                 if (v3_handle_shadow_invlpg(info) == -1) {
 		    PrintError("Error handling INVLPG\n");
@@ -134,7 +134,7 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
 
             break;
 
-        case VMEXIT_RDTSC:
+        case VMX_EXIT_RDTSC:
 #ifdef V3_CONFIG_DEBUG_TIME
 	    PrintDebug("RDTSC\n");
 #endif 
@@ -145,28 +145,28 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
 	    
 	    break;
 
-        case VMEXIT_CPUID:
+        case VMX_EXIT_CPUID:
 	    if (v3_handle_cpuid(info) == -1) {
 		PrintError("Error Handling CPUID instruction\n");
 		return -1;
 	    }
 
             break;
-        case VMEXIT_RDMSR: 
+        case VMX_EXIT_RDMSR: 
             if (v3_handle_msr_read(info) == -1) {
 		PrintError("Error handling MSR Read\n");
                 return -1;
 	    }
 
             break;
-        case VMEXIT_WRMSR:
+        case VMX_EXIT_WRMSR:
             if (v3_handle_msr_write(info) == -1) {
 		PrintError("Error handling MSR Write\n");
                 return -1;
 	    }
 
             break;
-	case VMEXIT_VMCALL:
+	case VMX_EXIT_VMCALL:
 	    /* 
 	     * Hypercall 
 	     */
@@ -179,7 +179,7 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
 		return -1;
 	    }
 	    break;
-        case VMEXIT_IO_INSTR: {
+        case VMX_EXIT_IO_INSTR: {
 	    struct vmx_exit_io_qual * io_qual = (struct vmx_exit_io_qual *)&(exit_info->exit_qual);
 
             if (io_qual->dir == 0) {
@@ -209,7 +209,7 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
             }
             break;
 	}
-        case VMEXIT_CR_REG_ACCESSES: {
+        case VMX_EXIT_CR_REG_ACCESSES: {
 	    struct vmx_exit_cr_qual * cr_qual = (struct vmx_exit_cr_qual *)&(exit_info->exit_qual);
 	    
 	    // PrintDebug("Control register: %d\n", cr_qual->access_type);
@@ -247,7 +247,7 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
 
 	    break;
 	}
-        case VMEXIT_HLT:
+        case VMX_EXIT_HLT:
             PrintDebug("Guest halted\n");
 
             if (v3_handle_halt(info) == -1) {
@@ -259,25 +259,25 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
 
 
 
-        case VMEXIT_PAUSE:
+        case VMX_EXIT_PAUSE:
             // Handled as NOP
             info->rip += 2;
 
             break;
-        case VMEXIT_EXTERNAL_INTR:
+        case VMX_EXIT_EXTERNAL_INTR:
             // Interrupts are handled outside switch
             break;
-        case VMEXIT_INTR_WINDOW:
+        case VMX_EXIT_INTR_WINDOW:
 	    // This is handled in the atomic part of the vmx code,
 	    // not in the generic (interruptable) vmx handler
             break;
-        case VMEXIT_EXPIRED_PREEMPT_TIMER:
+        case VMX_EXIT_EXPIRED_PREEMPT_TIMER:
 	    V3_Print("VMX Preempt Timer Expired.\n");
 	    // This just forces an exit and is handled outside the switch
 	    break;
 	    
         default:
-            PrintError("Unhandled VMEXIT: %s (%u), %lu (0x%lx)\n", 
+            PrintError("Unhandled VMX_EXIT: %s (%u), %lu (0x%lx)\n", 
 		       v3_vmx_exit_code_to_str(basic_info->reason),
 		       basic_info->reason, 
 		       exit_info->exit_qual, exit_info->exit_qual);
@@ -295,160 +295,160 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
     return 0;
 }
 
-static const char VMEXIT_INFO_EXCEPTION_OR_NMI_STR[] = "VMEXIT_INFO_EXCEPTION_OR_NMI";
-static const char VMEXIT_EXTERNAL_INTR_STR[] = "VMEXIT_EXTERNAL_INTR";
-static const char VMEXIT_TRIPLE_FAULT_STR[] = "VMEXIT_TRIPLE_FAULT";
-static const char VMEXIT_INIT_SIGNAL_STR[] = "VMEXIT_INIT_SIGNAL";
-static const char VMEXIT_STARTUP_IPI_STR[] = "VMEXIT_STARTUP_IPI";
-static const char VMEXIT_IO_SMI_STR[] = "VMEXIT_IO_SMI";
-static const char VMEXIT_OTHER_SMI_STR[] = "VMEXIT_OTHER_SMI";
-static const char VMEXIT_INTR_WINDOW_STR[] = "VMEXIT_INTR_WINDOW";
-static const char VMEXIT_NMI_WINDOW_STR[] = "VMEXIT_NMI_WINDOW";
-static const char VMEXIT_TASK_SWITCH_STR[] = "VMEXIT_TASK_SWITCH";
-static const char VMEXIT_CPUID_STR[] = "VMEXIT_CPUID";
-static const char VMEXIT_HLT_STR[] = "VMEXIT_HLT";
-static const char VMEXIT_INVD_STR[] = "VMEXIT_INVD";
-static const char VMEXIT_INVLPG_STR[] = "VMEXIT_INVLPG";
-static const char VMEXIT_RDPMC_STR[] = "VMEXIT_RDPMC";
-static const char VMEXIT_RDTSC_STR[] = "VMEXIT_RDTSC";
-static const char VMEXIT_RSM_STR[] = "VMEXIT_RSM";
-static const char VMEXIT_VMCALL_STR[] = "VMEXIT_VMCALL";
-static const char VMEXIT_VMCLEAR_STR[] = "VMEXIT_VMCLEAR";
-static const char VMEXIT_VMLAUNCH_STR[] = "VMEXIT_VMLAUNCH";
-static const char VMEXIT_VMPTRLD_STR[] = "VMEXIT_VMPTRLD";
-static const char VMEXIT_VMPTRST_STR[] = "VMEXIT_VMPTRST";
-static const char VMEXIT_VMREAD_STR[] = "VMEXIT_VMREAD";
-static const char VMEXIT_VMRESUME_STR[] = "VMEXIT_VMRESUME";
-static const char VMEXIT_VMWRITE_STR[] = "VMEXIT_VMWRITE";
-static const char VMEXIT_VMXOFF_STR[] = "VMEXIT_VMXOFF";
-static const char VMEXIT_VMXON_STR[] = "VMEXIT_VMXON";
-static const char VMEXIT_CR_REG_ACCESSES_STR[] = "VMEXIT_CR_REG_ACCESSES";
-static const char VMEXIT_MOV_DR_STR[] = "VMEXIT_MOV_DR";
-static const char VMEXIT_IO_INSTR_STR[] = "VMEXIT_IO_INSTR";
-static const char VMEXIT_RDMSR_STR[] = "VMEXIT_RDMSR";
-static const char VMEXIT_WRMSR_STR[] = "VMEXIT_WRMSR";
-static const char VMEXIT_INVALID_GUEST_STATE_STR[] = "VMEXIT_INVALID_GUEST_STATE";
-static const char VMEXIT_INVALID_MSR_LOAD_STR[] = "VMEXIT_INVALID_MSR_LOAD";
-static const char VMEXIT_MWAIT_STR[] = "VMEXIT_MWAIT";
-static const char VMEXIT_MONITOR_STR[] = "VMEXIT_MONITOR";
-static const char VMEXIT_PAUSE_STR[] = "VMEXIT_PAUSE";
-static const char VMEXIT_INVALID_MACHINE_CHECK_STR[] = "VMEXIT_INVALIDE_MACHINE_CHECK";
-static const char VMEXIT_TPR_BELOW_THRESHOLD_STR[] = "VMEXIT_TPR_BELOW_THRESHOLD";
-static const char VMEXIT_APIC_STR[] = "VMEXIT_APIC";
-static const char VMEXIT_GDTR_IDTR_STR[] = "VMEXIT_GDTR_IDTR";
-static const char VMEXIT_LDTR_TR_STR[] = "VMEXIT_LDTR_TR";
-static const char VMEXIT_EPT_VIOLATION_STR[] = "VMEXIT_EPT_VIOLATION";
-static const char VMEXIT_EPT_CONFIG_STR[] = "VMEXIT_EPT_CONFIG";
-static const char VMEXIT_INVEPT_STR[] = "VMEXIT_INVEPT";
-static const char VMEXIT_RDTSCP_STR[] = "VMEXIT_RDTSCP";
-static const char VMEXIT_EXPIRED_PREEMPT_TIMER_STR[] = "VMEXIT_EXPIRED_PREEMPT_TIMER";
-static const char VMEXIT_INVVPID_STR[] = "VMEXIT_INVVPID";
-static const char VMEXIT_WBINVD_STR[] = "VMEXIT_WBINVD";
-static const char VMEXIT_XSETBV_STR[] = "VMEXIT_XSETBV";
+static const char VMX_EXIT_INFO_EXCEPTION_OR_NMI_STR[] = "VMX_EXIT_INFO_EXCEPTION_OR_NMI";
+static const char VMX_EXIT_EXTERNAL_INTR_STR[] = "VMX_EXIT_EXTERNAL_INTR";
+static const char VMX_EXIT_TRIPLE_FAULT_STR[] = "VMX_EXIT_TRIPLE_FAULT";
+static const char VMX_EXIT_INIT_SIGNAL_STR[] = "VMX_EXIT_INIT_SIGNAL";
+static const char VMX_EXIT_STARTUP_IPI_STR[] = "VMX_EXIT_STARTUP_IPI";
+static const char VMX_EXIT_IO_SMI_STR[] = "VMX_EXIT_IO_SMI";
+static const char VMX_EXIT_OTHER_SMI_STR[] = "VMX_EXIT_OTHER_SMI";
+static const char VMX_EXIT_INTR_WINDOW_STR[] = "VMX_EXIT_INTR_WINDOW";
+static const char VMX_EXIT_NMI_WINDOW_STR[] = "VMX_EXIT_NMI_WINDOW";
+static const char VMX_EXIT_TASK_SWITCH_STR[] = "VMX_EXIT_TASK_SWITCH";
+static const char VMX_EXIT_CPUID_STR[] = "VMX_EXIT_CPUID";
+static const char VMX_EXIT_HLT_STR[] = "VMX_EXIT_HLT";
+static const char VMX_EXIT_INVD_STR[] = "VMX_EXIT_INVD";
+static const char VMX_EXIT_INVLPG_STR[] = "VMX_EXIT_INVLPG";
+static const char VMX_EXIT_RDPMC_STR[] = "VMX_EXIT_RDPMC";
+static const char VMX_EXIT_RDTSC_STR[] = "VMX_EXIT_RDTSC";
+static const char VMX_EXIT_RSM_STR[] = "VMX_EXIT_RSM";
+static const char VMX_EXIT_VMCALL_STR[] = "VMX_EXIT_VMCALL";
+static const char VMX_EXIT_VMCLEAR_STR[] = "VMX_EXIT_VMCLEAR";
+static const char VMX_EXIT_VMLAUNCH_STR[] = "VMX_EXIT_VMLAUNCH";
+static const char VMX_EXIT_VMPTRLD_STR[] = "VMX_EXIT_VMPTRLD";
+static const char VMX_EXIT_VMPTRST_STR[] = "VMX_EXIT_VMPTRST";
+static const char VMX_EXIT_VMREAD_STR[] = "VMX_EXIT_VMREAD";
+static const char VMX_EXIT_VMRESUME_STR[] = "VMX_EXIT_VMRESUME";
+static const char VMX_EXIT_VMWRITE_STR[] = "VMX_EXIT_VMWRITE";
+static const char VMX_EXIT_VMXOFF_STR[] = "VMX_EXIT_VMXOFF";
+static const char VMX_EXIT_VMXON_STR[] = "VMX_EXIT_VMXON";
+static const char VMX_EXIT_CR_REG_ACCESSES_STR[] = "VMX_EXIT_CR_REG_ACCESSES";
+static const char VMX_EXIT_MOV_DR_STR[] = "VMX_EXIT_MOV_DR";
+static const char VMX_EXIT_IO_INSTR_STR[] = "VMX_EXIT_IO_INSTR";
+static const char VMX_EXIT_RDMSR_STR[] = "VMX_EXIT_RDMSR";
+static const char VMX_EXIT_WRMSR_STR[] = "VMX_EXIT_WRMSR";
+static const char VMX_EXIT_INVALID_GUEST_STATE_STR[] = "VMX_EXIT_INVALID_GUEST_STATE";
+static const char VMX_EXIT_INVALID_MSR_LOAD_STR[] = "VMX_EXIT_INVALID_MSR_LOAD";
+static const char VMX_EXIT_MWAIT_STR[] = "VMX_EXIT_MWAIT";
+static const char VMX_EXIT_MONITOR_STR[] = "VMX_EXIT_MONITOR";
+static const char VMX_EXIT_PAUSE_STR[] = "VMX_EXIT_PAUSE";
+static const char VMX_EXIT_INVALID_MACHINE_CHECK_STR[] = "VMX_EXIT_INVALIDE_MACHINE_CHECK";
+static const char VMX_EXIT_TPR_BELOW_THRESHOLD_STR[] = "VMX_EXIT_TPR_BELOW_THRESHOLD";
+static const char VMX_EXIT_APIC_STR[] = "VMX_EXIT_APIC";
+static const char VMX_EXIT_GDTR_IDTR_STR[] = "VMX_EXIT_GDTR_IDTR";
+static const char VMX_EXIT_LDTR_TR_STR[] = "VMX_EXIT_LDTR_TR";
+static const char VMX_EXIT_EPT_VIOLATION_STR[] = "VMX_EXIT_EPT_VIOLATION";
+static const char VMX_EXIT_EPT_CONFIG_STR[] = "VMX_EXIT_EPT_CONFIG";
+static const char VMX_EXIT_INVEPT_STR[] = "VMX_EXIT_INVEPT";
+static const char VMX_EXIT_RDTSCP_STR[] = "VMX_EXIT_RDTSCP";
+static const char VMX_EXIT_EXPIRED_PREEMPT_TIMER_STR[] = "VMX_EXIT_EXPIRED_PREEMPT_TIMER";
+static const char VMX_EXIT_INVVPID_STR[] = "VMX_EXIT_INVVPID";
+static const char VMX_EXIT_WBINVD_STR[] = "VMX_EXIT_WBINVD";
+static const char VMX_EXIT_XSETBV_STR[] = "VMX_EXIT_XSETBV";
 
 const char * v3_vmx_exit_code_to_str(vmx_exit_t exit)
 {
-    switch(exit) {
-        case VMEXIT_INFO_EXCEPTION_OR_NMI:
-            return VMEXIT_INFO_EXCEPTION_OR_NMI_STR;
-        case VMEXIT_EXTERNAL_INTR:
-            return VMEXIT_EXTERNAL_INTR_STR;
-        case VMEXIT_TRIPLE_FAULT:
-            return VMEXIT_TRIPLE_FAULT_STR;
-        case VMEXIT_INIT_SIGNAL:
-            return VMEXIT_INIT_SIGNAL_STR;
-        case VMEXIT_STARTUP_IPI:
-            return VMEXIT_STARTUP_IPI_STR;
-        case VMEXIT_IO_SMI:
-            return VMEXIT_IO_SMI_STR;
-        case VMEXIT_OTHER_SMI:
-            return VMEXIT_OTHER_SMI_STR;
-        case VMEXIT_INTR_WINDOW:
-            return VMEXIT_INTR_WINDOW_STR;
-        case VMEXIT_NMI_WINDOW:
-            return VMEXIT_NMI_WINDOW_STR;
-        case VMEXIT_TASK_SWITCH:
-            return VMEXIT_TASK_SWITCH_STR;
-        case VMEXIT_CPUID:
-            return VMEXIT_CPUID_STR;
-        case VMEXIT_HLT:
-            return VMEXIT_HLT_STR;
-        case VMEXIT_INVD:
-            return VMEXIT_INVD_STR;
-        case VMEXIT_INVLPG:
-            return VMEXIT_INVLPG_STR;
-        case VMEXIT_RDPMC:
-            return VMEXIT_RDPMC_STR;
-        case VMEXIT_RDTSC:
-            return VMEXIT_RDTSC_STR;
-        case VMEXIT_RSM:
-            return VMEXIT_RSM_STR;
-        case VMEXIT_VMCALL:
-            return VMEXIT_VMCALL_STR;
-        case VMEXIT_VMCLEAR:
-            return VMEXIT_VMCLEAR_STR;
-        case VMEXIT_VMLAUNCH:
-            return VMEXIT_VMLAUNCH_STR;
-        case VMEXIT_VMPTRLD:
-            return VMEXIT_VMPTRLD_STR;
-        case VMEXIT_VMPTRST:
-            return VMEXIT_VMPTRST_STR;
-        case VMEXIT_VMREAD:
-            return VMEXIT_VMREAD_STR;
-        case VMEXIT_VMRESUME:
-            return VMEXIT_VMRESUME_STR;
-        case VMEXIT_VMWRITE:
-            return VMEXIT_VMWRITE_STR;
-        case VMEXIT_VMXOFF:
-            return VMEXIT_VMXOFF_STR;
-        case VMEXIT_VMXON:
-            return VMEXIT_VMXON_STR;
-        case VMEXIT_CR_REG_ACCESSES:
-            return VMEXIT_CR_REG_ACCESSES_STR;
-        case VMEXIT_MOV_DR:
-            return VMEXIT_MOV_DR_STR;
-        case VMEXIT_IO_INSTR:
-            return VMEXIT_IO_INSTR_STR;
-        case VMEXIT_RDMSR:
-            return VMEXIT_RDMSR_STR;
-        case VMEXIT_WRMSR:
-            return VMEXIT_WRMSR_STR;
-        case VMEXIT_INVALID_GUEST_STATE:
-            return VMEXIT_INVALID_GUEST_STATE_STR;
-        case VMEXIT_INVALID_MSR_LOAD:
-            return VMEXIT_INVALID_MSR_LOAD_STR;
-        case VMEXIT_MWAIT:
-            return VMEXIT_MWAIT_STR;
-        case VMEXIT_MONITOR:
-            return VMEXIT_MONITOR_STR;
-        case VMEXIT_PAUSE:
-            return VMEXIT_PAUSE_STR;
-        case VMEXIT_INVALID_MACHINE_CHECK:
-            return VMEXIT_INVALID_MACHINE_CHECK_STR;
-        case VMEXIT_TPR_BELOW_THRESHOLD:
-            return VMEXIT_TPR_BELOW_THRESHOLD_STR;
-        case VMEXIT_APIC:
-            return VMEXIT_APIC_STR;
-        case VMEXIT_GDTR_IDTR:
-            return VMEXIT_GDTR_IDTR_STR;
-        case VMEXIT_LDTR_TR:
-            return VMEXIT_LDTR_TR_STR;
-        case VMEXIT_EPT_VIOLATION:
-            return VMEXIT_EPT_VIOLATION_STR;
-        case VMEXIT_EPT_CONFIG:
-            return VMEXIT_EPT_CONFIG_STR;
-        case VMEXIT_INVEPT:
-            return VMEXIT_INVEPT_STR;
-        case VMEXIT_RDTSCP:
-            return VMEXIT_RDTSCP_STR;
-        case VMEXIT_EXPIRED_PREEMPT_TIMER:
-            return VMEXIT_EXPIRED_PREEMPT_TIMER_STR;
-        case VMEXIT_INVVPID:
-            return VMEXIT_INVVPID_STR;
-        case VMEXIT_WBINVD:
-            return VMEXIT_WBINVD_STR;
-        case VMEXIT_XSETBV:
-            return VMEXIT_XSETBV_STR;
+    switch (exit) {
+        case VMX_EXIT_INFO_EXCEPTION_OR_NMI:
+            return VMX_EXIT_INFO_EXCEPTION_OR_NMI_STR;
+        case VMX_EXIT_EXTERNAL_INTR:
+            return VMX_EXIT_EXTERNAL_INTR_STR;
+        case VMX_EXIT_TRIPLE_FAULT:
+            return VMX_EXIT_TRIPLE_FAULT_STR;
+        case VMX_EXIT_INIT_SIGNAL:
+            return VMX_EXIT_INIT_SIGNAL_STR;
+        case VMX_EXIT_STARTUP_IPI:
+            return VMX_EXIT_STARTUP_IPI_STR;
+        case VMX_EXIT_IO_SMI:
+            return VMX_EXIT_IO_SMI_STR;
+        case VMX_EXIT_OTHER_SMI:
+            return VMX_EXIT_OTHER_SMI_STR;
+        case VMX_EXIT_INTR_WINDOW:
+            return VMX_EXIT_INTR_WINDOW_STR;
+        case VMX_EXIT_NMI_WINDOW:
+            return VMX_EXIT_NMI_WINDOW_STR;
+        case VMX_EXIT_TASK_SWITCH:
+            return VMX_EXIT_TASK_SWITCH_STR;
+        case VMX_EXIT_CPUID:
+            return VMX_EXIT_CPUID_STR;
+        case VMX_EXIT_HLT:
+            return VMX_EXIT_HLT_STR;
+        case VMX_EXIT_INVD:
+            return VMX_EXIT_INVD_STR;
+        case VMX_EXIT_INVLPG:
+            return VMX_EXIT_INVLPG_STR;
+        case VMX_EXIT_RDPMC:
+            return VMX_EXIT_RDPMC_STR;
+        case VMX_EXIT_RDTSC:
+            return VMX_EXIT_RDTSC_STR;
+        case VMX_EXIT_RSM:
+            return VMX_EXIT_RSM_STR;
+        case VMX_EXIT_VMCALL:
+            return VMX_EXIT_VMCALL_STR;
+        case VMX_EXIT_VMCLEAR:
+            return VMX_EXIT_VMCLEAR_STR;
+        case VMX_EXIT_VMLAUNCH:
+            return VMX_EXIT_VMLAUNCH_STR;
+        case VMX_EXIT_VMPTRLD:
+            return VMX_EXIT_VMPTRLD_STR;
+        case VMX_EXIT_VMPTRST:
+            return VMX_EXIT_VMPTRST_STR;
+        case VMX_EXIT_VMREAD:
+            return VMX_EXIT_VMREAD_STR;
+        case VMX_EXIT_VMRESUME:
+            return VMX_EXIT_VMRESUME_STR;
+        case VMX_EXIT_VMWRITE:
+            return VMX_EXIT_VMWRITE_STR;
+        case VMX_EXIT_VMXOFF:
+            return VMX_EXIT_VMXOFF_STR;
+        case VMX_EXIT_VMXON:
+            return VMX_EXIT_VMXON_STR;
+        case VMX_EXIT_CR_REG_ACCESSES:
+            return VMX_EXIT_CR_REG_ACCESSES_STR;
+        case VMX_EXIT_MOV_DR:
+            return VMX_EXIT_MOV_DR_STR;
+        case VMX_EXIT_IO_INSTR:
+            return VMX_EXIT_IO_INSTR_STR;
+        case VMX_EXIT_RDMSR:
+            return VMX_EXIT_RDMSR_STR;
+        case VMX_EXIT_WRMSR:
+            return VMX_EXIT_WRMSR_STR;
+        case VMX_EXIT_INVALID_GUEST_STATE:
+            return VMX_EXIT_INVALID_GUEST_STATE_STR;
+        case VMX_EXIT_INVALID_MSR_LOAD:
+            return VMX_EXIT_INVALID_MSR_LOAD_STR;
+        case VMX_EXIT_MWAIT:
+            return VMX_EXIT_MWAIT_STR;
+        case VMX_EXIT_MONITOR:
+            return VMX_EXIT_MONITOR_STR;
+        case VMX_EXIT_PAUSE:
+            return VMX_EXIT_PAUSE_STR;
+        case VMX_EXIT_INVALID_MACHINE_CHECK:
+            return VMX_EXIT_INVALID_MACHINE_CHECK_STR;
+        case VMX_EXIT_TPR_BELOW_THRESHOLD:
+            return VMX_EXIT_TPR_BELOW_THRESHOLD_STR;
+        case VMX_EXIT_APIC:
+            return VMX_EXIT_APIC_STR;
+        case VMX_EXIT_GDTR_IDTR:
+            return VMX_EXIT_GDTR_IDTR_STR;
+        case VMX_EXIT_LDTR_TR:
+            return VMX_EXIT_LDTR_TR_STR;
+        case VMX_EXIT_EPT_VIOLATION:
+            return VMX_EXIT_EPT_VIOLATION_STR;
+        case VMX_EXIT_EPT_CONFIG:
+            return VMX_EXIT_EPT_CONFIG_STR;
+        case VMX_EXIT_INVEPT:
+            return VMX_EXIT_INVEPT_STR;
+        case VMX_EXIT_RDTSCP:
+            return VMX_EXIT_RDTSCP_STR;
+        case VMX_EXIT_EXPIRED_PREEMPT_TIMER:
+            return VMX_EXIT_EXPIRED_PREEMPT_TIMER_STR;
+        case VMX_EXIT_INVVPID:
+            return VMX_EXIT_INVVPID_STR;
+        case VMX_EXIT_WBINVD:
+            return VMX_EXIT_WBINVD_STR;
+        case VMX_EXIT_XSETBV:
+            return VMX_EXIT_XSETBV_STR;
     }
     return NULL;
 }

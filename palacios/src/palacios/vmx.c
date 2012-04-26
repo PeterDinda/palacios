@@ -1057,7 +1057,7 @@ int v3_vmx_enter(struct guest_info * info) {
     update_irq_exit_state(info);
 #endif
 
-    if (exit_info.exit_reason == VMEXIT_INTR_WINDOW) {
+    if (exit_info.exit_reason == VMX_EXIT_INTR_WINDOW) {
 	// This is a special case whose only job is to inject an interrupt
 	vmcs_read(VMCS_PROC_CTRLS, &(vmx_info->pri_proc_ctrls.value));
         vmx_info->pri_proc_ctrls.int_wndw_exit = 0;
