@@ -1,0 +1,13 @@
+#!/usr/bin/perl -w
+
+use Getopt::Long;
+
+$port = 5951;
+$password = "";
+
+&GetOptions("port=i"=>\$port, "password=s"=>\$password);
+
+
+system "vncviewer localhost:$port\n";
+
+

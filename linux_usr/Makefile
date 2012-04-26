@@ -50,7 +50,7 @@ EXPERIMENTAL_EXECS = 	v3_simulate  \
 #
 PRECOMPILED_EXECS = x0vncserver
 
-COPIED_EXECS = v3_vncserver
+COPIED_EXECS = v3_x0vncserver
 
 #
 # Libraries that we need to build
@@ -133,8 +133,8 @@ v3_user_keyed_stream_file : v3_user_keyed_stream_file.c libv3_user_keyed_stream.
 #
 # VNC support is compiled separately
 #
-v3_vncserver : x0vncserver
-	cp x0vncserver v3_vncserver
+v3_x0vncserver : x0vncserver
+	cp x0vncserver v3_x0vncserver
 
 
 #
