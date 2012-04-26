@@ -56,10 +56,17 @@ struct palacios_graphics_console {
 
     uint32_t num_updates;
 
-    // Currently keystrokes and mouse movements are ignored
+    int change_request;
+  
+    int (*render_request)(v3_graphics_console_t cons, 
+                          void *priv_data);
+    void *render_data;
 
-    // currently, we will not worry about locking this
-    // lock_t ...
+  int (*update_inquire)(v3_graphics_console_t cons,
+			void *priv_data);
+  
+  void *update_data;
+
 };
 
 
@@ -189,21 +196,56 @@ static void g_release_data_rw(v3_graphics_console_t cons)
 static int g_changed(v3_graphics_console_t cons)
 {
 
-#if 0
     struct palacios_graphics_console *gc = 
 	(struct palacios_graphics_console *) cons;
+    int cr;
+  
+    cr = gc->change_request;
 
-    int rc =  !(gc->num_updates % 1000);
-    
+    gc->change_request=0;
+
     gc->num_updates++;
     
-    return rc;
-#else
-    return 1;
-#endif
+    return cr;
+
 }
 
 
+static int g_register_render_request(
+				     v3_graphics_console_t cons,
+				     int (*render_request)(v3_graphics_console_t,
+							   void *),
+				     void *priv_data)
+{
+   struct palacios_graphics_console *gc =
+     (struct palacios_graphics_console *) cons;
+   
+   gc->render_data = priv_data;
+   gc->render_request = render_request;
+
+   printk("palacios: installed rendering callback function for graphics console\n");
+   
+   return 0;
+
+}
+
+static int g_register_update_inquire(
+				     v3_graphics_console_t cons,
+				     int (*update_inquire)(v3_graphics_console_t,
+							   void *),
+				     void *priv_data)
+{
+   struct palacios_graphics_console *gc =
+     (struct palacios_graphics_console *) cons;
+   
+   gc->update_data = priv_data;
+   gc->update_inquire = update_inquire;
+
+   printk("palacios: installed update inquiry callback function for graphics console\n");
+   
+   return 0;
+
+}
 
 static int palacios_graphics_console_key(struct v3_guest * guest, 
 					 struct palacios_graphics_console *cons, 
@@ -213,7 +255,11 @@ static int palacios_graphics_console_key(struct v3_guest * guest,
     e.status = 0;
     e.scan_code = scancode;
 
+    //printk("palacios: start key delivery\n");
+
     v3_deliver_keyboard_event(guest->v3_ctx, &e);
+
+    //printk("palacios: end key delivery\n");
     
     return 0;
 }
@@ -227,7 +273,8 @@ static int palacios_graphics_console_mouse(struct v3_guest * guest,
     e.data[1]=y;
     e.data[2]=buttons;   // These three are completely wrong, of course - ignoring mouse for now
 
-    v3_deliver_mouse_event(guest->v3_ctx,&e);
+    // mouse delivery is broken, so don't do it.
+    // v3_deliver_mouse_event(guest->v3_ctx,&e);
 
     return 0;
 }
@@ -243,6 +290,8 @@ static struct v3_graphics_console_hooks palacios_graphics_console_hooks =
     .release_data_rw = g_release_data_rw,
 
     .changed = g_changed,
+    .register_render_request = g_register_render_request,
+    .register_update_inquire = g_register_update_inquire,
 };
 
 
@@ -268,15 +317,24 @@ static int fb_query(struct v3_guest * guest, unsigned int cmd, unsigned long arg
     
     switch (q.request_type) { 
 	case V3_FB_SPEC:
+	    //printk("palacios: request for db spec from Userland\n");
 	    // returns only the spec for the FB
 	    q.spec = cons->spec;
 
 	    break;
 
 	case V3_FB_UPDATE: 
+	    //printk("palacios: test for fb updatei from Userland\n");
 	    // returns whether an update is available for the region
-	    // currently always true
-	    q.updated = 1;
+	    if (cons->update_inquire) {
+	      q.updated = cons->update_inquire(cons,cons->update_data);
+	    } else {
+	      q.updated = 1;
+	    }
+            //printk("palacios: update=%d\n",q.updated);
+
+            // request a render, since a FB_DATA will probably soon come
+            cons->change_request = 1;
 
 	    break;
 
@@ -290,18 +348,28 @@ static int fb_query(struct v3_guest * guest, unsigned int cmd, unsigned long arg
 	    break;
 	    
 	case V3_FB_DATA_ALL: {
+            //printk("palacios: got FrameBuffer Request from Userland\n");
 	    // First let's sanity check to see if they are requesting the same
 	    // spec that we have
 	    if (memcmp(&(q.spec),&(cons->spec),sizeof(struct v3_frame_buffer_spec))) { 
 		printk("palacios: request for data with non-matching fb spec \n");
 		return -EFAULT;
 	    }
+            // Now we will force a render if we can
+            if (cons->render_request) {
+		 //printk("palacios: making rendering request\n");
+                 cons->render_request(cons,cons->render_data);
+            }
+
 	    // Now let's indicate an update is in the pointer and copy across the data
 	    if (copy_to_user(q.data,cons->data,cons->spec.width*cons->spec.height*cons->spec.bytes_per_pixel)) { 
 		printk("palacios: unable to copy fb content to user\n");
 		return -EFAULT;
 	    }
+            //printk("palacios: FrameBuffer copy out done\n");
 	    q.updated = 1;
+            // Now we don't need to request a render
+            cons->change_request = 0;
 	}
 	    break;
 	    
@@ -333,19 +401,24 @@ static int fb_input(struct v3_guest * guest,
 	printk("palacios: copy from user in getting input in fb\n");
 	return -EFAULT;
     }
+
+    //printk("palacios: input from Userland\n");   
 	
     if ((inp.data_type == V3_FB_KEY) || (inp.data_type == V3_FB_BOTH)) { 
 	rc = palacios_graphics_console_key(guest, cons, inp.scan_code);
+        //printk("palacios: key delivered to palacios\n");
     }
 
     if ((inp.data_type == V3_FB_MOUSE) || (inp.data_type == V3_FB_BOTH)) { 
 	rc |= palacios_graphics_console_mouse(guest, cons, inp.mouse_data[0],
 					      inp.mouse_data[1], inp.mouse_data[2]);
+       //printk("palacios: mouse delivered to palacios\n");
     }
 
     if (rc) { 
 	return -EFAULT;
     } else {
+        cons->change_request=1;
 	return 0;
     }
 }

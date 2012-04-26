@@ -47,6 +47,19 @@ void *v3_graphics_console_get_frame_buffer_data_rw(v3_graphics_console_t cons, s
 void  v3_graphics_console_release_frame_buffer_data_rw(v3_graphics_console_t cons);
 // returns >0 if a redraw in response to this update would be useful now
 int   v3_graphics_console_inform_update(v3_graphics_console_t cons);
+// when render_request is invoked, Palacios will redraw immediately
+int   v3_graphics_console_register_render_request(
+                      v3_graphics_console_t cons,
+                      int (*render_request)(v3_graphics_console_t cons,
+                                            void *priv_data),
+                      void *priv_data);
+// when update_inquire is invoked, palacios will indicate if there
+// is anything new with a non-zero return value
+int   v3_graphics_console_register_update_inquire(
+                      v3_graphics_console_t cons,
+                      int (*update_inquire)(v3_graphics_console_t cons,
+                                            void *priv_data),
+                      void *priv_data);
 
 void v3_graphics_console_close(v3_graphics_console_t cons);
 
@@ -87,7 +100,27 @@ struct v3_graphics_console_hooks {
 
     // callback to indicate that the FB is stale and that an update can occur
     // a positive return value indicates we should re-render now
+    // this callback is from Palacios to the implementation and is called
+    // when virtual GPU state changes to ask if the FB should be re-rendered now
     int (*changed)(v3_graphics_console_t cons);
+
+   
+    // callback to allow Palacios to register a render request callback
+    // with the implementation.  Using this callback, the implementation
+    // can specifically request that Palacios render immediately
+    int (*register_render_request)(v3_graphics_console_t cons,
+	            int (*render_request)(v3_graphics_console_t cons,
+                                         void *priv_data),
+                    void *priv_data);
+
+    // callback to allow Palacios to register an update inquire callback 
+    // with the implementation.  Using this callback, the implementation
+    // can ask if Palacios has any new data
+    int (*register_update_inquire)(v3_graphics_console_t cons,
+	            int (*update_inquire)(v3_graphics_console_t cons,
+					  void *priv_data),
+                    void *priv_data);
+       
 };
 
 

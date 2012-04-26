@@ -86,6 +86,31 @@ int v3_graphics_console_inform_update(v3_graphics_console_t cons) {
     return graphics_console_hooks->changed(cons);
 }
 
+int   v3_graphics_console_register_render_request(
+                      v3_graphics_console_t cons,
+                      int (*render_request)(v3_graphics_console_t cons,
+                                            void *priv_data),
+                      void *priv_data)
+{
+  V3_ASSERT(graphics_console_hooks!=NULL);
+  V3_ASSERT(graphics_console_hooks->register_render_request!=NULL);
+  
+  return graphics_console_hooks->register_render_request(cons,render_request,priv_data);
+}
+
+int   v3_graphics_console_register_update_inquire(
+                      v3_graphics_console_t cons,
+                      int (*update_inquire)(v3_graphics_console_t cons,
+                                            void *priv_data),
+                      void *priv_data)
+{
+  V3_ASSERT(graphics_console_hooks!=NULL);
+  V3_ASSERT(graphics_console_hooks->register_update_inquire!=NULL);
+  
+  return graphics_console_hooks->register_update_inquire(cons,update_inquire,priv_data);
+}
+
+
 void V3_Init_Graphics_Console(struct v3_graphics_console_hooks * hooks) {
     graphics_console_hooks = hooks;
     PrintDebug("V3 graphics console inited\n");
