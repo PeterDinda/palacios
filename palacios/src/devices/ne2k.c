@@ -1088,7 +1088,8 @@ static int ne2k_pci_read(struct guest_info * core,
 
 }
 
-static int pci_config_update(uint_t reg_num, 
+static int pci_config_update(struct pci_device * pci_dev,
+                        uint32_t reg_num,
 			     void * src, 
 			     uint_t length,
 			     void * private_data) {
