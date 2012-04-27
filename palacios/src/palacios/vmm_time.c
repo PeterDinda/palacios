@@ -451,7 +451,9 @@ void v3_init_time_core(struct guest_info * info) {
 	time_state->flags |= VM_TIME_SLAVE_HOST;
     }
     if ((time_state->clock_ratio_denom != 1) ||
-	(time_state->clock_ratio_num != 1)) {
+	(time_state->clock_ratio_num != 1) ||
+	(info->vm_info->time_state.td_num != 1) || 
+	(info->vm_info->time_state.td_denom != 1)) { 
 	time_state->flags |= VM_TIME_TRAP_RDTSC;
     }
 
