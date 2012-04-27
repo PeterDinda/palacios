@@ -1,0 +1,20 @@
+#!/usr/bin/perl -w
+
+use Getopt::Long;
+
+$port = 5951;
+$password = "";
+
+&GetOptions("port=i"=>\$port, "password=s"=>\$password);
+
+$#ARGV==0 or die "usage: v3_vncserver [--port=port] [--password=password] /dev/v3-vmN\n";
+
+$vm=shift;
+
+system "echo \"$password\" | vncpasswd -f > ./.vncpasswd";
+
+system "v3_x0vncserver --PasswordFile=./.vncpasswd -rfbport $port $vm >/dev/null 2>&1 & echo \$! > ./.vncpid";
+ 
+print STDERR "pid of server is stored in ./.vncpid\n";
+print "You can now connect to port $port with password \"$password\"\n";
+

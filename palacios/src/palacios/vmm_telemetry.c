@@ -20,8 +20,10 @@
 #include <palacios/vmm_types.h>
 #include <palacios/vmm_telemetry.h>
 #include <palacios/svm_handler.h>
+#include <palacios/vmx_handler.h>
 #include <palacios/vmm_rbtree.h>
 #include <palacios/vmm_sprintf.h>
+
 
 
 #ifdef V3_CONFIG_TELEMETRY_GRANULARITY
@@ -266,15 +268,33 @@ static void print_core_telemetry(struct guest_info * core, char *hdr_buf)
     }
 
     do {
-	 evt = rb_entry(node, struct exit_event, tree_node);
-	 const char * code_str = vmexit_code_to_str(evt->exit_code);
-	    
-	 V3_Print("%s%s:%sCnt=%u,%sAvg. Time=%u\n", 
-		  hdr_buf, code_str,
-		  (strlen(code_str) > 13) ? "\t" : "\t\t",
-		  evt->cnt,
-		  (evt->cnt >= 100) ? "\t" : "\t\t",
-		  (uint32_t)(evt->handler_time / evt->cnt));
+	extern v3_cpu_arch_t v3_mach_type;
+	const char * code_str = NULL;
+	
+	evt = rb_entry(node, struct exit_event, tree_node);
+
+	switch (v3_mach_type) {
+	    case V3_SVM_CPU:
+	    case V3_SVM_REV3_CPU:
+		
+		code_str = v3_svm_exit_code_to_str(evt->exit_code);
+		break;
+	    case V3_VMX_CPU:
+	    case V3_VMX_EPT_CPU:
+	    case V3_VMX_EPT_UG_CPU:
+		code_str = v3_vmx_exit_code_to_str(evt->exit_code);
+		break;
+
+	    default:
+		continue;
+	}
+
+	V3_Print("%s%s:%sCnt=%u,%sAvg. Time=%u\n", 
+		 hdr_buf, code_str,
+		 (strlen(code_str) > 13) ? "\t" : "\t\t",
+		 evt->cnt,
+		 (evt->cnt >= 100) ? "\t" : "\t\t",
+		 (uint32_t)(evt->handler_time / evt->cnt));
     } while ((node = v3_rb_next(node)));
     return;
 }

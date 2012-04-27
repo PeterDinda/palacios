@@ -353,6 +353,8 @@ int v3_init_svm_vmcb(struct guest_info * core, v3_vm_class_t vm_class) {
 	return -1;
     }
 
+    core->core_run_state = CORE_STOPPED;
+
     return 0;
 }
 

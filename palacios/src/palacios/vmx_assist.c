@@ -131,7 +131,7 @@ int v3_vmxassist_ctx_switch(struct guest_info * info) {
         return -1;
     }
 
-    if (vmx_info->assist_state == VMXASSIST_DISABLED) {
+    if (vmx_info->assist_state == VMXASSIST_OFF) {
         
         /* Save the old Context */
 	vmx_save_world_ctx(info, old_ctx);
@@ -139,13 +139,13 @@ int v3_vmxassist_ctx_switch(struct guest_info * info) {
         /* restore new context, vmxassist should launch the bios the first time */
         vmx_restore_world_ctx(info, new_ctx);
 
-        vmx_info->assist_state = VMXASSIST_ENABLED;
+        vmx_info->assist_state = VMXASSIST_ON;
 
-    } else if (vmx_info->assist_state == VMXASSIST_ENABLED) {
+    } else if (vmx_info->assist_state == VMXASSIST_ON) {
         /* restore old context */
 	vmx_restore_world_ctx(info, old_ctx);
 
-        vmx_info->assist_state = VMXASSIST_DISABLED;
+        vmx_info->assist_state = VMXASSIST_OFF;
     }
 
     return 0;
@@ -255,6 +255,7 @@ int v3_vmxassist_init(struct guest_info * core, struct vmx_data * vmx_state) {
 
     ((struct cr0_32 *)&(core->shdw_pg_state.guest_cr0))->pe = 1;
     ((struct cr0_32 *)&(core->shdw_pg_state.guest_cr0))->wp = 1;
+    ((struct cr0_32 *)&(core->shdw_pg_state.guest_cr0))->ne = 1;
    
 
     // Setup segment registers
@@ -375,7 +376,7 @@ int v3_vmxassist_init(struct guest_info * core, struct vmx_data * vmx_state) {
 	memcpy((void *)vmxassist_dst, v3_vmxassist_start, v3_vmxassist_end - v3_vmxassist_start);
 
 
-	vmx_state->assist_state = VMXASSIST_DISABLED;
+	vmx_state->assist_state = VMXASSIST_OFF;
     }
 
 

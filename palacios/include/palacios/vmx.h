@@ -150,7 +150,8 @@ struct vmx_entry_ctrls {
 
 typedef enum { 
     VMXASSIST_DISABLED,
-    VMXASSIST_ENABLED
+    VMXASSIST_OFF,
+    VMXASSIST_ON
 } vmxassist_state_t;
 
 typedef enum {

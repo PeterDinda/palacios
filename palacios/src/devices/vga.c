@@ -43,7 +43,6 @@
 #define MAP_SIZE 65536
 #define MAP_NUM  4
 
-#define UPDATES_PER_RENDER 100
 
 typedef uint8_t *vga_map; // points to MAP_SIZE data
 
@@ -95,6 +94,18 @@ typedef uint8_t *vga_map; // points to MAP_SIZE data
 
 #define VGA_FONT_WIDTH      8
 #define VGA_MAX_FONT_HEIGHT 32
+
+struct vga_render_model {
+  uint32_t   model;  // composite the following
+
+#define VGA_DRIVEN_PERIODIC_RENDERING 0x1  // render after n GPU updates
+#define CONSOLE_ADVISORY_RENDERING    0x2  // ask console if we should render following an update
+#define CONSOLE_DRIVEN_RENDERING      0x4  // have console tell us when to render
+
+  uint32_t   updates_before_render;   // defaults to the following
+
+#define DEFAULT_UPDATES_BEFORE_RENDER   1000
+};
 
 struct vga_misc_regs {
     /* Read: 0x3cc; Write: 0x3c2 */
@@ -283,12 +294,13 @@ struct vga_dac_regs {
 
 struct vga_internal {
     struct vm_device *dev; 
-    
+
     bool passthrough;
     bool skip_next_passthrough_out; // for word access 
 
     struct v3_frame_buffer_spec  target_spec;
     v3_graphics_console_t host_cons;
+    struct vga_render_model render_model;
 
     uint32_t updates_since_render;
 
@@ -974,7 +986,7 @@ static void render_maps(struct vga_internal *vga, void *fb)
 
     s=&(vga->target_spec);
 
-    if (fb && s->height>=768 && s->width>=1024 && !(vga->updates_since_render % 100)) { 
+    if (fb && s->height>=768 && s->width>=1024 ) { 
 	// we draw the maps next, each being a 256x256 block appearing 32 pixels below the display block
 	uint8_t m;
 	uint32_t x,y;
@@ -996,44 +1008,96 @@ static void render_maps(struct vga_internal *vga, void *fb)
     }
 }
 
+static int render_core(struct vga_internal *vga)
+{
+  void *fb;
+
+  PrintDebug("vga: render on update %u\n",vga->updates_since_render);
+  
+  fb = v3_graphics_console_get_frame_buffer_data_rw(vga->host_cons,&(vga->target_spec));
+  
+  if (!(vga->vga_sequencer.vga_clocking_mode.screen_off)) {
+    if (vga->vga_attribute_controller.vga_attribute_mode_control.graphics) { 
+      render_graphics(vga,fb);
+    } else {
+	  render_text(vga,fb);
+	  render_text_cursor(vga,fb);
+	}
+  } else {
+    render_black(vga,fb);
+  }
+  
+  if (0) { render_test(vga,fb); }
+  
+  // always render maps for now 
+  render_maps(vga,fb);
+  
+  v3_graphics_console_release_frame_buffer_data_rw(vga->host_cons);
+  
+  vga->updates_since_render=0;
+  
+  return 0;
+
+}
+    
 
 static int render(struct vga_internal *vga)
 {
-    void *fb;
-
 
     vga->updates_since_render++;
 
-    if (vga->updates_since_render%100) { 
-	// skip render
+
+    if (vga->host_cons) { 
+      int do_render=0;
+      
+      if ((vga->render_model.model & VGA_DRIVEN_PERIODIC_RENDERING)
+	  &&
+	  (vga->updates_since_render > vga->render_model.updates_before_render)) {
+	PrintDebug("vga: render due to periodic\n");
+	
+	do_render = 1;
+      }
+      
+      if ((vga->render_model.model & CONSOLE_ADVISORY_RENDERING) 
+	  &&
+	  (v3_graphics_console_inform_update(vga->host_cons) > 0) ) { 
+
+        PrintDebug("vga: render due to advisory\n");
+
+	do_render = 1;
+      }
+
+      // note that CONSOLE_DRIVEN_RENDERING is handled via the render_callback() function
+      
+      if (do_render) { 
+	return render_core(vga);
+      } else {
 	return 0;
+      }
     }
-
-    if (vga->host_cons && v3_graphics_console_inform_update(vga->host_cons)>0) { 
-
-	fb = v3_graphics_console_get_frame_buffer_data_rw(vga->host_cons,&(vga->target_spec));
-
-	if (!(vga->vga_sequencer.vga_clocking_mode.screen_off)) {
-	    if (vga->vga_attribute_controller.vga_attribute_mode_control.graphics) { 
-		render_graphics(vga,fb);
-	    } else {
-		render_text(vga,fb);
-		render_text_cursor(vga,fb);
-	    }
-	} else {
-	    render_black(vga,fb);
-	}
-
-	if (0) { render_test(vga,fb); }
-
-	// always render maps for now 
-	render_maps(vga,fb);
-
-	v3_graphics_console_release_frame_buffer_data_rw(vga->host_cons);
-    }
-
     return 0;
+    
 }
+
+
+static int render_callback(v3_graphics_console_t cons,
+			   void *priv)
+{
+  struct vga_internal *vga = (struct vga_internal *) priv;
+  
+  PrintDebug("vga: render due to callback\n");
+
+  return render_core(vga);
+}
+
+static int update_callback(v3_graphics_console_t cons,
+			   void *priv)
+{
+  struct vga_internal *vga = (struct vga_internal *) priv;
+  
+  return vga->updates_since_render>0;
+}
+
 
 
 static void get_mem_region(struct vga_internal *vga, uint64_t *mem_start, uint64_t *mem_end) 
@@ -2680,6 +2744,9 @@ static int vga_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     memset(vga, 0, sizeof(struct vga_internal));
 
+    vga->render_model.model = CONSOLE_DRIVEN_RENDERING | VGA_DRIVEN_PERIODIC_RENDERING;
+    vga->render_model.updates_before_render = DEFAULT_UPDATES_BEFORE_RENDER;
+
     if (passthrough && strcasecmp(passthrough,"enable")==0) {
 	PrintDebug("vga: enabling passthrough\n");
 	vga->passthrough=true;
@@ -2718,7 +2785,23 @@ static int vga_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	    PrintDebug("vga: response: %u by %u by %u with %u bpc and r,g,b at %u, %u, %u\n", vga->target_spec.width, vga->target_spec.height, vga->target_spec.bytes_per_pixel, vga->target_spec.bits_per_channel, vga->target_spec.red_offset, vga->target_spec.green_offset, vga->target_spec.blue_offset);
 
 	}
-    }
+
+	if (vga->render_model.model & CONSOLE_DRIVEN_RENDERING) { 
+	  V3_Print("vga: enabling console-driven rendering\n");
+	  if (v3_graphics_console_register_render_request(vga->host_cons, render_callback, vga)!=0) { 
+	    PrintError("vga: cannot enable console-driven rendering\n");
+	    free_vga(vga);
+	    return -1;
+	  }
+	}
+	
+	V3_Print("vga: enabling console inquiry for updates\n");
+	if (v3_graphics_console_register_update_inquire(vga->host_cons, update_callback, vga)!=0) { 
+	  PrintError("vga: cannot enable console inquiry for updates\n");
+	  free_vga(vga);
+	  return -1;
+	}
+   }
 
     if (!vga->passthrough && !vga->host_cons) { 
 	V3_Print("vga: neither passthrough nor host console are enabled - no way to display anything!\n");

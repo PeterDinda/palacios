@@ -898,7 +898,8 @@ static int keyboard_write_output(struct guest_info * core, ushort_t port, void *
 	    	    break;
     	    	default:
 	    	    PrintError("keyboard: unknown scancode set %d selected\n", data);
-	    	    return -1;
+	    	    ret = -1;
+                    break;
   
     	    }
 	    kbd->state = NORMAL;

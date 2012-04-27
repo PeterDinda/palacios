@@ -166,13 +166,14 @@ static int handle_mov_to_cr0(struct guest_info * info, v3_reg_t * new_cr0, struc
     struct cr0_32 * new_shdw_cr0 = (struct cr0_32 *)new_cr0;
     struct vmx_data * vmx_info = (struct vmx_data *)info->vmm_data;
     uint_t paging_transition = 0;
+    extern v3_cpu_arch_t v3_mach_type;
 
-    /*
-      PrintDebug("Old shadow CR0: 0x%x, New shadow CR0: 0x%x\n",
-      (uint32_t)info->shdw_pg_state.guest_cr0, (uint32_t)*new_cr0);
-    */
 
-    if (new_shdw_cr0->pe != shdw_cr0->pe) {
+    V3_Print("Mov to CR0\n");
+    V3_Print("Old shadow CR0: 0x%x, New shadow CR0: 0x%x\n",
+	     (uint32_t)info->shdw_pg_state.guest_cr0, (uint32_t)*new_cr0);
+
+    if ((new_shdw_cr0->pe != shdw_cr0->pe) && (vmx_info->assist_state != VMXASSIST_DISABLED)) {
 	/*
 	  PrintDebug("Guest CR0: 0x%x\n", *(uint32_t *)guest_cr0);
 	  PrintDebug("Old shadow CR0: 0x%x\n", *(uint32_t *)shdw_cr0);
@@ -184,7 +185,7 @@ static int handle_mov_to_cr0(struct guest_info * info, v3_reg_t * new_cr0, struc
             return -1;
         }
 	
-        if (vmx_info->assist_state == VMXASSIST_ENABLED) {
+        if (vmx_info->assist_state == VMXASSIST_ON) {
             PrintDebug("Loading VMXASSIST at RIP: %p\n", (void *)(addr_t)info->rip);
         } else {
             PrintDebug("Leaving VMXASSIST and entering protected mode at RIP: %p\n",
@@ -202,20 +203,33 @@ static int handle_mov_to_cr0(struct guest_info * info, v3_reg_t * new_cr0, struc
 	if (new_shdw_cr0->pg != shdw_cr0->pg) {
 	    paging_transition = 1;
 	}
-	
-	// The shadow always reflects the new value
-	*shdw_cr0 = *new_shdw_cr0;
-	
-	// We don't care about most of the flags, so lets go for it 
-	// and set them to the guest values
-	*guest_cr0 = *shdw_cr0;
+
 	
 	// Except PG, PE, and NE, which are always set
-	guest_cr0->pe = 1;
-	guest_cr0->pg = 1;
-	guest_cr0->ne = 1;
+	if ((info->shdw_pg_mode == SHADOW_PAGING) ||  
+	    (v3_mach_type != V3_VMX_EPT_UG_CPU)) {
+	    
+	    // The shadow always reflects the new value
+	    *shdw_cr0 = *new_shdw_cr0;
+	    
+
+	    // We don't care about most of the flags, so lets go for it 
+	    // and set them to the guest values
+	    *guest_cr0 = *shdw_cr0;
 	
-	if ((paging_transition)) {
+	    guest_cr0->pe = 1;
+	    guest_cr0->pg = 1;
+	    guest_cr0->ne = 1;
+	} else {
+	    // Unrestricted guest 
+	    *(uint32_t *)shdw_cr0 = (0x00000020 & *(uint32_t *)new_shdw_cr0);
+
+	    *guest_cr0 = *new_shdw_cr0;
+	    guest_cr0->ne = 1;
+	}
+
+	
+	if (paging_transition) {
 	    // Paging transition
 	    
 	    if (v3_get_vm_mem_mode(info) == VIRTUAL_MEM) {
