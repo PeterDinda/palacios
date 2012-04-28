@@ -831,7 +831,7 @@ static void render_text(struct vga_internal *vga, void *fb)
     rtw = tw < fw/cw ? tw : fw/cw;
     rth = th < fh/ch ? th : fh/ch;
 
-    
+    PrintDebug("\n");
 
     // Now let's scan by char across the whole thing
     for (y=0;y<th;y++) { 
@@ -841,6 +841,8 @@ static void render_text(struct vga_internal *vga, void *fb)
 		ct = *text; 
 		ca = *attr;  
 		a.val = ca;
+
+		PrintDebug("%c",ct);
 
 		// find the character's font bitmap (one byte per row)
 		find_text_font_start(vga,(void**)&font,
@@ -1134,10 +1136,11 @@ static uint64_t find_offset_write(struct vga_internal *vga, addr_t guest_addr)
     size=(mem_end-mem_start > 65536 ? 65536 : (mem_end-mem_start)); 
 
     if (vga->vga_sequencer.vga_mem_mode.odd_even) { 
-	return (guest_addr-mem_start) % size;
+      // NOT odd/even mode
+      return (guest_addr-mem_start) % size;
     } else {
 	// odd/even mode
-	return ((guest_addr-mem_start) >> 1 ) % size;
+      return ((guest_addr-mem_start) >> 1 ) % size;
     }
 }
 
@@ -1154,23 +1157,26 @@ static uint8_t find_map_write(struct vga_internal *vga, addr_t guest_addr)
     uint8_t mm = vga->vga_sequencer.vga_map_mask.val;
 
     if (vga->vga_sequencer.vga_mem_mode.odd_even) { 
-	return mm;
+      // NOT odd/even mode
+      return mm;
     } else {
-	if (guest_addr & 0x1) { 
-	    return mm & 0xa;  // 0x1010
-	} else {
-	    return mm & 0x5;  // 0x0101
-	}
+      // odd/even mode
+      if (guest_addr & 0x1) { 
+	return mm & 0xa;  // 0x1010
+      } else {
+	return mm & 0x5;  // 0x0101
+      }
     }
 }
 
 static uint8_t find_increment_write(struct vga_internal *vga, addr_t new_guest_addr)
 {
-    if (vga->vga_sequencer.vga_mem_mode.odd_even) { 
-	return 1;
-    } else {
-	return !(new_guest_addr & 0x1);
-    }
+  if (vga->vga_sequencer.vga_mem_mode.odd_even) { 
+    // NOT odd/even mode
+    return 1;
+  } else {
+    return !(new_guest_addr & 0x1);
+  }
 }
 
 
@@ -1184,7 +1190,8 @@ static int vga_write(struct guest_info * core,
     struct vm_device *dev = (struct vm_device *)priv_data;
     struct vga_internal *vga = (struct vga_internal *) dev->private_data;
 
-    PrintDebug("vga: memory write: guest_addr=0x%p len=%u\n",(void*)guest_addr, length);
+    PrintDebug("vga: memory write: guest_addr=0x%p len=%u write_mode=%d\n",(void*)guest_addr, length,
+	       vga->vga_graphics_controller.vga_graphics_mode.write_mode);
 
     if (vga->passthrough) { 
 	PrintDebug("vga: passthrough write to 0x%p\n", V3_VAddr((void*)guest_addr));
@@ -1499,22 +1506,61 @@ static uint64_t find_offset_read(struct vga_internal *vga, addr_t guest_addr)
     
     size=(mem_end-mem_start > 65536 ? 65536 : (mem_end-mem_start)); 
 
-    if (!vga->vga_sequencer.vga_mem_mode.chain4) { 
-	return (guest_addr-mem_start) % size;
-    } else {
-	// chain4 mode
-	return ((guest_addr - mem_start) >> 2) % size;
+    if (!vga->vga_sequencer.vga_mem_mode.odd_even) { 
+      // odd/even mode takes priority
+      return ((guest_addr-mem_start) >> 1 ) % size;
+    } 
+
+    if (vga->vga_sequencer.vga_mem_mode.chain4) {
+      // otherwise chain4 if it's on
+      return ((guest_addr - mem_start) >> 2) % size;
     }
+
+    // and what you would expect if neither are on
+    return (guest_addr-mem_start) % size;
+}
+
+// Given this address
+// which specific map should we write into?
+// Note that unlike with find_map_write, here we are looking
+// for a single map number, not a bit vector of maps to be selected
+static uint8_t find_map_read(struct vga_internal *vga, addr_t guest_addr)
+{
+    uint64_t mem_start, mem_end;
+    
+    mem_start=mem_end=0;
+    
+    get_mem_region(vga, &mem_start, &mem_end);
+    
+    if (!vga->vga_sequencer.vga_mem_mode.odd_even) { 
+      // odd-even mode
+      // last bit tells us map 0 or 1
+      return (guest_addr-mem_start) & 0x1; 
+    } 
+
+    if (vga->vga_sequencer.vga_mem_mode.chain4) {
+      // otherwise chain4 if it's on
+      // last two bits
+      return (guest_addr - mem_start) & 0x3;
+    }
+
+    // and what you would expect if neither are on
+    // note that it's not the same as a write!
+    return vga->vga_graphics_controller.vga_read_map_select.map_select;
 }
 
 static uint8_t find_increment_read(struct vga_internal *vga, addr_t new_guest_addr)
 {
 
-    if (vga->vga_sequencer.vga_mem_mode.chain4) { 
-	return !(new_guest_addr & 0x3);
-    } else {
-	return 1;
-    }
+  if (!vga->vga_sequencer.vga_mem_mode.odd_even) { 
+    // odd-even mode
+    return !(new_guest_addr & 0x1); 
+  } 
+
+  if (vga->vga_sequencer.vga_mem_mode.chain4) { 
+    return !(new_guest_addr & 0x3);
+  } 
+  return 1;
 }
 
 
@@ -1528,7 +1574,8 @@ static int vga_read(struct guest_info * core,
     struct vga_internal *vga = (struct vga_internal *) dev->private_data;
     
 
-    PrintDebug("vga: memory read: guest_addr=0x%p len=%u\n",(void*)guest_addr, length);
+    PrintDebug("vga: memory read: guest_addr=0x%p len=%u read_mode=%d\n",(void*)guest_addr, length,
+	       vga->vga_graphics_controller.vga_graphics_mode.read_mode);
 
         
    
@@ -1538,46 +1585,29 @@ static int vga_read(struct guest_info * core,
     switch (vga->vga_graphics_controller.vga_graphics_mode.read_mode) { 
 	case 0: {
 	    /*      0 - a byte from ONE of the 4 planes is returned; 
-		    which plane is determined by Read Map Select (Read Map Select Register (Index 04h)) */
+		    which plane is determined by Read Map Select (Read Map Select Register (Index 04h))
+	            OR by odd/even chaining OR by chain4 chaining
+	    */
 	    uint8_t  mapnum;
 	    uint64_t offset;
+	    uint32_t i;
 
-
-	    if (vga->vga_sequencer.vga_mem_mode.chain4) { 
-		uint32_t i;
-		offset = find_offset_read(vga,guest_addr);
-		// address bytes select the map
-		for (i=0;i<length;i++,offset+=find_increment_read(vga,guest_addr+i)) { 
-		    mapnum = (guest_addr+i) % 4;
+	    offset = find_offset_read(vga,guest_addr);
+	    
 #if DEBUG_DEEP_MEM
-		    PrintDebug("vga: mode 0 read, chain4, offset=0x%llx, mapnum=%u\n",offset,mapnum);
+	    PrintDebug("vga: mode 0 read, offset=0x%llx\n",offset);
 #endif
-		    ((uint8_t*)dst)[i] = *(vga->map[mapnum]+offset);
+	    for (i=0;i<length;i++,offset+=find_increment_read(vga,guest_addr+i)) { 
 
-		    // presumably all the latches are to be reloaded, not just the selected one?
-		    for (mapnum=0;mapnum<4;mapnum++) { 
-			vga->latch[mapnum] = *(vga->map[mapnum]+offset);
-		    }
-		}
-	    } else {
-		mapnum = vga->vga_graphics_controller.vga_read_map_select.map_select;
-		offset = find_offset_read(vga,guest_addr);
-		
-		if (offset>=65536) { 
-		    PrintError("vga: read to offset=%llu map=%u (%u bytes)\n",offset,mapnum,length);
-		}
-		
-#if DEBUG_DEEP_MEM
-		PrintDebug("vga: mode 0 read, not-chain4, offset=0x%llx, mapnum=%u\n",offset,mapnum);
-#endif
+	      mapnum = find_map_read(vga,guest_addr+i);
 
-		memcpy(dst,(vga->map[mapnum])+offset,length);
-		
-		// load the latches with the last item read
-		for (mapnum=0;mapnum<4;mapnum++) { 
-		    vga->latch[mapnum] = vga->map[mapnum][offset+length-1];
-		}
+	      ((uint8_t*)dst)[i] = *(vga->map[mapnum]+offset);
+	      
+	      vga->latch[mapnum] = *(vga->map[mapnum]+offset);
+
+
 	    }
+
 	
 	}
 	    break;
@@ -2645,9 +2675,10 @@ static int dac_pixel_mask_write(struct guest_info *core,
 
 static int init_vga(struct vga_internal *vga)
 {
-    // TODO: startup spec of register contents, if any
-    PrintError("vga: init_vga is UNIMPLEMTED\n");
-    return 0;
+  // TODO: startup spec of register contents, if any
+  vga->vga_misc.vga_input_stat1.val = 0x1;  // display enable, not in retrace
+
+  return 0;
 }
 
 static int free_vga(struct vga_internal *vga) 
