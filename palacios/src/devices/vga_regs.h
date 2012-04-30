@@ -199,6 +199,7 @@ struct vga_mem_mode_reg {
 	    uint8_t extended_memory:1; // 1=>256K RAM, 0=>64K
 	    uint8_t odd_even:1;
                 // 0 => even addresses go to BOTH banks 0 and 2, odd 1 and 3
+	        //      or flip between 0/1 for CGA compat
                 // 1 => address bank sequentially, map mask selects bank
 	    uint8_t chain4:1;  
                 // 0 => map mask register used to select bank
@@ -630,6 +631,8 @@ page 2-88).
 	    // 0 = read gets bits from selected map
 	    uint8_t odd_even:1;
 	    // 1 = odd/even addressing as in CGMA
+	    // 0 = NOT odd/even
+	    // notice that this is the OPPOSITE of the bit in the sequencer!
 	    uint8_t shift_reg_mode:1;
 	    // 1 = shift regs get odd bits from odd maps and even/even
 	    uint8_t c256:1;         	    // 1 = 256 color mode
