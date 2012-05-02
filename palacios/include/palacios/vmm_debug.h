@@ -29,7 +29,6 @@
 
 int v3_init_vm_debugging(struct v3_vm_info * vm);
 
-
 void v3_print_guest_state(struct guest_info * core);
 void v3_print_arch_state(struct guest_info * core);
 

@@ -24,6 +24,7 @@
 #include <palacios/vm_guest.h>
 #include <palacios/vmm_decoder.h>
 #include <palacios/vm_guest_mem.h>
+#include <palacios/vmm_config.h>
 
 #define PRINT_TELEMETRY  1
 #define PRINT_CORE_STATE 2
@@ -323,15 +324,19 @@ void v3_print_backtrace(struct guest_info * core) {
     addr_t gla_rbp = 0;
     int i = 0;
     v3_cpu_mode_t cpu_mode = v3_get_vm_cpu_mode(core);
+    struct v3_cfg_file * system_map = v3_cfg_get_file(core->vm_info, "System.map");
 
     V3_Print("Performing Backtrace for Core %d\n", core->vcpu_id);
     V3_Print("\tRSP=%p, RBP=%p\n", (void *)core->vm_regs.rsp, (void *)core->vm_regs.rbp);
 
     gla_rbp = get_addr_linear(core, core->vm_regs.rbp, &(core->segments.ss));
 
-    for (i = 0; i < 10; i++) {
+
+    for (i = 0; i < 30; i++) {
 	addr_t hva_rbp = 0; 
 	addr_t hva_rip = 0; 
+	char * sym_name = NULL;
+	addr_t rip_val = 0;
 
 	if (core->mem_mode == PHYSICAL_MEM) {
 	    if (v3_gpa_to_hva(core, gla_rbp, &hva_rbp) == -1) {
@@ -345,19 +350,74 @@ void v3_print_backtrace(struct guest_info * core) {
 	    }
 	}
 
-	hva_rip = hva_rbp + v3_get_addr_width(core);
 
+	hva_rip = hva_rbp + v3_get_addr_width(core);
 	
 	if (cpu_mode == REAL) {
-	    V3_Print("Next RBP=0x%.4x, RIP=0x%.4x\n", *(uint16_t *)hva_rbp,*(uint16_t *)hva_rip);
+	    rip_val = (addr_t)*(uint16_t *)hva_rip;
+	} else if (cpu_mode == LONG) {
+	    rip_val = (addr_t)*(uint64_t *)hva_rip;
+	} else {
+	    rip_val = (addr_t)*(uint32_t *)hva_rip;
+	}
+
+	if (system_map) {
+	    char * tmp_ptr = system_map->data;
+	    char * sym_ptr = NULL;
+	    uint64_t file_offset = 0; 
+	    uint64_t sym_offset = 0;
+
+	    while (file_offset < system_map->size) {
+		sym_offset = strtox(tmp_ptr, &tmp_ptr);
+
+		tmp_ptr += 3; // pass over symbol type
+
+		if (sym_offset > rip_val) {
+		    char * end_ptr = strchr(sym_ptr, '\n');
+
+		    if (end_ptr) {
+			*end_ptr = 0; // null terminate symbol...
+		    }
+
+		    sym_name = sym_ptr;
+		    break;
+		}
+
+		sym_ptr = tmp_ptr;
+		{ 
+		    char * end_ptr2 = strchr(tmp_ptr, '\n');
+
+		    if (!end_ptr2) {
+			tmp_ptr += strlen(tmp_ptr) + 1;
+		    } else {
+			tmp_ptr = end_ptr2 + 1;
+		    }
+		}
+	    }
+	}
+
+	if (!sym_name) {
+	    sym_name = "?";
+	}
+
+	if (cpu_mode == REAL) {
+	    V3_Print("Next RBP=0x%.4x, RIP=0x%.4x (%s)\n", 
+		     *(uint16_t *)hva_rbp,*(uint16_t *)hva_rip, 
+		     sym_name);
+	    
 	    gla_rbp = *(uint16_t *)hva_rbp;
 	} else if (cpu_mode == LONG) {
-	    V3_Print("Next RBP=%p, RIP=%p\n", (void *)*(uint64_t *)hva_rbp, (void *)*(uint64_t *)hva_rip);
+	    V3_Print("Next RBP=%p, RIP=%p (%s)\n", 
+		     (void *)*(uint64_t *)hva_rbp, (void *)*(uint64_t *)hva_rip,
+		     sym_name);
 	    gla_rbp = *(uint64_t *)hva_rbp;
 	} else {
-	    V3_Print("Next RBP=0x%.8x, RIP=0x%.8x\n", *(uint32_t *)hva_rbp, *(uint32_t *)hva_rip);
+	    V3_Print("Next RBP=0x%.8x, RIP=0x%.8x (%s)\n", 
+		     *(uint32_t *)hva_rbp, *(uint32_t *)hva_rip,
+		     sym_name);
 	    gla_rbp = *(uint32_t *)hva_rbp;
 	}
+
     }
 }
 
