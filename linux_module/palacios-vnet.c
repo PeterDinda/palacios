@@ -10,7 +10,6 @@
 #include <linux/sched.h>
 #include <linux/uaccess.h>
 #include <linux/init.h>
-#include <linux/smp_lock.h>
 #include <asm/delay.h>
 #include <linux/timer.h>
 

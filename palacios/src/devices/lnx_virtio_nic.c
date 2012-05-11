@@ -286,6 +286,7 @@ static int handle_pkt_tx(struct guest_info * core,
 	if(q->cur_avail_idx == q->avail->index ||
 	    (quote > 0 && txed >= quote)) {
 	    left = (q->cur_avail_idx != q->avail->index);
+	    v3_unlock_irqrestore(virtio_state->tx_lock, flags);
 	    break;
 	}
 	
@@ -320,8 +321,6 @@ static int handle_pkt_tx(struct guest_info * core,
 	
 	q->used->ring[q->used->index % q->queue_size].id = 
 	    q->avail->ring[tmp_idx % q->queue_size];
-	
-	//q->used->ring[q->used->index % q->queue_size].length = buf_desc->length; /* What do we set this to???? */
 	
 	q->used->index ++;
 	
