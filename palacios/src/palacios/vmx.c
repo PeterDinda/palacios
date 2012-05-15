@@ -886,7 +886,11 @@ v3_vmx_config_tsc_virtualization(struct guest_info * info) {
 	    check_vmcs_write(VMCS_PROC_CTRLS, vmx_info->pri_proc_ctrls.value);
 	}
 
-        tsc_offset = v3_tsc_host_offset(&info->time_state);
+	if (info->time_state.flags & VM_TIME_TSC_PASSTHROUGH) {
+	    tsc_offset = 0;
+	} else {
+            tsc_offset = v3_tsc_host_offset(&info->time_state);
+	}
         tsc_offset_high = (uint32_t)(( tsc_offset >> 32) & 0xffffffff);
         tsc_offset_low = (uint32_t)(tsc_offset & 0xffffffff);
 

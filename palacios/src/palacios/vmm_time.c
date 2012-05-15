@@ -314,7 +314,7 @@ static int tsc_msr_write_hook(struct guest_info *info, uint_t msr_num,
 
 static int
 handle_time_configuration(struct v3_vm_info * vm, v3_cfg_tree_t *cfg) {
-    char *source, *dilation;
+    char *source, *dilation, *tsc;
 
     vm->time_state.flags = V3_TIME_SLAVE_HOST;
     vm->time_state.td_num = vm->time_state.td_denom = 1;
@@ -329,6 +329,19 @@ handle_time_configuration(struct v3_vm_info * vm, v3_cfg_tree_t *cfg) {
 	    PrintError("Unknown time source for VM core time management.\n");
 	} else {
 	    PrintDebug("VM time slaved to host TSC.\n");
+	}
+    }
+
+    // Should we make a separate TSC device that handles this sort of thing?
+    tsc = v3_cfg_val(cfg, "tsc");
+    if (tsc) {
+	if (strcasecmp(tsc, "host") == 0) {
+	    if (!(vm->time_state.flags & V3_TIME_SLAVE_HOST)) {
+		PrintError("WARNING: Guest TSC set to passthrough host TSC, but guest time not slaved to host time.");
+	    }
+	    vm->time_state.flags |= V3_TIME_TSC_PASSTHROUGH;
+	} else if (strcasecmp(source, "guest") != 0) {
+	    PrintError("ERROR: Unknown TSC configuration in time configuration.\n");
 	}
     }
 
@@ -450,10 +463,18 @@ void v3_init_time_core(struct guest_info * info) {
     if (info->vm_info->time_state.flags & V3_TIME_SLAVE_HOST) {
 	time_state->flags |= VM_TIME_SLAVE_HOST;
     }
+    if (info->vm_info->time_state.flags & V3_TIME_TSC_PASSTHROUGH) {
+	time_state->flags |= VM_TIME_TSC_PASSTHROUGH;
+    }
+
     if ((time_state->clock_ratio_denom != 1) ||
 	(time_state->clock_ratio_num != 1) ||
 	(info->vm_info->time_state.td_num != 1) || 
 	(info->vm_info->time_state.td_denom != 1)) { 
+	if (time_state->flags | VM_TIME_TSC_PASSTHROUGH) {
+	    PrintError("WARNING: Cannot use reqested passthrough TSC with clock or time modification also requested.\n");
+	    time_state->flags &= ~VM_TIME_TSC_PASSTHROUGH;
+	}
 	time_state->flags |= VM_TIME_TRAP_RDTSC;
     }
 
@@ -466,9 +487,11 @@ void v3_init_time_core(struct guest_info * info) {
 	       info->vm_info->time_state.td_denom, 
 	       time_state->clock_ratio_num, time_state->clock_ratio_denom,
 	       time_state->ipc_ratio_num, time_state->ipc_ratio_denom);
-    PrintDebug("    source = %s, rdtsc trapping = %s\n", 
+    PrintDebug("    time source = %s, tsc handling =  %s\n", 
 	       (time_state->flags & VM_TIME_SLAVE_HOST) ? "host" : "none",
-	       (time_state->flags & VM_TIME_TRAP_RDTSC) ? "true" : "false");
+	       (time_state->flags & VM_TIME_TSC_PASSTHROUGH) ? "passthrough" 
+	           : (time_state->flags & VM_TIME_TRAP_RDTSC) ? "trapping" 
+		       : "offsettting");
 
     time_state->guest_cycles = 0;
     time_state->tsc_guest_offset = 0;

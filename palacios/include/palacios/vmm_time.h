@@ -37,7 +37,8 @@ struct v3_time {
     int flags;
     uint32_t td_num, td_denom; 
 };
-#define V3_TIME_SLAVE_HOST (1 << 1)
+#define V3_TIME_SLAVE_HOST (1 << 0)
+#define V3_TIME_TSC_PASSTHROUGH (1 << 1)
 
 /* Per-core time information */
 struct vm_core_time {
@@ -65,8 +66,9 @@ struct vm_core_time {
 
 };
 
-#define VM_TIME_TRAP_RDTSC (1 << 0)
-#define VM_TIME_SLAVE_HOST (1 << 1)
+#define VM_TIME_SLAVE_HOST (1 << 0)
+#define VM_TIME_TSC_PASSTHROUGH (1 << 1)
+#define VM_TIME_TRAP_RDTSC (1 << 2)
 
 struct v3_timer_ops {
     void (*update_timer)(struct guest_info * info, ullong_t cpu_cycles, ullong_t cpu_freq, void * priv_data);
@@ -120,7 +122,7 @@ static inline uint64_t v3_get_guest_tsc(struct vm_core_time *t) {
 // Returns offset of guest TSC from host TSC
 static inline sint64_t v3_tsc_host_offset(struct vm_core_time *time_state) {
     uint64_t host_time = v3_get_host_time(time_state);
-    return ((sint64_t)time_state->guest_cycles - (sint64_t)host_time) + time_state->tsc_guest_offset;
+    return (sint64_t)v3_get_guest_tsc(time_state) - (sint64_t)host_time;
 }
 
 // Functions for handling exits on the TSC when fully virtualizing 

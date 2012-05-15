@@ -529,7 +529,11 @@ v3_svm_config_tsc_virtualization(struct guest_info * info) {
     } else {
 	ctrl_area->instrs.RDTSC = 0;
 	ctrl_area->svm_instrs.RDTSCP = 0;
-        ctrl_area->TSC_OFFSET = v3_tsc_host_offset(&info->time_state);
+	if (info->time_state.flags & VM_TIME_TSC_PASSTHROUGH) {
+        	ctrl_area->TSC_OFFSET = 0;
+	} else {
+        	ctrl_area->TSC_OFFSET = v3_tsc_host_offset(&info->time_state);
+	}
     }
     return 0;
 }
