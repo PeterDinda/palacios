@@ -150,7 +150,17 @@ int v3_save_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
     dev_mgr_ctx = v3_chkpt_open_ctx(chkpt, NULL, "devices");
 
     list_for_each_entry(dev, &(mgr->dev_list), dev_link) {
+        if (dev->ops->save) {
+            strncpy(name_table + tbl_offset, dev->name, 32);
+            tbl_offset += 32;
+            num_saved_devs++;
+        }         
+    }
 
+    v3_chkpt_save(dev_mgr_ctx, "num_devs", 4, &num_saved_devs); 
+    v3_chkpt_save(dev_mgr_ctx, "names", table_len, name_table);
+
+  list_for_each_entry(dev, &(mgr->dev_list), dev_link) {
 	if (dev->ops->save) {
 	    struct v3_chkpt_ctx * dev_ctx = NULL;
 	    
@@ -163,10 +173,6 @@ int v3_save_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 	    v3_chkpt_close_ctx(dev_ctx);
 
 	    // Error checking?? 
-
-	    strncpy(name_table + tbl_offset, dev->name, 32);
-	    tbl_offset += 32;
-	    num_saved_devs++;
 	} else {
 	    PrintError("Error: %s save() not implemented\n",  dev->name);
 	}
@@ -174,8 +180,6 @@ int v3_save_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 
     
     // Specify which devices were saved
-    v3_chkpt_save(dev_mgr_ctx, "num_devs", 4, &num_saved_devs); 
-    v3_chkpt_save(dev_mgr_ctx, "names", table_len, name_table);
     V3_Free(name_table);
 
     v3_chkpt_close_ctx(dev_mgr_ctx);
