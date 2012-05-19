@@ -158,15 +158,19 @@ int v3_save_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
     }
 
     v3_chkpt_save(dev_mgr_ctx, "num_devs", 4, &num_saved_devs); 
-    v3_chkpt_save(dev_mgr_ctx, "names", table_len, name_table);
+    v3_chkpt_save(dev_mgr_ctx, "names", num_saved_devs*32, name_table);
+    
+    v3_chkpt_close_ctx(dev_mgr_ctx);
 
-  list_for_each_entry(dev, &(mgr->dev_list), dev_link) {
+    V3_Free(name_table);
+
+    list_for_each_entry(dev, &(mgr->dev_list), dev_link) {
 	if (dev->ops->save) {
 	    struct v3_chkpt_ctx * dev_ctx = NULL;
 	    
 	    V3_Print("Saving state for device (%s)\n", dev->name);
 	    
-	    dev_ctx = v3_chkpt_open_ctx(chkpt, dev_mgr_ctx, dev->name);
+	    dev_ctx = v3_chkpt_open_ctx(chkpt, NULL, dev->name);
 
 	    dev->ops->save(dev_ctx, dev->private_data);
 
@@ -178,12 +182,6 @@ int v3_save_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 	}
     }
 
-    
-    // Specify which devices were saved
-    V3_Free(name_table);
-
-    v3_chkpt_close_ctx(dev_mgr_ctx);
-    
     return 0;
 }
 
@@ -205,6 +203,8 @@ int v3_load_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 
     v3_chkpt_load(dev_mgr_ctx, "names", 32 * num_devs, name_table);
 
+    v3_chkpt_close_ctx(dev_mgr_ctx);
+
     for (i = 0; i < num_devs; i++) {
 	char * name = &(name_table[i * 32]);
 	struct v3_chkpt_ctx * dev_ctx = NULL;
@@ -220,7 +220,7 @@ int v3_load_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 	    continue;
 	}
 
-	dev_ctx = v3_chkpt_open_ctx(chkpt, dev_mgr_ctx, name);
+	dev_ctx = v3_chkpt_open_ctx(chkpt, NULL, name);
 
 	if (!dev_ctx) {
 	    PrintError("Error missing device context (%s)\n", name);
@@ -229,7 +229,11 @@ int v3_load_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 
 
 	dev->ops->load(dev_ctx, dev->private_data);
+
+        v3_chkpt_close_ctx(dev_ctx);
     }
+
+    V3_Free(name_table);
 
     return 0;
 }
