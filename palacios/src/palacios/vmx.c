@@ -640,9 +640,11 @@ int v3_deinit_vmx_vmcs(struct guest_info * core) {
  * JRL: This is broken
  */
 int v3_vmx_save_core(struct guest_info * core, void * ctx){
-    uint64_t vmcs_ptr = vmcs_store();
+    struct vmx_data * vmx_info = (struct vmx_data *)(core->vmm_data);
 
-    v3_chkpt_save(ctx, "vmcs_data", PAGE_SIZE, (void *)vmcs_ptr);
+    // note that the vmcs pointer is an HPA, but we need an HVA
+    v3_chkpt_save(ctx, "vmcs_data", PAGE_SIZE_4KB, V3_VAddr((void*)
+							    (vmx_info->vmcs_ptr_phys)));
 
     return 0;
 }
@@ -650,12 +652,18 @@ int v3_vmx_save_core(struct guest_info * core, void * ctx){
 int v3_vmx_load_core(struct guest_info * core, void * ctx){
     struct vmx_data * vmx_info = (struct vmx_data *)(core->vmm_data);
     struct cr0_32 * shadow_cr0;
-    char vmcs[PAGE_SIZE_4KB];
+    addr_t vmcs_page_paddr;  //HPA
 
-    v3_chkpt_load(ctx, "vmcs_data", PAGE_SIZE_4KB, vmcs);
+    vmcs_page_paddr = (addr_t) V3_AllocPages(1);
+
+    v3_chkpt_load(ctx, "vmcs_data", PAGE_SIZE_4KB, V3_VAddr((void *)vmcs_page_paddr));
 
     vmcs_clear(vmx_info->vmcs_ptr_phys);
-    vmcs_load((addr_t)vmcs);
+
+    // Probably need to delete the old one... 
+    V3_FreePages((void*)(vmx_info->vmcs_ptr_phys),1);
+
+    vmcs_load(vmcs_page_paddr);
 
     v3_vmx_save_vmcs(core);
 
