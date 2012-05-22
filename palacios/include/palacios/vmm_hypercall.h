@@ -51,7 +51,8 @@ typedef enum {
     BALLOON_START_HCALL =  0xba00,         // RAX: size
     BALLOON_QUERY_HCALL =  0xba01,         // RCX: req_pgs(out), RDX: alloc_pgs(out)
     OS_DEBUG_HCALL =       0xc0c0,          // RBX: msg_gpa, RCX: msg_len, RDX: buf_is_va (flag)
-    TIME_CPUFREQ_HCALL   =  0xd000       //RCX: cpu freq (out)
+    TIME_CPUFREQ_HCALL  =  0xd000,       //RBX: cpu freq (out)
+    TIME_RDHTSC_HCALL   =  0xd001,       //RBX: cpu freq (out)
 } hcall_id_t;
 
 

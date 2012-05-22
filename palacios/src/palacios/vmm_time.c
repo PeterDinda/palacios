@@ -84,6 +84,16 @@ static int handle_cpufreq_hcall(struct guest_info * info, uint_t hcall_id, void 
     return 0;
 }
 
+static int handle_rdhtsc_hcall(struct guest_info * info, uint_t hcall_id, void * priv_data) {
+    struct vm_core_time * time_state = &(info->time_state);
+
+    info->vm_regs.rbx = v3_get_host_time(time_state);
+
+    // PrintDebug("Guest request host TSC: return %ld\n", (long)info->vm_regs.rbx);
+    
+    return 0;
+}
+
 
 
 int v3_start_time(struct guest_info * info) {
@@ -393,6 +403,9 @@ int v3_init_time_vm(struct v3_vm_info * vm) {
     PrintDebug("Registering TIME_CPUFREQ hypercall.\n");
     ret = v3_register_hypercall(vm, TIME_CPUFREQ_HCALL, 
 				handle_cpufreq_hcall, NULL);
+    PrintDebug("Registering TIME_RDHTSC hypercall.\n");
+    ret = v3_register_hypercall(vm, TIME_RDHTSC_HCALL, 
+				handle_rdhtsc_hcall, NULL);
 
     handle_time_configuration(vm, v3_cfg_subtree(cfg_tree, "time"));
 
