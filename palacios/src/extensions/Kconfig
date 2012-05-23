@@ -1,24 +1,5 @@
 menu "Extensions"
 
-config EXT_VTIME
-	bool "Enable Time virtualization"
-	default n
-	help
-	   Enables the timer virtualization extensions. These hide the cost of 
-	   running inside the VMM context.  This can aid the consistency of
-	    time between multiple timers, but can cause the guest to run 
-	    a good bit slower than the host in VM-intensive parts of the code.
- 
-
-config EXT_VTSC
-	bool "Fully virtualize guest TSC"
-	default n
-	depends on EXT_VTIME
-	help
-	    Virtualize the processor time stamp counter in the guest, 
-	    generally increasing consistency between various time sources 
-	    but also potentially making guest time run slower than real time.
-	 
 config EXT_MTRRS
 	bool "Support virtualized MTTRs"
 	default n

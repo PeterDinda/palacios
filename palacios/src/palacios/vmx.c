@@ -880,7 +880,7 @@ int
 v3_vmx_config_tsc_virtualization(struct guest_info * info) {
     struct vmx_data * vmx_info = (struct vmx_data *)(info->vmm_data);
 
-    if (info->time_state.time_flags & V3_TIME_TRAP_RDTSC) {
+    if (info->time_state.flags & VM_TIME_TRAP_RDTSC) {
 	if  (!vmx_info->pri_proc_ctrls.rdtsc_exit) {
 	    vmx_info->pri_proc_ctrls.rdtsc_exit = 1;
 	    check_vmcs_write(VMCS_PROC_CTRLS, vmx_info->pri_proc_ctrls.value);
@@ -894,7 +894,11 @@ v3_vmx_config_tsc_virtualization(struct guest_info * info) {
 	    check_vmcs_write(VMCS_PROC_CTRLS, vmx_info->pri_proc_ctrls.value);
 	}
 
-        tsc_offset = v3_tsc_host_offset(&info->time_state);
+	if (info->time_state.flags & VM_TIME_TSC_PASSTHROUGH) {
+	    tsc_offset = 0;
+	} else {
+            tsc_offset = v3_tsc_host_offset(&info->time_state);
+	}
         tsc_offset_high = (uint32_t)(( tsc_offset >> 32) & 0xffffffff);
         tsc_offset_low = (uint32_t)(tsc_offset & 0xffffffff);
 
@@ -921,15 +925,15 @@ int v3_vmx_enter(struct guest_info * info) {
     // Conditionally yield the CPU if the timeslice has expired
     v3_yield_cond(info);
 
-    // disable global interrupts for vm state transition
-    v3_disable_ints();
-
     // Update timer devices late after being in the VM so that as much 
     // of the time in the VM is accounted for as possible. Also do it before
     // updating IRQ entry state so that any interrupts the timers raise get 
-    // handled on the next VM entry. Must be done with interrupts disabled.
-    v3_advance_time(info);
+    // handled on the next VM entry.
+    v3_advance_time(info, NULL);
     v3_update_timers(info);
+
+    // disable global interrupts for vm state transition
+    v3_disable_ints();
 
     if (vmcs_store() != vmx_info->vmcs_ptr_phys) {
 	vmcs_clear(vmx_info->vmcs_ptr_phys);
@@ -955,11 +959,8 @@ int v3_vmx_enter(struct guest_info * info) {
     }
 
 
-    // Perform last-minute time bookkeeping prior to entering the VM
-    v3_time_enter_vm(info);
+    // Perform last-minute time setup prior to entering the VM
     v3_vmx_config_tsc_virtualization(info);
-
-    
 
     if (v3_update_vmcs_host_state(info)) {
 	v3_enable_ints();
@@ -1027,8 +1028,7 @@ int v3_vmx_enter(struct guest_info * info) {
     }
 
     // Immediate exit from VM time bookkeeping
-    v3_time_exit_vm(info, &guest_cycles);
-
+    v3_advance_time(info, &guest_cycles);
 
     /* Update guest state */
     v3_vmx_save_vmcs(info);
@@ -1081,6 +1081,8 @@ int v3_vmx_enter(struct guest_info * info) {
 
     // Conditionally yield the CPU if the timeslice has expired
     v3_yield_cond(info);
+    v3_advance_time(info, NULL);
+    v3_update_timers(info);
 
     if (v3_handle_vmx_exit(info, &exit_info) == -1) {
 	PrintError("Error in VMX exit handler (Exit reason=%x)\n", exit_info.exit_reason);

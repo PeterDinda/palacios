@@ -523,13 +523,17 @@ int
 v3_svm_config_tsc_virtualization(struct guest_info * info) {
     vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
 
-    if (info->time_state.time_flags & V3_TIME_TRAP_RDTSC) {
+    if (info->time_state.flags & VM_TIME_TRAP_RDTSC) {
 	ctrl_area->instrs.RDTSC = 1;
 	ctrl_area->svm_instrs.RDTSCP = 1;
     } else {
 	ctrl_area->instrs.RDTSC = 0;
 	ctrl_area->svm_instrs.RDTSCP = 0;
-        ctrl_area->TSC_OFFSET = v3_tsc_host_offset(&info->time_state);
+	if (info->time_state.flags & VM_TIME_TSC_PASSTHROUGH) {
+        	ctrl_area->TSC_OFFSET = 0;
+	} else {
+        	ctrl_area->TSC_OFFSET = v3_tsc_host_offset(&info->time_state);
+	}
     }
     return 0;
 }
@@ -551,14 +555,14 @@ int v3_svm_enter(struct guest_info * info) {
     // Conditionally yield the CPU if the timeslice has expired
     v3_yield_cond(info);
 
+    // Update timer devices after being in the VM before doing 
+    // IRQ updates, so that any interrupts they raise get seen 
+    // immediately.
+    v3_advance_time(info, NULL);
+    v3_update_timers(info);
+
     // disable global interrupts for vm state transition
     v3_clgi();
-
-    // Update timer devices after being in the VM, with interupts
-    // disabled, but before doing IRQ updates, so that any interrupts they 
-    //raise get seen immediately.
-    v3_advance_time(info);
-    v3_update_timers(info);
 
     // Synchronize the guest state to the VMCB
     guest_state->cr0 = info->ctrl_regs.cr0;
@@ -610,7 +614,6 @@ int v3_svm_enter(struct guest_info * info) {
     }
 #endif
 
-    v3_time_enter_vm(info);
     v3_svm_config_tsc_virtualization(info);
 
     //V3_Print("Calling v3_svm_launch\n");
@@ -632,8 +635,7 @@ int v3_svm_enter(struct guest_info * info) {
 
     v3_last_exit = (uint32_t)(guest_ctrl->exit_code);
 
-    // Immediate exit from VM time bookkeeping
-    v3_time_exit_vm(info, &guest_cycles);
+    v3_advance_time(info, &guest_cycles);
 
     info->num_exits++;
 
@@ -683,6 +685,11 @@ int v3_svm_enter(struct guest_info * info) {
  
     // Conditionally yield the CPU if the timeslice has expired
     v3_yield_cond(info);
+
+    // This update timers is for time-dependent handlers
+    // if we're slaved to host time
+    v3_advance_time(info, NULL);
+    v3_update_timers(info);
 
     {
 	int ret = v3_handle_svm_exit(info, exit_code, exit_info1, exit_info2);
