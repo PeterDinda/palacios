@@ -246,7 +246,7 @@ static void print_telemetry_start(struct v3_vm_info *vm, char *hdr_buf)
     struct v3_telemetry_state * telemetry = &(vm->telemetry);
     uint64_t invoke_tsc = 0;
     rdtscll(invoke_tsc);
-    V3_Print("%stelemetry window tsc cnt: %d\n", hdr_buf, (uint32_t)(invoke_tsc - telemetry->prev_tsc));
+    V3_Print("%stelemetry window tsc cnt: %u\n", hdr_buf, (uint32_t)(invoke_tsc - telemetry->prev_tsc));
     telemetry->prev_tsc = invoke_tsc;
 }
 
