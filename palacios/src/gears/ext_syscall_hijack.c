@@ -113,11 +113,6 @@ int v3_syscall_handler (struct guest_info * core, uint8_t vector, void * priv_da
         core->rip = syscall_info.target_addr;
 #endif
 
-#ifdef V3_CONFIG_EXT_SELECTIVE_SYSCALL_EXIT
-    PrintDebug("In v3_syscall_handler: syscall_nr - %d\n", syscall_nr);
-#endif
-
-
     if (hook == NULL) {
 #ifdef V3_CONFIG_EXT_SYSCALL_PASSTHROUGH
         if (v3_hook_passthrough_syscall(core, syscall_nr) == -1) {
@@ -199,19 +194,36 @@ static int v3_handle_lstar_read (struct guest_info * core, uint_t msr, struct v3
 
 
 static int syscall_setup (struct guest_info * core, unsigned int hcall_id, void * priv_data) {
-	addr_t syscall_stub, syscall_map, ssa;
+	addr_t syscall_stub, syscall_map_gva, syscall_map_hva, ssa_gva, ssa_hva;
 
 	syscall_stub = (addr_t)core->vm_regs.rbx;
-	syscall_map = (addr_t)core->vm_regs.rcx;
-	ssa = (addr_t)core->vm_regs.rdx;
+	syscall_map_gva = (addr_t)core->vm_regs.rcx;
+	ssa_gva = (addr_t)core->vm_regs.rdx;
 
-	PrintDebug("made it to syscall setup hypercall\n");
-	PrintDebug("\t&syscall_stub (rbx): %p\n\t&syscall_map (rcx): %p\n", (void*)syscall_stub, (void*)syscall_map);
-	PrintDebug("\t&ssa (rdx): %p\n", (void*)ssa);
+	PrintDebug("syscall setup hypercall:\n");
+	PrintDebug("\t&syscall_stub (rbx): %p\n\t&syscall_map (rcx): %p\n", (void*)syscall_stub, (void*)syscall_map_gva);
+	PrintDebug("\t&ssa (rdx): %p\n", (void*)ssa_gva);
 
+	// the guest vitual address of the asm syscall handling routine
 	syscall_info.syscall_stub = syscall_stub;
-	syscall_info.syscall_map = (uint8_t*)syscall_map;
-	syscall_info.ssa = ssa;
+
+	
+	// now get the hva of the system call map so we can manipulate it in the VMM
+	if (v3_gva_to_hva(core, get_addr_linear(core, syscall_map_gva, &(core->segments.ds)), &syscall_map_hva) == 1) {
+		PrintError("Problem translating gva to hva for syscall map\n");
+		return -1;
+	}
+	
+	if (v3_gva_to_hva(core, get_addr_linear(core, ssa_gva, &(core->segments.ds)), &ssa_hva) == 1) {
+		PrintError("Problem translating gva to hva for syscall map\n");
+		return -1;
+	}
+	
+	PrintDebug("\t&syscall_map (hva): %p\n", (void*) syscall_map_hva);
+	PrintDebug("\t&ssa (hva): %p\n", (void*) ssa_hva);
+
+	syscall_info.syscall_map = (uint8_t*)syscall_map_hva;
+	syscall_info.ssa = ssa_hva;
 
 	/* return the original syscall entry point */
 	core->vm_regs.rax = syscall_info.target_addr;
@@ -231,40 +243,53 @@ static int syscall_cleanup (struct guest_info * core, unsigned int hcall_id, voi
 
 
 static int sel_syscall_handle (struct guest_info * core, unsigned int hcall_id, void * priv_data) {
-	int ret;
-	addr_t hva;
 	struct v3_gprs regs;
 	
-	PrintDebug("caught a selectively exited syscall!\n");
-	ret = v3_gva_to_hva(core, get_addr_linear(core, syscall_info.ssa, &(core->segments.ds)), &hva);
-	if (ret == -1) {
-		PrintError("Problem translating state save area address in sel_syscall_handle\n");
-		return -1;
-	}
+	PrintDebug("caught a selectively exited syscall\n");
 	
     /* setup registers for handler routines. They should be in the same state
      * as when the system call was originally invoked */
 	memcpy((void*)&regs, (void*)&core->vm_regs, sizeof(struct v3_gprs));
-	memcpy((void*)&core->vm_regs, (void*)hva, sizeof(struct v3_gprs));
+	memcpy((void*)&core->vm_regs, (void*)syscall_info.ssa, sizeof(struct v3_gprs));
 	
-	v3_print_guest_state(core);
-
-	// TODO: call syscall-independent handler
+	//v3_print_guest_state(core);
+	v3_syscall_handler(core, 0, NULL);
 	
-	memcpy((void*)hva, (void*)&core->vm_regs, sizeof(struct v3_gprs));
+	memcpy((void*)syscall_info.ssa, (void*)&core->vm_regs, sizeof(struct v3_gprs));
 	memcpy((void*)&core->vm_regs, (void*)&regs,sizeof(struct v3_gprs));
 	return 0;
 }
 
 
+// TODO: make these three functions guest-dependent
+int v3_syscall_on (void * ginfo, uint8_t syscall_nr) {
+    PrintDebug("Enabling exiting for syscall #%d\n", syscall_nr);
+    syscall_info.syscall_map[syscall_nr] = 1;
+    return 0;
+}
+
+
+int v3_syscall_off (void * ginfo, uint8_t syscall_nr) {
+    PrintDebug("Disabling exiting for syscall #%d\n", syscall_nr);
+    syscall_info.syscall_map[syscall_nr] = 0;
+    return 0;
+}
+
+
+int v3_syscall_stat (void * ginfo, uint8_t syscall_nr) {
+    return syscall_info.syscall_map[syscall_nr];
+}
+
 #endif
 
 static int init_syscall_hijack (struct v3_vm_info * vm, v3_cfg_tree_t * cfg, void ** priv_data) {
+
 #ifdef V3_CONFIG_EXT_SELECTIVE_SYSCALL_EXIT
-	v3_register_hypercall(vm, 0x5CA11, sel_syscall_handle, NULL);
-	v3_register_hypercall(vm, 0x5CA12, syscall_setup, NULL);
-    v3_register_hypercall(vm, 0x5CA13, syscall_cleanup, NULL);
+	v3_register_hypercall(vm, SYSCALL_HANDLE_HCALL, sel_syscall_handle, NULL);
+	v3_register_hypercall(vm, SYSCALL_SETUP_HCALL, syscall_setup, NULL);
+	v3_register_hypercall(vm, SYSCALL_CLEANUP_HCALL, syscall_cleanup, NULL);
 #endif
+
     return 0;
 }
 

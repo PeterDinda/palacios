@@ -20,6 +20,14 @@
 #ifndef __SYSCALL_HIJACK_H__
 #define __SYSCALL_HIJACK_H__
 
+#ifdef V3_CONFIG_EXT_SELECTIVE_SYSCALL_EXIT
+int v3_syscall_on (void * ginfo, uint8_t syscall_nr);
+int v3_syscall_off (void * ginfo, uint8_t syscall_nr);
+int v3_syscall_stat (void * ginfo, uint8_t syscall_nr);
+
+#endif
+#ifdef __V3VEE__
+
 #define STAR_MSR                 0xc0000081 /* Legacy mode SYSCALL target */
 #define LSTAR_MSR                0xc0000082 /* Long mode SYSCALL target */
 #define CSTAR_MSR                0xc0000083 /* compat mode SYSCALL target */
@@ -46,6 +54,10 @@
 
 #define KERNEL_PHYS_LOAD_ADDR    0x1000000
 
+// hcall numbers for fast system call exiting utility
+#define SYSCALL_HANDLE_HCALL   0x5CA11
+#define SYSCALL_SETUP_HCALL    0x5CA12
+#define SYSCALL_CLEANUP_HCALL  0x5CA13
 
 struct v3_syscall_info {
     uint64_t target_addr;
@@ -64,5 +76,7 @@ int v3_hook_syscall (struct guest_info * core,
 
 int v3_hook_passthrough_syscall (struct guest_info * core, uint_t syscall_nr);
 int v3_syscall_handler (struct guest_info * core, uint8_t vector, void * priv_data);
+
+#endif
 
 #endif
