@@ -30,3 +30,4 @@ VM Commands (/dev/v3-vm*)
 
 13125 -- (EXT) Inject Environment Variables into Guest Process
 
+5CA11 -- (EXT) Get/Set System call exiting status
