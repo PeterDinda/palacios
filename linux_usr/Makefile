@@ -40,7 +40,8 @@ EXAMPLE_EXECS = v3_user_host_dev_example \
 EXPERIMENTAL_EXECS = 	v3_simulate  \
 			v3_inject_ecc_scrubber_mce  \
                         v3_top_inject \
-                        v3_env_inject 
+                        v3_env_inject \
+						v3_syscall
 
 
 
