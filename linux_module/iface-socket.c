@@ -51,7 +51,7 @@ palacios_tcp_socket(const int bufsize, const int nodelay,
         vm_state = get_vm_ext_data(guest, "SOCKET_INTERFACE");
         
         if (vm_state == NULL) {
-            printk("ERROR: Could not locate vm socket state for extension SOCKET_INTERFACE\n");
+            ERROR("ERROR: Could not locate vm socket state for extension SOCKET_INTERFACE\n");
             return NULL;
         }
     }
@@ -95,7 +95,7 @@ palacios_udp_socket(
         vm_state = get_vm_ext_data(guest, "SOCKET_INTERFACE");
         
         if (vm_state == NULL) {
-            printk("ERROR: Could not locate vm socket state for extension SOCKET_INTERFACE\n");
+            ERROR("ERROR: Could not locate vm socket state for extension SOCKET_INTERFACE\n");
             return NULL;
         }
     }
@@ -187,7 +187,7 @@ static void * palacios_accept(const void * sock_ptr, unsigned int * remote_ip, u
         vm_state = get_vm_ext_data(sock->guest, "SOCKET_INTERFACE");
         
         if (vm_state == NULL) {
-            printk("ERROR: Could not locate vm socket state for extension SOCKET_INTERFACE\n");
+            ERROR("Could not locate vm socket state for extension SOCKET_INTERFACE\n");
             return NULL;
         }
     }
@@ -457,7 +457,7 @@ static int socket_init( void ) {
 
 static int socket_deinit( void ) {
     if (!list_empty(&(global_sockets))) {
-	printk("Error removing module with open sockets\n");
+	ERROR("Error removing module with open sockets\n");
     }
 
     return 0;

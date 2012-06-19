@@ -22,6 +22,7 @@
 #include <vnet/vnet.h>
 #include <vnet/vnet_hashtable.h>
 #include "palacios-vnet.h"
+#include "palacios.h"
 
 #define VNET_SERVER_PORT 9000
 
@@ -100,7 +101,7 @@ static void _delete_link(struct vnet_link * link){
     vnet_brg_s.num_links --;
     spin_unlock_irqrestore(&(vnet_brg_s.lock), flags);
 
-    printk("VNET Bridge: Link deleted, ip 0x%x, port: %d, idx: %d\n", 
+    INFO("VNET Bridge: Link deleted, ip 0x%x, port: %d, idx: %d\n", 
 	   link->dst_ip, 
 	   link->dst_port, 
 	   link->idx);
@@ -139,12 +140,12 @@ static uint32_t _create_link(struct vnet_link * link) {
     	    break;
 
 	default:
-           printk("Unsupported VNET Server Protocol\n");
+           WARNING("Unsupported VNET Server Protocol\n");
 	    return -1;
     }
    
     if ((err = sock_create(AF_INET, SOCK_DGRAM, protocol, &link->sock)) < 0) {
-	printk("Could not create socket for VNET Link, error %d\n", err);
+	WARNING("Could not create socket for VNET Link, error %d\n", err);
 	return -1;
     }
 
@@ -155,7 +156,7 @@ static uint32_t _create_link(struct vnet_link * link) {
     link->sock_addr.sin_port = htons(link->dst_port);
 
     if ((err = link->sock->ops->connect(link->sock, (struct sockaddr *)&(link->sock_addr), sizeof(struct sockaddr), 0) < 0)) {
-	printk("Could not connect to remote VNET Server, error %d\n", err);
+	WARNING("Could not connect to remote VNET Server, error %d\n", err);
 	return -1;
     }
 
@@ -166,7 +167,7 @@ static uint32_t _create_link(struct vnet_link * link) {
     vnet_htable_insert(vnet_brg_s.ip2link, (addr_t)&(link->dst_ip), (addr_t)link);
     spin_unlock_irqrestore(&(vnet_brg_s.lock), flags);
 
-    printk("VNET Bridge: Link created, ip 0x%x, port: %d, idx: %d, link: %p, protocol: %s\n", 
+    INFO("VNET Bridge: Link created, ip 0x%x, port: %d, idx: %d, link: %p, protocol: %s\n", 
 	   link->dst_ip, 
 	   link->dst_port, 
 	   link->idx, 
@@ -193,7 +194,7 @@ uint32_t vnet_brg_add_link(uint32_t ip, uint16_t port, vnet_brg_proto_t proto){
 
      idx = _create_link(new_link);
      if (idx < 0) {
-	printk("Could not create link\n");
+	WARNING("Could not create link\n");
 	kfree(new_link);
 	return -1;
      }
@@ -299,7 +300,7 @@ send_to_palacios(unsigned char * buf,
     pkt.data = buf;
 
     if(net_debug >= 2){
-    	printk("VNET Lnx Bridge: send pkt to VNET core (size: %d, src_id: %d, src_type: %d)\n", 
+    	DEBUG("VNET Lnx Bridge: send pkt to VNET core (size: %d, src_id: %d, src_type: %d)\n", 
 			pkt.size,  pkt.src_id, pkt.src_type);
     	if(net_debug >= 4){
 	    print_hex_dump(NULL, "pkt_data: ", 0, 20, 20, pkt.data, pkt.size, 0);
@@ -320,7 +321,7 @@ bridge_send_pkt(struct v3_vm_info * vm,
     struct vnet_link * link;
 
     if(net_debug >= 2){
-	printk("VNET Lnx Host Bridge: packet received from VNET Core ... pkt size: %d, link: %d\n",
+	DEBUG("VNET Lnx Host Bridge: packet received from VNET Core ... pkt size: %d, link: %d\n",
 			pkt->size,
 			pkt->dst_id);
     	if(net_debug >= 4){
@@ -342,13 +343,13 @@ bridge_send_pkt(struct v3_vm_info * vm,
 		break;	
 
 	    default:
-		printk("VNET Server: Invalid Link Protocol\n");
+		WARNING("VNET Server: Invalid Link Protocol\n");
 		vnet_brg_s.stats.pkt_drop_vmm ++;
 	}
 	link->stats.tx_bytes += pkt->size;
 	link->stats.tx_pkts ++;
     } else {
-	printk("VNET Bridge Linux Host: wrong dst link, idx: %d, discards the packet\n", pkt->dst_id);
+	INFO("VNET Bridge Linux Host: wrong dst link, idx: %d, discards the packet\n", pkt->dst_id);
 	vnet_brg_s.stats.pkt_drop_vmm ++;
     }
 
@@ -369,12 +370,12 @@ static int init_vnet_serv(void) {
     	    break;
 
 	default:
-           printk("Unsupported VNET Server Protocol\n");
+           WARNING("Unsupported VNET Server Protocol\n");
 	    return -1;
     }
 	 
     if ((err = sock_create(AF_INET, SOCK_DGRAM, protocol, &vnet_brg_s.serv_sock)) < 0) {
-	printk("Could not create VNET server socket, error: %d\n", err);
+	WARNING("Could not create VNET server socket, error: %d\n", err);
 	return -1;
     }
 
@@ -385,15 +386,15 @@ static int init_vnet_serv(void) {
     vnet_brg_s.serv_addr.sin_port = htons(VNET_SERVER_PORT);
 
     if ((err = vnet_brg_s.serv_sock->ops->bind(vnet_brg_s.serv_sock, (struct sockaddr *)&(vnet_brg_s.serv_addr), sizeof(struct sockaddr))) < 0) {
-	printk("Could not bind VNET server socket to port %d, error: %d\n", VNET_SERVER_PORT, err);
+	WARNING("Could not bind VNET server socket to port %d, error: %d\n", VNET_SERVER_PORT, err);
 	return -1;
     }
 
-    printk("VNET server bind to port: %d\n", VNET_SERVER_PORT);
+    INFO("VNET server bind to port: %d\n", VNET_SERVER_PORT);
 
     if(vnet_brg_s.serv_proto == TCP){
 	if((err = vnet_brg_s.serv_sock->ops->listen(vnet_brg_s.serv_sock, 32)) < 0){
-	    printk("VNET Server error listening on port %d, error %d\n", VNET_SERVER_PORT, err);
+	    WARNING("VNET Server error listening on port %d, error %d\n", VNET_SERVER_PORT, err);
 	    return -1;
 	}
     }
@@ -407,20 +408,20 @@ static int _udp_server(void * arg) {
     struct vnet_link * link = NULL;
     int len;
 
-    printk("Palacios VNET Bridge: UDP receiving server ..... \n");
+    INFO("Palacios VNET Bridge: UDP receiving server ..... \n");
 
     pkt = kmalloc(MAX_PACKET_LEN, GFP_KERNEL);
     while (!kthread_should_stop()) {
 	
     	len = _udp_recv(vnet_brg_s.serv_sock, &pkt_addr, pkt, MAX_PACKET_LEN); 
 	if(len < 0) {
-	    printk("Receive error: Could not get packet, error %d\n", len);
+	    WARNING("Receive error: Could not get packet, error %d\n", len);
 	    continue;
 	}
 
 	link = _link_by_ip(pkt_addr.sin_addr.s_addr);
 	if (link == NULL){
-	    printk("VNET Server: No VNET Link match the src IP\n");
+	    WARNING("VNET Server: No VNET Link match the src IP\n");
 	    vnet_brg_s.stats.pkt_drop_phy ++;
 	    continue;
 	}
@@ -447,7 +448,7 @@ static int _rx_server(void * arg) {
 	//use select to receive pkt from physical network
 	//or create new kthread to handle each connection?
     }else {
-    	printk ("VNET Server: Unsupported Protocol\n");
+    	WARNING ("VNET Server: Unsupported Protocol\n");
 	return -1;
     }
 
@@ -480,12 +481,12 @@ int vnet_bridge_init(void) {
 
     vnet_brg_s.ip2link = vnet_create_htable(10, hash_fn, hash_eq);
     if(vnet_brg_s.ip2link == NULL){
-	printk("Failure to initiate VNET link hashtable\n");
+	WARNING("Failure to initiate VNET link hashtable\n");
 	return -1;
     }
 	
     if(init_vnet_serv() < 0){
-	printk("Failure to initiate VNET server\n");
+	WARNING("Failure to initiate VNET server\n");
 	return -1;
     }
 
@@ -495,10 +496,10 @@ int vnet_bridge_init(void) {
     bridge_ops.poll = NULL;
 	
     if( v3_vnet_add_bridge(NULL, &bridge_ops, HOST_LNX_BRIDGE, NULL) < 0){
-	printk("VNET LNX Bridge: Fails to register bridge to VNET core");
+	WARNING("VNET LNX Bridge: Fails to register bridge to VNET core");
     }
 
-    printk("VNET Linux Bridge initiated\n");
+    INFO("VNET Linux Bridge initiated\n");
 
     return 0;
 }

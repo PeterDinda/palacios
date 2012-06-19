@@ -85,12 +85,12 @@ static v3_graphics_console_t g_open(void * priv_data,
     gc = get_vm_ext_data(guest, "GRAPHICS_CONSOLE_INTERFACE");
     
     if (gc == NULL) {
-	printk("palacios: Could not locate graphics console data for extension GRAPHICS_CONSOLE_INTERFACE\n");
+	ERROR("palacios: Could not locate graphics console data for extension GRAPHICS_CONSOLE_INTERFACE\n");
 	return 0;
     }
 
     if (gc->data != NULL) { 
-	printk("palacios: framebuffer already allocated - returning it\n");
+	DEBUG("palacios: framebuffer already allocated - returning it\n");
 
 	*actual_spec = gc->spec;
 	gc->cons_refcount++;
@@ -101,13 +101,13 @@ static v3_graphics_console_t g_open(void * priv_data,
 
     mem = desired_spec->width * desired_spec->height * desired_spec->bytes_per_pixel;
 
-    printk("palacios: allocating %u bytes for %u by %u by %u buffer\n",
+    DEBUG("palacios: allocating %u bytes for %u by %u by %u buffer\n",
 	   mem, desired_spec->width, desired_spec->height, desired_spec->bytes_per_pixel);
 
     gc->data = vmalloc(mem);
 
     if (!(gc->data)) { 
-	printk("palacios: unable to allocate memory for frame buffer\n");
+	ERROR("palacios: unable to allocate memory for frame buffer\n");
 	return 0;
     }
 
@@ -119,7 +119,7 @@ static v3_graphics_console_t g_open(void * priv_data,
     gc->cons_refcount++;
     gc->data_refcount++;
 
-    printk("palacios: allocated frame buffer\n");
+    INFO("palacios: allocated frame buffer\n");
 
     return gc;
 }
@@ -132,17 +132,17 @@ static  void g_close(v3_graphics_console_t cons)
     gc->data_refcount--;
 
     if (gc->data_refcount < gc->cons_refcount) { 
-	printk("palacios: error!   data refcount is less than console refcount for graphics console\n");
+	ERROR("palacios: error!   data refcount is less than console refcount for graphics console\n");
     }
 
     if (gc->cons_refcount > 0) { 
 	return;
     } else {
 	if (gc->cons_refcount < 0) { 
-	    printk("palacios: error!  refcount for graphics console is negative on close!\n");
+	    ERROR("palacios: error!  refcount for graphics console is negative on close!\n");
 	}
 	if (gc->data_refcount > 0) { 
-	    printk("palacios: error!  refcount for graphics console data is positive on close - LEAKING MEMORY\n");
+	    ERROR("palacios: error!  refcount for graphics console data is positive on close - LEAKING MEMORY\n");
 	    return;
 	}
 	if (gc->data) { 
@@ -158,7 +158,7 @@ static void * g_get_data_read(v3_graphics_console_t cons,
     struct palacios_graphics_console *gc = (struct palacios_graphics_console *) cons;
     
     if (gc->data_refcount<=0) { 
-	printk("palacios: error!  data refcount is <= 0 in get_data_read\n");
+	ERROR("palacios: error!  data refcount is <= 0 in get_data_read\n");
     }
 
     gc->data_refcount++;
@@ -175,7 +175,7 @@ static void g_release_data_read(v3_graphics_console_t cons)
     gc->data_refcount--;
 
     if (gc->data_refcount<=0) { 
-	printk("palacios: error!  data refcount is <= zero in release_data_read\n");
+	ERROR("palacios: error!  data refcount is <= zero in release_data_read\n");
     }
     
 }
@@ -223,7 +223,7 @@ static int g_register_render_request(
    gc->render_data = priv_data;
    gc->render_request = render_request;
 
-   printk("palacios: installed rendering callback function for graphics console\n");
+   INFO("palacios: installed rendering callback function for graphics console\n");
    
    return 0;
 
@@ -241,7 +241,7 @@ static int g_register_update_inquire(
    gc->update_data = priv_data;
    gc->update_inquire = update_inquire;
 
-   printk("palacios: installed update inquiry callback function for graphics console\n");
+   INFO("palacios: installed update inquiry callback function for graphics console\n");
    
    return 0;
 
@@ -255,11 +255,11 @@ static int palacios_graphics_console_key(struct v3_guest * guest,
     e.status = 0;
     e.scan_code = scancode;
 
-    //printk("palacios: start key delivery\n");
+    //DEBUG("palacios: start key delivery\n");
 
     v3_deliver_keyboard_event(guest->v3_ctx, &e);
 
-    //printk("palacios: end key delivery\n");
+    //DEBUG("palacios: end key delivery\n");
     
     return 0;
 }
@@ -311,27 +311,27 @@ static int fb_query(struct v3_guest * guest, unsigned int cmd, unsigned long arg
     
     
     if (copy_from_user(&q, (void __user *) arg, sizeof(struct v3_fb_query_response))) { 
-	printk("palacios: copy from user in getting query in fb\n");
+	ERROR("palacios: copy from user in getting query in fb\n");
 	return -EFAULT;
     }
     
     switch (q.request_type) { 
 	case V3_FB_SPEC:
-	    //printk("palacios: request for db spec from Userland\n");
+	    //INFO("palacios: request for db spec from Userland\n");
 	    // returns only the spec for the FB
 	    q.spec = cons->spec;
 
 	    break;
 
 	case V3_FB_UPDATE: 
-	    //printk("palacios: test for fb updatei from Userland\n");
+	    //DEBUG("palacios: test for fb updatei from Userland\n");
 	    // returns whether an update is available for the region
 	    if (cons->update_inquire) {
 	      q.updated = cons->update_inquire(cons,cons->update_data);
 	    } else {
 	      q.updated = 1;
 	    }
-            //printk("palacios: update=%d\n",q.updated);
+            //DEBUG("palacios: update=%d\n",q.updated);
 
             // request a render, since a FB_DATA will probably soon come
             cons->change_request = 1;
@@ -340,7 +340,7 @@ static int fb_query(struct v3_guest * guest, unsigned int cmd, unsigned long arg
 
 	case V3_FB_DATA_BOX: {
 	    // Not curently implemented
-	    printk("palacios: request for data in bounding box unsupported currently\n");
+	    ERROR("palacios: request for data in bounding box unsupported currently\n");
 	    return -EFAULT;
 
 	}
@@ -348,25 +348,25 @@ static int fb_query(struct v3_guest * guest, unsigned int cmd, unsigned long arg
 	    break;
 	    
 	case V3_FB_DATA_ALL: {
-            //printk("palacios: got FrameBuffer Request from Userland\n");
+            //DEBUG("palacios: got FrameBuffer Request from Userland\n");
 	    // First let's sanity check to see if they are requesting the same
 	    // spec that we have
 	    if (memcmp(&(q.spec),&(cons->spec),sizeof(struct v3_frame_buffer_spec))) { 
-		printk("palacios: request for data with non-matching fb spec \n");
+		ERROR("palacios: request for data with non-matching fb spec \n");
 		return -EFAULT;
 	    }
             // Now we will force a render if we can
             if (cons->render_request) {
-		 //printk("palacios: making rendering request\n");
+		 //DEBUG("palacios: making rendering request\n");
                  cons->render_request(cons,cons->render_data);
             }
 
 	    // Now let's indicate an update is in the pointer and copy across the data
 	    if (copy_to_user(q.data,cons->data,cons->spec.width*cons->spec.height*cons->spec.bytes_per_pixel)) { 
-		printk("palacios: unable to copy fb content to user\n");
+		ERROR("palacios: unable to copy fb content to user\n");
 		return -EFAULT;
 	    }
-            //printk("palacios: FrameBuffer copy out done\n");
+            //DEBUG("palacios: FrameBuffer copy out done\n");
 	    q.updated = 1;
             // Now we don't need to request a render
             cons->change_request = 0;
@@ -379,7 +379,7 @@ static int fb_query(struct v3_guest * guest, unsigned int cmd, unsigned long arg
 
     // now we'll copy back any changes we made to the query/response structure
     if (copy_to_user((void __user *) arg, (void*)&q, sizeof(struct v3_fb_query_response))) { 
-	printk("palacios: unable to copy fb response to user\n");
+	ERROR("palacios: unable to copy fb response to user\n");
 	return -EFAULT;
     }
 
@@ -398,21 +398,21 @@ static int fb_input(struct v3_guest * guest,
 
 
     if (copy_from_user(&inp, (void __user *) arg, sizeof(struct v3_fb_input))) { 
-	printk("palacios: copy from user in getting input in fb\n");
+	ERROR("palacios: copy from user in getting input in fb\n");
 	return -EFAULT;
     }
 
-    //printk("palacios: input from Userland\n");   
+    //DEBUG("palacios: input from Userland\n");   
 	
     if ((inp.data_type == V3_FB_KEY) || (inp.data_type == V3_FB_BOTH)) { 
 	rc = palacios_graphics_console_key(guest, cons, inp.scan_code);
-        //printk("palacios: key delivered to palacios\n");
+        //DEBUG("palacios: key delivered to palacios\n");
     }
 
     if ((inp.data_type == V3_FB_MOUSE) || (inp.data_type == V3_FB_BOTH)) { 
 	rc |= palacios_graphics_console_mouse(guest, cons, inp.mouse_data[0],
 					      inp.mouse_data[1], inp.mouse_data[2]);
-       //printk("palacios: mouse delivered to palacios\n");
+       //DEBUG("palacios: mouse delivered to palacios\n");
     }
 
     if (rc) { 
@@ -428,7 +428,7 @@ static int graphics_console_guest_init(struct v3_guest * guest, void ** vm_data)
     struct palacios_graphics_console * graphics_cons = kmalloc(sizeof(struct palacios_graphics_console), GFP_KERNEL);
 
     if (!graphics_cons) { 
-	printk("palacios: filed to do guest_init for graphics console\n");
+	ERROR("palacios: filed to do guest_init for graphics console\n");
 	return -1;
     }
 

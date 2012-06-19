@@ -64,7 +64,7 @@ static int register_vm(struct v3_guest * guest) {
 static long v3_dev_ioctl(struct file * filp,
 			 unsigned int ioctl, unsigned long arg) {
     void __user * argp = (void __user *)arg;
-    printk("V3 IOCTL %d\n", ioctl);
+    DEBUG("V3 IOCTL %d\n", ioctl);
 
 
     switch (ioctl) {
@@ -74,40 +74,40 @@ static long v3_dev_ioctl(struct file * filp,
 	    struct v3_guest * guest = kmalloc(sizeof(struct v3_guest), GFP_KERNEL);
 
 	    if (IS_ERR(guest)) {
-		printk("Palacios: Error allocating Kernel guest_image\n");
+		ERROR("Palacios: Error allocating Kernel guest_image\n");
 		return -EFAULT;
 	    }
 
 	    memset(guest, 0, sizeof(struct v3_guest));
 
-	    printk("Palacios: Creating V3 Guest...\n");
+	    INFO("Palacios: Creating V3 Guest...\n");
 
 	    vm_minor = register_vm(guest);
 
 	    if (vm_minor == -1) {
-		printk("Palacios Error: Too many VMs are currently running\n");
+		ERROR("Palacios Error: Too many VMs are currently running\n");
 		return -EFAULT;
 	    }
 
 	    guest->vm_dev = MKDEV(v3_major_num, vm_minor);
 
 	    if (copy_from_user(&user_image, argp, sizeof(struct v3_guest_img))) {
-		printk("Palacios Error: copy from user error getting guest image...\n");
+		ERROR("Palacios Error: copy from user error getting guest image...\n");
 		return -EFAULT;
 	    }
 
 	    guest->img_size = user_image.size;
 
-	    printk("Palacios: Allocating kernel memory for guest image (%llu bytes)\n", user_image.size);
+	    DEBUG("Palacios: Allocating kernel memory for guest image (%llu bytes)\n", user_image.size);
 	    guest->img = vmalloc(guest->img_size);
 
 	    if (IS_ERR(guest->img)) {
-		printk("Palacios Error: Could not allocate space for guest image\n");
+		ERROR("Palacios Error: Could not allocate space for guest image\n");
 		return -EFAULT;
 	    }
 
 	    if (copy_from_user(guest->img, user_image.guest_data, guest->img_size)) {
-		printk("Palacios: Error loading guest data\n");
+		ERROR("Palacios: Error loading guest data\n");
 		return -EFAULT;
 	    }	   
 
@@ -116,7 +116,7 @@ static long v3_dev_ioctl(struct file * filp,
 	    INIT_LIST_HEAD(&(guest->exts));
 
 	    if (create_palacios_vm(guest) == -1) {
-		printk("Palacios: Error creating guest\n");
+		ERROR("Palacios: Error creating guest\n");
 		return -EFAULT;
 	    }
 
@@ -127,7 +127,7 @@ static long v3_dev_ioctl(struct file * filp,
 	    unsigned long vm_idx = arg;
 	    struct v3_guest * guest = guest_map[vm_idx];
 
-	    printk("Freeing VM (%s) (%p)\n", guest->name, guest);
+	    INFO("Freeing VM (%s) (%p)\n", guest->name, guest);
 
 	    free_palacios_vm(guest);
 	    guest_map[vm_idx] = NULL;
@@ -139,14 +139,14 @@ static long v3_dev_ioctl(struct file * filp,
 	    memset(&mem, 0, sizeof(struct v3_mem_region));
 	    
 	    if (copy_from_user(&mem, argp, sizeof(struct v3_mem_region))) {
-		printk("copy from user error getting mem_region...\n");
+		ERROR("copy from user error getting mem_region...\n");
 		return -EFAULT;
 	    }
 
-	    printk("Adding %llu pages to Palacios memory\n", mem.num_pages);
+	    DEBUG("Adding %llu pages to Palacios memory\n", mem.num_pages);
 
 	    if (add_palacios_memory(mem.base_addr, mem.num_pages) == -1) {
-		printk("Error adding memory to Palacios\n");
+		ERROR("Error adding memory to Palacios\n");
 		return -EFAULT;
 	    }
 
@@ -154,7 +154,7 @@ static long v3_dev_ioctl(struct file * filp,
 	}
 
 	default: 
-	    printk("\tUnhandled\n");
+	    ERROR("\tUnhandled\n");
 	    return -EINVAL;
     }
 
@@ -188,16 +188,16 @@ static int __init v3_init(void) {
 
     v3_class = class_create(THIS_MODULE, "vms");
     if (IS_ERR(v3_class)) {
-	printk("Failed to register V3 VM device class\n");
+	ERROR("Failed to register V3 VM device class\n");
 	return PTR_ERR(v3_class);
     }
 
-    printk("intializing V3 Control device\n");
+    INFO("intializing V3 Control device\n");
 
     ret = alloc_chrdev_region(&dev, 0, MAX_VMS + 1, "v3vee");
 
     if (ret < 0) {
-	printk("Error registering device region for V3 devices\n");
+	ERROR("Error registering device region for V3 devices\n");
 	goto failure2;
     }
 
@@ -206,7 +206,7 @@ static int __init v3_init(void) {
     dev = MKDEV(v3_major_num, MAX_VMS + 1);
 
     
-    printk("Creating V3 Control device: Major %d, Minor %d\n", v3_major_num, MINOR(dev));
+    DEBUG("Creating V3 Control device: Major %d, Minor %d\n", v3_major_num, MINOR(dev));
     cdev_init(&ctrl_dev, &v3_ctrl_fops);
     ctrl_dev.owner = THIS_MODULE;
     ctrl_dev.ops = &v3_ctrl_fops;
@@ -215,7 +215,7 @@ static int __init v3_init(void) {
     device_create(v3_class, NULL, dev, NULL, "v3vee");
 
     if (ret != 0) {
-	printk("Error adding v3 control device\n");
+	ERROR("Error adding v3 control device\n");
 	goto failure1;
     }
 
@@ -245,13 +245,13 @@ static void __exit v3_exit(void) {
 
     dev_t dev = MKDEV(v3_major_num, MAX_VMS + 1);
 
-    printk("Removing V3 Control device\n");
+    INFO("Removing V3 Control device\n");
 
 
     palacios_vmm_exit();
 
-    printk("Palacios Mallocs = %d, Frees = %d\n", mallocs, frees);
-    printk("Palacios Page Allocs = %d, Page Frees = %d\n", pg_allocs, pg_frees);
+    DEBUG("Palacios Mallocs = %d, Frees = %d\n", mallocs, frees);
+    DEBUG("Palacios Page Allocs = %d, Page Frees = %d\n", pg_allocs, pg_frees);
 
     unregister_chrdev_region(MKDEV(v3_major_num, 0), MAX_VMS + 1);
 
@@ -265,7 +265,7 @@ static void __exit v3_exit(void) {
 
     palacios_deinit_mm();
 
-    printk("Palacios Module Mallocs = %d, Frees = %d\n", mod_allocs, mod_frees);
+    DEBUG("Palacios Module Mallocs = %d, Frees = %d\n", mod_allocs, mod_frees);
 }
 
 

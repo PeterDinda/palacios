@@ -127,20 +127,20 @@ struct palacios_host_dev {
 #define SHALLOW_DEBUG 0
 
 #if DEEP_DEBUG
-#define DEEP_DEBUG_PRINT(fmt, args...) printk((fmt), ##args)
+#define DEEP_DEBUG_PRINT(fmt, args...) DEBUG((fmt), ##args)
 #else
 #define DEEP_DEBUG_PRINT(fmt, args...) 
 #endif
 
 #if SHALLOW_DEBUG
-#define SHALLOW_DEBUG_PRINT(fmt, args...) printk((fmt), ##args)
+#define SHALLOW_DEBUG_PRINT(fmt, args...) INFO((fmt), ##args)
 #else
 #define SHALLOW_DEBUG_PRINT(fmt, args...) 
 #endif
 
-
-#define ERROR(fmt, args...) printk((fmt), ##args)
-#define INFO(fmt, args...) printk((fmt), ##args)
+// Moved to palacios.h
+//define ERROR(fmt, args...)
+//define INFO(fmt, args...)
 
 struct palacios_host_device_user {
     spinlock_t lock;
@@ -616,7 +616,7 @@ static int host_dev_connect(struct v3_guest * guest, unsigned int cmd, unsigned 
 
 
     if (copy_from_user(url, argp, MAX_URL)) {
-	printk("copy from user error getting url for host device connect...\n");
+	ERROR("copy from user error getting url for host device connect...\n");
 	return -EFAULT;
     }
 
@@ -750,7 +750,7 @@ static v3_host_dev_t palacios_host_dev_open_deferred(char *url,
     host_dev = get_vm_ext_data(guest, "HOST_DEVICE_INTERFACE");
 
     if (host_dev == NULL) {
-	printk("Error locating vm host data for HOST_DEVICE_INTERFACE\n");
+	ERROR("Error locating vm host data for HOST_DEVICE_INTERFACE\n");
 	return 0;
     }
 

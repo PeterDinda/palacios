@@ -23,7 +23,7 @@ static int vm_syscall_ctrl (struct v3_guest * guest, unsigned int cmd, unsigned 
     int ret;
 
     if (copy_from_user(&syscall_cmd, (void __user *)arg, sizeof(struct v3_syscall_cmd))) {
-        printk("Palacios: error copying syscall command from userspace\n");
+        ERROR("palacios: error copying syscall command from userspace\n");
         return -EFAULT;
     }
     
@@ -32,29 +32,29 @@ static int vm_syscall_ctrl (struct v3_guest * guest, unsigned int cmd, unsigned 
         case SYSCALL_OFF: {
             ret = v3_syscall_off(guest->v3_ctx, syscall_cmd.syscall_nr);
             if (ret < 0) {
-                printk("Palacios: error deactivating syscall exiting for syscall nr: %d\n", syscall_cmd.syscall_nr);
+                ERROR("palacios: error deactivating syscall exiting for syscall nr: %d\n", syscall_cmd.syscall_nr);
             }
             break;
         }
         case SYSCALL_ON: {
             ret = v3_syscall_on(guest->v3_ctx, syscall_cmd.syscall_nr);
             if (ret < 0) {
-                printk("Palacios: error activating syscall exiting for syscall nr: %d\n", syscall_cmd.syscall_nr);
+                ERROR("palacios: error activating syscall exiting for syscall nr: %d\n", syscall_cmd.syscall_nr);
             }
             break;
         }
         case SYSCALL_STAT: {
             ret = v3_syscall_stat(guest->v3_ctx, syscall_cmd.syscall_nr);  
             if (ret == SYSCALL_OFF)
-                printk("Palacios: exiting for syscall #%d is OFF\n", syscall_cmd.syscall_nr);
+                INFO("palacios: exiting for syscall #%d is OFF\n", syscall_cmd.syscall_nr);
             else if (ret == SYSCALL_ON) 
-                printk("Palacios: exiting for syscall #%d is ON\n", syscall_cmd.syscall_nr);
+                INFO("palacios: exiting for syscall #%d is ON\n", syscall_cmd.syscall_nr);
             else 
-                printk("Palacios: error stating syscall nr: %d\n", syscall_cmd.syscall_nr);
+                INFO("palacios: error stating syscall nr: %d\n", syscall_cmd.syscall_nr);
             break;
         }
         default:
-            printk("Palacios: error - invalid syscall command\n");
+            ERROR("palacios: error - invalid syscall command\n");
             return -1;
     }
       

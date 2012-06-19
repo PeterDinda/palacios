@@ -22,21 +22,21 @@ static int host_hypercall_nop(palacios_core_t core,
 			      unsigned int hcall_id, 
 			      struct guest_accessors *acc,
 			      void *priv_data) {
-  printk("palacios: host_hypercall_nop dummy handler invoked\n");
-  printk(" rip=%p\n rsp=%p\n rbp=%p\n rflags=%p\n",
+  DEBUG("palacios: host_hypercall_nop dummy handler invoked\n");
+  DEBUG(" rip=%p\n rsp=%p\n rbp=%p\n rflags=%p\n",
 	 (void*)(acc->get_rip(core)),
 	 (void*)(acc->get_rsp(core)),
 	 (void*)(acc->get_rbp(core)),
 	 (void*)(acc->get_rflags(core)));
 
-  printk(" rax=%p\n rbx=%p\n rcx=%p\n rdx=%p\n rsi=%p\n rdi=%p\n",
+  DEBUG(" rax=%p\n rbx=%p\n rcx=%p\n rdx=%p\n rsi=%p\n rdi=%p\n",
 	 (void*)(acc->get_rax(core)),
 	 (void*)(acc->get_rbx(core)),
 	 (void*)(acc->get_rcx(core)),
 	 (void*)(acc->get_rdx(core)),
 	 (void*)(acc->get_rsi(core)),
 	 (void*)(acc->get_rdi(core)));
-  printk(" r8=%p\n r9=%p\n r10=%p\n r11=%p\n r12=%p\n r13=%p\n r14=%p\n r15=%p\n",
+  DEBUG(" r8=%p\n r9=%p\n r10=%p\n r11=%p\n r12=%p\n r13=%p\n r14=%p\n r15=%p\n",
 	 (void*)(acc->get_r8(core)),
 	 (void*)(acc->get_r9(core)),
 	 (void*)(acc->get_r10(core)),
@@ -45,7 +45,7 @@ static int host_hypercall_nop(palacios_core_t core,
 	 (void*)(acc->get_r13(core)),
 	 (void*)(acc->get_r14(core)),
 	 (void*)(acc->get_r15(core)));
-  printk(" cr0=%p\n cr2=%p\n cr3=%p\n cr4=%p\n cr8=%p\n efer=%p\n",
+  DEBUG(" cr0=%p\n cr2=%p\n cr3=%p\n cr4=%p\n cr8=%p\n efer=%p\n",
 	 (void*)(acc->get_cr0(core)),
 	 (void*)(acc->get_cr2(core)),
 	 (void*)(acc->get_cr3(core)),
@@ -65,19 +65,19 @@ static int vm_hypercall_add (struct v3_guest *guest,
   void *func;
 
   if (copy_from_user(&hdata,(void __user *) arg, sizeof(struct hcall_data))) { 
-    printk("palacios: copy from user in getting input for hypercall add\n");
+    ERROR("palacios: copy from user in getting input for hypercall add\n");
     return -EFAULT;
   }
 
   if (0==strcmp(hdata.fn,"")) { 
-    printk("palacios: no hypercall function supplied, using default\n");
+    WARNING("palacios: no hypercall function supplied, using default\n");
     func = (void*) host_hypercall_nop;
   } else {
     func = __symbol_get(hdata.fn);
   }
 
   if (func == NULL) { 
-    printk("palacios: cannot find function '%s' for hypercall addition - perhaps your module hasn't been loaded yet?\n",hdata.fn);
+    ERROR("palacios: cannot find function '%s' for hypercall addition - perhaps your module hasn't been loaded yet?\n",hdata.fn);
     return -EFAULT;
   }
 
@@ -85,12 +85,12 @@ static int vm_hypercall_add (struct v3_guest *guest,
 				 hdata.hcall_nr,
 				 func,
 				 NULL)) { 
-    printk("palacios: cannot register hypercall 0x%x for function %s (%p)\n",
+    ERROR("palacios: cannot register hypercall 0x%x for function %s (%p)\n",
 	   hdata.hcall_nr, hdata.fn, func);
     return -EFAULT;
   } 
 
-  printk("palacios: hypercall %d (0x%x) registered for function %s (%p)\n", 
+  INFO("palacios: hypercall %d (0x%x) registered for function %s (%p)\n", 
 	 hdata.hcall_nr,hdata.hcall_nr,hdata.fn,func);
   return 0;
 }
@@ -103,16 +103,16 @@ static int vm_hypercall_remove (struct v3_guest *guest,
   struct hcall_data hdata;
 
   if (copy_from_user(&hdata,(void __user *) arg, sizeof(struct hcall_data))) { 
-    printk("palacios: copy from user in getting input for hypercall remove\n");
+    ERROR("palacios: copy from user in getting input for hypercall remove\n");
     return -EFAULT;
   }
   if (v3_unregister_host_hypercall(guest->v3_ctx, 
 				   hdata.hcall_nr)) {
-    printk("palacios: cannot unregister hypercall 0x%x\n", hdata.hcall_nr);
+    ERROR("palacios: cannot unregister hypercall 0x%x\n", hdata.hcall_nr);
     return -EFAULT;
   } 
 
-  printk("palacios: hypercall %d (0x%x) unregistered\n", 
+  INFO("palacios: hypercall %d (0x%x) unregistered\n", 
 	 hdata.hcall_nr,hdata.hcall_nr);
 
   return 0;

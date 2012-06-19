@@ -68,7 +68,7 @@ static struct stream_state * find_stream_by_name(struct v3_guest * guest, const 
 	vm_state = get_vm_ext_data(guest, "STREAM_INTERFACE");
 
 	if (vm_state == NULL) {
-	    printk("ERROR: Could not locate vm stream state for extension STREAM_INTERFACE\n");
+	    ERROR("ERROR: Could not locate vm stream state for extension STREAM_INTERFACE\n");
 	    return NULL;
 	}
 
@@ -112,7 +112,7 @@ static ssize_t stream_read(struct file * filp, char __user * buf, size_t size, l
 	}
 
 	if (copy_to_user(buf + bytes_read, tmp_buf, tmp_read)) {
-	    printk("Read Fault\n");
+	    ERROR("Read Fault\n");
 	    return -EFAULT;
 	}
 	
@@ -161,7 +161,7 @@ static ssize_t stream_write(struct file * filp, const char __user * buf, size_t 
     kern_buf = kmalloc(size, GFP_KERNEL);
 
     if (copy_from_user(kern_buf, buf, size)) {
-	printk("Stream Write Failed\n");
+	ERROR("Stream Write Failed\n");
 	return -EFAULT;
     };
     
@@ -204,13 +204,13 @@ static void * palacios_stream_open(struct v3_stream * v3_stream, const char * na
 	vm_state = get_vm_ext_data(guest, "STREAM_INTERFACE");
 
 	if (vm_state == NULL) {
-	    printk("ERROR: Could not locate vm stream state for extension STREAM_INTERFACE\n");
+	    ERROR("ERROR: Could not locate vm stream state for extension STREAM_INTERFACE\n");
 	    return NULL;
 	}
     }
 
     if (find_stream_by_name(guest, name) != NULL) {
-	printk("Stream already exists\n");
+	ERROR("Stream already exists\n");
 	return NULL;
     }
 
@@ -291,8 +291,8 @@ static int stream_init( void ) {
 
 static int stream_deinit( void ) {
     if (!list_empty(&(global_streams))) {
-	printk("Error removing module with open streams\n");
-	printk("TODO: free old streams... \n");
+	ERROR("Error removing module with open streams\n");
+	DEBUG("TODO: free old streams... \n");
     }
 
     return 0;
@@ -312,14 +312,14 @@ static int stream_connect(struct v3_guest * guest, unsigned int cmd, unsigned lo
     
     
     if (copy_from_user(name, argp, STREAM_NAME_LEN)) {
-	printk("%s(%d): copy from user error...\n", __FILE__, __LINE__);
+	ERROR("%s(%d): copy from user error...\n", __FILE__, __LINE__);
 	return -EFAULT;
     }
 
     stream = find_stream_by_name(guest, name);
 
     if (stream == NULL) {
-	printk("Could not find stream (%s)\n", name);
+	ERROR("Could not find stream (%s)\n", name);
 	return -EFAULT;
     }
 
@@ -332,7 +332,7 @@ static int stream_connect(struct v3_guest * guest, unsigned int cmd, unsigned lo
 
 
     if (ret == -1) {
-	printk("Stream (%s) already connected\n", name);
+	ERROR("Stream (%s) already connected\n", name);
 	return -EFAULT;
     }
 
@@ -340,11 +340,11 @@ static int stream_connect(struct v3_guest * guest, unsigned int cmd, unsigned lo
     stream_fd = anon_inode_getfd("v3-stream", &stream_fops, stream, O_RDWR);
 
     if (stream_fd < 0) {
-	printk("Error creating stream inode for (%s)\n", name);
+	ERROR("Error creating stream inode for (%s)\n", name);
 	return stream_fd;
     }
 
-    printk("Stream (%s) connected\n", name);
+    INFO("Stream (%s) connected\n", name);
 
     return stream_fd;
 }
@@ -365,7 +365,7 @@ static int guest_stream_init(struct v3_guest * guest, void ** vm_data) {
 static int guest_stream_deinit(struct v3_guest * guest, void * vm_data) {
     struct vm_global_streams * state = vm_data;
     if (!list_empty(&(state->open_streams))) {
-	printk("Error shutting down VM with open streams\n");
+	ERROR("Error shutting down VM with open streams\n");
     }
 
     return 0;

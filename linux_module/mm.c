@@ -9,6 +9,7 @@
 #include <linux/mm.h>
 //static struct list_head pools;
 
+#include "palacios.h"
 
 struct mempool {
     uintptr_t base_addr;
@@ -48,11 +49,11 @@ static uintptr_t alloc_contig_pgs(u64 num_pages, u32 alignment) {
     int i = 0;
     int start = 0;
 
-    printk("Allocating %llu pages (align=%lu)\n", 
+    DEBUG("Allocating %llu pages (align=%lu)\n", 
 	   num_pages, (unsigned long)alignment);
 
     if (pool.bitmap == NULL) {
-	printk("ERROR: Attempting to allocate from non initialized memory\n");
+	ERROR("ERROR: Attempting to allocate from non initialized memory\n");
 	return 0;
     }
 
@@ -65,7 +66,7 @@ static uintptr_t alloc_contig_pgs(u64 num_pages, u32 alignment) {
 	start = ((alignment - (pool.base_addr % alignment)) >> 12);
     }
 
-    printk("\t Start idx %d (base_addr=%p)\n", start, (void *)(u64)pool.base_addr);
+    ERROR("\t Start idx %d (base_addr=%p)\n", start, (void *)(u64)pool.base_addr);
 
     for (i = start; i < (pool.num_pages - num_pages); i += step) {
 	if (get_page_bit(i) == 0) {
@@ -91,7 +92,7 @@ static uintptr_t alloc_contig_pgs(u64 num_pages, u32 alignment) {
 	}
     }
 
-    /* printk("PALACIOS BAD: LARGE PAGE ALLOCATION FAILED\n"); */
+    /* ERROR("PALACIOS BAD: LARGE PAGE ALLOCATION FAILED\n"); */
 
     return 0;
 }
@@ -109,27 +110,27 @@ uintptr_t alloc_palacios_pgs(u64 num_pages, u32 alignment) {
     
 	WARN(!pgs, "Could not allocate pages\n");
  
-        /* if (!pgs) { printk("PALACIOS BAD: SMALL PAGE ALLOCATION FAILED\n");  } */
+        /* if (!pgs) { ERROR("PALACIOS BAD: SMALL PAGE ALLOCATION FAILED\n");  } */
        
-	/* printk("%llu pages (order=%d) aquired from alloc_pages\n", 
+	/* DEBUG("%llu pages (order=%d) aquired from alloc_pages\n", 
 	       num_pages, order); */
 
 	addr = page_to_pfn(pgs) << PAGE_SHIFT; 
     } else {
-	//printk("Allocating %llu pages from bitmap allocator\n", num_pages);
+	//DEBUG("Allocating %llu pages from bitmap allocator\n", num_pages);
 	//addr = pool.base_addr;
 	addr = alloc_contig_pgs(num_pages, alignment);
     }
 
 
-    //printk("Returning from alloc addr=%p, vaddr=%p\n", (void *)addr, __va(addr));
+    //DEBUG("Returning from alloc addr=%p, vaddr=%p\n", (void *)addr, __va(addr));
     return addr;
 }
 
 
 
 void free_palacios_pgs(uintptr_t pg_addr, int num_pages) {
-    //printk("Freeing Memory page %p\n", (void *)pg_addr);
+    //DEBUG("Freeing Memory page %p\n", (void *)pg_addr);
 
     if ((pg_addr >= pool.base_addr) && 
 	(pg_addr < pool.base_addr + (4096 * pool.num_pages))) {
@@ -137,7 +138,7 @@ void free_palacios_pgs(uintptr_t pg_addr, int num_pages) {
 	int i = 0;
 
 	if ((pg_idx + num_pages) > pool.num_pages) {
-	    printk("Freeing memory bounds exceeded\n");
+	    ERROR("Freeing memory bounds exceeded\n");
 	    return;
 	}
 
@@ -161,11 +162,11 @@ int add_palacios_memory(uintptr_t base_addr, u64 num_pages) {
     int bitmap_size = (num_pages / 8) + ((num_pages % 8) > 0); 
 
     if (pool.num_pages != 0) {
-	printk("ERROR: Memory has already been added\n");
+	ERROR("ERROR: Memory has already been added\n");
 	return -1;
     }
 
-    printk("Managing %dMB of memory starting at %llu (%lluMB)\n", 
+    DEBUG("Managing %dMB of memory starting at %llu (%lluMB)\n", 
 	   (unsigned int)(num_pages * 4096) / (1024 * 1024), 
 	   (unsigned long long)base_addr, 
 	   (unsigned long long)(base_addr / (1024 * 1024)));
@@ -174,7 +175,7 @@ int add_palacios_memory(uintptr_t base_addr, u64 num_pages) {
     pool.bitmap = kmalloc(bitmap_size, GFP_KERNEL);
     
     if (IS_ERR(pool.bitmap)) {
-	printk("Error allocating Palacios MM bitmap\n");
+	WARNING("Error allocating Palacios MM bitmap\n");
 	return -1;
     }
     

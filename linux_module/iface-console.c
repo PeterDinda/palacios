@@ -96,19 +96,19 @@ console_read(struct file * filp, char __user * buf, size_t size, loff_t * offset
 
 
     if (size < sizeof(struct cons_msg)) {
-	printk("Invalid Read operation size: %lu\n", size);
+	ERROR("Invalid Read operation size: %lu\n", size);
 	return -EFAULT;
     }
     
     msg = dequeue(cons->queue);
     
     if (msg == NULL) {
-	printk("ERROR: Null console message\n");
+	ERROR("ERROR: Null console message\n");
 	return -EFAULT;
     }
     
     if (copy_to_user(buf, msg, size)) {
-	printk("Read Fault\n");
+	ERROR("Read Fault\n");
 	return -EFAULT;
     }
 
@@ -123,7 +123,7 @@ console_read(struct file * filp, char __user * buf, size_t size, loff_t * offset
 	wake_up_interruptible(&(cons->intr_queue));
     }
 
-    //    printk("Read from console\n");
+    //    DEBUG("Read from console\n");
     return size;
 }
 
@@ -141,7 +141,7 @@ console_write(struct file * filp, const char __user * buf, size_t size, loff_t *
 
     for (i = 0; i < size; i++) {
 	if (copy_from_user(&(event.scan_code), buf + i, 1)) {
-	    printk("Console Write fault\n");
+	    ERROR("Console Write fault\n");
 	    return -EFAULT;
 	}
 
@@ -158,7 +158,7 @@ console_poll(struct file * filp, struct poll_table_struct * poll_tb) {
     unsigned long flags;
     int entries = 0;
 
-    //    printk("Console=%p (guest=%s)\n", cons, cons->guest->name);
+    //    DEBUG("Console=%p (guest=%s)\n", cons, cons->guest->name);
 
 
     poll_wait(filp, &(cons->intr_queue), poll_tb);
@@ -168,7 +168,7 @@ console_poll(struct file * filp, struct poll_table_struct * poll_tb) {
     spin_unlock_irqrestore(&(cons->queue->lock), flags);
 
     if (entries > 0) {
-	//	printk("Returning from POLL\n");
+	//	DEBUG("Returning from POLL\n");
 	return mask;
     }
     
@@ -181,7 +181,7 @@ static int console_release(struct inode * i, struct file * filp) {
     struct cons_msg * msg = NULL;
     unsigned long flags;
 
-    printk("Releasing the Console File desc\n");
+    DEBUG("Releasing the Console File desc\n");
     
     spin_lock_irqsave(&(cons->queue->lock), flags);
     cons->connected = 0;
@@ -212,7 +212,7 @@ static int console_connect(struct v3_guest * guest, unsigned int cmd,
     int acquired = 0;
 
     if (cons->open == 0) {
-	printk("Attempted to connect to unopened console\n");
+	ERROR("Attempted to connect to unopened console\n");
 	return -1;
     }
 
@@ -224,21 +224,21 @@ static int console_connect(struct v3_guest * guest, unsigned int cmd,
     spin_unlock_irqrestore(&(cons->lock), flags);
 
     if (acquired == 0) {
-	printk("Console already connected\n");
+	ERROR("Console already connected\n");
 	return -1;
     }
 
     cons_fd = anon_inode_getfd("v3-cons", &cons_fops, cons, O_RDWR);
 
     if (cons_fd < 0) {
-	printk("Error creating console inode\n");
+	ERROR("Error creating console inode\n");
 	return cons_fd;
     }
 
     v3_deliver_console_event(guest->v3_ctx, NULL);
 
 
-    printk("Console connected\n");
+    INFO("Console connected\n");
 
     return cons_fd;
 }
@@ -249,15 +249,15 @@ static void * palacios_tty_open(void * private_data, unsigned int width, unsigne
     struct v3_guest * guest = (struct v3_guest *)private_data;
     struct palacios_console * cons = kmalloc(sizeof(struct palacios_console), GFP_KERNEL);
 
-    printk("Guest initialized virtual console (Guest=%s)\n", guest->name);
+    INFO("Guest initialized virtual console (Guest=%s)\n", guest->name);
 
     if (guest == NULL) {
-	printk("ERROR: Cannot open a console on a NULL guest\n");
+	ERROR("ERROR: Cannot open a console on a NULL guest\n");
 	return NULL;
     }
 
     if (cons->open == 1) {
-	printk("Console already open\n");
+	ERROR("Console already open\n");
 	return NULL;
     }
 
@@ -280,7 +280,7 @@ static void * palacios_tty_open(void * private_data, unsigned int width, unsigne
 }
 
 static int post_msg(struct palacios_console * cons, struct cons_msg * msg) {
-    //    printk("Posting Console message\n");
+    //    DEBUG("Posting Console message\n");
 
     while (enqueue(cons->queue, msg) == -1) {	
 	wake_up_interruptible(&(cons->intr_queue));

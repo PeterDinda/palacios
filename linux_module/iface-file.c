@@ -66,7 +66,7 @@ static int mkdir_recursive(const char * path, unsigned short perms) {
 	       (*tmp_iter != '\0')) {
 
 	    if ( (!isprint(*tmp_iter))) {
-		printk("Invalid character in path name (%d)\n", *tmp_iter);
+		ERROR("Invalid character in path name (%d)\n", *tmp_iter);
 		return -1;
 	    } else {
 		tmp_iter++;
@@ -82,7 +82,7 @@ static int mkdir_recursive(const char * path, unsigned short perms) {
 	// Ignore empty directories
 	if ((tmp_iter - dirname_ptr) > 1) {
 	    if (palacios_file_mkdir(tmp_str, perms, 0) != 0) {
-		printk("Could not create directory (%s)\n", tmp_str);
+		ERROR("Could not create directory (%s)\n", tmp_str);
 		return -1;
 	    }
 	}
@@ -142,7 +142,7 @@ static int palacios_file_mkdir(const char * pathname, unsigned short perms, int 
 #endif
 
 	if (ret != 0) {
-	    printk("%s:%d - Error: kern_path_parent() returned error for (%s)\n", __FILE__, __LINE__, 
+	    ERROR("%s:%d - Error: kern_path_parent() returned error for (%s)\n", __FILE__, __LINE__, 
 		   pathname);
 	    return -1;
 	}
@@ -183,7 +183,7 @@ static void * palacios_file_open(const char * path, int mode, void * private_dat
 	vm_state = get_vm_ext_data(guest, "FILE_INTERFACE");
 	
 	if (vm_state == NULL) {
-	    printk("ERROR: Could not locate vm file state for extension FILE_INTERFACE\n");
+	    ERROR("ERROR: Could not locate vm file state for extension FILE_INTERFACE\n");
 	    return NULL;
 	}
     }
@@ -210,7 +210,7 @@ static void * palacios_file_open(const char * path, int mode, void * private_dat
     pfile->filp = filp_open(path, pfile->mode, 0);
     
     if (IS_ERR(pfile->filp)) {
-	printk("Cannot open file: %s\n", path);
+	ERROR("Cannot open file: %s\n", path);
 	return NULL;
     }
 
@@ -252,7 +252,7 @@ static unsigned long long palacios_file_size(void * file_ptr) {
     ret = vfs_getattr(filp->f_path.mnt, filp->f_path.dentry, &s);
 
     if (ret != 0) {
-	printk("Failed to fstat file\n");
+	ERROR("Failed to fstat file\n");
 	return -1;
     }
 
@@ -273,7 +273,7 @@ static unsigned long long palacios_file_read(void * file_ptr, void * buffer, uns
     set_fs(old_fs);
 	
     if (ret <= 0) {
-	printk("sys_read of %p for %lld bytes at offset %llu failed (ret=%ld)\n", filp, length, offset, ret);
+	ERROR("sys_read of %p for %lld bytes at offset %llu failed (ret=%ld)\n", filp, length, offset, ret);
     }
 	
     return ret;
@@ -295,7 +295,7 @@ static unsigned long long palacios_file_write(void * file_ptr, void * buffer, un
 
  
     if (ret <= 0) {
-	printk("sys_write for %llu bytes at offset %llu failed (ret=%ld)\n", length, offset, ret);		
+	ERROR("sys_write for %llu bytes at offset %llu failed (ret=%ld)\n", length, offset, ret);
     }
 	
     return ret;
@@ -324,7 +324,7 @@ static int file_init( void ) {
 
 static int file_deinit( void ) {
     if (!list_empty(&(global_files))) {
-	printk("Error removing module with open files\n");
+	ERROR("Error removing module with open files\n");
     }
 
     return 0;

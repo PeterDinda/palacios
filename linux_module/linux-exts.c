@@ -45,12 +45,12 @@ int init_vm_extensions(struct v3_guest * guest) {
 	    continue;
 	}
 	
-	printk("Registering Linux Extension (%s)\n", ext_impl->name);
+	INFO("Registering Linux Extension (%s)\n", ext_impl->name);
 
 	ext = kmalloc(sizeof(struct vm_ext), GFP_KERNEL);
 	
 	if (!ext) {
-	    printk("Error allocating VM extension (%s)\n", ext_impl->name);
+	    WARNING("Error allocating VM extension (%s)\n", ext_impl->name);
 	    return -1;
 	}
 
@@ -76,7 +76,7 @@ int deinit_vm_extensions(struct v3_guest * guest) {
 	if (ext->impl->guest_deinit) {
 	    ext->impl->guest_deinit(guest, ext->vm_data);
 	} else {
-	    printk("WARNING: Extension %s, does not have a guest deinit function\n", ext->impl->name);
+	    WARNING("WARNING: Extension %s, does not have a guest deinit function\n", ext->impl->name);
 	}
 
 	list_del(&(ext->node));
@@ -94,10 +94,10 @@ int init_lnx_extensions( void ) {
 
     while (tmp_ext != __stop__lnx_exts[0]) {
 
-	printk("tmp_ext=%p\n", tmp_ext);
+	DEBUG("tmp_ext=%p\n", tmp_ext);
 
 	if (tmp_ext->init != NULL) {
-	    printk("Registering Linux Extension (%s)\n", tmp_ext->name);
+	    INFO("Registering Linux Extension (%s)\n", tmp_ext->name);
 	    tmp_ext->init();
 	}
 
@@ -115,11 +115,11 @@ int deinit_lnx_extensions( void ) {
     int i = 0;
 
     while (tmp_ext != __stop__lnx_exts[0]) {
-	printk("Cleaning up Linux Extension (%s)\n", tmp_ext->name);
+	INFO("Cleaning up Linux Extension (%s)\n", tmp_ext->name);
 	if (tmp_ext->deinit != NULL) {
 	    tmp_ext->deinit();
 	} else {
-	    printk("WARNING: Extension %s does not have a global deinit function\n", tmp_ext->name);
+	    WARNING("WARNING: Extension %s does not have a global deinit function\n", tmp_ext->name);
 	}
 
 	tmp_ext = __start__lnx_exts[++i];

@@ -284,7 +284,7 @@ static int vnet_init( void ) {
     vnet_bridge_init();
     vnet_ctrl_init();
 
-    printk("V3 VNET Inited\n");
+    INFO("V3 VNET Inited\n");
         
     return 0;
 }
@@ -296,7 +296,7 @@ static int vnet_deinit( void ) {
     vnet_bridge_deinit();
     vnet_ctrl_deinit();
 
-    printk("V3 VNET Deinited\n");
+    INFO("V3 VNET Deinited\n");
 
     return 0;
 }

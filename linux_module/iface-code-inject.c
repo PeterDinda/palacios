@@ -57,14 +57,14 @@ static int vm_tophalf_inject (struct v3_guest * guest, unsigned int cmd, unsigne
 
     top = kmalloc(sizeof(struct top_half_data), GFP_KERNEL);
     if (IS_ERR(top)) {
-        printk("Palacios Error: could not allocate space for top half data\n");
+        ERROR("Palacios Error: could not allocate space for top half data\n");
         return -EFAULT;
     }
     memset(top, 0, sizeof(struct top_half_data));
     
-    printk("Palacios: Loading ELF data...\n");
+    INFO("Palacios: Loading ELF data...\n");
     if (copy_from_user(&top_arg, (void __user *)arg, sizeof(struct top_half_data))) {
-        printk("palacios: error copying ELF from userspace\n");
+        ERROR("palacios: error copying ELF from userspace\n");
         return -EFAULT;
     }
 
@@ -76,34 +76,34 @@ static int vm_tophalf_inject (struct v3_guest * guest, unsigned int cmd, unsigne
     if (top_arg.is_exec_hooked) {
         strcpy(top->bin_file, top_arg.bin_file);
         top->is_exec_hooked = 1;
-        printk("top->bin_file is %s\n", top->bin_file);
+        DEBUG("top->bin_file is %s\n", top->bin_file);
     } 
 
-    printk("Palacios: Allocating %lu B of kernel memory for ELF binary data...\n", top->elf_size);
+    DEBUG("Palacios: Allocating %lu B of kernel memory for ELF binary data...\n", top->elf_size);
     top->elf_data = kmalloc(top->elf_size, GFP_KERNEL);
     if (IS_ERR(top->elf_data)) {
-        printk("Palacios Error: could not allocate space for binary image\n");
+        ERROR("Palacios Error: could not allocate space for binary image\n");
         return -EFAULT;
     }
     memset(top->elf_data, 0, top->elf_size);
 
-    printk("Palacios: Copying ELF image into kernel module...\n");
+    INFO("Palacios: Copying ELF image into kernel module...\n");
     if (copy_from_user(top->elf_data, (void __user *)top_arg.elf_data, top->elf_size)) {
-        printk("Palacios: Error loading elf data\n");
+        ERROR("Palacios: Error loading elf data\n");
         return -EFAULT;
     }
 
     if (register_top(top) < 0) 
         return -1;
     
-    printk("Palacios: setting up inject code...\n");
+    INFO("Palacios: setting up inject code...\n");
     if (v3_insert_code_inject(guest->v3_ctx, top->elf_data, top->elf_size, 
                          top->bin_file, top->is_dyn, top->is_exec_hooked, top->func_offset) < 0) {
-        printk("Palacios Error: error setting up inject code\n");
+        ERROR("Palacios Error: error setting up inject code\n");
         return -1;
     }
 
-    printk("Palacios: injection registration complete\n");
+    INFO("Palacios: injection registration complete\n");
     return 0;
 }
 

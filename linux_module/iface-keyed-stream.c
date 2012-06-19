@@ -211,7 +211,7 @@ static v3_keyed_stream_t open_stream_mem(char *url,
 {
 
     if (strncasecmp(url,"mem:",4)) { 
-	printk("palacios: illegitimate attempt to open memory stream \"%s\"\n",url);
+	WARNING("palacios: illegitimate attempt to open memory stream \"%s\"\n",url);
 	return 0;
     }
 
@@ -234,7 +234,7 @@ static v3_keyed_stream_t open_stream_mem(char *url,
 		mykey = kmalloc(strlen(url+4)+1,GFP_KERNEL);
 
 		if (!mykey) { 
-		    printk("palacios: cannot allocate space for new in-memory keyed stream %s\n",url);
+		    ERROR("palacios: cannot allocate space for new in-memory keyed stream %s\n",url);
 		    return 0;
 		}
 
@@ -244,7 +244,7 @@ static v3_keyed_stream_t open_stream_mem(char *url,
 
 		if (!mks) { 
 		    kfree(mykey);
-		    printk("palacios: cannot allocate in-memory keyed stream %s\n",url);
+		    ERROR("palacios: cannot allocate in-memory keyed stream %s\n",url);
 		    return 0;
 		}
 	    
@@ -252,7 +252,7 @@ static v3_keyed_stream_t open_stream_mem(char *url,
 		if (!mks->ht) { 
 		    kfree(mks);
 		    kfree(mykey);
-		    printk("palacios: cannot allocate in-memory keyed stream %s\n",url);
+		    ERROR("palacios: cannot allocate in-memory keyed stream %s\n",url);
 		    return 0;
 		}
 
@@ -261,7 +261,7 @@ static v3_keyed_stream_t open_stream_mem(char *url,
 		    palacios_free_htable(mks->ht,1,1);
 		    kfree(mks);
 		    kfree(mykey);
-		    printk("palacios: cannot insert in-memory keyed stream %s\n",url);
+		    ERROR("palacios: cannot insert in-memory keyed stream %s\n",url);
 		    return 0;
 		}
 		mks->stype=STREAM_MEM;
@@ -275,7 +275,7 @@ static v3_keyed_stream_t open_stream_mem(char *url,
 	    break;
 
 	default:
-	    printk("palacios: unsupported open type in open_stream_mem\n");
+	    ERROR("palacios: unsupported open type in open_stream_mem\n");
 	    break;
     }
     
@@ -306,7 +306,7 @@ static v3_keyed_stream_key_t open_key_mem(v3_keyed_stream_t stream,
 	char *mykey = kmalloc(strlen(key)+1,GFP_KERNEL);
 
 	if (!mykey) { 
-	    printk("palacios: cannot allocate copy of key for key %s\n",key);
+	    ERROR("palacios: cannot allocate copy of key for key %s\n",key);
 	    return 0;
 	}
 
@@ -316,14 +316,14 @@ static v3_keyed_stream_key_t open_key_mem(v3_keyed_stream_t stream,
 	
 	if (!m) { 
 	    kfree(mykey);
-	    printk("palacios: cannot allocate mem keyed stream for key %s\n",key);
+	    ERROR("palacios: cannot allocate mem keyed stream for key %s\n",key);
 	    return 0;
 	}
 
 	if (!palacios_htable_insert(s,(addr_t)mykey,(addr_t)m)) {
 	    destroy_mem_stream(m);
 	    kfree(mykey);
-	    printk("palacios: cannot insert mem keyed stream for key %s\n",key);
+	    ERROR("palacios: cannot insert mem keyed stream for key %s\n",key);
 	    return 0;
 	}
     }
@@ -355,7 +355,7 @@ static void preallocate_hint_key_mem(v3_keyed_stream_t stream,
 	mykey=kmalloc(strlen(key)+1,GFP_KERNEL);
 	
 	if (!mykey) { 
-	    printk("palacios: cannot allocate key spce for preallocte for key %s\n",key);
+	    ERROR("palacios: cannot allocate key space for preallocte for key %s\n",key);
 	    return;
 	}
 	
@@ -364,19 +364,19 @@ static void preallocate_hint_key_mem(v3_keyed_stream_t stream,
 	m = create_mem_stream_internal(size);
 	
 	if (!m) { 
-	    printk("palacios: cannot preallocate mem keyed stream for key %s\n",key);
+	    ERROR("palacios: cannot preallocate mem keyed stream for key %s\n",key);
 	    return;
 	}
 
 	if (!palacios_htable_insert(s,(addr_t)mykey,(addr_t)m)) {
-	    printk("palacios: cannot insert preallocated mem keyed stream for key %s\n",key);
+	    ERROR("palacios: cannot insert preallocated mem keyed stream for key %s\n",key);
 	    destroy_mem_stream(m);
 	    return;
 	}
     } else {
 	if (m->data_max < size) { 
 	    if (expand_mem_stream(m,size)) { 
-		printk("palacios: cannot expand key for preallocation for key %s\n",key);
+		ERROR("palacios: cannot expand key for preallocation for key %s\n",key);
 		return;
 	    }
 	}
@@ -416,7 +416,7 @@ static sint64_t write_key_mem(v3_keyed_stream_t stream,
     writelen=write_mem_stream(m,buf,mylen);
 
     if (writelen!=mylen) { 
-	printk("palacios: failed to write all data for key\n");
+	ERROR("palacios: failed to write all data for key\n");
 	return -1;
     } else {
 	return (sint64_t)writelen;
@@ -446,7 +446,7 @@ static sint64_t read_key_mem(v3_keyed_stream_t stream,
     readlen=read_mem_stream(m,buf,mylen);
     
     if (readlen!=mylen) { 
-	printk("palacios: failed to read all data for key\n");
+	ERROR("palacios: failed to read all data for key\n");
 	return -1;
     } else {
 	return (sint64_t)readlen;
@@ -482,21 +482,21 @@ static v3_keyed_stream_t open_stream_file(char *url,
     struct nameidata nd;
 
     if (strncasecmp(url,"file:",5)) { 
-	printk("palacios: illegitimate attempt to open file stream \"%s\"\n",url);
+	WARNING("palacios: illegitimate attempt to open file stream \"%s\"\n",url);
 	return 0;
     }
 
     fks = kmalloc(sizeof(struct file_keyed_stream),GFP_KERNEL);
     
     if (!fks) { 
-	printk("palacios: cannot allocate space for file stream\n");
+	ERROR("palacios: cannot allocate space for file stream\n");
 	return 0;
     }
 
     fks->path = (char*)kmalloc(strlen(url+5)+1,GFP_KERNEL);
     
     if (!(fks->path)) { 
-	printk("palacios: cannot allocate space for file stream\n");
+	ERROR("palacios: cannot allocate space for file stream\n");
 	kfree(fks);
 	return 0;
     }
@@ -516,7 +516,7 @@ static v3_keyed_stream_t open_stream_file(char *url,
 	if (ot==V3_KS_RD_ONLY || ot==V3_KS_WR_ONLY) { 
 
 	    // we are not being asked to create it
-	    printk("palacios: attempt to open %s, which does not exist\n",fks->path);
+	    ERROR("palacios: attempt to open %s, which does not exist\n",fks->path);
 	    goto fail_out;
 
 	} else {
@@ -528,14 +528,14 @@ static v3_keyed_stream_t open_stream_file(char *url,
 
 	    // Find its parent
 	    if (path_lookup(fks->path,LOOKUP_PARENT|LOOKUP_FOLLOW,&nd)) { 
-		printk("palacios: attempt to create %s failed because its parent cannot be looked up\n",fks->path);
+		ERROR("palacios: attempt to create %s failed because its parent cannot be looked up\n",fks->path);
 		goto fail_out;
 	    }
 
 	    // Can we write to the parent?
 
 	    if (inode_permission(nd.path.dentry->d_inode, MAY_WRITE | MAY_EXEC)) { 
-		printk("palacios: attempt to open %s, which has the wrong permissions for directory creation\n",fks->path);
+		ERROR("palacios: attempt to open %s, which has the wrong permissions for directory creation\n",fks->path);
 		goto fail_out;
 	    }
 
@@ -544,7 +544,7 @@ static v3_keyed_stream_t open_stream_file(char *url,
 	    de = lookup_create(&nd,1);
 
 	    if (IS_ERR(de)) { 
-		printk("palacios: cannot allocate dentry\n");
+		ERROR("palacios: cannot allocate dentry\n");
 		goto fail_out;
 	    }
 
@@ -555,7 +555,7 @@ static v3_keyed_stream_t open_stream_file(char *url,
 	    mutex_unlock(&(nd.path.dentry->d_inode->i_mutex));
 
 	    if (err) {
-		printk("palacios: attempt to create %s failed because mkdir failed\n",fks->path);
+		ERROR("palacios: attempt to create %s failed because mkdir failed\n",fks->path);
 		goto fail_out;
 	    }
 
@@ -569,7 +569,7 @@ static v3_keyed_stream_t open_stream_file(char *url,
     // and the directory exists, so we must check the permissions
 
     if (inode_permission(nd.path.dentry->d_inode, MAY_EXEC | (ot==V3_KS_RD_ONLY ? MAY_READ : MAY_WRITE))) {
-	printk("palacios: attempt to open %s, which has the wrong permissions\n",fks->path);
+	ERROR("palacios: attempt to open %s, which has the wrong permissions\n",fks->path);
 	goto fail_out;
     } else {
 	return (v3_keyed_stream_t) fks;
@@ -610,7 +610,7 @@ static v3_keyed_stream_key_t open_key_file(v3_keyed_stream_t stream,
     // file:/home/foo + "regext" => "/home/foo/regext"
     path = (char *) kmalloc(strlen(fks->path)+strlen(key)+2,GFP_KERNEL);
     if (!path) {				
-	printk("palacios: cannot allocate file keyed stream for key %s\n",key);
+	ERROR("palacios: cannot allocate file keyed stream for key %s\n",key);
 	return 0;
     }
     strcpy(path,fks->path);
@@ -620,7 +620,7 @@ static v3_keyed_stream_key_t open_key_file(v3_keyed_stream_t stream,
     fs = (struct file_stream *) kmalloc(sizeof(struct file_stream *),GFP_KERNEL);
     
     if (!fs) { 
-	printk("palacios: cannot allocate file keyed stream for key %s\n",key);
+	ERROR("palacios: cannot allocate file keyed stream for key %s\n",key);
 	kfree(path);
 	return 0;
     }
@@ -630,7 +630,7 @@ static v3_keyed_stream_key_t open_key_file(v3_keyed_stream_t stream,
     fs->f = filp_open(path,O_RDWR|O_CREAT,0600);
     
     if (IS_ERR(fs->f)) {
-	printk("palacios: cannot open relevent file \"%s\" for stream \"file:%s\" and key \"%s\"\n",path,fks->path,key);
+	ERROR("palacios: cannot open relevent file \"%s\" for stream \"file:%s\" and key \"%s\"\n",path,fks->path,key);
 	kfree(fs);
 	kfree(path);
 	return 0;
@@ -805,7 +805,7 @@ static int do_request_to_response(struct user_keyed_stream *s, unsigned long *fl
 {
 
     if (s->waiting) {
-	printk("palacios: user keyed stream request attempted while one is already in progress on %s\n",s->url);
+	ERROR("palacios: user keyed stream request attempted while one is already in progress on %s\n",s->url);
         return -1;
     }
 
@@ -835,7 +835,7 @@ static int do_response_to_request(struct user_keyed_stream *s, unsigned long *fl
 {
 
     if (!(s->waiting)) {
-	printk("palacios: user keyed stream response while no request is in progress on %s\n",s->url);
+	ERROR("palacios: user keyed stream response while no request is in progress on %s\n",s->url);
         return -1;
     }
 
@@ -901,7 +901,7 @@ static long keyed_stream_ioctl_user(struct file * filp, unsigned int ioctl, unsi
 	    
 	    if (copy_to_user((void * __user) argp, &size, sizeof(uint64_t))) {
 		spin_unlock_irqrestore(&(s->lock), flags);
-		printk("palacios: palacios user key size request failed to copy data\n");
+		ERROR("palacios: palacios user key size request failed to copy data\n");
 		return -EFAULT;
 	    }
 	    
@@ -919,7 +919,7 @@ static long keyed_stream_ioctl_user(struct file * filp, unsigned int ioctl, unsi
 
 	    if (!(s->waiting)) {
 		spin_unlock_irqrestore(&(s->lock), flags);
-		printk("palacios: palacios user key pull request when not waiting\n");
+		ERROR("palacios: palacios user key pull request when not waiting\n");
 		return 0;
 	    }
 
@@ -928,7 +928,7 @@ static long keyed_stream_ioctl_user(struct file * filp, unsigned int ioctl, unsi
 
 	    if (copy_to_user((void __user *) argp, s->op, size)) {
 		spin_unlock_irqrestore(&(s->lock), flags);
-		printk("palacios: palacios user key pull request failed to copy data\n");
+		ERROR("palacios: palacios user key pull request failed to copy data\n");
 		return -EFAULT;
 	    }
 
@@ -947,18 +947,18 @@ static long keyed_stream_ioctl_user(struct file * filp, unsigned int ioctl, unsi
 
         if (!(s->waiting)) {
             spin_unlock_irqrestore(&(s->lock), flags);
-	    printk("palacios: palacios user key push response when not waiting\n");
+	    ERROR("palacios: palacios user key push response when not waiting\n");
             return 0;
         }
 	
         if (copy_from_user(&size, (void __user *) argp, sizeof(uint64_t))) {
-	    printk("palacios: palacios user key push response failed to copy size\n");
+	    ERROR("palacios: palacios user key push response failed to copy size\n");
             spin_unlock_irqrestore(&(s->lock), flags);
             return -EFAULT;
         }
 
 	if (resize_op(&(s->op),size-sizeof(struct palacios_user_keyed_stream_op))) {
-	    printk("palacios: unable to resize op in user key push response\n");
+	    ERROR("palacios: unable to resize op in user key push response\n");
             spin_unlock_irqrestore(&(s->lock), flags);
 	    return -EFAULT;
 	}
@@ -976,7 +976,7 @@ static long keyed_stream_ioctl_user(struct file * filp, unsigned int ioctl, unsi
         break;
 	
     default:
-	printk("palacios: unknown ioctl in user keyed stream\n");
+	ERROR("palacios: unknown ioctl in user keyed stream\n");
 
         return -EFAULT;
 
@@ -1028,25 +1028,25 @@ int keyed_stream_connect_user(struct v3_guest *guest, unsigned int cmd, unsigned
     struct user_keyed_stream *s;
     
     if (!user_streams) { 
-	printk("palacios: no user space keyed streams!\n");
+	ERROR("palacios: no user space keyed streams!\n");
 	return -1;
     }
 
     // get the url
     if (copy_from_user(&len,(void __user *)arg,sizeof(len))) { 
-	printk("palacios: cannot copy url len from user\n");
+	ERROR("palacios: cannot copy url len from user\n");
 	return -1;
     }
 
     url = kmalloc(len,GFP_KERNEL);
     
     if (!url) { 
-	printk("palacios: cannot allocate url for user keyed stream\n");
+	ERROR("palacios: cannot allocate url for user keyed stream\n");
 	return -1;
     }
 
     if (copy_from_user(url,((void __user *)arg)+sizeof(len),len)) {
-	printk("palacios: cannot copy url from user\n");
+	ERROR("palacios: cannot copy url from user\n");
 	return -1;
     }
     url[len-1]=0;
@@ -1056,7 +1056,7 @@ int keyed_stream_connect_user(struct v3_guest *guest, unsigned int cmd, unsigned
     spin_lock_irqsave(&(user_streams->lock), flags);
     list_for_each_entry(s, &(user_streams->streams), node) {
         if (!strncasecmp(url, s->url, len)) {
-            printk("palacios: user keyed stream connection with url \"%s\" already exists\n", url);
+            ERROR("palacios: user keyed stream connection with url \"%s\" already exists\n", url);
 	    kfree(url);
             return -1;
         }
@@ -1067,7 +1067,7 @@ int keyed_stream_connect_user(struct v3_guest *guest, unsigned int cmd, unsigned
     s = kmalloc(sizeof(struct user_keyed_stream), GFP_KERNEL);
     
     if (!s) {
-	printk("palacios: cannot allocate new user keyed stream for %s\n",url);
+	ERROR("palacios: cannot allocate new user keyed stream for %s\n",url);
 	kfree(url);
         return -1;
     }
@@ -1077,7 +1077,7 @@ int keyed_stream_connect_user(struct v3_guest *guest, unsigned int cmd, unsigned
     fd = anon_inode_getfd("v3-kstream", &user_keyed_stream_fops, s, 0);
 
     if (fd < 0) {
-	printk("palacios: cannot allocate file descriptor for new user keyed stream for %s\n",url);
+	ERROR("palacios: cannot allocate file descriptor for new user keyed stream for %s\n",url);
         kfree(s);
 	kfree(url);
         return -1;
@@ -1105,7 +1105,7 @@ static struct user_keyed_stream *keyed_stream_user_find(char *url)
     struct user_keyed_stream *s;
     
     if (!user_streams) { 
-	printk("palacios: no user space keyed streams available\n");
+	ERROR("palacios: no user space keyed streams available\n");
 	return NULL;
     }
     
@@ -1131,7 +1131,7 @@ static v3_keyed_stream_t open_stream_user(char *url, v3_keyed_stream_open_t ot)
     s = keyed_stream_user_find(url);
     
     if (!s) {
-	printk("palacios: cannot open user stream %s as it does not exist yet\n",url);
+	ERROR("palacios: cannot open user stream %s as it does not exist yet\n",url);
         return NULL;
     }
 
@@ -1139,7 +1139,7 @@ static v3_keyed_stream_t open_stream_user(char *url, v3_keyed_stream_open_t ot)
 
     if (s->waiting) {
         spin_unlock_irqrestore(&(s->lock), flags);
-	printk("palacios: cannot open user stream %s as it is already in waiting state\n",url);
+	ERROR("palacios: cannot open user stream %s as it is already in waiting state\n",url);
         return NULL;
     }
     
@@ -1181,7 +1181,7 @@ static v3_keyed_stream_key_t open_key_user(v3_keyed_stream_t stream, char *key)
 
     if (resize_op(&(s->op),len)) {
 	spin_unlock_irqrestore(&(s->lock),flags);
-	printk("palacios: cannot resize op in opening key %s on user keyed stream %s\n",key,s->url);
+	ERROR("palacios: cannot resize op in opening key %s on user keyed stream %s\n",key,s->url);
 	return NULL;
     }
 
@@ -1192,7 +1192,7 @@ static v3_keyed_stream_key_t open_key_user(v3_keyed_stream_t stream, char *key)
     // enter with it locked
     if (do_request_to_response(s,&flags)) { 
 	spin_unlock_irqrestore(&(s->lock),flags);
-	printk("palacios: request/response handling failed\n");
+	ERROR("palacios: request/response handling failed\n");
 	return NULL;
     }
     // return with it locked
@@ -1214,7 +1214,7 @@ static void close_key_user(v3_keyed_stream_t stream, v3_keyed_stream_key_t key)
 
     if (resize_op(&(s->op),len)) {
 	spin_unlock_irqrestore(&(s->lock),flags);
-	printk("palacios: cannot resize op in closing key 0x%p on user keyed stream %s\n",key,s->url);
+	ERROR("palacios: cannot resize op in closing key 0x%p on user keyed stream %s\n",key,s->url);
 	return;
     }
 
@@ -1225,7 +1225,7 @@ static void close_key_user(v3_keyed_stream_t stream, v3_keyed_stream_key_t key)
     // enter with it locked
     if (do_request_to_response(s,&flags)) { 
 	spin_unlock_irqrestore(&(s->lock),flags);
-	printk("palacios: request/response handling failed\n");
+	ERROR("palacios: request/response handling failed\n");
 	return;
     }
     // return with it locked
@@ -1250,12 +1250,12 @@ static sint64_t read_key_user(v3_keyed_stream_t stream, v3_keyed_stream_key_t ke
 
     if (s->otype != V3_KS_RD_ONLY) { 
 	spin_unlock_irqrestore(&(s->lock),flags);
-	printk("palacios: attempt to read key from stream that is not in read state on %s\n",s->url);
+	ERROR("palacios: attempt to read key from stream that is not in read state on %s\n",s->url);
     }	
 
     if (resize_op(&(s->op),len)) {
 	spin_unlock_irqrestore(&(s->lock),flags);
-	printk("palacios: cannot resize op in reading key 0x%p on user keyed stream %s\n",key,s->url);
+	ERROR("palacios: cannot resize op in reading key 0x%p on user keyed stream %s\n",key,s->url);
 	return -1;
     }
 
@@ -1267,7 +1267,7 @@ static sint64_t read_key_user(v3_keyed_stream_t stream, v3_keyed_stream_key_t ke
     // enter with it locked
     if (do_request_to_response(s,&flags)) { 
 	spin_unlock_irqrestore(&(s->lock),flags);
-	printk("palacios: request/response handling failed\n");
+	ERROR("palacios: request/response handling failed\n");
 	return -1;
     }
     // return with it locked
@@ -1299,12 +1299,12 @@ static sint64_t write_key_user(v3_keyed_stream_t stream, v3_keyed_stream_key_t k
 
     if (s->otype != V3_KS_WR_ONLY) { 
 	spin_unlock_irqrestore(&(s->lock),flags);
-	printk("palacios: attempt to write key on stream that is not in write state on %s\n",s->url);
+	ERROR("palacios: attempt to write key on stream that is not in write state on %s\n",s->url);
     }	
 
     if (resize_op(&(s->op),len)) {
 	spin_unlock_irqrestore(&(s->lock),flags);
-	printk("palacios: cannot resize op in reading key 0x%p on user keyed stream %s\n",key,s->url);
+	ERROR("palacios: cannot resize op in reading key 0x%p on user keyed stream %s\n",key,s->url);
 	return -1;
     }
 
@@ -1320,7 +1320,7 @@ static sint64_t write_key_user(v3_keyed_stream_t stream, v3_keyed_stream_key_t k
     // enter with it locked
     if (do_request_to_response(s,&flags)) { 
 	spin_unlock_irqrestore(&(s->lock),flags);
-	printk("palacios: request/response handling failed\n");
+	ERROR("palacios: request/response handling failed\n");
 	return -1;
     }
     // return with it locked
@@ -1349,7 +1349,7 @@ static v3_keyed_stream_t open_stream(char *url,
     } else if (!strncasecmp(url,"user:",5)) { 
 	return open_stream_user(url,ot);
     } else {
-	printk("palacios: unsupported type in attempt to open keyed stream \"%s\"\n",url);
+	ERROR("palacios: unsupported type in attempt to open keyed stream \"%s\"\n",url);
 	return 0;
     }
 }
@@ -1368,7 +1368,7 @@ static void close_stream(v3_keyed_stream_t stream)
 	    return close_stream_user(stream);
 	    break;
 	default:
-	    printk("palacios: unknown stream type %d in close\n",gks->stype);
+	    ERROR("palacios: unknown stream type %d in close\n",gks->stype);
 	    break;
     }
 }
@@ -1389,7 +1389,7 @@ static void preallocate_hint_key(v3_keyed_stream_t stream,
 	    return preallocate_hint_key_user(stream,key,size);
 	    break;
 	default:
-	    printk("palacios: unknown stream type %d in preallocate_hint_key\n",gks->stype);
+	    ERROR("palacios: unknown stream type %d in preallocate_hint_key\n",gks->stype);
 	    break;
     }
     return;
@@ -1411,7 +1411,7 @@ static v3_keyed_stream_key_t open_key(v3_keyed_stream_t stream,
 	    return open_key_user(stream,key);
 	    break;
 	default:
-	    printk("palacios: unknown stream type %d in open_key\n",gks->stype);
+	    ERROR("palacios: unknown stream type %d in open_key\n",gks->stype);
 	    break;
     }
     return 0;
@@ -1433,7 +1433,7 @@ static void close_key(v3_keyed_stream_t stream,
 	    return close_key_user(stream,key);
 	    break;
 	default:
-	    printk("palacios: unknown stream type %d in close_key\n",gks->stype);
+	    ERROR("palacios: unknown stream type %d in close_key\n",gks->stype);
 	    break;
     }
     // nothing to do
@@ -1457,7 +1457,7 @@ static sint64_t write_key(v3_keyed_stream_t stream,
 	    return write_key_user(stream,key,buf,len);
 	    break;
 	default:
-	    printk("palacios: unknown stream type %d in write_key\n",gks->stype);
+	    ERROR("palacios: unknown stream type %d in write_key\n",gks->stype);
 	    return -1;
 	    break;
     }
@@ -1482,7 +1482,7 @@ static sint64_t read_key(v3_keyed_stream_t stream,
 	    return read_key_user(stream,key,buf,len);
 	    break;
 	default:
-	    printk("palacios: unknown stream type %d in read_key\n",gks->stype);
+	    ERROR("palacios: unknown stream type %d in read_key\n",gks->stype);
 	    return -1;
 	    break;
     }
@@ -1513,14 +1513,14 @@ static int init_keyed_streams( void )
     mem_streams = palacios_create_htable(DEF_NUM_STREAMS,hash_func,hash_comp);
 
     if (!mem_streams) { 
-	printk("palacios: failed to allocated stream pool for in-memory streams\n");
+	ERROR("palacios: failed to allocated stream pool for in-memory streams\n");
 	return -1;
     }
 
     user_streams = kmalloc(sizeof(struct user_keyed_streams),GFP_KERNEL);
 
     if (!user_streams) { 
-	printk("palacios: failed to allocated list for user streams\n");
+	ERROR("palacios: failed to allocated list for user streams\n");
 	return -1;
     }
 
@@ -1540,7 +1540,7 @@ static int deinit_keyed_streams( void )
 
     kfree(user_streams);
 
-    printk("Deinit of Palacios Keyed Streams likely leaked memory\n");
+    WARNING("Deinit of Palacios Keyed Streams likely leaked memory\n");
 
     return 0;
 }

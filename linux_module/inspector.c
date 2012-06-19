@@ -58,14 +58,14 @@ static int inspect_vm(struct v3_guest * guest, unsigned int cmd, unsigned long a
 
 
     if (root == NULL) {
-	printk("No inspection root found\n");
+	ERROR("No inspection root found\n");
     	return -1;
     }
 
     guest_dir = debugfs_create_dir(guest->name, v3_dir);
 
     if (IS_ERR(guest_dir)) {
-	printk("Error Creating inspector tree for VM \"%s\"\n", guest->name);
+	ERROR("Error Creating inspector tree for VM \"%s\"\n", guest->name);
 	return -1;
     }
 
@@ -80,7 +80,7 @@ static int init_inspector( void ) {
     v3_dir = debugfs_create_dir("v3vee", NULL);
 
     if (IS_ERR(v3_dir)) {
-	printk("Error creating v3vee debugfs directory\n");
+	ERROR("Error creating v3vee debugfs directory\n");
 	return -1;
     }
 

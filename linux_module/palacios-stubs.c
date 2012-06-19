@@ -165,7 +165,7 @@ static int lnx_thread_target(void * arg) {
     struct lnx_thread_arg * thread_info = (struct lnx_thread_arg *)arg;
     int ret = 0;
     /*
-      printk("Daemonizing new Palacios thread (name=%s)\n", thread_info->name);
+      INFO("Daemonizing new Palacios thread (name=%s)\n", thread_info->name);
 
       daemonize(thread_info->name);
       allow_signal(SIGKILL);
@@ -223,7 +223,7 @@ palacios_start_thread_on_cpu(int cpu_id,
     thread = kthread_create( lnx_thread_target, thread_info, thread_name );
 
     if (IS_ERR(thread)) {
-	printk("Palacios error creating thread: %s\n", thread_name);
+	WARNING("Palacios error creating thread: %s\n", thread_name);
 	return NULL;
     }
 
@@ -248,7 +248,7 @@ palacios_move_thread_to_cpu(int new_cpu_id,
 			    void * thread_ptr) {
     struct task_struct * thread = (struct task_struct *)thread_ptr;
 
-    printk("Moving thread (%p) to cpu %d\n", thread, new_cpu_id);
+    INFO("Moving thread (%p) to cpu %d\n", thread, new_cpu_id);
 
     if (thread == NULL) {
 	thread = current;
@@ -331,16 +331,16 @@ palacios_dispatch_interrupt( int vector, void * dev, struct pt_regs * regs ) {
 static int
 palacios_hook_interrupt(struct v3_vm_info *	vm,
 			unsigned int		vector ) {
-    printk("hooking vector %d\n", vector);  	
+    INFO("hooking vector %d\n", vector);  	
 
     if (irq_to_guest_map[vector]) {
-	printk(KERN_WARNING
+	WARNING(
 	       "%s: Interrupt vector %u is already hooked.\n",
 	       __func__, vector);
 	return -1;
     }
 
-    printk(KERN_DEBUG
+    DEBUG(
 	   "%s: Hooking interrupt vector %u to vm %p.\n",
 	   __func__, vector, vm);
 
@@ -363,7 +363,7 @@ palacios_hook_interrupt(struct v3_vm_info *	vm,
 	int flag = 0;
 	int error;
 		
-	printk("hooking vector: %d\n", vector);		
+	DEBUG("hooking vector: %d\n", vector);		
 
 	if (vector == 32) {
 	    flag = IRQF_TIMER;
@@ -378,7 +378,7 @@ palacios_hook_interrupt(struct v3_vm_info *	vm,
 			    &device_id);
 	
 	if (error) {
-	    printk("error code for request_irq is %d\n", error);
+	    ERROR("error code for request_irq is %d\n", error);
 	    panic("request vector %d failed",vector);
 	}
     }
@@ -397,7 +397,7 @@ palacios_ack_interrupt(
 ) 
 {
   ack_APIC_irq(); 
-  printk("Pretending to ack interrupt, vector=%d\n",vector);
+  DEBUG("Pretending to ack interrupt, vector=%d\n",vector);
   return 0;
 }
   
@@ -407,10 +407,10 @@ palacios_ack_interrupt(
 static unsigned int
 palacios_get_cpu_khz(void) 
 {
-    printk("cpu_khz is %u\n",cpu_khz);
+    INFO("cpu_khz is %u\n",cpu_khz);
 
     if (cpu_khz == 0) { 
-	printk("faking cpu_khz to 1000000\n");
+	INFO("faking cpu_khz to 1000000\n");
 	return 1000000;
     } else {
 	return cpu_khz;
@@ -518,7 +518,7 @@ int palacios_vmm_init( void )
         
         for (i = 0; i < cpu_list_len; i++) {
 	    if (cpu_list[i] >= num_cpus) {
-		printk("CPU (%d) exceeds number of available CPUs. Ignoring...\n", cpu_list[i]);
+		WARNING("CPU (%d) exceeds number of available CPUs. Ignoring...\n", cpu_list[i]);
 		continue;
 	    }
 
@@ -531,7 +531,7 @@ int palacios_vmm_init( void )
 
     memset(irq_to_guest_map, 0, sizeof(struct v3_vm_info *) * 256);
 
-    printk("palacios_init starting - calling init_v3\n");
+    INFO("palacios_init starting - calling init_v3\n");
     
     Init_V3(&palacios_os_hooks, cpu_mask, num_cpus);
 

@@ -53,15 +53,15 @@ static int vm_env_inject (struct v3_guest * guest, unsigned int cmd, unsigned lo
     struct env_data * env;
     int i;
 
-    printk("Palacios: Loading environment data...\n");
+    INFO("Palacios: Loading environment data...\n");
     if (copy_from_user(&env_arg, (void __user *)arg, sizeof(struct env_data))) {
-        printk("palacios: error copying environment data from userspace\n");
+        ERROR("palacios: error copying environment data from userspace\n");
         return -EFAULT;
     }
 
     env = kmalloc(sizeof(struct env_data), GFP_KERNEL);
     if (IS_ERR(env)) {
-        printk("Palacios Error: could not allocate space for environment data\n");
+        ERROR("Palacios Error: could not allocate space for environment data\n");
         return -EFAULT;
     }
 
@@ -70,47 +70,47 @@ static int vm_env_inject (struct v3_guest * guest, unsigned int cmd, unsigned lo
     env->num_strings = env_arg.num_strings;
     
     strcpy(env->bin_name, env_arg.bin_name);
-    printk("Binary hooked on: %s\n", env->bin_name);
+    DEBUG("Binary hooked on: %s\n", env->bin_name);
 
-    //printk("Palacios: Allocating space for %u env var string ptrs...\n", env->num_strings);
+    //DEBUG("Palacios: Allocating space for %u env var string ptrs...\n", env->num_strings);
     env->strings = kmalloc(env->num_strings*sizeof(char*), GFP_KERNEL);
     if (IS_ERR(env->strings)) {
-        printk("Palacios Error: could not allocate space for env var strings\n");
+        ERROR("Palacios Error: could not allocate space for env var strings\n");
         return -EFAULT;
     }
     memset(env->strings, 0, env->num_strings*sizeof(char*));
 
-    //printk("Palacios: copying env var string pointers\n");
+    //INFO("Palacios: copying env var string pointers\n");
     if (copy_from_user(env->strings, (void __user *)env_arg.strings, env->num_strings*sizeof(char*))) {
-        printk("Palacios: Error copying string pointers\n");
+        ERROR("Palacios: Error copying string pointers\n");
         return -EFAULT;
     }
 
     for (i = 0; i < env->num_strings; i++) {
         char * tmp  = kmalloc(MAX_STRING_LEN, GFP_KERNEL);
         if (IS_ERR(tmp)) {
-            printk("Palacios Error: could not allocate space for env var string #%d\n", i);
+            ERROR("Palacios Error: could not allocate space for env var string #%d\n", i);
             return -EFAULT;
         }
 
         if (copy_from_user(tmp, (void __user *)env->strings[i], MAX_STRING_LEN)) {
-            printk("Palacios: Error copying string #%d\n", i);
+            ERROR("Palacios: Error copying string #%d\n", i);
             return -EFAULT;
         }
         env->strings[i] = tmp;
     }
 
-    printk("Palacios: registering environment data...\n");
+    INFO("Palacios: registering environment data...\n");
     if (register_env(env) < 0) 
         return -1;
     
-    printk("Palacios: passing data off to palacios...\n");
+    DEBUG("Palacios: passing data off to palacios...\n");
     if (v3_insert_env_inject(guest->v3_ctx, env->strings, env->num_strings, env->bin_name) < 0) {
-        printk("Palacios: Error passing off environment data\n");
+        ERROR("Palacios: Error passing off environment data\n");
         return -1;
     }
 
-    printk("Palacios: environment injection registration complete\n");
+    INFO("Palacios: environment injection registration complete\n");
     return 0;
 }
 

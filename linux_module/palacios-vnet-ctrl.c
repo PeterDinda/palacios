@@ -22,6 +22,7 @@
 #include <vnet/vnet.h>
 #include <vnet/vnet_hashtable.h>
 #include "palacios-vnet.h"
+#include "palacios.h"
 
 #define VNET_SERVER_PORT 9000
 
@@ -64,7 +65,7 @@ static struct vnet_ctrl_state vnet_ctrl_s;
 static int parse_mac_str(char * str, uint8_t * qual, uint8_t * mac) {
     char * token;
 
-    printk("Parsing MAC (%s)\n", str);
+    INFO("Parsing MAC (%s)\n", str);
 	
     *qual = MAC_NOSET;
     if(strnicmp("any", str, strlen(str)) == 0){
@@ -80,7 +81,7 @@ static int parse_mac_str(char * str, uint8_t * qual, uint8_t * mac) {
 	    if (strnicmp("not", token, strlen("not")) == 0) {
 	    	*qual = MAC_NOT;
 	    } else {
-	    	printk("Invalid MAC String token (%s)\n", token);
+	    	WARNING("Invalid MAC String token (%s)\n", token);
 	    	return -1;
 	    }
     	}
@@ -95,15 +96,15 @@ static int parse_mac_str(char * str, uint8_t * qual, uint8_t * mac) {
 	    for (i = 0; i < 6; i++) {
 	    	token = strsep(&str, ":");
 	    	if (!token) {
-		    printk("Invalid MAC String token (%s)\n", token);
+		    WARNING("Invalid MAC String token (%s)\n", token);
 		    return -1;
    		}
 	    	mac[i] = simple_strtol(token, &token, 16);
 	    }
-           printk("MAC: %2x:%2x:%2x:%2x:%2x:%2x\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+           DEBUG("MAC: %2x:%2x:%2x:%2x:%2x:%2x\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 		
     	}else {
-	    printk("Invalid MAC String token (%s)\n", token);
+	    WARNING("Invalid MAC String token (%s)\n", token);
 	    return -1;
 	}
     		
@@ -120,7 +121,7 @@ static int str2mac(char * str, uint8_t * mac){
     for (i = 0; i < ETH_ALEN; i++) {		
 	hex = strsep(&str, ":");
 	if (!hex) {
-	    printk("Invalid MAC String token (%s)\n", str);
+	    WARNING("Invalid MAC String token (%s)\n", str);
 	    return -1;
 	}
 	mac[i] = simple_strtol(hex, &hex, 16);
@@ -179,14 +180,14 @@ static int parse_route_str(char * str, struct v3_vnet_route * route) {
     if (!token) {
 	return -1;
     }
-    printk("dst type =(%s)\n", token);
+    INFO("dst type =(%s)\n", token);
     
     if (strnicmp("interface", token, strlen("interface")) == 0) {
 	route->dst_type = LINK_INTERFACE;
     } else if (strnicmp("edge", token, strlen("edge")) == 0) {
 	route->dst_type = LINK_EDGE;
     } else {
-	printk("Invalid Destination Link Type (%s)\n", token);
+	WARNING("Invalid Destination Link Type (%s)\n", token);
 	return -1;
     }
 
@@ -195,7 +196,7 @@ static int parse_route_str(char * str, struct v3_vnet_route * route) {
     if (!token) {
 	return -1;
     }
-    printk("dst ID=(%s)\n", token);
+    DEBUG("dst ID=(%s)\n", token);
 
     // Figure out link here
     if (route->dst_type == LINK_EDGE) {
@@ -203,7 +204,7 @@ static int parse_route_str(char * str, struct v3_vnet_route * route) {
 
 	// Figure out Link Here
 	if (in4_pton(token, strlen(token), (uint8_t *)&(link_ip), '\0', NULL) != 1) {
-	    printk("Invalid Dst IP address (%s)\n", token);
+	    WARNING("Invalid Dst IP address (%s)\n", token);
 	    return -EFAULT;
 	}
 
@@ -211,26 +212,26 @@ static int parse_route_str(char * str, struct v3_vnet_route * route) {
 	if (link != NULL){
 	    route->dst_id = link->idx;
 	}else{
-	    printk("can not find dst link %s\n", token);
+	    WARNING("can not find dst link %s\n", token);
 	    return -1;
 	}
 
-	printk("link_ip = %d, link_id = %d\n", link_ip, link->idx);	
+	INFO("link_ip = %d, link_id = %d\n", link_ip, link->idx);	
     } else if (route->dst_type == LINK_INTERFACE) {
 	uint8_t mac[ETH_ALEN];
 	
        if(str2mac(token, mac) == -1){
-	   printk("wrong MAC format (%s)\n", token);
+	   WARNING("wrong MAC format (%s)\n", token);
 	   return -1;
        }
 	   
 	route->dst_id = v3_vnet_find_dev(mac);
 	if (route->dst_id == -1){
-	    printk("can not find dst device %s\n", token);
+	    WARNING("can not find dst device %s\n", token);
 	    return -1;
 	}		
     } else {
-	printk("Unsupported dst link type\n");
+	WARNING("Unsupported dst link type\n");
 	return -1;
     }
 
@@ -240,7 +241,7 @@ static int parse_route_str(char * str, struct v3_vnet_route * route) {
     // src LINK
     token = strsep(&str, " ");
 
-    printk("SRC type = %s\n", token);
+    INFO("SRC type = %s\n", token);
 
     if (!token) {
 	return -1;
@@ -253,7 +254,7 @@ static int parse_route_str(char * str, struct v3_vnet_route * route) {
     } else if (strnicmp("any", token, strlen("any")) == 0) {
 	route->src_type = LINK_ANY;
     } else {
-	printk("Invalid Src link type (%s)\n", token);
+	WARNING("Invalid Src link type (%s)\n", token);
 	return -1;
     }
 
@@ -270,7 +271,7 @@ static int parse_route_str(char * str, struct v3_vnet_route * route) {
 
 	// Figure out Link Here
 	if (in4_pton(token, strlen(token), (uint8_t *)&(src_ip), '\0', NULL) != 1) {
-	    printk("Invalid SRC IP address (%s)\n", token);
+	    WARNING("Invalid SRC IP address (%s)\n", token);
 	    return -EFAULT;
 	}
 
@@ -278,24 +279,24 @@ static int parse_route_str(char * str, struct v3_vnet_route * route) {
 	if (link != NULL){
 	    route->src_id = link->idx;
 	}else{
-	    printk("can not find src link %s\n", token);
+	    WARNING("can not find src link %s\n", token);
 	    return -1;
 	}
     } else if(route->src_type == LINK_INTERFACE){
        uint8_t mac[ETH_ALEN];
 	
        if(str2mac(token, mac) == -1){
-	   printk("wrong MAC format (%s)\n", token);
+	   WARNING("wrong MAC format (%s)\n", token);
 	   return -1;
        }
 	   
 	route->src_id = v3_vnet_find_dev(mac);
 	if (route->src_id == -1){
-	    printk("can not find dst device %s\n", token);
+	    WARNING("can not find dst device %s\n", token);
 	    return -1;
 	}		
     } else {
-	printk("Invalid link type\n");
+	WARNING("Invalid link type\n");
 	return -1;
     }
 
@@ -525,7 +526,7 @@ static int inject_route(struct vnet_route_iter * route) {
     vnet_ctrl_s.num_routes ++;
     spin_unlock_irqrestore(&(vnet_ctrl_s.lock), flags);
 
-    printk("VNET Control: One route added to VNET core\n");
+    INFO("VNET Control: One route added to VNET core\n");
 
     return 0;
 }
@@ -541,7 +542,7 @@ static void delete_route(struct vnet_route_iter * route) {
     vnet_ctrl_s.num_routes --;
     spin_unlock_irqrestore(&(vnet_ctrl_s.lock), flags);
 
-    printk("VNET Control: Route %d deleted from VNET\n", route->idx);
+    INFO("VNET Control: Route %d deleted from VNET\n", route->idx);
 
     kfree(route);
     route = NULL;
@@ -581,7 +582,7 @@ route_write(struct file * file,
     }
 
     route_buf[size] = '\0';
-    printk("Route written: %s\n", route_buf);
+    INFO("Route written: %s\n", route_buf);
 
     while ((buf_iter = strsep(&line_str, "\r\n"))) {
 
@@ -617,13 +618,13 @@ route_write(struct file * file,
 	    idx_str = strsep(&buf_iter, " ");
 	    
 	    if (!idx_str) {
-		printk("Missing route idx in DEL Route command\n");
+		WARNING("Missing route idx in DEL Route command\n");
 		return -EFAULT;
 	    }
 
 	    d_idx = simple_strtoul(idx_str, &idx_str, 10);
 
-	    printk("VNET: deleting route %d\n", d_idx);
+	    INFO("VNET: deleting route %d\n", d_idx);
 
 	    list_for_each_entry(route, &(vnet_ctrl_s.route_list), node) {
 		if (route->idx == d_idx) {
@@ -632,7 +633,7 @@ route_write(struct file * file,
 		}
     	    }
 	} else {
-	    printk("Invalid Route command string\n");
+	    WARNING("Invalid Route command string\n");
 	}
     }
 
@@ -689,7 +690,7 @@ link_write(struct file * file, const char * buf, size_t size, loff_t * ppos) {
     }
 
     while ((link_iter = strsep(&line_str, "\r\n"))) {
-	printk("Link written: %s\n", link_buf);
+	DEBUG("Link written: %s\n", link_buf);
 	
 	token = strsep(&link_iter, " ");
 	
@@ -709,12 +710,12 @@ link_write(struct file * file, const char * buf, size_t size, loff_t * ppos) {
 	    ip_str = strsep(&link_iter, " ");
 	    
 	    if ((!ip_str) || (!link_iter)) {
-		printk("Missing fields in ADD Link command\n");
+		WARNING("Missing fields in ADD Link command\n");
 		return -EFAULT;
 	    }
 	    
 	    if (in4_pton(ip_str, strlen(ip_str), (uint8_t *)&(d_ip), '\0', NULL) != 1) {
-		printk("Invalid Dst IP address (%s)\n", ip_str);
+		WARNING("Invalid Dst IP address (%s)\n", ip_str);
 		return -EFAULT;
 	    }
 
@@ -723,7 +724,7 @@ link_write(struct file * file, const char * buf, size_t size, loff_t * ppos) {
 
 	    link_idx = vnet_brg_add_link(d_ip, d_port, d_proto);
 	    if(link_idx < 0){
-		printk("VNET Control: Failed to create link\n");
+		WARNING("VNET Control: Failed to create link\n");
 		return -EFAULT;
 	    }
 
@@ -746,7 +747,7 @@ link_write(struct file * file, const char * buf, size_t size, loff_t * ppos) {
 	    idx_str = strsep(&link_iter, " ");
 	    
 	    if (!idx_str) {
-		printk("Missing link idx in DEL Link command\n");
+		WARNING("Missing link idx in DEL Link command\n");
 		return -EFAULT;
 	    }
 
@@ -754,9 +755,9 @@ link_write(struct file * file, const char * buf, size_t size, loff_t * ppos) {
 
 	    vnet_brg_delete_link(d_idx);
 		
-	    printk("VNET Control: One link deleted\n");		
+	    DEBUG("VNET Control: One link deleted\n");		
 	} else {
-	    printk("Invalid Link command string\n");
+	    WARNING("Invalid Link command string\n");
 	}
     }
 
@@ -802,7 +803,7 @@ debug_write(struct file * file, const char * buf, size_t size, loff_t * ppos) {
     in_iter = strsep(&line_str, "\r\n");
     level = simple_strtol(in_iter, &in_iter, 10);
 
-    printk("VNET Control: Set VNET Debug level to %d\n", level);
+    DEBUG("VNET Control: Set VNET Debug level to %d\n", level);
 
     if(level >= 0){
 	net_debug = level;
@@ -949,7 +950,7 @@ int vnet_ctrl_init(void) {
 
     init_proc_files();
 	
-    printk("VNET Linux control module initiated\n");
+    NOTICE("VNET Linux control module initiated\n");
 
     return 0;
 }
