@@ -47,11 +47,16 @@
 // KERN_DEBUG    "<7>"  /* debug-level messages             */
 
 // All 'printk's should be changed to one of these macros, for easier control
-#define ERROR(fmt, args...) printk((KERN_ERR fmt), ##args)
-#define WARNING(fmt, args...) printk((KERN_WARNING fmt), ##args)
-#define NOTICE(fmt, args...) printk((KERN_NOTICE fmt), ##args)
-#define INFO(fmt, args...) printk((KERN_INFO fmt), ##args)
-#define DEBUG(fmt, args...) printk((KERN_DEBUG fmt), ##args)
+#define ERROR(fmt, args...) printk((KERN_ERR "palacios: " fmt), ##args)
+#define WARNING(fmt, args...) printk((KERN_WARNING "palacios: " fmt), ##args)
+#define NOTICE(fmt, args...) printk((KERN_NOTICE "palacios: " fmt), ##args)
+#define INFO(fmt, args...) printk((KERN_INFO "palacios: " fmt), ##args)
+#define DEBUG(fmt, args...) printk((KERN_DEBUG "palacios: " fmt), ##args)
+
+// Turn this on for unprefaced output
+#define V3_PRINTK_OLD_STYLE_OUTPUT 0
+// Maximum length output from printk
+#define V3_PRINTK_BUF_SIZE 1024
 
 struct v3_guest_img {
     unsigned long long size;
