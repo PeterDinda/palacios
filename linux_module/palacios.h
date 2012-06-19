@@ -37,6 +37,21 @@
 
 #define V3_VM_KSTREAM_USER_CONNECT (11244+1)
 
+// KERN_EMERG    "<0>"  /* system is unusable               */
+// KERN_ALERT    "<1>"  /* action must be taken immediately */
+// KERN_CRIT     "<2>"  /* critical conditions              */
+// KERN_ERR      "<3>"  /* error conditions                 */
+// KERN_WARNING  "<4>"  /* warning conditions               */
+// KERN_NOTICE   "<5>"  /* normal but significant condition */
+// KERN_INFO     "<6>"  /* informational                    */
+// KERN_DEBUG    "<7>"  /* debug-level messages             */
+
+// All 'printk's should be changed to one of these macros, for easier control
+#define ERROR(fmt, args...) printk((KERN_ERR fmt), ##args)
+#define WARNING(fmt, args...) printk((KERN_WARNING fmt), ##args)
+#define NOTICE(fmt, args...) printk((KERN_NOTICE fmt), ##args)
+#define INFO(fmt, args...) printk((KERN_INFO fmt), ##args)
+#define DEBUG(fmt, args...) printk((KERN_DEBUG fmt), ##args)
 
 struct v3_guest_img {
     unsigned long long size;
