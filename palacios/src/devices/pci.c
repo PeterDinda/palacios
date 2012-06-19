@@ -1114,7 +1114,7 @@ static int pci_save(struct v3_chkpt_ctx * ctx, void * private_data) {
 	struct pci_device * dev = NULL;
 	struct v3_chkpt_ctx * bus_ctx = NULL;
 
-	snprintf(buf, 128, "pci-%d\n", i);
+	snprintf(buf, 128, "pci-%d", i);
 	
 	bus_ctx = v3_chkpt_open_ctx(ctx->chkpt, ctx, buf);
 
@@ -1156,7 +1156,7 @@ static int pci_load(struct v3_chkpt_ctx * ctx, void * private_data) {
 	struct pci_device * dev = NULL;
 	struct v3_chkpt_ctx * bus_ctx = NULL;
 
-	snprintf(buf, 128, "pci-%d\n", i);
+	snprintf(buf, 128, "pci-%d", i);
 	
 	bus_ctx = v3_chkpt_open_ctx(ctx->chkpt, ctx, buf);
 
