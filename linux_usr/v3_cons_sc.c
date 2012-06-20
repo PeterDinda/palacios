@@ -2,6 +2,7 @@
  * V3 Console utility
  * Taken from Palacios console display in MINIX ( by Erik Van der Kouwe )
  * (c) Jack lange, 2010
+ * (c) Peter Dinda, 2011 (Scan code encoding)
  */
 
 
@@ -21,7 +22,7 @@
 #include "v3_ctrl.h"
 
 static int use_curses = 0;
-static int debug_enable = 1;
+static int debug_enable = 0;
 
 
 typedef enum { CONSOLE_CURS_SET = 1,
@@ -91,7 +92,9 @@ static int handle_char_set(struct character_msg * msg) {
 
 
     if ((c < ' ') || (c >= 127)) {
-	fprintf(stderr, "unexpected control character %d\n", c);
+	if (debug_enable) { 
+	    fprintf(stderr, "unexpected control character %d\n", c);
+	}
 	c = '?';
     }
 
@@ -101,8 +104,11 @@ static int handle_char_set(struct character_msg * msg) {
 	    (msg->x > console.win->_maxx) || 
 	    (msg->y > console.win->_maxy)) {
 
-	    fprintf(stderr, "Char out of range (x=%d,y=%d) MAX:(x=%d,y=%d)\n",
-		    msg->x, msg->y, console.win->_maxx, console.win->_maxy);
+	    if (debug_enable) { 
+		fprintf(stderr, "Char out of range (x=%d,y=%d) MAX:(x=%d,y=%d)\n",
+			msg->x, msg->y, console.win->_maxx, console.win->_maxy);
+	    }
+
 	    return -1;
 	}
 
@@ -257,7 +263,9 @@ int send_key(int cons_fd, char scan_code) {
 
 
 void handle_exit(void) {
-    fprintf(stderr, "Exiting from console terminal\n");
+    if ( debug_enable ) {
+	fprintf(stderr, "Exiting from console terminal\n");
+    }
 
     if (use_curses) {
 	endwin();
@@ -278,7 +286,7 @@ struct key_code {
 
 static const struct key_code ascii_to_key_code[] = {             // ASCII Value Serves as Index
     NO_KEY,         NO_KEY,         NO_KEY,         NO_KEY,      // 0x00 - 0x03
-    NO_KEY,         NO_KEY,         NO_KEY,         NO_KEY,      // 0x04 - 0x07
+    NO_KEY,         NO_KEY,         NO_KEY,         { 0x0E, 0 }, // 0x04 - 0x07
     { 0x0E, 0 },    { 0x0F, 0 },    { 0x1C, 0 },    NO_KEY,      // 0x08 - 0x0B
     NO_KEY,         { 0x1C, 0 },    NO_KEY,         NO_KEY,      // 0x0C - 0x0F
     NO_KEY,         NO_KEY,         NO_KEY,         NO_KEY,      // 0x10 - 0x13
@@ -313,19 +321,23 @@ static const struct key_code ascii_to_key_code[] = {             // ASCII Value 
 
 
 
-#define writeit(fd,c)  do { fprintf(stderr,"scancode 0x%x\n",(c)); if (write((fd),&(c),1)!=1) { return -1; } } while (0)
+#define writeit(fd,c)  do { if (debug_enable) { fprintf(stderr,"scancode 0x%x\n",(c));} if (write((fd),&(c),1)!=1) { return -1; } } while (0)
 
 int send_char_to_palacios_as_scancodes(int fd, unsigned char c)
 {
     unsigned char sc;
 
-    fprintf(stderr,"key '%c'\n",c);
+    if (debug_enable) {
+	fprintf(stderr,"key '%c'\n",c);
+    }
 
     if (c<0x80) { 
 	struct key_code k = ascii_to_key_code[c];
 	
 	if (k.scan_code==0 && k.capital==0) { 
-	    fprintf(stderr,"Cannot send key '%c' to palacios as it maps to no scancode\n",c);
+	    if (debug_enable) { 
+		fprintf(stderr,"Cannot send key '%c' to palacios as it maps to no scancode\n",c);
+	    }
 	} else {
 	    if (k.capital) { 
 		//shift down
@@ -350,136 +362,11 @@ int send_char_to_palacios_as_scancodes(int fd, unsigned char c)
 	    
     } else {
 
-
-	fprintf(stderr,"Cannot send key '%c' to palacios because it is >=0x80\n",c);
-
-/* 	switch (key) {  */
-/* 	    case 0xffe1:  //left shift */
-/* 		scancode = 0x2a; */
-/* 		break; */
-
-/* 	    case 0xffe2:  //right shift */
-/* 		scancode = 0x36; */
-/* 		break; */
-
-/* 	    case 0xffe3:  //left ctrl */
-/* 	    case 0xffe4:  //right ctrl */
-/* 		scancode = 0x1d;   // translated as left ctrl */
-/* 		break; */
-
-/* 	    case 0xffe7:  //left meta */
-/* 	    case 0xffe8:  //right meta */
-/* 	    case 0xffe9:  //left alt */
-/* 	    case 0xffea:  //right alt */
-/* 		scancode = 0x38;  // translated as a left alt */
-/* 		break;  */
-
-/* 	    case 0xff08: // backspace */
-/* 		scancode = 0x0e; */
-/* 		break;  */
-
-/* 	    case 0xff09: // tab */
-/* 		scancode = 0x0f;   */
-/* 		break;  */
-
-/* 	    case 0xff0d: // return */
-/* 		scancode = 0x1c; */
-/* 		break;  */
-
-/* 	    case 0xff1b: // escape */
-/* 		scancode = 0x01; */
-/* 		break;  */
-
-/* 	    case 0xff63: // insert */
-/* 		scancode = 0x52; */
-/* 		break;  */
-
-/* 	    case 0xffff: // delete */
-/* 		scancode = 0x53; */
-/* 		break;  */
-
-/* 	    case 0xff50: // home */
-/* 		scancode = 0x47; */
-/* 		break;  */
-
-/* 	    case 0xff57: // end */
-/* 		scancode = 0x4f; */
-/* 		break;  */
-		
-/* 	    case 0xff55: // pageup */
-/* 		scancode = 0x49; */
-/* 		break;  */
-
-/* 	    case 0xff56: // pagedown */
-/* 		scancode = 0x51; */
-/* 		break;  */
-
-/* 	    case 0xff51: // left */
-/* 		scancode = 0x4b; */
-/* 		break;  */
-
-/* 	    case 0xff52: // up */
-/* 		scancode = 0x48; */
-/* 		break;  */
-
-/* 	    case 0xff53: // right */
-/* 		scancode = 0x4d; */
-/* 		break;  */
-
-/* 	    case 0xff54: // down */
-/* 		scancode = 0x50; */
-/* 		break;  */
-
-/* 	    case 0xffbe: // f1 */
-/* 		scancode = 0x3b; */
-/* 		break;  */
-/* 	    case 0xffbf: // f2 */
-/* 		scancode = 0x3c; */
-/* 		break;  */
-/* 	    case 0xffc0: // f3 */
-/* 		scancode = 0x3d; */
-/* 		break;  */
-/* 	    case 0xffc1: // f4 */
-/* 		scancode = 0x3e; */
-/* 		break;  */
-/* 	    case 0xffc2: // f5 */
-/* 		scancode = 0x3f; */
-/* 		break;  */
-/* 	    case 0xffc3: // f6 */
-/* 		scancode = 0x40; */
-/* 		break;  */
-/* 	    case 0xffc4: // f7 */
-/* 		scancode = 0x41; */
-/* 		break;  */
-/* 	    case 0xffc5: // f8 */
-/* 		scancode = 0x42; */
-/* 		break;  */
-/* 	    case 0xffc6: // f9 */
-/* 		scancode = 0x43; */
-/* 		break; */
-/* 	    case 0xffc7: // f10 */
-/* 		scancode = 0x44; */
-/* 		break;  */
-/* 	    case 0xffc8: // f11 */
-/* 		scancode = 0x57; */
-/* 		break;  */
-/* 	    case 0xffc9: // f12 */
-/* 		scancode = 0x58; */
-/* 		break;  */
-
-
-/* 	    default: */
-/* 		scancode = 0; */
-/* 		fprintf(stderr,"Ignoring key 0x%x (down=%d)\n", key, down); */
-/* 	} */
-/*     } */
-    
-/*     if (scancode==0) {  */
-/* 	return 0; */
-/*     } */
 	
-	
-/*     return scancode; */
+	if (debug_enable) { 
+	    fprintf(stderr,"Cannot send key '%c' to palacios because it is >=0x80\n",c);
+	}
+
 	
     }
     return 0;
@@ -494,13 +381,11 @@ int main(int argc, char* argv[]) {
     use_curses = 1;
 
     if (argc < 2) {
-	printf("Usage: ./v3_cons <vm_device>\n");
+	printf("Usage: ./v3_cons_sc <vm_device>\n");
 	return -1;
     }
 
     vm_dev = argv[1];
-
-
 
     vm_fd = open(vm_dev, O_RDONLY);
 
@@ -536,6 +421,8 @@ int main(int argc, char* argv[]) {
 	}
 
 	scrollok(console.win, 1);
+
+	erase();
     }
 
     /*
@@ -562,6 +449,13 @@ int main(int argc, char* argv[]) {
     keypad(console.win, TRUE);
 
     //ioctl(STDIN_FILENO, KDSKBMODE, K_RAW);
+
+    if (LINES<25 || COLS<80) { 
+	printf("Your window is not large enough.\nIt must be at least 80x25, but yours is %dx%d\n",COLS,LINES);
+	close(cons_fd);
+	exit(-1);
+    }
+    
 
     while (1) {
 	int ret; 
@@ -610,15 +504,19 @@ int main(int argc, char* argv[]) {
                 writeit(cons_fd,sc);
                 sc = 0x1d | 0x80;   // left ctrl up
                 writeit(cons_fd,sc);
-            }else {
+            } else {
 		if (send_char_to_palacios_as_scancodes(cons_fd,key)) {
-		    fprintf(stderr, "Error sendign key to console\n");
+		    printf("Error sending key to console\n");
 		    return -1;
 		}
 	    }
 	    
 	}
     } 
+
+    erase();
+
+    printf("Console terminated\n");
 
     close(cons_fd);
 

@@ -33,7 +33,7 @@ int main(int argc, char* argv[]) {
 	return -1;
     }
 
-    printf("Launching guest: %s\n", filename);
+    printf("Creating guest: %s\n", filename);
 
     guest_fd = open(filename, O_RDONLY); 
 
@@ -57,7 +57,7 @@ int main(int argc, char* argv[]) {
     
     close(guest_fd);
 
-    printf("Loaded guest image. Launching to V3Vee\n");
+    printf("Loaded guest image. Creation begins.\n");
     
     strncpy(guest_img.name, name, 127);
 
