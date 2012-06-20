@@ -92,7 +92,7 @@ int handle_open_key(struct palacios_user_keyed_stream_op *req,
     (*resp)->len=sizeof(struct palacios_user_keyed_stream_op);
     (*resp)->type=req->type;
     (*resp)->xfer=0;
-    (*resp)->user_key=(void*)fd;
+    (*resp)->user_key=(void*)(uint64_t)fd;
     (*resp)->buf_len=0;
     
     return 0;
@@ -106,7 +106,7 @@ int handle_close_key(struct palacios_user_keyed_stream_op *req,
     int fd;
     int rc;
  
-    fd = (int) (req->user_key);
+    fd = (int) (uint64_t) (req->user_key);
 
     rc = close(fd);
 
@@ -119,7 +119,7 @@ int handle_close_key(struct palacios_user_keyed_stream_op *req,
     (*resp)->len=sizeof(struct palacios_user_keyed_stream_op);
     (*resp)->type=req->type;
     (*resp)->xfer=rc;
-    (*resp)->user_key=(void*)fd;
+    (*resp)->user_key=(void*)(uint64_t)fd;
     (*resp)->buf_len=0;
     
     return 0;
@@ -172,7 +172,7 @@ int handle_write_key(struct palacios_user_keyed_stream_op *req,
     int fd;
     int rc;
  
-    fd = (int) (req->user_key);
+    fd = (int) (uint64_t) (req->user_key);
 
     rc = write_all(fd,req->buf,req->xfer);
 
@@ -185,7 +185,7 @@ int handle_write_key(struct palacios_user_keyed_stream_op *req,
     (*resp)->len=sizeof(struct palacios_user_keyed_stream_op);
     (*resp)->type=req->type;
     (*resp)->xfer=rc;
-    (*resp)->user_key=(void*)fd;
+    (*resp)->user_key=(void*)(uint64_t)fd;
     (*resp)->buf_len=0;
     
 
@@ -200,7 +200,7 @@ int handle_read_key(struct palacios_user_keyed_stream_op *req,
     int fd;
     int rc;
  
-    fd = (int) (req->user_key);
+    fd = (int) (uint64_t) (req->user_key);
 
     (*resp) = malloc(sizeof(struct palacios_user_keyed_stream_op)+req->xfer);
     
@@ -213,7 +213,7 @@ int handle_read_key(struct palacios_user_keyed_stream_op *req,
     (*resp)->len=sizeof(struct palacios_user_keyed_stream_op) + (rc>0 ? rc : 0);
     (*resp)->type=req->type;
     (*resp)->xfer=rc;
-    (*resp)->user_key=(void*)fd;
+    (*resp)->user_key=(void*)(uint64_t)fd;
     (*resp)->buf_len=rc>0 ? rc : 0;
     
 

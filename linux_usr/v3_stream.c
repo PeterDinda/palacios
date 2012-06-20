@@ -33,7 +33,7 @@ int main(int argc, char* argv[]) {
     int stream_fd = 0;
 
     if (argc < 2) {
-	printf("Usage: ./v3_cons vm_device serial_number\n");
+	printf("usage: v3_stream <vm_device> <stream_name>\n");
 	return -1;
     }
 

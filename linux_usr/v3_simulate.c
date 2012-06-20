@@ -23,7 +23,7 @@ int main(int argc, char* argv[]) {
     
 
     if (argc <= 2) {
-	printf("Usage: ./v3_simulate <vm-dev> <msecs>\n");
+	printf("usage: v3_simulate <vm-dev> <msecs>\n");
 	return -1;
     }
 

@@ -22,7 +22,7 @@ int main(int argc, char* argv[]) {
     struct v3_debug_cmd cmd; 
 
     if (argc < 4) {
-	printf("Usage: v3_core_migrate <vm_device> <vm core> <cmd>\n");
+	printf("usage: v3_debug <vm_device> <vm core> <cmd>\n");
 	return -1;
     }
 

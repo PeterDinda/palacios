@@ -24,7 +24,8 @@ BASE_EXECS = 	v3_mem \
 		v3_cons_sc \
 		v3_stream \
 		v3_monitor \
-                v3_hypercall 
+                v3_hypercall \
+		v3_debug
 
 #
 # Examples

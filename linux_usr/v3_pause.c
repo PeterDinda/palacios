@@ -23,7 +23,7 @@ int main(int argc, char* argv[]) {
  
 
     if (argc <= 1) {
-	printf("Usage: ./v3_stop <vm-dev>\n");
+	printf("usage: v3_pause <vm_device>\n");
 	return -1;
     }
 

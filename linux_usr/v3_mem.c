@@ -51,7 +51,7 @@ int main(int argc, char * argv[]) {
     int mem_ready = 0;
 
     if (argc != 2) {
-	printf("Usage: v3_mem <memory size (MB)>\n");
+	printf("usage: v3_mem <memory size (MB)>\n");
 	return -1;
     }
 

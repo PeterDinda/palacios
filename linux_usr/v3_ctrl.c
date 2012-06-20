@@ -28,7 +28,7 @@ int main(int argc, char* argv[]) {
     memset(&guest_img, 0, sizeof(struct v3_guest_img));
 
     if (argc <= 2) {
-	printf("Usage: ./v3_ctrl <guest_img> <vm name>\n");
+	printf("usage: v3_ctrl <guest_img> <vm name>\n");
 	return -1;
     }
 

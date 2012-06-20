@@ -381,7 +381,7 @@ int main(int argc, char* argv[]) {
     use_curses = 1;
 
     if (argc < 2) {
-	printf("Usage: ./v3_cons_sc <vm_device>\n");
+	printf("usage: v3_cons_sc <vm_device>\n");
 	return -1;
     }
 

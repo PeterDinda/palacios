@@ -22,7 +22,7 @@ int main(int argc, char* argv[]) {
     struct v3_core_move_cmd cmd; 
 
     if (argc < 4) {
-	printf("Usage: v3_core_migrate <vm_device> <vcore id> <target physical CPU id>\n");
+	printf("usage: v3_core_move <vm_device> <vcore id> <target physical CPU id>\n");
 	return -1;
     }
 

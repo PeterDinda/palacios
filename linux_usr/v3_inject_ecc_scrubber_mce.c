@@ -17,7 +17,7 @@ int main(int argc, char * argv[]) {
     int v3_fd = 0;
 
     if (argc <= 3) {
-        fprintf(stderr, "Usage: v3_inject_ecc_scrubber_mce <vm_device> <cpu> <hex address>\n");
+        fprintf(stderr, "usage: v3_inject_ecc_scrubber_mce <vm_device> <cpu> <hex address>\n");
         return -1;
     }
 

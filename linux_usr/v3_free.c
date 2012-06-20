@@ -21,7 +21,7 @@ int main(int argc, char* argv[]) {
 
 
     if (argc <= 1) {
-	printf("Usage: ./v3_free <vm-dev-idx>\n");
+	printf("usage: v3_free <vm-dev-idx>\n");
 	return -1;
     }
 

@@ -20,7 +20,7 @@ int main(int argc, char* argv[]) {
     char * filename = argv[1];
 
     if (argc <= 1) {
-	printf("Usage: ./v3_launch <vm-device>\n");
+	printf("usage: v3_launch <vm-device>\n");
 	return -1;
     }
 

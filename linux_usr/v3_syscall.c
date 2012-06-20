@@ -19,7 +19,7 @@
 #define SYSCALL_MAX 256
 
 static void usage () {
-	fprintf(stderr, "\nUsage: v3_syscall <vm device> <syscall_nr> <on|off|status>\n");
+	fprintf(stderr, "\nusage: v3_syscall <vm device> <syscall_nr> <on|off|status>\n");
 	exit(0);
 }
 

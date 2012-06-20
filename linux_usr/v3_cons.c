@@ -277,7 +277,7 @@ int main(int argc, char* argv[]) {
     use_curses = 1;
 
     if (argc < 2) {
-	printf("Usage: ./v3_cons <vm_device>\n");
+	printf("usage: v3_cons <vm_device>\nThis will only work when run from a real PC console!\n");
 	return -1;
     }
 

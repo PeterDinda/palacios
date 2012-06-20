@@ -32,7 +32,7 @@ int main(int argc, char* argv[]) {
     char * vm_dev = NULL;
 
     if (argc < 4) {
-	printf("Usage: ./v3_save <vm_device> <store> <url>\n");
+	printf("usage: v3_save <vm_device> <store> <url>\n");
 	return -1;
     }
 

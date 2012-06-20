@@ -26,7 +26,7 @@
 
 
 static void usage (char* bin) {
-	fprintf(stderr, "Usage: %s /dev/v3-vm<N> <inject-code> <code-entry-offset> [inject-point-exe]\n", bin);
+	fprintf(stderr, "usage: %s /dev/v3-vm<N> <inject-code> <code-entry-offset> [inject-point-exe]\n", bin);
 }
 
 

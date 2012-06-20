@@ -23,7 +23,7 @@ int main(int argc, char* argv[]) {
     char *stream;
 
     if (argc <= 3) {
-	printf("Usage: ./v3_cons vm_device stream_name\n");
+	printf("usage: v3_monitor <vm_device> <stream_name>\n");
 	return -1;
     }
 
