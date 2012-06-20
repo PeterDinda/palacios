@@ -643,8 +643,11 @@ int v3_vmx_save_core(struct guest_info * core, void * ctx){
     struct vmx_data * vmx_info = (struct vmx_data *)(core->vmm_data);
 
     // note that the vmcs pointer is an HPA, but we need an HVA
-    v3_chkpt_save(ctx, "vmcs_data", PAGE_SIZE_4KB, V3_VAddr((void*)
-							    (vmx_info->vmcs_ptr_phys)));
+    if (v3_chkpt_save(ctx, "vmcs_data", PAGE_SIZE_4KB, 
+		      V3_VAddr((void*) (vmx_info->vmcs_ptr_phys))) ==-1) {
+	PrintError("Could not save vmcs data for VMX\n");
+	return -1;
+    }
 
     return 0;
 }
@@ -655,8 +658,17 @@ int v3_vmx_load_core(struct guest_info * core, void * ctx){
     addr_t vmcs_page_paddr;  //HPA
 
     vmcs_page_paddr = (addr_t) V3_AllocPages(1);
+    
+    if (!vmcs_page_paddr) { 
+	PrintError("Could not allocate space for a vmcs in VMX\n");
+	return -1;
+    }
 
-    v3_chkpt_load(ctx, "vmcs_data", PAGE_SIZE_4KB, V3_VAddr((void *)vmcs_page_paddr));
+    if (v3_chkpt_load(ctx, "vmcs_data", PAGE_SIZE_4KB, 
+		      V3_VAddr((void *)vmcs_page_paddr)) == -1) { 
+	PrintError("Could not load vmcs data for VMX\n");
+	return -1;
+    }
 
     vmcs_clear(vmx_info->vmcs_ptr_phys);
 

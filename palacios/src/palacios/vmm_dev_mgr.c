@@ -144,21 +144,44 @@ int v3_save_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
     
     name_table = V3_Malloc(table_len);
 
+    if (!name_table) { 
+	PrintError("Unable to allocate space in device manager save\n");
+	return -1;
+    }
+
     memset(name_table, 0, table_len);
     
-
     dev_mgr_ctx = v3_chkpt_open_ctx(chkpt, NULL, "devices");
+
+    if (!dev_mgr_ctx) { 
+	PrintError("Unable to open device manager context\n");
+	V3_Free(name_table);
+	return -1;
+    }
 
     list_for_each_entry(dev, &(mgr->dev_list), dev_link) {
         if (dev->ops->save) {
             strncpy(name_table + tbl_offset, dev->name, 32);
             tbl_offset += 32;
             num_saved_devs++;
-        }         
+        }  else {
+	    PrintDebug("Skipping device %s\n");
+	}
     }
 
-    v3_chkpt_save(dev_mgr_ctx, "num_devs", 4, &num_saved_devs); 
-    v3_chkpt_save(dev_mgr_ctx, "names", num_saved_devs*32, name_table);
+    if (v3_chkpt_save(dev_mgr_ctx, "num_devs", 4, &num_saved_devs) == -1) {
+	PrintError("Unable to store num_devs\n");
+	v3_chkpt_close_ctx(dev_mgr_ctx); 
+	V3_Free(name_table);
+	return -1;
+    }
+
+    if (v3_chkpt_save(dev_mgr_ctx, "names", num_saved_devs*32, name_table) == -1) {
+	PrintError("Unable to store names of devices\n");
+	v3_chkpt_close_ctx(dev_mgr_ctx); 
+	V3_Free(name_table);
+	return -1;
+    }
     
     v3_chkpt_close_ctx(dev_mgr_ctx);
 
@@ -171,8 +194,17 @@ int v3_save_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 	    V3_Print("Saving state for device (%s)\n", dev->name);
 	    
 	    dev_ctx = v3_chkpt_open_ctx(chkpt, NULL, dev->name);
+	    
+	    if (!dev_ctx) { 
+		PrintError("Unable to open context for device %s\n",dev->name);
+		return -1;
+	    }
 
-	    dev->ops->save(dev_ctx, dev->private_data);
+	    if (dev->ops->save(dev_ctx, dev->private_data)) {
+		PrintError("Unable t save device %s\n",dev->name);
+		v3_chkpt_close_ctx(dev_ctx); 
+		return -1;
+	    }
 
 	    v3_chkpt_close_ctx(dev_ctx);
 
@@ -195,13 +227,32 @@ int v3_load_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 
     dev_mgr_ctx = v3_chkpt_open_ctx(chkpt, NULL, "devices");
 
-    v3_chkpt_load(dev_mgr_ctx, "num_devs", 4, &num_devs);
+    if (!dev_mgr_ctx) { 
+	PrintError("Unable to open devices for load\n");
+	return -1;
+    }
+
+    if (v3_chkpt_load(dev_mgr_ctx, "num_devs", 4, &num_devs) == -1) {
+	PrintError("Unable to load num_devs\n");
+	v3_chkpt_close_ctx(dev_mgr_ctx);
+	return -1;
+    }
 
     V3_Print("Loading State for %d devices\n", num_devs);
     
     name_table = V3_Malloc(32 * num_devs);
+    
+    if (!name_table) { 
+	PrintError("Unable to allocate space for device table\n");
+	v3_chkpt_close_ctx(dev_mgr_ctx);
+	return -1;
+    }
 
-    v3_chkpt_load(dev_mgr_ctx, "names", 32 * num_devs, name_table);
+    if (v3_chkpt_load(dev_mgr_ctx, "names", 32 * num_devs, name_table) == -1) {
+	PrintError("Unable to load device name table\n");
+	v3_chkpt_close_ctx(dev_mgr_ctx);
+	V3_Free(name_table);
+    }
 
     v3_chkpt_close_ctx(dev_mgr_ctx);
 
@@ -228,7 +279,9 @@ int v3_load_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 	}
 
 
-	dev->ops->load(dev_ctx, dev->private_data);
+	if (dev->ops->load(dev_ctx, dev->private_data)) { 
+	    PrintError("Load of device %s failed\n",name);
+	}
 
         v3_chkpt_close_ctx(dev_ctx);
     }
@@ -249,8 +302,6 @@ int v3_deinit_dev_mgr(struct v3_vm_info * vm) {
     // clear frontend lists
 
     free_frontends(vm, mgr);
-
-
 
     v3_free_htable(mgr->dev_table, 0, 0);
 

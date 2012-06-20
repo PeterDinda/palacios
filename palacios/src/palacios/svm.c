@@ -368,15 +368,25 @@ int v3_deinit_svm_vmcb(struct guest_info * core) {
 #ifdef V3_CONFIG_CHECKPOINT
 int v3_svm_save_core(struct guest_info * core, void * ctx){
 
-    v3_chkpt_save_8(ctx, "cpl", &(core->cpl));
-    v3_chkpt_save(ctx, "vmcb_data", PAGE_SIZE, core->vmm_data);
+    if (v3_chkpt_save_8(ctx, "cpl", &(core->cpl)) == -1) { 
+	PrintError("Could not save SVM cpl\n");
+	return -1;
+    }
+
+    if (v3_chkpt_save(ctx, "vmcb_data", PAGE_SIZE, core->vmm_data) == -1) { 
+	PrintError("Could not save SVM vmcb\n");
+	return -1;
+    }
 
     return 0;
 }
 
 int v3_svm_load_core(struct guest_info * core, void * ctx){
     
-    v3_chkpt_load_8(ctx, "cpl", &(core->cpl));
+    if (v3_chkpt_load_8(ctx, "cpl", &(core->cpl)) == -1) { 
+	PrintError("Could not load SVM cpl\n");
+	return -1;
+    }
 
     if (v3_chkpt_load(ctx, "vmcb_data", PAGE_SIZE, core->vmm_data) == -1) {
 	return -1;

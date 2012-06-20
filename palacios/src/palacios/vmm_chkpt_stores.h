@@ -152,12 +152,20 @@ static int keyed_stream_close_ctx(void * store_data, void * ctx) {
 
 static int keyed_stream_save(void * store_data, void * ctx, 
 				  char * tag, uint64_t len, void * buf) {
-    return v3_keyed_stream_write_key(store_data, ctx, buf, len);
+    if (v3_keyed_stream_write_key(store_data, ctx, buf, len) != len) { 
+	return -1;
+    } else {
+	return 0;
+    }
 }
 
 static int keyed_stream_load(void * store_data, void * ctx, 
 				  char * tag, uint64_t len, void * buf) {
-    return v3_keyed_stream_read_key(store_data, ctx, buf, len);
+    if (v3_keyed_stream_read_key(store_data, ctx, buf, len) != len) { 
+	return -1;
+    } else {
+	return 0;
+    }
 }
 
 
