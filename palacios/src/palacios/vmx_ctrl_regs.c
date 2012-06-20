@@ -169,9 +169,9 @@ static int handle_mov_to_cr0(struct guest_info * info, v3_reg_t * new_cr0, struc
     extern v3_cpu_arch_t v3_mach_type;
 
 
-    V3_Print("Mov to CR0\n");
-    V3_Print("Old shadow CR0: 0x%x, New shadow CR0: 0x%x\n",
-	     (uint32_t)info->shdw_pg_state.guest_cr0, (uint32_t)*new_cr0);
+    PrintDebug("Mov to CR0\n");
+    PrintDebug("Old shadow CR0: 0x%x, New shadow CR0: 0x%x\n",
+	       (uint32_t)info->shdw_pg_state.guest_cr0, (uint32_t)*new_cr0);
 
     if ((new_shdw_cr0->pe != shdw_cr0->pe) && (vmx_info->assist_state != VMXASSIST_DISABLED)) {
 	/*
@@ -219,14 +219,15 @@ static int handle_mov_to_cr0(struct guest_info * info, v3_reg_t * new_cr0, struc
 	
 	    guest_cr0->pe = 1;
 	    guest_cr0->pg = 1;
-	    guest_cr0->ne = 1;
 	} else {
 	    // Unrestricted guest 
-	    *(uint32_t *)shdw_cr0 = (0x00000020 & *(uint32_t *)new_shdw_cr0);
+	    //    *(uint32_t *)shdw_cr0 = (0x00000020 & *(uint32_t *)new_shdw_cr0);
 
 	    *guest_cr0 = *new_shdw_cr0;
-	    guest_cr0->ne = 1;
 	}
+
+	guest_cr0->ne = 1;
+	guest_cr0->et = 1;
 
 	
 	if (paging_transition) {
@@ -236,14 +237,24 @@ static int handle_mov_to_cr0(struct guest_info * info, v3_reg_t * new_cr0, struc
 		struct efer_64 * vm_efer = (struct efer_64 *)&(info->shdw_pg_state.guest_efer);
 		struct efer_64 * hw_efer = (struct efer_64 *)&(info->ctrl_regs.efer);
 		
-		if (vm_efer->lme) {
-		    //     PrintDebug("Enabling long mode\n");
-		    
-		    hw_efer->lma = 1;
-		    hw_efer->lme = 1;
-		    
-		    vmx_info->entry_ctrls.guest_ia32e = 1;
-		}
+		if (vmx_info->assist_state != VMXASSIST_DISABLED) {
+		    if (vm_efer->lme) {
+			PrintDebug("Enabling long mode\n");
+			
+			hw_efer->lma = 1;
+			hw_efer->lme = 1;
+			
+			vmx_info->entry_ctrls.guest_ia32e = 1;
+		    }
+		} else {
+		    if (hw_efer->lme) {
+			PrintDebug("Enabling long mode\n");
+			
+			hw_efer->lma = 1;
+			
+			vmx_info->entry_ctrls.guest_ia32e = 1;
+		    }
+ 		}
 		
 		//            PrintDebug("Activating Shadow Page tables\n");
 		
