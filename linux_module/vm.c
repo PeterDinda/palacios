@@ -217,17 +217,17 @@ static long v3_vm_ioctl(struct file * filp,
 	    memset(&cmd, 0, sizeof(struct v3_debug_cmd));
 	    
 	    if (copy_from_user(&cmd, argp, sizeof(struct v3_debug_cmd))) {
-		printk("Error: Could not copy debug command from user space\n");
+		ERROR("Error: Could not copy debug command from user space\n");
 		return -EFAULT;
 	    }
 
 	    evt.core_id = cmd.core;
 	    evt.cmd = cmd.cmd;
 
-	    printk("Debugging VM\n");
+	    INFO("Debugging VM\n");
 
 	    if (v3_deliver_debug_event(guest->v3_ctx, &evt) == -1) {
-		printk("Error could not deliver debug cmd\n");
+		ERROR("Error could not deliver debug cmd\n");
 		return -EFAULT;
 	    }
 
