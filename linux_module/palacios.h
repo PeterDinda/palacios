@@ -15,7 +15,7 @@
 
 /* VM Specific IOCTLs */
 #define V3_VM_CONSOLE_CONNECT 20
-
+#define V3_VM_STREAM_CONNECT 21
 
 #define V3_VM_PAUSE 23
 #define V3_VM_CONTINUE 24
@@ -27,15 +27,16 @@
 #define V3_VM_SIMULATE 29
 
 #define V3_VM_INSPECT 30
+#define V3_VM_DEBUG 31
 
 #define V3_VM_MOVE_CORE 33
 
-#define V3_VM_FB_INPUT (256+1)
-#define V3_VM_FB_QUERY (256+2)
+#define V3_VM_FB_INPUT 257
+#define V3_VM_FB_QUERY 258
 
-#define V3_VM_HOST_DEV_CONNECT (10244+1)
+#define V3_VM_HOST_DEV_CONNECT 10245
 
-#define V3_VM_KSTREAM_USER_CONNECT (11244+1)
+#define V3_VM_KSTREAM_USER_CONNECT 11245
 
 // KERN_EMERG    "<0>"  /* system is unusable               */
 // KERN_ALERT    "<1>"  /* action must be taken immediately */
@@ -78,6 +79,7 @@ struct v3_chkpt_info {
     char store[128];
     char url[256]; /* This might need to be bigger... */
 } __attribute__((packed));
+
 
 
 

@@ -3,20 +3,30 @@ To add a new ioctl find an available number and add it to this list.
 
 Global commands (/dev/v3vee)
 
-10 -- (VMM) Start guest
+12 -- (VMM) Create VM
+13 -- (VMM) Free VM
 
 50 -- (VMM) Add physical memory to VMM manager
 
+55 -- (IFACE) Add PCI HW Device
+56 -- (IFACE) Add PCI User Device
 
 
 VM Commands (/dev/v3-vm*)
 
 20 -- (IFACE) Connect CGA Console
 21 -- (IFACE) Connect Stream
-22 -- (VMM) Stop Guest
 
+23 -- (VMM) Pause VM
+24 -- (VMM) Continue VM
+25 -- (VMM) Launch VM
+26 -- (VMM) Stop VM
+27 -- (VMM) Load VM
+28 -- (VMM) Save VM
 29 -- (VMM) Simulate guest
 30 -- (EXT) Activate Inspector
+31 -- (VMM) Debug VM
+33 -- (VMM) Move VM core
 
 257 -- (IFACE) VGA Console Framebuf Input
 258 -- (IFACE) VGA Console Framebuf Query

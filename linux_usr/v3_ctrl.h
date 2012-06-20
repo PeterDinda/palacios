@@ -10,6 +10,9 @@
 #define V3_FREE_GUEST 13
 
 
+/* VM Specific ioctls */
+#define V3_VM_CONSOLE_CONNECT 20
+#define V3_VM_SERIAL_CONNECT 21
 #define V3_VM_PAUSE 23
 #define V3_VM_CONTINUE 24
 
@@ -17,13 +20,20 @@
 #define V3_VM_STOP 26
 #define V3_VM_LOAD 27
 #define V3_VM_SAVE 28
+#define V3_VM_SIMULATE 29
+#define V3_VM_INSPECT 30
+#define V3_VM_DEBUG 31
 
 #define V3_ADD_MEMORY 50
 
-#define V3_VM_CONSOLE_CONNECT 20
-#define V3_VM_SERIAL_CONNECT 21
-
 #define V3_VM_MOVE_CORE 33
+
+#define V3_VM_FB_INPUT 257
+#define V3_VM_FB_QUERY 258
+
+#define V3_VM_HOST_DEV_CONNECT 10245
+#define V3_VM_KSTREAM_USER_CONNECT 11245
+
 
 static const char * v3_dev = "/dev/v3vee";
 

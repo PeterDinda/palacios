@@ -206,11 +206,11 @@ static int lnx_thread_target(void * arg) {
 
     ret = thread_info->fn(thread_info->arg);
 
+
+    INFO("Palacios Thread (%s) EXITTING\n", thread_info->name);
+
     kfree(thread_info);
     // handle cleanup 
-
-    
-    printk("Palacios Thread (%s) EXITTING\n", thread_info->name);
 
     do_exit(ret);
     
@@ -411,7 +411,7 @@ palacios_hook_interrupt(struct v3_vm_info *	vm,
 	
 	if (error) {
 	    ERROR("error code for request_irq is %d\n", error);
-	    panic("request vector %d failed",vector);
+	    panic("request vector %d failed", vector);
 	}
     }
 	
@@ -429,7 +429,7 @@ palacios_ack_interrupt(
 ) 
 {
   ack_APIC_irq(); 
-  DEBUG("Pretending to ack interrupt, vector=%d\n",vector);
+  DEBUG("Pretending to ack interrupt, vector=%d\n", vector);
   return 0;
 }
   
@@ -439,7 +439,7 @@ palacios_ack_interrupt(
 static unsigned int
 palacios_get_cpu_khz(void) 
 {
-    INFO("cpu_khz is %u\n",cpu_khz);
+    INFO("cpu_khz is %u\n", cpu_khz);
 
     if (cpu_khz == 0) { 
 	INFO("faking cpu_khz to 1000000\n");

@@ -18,12 +18,12 @@
 #include "linux-exts.h"
 #include "util-ringbuffer.h"
 #include "vm.h"
-#include "iface-stream.h"
+
 
 
 // This is probably overkill
 #define STREAM_RING_LEN 4096
-
+#define STREAM_NAME_LEN 128
 
 
 
