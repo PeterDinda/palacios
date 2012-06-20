@@ -7,8 +7,7 @@
  */
 
 
-// Attach to the VM
-#define V3_VM_KSTREAM_USER_CONNECT     (11244+1)
+// Issue a V3_VM_KSTREAM_USER_CONNECT on the VM to acquire an fd for the device
 
 // get size of pending request
 // Note that this is not the wrong ioctl - the connect ioctl applies to the VM device

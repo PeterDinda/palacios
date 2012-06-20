@@ -7,8 +7,8 @@
  */
 
 
-#define V3_VM_HOST_DEV_CONNECT (10244+1)
 
+/* Connect using a V3_VM_HOST_DEV_CONNECT on the VM, which will return an fd */
 /* to detemine whether a host request is available, poll the fd for read */
 
 /* make a request for reading/writing guest or injecting irq */
