@@ -34,6 +34,7 @@
 #include <palacios/vmm_decoder.h>
 #include <palacios/vmm_barrier.h>
 #include <palacios/vmm_timeout.h>
+#include <palacios/vmm_debug.h>
 
 #ifdef V3_CONFIG_CHECKPOINT
 #include <palacios/vmm_checkpoint.h>

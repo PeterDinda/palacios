@@ -219,19 +219,10 @@ v3_mem_mode_t v3_get_vm_mem_mode(struct guest_info * info);
 const uchar_t * v3_cpu_mode_to_str(v3_cpu_mode_t mode);
 const uchar_t * v3_mem_mode_to_str(v3_mem_mode_t mode);
 
-int v3_translate_segment(struct guest_info * info, uint16_t selector, struct v3_segment * seg);
 
-
-void v3_print_guest_state(struct guest_info * info);
-
-void v3_print_segments(struct v3_segments * segs);
-void v3_print_ctrl_regs(struct guest_info * info);
-void v3_print_GPRs(struct guest_info * info);
-
-void v3_print_stack(struct guest_info * info);
 
 #endif /* ! __V3VEE__ */
 
-void v3_print_guest_state_all(struct v3_vm_info * vm);
+
 
 #endif

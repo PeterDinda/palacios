@@ -24,6 +24,7 @@
 #include <palacios/vm_guest_mem.h>
 #include <palacios/vmm_ctrl_regs.h>
 #include <palacios/vmm_lowlevel.h>
+#include <palacios/vmm_debug.h>
 
 
 

@@ -24,6 +24,7 @@
 #include <palacios/vmx_lowlevel.h>
 #include <palacios/vmx_io.h>
 #include <palacios/vmm_cpuid.h>
+#include <palacios/vmm_debug.h>
 
 #include <palacios/vmx.h>
 #include <palacios/vmm_ctrl_regs.h>
@@ -32,6 +33,7 @@
 #include <palacios/vmx_assist.h>
 #include <palacios/vmm_halt.h>
 #include <palacios/vmx_ept.h>
+
 
 #ifndef V3_CONFIG_DEBUG_VMX
 #undef PrintDebug

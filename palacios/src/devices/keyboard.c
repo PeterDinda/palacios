@@ -26,6 +26,7 @@
 #include <palacios/vmm_intr.h>
 #include <palacios/vmm_host_events.h>
 #include <palacios/vm_guest.h>
+#include <palacios/vmm_debug.h>
 
 
 #ifndef V3_CONFIG_DEBUG_KEYBOARD

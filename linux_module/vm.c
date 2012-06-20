@@ -19,6 +19,7 @@
 #include <linux/module.h>
 
 #include <palacios/vmm.h>
+#include <palacios/vmm_host_events.h>
 
 #include "palacios.h"
 #include "vm.h"
@@ -208,6 +209,30 @@ static long v3_vm_ioctl(struct file * filp,
 	    break;
 	}
 #endif
+	case V3_VM_DEBUG: {
+	    struct v3_debug_cmd cmd;
+	    struct v3_debug_event evt;
+	    void __user * argp = (void __user *)arg;	    
+
+	    memset(&cmd, 0, sizeof(struct v3_debug_cmd));
+	    
+	    if (copy_from_user(&cmd, argp, sizeof(struct v3_debug_cmd))) {
+		printk("Error: Could not copy debug command from user space\n");
+		return -EFAULT;
+	    }
+
+	    evt.core_id = cmd.core;
+	    evt.cmd = cmd.cmd;
+
+	    printk("Debugging VM\n");
+
+	    if (v3_deliver_debug_event(guest->v3_ctx, &evt) == -1) {
+		printk("Error could not deliver debug cmd\n");
+		return -EFAULT;
+	    }
+
+	    break;
+	}
 	case V3_VM_MOVE_CORE: {
 	    struct v3_core_move_cmd cmd;
 	    void __user * argp = (void __user *)arg;

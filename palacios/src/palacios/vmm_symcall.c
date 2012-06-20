@@ -161,6 +161,64 @@ static int execute_symcall(struct guest_info * core) {
 }
 
 
+//
+// We don't handle those fancy 64 bit system segments...
+//
+static int translate_segment(struct guest_info * info, uint16_t selector, struct v3_segment * seg) {
+    struct v3_segment * gdt = &(info->segments.gdtr);
+    addr_t gdt_addr = 0;
+    uint16_t seg_offset = (selector & ~0x7);
+    addr_t seg_addr = 0;
+    struct gen_segment * gen_seg = NULL;
+    struct seg_selector sel;
+
+    memset(seg, 0, sizeof(struct v3_segment));
+
+    sel.value = selector;
+
+    if (sel.ti == 1) {
+	PrintError("LDT translations not supported\n");
+	return -1;
+    }
+
+    if (v3_gva_to_hva(info, gdt->base, &gdt_addr) == -1) {
+	PrintError("Unable to translate GDT address\n");
+	return -1;
+    }
+
+    seg_addr = gdt_addr + seg_offset;
+    gen_seg = (struct gen_segment *)seg_addr;
+
+    //translate
+    seg->selector = selector;
+
+    seg->limit = gen_seg->limit_hi;
+    seg->limit <<= 16;
+    seg->limit += gen_seg->limit_lo;
+
+    seg->base = gen_seg->base_hi;
+    seg->base <<= 24;
+    seg->base += gen_seg->base_lo;
+
+    if (gen_seg->granularity == 1) {
+	seg->limit <<= 12;
+	seg->limit |= 0xfff;
+    }
+
+    seg->type = gen_seg->type;
+    seg->system = gen_seg->system;
+    seg->dpl = gen_seg->dpl;
+    seg->present = gen_seg->present;
+    seg->avail = gen_seg->avail;
+    seg->long_mode = gen_seg->long_mode;
+    seg->db = gen_seg->db;
+    seg->granularity = gen_seg->granularity;
+    
+    return 0;
+}
+
+
+
 int v3_sym_call(struct guest_info * core, 
 		uint64_t call_num, sym_arg_t * arg0, 
 		sym_arg_t * arg1, sym_arg_t * arg2,
@@ -200,10 +258,10 @@ int v3_sym_call(struct guest_info * core,
     core->rip = state->sym_call_rip;
     core->vm_regs.rsp = state->sym_call_rsp; // old contest rsp is saved in vm_regs
 
-    v3_translate_segment(core, state->sym_call_cs, &sym_cs);
+    translate_segment(core, state->sym_call_cs, &sym_cs);
     memcpy(&(core->segments.cs), &sym_cs, sizeof(struct v3_segment));
  
-    v3_translate_segment(core, state->sym_call_cs + 8, &sym_ss);
+    translate_segment(core, state->sym_call_cs + 8, &sym_ss);
     memcpy(&(core->segments.ss), &sym_ss, sizeof(struct v3_segment));
 
     core->segments.gs.base = state->sym_call_gs;

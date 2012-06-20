@@ -27,6 +27,7 @@
 #include <palacios/vmm_checkpoint.h>
 #include <palacios/vmm_hashtable.h>
 #include <palacios/vmm_direct_paging.h>
+#include <palacios/vmm_debug.h>
 
 #include <palacios/vmm_dev_mgr.h>
 

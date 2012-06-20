@@ -70,7 +70,12 @@ struct v3_mem_region {
     unsigned long long num_pages;
 } __attribute__((packed));
 
-struct v3_core_move_cmd{
+struct v3_debug_cmd {
+    unsigned int core; 
+    unsigned int cmd;
+} __attribute__((packed));
+
+struct v3_core_move_cmd {
     unsigned short vcore_id;
     unsigned short pcore_id;
 } __attribute__((packed));

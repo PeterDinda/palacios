@@ -56,6 +56,11 @@ struct v3_core_move_cmd{
 } __attribute__((packed));
 
 
+struct v3_debug_cmd {
+    unsigned int core; 
+    unsigned int cmd;
+} __attribute__((packed));
+
 struct v3_chkpt_info {
     char store[128];
     char url[256]; /* This might need to be bigger... */
