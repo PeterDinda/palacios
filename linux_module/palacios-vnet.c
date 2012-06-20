@@ -15,17 +15,45 @@
 
 #include <vnet/vnet.h>
 #include "mm.h"
+#include "palacios.h"
 #include "palacios-vnet.h"
 #include "linux-exts.h"
 
 static void host_print(const char *	fmt, ...) {
+#if V3_PRINTK_OLD_STYLE_OUTPUT
 
-    va_list ap;
-    va_start(ap, fmt);
-    vprintk(fmt, ap);
-    va_end(ap);
+  va_list ap;
 
-    return;
+  va_start(ap, fmt);
+  vprintk(fmt, ap);
+  va_end(ap);
+
+  return
+
+#else 
+
+  va_list ap;
+  char *buf;
+
+  // Allocate space atomically, in case we are called
+  // with a lock held
+  buf = kmalloc(V3_PRINTK_BUF_SIZE, GFP_ATOMIC);
+  if (!buf) { 
+      printk("palacios: output skipped - unable to allocate\n");
+      return;
+  } 
+
+  va_start(ap, fmt);
+  vsnprintf(buf,V3_PRINTK_BUF_SIZE, fmt, ap);
+  va_end(ap);
+
+  printk(KERN_INFO "palacios: %s",buf);
+
+  kfree(buf);
+
+  return;
+
+#endif
 }
 
 
