@@ -11,7 +11,9 @@ STATIC = 1
 # Executables that implement core functionality
 #
 BASE_EXECS = 	v3_mem \
+                v3_mem_free \
 		v3_create \
+                v3_create_bind \
 		v3_free  \
 	  	v3_launch \
 		v3_stop   \
