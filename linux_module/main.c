@@ -19,6 +19,8 @@
 #include <linux/spinlock.h>
 #include <linux/kthread.h>
 
+#include <linux/proc_fs.h>
+
 #include "palacios.h"
 #include "mm.h"
 #include "vm.h"
@@ -42,6 +44,7 @@ int mod_frees = 0;
 static int v3_major_num = 0;
 
 static struct v3_guest * guest_map[MAX_VMS] = {[0 ... MAX_VMS - 1] = 0};
+static struct proc_dir_entry *dir;
 
 struct class * v3_class = NULL;
 static struct cdev ctrl_dev;
@@ -171,6 +174,37 @@ static struct file_operations v3_ctrl_fops = {
 
 
 
+static int read_guests(char * buf, char ** start, off_t off, int count,
+		       int * eof, void * data)
+{
+    int len = 0;
+    unsigned int i = 0;
+    
+    for(i = 0; i < MAX_VMS; i++) {
+	if (guest_map[i] != NULL) {
+	    if (len<count) { 
+		len += snprintf(buf+len, count-len,
+				"%s\t/dev/v3-vm%d\n", 
+				guest_map[i]->name, i);
+	    }
+	}
+    }
+    
+    return len;
+}
+
+static int show_mem(char * buf, char ** start, off_t off, int count,
+		    int * eof, void * data)
+{
+    int len = 0;
+    
+    len = snprintf(buf,count, "%p\n", (void *)get_palacios_base_addr());
+    len += snprintf(buf+len,count-len, "%lld\n", get_palacios_num_pages());
+    
+    return len;
+}
+
+
 static int __init v3_init(void) {
     dev_t dev = MKDEV(0, 0); // We dynamicallly assign the major number
     int ret = 0;
@@ -219,8 +253,32 @@ static int __init v3_init(void) {
 	goto failure1;
     }
 
+    dir = proc_mkdir("v3vee", NULL);
+    if(dir) {
+	struct proc_dir_entry *entry;
 
-
+	entry = create_proc_read_entry("v3-guests", 0444, dir, 
+				       read_guests, NULL);
+        if (entry) {
+	    INFO("/proc/v3vee/v3-guests successfully created\n");
+	} else {
+	    ERROR("Could not create proc entry\n");
+	    goto failure1;
+	}
+	
+	entry = create_proc_read_entry("v3-mem", 0444, dir,
+				       show_mem, NULL);
+	if (entry) {
+	    INFO("/proc/v3vee/v3-mem successfully added\n");
+	} else {
+	    ERROR("Could not create proc entry\n");
+	    goto failure1;
+	}
+    } else {
+	ERROR("Could not create proc entry\n");
+	goto failure1;
+    }
+	
     return 0;
 
  failure1:
@@ -264,6 +322,10 @@ static void __exit v3_exit(void) {
     deinit_lnx_extensions();
 
     palacios_deinit_mm();
+
+    remove_proc_entry("v3-guests", dir);
+    remove_proc_entry("v3-mem", dir);
+    remove_proc_entry("v3vee", NULL);
 
     DEBUG("Palacios Module Mallocs = %d, Frees = %d\n", mod_allocs, mod_frees);
 }

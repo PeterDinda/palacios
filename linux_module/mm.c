@@ -43,6 +43,14 @@ static inline void clear_page_bit(int index) {
 }
 
 
+uintptr_t get_palacios_base_addr(void) {
+    return pool.base_addr;
+}
+
+u64 get_palacios_num_pages(void) {
+    return pool.num_pages;
+}
+
 
 static uintptr_t alloc_contig_pgs(u64 num_pages, u32 alignment) {
     int step = 1;
