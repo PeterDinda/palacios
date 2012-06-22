@@ -2,6 +2,7 @@
 #define _V3_USER_HOST_DEV_
 
 #include <stdint.h>
+#include "v3_ctrl.h"
 #include "iface-host-dev.h"
 
 int v3_user_host_dev_rendezvous(char *vmdev, char *url); // returns devfd for use in poll/select

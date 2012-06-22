@@ -4,6 +4,7 @@
 #include <stdint.h>
 #define sint64_t int64_t
 
+#include "v3_ctrl.h"
 #include "iface-keyed-stream-user.h"
 
 int v3_user_keyed_stream_attach(char *dev, char *url);
