@@ -40,12 +40,47 @@ extern int cpu_list[NR_CPUS];
 extern int cpu_list_len;
 
 
+static char *print_buffer[NR_CPUS];
 
+static void deinit_print_buffers(void)
+{
+    int i;
+    for (i=0;i<NR_CPUS;i++) {
+	if (print_buffer[i]) { 
+	    kfree(print_buffer[i]);
+	    print_buffer[i]=0;
+	}
+    }
+}
 
+static int init_print_buffers(int num_cpus)
+{
+    int i;
+    
+    memset(print_buffer,0,sizeof(char*)*NR_CPUS);
+
+#if !V3_PRINTK_OLD_STYLE_OUTPUT
+
+    for (i=0;i<num_cpus;i++) { 
+	print_buffer[i] = kmalloc(V3_PRINTK_BUF_SIZE,GFP_KERNEL);
+	if (!print_buffer[i]) { 
+	    ERROR("Cannot allocate print buffer for cpu %d\n",i);
+	    deinit_print_buffers();
+	    return -1;
+	}
+	memset(print_buffer[i],0,V3_PRINTK_BUF_SIZE);
+    }
+
+#endif
+    
+    return 0;
+
+}
+ 
 /**
  * Prints a message to the console.
  */
-static void palacios_print(const char *	fmt, ...) {
+void palacios_print(const char *fmt, ...) {
 
 #if V3_PRINTK_OLD_STYLE_OUTPUT
 
@@ -61,12 +96,12 @@ static void palacios_print(const char *	fmt, ...) {
 
   va_list ap;
   char *buf;
+  unsigned int cpu = palacios_get_cpu();
 
-  // Allocate space atomically, in case we are called
-  // with a lock held
-  buf = kmalloc(V3_PRINTK_BUF_SIZE, GFP_ATOMIC);
+  buf = print_buffer[cpu];
+
   if (!buf) { 
-      printk("palacios: output skipped - unable to allocate\n");
+      printk(KERN_INFO "palacios (pcore %u): output skipped - no allocated buffer\n",cpu);
       return;
   } 
 
@@ -74,9 +109,23 @@ static void palacios_print(const char *	fmt, ...) {
   vsnprintf(buf,V3_PRINTK_BUF_SIZE, fmt, ap);
   va_end(ap);
 
-  printk(KERN_INFO "palacios: %s",buf);
+#if V3_PRINTK_CHECK_7BIT
+  {
+      char c=0;
+      int i;
+      for (i=0;i<strlen(buf);i++) { 
+	  if (buf[i] < 0) {
+	      c=buf[i];
+	      break;
+	  }
+      }
+      if (c!=0) { 
+	  printk(KERN_INFO "palacios (pcore %u): ALERT - 8 BIT CHAR (c=%d) DETECTED\n", cpu,c);
+      }
+  }
+#endif
 
-  kfree(buf);
+  printk(KERN_INFO "palacios (pcore %u): %s",cpu,buf);
 
   return;
 
@@ -297,7 +346,7 @@ palacios_move_thread_to_cpu(int new_cpu_id,
 /**
  * Returns the CPU ID that the caller is running on.
  */
-static unsigned int 
+unsigned int 
 palacios_get_cpu(void) 
 {
 
@@ -529,7 +578,7 @@ static struct v3_os_hooks palacios_os_hooks = {
 	.interrupt_cpu		= palacios_interrupt_cpu,
 	.call_on_cpu		= palacios_xcall,
 	.start_thread_on_cpu	= palacios_start_thread_on_cpu,
-	.move_thread_to_cpu = palacios_move_thread_to_cpu,
+	.move_thread_to_cpu     = palacios_move_thread_to_cpu,
 };
 
 
@@ -546,6 +595,12 @@ int palacios_vmm_init( void )
 	int i = 0;
 
         cpu_mask = kmalloc((num_cpus / 8) + 1, GFP_KERNEL);
+
+	if (!cpu_mask) { 
+	    ERROR("Cannot allocate cpu mask\n");
+	    return -1;
+	}
+
 	memset(cpu_mask, 0, (num_cpus / 8) + 1);
         
         for (i = 0; i < cpu_list_len; i++) {
@@ -563,8 +618,14 @@ int palacios_vmm_init( void )
 
     memset(irq_to_guest_map, 0, sizeof(struct v3_vm_info *) * 256);
 
+    if (init_print_buffers(num_cpus)) {
+	ERROR("Cannot initialize print buffers\n");
+	kfree(cpu_mask);
+	return -1;
+    }
+
     INFO("palacios_init starting - calling init_v3\n");
-    
+
     Init_V3(&palacios_os_hooks, cpu_mask, num_cpus);
 
     return 0;
@@ -575,6 +636,10 @@ int palacios_vmm_init( void )
 int palacios_vmm_exit( void ) {
 
     Shutdown_V3();
+
+    INFO("palacios shutdown complete\n");
+
+    deinit_print_buffers();
 
     return 0;
 }

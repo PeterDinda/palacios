@@ -38,26 +38,6 @@
 
 #define V3_VM_KSTREAM_USER_CONNECT 11245
 
-// KERN_EMERG    "<0>"  /* system is unusable               */
-// KERN_ALERT    "<1>"  /* action must be taken immediately */
-// KERN_CRIT     "<2>"  /* critical conditions              */
-// KERN_ERR      "<3>"  /* error conditions                 */
-// KERN_WARNING  "<4>"  /* warning conditions               */
-// KERN_NOTICE   "<5>"  /* normal but significant condition */
-// KERN_INFO     "<6>"  /* informational                    */
-// KERN_DEBUG    "<7>"  /* debug-level messages             */
-
-// All 'printk's should be changed to one of these macros, for easier control
-#define ERROR(fmt, args...) printk((KERN_ERR "palacios: " fmt), ##args)
-#define WARNING(fmt, args...) printk((KERN_WARNING "palacios: " fmt), ##args)
-#define NOTICE(fmt, args...) printk((KERN_NOTICE "palacios: " fmt), ##args)
-#define INFO(fmt, args...) printk((KERN_INFO "palacios: " fmt), ##args)
-#define DEBUG(fmt, args...) printk((KERN_DEBUG "palacios: " fmt), ##args)
-
-// Turn this on for unprefaced output
-#define V3_PRINTK_OLD_STYLE_OUTPUT 0
-// Maximum length output from printk
-#define V3_PRINTK_BUF_SIZE 1024
 
 struct v3_guest_img {
     unsigned long long size;
@@ -117,6 +97,32 @@ struct v3_guest {
 int palacios_vmm_init( void );
 int palacios_vmm_exit( void );
 
+
+// Exported stubs, for use in other palacios components, like vnet
+void         palacios_print(const char *fmt, ...);
+unsigned int palacios_get_cpu(void);
+
+
+
+// Palacios Printing Support
+
+// These macros affect how palacios_print will generate output
+// Turn this on for unprefaced output from palacios_print
+#define V3_PRINTK_OLD_STYLE_OUTPUT 0
+// Maximum length output from palacios_print
+#define V3_PRINTK_BUF_SIZE 1024
+// Turn this on to check if new-style output for palacios_print  contains only 7-bit chars
+#define V3_PRINTK_CHECK_7BIT 1
+
+//
+// The following macros are for printing in the linux module itself, even before
+// Palacios is initialized and after it it deinitialized
+// All printk's in linux_module use these macros, for easier control
+#define ERROR(fmt, args...) printk((KERN_ERR "palacios (pcore %u): " fmt), palacios_get_cpu(), ##args)
+#define WARNING(fmt, args...) printk((KERN_WARNING "palacios (pcore %u): " fmt), palacios_get_cpu(), ##args)
+#define NOTICE(fmt, args...) printk((KERN_NOTICE "palacios (pcore %u): " fmt), palacios_get_cpu(), ##args)
+#define INFO(fmt, args...) printk((KERN_INFO "palacios (pcore %u): " fmt), palacios_get_cpu(), ##args)
+#define DEBUG(fmt, args...) printk((KERN_DEBUG "palacios (pcore %u): " fmt), palacios_get_cpu(), ##args)
 
 
 #endif
