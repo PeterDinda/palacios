@@ -98,9 +98,31 @@ int palacios_vmm_init( void );
 int palacios_vmm_exit( void );
 
 
-// Exported stubs, for use in other palacios components, like vnet
-void         palacios_print(const char *fmt, ...);
+// This is how a component finds the proc dir we are using for global state
+struct proc_dir_entry *palacios_get_procdir(void);
+
+// Selected exported stubs, for use in other palacios components, like vnet
+// The idea is that everything uses the same stubs
+void  palacios_print(const char *fmt, ...);
+void *palacios_allocate_pages(int num_pages, unsigned int alignment);
+void  palacios_free_pages(void *page_addr, int num_pages);
+void *palacios_alloc(unsigned int size);
+void  palacios_free(void *);
+void *palacios_vaddr_to_paddr(void *vaddr);
+void *palacios_paddr_to_vaddr(void *paddr);
+void *palacios_start_kernel_thread(int (*fn)(void * arg), void *arg, char *thread_name);
+void *palacios_start_thread_on_cpu(int cpu_id, int (*fn)(void * arg), void *arg, char *thread_name);
+int   palacios_move_thread_to_cpu(int new_cpu_id, void *thread_ptr);
+void  palacios_yield_cpu(void);
+void  palacios_yield_cpu_timed(unsigned int us);
 unsigned int palacios_get_cpu(void);
+unsigned int palacios_get_cpu_khz(void);
+void *palacios_mutex_alloc(void);
+void  palacios_mutex_free(void *mutex);
+void  palacios_mutex_lock(void *mutex, int must_spin);
+void  palacios_mutex_unlock(void *mutex);
+void *palacios_mutex_lock_irqsave(void *mutex, int must_spin);
+void  palacios_mutex_unlock_irqrestore(void *mutex, void *flags);
 
 
 

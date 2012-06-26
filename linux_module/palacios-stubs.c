@@ -45,6 +45,7 @@ static char *print_buffer[NR_CPUS];
 static void deinit_print_buffers(void)
 {
     int i;
+
     for (i=0;i<NR_CPUS;i++) {
 	if (print_buffer[i]) { 
 	    kfree(print_buffer[i]);
@@ -53,7 +54,7 @@ static void deinit_print_buffers(void)
     }
 }
 
-static int init_print_buffers(int num_cpus)
+static int init_print_buffers(void)
 {
     int i;
     
@@ -61,7 +62,7 @@ static int init_print_buffers(int num_cpus)
 
 #if !V3_PRINTK_OLD_STYLE_OUTPUT
 
-    for (i=0;i<num_cpus;i++) { 
+    for (i=0;i<NR_CPUS;i++) { 
 	print_buffer[i] = kmalloc(V3_PRINTK_BUF_SIZE,GFP_KERNEL);
 	if (!print_buffer[i]) { 
 	    ERROR("Cannot allocate print buffer for cpu %d\n",i);
@@ -139,7 +140,7 @@ void palacios_print(const char *fmt, ...) {
  * Allocates a contiguous region of pages of the requested size.
  * Returns the physical address of the first page in the region.
  */
-static void * palacios_allocate_pages(int num_pages, unsigned int alignment) {
+void *palacios_allocate_pages(int num_pages, unsigned int alignment) {
     void * pg_addr = NULL;
 
     pg_addr = (void *)alloc_palacios_pgs(num_pages, alignment);
@@ -155,7 +156,7 @@ static void * palacios_allocate_pages(int num_pages, unsigned int alignment) {
  * a single call while palacios_free_page() only frees a single page.
  */
 
-static void palacios_free_pages(void * page_paddr, int num_pages) {
+void palacios_free_pages(void * page_paddr, int num_pages) {
     pg_frees += num_pages;
     free_palacios_pgs((uintptr_t)page_paddr, num_pages);
 }
@@ -165,7 +166,7 @@ static void palacios_free_pages(void * page_paddr, int num_pages) {
  * Allocates 'size' bytes of kernel memory.
  * Returns the kernel virtual address of the memory allocated.
  */
-static void *
+void *
 palacios_alloc(unsigned int size) {
     void * addr = NULL;
 
@@ -174,16 +175,18 @@ palacios_alloc(unsigned int size) {
     } else {
     	addr = kmalloc(size, GFP_KERNEL);
     }
-    mallocs++;
+    
+    if (addr) { 
+	mallocs++;
+    }
 
- 
     return addr;
 }
 
 /**
  * Frees memory that was previously allocated by palacios_alloc().
  */
-static void
+void
 palacios_free(
 	void *			addr
 )
@@ -196,7 +199,7 @@ palacios_free(
 /**
  * Converts a kernel virtual address to the corresponding physical address.
  */
-static void *
+void *
 palacios_vaddr_to_paddr(
 	void *			vaddr
 )
@@ -208,7 +211,7 @@ palacios_vaddr_to_paddr(
 /**
  * Converts a physical address to the corresponding kernel virtual address.
  */
-static void *
+void *
 palacios_paddr_to_vaddr(
 	void *			paddr
 )
@@ -219,8 +222,6 @@ palacios_paddr_to_vaddr(
 /**
  * Runs a function on the specified CPU.
  */
-
-// For now, do call only on local CPU 
 static void 
 palacios_xcall(
 	int			cpu_id, 
@@ -256,7 +257,7 @@ static int lnx_thread_target(void * arg) {
     ret = thread_info->fn(thread_info->arg);
 
 
-    INFO("Palacios Thread (%s) EXITTING\n", thread_info->name);
+    INFO("Palacios Thread (%s) EXITING\n", thread_info->name);
 
     kfree(thread_info);
     // handle cleanup 
@@ -269,7 +270,7 @@ static int lnx_thread_target(void * arg) {
 /**
  * Creates a kernel thread.
  */
-static void *
+void *
 palacios_start_kernel_thread(
 	int (*fn)		(void * arg),
 	void *			arg,
@@ -288,7 +289,7 @@ palacios_start_kernel_thread(
 /**
  * Starts a kernel thread on the specified CPU.
  */
-static void * 
+void * 
 palacios_start_thread_on_cpu(int cpu_id, 
 			     int (*fn)(void * arg), 
 			     void * arg, 
@@ -324,7 +325,7 @@ palacios_start_thread_on_cpu(int cpu_id,
  * The thread will be running on target CPU on return
  * non-zero return means failure
  */
-static int
+int
 palacios_move_thread_to_cpu(int new_cpu_id, 
 			    void * thread_ptr) {
     struct task_struct * thread = (struct task_struct *)thread_ptr;
@@ -485,7 +486,7 @@ palacios_ack_interrupt(
 /**
  * Returns the CPU frequency in kilohertz.
  */
-static unsigned int
+unsigned int
 palacios_get_cpu_khz(void) 
 {
     INFO("cpu_khz is %u\n", cpu_khz);
@@ -501,21 +502,37 @@ palacios_get_cpu_khz(void)
 
 /**
  * Yield the CPU so other host OS tasks can run.
+ * This will return immediately if there is no other thread that is runnable
+ * And there is no real bound on how long it will yield
  */
-static void
+void
 palacios_yield_cpu(void)
 {
     schedule();
     return;
 }
 
+/**
+ * Yield the CPU so other host OS tasks can run.
+ * Given now immediately if there is no other thread that is runnable
+ * And there is no real bound on how long it will yield
+ */
+void palacios_yield_cpu_timed(unsigned int us)
+{
+    unsigned int jiffies = 1000000U * HZ / us;
+
+    set_current_state(TASK_INTERRUPTIBLE);
+    
+    schedule_timeout(jiffies);
+
+}
 
 
 /**
  * Allocates a mutex.
  * Returns NULL on failure.
  */
-static void *
+void *
 palacios_mutex_alloc(void)
 {
     spinlock_t *lock = kmalloc(sizeof(spinlock_t), GFP_KERNEL);
@@ -530,7 +547,7 @@ palacios_mutex_alloc(void)
 /**
  * Frees a mutex.
  */
-static void
+void
 palacios_mutex_free(void * mutex) {
     kfree(mutex);
 }
@@ -538,20 +555,46 @@ palacios_mutex_free(void * mutex) {
 /**
  * Locks a mutex.
  */
-static void 
+void 
 palacios_mutex_lock(void * mutex, int must_spin) {
     spin_lock((spinlock_t *)mutex);
 }
 
+
+/**
+ * Locks a mutex, disabling interrupts on this core
+ */
+void *
+palacios_mutex_lock_irqsave(void * mutex, int must_spin) {
+    
+    unsigned long flags; 
+    
+    spin_lock_irqsave((spinlock_t *)mutex,flags);
+
+    return (void *)flags;
+}
+
+
 /**
  * Unlocks a mutex.
  */
-static void 
+void 
 palacios_mutex_unlock(
 	void *			mutex
 ) 
 {
     spin_unlock((spinlock_t *)mutex);
+}
+
+
+/**
+ * Unlocks a mutex.
+ */
+void 
+palacios_mutex_unlock_irqrestore(void *mutex, void *flags)
+{
+    // This is correct, flags is opaque
+    spin_unlock_irqrestore((spinlock_t *)mutex,(unsigned long)flags);
 }
 
 /**
@@ -570,10 +613,13 @@ static struct v3_os_hooks palacios_os_hooks = {
 	.get_cpu_khz		= palacios_get_cpu_khz,
 	.start_kernel_thread    = palacios_start_kernel_thread,
 	.yield_cpu		= palacios_yield_cpu,
+	.yield_cpu_timed	= palacios_yield_cpu_timed,
 	.mutex_alloc		= palacios_mutex_alloc,
 	.mutex_free		= palacios_mutex_free,
 	.mutex_lock		= palacios_mutex_lock, 
 	.mutex_unlock		= palacios_mutex_unlock,
+	.mutex_lock_irqsave     = palacios_mutex_lock_irqsave, 
+	.mutex_unlock_irqrestore= palacios_mutex_unlock_irqrestore,
 	.get_cpu		= palacios_get_cpu,
 	.interrupt_cpu		= palacios_interrupt_cpu,
 	.call_on_cpu		= palacios_xcall,
@@ -618,7 +664,7 @@ int palacios_vmm_init( void )
 
     memset(irq_to_guest_map, 0, sizeof(struct v3_vm_info *) * 256);
 
-    if (init_print_buffers(num_cpus)) {
+    if (init_print_buffers()) {
 	ERROR("Cannot initialize print buffers\n");
 	kfree(cpu_mask);
 	return -1;

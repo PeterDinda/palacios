@@ -44,7 +44,7 @@ int mod_frees = 0;
 static int v3_major_num = 0;
 
 static struct v3_guest * guest_map[MAX_VMS] = {[0 ... MAX_VMS - 1] = 0};
-static struct proc_dir_entry *dir;
+static struct proc_dir_entry *dir = 0;
 
 struct class * v3_class = NULL;
 static struct cdev ctrl_dev;
@@ -173,6 +173,11 @@ static struct file_operations v3_ctrl_fops = {
 };
 
 
+
+struct proc_dir_entry *palacios_get_procdir(void) 
+{
+    return dir;
+}
 
 static int read_guests(char * buf, char ** start, off_t off, int count,
 		       int * eof, void * data)
