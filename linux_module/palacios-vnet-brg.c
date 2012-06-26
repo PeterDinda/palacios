@@ -24,7 +24,10 @@
 #include "palacios-vnet.h"
 #include "palacios.h"
 
+
 #define VNET_SERVER_PORT 9000
+
+#define VNET_YIELD_TIME_USEC 1000
 
 struct vnet_link {
     uint32_t dst_ip;
@@ -255,8 +258,8 @@ _udp_send(struct socket * sock,
 
 static int 
 _udp_recv(struct socket * sock, 
-	 struct sockaddr_in * addr,
-	 unsigned char * buf, int len) {
+	  struct sockaddr_in * addr,
+	  unsigned char * buf, int len, int nonblocking) {
     struct msghdr msg;
     struct iovec iov;
     mm_segment_t oldfs;
@@ -269,7 +272,7 @@ _udp_recv(struct socket * sock,
     iov.iov_base = buf;
     iov.iov_len = len;
     
-    msg.msg_flags = 0;
+    msg.msg_flags = MSG_NOSIGNAL | (nonblocking ? MSG_DONTWAIT : 0);
     msg.msg_name = addr;
     msg.msg_namelen = sizeof(struct sockaddr_in);
     msg.msg_control = NULL;
@@ -349,7 +352,7 @@ bridge_send_pkt(struct v3_vm_info * vm,
 	link->stats.tx_bytes += pkt->size;
 	link->stats.tx_pkts ++;
     } else {
-	INFO("VNET Bridge Linux Host: wrong dst link, idx: %d, discards the packet\n", pkt->dst_id);
+	INFO("VNET Bridge Linux Host: wrong dst link, idx: %d, discarding the packet\n", pkt->dst_id);
 	vnet_brg_s.stats.pkt_drop_vmm ++;
     }
 
@@ -411,17 +414,34 @@ static int _udp_server(void * arg) {
     INFO("Palacios VNET Bridge: UDP receiving server ..... \n");
 
     pkt = kmalloc(MAX_PACKET_LEN, GFP_KERNEL);
+
+
     while (!kthread_should_stop()) {
+
+	// This is a NONBLOCKING receive
+	// If we block here, we will never detect that this thread
+	// is being signaled to stop, plus we might go uninterrupted on this core
+	// blocking out access to other threads - leave this NONBLOCKING
+	// unless you know what you are doing
+    	len = _udp_recv(vnet_brg_s.serv_sock, &pkt_addr, pkt, MAX_PACKET_LEN, 1); 
+
+
+	// If it would have blocked, we have no packet, and so
+	// we will give other threads on this core a chance
+	if (len==-EAGAIN || len==-EWOULDBLOCK || len==-EINTR) { 
+	    palacios_yield_cpu_timed(VNET_YIELD_TIME_USEC);
+	    continue;
+	}
 	
-    	len = _udp_recv(vnet_brg_s.serv_sock, &pkt_addr, pkt, MAX_PACKET_LEN); 
 	if(len < 0) {
 	    WARNING("Receive error: Could not get packet, error %d\n", len);
 	    continue;
 	}
 
 	link = _link_by_ip(pkt_addr.sin_addr.s_addr);
+
 	if (link == NULL){
-	    WARNING("VNET Server: No VNET Link match the src IP\n");
+	    WARNING("VNET Server: No VNET Link matches the src IP\n");
 	    vnet_brg_s.stats.pkt_drop_phy ++;
 	    continue;
 	}
@@ -432,6 +452,8 @@ static int _udp_server(void * arg) {
 
 	send_to_palacios(pkt, len, link->idx);
     }
+
+    INFO("VNET Server: UDP thread exiting\n");
 
     kfree(pkt);
 
@@ -447,6 +469,8 @@ static int _rx_server(void * arg) {
 	//accept new connection
 	//use select to receive pkt from physical network
 	//or create new kthread to handle each connection?
+	WARNING("VNET Server: TCP is not currently supported\n");
+	return -1;
     }else {
     	WARNING ("VNET Server: Unsupported Protocol\n");
 	return -1;
@@ -507,16 +531,29 @@ int vnet_bridge_init(void) {
 
 void vnet_bridge_deinit(void){
 
+    INFO("VNET LNX Bridge Deinit Started\n");
+
     v3_vnet_del_bridge(HOST_LNX_BRIDGE);
 
+    //DEBUG("Stopping bridge service thread\n");
+
     kthread_stop(vnet_brg_s.serv_thread);
+
+    //DEBUG("Releasing bridee service socket\n");
+
     vnet_brg_s.serv_sock->ops->release(vnet_brg_s.serv_sock);
 
+    //DEBUG("Deiniting bridge links\n");
+
     deinit_links_list();
+
+    //DEBUG("Freeing bridge hash tables\n");
 
     vnet_free_htable(vnet_brg_s.ip2link, 0, 0);
 
     vnet_brg_s.status = 0;
+
+    INFO("VNET LNX Bridge Deinit Finished\n");
 }
 
 

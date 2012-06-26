@@ -877,7 +877,9 @@ static int init_proc_files(void) {
     struct proc_dir_entry * debug_entry = NULL;
     struct proc_dir_entry * vnet_root = NULL;
 
-    vnet_root = proc_mkdir("vnet", NULL);
+
+    vnet_root = proc_mkdir("vnet", palacios_get_procdir());
+
     if (vnet_root == NULL) {
 	return -1;
     }
@@ -957,12 +959,17 @@ int vnet_ctrl_init(void) {
 
 
 void vnet_ctrl_deinit(void){
+    
+    INFO("VNET Control Deinit Started\n");
+
     destroy_proc_files();
 
     deinit_links_list();
     deinit_routes_list();
 
     vnet_ctrl_s.status = 0;
+
+    INFO("VNET Control Deinit Finished\n");
 }
 
 

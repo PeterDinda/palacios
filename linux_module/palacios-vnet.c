@@ -19,108 +19,8 @@
 #include "palacios-vnet.h"
 #include "linux-exts.h"
 
-static void host_print(const char *	fmt, ...) {
-#if V3_PRINTK_OLD_STYLE_OUTPUT
-
-  va_list ap;
-
-  va_start(ap, fmt);
-  vprintk(fmt, ap);
-  va_end(ap);
-
-  return
-
-#else 
-
-  va_list ap;
-  char *buf;
-
-  // Allocate space atomically, in case we are called
-  // with a lock held
-  buf = kmalloc(V3_PRINTK_BUF_SIZE, GFP_ATOMIC);
-  if (!buf) { 
-      printk("palacios: output skipped - unable to allocate\n");
-      return;
-  } 
-
-  va_start(ap, fmt);
-  vsnprintf(buf,V3_PRINTK_BUF_SIZE, fmt, ap);
-  va_end(ap);
-
-  printk(KERN_INFO "palacios: %s",buf);
-
-  kfree(buf);
-
-  return;
-
-#endif
-}
 
 
-static void * host_allocate_pages(int num_pages, unsigned int alignment){
-    uintptr_t addr = 0; 
-    struct page * pgs = NULL;
-    int order = get_order(num_pages * PAGE_SIZE);
-	 
-    pgs = alloc_pages(GFP_KERNEL, order);
-    
-    WARN(!pgs, "Could not allocate pages\n");
-       
-    addr = page_to_pfn(pgs) << PAGE_SHIFT; 
-   
-    return (void *)addr;
-}
-
-
-static void host_free_pages(void * page_paddr, int num_pages) {
-    uintptr_t pg_addr = (uintptr_t)page_paddr;
-	
-    __free_pages(pfn_to_page(pg_addr >> PAGE_SHIFT), get_order(num_pages * PAGE_SIZE));
-}
-
-
-static void *
-host_alloc(unsigned int size) {
-    void * addr;
-    addr =  kmalloc(size, GFP_KERNEL);
-
-    return addr;
-}
-
-static void
-host_free(
-	void *			addr
-)
-{
-    kfree(addr);
-    return;
-}
-
-static void *
-host_vaddr_to_paddr(void * vaddr)
-{
-    return (void*) __pa(vaddr);
-
-}
-
-static void *
-host_paddr_to_vaddr(void * paddr)
-{
-    return __va(paddr);
-}
-
-
-static void *
-host_start_kernel_thread(
-	int (*fn)(void * arg),
-	void * arg,
-	char * thread_name) {
-    struct task_struct * thread = NULL;
-
-    thread = kthread_run(fn, arg, thread_name );
-
-    return thread;
-}
 
 static void host_kthread_sleep(long timeout){
     set_current_state(TASK_INTERRUPTIBLE);
@@ -143,7 +43,8 @@ static void host_kthread_wakeup(void * thread){
 static void host_kthread_stop(void * thread){
     struct task_struct * kthread = (struct task_struct *)thread;
 
-    kthread_stop(kthread);
+    while (kthread_stop(kthread)==-EINTR)
+	;
 }
 
 static int host_kthread_should_stop(void){
@@ -157,45 +58,6 @@ static void host_udelay(unsigned long usecs){
 
 
 
-static void
-host_yield_cpu(void)
-{
-    schedule();
-    return;
-}
-
-static void *
-host_mutex_alloc(void)
-{
-    spinlock_t * lock = kmalloc(sizeof(spinlock_t), GFP_KERNEL);
-
-    if (lock) {
-	spin_lock_init(lock);
-    }
-
-    return lock;
-}
-
-static void
-host_mutex_free(
-	void * mutex
-) 
-{
-    kfree(mutex);
-}
-
-static void 
-host_mutex_lock(void * mutex, 
-		int must_spin)
-{
-    spin_lock((spinlock_t *)mutex);
-}
-
-static void 
-host_mutex_unlock(void * mutex) 
-{
-    spin_unlock((spinlock_t *)mutex);
-}
 
 
 
@@ -276,32 +138,32 @@ host_del_timer(void * vnet_timer){
 
 
 static struct vnet_host_hooks vnet_host_hooks = {
-    .timer_create	= host_create_timer,
-    .timer_del		= host_del_timer,
+    .timer_create	        = host_create_timer,
+    .timer_del		        = host_del_timer,
     .timer_start		= host_start_timer,
-    .timer_stop		= host_stop_timer,
-    .timer_reset	= host_reset_timer,
+    .timer_stop		        = host_stop_timer,
+    .timer_reset	        = host_reset_timer,
 
-    .thread_start 	= host_start_kernel_thread,
-    .thread_sleep  	= host_kthread_sleep,
-    .thread_wakeup	= host_kthread_wakeup,
-    .thread_stop	= host_kthread_stop,
-    .thread_should_stop	= host_kthread_should_stop,
-    .udelay	= host_udelay,
+    .thread_start 	        = palacios_start_kernel_thread,
+    .thread_sleep  	        = host_kthread_sleep,
+    .thread_wakeup	        = host_kthread_wakeup,
+    .thread_stop	        = host_kthread_stop,
+    .thread_should_stop	        = host_kthread_should_stop,
+    .udelay	                = host_udelay,
 
-    .yield_cpu		= host_yield_cpu,
-    .mutex_alloc	= host_mutex_alloc,
-    .mutex_free	= host_mutex_free,
-    .mutex_lock	= host_mutex_lock, 
-    .mutex_unlock	= host_mutex_unlock,
+    .yield_cpu		        = palacios_yield_cpu,
+    .mutex_alloc	        = palacios_mutex_alloc,
+    .mutex_free	                = palacios_mutex_free,
+    .mutex_lock	                = palacios_mutex_lock, 
+    .mutex_unlock	        = palacios_mutex_unlock,
 
-    .print			= host_print,
-    .allocate_pages	= host_allocate_pages,
-    .free_pages	= host_free_pages,
-    .malloc		= host_alloc,
-    .free			= host_free,
-    .vaddr_to_paddr		= host_vaddr_to_paddr,
-    .paddr_to_vaddr		= host_paddr_to_vaddr,
+    .print			= palacios_print,
+    .allocate_pages	        = palacios_allocate_pages,
+    .free_pages	                = palacios_free_pages,
+    .malloc		        = palacios_alloc,
+    .free			= palacios_free,
+    .vaddr_to_paddr		= palacios_vaddr_to_paddr,
+    .paddr_to_vaddr		= palacios_paddr_to_vaddr,
 };
 
 
@@ -319,10 +181,18 @@ static int vnet_init( void ) {
 
 
 static int vnet_deinit( void ) {
-    deinit_vnet();
+
+    INFO("V3 Control Deinit Start\n");
+
+    vnet_ctrl_deinit();
+
+    INFO("V3 Bridge Deinit Start\n");
 
     vnet_bridge_deinit();
-    vnet_ctrl_deinit();
+
+    INFO("V3 VNET Deinit Start\n");
+
+    deinit_vnet();
 
     INFO("V3 VNET Deinited\n");
 
