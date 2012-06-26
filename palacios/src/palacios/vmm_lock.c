@@ -50,13 +50,10 @@ void v3_unlock(v3_lock_t lock) {
 }
 
 addr_t v3_lock_irqsave(v3_lock_t lock) {
-    addr_t irq_state = v3_irq_save();
-    os_hooks->mutex_lock((void *)lock, 1);
-    return irq_state;
+    return (addr_t) (os_hooks->mutex_lock_irqsave((void *)lock, 1));
 }
 
 
 void v3_unlock_irqrestore(v3_lock_t lock, addr_t irq_state) {
-    os_hooks->mutex_unlock((void *)lock);
-    v3_irq_restore(irq_state);
+    os_hooks->mutex_unlock_irqrestore((void *)lock,(void*)irq_state);
 }
