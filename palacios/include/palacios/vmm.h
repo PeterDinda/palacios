@@ -245,6 +245,25 @@ struct guest_info;
 	
 
 
+#define V3_Yield()					\
+    do {						\
+	extern struct v3_os_hooks * os_hooks;		\
+	if ((os_hooks) && (os_hooks)->yield_cpu) {	\
+	    (os_hooks)->yield_cpu();			\
+	}						\
+    } while (0)						\
+
+
+#define V3_Yield_Timed(usec)				\
+    do {						\
+	extern struct v3_os_hooks * os_hooks;		\
+	if ((os_hooks) && (os_hooks)->yield_cpu_timed) {\
+	    (os_hooks)->yield_cpu_timed(usec);		\
+	} else {					\
+	    V3_Yield();                                 \
+        }                                               \
+    }  while (0)                                        \
+
 
 
 typedef enum v3_vm_class {V3_INVALID_VM, V3_PC_VM, V3_CRAY_VM} v3_vm_class_t;
@@ -258,6 +277,7 @@ v3_cpu_mode_t v3_get_host_cpu_mode();
 
 void v3_yield(struct guest_info * info);
 void v3_yield_cond(struct guest_info * info);
+void v3_yield_timed(struct guest_info * info, unsigned int usec);
 void v3_print_cond(const char * fmt, ...);
 
 void v3_interrupt_cpu(struct v3_vm_info * vm, int logical_cpu, int vector);
@@ -299,10 +319,14 @@ struct v3_os_hooks {
 
     void (*yield_cpu)(void); 
 
+    void (*yield_cpu_timed)(unsigned int usec);
+
     void *(*mutex_alloc)(void);
     void (*mutex_free)(void * mutex);
     void (*mutex_lock)(void * mutex, int must_spin);
     void (*mutex_unlock)(void * mutex);
+    void *(*mutex_lock_irqsave)(void * mutex, int must_spin);
+    void (*mutex_unlock_irqrestore)(void * mutex, void *flags);
 
     unsigned int (*get_cpu)(void);
 

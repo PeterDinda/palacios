@@ -679,13 +679,6 @@ v3_cpu_mode_t v3_get_host_cpu_mode() {
 #endif 
 
 
-#define V3_Yield(addr)					\
-    do {						\
-	extern struct v3_os_hooks * os_hooks;		\
-	if ((os_hooks) && (os_hooks)->yield_cpu) {	\
-	    (os_hooks)->yield_cpu();			\
-	}						\
-    } while (0)						\
 
 
 
@@ -718,6 +711,18 @@ void v3_yield(struct guest_info * info) {
 }
 
 
+/*
+ * unconditional cpu yield for a period of time
+ * Otherwise identical to v3_yield
+ */
+void v3_yield_timed(struct guest_info *info, unsigned int usec)
+{
+    V3_Yield_Timed(usec);
+    
+    if (info) { 
+	info->yield_start_cycle += info->vm_info->yield_cycle_period;
+    }
+}
 
 
 void v3_print_cond(const char * fmt, ...) {
