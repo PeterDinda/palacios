@@ -140,8 +140,7 @@ static inline void Vnet_Yield(void){
 }
 
 /* THREAD FUNCTIONS */
-struct vnet_thread * vnet_start_thread(int (*func)(void *), 
-				       void * arg, char * name);
+struct vnet_thread * vnet_start_thread(int (*func)(void *), void *arg, char * name);
 
 static inline void vnet_thread_sleep(long timeout){
     if((host_hooks) && host_hooks->thread_sleep){
@@ -234,31 +233,49 @@ static inline void vnet_reset_timer(struct vnet_timer * timer,
 
 
 /* Lock Utilities */
-int vnet_lock_init(vnet_lock_t * lock);
+static inline int vnet_lock_init(vnet_lock_t * lock) {
+    if((host_hooks) && host_hooks->mutex_alloc){
+	*lock = (addr_t)(host_hooks->mutex_alloc());
+    	if (*lock) {
+	    return 0;
+    	}
+    }
+    return -1;
+}
 
 static inline void vnet_lock_deinit(vnet_lock_t * lock) {
-    host_hooks->mutex_free((void *)*lock);
-    *lock = 0;
+    if (host_hooks && (host_hooks->mutex_free)) { 
+	host_hooks->mutex_free((void *)*lock);
+	*lock = 0;
+    }
 }
 
 static inline void vnet_lock(vnet_lock_t lock) {
-    host_hooks->mutex_lock((void *)lock, 0);    
+    if (host_hooks && (host_hooks->mutex_lock)) { 
+	host_hooks->mutex_lock((void *)lock, 0);    
+    }
 }
 
 static inline void vnet_unlock(vnet_lock_t lock) {
-    host_hooks->mutex_unlock((void *)lock);
+    if (host_hooks && (host_hooks->mutex_lock)) { 
+	host_hooks->mutex_unlock((void *)lock);
+    }
 }
 
 static inline unsigned long vnet_lock_irqsave(vnet_lock_t lock) {
-    //addr_t irq_state = v3_irq_save();
-    host_hooks->mutex_lock((void *)lock, 1);
-    return 0;
+    if (host_hooks && host_hooks->mutex_lock) { 
+	host_hooks->mutex_lock((void *)lock, 1);
+	return 0;
+    } else {
+	return -1;
+    }
 }
 
 
 static inline void vnet_unlock_irqrestore(vnet_lock_t lock, addr_t irq_state) {
-    host_hooks->mutex_unlock((void *)lock);
-    //v3_irq_restore(irq_state);
+    if (host_hooks && (host_hooks->mutex_unlock)) {
+	host_hooks->mutex_unlock((void *)lock);
+    }
 }
 
 #endif

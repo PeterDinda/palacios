@@ -27,9 +27,11 @@
 #include <palacios/vmm_queue.h>
 
 #ifndef V3_CONFIG_DEBUG_VNET
-#undef Vnet_Debug
-#define Vnet_Debug(fmt, args...)
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
 #endif
+
+#define VNET_YIELD_USEC 1000
 
 int net_debug = 0;
 
@@ -133,15 +135,15 @@ static void print_route(struct v3_vnet_route * route){
     char str[50];
 
     mac2str(route->src_mac, str);
-    Vnet_Debug("Src Mac (%s),  src_qual (%d)\n", 
+    PrintDebug("Src Mac (%s),  src_qual (%d)\n", 
 	       str, route->src_mac_qual);
     mac2str(route->dst_mac, str);
-    Vnet_Debug("Dst Mac (%s),  dst_qual (%d)\n", 
+    PrintDebug("Dst Mac (%s),  dst_qual (%d)\n", 
 	       str, route->dst_mac_qual);
-    Vnet_Debug("Src dev id (%d), src type (%d)", 
+    PrintDebug("Src dev id (%d), src type (%d)", 
 	       route->src_id, 
 	       route->src_type);
-    Vnet_Debug("Dst dev id (%d), dst type (%d)\n", 
+    PrintDebug("Dst dev id (%d), dst type (%d)\n", 
 	       route->dst_id, 
 	       route->dst_type);
 }
@@ -149,13 +151,13 @@ static void print_route(struct v3_vnet_route * route){
 static void dump_routes(){
     struct vnet_route_info *route;
 
-    Vnet_Debug("\n========Dump routes starts ============\n");
+    PrintDebug("\n========Dump routes starts ============\n");
     list_for_each_entry(route, &(vnet_state.routes), node) {
-    	Vnet_Debug("\nroute %d:\n", route->idx);
+    	PrintDebug("\nroute %d:\n", route->idx);
 		
 	print_route(&(route->route_def));
 	if (route->route_def.dst_type == LINK_INTERFACE) {
-	    Vnet_Debug("dst_dev (%p), dst_dev_id (%d), dst_dev_ops(%p), dst_dev_data (%p)\n",
+	    PrintDebug("dst_dev (%p), dst_dev_id (%d), dst_dev_ops(%p), dst_dev_data (%p)\n",
 	       	route->dst_dev,
 	       	route->dst_dev->dev_id,
 	       	(void *)&(route->dst_dev->dev_ops),
@@ -163,7 +165,7 @@ static void dump_routes(){
 	}
     }
 
-    Vnet_Debug("\n========Dump routes end ============\n");
+    PrintDebug("\n========Dump routes end ============\n");
 }
 
 #endif
@@ -255,7 +257,7 @@ int v3_vnet_add_route(struct v3_vnet_route route) {
     memset(new_route, 0, sizeof(struct vnet_route_info));
 
 #ifdef V3_CONFIG_DEBUG_VNET
-    Vnet_Debug("VNET/P Core: add_route_entry:\n");
+    PrintDebug("VNET/P Core: add_route_entry:\n");
     print_route(&route);
 #endif
     
@@ -361,7 +363,7 @@ static struct route_list * match_route(const struct v3_vnet_pkt * pkt) {
 
 	mac2str(hdr->src_mac, src_str);  
 	mac2str(hdr->dst_mac, dst_str);
-	Vnet_Debug("VNET/P Core: match_route. pkt: SRC(%s), DEST(%s)\n", src_str, dst_str);
+	PrintDebug("VNET/P Core: match_route. pkt: SRC(%s), DEST(%s)\n", src_str, dst_str);
     }
 #endif
 
@@ -448,7 +450,7 @@ static struct route_list * match_route(const struct v3_vnet_pkt * pkt) {
 	}
     }
 
-    Vnet_Debug("VNET/P Core: match_route: Matches=%d\n", num_matches);
+    PrintDebug("VNET/P Core: match_route: Matches=%d\n", num_matches);
 
     if (num_matches == 0) {
 	return NULL;
@@ -490,14 +492,14 @@ int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data) {
 
     look_into_cache(pkt, &matched_routes);
     if (matched_routes == NULL) {  
-	Vnet_Debug("VNET/P Core: send pkt Looking into routing table\n");
+	PrintDebug("VNET/P Core: send pkt Looking into routing table\n");
 	
 	matched_routes = match_route(pkt);
 	
       	if (matched_routes) {
 	    add_route_to_cache(pkt, matched_routes);
 	} else {
-	    Vnet_Debug("VNET/P Core: Could not find route for packet... discards packet\n");
+	    PrintDebug("VNET/P Core: Could not find route for packet... discards packet\n");
 	    vnet_unlock_irqrestore(vnet_state.lock, flags);
 	    return 0; /* do we return -1 here?*/
 	}
@@ -505,7 +507,7 @@ int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data) {
 
     vnet_unlock_irqrestore(vnet_state.lock, flags);
 
-    Vnet_Debug("VNET/P Core: send pkt route matches %d\n", matched_routes->num_routes);
+    PrintDebug("VNET/P Core: send pkt route matches %d\n", matched_routes->num_routes);
 
     for (i = 0; i < matched_routes->num_routes; i++) {
 	struct vnet_route_info * route = matched_routes->routes[i];
@@ -591,7 +593,7 @@ int v3_vnet_add_dev(struct v3_vm_info * vm, uint8_t * mac,
 	return -1;
     }
 
-    Vnet_Debug("VNET/P Core: Add Device: dev_id %d\n", new_dev->dev_id);
+    PrintDebug("VNET/P Core: Add Device: dev_id %d\n", new_dev->dev_id);
 
     return new_dev->dev_id;
 }
@@ -614,7 +616,7 @@ int v3_vnet_del_dev(int dev_id){
 
     Vnet_Free(dev);
 
-    Vnet_Debug("VNET/P Core: Remove Device: dev_id %d\n", dev_id);
+    PrintDebug("VNET/P Core: Remove Device: dev_id %d\n", dev_id);
 
     return 0;
 }
@@ -716,26 +718,64 @@ void v3_vnet_del_bridge(uint8_t type) {
   */
 static int vnet_tx_flush(void * args){
     struct vnet_dev * dev = NULL;
-    int ret;
+    int more;
+    int rc;
 
     Vnet_Print(0, "VNET/P Polling Thread Starting ....\n");
 
-    while(!vnet_thread_should_stop()){
-    	dev = (struct vnet_dev *)v3_dequeue(vnet_state.poll_devs);
-	if(dev != NULL){
-	    if(dev->poll && dev->dev_ops.poll != NULL){
-		ret = dev->dev_ops.poll(dev->vm, dev->quote, dev->private_data);
-		
-		if (ret < 0){
-		    Vnet_Print(0, "VNET/P: poll from device %p error!\n", dev);
+    // since there are multiple instances of this thread, and only
+    // one queue of pollable devices, our model here will be to synchronize
+    // on that queue, removing devices as we go, and keeping them
+    // then putting them back on the queue when we are done
+    // in this way, multiple instances of this function will never
+    // be polling the same device at the same time
+
+    struct v3_queue * tq = v3_create_queue();
+
+    if (!tq) { 
+	PrintError("VNET/P polling thread cannot allocate queue\n");
+	return -1;
+    }
+
+
+    while (!vnet_thread_should_stop()) {
+
+	more=0; // will indicate if any device has more work for us to do
+
+	while ((dev = (struct vnet_dev *)v3_dequeue(vnet_state.poll_devs))) { 
+	    // we are handling this device
+	    v3_enqueue(tq,(addr_t)dev);
+	    
+	    if (dev->poll && dev->dev_ops.poll) {
+		// The device's poll function MUST NOT BLOCK
+		rc = dev->dev_ops.poll(dev->vm, dev->quote, dev->private_data);
+
+		if (rc<0) { 
+		    Vnet_Print(0, "VNET/P: poll from device %p error (ignoring) !\n", dev);
+		} else {
+		    more |= rc;  
 		}
 	    }
-	    v3_enqueue(vnet_state.poll_devs, (addr_t)dev); 
-	}else { /* no device needs to be polled */
-	   /* sleep here? */
-	    Vnet_Yield();
 	}
+	
+	while ((dev = (struct vnet_dev *)v3_dequeue(tq))) { 
+	    // now someone else can handle it
+	    v3_enqueue(vnet_state.poll_devs, (addr_t)dev); 
+	}
+
+	// Yield regardless of whether we handled any devices - need
+	// to allow other threads to run
+	if (more) { 
+	    // we have more to do, so we want to get back asap
+	    V3_Yield();
+	} else {
+	    // put ourselves briefly to sleep if we we don't have more
+	    V3_Yield_Timed(VNET_YIELD_USEC);
+	}
+
     }
+    
+    Vnet_Print(0, "VNET/P Polling Thread Done.\n");
 
     return 0;
 }
@@ -763,7 +803,7 @@ int v3_init_vnet() {
 
     vnet_state.pkt_flush_thread = vnet_start_thread(vnet_tx_flush, NULL, "vnetd-1");
 
-    Vnet_Debug("VNET/P is initiated\n");
+    PrintDebug("VNET/P is initiated\n");
 
     return 0;
 }
@@ -771,13 +811,34 @@ int v3_init_vnet() {
 
 void v3_deinit_vnet(){
 
-    vnet_lock_deinit(&(vnet_state.lock));
+    PrintDebug("Stopping flush thread\n");
+    // This will pause until the flush thread is gone
+    vnet_thread_stop(vnet_state.pkt_flush_thread);
+    // At this point there should be no lock-holder
 
-    deinit_devices_list();
+    PrintDebug("Deiniting Device List\n");
+    // close any devices we have open
+    deinit_devices_list();  
+    
+    PrintDebug("Deiniting Route List\n");
+    // remove any routes we have
     deinit_routes_list();
 
+    PrintDebug("Freeing hash table\n");
+    // remove the hash table
     vnet_free_htable(vnet_state.route_cache, 1, 1);
-    Vnet_Free(vnet_state.bridge);
+
+    
+    PrintDebug("Removing Bridge\n");
+    // remove bridge if it was added
+    if (vnet_state.bridge) { 
+	Vnet_Free(vnet_state.bridge);
+    }
+
+    PrintDebug("Deleting lock\n");
+    // eliminate the lock
+    vnet_lock_deinit(&(vnet_state.lock));
+
 }
 
 
