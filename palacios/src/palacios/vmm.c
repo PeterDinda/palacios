@@ -255,6 +255,14 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
     uint32_t avail_cores = 0;
     int vcore_id = 0;
 
+
+    if (vm->run_state == VM_RUNNING ||
+        vm->run_state == VM_INVALID ||
+        vm->run_state == VM_ERROR) {
+        PrintError("VM has already been launched (state=%d)\n", (int)vm->run_state);
+        return -1;
+    }
+
     /// CHECK IF WE ARE MULTICORE ENABLED....
 
     V3_Print("V3 --  Starting VM (%u cores)\n", vm->num_cores);
