@@ -519,7 +519,10 @@ palacios_yield_cpu(void)
  */
 void palacios_yield_cpu_timed(unsigned int us)
 {
-    unsigned int jiffies = 1000000U * HZ / us;
+
+    unsigned int uspj = 1000000U/HZ;
+   
+    unsigned int jiffies = us/uspj + ((us%uspj) !=0);  // ceiling 
 
     set_current_state(TASK_INTERRUPTIBLE);
     
