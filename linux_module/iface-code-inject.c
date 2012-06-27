@@ -43,8 +43,8 @@ static void free_inject_data (void) {
 
     for(i = 0; i < MAX_INJ; i++) {
         if (top_map[i]) {
-            kfree(top_map[i]->elf_data);
-            kfree(top_map[i]);
+            palacios_free(top_map[i]->elf_data);
+            palacios_free(top_map[i]);
         }
     }
 }
@@ -55,7 +55,7 @@ static int vm_tophalf_inject (struct v3_guest * guest, unsigned int cmd, unsigne
     struct top_half_data top_arg;
     struct top_half_data * top;
 
-    top = kmalloc(sizeof(struct top_half_data), GFP_KERNEL);
+    top = palacios_alloc(sizeof(struct top_half_data));
     if (IS_ERR(top)) {
         ERROR("Palacios Error: could not allocate space for top half data\n");
         return -EFAULT;
@@ -65,6 +65,7 @@ static int vm_tophalf_inject (struct v3_guest * guest, unsigned int cmd, unsigne
     INFO("Palacios: Loading ELF data...\n");
     if (copy_from_user(&top_arg, (void __user *)arg, sizeof(struct top_half_data))) {
         ERROR("palacios: error copying ELF from userspace\n");
+	palacios_free(top);
         return -EFAULT;
     }
 
@@ -80,9 +81,10 @@ static int vm_tophalf_inject (struct v3_guest * guest, unsigned int cmd, unsigne
     } 
 
     DEBUG("Palacios: Allocating %lu B of kernel memory for ELF binary data...\n", top->elf_size);
-    top->elf_data = kmalloc(top->elf_size, GFP_KERNEL);
+    top->elf_data = palacios_alloc(top->elf_size);
     if (IS_ERR(top->elf_data)) {
         ERROR("Palacios Error: could not allocate space for binary image\n");
+	palacios_free(top);
         return -EFAULT;
     }
     memset(top->elf_data, 0, top->elf_size);
@@ -90,16 +92,24 @@ static int vm_tophalf_inject (struct v3_guest * guest, unsigned int cmd, unsigne
     INFO("Palacios: Copying ELF image into kernel module...\n");
     if (copy_from_user(top->elf_data, (void __user *)top_arg.elf_data, top->elf_size)) {
         ERROR("Palacios: Error loading elf data\n");
+	palacios_free(top->elf_data);
+	palacios_free(top);
         return -EFAULT;
     }
 
-    if (register_top(top) < 0) 
+    if (register_top(top) < 0) {
+	ERROR("Cannot register top half\n");
+	palacios_free(top->elf_data);
+	palacios_free(top);
         return -1;
-    
+    }
+
     INFO("Palacios: setting up inject code...\n");
     if (v3_insert_code_inject(guest->v3_ctx, top->elf_data, top->elf_size, 
                          top->bin_file, top->is_dyn, top->is_exec_hooked, top->func_offset) < 0) {
         ERROR("Palacios Error: error setting up inject code\n");
+	palacios_free(top->elf_data);
+	palacios_free(top);
         return -1;
     }
 

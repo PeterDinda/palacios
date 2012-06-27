@@ -57,13 +57,20 @@ palacios_tcp_socket(const int bufsize, const int nodelay,
     }
 
 
-    sock = kmalloc(sizeof(struct palacios_socket), GFP_KERNEL);
+    sock = palacios_alloc(sizeof(struct palacios_socket));
+    
+    if (!sock) { 
+	ERROR("Cannot allocate TCP socket\n");
+	return NULL;
+    }
+
     memset(sock, 0, sizeof(struct palacios_socket));
 
     err = sock_create(PF_INET, SOCK_STREAM, IPPROTO_TCP, &(sock->sock));
 
     if (err < 0) {
-	kfree(sock);
+	ERROR("Cannot create TCP socket\n");
+	palacios_free(sock);
 	return NULL;
     }
        
@@ -101,13 +108,19 @@ palacios_udp_socket(
     }
 
 
-    sock = kmalloc(sizeof(struct palacios_socket), GFP_KERNEL);
+    sock = palacios_alloc(sizeof(struct palacios_socket));
+    if (!sock) { 
+	ERROR("Cannot allocate UDP socket\n");
+	return NULL;
+    }
+
     memset(sock, 0, sizeof(struct palacios_socket));
 
     err = sock_create(AF_INET, SOCK_DGRAM, IPPROTO_UDP, &(sock->sock)) ;
 	
     if (err < 0){
-	kfree(sock);
+	ERROR("Cannot create UDP socket\n");
+	palacios_free(sock);
 	return NULL;
     }
     
@@ -133,7 +146,7 @@ palacios_close(void * sock_ptr)
 	sock->sock->ops->release(sock->sock);
 	
 	list_del(&(sock->sock_node));
-	kfree(sock);
+	palacios_free(sock);
     }
 }
 
@@ -193,12 +206,18 @@ static void * palacios_accept(const void * sock_ptr, unsigned int * remote_ip, u
     }
 
 
-    newsock = kmalloc(sizeof(struct palacios_socket), GFP_KERNEL);
+    newsock = palacios_alloc(sizeof(struct palacios_socket));
+
+    if (!newsock) { 
+	ERROR("Cannot allocate new socket on accept\n");
+	return NULL;
+    }
 
     err = sock_create(PF_INET, SOCK_STREAM, IPPROTO_TCP, &(newsock->sock));
 
     if (err < 0) {
-	kfree(newsock);
+	ERROR("Cannot create new socket on accept\n");
+	palacios_free(newsock);
 	return NULL;
     }
 
@@ -208,7 +227,8 @@ static void * palacios_accept(const void * sock_ptr, unsigned int * remote_ip, u
     err = newsock->sock->ops->accept(sock->sock, newsock->sock, 0);
 
     if (err < 0){
-	kfree(newsock);
+	ERROR("Cannot accept\n");
+	palacios_free(newsock);
 	return NULL;
     }
 

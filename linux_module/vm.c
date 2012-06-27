@@ -70,7 +70,7 @@ int add_guest_ctrl(struct v3_guest * guest, unsigned int cmd,
 				  unsigned int cmd, unsigned long arg, 
 				  void * priv_data),
 		   void * priv_data) {
-    struct vm_ctrl * ctrl = kmalloc(sizeof(struct vm_ctrl), GFP_KERNEL);
+    struct vm_ctrl * ctrl = palacios_alloc(sizeof(struct vm_ctrl));
 
     if (ctrl == NULL) {
 	WARNING("Error: Could not allocate vm ctrl %d\n", cmd);
@@ -83,7 +83,7 @@ int add_guest_ctrl(struct v3_guest * guest, unsigned int cmd,
 
     if (__insert_ctrl(guest, ctrl) != NULL) {
 	WARNING("Could not insert guest ctrl %d\n", cmd);
-	kfree(ctrl);
+	palacios_free(ctrl);
 	return -1;
     }
     
@@ -355,7 +355,7 @@ int free_palacios_vm(struct v3_guest * guest) {
     cdev_del(&(guest->cdev));
 
     vfree(guest->img);
-    kfree(guest);
+    palacios_free(guest);
 
     return 0;
 }

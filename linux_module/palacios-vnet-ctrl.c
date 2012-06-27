@@ -544,7 +544,7 @@ static void delete_route(struct vnet_route_iter * route) {
 
     INFO("VNET Control: Route %d deleted from VNET\n", route->idx);
 
-    kfree(route);
+    palacios_free(route);
     route = NULL;
 }
 
@@ -593,21 +593,24 @@ route_write(struct file * file,
 	
 	if (strnicmp("ADD", token, strlen("ADD")) == 0) {
 	    struct vnet_route_iter * new_route = NULL;
-	    new_route = kmalloc(sizeof(struct vnet_route_iter), GFP_KERNEL);
+	    new_route = palacios_alloc(sizeof(struct vnet_route_iter));
 	    
 	    if (!new_route) {
+		ERROR("Cannot allocate new route\n");
 		return -ENOMEM;
 	    }
 	    
 	    memset(new_route, 0, sizeof(struct vnet_route_iter));
 	    
 	    if (parse_route_str(buf_iter, &(new_route->route)) == -1) {
-		kfree(new_route);
+		ERROR("Cannot parse new route\n");
+		palacios_free(new_route);
 		return -EFAULT;
 	    }
 	    
 	    if (inject_route(new_route) != 0) {
-		kfree(new_route);
+		ERROR("Cannot inject new route\n");
+		palacios_free(new_route);
 		return -EFAULT;
 	    }
 	} else if (strnicmp("DEL", token, strlen("DEL")) == 0) {
@@ -651,7 +654,7 @@ static void delete_link(struct vnet_link_iter * link){
     vnet_ctrl_s.num_links --;
     spin_unlock_irqrestore(&(vnet_ctrl_s.lock), flags);
 
-    kfree(link);
+    palacios_free(link);
     link = NULL;
 }
 
@@ -728,7 +731,12 @@ link_write(struct file * file, const char * buf, size_t size, loff_t * ppos) {
 		return -EFAULT;
 	    }
 
-	    link = kmalloc(sizeof(struct vnet_link_iter), GFP_KERNEL);
+	    link = palacios_alloc(sizeof(struct vnet_link_iter));
+	    if (!link) {
+		WARNING("VNET Control: Cannot allocate link\n");
+		return -EFAULT;
+	    }
+
 	    memset(link, 0, sizeof(struct vnet_link_iter));
 
 	    link->dst_ip = d_ip;

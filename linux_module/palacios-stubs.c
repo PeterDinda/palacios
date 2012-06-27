@@ -48,7 +48,7 @@ static void deinit_print_buffers(void)
 
     for (i=0;i<NR_CPUS;i++) {
 	if (print_buffer[i]) { 
-	    kfree(print_buffer[i]);
+	    palacios_free(print_buffer[i]);
 	    print_buffer[i]=0;
 	}
     }
@@ -63,7 +63,7 @@ static int init_print_buffers(void)
 #if !V3_PRINTK_OLD_STYLE_OUTPUT
 
     for (i=0;i<NR_CPUS;i++) { 
-	print_buffer[i] = kmalloc(V3_PRINTK_BUF_SIZE,GFP_KERNEL);
+	print_buffer[i] = palacios_alloc(V3_PRINTK_BUF_SIZE);
 	if (!print_buffer[i]) { 
 	    ERROR("Cannot allocate print buffer for cpu %d\n",i);
 	    deinit_print_buffers();
@@ -121,7 +121,7 @@ void palacios_print(const char *fmt, ...) {
 	  }
       }
       if (c!=0) { 
-	  printk(KERN_INFO "palacios (pcore %u): ALERT - 8 BIT CHAR (c=%d) DETECTED\n", cpu,c);
+	  printk(KERN_INFO "palacios (pcore %u): ALERT ALERT 8 BIT CHAR (c=%d) DETECTED\n", cpu,c);
       }
   }
 #endif
@@ -144,6 +144,12 @@ void *palacios_allocate_pages(int num_pages, unsigned int alignment) {
     void * pg_addr = NULL;
 
     pg_addr = (void *)alloc_palacios_pgs(num_pages, alignment);
+
+    if (!pg_addr) { 
+	ERROR("ALERT ALERT  Page allocation has FAILED Warning\n");
+	return NULL;
+    }
+
     pg_allocs += num_pages;
 
     return pg_addr;
@@ -170,15 +176,22 @@ void *
 palacios_alloc(unsigned int size) {
     void * addr = NULL;
 
+    // It is very important that this test remains since 
+    // this function is used extensively throughout palacios and the linux
+    // module, both in places where interrupts are off and where they are on
+    // a GFP_KERNEL call, when done with interrupts off can lead to DEADLOCK
     if (irqs_disabled()) {
     	addr = kmalloc(size, GFP_ATOMIC);
     } else {
     	addr = kmalloc(size, GFP_KERNEL);
     }
-    
-    if (addr) { 
-	mallocs++;
-    }
+
+    if (!addr) { 
+       ERROR("ALERT ALERT  kmalloc has FAILED FAILED FAILED\n");
+       return NULL;
+    }	
+
+    mallocs++;
 
     return addr;
 }
@@ -259,7 +272,7 @@ static int lnx_thread_target(void * arg) {
 
     INFO("Palacios Thread (%s) EXITING\n", thread_info->name);
 
-    kfree(thread_info);
+    palacios_free(thread_info);
     // handle cleanup 
 
     do_exit(ret);
@@ -276,7 +289,12 @@ palacios_start_kernel_thread(
 	void *			arg,
 	char *			thread_name) {
 
-    struct lnx_thread_arg * thread_info = kmalloc(sizeof(struct lnx_thread_arg), GFP_KERNEL);
+    struct lnx_thread_arg * thread_info = palacios_alloc(sizeof(struct lnx_thread_arg));
+
+    if (!thread_info) { 
+	ERROR("ALERT ALERT Unable to allocate thread\n");
+	return NULL;
+    }
 
     thread_info->fn = fn;
     thread_info->arg = arg;
@@ -295,7 +313,12 @@ palacios_start_thread_on_cpu(int cpu_id,
 			     void * arg, 
 			     char * thread_name ) {
     struct task_struct * thread = NULL;
-    struct lnx_thread_arg * thread_info = kmalloc(sizeof(struct lnx_thread_arg), GFP_KERNEL);
+    struct lnx_thread_arg * thread_info = palacios_alloc(sizeof(struct lnx_thread_arg));
+
+    if (!thread_info) { 
+	ERROR("ALERT ALERT Unable to allocate thread to start on cpu\n");
+	return NULL;
+    }
 
     thread_info->fn = fn;
     thread_info->arg = arg;
@@ -306,11 +329,14 @@ palacios_start_thread_on_cpu(int cpu_id,
 
     if (IS_ERR(thread)) {
 	WARNING("Palacios error creating thread: %s\n", thread_name);
+	palacios_free(thread_info);
 	return NULL;
     }
 
     if (set_cpus_allowed_ptr(thread, cpumask_of(cpu_id)) != 0) {
+	WARNING("Attempt to start thread on disallowed CPU\n");
 	kthread_stop(thread);
+	palacios_free(thread_info);
 	return NULL;
     }
 
@@ -438,7 +464,8 @@ palacios_hook_interrupt(struct v3_vm_info *	vm,
     
     //set_idtvec_handler(vector, palacios_dispatch_interrupt);
     if (vector < 32) {
-	panic("unexpected vector for hooking\n");
+	ERROR("unexpected vector for hooking\n");
+	return -1;
     } else {
 	int device_id = 0;		
 	
@@ -461,7 +488,8 @@ palacios_hook_interrupt(struct v3_vm_info *	vm,
 	
 	if (error) {
 	    ERROR("error code for request_irq is %d\n", error);
-	    panic("request vector %d failed", vector);
+	    ERROR("request vector %d failed", vector);
+	    return -1;
 	}
     }
 	
@@ -538,10 +566,13 @@ void palacios_yield_cpu_timed(unsigned int us)
 void *
 palacios_mutex_alloc(void)
 {
-    spinlock_t *lock = kmalloc(sizeof(spinlock_t), GFP_KERNEL);
+    spinlock_t *lock = palacios_alloc(sizeof(spinlock_t));
 
     if (lock) {
 	spin_lock_init(lock);
+    } else {
+	ERROR("ALERT ALERT Unable to allocate lock\n");
+	return NULL;
     }
     
     return lock;
@@ -552,7 +583,7 @@ palacios_mutex_alloc(void)
  */
 void
 palacios_mutex_free(void * mutex) {
-    kfree(mutex);
+    palacios_free(mutex);
 }
 
 /**
@@ -591,7 +622,7 @@ palacios_mutex_unlock(
 
 
 /**
- * Unlocks a mutex.
+ * Unlocks a mutex and restores previous interrupt state on this core
  */
 void 
 palacios_mutex_unlock_irqrestore(void *mutex, void *flags)
@@ -643,7 +674,7 @@ int palacios_vmm_init( void )
 	int minor = 0;
 	int i = 0;
 
-        cpu_mask = kmalloc((num_cpus / 8) + 1, GFP_KERNEL);
+        cpu_mask = palacios_alloc((num_cpus / 8) + 1);
 
 	if (!cpu_mask) { 
 	    ERROR("Cannot allocate cpu mask\n");
@@ -669,7 +700,7 @@ int palacios_vmm_init( void )
 
     if (init_print_buffers()) {
 	ERROR("Cannot initialize print buffers\n");
-	kfree(cpu_mask);
+	palacios_free(cpu_mask);
 	return -1;
     }
 

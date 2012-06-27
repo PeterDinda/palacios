@@ -37,11 +37,11 @@ static void free_inject_data (void) {
 
     for(i = 0; i < MAX_ENV_INJECT; i++) {
         if (env_map[i]) {
-            for (j = 0; j < env_map[i]->num_strings; j++) 
-                kfree(env_map[i]->strings[j]);
-
-            kfree(env_map[i]->strings);
-            kfree(env_map[i]);
+            for (j = 0; j < env_map[i]->num_strings; j++) {
+                palacios_free(env_map[i]->strings[j]);
+	    }
+            palacios_free(env_map[i]->strings);
+            palacios_free(env_map[i]);
         }
     }
 }
@@ -59,7 +59,7 @@ static int vm_env_inject (struct v3_guest * guest, unsigned int cmd, unsigned lo
         return -EFAULT;
     }
 
-    env = kmalloc(sizeof(struct env_data), GFP_KERNEL);
+    env = palacios_alloc(sizeof(struct env_data));
     if (IS_ERR(env)) {
         ERROR("Palacios Error: could not allocate space for environment data\n");
         return -EFAULT;
@@ -73,7 +73,7 @@ static int vm_env_inject (struct v3_guest * guest, unsigned int cmd, unsigned lo
     DEBUG("Binary hooked on: %s\n", env->bin_name);
 
     //DEBUG("Palacios: Allocating space for %u env var string ptrs...\n", env->num_strings);
-    env->strings = kmalloc(env->num_strings*sizeof(char*), GFP_KERNEL);
+    env->strings = palacios_alloc(env->num_strings*sizeof(char*));
     if (IS_ERR(env->strings)) {
         ERROR("Palacios Error: could not allocate space for env var strings\n");
         return -EFAULT;
@@ -87,7 +87,7 @@ static int vm_env_inject (struct v3_guest * guest, unsigned int cmd, unsigned lo
     }
 
     for (i = 0; i < env->num_strings; i++) {
-        char * tmp  = kmalloc(MAX_STRING_LEN, GFP_KERNEL);
+        char * tmp  = palacios_alloc(MAX_STRING_LEN);
         if (IS_ERR(tmp)) {
             ERROR("Palacios Error: could not allocate space for env var string #%d\n", i);
             return -EFAULT;

@@ -38,7 +38,8 @@
 #include <linux/preempt.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
- 
+
+#include "palacios.h" 
 #include "util-hashtable.h"
 
 
@@ -138,18 +139,18 @@ static inline uint_t indexFor(uint_t table_length, uint_t hash_value) {
     return (hash_value % table_length);
 };
 
-#define freekey(X) kfree(X)
+#define freekey(X) palacios_free(X)
 
 
 static void * tmp_realloc(void * old_ptr, uint_t old_size, uint_t new_size) {
-    void * new_buf = kmalloc(new_size, GFP_KERNEL);
+    void * new_buf = palacios_alloc(new_size);
 
     if (new_buf == NULL) {
 	return NULL;
     }
 
     memcpy(new_buf, old_ptr, old_size);
-    kfree(old_ptr);
+    palacios_free(old_ptr);
 
     return new_buf;
 }
@@ -202,16 +203,16 @@ struct hashtable * palacios_create_htable(uint_t min_size,
 	}
     }
 
-    htable = (struct hashtable *)kmalloc(sizeof(struct hashtable), GFP_KERNEL);
+    htable = (struct hashtable *)palacios_alloc(sizeof(struct hashtable));
 
     if (htable == NULL) {
 	return NULL; /*oom*/
     }
 
-    htable->table = (struct hash_entry **)kmalloc(sizeof(struct hash_entry*) * size, GFP_KERNEL);
+    htable->table = (struct hash_entry **)palacios_alloc(sizeof(struct hash_entry*) * size);
 
     if (htable->table == NULL) { 
-	kfree(htable); 
+	palacios_free(htable); 
 	return NULL;  /*oom*/
     }
 
@@ -244,7 +245,7 @@ static int hashtable_expand(struct hashtable * htable) {
 
     new_size = primes[++(htable->prime_index)];
 
-    new_table = (struct hash_entry **)kmalloc(sizeof(struct hash_entry*) * new_size, GFP_KERNEL);
+    new_table = (struct hash_entry **)palacios_alloc(sizeof(struct hash_entry*) * new_size);
 
     if (new_table != NULL) {
         memset(new_table, 0, new_size * sizeof(struct hash_entry *));
@@ -264,7 +265,7 @@ static int hashtable_expand(struct hashtable * htable) {
 	    }
         }
 
-        kfree(htable->table);
+        palacios_free(htable->table);
 
         htable->table = new_table;
     } else {
@@ -326,7 +327,7 @@ int palacios_htable_insert(struct hashtable * htable, addr_t key, addr_t value) 
 	hashtable_expand(htable);
     }
 
-    new_entry = (struct hash_entry *)kmalloc(sizeof(struct hash_entry), GFP_KERNEL);
+    new_entry = (struct hash_entry *)palacios_alloc(sizeof(struct hash_entry));
 
     if (new_entry == NULL) { 
 	(htable->entry_count)--; 
@@ -364,7 +365,7 @@ int palacios_htable_change(struct hashtable * htable, addr_t key, addr_t value, 
         if ((hash_value == tmp_entry->hash) && (htable->eq_fn(key, tmp_entry->key))) {
 
 	    if (free_value) {
-		kfree((void *)(tmp_entry->value));
+		palacios_free((void *)(tmp_entry->value));
 	    }
 
 	    tmp_entry->value = value;
@@ -481,7 +482,7 @@ addr_t palacios_htable_remove(struct hashtable * htable, addr_t key, int free_ke
 	    if (free_key) {
 		freekey((void *)(cursor->key));
 	    }
-	    kfree(cursor);
+	    palacios_free(cursor);
       
 	    return value;
 	}
@@ -511,8 +512,8 @@ void palacios_free_htable(struct hashtable * htable, int free_values, int free_k
 		if (free_keys) {
 		    freekey((void *)(tmp->key)); 
 		}
-		kfree((void *)(tmp->value)); 
-		kfree(tmp); 
+		palacios_free((void *)(tmp->value)); 
+		palacios_free(tmp); 
 	    }
 	}
     } else {
@@ -528,12 +529,12 @@ void palacios_free_htable(struct hashtable * htable, int free_values, int free_k
 		if (free_keys) {
 		    freekey((void *)(tmp->key)); 
 		}
-		kfree(tmp); 
+		palacios_free(tmp); 
 	    }
 	}
     }
   
-    kfree(htable->table);
-    kfree(htable);
+    palacios_free(htable->table);
+    palacios_free(htable);
 }
 

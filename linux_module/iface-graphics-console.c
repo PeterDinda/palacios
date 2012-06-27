@@ -41,6 +41,7 @@
 */
 
 
+static struct list_head global_gcons;
 
 struct palacios_graphics_console {
     // descriptor for the data in the shared frame buffer
@@ -62,10 +63,12 @@ struct palacios_graphics_console {
                           void *priv_data);
     void *render_data;
 
-  int (*update_inquire)(v3_graphics_console_t cons,
-			void *priv_data);
-  
-  void *update_data;
+    int (*update_inquire)(v3_graphics_console_t cons,
+			  void *priv_data);
+    
+    void *update_data;
+
+    struct list_head gcons_node;
 
 };
 
@@ -146,7 +149,7 @@ static  void g_close(v3_graphics_console_t cons)
 	    return;
 	}
 	if (gc->data) { 
-	    kfree(gc->data);
+	    vfree(gc->data);
 	    gc->data=0;
 	}
     }
@@ -297,11 +300,22 @@ static struct v3_graphics_console_hooks palacios_graphics_console_hooks =
 
 static int graphics_console_init( void ) {
 
+    INIT_LIST_HEAD(&(global_gcons));
+    
     V3_Init_Graphics_Console(&palacios_graphics_console_hooks);
     
     return 0;
 }
 
+
+static int graphics_console_deinit( void ) {
+
+    if (!list_empty(&global_gcons)) { 
+	ERROR("Removing graphics console with open consoles - MEMORY LEAK\n");
+    }
+    
+    return 0;
+}
 
 static int fb_query(struct v3_guest * guest, unsigned int cmd, unsigned long arg, 
 		    void * priv_data) {
@@ -425,7 +439,7 @@ static int fb_input(struct v3_guest * guest,
 
 
 static int graphics_console_guest_init(struct v3_guest * guest, void ** vm_data) {
-    struct palacios_graphics_console * graphics_cons = kmalloc(sizeof(struct palacios_graphics_console), GFP_KERNEL);
+    struct palacios_graphics_console * graphics_cons = palacios_alloc(sizeof(struct palacios_graphics_console));
 
     if (!graphics_cons) { 
 	ERROR("palacios: filed to do guest_init for graphics console\n");
@@ -439,17 +453,34 @@ static int graphics_console_guest_init(struct v3_guest * guest, void ** vm_data)
     add_guest_ctrl(guest, V3_VM_FB_INPUT, fb_input, graphics_cons);
     add_guest_ctrl(guest, V3_VM_FB_QUERY, fb_query, graphics_cons);
 
+    list_add(&(graphics_cons->gcons_node),&global_gcons);
+
     return 0;
 }
 
 
 
+static int graphics_console_guest_deinit(struct v3_guest * guest, void * vm_data) {
+    struct palacios_graphics_console * graphics_cons = (struct palacios_graphics_console *)vm_data;
+
+    list_del(&(graphics_cons->gcons_node));
+
+    if (graphics_cons->data) { 
+	vfree(graphics_cons->data);
+    }
+
+    palacios_free(graphics_cons);
+
+    return 0;
+}
+
+
 static struct linux_ext graphics_cons_ext = {
     .name = "GRAPHICS_CONSOLE_INTERFACE",
     .init = graphics_console_init,
-    .deinit = NULL,
+    .deinit = graphics_console_deinit,
     .guest_init = graphics_console_guest_init,
-    .guest_deinit = NULL
+    .guest_deinit = graphics_console_guest_deinit,
 };
 
 

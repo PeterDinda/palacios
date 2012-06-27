@@ -86,7 +86,12 @@ static void *
 host_create_timer(unsigned long interval, 
 		  void (* timer_fun)(void * priv_data), 
 		  void * data){
-    struct host_timer * timer = (struct host_timer *)kmalloc(sizeof(struct host_timer), GFP_KERNEL);
+    struct host_timer * timer = (struct host_timer *)palacios_alloc(sizeof(struct host_timer));
+
+    if (!timer) { 
+	ERROR("Unable to allocate timer in VNET\n");
+	return NULL;
+    }
 
     timer->interval = interval;
     timer->timer_fun = timer_fun;
@@ -130,7 +135,7 @@ host_del_timer(void * vnet_timer){
 
     del_timer(&(timer->timer));
 
-    kfree(timer);
+    palacios_free(timer);
 }
 
 

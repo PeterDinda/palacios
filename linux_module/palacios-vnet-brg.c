@@ -109,7 +109,7 @@ static void _delete_link(struct vnet_link * link){
 	   link->dst_port, 
 	   link->idx);
 
-    kfree(link);
+    palacios_free(link);
     link = NULL;
 }
 
@@ -185,7 +185,7 @@ uint32_t vnet_brg_add_link(uint32_t ip, uint16_t port, vnet_brg_proto_t proto){
      struct vnet_link * new_link = NULL;
      uint32_t idx;
 
-     new_link = kmalloc(sizeof(struct vnet_link), GFP_KERNEL);
+     new_link = palacios_alloc(sizeof(struct vnet_link));
      if (!new_link) {
 	return -1;
      }
@@ -198,7 +198,7 @@ uint32_t vnet_brg_add_link(uint32_t ip, uint16_t port, vnet_brg_proto_t proto){
      idx = _create_link(new_link);
      if (idx < 0) {
 	WARNING("Could not create link\n");
-	kfree(new_link);
+	palacios_free(new_link);
 	return -1;
      }
 
@@ -413,7 +413,12 @@ static int _udp_server(void * arg) {
 
     INFO("Palacios VNET Bridge: UDP receiving server ..... \n");
 
-    pkt = kmalloc(MAX_PACKET_LEN, GFP_KERNEL);
+    pkt = palacios_alloc(MAX_PACKET_LEN);
+
+    if (!pkt) { 
+	ERROR("Unable to allocate packet in VNET UDP Server\n");
+	return -1;
+    }
 
 
     while (!kthread_should_stop()) {
@@ -455,7 +460,7 @@ static int _udp_server(void * arg) {
 
     INFO("VNET Server: UDP thread exiting\n");
 
-    kfree(pkt);
+    palacios_free(pkt);
 
     return 0;
 }

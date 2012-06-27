@@ -120,7 +120,7 @@ struct mem_stream {
 
 static struct mem_stream *create_mem_stream_internal(uint64_t size)
 {
-    struct mem_stream *m = kmalloc(sizeof(struct mem_stream),GFP_KERNEL);
+    struct mem_stream *m = palacios_alloc(sizeof(struct mem_stream));
 
     if (!m) {
 	return 0;
@@ -130,7 +130,7 @@ static struct mem_stream *create_mem_stream_internal(uint64_t size)
     m->data = vmalloc(size);
     
     if (!m->data) { 
-	kfree(m);
+	palacios_free(m);
 	return 0;
     }
 
@@ -152,10 +152,10 @@ static void destroy_mem_stream(struct mem_stream *m)
 {
     if (m) {
 	if (m->data) {
-	    kfree(m->data);
+	    vfree(m->data);
 	}
 	m->data=0;
-	kfree(m);
+	palacios_free(m);
     }
 }
     
@@ -172,7 +172,7 @@ static int expand_mem_stream(struct mem_stream *m, uint32_t new_size)
 
     memcpy(data,m->data,nc);
 
-    kfree(m->data);
+    vfree(m->data);
 
     m->data=data;
     m->size=new_size;
@@ -261,7 +261,7 @@ static v3_keyed_stream_t open_stream_mem(char *url,
 	    if (!mks) { 
 		char *mykey;
 
-		mykey = kmalloc(strlen(url+4)+1,GFP_KERNEL);
+		mykey = palacios_alloc(strlen(url+4)+1);
 
 		if (!mykey) { 
 		    ERROR("cannot allocate space for new in-memory keyed stream %s\n",url);
@@ -270,18 +270,18 @@ static v3_keyed_stream_t open_stream_mem(char *url,
 
 		strcpy(mykey,url+4);
 		
-		mks = (struct mem_keyed_stream *) kmalloc(sizeof(struct mem_keyed_stream),GFP_KERNEL);
+		mks = (struct mem_keyed_stream *) palacios_alloc(sizeof(struct mem_keyed_stream));
 
 		if (!mks) { 
-		    kfree(mykey);
+		    palacios_free(mykey);
 		    ERROR("cannot allocate in-memory keyed stream %s\n",url);
 		    return 0;
 		}
 	    
 		mks->ht = (void*) palacios_create_htable(DEF_NUM_KEYS,hash_func,hash_comp);
 		if (!mks->ht) { 
-		    kfree(mks);
-		    kfree(mykey);
+		    palacios_free(mks);
+		    palacios_free(mykey);
 		    ERROR("cannot allocate in-memory keyed stream %s\n",url);
 		    return 0;
 		}
@@ -289,8 +289,8 @@ static v3_keyed_stream_t open_stream_mem(char *url,
 		
 		if (!palacios_htable_insert(mem_streams,(addr_t)(mykey),(addr_t)mks)) { 
 		    palacios_free_htable(mks->ht,1,1);
-		    kfree(mks);
-		    kfree(mykey);
+		    palacios_free(mks);
+		    palacios_free(mykey);
 		    ERROR("cannot insert in-memory keyed stream %s\n",url);
 		    return 0;
 		}
@@ -333,7 +333,7 @@ static v3_keyed_stream_key_t open_key_mem(v3_keyed_stream_t stream,
     m = (struct mem_stream *) palacios_htable_search(s,(addr_t)key);
 
     if (!m) { 
-	char *mykey = kmalloc(strlen(key)+1,GFP_KERNEL);
+	char *mykey = palacios_alloc(strlen(key)+1);
 
 	if (!mykey) { 
 	    ERROR("cannot allocate copy of key for key %s\n",key);
@@ -345,14 +345,14 @@ static v3_keyed_stream_key_t open_key_mem(v3_keyed_stream_t stream,
 	m = create_mem_stream();
 	
 	if (!m) { 
-	    kfree(mykey);
+	    palacios_free(mykey);
 	    ERROR("cannot allocate mem keyed stream for key %s\n",key);
 	    return 0;
 	}
 
 	if (!palacios_htable_insert(s,(addr_t)mykey,(addr_t)m)) {
 	    destroy_mem_stream(m);
-	    kfree(mykey);
+	    palacios_free(mykey);
 	    ERROR("cannot insert mem keyed stream for key %s\n",key);
 	    return 0;
 	}
@@ -382,7 +382,7 @@ static void preallocate_hint_key_mem(v3_keyed_stream_t stream,
     if (!m) {
 	char *mykey;
 	
-	mykey=kmalloc(strlen(key)+1,GFP_KERNEL);
+	mykey=palacios_alloc(strlen(key)+1);
 	
 	if (!mykey) { 
 	    ERROR("cannot allocate key space for preallocte for key %s\n",key);
@@ -516,18 +516,18 @@ static v3_keyed_stream_t open_stream_file(char *url,
 	return 0;
     }
 
-    fks = kmalloc(sizeof(struct file_keyed_stream),GFP_KERNEL);
+    fks = palacios_alloc(sizeof(struct file_keyed_stream));
     
     if (!fks) { 
 	ERROR("cannot allocate space for file stream\n");
 	return 0;
     }
 
-    fks->path = (char*)kmalloc(strlen(url+5)+1,GFP_KERNEL);
+    fks->path = (char*)palacios_alloc(strlen(url+5)+1);
     
     if (!(fks->path)) { 
 	ERROR("cannot allocate space for file stream\n");
-	kfree(fks);
+	palacios_free(fks);
 	return 0;
     }
     
@@ -607,8 +607,8 @@ static v3_keyed_stream_t open_stream_file(char *url,
 
 
  fail_out:
-    kfree(fks->path);
-    kfree(fks);
+    palacios_free(fks->path);
+    palacios_free(fks);
     return 0;
 
 }
@@ -617,8 +617,8 @@ static void close_stream_file(v3_keyed_stream_t stream)
 {
     struct file_keyed_stream *fks = (struct file_keyed_stream *) stream;
     
-    kfree(fks->path);
-    kfree(fks);
+    palacios_free(fks->path);
+    palacios_free(fks);
 
 }
 
@@ -638,7 +638,7 @@ static v3_keyed_stream_key_t open_key_file(v3_keyed_stream_t stream,
 
     // the path is the stream's path plus the key name
     // file:/home/foo + "regext" => "/home/foo/regext"
-    path = (char *) kmalloc(strlen(fks->path)+strlen(key)+2,GFP_KERNEL);
+    path = (char *) palacios_alloc(strlen(fks->path)+strlen(key)+2);
     if (!path) {				
 	ERROR("cannot allocate file keyed stream for key %s\n",key);
 	return 0;
@@ -647,11 +647,11 @@ static v3_keyed_stream_key_t open_key_file(v3_keyed_stream_t stream,
     strcat(path,"/");
     strcat(path,key);
     
-    fs = (struct file_stream *) kmalloc(sizeof(struct file_stream *),GFP_KERNEL);
+    fs = (struct file_stream *) palacios_alloc(sizeof(struct file_stream *));
     
     if (!fs) { 
 	ERROR("cannot allocate file keyed stream for key %s\n",key);
-	kfree(path);
+	palacios_free(path);
 	return 0;
     }
 
@@ -661,12 +661,12 @@ static v3_keyed_stream_key_t open_key_file(v3_keyed_stream_t stream,
     
     if (IS_ERR(fs->f)) {
 	ERROR("cannot open relevent file \"%s\" for stream \"file:%s\" and key \"%s\"\n",path,fks->path,key);
-	kfree(fs);
-	kfree(path);
+	palacios_free(fs);
+	palacios_free(path);
 	return 0;
     }
 
-    kfree(path);
+    palacios_free(path);
 
     return fs;
 }
@@ -679,7 +679,7 @@ static void close_key_file(v3_keyed_stream_t stream,
 
     filp_close(fs->f,NULL);
 
-    kfree(fs);
+    palacios_free(fs);
 }
 
 static sint64_t write_key_file(v3_keyed_stream_t stream, 
@@ -805,7 +805,7 @@ static int resize_op(struct palacios_user_keyed_stream_op **op, uint64_t buf_len
     struct palacios_user_keyed_stream_op *new;
     
     if (!old) {
-	new = kmalloc(sizeof(struct palacios_user_keyed_stream_op)+buf_len,GFP_ATOMIC);
+	new = palacios_alloc(sizeof(struct palacios_user_keyed_stream_op)+buf_len);
 	if (!new) { 
 	    return -1;
 	} else {
@@ -819,7 +819,7 @@ static int resize_op(struct palacios_user_keyed_stream_op **op, uint64_t buf_len
 	    old->buf_len=buf_len;
 	    return 0;
 	} else {
-	    kfree(old);
+	    palacios_free(old);
 	    *op = 0 ;
 	    return resize_op(op,buf_len);
 	}
@@ -1029,8 +1029,8 @@ static int keyed_stream_release_user(struct inode *inode, struct file *filp)
     spin_unlock_irqrestore(&(s->lock), f2);
     spin_unlock_irqrestore(&(user_streams->lock), f1);
     
-    kfree(s->url);
-    kfree(s);
+    palacios_free(s->url);
+    palacios_free(s);
 
     return 0;
 }
@@ -1068,7 +1068,7 @@ int keyed_stream_connect_user(struct v3_guest *guest, unsigned int cmd, unsigned
 	return -1;
     }
 
-    url = kmalloc(len,GFP_KERNEL);
+    url = palacios_alloc(len);
     
     if (!url) { 
 	ERROR("cannot allocate url for user keyed stream\n");
@@ -1087,18 +1087,18 @@ int keyed_stream_connect_user(struct v3_guest *guest, unsigned int cmd, unsigned
     list_for_each_entry(s, &(user_streams->streams), node) {
         if (!strncasecmp(url, s->url, len)) {
             ERROR("user keyed stream connection with url \"%s\" already exists\n", url);
-	    kfree(url);
+	    palacios_free(url);
             return -1;
         }
     }
     spin_unlock_irqrestore(&(user_streams->lock), flags);
     
     // Create connection
-    s = kmalloc(sizeof(struct user_keyed_stream), GFP_KERNEL);
+    s = palacios_alloc(sizeof(struct user_keyed_stream));
     
     if (!s) {
 	ERROR("cannot allocate new user keyed stream for %s\n",url);
-	kfree(url);
+	palacios_free(url);
         return -1;
     }
     
@@ -1108,8 +1108,8 @@ int keyed_stream_connect_user(struct v3_guest *guest, unsigned int cmd, unsigned
 
     if (fd < 0) {
 	ERROR("cannot allocate file descriptor for new user keyed stream for %s\n",url);
-        kfree(s);
-	kfree(url);
+        palacios_free(s);
+	palacios_free(url);
         return -1;
     }
     
@@ -1388,7 +1388,7 @@ static struct net_stream * create_net_stream(void)
 {
     struct net_stream * ns = NULL;
 
-    ns = kmalloc(sizeof(struct net_stream), GFP_KERNEL);
+    ns = palacios_alloc(sizeof(struct net_stream));
     
     if (!ns) { 
 	ERROR("Cannot allocate a net_stream\n");
@@ -1411,11 +1411,11 @@ static void close_socket(v3_keyed_stream_t stream)
 
 	if (ns) {
 	    ns->sock->ops->release(ns->sock);
-	    kfree(ns);
+	    palacios_free(ns);
 	    ERROR("Close Socket\n");
 	}
 	
-	kfree(ns);
+	palacios_free(ns);
     }
 }
 
@@ -1601,7 +1601,7 @@ static struct net_stream * accept_once(struct net_stream * ns, const int port)
     
     // close the accept socket
     accept_sock->ops->release(accept_sock);
-    kfree(accept_sock);
+    palacios_free(accept_sock);
 
     return ns;
 }
@@ -1618,7 +1618,7 @@ static struct v3_keyed_stream_t * open_stream_net(char * url,v3_keyed_stream_ope
     int ip_len;
     int port_len;
 
-    nks = kmalloc(sizeof(struct net_keyed_stream),GFP_KERNEL); 
+    nks = palacios_alloc(sizeof(struct net_keyed_stream)); 
 
     if (!nks) { 
 	ERROR("Could not allocate space in open_stream_net\n");
@@ -1633,7 +1633,7 @@ static struct v3_keyed_stream_t * open_stream_net(char * url,v3_keyed_stream_ope
     
     if (!(nks->ns)) { 
 	ERROR("Could not create network stream\n");
-	kfree(nks);
+	palacios_free(nks);
 	return 0;
     }
 
@@ -1684,7 +1684,7 @@ static struct v3_keyed_stream_t * open_stream_net(char * url,v3_keyed_stream_ope
 	    connect_to_ip(nks->ns,host_ip, host_port);
 	} else {
 	    ERROR("Mode not recognized\n");
-	    kfree(nks);
+	    palacios_free(nks);
 	    return NULL;
 	}
 	
@@ -2150,7 +2150,7 @@ static int init_keyed_streams( void )
 	return -1;
     }
 
-    user_streams = kmalloc(sizeof(struct user_keyed_streams),GFP_KERNEL);
+    user_streams = palacios_alloc(sizeof(struct user_keyed_streams));
 
     if (!user_streams) { 
 	ERROR("failed to allocated list for user streams\n");
@@ -2171,7 +2171,7 @@ static int deinit_keyed_streams( void )
 {
     palacios_free_htable(mem_streams,1,1);
 
-    kfree(user_streams);
+    palacios_free(user_streams);
 
     WARNING("Deinit of Palacios Keyed Streams likely leaked memory\n");
 

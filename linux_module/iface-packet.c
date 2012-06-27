@@ -158,7 +158,12 @@ static int packet_recv_thread( void * arg ) {
     struct v3_packet * recver_state;
     struct raw_interface * iface = (struct raw_interface *)arg;
 
-    pkt = (unsigned char *)kmalloc(ETHERNET_PACKET_LEN, GFP_KERNEL);
+    pkt = (unsigned char *)palacios_alloc(ETHERNET_PACKET_LEN);
+    
+    if (!pkt) {
+	ERROR("Unable to allocate packet in vnet receive thread\n");
+	return -1;
+    }
 
     INFO("Palacios Raw Packet Bridge: Staring receiving on ethernet device %s\n", 
 	   iface->eth_dev);
@@ -222,7 +227,7 @@ deinit_raw_interface(struct raw_interface * iface){
     palacios_free_htable(iface->mac_to_recver,  0,  0);
     
     list_for_each_entry_safe(recver_state, tmp_state, &(iface->brdcast_recvers), node) {
-	kfree(recver_state);
+	palacios_free(recver_state);
     }
 }
 
@@ -253,14 +258,14 @@ palacios_packet_connect(struct v3_packet * packet,
     spin_unlock_irqrestore(&(packet_state.lock),flags);
 
     if(iface == NULL){
-	iface = (struct raw_interface *)kmalloc(sizeof(struct raw_interface), GFP_KERNEL);
+	iface = (struct raw_interface *)palacios_alloc(sizeof(struct raw_interface));
 	if (!iface) { 
-	    WARNING("Palacios Packet Interface: Fails to allocate interface\n");
+	    ERROR("Palacios Packet Interface: Fails to allocate interface\n");
 	    return -1;
 	}
 	if(init_raw_interface(iface, host_nic) != 0) {
-	    WARNING("Palacios Packet Interface: Fails to initiate an raw interface on device %s\n", host_nic);
-	    kfree(iface);
+	    ERROR("Palacios Packet Interface: Fails to initiate an raw interface on device %s\n", host_nic);
+	    palacios_free(iface);
 	    return -1;
 	}
 	spin_lock_irqsave(&(packet_state.lock), flags);	
@@ -296,8 +301,7 @@ palacios_packet_send(struct v3_packet * packet,
 	
     if(iface->inited == 0 || 
        iface->raw_sock == NULL){
-	WARNING("Palacios Packet Interface: Send fails due to inapproriate interface\n");
-	
+	ERROR("Palacios Packet Interface: Send fails due to inapproriate interface\n");
 	return -1;
     }
 	
@@ -355,7 +359,7 @@ static int packet_deinit( void ) {
     
     list_for_each_entry_safe(iface, tmp, &(packet_state.open_interfaces), node) {
 	deinit_raw_interface(iface);
-	kfree(iface);
+	palacios_free(iface);
     }
     
     return 0;

@@ -158,16 +158,22 @@ static ssize_t stream_write(struct file * filp, const char __user * buf, size_t 
     char * kern_buf = NULL;
     ssize_t bytes_written = 0;
     
-    kern_buf = kmalloc(size, GFP_KERNEL);
+    kern_buf = palacios_alloc(size);
+    
+    if (!kern_buf) { 
+	ERROR("Cannot allocate buffer in stream interface\n");
+	return -EFAULT;
+    }
 
     if (copy_from_user(kern_buf, buf, size)) {
 	ERROR("Stream Write Failed\n");
+	palacios_free(kern_buf);
 	return -EFAULT;
     };
     
     bytes_written = stream->v3_stream->input(stream->v3_stream, kern_buf, size);
 
-    kfree(kern_buf);
+    palacios_free(kern_buf);
 
     return bytes_written;
 }
@@ -214,7 +220,11 @@ static void * palacios_stream_open(struct v3_stream * v3_stream, const char * na
 	return NULL;
     }
 
-    stream = kmalloc(sizeof(struct stream_state), GFP_KERNEL);
+    stream = palacios_alloc(sizeof(struct stream_state));
+    if (!stream) { 
+	ERROR("Unable to allocate stream\n");
+	return NULL;
+    }
     memset(stream, 0, sizeof(struct stream_state));
 
     stream->out_ring = create_ringbuf(STREAM_RING_LEN);
@@ -270,7 +280,7 @@ static void palacios_stream_close(struct v3_stream * v3_stream) {
 
     free_ringbuf(stream->out_ring);
     list_del(&(stream->stream_node));
-    kfree(stream);
+    palacios_free(stream);
 
 }
 
@@ -351,7 +361,12 @@ static int stream_connect(struct v3_guest * guest, unsigned int cmd, unsigned lo
 
 
 static int guest_stream_init(struct v3_guest * guest, void ** vm_data) {
-    struct vm_global_streams * state = kmalloc(sizeof(struct vm_global_streams), GFP_KERNEL);
+    struct vm_global_streams * state = palacios_alloc(sizeof(struct vm_global_streams));
+
+    if (!state) { 
+	ERROR("Unable to allocate state in stream init\n");
+	return -1;
+    }
 
     INIT_LIST_HEAD(&(state->open_streams));
     *vm_data = state;
@@ -366,6 +381,7 @@ static int guest_stream_deinit(struct v3_guest * guest, void * vm_data) {
     struct vm_global_streams * state = vm_data;
     if (!list_empty(&(state->open_streams))) {
 	ERROR("Error shutting down VM with open streams\n");
+	return -1;
     }
 
     return 0;

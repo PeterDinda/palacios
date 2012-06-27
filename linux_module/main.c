@@ -74,7 +74,7 @@ static long v3_dev_ioctl(struct file * filp,
 	case V3_CREATE_GUEST:{
 	    int vm_minor = 0;
 	    struct v3_guest_img user_image;
-	    struct v3_guest * guest = kmalloc(sizeof(struct v3_guest), GFP_KERNEL);
+	    struct v3_guest * guest = palacios_alloc(sizeof(struct v3_guest));
 
 	    if (IS_ERR(guest)) {
 		ERROR("Palacios: Error allocating Kernel guest_image\n");
@@ -89,6 +89,7 @@ static long v3_dev_ioctl(struct file * filp,
 
 	    if (vm_minor == -1) {
 		ERROR("Palacios Error: Too many VMs are currently running\n");
+		palacios_free(guest);
 		return -EFAULT;
 	    }
 
@@ -96,6 +97,7 @@ static long v3_dev_ioctl(struct file * filp,
 
 	    if (copy_from_user(&user_image, argp, sizeof(struct v3_guest_img))) {
 		ERROR("Palacios Error: copy from user error getting guest image...\n");
+		palacios_free(guest);
 		return -EFAULT;
 	    }
 
@@ -106,11 +108,13 @@ static long v3_dev_ioctl(struct file * filp,
 
 	    if (IS_ERR(guest->img)) {
 		ERROR("Palacios Error: Could not allocate space for guest image\n");
+		palacios_free(guest);
 		return -EFAULT;
 	    }
 
 	    if (copy_from_user(guest->img, user_image.guest_data, guest->img_size)) {
 		ERROR("Palacios: Error loading guest data\n");
+		palacios_free(guest);
 		return -EFAULT;
 	    }	   
 
@@ -120,6 +124,8 @@ static long v3_dev_ioctl(struct file * filp,
 
 	    if (create_palacios_vm(guest) == -1) {
 		ERROR("Palacios: Error creating guest\n");
+		palacios_free(guest->img);
+		palacios_free(guest);
 		return -EFAULT;
 	    }
 

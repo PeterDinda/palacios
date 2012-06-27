@@ -12,7 +12,13 @@
 #include "util-ringbuffer.h"
 
 void init_ringbuf(struct ringbuf * ring, unsigned int size) {
-    ring->buf = kmalloc(size, GFP_KERNEL);
+    ring->buf = palacios_alloc(size);
+
+    if (!(ring->buf)) { 
+	ERROR("Cannot allocate ring buffer data\n");
+	size=0;
+    }
+
     ring->size = size;
   
     ring->start = 0;
@@ -21,15 +27,21 @@ void init_ringbuf(struct ringbuf * ring, unsigned int size) {
 }
 
 struct ringbuf * create_ringbuf(unsigned int size) {
-    struct ringbuf * ring = (struct ringbuf *)kmalloc(sizeof(struct ringbuf), GFP_KERNEL);
+    struct ringbuf * ring = (struct ringbuf *)palacios_alloc(sizeof(struct ringbuf));
+
+    if (!ring) { 
+	ERROR("Cannot allocate ring buffer\n");
+	return NULL;
+    }
+
     init_ringbuf(ring, size);
 
     return ring;
 }
 
 void free_ringbuf(struct ringbuf * ring) {
-    kfree(ring->buf);
-    kfree(ring);
+    palacios_free(ring->buf);
+    palacios_free(ring);
 }
 
 static inline unsigned char * get_read_ptr(struct ringbuf * ring) {

@@ -113,7 +113,7 @@ console_read(struct file * filp, char __user * buf, size_t size, loff_t * offset
     }
 
 
-    kfree(msg);
+    palacios_free(msg);
 
     spin_lock_irqsave(&(cons->queue->lock), flags);
     entries =  cons->queue->num_entries;
@@ -188,7 +188,7 @@ static int console_release(struct inode * i, struct file * filp) {
     spin_unlock_irqrestore(&(cons->queue->lock), flags);
 
     while ((msg = dequeue(cons->queue))) {
-	kfree(msg);
+	palacios_free(msg);
     }
 
     return 0;
@@ -247,17 +247,24 @@ static int console_connect(struct v3_guest * guest, unsigned int cmd,
 
 static void * palacios_tty_open(void * private_data, unsigned int width, unsigned int height) {
     struct v3_guest * guest = (struct v3_guest *)private_data;
-    struct palacios_console * cons = kmalloc(sizeof(struct palacios_console), GFP_KERNEL);
+    struct palacios_console * cons = palacios_alloc(sizeof(struct palacios_console));
+
+    if (!cons) { 
+	ERROR("Cannot allocate memory for console\n");
+	return NULL;
+    }
 
     INFO("Guest initialized virtual console (Guest=%s)\n", guest->name);
 
     if (guest == NULL) {
 	ERROR("ERROR: Cannot open a console on a NULL guest\n");
+	palacios_free(cons);
 	return NULL;
     }
 
     if (cons->open == 1) {
 	ERROR("Console already open\n");
+	palacios_free(cons);
 	return NULL;
     }
 
@@ -301,7 +308,12 @@ static int palacios_tty_cursor_set(void * console, int x, int y) {
 	return 0;
     }
 
-    msg = kmalloc(sizeof(struct cons_msg), GFP_KERNEL);
+    msg = palacios_alloc(sizeof(struct cons_msg));
+
+    if (!msg) { 
+	ERROR("Cannot allocate cursor set message in console\n");
+	return -1;
+    }
 
     msg->op = CONSOLE_CURS_SET;
     msg->cursor.x = x;
@@ -318,7 +330,12 @@ static int palacios_tty_character_set(void * console, int x, int y, char c, unsi
 	return 0;
     }
 
-    msg = kmalloc(sizeof(struct cons_msg), GFP_KERNEL);
+    msg = palacios_alloc(sizeof(struct cons_msg));
+
+    if (!msg) { 
+	ERROR("Cannot allocate character set message in console\n");
+	return -1;
+    }
 
     msg->op = CONSOLE_CHAR_SET;
     msg->character.x = x;
@@ -338,7 +355,12 @@ static int palacios_tty_scroll(void * console, int lines) {
 	return 0;
     }
 
-    msg = kmalloc(sizeof(struct cons_msg), GFP_KERNEL);
+    msg = palacios_alloc(sizeof(struct cons_msg));
+
+    if (!msg) { 
+	ERROR("Cannot allocate scroll message in console\n");
+	return -1;
+    }
 
     msg->op = CONSOLE_SCROLL;
     msg->scroll.lines = lines;
@@ -354,7 +376,12 @@ static int palacios_set_text_resolution(void * console, int cols, int rows) {
 	return 0;
     }
 
-    msg = kmalloc(sizeof(struct cons_msg), GFP_KERNEL);
+    msg = palacios_alloc(sizeof(struct cons_msg));
+
+    if (!msg) { 
+	ERROR("Cannot allocate text resolution message in console\n");
+	return -1;
+    }
     
     msg->op = CONSOLE_RESOLUTION;
     msg->resolution.cols = cols;
@@ -371,7 +398,12 @@ static int palacios_tty_update(void * console) {
 	return 0;
     }
 
-    msg = kmalloc(sizeof(struct cons_msg), GFP_KERNEL);
+    msg = palacios_alloc(sizeof(struct cons_msg));
+
+    if (!msg) { 
+	ERROR("Cannot allocate update message in console\n");
+	return -1;
+    }
 
     msg->op = CONSOLE_UPDATE;
 

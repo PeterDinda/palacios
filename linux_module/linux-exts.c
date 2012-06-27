@@ -47,7 +47,7 @@ int init_vm_extensions(struct v3_guest * guest) {
 	
 	INFO("Registering Linux Extension (%s)\n", ext_impl->name);
 
-	ext = kmalloc(sizeof(struct vm_ext), GFP_KERNEL);
+	ext = palacios_alloc(sizeof(struct vm_ext));
 	
 	if (!ext) {
 	    WARNING("Error allocating VM extension (%s)\n", ext_impl->name);
@@ -80,7 +80,7 @@ int deinit_vm_extensions(struct v3_guest * guest) {
 	}
 
 	list_del(&(ext->node));
-	kfree(ext);
+	palacios_free(ext);
     }
 
     return 0;
