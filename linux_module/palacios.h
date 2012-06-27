@@ -140,7 +140,7 @@ void  palacios_mutex_unlock_irqrestore(void *mutex, void *flags);
 // The following macros are for printing in the linux module itself, even before
 // Palacios is initialized and after it it deinitialized
 // All printk's in linux_module use these macros, for easier control
-#define ERROR(fmt, args...) printk((KERN_ERR "palacios (pcore %u): " fmt), palacios_get_cpu(), ##args)
+#define ERROR(fmt, args...) printk((KERN_ERR "palacios (pcore %u) %s(%d): " fmt), palacios_get_cpu(), __FILE__, __LINE__, ##args)
 #define WARNING(fmt, args...) printk((KERN_WARNING "palacios (pcore %u): " fmt), palacios_get_cpu(), ##args)
 #define NOTICE(fmt, args...) printk((KERN_NOTICE "palacios (pcore %u): " fmt), palacios_get_cpu(), ##args)
 #define INFO(fmt, args...) printk((KERN_INFO "palacios (pcore %u): " fmt), palacios_get_cpu(), ##args)
