@@ -5,14 +5,13 @@
 
 # define this at the command-line or here
 # to get dynamically linked versions
-STATIC = 1
+STATIC = 0
 
 #
 # Executables that implement core functionality
 #
 BASE_EXECS = 	v3_mem \
                 v3_mem_free \
-		v3_create \
                 v3_create_bind \
 		v3_free  \
 	  	v3_launch \
@@ -102,6 +101,9 @@ v3_cons: v3_cons.c
 
 v3_cons_sc: v3_cons_sc.c
 	$(CC) $(CFLAGS) $(CURSES_CFLAGS) $< -lcurses -o $@
+
+v3_create: v3_create.c ezxml.c
+	$(CC) $(CFLAGS) $^ -o $@
 
 
 
