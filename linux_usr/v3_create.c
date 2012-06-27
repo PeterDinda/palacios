@@ -52,6 +52,10 @@ int main(int argc, char* argv[]) {
     
     // load guest image into user memory
     guest_img.guest_data = malloc(guest_img.size);
+    if (!guest_img.guest_data) {
+            printf("ERROR: could not allocate memory for guest image\n");
+            return -1;
+    }
 
     read_file(guest_fd, guest_img.size, guest_img.guest_data);
     

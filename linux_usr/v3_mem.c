@@ -108,6 +108,11 @@ int main(int argc, char * argv[]) {
 	if (bitmap_entries % 8) size++;
 
 	bitmap = malloc(size);
+    if (!bitmap) {
+            printf("ERROR: could not allocate space for bitmap\n");
+            return -1;
+    }
+
 	memset(bitmap, 0, size);
 
 	for (i = 0; j < bitmap_entries - 1; i++) {

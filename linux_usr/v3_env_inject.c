@@ -52,6 +52,10 @@ int main (int argc, char **argv) {
         if (tmp_str[len] == '\n')
             tmp_str[len] = 0;
         strings[i] = (char*)malloc(MAX_STRING_LEN);
+        if (!strings[i]) {
+                fprintf(stderr, "Error allocating space for variable\n");
+                return -1;
+        }
         strcpy(strings[i], tmp_str);
         i++;
     }

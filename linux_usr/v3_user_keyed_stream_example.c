@@ -35,6 +35,11 @@ int do_work(struct palacios_user_keyed_stream_op *req,
 
     // now built a response
     *resp = malloc(sizeof(struct palacios_user_keyed_stream_op) + datasize);
+    if (!*resp) {
+        fprintf(stderr, "ERROR: could not allocate space for response\n");
+        return -1;
+    }
+
     (*resp)->len = sizeof(struct palacios_user_keyed_stream_op) + datasize;
     (*resp)->buf_len = datasize;
     (*resp)->type = req->type;
