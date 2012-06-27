@@ -18,6 +18,7 @@
 int main(int argc, char* argv[]) {
     int vm_fd = 0;
     char * filename = argv[1];
+    int err;
 
     if (argc <= 1) {
 	printf("usage: v3_launch <vm-device>\n");
@@ -33,7 +34,12 @@ int main(int argc, char* argv[]) {
 	return -1;
     }
 
-    ioctl(vm_fd, V3_VM_LAUNCH, NULL); 
+    err = ioctl(vm_fd, V3_VM_LAUNCH, NULL); 
+    if (err < 0) {
+        printf("Error launching VM\n");
+        return -1;
+    }
+
 
 
 
