@@ -24,10 +24,12 @@
 
 #ifdef __V3VEE__
 #include <palacios/vmm_types.h>
+#include <palacios/vmm_lock.h>
 
 
 
 struct v3_bitmap {
+    v3_lock_t lock; 
     int num_bits;      // number of valid bit positions in the bitmap
     uint8_t * bits;   // actual bitmap. Dynamically allocated... ugly
 };
