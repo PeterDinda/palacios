@@ -41,6 +41,7 @@ int v3_bitmap_init(struct v3_bitmap * bitmap, int num_bits) {
 
 
 void v3_bitmap_deinit(struct v3_bitmap * bitmap) {
+    v3_lock_deinit(&(bitmap->lock));
     V3_Free(bitmap->bits);
 }
 

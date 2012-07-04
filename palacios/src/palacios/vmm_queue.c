@@ -19,6 +19,9 @@
 
 #include <palacios/vmm_queue.h>
 
+
+
+
 void v3_init_queue(struct v3_queue * queue) {
     queue->num_entries = 0;
     INIT_LIST_HEAD(&(queue->entries));
@@ -36,6 +39,17 @@ struct v3_queue * v3_create_queue() {
     v3_init_queue(tmp_queue);
     return tmp_queue;
 }
+
+void v3_deinit_queue(struct v3_queue * queue) {
+    while (v3_dequeue(queue)) {
+	PrintError("ERROR: Freeing non-empty queue. PROBABLE MEMORY LEAK DETECTED\n");
+    }
+
+    v3_lock_deinit(&(queue->lock));
+}
+
+
+
 
 void v3_enqueue(struct v3_queue * queue, addr_t entry) {
     struct v3_queue_entry * q_entry = V3_Malloc(sizeof(struct v3_queue_entry));

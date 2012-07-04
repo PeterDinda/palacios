@@ -919,7 +919,10 @@ int v3_init_vnet() {
 }
 
 
-void v3_deinit_vnet(){
+void v3_deinit_vnet() {
+
+    v3_deinit_queue(vnet_state.poll_devs);
+    Vnet_Free(vnet_state.poll_devs);
 
     PrintDebug("Stopping flush thread\n");
     // This will pause until the flush thread is gone
