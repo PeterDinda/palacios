@@ -607,6 +607,11 @@ static int setup_extensions(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     while (extension) {
 	char * ext_name = v3_cfg_val(extension, "name");
 
+        if (!ext_name) {
+            PrintError("Extension has no name\n");
+            return -1;
+        }
+
 	V3_Print("Configuring extension %s\n", ext_name);
 
 	if (v3_add_extension(vm, ext_name, extension) == -1) {
