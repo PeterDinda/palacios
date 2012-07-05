@@ -18,6 +18,7 @@
 int main(int argc, char* argv[]) {
     int vm_fd = 0;
     unsigned long vm_idx = 0;
+    int ret;
 
 
     if (argc <= 1) {
@@ -26,7 +27,7 @@ int main(int argc, char* argv[]) {
     }
 
 
-    vm_idx = atoi(argv[1]);
+    vm_idx = strtol(argv[1], NULL, 0);
 
     printf("Freeing VM %d\n", vm_idx);
     
@@ -37,14 +38,14 @@ int main(int argc, char* argv[]) {
 	return -1;
     }
 
-    ioctl(vm_fd, V3_FREE_GUEST, vm_idx); 
-
-
+    ret = ioctl(vm_fd, V3_FREE_GUEST, vm_idx); 
+    if (ret < 0) {
+        printf("Error freeing VM %d\n", vm_idx);
+        return -1;
+    }
 
     /* Close the file descriptor.  */ 
     close(vm_fd); 
- 
-
 
     return 0; 
 } 
