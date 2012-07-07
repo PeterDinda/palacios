@@ -73,6 +73,11 @@ int v3_init_mem_map(struct v3_vm_info * vm) {
     map->base_region.host_addr = (addr_t)V3_AllocPages(mem_pages);
 #endif
 
+    if ((void*)map->base_region.host_addr == NULL) { 
+       PrintError("Could not allocate guest memory\n");
+       return -1;
+    }
+
     // Clear the memory...
     memset(V3_VAddr((void *)map->base_region.host_addr), 0, mem_pages * PAGE_SIZE_4KB);
 
@@ -84,13 +89,6 @@ int v3_init_mem_map(struct v3_vm_info * vm) {
     map->base_region.flags.alloced = 1;
     
     map->base_region.unhandled = unhandled_err;
-
-    if ((void *)map->base_region.host_addr == NULL) {
-	PrintError("Could not allocate Guest memory\n");
-	return -1;
-    }
-	
-    //memset(V3_VAddr((void *)map->base_region.host_addr), 0xffffffff, map->base_region.guest_end);
 
     v3_register_hypercall(vm, MEM_OFFSET_HCALL, mem_offset_hypercall, NULL);
 

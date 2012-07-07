@@ -124,7 +124,7 @@ static long v3_dev_ioctl(struct file * filp,
 
 	    if (create_palacios_vm(guest) == -1) {
 		ERROR("Palacios: Error creating guest\n");
-		palacios_free(guest->img);
+                vfree(guest->img);
 		palacios_free(guest);
 		return -EFAULT;
 	    }
