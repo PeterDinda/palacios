@@ -497,6 +497,11 @@ static int piix3_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vm_device * pci = v3_find_dev(vm, v3_cfg_val(cfg, "bus"));
     char * dev_id = v3_cfg_val(cfg, "ID");
 
+    if (!piix3) {
+	PrintError("Cannot allocate in init\n");
+	return -1;
+    }
+
     if (!pci) {
 	PrintError("Could not find PCI device\n");
 	return -1;

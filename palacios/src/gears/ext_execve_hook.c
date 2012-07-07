@@ -99,6 +99,11 @@ int v3_hook_executable (struct v3_vm_info * vm,
     struct exec_hook * hook = V3_Malloc(sizeof(struct exec_hook));
     struct v3_exec_hooks * hooks = &exec_hooks;
     addr_t key;
+
+    if (!hook) {
+	PrintError("Cannot allocate in hooking exec\n");
+	return -1;
+    }
     
     memset(hook, 0, sizeof(struct exec_hook));
     

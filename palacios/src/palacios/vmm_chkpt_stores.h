@@ -223,9 +223,23 @@ static void * dir_open_ctx(void * store_data,
 
 
     ctx = V3_Malloc(sizeof(struct file_ctx));
+
+    if (!ctx) {
+	PrintError("Cannot allocate\n");
+	return NULL;
+    }
+
     memset(ctx, 0, sizeof(struct file_ctx));
 
     ctx->filename = V3_Malloc(strlen(url) + strlen(name) + 5);
+
+    if (!ctx->filename) {
+	PrintError("Cannot allocate\n");
+	V3_Free(ctx);
+	return -1;
+    }
+
+
     memset(ctx->filename, 0, strlen(url) + strlen(name) + 5);
 
     snprintf(ctx->filename, strlen(url) + strlen(name) + 5, "%s/%s", url, name);

@@ -78,6 +78,13 @@ int V3_init_symmod() {
 	
 
 	capsule = V3_Malloc(sizeof(struct v3_sym_capsule));
+
+	if (!capsule) {
+	    PrintError("Cannot allocate in initializing symmod\n");
+	    return -1;
+	}
+
+
 	memset(capsule, 0, sizeof(struct v3_sym_capsule));
 
 	capsule->name = tmp_def->name;
@@ -95,6 +102,7 @@ int V3_init_symmod() {
 	    capsule->guest_size = capsule->size;
 	    capsule->capsule_data = NULL;
 	} else {
+	    V3_Free(capsule)
 	    return -1;
 	}
 
@@ -104,6 +112,7 @@ int V3_init_symmod() {
 			     (addr_t)(tmp_def->name),
 			     (addr_t)(capsule)) == 0) {
 	    PrintError("Could not insert module %s to master list\n", tmp_def->name);
+	    V3_Free(capsule);
 	    return -1;
 	}
 
@@ -179,6 +188,11 @@ static int symbol_hcall_handler(struct guest_info * core, hcall_id_t hcall_id, v
 	PrintError("Symbiotic Symbol (%s) at %p\n", sym_name, (void *)(addr_t)tmp_symbol->value);
 	
 	new_symbol = (struct v3_symbol *)V3_Malloc(sizeof(struct v3_symbol));
+
+	if (!new_symbol) {
+	    PrintError("Cannot allocate in symbiotic hcall handler\n");
+	    return -1;
+	}
 
 	strncpy(new_symbol->name, sym_name, 256);
 	new_symbol->linkage = tmp_symbol->value;

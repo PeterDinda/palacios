@@ -128,6 +128,12 @@ int v3_hook_io_port(struct v3_vm_info * vm, uint16_t port,
 		    void * priv_data) {
   struct v3_io_hook * io_hook = (struct v3_io_hook *)V3_Malloc(sizeof(struct v3_io_hook));
 
+  if (!io_hook) {
+      PrintError("Cannot allocate in hooking an I/O port\n");
+      return -1;
+  }
+
+
   io_hook->port = port;
 
   if (!read) {

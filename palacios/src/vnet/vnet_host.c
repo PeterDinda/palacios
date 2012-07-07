@@ -24,7 +24,14 @@ struct vnet_host_hooks * host_hooks;
 
 struct vnet_thread * vnet_start_thread(int (*func)(void *), void *arg, char * name){
     if((host_hooks) && host_hooks->thread_start){
+
     	struct vnet_thread * thread = Vnet_Malloc(sizeof(struct vnet_thread));
+
+	if (!thread) {
+	    PrintError("Cannot allocate space to create a vnet thread\n");
+	    return NULL;
+	}
+
     	thread->host_thread = host_hooks->thread_start(func, arg, name);
 
     	if(thread->host_thread){
@@ -42,7 +49,14 @@ struct vnet_timer * vnet_create_timer(unsigned long interval,
 				      void * priv_data){
     if((host_hooks) && host_hooks->timer_create){
 	struct vnet_timer * timer = Vnet_Malloc(sizeof(struct vnet_timer));
+
+	if (!timer) {
+	    PrintError("Cannot allocate space to create a vnet timer\n");
+	    return NULL;
+	}
+
 	timer->host_timer = host_hooks->timer_create(interval, timer_fun, priv_data);
+
 	return timer;
     }
 

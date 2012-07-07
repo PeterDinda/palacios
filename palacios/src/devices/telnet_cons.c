@@ -528,6 +528,12 @@ static int cons_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vm_device * frontend = v3_find_dev(vm, v3_cfg_val(frontend_cfg, "tag"));
     char * dev_id = v3_cfg_val(cfg, "ID");
 
+    if (!state) {
+	PrintError("Cannot allocate in init\n");
+	return -1;
+    }
+
+
     state->vm = vm;
     state->server_fd = 0;
     state->client_fd = 0;

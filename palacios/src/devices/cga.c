@@ -1220,6 +1220,12 @@ static int cga_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     PrintDebug("video: init_device\n");
 
     video_state = (struct video_internal *)V3_Malloc(sizeof(struct video_internal));
+
+    if (!video_state) {
+	PrintError("Cannot allocate space for CGA state\n");
+	return -1;
+    }
+
     memset(video_state, 0, sizeof(struct video_internal));
 
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, video_state);
@@ -1233,7 +1239,15 @@ static int cga_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     video_state->dev = dev;
 
     video_state->framebuf_pa = (addr_t)V3_AllocPages(FRAMEBUF_SIZE / 4096);
+
+    if (!video_state->framebuf_pa) { 
+	PrintError("Cannot allocate frame buffer\n");
+	V3_Free(video_state);
+	return -1;
+    }
+
     video_state->framebuf = V3_VAddr((void *)(video_state->framebuf_pa));
+
     memset(video_state->framebuf, 0, FRAMEBUF_SIZE);
 
     PrintDebug("PA of array: %p\n", (void *)(video_state->framebuf_pa));

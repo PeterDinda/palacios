@@ -812,6 +812,11 @@ static int nvram_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     PrintDebug("nvram: init_device\n");
     nvram_state = (struct nvram_internal *)V3_Malloc(sizeof(struct nvram_internal) + 1000);
 
+    if (!nvram_state) {
+	PrintError("Cannot allocate in init\n");
+	return -1;
+    }
+
     PrintDebug("nvram: internal at %p\n", (void *)nvram_state);
 
     nvram_state->ide = ide;

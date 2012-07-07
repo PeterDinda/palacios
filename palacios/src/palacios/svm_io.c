@@ -46,9 +46,19 @@ static int update_map(struct v3_vm_info * vm, uint16_t port, int hook_read, int 
 
 
 int v3_init_svm_io_map(struct v3_vm_info * vm) {
+    void *temp;
+
     vm->io_map.update_map = update_map;
 
-    vm->io_map.arch_data = V3_VAddr(V3_AllocPages(3));
+    temp = V3_AllocPages(3);
+    
+    if (!temp) { 
+	PrintError("Cannot allocate io bitmap\n");
+	return -1;
+    }
+
+    vm->io_map.arch_data = V3_VAddr(temp);
+
     memset(vm->io_map.arch_data, 0xff, PAGE_SIZE_4KB * 3);
 
 

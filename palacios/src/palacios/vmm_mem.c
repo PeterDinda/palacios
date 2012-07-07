@@ -124,6 +124,12 @@ struct v3_mem_region * v3_create_mem_region(struct v3_vm_info * vm, uint16_t cor
     }
 
     entry = (struct v3_mem_region *)V3_Malloc(sizeof(struct v3_mem_region));
+
+    if (!entry) {
+	PrintError("Cannot allocate in creating a memory region\n");
+	return NULL;
+    }
+
     memset(entry, 0, sizeof(struct v3_mem_region));
 
     entry->guest_start = guest_addr_start;

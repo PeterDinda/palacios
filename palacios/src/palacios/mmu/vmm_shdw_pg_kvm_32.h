@@ -85,7 +85,7 @@ static inline int fix_write_pf_32(struct guest_info * core, pte32_t * shadow_pte
     }
 			
     if (guest_pte->present == 0) { 
-	memset((void *)shadow_pte, 0, sizeof(struct pte32));
+	memset((void *)shadow_pte, 0, sizeof(uint32_t));
 	PrintDebug("\twrpf: guest non present\n");
 	return 0;
     }

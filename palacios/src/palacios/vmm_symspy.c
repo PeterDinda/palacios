@@ -118,6 +118,11 @@ static int symspy_msr_write(struct guest_info * core, uint_t msr, struct v3_msr 
 int v3_init_symspy_vm(struct v3_vm_info * vm, struct v3_symspy_global_state * state) {
 
     state->global_page_pa = (addr_t)V3_AllocPages(1);
+    if (!state->global_page_pa) { 
+	PrintError("Cannot allocate page\n");
+	return -1;
+    }
+
     state->sym_page = (struct v3_symspy_global_page *)V3_VAddr((void *)state->global_page_pa);
     memset(state->sym_page, 0, PAGE_SIZE_4KB);
 
@@ -133,6 +138,11 @@ int v3_init_symspy_vm(struct v3_vm_info * vm, struct v3_symspy_global_state * st
 
 int v3_init_symspy_core(struct guest_info * core, struct v3_symspy_local_state * state) {
     state->local_page_pa = (addr_t)V3_AllocPages(1);
+
+    if (!state->local_page_pa) { 
+	PrintError("Cannot allocate page\n");
+	return -1;
+    }
     state->local_page = (struct v3_symspy_local_page *)V3_VAddr((void *)state->local_page_pa);
     memset(state->local_page, 0, PAGE_SIZE_4KB);
 

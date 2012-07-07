@@ -75,6 +75,12 @@ int v3_insert_env_inject (void * ginfo, char ** strings, int num_strings, char *
     struct v3_env_injects * injects = &env_injects;
     struct v3_env_inject_info * inject = V3_Malloc(sizeof(struct v3_env_inject_info));
 
+    if (!inject) {
+	PrintError("Cannot allocate in inserting environment inject\n");
+	return -1;
+    }
+
+
     memset(inject, 0, sizeof(struct v3_env_inject_info));
 
     inject->env_vars = strings;

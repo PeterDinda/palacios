@@ -425,10 +425,17 @@ static int cirrus_gfx_card_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg){
     struct vm_device * pci_bus = v3_find_dev(vm, v3_cfg_val(cfg, "bus"));
     char * dev_id = v3_cfg_val(cfg, "ID");
 
+
+    if (!video_state) {
+	PrintError("Cannot allocate state in cirrus gfx\n");
+	return -1;
+    }
+
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, video_state);
 
     if (dev == NULL) {
 	PrintError("Could not attach device %s\n", dev_id);
+	V3_Free(video_state)
 	return -1;
     }
 
@@ -436,6 +443,12 @@ static int cirrus_gfx_card_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg){
     PrintDebug("Num Pages=%d\n", SIZE_OF_REGION / 4096);
 
     video_state->video_memory_pa = (addr_t)V3_AllocPages(SIZE_OF_REGION / 4096);
+    if (!video_state->video_memory_pa) { 
+	PrintError("Cannot allocate video memory\n");
+	V3_Free(video_state);
+	return -1;
+    }
+
     video_state->video_memory = V3_VAddr((void *)video_state->video_memory_pa);
 
     memset(video_state->video_memory, 0, SIZE_OF_REGION);

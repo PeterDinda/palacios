@@ -98,6 +98,11 @@ void v3_deinit_intr_routers(struct v3_vm_info * vm) {
 void * v3_register_intr_controller(struct guest_info * info, struct intr_ctrl_ops * ops, void * priv_data) {
     struct intr_controller * ctrlr = (struct intr_controller *)V3_Malloc(sizeof(struct intr_controller));
 
+    if (!ctrlr) {
+	PrintError("Cannot allocate in registering an interrupt controller\n");
+	return NULL;
+    }
+
     ctrlr->priv_data = priv_data;
     ctrlr->ctrl_ops = ops;
 
@@ -130,6 +135,11 @@ void v3_remove_intr_controller(struct guest_info * core, void * handle) {
 
 void * v3_register_intr_router(struct v3_vm_info * vm, struct intr_router_ops * ops, void * priv_data) {
     struct intr_router * router = (struct intr_router *)V3_Malloc(sizeof(struct intr_router));
+
+    if (!router) {
+	PrintError("Cannot allocate in registering an interrupt router\n");
+	return NULL;
+    }
 
     router->priv_data = priv_data;
     router->router_ops = ops;
@@ -175,12 +185,15 @@ int v3_hook_irq(struct v3_vm_info * vm,
 {
     struct v3_irq_hook * hook = (struct v3_irq_hook *)V3_Malloc(sizeof(struct v3_irq_hook));
 
+
     if (hook == NULL) { 
+	PrintError("Cannot allocate when hooking an irq\n");
 	return -1; 
     }
 
     if (get_irq_hook(vm, irq) != NULL) {
 	PrintError("IRQ %d already hooked\n", irq);
+	V3_Free(hook);
 	return -1;
     }
 
@@ -191,6 +204,8 @@ int v3_hook_irq(struct v3_vm_info * vm,
 
     if (V3_Hook_Interrupt(vm, irq)) { 
 	PrintError("hook_irq: failed to hook irq %d\n", irq);
+	vm->intr_routers.hooks[irq] = NULL;
+	V3_Free(hook);
 	return -1;
     } else {
 	PrintDebug("hook_irq: hooked irq %d\n", irq);

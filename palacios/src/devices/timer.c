@@ -56,7 +56,11 @@ static struct v3_device_ops dev_ops = {
 static int timer_init(struct guest_info * vm, void * cfg_data) {
     struct timer_state * timer = NULL;
     timer = (struct timer_state *)V3_Malloc( sizeof(struct timer_state));
-    V3_ASSERT(timer != NULL);
+
+    if (!timer) {
+	PrintError("Cannot allocate in init\n");
+	return -1;
+    }
 
     struct vm_device * dev = v3_allocate_device("TIMER", &dev_ops, timer);
     

@@ -276,6 +276,11 @@ static int socket_init(struct disk_state * disk) {
 static int disk_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct disk_state * disk = (struct disk_state *)V3_Malloc(sizeof(struct disk_state));
 
+    if (!disk) {
+	PrintError("Cannot allocate in init\n");
+	return -1;
+    }
+
     char * ip_str = v3_cfg_val(cfg, "IP");
     char * port_str = v3_cfg_val(cfg, "port");
     char * disk_tag = v3_cfg_val(cfg, "tag");

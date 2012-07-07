@@ -86,6 +86,12 @@ static int v3_plant_code (struct guest_info * core, struct v3_code_inject_info *
 
     // first back up old code
     inject->old_code = (char*)V3_Malloc(size);
+
+    if (!inject->old_code) {
+	PrintError("Cannot allocate in planting code\n");
+	return -1;
+    }
+
     for (i = 0; i < size; i++)
         inject->old_code[i] = *(hva + i);
 
@@ -178,6 +184,7 @@ static int inject_code_finish (struct guest_info * core, unsigned int hcall_id, 
     }
 
     inject->old_code = V3_Malloc(MUNMAP_SIZE);
+
     if (!inject->old_code) {
         PrintError("Problem mallocing old code segment\n");
         return -1;
@@ -506,6 +513,12 @@ int v3_do_inject (struct guest_info * core, struct v3_code_inject_info * inject,
 
             PrintDebug("Found a page we need to fault in\n");
             inject->cont = (struct v3_cont *)V3_Malloc(sizeof(struct v3_cont));
+
+	    if (!inject->cont) {
+		PrintError("Cannot allocate in doing inject\n");
+		return -1;
+	    }
+
             ret = v3_gva_to_gpa(core, elf_gva, &elf_hva);
 
             if (ret == -1) {

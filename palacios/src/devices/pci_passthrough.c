@@ -779,6 +779,10 @@ static int passthrough_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vm_device * pci = v3_find_dev(vm, v3_cfg_val(cfg, "bus"));
     char * dev_id = v3_cfg_val(cfg, "ID");    
 
+    if (!state) {
+	PrintError("Cannot allocate in init\n");
+	return -1;
+    }
 
     memset(state, 0, sizeof(struct pt_dev_state));
 

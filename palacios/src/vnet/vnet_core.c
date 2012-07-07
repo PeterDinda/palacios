@@ -254,6 +254,12 @@ int v3_vnet_add_route(struct v3_vnet_route route) {
     unsigned long flags; 
 
     new_route = (struct vnet_route_info *)Vnet_Malloc(sizeof(struct vnet_route_info));
+
+    if (!new_route) {
+	PrintError("Cannot allocate new route\n");
+	return -1;
+    }
+
     memset(new_route, 0, sizeof(struct vnet_route_info));
 
 #ifdef V3_CONFIG_DEBUG_VNET
@@ -452,12 +458,18 @@ static struct route_list * match_route(const struct v3_vnet_pkt * pkt) {
 
     PrintDebug("VNET/P Core: match_route: Matches=%d\n", num_matches);
 
-    if (num_matches == 0) {
+    if (num_matches <= 0) {
 	return NULL;
     }
 
     matches = (struct route_list *)Vnet_Malloc(sizeof(struct route_list) + 
 					       (sizeof(struct vnet_route_info *) * num_matches));
+
+
+    if (!matches) {
+	PrintError("VNET/P Core: Unable to allocate matches\n");
+	return NULL;
+    }
 
     matches->num_routes = num_matches;
 
@@ -478,9 +490,11 @@ int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data) {
     int i;
 
     int cpu = V3_Get_CPU();
+
     Vnet_Print(2, "VNET/P Core: cpu %d: pkt (size %d, src_id:%d, src_type: %d, dst_id: %d, dst_type: %d)\n",
 	       cpu, pkt->size, pkt->src_id, 
 	       pkt->src_type, pkt->dst_id, pkt->dst_type);
+
     if(net_debug >= 4){
 	v3_hexdump(pkt->data, pkt->size, NULL, 0);
     }
@@ -491,15 +505,16 @@ int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data) {
     vnet_state.stats.rx_pkts++;
 
     look_into_cache(pkt, &matched_routes);
+
     if (matched_routes == NULL) {  
-	PrintDebug("VNET/P Core: send pkt Looking into routing table\n");
+	PrintDebug("VNET/P Core: sending pkt - matching route\n");
 	
 	matched_routes = match_route(pkt);
 	
       	if (matched_routes) {
 	    add_route_to_cache(pkt, matched_routes);
 	} else {
-	    PrintDebug("VNET/P Core: Could not find route for packet... discards packet\n");
+	    PrintDebug("VNET/P Core: Could not find route for packet... discarding packet\n");
 	    vnet_unlock_irqrestore(vnet_state.lock, flags);
 	    return 0; /* do we return -1 here?*/
 	}
@@ -558,7 +573,7 @@ int v3_vnet_add_dev(struct v3_vm_info * vm, uint8_t * mac,
     new_dev = (struct vnet_dev *)Vnet_Malloc(sizeof(struct vnet_dev)); 
 
     if (new_dev == NULL) {
-	Vnet_Print(0, "Malloc fails\n");
+	Vnet_Print(0, "VNET/P Core: Unable to allocate a new device\n");
 	return -1;
     }
    
@@ -568,7 +583,7 @@ int v3_vnet_add_dev(struct v3_vm_info * vm, uint8_t * mac,
     new_dev->private_data = priv_data;
     new_dev->vm = vm;
     new_dev->dev_id = 0;
-    new_dev->quote = quote<VNET_MAX_QUOTE?quote:VNET_MAX_QUOTE;
+    new_dev->quote = quote<VNET_MAX_QUOTE ? quote : VNET_MAX_QUOTE;
     new_dev->poll = poll_state;
 
     flags = vnet_lock_irqsave(vnet_state.lock);
@@ -582,7 +597,7 @@ int v3_vnet_add_dev(struct v3_vm_info * vm, uint8_t * mac,
 	    v3_enqueue(vnet_state.poll_devs, (addr_t)new_dev);
 	}
     } else {
-    	PrintError("VNET/P: Device with the same MAC is already there\n");
+	PrintError("VNET/P: Device with the same MAC has already been added\n");
     }
 
     vnet_unlock_irqrestore(vnet_state.lock, flags);
@@ -616,7 +631,7 @@ int v3_vnet_del_dev(int dev_id){
 
     Vnet_Free(dev);
 
-    PrintDebug("VNET/P Core: Remove Device: dev_id %d\n", dev_id);
+    PrintDebug("VNET/P Core: Removed Device: dev_id %d\n", dev_id);
 
     return 0;
 }
@@ -673,7 +688,7 @@ int v3_vnet_add_bridge(struct v3_vm_info * vm,
     tmp_bridge = (struct vnet_brg_dev *)Vnet_Malloc(sizeof(struct vnet_brg_dev));
 
     if (tmp_bridge == NULL) {
-	PrintError("Malloc Fails\n");
+	PrintError("VNET/P Core: Unable to allocate new bridge\n");
 	vnet_state.bridge = NULL;
 	return -1;
     }
@@ -701,7 +716,7 @@ void v3_vnet_del_bridge(uint8_t type) {
 	
     if (vnet_state.bridge != NULL && vnet_state.bridge->type == type) {
 	tmp_bridge = vnet_state.bridge;
-       vnet_state.bridge = NULL;
+	vnet_state.bridge = NULL;
     }
 	
     vnet_unlock_irqrestore(vnet_state.lock, flags);
@@ -774,6 +789,8 @@ static int vnet_tx_flush(void * args){
 	}
 
     }
+
+    Vnet_Free(tq);
     
     Vnet_Print(0, "VNET/P Polling Thread Done.\n");
 
@@ -815,6 +832,9 @@ void v3_deinit_vnet(){
     // This will pause until the flush thread is gone
     vnet_thread_stop(vnet_state.pkt_flush_thread);
     // At this point there should be no lock-holder
+
+    Vnet_Free(vnet_state.poll_devs);
+
 
     PrintDebug("Deiniting Device List\n");
     // close any devices we have open

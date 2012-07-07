@@ -602,6 +602,13 @@ static int connect_fn(struct v3_vm_info * vm,
     struct virtio_dev_state * virtio = (struct virtio_dev_state *)frontend_data;
 
     struct virtio_blk_state * blk_state  = (struct virtio_blk_state *)V3_Malloc(sizeof(struct virtio_blk_state));
+
+    if (!blk_state) {
+	PrintError("Cannot allocate in connect\n");
+	return -1;
+    }
+
+
     memset(blk_state, 0, sizeof(struct virtio_blk_state));
 
     register_dev(virtio, blk_state);
@@ -632,6 +639,12 @@ static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
 
     virtio_state  = (struct virtio_dev_state *)V3_Malloc(sizeof(struct virtio_dev_state));
+
+    if (!virtio_state) {
+	PrintError("Cannot allocate in init\n");
+	return -1;
+    }
+
     memset(virtio_state, 0, sizeof(struct virtio_dev_state));
 
     INIT_LIST_HEAD(&(virtio_state->dev_list));

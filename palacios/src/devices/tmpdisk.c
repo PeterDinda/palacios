@@ -113,9 +113,21 @@ static int blk_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     blk = (struct blk_state *)V3_Malloc(sizeof(struct blk_state));
 
+    if (!blk) {
+	PrintError("Cannot allocate in init\n");
+	return -1;
+    }
+
     blk->capacity = capacity;
     
     blk->blk_base_addr = (addr_t)V3_AllocPages(blk->capacity / 4096);
+
+    if (!blk->blk_base_addr) { 
+	PrintError("Cannot allocate block space\n");
+	V3_Free(blk);
+	return -1;
+    }
+
     blk->blk_space = (uint8_t *)V3_VAddr((void *)(blk->blk_base_addr));
     memset(blk->blk_space, 0, capacity);
 

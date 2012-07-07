@@ -284,6 +284,11 @@ static int swap_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     swap = (struct swap_state *)V3_Malloc(sizeof(struct swap_state) + ((capacity / 4096) / 8));
 
+    if (!swap) {
+	PrintError("Cannot allocate in init\n");
+	return -1;
+    }
+
     swap->vm = vm;
 
     swap->capacity = capacity;
@@ -295,6 +300,13 @@ static int swap_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     swap->hdr = (union swap_header *)swap;
 
     swap->swap_base_addr = (addr_t)V3_AllocPages(swap->capacity / 4096);
+
+    if (!swap->swap_base_addr) { 
+	PrintError("Cannot allocate swap space\n");
+	V3_Free(swap);
+	return -1;
+    }
+
     swap->swap_space = (uint8_t *)V3_VAddr((void *)(swap->swap_base_addr));
     memset(swap->swap_space, 0, swap->capacity);
 

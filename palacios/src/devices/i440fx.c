@@ -78,6 +78,11 @@ static int i440_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     state = (struct i440_state *)V3_Malloc(sizeof(struct i440_state));
 
+    if (!state) {
+	PrintError("Cannot allocate state\n");
+	return -1;
+    }
+
     state->pci = pci;
 	
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, state);

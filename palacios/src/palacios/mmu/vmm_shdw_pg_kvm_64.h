@@ -115,7 +115,7 @@ static inline int fix_write_pf_64(struct guest_info *core, pte64_t *shadow_pte, 
     }
 
     if (guest_pte->present == 0) {
-	memset((void*)shadow_pte, 0, sizeof(struct pte64));
+	memset((void*)shadow_pte, 0, sizeof(uint64_t));
 	PrintDebug("\tWritePf: Guest Not Present\n");
 	return 0;
     }

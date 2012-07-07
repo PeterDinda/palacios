@@ -369,6 +369,12 @@ static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     
     virtio_state  = (struct virtio_sym_state *)V3_Malloc(sizeof(struct virtio_sym_state));
+
+    if (!virtio_state) {
+	PrintError("Cannot allocate in init\n");
+	return -1;
+    }
+
     memset(virtio_state, 0, sizeof(struct virtio_sym_state));
 
 

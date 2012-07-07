@@ -206,6 +206,12 @@ static addr_t map_swp_page(struct v3_vm_info * vm, pte32_t * shadow_pte, pte32_t
 
     if (shdw_ptr_list == NULL) {
 	shdw_ptr_list = (struct list_head *)V3_Malloc(sizeof(struct list_head));
+
+	if (!shdw_ptr_list) {
+	    PrintError("Cannot allocate\n");
+	    return 0;
+	}
+
 #ifdef V3_CONFIG_SWAPBYPASS_TELEMETRY
 	swap_state->list_size++;
 #endif
@@ -272,7 +278,18 @@ static struct shadow_page_data * create_new_shadow_pt(struct guest_info * core) 
     // else  
 
     page_tail = (struct shadow_page_data *)V3_Malloc(sizeof(struct shadow_page_data));
+
+    if (!page_tail) {
+	PrintError("Cannot allocate\n");
+	return -1;
+    }
+
     page_tail->page_pa = (addr_t)V3_AllocPages(1);
+
+    if (!page_tail->page_pa) {
+	PrintError("Cannot allocate page\n");
+	return NULL;
+    }
 
     PrintDebug("Allocating new shadow Page: %p (cur_cr3=%p)\n", 
 	       (void *)(addr_t)page_tail->page_pa, 
@@ -418,6 +435,12 @@ static int sb_local_init(struct guest_info * core) {
     V3_Print("SWAPBYPASS local initialization\n");
 
     swapbypass_state = (struct swapbypass_local_state *)V3_Malloc(sizeof(struct swapbypass_local_state));
+
+    if (!swapbypass_state) {
+	PrintError("Cannot allocate\n");
+	return -1;
+    }
+
 
     INIT_LIST_HEAD(&(swapbypass_state->page_list));
 

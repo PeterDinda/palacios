@@ -162,6 +162,12 @@ struct v3_timer * v3_add_timer(struct guest_info * info,
 			       void * private_data) {
     struct v3_timer * timer = NULL;
     timer = (struct v3_timer *)V3_Malloc(sizeof(struct v3_timer));
+
+    if (!timer) {
+	PrintError("Cannot allocate in adding a timer\n");
+	return NULL;
+    }
+
     V3_ASSERT(timer != NULL);
 
     timer->ops = ops;

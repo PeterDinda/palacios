@@ -25,6 +25,12 @@
 
 void NO_INST v3_init_ringbuf(struct v3_ringbuf * ring, uint_t size) {
     ring->buf = V3_Malloc(size);
+
+    if (!(ring->buf)) {
+	PrintError("Cannot init a ring buffer\n");
+	return;
+    }
+
     ring->size = size;
   
     ring->start = 0;
@@ -35,6 +41,11 @@ void NO_INST v3_init_ringbuf(struct v3_ringbuf * ring, uint_t size) {
 NO_INST 
 struct v3_ringbuf * v3_create_ringbuf(uint_t size) {
     struct v3_ringbuf * ring = (struct v3_ringbuf *)V3_Malloc(sizeof(struct v3_ringbuf));
+
+    if (!ring) {
+	PrintError("Cannot allocate a ring buffer\n");
+	return NULL;
+    }
 
     v3_init_ringbuf(ring, size);
 

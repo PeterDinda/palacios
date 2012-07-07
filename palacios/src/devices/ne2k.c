@@ -1218,6 +1218,12 @@ static int ne2k_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     char * macstr = v3_cfg_val(cfg, "mac");
 
     nic_state  = (struct ne2k_state *)V3_Malloc(sizeof(struct ne2k_state));
+
+    if (!nic_state) {
+	PrintError("Cannot allocate in init\n");
+	return -1;
+    }
+
     memset(nic_state, 0, sizeof(struct ne2k_state));
 
     nic_state->pci_bus = pci_bus;

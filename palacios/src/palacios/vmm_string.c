@@ -71,6 +71,11 @@ void * memcpy(void * dst, const void * src, size_t n) {
 #ifdef V3_CONFIG_BUILT_IN_MEMMOVE
 void * memmove(void * dst, const void * src, size_t n) {
     uint8_t * tmp = (uint8_t *)V3_Malloc(n);
+
+    if (!tmp) {
+	PrintError("Cannot allocate in built-in memmove\n");
+	return NULL;
+    }
     
     memcpy(tmp, src, n);
     memcpy(dst, tmp, n);
@@ -285,6 +290,12 @@ char * strdup(const char * s1) {
     char *ret;
 
     ret = V3_Malloc(strlen(s1) + 1);
+
+    if (!ret) {
+	PrintError("Cannot allocate in built-in strdup\n");
+	return NULL;
+    }
+
     strcpy(ret, s1);
 
     return ret;

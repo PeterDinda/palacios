@@ -33,7 +33,15 @@
 
 static addr_t create_generic_pt_page() {
     void * page = 0;
-    page = V3_VAddr(V3_AllocPages(1));
+    void *temp;
+
+    temp = V3_AllocPages(1);
+    if (!temp) { 
+	PrintError("Cannot allocate page\n");
+	return 0;
+    }
+
+    page = V3_VAddr(temp);
     memset(page, 0, PAGE_SIZE);
 
     return (addr_t)page;

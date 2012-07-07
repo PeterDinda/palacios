@@ -59,8 +59,14 @@ struct v3_mtree * v3_mtree_create_node(struct v3_mtree * root, char * name) {
 
     PrintDebug("Creating Node %s\n", name);
 
+
+    if (!node) {
+	PrintError("Cannot allocate multitree node\n");
+	return NULL;
+    }
+
     memset(node, 0, sizeof(struct v3_mtree));
-    strncpy(node->name, name, 50);
+    strncpy(node->name, name, V3_MTREE_NAME_LEN);
 
     if ((ret = __insert_mtree_node(root, node))) {
 	PrintError("Insertion failure\n");

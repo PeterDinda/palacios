@@ -1131,6 +1131,11 @@ static int keyboard_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     kbd = (struct keyboard_internal *)V3_Malloc(sizeof(struct keyboard_internal));
 
+    if (!kbd) {
+	PrintError("Cannot allocate in init\n");
+	return -1;
+    }
+
     memset(kbd, 0, sizeof(struct keyboard_internal));
 
     kbd->vm = vm;

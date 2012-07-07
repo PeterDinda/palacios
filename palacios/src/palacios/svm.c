@@ -938,6 +938,11 @@ void v3_init_svm_cpu(int cpu_id) {
     // Setup the host state save area
     host_vmcbs[cpu_id] = (addr_t)V3_AllocPages(4);
 
+    if (!host_vmcbs[cpu_id]) {
+	PrintError("Failed to allocate VMCB\n");
+	return;
+    }
+
     /* 64-BIT-ISSUE */
     //  msr.e_reg.high = 0;
     //msr.e_reg.low = (uint_t)host_vmcb;
@@ -1177,6 +1182,11 @@ void Init_VMCB_pe(vmcb_t *vmcb, struct guest_info vm_info) {
 
   ctrl_area->instrs.IOIO_PROT = 1;
   ctrl_area->IOPM_BASE_PA = (uint_t)V3_AllocPages(3);
+
+  if (!ctrl_area->IOPM_BASE_PA) { 
+      PrintError("Cannot allocate IO bitmap\n");
+      return;
+  }
   
   {
     reg_ex_t tmp_reg;

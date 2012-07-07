@@ -544,6 +544,13 @@ static int init_mtrrs(struct v3_vm_info * vm, v3_cfg_tree_t * cfg, void ** priv_
     int ret = 0;
 
     state = V3_Malloc(sizeof(struct mtrr_state));
+
+    if (!state) {
+	PrintError("Cannot allocate in initializing MTRRs\n");
+	return -1;
+    }
+
+
     memset(state, 0, sizeof(struct mtrr_state));
 
     *priv_data = state;

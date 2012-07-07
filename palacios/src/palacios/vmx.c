@@ -92,11 +92,17 @@ static int inline check_vmcs_read(vmcs_field_t field, void * val) {
 
 
 static addr_t allocate_vmcs() {
+    void *temp;
     struct vmcs_data * vmcs_page = NULL;
 
     PrintDebug("Allocating page\n");
 
-    vmcs_page = (struct vmcs_data *)V3_VAddr(V3_AllocPages(1));
+    temp = V3_AllocPages(1);
+    if (!temp) { 
+	PrintError("Cannot allocate VMCS\n");
+	return -1;
+    }
+    vmcs_page = (struct vmcs_data *)V3_VAddr(temp);
     memset(vmcs_page, 0, 4096);
 
     vmcs_page->revision = hw_info.basic_info.revision;
@@ -547,6 +553,12 @@ static void __init_vmx_vmcs(void * arg) {
     int vmx_ret = 0;
     
     vmx_state = (struct vmx_data *)V3_Malloc(sizeof(struct vmx_data));
+
+    if (!vmx_state) {
+	PrintError("Unable to allocate in initializing vmx vmcs\n");
+	return;
+    }
+
     memset(vmx_state, 0, sizeof(struct vmx_data));
 
     PrintDebug("vmx_data pointer: %p\n", (void *)vmx_state);

@@ -162,6 +162,11 @@ static struct exit_event * get_exit(struct guest_info * info, uint_t exit_code) 
 static inline struct exit_event * create_exit(uint_t exit_code) {
     struct exit_event * evt = V3_Malloc(sizeof(struct exit_event));
 
+    if (!evt) {
+	PrintError("Cannot allocate in createing exit in telemetry\n");
+	return NULL;
+    }
+
     evt->exit_code = exit_code;
     evt->cnt = 0;
     evt->handler_time = 0;
@@ -218,6 +223,11 @@ void v3_add_telemetry_cb(struct v3_vm_info * vm,
 			 void * private_data) {
     struct v3_telemetry_state * telemetry = &(vm->telemetry);
     struct telemetry_cb * cb = (struct telemetry_cb *)V3_Malloc(sizeof(struct telemetry_cb));
+
+    if (!cb) {
+	PrintError("Cannot allocate in adding a telemtry callback\n");
+	return ;
+    }
 
     cb->private_data = private_data;
     cb->telemetry_fn = telemetry_fn;

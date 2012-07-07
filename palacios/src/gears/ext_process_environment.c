@@ -208,6 +208,12 @@ static int v3_copy_chunk_vmm32(struct guest_info * core, const char ** argstrs, 
     /* account for new args */
     argc += argcnt;
     var_dump.argv = (char**)V3_Malloc(sizeof(char*)*argc);
+
+    if (!var_dump.argv) {
+	PrintError("Cannot allocate in copying\n");
+	return -1;
+    }
+
     var_dump.argc = argc;
     bytes += sizeof(uint32_t)*argc;
 
@@ -223,6 +229,11 @@ static int v3_copy_chunk_vmm32(struct guest_info * core, const char ** argstrs, 
         /* malloc room for the string */
         char * tmpstr = (char*)V3_Malloc(strlen((char*)argvn) + 1);
 
+	if (!tmpstr) {
+	    PrintError("Cannot allocate temporary\n");
+	    return -1;
+	}
+
         /* copy the pointer */
         var_dump.argv[i] = tmpstr; 
 
@@ -237,6 +248,12 @@ static int v3_copy_chunk_vmm32(struct guest_info * core, const char ** argstrs, 
     int j = 0;
     while (j < argcnt) {
         char * tmpstr = (char*)V3_Malloc(strlen(argstrs[j]) + 1);
+
+	if (!tmpstr) {
+	    PrintError("Cannot allocate temp string\n");
+	    return -1;
+	}
+
         strncpy(tmpstr, argstrs[i], strlen(argstrs[j]) + 1);
         var_dump.argv[i] = tmpstr;
         bytes += strlen(argstrs[j]) + 1;
@@ -257,6 +274,12 @@ static int v3_copy_chunk_vmm32(struct guest_info * core, const char ** argstrs, 
 
     envc += envcnt;
     var_dump.envp = (char**)V3_Malloc(sizeof(char*)*envc);
+
+    if (!var_dump.envp) {
+	PrintError("Cannot allocate var dump\n");
+	return -1;
+    }
+
     var_dump.envc = envc;
     bytes += sizeof(uint32_t)*envc;
 
@@ -271,6 +294,11 @@ static int v3_copy_chunk_vmm32(struct guest_info * core, const char ** argstrs, 
         
         /* malloc room for the string */
         char * tmpstr = (char*)V3_Malloc(strlen((char*)envpn) + 1);
+
+	if (!tmpstr) {
+	    PrintError("Cannot allocate temp string\n");
+	    return -1;
+	}
         
         /* copy the pointer */
         var_dump.envp[i] = tmpstr;
@@ -286,6 +314,12 @@ static int v3_copy_chunk_vmm32(struct guest_info * core, const char ** argstrs, 
     j = 0;
     while (j < envcnt) {
         char * tmpstr = (char*)V3_Malloc(strlen(envstrs[j]) + 1);
+
+	if (!tmpstr) {
+	    PrintError("Cannot allocate temp string\n");
+	    return -1;
+	}
+
         strncpy(tmpstr, envstrs[j], strlen(envstrs[j]) + 1);
         var_dump.envp[i] = tmpstr;
         bytes += strlen(envstrs[j]) + 1;
@@ -452,6 +486,12 @@ static int v3_copy_chunk_vmm64(struct guest_info * core, const char ** argstrs, 
     /* account for new strings */
     argc += argcnt;
     var_dump.argv = (char**)V3_Malloc(sizeof(char*)*argc);
+
+    if (!var_dump.argv) {
+	PrintError("Cannot allocate var dump\n");
+	return -1;
+    }
+
     var_dump.argc = argc;
     bytes += sizeof(char*)*argc;
 
@@ -467,6 +507,11 @@ static int v3_copy_chunk_vmm64(struct guest_info * core, const char ** argstrs, 
         /* malloc room for the string */
         char * tmpstr = (char*)V3_Malloc(strlen((char*)argvn) + 1);
 
+	if (!tmpstr) {
+	    PrintError("Cannot allocate temp string\n");
+	    return -1;
+	}
+
         /* copy the pointer */
         var_dump.argv[i] = tmpstr; 
 
@@ -481,6 +526,12 @@ static int v3_copy_chunk_vmm64(struct guest_info * core, const char ** argstrs, 
     int j = 0;
     while (j < argcnt) {
         char * tmpstr = (char*)V3_Malloc(strlen(argstrs[j]) + 1);
+
+	if (!tmpstr) {
+	    PrintError("Cannot allocate temp string\n");
+	    return -1;
+	}
+
         strncpy(tmpstr, argstrs[j], strlen(argstrs[j]) + 1);
         var_dump.argv[i] = tmpstr;
         bytes += strlen(argstrs[j]) + 1;
@@ -501,6 +552,12 @@ static int v3_copy_chunk_vmm64(struct guest_info * core, const char ** argstrs, 
 
     envc += envcnt;
     var_dump.envp = (char**)V3_Malloc(sizeof(char*)*envc);
+
+    if (!var_dump.envp) {
+	PrintError("Cannot allocate var dump\n");
+	return -1;
+    }
+
     var_dump.envc = envc;
     bytes += sizeof(uint64_t)*(envc);
 
@@ -516,6 +573,11 @@ static int v3_copy_chunk_vmm64(struct guest_info * core, const char ** argstrs, 
         
         /* malloc room for the string */
         char * tmpstr = (char*)V3_Malloc(strlen((char*)envpn) + 1);
+
+	if (!tmpstr) {
+	    PrintError("Cannot allocate temp string\n");
+	    return -1;
+	}
         
         /* copy the pointer */
         var_dump.envp[i] = tmpstr;
@@ -531,6 +593,12 @@ static int v3_copy_chunk_vmm64(struct guest_info * core, const char ** argstrs, 
     j = 0;
     while (j < envcnt) {
         char * tmpstr = (char*)V3_Malloc(strlen(envstrs[j]) + 1);
+
+	if (!tmpstr) {
+	    PrintError("Cannot allocate temp string\n");
+	    return -1;
+	}
+
         strncpy(tmpstr, envstrs[i], strlen(envstrs[j]) + 1);
         var_dump.envp[i] = tmpstr;
         bytes += strlen(envstrs[j]) + 1;

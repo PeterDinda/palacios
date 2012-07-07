@@ -540,6 +540,11 @@ static int connect_fn(struct v3_vm_info * vm,
 
     swap = (struct swap_state *)V3_Malloc(sizeof(struct swap_state));
 
+    if (!swap) {
+	PrintError("Cannot allocate in connect\n");
+	return -1;
+    }
+
     swap->vm = vm;
     swap->cache_size = cache_size;
     swap->io_flag = 0;
@@ -561,6 +566,12 @@ static int connect_fn(struct v3_vm_info * vm,
 	INIT_LIST_HEAD(&(swap->entry_list));
 	INIT_LIST_HEAD(&(swap->free_list));
 	swap->entry_map = (struct cache_entry *)V3_Malloc(sizeof(struct cache_entry) * (cache_size / 4096));
+
+	if (!swap->entry_map) {
+	    PrintError("Cannot allocate in connect\n");
+	    return -1;
+	}
+
 	
 	for (i = 0; i < (cache_size / 4096); i++) {
 	    list_add(&(swap->entry_map[i].cache_node), &(swap->free_list));
@@ -571,6 +582,14 @@ static int connect_fn(struct v3_vm_info * vm,
 	swap->active = 0;
 
 	swap->cache_base_addr = (addr_t)V3_AllocPages(swap->cache_size / 4096);
+
+	if (!swap->cache_base_addr) { 
+	    PrintError("Cannot allocate cache space\n");
+	    V3_Free(swap);
+	    return -1;
+	}
+	
+
 	swap->cache = (uint8_t *)V3_VAddr((void *)(addr_t)(swap->cache_base_addr));
 	memset(swap->cache, 0, swap->cache_size);
     }

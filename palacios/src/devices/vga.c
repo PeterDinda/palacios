@@ -2845,12 +2845,17 @@ static int vga_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     // Now allocate the maps
     for (i=0;i<MAP_NUM;i++) { 
-	vga->map[i] = (vga_map) V3_VAddr((void*)V3_AllocPages(MAP_SIZE/4096));
-	if (!(vga->map[i])) {
+	void *temp;
+
+	temp = (void*)V3_AllocPages(MAP_SIZE/4096);
+	if (!temp) { 
 	    PrintError("vga: cannot allocate maps\n");
 	    free_vga(vga);
 	    return -1;
 	}
+
+	vga->map[i] = (vga_map) V3_VAddr(temp);
+
 	memset(vga->map[i],0,MAP_SIZE);
     }
     

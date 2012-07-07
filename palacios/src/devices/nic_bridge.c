@@ -94,6 +94,12 @@ static int nic_bridge_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     }
     
     bridge = (struct nic_bridge_state *)V3_Malloc(sizeof(struct nic_bridge_state));
+
+    if (!bridge) {
+	PrintError("Cannot allocate in init\n");
+	return -1;
+    }
+
     memset(bridge, 0, sizeof(struct nic_bridge_state));
     
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, bridge);

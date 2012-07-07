@@ -27,6 +27,12 @@ void v3_init_queue(struct v3_queue * queue) {
 
 struct v3_queue * v3_create_queue() {
     struct v3_queue * tmp_queue = V3_Malloc(sizeof(struct v3_queue));
+
+    if (!tmp_queue) {
+	PrintError("Cannot allocate a queue\n");
+	return NULL;
+    }
+
     v3_init_queue(tmp_queue);
     return tmp_queue;
 }
@@ -34,6 +40,11 @@ struct v3_queue * v3_create_queue() {
 void v3_enqueue(struct v3_queue * queue, addr_t entry) {
     struct v3_queue_entry * q_entry = V3_Malloc(sizeof(struct v3_queue_entry));
     unsigned int flags = 0;
+
+    if (!q_entry) {
+	PrintError("Cannot allocate a queue entry for enqueue\n");
+	return ;
+    }
 
     flags = v3_lock_irqsave(queue->lock);
     q_entry->entry = entry;

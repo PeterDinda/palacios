@@ -182,6 +182,7 @@ int v3_hook_swintr (struct guest_info * core,
     struct v3_swintr_hook * hook = (struct v3_swintr_hook*)V3_Malloc(sizeof(struct v3_swintr_hook));
 
     if (hook == NULL) {
+	PrintError("Cannot allocate for swintr hook\n");
         return -1;
     }
 

@@ -118,6 +118,11 @@ static void shadow_free_page (struct guest_info * core, struct shadow_page_cache
 
     V3_FreePages((void *)page->page_pa, 1);
     page->page_pa=(addr_t)V3_AllocPages(1);
+
+    if (!page->page_pa) { 
+	PrintError("Freeing shadow page failed on allocation\n");
+	return;
+    }
 	
     list_add(&page->link,&core->free_pages);
     ++core->n_free_shadow_pages;	
@@ -178,6 +183,7 @@ static int alloc_shadow_pages(struct guest_info * core)
 
 	INIT_LIST_HEAD(&page_header->link);
 	if (!(page_header->page_pa = (addr_t)V3_AllocPages(1))) {
+	    PrintError("Allocation failed in allocating shadow page\n");
 	    goto error_1;
 	}
 	addr_t shdw_page = (addr_t)V3_VAddr((void *)(page_header->page_pa));
@@ -619,7 +625,7 @@ static void shadow_zap_page(struct guest_info * core, struct shadow_page_cache_d
 	}		
 	shadow_page_put_page(core, page, shadow_pde);
 	PrintDebug("zap_parent: pde: shadow %p\n",(void *)*((addr_t *)shadow_pde));
-	memset((void *)shadow_pde, 0, sizeof(struct pde32));	
+	memset((void *)shadow_pde, 0, sizeof(uint32_t));
     }
 
     shadow_page_unlink_children(core, page);
@@ -675,7 +681,7 @@ int shadow_zap_hierarchy_32(struct guest_info * core, struct shadow_page_cache_d
 	guest_pde = (pde32_t*)&(guest_pd[i]);
 	present = shadow_pde->present;
 	if (shadow_pde->present) PrintDebug("ulink_child: pde shadow %x\n", *((uint32_t*)shadow_pde));
-	memset((void*)shadow_pde, 0, sizeof(struct pde32));
+	memset((void*)shadow_pde, 0, sizeof(uint32_t));
 	if (present != 1) continue;
 
 	struct shadow_page_cache_data *shdw_page;

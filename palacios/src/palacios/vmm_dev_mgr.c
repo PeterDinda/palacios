@@ -24,6 +24,9 @@
 
 #ifdef V3_CONFIG_CHECKPOINT
 #include <palacios/vmm_checkpoint.h>
+
+#define V3_MAX_DEVICE_NAME 32
+
 #endif
 
 
@@ -138,7 +141,7 @@ int v3_save_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
     struct v3_chkpt_ctx * dev_mgr_ctx = NULL;
 
     uint32_t num_saved_devs = 0;
-    uint32_t table_len = mgr->num_devs * 32;
+    uint32_t table_len = mgr->num_devs * V3_MAX_DEVICE_NAME;
     char * name_table = NULL;
     uint32_t tbl_offset = 0;
     
@@ -161,8 +164,8 @@ int v3_save_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 
     list_for_each_entry(dev, &(mgr->dev_list), dev_link) {
         if (dev->ops->save) {
-            strncpy(name_table + tbl_offset, dev->name, 32);
-            tbl_offset += 32;
+            strncpy(name_table + tbl_offset, dev->name, V3_MAX_DEVICE_NAME);
+            tbl_offset += V3_MAX_DEVICE_NAME;
             num_saved_devs++;
         }  else {
 	    PrintDebug("Skipping device %s\n");
@@ -176,7 +179,7 @@ int v3_save_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 	return -1;
     }
 
-    if (v3_chkpt_save(dev_mgr_ctx, "names", num_saved_devs*32, name_table) == -1) {
+    if (v3_chkpt_save(dev_mgr_ctx, "names", num_saved_devs*V3_MAX_DEVICE_NAME, name_table) == -1) {
 	PrintError("Unable to store names of devices\n");
 	v3_chkpt_close_ctx(dev_mgr_ctx); 
 	V3_Free(name_table);
@@ -240,7 +243,7 @@ int v3_load_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 
     V3_Print("Loading State for %d devices\n", num_devs);
     
-    name_table = V3_Malloc(32 * num_devs);
+    name_table = V3_Malloc(V3_MAX_DEVICE_NAME * num_devs);
     
     if (!name_table) { 
 	PrintError("Unable to allocate space for device table\n");
@@ -248,7 +251,7 @@ int v3_load_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 	return -1;
     }
 
-    if (v3_chkpt_load(dev_mgr_ctx, "names", 32 * num_devs, name_table) == -1) {
+    if (v3_chkpt_load(dev_mgr_ctx, "names", V3_MAX_DEVICE_NAME * num_devs, name_table) == -1) {
 	PrintError("Unable to load device name table\n");
 	v3_chkpt_close_ctx(dev_mgr_ctx);
 	V3_Free(name_table);
@@ -257,7 +260,7 @@ int v3_load_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
     v3_chkpt_close_ctx(dev_mgr_ctx);
 
     for (i = 0; i < num_devs; i++) {
-	char * name = &(name_table[i * 32]);
+	char * name = &(name_table[i * V3_MAX_DEVICE_NAME]);
 	struct v3_chkpt_ctx * dev_ctx = NULL;
 	dev = v3_find_dev(vm, name);
 
@@ -506,6 +509,7 @@ struct vm_device * v3_add_device(struct v3_vm_info * vm,
     dev = (struct vm_device *)V3_Malloc(sizeof(struct vm_device));
 
     if (dev == NULL) {
+	PrintError("Cannot allocate in adding a device\n");
 	return NULL;
     }
 
@@ -569,6 +573,12 @@ int v3_dev_add_blk_frontend(struct v3_vm_info * vm,
     struct blk_frontend * frontend = NULL;
 
     frontend = (struct blk_frontend *)V3_Malloc(sizeof(struct blk_frontend));
+
+    if (!frontend) {
+	PrintError("Cannot allocate in adding a block front end\n");
+	return -1;
+    }
+
     memset(frontend, 0, sizeof(struct blk_frontend));
     
     frontend->connect = connect;
@@ -632,6 +642,12 @@ int v3_dev_add_net_frontend(struct v3_vm_info * vm,
     struct net_frontend * frontend = NULL;
 
     frontend = (struct net_frontend *)V3_Malloc(sizeof(struct net_frontend));
+
+    if (!frontend) {
+	PrintError("Cannot allocate in adding a net front end\n");
+	return -1;
+    }
+
     memset(frontend, 0, sizeof(struct net_frontend));
     
     frontend->connect = connect;
@@ -694,6 +710,12 @@ int v3_dev_add_console_frontend(struct v3_vm_info * vm,
     struct cons_frontend * frontend = NULL;
 
     frontend = (struct cons_frontend *)V3_Malloc(sizeof(struct cons_frontend));
+
+    if (!frontend) {
+	PrintError("Cannot allocate in adding a console front end\n");
+	return -1;
+    }
+
     memset(frontend, 0, sizeof(struct cons_frontend));
     
     frontend->connect = connect;
@@ -757,6 +779,12 @@ int v3_dev_add_char_frontend(struct v3_vm_info * vm,
     struct char_frontend * frontend = NULL;
 
     frontend = (struct char_frontend *)V3_Malloc(sizeof(struct char_frontend));
+
+    if (!frontend) {
+	PrintError("Cannot allocate in adding a char front end\n");
+	return -1;
+    }
+
     memset(frontend, 0, sizeof(struct char_frontend));
     
     frontend->connect = connect;

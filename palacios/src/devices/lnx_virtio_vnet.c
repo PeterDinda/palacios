@@ -575,6 +575,12 @@ static int dev_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     }
     
     vnet_state  = (struct virtio_vnet_state *)V3_Malloc(sizeof(struct virtio_vnet_state));
+
+    if (!vnet_state) {
+	PrintError("Cannot allocate in init\n");
+	return -1;
+    }
+
     memset(vnet_state, 0, sizeof(struct virtio_vnet_state));
 	
     vnet_state->vm = vm;

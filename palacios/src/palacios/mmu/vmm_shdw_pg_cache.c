@@ -220,12 +220,23 @@ static int add_rmap(struct v3_vm_info * vm, struct shdw_pg_data * pg_data, addr_
 
     if (rmap_list == NULL) {
 	rmap_list = V3_Malloc(sizeof(struct list_head));
+
+	if (!rmap_list) {
+	    PrintError("Cannot allocate\n");
+	    return -1;
+	}
+
 	INIT_LIST_HEAD(rmap_list);
 
 	v3_htable_insert(cache_state->reverse_map, gpa, (addr_t)rmap_list);
     }
     
     entry = V3_Malloc(sizeof(struct rmap_entry));
+
+    if (!entry) {
+	PrintError("Cannot allocate\n");
+	return -1;
+    }
 
     entry->gva = gva;
     entry->gpa = pg_data->tuple.gpa;
@@ -282,6 +293,12 @@ static int update_rmap_entries(struct v3_vm_info * vm, addr_t gpa) {
 
 static int link_shdw_pg(struct shdw_pg_data * child_pg, struct shdw_pg_data * parent_pg, addr_t gva) {
     struct shdw_back_ptr * back_ptr = V3_Malloc(sizeof(struct shdw_back_ptr));
+
+    if (!back_ptr) {
+	PrintError("Cannot allocate\n");
+	return -1;
+    }
+
     memset(back_ptr, 0, sizeof(struct shdw_back_ptr));
 
     back_ptr->pg_data = parent_pg;
@@ -369,7 +386,18 @@ static struct shdw_pg_data * create_shdw_pt(struct v3_vm_info * vm, addr_t gpa, 
     if (cache_state->pgs_in_cache < cache_state->max_cache_pgs) {
 	pg_data = V3_Malloc(sizeof(struct shdw_pg_data));
 
+	if (!pg_data) {
+	    PrintError("Cannot allocate\n");
+	    return NULL;
+	}
+
 	pg_data->hpa = (addr_t)V3_AllocPages(1);
+
+	if (!pg_data->hpa) {
+	    PrintError("Cannot allocate page for shadow page table\n");
+	    return NULL;
+	}
+
 	pg_data->hva = (void *)V3_VAddr((void *)pg_data->hpa);
 
     } else if (cache_state->pgs_in_free_list) {
@@ -449,6 +477,12 @@ static int cache_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     V3_Print("Shadow Page Cache initialization\n");
 
     cache_state = V3_Malloc(sizeof(struct cache_vm_state));
+
+    if (!cache_state) {
+	PrintError("Cannot allocate\n");
+	return -1;
+    }
+
     memset(cache_state, 0, sizeof(struct cache_vm_state));
 
     cache_state->page_htable = v3_create_htable(0, cache_hash_fn, cache_eq_fn);

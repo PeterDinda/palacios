@@ -363,6 +363,7 @@ int v3_hook_syscall (struct guest_info * core,
 
     
     if (hook == NULL) {
+	PrintError("Cannot allocate for syscall hook\n");
         return -1;
     }
 

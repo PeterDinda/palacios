@@ -1877,6 +1877,12 @@ static int apic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     apic_dev = (struct apic_dev_state *)V3_Malloc(sizeof(struct apic_dev_state) + 
 						  sizeof(struct apic_state) * vm->num_cores);
 
+
+    if (!apic_dev) {
+	PrintError("Failed to allocate space for APIC\n");
+	return -1;
+    }
+
     apic_dev->num_apics = vm->num_cores;
     v3_lock_init(&(apic_dev->state_lock));
 

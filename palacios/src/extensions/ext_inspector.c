@@ -38,6 +38,12 @@ struct v3_inspector_state {
 
 static int init_inspector(struct v3_vm_info * vm, v3_cfg_tree_t * cfg, void ** priv_data) {
     struct v3_inspector_state * state = V3_Malloc(sizeof(struct v3_inspector_state));
+
+    if (!state) {
+	PrintError("Cannot allocate state in inspector\n");
+	return -1;
+    }
+
     memset(state, 0, sizeof(struct v3_inspector_state));
 
     strncpy(state->state_tree.name, "vm->name", 50);

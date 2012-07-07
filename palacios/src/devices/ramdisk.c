@@ -120,6 +120,12 @@ static int disk_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
 
     disk = (struct disk_state *)V3_Malloc(sizeof(struct disk_state));
+
+    if (!disk) {
+	PrintError("Cannot allocate in init\n");
+	return -1;
+    }
+
     memset(disk, 0, sizeof(struct disk_state));
 
     disk->disk_image = file->data;

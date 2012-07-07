@@ -131,11 +131,23 @@ static struct v3_config * parse_config(void * cfg_blob) {
     offset += 8;
 
     cfg = (struct v3_config *)V3_Malloc(sizeof(struct v3_config));
+
+    if (!cfg) {
+	PrintError("Unable to allocate while parsing\n");
+	return NULL;
+    }
+
     memset(cfg, 0, sizeof(struct v3_config));
 
     cfg->blob = cfg_blob;
     INIT_LIST_HEAD(&(cfg->file_list));
     cfg->file_table = v3_create_htable(0, file_hash_fn, file_eq_fn);
+
+    if (!(cfg->file_table)) {
+	PrintError("Unable to allocate hash table while parsing\n");
+	V3_Free(cfg);
+	return NULL;
+    }
     
     xml_len = *(uint32_t *)(cfg_blob + offset);
     offset += 4;
@@ -162,12 +174,14 @@ static struct v3_config * parse_config(void * cfg_blob) {
 	
 	if (!file) {
 	    PrintError("Could not allocate file structure\n");
+	    v3_free_htable(cfg->file_table,0,0);
+	    V3_Free(cfg);
 	    return NULL;
 	}
 
 	V3_Print("File index=%d id=%s\n", idx, id);
 
-	strncpy(file->tag, id, 256);
+	strncpy(file->tag, id, V3_MAX_TAG_LEN);
 	file->size = hdr->size;
 	file->data = cfg_blob + hdr->offset;
 
@@ -428,6 +442,12 @@ static int post_config_core(struct guest_info * info, v3_cfg_tree_t * cfg) {
 static struct v3_vm_info * allocate_guest(int num_cores) {
     int guest_state_size = sizeof(struct v3_vm_info) + (sizeof(struct guest_info) * num_cores);
     struct v3_vm_info * vm = V3_Malloc(guest_state_size);
+
+    if (!vm) {
+	PrintError("Unable to allocate space for guest data structures\n");
+	return NULL;
+    }
+
     int i = 0;
 
     memset(vm, 0, guest_state_size);

@@ -242,19 +242,30 @@ static int cons_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg)
 
     /* allocate state */
     state = (struct cons_state *)V3_Malloc(sizeof(struct cons_state));
-    V3_ASSERT(state);
+
+    if (!state) {
+	PrintError("Cannot allocate curses state\n");
+	V3_Free(state);
+	return -1;
+    }
 
     state->frontend_dev = frontend;
     state->cols = 80;
     state->rows = 25;
     state->framebuf = V3_Malloc(state->cols * state->rows * BYTES_PER_COL);
 
+    if (!state->framebuf) {
+	PrintError("Cannot allocate frame buffer\n");
+	V3_Free(state);
+	return -1;
+    }
 
     /* open tty for screen display */
     state->cons = v3_console_open(vm, state->cols, state->rows);
 
     if (!state->cons) {
 	PrintError("Could not open console\n");
+	V3_Free(state->framebuf);
 	V3_Free(state);
 	return -1;
     }
@@ -264,6 +275,7 @@ static int cons_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg)
 
     if (dev == NULL) {
 	PrintError("Could not attach device %s\n", dev_id);
+	V3_Free(state->framebuf);
 	V3_Free(state);
 	return -1;
     }

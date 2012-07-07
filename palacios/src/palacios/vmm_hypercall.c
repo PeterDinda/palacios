@@ -136,6 +136,11 @@ int v3_register_hypercall(struct v3_vm_info * vm, hcall_id_t hypercall_id,
 
     struct hypercall * hcall = (struct hypercall *)V3_Malloc(sizeof(struct hypercall));
 
+    if (!hcall) {
+	PrintError("Cannot allocate in registering hypercall\n");
+	return -1;
+    }
+
     hcall->id = hypercall_id;
     hcall->priv_data = priv_data;
     hcall->hcall_fn = hypercall;

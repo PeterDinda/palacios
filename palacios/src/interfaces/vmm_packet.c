@@ -43,6 +43,11 @@ struct v3_packet * v3_packet_connect(struct v3_vm_info * vm,
 
     packet = V3_Malloc(sizeof(struct v3_packet));
 
+    if (!packet) {
+	PrintError("Cannot allocate in connecting packet\n");
+	return NULL;
+    }
+
     memcpy(packet->dev_mac, vm_mac, ETH_ALEN);
     packet->input = input;
     packet->guest_packet_data = guest_packet_data;

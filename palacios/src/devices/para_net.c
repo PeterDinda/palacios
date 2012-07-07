@@ -39,6 +39,11 @@ static int tx_call(struct guest_info * info, uint_t call_no, void * priv_data) {
     addr_t pkt_gpa = info->vm_regs.rbx;
     int pkt_len = info->vm_regs.rcx;
     uchar_t * pkt = V3_Malloc(pkt_len);
+
+    if (!pkt) {
+	PrintError("Cannot allocate in transmit!\n");
+	return -1;
+    }
     
     PrintDebug("Transmitting Packet\n");
     
@@ -105,6 +110,11 @@ static int net_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
     char * dev_id = v3_cfg_val(cfg, "ID");
 
     state = (struct nic_state *)V3_Malloc(sizeof(struct nic_state));
+
+    if (!state) {
+	PrintError("Cannot allocate in init\n");
+	return -1;
+    }
 
     PrintDebug("Creating VMNet Device\n");
 

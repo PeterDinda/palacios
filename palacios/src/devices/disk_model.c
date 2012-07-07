@@ -91,6 +91,10 @@ static int connect_fn(struct v3_vm_info * vm,
   uint32_t seek_time = atoi(v3_cfg_val(cfg, "seek_us"));
   struct disk_state * model = (struct disk_state *)V3_Malloc(sizeof(struct disk_state));
 
+  if (!model) {
+      PrintError("Cannot allocate\n");
+      return -1;
+  }
 
   model->ops = ops;
   model->seek_usecs = seek_time;

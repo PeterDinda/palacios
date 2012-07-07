@@ -867,7 +867,10 @@ static int pic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	
     state = (struct pic_internal *)V3_Malloc(sizeof(struct pic_internal));
 
-    V3_ASSERT(state != NULL);
+    if (!state) {
+	PrintError("Cannot allocate in init\n");
+	return -1;
+    }
 
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, state);
 

@@ -82,11 +82,20 @@ static int update_map(struct v3_vm_info * vm, uint_t msr, int hook_reads, int ho
 
 
 int v3_init_svm_msr_map(struct v3_vm_info * vm) {
+    void *temp;
     struct v3_msr_map * msr_map = &(vm->msr_map);
   
     msr_map->update_map = update_map;
 
-    msr_map->arch_data = V3_VAddr(V3_AllocPages(2));  
+    temp = V3_AllocPages(2);
+    
+    if (!temp) { 
+	PrintError("Cannot allocate msr bitmap\n");
+	return -1;
+    }
+
+    msr_map->arch_data = V3_VAddr(temp);
+
     memset(msr_map->arch_data, 0xff, PAGE_SIZE_4KB * 2);
 
     v3_refresh_msr_map(vm);

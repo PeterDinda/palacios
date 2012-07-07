@@ -1202,6 +1202,12 @@ static struct v3_device_ops dev_ops = {
 
 static int pci_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct pci_internal * pci_state = V3_Malloc(sizeof(struct pci_internal));
+
+    if (!pci_state) {
+	PrintError("Cannot allocate in init\n");
+	return -1;
+    }
+
     int i = 0;
     char * dev_id = v3_cfg_val(cfg, "ID");
     int ret = 0;

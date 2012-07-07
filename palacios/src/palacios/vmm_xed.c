@@ -167,6 +167,12 @@ int v3_init_decoder(struct guest_info * info) {
     }
 
     xed_state_t * decoder_state = (xed_state_t *)V3_Malloc(sizeof(xed_state_t));
+
+    if (!decoder_state) {
+	PrintError("Cannot allocate in initializing decoder\n");
+	return -1;
+    }
+
     xed_state_zero(decoder_state);
     xed_state_init(decoder_state,
 		   XED_MACHINE_MODE_LEGACY_32, 

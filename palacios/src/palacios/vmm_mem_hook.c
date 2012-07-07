@@ -52,10 +52,28 @@ static int mem_eq_fn(addr_t key1, addr_t key2) {
 }
 
 int v3_init_mem_hooks(struct v3_vm_info * vm) {
+    void *temp;
+
     struct v3_mem_hooks * hooks = &(vm->mem_hooks);
 
-    hooks->hook_hvas_1 = V3_VAddr(V3_AllocPages(vm->num_cores));
-    hooks->hook_hvas_2 = V3_VAddr(V3_AllocPages(vm->num_cores));
+    temp = V3_AllocPages(vm->num_cores);
+
+    if (!temp) {
+	PrintError("Cannot allocate space for mem hooks\n");
+	return -1;
+    }
+
+    hooks->hook_hvas_1 = V3_VAddr(temp);
+
+    temp = V3_AllocPages(vm->num_cores);
+
+    if (!temp) {
+	PrintError("Cannot allocate space for mem hooks\n");
+	V3_FreePages(hooks->hook_hvas_1,vm->num_cores);
+	return -1;
+    }
+
+    hooks->hook_hvas_2 = V3_VAddr(temp);
 
     INIT_LIST_HEAD(&(hooks->hook_list));
 
@@ -317,6 +335,11 @@ int v3_hook_write_mem(struct v3_vm_info * vm, uint16_t core_id,
     struct mem_hook * hook = V3_Malloc(sizeof(struct mem_hook));
     struct v3_mem_hooks * hooks = &(vm->mem_hooks);
 
+    if (!hook) {
+	PrintError("Cannot allocate in hooking memory for full access\n");
+	return -1;
+    }
+
     memset(hook, 0, sizeof(struct mem_hook));
 
     hook->write = write;
@@ -359,6 +382,11 @@ int v3_hook_full_mem(struct v3_vm_info * vm, uint16_t core_id,
     struct mem_hook * hook = V3_Malloc(sizeof(struct mem_hook));
     struct v3_mem_hooks * hooks = &(vm->mem_hooks);
 
+    if (!hook) {
+	PrintError("Cannot allocate in hooking memory for writing\n");
+	return -1;
+    }
+
     memset(hook, 0, sizeof(struct mem_hook));
 
     hook->write = write;
@@ -366,12 +394,20 @@ int v3_hook_full_mem(struct v3_vm_info * vm, uint16_t core_id,
     hook->priv_data = priv_data;
 
     entry = v3_create_mem_region(vm, core_id, guest_addr_start, guest_addr_end);
+
+    if (!entry) {
+	PrintError("Cannot create memory region\n");
+	V3_Free(hook);
+	return -1;
+    }
+
     hook->region = entry;
 
     entry->unhandled = handle_mem_hook;
     entry->priv_data = hook;
 
     if (v3_insert_mem_region(vm, entry)) {
+	PrintError("Cannot insert memory region\n");
 	V3_Free(entry);
 	V3_Free(hook);
 	return -1;

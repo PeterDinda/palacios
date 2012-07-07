@@ -28,9 +28,10 @@
 #include <palacios/vmm_rbtree.h>
 
 
+#define V3_MTREE_NAME_LEN 50
 
 struct v3_mtree {
-    char name[50];
+    char name[V3_MTREE_NAME_LEN];
 
     union {
 	uint8_t flags;

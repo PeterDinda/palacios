@@ -82,7 +82,18 @@ static struct shadow_page_data * create_new_shadow_pt(struct guest_info * core) 
     // else  
 
     page_tail = (struct shadow_page_data *)V3_Malloc(sizeof(struct shadow_page_data));
+
+    if (!page_tail) {
+	PrintError("Cannot allocate\n");
+	return NULL;
+    }
+
     page_tail->page_pa = (addr_t)V3_AllocPages(1);
+
+    if (!page_tail->page_pa) {
+	PrintError("Cannot allocate page\n");
+	return NULL;
+    }
 
     PrintDebug("Allocating new shadow Page: %p (cur_cr3=%p)\n", 
 	       (void *)(addr_t)page_tail->page_pa, 
@@ -116,6 +127,11 @@ static int vtlb_local_init(struct guest_info * core) {
     V3_Print("VTLB local initialization\n");
 
     vtlb_state = (struct vtlb_local_state *)V3_Malloc(sizeof(struct vtlb_local_state));
+
+    if (!vtlb_state) {
+	PrintError("Cannot allocate\n");
+	return -1;
+    }
 
     INIT_LIST_HEAD(&(vtlb_state->page_list));
 

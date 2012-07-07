@@ -736,7 +736,11 @@ static int pit_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     pit_state = (struct pit *)V3_Malloc(sizeof(struct pit));
 
-    V3_ASSERT(pit_state != NULL);
+    if (!pit_state) {
+	PrintError("Cannot allocate in init\n");
+	return -1;
+    }
+
     pit_state->speaker = 0;
     pit_state->vm = vm;
 

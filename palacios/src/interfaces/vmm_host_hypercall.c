@@ -142,7 +142,8 @@ int v3_register_host_hypercall(host_vm_info_t * vm,
     struct bounce_data *b = V3_Malloc(sizeof(struct bounce_data));
 
     if (!b) { 
-      return -1;
+	PrintError("Unable to allocate in registering host hypercall\n");
+	return -1;
     }
     
     b->hypercall=hypercall;
@@ -152,7 +153,9 @@ int v3_register_host_hypercall(host_vm_info_t * vm,
 			      hypercall_id, 
 			      bounce,
 			      b) < 0) {
-      return -1;
+	PrintError("Cannot register host hypercall\n");
+	V3_Free(b);
+	return -1;
     }
     
     return 0;

@@ -147,6 +147,11 @@ static int debug_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     state = (struct debug_state *)V3_Malloc(sizeof(struct debug_state));
 
+    if (!state) {
+	PrintError("Cannot allocate in init\n");
+	return -1;
+    }
+
     PrintDebug("Creating OS Debug Device\n");
 
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, state);

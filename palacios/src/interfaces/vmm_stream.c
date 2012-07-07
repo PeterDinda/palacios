@@ -38,6 +38,11 @@ struct v3_stream * v3_stream_open(struct v3_vm_info * vm, const char * name,
 
     stream = V3_Malloc(sizeof(struct v3_stream));
 
+    if (!stream) {
+	PrintError("Cannot allocate in opening a stream\n");
+	return NULL;
+    }
+
     stream->input = input;
     stream->guest_stream_data = guest_stream_data;
     stream->host_stream_data = stream_hooks->open(stream, name, vm->host_priv_data);

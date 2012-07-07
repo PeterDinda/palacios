@@ -173,6 +173,12 @@ int v3_cpuid_add_fields(struct v3_vm_info * vm, uint32_t cpuid,
 
     if (hook == NULL) {
 	struct masked_cpuid * mask = V3_Malloc(sizeof(struct masked_cpuid));
+
+	if (!mask) {
+	    PrintError("Unable to alocate space for cpu id mask\n");
+	    return -1;
+	}
+
 	memset(mask, 0, sizeof(struct masked_cpuid));
 	
 	mask->rax_mask = rax_mask;
@@ -186,6 +192,7 @@ int v3_cpuid_add_fields(struct v3_vm_info * vm, uint32_t cpuid,
 
 	if (v3_hook_cpuid(vm, cpuid, mask_hook, mask) == -1) {
 	    PrintError("Error hooking cpuid %d\n", cpuid);
+	    V3_Free(mask);
 	    return -1;
 	}
     } else {
@@ -262,6 +269,12 @@ int v3_hook_cpuid(struct v3_vm_info * vm, uint32_t cpuid,
     }
 
     hook = (struct v3_cpuid_hook *)V3_Malloc(sizeof(struct v3_cpuid_hook));
+
+    if (!hook) {
+	PrintError("Cannot allocate memory to hook cpu id\n");
+	return -1;
+    }
+
     hook->cpuid = cpuid;
     hook->private_data = private_data;
     hook->hook_fn = hook_fn;

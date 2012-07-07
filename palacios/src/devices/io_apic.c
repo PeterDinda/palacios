@@ -388,6 +388,11 @@ static int ioapic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     struct io_apic_state * ioapic = (struct io_apic_state *)V3_Malloc(sizeof(struct io_apic_state));
 
+    if (!ioapic) {
+	PrintError("Cannot allocate in init\n");
+	return -1;
+    }
+
     ioapic->apic_dev_data = apic_dev;
 
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, ioapic);

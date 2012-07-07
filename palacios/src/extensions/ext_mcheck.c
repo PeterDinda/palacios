@@ -465,8 +465,8 @@ static int init_mcheck(struct v3_vm_info * vm, v3_cfg_tree_t * cfg, void ** priv
     state = (struct mcheck_state *)V3_Malloc(sizeof(struct mcheck_state));
 
     if (state == NULL) {
-    PrintError(MSG_PRE "Failed to allocate machine-check architecture state.\n");
-    return -1;
+	PrintError(MSG_PRE "Failed to allocate machine-check architecture state.\n");
+	return -1;
     }
 
 

@@ -32,6 +32,8 @@
 //#include <palacios/svm.h>
 
 
+#define V3_MAX_TAG_LEN 256
+
 struct v3_vm_info;
 
 struct v3_vm_info * v3_config_guest( void * cfg_blob, void * priv_data);
@@ -41,7 +43,7 @@ struct v3_cfg_file {
     void * data;
     uint64_t size;
 
-    char tag[256];
+    char tag[V3_MAX_TAG_LEN];
 
     struct list_head file_node;
 };

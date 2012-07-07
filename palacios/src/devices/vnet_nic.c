@@ -112,6 +112,12 @@ static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     v3_cfg_tree_t * frontend_cfg = v3_cfg_subtree(cfg, "frontend");
 
     vnetnic = (struct vnet_nic_state *)V3_Malloc(sizeof(struct vnet_nic_state));
+
+    if (!vnetnic) {
+	PrintError("Cannot allocate in init\n");
+	return -1;
+    }
+
     memset(vnetnic, 0, sizeof(struct vnet_nic_state));
 
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, vnetnic);

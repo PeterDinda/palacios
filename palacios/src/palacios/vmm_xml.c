@@ -67,6 +67,7 @@ static void * tmp_realloc(void * old_ptr, size_t old_size, size_t new_size) {
     new_buf = V3_Malloc(new_size);
     
     if (new_buf == NULL) {
+	PrintError("Cannot allocate in tmp_realloc in xml\n");
         return NULL;
     }
 
@@ -302,6 +303,12 @@ static void v3_xml_char_content(struct v3_xml_root * root, char * s, size_t len,
 	    char * tmp = NULL;
 
 	    tmp = V3_Malloc((l = strlen(xml->txt)) + len);
+
+	    if (!tmp) {
+		PrintError("Cannot allocate in xml char content\n");
+		return ;
+	    }
+
 	    strcpy(tmp, xml->txt);
 	    xml->txt = tmp;
 	}
@@ -362,6 +369,12 @@ static void v3_xml_free_attr(char **attr) {
 static struct v3_xml * v3_xml_new(const char * name) {
 
     struct v3_xml_root * root = (struct v3_xml_root *)V3_Malloc(sizeof(struct v3_xml_root));
+
+    if (!root) {
+	PrintError("Cannot allocate in xml_new\n");
+	return NULL;
+    }
+
     memset(root, 0, sizeof(struct v3_xml_root));
 
     root->xml.name = (char *)name;
@@ -457,6 +470,12 @@ static struct v3_xml * v3_xml_add_child(struct v3_xml * xml, const char * name, 
     }
 
     child = (struct v3_xml *)V3_Malloc(sizeof(struct v3_xml));
+
+    if (!child) {
+	PrintError("Cannot allocate in xml_add_child\n");
+	return NULL;
+    }
+
     memset(child, 0, sizeof(struct v3_xml));
 
     child->name = (char *)name;
@@ -565,12 +584,31 @@ static struct v3_xml * parse_str(char * buf, size_t len) {
 				       ((attr_cnt * (2 * sizeof(char *))) + 
 					(2 * sizeof(char *))));
 
+		    if (!attr) {
+			PrintError("Cannot reallocate in xml parse string\n");
+			return NULL;
+		    }
+
 		    attr[last_idx] = tmp_realloc(attr[last_idx - 2], 
 						 attr_cnt,
 						 (attr_cnt + 1)); 
+
+		    if (!attr[last_idx]) {
+			PrintError("Cannot reallocate in xml parse string\n");
+			return NULL;
+		    }
+
 		} else {
 		    attr = V3_Malloc(4 * sizeof(char *)); 
+		    if (!attr) {
+			PrintError("Cannot allocate in xml parse string\n");
+			return NULL;
+		    }
 		    attr[last_idx] = V3_Malloc(2);
+		    if (!attr[last_idx]) {
+			PrintError("Cannot alloocate in xml parse string\n");
+			return NULL;
+		    }
 		}
 
                 attr[attr_idx] = buf; // set attribute name
@@ -734,6 +772,12 @@ struct v3_xml * v3_xml_parse(char * buf) {
 
     str_len = strlen(buf);
     xml_buf = (char *)V3_Malloc(str_len + 1);
+
+    if (!xml_buf) {
+	PrintError("Cannot allocate in xml parse\n");
+	return NULL;
+    }
+
     strcpy(xml_buf, buf);
 
     return parse_str(xml_buf, str_len);
@@ -825,10 +869,26 @@ struct v3_xml * v3_xml_set_attr(struct v3_xml * xml, const char * name, const ch
 	    // first attribute
             xml->attr = V3_Malloc(4 * sizeof(char *));
 
+	    if (!xml->attr) {
+		PrintError("Cannot allocate in xml set attr\n");
+		return NULL;
+	    }
+
 	    // empty list of malloced names/vals
             xml->attr[1] = strdup(""); 
+
+	    if (!xml->attr[1]) {
+		PrintError("Cannot strdup in xml set attr\n");
+		return NULL;
+	    }
+
         } else {
 	    xml->attr = tmp_realloc(xml->attr, l * sizeof(char *), (l + 4) * sizeof(char *));
+
+	    if (!xml->attr) {
+		PrintError("Cannot reallocate in xml set attr\n");
+		return NULL;
+	    }
 	}
 
 	// set attribute name
@@ -840,6 +900,12 @@ struct v3_xml * v3_xml_set_attr(struct v3_xml * xml, const char * name, const ch
         xml->attr[l + 3] = tmp_realloc(xml->attr[l + 1],
 				       strlen(xml->attr[l + 1]),
 				       (c = strlen(xml->attr[l + 1])) + 2);
+
+
+	if (!xml->attr[l + 3]) {
+	    PrintError("Cannot reallocate in xml set attr\n");
+	    return NULL;
+	}
 
 	// set name/value as not malloced
         strcpy(xml->attr[l + 3] + c, " "); 
@@ -1057,7 +1123,14 @@ char * v3_xml_tostr(struct v3_xml * xml) {
     struct v3_xml * o = (xml) ? xml->ordered : NULL;
     struct v3_xml_root * root = (struct v3_xml_root *)xml;
     size_t len = 0, max = V3_XML_BUFSIZE;
-    char *s = strcpy(V3_Malloc(max), "");
+    char *s = V3_Malloc(max);
+
+    if (!s) {
+	PrintError("Cannot allocate in xml tostrr\n");
+	return NULL;
+    }
+
+    strcpy(s, "");
 
     if (! xml || ! xml->name) return tmp_realloc(s, max, len + 1);
     while (root->xml.parent) root = (struct v3_xml_root *)root->xml.parent; // root tag
