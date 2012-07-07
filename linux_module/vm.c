@@ -303,15 +303,17 @@ extern u32 frees;
 int create_palacios_vm(struct v3_guest * guest)  {
     int err;
 
-    init_vm_extensions(guest);
+    if (init_vm_extensions(guest) < 0) {
+        WARNING("palacios: failed to initialize extensions\n");
+        return -1;
+    }
 
     guest->v3_ctx = v3_create_vm(guest->img, (void *)guest, guest->name);
 
     if (guest->v3_ctx == NULL) { 
 	WARNING("palacios: failed to create vm\n");
-	return -1;
+        goto out_err;
     }
-
 
     NOTICE("Creating VM device: Major %d, Minor %d\n", MAJOR(guest->vm_dev), MINOR(guest->vm_dev));
 
@@ -326,20 +328,25 @@ int create_palacios_vm(struct v3_guest * guest)  {
 
     if (err) {
 	WARNING("Fails to add cdev\n");
-	v3_free_vm(guest->v3_ctx);
-	return -1;
+        goto out_err1;
     }
 
     if (device_create(v3_class, NULL, guest->vm_dev, guest, "v3-vm%d", MINOR(guest->vm_dev)) == NULL){
 	WARNING("Fails to create device\n");
-	cdev_del(&(guest->cdev));
-	v3_free_vm(guest->v3_ctx);
-	return -1;
+        goto out_err2;
     }
 
     NOTICE("palacios: vm created at /dev/v3-vm%d\n", MINOR(guest->vm_dev));
 
     return 0;
+
+out_err2:
+    cdev_del(&(guest->cdev));
+out_err1:
+    v3_free_vm(guest->v3_ctx);
+out_err:
+    deinit_vm_extensions(guest);
+    return -1;
 }
 
 

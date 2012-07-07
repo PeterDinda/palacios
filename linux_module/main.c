@@ -89,16 +89,14 @@ static long v3_dev_ioctl(struct file * filp,
 
 	    if (vm_minor == -1) {
 		ERROR("Palacios Error: Too many VMs are currently running\n");
-		palacios_free(guest);
-		return -EFAULT;
+		goto out_err;
 	    }
 
 	    guest->vm_dev = MKDEV(v3_major_num, vm_minor);
 
 	    if (copy_from_user(&user_image, argp, sizeof(struct v3_guest_img))) {
 		ERROR("Palacios Error: copy from user error getting guest image...\n");
-		palacios_free(guest);
-		return -EFAULT;
+		goto out_err1;
 	    }
 
 	    guest->img_size = user_image.size;
@@ -108,14 +106,12 @@ static long v3_dev_ioctl(struct file * filp,
 
 	    if (IS_ERR(guest->img)) {
 		ERROR("Palacios Error: Could not allocate space for guest image\n");
-		palacios_free(guest);
-		return -EFAULT;
+		goto out_err1;
 	    }
 
 	    if (copy_from_user(guest->img, user_image.guest_data, guest->img_size)) {
 		ERROR("Palacios: Error loading guest data\n");
-		palacios_free(guest);
-		return -EFAULT;
+		goto out_err2;
 	    }	   
 
 	    strncpy(guest->name, user_image.name, 127);
@@ -124,17 +120,31 @@ static long v3_dev_ioctl(struct file * filp,
 
 	    if (create_palacios_vm(guest) == -1) {
 		ERROR("Palacios: Error creating guest\n");
-                vfree(guest->img);
-		palacios_free(guest);
-		return -EFAULT;
+		goto out_err2;
 	    }
 
 	    return vm_minor;
+
+
+out_err2:
+            vfree(guest->img);
+out_err1:
+            guest_map[vm_minor] = NULL; 
+out_err:
+            palacios_free(guest);
+
+            return -1;
+
 	    break;
 	}
 	case V3_FREE_GUEST: {
 	    unsigned long vm_idx = arg;
 	    struct v3_guest * guest = guest_map[vm_idx];
+
+	    if (!guest) {
+		ERROR("No VM at index %ld\n",vm_idx);
+		return -1;
+	    }
 
 	    INFO("Freeing VM (%s) (%p)\n", guest->name, guest);
 
