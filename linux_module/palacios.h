@@ -107,6 +107,7 @@ void  palacios_print(const char *fmt, ...);
 void *palacios_allocate_pages(int num_pages, unsigned int alignment);
 void  palacios_free_pages(void *page_addr, int num_pages);
 void *palacios_alloc(unsigned int size);
+void *palacios_alloc_extended(unsigned int size, unsigned int flags);
 void  palacios_free(void *);
 void *palacios_vaddr_to_paddr(void *vaddr);
 void *palacios_paddr_to_vaddr(void *paddr);

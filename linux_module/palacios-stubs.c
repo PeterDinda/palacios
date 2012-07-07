@@ -24,6 +24,12 @@
 
 #include "mm.h"
 
+// The following can be used to track heap bugs
+// zero memory after allocation
+#define ALLOC_ZERO_MEM 0
+// pad allocations by this many bytes on both ends of block
+#define ALLOC_PAD      0
+
 
 u32 pg_allocs = 0;
 u32 pg_frees = 0;
@@ -168,23 +174,11 @@ void palacios_free_pages(void * page_paddr, int num_pages) {
 }
 
 
-/**
- * Allocates 'size' bytes of kernel memory.
- * Returns the kernel virtual address of the memory allocated.
- */
 void *
-palacios_alloc(unsigned int size) {
+palacios_alloc_extended(unsigned int size, unsigned int flags) {
     void * addr = NULL;
 
-    // It is very important that this test remains since 
-    // this function is used extensively throughout palacios and the linux
-    // module, both in places where interrupts are off and where they are on
-    // a GFP_KERNEL call, when done with interrupts off can lead to DEADLOCK
-    if (irqs_disabled()) {
-    	addr = kmalloc(size, GFP_ATOMIC);
-    } else {
-    	addr = kmalloc(size, GFP_KERNEL);
-    }
+    addr = kmalloc(size+2*ALLOC_PAD, flags);
 
     if (!addr) { 
        ERROR("ALERT ALERT  kmalloc has FAILED FAILED FAILED\n");
@@ -193,7 +187,31 @@ palacios_alloc(unsigned int size) {
 
     mallocs++;
 
-    return addr;
+#if ALLOC_ZERO_MEM
+    memset(addr,0,size+2*ALLOC_PAD);
+#endif
+
+    return addr+ALLOC_PAD;
+}
+
+
+/**
+ * Allocates 'size' bytes of kernel memory.
+ * Returns the kernel virtual address of the memory allocated.
+ */
+void *
+palacios_alloc(unsigned int size) {
+
+    // It is very important that this test remains since 
+    // this function is used extensively throughout palacios and the linux
+    // module, both in places where interrupts are off and where they are on
+    // a GFP_KERNEL call, when done with interrupts off can lead to DEADLOCK
+    if (irqs_disabled()) {
+	return palacios_alloc_extended(size,GFP_ATOMIC);
+    } else {
+	return palacios_alloc_extended(size,GFP_KERNEL);
+    }
+
 }
 
 /**
@@ -205,7 +223,7 @@ palacios_free(
 )
 {
     frees++;
-    kfree(addr);
+    kfree(addr-ALLOC_PAD);
     return;
 }
 
