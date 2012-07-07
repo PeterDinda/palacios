@@ -107,7 +107,7 @@ int v3_start_time(struct guest_info * info) {
     info->time_state.guest_cycles = 0;
     PrintDebug("Starting time for core %d at host time %llu/guest time %llu.\n",
 	       info->vcpu_id, t, info->time_state.guest_cycles); 
-    v3_yield(info);
+    v3_yield(info,-1);
     return 0;
 }
 

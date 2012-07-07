@@ -275,9 +275,8 @@ typedef enum v3_cpu_arch {V3_INVALID_CPU, V3_SVM_CPU, V3_SVM_REV3_CPU, V3_VMX_CP
 
 v3_cpu_mode_t v3_get_host_cpu_mode();
 
-void v3_yield(struct guest_info * info);
-void v3_yield_cond(struct guest_info * info);
-void v3_yield_timed(struct guest_info * info, unsigned int usec);
+void v3_yield(struct guest_info * info, int usec);
+void v3_yield_cond(struct guest_info * info, int usec);
 void v3_print_cond(const char * fmt, ...);
 
 void v3_interrupt_cpu(struct v3_vm_info * vm, int logical_cpu, int vector);

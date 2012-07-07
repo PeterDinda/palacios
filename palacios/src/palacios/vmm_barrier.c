@@ -120,7 +120,7 @@ int v3_wait_for_barrier(struct v3_vm_info * vm_info, struct guest_info * local_c
 	    break;
 	}
 
-	v3_yield(local_core);
+	v3_yield(local_core,-1);
     }
 
     return 0;
@@ -199,7 +199,7 @@ int v3_wait_at_barrier(struct guest_info * core) {
 
     // wait for cpu bit to clear
     while (v3_bitmap_check(&(barrier->cpu_map), core->vcpu_id)) {
-	v3_yield(core);
+	v3_yield(core,-1);
     }
 
     return 0;

@@ -482,7 +482,7 @@ int v3_stop_vm(struct v3_vm_info * vm) {
  	    break;
 	}
 
-	v3_yield(NULL);
+	v3_yield(NULL,-1);
     }
     
     V3_Print("VM stopped. Returning\n");
@@ -530,7 +530,7 @@ static int sim_callback(struct guest_info * core, void * private_data) {
     V3_Print("Simulation callback activated (guest_rip=%p)\n", (void *)core->rip);
 
     while (v3_bitmap_check(timeout_map, core->vcpu_id) == 1) {
-	v3_yield(NULL);
+	v3_yield(NULL,-1);
     }
 
     return 0;
@@ -601,7 +601,7 @@ int v3_simulate_vm(struct v3_vm_info * vm, unsigned int msecs) {
 	    break;
 	}
 
-	v3_yield(NULL);
+	v3_yield(NULL,-1);
     }
 
 
@@ -690,7 +690,7 @@ v3_cpu_mode_t v3_get_host_cpu_mode() {
 
 
 
-void v3_yield_cond(struct guest_info * info) {
+void v3_yield_cond(struct guest_info * info, int usec) {
     uint64_t cur_cycle;
     cur_cycle = v3_get_host_time(&info->time_state);
 
@@ -699,7 +699,12 @@ void v3_yield_cond(struct guest_info * info) {
 	//           (void *)cur_cycle, (void *)info->yield_start_cycle, 
 	//	   (void *)info->yield_cycle_period);
 	
-	V3_Yield();
+	if (usec < 0) { 
+	    V3_Yield();
+	} else {
+	    V3_Yield_Timed(usec);
+	}
+
         info->yield_start_cycle +=  info->vm_info->yield_cycle_period;
     }
 }
@@ -709,9 +714,16 @@ void v3_yield_cond(struct guest_info * info) {
  * unconditional cpu yield 
  * if the yielding thread is a guest context, the guest quantum is reset on resumption 
  * Non guest context threads should call this function with a NULL argument
- */
-void v3_yield(struct guest_info * info) {
-    V3_Yield();
+ *
+ * usec <0  => the non-timed yield is used
+ * usec >=0 => the timed yield is used, which also usually implies interruptible
+ */ 
+void v3_yield(struct guest_info * info, int usec) {
+    if (usec < 0) { 
+	V3_Yield();
+    } else {
+	V3_Yield_Timed(usec);
+    }
 
     if (info) {
         info->yield_start_cycle +=  info->vm_info->yield_cycle_period;
@@ -719,18 +731,6 @@ void v3_yield(struct guest_info * info) {
 }
 
 
-/*
- * unconditional cpu yield for a period of time
- * Otherwise identical to v3_yield
- */
-void v3_yield_timed(struct guest_info *info, unsigned int usec)
-{
-    V3_Yield_Timed(usec);
-    
-    if (info) { 
-	info->yield_start_cycle += info->vm_info->yield_cycle_period;
-    }
-}
 
 
 void v3_print_cond(const char * fmt, ...) {

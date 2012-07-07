@@ -46,7 +46,7 @@ int v3_handle_halt(struct guest_info * info) {
             uint64_t t, cycles;
 	    /* Yield, allowing time to pass while yielded */
 	    t = v3_get_host_time(&info->time_state);
-	    v3_yield_timed(info,YIELD_TIME_USEC);
+	    v3_yield(info,YIELD_TIME_USEC);
 	    cycles = v3_get_host_time(&info->time_state) - t;
 	    v3_advance_time(info, &cycles);
 
