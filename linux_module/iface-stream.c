@@ -300,9 +300,13 @@ static int stream_init( void ) {
 
 
 static int stream_deinit( void ) {
-    if (!list_empty(&(global_streams))) {
-	ERROR("Error removing module with open streams\n");
-	DEBUG("TODO: free old streams... \n");
+    struct stream_state * stream = NULL;
+    struct stream_state * tmp = NULL;
+
+    list_for_each_entry_safe(stream, tmp, &(global_streams), stream_node) {
+        free_ringbuf(stream->out_ring);
+        list_del(&(stream->stream_node));
+        palacios_free(stream);
     }
 
     return 0;
@@ -379,11 +383,18 @@ static int guest_stream_init(struct v3_guest * guest, void ** vm_data) {
 
 static int guest_stream_deinit(struct v3_guest * guest, void * vm_data) {
     struct vm_global_streams * state = vm_data;
-    if (!list_empty(&(state->open_streams))) {
-	ERROR("Error shutting down VM with open streams\n");
-	return -1;
-    }
 
+    struct stream_state * stream = NULL;
+    struct stream_state * tmp = NULL;
+
+    list_for_each_entry_safe(stream, tmp, &(global_streams), stream_node) {
+        free_ringbuf(stream->out_ring);
+        list_del(&(stream->stream_node));
+        palacios_free(stream);
+    }
+    
+    palacios_free(state);
+    
     return 0;
 }
 
