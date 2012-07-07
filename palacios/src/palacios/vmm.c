@@ -256,9 +256,7 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
     int vcore_id = 0;
 
 
-    if (vm->run_state == VM_RUNNING ||
-        vm->run_state == VM_INVALID ||
-        vm->run_state == VM_ERROR) {
+    if (vm->run_state != VM_STOPPED) {
         PrintError("VM has already been launched (state=%d)\n", (int)vm->run_state);
         return -1;
     }
