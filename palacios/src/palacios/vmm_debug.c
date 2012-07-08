@@ -43,9 +43,11 @@ static int core_handler(struct guest_info * core, uint32_t cmd) {
 
 
     switch (cmd) {
+#ifdef V3_CONFIG_TELEMETRY
 	case PRINT_TELEMETRY: 
 	    v3_print_core_telemetry(core);
 	    break;
+#endif
 	
 	case PRINT_CORE_STATE:
 	    v3_raise_barrier(core->vm_info, NULL);
@@ -79,7 +81,9 @@ static int core_handler(struct guest_info * core, uint32_t cmd) {
 	case PRINT_STATE:
 	    v3_raise_barrier(core->vm_info, NULL);
 
+#ifdef V3_CONFIG_TELEMETRY
 	    v3_print_core_telemetry(core);
+#endif
 	    v3_print_guest_state(core);
 	    v3_print_arch_state(core);
 
