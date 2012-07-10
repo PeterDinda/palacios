@@ -342,8 +342,14 @@ static int file_init( void ) {
 
 
 static int file_deinit( void ) {
-    if (!list_empty(&(global_files))) {
-	ERROR("Error removing module with open files\n");
+    struct palacios_file * pfile = NULL;
+    struct palacios_file * tmp = NULL;
+    
+    list_for_each_entry_safe(pfile, tmp, &(global_files), file_node) { 
+        filp_close(pfile->filp, NULL);
+        list_del(&(pfile->file_node));
+        palacios_free(pfile->path);    
+        palacios_free(pfile);
     }
 
     return 0;
@@ -368,9 +374,18 @@ static int guest_file_init(struct v3_guest * guest, void ** vm_data) {
 
 
 static int guest_file_deinit(struct v3_guest * guest, void * vm_data) {
+    struct vm_file_state * state = (struct vm_file_state *)vm_data;
+    struct palacios_file * pfile = NULL;
+    struct palacios_file * tmp = NULL;
     
-    palacios_free(vm_data);
+    list_for_each_entry_safe(pfile, tmp, &(state->open_files), file_node) { 
+        filp_close(pfile->filp, NULL);
+        list_del(&(pfile->file_node));
+        palacios_free(pfile->path);    
+        palacios_free(pfile);
+    }
 
+    palacios_free(state);
     return 0;
 }
 

@@ -1341,6 +1341,12 @@ static int host_dev_guest_init(struct v3_guest * guest, void ** vm_data ) {
 }
 
 
+static int host_dev_guest_deinit(struct v3_guest * guest, void * vm_data) {
+
+    palacios_free(vm_data);
+    return 0;
+}
+
 
 
 
@@ -1349,7 +1355,7 @@ static struct linux_ext host_dev_ext = {
     .init = host_dev_init,
     .deinit = NULL,
     .guest_init = host_dev_guest_init,
-    .guest_deinit = NULL
+    .guest_deinit = host_dev_guest_deinit
 };
 
 
