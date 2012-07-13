@@ -31,6 +31,8 @@ struct mem_hook {
     int (*read)(struct guest_info * core, addr_t guest_addr, void * dst, uint_t length, void * priv_data);
     // Called when data is written to a memory page
     int (*write)(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data);
+    // Called when memory page is accessed
+    int (*access)(struct guest_info *core, addr_t guest_va, addr_t guest_pa, struct v3_mem_region *region, pf_error_t access_info, void *priv_data);
 
     void * priv_data;
     struct v3_mem_region * region;
@@ -144,6 +146,16 @@ static int handle_mem_hook(struct guest_info * core, addr_t guest_va, addr_t gue
     addr_t dst_mem_op_hva = 0;
     addr_t dst_mem_op_gpa = 0;
     int dst_req_size = -1;
+
+
+    struct mem_hook *access_hook = NULL;
+
+    // Let access hooks take priority
+    access_hook = (struct mem_hook *) reg->priv_data; 
+    if (access_hook && access_hook->access) { 
+	return access_hook->access(core, guest_va, guest_pa, reg, access_info, access_hook->priv_data);
+    } 
+
 
     /* Find and decode hooked instruction */
     if (core->mem_mode == PHYSICAL_MEM) { 
@@ -326,7 +338,6 @@ static int handle_mem_hook(struct guest_info * core, addr_t guest_va, addr_t gue
 
 
 
-
 int v3_hook_write_mem(struct v3_vm_info * vm, uint16_t core_id,
 		      addr_t guest_addr_start, addr_t guest_addr_end, addr_t host_addr,
 		      int (*write)(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data),
@@ -421,6 +432,58 @@ int v3_hook_full_mem(struct v3_vm_info * vm, uint16_t core_id,
 }
 
 
+int v3_hook_access_mem(struct v3_vm_info * vm, uint16_t core_id, 
+		       addr_t guest_addr_start, addr_t guest_addr_end,
+		       int (*access)(struct guest_info * core, 
+				     addr_t guest_va, 
+				     addr_t guest_pa, 
+				     struct v3_mem_region *reg, 
+				     pf_error_t access_info, 
+				     void *priv_data),
+		       void * priv_data) 
+{
+  
+    struct v3_mem_region * entry = NULL;
+    struct mem_hook * hook = V3_Malloc(sizeof(struct mem_hook));
+    struct v3_mem_hooks * hooks = &(vm->mem_hooks);
+
+    if (!hook) {
+	PrintError("Cannot allocate in hooking memory for access\n");
+	return -1;
+    }
+
+    memset(hook, 0, sizeof(struct mem_hook));
+
+    hook->access = access;
+    hook->priv_data = priv_data;
+
+    entry = v3_create_mem_region(vm, core_id, guest_addr_start, guest_addr_end);
+
+    if (!entry) {
+	PrintError("Cannot create memory region\n");
+	V3_Free(hook);
+	return -1;
+    }
+
+    hook->region = entry;
+
+    entry->unhandled = handle_mem_hook;
+    entry->priv_data = hook;
+
+    if (v3_insert_mem_region(vm, entry)) {
+	PrintError("Cannot insert memory region\n");
+	V3_Free(entry);
+	V3_Free(hook);
+	return -1;
+    }
+
+    list_add(&(hook->hook_node), &(hooks->hook_list));
+    v3_htable_insert(hooks->reg_table, (addr_t)entry, (addr_t)hook);
+
+    return 0;
+}
+
+
 static int free_hook(struct v3_vm_info * vm, struct mem_hook * hook) {  
     v3_delete_mem_region(vm, hook->region);
     list_del(&(hook->hook_node));
@@ -448,8 +511,8 @@ int v3_unhook_mem(struct v3_vm_info * vm, uint16_t core_id, addr_t guest_addr_st
 	PrintError("Trying to unhook region that is not a hook at %p\n", (void *)guest_addr_start);
 	return -1;
     }
-
-
+    
+    
     free_hook(vm, hook);
 
     return 0;

@@ -54,6 +54,16 @@ int v3_hook_full_mem(struct v3_vm_info * vm, uint16_t core_id,
 		     int (*write)(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data),
 		     void * priv_data);
 
+int v3_hook_access_mem(struct v3_vm_info * vm, uint16_t core_id,
+		       addr_t guest_addr_start, addr_t guest_addr_end,
+		       int (*access)(struct guest_info * core, 
+				     addr_t guest_va, 
+				     addr_t guest_pa, 
+				     struct v3_mem_region *reg, 
+				     pf_error_t access_info, 
+				     void *priv_data),
+		       void * priv_data);
+
 int v3_hook_write_mem(struct v3_vm_info * vm, uint16_t core_id, 
 		      addr_t guest_addr_start, addr_t guest_addr_end, addr_t host_addr,
 		      int (*write)(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data),
