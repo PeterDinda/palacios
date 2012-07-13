@@ -19,26 +19,26 @@
 #include <palacios/vmm_util.h>
 
 #include <palacios/vmm.h>
-
+#include <palacios/vmm_sprintf.h>
 
 void v3_dump_mem(uint8_t * start, int n) {
     int i, j;
+    char buf[128];
+      
 
     for (i = 0; i < n; i += 16) {
-	V3_Print("%p", (void *)(start + i));
-	for (j = i; (j < (i + 16)) && (j < n); j += 2) {
-	    V3_Print(" ");
-	    V3_Print("%02x", *(uint8_t *)(start + j));
-	    if ((j + 1) < n) { 
-		V3_Print("%02x", *((uint8_t *)(start + j + 1)));
-	    }
-	}
-	V3_Print(" ");
-	for (j = i; (j < (i + 16)) && (j < n); j++) {
-	    V3_Print("%c", ((start[j] >= 32) && (start[j] <= 126)) ? start[j] : '.');
-	}
-	V3_Print("\n");
+      snprintf(buf, 128, "%p ", (void *)(start + i));
+      for (j = i; (j < (i + 16)) && (j < n); j++) {
+	snprintf(buf+strlen(buf),128-strlen(buf),"%02x ", *(uint8_t *)(start + j));
+      }
+      for (j = i; (j < (i + 16)) && (j < n); j++) {
+	snprintf(buf+strlen(buf),128-strlen(buf),"%c", ((start[j] >= 32) && (start[j] <= 126)) ? start[j] : '.');
+      }
+      snprintf(buf+strlen(buf),128-strlen(buf), "\n");
+      buf[strlen(buf)]=0;
+      V3_Print("%s",buf);
     }
+    
 }
 
 
