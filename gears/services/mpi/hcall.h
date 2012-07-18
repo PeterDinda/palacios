@@ -37,7 +37,7 @@
 		"vmmcall ;       "		      \
 		"movq %%rax, %0; "		      \
 		"popq %%rbx; "			      \
-		: "=r"(rc)			      \
+		: "=m"(rc)			      \
 		: "m"(id),			      \
                   "m"(a), "m"(b), "m"(c), "m"(d),     \
 		  "m"(e), "m"(f), "m"(g), "m"(h)      \
