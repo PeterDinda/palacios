@@ -47,3 +47,4 @@ obj-$(V3_CONFIG_VGA) += vga.o
 
 obj-$(V3_CONFIG_PCI_FRONT) += pci_front.o
 
+obj-$(V3_CONFIG_VNET_GUEST_IFACE) += vnet_guest_iface.o

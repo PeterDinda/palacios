@@ -196,6 +196,7 @@ config DEBUG_LINUX_VIRTIO_VNET
           Enable debugging for the VNET Virtio interface
 
 
+
 config VNET_NIC
         bool "Enable VNET Backend Device"
         default n
@@ -209,6 +210,20 @@ config DEBUG_VNET_NIC
         depends on VNET_NIC && DEBUG_ON
         help
           Enable debugging for the VNET NIC Device
+
+config VNET_GUEST_IFACE
+        bool "Enable VNET guest hypercall interface"
+        default n
+        depends on VNET
+        help
+          Allows the guest to query for info, such as headers, from VNET
+
+config DEBUG_VNET_GUEST_IFACE
+        bool "VNET guest hypercall interface debugging"
+        default n
+        depends on VNET_GUEST_IFACE && DEBUG_ON
+        help
+          Enable debugging for the VNET guest hypercall interface
 
 
 config NE2K

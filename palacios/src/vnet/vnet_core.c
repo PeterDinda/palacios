@@ -349,6 +349,9 @@ static void inline del_routes_by_dev(int dev_id){
     vnet_unlock_irqrestore(vnet_state.lock, flags);
 }
 
+
+
+
 /* At the end allocate a route_list
  * This list will be inserted into the cache so we don't need to free it
  */
@@ -482,6 +485,96 @@ static struct route_list * match_route(const struct v3_vnet_pkt * pkt) {
 
     return matches;
 }
+
+int v3_vnet_query_header(uint8_t src_mac[6], 
+			 uint8_t dest_mac[6],
+			 int     recv,         // 0 = send, 1=recv
+			 struct v3_vnet_header *header)
+{
+    struct route_list *routes;
+    struct vnet_route_info *r;
+    struct v3_vnet_pkt p;
+
+    p.size=14;
+    p.data=p.header;
+    memcpy(p.header,dest_mac,6);
+    memcpy(p.header+6,src_mac,6);
+    memset(p.header+12,0,2);
+
+    p.src_type = LINK_EDGE;
+    p.src_id = 0;
+
+    memcpy(header->src_mac,src_mac,6);
+    memcpy(header->dst_mac,dest_mac,6);
+
+    
+    look_into_cache(&p,&routes);
+
+    if (!routes) { 
+	routes = match_route(&p);
+	if (!routes) { 
+	    PrintError("Cannot match route\n");
+	    header->header_type=VNET_HEADER_NOMATCH;
+	    header->header_len=0;
+	    return -1;
+	} else {
+	    add_route_to_cache(&p,routes);
+	}
+    }
+    
+    if (routes->num_routes<1) { 
+	PrintError("Less than one route\n");
+	header->header_type=VNET_HEADER_NOMATCH;
+	header->header_len=0;
+	return -1;
+    }
+
+    if (routes->num_routes>1) { 
+	PrintError("More than one route, building header for the first one only\n");
+    }
+
+    r=routes->routes[0];
+
+    switch (r->route_def.dst_type) {
+	case LINK_EDGE: {
+	    // switch based on the link type
+	    // for mac-in-udp, we would want to generate a mac, ip, and udp header
+	    // direct transmission
+
+	    // for now we will say we have no encapsulation
+	    //
+	    header->header_type=VNET_HEADER_NONE;
+	    header->header_len=0;
+	    header->src_mac_qual=r->route_def.src_mac_qual;
+	    header->dst_mac_qual=r->route_def.dst_mac_qual;
+	    
+	}
+	    
+	    return 0;
+	    break;
+	    
+
+	case LINK_INTERFACE:
+	    // direct transmission
+	    // let's guess that it goes to the same interface...
+	    header->header_type=VNET_HEADER_NONE;
+	    header->header_len=0;
+	    header->src_mac_qual=r->route_def.src_mac_qual;
+	    header->dst_mac_qual=r->route_def.dst_mac_qual;
+
+	    return 0;
+	    break;
+
+	default:
+	    PrintError("Unknown destination type\n");
+	    return -1;
+	    break;
+
+    }
+    
+}
+
+
 
 
 int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data) {

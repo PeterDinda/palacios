@@ -41,6 +41,37 @@
 
 #define VNET_HASH_SIZE 	17
 
+#define VNET_MAX_HEADER_LEN 128
+
+/*
+  A VNET header is the data that needs to be
+  prefaced to an outgoing packet for a specific
+  MAC pair and qualifiers
+*/
+struct v3_vnet_header {
+    // this header is for data that match
+    uint8_t src_mac[ETH_ALEN];
+    uint8_t dst_mac[ETH_ALEN];
+
+    uint8_t src_mac_qual;
+    uint8_t dst_mac_qual;
+    
+#define VNET_HEADER_NOMATCH 0 // Could not find a header
+#define VNET_HEADER_NONE  1   // There is no header, send/receive without change
+#define VNET_HEADER_RAW   2   // Prepend the following data on a send, remove this much data on a receive
+#define VNET_HEADER_UDP   3   // Prepend this UDP header and then send this as a UDP packet / dual on receive
+#define VNET_HEADER_TCP   4   // Prepend this TCP header and then send this as a TCP segment / dual on receive
+#define VNET_HEADER_VXLAN 5   // Prepend this UDP header + VXLAN ID / dual on receive
+
+    uint32_t header_type;
+
+    uint32_t header_len;
+    uint8_t  header_data[VNET_MAX_HEADER_LEN];
+
+
+} __attribute__((packed));
+
+
 struct v3_vnet_route {
     uint8_t src_mac[ETH_ALEN];
     uint8_t dst_mac[ETH_ALEN];
@@ -53,6 +84,7 @@ struct v3_vnet_route {
  
     int src_id;
     uint8_t src_type;
+
 } __attribute__((packed));
 
 
@@ -131,6 +163,11 @@ int v3_vnet_add_dev(struct v3_vm_info * info, uint8_t * mac,
 		    struct v3_vnet_dev_ops * ops, int quote, int poll_state,
 		    void * priv_data);
 int v3_vnet_del_dev(int dev_id);
+
+int v3_vnet_query_header(uint8_t src_mac[6], 
+			 uint8_t dest_mac[6],
+			 int     recv,
+			 struct v3_vnet_header *header);
 
 
 #endif
