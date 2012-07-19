@@ -27,7 +27,9 @@ BASE_EXECS = 	v3_mem \
 		v3_stream \
 		v3_monitor \
                 v3_hypercall \
-		v3_debug
+		v3_debug \
+		v3_send \
+		v3_receive \
 
 #
 # Examples
@@ -44,7 +46,7 @@ EXPERIMENTAL_EXECS = 	v3_simulate  \
 			v3_inject_ecc_scrubber_mce  \
                         v3_top_inject \
                         v3_env_inject \
-						v3_syscall
+			v3_syscall
 
 
 
