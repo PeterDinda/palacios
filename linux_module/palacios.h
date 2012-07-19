@@ -31,6 +31,9 @@
 
 #define V3_VM_MOVE_CORE 33
 
+#define V3_VM_SEND    34
+#define V3_VM_RECEIVE 35
+
 #define V3_VM_FB_INPUT 257
 #define V3_VM_FB_QUERY 258
 

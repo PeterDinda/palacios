@@ -209,6 +209,53 @@ static long v3_vm_ioctl(struct file * filp,
 	    break;
 	}
 #endif
+
+#ifdef V3_CONFIG_LIVE_MIGRATION  
+	case V3_VM_SEND: {
+	    struct v3_chkpt_info chkpt_info;
+	    void __user * argp = (void __user *)arg;
+	    
+	    memset(&chkpt_info,0, sizeof(struct v3_chkpt_info));
+	    
+	    if(copy_from_user(&chkpt_info, argp, sizeof(struct v3_chkpt_info))){
+		WARNING("Copy from user error getting checkpoint info\n");
+		return -EFAULT;
+	    }
+	    
+	    
+	    NOTICE("Sending (live-migrating) Guest to %s:%s\n",chkpt_info.store, chkpt_info.url); 
+	    
+	    if (v3_send_vm(guest->v3_ctx, chkpt_info.store, chkpt_info.url) == -1) {
+		WARNING("Error sending VM\n");
+		return -EFAULT;
+	    }
+	    
+	    break;
+	}
+
+	case V3_VM_RECEIVE: {
+	    struct v3_chkpt_info chkpt_info;
+	    void __user * argp = (void __user *)arg;
+	    
+	    memset(&chkpt_info,0, sizeof(struct v3_chkpt_info));
+
+	    if(copy_from_user(&chkpt_info, argp, sizeof(struct v3_chkpt_info))){
+		WARNING("Copy from user error getting checkpoint info\n");
+		return -EFAULT;
+	    }
+	    
+	    
+	    NOTICE("Receiving (live-migrating) Guest to %s:%s\n",chkpt_info.store, chkpt_info.url);
+	    
+	    if (v3_receive_vm(guest->v3_ctx, chkpt_info.store, chkpt_info.url) == -1) {
+		WARNING("Error receiving VM\n");
+		return -EFAULT;
+	    }
+	    
+	    break;
+	}
+#endif
+
 	case V3_VM_DEBUG: {
 	    struct v3_debug_cmd cmd;
 	    struct v3_debug_event evt;
