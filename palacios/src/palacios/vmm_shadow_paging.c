@@ -52,6 +52,14 @@ static const char default_strategy[] = "VTLB";
 
 static struct hashtable * master_shdw_pg_table = NULL;
 
+
+struct event_callback {
+    int (*callback)(struct guest_info *core, struct v3_shdw_pg_event *event, void *priv_data);
+    void *priv_data;
+
+    struct list_head node;
+};
+
 static uint_t shdw_pg_hash_fn(addr_t key) {
     char * name = (char *)key;
     return v3_hash_buffer((uint8_t *)name, strlen(name));
@@ -62,6 +70,23 @@ static int shdw_pg_eq_fn(addr_t key1, addr_t key2) {
     char * name2 = (char *)key2;
 
     return (strcmp(name1, name2) == 0);
+}
+
+static int have_callbacks(struct guest_info *core)
+{
+    return !list_empty(&(core->vm_info->shdw_impl.event_callback_list));
+}
+
+static void dispatch_event(struct guest_info *core, struct v3_shdw_pg_event *event)
+{
+    struct event_callback *cb,*temp;
+    
+    list_for_each_entry_safe(cb,
+			     temp,
+			     &(core->vm_info->shdw_impl.event_callback_list),
+			     node) {
+	cb->callback(core,event,cb->priv_data);
+    }
 }
 
 
@@ -129,7 +154,6 @@ int v3_init_shdw_pg_state(struct guest_info * core) {
     state->guest_cr0 = 0;
     state->guest_efer.value = 0x0LL;
 
-
     if (impl->local_init(core) == -1) {
 	PrintError("Error in Shadow paging local initialization (%s)\n", impl->name);
 	return -1;
@@ -140,6 +164,7 @@ int v3_init_shdw_pg_state(struct guest_info * core) {
     v3_add_telemetry_cb(core->vm_info, telemetry_cb, NULL);
 #endif
   
+
     return 0;
 }
 
@@ -183,6 +208,8 @@ int v3_init_shdw_impl(struct v3_vm_info * vm) {
 	PrintError("Could not find shadow paging impl (%s)\n", pg_strat);
 	return -1;
     }
+
+    INIT_LIST_HEAD(&(impl_state->event_callback_list));
    
     impl_state->current_impl = impl;
 
@@ -191,11 +218,14 @@ int v3_init_shdw_impl(struct v3_vm_info * vm) {
 	return -1;
     }
 
+
+
     return 0;
 }
 
 int v3_deinit_shdw_impl(struct v3_vm_info * vm) {
     struct v3_shdw_pg_impl * impl = vm->shdw_impl.current_impl;
+    struct event_callback *cb,*temp;
 
     if (impl == NULL) {
 	// Shadow paging not implemented
@@ -205,6 +235,14 @@ int v3_deinit_shdw_impl(struct v3_vm_info * vm) {
     if (impl->deinit(vm) == -1) {
 	PrintError("Error deinitializing shadow paging implementation\n");
 	return -1;
+    }
+
+    list_for_each_entry_safe(cb,
+			     temp,
+			     &(vm->shdw_impl.event_callback_list),
+			     node) {
+	list_del(&(cb->node));
+	V3_Free(cb);
     }
 
     return 0;
@@ -217,7 +255,22 @@ int v3_deinit_shdw_impl(struct v3_vm_info * vm) {
 int v3_activate_shadow_pt(struct guest_info * core) {
     struct v3_shdw_impl_state * state = &(core->vm_info->shdw_impl);
     struct v3_shdw_pg_impl * impl = state->current_impl;
-    return impl->activate_shdw_pt(core);
+    
+    if (!have_callbacks(core)) { 
+	return impl->activate_shdw_pt(core);
+    } else {
+	int rc;
+	struct v3_shdw_pg_event event_pre={SHADOW_ACTIVATE,SHADOW_PREIMPL,0,{0,0,0,0,0,0}};
+	struct v3_shdw_pg_event event_post={SHADOW_ACTIVATE,SHADOW_POSTIMPL,0,{0,0,0,0,0,0}};
+	
+	dispatch_event(core,&event_pre);
+
+	rc =impl->activate_shdw_pt(core);
+
+	dispatch_event(core,&event_post);
+	
+	return rc;
+    }
 }
 
 
@@ -227,24 +280,54 @@ int v3_activate_shadow_pt(struct guest_info * core) {
 int v3_invalidate_shadow_pts(struct guest_info * core) {
     struct v3_shdw_impl_state * state = &(core->vm_info->shdw_impl);
     struct v3_shdw_pg_impl * impl = state->current_impl;
-    return impl->invalidate_shdw_pt(core);
+
+    if (!have_callbacks(core)) { 
+	return impl->invalidate_shdw_pt(core);
+    } else {
+	int rc;
+	struct v3_shdw_pg_event event_pre={SHADOW_INVALIDATE,SHADOW_PREIMPL,0,{0,0,0,0,0,0}};
+	struct v3_shdw_pg_event event_post={SHADOW_INVALIDATE,SHADOW_POSTIMPL,0,{0,0,0,0,0,0}};
+	
+	dispatch_event(core,&event_pre);
+
+	rc = impl->invalidate_shdw_pt(core);
+
+	dispatch_event(core,&event_post);
+	
+	return rc;
+    }
 }
 
 
-int v3_handle_shadow_pagefault(struct guest_info * core, addr_t fault_addr, pf_error_t error_code) {
-  
+int v3_handle_shadow_pagefault(struct guest_info * core, addr_t fault_addr, pf_error_t error_code) 
+{
+    int rc;
+   
+
+    if (have_callbacks(core)) { 
+	struct v3_shdw_pg_event event={SHADOW_PAGEFAULT,SHADOW_PREIMPL,fault_addr,error_code};
+	dispatch_event(core,&event);
+    }
+    
     if (v3_get_vm_mem_mode(core) == PHYSICAL_MEM) {
 	// If paging is not turned on we need to handle the special cases
-	return v3_handle_passthrough_pagefault(core, fault_addr, error_code);
+	rc = v3_handle_passthrough_pagefault(core, fault_addr, error_code);
     } else if (v3_get_vm_mem_mode(core) == VIRTUAL_MEM) {
 	struct v3_shdw_impl_state * state = &(core->vm_info->shdw_impl);
 	struct v3_shdw_pg_impl * impl = state->current_impl;
-
-	return impl->handle_pagefault(core, fault_addr, error_code);
+	
+	rc = impl->handle_pagefault(core, fault_addr, error_code);
     } else {
 	PrintError("Invalid Memory mode\n");
-	return -1;
+	rc = -1;
     }
+    
+    if (have_callbacks(core)) {
+	struct v3_shdw_pg_event event={SHADOW_PAGEFAULT,SHADOW_POSTIMPL,fault_addr,error_code};
+	dispatch_event(core,&event);
+    }
+    
+    return rc;
 }
 
 
@@ -291,8 +374,21 @@ int v3_handle_shadow_invlpg(struct guest_info * core) {
     {
 	struct v3_shdw_impl_state * state = &(core->vm_info->shdw_impl);
 	struct v3_shdw_pg_impl * impl = state->current_impl;
+	int rc;
 
-	return impl->handle_invlpg(core, vaddr);
+	if (have_callbacks(core)) { 
+	    struct v3_shdw_pg_event event={SHADOW_INVLPG,SHADOW_PREIMPL,vaddr,{0,0,0,0,0,0}};
+	    dispatch_event(core,&event);
+	}
+
+	rc=impl->handle_invlpg(core, vaddr);
+
+	if (have_callbacks(core)) { 
+	    struct v3_shdw_pg_event event={SHADOW_INVLPG,SHADOW_POSTIMPL,vaddr,{0,0,0,0,0,0}};
+	    dispatch_event(core,&event);
+	}
+
+	return rc;
     }
 }
 
@@ -348,6 +444,53 @@ int v3_is_guest_pf(pt_access_status_t guest_access, pt_access_status_t shadow_ac
     }
 
     return 0;
+}
+
+
+int v3_register_shadow_paging_event_callback(struct v3_vm_info *vm,
+					     int (*callback)(struct guest_info *core, 
+							     struct v3_shdw_pg_event *event,
+							     void      *priv_data),
+					     void *priv_data)
+{
+    struct event_callback *ec = V3_Malloc(sizeof(struct event_callback));
+
+    if (!ec) { 
+	PrintError("Unable to allocate for a shadow paging event callback\n");
+	return -1;
+    }
+    
+    ec->callback = callback;
+    ec->priv_data = priv_data;
+
+    list_add(&(ec->node),&(vm->shdw_impl.event_callback_list));
+
+    return 0;
+
+}
+
+int v3_unregister_shadow_paging_event_callback(struct v3_vm_info *vm,
+					       int (*callback)(struct guest_info *core, 
+							       struct v3_shdw_pg_event *event,
+							       void      *priv_data),
+					       void *priv_data)
+{
+    struct event_callback *cb,*temp;
+
+    list_for_each_entry_safe(cb,
+			     temp,
+			     &(vm->shdw_impl.event_callback_list),
+			     node) {
+	if ((callback == cb->callback) && (priv_data == cb->priv_data)) { 
+	    list_del(&(cb->node));
+	    V3_Free(cb);
+	    return 0;
+	}
+    }
+    
+    PrintError("No callback found!\n");
+    
+    return -1;
 }
 
 
