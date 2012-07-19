@@ -309,9 +309,16 @@ static int graphics_console_init( void ) {
 
 
 static int graphics_console_deinit( void ) {
+    struct palacios_graphics_console * gc  = NULL;
+    struct palacios_graphics_console * tmp = NULL;
 
-    if (!list_empty(&global_gcons)) { 
-	ERROR("Removing graphics console with open consoles - MEMORY LEAK\n");
+    list_for_each_entry_safe(gc, tmp, &(global_gcons), gcons_node) {
+        list_del(&(gc->gcons_node));
+
+        if (gc->data) 
+            vfree(gc->data);
+
+        palacios_free(gc);
     }
     
     return 0;
