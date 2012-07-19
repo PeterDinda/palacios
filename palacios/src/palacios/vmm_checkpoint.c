@@ -31,6 +31,17 @@
 
 #include <palacios/vmm_dev_mgr.h>
 
+#ifdef V3_CONFIG_LIVE_MIGRATION
+#include <palacios/vmm_time.h>
+#include <palacios/vm_guest_mem.h>
+#include <palacios/vmm_shadow_paging.h>
+#endif
+
+#ifndef V3_CONFIG_DEBUG_CHECKPOINT
+#undef PrintDebug
+#define PrintDebug(fmt, args...)
+#endif
+
 
 static struct hashtable * store_table = NULL;
 
@@ -268,6 +279,221 @@ static int save_memory(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 
     return 0;
 }
+
+#ifdef V3_CONFIG_LIVE_MIGRATION
+
+struct mem_migration_state {
+    struct v3_vm_info *vm;
+    struct v3_bitmap  modified_pages; 
+};
+
+static int paging_callback(struct guest_info *core, 
+			   struct v3_shdw_pg_event *event,
+			   void      *priv_data)
+{
+    struct mem_migration_state *m = (struct mem_migration_state *)priv_data;
+    
+    if (event->event_type==SHADOW_PAGEFAULT &&
+	event->event_order==SHADOW_PREIMPL &&
+	event->error_code.write) { 
+	addr_t gpa;
+	if (!v3_gva_to_gpa(core,event->gva,&gpa)) {
+	    // write to this page
+	    v3_bitmap_set(&(m->modified_pages),gpa>>12);
+	} else {
+	    // no worries, this isn't physical memory
+	}
+    } else {
+	// we don't care about other events
+    }
+    
+    return 0;
+}
+	
+
+
+static struct mem_migration_state *start_page_tracking(struct v3_vm_info *vm)
+{
+    struct mem_migration_state *m;
+    int i;
+
+    m = (struct mem_migration_state *)V3_Malloc(sizeof(struct mem_migration_state));
+
+    if (!m) { 
+	PrintError("Cannot allocate\n");
+	return NULL;
+    }
+
+    m->vm=vm;
+    
+    if (v3_bitmap_init(&(m->modified_pages),vm->mem_size >> 12) == -1) { 
+	PrintError("Failed to initialize modified_pages bit vector");
+	V3_Free(m);
+    }
+
+    v3_register_shadow_paging_event_callback(vm,paging_callback,m);
+
+    for (i=0;i<vm->num_cores;i++) {
+	v3_invalidate_shadow_pts(&(vm->cores[i]));
+    }
+    
+    // and now we should get callbacks as writes happen
+
+    return m;
+}
+
+static void stop_page_tracking(struct mem_migration_state *m)
+{
+    v3_unregister_shadow_paging_event_callback(m->vm,paging_callback,m);
+    
+    v3_bitmap_deinit(&(m->modified_pages));
+    
+    V3_Free(m);
+}
+
+	    
+		
+							    
+
+
+//
+// Returns
+//  negative: error
+//  zero: done with this round
+static int save_inc_memory(struct v3_vm_info * vm, 
+                           struct v3_bitmap * mod_pgs_to_send, 
+                           struct v3_chkpt * chkpt) {
+    int page_size_bytes = 1 << 12; // assuming 4k pages right now
+    void * ctx = NULL;
+    int i = 0; 
+    void * guest_mem_base = NULL;
+    int bitmap_num_bytes = (mod_pgs_to_send->num_bits / 8) 
+                           + ((mod_pgs_to_send->num_bits % 8) > 0);
+
+   
+    guest_mem_base = V3_VAddr((void *)vm->mem_map.base_region.host_addr);
+    
+    PrintDebug("Saving incremental memory.\n");
+
+    ctx = v3_chkpt_open_ctx(chkpt, NULL,"memory_bitmap_bits");
+
+    if (!ctx) { 
+	PrintError("Cannot open context for dirty memory bitmap\n");
+	return -1;
+    }
+	
+
+    if (v3_chkpt_save(ctx,
+		      "memory_bitmap_bits",
+		      bitmap_num_bytes,
+		      mod_pgs_to_send->bits) == -1) {
+	PrintError("Unable to write all of the dirty memory bitmap\n");
+	v3_chkpt_close_ctx(ctx);
+	return -1;
+    }
+
+    v3_chkpt_close_ctx(ctx);
+
+    PrintDebug("Sent bitmap bits.\n");
+
+    // Dirty memory pages are sent in bitmap order
+    for (i = 0; i < mod_pgs_to_send->num_bits; i++) {
+        if (v3_bitmap_check(mod_pgs_to_send, i)) {
+           // PrintDebug("Sending memory page %d.\n",i);
+            ctx = v3_chkpt_open_ctx(chkpt, NULL,"memory_page");
+	    if (!ctx) { 
+		PrintError("Unable to open context to send memory page\n");
+		return -1;
+	    }
+            if (v3_chkpt_save(ctx, 
+			      "memory_page", 
+			      page_size_bytes,
+			      guest_mem_base + (page_size_bytes * i)) == -1) {
+		PrintError("Unable to send a memory page\n");
+		v3_chkpt_close_ctx(ctx);
+		return -1;
+	    }
+	    
+            v3_chkpt_close_ctx(ctx);
+        }
+    } 
+    
+    return 0;
+}
+
+
+//
+// returns:
+//  negative: error
+//  zero: ok, but not done
+//  positive: ok, and also done
+static int load_inc_memory(struct v3_vm_info * vm, 
+                           struct v3_bitmap * mod_pgs,
+                           struct v3_chkpt * chkpt) {
+    int page_size_bytes = 1 << 12; // assuming 4k pages right now
+    void * ctx = NULL;
+    int i = 0; 
+    void * guest_mem_base = NULL;
+    bool empty_bitmap = true;
+    int bitmap_num_bytes = (mod_pgs->num_bits / 8) 
+                           + ((mod_pgs->num_bits % 8) > 0);
+
+
+    guest_mem_base = V3_VAddr((void *)vm->mem_map.base_region.host_addr);
+
+    ctx = v3_chkpt_open_ctx(chkpt, NULL,"memory_bitmap_bits");
+
+    if (!ctx) { 
+	PrintError("Cannot open context to receive memory bitmap\n");
+	return -1;
+    }
+
+    if (v3_chkpt_load(ctx,
+		      "memory_bitmap_bits",
+		      bitmap_num_bytes,
+		      mod_pgs->bits) == -1) {
+	PrintError("Did not receive all of memory bitmap\n");
+	v3_chkpt_close_ctx(ctx);
+	return -1;
+    }
+    
+    v3_chkpt_close_ctx(ctx);
+
+    // Receive also follows bitmap order
+    for (i = 0; i < mod_pgs->num_bits; i ++) {
+        if (v3_bitmap_check(mod_pgs, i)) {
+            PrintDebug("Loading page %d\n", i);
+            empty_bitmap = false;
+            ctx = v3_chkpt_open_ctx(chkpt, NULL,"memory_page");
+	    if (!ctx) { 
+		PrintError("Cannot open context to receive memory page\n");
+		return -1;
+	    }
+	    
+            if (v3_chkpt_load(ctx, 
+			      "memory_page", 
+			      page_size_bytes,
+			      guest_mem_base + (page_size_bytes * i)) == -1) {
+		PrintError("Did not receive all of memory page\n");
+		v3_chkpt_close_ctx(ctx);
+		return -1;
+	    }
+            v3_chkpt_close_ctx(ctx);
+        }
+    } 
+    
+    if (empty_bitmap) {
+        // signal end of receiving pages
+        PrintDebug("Finished receiving pages.\n");
+	return 1;
+    } else {
+	// need to run again
+	return 0;
+    }
+
+}
+
+#endif
 
 int save_header(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
     extern v3_cpu_arch_t v3_mach_type;
@@ -576,7 +802,8 @@ int v3_chkpt_save_vm(struct v3_vm_info * vm, char * store, char * url) {
     struct v3_chkpt * chkpt = NULL;
     int ret = 0;;
     int i = 0;
-    
+
+
     chkpt = chkpt_open(vm, store, url, SAVE);
 
     if (chkpt == NULL) {
@@ -686,7 +913,268 @@ int v3_chkpt_load_vm(struct v3_vm_info * vm, char * store, char * url) {
     chkpt_close(chkpt);
 
     return ret;
+
 }
 
 
+#ifdef V3_CONFIG_LIVE_MIGRATION
 
+#define MOD_THRESHOLD   200  // pages below which we declare victory
+#define ITER_THRESHOLD  32   // iters below which we declare victory
+
+
+
+int v3_chkpt_send_vm(struct v3_vm_info * vm, char * store, char * url) {
+    struct v3_chkpt * chkpt = NULL;
+    int ret = 0;;
+    int iter = 0;
+    bool last_modpage_iteration=false;
+    struct v3_bitmap modified_pages_to_send;
+    uint64_t start_time;
+    uint64_t stop_time;
+    int num_mod_pages=0;
+    struct mem_migration_state *mm_state;
+    int i;
+
+    // Currently will work only for shadow paging
+    for (i=0;i<vm->num_cores;i++) { 
+	if (vm->cores[i].shdw_pg_mode!=SHADOW_PAGING) { 
+	    PrintError("Cannot currently handle nested paging\n");
+	    return -1;
+	}
+    }
+    
+    
+    chkpt = chkpt_open(vm, store, url, SAVE);
+    
+    if (chkpt == NULL) {
+	PrintError("Error creating checkpoint store\n");
+	chkpt_close(chkpt);
+	return -1;
+    }
+    
+    // In a send, the memory is copied incrementally first,
+    // followed by the remainder of the state
+    
+    if (v3_bitmap_init(&modified_pages_to_send,
+		       vm->mem_size>>12 // number of pages in main region
+		       ) == -1) {
+        PrintError("Could not intialize bitmap.\n");
+        return -1;
+    }
+
+    // 0. Initialize bitmap to all 1s
+    for (i=0; i < modified_pages_to_send.num_bits; i++) {
+        v3_bitmap_set(&modified_pages_to_send,i);
+    }
+
+    iter = 0;
+    while (!last_modpage_iteration) {
+        PrintDebug("Modified memory page iteration %d\n",i++);
+        
+        start_time = v3_get_host_time(&(vm->cores[0].time_state));
+        
+	// We will pause the VM for a short while
+	// so that we can collect the set of changed pages
+        if (v3_pause_vm(vm) == -1) {
+            PrintError("Could not pause VM\n");
+            ret = -1;
+            goto out;
+        }
+        
+	if (iter==0) { 
+	    // special case, we already have the pages to send (all of them)
+	    // they are already in modified_pages_to_send
+	} else {
+	    // normally, we are in the middle of a round
+	    // We need to copy from the current tracking bitmap
+	    // to our send bitmap
+	    v3_bitmap_copy(&modified_pages_to_send,&(mm_state->modified_pages));
+	    // and now we need to remove our tracking
+	    stop_page_tracking(mm_state);
+	}
+
+	// are we done? (note that we are still paused)
+        num_mod_pages = v3_bitmap_count(&modified_pages_to_send);
+	if (num_mod_pages<MOD_THRESHOLD || iter>ITER_THRESHOLD) {
+	    // we are done, so we will not restart page tracking
+	    // the vm is paused, and so we should be able
+	    // to just send the data
+            PrintDebug("Last modified memory page iteration.\n");
+            last_modpage_iteration = true;
+	} else {
+	    // we are not done, so we will restart page tracking
+	    // to prepare for a second round of pages
+	    // we will resume the VM as this happens
+	    if (!(mm_state=start_page_tracking(vm))) { 
+		PrintError("Error enabling page tracking.\n");
+		ret = -1;
+		goto out;
+	    }
+            if (v3_continue_vm(vm) == -1) {
+                PrintError("Error resuming the VM\n");
+		stop_page_tracking(mm_state);
+                ret = -1;
+                goto out;
+            }
+	    
+            stop_time = v3_get_host_time(&(vm->cores[0].time_state));
+            PrintDebug("num_mod_pages=%d\ndowntime=%llu\n",num_mod_pages,stop_time-start_time);
+        }
+	
+
+	// At this point, we are either paused and about to copy
+	// the last chunk, or we are running, and will copy the last
+	// round in parallel with current execution
+	if (num_mod_pages>0) { 
+	    if (save_inc_memory(vm, &modified_pages_to_send, chkpt) == -1) {
+		PrintError("Error sending incremental memory.\n");
+		ret = -1;
+		goto out;
+	    }
+	} // we don't want to copy an empty bitmap here
+	
+	iter++;
+    }        
+    
+    if (v3_bitmap_reset(&modified_pages_to_send) == -1) {
+        PrintError("Error reseting bitmap.\n");
+        ret = -1;
+        goto out;
+    }    
+    
+    // send bitmap of 0s to signal end of modpages
+    if (save_inc_memory(vm, &modified_pages_to_send, chkpt) == -1) {
+        PrintError("Error sending incremental memory.\n");
+        ret = -1;
+        goto out;
+    }
+    
+    // save the non-memory state
+    if ((ret = v3_save_vm_devices(vm, chkpt)) == -1) {
+	PrintError("Unable to save devices\n");
+	goto out;
+    }
+    
+
+    if ((ret = save_header(vm, chkpt)) == -1) {
+	PrintError("Unable to save header\n");
+	goto out;
+    }
+    
+    for (i = 0; i < vm->num_cores; i++){
+	if ((ret = save_core(&(vm->cores[i]), chkpt)) == -1) {
+	    PrintError("chkpt of core %d failed\n", i);
+	    goto out;
+	}
+    }
+    
+    stop_time = v3_get_host_time(&(vm->cores[0].time_state));
+    PrintDebug("num_mod_pages=%d\ndowntime=%llu\n",num_mod_pages,stop_time-start_time);
+    PrintDebug("Done sending VM!\n"); 
+ out:
+    v3_bitmap_deinit(&modified_pages_to_send);
+    chkpt_close(chkpt);
+    
+    return ret;
+
+}
+
+int v3_chkpt_receive_vm(struct v3_vm_info * vm, char * store, char * url) {
+    struct v3_chkpt * chkpt = NULL;
+    int i = 0;
+    int ret = 0;
+    struct v3_bitmap mod_pgs;
+ 
+    // Currently will work only for shadow paging
+    for (i=0;i<vm->num_cores;i++) { 
+	if (vm->cores[i].shdw_pg_mode!=SHADOW_PAGING) { 
+	    PrintError("Cannot currently handle nested paging\n");
+	    return -1;
+	}
+    }
+    
+    chkpt = chkpt_open(vm, store, url, LOAD);
+    
+    if (chkpt == NULL) {
+	PrintError("Error creating checkpoint store\n");
+	chkpt_close(chkpt);
+	return -1;
+    }
+    
+    if (v3_bitmap_init(&mod_pgs,vm->mem_size>>12) == -1) {
+	chkpt_close(chkpt);
+        PrintError("Could not intialize bitmap.\n");
+        return -1;
+    }
+    
+    /* If this guest is running we need to block it while the checkpoint occurs */
+    if (vm->run_state == VM_RUNNING) {
+	while (v3_raise_barrier(vm, NULL) == -1);
+    }
+    
+    i = 0;
+    while(true) {
+        // 1. Receive copy of bitmap
+        // 2. Receive pages
+        PrintDebug("Memory page iteration %d\n",i++);
+        int retval = load_inc_memory(vm, &mod_pgs, chkpt);
+        if (retval == 1) {
+            // end of receiving memory pages
+            break;        
+        } else if (retval == -1) {
+            PrintError("Error receiving incremental memory.\n");
+            ret = -1;
+            goto out;
+	}
+    }        
+    
+    if ((ret = v3_load_vm_devices(vm, chkpt)) == -1) {
+	PrintError("Unable to load devices\n");
+	ret = -1;
+	goto out;
+    }
+    
+    
+    if ((ret = load_header(vm, chkpt)) == -1) {
+	PrintError("Unable to load header\n");
+	ret = -1;
+	goto out;
+    }
+    
+    //per core cloning
+    for (i = 0; i < vm->num_cores; i++) {
+	if ((ret = load_core(&(vm->cores[i]), chkpt)) == -1) {
+	    PrintError("Error loading core state (core=%d)\n", i);
+	    goto out;
+	}
+    }
+    
+ out:
+    if (ret==-1) { 
+	PrintError("Unable to receive VM\n");
+    } else {
+	PrintDebug("Done receving the VM\n");
+    }
+	
+	
+    /* Resume the guest if it was running and we didn't just trash the state*/
+    if (vm->run_state == VM_RUNNING) { 
+	if (ret == -1) {
+	    PrintError("VM was previously running.  It is now borked.  Pausing it. \n");
+	    vm->run_state = VM_STOPPED;
+	}
+	    
+	/* We check the run state of the VM after every barrier 
+	   So this will immediately halt the VM 
+	*/
+	v3_lower_barrier(vm);
+    } 
+    
+    v3_bitmap_deinit(&mod_pgs);
+    chkpt_close(chkpt);
+
+    return ret;
+}
+
+#endif

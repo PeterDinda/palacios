@@ -236,7 +236,7 @@ static void * dir_open_ctx(void * store_data,
     if (!ctx->filename) {
 	PrintError("Cannot allocate\n");
 	V3_Free(ctx);
-	return -1;
+	return NULL;
     }
 
 

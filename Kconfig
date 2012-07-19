@@ -175,8 +175,21 @@ config CHECKPOINT
 	bool "Enable Checkpointing"
 	default n
 	help 
-	  Temporary option to enable experimental checkpoint code
+	  Enable checkpointing functionality (save/load VMs)
 
+config LIVE_MIGRATION
+	bool "Enable Live Migration"
+	depends on CHECKPOINT
+	default n
+	help
+          Enable live migration functionality (send/receive VMs)
+
+config DEBUG_CHECKPOINT
+	bool "Enable Checkpointing and Live Migration Debugging Output"
+	depends on CHECKPOINT
+	default n
+	help
+	  Generate output from the debugging statements in checkpointing and live migration
 
 
 endmenu

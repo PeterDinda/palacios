@@ -12,6 +12,7 @@
  * All rights reserved.
  *
  * Authors: Madhav Suresh <madhav@u.northwestern.edu>
+ *          Mark Cartwright <mcartwright@gmail.com> (live migration)
  *
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
@@ -76,6 +77,11 @@ struct v3_chkpt_ctx * v3_chkpt_open_ctx(struct v3_chkpt * chkpt, struct v3_chkpt
 
 int v3_chkpt_save_vm(struct v3_vm_info * vm, char * store, char * url);
 int v3_chkpt_load_vm(struct v3_vm_info * vm, char * store, char * url);
+
+#ifdef V3_CONFIG_LIVE_MIGRATION
+int v3_chkpt_send_vm(struct v3_vm_info * vm, char * store, char * url);
+int v3_chkpt_receive_vm(struct v3_vm_info * vm, char * store, char * url);
+#endif
 
 int V3_init_checkpoint();
 int V3_deinit_checkpoint();

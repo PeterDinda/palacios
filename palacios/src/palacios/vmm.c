@@ -630,6 +630,18 @@ int v3_save_vm(struct v3_vm_info * vm, char * store, char * url) {
 int v3_load_vm(struct v3_vm_info * vm, char * store, char * url) {
     return v3_chkpt_load_vm(vm, store, url);
 }
+
+#ifdef V3_CONFIG_LIVE_MIGRATION
+int v3_send_vm(struct v3_vm_info * vm, char * store, char * url) {
+    return v3_chkpt_send_vm(vm, store, url);
+}
+
+
+int v3_receive_vm(struct v3_vm_info * vm, char * store, char * url) {
+    return v3_chkpt_receive_vm(vm, store, url);
+}
+#endif
+
 #endif
 
 
