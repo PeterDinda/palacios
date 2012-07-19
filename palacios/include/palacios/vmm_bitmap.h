@@ -41,7 +41,8 @@ int v3_bitmap_set(struct v3_bitmap * bitmap, int index);
 int v3_bitmap_clear(struct v3_bitmap * bitmap, int index);
 int v3_bitmap_check(struct v3_bitmap * bitmap, int index);
 
-
+int v3_bitmap_count(struct v3_bitmap * bitmap);
+int v3_bitmap_copy(struct v3_bitmap * dst, struct v3_bitmap * src);
 
 #endif
 

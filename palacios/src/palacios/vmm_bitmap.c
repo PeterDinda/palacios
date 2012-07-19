@@ -99,3 +99,36 @@ int v3_bitmap_check(struct v3_bitmap * bitmap, int index) {
     return ((bitmap->bits[major] & (0x1 << minor)) != 0);
 }
 
+
+int v3_bitmap_count(struct v3_bitmap * bitmap) {
+
+    int cnt = 0;
+    int i;
+    uint8_t x;
+    uint8_t * bytes = bitmap->bits;
+    int num_bytes = (bitmap->num_bits / 8) + ((bitmap->num_bits % 8) > 0);
+
+    for (i=0; i < num_bytes; i++) {
+        x = bytes[i];
+        while (x) { 
+	    cnt += (x & 0x1);
+	    x>>=1;
+	}
+    }     
+    
+    return cnt;
+}
+
+int v3_bitmap_copy(struct v3_bitmap * dst, struct v3_bitmap * src) {
+    
+    if (src->num_bits != dst->num_bits) {
+        PrintError("src and dst must be the same size.\n");
+	return -1;    
+    }
+    
+    int num_bytes = (src->num_bits / 8) + ((src->num_bits % 8)!=0);
+    
+    memcpy(dst->bits,src->bits,num_bytes);
+    
+    return 0;
+}
