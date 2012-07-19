@@ -21,6 +21,8 @@
 
 #include <linux/proc_fs.h>
 
+#include <palacios/vmm.h>
+
 #include "palacios.h"
 #include "mm.h"
 #include "vm.h"
@@ -316,13 +318,25 @@ static void __exit v3_exit(void) {
     extern u32 pg_frees;
     extern u32 mallocs;
     extern u32 frees;
+    int i = 0;
+    struct v3_guest * guest;
+    dev_t dev;
 
 
-    // should probably try to stop any guests
+    /* Stop and free any running VMs */ 
+    for (i = 0; i < MAX_VMS; i++) {
+	if (guest_map[i] != NULL) {
+                guest = (struct v3_guest *)guest_map[i];
 
+                if (v3_stop_vm(guest->v3_ctx) < 0) 
+                        ERROR("Couldn't stop VM %d\n", i);
 
+                free_palacios_vm(guest);
+                guest_map[i] = NULL;
+	}
+    }
 
-    dev_t dev = MKDEV(v3_major_num, MAX_VMS + 1);
+    dev = MKDEV(v3_major_num, MAX_VMS + 1);
 
     INFO("Removing V3 Control device\n");
 
