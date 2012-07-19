@@ -23,6 +23,8 @@
 
 #include <palacios/vmm.h>
 
+#define MAX_SWINTR_HOOKS  256
+
 #define SW_INTR_SYSCALL_VEC 0x80
 
 int v3_handle_swintr (struct guest_info * core);

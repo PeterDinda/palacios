@@ -37,7 +37,28 @@
 #endif
 
 
+struct v3_swintr_hook {
+    int (*handler)(struct guest_info * core, uint8_t vector, void * priv_data);
+    void * priv_data;
+};
+
+
+static struct v3_swintr_hook * swintr_hooks[MAX_SWINTR_HOOKS];
+
+
 static int init_swintr_intercept (struct v3_vm_info * vm, v3_cfg_tree_t * cfg, void ** priv_data) {
+    return 0;
+}
+
+
+static int deinit_swintr_intercept (struct v3_vm_info * vm, void * priv_data) {
+    int i = 0;
+
+    for (; i < MAX_SWINTR_HOOKS; i++) {
+        if (swintr_hooks[i])
+            V3_Free(swintr_hooks[i]);
+    }
+
     return 0;
 }
 
@@ -86,14 +107,6 @@ static int init_swintr_intercept_core (struct guest_info * core, void * priv_dat
 }
 
 
-struct v3_swintr_hook {
-    int (*handler)(struct guest_info * core, uint8_t vector, void * priv_data);
-    void * priv_data;
-};
-
-
-static struct v3_swintr_hook * swintr_hooks[256];
-
 static inline struct v3_swintr_hook * get_swintr_hook (struct guest_info * core, uint8_t vector) {
     return swintr_hooks[vector];
 }
@@ -102,7 +115,7 @@ static inline struct v3_swintr_hook * get_swintr_hook (struct guest_info * core,
 static struct v3_extension_impl swintr_impl = {
     .name = "swintr_intercept",
     .init = init_swintr_intercept,
-    .deinit = NULL,
+    .deinit = deinit_swintr_intercept,
     .core_init = init_swintr_intercept_core,
     .core_deinit = NULL,
     .on_entry = NULL,
