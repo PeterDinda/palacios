@@ -81,6 +81,7 @@ int V3_init_extensions() {
 
 int V3_deinit_extensions() {
     v3_free_htable(ext_table, 0, 0);
+
     return 0;
 }
 
@@ -97,9 +98,37 @@ int v3_init_ext_manager(struct v3_vm_info * vm) {
 
 
 int v3_deinit_ext_manager(struct v3_vm_info * vm)  {
+    struct v3_extensions * ext_state = &(vm->extensions);
+    struct v3_extension * ext = NULL;
+    struct v3_extension * tmp = NULL;
+    int i;
 
-	PrintError("I should really do something here... \n");
-	return -1;
+    /* deinit per-core state first */
+    for (i = 0; i < vm->num_cores; i++) 
+        v3_deinit_core_extensions(&(vm->cores[i]));
+
+    list_for_each_entry_safe(ext, tmp, &(ext_state->extensions), node) {
+        
+	V3_Print("Cleaning up Extension (%s)\n", ext->impl->name);
+	if ((ext->impl) && (ext->impl->deinit)) {
+	    if (ext->impl->deinit(vm, ext->priv_data) == -1) {
+		PrintError("Error cleaning up extension (%s)\n", ext->impl->name);
+		return -1;
+	    }
+	}
+
+        if (ext->impl->on_exit)
+            list_del(&ext->exit_node);
+
+        if (ext->impl->on_entry)
+            list_del(&ext->entry_node);
+
+        list_del(&ext->node);
+        V3_Free(ext);
+
+    }
+
+    return 0;
 }
 
 
@@ -107,6 +136,7 @@ int v3_deinit_ext_manager(struct v3_vm_info * vm)  {
 int v3_add_extension(struct v3_vm_info * vm, const char * name, v3_cfg_tree_t * cfg) {
     struct v3_extension_impl * impl = NULL;
     struct v3_extension * ext = NULL;
+    int ext_size;
 
     impl = (void *)v3_htable_search(ext_table, (addr_t)name);
 
@@ -117,7 +147,9 @@ int v3_add_extension(struct v3_vm_info * vm, const char * name, v3_cfg_tree_t * 
     
     V3_ASSERT(impl->init);
 
-    ext = V3_Malloc(sizeof(struct v3_extension));
+    /* this allows each extension to track its own per-core state */
+    ext_size = sizeof(struct v3_extension) + (sizeof(void *) * vm->num_cores);
+    ext = V3_Malloc(ext_size);
     
     if (!ext) {
 	PrintError("Could not allocate extension\n");
@@ -147,10 +179,11 @@ int v3_add_extension(struct v3_vm_info * vm, const char * name, v3_cfg_tree_t * 
 
 int v3_init_core_extensions(struct guest_info * core) {
     struct v3_extension * ext = NULL;
+    uint32_t cpuid = core->vcpu_id;
 
     list_for_each_entry(ext, &(core->vm_info->extensions.extensions), node) {
 	if ((ext->impl) && (ext->impl->core_init)) {
-	    if (ext->impl->core_init(core, ext->priv_data) == -1) {
+	    if (ext->impl->core_init(core, ext->priv_data, &(ext->core_ext_priv_data[cpuid])) == -1) {
 		PrintError("Error configuring per core extension %s on core %d\n", 
 			   ext->impl->name, core->vcpu_id);
 		return -1;
@@ -161,6 +194,25 @@ int v3_init_core_extensions(struct guest_info * core) {
     return 0;
 }
 
+
+int v3_deinit_core_extensions (struct guest_info * core) {
+        struct v3_extension * ext = NULL;
+        struct v3_extension * tmp = NULL;
+        struct v3_vm_info * vm = core->vm_info;
+        uint32_t cpuid = core->vcpu_id;
+
+        list_for_each_entry_safe(ext, tmp, &(vm->extensions.extensions), node) {
+            if ((ext->impl) && (ext->impl->core_deinit)) {
+                if (ext->impl->core_deinit(core, ext->priv_data, ext->core_ext_priv_data[cpuid]) == -1) {
+                    PrintError("Error tearing down per core extension %s on core %d\n",
+                                ext->impl->name, cpuid);
+                    return -1;
+                }
+            }
+        }
+
+        return 0;
+}
 
 
 
@@ -175,3 +227,19 @@ void * v3_get_extension_state(struct v3_vm_info * vm, const char * name) {
 
     return NULL;
 }
+
+
+void * v3_get_ext_core_state (struct guest_info * core, const char * name) {
+    struct v3_extension * ext = NULL;
+    struct v3_vm_info * vm = core->vm_info;
+    uint32_t cpuid = core->vcpu_id;
+
+    list_for_each_entry(ext, &(vm->extensions.extensions), node) {
+	if (strncmp(ext->impl->name, name, strlen(ext->impl->name)) == 0) {
+	    return ext->core_ext_priv_data[cpuid];
+	}
+    }
+
+    return NULL;
+}
+

@@ -56,7 +56,7 @@ static int init_exec_hooks (struct v3_vm_info * vm, v3_cfg_tree_t * cfg, void **
     return 0;
 }
 
-static int init_exec_hooks_core (struct guest_info * core, void * priv_data) {
+static int init_exec_hooks_core (struct guest_info * core, void * priv_data, void ** core_data) {
     struct v3_exec_hooks * hooks = &exec_hooks;
     INIT_LIST_HEAD(&(hooks->hook_list));
 	hooks->bin_table = v3_create_htable(0, exec_hash_fn, exec_eq_fn);
@@ -76,7 +76,7 @@ static int init_exec_hooks_core (struct guest_info * core, void * priv_data) {
     return 0;
 }
 
-static int deinit_exec_hooks_core (struct guest_info * core, void * priv_data) {
+static int deinit_exec_hooks_core (struct guest_info * core, void * priv_data, void * core_data) {
     struct v3_exec_hooks * hooks = &exec_hooks;
     struct exec_hook * hook = NULL;
     struct exec_hook * tmp = NULL;

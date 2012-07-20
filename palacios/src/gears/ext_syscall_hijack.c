@@ -315,7 +315,7 @@ static int v3_handle_lstar_read (struct guest_info * core, uint_t msr, struct v3
 #endif
 
 
-static int init_syscall_hijack_core (struct guest_info * core, void * priv_data) {
+static int init_syscall_hijack_core (struct guest_info * core, void * priv_data, void ** core_data) {
 
 #ifdef V3_CONFIG_EXT_SW_INTERRUPTS
     v3_hook_swintr(core, SYSCALL_INT_VECTOR, v3_syscall_handler, NULL);

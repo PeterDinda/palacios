@@ -78,7 +78,7 @@ static int init_swintr_core_vmx (struct guest_info * core, void * priv_data) {
 }
 
 
-static int init_swintr_intercept_core (struct guest_info * core, void * priv_data) {
+static int init_swintr_intercept_core (struct guest_info * core, void * priv_data, void ** core_data) {
     v3_cpu_arch_t cpu_type = v3_get_cpu_type(V3_Get_CPU());
 
     switch (cpu_type) {

@@ -55,7 +55,7 @@ static int init_inspector(struct v3_vm_info * vm, v3_cfg_tree_t * cfg, void ** p
 }
 
 
-static int init_inspector_core(struct guest_info * core, void * priv_data) {
+static int init_inspector_core(struct guest_info * core, void * priv_data, void ** core_data) {
     struct v3_inspector_state * vm_state = priv_data;
     char core_name[50];
 

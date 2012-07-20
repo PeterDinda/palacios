@@ -329,6 +329,7 @@ int v3_free_vm_internal(struct v3_vm_info * vm) {
     v3_delete_mem_map(vm);
     v3_deinit_shdw_impl(vm);
 
+    v3_deinit_ext_manager(vm);
     v3_deinit_intr_routers(vm);
     v3_deinit_host_events(vm);
 
