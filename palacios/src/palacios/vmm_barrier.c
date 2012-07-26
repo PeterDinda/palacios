@@ -141,6 +141,12 @@ int v3_wait_for_barrier(struct v3_vm_info * vm_info, struct guest_info * local_c
 int v3_raise_barrier(struct v3_vm_info * vm_info, struct guest_info * local_core) {
     int ret = 0;
 
+
+    if ((vm_info->run_state != VM_RUNNING) || 
+	(vm_info->run_state != VM_SIMULATING)) {
+	return 0;
+    }
+
     ret = v3_raise_barrier_nowait(vm_info, local_core);
 
     if (ret != 0) {
@@ -161,6 +167,12 @@ int v3_raise_barrier(struct v3_vm_info * vm_info, struct guest_info * local_core
 
 int v3_lower_barrier(struct v3_vm_info * vm_info) {
     struct v3_barrier * barrier = &(vm_info->barrier);
+
+    
+    if ((vm_info->run_state != VM_RUNNING) || 
+	(vm_info->run_state != VM_SIMULATING)) {
+	return 0;
+    }
 
     // Clear the active flag, so cores won't wait 
     barrier->active = 0;
