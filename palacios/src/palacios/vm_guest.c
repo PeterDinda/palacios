@@ -217,18 +217,18 @@ static int info_hcall(struct guest_info * core, uint_t hcall_id, void * priv_dat
 int v3_init_vm(struct v3_vm_info * vm) {
     extern v3_cpu_arch_t v3_mach_type;
 
-
+    v3_init_events(vm);
 
 #ifdef V3_CONFIG_TELEMETRY
     v3_init_telemetry(vm);
 #endif
 
+    v3_init_exit_hooks(vm);
     v3_init_hypercall_map(vm);
     v3_init_io_map(vm);
     v3_init_msr_map(vm);
     v3_init_cpuid_map(vm);
     v3_init_host_events(vm);
-    v3_init_exit_hooks(vm);
 
     v3_init_intr_routers(vm);
     v3_init_ext_manager(vm);
@@ -350,6 +350,7 @@ int v3_free_vm_internal(struct v3_vm_info * vm) {
     v3_deinit_telemetry(vm);
 #endif
 
+    v3_deinit_events(vm);
 
 
     return 0;
