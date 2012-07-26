@@ -37,6 +37,7 @@ obj-y := \
 	vmm_bitmap.o \
 	vmm_barrier.o \
 	vmm_timeout.o \
+	vmm_exits.o
 
 
 obj-$(V3_CONFIG_XED) +=	vmm_xed.o
@@ -52,6 +53,7 @@ obj-$(V3_CONFIG_SVM) +=    svm.o \
 			   svm_pause.o \
 			   svm_wbinvd.o \
 			   svm_handler.o \
+			   svm_exits.o \
 			   vmcb.o
 
 obj-$(V3_CONFIG_VMX) +=  	vmx.o \
