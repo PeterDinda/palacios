@@ -96,15 +96,9 @@ struct v3_notifier * v3_subscribe_event(struct v3_vm_info * vm,
     notifier->priv_data = priv_data;
     notifier->event_type = event_type;
 
-    if ((vm->run_state == VM_RUNNING) || 
-	(vm->run_state == VM_SIMULATING)) {
-	while (v3_raise_barrier(vm, current_core) == -1);
-	list_add(&(notifier->node), &(map->events[event_type]));
-	v3_lower_barrier(vm);
-    }  else {
-	// No need to lock the list
-	list_add(&(notifier->node), &(map->events[event_type]));
-    }
+    while (v3_raise_barrier(vm, current_core) == -1);
+    list_add(&(notifier->node), &(map->events[event_type]));
+    v3_lower_barrier(vm);
 
     return notifier;;
 }
@@ -126,24 +120,14 @@ int v3_unsubscribe_event(struct v3_vm_info * vm, struct v3_notifier * notifier,
 	return -1;
     }
 
-    if ((vm->run_state == VM_RUNNING) || 
-	(vm->run_state == VM_SIMULATING)) {    
-	while (v3_raise_barrier(vm, current_core) == -1);
-    }
-
-
+    while (v3_raise_barrier(vm, current_core) == -1);
     list_for_each_entry_safe(tmp_notifier, safe_notifier, &(map->events[notifier->event_type]), node) {
 	if (tmp_notifier == notifier) {
 	    list_del(&(tmp_notifier->node));
 	    V3_Free(tmp_notifier);
 	}
     }
-	
-
-    if ((vm->run_state == VM_RUNNING) || 
-	(vm->run_state == VM_SIMULATING)) {    
-	v3_lower_barrier(vm);
-    }
+    v3_lower_barrier(vm);
 
     return 0;
 }

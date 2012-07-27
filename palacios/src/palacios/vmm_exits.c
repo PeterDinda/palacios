@@ -156,8 +156,7 @@ int v3_hook_exit(struct v3_vm_info * vm, v3_exit_type_t exit_type,
     hook->handler = handler;
     hook->priv_data = priv_data;
 
-    if ((vm->run_state == VM_RUNNING) || 
-	(vm->run_state == VM_SIMULATING)) {
+    if (vm->run_state != VM_INVALID) {
 	int i = 0;
 
 	while (v3_raise_barrier(vm, current_core) == -1);
@@ -207,8 +206,7 @@ int v3_unhook_exit(struct v3_vm_info * vm, v3_exit_type_t exit_type, struct gues
     hook->priv_data = NULL;
 
     
-    if ((vm->run_state == VM_RUNNING) || 
-	(vm->run_state == VM_SIMULATING)) {
+    if (vm->run_state != VM_INVALID) {
 	int i = 0;
 
 	while (v3_raise_barrier(vm, current_core) == -1);
