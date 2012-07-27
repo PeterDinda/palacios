@@ -715,11 +715,12 @@ link_write(struct file * file, const char * buf, size_t size, loff_t * ppos) {
 	return -EFAULT;
     }
 
+    link_buf[size] = '\0';
+    INFO("Link written: %s\n", link_buf);
+
     while ((link_iter = skip_lines(&line_str))) {
-	DEBUG("Link written: %s\n", link_buf);
 	
 	token = skip_blank(&link_iter);
-	
 	if (!token) {
 	    return -EFAULT;
 	}
@@ -774,6 +775,7 @@ link_write(struct file * file, const char * buf, size_t size, loff_t * ppos) {
 	} else if (strnicmp("DEL", token, strlen("DEL")) == 0) {
 	    char * idx_str = NULL;
 	    uint32_t d_idx;
+	    struct vnet_link_iter * link = NULL;
 	    
 	    idx_str = skip_blank(&link_iter);
 	    
@@ -784,9 +786,17 @@ link_write(struct file * file, const char * buf, size_t size, loff_t * ppos) {
 
 	    d_idx = simple_strtoul(idx_str, &idx_str, 10);
 
-	    vnet_brg_delete_link(d_idx);
-		
+	    INFO("VNET: deleting link %d\n", d_idx);
+
+	    list_for_each_entry(link, &(vnet_ctrl_s.link_iter_list), node) {
+		if (link->idx == d_idx) {
+		    delete_link(link);
+	    	    break;
+		}
+    	    }
+
 	    DEBUG("VNET Control: One link deleted\n");		
+
 	} else {
 	    WARNING("Invalid Link command string\n");
 	}
