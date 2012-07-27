@@ -161,6 +161,8 @@ static struct vnet_host_hooks vnet_host_hooks = {
     .mutex_free	                = palacios_mutex_free,
     .mutex_lock	                = palacios_mutex_lock, 
     .mutex_unlock	        = palacios_mutex_unlock,
+    .mutex_lock_irqsave         = palacios_mutex_lock_irqsave, 
+    .mutex_unlock_irqrestore    = palacios_mutex_unlock_irqrestore,
 
     .print			= palacios_print,
     .allocate_pages	        = palacios_allocate_pages,

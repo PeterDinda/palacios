@@ -251,7 +251,7 @@ int v3_vnet_find_dev(uint8_t  * mac) {
 
 int v3_vnet_add_route(struct v3_vnet_route route) {
     struct vnet_route_info * new_route = NULL;
-    unsigned long flags; 
+    vnet_intr_flags_t flags; 
 
     new_route = (struct vnet_route_info *)Vnet_Malloc(sizeof(struct vnet_route_info));
 
@@ -305,7 +305,7 @@ int v3_vnet_add_route(struct v3_vnet_route route) {
 
 void v3_vnet_del_route(uint32_t route_idx){
     struct vnet_route_info * route = NULL;
-    unsigned long flags; 
+    vnet_intr_flags_t flags; 
 
     flags = vnet_lock_irqsave(vnet_state.lock);
 
@@ -330,7 +330,7 @@ void v3_vnet_del_route(uint32_t route_idx){
 /* delete all route entries with specfied src or dst device id */ 
 static void inline del_routes_by_dev(int dev_id){
     struct vnet_route_info * route, *tmp_route;
-    unsigned long flags; 
+    vnet_intr_flags_t flags; 
 
     flags = vnet_lock_irqsave(vnet_state.lock);
 
@@ -579,7 +579,7 @@ int v3_vnet_query_header(uint8_t src_mac[6],
 
 int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data) {
     struct route_list * matched_routes = NULL;
-    unsigned long flags;
+    vnet_intr_flags_t flags;
     int i;
 
     int cpu = V3_Get_CPU();
@@ -661,7 +661,7 @@ int v3_vnet_add_dev(struct v3_vm_info * vm, uint8_t * mac,
 		    struct v3_vnet_dev_ops * ops, int quote, int poll_state,
 		    void * priv_data){
     struct vnet_dev * new_dev = NULL;
-    unsigned long flags;
+    vnet_intr_flags_t flags;
 
     new_dev = (struct vnet_dev *)Vnet_Malloc(sizeof(struct vnet_dev)); 
 
@@ -709,7 +709,7 @@ int v3_vnet_add_dev(struct v3_vm_info * vm, uint8_t * mac,
 
 int v3_vnet_del_dev(int dev_id){
     struct vnet_dev * dev = NULL;
-    unsigned long flags;
+    vnet_intr_flags_t flags;
 
     flags = vnet_lock_irqsave(vnet_state.lock);
 	
@@ -762,7 +762,7 @@ int v3_vnet_add_bridge(struct v3_vm_info * vm,
 		       struct v3_vnet_bridge_ops * ops,
 		       uint8_t type,
 		       void * priv_data) {
-    unsigned long flags;
+    vnet_intr_flags_t flags;
     int bridge_free = 0;
     struct vnet_brg_dev * tmp_bridge = NULL;    
     
@@ -802,7 +802,7 @@ int v3_vnet_add_bridge(struct v3_vm_info * vm,
 
 
 void v3_vnet_del_bridge(uint8_t type) {
-    unsigned long flags;
+    vnet_intr_flags_t flags;
     struct vnet_brg_dev * tmp_bridge = NULL;    
     
     flags = vnet_lock_irqsave(vnet_state.lock);

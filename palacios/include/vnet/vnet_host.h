@@ -32,7 +32,7 @@ struct vnet_timer {
 };
 
 typedef unsigned long vnet_lock_t;
-
+typedef void *vnet_intr_flags_t;
 
 
 struct vnet_host_hooks {
@@ -74,6 +74,8 @@ struct vnet_host_hooks {
     void (*mutex_free)(void * mutex);
     void (*mutex_lock)(void * mutex, int must_spin);
     void (*mutex_unlock)(void * mutex);
+    vnet_intr_flags_t (*mutex_lock_irqsave)(void * mutex, int must_spin);
+    void (*mutex_unlock_irqrestore)(void * mutex, vnet_intr_flags_t flags);
 };
 
 
@@ -252,7 +254,7 @@ static inline void vnet_lock_deinit(vnet_lock_t * lock) {
 
 static inline void vnet_lock(vnet_lock_t lock) {
     if (host_hooks && (host_hooks->mutex_lock)) { 
-	host_hooks->mutex_lock((void *)lock, 0);    
+	host_hooks->mutex_lock((void *)lock,0);    
     }
 }
 
@@ -262,22 +264,22 @@ static inline void vnet_unlock(vnet_lock_t lock) {
     }
 }
 
-static inline unsigned long vnet_lock_irqsave(vnet_lock_t lock) {
-    if (host_hooks && host_hooks->mutex_lock) { 
-	host_hooks->mutex_lock((void *)lock, 1);
-	return 0;
+static inline vnet_intr_flags_t vnet_lock_irqsave(vnet_lock_t lock) 
+{
+    if (host_hooks && host_hooks->mutex_lock_irqsave) { 
+	return (host_hooks->mutex_lock_irqsave((void *)lock, 1));
     } else {
-	return -1;
+	return NULL;
     }
 }
 
 
-static inline void vnet_unlock_irqrestore(vnet_lock_t lock, addr_t irq_state) {
-    if (host_hooks && (host_hooks->mutex_unlock)) {
-	host_hooks->mutex_unlock((void *)lock);
+static inline void vnet_unlock_irqrestore(vnet_lock_t lock, vnet_intr_flags_t irq_state) 
+{
+    if (host_hooks && (host_hooks->mutex_unlock_irqrestore)) {
+	host_hooks->mutex_unlock_irqrestore((void *)lock,irq_state);
     }
 }
-
 #endif
 
 
