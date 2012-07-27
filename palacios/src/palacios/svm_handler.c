@@ -256,7 +256,7 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 #ifdef V3_CONFIG_DEBUG_TIME
 	    PrintDebug("RDTSC/RDTSCP\n");
 #endif 
-	    if (v3_dispatch_exit_hook(info, V3_EXIT_RDTSC, NULL) == -1) {
+	    if (v3_handle_rdtsc(info) == -1) {
 		PrintError("Error Handling RDTSC instruction\n");
 		return -1;
 	    }
@@ -265,7 +265,7 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 #ifdef V3_CONFIG_DEBUG_TIME
 	    PrintDebug("RDTSCP\n");
 #endif 
-	    if (v3_dispatch_exit_hook(info, V3_EXIT_RDTSCP, NULL) == -1) {
+	    if (v3_handle_rdtscp(info) == -1) {
 		PrintError("Error handling RDTSCP instruction\n");
 		return -1;
 	    }
