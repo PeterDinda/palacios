@@ -505,7 +505,7 @@ static void drain_irq_entries(struct apic_state * apic) {
 static int get_highest_isr(struct apic_state * apic) {
     int i = 0, j = 0;
 
-    // We iterate backwards to find the highest priority
+    // We iterate backwards to find the highest priority in-service request
     for (i = 31; i >= 0; i--) {
 	uint8_t  * svc_major = apic->int_svc_reg + i;
     
@@ -527,14 +527,15 @@ static int get_highest_isr(struct apic_state * apic) {
 static int get_highest_irr(struct apic_state * apic) {
     int i = 0, j = 0;
 
-    // We iterate backwards to find the highest priority
+    // We iterate backwards to find the highest priority enabled requested interrupt
     for (i = 31; i >= 0; i--) {
 	uint8_t  * req_major = apic->int_req_reg + i;
-    
+	uint8_t  * en_major = apic->int_en_reg + i;
+	
 	if ((*req_major) & 0xff) {
 	    for (j = 7; j >= 0; j--) {
 		uint8_t flag = 0x1 << j;
-		if ((*req_major) & flag) {
+		if ((*req_major & *en_major) & flag) {
 		    return ((i * 8) + j);
 		}
 	    }
