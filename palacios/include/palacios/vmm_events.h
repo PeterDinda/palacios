@@ -45,6 +45,8 @@ int v3_deinit_events(struct v3_vm_info * vm);
 
 struct v3_notifier {
 
+    v3_event_type_t event_type;
+
     void (*notify)(struct guest_info * core, 
 		   v3_event_type_t event_type,
 		   void * priv_data, 
@@ -56,14 +58,17 @@ struct v3_notifier {
 };
 
 
-int v3_request_event(struct v3_vm_info * vm, 
-		     v3_event_type_t event_type, 
-		     void (*notify)(struct guest_info * core, 
-				    v3_event_type_t event_type,
-				    void * priv_data, 
-				    void * event_data),
-		     void * priv_data, 
-		     struct guest_info * current_core);
+struct v3_notifier * v3_subscribe_event(struct v3_vm_info * vm, 
+				       v3_event_type_t event_type, 
+				       void (*notify)(struct guest_info * core, 
+						      v3_event_type_t event_type,
+						      void * priv_data, 
+						      void * event_data),
+				       void * priv_data, 
+				       struct guest_info * current_core);
+
+int v3_unsubscribe_event(struct v3_vm_info * vm, struct v3_notifier * notifier, 
+			 struct guest_info * current_core);
 
 
 

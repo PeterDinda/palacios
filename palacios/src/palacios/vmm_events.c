@@ -67,7 +67,7 @@ int v3_deinit_events(struct v3_vm_info * vm) {
 }
 
 
-int v3_request_event(struct v3_vm_info * vm, 
+struct v3_notifier * v3_subscribe_event(struct v3_vm_info * vm, 
 		     v3_event_type_t event_type, 
 		     void (*notify)(struct guest_info * core, 
 				    v3_event_type_t event_type,
@@ -80,28 +80,70 @@ int v3_request_event(struct v3_vm_info * vm,
 
     if (event_type >= V3_EVENT_INVALID) {
 	PrintError("Tried to request illegal event (%d)\n", event_type);
-	return -1;
+	return NULL;
     }
-    
 
     notifier = V3_Malloc(sizeof(struct v3_notifier));
 
     if (notifier == NULL) {
 	PrintError("Error: Could not allocate notifier\n");
-	return -1;
+	return NULL;
     }
 
     memset(notifier, 0, sizeof(struct v3_notifier));
     
     notifier->notify = notify;
     notifier->priv_data = priv_data;
+    notifier->event_type = event_type;
 
-    while (v3_raise_barrier(vm, current_core) == -1);
-    list_add(&(notifier->node), &(map->events[event_type]));
-    v3_lower_barrier(vm);
+    if ((vm->run_state == VM_RUNNING) || 
+	(vm->run_state == VM_SIMULATING)) {
+	while (v3_raise_barrier(vm, current_core) == -1);
+	list_add(&(notifier->node), &(map->events[event_type]));
+	v3_lower_barrier(vm);
+    }  else {
+	// No need to lock the list
+	list_add(&(notifier->node), &(map->events[event_type]));
+    }
 
-
-    return 0;
+    return notifier;;
 }
 
 
+int v3_unsubscribe_event(struct v3_vm_info * vm, struct v3_notifier * notifier, 
+			 struct guest_info * current_core) {
+    struct v3_event_map * map = &(vm->event_map);
+    struct v3_notifier * tmp_notifier = NULL;
+    struct v3_notifier * safe_notifier = NULL;    
+
+    if (notifier == NULL) {
+	PrintError("Could not unsubscribe invalid event notifier\n");
+	return -1;
+    }
+    
+    if (notifier->event_type >= V3_EVENT_INVALID) {
+	PrintError("Could not unsubscribe from invalid event\n");
+	return -1;
+    }
+
+    if ((vm->run_state == VM_RUNNING) || 
+	(vm->run_state == VM_SIMULATING)) {    
+	while (v3_raise_barrier(vm, current_core) == -1);
+    }
+
+
+    list_for_each_entry_safe(tmp_notifier, safe_notifier, &(map->events[notifier->event_type]), node) {
+	if (tmp_notifier == notifier) {
+	    list_del(&(tmp_notifier->node));
+	    V3_Free(tmp_notifier);
+	}
+    }
+	
+
+    if ((vm->run_state == VM_RUNNING) || 
+	(vm->run_state == VM_SIMULATING)) {    
+	v3_lower_barrier(vm);
+    }
+
+    return 0;
+}
