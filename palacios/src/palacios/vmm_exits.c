@@ -156,7 +156,8 @@ int v3_hook_exit(struct v3_vm_info * vm, v3_exit_type_t exit_type,
     hook->handler = handler;
     hook->priv_data = priv_data;
 
-    if (vm->run_state != VM_INVALID) {
+    if ((vm->run_state == VM_RUNNING) || 
+	(vm->run_state == VM_SIMULATING)) {
 	int i = 0;
 
 	while (v3_raise_barrier(vm, current_core) == -1);
@@ -173,8 +174,56 @@ int v3_hook_exit(struct v3_vm_info * vm, v3_exit_type_t exit_type,
 	v3_lower_barrier(vm);
     }
     
-
-
     return 0;
+}
 
+
+
+int v3_unhook_exit(struct v3_vm_info * vm, v3_exit_type_t exit_type, struct guest_info * current_core) {
+    struct v3_exit_map * map = &(vm->exit_map);	 
+    struct v3_exit_hook * hook = NULL;
+    
+    
+    if (exit_type >= V3_EXIT_INVALID) {
+	PrintError("Error: Tried to unhook invalid exit type (%d)\n", exit_type);
+	return -1;
+    }
+  
+    hook = &(map->exits[exit_type]);
+
+    if (hook->registered == 0) {
+	PrintError("Tried to unhook an unregistered exit (%d)\n", exit_type);
+	return -1;
+    } 
+
+    if (hook->hooked == 0) {
+	PrintError("Tried to unhook and unhooked exit (%d)\n", exit_type);
+	return -1;
+    }
+
+
+    hook->hooked = 0;
+    hook->handler = NULL;
+    hook->priv_data = NULL;
+
+    
+    if ((vm->run_state == VM_RUNNING) || 
+	(vm->run_state == VM_SIMULATING)) {
+	int i = 0;
+
+	while (v3_raise_barrier(vm, current_core) == -1);
+	
+	for (i = 0; i < vm->num_cores; i++) {
+	    
+	    if (hook->disable(&(vm->cores[i]), exit_type) != 0) {
+		PrintError("Error could not enable exit hook %d on core %d\n", exit_type, i);
+		v3_lower_barrier(vm);
+		return -1;
+	    }	
+	}
+
+	v3_lower_barrier(vm);
+    }
+    
+    return 0;
 }

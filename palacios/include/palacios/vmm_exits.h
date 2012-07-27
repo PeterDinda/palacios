@@ -98,7 +98,7 @@ int v3_hook_exit(struct v3_vm_info * vm, v3_exit_type_t exit_type,
 		 void * priv_data, 
 		 struct guest_info * current_core);
 
-int v3_unhook_exit(struct v3_vm_info * vm, v3_exit_type_t exit_type);
+int v3_unhook_exit(struct v3_vm_info * vm, v3_exit_type_t exit_type, struct guest_info * current_core);
 		   
 
 #endif
