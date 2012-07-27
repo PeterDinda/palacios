@@ -1,6 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include <sys/types.h>
+
+#include "v3_ctrl.h"
 
 int main(void) 
 {
@@ -12,6 +17,7 @@ int main(void)
     unsigned long amount_allocated = 0;
     unsigned long long block_size = 0;
     int i = 0;
+    int v3_fd;
     
     fp = fopen(filepath, "r");
     if(fp == NULL) {
@@ -61,5 +67,14 @@ int main(void)
 	base_addr++;
     }
     
+    v3_fd = open(v3_dev, O_RDONLY);
+    if (v3_fd == -1) {
+        printf("Error opening V3Vee control device\n");
+        return -1;
+    }
+
+    ioctl(v3_fd, V3_RESET_MEMORY, NULL);
+    close(v3_fd);
+
     return 0;
 }

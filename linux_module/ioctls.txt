@@ -7,6 +7,7 @@ Global commands (/dev/v3vee)
 13 -- (VMM) Free VM
 
 50 -- (VMM) Add physical memory to VMM manager
+51 -- (VMM) Reset VMM manager memory counts
 
 55 -- (IFACE) Add PCI HW Device
 56 -- (IFACE) Add PCI User Device

@@ -174,6 +174,13 @@ out_err:
 	    break;
 	}
 
+        case V3_RESET_MEMORY: {
+            if (palacios_init_mm() == -1) {
+                ERROR("Error resetting Palacios memory\n");
+                return -EFAULT;
+            }
+            break;  
+        }
 
 	default: {
 	    struct global_ctrl * ctrl = get_global_ctrl(ioctl);
