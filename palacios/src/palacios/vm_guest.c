@@ -204,29 +204,33 @@ static int info_hcall(struct guest_info * core, uint_t hcall_id, void * priv_dat
 #include <palacios/svm.h>
 #include <palacios/svm_io.h>
 #include <palacios/svm_msr.h>
+#include <palacios/svm_exits.h>
 #endif
 
 #ifdef V3_CONFIG_VMX
 #include <palacios/vmx.h>
 #include <palacios/vmx_io.h>
 #include <palacios/vmx_msr.h>
+#include <palacios/vmx_exits.h>
 #endif
 
 
 int v3_init_vm(struct v3_vm_info * vm) {
     extern v3_cpu_arch_t v3_mach_type;
 
-
+    v3_init_events(vm);
 
 #ifdef V3_CONFIG_TELEMETRY
     v3_init_telemetry(vm);
 #endif
 
+    v3_init_exit_hooks(vm);
     v3_init_hypercall_map(vm);
     v3_init_io_map(vm);
     v3_init_msr_map(vm);
     v3_init_cpuid_map(vm);
     v3_init_host_events(vm);
+
     v3_init_intr_routers(vm);
     v3_init_ext_manager(vm);
 
@@ -265,6 +269,7 @@ int v3_init_vm(struct v3_vm_info * vm) {
 	case V3_SVM_REV3_CPU:
 	    v3_init_svm_io_map(vm);
 	    v3_init_svm_msr_map(vm);
+	    v3_init_svm_exits(vm);
 	    break;
 #endif
 #ifdef V3_CONFIG_VMX
@@ -273,6 +278,7 @@ int v3_init_vm(struct v3_vm_info * vm) {
 	case V3_VMX_EPT_UG_CPU:
 	    v3_init_vmx_io_map(vm);
 	    v3_init_vmx_msr_map(vm);
+	    v3_init_vmx_exits(vm);
 	    break;
 #endif
 	default:
@@ -340,10 +346,13 @@ int v3_free_vm_internal(struct v3_vm_info * vm) {
     v3_deinit_io_map(vm);
     v3_deinit_hypercall_map(vm);
 
+    v3_deinit_exit_hooks(vm);
+
 #ifdef V3_CONFIG_TELEMETRY
     v3_deinit_telemetry(vm);
 #endif
 
+    v3_deinit_events(vm);
 
 
     return 0;
@@ -405,6 +414,9 @@ int v3_init_core(struct guest_info * core) {
 	    PrintError("Invalid CPU Type 0x%x\n", v3_mach_type);
 	    return -1;
     }
+    
+    v3_init_exit_hooks_core(core);
+
 
     return 0;
 }

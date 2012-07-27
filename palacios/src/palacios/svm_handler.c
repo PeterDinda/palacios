@@ -266,9 +266,10 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 	    PrintDebug("RDTSCP\n");
 #endif 
 	    if (v3_handle_rdtscp(info) == -1) {
-		PrintError("Error Handling RDTSCP instruction\n");
+		PrintError("Error handling RDTSCP instruction\n");
 		return -1;
 	    }
+	    
 	    break;
 	case SVM_EXIT_SHUTDOWN:
 	    PrintDebug("Guest-initiated shutdown\n");

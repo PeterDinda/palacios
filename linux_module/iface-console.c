@@ -414,6 +414,11 @@ static void palacios_tty_close(void * console) {
     struct palacios_console * cons = (struct palacios_console *) console;
 
     cons->open = 0;
+
+    remove_guest_ctrl(cons->guest, V3_VM_CONSOLE_CONNECT);
+    deinit_queue(cons->queue);
+       
+    kfree(cons);
 }
 
 

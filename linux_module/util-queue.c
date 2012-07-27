@@ -16,6 +16,12 @@ void init_queue(struct gen_queue * queue, unsigned int max_entries) {
     spin_lock_init(&(queue->lock));
 }
 
+void deinit_queue(struct gen_queue * queue) {
+    while (dequeue(queue)) {
+	ERROR("Freeing non-empty queue. PROBABLE MEMORY LEAK DETECTED\n");
+    }
+}
+
 struct gen_queue * create_queue(unsigned int max_entries) {
     struct gen_queue * tmp_queue = palacios_alloc(sizeof(struct gen_queue));
     if (!tmp_queue) { 

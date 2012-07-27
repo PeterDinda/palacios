@@ -18,6 +18,8 @@ int add_guest_ctrl(struct v3_guest * guest,  unsigned int cmd,
 				 void * priv_data),
 		  void * priv_data);
 
+int remove_guest_ctrl(struct v3_guest * guest, unsigned int cmd);
+
 
 
 #endif

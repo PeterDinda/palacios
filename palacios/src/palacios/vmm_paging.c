@@ -656,9 +656,11 @@ static pt_entry_type_t pdpe64_lookup(pdpe64_t * pdp, addr_t addr, addr_t * entry
 	*entry = 0;
 	return PT_ENTRY_NOT_PRESENT;
     } else if (pdpe_entry->large_page) {
-	PrintError("1 Gigabyte pages not supported\n");
-	V3_ASSERT(0);
-	return -1;
+	pdpe64_1GB_t * large_pdp = (pdpe64_1GB_t *)pdpe_entry;
+
+	*entry = BASE_TO_PAGE_ADDR_1GB(large_pdp->page_base_addr);
+
+	return PT_ENTRY_LARGE_PAGE;
     } else {
 	*entry = BASE_TO_PAGE_ADDR(pdpe_entry->pd_base_addr);
 	return PT_ENTRY_PAGE;

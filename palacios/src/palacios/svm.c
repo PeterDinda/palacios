@@ -18,6 +18,7 @@
  */
 
 
+
 #include <palacios/svm.h>
 #include <palacios/vmm.h>
 
@@ -37,6 +38,8 @@
 #include <palacios/vmm_rbtree.h>
 #include <palacios/vmm_barrier.h>
 #include <palacios/vmm_debug.h>
+
+
 
 #ifdef V3_CONFIG_CHECKPOINT
 #include <palacios/vmm_checkpoint.h>
@@ -534,12 +537,14 @@ int
 v3_svm_config_tsc_virtualization(struct guest_info * info) {
     vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
 
+
     if (info->time_state.flags & VM_TIME_TRAP_RDTSC) {
 	ctrl_area->instrs.RDTSC = 1;
 	ctrl_area->svm_instrs.RDTSCP = 1;
     } else {
 	ctrl_area->instrs.RDTSC = 0;
 	ctrl_area->svm_instrs.RDTSCP = 0;
+
 	if (info->time_state.flags & VM_TIME_TSC_PASSTHROUGH) {
         	ctrl_area->TSC_OFFSET = 0;
 	} else {

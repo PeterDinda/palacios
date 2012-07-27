@@ -493,7 +493,7 @@ static int write_master_port1(struct guest_info * core, ushort_t port, void * sr
                         state->master_isr &= ~(0x01 << i);
                         break;
                     }
-                }	
+                }
                 PrintDebug("8259 PIC: Post ISR = %x (wr_Master1)\n", state->master_isr);
             } else if (!(cw2->EOI) && (cw2->R) && (cw2->SL)) {
                 PrintDebug("8259 PIC: Ignoring set-priority, priorities not implemented (level=%d, wr_Master1)\n", cw2->level);
@@ -503,6 +503,13 @@ static int write_master_port1(struct guest_info * core, ushort_t port, void * sr
                 PrintError("8259 PIC: Command not handled, or in error (wr_Master1)\n");
                 return -1;
             }
+
+	    if (cw2->EOI) {
+		if (pic_get_intr_number(core,  state) != -1) {
+		    PrintError("Interrupt pending after EOI\n");
+		}
+	    }
+
 
             state->master_ocw2 = cw;
         } else if (IS_OCW3(cw)) {
@@ -626,6 +633,14 @@ static int write_slave_port1(struct guest_info * core, ushort_t port, void * src
 		PrintError("8259 PIC: Command not handled or invalid  (wr_Slave1)\n");
 		return -1;
 	    }
+
+	    if (cw2->EOI) {
+		if (pic_get_intr_number(core,  state) != -1) {
+		    PrintError("Interrupt pending after EOI\n");
+		}
+	    }
+
+
 
 	    state->slave_ocw2 = cw;
 	} else if (IS_OCW3(cw)) {

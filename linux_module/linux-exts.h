@@ -1,9 +1,7 @@
 #include "palacios.h"
 
 
-int add_mod_cmd(struct v3_guest * guest, unsigned int cmd, 
-		int (*handler)(struct v3_guest * guest, 
-			       unsigned int cmd, unsigned long arg));
+
 
 
 struct linux_ext {
@@ -23,6 +21,21 @@ int init_vm_extensions(struct v3_guest * guest);
 int deinit_vm_extensions(struct v3_guest * guest);
 
 void * get_vm_ext_data(struct v3_guest * guest, char * ext_name);
+
+
+
+struct global_ctrl {
+    unsigned int cmd;
+
+    int (*handler)(unsigned int cmd, unsigned long arg);
+
+    struct rb_node tree_node;
+};
+
+int add_global_ctrl(unsigned int cmd, 
+		    int (*handler)(unsigned int cmd, unsigned long arg));
+
+struct global_ctrl * get_global_ctrl(unsigned int cmd);
 
 
 

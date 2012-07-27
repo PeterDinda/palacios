@@ -93,6 +93,8 @@ int add_guest_ctrl(struct v3_guest * guest, unsigned int cmd,
 }
 
 
+
+
 static struct vm_ctrl * get_ctrl(struct v3_guest * guest, unsigned int cmd) {
     struct rb_node * n = guest->vm_ctrls.rb_node;
     struct vm_ctrl * ctrl = NULL;
@@ -112,6 +114,36 @@ static struct vm_ctrl * get_ctrl(struct v3_guest * guest, unsigned int cmd) {
     return NULL;
 }
 
+int remove_guest_ctrl(struct v3_guest * guest, unsigned int cmd) {
+    struct vm_ctrl * ctrl = get_ctrl(guest, cmd);
+
+    if (ctrl == NULL) {
+	INFO("Could not find control (%d) to remove\n", cmd);
+	return -1;
+    }
+
+    rb_erase(&(ctrl->tree_node), &(guest->vm_ctrls));
+
+    kfree(ctrl);
+
+    return 0;
+}
+
+static void free_guest_ctrls(struct v3_guest * guest) {
+    struct rb_node * node = rb_first(&(guest->vm_ctrls));
+    struct vm_ctrl * ctrl = NULL;
+    struct rb_node * tmp_node = NULL;
+
+    while (node) {
+	ctrl = rb_entry(node, struct vm_ctrl, tree_node);
+	tmp_node = node;
+	node = rb_next(node);
+	
+	WARNING("Cleaning up guest ctrl that was not removed explicitly (%d)\n", ctrl->cmd);
+
+	kfree(ctrl);
+    }
+}
 
 
 
@@ -407,6 +439,9 @@ int free_palacios_vm(struct v3_guest * guest) {
     device_destroy(v3_class, guest->vm_dev);
 
     cdev_del(&(guest->cdev));
+
+    free_guest_ctrls(guest);
+
 
     vfree(guest->img);
     palacios_free(guest);

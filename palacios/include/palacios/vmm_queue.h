@@ -45,6 +45,7 @@ struct v3_queue {
 
 struct v3_queue * v3_create_queue();
 void v3_init_queue(struct v3_queue * queue);
+void v3_deinit_queue(struct v3_queue * queue);
 
 void v3_enqueue(struct v3_queue * queue, addr_t entry);
 addr_t v3_dequeue(struct v3_queue * queue);

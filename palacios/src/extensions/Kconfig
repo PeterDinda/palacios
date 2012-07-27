@@ -25,4 +25,10 @@ config EXT_INSPECTOR
 	help
 	  Provides the inspection extension
 
+config EXT_VMWARE
+	bool "VMWare Persona"
+	default n
+	help
+	  Provides a VMWare persona to allow TSC calibration
+
 endmenu

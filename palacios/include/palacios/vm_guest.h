@@ -39,7 +39,8 @@
 #include <palacios/vmm_extensions.h>
 #include <palacios/vmm_barrier.h>
 #include <palacios/vmm_timeout.h>
-
+#include <palacios/vmm_exits.h>
+#include <palacios/vmm_events.h>
 
 #ifdef V3_CONFIG_TELEMETRY
 #include <palacios/vmm_telemetry.h>
@@ -160,6 +161,8 @@ struct v3_vm_info {
     struct v3_io_map io_map;
     struct v3_msr_map msr_map;
     struct v3_cpuid_map cpuid_map;
+    struct v3_exit_map exit_map;
+    struct v3_event_map event_map;
 
     v3_hypercall_map_t hcall_map;
 

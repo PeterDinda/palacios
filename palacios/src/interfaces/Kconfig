@@ -60,6 +60,13 @@ config PACKET
           to support the internal networking features of Palacios.
 
 
+config HOST_PCI
+	bool "Host PCI Support"
+	depends on EXPERIMENTAL
+	default y
+	help 
+	  This enables host support for passthrough PCI devices
+
 config HOST_DEVICE
         bool "Host device support"
         default n
