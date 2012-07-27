@@ -211,6 +211,7 @@ static int info_hcall(struct guest_info * core, uint_t hcall_id, void * priv_dat
 #include <palacios/vmx.h>
 #include <palacios/vmx_io.h>
 #include <palacios/vmx_msr.h>
+#include <palacios/vmx_exits.h>
 #endif
 
 
@@ -277,6 +278,7 @@ int v3_init_vm(struct v3_vm_info * vm) {
 	case V3_VMX_EPT_UG_CPU:
 	    v3_init_vmx_io_map(vm);
 	    v3_init_vmx_msr_map(vm);
+	    v3_init_vmx_exits(vm);
 	    break;
 #endif
 	default:
