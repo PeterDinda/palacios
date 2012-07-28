@@ -42,6 +42,7 @@ int v3_free_config(struct v3_vm_info * vm);
 struct v3_cfg_file {
     void * data;
     uint64_t size;
+    ulong_t  hash;   // used only in version 1+
 
     char tag[V3_MAX_TAG_LEN];
 

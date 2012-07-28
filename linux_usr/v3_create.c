@@ -247,6 +247,7 @@ int build_image(char * vm_name, char * filename, struct cfg_value * cfg_vals, in
 	int i = 0;
 	int offset = 0;
 	unsigned long long file_offset = 0;
+        struct mem_file_hdr * hdrs = NULL;
 
 	/* Image size is: 
 	   8 byte header + 
@@ -254,7 +255,7 @@ int build_image(char * vm_name, char * filename, struct cfg_value * cfg_vals, in
 	   xml strlen + 
 	   8 bytes of zeros + 
 	   8 bytes (number of files) + 
-	   num_files * 16 byte file header + 
+	   num_files * (16+sizeof(unsigned long)) byte file header + 
 	   8 bytes of zeroes + 
 	   file data
 	*/
@@ -263,13 +264,16 @@ int build_image(char * vm_name, char * filename, struct cfg_value * cfg_vals, in
 	}
 
 	guest_img_size = 8 + 4 + strlen(new_xml_str) + 8 + 8 + 
-	    (num_files * 16) + 8 + file_data_size;
+	    (num_files * (16*sizeof(unsigned long))) + 8 + file_data_size;
 	    
 
 	guest_img_data = malloc(guest_img_size);
 	memset(guest_img_data, 0, guest_img_size);
 
-	memcpy(guest_img_data, "v3vee\0\0\0", 8);
+	//
+	// Dynamically built guests are version 1 by default now
+	//
+	memcpy(guest_img_data, "v3vee\0\0\1", 8);
 	offset += 8;
 
 	*(unsigned int *)(guest_img_data + offset) = strlen(new_xml_str);
@@ -284,20 +288,29 @@ int build_image(char * vm_name, char * filename, struct cfg_value * cfg_vals, in
 	*(unsigned long long *)(guest_img_data + offset) = num_files;
 	offset += 8;
 
+        hdrs = guest_img_data + offset;
 	
 	// The file offset starts at the end of the file list
-	file_offset = offset + (16 * num_files) + 8;
+	file_offset = offset + ((sizeof(unsigned long) + 16) * num_files) + 8;
 
 	for (i = 0; i < num_files; i++) {
-	    *(unsigned int *)(guest_img_data + offset) = i;
+            /*
+	    unsigned int *)(guest_img_data + offset) = i;
 	    offset += 4;
 	    *(unsigned int *)(guest_img_data + offset) = files[i].size;
 	    offset += 4;
 	    *(unsigned long long *)(guest_img_data + offset) = file_offset;
 	    offset += 8;
+            *(unsigned long *)(guest_img_data + offset) = 0;
+            offset += sizeof(unsigned long);
+            */
+            hdrs[i].file_idx     = i;
+            hdrs[i].file_size    = files[i].size;
+            hdrs[i].file_offset  = file_offset;
+            hdrs[i].file_hash    = 0;
 
+            offset +=  16 + sizeof(unsigned long);
 	    file_offset += files[i].size;
-
 	}
 
 	memset(guest_img_data + offset, 0, 8);
@@ -306,13 +319,18 @@ int build_image(char * vm_name, char * filename, struct cfg_value * cfg_vals, in
 
 	for (i = 0; i < num_files; i++) {
 	    int fd = open(files[i].filename, O_RDONLY);
+            unsigned char * faddr = (unsigned char *)(guest_img_data + offset);
 
 	    if (fd == -1) {
 		printf("Error: Could not open aux file (%s)\n", files[i].filename);
 		return -1;
 	    }
 
-	    v3_read_file(fd, files[i].size, (unsigned char *)(guest_img_data + offset));
+	    v3_read_file(fd, files[i].size, faddr);
+
+            /* store a hash of the file blob for integrity checking later */
+            hdrs[i].file_hash = v3_hash_buffer(faddr, files[i].size);
+            printf("File Hash: %llx\n", hdrs[i].file_hash);
 
 	    close(fd);
 

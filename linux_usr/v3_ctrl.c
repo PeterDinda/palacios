@@ -150,3 +150,24 @@ int stop_vm (const char * filename) {
 
     return 0;
 }
+
+
+/*
+ * generic ELF header buffer hash function. 
+ * Mirrors internal Palacios implementation
+ */
+unsigned long v3_hash_buffer (unsigned char * msg, unsigned int len) {
+    unsigned long hash = 0;
+    unsigned long temp = 0;
+    unsigned int i;
+
+    for (i = 0; i < len; i++) {
+        hash = (hash << 4) + *(msg + i) + i;
+        if ((temp = (hash & 0xF0000000))) {
+            hash ^= (temp >> 24);
+        }
+        hash &= ~temp;
+    }
+    return hash;
+}
+

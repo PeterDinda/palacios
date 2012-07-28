@@ -110,6 +110,7 @@ int v3_read_file (int fd, int size, unsigned char * buf);
 int launch_vm (const char * filename);
 int stop_vm   (const char * filename);
 
+unsigned long v3_hash_buffer (unsigned char * msg, unsigned int len);
 
 /* XML-related structs */
 struct cfg_value {
@@ -129,5 +130,13 @@ struct file_info {
     char filename[2048];
     char id[256];
 };
+
+struct mem_file_hdr {
+    unsigned int file_idx;
+    unsigned int file_size;
+    unsigned long long file_offset;
+    unsigned long file_hash;
+};
+
 
 #endif

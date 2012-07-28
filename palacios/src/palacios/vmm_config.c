@@ -40,16 +40,43 @@
 
 #include "vmm_config_class.h"
 
+
+/* The Palacios cookie encodes "v3vee" followed by a 
+   3 byte version code.   There are currently two versions:
+
+    \0\0\0 => original (no checksum)
+    \0\0\1 => checksum
+*/
+#define COOKIE_LEN 8
+#define COOKIE_V0 "v3vee\0\0\0"
+#define COOKIE_V1 "v3vee\0\0\1"
+
+
+
+
 // This is used to access the configuration file index table
-struct file_hdr {
+struct file_hdr_v0 {
     uint32_t index;
     uint32_t size;
     uint64_t offset;
 };
 
-struct file_idx_table {
+struct file_hdr_v1 {
+    uint32_t index;
+    uint32_t size;
+    uint64_t offset;
+    ulong_t  hash;
+};
+
+
+struct file_idx_table_v0 {
     uint64_t num_files;
-    struct file_hdr hdrs[0];
+    struct file_hdr_v0 hdrs[0];
+};
+
+struct file_idx_table_v1 {
+    uint64_t num_files;
+    struct file_hdr_v1 hdrs[0];
 };
 
 
@@ -118,17 +145,25 @@ static struct v3_config * parse_config(void * cfg_blob) {
     struct v3_config * cfg = NULL;
     int offset = 0;
     uint_t xml_len = 0; 
-    struct file_idx_table * files = NULL;
+    struct file_idx_table_v0 * files_v0 = NULL;
+    struct file_idx_table_v1 * files_v1 = NULL;
     v3_cfg_tree_t * file_tree = NULL;
+    int version=-1;
 
     V3_Print("cfg data at %p\n", cfg_blob);
 
-    if (memcmp(cfg_blob, "v3vee\0\0\0", 8) != 0) {
-	PrintError("Invalid Configuration Header\n");
+    if (memcmp(cfg_blob, COOKIE_V0, COOKIE_LEN) == 0) {
+        version = 0;
+    } else if (memcmp(cfg_blob, COOKIE_V1, COOKIE_LEN) == 0) { 
+        version = 1;
+    } else {
+	PrintError("Invalid Configuration Header Or Unknown Version\n");
 	return NULL;
-    }
+    } 
 
-    offset += 8;
+    V3_Print("Handling Palacios Image Format, Version 0x%x\n",version);
+
+    offset += COOKIE_LEN;
 
     cfg = (struct v3_config *)V3_Malloc(sizeof(struct v3_config));
 
@@ -157,9 +192,15 @@ static struct v3_config * parse_config(void * cfg_blob) {
    
     offset += 8;
 
-    files = (struct file_idx_table *)(cfg_blob + offset);
+    // This is hideous, but the file formats are still very close
+    if (version==0) { 
+	files_v0 = (struct file_idx_table_v0 *)(cfg_blob + offset);
+	V3_Print("Number of files in cfg: %d\n", (uint32_t)(files_v0->num_files));
+    } else {
+	files_v1 = (struct file_idx_table_v1 *)(cfg_blob + offset);
+	V3_Print("Number of files in cfg: %d\n", (uint32_t)(files_v1->num_files));
+    }
 
-    V3_Print("Number of files in cfg: %d\n", (uint32_t)(files->num_files));
 
     file_tree = v3_cfg_subtree(v3_cfg_subtree(cfg->cfg, "files"), "file");
 
@@ -167,7 +208,6 @@ static struct v3_config * parse_config(void * cfg_blob) {
 	char * id = v3_cfg_val(file_tree, "id");
 	char * index = v3_cfg_val(file_tree, "index");
 	int idx = atoi(index);
-	struct file_hdr * hdr = &(files->hdrs[idx]);
 	struct v3_cfg_file * file = NULL;
 
 	file = (struct v3_cfg_file *)V3_Malloc(sizeof(struct v3_cfg_file));
@@ -182,11 +222,38 @@ static struct v3_config * parse_config(void * cfg_blob) {
 	V3_Print("File index=%d id=%s\n", idx, id);
 
 	strncpy(file->tag, id, V3_MAX_TAG_LEN);
-	file->size = hdr->size;
-	file->data = cfg_blob + hdr->offset;
 
-	V3_Print("Storing file data offset = %d, size=%d\n", (uint32_t)hdr->offset, hdr->size);
-	V3_Print("file data at %p\n", file->data);
+	if (version==0) { 
+	    struct file_hdr_v0 * hdr = &(files_v0->hdrs[idx]);
+
+	    file->size = hdr->size;
+	    file->data = cfg_blob + hdr->offset;
+	    file->hash = 0;
+	    
+	    V3_Print("Storing file data offset = %d, size=%d\n", (uint32_t)hdr->offset, hdr->size);
+	    V3_Print("file data at %p\n", file->data);
+
+	} else if (version==1) { 
+	    struct file_hdr_v1 * hdr = &(files_v1->hdrs[idx]);
+	    unsigned long hash;
+
+	    file->size = hdr->size;
+	    file->data = cfg_blob + hdr->offset;
+	    file->hash = hdr->hash;
+
+	    V3_Print("Storing file data offset = %d, size=%d\n", (uint32_t)hdr->offset, hdr->size);
+	    V3_Print("file data at %p\n", file->data);
+	    V3_Print("Checking file data integrity...\n");
+	    if ((hash = v3_hash_buffer(file->data, file->size)) != file->hash) {
+		PrintError("File data corrupted! (orig hash=0x%lx, new=0x%lx\n",
+			   file->hash, hash);
+		return NULL;
+	    }
+	    V3_Print("File data OK\n");
+	    
+	}
+	    
+	    
 	list_add( &(file->file_node), &(cfg->file_list));
 
 	V3_Print("Keying file to name\n");
