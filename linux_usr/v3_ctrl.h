@@ -6,12 +6,16 @@
 #ifndef _v3_ctrl_h
 #define _v3_ctrl_h
 
+#include <stdio.h>
+#include <stdlib.h>
+#include "ezxml.h"
 
 /* Global Control IOCTLs */
 #define V3_CREATE_GUEST 12
 #define V3_FREE_GUEST 13
 
 #define V3_ADD_MEMORY 50
+#define V3_RESET_MEMORY 51
 #define V3_ADD_PCI_HW_DEV 55
 #define V3_ADD_PCI_USER_DEV 56
 
@@ -84,5 +88,46 @@ struct v3_hw_pci_dev {
     unsigned int func;
 } __attribute__((packed));
 
+#define V3VEE_STR "\n\n"                         \
+                  "The V3Vee Project (c) 2012\n" \
+                  "\thttp://v3vee.org\n"         \
+                  "\n\n"
+                   
+#define v3_usage(fmt, args...)                                \
+{                                                             \
+    printf(("\nUsage: %s " fmt V3VEE_STR), argv[0], ##args);  \
+    exit(0);                                                  \
+}
+
+
+int v3_dev_ioctl (int req, void * arg);
+int v3_vm_ioctl  (const char * filename,
+                  int req,
+                  void * arg);
+void * v3_mmap_file (const char * filename, int prot, int flags);
+int v3_read_file (int fd, int size, unsigned char * buf);
+
+int launch_vm (const char * filename);
+int stop_vm   (const char * filename);
+
+
+/* XML-related structs */
+struct cfg_value {
+    char * tag;
+    char * value;
+};
+
+struct xml_option {
+    char * tag;
+    ezxml_t location;
+    struct xml_option * next;
+};
+
+
+struct file_info {
+    int size;
+    char filename[2048];
+    char id[256];
+};
 
 #endif

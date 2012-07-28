@@ -17,31 +17,10 @@
 #include "v3_ctrl.h"
 #include "ezxml.h"
 
-struct cfg_value {
-    char * tag;
-    char * value;
-};
-
-struct xml_option {
-    char * tag;
-    ezxml_t location;
-    struct xml_option * next;
-};
-
-
-struct file_info {
-    int size;
-    char filename[2048];
-    char id[256];
-};
 
 #define MAX_FILES 256
 unsigned long long num_files = 0;
 struct file_info files[MAX_FILES];
-
-
-int read_file(int fd, int size, unsigned char * buf);
-
 
 
 int create_vm(char * vm_name, void * img_data, unsigned int img_size) {
@@ -55,16 +34,7 @@ int create_vm(char * vm_name, void * img_data, unsigned int img_size) {
     guest_img.guest_data = img_data;
     strncpy(guest_img.name, vm_name, 127);
 
-
-    v3_fd = open(v3_dev, O_RDONLY);
-
-    if (v3_fd == -1) {
-	printf("Error opening V3Vee control device\n");
-	return -1;
-    }
-
-    dev_idx = ioctl(v3_fd, V3_CREATE_GUEST, &guest_img); 
-
+    dev_idx = v3_dev_ioctl(V3_CREATE_GUEST, &guest_img); 
 
     if (dev_idx < 0) {
 	printf("Error (%d) creating VM\n", dev_idx);
@@ -72,10 +42,6 @@ int create_vm(char * vm_name, void * img_data, unsigned int img_size) {
     }
 
     printf("VM (%s) created at /dev/v3-vm%d\n", vm_name, dev_idx);
-
-    /* Close the file descriptor.  */ 
-    close(v3_fd); 
-
     return 0;
 }
 
@@ -103,7 +69,7 @@ int load_image(char * vm_name, char * filename) {
     // load guest image into user memory
     img_data = malloc(img_size);
 
-    read_file(guest_fd, img_size, img_data);
+    v3_read_file(guest_fd, img_size, img_data);
     
     close(guest_fd);
 
@@ -346,7 +312,7 @@ int build_image(char * vm_name, char * filename, struct cfg_value * cfg_vals, in
 		return -1;
 	    }
 
-	    read_file(fd, files[i].size, (unsigned char *)(guest_img_data + offset));
+	    v3_read_file(fd, files[i].size, (unsigned char *)(guest_img_data + offset));
 
 	    close(fd);
 
@@ -361,8 +327,6 @@ int build_image(char * vm_name, char * filename, struct cfg_value * cfg_vals, in
     printf("Guest Image Created (size=%u)\n", guest_img_size);
     return create_vm(vm_name, guest_img_data, guest_img_size);
 }
-
-
 
 
 
@@ -383,10 +347,8 @@ int main(int argc, char** argv) {
 	}
     }
 
-    if (argc - optind + 1 < 3) {
-	printf("usage: v3_create [-b] <guest_img> <vm name> [cfg options]\n");
-	return -1;
-    }
+    if (argc - optind + 1 < 3) 
+        v3_usage("[-b] <guest_img> <vm_name> [cfg options]\n");
 
     filename = argv[optind];
     name = argv[optind + 1];
@@ -436,28 +398,3 @@ int main(int argc, char** argv) {
 
     return 0; 
 } 
-
-
-
-int read_file(int fd, int size, unsigned char * buf) {
-    int left_to_read = size;
-    int have_read = 0;
-
-    while (left_to_read != 0) {
-	int bytes_read = read(fd, buf + have_read, left_to_read);
-
-	if (bytes_read <= 0) {
-	    break;
-	}
-
-	have_read += bytes_read;
-	left_to_read -= bytes_read;
-    }
-
-    if (left_to_read != 0) {
-	printf("Error could not finish reading file\n");
-	return -1;
-    }
-    
-    return 0;
-}

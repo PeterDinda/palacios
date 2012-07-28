@@ -62,7 +62,7 @@ COPIED_EXECS = v3_x0vncserver
 #
 # Libraries that we need to build
 #
-LIBS = libv3_user_host_dev.a libv3_user_keyed_stream.a
+LIBS = libv3_user_host_dev.a libv3_user_keyed_stream.a libv3_ctrl.a
 
 BUILD_EXECS = $(BASE_EXECS) $(EXAMPLE_EXECS) $(EXPERIMENTAL_EXECS) 
 BUILD_LIBS = $(LIBS)
@@ -82,11 +82,16 @@ AR = ar
 all: $(BUILD_EXECS) $(BUILD_LIBS) $(COPIED_EXECS)
 
 
+libv3_ctrl.a : v3_ctrl.c v3_ctrl.h
+	$(CC) $(CFLAGS) -I../linux_module -c v3_ctrl.c
+	$(AR) ruv libv3_ctrl.a v3_ctrl.o
+	rm -rf v3_ctrl.o 
+
 #
 # Most tools compile in a straightforward way
 #
-% :: %.c v3_ctrl.h
-	$(CC) $(CFLAGS) $< -o $@
+% :: %.c v3_ctrl.h libv3_ctrl.a
+	$(CC) $(CFLAGS) $< -lv3_ctrl -L. -o $@
 
 
 #
@@ -102,8 +107,8 @@ v3_cons: v3_cons.c
 v3_cons_sc: v3_cons_sc.c
 	$(CC) $(CFLAGS) $(CURSES_CFLAGS) $< -lcurses -o $@
 
-v3_create: v3_create.c ezxml.c
-	$(CC) $(CFLAGS) $^ -o $@
+v3_create: v3_create.c ezxml.c libv3_ctrl.a 
+	$(CC) $(CFLAGS) $^ -lv3_ctrl -L. -o $@
 
 
 
