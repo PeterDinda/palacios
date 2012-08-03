@@ -296,7 +296,7 @@ send_to_palacios(unsigned char * buf,
 		 int len,
 		 int link_id){
     struct v3_vnet_pkt pkt;
-    memset(pkt,0,sizeof(struct v3_vnet_pkt));
+    memset(&pkt,0,sizeof(struct v3_vnet_pkt));
     pkt.size = len;
     pkt.dst_type = LINK_NOSET;
     pkt.src_type = LINK_EDGE;
