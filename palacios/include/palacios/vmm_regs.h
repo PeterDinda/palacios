@@ -51,7 +51,7 @@ struct v3_ctrl_regs {
     v3_reg_t cr2;
     v3_reg_t cr3;
     v3_reg_t cr4;
-    v3_reg_t cr8;
+    v3_reg_t apic_tpr;  // cr8 is (apic_tpr >> 4) & 0xf
     v3_reg_t rflags;
     v3_reg_t efer;
 };

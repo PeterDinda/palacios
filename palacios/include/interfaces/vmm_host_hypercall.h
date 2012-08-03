@@ -74,7 +74,7 @@ struct guest_accessors {
   GET_SET_REG_DECL(cr2)
   GET_SET_REG_DECL(cr3)
   GET_SET_REG_DECL(cr4)
-  GET_SET_REG_DECL(cr8)
+  GET_SET_REG_DECL(apic_tpr)
   GET_SET_REG_DECL(efer)
 
   int (*gva_to_hva)(palacios_core_t core, uint64_t gva, uint64_t *hva);

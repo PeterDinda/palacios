@@ -45,12 +45,12 @@ static int host_hypercall_nop(palacios_core_t core,
 	 (void*)(acc->get_r13(core)),
 	 (void*)(acc->get_r14(core)),
 	 (void*)(acc->get_r15(core)));
-  DEBUG(" cr0=%p\n cr2=%p\n cr3=%p\n cr4=%p\n cr8=%p\n efer=%p\n",
+  DEBUG(" cr0=%p\n cr2=%p\n cr3=%p\n cr4=%p\n apic_tpr=%p\n efer=%p\n",
 	 (void*)(acc->get_cr0(core)),
 	 (void*)(acc->get_cr2(core)),
 	 (void*)(acc->get_cr3(core)),
 	 (void*)(acc->get_cr4(core)),
-	 (void*)(acc->get_cr8(core)),
+	 (void*)(acc->get_apic_tpr(core)),
 	 (void*)(acc->get_efer(core)));
   return 0;
 }

@@ -730,7 +730,7 @@ void v3_yield_cond(struct guest_info * info, int usec) {
         info->yield_start_cycle +=  info->vm_info->yield_cycle_period;
     }
 }
-
+ 
 
 /* 
  * unconditional cpu yield 

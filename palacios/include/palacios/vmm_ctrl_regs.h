@@ -186,7 +186,6 @@ struct rflags {
 
 
 
-
 /*
 // First opcode byte
 static const uchar_t cr_access_byte = 0x0f;
@@ -210,6 +209,9 @@ int v3_handle_cr3_read(struct guest_info * info);
 
 int v3_handle_cr4_write(struct guest_info * info);
 int v3_handle_cr4_read(struct guest_info * info);
+
+int v3_handle_cr8_write(struct guest_info * info);
+int v3_handle_cr8_read(struct guest_info * info);
 
 
 int v3_handle_efer_write(struct guest_info * core, uint_t msr, struct v3_msr src, void * priv_data);

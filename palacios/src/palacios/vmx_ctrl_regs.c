@@ -100,6 +100,28 @@ int v3_vmx_handle_cr4_access(struct guest_info * info, struct vmx_exit_cr_qual *
     return -1;
 }
 
+int v3_vmx_handle_cr8_access(struct guest_info * info, struct vmx_exit_cr_qual * cr_qual) {
+    if (cr_qual->access_type < 2) {
+
+	if (cr_qual->access_type == 0) {
+	    if (v3_handle_cr8_write(info) != 0) {
+		PrintError("Could not handle CR8 write\n");
+		return -1;
+	    }
+	} else {
+	    if (v3_handle_cr8_read(info) != 0) {
+		PrintError("Could not handle CR8 read\n");
+		return -1;
+	    }
+	}
+	
+	return 0;
+    }
+    
+    PrintError("Invalid CR8 Access type?? (type=%d)\n", cr_qual->access_type);
+    return -1;
+}
+
 static int handle_mov_to_cr3(struct guest_info * info, v3_reg_t * cr3_reg) {
 
     if (info->shdw_pg_mode == SHADOW_PAGING) {

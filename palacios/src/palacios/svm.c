@@ -243,7 +243,19 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
     PrintDebug("Exiting on interrupts\n");
     ctrl_area->guest_ctrl.V_INTR_MASKING = 1;
     ctrl_area->instrs.INTR = 1;
+    // The above also assures the TPR changes (CR8) are only virtual
 
+
+    // However, we need to see TPR writes since they will
+    // affect the virtual apic
+    // we reflect out cr8 to ctrl_regs->apic_tpr
+    ctrl_area->cr_reads.cr8 = 1;
+    ctrl_area->cr_writes.cr8 = 1;
+    // We will do all TPR comparisons in the virtual apic
+    // We also do not want the V_TPR to be able to mask the PIC
+    ctrl_area->guest_ctrl.V_IGN_TPR = 1;
+
+    
 
     v3_hook_msr(core->vm_info, EFER_MSR, 
 		&v3_handle_efer_read,
@@ -279,13 +291,11 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
 	ctrl_area->cr_writes.cr3 = 1;
 
 
-
 	ctrl_area->instrs.INVLPG = 1;
 
 	ctrl_area->exceptions.pf = 1;
 
 	guest_state->g_pat = 0x7040600070406ULL;
-
 
 
     } else if (core->shdw_pg_mode == NESTED_PAGING) {
@@ -477,8 +487,11 @@ static int update_irq_entry_state(struct guest_info * info) {
 #endif
 	guest_ctrl->guest_ctrl.V_IRQ = 1;
 	guest_ctrl->guest_ctrl.V_INTR_VECTOR = info->intr_core_state.irq_vector;
+
+	// We ignore the virtual TPR on this injection
+	// TPR/PPR tests have already been done in the APIC.
 	guest_ctrl->guest_ctrl.V_IGN_TPR = 1;
-	guest_ctrl->guest_ctrl.V_INTR_PRIO = 0xf;
+	guest_ctrl->guest_ctrl.V_INTR_PRIO = info->intr_core_state.irq_vector >> 4 ;  // 0xf;
 
     } else {
 	switch (v3_intr_pending(info)) {
@@ -487,8 +500,11 @@ static int update_irq_entry_state(struct guest_info * info) {
 
 		guest_ctrl->guest_ctrl.V_IRQ = 1;
 		guest_ctrl->guest_ctrl.V_INTR_VECTOR = irq;
+
+		// We ignore the virtual TPR on this injection
+		// TPR/PPR tests have already been done in the APIC.
 		guest_ctrl->guest_ctrl.V_IGN_TPR = 1;
-		guest_ctrl->guest_ctrl.V_INTR_PRIO = 0xf;
+		guest_ctrl->guest_ctrl.V_INTR_PRIO = info->intr_core_state.irq_vector >> 4 ;  // 0xf;
 
 #ifdef V3_CONFIG_DEBUG_INTERRUPTS
 		PrintDebug("Injecting Interrupt %d (EIP=%p)\n", 
@@ -587,7 +603,17 @@ int v3_svm_enter(struct guest_info * info) {
     guest_state->cr4 = info->ctrl_regs.cr4;
     guest_state->dr6 = info->dbg_regs.dr6;
     guest_state->dr7 = info->dbg_regs.dr7;
-    guest_ctrl->guest_ctrl.V_TPR = info->ctrl_regs.cr8 & 0xff;
+
+    // CR8 is now updated by read/writes and it contains the APIC TPR
+    // the V_TPR should be just the class part of that.
+    // This update is here just for completeness.  We currently
+    // are ignoring V_TPR on all injections and doing the priority logivc
+    // in the APIC.
+    // guest_ctrl->guest_ctrl.V_TPR = ((info->ctrl_regs.apic_tpr) >> 4) & 0xf;
+
+    //guest_ctrl->guest_ctrl.V_TPR = info->ctrl_regs.cr8 & 0xff;
+    // 
+    
     guest_state->rflags = info->ctrl_regs.rflags;
     guest_state->efer = info->ctrl_regs.efer;
     
@@ -668,7 +694,11 @@ int v3_svm_enter(struct guest_info * info) {
     info->ctrl_regs.cr4 = guest_state->cr4;
     info->dbg_regs.dr6 = guest_state->dr6;
     info->dbg_regs.dr7 = guest_state->dr7;
-    info->ctrl_regs.cr8 = guest_ctrl->guest_ctrl.V_TPR;
+    //
+    // We do not track this anymore
+    // V_TPR is ignored and we do the logic in the APIC
+    //info->ctrl_regs.cr8 = guest_ctrl->guest_ctrl.V_TPR;
+    //
     info->ctrl_regs.rflags = guest_state->rflags;
     info->ctrl_regs.efer = guest_state->efer;
     

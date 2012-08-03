@@ -139,7 +139,7 @@ struct guest_info {
     
     /* The virtual core # of this cpu (what the guest sees this core as) */
     uint32_t vcpu_id;
-     
+
 };
 
 

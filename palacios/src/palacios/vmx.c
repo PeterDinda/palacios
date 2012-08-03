@@ -187,6 +187,7 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
     vmx_state->pin_ctrls.ext_int_exit = 1;
 
 
+
     /* We enable the preemption timer by default to measure accurate guest time */
     if (avail_pin_ctrls.active_preempt_timer) {
 	V3_Print("VMX Preemption Timer is available\n");
@@ -238,6 +239,11 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 
     // Setup Guests initial PAT field
     vmx_ret |= check_vmcs_write(VMCS_GUEST_PAT, 0x0007040600070406LL);
+
+    // Capture CR8 mods so that we can keep the apic_tpr correct
+    vmx_state->pri_proc_ctrls.cr8_ld_exit = 1;
+    vmx_state->pri_proc_ctrls.cr8_str_exit = 1;
+
 
     /* Setup paging */
     if (core->shdw_pg_mode == SHADOW_PAGING) {
@@ -522,6 +528,7 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
     vmx_ret |= check_vmcs_write(VMCS_LINK_PTR, (addr_t)0xffffffffUL);
     vmx_ret |= check_vmcs_write(VMCS_LINK_PTR_HIGH, (addr_t)0xffffffffUL);
 #endif
+
 
 
  

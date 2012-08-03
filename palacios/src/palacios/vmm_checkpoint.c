@@ -609,7 +609,7 @@ static int load_core(struct guest_info * info, struct v3_chkpt * chkpt) {
     V3_CHKPT_STD_LOAD(ctx, info->ctrl_regs.cr0);
     V3_CHKPT_STD_LOAD(ctx, info->ctrl_regs.cr2);
     V3_CHKPT_STD_LOAD(ctx, info->ctrl_regs.cr4);
-    V3_CHKPT_STD_LOAD(ctx, info->ctrl_regs.cr8);
+    V3_CHKPT_STD_LOAD(ctx, info->ctrl_regs.apic_tpr);
     V3_CHKPT_STD_LOAD(ctx, info->ctrl_regs.rflags);
     V3_CHKPT_STD_LOAD(ctx, info->ctrl_regs.efer);
 
@@ -727,7 +727,7 @@ static int save_core(struct guest_info * info, struct v3_chkpt * chkpt) {
     V3_CHKPT_STD_SAVE(ctx, info->ctrl_regs.cr0);
     V3_CHKPT_STD_SAVE(ctx, info->ctrl_regs.cr2);
     V3_CHKPT_STD_SAVE(ctx, info->ctrl_regs.cr4);
-    V3_CHKPT_STD_SAVE(ctx, info->ctrl_regs.cr8);
+    V3_CHKPT_STD_SAVE(ctx, info->ctrl_regs.apic_tpr);
     V3_CHKPT_STD_SAVE(ctx, info->ctrl_regs.rflags);
     V3_CHKPT_STD_SAVE(ctx, info->ctrl_regs.efer);
 

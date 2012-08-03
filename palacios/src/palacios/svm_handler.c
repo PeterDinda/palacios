@@ -165,6 +165,25 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 		return -1;
 	    }
 	    break;
+
+	case SVM_EXIT_CR8_WRITE:
+#ifdef V3_CONFIG_DEBUG_CTRL_REGS
+	    PrintDebug("CR8 Read\n");
+#endif
+	    if (v3_handle_cr8_read(info) == -1) {
+		return -1;
+	    }
+	    break;
+
+	case SVM_EXIT_CR8_READ:
+#ifdef V3_CONFIG_DEBUG_CTRL_REGS
+	    PrintDebug("CR8 Read\n");
+#endif
+	    if (v3_handle_cr8_read(info) == -1) {
+		return -1;
+	    }
+	    break;
+
 	case SVM_EXIT_EXCP14: {
 	    addr_t fault_addr = exit_info2;
 	    pf_error_t * error_code = (pf_error_t *)&(exit_info1);

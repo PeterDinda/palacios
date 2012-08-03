@@ -94,7 +94,7 @@ static inline struct vnet_link * _link_by_idx(int idx) {
 
 
 static void _delete_link(struct vnet_link * link){
-    unsigned long flags;
+    unsigned long flags = 0;
 
     link->sock->ops->release(link->sock);
 
@@ -122,7 +122,7 @@ void vnet_brg_delete_link(uint32_t idx){
 }
 
 static void deinit_links_list(void){
-    struct vnet_link * link, * tmp_link;
+    struct vnet_link * link = NULL, * tmp_link = NULL;
 
     list_for_each_entry_safe(link, tmp_link, &(vnet_brg_s.link_list), node) {
      	_delete_link(link);
@@ -296,7 +296,9 @@ send_to_palacios(unsigned char * buf,
 		 int len,
 		 int link_id){
     struct v3_vnet_pkt pkt;
+    memset(pkt,0,sizeof(struct v3_vnet_pkt));
     pkt.size = len;
+    pkt.dst_type = LINK_NOSET;
     pkt.src_type = LINK_EDGE;
     pkt.src_id = link_id;
     memcpy(pkt.header, buf, ETHERNET_HEADER_LEN);
@@ -321,7 +323,7 @@ static int
 bridge_send_pkt(struct v3_vm_info * vm, 
 		struct v3_vnet_pkt * pkt, 
 		void * private_data) {
-    struct vnet_link * link;
+    struct vnet_link * link = NULL;
 
     if(net_debug >= 2){
 	DEBUG("VNET Lnx Host Bridge: packet received from VNET Core ... pkt size: %d, link: %d\n",

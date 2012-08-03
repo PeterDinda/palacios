@@ -549,6 +549,119 @@ int v3_handle_cr4_write(struct guest_info * info) {
 }
 
 
+/*
+  The CR8 and APIC TPR interaction are kind of crazy.
+
+  CR8 mandates that the priority class is in bits 3:0
+
+  The interaction of CR8 and an actual APIC is somewhat implementation dependent, but
+  a basic current APIC has the priority class at 7:4 and the *subclass* at 3:0
+
+  The APIC TPR (both fields) can be written as the APIC register
+  A write to CR8 sets the priority class field, and should zero the subclass
+  A read from CR8 gets just the priority class field
+
+  In the apic_tpr storage location, we have:
+
+     zeros [class] [subclass]
+
+  Because of this, an APIC implementation should use apic_tpr to store its TPR
+  In fact, it *should* do this, otherwise its TPR may get out of sync with the architected TPR
+
+  On a CR8 read, we return just 
+
+     zeros 0000  [class]
+
+  On a CR8 write, we set the register to
+
+     zeros [class] 0000
+
+*/
+
+int v3_handle_cr8_write(struct guest_info * info) {
+    int ret;
+    uchar_t instr[15];
+    struct x86_instr dec_instr;
+    
+    if (info->mem_mode == PHYSICAL_MEM) { 
+	ret = v3_read_gpa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
+    } else { 
+	ret = v3_read_gva_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
+    }
+    
+    if (v3_decode(info, (addr_t)instr, &dec_instr) == -1) {
+	PrintError("Could not decode instruction\n");
+	return -1;
+    }
+    
+    if (dec_instr.op_type == V3_OP_MOV2CR) {
+	PrintDebug("MOV2CR8 (cpu_mode=%s)\n", v3_cpu_mode_to_str(info->cpu_mode));
+	
+	if ((info->cpu_mode == LONG) ||
+	    (info->cpu_mode == LONG_32_COMPAT)) {
+	    uint64_t *val = (uint64_t *)(dec_instr.src_operand.operand);
+
+	    info->ctrl_regs.apic_tpr = (*val & 0xf) << 4;
+
+	    V3_Print("Write of CR8 sets apic_tpr to 0x%llx\n",info->ctrl_regs.apic_tpr);
+
+	}  else {
+	    // probably should raise exception here
+	}
+    } else {
+	PrintError("Unhandled opcode in handle_cr8_write\n");
+	return -1;
+    }
+    
+    info->rip += dec_instr.instr_length;
+    
+    return 0;
+}
+
+
+
+int v3_handle_cr8_read(struct guest_info * info) {
+    uchar_t instr[15];
+    int ret;
+    struct x86_instr dec_instr;
+    
+    if (info->mem_mode == PHYSICAL_MEM) { 
+	ret = v3_read_gpa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
+    } else { 
+	ret = v3_read_gva_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
+    }
+    
+    if (v3_decode(info, (addr_t)instr, &dec_instr) == -1) {
+	PrintError("Could not decode instruction\n");
+	return -1;
+    }
+    
+    if (dec_instr.op_type == V3_OP_MOVCR2) {
+	PrintDebug("MOVCR82 (mode=%s)\n", v3_cpu_mode_to_str(info->cpu_mode));
+	
+	if ((info->cpu_mode == LONG) || 
+	    (info->cpu_mode == LONG_32_COMPAT)) {
+	    uint64_t *dst_reg = (uint64_t *)(dec_instr.dst_operand.operand);
+
+	    *dst_reg = (info->ctrl_regs.apic_tpr >> 4) & 0xf;
+
+	    V3_Print("Read of CR8 (apic_tpr) returns 0x%llx\n",*dst_reg);
+
+	} else {
+	    // probably should raise exception
+	}
+	    
+    } else {
+	PrintError("Unhandled opcode in handle_cr8_read\n");
+	return -1;
+    }
+    
+    info->rip += dec_instr.instr_length;
+    
+    return 0;
+}
+
+
 int v3_handle_efer_read(struct guest_info * core, uint_t msr, struct v3_msr * dst, void * priv_data) {
     PrintDebug("EFER Read HI=%x LO=%x\n", core->shdw_pg_state.guest_efer.hi, core->shdw_pg_state.guest_efer.lo);
     

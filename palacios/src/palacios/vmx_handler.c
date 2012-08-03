@@ -237,6 +237,12 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
 			return -1;
 		    }
 		    break;
+		case 8:
+		    if (v3_vmx_handle_cr8_access(info, cr_qual) == -1) {
+			PrintError("Error in CR8 access handler\n");
+			return -1;
+		    }
+		    break;
 		default:
 		    PrintError("Unhandled CR access: %d\n", cr_qual->cr_id);
 		    return -1;

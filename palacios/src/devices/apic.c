@@ -215,9 +215,9 @@ struct apic_state {
     struct int_cmd_reg int_cmd;
     struct log_dst_reg log_dst;
     struct dst_fmt_reg dst_fmt;
-    struct arb_prio_reg arb_prio;
-    struct task_prio_reg task_prio;
-    struct proc_prio_reg proc_prio;
+    //struct arb_prio_reg arb_prio;     // computed on the fly
+    //struct task_prio_reg task_prio;   // stored in core.ctrl_regs.apic_tpr
+    //struct proc_prio_reg proc_prio;   // computed on the fly
     struct ext_apic_feature_reg ext_apic_feature;
     struct spec_eoi_reg spec_eoi;
   
@@ -280,6 +280,9 @@ struct apic_dev_state {
 static int apic_read(struct guest_info * core, addr_t guest_addr, void * dst, uint_t length, void * priv_data);
 static int apic_write(struct guest_info * core, addr_t guest_addr, void * src, uint_t length, void * priv_data);
 
+static void set_apic_tpr(struct apic_state *apic, uint32_t val);
+
+
 // No lcoking done
 static void init_apic_state(struct apic_state * apic, uint32_t id) {
     apic->base_addr = DEFAULT_BASE_ADDR;
@@ -321,9 +324,10 @@ static void init_apic_state(struct apic_state * apic, uint32_t id) {
     // The P6 has 6 LVT entries, so we set the value to (6-1)...
     apic->apic_ver.val = 0x80050010;
 
-    apic->task_prio.val = 0x00000000;
-    apic->arb_prio.val = 0x00000000;
-    apic->proc_prio.val = 0x00000000;
+    set_apic_tpr(apic,0x00000000);
+    // note that arbitration priority and processor priority are derived values
+    // and are computed on the fly
+
     apic->log_dst.val = 0x00000000;
     apic->dst_fmt.val = 0xffffffff;
     apic->spurious_int.val = 0x000000ff;
@@ -501,7 +505,6 @@ static void drain_irq_entries(struct apic_state * apic) {
 
 
 
-
 static int get_highest_isr(struct apic_state * apic) {
     int i = 0, j = 0;
 
@@ -546,6 +549,88 @@ static int get_highest_irr(struct apic_state * apic) {
 }
  
 
+static uint32_t get_isrv(struct apic_state *apic)
+{
+    int isr = get_highest_isr(apic);
+    
+    if (isr>=0) { 
+	return (uint32_t) isr;
+    } else {
+	return 0;
+    }
+}
+
+static uint32_t get_irrv(struct apic_state *apic)
+{
+    int irr = get_highest_irr(apic);
+    
+    if (irr>=0) { 
+	return (uint32_t) irr;
+    } else {
+	return 0;
+    }
+}
+
+
+static uint32_t get_apic_tpr(struct apic_state *apic)
+{
+    return (uint32_t) (apic->core->ctrl_regs.apic_tpr); // see comment in vmm_ctrl_regs.c for how this works
+
+}
+
+static void set_apic_tpr(struct apic_state *apic, uint32_t val)
+{
+    PrintDebug("Set apic_tpr to 0x%x from apic reg path\n",val);
+    apic->core->ctrl_regs.apic_tpr = (uint64_t) val; // see comment in vmm_ctrl_regs.c for how this works
+}
+
+static uint32_t get_apic_ppr(struct apic_state *apic)
+{
+    uint32_t tpr = get_apic_tpr(apic);
+    uint32_t isrv = get_isrv(apic);
+    uint32_t tprlevel, isrlevel;
+    uint32_t ppr;
+
+    tprlevel = (tpr >> 4) & 0xf;
+    isrlevel = (isrv >> 4) & 0xf;
+
+    if (tprlevel>=isrlevel) { 
+	ppr = tpr;  // get class and subclass
+    } else { 
+	ppr = (isrlevel << 4); // get class only
+    }
+    
+    return ppr;
+}
+
+
+
+static uint32_t get_apic_apr(struct apic_state *apic)
+{
+    uint32_t tpr = get_apic_tpr(apic);
+    uint32_t isrv = get_isrv(apic);
+    uint32_t irrv = get_irrv(apic);
+    uint32_t tprlevel, isrlevel, irrlevel;
+
+    tprlevel = (tpr >> 4) & 0xf;
+    isrlevel = (isrv >> 4) & 0xf;
+    irrlevel = (irrv >> 4) & 0xf;
+
+    if (tprlevel >= isrlevel) { 
+	if (tprlevel >= irrlevel) { 
+	    return tpr;  // get both class and subclass
+	} else {
+	    return irrlevel << 4; // get class only
+	}
+    } else {
+	if (isrlevel >= irrlevel) {
+	    return isrlevel << 4; // get class only
+	} else {
+	    return irrlevel << 4; // get class only
+	}
+    }
+    
+}
 
 
 static int apic_do_eoi(struct guest_info * core, struct apic_state * apic) {
@@ -939,6 +1024,7 @@ static int route_ipi(struct apic_dev_state * apic_dev,
 		    }
 		} else {  // APIC_LOWEST_DELIVERY
 		    struct apic_state * cur_best_apic = NULL;
+		    uint32_t cur_best_apr;
 		    uint8_t mda = ipi->dst;
 		    int i;
 
@@ -963,8 +1049,13 @@ static int route_ipi(struct apic_dev_state * apic_dev,
 
 			    if (cur_best_apic == 0) {
 				cur_best_apic = dest_apic;  
-			    } else if (dest_apic->task_prio.val < cur_best_apic->task_prio.val) {
-				cur_best_apic = dest_apic;
+				cur_best_apr = get_apic_apr(dest_apic) & 0xf0;
+			    } else {
+				uint32_t dest_apr = get_apic_apr(dest_apic) & 0xf0;
+				if (dest_apr < cur_best_apr) {
+				    cur_best_apic = dest_apic;
+				    cur_best_apr = dest_apr;
+				}
 			    } 
 
 			    v3_unlock_irqrestore(apic_dev->state_lock, flags);
@@ -1081,13 +1172,13 @@ static int apic_read(struct guest_info * core, addr_t guest_addr, void * dst, ui
 	    val = apic->apic_ver.val;
 	    break;
 	case TPR_OFFSET:
-	    val = apic->task_prio.val;
+	    val = get_apic_tpr(apic);
 	    break;
 	case APR_OFFSET:
-	    val = apic->arb_prio.val;
+	    val = get_apic_apr(apic);
 	    break;
 	case PPR_OFFSET:
-	    val = apic->proc_prio.val;
+	    val = get_apic_ppr(apic);
 	    break;
 	case REMOTE_READ_OFFSET:
 	    val = apic->rem_rd_data;
@@ -1375,7 +1466,7 @@ static int apic_write(struct guest_info * core, addr_t guest_addr, void * src, u
 	    apic->lapic_id.val = op_val;
 	    break;
 	case TPR_OFFSET:
-	    apic->task_prio.val = op_val;
+	    set_apic_tpr(apic,op_val);
 	    break;
 	case LDR_OFFSET:
 	    PrintDebug("apic %u: core %u: setting log_dst.val to 0x%x\n",
@@ -1543,12 +1634,33 @@ static int apic_intr_pending(struct guest_info * core, void * private_data) {
 
     //    PrintDebug("apic %u: core %u: req_irq=%d, svc_irq=%d\n",apic->lapic_id.val,info->vcpu_id,req_irq,svc_irq);
 
+
     if ((req_irq >= 0) && 
 	(req_irq > svc_irq)) {
-	return 1;
-    }
 
-    return 0;
+	// We have a new requested vector that is higher priority than
+	// the vector that is in-service
+
+	uint32_t ppr = get_apic_ppr(apic);
+
+	if ((req_irq & 0xf0) > (ppr & 0xf0)) {
+	    // it's also higher priority than the current
+	    // processor priority.  Therefore this
+	    // interrupt can go in now.
+	    return 1;
+	} else {
+	    // processor priority is currently too high
+	    // for this interrupt to go in now.  
+	    // note that if tpr=0xf?, then ppr=0xf?
+	    // and thus all vectors will be masked
+	    // as required (tpr=0xf? => all masked)
+	    return 0;
+	}
+    } else {
+	// the vector that is in service is higher
+	// priority than any new requested vector
+	return 0;
+    }
 }
 
 
@@ -1559,13 +1671,23 @@ static int apic_get_intr_number(struct guest_info * core, void * private_data) {
     int req_irq = get_highest_irr(apic);
     int svc_irq = get_highest_isr(apic);
 
-    if (svc_irq == -1) {
-	return req_irq;
-    } else if (svc_irq < req_irq) {
-	return req_irq;
-    }
 
-    return -1;
+    // for the logic here, see the comments for apic_intr_pending
+    if ((req_irq >=0) &&
+	(req_irq > svc_irq)) { 
+	
+	uint32_t ppr = get_apic_ppr(apic);
+	
+	if ((req_irq & 0xf0) > (ppr & 0xf0)) {
+	    return req_irq;
+	} else {
+	    // hmm, this should not have happened, but, anyway,
+	    // no interrupt is currently ready to go in
+	    return -1;
+	}
+    } else {
+	return -1;
+    }
 }
 
 
@@ -1576,7 +1698,6 @@ int v3_apic_send_ipi(struct v3_vm_info * vm, struct v3_gen_ipi * ipi, void * dev
 
     return route_ipi(apic_dev, NULL, ipi);
 }
-
 
 
 
@@ -1765,6 +1886,7 @@ static int apic_free(struct apic_dev_state * apic_dev) {
 static int apic_save(struct v3_chkpt_ctx * ctx, void * private_data) {
     struct apic_dev_state * apic_state = (struct apic_dev_state *)private_data;
     int i = 0;
+    uint32_t temp;
 
     V3_CHKPT_STD_SAVE(ctx, apic_state->num_apics);
 
@@ -1789,9 +1911,17 @@ static int apic_save(struct v3_chkpt_ctx * ctx, void * private_data) {
 	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].int_cmd);
 	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].log_dst);
 	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].dst_fmt);
-	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].arb_prio);
-	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].task_prio);
-	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].proc_prio);
+
+	// APR and PPR are stored only for compatability
+	// TPR is in APIC_TPR, APR and PPR are derived
+	
+	temp = get_apic_apr(&(apic_state->apics[i]));
+	V3_CHKPT_STD_SAVE(ctx, temp);
+	temp = get_apic_tpr(&(apic_state->apics[i]));
+	V3_CHKPT_STD_SAVE(ctx, temp);
+	temp = get_apic_ppr(&(apic_state->apics[i]));
+	V3_CHKPT_STD_SAVE(ctx, temp);
+
 	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].ext_apic_feature);
 	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].spec_eoi);
 	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].tmr_cur_cnt);
@@ -1813,6 +1943,7 @@ static int apic_save(struct v3_chkpt_ctx * ctx, void * private_data) {
 static int apic_load(struct v3_chkpt_ctx * ctx, void * private_data) {
     struct apic_dev_state *apic_state = (struct apic_dev_state *)private_data;
     int i = 0;
+    uint32_t temp;
 
     V3_CHKPT_STD_LOAD(ctx,apic_state->num_apics);
 
@@ -1835,9 +1966,15 @@ static int apic_load(struct v3_chkpt_ctx * ctx, void * private_data) {
 	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].int_cmd);
 	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].log_dst);
 	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].dst_fmt);
-	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].arb_prio);
-	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].task_prio);
-	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].proc_prio);
+
+	// APR is ignored
+	V3_CHKPT_STD_LOAD(ctx, temp);
+	// TPR is written back to APIC_TPR
+	V3_CHKPT_STD_LOAD(ctx, temp);
+	set_apic_tpr(&(apic_state->apics[i]),temp);
+	// PPR is ignored
+	V3_CHKPT_STD_LOAD(ctx, temp);
+
 	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].ext_apic_feature);
 	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].spec_eoi);
 	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].tmr_cur_cnt);
