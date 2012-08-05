@@ -28,26 +28,48 @@
 #endif
 
 
-#define YIELD_TIME_USEC 1000
+#define NO_PROGRESS_CYCLE_LIMIT  4000000ULL   // 4 million cycles, about 1ms on a 4 GHz machine
+
+#define YIELD_TIME_USEC    1000
 
 
 //
 // This should trigger a #GP if cpl != 0, otherwise, yield to host
 //
 
-int v3_handle_halt(struct guest_info * info) {
-
+int v3_handle_halt(struct guest_info * info) 
+{
+    
     if (info->cpl != 0) { 
 	v3_raise_exception(info, GPF_EXCEPTION);
     } else {
+	uint64_t total_cycles;
+	
+
 	PrintDebug("CPU Yield\n");
+
+	total_cycles = 0;
 
 	while (!v3_intr_pending(info) && (info->vm_info->run_state == VM_RUNNING)) {
             uint64_t t, cycles;
 	    /* Yield, allowing time to pass while yielded */
 	    t = v3_get_host_time(&info->time_state);
-	    v3_yield(info,YIELD_TIME_USEC);
+
+	    // adaptively select the best yield option
+	    if (total_cycles > NO_PROGRESS_CYCLE_LIMIT) { 
+		// Slow yield - will take at least YIELD_TIME_USEC to come back
+		v3_yield(info,YIELD_TIME_USEC);
+	    } else {
+		// Fast yield - may come back immediately
+		v3_yield(info,-1);
+	    }
+
 	    cycles = v3_get_host_time(&info->time_state) - t;
+
+	    if ((total_cycles + cycles) > total_cycles) { 
+		total_cycles += cycles;
+	    }
+
 	    v3_advance_time(info, &cycles);
 
 	    v3_update_timers(info);

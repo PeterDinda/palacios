@@ -111,6 +111,11 @@ static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     v3_cfg_tree_t * frontend_cfg = v3_cfg_subtree(cfg, "frontend");
 
+    if (!frontend_cfg || !(v3_cfg_val(frontend_cfg, "tag"))) { 
+	PrintError("No frontend config specified, or frontend has no tag\n");
+	return -1;
+    }
+
     vnetnic = (struct vnet_nic_state *)V3_Malloc(sizeof(struct vnet_nic_state));
 
     if (!vnetnic) {

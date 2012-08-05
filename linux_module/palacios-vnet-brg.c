@@ -19,15 +19,22 @@
 #include <linux/sched.h>
 #include <asm/msr.h>
 
+#include <linux/net.h>
+#include <linux/socket.h>
+#include <net/sock.h>
+
 #include <vnet/vnet.h>
 #include <vnet/vnet_hashtable.h>
 #include "palacios-vnet.h"
 #include "palacios.h"
 
 
+
 #define VNET_SERVER_PORT 9000
 
-#define VNET_YIELD_TIME_USEC 1000
+#define VNET_NOPROGRESS_LIMIT 1000
+
+#define VNET_YIELD_TIME_USEC  1000
 
 struct vnet_link {
     uint32_t dst_ip;
@@ -152,16 +159,25 @@ static uint32_t _create_link(struct vnet_link * link) {
 	return -1;
     }
 
+    if (link->sock_proto == UDP) { 
+	// no UDP checksumming
+	lock_sock(link->sock->sk);
+	link->sock->sk->sk_no_check = 1;
+	release_sock(link->sock->sk);
+    }
+
     memset(&link->sock_addr, 0, sizeof(struct sockaddr));
 
     link->sock_addr.sin_family = AF_INET;
     link->sock_addr.sin_addr.s_addr = link->dst_ip;
     link->sock_addr.sin_port = htons(link->dst_port);
 
+
     if ((err = link->sock->ops->connect(link->sock, (struct sockaddr *)&(link->sock_addr), sizeof(struct sockaddr), 0) < 0)) {
 	WARNING("Could not connect to remote VNET Server, error %d\n", err);
 	return -1;
     }
+
 
     spin_lock_irqsave(&(vnet_brg_s.lock), flags);
     list_add(&(link->node), &(vnet_brg_s.link_list));
@@ -237,7 +253,7 @@ _udp_send(struct socket * sock,
     iov.iov_base = buf;
     iov.iov_len = len;
 
-    msg.msg_flags = 0;
+    msg.msg_flags = MSG_NOSIGNAL;
     msg.msg_name = addr;
     msg.msg_namelen = sizeof(struct sockaddr_in);
     msg.msg_control = NULL;
@@ -384,6 +400,13 @@ static int init_vnet_serv(void) {
 	return -1;
     }
 
+    if (vnet_brg_s.serv_proto == UDP) { 
+	// No UDP checksumming is done
+	lock_sock(vnet_brg_s.serv_sock->sk);
+	vnet_brg_s.serv_sock->sk->sk_no_check = 1;
+	release_sock(vnet_brg_s.serv_sock->sk);
+    }
+
     memset(&vnet_brg_s.serv_addr, 0, sizeof(struct sockaddr));
 
     vnet_brg_s.serv_addr.sin_family = AF_INET;
@@ -404,6 +427,8 @@ static int init_vnet_serv(void) {
 	}
     }
 
+
+
     return 0;
 }
 
@@ -412,6 +437,7 @@ static int _udp_server(void * arg) {
     struct sockaddr_in pkt_addr;
     struct vnet_link * link = NULL;
     int len;
+    uint64_t noprogress_count;
 
     INFO("Palacios VNET Bridge: UDP receiving server ..... \n");
 
@@ -422,6 +448,8 @@ static int _udp_server(void * arg) {
 	return -1;
     }
 
+    
+    noprogress_count=0;
 
     while (!kthread_should_stop()) {
 
@@ -436,10 +464,32 @@ static int _udp_server(void * arg) {
 	// If it would have blocked, we have no packet, and so
 	// we will give other threads on this core a chance
 	if (len==-EAGAIN || len==-EWOULDBLOCK || len==-EINTR) { 
-	    palacios_yield_cpu_timed(VNET_YIELD_TIME_USEC);
+
+	    // avoid rollover in the counter out of paranoia
+	    if (! ((noprogress_count + 1) < noprogress_count)) { 
+		noprogress_count++;
+	    }
+	    
+	    // adaptively select yielding strategy depending on
+	    // whether we are making progress
+	    if (noprogress_count < VNET_NOPROGRESS_LIMIT) { 
+		// Likely making progress, do fast yield so we 
+		// come back immediately if there is no other action
+		palacios_yield_cpu();
+	    } else {
+		// Likely not making progress, do potentially slow
+		// yield - we won't come back for until VNET_YIELD_TIME_USEC has passed
+		palacios_yield_cpu_timed(VNET_YIELD_TIME_USEC);
+	    }
+
 	    continue;
 	}
 	
+
+	// Something interesting has happened, therefore progress!
+	noprogress_count=0;
+	    
+
 	if(len < 0) {
 	    WARNING("Receive error: Could not get packet, error %d\n", len);
 	    continue;

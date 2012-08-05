@@ -31,7 +31,8 @@
 #define PrintDebug(fmt, args...)
 #endif
 
-#define VNET_YIELD_USEC 1000
+#define VNET_NOPROGRESS_LIMIT 1000
+#define VNET_YIELD_USEC       1000
 
 int net_debug = 0;
 
@@ -345,118 +346,221 @@ static void inline del_routes_by_dev(int dev_id){
 	    Vnet_Free(route);    
 	}
     }
-
+    
     vnet_unlock_irqrestore(vnet_state.lock, flags);
 }
 
 
+// Match classes, must be in order
+#define NUM_MATCH_CLASSES 4
+#define NUM_MATCH_CLASSES_BOUND 3
+#define NONE    0
+#define NOT     1
+#define ANY     2
+#define DIRECT  3
 
 
-/* At the end allocate a route_list
- * This list will be inserted into the cache so we don't need to free it
- */
-static struct route_list * match_route(const struct v3_vnet_pkt * pkt) {
+static inline uint8_t match_mac(uint8_t test_mac[ETH_ALEN], 
+				uint8_t route_mac[ETH_ALEN], 
+				uint8_t route_qual)
+{
+    switch (route_qual) { 
+	case MAC_NOSET:
+	    return NONE;
+	    break;
+	case MAC_NONE:
+	    return NONE;
+	    break;
+	case MAC_ANY:
+	    return ANY;
+	    break;
+	case MAC_NOT:
+	    if (memcmp(test_mac,route_mac,ETH_ALEN)) { 
+		return NOT;
+	    } else {
+		return NONE;
+	    }
+	    break;
+	case MAC_ADDR:
+	    if (memcmp(test_mac,route_mac,ETH_ALEN)) { 
+		return NONE;
+	    } else {
+		return DIRECT;
+	    }
+	    break;
+	default:
+	    PrintError("Unknown qualifier %u\n",route_qual);
+	    return NONE;
+	    break;
+    }
+
+}
+
+#define QUAL_TO_STR(q)  (       \
+(q)==MAC_NOSET ? "MAC_NOSET" :  \
+(q)==MAC_NONE ? "MAC_NONE" :    \
+(q)==MAC_ANY ? "MAC_ANY" :      \
+(q)==MAC_NOT ? "MAC_NOT" :      \
+(q)==MAC_ADDR ? "MAC_ADDR" :    \
+"***UNDEFINED****"              \
+    )                           \
+
+#define MATCH_CLASS_TO_STR(c)  (       \
+(c)==NONE ? "NONE" :  \
+(c)==NOT ? "NOT" :    \
+(c)==ANY ? "ANY" :      \
+(c)==DIRECT ? "DIRECT" :      \
+"***UNDEFINED****"              \
+    )                           \
+
+
+
+/*
+
+Original priority behavior... 
+  
+priority   src  srcqual   dst  dstqual
+3              ANY            ANY
+4        X                    NONE
+5              ANY     X      NOT
+5        X     NOT            ANY
+6        X     ~NOT           ANY
+6              ANY     X      ~NOT
+7        X     ~NOT    X      NOT
+7        X     NOT     X      ~NOT
+8        X     ~NOT    X      ~NOT
+8        X     ~NOT    X      ~NOT
+
+*/
+
+/*
+  Current priority order is given in the following table
+*/
+
+// [src][dst] => priority
+static int priority_map[NUM_MATCH_CLASSES][NUM_MATCH_CLASSES] = 
+{
+    [NONE] = { [ 0 ... NUM_MATCH_CLASSES_BOUND ] = -1},   // ignore if it's not a source match
+    [NOT][NONE]                          = -1,            // ignore it if there is no destination match   
+    [NOT][NOT]                           = 3,                                   
+    [NOT][ANY]                           = 5,
+    [NOT][DIRECT]                        = 7,
+    [ANY][NONE]                          = -1,            // ignore if there is no destination match
+    [ANY][NOT]                           = 5,
+    [ANY][ANY]                           = 6,
+    [ANY][DIRECT]                        = 6,
+    [DIRECT][NONE]                       = -1,            // ignore if there is no destination match
+    [DIRECT][NOT]                        = 7,            
+    [DIRECT][ANY]                        = 8,            
+    [DIRECT][DIRECT]                     = 8,            
+};
+
+
+
+
+static inline int match_priority(uint8_t src_mac[ETH_ALEN],
+				 uint8_t dst_mac[ETH_ALEN],
+				 uint8_t route_src_mac[ETH_ALEN],
+				 uint8_t route_src_qual,
+				 uint8_t route_dst_mac[ETH_ALEN],
+				 uint8_t route_dst_qual)
+
+{
+
+    return priority_map[match_mac(src_mac,route_src_mac,route_src_qual)][match_mac(dst_mac,route_dst_mac,route_dst_qual)];
+}
+
+
+/*
+  Route matching will return the list of the highest priority routes that
+  match.  It's a list because it's possible to have multiple high priority routes
+ */ 
+static struct route_list * match_route(const struct v3_vnet_pkt * pkt) 
+{
+    int i;
     struct vnet_route_info * route = NULL; 
     struct route_list * matches = NULL;
     int num_matches = 0;
-    int max_rank = 0;
+    int max_priority = -1;
     struct list_head match_list;
     struct eth_hdr * hdr = (struct eth_hdr *)(pkt->data);
-    //  uint8_t src_type = pkt->src_type;
-    //  uint32_t src_link = pkt->src_id;
 
+    //
+    //
+    // NOTE: USING THE MATCH_NODE in the route list to record a match list
+    // IS A DISASTER WAITING TO HAPPEN
+    //
+    
 #ifdef V3_CONFIG_DEBUG_VNET
     {
-	char dst_str[100];
-	char src_str[100];
-
+	char dst_str[32], src_str[32];
 	mac2str(hdr->src_mac, src_str);  
 	mac2str(hdr->dst_mac, dst_str);
 	PrintDebug("VNET/P Core: match_route. pkt: SRC(%s), DEST(%s)\n", src_str, dst_str);
     }
 #endif
-
-    INIT_LIST_HEAD(&match_list);
     
-#define UPDATE_MATCHES(rank) do {				\
-	if (max_rank < (rank)) {				\
-	    max_rank = (rank);					\
-	    INIT_LIST_HEAD(&match_list);			\
-	    							\
-	    list_add(&(route->match_node), &match_list);	\
-	    num_matches = 1;					\
-	} else if (max_rank == (rank)) {			\
-	    list_add(&(route->match_node), &match_list);	\
-	    num_matches++;					\
-	}							\
-    } while (0)
+    INIT_LIST_HEAD(&match_list);			
     
-
+    
     list_for_each_entry(route, &(vnet_state.routes), node) {
+	
 	struct v3_vnet_route * route_def = &(route->route_def);
+	
+	int priority;
+	
+	priority = match_priority(hdr->src_mac,
+				  hdr->dst_mac,
+				  route_def->src_mac,
+				  route_def->src_mac_qual,
+				  route_def->dst_mac,
+				  route_def->dst_mac_qual);
 
-/*
-	// CHECK SOURCE TYPE HERE
-	if ( (route_def->src_type != LINK_ANY) && 
-	     ( (route_def->src_type != src_type) || 
-	       ( (route_def->src_id != src_link) &&
-		 (route_def->src_id != -1)))) {
+	
+
+#ifdef V3_CONFIG_DEBUG_VNET
+	{
+	    char dst_str[32];
+	    char src_str[32];
+	    
+	    mac2str(route_def->src_mac, src_str);  
+	    mac2str(route_def->dst_mac, dst_str);
+	    
+	    PrintDebug("Tested match against SRC(%s) SRC_QUAL(%s), DEST(%s) DST_QUAL(%s): "
+		       "SRC_MATCH=%s  DEST_MATCH=%s PRIORITY=%d\n", 
+		       src_str, QUAL_TO_STR(route_def->src_mac_qual), 
+		       dst_str, QUAL_TO_STR(route_def->dst_mac_qual),
+		       MATCH_CLASS_TO_STR(match_mac(hdr->src_mac,route_def->src_mac,route_def->src_mac_qual)),
+		       MATCH_CLASS_TO_STR(match_mac(hdr->dst_mac,route_def->dst_mac,route_def->dst_mac_qual)),
+		   priority);
+	}
+#endif
+
+	if (priority<0) { 
+	    PrintDebug("No match to this rule\n");
 	    continue;
 	}
-*/
 
-	if ((route_def->dst_mac_qual == MAC_ANY) &&
-	    (route_def->src_mac_qual == MAC_ANY)) {      
-	    UPDATE_MATCHES(3);
-	}
-	
-	if (memcmp(route_def->src_mac, hdr->src_mac, 6) == 0) {
-	    if (route_def->src_mac_qual != MAC_NOT) {
-		if (route_def->dst_mac_qual == MAC_ANY) {
-		    UPDATE_MATCHES(6);
-		} else if (route_def->dst_mac_qual != MAC_NOT &&
-			   memcmp(route_def->dst_mac, hdr->dst_mac, 6) == 0) {
-		    UPDATE_MATCHES(8);
-		}
+	if (priority > max_priority) { 
+            PrintDebug("New highest priority match, reseting list\n");
+	    max_priority = priority;
+
+	    struct vnet_route_info *my_route, *tmp_route;
+
+	    list_for_each_entry_safe(my_route, tmp_route, &match_list,match_node) {
+		list_del(&(my_route->match_node));
 	    }
-	}
+
+	    list_add(&(route->match_node), &match_list);	
+	    num_matches = 1;					
 	    
-	if (memcmp(route_def->dst_mac, hdr->dst_mac, 6) == 0) {
-	    if (route_def->dst_mac_qual != MAC_NOT) {
-		if (route_def->src_mac_qual == MAC_ANY) {
-		    UPDATE_MATCHES(6);
-		} else if ((route_def->src_mac_qual != MAC_NOT) && 
-			   (memcmp(route_def->src_mac, hdr->src_mac, 6) == 0)) {
-		    UPDATE_MATCHES(8);
-		}
-	    }
-	}
+	} else if (priority == max_priority) {                      
+            PrintDebug("Equal priority match, adding to list\n");
 	    
-	if ((route_def->dst_mac_qual == MAC_NOT) &&
-	    (memcmp(route_def->dst_mac, hdr->dst_mac, 6) != 0)) {
-	    if (route_def->src_mac_qual == MAC_ANY) {
-		UPDATE_MATCHES(5);
-	    } else if ((route_def->src_mac_qual != MAC_NOT) && 
-		       (memcmp(route_def->src_mac, hdr->src_mac, 6) == 0)) {     
-		UPDATE_MATCHES(7);
-	    }
-	}
+	    list_add(&(route->match_node), &match_list);	
+	    num_matches++;					
+	}							
 	
-	if ((route_def->src_mac_qual == MAC_NOT) &&
-	    (memcmp(route_def->src_mac, hdr->src_mac, 6) != 0)) {
-	    if (route_def->dst_mac_qual == MAC_ANY) {
-		UPDATE_MATCHES(5);
-	    } else if ((route_def->dst_mac_qual != MAC_NOT) &&
-		       (memcmp(route_def->dst_mac, hdr->dst_mac, 6) == 0)) {
-		UPDATE_MATCHES(7);
-	    }
-	}
-	
-	// Default route
-	if ( (memcmp(route_def->src_mac, hdr->src_mac, 6) == 0) &&
-	     (route_def->dst_mac_qual == MAC_NONE)) {
-	    UPDATE_MATCHES(4);
-	}
     }
 
     PrintDebug("VNET/P Core: match_route: Matches=%d\n", num_matches);
@@ -464,7 +568,7 @@ static struct route_list * match_route(const struct v3_vnet_pkt * pkt) {
     if (num_matches <= 0) {
 	return NULL;
     }
-
+    
     matches = (struct route_list *)Vnet_Malloc(sizeof(struct route_list) + 
 					       (sizeof(struct vnet_route_info *) * num_matches));
 
@@ -476,24 +580,30 @@ static struct route_list * match_route(const struct v3_vnet_pkt * pkt) {
 
     matches->num_routes = num_matches;
 
-    {
-	int i = 0;
-	list_for_each_entry(route, &match_list, match_node) {
+    i=0;
+    list_for_each_entry(route, &match_list, match_node) {
+	if (i==num_matches) { 
+	    // the list should never have more than num_matches on it...
+	    PrintError("Weird list behavior\n");
+	    break;
+	} else {
 	    matches->routes[i++] = route;
 	}
+       
     }
 
     return matches;
 }
 
-int v3_vnet_query_header(uint8_t src_mac[6], 
-			 uint8_t dest_mac[6],
+int v3_vnet_query_header(uint8_t src_mac[ETH_ALEN], 
+			 uint8_t dest_mac[ETH_ALEN],
 			 int     recv,         // 0 = send, 1=recv
 			 struct v3_vnet_header *header)
 {
     struct route_list *routes;
     struct vnet_route_info *r;
     struct v3_vnet_pkt p;
+    void *flags;
 
     p.size=14;
     p.data=p.header;
@@ -507,12 +617,15 @@ int v3_vnet_query_header(uint8_t src_mac[6],
     memcpy(header->src_mac,src_mac,6);
     memcpy(header->dst_mac,dest_mac,6);
 
+
+    flags = vnet_lock_irqsave(vnet_state.lock);
     
     look_into_cache(&p,&routes);
 
     if (!routes) { 
 	routes = match_route(&p);
 	if (!routes) { 
+	    vnet_unlock_irqrestore(vnet_state.lock,flags);
 	    PrintError("Cannot match route\n");
 	    header->header_type=VNET_HEADER_NOMATCH;
 	    header->header_len=0;
@@ -521,6 +634,8 @@ int v3_vnet_query_header(uint8_t src_mac[6],
 	    add_route_to_cache(&p,routes);
 	}
     }
+
+    vnet_unlock_irqrestore(vnet_state.lock,flags);
     
     if (routes->num_routes<1) { 
 	PrintError("Less than one route\n");
@@ -828,6 +943,7 @@ static int vnet_tx_flush(void * args){
     struct vnet_dev * dev = NULL;
     int more;
     int rc;
+    uint64_t noprogress_count;
 
     Vnet_Print(0, "VNET/P Polling Thread Starting ....\n");
 
@@ -845,6 +961,7 @@ static int vnet_tx_flush(void * args){
 	return -1;
     }
 
+    noprogress_count=0;
 
     while (!vnet_thread_should_stop()) {
 
@@ -871,13 +988,19 @@ static int vnet_tx_flush(void * args){
 	    v3_enqueue(vnet_state.poll_devs, (addr_t)dev); 
 	}
 
-	// Yield regardless of whether we handled any devices - need
-	// to allow other threads to run
+
 	if (more) { 
-	    // we have more to do, so we want to get back asap
+	    noprogress_count=0;
+	} else {
+	    if ( ! ((noprogress_count+1) < noprogress_count)) {
+		noprogress_count++;
+	    }
+	}
+
+	// adaptively yield 
+	if (noprogress_count < VNET_NOPROGRESS_LIMIT) { 
 	    V3_Yield();
 	} else {
-	    // put ourselves briefly to sleep if we we don't have more
 	    V3_Yield_Timed(VNET_YIELD_USEC);
 	}
 

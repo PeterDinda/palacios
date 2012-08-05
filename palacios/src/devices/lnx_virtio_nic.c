@@ -940,6 +940,13 @@ static int connect_fn(struct v3_vm_info * info,
     ops->config.poll = 1;
     ops->config.quote = 64;
     ops->config.fnt_mac = V3_Malloc(ETH_ALEN);  
+
+    if (!ops->config.fnt_mac) { 
+	PrintError("Cannot allocate in connect\n");
+	// should unregister here
+	return -1;
+    }
+
     memcpy(ops->config.fnt_mac, virtio->mac, ETH_ALEN);
 
     return 0;
