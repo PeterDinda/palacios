@@ -32,9 +32,9 @@
 
 #define VNET_SERVER_PORT 9000
 
-#define VNET_NOPROGRESS_LIMIT 1000
-
-#define VNET_YIELD_TIME_USEC  1000
+#define VNET_ADAPTIVE_BRIDGE  0      // set this to one to have bridge go to sleep if there nothing to do...
+#define VNET_NOPROGRESS_LIMIT 1000   // ... after this many iterations
+#define VNET_YIELD_TIME_USEC  1000   // ... and go to sleep for this long
 
 struct vnet_link {
     uint32_t dst_ip;
@@ -472,7 +472,7 @@ static int _udp_server(void * arg) {
 	    
 	    // adaptively select yielding strategy depending on
 	    // whether we are making progress
-	    if (noprogress_count < VNET_NOPROGRESS_LIMIT) { 
+	    if ((!VNET_ADAPTIVE_BRIDGE) || (noprogress_count < VNET_NOPROGRESS_LIMIT)) { 
 		// Likely making progress, do fast yield so we 
 		// come back immediately if there is no other action
 		palacios_yield_cpu();

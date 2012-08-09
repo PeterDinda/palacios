@@ -31,8 +31,12 @@
 #define PrintDebug(fmt, args...)
 #endif
 
-#define VNET_NOPROGRESS_LIMIT 1000
-#define VNET_YIELD_USEC       1000
+#define VNET_NUM_TX_KICK_THREADS 2
+
+#define VNET_ADAPTIVE_TX_KICK 0         // set to 1 to try to sleep when there is nothing to do
+#define VNET_NOPROGRESS_LIMIT 1000      //   ... after this many tries
+#define VNET_YIELD_USEC       1000      //   ... and go to sleep for this long
+
 
 int net_debug = 0;
 
@@ -119,9 +123,10 @@ static struct {
    /* device queue that are waiting to be polled */
     struct v3_queue * poll_devs;
 
-    struct vnet_thread * pkt_flush_thread;
+    struct vnet_thread * pkt_flush_thread[VNET_NUM_TX_KICK_THREADS];
 
     struct hashtable * route_cache;
+
 } vnet_state;
 	
 
@@ -607,15 +612,15 @@ int v3_vnet_query_header(uint8_t src_mac[ETH_ALEN],
 
     p.size=14;
     p.data=p.header;
-    memcpy(p.header,dest_mac,6);
-    memcpy(p.header+6,src_mac,6);
+    memcpy(p.header,dest_mac,ETH_ALEN);
+    memcpy(p.header+ETH_ALEN,src_mac,ETH_ALEN);
     memset(p.header+12,0,2);
 
     p.src_type = LINK_EDGE;
     p.src_id = 0;
 
-    memcpy(header->src_mac,src_mac,6);
-    memcpy(header->dst_mac,dest_mac,6);
+    memcpy(header->src_mac,src_mac,ETH_ALEN);
+    memcpy(header->dst_mac,dest_mac,ETH_ALEN);
 
 
     flags = vnet_lock_irqsave(vnet_state.lock);
@@ -785,7 +790,7 @@ int v3_vnet_add_dev(struct v3_vm_info * vm, uint8_t * mac,
 	return -1;
     }
    
-    memcpy(new_dev->mac_addr, mac, 6);
+    memcpy(new_dev->mac_addr, mac, ETH_ALEN);
     new_dev->dev_ops.input = ops->input;
     new_dev->dev_ops.poll = ops->poll;
     new_dev->private_data = priv_data;
@@ -961,8 +966,8 @@ static int vnet_tx_flush(void * args){
 	return -1;
     }
 
-    noprogress_count=0;
-
+    noprogress_count = 0;
+    
     while (!vnet_thread_should_stop()) {
 
 	more=0; // will indicate if any device has more work for us to do
@@ -998,7 +1003,7 @@ static int vnet_tx_flush(void * args){
 	}
 
 	// adaptively yield 
-	if (noprogress_count < VNET_NOPROGRESS_LIMIT) { 
+	if ((!VNET_ADAPTIVE_TX_KICK) || (noprogress_count < VNET_NOPROGRESS_LIMIT)) { 
 	    V3_Yield();
 	} else {
 	    V3_Yield_Timed(VNET_YIELD_USEC);
@@ -1013,7 +1018,10 @@ static int vnet_tx_flush(void * args){
     return 0;
 }
 
-int v3_init_vnet() {
+int v3_init_vnet() 
+{
+    int i;
+
     memset(&vnet_state, 0, sizeof(vnet_state));
 	
     INIT_LIST_HEAD(&(vnet_state.routes));
@@ -1034,22 +1042,31 @@ int v3_init_vnet() {
 
     vnet_state.poll_devs = v3_create_queue();
 
-    vnet_state.pkt_flush_thread = vnet_start_thread(vnet_tx_flush, NULL, "vnetd-1");
+    for (i=0; i<VNET_NUM_TX_KICK_THREADS;i++) { 
+	char name[32];
+	snprintf(name,32,"vnetd-%d",i);
+	vnet_state.pkt_flush_thread[i] = vnet_start_thread(vnet_tx_flush, NULL, name);
+    }
 
-    PrintDebug("VNET/P is initiated\n");
+    PrintDebug("VNET/P is initiated (%d tx kick threads active)\n",VNET_NUM_TX_KICK_THREADS);
 
     return 0;
 }
 
 
-void v3_deinit_vnet() {
+void v3_deinit_vnet() 
+{
+    int i;
 
     v3_deinit_queue(vnet_state.poll_devs);
     Vnet_Free(vnet_state.poll_devs);
 
-    PrintDebug("Stopping flush thread\n");
-    // This will pause until the flush thread is gone
-    vnet_thread_stop(vnet_state.pkt_flush_thread);
+    for (i=0; i<VNET_NUM_TX_KICK_THREADS;i++) { 
+	PrintDebug("Stopping tx kick thread %d\n",i);
+	// This will pause until the flush thread is gone
+	vnet_thread_stop(vnet_state.pkt_flush_thread[i]);
+    }
+
     // At this point there should be no lock-holder
 
     Vnet_Free(vnet_state.poll_devs);
