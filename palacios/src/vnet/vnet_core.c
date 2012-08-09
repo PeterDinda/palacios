@@ -31,7 +31,7 @@
 #define PrintDebug(fmt, args...)
 #endif
 
-#define VNET_NUM_TX_KICK_THREADS 2
+#define VNET_NUM_TX_KICK_THREADS 1
 
 #define VNET_ADAPTIVE_TX_KICK 0         // set to 1 to try to sleep when there is nothing to do
 #define VNET_NOPROGRESS_LIMIT 1000      //   ... after this many tries

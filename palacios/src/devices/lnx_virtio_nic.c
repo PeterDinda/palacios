@@ -107,14 +107,19 @@ struct virtio_net_config
 } __attribute__((packed));
 
 struct virtio_dev_state {
+
     struct vm_device * pci_bus;
     struct list_head dev_list;
     struct v3_vm_info *vm;
+
+    enum {GUEST_DRIVEN=0, VMM_DRIVEN, ADAPTIVE} model;
+    uint64_t  lower_thresh_pps, upper_thresh_pps, period_us;
 
     uint8_t mac[ETH_ALEN];
 };
 
 struct virtio_net_state {
+
     struct virtio_net_config net_cfg;
     struct virtio_config virtio_cfg;
 
@@ -185,6 +190,14 @@ static int virtio_init_state(struct virtio_net_state * virtio)
         PrintError("Virtio NIC: Failure to init locks for net_state\n");
     }
 
+    return 0;
+}
+
+static int virtio_deinit_state(struct guest_info *core, struct virtio_net_state *ns) 
+{
+    if (ns->timer) { 
+	v3_remove_timer(core,ns->timer);
+    }
     return 0;
 }
 
@@ -735,14 +748,13 @@ static int virtio_free(struct virtio_dev_state * virtio) {
 
 
     list_for_each_entry_safe(backend, tmp, &(virtio->dev_list), dev_link) {
-
-	// unregister from PCI
-
+	virtio_deinit_state(&(virtio->vm->cores[0]),backend);
 	list_del(&(backend->dev_link));
 	V3_Free(backend);
     }
 
     V3_Free(virtio);
+
     return 0;
 }
 
@@ -838,10 +850,9 @@ static int register_dev(struct virtio_dev_state * virtio,
     return 0;
 }
 
-#if 0
-#define RATE_UPPER_THRESHOLD 10  /* 10000 pkts per second, around 100Mbits */
-#define RATE_LOWER_THRESHOLD 1
-#define PROFILE_PERIOD 10000 /*us*/
+#define RATE_UPPER_THRESHOLD_DEFAULT 10000  /* 10000 pkts per second, around 100Mbits */
+#define RATE_LOWER_THRESHOLD_DEFAULT 1000   /* 1000 pkts per second, around 10Mbits */
+#define PROFILE_PERIOD_DEFAULT       10000  /* us */
 
 static void virtio_nic_timer(struct guest_info * core, 
 			     uint64_t cpu_cycles, uint64_t cpu_freq, 
@@ -849,6 +860,10 @@ static void virtio_nic_timer(struct guest_info * core,
     struct virtio_net_state * net_state = (struct virtio_net_state *)priv_data;
     uint64_t period_us;
     static int profile_ms = 0;
+    uint64_t target_period_us = net_state->virtio_dev->period_us;
+    uint64_t upper_thresh_pps = net_state->virtio_dev->upper_thresh_pps;
+    uint64_t lower_thresh_pps = net_state->virtio_dev->lower_thresh_pps;
+    
 
     if(!net_state->status){ /* VNIC is not in working status */
 	return;
@@ -857,33 +872,39 @@ static void virtio_nic_timer(struct guest_info * core,
     period_us = (1000*cpu_cycles)/cpu_freq;
     net_state->past_us += period_us;
 
-    if(net_state->past_us > PROFILE_PERIOD){ 
-	uint32_t tx_rate, rx_rate;
-	
-	tx_rate = (net_state->stats.tx_pkts - net_state->tx_pkts)/(net_state->past_us/1000); /* pkts/per ms */
-	rx_rate = (net_state->stats.rx_pkts - net_state->rx_pkts)/(net_state->past_us/1000);
+    if (net_state->past_us > target_period_us) { 
+
+	uint64_t tx_count, rx_count;
+	uint64_t lb_tx_count, lb_rx_count;
+	uint64_t ub_tx_count, ub_rx_count;
+
+	lb_tx_count = lb_rx_count = (lower_thresh_pps * 1000000) / net_state->past_us;  // packets expected in this interval
+	ub_tx_count = ub_rx_count = (upper_thresh_pps * 1000000) / net_state->past_us;  
+
+	tx_count = net_state->stats.tx_pkts - net_state->tx_pkts;
+	rx_count = net_state->stats.rx_pkts - net_state->rx_pkts;
 
 	net_state->tx_pkts = net_state->stats.tx_pkts;
 	net_state->rx_pkts = net_state->stats.rx_pkts;
 
-	if(tx_rate > RATE_UPPER_THRESHOLD && net_state->tx_notify == 1){
-	    V3_Print("Virtio NIC: Switch TX to VMM driven mode\n");
+	if(tx_count > ub_tx_count && net_state->tx_notify == 1) {
+	    PrintDebug("Virtio NIC: Switch TX to VMM driven mode\n");
 	    disable_cb(&(net_state->tx_vq));
 	    net_state->tx_notify = 0;
 	}
 
-	if(tx_rate < RATE_LOWER_THRESHOLD && net_state->tx_notify == 0){
-	    V3_Print("Virtio NIC: Switch TX to Guest  driven mode\n");
+	if(tx_count < lb_tx_count && net_state->tx_notify == 0) {
+	    PrintDebug("Virtio NIC: Switch TX to Guest  driven mode\n");
 	    enable_cb(&(net_state->tx_vq));
 	    net_state->tx_notify = 1;
 	}
 
-	if(rx_rate > RATE_UPPER_THRESHOLD && net_state->rx_notify == 1){
-	    V3_Print("Virtio NIC: Switch RX to VMM None notify mode\n");
+	if(rx_count > ub_rx_count && net_state->rx_notify == 1) {
+	    PrintDebug("Virtio NIC: Switch RX to VMM None notify mode\n");
 	    net_state->rx_notify = 0;
 	}
 
-	if(rx_rate < RATE_LOWER_THRESHOLD && net_state->rx_notify == 0){
+	if(rx_count < lb_rx_count && net_state->rx_notify == 0) {
 	    V3_Print("Virtio NIC: Switch RX to VMM notify mode\n");
 	    net_state->rx_notify = 1;
 	}
@@ -893,7 +914,7 @@ static void virtio_nic_timer(struct guest_info * core,
 
     profile_ms += period_us/1000;
     if(profile_ms > 20000){
-	V3_Net_Print(1, "Virtio NIC: TX: Pkt: %lld, Bytes: %lld\n\t\tRX Pkt: %lld. Bytes: %lld\n\t\tDropped: tx %lld, rx %lld\nInterrupts: tx %d, rx %d\nTotal Exit: %lld\n",
+	PrintDebug("Virtio NIC: TX: Pkt: %lld, Bytes: %lld\n\t\tRX Pkt: %lld. Bytes: %lld\n\t\tDropped: tx %lld, rx %lld\nInterrupts: tx %d, rx %d\nTotal Exit: %lld\n",
 	    	net_state->stats.tx_pkts, net_state->stats.tx_bytes,
 	    	net_state->stats.rx_pkts, net_state->stats.rx_bytes,
 	    	net_state->stats.tx_dropped, net_state->stats.rx_dropped,
@@ -906,7 +927,6 @@ static void virtio_nic_timer(struct guest_info * core,
 static struct v3_timer_ops timer_ops = {
     .update_timer = virtio_nic_timer,
 };
-#endif
 
 static int connect_fn(struct v3_vm_info * info, 
 		      void * frontend_data, 
@@ -929,10 +949,34 @@ static int connect_fn(struct v3_vm_info * info,
     net_state->backend_data = private_data;
     net_state->virtio_dev = virtio;
     
-    net_state->tx_notify = 1;
-    net_state->rx_notify = 1;
-	
-    //net_state->timer = v3_add_timer(&(info->cores[0]), &timer_ops,net_state);
+    switch (virtio->model) { 
+	case GUEST_DRIVEN:
+	    V3_Print("Virtio NIC: Guest-driven operation\n");
+	    net_state->tx_notify = 1;
+	    net_state->rx_notify = 1;
+	    break;
+	case VMM_DRIVEN:
+	    V3_Print("Virtio NIC: VMM-driven operation\n");
+	    net_state->tx_notify = 0;
+	    net_state->rx_notify = 0;
+	    break;
+	case ADAPTIVE: {
+	    V3_Print("Virtio NIC: Adaptive operation (begins in guest-driven mode)\n");
+	    net_state->tx_notify = 1;
+	    net_state->rx_notify = 1;
+
+	    net_state->timer = v3_add_timer(&(info->cores[0]), &timer_ops,net_state);
+
+	}
+	    break;
+
+	default:
+	    V3_Print("Virtio NIC: Unknown model, using GUEST_DRIVEN\n");
+	    net_state->tx_notify = 1;
+	    net_state->rx_notify = 1;
+	    break;
+    }
+
 
     ops->recv = virtio_rx;
     ops->poll = virtio_poll;
@@ -952,14 +996,77 @@ static int connect_fn(struct v3_vm_info * info,
     return 0;
 }
 
+static int setup_perf_model(struct virtio_dev_state *virtio_state, v3_cfg_tree_t *t)
+{
+    char *mode = v3_cfg_val(t,"mode");
+
+    // defaults
+    virtio_state->model = GUEST_DRIVEN;
+    virtio_state->lower_thresh_pps = RATE_LOWER_THRESHOLD_DEFAULT;
+    virtio_state->upper_thresh_pps = RATE_UPPER_THRESHOLD_DEFAULT;
+    virtio_state->period_us = PROFILE_PERIOD_DEFAULT;
+    
+    
+    // overrides
+    if (mode) { 
+	if (!strcasecmp(mode,"guest-driven")) { 
+	    V3_Print("Virtio NIC: Setting static GUEST_DRIVEN mode of operation (latency optimized)\n");
+	    virtio_state->model=GUEST_DRIVEN;
+	} else if (!strcasecmp(mode, "vmm-driven")) { 
+	    V3_Print("Virtio NIC: Setting static VMM_DRIVEN mode of operation (throughput optimized)\n");
+	    virtio_state->model=VMM_DRIVEN;
+	} else if (!strcasecmp(mode, "adaptive")) { 
+	    char *s;
+
+	    V3_Print("Virtio NIC: Setting dynamic ADAPTIVE mode of operation\n");
+	    virtio_state->model=ADAPTIVE;
+	    
+	    if (!(s=v3_cfg_val(t,"upper"))) { 
+		V3_Print("Virtio NIC: No upper bound given, using default\n");
+	    } else {
+		virtio_state->upper_thresh_pps = atoi(s);
+	    }
+	    if (!(s=v3_cfg_val(t,"lower"))) { 
+		V3_Print("Virtio NIC: No lower bound given, using default\n");
+	    } else {
+		virtio_state->lower_thresh_pps = atoi(s);
+	    }
+	    if (!(s=v3_cfg_val(t,"period"))) { 
+		V3_Print("Virtio NIC: No period given, using default\n");
+	    } else {
+		virtio_state->period_us = atoi(s);
+	    }
+
+	    V3_Print("Virtio NIC: lower_thresh_pps=%llu, upper_thresh_pps=%llu, period_us=%llu\n",
+		     virtio_state->lower_thresh_pps,
+		     virtio_state->upper_thresh_pps,
+		     virtio_state->period_us);
+	} else {
+	    PrintError("Virtio NIC: Unknown mode of operation '%s', using default (guest-driven)\n",mode);
+	    virtio_state->model=GUEST_DRIVEN;
+	}
+    } else {
+	V3_Print("Virtio NIC: No model given, using default (guest-driven)\n");
+    }
+
+    return 0;
+
+}
+
+/*
+  <device class="LNX_VIRTIO_NIC" id="nic">
+     <bus>pci-bus-to-attach-to</bus>  // required
+     <mac>mac address</mac>  // if ommited with pic one
+     <model mode="guest-driven|vmm-driven|adaptive" upper="pkts_per_sec" lower="pkts" period="us" />
+  </device>
+*/
 static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vm_device * pci_bus = v3_find_dev(vm, v3_cfg_val(cfg, "bus"));
     struct virtio_dev_state * virtio_state = NULL;
     char * dev_id = v3_cfg_val(cfg, "ID");
-    char macstr[128];
-    char * str = v3_cfg_val(cfg, "mac");
-    memcpy(macstr, str, strlen(str));
-
+    char * mac = v3_cfg_val(cfg, "mac");
+    v3_cfg_tree_t *model = v3_cfg_subtree(cfg,"model");
+    
     if (pci_bus == NULL) {
 	PrintError("Virtio NIC: Virtio device require a PCI Bus");
 	return -1;
@@ -978,12 +1085,24 @@ static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     virtio_state->pci_bus = pci_bus;
     virtio_state->vm = vm;
 
-    if (macstr != NULL && !str2mac(macstr, virtio_state->mac)) {
-	PrintDebug("Virtio NIC: Mac specified %s\n", macstr);
-    }else {
+    if (mac) { 
+	if (!str2mac(mac, virtio_state->mac)) { 
+	    PrintDebug("Virtio NIC: Mac specified %s\n", mac);
+	} else {
+	    PrintError("Virtio NIC: Mac specified is incorrect, picking a randoom mac\n");
+	    random_ethaddr(virtio_state->mac);
+	}
+    } else {
+	PrintDebug("Virtio NIC: no mac specified, so picking a random mac\n");
 	random_ethaddr(virtio_state->mac);
     }
 
+    if (setup_perf_model(virtio_state,model)<0) { 
+	PrintError("Cannnot setup performance model\n");
+	V3_Free(virtio_state);
+	return -1;
+    }
+	    
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, virtio_state);
 
     if (dev == NULL) {

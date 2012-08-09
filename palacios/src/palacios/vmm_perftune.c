@@ -71,7 +71,7 @@ static void set_yield(struct v3_vm_info *vm, v3_cfg_tree_t *cfg)
     
     // now override
 
-    t = v3_cfg_val(cfg, "yield_strategy");
+    t = v3_cfg_val(cfg, "strategy");
 
     if (t) { 
 	if (!strcasecmp(t,"greedy")) { 
@@ -118,7 +118,7 @@ static void set_yield(struct v3_vm_info *vm, v3_cfg_tree_t *cfg)
 /*
 <vm>
   <perftune>
-     <group name="yield_strategy">
+     <group name="yield">
         <strategy>greedy,friendly,adaptive</strategy>
         <threshold>us</threshold>
         <time>us</time>
@@ -147,7 +147,7 @@ int      v3_setup_performance_tuning(struct v3_vm_info *vm, v3_cfg_tree_t *cfg)
 	if (!id) { 
 	    V3_Print("Skipping performance parameter group without name\n");
 	} else {
-	    if (!strcasecmp(id,"yield_strategy")) { 
+	    if (!strcasecmp(id,"yield")) { 
 		set_yield(vm,t);
 	    } else {
 		V3_Print("Skipping unknown performance parameter group\n");
