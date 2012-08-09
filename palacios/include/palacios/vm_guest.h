@@ -42,6 +42,8 @@
 #include <palacios/vmm_exits.h>
 #include <palacios/vmm_events.h>
 
+#include <palacios/vmm_perftune.h>
+
 #ifdef V3_CONFIG_TELEMETRY
 #include <palacios/vmm_telemetry.h>
 #endif
@@ -184,6 +186,8 @@ struct v3_vm_info {
 
 
     struct v3_extensions extensions;
+
+    struct v3_perf_options perf_options;
 
 #ifdef V3_CONFIG_SYMBIOTIC
     /* Symbiotic state */

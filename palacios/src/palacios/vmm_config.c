@@ -37,6 +37,7 @@
 
 
 #include <palacios/vmm_host_events.h>
+#include <palacios/vmm_perftune.h>
 
 #include "vmm_config_class.h"
 
@@ -471,6 +472,11 @@ static int post_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
      */
     if (setup_extensions(vm, cfg) == -1) {
 	PrintError("Failed to setup extensions\n");
+	return -1;
+    }
+
+    if (v3_setup_performance_tuning(vm, cfg) == -1) { 
+	PrintError("Failed to configure performance tuning parameters\n");
 	return -1;
     }
 

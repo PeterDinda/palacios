@@ -38,7 +38,8 @@ obj-y := \
 	vmm_barrier.o \
 	vmm_timeout.o \
 	vmm_exits.o \
-	vmm_events.o
+	vmm_events.o \
+	vmm_perftune.o \
 
 
 obj-$(V3_CONFIG_XED) +=	vmm_xed.o
