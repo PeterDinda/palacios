@@ -268,10 +268,13 @@ palacios_xcall(
     return;
 }
 
+
+#define MAX_THREAD_NAME 32
+
 struct lnx_thread_arg {
     int (*fn)(void * arg);
     void * arg;
-    char * name;
+    char name[MAX_THREAD_NAME];
 };
 
 static int lnx_thread_target(void * arg) {
@@ -316,9 +319,10 @@ palacios_start_kernel_thread(
 
     thread_info->fn = fn;
     thread_info->arg = arg;
-    thread_info->name = thread_name;
+    strncpy(thread_info->name,thread_name,MAX_THREAD_NAME);
+    thread_info->name[MAX_THREAD_NAME-1] =0;
 
-    return kthread_run( lnx_thread_target, thread_info, thread_name );
+    return kthread_run( lnx_thread_target, thread_info, thread_info->name );
 }
 
 
@@ -340,13 +344,13 @@ palacios_start_thread_on_cpu(int cpu_id,
 
     thread_info->fn = fn;
     thread_info->arg = arg;
-    thread_info->name = thread_name;
+    strncpy(thread_info->name,thread_name,MAX_THREAD_NAME);
+    thread_info->name[MAX_THREAD_NAME-1] =0;
 
-
-    thread = kthread_create( lnx_thread_target, thread_info, thread_name );
+    thread = kthread_create( lnx_thread_target, thread_info, thread_info->name );
 
     if (IS_ERR(thread)) {
-	WARNING("Palacios error creating thread: %s\n", thread_name);
+	WARNING("Palacios error creating thread: %s\n", thread_info->name);
 	palacios_free(thread_info);
 	return NULL;
     }
