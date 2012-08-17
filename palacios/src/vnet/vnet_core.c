@@ -242,6 +242,10 @@ static struct vnet_dev * dev_by_mac(uint8_t * mac) {
 }
 
 
+static int start_vnet_kick_threads(void);
+static int stop_vnet_kick_threads(void);
+
+
 int v3_vnet_find_dev(uint8_t  * mac) {
     struct vnet_dev * dev = NULL;
 
@@ -799,6 +803,8 @@ int v3_vnet_add_dev(struct v3_vm_info * vm, uint8_t * mac,
     new_dev->quote = quote<VNET_MAX_QUOTE ? quote : VNET_MAX_QUOTE;
     new_dev->poll = poll_state;
 
+    stop_vnet_kick_threads();
+
     flags = vnet_lock_irqsave(vnet_state.lock);
 
     if (dev_by_mac(mac) == NULL) {
@@ -814,6 +820,8 @@ int v3_vnet_add_dev(struct v3_vm_info * vm, uint8_t * mac,
     }
 
     vnet_unlock_irqrestore(vnet_state.lock, flags);
+
+    start_vnet_kick_threads();
 
     /* if the device was found previosly the id should still be 0 */
     if (new_dev->dev_id == 0) {
@@ -831,6 +839,8 @@ int v3_vnet_del_dev(int dev_id){
     struct vnet_dev * dev = NULL;
     vnet_intr_flags_t flags;
 
+    stop_vnet_kick_threads();
+
     flags = vnet_lock_irqsave(vnet_state.lock);
 	
     dev = dev_by_id(dev_id);
@@ -841,6 +851,8 @@ int v3_vnet_del_dev(int dev_id){
     }
 	
     vnet_unlock_irqrestore(vnet_state.lock, flags);
+
+    start_vnet_kick_threads();
 
     Vnet_Free(dev);
 
@@ -1018,10 +1030,30 @@ static int vnet_tx_flush(void * args){
     return 0;
 }
 
-int v3_init_vnet() 
+static int start_vnet_kick_threads()
 {
     int i;
 
+    for (i=0; i<VNET_NUM_TX_KICK_THREADS;i++) { 
+	char name[32];
+	snprintf(name,32,"vnetd-%d",i);
+	vnet_state.pkt_flush_thread[i] = vnet_start_thread(vnet_tx_flush, NULL, name);
+    }
+    return 0;
+}
+
+static int stop_vnet_kick_threads()
+{
+    int i;
+    for (i=0; i<VNET_NUM_TX_KICK_THREADS;i++) { 
+	vnet_thread_stop(vnet_state.pkt_flush_thread[i]);
+    }
+    return 0;
+}
+
+
+int v3_init_vnet() 
+{
     memset(&vnet_state, 0, sizeof(vnet_state));
 	
     INIT_LIST_HEAD(&(vnet_state.routes));
@@ -1042,11 +1074,7 @@ int v3_init_vnet()
 
     vnet_state.poll_devs = v3_create_queue();
 
-    for (i=0; i<VNET_NUM_TX_KICK_THREADS;i++) { 
-	char name[32];
-	snprintf(name,32,"vnetd-%d",i);
-	vnet_state.pkt_flush_thread[i] = vnet_start_thread(vnet_tx_flush, NULL, name);
-    }
+    start_vnet_kick_threads();
 
     PrintDebug("VNET/P is initiated (%d tx kick threads active)\n",VNET_NUM_TX_KICK_THREADS);
 
@@ -1056,16 +1084,15 @@ int v3_init_vnet()
 
 void v3_deinit_vnet() 
 {
-    int i;
 
+    PrintDebug("Stopping kick threads\n");
+    stop_vnet_kick_threads();
+
+
+    PrintDebug("Deiniting poll devices\n");
     v3_deinit_queue(vnet_state.poll_devs);
     Vnet_Free(vnet_state.poll_devs);
 
-    for (i=0; i<VNET_NUM_TX_KICK_THREADS;i++) { 
-	PrintDebug("Stopping tx kick thread %d\n",i);
-	// This will pause until the flush thread is gone
-	vnet_thread_stop(vnet_state.pkt_flush_thread[i]);
-    }
 
     // At this point there should be no lock-holder
 
