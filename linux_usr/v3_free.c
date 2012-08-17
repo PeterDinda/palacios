@@ -9,18 +9,24 @@
 
 int main(int argc, char* argv[]) {
     unsigned long vm_idx = 0;
+    char *idx;
     int ret;
 
     if (argc <= 1) 
-	v3_usage("<vm-dev-idx>\n");
+	v3_usage("<vm-dev-idx>|<vm-dev>\n");
 
+    if (!(idx=strstr(argv[1],"v3-vm"))) { 
+	idx=argv[1];
+    } else {
+        idx+=5;
+    }
 
-    vm_idx = strtol(argv[1], NULL, 0);
+    vm_idx = strtol(idx, NULL, 0);
 
     printf("Freeing VM %d\n", vm_idx);
     
     if (v3_dev_ioctl(V3_FREE_GUEST, vm_idx) < 0) {
-        fprintf(stderr, "Error freeing VM %d\n", vm_idx);
+        fprintf(stderr, "Error freeing VM %d (%s)\n", vm_idx,argv[1]);
         return -1;
     }
 
