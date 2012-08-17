@@ -150,7 +150,11 @@ out_err:
 
 	    INFO("Freeing VM (%s) (%p)\n", guest->name, guest);
 
-	    free_palacios_vm(guest);
+	    if (free_palacios_vm(guest)<0) { 
+		ERROR("Cannot free guest at index %ld\n",vm_idx);
+		return -1;
+	    }
+
 	    guest_map[vm_idx] = NULL;
 	    break;
 	}

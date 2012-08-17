@@ -434,7 +434,9 @@ out_err:
 
 int free_palacios_vm(struct v3_guest * guest) {
 
-    v3_free_vm(guest->v3_ctx);
+    if (v3_free_vm(guest->v3_ctx)<0) { 
+	return -1;
+    }
 
     device_destroy(v3_class, guest->vm_dev);
 
