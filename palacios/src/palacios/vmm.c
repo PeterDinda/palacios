@@ -261,6 +261,22 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
         return -1;
     }
 
+    
+    // Do not run if any core is using shadow paging and we are out of 4 GB bounds
+    for (i=0;i<vm->num_cores;i++) { 
+	if (vm->cores[i].shdw_pg_mode == SHADOW_PAGING) {
+	    if ((vm->mem_map.base_region.host_addr + vm->mem_size ) >= 0x100000000ULL) {
+		PrintError("Base memory region exceeds 4 GB boundary with shadow paging enabled on core %d.\n",i);
+		PrintError("Any use of non-64 bit mode in the guest is likely to fail in this configuration.\n");
+		PrintError("If you would like to proceed anyway, remove this check and recompile Palacios.\n");
+		PrintError("Alternatively, change this VM to use nested paging.\n");
+		return -1;
+	    }
+	}
+    }
+
+
+
     /// CHECK IF WE ARE MULTICORE ENABLED....
 
     V3_Print("V3 --  Starting VM (%u cores)\n", vm->num_cores);
