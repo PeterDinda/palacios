@@ -142,10 +142,13 @@ static int disk_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     char * path = v3_cfg_val(cfg, "path");
     char * dev_id = v3_cfg_val(cfg, "ID");
     char * writable = v3_cfg_val(cfg, "writable");
+    char * writeable = v3_cfg_val(cfg, "writeable");
+
     v3_cfg_tree_t * frontend_cfg = v3_cfg_subtree(cfg, "frontend");
     int flags = FILE_OPEN_MODE_READ;
 
-    if ( (writable) && (writable[0] == '1') ) {
+    if ( ((writable) && (writable[0] == '1')) ||
+	 ((writeable) && (writeable[0] == '1')) ) {
 	flags |= FILE_OPEN_MODE_WRITE;
     }
 
@@ -182,8 +185,9 @@ static int disk_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     disk->capacity = v3_file_size(disk->fd);
 
-    V3_Print("Registering FILEDISK %s (path=%s, fd=%lu, size=%llu)\n",
-	     dev_id, path, (addr_t)disk->fd, disk->capacity);
+    V3_Print("Registering FILEDISK %s (path=%s, fd=%lu, size=%llu, writeable=%d)\n",
+	     dev_id, path, (addr_t)disk->fd, disk->capacity,
+	     flags & FILE_OPEN_MODE_WRITE);
 
 
     if (v3_dev_connect_blk(vm, v3_cfg_val(frontend_cfg, "tag"), 
