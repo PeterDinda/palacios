@@ -15,15 +15,12 @@
 #include <sys/ioctl.h>
 
 #include "iface-env-inject.h"
+#include "v3_ctrl.h"
 
-
-static void usage (char* bin) {
-	fprintf(stderr, "usage: %s /dev/v3-vm<N> env-file inject-point-exe\n", bin);
-}
 
 int main (int argc, char **argv) {
 	char *vm_dev, *env_file, *bin_name;
-	int vm_fd, err, bytes_read, num_strings;
+	int err, bytes_read, num_strings;
     struct stat t_stat;
     struct env_data env;
     char * strings[MAX_NUM_STRINGS];
@@ -32,7 +29,10 @@ int main (int argc, char **argv) {
     FILE * t_fd;
 
 	if (argc < 4) {
-		usage(argv[0]);
+		v3_usage("<vm device> <env-file> <inject-point-exe>\n\n"
+                         "\tenv-file : file containing a list of new-line separated env vars\n\n"
+                         "\tinject-point-exe : if this is an exec-hooked inject, use this executable name\n");
+                         
 		return -1;
 	}
 
@@ -72,20 +72,13 @@ int main (int argc, char **argv) {
 
     strncpy(env.bin_name, bin_name, MAX_STRING_LEN);
 
-	vm_fd = open(vm_dev, O_RDONLY);
-	if (vm_fd == -1) {
-		fprintf(stderr, "Error opening VM device: %s\n", vm_dev);
-		return -1;
-	}
-
     printf("Transferring control to Palacios\n");
-	err = ioctl(vm_fd, V3_VM_ENV_INJECT, &env);
+	err = v3_vm_ioctl(vm_dev, V3_VM_ENV_INJECT, &env);
 	if (err < 0) {
 		fprintf(stderr, "Error providing env var data to palacios\n");
 		return -1;
 	}
     
 	close(t_fd);
-	close(vm_fd);
 	return 0;
 }

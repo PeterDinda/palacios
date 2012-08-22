@@ -17,17 +17,13 @@
 #include <sys/ioctl.h>
 
 #include "iface-code-inject.h"
+#include "v3_ctrl.h"
 
 #define __ELF_INJECT_CLASS 32
 
 #define ElfW(type)	_ElfW (Elf, __ELF_INJECT_CLASS, type)
 #define _ElfW(e,w,t)	_ElfW_1 (e, w, _##t)
 #define _ElfW_1(e,w,t)	e##w##t
-
-
-static void usage (char* bin) {
-	fprintf(stderr, "usage: %s /dev/v3-vm<N> <inject-code> <code-entry-offset> [inject-point-exe]\n", bin);
-}
 
 
 /* look for PT_DYNAMIC to see if it's dynamically linked */
@@ -51,13 +47,17 @@ int main (int argc, char **argv) {
 	char *vm_dev = NULL;
 	char *top_half = NULL;
     char *bin_file = NULL;
-	int vm_fd, t_fd, err, bytes_read, entry;
+	int t_fd, err, bytes_read, entry;
     struct stat t_stat;
     struct top_half_data elf;
     ElfW(Ehdr) * elf_hdr;
 
 	if (argc < 4 || argc > 5) {
-		usage(argv[0]);
+                // TODO: add a better explanation here
+		v3_usage("/dev/v3-vm<N> <inject-code> <code-entry-offset> [inject-point-exe]\n\n"
+                          "\tinject-code       : the binary file to be injected\n\n"
+                          "\tcode-entry-offset : offset in the binary to .text\n\n"
+                          "\tinject-point-exe  : if exec-hooked injection is used, use this exec name\n");
 		return -1;
 	}
 
@@ -129,14 +129,9 @@ int main (int argc, char **argv) {
     /* is it a dynamically linked executable? */
     elf.is_dyn = is_dynamic(elf_hdr);
 
-	vm_fd = open(vm_dev, O_RDONLY);
-	if (vm_fd == -1) {
-		fprintf(stderr, "Error opening VM device: %s\n", vm_dev);
-		return -1;
-	}
 
     printf("Transferring control to Palacios\n");
-	err = ioctl(vm_fd, V3_VM_TOPHALF_INJECT, &elf);
+	err = v3_vm_ioctl(vm_dev, V3_VM_TOPHALF_INJECT, &elf);
 	if (err < 0) {
 		fprintf(stderr, "Error providing top half to palacios: %s\n", top_half);
 		return -1;
@@ -144,7 +139,6 @@ int main (int argc, char **argv) {
     
     free(elf.elf_data);
 	close(t_fd);
-	close(vm_fd);
 
 	return 0;
 }

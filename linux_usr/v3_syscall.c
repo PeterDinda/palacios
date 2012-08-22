@@ -14,25 +14,24 @@
 #include <string.h>
 
 #include "iface-syscall.h"
+#include "v3_ctrl.h"
 
 #define CMD_MAX 10
 #define SYSCALL_MAX 256
 
-static void usage () {
-	fprintf(stderr, "\nusage: v3_syscall <vm device> <syscall_nr> <on|off|status>\n");
-	exit(0);
+static void usage (char * argv[]) {
+        v3_usage("<vm device> <syscall_nr> <on|off|status>\n");
 }
-
 
 int main (int argc, char * argv[]) {
 
-	int vm_fd, ret, syscall_nr;
+	int ret, syscall_nr;
 	char * vm_dev = NULL;
 	struct v3_syscall_cmd syscall_cmd;
 
 	if (argc < 4 || argc > 4) {
 		fprintf(stderr, "Invalid number of arguments.\n");
-		usage();
+                usage(argv);
 	}
 
 	vm_dev = argv[1];
@@ -46,7 +45,7 @@ int main (int argc, char * argv[]) {
 		syscall_cmd.cmd = SYSCALL_STAT;
 	} else {
 		fprintf(stderr, "Invalid command.\n");
-		usage();
+		usage(argv);
 	}
 
     if (syscall_nr < 0 || syscall_nr > SYSCALL_MAX) {
@@ -56,14 +55,7 @@ int main (int argc, char * argv[]) {
 
     syscall_cmd.syscall_nr = syscall_nr;
 
-	vm_fd = open(vm_dev, O_RDONLY);
-
-	if (vm_fd < 0) { 
-		fprintf(stderr, "Error opening VM device: %s\n", vm_dev);
-		return -1;
-	}
-
-	ret = ioctl(vm_fd, V3_VM_SYSCALL_CTRL, &syscall_cmd);
+        ret = v3_vm_ioctl(vm_dev, V3_VM_SYSCALL_CTRL, &syscall_cmd);
 
     if (ret < 0) {
         fprintf(stderr, "Error with syscall control\n");
