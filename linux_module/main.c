@@ -141,7 +141,14 @@ out_err:
 	}
 	case V3_FREE_GUEST: {
 	    unsigned long vm_idx = arg;
-	    struct v3_guest * guest = guest_map[vm_idx];
+            struct v3_guest * guest;
+
+            if (vm_idx > MAX_VMS) {
+                ERROR("Invalid VM index: %ld\n", vm_idx);
+                return -1;
+            }
+
+	    guest = guest_map[vm_idx];
 
 	    if (!guest) {
 		ERROR("No VM at index %ld\n",vm_idx);
