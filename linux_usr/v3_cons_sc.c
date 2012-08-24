@@ -371,7 +371,32 @@ int send_char_to_palacios_as_scancodes(int fd, unsigned char c)
     }
     return 0;
 }
-    
+
+
+#define MIN_TTY_COLS  80
+#define MIN_TTY_ROWS  25
+int check_terminal_size (void)
+{
+    unsigned short n_cols = 0;
+    unsigned short n_rows = 0;
+    struct winsize winsz; 
+
+    ioctl (fileno(stdin), TIOCGWINSZ, &winsz);
+    n_cols = winsz.ws_col;
+    n_rows = winsz.ws_row;
+
+    if (n_cols < MIN_TTY_COLS || n_rows < MIN_TTY_ROWS) {
+        printf ("Your window is not large enough.\n");
+        printf ("It must be at least %dx%d, but yours is %dx%d\n",
+                MIN_TTY_COLS, MIN_TTY_ROWS, n_cols, n_rows);
+    return (-1);
+    }
+
+    /* SUCCESS */
+    return (0);
+}
+
+
 int main(int argc, char* argv[]) {
     int vm_fd;
     int cons_fd;
@@ -383,6 +408,12 @@ int main(int argc, char* argv[]) {
     if (argc < 2) {
 	printf("usage: v3_cons_sc <vm_device>\n");
 	return -1;
+    }
+
+    /* Check for minimum Terminal size at start */
+    if (0 != check_terminal_size()) {
+        printf ("Error: terminal too small!\n");
+        return -1;
     }
 
     vm_dev = argv[1];
@@ -449,13 +480,6 @@ int main(int argc, char* argv[]) {
     keypad(console.win, TRUE);
 
     //ioctl(STDIN_FILENO, KDSKBMODE, K_RAW);
-
-    if (LINES<25 || COLS<80) { 
-	printf("Your window is not large enough.\nIt must be at least 80x25, but yours is %dx%d\n",COLS,LINES);
-	close(cons_fd);
-	exit(-1);
-    }
-    
 
     while (1) {
 	int ret; 
