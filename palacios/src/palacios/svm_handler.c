@@ -25,6 +25,7 @@
 #include <palacios/vmm_ctrl_regs.h>
 #include <palacios/svm_io.h>
 #include <palacios/vmm_halt.h>
+#include <palacios/vmm_mwait.h>
 #include <palacios/svm_pause.h>
 #include <palacios/svm_wbinvd.h>
 #include <palacios/vmm_intr.h>
@@ -257,6 +258,26 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 		return -1;
 	    }
 	    break;
+
+	case SVM_EXIT_MONITOR:
+#ifdef V3_CONFIG_DEBUG_MWAIT
+	    PrintDebug("Guest issuing MONITOR\n");
+#endif
+	    if (v3_handle_monitor(info) == -1) { 
+		return -1;
+	    }
+	    break;
+
+	case SVM_EXIT_MWAIT:
+	case SVM_EXIT_MWAIT_CONDITIONAL:
+#ifdef V3_CONFIG_DEBUG_MWAIT
+	    PrintDebug("Guest issuing MWAIT\n");
+#endif
+	    if (v3_handle_mwait(info) == -1) { 
+		return -1;
+	    }
+	    break;
+
 	case SVM_EXIT_PAUSE:
 	    //	    PrintDebug("Guest paused\n");
 	    if (v3_handle_svm_pause(info) == -1) { 

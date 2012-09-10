@@ -32,6 +32,7 @@
 #include <palacios/vmx_ctrl_regs.h>
 #include <palacios/vmx_assist.h>
 #include <palacios/vmm_halt.h>
+#include <palacios/vmm_mwait.h>
 #include <palacios/vmx_ept.h>
 
 
@@ -265,6 +266,25 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
 
             break;
 
+        case VMX_EXIT_MONITOR:
+            PrintDebug("Guest Executing monitor\n");
+
+            if (v3_handle_monitor(info) == -1) {
+		PrintError("Error handling monitor instruction\n");
+                return -1;
+            }
+
+            break;
+
+        case VMX_EXIT_MWAIT:
+            PrintDebug("Guest Executing mwait\n");
+
+            if (v3_handle_mwait(info) == -1) {
+		PrintError("Error handling mwait instruction\n");
+                return -1;
+            }
+
+            break;
 
 
         case VMX_EXIT_PAUSE:

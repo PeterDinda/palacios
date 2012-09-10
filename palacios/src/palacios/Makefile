@@ -11,6 +11,7 @@ obj-y := \
 	vmm_emulator.o \
 	vmm_excp.o \
 	vmm_halt.o \
+	vmm_mwait.o \
 	vmm_hashtable.o \
 	vmm_host_events.o \
 	vmm_hypercall.o \

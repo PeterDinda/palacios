@@ -43,6 +43,9 @@ void v3_init_cpuid_map(struct v3_vm_info * vm) {
     // Disable XSAVE (cpuid 0x01, ECX bit 26)
     v3_cpuid_add_fields(vm, 0x01, 0, 0, 0, 0, (1 << 26), 0, 0, 0);
 
+    // Disable MONITOR/MWAIT (cpuid 0x01, ECX bit 3)
+    v3_cpuid_add_fields(vm, 0x01, 0, 0, 0, 0, (1 << 3), 0, 0, 0);
+
 }
 
 

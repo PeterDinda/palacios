@@ -195,10 +195,17 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 	vmx_state->exit_ctrls.save_preempt_timer = 1;
     }
 
+    // we want it to use this when halting
     vmx_state->pri_proc_ctrls.hlt_exit = 1;
 
+    // cpuid tells it that it does not have these instructions
+    vmx_state->pri_proc_ctrls.monitor_exit = 1;
+    vmx_state->pri_proc_ctrls.mwait_exit = 1;
 
+    // we don't need to handle a pause, although this is where
+    // we could pull out of a spin lock acquire or schedule to find its partner
     vmx_state->pri_proc_ctrls.pause_exit = 0;
+
     vmx_state->pri_proc_ctrls.tsc_offset = 1;
 #ifdef V3_CONFIG_TIME_VIRTUALIZE_TSC
     vmx_state->pri_proc_ctrls.rdtsc_exit = 1;

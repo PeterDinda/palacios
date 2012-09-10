@@ -387,6 +387,13 @@ config DEBUG_HALT
 	help 
 	  This turns on debugging for the halt instruction handler
 
+config DEBUG_MWAIT
+	bool "MWAIT/MONITOR"
+	default n
+	depends on DEBUG_ON
+	help 
+	  This turns on debugging for the mwait and monitor instruction handlers
+
 config DEBUG_DEV_MGR
 	bool "Device Manager"
 	default n
