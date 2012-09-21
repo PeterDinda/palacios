@@ -740,7 +740,7 @@ void v3_yield_cond(struct guest_info * info, int usec) {
 	if (usec < 0) { 
 	    V3_Yield();
 	} else {
-	    V3_Yield_Timed(usec);
+	    V3_Sleep(usec);
 	}
 
         info->yield_start_cycle +=  info->vm_info->yield_cycle_period;
@@ -760,7 +760,7 @@ void v3_yield(struct guest_info * info, int usec) {
     if (usec < 0) { 
 	V3_Yield();
     } else {
-	V3_Yield_Timed(usec);
+	V3_Sleep(usec);
     }
 
     if (info) {

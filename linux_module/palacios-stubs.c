@@ -567,19 +567,25 @@ palacios_yield_cpu(void)
  * Given now immediately if there is no other thread that is runnable
  * And there is no real bound on how long it will yield
  */
-void palacios_yield_cpu_timed(unsigned int us)
+void palacios_sleep_cpu(unsigned int us)
 {
 
-    unsigned int uspj = 1000000U/HZ;
-   
-    unsigned int jiffies = us/uspj + ((us%uspj) !=0);  // ceiling 
-
     set_current_state(TASK_INTERRUPTIBLE);
-    
-    schedule_timeout(jiffies);
-
+    if (us) {
+        unsigned int uspj = 1000000U/HZ;
+        unsigned int jiffies = us/uspj + ((us%uspj) !=0);  // ceiling 
+        schedule_timeout(jiffies);
+    } else {
+        schedule();
+    }
+    return;
 }
 
+void palacios_wakeup_cpu(void *thread)
+{
+    wake_up_process(thread);
+    return;
+}
 
 /**
  * Allocates a mutex.
@@ -669,7 +675,8 @@ static struct v3_os_hooks palacios_os_hooks = {
 	.get_cpu_khz		= palacios_get_cpu_khz,
 	.start_kernel_thread    = palacios_start_kernel_thread,
 	.yield_cpu		= palacios_yield_cpu,
-	.yield_cpu_timed	= palacios_yield_cpu_timed,
+	.sleep_cpu		= palacios_sleep_cpu,
+	.wakeup_cpu		= palacios_wakeup_cpu,
 	.mutex_alloc		= palacios_mutex_alloc,
 	.mutex_free		= palacios_mutex_free,
 	.mutex_lock		= palacios_mutex_lock, 

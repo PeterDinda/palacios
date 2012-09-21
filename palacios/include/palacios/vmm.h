@@ -254,16 +254,23 @@ struct guest_info;
     } while (0)						\
 
 
-#define V3_Yield_Timed(usec)				\
+#define V3_Sleep(usec)				\
     do {						\
 	extern struct v3_os_hooks * os_hooks;		\
-	if ((os_hooks) && (os_hooks)->yield_cpu_timed) {\
-	    (os_hooks)->yield_cpu_timed(usec);		\
+	if ((os_hooks) && (os_hooks)->sleep_cpu) {\
+	    (os_hooks)->sleep_cpu(usec);		\
 	} else {					\
 	    V3_Yield();                                 \
         }                                               \
     }  while (0)                                        \
 
+#define V3_Wakeup(cpu)					\
+    do {						\
+	extern struct v3_os_hooks * os_hooks;		\
+	if ((os_hooks) && (os_hooks)->wakeup_cpu) {	\
+	    (os_hooks)->wakeup_cpu(cpu);			\
+	}						\
+    } while (0)						\
 
 
 typedef enum v3_vm_class {V3_INVALID_VM, V3_PC_VM, V3_CRAY_VM} v3_vm_class_t;
@@ -315,10 +322,9 @@ struct v3_os_hooks {
 
     unsigned int (*get_cpu_khz)(void);
 
-
     void (*yield_cpu)(void); 
-
-    void (*yield_cpu_timed)(unsigned int usec);
+    void (*sleep_cpu)(unsigned int usec);
+    void (*wakeup_cpu)(void *cpu);
 
     void *(*mutex_alloc)(void);
     void (*mutex_free)(void * mutex);
