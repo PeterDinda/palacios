@@ -246,6 +246,8 @@ static int handle_mov_to_cr0(struct guest_info * info, v3_reg_t * new_cr0, struc
 	    //    *(uint32_t *)shdw_cr0 = (0x00000020 & *(uint32_t *)new_shdw_cr0);
 
 	    *guest_cr0 = *new_shdw_cr0;
+
+	    guest_cr0->cd = 0;
 	}
 
 	guest_cr0->ne = 1;

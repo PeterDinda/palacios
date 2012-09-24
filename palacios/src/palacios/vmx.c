@@ -419,8 +419,10 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 	// Cause VM_EXIT whenever the CR4.VMXE bit is set
 	vmx_ret |= check_vmcs_write(VMCS_CR4_MASK, CR4_VMXE);
 #define CR0_NE 0x00000020
-	vmx_ret |= check_vmcs_write(VMCS_CR0_MASK, CR0_NE);
+#define CR0_CD 0x40000000
+	vmx_ret |= check_vmcs_write(VMCS_CR0_MASK, CR0_NE | CR0_CD);
 	((struct cr0_32 *)&(core->shdw_pg_state.guest_cr0))->ne = 1;
+	((struct cr0_32 *)&(core->shdw_pg_state.guest_cr0))->cd = 0;
 
 	if (v3_init_ept(core, &hw_info) == -1) {
 	    PrintError("Error initializing EPT\n");
