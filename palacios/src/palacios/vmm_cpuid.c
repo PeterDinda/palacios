@@ -46,6 +46,27 @@ void v3_init_cpuid_map(struct v3_vm_info * vm) {
     // Disable MONITOR/MWAIT (cpuid 0x01, ECX bit 3)
     v3_cpuid_add_fields(vm, 0x01, 0, 0, 0, 0, (1 << 3), 0, 0, 0);
 
+
+    // disable MTRR
+    v3_cpuid_add_fields(vm, 0x00000001, 0, 0, 0, 0, 0, 0, (1 << 12), 0);
+    // disable PAT
+    v3_cpuid_add_fields(vm, 0x00000001, 0, 0, 0, 0, 0, 0, (1 << 16), 0);
+    // disable X2APIC
+    v3_cpuid_add_fields(vm, 0x00000001, 0, 0, 0, 0, (1 << 21), 0, 0, 0);
+
+
+    // Demarcate machine as a VM
+    v3_cpuid_add_fields(vm, 0x00000001,
+                        0, 0,
+                        0, 0,
+                        0x80000000, 0x80000000,
+                        0, 0
+                        );
+
+
+    // disable ARAT
+    v3_cpuid_add_fields(vm, 0x00000006, (1 << 2), 0, 0, 0, 0, 0, 0, 0);
+
 }
 
 

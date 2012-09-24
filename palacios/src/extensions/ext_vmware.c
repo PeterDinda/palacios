@@ -89,13 +89,14 @@ static int vmware_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg, void ** priv
 
     V3_Print("Using VMWARE virtualization persona\n");
 
+/*
     v3_cpuid_add_fields(vm, 0x00000001, 
 			0, 0, 
 			0, 0, 
 			0x80000000, 0x80000000,
 			0, 0
 			);
-
+*/
 
     v3_hook_io_port(vm, VMWARE_IO_PORT, 
 		    io_read, io_write, 
