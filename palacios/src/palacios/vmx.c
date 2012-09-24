@@ -184,6 +184,7 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 
     /* Add external interrupts, NMI exiting, and virtual NMI */
     vmx_state->pin_ctrls.nmi_exit = 1;
+    vmx_state->pin_ctrls.virt_nmi = 1;
     vmx_state->pin_ctrls.ext_int_exit = 1;
 
 
@@ -1113,6 +1114,18 @@ int v3_vmx_enter(struct guest_info * info) {
 #ifdef V3_CONFIG_DEBUG_INTERRUPTS
        V3_Print("Interrupts available again! (RIP=%llx)\n", info->rip);
 #endif
+    }
+
+
+    // Lastly we check for an NMI exit, and reinject if so
+    {
+	struct vmx_basic_exit_info * basic_info = (struct vmx_basic_exit_info *)&(exit_info.exit_reason);
+
+	if (basic_info->reason == VMX_EXIT_INFO_EXCEPTION_OR_NMI) {
+	    if ((uint8_t)exit_info.int_info == 2) {
+		asm("int $2");
+	    }
+	}
     }
 
     // reenable global interrupts after vm exit
