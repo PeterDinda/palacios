@@ -12,6 +12,7 @@ STATIC = 0
 #
 BASE_EXECS = 	v3_mem \
                 v3_mem_free \
+ 		v3_create \
                 v3_create_bind \
 		v3_free  \
 	  	v3_launch \
