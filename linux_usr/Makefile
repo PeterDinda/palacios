@@ -100,14 +100,17 @@ libv3_ctrl.a : v3_ctrl.c v3_ctrl.h
 #
 ifeq ($(STATIC),1)
   CURSES_CFLAGS = -DNCURSES_STATIC
-  CURSES_LIBS = -ltermcap
+  CURSES_LIBS = -lcurses                           
+else
+  CURSES_CFLAGS = 
+  CURSES_LIBS = -lcurses 
 endif
 
 v3_cons: v3_cons.c
-	$(CC) $(CFLAGS) $(CURSES_CFLAGS) $< -lcurses $(CURSES_LIBS) -o $@
+	$(CC) $(CFLAGS) $(CURSES_CFLAGS) $< $(CURSES_LIBS) -o $@
 
 v3_cons_sc: v3_cons_sc.c
-	$(CC) $(CFLAGS) $(CURSES_CFLAGS) $< -lcurses $(CURSES_LIBS) -o $@
+	$(CC) $(CFLAGS) $(CURSES_CFLAGS) $< $(CURSES_LIBS) -o $@
 
 v3_create: v3_create.c ezxml.c libv3_ctrl.a 
 	$(CC) $(CFLAGS) $^ -lv3_ctrl -L. -o $@
