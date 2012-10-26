@@ -1018,7 +1018,7 @@ static int vnet_tx_flush(void * args){
 	if ((!VNET_ADAPTIVE_TX_KICK) || (noprogress_count < VNET_NOPROGRESS_LIMIT)) { 
 	    V3_Yield();
 	} else {
-	    V3_Yield_Timed(VNET_YIELD_USEC);
+	    V3_Sleep(VNET_YIELD_USEC);
 	}
 
     }
