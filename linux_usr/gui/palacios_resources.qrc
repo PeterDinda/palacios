@@ -1,0 +1,17 @@
+<RCC>
+    <qresource prefix="/images">
+        <file>images/exit.png</file>
+        <file>images/icon_no_preview.png</file>
+        <file>images/new_vm.png</file>
+        <file>images/palacios.png</file>
+        <file>images/vm_pause.png</file>
+        <file>images/vm_refresh.png</file>
+        <file>images/vm_start.png</file>
+        <file>images/vm_stop.png</file>
+        <file>images/start_vm.png</file>
+        <file>images/stop_vm.png</file>
+        <file>images/activate_vm.png</file>
+        <file>images/pause_vm.png</file>
+        <file>images/reload_vm.png</file>
+    </qresource>
+</RCC>

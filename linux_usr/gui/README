@@ -1,0 +1,75 @@
+This directory contains an implementation of a graphical user
+interface for Palacios VMs, analogous to the "server console" tool in
+VMware or VirtualBox, etc.  The GUI builds directly on top of the
+Palacios command-line utilities.  
+
+The GUI was initially implemented by Abhinav Kannan and is:
+
+(c) 2012 Abhinav Kannan
+(c) 2012 V3VEE Project
+
+As with other Linux interface components of Palacios, it is released
+under GPL.  Palacios itself is released under a BSD license. 
+
+
+PREREQUISITES
+=============
+
+To build the GUI, you will need to install various libraries and
+components.  Specifically, you need:
+
+- QT4
+- QT4 development support and tools (qmake)
+- LibVNCServer
+- GNUTLS and GNUTLS development support
+
+
+The easiest way to do this is to become root and then use
+your package manager.  
+
+For example, on a Red Hat or Fedora system:
+
+su - (become root)
+yum install qt4
+yum install qt4-devel
+yum install libvncsever
+yum install libvncserver-devel
+yum install gnutls
+yum install gnutls-devel
+exit (return to normal user)
+
+If you need to set up as a none-root user, please see the file
+report.pdf.  
+   
+
+BUILDING
+========
+
+1. Use qmake to build a Makefile for your machine:
+
+qmake Palacos.Pro
+
+2. make it
+
+make 
+
+3. you should now have an executable file "Palacios"
+   this will become palacios/linux_usr/v3_x0gui
+   and will be wrapped by the script palacios/linux_usr/v3_gui
+
+If you would like to change things, please read report.pdf.
+The "Palacios.pro" file mentioned in the report is 
+included here as "Palacios.pro.locallibs"
+
+RUNNING
+=======
+
+To run the GUI, the Palacios command-line utilities and xterm need to
+be on your path, and v3vee.ko kernel module must be inserted into
+the running kernel.    For example:
+
+export PATH=$PATH:/home/foo/palacios/linxu_usr:/path/to/xterm
+insmod /home/foo/palacios/v3vee.ko
+Palacios &
+
+
