@@ -12,7 +12,7 @@ STATIC = 0
 #
 BASE_EXECS = 	v3_mem \
                 v3_mem_free \
- 		v3_create \
+		v3_create \
                 v3_create_bind \
 		v3_free  \
 	  	v3_launch \
@@ -58,7 +58,7 @@ EXPERIMENTAL_EXECS = 	v3_simulate  \
 #
 PRECOMPILED_EXECS = x0vncserver
 
-COPIED_EXECS = v3_x0vncserver
+COPIED_EXECS = v3_x0vncserver v3_x0gui
 
 #
 # Libraries that we need to build
@@ -153,9 +153,27 @@ v3_user_keyed_stream_file : v3_user_keyed_stream_file.c libv3_user_keyed_stream.
 #
 # VNC support is compiled separately
 #
-v3_x0vncserver : x0vncserver
-	cp x0vncserver v3_x0vncserver
+v3_x0vncserver : 
+	@if [ -a x0vncserver ] ; \
+	then \
+		cp x0vncserver v3_x0vncserver ; \
+	else \
+		echo "In order to use v3_vncclient/server you must have" ; \
+		echo "previously built or received palacios/linux_usr/x0vncserver" ; \
+	fi;
 
+#
+# GUI is compiled separately
+#
+v3_x0gui : 
+	@if [ -a gui/Palacios ] ; \
+	then \
+		cp gui/Palacios v3_x0gui ; \
+	else \
+		echo "In order to use v3_gui (the graphical interface)" ;\
+		echo "you must first cd to palacios/linux_usr/gui" ;\
+		echo "and compile it according to the README given there";\
+	fi;
 
 #
 # Cleanup and dependency builds are automated

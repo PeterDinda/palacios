@@ -7,9 +7,20 @@ $password = "";
 
 &GetOptions("port=i"=>\$port, "password=s"=>\$password);
 
+if (!on_path("v3_x0vncserver")) { 
+  print "You do not have v3_x0vncserver available on your PATH.\n";
+  print "v3_vncserver requires this functionality.\n";
+  print "You probably need to add .../palacios/linux_usr to your path\n";
+  print "Or you need to build v3_x0vncserver.\n";
+  exit -1;
+}
+
 $#ARGV==0 or die "usage: v3_vncserver [--port=port] [--password=password] /dev/v3-vmN\n";
 
+
 $vm=shift;
+
+
 
 system "echo \"$password\" | vncpasswd -f > ./.vncpasswd";
 
@@ -17,4 +28,13 @@ system "v3_x0vncserver --PasswordFile=./.vncpasswd -rfbport $port $vm >/dev/null
  
 print STDERR "pid of server is stored in ./.vncpid\n";
 print "You can now connect to port $port with password \"$password\"\n";
+
+sub on_path {
+  my $x = `which $_[0] 2>&1`;
+  if (!defined($x) || $x=~/no $_[0] in/) {
+    return 0;
+  } else {
+    return 1;
+  }
+}
 

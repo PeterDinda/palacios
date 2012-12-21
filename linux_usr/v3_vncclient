@@ -8,6 +8,24 @@ $password = "";
 &GetOptions("port=i"=>\$port, "password=s"=>\$password);
 
 
+if (!on_path("vncviewer")) { 
+  print "You do not have vncviewer available on your PATH.\n";
+  print "v3_vncclient requires this functionality.\n";
+  print "You probably need to install vncviewer (e.g., yum install vncviewer)\n";
+  exit -1;
+}
+
 system "vncviewer localhost:$port\n";
 
+
+
+
+sub on_path {
+  my $x = `which $_[0] 2>&1`;
+  if (!defined($x) || $x=~/no $_[0] in/) {
+    return 0;
+  } else {
+    return 1;
+  }
+}
 

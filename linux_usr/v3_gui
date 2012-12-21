@@ -1,0 +1,28 @@
+#!/usr/bin/perl -w
+
+if (!on_path("v3_x0gui")) { 
+  print "You do not have v3_x0gui available on your PATH.\n";
+  print "This probably means you have not built the GUI,\n";
+  print "or have not put .../palacios/linux_usr on your PATH\n";
+  exit -1;
+}
+
+if (!on_path("xterm")) { 
+  print "You do not have xterm available on your PATH.\n";
+  print "v3_gui requires this functionality.\n";
+  print "You probably need to install xterm (e.g., yum install xterm)\n";
+  exit -1;
+}
+
+system "v3_x0gui";
+
+sub on_path {
+  my $x = `which $_[0] 2>&1`;
+  if (!defined($x) || $x=~/no $_[0] in/) {
+    return 0;
+  } else {
+    return 1;
+  }
+}
+
+
