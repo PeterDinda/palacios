@@ -94,6 +94,7 @@ int handle_open_key(struct palacios_user_keyed_stream_op *req,
     (*resp)->xfer=0;
     (*resp)->user_key=(void*)(uint64_t)fd;
     (*resp)->buf_len=0;
+    (*resp)->data_off=0;
     
     return 0;
 
@@ -121,6 +122,7 @@ int handle_close_key(struct palacios_user_keyed_stream_op *req,
     (*resp)->xfer=rc;
     (*resp)->user_key=(void*)(uint64_t)fd;
     (*resp)->buf_len=0;
+    (*resp)->data_off=0;
     
     return 0;
 
@@ -171,10 +173,32 @@ int handle_write_key(struct palacios_user_keyed_stream_op *req,
 {
     int fd;
     int rc;
+    sint64_t taglen = req->data_off;
+    sint64_t datalen = req->buf_len - req->data_off;
+
+    if (datalen != req->xfer) { 
+      fprintf(stderr,"Odd, xfer=%lld but datalen computed is %lld\n",req->xfer,datalen);
+      if (datalen > req->xfer) { 
+	datalen = req->xfer;
+      }
+    }
  
     fd = (int) (uint64_t) (req->user_key);
 
-    rc = write_all(fd,req->buf,req->xfer);
+    // Write tag
+    rc = write_all(fd,req->buf,taglen);
+    
+    if (rc!=taglen) { 
+      // failed to write tag, lets report as negative error
+      fprintf(stderr,"Failed to write tag (taglen=%lld, rc=%d)\n",taglen,rc);
+      rc = -1;
+    } else {
+      // Write data
+      rc = write_all(fd,req->buf+taglen,datalen);
+      if (rc!=datalen) {
+	fprintf(stderr,"Failed to write data (datalen=%lld, rc=%d)\n",datalen,rc);
+      }
+    }
 
     (*resp) = malloc(sizeof(struct palacios_user_keyed_stream_op)+0);
     
@@ -187,6 +211,7 @@ int handle_write_key(struct palacios_user_keyed_stream_op *req,
     (*resp)->xfer=rc;
     (*resp)->user_key=(void*)(uint64_t)fd;
     (*resp)->buf_len=0;
+    (*resp)->data_off=0;
     
 
     return 0;
@@ -199,6 +224,8 @@ int handle_read_key(struct palacios_user_keyed_stream_op *req,
 {
     int fd;
     int rc;
+    sint64_t taglen = req->data_off;
+    char temptag[taglen];
  
     fd = (int) (uint64_t) (req->user_key);
 
@@ -208,14 +235,31 @@ int handle_read_key(struct palacios_user_keyed_stream_op *req,
 	return -1;
     }
 
-    rc = read_all(fd,(*resp)->buf,req->xfer);
+    // read key and compare
+    rc = read_all(fd,temptag,taglen);
+    
+    if (rc!=taglen) { 
+      // Error
+      fprintf(stderr,"Failed to read tag (taglen=%lld, rc=%d)\n",taglen,rc);
+      rc = -1;
+    } else {
+      // tag check
+      if (memcmp(temptag,req->buf,taglen)) { 
+	// tag mismatch
+	fprintf(stderr,"Tag mismatch in read tag\n");
+	rc =-1;
+      } else {
+	// OK, do data read
+	rc = read_all(fd,(*resp)->buf,req->xfer);
+      }
+    }
 
     (*resp)->len=sizeof(struct palacios_user_keyed_stream_op) + (rc>0 ? rc : 0);
     (*resp)->type=req->type;
     (*resp)->xfer=rc;
     (*resp)->user_key=(void*)(uint64_t)fd;
     (*resp)->buf_len=rc>0 ? rc : 0;
-    
+    (*resp)->data_off = 0;
 
     return 0;
 

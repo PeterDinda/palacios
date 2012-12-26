@@ -35,6 +35,10 @@ struct palacios_user_keyed_stream_url {
 // This structure is used for both requests (kernel->user)
 // and responses (user->kernel)
 //
+// for a readkey request, the buf contains the tag
+// for a readkey response, the buf contains the data
+// for a writekey request, the buf contains the data + key
+// for a writekey request, the buf contains nothing
 struct palacios_user_keyed_stream_op {
 
     uint64_t len; // total structure length (all)
@@ -48,13 +52,17 @@ struct palacios_user_keyed_stream_op {
 #define PALACIOS_KSTREAM_READ_KEY  6
 
     sint64_t xfer;      // total bytes read or written (request/response)
+                        // 
 
     void    *user_key;  // user tag for an open key (response)
 
     uint64_t buf_len;   // buffer len
-    char buf[0];        // expanded as needed (key or valye)
+    uint64_t data_off;  // offset of data within the buffer
+                        // 0..buffer_len-1 is tag
+                        // rest is data
+    char buf[0];        // expanded as needed (key or value)
 
-    // The buffer contains the key or the value
+    // The buffer contains the key or the value 
 };
 
 

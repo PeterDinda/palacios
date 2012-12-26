@@ -6,6 +6,7 @@
  * (c) Peter Dinda, 2011 (interface, mem + file implementations + recooked user impl)
  * (c) Clint Sbisa, 2011 (initial user space implementation on which this is based)
  * (c) Diana Palsetia & Steve Rangel, 2012 (network based implementation)	
+ * (c) Peter Dinda, 2012 (updated interface, textfile)
  */
 
 #include <linux/fs.h>
@@ -54,21 +55,57 @@
 
   "mem:"   Streams are stored in a hash table
   The values for this hash table are hash tables associated with 
-  each stream.   
+  each stream.   A key maps to an expanding memory buffer.
+  Data is stored in a buffer like:
+
+  [boundarytag][taglen][tag][datalen][data]
+  [boundarytag][taglen][tag][datalen][data]
+  ...
 
   "file:"  Streams are stored in files.  Each high-level
   open corresponds to a directory, while a key corresponds to
-  a distinct file in that directory. 
+  a distinct file in that directory.   Data is stored in a file
+  like:
+
+  [boundarytag][taglen][tag][datalen][data]
+  [boundarytag][taglen][tag][datalen][data]
+  ...
+
+  "textfile:" Same as file, but data is stored in text format, like a
+  windows style .ini file.  A key maps to a file, and data is stored
+  in a file like:
+
+  [key]
+  tag=data_in_hex
+  tag=data_in_hex
+
+  This format makes it possible to concentenate the files to
+  produce a single "ini" file with "sections".
+
 
   "net:"  Streams are carried over the network.  Each
    high level open corresponds to a TCP connection, while
    each key corresponds to a context on the stream.
       "net:a:<ip>:<port>" => Bind to <ip>:<port> and accept a connection
       "net:c:<ip>:<port>" => Connect to <ip>:<port>
+   "c" (client) 
+     open_stream: connect
+   "a" (server) 
+     open_stream: accept
+   "c" or "a":
+     open_key:  send [keylen-lastbyte-high-bit][key] (writer)
+           or   recv (same format as above)          (reader)
+     close_key: send [keylen-lastbyte-high-bit][key] (writer)
+           or   recv (same format as above)          (reader)
+     write_key: send [boundarytag][taglen][tag][datalen][data]
+     read_key:  recv (same format as above)
+     close_stream: close socket
 
   "user:" Stream requests are bounced to user space to be 
    handled there.  A rendezvous approach similar to the host 
    device userland support is used
+
+   All keyed streams store the tags.
    
 */
 
@@ -77,6 +114,7 @@
 #define STREAM_FILE    2
 #define STREAM_USER    3
 #define STREAM_NETWORK 4
+#define STREAM_TEXTFILE 5
 
 /*
   All keyed streams and streams indicate their implementation type within the first field
@@ -89,7 +127,10 @@ struct generic_stream {
     int stype;
 };
   
-
+/*
+  boundary tags are used for some othe raw formats. 
+*/
+static uint32_t BOUNDARY_TAG=0xabcd0123;
 
 
 /****************************************************************************************
@@ -199,6 +240,8 @@ static uint32_t write_mem_stream(struct mem_stream *m,
     return len;
 
 }
+
+
 
 static uint32_t read_mem_stream(struct mem_stream *m,
 				void *data,
@@ -425,62 +468,173 @@ static void close_key_mem(v3_keyed_stream_t stream,
 
 static sint64_t write_key_mem(v3_keyed_stream_t stream, 
 			      v3_keyed_stream_key_t key,
+			      void *tag,
+			      sint64_t taglen,
 			      void *buf,
 			      sint64_t len)
 {
-    struct mem_keyed_stream *mks = (struct mem_keyed_stream *) stream;
-    struct mem_stream *m = (struct mem_stream *) key;
-    uint32_t mylen;
-    uint32_t writelen;
+  struct mem_keyed_stream *mks = (struct mem_keyed_stream *) stream;
+  struct mem_stream *m = (struct mem_stream *) key;
+  uint32_t mylen;
+  uint32_t writelen;
+  
+  if (mks->ot!=V3_KS_WR_ONLY) {
+    return -1;
+  }
+  
+  if (taglen<0 || len<0) { 
+    ERROR("Negative taglen or data len\n");
+    return -1;
+  }
+  
+  if (taglen>0xffffffffULL || len>0xffffffffULL) { 
+    ERROR("taglen or data len is too large\n");
+    return -1;
+  }
+      
+  writelen=write_mem_stream(m,&BOUNDARY_TAG,sizeof(BOUNDARY_TAG));
+  
+  if (writelen!=sizeof(BOUNDARY_TAG)) { 
+    ERROR("failed to write all data for boundary tag\n");
+    return -1;
+  }
+  
+  writelen=write_mem_stream(m,&taglen,sizeof(taglen));
+  
+  if (writelen!=sizeof(taglen)) { 
+    ERROR("failed to write taglen\n");
+    return -1;
+  }
+  
+  mylen = (uint32_t) taglen;
+  
+  writelen=write_mem_stream(m,tag,mylen);
+  
+  if (writelen!=mylen) { 
+    ERROR("failed to write all data for tag\n");
+    return -1;
+  } 
 
-    if (mks->ot!=V3_KS_WR_ONLY) {
-	return -1;
-    }
+  writelen=write_mem_stream(m,&len,sizeof(len));
+  
+  if (writelen!=sizeof(len)) { 
+    ERROR("failed to write datalen\n");
+    return -1;
+  }
+  
+  mylen = (uint32_t) len;
 
-    if (len<0) { 
-	return -1;
-    }
-    
-    mylen = (uint32_t) len;
+  writelen=write_mem_stream(m,buf,mylen);
 
-    writelen=write_mem_stream(m,buf,mylen);
-
-    if (writelen!=mylen) { 
-	ERROR("failed to write all data for key\n");
-	return -1;
-    } else {
-	return (sint64_t)writelen;
-    }
+  if (writelen!=mylen) { 
+    ERROR("failed to write all data for key\n");
+    return -1;
+  } else {
+    return (sint64_t)writelen;
+  }
 }
 
 static sint64_t read_key_mem(v3_keyed_stream_t stream, 
 			     v3_keyed_stream_key_t key,
+			     void *tag,
+			     sint64_t taglen,
 			     void *buf,
 			     sint64_t len)
 {
-    struct mem_keyed_stream *mks = (struct mem_keyed_stream *) stream;
-    struct mem_stream *m = (struct mem_stream *) key;
-    uint32_t mylen;
-    uint32_t readlen;
-    
-    if (mks->ot!=V3_KS_RD_ONLY) {
-	return -1;
-    }
+  struct mem_keyed_stream *mks = (struct mem_keyed_stream *) stream;
+  struct mem_stream *m = (struct mem_stream *) key;
+  uint32_t mylen;
+  uint32_t readlen;
+  void *temptag;
+  uint32_t tempbt;
+  sint64_t templen;
+  
+  
+  if (mks->ot!=V3_KS_RD_ONLY) {
+    return -1;
+  }
+  
+  if (len<0 || taglen<0) { 
+    ERROR("taglen or data len is negative\n");
+    return -1;
+  }
 
-    if (len<0) { 
-	return -1;
-    }
+  if (len>0xffffffffULL || taglen>0xffffffffULL) { 
+    ERROR("taglen or data len is too large\n");
+    return -1;
+  }
+  
+  readlen=read_mem_stream(m,&tempbt,sizeof(tempbt));
+  
+  if (readlen!=sizeof(tempbt)) { 
+    ERROR("failed to read all data for boundary tag\n");
+    return -1;
+  } 
+  
+  if (tempbt!=BOUNDARY_TAG) { 
+    ERROR("boundary tag not found (read 0x%x)\n",tempbt);
+    return -1;
+  }
+  
+  readlen=read_mem_stream(m,&templen,sizeof(templen));
+
+  if (readlen!=sizeof(templen)) { 
+    ERROR("failed to read all data for taglen\n");
+    return -1;
+  } 
+
+  if (templen!=taglen) { 
+    ERROR("tag size mismatch (requested=%lld, actual=%lld)\n",taglen,templen);
+    return -1;
+  }
+  
+  temptag = palacios_alloc(taglen);
     
-    mylen = (uint32_t) len;
+  if (!temptag) { 
+    ERROR("cannot allocate temporary tag\n");
+    return -1;
+  }
+
+  mylen = (uint32_t) len;
     
-    readlen=read_mem_stream(m,buf,mylen);
+  readlen=read_mem_stream(m,temptag,mylen);
     
-    if (readlen!=mylen) { 
-	ERROR("failed to read all data for key\n");
-	return -1;
-    } else {
-	return (sint64_t)readlen;
-    }
+  if (readlen!=mylen) { 
+    ERROR("failed to read all data for tag\n");
+    palacios_free(temptag);
+    return -1;
+  } 
+
+  if (memcmp(tag,temptag,taglen)) { 
+    ERROR("tag mismatch\n");
+    palacios_free(temptag);
+    return -1;
+  }
+  
+  palacios_free(temptag);
+
+  readlen=read_mem_stream(m,&templen,sizeof(templen));
+
+  if (readlen!=sizeof(templen)) { 
+    ERROR("failed to read all data for data len\n");
+    return -1;
+  } 
+  
+  if (templen!=len) { 
+    ERROR("data size mismatch (requested=%lld, actual=%lld)\n",len,templen);
+    return -1;
+  }
+
+  mylen = (uint32_t) len;
+  
+  readlen=read_mem_stream(m,buf,mylen);
+  
+  if (readlen!=mylen) { 
+    ERROR("failed to read all data for key\n");
+    return -1;
+  } else {
+    return (sint64_t)readlen;
+  }
 }
 
 
@@ -682,83 +836,795 @@ static void close_key_file(v3_keyed_stream_t stream,
     palacios_free(fs);
 }
 
-static sint64_t write_key_file(v3_keyed_stream_t stream, 
-			       v3_keyed_stream_key_t key,
-			       void *buf,
-			       sint64_t len)
+
+static sint64_t write_file(struct file_stream *fs, void *buf, sint64_t len)
 {
-    struct file_keyed_stream *fks = (struct file_keyed_stream *) stream;
-    struct file_stream *fs = (struct file_stream *) key;
-    mm_segment_t old_fs;
     ssize_t done, left, total;
-    
-    if (fks->ot!=V3_KS_WR_ONLY) { 
-	return -1;
-    }
-    
-    if (len<0) { 
-	return -1;
-    }
+    mm_segment_t old_fs;
 
     total=len;
     left=len;
 
-    old_fs = get_fs();
-    set_fs(get_ds());
-
     while (left>0) {
+        old_fs = get_fs();
+        set_fs(get_ds());
 	done = fs->f->f_op->write(fs->f, buf+(total-left), left, &(fs->f->f_pos));
+        set_fs(old_fs);
 	if (done<=0) {
 	    return -1;
 	} else {
 	    left -= done;
 	}
     }
-    set_fs(old_fs);
 
     return len;
 }
 
+static sint64_t write_key_file(v3_keyed_stream_t stream, 
+			       v3_keyed_stream_key_t key,
+			       void *tag,
+			       sint64_t taglen,
+			       void *buf,
+			       sint64_t len)
+{
+  struct file_keyed_stream *fks = (struct file_keyed_stream *) stream;
+  struct file_stream *fs = (struct file_stream *) key;
+  sint64_t writelen;
+  
+  if (fks->ot!=V3_KS_WR_ONLY) { 
+    return -1;
+  }
+  
+  if (taglen<0 || len<0) { 
+    ERROR("Negative taglen or data len\n");
+    return -1;
+  }
+  
+  writelen=write_file(fs,&BOUNDARY_TAG,sizeof(BOUNDARY_TAG));
+  
+  if (writelen!=sizeof(BOUNDARY_TAG)) { 
+    ERROR("failed to write all data for boundary tag\n");
+    return -1;
+  }
+  
+  writelen=write_file(fs,&taglen,sizeof(taglen));
+  
+  if (writelen!=sizeof(taglen)) { 
+    ERROR("failed to write taglen\n");
+    return -1;
+  }
+  
+  if (write_file(fs,tag,taglen)!=taglen) { 
+    ERROR("failed to write tag\n");
+    return -1;
+  }
+
+  writelen=write_file(fs,&len,sizeof(len));
+  
+  if (writelen!=sizeof(len)) { 
+    ERROR("failed to write data len\n");
+    return -1;
+  }
+  
+  return write_file(fs,buf,len);
+}
+
+static sint64_t read_file(struct file_stream *fs, void *buf, sint64_t len)
+{
+    ssize_t done, left, total;
+    mm_segment_t old_fs;
+
+    total=len;
+    left=len;
+
+
+    while (left>0) {
+        old_fs = get_fs();
+        set_fs(get_ds());
+	done = fs->f->f_op->read(fs->f, buf+(total-left), left, &(fs->f->f_pos));
+        set_fs(old_fs);
+	if (done<=0) {
+	    return -1;
+	} else {
+	    left -= done;
+	}
+    }
+
+    return len;
+}
 
 
 static sint64_t read_key_file(v3_keyed_stream_t stream, 
 			      v3_keyed_stream_key_t key,
+			      void *tag,
+			      sint64_t taglen,
 			      void *buf,
 			      sint64_t len)
 {
-    struct file_keyed_stream *fks = (struct file_keyed_stream *) stream;
-    struct file_stream *fs = (struct file_stream *) key;
-    mm_segment_t old_fs;
-    ssize_t done, left, total;
-    
-    if (fks->ot!=V3_KS_RD_ONLY) { 
-	return -1;
-    }
+  struct file_keyed_stream *fks = (struct file_keyed_stream *) stream;
+  struct file_stream *fs = (struct file_stream *) key;
+  void *temptag;
+  uint32_t tempbt;
+  sint64_t templen;
+  sint64_t readlen;
+  
+  if (fks->ot!=V3_KS_RD_ONLY) { 
+    return -1;
+  }
+  
+  if (len<0 || taglen<0) { 
+    ERROR("taglen or data len is negative\n");
+    return -1;
+  }
 
-    if (len<0) { 
-	return -1;
-    }
+  readlen=read_file(fs,&tempbt,sizeof(tempbt));
+  
+  if (readlen!=sizeof(tempbt)) { 
+    ERROR("failed to read all data for boundary tag\n");
+    return -1;
+  } 
+  
+  if (tempbt!=BOUNDARY_TAG) { 
+    ERROR("boundary tag not found (read 0x%x)\n",tempbt);
+    return -1;
+  }
 
-    total=len;
-    left=len;
+  readlen=read_file(fs,&templen,sizeof(templen));
+  
+  if (readlen!=sizeof(templen)) { 
+    ERROR("failed to read all data for tag len\n");
+    return -1;
+  } 
 
-    old_fs = get_fs();
-    set_fs(get_ds());
+  if (templen!=taglen) { 
+    ERROR("tag size mismatch (requested=%lld, actual=%lld)\n",taglen,templen);
+    return -1;
+  }
 
-    while (left>0) {
-	done = fs->f->f_op->read(fs->f, buf+(total-left), left, &(fs->f->f_pos));
-	if (done<=0) {
-	    return -1;
-	} else {
-	    left -= done;
-	}
-    }
-    set_fs(old_fs);
+  temptag=palacios_alloc(taglen);
 
-    return len;
+  if (!temptag) { 
+    ERROR("Cannot allocate temptag\n");
+    return -1;
+  }
+  
+  if (read_file(fs,temptag,taglen)!=taglen) { 
+    ERROR("Cannot read tag\n");
+    palacios_free(temptag);
+    return -1;
+  }
+
+  if (memcmp(temptag,tag,taglen)) { 
+    ERROR("Tag mismatch\n");
+    palacios_free(temptag);
+    return -1;
+  }
+  
+  palacios_free(temptag);
+
+  readlen=read_file(fs,&templen,sizeof(templen));
+  
+  if (readlen!=sizeof(templen)) { 
+    ERROR("failed to read all data for data len\n");
+    return -1;
+  } 
+
+  if (templen!=len) { 
+    ERROR("datasize mismatch (requested=%lld, actual=%lld)\n",len,templen);
+    return -1;
+  }
+
+  return read_file(fs,buf,len);
 
 }
 
+
+/***************************************************************************************************
+  Textfile-based implementation  ("textfile:")
+
+  Note that this implementation uses the internal structure and functions of the 
+  "file:" implementation
+*************************************************************************************************/
+
+// optimize the reading and decoding of hex data
+// this weakens the parser, so that:
+// tag =0A0B0D 
+// will work, but
+// tag = 0A 0B 0D
+// will not.  Note the leading whitespace
+#define TEXTFILE_OPT_HEX 0
+
+//
+// The number of bytes handled at a time by the hex putter and getter
+//
+#define MAX_HEX_SEQ 64
+
+/*
+  A text file keyed stream is a file_keyed_stream,
+  only with a different stype
+*/
+
+#define PAUSE()  
+//#define PAUSE() ssleep(5) 
+
+
+typedef struct file_keyed_stream textfile_keyed_stream;
+
+typedef struct file_stream textfile_stream;
+
+
+static v3_keyed_stream_t open_stream_textfile(char *url,
+					      v3_keyed_stream_open_t ot)
+{
+  textfile_keyed_stream *me;
+
+  if (strncasecmp(url,"textfile:",9)) { 
+    WARNING("illegitimate attempt to open textfile stream \"%s\"\n",url);
+    return 0;
+  }
+
+  me = (textfile_keyed_stream *) open_stream_file(url+4, ot);
+
+  if (!me) {
+    ERROR("could not create underlying file stream\n");
+    return 0;
+  }
+
+  me->stype=STREAM_TEXTFILE;
+
+  return me;
+}
+
+  
+
+static void close_stream_textfile(v3_keyed_stream_t stream)
+{
+  textfile_keyed_stream *me = stream;
+
+  me->stype=STREAM_FILE;
+
+  close_stream_file(me);
+
+}
+
+static void preallocate_hint_key_textfile(v3_keyed_stream_t stream,
+					  char *key,
+					  uint64_t size)
+{
+  textfile_keyed_stream *me = stream;
+  
+  me->stype=STREAM_FILE;
+
+  preallocate_hint_key_file(me,key,size);
+  
+  me->stype=STREAM_TEXTFILE;
+ 
+}
+
+
+static inline int isoneof(char c, char *sl, int m)
+{
+  int i;
+  
+  for (i=0;i<m;i++) { 
+    if (c==sl[i]) { 
+      return 1;
+    }
+  }
+  
+  return 0;
+}
+
+static char get_next_char(textfile_stream *s)
+{
+  char buf;
+  if (read_file(s,&buf,1)!=1) { 
+    return -1;
+  } 
+  return buf;
+}
+
+static char hexify_nybble(char c)
+{
+  if (c>=0 && c<=9) { 
+    return '0'+c;
+  } else if (c>=0xa && c<=0xf) { 
+    return 'a'+(c-0xa);
+  } else {
+    return -1;
+  }
+}
+
+static int hexify_byte(char *c, char b)
+{
+  char n;
+  n = hexify_nybble( (b >> 4) & 0xf);
+  if (n==-1) { 
+    return -1;
+  }
+  c[0] = n;
+  n = hexify_nybble( b & 0xf);
+  if (n==-1) { 
+    return -1;
+  }
+  c[1] = n;
+  return 0;
+}
+
+
+static char dehexify_nybble(char c)
+{
+  if (c>='0' && c<='9') { 
+    return c-'0';
+  } else if (c>='a' && c<='f') {
+    return 0xa + (c-'a');
+  } else if (c>='A' && c<='F') { 
+    return 0xa + (c-'A');
+  } else {
+    return -1;
+  }
+}
+
+static int dehexify_byte(char *c, char *b)
+{
+  char n;
+  n = dehexify_nybble(c[0]);
+  if (n==-1) { 
+    return -1;
+  }
+  *b = n << 4;
+  n = dehexify_nybble(c[1]);
+  if (n==-1) { 
+    return -1;
+  }
+  *b |= n;
+  return 0;
+}
+
+
+#if TEXTFILE_OPT_HEX
+
+
+// Here the sl array, of length m is the number
+static int get_hexbytes_as_data(textfile_stream *s, char *buf, int n)
+{
+  char rbuf[MAX_HEX_SEQ*2];
+  int left = n;
+  int off = 0;
+  int cur = 0;
+  int i;
+
+  while (left>0) {
+    cur = left > MAX_HEX_SEQ ? MAX_HEX_SEQ : left;
+    if (read_file(s,rbuf,cur*2)!=cur*2) { 
+      ERROR("Cannot read data in getting hexbytes as data\n");
+      return -1;
+    }
+    
+    for (i=0;i<cur;i++) {
+      if (dehexify_byte(rbuf+(i*2),buf+off+i)==-1) { 
+	ERROR("Cannot decode data as hex in getting hexbytes as data\n");
+	return -1;
+      }
+    }
+    left-=cur;
+    off+=cur;
+  } 
+
+  return 0;
+}    
+
+#endif
+
+// Here the sl array, of length m is the set of characters to skip (e.g., whitespace)
+static int get_hexbytes_as_data_skip(textfile_stream *s, char *buf, int n, char *sl, int m)
+{
+  char rbuf[2];
+  int which = 0;
+  int cur=0;
+    
+  while (cur<n) {
+    which=0;
+    while (which<2) { 
+      rbuf[which] = get_next_char(s);
+      if (rbuf[which]==-1) { 
+	ERROR("Cannot read char in getting hexbytes as data with skiplist");
+	return -1;
+      }
+      if (isoneof(rbuf[which],sl,m)) { 
+	continue;
+      } else {
+	which++;
+      }
+    }
+    if (dehexify_byte(rbuf,buf+cur)==-1) { 
+      ERROR("Cannot decode data as hex in getting hexbytes as data with skiplist\n");
+      return -1;
+    } else {
+      cur++;
+    }
+  }
+  return 0;
+}    
+
+/*
+static int put_next_char(textfile_stream *s, char d)
+{
+  return write_file(s,&d,1);
+}
+*/
+
+
+static int put_data_as_hexbytes(textfile_stream *s, char *buf, int n)
+{
+  char rbuf[MAX_HEX_SEQ*2];
+  int left = n;
+  int off = 0;
+  int cur = 0;
+  int i;
+
+  while (left>0) {
+    cur = left > MAX_HEX_SEQ ? MAX_HEX_SEQ : left;
+    for (i=0;i<cur;i++) {
+      if (hexify_byte(rbuf+(i*2),*(buf+off+i))==-1) { 
+	ERROR("Cannot encode data as hex in putting data as hexbytes\n");
+	return -1;
+      }
+    }
+    if (write_file(s,rbuf,cur*2)!=cur*2) { 
+      ERROR("Cannot write data in putting data as hexbytes\n");
+      return -1;
+    }
+    left-=cur;
+    off+=cur;
+  } 
+
+  return 0;
+}    
+
+
+static int put_string_n(textfile_stream *s, char *buf, int n)
+{
+  int rc;
+
+  rc = write_file(s,buf,n);
+  
+  if (rc!=n) { 
+    return -1;
+  } else {
+    return 0;
+  }
+}
+
+static int put_string(textfile_stream *s, char *buf)
+{
+  int n=strlen(buf);
+
+  return put_string_n(s,buf,n);
+}
+
+
+
+static int search_for(textfile_stream *s, char d)
+{
+  char c;
+  do {
+    c=get_next_char(s);
+  } while (c!=-1 && c!=d);
+  
+  if (c==d) { 
+    return 0;
+  } else {
+    return -1;
+  }
+}
+
+/*
+static int skip_matching(textfile_stream *s, char *m, int n)
+{
+  char c;
+  int rc = 0;
+  int i;
+
+  while (rc==0) { 
+    c=get_next_char(s);
+    if (c==-1) { 
+      rc=-1;
+    } else {
+      for (i=0;i<n;i++) { 
+	if (c==m[i]) {
+	  rc=1;
+	  break;
+	} 
+      }
+    }
+  }
+  
+  if (rc==1) { 
+    return 0;  // found
+  } else {
+    return rc; // unknown
+  }
+}
+
+*/
+
+
+static int token_scan(textfile_stream *s, char *token, int n, char *sl, int m)
+{
+  char c;
+  int cur;
+
+  // Skip whitespace
+  do {
+    c=get_next_char(s);
+    if (c==-1) { 
+      ERROR("Failed to get character during token scan (preceding whitespace)\n");
+      return -1;
+    }
+  } while (isoneof(c,sl,m));
+
+
+  token[0]=c;
+  
+  // Record
+  cur=1;
+  while (cur<(n-1)) { 
+    c=get_next_char(s);
+    if (c==-1) { 
+      ERROR("Failed to get character during token scan (token)\n");
+      return -1;
+    }
+    if (isoneof(c,sl,m)) { 
+      break;
+    } else {
+      token[cur]=c;
+      cur++;
+    } 
+  }
+  token[cur]=0;
+  return 0;
+}
+
+
+
+static v3_keyed_stream_key_t open_key_textfile(v3_keyed_stream_t stream,
+					       char *key)
+{
+  textfile_keyed_stream *mks = stream;
+  textfile_stream *ms;
+
+  mks->stype=STREAM_FILE;
+
+  ms = open_key_file(mks,key);
+
+  if (!ms) { 
+    ERROR("cannot open underlying file keyed stream for key %s\n",key);
+    mks->stype=STREAM_TEXTFILE;
+    return 0;
+  }
+
+  if (mks->ot==V3_KS_WR_ONLY) { 
+    
+    // Now we write the section header
+
+    ms->stype=STREAM_FILE;
+    
+    if (put_string(ms,"[")) { 
+      close_key_file(mks,ms);
+      mks->stype=STREAM_TEXTFILE;
+      return 0;
+    }
+    
+    if (put_string(ms,key)) { 
+      close_key_file(mks,ms);
+      mks->stype=STREAM_TEXTFILE;
+      return 0;
+    }
+    
+    if (put_string(ms,"]\n")) {
+      close_key_file(mks,ms);
+      mks->stype=STREAM_TEXTFILE;
+      return 0;
+    }
+    
+    
+    mks->stype=STREAM_TEXTFILE;
+    ms->stype=STREAM_TEXTFILE;
+
+    return ms;
+
+  } else if (mks->ot == V3_KS_RD_ONLY) {
+    // Now we readthe section header
+    int keylen=strlen(key);
+    char *tempkey = palacios_alloc(keylen+3);
+
+    ms->stype=STREAM_FILE;
+
+    if (!tempkey) { 
+      ERROR("Allocation failed in opening key\n");
+      close_key_file(mks,ms);
+      mks->stype=STREAM_FILE;
+      return 0;
+    }
+
+
+    if (token_scan(ms,tempkey,keylen+3," \t\r\n",4)) { 
+      ERROR("Cannot scan for token (key search)\n");
+      close_key_file(mks,ms);
+      mks->stype=STREAM_TEXTFILE;
+      palacios_free(tempkey);
+      return 0;
+    }
+    
+    tempkey[keylen+2] = 0;
+    
+    // Should now have [key]0
+
+    if (tempkey[0]!='[' ||
+	tempkey[keylen+1]!=']' ||
+	memcmp(key,tempkey+1,keylen)) {
+      ERROR("key mismatch: target key=%s, found %s\n",key,tempkey);
+      palacios_free(tempkey);
+      close_key_file(mks,ms);
+      mks->stype=STREAM_TEXTFILE;
+      return 0;
+    }
+
+    // key match done, success
+
+    mks->stype=STREAM_TEXTFILE;
+    ms->stype=STREAM_TEXTFILE;
+
+    palacios_free(tempkey);
+
+    return ms;
+    
+  } else {
+    ERROR("Unknown open type in open_key_textfile\n");
+    ms->stype=STREAM_FILE;
+    close_key_file(mks,ms);
+    return 0;
+  }
+
+}
+
+
+
+static void close_key_textfile(v3_keyed_stream_t stream, 
+			       v3_keyed_stream_key_t key)
+{
+  textfile_keyed_stream *mks = stream;
+  textfile_stream *ms=key;
+
+  mks->stype=STREAM_FILE;
+  ms->stype=STREAM_FILE;
+
+  close_key_file(mks,ms);
+
+  mks->stype=STREAM_TEXTFILE;
+
+}
+
+
+static sint64_t read_key_textfile(v3_keyed_stream_t stream, 
+				  v3_keyed_stream_key_t key,
+				  void *tag,
+				  sint64_t taglen,
+				  void *buf,
+				  sint64_t len)
+{
+    textfile_stream *ms = (textfile_stream *) key;
+    char tags[32];
+    char *temptag;
+
+
+
+    memcpy(tags,tag,taglen<31 ? taglen : 31);
+    tags[taglen<32? taglen : 31 ]=0;
+    
+    temptag=palacios_alloc(taglen+1);
+    if (!temptag) { 
+      ERROR("Unable to allocate temptag in textfile read key\n");
+      return -1;
+    }
+
+    ms->stype=STREAM_FILE;
+    
+    if (token_scan(ms,temptag,taglen+1," \t\r\n=",5)) { 
+      ERROR("Cannot scan for token (tag search)\n");
+      ms->stype=STREAM_TEXTFILE;
+      palacios_free(temptag);
+      return -1;
+    }
+
+    if (memcmp(tag,temptag,taglen)) { 
+      ERROR("Tag mismatch in reading tag from textfile: desired tag=%s, actual tag=%s\n",tags,temptag);
+      ms->stype=STREAM_TEXTFILE;
+      palacios_free(temptag);
+      return -1;
+    }
+
+    // tag matches, let's go and find our =
+    palacios_free(temptag);
+
+    if (search_for(ms,'=')) { 
+      ERROR("Unable to find = sign in tag data parse (tag=%s)\n", tags);
+      ms->stype=STREAM_TEXTFILE;
+      return -1;
+    }
+
+
+#if TEXTFILE_OPT_HEX
+    if (get_hexbytes_as_data(ms,buf,len)) { 
+      ERROR("Cannot read data in hex format (opt path) in textfile for tag %s\n",tags);
+      ms->stype=STREAM_TEXTFILE;
+      return -1;
+    }
+#else
+    if (get_hexbytes_as_data_skip(ms,buf,len," \t\r\n",4)) { 
+      ERROR("Cannot read data in hex format (unopt path) in textfile for tag %s\n",tags);
+      ms->stype=STREAM_TEXTFILE;
+      return -1;
+    }
+#endif
+
+    ms->stype=STREAM_TEXTFILE;
+
+    return len;
+}
+
+static sint64_t write_key_textfile(v3_keyed_stream_t stream, 
+				   v3_keyed_stream_key_t key,
+				   void *tag,
+				   sint64_t taglen,
+				   void *buf,
+				   sint64_t len)
+{
+    textfile_stream *ms = (textfile_stream *) key;
+    char tags[32];
+
+
+
+    memcpy(tags,tag,taglen<31 ? taglen : 31);
+    tags[taglen<32? taglen : 31 ]=0;
+
+    /*    if (taglen>100000 || len>100000) { 
+      ERROR("Too big\n");
+      return -1;
+    }
+    */
+
+    ms->stype=STREAM_FILE;
+
+    if (put_string_n(ms,tag,taglen)) { 
+      ERROR("Cannot write tag %s in textfile\n",tags);
+      ms->stype=STREAM_TEXTFILE;
+      return -1;
+    }
+
+    if (put_string(ms,"=")) { 
+      ERROR("Cannot write = in textfile for tag %s\n",tags);
+      ms->stype=STREAM_TEXTFILE;
+      return -1;
+    }
+
+    if (put_data_as_hexbytes(ms,buf,len)) { 
+      ERROR("Cannot write data in hex format in textfile for tag %s\n",tags);
+      ms->stype=STREAM_TEXTFILE;
+      return -1;
+    }
+
+    if (put_string(ms,"\n")) { 
+      ERROR("Cannot write trailing lf in textfile for tag %s\n",tags);
+      ms->stype=STREAM_TEXTFILE;
+      return -1;
+    }
+
+    ms->stype=STREAM_TEXTFILE;
+
+    return len;
+}
 
 
 
@@ -1268,11 +2134,13 @@ static void close_key_user(v3_keyed_stream_t stream, v3_keyed_stream_key_t key)
 
 
 static sint64_t read_key_user(v3_keyed_stream_t stream, v3_keyed_stream_key_t key,
+			      void *tag,
+			      sint64_t taglen,
 			      void *buf, sint64_t rlen)
 {
 
     struct user_keyed_stream *s = (struct user_keyed_stream *) stream;
-    uint64_t   len = 0 ;
+    uint64_t   len = taglen ;
     sint64_t   xfer;
     unsigned long flags;
 
@@ -1282,6 +2150,7 @@ static sint64_t read_key_user(v3_keyed_stream_t stream, v3_keyed_stream_key_t ke
 	spin_unlock_irqrestore(&(s->lock),flags);
 	ERROR("attempt to read key from stream that is not in read state on %s\n",s->url);
     }	
+
 
     if (resize_op(&(s->op),len)) {
 	spin_unlock_irqrestore(&(s->lock),flags);
@@ -1293,6 +2162,9 @@ static sint64_t read_key_user(v3_keyed_stream_t stream, v3_keyed_stream_key_t ke
     s->op->buf_len = len ;
     s->op->xfer = rlen;
     s->op->user_key = key;
+    s->op->data_off = taglen;
+
+    memcpy(s->op->buf,tag,taglen);
 
     // enter with it locked
     if (do_request_to_response(s,&flags)) { 
@@ -1304,6 +2176,7 @@ static sint64_t read_key_user(v3_keyed_stream_t stream, v3_keyed_stream_key_t ke
 
 
     if (s->op->xfer>0) { 
+        // data_off must be zero
 	memcpy(buf,s->op->buf,s->op->xfer);
     }
 
@@ -1316,15 +2189,17 @@ static sint64_t read_key_user(v3_keyed_stream_t stream, v3_keyed_stream_key_t ke
 
 
 static sint64_t write_key_user(v3_keyed_stream_t stream, v3_keyed_stream_key_t key,
+			       void *tag,
+			       sint64_t taglen,
 			       void *buf, sint64_t wlen)
 {
 
     struct user_keyed_stream *s = (struct user_keyed_stream *) stream;
-    struct palacios_user_keyed_stream_op *op;
-    uint64_t   len = wlen ;
+    uint64_t   len = taglen + wlen ;
     sint64_t   xfer;
     unsigned long flags;
-    
+
+
     spin_lock_irqsave(&(s->lock), flags);
 
     if (s->otype != V3_KS_WR_ONLY) { 
@@ -1338,14 +2213,14 @@ static sint64_t write_key_user(v3_keyed_stream_t stream, v3_keyed_stream_key_t k
 	return -1;
     }
 
-    op = s->op;
-
     s->op->type = PALACIOS_KSTREAM_WRITE_KEY;
     s->op->buf_len = len;
     s->op->xfer = wlen;
     s->op->user_key = key;
+    s->op->data_off = taglen;
 
-    memcpy(s->op->buf,buf,wlen);
+    memcpy(s->op->buf,tag,taglen);
+    memcpy(s->op->buf+taglen,buf,wlen);
 
     // enter with it locked
     if (do_request_to_response(s,&flags)) { 
@@ -1354,6 +2229,8 @@ static sint64_t write_key_user(v3_keyed_stream_t stream, v3_keyed_stream_key_t k
 	return -1;
     }
     // return with it locked
+
+    // no data comes back, xfer should be size of data write (not tag)
 
     xfer=s->op->xfer;
 
@@ -1856,7 +2733,10 @@ static void close_key_net(v3_keyed_stream_t stream, v3_keyed_stream_key_t input_
     }
 }
 
-static sint64_t write_key_net(v3_keyed_stream_t stream, v3_keyed_stream_key_t key, void *buf, sint64_t len) 
+static sint64_t write_key_net(v3_keyed_stream_t stream, v3_keyed_stream_key_t key, 
+			      void *tag,
+			      sint64_t taglen,
+			      void *buf, sint64_t len) 
 {
     struct net_keyed_stream * nks = (struct net_keyed_stream *)stream;
 
@@ -1865,8 +2745,18 @@ static sint64_t write_key_net(v3_keyed_stream_t stream, v3_keyed_stream_key_t ke
 	return -1;
     }
 
+    if (!tag) { 
+	ERROR("Tag is NULL in write_key_net\n");
+	return -1;
+    }
+
     if (len<0) {
 	ERROR("len is negative in write_key_net\n");
+	return -1;
+    }
+
+    if (taglen<0) {
+	ERROR("taglen is negative in write_key_net\n");
 	return -1;
     }
     
@@ -1882,6 +2772,18 @@ static sint64_t write_key_net(v3_keyed_stream_t stream, v3_keyed_stream_key_t ke
     }
     
     if (nks->ot==V3_KS_WR_ONLY) {
+        if (send_msg(nks->ns,(char*)(&BOUNDARY_TAG),sizeof(BOUNDARY_TAG))!=sizeof(BOUNDARY_TAG)) { 
+   	    ERROR("Could not send boundary tag in write_key_net\n");
+	    return -1;
+	} 
+	if (send_msg(nks->ns,(char*)(&taglen),sizeof(taglen))!=sizeof(taglen)) { 
+	    ERROR("Could not send tag length in write_key_net\n");
+	    return -1;
+	} 
+	if (send_msg(nks->ns,tag,taglen)!=len) { 
+	    ERROR("Could not send tag in write_key_net\n");
+	    return -1;
+	}
 	if (send_msg(nks->ns,(char*)(&len),sizeof(len))!=sizeof(len)) { 
 	    ERROR("Could not send data length in write_key_net\n");
 	    return -1;
@@ -1899,17 +2801,31 @@ static sint64_t write_key_net(v3_keyed_stream_t stream, v3_keyed_stream_key_t ke
 }
 
 
-static sint64_t read_key_net(v3_keyed_stream_t stream, v3_keyed_stream_key_t key, void *buf, sint64_t len)
+static sint64_t read_key_net(v3_keyed_stream_t stream, v3_keyed_stream_key_t key,
+			     void *tag,
+			     sint64_t taglen,
+			     void *buf, sint64_t len)
 {
     struct net_keyed_stream * nks = (struct net_keyed_stream *)stream;
+    void *temptag;
 
     if (!buf) {
 	ERROR("Buf is NULL in read_key_net\n");
 	return -1;
     }
+
+    if (!tag) {
+	ERROR("Tag is NULL in read_key_net\n");
+	return -1;
+    }
     
     if(len<0) {
 	ERROR("len is negative in read_key_net\n");
+	return -1;
+    }
+
+    if(taglen<0) {
+	ERROR("taglen is negative in read_key_net\n");
 	return -1;
     }
     
@@ -1920,23 +2836,69 @@ static sint64_t read_key_net(v3_keyed_stream_t stream, v3_keyed_stream_key_t key
 
 
     if (nks->ot==V3_KS_RD_ONLY) {
+        
+        sint64_t slen;
+	uint32_t tempbt;
+	
+	if (recv_msg(nks->ns,(char*)(&tempbt),sizeof(tempbt))!=sizeof(tempbt)) { 
+	    ERROR("Cannot receive boundary tag in read_key_net\n");
+	    return -1;
+	}
 
-	sint64_t slen;
+	if (tempbt!=BOUNDARY_TAG) { 
+	  ERROR("Invalid boundary tag (received 0x%x\n",tempbt);
+	  return -1;
+	}
            
+        temptag=palacios_alloc(taglen);
+        if (!temptag) {
+	  ERROR("failed to allocate temptag\n");
+	  return -1;
+        }
+
+	if (recv_msg(nks->ns,(char*)(&slen),sizeof(slen))!=sizeof(slen)) { 
+	    ERROR("Cannot receive tag len in read_key_net\n");
+	    palacios_free(temptag);
+	    return -1;
+	}
+
+	if (slen!=taglen) {
+	    ERROR("Tag len expected does not matched tag len decoded in read_key_net\n");
+	    palacios_free(temptag);
+	    return -1;
+	}
+
+	if (recv_msg(nks->ns,temptag,taglen)!=taglen) { 
+	    ERROR("Cannot recieve tag in read_key_net\n");
+	    palacios_free(temptag);
+	    return -1;
+	}
+
+	if (memcmp(temptag,tag,taglen)) { 
+	  ERROR("Tag mismatch\n");
+	  palacios_free(temptag);
+	  return -1;
+	}
+
 	if (recv_msg(nks->ns,(char*)(&slen),sizeof(slen))!=sizeof(slen)) { 
 	    ERROR("Cannot receive data len in read_key_net\n");
+	    palacios_free(temptag);
 	    return -1;
 	}
 
 	if (slen!=len) {
 	    ERROR("Data len expected does not matched data len decoded in read_key_net\n");
+	    palacios_free(temptag);
 	    return -1;
 	}
 
 	if (recv_msg(nks->ns,buf,len)!=len) { 
 	    ERROR("Cannot recieve data in read_key_net\n");
+	    palacios_free(temptag);
 	    return -1;
 	}
+
+	palacios_free(temptag);
 	
     } else {
         ERROR("Permissions incorrect for the stream in read_key_net\n");
@@ -1961,8 +2923,10 @@ static v3_keyed_stream_t open_stream(char *url,
 	return open_stream_file(url,ot);
     } else if (!strncasecmp(url,"user:",5)) { 
 	return open_stream_user(url,ot);
-    } else if(!strncasecmp(url,"net:",4)){
+    } else if (!strncasecmp(url,"net:",4)){
 	return open_stream_net(url,ot);
+    } else if (!strncasecmp(url,"textfile:",9)) { 
+        return open_stream_textfile(url,ot);
     } else {
 	ERROR("unsupported type in attempt to open keyed stream \"%s\"\n",url);
 	return 0;
@@ -1978,6 +2942,9 @@ static void close_stream(v3_keyed_stream_t stream)
 	    break;
 	case STREAM_FILE:
 	    return close_stream_file(stream);
+	    break;
+	case STREAM_TEXTFILE:
+	    return close_stream_textfile(stream);
 	    break;
 	case STREAM_USER:
 	    return close_stream_user(stream);
@@ -2002,6 +2969,9 @@ static void preallocate_hint_key(v3_keyed_stream_t stream,
 	    break;
 	case STREAM_FILE:
 	    preallocate_hint_key_file(stream,key,size);
+	    break;
+	case STREAM_TEXTFILE:
+	    preallocate_hint_key_textfile(stream,key,size);
 	    break;
 	case STREAM_USER:
 	    return preallocate_hint_key_user(stream,key,size);
@@ -2028,6 +2998,9 @@ static v3_keyed_stream_key_t open_key(v3_keyed_stream_t stream,
 	case STREAM_FILE:
 	    return open_key_file(stream,key);
 	    break;
+	case STREAM_TEXTFILE:
+	    return open_key_textfile(stream,key);
+	    break;
 	case STREAM_USER:
 	    return open_key_user(stream,key);
 	    break;
@@ -2053,6 +3026,9 @@ static void close_key(v3_keyed_stream_t stream,
 	case STREAM_FILE:
 	    return close_key_file(stream,key);
 	    break;
+	case STREAM_TEXTFILE:
+	    return close_key_textfile(stream,key);
+	    break;
 	case STREAM_USER:
 	    return close_key_user(stream,key);
 	    break;
@@ -2069,22 +3045,27 @@ static void close_key(v3_keyed_stream_t stream,
 
 static sint64_t write_key(v3_keyed_stream_t stream, 
 			  v3_keyed_stream_key_t key,
+			  void *tag,
+			  sint64_t taglen,
 			  void *buf,
 			  sint64_t len)
 {
     struct generic_keyed_stream *gks = (struct generic_keyed_stream *) stream;
     switch (gks->stype){ 
 	case STREAM_MEM:
-	    return write_key_mem(stream,key,buf,len);
+	    return write_key_mem(stream,key,tag,taglen,buf,len);
 	    break;
 	case STREAM_FILE:
-	    return write_key_file(stream,key,buf,len);
+	    return write_key_file(stream,key,tag,taglen,buf,len);
+	    break;
+	case STREAM_TEXTFILE:
+	    return write_key_textfile(stream,key,tag,taglen,buf,len);
 	    break;
 	case STREAM_USER:
-	    return write_key_user(stream,key,buf,len);
+	    return write_key_user(stream,key,tag,taglen,buf,len);
 	    break;
 	case STREAM_NETWORK:
-	    return write_key_net(stream,key,buf,len);
+	    return write_key_net(stream,key,tag,taglen,buf,len);
 	    break;
 	default:
 	    ERROR("unknown stream type %d in write_key\n",gks->stype);
@@ -2097,22 +3078,27 @@ static sint64_t write_key(v3_keyed_stream_t stream,
 
 static sint64_t read_key(v3_keyed_stream_t stream, 
 			 v3_keyed_stream_key_t key,
+			 void *tag,
+			 sint64_t taglen,
 			 void *buf,
 			 sint64_t len)
 {
     struct generic_keyed_stream *gks = (struct generic_keyed_stream *) stream;
     switch (gks->stype){ 
 	case STREAM_MEM:
-	    return read_key_mem(stream,key,buf,len);
+	  return read_key_mem(stream,key,tag,taglen,buf,len);
 	    break;
 	case STREAM_FILE:
-	    return read_key_file(stream,key,buf,len);
+	    return read_key_file(stream,key,tag,taglen,buf,len);
+	    break;
+	case STREAM_TEXTFILE:
+	    return read_key_textfile(stream,key,tag,taglen,buf,len);
 	    break;
 	case STREAM_USER:
-	    return read_key_user(stream,key,buf,len);
+	    return read_key_user(stream,key,tag,taglen,buf,len);
 	    break;
 	case STREAM_NETWORK:
-	    return read_key_net(stream,key,buf,len);
+	    return read_key_net(stream,key,tag,taglen,buf,len);
 	    break;
 	default:
 	    ERROR("unknown stream type %d in read_key\n",gks->stype);

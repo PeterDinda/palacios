@@ -30,9 +30,14 @@ int do_work(struct palacios_user_keyed_stream_op *req,
     // req->xfer     : unused
     // req->user_key : the opaque key previously provided by you by an open key
     // req->buf_len  : length of data
-    // req->buf      : buffer (contains key name (open key) or value (write key))
-    //
-
+    // req->data_off : start of data within the buffer 
+    //                 buf[0..data_off-1] is a tag (for read or write key)
+    //                 buf[data_off..buf_len-1] is data (for write key)
+    // req->buf      : buffer 
+    //                    open key:   key name (open key)
+    //                    read key:   tag
+    //                    write key:  tag and data
+ 
     // now built a response
     *resp = malloc(sizeof(struct palacios_user_keyed_stream_op) + datasize);
     if (!*resp) {
@@ -42,6 +47,7 @@ int do_work(struct palacios_user_keyed_stream_op *req,
 
     (*resp)->len = sizeof(struct palacios_user_keyed_stream_op) + datasize;
     (*resp)->buf_len = datasize;
+    (*resp)->data_off = 0; // always the case for a response
     (*resp)->type = req->type;
     (*resp)->user_key = req->user_key;
 
@@ -53,7 +59,10 @@ int do_work(struct palacios_user_keyed_stream_op *req,
     // resp->xfer     : contains the size of data read or written (in read key or write key)
     // resp->user_key : unused
     // resp->buf_len  : length of data following
+    // resp->data_off : offset of the data in the buffer
     // resp->buf      : buffer (contains the data (read key))
+    //                    read key:   data
+    //                    write key:  nothing
     
 
     return 0;
