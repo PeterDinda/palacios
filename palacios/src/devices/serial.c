@@ -861,9 +861,167 @@ static int serial_free(struct serial_state * state) {
 
 
 
+#ifdef V3_CONFIG_CHECKPOINT
+
+#include <palacios/vmm_sprintf.h>
+
+static int serial_buffer_save(struct v3_chkpt_ctx * ctx, int port, struct serial_buffer *sb) {
+  
+  char keyname[128];
+  
+  snprintf(keyname,128,"COM%d_SB_HEAD", port);
+  V3_CHKPT_SAVE(ctx,keyname,sb->head,failout);
+  snprintf(keyname,128,"COM%d_SB_TAIL", port);
+  V3_CHKPT_SAVE(ctx,keyname,sb->tail,failout);
+  snprintf(keyname,128,"COM%d_SB_FULL", port);
+  V3_CHKPT_SAVE(ctx,keyname,sb->full,failout);
+  snprintf(keyname,128,"COM%d_SB_DATA", port);
+  V3_CHKPT_SAVE(ctx,keyname,sb->buffer,failout);
+  
+  return 0;
+  
+ failout:
+  PrintError("Failed to save serial buffer\n");
+  return -1;
+}
+
+ 
+static int serial_buffer_load(struct v3_chkpt_ctx * ctx, int port,  struct serial_buffer *sb) {
+
+  char keyname[128];
+
+  snprintf(keyname,128,"COM%d_SB_HEAD", port);
+  V3_CHKPT_LOAD(ctx,keyname,sb->head,failout);
+  snprintf(keyname,128,"COM%d_SB_TAIL", port);
+  V3_CHKPT_LOAD(ctx,keyname,sb->tail,failout);
+  snprintf(keyname,128,"COM%d_SB_FULL", port);
+  V3_CHKPT_LOAD(ctx,keyname,sb->full,failout);
+  snprintf(keyname,128,"COM%d_SB_DATA", port);
+  V3_CHKPT_LOAD(ctx,keyname,sb->buffer,failout);
+  
+  return 0;
+  
+ failout:
+  PrintError("Failed to load serial buffer\n");
+  return -1;
+}
+ 
+static int serial_save(struct v3_chkpt_ctx * ctx, void * private_data) {
+  struct serial_state *state = (struct serial_state *)private_data;
+  struct serial_port *serial;
+  char keyname[128];
+  int i;
+  
+  for (i=0;i<4;i++) { 
+    serial = &(state->coms[i]);
+    snprintf(keyname, 128,"COM%d_RBR",i);
+    V3_CHKPT_SAVE(ctx, keyname, serial->rbr.data,failout);
+    snprintf(keyname, 128,"COM%d_THR",i);
+    V3_CHKPT_SAVE(ctx, keyname, serial->thr.data,failout);
+    snprintf(keyname, 128,"COM%d_IER",i);
+    V3_CHKPT_SAVE(ctx, keyname, serial->ier.val,failout);
+    snprintf(keyname, 128,"COM%d_IIR",i);
+    V3_CHKPT_SAVE(ctx, keyname, serial->iir.val,failout);
+    snprintf(keyname, 128,"COM%d_FCR",i);
+    V3_CHKPT_SAVE(ctx, keyname, serial->fcr.val,failout);
+    snprintf(keyname, 128,"COM%d_LCR",i);
+    V3_CHKPT_SAVE(ctx, keyname, serial->lcr.val,failout);
+    snprintf(keyname, 128,"COM%d_MCR",i);
+    V3_CHKPT_SAVE(ctx, keyname, serial->mcr.val,failout);
+    snprintf(keyname, 128,"COM%d_LSR",i);
+    V3_CHKPT_SAVE(ctx, keyname, serial->lsr.val,failout);
+    snprintf(keyname, 128,"COM%d_MSR",i);
+    V3_CHKPT_SAVE(ctx, keyname, serial->msr.val,failout);
+    snprintf(keyname, 128,"COM%d_SCR",i);
+    V3_CHKPT_SAVE(ctx, keyname, serial->scr.data,failout);
+    snprintf(keyname, 128,"COM%d_DLL",i);
+    V3_CHKPT_SAVE(ctx, keyname, serial->dll.data,failout);
+    snprintf(keyname, 128,"COM%d_DLM",i);
+    V3_CHKPT_SAVE(ctx, keyname, serial->dlm.data,failout);
+    
+    if (serial_buffer_save(ctx, i, &(serial->tx_buffer))) { 
+      PrintError("Failed to save serial tx buffer %d\n",i);
+      goto failout;
+    }
+    
+    if (serial_buffer_save(ctx, i, &(serial->rx_buffer))) { 
+      PrintError("Failed to save serial rx buffer %d\n",i);
+      goto failout;
+    }
+    
+    V3_CHKPT_SAVE(ctx, keyname, serial->irq_number,failout);
+  }
+
+  return 0;
+
+ failout:
+  PrintError("Failed to save serial device\n");
+  return -1;
+  
+}
+ 
+static int serial_load(struct v3_chkpt_ctx * ctx, void * private_data) {
+  struct serial_state *state = (struct serial_state *)private_data;
+  struct serial_port *serial;
+  char keyname[128];
+  int i;
+  
+  for (i=0;i<4;i++) { 
+    serial = &(state->coms[i]);
+    snprintf(keyname, 128,"COM%d_RBR",i);
+    V3_CHKPT_LOAD(ctx, keyname, serial->rbr.data,failout);
+    snprintf(keyname, 128,"COM%d_THR",i);
+    V3_CHKPT_LOAD(ctx, keyname, serial->thr.data,failout);
+    snprintf(keyname, 128,"COM%d_IER",i);
+    V3_CHKPT_LOAD(ctx, keyname, serial->ier.val,failout);
+    snprintf(keyname, 128,"COM%d_IIR",i);
+    V3_CHKPT_LOAD(ctx, keyname, serial->iir.val,failout);
+    snprintf(keyname, 128,"COM%d_FCR",i);
+    V3_CHKPT_LOAD(ctx, keyname, serial->fcr.val,failout);
+    snprintf(keyname, 128,"COM%d_LCR",i);
+    V3_CHKPT_LOAD(ctx, keyname, serial->lcr.val,failout);
+    snprintf(keyname, 128,"COM%d_MCR",i);
+    V3_CHKPT_LOAD(ctx, keyname, serial->mcr.val,failout);
+    snprintf(keyname, 128,"COM%d_LSR",i);
+    V3_CHKPT_LOAD(ctx, keyname, serial->lsr.val,failout);
+    snprintf(keyname, 128,"COM%d_MSR",i);
+    V3_CHKPT_LOAD(ctx, keyname, serial->msr.val,failout);
+    snprintf(keyname, 128,"COM%d_SCR",i);
+    V3_CHKPT_LOAD(ctx, keyname, serial->scr.data,failout);
+    snprintf(keyname, 128,"COM%d_DLL",i);
+    V3_CHKPT_LOAD(ctx, keyname, serial->dll.data,failout);
+    snprintf(keyname, 128,"COM%d_DLM",i);
+    V3_CHKPT_LOAD(ctx, keyname, serial->dlm.data,failout);
+    
+    if (serial_buffer_load(ctx, i, &(serial->tx_buffer))) { 
+      PrintError("Failed to load serial tx buffer %d\n",i);
+      goto failout;
+    }
+    
+    if (serial_buffer_load(ctx, i, &(serial->rx_buffer))) { 
+      PrintError("Failed to load serial rx buffer %d\n",i);
+      goto failout;
+    }
+    
+    V3_CHKPT_LOAD(ctx, keyname, serial->irq_number,failout);
+  }
+
+  return 0;
+
+ failout:
+  PrintError("Failed to load serial device\n");
+  return -1;
+  
+}
+
+#endif
 
 static struct v3_device_ops dev_ops = {
     .free = (int (*)(void *))serial_free,
+#ifdef V3_CONFIG_CHECKPOINT
+    .save = serial_save, 
+    .load = serial_load
+#endif
 };
 
 
