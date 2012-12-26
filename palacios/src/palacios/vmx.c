@@ -670,65 +670,66 @@ int v3_deinit_vmx_vmcs(struct guest_info * core) {
  * JRL: This is broken
  */
 int v3_vmx_save_core(struct guest_info * core, void * ctx){
-    struct vmx_data * vmx_info = (struct vmx_data *)(core->vmm_data);
-
-    // note that the vmcs pointer is an HPA, but we need an HVA
-    if (v3_chkpt_save(ctx, "vmcs_data", PAGE_SIZE_4KB, 
-		      V3_VAddr((void*) (vmx_info->vmcs_ptr_phys))) ==-1) {
-	PrintError("Could not save vmcs data for VMX\n");
-	return -1;
-    }
-
-    return 0;
+  struct vmx_data * vmx_info = (struct vmx_data *)(core->vmm_data);
+  
+  // note that the vmcs pointer is an HPA, but we need an HVA
+  if (v3_chkpt_save(ctx, "vmcs_data", PAGE_SIZE_4KB, 
+		    V3_VAddr((void*) (vmx_info->vmcs_ptr_phys)))) {
+    PrintError("Could not save vmcs data for VMX\n");
+    return -1;
+  }
+  
+  return 0;
 }
 
 int v3_vmx_load_core(struct guest_info * core, void * ctx){
-    struct vmx_data * vmx_info = (struct vmx_data *)(core->vmm_data);
-    struct cr0_32 * shadow_cr0;
-    addr_t vmcs_page_paddr;  //HPA
+  struct vmx_data * vmx_info = (struct vmx_data *)(core->vmm_data);
+  struct cr0_32 * shadow_cr0;
+  addr_t vmcs_page_paddr;  //HPA
+  
+  vmcs_page_paddr = (addr_t) V3_AllocPages(1);
+  
+  if (!vmcs_page_paddr) { 
+    PrintError("Could not allocate space for a vmcs in VMX\n");
+    return -1;
+  }
+  
+  if (v3_chkpt_load(ctx, "vmcs_data", PAGE_SIZE_4KB, 
+		    V3_VAddr((void *)vmcs_page_paddr)) == -1) { 
+    PrintError("Could not load vmcs data for VMX\n");
+    V3_FreePages((void*)vmcs_page_paddr,1);
+    return -1;
+  }
 
-    vmcs_page_paddr = (addr_t) V3_AllocPages(1);
-    
-    if (!vmcs_page_paddr) { 
-	PrintError("Could not allocate space for a vmcs in VMX\n");
+  vmcs_clear(vmx_info->vmcs_ptr_phys);
+  
+  // Probably need to delete the old one... 
+  V3_FreePages((void*)(vmx_info->vmcs_ptr_phys),1);
+  
+  vmcs_load(vmcs_page_paddr);
+  
+  v3_vmx_save_vmcs(core);
+
+  shadow_cr0 = (struct cr0_32 *)&(core->ctrl_regs.cr0);
+
+
+  /* Get the CPU mode to set the guest_ia32e entry ctrl */
+  
+  if (core->shdw_pg_mode == SHADOW_PAGING) {
+    if (v3_get_vm_mem_mode(core) == VIRTUAL_MEM) {
+      if (v3_activate_shadow_pt(core) == -1) {
+	PrintError("Failed to activate shadow page tables\n");
 	return -1;
-    }
-
-    if (v3_chkpt_load(ctx, "vmcs_data", PAGE_SIZE_4KB, 
-		      V3_VAddr((void *)vmcs_page_paddr)) == -1) { 
-	PrintError("Could not load vmcs data for VMX\n");
+      }
+    } else {
+      if (v3_activate_passthrough_pt(core) == -1) {
+	PrintError("Failed to activate passthrough page tables\n");
 	return -1;
+      }
     }
-
-    vmcs_clear(vmx_info->vmcs_ptr_phys);
-
-    // Probably need to delete the old one... 
-    V3_FreePages((void*)(vmx_info->vmcs_ptr_phys),1);
-
-    vmcs_load(vmcs_page_paddr);
-
-    v3_vmx_save_vmcs(core);
-
-    shadow_cr0 = (struct cr0_32 *)&(core->ctrl_regs.cr0);
-
-
-    /* Get the CPU mode to set the guest_ia32e entry ctrl */
-
-    if (core->shdw_pg_mode == SHADOW_PAGING) {
-	if (v3_get_vm_mem_mode(core) == VIRTUAL_MEM) {
-	    if (v3_activate_shadow_pt(core) == -1) {
-		PrintError("Failed to activate shadow page tables\n");
-		return -1;
-	    }
-	} else {
-	    if (v3_activate_passthrough_pt(core) == -1) {
-		PrintError("Failed to activate passthrough page tables\n");
-		return -1;
-	    }
-	}
-    }
-
-    return 0;
+  }
+  
+  return 0;
 }
 #endif
 
