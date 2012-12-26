@@ -64,7 +64,6 @@ static int debug_close_chkpt(void * store_data) {
 }
 
 static void * debug_open_ctx(void * store_data, 
-			     void * parent_ctx, 
 			     char * name) {
     V3_Print("[%s]\n", name);
     return (void *)1;
@@ -109,7 +108,6 @@ register_chkpt_store(debug_store);
 
 
 
-
 #ifdef V3_CONFIG_KEYED_STREAMS
 #include <interfaces/vmm_keyed_stream.h>
 
@@ -135,7 +133,6 @@ static int keyed_stream_close_chkpt(void * store_data) {
 }
 
 static void * keyed_stream_open_ctx(void * store_data, 
-				    void * parent_ctx, 
 				    char * name) {
     v3_keyed_stream_t stream = store_data;
 
@@ -152,20 +149,20 @@ static int keyed_stream_close_ctx(void * store_data, void * ctx) {
 
 static int keyed_stream_save(void * store_data, void * ctx, 
 				  char * tag, uint64_t len, void * buf) {
-    if (v3_keyed_stream_write_key(store_data, ctx, buf, len) != len) { 
-	return -1;
-    } else {
-	return 0;
-    }
+  if (v3_keyed_stream_write_key(store_data, ctx, tag, strlen(tag), buf, len) != len) { 
+    return -1;
+  } else {
+    return 0;
+  }
 }
 
 static int keyed_stream_load(void * store_data, void * ctx, 
 				  char * tag, uint64_t len, void * buf) {
-    if (v3_keyed_stream_read_key(store_data, ctx, buf, len) != len) { 
-	return -1;
-    } else {
-	return 0;
-    }
+  if (v3_keyed_stream_read_key(store_data, ctx, tag, strlen(tag), buf, len) != len) { 
+    return -1;
+  } else {
+    return 0;
+  }
 }
 
 
@@ -215,7 +212,6 @@ static int dir_close_chkpt(void * store_data) {
 }
 
 static void * dir_open_ctx(void * store_data, 
-			   void * parent_ctx, 
 			   char * name) {
 
     char * url = store_data;
