@@ -31,6 +31,9 @@
 
   If you open a key for reading, you get the read pointer set to its beginning.   
   You can then make repeated reads to advance the read pointer.  You cannot seek.
+  Reading is done with a tag supplied, and we will match the requested tag
+  against the actual tag.  If they do not match, we immediately return
+  with an error.
 
   Writing works similarly.
 
@@ -54,14 +57,20 @@ v3_keyed_stream_key_t v3_keyed_stream_open_key(v3_keyed_stream_t stream, char *k
 void                  v3_keyed_stream_close_key(v3_keyed_stream_t stream,  char *key);
 sint64_t              v3_keyed_stream_write_key(v3_keyed_stream_t stream,  
 						v3_keyed_stream_key_t key,
+						void *tag,
+						sint64_t taglen,
 						void *buf, 
 						sint64_t len);
 sint64_t              v3_keyed_stream_read_key(v3_keyed_stream_t stream,
 					       v3_keyed_stream_key_t key,
+					       void *tag,
+					       sint64_t taglen,
 					       void *buf, 
 					       sint64_t len);
 
 
+
+/* We will kill this stuff since it's now in the interface 
 
 #define STD_SAVE_RAW(stream,ks,x)			\
     do { \
@@ -81,6 +90,7 @@ sint64_t              v3_keyed_stream_read_key(v3_keyed_stream_t stream,
 #endif
 
 #define KSTREAM_MAGIC_COOKIE 0xabcd0123
+
 
 #define STD_SAVE_TAGGED(stream,ks,tag,size,x)				\
 do {		         						\
@@ -162,6 +172,9 @@ if ((size) != v3_keyed_stream_read_key((stream),(ks),&(x),(size))) {	\
 #define STD_LOAD(stream,ks,x) STD_LOAD_RAW(stream,ks,x)
 #endif
 
+*/
+
+#endif
 
 
 struct v3_keyed_stream_hooks {
@@ -184,11 +197,15 @@ struct v3_keyed_stream_hooks {
 
     sint64_t (*write_key)(v3_keyed_stream_t stream,
 			  v3_keyed_stream_key_t key,
+			  void *tag,
+			  sint64_t taglen,
 			  void *buf, 
 			  sint64_t len);
 
     sint64_t (*read_key)(v3_keyed_stream_t stream,
 			 v3_keyed_stream_key_t key,
+			 void *tag,
+			 sint64_t taglen,
 			 void *buf, 
 			 sint64_t len);
     

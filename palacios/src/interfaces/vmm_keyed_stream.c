@@ -74,24 +74,28 @@ void                  v3_keyed_stream_close_key(v3_keyed_stream_t stream,  char 
 
 sint64_t              v3_keyed_stream_write_key(v3_keyed_stream_t stream,  
 						v3_keyed_stream_key_t key,
+						void *tag,
+						sint64_t taglen,
 						void *buf, 
 						sint64_t len)
 {
     V3_ASSERT(keyed_stream_hooks != NULL);
     V3_ASSERT(keyed_stream_hooks->write_key != NULL);
 
-    return keyed_stream_hooks->write_key(stream,key,buf,len);
+    return keyed_stream_hooks->write_key(stream,key,tag,taglen,buf,len);
 }
 
 sint64_t              v3_keyed_stream_read_key(v3_keyed_stream_t stream,
 					       v3_keyed_stream_key_t key,
+					       void *tag,
+					       sint64_t taglen,
 					       void *buf, 
 					       sint64_t len)
 {
     V3_ASSERT(keyed_stream_hooks != NULL);
     V3_ASSERT(keyed_stream_hooks->read_key != NULL);
 
-    return keyed_stream_hooks->read_key(stream,key,buf,len);
+    return keyed_stream_hooks->read_key(stream,key,tag,taglen,buf,len);
 }
 
 
