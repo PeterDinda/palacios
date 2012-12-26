@@ -154,7 +154,7 @@ int v3_save_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 
     memset(name_table, 0, table_len);
     
-    dev_mgr_ctx = v3_chkpt_open_ctx(chkpt, NULL, "devices");
+    dev_mgr_ctx = v3_chkpt_open_ctx(chkpt, "devices");
 
     if (!dev_mgr_ctx) { 
 	PrintError("Unable to open device manager context\n");
@@ -191,32 +191,42 @@ int v3_save_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
     V3_Free(name_table);
 
     list_for_each_entry(dev, &(mgr->dev_list), dev_link) {
-	if (dev->ops->save) {
-	    struct v3_chkpt_ctx * dev_ctx = NULL;
-	    
-	    V3_Print("Saving state for device (%s)\n", dev->name);
-	    
-	    dev_ctx = v3_chkpt_open_ctx(chkpt, NULL, dev->name);
-	    
-	    if (!dev_ctx) { 
-		PrintError("Unable to open context for device %s\n",dev->name);
-		return -1;
-	    }
 
-	    if (dev->ops->save(dev_ctx, dev->private_data)) {
-		PrintError("Unable t save device %s\n",dev->name);
-		v3_chkpt_close_ctx(dev_ctx); 
-		return -1;
-	    }
+      if (dev->ops->save_extended) { 
 
-	    v3_chkpt_close_ctx(dev_ctx);
+	V3_Print("Saving state for device (%s) using extended interface\n",dev->name);
 
-	    // Error checking?? 
-	} else {
-	    PrintError("Error: %s save() not implemented\n",  dev->name);
+	if (dev->ops->save_extended(chkpt,dev->name,dev->private_data)) {
+	  PrintError("Unable to save device %s\n",dev->name);
+	  return -1;
 	}
-    }
 
+      } else if (dev->ops->save) {
+
+	struct v3_chkpt_ctx * dev_ctx = NULL;
+	
+	V3_Print("Saving state for device (%s)\n", dev->name);
+	
+	dev_ctx = v3_chkpt_open_ctx(chkpt, dev->name);
+	
+	if (!dev_ctx) { 
+	  PrintError("Unable to open context for device %s\n",dev->name);
+	  return -1;
+	}
+	
+	if (dev->ops->save(dev_ctx, dev->private_data)) {
+	  PrintError("Unable t save device %s\n",dev->name);
+	  v3_chkpt_close_ctx(dev_ctx); 
+	  return -1;
+	}
+	
+	v3_chkpt_close_ctx(dev_ctx);
+	
+      } else {
+	PrintError("Error: %s save() not implemented\n",  dev->name);
+      }
+    }
+    
     return 0;
 }
 
@@ -228,7 +238,7 @@ int v3_load_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
     char * name_table = NULL;
     int i = 0;
 
-    dev_mgr_ctx = v3_chkpt_open_ctx(chkpt, NULL, "devices");
+    dev_mgr_ctx = v3_chkpt_open_ctx(chkpt, "devices");
 
     if (!dev_mgr_ctx) { 
 	PrintError("Unable to open devices for load\n");
@@ -266,27 +276,40 @@ int v3_load_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 
 	if (!dev) {
 	    PrintError("Tried to load state into non existant device: %s\n", name);
-	    continue;
+	    return -1;
 	}
 
-	if (!dev->ops->load) {
-	    PrintError("Error Device (%s) does not support load operation\n", name);
-	    continue;
-	}
+	if (dev->ops->load_extended) {
 
-	dev_ctx = v3_chkpt_open_ctx(chkpt, NULL, name);
+	  V3_Print("Loading state for device (%s) using extended interface\n",name);
 
-	if (!dev_ctx) {
-	    PrintError("Error missing device context (%s)\n", name);
-	    continue;
-	}
-
-
-	if (dev->ops->load(dev_ctx, dev->private_data)) { 
+	  if (dev->ops->load_extended(chkpt,name,dev->private_data)) { 
 	    PrintError("Load of device %s failed\n",name);
-	}
+	    return -1;
+	  } 
 
-        v3_chkpt_close_ctx(dev_ctx);
+	} else if (dev->ops->load) {
+	  
+	  dev_ctx = v3_chkpt_open_ctx(chkpt, name);
+
+	  if (!dev_ctx) {
+	    PrintError("Error missing device context (%s)\n", name);
+	    return -1;
+	  }
+
+	  if (dev->ops->load(dev_ctx, dev->private_data)) { 
+	    PrintError("Load of device %s failed\n",name);
+	    v3_chkpt_close_ctx(dev_ctx);	
+	    return -1;
+	  }
+
+	  // should close context regardless of whether load was successful
+	  v3_chkpt_close_ctx(dev_ctx);
+
+	}  else {
+	  PrintError("Error Device (%s) does not support load operation\n", name);
+	  // this is OK
+	}
     }
 
     V3_Free(name_table);

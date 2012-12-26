@@ -111,8 +111,22 @@ struct v3_device_ops {
     int (*free)(void * private_data);
 
 #ifdef V3_CONFIG_CHECKPOINT
-    int (*save)(struct v3_chkpt_ctx * ctx, void * private_data);
-    int (*load)(struct v3_chkpt_ctx * ctx, void * privata_data);
+  /*
+    Both the base and extended save/load functions are optional.
+    If save_extended is defined, then it will be called in
+    preference to save.  The idea is that with "save", the caller
+    opens the context using the name of the device, and expects
+    the callee to write it and then return.  With "save_extended"
+    the caller passes the checkpoint store and the device name
+    to the callee.  The callee is then expected to open 
+    contexts as desired, write to them, and then close them 
+    before returning.  Load and load/extended are symmetric. 
+  */
+    
+  int (*save)(struct v3_chkpt_ctx * ctx, void * private_data);
+  int (*load)(struct v3_chkpt_ctx * ctx, void * privata_data);
+  int (*save_extended)(struct v3_chkpt * chkpt, char * id, void * private_data);
+  int (*load_extended)(struct v3_chkpt * chkpt, char * id, void * privata_data);
 #endif
 };
 
