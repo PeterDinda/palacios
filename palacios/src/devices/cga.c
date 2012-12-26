@@ -1118,85 +1118,99 @@ static int cga_free(struct video_internal * video_state) {
 static int cga_save(struct v3_chkpt_ctx * ctx, void * private_data) {
     struct video_internal * cga = (struct video_internal *)private_data;
 
-    v3_chkpt_save(ctx, "FRAMEBUFFER", FRAMEBUF_SIZE, cga->framebuf);
+    if (v3_chkpt_save(ctx, "FRAMEBUFFER", FRAMEBUF_SIZE, cga->framebuf)) { 
+      goto savefailout;
+    }
 
-    V3_CHKPT_STD_SAVE(ctx, cga->misc_outp_reg);
-    V3_CHKPT_STD_SAVE(ctx, cga->seq_index_reg);		
-    V3_CHKPT_STD_SAVE(ctx, cga->seq_data_regs[SEQ_REG_COUNT]);	
-    V3_CHKPT_STD_SAVE(ctx, cga->crtc_index_reg);		
-    V3_CHKPT_STD_SAVE(ctx, cga->crtc_data_regs[CRTC_REG_COUNT]);
-    V3_CHKPT_STD_SAVE(ctx, cga->graphc_index_reg);		
-    V3_CHKPT_STD_SAVE(ctx, cga->graphc_data_regs[GRAPHC_REG_COUNT]);
-    V3_CHKPT_STD_SAVE(ctx, cga->attrc_index_flipflop);
-    V3_CHKPT_STD_SAVE(ctx, cga->attrc_index_reg);	
-    V3_CHKPT_STD_SAVE(ctx, cga->attrc_data_regs[ATTRC_REG_COUNT]);	
-    V3_CHKPT_STD_SAVE(ctx, cga->dac_indexr_reg);	
-    V3_CHKPT_STD_SAVE(ctx, cga->dac_indexr_color);
-    V3_CHKPT_STD_SAVE(ctx, cga->dac_indexw_reg);		
-    V3_CHKPT_STD_SAVE(ctx, cga->dac_indexw_color);
-    V3_CHKPT_STD_SAVE(ctx, cga->dac_data_regs[DAC_REG_COUNT]);
+    V3_CHKPT_SAVE_AUTOTAG(ctx, cga->misc_outp_reg, savefailout);
+    V3_CHKPT_SAVE_AUTOTAG(ctx, cga->seq_index_reg, savefailout);		
+    V3_CHKPT_SAVE_AUTOTAG(ctx, cga->seq_data_regs, savefailout);	
+    V3_CHKPT_SAVE_AUTOTAG(ctx, cga->crtc_index_reg, savefailout);		
+    V3_CHKPT_SAVE_AUTOTAG(ctx, cga->crtc_data_regs, savefailout);
+    V3_CHKPT_SAVE_AUTOTAG(ctx, cga->graphc_index_reg, savefailout);		
+    V3_CHKPT_SAVE_AUTOTAG(ctx, cga->graphc_data_regs, savefailout);
+    V3_CHKPT_SAVE_AUTOTAG(ctx, cga->attrc_index_flipflop, savefailout);
+    V3_CHKPT_SAVE_AUTOTAG(ctx, cga->attrc_index_reg, savefailout);	
+    V3_CHKPT_SAVE_AUTOTAG(ctx, cga->attrc_data_regs, savefailout);	
+    V3_CHKPT_SAVE_AUTOTAG(ctx, cga->dac_indexr_reg, savefailout);	
+    V3_CHKPT_SAVE_AUTOTAG(ctx, cga->dac_indexr_color, savefailout);
+    V3_CHKPT_SAVE_AUTOTAG(ctx, cga->dac_indexw_reg, savefailout);		
+    V3_CHKPT_SAVE_AUTOTAG(ctx, cga->dac_indexw_color, savefailout);
+    V3_CHKPT_SAVE_AUTOTAG(ctx, cga->dac_data_regs, savefailout);
 
-    V3_CHKPT_STD_SAVE(ctx, cga->activefb_addr);
-    V3_CHKPT_STD_SAVE(ctx, cga->activefb_len);
-    V3_CHKPT_STD_SAVE(ctx, cga->iorange);
-    V3_CHKPT_STD_SAVE(ctx, cga->vres);
-    V3_CHKPT_STD_SAVE(ctx, cga->hres);
-    V3_CHKPT_STD_SAVE(ctx, cga->vchars);
-    V3_CHKPT_STD_SAVE(ctx, cga->hchars);
-    V3_CHKPT_STD_SAVE(ctx, cga->graphmode);
+    V3_CHKPT_SAVE_AUTOTAG(ctx, cga->activefb_addr, savefailout);
+    V3_CHKPT_SAVE_AUTOTAG(ctx, cga->activefb_len, savefailout);
+    V3_CHKPT_SAVE_AUTOTAG(ctx, cga->iorange, savefailout);
+    V3_CHKPT_SAVE_AUTOTAG(ctx, cga->vres, savefailout);
+    V3_CHKPT_SAVE_AUTOTAG(ctx, cga->hres, savefailout);
+    V3_CHKPT_SAVE_AUTOTAG(ctx, cga->vchars, savefailout);
+    V3_CHKPT_SAVE_AUTOTAG(ctx, cga->hchars, savefailout);
+    V3_CHKPT_SAVE_AUTOTAG(ctx, cga->graphmode, savefailout);
 
-    V3_CHKPT_STD_SAVE(ctx, cga->dirty);
-    V3_CHKPT_STD_SAVE(ctx, cga->reschanged);
+    V3_CHKPT_SAVE_AUTOTAG(ctx, cga->dirty, savefailout);
+    V3_CHKPT_SAVE_AUTOTAG(ctx, cga->reschanged, savefailout);
 
-    V3_CHKPT_STD_SAVE(ctx, cga->passthrough);
+    V3_CHKPT_SAVE_AUTOTAG(ctx, cga->passthrough, savefailout);
 
-    v3_chkpt_save_16(ctx, "SCREEN_OFFSET", &(cga->screen_offset));
-    v3_chkpt_save_16(ctx, "CURSOR_OFFSET", &(cga->cursor_offset));
+    V3_CHKPT_SAVE(ctx, "SCREEN_OFFSET", cga->screen_offset, savefailout);
+    V3_CHKPT_SAVE(ctx, "CURSOR_OFFSET", cga->cursor_offset, savefailout);
 
     return 0;
+
+ savefailout:
+    PrintError("Failed to save CGA\n");
+    return -1;
+
 }
 
 static int cga_load(struct v3_chkpt_ctx * ctx, void * private_data) {
     struct video_internal * cga = (struct video_internal *)private_data;
 
-    v3_chkpt_load(ctx, "FRAMEBUFFER", FRAMEBUF_SIZE, cga->framebuf);
+    if (v3_chkpt_load(ctx, "FRAMEBUFFER", FRAMEBUF_SIZE, cga->framebuf)) { 
+      goto loadfailout;
+    }
 
 
-    V3_CHKPT_STD_LOAD(ctx, cga->misc_outp_reg);
-    V3_CHKPT_STD_LOAD(ctx, cga->seq_index_reg);		
-    V3_CHKPT_STD_LOAD(ctx, cga->seq_data_regs[SEQ_REG_COUNT]);	
-    V3_CHKPT_STD_LOAD(ctx, cga->crtc_index_reg);		
-    V3_CHKPT_STD_LOAD(ctx, cga->crtc_data_regs[CRTC_REG_COUNT]);
-    V3_CHKPT_STD_LOAD(ctx, cga->graphc_index_reg);		
-    V3_CHKPT_STD_LOAD(ctx, cga->graphc_data_regs[GRAPHC_REG_COUNT]);
-    V3_CHKPT_STD_LOAD(ctx, cga->attrc_index_flipflop);
-    V3_CHKPT_STD_LOAD(ctx, cga->attrc_index_reg);	
-    V3_CHKPT_STD_LOAD(ctx, cga->attrc_data_regs[ATTRC_REG_COUNT]);	
-    V3_CHKPT_STD_LOAD(ctx, cga->dac_indexr_reg);	
-    V3_CHKPT_STD_LOAD(ctx, cga->dac_indexr_color);
-    V3_CHKPT_STD_LOAD(ctx, cga->dac_indexw_reg);		
-    V3_CHKPT_STD_LOAD(ctx, cga->dac_indexw_color);
-    V3_CHKPT_STD_LOAD(ctx, cga->dac_data_regs[DAC_REG_COUNT]);
+    V3_CHKPT_LOAD_AUTOTAG(ctx, cga->misc_outp_reg, loadfailout);
+    V3_CHKPT_LOAD_AUTOTAG(ctx, cga->seq_index_reg, loadfailout);		
+    V3_CHKPT_LOAD_AUTOTAG(ctx, cga->seq_data_regs, loadfailout);	
+    V3_CHKPT_LOAD_AUTOTAG(ctx, cga->crtc_index_reg, loadfailout);		
+    V3_CHKPT_LOAD_AUTOTAG(ctx, cga->crtc_data_regs, loadfailout);
+    V3_CHKPT_LOAD_AUTOTAG(ctx, cga->graphc_index_reg, loadfailout);		
+    V3_CHKPT_LOAD_AUTOTAG(ctx, cga->graphc_data_regs, loadfailout);
+    V3_CHKPT_LOAD_AUTOTAG(ctx, cga->attrc_index_flipflop, loadfailout);
+    V3_CHKPT_LOAD_AUTOTAG(ctx, cga->attrc_index_reg, loadfailout);	
+    V3_CHKPT_LOAD_AUTOTAG(ctx, cga->attrc_data_regs, loadfailout);	
+    V3_CHKPT_LOAD_AUTOTAG(ctx, cga->dac_indexr_reg, loadfailout);	
+    V3_CHKPT_LOAD_AUTOTAG(ctx, cga->dac_indexr_color, loadfailout);
+    V3_CHKPT_LOAD_AUTOTAG(ctx, cga->dac_indexw_reg, loadfailout);		
+    V3_CHKPT_LOAD_AUTOTAG(ctx, cga->dac_indexw_color, loadfailout);
+    V3_CHKPT_LOAD_AUTOTAG(ctx, cga->dac_data_regs, loadfailout);
 
-    V3_CHKPT_STD_LOAD(ctx, cga->activefb_addr);
-    V3_CHKPT_STD_LOAD(ctx, cga->activefb_len);
-    V3_CHKPT_STD_LOAD(ctx, cga->iorange);
-    V3_CHKPT_STD_LOAD(ctx, cga->vres);
-    V3_CHKPT_STD_LOAD(ctx, cga->hres);
-    V3_CHKPT_STD_LOAD(ctx, cga->vchars);
-    V3_CHKPT_STD_LOAD(ctx, cga->hchars);
-    V3_CHKPT_STD_LOAD(ctx, cga->graphmode);
+    V3_CHKPT_LOAD_AUTOTAG(ctx, cga->activefb_addr, loadfailout);
+    V3_CHKPT_LOAD_AUTOTAG(ctx, cga->activefb_len, loadfailout);
+    V3_CHKPT_LOAD_AUTOTAG(ctx, cga->iorange, loadfailout);
+    V3_CHKPT_LOAD_AUTOTAG(ctx, cga->vres, loadfailout);
+    V3_CHKPT_LOAD_AUTOTAG(ctx, cga->hres, loadfailout);
+    V3_CHKPT_LOAD_AUTOTAG(ctx, cga->vchars, loadfailout);
+    V3_CHKPT_LOAD_AUTOTAG(ctx, cga->hchars, loadfailout);
+    V3_CHKPT_LOAD_AUTOTAG(ctx, cga->graphmode, loadfailout);
 
-    V3_CHKPT_STD_LOAD(ctx, cga->dirty);
-    V3_CHKPT_STD_LOAD(ctx, cga->reschanged);
+    V3_CHKPT_LOAD_AUTOTAG(ctx, cga->dirty, loadfailout);
+    V3_CHKPT_LOAD_AUTOTAG(ctx, cga->reschanged, loadfailout);
 
-    V3_CHKPT_STD_LOAD(ctx, cga->passthrough);
+    V3_CHKPT_LOAD_AUTOTAG(ctx, cga->passthrough, loadfailout);
 
-    v3_chkpt_load_16(ctx, "SCREEN_OFFSET", &(cga->screen_offset));
-    v3_chkpt_load_16(ctx, "CURSOR_OFFSET", &(cga->cursor_offset));
+    V3_CHKPT_LOAD(ctx, "SCREEN_OFFSET", cga->screen_offset, loadfailout);
+    V3_CHKPT_LOAD(ctx, "CURSOR_OFFSET", cga->cursor_offset, loadfailout);
 
 
     return 0;
+
+ loadfailout:
+    PrintError("Failed to load cga\n");
+    return -1;
+
 }
 
 #endif

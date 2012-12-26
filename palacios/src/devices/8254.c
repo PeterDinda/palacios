@@ -687,27 +687,35 @@ static int pit_free(void * private_data) {
 static int pit_save(struct v3_chkpt_ctx * ctx, void * private_data) {
     struct pit * pit_state = (struct pit *)private_data; 
 
-    V3_CHKPT_STD_SAVE(ctx, pit_state->pit_counter);
-    V3_CHKPT_STD_SAVE(ctx, pit_state->pit_reload);
-    V3_CHKPT_STD_SAVE(ctx, pit_state->ch_0);
-    V3_CHKPT_STD_SAVE(ctx, pit_state->ch_1);
-    V3_CHKPT_STD_SAVE(ctx, pit_state->ch_2);
-    V3_CHKPT_STD_SAVE(ctx, pit_state->speaker);
+    V3_CHKPT_SAVE_AUTOTAG(ctx, pit_state->pit_counter,savefailout);
+    V3_CHKPT_SAVE_AUTOTAG(ctx, pit_state->pit_reload,savefailout);
+    V3_CHKPT_SAVE_AUTOTAG(ctx, pit_state->ch_0,savefailout);
+    V3_CHKPT_SAVE_AUTOTAG(ctx, pit_state->ch_1,savefailout);
+    V3_CHKPT_SAVE_AUTOTAG(ctx, pit_state->ch_2,savefailout);
+    V3_CHKPT_SAVE_AUTOTAG(ctx, pit_state->speaker,savefailout);
     
     return 0;
+
+ savefailout:
+    PrintError("Failed to save pit\n");
+    return -1;
 }
 
 static int pit_load(struct v3_chkpt_ctx * ctx, void * private_data) {
     struct pit * pit_state = (struct pit *)private_data;
 
-    V3_CHKPT_STD_LOAD(ctx, pit_state->pit_counter);
-    V3_CHKPT_STD_LOAD(ctx, pit_state->pit_reload);
-    V3_CHKPT_STD_LOAD(ctx, pit_state->ch_0);
-    V3_CHKPT_STD_LOAD(ctx, pit_state->ch_1);
-    V3_CHKPT_STD_LOAD(ctx, pit_state->ch_2);
-    V3_CHKPT_STD_LOAD(ctx, pit_state->speaker);
+    V3_CHKPT_LOAD_AUTOTAG(ctx, pit_state->pit_counter,loadfailout);
+    V3_CHKPT_LOAD_AUTOTAG(ctx, pit_state->pit_reload,loadfailout);
+    V3_CHKPT_LOAD_AUTOTAG(ctx, pit_state->ch_0,loadfailout);
+    V3_CHKPT_LOAD_AUTOTAG(ctx, pit_state->ch_1,loadfailout);
+    V3_CHKPT_LOAD_AUTOTAG(ctx, pit_state->ch_2,loadfailout);
+    V3_CHKPT_LOAD_AUTOTAG(ctx, pit_state->speaker,loadfailout);
 
     return 0;
+
+ loadfailout:
+    PrintError("Failed to load pit\n");
+    return -1;
 }
 #endif
 

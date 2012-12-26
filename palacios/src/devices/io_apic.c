@@ -343,27 +343,36 @@ static int io_apic_free(struct io_apic_state * ioapic) {
 static int io_apic_save(struct v3_chkpt_ctx * ctx, void * private_data) {
     struct io_apic_state * io_apic = (struct io_apic_state *)private_data;
 
-    V3_CHKPT_STD_SAVE(ctx, io_apic->base_addr);
-    V3_CHKPT_STD_SAVE(ctx, io_apic->index_reg);
-    V3_CHKPT_STD_SAVE(ctx, io_apic->ioapic_id);
-    V3_CHKPT_STD_SAVE(ctx, io_apic->ioapic_ver);
-    V3_CHKPT_STD_SAVE(ctx, io_apic->ioapic_arb_id);
-    V3_CHKPT_STD_SAVE(ctx, io_apic->redir_tbl);
+    V3_CHKPT_SAVE_AUTOTAG(ctx, io_apic->base_addr,savefailout);
+    V3_CHKPT_SAVE_AUTOTAG(ctx, io_apic->index_reg,savefailout);
+    V3_CHKPT_SAVE_AUTOTAG(ctx, io_apic->ioapic_id,savefailout);
+    V3_CHKPT_SAVE_AUTOTAG(ctx, io_apic->ioapic_ver,savefailout);
+    V3_CHKPT_SAVE_AUTOTAG(ctx, io_apic->ioapic_arb_id,savefailout);
+    V3_CHKPT_SAVE_AUTOTAG(ctx, io_apic->redir_tbl,savefailout);
 
     return 0;
+
+ savefailout:
+    PrintError("ioapic save failed\n");
+    return -1;
 }
 
 static int io_apic_load(struct v3_chkpt_ctx * ctx, void * private_data) {
     struct io_apic_state * io_apic = (struct io_apic_state *)private_data;
 
-    V3_CHKPT_STD_LOAD(ctx, io_apic->base_addr);
-    V3_CHKPT_STD_LOAD(ctx, io_apic->index_reg);
-    V3_CHKPT_STD_LOAD(ctx, io_apic->ioapic_id);
-    V3_CHKPT_STD_LOAD(ctx, io_apic->ioapic_ver);
-    V3_CHKPT_STD_LOAD(ctx, io_apic->ioapic_arb_id);
-    V3_CHKPT_STD_LOAD(ctx, io_apic->redir_tbl);
+    V3_CHKPT_LOAD_AUTOTAG(ctx, io_apic->base_addr,loadfailout);
+    V3_CHKPT_LOAD_AUTOTAG(ctx, io_apic->index_reg,loadfailout);
+    V3_CHKPT_LOAD_AUTOTAG(ctx, io_apic->ioapic_id,loadfailout);
+    V3_CHKPT_LOAD_AUTOTAG(ctx, io_apic->ioapic_ver,loadfailout);
+    V3_CHKPT_LOAD_AUTOTAG(ctx, io_apic->ioapic_arb_id,loadfailout);
+    V3_CHKPT_LOAD_AUTOTAG(ctx, io_apic->redir_tbl,loadfailout);
 
     return 0;
+
+ loadfailout:
+    PrintError("ioapic load failed\n");
+    return -1;
+    
 }
 #endif
 

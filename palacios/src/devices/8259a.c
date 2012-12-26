@@ -778,41 +778,45 @@ static int pic_free(struct pic_internal * state) {
 static int pic_save(struct v3_chkpt_ctx * ctx, void * private_data) {
     struct pic_internal * pic = (struct pic_internal *)private_data;
 
-    v3_chkpt_save_8(ctx, "MASTER_IRR", &(pic->master_irr));
-    v3_chkpt_save_8(ctx, "SLAVE_IRR", &(pic->slave_irr));
+    V3_CHKPT_SAVE(ctx, "MASTER_IRR", pic->master_irr, savefailout);
+    V3_CHKPT_SAVE(ctx, "SLAVE_IRR", pic->slave_irr, savefailout);
   
-    v3_chkpt_save_8(ctx, "MASTER_ISR", &(pic->master_isr));
-    v3_chkpt_save_8(ctx, "SLAVE_ISR", &(pic->slave_isr));
+    V3_CHKPT_SAVE(ctx, "MASTER_ISR", pic->master_isr, savefailout);
+    V3_CHKPT_SAVE(ctx, "SLAVE_ISR", pic->slave_isr, savefailout);
 
-    v3_chkpt_save_8(ctx, "MASTER_ELCR", &(pic->master_elcr));
-    v3_chkpt_save_8(ctx, "SLAVE_ELCR", &(pic->slave_elcr));
-    v3_chkpt_save_8(ctx, "MASTER_ELCR_MASK", &(pic->master_elcr_mask));
-    v3_chkpt_save_8(ctx, "SLAVE_ELCR_MASK", &(pic->slave_elcr_mask));
+    V3_CHKPT_SAVE(ctx, "MASTER_ELCR", pic->master_elcr, savefailout);
+    V3_CHKPT_SAVE(ctx, "SLAVE_ELCR", pic->slave_elcr, savefailout);
+    V3_CHKPT_SAVE(ctx, "MASTER_ELCR_MASK", pic->master_elcr_mask, savefailout);
+    V3_CHKPT_SAVE(ctx, "SLAVE_ELCR_MASK", pic->slave_elcr_mask, savefailout);
 
-    v3_chkpt_save_8(ctx, "MASTER_ICW1", &(pic->master_icw1));
-    v3_chkpt_save_8(ctx, "MASTER_ICW2", &(pic->master_icw2));
-    v3_chkpt_save_8(ctx, "MASTER_ICW3", &(pic->master_icw3));
-    v3_chkpt_save_8(ctx, "MASTER_ICW4", &(pic->master_icw4));
-
-
-    v3_chkpt_save_8(ctx, "SLAVE_ICW1", &(pic->slave_icw1));
-    v3_chkpt_save_8(ctx, "SLAVE_ICW2", &(pic->slave_icw2));
-    v3_chkpt_save_8(ctx, "SLAVE_ICW3", &(pic->slave_icw3));
-    v3_chkpt_save_8(ctx, "SLAVE_ICW4", &(pic->slave_icw4));
+    V3_CHKPT_SAVE(ctx, "MASTER_ICW1", pic->master_icw1, savefailout);
+    V3_CHKPT_SAVE(ctx, "MASTER_ICW2", pic->master_icw2, savefailout);
+    V3_CHKPT_SAVE(ctx, "MASTER_ICW3", pic->master_icw3, savefailout);
+    V3_CHKPT_SAVE(ctx, "MASTER_ICW4", pic->master_icw4, savefailout);
 
 
-    v3_chkpt_save_8(ctx, "MASTER_IMR", &(pic->master_imr));
-    v3_chkpt_save_8(ctx, "SLAVE_IMR", &(pic->slave_imr));
-    v3_chkpt_save_8(ctx, "MASTER_OCW2", &(pic->master_ocw2));
-    v3_chkpt_save_8(ctx, "MASTER_OCW3", &(pic->master_ocw3));
-    v3_chkpt_save_8(ctx, "SLAVE_OCW2", &(pic->slave_ocw2));
-    v3_chkpt_save_8(ctx, "SLAVE_OCW3", &(pic->slave_ocw3));
+    V3_CHKPT_SAVE(ctx, "SLAVE_ICW1", pic->slave_icw1, savefailout);
+    V3_CHKPT_SAVE(ctx, "SLAVE_ICW2", pic->slave_icw2, savefailout);
+    V3_CHKPT_SAVE(ctx, "SLAVE_ICW3", pic->slave_icw3, savefailout);
+    V3_CHKPT_SAVE(ctx, "SLAVE_ICW4", pic->slave_icw4, savefailout);
 
-    v3_chkpt_save_8(ctx, "MASTER_STATE", &(pic->master_state));
-    v3_chkpt_save_8(ctx, "SLAVE_STATE", &(pic->slave_state));
+
+    V3_CHKPT_SAVE(ctx, "MASTER_IMR", pic->master_imr, savefailout);
+    V3_CHKPT_SAVE(ctx, "SLAVE_IMR", pic->slave_imr, savefailout);
+    V3_CHKPT_SAVE(ctx, "MASTER_OCW2", pic->master_ocw2, savefailout);
+    V3_CHKPT_SAVE(ctx, "MASTER_OCW3", pic->master_ocw3, savefailout);
+    V3_CHKPT_SAVE(ctx, "SLAVE_OCW2", pic->slave_ocw2, savefailout);
+    V3_CHKPT_SAVE(ctx, "SLAVE_OCW3", pic->slave_ocw3, savefailout);
+
+    V3_CHKPT_SAVE(ctx, "MASTER_STATE", pic->master_state, savefailout);
+    V3_CHKPT_SAVE(ctx, "SLAVE_STATE", pic->slave_state, savefailout);
 
     
     return 0;
+
+ savefailout:
+    PrintError("Failed to save PIC\n");
+    return -1;
 
 }
 
@@ -820,40 +824,44 @@ static int pic_load(struct v3_chkpt_ctx * ctx, void * private_data) {
     struct pic_internal * pic = (struct pic_internal *)private_data;
 
    
-    v3_chkpt_load_8(ctx, "MASTER_IRR", &(pic->master_irr));
-    v3_chkpt_load_8(ctx, "SLAVE_IRR", &(pic->slave_irr));
+    V3_CHKPT_LOAD(ctx, "MASTER_IRR", pic->master_irr, loadfailout);
+    V3_CHKPT_LOAD(ctx, "SLAVE_IRR", pic->slave_irr, loadfailout);
   
-    v3_chkpt_load_8(ctx, "MASTER_ISR", &(pic->master_isr));
-    v3_chkpt_load_8(ctx, "SLAVE_ISR", &(pic->slave_isr));
+    V3_CHKPT_LOAD(ctx, "MASTER_ISR", pic->master_isr, loadfailout);
+    V3_CHKPT_LOAD(ctx, "SLAVE_ISR", pic->slave_isr, loadfailout);
 
-    v3_chkpt_load_8(ctx, "MASTER_ELCR", &(pic->master_elcr));
-    v3_chkpt_load_8(ctx, "SLAVE_ELCR", &(pic->slave_elcr));
-    v3_chkpt_load_8(ctx, "MASTER_ELCR_MASK", &(pic->master_elcr_mask));
-    v3_chkpt_load_8(ctx, "SLAVE_ELCR_MASK", &(pic->slave_elcr_mask));
+    V3_CHKPT_LOAD(ctx, "MASTER_ELCR", pic->master_elcr, loadfailout);
+    V3_CHKPT_LOAD(ctx, "SLAVE_ELCR", pic->slave_elcr, loadfailout);
+    V3_CHKPT_LOAD(ctx, "MASTER_ELCR_MASK", pic->master_elcr_mask, loadfailout);
+    V3_CHKPT_LOAD(ctx, "SLAVE_ELCR_MASK", pic->slave_elcr_mask, loadfailout);
 
-    v3_chkpt_load_8(ctx, "MASTER_ICW1", &(pic->master_icw1));
-    v3_chkpt_load_8(ctx, "MASTER_ICW2", &(pic->master_icw2));
-    v3_chkpt_load_8(ctx, "MASTER_ICW3", &(pic->master_icw3));
-    v3_chkpt_load_8(ctx, "MASTER_ICW4", &(pic->master_icw4));
-
-
-    v3_chkpt_load_8(ctx, "SLAVE_ICW1", &(pic->slave_icw1));
-    v3_chkpt_load_8(ctx, "SLAVE_ICW2", &(pic->slave_icw2));
-    v3_chkpt_load_8(ctx, "SLAVE_ICW3", &(pic->slave_icw3));
-    v3_chkpt_load_8(ctx, "SLAVE_ICW4", &(pic->slave_icw4));
+    V3_CHKPT_LOAD(ctx, "MASTER_ICW1", pic->master_icw1, loadfailout);
+    V3_CHKPT_LOAD(ctx, "MASTER_ICW2", pic->master_icw2, loadfailout);
+    V3_CHKPT_LOAD(ctx, "MASTER_ICW3", pic->master_icw3, loadfailout);
+    V3_CHKPT_LOAD(ctx, "MASTER_ICW4", pic->master_icw4, loadfailout);
 
 
-    v3_chkpt_load_8(ctx, "MASTER_IMR", &(pic->master_imr));
-    v3_chkpt_load_8(ctx, "SLAVE_IMR", &(pic->slave_imr));
-    v3_chkpt_load_8(ctx, "MASTER_OCW2", &(pic->master_ocw2));
-    v3_chkpt_load_8(ctx, "MASTER_OCW3", &(pic->master_ocw3));
-    v3_chkpt_load_8(ctx, "SLAVE_OCW2", &(pic->slave_ocw2));
-    v3_chkpt_load_8(ctx, "SLAVE_OCW3", &(pic->slave_ocw3));
+    V3_CHKPT_LOAD(ctx, "SLAVE_ICW1", pic->slave_icw1, loadfailout);
+    V3_CHKPT_LOAD(ctx, "SLAVE_ICW2", pic->slave_icw2, loadfailout);
+    V3_CHKPT_LOAD(ctx, "SLAVE_ICW3", pic->slave_icw3, loadfailout);
+    V3_CHKPT_LOAD(ctx, "SLAVE_ICW4", pic->slave_icw4, loadfailout);
 
-    v3_chkpt_load_8(ctx, "MASTER_STATE", &(pic->master_state));
-    v3_chkpt_load_8(ctx, "SLAVE_STATE", &(pic->slave_state));
+
+    V3_CHKPT_LOAD(ctx, "MASTER_IMR", pic->master_imr, loadfailout);
+    V3_CHKPT_LOAD(ctx, "SLAVE_IMR", pic->slave_imr, loadfailout);
+    V3_CHKPT_LOAD(ctx, "MASTER_OCW2", pic->master_ocw2, loadfailout);
+    V3_CHKPT_LOAD(ctx, "MASTER_OCW3", pic->master_ocw3, loadfailout);
+    V3_CHKPT_LOAD(ctx, "SLAVE_OCW2", pic->slave_ocw2, loadfailout);
+    V3_CHKPT_LOAD(ctx, "SLAVE_OCW3", pic->slave_ocw3, loadfailout);
+
+    V3_CHKPT_LOAD(ctx, "MASTER_STATE", pic->master_state, loadfailout);
+    V3_CHKPT_LOAD(ctx, "SLAVE_STATE", pic->slave_state, loadfailout);
 
     return 0;
+
+ loadfailout:
+    PrintError("Failed to load PIC\n");
+    return -1;
 }
 
 #endif

@@ -1888,56 +1888,60 @@ static int apic_save(struct v3_chkpt_ctx * ctx, void * private_data) {
     int i = 0;
     uint32_t temp;
 
-    V3_CHKPT_STD_SAVE(ctx, apic_state->num_apics);
+    V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->num_apics,savefailout);
 
     //V3_CHKPT_STD_SAVE(ctx,apic_state->state_lock);
     for (i = 0; i < apic_state->num_apics; i++) {
 
-	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].base_addr);
-	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].base_addr_msr);
-	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].lapic_id);
-	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].apic_ver);
-	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].ext_apic_ctrl);
-	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].local_vec_tbl);
-	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].tmr_vec_tbl);
-	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].tmr_div_cfg);
-	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].lint0_vec_tbl);
-	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].lint1_vec_tbl);
-	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].perf_ctr_loc_vec_tbl);
-	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].therm_loc_vec_tbl);
-	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].err_vec_tbl);
-	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].err_status);
-	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].spurious_int);
-	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].int_cmd);
-	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].log_dst);
-	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].dst_fmt);
+        V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].base_addr,savefailout);
+	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].base_addr_msr,savefailout);
+	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].lapic_id,savefailout);
+	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].apic_ver,savefailout);
+	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].ext_apic_ctrl,savefailout);
+	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].local_vec_tbl,savefailout);
+	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].tmr_vec_tbl,savefailout);
+	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].tmr_div_cfg,savefailout);
+	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].lint0_vec_tbl,savefailout);
+	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].lint1_vec_tbl,savefailout);
+	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].perf_ctr_loc_vec_tbl,savefailout);
+	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].therm_loc_vec_tbl,savefailout);
+	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].err_vec_tbl,savefailout);
+	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].err_status,savefailout);
+	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].spurious_int,savefailout);
+	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].int_cmd,savefailout);
+	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].log_dst,savefailout);
+	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].dst_fmt,savefailout);
 
 	// APR and PPR are stored only for compatability
 	// TPR is in APIC_TPR, APR and PPR are derived
 	
 	temp = get_apic_apr(&(apic_state->apics[i]));
-	V3_CHKPT_STD_SAVE(ctx, temp);
+	V3_CHKPT_SAVE_AUTOTAG(ctx, temp,savefailout);
 	temp = get_apic_tpr(&(apic_state->apics[i]));
-	V3_CHKPT_STD_SAVE(ctx, temp);
+	V3_CHKPT_SAVE_AUTOTAG(ctx,temp,savefailout);
 	temp = get_apic_ppr(&(apic_state->apics[i]));
-	V3_CHKPT_STD_SAVE(ctx, temp);
+	V3_CHKPT_SAVE_AUTOTAG(ctx, temp,savefailout);
 
-	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].ext_apic_feature);
-	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].spec_eoi);
-	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].tmr_cur_cnt);
-	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].tmr_init_cnt);
-	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].ext_intr_vec_tbl);
-	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].rem_rd_data);
-	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].ipi_state);
-	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].int_req_reg);
-	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].int_svc_reg);
-	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].int_en_reg);
-	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].trig_mode_reg);
-	V3_CHKPT_STD_SAVE(ctx, apic_state->apics[i].eoi);
+	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].ext_apic_feature,savefailout);
+	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].spec_eoi,savefailout);
+	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].tmr_cur_cnt,savefailout);
+	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].tmr_init_cnt,savefailout);
+	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].ext_intr_vec_tbl,savefailout);
+	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].rem_rd_data,savefailout);
+	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].ipi_state,savefailout);
+	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].int_req_reg,savefailout);
+	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].int_svc_reg,savefailout);
+	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].int_en_reg,savefailout);
+	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].trig_mode_reg,savefailout);
+	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].eoi,savefailout);
 
     }
 
     return 0;
+
+ savefailout:
+    PrintError("Failed to save apic\n");
+    return -1;
 }
 
 static int apic_load(struct v3_chkpt_ctx * ctx, void * private_data) {
@@ -1945,52 +1949,57 @@ static int apic_load(struct v3_chkpt_ctx * ctx, void * private_data) {
     int i = 0;
     uint32_t temp;
 
-    V3_CHKPT_STD_LOAD(ctx,apic_state->num_apics);
+    V3_CHKPT_LOAD_AUTOTAG(ctx,apic_state->num_apics, loadfailout);
 
     for (i = 0; i < apic_state->num_apics; i++) {
-	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].base_addr);
-	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].base_addr_msr);
-	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].lapic_id);
-	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].apic_ver);
-	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].ext_apic_ctrl);
-	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].local_vec_tbl);
-	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].tmr_vec_tbl);
-	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].tmr_div_cfg);
-	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].lint0_vec_tbl);
-	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].lint1_vec_tbl);
-	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].perf_ctr_loc_vec_tbl);
-	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].therm_loc_vec_tbl);
-	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].err_vec_tbl);
-	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].err_status);
-	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].spurious_int);
-	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].int_cmd);
-	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].log_dst);
-	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].dst_fmt);
+	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].base_addr, loadfailout);
+	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].base_addr_msr, loadfailout);
+	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].lapic_id, loadfailout);
+	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].apic_ver, loadfailout);
+	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].ext_apic_ctrl, loadfailout);
+	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].local_vec_tbl, loadfailout);
+	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].tmr_vec_tbl, loadfailout);
+	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].tmr_div_cfg, loadfailout);
+	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].lint0_vec_tbl, loadfailout);
+	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].lint1_vec_tbl, loadfailout);
+	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].perf_ctr_loc_vec_tbl, loadfailout);
+	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].therm_loc_vec_tbl, loadfailout);
+	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].err_vec_tbl, loadfailout);
+	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].err_status, loadfailout);
+	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].spurious_int, loadfailout);
+	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].int_cmd, loadfailout);
+	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].log_dst, loadfailout);
+	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].dst_fmt, loadfailout);
 
 	// APR is ignored
-	V3_CHKPT_STD_LOAD(ctx, temp);
+	V3_CHKPT_LOAD_AUTOTAG(ctx, temp, loadfailout);
 	// TPR is written back to APIC_TPR
-	V3_CHKPT_STD_LOAD(ctx, temp);
+	V3_CHKPT_LOAD_AUTOTAG(ctx, temp, loadfailout);
 	set_apic_tpr(&(apic_state->apics[i]),temp);
 	// PPR is ignored
-	V3_CHKPT_STD_LOAD(ctx, temp);
+	V3_CHKPT_LOAD_AUTOTAG(ctx, temp, loadfailout);
 
-	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].ext_apic_feature);
-	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].spec_eoi);
-	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].tmr_cur_cnt);
-	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].tmr_init_cnt);
-	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].ext_intr_vec_tbl);
-	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].rem_rd_data);
-	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].ipi_state);
-	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].int_req_reg);
-	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].int_svc_reg);
-	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].int_en_reg);
-	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].trig_mode_reg);
-	V3_CHKPT_STD_LOAD(ctx, apic_state->apics[i].eoi);
+	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].ext_apic_feature, loadfailout);
+	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].spec_eoi, loadfailout);
+	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].tmr_cur_cnt, loadfailout);
+	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].tmr_init_cnt, loadfailout);
+	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].ext_intr_vec_tbl, loadfailout);
+	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].rem_rd_data, loadfailout);
+	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].ipi_state, loadfailout);
+	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].int_req_reg, loadfailout);
+	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].int_svc_reg, loadfailout);
+	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].int_en_reg, loadfailout);
+	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].trig_mode_reg, loadfailout);
+	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].eoi, loadfailout);
     }
 
 
     return 0;
+
+ loadfailout:
+    PrintError("Failed to load apic\n");
+    return -1;
+
 }
 
 #endif

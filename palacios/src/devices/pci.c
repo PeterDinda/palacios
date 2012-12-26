@@ -1100,87 +1100,150 @@ static int pci_free(struct pci_internal * pci_state) {
 
 #include <palacios/vmm_sprintf.h>
 
-static int pci_save(struct v3_chkpt_ctx * ctx, void * private_data) {
+static int pci_save_extended(struct v3_chkpt *chkpt, char *id, void * private_data) {
     struct pci_internal * pci = (struct pci_internal *)private_data;
+    struct v3_chkpt_ctx *ctx=0;
     char buf[128];
     int i = 0;    
-    
-    v3_chkpt_save_32(ctx, "ADDR_REG", &(pci->addr_reg.val));
-    v3_chkpt_save_16(ctx, "IO_BASE", &(pci->dev_io_base));
+
+    ctx = v3_chkpt_open_ctx(chkpt,id);
+
+    if (!ctx) { 
+      PrintError("Unable to open base context on save\n");
+      goto savefailout;
+    }
+
+    V3_CHKPT_SAVE(ctx, "ADDR_REG", pci->addr_reg.val, savefailout);
+    V3_CHKPT_SAVE(ctx, "IO_BASE", pci->dev_io_base, savefailout);
+
+    v3_chkpt_close_ctx(ctx); ctx=0;
 
     for (i = 0; i < PCI_BUS_COUNT; i++) {
 	struct pci_bus * bus = &(pci->bus_list[i]);
 	struct rb_node * node = v3_rb_first(&(bus->devices));
 	struct pci_device * dev = NULL;
-	struct v3_chkpt_ctx * bus_ctx = NULL;
 
-	snprintf(buf, 128, "pci-%d", i);
+	snprintf(buf, 128, "%s-%d", id, i);
 	
-	bus_ctx = v3_chkpt_open_ctx(ctx->chkpt, ctx, buf);
+	ctx = v3_chkpt_open_ctx(chkpt, buf);
+	
+	if (!ctx) { 
+	  PrintError("Failed to open context for %s\n", buf);
+	  goto savefailout;
+	}
+
+	// nothing actually saved on the bus context... (later expansion)
+
+	v3_chkpt_close_ctx(ctx); ctx=0;
 
 	while (node) {
-	    struct v3_chkpt_ctx * dev_ctx = NULL;
 	    int bar_idx = 0;
 	    dev = rb_entry(node, struct pci_device, dev_tree_node);
 
-	    snprintf(buf, 128, "pci-%d.%d-%d", i, dev->dev_num, dev->fn_num);
-	    dev_ctx = v3_chkpt_open_ctx(bus_ctx->chkpt, bus_ctx, buf);
+	    snprintf(buf, 128, "%s-%d.%d-%d", id, i, dev->dev_num, dev->fn_num);
+
+	    ctx = v3_chkpt_open_ctx(chkpt, buf);
 	    
-	    v3_chkpt_save(dev_ctx, "CONFIG_SPACE", 256, dev->config_space);
+	    if (!ctx) { 
+	      PrintError("Failed to open context for device\n");
+	      goto savefailout;
+	    }
+	    
+	    V3_CHKPT_SAVE(ctx, "CONFIG_SPACE", dev->config_space, savefailout);
 
 	    for (bar_idx = 0; bar_idx < 6; bar_idx++) {
 		snprintf(buf, 128, "BAR-%d", bar_idx);
-		v3_chkpt_save_32(dev_ctx, buf, &(dev->bar[bar_idx].val));
+		V3_CHKPT_SAVE(ctx, buf, dev->bar[bar_idx].val, savefailout);
 	    }
+	    
+	    v3_chkpt_close_ctx(ctx); ctx=0;
 
 	    node = v3_rb_next(node);
 	}
     }
 
+// goodout:
 
     return 0;
+    
+ savefailout:
+    PrintError("Failed to save PCI\n");
+    if (ctx) { v3_chkpt_close_ctx(ctx); }
+    return -1;
+
 }
 
 
-static int pci_load(struct v3_chkpt_ctx * ctx, void * private_data) {
+static int pci_load_extended(struct v3_chkpt *chkpt, char *id, void * private_data) {
     struct pci_internal * pci = (struct pci_internal *)private_data;
+    struct v3_chkpt_ctx *ctx=0;
     char buf[128];
     int i = 0;    
     
-    v3_chkpt_load_32(ctx, "ADDR_REG", &(pci->addr_reg.val));
-    v3_chkpt_load_16(ctx, "IO_BASE", &(pci->dev_io_base));
+    ctx = v3_chkpt_open_ctx(chkpt,id);
+
+    if (!ctx) { 
+      PrintError("Unable to open base context on load\n");
+      goto loadfailout;
+    }
+
+    V3_CHKPT_LOAD(ctx, "ADDR_REG", pci->addr_reg.val, loadfailout);
+    V3_CHKPT_LOAD(ctx, "IO_BASE", pci->dev_io_base, loadfailout);
+
+    v3_chkpt_close_ctx(ctx); ctx=0;
 
     for (i = 0; i < PCI_BUS_COUNT; i++) {
 	struct pci_bus * bus = &(pci->bus_list[i]);
 	struct rb_node * node = v3_rb_first(&(bus->devices));
 	struct pci_device * dev = NULL;
-	struct v3_chkpt_ctx * bus_ctx = NULL;
 
 	snprintf(buf, 128, "pci-%d", i);
 	
-	bus_ctx = v3_chkpt_open_ctx(ctx->chkpt, ctx, buf);
+	ctx = v3_chkpt_open_ctx(chkpt, buf);
+	
+	if (!ctx) { 
+	  PrintError("Failed to open context for %s\n", buf);
+	  goto loadfailout;
+	}
+
+	// nothing actually saved on the bus context... (later expansion)
+
+	v3_chkpt_close_ctx(ctx); ctx=0;
 
 	while (node) {
-	    struct v3_chkpt_ctx * dev_ctx = NULL;
 	    int bar_idx = 0;
 	    dev = rb_entry(node, struct pci_device, dev_tree_node);
 
 	    snprintf(buf, 128, "pci-%d.%d-%d", i, dev->dev_num, dev->fn_num);
-	    dev_ctx = v3_chkpt_open_ctx(bus_ctx->chkpt, bus_ctx, buf);
+
+	    ctx = v3_chkpt_open_ctx(chkpt, buf);
 	    
-	    v3_chkpt_load(dev_ctx, "CONFIG_SPACE", 256, dev->config_space);
+	    if (!ctx) { 
+	      PrintError("Failed to open context for device\n");
+	      goto loadfailout;
+	    }
+
+	    V3_CHKPT_LOAD(ctx, "CONFIG_SPACE", dev->config_space, loadfailout);
 
 	    for (bar_idx = 0; bar_idx < 6; bar_idx++) {
 		snprintf(buf, 128, "BAR-%d", bar_idx);
-		v3_chkpt_load_32(dev_ctx, buf, &(dev->bar[bar_idx].val));
+		V3_CHKPT_LOAD(ctx, buf, dev->bar[bar_idx].val, loadfailout);
 	    }
+
+	    v3_chkpt_close_ctx(ctx); ctx=0;
 
 	    node = v3_rb_next(node);
 	}
     }
 
-
+// goodout:
     return 0;
+
+ loadfailout:
+    PrintError("Failed to load PCI\n");
+    if (ctx) { v3_chkpt_close_ctx(ctx); }
+    return -1;
+    
 }
 
 
@@ -1192,8 +1255,8 @@ static int pci_load(struct v3_chkpt_ctx * ctx, void * private_data) {
 static struct v3_device_ops dev_ops = {
     .free = (int (*)(void *))pci_free,
 #ifdef V3_CONFIG_CHECKPOINT
-    .save = pci_save,
-    .load = pci_load
+    .save_extended = pci_save_extended,
+    .load_extended = pci_load_extended
 #endif
 };
 

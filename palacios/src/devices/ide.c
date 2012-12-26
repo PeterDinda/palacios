@@ -1503,130 +1503,202 @@ static int ide_free(struct ide_internal * ide) {
 #ifdef V3_CONFIG_CHECKPOINT
 
 #include <palacios/vmm_sprintf.h>
-static int ide_save(struct v3_chkpt_ctx * ctx, void * private_data) {
+
+static int ide_save_extended(struct v3_chkpt *chkpt, char *id, void * private_data) {
     struct ide_internal * ide = (struct ide_internal *)private_data;
+    struct v3_chkpt_ctx *ctx=0;
     int ch_num = 0;
     int drive_num = 0;
     char buf[128];
     
 
+    ctx=v3_chkpt_open_ctx(chkpt,id);
+    
+    if (!ctx) { 
+      PrintError("Failed to open context for save\n");
+      goto savefailout;
+    }
+
+    // nothing saved yet
+    
+    v3_chkpt_close_ctx(ctx);ctx=0;
+   
+
     for (ch_num = 0; ch_num < 2; ch_num++) {
-	struct v3_chkpt_ctx * ch_ctx = NULL;
 	struct ide_channel * ch = &(ide->channels[ch_num]);
 
-	snprintf(buf, 128, "channel-%d", ch_num);
-	ch_ctx = v3_chkpt_open_ctx(ctx->chkpt, ctx, buf);
+	snprintf(buf, 128, "%s-%d", id, ch_num);
 
-	v3_chkpt_save_8(ch_ctx, "ERROR", &(ch->error_reg.val));
-	v3_chkpt_save_8(ch_ctx, "FEATURES", &(ch->features.val));
-	v3_chkpt_save_8(ch_ctx, "DRIVE_HEAD", &(ch->drive_head.val));
-	v3_chkpt_save_8(ch_ctx, "STATUS", &(ch->status.val));
-	v3_chkpt_save_8(ch_ctx, "CMD_REG", &(ch->cmd_reg));
-	v3_chkpt_save_8(ch_ctx, "CTRL_REG", &(ch->ctrl_reg.val));
-	v3_chkpt_save_8(ch_ctx, "DMA_CMD", &(ch->dma_cmd.val));
-	v3_chkpt_save_8(ch_ctx, "DMA_STATUS", &(ch->dma_status.val));
-	v3_chkpt_save_32(ch_ctx, "PRD_ADDR", &(ch->dma_prd_addr));
-	v3_chkpt_save_32(ch_ctx, "DMA_TBL_IDX", &(ch->dma_tbl_index));
+	ctx = v3_chkpt_open_ctx(chkpt, buf);
+	
+	if (!ctx) { 
+	  PrintError("Unable to open context to save channel %d\n",ch_num);
+	  goto savefailout;
+	}
 
+	V3_CHKPT_SAVE(ctx, "ERROR", ch->error_reg.val, savefailout);
+	V3_CHKPT_SAVE(ctx, "FEATURES", ch->features.val, savefailout);
+	V3_CHKPT_SAVE(ctx, "DRIVE_HEAD", ch->drive_head.val, savefailout);
+	V3_CHKPT_SAVE(ctx, "STATUS", ch->status.val, savefailout);
+	V3_CHKPT_SAVE(ctx, "CMD_REG", ch->cmd_reg, savefailout);
+	V3_CHKPT_SAVE(ctx, "CTRL_REG", ch->ctrl_reg.val, savefailout);
+	V3_CHKPT_SAVE(ctx, "DMA_CMD", ch->dma_cmd.val, savefailout);
+	V3_CHKPT_SAVE(ctx, "DMA_STATUS", ch->dma_status.val, savefailout);
+	V3_CHKPT_SAVE(ctx, "PRD_ADDR", ch->dma_prd_addr, savefailout);
+	V3_CHKPT_SAVE(ctx, "DMA_TBL_IDX", ch->dma_tbl_index, savefailout);
+
+	v3_chkpt_close_ctx(ctx); ctx=0;
 
 	for (drive_num = 0; drive_num < 2; drive_num++) {
-	    struct v3_chkpt_ctx * drive_ctx = NULL;
 	    struct ide_drive * drive = &(ch->drives[drive_num]);
 	    
-	    snprintf(buf, 128, "drive-%d-%d", ch_num, drive_num);
-	    drive_ctx = v3_chkpt_open_ctx(ctx->chkpt, ch_ctx, buf);
+	    snprintf(buf, 128, "%s-%d-%d", id, ch_num, drive_num);
+
+	    ctx = v3_chkpt_open_ctx(chkpt, buf);
 	    
-	    v3_chkpt_save_8(drive_ctx, "DRIVE_TYPE", &(drive->drive_type));
-	    v3_chkpt_save_8(drive_ctx, "SECTOR_COUNT", &(drive->sector_count));
-	    v3_chkpt_save_8(drive_ctx, "SECTOR_NUM", &(drive->sector_num));
-	    v3_chkpt_save_16(drive_ctx, "CYLINDER", &(drive->cylinder));
+	    if (!ctx) { 
+	      PrintError("Unable to open context to save drive %d\n",drive_num);
+	      goto savefailout;
+	    }
 
-	    v3_chkpt_save_64(drive_ctx, "CURRENT_LBA", &(drive->current_lba));
-	    v3_chkpt_save_32(drive_ctx, "TRANSFER_LENGTH", &(drive->transfer_length));
-	    v3_chkpt_save_32(drive_ctx, "TRANSFER_INDEX", &(drive->transfer_index));
+	    V3_CHKPT_SAVE(ctx, "DRIVE_TYPE", drive->drive_type, savefailout);
+	    V3_CHKPT_SAVE(ctx, "SECTOR_COUNT", drive->sector_count, savefailout);
+	    V3_CHKPT_SAVE(ctx, "SECTOR_NUM", drive->sector_num, savefailout);
+	    V3_CHKPT_SAVE(ctx, "CYLINDER", drive->cylinder,savefailout);
 
-	    v3_chkpt_save(drive_ctx, "DATA_BUF", DATA_BUFFER_SIZE, drive->data_buf);
+	    V3_CHKPT_SAVE(ctx, "CURRENT_LBA", drive->current_lba, savefailout);
+	    V3_CHKPT_SAVE(ctx, "TRANSFER_LENGTH", drive->transfer_length, savefailout);
+	    V3_CHKPT_SAVE(ctx, "TRANSFER_INDEX", drive->transfer_index, savefailout);
+
+	    V3_CHKPT_SAVE(ctx, "DATA_BUF",  drive->data_buf, savefailout);
 
 
 	    /* For now we'll just pack the type specific data at the end... */
 	    /* We should probably add a new context here in the future... */
 	    if (drive->drive_type == BLOCK_CDROM) {
-		v3_chkpt_save(drive_ctx, "ATAPI_SENSE_DATA", 18, drive->cd_state.sense.buf);
-		v3_chkpt_save_8(drive_ctx, "ATAPI_CMD", &(drive->cd_state.atapi_cmd));
-		v3_chkpt_save(drive_ctx, "ATAPI_ERR_RECOVERY", 12, drive->cd_state.err_recovery.buf);
+	      V3_CHKPT_SAVE(ctx, "ATAPI_SENSE_DATA", drive->cd_state.sense.buf, savefailout);
+	      V3_CHKPT_SAVE(ctx, "ATAPI_CMD", drive->cd_state.atapi_cmd, savefailout);
+	      V3_CHKPT_SAVE(ctx, "ATAPI_ERR_RECOVERY", drive->cd_state.err_recovery.buf, savefailout);
 	    } else if (drive->drive_type == BLOCK_DISK) {
-		v3_chkpt_save_32(drive_ctx, "ACCESSED", &(drive->hd_state.accessed));
-		v3_chkpt_save_32(drive_ctx, "MULT_SECT_NUM", &(drive->hd_state.mult_sector_num));
-		v3_chkpt_save_32(drive_ctx, "CUR_SECT_NUM", &(drive->hd_state.cur_sector_num));
+	      V3_CHKPT_SAVE(ctx, "ACCESSED", drive->hd_state.accessed, savefailout);
+	      V3_CHKPT_SAVE(ctx, "MULT_SECT_NUM", drive->hd_state.mult_sector_num, savefailout);
+	      V3_CHKPT_SAVE(ctx, "CUR_SECT_NUM", drive->hd_state.cur_sector_num, savefailout);
+	    } else if (drive->drive_type == BLOCK_NONE) { 
+	      // no drive connected, so no data
+	    } else {
+	      PrintError("Invalid drive type %d\n",drive->drive_type);
+	      goto savefailout;
 	    }
+	    
+	    v3_chkpt_close_ctx(ctx); ctx=0;
 	}
     }
 
+// goodout:
     return 0;
+
+ savefailout:
+    PrintError("Failed to save IDE\n");
+    if (ctx) {v3_chkpt_close_ctx(ctx); }
+    return -1;
 }
 
 
 
-static int ide_load(struct v3_chkpt_ctx * ctx, void * private_data) {
+static int ide_load_extended(struct v3_chkpt *chkpt, char *id, void * private_data) {
     struct ide_internal * ide = (struct ide_internal *)private_data;
+    struct v3_chkpt_ctx *ctx=0;
     int ch_num = 0;
     int drive_num = 0;
     char buf[128];
     
+    ctx=v3_chkpt_open_ctx(chkpt,id);
+    
+    if (!ctx) { 
+      PrintError("Failed to open context for load\n");
+      goto loadfailout;
+    }
+
+    // nothing saved yet
+    
+    v3_chkpt_close_ctx(ctx);ctx=0;
+   
 
     for (ch_num = 0; ch_num < 2; ch_num++) {
-	struct v3_chkpt_ctx * ch_ctx = NULL;
 	struct ide_channel * ch = &(ide->channels[ch_num]);
 
-	snprintf(buf, 128, "channel-%d", ch_num);
-	ch_ctx = v3_chkpt_open_ctx(ctx->chkpt, ctx, buf);
+	snprintf(buf, 128, "%s-%d", id, ch_num);
 
-	v3_chkpt_load_8(ch_ctx, "ERROR", &(ch->error_reg.val));
-	v3_chkpt_load_8(ch_ctx, "FEATURES", &(ch->features.val));
-	v3_chkpt_load_8(ch_ctx, "DRIVE_HEAD", &(ch->drive_head.val));
-	v3_chkpt_load_8(ch_ctx, "STATUS", &(ch->status.val));
-	v3_chkpt_load_8(ch_ctx, "CMD_REG", &(ch->cmd_reg));
-	v3_chkpt_load_8(ch_ctx, "CTRL_REG", &(ch->ctrl_reg.val));
-	v3_chkpt_load_8(ch_ctx, "DMA_CMD", &(ch->dma_cmd.val));
-	v3_chkpt_load_8(ch_ctx, "DMA_STATUS", &(ch->dma_status.val));
-	v3_chkpt_load_32(ch_ctx, "PRD_ADDR", &(ch->dma_prd_addr));
-	v3_chkpt_load_32(ch_ctx, "DMA_TBL_IDX", &(ch->dma_tbl_index));
+	ctx = v3_chkpt_open_ctx(chkpt, buf);
+	
+	if (!ctx) { 
+	  PrintError("Unable to open context to load channel %d\n",ch_num);
+	  goto loadfailout;
+	}
 
+	V3_CHKPT_LOAD(ctx, "ERROR", ch->error_reg.val, loadfailout);
+	V3_CHKPT_LOAD(ctx, "FEATURES", ch->features.val, loadfailout);
+	V3_CHKPT_LOAD(ctx, "DRIVE_HEAD", ch->drive_head.val, loadfailout);
+	V3_CHKPT_LOAD(ctx, "STATUS", ch->status.val, loadfailout);
+	V3_CHKPT_LOAD(ctx, "CMD_REG", ch->cmd_reg, loadfailout);
+	V3_CHKPT_LOAD(ctx, "CTRL_REG", ch->ctrl_reg.val, loadfailout);
+	V3_CHKPT_LOAD(ctx, "DMA_CMD", ch->dma_cmd.val, loadfailout);
+	V3_CHKPT_LOAD(ctx, "DMA_STATUS", ch->dma_status.val, loadfailout);
+	V3_CHKPT_LOAD(ctx, "PRD_ADDR", ch->dma_prd_addr, loadfailout);
+	V3_CHKPT_LOAD(ctx, "DMA_TBL_IDX", ch->dma_tbl_index, loadfailout);
+
+	v3_chkpt_close_ctx(ctx); ctx=0;
 
 	for (drive_num = 0; drive_num < 2; drive_num++) {
-	    struct v3_chkpt_ctx * drive_ctx = NULL;
 	    struct ide_drive * drive = &(ch->drives[drive_num]);
 	    
-	    snprintf(buf, 128, "drive-%d-%d", ch_num, drive_num);
-	    drive_ctx = v3_chkpt_open_ctx(ctx->chkpt, ch_ctx, buf);
+	    snprintf(buf, 128, "%s-%d-%d", id, ch_num, drive_num);
+
+	    ctx = v3_chkpt_open_ctx(chkpt, buf);
 	    
-	    v3_chkpt_load_8(drive_ctx, "DRIVE_TYPE", &(drive->drive_type));
-	    v3_chkpt_load_8(drive_ctx, "SECTOR_COUNT", &(drive->sector_count));
-	    v3_chkpt_load_8(drive_ctx, "SECTOR_NUM", &(drive->sector_num));
-	    v3_chkpt_load_16(drive_ctx, "CYLINDER", &(drive->cylinder));
+	    if (!ctx) { 
+	      PrintError("Unable to open context to load drive %d\n",drive_num);
+	      goto loadfailout;
+	    }
 
-	    v3_chkpt_load_64(drive_ctx, "CURRENT_LBA", &(drive->current_lba));
-	    v3_chkpt_load_32(drive_ctx, "TRANSFER_LENGTH", &(drive->transfer_length));
-	    v3_chkpt_load_32(drive_ctx, "TRANSFER_INDEX", &(drive->transfer_index));
+	    V3_CHKPT_LOAD(ctx, "DRIVE_TYPE", drive->drive_type, loadfailout);
+	    V3_CHKPT_LOAD(ctx, "SECTOR_COUNT", drive->sector_count, loadfailout);
+	    V3_CHKPT_LOAD(ctx, "SECTOR_NUM", drive->sector_num, loadfailout);
+	    V3_CHKPT_LOAD(ctx, "CYLINDER", drive->cylinder,loadfailout);
 
-	    v3_chkpt_load(drive_ctx, "DATA_BUF", DATA_BUFFER_SIZE, drive->data_buf);
+	    V3_CHKPT_LOAD(ctx, "CURRENT_LBA", drive->current_lba, loadfailout);
+	    V3_CHKPT_LOAD(ctx, "TRANSFER_LENGTH", drive->transfer_length, loadfailout);
+	    V3_CHKPT_LOAD(ctx, "TRANSFER_INDEX", drive->transfer_index, loadfailout);
 
+	    V3_CHKPT_LOAD(ctx, "DATA_BUF",  drive->data_buf, loadfailout);
 
+	    
 	    /* For now we'll just pack the type specific data at the end... */
 	    /* We should probably add a new context here in the future... */
 	    if (drive->drive_type == BLOCK_CDROM) {
-		v3_chkpt_load(drive_ctx, "ATAPI_SENSE_DATA", 18, drive->cd_state.sense.buf);
-		v3_chkpt_load_8(drive_ctx, "ATAPI_CMD", &(drive->cd_state.atapi_cmd));
-		v3_chkpt_load(drive_ctx, "ATAPI_ERR_RECOVERY", 12, drive->cd_state.err_recovery.buf);
+	      V3_CHKPT_LOAD(ctx, "ATAPI_SENSE_DATA", drive->cd_state.sense.buf, loadfailout);
+	      V3_CHKPT_LOAD(ctx, "ATAPI_CMD", drive->cd_state.atapi_cmd, loadfailout);
+	      V3_CHKPT_LOAD(ctx, "ATAPI_ERR_RECOVERY", drive->cd_state.err_recovery.buf, loadfailout);
 	    } else if (drive->drive_type == BLOCK_DISK) {
-		v3_chkpt_load_32(drive_ctx, "ACCESSED", &(drive->hd_state.accessed));
-		v3_chkpt_load_32(drive_ctx, "MULT_SECT_NUM", &(drive->hd_state.mult_sector_num));
-		v3_chkpt_load_32(drive_ctx, "CUR_SECT_NUM", &(drive->hd_state.cur_sector_num));
+	      V3_CHKPT_LOAD(ctx, "ACCESSED", drive->hd_state.accessed, loadfailout);
+	      V3_CHKPT_LOAD(ctx, "MULT_SECT_NUM", drive->hd_state.mult_sector_num, loadfailout);
+	      V3_CHKPT_LOAD(ctx, "CUR_SECT_NUM", drive->hd_state.cur_sector_num, loadfailout);
+	    } else if (drive->drive_type == BLOCK_NONE) { 
+	      // no drive connected, so no data
+	    } else {
+	      PrintError("Invalid drive type %d\n",drive->drive_type);
+	      goto loadfailout;
 	    }
 	}
     }
-
+// goodout:
     return 0;
+
+ loadfailout:
+    PrintError("Failed to load IDE\n");
+    if (ctx) {v3_chkpt_close_ctx(ctx); }
+    return -1;
+
 }
 
 
@@ -1637,10 +1709,9 @@ static int ide_load(struct v3_chkpt_ctx * ctx, void * private_data) {
 static struct v3_device_ops dev_ops = {
     .free = (int (*)(void *))ide_free,
 #ifdef V3_CONFIG_CHECKPOINT
-    .save = ide_save,
-    .load = ide_load
+    .save_extended = ide_save_extended,
+    .load_extended = ide_load_extended
 #endif
-
 };
 
 

@@ -1077,17 +1077,22 @@ static int keyboard_reset_device(struct keyboard_internal * kbd) {
 static int keyboard_save(struct v3_chkpt_ctx * ctx, void * private_data) {
     struct keyboard_internal * kbd = (struct keyboard_internal *)private_data;
 
-    v3_chkpt_save_8(ctx, "CMD_REG", &(kbd->cmd.val));
-    v3_chkpt_save_8(ctx, "STATUS_REG", &(kbd->status.val));
-    v3_chkpt_save_8(ctx, "STATE", &(kbd->state));
-    v3_chkpt_save_8(ctx, "MOUSE_STATE", &(kbd->mouse_state));
-    v3_chkpt_save_8(ctx, "OUTPUT", &(kbd->output_byte));
-    v3_chkpt_save_8(ctx, "INPUT", &(kbd->input_byte));
-    v3_chkpt_save_8(ctx, "SCANCODE_SET", &(kbd->scancode_set));
-    v3_chkpt_save_8(ctx, "MOUSE_ENABLED", &(kbd->mouse_enabled));
+    V3_CHKPT_SAVE(ctx, "CMD_REG", kbd->cmd.val, savefailout);
+    V3_CHKPT_SAVE(ctx, "STATUS_REG", kbd->status.val, savefailout);
+    V3_CHKPT_SAVE(ctx, "STATE", kbd->state, savefailout);
+    V3_CHKPT_SAVE(ctx, "MOUSE_STATE", kbd->mouse_state, savefailout);
+    V3_CHKPT_SAVE(ctx, "OUTPUT", kbd->output_byte, savefailout);
+    V3_CHKPT_SAVE(ctx, "INPUT", kbd->input_byte, savefailout);
+    V3_CHKPT_SAVE(ctx, "SCANCODE_SET", kbd->scancode_set, savefailout);
+    V3_CHKPT_SAVE(ctx, "MOUSE_ENABLED", kbd->mouse_enabled, savefailout);
 
 
     return 0;
+
+ savefailout:
+    PrintError("Failed to save keyboard\n");
+    return -1;
+
 }
 
 
@@ -1095,17 +1100,21 @@ static int keyboard_load(struct v3_chkpt_ctx * ctx, void * private_data) {
     struct keyboard_internal * kbd = (struct keyboard_internal *)private_data;
     keyboard_reset_device(kbd);
 
-    v3_chkpt_load_8(ctx, "CMD_REG", &(kbd->cmd.val));
-    v3_chkpt_load_8(ctx, "STATUS_REG", &(kbd->status.val));
-    v3_chkpt_load_8(ctx, "STATE", &(kbd->state));
-    v3_chkpt_load_8(ctx, "MOUSE_STATE", &(kbd->mouse_state));
-    v3_chkpt_load_8(ctx, "OUTPUT", &(kbd->output_byte));
-    v3_chkpt_load_8(ctx, "INPUT", &(kbd->input_byte));
-    v3_chkpt_load_8(ctx, "SCANCODE_SET", &(kbd->scancode_set));
-    v3_chkpt_load_8(ctx, "MOUSE_ENABLED", &(kbd->mouse_enabled));
+    V3_CHKPT_LOAD(ctx, "CMD_REG", kbd->cmd.val, loadfailout);
+    V3_CHKPT_LOAD(ctx, "STATUS_REG", kbd->status.val, loadfailout);
+    V3_CHKPT_LOAD(ctx, "STATE", kbd->state, loadfailout);
+    V3_CHKPT_LOAD(ctx, "MOUSE_STATE", kbd->mouse_state, loadfailout);
+    V3_CHKPT_LOAD(ctx, "OUTPUT", kbd->output_byte, loadfailout);
+    V3_CHKPT_LOAD(ctx, "INPUT", kbd->input_byte, loadfailout);
+    V3_CHKPT_LOAD(ctx, "SCANCODE_SET", kbd->scancode_set, loadfailout);
+    V3_CHKPT_LOAD(ctx, "MOUSE_ENABLED", kbd->mouse_enabled, loadfailout);
 
 
     return 0;
+
+ loadfailout:
+    PrintError("Failed to load keyboard\n");
+    return -1;
 }
 
 #endif

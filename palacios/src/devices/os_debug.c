@@ -110,20 +110,29 @@ static int debug_free(struct debug_state * state) {
 static int debug_save(struct v3_chkpt_ctx * ctx, void * private_data) {
     struct debug_state * dbg = (struct debug_state *)private_data;
     
-    V3_CHKPT_STD_SAVE(ctx, dbg->debug_buf);
-    V3_CHKPT_STD_SAVE(ctx, dbg->debug_offset);
+    V3_CHKPT_SAVE_AUTOTAG(ctx, dbg->debug_buf, savefailout);
+    V3_CHKPT_SAVE_AUTOTAG(ctx, dbg->debug_offset, savefailout);
     
     return 0;
+
+ savefailout:
+    PrintError("Failed to save debug\n");
+    return -1;
+
 }
 
 
 static int debug_load(struct v3_chkpt_ctx * ctx, void * private_data) {
     struct debug_state * dbg = (struct debug_state *)private_data;
     
-    V3_CHKPT_STD_LOAD(ctx, dbg->debug_buf);
-    V3_CHKPT_STD_LOAD(ctx, dbg->debug_offset);
+    V3_CHKPT_LOAD_AUTOTAG(ctx, dbg->debug_buf,loadfailout);
+    V3_CHKPT_LOAD_AUTOTAG(ctx, dbg->debug_offset,loadfailout);
     
     return 0;
+
+ loadfailout:
+    PrintError("Failed to load debug\n");
+    return -1;
 }
 
 #endif
