@@ -132,11 +132,10 @@ int remove_guest_ctrl(struct v3_guest * guest, unsigned int cmd) {
 static void free_guest_ctrls(struct v3_guest * guest) {
     struct rb_node * node = rb_first(&(guest->vm_ctrls));
     struct vm_ctrl * ctrl = NULL;
-    struct rb_node * tmp_node = NULL;
 
     while (node) {
 	ctrl = rb_entry(node, struct vm_ctrl, tree_node);
-	tmp_node = node;
+
 	node = rb_next(node);
 	
 	WARNING("Cleaning up guest ctrl that was not removed explicitly (%d)\n", ctrl->cmd);
@@ -231,7 +230,7 @@ static long v3_vm_ioctl(struct file * filp,
 		return -EFAULT;
 	    }
 	    
-	    NOTICE("Loading Guest to %s:%s\n", chkpt.store, chkpt.url);
+	    NOTICE("Loading Guest from %s:%s\n", chkpt.store, chkpt.url);
 
 	    if (v3_load_vm(guest->v3_ctx, chkpt.store, chkpt.url) == -1) {
 		WARNING("Error Loading VM state\n");

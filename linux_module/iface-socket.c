@@ -414,7 +414,6 @@ palacios_recvfrom_ip(
 {
 	struct palacios_socket * sock = (struct palacios_socket *)sock_ptr;
   	struct sockaddr_in src;
-  	int alen;
 	struct msghdr msg;
 	mm_segment_t oldfs;
 	struct iovec iov;
@@ -427,7 +426,6 @@ palacios_recvfrom_ip(
   	src.sin_family = AF_INET;
   	src.sin_port = htons(port);
   	src.sin_addr.s_addr = htonl(ip_addr);
-  	alen = sizeof(src);
 
 
 	msg.msg_flags = 0;

@@ -120,8 +120,8 @@ uintptr_t alloc_palacios_pgs(u64 num_pages, u32 alignment) {
 	pgs = alloc_pages(GFP_DMA32, order);
     
 	if (!pgs) { 
-	    ERROR("Could not allocate small number of contigious pages\n");
-	    return 0;
+	    ERROR("Could not allocate small number of contigious pages - retrying with internal allocation\n");
+	    goto trybig;
 	}
  
 	/* DEBUG("%llu pages (order=%d) aquired from alloc_pages\n", 
@@ -145,6 +145,7 @@ uintptr_t alloc_palacios_pgs(u64 num_pages, u32 alignment) {
 
 	
     } else {
+    trybig:
 	//DEBUG("Allocating %llu pages from bitmap allocator\n", num_pages);
 	//addr = pool.base_addr;
 	addr = alloc_contig_pgs(num_pages, alignment);
