@@ -1449,7 +1449,7 @@ static v3_keyed_stream_key_t open_key_textfile(v3_keyed_stream_t stream,
     }
 
 
-    if (token_scan(ms,tempkey,keylen+3," \t\r\n",4)) { 
+    if (token_scan(ms,tempkey,keylen+3,"\t\r\n",3)) { 
       ERROR("Cannot scan for token (key search)\n");
       close_key_file(mks,ms);
       mks->stype=STREAM_TEXTFILE;
