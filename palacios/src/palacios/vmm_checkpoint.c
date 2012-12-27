@@ -670,6 +670,9 @@ static int load_core(struct guest_info * info, struct v3_chkpt * chkpt) {
     extern v3_cpu_arch_t v3_mach_type;
     void * ctx = NULL;
     char key_name[16];
+    v3_reg_t tempreg;
+
+    PrintDebug("Loading core\n");
 
     memset(key_name, 0, 16);
 
@@ -679,26 +682,76 @@ static int load_core(struct guest_info * info, struct v3_chkpt * chkpt) {
 
     if (!ctx) { 
 	PrintError("Could not open context to load core\n");
-	return -1;
+	goto loadfailout;
     }
 
     V3_CHKPT_LOAD(ctx, "RIP", info->rip, loadfailout);
-    V3_CHKPT_LOAD(ctx, "GPRS", info->vm_regs, loadfailout);
+    
+    // GPRs
+    V3_CHKPT_LOAD(ctx,"RDI",info->vm_regs.rdi, loadfailout); 
+    V3_CHKPT_LOAD(ctx,"RSI",info->vm_regs.rsi, loadfailout); 
+    V3_CHKPT_LOAD(ctx,"RBP",info->vm_regs.rbp, loadfailout); 
+    V3_CHKPT_LOAD(ctx,"RSP",info->vm_regs.rsp, loadfailout); 
+    V3_CHKPT_LOAD(ctx,"RBX",info->vm_regs.rbx, loadfailout); 
+    V3_CHKPT_LOAD(ctx,"RDX",info->vm_regs.rdx, loadfailout); 
+    V3_CHKPT_LOAD(ctx,"RCX",info->vm_regs.rcx, loadfailout); 
+    V3_CHKPT_LOAD(ctx,"RAX",info->vm_regs.rax, loadfailout);
+    V3_CHKPT_LOAD(ctx,"R8",info->vm_regs.r8, loadfailout);
+    V3_CHKPT_LOAD(ctx,"R9",info->vm_regs.r9, loadfailout);
+    V3_CHKPT_LOAD(ctx,"R10",info->vm_regs.r10, loadfailout);
+    V3_CHKPT_LOAD(ctx,"R11",info->vm_regs.r11, loadfailout);
+    V3_CHKPT_LOAD(ctx,"R12",info->vm_regs.r12, loadfailout);
+    V3_CHKPT_LOAD(ctx,"R13",info->vm_regs.r13, loadfailout);
+    V3_CHKPT_LOAD(ctx,"R14",info->vm_regs.r14, loadfailout);
+    V3_CHKPT_LOAD(ctx,"R15",info->vm_regs.r15, loadfailout);
 
+    // Control registers
     V3_CHKPT_LOAD(ctx, "CR0", info->ctrl_regs.cr0, loadfailout);
+    // there is no CR1
     V3_CHKPT_LOAD(ctx, "CR2", info->ctrl_regs.cr2, loadfailout);
+    V3_CHKPT_LOAD(ctx, "CR3", info->ctrl_regs.cr3, loadfailout);
     V3_CHKPT_LOAD(ctx, "CR4", info->ctrl_regs.cr4, loadfailout);
+    // There are no CR5,6,7
+    // CR8 is derived from apic_tpr
+    tempreg = (info->ctrl_regs.apic_tpr >> 4) & 0xf;
+    V3_CHKPT_LOAD(ctx, "CR8", tempreg, loadfailout);
     V3_CHKPT_LOAD(ctx, "APIC_TPR", info->ctrl_regs.apic_tpr, loadfailout);
     V3_CHKPT_LOAD(ctx, "RFLAGS", info->ctrl_regs.rflags, loadfailout);
     V3_CHKPT_LOAD(ctx, "EFER", info->ctrl_regs.efer, loadfailout);
 
-    V3_CHKPT_LOAD(ctx, "DBRS", info->dbg_regs, loadfailout);
-    V3_CHKPT_LOAD(ctx, "SEGS", info->segments, loadfailout);
+    // Debug registers
+    V3_CHKPT_LOAD(ctx, "DR0", info->dbg_regs.dr0, loadfailout);
+    V3_CHKPT_LOAD(ctx, "DR1", info->dbg_regs.dr1, loadfailout);
+    V3_CHKPT_LOAD(ctx, "DR2", info->dbg_regs.dr2, loadfailout);
+    V3_CHKPT_LOAD(ctx, "DR3", info->dbg_regs.dr3, loadfailout);
+    // there is no DR4 or DR5
+    V3_CHKPT_LOAD(ctx, "DR6", info->dbg_regs.dr6, loadfailout);
+    V3_CHKPT_LOAD(ctx, "DR7", info->dbg_regs.dr7, loadfailout);
+
+    // Segment registers
+    V3_CHKPT_LOAD(ctx, "CS", info->segments.cs, loadfailout);
+    V3_CHKPT_LOAD(ctx, "DS", info->segments.ds, loadfailout);
+    V3_CHKPT_LOAD(ctx, "ES", info->segments.es, loadfailout);
+    V3_CHKPT_LOAD(ctx, "FS", info->segments.fs, loadfailout);
+    V3_CHKPT_LOAD(ctx, "GS", info->segments.gs, loadfailout);
+    V3_CHKPT_LOAD(ctx, "SS", info->segments.ss, loadfailout);
+    V3_CHKPT_LOAD(ctx, "LDTR", info->segments.ldtr, loadfailout);
+    V3_CHKPT_LOAD(ctx, "GDTR", info->segments.gdtr, loadfailout);
+    V3_CHKPT_LOAD(ctx, "IDTR", info->segments.idtr, loadfailout);
+    V3_CHKPT_LOAD(ctx, "TR", info->segments.tr, loadfailout);
+    
+    // several MSRs...
+    V3_CHKPT_LOAD(ctx, "STAR", info->msrs.star, loadfailout);
+    V3_CHKPT_LOAD(ctx, "LSTAR", info->msrs.lstar, loadfailout);
+    V3_CHKPT_LOAD(ctx, "SFMASK", info->msrs.sfmask, loadfailout);
+    V3_CHKPT_LOAD(ctx, "KERN_GS_BASE", info->msrs.kern_gs_base, loadfailout);
+        
+    // Some components of guest state captured in the shadow pager
     V3_CHKPT_LOAD(ctx, "GUEST_CR3", info->shdw_pg_state.guest_cr3, loadfailout);
     V3_CHKPT_LOAD(ctx, "GUEST_CRO", info->shdw_pg_state.guest_cr0, loadfailout);
     V3_CHKPT_LOAD(ctx, "GUEST_EFER", info->shdw_pg_state.guest_efer, loadfailout);
 
-    v3_chkpt_close_ctx(ctx);
+    v3_chkpt_close_ctx(ctx); ctx=0;
 
     PrintDebug("Finished reading guest_info information\n");
 
@@ -709,12 +762,12 @@ static int load_core(struct guest_info * info, struct v3_chkpt * chkpt) {
 	if (v3_get_vm_mem_mode(info) == VIRTUAL_MEM) {
 	    if (v3_activate_shadow_pt(info) == -1) {
 		PrintError("Failed to activate shadow page tables\n");
-		return -1;
+		goto loadfailout;
 	    }
 	} else {
 	    if (v3_activate_passthrough_pt(info) == -1) {
 		PrintError("Failed to activate passthrough page tables\n");
-		return -1;
+		goto loadfailout;
 	    }
 	}
     }
@@ -730,7 +783,7 @@ static int load_core(struct guest_info * info, struct v3_chkpt * chkpt) {
 
 	    if (!ctx) { 
 		PrintError("Could not open context to load SVM core\n");
-		return -1;
+		goto loadfailout;
 	    }
 	    
 	    if (v3_svm_load_core(info, ctx) < 0 ) {
@@ -738,7 +791,7 @@ static int load_core(struct guest_info * info, struct v3_chkpt * chkpt) {
 		goto loadfailout;
 	    }
 
-	    v3_chkpt_close_ctx(ctx);
+	    v3_chkpt_close_ctx(ctx); ctx=0;
 
 	    break;
 	}
@@ -753,7 +806,7 @@ static int load_core(struct guest_info * info, struct v3_chkpt * chkpt) {
 
 	    if (!ctx) { 
 		PrintError("Could not open context to load VMX core\n");
-		return -1;
+		goto loadfailout;
 	    }
 	    
 	    if (v3_vmx_load_core(info, ctx) < 0) {
@@ -761,13 +814,13 @@ static int load_core(struct guest_info * info, struct v3_chkpt * chkpt) {
 		goto loadfailout;
 	    }
 
-	    v3_chkpt_close_ctx(ctx);
+	    v3_chkpt_close_ctx(ctx); ctx=0;
 
 	    break;
 	}
 	default:
 	    PrintError("Invalid CPU Type (%d)\n", v3_mach_type);
-	    return -1;
+	    goto loadfailout;
     }
 
     PrintDebug("Load of core succeeded\n");
@@ -777,17 +830,19 @@ static int load_core(struct guest_info * info, struct v3_chkpt * chkpt) {
     return 0;
 
  loadfailout:
-    PrintError("Failed to load core due to bad context load\n");
-    v3_chkpt_close_ctx(ctx);
+    PrintError("Failed to load core\n");
+    if (ctx) { v3_chkpt_close_ctx(ctx);}
     return -1;
 
 }
 
+// GEM5 - Hypercall for initiating transfer to gem5 (checkpoint)
 
 static int save_core(struct guest_info * info, struct v3_chkpt * chkpt) {
     extern v3_cpu_arch_t v3_mach_type;
     void * ctx = NULL;
     char key_name[16];
+    v3_reg_t tempreg;
 
     PrintDebug("Saving core\n");
 
@@ -795,34 +850,83 @@ static int save_core(struct guest_info * info, struct v3_chkpt * chkpt) {
 
     memset(key_name, 0, 16);
 
-
     snprintf(key_name, 16, "guest_info%d", info->vcpu_id);
 
     ctx = v3_chkpt_open_ctx(chkpt, key_name);
     
     if (!ctx) { 
 	PrintError("Unable to open context to save core\n");
-	return -1;
+	goto savefailout;
     }
 
 
     V3_CHKPT_SAVE(ctx, "RIP", info->rip, savefailout);
-    V3_CHKPT_SAVE(ctx, "GPRS", info->vm_regs, savefailout);
+    
+    // GPRs
+    V3_CHKPT_SAVE(ctx,"RDI",info->vm_regs.rdi, savefailout); 
+    V3_CHKPT_SAVE(ctx,"RSI",info->vm_regs.rsi, savefailout); 
+    V3_CHKPT_SAVE(ctx,"RBP",info->vm_regs.rbp, savefailout); 
+    V3_CHKPT_SAVE(ctx,"RSP",info->vm_regs.rsp, savefailout); 
+    V3_CHKPT_SAVE(ctx,"RBX",info->vm_regs.rbx, savefailout); 
+    V3_CHKPT_SAVE(ctx,"RDX",info->vm_regs.rdx, savefailout); 
+    V3_CHKPT_SAVE(ctx,"RCX",info->vm_regs.rcx, savefailout); 
+    V3_CHKPT_SAVE(ctx,"RAX",info->vm_regs.rax, savefailout);
+    V3_CHKPT_SAVE(ctx,"R8",info->vm_regs.r8, savefailout);
+    V3_CHKPT_SAVE(ctx,"R9",info->vm_regs.r9, savefailout);
+    V3_CHKPT_SAVE(ctx,"R10",info->vm_regs.r10, savefailout);
+    V3_CHKPT_SAVE(ctx,"R11",info->vm_regs.r11, savefailout);
+    V3_CHKPT_SAVE(ctx,"R12",info->vm_regs.r12, savefailout);
+    V3_CHKPT_SAVE(ctx,"R13",info->vm_regs.r13, savefailout);
+    V3_CHKPT_SAVE(ctx,"R14",info->vm_regs.r14, savefailout);
+    V3_CHKPT_SAVE(ctx,"R15",info->vm_regs.r15, savefailout);
 
+    // Control registers
     V3_CHKPT_SAVE(ctx, "CR0", info->ctrl_regs.cr0, savefailout);
+    // there is no CR1
     V3_CHKPT_SAVE(ctx, "CR2", info->ctrl_regs.cr2, savefailout);
+    V3_CHKPT_SAVE(ctx, "CR3", info->ctrl_regs.cr3, savefailout);
     V3_CHKPT_SAVE(ctx, "CR4", info->ctrl_regs.cr4, savefailout);
+    // There are no CR5,6,7
+    // CR8 is derived from apic_tpr
+    tempreg = (info->ctrl_regs.apic_tpr >> 4) & 0xf;
+    V3_CHKPT_SAVE(ctx, "CR8", tempreg, savefailout);
     V3_CHKPT_SAVE(ctx, "APIC_TPR", info->ctrl_regs.apic_tpr, savefailout);
     V3_CHKPT_SAVE(ctx, "RFLAGS", info->ctrl_regs.rflags, savefailout);
     V3_CHKPT_SAVE(ctx, "EFER", info->ctrl_regs.efer, savefailout);
 
-    V3_CHKPT_SAVE(ctx, "DBRS", info->dbg_regs, savefailout);
-    V3_CHKPT_SAVE(ctx, "SEGS", info->segments, savefailout);
+    // Debug registers
+    V3_CHKPT_SAVE(ctx, "DR0", info->dbg_regs.dr0, savefailout);
+    V3_CHKPT_SAVE(ctx, "DR1", info->dbg_regs.dr1, savefailout);
+    V3_CHKPT_SAVE(ctx, "DR2", info->dbg_regs.dr2, savefailout);
+    V3_CHKPT_SAVE(ctx, "DR3", info->dbg_regs.dr3, savefailout);
+    // there is no DR4 or DR5
+    V3_CHKPT_SAVE(ctx, "DR6", info->dbg_regs.dr6, savefailout);
+    V3_CHKPT_SAVE(ctx, "DR7", info->dbg_regs.dr7, savefailout);
+
+    // Segment registers
+    V3_CHKPT_SAVE(ctx, "CS", info->segments.cs, savefailout);
+    V3_CHKPT_SAVE(ctx, "DS", info->segments.ds, savefailout);
+    V3_CHKPT_SAVE(ctx, "ES", info->segments.es, savefailout);
+    V3_CHKPT_SAVE(ctx, "FS", info->segments.fs, savefailout);
+    V3_CHKPT_SAVE(ctx, "GS", info->segments.gs, savefailout);
+    V3_CHKPT_SAVE(ctx, "SS", info->segments.ss, savefailout);
+    V3_CHKPT_SAVE(ctx, "LDTR", info->segments.ldtr, savefailout);
+    V3_CHKPT_SAVE(ctx, "GDTR", info->segments.gdtr, savefailout);
+    V3_CHKPT_SAVE(ctx, "IDTR", info->segments.idtr, savefailout);
+    V3_CHKPT_SAVE(ctx, "TR", info->segments.tr, savefailout);
+    
+    // several MSRs...
+    V3_CHKPT_SAVE(ctx, "STAR", info->msrs.star, savefailout);
+    V3_CHKPT_SAVE(ctx, "LSTAR", info->msrs.lstar, savefailout);
+    V3_CHKPT_SAVE(ctx, "SFMASK", info->msrs.sfmask, savefailout);
+    V3_CHKPT_SAVE(ctx, "KERN_GS_BASE", info->msrs.kern_gs_base, savefailout);
+        
+    // Some components of guest state captured in the shadow pager
     V3_CHKPT_SAVE(ctx, "GUEST_CR3", info->shdw_pg_state.guest_cr3, savefailout);
     V3_CHKPT_SAVE(ctx, "GUEST_CRO", info->shdw_pg_state.guest_cr0, savefailout);
     V3_CHKPT_SAVE(ctx, "GUEST_EFER", info->shdw_pg_state.guest_efer, savefailout);
 
-    v3_chkpt_close_ctx(ctx);
+    v3_chkpt_close_ctx(ctx); ctx=0;
 
     //Architechture specific code
     switch (v3_mach_type) {
@@ -836,7 +940,7 @@ static int save_core(struct guest_info * info, struct v3_chkpt * chkpt) {
 
 	    if (!ctx) { 
 		PrintError("Could not open context to store SVM core\n");
-		return -1;
+		goto savefailout;
 	    }
 	    
 	    if (v3_svm_save_core(info, ctx) < 0) {
@@ -844,7 +948,7 @@ static int save_core(struct guest_info * info, struct v3_chkpt * chkpt) {
 		goto savefailout;
 	    }
 	    
-	    v3_chkpt_close_ctx(ctx);
+	    v3_chkpt_close_ctx(ctx); ctx=0;;
 	    break;
 	}
 	case V3_VMX_CPU:
@@ -858,7 +962,7 @@ static int save_core(struct guest_info * info, struct v3_chkpt * chkpt) {
 	    
 	    if (!ctx) { 
 		PrintError("Could not open context to store VMX core\n");
-		return -1;
+		goto savefailout;
 	    }
 
 	    if (v3_vmx_save_core(info, ctx) == -1) {
@@ -866,25 +970,28 @@ static int save_core(struct guest_info * info, struct v3_chkpt * chkpt) {
 		goto savefailout;
 	    }
 
-	    v3_chkpt_close_ctx(ctx);
+	    v3_chkpt_close_ctx(ctx); ctx=0;
 
 	    break;
 	}
 	default:
 	    PrintError("Invalid CPU Type (%d)\n", v3_mach_type);
-	    return -1;
+	    goto savefailout;
 	    
     }
     
     return 0;
 
  savefailout:
-    PrintError("Failed to save core due to bad context save\n");
-    v3_chkpt_close_ctx(ctx);
+    PrintError("Failed to save core\n");
+    if (ctx) { v3_chkpt_close_ctx(ctx); }
     return -1;
 
 }
 
+//
+// GEM5 - Madhav has debug code here for printing instrucions
+//
 
 int v3_chkpt_save_vm(struct v3_vm_info * vm, char * store, char * url) {
     struct v3_chkpt * chkpt = NULL;

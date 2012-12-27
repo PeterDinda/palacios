@@ -343,12 +343,13 @@ static int io_apic_free(struct io_apic_state * ioapic) {
 static int io_apic_save(struct v3_chkpt_ctx * ctx, void * private_data) {
     struct io_apic_state * io_apic = (struct io_apic_state *)private_data;
 
-    V3_CHKPT_SAVE_AUTOTAG(ctx, io_apic->base_addr,savefailout);
-    V3_CHKPT_SAVE_AUTOTAG(ctx, io_apic->index_reg,savefailout);
-    V3_CHKPT_SAVE_AUTOTAG(ctx, io_apic->ioapic_id,savefailout);
-    V3_CHKPT_SAVE_AUTOTAG(ctx, io_apic->ioapic_ver,savefailout);
-    V3_CHKPT_SAVE_AUTOTAG(ctx, io_apic->ioapic_arb_id,savefailout);
-    V3_CHKPT_SAVE_AUTOTAG(ctx, io_apic->redir_tbl,savefailout);
+
+    V3_CHKPT_SAVE(ctx, "BASE_ADDR" ,io_apic->base_addr,savefailout);
+    V3_CHKPT_SAVE(ctx, "INDEX_REG", io_apic->index_reg,savefailout);
+    V3_CHKPT_SAVE(ctx, "IOAPIC_ID", io_apic->ioapic_id,savefailout);
+    V3_CHKPT_SAVE(ctx, "IOAPIC_VER", io_apic->ioapic_ver,savefailout);
+    V3_CHKPT_SAVE(ctx, "IOAPIC_ARB_ID", io_apic->ioapic_arb_id,savefailout);
+    V3_CHKPT_SAVE(ctx, "REDIR_TABLE", io_apic->redir_tbl,savefailout);
 
     return 0;
 
@@ -360,12 +361,12 @@ static int io_apic_save(struct v3_chkpt_ctx * ctx, void * private_data) {
 static int io_apic_load(struct v3_chkpt_ctx * ctx, void * private_data) {
     struct io_apic_state * io_apic = (struct io_apic_state *)private_data;
 
-    V3_CHKPT_LOAD_AUTOTAG(ctx, io_apic->base_addr,loadfailout);
-    V3_CHKPT_LOAD_AUTOTAG(ctx, io_apic->index_reg,loadfailout);
-    V3_CHKPT_LOAD_AUTOTAG(ctx, io_apic->ioapic_id,loadfailout);
-    V3_CHKPT_LOAD_AUTOTAG(ctx, io_apic->ioapic_ver,loadfailout);
-    V3_CHKPT_LOAD_AUTOTAG(ctx, io_apic->ioapic_arb_id,loadfailout);
-    V3_CHKPT_LOAD_AUTOTAG(ctx, io_apic->redir_tbl,loadfailout);
+    V3_CHKPT_LOAD(ctx, "BASE_ADDR", io_apic->base_addr,loadfailout);
+    V3_CHKPT_LOAD(ctx, "INDEX_REG", io_apic->index_reg,loadfailout);
+    V3_CHKPT_LOAD(ctx, "IOAPIC_ID", io_apic->ioapic_id,loadfailout);
+    V3_CHKPT_LOAD(ctx, "IOAPIC_VER", io_apic->ioapic_ver,loadfailout);
+    V3_CHKPT_LOAD(ctx, "IOAPIC_ARB_ID", io_apic->ioapic_arb_id,loadfailout);
+    V3_CHKPT_LOAD(ctx, "REDIR_TABLE", io_apic->redir_tbl,loadfailout);
 
     return 0;
 

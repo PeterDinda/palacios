@@ -684,15 +684,55 @@ static int pit_free(void * private_data) {
 }
 
 #ifdef V3_CONFIG_CHECKPOINT
+
+#include <palacios/vmm_sprintf.h>
+
+#define KEY_MAX 128
+#define MAKE_KEY(x) snprintf(key,KEY_MAX,"PIT_CH%d_%s",i,x)
+
 static int pit_save(struct v3_chkpt_ctx * ctx, void * private_data) {
     struct pit * pit_state = (struct pit *)private_data; 
+    int i;
+    char key[KEY_MAX];
 
-    V3_CHKPT_SAVE_AUTOTAG(ctx, pit_state->pit_counter,savefailout);
-    V3_CHKPT_SAVE_AUTOTAG(ctx, pit_state->pit_reload,savefailout);
-    V3_CHKPT_SAVE_AUTOTAG(ctx, pit_state->ch_0,savefailout);
-    V3_CHKPT_SAVE_AUTOTAG(ctx, pit_state->ch_1,savefailout);
-    V3_CHKPT_SAVE_AUTOTAG(ctx, pit_state->ch_2,savefailout);
-    V3_CHKPT_SAVE_AUTOTAG(ctx, pit_state->speaker,savefailout);
+    V3_CHKPT_SAVE(ctx, "PIT_COUNTER", pit_state->pit_counter,savefailout);
+    V3_CHKPT_SAVE(ctx, "PIT_RELOAD", pit_state->pit_reload,savefailout);
+
+    for (i=0;i<3;i++) {
+      struct channel *c;
+      uint8_t pins;
+
+      if (i==0) { 
+	c=&(pit_state->ch_0);
+      } else if (i==1) { 
+	c=&(pit_state->ch_1);
+      } else {
+	c=&(pit_state->ch_2);
+      }
+      
+      MAKE_KEY("ACCESS_MODE");
+      V3_CHKPT_SAVE(ctx, key, c->access_mode, savefailout);
+      MAKE_KEY("ACCESS_STATE");
+      V3_CHKPT_SAVE(ctx, key, c->access_state, savefailout);
+      MAKE_KEY("RUN_STATE");
+      V3_CHKPT_SAVE(ctx, key, c->run_state, savefailout);
+      MAKE_KEY("OP_MODE");
+      V3_CHKPT_SAVE(ctx, key, c->op_mode, savefailout);
+      MAKE_KEY("COUNTER");
+      V3_CHKPT_SAVE(ctx, key, c->counter, savefailout);
+      MAKE_KEY("RELOAD_VALUE");
+      V3_CHKPT_SAVE(ctx, key, c->reload_value, savefailout);
+      MAKE_KEY("LATCH_STATE");
+      V3_CHKPT_SAVE(ctx, key, c->latch_state, savefailout);
+      MAKE_KEY("READ_STATE");
+      V3_CHKPT_SAVE(ctx, key, c->read_state, savefailout);
+      
+      pins = (c->output_pin) | (c->gate_input_pin << 1);
+      MAKE_KEY("PINS");
+      V3_CHKPT_SAVE(ctx, key, pins, savefailout);
+    }
+    
+    V3_CHKPT_SAVE(ctx, "PIT_SPEAKER", pit_state->speaker,savefailout);
     
     return 0;
 
@@ -703,13 +743,47 @@ static int pit_save(struct v3_chkpt_ctx * ctx, void * private_data) {
 
 static int pit_load(struct v3_chkpt_ctx * ctx, void * private_data) {
     struct pit * pit_state = (struct pit *)private_data;
+    int i;
+    char key[KEY_MAX];
 
-    V3_CHKPT_LOAD_AUTOTAG(ctx, pit_state->pit_counter,loadfailout);
-    V3_CHKPT_LOAD_AUTOTAG(ctx, pit_state->pit_reload,loadfailout);
-    V3_CHKPT_LOAD_AUTOTAG(ctx, pit_state->ch_0,loadfailout);
-    V3_CHKPT_LOAD_AUTOTAG(ctx, pit_state->ch_1,loadfailout);
-    V3_CHKPT_LOAD_AUTOTAG(ctx, pit_state->ch_2,loadfailout);
-    V3_CHKPT_LOAD_AUTOTAG(ctx, pit_state->speaker,loadfailout);
+    V3_CHKPT_LOAD(ctx, "PIT_COUNTER", pit_state->pit_counter,loadfailout);
+    V3_CHKPT_LOAD(ctx, "PIT_RELOAD", pit_state->pit_reload,loadfailout);
+
+    for (i=0;i<3;i++) {
+      struct channel *c;
+      uint8_t pins;
+
+      if (i==0) { 
+	c=&(pit_state->ch_0);
+      } else if (i==1) { 
+	c=&(pit_state->ch_1);
+      } else {
+	c=&(pit_state->ch_2);
+      }
+      
+      MAKE_KEY("ACCESS_MODE");
+      V3_CHKPT_LOAD(ctx, key, c->access_mode, loadfailout);
+      MAKE_KEY("ACCESS_STATE");
+      V3_CHKPT_LOAD(ctx, key, c->access_state, loadfailout);
+      MAKE_KEY("RUN_STATE");
+      V3_CHKPT_LOAD(ctx, key, c->run_state, loadfailout);
+      MAKE_KEY("OP_MODE");
+      V3_CHKPT_LOAD(ctx, key, c->op_mode, loadfailout);
+      MAKE_KEY("COUNTER");
+      V3_CHKPT_LOAD(ctx, key, c->counter, loadfailout);
+      MAKE_KEY("RELOAD_VALUE");
+      V3_CHKPT_LOAD(ctx, key, c->reload_value, loadfailout);
+      MAKE_KEY("LATCH_STATE");
+      V3_CHKPT_LOAD(ctx, key, c->latch_state, loadfailout);
+      MAKE_KEY("READ_STATE");
+      V3_CHKPT_LOAD(ctx, key, c->read_state, loadfailout);
+      
+      pins = (c->output_pin) | (c->gate_input_pin << 1);
+      MAKE_KEY("PINS");
+      V3_CHKPT_LOAD(ctx, key, pins, loadfailout);
+    }
+    
+    V3_CHKPT_LOAD(ctx, "PIT_SPEAKER", pit_state->speaker,loadfailout);
 
     return 0;
 

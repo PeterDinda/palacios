@@ -1883,57 +1883,97 @@ static int apic_free(struct apic_dev_state * apic_dev) {
 }
 
 #ifdef V3_CONFIG_CHECKPOINT
+
+#define KEY_MAX 128
+#define MAKE_KEY(x) snprintf(key,KEY_MAX,"%s%d",x,i);
+
 static int apic_save(struct v3_chkpt_ctx * ctx, void * private_data) {
     struct apic_dev_state * apic_state = (struct apic_dev_state *)private_data;
     int i = 0;
     uint32_t temp;
+    char key[KEY_MAX];
 
-    V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->num_apics,savefailout);
+    V3_CHKPT_SAVE(ctx, "NUM_APICS", apic_state->num_apics,savefailout);
 
-    //V3_CHKPT_STD_SAVE(ctx,apic_state->state_lock);
     for (i = 0; i < apic_state->num_apics; i++) {
+      drain_irq_entries(&(apic_state->apics[i]));
 
-        V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].base_addr,savefailout);
-	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].base_addr_msr,savefailout);
-	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].lapic_id,savefailout);
-	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].apic_ver,savefailout);
-	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].ext_apic_ctrl,savefailout);
-	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].local_vec_tbl,savefailout);
-	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].tmr_vec_tbl,savefailout);
-	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].tmr_div_cfg,savefailout);
-	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].lint0_vec_tbl,savefailout);
-	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].lint1_vec_tbl,savefailout);
-	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].perf_ctr_loc_vec_tbl,savefailout);
-	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].therm_loc_vec_tbl,savefailout);
-	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].err_vec_tbl,savefailout);
-	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].err_status,savefailout);
-	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].spurious_int,savefailout);
-	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].int_cmd,savefailout);
-	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].log_dst,savefailout);
-	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].dst_fmt,savefailout);
+      MAKE_KEY("BASE_ADDR"); 
+      V3_CHKPT_SAVE(ctx, key, apic_state->apics[i].base_addr,savefailout);
+      MAKE_KEY("BASE_ADDR_MSR"); 
+      V3_CHKPT_SAVE(ctx, key, apic_state->apics[i].base_addr_msr,savefailout);
+      MAKE_KEY("LAPIC_ID");
+      V3_CHKPT_SAVE(ctx, key, apic_state->apics[i].lapic_id,savefailout);
+      MAKE_KEY("APIC_VER");
+      V3_CHKPT_SAVE(ctx, key, apic_state->apics[i].apic_ver,savefailout);
+      MAKE_KEY("EXT_APIC_CTRL");
+      V3_CHKPT_SAVE(ctx, key, apic_state->apics[i].ext_apic_ctrl,savefailout);
+      MAKE_KEY("LOCAL_VEC_TBL");
+      V3_CHKPT_SAVE(ctx, key, apic_state->apics[i].local_vec_tbl,savefailout);
+      MAKE_KEY("TMR_VEC_TBL");
+      V3_CHKPT_SAVE(ctx, key, apic_state->apics[i].tmr_vec_tbl,savefailout);
+      MAKE_KEY("TMR_DIV_CFG");
+      V3_CHKPT_SAVE(ctx, key, apic_state->apics[i].tmr_div_cfg,savefailout);
+      MAKE_KEY("LINT0_VEC_TBL");
+      V3_CHKPT_SAVE(ctx, key, apic_state->apics[i].lint0_vec_tbl,savefailout);
+      MAKE_KEY("LINT1_VEC_TBL");
+      V3_CHKPT_SAVE(ctx, key, apic_state->apics[i].lint1_vec_tbl,savefailout);
+      MAKE_KEY("PERF_CTR_LOC_VEC_TBL");
+      V3_CHKPT_SAVE(ctx, key, apic_state->apics[i].perf_ctr_loc_vec_tbl,savefailout);
+      MAKE_KEY("THERM_LOC_VEC_TBL");
+      V3_CHKPT_SAVE(ctx, key, apic_state->apics[i].therm_loc_vec_tbl,savefailout);
+      MAKE_KEY("ERR_VEC_TBL");
+      V3_CHKPT_SAVE(ctx, key, apic_state->apics[i].err_vec_tbl,savefailout);
+      MAKE_KEY("ERR_STATUS");
+      V3_CHKPT_SAVE(ctx, key, apic_state->apics[i].err_status,savefailout);
+      MAKE_KEY("SPURIOUS_INT");
+      V3_CHKPT_SAVE(ctx, key, apic_state->apics[i].spurious_int,savefailout);
+      MAKE_KEY("INT_CMD");
+      V3_CHKPT_SAVE(ctx, key, apic_state->apics[i].int_cmd,savefailout);
+      MAKE_KEY("LOG_DST");
+      V3_CHKPT_SAVE(ctx, key, apic_state->apics[i].log_dst,savefailout);
+      MAKE_KEY("DST_FMT");
+      V3_CHKPT_SAVE(ctx, key, apic_state->apics[i].dst_fmt,savefailout);
 
-	// APR and PPR are stored only for compatability
-	// TPR is in APIC_TPR, APR and PPR are derived
+      // APR and PPR are stored only for compatability
+      // TPR is in APIC_TPR, APR and PPR are derived
 	
-	temp = get_apic_apr(&(apic_state->apics[i]));
-	V3_CHKPT_SAVE_AUTOTAG(ctx, temp,savefailout);
-	temp = get_apic_tpr(&(apic_state->apics[i]));
-	V3_CHKPT_SAVE_AUTOTAG(ctx,temp,savefailout);
-	temp = get_apic_ppr(&(apic_state->apics[i]));
-	V3_CHKPT_SAVE_AUTOTAG(ctx, temp,savefailout);
+      temp = get_apic_apr(&(apic_state->apics[i]));
+      MAKE_KEY("ARB_PRIO");
+      V3_CHKPT_SAVE(ctx, key, temp,savefailout);
+      temp = get_apic_tpr(&(apic_state->apics[i]));
+      MAKE_KEY("TASK_PRIO");
+      V3_CHKPT_SAVE(ctx,key,temp,savefailout);
+      temp = get_apic_ppr(&(apic_state->apics[i]));
+      MAKE_KEY("PROC_PRIO");
+      V3_CHKPT_SAVE(ctx, key,temp,savefailout);
 
-	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].ext_apic_feature,savefailout);
-	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].spec_eoi,savefailout);
-	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].tmr_cur_cnt,savefailout);
-	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].tmr_init_cnt,savefailout);
-	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].ext_intr_vec_tbl,savefailout);
-	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].rem_rd_data,savefailout);
-	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].ipi_state,savefailout);
-	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].int_req_reg,savefailout);
-	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].int_svc_reg,savefailout);
-	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].int_en_reg,savefailout);
-	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].trig_mode_reg,savefailout);
-	V3_CHKPT_SAVE_AUTOTAG(ctx, apic_state->apics[i].eoi,savefailout);
+      MAKE_KEY("EXT_APIC_FEATURE");
+      V3_CHKPT_SAVE(ctx, key, apic_state->apics[i].ext_apic_feature,savefailout);
+      MAKE_KEY("SPEC_EOI");
+      V3_CHKPT_SAVE(ctx, key, apic_state->apics[i].spec_eoi,savefailout);
+      MAKE_KEY("TMR_CUR_CNT");
+      V3_CHKPT_SAVE(ctx, key, apic_state->apics[i].tmr_cur_cnt,savefailout);
+      
+      MAKE_KEY("TMR_INIT_CNT");
+      V3_CHKPT_SAVE(ctx, key, apic_state->apics[i].tmr_init_cnt,savefailout);
+      MAKE_KEY("EXT_INTR_VEC_TBL");
+      V3_CHKPT_SAVE(ctx, key, apic_state->apics[i].ext_intr_vec_tbl,savefailout);
+
+      MAKE_KEY("REM_RD_DATA");
+      V3_CHKPT_SAVE(ctx, key, apic_state->apics[i].rem_rd_data,savefailout);
+      MAKE_KEY("IPI_STATE");
+      V3_CHKPT_SAVE(ctx, key, apic_state->apics[i].ipi_state,savefailout);
+      MAKE_KEY("INT_REQ_REG");
+      V3_CHKPT_SAVE(ctx, key, apic_state->apics[i].int_req_reg,savefailout);
+      MAKE_KEY("INT_SVC_REG");
+      V3_CHKPT_SAVE(ctx, key, apic_state->apics[i].int_svc_reg,savefailout);
+      MAKE_KEY("INT_EN_REG");
+      V3_CHKPT_SAVE(ctx, key, apic_state->apics[i].int_en_reg,savefailout);
+      MAKE_KEY("TRIG_MODE_REG");
+      V3_CHKPT_SAVE(ctx, key, apic_state->apics[i].trig_mode_reg,savefailout);
+      MAKE_KEY("EOI");
+      V3_CHKPT_SAVE(ctx, key, apic_state->apics[i].eoi,savefailout);
 
     }
 
@@ -1948,58 +1988,101 @@ static int apic_load(struct v3_chkpt_ctx * ctx, void * private_data) {
     struct apic_dev_state *apic_state = (struct apic_dev_state *)private_data;
     int i = 0;
     uint32_t temp;
+    char key[KEY_MAX];
 
-    V3_CHKPT_LOAD_AUTOTAG(ctx,apic_state->num_apics, loadfailout);
+    V3_CHKPT_LOAD(ctx,"NUM_APICS", apic_state->num_apics, loadfailout);
 
     for (i = 0; i < apic_state->num_apics; i++) {
-	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].base_addr, loadfailout);
-	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].base_addr_msr, loadfailout);
-	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].lapic_id, loadfailout);
-	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].apic_ver, loadfailout);
-	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].ext_apic_ctrl, loadfailout);
-	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].local_vec_tbl, loadfailout);
-	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].tmr_vec_tbl, loadfailout);
-	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].tmr_div_cfg, loadfailout);
-	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].lint0_vec_tbl, loadfailout);
-	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].lint1_vec_tbl, loadfailout);
-	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].perf_ctr_loc_vec_tbl, loadfailout);
-	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].therm_loc_vec_tbl, loadfailout);
-	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].err_vec_tbl, loadfailout);
-	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].err_status, loadfailout);
-	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].spurious_int, loadfailout);
-	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].int_cmd, loadfailout);
-	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].log_dst, loadfailout);
-	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].dst_fmt, loadfailout);
+      drain_irq_entries(&(apic_state->apics[i]));
 
-	// APR is ignored
-	V3_CHKPT_LOAD_AUTOTAG(ctx, temp, loadfailout);
-	// TPR is written back to APIC_TPR
-	V3_CHKPT_LOAD_AUTOTAG(ctx, temp, loadfailout);
-	set_apic_tpr(&(apic_state->apics[i]),temp);
-	// PPR is ignored
-	V3_CHKPT_LOAD_AUTOTAG(ctx, temp, loadfailout);
+      MAKE_KEY("BASE_ADDR"); 
+      V3_CHKPT_LOAD(ctx, key, apic_state->apics[i].base_addr,loadfailout);
+      MAKE_KEY("BASE_ADDR_MSR"); 
+      V3_CHKPT_LOAD(ctx, key, apic_state->apics[i].base_addr_msr,loadfailout);
+      MAKE_KEY("LAPIC_ID");
+      V3_CHKPT_LOAD(ctx, key, apic_state->apics[i].lapic_id,loadfailout);
+      MAKE_KEY("APIC_VER");
+      V3_CHKPT_LOAD(ctx, key, apic_state->apics[i].apic_ver,loadfailout);
+      MAKE_KEY("EXT_APIC_CTRL");
+      V3_CHKPT_LOAD(ctx, key, apic_state->apics[i].ext_apic_ctrl,loadfailout);
+      MAKE_KEY("LOCAL_VEC_TBL");
+      V3_CHKPT_LOAD(ctx, key, apic_state->apics[i].local_vec_tbl,loadfailout);
+      MAKE_KEY("TMR_VEC_TBL");
+      V3_CHKPT_LOAD(ctx, key, apic_state->apics[i].tmr_vec_tbl,loadfailout);
+      MAKE_KEY("TMR_DIV_CFG");
+      V3_CHKPT_LOAD(ctx, key, apic_state->apics[i].tmr_div_cfg,loadfailout);
+      MAKE_KEY("LINT0_VEC_TBL");
+      V3_CHKPT_LOAD(ctx, key, apic_state->apics[i].lint0_vec_tbl,loadfailout);
+      MAKE_KEY("LINT1_VEC_TBL");
+      V3_CHKPT_LOAD(ctx, key, apic_state->apics[i].lint1_vec_tbl,loadfailout);
+      MAKE_KEY("PERF_CTR_LOC_VEC_TBL");
+      V3_CHKPT_LOAD(ctx, key, apic_state->apics[i].perf_ctr_loc_vec_tbl,loadfailout);
+      MAKE_KEY("THERM_LOC_VEC_TBL");
+      V3_CHKPT_LOAD(ctx, key, apic_state->apics[i].therm_loc_vec_tbl,loadfailout);
+      MAKE_KEY("ERR_VEC_TBL");
+      V3_CHKPT_LOAD(ctx, key, apic_state->apics[i].err_vec_tbl,loadfailout);
+      MAKE_KEY("ERR_STATUS");
+      V3_CHKPT_LOAD(ctx, key, apic_state->apics[i].err_status,loadfailout);
+      MAKE_KEY("SPURIOUS_INT");
+      V3_CHKPT_LOAD(ctx, key, apic_state->apics[i].spurious_int,loadfailout);
+      MAKE_KEY("INT_CMD");
+      V3_CHKPT_LOAD(ctx, key, apic_state->apics[i].int_cmd,loadfailout);
+      MAKE_KEY("LOG_DST");
+      V3_CHKPT_LOAD(ctx, key, apic_state->apics[i].log_dst,loadfailout);
+      MAKE_KEY("DST_FMT");
+      V3_CHKPT_LOAD(ctx, key, apic_state->apics[i].dst_fmt,loadfailout);
 
-	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].ext_apic_feature, loadfailout);
-	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].spec_eoi, loadfailout);
-	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].tmr_cur_cnt, loadfailout);
-	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].tmr_init_cnt, loadfailout);
-	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].ext_intr_vec_tbl, loadfailout);
-	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].rem_rd_data, loadfailout);
-	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].ipi_state, loadfailout);
-	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].int_req_reg, loadfailout);
-	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].int_svc_reg, loadfailout);
-	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].int_en_reg, loadfailout);
-	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].trig_mode_reg, loadfailout);
-	V3_CHKPT_LOAD_AUTOTAG(ctx, apic_state->apics[i].eoi, loadfailout);
+      // APR and PPR are stored only for compatability
+      // TPR is in APIC_TPR, APR and PPR are derived
+
+      MAKE_KEY("ARB_PRIO");
+      V3_CHKPT_LOAD(ctx, key, temp,loadfailout);
+      // discarded
+
+      MAKE_KEY("TASK_PRIO");
+      V3_CHKPT_LOAD(ctx,key,temp,loadfailout);
+      set_apic_tpr(&(apic_state->apics[i]),temp);
+      
+      MAKE_KEY("PROC_PRIO");
+      V3_CHKPT_LOAD(ctx, key,temp,loadfailout);
+      // discarded
+
+
+      MAKE_KEY("EXT_APIC_FEATURE");
+      V3_CHKPT_LOAD(ctx, key, apic_state->apics[i].ext_apic_feature,loadfailout);
+      MAKE_KEY("SPEC_EOI");
+      V3_CHKPT_LOAD(ctx, key, apic_state->apics[i].spec_eoi,loadfailout);
+      MAKE_KEY("TMR_CUR_CNT");
+      V3_CHKPT_LOAD(ctx, key, apic_state->apics[i].tmr_cur_cnt,loadfailout);
+      
+      MAKE_KEY("TMR_INIT_CNT");
+      V3_CHKPT_LOAD(ctx, key, apic_state->apics[i].tmr_init_cnt,loadfailout);
+      MAKE_KEY("EXT_INTR_VEC_TBL");
+      V3_CHKPT_LOAD(ctx, key, apic_state->apics[i].ext_intr_vec_tbl,loadfailout);
+
+      MAKE_KEY("REM_RD_DATA");
+      V3_CHKPT_LOAD(ctx, key, apic_state->apics[i].rem_rd_data,loadfailout);
+      MAKE_KEY("IPI_STATE");
+      V3_CHKPT_LOAD(ctx, key, apic_state->apics[i].ipi_state,loadfailout);
+      MAKE_KEY("INT_REQ_REG");
+      V3_CHKPT_LOAD(ctx, key, apic_state->apics[i].int_req_reg,loadfailout);
+      MAKE_KEY("INT_SVC_REG");
+      V3_CHKPT_LOAD(ctx, key, apic_state->apics[i].int_svc_reg,loadfailout);
+      MAKE_KEY("INT_EN_REG");
+      V3_CHKPT_LOAD(ctx, key, apic_state->apics[i].int_en_reg,loadfailout);
+      MAKE_KEY("TRIG_MODE_REG");
+      V3_CHKPT_LOAD(ctx, key, apic_state->apics[i].trig_mode_reg,loadfailout);
+      MAKE_KEY("EOI");
+      V3_CHKPT_LOAD(ctx, key, apic_state->apics[i].eoi,loadfailout);
     }
-
-
+    
+    
     return 0;
-
+    
  loadfailout:
     PrintError("Failed to load apic\n");
     return -1;
-
+    
 }
 
 #endif

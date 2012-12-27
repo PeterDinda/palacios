@@ -382,31 +382,62 @@ int v3_deinit_svm_vmcb(struct guest_info * core) {
 #ifdef V3_CONFIG_CHECKPOINT
 int v3_svm_save_core(struct guest_info * core, void * ctx){
 
-  if (V3_CHKPT_SAVE(ctx, "cpl", core->cpl)) { 
-    PrintError("Could not save SVM cpl\n");
-    return -1;
-  }
+  vmcb_saved_state_t * guest_area = GET_VMCB_SAVE_STATE_AREA(core->vmm_data); 
 
-  if (v3_chkpt_save(ctx, "vmcb_data", PAGE_SIZE, core->vmm_data)) { 
+  // Special case saves of data we need immediate access to
+  // in some cases
+  V3_CHKPT_SAVE(ctx, "CPL", core->cpl, failout);
+  V3_CHKPT_SAVE(ctx,"STAR", guest_area->star, failout); 
+  V3_CHKPT_SAVE(ctx,"CSTAR", guest_area->cstar, failout); 
+  V3_CHKPT_SAVE(ctx,"LSTAR", guest_area->lstar, failout); 
+  V3_CHKPT_SAVE(ctx,"SFMASK", guest_area->sfmask, failout); 
+  V3_CHKPT_SAVE(ctx,"KERNELGSBASE", guest_area->KernelGsBase, failout); 
+  V3_CHKPT_SAVE(ctx,"SYSENTER_CS", guest_area->sysenter_cs, failout); 
+  V3_CHKPT_SAVE(ctx,"SYSENTER_ESP", guest_area->sysenter_esp, failout); 
+  V3_CHKPT_SAVE(ctx,"SYSENTER_EIP", guest_area->sysenter_eip, failout); 
+  
+// and then we save the whole enchilada
+  if (v3_chkpt_save(ctx, "VMCB_DATA", PAGE_SIZE, core->vmm_data)) { 
     PrintError("Could not save SVM vmcb\n");
-    return -1;
+    goto failout;
   }
   
   return 0;
+
+ failout:
+  PrintError("Failed to save SVM state for core\n");
+  return -1;
+
 }
 
 int v3_svm_load_core(struct guest_info * core, void * ctx){
     
-  if (V3_CHKPT_LOAD(ctx, "cpl", core->cpl)) { 
-    PrintError("Could not load SVM cpl\n");
-    return -1;
-  }
 
-  if (v3_chkpt_load(ctx, "vmcb_data", PAGE_SIZE, core->vmm_data) == -1) {
-    return -1;
+  vmcb_saved_state_t * guest_area = GET_VMCB_SAVE_STATE_AREA(core->vmm_data); 
+
+  // Reload what we special cased, which we will overwrite in a minute
+  V3_CHKPT_LOAD(ctx, "CPL", core->cpl, failout);
+  V3_CHKPT_LOAD(ctx,"STAR", guest_area->star, failout); 
+  V3_CHKPT_LOAD(ctx,"CSTAR", guest_area->cstar, failout); 
+  V3_CHKPT_LOAD(ctx,"LSTAR", guest_area->lstar, failout); 
+  V3_CHKPT_LOAD(ctx,"SFMASK", guest_area->sfmask, failout); 
+  V3_CHKPT_LOAD(ctx,"KERNELGSBASE", guest_area->KernelGsBase, failout); 
+  V3_CHKPT_LOAD(ctx,"SYSENTER_CS", guest_area->sysenter_cs, failout); 
+  V3_CHKPT_LOAD(ctx,"SYSENTER_ESP", guest_area->sysenter_esp, failout); 
+  V3_CHKPT_LOAD(ctx,"SYSENTER_EIP", guest_area->sysenter_eip, failout); 
+  
+  // and then we load the whole enchilada
+  if (v3_chkpt_load(ctx, "VMCB_DATA", PAGE_SIZE, core->vmm_data)) { 
+    PrintError("Could not load SVM vmcb\n");
+    goto failout;
   }
   
   return 0;
+
+ failout:
+  PrintError("Failed to save SVM state for core\n");
+  return -1;
+
 }
 #endif
 
