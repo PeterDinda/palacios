@@ -358,7 +358,30 @@ struct v3_interrupt {
 };
 
 
+typedef enum {V3_VM_UNKNOWN, V3_VM_INVALID, V3_VM_RUNNING, V3_VM_STOPPED, V3_VM_PAUSED, V3_VM_ERROR, V3_VM_SIMULATING} v3_vm_state_t;
+typedef enum {V3_VCORE_UNKNOWN, V3_VCORE_INVALID, V3_VCORE_RUNNING, V3_VCORE_STOPPED} v3_vcore_state_t;
+typedef enum {V3_VCORE_CPU_UNKNOWN, V3_VCORE_CPU_REAL, V3_VCORE_CPU_PROTECTED, V3_VCORE_CPU_PROTECTED_PAE, V3_VCORE_CPU_LONG, V3_VCORE_CPU_LONG_32_COMPAT, V3_VCORE_CPU_LONG_16_COMPAT} v3_vcore_cpu_mode_t;
 
+typedef enum {V3_VCORE_MEM_STATE_UNKNOWN, V3_VCORE_MEM_STATE_SHADOW, V3_VCORE_MEM_STATE_NESTED} v3_vcore_mem_state_t;
+typedef enum {V3_VCORE_MEM_MODE_UNKNOWN, V3_VCORE_MEM_MODE_PHYSICAL, V3_VCORE_MEM_MODE_VIRTUAL} v3_vcore_mem_mode_t;
+
+struct v3_vcore_state {
+  v3_vcore_state_t state;
+  v3_vcore_cpu_mode_t cpu_mode;
+  v3_vcore_mem_state_t mem_state;
+  v3_vcore_mem_mode_t mem_mode;
+  unsigned long pcore;
+  void *   last_rip;
+  unsigned long long num_exits;
+};
+
+struct v3_vm_state {
+  v3_vm_state_t state;
+  void *   mem_base_paddr;
+  unsigned long long  mem_size;
+  unsigned long  num_vcores;
+  struct v3_vcore_state vcore[0];
+};
 
 void Init_V3(struct v3_os_hooks * hooks, char * cpus, int num_cpus);
 void Shutdown_V3( void );
@@ -371,7 +394,6 @@ int v3_pause_vm(struct v3_vm_info * vm);
 int v3_continue_vm(struct v3_vm_info * vm);
 int v3_simulate_vm(struct v3_vm_info * vm, unsigned int msecs);
 
-
 int v3_save_vm(struct v3_vm_info * vm, char * store, char * url);
 int v3_load_vm(struct v3_vm_info * vm, char * store, char * url);
 
@@ -380,8 +402,9 @@ int v3_receive_vm(struct v3_vm_info * vm, char * store, char * url);
 
 int v3_move_vm_core(struct v3_vm_info * vm, int vcore_id, int target_cpu);
 
-
 int v3_free_vm(struct v3_vm_info * vm);
+
+int v3_get_state_vm(struct v3_vm_info *vm, struct v3_vm_state *out);
 
 int v3_deliver_irq(struct v3_vm_info * vm, struct v3_interrupt * intr);
 

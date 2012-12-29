@@ -641,6 +641,62 @@ int v3_simulate_vm(struct v3_vm_info * vm, unsigned int msecs) {
 
 }
 
+int v3_get_state_vm(struct v3_vm_info *vm, struct v3_vm_state *s)
+{
+  uint32_t i;
+  uint32_t numcores = s->num_vcores > vm->num_cores ? vm->num_cores : s->num_vcores;
+
+  switch (vm->run_state) { 
+  case VM_INVALID: s->state = V3_VM_INVALID; break;
+  case VM_RUNNING: s->state = V3_VM_RUNNING; break;
+  case VM_STOPPED: s->state = V3_VM_STOPPED; break;
+  case VM_PAUSED: s->state = V3_VM_PAUSED; break;
+  case VM_ERROR: s->state = V3_VM_ERROR; break;
+  case VM_SIMULATING: s->state = V3_VM_SIMULATING; break;
+  default: s->state = V3_VM_UNKNOWN; break;
+  }
+
+  s->mem_base_paddr = (void*)(vm->mem_map.base_region.host_addr);
+  s->mem_size = vm->mem_size;
+
+  s->num_vcores = numcores;
+
+  for (i=0;i<numcores;i++) {
+    switch (vm->cores[i].core_run_state) {
+    case CORE_INVALID: s->vcore[i].state = V3_VCORE_INVALID; break;
+    case CORE_RUNNING: s->vcore[i].state = V3_VCORE_RUNNING; break;
+    case CORE_STOPPED: s->vcore[i].state = V3_VCORE_STOPPED; break;
+    default: s->vcore[i].state = V3_VCORE_UNKNOWN; break;
+    }
+    switch (vm->cores[i].cpu_mode) {
+    case REAL: s->vcore[i].cpu_mode = V3_VCORE_CPU_REAL; break;
+    case PROTECTED: s->vcore[i].cpu_mode = V3_VCORE_CPU_PROTECTED; break;
+    case PROTECTED_PAE: s->vcore[i].cpu_mode = V3_VCORE_CPU_PROTECTED_PAE; break;
+    case LONG: s->vcore[i].cpu_mode = V3_VCORE_CPU_LONG; break;
+    case LONG_32_COMPAT: s->vcore[i].cpu_mode = V3_VCORE_CPU_LONG_32_COMPAT; break;
+    case LONG_16_COMPAT: s->vcore[i].cpu_mode = V3_VCORE_CPU_LONG_16_COMPAT; break;
+    default: s->vcore[i].cpu_mode = V3_VCORE_CPU_UNKNOWN; break;
+    }
+    switch (vm->cores[i].shdw_pg_mode) { 
+    case SHADOW_PAGING: s->vcore[i].mem_state = V3_VCORE_MEM_STATE_SHADOW; break;
+    case NESTED_PAGING: s->vcore[i].mem_state = V3_VCORE_MEM_STATE_NESTED; break;
+    default: s->vcore[i].mem_state = V3_VCORE_MEM_STATE_UNKNOWN; break;
+    }
+    switch (vm->cores[i].mem_mode) { 
+    case PHYSICAL_MEM: s->vcore[i].mem_mode = V3_VCORE_MEM_MODE_PHYSICAL; break;
+    case VIRTUAL_MEM: s->vcore[i].mem_mode=V3_VCORE_MEM_MODE_VIRTUAL; break;
+    default: s->vcore[i].mem_mode=V3_VCORE_MEM_MODE_UNKNOWN; break;
+    }
+
+    s->vcore[i].pcore=vm->cores[i].pcpu_id;
+    s->vcore[i].last_rip=(void*)(vm->cores[i].rip);
+    s->vcore[i].num_exits=vm->cores[i].num_exits;
+  }
+
+  return 0;
+}
+
+
 #ifdef V3_CONFIG_CHECKPOINT
 #include <palacios/vmm_checkpoint.h>
 
